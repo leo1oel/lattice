@@ -42,7 +42,7 @@ const CEILINGS: Record<string, number> = {
   "src/app/app-titlebar.tsx": 0,
   "src/app/app-workspace-sidebar.tsx": 0,
   "src/canvas/document-canvas.tsx": 3,
-  "src/editor/markdown/visual-markdown-editor.tsx": 3,
+  "src/editor/markdown/visual-markdown-editor.tsx": 1,
   "src/canvas/editor-tabs.tsx": 0,
   "src/pdf/pdf-viewer.tsx": 5,
   // Cleared August 2026 by moving render-phase ref writes into every-commit

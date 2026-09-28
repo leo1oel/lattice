@@ -8,12 +8,8 @@ function jsonTextContent(node: JSONContent): string {
 }
 
 function jsonHasInternalAnchor(node: JSONContent): boolean {
-  if (node.marks?.some((mark) => (
-    mark.type === "link"
-    && typeof mark.attrs?.href === "string"
-    && mark.attrs.href.startsWith("#")
-  ))) return true;
-  return (node.content ?? []).some(jsonHasInternalAnchor);
+  return Boolean(node.marks?.some((mark) => mark.type === "link" && String(mark.attrs?.href ?? "").startsWith("#")))
+    || (node.content ?? []).some(jsonHasInternalAnchor);
 }
 
 /**
@@ -30,31 +26,23 @@ export function documentHeadingItems(
   const slugCounts = new Map<string, number>();
   const headings: DocumentHeadingItem[] = [];
   const lastRootIndex = Math.max(1, roots.length - 1);
-  const generatedContentsHeadings = new Set<JSONContent>();
-  if (options.hideGeneratedContents) {
-    for (let index = 0; index < roots.length - 1; index += 1) {
-      const heading = roots[index];
-      const list = roots[index + 1];
-      if (
-        heading?.type === "heading"
-        && Number(heading.attrs?.level) === 2
-        && jsonTextContent(heading).trim().toLocaleLowerCase() === "contents"
-        && list?.type === "list"
-        && jsonHasInternalAnchor(list)
-      ) generatedContentsHeadings.add(heading);
-    }
-  }
+  // A generated table of contents is an H2 "Contents" followed by a list of
+  // in-document anchor links; reading mode hides it from the rail.
+  const generatedContentsHeadings = new Set(!options.hideGeneratedContents ? [] : roots.filter((heading, index) => {
+    const list = roots[index + 1];
+    return heading.type === "heading"
+      && Number(heading.attrs?.level) === 2
+      && jsonTextContent(heading).trim().toLocaleLowerCase() === "contents"
+      && list?.type === "list"
+      && jsonHasInternalAnchor(list);
+  }));
 
   const visit = (node: JSONContent, rootIndex: number) => {
     if (node.type === "heading") {
       const label = jsonTextContent(node).replace(/\s+/g, " ").trim();
       const level = Number(node.attrs?.level);
       const id = getHeadingSlug(label, slugCounts);
-      if (
-        id
-        && label
-        && !generatedContentsHeadings.has(node)
-      ) {
+      if (id && label && !generatedContentsHeadings.has(node)) {
         headings.push({
           id,
           label,

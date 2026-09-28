@@ -1,6 +1,7 @@
 import { EditorState } from "@codemirror/state";
-import { EditorView, ViewPlugin, type PluginValue, type ViewUpdate } from "@codemirror/view";
+import { EditorView, ViewPlugin, type ViewUpdate } from "@codemirror/view";
 import { getSearchQuery, searchPanelOpen } from "@codemirror/search";
+import { element } from "../dom-utils";
 
 /**
  * CodeMirror's search panel spells every control out — "next", "previous",
@@ -10,26 +11,14 @@ import { getSearchQuery, searchPanelOpen } from "@codemirror/search";
  * already reads.
  */
 const SEARCH_PHRASES: Record<string, string> = {
-  next: "↓",
-  previous: "↑",
-  all: "All",
-  "match case": "Aa",
-  regexp: ".*",
-  "by word": "W",
-  replace: "Replace",
-  "replace all": "All",
+  next: "↓", previous: "↑", all: "All", "match case": "Aa", regexp: ".*", "by word": "W",
+  replace: "Replace", "replace all": "All",
 };
 
 /** What each control does, now that its label no longer says so. */
 const SEARCH_TITLES: Record<string, string> = {
-  next: "Next match",
-  prev: "Previous match",
-  select: "Select all matches",
-  replace: "Replace this match",
-  replaceAll: "Replace all matches",
-  close: "Close search",
-  case: "Match case",
-  re: "Regular expression",
+  next: "Next match", prev: "Previous match", select: "Select all matches", replace: "Replace this match",
+  replaceAll: "Replace all matches", close: "Close search", case: "Match case", re: "Regular expression",
   word: "Whole word",
 };
 
@@ -48,19 +37,16 @@ function describeSearchControls(view: EditorView): void {
 
     let count = panel.querySelector<HTMLElement>(".cm-search-count");
     if (!count) {
-      count = document.createElement("span");
-      count.className = "cm-search-count";
+      count = element("span", "cm-search-count");
       count.setAttribute("aria-live", "polite");
       panel.querySelector<HTMLInputElement>('input[name="search"]')?.insertAdjacentElement("afterend", count);
     }
     const query = getSearchQuery(view.state);
-    if (!searchPanelOpen(view.state) || !query.valid) {
-      count.textContent = "0/0";
-      continue;
-    }
     const matches: Array<{ from: number; to: number }> = [];
-    const cursor = query.getCursor(view.state);
-    for (let next = cursor.next(); !next.done; next = cursor.next()) matches.push(next.value);
+    if (searchPanelOpen(view.state) && query.valid) {
+      const cursor = query.getCursor(view.state);
+      for (let next = cursor.next(); !next.done; next = cursor.next()) matches.push(next.value);
+    }
     if (!matches.length) {
       count.textContent = "0/0";
       continue;
@@ -73,21 +59,17 @@ function describeSearchControls(view: EditorView): void {
   }
 }
 
-const describeSearchPanel = ViewPlugin.fromClass(
-  class implements PluginValue {
-    constructor(private readonly view: EditorView) {
-      describeSearchControls(view);
-    }
+const describeSearchPanel = ViewPlugin.fromClass(class {
+  constructor(private readonly view: EditorView) {
+    describeSearchControls(view);
+  }
 
-    update(update: ViewUpdate) {
-      // The panel is created and destroyed as search opens and closes, so this
-      // cannot run once at startup.
-      if (update.docChanged || update.selectionSet || update.transactions.length) {
-        describeSearchControls(this.view);
-      }
-    }
-  },
-);
+  update(update: ViewUpdate) {
+    // The panel is created and destroyed as search opens and closes, so this
+    // cannot run once at startup.
+    if (update.transactions.length) describeSearchControls(this.view);
+  }
+});
 
 export const compactSearchPanel = [
   EditorState.phrases.of(SEARCH_PHRASES),

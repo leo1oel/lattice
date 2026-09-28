@@ -48,39 +48,19 @@ export function preserveMarkdownEnvelope(serialized: string, original: string): 
   return `${bom}${converted.replace(/(?:\r?\n)+$/, "")}${ending}`;
 }
 
-function tableCells(line: string): string[] {
-  const body = line.trim().replace(/^\|/, "").replace(/\|$/, "");
-  const cells: string[] = [];
-  let cell = "";
+/** Split on pipes that a backslash does not escape. */
+function splitUnescapedPipes(text: string): string[] {
+  const parts = [""];
   let escaped = false;
-  for (const character of body) {
-    if (character === "|" && !escaped) {
-      cells.push(cell.trim());
-      cell = "";
-    } else {
-      cell += character;
-    }
+  for (const character of text) {
+    if (character === "|" && !escaped) parts.push("");
+    else parts[parts.length - 1] += character;
     escaped = character === "\\" && !escaped;
-    if (character !== "\\") escaped = false;
   }
-  cells.push(cell.trim());
-  return cells;
+  return parts;
 }
 
-/**
- * A GFM table header row must contain an unescaped pipe. Without this check a
- * setext level-2 heading (`Title` + `---`) or a `---` thematic break following
- * a one-line paragraph looks exactly like a one-column table.
- */
-function hasUnescapedPipe(line: string): boolean {
-  let escaped = false;
-  for (const character of line) {
-    if (character === "|" && !escaped) return true;
-    escaped = character === "\\" && !escaped;
-    if (character !== "\\") escaped = false;
-  }
-  return false;
-}
+const tableCells = (line: string) => splitUnescapedPipes(line.trim().replace(/^\|/, "").replace(/\|$/, "")).map((cell) => cell.trim());
 
 /**
  * Replace valid GFM tables with their represented semantics. Tiptap is allowed
@@ -102,7 +82,10 @@ export function canonicalizeSupportedMarkdown(markdown: string): string {
           : compact.endsWith(":") ? "right"
             : null;
     });
-    if (hasUnescapedPipe(headerLine) && header.length > 0 && header.length === delimiters.length && alignments.every((value, cell) => (
+    // A GFM table header row must contain an unescaped pipe. Without this check
+    // a setext level-2 heading (`Title` + `---`) or a `---` thematic break
+    // following a one-line paragraph looks exactly like a one-column table.
+    if (splitUnescapedPipes(headerLine).length > 1 && header.length > 0 && header.length === delimiters.length && alignments.every((value, cell) => (
       value !== null || /^\s*-{3,}\s*$/.test(delimiters[cell] ?? "")
     ))) {
       const rows: string[][] = [];

@@ -1,97 +1,71 @@
 /* eslint-disable react-refresh/only-export-components -- provider and hook form one host seam */
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 
-type ProjectImageHostValue = {
-  activePath: string;
-  loadAsset?: (path: string) => Promise<string | null>;
-  revision: number;
-};
+type AssetLoader = (path: string) => Promise<string | null>;
 
-type ProjectImageResource = {
-  promise: Promise<string | null>;
-  dataUrl?: string | null;
-  consumers: number;
-};
+type ProjectImageHostValue = { activePath: string; loadAsset?: AssetLoader; revision: number };
+type ProjectImageResource = { promise: Promise<string | null>; dataUrl?: string | null; consumers: number };
+type ProjectImageResult = { src: string | undefined; targetExistence: "unknown" | "exists" | "missing" };
 
-type ProjectImageTargetExistence = "unknown" | "exists" | "missing";
-
-export type ProjectImageResult = {
-  src: string | undefined;
-  targetExistence: ProjectImageTargetExistence;
-};
-
-const PROJECT_IMAGE_CACHE_ENTRY_LIMIT = 48;
-const PROJECT_IMAGE_CACHE_CHARACTER_LIMIT = 24 * 1024 * 1024;
-const PROJECT_IMAGE_OFFSCREEN_RETENTION_MS = 5_000;
+const CACHE_ENTRY_LIMIT = 48;
+const CACHE_CHARACTER_LIMIT = 24 * 1024 * 1024;
+const OFFSCREEN_RETENTION_MS = 5_000;
+const RETRY_DELAYS_MS = [250, 1_000];
 
 const ProjectImageHostContext = createContext<ProjectImageHostValue>({ activePath: "", revision: 0 });
-const projectImageResources = new WeakMap<
-  (path: string) => Promise<string | null>,
-  Map<string, ProjectImageResource>
->();
+/** One LRU cache per loader (a loader identifies a project); Map order is recency. */
+const cachesByLoader = new WeakMap<AssetLoader, Map<string, ProjectImageResource>>();
+const cacheKey = (revision: number, projectPath: string) => `${revision}\0${projectPath}`;
 
-function trimProjectImageResources(
-  resources: Map<string, ProjectImageResource>,
-) {
+function cacheFor(loadAsset: AssetLoader): Map<string, ProjectImageResource> {
+  let cache = cachesByLoader.get(loadAsset);
+  if (!cache) cachesByLoader.set(loadAsset, cache = new Map());
+  return cache;
+}
+
+/** Mark a still-cached resource most recently used. */
+function touch(cache: Map<string, ProjectImageResource>, key: string, resource: ProjectImageResource): boolean {
+  if (cache.get(key) !== resource) return false;
+  cache.delete(key);
+  cache.set(key, resource);
+  return true;
+}
+
+function trim(cache: Map<string, ProjectImageResource>) {
   let characters = 0;
-  for (const resource of resources.values()) characters += resource.dataUrl?.length ?? 0;
-  for (const [path, resource] of resources) {
-    if (
-      resources.size <= PROJECT_IMAGE_CACHE_ENTRY_LIMIT
-      && characters <= PROJECT_IMAGE_CACHE_CHARACTER_LIMIT
-    ) break;
+  for (const resource of cache.values()) characters += resource.dataUrl?.length ?? 0;
+  for (const [key, resource] of cache) {
+    if (cache.size <= CACHE_ENTRY_LIMIT && characters <= CACHE_CHARACTER_LIMIT) break;
     // Pending resources are protected while a mounted image awaits them.
     // Once settled, the <img> owns its data URL and the shared cache may evict
     // the entry without making the mounted image disappear.
     if (resource.consumers > 0) continue;
-    resources.delete(path);
+    cache.delete(key);
     characters -= resource.dataUrl?.length ?? 0;
   }
 }
 
-function projectImageResource(
-  loadAsset: (path: string) => Promise<string | null>,
-  projectPath: string,
-  revision: number,
-): ProjectImageResource {
-  let resources = projectImageResources.get(loadAsset);
-  if (!resources) {
-    resources = new Map();
-    projectImageResources.set(loadAsset, resources);
-  }
-  const resourceKey = `${revision}\0${projectPath}`;
-  const cached = resources.get(resourceKey);
+function projectImageResource(loadAsset: AssetLoader, projectPath: string, revision: number): ProjectImageResource {
+  const cache = cacheFor(loadAsset);
+  const key = cacheKey(revision, projectPath);
+  const cached = cache.get(key);
   if (cached) {
-    resources.delete(resourceKey);
-    resources.set(resourceKey, cached);
+    touch(cache, key, cached);
     return cached;
   }
   const resource: ProjectImageResource = {
     consumers: 0,
     promise: loadAsset(projectPath).then((dataUrl) => {
       resource.dataUrl = dataUrl;
-      if (resources?.get(resourceKey) === resource) {
-        resources.delete(resourceKey);
-        resources.set(resourceKey, resource);
-        trimProjectImageResources(resources);
-      }
+      if (touch(cache, key, resource)) trim(cache);
       return dataUrl;
     }).catch((error) => {
-      if (resources?.get(resourceKey) === resource) resources.delete(resourceKey);
+      if (cache.get(key) === resource) cache.delete(key);
       throw error;
     }),
   };
-  resources.set(resourceKey, resource);
+  cache.set(key, resource);
   return resource;
-}
-
-function cachedProjectImageResource(
-  loadAsset: ((path: string) => Promise<string | null>) | undefined,
-  projectPath: string | null,
-  revision: number,
-): ProjectImageResource | null {
-  if (!loadAsset || !projectPath) return null;
-  return projectImageResources.get(loadAsset)?.get(`${revision}\0${projectPath}`) ?? null;
 }
 
 function resolveProjectPath(activePath: string, href: string): string | null {
@@ -103,15 +77,11 @@ function resolveProjectPath(activePath: string, href: string): string | null {
   } catch {
     return null;
   }
-  const parts = decoded.startsWith("/")
-    ? []
-    : activePath.replace(/\\/g, "/").split("/").slice(0, -1).filter(Boolean);
+  const parts = decoded.startsWith("/") ? [] : activePath.replace(/\\/g, "/").split("/").slice(0, -1).filter(Boolean);
   for (const part of decoded.split("/")) {
-    if (!part || part === ".") continue;
     if (part === "..") {
-      if (!parts.length) return null;
-      parts.pop();
-    } else {
+      if (!parts.pop()) return null;
+    } else if (part && part !== ".") {
       parts.push(part);
     }
   }
@@ -124,122 +94,83 @@ export function ProjectImageHostProvider({
   revision = 0,
   children,
 }: Omit<ProjectImageHostValue, "revision"> & { revision?: number; children: ReactNode }) {
-  const value = useMemo(
-    () => ({ activePath, loadAsset, revision }),
-    [activePath, loadAsset, revision],
-  );
-  return (
-    <ProjectImageHostContext.Provider value={value}>
-      {children}
-    </ProjectImageHostContext.Provider>
-  );
+  const value = useMemo(() => ({ activePath, loadAsset, revision }), [activePath, loadAsset, revision]);
+  return <ProjectImageHostContext.Provider value={value}>{children}</ProjectImageHostContext.Provider>;
 }
 
 export function useProjectImage(src: string | undefined, enabled = true): ProjectImageResult {
   const { activePath, loadAsset, revision } = useContext(ProjectImageHostContext);
   const projectPath = src ? resolveProjectPath(activePath, src) : null;
-  const resource = cachedProjectImageResource(loadAsset, projectPath, revision);
-  const [loaded, setLoaded] = useState<{
-    projectPath: string;
-    loader: (path: string) => Promise<string | null>;
-    revision: number;
-    dataUrl: string;
-  } | null>(null);
-  const [missing, setMissing] = useState<{
-    projectPath: string;
-    loader: (path: string) => Promise<string | null>;
-    revision: number;
-  } | null>(null);
+  const [loaded, setLoaded] = useState<{ projectPath: string; loader: AssetLoader; dataUrl: string } | null>(null);
+  const [missing, setMissing] = useState<{ projectPath: string; loader: AssetLoader; revision: number } | null>(null);
 
   useEffect(() => {
     if (!enabled) {
       // Keep recently visited media stable during a quick scroll reversal,
       // then release the <img> source so WebKit can discard decoded pixels.
-      const timer = setTimeout(() => setLoaded(null), PROJECT_IMAGE_OFFSCREEN_RETENTION_MS);
+      const timer = setTimeout(() => setLoaded(null), OFFSCREEN_RETENTION_MS);
       return () => clearTimeout(timer);
     }
     if (!projectPath || !loadAsset) return;
+    const cache = cacheFor(loadAsset);
+    const key = cacheKey(revision, projectPath);
     let active = true;
-    let retryTimer: ReturnType<typeof setTimeout> | null = null;
-    const retryDelays = [250, 1_000];
-    let releaseCurrent: () => void = () => undefined;
+    let retryTimer: ReturnType<typeof setTimeout> | undefined;
+    let releaseCurrent = () => {};
     const load = (attempt: number) => {
-      const resourceKey = `${revision}\0${projectPath}`;
-      const pendingResource = projectImageResource(loadAsset, projectPath, revision);
-      const resources = projectImageResources.get(loadAsset);
-      pendingResource.consumers += 1;
-      if (resources?.get(resourceKey) === pendingResource) {
-        resources.delete(resourceKey);
-        resources.set(resourceKey, pendingResource);
-      }
+      const resource = projectImageResource(loadAsset, projectPath, revision);
+      resource.consumers += 1;
+      touch(cache, key, resource);
       let released = false;
-      const releaseResource = () => {
+      const release = () => {
         if (released) return;
         released = true;
-        pendingResource.consumers = Math.max(0, pendingResource.consumers - 1);
-        if (pendingResource.consumers === 0 && resources?.get(resourceKey) === pendingResource) {
-          trimProjectImageResources(resources);
-        }
+        resource.consumers = Math.max(0, resource.consumers - 1);
+        if (resource.consumers === 0 && cache.get(key) === resource) trim(cache);
       };
-      void pendingResource.promise.then((dataUrl) => {
-        releaseResource();
+      const retryOrGiveUp = () => {
+        if (!active) return;
+        if (attempt >= RETRY_DELAYS_MS.length) setMissing({ projectPath, loader: loadAsset, revision });
+        else retryTimer = setTimeout(() => { releaseCurrent = load(attempt + 1); }, RETRY_DELAYS_MS[attempt]);
+      };
+      void resource.promise.then((dataUrl) => {
+        release();
         if (active && dataUrl) {
-          setLoaded({ projectPath, loader: loadAsset, revision, dataUrl });
+          setLoaded({ projectPath, loader: loadAsset, dataUrl });
           setMissing(null);
           return;
         }
         // Tauri can transiently return null while a newly imported paper
         // asset is still being written. Treat it like a failed read rather
         // than caching a permanent blank image for this document session.
-        if (resources?.get(resourceKey) === pendingResource) resources.delete(resourceKey);
-        if (!active) return;
-        if (attempt >= retryDelays.length) {
-          setMissing({ projectPath, loader: loadAsset, revision });
-          return;
-        }
-        retryTimer = setTimeout(() => {
-          releaseCurrent = load(attempt + 1);
-        }, retryDelays[attempt]);
-      }).catch(() => {
-        releaseResource();
-        if (!active) return;
-        if (attempt >= retryDelays.length) {
-          setMissing({ projectPath, loader: loadAsset, revision });
-          return;
-        }
-        retryTimer = setTimeout(() => {
-          releaseCurrent = load(attempt + 1);
-        }, retryDelays[attempt]);
+        if (cache.get(key) === resource) cache.delete(key);
+        retryOrGiveUp();
+      }, () => {
+        release();
+        retryOrGiveUp();
       });
-      return releaseResource;
+      return release;
     };
     releaseCurrent = load(0);
     return () => {
       active = false;
       releaseCurrent();
-      if (retryTimer !== null) clearTimeout(retryTimer);
+      clearTimeout(retryTimer);
     };
   }, [enabled, loadAsset, projectPath, revision]);
 
   if (!projectPath || !loadAsset) return { src, targetExistence: "unknown" };
-  if (
-    missing
-    && missing.projectPath === projectPath
-    && missing.loader === loadAsset
-    && missing.revision === revision
-  ) {
+  if (missing?.projectPath === projectPath && missing.loader === loadAsset && missing.revision === revision) {
     return { src: undefined, targetExistence: "missing" };
   }
   // Keep the last decoded bytes painted while a replacement at the same path
   // is read. Loader identity still fences project switches, while `revision`
   // only asks for fresher bytes inside that project.
-  if (loaded && loaded.projectPath === projectPath && loaded.loader === loadAsset) {
+  if (loaded?.projectPath === projectPath && loaded.loader === loadAsset) {
     return { src: loaded.dataUrl, targetExistence: "exists" };
   }
-  if (!enabled) return { src: undefined, targetExistence: "unknown" };
-  return resource?.dataUrl
-    ? { src: resource.dataUrl, targetExistence: "exists" }
-    : { src: undefined, targetExistence: "unknown" };
+  const cached = enabled ? cachesByLoader.get(loadAsset)?.get(cacheKey(revision, projectPath))?.dataUrl : null;
+  return cached ? { src: cached, targetExistence: "exists" } : { src: undefined, targetExistence: "unknown" };
 }
 
 export function useProjectImageSrc(src: string | undefined, enabled = true): string | undefined {

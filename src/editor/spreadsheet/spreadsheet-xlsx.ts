@@ -1,57 +1,36 @@
 import type ExcelJS from "exceljs";
-import type {
-  SpreadsheetCellData,
-  SpreadsheetWorkbookData,
-  SpreadsheetWorksheetData,
+import { columnLabel } from "./spreadsheet-operations";
+import {
+  HORIZONTAL_ALIGNMENTS,
+  VERTICAL_ALIGNMENTS,
+  isRecord,
+  type SpreadsheetCellData,
+  type SpreadsheetWorkbookData,
+  type SpreadsheetWorksheetData,
 } from "./spreadsheet-types";
 
 type UniverColor = { rgb?: unknown };
 type UniverBorder = { s?: unknown; cl?: UniverColor };
 type UniverStyle = Record<string, unknown> & {
-  ff?: unknown;
-  fs?: unknown;
-  it?: unknown;
-  bl?: unknown;
-  ul?: unknown;
-  st?: unknown;
   bg?: UniverColor | null;
   bd?: Record<string, UniverBorder | null> | null;
   cl?: UniverColor | null;
   n?: { pattern?: unknown } | null;
-  ht?: unknown;
-  vt?: unknown;
-  tb?: unknown;
 };
 
-const BORDER_STYLE: Record<number, ExcelJS.BorderStyle | undefined> = {
-  1: "thin",
-  2: "hair",
-  3: "dotted",
-  4: "dashed",
-  5: "dashDot",
-  6: "dashDotDot",
-  7: "double",
-  8: "medium",
-  9: "mediumDashed",
-  10: "mediumDashDot",
-  11: "mediumDashDotDot",
-  12: "slantDashDot",
-  13: "thick",
-};
+// Univer BorderStyleTypes, indexed by their numeric value.
+const BORDER_STYLES: ReadonlyArray<ExcelJS.BorderStyle | undefined> = [
+  undefined, "thin", "hair", "dotted", "dashed", "dashDot", "dashDotDot", "double",
+  "medium", "mediumDashed", "mediumDashDot", "mediumDashDotDot", "slantDashDot", "thick",
+];
 
-function resolveStyle(
-  style: unknown,
-  styles: SpreadsheetWorkbookData["styles"],
-): UniverStyle | undefined {
+function resolveStyle(style: unknown, styles: SpreadsheetWorkbookData["styles"]): UniverStyle | undefined {
   if (typeof style === "string") return (styles[style] ?? undefined) as UniverStyle | undefined;
-  if (style && typeof style === "object") return style as UniverStyle;
-  return undefined;
+  return isRecord(style) ? style as UniverStyle : undefined;
 }
 
 function color(value: unknown): Partial<ExcelJS.Color> | undefined {
-  const rgb = typeof value === "object" && value !== null && "rgb" in value
-    ? (value as UniverColor).rgb
-    : value;
+  const rgb = isRecord(value) && "rgb" in value ? value.rgb : value;
   if (typeof rgb !== "string") return undefined;
   const hex = rgb.match(/^#([\da-f]{3}|[\da-f]{6}|[\da-f]{8})$/i)?.[1];
   if (hex) {
@@ -60,105 +39,71 @@ function color(value: unknown): Partial<ExcelJS.Color> | undefined {
   }
   const channels = rgb.match(/^rgba?\(\s*(\d+(?:\.\d+)?)\s*,\s*(\d+(?:\.\d+)?)\s*,\s*(\d+(?:\.\d+)?)(?:\s*,\s*(\d*(?:\.\d+)?))?\s*\)$/i);
   if (!channels) return undefined;
-  const toHex = (channel: number) => Math.max(0, Math.min(255, Math.round(channel)))
-    .toString(16).padStart(2, "0").toUpperCase();
-  const alpha = channels[4] === undefined || channels[4] === ""
-    ? 255
-    : Number(channels[4]) * 255;
-  return {
-    argb: `${toHex(alpha)}${toHex(Number(channels[1]))}${toHex(Number(channels[2]))}${toHex(Number(channels[3]))}`,
-  };
+  const toHex = (channel: number) => Math.max(0, Math.min(255, Math.round(channel))).toString(16).padStart(2, "0").toUpperCase();
+  const alpha = channels[4] === undefined || channels[4] === "" ? 255 : Number(channels[4]) * 255;
+  return { argb: [alpha, ...channels.slice(1, 4).map(Number)].map(toHex).join("") };
 }
 
 function decorationEnabled(value: unknown): boolean {
-  return value === 1 || (typeof value === "object" && value !== null && (value as { s?: unknown }).s === 1);
+  return value === 1 || (isRecord(value) && value.s === 1);
 }
 
 function excelBorder(value: UniverBorder | null | undefined): Partial<ExcelJS.Border> | undefined {
-  if (!value || typeof value.s !== "number") return undefined;
-  const style = BORDER_STYLE[value.s];
+  const style = typeof value?.s === "number" ? BORDER_STYLES[value.s] : undefined;
   if (!style) return undefined;
-  const borderColor = color(value.cl);
+  const borderColor = color(value?.cl);
   return { style, ...(borderColor ? { color: borderColor } : {}) };
 }
 
+/** Keep only the entries whose value is present, so ExcelJS writes no empty style blocks. */
+function present<T extends object>(value: T): Partial<T> | undefined {
+  const entries = Object.entries(value).filter(([, entry]) => entry !== undefined && entry !== false);
+  return entries.length > 0 ? Object.fromEntries(entries) as Partial<T> : undefined;
+}
+
 function applyStyle(cell: ExcelJS.Cell, style: UniverStyle): void {
-  const fontColor = color(style.cl);
-  const font: Partial<ExcelJS.Font> = {
-    ...(typeof style.ff === "string" ? { name: style.ff } : {}),
-    ...(typeof style.fs === "number" ? { size: style.fs } : {}),
-    ...(style.bl === 1 ? { bold: true } : {}),
-    ...(style.it === 1 ? { italic: true } : {}),
-    ...(decorationEnabled(style.ul) ? { underline: true } : {}),
-    ...(decorationEnabled(style.st) ? { strike: true } : {}),
-    ...(fontColor ? { color: fontColor } : {}),
-  };
-  if (Object.keys(font).length > 0) cell.font = font as ExcelJS.Font;
-
+  const font = present({
+    name: typeof style.ff === "string" ? style.ff : undefined,
+    size: typeof style.fs === "number" ? style.fs : undefined,
+    bold: style.bl === 1,
+    italic: style.it === 1,
+    underline: decorationEnabled(style.ul),
+    strike: decorationEnabled(style.st),
+    color: color(style.cl),
+  });
+  if (font) cell.font = font as ExcelJS.Font;
   const background = color(style.bg);
-  if (background) {
-    cell.fill = { type: "pattern", pattern: "solid", fgColor: background };
-  }
-
-  if (style.bd) {
-    const border: Partial<ExcelJS.Borders> = {
-      top: excelBorder(style.bd.t),
-      right: excelBorder(style.bd.r),
-      bottom: excelBorder(style.bd.b),
-      left: excelBorder(style.bd.l),
-      diagonal: excelBorder(style.bd.tl_br ?? style.bd.bl_tr),
-    };
-    for (const key of Object.keys(border) as Array<keyof ExcelJS.Borders>) {
-      if (!border[key]) delete border[key];
-    }
-    if (Object.keys(border).length > 0) cell.border = border;
-  }
-
-  const horizontal = style.ht === 1 ? "left" : style.ht === 2 ? "center" : style.ht === 3 ? "right" : undefined;
-  const vertical = style.vt === 1 ? "top" : style.vt === 2 ? "middle" : style.vt === 3 ? "bottom" : undefined;
-  const alignment: Partial<ExcelJS.Alignment> = {
-    ...(horizontal ? { horizontal } : {}),
-    ...(vertical ? { vertical } : {}),
-    ...(style.tb === 3 ? { wrapText: true } : {}),
-    ...(style.tb === 2 ? { shrinkToFit: true } : {}),
-  };
-  if (Object.keys(alignment).length > 0) cell.alignment = alignment;
+  if (background) cell.fill = { type: "pattern", pattern: "solid", fgColor: background };
+  const border = style.bd && present({
+    top: excelBorder(style.bd.t),
+    right: excelBorder(style.bd.r),
+    bottom: excelBorder(style.bd.b),
+    left: excelBorder(style.bd.l),
+    diagonal: excelBorder(style.bd.tl_br ?? style.bd.bl_tr),
+  });
+  if (border) cell.border = border;
+  const alignment = present({
+    horizontal: typeof style.ht === "number" ? HORIZONTAL_ALIGNMENTS[style.ht - 1] : undefined,
+    vertical: typeof style.vt === "number" ? VERTICAL_ALIGNMENTS[style.vt - 1] : undefined,
+    wrapText: style.tb === 3,
+    shrinkToFit: style.tb === 2,
+  });
+  if (alignment) cell.alignment = alignment;
   if (typeof style.n?.pattern === "string") cell.numFmt = style.n.pattern;
 }
 
-function composedCellStyle(
-  workbook: SpreadsheetWorkbookData,
-  sheet: SpreadsheetWorksheetData,
-  rowIndex: number,
-  columnIndex: number,
-  cell: SpreadsheetCellData,
-): UniverStyle {
-  return Object.assign(
-    {},
-    resolveStyle(workbook.defaultStyle, workbook.styles),
-    resolveStyle(sheet.defaultStyle, workbook.styles),
-    resolveStyle(sheet.columnData[columnIndex]?.s, workbook.styles),
-    resolveStyle(sheet.rowData[rowIndex]?.s, workbook.styles),
-    resolveStyle(cell.s, workbook.styles),
-  ) as UniverStyle;
-}
-
-function populateSheet(
-  target: ExcelJS.Worksheet,
-  workbook: SpreadsheetWorkbookData,
-  source: SpreadsheetWorksheetData,
-): void {
+function populateSheet(target: ExcelJS.Worksheet, workbook: SpreadsheetWorkbookData, source: SpreadsheetWorksheetData): void {
+  const width = (pixels: number) => Math.max(1, (pixels - 5) / 7);
   target.properties.defaultRowHeight = source.defaultRowHeight * 0.75;
-  target.properties.defaultColWidth = Math.max(1, (source.defaultColumnWidth - 5) / 7);
+  target.properties.defaultColWidth = width(source.defaultColumnWidth);
   target.views = [{
     state: source.freeze.xSplit || source.freeze.ySplit ? "frozen" : "normal",
     xSplit: source.freeze.xSplit,
     ySplit: source.freeze.ySplit,
-    topLeftCell: `${columnName(source.freeze.startColumn)}${source.freeze.startRow + 1}`,
+    topLeftCell: `${columnLabel(source.freeze.startColumn)}${source.freeze.startRow + 1}`,
     showGridLines: source.showGridlines !== 0,
     rightToLeft: source.rightToLeft === 1,
   }];
-
   for (const [rowKey, rowData] of Object.entries(source.rowData)) {
     const row = target.getRow(Number(rowKey) + 1);
     const height = typeof rowData.h === "number" ? rowData.h : rowData.ah;
@@ -167,75 +112,40 @@ function populateSheet(
   }
   for (const [columnKey, columnData] of Object.entries(source.columnData)) {
     const column = target.getColumn(Number(columnKey) + 1);
-    if (typeof columnData.w === "number") column.width = Math.max(1, (columnData.w - 5) / 7);
+    if (typeof columnData.w === "number") column.width = width(columnData.w);
     column.hidden = columnData.hd === 1;
   }
-
+  const styleOf = (rowIndex: number, columnIndex: number, cell: SpreadsheetCellData) => Object.assign(
+    {},
+    ...[workbook.defaultStyle, source.defaultStyle, source.columnData[columnIndex]?.s, source.rowData[rowIndex]?.s, cell.s]
+      .map((style) => resolveStyle(style, workbook.styles)),
+  ) as UniverStyle;
   for (const [rowKey, columns] of Object.entries(source.cellData)) {
-    const rowIndex = Number(rowKey);
     for (const [columnKey, sourceCell] of Object.entries(columns)) {
-      const columnIndex = Number(columnKey);
-      const cell = target.getCell(rowIndex + 1, columnIndex + 1);
-      if (typeof sourceCell.f === "string" && sourceCell.f.length > 0) {
-        cell.value = {
-          formula: sourceCell.f.replace(/^=/, ""),
-          ...(sourceCell.v === undefined || sourceCell.v === null ? {} : { result: sourceCell.v }),
-        };
-      } else {
-        cell.value = sourceCell.v ?? null;
-      }
-      applyStyle(cell, composedCellStyle(workbook, source, rowIndex, columnIndex, sourceCell));
+      const cell = target.getCell(Number(rowKey) + 1, Number(columnKey) + 1);
+      cell.value = typeof sourceCell.f === "string" && sourceCell.f.length > 0
+        ? { formula: sourceCell.f.replace(/^=/, ""), ...(sourceCell.v === undefined || sourceCell.v === null ? {} : { result: sourceCell.v }) }
+        : sourceCell.v ?? null;
+      applyStyle(cell, styleOf(Number(rowKey), Number(columnKey), sourceCell));
     }
   }
-
   for (const merge of source.mergeData) {
-    target.mergeCells(
-      merge.startRow + 1,
-      merge.startColumn + 1,
-      merge.endRow + 1,
-      merge.endColumn + 1,
-    );
+    target.mergeCells(merge.startRow + 1, merge.startColumn + 1, merge.endRow + 1, merge.endColumn + 1);
   }
 }
 
-function columnName(index: number): string {
-  let value = Math.max(0, index) + 1;
-  let name = "";
-  while (value > 0) {
-    value -= 1;
-    name = String.fromCharCode(65 + (value % 26)) + name;
-    value = Math.floor(value / 26);
-  }
-  return name;
-}
-
-/** Convert Lattice's collaborative workbook snapshot into a portable Excel workbook. */
-function populateExcelWorkbook(
-  target: ExcelJS.Workbook,
-  source: SpreadsheetWorkbookData,
-): void {
-  target.creator = "Lattice";
-  target.title = source.name;
-  for (const sheetId of source.sheetOrder) {
-    const sheet = source.sheets[sheetId];
-    if (!sheet) continue;
-    const targetSheet = target.addWorksheet(sheet.name, {
-      state: sheet.hidden === 1 ? "hidden" : "visible",
-      properties: {
-        tabColor: color(sheet.tabColor),
-      },
-    });
-    populateSheet(targetSheet, source, sheet);
-  }
-}
-
-/** ExcelJS stays out of the eager app graph; it is loaded only when the user exports. */
-export async function spreadsheetWorkbookToXlsx(
-  source: SpreadsheetWorkbookData,
-): Promise<Uint8Array> {
+/** Convert Lattice's collaborative workbook snapshot into a portable Excel workbook. ExcelJS stays out of the eager app graph. */
+export async function spreadsheetWorkbookToXlsx(source: SpreadsheetWorkbookData): Promise<Uint8Array> {
   const { default: ExcelJSModule } = await import("exceljs");
   const target = new ExcelJSModule.Workbook();
-  populateExcelWorkbook(target, source);
-  const buffer = await target.xlsx.writeBuffer();
-  return new Uint8Array(buffer);
+  target.creator = "Lattice";
+  target.title = source.name;
+  for (const sheet of source.sheetOrder.map((id) => source.sheets[id]).filter(Boolean)) {
+    const worksheet = target.addWorksheet(sheet.name, {
+      state: sheet.hidden === 1 ? "hidden" : "visible",
+      properties: { tabColor: color(sheet.tabColor) },
+    });
+    populateSheet(worksheet, source, sheet);
+  }
+  return new Uint8Array(await target.xlsx.writeBuffer());
 }

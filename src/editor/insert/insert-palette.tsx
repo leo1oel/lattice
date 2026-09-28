@@ -8,13 +8,7 @@ import { EmptyState } from "../../components/ui/empty-state";
 import { PanelHeader } from "../../components/ui/panel-header";
 import { ScrollArea } from "../../components/ui/scroll-area";
 import { SearchField } from "../../components/ui/search-field";
-import {
-  INSERT_GROUPS,
-  INSERT_SNIPPETS,
-  INSERT_SYMBOL_GROUPS,
-  type InsertGroup,
-  type InsertSnippet,
-} from "./insert-snippets";
+import { INSERT_GROUPS, INSERT_SNIPPETS, INSERT_SYMBOL_GROUPS, type InsertGroup, type InsertSnippet } from "./insert-snippets";
 import { SlidingTabs } from "../../components/ui/motion";
 import { ResizableDrawer } from "../../components/ui/resizable-drawer";
 
@@ -34,21 +28,14 @@ function snippetPreview(snippet: InsertSnippet): Preview {
   const preview = ((): Preview => {
     if (snippet.mathPreview) {
       try {
-        return {
-          kind: "html",
-          value: katex.renderToString(snippet.mathPreview, {
-            throwOnError: false,
-            strict: "ignore",
-            displayMode: false,
-          }),
-        };
+        const value = katex.renderToString(snippet.mathPreview, { throwOnError: false, strict: "ignore", displayMode: false });
+        return { kind: "html", value };
       } catch {
         // Fall through to glyph / code.
       }
     }
     if (snippet.glyph) return { kind: "glyph", value: snippet.glyph };
-    if (snippet.codePreview) return { kind: "code", value: snippet.codePreview };
-    return { kind: "code", value: snippet.insert.trim().slice(0, 80) };
+    return { kind: "code", value: snippet.codePreview ?? snippet.insert.trim().slice(0, 80) };
   })();
   previewCache.set(snippet.id, preview);
   return preview;
@@ -62,7 +49,7 @@ function snippetName(i18n: I18n, snippet: InsertSnippet): string {
 const INSERT_TABS = ["All", "Environment", "Structure", "Math", "Symbols"] as const;
 type InsertTab = (typeof INSERT_TABS)[number];
 
-const TAB_GROUPS: Record<InsertTab, InsertGroup[]> = {
+const TAB_GROUPS: Record<InsertTab, readonly InsertGroup[]> = {
   All: INSERT_GROUPS,
   Environment: ["Environment"],
   Structure: ["Structure"],
@@ -70,7 +57,7 @@ const TAB_GROUPS: Record<InsertTab, InsertGroup[]> = {
   Symbols: INSERT_SYMBOL_GROUPS,
 };
 
-const IS_SYMBOL_GROUP = new Set(INSERT_SYMBOL_GROUPS);
+const IS_SYMBOL_GROUP = new Set<InsertGroup>(INSERT_SYMBOL_GROUPS);
 
 /**
  * Tab and heading names for the snippet catalog. The catalog itself is LaTeX
@@ -80,35 +67,40 @@ const IS_SYMBOL_GROUP = new Set(INSERT_SYMBOL_GROUPS);
 function useGroupLabels(): Record<InsertGroup | InsertTab, string> {
   const { t } = useLingui();
   return {
-    All: t`All`,
-    Symbols: t`Symbols`,
-    Environment: t`Environment`,
-    Structure: t`Structure`,
-    Math: t`Math`,
-    Greek: t`Greek`,
-    Operators: t`Operators`,
-    Relations: t`Relations`,
-    Arrows: t`Arrows`,
-    Sets: t`Sets`,
-    Delimiters: t`Delimiters`,
-    Accents: t`Accents`,
+    All: t`All`, Symbols: t`Symbols`, Environment: t`Environment`, Structure: t`Structure`, Math: t`Math`,
+    Greek: t`Greek`, Operators: t`Operators`, Relations: t`Relations`, Arrows: t`Arrows`, Sets: t`Sets`,
+    Delimiters: t`Delimiters`, Accents: t`Accents`,
   };
 }
 
-function SnippetCard(props: {
+function SnippetTile({ snippet, symbol, name, detail, onInsert }: {
   snippet: InsertSnippet;
+  symbol: boolean;
   name: string;
   detail: string;
   onInsert: (snippet: InsertSnippet) => void;
 }) {
-  const preview = snippetPreview(props.snippet);
-  const command = props.snippet.insert.trim().split("\n")[0];
+  if (symbol) {
+    return (
+      <button
+        type="button"
+        className="insert-symbol-chip"
+        onClick={() => onInsert(snippet)}
+        title={`${detail}\n${name}`}
+        aria-label={`${detail} (${name})`}
+      >
+        <span aria-hidden="true">{snippet.glyph ?? name}</span>
+      </button>
+    );
+  }
+  const preview = snippetPreview(snippet);
+  const command = snippet.insert.trim().split("\n")[0];
   return (
     <button
       type="button"
       className="insert-snippet-button"
-      onClick={() => props.onInsert(props.snippet)}
-      title={`${props.detail}\n${command}`}
+      onClick={() => onInsert(snippet)}
+      title={`${detail}\n${command}`}
     >
       <div className={`insert-snippet-preview ${preview.kind}`} aria-hidden="true">
         {preview.kind === "html"
@@ -118,31 +110,12 @@ function SnippetCard(props: {
             : <pre>{preview.value}</pre>}
       </div>
       <div className="insert-snippet-copy">
-        <strong>{props.name}</strong>
-        <span>{props.detail}</span>
+        <strong>{name}</strong>
+        <span>{detail}</span>
         {/* A code preview already shows the command; repeating it here was the
             palette's densest piece of noise. */}
         {preview.kind !== "code" && <code>{command}</code>}
       </div>
-    </button>
-  );
-}
-
-function SymbolChip(props: {
-  snippet: InsertSnippet;
-  name: string;
-  detail: string;
-  onInsert: (snippet: InsertSnippet) => void;
-}) {
-  return (
-    <button
-      type="button"
-      className="insert-symbol-chip"
-      onClick={() => props.onInsert(props.snippet)}
-      title={`${props.detail}\n${props.name}`}
-      aria-label={`${props.detail} (${props.name})`}
-    >
-      <span aria-hidden="true">{props.snippet.glyph ?? props.name}</span>
     </button>
   );
 }
@@ -160,18 +133,12 @@ export function InsertPalette(props: {
 
   // One haystack per snippet, rebuilt only when the interface language changes,
   // so a filter keystroke never resolves 300 catalog messages again.
-  const haystacks = useMemo(() => {
-    const map = new Map<string, string>();
-    for (const snippet of INSERT_SNIPPETS) {
-      map.set(
-        snippet.id,
-        [snippetName(i18n, snippet), i18n._(snippet.detail), snippet.insert, snippet.glyph ?? ""]
-          .join("\u0000")
-          .toLocaleLowerCase(locale),
-      );
-    }
-    return map;
-  }, [i18n, locale]);
+  const haystacks = useMemo(() => new Map(INSERT_SNIPPETS.map((snippet) => [
+    snippet.id,
+    [snippetName(i18n, snippet), i18n._(snippet.detail), snippet.insert, snippet.glyph ?? ""]
+      .join("\u0000")
+      .toLocaleLowerCase(locale),
+  ])), [i18n, locale]);
 
   const sections = useMemo(() => {
     const needle = query.trim().toLocaleLowerCase(locale);
@@ -232,29 +199,16 @@ export function InsertPalette(props: {
             <section key={group}>
               <h3>{groupLabels[group]}<small>{items.length}</small></h3>
               <div className={IS_SYMBOL_GROUP.has(group) ? "insert-symbol-grid" : "insert-palette-grid"}>
-                {items.map((snippet) => {
-                  const name = snippetName(i18n, snippet);
-                  const detail = i18n._(snippet.detail);
-                  return IS_SYMBOL_GROUP.has(group)
-                    ? (
-                      <SymbolChip
-                        key={snippet.id}
-                        snippet={snippet}
-                        name={name}
-                        detail={detail}
-                        onInsert={insertAndClose}
-                      />
-                    )
-                    : (
-                      <SnippetCard
-                        key={snippet.id}
-                        snippet={snippet}
-                        name={name}
-                        detail={detail}
-                        onInsert={insertAndClose}
-                      />
-                    );
-                })}
+                {items.map((snippet) => (
+                  <SnippetTile
+                    key={snippet.id}
+                    snippet={snippet}
+                    symbol={IS_SYMBOL_GROUP.has(group)}
+                    name={snippetName(i18n, snippet)}
+                    detail={i18n._(snippet.detail)}
+                    onInsert={insertAndClose}
+                  />
+                ))}
               </div>
             </section>
           ))}

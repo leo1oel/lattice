@@ -7,41 +7,26 @@ import { describe, expect, it, vi } from "vitest";
 // masking, span filtering, action building — against a miniature engine fake
 // that mirrors harper-core's observable behavior for the fixtures below.
 vi.mock("@tauri-apps/api/core", () => ({
-  invoke: vi.fn(async (command: string, args?: Record<string, unknown>) => {
+  invoke: vi.fn(async (command: string, args?: { text?: string; projectWords?: string[] }) => {
     if (command !== "harper_lint") throw new Error(`unexpected command ${command}`);
-    const text = String(args?.text ?? "");
-    const projectWords = (args?.projectWords as string[] | undefined ?? [])
-      .map((word) => word.toLocaleLowerCase());
-    const lints: unknown[] = [];
+    const text = args?.text ?? "";
+    const projectWords = (args?.projectWords ?? []).map((word) => word.toLocaleLowerCase());
     const misspelled = new Map([
-      ["introductiom", "introduction"],
-      ["sentnce", "sentence"],
-      ["takeawayaccent", "takeaway accent"],
-      ["zylorph", "sylph"],
+      ["introductiom", "introduction"], ["sentnce", "sentence"], ["takeawayaccent", "takeaway accent"], ["zylorph", "sylph"],
     ]);
-    for (const match of text.matchAll(/[A-Za-z][A-Za-z'’-]*/g)) {
+    const lints = [...text.matchAll(/[A-Za-z][A-Za-z'’-]*/g)].flatMap((match) => {
       const word = match[0].toLocaleLowerCase();
       const replacement = misspelled.get(word);
-      if (!replacement || projectWords.includes(word)) continue;
-      lints.push({
-        start: match.index,
-        end: match.index + match[0].length,
-        kind: "Spelling",
-        message: `Did you mean “${replacement}”?`,
-        suggestions: [{ kind: "replace", replacement }],
-      });
-    }
+      if (!replacement || projectWords.includes(word)) return [];
+      const suggestions = [{ kind: "replace", replacement }];
+      return [{ start: match.index, end: match.index + match[0].length, kind: "Spelling", message: `Did you mean “${replacement}”?`, suggestions }];
+    });
     // Sentence capitalization, like harper's lint: only when the sentence
     // actually starts the text (masked math leaves leading spaces).
     const first = text.match(/^[a-z][A-Za-z'’-]*/);
     if (first) {
-      lints.push({
-        start: 0,
-        end: first[0].length,
-        kind: "Capitalization",
-        message: "This sentence does not start with a capital letter",
-        suggestions: [],
-      });
+      const message = "This sentence does not start with a capital letter";
+      lints.push({ start: 0, end: first[0].length, kind: "Capitalization", message, suggestions: [] });
     }
     return lints;
   }),
@@ -51,141 +36,105 @@ import {
   createHarperDiagnostic,
   harperDiagnostics,
   harperDictionaryChanged,
-  maskLatexForProse,
+  harperLintWindow,
+  HARPER_WINDOW_THRESHOLD,
+  maskLatexForHarper,
 } from "./harper-spellcheck";
+
+const spelling = (input: Partial<Parameters<typeof createHarperDiagnostic>[0]>) =>
+  createHarperDiagnostic({ from: 0, to: 0, message: "Unknown word.", kind: "Spelling", suggestions: [], ...input });
+const spans = (source: string, diagnostics: { from: number; to: number }[]) =>
+  diagnostics.map((diagnostic) => source.slice(diagnostic.from, diagnostic.to));
+
+const PREAMBLE = [
+  "\\documentclass{article}",
+  "\\usepackage[utf8]{inputenc}",
+  "\\title{A Clean Title}",
+  "\\begin{document}",
+  "This is introductiom.",
+  "\\end{document}",
+].join("\n");
+const COLOR_PREAMBLE = [
+  "\\documentclass[11pt]{article}",
+  "\\usepackage{fontspec}",
+  "\\setmainfont[UprightFont={*-Regular},BoldFont={*-Bold}]{Songti SC}",
+  "\\definecolor{takeawayaccent}{HTML}{315B78}",
+  "\\hypersetup{linkcolor=takeawayaccent}",
+  "\\newtcolorbox{takeawaybox}[1]{colframe=takeawayaccent}",
+  "\\title{A Clean Title}",
+  "\\begin{document}",
+  "\\pagecolor{takeawaybackground}",
+  "\\color{takeawayaccent}",
+  "This is introductiom.",
+  "\\end{document}",
+].join("\n");
+const TABLE = [
+  "This is introductiom.",
+  "",
+  "| Method | Description |",
+  "| --- | --- |",
+  "| Baseline | This table cell contains many words that Harper should never treat as one long sentence |",
+  "| Proposed | Another table cell with additional prose that belongs to the table |",
+  "",
+  "Visible prose remains available to Harper.",
+].join("\n");
+const CAPITALIZATION = /does not start with a capital letter/i;
 
 describe("Harper prose spellcheck", () => {
   it("reports a real spelling diagnostic for misspelled prose", async () => {
     const diagnostics = await harperDiagnostics("This is introductiom.");
-
     expect(diagnostics.some((diagnostic) => diagnostic.source === "Harper")).toBe(true);
     expect(diagnostics.some((diagnostic) => diagnostic.from === 8 && diagnostic.to === 20)).toBe(true);
   });
 
-  it("does not report masked LaTeX commands as repeated spaces", async () => {
-    const source = [
-      "\\documentclass{article}",
-      "\\usepackage[utf8]{inputenc}",
-      "\\title{A Clean Title}",
-      "\\begin{document}",
-      "This is introductiom.",
-      "\\end{document}",
-    ].join("\n");
+  it.each([
+    ["masked LaTeX commands as repeated spaces", PREAMBLE, "takeawayaccent"],
+    ["preamble configuration and document-level color setup", COLOR_PREAMBLE, "takeawayaccent"],
+    ["Markdown table cells as prose", TABLE, "table cell"],
+  ])("does not report %s", async (_name, source, hidden) => {
     const diagnostics = await harperDiagnostics(source);
-
+    const flagged = spans(source, diagnostics);
     expect(diagnostics.some((diagnostic) => /spaces where there should be only one/i.test(diagnostic.message))).toBe(false);
-    expect(diagnostics.some((diagnostic) => source.slice(diagnostic.from, diagnostic.to) === "introductiom")).toBe(true);
+    expect(flagged).toContain("introductiom");
+    expect(flagged.some((span) => span.includes(hidden))).toBe(false);
   });
 
-  it("does not require uppercase prose after math that opens a sentence", async () => {
-    const source = "$g\\equiv1$ shares the update (and $\\Delta$ can be merged into $W$ at inference).";
+  it.each([
+    ["does not require uppercase prose after math that opens a sentence", "$g\\equiv1$ shares the update (and $\\Delta$ can be merged into $W$ at inference).", false],
+    ["still reports an ordinary lowercase sentence start", "this sentence starts with lowercase prose.", true],
+  ])("%s", async (_name, source, reported) => {
     const diagnostics = await harperDiagnostics(source);
-
-    expect(diagnostics.some((diagnostic) =>
-      /does not start with a capital letter/i.test(diagnostic.message))).toBe(false);
+    expect(diagnostics.some((diagnostic) => CAPITALIZATION.test(diagnostic.message))).toBe(reported);
   });
 
-  it("still reports an ordinary lowercase sentence start", async () => {
-    const diagnostics = await harperDiagnostics("this sentence starts with lowercase prose.");
-
-    expect(diagnostics.some((diagnostic) =>
-      /does not start with a capital letter/i.test(diagnostic.message))).toBe(true);
-  });
-
-  it("masks author names and LaTeX package and bibliography identifiers", () => {
-    const source = [
-      "\\usepackage{neurips_2025}",
-      "\\author{Yimimg Zhaoo}",
-      "\\bibliographystyle{plainnatt}",
-      "\\title{A sentnce}",
-    ].join("\n");
-    const prose = maskLatexForProse(source);
-
-    expect(prose).not.toContain("neurips_2025");
-    expect(prose).not.toContain("Yimimg Zhaoo");
-    expect(prose).not.toContain("plainnatt");
-    expect(prose).toContain("A sentnce");
-  });
-
-  it("skips LaTeX preamble configuration and document-level color setup", async () => {
-    const source = [
-      "\\documentclass[11pt]{article}",
-      "\\usepackage{fontspec}",
-      "\\setmainfont[UprightFont={*-Regular},BoldFont={*-Bold}]{Songti SC}",
-      "\\definecolor{takeawayaccent}{HTML}{315B78}",
-      "\\hypersetup{linkcolor=takeawayaccent}",
-      "\\newtcolorbox{takeawaybox}[1]{colframe=takeawayaccent}",
-      "\\title{A Clean Title}",
-      "\\begin{document}",
-      "\\pagecolor{takeawaybackground}",
-      "\\color{takeawayaccent}",
-      "This is introductiom.",
-      "\\end{document}",
-    ].join("\n");
-    const prose = maskLatexForProse(source);
-    const diagnostics = await harperDiagnostics(source);
-
-    expect(prose).toHaveLength(source.length);
-    expect(prose).not.toContain("UprightFont");
-    expect(prose).not.toContain("takeawayaccent");
-    expect(prose).not.toContain("takeawaybackground");
-    expect(prose).toContain("A Clean Title");
-    expect(prose).toContain("This is introductiom.");
-    expect(diagnostics.some((diagnostic) =>
-      source.slice(diagnostic.from, diagnostic.to) === "takeawayaccent")).toBe(false);
-    expect(diagnostics.some((diagnostic) =>
-      source.slice(diagnostic.from, diagnostic.to) === "introductiom")).toBe(true);
-  });
-
-  it("masks technical command arguments without hiding their rendered prose", () => {
-    const source = [
+  it.each([
+    ["author names and LaTeX package and bibliography identifiers",
+      ["\\usepackage{neurips_2025}", "\\author{Yimimg Zhaoo}", "\\bibliographystyle{plainnatt}", "\\title{A sentnce}"].join("\n"),
+      ["neurips_2025", "Yimimg Zhaoo", "plainnatt"], ["A sentnce"]],
+    ["preamble configuration and document-level color setup", COLOR_PREAMBLE,
+      ["UprightFont", "takeawayaccent", "takeawaybackground"], ["A Clean Title", "This is introductiom."]],
+    ["technical command arguments without hiding their rendered prose", [
       "\\textcolor{takeawayaccent}{A sentnce.}",
       "\\colorbox{takeawaybackground}{Visible prose.}",
       "\\fcolorbox{takeawayaccent}{takeawaybackground}{More prose.}",
       "\\href{https://exmple.test}{Readable link.}",
-    ].join("\n");
-    const prose = maskLatexForProse(source);
-
-    expect(prose).not.toContain("takeaway");
-    expect(prose).not.toContain("exmple.test");
-    expect(prose).toContain("A sentnce.");
-    expect(prose).toContain("Visible prose.");
-    expect(prose).toContain("More prose.");
-    expect(prose).toContain("Readable link.");
-  });
-
-  it("skips Markdown tables without hiding surrounding prose", async () => {
-    const source = [
-      "This is introductiom.",
-      "",
-      "| Method | Description |",
-      "| --- | --- |",
-      "| Baseline | This table cell contains many words that Harper should never treat as one long sentence |",
-      "| Proposed | Another table cell with additional prose that belongs to the table |",
-      "",
-      "Visible prose remains available to Harper.",
-    ].join("\n");
-    const prose = maskLatexForProse(source);
-    const diagnostics = await harperDiagnostics(source);
-
+    ].join("\n"), ["takeaway", "exmple.test"], ["A sentnce.", "Visible prose.", "More prose.", "Readable link."]],
+    ["Markdown tables without hiding surrounding prose", TABLE,
+      ["Method", "Baseline"], ["This is introductiom.", "Visible prose remains available to Harper."]],
+    ["LaTeX commands, citations, math, and comments",
+      "\\section{A sentnce} cites \\citep{smith2024}. $x + y$ % hidden typo\nVisible prose.",
+      ["smith2024", "x + y", "hidden typo"], ["sentnce", "Visible prose"]],
+  ])("masks %s while preserving source offsets", (_name, source, hidden, visible) => {
+    const { prose } = maskLatexForHarper(source);
     expect(prose).toHaveLength(source.length);
-    expect(prose).not.toContain("Method");
-    expect(prose).not.toContain("Baseline");
-    expect(prose).toContain("This is introductiom.");
-    expect(prose).toContain("Visible prose remains available to Harper.");
-    expect(diagnostics.some((diagnostic) =>
-      source.slice(diagnostic.from, diagnostic.to) === "introductiom")).toBe(true);
-    expect(diagnostics.some((diagnostic) =>
-      source.slice(diagnostic.from, diagnostic.to).includes("table cell"))).toBe(false);
+    for (const text of hidden) expect(prose).not.toContain(text);
+    for (const text of visible) expect(prose.slice(source.indexOf(text), source.indexOf(text) + text.length)).toBe(text);
   });
 
   it("accepts words from the project dictionary", async () => {
     const source = "Zylorph presents the result.";
-    const before = await harperDiagnostics(source);
-    const after = await harperDiagnostics(source, { projectWords: ["Zylorph"] });
-
-    expect(before.some((diagnostic) => source.slice(diagnostic.from, diagnostic.to) === "Zylorph")).toBe(true);
-    expect(after.some((diagnostic) => source.slice(diagnostic.from, diagnostic.to) === "Zylorph")).toBe(false);
+    expect(spans(source, await harperDiagnostics(source))).toContain("Zylorph");
+    expect(spans(source, await harperDiagnostics(source, { projectWords: ["Zylorph"] }))).not.toContain("Zylorph");
   });
 
   it("offers to add a misspelling to the project dictionary", async () => {
@@ -195,23 +144,12 @@ describe("Harper prose spellcheck", () => {
       state: EditorState.create({
         doc: "Zylorph",
         extensions: EditorView.updateListener.of((update) => {
-          if (update.transactions.some((transaction) =>
-            transaction.effects.some((effect) => effect.is(harperDictionaryChanged)))) {
-            refreshes += 1;
-          }
+          refreshes += update.transactions.filter((transaction) =>
+            transaction.effects.some((effect) => effect.is(harperDictionaryChanged))).length;
         }),
       }),
     });
-    const diagnostic = createHarperDiagnostic({
-      from: 0,
-      to: 6,
-      message: "Unknown word.",
-      kind: "Spelling",
-      suggestions: [],
-      projectWord: "Zylorph",
-      onAddProjectWord: add,
-    });
-
+    const diagnostic = spelling({ to: 6, suggestions: [], projectWord: "Zylorph", onAddProjectWord: add });
     diagnostic.actions?.[0]?.apply(view, 0, 6);
     expect(diagnostic.actions?.[0]?.name).toBe("Add “Zylorph” to project dictionary");
     expect(add).toHaveBeenCalledWith("Zylorph");
@@ -220,52 +158,41 @@ describe("Harper prose spellcheck", () => {
   });
 
   it("shows only the best correction plus the project dictionary action", () => {
-    const diagnostic = createHarperDiagnostic({
-      from: 0,
-      to: 5,
-      message: "Unknown word.",
-      kind: "Spelling",
-      suggestions: [
-        { kind: "replace", replacement: "first" },
-        { kind: "replace", replacement: "second" },
-        { kind: "replace", replacement: "third" },
-      ],
-      projectWord: "frist",
-      onAddProjectWord: () => true,
-    });
-
-    expect(diagnostic.actions?.map((action) => action.name)).toEqual([
-      "Replace with “first”",
-      "Add “frist” to project dictionary",
-    ]);
-  });
-
-  it("preserves source offsets while hiding LaTeX commands, citations, math, and comments", () => {
-    const source = "\\section{A sentnce} cites \\citep{smith2024}. $x + y$ % hidden typo\nVisible prose.";
-    const prose = maskLatexForProse(source);
-
-    expect(prose).toHaveLength(source.length);
-    expect(prose.slice(source.indexOf("sentnce"), source.indexOf("sentnce") + 7)).toBe("sentnce");
-    expect(prose).not.toContain("smith2024");
-    expect(prose).not.toContain("x + y");
-    expect(prose).not.toContain("hidden typo");
-    expect(prose).toContain("Visible prose");
+    const suggestions = ["first", "second", "third"].map((replacement) => ({ kind: "replace" as const, replacement }));
+    const diagnostic = spelling({ to: 5, suggestions, projectWord: "frist", onAddProjectWord: () => true });
+    expect(diagnostic.actions?.map((action) => action.name)).toEqual(["Replace with “first”", "Add “frist” to project dictionary"]);
   });
 
   it("applies Harper replacements at CodeMirror's current diagnostic range", () => {
     const view = new EditorView({ state: EditorState.create({ doc: "A sentnce." }) });
-    const diagnostic = createHarperDiagnostic({
-      from: 2,
-      to: 9,
-      message: "Did you mean sentence?",
-      kind: "Spelling",
-      suggestions: [{ kind: "replace", replacement: "sentence" }],
-    });
-
+    const diagnostic = spelling({ from: 2, to: 9, suggestions: [{ kind: "replace", replacement: "sentence" }] });
     diagnostic.actions?.[0]?.apply(view, diagnostic.from, diagnostic.to);
     expect(view.state.doc.toString()).toBe("A sentence.");
     expect(diagnostic.source).toBe("Harper");
     expect(diagnostic.severity).toBe("error");
     view.destroy();
+  });
+
+  it("windows Harper linting only above the size threshold", () => {
+    const smallView = new EditorView({ parent: document.body, state: EditorState.create({ doc: "short document\n".repeat(10) }) });
+    expect(harperLintWindow(smallView)).toBeNull();
+    smallView.destroy();
+
+    const line = "a sentence that repeats across the large fixture document\n";
+    const doc = line.repeat(Math.ceil((HARPER_WINDOW_THRESHOLD + 50_000) / line.length));
+    const largeView = new EditorView({ parent: document.body, state: EditorState.create({ doc }) });
+    const window = harperLintWindow(largeView)!;
+    // A strict sub-range of the document, snapped to line boundaries.
+    expect(window.from).toBeGreaterThanOrEqual(0);
+    expect(window.to).toBeLessThanOrEqual(doc.length);
+    expect(window.to - window.from).toBeLessThan(doc.length);
+    expect(largeView.state.doc.lineAt(window.from).from).toBe(window.from);
+    expect(largeView.state.doc.lineAt(window.to).to).toBe(window.to);
+    // Every visible range is covered, margins included.
+    for (const range of largeView.visibleRanges) {
+      expect(window.from).toBeLessThanOrEqual(range.from);
+      expect(window.to).toBeGreaterThanOrEqual(range.to);
+    }
+    largeView.destroy();
   });
 });

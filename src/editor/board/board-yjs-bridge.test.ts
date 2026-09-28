@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import * as Y from "yjs";
 import {
   Awareness,
@@ -8,15 +8,13 @@ import {
 } from "y-protocols/awareness";
 import {
   createShapeId,
-  createTLStore,
-  defaultBindingUtils,
-  defaultShapeUtils,
   toRichText,
   type TLCamera,
   type TLInstancePresence,
   type TLPage,
   type TLRecord,
   type TLShape,
+  type TLStore,
 } from "tldraw";
 import {
   BOARD_CONTENT_KEY,
@@ -27,6 +25,7 @@ import {
   attachBoardPresence,
   boardDocContent,
   createBoardStore,
+  mergeExternalBoardSource,
   parseBoardRecords,
   pruneUnusedAssets,
   replaceBoardDocFromSource,
@@ -35,59 +34,34 @@ import {
 } from "./board-yjs-bridge";
 import tutorialBoard from "../../../src-tauri/templates/tutorial/attention-map.tldr?raw";
 
-function createStore() {
-  return createTLStore({ shapeUtils: [...defaultShapeUtils], bindingUtils: [...defaultBindingUtils] });
-}
+const createStore = () => createBoardStore("");
 
 function makeGeoShape(id: string, x = 0): TLShape {
   return {
-    id: createShapeId(id),
-    typeName: "shape",
-    type: "geo",
-    x,
-    y: 0,
-    rotation: 0,
-    index: "a1",
-    parentId: "page:page",
-    isLocked: false,
-    opacity: 1,
-    meta: {},
+    id: createShapeId(id), typeName: "shape", type: "geo", x, y: 0, rotation: 0, index: "a1",
+    parentId: "page:page", isLocked: false, opacity: 1, meta: {},
     props: {
-      geo: "rectangle",
-      dash: "draw",
-      url: "",
-      w: 100,
-      h: 100,
-      growY: 0,
-      scale: 1,
-      labelColor: "black",
-      color: "black",
-      fill: "none",
-      size: "m",
-      font: "draw",
-      align: "middle",
-      verticalAlign: "middle",
+      geo: "rectangle", dash: "draw", url: "", w: 100, h: 100, growY: 0, scale: 1, labelColor: "black",
+      color: "black", fill: "none", size: "m", font: "draw", align: "middle", verticalAlign: "middle",
       richText: toRichText(""),
     },
   } as TLShape;
 }
 
-function makePage(id: string, name: string): TLPage {
-  return { id: `page:${id}`, typeName: "page", name, index: "a2", meta: {} } as TLPage;
+const makeCamera = () => ({ id: "camera:page:page", typeName: "camera", x: 1, y: 2, z: 3, meta: {} } as TLCamera);
+
+/** .tldr text for a default board holding `shapes`. */
+function boardSource(...shapes: TLShape[]): string {
+  const store = createStore();
+  store.put(shapes);
+  return serializeBoard(store.allRecords());
 }
 
-function makeCamera(): TLCamera {
-  return { id: "camera:page:page", typeName: "camera", x: 1, y: 2, z: 3, meta: {} } as TLCamera;
-}
-
-function makeAsset(id: string): TLRecord {
-  return {
-    id: `asset:${id}`,
-    typeName: "asset",
-    type: "image",
-    meta: {},
-    props: { w: 10, h: 10, name: "a.png", isAnimated: false, mimeType: "image/png", src: "assets/a.png" },
-  } as unknown as TLRecord;
+/** A Y.Doc as a fresh import leaves it: only the raw .tldr "content". */
+function importedDoc(...shapes: TLShape[]): Y.Doc {
+  const doc = new Y.Doc();
+  doc.getText(BOARD_CONTENT_KEY).insert(0, boardSource(...shapes));
+  return doc;
 }
 
 function syncDocs(a: Y.Doc, b: Y.Doc) {
@@ -100,23 +74,38 @@ function syncAwareness(a: Awareness, b: Awareness) {
   applyAwarenessUpdate(a, encodeAwarenessUpdate(b, [b.clientID]), "test");
 }
 
-function presenceRecords(store: ReturnType<typeof createStore>): TLInstancePresence[] {
-  return store.allRecords().filter((record): record is TLInstancePresence => record.typeName === "instance_presence");
+const presenceRecords = (store: TLStore) =>
+  store.allRecords().filter((record): record is TLInstancePresence => record.typeName === "instance_presence");
+
+// Bridges and presence bindings are disposed after each test.
+const disposers: Array<() => void> = [];
+afterEach(() => {
+  while (disposers.length) disposers.pop()!();
+});
+
+function bridged(doc = new Y.Doc(), options?: Parameters<typeof attachBoardBridge>[2]) {
+  const store = createStore();
+  disposers.push(attachBoardBridge(store, doc, options));
+  return { store, doc };
 }
+
+/** Two bridged peers, optionally starting from the same initial doc update. */
+function peers(initial?: Uint8Array) {
+  const docs = [new Y.Doc(), new Y.Doc()];
+  if (initial) for (const doc of docs) Y.applyUpdate(doc, initial);
+  const [a, b] = docs.map((doc) => bridged(doc));
+  return { a: a.store, b: b.store, sync: () => syncDocs(a.doc, b.doc) };
+}
+
+const shapeIn = (store: TLStore, id: TLShape["id"]) => store.get(id) as TLShape;
 
 describe("serialize/parse round-trip", () => {
   it("loads the editable attention diagram bundled with the tutorial", () => {
-    const records = parseBoardRecords(tutorialBoard);
-    expect(records).not.toBeNull();
-    const shapes = records!.filter((record) => record.typeName === "shape");
+    const shapes = parseBoardRecords(tutorialBoard)!.filter((record) => record.typeName === "shape");
     expect(shapes).toHaveLength(16);
-    expect(shapes.map((shape) => shape.id)).toEqual(expect.arrayContaining([
-      createShapeId("query"),
-      createShapeId("scores"),
-      createShapeId("softmax"),
-      createShapeId("weighted"),
-      createShapeId("context"),
-    ]));
+    expect(shapes.map((shape) => shape.id)).toEqual(expect.arrayContaining(
+      ["query", "scores", "softmax", "weighted", "context"].map((id) => createShapeId(id)),
+    ));
   });
 
   it("round-trips document records through .tldr JSON", () => {
@@ -124,51 +113,78 @@ describe("serialize/parse round-trip", () => {
     const shape = makeGeoShape("one");
     store.put([shape, makeCamera()]);
     const json = serializeBoard(store.allRecords());
-    const parsed = parseBoardRecords(json);
-    expect(parsed).not.toBeNull();
-    const ids = parsed!.map((record) => record.id).sort();
-    expect(ids).toContain(shape.id);
-    expect(ids).toContain("page:page");
-    expect(ids).toContain("document:document");
+    const ids = parseBoardRecords(json)!.map((record) => record.id);
+    expect(ids).toEqual(expect.arrayContaining([shape.id, "page:page", "document:document"]));
     // Ephemeral records never reach the file format.
     expect(ids).not.toContain("camera:page:page");
     expect(JSON.parse(json).tldrawFileFormatVersion).toBe(1);
   });
 
   it("produces byte-stable output independent of input order", () => {
-    const store = createStore();
-    const records = serializeBoard(store.allRecords());
-    const reversed = serializeBoard([...store.allRecords()].reverse());
-    expect(reversed).toBe(records);
+    const records = createStore().allRecords();
+    expect(serializeBoard([...records].reverse())).toBe(serializeBoard(records));
   });
 
-  it("returns null for garbage and empty input", () => {
-    expect(parseBoardRecords("not json")).toBeNull();
-    expect(parseBoardRecords("")).toBeNull();
-    expect(parseBoardRecords("{}")).toBeNull();
+  it.each(["not json", "", "{}"])("returns null for invalid input %j", (input) => {
+    expect(parseBoardRecords(input)).toBeNull();
+  });
+
+  it("drops unreferenced assets and keeps referenced ones", () => {
+    const asset = (id: string) => ({
+      id: `asset:${id}`,
+      typeName: "asset",
+      type: "image",
+      meta: {},
+      props: { w: 10, h: 10, name: "a.png", isAnimated: false, mimeType: "image/png", src: "assets/a.png" },
+    } as unknown as TLRecord);
+    const used = asset("used");
+    const shape = { ...makeGeoShape("img"), props: { ...makeGeoShape("img").props, assetId: used.id } } as TLRecord;
+    expect(pruneUnusedAssets([used, asset("orphan"), shape]).map((record) => record.id)).toEqual([used.id, shape.id]);
   });
 });
 
-describe("pruneUnusedAssets", () => {
-  it("drops unreferenced assets and keeps referenced ones", () => {
-    const used = makeAsset("used");
-    const orphan = makeAsset("orphan");
-    const shape = {
-      ...makeGeoShape("img"),
-      props: { ...makeGeoShape("img").props, assetId: used.id },
-    } as TLRecord;
-    const kept = pruneUnusedAssets([used, orphan, shape]);
-    expect(kept.map((record) => record.id)).toEqual([used.id, shape.id]);
+describe("createBoardStore", () => {
+  it("loads valid .tldr content and falls back to an empty store", () => {
+    expect(createBoardStore(boardSource(makeGeoShape("loaded"))).get(createShapeId("loaded"))).toBeDefined();
+    for (const source of ["", "{oops"]) {
+      expect(createBoardStore(source).allRecords().some((record) => record.typeName === "shape")).toBe(false);
+    }
+  });
+});
+
+describe("mergeExternalBoardSource", () => {
+  it("applies external .tldr text as a remote-authoritative snapshot", () => {
+    const store = createStore();
+    const stale = makeGeoShape("stale");
+    const kept = makeGeoShape("kept", 10);
+    store.put([stale, kept]);
+
+    expect(mergeExternalBoardSource(store, boardSource({ ...makeGeoShape("kept"), x: 999 }, makeGeoShape("added")))).toBe(true);
+    expect(store.get(stale.id)).toBeUndefined();
+    expect(store.get(createShapeId("added"))).toBeDefined();
+    expect(store.get(kept.id)).toMatchObject({ x: 999 });
+  });
+
+  it("leaves ephemeral records untouched", () => {
+    const store = createStore();
+    store.put([makeCamera()]);
+    mergeExternalBoardSource(store, boardSource());
+    expect(store.get(makeCamera().id)).toMatchObject({ x: 1, y: 2 });
+  });
+
+  it("rejects invalid or empty input without touching the store", () => {
+    const store = createStore();
+    const shape = makeGeoShape("untouched");
+    store.put([shape]);
+    expect(mergeExternalBoardSource(store, "not json")).toBe(false);
+    expect(mergeExternalBoardSource(store, "")).toBe(false);
+    expect(store.get(shape.id)).toBeDefined();
   });
 });
 
 describe("seedBoardRecords", () => {
   it("promotes imported content into the records map exactly once", () => {
-    const store = createStore();
-    store.put([makeGeoShape("seeded")]);
-    const doc = new Y.Doc();
-    doc.getText(BOARD_CONTENT_KEY).insert(0, serializeBoard(store.allRecords()));
-
+    const doc = importedDoc(makeGeoShape("seeded"));
     expect(seedBoardRecords(doc)).toBe(true);
     const yRecords = doc.getMap<TLRecord>(BOARD_RECORDS_KEY);
     expect(yRecords.has(createShapeId("seeded"))).toBe(true);
@@ -187,67 +203,48 @@ describe("seedBoardRecords", () => {
   });
 
   it("converges when two peers seed concurrently", () => {
-    const store = createStore();
-    store.put([makeGeoShape("shared")]);
-    const content = serializeBoard(store.allRecords());
-    const a = new Y.Doc();
-    const b = new Y.Doc();
-    a.getText(BOARD_CONTENT_KEY).insert(0, content);
-    b.getText(BOARD_CONTENT_KEY).insert(0, content);
+    const a = importedDoc(makeGeoShape("shared"));
+    const b = importedDoc(makeGeoShape("shared"));
     seedBoardRecords(a);
     seedBoardRecords(b);
     syncDocs(a, b);
-    const aIds = [...a.getMap(BOARD_RECORDS_KEY).keys()].sort();
-    const bIds = [...b.getMap(BOARD_RECORDS_KEY).keys()].sort();
-    expect(aIds).toEqual(bIds);
-    expect(aIds).toContain(createShapeId("shared"));
+    const ids = (doc: Y.Doc) => [...doc.getMap(BOARD_RECORDS_KEY).keys()].sort();
+    expect(ids(a)).toEqual(ids(b));
+    expect(ids(a)).toContain(createShapeId("shared"));
   });
 });
 
 describe("boardDocContent", () => {
   it("falls back to imported text before seeding and prefers records after", () => {
-    const store = createStore();
-    store.put([makeGeoShape("first")]);
-    const doc = new Y.Doc();
-    doc.getText(BOARD_CONTENT_KEY).insert(0, serializeBoard(store.allRecords()));
+    const doc = importedDoc(makeGeoShape("first"));
     expect(boardDocContent(doc)).toContain(createShapeId("first"));
 
     seedBoardRecords(doc);
     // A record-only edit is reflected in the serialized content even though
     // the imported text is now stale.
     doc.getMap<TLRecord>(BOARD_RECORDS_KEY).set(makeGeoShape("second").id, makeGeoShape("second"));
-    const out = boardDocContent(doc);
-    expect(out).toContain(createShapeId("second"));
+    expect(boardDocContent(doc)).toContain(createShapeId("second"));
     expect(doc.getText(BOARD_CONTENT_KEY).toString()).not.toContain(createShapeId("second"));
   });
 });
 
 describe("replaceBoardDocFromSource", () => {
   it("reconciles changed, added, and removed records through the board CRDT", () => {
-    const original = createStore();
-    original.put([makeGeoShape("kept"), makeGeoShape("removed")]);
-    const doc = new Y.Doc();
-    doc.getText(BOARD_CONTENT_KEY).insert(0, serializeBoard(original.allRecords()));
+    const doc = importedDoc(makeGeoShape("kept"), makeGeoShape("removed"));
     seedBoardRecords(doc);
-
-    const incoming = createStore();
-    incoming.put([makeGeoShape("kept", 42), makeGeoShape("added", 7)]);
-    replaceBoardDocFromSource(doc, serializeBoard(incoming.allRecords()));
+    replaceBoardDocFromSource(doc, boardSource(makeGeoShape("kept", 42), makeGeoShape("added", 7)));
 
     const records = parseBoardRecords(boardDocContent(doc))!;
-    expect(records.find((record) => record.id === createShapeId("kept")))
-      .toMatchObject({ x: 42 });
-    expect(records.find((record) => record.id === createShapeId("added")))
-      .toMatchObject({ x: 7 });
-    expect(records.some((record) => record.id === createShapeId("removed"))).toBe(false);
+    const find = (id: string) => records.find((record) => record.id === createShapeId(id));
+    expect(find("kept")).toMatchObject({ x: 42 });
+    expect(find("added")).toMatchObject({ x: 7 });
+    expect(find("removed")).toBeUndefined();
   });
 });
 
 describe("attachBoardBridge", () => {
   it("pushes local document edits into the Y.Doc and keeps ephemeral records local", () => {
-    const store = createStore();
-    const doc = new Y.Doc();
-    const bridge = attachBoardBridge(store, doc);
+    const { store, doc } = bridged();
     const shape = makeGeoShape("local");
     store.put([shape, makeCamera()]);
     const yRecords = doc.getMap<TLRecord>(BOARD_RECORDS_KEY);
@@ -256,135 +253,73 @@ describe("attachBoardBridge", () => {
 
     store.remove([shape.id]);
     expect(yRecords.has(shape.id)).toBe(false);
-    bridge.dispose();
   });
 
   it("mirrors remote edits into the store across two bridged docs", () => {
-    const storeA = createStore();
-    const storeB = createStore();
-    const docA = new Y.Doc();
-    const docB = new Y.Doc();
-    const bridgeA = attachBoardBridge(storeA, docA);
-    const bridgeB = attachBoardBridge(storeB, docB);
-
+    const { a, b, sync } = peers();
     const shape = makeGeoShape("remote");
-    storeA.put([shape]);
-    syncDocs(docA, docB);
-    expect(storeB.get(shape.id)).toMatchObject({ id: shape.id, type: "geo" });
+    a.put([shape]);
+    sync();
+    expect(b.get(shape.id)).toMatchObject({ id: shape.id, type: "geo" });
 
-    storeA.put([{ ...shape, x: 500 }]);
-    syncDocs(docA, docB);
-    expect(storeB.get(shape.id)).toMatchObject({ x: 500 });
+    a.put([{ ...shape, x: 500 }]);
+    sync();
+    expect(b.get(shape.id)).toMatchObject({ x: 500 });
 
-    storeA.remove([shape.id]);
-    syncDocs(docA, docB);
-    expect(storeB.get(shape.id)).toBeUndefined();
-
-    bridgeA.dispose();
-    bridgeB.dispose();
+    a.remove([shape.id]);
+    sync();
+    expect(b.get(shape.id)).toBeUndefined();
   });
 
+  /** Concurrent edits to independent fields of `shape` on both peers. */
+  function editFieldsConcurrently({ a, b, sync }: ReturnType<typeof peers>, shape: TLShape) {
+    a.put([{ ...shapeIn(a, shape.id), x: 500 }]);
+    const peerShape = shapeIn(b, shape.id);
+    b.put([{ ...peerShape, props: { ...peerShape.props, color: "red" } } as TLShape]);
+    sync();
+    for (const store of [a, b]) expect(store.get(shape.id)).toMatchObject({ x: 500, props: { color: "red" } });
+  }
+
   it("merges concurrent edits to independent fields of the same shape", () => {
-    const storeA = createStore();
-    const storeB = createStore();
-    const docA = new Y.Doc();
-    const docB = new Y.Doc();
-    const bridgeA = attachBoardBridge(storeA, docA);
-    const bridgeB = attachBoardBridge(storeB, docB);
+    const pair = peers();
     const shape = makeGeoShape("concurrent");
-
-    storeA.put([shape]);
-    syncDocs(docA, docB);
-
-    storeA.put([{ ...storeA.get(shape.id) as TLShape, x: 500 }]);
-    const peerShape = storeB.get(shape.id) as TLShape;
-    storeB.put([{ ...peerShape, props: { ...peerShape.props, color: "red" } } as TLShape]);
-    syncDocs(docA, docB);
-
-    expect(storeA.get(shape.id)).toMatchObject({ x: 500, props: { color: "red" } });
-    expect(storeB.get(shape.id)).toMatchObject({ x: 500, props: { color: "red" } });
-    bridgeA.dispose();
-    bridgeB.dispose();
+    pair.a.put([shape]);
+    pair.sync();
+    editFieldsConcurrently(pair, shape);
   });
 
   it("preserves concurrent edits when both peers start from a legacy atomic record", () => {
-    const source = createStore();
     const shape = makeGeoShape("legacy");
-    source.put([shape]);
-    const baseline = new Y.Doc();
-    baseline.getText(BOARD_CONTENT_KEY).insert(0, serializeBoard(source.allRecords()));
+    const baseline = importedDoc(shape);
     baseline.getMap<TLRecord>(BOARD_RECORDS_KEY).set(shape.id, shape);
-    const initial = Y.encodeStateAsUpdate(baseline);
-    const docA = new Y.Doc();
-    const docB = new Y.Doc();
-    Y.applyUpdate(docA, initial);
-    Y.applyUpdate(docB, initial);
-    const storeA = createStore();
-    const storeB = createStore();
-    const bridgeA = attachBoardBridge(storeA, docA);
-    const bridgeB = attachBoardBridge(storeB, docB);
-
-    storeA.put([{ ...storeA.get(shape.id) as TLShape, x: 700 }]);
-    const peerShape = storeB.get(shape.id) as TLShape;
-    storeB.put([{ ...peerShape, props: { ...peerShape.props, color: "blue" } } as TLShape]);
-    syncDocs(docA, docB);
-
-    expect(storeA.get(shape.id)).toMatchObject({ x: 700, props: { color: "blue" } });
-    expect(storeB.get(shape.id)).toMatchObject({ x: 700, props: { color: "blue" } });
-    bridgeA.dispose();
-    bridgeB.dispose();
+    editFieldsConcurrently(peers(Y.encodeStateAsUpdate(baseline)), shape);
   });
 
   it("does not resurrect patches from an older incarnation after delete and recreate", () => {
-    const storeA = createStore();
-    const storeB = createStore();
-    const docA = new Y.Doc();
-    const docB = new Y.Doc();
-    const bridgeA = attachBoardBridge(storeA, docA);
-    const bridgeB = attachBoardBridge(storeB, docB);
+    const { a, b, sync } = peers();
     const shape = makeGeoShape("recreated");
-
-    storeA.put([shape]);
-    syncDocs(docA, docB);
-    storeA.put([{ ...storeA.get(shape.id) as TLShape, x: 900 }]);
-    storeB.remove([shape.id]);
-    storeB.put([{ ...shape, x: 20 }]);
-    syncDocs(docA, docB);
-
-    expect(storeA.get(shape.id)).toMatchObject({ x: 20 });
-    expect(storeB.get(shape.id)).toMatchObject({ x: 20 });
-    bridgeA.dispose();
-    bridgeB.dispose();
+    a.put([shape]);
+    sync();
+    a.put([{ ...shapeIn(a, shape.id), x: 900 }]);
+    b.remove([shape.id]);
+    b.put([{ ...shape, x: 20 }]);
+    sync();
+    for (const store of [a, b]) expect(store.get(shape.id)).toMatchObject({ x: 20 });
   });
 
   it("converges when a scalar and its subtree are edited concurrently", () => {
-    const storeA = createStore();
-    const storeB = createStore();
-    const docA = new Y.Doc();
-    const docB = new Y.Doc();
-    const bridgeA = attachBoardBridge(storeA, docA);
-    const bridgeB = attachBoardBridge(storeB, docB);
+    const { a, b, sync } = peers();
     const shape = { ...makeGeoShape("subtree"), meta: { custom: { child: 1 } } } as TLShape;
-
-    storeA.put([shape]);
-    syncDocs(docA, docB);
-    storeA.put([{ ...storeA.get(shape.id) as TLShape, meta: { custom: "scalar" } } as TLShape]);
-    storeB.put([{
-      ...storeB.get(shape.id) as TLShape,
-      meta: { custom: { child: 2, "a/b|c": true } },
-    } as TLShape]);
-    syncDocs(docA, docB);
-
-    expect(storeA.get(shape.id)?.meta.custom).toBe("scalar");
-    expect(storeB.get(shape.id)?.meta.custom).toBe("scalar");
-    bridgeA.dispose();
-    bridgeB.dispose();
+    a.put([shape]);
+    sync();
+    a.put([{ ...shapeIn(a, shape.id), meta: { custom: "scalar" } } as TLShape]);
+    b.put([{ ...shapeIn(b, shape.id), meta: { custom: { child: 2, "a/b|c": true } } } as TLShape]);
+    sync();
+    for (const store of [a, b]) expect(store.get(shape.id)?.meta.custom).toBe("scalar");
   });
 
   it("rejects prototype-polluting patch paths from peers", () => {
-    const store = createStore();
-    const doc = new Y.Doc();
-    const bridge = attachBoardBridge(store, doc);
+    const { store, doc } = bridged();
     const shape = makeGeoShape("safe-path");
     store.put([shape]);
     const generation = doc.getMap<string>(BOARD_RECORD_GENERATIONS_KEY).get(shape.id)!;
@@ -396,93 +331,53 @@ describe("attachBoardBridge", () => {
 
     expect((Object.prototype as { polluted?: boolean }).polluted).toBeUndefined();
     expect(store.get(shape.id)?.meta).toEqual({});
-    bridge.dispose();
   });
 
   it("hydrates read-only boards without seeding or publishing local mutations", () => {
-    const source = createStore();
-    source.put([makeGeoShape("visible")]);
-    const doc = new Y.Doc();
-    doc.getText(BOARD_CONTENT_KEY).insert(0, serializeBoard(source.allRecords()));
-    const store = createStore();
-    const bridge = attachBoardBridge(store, doc, { canWrite: false });
-
+    const { store, doc } = bridged(importedDoc(makeGeoShape("visible")), { canWrite: false });
     expect(store.get(createShapeId("visible"))).toBeDefined();
     expect(doc.getMap(BOARD_RECORDS_KEY).size).toBe(0);
     store.put([makeGeoShape("blocked")]);
     expect(doc.getMap(BOARD_RECORDS_KEY).size).toBe(0);
-    bridge.dispose();
   });
 
   it("stops publishing immediately when write permission is revoked", () => {
-    const doc = new Y.Doc();
-    const store = createStore();
     let canWrite = true;
-    const bridge = attachBoardBridge(store, doc, { canWrite: () => canWrite });
+    const { store, doc } = bridged(new Y.Doc(), { canWrite: () => canWrite });
     store.put([makeGeoShape("published")]);
     expect(doc.getMap(BOARD_RECORDS_KEY).has(createShapeId("published"))).toBe(true);
 
     canWrite = false;
     store.put([makeGeoShape("blocked-after-revoke")]);
     expect(doc.getMap(BOARD_RECORDS_KEY).has(createShapeId("blocked-after-revoke"))).toBe(false);
-    bridge.dispose();
   });
 
   it("seeds an empty store from imported content on attach", () => {
-    const source = createStore();
-    source.put([makeGeoShape("from-import")]);
-    const doc = new Y.Doc();
-    doc.getText(BOARD_CONTENT_KEY).insert(0, serializeBoard(source.allRecords()));
-
-    const store = createStore();
-    expect(store.get(createShapeId("from-import"))).toBeUndefined();
-    const bridge = attachBoardBridge(store, doc);
-    expect(store.get(createShapeId("from-import"))).toBeDefined();
-    bridge.dispose();
+    expect(bridged(importedDoc(makeGeoShape("from-import"))).store.get(createShapeId("from-import"))).toBeDefined();
   });
 
   it("treats the doc as authoritative on attach, removing stale store records", () => {
-    const storeA = createStore();
-    const storeB = createStore();
     const doc = new Y.Doc();
-    const bridgeA = attachBoardBridge(storeA, doc);
+    const storeA = createStore();
+    const disposeA = attachBoardBridge(storeA, doc);
     const kept = makeGeoShape("kept");
     storeA.put([kept]);
-    bridgeA.dispose();
+    disposeA();
 
-    storeB.put([makeGeoShape("stale"), makePage("extra", "Extra")]);
-    expect(storeB.get(kept.id)).toBeUndefined();
-    const bridgeB = attachBoardBridge(storeB, doc);
+    const storeB = createStore();
+    storeB.put([makeGeoShape("stale"), { id: "page:extra", typeName: "page", name: "Extra", index: "a2", meta: {} } as TLPage]);
+    disposers.push(attachBoardBridge(storeB, doc));
     expect(storeB.get(kept.id)).toBeDefined();
     expect(storeB.get(createShapeId("stale"))).toBeUndefined();
     expect(storeB.get("page:extra" as TLPage["id"])).toBeUndefined();
-    bridgeB.dispose();
   });
 
   it("does not echo local edits back as remote changes", () => {
-    const store = createStore();
-    const doc = new Y.Doc();
-    const bridge = attachBoardBridge(store, doc);
+    const { store } = bridged();
     const remote: string[] = [];
     store.listen((entry) => remote.push(...Object.keys(entry.changes.added)), { source: "remote", scope: "document" });
     store.put([makeGeoShape("no-echo")]);
     expect(remote).toEqual([]);
-    bridge.dispose();
-  });
-});
-
-describe("createBoardStore", () => {
-  it("loads valid .tldr content and falls back to an empty store", () => {
-    const source = createStore();
-    source.put([makeGeoShape("loaded")]);
-    const store = createBoardStore(serializeBoard(source.allRecords()));
-    expect(store.get(createShapeId("loaded"))).toBeDefined();
-
-    const fresh = createBoardStore("");
-    expect(fresh.allRecords().some((record) => record.typeName === "shape")).toBe(false);
-
-    const garbage = createBoardStore("{oops");
-    expect(garbage.allRecords().some((record) => record.typeName === "shape")).toBe(false);
   });
 });
 
@@ -490,87 +385,63 @@ describe("attachBoardPresence", () => {
   const alice = { id: "alice", name: "Alice", color: "#e03131" };
   const bob = { id: "bob", name: "Bob", color: "#1971c2" };
 
+  /** Presence bindings are idempotent to dispose, so afterEach also releases any a test did not. */
+  function present(user: typeof alice, store = createStore(), existing?: Awareness) {
+    const awareness = existing ?? new Awareness(new Y.Doc());
+    if (!existing) disposers.push(() => awareness.destroy());
+    const dispose = attachBoardPresence(store, awareness, user, { throttleMs: 0 });
+    disposers.push(dispose);
+    return { store, awareness, dispose };
+  }
+
   it("publishes local presence to awareness and renders remote peers in the store", () => {
-    const storeA = createStore();
-    const storeB = createStore();
-    const awarenessA = new Awareness(new Y.Doc());
-    const awarenessB = new Awareness(new Y.Doc());
-    const disposeA = attachBoardPresence(storeA, awarenessA, alice, { throttleMs: 0 });
-    const disposeB = attachBoardPresence(storeB, awarenessB, bob, { throttleMs: 0 });
+    const a = present(alice);
+    const b = present(bob);
+    const local = a.awareness.getLocalState()?.boardPresence as TLInstancePresence;
+    expect(local).toMatchObject({ userName: "Alice", color: "#e03131" });
+    expect(local.id.startsWith("instance_presence:")).toBe(true);
 
-    const local = awarenessA.getLocalState()?.boardPresence as TLInstancePresence | undefined;
-    expect(local).toBeDefined();
-    expect(local!.userName).toBe("Alice");
-    expect(local!.color).toBe("#e03131");
-    expect(local!.id.startsWith("instance_presence:")).toBe(true);
-
-    syncAwareness(awarenessA, awarenessB);
-    const seenByB = presenceRecords(storeB);
-    expect(seenByB).toHaveLength(1);
-    expect(seenByB[0]).toMatchObject({ userName: "Alice", color: "#e03131" });
+    syncAwareness(a.awareness, b.awareness);
+    expect(presenceRecords(b.store)).toEqual([expect.objectContaining({ userName: "Alice", color: "#e03131" })]);
     // Our own presence is broadcast, not stored locally.
-    expect(presenceRecords(storeA).map((record) => record.userName)).toEqual(["Bob"]);
-
-    disposeA();
-    disposeB();
-    awarenessA.destroy();
-    awarenessB.destroy();
+    expect(presenceRecords(a.store).map((record) => record.userName)).toEqual(["Bob"]);
   });
 
   it("reclaims a peer's presence when it leaves or times out", () => {
-    const storeA = createStore();
-    const storeB = createStore();
-    const awarenessA = new Awareness(new Y.Doc());
-    const awarenessB = new Awareness(new Y.Doc());
-    const disposeA = attachBoardPresence(storeA, awarenessA, alice, { throttleMs: 0 });
-    const disposeB = attachBoardPresence(storeB, awarenessB, bob, { throttleMs: 0 });
-    syncAwareness(awarenessA, awarenessB);
-    expect(presenceRecords(storeB)).toHaveLength(1);
+    const a = present(alice);
+    const b = present(bob);
+    syncAwareness(a.awareness, b.awareness);
+    expect(presenceRecords(b.store)).toHaveLength(1);
 
     // Graceful leave: A clears its field (dispose) and the update propagates.
-    disposeA();
-    syncAwareness(awarenessA, awarenessB);
-    expect(presenceRecords(storeB)).toHaveLength(0);
+    a.dispose();
+    syncAwareness(a.awareness, b.awareness);
+    expect(presenceRecords(b.store)).toHaveLength(0);
 
     // Timeout path: B never hears from A again; the client drops out of states.
-    const disposeA2 = attachBoardPresence(storeA, awarenessA, alice, { throttleMs: 0 });
-    syncAwareness(awarenessA, awarenessB);
-    expect(presenceRecords(storeB)).toHaveLength(1);
-    removeAwarenessStates(awarenessB, [awarenessA.clientID], "test");
-    expect(presenceRecords(storeB)).toHaveLength(0);
-
-    disposeA2();
-    disposeB();
-    awarenessA.destroy();
-    awarenessB.destroy();
+    present(alice, a.store, a.awareness);
+    syncAwareness(a.awareness, b.awareness);
+    expect(presenceRecords(b.store)).toHaveLength(1);
+    removeAwarenessStates(b.awareness, [a.awareness.clientID], "test");
+    expect(presenceRecords(b.store)).toHaveLength(0);
   });
 
   it("keeps presence out of the Y.Doc records map", () => {
-    const storeA = createStore();
-    const docA = new Y.Doc();
-    const awarenessA = new Awareness(new Y.Doc());
-    const bridge = attachBoardBridge(storeA, docA);
-    const dispose = attachBoardPresence(storeA, awarenessA, alice, { throttleMs: 0 });
-    expect(awarenessA.getLocalState()?.boardPresence).toBeDefined();
-    for (const key of docA.getMap(BOARD_RECORDS_KEY).keys()) {
+    const { store, doc } = bridged();
+    const { awareness } = present(alice, store);
+    expect(awareness.getLocalState()?.boardPresence).toBeDefined();
+    for (const key of doc.getMap(BOARD_RECORDS_KEY).keys()) {
       expect(key.startsWith("instance_presence:")).toBe(false);
     }
-    dispose();
-    bridge.dispose();
-    awarenessA.destroy();
   });
 
   it("tracks cursor movement through the published record", () => {
-    const storeA = createStore();
-    const awarenessA = new Awareness(new Y.Doc());
-    const dispose = attachBoardPresence(storeA, awarenessA, alice, { throttleMs: 0 });
-    const before = awarenessA.getLocalState()?.boardPresence as TLInstancePresence;
-    const pointer = storeA.get("pointer:pointer" as TLRecord["id"])! as { x: number; y: number } & TLRecord;
-    storeA.put([{ ...pointer, x: 42, y: 24 } as TLRecord]);
-    const after = awarenessA.getLocalState()?.boardPresence as TLInstancePresence;
+    const { store, awareness } = present(alice);
+    const before = awareness.getLocalState()?.boardPresence as TLInstancePresence;
+    const pointer = store.get("pointer:pointer" as TLRecord["id"])! as { x: number; y: number } & TLRecord;
+    store.put([{ ...pointer, x: 42, y: 24 } as TLRecord]);
+    const after = awareness.getLocalState()?.boardPresence as TLInstancePresence;
     expect(after.cursor).toMatchObject({ x: 42, y: 24 });
     expect(after.id).toBe(before.id);
-    dispose();
-    awarenessA.destroy();
   });
 });

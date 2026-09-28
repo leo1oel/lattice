@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ComponentProps } from "react";
 import type { AssetPreview, FileViewState } from "../app-types";
 import { DocumentCanvas, OpenSlideTabPool } from "./document-canvas";
-import { createEditorComment } from "../editor/comments/editor-comments";
+import { createEditorComment } from "../editor/comments/editor-comment-data";
 import { EditorView } from "@codemirror/view";
 
 /**

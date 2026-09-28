@@ -10,6 +10,8 @@ import { openUrl, revealItemInDir } from "@tauri-apps/plugin-opener";
 import * as Y from "yjs";
 import {
   bibliographyEntryLine,
+  findAppendixMarker,
+  katexMacrosFromSources,
   mergeReferences,
   parseGraphicsPaths,
   parseLocalLabels,
@@ -195,7 +197,6 @@ import {
   parseProjectOutline,
 } from "./editor/latex/latex-outline";
 import { type HistoryItem } from "./history/history-drawer";
-import { katexMacrosFromSources } from "./editor/latex/katex-macros";
 import {
   editorDropPreviewAt,
   EditorDropPreviewPortal,
@@ -210,7 +211,6 @@ import {
 import { type ReplacePreviewResult } from "./project/project-replace-dialog";
 import { baseArxivId } from "./papers/arxiv-id";
 import { type PdfSyncTarget } from "./pdf/pdf-viewer";
-import { findAppendixMarker } from "./editor/latex/appendix-pages";
 import { mergeTodosWithBuffer, type TodoHit } from "./project/todo-scavenger";
 import { referenceAssetPreviewDataUrl } from "./project/reference-preview";
 import type {

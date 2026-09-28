@@ -32,7 +32,9 @@ async function checkCitationMenu() {
         const doc = '\\n'.repeat(lines) + '\\\\cite{}';
         const view = new EditorView({ parent: host, state: EditorState.create({
           doc, selection: { anchor: doc.length - 1 },
-          extensions: [latexEditorExtensions([], citations), autocompletion({ closeOnBlur: false }),
+          extensions: [latexEditorExtensions({ live: { current: { citationKeys: [], citations, references: [],
+            unusedLabels: [], unusedCitations: [], localMacros: [], graphicsRoots: [], projectPaths: [], spellingWords: [] } } }),
+            autocompletion({ closeOnBlur: false }),
             EditorView.theme({ '&': { height: '100%' } })],
         }) });
         view.focus();

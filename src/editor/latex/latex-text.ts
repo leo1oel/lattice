@@ -1,7 +1,9 @@
-const COMPLETE_LABEL = /\\label\{([^}]*)\}/g;
+export const LABEL = /\\label\{([^}]*)\}/g;
 const GRAPHICSPATH = /\\graphicspath\s*\{((?:\{[^}]*\})+)\}/g;
 const NEWCOMMAND = /\\(?:new|renew|provide)command\*?\{(\\[A-Za-z@]+)\}/g;
 const NEWENVIRONMENT = /\\(?:new|renew)environment\*?\{([A-Za-z*][A-Za-z0-9*]*)\}/g;
+const COMMAND_DEFINITION =
+  /\\(?:new|renew|provide)command\*?\{(\\[A-Za-z@]+)\}(?:\s*\[[^\]]*\])?\s*\{((?:[^{}]|\{[^{}]*\})*)\}/g;
 
 export type CitationInfo = {
   key: string;
@@ -40,32 +42,58 @@ export type LocalMacro = {
   type: "keyword" | "type";
 };
 
+export const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+/**
+ * Maps ascending offsets to 1-based lines in one pass over the source, so
+ * callers never split the whole buffer per match (they run per keystroke).
+ */
+export function lineCounter(source: string): (offset: number) => number {
+  let line = 1;
+  let newline = source.indexOf("\n");
+  return (offset) => {
+    while (newline !== -1 && newline < offset) {
+      line += 1;
+      newline = source.indexOf("\n", newline + 1);
+    }
+    return line;
+  };
+}
+
+/** `candidate` itself, or the project file that ends with it as a path suffix. */
+export function findProjectPath(candidate: string, projectPaths: string[]): string | null {
+  if (projectPaths.includes(candidate)) return candidate;
+  return projectPaths.find((path) => path.endsWith(`/${candidate}`)) ?? null;
+}
+
+/** The project `.tex` file an `\input`/`\include` argument names. */
+export function resolveTexPath(raw: string, projectPaths: string[]): string | null {
+  const path = raw.trim();
+  if (!path) return null;
+  for (const candidate of path.endsWith(".tex") ? [path] : [path, `${path}.tex`]) {
+    const found = findProjectPath(candidate, projectPaths);
+    if (found) return found;
+  }
+  return null;
+}
+
 /** Labels defined in a dirty buffer, for live completion before save. */
 export function parseLocalLabels(path: string, source: string): ReferenceInfo[] {
   const labels: ReferenceInfo[] = [];
   const seen = new Set<string>();
-  let line = 1;
-  let lineStart = 0;
-  let lineEnd = source.indexOf("\n");
-  COMPLETE_LABEL.lastIndex = 0;
-  for (let match = COMPLETE_LABEL.exec(source); match; match = COMPLETE_LABEL.exec(source)) {
+  const lineAt = lineCounter(source);
+  for (const match of source.matchAll(LABEL)) {
     const label = match[1].trim();
     if (!label || seen.has(label)) continue;
     seen.add(label);
-    // Matches arrive in source order. Advance once through the buffer instead
-    // of splitting it twice per label on every editor keystroke.
-    while (lineEnd !== -1 && lineEnd < match.index) {
-      line += 1;
-      lineStart = lineEnd + 1;
-      lineEnd = source.indexOf("\n", lineStart);
-    }
+    const lineEnd = source.indexOf("\n", match.index);
     labels.push({
       label,
       kind: "reference",
       title: label,
-      snippet: source.slice(lineStart, lineEnd === -1 ? source.length : lineEnd).trim(),
+      snippet: source.slice(source.lastIndexOf("\n", match.index) + 1, lineEnd === -1 ? undefined : lineEnd).trim(),
       path,
-      line,
+      line: lineAt(match.index),
     });
   }
   return labels;
@@ -76,44 +104,28 @@ export function mergeReferences(
   activePath: string,
   localLabels: ReferenceInfo[],
 ): ReferenceInfo[] {
-  const projectByLabel = new Map(
-    projectReferences
-      .filter((reference) => reference.path === activePath)
-      .map((reference) => [reference.label, reference]),
-  );
+  const activeByLabel = new Map<string, ReferenceInfo>();
   const byLabel = new Map<string, ReferenceInfo>();
   for (const reference of projectReferences) {
-    if (reference.path === activePath) continue;
-    byLabel.set(reference.label, reference);
+    (reference.path === activePath ? activeByLabel : byLabel).set(reference.label, reference);
   }
   for (const local of localLabels) {
-    const existing = projectByLabel.get(local.label);
-    byLabel.set(local.label, existing ? {
-      ...existing,
-      line: local.line,
-      snippet: local.snippet || existing.snippet,
-      path: local.path,
-    } : local);
+    const existing = activeByLabel.get(local.label);
+    byLabel.set(local.label, existing
+      ? { ...existing, line: local.line, snippet: local.snippet || existing.snippet, path: local.path }
+      : local);
   }
   return [...byLabel.values()];
 }
 
 export function parseLocalMacros(sources: string[]): LocalMacro[] {
   const macros = new Map<string, LocalMacro>();
+  const add = (label: string, detail: string, type: LocalMacro["type"]) => {
+    if (!macros.has(label)) macros.set(label, { label, detail, type });
+  };
   for (const source of sources) {
-    NEWCOMMAND.lastIndex = 0;
-    for (let match = NEWCOMMAND.exec(source); match; match = NEWCOMMAND.exec(source)) {
-      const label = match[1];
-      if (!macros.has(label)) macros.set(label, { label, detail: "project command", type: "keyword" });
-    }
-    NEWENVIRONMENT.lastIndex = 0;
-    for (let match = NEWENVIRONMENT.exec(source); match; match = NEWENVIRONMENT.exec(source)) {
-      const name = match[1];
-      const begin = `\\begin{${name}}`;
-      if (!macros.has(begin)) {
-        macros.set(begin, { label: begin, detail: "project environment", type: "type" });
-      }
-    }
+    for (const [, name] of source.matchAll(NEWCOMMAND)) add(name, "project command", "keyword");
+    for (const [, name] of source.matchAll(NEWENVIRONMENT)) add(`\\begin{${name}}`, "project environment", "type");
   }
   return [...macros.values()];
 }
@@ -121,8 +133,7 @@ export function parseLocalMacros(sources: string[]): LocalMacro[] {
 export function parseGraphicsPaths(sources: string[]): string[] {
   const roots = new Set<string>();
   for (const source of sources) {
-    GRAPHICSPATH.lastIndex = 0;
-    for (let match = GRAPHICSPATH.exec(source); match; match = GRAPHICSPATH.exec(source)) {
+    for (const match of source.matchAll(GRAPHICSPATH)) {
       for (const part of match[1].matchAll(/\{([^}]*)\}/g)) {
         const path = part[1].trim().replace(/\\/g, "/").replace(/\/+$/, "");
         if (path) roots.add(path);
@@ -133,8 +144,27 @@ export function parseGraphicsPaths(sources: string[]): string[] {
 }
 
 export function bibliographyEntryLine(source: string, key: string): number | null {
-  const pattern = new RegExp(`@[A-Za-z]+\\s*\\{\\s*${key.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*,`, "i");
-  const match = pattern.exec(source);
-  if (!match) return null;
-  return source.slice(0, match.index).split("\n").length;
+  const match = new RegExp(`@[A-Za-z]+\\s*\\{\\s*${escapeRegExp(key)}\\s*,`, "i").exec(source);
+  return match ? source.slice(0, match.index).split("\n").length : null;
+}
+
+/** `\newcommand{\foo}{body}` definitions for KaTeX `macros`; the first definition wins. */
+export function katexMacrosFromSources(sources: string[]): Record<string, string> {
+  const macros: Record<string, string> = {};
+  for (const source of sources) {
+    for (const [, name, rawBody] of source.matchAll(COMMAND_DEFINITION)) {
+      const body = rawBody.trim();
+      if (name && body && !macros[name]) macros[name] = body;
+    }
+  }
+  return macros;
+}
+
+/** Locate the first `\appendix` switch in project sources (line is 1-based). */
+export function findAppendixMarker(sources: Record<string, string>): { path: string; line: number } | null {
+  for (const [path, source] of Object.entries(sources)) {
+    const index = source.split("\n").findIndex((line) => /(^|[^\\])\\appendix\b/.test(` ${line.split("%")[0]}`));
+    if (index >= 0) return { path, line: index + 1 };
+  }
+  return null;
 }

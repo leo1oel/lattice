@@ -21,33 +21,19 @@ export function MathPreview(props: {
   cursor: number;
   macros?: Record<string, string>;
 }) {
-  const region = useMemo(
-    () => mathRegionAt(props.source, props.cursor),
-    [props.cursor, props.source],
-  );
+  const region = useMemo(() => mathRegionAt(props.source, props.cursor), [props.cursor, props.source]);
   const rendered = useMemo(() => {
-    if (!region?.source) return null;
-    const source = forPreview(region.source);
-    if (!source) return null;
+    const source = region?.source && forPreview(region.source);
+    if (!region || !source) return null;
     try {
-      return {
-        html: katex.renderToString(source, {
-          displayMode: region.display,
-          throwOnError: false,
-          strict: "ignore",
-          macros: props.macros,
-        }),
-        error: "",
-      };
+      const options = { displayMode: region.display, throwOnError: false, strict: "ignore" as const, macros: props.macros };
+      return { html: katex.renderToString(source, options), error: "" };
     } catch (reason) {
-      return {
-        html: "",
-        error: reason instanceof Error ? reason.message : String(reason),
-      };
+      return { html: "", error: reason instanceof Error ? reason.message : String(reason) };
     }
   }, [props.macros, region]);
 
-  if (!region || !rendered) return null;
+  if (!rendered) return null;
   return (
     <div className="math-preview" aria-label="Math preview">
       <small>Math preview</small>

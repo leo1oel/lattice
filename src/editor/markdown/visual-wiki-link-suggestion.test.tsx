@@ -21,9 +21,7 @@ const contents: Record<string, string> = {
   "other.md": "# Other page\n## Background",
 };
 
-function file(path: string): FileNode {
-  return { name: path, path, kind: "file", contentKind: "text", children: [] };
-}
+const file = (path: string): FileNode => ({ name: path, path, kind: "file", contentKind: "text", children: [] });
 
 let index: MarkdownWorkspaceIndex;
 
@@ -39,9 +37,7 @@ function renderEditor(text = "", onOpenProjectPath = vi.fn()) {
   return { ...result, surface, editor: (surface as HTMLElement & { editor: Editor }).editor, onOpenProjectPath };
 }
 
-function markdown(editor: Editor) {
-  return getMarkdownManager().serialize(editor.getJSON());
-}
+const markdown = (editor: Editor) => getMarkdownManager().serialize(editor.getJSON());
 
 describe("visual wiki-link suggestion", () => {
   it("opens on [[, filters pages, and inserts the selected page", async () => {
@@ -83,17 +79,12 @@ describe("visual wiki-link suggestion", () => {
     expect(() => unmount()).not.toThrow();
   });
 
-  it("opens the indexed path on meta-click", () => {
-    const onOpenProjectPath = vi.fn();
-    const { surface } = renderEditor("[[TargetDoc]]", onOpenProjectPath);
+  it.each([
+    ["the indexed path", "[[TargetDoc]]", "TargetDoc.md"],
+    ["a target with literal percent escapes", "[[Agent%20Memory]]", "Agent%20Memory.md"],
+  ])("opens %s on meta-click", (_name, text, path) => {
+    const { surface, onOpenProjectPath } = renderEditor(text);
     fireEvent.click(surface.querySelector("[data-wiki-link]")!, { metaKey: true });
-    expect(onOpenProjectPath).toHaveBeenCalledWith("TargetDoc.md");
-  });
-
-  it("keeps percent escapes literal in wiki-link targets", () => {
-    const onOpenProjectPath = vi.fn();
-    const { surface } = renderEditor("[[Agent%20Memory]]", onOpenProjectPath);
-    fireEvent.click(surface.querySelector("[data-wiki-link]")!, { metaKey: true });
-    expect(onOpenProjectPath).toHaveBeenCalledWith("Agent%20Memory.md");
+    expect(onOpenProjectPath).toHaveBeenCalledWith(path);
   });
 });

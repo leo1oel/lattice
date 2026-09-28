@@ -11,7 +11,7 @@ import {
   type Editor,
   type NodeViewProps,
 } from "@tiptap/react";
-import { cleanup, render, waitFor } from "@testing-library/react";
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 
 // A React NodeView whose component renders no [data-node-view-content] target
@@ -55,12 +55,8 @@ afterEach(cleanup);
 
 describe("@tiptap/react node view content hole", () => {
   it("renders children into the NodeViewContent target when there is one", async () => {
-    const editor = renderEditor("<div data-withhole><p>inside</p></div>");
-    const root = await waitFor(() => {
-      const element = editor.view.dom.querySelector<HTMLElement>('[data-testid="with-hole"]');
-      expect(element).not.toBeNull();
-      return element!;
-    });
+    renderEditor("<div data-withhole><p>inside</p></div>");
+    const root = await screen.findByTestId("with-hole");
     const contentDOM = root.querySelector("[data-node-view-content-react]");
     await waitFor(() => expect(contentDOM?.parentElement).toHaveAttribute("data-node-view-content"));
     expect(contentDOM).toHaveTextContent("inside");
@@ -68,7 +64,7 @@ describe("@tiptap/react node view content hole", () => {
 
   it("keeps contentDOM on the node view root when there is no content target", async () => {
     const editor = renderEditor("<div data-withouthole><p>kept</p></div>");
-    await waitFor(() => expect(editor.view.dom.querySelector('[data-testid="without-hole"]')).not.toBeNull());
+    await screen.findByTestId("without-hole");
     const contentDOM = editor.view.dom.querySelector("[data-node-view-content-react]");
     expect(contentDOM).not.toBeNull();
     expect(contentDOM!.isConnected).toBe(true);

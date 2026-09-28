@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { whenIdle } from "../dom-utils";
 
 type VisibilityListener = (visible: boolean) => void;
 
@@ -7,25 +8,21 @@ type SharedObserver = {
   visibleObserver: IntersectionObserver;
   listeners: Map<Element, Set<VisibilityListener>>;
   pending: Map<VisibilityListener, Element>;
-  idleHandle: number | null;
-  idleKind: "idle" | "timer" | null;
+  cancelScheduled: (() => void) | null;
 };
 
-const rootedObservers = new WeakMap<Element, Map<string, SharedObserver>>();
-const viewportObservers = new Map<string, SharedObserver>();
-const scheduleTimer = (callback: () => void, delay: number): number => window.setTimeout(callback, delay);
+const PRELOAD_MARGIN = "900px 0px";
+/** Observers per scrollport (`null` = the viewport), dropped with their last listener. */
+const observersByRoot = new Map<Element | null, SharedObserver>();
 
 function scheduleMaterialization(shared: SharedObserver) {
-  if (shared.idleHandle != null || shared.pending.size === 0) return;
+  if (shared.cancelScheduled || shared.pending.size === 0) return;
   const materializeNext = () => {
-    shared.idleHandle = null;
-    shared.idleKind = null;
+    shared.cancelScheduled = null;
     const startedAt = performance.now();
     let materialized = 0;
     while (shared.pending.size > 0 && materialized < 4 && performance.now() - startedAt < 6) {
-      const next = shared.pending.entries().next().value as [VisibilityListener, Element] | undefined;
-      if (!next) break;
-      const [listener, element] = next;
+      const [listener, element] = shared.pending.entries().next().value!;
       shared.pending.delete(listener);
       if (shared.listeners.get(element)?.has(listener)) listener(true);
       materialized += 1;
@@ -34,39 +31,17 @@ function scheduleMaterialization(shared: SharedObserver) {
     // formula-heavy documents ahead of ordinary trackpad scrolling.
     scheduleMaterialization(shared);
   };
-  if ("requestIdleCallback" in window) {
-    shared.idleKind = "idle";
-    shared.idleHandle = window.requestIdleCallback(materializeNext, { timeout: 50 });
-  } else {
-    shared.idleKind = "timer";
-    shared.idleHandle = scheduleTimer(materializeNext, 32);
-  }
+  shared.cancelScheduled = whenIdle(materializeNext, 50, 32);
 }
 
-function cancelMaterialization(shared: SharedObserver) {
-  if (shared.idleHandle == null) return;
-  if (shared.idleKind === "idle" && "cancelIdleCallback" in window) {
-    window.cancelIdleCallback(shared.idleHandle);
-  } else {
-    window.clearTimeout(shared.idleHandle);
-  }
-  shared.idleHandle = null;
-  shared.idleKind = null;
-}
-
-function sharedObserver(root: Element | null, rootMargin: string): SharedObserver {
-  const observers = root
-    ? (rootedObservers.get(root) ?? new Map<string, SharedObserver>())
-    : viewportObservers;
-  if (root && !rootedObservers.has(root)) rootedObservers.set(root, observers);
-  const existing = observers.get(rootMargin);
+function sharedObserver(root: Element | null): SharedObserver {
+  const existing = observersByRoot.get(root);
   if (existing) return existing;
   const listeners = new Map<Element, Set<VisibilityListener>>();
   const shared: SharedObserver = {
     listeners,
     pending: new Map(),
-    idleHandle: null,
-    idleKind: null,
+    cancelScheduled: null,
     preloadObserver: new IntersectionObserver((entries) => {
       for (const entry of entries) {
         const targetListeners = listeners.get(entry.target);
@@ -80,7 +55,7 @@ function sharedObserver(root: Element | null, rootMargin: string): SharedObserve
         }
       }
       scheduleMaterialization(shared);
-    }, { root, rootMargin }),
+    }, { root, rootMargin: PRELOAD_MARGIN }),
     visibleObserver: new IntersectionObserver((entries) => {
       for (const entry of entries) {
         if (!entry.isIntersecting) continue;
@@ -95,7 +70,7 @@ function sharedObserver(root: Element | null, rootMargin: string): SharedObserve
       }
     }, { root }),
   };
-  observers.set(rootMargin, shared);
+  observersByRoot.set(root, shared);
   return shared;
 }
 
@@ -109,32 +84,24 @@ function sharedObserver(root: Element | null, rootMargin: string): SharedObserve
  * so WebKit can preload them before it materializes the item's descendants.
  * Recently rendered content is retained briefly for smooth scroll reversal.
  */
-export function useNearViewport<T extends Element>(rootMargin = "900px 0px") {
+export function useNearViewport<T extends Element>() {
   const [element, setElement] = useState<T | null>(null);
   const [nearViewport, setNearViewport] = useState(() => typeof IntersectionObserver === "undefined");
 
   useEffect(() => {
     if (!element || typeof IntersectionObserver === "undefined") return;
     const root = element.closest<HTMLElement>(".editor-doc-scroll");
-    const shared = sharedObserver(root, rootMargin);
+    const shared = sharedObserver(root);
     // Use semantic wrappers whose identity survives decoration threshold
     // changes. Existing NodeViews don't remount when a list gains item #20.
     const observed = element.closest<HTMLElement>("li")
       ?? element.closest<HTMLElement>(".jsx-component-wrapper")
       ?? element;
-    let offscreenTimer: ReturnType<typeof setTimeout> | null = null;
+    let offscreenTimer: ReturnType<typeof setTimeout> | undefined;
     const listener: VisibilityListener = (visible) => {
-      if (visible) {
-        if (offscreenTimer !== null) clearTimeout(offscreenTimer);
-        offscreenTimer = null;
-        setNearViewport(true);
-        return;
-      }
-      if (offscreenTimer !== null) clearTimeout(offscreenTimer);
-      offscreenTimer = setTimeout(() => {
-        offscreenTimer = null;
-        setNearViewport(false);
-      }, 3_000);
+      clearTimeout(offscreenTimer);
+      offscreenTimer = visible ? undefined : setTimeout(() => setNearViewport(false), 3_000);
+      if (visible) setNearViewport(true);
     };
     const targetListeners = shared.listeners.get(observed) ?? new Set<VisibilityListener>();
     const firstForTarget = targetListeners.size === 0;
@@ -145,7 +112,7 @@ export function useNearViewport<T extends Element>(rootMargin = "900px 0px") {
       shared.visibleObserver.observe(observed);
     }
     return () => {
-      if (offscreenTimer !== null) clearTimeout(offscreenTimer);
+      clearTimeout(offscreenTimer);
       targetListeners.delete(listener);
       shared.pending.delete(listener);
       if (targetListeners.size === 0) {
@@ -154,13 +121,12 @@ export function useNearViewport<T extends Element>(rootMargin = "900px 0px") {
         shared.listeners.delete(observed);
       }
       if (shared.listeners.size > 0) return;
-      cancelMaterialization(shared);
+      shared.cancelScheduled?.();
       shared.preloadObserver.disconnect();
       shared.visibleObserver.disconnect();
-      const observers = root ? rootedObservers.get(root) : viewportObservers;
-      observers?.delete(rootMargin);
+      observersByRoot.delete(root);
     };
-  }, [element, rootMargin]);
+  }, [element]);
 
   return { nearViewport, viewportRef: setElement };
 }

@@ -1,56 +1,30 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import type { MessageDescriptor } from "@lingui/core";
-import { msg } from "@lingui/core/macro";
 import { useLingui } from "@lingui/react";
 import { invoke } from "@tauri-apps/api/core";
 import { save as saveDialog } from "@tauri-apps/plugin-dialog";
 import type { Awareness } from "y-protocols/awareness";
 import * as Y from "yjs";
-import {
-  BorderStyleTypes,
-  ColorKit,
-  CommandType,
-  DOCS_FORMULA_BAR_EDITOR_UNIT_ID_KEY,
-  IConfirmService,
-  invertColorByMatrix,
-  LocaleType,
-  LogLevel,
-  type Plugin,
-  type PluginCtor,
-  ThemeService,
-  Univer,
-  type IDisposable,
-  type IWorkbookData,
-} from "@univerjs/core";
-import { FUniver } from "@univerjs/core/facade";
-import {
-  UniverSheetsCorePreset,
-  type FWorkbook,
-} from "@univerjs/preset-sheets-core";
-import enUS from "@univerjs/preset-sheets-core/locales/en-US";
-import zhCN from "@univerjs/preset-sheets-core/locales/zh-CN";
-import "@univerjs/preset-sheets-core/lib/index.css";
-import { IRenderManagerService, SHEET_VIEWPORT_KEY, type IScrollBarProps } from "@univerjs/engine-render";
-import {
-  IMenuManagerService,
-  MenuItemType,
-  UniverUIPlugin,
-  type IConfirmPartMethodOptions,
-} from "@univerjs/ui";
-import { BehaviorSubject } from "rxjs";
+import { CommandType, DOCS_FORMULA_BAR_EDITOR_UNIT_ID_KEY, type IWorkbookData } from "@univerjs/core";
+import type { FUniver } from "@univerjs/core/facade";
+import type { FRange, FWorkbook, FWorksheet } from "@univerjs/preset-sheets-core";
 import { logAction } from "../../telemetry/app-notify";
-import { confirmAction } from "../../app-utils";
 import type { SpreadsheetFileViewState } from "../../app-types";
 import { ExternalScrollbar } from "../../components/ui/external-scrollbar";
+import { whenIdle } from "../dom-utils";
 import { utf8ToBase64 } from "../../pdf/pdf-bytes";
 import { registerAgentSpreadsheetDocument } from "../../agent/agent-spreadsheet-tools";
-import { a1Range, parseA1Range } from "./spreadsheet-operations";
-import type {
-  SpreadsheetCellData,
-  SpreadsheetPresence,
-  SpreadsheetPresenceUser,
-  SpreadsheetWorkbookData,
-} from "./spreadsheet-types";
+import { DEFAULT_PRESENCE_COLOR, attachSpreadsheetPresence, type RemotePresence } from "./spreadsheet-presence";
+import { parseA1Range } from "./spreadsheet-operations";
+import { clone, inBounds, isRecord, jsonEqual, type SpreadsheetCellData, type SpreadsheetPresenceUser, type SpreadsheetWorkbookData } from "./spreadsheet-types";
+import {
+  SPREADSHEET_MESSAGES,
+  appearanceDefaultStyle,
+  applyRenderAppearance,
+  applyUniverTheme,
+  createSpreadsheetUniver,
+  spreadsheetAppearance,
+  withSpreadsheetAppearance,
+} from "./spreadsheet-univer";
 import {
   SPREADSHEET_LOCAL_ORIGIN,
   applySpreadsheetCellChanges,
@@ -63,158 +37,10 @@ import {
 
 const SERIALIZE_DEBOUNCE_MS = 300;
 const SERIALIZE_IDLE_TIMEOUT_MS = 1_000;
-const PRESENCE_THROTTLE_MS = 100;
-const SPREADSHEET_PRESENCE_FIELD = "spreadsheetPresence";
-const SPREADSHEET_AGENT_PRESENCE_FIELD = "spreadsheetAgentPresence";
-const SPREADSHEET_SOURCE = "Spreadsheet";
+const MAX_PATCHED_REMOTE_CELLS = 1_000;
 const SET_RANGE_VALUES_MUTATION = "sheet.mutation.set-range-values";
-const SPREADSHEET_FORMULAS_MENU_ID = "lattice.spreadsheet.formulas";
-const SPREADSHEET_EXPORT_MENU_ID = "lattice.spreadsheet.export-xlsx";
-const SPREADSHEET_FUNCTIONS_PANEL_SELECTOR = '[data-u-comp="sheets-formula-functions-panel"]';
-const SPREADSHEET_FORMULA_SURFACE_LIGHT = "#FAFAFA";
-const SPREADSHEET_CHROME_SURFACE_LIGHT = "#F4F4F5";
-const SPREADSHEET_CHROME_SURFACE_DARK = "#18181A";
-const COMMON_SPREADSHEET_FORMULAS = ["SUMIF", "SUM", "AVERAGE", "IF", "COUNT", "MAX", "MIN"] as const;
-// Univer's protection rules are not part of Lattice's Yjs workbook schema yet.
-// Hiding every entry point prevents a local-only rule from looking like a
-// reliable permission boundary to collaborators or the Agent.
-const SPREADSHEET_MENU_CONFIG = {
-  "sheet.command.add-range-protection-from-toolbar": { hidden: true },
-  "sheet.contextMenu.permission": { hidden: true },
-  "sheet.command.add-range-protection-from-context-menu": { hidden: true },
-  "sheet.command.set-range-protection-from-context-menu": { hidden: true },
-  "sheet.command.delete-range-protection-from-context-menu": { hidden: true },
-  "sheet.command.view-sheet-permission-from-context-menu": { hidden: true },
-  "sheet.command.add-range-protection-from-sheet-bar": { hidden: true },
-  "sheet.command.delete-worksheet-protection-from-sheet-bar": { hidden: true },
-  "sheet.command.change-sheet-protection-from-sheet-bar": { hidden: true },
-  "sheet.command.view-sheet-permission-from-sheet-bar": { hidden: true },
-  // The simple ribbon has no tab strip. A compact Formulas selector is added to
-  // the Start group below; remove Univer's category duplicates and the lone
-  // Data action from that single row.
-  "formula-ui.operation.insert-function.common": { hidden: true },
-  "formula-ui.operation.insert-function.financial": { hidden: true },
-  "formula-ui.operation.insert-function.logical": { hidden: true },
-  "formula-ui.operation.insert-function.text": { hidden: true },
-  "formula-ui.operation.insert-function.date": { hidden: true },
-  "formula-ui.operation.insert-function.lookup": { hidden: true },
-  "formula-ui.operation.insert-function.math": { hidden: true },
-  "formula-ui.operation.insert-function.statistical": { hidden: true },
-  "formula-ui.operation.insert-function.engineering": { hidden: true },
-  "formula-ui.operation.insert-function.information": { hidden: true },
-  "formula-ui.operation.insert-function.database": { hidden: true },
-  "sheet.toolbar.text-to-number": { hidden: true },
-};
-
-type SpreadsheetAppearance = {
-  background: string;
-  foreground: string;
-  surface: string;
-  border: string;
-  gridline: string;
-  muted: string;
-  dark: boolean;
-};
-
-type UniverTheme = ReturnType<ThemeService["getCurrentTheme"]>;
-type TranslateMessage = (message: MessageDescriptor) => string;
-
-const SPREADSHEET_CONFIRM_MESSAGES = {
-  deleteWorksheetTitle: msg`Delete worksheet?`,
-  deleteWorksheet: msg`The worksheet and all of its contents will be removed.`,
-  deleteWorksheetPermanently: msg`The worksheet and all of its contents will be removed and cannot be recovered.`,
-  continueTitle: msg`Continue?`,
-  continueMessage: msg`Please confirm that you want to continue.`,
-  delete: msg`Delete`,
-  continue: msg`Continue`,
-  cancel: msg`Cancel`,
-};
-const SPREADSHEET_EXPORT_MESSAGES = {
-  menuLabel: msg`Export Excel`,
-  dialogTitle: msg`Export Excel workbook`,
-  fileType: msg`Excel workbook`,
-};
-const SPREADSHEET_FORMULA_MESSAGES = {
-  menuLabel: msg`Formulas`,
-  tooltip: msg`Insert a formula`,
-  allFunctions: msg`All Functions…`,
-};
-
-function confirmLabelText(value: unknown): string | undefined {
-  if (typeof value === "string") return value;
-  if (typeof value === "number") return String(value);
-  if (Array.isArray(value)) {
-    const text = value.map(confirmLabelText).filter(Boolean).join(" ").trim();
-    return text || undefined;
-  }
-  if (!isRecord(value)) return undefined;
-  for (const key of ["title", "value", "label", "children"] as const) {
-    const text = confirmLabelText(value[key]);
-    if (text) return text;
-  }
-  if (isRecord(value.props)) return confirmLabelText(value.props.children);
-  return undefined;
-}
-
-class LatticeSpreadsheetConfirmService implements IConfirmService<IConfirmPartMethodOptions>, IDisposable {
-  readonly confirmOptions$ = new BehaviorSubject<IConfirmPartMethodOptions[]>([]);
-  private readonly openRequests = new Map<string, symbol>();
-
-  constructor(
-    private readonly translate: TranslateMessage,
-    private readonly locale: "en" | "zh-CN",
-  ) {}
-
-  open(params: IConfirmPartMethodOptions): IDisposable {
-    const request = Symbol(params.id);
-    this.openRequests.set(params.id, request);
-    void this.confirm(params).then((confirmed) => {
-      if (this.openRequests.get(params.id) !== request) return;
-      this.openRequests.delete(params.id);
-      if (confirmed) params.onConfirm?.();
-      else params.onClose?.();
-    });
-    return {
-      dispose: () => {
-        if (this.openRequests.get(params.id) === request) this.openRequests.delete(params.id);
-      },
-    };
-  }
-
-  confirm(params: IConfirmPartMethodOptions): Promise<boolean> {
-    const title = confirmLabelText(params.title);
-    const description = confirmLabelText(params.children);
-    const removeSheet = params.id === "sheet.confirm.remove-sheet";
-    const irreversibleSheetRemoval = removeSheet && (this.locale === "zh-CN"
-      ? description?.includes("删除后将不可找回")
-      : description?.includes("not be retrieved after deletion"));
-    const destructive = removeSheet || /\b(delete|remove|discard|overwrite)\b/i.test(`${title ?? ""} ${description ?? ""}`);
-    return confirmAction({
-      title: removeSheet
-        ? this.translate(SPREADSHEET_CONFIRM_MESSAGES.deleteWorksheetTitle)
-        : title ?? this.translate(SPREADSHEET_CONFIRM_MESSAGES.continueTitle),
-      message: removeSheet
-        ? irreversibleSheetRemoval
-          ? this.translate(SPREADSHEET_CONFIRM_MESSAGES.deleteWorksheetPermanently)
-          : this.translate(SPREADSHEET_CONFIRM_MESSAGES.deleteWorksheet)
-        : description ?? this.translate(SPREADSHEET_CONFIRM_MESSAGES.continueMessage),
-      confirmLabel: removeSheet
-        ? this.translate(SPREADSHEET_CONFIRM_MESSAGES.delete)
-        : confirmLabelText(params.confirmText) ?? this.translate(SPREADSHEET_CONFIRM_MESSAGES.continue),
-      cancelLabel: confirmLabelText(params.cancelText) ?? this.translate(SPREADSHEET_CONFIRM_MESSAGES.cancel),
-      destructive,
-    });
-  }
-
-  close(id: string): void {
-    this.openRequests.delete(id);
-  }
-
-  dispose(): void {
-    this.openRequests.clear();
-    this.confirmOptions$.complete();
-  }
-}
+const FUNCTIONS_PANEL_SELECTOR = '[data-u-comp="sheets-formula-functions-panel"]';
+const VIEW_KEYS = ["zoomRatio", "scrollTop", "scrollLeft"] as const;
 
 export type SpreadsheetCollabBinding = {
   doc: Y.Doc;
@@ -236,417 +62,39 @@ export type SpreadsheetEditorProps = {
   onViewState?: (state: SpreadsheetFileViewState) => void;
 };
 
-type SpreadsheetEditorSurfaceProps = SpreadsheetEditorProps & {
-  doc: Y.Doc;
-  localDoc: Y.Doc | null;
-};
+type SheetView = Pick<SpreadsheetWorkbookData["sheets"][string], (typeof VIEW_KEYS)[number]>;
+type LocalCellChange = { row: number; column: number; previous: SpreadsheetCellData | null; next: SpreadsheetCellData | null };
 
-type RemotePresence = {
-  key: string;
-  clientId: number;
-  user: SpreadsheetPresenceUser;
-  presence: SpreadsheetPresence;
-};
-
-function sameJson(left: unknown, right: unknown): boolean {
-  return JSON.stringify(left) === JSON.stringify(right);
-}
-
-function asWorkbookData(value: IWorkbookData): SpreadsheetWorkbookData {
-  return value as unknown as SpreadsheetWorkbookData;
-}
-
-function clone<T>(value: T): T {
-  return JSON.parse(JSON.stringify(value)) as T;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return value !== null && typeof value === "object" && !Array.isArray(value);
-}
-
-function resolvedToken(styles: CSSStyleDeclaration, name: string, fallback: string): string {
-  let value = styles.getPropertyValue(name).trim();
-  const visited = new Set<string>();
-  while (value.startsWith("var(") && value.endsWith(")")) {
-    const variable = value.slice(4, -1).split(",", 1)[0].trim();
-    if (!variable.startsWith("--") || visited.has(variable)) return fallback;
-    visited.add(variable);
-    value = styles.getPropertyValue(variable).trim();
-  }
-  return value || fallback;
-}
-
-function visibleColor(value: string, fallback: string): string {
-  return value && value !== "rgba(0, 0, 0, 0)" && value !== "transparent" ? value : fallback;
-}
-
-function spreadsheetAppearance(container: HTMLElement): SpreadsheetAppearance {
-  const rootStyles = getComputedStyle(document.documentElement);
-  const styles = getComputedStyle(container);
-  return {
-    background: visibleColor(resolvedToken(rootStyles, "--editor-bg", styles.backgroundColor), "#f9f9fa"),
-    foreground: visibleColor(resolvedToken(rootStyles, "--text-primary", styles.color), "#242426"),
-    surface: resolvedToken(rootStyles, "--surface-panel-raised", resolvedToken(rootStyles, "--panel-strong", "#f9f9fa")),
-    border: visibleColor(resolvedToken(rootStyles, "--border-subtle", styles.borderColor), "rgba(28, 28, 31, 0.09)"),
-    gridline: visibleColor(resolvedToken(rootStyles, "--border-strong", styles.borderColor), "rgba(28, 28, 31, 0.14)"),
-    muted: visibleColor(resolvedToken(rootStyles, "--text-tertiary", styles.outlineColor), "#6c6c72"),
-    dark: document.documentElement.dataset.theme === "dark",
-  };
-}
-
-function themeForAppearance(baseTheme: UniverTheme, appearance: SpreadsheetAppearance): UniverTheme {
-  const { background, foreground, surface, border, gridline, muted, dark } = appearance;
-  return {
-    ...baseTheme,
-    // The worksheet defaults reference these theme slots so Univer does not
-    // run its dark-mode color inversion over Lattice's already-dark colors.
-    // Text utilities that reference `white` are corrected in the scoped host CSS.
-    white: background,
-    black: dark ? background : foreground,
-    gray: dark
-      ? {
-          ...baseTheme.gray,
-          50: foreground,
-          100: foreground,
-          // Univer shares this slot between grid lines and the canvas beyond
-          // the worksheet bounds. A translucent border keeps both subtle.
-          200: gridline,
-          // Univer's freeze handles use gray.300 at rest and gray.500 on
-          // hover. Giving the resting state Lattice's subtle border preserves
-          // its native enter/leave behavior without exposing the full-size
-          // transparent drag targets.
-          300: border,
-          400: muted,
-          500: muted,
-          600: border,
-          700: surface,
-          800: background,
-          900: background,
-        }
-      : {
-          ...baseTheme.gray,
-          50: background,
-          100: surface,
-          200: border,
-          300: border,
-          400: muted,
-          500: muted,
-          600: foreground,
-          700: foreground,
-          800: foreground,
-          900: foreground,
-        },
-  };
-}
-
-function appearanceDefaultStyle(
-  workbook: SpreadsheetWorkbookData,
-  sheetId: string,
-  appearance: SpreadsheetAppearance,
-): Record<string, unknown> {
-  const defaultStyle = workbook.sheets[sheetId]?.defaultStyle;
-  const existing = typeof defaultStyle === "string"
-    ? workbook.styles[defaultStyle]
-    : defaultStyle;
-  return {
-    bg: { rgb: appearance.dark ? "white" : appearance.background },
-    cl: { rgb: appearance.dark ? "gray.50" : appearance.foreground },
-    bd: {
-      b: {
-        s: BorderStyleTypes.THIN,
-        // Univer inverts literal Canvas colors in dark mode. Supplying the
-        // inverse neutral yields the same translucent light gridline token.
-        cl: { rgb: appearance.dark ? "rgba(0, 0, 0, 0.12)" : appearance.gridline },
-      },
-      r: {
-        s: BorderStyleTypes.THIN,
-        cl: { rgb: appearance.dark ? "rgba(0, 0, 0, 0.12)" : appearance.gridline },
-      },
-    },
-    ...(isRecord(existing) ? clone(existing) : {}),
-  };
-}
-
-function withSpreadsheetAppearance(
-  snapshot: SpreadsheetWorkbookData,
-  appearance: SpreadsheetAppearance,
-): SpreadsheetWorkbookData {
+/** Copy per-user scroll/zoom onto a snapshot; view state never reaches the shared file. */
+function withSheetViews(snapshot: SpreadsheetWorkbookData, views: Record<string, SheetView | undefined>): SpreadsheetWorkbookData {
   const output = clone(snapshot);
   for (const sheetId of output.sheetOrder) {
-    output.sheets[sheetId].defaultStyle = appearanceDefaultStyle(snapshot, sheetId, appearance);
+    const view = views[sheetId];
+    const sheet = output.sheets[sheetId];
+    if (view && sheet) for (const key of VIEW_KEYS) sheet[key] = view[key];
   }
   return output;
 }
 
-function commandSnapshot(
-  workbook: FWorkbook,
-  canonical: SpreadsheetWorkbookData,
-): SpreadsheetWorkbookData {
-  const snapshot = asWorkbookData(workbook.save());
+/** Univer's save() with the stored `defaultStyle` restored in place of the display-only appearance style. */
+function commandSnapshot(workbook: FWorkbook, canonical: SpreadsheetWorkbookData): SpreadsheetWorkbookData {
+  const snapshot = workbook.save() as unknown as SpreadsheetWorkbookData;
   for (const sheetId of snapshot.sheetOrder) {
     const source = canonical.sheets[sheetId];
     const target = snapshot.sheets[sheetId];
     if (!source || !target) continue;
-    if (Object.prototype.hasOwnProperty.call(source, "defaultStyle")) {
-      target.defaultStyle = clone(source.defaultStyle);
-    } else {
-      delete target.defaultStyle;
-    }
+    if (Object.hasOwn(source, "defaultStyle")) target.defaultStyle = clone(source.defaultStyle);
+    else delete target.defaultStyle;
   }
   return snapshot;
 }
 
-function applyUniverTheme(
-  univer: Univer,
-  baseTheme: UniverTheme,
-  appearance: SpreadsheetAppearance,
-): void {
-  const themeService = univer.__getInjector().get(ThemeService);
-  themeService.setTheme(themeForAppearance(baseTheme, appearance));
-  themeService.setDarkMode(appearance.dark);
-}
-
-function applyHeaderAppearance(
-  renderManager: IRenderManagerService,
-  unitId: string,
-  appearance: SpreadsheetAppearance,
-): boolean {
-  const render = renderManager.getRenderById(unitId);
-  if (!render) return false;
-  const headerSurface = appearance.dark
-    ? SPREADSHEET_CHROME_SURFACE_DARK
-    : SPREADSHEET_CHROME_SURFACE_LIGHT;
-  const headerStyle = {
-    backgroundColor: headerSurface,
-    borderColor: appearance.border,
-    fontColor: appearance.muted,
-  };
-  const rowHeader = render.components.get("__SpreadsheetRowHeader__");
-  const columnHeader = render.components.get("__SpreadsheetColumnHeader__");
-  const corner = render.components.get("__SpreadsheetLeftTopPlaceholder__");
-  if (
-    !rowHeader || !("setCustomHeader" in rowHeader) || typeof rowHeader.setCustomHeader !== "function"
-    || !columnHeader || !("setCustomHeader" in columnHeader) || typeof columnHeader.setCustomHeader !== "function"
-    || !corner || !("setProps" in corner) || typeof corner.setProps !== "function"
-  ) return false;
-  rowHeader.setCustomHeader({ headerStyle });
-  columnHeader.setCustomHeader({ headerStyle });
-  const shape = corner as unknown as {
-    setProps(props: { fill: string; stroke: string }): { makeDirty(): unknown };
-  };
-  shape.setProps({ fill: headerSurface, stroke: appearance.border }).makeDirty();
-  rowHeader.makeDirty(true);
-  columnHeader.makeDirty(true);
-  render.scene.makeDirty();
-  return true;
-}
-
-function spreadsheetScrollConfig(appearance: SpreadsheetAppearance): IScrollBarProps {
-  const hover = appearance.dark ? "rgba(233, 233, 231, 0.12)" : "rgba(36, 36, 38, 0.12)";
-  const active = appearance.dark ? "rgba(233, 233, 231, 0.16)" : "rgba(36, 36, 38, 0.16)";
-  return {
-    barSize: 8,
-    barBorder: 0,
-    thumbMargin: 2,
-    thumbBackgroundColor: "transparent",
-    thumbHoverBackgroundColor: hover,
-    thumbActiveBackgroundColor: active,
-    trackBackgroundColor: "transparent",
-    trackBorderColor: "transparent",
-  };
-}
-
-function applyScrollbarAppearance(
-  renderManager: IRenderManagerService,
-  unitId: string,
-  appearance: SpreadsheetAppearance,
-): boolean {
-  const render = renderManager.getRenderById(unitId);
-  const scrollbar = render?.scene.getViewport(SHEET_VIEWPORT_KEY.VIEW_MAIN)?.getScrollBar();
-  if (!scrollbar) return false;
-  const config = spreadsheetScrollConfig(appearance);
-  scrollbar.setProps(config);
-  scrollbar.horizonScrollTrack?.setProps({
-    fill: config.trackBackgroundColor,
-    stroke: config.trackBorderColor,
-    strokeWidth: config.barBorder,
-  });
-  scrollbar.verticalScrollTrack?.setProps({
-    fill: config.trackBackgroundColor,
-    stroke: config.trackBorderColor,
-    strokeWidth: config.barBorder,
-  });
-  scrollbar.placeholderBarRect?.setProps({
-    fill: config.trackBackgroundColor,
-    stroke: config.trackBorderColor,
-    strokeWidth: config.barBorder,
-  });
-  scrollbar.horizonThumbRect?.setProps({ fill: config.thumbBackgroundColor });
-  scrollbar.verticalThumbRect?.setProps({ fill: config.thumbBackgroundColor });
-  scrollbar.makeDirty(true);
-  return true;
-}
-
-function applyFormulaBarAppearance(
-  renderManager: IRenderManagerService,
-  appearance: SpreadsheetAppearance,
-): boolean {
-  const render = renderManager.getRenderById(DOCS_FORMULA_BAR_EDITOR_UNIT_ID_KEY);
-  if (!render) return false;
-  const canvas = render.engine.getCanvas().getCanvasEle();
-  // The render unit exists before FormulaBar registers its visible editor.
-  // Waiting for the connected, sized canvas prevents that registration from
-  // immediately replacing our background with Univer's hard-coded white.
-  if (!canvas.isConnected || canvas.width === 0 || canvas.height === 0) return false;
-  const background = appearance.dark ? appearance.background : SPREADSHEET_FORMULA_SURFACE_LIGHT;
-  canvas.style.backgroundColor = background;
-  const rgb = new ColorKit(background).toRgb();
-  const [renderRed, renderGreen, renderBlue] = appearance.dark
-    ? invertColorByMatrix([rgb.r, rgb.g, rgb.b])
-    : [rgb.r, rgb.g, rgb.b];
-  const renderBackground = `rgb(${renderRed}, ${renderGreen}, ${renderBlue})`;
-  const docBackground = render.components.get("__Document_Render_Background__");
-  if (docBackground && "setFillColors" in docBackground && typeof docBackground.setFillColors === "function") {
-    // Univer's dark canvas color service inverts literal paint colors. Feed it
-    // the inverse so the rendered bitmap still lands on Lattice's background.
-    docBackground.setFillColors(renderBackground, renderBackground, renderBackground, renderBackground);
-  }
-  render.scene.makeDirty();
-  return true;
-}
-
-function createSpreadsheetUniver(
-  container: HTMLElement,
-  appearance: SpreadsheetAppearance,
-  locale: "en" | "zh-CN",
-  translate: TranslateMessage,
-  onExportExcel: () => void,
-): { univer: Univer; univerAPI: FUniver; baseTheme: UniverTheme } {
-  const univerLocale = locale === "zh-CN" ? LocaleType.ZH_CN : LocaleType.EN_US;
-  const univer = new Univer({
-    locale: univerLocale,
-    locales: {
-      [LocaleType.EN_US]: enUS,
-      [LocaleType.ZH_CN]: zhCN,
-    },
-    logLevel: LogLevel.WARN,
-  });
-  const baseTheme = univer.__getInjector().get(ThemeService).getCurrentTheme();
-  applyUniverTheme(univer, baseTheme, appearance);
-  const preset = UniverSheetsCorePreset({
-    container,
-    header: true,
-    toolbar: true,
-    ribbonType: "simple",
-    formulaBar: true,
-    footer: {},
-    menu: SPREADSHEET_MENU_CONFIG,
-    sheets: { scrollConfig: spreadsheetScrollConfig(appearance) },
-  });
-  const confirmService = new LatticeSpreadsheetConfirmService(
-    translate,
-    locale,
-  );
-  for (const entry of preset.plugins) {
-    const [plugin, options] = Array.isArray(entry)
-      ? entry
-      : [entry, undefined] as [PluginCtor<Plugin>, undefined];
-    if (plugin === UniverUIPlugin) {
-      univer.registerPlugin(UniverUIPlugin, {
-        ...options as ConstructorParameters<typeof UniverUIPlugin>[0],
-        override: [[IConfirmService, { useValue: confirmService }]],
-      });
-      continue;
-    }
-    univer.registerPlugin(plugin, options);
-  }
-  univer.__getInjector().get(IMenuManagerService).mergeMenu({
-    "ribbon.start.layout": {
-      [SPREADSHEET_FORMULAS_MENU_ID]: {
-        order: -2,
-        menuItemFactory: () => ({
-          id: SPREADSHEET_FORMULAS_MENU_ID,
-          commandId: "formula-ui.operation.insert-function",
-          title: translate(SPREADSHEET_FORMULA_MESSAGES.menuLabel),
-          tooltip: translate(SPREADSHEET_FORMULA_MESSAGES.tooltip),
-          icon: "FunctionIcon",
-          type: MenuItemType.SELECTOR,
-          selections: COMMON_SPREADSHEET_FORMULAS.map((formula) => ({
-            label: { name: formula, selectable: false },
-            value: formula,
-          })),
-        }),
-        [`${SPREADSHEET_FORMULAS_MENU_ID}.all`]: {
-          order: 0,
-          menuItemFactory: () => ({
-            id: "formula-ui.operation.more-functions",
-            title: translate(SPREADSHEET_FORMULA_MESSAGES.allFunctions),
-            type: MenuItemType.BUTTON,
-          }),
-        },
-      },
-    },
-  });
-  const univerAPI = FUniver.newAPI(univer);
-  const exportExcelLabel = translate(SPREADSHEET_EXPORT_MESSAGES.menuLabel);
-  univerAPI.createMenu({
-    id: SPREADSHEET_EXPORT_MENU_ID,
-    title: exportExcelLabel,
-    tooltip: exportExcelLabel,
-    icon: "ExportIcon",
-    action: onExportExcel,
-    order: Number.MAX_SAFE_INTEGER,
-  }).appendTo("ribbon.start.others");
-  return { univer, univerAPI, baseTheme };
-}
-
-function withSheetViewState(
-  snapshot: SpreadsheetWorkbookData,
-  viewSource: SpreadsheetWorkbookData,
-): SpreadsheetWorkbookData {
-  const output = clone(snapshot);
-  for (const sheetId of output.sheetOrder) {
-    const source = viewSource.sheets[sheetId];
-    const sheet = output.sheets[sheetId];
-    if (!source || !sheet) continue;
-    sheet.scrollTop = source.scrollTop;
-    sheet.scrollLeft = source.scrollLeft;
-    sheet.zoomRatio = source.zoomRatio;
-  }
-  return output;
-}
-
-function withStoredSheetViewState(
-  snapshot: SpreadsheetWorkbookData,
-  state: SpreadsheetFileViewState | undefined,
-): SpreadsheetWorkbookData {
-  if (!state) return snapshot;
-  const output = clone(snapshot);
-  for (const [sheetId, view] of Object.entries(state.sheets)) {
-    const sheet = output.sheets[sheetId];
-    if (!sheet) continue;
-    sheet.zoomRatio = view.zoomRatio;
-    sheet.scrollTop = view.scrollTop;
-    sheet.scrollLeft = view.scrollLeft;
-  }
-  return output;
-}
-
+/** Sheet order, names and dimensions: what a cell-level patch cannot change. */
 function structureFingerprint(workbook: SpreadsheetWorkbookData): string {
-  return JSON.stringify({
-    sheetOrder: workbook.sheetOrder,
-    sheets: Object.fromEntries(
-      workbook.sheetOrder.map((id) => {
-        const sheet = workbook.sheets[id];
-        return [id, {
-          id: sheet?.id,
-          name: sheet?.name,
-          rowCount: sheet?.rowCount,
-          columnCount: sheet?.columnCount,
-        }];
-      }),
-    ),
-  });
+  return JSON.stringify(workbook.sheetOrder.map((id) => {
+    const sheet = workbook.sheets[id];
+    return [id, sheet?.id, sheet?.name, sheet?.rowCount, sheet?.columnCount];
+  }));
 }
 
 function workbookViewState(workbook: FWorkbook): SpreadsheetFileViewState {
@@ -657,11 +105,7 @@ function workbookViewState(workbook: FWorkbook): SpreadsheetFileViewState {
     activeCell: activeSheet.getActiveCell()?.getA1Notation(),
     sheets: Object.fromEntries(workbook.getSheets().map((sheet) => {
       const { scrollTop, scrollLeft } = sheet.getSheet().getScrollLeftTopFromSnapshot();
-      return [sheet.getSheetId(), {
-        zoomRatio: sheet.getZoom(),
-        scrollTop,
-        scrollLeft,
-      }];
+      return [sheet.getSheetId(), { zoomRatio: sheet.getZoom(), scrollTop, scrollLeft }];
     })),
   };
 }
@@ -679,68 +123,50 @@ function restoreWorkbookViewState(workbook: FWorkbook, state: SpreadsheetFileVie
   }
 }
 
-function changedCells(
-  previous: SpreadsheetWorkbookData,
-  next: SpreadsheetWorkbookData,
-): Array<{ sheetId: string; row: number; column: number; value: Record<string, unknown> | null }> {
+function unionKeys(...records: object[]): string[] {
+  return [...new Set(records.flatMap((record) => Object.keys(record)))];
+}
+
+function changedCells(previous: SpreadsheetWorkbookData, next: SpreadsheetWorkbookData) {
   const changed: Array<{ sheetId: string; row: number; column: number; value: Record<string, unknown> | null }> = [];
   for (const sheetId of next.sheetOrder) {
     const before = previous.sheets[sheetId]?.cellData ?? {};
     const after = next.sheets[sheetId]?.cellData ?? {};
-    const rows = new Set([...Object.keys(before), ...Object.keys(after)]);
-    for (const rowKey of rows) {
-      const beforeRow = before[Number(rowKey)] ?? {};
-      const afterRow = after[Number(rowKey)] ?? {};
-      const columns = new Set([...Object.keys(beforeRow), ...Object.keys(afterRow)]);
-      for (const columnKey of columns) {
-        const beforeCell = beforeRow[Number(columnKey)];
-        const afterCell = afterRow[Number(columnKey)];
-        if (!sameJson(beforeCell, afterCell)) {
-          changed.push({
-            sheetId,
-            row: Number(rowKey),
-            column: Number(columnKey),
-            value: afterCell ? JSON.parse(JSON.stringify(afterCell)) as Record<string, unknown> : null,
-          });
-        }
+    for (const row of unionKeys(before, after).map(Number)) {
+      const beforeRow = before[row] ?? {};
+      const afterRow = after[row] ?? {};
+      for (const column of unionKeys(beforeRow, afterRow).map(Number)) {
+        if (!jsonEqual(beforeRow[column], afterRow[column])) changed.push({ sheetId, row, column, value: afterRow[column] ? clone(afterRow[column]) : null });
       }
     }
   }
   return changed;
 }
 
-type LocalCellChange = {
-  row: number;
-  column: number;
-  previous: SpreadsheetCellData | null;
-  next: SpreadsheetCellData | null;
-};
-
+/** A plain value edit Univer reported cell by cell; null when it needs a full workbook save instead. */
 function localCellMutation(
   id: string,
   params: unknown,
   workbook: FWorkbook,
   snapshot: SpreadsheetWorkbookData,
 ): { sheetId: string; changes: LocalCellChange[] } | null {
-  if (id !== SET_RANGE_VALUES_MUTATION || !isRecord(params)) return null;
+  if (id !== SET_RANGE_VALUES_MUTATION || !isRecord(params) || typeof params.subUnitId !== "string" || !isRecord(params.cellValue)) return null;
   const sheetId = params.subUnitId;
-  if (typeof sheetId !== "string" || !isRecord(params.cellValue)) return null;
   const worksheet = workbook.getSheetBySheetId(sheetId);
-  const snapshotSheet = snapshot.sheets[sheetId];
-  if (!worksheet || !snapshotSheet) return null;
+  const sheet = snapshot.sheets[sheetId];
+  if (!worksheet || !sheet) return null;
   const changes: LocalCellChange[] = [];
   for (const [rowKey, columns] of Object.entries(params.cellValue)) {
     const row = Number(rowKey);
-    if (!Number.isSafeInteger(row) || row < 0 || row >= snapshotSheet.rowCount || !isRecord(columns)) return null;
-    for (const columnKey of Object.keys(columns)) {
-      const column = Number(columnKey);
-      if (!Number.isSafeInteger(column) || column < 0 || column >= snapshotSheet.columnCount) return null;
-      const previous = snapshotSheet.cellData[row]?.[column] ?? null;
-      const rawNext = worksheet.getSheet().getCellRaw(row, column);
-      const next = isRecord(rawNext) ? clone(rawNext) as SpreadsheetCellData : null;
+    if (!inBounds(row, sheet.rowCount) || !isRecord(columns)) return null;
+    for (const column of Object.keys(columns).map(Number)) {
+      if (!inBounds(column, sheet.columnCount)) return null;
+      const previous = sheet.cellData[row]?.[column] ?? null;
+      const raw = worksheet.getSheet().getCellRaw(row, column);
+      const next = isRecord(raw) ? clone(raw) as SpreadsheetCellData : null;
       // A new style ID requires the workbook style catalog from a full save.
-      if (!sameJson(previous?.s, next?.s)) return null;
-      if (!sameJson(previous, next)) changes.push({ row, column, previous, next });
+      if (!jsonEqual(previous?.s, next?.s)) return null;
+      if (!jsonEqual(previous, next)) changes.push({ row, column, previous, next });
     }
   }
   return { sheetId, changes };
@@ -750,32 +176,17 @@ function updateSnapshotCells(sheet: SpreadsheetWorkbookData["sheets"][string], c
   for (const { row, column, next } of changes) {
     if (next) {
       (sheet.cellData[row] ??= {})[column] = clone(next);
-      continue;
+    } else if (sheet.cellData[row]) {
+      delete sheet.cellData[row][column];
+      if (Object.keys(sheet.cellData[row]).length === 0) delete sheet.cellData[row];
     }
-    const cells = sheet.cellData[row];
-    if (!cells) continue;
-    delete cells[column];
-    if (Object.keys(cells).length === 0) delete sheet.cellData[row];
   }
 }
 
-async function applyWorkbookPermission(workbook: FWorkbook, canWrite: boolean): Promise<void> {
-  const permission = workbook.getWorkbookPermission();
-  await (canWrite ? permission.setEditable() : permission.setReadOnly());
-}
-
-type PresencePopupProps = {
-  popup: {
-    extraProps?: {
-      color?: string;
-      name?: string;
-    };
-  };
-};
+type PresencePopupProps = { popup: { extraProps?: { color?: string; name?: string } } };
 
 function SpreadsheetPresencePopup({ popup }: PresencePopupProps) {
-  const color = popup.extraProps?.color ?? "#6366f1";
-  const name = popup.extraProps?.name ?? "Collaborator";
+  const color = popup.extraProps?.color ?? DEFAULT_PRESENCE_COLOR;
   return (
     // Univer's "top-left" direction places the popup immediately above its
     // range. Shift it by its own height so the pointer begins inside the cell.
@@ -783,167 +194,62 @@ function SpreadsheetPresencePopup({ popup }: PresencePopupProps) {
       <svg viewBox="0 0 18 22" aria-hidden="true">
         <path d="M2 1 16 13l-7 .5-4 6.5z" fill="currentColor" stroke="white" strokeWidth="1.5" />
       </svg>
-      <span style={{ backgroundColor: color }}>{name}</span>
+      <span style={{ backgroundColor: color }}>{popup.extraProps?.name ?? "Collaborator"}</span>
     </div>
   );
 }
 
-function presenceRange(value: unknown): string | undefined {
-  if (typeof value !== "string" || value.length > 32) return undefined;
-  try {
-    return parseA1Range(value).sheetName ? undefined : value;
-  } catch {
-    return undefined;
-  }
-}
-
-function readRemotePresence(value: unknown, path: string): SpreadsheetPresence | null {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
-  const candidate = value as Partial<SpreadsheetPresence>;
-  if (candidate.path !== path || typeof candidate.sheetId !== "string" || candidate.sheetId.length === 0 || candidate.sheetId.length > 128
-    || !Array.isArray(candidate.selections) || candidate.selections.length > 32) return null;
-  const selections = candidate.selections.map(presenceRange);
-  if (selections.some((range) => range === undefined)) return null;
-  const activeCell = candidate.activeCell === undefined ? undefined : presenceRange(candidate.activeCell);
-  const editingCell = candidate.editingCell === undefined ? undefined : presenceRange(candidate.editingCell);
-  if ((candidate.activeCell !== undefined && !activeCell) || (candidate.editingCell !== undefined && !editingCell)) return null;
-  const pointer = candidate.pointer;
-  if (pointer !== undefined && (!Number.isSafeInteger(pointer.row) || pointer.row < 0 || pointer.row >= 1_048_576
-    || !Number.isSafeInteger(pointer.column) || pointer.column < 0 || pointer.column >= 16_384)) return null;
-  return {
-    path,
-    sheetId: candidate.sheetId,
-    selections: selections as string[],
-    ...(activeCell ? { activeCell } : {}),
-    ...(editingCell ? { editingCell } : {}),
-    ...(pointer ? { pointer } : {}),
-    ...(candidate.agent === true ? { agent: true } : {}),
-  };
-}
-
-function attachSpreadsheetPresence(options: {
-  api: FUniver;
-  awareness: Awareness;
-  path: string;
-  user: SpreadsheetPresenceUser;
-  onRemoteChange: (presence: RemotePresence[]) => void;
-}): () => void {
-  const { api, awareness, path, user, onRemoteChange } = options;
-  let pending: SpreadsheetPresence | null = null;
-  let timer: ReturnType<typeof setTimeout> | null = null;
-  let editingCell: string | undefined;
-  const publish = () => {
-    timer = null;
-    awareness.setLocalStateField(SPREADSHEET_PRESENCE_FIELD, pending);
-  };
-  const schedule = (presence: SpreadsheetPresence) => {
-    pending = presence;
-    if (timer === null) timer = setTimeout(publish, PRESENCE_THROTTLE_MS);
-  };
-  const selection = api.addEvent(api.Event.SelectionChanged, ({ worksheet, selections }) => {
-    schedule({
-      path,
-      sheetId: worksheet.getSheetId(),
-      activeCell: selections[0] ? a1Range(selections[0]) : undefined,
-      selections: selections.map((range) => a1Range(range)),
-      ...(editingCell ? { editingCell } : {}),
-    });
-  });
-  const pointer = api.addEvent(api.Event.CellPointerMove, ({ worksheet, row, column }) => {
-    schedule({
-      path,
-      sheetId: worksheet.getSheetId(),
-      activeCell: pending?.activeCell,
-      selections: pending?.selections ?? [],
-      pointer: { row, column, xRatio: 0.5, yRatio: 0.5 },
-      ...(editingCell ? { editingCell } : {}),
-    });
-  });
-  const editStarted = api.addEvent(api.Event.SheetEditStarted, ({ worksheet, row, column }) => {
-    editingCell = a1Range({ startRow: row, endRow: row, startColumn: column, endColumn: column });
-    schedule({ path, sheetId: worksheet.getSheetId(), activeCell: editingCell, selections: pending?.selections ?? [editingCell], editingCell });
-  });
-  const editEnded = api.addEvent(api.Event.SheetEditEnded, ({ worksheet }) => {
-    editingCell = undefined;
-    schedule({ path, sheetId: worksheet.getSheetId(), activeCell: pending?.activeCell, selections: pending?.selections ?? [] });
-  });
-
-  const applyRemote = () => {
-    const remote: RemotePresence[] = [];
-    for (const [clientId, state] of awareness.getStates()) {
-      if (!state || typeof state !== "object") continue;
-      const remoteUser = (state as { user?: Partial<SpreadsheetPresenceUser> }).user;
-      for (const field of [SPREADSHEET_PRESENCE_FIELD, SPREADSHEET_AGENT_PRESENCE_FIELD] as const) {
-        if (clientId === awareness.clientID && field === SPREADSHEET_PRESENCE_FIELD) continue;
-        const presence = readRemotePresence((state as Record<string, unknown>)[field], path);
-        if (!presence) continue;
-        const agent = field === SPREADSHEET_AGENT_PRESENCE_FIELD;
-        const collaboratorName = typeof remoteUser?.name === "string" && remoteUser.name.length > 0 && remoteUser.name.length <= 100
-          ? remoteUser.name
-          : "Collaborator";
-        remote.push({
-          key: `${clientId}:${field}`,
-          clientId,
-          presence,
-          user: {
-            id: typeof remoteUser?.id === "string" ? remoteUser.id : `peer:${clientId}`,
-            name: agent ? `${collaboratorName}'s Agent` : collaboratorName,
-            color: typeof remoteUser?.color === "string" && /^#[0-9a-f]{6}$/i.test(remoteUser.color)
-              ? remoteUser.color
-              : "#6366f1",
-          },
-        });
-      }
+/** Draw each peer's selections and a named pointer on the active sheet. */
+function showRemotePresence(sheet: FWorksheet, remotePresence: RemotePresence[]): Array<{ dispose(): void }> {
+  const rows = sheet.getMaxRows();
+  const columns = sheet.getMaxColumns();
+  const rangeOf = (notation: string, anchorOnly = false): FRange | undefined => {
+    try {
+      const range = parseA1Range(notation);
+      if (anchorOnly) return range.startRow < rows && range.startColumn < columns ? sheet.getRange(range.startRow, range.startColumn) : undefined;
+      if (range.endRow >= rows || range.endColumn >= columns) return undefined;
+      return sheet.getRange(range.startRow, range.startColumn, range.endRow - range.startRow + 1, range.endColumn - range.startColumn + 1);
+    } catch {
+      return undefined; // Stale presence outside the current workbook.
     }
-    onRemoteChange(remote);
   };
-  awareness.on("change", applyRemote);
-  applyRemote();
-
-  // Keep identity on the existing shared awareness object without replacing
-  // the controller's path/instance fields.
-  awareness.setLocalState({
-    ...(awareness.getLocalState() ?? {}),
-    user: { ...(awareness.getLocalState()?.user as object ?? {}), ...user },
-  });
-
-  return () => {
-    selection.dispose();
-    pointer.dispose();
-    editStarted.dispose();
-    editEnded.dispose();
-    if (timer !== null) clearTimeout(timer);
-    awareness.off("change", applyRemote);
-    awareness.setLocalStateField(SPREADSHEET_PRESENCE_FIELD, null);
-    onRemoteChange([]);
-  };
+  const disposables: Array<{ dispose(): void }> = [];
+  for (const { presence, user } of remotePresence) {
+    if (presence.sheetId !== sheet.getSheetId()) continue;
+    const ranges = presence.selections.map((notation) => rangeOf(notation)).filter((range) => range !== undefined);
+    if (ranges.length > 0) {
+      disposables.push(sheet.highlightRanges(ranges, { stroke: user.color, strokeWidth: 2, fill: `${user.color}18`, widgets: {}, widgetSize: 0 }));
+    }
+    const { pointer } = presence;
+    const marker = pointer && pointer.row < rows && pointer.column < columns
+      ? sheet.getRange(pointer.row, pointer.column)
+      : ranges[0] ?? (presence.activeCell ? rangeOf(presence.activeCell, true) : undefined);
+    const popup = marker?.attachPopup({
+      componentKey: SpreadsheetPresencePopup,
+      direction: "top-left",
+      hideOnInvisible: true,
+      extraProps: { color: user.color, name: user.name },
+    });
+    if (popup) disposables.push(popup);
+  }
+  return disposables;
 }
 
 export function SpreadsheetEditor(props: SpreadsheetEditorProps) {
   const { path, source, collab } = props;
   const localState = useMemo(() => {
-    if (collab?.doc) {
-      try {
-        spreadsheetSnapshotFromDoc(collab.doc);
-        return { localDoc: null, error: null };
-      } catch (error) {
-        return {
-          localDoc: null,
-          error: error instanceof Error ? error.message : "Invalid .lattice-sheet document",
-        };
-      }
-    }
-    const doc = new Y.Doc();
-    if (source) doc.getText("content").insert(0, source);
+    const localDoc = collab?.doc ? null : new Y.Doc();
     try {
-      seedSpreadsheetDoc(doc);
-      return { localDoc: doc, error: null };
+      if (!localDoc) {
+        spreadsheetSnapshotFromDoc(collab!.doc);
+      } else {
+        if (source) localDoc.getText("content").insert(0, source);
+        seedSpreadsheetDoc(localDoc);
+      }
+      return { localDoc, error: null };
     } catch (error) {
-      doc.destroy();
-      return {
-        localDoc: null,
-        error: error instanceof Error ? error.message : "Invalid .lattice-sheet document",
-      };
+      localDoc?.destroy();
+      return { localDoc: null, error: error instanceof Error ? error.message : "Invalid .lattice-sheet document" };
     }
   // The canvas remounts this editor per path; external source changes are
   // reconciled by the mounted surface rather than replacing the Y.Doc identity.
@@ -964,29 +270,16 @@ export function SpreadsheetEditor(props: SpreadsheetEditorProps) {
 }
 
 function SpreadsheetEditorSurface({
-  path,
-  source,
-  onChange,
-  onPersist,
-  collab,
-  onFlushPendingChange,
-  active = true,
-  initialViewState,
-  onViewState,
-  doc,
-  localDoc,
-}: SpreadsheetEditorSurfaceProps) {
+  path, source, onChange, onPersist, collab, onFlushPendingChange, active = true, initialViewState, onViewState, doc, localDoc,
+}: SpreadsheetEditorProps & { doc: Y.Doc; localDoc: Y.Doc | null }) {
   const { i18n } = useLingui();
   const interfaceLocale = i18n.locale === "zh-CN" ? "zh-CN" : "en";
   const containerRef = useRef<HTMLDivElement>(null);
   const apiRef = useRef<FUniver | null>(null);
   const workbookRef = useRef<FWorkbook | null>(null);
-  const onChangeRef = useRef(onChange);
-  const onPersistRef = useRef(onPersist);
-  const onViewStateRef = useRef(onViewState);
+  const callbacks = useRef({ onChange, onPersist, onViewState, commit: collab?.commit });
   const initialViewStateRef = useRef(initialViewState);
   const canWriteRef = useRef(collab?.canWrite !== false);
-  const collabCommitRef = useRef(collab?.commit);
   const exportingRef = useRef(false);
   const exportExcelRef = useRef<() => void>(() => {});
   const permissionGenerationRef = useRef(0);
@@ -995,51 +288,37 @@ function SpreadsheetEditorSurface({
   const [remotePresence, setRemotePresence] = useState<RemotePresence[]>([]);
   const [overlayTick, setOverlayTick] = useState(0);
   const [functionsPanelOpen, setFunctionsPanelOpen] = useState(false);
-  const getSidebarScrollViewport = useCallback(
-    () => containerRef.current?.querySelector<HTMLElement>(
-      '[data-u-comp="sidebar"] > section',
-    ) ?? null,
-    [],
-  );
+  const getSidebarScrollViewport = useCallback(() => containerRef.current?.querySelector<HTMLElement>('[data-u-comp="sidebar"] > section') ?? null, []);
   const getFunctionsScrollViewport = useCallback(
-    () => containerRef.current?.querySelector<HTMLElement>(
-      `${SPREADSHEET_FUNCTIONS_PANEL_SELECTOR} ul.univer-overflow-y-auto`,
-    ) ?? null,
-    [],
-  );
+    () => containerRef.current?.querySelector<HTMLElement>(`${FUNCTIONS_PANEL_SELECTOR} ul.univer-overflow-y-auto`) ?? null, []);
   const setWorkbookPermission = useCallback((workbook: FWorkbook, canWrite: boolean) => {
     const host = containerRef.current;
     const generation = ++permissionGenerationRef.current;
+    const release = () => { if (permissionGenerationRef.current === generation && host) host.inert = false; };
     if (host) host.inert = true;
-    void applyWorkbookPermission(workbook, canWrite).then(() => {
-      if (permissionGenerationRef.current === generation && host) host.inert = false;
-    }).catch(() => {
-      // If Univer cannot establish read-only mode, leave the surface inert
-      // instead of accepting edits that the collaboration layer must reject.
-      if (canWrite && permissionGenerationRef.current === generation && host) host.inert = false;
-    });
+    const apply = async () => {
+      const permission = workbook.getWorkbookPermission();
+      await (canWrite ? permission.setEditable() : permission.setReadOnly());
+    };
+    // If Univer cannot establish read-only mode, leave the surface inert
+    // instead of accepting edits that the collaboration layer must reject.
+    void apply().then(release, () => { if (canWrite) release(); });
   }, []);
 
-  useLayoutEffect(() => { onChangeRef.current = onChange; }, [onChange]);
-  useLayoutEffect(() => { onPersistRef.current = onPersist; }, [onPersist]);
-  useLayoutEffect(() => { onViewStateRef.current = onViewState; }, [onViewState]);
-  useLayoutEffect(() => { collabCommitRef.current = collab?.commit; }, [collab?.commit]);
+  useLayoutEffect(() => { callbacks.current = { onChange, onPersist, onViewState, commit: collab?.commit }; });
   useLayoutEffect(() => {
     exportExcelRef.current = () => {
       const workbook = workbookRef.current;
       if (!workbook || exportingRef.current) return;
       const fileName = path.split(/[\\/]/).at(-1)?.replace(/\.lattice-sheet$/i, ".xlsx") || "spreadsheet.xlsx";
-      const trace = logAction(SPREADSHEET_SOURCE, "Export Excel", fileName);
+      const trace = logAction("Spreadsheet", "Export Excel", fileName);
       exportingRef.current = true;
       void (async () => {
         try {
           const destination = await saveDialog({
-            title: i18n._(SPREADSHEET_EXPORT_MESSAGES.dialogTitle),
+            title: i18n._(SPREADSHEET_MESSAGES.exportDialogTitle),
             defaultPath: fileName,
-            filters: [{
-              name: i18n._(SPREADSHEET_EXPORT_MESSAGES.fileType),
-              extensions: ["xlsx"],
-            }],
+            filters: [{ name: i18n._(SPREADSHEET_MESSAGES.exportFileType), extensions: ["xlsx"] }],
           });
           if (!destination) return;
           const snapshot = commandSnapshot(workbook, spreadsheetSnapshotFromDoc(doc));
@@ -1060,16 +339,13 @@ function SpreadsheetEditorSurface({
   }, [doc, i18n, path]);
   useLayoutEffect(() => {
     canWriteRef.current = collab?.canWrite !== false;
-    const workbook = workbookRef.current;
-    if (workbook) setWorkbookPermission(workbook, canWriteRef.current);
+    if (workbookRef.current) setWorkbookPermission(workbookRef.current, canWriteRef.current);
   }, [collab?.canWrite, setWorkbookPermission]);
 
   useEffect(() => {
     const host = containerRef.current;
     if (!host) return;
-    const syncFunctionsPanel = () => {
-      setFunctionsPanelOpen(Boolean(host.querySelector(SPREADSHEET_FUNCTIONS_PANEL_SELECTOR)));
-    };
+    const syncFunctionsPanel = () => setFunctionsPanelOpen(Boolean(host.querySelector(FUNCTIONS_PANEL_SELECTOR)));
     const observer = new MutationObserver(syncFunctionsPanel);
     observer.observe(host, { childList: true, subtree: true });
     syncFunctionsPanel();
@@ -1077,11 +353,8 @@ function SpreadsheetEditorSurface({
   }, []);
 
   useEffect(() => {
-    if (collab?.doc || !localDoc) return;
-    if (!source.trim()) return;
-    if (source === localSourceRef.current) return;
-    const current = spreadsheetDocContent(localDoc);
-    if (source !== current) replaceSpreadsheetDocFromSource(localDoc, source);
+    if (collab?.doc || !localDoc || !source.trim() || source === localSourceRef.current) return;
+    if (source !== spreadsheetDocContent(localDoc)) replaceSpreadsheetDocFromSource(localDoc, source);
     localSourceRef.current = source;
   }, [collab?.doc, localDoc, source]);
 
@@ -1089,46 +362,36 @@ function SpreadsheetEditorSurface({
     if (!containerRef.current) return;
     if (canWriteRef.current) seedSpreadsheetDoc(doc);
     const initialSnapshot = spreadsheetSnapshotFromDoc(doc);
-    let currentAppearance = spreadsheetAppearance(containerRef.current);
-    const { univer, univerAPI, baseTheme } = createSpreadsheetUniver(
+    let appearance = spreadsheetAppearance(containerRef.current);
+    const { univer, univerAPI, baseTheme, renderManager } = createSpreadsheetUniver(
       containerRef.current,
-      currentAppearance,
+      appearance,
       interfaceLocale,
       (message) => i18n._(message),
       () => exportExcelRef.current(),
     );
-    const renderManager = univer.__getInjector().get(IRenderManagerService);
+    const refreshOverlay = () => setOverlayTick((tick) => tick + 1);
     let disposed = false;
+    // Canvas chrome renders asynchronously; retry for ~30 frames until it exists.
     let renderAppearanceFrame: number | null = null;
-    const scheduleRenderAppearance = (unitId: string) => {
+    const scheduleRenderAppearance = () => {
       if (renderAppearanceFrame !== null) cancelAnimationFrame(renderAppearanceFrame);
       let attempts = 0;
       const apply = () => {
         renderAppearanceFrame = null;
-        if (disposed) return;
-        const applied = [
-          applyHeaderAppearance(renderManager, unitId, currentAppearance),
-          applyScrollbarAppearance(renderManager, unitId, currentAppearance),
-          applyFormulaBarAppearance(renderManager, currentAppearance),
-        ];
-        if (applied.every(Boolean)) return;
-        attempts += 1;
-        if (attempts < 30) renderAppearanceFrame = requestAnimationFrame(apply);
+        if (disposed || applyRenderAppearance(renderManager, workbook.getId(), appearance)) return;
+        if (++attempts < 30) renderAppearanceFrame = requestAnimationFrame(apply);
       };
       apply();
     };
-    let workbook = univerAPI.createWorkbook(
-      withSpreadsheetAppearance(
-        withStoredSheetViewState(initialSnapshot, initialViewStateRef.current),
-        currentAppearance,
-      ) as unknown as IWorkbookData,
-    );
+    let workbook = univerAPI.createWorkbook(withSpreadsheetAppearance(
+      withSheetViews(initialSnapshot, initialViewStateRef.current?.sheets ?? {}),
+      appearance,
+    ) as unknown as IWorkbookData);
     if (initialViewStateRef.current) restoreWorkbookViewState(workbook, initialViewStateRef.current);
-    scheduleRenderAppearance(workbook.getId());
+    scheduleRenderAppearance();
     const renderCreatedSubscription = renderManager.created$.subscribe((render) => {
-      if (render.unitId === workbook.getId() || render.unitId === DOCS_FORMULA_BAR_EDITOR_UNIT_ID_KEY) {
-        scheduleRenderAppearance(workbook.getId());
-      }
+      if (render.unitId === workbook.getId() || render.unitId === DOCS_FORMULA_BAR_EDITOR_UNIT_ID_KEY) scheduleRenderAppearance();
     });
     apiRef.current = univerAPI;
     workbookRef.current = workbook;
@@ -1137,110 +400,79 @@ function SpreadsheetEditorSurface({
     let applyingRemote = false;
     let localSyncQueued = false;
     let remoteSyncQueued = false;
-    let viewStateFrame: number | null = null;
-    const reportViewState = () => {
-      viewStateFrame = null;
-      if (disposed) return;
-      onViewStateRef.current?.(workbookViewState(workbook));
+    // Univer mutations issued while applying remote/appearance changes must not echo back into the Y.Doc.
+    const asRemote = (apply: () => void) => {
+      applyingRemote = true;
+      try { apply(); } finally { applyingRemote = false; }
     };
+    let viewStateFrame: number | null = null;
     const scheduleViewState = () => {
-      if (viewStateFrame === null) viewStateFrame = requestAnimationFrame(reportViewState);
+      viewStateFrame ??= requestAnimationFrame(() => {
+        viewStateFrame = null;
+        if (!disposed) callbacks.current.onViewState?.(workbookViewState(workbook));
+      });
     };
 
-    const replaceWorkbook = (next: SpreadsheetWorkbookData) => {
-      applyingRemote = true;
-      try {
-        const viewState = workbookViewState(workbook);
-        const displaySnapshot = withSpreadsheetAppearance(
-          withSheetViewState(next, commandSnapshot(workbook, renderedSnapshot)),
-          currentAppearance,
-        );
-        univerAPI.disposeUnit(workbook.getId());
-        workbook = univerAPI.createWorkbook(displaySnapshot as unknown as IWorkbookData);
-        workbookRef.current = workbook;
-        scheduleRenderAppearance(workbook.getId());
-        setWorkbookPermission(workbook, canWriteRef.current);
-        restoreWorkbookViewState(workbook, viewState);
-        renderedSnapshot = next;
-      } finally {
-        applyingRemote = false;
-      }
-    };
+    const replaceWorkbook = (next: SpreadsheetWorkbookData) => asRemote(() => {
+      const viewState = workbookViewState(workbook);
+      const display = withSpreadsheetAppearance(withSheetViews(next, commandSnapshot(workbook, renderedSnapshot).sheets), appearance);
+      univerAPI.disposeUnit(workbook.getId());
+      workbook = univerAPI.createWorkbook(display as unknown as IWorkbookData);
+      workbookRef.current = workbook;
+      scheduleRenderAppearance();
+      setWorkbookPermission(workbook, canWriteRef.current);
+      restoreWorkbookViewState(workbook, viewState);
+      renderedSnapshot = next;
+    });
 
     const applyRemoteSnapshot = () => {
       remoteSyncQueued = false;
       if (disposed) return;
       const next = spreadsheetSnapshotFromDoc(doc);
-      if (sameJson(next, renderedSnapshot)) return;
-      const cells = structureFingerprint(next) === structureFingerprint(renderedSnapshot)
-        ? changedCells(renderedSnapshot, next)
-        : [];
-      if (cells.length > 0 && cells.length <= 1_000) {
-        applyingRemote = true;
-        try {
-          for (const change of cells) {
-            const sheet = workbook.getSheetBySheetId(change.sheetId);
-            if (!sheet) continue;
-            const value = change.value
-              ? {
-                v: null,
-                f: null,
-                p: null,
-                si: null,
-                custom: null,
-                ref: null,
-                xf: null,
-                s: null,
-                ...change.value,
-              }
-              : null;
-            univerAPI.syncExecuteCommand("sheet.mutation.set-range-values", {
+      if (jsonEqual(next, renderedSnapshot)) return;
+      const sameStructure = structureFingerprint(next) === structureFingerprint(renderedSnapshot);
+      const cells = sameStructure ? changedCells(renderedSnapshot, next) : [];
+      if (cells.length > 0 && cells.length <= MAX_PATCHED_REMOTE_CELLS) {
+        asRemote(() => {
+          for (const { sheetId, row, column, value } of cells) {
+            if (!workbook.getSheetBySheetId(sheetId)) continue;
+            // Explicit nulls clear fields the remote cell no longer has.
+            const cell = value && { v: null, f: null, p: null, si: null, custom: null, ref: null, xf: null, s: null, ...value };
+            univerAPI.syncExecuteCommand(SET_RANGE_VALUES_MUTATION, {
               unitId: workbook.getId(),
-              subUnitId: change.sheetId,
-              cellValue: { [change.row]: { [change.column]: value } },
+              subUnitId: sheetId,
+              cellValue: { [row]: { [column]: cell } },
             }, { onlyLocal: true, fromCollab: true });
           }
           renderedSnapshot = next;
-        } finally {
-          applyingRemote = false;
-        }
-      } else if (structureFingerprint(next) === structureFingerprint(renderedSnapshot)) {
+        });
+      } else if (sameStructure) {
         renderedSnapshot = next;
       } else {
         replaceWorkbook(next);
       }
-      setOverlayTick((tick) => tick + 1);
+      refreshOverlay();
     };
 
     let appearanceSyncQueued = false;
-    const applyAppearance = () => {
-      appearanceSyncQueued = false;
-      if (disposed || !containerRef.current) return;
-      currentAppearance = spreadsheetAppearance(containerRef.current);
-      applyUniverTheme(univer, baseTheme, currentAppearance);
-      scheduleRenderAppearance(workbook.getId());
-      applyingRemote = true;
-      try {
-        for (const sheetId of renderedSnapshot.sheetOrder) {
-          workbook.getSheetBySheetId(sheetId)?.setDefaultStyle(
-            appearanceDefaultStyle(renderedSnapshot, sheetId, currentAppearance),
-          );
-        }
-      } finally {
-        applyingRemote = false;
-      }
-      setOverlayTick((tick) => tick + 1);
-    };
-    const scheduleAppearanceSync = () => {
+    const appearanceObserver = new MutationObserver(() => {
       if (appearanceSyncQueued) return;
       appearanceSyncQueued = true;
-      queueMicrotask(applyAppearance);
-    };
-    const appearanceObserver = new MutationObserver(scheduleAppearanceSync);
-    appearanceObserver.observe(document.documentElement, {
-      attributes: true,
-      attributeFilter: ["data-theme", "style"],
+      queueMicrotask(() => {
+        appearanceSyncQueued = false;
+        if (disposed || !containerRef.current) return;
+        appearance = spreadsheetAppearance(containerRef.current);
+        applyUniverTheme(univer, baseTheme, appearance);
+        scheduleRenderAppearance();
+        asRemote(() => {
+          for (const sheetId of renderedSnapshot.sheetOrder) {
+            workbook.getSheetBySheetId(sheetId)?.setDefaultStyle(appearanceDefaultStyle(renderedSnapshot, sheetId, appearance));
+          }
+        });
+        refreshOverlay();
+      });
     });
+    appearanceObserver.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme", "style"] });
 
     const onTransaction = (transaction: Y.Transaction) => {
       if (transaction.origin === SPREADSHEET_LOCAL_ORIGIN || remoteSyncQueued) return;
@@ -1252,18 +484,10 @@ function SpreadsheetEditorSurface({
     const commandListener = univerAPI.onCommandExecuted((command) => {
       scheduleViewState();
       const commandUnitId = (command.params as { unitId?: unknown } | undefined)?.unitId;
-      if (
-        command.type !== CommandType.MUTATION
-        || (commandUnitId !== undefined && commandUnitId !== workbook.getId())
-      ) return;
+      if (command.type !== CommandType.MUTATION || (commandUnitId !== undefined && commandUnitId !== workbook.getId())) return;
       if (applyingRemote || localSyncQueued || !canWriteRef.current) return;
       const cellMutation = localCellMutation(command.id, command.params, workbook, renderedSnapshot);
-      if (cellMutation && applySpreadsheetCellChanges(
-        doc,
-        renderedSnapshot.sheets[cellMutation.sheetId],
-        cellMutation.changes,
-        SPREADSHEET_LOCAL_ORIGIN,
-      )) {
+      if (cellMutation && applySpreadsheetCellChanges(doc, renderedSnapshot.sheets[cellMutation.sheetId], cellMutation.changes, SPREADSHEET_LOCAL_ORIGIN)) {
         updateSnapshotCells(renderedSnapshot.sheets[cellMutation.sheetId], cellMutation.changes);
         if (remoteSyncQueued) applyRemoteSnapshot();
         return;
@@ -1274,8 +498,8 @@ function SpreadsheetEditorSurface({
         if (disposed || applyingRemote || !canWriteRef.current) return;
         // Scroll and zoom are local view state. Keeping the last collaborative
         // values prevents one user's navigation from moving every peer.
-        const next = withSheetViewState(commandSnapshot(workbook, renderedSnapshot), renderedSnapshot);
-        if (sameJson(next, renderedSnapshot)) return;
+        const next = withSheetViews(commandSnapshot(workbook, renderedSnapshot), renderedSnapshot.sheets);
+        if (jsonEqual(next, renderedSnapshot)) return;
         reconcileSpreadsheetDocChanges(doc, renderedSnapshot, next, SPREADSHEET_LOCAL_ORIGIN);
         renderedSnapshot = next;
         // A remote transaction can land after the command event but before
@@ -1288,22 +512,18 @@ function SpreadsheetEditorSurface({
     const disposePresence = collab?.awareness && collab.user
       ? attachSpreadsheetPresence({ api: univerAPI, awareness: collab.awareness, path, user: collab.user, onRemoteChange: setRemotePresence })
       : undefined;
-    const selectionRefresh = univerAPI.addEvent(univerAPI.Event.SelectionChanged, () => {
-      setOverlayTick((tick) => tick + 1);
-      scheduleViewState();
-    });
-    const activeSheetRefresh = univerAPI.addEvent(univerAPI.Event.ActiveSheetChanged, () => {
-      setOverlayTick((tick) => tick + 1);
-      scheduleViewState();
-    });
+    const overlayEvents = [univerAPI.Event.SelectionChanged, univerAPI.Event.ActiveSheetChanged]
+      .map((event) => univerAPI.addEvent(event, () => {
+        refreshOverlay();
+        scheduleViewState();
+      }));
     return () => {
       if (viewStateFrame !== null) cancelAnimationFrame(viewStateFrame);
-      onViewStateRef.current?.(workbookViewState(workbook));
+      callbacks.current.onViewState?.(workbookViewState(workbook));
       disposed = true;
       permissionGenerationRef.current += 1;
       disposePresence?.();
-      selectionRefresh.dispose();
-      activeSheetRefresh.dispose();
+      for (const event of overlayEvents) event.dispose();
       commandListener.dispose();
       appearanceObserver.disconnect();
       if (renderAppearanceFrame !== null) cancelAnimationFrame(renderAppearanceFrame);
@@ -1320,131 +540,62 @@ function SpreadsheetEditorSurface({
     };
   }, [collab?.awareness, collab?.user, doc, i18n, interfaceLocale, path, setWorkbookPermission]);
 
-  useLayoutEffect(() => {
-    return registerAgentSpreadsheetDocument(path, {
-      doc,
-      canWrite: collab?.canWrite !== false,
-      awareness: collab?.awareness,
-      path,
-      commit: async () => {
-        flushRef.current();
-        const collabCommit = collabCommitRef.current;
-        if (collabCommit) {
-          await collabCommit();
-        } else if (!(await onPersistRef.current())) {
-          throw new Error("Lattice could not persist the spreadsheet update.");
-        }
-      },
-    }, active);
-  }, [active, collab?.awareness, collab?.canWrite, doc, path]);
+  useLayoutEffect(() => registerAgentSpreadsheetDocument(path, {
+    doc,
+    canWrite: collab?.canWrite !== false,
+    awareness: collab?.awareness,
+    path,
+    commit: async () => {
+      flushRef.current();
+      const { commit, onPersist } = callbacks.current;
+      if (commit) await commit();
+      else if (!(await onPersist())) throw new Error("Lattice could not persist the spreadsheet update.");
+    },
+  }, active), [active, collab?.awareness, collab?.canWrite, doc, path]);
 
   useEffect(() => {
     if (collab?.doc || !localDoc) {
       flushRef.current = () => {};
       return;
     }
-    let timer: ReturnType<typeof setTimeout> | null = null;
-    let idle: number | null = null;
-    const usesIdleCallback = typeof window.requestIdleCallback === "function";
-    const cancelScheduled = () => {
-      if (timer !== null) clearTimeout(timer);
-      timer = null;
-      if (idle === null) return;
-      if (usesIdleCallback) window.cancelIdleCallback(idle);
-      else window.clearTimeout(idle);
-      idle = null;
-    };
+    // Cancels the pending debounce or idle serialization; null when nothing is pending.
+    let cancelScheduled: (() => void) | null = null;
     const flush = () => {
-      cancelScheduled();
+      cancelScheduled?.();
+      cancelScheduled = null;
       const content = spreadsheetDocContent(localDoc);
       localSourceRef.current = content;
-      onChangeRef.current(content);
-    };
-    const flushWhenIdle = () => {
-      idle = null;
-      flush();
+      callbacks.current.onChange(content);
     };
     const onUpdate = () => {
-      cancelScheduled();
-      timer = setTimeout(() => {
-        timer = null;
+      cancelScheduled?.();
+      const timer = setTimeout(() => {
         // Canonical source generation still walks every row. Keep that work
         // out of active typing and scrolling while preserving explicit flushes.
-        idle = usesIdleCallback
-          ? window.requestIdleCallback(flushWhenIdle, { timeout: SERIALIZE_IDLE_TIMEOUT_MS })
-          : window.setTimeout(flushWhenIdle, 0);
+        cancelScheduled = whenIdle(flush, SERIALIZE_IDLE_TIMEOUT_MS, 0);
       }, SERIALIZE_DEBOUNCE_MS);
+      cancelScheduled = () => clearTimeout(timer);
     };
+    const flushPending = () => { if (cancelScheduled) flush(); };
     localDoc.on("update", onUpdate);
-    flushRef.current = () => { if (timer !== null || idle !== null) flush(); };
+    flushRef.current = flushPending;
     return () => {
       localDoc.off("update", onUpdate);
-      if (timer !== null || idle !== null) flush();
+      flushPending();
       flushRef.current = () => {};
     };
   }, [collab?.doc, localDoc]);
 
   useLayoutEffect(() => {
     if (!onFlushPendingChange) return;
-    const flush = () => { flushRef.current(); return true; };
-    onFlushPendingChange(flush);
+    onFlushPendingChange(() => { flushRef.current(); return true; });
     return () => onFlushPendingChange(null);
   }, [onFlushPendingChange]);
 
   useEffect(() => {
-    const api = apiRef.current;
-    const workbook = api?.getActiveWorkbook();
-    const activeSheet = workbook?.getActiveSheet();
-    if (!api || !workbook || !activeSheet) return;
-    const disposables: Array<{ dispose(): void }> = [];
-    for (const entry of remotePresence) {
-      if (entry.presence.sheetId !== activeSheet.getSheetId()) continue;
-      const ranges = entry.presence.selections.flatMap((notation) => {
-        try {
-          const range = parseA1Range(notation);
-          if (range.endRow >= activeSheet.getMaxRows() || range.endColumn >= activeSheet.getMaxColumns()) return [];
-          return [activeSheet.getRange(
-            range.startRow,
-            range.startColumn,
-            range.endRow - range.startRow + 1,
-            range.endColumn - range.startColumn + 1,
-          )];
-        } catch {
-          return [];
-        }
-      });
-      if (ranges.length > 0) {
-        disposables.push(activeSheet.highlightRanges(ranges, {
-          stroke: entry.user.color,
-          strokeWidth: 2,
-          fill: `${entry.user.color}18`,
-          widgets: {},
-          widgetSize: 0,
-        }));
-      }
-      const pointer = entry.presence.pointer;
-      let markerRange = pointer && pointer.row < activeSheet.getMaxRows() && pointer.column < activeSheet.getMaxColumns()
-        ? activeSheet.getRange(pointer.row, pointer.column)
-        : ranges[0];
-      if (!markerRange && entry.presence.activeCell) {
-        try {
-          const range = parseA1Range(entry.presence.activeCell);
-          if (range.startRow < activeSheet.getMaxRows() && range.startColumn < activeSheet.getMaxColumns()) {
-            markerRange = activeSheet.getRange(range.startRow, range.startColumn);
-          }
-        } catch { /* Ignore stale presence outside the current workbook. */ }
-      }
-      const popup = markerRange?.attachPopup({
-        componentKey: SpreadsheetPresencePopup,
-        direction: "top-left",
-        hideOnInvisible: true,
-        extraProps: {
-          color: entry.user.color,
-          name: entry.user.name,
-        },
-      });
-      if (popup) disposables.push(popup);
-    }
+    const activeSheet = apiRef.current?.getActiveWorkbook()?.getActiveSheet();
+    if (!activeSheet) return;
+    const disposables = showRemotePresence(activeSheet, remotePresence);
     return () => disposables.forEach((disposable) => disposable.dispose());
   }, [remotePresence, overlayTick]);
 

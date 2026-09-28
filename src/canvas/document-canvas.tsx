@@ -51,20 +51,10 @@ import {
   ZoomIn,
   ZoomOut,
 } from "lucide-react";
-import {
-  countWords,
-  latexEditorExtensions,
-  latexLanguageOptions,
-  textEditorExtensions,
-  renameEnvironmentAt,
-  textStats,
-  wrapRange,
-  wrapEnvironment,
-  type CitationInfo,
-  type DefinitionTarget,
-  type ReferenceInfo,
-  type SymbolTarget,
-} from "../editor/latex/latex-editor";
+import { latexEditorExtensions, latexLanguageOptions, textEditorExtensions } from "../editor/latex/latex-editor";
+import { countWords, textStats, wrapEnvironment, wrapRange } from "../editor/latex/latex-edits";
+import { renameEnvironmentAt } from "../editor/latex/latex-environments";
+import type { CitationInfo, DefinitionTarget, ReferenceInfo, SymbolTarget } from "../editor/latex/latex-text";
 import { harperDictionaryChanged } from "../editor/harper-spellcheck";
 import {
   LatexSelectionToolbar,
@@ -82,14 +72,11 @@ import {
   type FigureInsertOptions,
 } from "../editor/insert/figure-insertion";
 import { FigureInsertDialog } from "../editor/insert/figure-insert-dialog";
+import { createEditorComment, resolveCommentAnchor, type EditorComment } from "../editor/comments/editor-comment-data";
 import {
-  createEditorComment,
   editorCommentsExtension,
-  resolveCommentAnchor,
-  resolveCommentRange,
   setEditorCommentsEffect,
   setEditorCommentDraftEffect,
-  type EditorComment,
   type EditorCommentLocalization,
 } from "../editor/comments/editor-comments";
 import {
@@ -2489,7 +2476,7 @@ export function DocumentCanvas(props: {
       ? primaryViewRef.current
       : comment.path === secondaryFile ? secondaryViewRef.current : null;
     if (!view) return;
-    const range = resolveCommentRange(view.state.doc.toString(), comment);
+    const range = resolveCommentAnchor(view.state.doc.toString(), comment);
     if (!range) {
       onCommentFocusHandled(commentFocusRequest.nonce);
       return;
@@ -2668,29 +2655,21 @@ export function DocumentCanvas(props: {
       ...primaryKeymapExtensions,
       ...(isLatexSourcePath(activeFile) ? [
         latex(latexLanguageOptions),
-        ...latexEditorExtensions(
-          props.citationKeys,
-          props.citations,
-          props.references,
-          props.onLoadReferenceImage,
+        ...latexEditorExtensions({
+          live: latexLiveRef,
+          currentPath: activeFile,
+          spellcheck: editorSpellcheck && isHarperProseFilePath(activeFile),
+          texlab: true,
+          loadReferenceImage: props.onLoadReferenceImage,
           onGotoDefinition,
-          projectPaths,
           onFindReferences,
           onRenameSymbol,
-          editorSpellcheck && isHarperProseFilePath(activeFile),
-          props.unusedLabels,
-          props.unusedCitations,
           onRenameEnvironment,
           onWrapEnvironment,
-          localMacros,
-          activeFile,
-          onPasteImageFile,
-          graphicsRoots,
+          onPasteImage: onPasteImageFile,
           onCreateMissingFile,
-          true,
           onTexlabGoto,
-          latexLiveRef,
-        ),
+        }),
       ] : [
         ...primaryTextLanguageExtensions,
         ...textEditorExtensions(
@@ -2712,7 +2691,6 @@ export function DocumentCanvas(props: {
         getComments: () => commentsForActiveFileRef.current,
         getDraft: () => commentComposerRef.current,
         getLocalization: () => editorCommentLocalizationRef.current,
-        currentAuthorId: commentAuthorId,
         onResolve: (id) => resolveEditorCommentRef.current(id),
         onReply: (comment) => replyEditorCommentRef.current(comment.id),
       }),
@@ -2739,29 +2717,21 @@ export function DocumentCanvas(props: {
         ...secondaryKeymapExtensions,
         ...(isLatexSourcePath(secondaryFile) ? [
           latex(latexLanguageOptions),
-          ...latexEditorExtensions(
-            props.citationKeys,
-            props.citations,
-            props.references,
-            props.onLoadReferenceImage,
+          ...latexEditorExtensions({
+            live: latexLiveRef,
+            currentPath: secondaryFile,
+            spellcheck: editorSpellcheck && isHarperProseFilePath(secondaryFile),
+            texlab: true,
+            loadReferenceImage: props.onLoadReferenceImage,
             onGotoDefinition,
-            projectPaths,
             onFindReferences,
             onRenameSymbol,
-            editorSpellcheck && isHarperProseFilePath(secondaryFile),
-            props.unusedLabels,
-            props.unusedCitations,
             onRenameEnvironment,
             onWrapEnvironment,
-            localMacros,
-            secondaryFile,
-            onPasteImageFile,
-            graphicsRoots,
+            onPasteImage: onPasteImageFile,
             onCreateMissingFile,
-            true,
             onTexlabGoto,
-            latexLiveRef,
-          ),
+          }),
         ] : [
           ...secondaryTextLanguageExtensions,
           ...textEditorExtensions(
@@ -2776,7 +2746,6 @@ export function DocumentCanvas(props: {
         editorCommentsExtension(secondaryFile, {
           getComments: () => commentsForSecondaryFileRef.current,
           getLocalization: () => editorCommentLocalizationRef.current,
-          currentAuthorId: commentAuthorId,
           onResolve: (id) => resolveEditorCommentRef.current(id),
           onReply: (comment) => replyEditorCommentRef.current(comment.id),
         }),

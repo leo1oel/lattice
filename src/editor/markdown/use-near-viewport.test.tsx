@@ -1,5 +1,6 @@
 import { act, cleanup, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import type { ReactNode } from "react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useNearViewport } from "./use-near-viewport";
 
 class FakeIntersectionObserver {
@@ -10,10 +11,7 @@ class FakeIntersectionObserver {
   readonly thresholds = [0];
   disconnectCount = 0;
 
-  constructor(
-    private readonly callback: IntersectionObserverCallback,
-    options?: IntersectionObserverInit,
-  ) {
+  constructor(private readonly callback: IntersectionObserverCallback, options?: IntersectionObserverInit) {
     this.root = options?.root ?? null;
     this.rootMargin = options?.rootMargin ?? "0px";
     FakeIntersectionObserver.instances.push(this);
@@ -36,7 +34,19 @@ function Probe({ name }: { name: string }) {
   return <div ref={viewportRef} data-testid={name}>{String(nearViewport)}</div>;
 }
 
+const Scroll = ({ children }: { children: ReactNode }) => <div className="editor-doc-scroll">{children}</div>;
+const probes = (...names: string[]) => names.map((name) => <Probe key={name} name={name} />);
+const byId = (id: string) => screen.getByTestId(id);
+/** Instance 0 is the shared preload (buffered) observer; instance 1 tracks actual visibility. */
+const preload = () => FakeIntersectionObserver.instances[0]!;
+const emit = (id: string, visible: boolean, observer = preload()) => act(() => observer.emit(byId(id), visible));
+const advance = (ms: number) => act(() => vi.advanceTimersByTime(ms));
+
 describe("useNearViewport", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.stubGlobal("IntersectionObserver", FakeIntersectionObserver);
+  });
   afterEach(() => {
     cleanup();
     vi.useRealTimers();
@@ -45,175 +55,106 @@ describe("useNearViewport", () => {
   });
 
   it("shares one observer and briefly retains content outside the buffer", () => {
-    vi.useFakeTimers();
-    vi.stubGlobal("IntersectionObserver", FakeIntersectionObserver);
-    render(<div className="editor-doc-scroll"><Probe name="first" /><Probe name="second" /></div>);
+    render(<Scroll>{probes("first", "second")}</Scroll>);
 
     expect(FakeIntersectionObserver.instances).toHaveLength(2);
-    const observer = FakeIntersectionObserver.instances[0];
-    const first = screen.getByTestId("first");
-    expect(observer.root).toBe(first.parentElement);
-    expect(observer.elements.size).toBe(2);
-    act(() => observer.emit(first, true));
-    expect(first).toHaveTextContent("false");
-    act(() => vi.advanceTimersByTime(32));
-    expect(first).toHaveTextContent("true");
-    act(() => observer.emit(first, false));
-    expect(first).toHaveTextContent("true");
-    act(() => vi.advanceTimersByTime(2_999));
-    expect(first).toHaveTextContent("true");
-    act(() => vi.advanceTimersByTime(1));
-    expect(first).toHaveTextContent("false");
+    expect(preload().root).toBe(byId("first").parentElement);
+    expect(preload().elements.size).toBe(2);
+    emit("first", true);
+    expect(byId("first")).toHaveTextContent("false");
+    advance(32);
+    expect(byId("first")).toHaveTextContent("true");
+    emit("first", false);
+    expect(byId("first")).toHaveTextContent("true");
+    advance(2_999);
+    expect(byId("first")).toHaveTextContent("true");
+    advance(1);
+    expect(byId("first")).toHaveTextContent("false");
   });
 
   it("preloads all media inside a contained list item from the item boundary", () => {
-    vi.useFakeTimers();
-    vi.stubGlobal("IntersectionObserver", FakeIntersectionObserver);
-    render(
-      <div className="editor-doc-scroll">
-        <li data-testid="item">
-          <Probe name="first" />
-          <Probe name="second" />
-        </li>
-      </div>,
-    );
+    render(<Scroll><li data-testid="item">{probes("first", "second")}</li></Scroll>);
 
-    const observer = FakeIntersectionObserver.instances[0];
-    const item = screen.getByTestId("item");
-    expect(observer.elements).toEqual(new Set([item]));
-    act(() => observer.emit(item, true));
-    act(() => vi.advanceTimersByTime(32));
-    expect(screen.getByTestId("first")).toHaveTextContent("true");
-    expect(screen.getByTestId("second")).toHaveTextContent("true");
+    expect(preload().elements).toEqual(new Set([byId("item")]));
+    emit("item", true);
+    advance(32);
+    expect(byId("first")).toHaveTextContent("true");
+    expect(byId("second")).toHaveTextContent("true");
   });
 
   it("prefers the list item over a nearer JSX wrapper", () => {
-    vi.useFakeTimers();
-    vi.stubGlobal("IntersectionObserver", FakeIntersectionObserver);
-    render(
-      <div className="editor-doc-scroll">
-        <li data-testid="item">
-          <div className="jsx-component-wrapper"><Probe name="media" /></div>
-        </li>
-      </div>,
-    );
-
-    expect(FakeIntersectionObserver.instances[0].elements).toEqual(
-      new Set([screen.getByTestId("item")]),
-    );
+    render(<Scroll><li data-testid="item"><div className="jsx-component-wrapper"><Probe name="media" /></div></li></Scroll>);
+    expect(preload().elements).toEqual(new Set([byId("item")]));
   });
 
   it("keeps a shared target observed when one queued listener unmounts", () => {
-    vi.useFakeTimers();
-    vi.stubGlobal("IntersectionObserver", FakeIntersectionObserver);
-    const view = render(
-      <div className="editor-doc-scroll">
-        <li data-testid="item"><Probe name="first" /><Probe name="second" /></li>
-      </div>,
-    );
-    const observer = FakeIntersectionObserver.instances[0];
-    const item = screen.getByTestId("item");
-    act(() => observer.emit(item, true));
-    view.rerender(
-      <div className="editor-doc-scroll">
-        <li data-testid="item"><Probe name="first" /></li>
-      </div>,
-    );
-    act(() => vi.advanceTimersByTime(32));
+    const view = render(<Scroll><li data-testid="item">{probes("first", "second")}</li></Scroll>);
+    emit("item", true);
+    view.rerender(<Scroll><li data-testid="item">{probes("first")}</li></Scroll>);
+    advance(32);
 
-    expect(observer.elements).toEqual(new Set([screen.getByTestId("item")]));
-    expect(screen.getByTestId("first")).toHaveTextContent("true");
+    expect(preload().elements).toEqual(new Set([byId("item")]));
+    expect(byId("first")).toHaveTextContent("true");
   });
 
   it("cancels delayed release when content re-enters the buffer", () => {
-    vi.useFakeTimers();
-    vi.stubGlobal("IntersectionObserver", FakeIntersectionObserver);
-    render(<div className="editor-doc-scroll"><Probe name="first" /></div>);
-    const observer = FakeIntersectionObserver.instances[0];
-    const first = screen.getByTestId("first");
-    act(() => observer.emit(first, true));
-    act(() => vi.advanceTimersByTime(32));
-    act(() => observer.emit(first, false));
-    act(() => vi.advanceTimersByTime(2_000));
-    act(() => observer.emit(first, true));
-    act(() => vi.advanceTimersByTime(2_000));
-    expect(first).toHaveTextContent("true");
+    render(<Scroll>{probes("first")}</Scroll>);
+    emit("first", true);
+    advance(32);
+    emit("first", false);
+    advance(2_000);
+    emit("first", true);
+    advance(2_000);
+    expect(byId("first")).toHaveTextContent("true");
   });
 
   it("stages a bounded batch of intersecting content per idle slice", () => {
-    vi.useFakeTimers();
-    vi.stubGlobal("IntersectionObserver", FakeIntersectionObserver);
-    render(<div className="editor-doc-scroll"><Probe name="first" /><Probe name="second" /></div>);
-
-    const observer = FakeIntersectionObserver.instances[0];
-    const first = screen.getByTestId("first");
-    const second = screen.getByTestId("second");
-    act(() => {
-      observer.emit(first, true);
-      observer.emit(second, true);
-    });
-
-    act(() => vi.advanceTimersByTime(32));
-    expect(first).toHaveTextContent("true");
-    expect(second).toHaveTextContent("true");
+    render(<Scroll>{probes("first", "second")}</Scroll>);
+    emit("first", true);
+    emit("second", true);
+    advance(32);
+    expect(byId("first")).toHaveTextContent("true");
+    expect(byId("second")).toHaveTextContent("true");
   });
 
   it("materializes visible content immediately even when buffered work is queued", () => {
-    vi.useFakeTimers();
-    vi.stubGlobal("IntersectionObserver", FakeIntersectionObserver);
-    render(<div className="editor-doc-scroll"><Probe name="buffered" /><Probe name="visible" /></div>);
-
-    const observer = FakeIntersectionObserver.instances[0];
-    const buffered = screen.getByTestId("buffered");
-    const visible = screen.getByTestId("visible");
+    render(<Scroll>{probes("buffered", "visible")}</Scroll>);
     act(() => {
-      observer.emit(buffered, true);
-      FakeIntersectionObserver.instances[1].emit(visible, true);
+      preload().emit(byId("buffered"), true);
+      FakeIntersectionObserver.instances[1]!.emit(byId("visible"), true);
     });
-
-    expect(buffered).toHaveTextContent("false");
-    expect(visible).toHaveTextContent("true");
+    expect(byId("buffered")).toHaveTextContent("false");
+    expect(byId("visible")).toHaveTextContent("true");
   });
 
   it("does not materialize content that exits or unmounts while queued", () => {
-    vi.useFakeTimers();
-    vi.stubGlobal("IntersectionObserver", FakeIntersectionObserver);
-    const view = render(<div className="editor-doc-scroll"><Probe name="first" /><Probe name="second" /></div>);
-
-    const observer = FakeIntersectionObserver.instances[0];
-    const first = screen.getByTestId("first");
-    const second = screen.getByTestId("second");
+    const view = render(<Scroll>{probes("first", "second")}</Scroll>);
+    const second = byId("second");
     act(() => {
-      observer.emit(first, true);
-      observer.emit(second, true);
-      observer.emit(first, false);
+      preload().emit(byId("first"), true);
+      preload().emit(second, true);
+      preload().emit(byId("first"), false);
     });
-    view.rerender(<div className="editor-doc-scroll"><Probe name="first" /></div>);
+    view.rerender(<Scroll>{probes("first")}</Scroll>);
     act(() => vi.runAllTimers());
 
-    expect(first).toHaveTextContent("false");
-    expect(observer.elements.has(second)).toBe(false);
+    expect(byId("first")).toHaveTextContent("false");
+    expect(preload().elements.has(second)).toBe(false);
   });
 
   it("keeps content visible when IntersectionObserver is unavailable", () => {
     vi.stubGlobal("IntersectionObserver", undefined);
     render(<Probe name="fallback" />);
-    expect(screen.getByTestId("fallback")).toHaveTextContent("true");
+    expect(byId("fallback")).toHaveTextContent("true");
   });
 
   it("uses separate observers for separate scroll roots and disconnects both", () => {
-    vi.useFakeTimers();
-    vi.stubGlobal("IntersectionObserver", FakeIntersectionObserver);
-    const view = render(
-      <>
-        <div className="editor-doc-scroll"><Probe name="first" /></div>
-        <div className="editor-doc-scroll"><Probe name="second" /></div>
-      </>,
-    );
+    const view = render(<><Scroll>{probes("first")}</Scroll><Scroll>{probes("second")}</Scroll></>);
 
-    expect(FakeIntersectionObserver.instances).toHaveLength(4);
-    expect(FakeIntersectionObserver.instances[0].root).not.toBe(FakeIntersectionObserver.instances[2].root);
+    const observers = FakeIntersectionObserver.instances;
+    expect(observers).toHaveLength(4);
+    expect(observers[0]!.root).not.toBe(observers[2]!.root);
     view.unmount();
-    expect(FakeIntersectionObserver.instances.map((observer) => observer.disconnectCount)).toEqual([1, 1, 1, 1]);
+    expect(observers.map((observer) => observer.disconnectCount)).toEqual([1, 1, 1, 1]);
   });
 });

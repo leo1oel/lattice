@@ -1,9 +1,7 @@
-export type LatexFigureEdit = {
+type InsertionEdit = {
   text: string;
   cursorOffset: number;
 };
-
-export type MarkdownAssetEdit = LatexFigureEdit;
 
 export type FigureInsertOptions = {
   width: string;
@@ -20,12 +18,24 @@ export const DEFAULT_FIGURE_OPTIONS: FigureInsertOptions = {
 
 const MARKDOWN_IMAGE_DESTINATION = /(!\[(?:\\.|[^\]\\\n])*\]\(\s*)(?:<([^>\n]*)>|((?:\\.|[^()\s])+))(?=(?:\s+(?:"(?:\\.|[^"\n])*"|'(?:\\.|[^'\n])*'|\((?:\\.|[^)\n])*\)))?\s*\))/g;
 const HTML_IMAGE_SOURCE = /(<img\b[^>]*?\s+src\s*=\s*)(?:"([^"\n]*)"|'([^'\n]*)'|([^\s"'=<>`]+))/gi;
-const LATEX_IMAGE_DESTINATION = /(\\includegraphics\*?(?:\s*\[[^\]\n]*\])?\s*\{)(?:\\detokenize\{([^{}]*)\}|([^{}]*))(\})/g;
+const LATEX_IMAGE_DESTINATION = /(\\includegraphics\*?(?:\s*\[[^\]\n]*\])?\s*\{)(?:\\detokenize\{([^{}]*)\}|([^{}]*))(?=\})/g;
 const URI_SCHEME = /^[a-z][a-z\d+.-]*:/i;
 
+const directoryOf = (path: string) => path.slice(0, Math.max(0, path.lastIndexOf("/")));
+const withoutExtension = (path: string) => path.replace(/\.[^/.]+$/, "");
+const escapeSpaces = (path: string) => path.replaceAll(" ", "%20");
+
+/** Separate inserted blocks from their neighbors by exactly one blank line. */
+function blockInsertionText(source: string, position: number, blocks: string): string {
+  const before = source.slice(0, position);
+  const after = source.slice(position);
+  const prefix = !before || before.endsWith("\n\n") ? "" : before.endsWith("\n") ? "\n" : "\n\n";
+  const suffix = !after ? "\n" : after.startsWith("\n\n") ? "" : after.startsWith("\n") ? "\n" : "\n\n";
+  return `${prefix}${blocks}${suffix}`;
+}
+
 function figureLabelFromPath(path: string): string {
-  const fileName = path.split("/").pop() ?? "figure";
-  const stem = fileName.replace(/\.[^.]+$/, "").replace(/-converted$/, "");
+  const stem = (path.split("/").pop() ?? "figure").replace(/\.[^.]+$/, "").replace(/-converted$/, "");
   return stem.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "figure";
 }
 
@@ -34,32 +44,46 @@ export function latexFigureInsertion(
   position: number,
   paths: string[],
   options: FigureInsertOptions = DEFAULT_FIGURE_OPTIONS,
-): LatexFigureEdit {
+): InsertionEdit {
   const width = options.width.trim() || "\\linewidth";
   const placement = options.placement.trim() || "t";
   const caption = options.caption.trim() || "Describe the figure.";
   const blocks = paths.map((path, index) => {
     const normalized = path.replace(/\\/g, "/");
     const base = options.label?.trim() || `fig:${figureLabelFromPath(normalized)}`;
-    const resolvedLabel = paths.length > 1 && index > 0 ? `${base}-${index + 1}` : base;
     return [
       `\\begin{figure}[${placement}]`,
       "  \\centering",
       `  \\includegraphics[width=${width}]{\\detokenize{${normalized}}}`,
       `  \\caption{${caption}}`,
-      `  \\label{${resolvedLabel}}`,
+      `  \\label{${index > 0 ? `${base}-${index + 1}` : base}}`,
       "\\end{figure}",
     ].join("\n");
   }).join("\n\n");
-  const before = source.slice(0, position);
-  const after = source.slice(position);
-  const prefix = !before ? "" : before.endsWith("\n\n") ? "" : before.endsWith("\n") ? "\n" : "\n\n";
-  const suffix = !after ? "\n" : after.startsWith("\n\n") ? "" : after.startsWith("\n") ? "\n" : "\n\n";
-  const text = `${prefix}${blocks}${suffix}`;
-  return {
-    text,
-    cursorOffset: text.indexOf(caption) + caption.length,
-  };
+  const text = blockInsertionText(source, position, blocks);
+  return { text, cursorOffset: text.indexOf(caption) + caption.length };
+}
+
+const MARKDOWN_IMAGE_EXTENSIONS = new Set(["png", "jpg", "jpeg", "svg", "webp"]);
+
+export function markdownAssetInsertion(
+  source: string,
+  position: number,
+  paths: string[],
+  markdownPath: string,
+): InsertionEdit {
+  const blocks = paths.map((path) => {
+    const normalized = path.replace(/\\/g, "/");
+    const fileName = normalized.split("/").pop() ?? "asset";
+    const destination = projectRelativePath(markdownPath, normalized);
+    if (!MARKDOWN_IMAGE_EXTENSIONS.has(fileName.split(".").pop()?.toLocaleLowerCase() ?? "")) {
+      return `[${fileName}](<${destination}>)`;
+    }
+    const label = fileName.replace(/\.[^.]+$/, "").replace(/[-_]+/g, " ").trim() || "asset";
+    return `![${label}](<${destination}>)`;
+  }).join("\n\n");
+  const text = blockInsertionText(source, position, blocks);
+  return { text, cursorOffset: text.length };
 }
 
 function projectRelativePath(fromFile: string, targetPath: string): string {
@@ -80,18 +104,12 @@ function normalizeAssetReference(fromFile: string, rawPath: string): string | nu
   } catch {
     return null;
   }
-  if (!decoded || decoded.startsWith("/") || decoded.startsWith("//") || URI_SCHEME.test(decoded)) {
-    return null;
-  }
+  if (!decoded || decoded.startsWith("/") || URI_SCHEME.test(decoded)) return null;
   const parts = fromFile.replace(/\\/g, "/").split("/").slice(0, -1).filter(Boolean);
   for (const part of decoded.split("/")) {
     if (!part || part === ".") continue;
-    if (part === "..") {
-      if (!parts.length) return null;
-      parts.pop();
-    } else {
-      parts.push(part);
-    }
+    if (part !== "..") parts.push(part);
+    else if (!parts.pop()) return null;
   }
   return parts.join("/") || null;
 }
@@ -109,7 +127,7 @@ function referencedAsset(
   if (!normalized) return null;
   if (assetPaths.has(normalized)) return { path: normalized, suffix, extensionless: false };
   if (!extensionless || /\.[^/]+$/.test(normalized)) return null;
-  const matches = [...assetPaths].filter((path) => path.replace(/\.[^/.]+$/, "") === normalized);
+  const matches = [...assetPaths].filter((path) => withoutExtension(path) === normalized);
   return matches.length === 1 ? { path: matches[0], suffix, extensionless: true } : null;
 }
 
@@ -118,34 +136,17 @@ function rewrittenAssetDestination(
   nextPath: string,
   rawDestination: string,
   assetPaths: ReadonlySet<string>,
-  options: { extensionless?: boolean; projectRootRelative?: boolean } = {},
+  latex = false,
 ): string | null {
-  const reference = referencedAsset(
-    previousPath,
-    rawDestination,
-    assetPaths,
-    options.extensionless ?? false,
-  );
+  const reference = referencedAsset(previousPath, rawDestination, assetPaths, latex);
   if (!reference) return null;
-  if (options.projectRootRelative) {
-    // Lattice runs latexmk from the project root. A path which already names
-    // an asset from there is independent of the .tex file's own directory and
-    // must stay unchanged when that file moves.
-    const rootReference = referencedAsset(
-      "root.tex",
-      rawDestination,
-      assetPaths,
-      options.extensionless ?? false,
-    );
-    if (rootReference) return null;
-  }
-  const target = reference.extensionless
-    ? reference.path.replace(/\.[^/.]+$/, "")
-    : reference.path;
-  const rewritten = projectRelativePath(nextPath, target);
-  return `${rewritten}${reference.suffix}` === rawDestination
-    ? null
-    : `${rewritten}${reference.suffix}`;
+  // Lattice runs latexmk from the project root. A LaTeX path which already
+  // names an asset from there is independent of the .tex file's own directory
+  // and must stay unchanged when that file moves.
+  if (latex && referencedAsset("root.tex", rawDestination, assetPaths, true)) return null;
+  const target = reference.extensionless ? withoutExtension(reference.path) : reference.path;
+  const rewritten = `${projectRelativePath(nextPath, target)}${reference.suffix}`;
+  return rewritten === rawDestination ? null : rewritten;
 }
 
 function latexCommandIsCommented(source: string, position: number): boolean {
@@ -161,7 +162,8 @@ function latexCommandIsCommented(source: string, position: number): boolean {
   return false;
 }
 
-function markdownProtectedRanges(source: string): Array<[number, number]> {
+/** Whether `offset` sits inside an HTML comment or a fenced code block. */
+function markdownProtection(source: string): (offset: number) => boolean {
   const ranges: Array<[number, number]> = [];
   for (const match of source.matchAll(/<!--[\s\S]*?(?:-->|$)/g)) {
     ranges.push([match.index, match.index + match[0].length]);
@@ -187,7 +189,27 @@ function markdownProtectedRanges(source: string): Array<[number, number]> {
     lineStart = lineEnd;
   }
   if (fence) ranges.push([fence.start, source.length]);
-  return ranges;
+  return (offset) => ranges.some(([start, end]) => offset >= start && offset < end);
+}
+
+/**
+ * Rewrite every destination `pattern` captures. The pattern captures a prefix
+ * and then one alternative group per destination syntax; `formats[i]` puts a
+ * rewritten path back into alternative `i`'s syntax.
+ */
+function rewriteDestinations(
+  source: string,
+  pattern: RegExp,
+  formats: Array<(path: string) => string>,
+  skip: (offset: number) => boolean,
+  rewrite: (destination: string) => string | null,
+): string {
+  return source.replace(pattern, (match: string, prefix: string, ...rest: unknown[]) => {
+    const alternative = rest.slice(0, formats.length).findIndex((group) => group !== undefined);
+    if (alternative < 0 || skip(rest[formats.length] as number)) return match;
+    const rewritten = rewrite(rest[alternative] as string);
+    return rewritten ? prefix + formats[alternative](rewritten) : match;
+  });
 }
 
 /**
@@ -203,117 +225,33 @@ export function rewriteMovedDocumentAssetPaths(
   nextPath: string,
   assetPaths: ReadonlySet<string>,
 ): string {
-  const previousDirectory = previousPath.includes("/")
-    ? previousPath.slice(0, previousPath.lastIndexOf("/"))
-    : "";
-  const nextDirectory = nextPath.includes("/")
-    ? nextPath.slice(0, nextPath.lastIndexOf("/"))
-    : "";
-  if (previousPath === nextPath || previousDirectory === nextDirectory) {
-    return source;
-  }
+  if (directoryOf(previousPath) === directoryOf(nextPath)) return source;
+  const rewrite = (destination: string) =>
+    rewrittenAssetDestination(previousPath, nextPath, destination, assetPaths);
   if (/\.md$/i.test(previousPath)) {
-    MARKDOWN_IMAGE_DESTINATION.lastIndex = 0;
-    let protectedRanges = markdownProtectedRanges(source);
-    const rewrittenSource = source.replace(
+    const markdown = rewriteDestinations(
+      source,
       MARKDOWN_IMAGE_DESTINATION,
-      (match, prefix: string, angledPath: string | undefined, barePath: string | undefined, offset: number) => {
-        if (protectedRanges.some(([start, end]) => offset >= start && offset < end)) return match;
-        const destination = angledPath ?? barePath;
-        if (!destination) return match;
-        const rewritten = rewrittenAssetDestination(
-          previousPath,
-          nextPath,
-          destination,
-          assetPaths,
-        );
-        if (!rewritten) return match;
-        return `${prefix}${angledPath === undefined ? rewritten.replaceAll(" ", "%20") : `<${rewritten}>`}`;
-      },
+      [(path) => `<${path}>`, escapeSpaces],
+      markdownProtection(source),
+      rewrite,
     );
-    HTML_IMAGE_SOURCE.lastIndex = 0;
-    protectedRanges = markdownProtectedRanges(rewrittenSource);
-    return rewrittenSource.replace(
+    return rewriteDestinations(
+      markdown,
       HTML_IMAGE_SOURCE,
-      (
-        match,
-        prefix: string,
-        doubleQuotedPath: string | undefined,
-        singleQuotedPath: string | undefined,
-        unquotedPath: string | undefined,
-        offset: number,
-      ) => {
-        if (protectedRanges.some(([start, end]) => offset >= start && offset < end)) return match;
-        const destination = doubleQuotedPath ?? singleQuotedPath ?? unquotedPath;
-        if (!destination) return match;
-        const rewritten = rewrittenAssetDestination(
-          previousPath,
-          nextPath,
-          destination,
-          assetPaths,
-        );
-        if (!rewritten) return match;
-        if (doubleQuotedPath !== undefined) return `${prefix}"${rewritten}"`;
-        if (singleQuotedPath !== undefined) return `${prefix}'${rewritten}'`;
-        return `${prefix}${rewritten.replaceAll(" ", "%20")}`;
-      },
+      [(path) => `"${path}"`, (path) => `'${path}'`, escapeSpaces],
+      markdownProtection(markdown),
+      rewrite,
     );
   }
   if (/\.tex$/i.test(previousPath)) {
-    LATEX_IMAGE_DESTINATION.lastIndex = 0;
-    return source.replace(
+    return rewriteDestinations(
+      source,
       LATEX_IMAGE_DESTINATION,
-      (match, prefix: string, detokenizedPath: string | undefined, plainPath: string | undefined, closing: string, offset: number) => {
-        if (latexCommandIsCommented(source, offset)) return match;
-        const destination = detokenizedPath ?? plainPath;
-        if (!destination) return match;
-        const rewritten = rewrittenAssetDestination(
-          previousPath,
-          nextPath,
-          destination.trim(),
-          assetPaths,
-          { extensionless: true, projectRootRelative: true },
-        );
-        if (!rewritten) return match;
-        const body = detokenizedPath === undefined ? rewritten : `\\detokenize{${rewritten}}`;
-        return `${prefix}${body}${closing}`;
-      },
+      [(path) => `\\detokenize{${path}}`, (path) => path],
+      (offset) => latexCommandIsCommented(source, offset),
+      (destination) => rewrittenAssetDestination(previousPath, nextPath, destination.trim(), assetPaths, true),
     );
   }
   return source;
-}
-
-function markdownLabel(path: string): string {
-  const fileName = path.split("/").pop() ?? "asset";
-  return fileName
-    .replace(/\.[^.]+$/, "")
-    .replace(/[-_]+/g, " ")
-    .trim() || "asset";
-}
-
-export function markdownAssetInsertion(
-  source: string,
-  position: number,
-  paths: string[],
-  markdownPath: string,
-): MarkdownAssetEdit {
-  const imageExtensions = new Set(["png", "jpg", "jpeg", "svg", "webp"]);
-  const blocks = paths.map((path) => {
-    const normalized = path.replace(/\\/g, "/");
-    const fileName = normalized.split("/").pop() ?? "asset";
-    const extension = fileName.split(".").pop()?.toLocaleLowerCase() ?? "";
-    const destination = projectRelativePath(markdownPath, normalized);
-    return imageExtensions.has(extension)
-      ? `![${markdownLabel(normalized)}](<${destination}>)`
-      : `[${fileName}](<${destination}>)`;
-  }).join("\n\n");
-  const before = source.slice(0, position);
-  const after = source.slice(position);
-  const prefix = !before ? "" : before.endsWith("\n\n") ? "" : before.endsWith("\n") ? "\n" : "\n\n";
-  const suffix = !after ? "\n" : after.startsWith("\n\n") ? "" : after.startsWith("\n") ? "\n" : "\n\n";
-  const text = `${prefix}${blocks}${suffix}`;
-  return {
-    text,
-    cursorOffset: text.length,
-  };
 }

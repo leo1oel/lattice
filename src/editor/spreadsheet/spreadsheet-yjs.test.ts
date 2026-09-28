@@ -1,11 +1,7 @@
 import { describe, expect, it } from "vitest";
 import * as Y from "yjs";
 import tutorialSpreadsheetSource from "../../../src-tauri/templates/tutorial/attention-results.lattice-sheet?raw";
-import {
-  applySpreadsheetBatch,
-  parseA1Range,
-  readSpreadsheet,
-} from "./spreadsheet-operations";
+import { applySpreadsheetBatch, parseA1Range, readSpreadsheet } from "./spreadsheet-operations";
 import {
   applySpreadsheetCellChanges,
   createDefaultSpreadsheet,
@@ -17,10 +13,16 @@ import {
   spreadsheetDocContent,
   spreadsheetSnapshotFromDoc,
 } from "./spreadsheet-yjs";
+import type { SpreadsheetCellValue, SpreadsheetWorkbookData } from "./spreadsheet-types";
+
+function seededDoc(): Y.Doc {
+  const doc = new Y.Doc();
+  seedSpreadsheetDoc(doc);
+  return doc;
+}
 
 function syncedDocs(): [Y.Doc, Y.Doc] {
-  const first = new Y.Doc();
-  seedSpreadsheetDoc(first);
+  const first = seededDoc();
   const second = new Y.Doc();
   Y.applyUpdate(second, Y.encodeStateAsUpdate(first));
   return [first, second];
@@ -37,10 +39,13 @@ function latticeRowId(data: Record<string, unknown>): unknown {
   return (data.custom as Record<string, unknown> | undefined)?.__latticeRowId;
 }
 
+const firstSheet = (workbook: SpreadsheetWorkbookData) => workbook.sheets[workbook.sheetOrder[0]];
+const setValues = (doc: Y.Doc, range: string, values: SpreadsheetCellValue[][]) =>
+  applySpreadsheetBatch(doc, { operations: [{ type: "set_values", range, values }] });
+
 describe("spreadsheet Yjs model", () => {
   it("loads the tutorial workbook with editable data and formulas", () => {
     const parsed = parseSpreadsheetFile(tutorialSpreadsheetSource);
-    expect(parsed).not.toBeNull();
     expect(parsed?.workbook.name).toBe("Attention experiment results");
     const sheet = parsed!.workbook.sheets.results;
     expect(sheet.name).toBe("Illustrative results");
@@ -70,7 +75,7 @@ describe("spreadsheet Yjs model", () => {
 
   it("round-trips the native file format and structured document", () => {
     const file = createDefaultSpreadsheet("Experiment data");
-    file.workbook.sheets[file.workbook.sheetOrder[0]].cellData[0] = {
+    firstSheet(file.workbook).cellData[0] = {
       0: { v: "Model", t: 1, s: { bl: 1 } },
       1: { v: "Accuracy", t: 1 },
     };
@@ -80,28 +85,17 @@ describe("spreadsheet Yjs model", () => {
     const doc = new Y.Doc();
     reconcileSpreadsheetDoc(doc, parsed!.workbook);
     const restored = spreadsheetSnapshotFromDoc(doc);
-    expect(restored.sheets[restored.sheetOrder[0]].cellData[0][0]).toMatchObject({ v: "Model", s: { bl: 1 } });
+    expect(firstSheet(restored).cellData[0][0]).toMatchObject({ v: "Model", s: { bl: 1 } });
     expect(parseSpreadsheetFile(spreadsheetDocContent(doc))?.workbook.sheetOrder).toEqual(restored.sheetOrder);
   });
 
-  it("merges concurrent edits to different cells", () => {
-    const [left, right] = syncedDocs();
-    applySpreadsheetBatch(left, { operations: [{ type: "set_values", range: "A1", values: [["left"]] }] });
-    applySpreadsheetBatch(right, { operations: [{ type: "set_values", range: "B1", values: [["right"]] }] });
-
-    exchange(left, right);
-
-    expect(readSpreadsheet(left, { range: "A1:B1" }).values).toEqual([["left", "right"]]);
-    expect(spreadsheetDocContent(left)).toBe(spreadsheetDocContent(right));
-  });
-
-  it("keeps first edits when two peers concurrently initialize an empty imported spreadsheet", () => {
-    const left = new Y.Doc();
-    const right = new Y.Doc();
-    seedSpreadsheetDoc(left);
-    seedSpreadsheetDoc(right);
-    applySpreadsheetBatch(left, { operations: [{ type: "set_values", range: "A1", values: [["left"]] }] });
-    applySpreadsheetBatch(right, { operations: [{ type: "set_values", range: "B1", values: [["right"]] }] });
+  it.each([
+    ["peers synced from one seed", syncedDocs],
+    ["peers that concurrently initialized an empty imported spreadsheet", () => [seededDoc(), seededDoc()]],
+  ])("merges concurrent edits to different cells between %s", (_label, peers) => {
+    const [left, right] = peers();
+    setValues(left, "A1", [["left"]]);
+    setValues(right, "B1", [["right"]]);
 
     exchange(left, right);
 
@@ -112,7 +106,7 @@ describe("spreadsheet Yjs model", () => {
 
   it("merges concurrent value and format fields on the same new cell", () => {
     const [left, right] = syncedDocs();
-    applySpreadsheetBatch(left, { operations: [{ type: "set_values", range: "C3", values: [[42]] }] });
+    setValues(left, "C3", [[42]]);
     applySpreadsheetBatch(right, { operations: [{ type: "format_range", range: "C3", format: { bold: true, backgroundColor: "#ffeeaa" } }] });
 
     exchange(left, right);
@@ -125,11 +119,10 @@ describe("spreadsheet Yjs model", () => {
   });
 
   it("rebases local snapshot changes over newer remote cells and row insertions", () => {
-    const doc = new Y.Doc();
-    seedSpreadsheetDoc(doc);
+    const doc = seededDoc();
     const previous = spreadsheetSnapshotFromDoc(doc);
     const local = structuredClone(previous);
-    const localSheet = local.sheets[local.sheetOrder[0]];
+    const localSheet = firstSheet(local);
     localSheet.cellData[0] = { 0: { v: "local", t: 1 } };
 
     applySpreadsheetBatch(doc, { operations: [
@@ -145,10 +138,9 @@ describe("spreadsheet Yjs model", () => {
   });
 
   it("applies sparse local cells by stable row ID and preserves remote fields", () => {
-    const doc = new Y.Doc();
-    seedSpreadsheetDoc(doc);
+    const doc = seededDoc();
     const previous = spreadsheetSnapshotFromDoc(doc);
-    const sheet = previous.sheets[previous.sheetOrder[0]];
+    const sheet = firstSheet(previous);
 
     applySpreadsheetBatch(doc, { operations: [
       { type: "insert_rows", before: 1, count: 1 },
@@ -168,8 +160,7 @@ describe("spreadsheet Yjs model", () => {
   });
 
   it("applies a whole Agent batch as one transaction", () => {
-    const doc = new Y.Doc();
-    seedSpreadsheetDoc(doc);
+    const doc = seededDoc();
     const origins: unknown[] = [];
     doc.on("afterTransaction", (transaction) => {
       if (transaction.changed.size > 0) origins.push(transaction.origin);
@@ -190,11 +181,25 @@ describe("spreadsheet Yjs model", () => {
     });
   });
 
+  // Univer CellValueType: 1 string, 2 number, 4 force-string.
+  it.each([
+    // Quoted plain numbers become numeric cells.
+    ["123", 123, 2], [" 12.8 ", 12.8, 2], ["-0.764", -0.764, 2], ["+2", 2, 2], ["1e3", 1000, 2], [42, 42, 2],
+    // Identifiers, grouped numbers, percents, and unsafe integers stay text.
+    ["0123", "0123", 1], ["1,234", "1,234", 1], ["20%", "20%", 1], ["1.2.3", "1.2.3", 1],
+    ["9007199254740993", "9007199254740993", 1], ["result", "result", 1],
+    // A leading apostrophe is Excel's force-string prefix.
+    ["'02115", "02115", 4], ["'123", "123", 4],
+  ])("stores Agent value %j as %j (type %i)", (input, v, t) => {
+    const doc = seededDoc();
+    setValues(doc, "A1", [[input]]);
+    expect(firstSheet(spreadsheetSnapshotFromDoc(doc)).cellData[0][0]).toMatchObject({ v, t });
+  });
+
   it("replaces incompatible rich-text and formula fields when Agent values change", () => {
-    const doc = new Y.Doc();
-    seedSpreadsheetDoc(doc);
+    const doc = seededDoc();
     const workbook = spreadsheetSnapshotFromDoc(doc);
-    const sheet = workbook.sheets[workbook.sheetOrder[0]];
+    const sheet = firstSheet(workbook);
     sheet.cellData[0] = {
       0: { f: "=1+1", v: 2, p: { body: { dataStream: "old" } }, si: "shared", ref: "A1:A2", xf: "spill" },
       1: { v: "old", t: 1, p: { body: { dataStream: "old" } }, ref: "B1:B2", xf: "spill" },
@@ -207,20 +212,13 @@ describe("spreadsheet Yjs model", () => {
     ] });
 
     const cells = spreadsheetSnapshotFromDoc(doc).sheets[sheet.id].cellData[0];
-    expect(cells[0]).toMatchObject({ v: "plain", t: 1 });
-    expect(cells[0]).not.toHaveProperty("f");
-    expect(cells[0]).not.toHaveProperty("p");
-    expect(cells[0]).not.toHaveProperty("ref");
-    expect(cells[1]).toMatchObject({ f: "=A1" });
-    expect(cells[1]).not.toHaveProperty("v");
-    expect(cells[1]).not.toHaveProperty("p");
-    expect(cells[1]).not.toHaveProperty("xf");
+    expect(cells[0]).toEqual({ v: "plain", t: 1 });
+    expect(cells[1]).toEqual({ f: "=A1" });
   });
 
   it("preserves stable cells when rows and columns are inserted", () => {
-    const doc = new Y.Doc();
-    seedSpreadsheetDoc(doc);
-    applySpreadsheetBatch(doc, { operations: [{ type: "set_values", range: "B2", values: [["anchor"]] }] });
+    const doc = seededDoc();
+    setValues(doc, "B2", [["anchor"]]);
     applySpreadsheetBatch(doc, { operations: [
       { type: "insert_rows", before: 2, count: 2 },
       { type: "insert_columns", before: "B", count: 1 },
@@ -229,18 +227,14 @@ describe("spreadsheet Yjs model", () => {
   });
 
   it("assigns a new stable ID to a blank Univer insertion without replacing shifted row IDs", () => {
-    const doc = new Y.Doc();
-    seedSpreadsheetDoc(doc);
-    applySpreadsheetBatch(doc, { operations: [{ type: "set_values", range: "B2", values: [["anchor"]] }] });
+    const doc = seededDoc();
+    setValues(doc, "B2", [["anchor"]]);
     const workbook = spreadsheetSnapshotFromDoc(doc);
-    const sheet = workbook.sheets[workbook.sheetOrder[0]];
+    const sheet = firstSheet(workbook);
     const anchorRowId = latticeRowId(sheet.rowData[1]);
-    sheet.rowData = Object.fromEntries(
-      Object.entries(sheet.rowData).map(([index, data]) => [Number(index) >= 1 ? Number(index) + 1 : Number(index), data]),
-    );
-    sheet.cellData = Object.fromEntries(
-      Object.entries(sheet.cellData).map(([index, data]) => [Number(index) >= 1 ? Number(index) + 1 : Number(index), data]),
-    );
+    const shiftDown = <T>(lines: Record<number, T>) => Object.fromEntries(Object.entries(lines).map(([key, data]) => [Number(key) >= 1 ? Number(key) + 1 : Number(key), data]));
+    sheet.rowData = shiftDown(sheet.rowData);
+    sheet.cellData = shiftDown(sheet.cellData);
     sheet.rowData[1] = {};
     sheet.rowCount += 1;
 
@@ -253,10 +247,9 @@ describe("spreadsheet Yjs model", () => {
   });
 
   it("round-trips structural Univer snapshots without losing formulas, styles, merges, or sheet metadata", () => {
-    const doc = new Y.Doc();
-    seedSpreadsheetDoc(doc);
+    const doc = seededDoc();
     const workbook = spreadsheetSnapshotFromDoc(doc);
-    const first = workbook.sheets[workbook.sheetOrder[0]];
+    const first = firstSheet(workbook);
     first.name = "Results";
     first.cellData[0] = {
       0: { v: 4, t: 2, s: { bg: { rgb: "#ffeeaa" } } },
@@ -266,7 +259,7 @@ describe("spreadsheet Yjs model", () => {
     first.freeze = { xSplit: 1, ySplit: 2, startRow: 2, startColumn: 1 };
     workbook.styles["formula-style"] = { bl: 1, cl: { rgb: "#112233" } };
     const secondFile = createDefaultSpreadsheet("Second");
-    const second = secondFile.workbook.sheets[secondFile.workbook.sheetOrder[0]];
+    const second = firstSheet(secondFile.workbook);
     second.name = "Notes";
     workbook.sheetOrder.push(second.id);
     workbook.sheets[second.id] = second;
@@ -292,8 +285,7 @@ describe("spreadsheet Yjs model", () => {
       endRow: 3,
       endColumn: 3,
     });
-    const doc = new Y.Doc();
-    seedSpreadsheetDoc(doc);
+    const doc = seededDoc();
     const before = spreadsheetDocContent(doc);
     expect(() => applySpreadsheetBatch(doc, { operations: [
       { type: "set_values", range: "A1", values: [["would be partial"]] },

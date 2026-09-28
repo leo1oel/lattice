@@ -5,31 +5,20 @@ import { buttonClassName } from "../components/ui/button-styles";
 import { Input } from "../components/ui/input";
 import { ModalDialog } from "../components/ui/modal-dialog";
 
-export function GotoLineDialog(props: {
+type GotoLineDialogProps = {
   open: boolean;
   line: number;
   maxLine: number;
   onClose: () => void;
   onGoto: (line: number) => void;
-}) {
-  if (!props.open) return null;
-  return (
-    <GotoLineDialogForm
-      key={`${props.line}:${props.open}`}
-      line={props.line}
-      maxLine={props.maxLine}
-      onClose={props.onClose}
-      onGoto={props.onGoto}
-    />
-  );
+};
+
+export function GotoLineDialog(props: GotoLineDialogProps) {
+  // Keyed by the starting line so each opening begins from a fresh draft.
+  return props.open ? <GotoLineDialogForm key={props.line} {...props} /> : null;
 }
 
-function GotoLineDialogForm(props: {
-  line: number;
-  maxLine: number;
-  onClose: () => void;
-  onGoto: (line: number) => void;
-}) {
+function GotoLineDialogForm(props: GotoLineDialogProps) {
   const [value, setValue] = useState(String(props.line));
   const submit = () => {
     const line = Number(value);

@@ -1,4 +1,4 @@
-export type TableGeneratorOptions = {
+type TableGeneratorOptions = {
   rows: number;
   cols: number;
   booktabs: boolean;
@@ -7,7 +7,7 @@ export type TableGeneratorOptions = {
   label: string;
 };
 
-export function clampTableSize(value: number, min = 1, max = 20): number {
+function clampTableSize(value: number, min = 1, max = 20): number {
   if (!Number.isFinite(value)) return min;
   return Math.min(max, Math.max(min, Math.round(value)));
 }
