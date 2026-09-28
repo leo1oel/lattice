@@ -102,6 +102,6 @@ const FILE_KIND_ICONS = {
 
 /** The added/deleted/renamed/edited glyph beside a file in a version's file list. */
 export function FileKindIcon(props: { kind: keyof typeof FILE_KIND_ICONS }) {
-  const Icon = FILE_KIND_ICONS[props.kind];
+  const Icon = FILE_KIND_ICONS[props.kind] ?? FilePen;
   return <Icon size={12} className={`versions-kind ${props.kind}`} aria-hidden />;
 }

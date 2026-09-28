@@ -150,7 +150,7 @@ export function OverleafHistoryPanel(props: {
         <button
           type="button"
           className={`versions-file overleaf-history-file ${diff.key === file.pathname || diff.key === file.newPathname ? "active" : ""}`}
-          title={`${fileOpLabel[file.operation ?? "edited"]}: ${file.pathname}`}
+          title={`${fileOpLabel[file.operation ?? "edited"] ?? fileOpLabel.edited}: ${file.pathname}`}
           onClick={() => openDiff(update, file.newPathname ?? file.pathname)}
         >
           <FileKindIcon kind={file.operation ?? "edited"} />

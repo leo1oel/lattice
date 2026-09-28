@@ -1,6 +1,6 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { FileDiffView } from "./file-diff-view";
+import { FileDiffView, FileKindIcon } from "./file-diff-view";
 
 const pierreState = vi.hoisted(() => ({ attached: true, highlighterLoaded: true, preloadHighlighter: vi.fn(() => Promise.resolve()) }));
 
@@ -110,5 +110,12 @@ describe("FileDiffView", () => {
     expect(screen.getByText("Rendering diff…")).toBeInTheDocument();
     await waitFor(() => expect(diff()).toBeInTheDocument());
     expect(pierreState.preloadHighlighter).toHaveBeenCalledWith({ themes: ["github-light"], langs: ["tex"] });
+  });
+});
+
+describe("FileKindIcon", () => {
+  it("falls back to the edited glyph for a server-provided kind it does not know", () => {
+    const { container } = render(<FileKindIcon kind={"copied" as "edited"} />);
+    expect(container.querySelector("svg.versions-kind.copied")).not.toBeNull();
   });
 });
