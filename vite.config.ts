@@ -123,7 +123,7 @@ const manualChunkName = (id: string) => {
   if (id.includes("node_modules/@lezer")) return "parser";
   if (id.includes("/node_modules/@codemirror/lang-markdown/") || id.includes("/node_modules/@codemirror/language-data/")) return undefined;
   if (id.includes("/node_modules/@replit/codemirror-vim/") || id.includes("/node_modules/@replit/codemirror-emacs/")) return undefined;
-  if (id.includes("/node_modules/@codemirror/") || id.includes("/node_modules/@uiw/react-codemirror/") || id.includes("/node_modules/codemirror-lang-latex/")) return "editor";
+  if (id.includes("/node_modules/@codemirror/") || id.includes("/node_modules/@uiw/react-codemirror/")) return "editor";
   if (id.includes("pdfjs-dist")) return "pdf-reader";
   if (id.includes("gsap")) return "motion";
   // Match react/react-dom exactly: the loose prefix also caught react-joyride,

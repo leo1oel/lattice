@@ -14,6 +14,7 @@ describe("LaTeX environments", () => {
     expect(beginEnvironmentClose("\\begin{align}", "")).toEqual({ insert: "\n  \n\\end{align}", cursorOffset: 3 });
     expect(beginEnvironmentClose("\\begin{align}", "\n\\end{align}")).toBeNull();
     expect(beginEnvironmentClose("\\begin{align*}", "")?.insert).toContain("\\end{align*}");
+    expect(beginEnvironmentClose("  \\begin{itemize}", "", "  ")).toEqual({ insert: "\n    \n  \\end{itemize}", cursorOffset: 5 });
   });
 
   it("jumps between matching begin and end environments and renames the one under the cursor", () => {

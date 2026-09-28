@@ -80,11 +80,16 @@ export function renameEnvironmentAt(
   ];
 }
 
+/**
+ * The body line and `\\end{…}` to add after a just-completed `\\begin{…}`, with
+ * the caret on the body line; `indent` is the `\\begin` line's own indentation.
+ */
 export function beginEnvironmentClose(
   textBeforeCursor: string,
   textAfterCursor: string,
+  indent = "",
 ): { insert: string; cursorOffset: number } | null {
   const name = /\\begin\{([A-Za-z*][A-Za-z0-9*]*)\}$/.exec(textBeforeCursor)?.[1];
   if (!name || new RegExp(`^\\s*\\\\end\\{${escapeRegExp(name)}\\}`).test(textAfterCursor)) return null;
-  return { insert: `\n  \n\\end{${name}}`, cursorOffset: 3 };
+  return { insert: `\n${indent}  \n${indent}\\end{${name}}`, cursorOffset: 3 + indent.length };
 }

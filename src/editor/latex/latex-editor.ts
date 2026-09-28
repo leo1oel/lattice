@@ -7,10 +7,10 @@ import { highlightSelectionMatches, openSearchPanel, replaceAll, search, searchK
 import { Prec, Transaction, type Extension } from "@codemirror/state";
 import { EditorView, keymap, tooltips, type Command } from "@codemirror/view";
 import { tags } from "@lezer/highlight";
-import { latexCompletionSource } from "codemirror-lang-latex";
 import { resolveTexlabDefinition, texlabCompletionSource, texlabHoverTooltip } from "../../build/texlab-language";
 import { floatingSurfaceClassName } from "../../components/ui/menu-surface";
 import { harperSpellcheck } from "../harper-spellcheck";
+import { latexCommandCompletions, latexCommandHover } from "./latex-command-completions";
 import {
   citationCompletions, citationIcon, includeCompletions, macroCompletions, openCitationAtCursor, referenceCompletions,
   textBefore,
@@ -32,9 +32,6 @@ import { matchingMathDelimiter } from "./math-region";
 import { compactSearchPanel } from "./search-panel";
 
 const CITATION_COMMAND_END = new RegExp(`\\\\(?:${CITATION_COMMANDS})$`);
-
-/** `codemirror-lang-latex` keeps hover docs; completion and lint come from the extensions below. */
-export const latexLanguageOptions = { enableAutocomplete: false, enableLinting: false, enableTooltips: true } as const;
 
 const luxLatexHighlightStyle = HighlightStyle.define([
   { tag: [tags.keyword, tags.definitionKeyword], color: "var(--syntax-keyword)", fontWeight: "600", fontStyle: "oblique" },
@@ -92,18 +89,29 @@ export type LatexEditorOptions = {
 };
 
 /**
- * Enter should keep the current line's indent, not add another indent unit.
- *
- * `codemirror-lang-latex` marks Environment / Group / Content as indentable, so
- * CodeMirror's default Enter (`insertNewlineAndIndent`) inserts an extra tab
- * (or indent unit) on every newline inside `\begin{document}`. That's right
- * for a programming language, not for LaTeX prose. Fall through after
- * `\begin{env}` so the language pack can still auto-close the environment.
+ * Enter keeps the current line's indent rather than adding an indent unit:
+ * that suits a programming language, not LaTeX prose inside
+ * `\begin{document}`. Right after a `\begin{env}` it opens an indented body
+ * line and writes the matching `\end{env}`, unless the environment is already
+ * closed there, in which case it only indents the new line.
  */
 export function insertLatexNewline(view: EditorView): boolean {
   const { main } = view.state.selection;
-  if (main.empty && /\\begin\{[^}]+\}\s*$/.test(view.state.doc.lineAt(main.from).text)) return false;
-  return insertNewlineKeepIndent(view);
+  const line = view.state.doc.lineAt(main.from);
+  const before = line.text.slice(0, main.from - line.from).replace(/[ \t]+$/, "");
+  if (!main.empty || !/\\begin\{[^}]+\}$/.test(before)) return insertNewlineKeepIndent(view);
+  const indent = /^\s*/.exec(line.text)?.[0] ?? "";
+  const close = beginEnvironmentClose(before, view.state.sliceDoc(main.from, main.from + 80), indent)
+    ?? { insert: `\n${indent}  `, cursorOffset: indent.length + 3 };
+  // Trailing blanks after the `\begin{…}` would otherwise end up after the `\end{…}`.
+  const from = line.from + before.length;
+  view.dispatch({
+    changes: { from, to: main.from, insert: close.insert },
+    selection: { anchor: from + close.cursorOffset },
+    scrollIntoView: true,
+    userEvent: "input",
+  });
+  return true;
 }
 
 /** A command that applies a text edit to the main selection and selects its result. */
@@ -255,7 +263,7 @@ export function latexEditorExtensions(options: LatexEditorOptions): Extension[] 
     ...textEditorExtensions(options.spellcheck, options.live, options.onPasteImage),
     citationTooltips(live),
     referenceTooltips(live, options.loadReferenceImage),
-    ...(options.texlab ? [texlabHoverTooltip(texlabPath)] : []),
+    texlabHoverTooltip(texlabPath, latexCommandHover, options.texlab),
     linter((view) => indexDiagnostics(view.state.doc.toString(), live(), currentPath, options.onCreateMissingFile), {
       delay: 400,
     }),
@@ -266,7 +274,7 @@ export function latexEditorExtensions(options: LatexEditorOptions): Extension[] 
         includeCompletions(live),
         macroCompletions(live),
         ...(options.texlab ? [texlabCompletionSource(texlabPath)] : []),
-        latexCompletionSource(true),
+        latexCommandCompletions,
       ],
       activateOnTyping: true,
       activateOnTypingDelay: 0,
@@ -369,7 +377,8 @@ export function latexEditorExtensions(options: LatexEditorOptions): Extension[] 
       const { empty, head } = update.state.selection.main;
       if (!update.docChanged || !typed || !empty) return;
       const before = textBefore(update.state, head, 120);
-      const close = beginEnvironmentClose(before, update.state.sliceDoc(head, head + 80));
+      const indent = /^\s*/.exec(update.state.doc.lineAt(head).text)?.[0] ?? "";
+      const close = beginEnvironmentClose(before, update.state.sliceDoc(head, head + 80), indent);
       if (close) {
         update.view.dispatch({
           changes: { from: head, insert: close.insert },
