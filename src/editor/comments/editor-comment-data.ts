@@ -1,4 +1,3 @@
-export const EDITOR_COMMENTS_PATH = ".research/editor-comments.json";
 const AUTHOR_ID_KEY = "lattice.editor-comment-author-id.v1";
 
 export type EditorCommentReply = {
@@ -93,6 +92,18 @@ export function loadEditorCommentAuthorId(): string {
     return id;
   } catch {
     return "anonymous";
+  }
+}
+
+/**
+ * The name comments and version snapshots are signed with. Only the retired
+ * Lattice Shares dialog ever wrote it, so a name set there keeps signing.
+ */
+export function loadAuthorDisplayName(): string {
+  try {
+    return localStorage.getItem("lattice.collab.name") ?? "";
+  } catch {
+    return "";
   }
 }
 

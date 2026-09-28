@@ -1,7 +1,7 @@
 /**
- * The conversation surface both chats share: Overleaf's project chat and a
- * Lattice Share room's own. Their messages on the left, yours on the right,
- * newest at the bottom, and a composer that sends on Enter.
+ * The conversation surface of Overleaf's project chat: their messages on the
+ * left, yours on the right, newest at the bottom, and a composer that sends on
+ * Enter.
  */
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { useLingui } from "@lingui/react/macro";

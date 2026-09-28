@@ -185,16 +185,13 @@ mod tests {
     }
 
     #[test]
-    fn mutation_protocol_rejects_arbitrary_actions_and_fields() {
+    fn mutation_protocol_rejects_arbitrary_actions_fields_and_unbounded_strings() {
         let parse = serde_json::from_str::<AgentBibliographyMutation>;
         assert!(parse(r#"{"action":"cite","query":"Attention Is All You Need"}"#).is_ok());
         assert!(parse(r#"{"action":"write_file","path":"references.bib"}"#).is_err());
         assert!(parse(r#"{"action":"remove_reference","key":"bad2024","path":"references.bib"}"#)
             .is_err());
-    }
-
-    #[test]
-    fn mutation_protocol_bounds_agent_controlled_strings() {
+        // Agent-controlled strings are trimmed and bounded.
         assert_eq!(bounded_value("  key2024  ".to_string(), "key", 512).unwrap(), "key2024");
         assert!(bounded_value("   ".to_string(), "key", 512).is_err());
         assert!(bounded_value("x".repeat(513), "key", 512).is_err());

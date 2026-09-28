@@ -186,25 +186,15 @@ mod tests {
 
     #[test]
     fn scan_covers_all_files_and_reports_cross_file_duplicates_and_malformed_input() {
-        let project = TestProject::new();
-        let root = &project.root;
-        let primary = scan(root)
-            .unwrap()
-            .entries
-            .first()
-            .map(|e| e.path.clone())
-            .unwrap_or_else(|| "references.bib".into());
-        fs::write(
-            root.join(&primary),
+        let project = TestProject::with_bib(
             "@article{same, title={One}, author={A}, year={2020}, doi={10.1234/x}}\n@broken{",
-        )
-        .unwrap();
+        );
         fs::write(
-            root.join("other.bib"),
+            project.root.join("other.bib"),
             "@article{same, title={One}, author={B}, year={2021}, doi={10.1234/x}}",
         )
         .unwrap();
-        let audit = scan(root).unwrap();
+        let audit = scan(&project.root).unwrap();
         assert_eq!(audit.entries.len(), 2);
         let count = |text: &str| audit.issues.iter().filter(|i| i.message.contains(text)).count();
         assert!(count("Could not parse") > 0);
@@ -215,6 +205,7 @@ mod tests {
     #[test]
     fn local_validation_applies_type_specific_bibtex_rules() {
         assert_reports("@misc{x, year={20#24}}", &["Invalid literal year; expected four digits."]);
+        assert_reports("@misc{x, year={ bad }}", &["Invalid literal year; expected four digits."]);
         assert_reports(
             "@article{paper, title={}, author={Ada}, year={twenty twenty}, booktitle={Proceedings}}",
             &[
@@ -231,17 +222,6 @@ mod tests {
                 "Inproceedings entry uses journal instead of booktitle.",
             ],
         );
-    }
-
-    #[test]
-    fn local_validation_supports_standard_and_biblatex_entry_types() {
-        for valid in [
-            "@Article {a, author={A}, title={T}, journaltitle={J}, date={2024-05}}",
-            "@book{b, editor={E}, title={T}, publisher={P}, year={2024}}",
-            "@online{o, author={A}, title={T}, date={2024-05}, url={https://example.test}}",
-        ] {
-            assert!(local_validation(valid).is_empty(), "{valid}");
-        }
         assert_reports(
             "@article{a, editor={E}, title={T}, journal={J}, year={2024}}",
             &["Missing author field for article entry."],
@@ -252,9 +232,14 @@ mod tests {
         );
     }
 
+    /// Standard and biblatex entry types, crossref inheritance and string
+    /// expressions are not false positives.
     #[test]
-    fn local_validation_avoids_inheritance_and_expression_false_positives() {
+    fn local_validation_accepts_biblatex_types_inheritance_and_expressions() {
         for valid in [
+            "@Article {a, author={A}, title={T}, journaltitle={J}, date={2024-05}}",
+            "@book{b, editor={E}, title={T}, publisher={P}, year={2024}}",
+            "@online{o, author={A}, title={T}, date={2024-05}, url={https://example.test}}",
             "@incollection{x, crossref={parent}, pages={1--2}}",
             "@misc{x, year={20} # {24}}",
             "@misc{x, year={ 2024 }}",
@@ -262,7 +247,6 @@ mod tests {
         ] {
             assert!(local_validation(valid).is_empty(), "{valid}");
         }
-        assert_reports("@misc{x, year={ bad }}", &["Invalid literal year; expected four digits."]);
     }
 
     #[test]

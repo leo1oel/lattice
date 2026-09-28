@@ -5,14 +5,12 @@ const LEVELS = new Set(["info", "success", "warning", "error"]);
 const PHASES = new Set(["started", "progress", "completed"]);
 const OUTCOMES = new Set(["success", "error", "cancelled"]);
 const SAFE_METRICS = new Set([
-  "automatic", "shared", "pulled", "pushed", "merged", "conflicts", "deleted_local",
+  "automatic", "pulled", "pushed", "merged", "conflicts", "deleted_local",
   "read_only", "retry_scheduled", "force", "compiler_duration_ms", "diagnostics", "has_pdf",
   "status_code", "dropped_overflow", "dropped_failed",
 ]);
 const SAFE_OPERATIONS = new Set([
-  "Build", "Sync", "logging.delivery", "build_project", "overleaf_sync", "overleaf_prepare_sync", "overleaf_commit_prepared_sync",
-  "collab.create", "collab.catalog", "collab.presence", "collab.events", "collab.grants", "collab.text.import", "collab.binary.import", "collab.import.control",
-  "collab.binary.upload", "collab.binary.download", "collab.binary/upload-tickets", "collab.binary/read-tickets", "collab.binary/commit",
+  "Build", "Sync", "logging.delivery", "build_project", "overleaf_sync",
 ]);
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const MAX_DURATION_MS = 7 * 24 * 60 * 60 * 1_000;

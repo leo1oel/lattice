@@ -56,7 +56,8 @@ type OpenSlideBroadcast = Omit<OpenSlideMutation, "id"> | {
 
 // Mirrors the runtime's event queue: every event is numbered and kept in
 // history, a stream that names a Last-Event-ID (0 included) gets everything
-// after it, and every stream then learns the current sequence.
+// after it, and every stream then learns the current sequence. Installs itself
+// as the global fetch.
 function fakeOpenSlideRuntime() {
   const encoder = new TextEncoder();
   const history: { id: number; frame: string }[] = [];
@@ -84,6 +85,7 @@ function fakeOpenSlideRuntime() {
     stream.enqueue(encoder.encode(`data: ${JSON.stringify({ id: sequence, type: "ready" })}\n\n`));
     return new Response(body, { status: 200 });
   });
+  vi.stubGlobal("fetch", fetchMock);
   return {
     fetchMock,
     eventHeaders,
@@ -253,11 +255,8 @@ describe("OpenSlideWorkspace", () => {
       start(controller) {
         eventRequests += 1;
         if (eventRequests > 1) return;
-        controller.enqueue(contextFrame(3, {
-          pageIndex: 3,
-          pageNumber: 4,
-          selection: { line: 42, column: 6, tagName: "h1", text: "Q2 Roadmap" },
-        }));
+        const selection = { line: 42, column: 6, tagName: "h1", text: "Q2 Roadmap" };
+        controller.enqueue(contextFrame(3, { pageIndex: 3, pageNumber: 4, selection }));
         controller.close();
       },
     }));
@@ -283,24 +282,17 @@ describe("OpenSlideWorkspace", () => {
   describe("event stream continuity", () => {
     it("keeps one event stream and one source sync while App rebuilds its callbacks", async () => {
       const runtimeEvents = fakeOpenSlideRuntime();
-      vi.stubGlobal("fetch", runtimeEvents.fetchMock);
       const { rerender } = render(workspace({ onError: vi.fn(), onContext: vi.fn() }));
       await waitFor(() => expect(runtimeEvents.eventRequests()).toHaveLength(1));
-      await waitFor(() => expect(invoke).toHaveBeenCalledWith(
-        REFRESH, { projectRoot: "/tmp/project" }));
-      const syncs = () => runtimeEvents.fetchMock.mock.calls.filter(([input]) => (
-        String(input).endsWith("/__lattice/sync")
-      )).length;
+      await waitFor(() => expect(invoke).toHaveBeenCalledWith(REFRESH, { projectRoot: "/tmp/project" }));
+      const syncs = () => fetchCalls("sync").length;
       await waitFor(() => expect(syncs()).toBe(2));
 
       // Every project refresh hands the workspace new callback identities.
       const latestMutation = vi.fn(async () => []);
       for (let refresh = 0; refresh < 5; refresh += 1) {
-        rerender(workspace({
-          onMutation: refresh === 4 ? latestMutation : vi.fn(async () => []),
-          onError: vi.fn(),
-          onContext: vi.fn(),
-        }));
+        const onMutation = refresh === 4 ? latestMutation : vi.fn(async () => []);
+        rerender(workspace({ onMutation, onError: vi.fn(), onContext: vi.fn() }));
         await act(async () => { await new Promise((resolve) => window.setTimeout(resolve, 0)); });
       }
       // Callback churn alone must not push the project source back into
@@ -318,7 +310,6 @@ describe("OpenSlideWorkspace", () => {
 
     it("applies a mutation broadcast while the stream reconnects, even from cursor zero", async () => {
       const runtimeEvents = fakeOpenSlideRuntime();
-      vi.stubGlobal("fetch", runtimeEvents.fetchMock);
       const onMutation = vi.fn(async () => []);
       render(workspace({ onMutation }));
       await waitFor(() => expect(runtimeEvents.eventRequests()).toHaveLength(1));
@@ -336,7 +327,6 @@ describe("OpenSlideWorkspace", () => {
 
     it("resumes a remounted workspace after what this page already applied", async () => {
       const runtimeEvents = fakeOpenSlideRuntime();
-      vi.stubGlobal("fetch", runtimeEvents.fetchMock);
       // History from an earlier page must not be replayed into this one.
       runtimeEvents.broadcast({ ...deckEdit, text: "export default ['earlier page'];\n" });
       const first = vi.fn(async () => []);
@@ -360,7 +350,6 @@ describe("OpenSlideWorkspace", () => {
 
     it("replays a mutation broadcast while its deck was hidden", async () => {
       const runtimeEvents = fakeOpenSlideRuntime();
-      vi.stubGlobal("fetch", runtimeEvents.fetchMock);
       const onMutation = vi.fn(async () => []);
       const { rerender } = render(workspace({ onMutation }));
       await waitFor(() => expect(runtimeEvents.eventRequests()).toHaveLength(1));
@@ -376,7 +365,6 @@ describe("OpenSlideWorkspace", () => {
 
     it("stops accepting and applying saves once another tab displaces this page", async () => {
       const runtimeEvents = fakeOpenSlideRuntime();
-      vi.stubGlobal("fetch", runtimeEvents.fetchMock);
       const onMutation = vi.fn(async () => []);
       render(workspace({ onMutation }));
       expect(await screen.findByTitle(FRAME_TITLE)).toBeInTheDocument();
@@ -388,9 +376,7 @@ describe("OpenSlideWorkspace", () => {
       expect(runtimeEvents.eventRequests()[0]?.[1]?.signal?.aborted).toBe(true);
       await waitFor(() => expect(fetch).toHaveBeenCalledWith(
         `${runtime.origin}/__lattice/access`,
-        expect.objectContaining({
-          body: JSON.stringify({ leaseId: runtime.leaseId, remove: true }),
-        }),
+        expect.objectContaining({ body: JSON.stringify({ leaseId: runtime.leaseId, remove: true }) }),
       ));
       runtimeEvents.broadcast(deckEdit);
       await new Promise((resolve) => window.setTimeout(resolve, 20));

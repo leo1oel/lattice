@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useLingui } from "@lingui/react/macro";
-import { Cloud, FileArchive, FileText, Folder, FolderOpen, Pencil, Plus, Radio, Settings, Sparkles } from "lucide-react";
+import { Cloud, FileArchive, FileText, Folder, FolderOpen, Pencil, Plus, Settings, Sparkles } from "lucide-react";
 import { MorphIcon, MotionButton } from "../components/ui/motion";
 import { InfinityLoader } from "../components/ui/activity-icons";
 import { Button } from "../components/ui/button";
@@ -12,7 +12,6 @@ import type { ProjectVenue, RenameTarget } from "../app-types";
 import type { RecentProject } from "../settings/app-settings";
 import { beginWindowDrag, toggleWindowFullscreen } from "../app-utils";
 import { ModalDialog } from "../components/ui/modal-dialog";
-import { isCollabEnabled } from "../collab/collab-feature-policy";
 
 export function Welcome(props: {
   busyLabel: string | null;
@@ -27,7 +26,6 @@ export function Welcome(props: {
   onCreate: () => void;
   onOpen: () => void;
   onImportZip: () => void;
-  onJoinCollab: () => void;
   onOpenTutorial: () => void;
   onSettings: () => void;
   onInstallTex: () => void;
@@ -79,9 +77,6 @@ export function Welcome(props: {
           <button className="welcome-more-action" onClick={props.onImportZip}>
             <FileArchive size={15} /> {t`Import ZIP`}
           </button>
-          {isCollabEnabled() && <button className="welcome-more-action" onClick={props.onJoinCollab}>
-            <Radio size={15} /> {t`Join share`}
-          </button>}
         </div>
         <Button size="compact" variant="ghost" className="welcome-tex-setup" onClick={props.onInstallTex}>
           {t`Install LaTeX tools (needed to compile PDFs)`}

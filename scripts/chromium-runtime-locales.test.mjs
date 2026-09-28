@@ -32,11 +32,9 @@ function frameworkResources(root) {
 }
 
 describe("Chromium runtime locale pruning", () => {
-  it("declares both interface languages even when empty app locale directories are omitted", () => {
-    expect(CHROMIUM_BUNDLE_LOCALIZATIONS).toEqual(["en", "zh"]);
-  });
-
   it("retains only base English and simplified Chinese at every resource depth", () => {
+    // Both interface languages stay declared even when empty app locale directories are omitted.
+    expect(CHROMIUM_BUNDLE_LOCALIZATIONS).toEqual(["en", "zh"]);
     fixture = mkdtempSync(join(tmpdir(), "lattice-chromium-locales-"));
     const appResources = join(fixture, "Contents", "Resources");
     const electronResources = frameworkResources(fixture);

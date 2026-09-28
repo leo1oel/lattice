@@ -35,10 +35,7 @@ mod tests {
 
     #[test]
     fn install_modes_are_explicit_ipc_values() {
-        for (json, mode) in
-            [("\"toolsOnly\"", TexInstallMode::ToolsOnly), ("\"full\"", TexInstallMode::Full)]
-        {
-            assert_eq!(serde_json::from_str::<TexInstallMode>(json).unwrap(), mode);
-        }
+        let modes: Vec<TexInstallMode> = serde_json::from_str(r#"["toolsOnly", "full"]"#).unwrap();
+        assert_eq!(modes, [TexInstallMode::ToolsOnly, TexInstallMode::Full]);
     }
 }

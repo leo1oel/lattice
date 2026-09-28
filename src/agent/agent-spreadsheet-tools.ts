@@ -1,5 +1,4 @@
 import type * as Y from "yjs";
-import type { Awareness } from "y-protocols/awareness";
 import {
   applySpreadsheetBatch,
   parseSpreadsheetBatchUpdateArgs,
@@ -7,7 +6,7 @@ import {
   readSpreadsheet,
 } from "../editor/spreadsheet/spreadsheet-operations";
 import type { SpreadsheetBatchUpdateRequest } from "../editor/spreadsheet/spreadsheet-types";
-import { SPREADSHEET_AGENT_ORIGIN, spreadsheetSnapshotFromDoc } from "../editor/spreadsheet/spreadsheet-yjs";
+import { SPREADSHEET_AGENT_ORIGIN } from "../editor/spreadsheet/spreadsheet-yjs";
 import {
   createOpenWaiters,
   isRecord,
@@ -40,7 +39,6 @@ export type AgentSpreadsheetDocument = {
   doc: Y.Doc;
   canWrite: boolean;
   commit?: () => Promise<void>;
-  awareness?: Awareness | null;
   path?: string;
   dispose?: () => void;
 };
@@ -57,7 +55,6 @@ type BatchResult = { appliedOperations: number; affectedCells: number; workbookR
 const openDocuments = new Map<string, Set<OpenAgentSpreadsheetDocument>>();
 const documentWaiters = createOpenWaiters();
 let documentResolver: AgentSpreadsheetDocumentResolver | null = null;
-const SPREADSHEET_AGENT_PRESENCE_FIELD = "spreadsheetAgentPresence";
 const SPREADSHEET_AGENT_REQUESTS_KEY = "spreadsheetAgentRequests";
 const MAX_RECORDED_AGENT_REQUESTS = 256;
 
@@ -101,36 +98,6 @@ function recordedBatchResult(
     }
   }, SPREADSHEET_AGENT_ORIGIN);
   return result;
-}
-
-function publishAgentPresence(
-  document: AgentSpreadsheetDocument,
-  path: string,
-  request: SpreadsheetBatchUpdateRequest,
-): (() => void) | undefined {
-  const awareness = document.awareness;
-  if (!awareness) return undefined;
-  const workbook = spreadsheetSnapshotFromDoc(document.doc);
-  const rangeOperations = request.operations.filter((operation) => "range" in operation);
-  const requestedSheet = request.operations
-    .map((operation) => "sheet" in operation ? operation.sheet : undefined)
-    .find((sheet) => sheet !== undefined);
-  const sheetId = requestedSheet && workbook.sheets[requestedSheet]
-    ? requestedSheet
-    : requestedSheet
-      ? workbook.sheetOrder.find((id) => workbook.sheets[id]?.name.toLocaleLowerCase() === requestedSheet.toLocaleLowerCase())
-      : workbook.sheetOrder[0];
-  if (!sheetId) return undefined;
-  const selections = rangeOperations.map((operation) => operation.range);
-  const prior = awareness.getLocalState()?.[SPREADSHEET_AGENT_PRESENCE_FIELD] ?? null;
-  awareness.setLocalStateField(SPREADSHEET_AGENT_PRESENCE_FIELD, {
-    path,
-    sheetId,
-    selections,
-    ...(selections[0] ? { activeCell: selections[0] } : {}),
-    agent: true,
-  });
-  return () => awareness.setLocalStateField(SPREADSHEET_AGENT_PRESENCE_FIELD, prior);
 }
 
 export function registerAgentSpreadsheetDocument(
@@ -179,7 +146,7 @@ export async function executeAgentSpreadsheetToolRequest(
   request: AgentSpreadsheetToolRequest,
 ): Promise<AgentSpreadsheetToolResult> {
   // Released only after the reply is built, however the request ends.
-  const held: { document?: AgentSpreadsheetDocument | null; restorePresence?: () => void } = {};
+  const held: { document?: AgentSpreadsheetDocument | null } = {};
   try {
     return await runAgentTool(LATTICE_SPREADSHEET_TOOL_RESULT, request.id, "spreadsheet_tool_failed", async () => {
       if (request.expiresAt <= Date.now()) {
@@ -201,7 +168,6 @@ export async function executeAgentSpreadsheetToolRequest(
       } else {
         if (!document.canWrite) throw toolError("This spreadsheet is read-only.", "spreadsheet_read_only");
         const batch = parseSpreadsheetBatchUpdateArgs(args);
-        held.restorePresence = publishAgentPresence(document, path, batch);
         const applied = recordedBatchResult(document, request, batch);
         try {
           await document.commit?.();
@@ -212,11 +178,11 @@ export async function executeAgentSpreadsheetToolRequest(
           // non-idempotent operations (insert rows, for example) twice. Report
           // the applied mutation honestly and make the required next step a read:
           // that distinguishes a failed local write from an update already held
-          // by the live collaborative Y.Doc without replaying it speculatively.
+          // by the open spreadsheet's Y.Doc without replaying it speculatively.
           result = {
             ...applied,
             persistenceConfirmed: false,
-            warning: "The update was applied, but collaboration and disk persistence were not confirmed. Use spreadsheet_read to verify the affected range before issuing another update.",
+            warning: "The update was applied, but disk persistence was not confirmed. Use spreadsheet_read to verify the affected range before issuing another update.",
           };
         }
       }
@@ -225,7 +191,6 @@ export async function executeAgentSpreadsheetToolRequest(
       return result;
     });
   } finally {
-    held.restorePresence?.();
     held.document?.dispose?.();
   }
 }

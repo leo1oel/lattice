@@ -89,16 +89,6 @@ describe("paper lookup", () => {
     await waitFor(() => expect(native.emitTo).toHaveBeenLastCalledWith("project-2", "paper-native-drag", { id, paper: null }));
   });
 
-  it("opens through the constrained native command and reports creation failures", async () => {
-    const error = vi.fn();
-    const hook = renderHook(() => usePaperLookup(state, vi.fn(), error));
-    await act(() => hook.result.current());
-    expect(native.invoke).toHaveBeenCalledWith("open_paper_lookup", { title: "Paper lookup" });
-    native.invoke.mockRejectedValueOnce(new Error("Could not create window"));
-    await act(() => hook.result.current());
-    expect(error).toHaveBeenCalledWith(expect.objectContaining({ message: "Could not create window" }));
-  });
-
   it("handshakes before receiving the library, filters, reads in the owner, and toggles global pinning", async () => {
     render(<PaperLookup owner="project-2" />);
     await waitFor(() => expect(native.emitTo).toHaveBeenCalledWith("project-2", PAPER_LOOKUP_READY));
@@ -120,7 +110,7 @@ describe("paper lookup", () => {
     expect(screen.getByText("No matching papers")).toBeVisible();
   });
 
-  it("publishes current state and rejects stale project requests without opening a paper", async () => {
+  it("publishes current state, rejects stale project requests, and opens through the constrained native command", async () => {
     const open = vi.fn();
     const error = vi.fn();
     const hook = renderHook(({ library }) => usePaperLookup(library, open, error), { initialProps: { library: state } });
@@ -132,6 +122,11 @@ describe("paper lookup", () => {
     send(PAPER_LOOKUP_OPEN, { projectRoot: state.projectRoot, ...state.papers[0] });
     expect(open).toHaveBeenCalledTimes(1);
     expect(error).not.toHaveBeenCalled();
+    await act(() => hook.result.current());
+    expect(native.invoke).toHaveBeenCalledWith("open_paper_lookup", { title: "Paper lookup" });
+    native.invoke.mockRejectedValueOnce(new Error("Could not create window"));
+    await act(() => hook.result.current());
+    expect(error).toHaveBeenCalledWith(expect.objectContaining({ message: "Could not create window" }));
     hook.unmount();
     await waitFor(() => expect(native.cleanup).toHaveBeenCalledTimes(4));
   });

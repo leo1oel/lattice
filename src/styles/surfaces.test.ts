@@ -34,7 +34,7 @@ describe("shared surface contracts", () => {
   it("is owned by App.css instead of being restated per feature", () => {
     expectRules(appCss, ['@import "./styles/surfaces.css"', ".history-drawer"])
     expectRules(surfacesCss, [
-      ".modal:not(.collab-drawer-content):not(.overleaf-picker-drawer-content),",
+      ".modal:not(.overleaf-picker-drawer-content),",
       ".resizable-drawer,",
       "padding: var(--drawer-content-inset)",
       "@keyframes drawer-in",
@@ -42,7 +42,7 @@ describe("shared surface contracts", () => {
   })
 
   // Feature rules should only add layout/sizing after the shared chrome lands.
-  it("routes shared floating chrome through shadow-plugin", () => {
+  it("routes shared floating chrome through shadow-plugin and keeps frosted hover cards in one place", () => {
     const floatingChrome =
       /border:\s*1px solid var\(--border-strong\);[^}]*background:\s*var\(--surface-panel-raised\);[^}]*box-shadow:\s*var\(--shadow\)/
     const drawerChrome =
@@ -51,17 +51,11 @@ describe("shared surface contracts", () => {
     expectRules(surfacesCss, ["@apply smooth-shadow-ring-lg", "@apply smooth-shadow-lg"])
     expectRules(appCss, [], [floatingChrome, drawerChrome, /@keyframes drawer-in/])
     expect(read("tools/icon-lab/icon-lab.css")).not.toMatch(floatingChrome)
-  })
-
-  it("keeps the frosted hover-card chrome in one place", () => {
+    // The frosted hover-card chrome lives in one place too.
     const frostedChrome =
       /background:\s*color-mix\(in srgb, var\(--surface-panel-raised\)\s*97%,\s*transparent\);[^}]*backdrop-filter:\s*blur\(14px\)/
     expect(surfacesCss).toMatch(frostedChrome)
     expect(appCss).not.toMatch(frostedChrome)
-  })
-
-  it("does not hardcode the popover surface colour on the project menu", () => {
-    expect(read("src/project/project-dialogs.tsx")).not.toMatch(/bg-\[#F9F9FA\]|dark:bg-popover/)
   })
 
   // One feature rule per decision, each pinned where a regression once landed.
@@ -73,10 +67,6 @@ describe("shared surface contracts", () => {
     ["lets a Paper reader fill its split pane", [
       /\.paper-pane > \.paper-reader-shell \{[^}]*flex:\s*1 1 0;[^}]*min-height:\s*0;/,
     ]],
-    ["keeps collaboration helper text clear of its input", [
-      ".collab-field > .collab-name-help { margin: 0; }",
-      "gap: var(--drawer-section-gap)",
-    ], [".collab-advanced-toggle"]],
     ["keeps drawer controls clear of surrounding dividers", [
       /\.history-filters \{[^}]*margin:\s*var\(--space-6\) 0/,
       /\.insert-palette-scroll-content \{[^}]*padding-top:\s*var\(--drawer-content-inset\)/,
@@ -90,12 +80,6 @@ describe("shared surface contracts", () => {
     ["keeps bibliography form sections from touching", [
       /\.table-generator, \.project-replace, \.bib-entry-dialog \{[^}]*gap:\s*var\(--space-6\)/,
     ], [".bib-entry-dialog { gap: 0; }"]],
-    ["keeps shared-room overflow inside dedicated Lattice scrollbar tracks", [
-      /\.collab-recent-scroll \{[^}]*width:\s*100%;[^}]*max-width:\s*100%;[^}]*min-width:\s*0;[^}]*padding-right:\s*var\(--space-5\);[^}]*padding-bottom:\s*var\(--space-5\)/,
-      /\.collab-recent-scroll-content \{[^}]*width:\s*max-content;[^}]*min-width:\s*100%/,
-      /\.collab-recent-scroll > \.lattice-scrollbar\[data-orientation="vertical"\] \{[^}]*height:\s*calc\(100% - var\(--space-5\)\)/,
-      /\.collab-recent-scroll > \.lattice-scrollbar\[data-orientation="horizontal"\] \{[^}]*width:\s*calc\(100% - var\(--space-5\)\)/,
-    ]],
     ["keeps the spreadsheet formula controls level and off pure white", [
       /\[data-u-comp="defined-name"\] \{ padding-block: 0 !important; \}/,
       '[data-u-comp="formula-bar"] > div:first-child { flex: 0 0 calc(6rem + 4px); }',
@@ -146,14 +130,14 @@ describe("shared surface contracts", () => {
     ]],
   ])("%s", (_name, has, lacks) => expectRules(appCss, has, lacks))
 
-  it("keeps elevated menus and Settings free of hard outer frames", () => {
+  it("keeps elevated menus and Settings free of hard outer frames, and menus on the app scrollbar", () => {
     expectRules(menuSurface, ["smooth-shadow-lg"], [" border border-border ", "smooth-shadow-ring-lg", /shadow-\[/])
     expect(surfacesCss).toMatch(/\.settings-modal \{\s*@apply smooth-shadow-xl;\s*background: var\(--surface-panel-raised\);\s*\}/)
     const borderedSurfaces = surfacesCss.slice(0, surfacesCss.indexOf("/* Settings deliberately"))
     expect(borderedSurfaces).not.toContain(".settings-modal")
-  })
-
-  it("lets menu viewports inherit the app scrollbar", () => {
+    // The project menu does not hardcode the popover surface colour either.
+    expect(read("src/project/project-dialogs.tsx")).not.toMatch(/bg-\[#F9F9FA\]|dark:bg-popover/)
+    // Menu viewports inherit the app scrollbar.
     expect(menuSurface).not.toContain("scrollbar-width:none")
     expect(surfacesCss).not.toContain('[data-slot="dropdown-menu-content"]::-webkit-scrollbar')
   })

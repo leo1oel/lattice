@@ -384,7 +384,7 @@ pub async fn sample_screen_color(app: &tauri::AppHandle) -> Result<Option<String
     receiver.await.map_err(|_| "The screen color sampler ended without a result.".to_string())
 }
 
-/// Strip Gatekeeper quarantine from our bundle (and an adjacent collab folder when present).
+/// Strip Gatekeeper quarantine from our bundle (and an enclosing Lattice folder when present).
 pub fn clear_launch_quarantine() {
     let Ok(exe) = std::env::current_exe() else {
         return;
@@ -463,20 +463,15 @@ mod tests {
     }
 
     #[test]
-    fn the_red_traffic_light_can_still_close_the_window() {
-        // A JS listener on tauri://close-requested makes the core prevent the
-        // native close, so the frontend's destroy() is the only thing left that
-        // can shut the window down. Without the ACL grant that call is denied
-        // and the red button does nothing at all — no error, no close.
-        let native_window = include_str!("../../src/app/use-native-window.ts");
-        assert!(native_window.contains("onCloseRequested"));
-        assert!(native_window.contains("appWindow.destroy()"));
+    fn the_browser_host_window_may_destroy_itself() {
+        // The hidden browser-host window destroys itself once its browser tab
+        // disconnects, which needs the ACL grant.
         let capability: Value = serde_json::from_str(include_str!("../capabilities/default.json"))
             .expect("valid capability file");
         let permissions = capability["permissions"].as_array().expect("capability permissions");
         assert!(
             permissions.iter().any(|permission| permission == "core:window:allow-destroy"),
-            "the window close handler needs core:window:allow-destroy"
+            "the browser host bridge needs core:window:allow-destroy"
         );
     }
 }

@@ -69,13 +69,6 @@ pub async fn write_project_file(
 }
 
 #[tauri::command]
-pub fn merge_project_text(
-    base: String, edited: String, current: String,
-) -> project::TextMergeResult {
-    project::merge_text_snapshots(&base, &edited, &current)
-}
-
-#[tauri::command]
 pub async fn create_project_entry(
     state: State<'_, AppState>, window: Window, path: String, kind: String, project_root: String,
 ) -> Result<String, String> {

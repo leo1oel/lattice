@@ -683,68 +683,49 @@ mod tests {
 
     /// A download failure is a note on the citation, never its undoing: the
     /// entry must land in the bibliography exactly as it would for a work
-    /// with no full text at all.
+    /// with no full text at all. Cancelling while resolving leaves nothing
+    /// behind; cancelling once the full-text download starts keeps the
+    /// committed citation and never runs the converter.
     #[cfg(unix)]
     #[test]
-    fn a_citation_survives_a_failed_full_text_download() {
+    fn a_committed_citation_survives_a_failed_or_cancelled_full_text_download() {
         let _lock = tool_lock();
-        let project = TestProject::new("");
-        let _bibcite = ToolOverride::set(&commands::BIBCITE, &fake_bibcite(&project.parent));
-        let arxiv2md = project.parent.join("fake-arxiv2md");
-        write_test_tool(&arxiv2md, "#!/bin/sh\necho 'fixture conversion failure' >&2\nexit 1\n");
-        let _arxiv2md = ToolOverride::set(&commands::ARXIV2MD, &arxiv2md);
-
-        let result = import_reference(
-            &project.root,
-            "10.1234/example",
-            HistoryMode::Defer,
-            &|_| {},
-            &AtomicBool::new(false),
-        )
-        .unwrap();
-        assert_eq!(result.citation_key.as_deref(), Some("stub2024"));
-        assert_eq!(result.arxiv_id, "2401.99999");
-        assert!(result.paper_path.is_empty());
-        let error = result.fetch_error.expect("the failed download is reported");
-        assert!(error.contains("fixture conversion failure"), "got: {error}");
-        assert!(project.bibliography().contains("stub2024"));
-    }
-
-    /// Cancelling while resolving leaves nothing behind; cancelling once the
-    /// full-text download starts keeps the committed citation and never runs
-    /// the converter.
-    #[cfg(unix)]
-    #[test]
-    fn cancellation_keeps_only_a_committed_citation() {
-        let _lock = tool_lock();
-        for (stage, cited) in [("resolving", false), ("fulltext", true)] {
+        for (label, mode, cancel_stage, cited) in [
+            ("download fails", HistoryMode::Defer, None, true),
+            ("cancelled resolving", HistoryMode::Record, Some("resolving"), false),
+            ("cancelled downloading", HistoryMode::Record, Some("fulltext"), true),
+        ] {
             let project = TestProject::new("");
             let tools = &project.parent;
             let _bibcite = ToolOverride::set(&commands::BIBCITE, &fake_bibcite(tools));
             let converter = tools.join("converter");
-            write_test_tool(&converter, "#!/bin/sh\ntouch \"$0.called\"\nexit 1\n");
+            write_test_tool(
+                &converter,
+                "#!/bin/sh\ntouch \"$0.called\"\necho 'fixture conversion failure' >&2\nexit 1\n",
+            );
             let _converter = ToolOverride::set(&commands::ARXIV2MD, &converter);
             let cancel = AtomicBool::new(false);
             let cancel_at = |reached: &str| {
-                if reached == stage {
+                if Some(reached) == cancel_stage {
                     cancel.store(true, Ordering::Release);
                 }
             };
-            let result = import_reference(
-                &project.root,
-                "10.1234/example",
-                HistoryMode::Record,
-                &cancel_at,
-                &cancel,
-            )
-            .unwrap();
-            assert!(result.cancelled, "{stage}");
-            assert_eq!(result.citation_key.as_deref(), cited.then_some("stub2024"), "{stage}");
-            assert!(result.paper_path.is_empty());
-            assert!(!tools.join("converter.called").exists());
+            let result =
+                import_reference(&project.root, "10.1234/example", mode, &cancel_at, &cancel)
+                    .unwrap();
+            assert_eq!(result.cancelled, cancel_stage.is_some(), "{label}");
+            assert_eq!(result.citation_key.as_deref(), cited.then_some("stub2024"), "{label}");
+            assert!(result.paper_path.is_empty(), "{label}");
             let bibliography = project.bibliography();
-            assert_eq!(bibliography.contains("stub2024"), cited, "{stage}");
-            assert_eq!(bibliography.is_empty(), !cited, "{stage}");
+            assert_eq!(bibliography.contains("stub2024"), cited, "{label}");
+            assert_eq!(bibliography.is_empty(), !cited, "{label}");
+            if cancel_stage.is_some() {
+                assert!(!tools.join("converter.called").exists(), "{label}");
+            } else {
+                assert_eq!(result.arxiv_id, "2401.99999");
+                let error = result.fetch_error.expect("the failed download is reported");
+                assert!(error.contains("fixture conversion failure"), "got: {error}");
+            }
         }
     }
 

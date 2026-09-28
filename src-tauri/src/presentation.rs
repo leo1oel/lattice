@@ -550,11 +550,6 @@ Node.js v24.20.0\n";
     }
 
     #[test]
-    fn only_canonical_directories_are_projects() {
-        assert!(scoped_root("definitely-missing").is_err());
-    }
-
-    #[test]
     fn shadows_only_native_open_slide_workspace_paths() {
         for (path, native) in [
             ("slides/research-update/index.tsx", true),
@@ -581,6 +576,9 @@ Node.js v24.20.0\n";
 
         let result = synchronize(&source, &shadow);
         fs::set_permissions(&unrelated, fs::Permissions::from_mode(0o700)).unwrap();
+        // Only an existing directory is a presentation project.
+        assert!(scoped_root(source.join("slides/talk/index.tsx").to_str().unwrap()).is_err());
+        assert!(scoped_root(parent.join("missing").to_str().unwrap()).is_err());
 
         assert!(result.is_ok(), "{result:?}");
         assert_eq!(

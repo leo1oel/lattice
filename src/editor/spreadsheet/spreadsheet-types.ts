@@ -7,7 +7,7 @@ export type SpreadsheetCellValue = string | number | boolean | null;
 /**
  * A deliberately structural subset of Univer's ICellData. Unknown fields are
  * retained so a newer Univer snapshot can round-trip through Lattice without
- * the collaboration layer needing to understand every plugin field.
+ * the Y.Doc model needing to understand every plugin field.
  */
 export type SpreadsheetCellData = {
   v?: SpreadsheetCellValue | null;
@@ -64,18 +64,6 @@ export type LatticeSpreadsheetFile = {
   version: typeof LATTICE_SPREADSHEET_VERSION;
   workbook: SpreadsheetWorkbookData;
 };
-
-export type SpreadsheetPresence = {
-  path: string;
-  sheetId: string;
-  activeCell?: string;
-  selections: string[];
-  pointer?: { row: number; column: number; xRatio: number; yRatio: number };
-  editingCell?: string;
-  agent?: boolean;
-};
-
-export type SpreadsheetPresenceUser = { id: string; name: string; color: string };
 
 /** Univer's `ht` / `vt` style codes are these positions plus one. */
 export const HORIZONTAL_ALIGNMENTS = ["left", "center", "right"] as const;

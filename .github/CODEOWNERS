@@ -31,22 +31,17 @@
 /CODE_OF_CONDUCT.md                 @leo1oel
 /.github/SECURITY.md                @leo1oel
 
-# --- Cross-surface contracts ------------------------------------------------
-# `protocol/` is shared by the desktop app, the collaboration server, and every
-# already-deployed client. A change here breaks three surfaces at once, and old
-# clients keep running against the new Worker.
-/protocol/                          @leo1oel
-/collab-server/                     @leo1oel
+# --- Deployed services ------------------------------------------------------
+# Every already-installed client keeps talking to the deployed literature Worker.
+/literature-worker/                 @leo1oel
 
 # --- Credentials and the security surface -----------------------------------
-# Overleaf session cookies are equivalent to an active browser login; the
-# collab vault owns the macOS Keychain item; capabilities and the CSP are the
-# WebView's entire authority.
+# Overleaf session cookies are equivalent to an active browser login;
+# capabilities and the CSP are the WebView's entire authority.
 /src-tauri/src/overleaf.rs          @leo1oel
 /src-tauri/src/overleaf/            @leo1oel
 /src-tauri/src/overleaf_rt.rs       @leo1oel
 /src-tauri/src/overleaf_rt/         @leo1oel
-/src-tauri/src/collab_credentials.rs @leo1oel
 /src-tauri/capabilities/            @leo1oel
 /src-tauri/tauri.conf.json          @leo1oel
 /src-tauri/Entitlements.plist       @leo1oel

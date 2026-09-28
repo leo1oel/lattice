@@ -18,7 +18,7 @@ beforeEach(() => {
 });
 const entries: AuditEntry[] = Array.from({ length: 3 }, (_, i) => ({ path: `refs${i}.bib`, key: `key${i}`, title: `Paper ${i}`, bibtex: `@article{key${i},title={Paper ${i}}}`, issues: [] }));
 const updated: AuditResult = { status: "update", message: "A published version is available.", before: entries[0].bibtex, after: "@article{key0,title={Updated}}", changes: [{ field: "title", before: "Paper 0", after: "Updated" }] };
-function props() { return { open: true, projectRoot: "/project", canApply: true, onClose: vi.fn(), onPrepare: vi.fn(async () => true), onApply: vi.fn<(entry: AuditEntry, result: AuditResult) => Promise<void>>().mockResolvedValue(undefined) }; }
+function props() { return { open: true, projectRoot: "/project", onClose: vi.fn(), onPrepare: vi.fn(async () => true), onApply: vi.fn<(entry: AuditEntry, result: AuditResult) => Promise<void>>().mockResolvedValue(undefined) }; }
 async function checkAll() {
   const button = await screen.findByRole("button", { name: "Check all" });
   await waitFor(() => expect(button).toBeEnabled());
@@ -204,30 +204,20 @@ it("applies the exact reviewed snapshot without another network lookup and shows
   expect(screen.queryByText(entries[0].bibtex)).not.toBeInTheDocument();
 });
 
-it("continues while hidden but prevents read-only updates", async () => {
+it("continues while hidden", async () => {
   mockAudit(updated);
-  const { rerender, props: p } = await renderChecked({ canApply: false });
+  const { rerender, props: p } = await renderChecked();
   await screen.findByText("Update available");
   rerender(<BibliographyAudit {...p} open={false} />);
   rerender(<BibliographyAudit {...p} />);
-  fireEvent.click(screen.getByText("Review proposed changes"));
-  expect(screen.getByRole("button", { name: "Apply this update" })).toBeDisabled();
-  expect(await screen.findByRole("button", { name: "Accept all updates" })).toBeDisabled();
   expect(vi.mocked(invoke).mock.calls.map(([command]) => command)).toEqual([
     "bibliography_audit_scan", "bibliography_audit_scan", "bibliography_audit_entry", "bibliography_audit_scan",
   ]);
 });
 
-it("opens publisher notices through the native URL opener", async () => {
+it("badges an update as success, collapses both BibTeX views apart from the field diff, and opens notices natively", async () => {
   const health = { kind: "corrected", link: "https://doi.org/10.1234/notice", checkedAt: "2026-09-05" };
   mockAudit({ ...updated, health });
-  await renderChecked();
-  fireEvent.click(await screen.findByRole("link", { name: "Open notice" }));
-  expect(openUrl).toHaveBeenCalledWith(health.link);
-});
-
-it("marks an update with a success badge and keeps current and proposed BibTeX collapsed independently from the field diff", async () => {
-  mockAudit(updated);
   await renderChecked();
   expect((await screen.findByText("Update available")).closest('[data-slot="badge"]')).toHaveAttribute("data-tone", "success");
   expect(screen.getByText("Details").closest("details")).not.toHaveAttribute("open");
@@ -236,6 +226,8 @@ it("marks an update with a success badge and keeps current and proposed BibTeX c
   expect(screen.getByText("Proposed BibTeX").closest("details")).not.toHaveAttribute("open");
   fireEvent.click(screen.getByText("Proposed BibTeX"));
   expect(screen.getByText(updated.after!)).toBeVisible();
+  fireEvent.click(screen.getByRole("link", { name: "Open notice" }));
+  expect(openUrl).toHaveBeenCalledWith(health.link);
 });
 
 it("shows the scanned BibTeX for not-checked and no-update entries", async () => {
@@ -305,17 +297,7 @@ it("only performs the local scan when opened", async () => {
   expect(invoke).toHaveBeenCalledWith("bibliography_audit_scan", { projectRoot: "/project" });
 });
 
-it("checks one row explicitly without checking its neighbors", async () => {
-  mockAudit(updated, entries);
-  render(<BibliographyAudit {...props()} />);
-  fireEvent.click(await screen.findByRole("button", { name: "Check key1" }));
-  await screen.findByText("Update available");
-  expect(screen.getAllByText("Not checked")).toHaveLength(2);
-  expect(calls("bibliography_audit_entry")).toHaveLength(1);
-  expect(invoke).toHaveBeenCalledWith("bibliography_audit_entry", expect.objectContaining({ entry: entries[1] }));
-});
-
-it("checks only selected rows and preserves unrelated results by path and key", async () => {
+it("checks one row without its neighbors, then only selected rows, preserving unrelated results by path and key", async () => {
   let checks = 0;
   vi.mocked(invoke).mockImplementation(async (command, args) => {
     if (command === "bibliography_audit_scan") return { entries, issues: [] };
@@ -326,6 +308,9 @@ it("checks only selected rows and preserves unrelated results by path and key", 
   render(<BibliographyAudit {...props()} />);
   fireEvent.click(await screen.findByRole("button", { name: "Check key0" }));
   await screen.findByText("Update available");
+  expect(screen.getAllByText("Not checked")).toHaveLength(2);
+  expect(calls("bibliography_audit_entry")).toHaveLength(1);
+  expect(invoke).toHaveBeenCalledWith("bibliography_audit_entry", expect.objectContaining({ entry: entries[0] }));
   fireEvent.click(screen.getByRole("checkbox", { name: "Select key1" }));
   fireEvent.click(screen.getByRole("checkbox", { name: "Select key2" }));
   fireEvent.click(screen.getByRole("button", { name: "Check selected" }));

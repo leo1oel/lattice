@@ -17,7 +17,7 @@
 #   3. installs the stable Rust toolchain with clippy, rustfmt, and the
 #      aarch64-apple-darwin target;
 #   4. installs a pinned, checksum-verified `uv` (optional — see that step);
-#   5. installs locked dependencies for the app and collab-server;
+#   5. installs locked dependencies for the app and literature-worker;
 #   6. fetches the pinned Synara source into SYNARA_SOURCE_DIR (defaulting to
 #      the `sourceDirectory` in scripts/synara-runtime.json) and installs it
 #      with bun — only needed to run the real agent sidecar;
@@ -179,7 +179,7 @@ finish_step
 
 start_step "Installing locked Lattice dependencies"
 pnpm install --frozen-lockfile
-pnpm --dir collab-server install --frozen-lockfile
+pnpm --dir literature-worker install --frozen-lockfile
 bun_bin="$repo_root/node_modules/.bin/bun"
 if ! "$bun_bin" --version >/dev/null 2>&1; then
   node node_modules/bun/install.js

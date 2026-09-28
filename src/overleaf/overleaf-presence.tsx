@@ -1,18 +1,13 @@
 /**
- * Who else is in the Overleaf project, in the toolbar.
- *
- * Stacked initials, in the style of Lattice's own live-share avatars — but for
- * the browser collaborators Overleaf's realtime channel tells us about, which
- * is a separate roster from Lattice's own P2P sessions and can be live at the
- * same time. This owns rendering only: the roster comes from
- * `useOverleafPresence`, and resolving a document id to a file path or acting
- * on a click is entirely the caller's business — this component has no notion
- * of "the project" at all.
+ * Who else is in the Overleaf project, in the toolbar: stacked initials for
+ * the browser collaborators Overleaf's realtime channel tells us about. This
+ * owns rendering only: the roster comes from `useOverleafPresence`, and
+ * resolving a document id to a file path or acting on a click is entirely the
+ * caller's business — this component has no notion of "the project" at all.
  */
-import { peerInitials } from "../collab/collab-session";
 import type { PresenceUser } from "./use-overleaf-presence";
 import { AvatarGroup } from "../components/ui/avatar-group";
-import { hueColor } from "../components/ui/collab-colors";
+import { hueColor, peerInitials } from "../components/ui/collab-colors";
 import "./overleaf-presence.css";
 
 const MAX_AVATARS = 5;

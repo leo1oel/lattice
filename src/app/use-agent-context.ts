@@ -79,7 +79,7 @@ export function useAgentContext({ synara, project, papers, agentVisible, workspa
     setActiveSurface((current) => {
       if (activePaper) return "paper";
       if (canvasMode === "pdf") return "pdf";
-      if (canvasMode === "split" || canvasMode === "columns") return current === "paper" ? "editor" : current;
+      if (canvasMode === "split") return current === "paper" ? "editor" : current;
       return "editor";
     });
   }, [activePaper, canvasMode]);

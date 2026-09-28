@@ -13,7 +13,7 @@ import { EditorView, type ViewUpdate } from "@codemirror/view";
 import { paperSourceCitation } from "../papers/paper-source";
 import { latex } from "codemirror-lang-latex";
 import {
-  hueFromColorHex, overleafCursorsExtension, overleafTrackChangesExtension, setOverleafCursorsEffect,
+  overleafCursorsExtension, overleafTrackChangesExtension, setOverleafCursorsEffect,
   type PresenceCursor, type TrackedChangeTooltipActions,
 } from "../overleaf/overleaf-editor-extensions";
 import type { TrackedChange } from "../overleaf/use-overleaf-realtime";
@@ -56,12 +56,8 @@ import {
   PROJECT_FIGURE_DRAG_TYPE,
 } from "../app-utils";
 import type { AgentHostSurface } from "../agent/agent-host-context";
-import { frameCoalescer, onLayoutChange, thenUnlessDisposed, useLatest } from "../app/effect-helpers";
-import type { CollabPeer, EditorCollabBinding, EditorCollabSession } from "../collab/collab-session";
-import { mergeTextIntoYText, peerCaretOffsetsV2, publishCollabCursorV2 } from "../collab/collab-session";
-import { collabEditorExtensions } from "../collab/collab-editor";
+import { frameCoalescer, onLayoutChange, useLatest } from "../app/effect-helpers";
 import { isSpreadsheetPath } from "../editor/spreadsheet/spreadsheet-types";
-import { EMPTY_EXTENSIONS } from "../editor/editor-languages";
 import {
   BoardEditor, DeferredVisualMarkdownEditor, HtmlPreviewLoading, MarkdownPreviewLoading, OpenSlideWorkspace, PdfPreview,
   PdfPreviewLoading, SpreadsheetEditor,
@@ -252,10 +248,8 @@ export function DocumentCanvas(props: {
   onCreateMissingFile: (path: string) => void;
   onOpenMarkdownPath: (path: string) => void;
   interactivePreviewsEnabled: boolean;
-  collabSession: EditorCollabSession | null;
-  collabPeers: readonly CollabPeer[];
-  collabReady: boolean;
-  collabEditorKey: string;
+  /** Remounts the source editor when it changes: the open file, or the Paper. */
+  editorKey: string;
   editorEditable: boolean;
   secondaryEditorEditable: boolean;
   onOpenCitation: (key: string) => void;
@@ -263,7 +257,7 @@ export function DocumentCanvas(props: {
 }) {
   const {
     activeFile, secondaryFile, secondarySource, setSecondarySource, focusedPane, onFocusPane, buildDiagnostics,
-    texlabDiagnostics, collabEditorKey, collabSession, collabReady, editorKeymap, editorSpellcheck, insertOpen,
+    texlabDiagnostics, editorKey, editorKeymap, editorSpellcheck, insertOpen,
     katexMacros, onFindReferences, onGotoDefinition, onTexlabGoto, onGotoLineRequest,
     onInsertOpenChange, onOutlineNavigate, onOutlineOpenChange, onPrepareFigure, onPasteImageFile,
     onCreateMissingFile, onRenameEnvironment, onRenameSymbol, onTableGeneratorOpenChange, onWrapEnvironment,
@@ -378,7 +372,7 @@ export function DocumentCanvas(props: {
   const markdownPreviewOverflowAnchorRef = useRef("");
   const lastInsertionPositionRef = useRef(0);
   const pendingFigureCursorRef = useRef<{ pane: EditorPaneId; cursor: number } | null>(null);
-  const { splitRef, splitRatio, columnsPdfRatio, beginDualResize, beginColumnsPdfResize, beginSplitResize, nudgeSplit } =
+  const { splitRef, splitRatio, beginDualResize, beginSplitResize, nudgeSplit } =
     useSplitLayout(props.mode, props.dualRatioResetGeneration);
   const [figureDropActive, setFigureDropActive] = useState(false);
   const [figureDropMarker, setFigureDropMarker] = useState<{ top: number; line: number } | null>(null);
@@ -452,59 +446,11 @@ export function DocumentCanvas(props: {
     setSelectionToolbar(null);
   }, []);
 
-  const collabExtensions = useMemo(() => {
-    // Binding before the host's Y.Texts have synced can create a competing
-    // placeholder. Keep this stable across keystrokes so yCollab listeners live.
-    if (!collabSession || !activeFile || !collabReady) return EMPTY_EXTENSIONS;
-    // Joining updates several parent states in one transition: a transient path
-    // mismatch waits for loadFile/openPath to re-render once this path is active.
-    if (collabSession.activePath !== activeFile) return EMPTY_EXTENSIONS;
-    collabSession.setActivePath(activeFile, latestRef.current.source);
-    return collabEditorExtensions(collabSession);
-    // awarenessVersion: a transport reconnect swaps provider.awareness — rebuild
-    // yCollab against the live Awareness or remote carets silently freeze.
-  }, [activeFile, collabReady, collabSession, collabSession?.awarenessVersion]);
-  const collabLive = collabExtensions.length > 0;
-  const [secondaryCollabBinding, setSecondaryCollabBinding] =
-    useState<{ session: EditorCollabSession; path: string; binding: EditorCollabBinding } | null>(null);
-  const [secondaryBindingVersion, setSecondaryBindingVersion] = useState(0);
-  useEffect(() => collabSession?.subscribeSecondaryBindingChanges?.(() => setSecondaryBindingVersion((version) => version + 1)), [collabSession]);
-  useEffect(() => {
-    if (!secondaryFile) collabSession?.releaseSecondaryPath?.();
-    if (!collabSession || !collabReady || !secondaryFile || !collabSession.openSecondaryPath) return;
-    // A failed open leaves the pane unbound, exactly like a session with no binding for it.
-    return thenUnlessDisposed(collabSession.openSecondaryPath(secondaryFile).catch(() => null), (binding) => {
-      setSecondaryCollabBinding(binding ? { session: collabSession, path: secondaryFile, binding } : null);
-    });
-  }, [collabReady, collabSession, secondaryBindingVersion, secondaryFile]);
-  const secondaryCollabLive = collabReady && secondaryCollabBinding?.session === collabSession
-    && secondaryCollabBinding.path === secondaryFile;
-  const secondaryCollabExtensions = useMemo(
-    () => secondaryCollabLive ? collabEditorExtensions(secondaryCollabBinding.binding) : EMPTY_EXTENSIONS,
-    [secondaryCollabBinding, secondaryCollabLive],
-  );
-  // The Overleaf carets above plus Lattice collab (v2) carets, resolved against
-  // the live Y.Text and shifted into preview coordinates the same way.
-  // Memoized on the peer list so other App renders dispatch no equal decorations.
-  const allMarkdownVisualCursors = useMemo(() => {
-    if (!collabLive || !markdownDocument || !collabSession?.boardPresenceUser) return markdownVisualCursors;
-    const cursors: PresenceCursor[] = [];
-    const text = collabSession.ytext.toString();
-    for (const caret of peerCaretOffsetsV2(collabSession)) {
-      const before = text.slice(0, caret.index);
-      const row = before.split("\n").length - 1;
-      if (row < markdownPreviewLineOffset) continue;
-      const column = caret.index - (before.lastIndexOf("\n") + 1);
-      cursors.push({ name: caret.name, hue: hueFromColorHex(caret.color), color: caret.color, row: row - markdownPreviewLineOffset, column });
-    }
-    return cursors.length ? [...markdownVisualCursors, ...cursors] : markdownVisualCursors;
-    // onPeers publishes a fresh list for awareness updates, including carets.
-  }, [collabLive, collabSession, markdownDocument, markdownPreviewLineOffset, markdownVisualCursors, props.collabPeers, props.source]);
   const mountSourceRef = useRef(props.source);
   const visualSourceHistoryRef = useRef<{ path: string; undo: string[]; redo: string[] }>({ path: activeFile, undo: [], redo: [] });
-  const prevCollabEditorKeyRef = useRef(collabEditorKey);
-  if (prevCollabEditorKeyRef.current !== collabEditorKey) {
-    prevCollabEditorKeyRef.current = collabEditorKey;
+  const prevEditorKeyRef = useRef(editorKey);
+  if (prevEditorKeyRef.current !== editorKey) {
+    prevEditorKeyRef.current = editorKey;
     mountSourceRef.current = props.source;
   }
   useEffect(() => {
@@ -517,28 +463,6 @@ export function DocumentCanvas(props: {
       mountSourceRef.current = source;
     }
   }, [activeFile, props.mode, props.source]);
-
-  useEffect(() => {
-    if (!collabLive || primaryViewRef.current?.dom.isConnected || !collabSession || activeFile !== collabSession.activePath) return;
-    const ytext = collabSession.ytext;
-    const syncPreviewSource = () => {
-      const next = ytext.toString();
-      mountSourceRef.current = next;
-      latestRef.current.setSource(next);
-    };
-    ytext.observe(syncPreviewSource);
-    syncPreviewSource();
-    return () => ytext.unobserve(syncPreviewSource);
-  }, [activeFile, collabLive, collabSession, props.mode]);
-
-  useEffect(() => {
-    if (!secondaryCollabLive || !secondaryCollabBinding) return;
-    const { ytext } = secondaryCollabBinding.binding;
-    const syncSecondarySource = () => latestRef.current.setSecondarySource(ytext.toString());
-    ytext.observe(syncSecondarySource);
-    syncSecondarySource();
-    return () => ytext.unobserve(syncSecondarySource);
-  }, [secondaryCollabBinding, secondaryCollabLive]);
 
   const updateSelectionToolbar = useCallback((view: EditorView, path: string) => {
     const range = view.state.selection.main;
@@ -605,19 +529,7 @@ export function DocumentCanvas(props: {
   useEffect(() => () => {
     if (completionActiveRef.current) latestRef.current.onCompletionActiveChange(false);
   }, []);
-  const onSecondaryChange = useCallback((value: string) => {
-    if (secondaryCollabBinding?.path === latestRef.current.secondaryFile) {
-      const current = secondaryCollabBinding.binding.ytext.toString();
-      if (current !== value) {
-        if (current !== secondarySource) {
-          latestRef.current.setSecondarySource(current);
-          return;
-        }
-        mergeTextIntoYText(secondaryCollabBinding.binding.ytext, value);
-      }
-    }
-    latestRef.current.setSecondarySource(value);
-  }, [secondaryCollabBinding, secondarySource]);
+  const onSecondaryChange = useCallback((value: string) => latestRef.current.setSecondarySource(value), []);
   const onSecondaryUpdate = useCallback(
     (viewUpdate: ViewUpdate) => reportPaneUpdate("secondary", viewUpdate, latestRef.current.secondaryFile),
     [reportPaneUpdate],
@@ -638,21 +550,21 @@ export function DocumentCanvas(props: {
 
   useEffect(() => {
     primaryViewRef.current?.dispatch({ effects: setEditorCommentsEffect.of(commentsForActiveFile) });
-  }, [commentsForActiveFile, collabEditorKey]);
+  }, [commentsForActiveFile, editorKey]);
 
   useLayoutEffect(() => {
     const draft = commentComposer?.path === activeFile ? commentComposer : null;
     primaryViewRef.current?.dispatch({ effects: setEditorCommentDraftEffect.of(draft) });
-  }, [activeFile, commentComposer, collabEditorKey]);
+  }, [activeFile, commentComposer, editorKey]);
 
   useEffect(() => {
     secondaryViewRef.current?.dispatch({ effects: setEditorCommentsEffect.of(commentsForSecondaryFile) });
-  }, [commentsForSecondaryFile, collabEditorKey]);
+  }, [commentsForSecondaryFile, editorKey]);
 
   // Someone else's caret has to repaint when they move it, not when we type next.
   useEffect(() => {
     primaryViewRef.current?.dispatch({ effects: setOverleafCursorsEffect.of(props.overleafPresenceCursors) });
-  }, [props.overleafPresenceCursors, collabEditorKey]);
+  }, [props.overleafPresenceCursors, editorKey]);
 
   useEffect(() => {
     if (!commentFocusRequest) return;
@@ -735,14 +647,13 @@ export function DocumentCanvas(props: {
   const secondaryTextLanguageExtensions = useTextLanguageExtensions(secondaryFile && !isLatexSourcePath(secondaryFile) ? secondaryFile : "");
   /**
    * Everything either pane's editor of `path` runs, in precedence order; `extra`
-   * slots in after collaboration. Every getter here runs in CodeMirror handlers,
+   * slots in after the language. Every getter here runs in CodeMirror handlers,
    * transactions or tooltips, never during React render.
    */
   const paneExtensions = (
     path: string,
     keymap: Extension[],
     textLanguage: Extension[],
-    collab: Extension[],
     comments: EditorCommentsExtensionOptions,
     extra: Extension[] = [],
   ): Extension[] => [
@@ -769,7 +680,6 @@ export function DocumentCanvas(props: {
       ...textLanguage,
       ...textEditorExtensions(editorSpellcheck && isHarperProseFilePath(path), latestRef, onPasteImageFile),
     ]),
-    ...collab,
     ...extra,
     editorCommentsExtension(path, {
       getLocalization: () => editorCommentLocalizationRef.current,
@@ -786,13 +696,12 @@ export function DocumentCanvas(props: {
   // Both panes capture volatile inputs (macros, citations, diagnostics, App
   // lambdas) at reconfigure time or read them through refs. CodeMirrorHost
   // answers a new extensions identity with a full reconfigure, so listing them
-  // would tear down language, linters and yCollab carets on every keystroke.
+  // would tear down language, linters and presence carets on every keystroke.
   const editorExtensions = useMemo(
     () => paneExtensions(
       activeFile,
       primaryKeymapExtensions,
       primaryTextLanguageExtensions,
-      collabExtensions,
       { getComments: () => commentsForActiveFileRef.current, getDraft: () => commentComposerRef.current },
       [
         overleafCursorsExtension({ getCursors: () => latestRef.current.overleafPresenceCursors }),
@@ -806,18 +715,17 @@ export function DocumentCanvas(props: {
       ],
     ),
     // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional stability
-    [activeFile, collabExtensions, editorSpellcheck, primaryKeymapExtensions, primaryTextLanguageExtensions],
+    [activeFile, editorSpellcheck, primaryKeymapExtensions, primaryTextLanguageExtensions],
   );
   const secondaryEditorExtensions = useMemo(
     () => secondaryFile ? paneExtensions(
       secondaryFile,
       secondaryKeymapExtensions,
       secondaryTextLanguageExtensions,
-      secondaryCollabExtensions,
       { getComments: () => commentsForSecondaryFileRef.current },
     ) : [],
     // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional stability
-    [editorSpellcheck, secondaryCollabExtensions, secondaryFile, secondaryKeymapExtensions, secondaryTextLanguageExtensions],
+    [editorSpellcheck, secondaryFile, secondaryKeymapExtensions, secondaryTextLanguageExtensions],
   );
   const insertTextAtCursor = useCallback((insert: string, cursorOffset = insert.length) => {
     const view = editorViewRef.current;
@@ -1028,8 +936,7 @@ export function DocumentCanvas(props: {
     // flush: a late callback must not write once another document owns the canvas.
     if (latestRef.current.activeFile !== activeFile) return false;
     const view = livePrimaryView();
-    const ytext = collabReady && collabSession?.activePath === activeFile ? collabSession.ytext : null;
-    const source = view?.state.doc.toString() ?? ytext?.toString() ?? mountSourceRef.current;
+    const source = view?.state.doc.toString() ?? mountSourceRef.current;
     const splice = spliceMarkdownBody(source, markdownPreviewStart, expectedBody, nextBody);
     if (!splice) return false;
     const nextSource = `${splice.prefix}${splice.inserted}`;
@@ -1043,25 +950,15 @@ export function DocumentCanvas(props: {
       mountSourceRef.current = nextSource;
       return true;
     }
-    if (ytext) {
-      if (ytext.toString() !== source) return false;
-      collabSession?.undoManager.stopCapturing();
-      ytext.doc?.transact(() => {
-        ytext.delete(change.from, change.to - change.from);
-        ytext.insert(change.from, change.insert);
-      });
-      collabSession?.undoManager.stopCapturing();
-    } else {
-      if (visualSourceHistoryRef.current.path !== activeFile) visualSourceHistoryRef.current = { path: activeFile, undo: [], redo: [] };
-      visualSourceHistoryRef.current.undo.push(source);
-      visualSourceHistoryRef.current.redo = [];
-    }
+    if (visualSourceHistoryRef.current.path !== activeFile) visualSourceHistoryRef.current = { path: activeFile, undo: [], redo: [] };
+    visualSourceHistoryRef.current.undo.push(source);
+    visualSourceHistoryRef.current.redo = [];
     mountSourceRef.current = nextSource;
     // Use the setter from the render that created this callback: during a path
     // switch the source-editor ref already belongs to the next document.
     setSource(nextSource);
     return true;
-  }, [activeFile, collabReady, collabSession, livePrimaryView, markdownPreviewStart, setSource, setVisualEchoSource]);
+  }, [activeFile, livePrimaryView, markdownPreviewStart, setSource, setVisualEchoSource]);
 
   const lockMarkdownPreviewViewport = useCallback((anchor: HTMLElement | null, anchorTop: number | null, reveal: HTMLElement | null) => {
     const viewport = markdownPreviewViewportRef.current;
@@ -1125,16 +1022,9 @@ export function DocumentCanvas(props: {
     };
   }, [activeFile, getFileViewState, onFileViewState, paperReturnViewportRef, quoteFallback]);
 
-  /** Visual-editor undo/redo: through Yjs when shared, CodeMirror when mounted, else the local history. */
+  /** Visual-editor undo/redo: through CodeMirror when mounted, else the local history. */
   const stepVisualHistory = useCallback((direction: "undo" | "redo") => {
     const view = livePrimaryView();
-    if (collabReady && collabSession?.activePath === activeFile) {
-      const before = collabSession.ytext.toString();
-      collabSession.undoManager[direction]();
-      const after = collabSession.ytext.toString();
-      setVisualEchoSource(after);
-      return after !== before;
-    }
     if (view) {
       const stepped = (direction === "undo" ? undoCodeMirror : redoCodeMirror)(view);
       // History commands are the preview's own edits: settling them would
@@ -1151,7 +1041,7 @@ export function DocumentCanvas(props: {
     setVisualEchoSource(target);
     latestRef.current.setSource(target);
     return true;
-  }, [activeFile, collabReady, collabSession, livePrimaryView, setVisualEchoSource]);
+  }, [activeFile, livePrimaryView, setVisualEchoSource]);
   const undoVisualMarkdown = useCallback(() => stepVisualHistory("undo"), [stepVisualHistory]);
   const redoVisualMarkdown = useCallback(() => stepVisualHistory("redo"), [stepVisualHistory]);
 
@@ -1199,26 +1089,6 @@ export function DocumentCanvas(props: {
     presentation: ["open-slide-status", t`Starting Open Slide`],
   };
   /**
-   * A board's or spreadsheet's collaboration binding: its own sideloaded Y.Doc
-   * when the session keeps one for `path`, else the active document's.
-   */
-  const structuredCollab = (kind: "board" | "spreadsheet", path: string) => {
-    const session = props.collabSession;
-    const user = session?.boardPresenceUser;
-    if (!props.collabReady || !session || !user) return null;
-    const binding = (kind === "board" ? session.boardDocumentForPath?.(path) : session.spreadsheetDocumentForPath?.(path))
-      ?? (session.activePath === path
-        ? { doc: session.doc, awareness: session.provider.awareness, canWrite: session.canWrite !== false }
-        : null);
-    if (!binding) return null;
-    if (kind === "board") return { ...binding, user };
-    const commit = async () => {
-      await session.settled?.();
-      await session.flush?.();
-    };
-    return { ...binding, user, commit };
-  };
-  /**
    * A board, spreadsheet or Open Slide deck in `pane`. `active` is left unset
    * when the document owns the whole canvas.
    */
@@ -1238,10 +1108,10 @@ export function DocumentCanvas(props: {
     return (
       <Suspense fallback={<div className={fallbackClass} aria-busy="true" aria-label={fallbackLabel} data-tour={tour} />}>
         {kind === "board" ? (
-          <BoardEditor key={path} {...editor} collab={structuredCollab(kind, path)} {...viewStateBinding(path, "board")} />
+          <BoardEditor key={path} {...editor} {...viewStateBinding(path, "board")} />
         ) : kind === "spreadsheet" ? (
           <SpreadsheetEditor
-            key={path} {...editor} onPersist={props.onSave} collab={structuredCollab(kind, path)} {...viewStateBinding(path, "spreadsheet")}
+            key={path} {...editor} onPersist={props.onSave} {...viewStateBinding(path, "spreadsheet")}
           />
         ) : (
           <OpenSlideWorkspace
@@ -1389,7 +1259,7 @@ export function DocumentCanvas(props: {
           onUndo={undoVisualMarkdown}
           onRedo={redoVisualMarkdown}
           onViewInSource={viewMarkdownSource}
-          presenceCursors={allMarkdownVisualCursors}
+          presenceCursors={markdownVisualCursors}
           overleafChanges={markdownVisualChanges}
           overleafTrackChangeActions={props.overleafTrackChangeActions}
           editorComments={markdownVisualComments}
@@ -1398,11 +1268,6 @@ export function DocumentCanvas(props: {
           )}
           editable={props.editorEditable}
           onCaretChange={(row, column) => reportVisualCaret(activeFile, row + markdownPreviewLineOffset + 1, column)}
-          onSourceCaretChange={(sourceOffset) => {
-            if (collabLive && collabSession?.activePath === activeFile) {
-              publishCollabCursorV2(collabSession, markdownPreviewStart + sourceOffset);
-            }
-          }}
         />
       </Suspense>
     </ScrollArea>
@@ -1453,9 +1318,9 @@ export function DocumentCanvas(props: {
           }}
         >
           <CodeMirror
-            key={collabEditorKey}
+            key={editorKey}
             className="code-editor-root"
-            value={collabLive ? mountSourceRef.current : props.source}
+            value={props.source}
             editable={props.editorEditable}
             extensions={editorExtensions}
             onCreateEditor={(view) => {
@@ -1480,7 +1345,7 @@ export function DocumentCanvas(props: {
               draft={commentComposer}
               // eslint-disable-next-line react-hooks/refs -- the view the draft was opened in, fixed while it is open
               view={commentComposerViewRef.current}
-              anchorKey={`${activeFile}\n${collabEditorKey}`}
+              anchorKey={`${activeFile}\n${editorKey}`}
               onBodyChange={(body) => setCommentComposer((current) => current ? { ...current, body } : current)}
               onCancel={closeCommentComposer}
               onSave={saveCommentComposer}
@@ -1589,7 +1454,7 @@ export function DocumentCanvas(props: {
     : markdownDocument ? paperPreview
       : htmlDocument ? htmlPreview(activeFile, props.source, props.mode === "split" ? primaryScrollbarView?.deref() ?? null : null)
         : projectPdfPreview(activeFile);
-  const twoPane = props.mode === "dual" || props.mode === "columns";
+  const twoPane = props.mode === "dual";
   if (primaryKind && !twoPane) {
     // App renders the primary deck through OpenSlideTabPool, which keeps it alive across tabs.
     if (primaryKind === "presentation") return null;
@@ -1697,25 +1562,15 @@ export function DocumentCanvas(props: {
     const paperOnRight = Boolean(paperPane) && props.paperSide === "right";
     const leftPane = paperOnRight ? visibleSecondaryPane : visiblePrimaryPane;
     const rightPane = paperOnRight ? visiblePrimaryPane : visibleSecondaryPane;
-    // Columns mode adds the project preview as a third column; the two editor
-    // panes then share what the PDF column leaves.
-    const columns = props.mode === "columns";
-    const editorsShare = columns ? 1 - columnsPdfRatio : 1;
-    const minimum = columns ? 160 : 220;
     return (
       <div
         ref={splitRef}
-        className={columns ? "split-canvas dual-canvas columns-canvas" : "split-canvas dual-canvas"}
-        style={{
-          gridTemplateColumns: `minmax(${minimum}px, ${splitRatio * editorsShare}fr) 1px minmax(${minimum}px, ${(1 - splitRatio) * editorsShare}fr)${
-            columns ? ` 1px minmax(${SPLIT_PDF_MIN_WIDTH}px, ${columnsPdfRatio}fr)` : ""}`,
-        }}
+        className="split-canvas dual-canvas"
+        style={{ gridTemplateColumns: `minmax(220px, ${splitRatio}fr) 1px minmax(220px, ${1 - splitRatio}fr)` }}
       >
         {leftPane}
         {resizer(t`Resize dual source panes`, beginDualResize)}
         {rightPane}
-        {columns && resizer(t`Resize PDF pane`, beginColumnsPdfResize, { "aria-valuenow": Math.round(columnsPdfRatio * 100) })}
-        {columns && preview}
       </div>
     );
   }

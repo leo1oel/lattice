@@ -1,6 +1,6 @@
 //! Bringing content into a project — Finder drops, browser uploads, pasted
-//! images, collab byte writes — and the agent composer's read-only relay of
-//! dropped files.
+//! images, Open Slide byte writes — and the agent composer's read-only relay
+//! of dropped files.
 
 use super::assets::asset_mime_type;
 use super::err;
@@ -217,7 +217,7 @@ pub fn import_sources(
 #[serde(rename_all = "camelCase")]
 pub struct ImportedProjectFile {
     pub path: String,
-    /// Collab document kind for share registration: "text", "board", "spreadsheet", or "binary".
+    /// How the file was classified: "text", "board", "spreadsheet", or "binary".
     pub kind: String,
 }
 
@@ -260,9 +260,9 @@ pub fn import_uploaded_files(
 /// hierarchy under one collision-free top-level name; hidden entries are
 /// omitted and symbolic links are not followed. Content — not extension —
 /// decides each file's route. UTF-8 text lands through the undoable transaction
-/// log like `import_sources`; figures keep the `import_assets` copy route so
-/// collab registration stays "binary" for them (SVG is text bytes but a
-/// figure); everything else is copied verbatim. Files already inside the
+/// log like `import_sources`; figures keep the `import_assets` copy route and
+/// classify as "binary" (SVG is text bytes but a figure); everything else is
+/// copied verbatim. Files already inside the
 /// project are registered without copying.
 pub fn import_files(
     root: &Path, sources: &[String], target_directory: &str,
@@ -421,7 +421,7 @@ pub fn import_files_with_copy(
     Ok(plan.files.into_iter().map(|(file, _)| file).collect())
 }
 
-/// `.research` paths collab sync never writes.
+/// `.research` paths raw byte writes never touch.
 const UNSYNCED_RESEARCH_PREFIXES: &[&str] = &[
     ".research/history/",
     ".research/sessions/",
@@ -430,9 +430,9 @@ const UNSYNCED_RESEARCH_PREFIXES: &[&str] = &[
     ".research/cache/",
 ];
 
-/// Write raw bytes (base64) to a project-relative path for collab sync.
-/// Allows `.research/project.json`, `.research/brief.md`, and normal project
-/// files. Paper library bundles stay local — peers fetch them on demand.
+/// Write raw bytes (base64) to a project-relative path, for Open Slide's
+/// binary edits. Allows `.research/project.json`, `.research/brief.md`, and
+/// normal project files; never app state or the paper library.
 pub fn write_bytes(root: &Path, relative: &str, base64_data: &str) -> Result<(), String> {
     let relative = relative.trim().replace('\\', "/");
     if relative.is_empty() || relative.contains("..") {
@@ -441,7 +441,7 @@ pub fn write_bytes(root: &Path, relative: &str, base64_data: &str) -> Result<(),
     if UNSYNCED_RESEARCH_PREFIXES.iter().any(|prefix| relative.starts_with(prefix))
         || is_paper_library_path(&relative)
     {
-        return Err("That path cannot be written by collab sync.".to_string());
+        return Err("That path cannot be written directly.".to_string());
     }
     if relative.starts_with('.') && !relative.starts_with(".research/") {
         return Err("Hidden paths outside .research cannot be written.".to_string());
@@ -450,13 +450,13 @@ pub fn write_bytes(root: &Path, relative: &str, base64_data: &str) -> Result<(),
         && relative != ".research/project.json"
         && relative != ".research/brief.md"
     {
-        return Err("Only project sidecar files can sync under .research.".to_string());
+        return Err("Only project sidecar files can be written under .research.".to_string());
     }
     let bytes = STANDARD
         .decode(base64_data.trim())
         .map_err(|error| format!("Could not decode file bytes: {error}"))?;
     if bytes.len() > 15 * 1024 * 1024 {
-        return Err("Synced binary files must be 15 MB or smaller.".to_string());
+        return Err("Binary files written this way must be 15 MB or smaller.".to_string());
     }
     ProjectDir::open(root)?.atomic_write(&relative, &bytes)
 }
@@ -712,7 +712,7 @@ mod tests {
     }
 
     #[test]
-    fn clipboard_images_are_saved_and_collab_writes_skip_paper_bundles() {
+    fn clipboard_images_are_saved_and_byte_writes_skip_paper_bundles() {
         let fixture = Fixture::project("clipboard-image");
         let png = [0x89u8, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x00, 0x00, 0x0D];
         let path = import_image_bytes(&fixture.root, "figures", "paste.png", &STANDARD.encode(png))
@@ -726,6 +726,6 @@ mod tests {
             "QQ==",
         )
         .unwrap_err();
-        assert!(error.contains("cannot be written by collab sync"));
+        assert!(error.contains("cannot be written directly"));
     }
 }

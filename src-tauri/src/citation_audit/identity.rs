@@ -201,27 +201,6 @@ mod tests {
     use super::*;
 
     #[test]
-    fn title_candidates_require_full_identity_and_expose_non_applicable_conflicts() {
-        let before = "@inproceedings{x, title={Safe Paper}, author={Smith, Alice and Jones, Bob}, year={2024}, booktitle={ICLR}}";
-        let good = "@inproceedings{r, title={Safe Paper}, author={Alice Smith and Bob Jones}, year={2024}, booktitle={ICLR}, doi={10.1234/good}}";
-        let accepted = compare_title_entry(before, good);
-        assert_eq!(accepted.status, "update");
-        assert!(accepted.after.is_some());
-        assert!(!accepted.changes.iter().any(|change| change.field == "author"));
-
-        for (remote, reason) in [
-            (good.replace("Safe Paper", "Wrong Paper"), "title"),
-            (good.replace("Alice Smith and Bob Jones", ""), "author"),
-            (good.replace("2024", "2010"), "year"),
-        ] {
-            let rejected = compare_title_entry(before, &remote);
-            assert!(rejected.after.is_none());
-            assert_eq!(rejected.publication_reason.as_deref(), Some("identity_conflict"));
-            assert!(rejected.candidate.unwrap().reasons.iter().any(|r| r == reason));
-        }
-    }
-
-    #[test]
     fn equivalent_kernelbench_authors_preserve_local_bibtex() {
         let authors = r"Ouyang, Anne and Guo, Simon and Arora, Simran and Zhang, Alex L and Hu, William and R{\'e}, Christopher and Mirhoseini, Azalia";
         let remote_authors = "Anne Ouyang and Simon Guo and Simran Arora and Alex L. Zhang and William Hu and Christopher Ré and Azalia Mirhoseini";
@@ -328,18 +307,25 @@ mod tests {
         }
     }
 
-    /// A title lookup accepts a record only with the equivalent full, ordered
-    /// author list: truncated (`others`), repeated, missing, renamed,
-    /// reordered or dropped authors are all identity conflicts.
+    /// A title lookup accepts a record only with the same title and year and
+    /// the equivalent full, ordered author list: truncated (`others`),
+    /// repeated, missing, renamed, reordered or dropped authors are all
+    /// identity conflicts.
     #[test]
-    fn title_matches_require_the_equivalent_full_ordered_author_list() {
+    fn title_matches_require_title_year_and_the_equivalent_full_ordered_author_list() {
         let refine_authors = "Aman Madaan and Niket Tandon and Prakhar Gupta and Skyler Hallinan";
         let refine = format!("@inproceedings{{remote,title={{Self-Refine: Iterative Refinement with Self-Feedback}},author={{{refine_authors}}},year={{2023}},booktitle={{NeurIPS}}}}");
         let reflexion = "@inproceedings{shinn2023reflexion,title={Reflexion: Language Agents with Verbal Reinforcement Learning},author={Shinn, Noah and Cassano, Federico and Berman, Edward and Gopinath, Ashwin and Narasimhan, Karthik and Yao, Shunyu},booktitle={NeurIPS},year={2023}}";
         let reflexion_remote = "@inproceedings{source,title={Reflexion: language agents with verbal reinforcement learning},author={Noah Shinn and Federico Cassano and Ashwin Gopinath and Karthik Narasimhan and Shunyu Yao},booktitle={NeurIPS},year={2023}}";
         let react = "@inproceedings{yao2023react,title={{ReAct}: Synergizing Reasoning and Acting in Language Models},author={Yao, Shunyu and Zhao, Jeffrey and Yu, Dian and Du, Nan and Shafran, Izhak and Narasimhan, Karthik and Cao, Yuan},year={2023},booktitle={ICLR}}";
         let react_remote = "@inproceedings{remote,title={ReAct: Synergizing Reasoning and Acting in Language Models},author={Shunyu Yao and Jeffrey Zhao and Dian Yu and Nan Du and Izhak Shafran and Karthik Narasimhan and Yuan Cao},year={2023},booktitle={ICLR}}";
+        let safe = "@inproceedings{x, title={Safe Paper}, author={Smith, Alice and Jones, Bob}, year={2024}, booktitle={ICLR}}";
+        let good = "@inproceedings{r, title={Safe Paper}, author={Alice Smith and Bob Jones}, year={2024}, booktitle={ICLR}, doi={10.1234/good}}";
         let mut cases = vec![
+            (safe.to_string(), good.to_string(), None),
+            (safe.to_string(), good.replace("Safe Paper", "Wrong Paper"), Some("title")),
+            (safe.to_string(), good.replace("Alice Smith and Bob Jones", ""), Some("author")),
+            (safe.to_string(), good.replace("2024", "2010"), Some("year")),
             (react.to_string(), react_remote.to_string(), None),
             (refine.replace(refine_authors, "others"), refine.clone(), Some("author")),
             (reflexion.to_string(), reflexion_remote.to_string(), Some("author")),
@@ -379,6 +365,9 @@ mod tests {
             let checked = compare_title_entry(&before, &remote);
             assert_eq!(checked.verified(), conflict.is_none(), "{before}\n{remote}");
             if let Some(reason) = conflict {
+                // A conflict is exposed as a non-applicable candidate.
+                assert!(checked.after.is_none(), "{remote}");
+                assert_eq!(checked.publication_reason.as_deref(), Some("identity_conflict"));
                 assert!(checked.candidate.unwrap().reasons.iter().any(|r| r == reason), "{remote}");
             }
         }

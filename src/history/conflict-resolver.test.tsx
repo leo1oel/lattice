@@ -165,14 +165,11 @@ describe("ConflictResolverDialog", () => {
   });
 
   it("keeps the dialog open and reports a failed write", async () => {
+    const { onClose, onResolved } = renderDialog(conflict, "main.tex");
     vi.mocked(invoke).mockImplementation(async (command) => {
-      if (command === "read_project_file") return conflict;
       if (command === "write_project_file") throw new Error("disk full");
-      return undefined;
+      return conflict;
     });
-    const onClose = vi.fn();
-    const onResolved = vi.fn();
-    render(<ConflictResolverDialog open path="main.tex" projectRoot="/tmp/paper" onClose={onClose} onResolved={onResolved} />);
     fireEvent.click(await screen.findByRole("radio", { name: "Keep both" }));
     fireEvent.click(screen.getByRole("button", { name: "Save resolved file" }));
     expect(await screen.findByText(/disk full/)).toBeInTheDocument();

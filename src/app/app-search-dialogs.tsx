@@ -16,12 +16,6 @@ import { SearchPickerDialog, type SearchPickerItem } from "../components/ui/sear
 import { parsePaperLinkPath } from "../papers/paper-link";
 import { flattenOutline, type OutlineNode } from "../editor/latex/latex-outline";
 import { ProjectFindDialog, type ProjectFindHit } from "../project/project-find-dialog";
-import {
-  fuseProjectSearchHits,
-  semanticQueryEligible,
-  type LocalSemanticSearchResponse,
-} from "../project/project-semantic-search";
-import type { useLocalSemanticSearch } from "./use-local-semantic-search";
 import type { ProjectSearch } from "./use-project-search";
 import { ProjectReplaceDialog, type ReplacePreviewResult } from "../project/project-replace-dialog";
 import type { CitationInfo, ReferenceInfo } from "../editor/latex/latex-text";
@@ -147,9 +141,8 @@ export function AppSearchDialogs({ open, setOpen, activeFile, openProjectFile, o
   );
 }
 
-export function AppProjectSearchDialogs({ search, semanticSearch, captureProjectScope, projectRef, dirty, ...props }: {
+export function AppProjectSearchDialogs({ search, captureProjectScope, projectRef, dirty, ...props }: {
   search: ProjectSearch;
-  semanticSearch: ReturnType<typeof useLocalSemanticSearch>;
   captureProjectScope: () => () => boolean;
   projectRef: RefObject<ProjectSnapshot | null>;
   /** Whether the open editor holds unsaved edits a replace must write first. */
@@ -183,8 +176,6 @@ export function AppProjectSearchDialogs({ search, semanticSearch, captureProject
         busy={find.busy}
         error={find.error}
         hits={find.hits}
-        semanticEnabled={semanticSearch.enabled}
-        semanticStatus={semanticSearch.status}
         onClose={() => {
           searchGenerationRef.current += 1;
           setFind({ open: false, busy: false, error: null, hits: [] });
@@ -200,16 +191,9 @@ export function AppProjectSearchDialogs({ search, semanticSearch, captureProject
           const ownsProject = captureProjectScope();
           const superseded = () => generation !== searchGenerationRef.current || !ownsProject();
           try {
-            const semanticPromise = semanticSearch.enabled && semanticQueryEligible(query)
-              ? invoke<LocalSemanticSearchResponse>("semantic_search_project", { projectRoot, query }).catch(() => null)
-              : Promise.resolve(null);
-            const [results, semantic] = await Promise.all([
-              invoke<ProjectFindHit[]>("search_project", { query }),
-              semanticPromise,
-            ]);
+            const hits = await invoke<ProjectFindHit[]>("search_project", { query });
             if (superseded()) return;
-            if (semantic) semanticSearch.setStatus(semantic.status);
-            setFind({ hits: fuseProjectSearchHits(results, query, semantic) });
+            setFind({ hits });
           } catch (reason) {
             if (superseded()) return;
             setFind({ hits: [], error: toMessage(reason) });

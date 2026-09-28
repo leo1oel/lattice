@@ -8,7 +8,7 @@
 
 /* Floating cards and dialogs that sit above the page. Drawer content keeps the
  * modal typography contract, but belongs to the already elevated drawer shell. */
-.modal:not(.collab-drawer-content):not(.overleaf-picker-drawer-content),
+.modal:not(.overleaf-picker-drawer-content),
 .root-error-card,
 .settings-preview,
 .editor-comment-popover,

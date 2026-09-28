@@ -22,17 +22,11 @@ describe("findSourceQuote", () => {
     expect(text.slice(result!.from, result!.to)).toBe("The efﬁcient algo-\n  rithm uses   less space.");
   });
 
-  it("allows overlapping boundary snippets", () => {
-    expect(findSourceQuote("prefix abcdef suffix", "abcd", "cdef")).toEqual({ from: 7, to: 13 });
-  });
-
-  it("rejects ambiguous ranges and does not remove ordinary hyphens", () => {
-    expect(findSourceQuote("start end / start end", "start", "end")).toBeNull();
-    expect(findSourceQuote("co-operate", "cooperate", "cooperate")).toBeNull();
-  });
-
-  it("returns null for missing or empty boundaries", () => {
-    expect(findSourceQuote("some text", "some", "absent")).toBeNull();
-    expect(findSourceQuote("some text", "", "text")).toBeNull();
-  });
+  it.each([
+    ["allows overlapping boundary snippets", "prefix abcdef suffix", "abcd", "cdef", { from: 7, to: 13 }],
+    ["rejects ambiguous ranges", "start end / start end", "start", "end", null],
+    ["does not remove ordinary hyphens", "co-operate", "cooperate", "cooperate", null],
+    ["returns null for a missing boundary", "some text", "some", "absent", null],
+    ["returns null for an empty boundary", "some text", "", "text", null],
+  ])("%s", (_, text, first, last, expected) => expect(findSourceQuote(text, first, last)).toEqual(expected));
 });

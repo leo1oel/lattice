@@ -73,6 +73,13 @@ describe("FileDiffView", () => {
 
     rerender(<FileDiffView change={{ path: "script.ts", before: "old", after: "new" }} />);
     expect(diff()).toHaveAttribute("data-language", "text");
+
+    // Unchanged and empty added files get explicit states instead of a diff.
+    rerender(<FileDiffView change={{ path: "same.tex", before: "same", after: "same" }} />);
+    expect(screen.getByText("No textual changes")).toBeInTheDocument();
+    rerender(<FileDiffView change={{ path: "empty.tex", before: null, after: "" }} />);
+    expect(screen.getByText("Empty file added")).toBeInTheDocument();
+    expect(screen.queryByTestId("pierre-file-diff")).not.toBeInTheDocument();
   });
 
   it("switches content and forwards line clicks without retaining the previous file", () => {
@@ -90,15 +97,6 @@ describe("FileDiffView", () => {
 
     fireEvent.click(viewer);
     expect(onOpenLine).toHaveBeenCalledWith("second.tex", 7);
-  });
-
-  it("shows explicit states for unchanged and empty added files", () => {
-    const { rerender } = render(<FileDiffView change={{ path: "same.tex", before: "same", after: "same" }} />);
-    expect(screen.getByText("No textual changes")).toBeInTheDocument();
-
-    rerender(<FileDiffView change={{ path: "empty.tex", before: null, after: "" }} />);
-    expect(screen.getByText("Empty file added")).toBeInTheDocument();
-    expect(screen.queryByTestId("pierre-file-diff")).not.toBeInTheDocument();
   });
 
   it("renders as soon as the current preload completes without requiring a remount", async () => {

@@ -478,16 +478,16 @@ mod tests {
     fn classifies_latexmk_run_summaries() {
         // A PDF someone else built leaves latexmk with nothing to do; a run
         // that actually typeset must not be repeated for SyncTeX.
-        assert!(skipped_recompile("Latexmk: Nothing to do for 'main.tex'."));
-        assert!(skipped_recompile("Latexmk: All targets (main.pdf) are up-to-date"));
-        assert!(!skipped_recompile("Latexmk: applying rule 'pdflatex'..."));
-
-        assert!(is_stale_previous_invocation_log(
-            "Latexmk: Nothing to do for 'main.tex'.\n\
-             pdflatex: gave an error in previous invocation of latexmk.\n"
-        ));
-        assert!(!is_stale_previous_invocation_log(
-            "Latexmk: All targets (main.pdf) are up-to-date\n"
-        ));
+        let stale_log = "Latexmk: Nothing to do for 'main.tex'.\n\
+                         pdflatex: gave an error in previous invocation of latexmk.\n";
+        for (log, skipped, stale) in [
+            ("Latexmk: Nothing to do for 'main.tex'.", true, false),
+            ("Latexmk: All targets (main.pdf) are up-to-date\n", true, false),
+            ("Latexmk: applying rule 'pdflatex'...", false, false),
+            (stale_log, true, true),
+        ] {
+            let summary = (skipped_recompile(log), is_stale_previous_invocation_log(log));
+            assert_eq!(summary, (skipped, stale), "{log}");
+        }
     }
 }

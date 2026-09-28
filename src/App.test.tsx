@@ -19,8 +19,6 @@ import { registerAgentCanvasAdapter } from "./agent/agent-canvas-tools";
 import { registerAgentSpreadsheetDocument } from "./agent/agent-spreadsheet-tools";
 import { clearAppLogs, formatAppLogs, getAppLogEntry, getVisibleAppToastIds } from "./telemetry/app-log-store";
 import { APPEARANCE_KEY, loadWorkspaceLayout, persistWorkspaceLayout, type WorkspaceLayout } from "./settings/app-settings";
-import { mapCollabProjectStatusV2 } from "./collab/collab-status";
-import { formatCollabInvitationV2 } from "./collab/collab-invitation-v2";
 import { loadTextLanguageExtensions } from "./editor/editor-languages";
 import { activateAppLocale } from "./i18n";
 import { referenceAssetPreviewDataUrl } from "./project/reference-preview";
@@ -28,7 +26,6 @@ import { usePanelLayout } from "./app/use-panel-layout";
 import { parseVisualMarkdown } from "./editor/markdown/visual-markdown-schema";
 import type { SynaraRuntimeInfo } from "./agent/synara-runtime";
 import { ConfirmActionProvider } from "./components/ui/confirm-action-dialog";
-import type { CollabProjectStatusV2 } from "./collab/collab-project-v2";
 import { loadVisualMarkdownEditorModule } from "./canvas/canvas-lazy-modules";
 // Keep the cold Vite transforms of these real lazy surfaces outside interaction-test deadlines; the tests
 // still mount them, not doubles: the visual Markdown editor, the file-tree navigator, the canvas and
@@ -280,8 +277,7 @@ vi.mock("@pdfslick/core", () => {
 
 /** Answers the commands every window issues at startup; rejects any other command a test did not declare. */
 function mockAppCommand(command: string) {
-  // Every window asks for its one-shot instruction; only a window opened to join a share is given one.
-  if (command === "take_pending_window_action" || command === "set_browser_access_enabled") return null;
+  if (command === "set_browser_access_enabled") return null;
   if (command === "browser_access_enabled") return false;
   if (["list_citation_keys", "list_citations", "list_references"].includes(command)) return [];
   throw new Error(`Unexpected command: ${command}`);
@@ -559,21 +555,6 @@ function exposeGarbageCollector(): () => Promise<void> {
   };
 }
 
-describe("collaboration status mapping", () => {
-  it.each<[CollabProjectStatusV2, ReturnType<typeof mapCollabProjectStatusV2>]>([
-    ["syncing", { status: "connecting", detail: "Syncing changes…" }],
-    ["server-received", { status: "synced", detail: null }],
-    ["durable", { status: "synced", detail: null }],
-    ["offline", { status: "disconnected", detail: "Offline" }],
-    ["read-only", { status: "disconnected", detail: "Collaboration is read-only" }],
-    ["importing", { status: "connecting", detail: "Importing all project files…" }],
-    ["closed", { status: "disconnected", detail: "This shared project is closed" }],
-    ["error", { status: "error", detail: "Collaboration failed" }],
-  ])("maps %s truthfully", (status, expected) => {
-    expect(mapCollabProjectStatusV2(status)).toEqual(expected);
-  });
-});
-
 // `main.tsx` mounts the toast stack beside `<App />`, so a test rendering the app alone cannot see its
 // notifications. Every notification goes through `app-notify`, which always logs, so assert against the store
 // the toasts read from — the same contract, without a second React tree. `app-log.test.tsx` covers the rendering.
@@ -737,8 +718,6 @@ function postedOfType<T extends object>(postMessage: { mock: { calls: unknown[][
 /** The toasts currently on screen from `source`. */
 const visibleToasts = (source: string) => getVisibleAppToastIds().map(getAppLogEntry).filter((entry) => entry?.source === source);
 
-/** Opens the sharing dialog from its titlebar control once it mounts. */
-const openCollaboration = async () => fireEvent.click(await findElement('[data-tour="collaboration"]'));
 
 /** Waits for the Overleaf sync control to accept a manual sync. */
 function findOverleafSyncButton() {
@@ -1640,12 +1619,12 @@ describe("project workspace", () => {
     const snapshot = projectSnapshot({ files: fileNodes("main.tex", "intro.tex", "method.tex") });
     persistLayout(snapshot.root, {
       openTabs: ["intro.tex", "main.tex", "method.tex"], activeFile: "main.tex", activeTab: "method.tex",
-      secondaryFile: "method.tex", focusedPane: "secondary", canvasMode: "columns",
+      // The retired three-column mode, as an older build saved it.
+      secondaryFile: "method.tex", focusedPane: "secondary", canvasMode: "columns" as WorkspaceLayout["canvasMode"],
       tabRecency: ["method.tex", "main.tex", "intro.tex"],
     });
     renderApp({ ...projectCommands(snapshot), read_project_file: readPathContent });
     await waitFor(() => expect(document.querySelector(".dual-canvas")).toBeInTheDocument());
-    expect(document.querySelector(".columns-canvas")).toBeNull();
     expect(Array.from(document.querySelectorAll<HTMLElement>(".editor-tab"), (tab) => tab.dataset.tabPath))
       .toEqual(["intro.tex", "main.tex", "method.tex"]);
     expect(screen.getByRole("tab", { name: /method\.tex/ })).toHaveAttribute("aria-selected", "true");
@@ -5147,104 +5126,6 @@ describe("project workspace", () => {
     // already had, rather than being taken over by the one just opened.
     expect(invoke).not.toHaveBeenCalledWith("open_project", { path });
     expect(editorViewAt().state.doc.toString()).toBe("# Private draft");
-  });
-
-  it("joins a live collaboration in the current window", async () => {
-    setAutoBuildMode("manual");
-    localStorage.setItem("lattice.collab.name", "Ada");
-    const notes = notesSnapshot();
-    const sharedSnapshot = {
-      ...notes, root: "/tmp/Lattice Shares/Shared room", files: [], manifest: { ...notes.manifest, projectId: "shared-id", name: "Shared room" },
-    };
-    const projectInstanceId = "project_1234567890abcdef1234567890abcdef";
-    const invitation = formatCollabInvitationV2({
-      version: 2, deployment: "https://collab.example", projectInstanceId, guestSecret: "A".repeat(43), permission: "write",
-      projectName: "Shared room",
-    });
-    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({
-      protocol: 2, projectInstanceId, name: "Shared room", lifecycle: "live", catalogRevision: 1, snapshotGeneration: 0,
-      workspaceLeaseGeneration: 0, authorityEpoch: 1, files: [],
-    }), { headers: { "content-type": "application/json" } })));
-    renderApp({
-      ...projectCommands(notes, "# Private draft"), put_collab_credential: undefined, create_collab_join_workspace: sharedSnapshot,
-      open_project: () => { throw new Error("stop after binding the current window"); },
-    });
-    await waitFor(() => expect(document.querySelector(".cm-editor")).not.toBeNull());
-    await openCollaboration();
-    fireEvent.click(await screen.findByRole("tab", { name: "Join" }));
-    fireEvent.change(screen.getByLabelText("Collab invite"), { target: { value: invitation } });
-    fireEvent.click(screen.getByRole("button", { name: "Join share" }));
-    await expectInvoked("open_project", { path: sharedSnapshot.root });
-    expect(invoke).not.toHaveBeenCalledWith("open_project_window", expect.anything());
-  });
-
-  it.each([false, true])("hides paused sharing and keeps saved rooms without autojoining (project: %s)", async (hasProject) => {
-    vi.stubEnv("VITE_LATTICE_COLLAB_V2", undefined);
-    const records = JSON.stringify([{
-      version: 2, projectInstanceId: "project_saved_room", host: "https://collab.example",
-      credentialRef: "saved-credential", permission: "host", title: "Saved room", projectRoot: "/tmp/notes", lastUsed: 1,
-    }]);
-    localStorage.setItem("lattice.collab.projects.v2", records);
-    const fetcher = vi.fn();
-    vi.stubGlobal("fetch", fetcher);
-    renderApp({
-      ...projectCommands(null, "# Local draft"), initial_project: () => (hasProject ? notesSnapshot() : null),
-      take_pending_window_action: () => JSON.stringify({
-        kind: "join-collab-v2", host: "https://collab.example", projectInstanceId: "project_saved_room",
-      }),
-    });
-    if (hasProject) {
-      await expectInvoked("take_pending_window_action");
-      fireEvent.keyDown(window, { key: "P", metaKey: true, shiftKey: true });
-      expect(await screen.findByRole("dialog", { name: "Command palette" })).toBeInTheDocument();
-      expect(screen.queryByText("Start / join live sharing")).not.toBeInTheDocument();
-    } else {
-      expect(await screen.findByRole("button", { name: "Open from Overleaf" })).toBeInTheDocument();
-      expect(screen.getByRole("button", { name: "Import ZIP" })).toBeInTheDocument();
-    }
-    expect(screen.queryByRole("button", { name: "Join share" })).not.toBeInTheDocument();
-    expect(document.querySelector('[data-tour="collaboration"]')).toBeNull();
-    expect(invoke).not.toHaveBeenCalledWith("get_collab_credential", expect.anything());
-    expect(fetcher.mock.calls.filter(([input]) => String(input).includes("collab"))).toHaveLength(0);
-    expect(localStorage.getItem("lattice.collab.projects.v2")).toBe(records);
-  });
-
-  it("shows share-start progress in the selected interface language", async () => {
-    await setInterfaceLanguage("zh-CN");
-    localStorage.setItem("lattice.collab.name", "Ada");
-    const inventory = deferred<never>();
-    renderApp({ ...projectCommands(notesSnapshot(), "# Private draft"), collab_project_inventory_v2: inventory.promise });
-    await openCollaboration();
-    // The first sharing test also loads the lazy dialog and its dependencies.
-    fireEvent.click(await screen.findByRole("button", { name: "开始共享" }, { timeout: 20_000 }));
-    expect(await screen.findByRole("status")).toHaveTextContent("正在扫描项目文件…");
-    await act(async () => inventory.reject(new Error("stop after localized status")));
-    expect(await screen.findByRole("status")).toHaveTextContent("导入失败——请重新点击“开始共享”");
-    expect(await screen.findByRole("status")).toHaveTextContent("stop after localized status");
-  }, 40_000);
-
-  it("translates share exclusions before asking for confirmation", async () => {
-    await setInterfaceLanguage("zh-CN");
-    localStorage.setItem("lattice.collab.name", "Ada");
-    renderApp({
-      ...projectCommands(null, "# Private draft"), initial_project: () => notesSnapshot(),
-      collab_project_inventory_v2: () => ({
-        files: [],
-        excluded: [
-          { pathOrPattern: ".git/**", reason: "git-internals" }, { pathOrPattern: ".research/**", reason: "app-private-state" },
-          { pathOrPattern: "node_modules/**", reason: "generated-directory" },
-          { pathOrPattern: "linked.tex", reason: "symlink-not-followed" },
-        ],
-      }),
-    }, { confirmations: true });
-    await openCollaboration();
-    fireEvent.click(await screen.findByRole("button", { name: "开始共享" }));
-    const dialog = await screen.findByRole("dialog", { name: "要继续吗？" });
-    for (const text of [
-      "以下项目内容不会包含在此次共享中", ".git/** — Git 内部数据", ".research/** — 应用私有数据",
-      "node_modules/** — 自动生成的目录", "linked.tex — 不跟随符号链接",
-    ]) expect(dialog).toHaveTextContent(text);
-    fireEvent.click(within(dialog).getByRole("button", { name: "取消" }));
   });
 
   it("does not carry an open Markdown buffer into the next project", async () => {

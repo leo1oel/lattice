@@ -34,7 +34,7 @@ const COMMON_FORMULAS = ["SUMIF", "SUM", "AVERAGE", "IF", "COUNT", "MAX", "MIN"]
 const HIDDEN_MENU_ITEMS = [
   // Univer's protection rules are not part of Lattice's Yjs workbook schema
   // yet. Hiding every entry point prevents a local-only rule from looking like
-  // a reliable permission boundary to collaborators or the Agent.
+  // a reliable permission boundary to the Agent.
   "sheet.contextMenu.permission",
   ...["add-range-protection-from-toolbar", "add-range-protection-from-context-menu", "set-range-protection-from-context-menu",
     "delete-range-protection-from-context-menu", "view-sheet-permission-from-context-menu", "add-range-protection-from-sheet-bar",

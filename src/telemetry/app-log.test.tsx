@@ -88,15 +88,23 @@ describe("AppToastStack", () => {
     expect(onAction).toHaveBeenCalledOnce();
   });
 
-  it("rewires a deduped repeat's buttons and not only its text", () => {
+  it("collapses a repeat into the toast already showing it, rewiring its buttons and not only its text", () => {
     const showLog = vi.fn();
     const retry = vi.fn();
     const failure = { level: "error", source: "Build", title: "Build failed", dedupeKey: "build" } as const;
     render(<AppToastStack />);
-    show({ ...failure, toastOptions: { timeoutMs: 0, primaryAction: { label: "Show log", onClick: showLog } } });
-    show({ ...failure, detail: "Undefined control sequence", toastOptions: { timeoutMs: 0, primaryAction: { label: "Retry", onClick: retry } } });
+    show({ ...failure, detail: "first", toastOptions: { timeoutMs: 0, primaryAction: { label: "Show log", onClick: showLog } } });
+    show({ ...failure, detail: "second" });
+    show({ ...failure, detail: "third\n#8c4c85", toastOptions: { timeoutMs: 0, primaryAction: { label: "Retry", onClick: retry } } });
 
     expect(screen.getAllByRole("alert")).toHaveLength(1);
+    expect(screen.getByRole("alert")).toHaveTextContent("third");
+    // Every occurrence still reaches the log — collapsing is a display rule,
+    // not a record of what happened. Action correlation ids stay in the log too,
+    // without being shown to the user.
+    expect(formatAppLogs()).toContain("third");
+    expect(screen.getByRole("alert")).not.toHaveTextContent("#8c4c85");
+    expect(formatAppLogs()).toContain("#8c4c85");
     expect(screen.queryByRole("button", { name: "Show log" })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Retry" }));
     expect(retry).toHaveBeenCalledOnce();
@@ -107,26 +115,19 @@ describe("AppToastStack", () => {
   // actions out of a module map during render is correct only for as long as
   // something else happens to re-render it: the id does not move when the
   // actions are replaced, so any memo keyed on the entry keeps the old buttons.
-  it("moves the toast snapshot when only the actions change", () => {
+  it("moves the toast snapshot when only the actions change, and holds it still for an entry nobody is shown", () => {
     const { result } = renderHook(() => useAppToastsSnapshot());
     const entry = show(updatingPi(vi.fn()));
     const first = result.current;
     expect(first.map((toast) => toast.options?.primaryAction?.label)).toEqual(["Cancel"]);
+    record({ title: "Cached" });
+    expect(result.current).toBe(first);
 
     failPiUpdate(entry.id, { title: "Could not update Pi" }, vi.fn());
 
     expect(result.current[0].entry.id).toBe(entry.id);
     expect(result.current).not.toBe(first);
     expect(result.current[0].options?.primaryAction?.label).toBe("Retry");
-  });
-
-  it("holds the toast snapshot still for an entry nobody is shown", () => {
-    const { result } = renderHook(() => useAppToastsSnapshot());
-    show({ level: "info", source: "Build", title: "Built", toastOptions: { timeoutMs: 0 } });
-    const first = result.current;
-    record({ title: "Cached" });
-
-    expect(result.current).toBe(first);
   });
 
   it("refuses focus and makes a dismissed toast inert before its exit finishes", async () => {
@@ -142,30 +143,6 @@ describe("AppToastStack", () => {
     expect(toast).toHaveAttribute("inert");
     expect(toast).toHaveAttribute("aria-hidden", "true");
     await waitFor(() => expect(toast).not.toBeInTheDocument());
-  });
-
-  it("collapses a repeat into the toast already showing it", () => {
-    render(<AppToastStack />);
-    act(() => {
-      for (const detail of ["first", "second", "third"]) {
-        addAppLog({ level: "error", source: "Build", title: "Build failed", detail, dedupeKey: "build" });
-      }
-    });
-
-    expect(screen.getAllByRole("alert")).toHaveLength(1);
-    expect(screen.getByRole("alert")).toHaveTextContent("third");
-    // Every occurrence still reaches the log — collapsing is a display rule,
-    // not a record of what happened.
-    expect(formatAppLogs()).toContain("third");
-  });
-
-  it("keeps action correlation ids in the log without showing them to the user", () => {
-    render(<AppToastStack />);
-    show({ level: "error", source: "Build", title: "Build failed", detail: "Undefined control sequence\n#8c4c85" });
-
-    expect(screen.getByRole("alert")).toHaveTextContent("Undefined control sequence");
-    expect(screen.getByRole("alert")).not.toHaveTextContent("#8c4c85");
-    expect(formatAppLogs()).toContain("#8c4c85");
   });
 
   it("stops collapsing once the toast it was folding into is gone", () => {

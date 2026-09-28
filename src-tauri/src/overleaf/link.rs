@@ -484,46 +484,38 @@ mod tests {
     use crate::overleaf::files::read_base_copy;
     use crate::overleaf::test_support::*;
 
-    /// Pausing keeps what a resumed sync needs to merge.
+    /// Pausing, and recording what the realtime channel learned, keep what a
+    /// resumed sync needs to merge.
     ///
     /// The whole reason to pause rather than unlink: the file table is the
     /// common ancestor, and without it reconnecting can only offer a conflict
     /// copy of every file that differs.
     #[test]
-    fn pausing_keeps_the_link_and_its_common_ancestor() {
-        let root = temp_dir("pause");
+    fn pausing_and_realtime_metadata_keep_the_link_and_its_common_ancestor() {
         let base = b"the copy from the last sync\n";
-        seed_linked_project(&root, "https://www.overleaf.com", &[], &[("main.tex", base)]);
+        let root = linked_root(&[], &[("main.tex", base)]);
         edit_state(&root, |state| state.remote_version = Some(42));
+        let keeps_the_base = || {
+            let state = load_state(&root).unwrap();
+            assert_eq!(state.files.get("main.tex"), Some(&sha256_hex(base)));
+            assert_eq!(state.remote_version, Some(42));
+            let copy = read_base_copy(&root, "main.tex").map(String::into_bytes);
+            assert_eq!(copy, Some(base.to_vec()));
+        };
 
         set_paused(&root, true).unwrap();
         let link = project_link(&root).unwrap().expect("still linked");
         assert!(link.paused);
         assert_eq!(link.project_id, "proj-1");
-        let paused = load_state(&root).unwrap();
-        assert_eq!(paused.files.get("main.tex"), Some(&sha256_hex(base)));
-        assert_eq!(paused.remote_version, Some(42));
-        assert_eq!(read_base_copy(&root, "main.tex").map(String::into_bytes), Some(base.to_vec()));
-
+        keeps_the_base();
         set_paused(&root, false).unwrap();
         assert!(!project_link(&root).unwrap().unwrap().paused);
-        let _ = fs::remove_dir_all(root);
-    }
-
-    #[test]
-    fn realtime_metadata_records_the_root_folder_without_changing_the_sync_base() {
-        let root = temp_dir("realtime-metadata");
-        let files: Files = &[("main.tex", b"body")];
-        seed_linked_project(&root, "https://www.overleaf.com", files, files);
-        let before = load_state(&root).unwrap();
 
         set_realtime_metadata(&root, "new-root-folder", "owner").unwrap();
-
-        let after = load_state(&root).unwrap();
-        assert_eq!(after.root_folder_id.as_deref(), Some("new-root-folder"));
-        assert_eq!(after.permission.as_deref(), Some("owner"));
-        assert_eq!((after.files, after.remote_version), (before.files, before.remote_version));
-        let _ = fs::remove_dir_all(root);
+        let state = load_state(&root).unwrap();
+        assert_eq!(state.root_folder_id.as_deref(), Some("new-root-folder"));
+        assert_eq!(state.permission.as_deref(), Some("owner"));
+        keeps_the_base();
     }
 
     /// Stop syncing, edit, then open the project from Overleaf again.
@@ -534,8 +526,7 @@ mod tests {
     /// absent or empty folder is a plain download.
     #[test]
     fn a_folder_left_by_unlinking_is_offered_for_relinking_not_duplicated() {
-        let (parent, config) = (temp_dir("adopt"), temp_dir("adopt-config"));
-        write_session_file(&config, "https://www.overleaf.com");
+        let (parent, config) = (TempDir::new("adopt"), signed_in("https://www.overleaf.com"));
         let root = parent.join("Attention Paper");
         let kind = |project_id: &str| clone_target(project_id, "Attention Paper", &parent).unwrap();
         assert_eq!(kind("proj-1").kind, "fresh");
@@ -564,23 +555,19 @@ mod tests {
         // project of the same name is still a separate folder.
         assert_eq!(kind("proj-1").kind, "open");
         assert_eq!(kind("proj-2").kind, "occupied");
-        let _ = fs::remove_dir_all(parent);
-        let _ = fs::remove_dir_all(config);
     }
 
     #[test]
     fn publishes_local_project_and_records_the_uploaded_snapshot_as_its_base() {
         let server = Mock::project(&[("main.tex", b"local body")]).serve();
-        let (config, root) = (temp_dir("publish-config"), temp_dir("publish-project"));
-        write_session_file(&config, &server.base);
+        let (config, root) = (signed_in(&server.base), TempDir::new("publish-project"));
         for (rel, data) in [
             ("main.tex", "local body"),
             ("figures/plot.pdf", "%PDF figure"),
             ("paper.pdf", "%PDF build output"),
             (".research/private.json", "secret"),
         ] {
-            fs::create_dir_all(root.join(rel).parent().unwrap()).unwrap();
-            fs::write(root.join(rel), data).unwrap();
+            root.write(rel, data);
         }
 
         let link = publish_project(&config, &root, "Local Paper").unwrap();
@@ -622,13 +609,12 @@ mod tests {
             ("tmp/pdfs/full-appendix/page-01.png", b"temporary preview"),
         ])
         .serve();
-        let (config, parent) = (temp_dir("clone-config"), temp_dir("clone-parent"));
-        write_session_file(&config, &server.base);
-        let clone = |project_id: &str| {
-            clone_project(&config, project_id, "Test: Project", &parent, None).unwrap()
+        let (config, parent) = (signed_in(&server.base), TempDir::new("clone-parent"));
+        let clone = |project_id: &str, role| {
+            clone_project(&config, project_id, "Test: Project", &parent, role).unwrap()
         };
 
-        let root = clone("proj-1");
+        let root = clone("proj-1", Some("owner"));
         assert_eq!(root, parent.join("Test- Project"));
         for (rel, data) in [
             ("main.tex", &b"\\documentclass{article}"[..]),
@@ -645,7 +631,7 @@ mod tests {
             (state.project_id.as_str(), state.project_name.as_str()),
             ("proj-1", "Test: Project")
         );
-        assert_eq!(state.host, server.base);
+        assert_eq!((state.host, state.permission.as_deref()), (server.base.clone(), Some("owner")));
         assert_eq!(state.files.len(), 4);
         assert_eq!(state.files.get("refs.bib"), Some(&sha256_hex(b"@article{a}")));
         let link = project_link(&root).unwrap().unwrap();
@@ -655,37 +641,23 @@ mod tests {
         );
 
         // Opening the same project again opens the copy that is already there,
-        // rather than refusing and asking someone to go and find it.
-        assert_eq!(clone("proj-1"), root);
+        // rather than refusing and asking someone to go and find it; a role
+        // nobody reported clears the stale writable one.
+        assert_eq!(clone("proj-1", None), root);
+        assert_eq!(load_state(&root).unwrap().permission, None);
         // A different project that happens to share a name lands beside it
         // instead of being blocked by it…
-        let other = clone("proj-2");
+        let other = clone("proj-2", None);
         assert_ne!(other, root);
         assert_eq!(load_state(&other).unwrap().project_id, "proj-2");
         // …and opening *that* one again finds it under its numbered name.
-        assert_eq!(clone("proj-2"), other);
-    }
-
-    #[test]
-    fn reopening_a_clone_clears_a_stale_writable_permission_when_role_is_unknown() {
-        let server = Mock::project(&[("main.tex", b"body")]).serve();
-        let (config, parent) =
-            (temp_dir("clone-permission-config"), temp_dir("clone-permission-parent"));
-        write_session_file(&config, &server.base);
-        let clone =
-            |role| clone_project(&config, "proj-1", "Permission Test", &parent, role).unwrap();
-        let root = clone(Some("owner"));
-        assert_eq!(load_state(&root).unwrap().permission.as_deref(), Some("owner"));
-
-        assert_eq!(clone(None), root);
-        assert_eq!(load_state(&root).unwrap().permission, None);
+        assert_eq!(clone("proj-2", None), other);
     }
 
     #[test]
     fn overleaf_clone_project_rejects_zip_slip() {
         let server = Mock { zip: build_malicious_zip(), ..Default::default() }.serve();
-        let (config, parent) = (temp_dir("slip-config"), temp_dir("slip-parent"));
-        write_session_file(&config, &server.base);
+        let (config, parent) = (signed_in(&server.base), TempDir::new("slip-parent"));
         let message = clone_project(&config, "proj-1", "Evil", &parent, None).unwrap_err();
         assert!(message.contains("unsafe path"), "got: {message}");
         assert!(!parent.join("evil.tex").exists());

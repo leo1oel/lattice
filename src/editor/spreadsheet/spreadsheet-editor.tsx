@@ -2,20 +2,16 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { useLingui } from "@lingui/react";
 import { invoke } from "@tauri-apps/api/core";
 import { save as saveDialog } from "@tauri-apps/plugin-dialog";
-import type { Awareness } from "y-protocols/awareness";
 import * as Y from "yjs";
 import { CommandType, DOCS_FORMULA_BAR_EDITOR_UNIT_ID_KEY, type IWorkbookData } from "@univerjs/core";
-import type { FUniver } from "@univerjs/core/facade";
-import type { FRange, FWorkbook, FWorksheet } from "@univerjs/preset-sheets-core";
+import type { FWorkbook } from "@univerjs/preset-sheets-core";
 import { logAction } from "../../telemetry/app-notify";
 import type { SpreadsheetFileViewState } from "../../app-types";
 import { ExternalScrollbar } from "../../components/ui/external-scrollbar";
 import { whenIdle } from "../dom-utils";
 import { utf8ToBase64 } from "../../pdf/pdf-bytes";
 import { registerAgentSpreadsheetDocument } from "../../agent/agent-spreadsheet-tools";
-import { DEFAULT_PRESENCE_COLOR, attachSpreadsheetPresence, type RemotePresence } from "./spreadsheet-presence";
-import { parseA1Range } from "./spreadsheet-operations";
-import { clone, inBounds, isRecord, jsonEqual, type SpreadsheetCellData, type SpreadsheetPresenceUser, type SpreadsheetWorkbookData } from "./spreadsheet-types";
+import { clone, inBounds, isRecord, jsonEqual, type SpreadsheetCellData, type SpreadsheetWorkbookData } from "./spreadsheet-types";
 import {
   SPREADSHEET_MESSAGES,
   appearanceDefaultStyle,
@@ -42,20 +38,11 @@ const SET_RANGE_VALUES_MUTATION = "sheet.mutation.set-range-values";
 const FUNCTIONS_PANEL_SELECTOR = '[data-u-comp="sheets-formula-functions-panel"]';
 const VIEW_KEYS = ["zoomRatio", "scrollTop", "scrollLeft"] as const;
 
-export type SpreadsheetCollabBinding = {
-  doc: Y.Doc;
-  awareness: Awareness | null;
-  user: SpreadsheetPresenceUser | null;
-  canWrite: boolean;
-  commit?: () => Promise<void>;
-};
-
 export type SpreadsheetEditorProps = {
   path: string;
   source: string;
   onChange: (next: string) => void;
   onPersist: () => Promise<boolean>;
-  collab?: SpreadsheetCollabBinding | null;
   onFlushPendingChange?: (flush: (() => boolean) | null) => void;
   active?: boolean;
   initialViewState?: SpreadsheetFileViewState;
@@ -118,8 +105,8 @@ function restoreWorkbookViewState(workbook: FWorkbook, state: SpreadsheetFileVie
     if (state.activeRange) sheet.getRange(state.activeRange).activate();
     if (state.activeCell) sheet.getRange(state.activeCell).activateAsCurrentCell();
   } catch {
-    // A remote row/column deletion can invalidate the old selection while the
-    // sheet itself remains. Univer's default selection is valid in that case.
+    // An Agent or on-disk row/column deletion can invalidate the old selection
+    // while the sheet itself remains. Univer's default selection is valid then.
   }
 }
 
@@ -183,82 +170,30 @@ function updateSnapshotCells(sheet: SpreadsheetWorkbookData["sheets"][string], c
   }
 }
 
-type PresencePopupProps = { popup: { extraProps?: { color?: string; name?: string } } };
-
-function SpreadsheetPresencePopup({ popup }: PresencePopupProps) {
-  const color = popup.extraProps?.color ?? DEFAULT_PRESENCE_COLOR;
-  return (
-    // Univer's "top-left" direction places the popup immediately above its
-    // range. Shift it by its own height so the pointer begins inside the cell.
-    <div className="spreadsheet-remote-presence" style={{ color, transform: "translateY(100%)" }}>
-      <svg viewBox="0 0 18 22" aria-hidden="true">
-        <path d="M2 1 16 13l-7 .5-4 6.5z" fill="currentColor" stroke="white" strokeWidth="1.5" />
-      </svg>
-      <span style={{ backgroundColor: color }}>{popup.extraProps?.name ?? "Collaborator"}</span>
-    </div>
-  );
-}
-
-/** Draw each peer's selections and a named pointer on the active sheet. */
-function showRemotePresence(sheet: FWorksheet, remotePresence: RemotePresence[]): Array<{ dispose(): void }> {
-  const rows = sheet.getMaxRows();
-  const columns = sheet.getMaxColumns();
-  const rangeOf = (notation: string, anchorOnly = false): FRange | undefined => {
-    try {
-      const range = parseA1Range(notation);
-      if (anchorOnly) return range.startRow < rows && range.startColumn < columns ? sheet.getRange(range.startRow, range.startColumn) : undefined;
-      if (range.endRow >= rows || range.endColumn >= columns) return undefined;
-      return sheet.getRange(range.startRow, range.startColumn, range.endRow - range.startRow + 1, range.endColumn - range.startColumn + 1);
-    } catch {
-      return undefined; // Stale presence outside the current workbook.
-    }
-  };
-  const disposables: Array<{ dispose(): void }> = [];
-  for (const { presence, user } of remotePresence) {
-    if (presence.sheetId !== sheet.getSheetId()) continue;
-    const ranges = presence.selections.map((notation) => rangeOf(notation)).filter((range) => range !== undefined);
-    if (ranges.length > 0) {
-      disposables.push(sheet.highlightRanges(ranges, { stroke: user.color, strokeWidth: 2, fill: `${user.color}18`, widgets: {}, widgetSize: 0 }));
-    }
-    const { pointer } = presence;
-    const marker = pointer && pointer.row < rows && pointer.column < columns
-      ? sheet.getRange(pointer.row, pointer.column)
-      : ranges[0] ?? (presence.activeCell ? rangeOf(presence.activeCell, true) : undefined);
-    const popup = marker?.attachPopup({
-      componentKey: SpreadsheetPresencePopup,
-      direction: "top-left",
-      hideOnInvisible: true,
-      extraProps: { color: user.color, name: user.name },
-    });
-    if (popup) disposables.push(popup);
-  }
-  return disposables;
-}
-
+/**
+ * The workbook lives in a Y.Doc the editor owns: Univer edits land in it as
+ * local transactions, while the Agent's batches and external file changes land
+ * as foreign ones the mounted surface renders back.
+ */
 export function SpreadsheetEditor(props: SpreadsheetEditorProps) {
-  const { path, source, collab } = props;
+  const { path, source } = props;
   const localState = useMemo(() => {
-    const localDoc = collab?.doc ? null : new Y.Doc();
+    const doc = new Y.Doc();
     try {
-      if (!localDoc) {
-        spreadsheetSnapshotFromDoc(collab!.doc);
-      } else {
-        if (source) localDoc.getText("content").insert(0, source);
-        seedSpreadsheetDoc(localDoc);
-      }
-      return { localDoc, error: null };
+      if (source) doc.getText("content").insert(0, source);
+      seedSpreadsheetDoc(doc);
+      return { doc, error: null };
     } catch (error) {
-      localDoc?.destroy();
-      return { localDoc: null, error: error instanceof Error ? error.message : "Invalid .lattice-sheet document" };
+      doc.destroy();
+      return { doc: null, error: error instanceof Error ? error.message : "Invalid .lattice-sheet document" };
     }
   // The canvas remounts this editor per path; external source changes are
   // reconciled by the mounted surface rather than replacing the Y.Doc identity.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [path, collab?.doc]);
-  useEffect(() => () => localState.localDoc?.destroy(), [localState.localDoc]);
+  }, [path]);
+  useEffect(() => () => localState.doc?.destroy(), [localState.doc]);
 
-  const doc = collab?.doc ?? localState.localDoc;
-  if (!doc || localState.error) {
+  if (!localState.doc) {
     return (
       <div className="spreadsheet-editor-root spreadsheet-editor-error" role="alert">
         <strong>Couldn’t open this spreadsheet</strong>
@@ -266,46 +201,28 @@ export function SpreadsheetEditor(props: SpreadsheetEditorProps) {
       </div>
     );
   }
-  return <SpreadsheetEditorSurface {...props} doc={doc} localDoc={localState.localDoc} />;
+  return <SpreadsheetEditorSurface {...props} doc={localState.doc} />;
 }
 
 function SpreadsheetEditorSurface({
-  path, source, onChange, onPersist, collab, onFlushPendingChange, active = true, initialViewState, onViewState, doc, localDoc,
-}: SpreadsheetEditorProps & { doc: Y.Doc; localDoc: Y.Doc | null }) {
+  path, source, onChange, onPersist, onFlushPendingChange, active = true, initialViewState, onViewState, doc,
+}: SpreadsheetEditorProps & { doc: Y.Doc }) {
   const { i18n } = useLingui();
   const interfaceLocale = i18n.locale === "zh-CN" ? "zh-CN" : "en";
   const containerRef = useRef<HTMLDivElement>(null);
-  const apiRef = useRef<FUniver | null>(null);
   const workbookRef = useRef<FWorkbook | null>(null);
-  const callbacks = useRef({ onChange, onPersist, onViewState, commit: collab?.commit });
+  const callbacks = useRef({ onChange, onPersist, onViewState });
   const initialViewStateRef = useRef(initialViewState);
-  const canWriteRef = useRef(collab?.canWrite !== false);
   const exportingRef = useRef(false);
   const exportExcelRef = useRef<() => void>(() => {});
-  const permissionGenerationRef = useRef(0);
   const flushRef = useRef<() => void>(() => {});
   const localSourceRef = useRef(source);
-  const [remotePresence, setRemotePresence] = useState<RemotePresence[]>([]);
-  const [overlayTick, setOverlayTick] = useState(0);
   const [functionsPanelOpen, setFunctionsPanelOpen] = useState(false);
   const getSidebarScrollViewport = useCallback(() => containerRef.current?.querySelector<HTMLElement>('[data-u-comp="sidebar"] > section') ?? null, []);
   const getFunctionsScrollViewport = useCallback(
     () => containerRef.current?.querySelector<HTMLElement>(`${FUNCTIONS_PANEL_SELECTOR} ul.univer-overflow-y-auto`) ?? null, []);
-  const setWorkbookPermission = useCallback((workbook: FWorkbook, canWrite: boolean) => {
-    const host = containerRef.current;
-    const generation = ++permissionGenerationRef.current;
-    const release = () => { if (permissionGenerationRef.current === generation && host) host.inert = false; };
-    if (host) host.inert = true;
-    const apply = async () => {
-      const permission = workbook.getWorkbookPermission();
-      await (canWrite ? permission.setEditable() : permission.setReadOnly());
-    };
-    // If Univer cannot establish read-only mode, leave the surface inert
-    // instead of accepting edits that the collaboration layer must reject.
-    void apply().then(release, () => { if (canWrite) release(); });
-  }, []);
 
-  useLayoutEffect(() => { callbacks.current = { onChange, onPersist, onViewState, commit: collab?.commit }; });
+  useLayoutEffect(() => { callbacks.current = { onChange, onPersist, onViewState }; });
   useLayoutEffect(() => {
     exportExcelRef.current = () => {
       const workbook = workbookRef.current;
@@ -337,10 +254,6 @@ function SpreadsheetEditorSurface({
     };
     return () => { exportExcelRef.current = () => {}; };
   }, [doc, i18n, path]);
-  useLayoutEffect(() => {
-    canWriteRef.current = collab?.canWrite !== false;
-    if (workbookRef.current) setWorkbookPermission(workbookRef.current, canWriteRef.current);
-  }, [collab?.canWrite, setWorkbookPermission]);
 
   useEffect(() => {
     const host = containerRef.current;
@@ -353,14 +266,13 @@ function SpreadsheetEditorSurface({
   }, []);
 
   useEffect(() => {
-    if (collab?.doc || !localDoc || !source.trim() || source === localSourceRef.current) return;
-    if (source !== spreadsheetDocContent(localDoc)) replaceSpreadsheetDocFromSource(localDoc, source);
+    if (!source.trim() || source === localSourceRef.current) return;
+    if (source !== spreadsheetDocContent(doc)) replaceSpreadsheetDocFromSource(doc, source);
     localSourceRef.current = source;
-  }, [collab?.doc, localDoc, source]);
+  }, [doc, source]);
 
   useEffect(() => {
     if (!containerRef.current) return;
-    if (canWriteRef.current) seedSpreadsheetDoc(doc);
     const initialSnapshot = spreadsheetSnapshotFromDoc(doc);
     let appearance = spreadsheetAppearance(containerRef.current);
     const { univer, univerAPI, baseTheme, renderManager } = createSpreadsheetUniver(
@@ -370,7 +282,6 @@ function SpreadsheetEditorSurface({
       (message) => i18n._(message),
       () => exportExcelRef.current(),
     );
-    const refreshOverlay = () => setOverlayTick((tick) => tick + 1);
     let disposed = false;
     // Canvas chrome renders asynchronously; retry for ~30 frames until it exists.
     let renderAppearanceFrame: number | null = null;
@@ -393,14 +304,12 @@ function SpreadsheetEditorSurface({
     const renderCreatedSubscription = renderManager.created$.subscribe((render) => {
       if (render.unitId === workbook.getId() || render.unitId === DOCS_FORMULA_BAR_EDITOR_UNIT_ID_KEY) scheduleRenderAppearance();
     });
-    apiRef.current = univerAPI;
     workbookRef.current = workbook;
-    setWorkbookPermission(workbook, canWriteRef.current);
     let renderedSnapshot = initialSnapshot;
     let applyingRemote = false;
     let localSyncQueued = false;
     let remoteSyncQueued = false;
-    // Univer mutations issued while applying remote/appearance changes must not echo back into the Y.Doc.
+    // Univer mutations issued while applying foreign/appearance changes must not echo back into the Y.Doc.
     const asRemote = (apply: () => void) => {
       applyingRemote = true;
       try { apply(); } finally { applyingRemote = false; }
@@ -420,7 +329,6 @@ function SpreadsheetEditorSurface({
       workbook = univerAPI.createWorkbook(display as unknown as IWorkbookData);
       workbookRef.current = workbook;
       scheduleRenderAppearance();
-      setWorkbookPermission(workbook, canWriteRef.current);
       restoreWorkbookViewState(workbook, viewState);
       renderedSnapshot = next;
     });
@@ -451,7 +359,6 @@ function SpreadsheetEditorSurface({
       } else {
         replaceWorkbook(next);
       }
-      refreshOverlay();
     };
 
     let appearanceSyncQueued = false;
@@ -469,7 +376,6 @@ function SpreadsheetEditorSurface({
             workbook.getSheetBySheetId(sheetId)?.setDefaultStyle(appearanceDefaultStyle(renderedSnapshot, sheetId, appearance));
           }
         });
-        refreshOverlay();
       });
     });
     appearanceObserver.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme", "style"] });
@@ -485,7 +391,7 @@ function SpreadsheetEditorSurface({
       scheduleViewState();
       const commandUnitId = (command.params as { unitId?: unknown } | undefined)?.unitId;
       if (command.type !== CommandType.MUTATION || (commandUnitId !== undefined && commandUnitId !== workbook.getId())) return;
-      if (applyingRemote || localSyncQueued || !canWriteRef.current) return;
+      if (applyingRemote || localSyncQueued) return;
       const cellMutation = localCellMutation(command.id, command.params, workbook, renderedSnapshot);
       if (cellMutation && applySpreadsheetCellChanges(doc, renderedSnapshot.sheets[cellMutation.sheetId], cellMutation.changes, SPREADSHEET_LOCAL_ORIGIN)) {
         updateSnapshotCells(renderedSnapshot.sheets[cellMutation.sheetId], cellMutation.changes);
@@ -495,9 +401,8 @@ function SpreadsheetEditorSurface({
       localSyncQueued = true;
       queueMicrotask(() => {
         localSyncQueued = false;
-        if (disposed || applyingRemote || !canWriteRef.current) return;
-        // Scroll and zoom are local view state. Keeping the last collaborative
-        // values prevents one user's navigation from moving every peer.
+        if (disposed || applyingRemote) return;
+        // Scroll and zoom are view state, kept per user outside the file.
         const next = withSheetViews(commandSnapshot(workbook, renderedSnapshot), renderedSnapshot.sheets);
         if (jsonEqual(next, renderedSnapshot)) return;
         reconcileSpreadsheetDocChanges(doc, renderedSnapshot, next, SPREADSHEET_LOCAL_ORIGIN);
@@ -509,27 +414,18 @@ function SpreadsheetEditorSurface({
       });
     });
 
-    const disposePresence = collab?.awareness && collab.user
-      ? attachSpreadsheetPresence({ api: univerAPI, awareness: collab.awareness, path, user: collab.user, onRemoteChange: setRemotePresence })
-      : undefined;
-    const overlayEvents = [univerAPI.Event.SelectionChanged, univerAPI.Event.ActiveSheetChanged]
-      .map((event) => univerAPI.addEvent(event, () => {
-        refreshOverlay();
-        scheduleViewState();
-      }));
+    const viewEvents = [univerAPI.Event.SelectionChanged, univerAPI.Event.ActiveSheetChanged]
+      .map((event) => univerAPI.addEvent(event, scheduleViewState));
     return () => {
       if (viewStateFrame !== null) cancelAnimationFrame(viewStateFrame);
       callbacks.current.onViewState?.(workbookViewState(workbook));
       disposed = true;
-      permissionGenerationRef.current += 1;
-      disposePresence?.();
-      for (const event of overlayEvents) event.dispose();
+      for (const event of viewEvents) event.dispose();
       commandListener.dispose();
       appearanceObserver.disconnect();
       if (renderAppearanceFrame !== null) cancelAnimationFrame(renderAppearanceFrame);
       renderCreatedSubscription.unsubscribe();
       doc.off("afterTransaction", onTransaction);
-      apiRef.current = null;
       workbookRef.current = null;
       // Univer owns a nested React root inside the host. Disposing it during
       // this outer root's passive cleanup makes React 19 report a synchronous
@@ -538,32 +434,25 @@ function SpreadsheetEditorSurface({
       // canvas resources on the next task.
       setTimeout(() => univer.dispose(), 0);
     };
-  }, [collab?.awareness, collab?.user, doc, i18n, interfaceLocale, path, setWorkbookPermission]);
+  }, [doc, i18n, interfaceLocale, path]);
 
   useLayoutEffect(() => registerAgentSpreadsheetDocument(path, {
     doc,
-    canWrite: collab?.canWrite !== false,
-    awareness: collab?.awareness,
+    canWrite: true,
     path,
     commit: async () => {
       flushRef.current();
-      const { commit, onPersist } = callbacks.current;
-      if (commit) await commit();
-      else if (!(await onPersist())) throw new Error("Lattice could not persist the spreadsheet update.");
+      if (!(await callbacks.current.onPersist())) throw new Error("Lattice could not persist the spreadsheet update.");
     },
-  }, active), [active, collab?.awareness, collab?.canWrite, doc, path]);
+  }, active), [active, doc, path]);
 
   useEffect(() => {
-    if (collab?.doc || !localDoc) {
-      flushRef.current = () => {};
-      return;
-    }
     // Cancels the pending debounce or idle serialization; null when nothing is pending.
     let cancelScheduled: (() => void) | null = null;
     const flush = () => {
       cancelScheduled?.();
       cancelScheduled = null;
-      const content = spreadsheetDocContent(localDoc);
+      const content = spreadsheetDocContent(doc);
       localSourceRef.current = content;
       callbacks.current.onChange(content);
     };
@@ -577,27 +466,20 @@ function SpreadsheetEditorSurface({
       cancelScheduled = () => clearTimeout(timer);
     };
     const flushPending = () => { if (cancelScheduled) flush(); };
-    localDoc.on("update", onUpdate);
+    doc.on("update", onUpdate);
     flushRef.current = flushPending;
     return () => {
-      localDoc.off("update", onUpdate);
+      doc.off("update", onUpdate);
       flushPending();
       flushRef.current = () => {};
     };
-  }, [collab?.doc, localDoc]);
+  }, [doc]);
 
   useLayoutEffect(() => {
     if (!onFlushPendingChange) return;
     onFlushPendingChange(() => { flushRef.current(); return true; });
     return () => onFlushPendingChange(null);
   }, [onFlushPendingChange]);
-
-  useEffect(() => {
-    const activeSheet = apiRef.current?.getActiveWorkbook()?.getActiveSheet();
-    if (!activeSheet) return;
-    const disposables = showRemotePresence(activeSheet, remotePresence);
-    return () => disposables.forEach((disposable) => disposable.dispose());
-  }, [remotePresence, overlayTick]);
 
   return (
     <div className="spreadsheet-editor-root" data-tour="spreadsheet-workspace">

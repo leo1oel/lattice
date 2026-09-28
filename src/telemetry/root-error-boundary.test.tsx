@@ -10,17 +10,10 @@ function renderFallback(onRestart = vi.fn(), onCopyDetails = vi.fn()) {
 }
 
 describe("RootErrorFallback", () => {
-  it("offers recovery actions and keeps technical details collapsed", () => {
-    renderFallback();
-
-    expect(screen.getByRole("alert")).toHaveAccessibleName("Lattice couldn’t open this window");
-    expect(screen.getByRole("button", { name: "Restart Lattice" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Copy error details" })).toBeInTheDocument();
-    expect(screen.getByText("Technical details").closest("details")).not.toHaveAttribute("open");
-  });
-
-  it("restarts and copies the captured error", async () => {
+  it("keeps technical details collapsed, then restarts and copies the captured error", async () => {
     const { onRestart, onCopyDetails } = renderFallback(vi.fn(), vi.fn().mockResolvedValue(undefined));
+    expect(screen.getByRole("alert")).toHaveAccessibleName("Lattice couldn’t open this window");
+    expect(screen.getByText("Technical details").closest("details")).not.toHaveAttribute("open");
 
     fireEvent.click(screen.getByRole("button", { name: "Restart Lattice" }));
     fireEvent.click(screen.getByRole("button", { name: "Copy error details" }));

@@ -34,17 +34,17 @@ describe("user-triggered compile repair", () => {
   beforeEach(() => { vi.useFakeTimers(); vi.mocked(invoke).mockReset(); });
   afterEach(() => { vi.useRealTimers(); });
 
+  const WRITER_CONFLICT = "Repair has not started because another Agent task in this project is running or waiting for your response. Open Agent to finish or stop that task, then try Fix all again.";
   it.each([
-    "The workspace already has an active writer.",
-    new Error("The workspace already has an active writer."),
-  ])("explains writer conflicts without starting a task and permits an explicit retry: %s", async (error) => {
+    ["The workspace already has an active writer.", WRITER_CONFLICT],
+    [new Error("The workspace already has an active writer."), WRITER_CONFLICT],
+    ["A compile repair is already running.", "Another compile repair is already starting for this project. Wait for it to finish before trying Fix all again."],
+    ["Provider authentication failed", "Provider authentication failed"],
+  ])("explains a rejected start (%s) without starting a task and permits an explicit retry", async (error, message) => {
     vi.mocked(invoke).mockRejectedValueOnce(error);
     const { result, onComplete } = renderRepair({ rootDocument: "main.tex" });
     await act(async () => { await result.current.start([diagnostic]); });
-    expect(result.current.state).toEqual({
-      status: "failed",
-      message: "Repair has not started because another Agent task in this project is running or waiting for your response. Open Agent to finish or stop that task, then try Fix all again.",
-    });
+    expect(result.current.state).toEqual({ status: "failed", message });
     expect(result.current.busy).toBe(false);
     expect(onComplete).not.toHaveBeenCalled();
     expect(invoke).toHaveBeenCalledTimes(1);
@@ -52,17 +52,6 @@ describe("user-triggered compile repair", () => {
     await act(async () => { await result.current.start([diagnostic]); });
     expect(result.current.state?.status).toBe("completed");
     expect(onComplete).toHaveBeenCalledTimes(1);
-  });
-
-  it.each([
-    ["A compile repair is already running.", "Another compile repair is already starting for this project. Wait for it to finish before trying Fix all again."],
-    ["Provider authentication failed", "Provider authentication failed"],
-  ])("preserves the reason for a rejected start: %s", async (error, message) => {
-    vi.mocked(invoke).mockRejectedValueOnce(error);
-    const { result } = renderRepair();
-    await act(async () => { await result.current.start([diagnostic]); });
-    expect(result.current.state?.message).toBe(message);
-    expect(result.current.busy).toBe(false);
   });
 
   it("does not mislabel an existing repair's failure as a rejected start", async () => {

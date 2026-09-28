@@ -14,13 +14,10 @@ import {
 } from "./compile-diagnostics";
 
 describe("compile diagnostics helpers", () => {
-  it("normalizes absolute and dotted LaTeX log paths", () => {
+  it("normalizes absolute and dotted LaTeX log paths and matches them to the open project file", () => {
     expect(normalizeDiagnosticPath("./chapters/intro.tex")).toBe("chapters/intro.tex");
     expect(normalizeDiagnosticPath("/Users/me/paper/src/main.tex")).toBe("src/main.tex");
     expect(normalizeDiagnosticPath("C:\\\\paper\\\\main.tex")).toBe("main.tex");
-  });
-
-  it("matches diagnostics to the open project file", () => {
     expect(diagnosticMatchesFile("/tmp/paper/main.tex", "main.tex")).toBe(true);
     expect(diagnosticMatchesFile("chapters/intro.tex", "chapters/intro.tex")).toBe(true);
     expect(diagnosticMatchesFile("other.tex", "main.tex")).toBe(false);
@@ -65,20 +62,15 @@ describe("diagnosticsFingerprint", () => {
   const warning = { level: "warning", message: "Fonts are not Times.", file: "main.tex", line: 4 };
   const error = { level: "error", message: "Missing $.", file: "main.tex", line: 9 };
 
-  it("ignores the order latexmk happened to emit the same set in", () => {
+  it("ignores emission order and repeated rebuilds, but changes when a diagnostic is added, removed or edited", () => {
+    // latexmk may emit the same set in any order.
     expect(diagnosticsFingerprint([warning, error])).toBe(diagnosticsFingerprint([error, warning]));
-  });
-
-  it("changes when a diagnostic is added, removed or edited", () => {
+    // The same unfixed warning, recompiled by autosave: one dismissal must stay valid.
+    expect(diagnosticsFingerprint([warning])).toBe(diagnosticsFingerprint([{ ...warning }]));
     const base = diagnosticsFingerprint([warning]);
     expect(diagnosticsFingerprint([warning, error])).not.toBe(base);
     expect(diagnosticsFingerprint([])).not.toBe(base);
     expect(diagnosticsFingerprint([{ ...warning, line: 5 }])).not.toBe(base);
     expect(diagnosticsFingerprint([{ ...warning, message: "Something else." }])).not.toBe(base);
-  });
-
-  it("keeps one dismissal valid across the rebuilds autosave fires", () => {
-    // The same unfixed warning, recompiled: the panel must stay dismissed.
-    expect(diagnosticsFingerprint([warning])).toBe(diagnosticsFingerprint([{ ...warning }]));
   });
 });

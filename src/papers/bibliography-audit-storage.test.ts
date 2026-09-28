@@ -19,17 +19,13 @@ beforeEach(() => {
   });
 });
 
-it("restores new native results after WebView storage is cleared", async () => {
+it("restores native results after WebView storage is cleared, over stale legacy data, and isolates projects", async () => {
   await saveAuditReport("/project", report);
   localStorage.clear();
   vi.mocked(invoke).mockClear();
   expect(await loadAuditReport("/project")).toEqual(new Map(report));
   expect(invoke).toHaveBeenCalledTimes(1);
   expect(invoke).toHaveBeenCalledWith("bibliography_audit_report_load", { projectRoot: "/project" });
-});
-
-it("uses native reports instead of stale legacy data and isolates projects", async () => {
-  await saveAuditReport("/project", report);
   localStorage.setItem("lattice.bibliography-audit.v1:/project", "[]");
   expect(await loadAuditReport("/project")).toEqual(new Map(report));
   expect(await loadAuditReport("/other")).toEqual(new Map());
@@ -46,10 +42,16 @@ it.each([JSON.stringify(report), "broken JSON"])("ignores legacy browser storage
   expect(localStorage.getItem("lattice.bibliography-audit.v1:/project")).toBe(legacy);
 });
 
-it("rejects malformed native data without overwriting it", async () => {
+it("rejects malformed native data without overwriting it, in the active app locale", async () => {
   vi.mocked(invoke).mockResolvedValue({ broken: true });
   await expect(loadAuditReport("/project")).rejects.toThrow("Invalid saved");
   expect(invoke).toHaveBeenCalledTimes(1);
+  await activateAppLocale("zh-CN");
+  try {
+    await expect(loadAuditReport("/project")).rejects.toThrow("已保存的参考文献审查报告格式无效。");
+  } finally {
+    await activateAppLocale("en");
+  }
 });
 
 it.each([
@@ -69,16 +71,6 @@ it("restores a well-formed rejected candidate", async () => {
   const candidateReport: AuditReport = [[report[0][0], { ...report[0][1], result: { ...report[0][1].result, candidate } }]];
   vi.mocked(invoke).mockResolvedValue(candidateReport);
   expect(await loadAuditReport("/project")).toEqual(new Map(candidateReport));
-});
-
-it("uses the active app locale for invalid-report errors", async () => {
-  await activateAppLocale("zh-CN");
-  try {
-    vi.mocked(invoke).mockResolvedValue({ broken: true });
-    await expect(loadAuditReport("/project")).rejects.toThrow("已保存的参考文献审查报告格式无效。");
-  } finally {
-    await activateAppLocale("en");
-  }
 });
 
 it("orders pending writes and waits for them before restoring", async () => {

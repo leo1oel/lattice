@@ -10,10 +10,8 @@ import {
 } from "./tex-setup";
 import { TexSetupWizard } from "./tex-setup-wizard";
 
-const tauri = vi.hoisted(() => ({
-  invoke: vi.fn(),
-  channel: null as { onmessage: ((message: unknown) => void) | null } | null,
-}));
+type Channel = { onmessage: ((message: unknown) => void) | null };
+const tauri = vi.hoisted(() => ({ invoke: vi.fn(), channel: null as Channel | null }));
 vi.mock("@tauri-apps/api/core", () => ({
   invoke: tauri.invoke,
   Channel: class {

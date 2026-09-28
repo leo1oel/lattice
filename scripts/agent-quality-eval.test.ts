@@ -3,18 +3,25 @@ import { evaluateTrace, parseTrace } from "./agent-quality-eval.mjs";
 
 const base = (records: object[]) => ({ schemaVersion: 1, records });
 const ids = { threadId: "t", turnId: "u" };
+const evidenceId = "a".repeat(64);
 const rules = (records: object[]) =>
   evaluateTrace(base(records)).violations.map((item: { rule: string }) => item.rule);
 describe("agent quality eval", () => {
-  it("accepts fetched evidence, brokered bibliography and associated compile", () => {
-    const evidenceId = "a".repeat(64);
-    expect(evaluateTrace(base([
+  it.each([
+    ["fetched evidence, brokered bibliography and associated compile", [
       { type: "turn.context", ...ids, allowedPaths: ["main.tex", "refs.bib"] },
       { type: "tool", ...ids, tool: { name: "fetch_paper", status: "success", evidenceAccess: "fulltext", evidenceProvenance: "normalized-tool-completion", evidenceIds: [evidenceId] } },
       { type: "tool", ...ids, tool: { name: "cite", status: "success", evidenceIds: [evidenceId] } },
       { type: "checkpoint", ...ids, status: "success", checkpointRef: "cp", files: [{ path: "main.tex" }, { path: "refs.bib" }] },
       { type: "compile", ...ids, checkpointRef: "cp", success: true },
-    ])).pass).toBe(true);
+    ]],
+    ["a provider file read only when its cached paper identifier matches", [
+      { type: "turn.context", ...ids, allowedPaths: ["references.bib"] },
+      { type: "tool", ...ids, tool: { name: "Read", status: "success", evidenceAccess: "fulltext", evidenceProvenance: "normalized-cached-paper-path", evidenceIds: [evidenceId] } },
+      { type: "tool", ...ids, tool: { name: "cite", status: "success", evidenceIds: [evidenceId] } },
+    ]],
+  ])("accepts %s", (_label, records) => {
+    expect(evaluateTrace(base(records)).pass).toBe(true);
   });
   it("finds every research policy violation while ignoring sensitive content fields", () => {
     const result = evaluateTrace(base([
@@ -62,27 +69,15 @@ describe("agent quality eval", () => {
     }
   });
   it("does not let fetching one source justify citing another", () => {
-    const paperA = "a".repeat(64);
     const paperB = "b".repeat(64);
     const result = evaluateTrace(base([
       { type: "turn.context", ...ids, allowedPaths: ["references.bib"] },
-      { type: "tool", ...ids, tool: { name: "fetch_paper", status: "success", evidenceAccess: "fulltext", evidenceProvenance: "normalized-tool-completion", evidenceIds: [paperA] } },
+      { type: "tool", ...ids, tool: { name: "fetch_paper", status: "success", evidenceAccess: "fulltext", evidenceProvenance: "normalized-tool-completion", evidenceIds: [evidenceId] } },
       { type: "tool", ...ids, tool: { name: "cite", status: "success", evidenceIds: [paperB] } },
     ]));
-    expect(result.violations).toEqual([
-      expect.objectContaining({ rule: "metadata-not-evidence" }),
-    ]);
-  });
-  it("accepts a provider file read only when its cached paper identifier matches", () => {
-    const evidenceId = "a".repeat(64);
-    expect(evaluateTrace(base([
-      { type: "turn.context", ...ids, allowedPaths: ["references.bib"] },
-      { type: "tool", ...ids, tool: { name: "Read", status: "success", evidenceAccess: "fulltext", evidenceProvenance: "normalized-cached-paper-path", evidenceIds: [evidenceId] } },
-      { type: "tool", ...ids, tool: { name: "cite", status: "success", evidenceIds: [evidenceId] } },
-    ])).pass).toBe(true);
+    expect(result.violations).toEqual([expect.objectContaining({ rule: "metadata-not-evidence" })]);
   });
   it("rejects untrusted or malformed evidence claims", () => {
-    const evidenceId = "a".repeat(64);
     const context = { type: "turn.context", ...ids, allowedPaths: ["references.bib"] };
     const cite = { type: "tool", ...ids, tool: { name: "cite", status: "success", evidenceIds: [evidenceId] } };
     const tool = (name: string, claim: object = {}) =>
@@ -106,19 +101,11 @@ describe("agent quality eval", () => {
     ])).toEqual(["schema", "schema"]);
   });
   it("requires a valid checkpoint reference on both sides of compile correlation", () => {
+    const checkpoint = { type: "checkpoint", ...ids, status: "success", files: [{ path: "main.tex" }] };
     for (const records of [
-      [
-        { type: "checkpoint", ...ids, status: "success", files: [{ path: "main.tex" }] },
-        { type: "compile", ...ids, success: true },
-      ],
-      [
-        { type: "checkpoint", ...ids, status: "success", checkpointRef: "cp", files: [{ path: "main.tex" }] },
-        { type: "compile", ...ids, success: true },
-      ],
-      [
-        { type: "checkpoint", ...ids, status: "success", checkpointRef: "cp", files: [{ path: "main.tex" }] },
-        { type: "compile", ...ids, checkpointRef: "other", success: true },
-      ],
+      [checkpoint, { type: "compile", ...ids, success: true }],
+      [{ ...checkpoint, checkpointRef: "cp" }, { type: "compile", ...ids, success: true }],
+      [{ ...checkpoint, checkpointRef: "cp" }, { type: "compile", ...ids, checkpointRef: "other", success: true }],
     ]) {
       expect(rules(records)).toContain("compile-after-tex");
     }

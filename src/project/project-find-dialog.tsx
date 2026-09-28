@@ -7,11 +7,6 @@ import { EmptyState } from "../components/ui/empty-state";
 import { PanelHeader } from "../components/ui/panel-header";
 import { SearchField } from "../components/ui/search-field";
 import { ScrollArea } from "../components/ui/scroll-area";
-import {
-  DISABLED_LOCAL_SEMANTIC_SEARCH_STATUS,
-  localSemanticStatusLabel,
-  type LocalSemanticSearchStatus,
-} from "./project-semantic-search";
 import { useCompositionGuard } from "./use-composition-guard";
 
 export type ProjectFindHit = {
@@ -21,13 +16,10 @@ export type ProjectFindHit = {
   snippet: string;
   line?: number | null;
   fileKind?: string | null;
-  /** True only for a vector-only result with no FTS line hit. */
-  semantic?: boolean;
 };
 
 function resultType(hit: ProjectFindHit): string {
-  if (hit.kind === "paper") return hit.semantic ? "Paper · semantic" : "Paper";
-  if (hit.semantic) return "Semantic match";
+  if (hit.kind === "paper") return "Paper";
   return hit.fileKind ? `${hit.fileKind.toLocaleUpperCase()} file` : "File";
 }
 
@@ -36,8 +28,6 @@ export function ProjectFindDialog(props: {
   busy: boolean;
   error: string | null;
   hits: ProjectFindHit[];
-  semanticEnabled?: boolean;
-  semanticStatus?: LocalSemanticSearchStatus;
   onClose: () => void;
   onSearch: (query: string) => void;
   onOpenHit: (path: string, line?: number) => void;
@@ -202,13 +192,6 @@ export function ProjectFindDialog(props: {
                 : `${fileHits.length} hit${fileHits.length === 1 ? "" : "s"}${
                   paperHits.length ? ` · ${paperHits.length} paper${paperHits.length === 1 ? "" : "s"}` : ""
                 }`}
-            {props.semanticEnabled && (
-              <span className="project-find-semantic-status">
-                {localSemanticStatusLabel(
-                  props.semanticStatus ?? DISABLED_LOCAL_SEMANTIC_SEARCH_STATUS,
-                )}
-              </span>
-            )}
           </div>
           {showResults && !selectableHits.length && (
             <EmptyState

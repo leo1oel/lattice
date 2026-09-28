@@ -18,16 +18,13 @@ describe("groupThreadsByFile", () => {
     ]);
   });
 
-  it("gives every other file its own group, alphabetical by path rather than discovery order", () => {
+  it("gives every other file its own group, by path rather than discovery order, with unknown paths last", () => {
     const paths: Record<string, string> = { "doc-a": "chapters/two.tex", "doc-b": "chapters/one.tex" };
-    const groups = groupThreadsByFile(["t1", "t2"], anchorsFor({ t1: "doc-a", t2: "doc-b" }), null, (id) => paths[id] ?? null, labels);
-    expect(groups.map((group) => [group.label, group.threadIds])).toEqual([["chapters/one.tex", ["t2"]], ["chapters/two.tex", ["t1"]]]);
-  });
-
-  it("sorts files whose path is not known yet after every named file", () => {
-    const groups = groupThreadsByFile(["t1", "t2"], anchorsFor({ t1: "doc-unknown", t2: "doc-known" }), null,
-      (id) => (id === "doc-known" ? "known.tex" : null), labels);
-    expect(groups.map((group) => group.label)).toEqual(["known.tex", "Another file in this project"]);
+    const anchors = anchorsFor({ t0: "doc-unknown", t1: "doc-a", t2: "doc-b" });
+    const groups = groupThreadsByFile(["t0", "t1", "t2"], anchors, null, (id) => paths[id] ?? null, labels);
+    expect(groups.map((group) => [group.label, group.threadIds])).toEqual([
+      ["chapters/one.tex", ["t2"]], ["chapters/two.tex", ["t1"]], ["Another file in this project", ["t0"]],
+    ]);
   });
 
   it("files a thread with no anchor at all as orphaned, last, and omits empty groups", () => {

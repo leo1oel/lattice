@@ -137,7 +137,7 @@ export function useBuildPipeline({
    * PDF…”). A project usually already has a compiled PDF on disk; with
    * `showCachedPdf` it is shown while latexmk checks for changes.
    */
-  const resetForProject = useCallback((projectRoot: string, showCachedPdf: boolean) => {
+  const resetForProject = useCallback((projectRoot: string) => {
     setBuild(null);
     const generation = ++previewGenerationRef.current;
     pdfFingerprintRef.current = null;
@@ -145,7 +145,6 @@ export function useBuildPipeline({
     pendingPreviewRef.current = null;
     clearTimer(previewTimerRef);
     replacePdfUrl(null);
-    if (!showCachedPdf) return;
     const current = (fingerprint: string | null) => generation === previewGenerationRef.current
       && projectRef.current?.root === projectRoot
       && pdfFingerprintRef.current === fingerprint;

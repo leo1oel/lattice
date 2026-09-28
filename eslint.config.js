@@ -87,7 +87,6 @@ export default tseslint.config(
       "src/editor/editor-languages.ts",
       "src/editor/presentation/open-slide-workspace.tsx",
       "src/onboarding/onboarding-tour.tsx",
-      "src/collab/collab-dialog.tsx",
       "src/build/tex-setup-wizard.tsx",
       "src/pdf/pdf-viewer.tsx",
     ],

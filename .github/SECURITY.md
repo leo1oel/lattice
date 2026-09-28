@@ -2,10 +2,8 @@
 
 Lattice is a desktop application that holds a fair amount of trust on your Mac:
 it ships a **signed, auto-updating binary**, stores an **Overleaf session
-cookie**, keeps **collaboration secrets in the macOS Keychain**, runs an **AI
-agent sidecar with filesystem access**, and relays shared projects through a
-**collaboration server**. Security reports about any of that are welcome and
-taken seriously.
+cookie**, and runs an **AI agent sidecar with filesystem access**. Security
+reports about any of that are welcome and taken seriously.
 
 ## Supported versions
 
@@ -58,14 +56,14 @@ advisory form is the only supported private channel.
 A report is much faster to act on when it has:
 
 - the Lattice version and your macOS version;
-- which surface it touches (updater, collaboration, Overleaf, agent, Tauri/IPC);
+- which surface it touches (updater, Overleaf, agent, Tauri/IPC);
 - concrete reproduction steps or a proof of concept;
 - what an attacker gains, and what access they need to start (a link you click?
-  a share you join? a repository you open? already-local code execution?).
+  a repository you open? already-local code execution?).
 
 Please **redact your own secrets** from anything you attach — Overleaf session
-cookies, Lattice share invites and join secrets, provider API keys, and absolute
-paths that identify you or unpublished work.
+cookies, provider API keys, and absolute paths that identify you or unpublished
+work.
 
 ### What to expect
 
@@ -82,12 +80,9 @@ Disclosure is coordinated: we agree on a date, the fix ships in a release, and
 the GitHub Security Advisory is published with credit to you unless you ask to
 stay anonymous. **There is no bug bounty and no monetary reward.**
 
-Please do not test against the shared collaboration Worker
-(`lattice-collab.paperlattice.workers.dev`) or against other people's shares,
-Overleaf accounts, or projects. Deploy your own Worker instead — `pnpm
-collab:login && pnpm collab:deploy`, see
-[`collab-server/README.md`](../collab-server/README.md) — and point Lattice at
-it from **Live collaboration → Advanced (sync host)**.
+Please do not test against the public literature Worker
+(`lattice-literature.paperlattice.workers.dev`) or against other people's
+Overleaf accounts or projects.
 
 ## In scope
 
@@ -116,41 +111,7 @@ update every install will accept. See
 [`docs/release-process.md`](../docs/release-process.md) ("Rotating the updater
 signing key"). New attacks on the *mechanism* are still in scope.
 
-### 2. Collaboration server: authentication, grants, and tickets
-
-`collab-server/` is a Cloudflare Worker whose `ProjectCoordinatorV2` Durable
-Object (`collab-server/src/project-coordinator-v2.ts`) is the only authority for
-a shared project. The model, roughly:
-
-- the host secret and each grant secret are stored **salted and SHA-256 hashed**
-  (`{salt, hash}`), never in the clear; every `/v2/projects/{id}/…` request
-  carries a bearer credential that is re-authenticated per request;
-- a grant carries a `permission` (`host` / `write` / `read`) and an `authEpoch`;
-  revoking a grant bumps `authEpoch` and the project's `authorityEpoch`, which
-  invalidates outstanding tickets and forces open sockets closed;
-- WebSocket access to a per-file Y.Doc room requires a **single-use socket
-  ticket** (60 s TTL, rate-limited) whose claims are validated in
-  `onBeforeConnect` in `collab-server/src/index.ts` against the room's
-  `{projectInstanceId, fileId, documentEpoch}` before any header is trusted;
-- binary objects use separate single-use upload/read tickets bound to a declared
-  SHA-256, size, and content type, and land at immutable content-addressed R2
-  keys;
-- presence `permission` is stamped from the authenticated actor, never from the
-  request body.
-
-In scope: a peer exceeding its grant (read-grant peer producing an accepted
-write, guest reaching host-only routes such as `grants`, binary `gc`, or
-retention pin/release), reading or writing another project's catalog, documents,
-or binary objects, forging, replaying, or reusing a consumed ticket, surviving
-revocation, escaping the `projectInstanceId`/path validation, or extracting a
-grant secret from server state or responses.
-
-Note that the v2 REST surface deliberately answers with
-`access-control-allow-origin: *`: it is a bearer-token API for a desktop client
-and uses no cookies or ambient credentials. Report it if you can show it enables
-something.
-
-### 3. Overleaf credential handling
+### 2. Overleaf credential handling
 
 Connecting Overleaf stores the **full session cookie**, which is equivalent to
 an active browser login, in
@@ -158,32 +119,19 @@ an active browser login, in
 (`src-tauri/src/overleaf.rs`). The file is written atomically with mode `0600`.
 
 In scope: anything that moves that cookie somewhere it should never be — app
-logs, the sidecar log, agent-readable context, a collaboration document, a
-crash/telemetry path, an error message, the clipboard, or an HTTP request to any
-origin other than the configured Overleaf host. Also in scope: making Lattice
-send the cookie to an attacker-chosen host through the self-hosted-instance
-setting, or defeating the cookie-domain matching in
-`cookie_domain_matches`/`store_session_cookie`.
+logs, the sidecar log, agent-readable context, a crash/telemetry path, an error
+message, the clipboard, or an HTTP request to any origin other than the
+configured Overleaf host. Also in scope: making Lattice send the cookie to an
+attacker-chosen host through the self-hosted-instance setting, or defeating the
+cookie-domain matching in `cookie_domain_matches`/`store_session_cookie`.
 
 Known and documented, not a new report: the cookie is stored **unencrypted**
 rather than in the Keychain; the `0600` mode limits accidental disclosure but is
 not encryption. See
-[`docs/overleaf-integration-baseline.md`](../docs/overleaf-integration-baseline.md).
+[`docs/overleaf-protocol.md`](../docs/overleaf-protocol.md).
 Moving it into the Keychain is tracked hardening work.
 
-### 4. Collaboration secrets in the macOS Keychain
-
-Share credentials live in one Keychain item — service
-`com.lattice.research-writer.collab`, account `credential-vault-v1` — managed by
-`src-tauri/src/collab_credentials.rs`.
-
-In scope: injection through `credential_ref`, `project_instance_id`, or
-`deployment` that escapes `validate_component`/`deployment_key` and reaches a
-different Keychain service or account; any path that returns a secret belonging
-to a different deployment or project; and anything that writes a secret outside
-the Keychain.
-
-### 5. The AI agent sidecar: permission model and boundary
+### 3. The AI agent sidecar: permission model and boundary
 
 The agent (Synara) runs as a **child process of the app** and is embedded as an
 iframe over loopback HTTP (`src-tauri/src/synara.rs`,
@@ -218,7 +166,7 @@ provider CLI** (for Claude, `scripts/prepare-synara-sidecar.mjs` replaces the
 SDK's bundled executable with a launcher that execs `claude` from your `PATH`)
 using that CLI's own credentials.
 
-### 6. The Tauri capability and CSP surface
+### 4. The Tauri capability and CSP surface
 
 The WebView's authority is enumerated in `src-tauri/capabilities/default.json`,
 and the Content Security Policy is set in `src-tauri/tauri.conf.json`
@@ -243,10 +191,10 @@ imported paper content, project chat, or comments matters here because
 - **The two known issues named above**: the un-rotated updater signing key and
   the unencrypted Overleaf session file. Both are already public in `docs/`.
 - **Availability of the maintainer-operated Worker**
-  (`lattice-collab.paperlattice.workers.dev`). It carries no uptime or privacy
-  guarantee, is not a hosted service, and denial-of-service or resource-
-  exhaustion reports against it are not accepted. The same goes for Cloudflare
-  account configuration of any self-hosted deployment.
+  (`lattice-literature.paperlattice.workers.dev`). It carries no uptime or
+  privacy guarantee, is not a hosted service, and denial-of-service or
+  resource-exhaustion reports against it are not accepted. The same goes for
+  Cloudflare account configuration of any self-hosted deployment.
 - **Anything that requires the attacker to already have local code execution,
   root, or physical access to an unlocked Mac.** Reading your own app-data
   files, attaching a debugger to your own process, or extracting strings from
@@ -275,5 +223,4 @@ imported paper content, project chat, or comments matters here because
 - [`CONTRIBUTING.md`](../CONTRIBUTING.md) — how to build, test, and submit changes
 - [`docs/release-process.md`](../docs/release-process.md) — signing, notarization, and updater key handling
 - [`docs/architecture.md`](../docs/architecture.md) — how the pieces fit together
-- [`collab-server/README.md`](../collab-server/README.md) — deploying your own collaboration Worker
-- [`README.md`](../README.md#collaboration-sync-host) — what transits the collaboration Worker while a share is active
+- [`docs/public-literature-service.md`](../docs/public-literature-service.md) — the maintainer-operated literature Worker

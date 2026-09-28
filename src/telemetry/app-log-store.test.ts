@@ -31,9 +31,11 @@ describe("app-log-store file forwarding", () => {
     for (const write of Object.values(fileLog)) write.mockReset().mockResolvedValue(undefined);
   });
 
-  it("forwards entries to the file log in order, mapping levels", async () => {
+  it("forwards entries to the file log in order, mapping levels and capping detail length", async () => {
     const { addAppLog } = await loadStore();
-    addAppLog({ level: "info", source: "A", title: "first", toast: false });
+    // The cap protects both storage and the file.
+    const long = addAppLog({ level: "info", source: "A", title: "first", detail: "x".repeat(10_000), toast: false });
+    expect(long.detail).toHaveLength(4_000);
     addAppLog({ level: "error", source: "B", title: "second", detail: "boom", toast: false });
     addAppLog({ level: "warning", source: "C", title: "third", toast: false });
     await flushForwarding();
@@ -46,6 +48,8 @@ describe("app-log-store file forwarding", () => {
     expect(JSON.parse(fileLog.warn.mock.calls[0][0])).toMatchObject({ source: "C", title: "third" });
     expect(fileLog.info.mock.invocationCallOrder[0]).toBeLessThan(fileLog.error.mock.invocationCallOrder[0]);
     expect(fileLog.error.mock.invocationCallOrder[0]).toBeLessThan(fileLog.warn.mock.invocationCallOrder[0]);
+    expect(fileLog.info.mock.calls[0][0]).toContain("x".repeat(4_000));
+    expect(fileLog.info.mock.calls[0][0]).not.toContain("x".repeat(4_001));
   });
 
   it("redacts common credentials on creation, update, export and disk forwarding", async () => {
@@ -78,15 +82,6 @@ describe("app-log-store file forwarding", () => {
     expect(fileLog.info.mock.calls[0][0]).toBe(fileLog.info.mock.calls[1][0]);
     expect(consoleError).not.toHaveBeenCalled();
     consoleError.mockRestore();
-  });
-
-  it("caps detail length to protect storage and the file", async () => {
-    const { addAppLog } = await loadStore();
-    const entry = addAppLog({ level: "info", source: "A", title: "long", detail: "x".repeat(10_000), toast: false });
-    expect(entry.detail).toHaveLength(4_000);
-    await flushForwarding();
-    expect(fileLog.info.mock.calls[0][0]).toContain("x".repeat(4_000));
-    expect(fileLog.info.mock.calls[0][0]).not.toContain("x".repeat(4_001));
   });
 
   it("warns exactly once when localStorage persistence fails", async () => {

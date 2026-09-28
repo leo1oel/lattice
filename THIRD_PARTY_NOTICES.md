@@ -363,7 +363,7 @@ Nothing on disk says what the terms are. Each needs to be looked up upstream.
 - `buffers@0.1.1` (npm)
 - `khroma@2.1.0` (npm) — ships `license`
 
-### Declared a license but shipped no license text (124)
+### Declared a license but shipped no license text (120)
 
 The SPDX identifier is known, but the package contains no `LICENSE`,
 `COPYING` or `NOTICE` file, so the copyright line those licenses require us
@@ -435,7 +435,6 @@ to reproduce is not available from the artifact we distribute.
 - `objc2-foundation@0.3.2` (crates) — declared `MIT`
 - `objc2-io-kit@0.3.2` (crates) — declared `Zlib OR Apache-2.0 OR MIT`
 - `objc2-io-surface@0.3.2` (crates) — declared `Zlib OR Apache-2.0 OR MIT`
-- `objc2-natural-language@0.3.2` (crates) — declared `Zlib OR Apache-2.0 OR MIT`
 - `objc2-osa-kit@0.3.2` (crates) — declared `Zlib OR Apache-2.0 OR MIT`
 - `objc2-quartz-core@0.3.2` (crates) — declared `Zlib OR Apache-2.0 OR MIT`
 - `objc2-ui-kit@0.3.2` (crates) — declared `Zlib OR Apache-2.0 OR MIT`
@@ -473,7 +472,6 @@ to reproduce is not available from the artifact we distribute.
 - `wgpu-core-deps-windows-linux-android@26.0.0` (crates) — declared `MIT OR Apache-2.0`
 - `winapi-i686-pc-windows-gnu@0.4.0` (crates) — declared `MIT/Apache-2.0`
 - `winapi-x86_64-pc-windows-gnu@0.4.0` (crates) — declared `MIT/Apache-2.0`
-- `@cloudflare/workers-types@4.20260702.1` (npm) — declared `MIT OR Apache-2.0`
 - `@panzoom/panzoom@4.6.2` (npm) — declared `MIT`
 - `@pdfslick/core@4.0.2` (npm) — declared `MIT`
 - `@stylexjs/stylex@0.19.0` (npm) — declared `MIT`
@@ -487,26 +485,24 @@ to reproduce is not available from the artifact we distribute.
 - `native-promise-only@0.8.1` (npm) — declared `MIT`
 - `ot-json1@1.0.2` (npm) — declared `ISC`
 - `ot-text-unicode@4.0.0` (npm) — declared `ISC`
-- `partyserver@0.5.8` (npm) — declared `ISC`
 - `react-remove-scroll-bar@2.3.8` (npm) — declared `MIT`
 - `remark-math@6.0.0` (npm) — declared `MIT`
 - `saxes@5.0.1` (npm) — declared `ISC`
 - `unicount@1.1.0` (npm) — declared `ISC`
-- `y-partyserver@2.2.0` (npm) — declared `ISC`
 
 ## npm packages (web assets)
 
 The production dependency closure of the root `package.json` — the superset of what Vite can bundle into the shipped web assets. Dev dependencies (Vite, ESLint, Vitest, Tauri CLI) are excluded: they build the app, they are not distributed in it.
 
-**779 packages.**
+**773 packages.**
 
 | Declared license | Packages |
 | --- | --- |
-| `MIT` | 621 |
-| `ISC` | 64 |
+| `MIT` | 618 |
+| `ISC` | 62 |
 | `Apache-2.0` | 33 |
 | `BSD-3-Clause` | 24 |
-| `MIT OR Apache-2.0` | 7 |
+| `MIT OR Apache-2.0` | 6 |
 | `SEE LICENSE IN LICENSE.md` | 5 |
 | `apache-2.0` | 4 |
 | `(no license field)` | 3 |
@@ -606,7 +602,7 @@ parent package listed beside it.
 
 </details>
 
-### License texts (78 distinct texts across 779 packages)
+### License texts (77 distinct texts across 773 packages)
 
 #### 1. MIT (+2 other declarations) — 279 package(s), from `LICENSE`
 
@@ -1215,11 +1211,11 @@ Apache License
    END OF TERMS AND CONDITIONS
 ```
 
-#### 8. MIT — 15 package(s), from `LICENSE`
+#### 8. MIT — 14 package(s), from `LICENSE`
 
 <details><summary>Packages sharing this text</summary>
 
-`lodash-es@4.18.1`, `lodash.camelcase@4.3.0`, `lodash.debounce@4.0.8`, `lodash.defaults@4.2.0`, `lodash.difference@4.5.0`, `lodash.escaperegexp@4.1.2`, `lodash.flatten@4.4.0`, `lodash.groupby@4.6.0`, `lodash.isequal@4.5.0`, `lodash.isequalwith@4.4.0`, `lodash.isfunction@3.0.9`, `lodash.isplainobject@4.0.6`, `lodash.throttle@4.1.1`, `lodash.union@4.6.0`, `lodash.uniq@4.5.0`
+`lodash-es@4.18.1`, `lodash.camelcase@4.3.0`, `lodash.defaults@4.2.0`, `lodash.difference@4.5.0`, `lodash.escaperegexp@4.1.2`, `lodash.flatten@4.4.0`, `lodash.groupby@4.6.0`, `lodash.isequal@4.5.0`, `lodash.isequalwith@4.4.0`, `lodash.isfunction@3.0.9`, `lodash.isplainobject@4.0.6`, `lodash.throttle@4.1.1`, `lodash.union@4.6.0`, `lodash.uniq@4.5.0`
 
 </details>
 
@@ -1949,48 +1945,7 @@ Apache License
    limitations under the License.
 ```
 
-#### 17. MIT — 5 package(s), from `LICENSE`
-
-<details><summary>Packages sharing this text</summary>
-
-`nanoid@3.3.18`, `nanoid@5.1.11`, `nanoid@5.1.16`, `opentype.js@2.0.0`, `postcss@8.5.26`
-
-</details>
-
-Copyright notices (5):
-
-```text
-COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
-Copyright (c) 2020 Frederik De Bleser
-Copyright 2013 Andrey Sitnik <andrey@sitnik.es>
-Copyright 2017 Andrey Sitnik <andrey@sitnik.es>
-Copyright 2017 Andrey Sitnik <andrey@sitnik.ru>
-```
-
-```text
-The MIT License (MIT)
-
-Copyright 2013 Andrey Sitnik <andrey@sitnik.es>
-
-Permission is hereby granted, free of charge, to any person obtaining a copy of
-this software and associated documentation files (the "Software"), to deal in
-the Software without restriction, including without limitation the rights to
-use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
-the Software, and to permit persons to whom the Software is furnished to do so,
-subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
-FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
-COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
-IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-```
-
-#### 18. BSD-3-Clause — 5 package(s), from `LICENSE`
+#### 17. BSD-3-Clause — 5 package(s), from `LICENSE`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -2040,7 +1995,7 @@ ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ```
 
-#### 19. apache-2.0 — 4 package(s), from `LICENSE.md`
+#### 18. apache-2.0 — 4 package(s), from `LICENSE.md`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -2248,7 +2203,7 @@ CONDITIONS OF ANY KIND, either express or implied. See the License for the
 specific language governing permissions and limitations under the License.
 ```
 
-#### 20. ISC — 4 package(s), from `LICENSE`
+#### 19. ISC — 4 package(s), from `LICENSE`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -2283,7 +2238,7 @@ TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF
 THIS SOFTWARE.
 ```
 
-#### 21. MIT — 4 package(s), from `LICENSE`
+#### 20. MIT — 4 package(s), from `LICENSE`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -2346,6 +2301,47 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
 FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 IN THE SOFTWARE.
 """
+```
+
+#### 21. MIT — 4 package(s), from `LICENSE`
+
+<details><summary>Packages sharing this text</summary>
+
+`nanoid@3.3.18`, `nanoid@5.1.11`, `opentype.js@2.0.0`, `postcss@8.5.26`
+
+</details>
+
+Copyright notices (5):
+
+```text
+COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+Copyright (c) 2020 Frederik De Bleser
+Copyright 2013 Andrey Sitnik <andrey@sitnik.es>
+Copyright 2017 Andrey Sitnik <andrey@sitnik.es>
+Copyright 2017 Andrey Sitnik <andrey@sitnik.ru>
+```
+
+```text
+The MIT License (MIT)
+
+Copyright 2013 Andrey Sitnik <andrey@sitnik.es>
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of
+this software and associated documentation files (the "Software"), to deal in
+the Software without restriction, including without limitation the rights to
+use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
+the Software, and to permit persons to whom the Software is furnished to do so,
+subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
 #### 22. MIT — 4 package(s), from `LICENSE`
@@ -8001,46 +7997,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 ```
 
-#### 60. MIT — 1 package(s), from `LICENSE`
-
-<details><summary>Packages sharing this text</summary>
-
-`y-codemirror.next@0.3.5`
-
-</details>
-
-Copyright notices (1):
-
-```text
-Copyright (c) 2024
-```
-
-```text
-The MIT License (MIT)
-
-Copyright (c) 2024
-  - Kevin Jahns <kevin.jahns@protonmail.com>.
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-```
-
-#### 61. MIT — 1 package(s), from `LICENSE.md`
+#### 60. MIT — 1 package(s), from `LICENSE.md`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -8070,7 +8027,7 @@ The above copyright notice and this permission notice shall be included in all c
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-#### 62. ISC — 1 package(s), from `LICENSE`
+#### 61. ISC — 1 package(s), from `LICENSE`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -8109,7 +8066,7 @@ under a Creative Commons Attribution-ShareAlike 4.0 International License
 https://creativecommons.org/licenses/by-sa/4.0/
 ```
 
-#### 63. BSD-3-Clause — 1 package(s), from `LICENSE`
+#### 62. BSD-3-Clause — 1 package(s), from `LICENSE`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -8153,7 +8110,7 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ```
 
-#### 64. MIT — 1 package(s), from `LICENSE`
+#### 63. MIT — 1 package(s), from `LICENSE`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -8195,7 +8152,7 @@ Commits in this fork are (c) Ziggy Jonsson (ziggy.jonsson.nyc@gmail.com)
 and fall under same licence structure as the original repo (MIT)
 ```
 
-#### 65. ISC — 1 package(s), from `LICENSE`
+#### 64. ISC — 1 package(s), from `LICENSE`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -8248,7 +8205,7 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-#### 66. BSD — 1 package(s), from `LICENSE`
+#### 65. BSD — 1 package(s), from `LICENSE`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -8292,7 +8249,7 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ```
 
-#### 67. MIT — 1 package(s), from `LICENSE`
+#### 66. MIT — 1 package(s), from `LICENSE`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -8332,7 +8289,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-#### 68. MIT — 1 package(s), from `license`
+#### 67. MIT — 1 package(s), from `license`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -8372,7 +8329,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 ```
 
-#### 69. BSD-3-Clause — 1 package(s), from `LICENSE`
+#### 68. BSD-3-Clause — 1 package(s), from `LICENSE`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -8428,7 +8385,7 @@ standalone and requires a support library to be linked with it. This
 support library is itself covered by the above license.
 ```
 
-#### 70. apache-2.0 — 1 package(s), from `NOTICE.md`
+#### 69. apache-2.0 — 1 package(s), from `NOTICE.md`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -8478,7 +8435,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 ````
 
-#### 71. BSD-2-Clause — 1 package(s), from `LICENSE`
+#### 70. BSD-2-Clause — 1 package(s), from `LICENSE`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -8506,7 +8463,7 @@ THIS IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRE
 EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ```
 
-#### 72. BSD-3-Clause — 1 package(s), from `LICENSE`
+#### 71. BSD-3-Clause — 1 package(s), from `LICENSE`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -8549,7 +8506,7 @@ NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
 EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ```
 
-#### 73. BSD-3-Clause — 1 package(s), from `LICENSE`
+#### 72. BSD-3-Clause — 1 package(s), from `LICENSE`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -8596,7 +8553,7 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ```
 
-#### 74. MIT — 1 package(s), from `LICENCE.md`
+#### 73. MIT — 1 package(s), from `LICENCE.md`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -8635,7 +8592,7 @@ TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-#### 75. BSD-3-Clause — 1 package(s), from `LICENSE`
+#### 74. BSD-3-Clause — 1 package(s), from `LICENSE`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -8663,7 +8620,7 @@ Redistribution and use in source and binary forms, with or without modification,
 THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ```
 
-#### 76. MIT — 1 package(s), from `LICENSE.txt`
+#### 75. MIT — 1 package(s), from `LICENSE.txt`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -8702,7 +8659,7 @@ OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-#### 77. ISC — 1 package(s), from `LICENSE`
+#### 76. ISC — 1 package(s), from `LICENSE`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -8764,7 +8721,7 @@ the licensed code:
   DEALINGS IN THE SOFTWARE.
 ```
 
-#### 78. AGPL-3.0-or-later — 1 package(s), from `LICENSE`
+#### 77. AGPL-3.0-or-later — 1 package(s), from `LICENSE`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -9449,7 +9406,7 @@ For more information on this, and how to apply and follow the GNU AGPL, see
 
 The normal and build dependency closure of `src-tauri/Cargo.toml`, from `cargo metadata`. `dev-dependencies` are excluded — they compile for `cargo test` and are never linked into a shipped binary. Target platforms are *not* filtered, so this covers the macOS, Linux and Windows builds alike.
 
-**946 packages.**
+**945 packages.**
 
 | Declared license | Packages |
 | --- | --- |
@@ -9457,7 +9414,7 @@ The normal and build dependency closure of `src-tauri/Cargo.toml`, from `cargo m
 | `MIT` | 229 |
 | `Apache-2.0 OR MIT` | 64 |
 | `MIT/Apache-2.0` | 46 |
-| `Zlib OR Apache-2.0 OR MIT` | 21 |
+| `Zlib OR Apache-2.0 OR MIT` | 20 |
 | `Apache-2.0` | 19 |
 | `Unicode-3.0` | 18 |
 | `Unlicense OR MIT` | 11 |
@@ -9494,7 +9451,7 @@ The normal and build dependency closure of `src-tauri/Cargo.toml`, from `cargo m
 | `MIT AND BSD-3-Clause` | 1 |
 | `MIT OR Zlib OR Apache-2.0` | 1 |
 
-### License texts (96 distinct texts across 946 packages)
+### License texts (96 distinct texts across 945 packages)
 
 #### 1. MIT OR Apache-2.0 (+17 other declarations) — 461 package(s), from `LICENSE-MIT`
 

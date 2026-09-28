@@ -12,8 +12,9 @@ describe("installGlobalErrorCapture", () => {
     window.localStorage.clear();
   });
 
-  it("captures uncaught errors, rejections, and console.error/warn without toasts", async () => {
+  it("captures uncaught errors, rejections, and console.error/warn without toasts, once even if installed twice", async () => {
     const { store, capture } = await loadCapture();
+    capture.installGlobalErrorCapture();
     capture.installGlobalErrorCapture();
 
     window.dispatchEvent(new ErrorEvent("error", { error: new Error("kaboom"), message: "kaboom" }));
@@ -28,16 +29,7 @@ describe("installGlobalErrorCapture", () => {
       "console.error", "something failed", "console.warn", "be careful"]) {
       expect(text).toContain(fragment);
     }
-  });
-
-  it("is idempotent — installing twice does not double-report", async () => {
-    const { store, capture } = await loadCapture();
-    capture.installGlobalErrorCapture();
-    capture.installGlobalErrorCapture();
-
-    console.error("only once");
-    const matches = store.formatAppLogs().match(/only once/g) ?? [];
-    expect(matches).toHaveLength(1);
+    expect(text.match(/something failed/g)).toHaveLength(1);
   });
 
   it("ignores non-fatal ResizeObserver delivery notifications", async () => {

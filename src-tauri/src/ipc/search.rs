@@ -1,16 +1,14 @@
-//! Finding things in the project: text and semantic search, replace, labels,
-//! references, TODOs and word counts.
+//! Finding things in the project: text search, replace, labels, references,
+//! TODOs and word counts.
 
-use super::{current_root, in_project, run_blocking, scoped_root};
+use super::{current_root, in_project, run_blocking};
 use crate::app_state::AppState;
 use crate::models::{
     ProjectSearchResult, ReferenceInfo, RenameSymbolResult, ReplacePreview, ReplaceResult,
     SymbolOccurrence, TodoHit, UnusedSymbols, WordCount,
 };
-use crate::{papers, project, semantic_search, texcount};
-use semantic_search::{SemanticSearchResponse, SemanticSearchStatus};
-use std::sync::Arc;
-use tauri::{AppHandle, Manager, State, Window};
+use crate::{papers, project, texcount};
+use tauri::{State, Window};
 
 #[tauri::command]
 pub async fn search_project(
@@ -115,50 +113,4 @@ pub async fn count_project_words(
     state: State<'_, AppState>, window: Window,
 ) -> Result<WordCount, String> {
     in_project(&state, &window, "Word count", texcount::count_project).await
-}
-
-#[tauri::command]
-pub fn semantic_search_start_index(
-    app: AppHandle, state: State<'_, AppState>, window: Window, project_root: String,
-) -> Result<SemanticSearchStatus, String> {
-    let root = scoped_root(&state, &window, &project_root)?;
-    let search = Arc::clone(&state.project(&root).semantic_search);
-    let cache = app
-        .path()
-        .app_cache_dir()
-        .map_err(|error| format!("Could not resolve the local cache folder: {error}"))?
-        .join("semantic-search")
-        .join("embeddings-v1.sqlite3");
-    semantic_search::start_index(Arc::clone(&search), root, cache);
-    Ok(search.status())
-}
-
-#[tauri::command]
-pub fn semantic_search_status(
-    state: State<'_, AppState>, window: Window, project_root: String,
-) -> Result<SemanticSearchStatus, String> {
-    let root = scoped_root(&state, &window, &project_root)?;
-    Ok(state.project(&root).semantic_search.status())
-}
-
-#[tauri::command]
-pub fn semantic_search_cancel(
-    state: State<'_, AppState>, window: Window, project_root: String,
-) -> Result<SemanticSearchStatus, String> {
-    let root = scoped_root(&state, &window, &project_root)?;
-    Ok(state.project(&root).semantic_search.cancel())
-}
-
-#[tauri::command]
-pub async fn semantic_search_project(
-    state: State<'_, AppState>, window: Window, project_root: String, query: String,
-) -> Result<SemanticSearchResponse, String> {
-    let root = scoped_root(&state, &window, &project_root)?;
-    let search = Arc::clone(&state.project(&root).semantic_search);
-    let response =
-        run_blocking("Local semantic search", move || Ok(semantic_search::search(&search, &query)))
-            .await?;
-    scoped_root(&state, &window, &project_root)
-        .map_err(|_| "The project changed before local semantic search finished.".to_string())?;
-    Ok(response)
 }

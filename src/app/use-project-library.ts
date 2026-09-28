@@ -1,7 +1,6 @@
 import { useCallback, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import type { PaperSummary, ProjectSnapshot, UnusedSymbols, WordCount } from "../app-types";
-import { mayApplyProjectRefreshV2 } from "../collab/collab-app-v2";
 import type { CitationInfo, ReferenceInfo } from "../editor/latex/latex-text";
 import type { HistoryItem } from "../history/history-drawer";
 import type { TodoHit } from "../project/todo-scavenger";
@@ -106,14 +105,13 @@ export function useProjectLibrary(state: ProjectState) {
   /** Re-read the tree and every bibliography index, unless a newer refresh or project took over. */
   const refreshProject = useCallback(async (scope?: { expectedRoot: string; generation: number }) => {
     const refreshGeneration = ++projectRefreshGenerationRef.current;
-    const mayApply = (snapshotRoot?: string) => mayApplyProjectRefreshV2({
-      refreshGeneration,
-      currentRefreshGeneration: projectRefreshGenerationRef.current,
-      scope,
-      currentProjectGeneration: projectOperationGenerationRef.current,
-      currentRoot: projectRef.current?.root,
-      snapshotRoot,
-    });
+    // A scoped refresh also yields to a project switch, including one that
+    // lands between the tree read and the bibliography read.
+    const mayApply = (snapshotRoot: string) => refreshGeneration === projectRefreshGenerationRef.current && (!scope || (
+      projectOperationGenerationRef.current === scope.generation
+      && projectRef.current?.root === scope.expectedRoot
+      && snapshotRoot === scope.expectedRoot
+    ));
     const snapshot = await invoke<ProjectSnapshot>("refresh_project");
     if (!mayApply(snapshot.root)) return snapshot;
     setProject(snapshot);

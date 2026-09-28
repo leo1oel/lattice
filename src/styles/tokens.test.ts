@@ -111,7 +111,7 @@ const EXTERNAL_PREFIXES = [
 ]
 
 describe("design token contract", () => {
-  it("keeps the palette out of feature code", () => {
+  it("keeps the palette out of feature code and maps every semantic role onto it in one place", () => {
     const pattern = new RegExp(`var\\(--(${PALETTE.join("|")})[,)]`)
     const offenders = sources
       .filter(({ file }) => !APP_CSS_FILES.has(file) && file !== "src/styles/foundations.css")
@@ -119,9 +119,7 @@ describe("design token contract", () => {
       .filter(({ text }) => pattern.test(text))
       .map(({ file }) => file)
     expect(offenders).toEqual([])
-  })
 
-  it("maps every semantic role onto the palette in one place", () => {
     // The palette is declared in theme.css; foundations is the only translator.
     for (const role of ["--surface-app", "--border-subtle", "--text-primary", "--control-active"]) {
       expect(foundations).toContain(`${role}:`)
@@ -153,28 +151,24 @@ describe("design token contract", () => {
     expect(Object.fromEntries(missing)).toEqual({})
   })
 
-  it("shares one height across the navigation controls", () => {
+  it("shares one height across the navigation controls and one reserved width across sidebar modes", () => {
     expect(foundations).toMatch(/--navigation-action-size: var\(--navigation-control-height\)/)
     expect(foundations).toMatch(/--navigation-header-height: 40px/)
     expect(foundations).toMatch(/--titlebar-height: 40px/)
-  })
-
-  it("reserves one action width across sidebar modes", () => {
+    // …and one action width across sidebar modes.
     expect(foundations).toMatch(/--navigation-mode-actions-reserved-width: calc\(/)
     expect(appCss).toMatch(
       /\.sidebar-mode-actions \{[^}]*min-width: var\(--navigation-mode-actions-reserved-width\)/,
     )
   })
 
-  it("keeps single-line controls on the 28px compact and 30px default scale", () => {
+  it("keeps single-line controls on the 28px compact and 30px default scale, with one Settings type contract", () => {
     expect(foundations).toMatch(/--control-height-compact: 28px/)
     expect(foundations).toMatch(/--control-height-default: 30px/)
     expect(foundations).toMatch(/--control-height-form: var\(--control-height-default\)/)
     expect(foundations).toMatch(/--form-control-height-form: var\(--control-height-form\)/)
     expect(foundations).toMatch(/--settings-control-height: var\(--control-height-default\)/)
-  })
-
-  it("gives every Settings control one typography contract", () => {
+    // Every Settings control shares one typography contract.
     expect(foundations).toMatch(/--settings-control-font-family: var\(--ui-font\)/)
     expect(foundations).toMatch(/--settings-control-font-size: var\(--type-label-size\)/)
     expect(foundations).toMatch(/--settings-control-line-height: var\(--type-label-line-height\)/)
@@ -310,14 +304,11 @@ describe("design token contract", () => {
     expect(offenders).toEqual([])
   })
 
-  it("keeps host CSS out of the embedded Synara document", () => {
+  it("keeps host CSS out of the embedded Synara document, and the surface visible while panels resize", () => {
     // The iframe is a hard boundary: the host may size and frame it, never style
     // through it. Anything past the frame travels over the bridge instead.
     expect(stripComments(appCss)).not.toMatch(/iframe\s+(?:[.#a-z]|\[)/)
     expect(stripComments(appCss)).not.toMatch(/\.synara-[a-z-]*\s+\.(?!synara)/)
-  })
-
-  it("keeps the embedded Synara surface visible while panels resize", () => {
     // The iframe should follow the divider continuously instead of being hidden
     // behind a host pseudo-element for the duration of the drag.
     expect(appCss).not.toMatch(/body\.resizing-panels\s+\.synara-frame-shell::/)

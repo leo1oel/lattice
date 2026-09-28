@@ -26,9 +26,8 @@ export async function prewarmProjectPreviewModules(paths: readonly string[]): Pr
   if (normalized.some((path) => path.endsWith(".md") || path.endsWith(".mdx"))) work.push(loadVisualMarkdownEditorModule());
   if (normalized.some((path) => path.endsWith(".tex") || path.endsWith(".pdf"))) work.push(loadPdfPreviewModule());
   if (normalized.some((path) => path.endsWith(".tldr"))) {
-    work.push(Promise.all([loadBoardEditorModule(), import("../editor/board/board-yjs-bridge")]).then(([, board]) => {
-      // Initialize tldraw's schema/store machinery without mounting a canvas
-      // or attaching a writable collaboration bridge.
+    work.push(Promise.all([loadBoardEditorModule(), import("../editor/board/board-store")]).then(([, board]) => {
+      // Initialize tldraw's schema/store machinery without mounting a canvas.
       board.createBoardStore("");
     }));
   }

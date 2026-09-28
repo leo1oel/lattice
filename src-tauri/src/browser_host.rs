@@ -220,13 +220,9 @@ impl BrowserHost {
 
     pub(crate) fn open_project(
         &self, app: &tauri::AppHandle, state: &AppState, project_root: PathBuf,
-        pending: Option<String>,
     ) -> Result<String, String> {
         let host_label = new_host_label();
         state.bind_window(&host_label, project_root.clone())?;
-        if let Some(pending) = pending {
-            state.set_pending_action(&host_label, pending);
-        }
         let opened = self.open_session(app, |origin| BrowserSession {
             project_root: Some(project_root),
             ..BrowserSession::new(host_label.clone(), origin)

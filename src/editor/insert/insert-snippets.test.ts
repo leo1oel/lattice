@@ -2,8 +2,10 @@ import { describe, expect, it } from "vitest";
 import { INSERT_GROUPS, INSERT_SNIPPETS } from "./insert-snippets";
 
 describe("insert snippets", () => {
-  it("covers every advertised group with labeled previews", () => {
+  it("covers every advertised group with uniquely identified, labeled previews", () => {
     expect(INSERT_SNIPPETS.length).toBeGreaterThan(200);
+    const ids = INSERT_SNIPPETS.map((snippet) => snippet.id);
+    expect(new Set(ids).size).toBe(ids.length);
     for (const group of INSERT_GROUPS) {
       const items = INSERT_SNIPPETS.filter((snippet) => snippet.group === group);
       expect(items.length, group).toBeGreaterThan(0);
@@ -15,11 +17,6 @@ describe("insert snippets", () => {
         expect(Boolean(snippet.glyph || snippet.mathPreview || snippet.codePreview)).toBe(true);
       }
     }
-  });
-
-  it("keeps snippet ids unique", () => {
-    const ids = INSERT_SNIPPETS.map((snippet) => snippet.id);
-    expect(new Set(ids).size).toBe(ids.length);
   });
 
   it("places the cursor at the first editable position in structured snippets", () => {
@@ -43,14 +40,12 @@ describe("insert snippets", () => {
     }
   });
 
-  it("keeps the Sets group specific to set symbols", () => {
+  it("keeps the Sets group to set symbols and the degree symbol a baseline LaTeX expression", () => {
     const setCommands = INSERT_SNIPPETS
       .filter((snippet) => snippet.group === "Sets")
       .map((snippet) => snippet.insert);
     expect(setCommands).toEqual(["\\emptyset", "\\varnothing"]);
-  });
-
-  it("uses a baseline LaTeX degree expression instead of an undefined command", () => {
+    // Not an undefined command.
     const degree = INSERT_SNIPPETS.find((snippet) => snippet.glyph === "°");
     expect(degree).toMatchObject({ group: "Symbols", insert: "^{\\circ}", mathPreview: "90^{\\circ}" });
   });

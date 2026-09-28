@@ -5,7 +5,6 @@ import {
   buildPresenceCursorDecorations,
   buildTrackedChangeDecorations,
   buildTrackedChangeTooltipDom,
-  hueFromColorHex,
   measureCursorLabelPlacements,
   overleafCursorsExtension,
   overleafTrackChangesExtension,
@@ -35,13 +34,7 @@ const actions = (overrides: Partial<TrackedChangeTooltipActions> = {}): TrackedC
 });
 
 describe("presence colors", () => {
-  it.each([["#ff0000", 0], ["#00ff00", 120], ["#0000ff", 240], ["#888888", 0], ["not-a-color", 210]])(
-    "maps %s to hue %i, falling back for greys and malformed input",
-    (hex, hue) => expect(hueFromColorHex(hex)).toBe(hue),
-  );
-
-  it("reads a bare hex, keeps an exact collaboration color, and falls back to the provider hue", () => {
-    expect(hueFromColorHex("1971c2")).toBeCloseTo(209, 0);
+  it("keeps an exact cursor color and falls back to the provider hue", () => {
     expect(presenceCursorColor({ color: "#0E7490", hue: 188 })).toBe("#0E7490");
     expect(presenceCursorColor({ color: "invalid", hue: 188 })).toBe("hsl(188, 70%, 50%)");
   });
@@ -97,35 +90,33 @@ describe("overleafCursorsExtension", () => {
 describe("suggestion spans", () => {
   const doc = docOf("hello world");
 
-  it("span exactly the suggested text, or nothing once stale or empty", () => {
+  it("span exactly the suggested text (or nothing once stale or empty) and hit inside it, not at its exclusive end", () => {
     expect(trackedChangeRange(doc, change())).toEqual({ from: 6, to: 11 });
     expect(trackedChangeRange(docOf("hi"), change())).toBeNull();
     expect(trackedChangeRange(doc, change({ text: "" }))).toBeNull();
+    expect([5, 6, 10, 11].map((pos) => trackedChangesAtPosition(doc, [change()], pos).length)).toEqual([0, 1, 1, 0]);
   });
 
   it("quote the suggestion with surrounding text", () => {
     expect(trackedChangeContext("the quick brown fox jumps", change({ position: 4, text: "quick" }), 3))
       .toEqual({ prefix: "he ", quote: "quick", suffix: " br" });
   });
-
-  it("hit inside the span, not at its exclusive end", () => {
-    const insertion = change({ id: "ins" });
-    expect([5, 6, 10, 11].map((pos) => trackedChangesAtPosition(doc, [insertion], pos).length)).toEqual([0, 1, 1, 0]);
-  });
 });
 
 describe("buildTrackedChangeDecorations", () => {
   const doc = docOf("hello world, goodbye now");
 
-  it("marks an insertion and a deletion differently, each in its author's hue", () => {
+  it("marks an insertion and a deletion differently, each in its author's hue, skipping one the text is too short for", () => {
     const seen = new Map<string, { className: string; style: string }>();
     buildTrackedChangeDecorations(doc, [
       change({ id: "ins", position: 6, text: "world", hue: 120 }),
       change({ id: "del", position: 13, text: "goodbye", deletion: true, hue: 0 }),
+      change({ id: "stale", position: 999 }),
     ]).between(0, doc.length, (_from, _to, deco) => {
       const spec = deco.spec as { class: string; attributes: Record<string, string> };
       seen.set(spec.attributes["data-change-id"]!, { className: spec.class, style: spec.attributes.style! });
     });
+    expect([...seen.keys()]).toEqual(["ins", "del"]);
     const insertion = seen.get("ins")!;
     const deletion = seen.get("del")!;
     expect(insertion.className).toBe("cm-tracked-change-insert");
@@ -137,14 +128,10 @@ describe("buildTrackedChangeDecorations", () => {
     expect(deletion.style).not.toContain("border-bottom");
     expect(deletion.style).toContain("hsl(0");
   });
-
-  it("skips a suggestion the current document is too short for", () => {
-    expect(buildTrackedChangeDecorations(doc, [change({ position: 999 })]).size).toBe(0);
-  });
 });
 
 describe("the suggestion hover card", () => {
-  it("names the author and wires Accept/Reject to this one suggestion", () => {
+  it("names the author, wires Accept/Reject to this one suggestion, and disables both when the account cannot act", () => {
     const target = change();
     const handlers = actions();
     const dom = buildTrackedChangeTooltipDom([target], handlers);
@@ -154,11 +141,9 @@ describe("the suggestion hover card", () => {
     expect(handlers.onAccept).toHaveBeenCalledWith(target);
     reject!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     expect(handlers.onReject).toHaveBeenCalledWith(target);
-  });
-
-  it("disables both buttons when this account cannot act, read live rather than baked in", () => {
-    const dom = buildTrackedChangeTooltipDom([change()], actions({ canAct: () => false }));
-    for (const button of dom.querySelectorAll("button")) expect(button).toBeDisabled();
+    // Permission is read live rather than baked in.
+    const denied = buildTrackedChangeTooltipDom([target], actions({ canAct: () => false }));
+    for (const button of denied.querySelectorAll("button")) expect(button).toBeDisabled();
   });
 });
 

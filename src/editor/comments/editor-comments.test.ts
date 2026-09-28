@@ -80,12 +80,8 @@ describe("editor comment data", () => {
     expect(tryParseEditorComments("not json at all")).toBeNull();
   });
 
-  it("re-anchors by quote when offsets drift", () => {
-    const drifted = { ...comment({ source: "aaa TARGET bbb", from: 4, to: 10 }), from: 0, to: 1 };
-    expect(resolveCommentAnchor("prefix TARGET suffix", drifted)).toEqual({ from: 7, to: 13 });
-  });
-
   it.each([
+    ["by quote when offsets drift", "prefix TARGET suffix", { from: 0, to: 1, quote: "TARGET", prefix: "aaa ", suffix: " bbb" }, { from: 7, to: 13 }],
     ["after text is inserted before its selection", "New: Hello bold world", { from: 6, to: 10, quote: "bold", prefix: "Hello ", suffix: " world" }, { from: 11, to: 15 }],
     ["when its quote is missing", "the selection was deleted", { from: 2, to: 6, quote: "same", prefix: "missing ", suffix: " context" }, null],
     ["when its quote is ambiguous", "same and same", { from: 2, to: 6, quote: "same", prefix: "missing ", suffix: " context" }, null],
@@ -111,9 +107,7 @@ describe("editor comment decorations", () => {
     expect(ids([beta, other, { ...beta, id: "resolved", resolved: true }], 7)).toEqual([beta.id]);
     expect(ids([beta], 2)).toEqual([]);
     expect(ids([other], 7)).toEqual([]);
-  });
-
-  it("does not double-match two comments meeting at a shared boundary", () => {
+    // Two comments meeting at a shared boundary are not double-matched.
     const first = comment({ source: "alphabeta", from: 0, to: 5, body: "one" });
     const second = comment({ source: "alphabeta", from: 5, to: 9, body: "two" });
     expect(commentsAtPosition("alphabeta", "main.tex", [first, second], 5).map((hit) => hit.comment.body))
@@ -133,20 +127,7 @@ describe("editor comment decorations", () => {
     expect(view.dom.querySelector(".cm-editor-comment")?.textContent).toBe("bold");
   });
 
-  it("seeds decorations from a live getter and restores them after a state reset", () => {
-    const comments = [comment()];
-    const view = mountView(() => comments);
-    // The hover tooltip replaces a native title on the mark.
-    expect(view.dom.querySelector(".cm-editor-comment")?.getAttribute("title")).toBeNull();
-    // Fresh state (same as a reconfigure wipe) should still show marks via the getter.
-    view.setState(EditorState.create({
-      doc: SOURCE,
-      extensions: editorCommentsExtension("main.tex", { getComments: () => comments }),
-    }));
-    expect(view.dom.querySelector(".cm-editor-comment")).not.toBeNull();
-  });
-
-  it("keeps the empty-comments fast path live: marks appear once comments arrive", () => {
+  it("seeds decorations from a live getter, keeps the empty fast path live, and restores marks after a reset", () => {
     // With zero comments the field skips doc serialization entirely on every
     // doc change; this guards the transition out of that fast path.
     const comments: EditorComment[] = [];
@@ -157,6 +138,14 @@ describe("editor comment decorations", () => {
     // Any transaction re-reads the getter; the marks must materialize.
     view.dispatch({ changes: { from: 0, to: 1, insert: "" } });
     expect(view.dom.querySelector(".cm-editor-comment")).not.toBeNull();
+    // The hover tooltip replaces a native title on the mark.
+    expect(view.dom.querySelector(".cm-editor-comment")?.getAttribute("title")).toBeNull();
+    // Fresh state (same as a reconfigure wipe) should still show marks via the getter.
+    view.setState(EditorState.create({
+      doc: SOURCE,
+      extensions: editorCommentsExtension("main.tex", { getComments: () => comments }),
+    }));
+    expect(view.dom.querySelector(".cm-editor-comment")?.textContent).toBe("beta");
   });
 });
 

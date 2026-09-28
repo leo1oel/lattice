@@ -48,23 +48,18 @@ describe("Mermaid controls", () => {
     vi.unstubAllGlobals();
   });
 
-  it("pans the viewport in the labeled direction with ease-out motion", async () => {
+  // Reduced motion keeps the pans but disables their ease-out animation.
+  it.each([false, true])("pans the viewport in the labeled direction (reduced motion: %s)", async (reduced) => {
+    reducedMotion.value = reduced;
     const instance = await renderDiagram();
     for (const name of ["Pan up", "Pan down", "Pan left", "Pan right"]) {
       fireEvent.click(screen.getByRole("button", { name }));
     }
     expect(instance.pan.mock.calls).toEqual([
-      [0, 48, panOptions(true)],
-      [0, -48, panOptions(true)],
-      [48, 0, panOptions(true)],
-      [-48, 0, panOptions(true)],
+      [0, 48, panOptions(!reduced)],
+      [0, -48, panOptions(!reduced)],
+      [48, 0, panOptions(!reduced)],
+      [-48, 0, panOptions(!reduced)],
     ]);
-  });
-
-  it("disables control animation when reduced motion is preferred", async () => {
-    reducedMotion.value = true;
-    const instance = await renderDiagram();
-    fireEvent.click(screen.getByRole("button", { name: "Pan up" }));
-    expect(instance.pan).toHaveBeenCalledWith(0, 48, panOptions(false));
   });
 });

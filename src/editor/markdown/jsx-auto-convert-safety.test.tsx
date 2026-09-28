@@ -12,22 +12,15 @@ vi.mock("@tauri-apps/plugin-clipboard-manager", () => ({
 }));
 
 function mountEditor(source: string): Editor {
-  render(
-    <VisualMarkdownEditor
-      text={source}
-      activePath="unknown-components.md"
-      onChangeMarkdown={() => true}
-      onUndo={() => false}
-      onRedo={() => false}
-    />,
-  );
+  render(<VisualMarkdownEditor
+    text={source} activePath="unknown-components.md" onChangeMarkdown={() => true} onUndo={() => false}
+    onRedo={() => false}
+  />);
   const surface = screen.getByRole("textbox", { name: "Markdown document editor" });
   return (surface as HTMLElement & { editor: Editor }).editor;
 }
 
-function serialize(editor: Editor): string {
-  return getMarkdownManager().serialize(editor.getJSON());
-}
+const serialize = (editor: Editor) => getMarkdownManager().serialize(editor.getJSON());
 
 describe("deferred unknown JSX conversion", () => {
   afterEach(() => {
@@ -77,9 +70,7 @@ describe("deferred unknown JSX conversion", () => {
       .child(0);
 
     act(() => {
-      editor.view.dispatch(
-        editor.state.tr.replaceWith(0, editor.state.doc.child(0).nodeSize, replacement),
-      );
+      editor.view.dispatch(editor.state.tr.replaceWith(0, editor.state.doc.child(0).nodeSize, replacement));
     });
 
     await waitFor(() => expect(editor.state.doc.child(0).type.name).toBe("rawMdxFallback"));
@@ -107,9 +98,7 @@ describe("JSX chrome actions resolve their live target", () => {
   function calloutPositions(editor: Editor): number[] {
     const positions: number[] = [];
     editor.state.doc.descendants((node, pos) => {
-      if (node.type.name === "jsxComponent" && node.attrs.componentName === "Callout") {
-        positions.push(pos);
-      }
+      if (node.type.name === "jsxComponent" && node.attrs.componentName === "Callout") positions.push(pos);
     });
     return positions;
   }

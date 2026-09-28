@@ -58,14 +58,11 @@ describe("link preview data", () => {
     await expect(Promise.all([first, second])).resolves.toEqual([{ domain: "example.com" }, { domain: "example.com" }]);
   });
 
-  it("returns null and does not cache a blocked response", async () => {
+  it("returns null without caching a blocked response, and returns null for malformed responses", async () => {
     mockedInvoke.mockResolvedValue({ ok: false, reason: "blocked" });
     await expect(loadLinkPreview("https://blocked.example")).resolves.toBeNull();
     await expect(loadLinkPreview("https://blocked.example")).resolves.toBeNull();
     expect(mockedInvoke).toHaveBeenCalledTimes(2);
-  });
-
-  it("returns null for malformed responses", async () => {
     mockedInvoke.mockResolvedValue({ ok: true, metadata: {} });
     await expect(loadLinkPreview("https://example.com/malformed")).resolves.toBeNull();
   });
@@ -81,8 +78,8 @@ describe("link preview data", () => {
 });
 
 describe("ExternalLinkPreviewCard", () => {
-  it("renders metadata and a data-image favicon", () => {
-    render(<ExternalLinkPreviewCard metadata={{
+  it("renders metadata and a data-image favicon, but not a remote favicon", () => {
+    const { unmount } = render(<ExternalLinkPreviewCard metadata={{
       domain: "example.com", title: "Example title", description: "Example description",
       faviconDataUri: "data:image/png;base64,AAAA",
     }} />);
@@ -90,9 +87,7 @@ describe("ExternalLinkPreviewCard", () => {
       expect(screen.getByText(text)).toBeInTheDocument();
     }
     expect(document.querySelector("img")).toHaveAttribute("src", "data:image/png;base64,AAAA");
-  });
-
-  it("does not render a remote favicon", () => {
+    unmount();
     render(<ExternalLinkPreviewCard metadata={{ domain: "example.com", faviconDataUri: "https://example.com/favicon.png" }} />);
     expect(document.querySelector("img")).toBeNull();
   });

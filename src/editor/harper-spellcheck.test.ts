@@ -81,21 +81,16 @@ const TABLE = [
 const CAPITALIZATION = /does not start with a capital letter/i;
 
 describe("Harper prose spellcheck", () => {
-  it("reports a real spelling diagnostic for misspelled prose", async () => {
-    const diagnostics = await harperDiagnostics("This is introductiom.");
-    expect(diagnostics.some((diagnostic) => diagnostic.source === "Harper")).toBe(true);
-    expect(diagnostics.some((diagnostic) => diagnostic.from === 8 && diagnostic.to === 20)).toBe(true);
-  });
-
   it.each([
     ["masked LaTeX commands as repeated spaces", PREAMBLE, "takeawayaccent"],
     ["preamble configuration and document-level color setup", COLOR_PREAMBLE, "takeawayaccent"],
     ["Markdown table cells as prose", TABLE, "table cell"],
-  ])("does not report %s", async (_name, source, hidden) => {
+  ])("reports the real misspelling but not %s", async (_name, source, hidden) => {
     const diagnostics = await harperDiagnostics(source);
     const flagged = spans(source, diagnostics);
     expect(diagnostics.some((diagnostic) => /spaces where there should be only one/i.test(diagnostic.message))).toBe(false);
     expect(flagged).toContain("introductiom");
+    expect(diagnostics.every((diagnostic) => diagnostic.source === "Harper")).toBe(true);
     expect(flagged.some((span) => span.includes(hidden))).toBe(false);
   });
 
@@ -137,7 +132,7 @@ describe("Harper prose spellcheck", () => {
     expect(spans(source, await harperDiagnostics(source, { projectWords: ["Zylorph"] }))).not.toContain("Zylorph");
   });
 
-  it("offers to add a misspelling to the project dictionary", async () => {
+  it("shows only the best correction plus a working project dictionary action", async () => {
     const add = vi.fn().mockResolvedValue(true);
     let refreshes = 0;
     const view = new EditorView({
@@ -149,18 +144,13 @@ describe("Harper prose spellcheck", () => {
         }),
       }),
     });
-    const diagnostic = spelling({ to: 6, suggestions: [], projectWord: "Zylorph", onAddProjectWord: add });
-    diagnostic.actions?.[0]?.apply(view, 0, 6);
-    expect(diagnostic.actions?.[0]?.name).toBe("Add “Zylorph” to project dictionary");
+    const suggestions = ["first", "second", "third"].map((replacement) => ({ kind: "replace" as const, replacement }));
+    const diagnostic = spelling({ to: 6, suggestions, projectWord: "Zylorph", onAddProjectWord: add });
+    expect(diagnostic.actions?.map((action) => action.name)).toEqual(["Replace with “first”", "Add “Zylorph” to project dictionary"]);
+    diagnostic.actions?.[1]?.apply(view, 0, 6);
     expect(add).toHaveBeenCalledWith("Zylorph");
     await vi.waitFor(() => expect(refreshes).toBe(1));
     view.destroy();
-  });
-
-  it("shows only the best correction plus the project dictionary action", () => {
-    const suggestions = ["first", "second", "third"].map((replacement) => ({ kind: "replace" as const, replacement }));
-    const diagnostic = spelling({ to: 5, suggestions, projectWord: "frist", onAddProjectWord: () => true });
-    expect(diagnostic.actions?.map((action) => action.name)).toEqual(["Replace with “first”", "Add “frist” to project dictionary"]);
   });
 
   it("applies Harper replacements at CodeMirror's current diagnostic range", () => {

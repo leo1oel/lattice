@@ -367,17 +367,15 @@ mod tests {
         ));
         let pairs: Vec<_> =
             sources.iter().map(|s| (s.source.as_str(), s.outcome.as_str())).collect();
-        assert_eq!(
-            pairs,
-            vec![
-                ("crossref", "no_match"),
-                ("dblp", "connection_failed"),
-                ("googlescholar", "blocked"),
-                ("openalex", "timeout"),
-                ("semanticscholar", "rate_limited"),
-                ("unpaywall", "server_error"),
-            ]
-        );
+        let mut expected = vec![
+            ("crossref", "no_match"),
+            ("dblp", "connection_failed"),
+            ("googlescholar", "blocked"),
+            ("openalex", "timeout"),
+            ("semanticscholar", "rate_limited"),
+            ("unpaywall", "server_error"),
+        ];
+        assert_eq!(pairs, expected);
         let result = upgrade_miss("entry", &serde_json::json!({"reason":"sources_unavailable"}))
             .with_sources(sources);
         let json = serde_json::to_string(&result).unwrap();
@@ -386,19 +384,14 @@ mod tests {
         assert!(!json.contains("Private title"));
         assert!(!result.message.contains("sources_unavailable"));
         assert_eq!(result.status, "unavailable");
-    }
 
-    #[test]
-    fn batch_failure_replaces_only_the_s2_diagnostic() {
-        let checked = result("unavailable", "Check incomplete", "entry").with_sources(vec![
-            SourceCheck::new("dblp", "timeout"),
-            SourceCheck::new("semanticscholar", "unavailable"),
-        ]);
-        let checked = annotate_s2(checked, Some("upstream_rate_limit"));
-        assert_eq!(checked.sources.len(), 2);
-        assert_eq!(checked.sources[0].source, "dblp");
-        assert_eq!(checked.sources[0].outcome, "timeout");
-        assert_eq!(checked.sources[1].outcome, "batch_upstream_rate_limit");
+        // A batch failure replaces only the S2 diagnostic.
+        let annotated = annotate_s2(result, Some("upstream_rate_limit"));
+        expected.retain(|(source, _)| *source != "semanticscholar");
+        expected.push(("semanticscholar", "batch_upstream_rate_limit"));
+        let pairs: Vec<_> =
+            annotated.sources.iter().map(|s| (s.source.as_str(), s.outcome.as_str())).collect();
+        assert_eq!(pairs, expected);
     }
 
     /// Explicit opt-in network smoke test: copy a bibliography into a disposable

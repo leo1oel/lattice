@@ -282,25 +282,21 @@ describe("OtDocument", () => {
     expect(() => doc.acknowledge(11)).toThrow(OtDesyncError);
   });
 
-  it("keeps local work when a remote edit lands first", () => {
+  it("keeps local work when a remote edit lands first, moves the caret with it, and ignores its redelivery", () => {
     const doc = new OtDocument("hello world", 5);
     doc.local("hello brave world"); // insert at 6, in flight
     // Their text is in, ours is still here, and neither overwrote the other.
-    expect(doc.remote([{ p: 0, i: ">> " }], 5).text).toBe(">> hello brave world");
+    const { text, applied } = doc.remote([{ p: 0, i: ">> " }], 5);
+    expect(text).toBe(">> hello brave world");
     expect(doc.text).toBe(">> hello brave world");
+    expect(transformCaret(8, applied)).toBe(11);
     // Their operation applied at 5, so the document is now at 6 — the same
     // step `acknowledge` takes for our own work.
     expect(doc.version).toBe(6);
-  });
-
-  it("ignores a collaborator's update it has already applied", () => {
-    const doc = new OtDocument("hello", 4);
-    doc.remote([{ p: 0, i: "oh " }], 4);
     // Socket.IO can deliver the same frame twice; applying it again would
     // duplicate their text.
-    expect(doc.remote([{ p: 0, i: "oh " }], 4).applied).toEqual([]);
-    expect(doc.text).toBe("oh hello");
-    expect(doc.version).toBe(5);
+    expect(doc.remote([{ p: 0, i: ">> " }], 5).applied).toEqual([]);
+    expect([doc.text, doc.version]).toEqual([">> hello brave world", 6]);
   });
 
   it.each([
@@ -308,11 +304,6 @@ describe("OtDocument", () => {
     ["that does not fit rather than writing wrong text", [{ p: 0, d: "goodbye" }], 4],
   ] as [string, OtOp[], number][])("refuses an update %s", (_label, ops, version) => {
     expect(() => new OtDocument("hello", 4).remote(ops, version)).toThrow(OtDesyncError);
-  });
-
-  it("moves the caret with the text when someone edits above it", () => {
-    const { applied } = new OtDocument("one\ntwo\nthree", 1).remote([{ p: 0, i: "zero\n" }], 1);
-    expect(transformCaret(8, applied)).toBe(13);
   });
 
   it("drops unsent work when reset to the server's copy", () => {
@@ -325,13 +316,6 @@ describe("OtDocument", () => {
 });
 
 describe("two editors on one document", () => {
-  it("converges when both type in different places", () => {
-    const { server, a, b } = twoEditors("alpha beta gamma");
-    roundTrip(server, a, [b], a.local("ALPHA beta gamma").send!);
-    roundTrip(server, b, [a], b.local("ALPHA beta GAMMA").send!);
-    expectConverged(server, a, b);
-  });
-
   it("converges when both type in the same place at once", () => {
     const { server, a, b } = twoEditors("the fox");
     // Both edit before either has heard from the server — the real race.

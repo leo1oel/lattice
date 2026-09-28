@@ -279,7 +279,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn persisted_reports_are_project_scoped_and_preserve_unknown_fields() {
+    fn persisted_reports_are_project_scoped_preserve_unknown_fields_and_reject_corruption() {
         let project = TestProject::new();
         let root = &project.root;
         let other_root = project::create_blank(&project.parent, "Other").unwrap();
@@ -304,17 +304,10 @@ mod tests {
 
         save_report(&data_dir, &other_root, Vec::new()).unwrap();
         assert_eq!(load_report(&data_dir, &other_root).unwrap(), Some(Vec::new()));
-    }
 
-    #[test]
-    fn malformed_persisted_report_returns_an_error() {
-        let project = TestProject::new();
-        let data_dir = project.parent.join("app-data");
-        fs::create_dir_all(data_dir.join(REPORT_DIRECTORY)).unwrap();
-        let relative = report_relative_path(&project.root).unwrap();
-        fs::write(data_dir.join(relative), b"{not a report").unwrap();
-
-        let error = load_report(&data_dir, &project.root).unwrap_err();
+        // A corrupt report is an error, not a silently empty one.
+        fs::write(data_dir.join(report_relative_path(root).unwrap()), b"{not a report").unwrap();
+        let error = load_report(&data_dir, root).unwrap_err();
         assert!(error.contains("malformed"), "{error}");
     }
 }

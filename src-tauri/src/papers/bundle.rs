@@ -258,7 +258,7 @@ pub(super) fn cache_overview_without_full_text(
 
 /// The bundle directory name for a captured webpage: a stable digest of the
 /// URL, in a shape `validate_paper_key` can recognize. Everything downstream
-/// (tabs, read_paper, collab paths) already keys bundles by this string, so a
+/// (tabs, read_paper, library paths) already keys bundles by this string, so a
 /// webpage rides the same rails as an arXiv id.
 pub(super) fn web_reference_id(url: &str) -> String {
     format!("web-{}", &sha256_hex(url.trim())[..16])

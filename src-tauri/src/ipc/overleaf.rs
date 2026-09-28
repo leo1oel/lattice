@@ -333,13 +333,6 @@ pub async fn overleaf_history_files(
     .await
 }
 
-#[tauri::command]
-pub async fn overleaf_history_labels(
-    app: AppHandle, state: State<'_, AppState>, window: Window, project_root: String,
-) -> Result<Vec<overleaf::OverleafLabel>, String> {
-    rest_call(&app, &state, &window, &project_root, HISTORY, overleaf::history_labels).await
-}
-
 /// Roll one file back, or the whole project when `path` is absent.
 #[tauri::command]
 pub async fn overleaf_history_revert(
@@ -547,54 +540,6 @@ pub async fn overleaf_sync(
         run_blocking("The Overleaf sync", move || {
             overleaf::sync_relocations(&config, &root, entities)?;
             overleaf::sync(&config, &root, &live, observed_remote_version)
-        })
-        .await
-    })
-    .await
-}
-
-/// Replay local moves already committed to the Share catalog, then prepare
-/// content sync from its authoritative snapshot. Content does not mutate
-/// until the frontend applies the returned actions to Yjs and calls
-/// `overleaf_commit_prepared_sync` with the exact accepted bytes.
-// Keep the existing IPC fields separate from the optional diagnostic context.
-#[allow(clippy::too_many_arguments)]
-#[tauri::command]
-pub async fn overleaf_prepare_sync(
-    app: AppHandle, state: State<'_, AppState>, window: Window, project_root: String,
-    authoritative_inventory: Vec<overleaf::OverleafAuthoritativeEntry>, live: Option<Vec<String>>,
-    observed_remote_version: Option<i64>,
-    diagnostic_context: Option<command_diagnostics::DiagnosticContext>,
-) -> Result<overleaf::OverleafPreparedSync, String> {
-    command_diagnostics::traced("overleaf_prepare_sync", diagnostic_context, async {
-        let _lease = full_sync_lease(&state, &project_root).await;
-        let config = overleaf_config_dir(&app)?;
-        let root = pinned_root(&state, &window, &project_root, "Overleaf sync could start")?;
-        let live = live_paths(live);
-        let entities =
-            realtime_client(&state, &window).ok().and_then(|client| client.current_entities());
-        run_blocking("The Overleaf sync preparation", move || {
-            overleaf::sync_relocations(&config, &root, entities)?;
-            let inventory = &authoritative_inventory;
-            overleaf::prepare_sync(&config, &root, inventory, &live, observed_remote_version)
-        })
-        .await
-    })
-    .await
-}
-
-#[tauri::command]
-pub async fn overleaf_commit_prepared_sync(
-    app: AppHandle, state: State<'_, AppState>, window: Window, project_root: String,
-    prepared_plan_id: String, accepted_actions: Vec<overleaf::OverleafAcceptedAction>,
-    diagnostic_context: Option<command_diagnostics::DiagnosticContext>,
-) -> Result<overleaf::OverleafSyncResult, String> {
-    command_diagnostics::traced("overleaf_commit_prepared_sync", diagnostic_context, async {
-        let _lease = state.lease(&project_root, Lease::Exclusive).await;
-        let config = overleaf_config_dir(&app)?;
-        let root = pinned_root(&state, &window, &project_root, "Overleaf sync could finish")?;
-        run_blocking("The Overleaf sync commit", move || {
-            overleaf::commit_prepared_sync(&config, &root, &prepared_plan_id, &accepted_actions)
         })
         .await
     })

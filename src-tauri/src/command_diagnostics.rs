@@ -80,39 +80,35 @@ mod tests {
     use super::*;
 
     #[test]
-    fn completion_event_never_contains_malformed_identifiers() {
-        let context = DiagnosticContext {
-            operation_id: "credential=secret".into(),
-            request_id: "also malformed".into(),
+    fn completion_event_canonicalizes_valid_ids_and_replaces_malformed_ones() {
+        let event = |operation_id: &str, request_id: &str, result: Result<(), String>| {
+            let context = DiagnosticContext {
+                operation_id: operation_id.into(),
+                request_id: request_id.into(),
+            };
+            CommandDiagnostic::new("test_command", Some(&context))
+                .completion_event(&result)
+                .unwrap()
         };
-        let diagnostic = CommandDiagnostic::new("test_command", Some(&context));
-
-        let event = diagnostic.completion_event(&Err::<(), _>("rejected".into())).unwrap();
-        assert!(Uuid::parse_str(event["operation_id"].as_str().unwrap()).is_ok());
-        assert!(Uuid::parse_str(event["request_id"].as_str().unwrap()).is_ok());
-        assert!(!event.to_string().contains("credential=secret"));
-        assert!(!event.to_string().contains("also malformed"));
-        assert_eq!(event["outcome"], "error");
-        assert_eq!(event["event"], "command_completed");
-    }
-
-    #[test]
-    fn completion_event_canonicalizes_valid_ids_and_records_outcome() {
-        let operation_id = Uuid::new_v4();
-        let request_id = Uuid::new_v4();
-        let context = DiagnosticContext {
-            operation_id: operation_id.hyphenated().to_string().to_uppercase(),
-            request_id: request_id.simple().to_string(),
-        };
-        let diagnostic = CommandDiagnostic::new("test_command", Some(&context));
-        assert!(DiagnosticContext { request_id: "bad".into(), ..context }.validated().is_err());
-
-        let success = diagnostic.completion_event(&Ok::<_, String>(())).unwrap();
+        let (operation_id, request_id) = (Uuid::new_v4(), Uuid::new_v4());
+        let valid =
+            (operation_id.hyphenated().to_string().to_uppercase(), request_id.simple().to_string());
+        let success = event(&valid.0, &valid.1, Ok(()));
         assert_eq!(success["operation_id"], operation_id.to_string());
         assert_eq!(success["request_id"], request_id.to_string());
         assert_eq!(success["outcome"], "success");
+        assert_eq!(event(&valid.0, &valid.1, Err("failed".into()))["outcome"], "error");
+        // One malformed id replaces both with fresh ones.
+        assert_ne!(event(&valid.0, "bad", Ok(()))["operation_id"], operation_id.to_string());
 
-        let failed = diagnostic.completion_event(&Err::<(), _>("failed".into())).unwrap();
-        assert_eq!(failed["outcome"], "error");
+        // Invalid caller-controlled values never reach the log.
+        let rejected = event("credential=secret", "also malformed", Err("no".into()));
+        for id in ["operation_id", "request_id"] {
+            assert!(Uuid::parse_str(rejected[id].as_str().unwrap()).is_ok(), "{id}");
+        }
+        let logged = rejected.to_string();
+        assert!(!logged.contains("credential=secret") && !logged.contains("also malformed"));
+        assert_eq!(rejected["outcome"], "error");
+        assert_eq!(rejected["event"], "command_completed");
     }
 }

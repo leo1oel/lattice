@@ -373,10 +373,6 @@ pub fn history_files(config_dir: &Path, root: &Path, from: i64, to: i64) -> Resu
     history_get(config_dir, root, &format!("/filetree/diff?from={from}&to={to}"))
 }
 
-pub fn history_labels(config_dir: &Path, root: &Path) -> Result<Vec<OverleafLabel>, String> {
-    Ok(as_list(Some(&history_get(config_dir, root, "/labels")?), parse_label))
-}
-
 /// Roll one file, or the whole project, back to a version.
 ///
 /// Reverting is delete-then-add on Overleaf's side, so the entity's id changes
@@ -587,7 +583,6 @@ mod tests {
         let newest = &updates[0];
         assert!(newest.to_version >= newest.from_version);
         assert!(newest.end_ts > 0, "timestamps should be milliseconds");
-        println!("{} labels", history_labels(&config, &root).expect("labels").len());
 
         // The file tree as it stood at one version.
         let files = history_files(&config, &root, newest.from_version, newest.to_version)

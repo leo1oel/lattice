@@ -26,22 +26,16 @@ describe("ExternalScrollbar", () => {
 
 describe("calculateVerticalScrollGeometry", () => {
   it.each([
-    [0, { overflow: true, thumbHeight: 48, thumbOffset: 0 }],
-    [300, { thumbOffset: 72 }],
-    [600, { thumbOffset: 144 }],
-  ])("maps scrollTop %i onto the inset thumb track", (scrollTop, expected) => {
-    expect(calculateVerticalScrollGeometry({ clientHeight: 200, scrollHeight: 800, scrollTop }))
-      .toMatchObject(expected);
-  });
-
-  it("hides the scrollbar when the viewport has no overflow", () => {
-    expect(calculateVerticalScrollGeometry({ clientHeight: 200, scrollHeight: 200, scrollTop: 0 }))
-      .toMatchObject({ overflow: false, maxScrollTop: 0, scrollTop: 0 });
-  });
-
-  it("keeps a usable minimum thumb and clamps stale scroll positions", () => {
-    expect(calculateVerticalScrollGeometry({ clientHeight: 100, scrollHeight: 10_000, scrollTop: 20_000 }))
-      .toMatchObject({ overflow: true, scrollTop: 9_900, thumbHeight: 18, thumbOffset: 74 });
+    [{ clientHeight: 200, scrollHeight: 800, scrollTop: 0 }, { overflow: true, thumbHeight: 48, thumbOffset: 0 }],
+    [{ clientHeight: 200, scrollHeight: 800, scrollTop: 300 }, { thumbOffset: 72 }],
+    [{ clientHeight: 200, scrollHeight: 800, scrollTop: 600 }, { thumbOffset: 144 }],
+    // The scrollbar hides when the viewport has no overflow.
+    [{ clientHeight: 200, scrollHeight: 200, scrollTop: 0 }, { overflow: false, maxScrollTop: 0, scrollTop: 0 }],
+    // A usable minimum thumb, and a stale scroll position clamped into range.
+    [{ clientHeight: 100, scrollHeight: 10_000, scrollTop: 20_000 },
+      { overflow: true, scrollTop: 9_900, thumbHeight: 18, thumbOffset: 74 }],
+  ])("maps %o onto the inset thumb track", (input, expected) => {
+    expect(calculateVerticalScrollGeometry(input)).toMatchObject(expected);
   });
 });
 

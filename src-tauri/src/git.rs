@@ -410,9 +410,7 @@ mod tests {
     #[test]
     fn status_and_init_on_a_folder_that_is_not_yet_a_repository_then_track_edits() {
         let report = status(&scratch("none")).unwrap();
-        assert!(report.available);
-        assert!(!report.repository);
-        assert!(report.files.is_empty());
+        assert_eq!((report.available, report.repository, report.files.len()), (true, false, 0));
         if !commands::available("git") {
             return;
         }
@@ -448,13 +446,12 @@ mod tests {
         commit(&root, &[], "third");
 
         let entries = log(&root, 10).unwrap();
-        assert_eq!(entries.len(), 3);
-        assert_eq!(entries[0].message, "third");
+        let messages = entries.iter().map(|entry| entry.message.as_str()).collect::<Vec<_>>();
+        assert_eq!(messages, ["third", "second", "first"]);
         assert_eq!(entries[0].hash.len(), 40);
         assert!(entries[0].hash.starts_with(&entries[0].short_hash));
         assert_eq!(entries[0].author_name, "Lattice");
         assert!(entries[0].timestamp.contains('T'), "expected ISO timestamp");
-        assert_eq!(entries[2].message, "first");
         for (entry, path, kind) in [
             (0, "d.tex", "renamed"),
             (1, "a.tex", "modified"),
@@ -496,28 +493,21 @@ mod tests {
     }
 
     #[test]
-    fn restore_file_round_trips_content_and_rejects_unsafe_revisions() {
-        let Some(root) = repo("restore-file") else { return };
-        let first = commit(&root, &[("a.tex", "one\n")], "first");
-        commit(&root, &[("a.tex", "two\n")], "second");
+    fn restores_one_file_or_rewinds_the_project_and_rejects_unsafe_revisions() {
+        let Some(root) = repo("restore") else { return };
+        let files = [(".gitignore", ".research/\n"), ("a.tex", "one\n"), ("keep.tex", "k1\n")];
+        let first = commit(&root, &files, "first");
+        commit(&root, &[("a.tex", "two\n"), ("keep.tex", "k2\n"), ("extra.tex", "x\n")], "second");
         for rev in ["HEAD; rm -rf", "HEAD", "abc"] {
             assert!(show_diff(&root, rev, "a.tex").is_err(), "{rev}");
         }
         assert!(restore_file(&root, "HEAD; rm -rf", "a.tex").is_err());
         assert!(restore_project(&root, "--force").is_err());
-
+        assert!(restore_file(&root, &first, "missing.tex").is_err());
         restore_file(&root, &first, "a.tex").unwrap();
         assert_eq!(fs::read_to_string(root.join("a.tex")).unwrap(), "one\n");
-        assert!(restore_file(&root, &first, "missing.tex").is_err());
-    }
 
-    #[test]
-    fn restore_project_rewinds_worktree_and_commits() {
-        let Some(root) = repo("restore-project") else { return };
-        let first = commit(&root, &[(".gitignore", ".research/\n"), ("keep.tex", "k1\n")], "first");
-        commit(&root, &[("keep.tex", "k2\n"), ("extra.tex", "x\n")], "second");
         root.write(".research/notes.md", "notes\n");
-
         let restored = restore_project(&root, &first).unwrap();
         assert_eq!(restored, git(&root, &["rev-parse", "HEAD"]));
         assert_eq!(fs::read_to_string(root.join("keep.tex")).unwrap(), "k1\n");
@@ -525,8 +515,6 @@ mod tests {
         assert_eq!(fs::read_to_string(root.join(".research/notes.md")).unwrap(), "notes\n");
         let short = git(&root, &["rev-parse", "--short", &first]);
         assert_eq!(last_commit(&root, "%s"), format!("Restore project to {short}"));
-        assert_eq!(git(&root, &["rev-list", "--count", "HEAD"]), "3");
-
         // A second identical restore finds a clean tree and returns HEAD.
         assert_eq!(restore_project(&root, &first).unwrap(), restored);
         assert_eq!(git(&root, &["rev-list", "--count", "HEAD"]), "3");
@@ -560,15 +548,12 @@ mod tests {
             fs::write(&internal, second).unwrap();
             assert!(auto_commit(&root, "internal only", None).unwrap().is_none());
         }
-    }
 
-    #[test]
-    fn auto_commit_untracks_internal_state_committed_before_it_was_ignored() {
+        // State committed before it was ignored is untracked, not deleted.
         let Some(root) = repo("internal-untrack") else { return };
         let files = [(".research/overleaf.json", "{\"v\":1}\n"), ("paper.tex", "one\n")];
         commit(&root, &files, "first");
         assert!(!git(&root, &["ls-files", "--", ".research"]).is_empty());
-
         root.write("paper.tex", "two\n");
         auto_commit(&root, "second", None).unwrap().unwrap();
         assert_eq!(git(&root, &["ls-files", "--", ".research"]), "");
@@ -592,12 +577,9 @@ mod tests {
         assert_eq!(auto_commit(&root, "noop", None).unwrap(), None);
 
         root.write("b.tex", "two\n");
-        let hash = auto_commit(&root, "checkpoint", Some("Ada Lovelace"))
-            .unwrap()
-            .expect("expected a commit");
-        assert_eq!(hash, git(&root, &["rev-parse", "HEAD"]));
-        assert_eq!(last_commit(&root, "%an"), "Ada Lovelace");
-        assert_eq!(last_commit(&root, "%ae"), "ada-lovelace@lattice.local");
+        let hash = auto_commit(&root, "checkpoint", Some("Ada Lovelace")).unwrap();
+        assert_eq!(hash, Some(git(&root, &["rev-parse", "HEAD"])));
+        assert_eq!(last_commit(&root, "%an <%ae>"), "Ada Lovelace <ada-lovelace@lattice.local>");
     }
 
     #[test]
@@ -618,9 +600,8 @@ mod tests {
         let root = scratch("auto-bare");
         git(&root, &["init"]);
         root.write("a.tex", "one\n");
-        let hash = auto_commit(&root, "auto", None).unwrap().expect("expected a commit");
-        assert_eq!(hash, git(&root, &["rev-parse", "HEAD"]));
-        assert_eq!(last_commit(&root, "%an"), "Lattice");
-        assert_eq!(last_commit(&root, "%ae"), "lattice@local");
+        let hash = auto_commit(&root, "auto", None).unwrap();
+        assert_eq!(hash, Some(git(&root, &["rev-parse", "HEAD"])));
+        assert_eq!(last_commit(&root, "%an <%ae>"), "Lattice <lattice@local>");
     }
 }

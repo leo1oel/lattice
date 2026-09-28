@@ -1,7 +1,7 @@
 <!--
   Thanks for contributing to Lattice.
 
-  For a substantial feature, a `protocol/` change, or a large refactor, please
+  For a substantial feature, a protocol change, or a large refactor, please
   open an issue first so the direction can be discussed (see CONTRIBUTING.md).
   Small fixes and documentation improvements can come straight here.
 -->
@@ -35,8 +35,8 @@
            see docs/release-process.md. -->
 - [ ] I added or updated tests for behavior that changed.
 - [ ] The change is focused — no unrelated reformatting or drive-by refactors.
-- [ ] If I touched `collab-server/`, I also ran
-      `pnpm --dir collab-server typecheck` and `pnpm --dir collab-server test`.
+- [ ] If I touched `literature-worker/`, I also ran
+      `pnpm --dir literature-worker typecheck` and `pnpm --dir literature-worker test`.
 - [ ] If I added a dependency, adapted code from elsewhere, or bundled an asset,
       I recorded it in `THIRD_PARTY_NOTICES.md`.
 - [ ] I understand my contribution is offered under **GPL-3.0-or-later**

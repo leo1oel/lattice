@@ -1,5 +1,5 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import { useState } from "react";
 import { SlidingTabs, StateSwap } from "./motion";
 
@@ -19,35 +19,30 @@ describe("StateSwap", () => {
 });
 
 describe("SlidingTabs", () => {
-  const items = [
-    { value: "a", label: "First" },
-    { value: "b", label: "Second" },
-  ];
+  const items = [{ value: "a", label: "First" }, { value: "b", label: "Second" }];
 
   function Harness() {
     const [value, setValue] = useState("a");
     return <SlidingTabs value={value} onChange={setValue} items={items} ariaLabel="Views" />;
   }
 
-  it("marks one tab selected and reports a change", () => {
-    const onChange = vi.fn();
-    render(<SlidingTabs value="a" onChange={onChange} items={items} ariaLabel="Views" />);
-    expect(screen.getByRole("tab", { name: "First" })).toHaveAttribute("aria-selected", "true");
-    expect(screen.getByRole("tab", { name: "Second" })).toHaveAttribute("aria-selected", "false");
-
-    fireEvent.click(screen.getByRole("tab", { name: "Second" }));
-    expect(onChange).toHaveBeenCalledWith("b");
-  });
-
-  it("keeps exactly one indicator, so it moves rather than multiplies", () => {
+  it("marks one tab selected, reports changes, keeps one moving indicator, and moves focus with arrow keys", () => {
     const { container } = render(<Harness />);
+    const first = screen.getByRole("tab", { name: "First" });
+    const second = screen.getByRole("tab", { name: "Second" });
+    expect(first).toHaveAttribute("aria-selected", "true");
+    expect(second).toHaveAttribute("aria-selected", "false");
     expect(container.querySelectorAll(".sliding-tab-pill")).toHaveLength(1);
-
-    fireEvent.click(screen.getByRole("tab", { name: "Second" }));
+    // The harness only selects what onChange reports.
+    fireEvent.click(second);
+    expect(second).toHaveAttribute("aria-selected", "true");
     expect(container.querySelectorAll(".sliding-tab-pill")).toHaveLength(1);
-    expect(
-      screen.getByRole("tab", { name: "Second" }).querySelector(".sliding-tab-pill"),
-    ).not.toBeNull();
+    expect(second.querySelector(".sliding-tab-pill")).not.toBeNull();
+    fireEvent.click(first);
+    first.focus();
+    fireEvent.keyDown(first, { key: "ArrowRight" });
+    expect(second).toHaveAttribute("aria-selected", "true");
+    expect(second).toHaveFocus();
   });
 
   it("leaves selection styling to the tab when asked for no indicator", () => {
@@ -56,16 +51,5 @@ describe("SlidingTabs", () => {
     );
     expect(container.querySelector(".sliding-tab-pill")).toBeNull();
     expect(screen.getByRole("tab", { name: "First" })).toHaveClass("active");
-  });
-
-  it("moves selection and focus with tab-list arrow keys", () => {
-    render(<Harness />);
-    const first = screen.getByRole("tab", { name: "First" });
-    const second = screen.getByRole("tab", { name: "Second" });
-    first.focus();
-    fireEvent.keyDown(first, { key: "ArrowRight" });
-
-    expect(second).toHaveAttribute("aria-selected", "true");
-    expect(second).toHaveFocus();
   });
 });
