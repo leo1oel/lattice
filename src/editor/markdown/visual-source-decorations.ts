@@ -9,7 +9,7 @@ import type { Editor } from "@tiptap/react";
 import { Plugin, PluginKey } from "@tiptap/pm/state";
 import { Decoration, DecorationSet } from "@tiptap/pm/view";
 import { peerColorForKey } from "../../components/ui/collab-colors";
-import { presenceCursorColor, type PresenceCursor } from "../../overleaf/overleaf-cursors";
+import { presenceCursorColor, type PresenceCursor } from "../../overleaf/overleaf-editor-extensions";
 import type { TrackedChange } from "../../overleaf/use-overleaf-realtime";
 import { resolveCommentAnchor, type EditorComment } from "../comments/editor-comment-data";
 import { element } from "../dom-utils";

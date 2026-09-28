@@ -1,3 +1,5 @@
+import { base64UrlDecode, base64UrlEncode } from "./encoding";
+
 export const CONTROL_PROTOCOL_VERSION = 2 as const;
 export const TEXT_FILE_V2_PARTY = "text-file-v2" as const;
 
@@ -153,6 +155,5 @@ function isRevision(value: unknown): boolean {
 }
 
 function validRoomId(value: string): boolean { return /^[A-Za-z0-9_-]{16,128}$/.test(value); }
-function base64UrlText(value: string): string { return base64UrlBytes(new TextEncoder().encode(value)); }
-function base64UrlBytes(value: Uint8Array): string { return btoa(String.fromCharCode(...value)).replaceAll("+", "-").replaceAll("/", "_").replaceAll("=", ""); }
-function fromBase64UrlText(value: string): string { return new TextDecoder("utf-8", { fatal: true, ignoreBOM: false }).decode(Uint8Array.from(atob(value.replaceAll("-", "+").replaceAll("_", "/") + "===".slice((value.length + 3) % 4)), (c) => c.charCodeAt(0))); }
+function base64UrlText(value: string): string { return base64UrlEncode(new TextEncoder().encode(value)); }
+function fromBase64UrlText(value: string): string { return new TextDecoder("utf-8", { fatal: true, ignoreBOM: false }).decode(base64UrlDecode(value)); }

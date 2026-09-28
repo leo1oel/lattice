@@ -1,22 +1,81 @@
 /**
- * Wires a Lattice Share session's chat onto React state.
+ * Lattice Share project chat: the message list on the chat document, and the
+ * hook that wires it onto React state.
  *
- * There is no server to ask for history or to acknowledge a send: the Y.Array
- * on the session's doc *is* the history, kept current by the same provider
- * that syncs the editor text, so a guest who joins mid-conversation sees
- * everything the CRDT already holds without a separate fetch. Sending is just
- * a local transaction — there is nothing to await and nothing that can fail
- * the way a network request can.
+ * Messages are plain objects on a Y.Array rather than JSON packed into a
+ * Y.Text: an array's inserts merge structurally, so two people typing at once
+ * each keep their own message instead of one whole-document rewrite clobbering
+ * the other's. There is no server to ask for history or to acknowledge a send:
+ * the array *is* the history, kept current by the same provider that syncs the
+ * editor text, so a guest who joins mid-conversation sees everything the CRDT
+ * already holds without a separate fetch, and sending is just a local
+ * transaction that cannot fail the way a network request can.
  */
 import { useCallback, useEffect, useState } from "react";
-import type { Doc } from "yjs";
-import {
-  createCollabChatMessage,
-  observeCollabChatMessages,
-  readCollabChatMessages,
-  sendCollabChatMessage,
-  type CollabChatMessage,
-} from "./collab-session";
+import type * as Y from "yjs";
+import { COLLAB_LOCAL_ORIGIN } from "./collab-session";
+
+/**
+ * Catalog path of the project-wide chat document. Every file is its own Y.Doc,
+ * so chat cannot ride "the session's doc" — peers reading different files would
+ * each see a different conversation. It lives on one dedicated catalog file
+ * whose "content" Y.Text stays empty; messages ride the chat Y.Array beside it.
+ */
+export const COLLAB_CHAT_PATH = ".research/collab-chat.json";
+/** Keeps a long-running share's doc from growing without bound. */
+export const MAX_COLLAB_CHAT_MESSAGES = 500;
+
+export type CollabChatMessage = {
+  id: string;
+  authorId: string;
+  authorName: string;
+  body: string;
+  /** Milliseconds since the epoch, the sender's clock. */
+  at: number;
+};
+
+const chatArray = (doc: Y.Doc) => doc.getArray<CollabChatMessage>("chat");
+
+/** A message ready to send; the id is random so two peers typing at once never collide. */
+export function createCollabChatMessage(authorId: string, authorName: string, body: string): CollabChatMessage {
+  return { id: crypto.randomUUID(), authorId, authorName: authorName.trim() || "Anonymous", body, at: Date.now() };
+}
+
+/**
+ * Append a message and trim back to the cap in the same transaction. Two
+ * peers can each be over the cap at the same moment — every client only ever
+ * deletes from its own front, so the array settles at `<= cap` on both sides
+ * without a server arbitrating who trims first.
+ */
+export function sendCollabChatMessage(doc: Y.Doc, message: CollabChatMessage): void {
+  const chat = chatArray(doc);
+  doc.transact(() => {
+    chat.push([message]);
+    const overflow = chat.length - MAX_COLLAB_CHAT_MESSAGES;
+    if (overflow > 0) chat.delete(0, overflow);
+  }, COLLAB_LOCAL_ORIGIN);
+}
+
+/**
+ * Every entry was written by some peer's client, so an entry mid-write or from
+ * a future build is dropped rather than crash the panel. Sorted by `at` rather
+ * than array order: a guest who reconnects after being offline merges in a
+ * backlog whose CRDT insertion position does not follow wall-clock order.
+ */
+export function readCollabChatMessages(doc: Y.Doc): CollabChatMessage[] {
+  return chatArray(doc).toArray().flatMap((entry) => {
+    const { id, authorId, authorName, body, at } = (entry ?? {}) as Partial<CollabChatMessage>;
+    if (typeof id !== "string" || typeof authorId !== "string" || typeof authorName !== "string" || typeof body !== "string") return [];
+    return [{ id, authorId, authorName, body, at: typeof at === "number" ? at : 0 }];
+  }).sort((left, right) => left.at - right.at);
+}
+
+/** Fires on every chat change; callers re-read with `readCollabChatMessages`. */
+export function observeCollabChatMessages(doc: Y.Doc, onChange: () => void): () => void {
+  const chat = chatArray(doc);
+  chat.observe(onChange);
+  return () => chat.unobserve(onChange);
+}
 
 export type CollabChat = {
   messages: CollabChatMessage[];
@@ -28,7 +87,7 @@ export type CollabChat = {
 };
 
 export function useCollabChat(options: {
-  doc: Doc | null;
+  doc: Y.Doc | null;
   /** Stable per-device id used to tell "mine" from everyone else's. */
   selfId: string;
   displayName: string;

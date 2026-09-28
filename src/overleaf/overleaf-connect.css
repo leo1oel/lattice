@@ -1,20 +1,44 @@
-/* Overleaf connect section + project picker dialog.
-   Reuses Lattice's design tokens from App.css (--panel, --line, --text, --muted,
-   --faint, --accent, --danger, --success, …) so light and dark themes both work.
-   Every class here is prefixed .overleaf-. */
+/* Overleaf connect section + project picker dialog. Semantic tokens only
+   (--surface-*, --text-*, --status-*, --control-*), so light and dark themes
+   both work. Every class here is prefixed .overleaf-. */
 
-/* ---- Settings section ---------------------------------------------------- */
+/* ---- Shared ------------------------------------------------------------- */
 
-.overleaf-status-row {
-  margin-top: var(--space-6);
+/* A card: the account/link rows in Settings, and the upload offer in the picker. */
+.overleaf-status-row,
+.overleaf-publish-card {
   padding: var(--space-6);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-surface);
   background: var(--surface-panel);
+}
+
+/* A spinner beside a line of what is happening. */
+.overleaf-waiting,
+.overleaf-loading,
+.overleaf-progress {
   display: flex;
   align-items: center;
-  gap: var(--space-5);
+  gap: var(--space-4);
+  color: var(--text-secondary);
+  font-size: var(--type-caption-size);
 }
+.overleaf-waiting svg,
+.overleaf-loading svg,
+.overleaf-progress svg { flex: none; color: var(--control-active); }
+.overleaf-loading,
+.overleaf-progress { margin-top: 14px; line-height: 1.5; }
+
+.overleaf-status-row .ui-button,
+.overleaf-waiting .ui-button,
+.overleaf-publish-actions .ui-button,
+.overleaf-project-name .ui-badge,
+.overleaf-picker-controls .overleaf-checkbox,
+.overleaf-open-button { flex: none; }
+
+/* ---- Settings section ---------------------------------------------------- */
+
+.overleaf-status-row { margin-top: var(--space-6); display: flex; align-items: center; gap: var(--space-5); }
 .overleaf-dot { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--text-tertiary); }
 .overleaf-dot.connected { background: var(--status-success); }
 /* Linked but idle: neither the green of a working link nor the grey of none. */
@@ -30,7 +54,6 @@
   white-space: nowrap;
 }
 .overleaf-status-text small { display: block; margin-top: var(--space-1); color: var(--text-tertiary); font-size: var(--type-nano-size); }
-.overleaf-status-row .ui-button { flex: none; }
 
 .overleaf-connect-row { margin-top: var(--space-6); }
 .overleaf-connect-row .ui-button { width: fit-content; }
@@ -39,17 +62,15 @@
 /* Appearance is owned by `.ui-inline-message`; only the spacing is local. */
 .overleaf-inline { margin-top: var(--space-5); }
 .overleaf-retry-row { margin-top: var(--space-6); display: flex; }
+.overleaf-waiting { margin-top: var(--space-6); }
 
-.overleaf-waiting {
-  margin-top: var(--space-6);
-  display: flex;
-  align-items: center;
-  gap: var(--space-4);
-  color: var(--text-secondary);
-  font-size: var(--type-caption-size);
-}
-.overleaf-waiting svg { flex: none; color: var(--control-active); }
-.overleaf-waiting .ui-button { flex: none; }
+/* Whether the live editing channel actually came up. Without this the only
+   sign of failure is a dot that never appears. */
+.overleaf-channel { display: inline-flex; align-items: center; gap: var(--space-2); vertical-align: middle; }
+.overleaf-channel::before { content: ""; width: 6px; height: 6px; flex: none; border-radius: 50%; background: currentColor; }
+.overleaf-channel-live { color: var(--status-success); }
+.overleaf-channel-connecting { color: var(--text-secondary); }
+.overleaf-channel-error { color: var(--status-danger); }
 
 /* ---- Picker dialog -------------------------------------------------------- */
 
@@ -59,46 +80,19 @@
   display: flex;
   flex-direction: column;
 }
-.overleaf-picker-header { display: flex; align-items: flex-start; justify-content: space-between; }
-.overleaf-picker-modal h2 { margin: 14px 0 var(--space-3); font-size: var(--type-heading-size); }
 .overleaf-picker-modal > p { margin: 0 0 var(--drawer-section-gap); }
 .overleaf-picker-modal .overleaf-waiting,
 .overleaf-picker-modal .overleaf-connect-row { margin-top: var(--space-2); }
 
-.overleaf-publish-card {
-  margin-bottom: var(--drawer-section-gap);
-  padding: var(--space-6);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-surface);
-  background: var(--surface-panel);
-}
-.overleaf-publish-copy {
-  display: flex;
-  flex-direction: column;
-  gap: var(--gap-tight);
-  margin-bottom: var(--space-5);
-}
-.overleaf-publish-copy strong {
-  color: var(--text-primary);
-  font-size: var(--type-label-size);
-}
-.overleaf-publish-copy span {
-  color: var(--text-tertiary);
-  font-size: var(--type-micro-size);
-  line-height: 1.5;
-}
-.overleaf-publish-actions {
-  display: flex;
-  align-items: center;
-  gap: var(--space-4);
-}
+.overleaf-publish-card { margin-bottom: var(--drawer-section-gap); }
+.overleaf-publish-copy { display: flex; flex-direction: column; gap: var(--gap-tight); margin-bottom: var(--space-5); }
+.overleaf-publish-copy strong { color: var(--text-primary); font-size: var(--type-label-size); }
+.overleaf-publish-copy span { color: var(--text-tertiary); font-size: var(--type-micro-size); line-height: 1.5; }
+.overleaf-publish-actions { display: flex; align-items: center; gap: var(--space-4); }
 .overleaf-publish-actions .ui-input { flex: 1 1 auto; min-width: 0; }
-.overleaf-publish-actions .ui-button { flex: none; }
 
 .overleaf-picker-controls { display: flex; align-items: center; gap: var(--space-6); }
 .overleaf-search { flex: 1 1 auto; }
-/* Keep the shared inline checkbox beside the search field. */
-.overleaf-picker-controls .overleaf-checkbox { flex: none; }
 
 .overleaf-project-list-scroll {
   margin: var(--drawer-section-gap) 0 0;
@@ -107,11 +101,7 @@
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-surface);
 }
-.overleaf-project-list {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
+.overleaf-project-list { margin: 0; padding: 0; list-style: none; }
 .overleaf-project-row {
   display: flex;
   align-items: center;
@@ -140,7 +130,6 @@
   font-size: var(--type-label-size);
   font-weight: 600;
 }
-.overleaf-project-name .ui-badge { flex: none; }
 .overleaf-project-meta {
   color: var(--text-tertiary);
   font-size: var(--type-micro-size);
@@ -148,53 +137,5 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.overleaf-open-button { flex: none; }
 .overleaf-row-spinner { flex: none; color: var(--control-active); }
-
-.overleaf-loading,
-.overleaf-progress {
-  margin-top: 14px;
-  display: flex;
-  align-items: center;
-  gap: var(--space-4);
-  color: var(--text-secondary);
-  font-size: var(--type-caption-size);
-  line-height: 1.5;
-}
-.overleaf-loading svg,
-.overleaf-progress svg { flex: none; color: var(--control-active); }
 .overleaf-empty { margin: 18px 0 var(--space-3); color: var(--text-tertiary); font-size: var(--type-caption-size); line-height: 1.55; }
-
-/* Whether the live editing channel actually came up. Without this the only
-   sign of failure is a dot that never appears. */
-.overleaf-channel {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-  vertical-align: middle;
-}
-.overleaf-channel::before {
-  content: "";
-  width: 6px;
-  height: 6px;
-  flex: none;
-  border-radius: 50%;
-  background: currentColor;
-}
-.overleaf-channel-live { color: var(--status-success); }
-.overleaf-channel-connecting { color: var(--text-secondary); }
-.overleaf-channel-error { color: var(--status-danger); }
-
-/* Steady dot on the toolbar while the live channel is online or a sync is in
-   progress. It is absolutely positioned so status changes never move the
-   cloud icon or alter the button's layout. */
-.overleaf-status-dot {
-  position: absolute;
-  top: 2px;
-  right: 2px;
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--status-success);
-  box-shadow: 0 0 0 1.5px var(--surface-panel-raised);
-}

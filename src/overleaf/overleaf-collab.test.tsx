@@ -3,55 +3,28 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { activateAppLocale } from "../i18n";
 import { OverleafCollabDrawer, type OverleafCollabTab } from "./overleaf-collab";
 
-function drawer(tab: OverleafCollabTab, overrides: Partial<Parameters<typeof OverleafCollabDrawer>[0]> = {}) {
-  return (
-    <OverleafCollabDrawer
-      tab={tab}
-      onTab={vi.fn()}
-      projectName="Attention Paper"
-      onClose={vi.fn()}
-      threads={[]}
-      anchors={new Map()}
-      activeDocId={null}
-      pathForDoc={() => null}
-      documentOpen
-      commentsLoading={false}
-      commentsError={null}
-      onReply={vi.fn().mockResolvedValue(undefined)}
-      onResolve={vi.fn().mockResolvedValue(undefined)}
-      onDeleteThread={vi.fn().mockResolvedValue(undefined)}
-      onEditMessage={vi.fn().mockResolvedValue(undefined)}
-      onDeleteMessage={vi.fn().mockResolvedValue(undefined)}
-      onRevealComment={vi.fn()}
-      onReveal={vi.fn()}
-      messages={[]}
-      chatLoading={false}
-      chatError={null}
-      onSend={vi.fn().mockResolvedValue(undefined)}
-      unreadChat={0}
-      changes={[]}
-      source=""
-      changeAuthorName={() => "未知"}
-      canActOnChanges
-      changesBusy={null}
-      changesError={null}
-      onAcceptChanges={vi.fn().mockResolvedValue(undefined)}
-      onRejectChanges={vi.fn().mockResolvedValue(undefined)}
-      {...overrides}
-    />
-  );
-}
+const resolves = () => vi.fn().mockResolvedValue(undefined);
+const drawer = (tab: OverleafCollabTab, overrides: Partial<Parameters<typeof OverleafCollabDrawer>[0]> = {}) => (
+  <OverleafCollabDrawer
+    tab={tab} onTab={vi.fn()} projectName="Attention Paper" onClose={vi.fn()}
+    threads={[]} anchors={new Map()} activeDocId={null} pathForDoc={() => null} documentOpen
+    commentsLoading={false} commentsError={null} onReply={resolves()} onResolve={resolves()} onDeleteThread={resolves()}
+    onEditMessage={resolves()} onDeleteMessage={resolves()} onRevealComment={vi.fn()} onReveal={vi.fn()}
+    messages={[]} chatLoading={false} chatError={null} onSend={resolves()} unreadChat={0}
+    changes={[]} source="" changeAuthorName={() => "未知"} canActOnChanges changesBusy={null} changesError={null}
+    onAcceptChanges={resolves()} onRejectChanges={resolves()} {...overrides}
+  />
+);
 
+// test-setup.ts starts every test in English (and restores it afterwards), so
+// only the Simplified Chinese case switches locale.
 describe("Overleaf collaboration drawer localization", () => {
   afterEach(cleanup);
 
-  it("counts both sources and keeps local history accessible even without open local comments", async () => {
-    await activateAppLocale("en");
+  it("counts both sources and keeps local history accessible even without open local comments", () => {
     const props = {
       threads: [{ id: "remote", messages: [], resolved: false, resolvedBy: null, resolvedAt: null }],
-      hasLocalComments: true,
-      localCommentCount: 2,
-      localComments: <div>Unsynced file discussion</div>,
+      hasLocalComments: true, localCommentCount: 2, localComments: <div>Unsynced file discussion</div>,
     };
     const { rerender } = render(drawer("comments", props));
     expect(screen.getByRole("tab", { name: "Comments3" })).toBeInTheDocument();
@@ -64,13 +37,8 @@ describe("Overleaf collaboration drawer localization", () => {
     expect(screen.getByText("Unsynced file discussion")).toBeInTheDocument();
   });
 
-  it("opens local inline replies in the local view", async () => {
-    await activateAppLocale("en");
-    render(drawer("comments", {
-      hasLocalComments: true,
-      focusLocalComments: true,
-      localComments: <div>Local reply editor</div>,
-    }));
+  it("opens local inline replies in the local view", () => {
+    render(drawer("comments", { hasLocalComments: true, focusLocalComments: true, localComments: <div>Local reply editor</div> }));
     expect(screen.getByRole("tab", { name: "Local comments" })).toHaveAttribute("aria-selected", "true");
     expect(screen.getByText("Local reply editor")).toBeInTheDocument();
   });

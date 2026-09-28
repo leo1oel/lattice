@@ -9,11 +9,10 @@ import { playInterfaceSound } from "../telemetry/interface-sounds";
 import { isSpreadsheetPath } from "../editor/spreadsheet/spreadsheet-types";
 import { isPaperLibraryPath } from "../papers/paper-link";
 import { clearPreCollabProjectRoot, resolvePreCollabProjectRoot } from "../collab/collab-return";
+import { mergeTextIntoYText, type CollabPeer, type CollabStatus, type EditorCollabSession } from "../collab/collab-session";
 import {
-  loadCollabDisplayName, loadCollabHost, mergeTextIntoYText, resolveCollabHost, saveCollabDisplayName, saveCollabHost,
-  type CollabPeer, type CollabStatus, type EditorCollabSession,
-} from "../collab/collab-session";
-import { collabDeploymentOrigin } from "../collab/collab-config";
+  collabDeploymentOrigin, loadCollabDisplayName, resolveCollabHost, saveCollabDisplayName, saveCollabHost,
+} from "../collab/collab-config";
 import { collabCredentialStore, type CollabCredentialStore } from "../collab/collab-credentials";
 import { createProjectV2 } from "../collab/collab-import-v2";
 import { isCollabEnabled } from "../collab/collab-feature-policy";
@@ -130,7 +129,7 @@ export function useCollabV2Session(deps: CollabV2SessionDeps) {
 
   const [collabOpen, setCollabOpen] = useState(false);
   const [collabMode, setCollabMode] = useState<CollabDialogMode>("start");
-  const [collabHost, setCollabHost] = useState(loadCollabHost);
+  const [collabHost, setCollabHost] = useState(() => resolveCollabHost());
   const [collabRoom, setCollabRoom] = useState("");
   const [collabInvite, setCollabInvite] = useState("");
   const [collabName, setCollabName] = useState(loadCollabDisplayName);

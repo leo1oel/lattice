@@ -31,9 +31,8 @@ import { serializeWysiwygSelection } from "@ok-app/editor/edit-with-ai-selection
 import { EmojiInsertPopover } from "@ok-app/editor/components/EmojiInsertPopover";
 import { ImageSrcFidelity } from "../../open-knowledge-core/extensions/image-src-fidelity";
 import type { PaperSummary } from "../../app-types";
-import type { TrackedChangeTooltipActions } from "../../overleaf/overleaf-track-changes";
+import type { PresenceCursor, TrackedChangeTooltipActions } from "../../overleaf/overleaf-editor-extensions";
 import type { TrackedChange } from "../../overleaf/use-overleaf-realtime";
-import type { PresenceCursor } from "../../overleaf/overleaf-cursors";
 import { editorCommentAuthorDisplayName, resolveCommentAnchor, type EditorComment } from "../comments/editor-comment-data";
 import { notifyError } from "../../telemetry/app-notify";
 import { addAppLog, dismissAppToastByDedupeKey } from "../../telemetry/app-log-store";

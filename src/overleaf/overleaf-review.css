@@ -8,12 +8,7 @@
   gap: 14px;
 }
 
-.overleaf-review-head {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--space-6);
-}
+.overleaf-review-head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-6); }
 .overleaf-review-head h2 { margin: 0 0 var(--space-2); }
 .overleaf-review-head p { margin: 0; color: var(--text-secondary); font-size: var(--type-caption-size); line-height: 1.5; }
 
@@ -60,8 +55,11 @@
   font-weight: 650;
   color: var(--text-primary);
 }
-.overleaf-review-group h3[data-kind="conflict"] { color: var(--status-danger); }
-.overleaf-review-group h3[data-kind="incoming"] { color: var(--control-active); }
+/* The same group colours on the list headings and on each diff's header. */
+.overleaf-review-group h3[data-kind="conflict"],
+.overleaf-review-diff-kind[data-kind="conflict"] { color: var(--status-danger); }
+.overleaf-review-group h3[data-kind="incoming"],
+.overleaf-review-diff-kind[data-kind="incoming"] { color: var(--control-active); }
 .overleaf-review-group p { margin: 0 0 var(--space-3); color: var(--text-tertiary); font-size: var(--type-micro-size); line-height: 1.45; }
 .overleaf-review-group ul { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-1); }
 .overleaf-review-group button {
@@ -99,11 +97,7 @@
   border-radius: var(--radius-surface);
   background: var(--surface-app);
 }
-.overleaf-review-code-view {
-  width: 100%;
-  height: 100%;
-  overflow: auto;
-}
+.overleaf-review-code-view { width: 100%; height: 100%; overflow: auto; }
 .overleaf-review-diff-kind {
   display: inline-flex;
   align-items: center;
@@ -112,8 +106,6 @@
   font: var(--type-micro-size)/1.2 var(--ui-font);
   white-space: nowrap;
 }
-.overleaf-review-diff-kind[data-kind="conflict"] { color: var(--status-danger); }
-.overleaf-review-diff-kind[data-kind="incoming"] { color: var(--control-active); }
 .overleaf-review-empty {
   margin: 0;
   padding: var(--space-12) var(--space-8);
@@ -122,8 +114,4 @@
   text-align: center;
 }
 
-.overleaf-review-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: var(--space-4);
-}
+.overleaf-review-actions { display: flex; justify-content: flex-end; gap: var(--space-4); }

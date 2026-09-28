@@ -67,92 +67,79 @@ function memoryStore() {
 }
 
 const live = Boolean(process.env.LATTICE_COLLAB_LIVE);
+const COMMENTS = ".research/editor-comments.json";
+const noDisk = { async writeText() {}, async writeBytes() {} };
+type StartOptions = Partial<Parameters<typeof CollabProjectControllerV2.start>[0]>;
+
+/** Poll until `done` holds or ~10 s pass; the assertion that follows reports a miss. */
+async function until(done: () => boolean) {
+  for (let attempt = 0; attempt < 40 && !done(); attempt++) await settle(250);
+}
+
+const comment = (id: string, at: string) => ({
+  id, path: "main.tex", from: 0, to: 4, quote: "Hell", prefix: "", suffix: "",
+  body: id, authorId: id, authorName: id, resolved: false, replies: [],
+  createdAt: at, updatedAt: at,
+});
+
+/** Import a project as its host and start the host's controller on it. */
+async function startHost(projectName: string, options: StartOptions = {}, importSource = source()) {
+  const credentialStore = new MemoryCollabCredentialStore();
+  let record!: { projectInstanceId: string; credentialRef: string };
+  await createProjectV2({ deployment: DEPLOYMENT, projectName, source: importSource, credentialStore, onRecord: async (created) => { record = created; } });
+  const host = await CollabProjectControllerV2.start({
+    deployment: DEPLOYMENT, projectInstanceId: record.projectInstanceId, credentialRef: record.credentialRef, credentialStore,
+    permission: "host", displayName: "Ada", store: memoryStore(), eventsPollIntervalMs: 400, ...options,
+  });
+  return { host, record };
+}
+
+/** Invite a writer from `host` and start the guest's controller. */
+async function joinAsGuest(host: CollabProjectControllerV2, options: StartOptions = {}) {
+  const invite = await host.createInvitation("write");
+  const credentialStore = new MemoryCollabCredentialStore();
+  const record = await acceptCollabInvitationV2(invite, credentialStore, { projectRoot: null });
+  const guest = await CollabProjectControllerV2.start({
+    deployment: record!.host, projectInstanceId: record!.projectInstanceId, credentialRef: record!.credentialRef!, credentialStore,
+    permission: "write", displayName: "Bo", store: memoryStore(), eventsPollIntervalMs: 400, ...options,
+  });
+  return { guest, invite, record };
+}
 
 describe.skipIf(!live)("live collaboration against the local sync server", () => {
   it("imports a concurrent batch of binary files through the real coordinator and R2 path", async () => {
-    const hostStore = new MemoryCollabCredentialStore();
     const paths = Array.from({ length: 12 }, (_, index) => `figures/plot-${index}.png`);
-    const imported = await createProjectV2({
-      deployment: DEPLOYMENT,
-      projectName: "Concurrent binary import",
-      source: {
-        async inventory() {
-          return [{ path: "main.tex", kind: "text" as const }, ...paths.map((path) => ({ path, kind: "binary" as const }))];
-        },
-        async read(path) { return path === "main.tex" ? new TextEncoder().encode(MAIN_TEX) : PNG; },
+    const { host } = await startHost("Concurrent binary import", {}, {
+      async inventory() {
+        return [{ path: "main.tex", kind: "text" as const }, ...paths.map((path) => ({ path, kind: "binary" as const }))];
       },
-      credentialStore: hostStore,
-      onRecord: async () => {},
-    });
-
-    const host = await CollabProjectControllerV2.start({
-      deployment: DEPLOYMENT,
-      projectInstanceId: imported.projectInstanceId,
-      credentialRef: imported.credentialRef,
-      credentialStore: hostStore,
-      permission: "host",
-      displayName: "Ada",
-      store: memoryStore(),
+      async read(path) { return path === "main.tex" ? new TextEncoder().encode(MAIN_TEX) : PNG; },
     });
     expect(host.fileCount()).toBe(paths.length + 1);
     host.destroy();
   }, 60_000);
 
   it("host and guest see one another correctly", async () => {
-    const hostStore = new MemoryCollabCredentialStore();
-    const guestStore = new MemoryCollabCredentialStore();
     let hostPeers: CollabPeer[] = [];
     let guestPeers: CollabPeer[] = [];
     let guestPermanentError: Error | undefined;
 
     // --- host: import the project and start sharing -----------------------
-    let record!: { projectInstanceId: string; credentialRef: string };
-    const imported = await createProjectV2({
-      deployment: DEPLOYMENT,
-      projectName: "Live check",
-      source: source(),
-      credentialStore: hostStore,
-      onRecord: async (created) => { record = created; },
-    });
-    expect(imported.projectInstanceId).toBeTruthy();
-
-    const host = await CollabProjectControllerV2.start({
-      deployment: DEPLOYMENT,
-      projectInstanceId: record.projectInstanceId,
-      credentialRef: record.credentialRef,
-      credentialStore: hostStore,
-      permission: "host",
-      displayName: "Ada",
-      store: memoryStore(),
-      eventsPollIntervalMs: 400,
-      onPeers: (peers) => { hostPeers = peers; },
-    });
+    const { host, record } = await startHost("Live check", { onPeers: (peers) => { hostPeers = peers; } });
     await host.openPath("main.tex");
     expect(host.activePath).toBe("main.tex");
-    const invite = await host.createInvitation("write");
-    expect(parseCollabInvitationV2(invite)?.projectInstanceId).toBe(record.projectInstanceId);
 
     // --- guest: accept, materialize, open ---------------------------------
-    const guestRecord = await acceptCollabInvitationV2(invite, guestStore, { projectRoot: null });
-    expect(guestRecord?.credentialRef).toBeTruthy();
-
-    const guest = await CollabProjectControllerV2.start({
-      deployment: guestRecord!.host,
-      projectInstanceId: guestRecord!.projectInstanceId,
-      credentialRef: guestRecord!.credentialRef!,
-      credentialStore: guestStore,
-      permission: "write",
-      displayName: "Bo",
-      store: memoryStore(),
-      eventsPollIntervalMs: 400,
+    const { guest, invite, record: guestRecord } = await joinAsGuest(host, {
       onPeers: (peers) => { guestPeers = peers; },
       onPermanentError: (error) => { guestPermanentError = error; },
     });
+    expect(parseCollabInvitationV2(invite)?.projectInstanceId).toBe(record.projectInstanceId);
+    expect(guestRecord?.credentialRef).toBeTruthy();
 
     const written: Record<string, string> = {};
     const bytes: Record<string, number> = {};
-    const lease = { projectRoot: "/tmp/live-check", generation: 1, isCurrent: () => true };
-    const materialized = await guest.materializeProject(lease, {
+    const materialized = await guest.materializeProject({ projectRoot: "/tmp/live-check", isCurrent: () => true }, {
       async writeText(path, content) { written[path] = content; },
       async writeBytes(path, value) { bytes[path] = value.byteLength; },
     });
@@ -172,12 +159,9 @@ describe.skipIf(!live)("live collaboration against the local sync server", () =>
 
     // --- the roster each side sees ----------------------------------------
     expect(guestPeers.map((peer) => peer.name)).toEqual(["Ada"]);
-    expect(guestPeers[0].permission).toBe("host");
-    expect(guestPeers[0].path).toBe("main.tex");
-
+    expect(guestPeers[0]).toMatchObject({ permission: "host", path: "main.tex" });
     expect(hostPeers.map((peer) => peer.name)).toEqual(["Bo"]);
-    expect(hostPeers[0].permission).toBe("write");
-    expect(hostPeers[0].path).toBe("main.tex");
+    expect(hostPeers[0]).toMatchObject({ permission: "write", path: "main.tex" });
 
     // Editing on one side reaches the other.
     guest.setActivePath("main.tex").insert(0, "% guest edit\n");
@@ -187,7 +171,7 @@ describe.skipIf(!live)("live collaboration against the local sync server", () =>
     // Ending the room fences every open text socket. The guest must receive
     // the permanent reason immediately rather than waiting for catalog polling.
     await host.close();
-    for (let i = 0; i < 40 && !guestPermanentError; i++) await settle(250);
+    await until(() => !!guestPermanentError);
     expect(guestPermanentError).toMatchObject({ code: "project_closed" });
     expect(guest.canWrite).toBe(false);
 
@@ -200,44 +184,22 @@ describe.skipIf(!live)("live collaboration against the local sync server", () =>
   // hears another word. That is what made one peer's resolve invisible to the
   // other. openCommentsDoc pins it for the session.
   it("keeps the comments document alive under open-file pressure", async () => {
-    const hostStore = new MemoryCollabCredentialStore();
-    const make = (id: string, at: string, resolved = false) => ({
-      id, path: "main.tex", from: 0, to: 4, quote: "Hell", prefix: "", suffix: "",
-      body: id, authorId: id, authorName: id, resolved, replies: [],
-      createdAt: at, updatedAt: at,
-    });
-
-    let record!: { projectInstanceId: string; credentialRef: string };
-    await createProjectV2({
-      deployment: DEPLOYMENT, projectName: "Pinning", source: source(),
-      credentialStore: hostStore, onRecord: async (created) => { record = created; },
-    });
-    const host = await CollabProjectControllerV2.start({
-      deployment: DEPLOYMENT, projectInstanceId: record.projectInstanceId,
-      credentialRef: record.credentialRef, credentialStore: hostStore,
-      permission: "host", displayName: "Ada", store: memoryStore(),
-      eventsPollIntervalMs: 400,
-      // Smaller than the number of files this project has, so eviction is certain.
-      poolCapacity: 1,
-    });
-    host.bindWorkspace({ projectRoot: "/tmp/live-pin", isCurrent: () => true }, {
-      async writeText() {}, async writeBytes() {},
-    });
+    // Smaller than the number of files this project has, so eviction is certain.
+    const { host } = await startHost("Pinning", { poolCapacity: 1 });
+    host.bindWorkspace({ projectRoot: "/tmp/live-pin", isCurrent: () => true }, noDisk);
 
     const doc = await host.openCommentsDoc();
     expect(doc).not.toBeNull();
-    writeCollabComments(doc!, [make("c1", "2026-01-01T00:00:00.000Z")], []);
+    writeCollabComments(doc!, [comment("c1", "2026-01-01T00:00:00.000Z")], []);
 
     // Churn every other file through the pool.
     for (const path of host.catalogTextPaths()) {
-      if (path === ".research/editor-comments.json") continue;
-      await host.openPath(path, "secondary", { sideload: true });
+      if (path !== COMMENTS) await host.openPath(path, "secondary", { sideload: true });
     }
 
     // Same document, still holding the comment — not a resurrected empty one.
     expect(await host.openCommentsDoc()).toBe(doc);
     expect(readCollabComments(doc!).map((c) => c.id)).toEqual(["c1"]);
-
     host.destroy();
   }, 60_000);
 
@@ -246,106 +208,53 @@ describe.skipIf(!live)("live collaboration against the local sync server", () =>
   // someone writes the first comment during a share. If a peer never learns
   // about that file, their comments panel can never observe it.
   it("keeps both peers' comments and propagates a delete over the wire", async () => {
-    const hostStore = new MemoryCollabCredentialStore();
-    const guestStore = new MemoryCollabCredentialStore();
-    const COMMENTS = ".research/editor-comments.json";
-    const make = (id: string, at: string) => ({
-      id, path: "main.tex", from: 0, to: 4, quote: "Hell", prefix: "", suffix: "",
-      body: id, authorId: id, authorName: id, resolved: false, replies: [],
-      createdAt: at, updatedAt: at,
-    });
-
-    let record!: { projectInstanceId: string; credentialRef: string };
-    await createProjectV2({
-      deployment: DEPLOYMENT, projectName: "Comments", source: source(),
-      credentialStore: hostStore, onRecord: async (created) => { record = created; },
-    });
-    const host = await CollabProjectControllerV2.start({
-      deployment: DEPLOYMENT, projectInstanceId: record.projectInstanceId,
-      credentialRef: record.credentialRef, credentialStore: hostStore,
-      permission: "host", displayName: "Ada", store: memoryStore(), eventsPollIntervalMs: 400,
-    });
+    const { host } = await startHost("Comments");
     await host.openPath("main.tex");
-    host.bindWorkspace({ projectRoot: "/tmp/live-comments-host", isCurrent: () => true }, {
-      async writeText() {}, async writeBytes() {},
-    });
-    const invite = await host.createInvitation("write");
-    const guestRecord = await acceptCollabInvitationV2(invite, guestStore, { projectRoot: null });
-    const guest = await CollabProjectControllerV2.start({
-      deployment: guestRecord!.host, projectInstanceId: guestRecord!.projectInstanceId,
-      credentialRef: guestRecord!.credentialRef!, credentialStore: guestStore,
-      permission: "write", displayName: "Bo", store: memoryStore(), eventsPollIntervalMs: 400,
-    });
-    await guest.materializeProject(
-      { projectRoot: "/tmp/live-comments-guest", isCurrent: () => true },
-      { async writeText() {}, async writeBytes() {} },
-    );
+    host.bindWorkspace({ projectRoot: "/tmp/live-comments-host", isCurrent: () => true }, noDisk);
+    const { guest } = await joinAsGuest(host);
+    await guest.materializeProject({ projectRoot: "/tmp/live-comments-guest", isCurrent: () => true }, noDisk);
 
     // The host writes the first comment, which is what registers the file.
     await host.create(COMMENTS, "text", { seedText: "", adoptExisting: true });
     const hostDoc = (await host.openPath(COMMENTS, "secondary", { sideload: true })).doc!;
-    writeCollabComments(hostDoc, [make("a1", "2026-01-01T00:00:00.000Z")], []);
+    writeCollabComments(hostDoc, [comment("a1", "2026-01-01T00:00:00.000Z")], []);
 
-    for (let i = 0; i < 40 && !guest.hasTextPath(COMMENTS); i++) await settle(250);
+    await until(() => guest.hasTextPath(COMMENTS));
     const guestDoc = (await guest.openPath(COMMENTS, "secondary", { sideload: true })).doc!;
-    for (let i = 0; i < 40 && readCollabComments(guestDoc).length === 0; i++) await settle(250);
-    expect(readCollabComments(guestDoc).map((c) => c.id)).toEqual(["a1"]);
+    const ids = (doc: typeof hostDoc) => readCollabComments(doc).map((c) => c.id);
+    await until(() => ids(guestDoc).length > 0);
+    expect(ids(guestDoc)).toEqual(["a1"]);
 
     // The guest adds its own without having to echo the host's back.
-    writeCollabComments(guestDoc, [...readCollabComments(guestDoc), make("b1", "2026-01-01T00:00:01.000Z")], readCollabComments(guestDoc));
-    for (let i = 0; i < 40 && readCollabComments(hostDoc).length < 2; i++) await settle(250);
-    expect(readCollabComments(hostDoc).map((c) => c.id)).toEqual(["a1", "b1"]);
+    writeCollabComments(guestDoc, [...readCollabComments(guestDoc), comment("b1", "2026-01-01T00:00:01.000Z")], readCollabComments(guestDoc));
+    await until(() => ids(hostDoc).length >= 2);
+    expect(ids(hostDoc)).toEqual(["a1", "b1"]);
 
     // Deleting reaches the other side and stays deleted.
     writeCollabComments(hostDoc, readCollabComments(hostDoc).filter((c) => c.id !== "a1"), readCollabComments(hostDoc));
-    for (let i = 0; i < 40 && readCollabComments(guestDoc).length > 1; i++) await settle(250);
-    expect(readCollabComments(guestDoc).map((c) => c.id)).toEqual(["b1"]);
+    await until(() => ids(guestDoc).length <= 1);
+    expect(ids(guestDoc)).toEqual(["b1"]);
 
     guest.destroy();
     host.destroy();
   }, 60_000);
 
   it("makes a file created mid-share visible to the other peer", async () => {
-    const hostStore = new MemoryCollabCredentialStore();
-    const guestStore = new MemoryCollabCredentialStore();
-    const COMMENTS = ".research/editor-comments.json";
     const payload = JSON.stringify({ schemaVersion: 1, comments: [{ id: "c1", body: "hh" }] });
-
-    let record!: { projectInstanceId: string; credentialRef: string };
-    await createProjectV2({
-      deployment: DEPLOYMENT, projectName: "Mid-share create", source: source(),
-      credentialStore: hostStore, onRecord: async (created) => { record = created; },
-    });
-    const host = await CollabProjectControllerV2.start({
-      deployment: DEPLOYMENT, projectInstanceId: record.projectInstanceId,
-      credentialRef: record.credentialRef, credentialStore: hostStore,
-      permission: "host", displayName: "Ada", store: memoryStore(), eventsPollIntervalMs: 400,
-    });
+    const { host } = await startHost("Mid-share create");
     await host.openPath("main.tex");
-    const invite = await host.createInvitation("write");
-
-    const guestRecord = await acceptCollabInvitationV2(invite, guestStore, { projectRoot: null });
-    const guest = await CollabProjectControllerV2.start({
-      deployment: guestRecord!.host, projectInstanceId: guestRecord!.projectInstanceId,
-      credentialRef: guestRecord!.credentialRef!, credentialStore: guestStore,
-      permission: "write", displayName: "Bo", store: memoryStore(), eventsPollIntervalMs: 400,
-    });
-    const lease = { projectRoot: "/tmp/live-check-2", generation: 1, isCurrent: () => true };
-    await guest.materializeProject(lease, { async writeText() {}, async writeBytes() {} });
+    const { guest } = await joinAsGuest(host);
+    await guest.materializeProject({ projectRoot: "/tmp/live-check-2", isCurrent: () => true }, noDisk);
 
     expect(host.hasTextPath(COMMENTS)).toBe(false);
-    host.bindWorkspace({ projectRoot: "/tmp/live-check-host", isCurrent: () => true }, {
-      async writeText() {}, async writeBytes() {},
-    });
+    host.bindWorkspace({ projectRoot: "/tmp/live-check-host", isCurrent: () => true }, noDisk);
     await host.create(COMMENTS, "text", { seedText: payload, adoptExisting: true });
     expect(host.hasTextPath(COMMENTS)).toBe(true);
 
     // The guest learns about it through the coordinator's event stream.
-    for (let attempt = 0; attempt < 40 && !guest.hasTextPath(COMMENTS); attempt++) await settle(250);
+    await until(() => guest.hasTextPath(COMMENTS));
     expect(guest.hasTextPath(COMMENTS)).toBe(true);
-
-    const seen = await guest.openPath(COMMENTS, "secondary", { sideload: true });
-    expect(seen.toString()).toContain("hh");
+    expect((await guest.openPath(COMMENTS, "secondary", { sideload: true })).toString()).toContain("hh");
 
     guest.destroy();
     host.destroy();

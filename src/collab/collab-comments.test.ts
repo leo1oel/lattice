@@ -11,22 +11,13 @@ import { serializeEditorComments, type EditorComment } from "../editor/comments/
 
 function comment(id: string, body: string, createdAt = "2026-01-01T00:00:00.000Z"): EditorComment {
   return {
-    id,
-    path: "main.tex",
-    from: 0,
-    to: 4,
-    quote: "text",
-    prefix: "",
-    suffix: "",
-    body,
-    authorId: `author-${id}`,
-    authorName: "Ada",
-    resolved: false,
-    replies: [],
-    createdAt,
-    updatedAt: createdAt,
+    id, path: "main.tex", from: 0, to: 4, quote: "text", prefix: "", suffix: "", body,
+    authorId: `author-${id}`, authorName: "Ada", resolved: false, replies: [], createdAt, updatedAt: createdAt,
   };
 }
+
+const ids = (doc: Y.Doc) => readCollabComments(doc).map((item) => item.id);
+const bodies = (doc: Y.Doc) => readCollabComments(doc).map((item) => item.body);
 
 /** Exchange updates both ways, the way two connected peers converge. */
 function sync(a: Y.Doc, b: Y.Doc) {
@@ -36,8 +27,7 @@ function sync(a: Y.Doc, b: Y.Doc) {
 
 describe("shared editor comments", () => {
   it("keeps both peers' comments when they add at the same time", () => {
-    const a = new Y.Doc();
-    const b = new Y.Doc();
+    const [a, b] = [new Y.Doc(), new Y.Doc()];
     const first = comment("a1", "from A", "2026-01-01T00:00:00.000Z");
     const second = comment("b1", "from B", "2026-01-01T00:00:01.000Z");
 
@@ -47,13 +37,12 @@ describe("shared editor comments", () => {
     writeCollabComments(b, [second], []);
     sync(a, b);
 
-    expect(readCollabComments(a).map((item) => item.body)).toEqual(["from A", "from B"]);
-    expect(readCollabComments(b).map((item) => item.body)).toEqual(["from A", "from B"]);
+    expect(bodies(a)).toEqual(["from A", "from B"]);
+    expect(bodies(b)).toEqual(["from A", "from B"]);
   });
 
   it("propagates a delete instead of resurrecting it on the next merge", () => {
-    const a = new Y.Doc();
-    const b = new Y.Doc();
+    const [a, b] = [new Y.Doc(), new Y.Doc()];
     const one = comment("a1", "keep");
     const two = comment("a2", "remove", "2026-01-01T00:00:01.000Z");
     writeCollabComments(a, [one, two], []);
@@ -62,17 +51,16 @@ describe("shared editor comments", () => {
 
     writeCollabComments(a, [one], [one, two]);
     sync(a, b);
-    expect(readCollabComments(b).map((item) => item.id)).toEqual(["a1"]);
+    expect(ids(b)).toEqual(["a1"]);
 
     // B writing its own view afterwards must not bring the deleted one back.
     writeCollabComments(b, readCollabComments(b), readCollabComments(b));
     sync(a, b);
-    expect(readCollabComments(a).map((item) => item.id)).toEqual(["a1"]);
+    expect(ids(a)).toEqual(["a1"]);
   });
 
   it("never deletes a comment this client had not seen", () => {
-    const a = new Y.Doc();
-    const b = new Y.Doc();
+    const [a, b] = [new Y.Doc(), new Y.Doc()];
     const mine = comment("a1", "mine");
     writeCollabComments(a, [mine], []);
     sync(a, b);
@@ -82,7 +70,7 @@ describe("shared editor comments", () => {
     writeCollabComments(a, [{ ...mine, body: "mine edited" }], [mine]);
     sync(a, b);
 
-    expect(readCollabComments(a).map((item) => item.body)).toEqual(["mine edited", "theirs"]);
+    expect(bodies(a)).toEqual(["mine edited", "theirs"]);
   });
 
   it("adopts a room whose comments predate the map exactly once", () => {
@@ -90,7 +78,7 @@ describe("shared editor comments", () => {
     doc.getText("content").insert(0, serializeEditorComments([comment("legacy", "old")]));
 
     expect(seedCollabCommentsFromContent(doc)).toBe(true);
-    expect(readCollabComments(doc).map((item) => item.id)).toEqual(["legacy"]);
+    expect(ids(doc)).toEqual(["legacy"]);
     // Already imported: a second peer attaching must not re-add what was deleted.
     expect(seedCollabCommentsFromContent(doc)).toBe(false);
 
@@ -110,6 +98,6 @@ describe("shared editor comments", () => {
     const doc = new Y.Doc();
     writeCollabComments(doc, [comment("a1", "ok")], []);
     collabCommentsMap(doc).set("junk", { id: "junk" } as unknown as EditorComment);
-    expect(readCollabComments(doc).map((item) => item.id)).toEqual(["a1"]);
+    expect(ids(doc)).toEqual(["a1"]);
   });
 });

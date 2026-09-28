@@ -1,27 +1,17 @@
 import { createElement } from "react";
 import { act, render, renderHook } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { invoke } from "@tauri-apps/api/core";
-import { listen } from "@tauri-apps/api/event";
+import { invokeCalls, mockInvoke, mockListen } from "../platform/tauri-test-mocks";
 import { useOverleafPresence, type PresenceUser } from "./use-overleaf-presence";
 import { OverleafPresenceAvatars } from "./overleaf-presence";
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
 vi.mock("@tauri-apps/api/event", () => ({ listen: vi.fn() }));
 
-function peer(overrides: Partial<PresenceUser> = {}): PresenceUser {
-  return {
-    id: "conn-2",
-    userId: "user-2",
-    name: "Ada Lovelace",
-    email: "ada@example.edu",
-    docId: "doc-1",
-    row: 4,
-    column: 2,
-    hue: 200,
-    ...overrides,
-  };
-}
+const peer = (overrides: Partial<PresenceUser> = {}): PresenceUser => ({
+  id: "conn-2", userId: "user-2", name: "Ada Lovelace", email: "ada@example.edu", docId: "doc-1", row: 4, column: 2, hue: 200, ...overrides,
+});
 
 /** Flush the microtask queue enough times for a chained `invoke().then()` to land. */
 async function flush() {
@@ -31,125 +21,70 @@ async function flush() {
   });
 }
 
+let emit: (payload: unknown) => void;
+let connectedUsers: PresenceUser[];
+
+beforeEach(() => {
+  vi.mocked(invoke).mockReset();
+  emit = mockListen();
+  connectedUsers = [peer(), peer({ id: "self-1", name: "Robin" })];
+  mockInvoke({ overleaf_rt_connected_users: () => connectedUsers, overleaf_rt_update_position: undefined });
+});
+
+type Options = Parameters<typeof useOverleafPresence>[0];
+
+function mountPresence(overrides: Partial<Options> = {}) {
+  return renderHook((props: Partial<Options>) => useOverleafPresence({
+    projectRoot: "/tmp/project",
+    docId: "doc-1",
+    selfId: "self-1",
+    readCaret: () => ({ row: 0, column: 0 }),
+    ...props,
+  }), { initialProps: overrides });
+}
+
+const inProject = (payload: Record<string, unknown>, projectRoot = "/tmp/project") => emit({ projectRoot, ...payload });
+
 describe("useOverleafPresence roster", () => {
-  let emit: ((event: { payload: unknown }) => void) | null;
-  let connectedUsers: PresenceUser[];
-
-  beforeEach(() => {
-    emit = null;
-    connectedUsers = [peer(), peer({ id: "self-1", name: "Robin" })];
-    vi.mocked(listen).mockReset();
-    vi.mocked(listen).mockImplementation(async (_name, handler) => {
-      emit = handler as (event: { payload: unknown }) => void;
-      return () => {};
-    });
-    vi.mocked(invoke).mockReset();
-    vi.mocked(invoke).mockImplementation(async (command) => {
-      if (command === "overleaf_rt_connected_users") return connectedUsers;
-      if (command === "overleaf_rt_update_position") return undefined;
-      throw new Error(`Unexpected command: ${command}`);
-    });
-  });
-
-  it("seeds from connected_users and drops our own entry", async () => {
-    const { result } = renderHook(() => useOverleafPresence({
-      projectRoot: "/tmp/project",
-      docId: "doc-1",
-      selfId: "self-1",
-      readCaret: () => ({ row: 0, column: 0 }),
-    }));
+  it.each([
+    ["removes someone once they leave", { type: "presenceLeft", id: "conn-2" }],
+    ["clears the roster once the channel reports disconnected", { type: "disconnected", reason: "network" }],
+  ])("seeds from connected_users, drops our own entry, and %s", async (_label, event) => {
+    const { result } = mountPresence();
     await flush();
-    expect(invoke).toHaveBeenCalledWith("overleaf_rt_connected_users", {
-      projectRoot: "/tmp/project",
-    });
-    expect(result.current.peers).toHaveLength(1);
-    expect(result.current.peers[0].id).toBe("conn-2");
-  });
+    expect(invoke).toHaveBeenCalledWith("overleaf_rt_connected_users", { projectRoot: "/tmp/project" });
+    expect(result.current.peers.map((entry) => entry.id)).toEqual(["conn-2"]);
 
-  it("removes someone once they leave", async () => {
-    const { result } = renderHook(() => useOverleafPresence({
-      projectRoot: "/tmp/project",
-      docId: "doc-1",
-      selfId: "self-1",
-      readCaret: () => ({ row: 0, column: 0 }),
-    }));
-    await flush();
-    expect(result.current.peers).toHaveLength(1);
-
-    await act(async () => {
-      emit?.({ payload: { projectRoot: "/tmp/project", type: "presenceLeft", id: "conn-2" } });
-    });
+    inProject(event);
     expect(result.current.peers).toHaveLength(0);
   });
 
   it("filters our own presenceUpdated echo", async () => {
     connectedUsers = [];
-    const { result } = renderHook(() => useOverleafPresence({
-      projectRoot: "/tmp/project",
-      docId: "doc-1",
-      selfId: "self-1",
-      readCaret: () => ({ row: 0, column: 0 }),
-    }));
+    const { result } = mountPresence();
     await flush();
+    inProject({ type: "presenceUpdated", user: peer({ id: "self-1", name: "Robin" }) });
     expect(result.current.peers).toHaveLength(0);
-
-    await act(async () => {
-      emit?.({ payload: { projectRoot: "/tmp/project", type: "presenceUpdated", user: peer({ id: "self-1", name: "Robin" }) } });
-    });
-    expect(result.current.peers.some((entry) => entry.id === "self-1")).toBe(false);
-
-    await act(async () => {
-      emit?.({ payload: { projectRoot: "/tmp/project", type: "presenceUpdated", user: peer({ id: "conn-3", name: "Grace Hopper" }) } });
-    });
+    inProject({ type: "presenceUpdated", user: peer({ id: "conn-3", name: "Grace Hopper" }) });
     expect(result.current.peers.map((entry) => entry.id)).toEqual(["conn-3"]);
-  });
-
-  it("clears the roster once the channel reports disconnected", async () => {
-    const { result } = renderHook(() => useOverleafPresence({
-      projectRoot: "/tmp/project",
-      docId: "doc-1",
-      selfId: "self-1",
-      readCaret: () => ({ row: 0, column: 0 }),
-    }));
-    await flush();
-    expect(result.current.peers).toHaveLength(1);
-
-    await act(async () => {
-      emit?.({ payload: { projectRoot: "/tmp/project", type: "disconnected", reason: "network" } });
-    });
-    expect(result.current.peers).toHaveLength(0);
   });
 
   it.each(["presenceUpdated", "presenceLeft", "disconnected"])(
     "ignores a previous project's %s after switching between linked projects",
     async (type) => {
-      const { result, rerender } = renderHook(
-        ({ projectRoot }) => useOverleafPresence({
-          projectRoot, docId: null, selfId: "self-1",
-          readCaret: () => ({ row: 0, column: 0 }),
-        }),
-        { initialProps: { projectRoot: "/project-A" } },
-      );
+      const { result, rerender } = mountPresence({ projectRoot: "/project-A", docId: null });
       await flush();
       const currentPeer = peer({ id: "connection-B", docId: "document-B" });
       connectedUsers = [currentPeer];
-      rerender({ projectRoot: "/project-B" });
+      rerender({ projectRoot: "/project-B", docId: null });
       await flush();
       expect(result.current.peers).toEqual([currentPeer]);
 
-      await act(async () => {
-        emit?.({ payload: {
-          projectRoot: "/project-A", type,
-          user: peer({ id: "connection-A", docId: "document-A" }),
-          id: currentPeer.id,
-        } });
-      });
+      inProject({ type, user: peer({ id: "connection-A", docId: "document-A" }), id: currentPeer.id }, "/project-A");
       expect(result.current.peers).toEqual([currentPeer]);
 
       // A current-project event still works, including for the same account.
-      await act(async () => {
-        emit?.({ payload: { projectRoot: "/project-B", type: "presenceLeft", id: currentPeer.id } });
-      });
+      inProject({ type: "presenceLeft", id: currentPeer.id }, "/project-B");
       expect(result.current.peers).toEqual([]);
     },
   );
@@ -157,12 +92,9 @@ describe("useOverleafPresence roster", () => {
   it("keeps the avatar toolbar scoped when the same collaborator has connections in two projects", async () => {
     function Toolbar({ projectRoot }: { projectRoot: string }) {
       const { peers } = useOverleafPresence({
-        projectRoot, docId: null, selfId: "self-1",
-        readCaret: () => ({ row: 0, column: 0 }),
+        projectRoot, docId: null, selfId: "self-1", readCaret: () => ({ row: 0, column: 0 }),
       });
-      return createElement(OverleafPresenceAvatars, {
-        peers, pathForDoc: (id) => id, onJump: () => {},
-      });
+      return createElement(OverleafPresenceAvatars, { peers, pathForDoc: (id) => id, onJump: () => {} });
     }
     const view = render(createElement(Toolbar, { projectRoot: "/project-A" }));
     await flush();
@@ -170,151 +102,65 @@ describe("useOverleafPresence roster", () => {
     connectedUsers = [peer({ id: "connection-B", docId: "document-B" })];
     view.rerender(createElement(Toolbar, { projectRoot: "/project-B" }));
     await flush();
-    await act(async () => {
-      emit?.({ payload: {
-        projectRoot: "/project-A", type: "presenceUpdated",
-        user: peer({ docId: "document-A" }),
-      } });
-    });
+    inProject({ type: "presenceUpdated", user: peer({ docId: "document-A" }) }, "/project-A");
     expect(view.getAllByRole("button")).toHaveLength(1);
     expect(view.getByRole("button")).toHaveAttribute("title", "Ada Lovelace · document-B — click to jump there");
     view.unmount();
   });
 
   it("clears collaborators and ignores stale events after leaving a linked project", async () => {
-    const { result, rerender } = renderHook(
-      ({ projectRoot }) => useOverleafPresence({
-        projectRoot,
-        docId: projectRoot ? "doc-1" : null,
-        selfId: projectRoot ? "self-1" : null,
-        readCaret: () => ({ row: 0, column: 0 }),
-      }),
-      { initialProps: { projectRoot: "/tmp/overleaf-project" as string | null } },
-    );
+    const { result, rerender } = mountPresence({ projectRoot: "/tmp/overleaf-project" });
     await flush();
     expect(result.current.peers).toHaveLength(1);
 
-    rerender({ projectRoot: null });
+    rerender({ projectRoot: null, docId: null, selfId: null });
     expect(result.current.peers).toHaveLength(0);
-
-    await act(async () => {
-      emit?.({ payload: { projectRoot: "/tmp/overleaf-project", type: "presenceUpdated", user: peer({ id: "late-peer" }) } });
-    });
+    inProject({ type: "presenceUpdated", user: peer({ id: "late-peer" }) }, "/tmp/overleaf-project");
     expect(result.current.peers).toHaveLength(0);
   });
 });
 
 describe("useOverleafPresence publish", () => {
-  let emit: ((event: { payload: unknown }) => void) | null;
-
   beforeEach(() => {
-    emit = null;
+    connectedUsers = [];
     vi.useFakeTimers();
-    vi.mocked(listen).mockReset();
-    vi.mocked(listen).mockImplementation(async (_name, handler) => {
-      emit = handler as (event: { payload: unknown }) => void;
-      return () => {};
-    });
-    vi.mocked(invoke).mockReset();
-    vi.mocked(invoke).mockImplementation(async (command) => {
-      if (command === "overleaf_rt_connected_users") return [];
-      if (command === "overleaf_rt_update_position") return undefined;
-      throw new Error(`Unexpected command: ${command}`);
-    });
   });
 
-  afterEach(() => {
-    vi.useRealTimers();
-  });
+  const sentPositions = () => invokeCalls("overleaf_rt_update_position") as Array<{ row: number; column: number }>;
+  const advance = (ms: number) => act(async () => { await vi.advanceTimersByTimeAsync(ms); });
 
-  function updatePositionCalls() {
-    return vi.mocked(invoke).mock.calls.filter(([command]) => command === "overleaf_rt_update_position");
-  }
+  it("publishes once immediately when a document is joined, even at 0:0 before any move, then the live caret on the keepalive", async () => {
+    let caret = { row: 0, column: 0 };
+    mountPresence({ readCaret: () => caret });
+    await act(async () => { await Promise.resolve(); });
+    expect(sentPositions()).toEqual([{ projectRoot: "/tmp/project", docId: "doc-1", row: 0, column: 0 }]);
 
-  it("publishes once immediately when a document is joined, even before any move", async () => {
-    renderHook(() => useOverleafPresence({
-      projectRoot: "/tmp/project",
-      docId: "doc-1",
-      selfId: "self-1",
-      readCaret: () => ({ row: 0, column: 0 }),
-    }));
-    await act(async () => {
-      await Promise.resolve();
-    });
-    const calls = updatePositionCalls();
-    expect(calls).toHaveLength(1);
-    expect(calls[0][1]).toEqual({
-      projectRoot: "/tmp/project",
-      docId: "doc-1",
-      row: 0,
-      column: 0,
-    });
+    caret = { row: 7, column: 3 };
+    await advance(4 * 60 * 1000);
+    expect(sentPositions()).toHaveLength(2);
+    expect(sentPositions().at(-1)).toEqual({ projectRoot: "/tmp/project", docId: "doc-1", row: 7, column: 3 });
   });
 
   it("debounces at 500ms when someone else is present, 5 minutes when alone", async () => {
-    const { result } = renderHook(() => useOverleafPresence({
-      projectRoot: "/tmp/project",
-      docId: "doc-1",
-      selfId: "self-1",
-      readCaret: () => ({ row: 0, column: 0 }),
-    }));
-    await act(async () => {
-      await Promise.resolve();
-    });
-    // A keepalive tick can land inside these windows too (it fires on its own
-    // 4-minute clock regardless of the debounce), so assert on which position
-    // went out rather than on a raw call count.
-    const sentPositions = () => updatePositionCalls().map(([, args]) => args as { row: number; column: number });
+    const { result } = mountPresence();
+    await act(async () => { await Promise.resolve(); });
+    // A keepalive tick can land inside these windows too, so assert on which
+    // position went out rather than on a raw call count.
+    const sent = (row: number, column: number) => sentPositions().some((p) => p.row === row && p.column === column);
 
+    // Alone: Overleaf's own client is this patient once nobody can see the caret.
     act(() => result.current.publish(1, 2));
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(5 * 60 * 1000 - 1);
-    });
-    // Alone (no peers), so the move to (1, 2) should not have gone out yet
-    // even after nearly five minutes — Overleaf's own client is exactly this
-    // patient once nobody else is around to see the caret move.
-    expect(sentPositions().some((p) => p.row === 1 && p.column === 2)).toBe(false);
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(2);
-    });
-    expect(sentPositions().some((p) => p.row === 1 && p.column === 2)).toBe(true);
+    await advance(5 * 60 * 1000 - 1);
+    expect(sent(1, 2)).toBe(false);
+    await advance(2);
+    expect(sent(1, 2)).toBe(true);
 
-    // Someone else joins: the debounce should now be the quick 500ms one.
-    await act(async () => {
-      emit?.({ payload: { projectRoot: "/tmp/project", type: "presenceUpdated", user: peer() } });
-    });
+    // Someone else joins: the debounce is now the quick 500ms one.
+    inProject({ type: "presenceUpdated", user: peer() });
     act(() => result.current.publish(3, 4));
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(499);
-    });
-    expect(sentPositions().some((p) => p.row === 3 && p.column === 4)).toBe(false);
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(2);
-    });
-    expect(sentPositions().some((p) => p.row === 3 && p.column === 4)).toBe(true);
-  });
-
-  it("re-publishes on the keepalive interval", async () => {
-    renderHook(() => useOverleafPresence({
-      projectRoot: "/tmp/project",
-      docId: "doc-1",
-      selfId: "self-1",
-      readCaret: () => ({ row: 7, column: 3 }),
-    }));
-    await act(async () => {
-      await Promise.resolve();
-    });
-    const before = updatePositionCalls().length;
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(4 * 60 * 1000);
-    });
-    const calls = updatePositionCalls();
-    expect(calls.length).toBe(before + 1);
-    expect(calls[calls.length - 1][1]).toEqual({
-      projectRoot: "/tmp/project",
-      docId: "doc-1",
-      row: 7,
-      column: 3,
-    });
+    await advance(499);
+    expect(sent(3, 4)).toBe(false);
+    await advance(2);
+    expect(sent(3, 4)).toBe(true);
   });
 });

@@ -30,16 +30,9 @@ const wholeFile = [
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
 vi.mock("@pierre/diffs/edit", () => ({ Editor: class {} }));
-vi.mock("./file-diff-view", () => ({
+vi.mock("./pierre-diff", async () => ({
   PIERRE_UNSAFE_CSS: "pierre styles",
-  usePierreResources: () => ({
-    error: undefined,
-    language: "tex",
-    preloadKey: "github-light:tex",
-    ready: true,
-    theme: "light",
-    themeName: "github-light",
-  }),
+  usePierreResources: (await import("./pierre-test-mocks")).readyPierreResources,
 }));
 vi.mock("@pierre/diffs/react", () => ({
   EditProvider: ({ children }: { children: ReactNode }) => children,

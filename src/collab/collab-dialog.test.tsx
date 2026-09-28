@@ -2,7 +2,7 @@ import { cleanup, fireEvent, render, screen, within } from "@testing-library/rea
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { registerConfirmActionHandler } from "../app-utils";
 import { CollabDialog } from "./collab-dialog";
-import type { CollabChatMessage } from "./collab-session";
+import type { CollabProjectRecordV2 } from "./collab-rooms";
 
 function baseProps() {
   return {
@@ -19,28 +19,18 @@ function baseProps() {
     peerCount: 1,
     fileCount: 4,
     connectedRoom: "LT-ABC123",
-    onClose: vi.fn(),
-    onModeChange: vi.fn(),
-    onRoomChange: vi.fn(),
-    onDisplayNameChange: vi.fn(),
-    onProjectNameChange: vi.fn(),
-    onInviteChange: vi.fn(),
-    onStartShare: vi.fn(),
-    onJoinShare: vi.fn(),
-    onDisconnect: vi.fn(),
-    onCopyInvite: vi.fn(),
+    onClose: vi.fn(), onModeChange: vi.fn(), onRoomChange: vi.fn(), onDisplayNameChange: vi.fn(),
+    onProjectNameChange: vi.fn(), onInviteChange: vi.fn(), onStartShare: vi.fn(), onJoinShare: vi.fn(),
+    onDisconnect: vi.fn(), onCopyInvite: vi.fn(),
   };
 }
 
-function message(overrides: Partial<CollabChatMessage> = {}): CollabChatMessage {
-  return {
-    id: "m1",
-    authorId: "guest-1",
-    authorName: "Bo",
-    body: "hi there",
-    at: Date.now(),
-    ...overrides,
-  };
+/** The dialog before any share is live. */
+const disconnected = { status: "disconnected", connectedRoom: null } as const;
+
+/** A remembered v2 room; the defaults describe one this machine hosts. */
+function room(overrides: Partial<CollabProjectRecordV2> = {}): CollabProjectRecordV2 {
+  return { version: 2, projectInstanceId: "project_12345678", host: "https://sync.example", credentialRef: "cred_1", permission: "host", title: "Paper", projectRoot: "/paper", lastUsed: 1, ...overrides };
 }
 
 describe("CollabDialog chat tab", () => {
@@ -57,7 +47,7 @@ describe("CollabDialog chat tab", () => {
   });
 
   it("keeps sync-host configuration out of the sharing flow", () => {
-    render(<CollabDialog {...baseProps()} status="disconnected" connectedRoom={null} />);
+    render(<CollabDialog {...baseProps()} {...disconnected} />);
     expect(screen.queryByText(/Advanced \(sync host\)/i)).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Collab host")).not.toBeInTheDocument();
     expect(screen.queryByText(/Starting a share puts this project/i)).not.toBeInTheDocument();
@@ -65,12 +55,12 @@ describe("CollabDialog chat tab", () => {
   });
 
   it("uses the hover-revealed scrollbar for the join invite", () => {
-    render(<CollabDialog {...baseProps()} mode="join" status="disconnected" connectedRoom={null} />);
+    render(<CollabDialog {...baseProps()} mode="join" {...disconnected} />);
     expect(screen.getByLabelText("Collab invite")).toHaveClass("native-hover-scrollbar");
   });
 
   it("uses the Lattice scrollbar for remembered rooms on both axes", () => {
-    render(<CollabDialog {...baseProps()} status="disconnected" connectedRoom={null} recentProjectsV2={[{ version: 2, projectInstanceId: "project_12345678", host: "https://sync.example", credentialRef: "cred_1", permission: "host", title: "Paper", projectRoot: "/paper", lastUsed: 1 }]} />);
+    render(<CollabDialog {...baseProps()} {...disconnected} recentProjectsV2={[room()]} />);
     const viewport = screen.getByLabelText("Rooms you host");
     expect(viewport).toHaveAttribute("data-slot", "scroll-area-viewport");
     expect(viewport.closest("[data-slot='scroll-area']")).toHaveClass("collab-recent-scroll");
@@ -158,52 +148,53 @@ describe("CollabDialog chat tab", () => {
 
   it("renders remembered v2 projects separately and routes rejoin and forget", () => {
     const onRejoinProjectV2 = vi.fn(); const onForgetProjectV2 = vi.fn();
-    render(<CollabDialog {...baseProps()} mode="join" status="disconnected" connectedRoom={null} recentProjectsV2={[{ version: 2, projectInstanceId: "project_12345678", host: "https://sync.example", credentialRef: "cred_1", permission: "write", title: "Paper", projectRoot: "/paper", lastUsed: 1 }]} onRejoinProjectV2={onRejoinProjectV2} onForgetProjectV2={onForgetProjectV2} />);
+    render(<CollabDialog {...baseProps()} mode="join" {...disconnected} recentProjectsV2={[room({ permission: "write" })]} onRejoinProjectV2={onRejoinProjectV2} onForgetProjectV2={onForgetProjectV2} />);
     expect(screen.getByText("joined")).toBeInTheDocument(); expect(screen.getByText("project_12345678 · write")).toBeInTheDocument();
     fireEvent.click(screen.getByTitle("Rejoin Paper")); expect(onRejoinProjectV2).toHaveBeenCalledTimes(1);
     fireEvent.click(screen.getByLabelText("Remove project_12345678 from recent shares")); expect(onForgetProjectV2).toHaveBeenCalledTimes(1);
   });
 
   it("keeps hosted and joined rooms on the tab that can act on them", () => {
-    const hosted = { version: 2 as const, projectInstanceId: "project_hosted12", host: "https://sync.example", credentialRef: "cred_h", permission: "host" as const, title: "Mine", projectRoot: "/mine", lastUsed: 2 };
-    const joined = { version: 2 as const, projectInstanceId: "project_joined12", host: "https://sync.example", credentialRef: "cred_g", permission: "write" as const, title: "Theirs", projectRoot: "/theirs", lastUsed: 1 };
-    const rooms = [hosted, joined];
+    const rooms = [
+      room({ projectInstanceId: "project_hosted12", credentialRef: "cred_h", title: "Mine", projectRoot: "/mine", lastUsed: 2 }),
+      room({ projectInstanceId: "project_joined12", credentialRef: "cred_g", permission: "write", title: "Theirs", projectRoot: "/theirs" }),
+    ];
 
     // Start sharing offers rooms you can reopen and end. Listing a room you are
     // only a guest in offered to "start" something that is not yours.
-    const start = render(<CollabDialog {...baseProps()} mode="start" status="disconnected" connectedRoom={null} recentProjectsV2={rooms} />);
+    const start = render(<CollabDialog {...baseProps()} mode="start" {...disconnected} recentProjectsV2={rooms} />);
     expect(screen.getByText("Rooms you host")).toBeInTheDocument();
     expect(screen.getByText("Mine")).toBeInTheDocument();
     expect(screen.queryByText("Theirs")).not.toBeInTheDocument();
     start.unmount();
 
-    render(<CollabDialog {...baseProps()} mode="join" status="disconnected" connectedRoom={null} recentProjectsV2={rooms} />);
+    render(<CollabDialog {...baseProps()} mode="join" {...disconnected} recentProjectsV2={rooms} />);
     expect(screen.getByText("Rooms you joined")).toBeInTheDocument();
     expect(screen.getByText("Theirs")).toBeInTheDocument();
     expect(screen.queryByText("Mine")).not.toBeInTheDocument();
   });
 
   it("lets a host rename or close a remembered room, but not remove a live room from the list", () => {
-    const room = { version: 2 as const, projectInstanceId: "project_12345678", host: "https://sync.example", credentialRef: "cred_1", permission: "host" as const, title: "Paper", projectRoot: "/paper", lastUsed: 1 };
+    const hosted = room();
     const onRenameProjectV2 = vi.fn(); const onCloseProjectV2 = vi.fn(); const onForgetProjectV2 = vi.fn();
-    render(<CollabDialog {...baseProps()} status="disconnected" connectedRoom={null} recentProjectsV2={[room]} onRenameProjectV2={onRenameProjectV2} onCloseProjectV2={onCloseProjectV2} onForgetProjectV2={onForgetProjectV2} />);
+    render(<CollabDialog {...baseProps()} {...disconnected} recentProjectsV2={[hosted]} onRenameProjectV2={onRenameProjectV2} onCloseProjectV2={onCloseProjectV2} onForgetProjectV2={onForgetProjectV2} />);
     expect(screen.queryByLabelText("Remove project_12345678 from recent shares")).not.toBeInTheDocument();
     expect(onForgetProjectV2).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "Rename" }));
     const renameInput = screen.getByLabelText("Rename Paper");
     fireEvent.change(renameInput, { target: { value: "Final paper" } });
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
-    expect(onRenameProjectV2).toHaveBeenCalledWith(room, "Final paper");
+    expect(onRenameProjectV2).toHaveBeenCalledWith(hosted, "Final paper");
     fireEvent.click(screen.getByRole("button", { name: "Close for everyone" }));
-    expect(onCloseProjectV2).toHaveBeenCalledWith(room);
+    expect(onCloseProjectV2).toHaveBeenCalledWith(hosted);
   });
 
   it("orders remembered rooms by creation time and shows their localized age", () => {
     const now = Date.now();
-    const older = { version: 2 as const, projectInstanceId: "project_older123", host: "https://sync.example", credentialRef: "cred_old", permission: "host" as const, title: "Older paper", projectRoot: "/older", createdAt: now - 26 * 60 * 60 * 1000, lastUsed: now };
-    const newer = { version: 2 as const, projectInstanceId: "project_newer123", host: "https://sync.example", credentialRef: "cred_new", permission: "host" as const, title: "Newer paper", projectRoot: "/newer", createdAt: now - 2 * 60 * 60 * 1000, lastUsed: now - 60_000 };
+    const older = room({ projectInstanceId: "project_older123", credentialRef: "cred_old", title: "Older paper", projectRoot: "/older", createdAt: now - 26 * 60 * 60 * 1000, lastUsed: now });
+    const newer = room({ projectInstanceId: "project_newer123", credentialRef: "cred_new", title: "Newer paper", projectRoot: "/newer", createdAt: now - 2 * 60 * 60 * 1000, lastUsed: now - 60_000 });
 
-    render(<CollabDialog {...baseProps()} status="disconnected" connectedRoom={null} recentProjectsV2={[older, newer]} />);
+    render(<CollabDialog {...baseProps()} {...disconnected} recentProjectsV2={[older, newer]} />);
 
     expect(screen.getAllByTitle(/^Rejoin /).map((row) => row.getAttribute("title"))).toEqual([
       "Rejoin Newer paper",
@@ -214,9 +205,8 @@ describe("CollabDialog chat tab", () => {
   });
 
   it("cancels an in-progress room rename without calling the handler", () => {
-    const room = { version: 2 as const, projectInstanceId: "project_12345678", host: "https://sync.example", credentialRef: "cred_1", permission: "host" as const, title: "Paper", projectRoot: "/paper", lastUsed: 1 };
     const onRenameProjectV2 = vi.fn();
-    render(<CollabDialog {...baseProps()} status="disconnected" connectedRoom={null} recentProjectsV2={[room]} onRenameProjectV2={onRenameProjectV2} />);
+    render(<CollabDialog {...baseProps()} {...disconnected} recentProjectsV2={[room()]} onRenameProjectV2={onRenameProjectV2} />);
     fireEvent.click(screen.getByRole("button", { name: "Rename" }));
     fireEvent.change(screen.getByLabelText("Rename Paper"), { target: { value: "Draft" } });
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
@@ -226,16 +216,8 @@ describe("CollabDialog chat tab", () => {
 
   it("badges the chat tab with the unread count, and clears it once that tab is opened", () => {
     const onChatOpen = vi.fn();
-    render(
-      <CollabDialog
-        {...baseProps()}
-        chatMessages={[message()]}
-        chatSelfId="host-1"
-        chatUnread={2}
-        onChatSend={vi.fn()}
-        onChatOpen={onChatOpen}
-      />,
-    );
+    const message = { id: "m1", authorId: "guest-1", authorName: "Bo", body: "hi there", at: Date.now() };
+    render(<CollabDialog {...baseProps()} chatMessages={[message]} chatSelfId="host-1" chatUnread={2} onChatSend={vi.fn()} onChatOpen={onChatOpen} />);
     // Closed on the status tab: unread shows, and reading has not happened yet.
     expect(screen.getByText("2")).toBeInTheDocument();
     expect(onChatOpen).not.toHaveBeenCalled();
@@ -248,15 +230,7 @@ describe("CollabDialog chat tab", () => {
 
   it("sends a chat message through the wired handler", () => {
     const onChatSend = vi.fn();
-    render(
-      <CollabDialog
-        {...baseProps()}
-        chatMessages={[]}
-        chatSelfId="host-1"
-        onChatSend={onChatSend}
-        onChatOpen={vi.fn()}
-      />,
-    );
+    render(<CollabDialog {...baseProps()} chatMessages={[]} chatSelfId="host-1" onChatSend={onChatSend} onChatOpen={vi.fn()} />);
     fireEvent.click(screen.getByRole("tab", { name: /chat/i }));
     const box = screen.getByLabelText("Message");
     fireEvent.change(box, { target: { value: "on my way" } });

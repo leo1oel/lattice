@@ -6,76 +6,41 @@
  * writing anything — and shows it as a file list with real diffs, so nothing
  * lands on disk until you say so.
  */
-import { parseDiffFromFile, type CodeViewItem } from "@pierre/diffs";
+import type { CodeViewItem } from "@pierre/diffs";
 import { CodeView, type CodeViewHandle } from "@pierre/diffs/react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import {
-  ArrowDownToLine,
-  ArrowUpFromLine,
-  GitMerge,
-  Trash2,
-  TriangleAlert,
-} from "lucide-react";
+import { ArrowDownToLine, ArrowUpFromLine, GitMerge, Trash2, TriangleAlert } from "lucide-react";
 import { MotionButton } from "../components/ui/motion";
 import { Button } from "../components/ui/button";
 import { InfinityLoader, ReloadButton } from "../components/ui/activity-icons";
 import { buttonClassName } from "../components/ui/button-styles";
 import { ModalDialog } from "../components/ui/modal-dialog";
-import {
-  type OverleafChangeKind,
-  type OverleafPreview,
-} from "../app-types";
+import type { OverleafChangeKind, OverleafPreview } from "../app-types";
 import { toMessage } from "../app-utils";
 import {
-  PIERRE_UNSAFE_CSS,
+  pierreCodeViewOptions,
+  pierreFileDiff,
   pierreLanguageForPath,
+  topVisibleIndex,
   usePierreResources,
-} from "../history/file-diff-view";
+} from "../history/pierre-diff";
 import "./overleaf-review.css";
 import { InlineMessage } from "../components/ui/inline-message";
 
-const GROUPS: { kind: OverleafChangeKind; title: string; blurb: string }[] = [
-  {
-    kind: "conflict",
-    title: "Needs your decision",
-    blurb: "Edited on both sides in the same place. Applying marks the spots in the file so you can choose",
-  },
-  {
-    kind: "incoming",
-    title: "Coming from Overleaf",
-    blurb: "Changed there, untouched here",
-  },
-  {
-    kind: "merge",
-    title: "Combines automatically",
-    blurb: "Both sides edited different parts, so the two sets of edits join",
-  },
-  {
-    kind: "outgoing",
-    title: "Going to Overleaf",
-    blurb: "Changed here, untouched there",
-  },
-  {
-    kind: "deleteLocal",
-    title: "Removed on Overleaf",
-    blurb: "Deleted there and unchanged here, so it goes away locally too",
-  },
-  {
-    kind: "skippedRemoteDelete",
-    title: "Left alone",
-    blurb: "Deleted here but still on Overleaf. Lattice never deletes remote files; remove them on Overleaf if you meant to",
-  },
+const GROUPS: { kind: OverleafChangeKind; Icon: typeof Trash2; title: string; blurb: string }[] = [
+  { kind: "conflict", Icon: TriangleAlert, title: "Needs your decision", blurb: "Edited on both sides in the same place. Applying marks the spots in the file so you can choose" },
+  { kind: "incoming", Icon: ArrowDownToLine, title: "Coming from Overleaf", blurb: "Changed there, untouched here" },
+  { kind: "merge", Icon: GitMerge, title: "Combines automatically", blurb: "Both sides edited different parts, so the two sets of edits join" },
+  { kind: "outgoing", Icon: ArrowUpFromLine, title: "Going to Overleaf", blurb: "Changed here, untouched there" },
+  { kind: "deleteLocal", Icon: Trash2, title: "Removed on Overleaf", blurb: "Deleted there and unchanged here, so it goes away locally too" },
+  { kind: "skippedRemoteDelete", Icon: Trash2, title: "Left alone", blurb: "Deleted here but still on Overleaf. Lattice never deletes remote files; remove them on Overleaf if you meant to" },
 ];
 
 const itemId = (path: string) => `overleaf:${path}`;
 
-function iconFor(kind: OverleafChangeKind) {
-  if (kind === "conflict") return <TriangleAlert size={13} />;
-  if (kind === "incoming") return <ArrowDownToLine size={13} />;
-  if (kind === "merge") return <GitMerge size={13} />;
-  if (kind === "outgoing") return <ArrowUpFromLine size={13} />;
-  return <Trash2 size={13} />;
+function Loading(props: { children: ReactNode }) {
+  return <div className="overleaf-review-loading"><InfinityLoader size={16} /><span>{props.children}</span></div>;
 }
 
 export function OverleafReviewDialog(props: {
@@ -100,103 +65,59 @@ export function OverleafReviewDialog(props: {
     setLoading(true);
     setError(null);
     try {
-      const result = await invoke<OverleafPreview>("overleaf_preview", {
-        projectRoot: props.projectRoot,
-      });
+      const result = await invoke<OverleafPreview>("overleaf_preview", { projectRoot: props.projectRoot });
       if (loadGeneration.current !== generation) return;
       setPreview(result);
       setPreviewRevision((current) => current + 1);
       setSelected(result.changes.find((change) => !change.binary)?.path ?? null);
     } catch (reason) {
-      if (loadGeneration.current !== generation) return;
-      setError(toMessage(reason));
+      if (loadGeneration.current === generation) setError(toMessage(reason));
     } finally {
       if (loadGeneration.current === generation) setLoading(false);
     }
   }, [props.projectRoot]);
 
   useEffect(() => {
-    if (props.open) void load();
-    else {
-      loadGeneration.current += 1;
-      setLoading(false);
-      setPreview(null);
-      setSelected(null);
-      setError(null);
+    if (props.open) {
+      void load();
+      return;
     }
+    // Closing makes any answer still in flight stale.
+    loadGeneration.current += 1;
+    setLoading(false);
+    setPreview(null);
+    setSelected(null);
+    setError(null);
   }, [load, props.open]);
 
-  const grouped = useMemo(() => {
-    const changes = preview?.changes ?? [];
-    return GROUPS
-      .map((group) => ({
-        ...group,
-        items: changes.filter((change) => change.kind === group.kind),
-      }))
-      .filter((group) => group.items.length > 0);
-  }, [preview]);
-
+  const grouped = useMemo(() => GROUPS
+    .map((group) => ({ ...group, items: (preview?.changes ?? []).filter((change) => change.kind === group.kind) }))
+    .filter((group) => group.items.length > 0), [preview]);
   const textChanges = useMemo(
     () => grouped.flatMap((group) => group.items.filter((change) => !change.binary)),
     [grouped],
   );
   const textPaths = useMemo(() => textChanges.map((change) => change.path), [textChanges]);
   const resources = usePierreResources(textPaths);
-  const items = useMemo<CodeViewItem[]>(() => textChanges.map((change) => {
-    const language = pierreLanguageForPath(change.path);
-    const revisionKey = `${itemId(change.path)}:${previewRevision}`;
-    const parsed = parseDiffFromFile(
-      {
-        name: change.path,
-        contents: change.before ?? "",
-        lang: language,
-        cacheKey: `${revisionKey}:before`,
-      },
-      {
-        name: change.path,
-        contents: change.after ?? "",
-        lang: language,
-        cacheKey: `${revisionKey}:after`,
-      },
-    );
-    const fileDiff = change.before == null
-      ? { ...parsed, type: "new" as const }
-      : change.after == null
-        ? { ...parsed, type: "deleted" as const }
-        : parsed;
-    return { id: itemId(change.path), type: "diff", fileDiff, version: previewRevision };
-  }), [previewRevision, textChanges]);
+  const items = useMemo<CodeViewItem[]>(() => textChanges.map((change) => ({
+    id: itemId(change.path),
+    type: "diff",
+    fileDiff: pierreFileDiff(change, pierreLanguageForPath(change.path), `${itemId(change.path)}:${previewRevision}`),
+    version: previewRevision,
+  })), [previewRevision, textChanges]);
+  const groupByItem = useMemo(
+    () => new Map(grouped.flatMap((group) => group.items.map((change) => [itemId(change.path), group] as const))),
+    [grouped],
+  );
   const syncSelectedFromViewport = useCallback((
     scrollTop: number,
     viewer: { getTopForItem: (id: string) => number | undefined },
   ) => {
-    let visibleItem: CodeViewItem | null = items[0] ?? null;
-    for (const item of items) {
-      const top = viewer.getTopForItem(item.id);
-      if (top == null) continue;
-      if (top > scrollTop + 1) break;
-      visibleItem = item;
-    }
-    if (visibleItem?.type === "diff") {
-      setSelected((current) => current === visibleItem.fileDiff.name
-        ? current
-        : visibleItem.fileDiff.name);
-    }
-  }, [items]);
-  const kindByItem = useMemo(
-    () => new Map(textChanges.map((change) => [itemId(change.path), change.kind])),
-    [textChanges],
-  );
-  const codeViewOptions = useMemo(() => ({
-    diffStyle: "unified" as const,
-    lineDiffType: "word" as const,
-    overflow: "scroll" as const,
-    stickyHeaders: true,
-    theme: resources.themeName,
-    themeType: resources.theme,
-    unsafeCSS: PIERRE_UNSAFE_CSS,
-    layout: { paddingTop: 0, paddingBottom: 12, gap: 12 },
-  }), [resources.theme, resources.themeName]);
+    const visible = textChanges[topVisibleIndex(items.map((item) => item.id), scrollTop, viewer)];
+    if (visible) setSelected(visible.path);
+  }, [items, textChanges]);
+  const { theme, themeName } = resources;
+  const codeViewOptions = useMemo(() => pierreCodeViewOptions({ theme, themeName }, 12), [theme, themeName]);
 
   if (!props.open) return null;
 
@@ -215,11 +136,14 @@ export function OverleafReviewDialog(props: {
     setApplying(false);
   };
 
+  const reveal = (path: string) => {
+    setSelected(path);
+    codeViewRef.current?.scrollTo({ type: "item", id: itemId(path), align: "start", behavior: "smooth" });
+  };
+
   return (
     <ModalDialog label="Review Overleaf changes" onClose={props.onClose} closeDisabled={applying}>
-      <div
-        className="modal overleaf-review"
-      >
+      <div className="modal overleaf-review">
         <div className="overleaf-review-head">
           <div>
             <h2>Review changes</h2>
@@ -233,35 +157,20 @@ export function OverleafReviewDialog(props: {
                     + ". Nothing has been written yet"}
             </p>
           </div>
-          <ReloadButton
-            size="compact"
-            variant="ghost"
-            busy={loading}
-            disabled={loading || applying}
-            onClick={() => void load()}
-          >
+          <ReloadButton size="compact" variant="ghost" busy={loading} disabled={loading || applying} onClick={() => void load()}>
             Refresh
           </ReloadButton>
         </div>
 
         {error && <InlineMessage level="error" className="overleaf-review-inline">{error}</InlineMessage>}
 
-        {loading ? (
-          <div className="overleaf-review-loading">
-            <InfinityLoader size={16} />
-            <span>Fetching the Overleaf copy…</span>
-          </div>
-        ) : (
+        {loading ? <Loading>Fetching the Overleaf copy…</Loading> : (
           <div className="overleaf-review-body">
             <div className="overleaf-review-list">
-              {grouped.length === 0 && !error && (
-                <p className="overleaf-review-empty">
-                  No differences. You can close this window
-                </p>
-              )}
+              {grouped.length === 0 && !error && <p className="overleaf-review-empty">No differences. You can close this window</p>}
               {grouped.map((group) => (
                 <section key={group.kind} className="overleaf-review-group">
-                  <h3 data-kind={group.kind}>{iconFor(group.kind)} {group.title}</h3>
+                  <h3 data-kind={group.kind}><group.Icon size={13} /> {group.title}</h3>
                   <p>{group.blurb}</p>
                   <ul>
                     {group.items.map((change) => (
@@ -272,15 +181,7 @@ export function OverleafReviewDialog(props: {
                           aria-current={change.path === selected ? "true" : undefined}
                           disabled={change.binary}
                           title={change.binary ? "Binary file — no line-by-line view" : change.path}
-                          onClick={() => {
-                            setSelected(change.path);
-                            codeViewRef.current?.scrollTo({
-                              type: "item",
-                              id: itemId(change.path),
-                              align: "start",
-                              behavior: "smooth",
-                            });
-                          }}
+                          onClick={() => reveal(change.path)}
                         >
                           <span className="overleaf-review-path">{change.path}</span>
                           {change.binary && <em>binary</em>}
@@ -296,11 +197,7 @@ export function OverleafReviewDialog(props: {
                 <InlineMessage level="error" className="overleaf-review-inline">
                   Could not render these changes: {resources.error.message}
                 </InlineMessage>
-              ) : !resources.ready ? (
-                <div className="overleaf-review-loading">
-                  <InfinityLoader size={16} /> Rendering changes…
-                </div>
-              ) : items.length > 0 ? (
+              ) : !resources.ready ? <Loading>Rendering changes…</Loading> : items.length > 0 ? (
                 <CodeView
                   ref={codeViewRef}
                   items={items}
@@ -309,20 +206,17 @@ export function OverleafReviewDialog(props: {
                   disableWorkerPool
                   onScroll={syncSelectedFromViewport}
                   renderHeaderPrefix={(item) => {
-                    const kind = kindByItem.get(item.id);
-                    const group = GROUPS.find((candidate) => candidate.kind === kind);
-                    return kind && group ? (
-                      <span className="overleaf-review-diff-kind" data-kind={kind}>
-                        {iconFor(kind)} {group.title}
+                    const group = groupByItem.get(item.id);
+                    return group ? (
+                      <span className="overleaf-review-diff-kind" data-kind={group.kind}>
+                        <group.Icon size={13} /> {group.title}
                       </span>
                     ) : null;
                   }}
                 />
               ) : (
                 <p className="overleaf-review-empty">
-                  {total === 0
-                    ? "Nothing to show"
-                    : "Only binary files would change; line-by-line review is unavailable"}
+                  {total === 0 ? "Nothing to show" : "Only binary files would change; line-by-line review is unavailable"}
                 </p>
               )}
             </div>
@@ -330,17 +224,10 @@ export function OverleafReviewDialog(props: {
         )}
 
         <div className="overleaf-review-actions">
-          <Button disabled={applying} onClick={props.onClose}>
-            Cancel
-          </Button>
+          <Button disabled={applying} onClick={props.onClose}>Cancel</Button>
           <MotionButton
             className={buttonClassName({ variant: "primary" })}
-            disabled={
-              applying
-              || loading
-              || total === 0
-              || (items.length > 0 && (!resources.ready || resources.error != null))
-            }
+            disabled={applying || loading || total === 0 || (items.length > 0 && (!resources.ready || resources.error != null))}
             onClick={() => void apply()}
           >
             {applying ? <InfinityLoader size={15} /> : null}

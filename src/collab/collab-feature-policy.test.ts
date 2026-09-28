@@ -1,5 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { DEFAULT_COLLAB_FEATURE_POLICY, isCollabEnabled, loadCollabFeaturePolicy, mayResumeCollabProject, mayWriteCollabProject, saveCollabFeaturePolicy } from "./collab-feature-policy";
+import { isCollabEnabled, loadCollabFeaturePolicy, mayResumeCollabProject, mayWriteCollabProject } from "./collab-feature-policy";
+
+const DEFAULTS = { allowCreateV2: true, emergencyDisableWrites: false, emergencyDisableReads: false };
+const persist = (policy: object) => localStorage.setItem("lattice.collab.feature-policy.v1", JSON.stringify(policy));
 
 describe("collaboration feature policy", () => {
   beforeEach(() => localStorage.clear());
@@ -7,24 +10,24 @@ describe("collaboration feature policy", () => {
 
   it.each([undefined, "", "false"])("disables sharing without explicit build opt-in (%s), even with persisted enablement", (value) => {
     vi.stubEnv("VITE_LATTICE_COLLAB_V2", value);
-    saveCollabFeaturePolicy(DEFAULT_COLLAB_FEATURE_POLICY);
+    persist(DEFAULTS);
     expect(isCollabEnabled()).toBe(false);
-    expect(loadCollabFeaturePolicy()).toMatchObject({ allowCreateV2: false, emergencyDisableReads: true, emergencyDisableWrites: true });
-    expect(mayResumeCollabProject(2)).toBe(false);
+    expect(loadCollabFeaturePolicy()).toEqual({ allowCreateV2: false, emergencyDisableReads: true, emergencyDisableWrites: true });
+    expect(mayResumeCollabProject()).toBe(false);
     expect(mayWriteCollabProject()).toBe(false);
-    expect(JSON.parse(localStorage.getItem("lattice.collab.feature-policy.v1")!)).toEqual(DEFAULT_COLLAB_FEATURE_POLICY);
   });
 
   it("retains sharing in explicitly opted-in builds", () => {
     expect(isCollabEnabled()).toBe(true);
-    expect(loadCollabFeaturePolicy()).toMatchObject(DEFAULT_COLLAB_FEATURE_POLICY);
-    expect(mayResumeCollabProject(1)).toBe(true);
-    expect(mayResumeCollabProject(2)).toBe(true);
+    expect(loadCollabFeaturePolicy()).toEqual(DEFAULTS);
+    expect(mayResumeCollabProject()).toBe(true);
+    expect(mayWriteCollabProject()).toBe(true);
   });
 
-  it("persists rollout policy independently from room credentials", () => {
-    saveCollabFeaturePolicy({ ...DEFAULT_COLLAB_FEATURE_POLICY, allowCreateV2: true, preferV2ForNewProjects: true });
-    expect(loadCollabFeaturePolicy()).toMatchObject({ allowCreateV2: true, preferV2ForNewProjects: true });
-    expect(localStorage.getItem("lattice.collab.feature-policy.v1")).not.toContain("secret");
+  it("layers a persisted override under build-time env flags", () => {
+    persist({ allowCreateV2: false, emergencyDisableWrites: true, emergencyDisableReads: "yes" });
+    expect(loadCollabFeaturePolicy()).toEqual({ allowCreateV2: false, emergencyDisableWrites: true, emergencyDisableReads: false });
+    vi.stubEnv("VITE_LATTICE_COLLAB_DISABLE_WRITES", "false");
+    expect(mayWriteCollabProject()).toBe(true);
   });
 });
