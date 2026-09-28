@@ -105,12 +105,19 @@ class TableInsertControlsView {
     for (const wrapper of this.overlays.keys()) {
       if (!live.has(wrapper)) this.removeOverlay(wrapper);
     }
+    // Mount every new overlay before any of them starts measuring:
+    // floating-ui's autoUpdate reads layout as it starts, and alternating
+    // those reads with the appends forced a style and layout pass per table
+    // whenever a document with many tables opened.
+    const started: (() => void)[] = [];
     for (const wrapper of live) {
-      if (!this.overlays.has(wrapper)) this.addOverlay(wrapper);
+      if (!this.overlays.has(wrapper)) started.push(this.addOverlay(wrapper));
     }
+    for (const start of started) start();
   }
 
-  private addOverlay(wrapper: HTMLElement): void {
+  /** Mounts the overlay's DOM and returns the call that starts positioning it. */
+  private addOverlay(wrapper: HTMLElement): () => void {
     const container = document.createElement('div');
     container.className = 'ok-table-insert-controls';
     container.setAttribute(OPT_OUT_ATTR, 'true');
@@ -154,15 +161,19 @@ class TableInsertControlsView {
         .catch(() => {});
     };
 
-    const stopAutoUpdate = autoUpdate(wrapper, container, reposition, {
-      // The overlay is absolutely positioned inside the same scrolled content
-      // as its table, so scrolling never changes their relative geometry —
-      // but the default ancestorScroll listener would re-measure every
-      // table's bars on every scroll frame (ruinous with many tables).
-      // Resizes and layout shifts still reposition via the remaining
-      // observers, and doc edits reconcile the overlay set wholesale.
-      ancestorScroll: false,
-    });
+    let stopAutoUpdate: (() => void) | null = null;
+    const start = (): void => {
+      if (!this.overlays.has(wrapper)) return;
+      stopAutoUpdate = autoUpdate(wrapper, container, reposition, {
+        // The overlay is absolutely positioned inside the same scrolled content
+        // as its table, so scrolling never changes their relative geometry —
+        // but the default ancestorScroll listener would re-measure every
+        // table's bars on every scroll frame (ruinous with many tables).
+        // Resizes and layout shifts still reposition via the remaining
+        // observers, and doc edits reconcile the overlay set wholesale.
+        ancestorScroll: false,
+      });
+    };
 
     // Reveal each bar when the pointer is in the table's last column / last row
     // (the edge the bar would grow). `:hover` on the bar itself (CSS) keeps it
@@ -186,12 +197,13 @@ class TableInsertControlsView {
     this.overlays.set(wrapper, {
       container,
       cleanup: () => {
-        stopAutoUpdate();
+        stopAutoUpdate?.();
         wrapper.removeEventListener('pointerover', onPointerOver);
         wrapper.removeEventListener('pointerleave', onPointerLeave);
         container.remove();
       },
     });
+    return start;
   }
 
   private removeOverlay(wrapper: HTMLElement): void {
