@@ -20,19 +20,20 @@ import type { TrackedChange } from "../overleaf/use-overleaf-realtime";
 import type { MarkdownWorkspaceIndex } from "../editor/markdown/markdown-workspace-index";
 import { restoreVisualViewportWithReveal } from "../editor/markdown/visual-editor-block-controls";
 import { Columns2 } from "lucide-react";
-import {
-  latexEditorExtensions, latexLanguageOptions, textEditorExtensions, renameEnvironmentAt, wrapRange, wrapEnvironment,
-  type CitationInfo, type DefinitionTarget, type ReferenceInfo, type SymbolTarget,
-} from "../editor/latex/latex-editor";
+import { latexEditorExtensions, latexLanguageOptions, textEditorExtensions } from "../editor/latex/latex-editor";
+import { wrapEnvironment, wrapRange } from "../editor/latex/latex-edits";
+import { renameEnvironmentAt } from "../editor/latex/latex-environments";
+import type { CitationInfo, DefinitionTarget, ReferenceInfo, SymbolTarget } from "../editor/latex/latex-text";
 import { harperDictionaryChanged } from "../editor/harper-spellcheck";
 import { LatexSelectionToolbar, type LatexSelectionAction, type LatexSelectionToolbarPosition } from "../editor/latex/latex-selection-toolbar";
 import { ScrollArea } from "../components/ui/scroll-area";
 import { InlineMessage } from "../components/ui/inline-message";
 import { latexFigureInsertion, markdownAssetInsertion, type FigureInsertOptions } from "../editor/insert/figure-insertion";
 import { FigureInsertDialog } from "../editor/insert/figure-insert-dialog";
+import { createEditorComment, resolveCommentAnchor, type EditorComment } from "../editor/comments/editor-comment-data";
 import {
-  createEditorComment, editorCommentsExtension, resolveCommentAnchor, resolveCommentRange, setEditorCommentsEffect,
-  setEditorCommentDraftEffect, type EditorComment, type EditorCommentLocalization, type EditorCommentsExtensionOptions,
+  editorCommentsExtension, setEditorCommentsEffect, setEditorCommentDraftEffect, type EditorCommentLocalization,
+  type EditorCommentsExtensionOptions,
 } from "../editor/comments/editor-comments";
 import { clamp, type AppLocale, type Theme } from "../settings/app-settings";
 import { editorDiagnosticsForFile, type CompileDiagnostic } from "../build/compile-diagnostics";
@@ -263,10 +264,10 @@ export function DocumentCanvas(props: {
   const {
     activeFile, secondaryFile, secondarySource, setSecondarySource, focusedPane, onFocusPane, buildDiagnostics,
     texlabDiagnostics, collabEditorKey, collabSession, collabReady, editorKeymap, editorSpellcheck, insertOpen,
-    localMacros, katexMacros, onFindReferences, onGotoDefinition, onTexlabGoto, onGotoLineRequest,
+    katexMacros, onFindReferences, onGotoDefinition, onTexlabGoto, onGotoLineRequest,
     onInsertOpenChange, onOutlineNavigate, onOutlineOpenChange, onPrepareFigure, onPasteImageFile,
     onCreateMissingFile, onRenameEnvironment, onRenameSymbol, onTableGeneratorOpenChange, onWrapEnvironment,
-    activeOutlineId, outlineNodes, outlineOpen, projectPaths, graphicsRoots, setSource, source: editorSource,
+    activeOutlineId, outlineNodes, outlineOpen, setSource, source: editorSource,
     tableGeneratorOpen, editorComments, commentAuthorName, commentAuthorId, onCreateEditorComment,
     onOpenEditorComments, commentFocusRequest, onCommentFocusHandled, getFileViewState, onFileViewState,
     onRequestHandled,
@@ -659,7 +660,7 @@ export function DocumentCanvas(props: {
     if (!comment) return;
     const view = comment.path === activeFile ? primaryViewRef.current : comment.path === secondaryFile ? secondaryViewRef.current : null;
     if (!view) return;
-    const range = resolveCommentRange(view.state.doc.toString(), comment);
+    const range = resolveCommentAnchor(view.state.doc.toString(), comment);
     if (range) {
       view.dispatch({ selection: { anchor: range.from, head: range.to }, effects: EditorView.scrollIntoView(range.from, { y: "center" }) });
       view.focus();
@@ -749,12 +750,21 @@ export function DocumentCanvas(props: {
     ...keymap,
     ...(isLatexSourcePath(path) ? [
       latex(latexLanguageOptions),
-      ...latexEditorExtensions(
-        props.citationKeys, props.citations, props.references, props.onLoadReferenceImage, onGotoDefinition,
-        projectPaths, onFindReferences, onRenameSymbol, editorSpellcheck && isHarperProseFilePath(path),
-        props.unusedLabels, props.unusedCitations, onRenameEnvironment, onWrapEnvironment, localMacros, path,
-        onPasteImageFile, graphicsRoots, onCreateMissingFile, true, onTexlabGoto, latestRef,
-      ),
+      ...latexEditorExtensions({
+        live: latestRef,
+        currentPath: path,
+        spellcheck: editorSpellcheck && isHarperProseFilePath(path),
+        texlab: true,
+        loadReferenceImage: props.onLoadReferenceImage,
+        onGotoDefinition,
+        onFindReferences,
+        onRenameSymbol,
+        onRenameEnvironment,
+        onWrapEnvironment,
+        onPasteImage: onPasteImageFile,
+        onCreateMissingFile,
+        onTexlabGoto,
+      }),
     ] : [
       ...textLanguage,
       ...textEditorExtensions(editorSpellcheck && isHarperProseFilePath(path), latestRef, onPasteImageFile),
@@ -763,7 +773,6 @@ export function DocumentCanvas(props: {
     ...extra,
     editorCommentsExtension(path, {
       getLocalization: () => editorCommentLocalizationRef.current,
-      currentAuthorId: commentAuthorId,
       onResolve: (id) => latestRef.current.onResolveEditorComment(id),
       onReply: (comment) => latestRef.current.onReplyEditorComment(comment.id),
       ...comments,

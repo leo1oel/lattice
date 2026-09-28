@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useLingui } from "@lingui/react";
-import { Tldraw, type Editor, type TLPageId, type TLStore } from "tldraw";
+import { Tldraw, type Editor, type TLPageId } from "tldraw";
 import "tldraw/tldraw.css";
 import type * as Y from "yjs";
 import type { Awareness } from "y-protocols/awareness";
@@ -11,8 +11,7 @@ import {
   attachBoardBridge,
   attachBoardPresence,
   createBoardStore,
-  isBoardDocumentRecord,
-  parseBoardRecords,
+  mergeExternalBoardSource,
   serializeBoard,
   type BoardPresenceUser,
 } from "./board-yjs-bridge";
@@ -47,23 +46,11 @@ export type BoardEditorProps = {
   onViewState?: (state: BoardFileViewState) => void;
 };
 
-/**
- * Replace a store's document records from external .tldr text (v1 text sync,
- * disk reload, git pull). Exported for tests; returns false on invalid input.
- */
-export function mergeExternalBoardSource(store: TLStore, source: string): boolean {
-  const records = parseBoardRecords(source);
-  if (!records) return false;
-  store.mergeRemoteChanges(() => {
-    const incoming = new Set(records.map((record) => record.id));
-    for (const record of store.allRecords()) {
-      if (isBoardDocumentRecord(record) && !incoming.has(record.id)) {
-        store.remove([record.id]);
-      }
-    }
-    if (records.length) store.put(records);
-  });
-  return true;
+/** Only the focused board owns the global Agent canvas tool adapter. */
+function registerAgentAdapter(editor: Editor | null, path: string, active: boolean, canWrite: () => boolean) {
+  return active && editor
+    ? registerAgentCanvasAdapter(path, createTldrawAgentCanvasAdapter(editor, canWrite))
+    : null;
 }
 
 export function BoardEditor({
@@ -78,19 +65,15 @@ export function BoardEditor({
 }: BoardEditorProps) {
   const { i18n } = useLingui();
   const tldrawLocale = i18n.locale === "zh-CN" ? "zh-cn" : "en";
-  const onChangeRef = useRef(onChange);
+  const callbacksRef = useRef({ onChange, onViewState });
   const editorRef = useRef<Editor | null>(null);
   const unregisterAgentAdapterRef = useRef<(() => void) | null>(null);
   const disposeViewStateRef = useRef<(() => void) | null>(null);
-  const onViewStateRef = useRef(onViewState);
   const flushPendingChangeRef = useRef<() => void>(() => {});
   const canWriteRef = useRef(collab?.canWrite !== false);
-  useEffect(() => {
-    onChangeRef.current = onChange;
-  }, [onChange]);
   useLayoutEffect(() => {
-    onViewStateRef.current = onViewState;
-  }, [onViewState]);
+    callbacksRef.current = { onChange, onViewState };
+  }, [onChange, onViewState]);
   useLayoutEffect(() => {
     canWriteRef.current = collab?.canWrite !== false;
     editorRef.current?.updateInstanceState({ isReadonly: !canWriteRef.current });
@@ -108,23 +91,15 @@ export function BoardEditor({
   }, []);
   useLayoutEffect(() => {
     if (!onFlushPendingChange) return;
-    const flush = () => {
+    onFlushPendingChange(() => {
       flushPendingChangeRef.current();
       return true;
-    };
-    onFlushPendingChange(flush);
+    });
     return () => onFlushPendingChange(null);
   }, [onFlushPendingChange]);
   useLayoutEffect(() => {
     unregisterAgentAdapterRef.current?.();
-    unregisterAgentAdapterRef.current = null;
-    const editor = editorRef.current;
-    if (active && editor) {
-      unregisterAgentAdapterRef.current = registerAgentCanvasAdapter(
-        path,
-        createTldrawAgentCanvasAdapter(editor, () => canWriteRef.current),
-      );
-    }
+    unregisterAgentAdapterRef.current = registerAgentAdapter(editorRef.current, path, active, () => canWriteRef.current);
   }, [active, path]);
   // The store is created once per mount (the canvas keys this component by
   // file path). Collab mode starts empty: attachBoardBridge seeds records
@@ -140,20 +115,18 @@ export function BoardEditor({
   const collabUser = collab?.user ?? null;
   useEffect(() => {
     if (!collabDoc) return;
-    const bridge = attachBoardBridge(store, collabDoc, { canWrite: () => canWriteRef.current });
+    const disposeBridge = attachBoardBridge(store, collabDoc, { canWrite: () => canWriteRef.current });
     const disposePresence = collabAwareness && collabUser
       ? attachBoardPresence(store, collabAwareness, collabUser)
       : undefined;
     return () => {
       disposePresence?.();
-      bridge.dispose();
+      disposeBridge();
     };
     // canWrite flips flow through canWriteRef (kept current by the layout
     // effect above) so a permission change must not tear down and re-seed the
     // whole bridge mid-session.
   }, [store, collabDoc, collabAwareness, collabUser]);
-
-  const canWrite = collab?.canWrite !== false;
 
   // Local mode: debounce-serialize edits out; merge external source changes in.
   useEffect(() => {
@@ -167,7 +140,7 @@ export function BoardEditor({
       timer = null;
       const json = serializeBoard(store.allRecords());
       lastSerializedRef.current = json;
-      onChangeRef.current(json);
+      callbacksRef.current.onChange(json);
     };
     flushPendingChangeRef.current = () => {
       if (timer != null) flush();
@@ -178,17 +151,13 @@ export function BoardEditor({
     return () => {
       unlisten();
       // Commit pending edits so switching files never loses the last stroke.
-      if (timer != null) {
-        window.clearTimeout(timer);
-        flush();
-      }
+      if (timer != null) flush();
       flushPendingChangeRef.current = () => {};
     };
   }, [store, collabDoc]);
 
   useEffect(() => {
-    if (collabDoc) return;
-    if (source === lastSerializedRef.current) return;
+    if (collabDoc || source === lastSerializedRef.current) return;
     if (mergeExternalBoardSource(store, source)) lastSerializedRef.current = source;
   }, [store, collabDoc, source]);
 
@@ -203,7 +172,7 @@ export function BoardEditor({
           // Menus read the editor preference as well as the provider locale.
           // Keep both aligned with Lattice instead of the browser language.
           editor.user.updateUserPreferences({ locale: tldrawLocale });
-          editor.updateInstanceState({ isReadonly: !canWrite });
+          editor.updateInstanceState({ isReadonly: !canWriteRef.current });
           const restoredPage = initialViewState
             ? editor.getPage(initialViewState.pageId as TLPageId)
             : undefined;
@@ -220,7 +189,7 @@ export function BoardEditor({
             viewFrame = null;
             if (editor.isDisposed) return;
             const camera = editor.getCamera();
-            onViewStateRef.current?.({
+            callbacksRef.current.onViewState?.({
               pageId: editor.getCurrentPageId(),
               camera: { x: camera.x, y: camera.y, z: camera.z },
             });
@@ -235,12 +204,7 @@ export function BoardEditor({
             unlistenViewState();
           };
           unregisterAgentAdapterRef.current?.();
-          unregisterAgentAdapterRef.current = active
-            ? registerAgentCanvasAdapter(
-              path,
-              createTldrawAgentCanvasAdapter(editor, () => canWriteRef.current),
-            )
-            : null;
+          unregisterAgentAdapterRef.current = registerAgentAdapter(editor, path, active, () => canWriteRef.current);
         }}
       />
     </div>

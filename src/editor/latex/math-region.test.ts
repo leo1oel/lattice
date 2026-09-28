@@ -2,23 +2,12 @@ import { describe, expect, it } from "vitest";
 import { matchingMathDelimiter, mathRegionAt } from "./math-region";
 
 describe("math region extraction", () => {
-  it("finds inline and display math under the cursor", () => {
-    expect(mathRegionAt("Value $a+b$ here", 8)).toMatchObject({
-      source: "a+b",
-      display: false,
-    });
-    expect(mathRegionAt("See \\[x^2\\] done", 7)).toMatchObject({
-      source: "x^2",
-      display: true,
-    });
-  });
-
-  it("extracts equation environments", () => {
-    const source = "\\begin{equation}\n  a = b\n\\end{equation}";
-    expect(mathRegionAt(source, 20)).toMatchObject({
-      source: "a = b",
-      display: true,
-    });
+  it.each([
+    ["Value $a+b$ here", 8, "a+b", false],
+    ["See \\[x^2\\] done", 7, "x^2", true],
+    ["\\begin{equation}\n  a = b\n\\end{equation}", 20, "a = b", true],
+  ])("finds the math in %j under the cursor", (text, cursor, source, display) => {
+    expect(mathRegionAt(text, cursor)).toMatchObject({ source, display });
   });
 
   it("jumps between math delimiters", () => {
@@ -29,11 +18,7 @@ describe("math region extraction", () => {
     expect(matchingMathDelimiter(inline, close)).toEqual({ from: open, to: open + 1 });
     expect(matchingMathDelimiter(inline, open + 2)).toEqual({ from: open, to: open + 1 });
     const display = "See \\[x^2\\] done";
-    const openDisplay = display.indexOf("\\[");
     const closeDisplay = display.indexOf("\\]");
-    expect(matchingMathDelimiter(display, openDisplay)).toEqual({
-      from: closeDisplay,
-      to: closeDisplay + 2,
-    });
+    expect(matchingMathDelimiter(display, display.indexOf("\\["))).toEqual({ from: closeDisplay, to: closeDisplay + 2 });
   });
 });

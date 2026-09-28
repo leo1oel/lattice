@@ -65,20 +65,14 @@ function upgradeLegacyComponentFence(node: JSONContent): JSONContent {
       sourceDirty: false,
       props,
     },
-    content: [{
-      type: "paragraph",
-      content: typeof body === "string" && body ? [{ type: "text", text: body }] : [],
-    }],
+    content: [{ type: "paragraph", content: typeof body === "string" && body ? [{ type: "text", text: body }] : [] }],
   };
 }
 
 function prepareVisualNode(node: JSONContent): JSONContent {
   const upgraded = upgradeLegacyComponentFence(node);
-  const anchorSource = upgraded.type === "paragraph"
-    && upgraded.content?.length === 1
-    && upgraded.content[0]?.type === "text"
-    ? upgraded.content[0].text
-    : null;
+  const onlyChild = upgraded.type === "paragraph" && upgraded.content?.length === 1 ? upgraded.content[0] : undefined;
+  const anchorSource = onlyChild?.type === "text" ? onlyChild.text : null;
   if (emptyMarkdownAnchorId(anchorSource)) {
     // CommonMark parses a standalone empty <a> as inline HTML inside a
     // paragraph. Promote converter anchors to the existing lossless HTML atom
@@ -86,11 +80,7 @@ function prepareVisualNode(node: JSONContent): JSONContent {
     return { type: "htmlBlock", attrs: { content: anchorSource } };
   }
   const content = upgraded.content?.map(prepareVisualNode);
-  if (
-    upgraded.type === "jsxComponent"
-    && upgraded.attrs?.componentName === "Callout"
-    && !content?.length
-  ) {
+  if (upgraded.type === "jsxComponent" && upgraded.attrs?.componentName === "Callout" && !content?.length) {
     // The Markdown parser represents an empty `<Callout>\n\n</Callout>`
     // with zero children. That leaves ProseMirror without a valid text
     // position; macOS IME can paint composition text into the DOM, then Enter
@@ -102,14 +92,8 @@ function prepareVisualNode(node: JSONContent): JSONContent {
   return content ? { ...upgraded, content } : upgraded;
 }
 
-function isExtractedPaperMarkdown(sourcePath?: string): boolean {
-  const normalized = sourcePath?.replaceAll("\\", "/") ?? "";
-  return /(?:^|\/)\.research\/papers\/.+\/paper\.md$/i.test(normalized);
-}
-
-function visualNodeText(node: JSONContent): string {
-  return node.text ?? (node.content ?? []).map(visualNodeText).join("");
-}
+const isExtractedPaperMarkdown = (sourcePath = "") => /(?:^|\/)\.research\/papers\/.+\/paper\.md$/i.test(sourcePath.replaceAll("\\", "/"));
+const visualNodeText = (node: JSONContent): string => node.text ?? (node.content ?? []).map(visualNodeText).join("");
 
 /**
  * arxiv2md expands HTML rowspan/colspan cells by repeating their content in a
@@ -117,13 +101,8 @@ function visualNodeText(node: JSONContent): string {
  * remain separate, and ordinary project Markdown never enters this heuristic.
  */
 function repeatedPaperCellKey(cell: JSONContent): string | null {
-  const text = visualNodeText(cell).trim();
-  if (!/\p{L}/u.test(text)) return null;
-  return JSON.stringify([
-    cell.attrs?.align ?? null,
-    cell.attrs?.sourcePadding ?? null,
-    cell.content ?? [],
-  ]);
+  if (!/\p{L}/u.test(visualNodeText(cell))) return null;
+  return JSON.stringify([cell.attrs?.align ?? null, cell.attrs?.sourcePadding ?? null, cell.content ?? []]);
 }
 
 function isNumericResultCell(cell: JSONContent): boolean {
@@ -131,130 +110,108 @@ function isNumericResultCell(cell: JSONContent): boolean {
   return /\d/.test(text) && !/\p{L}/u.test(text);
 }
 
-function visualTableCellIsEmpty(cell: JSONContent): boolean {
-  return (cell.content ?? []).every((block) => !(block.content?.length ?? 0));
+type Span = { rowspan: number; colspan: number };
+
+/** The table's cells as a rectangular matrix, or null when rows are ragged or hold non-cells. */
+function tableCellMatrix(table: JSONContent): JSONContent[][] | null {
+  const matrix = (table.content ?? []).map((row) => row.content ?? []);
+  const width = matrix[0]?.length ?? 0;
+  return width > 0 && matrix.every((row) => (
+    row.length === width && row.every((cell) => cell.type === "tableCell" || cell.type === "tableHeader")
+  )) ? matrix : null;
 }
 
-function applyExplicitTableSpanLayout(table: JSONContent, layout: TableSpanLayout): JSONContent {
-  if (layout.length === 0) return table;
-  const rows = table.content ?? [];
-  const matrix = rows.map((row) => row.content ?? []);
-  const width = matrix[0]?.length ?? 0;
-  if (
-    width === 0
-    || matrix.some((row) => row.length !== width)
-    || matrix.some((row) => row.some((cell) => (
-      cell.type !== "tableCell" && cell.type !== "tableHeader"
-    )))
-  ) return table;
-
-  const occupied = matrix.map(() => Array.from({ length: width }, () => false));
-  const covered = matrix.map(() => Array.from({ length: width }, () => false));
-  const origins = new Map<string, { rowspan: number; colspan: number }>();
-  for (const [row, column, rowspan, colspan] of layout) {
-    if (row + rowspan > matrix.length || column + colspan > width) return table;
-    const origin = matrix[row]?.[column];
-    if (!origin) return table;
-    const originContent = JSON.stringify(origin.content ?? []);
-    for (let coveredRow = row; coveredRow < row + rowspan; coveredRow++) {
-      for (let coveredColumn = column; coveredColumn < column + colspan; coveredColumn++) {
-        if (occupied[coveredRow]?.[coveredColumn]) return table;
-        const cell = matrix[coveredRow]?.[coveredColumn];
-        if (!cell) return table;
-        if (
-          JSON.stringify(cell.content ?? []) !== originContent
-          && !visualTableCellIsEmpty(cell)
-        ) return table;
-        occupied[coveredRow]![coveredColumn] = true;
-        if (coveredRow !== row || coveredColumn !== column) {
-          covered[coveredRow]![coveredColumn] = true;
-        }
-      }
+function* spanCells(row: number, column: number, { rowspan, colspan }: Span) {
+  for (let spannedRow = row; spannedRow < row + rowspan; spannedRow += 1) {
+    for (let spannedColumn = column; spannedColumn < column + colspan; spannedColumn += 1) {
+      yield [spannedRow, spannedColumn] as const;
     }
-    origins.set(`${row}:${column}`, { rowspan, colspan });
   }
+}
 
+/** Rebuild `table` with `spans` applied at their origin cells and the cells they cover removed. */
+function spannedTable(table: JSONContent, matrix: JSONContent[][], spans: Map<string, Span>): JSONContent {
+  const covered = new Set<string>();
+  for (const [origin, span] of spans) {
+    const [row, column] = origin.split(":").map(Number) as [number, number];
+    for (const [spannedRow, spannedColumn] of spanCells(row, column, span)) {
+      if (spannedRow !== row || spannedColumn !== column) covered.add(`${spannedRow}:${spannedColumn}`);
+    }
+  }
   return {
     ...table,
-    content: rows.map((rowNode, row) => ({
+    content: (table.content ?? []).map((rowNode, row) => ({
       ...rowNode,
       content: matrix[row]!.flatMap((cell, column) => {
-        if (covered[row]?.[column]) return [];
-        const span = origins.get(`${row}:${column}`);
-        return [{
-          ...cell,
-          ...(span ? { attrs: { ...cell.attrs, ...span } } : {}),
-        }];
+        if (covered.has(`${row}:${column}`)) return [];
+        const span = spans.get(`${row}:${column}`);
+        return [span ? { ...cell, attrs: { ...cell.attrs, ...span } } : cell];
       }),
     })),
   };
 }
 
-function collapseRepeatedPaperTableCells(table: JSONContent): JSONContent {
-  const rows = table.content ?? [];
-  if (
-    rows.length === 0
-    || rows.some((row) => row.type !== "tableRow" || !row.content?.length)
-  ) return table;
-  const matrix = rows.map((row) => row.content ?? []);
-  const width = matrix[0]?.length ?? 0;
-  if (
-    width === 0
-    || matrix.some((row) => row.length !== width)
-    || matrix.some((row) => row.some((cell) => (
-      cell.type !== "tableCell" && cell.type !== "tableHeader"
-    )))
-  ) return table;
+function applyExplicitTableSpanLayout(table: JSONContent, layout: TableSpanLayout): JSONContent {
+  const matrix = tableCellMatrix(table);
+  if (layout.length === 0 || !matrix) return table;
+  const occupied = new Set<string>();
+  const spans = new Map<string, Span>();
+  for (const [row, column, rowspan, colspan] of layout) {
+    const origin = matrix[row]?.[column];
+    if (!origin || row + rowspan > matrix.length || column + colspan > matrix[0]!.length) return table;
+    const originContent = JSON.stringify(origin.content ?? []);
+    for (const [spannedRow, spannedColumn] of spanCells(row, column, { rowspan, colspan })) {
+      const cell = matrix[spannedRow]![spannedColumn]!;
+      const key = `${spannedRow}:${spannedColumn}`;
+      const emptyCell = (cell.content ?? []).every((block) => !block.content?.length);
+      if (occupied.has(key) || (JSON.stringify(cell.content ?? []) !== originContent && !emptyCell)) return table;
+      occupied.add(key);
+    }
+    spans.set(`${row}:${column}`, { rowspan, colspan });
+  }
+  return spannedTable(table, matrix, spans);
+}
 
+function collapseRepeatedPaperTableCells(table: JSONContent): JSONContent {
+  const matrix = tableCellMatrix(table);
+  if (!matrix || table.content!.some((row) => row.type !== "tableRow")) return table;
+  const width = matrix[0]!.length;
   const mergeKeys = matrix.map((row) => row.map(repeatedPaperCellKey));
-  const rowContentKeys = matrix.map((row) => JSON.stringify(
-    row.map((cell) => cell.content ?? []),
-  ));
+  const rowContentKeys = matrix.map((row) => JSON.stringify(row.map((cell) => cell.content ?? [])));
   const firstDataRow = matrix.findIndex((row, rowIndex) => {
     if (rowIndex === 0) return false;
     const firstNumericColumn = row.findIndex(isNumericResultCell);
-    return firstNumericColumn >= 0 && row
-      .slice(firstNumericColumn)
-      .filter(isNumericResultCell)
-      .length >= Math.ceil((row.length - firstNumericColumn) / 2);
+    return firstNumericColumn >= 0
+      && row.slice(firstNumericColumn).filter(isNumericResultCell).length >= Math.ceil((row.length - firstNumericColumn) / 2);
   });
   // arxiv2md always uses the first GFM row as a header. Additional rows before
   // the first predominantly numeric row are the multi-level header band.
   const headerRowCount = firstDataRow < 0 ? 1 : Math.max(1, firstDataRow);
-  const stubColumnCount = firstDataRow < 0
-    ? 0
-    : matrix[firstDataRow]!.findIndex(isNumericResultCell);
-  const covered = matrix.map(() => Array.from({ length: width }, () => false));
-  const collapsedRows: JSONContent[] = [];
+  const stubColumnCount = firstDataRow < 0 ? 0 : matrix[firstDataRow]!.findIndex(isNumericResultCell);
+  const spans = new Map<string, Span>();
+  const covered = new Set<string>();
+  const isCovered = (row: number, column: number) => covered.has(`${row}:${column}`);
   for (let rowIndex = 0; rowIndex < matrix.length; rowIndex += 1) {
-    const collapsedCells: JSONContent[] = [];
     for (let columnIndex = 0; columnIndex < width; columnIndex += 1) {
-      if (covered[rowIndex]?.[columnIndex]) continue;
-      const cell = matrix[rowIndex]?.[columnIndex];
-      if (!cell) continue;
-      const key = mergeKeys[rowIndex]?.[columnIndex];
+      if (isCovered(rowIndex, columnIndex)) continue;
+      const key = mergeKeys[rowIndex]![columnIndex];
       let colspan = 1;
       let ambiguousIntersection = false;
       while (
         key
         && rowIndex < headerRowCount
         && columnIndex + colspan < width
-        && !covered[rowIndex]?.[columnIndex + colspan]
-        && mergeKeys[rowIndex]?.[columnIndex + colspan] === key
+        && !isCovered(rowIndex, columnIndex + colspan)
+        && mergeKeys[rowIndex]![columnIndex + colspan] === key
       ) colspan += 1;
       if (colspan > 1) {
         const below = mergeKeys[rowIndex + 1]?.slice(columnIndex, columnIndex + colspan);
         const matchingBelow = below?.filter((belowKey) => belowKey === key).length ?? 0;
         const distinctBelow = new Set(
-          matrix[rowIndex + 1]
-            ?.slice(columnIndex, columnIndex + colspan)
-            .map((belowCell) => JSON.stringify(belowCell.content ?? [])),
+          matrix[rowIndex + 1]?.slice(columnIndex, columnIndex + colspan).map((belowCell) => JSON.stringify(belowCell.content ?? [])),
         ).size;
-        const completeRectangle = matchingBelow === colspan
-          && columnIndex + colspan <= stubColumnCount;
-        const groupedSubheaders = rowIndex + 1 < headerRowCount
-          && matchingBelow === 0
-          && distinctBelow > 1;
+        const completeRectangle = matchingBelow === colspan && columnIndex + colspan <= stubColumnCount;
+        const groupedSubheaders = rowIndex + 1 < headerRowCount && matchingBelow === 0 && distinctBelow > 1;
         ambiguousIntersection = matchingBelow > 0 && matchingBelow < colspan;
         if (!completeRectangle && !groupedSubheaders) colspan = 1;
       }
@@ -277,45 +234,26 @@ function collapseRepeatedPaperTableCells(table: JSONContent): JSONContent {
         // (or identical subordinate labels) the rows are independent records.
         && (
           rowIndex < headerRowCount
-          || Array.from({ length: stubColumnCount - 1 }, (_, offset) => offset + 1).some(
-            (column) => {
-              const previous = mergeKeys[rowIndex + rowspan - 1]?.[column];
-              const next = mergeKeys[rowIndex + rowspan]?.[column];
-              return Boolean(previous && next && previous !== next);
-            },
-          )
+          || Array.from({ length: stubColumnCount - 1 }, (_, offset) => offset + 1).some((column) => {
+            const previous = mergeKeys[rowIndex + rowspan - 1]?.[column];
+            const next = mergeKeys[rowIndex + rowspan]?.[column];
+            return Boolean(previous && next && previous !== next);
+          })
         )
-        && Array.from({ length: colspan }, (_, offset) => columnIndex + offset).every(
-          (column) => (
-            !covered[rowIndex + rowspan]?.[column]
-            && mergeKeys[rowIndex + rowspan]?.[column] === key
-          ),
-        )
+        && Array.from({ length: colspan }, (_, offset) => columnIndex + offset).every((column) => (
+          !isCovered(rowIndex + rowspan, column) && mergeKeys[rowIndex + rowspan]?.[column] === key
+        ))
       ) rowspan += 1;
 
       if (colspan > 1 || rowspan > 1) {
-        for (let coveredRow = rowIndex; coveredRow < rowIndex + rowspan; coveredRow += 1) {
-          for (
-            let coveredColumn = columnIndex;
-            coveredColumn < columnIndex + colspan;
-            coveredColumn += 1
-          ) {
-            if (coveredRow !== rowIndex || coveredColumn !== columnIndex) {
-              covered[coveredRow]![coveredColumn] = true;
-            }
-          }
+        for (const [spannedRow, spannedColumn] of spanCells(rowIndex, columnIndex, { rowspan, colspan })) {
+          covered.add(`${spannedRow}:${spannedColumn}`);
         }
-        collapsedCells.push({
-          ...cell,
-          attrs: { ...cell.attrs, colspan, rowspan },
-        });
-      } else {
-        collapsedCells.push(cell);
+        spans.set(`${rowIndex}:${columnIndex}`, { rowspan, colspan });
       }
     }
-    collapsedRows.push({ ...rows[rowIndex], content: collapsedCells });
   }
-  return { ...table, content: collapsedRows };
+  return spannedTable(table, matrix, spans);
 }
 
 function prepareTableSpanLayouts(node: JSONContent, inferPaperSpans: boolean): JSONContent {
@@ -323,7 +261,7 @@ function prepareTableSpanLayouts(node: JSONContent, inferPaperSpans: boolean): J
   const prepared = content ? { ...node, content } : node;
   if (prepared.type !== "table") return prepared;
   const explicitLayoutValue = prepared.attrs?.sourceSpanLayout;
-  if (explicitLayoutValue !== null && explicitLayoutValue !== undefined) {
+  if (explicitLayoutValue != null) {
     const explicitLayout = normalizeTableSpanLayout(explicitLayoutValue);
     return explicitLayout === null ? prepared : applyExplicitTableSpanLayout(prepared, explicitLayout);
   }
@@ -335,10 +273,7 @@ export function parseVisualMarkdown(markdown: string, sourcePath?: string): JSON
   // A leading BOM is file envelope, not content: parsing it as text would make
   // serialize + preserveMarkdownEnvelope emit a doubled BOM and a spurious
   // write-back on mount. The envelope helper restores it from the canonical text.
-  const doc = getMarkdownManager().parseWithFallback(
-    markdown.replace(/^\uFEFF/, ""),
-    sourcePath ? { sourcePath } : undefined,
-  );
+  const doc = getMarkdownManager().parseWithFallback(markdown.replace(/^\uFEFF/, ""), sourcePath ? { sourcePath } : undefined);
   const content = doc.content?.map(prepareVisualNode);
   const prepared = content ? { ...doc, content } : doc;
   return prepareTableSpanLayouts(prepared, isExtractedPaperMarkdown(sourcePath));
@@ -355,18 +290,14 @@ export function visualEditorExtensions(imageExtension?: AnyExtension): AnyExtens
     // Host KaTeX macros reach its Math renderer through the same
     // @ok-app/shims/katex-macros seam as inline math; `options.macros` is
     // no longer plumbed through extension options.
-    jsxComponent: JsxComponent.extend({
-      addNodeView: () => ReactNodeViewRenderer(JsxComponentView),
-    }),
+    jsxComponent: JsxComponent.extend({ addNodeView: () => ReactNodeViewRenderer(JsxComponentView) }),
     // Upstream app inline math: same core schema, plus the upstream KaTeX
     // NodeView (click → PropPanel popover). Host KaTeX macros reach the
     // renderer through the @ok-app/shims/katex-macros seam, published by
     // VisualMarkdownEditor — not through extension options.
     mathInline: AppMathInline,
     ...(imageExtension ? { image: imageExtension } : {}),
-    rawMdxFallback: RawMdxFallback.extend({
-      addNodeView: () => ReactNodeViewRenderer(RawMdxFallbackView),
-    }),
+    rawMdxFallback: RawMdxFallback.extend({ addNodeView: () => ReactNodeViewRenderer(RawMdxFallbackView) }),
     // footnoteDefinition intentionally has NO NodeView override: the core
     // extension's renderHTML already emits the upstream UI — the
     // auto-numbered `.footnote-def` aside with `id="fn-{id}"` (the anchor

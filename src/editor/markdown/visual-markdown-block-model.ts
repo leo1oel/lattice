@@ -32,16 +32,13 @@ function sourceHash(source: string): string {
   return (hash >>> 0).toString(36);
 }
 
-function estimatedBlockHeight(source: string, content: JSONContent[]): number {
-  const physicalLines = Math.max(1, source.split("\n").length);
-  const wrappedLines = Math.max(1, Math.ceil(source.length / 76));
-  const visualLines = Math.max(physicalLines, wrappedLines);
-  const type = content[0]?.type;
-  if (type === "table") return Math.max(96, visualLines * 38);
-  if (type === "codeBlock") return Math.max(88, visualLines * 28);
-  if (type === "list") return Math.max(48, visualLines * 32);
-  if (type === "jsxComponent") return Math.max(96, visualLines * 36);
-  return Math.max(40, visualLines * 32);
+/** [minimum height, height per visual line] by root node type. */
+const HEIGHT_ESTIMATES: Record<string, [number, number]> = { table: [96, 38], codeBlock: [88, 28], list: [48, 32], jsxComponent: [96, 36] };
+
+function estimatedBlockHeight(source: string, type: string | undefined): number {
+  const visualLines = Math.max(1, source.split("\n").length, Math.ceil(source.length / 76));
+  const [minimum, lineHeight] = HEIGHT_ESTIMATES[type ?? ""] ?? [40, 32];
+  return Math.max(minimum, visualLines * lineHeight);
 }
 
 function descendantCount(content: JSONContent): number {
@@ -81,48 +78,37 @@ export function buildVisualMarkdownBlockModel(
     const node = mdast.children[index];
     const from = node.position?.start.offset;
     const to = node.position?.end.offset;
-    if (
-      typeof from !== "number"
-      || typeof to !== "number"
-      || from < previousEnd
-      || to < from
-      || to > body.length
-    ) return null;
+    if (typeof from !== "number" || typeof to !== "number" || from < previousEnd || to < from || to > body.length) return null;
 
     const source = body.slice(from, to);
-    const pmBlock = pmBlocks[index];
-    if (!pmBlock) return null;
+    const pmBlock = pmBlocks[index]!;
     // The viewport can bound root blocks, not an arbitrarily large subtree
     // inside one block. Fall back to the complete editor's nested containment
     // and near-viewport media policy for pathological lists/tables/containers.
-    if (
-      source.length > MAX_PASSIVE_ROOT_SOURCE_LENGTH
-      || descendantCount(pmBlock) > MAX_PASSIVE_ROOT_DESCENDANTS
-    ) return null;
+    if (source.length > MAX_PASSIVE_ROOT_SOURCE_LENGTH || descendantCount(pmBlock) > MAX_PASSIVE_ROOT_DESCENDANTS) return null;
     const fingerprint = `${pmBlock.type ?? "unknown"}:${sourceHash(source)}`;
     const occurrence = occurrences.get(fingerprint) ?? 0;
     occurrences.set(fingerprint, occurrence + 1);
-    const content = [pmBlock];
     blocks.push({
       id: `${fingerprint}:${occurrence}`,
       from,
       to,
       source,
-      content,
-      estimatedHeight: estimatedBlockHeight(source, content),
+      content: [pmBlock],
+      estimatedHeight: estimatedBlockHeight(source, pmBlock.type),
     });
     previousEnd = to;
   }
 
-  const gaps = blocks.slice(1).map((block, index) => (
-    body.slice(blocks[index]!.to, block.from)
-  ));
-  const leading = body.slice(0, blocks[0]!.from);
-  const trailing = body.slice(blocks.at(-1)!.to);
-  const reconstructed = blocks.reduce((result, block, index) => (
-    result + (index === 0 ? leading : gaps[index - 1]!) + block.source
-  ), "") + trailing;
-  if (reconstructed !== body) return null;
-
-  return { id: sourceHash(body), sourceOffsetBase, body, blocks, leading, gaps, trailing };
+  // Blocks are ordered, non-overlapping slices of `body`, so leading + blocks
+  // interleaved with gaps + trailing reproduces it byte for byte.
+  return {
+    id: sourceHash(body),
+    sourceOffsetBase,
+    body,
+    blocks,
+    leading: body.slice(0, blocks[0]!.from),
+    gaps: blocks.slice(1).map((block, index) => body.slice(blocks[index]!.to, block.from)),
+    trailing: body.slice(blocks.at(-1)!.to),
+  };
 }

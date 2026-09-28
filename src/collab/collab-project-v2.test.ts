@@ -288,7 +288,8 @@ describe("v2 project presence", () => {
     expect(local.user?.name).toBe("Ada");
     expect(local.user?.color).toBe(peerColorForKey(participantId).color);
     expect(controller.boardPresenceUser.color).toBe(local.user?.color);
-    const { commentMarkStyle, createEditorComment } = await import("../editor/comments/editor-comments");
+    const { commentMarkStyle } = await import("../editor/comments/editor-comments");
+    const { createEditorComment } = await import("../editor/comments/editor-comment-data");
     const comment = createEditorComment({
       path: "paper.md", source: "shared draft", from: 0, to: 6,
       body: "Review this", authorId: participantId, authorName: "Ada",

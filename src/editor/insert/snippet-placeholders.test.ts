@@ -11,14 +11,10 @@ describe("snippet placeholders", () => {
     ]);
   });
 
-  it("finds the next stop after the cursor", () => {
+  it("finds the next stop after and the previous stop before the cursor", () => {
     const stops = [{ from: 2, to: 5 }, { from: 10, to: 14 }];
     expect(nextSnippetStop(stops, 0, 0)).toEqual({ from: 2, to: 5 });
     expect(nextSnippetStop(stops, 5, 0)).toEqual({ from: 10, to: 14 });
-  });
-
-  it("finds the previous stop before the cursor", () => {
-    const stops = [{ from: 2, to: 5 }, { from: 10, to: 14 }];
     expect(previousSnippetStop(stops, 12, 0)).toEqual({ from: 2, to: 5 });
     expect(previousSnippetStop(stops, 4, 0)).toEqual({ from: 2, to: 5 });
   });

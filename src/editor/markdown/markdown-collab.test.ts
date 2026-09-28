@@ -12,25 +12,19 @@ describe("Markdown collaboration patches", () => {
       .toEqual({ from: 6, to: 10, insert: "BETA" });
   });
 
-  it("rebases non-overlapping source and visual edits", () => {
-    expect(rebaseMarkdownDraft("alpha beta omega", "ALPHA beta omega", "alpha beta OMEGA"))
-      .toBe("ALPHA beta OMEGA");
+  it.each([
+    ["non-overlapping source and visual edits", "alpha beta omega", "ALPHA beta omega", "alpha beta OMEGA", "ALPHA beta OMEGA"],
+    ["adjacent replacements", "abcd", "aBcd", "abcD", "aBcD"],
+    ["UTF-16 offsets around astral characters", "😀 alpha omega", "😀 ALPHA omega", "😀 alpha OMEGA", "😀 ALPHA OMEGA"],
+    // Refusals let the caller preserve the draft.
+    ["overlapping edits", "alpha beta", "alpha local", "alpha remote", null],
+    ["same-boundary insertions", "ab", "aLocalb", "aRemoteb", null],
+  ])("rebases (or refuses) %s", (_name, base, draft, canonical, expected) => {
+    expect(rebaseMarkdownDraft(base, draft, canonical)).toBe(expected);
   });
 
-  it("refuses overlapping edits so the draft can be preserved", () => {
-    expect(rebaseMarkdownDraft("alpha beta", "alpha local", "alpha remote")).toBeNull();
-  });
-
-  it("rebases adjacent replacements but refuses same-boundary insertions", () => {
-    expect(rebaseMarkdownDraft("abcd", "aBcd", "abcD")).toBe("aBcD");
-    expect(rebaseMarkdownDraft("ab", "aLocalb", "aRemoteb")).toBeNull();
-  });
-
-  it("uses UTF-16 offsets consistently around astral characters", () => {
-    expect(minimalMarkdownPatch("😀 alpha omega", "😀 ALPHA omega"))
-      .toEqual({ from: 3, to: 8, insert: "ALPHA" });
-    expect(rebaseMarkdownDraft("😀 alpha omega", "😀 ALPHA omega", "😀 alpha OMEGA"))
-      .toBe("😀 ALPHA OMEGA");
+  it("uses UTF-16 offsets for minimal patches around astral characters", () => {
+    expect(minimalMarkdownPatch("😀 alpha omega", "😀 ALPHA omega")).toEqual({ from: 3, to: 8, insert: "ALPHA" });
   });
 
   it("canonicalizes represented GFM table formatting without touching surrounding source", () => {

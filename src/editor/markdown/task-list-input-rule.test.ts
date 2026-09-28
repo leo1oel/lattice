@@ -40,22 +40,20 @@ function type(editor: Editor, text: string): void {
 }
 
 function pressBackspace(editor: Editor): boolean {
-  const event = new KeyboardEvent('keydown', {
-    key: 'Backspace',
-    bubbles: true,
-    cancelable: true,
-  });
+  const event = new KeyboardEvent('keydown', { key: 'Backspace', bubbles: true, cancelable: true });
   editor.view.dom.dispatchEvent(event);
   return event.defaultPrevented;
 }
 
-function listItems(editor: Editor): PmNode[] {
-  const items: PmNode[] = [];
+function nodesOfType(editor: Editor, type: string): PmNode[] {
+  const nodes: PmNode[] = [];
   editor.state.doc.descendants((node) => {
-    if (node.type.name === 'listItem') items.push(node);
+    if (node.type.name === type) nodes.push(node);
   });
-  return items;
+  return nodes;
 }
+
+const listItems = (editor: Editor) => nodesOfType(editor, 'listItem');
 
 describe('task-list input rules through a mounted Lattice editor', () => {
   it.each([
@@ -63,26 +61,15 @@ describe('task-list input rules through a mounted Lattice editor', () => {
     ['[ ] ', false, null],
     ['[x] ', true, null],
     ['[X] ', true, 'X'],
+    // Character-by-character `- [ ] ` must yield one task list, not nested lists.
+    ['- [ ] ', false, null],
   ] as const)('turns typed %j into a task item', (marker, checked, sourceCheckboxChar) => {
     const editor = mountEditor();
     type(editor, marker);
 
     expect(listItems(editor)).toHaveLength(1);
     expect(listItems(editor)[0].attrs).toMatchObject({ checked, sourceCheckboxChar });
-    expect(editor.state.doc.textContent).toBe('');
-  });
-
-  it('turns character-by-character - [ ] into one task list, not nested lists', () => {
-    const editor = mountEditor();
-    type(editor, '- [ ] ');
-
-    expect(listItems(editor)).toHaveLength(1);
-    expect(listItems(editor)[0].attrs.checked).toBe(false);
-    let listCount = 0;
-    editor.state.doc.descendants((node) => {
-      if (node.type.name === 'list') listCount += 1;
-    });
-    expect(listCount).toBe(1);
+    expect(nodesOfType(editor, 'list')).toHaveLength(1);
     expect(editor.state.doc.textContent).toBe('');
   });
 
@@ -108,20 +95,10 @@ describe('task-list input rules through a mounted Lattice editor', () => {
   });
 
   it('does not retag an outer item when typed in its continuation paragraph', () => {
-    const editor = mountEditor({
-      type: 'doc',
-      content: [{
-        type: 'list',
-        attrs: { ordered: false },
-        content: [{
-          type: 'listItem',
-          content: [
-            { type: 'paragraph', content: [{ type: 'text', text: 'first' }] },
-            { type: 'paragraph' },
-          ],
-        }],
-      }],
-    });
+    const editor = mountEditor({ type: 'doc', content: [{ type: 'list', attrs: { ordered: false }, content: [{
+      type: 'listItem',
+      content: [{ type: 'paragraph', content: [{ type: 'text', text: 'first' }] }, { type: 'paragraph' }],
+    }] }] });
     let continuation = -1;
     editor.state.doc.descendants((node, pos, parent, index) => {
       if (node.type.name === 'paragraph' && parent?.type.name === 'listItem' && index === 1) {

@@ -1,45 +1,4 @@
-export type OpenSlideMutation = {
-  id: number;
-  path: string;
-  kind: "create" | "write" | "delete";
-  text?: string;
-  base64?: string;
-  previousText?: string;
-  previousBase64?: string;
-};
-
-type OpenSlideComment = {
-  id: string;
-  line: number;
-  ts: string;
-  note: string;
-  hint?: string;
-};
-
-export type OpenSlideContext = {
-  slideId: string;
-  pageIndex: number;
-  pageNumber: number;
-  totalPages: number;
-  slideTitle: string;
-  view: "slides" | "assets";
-  pagePath: string;
-  pendingEdits: boolean;
-  pendingComments: OpenSlideComment[];
-  selection: {
-    line: number;
-    column: number;
-    tagName: string;
-    text: string;
-  } | null;
-  updatedAt: string;
-};
-
-export type OpenSlideEvent = OpenSlideMutation | {
-  id: number;
-  type: "context";
-  context: OpenSlideContext;
-};
+import type { AgentPresentationContext } from "../../agent/agent-host-context";
 
 export type OpenSlideSyncOperation = {
   path: string;
@@ -48,14 +7,30 @@ export type OpenSlideSyncOperation = {
   base64?: string;
 };
 
+/** A file change Open Slide saved; `previous*` holds the replaced bytes so a rejected change can be reverted. */
+export type OpenSlideMutation = OpenSlideSyncOperation & {
+  id: number;
+  previousText?: string;
+  previousBase64?: string;
+};
+
+/** The live deck state the Agent also receives, plus whether the inspector holds unsaved edits. */
+export type OpenSlideContext = AgentPresentationContext & { pendingEdits: boolean };
+
+export type OpenSlideEvent = OpenSlideMutation | {
+  id: number;
+  type: "context";
+  context: OpenSlideContext;
+};
+
+/** Feed each server-sent event in `stream` to `onEvent`, in order, until the stream ends. */
 export async function consumeOpenSlideEvents(
   stream: ReadableStream<Uint8Array>,
   onEvent: (event: OpenSlideEvent) => Promise<void>,
-): Promise<number> {
+): Promise<void> {
   const reader = stream.getReader();
   const decoder = new TextDecoder();
   let buffer = "";
-  let lastEventId = 0;
   while (true) {
     const { done, value } = await reader.read();
     buffer = (buffer + decoder.decode(value, { stream: !done })).replaceAll("\r\n", "\n");
@@ -68,13 +43,9 @@ export async function consumeOpenSlideEvents(
         .filter((line) => line.startsWith("data:"))
         .map((line) => line.slice(5).trimStart())
         .join("\n");
-      if (data) {
-        const event = JSON.parse(data) as OpenSlideEvent;
-        await onEvent(event);
-        lastEventId = Math.max(lastEventId, event.id);
-      }
+      if (data) await onEvent(JSON.parse(data) as OpenSlideEvent);
       boundary = buffer.indexOf("\n\n");
     }
-    if (done) return lastEventId;
+    if (done) return;
   }
 }

@@ -8,16 +8,20 @@ import { MotionButton, PopIn } from "../../components/ui/motion";
 import { DEFAULT_FIGURE_OPTIONS, type FigureInsertOptions } from "./figure-insertion";
 import { ModalDialog } from "../../components/ui/modal-dialog";
 
+const FIELDS: Array<[key: keyof FigureInsertOptions, name: string, placeholder?: string]> = [
+  ["width", "Width", "0.8\\linewidth"],
+  ["placement", "Placement", "t"],
+  ["caption", "Caption"],
+  ["label", "Label", "fig:name (optional)"],
+];
+
 export function FigureInsertDialog(props: {
   open: boolean;
   paths: string[];
   onClose: () => void;
   onInsert: (options: FigureInsertOptions) => void;
 }) {
-  const [width, setWidth] = useState(DEFAULT_FIGURE_OPTIONS.width);
-  const [placement, setPlacement] = useState(DEFAULT_FIGURE_OPTIONS.placement);
-  const [caption, setCaption] = useState(DEFAULT_FIGURE_OPTIONS.caption);
-  const [label, setLabel] = useState("");
+  const [options, setOptions] = useState<Required<FigureInsertOptions>>({ ...DEFAULT_FIGURE_OPTIONS, label: "" });
 
   if (!props.open || !props.paths.length) return null;
 
@@ -32,28 +36,23 @@ export function FigureInsertDialog(props: {
           onClose={props.onClose}
         />
         <p>{props.paths.length === 1 ? props.paths[0] : `${props.paths.length} figures`}</p>
-        <label>
-          Width
-          <Input controlSize="form" value={width} onChange={(event) => setWidth(event.target.value)} placeholder="0.8\linewidth" />
-        </label>
-        <label>
-          Placement
-          <Input controlSize="form" value={placement} onChange={(event) => setPlacement(event.target.value)} placeholder="t" />
-        </label>
-        <label>
-          Caption
-          <Input controlSize="form" value={caption} onChange={(event) => setCaption(event.target.value)} />
-        </label>
-        <label>
-          Label
-          <Input controlSize="form" value={label} onChange={(event) => setLabel(event.target.value)} placeholder="fig:name (optional)" />
-        </label>
+        {FIELDS.map(([key, name, placeholder]) => (
+          <label key={key}>
+            {name}
+            <Input
+              controlSize="form"
+              value={options[key]}
+              onChange={(event) => setOptions({ ...options, [key]: event.target.value })}
+              placeholder={placeholder}
+            />
+          </label>
+        ))}
         <div className="modal-actions">
           <Button variant="ghost" onClick={props.onClose}>Cancel</Button>
           <MotionButton
             type="button"
             className={buttonClassName({ variant: "primary" })}
-            onClick={() => props.onInsert({ width, placement, caption, label: label.trim() || undefined })}
+            onClick={() => props.onInsert({ ...options, label: options.label.trim() || undefined })}
           >
             Insert
           </MotionButton>

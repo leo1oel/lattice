@@ -52,7 +52,7 @@ msgid "(empty span)"
 msgstr "(empty span)"
 
 #: src/canvas/document-canvas.tsx
-#: src/editor/markdown/visual-markdown-editor.tsx
+#: src/editor/markdown/visual-review-overlays.tsx
 msgid "(no comment text)"
 msgstr "(no comment text)"
 
@@ -293,7 +293,7 @@ msgstr "Access denied. Check the key and its permissions."
 msgid "Access forbidden by provider"
 msgstr "Access forbidden by provider"
 
-#: src/editor/markdown/visual-markdown-editor.tsx
+#: src/editor/markdown/visual-slash-items.ts
 msgid "Accordion"
 msgstr "Accordion"
 
@@ -329,7 +329,7 @@ msgid "Add bibliography entry and cache the arXiv paper"
 msgstr "Add bibliography entry and cache the arXiv paper"
 
 #: src/canvas/comment-composer.tsx
-#: src/editor/markdown/visual-markdown-editor.tsx
+#: src/editor/markdown/visual-review-overlays.tsx
 msgid "Add comment"
 msgstr "Add comment"
 
@@ -402,11 +402,11 @@ msgstr "Algorithm block (requires algorithm and algpseudocode)"
 msgid "Align"
 msgstr "Align"
 
-#: src/editor/markdown/visual-markdown-editor.tsx
+#: src/editor/markdown/visual-slash-items.ts
 msgid "Align a group of blocks to the left, center, or right."
 msgstr "Align a group of blocks to the left, center, or right."
 
-#: src/editor/markdown/visual-markdown-editor.tsx
+#: src/editor/markdown/visual-slash-items.ts
 msgid "Align block"
 msgstr "Align block"
 
@@ -419,7 +419,7 @@ msgstr "Align*"
 msgid "All"
 msgstr "All"
 
-#: src/editor/spreadsheet/spreadsheet-editor.tsx
+#: src/editor/spreadsheet/spreadsheet-univer.ts
 msgid "All Functions…"
 msgstr "All Functions…"
 
@@ -487,6 +487,7 @@ msgstr "Angle"
 #: src/canvas/document-canvas.tsx
 #: src/editor/comments/editor-comments-panel.tsx
 #: src/editor/markdown/visual-markdown-editor.tsx
+#: src/editor/markdown/visual-review-overlays.tsx
 msgid "Anonymous"
 msgstr "Anonymous"
 
@@ -651,7 +652,7 @@ msgstr "Bar accent example"
 msgid "Bar over an expression"
 msgstr "Bar over an expression"
 
-#: src/editor/markdown/visual-markdown-editor.tsx
+#: src/editor/markdown/visual-slash-items.ts
 msgid "Basic blocks"
 msgstr "Basic blocks"
 
@@ -691,7 +692,7 @@ msgstr "Bibliographic citation (requires natbib or compatible package)"
 msgid "BibTeX preview"
 msgstr "BibTeX preview"
 
-#: src/editor/markdown/visual-markdown-editor.tsx
+#: src/editor/markdown/visual-slash-items.ts
 msgid "Big section heading."
 msgstr "Big section heading."
 
@@ -723,7 +724,7 @@ msgstr "Binomial coefficient"
 msgid "Blackboard bold"
 msgstr "Blackboard bold"
 
-#: src/editor/markdown/visual-markdown-editor.tsx
+#: src/editor/markdown/visual-slash-items.ts
 msgid "Block math equation rendered with KaTeX from a LaTeX source string."
 msgstr "Block math equation rendered with KaTeX from a LaTeX source string."
 
@@ -835,7 +836,7 @@ msgstr "Builds"
 msgid "Bullet"
 msgstr "Bullet"
 
-#: src/editor/markdown/visual-markdown-editor.tsx
+#: src/editor/markdown/visual-slash-items.ts
 #: src/open-knowledge-app/editor/bubble-menu/BlockTypeSelector.tsx
 msgid "Bullet List"
 msgstr "Bullet List"
@@ -852,7 +853,7 @@ msgstr "cached"
 msgid "Calligraphic"
 msgstr "Calligraphic"
 
-#: src/editor/markdown/visual-markdown-editor.tsx
+#: src/editor/markdown/visual-slash-items.ts
 msgid "Callout"
 msgstr "Callout"
 
@@ -861,8 +862,8 @@ msgstr "Callout"
 #: src/collab/collab-dialog.tsx
 #: src/components/ui/confirm-action-dialog.tsx
 #: src/editor/comments/editor-comments-panel.tsx
-#: src/editor/markdown/visual-markdown-editor.tsx
-#: src/editor/spreadsheet/spreadsheet-editor.tsx
+#: src/editor/markdown/visual-review-overlays.tsx
+#: src/editor/spreadsheet/spreadsheet-univer.ts
 #: src/history/conflict-resolver.tsx
 #: src/history/versions-timeline.tsx
 #: src/overleaf/overleaf-comments.tsx
@@ -1053,7 +1054,7 @@ msgstr "Checking your Overleaf connection…"
 msgid "Checking…"
 msgstr "Checking…"
 
-#: src/editor/markdown/visual-markdown-editor.tsx
+#: src/editor/markdown/visual-slash-items.ts
 msgid "Checklist with checkboxes."
 msgstr "Checklist with checkboxes."
 
@@ -1234,7 +1235,7 @@ msgstr "Closed-path integral"
 msgid "Club suit"
 msgstr "Club suit"
 
-#: src/editor/markdown/visual-markdown-editor.tsx
+#: src/editor/markdown/visual-slash-items.ts
 #: src/open-knowledge-app/editor/bubble-menu/BlockTypeSelector.tsx
 msgid "Code Block"
 msgstr "Code Block"
@@ -1267,11 +1268,11 @@ msgstr "Collaboration is read-only"
 msgid "Collaboration, Overleaf, and history"
 msgstr "Collaboration, Overleaf, and history"
 
-#: src/editor/markdown/visual-markdown-editor.tsx
+#: src/editor/markdown/visual-slash-items.ts
 msgid "Collapsible content block (Notion-style toggle)."
 msgstr "Collapsible content block (Notion-style toggle)."
 
-#: src/editor/markdown/visual-markdown-editor.tsx
+#: src/editor/markdown/visual-slash-items.ts
 msgid "Collapsible section with a clickable summary."
 msgstr "Collapsible section with a clickable summary."
 
@@ -1292,6 +1293,7 @@ msgid "comment"
 msgstr "comment"
 
 #: src/editor/markdown/visual-markdown-editor.tsx
+#: src/editor/markdown/visual-review-overlays.tsx
 #: src/open-knowledge-app/comments/CommentBubbleButton.tsx
 msgid "Comment"
 msgstr "Comment"
@@ -1338,7 +1340,7 @@ msgstr "Complete the unfinished bibliography entry before adding another referen
 msgid "Completed"
 msgstr "Completed"
 
-#: src/editor/markdown/visual-markdown-editor.tsx
+#: src/editor/markdown/visual-slash-items.ts
 msgid "Components"
 msgstr "Components"
 
@@ -1429,13 +1431,13 @@ msgid "Contains as member"
 msgstr "Contains as member"
 
 #: src/components/ui/confirm-action-dialog.tsx
-#: src/editor/spreadsheet/spreadsheet-editor.tsx
+#: src/editor/spreadsheet/spreadsheet-univer.ts
 #: src/onboarding/onboarding-tour.tsx
 msgid "Continue"
 msgstr "Continue"
 
 #: src/components/ui/confirm-action-dialog.tsx
-#: src/editor/spreadsheet/spreadsheet-editor.tsx
+#: src/editor/spreadsheet/spreadsheet-univer.ts
 msgid "Continue?"
 msgstr "Continue?"
 
@@ -1613,7 +1615,7 @@ msgstr "Current BibTeX"
 msgid "Current reference"
 msgstr "Current reference"
 
-#: src/editor/markdown/visual-markdown-editor.tsx
+#: src/editor/markdown/visual-slash-items.ts
 msgid "Custom HTML with a live preview pane (sandboxed iframe)."
 msgstr "Custom HTML with a live preview pane (sandboxed iframe)."
 
@@ -1633,7 +1635,7 @@ msgstr "Daleth"
 msgid "Dark"
 msgstr "Dark"
 
-#: src/editor/markdown/visual-markdown-editor.tsx
+#: src/editor/markdown/visual-slash-items.ts
 msgid "Data"
 msgstr "Data"
 
@@ -1660,7 +1662,7 @@ msgstr "Degree"
 #: src/App.tsx
 #: src/components/ui/confirm-action-dialog.tsx
 #: src/editor/comments/editor-comments-panel.tsx
-#: src/editor/spreadsheet/spreadsheet-editor.tsx
+#: src/editor/spreadsheet/spreadsheet-univer.ts
 #: src/overleaf/overleaf-comments.tsx
 #: src/project/navigator.tsx
 msgid "Delete"
@@ -1711,7 +1713,7 @@ msgstr "Delete this message?"
 msgid "Delete this message? It's the only one in the thread, so this deletes the whole thread."
 msgstr "Delete this message? It's the only one in the thread, so this deletes the whole thread."
 
-#: src/editor/spreadsheet/spreadsheet-editor.tsx
+#: src/editor/spreadsheet/spreadsheet-univer.ts
 msgid "Delete worksheet?"
 msgstr "Delete worksheet?"
 
@@ -1744,7 +1746,7 @@ msgstr "Determinant-style matrix"
 msgid "Diagnostics"
 msgstr "Diagnostics"
 
-#: src/editor/markdown/visual-markdown-editor.tsx
+#: src/editor/markdown/visual-slash-items.ts
 msgid "Diagram from Mermaid source — flowchart, sequence, class, state, ER, gantt, pie."
 msgstr "Diagram from Mermaid source — flowchart, sequence, class, state, ER, gantt, pie."
 
@@ -2027,15 +2029,15 @@ msgstr "Edits sync live with Overleaf"
 msgid "Element of"
 msgstr "Element of"
 
-#: src/editor/markdown/visual-markdown-editor.tsx
+#: src/editor/markdown/visual-slash-items.ts
 msgid "Embed an image with optional alt text."
 msgstr "Embed an image with optional alt text."
 
-#: src/editor/markdown/visual-markdown-editor.tsx
+#: src/editor/markdown/visual-slash-items.ts
 msgid "Embeds"
 msgstr "Embeds"
 
-#: src/editor/markdown/visual-markdown-editor.tsx
+#: src/editor/markdown/visual-slash-items.ts
 msgid "Emoji"
 msgstr "Emoji"
 
@@ -2162,7 +2164,7 @@ msgstr "Everything for the paper lives in one folder"
 msgid "Exact title match"
 msgstr "Exact title match"
 
-#: src/editor/spreadsheet/spreadsheet-editor.tsx
+#: src/editor/spreadsheet/spreadsheet-univer.ts
 msgid "Excel workbook"
 msgstr "Excel workbook"
 
@@ -2170,11 +2172,11 @@ msgstr "Excel workbook"
 msgid "Export diagnostic log"
 msgstr "Export diagnostic log"
 
-#: src/editor/spreadsheet/spreadsheet-editor.tsx
+#: src/editor/spreadsheet/spreadsheet-univer.ts
 msgid "Export Excel"
 msgstr "Export Excel"
 
-#: src/editor/spreadsheet/spreadsheet-editor.tsx
+#: src/editor/spreadsheet/spreadsheet-univer.ts
 msgid "Export Excel workbook"
 msgstr "Export Excel workbook"
 
@@ -2202,7 +2204,7 @@ msgstr "Expression of concern"
 msgid "Feedback"
 msgstr "Feedback"
 
-#: src/editor/markdown/visual-markdown-editor.tsx
+#: src/editor/markdown/visual-slash-items.ts
 msgid "Fenced code block with monospace text."
 msgstr "Fenced code block with monospace text."
 
@@ -2210,7 +2212,7 @@ msgstr "Fenced code block with monospace text."
 msgid "Fetching the paper overview…"
 msgstr "Fetching the paper overview…"
 
-#: src/editor/markdown/visual-markdown-editor.tsx
+#: src/editor/markdown/visual-slash-items.ts
 msgid "Fifth-level heading."
 msgstr "Fifth-level heading."
 
@@ -2319,7 +2321,7 @@ msgid "Follow system (default)"
 msgstr "Follow system (default)"
 
 #: src/editor/insert/insert-snippets.ts
-#: src/editor/markdown/visual-markdown-editor.tsx
+#: src/editor/markdown/visual-slash-items.ts
 msgid "Footnote"
 msgstr "Footnote"
 
@@ -2339,7 +2341,7 @@ msgstr "For all"
 msgid "Format document"
 msgstr "Format document"
 
-#: src/editor/spreadsheet/spreadsheet-editor.tsx
+#: src/editor/spreadsheet/spreadsheet-univer.ts
 msgid "Formulas"
 msgstr "Formulas"
 
@@ -2347,7 +2349,7 @@ msgstr "Formulas"
 msgid "Formulas and Excel export"
 msgstr "Formulas and Excel export"
 
-#: src/editor/markdown/visual-markdown-editor.tsx
+#: src/editor/markdown/visual-slash-items.ts
 msgid "Fourth-level heading."
 msgstr "Fourth-level heading."
 
@@ -2461,7 +2463,7 @@ msgstr "Greek"
 msgid "Grid generator"
 msgstr "Grid generator"
 
-#: src/editor/markdown/visual-markdown-editor.tsx
+#: src/editor/markdown/visual-slash-items.ts
 msgid "Grid of rows and columns with a header row."
 msgstr "Grid of rows and columns with a header row."
 
@@ -2485,32 +2487,32 @@ msgstr "Hat accent"
 msgid "Hat accent example"
 msgstr "Hat accent example"
 
-#: src/editor/markdown/visual-markdown-editor.tsx
+#: src/editor/markdown/visual-slash-items.ts
 #: src/open-knowledge-app/editor/bubble-menu/BlockTypeSelector.tsx
 msgid "Heading 1"
 msgstr "Heading 1"
 
-#: src/editor/markdown/visual-markdown-editor.tsx
+#: src/editor/markdown/visual-slash-items.ts
 #: src/open-knowledge-app/editor/bubble-menu/BlockTypeSelector.tsx
 msgid "Heading 2"
 msgstr "Heading 2"
 
-#: src/editor/markdown/visual-markdown-editor.tsx
+#: src/editor/markdown/visual-slash-items.ts
 #: src/open-knowledge-app/editor/bubble-menu/BlockTypeSelector.tsx
 msgid "Heading 3"
 msgstr "Heading 3"
 
-#: src/editor/markdown/visual-markdown-editor.tsx
+#: src/editor/markdown/visual-slash-items.ts
 #: src/open-knowledge-app/editor/bubble-menu/BlockTypeSelector.tsx
 msgid "Heading 4"
 msgstr "Heading 4"
 
-#: src/editor/markdown/visual-markdown-editor.tsx
+#: src/editor/markdown/visual-slash-items.ts
 #: src/open-knowledge-app/editor/bubble-menu/BlockTypeSelector.tsx
 msgid "Heading 5"
 msgstr "Heading 5"
 
-#: src/editor/markdown/visual-markdown-editor.tsx
+#: src/editor/markdown/visual-slash-items.ts
 #: src/open-knowledge-app/editor/bubble-menu/BlockTypeSelector.tsx
 msgid "Heading 6"
 msgstr "Heading 6"
@@ -2535,7 +2537,7 @@ msgstr "Hide sidebar"
 msgid "Highlight"
 msgstr "Highlight"
 
-#: src/editor/markdown/visual-markdown-editor.tsx
+#: src/editor/markdown/visual-slash-items.ts
 msgid "Highlight tips, warnings, and notes."
 msgstr "Highlight tips, warnings, and notes."
 
@@ -2551,11 +2553,11 @@ msgstr "Hook left arrow"
 msgid "Hook right arrow"
 msgstr "Hook right arrow"
 
-#: src/editor/markdown/visual-markdown-editor.tsx
+#: src/editor/markdown/visual-slash-items.ts
 msgid "Horizontal pill strip + active panel below; click a pill to switch panels."
 msgstr "Horizontal pill strip + active panel below; click a pill to switch panels."
 
-#: src/editor/markdown/visual-markdown-editor.tsx
+#: src/editor/markdown/visual-slash-items.ts
 msgid "Horizontal rule that divides sections."
 msgstr "Horizontal rule that divides sections."
 
@@ -2563,7 +2565,7 @@ msgstr "Horizontal rule that divides sections."
 msgid "host"
 msgstr "host"
 
-#: src/editor/markdown/visual-markdown-editor.tsx
+#: src/editor/markdown/visual-slash-items.ts
 msgid "HTML"
 msgstr "HTML"
 
@@ -2587,7 +2589,7 @@ msgstr "HTML zoom percentage"
 msgid "If and only if"
 msgstr "If and only if"
 
-#: src/editor/markdown/visual-markdown-editor.tsx
+#: src/editor/markdown/visual-slash-items.ts
 msgid "Image"
 msgstr "Image"
 
@@ -2701,7 +2703,7 @@ msgstr "Incomplete history"
 msgid "Increment year"
 msgstr "Increment year"
 
-#: src/editor/markdown/visual-markdown-editor.tsx
+#: src/editor/markdown/visual-slash-items.ts
 msgid "Indented blockquote for citations."
 msgstr "Indented blockquote for citations."
 
@@ -2730,7 +2732,7 @@ msgstr "Inline another TeX file"
 msgid "Inline code"
 msgstr "Inline code"
 
-#: src/editor/markdown/visual-markdown-editor.tsx
+#: src/editor/markdown/visual-slash-items.ts
 msgid "Inline LaTeX math rendered with KaTeX."
 msgstr "Inline LaTeX math rendered with KaTeX."
 
@@ -2738,7 +2740,7 @@ msgstr "Inline LaTeX math rendered with KaTeX."
 msgid "Inline math"
 msgstr "Inline math"
 
-#: src/editor/markdown/visual-markdown-editor.tsx
+#: src/editor/markdown/visual-slash-items.ts
 msgid "Inline Math"
 msgstr "Inline Math"
 
@@ -2751,7 +2753,7 @@ msgid "insert"
 msgstr "insert"
 
 #: src/editor/insert/insert-palette.tsx
-#: src/editor/markdown/visual-markdown-editor.tsx
+#: src/editor/markdown/visual-slash-items.ts
 msgid "Insert"
 msgstr "Insert"
 
@@ -2763,11 +2765,11 @@ msgstr "Insert \\cite{…}"
 msgid "Insert \\ref{…}"
 msgstr "Insert \\ref{…}"
 
-#: src/editor/markdown/visual-markdown-editor.tsx
+#: src/editor/markdown/visual-slash-items.ts
 msgid "Insert a footnote reference + matching definition stub."
 msgstr "Insert a footnote reference + matching definition stub."
 
-#: src/editor/spreadsheet/spreadsheet-editor.tsx
+#: src/editor/spreadsheet/spreadsheet-univer.ts
 msgid "Insert a formula"
 msgstr "Insert a formula"
 
@@ -3116,7 +3118,7 @@ msgstr "Lattice saves and builds when you leave the editor or stop typing for 1.
 msgid "Lattice will find and install the TeX Live package that provides {0}."
 msgstr "Lattice will find and install the TeX Live package that provides {0}."
 
-#: src/editor/markdown/visual-markdown-editor.tsx
+#: src/editor/markdown/visual-slash-items.ts
 msgid "Layout"
 msgstr "Layout"
 
@@ -3125,7 +3127,7 @@ msgid "Learn Lattice with the Understanding Attention sample project"
 msgstr "Learn Lattice with the Understanding Attention sample project"
 
 #: src/canvas/comment-composer.tsx
-#: src/editor/markdown/visual-markdown-editor.tsx
+#: src/editor/markdown/visual-review-overlays.tsx
 msgid "Leave a comment for collaborators…"
 msgstr "Leave a comment for collaborators…"
 
@@ -3213,12 +3215,12 @@ msgstr "Limit expression"
 msgid "Line under an expression"
 msgstr "Line under an expression"
 
-#: src/editor/markdown/visual-markdown-editor.tsx
+#: src/editor/markdown/visual-slash-items.ts
 #: src/open-knowledge-app/editor/bubble-menu/LinkEditPopover.tsx
 msgid "Link"
 msgstr "Link"
 
-#: src/editor/markdown/visual-markdown-editor.tsx
+#: src/editor/markdown/visual-slash-items.ts
 msgid "Link to a page or external URL."
 msgstr "Link to a page or external URL."
 
@@ -3391,7 +3393,7 @@ msgstr "Manuscript TODOs"
 msgid "Maps to"
 msgstr "Maps to"
 
-#: src/editor/markdown/visual-markdown-editor.tsx
+#: src/editor/markdown/visual-slash-items.ts
 msgid "Mark a block as the source of truth. Mirrors elsewhere update live as you edit it."
 msgstr "Mark a block as the source of truth. Mirrors elsewhere update live as you edit it."
 
@@ -3400,7 +3402,7 @@ msgid "Match case"
 msgstr "Match case"
 
 #: src/editor/insert/insert-palette.tsx
-#: src/editor/markdown/visual-markdown-editor.tsx
+#: src/editor/markdown/visual-slash-items.ts
 msgid "Math"
 msgstr "Math"
 
@@ -3432,15 +3434,15 @@ msgstr "MCP"
 msgid "Mean / conjugate mark"
 msgstr "Mean / conjugate mark"
 
-#: src/editor/markdown/visual-markdown-editor.tsx
+#: src/editor/markdown/visual-slash-items.ts
 msgid "Media"
 msgstr "Media"
 
-#: src/editor/markdown/visual-markdown-editor.tsx
+#: src/editor/markdown/visual-slash-items.ts
 msgid "Medium section heading."
 msgstr "Medium section heading."
 
-#: src/editor/markdown/visual-markdown-editor.tsx
+#: src/editor/markdown/visual-slash-items.ts
 msgid "Mermaid"
 msgstr "Mermaid"
 
@@ -3480,11 +3482,11 @@ msgstr "Minipage"
 msgid "Minus-plus"
 msgstr "Minus-plus"
 
-#: src/editor/markdown/visual-markdown-editor.tsx
+#: src/editor/markdown/visual-slash-items.ts
 msgid "Mirror"
 msgstr "Mirror"
 
-#: src/editor/markdown/visual-markdown-editor.tsx
+#: src/editor/markdown/visual-slash-items.ts
 msgid "Mirror Source"
 msgstr "Mirror Source"
 
@@ -3874,7 +3876,7 @@ msgstr "Number sets like R, N"
 msgid "Numbered list"
 msgstr "Numbered list"
 
-#: src/editor/markdown/visual-markdown-editor.tsx
+#: src/editor/markdown/visual-slash-items.ts
 msgid "Numbered list of items."
 msgstr "Numbered list of items."
 
@@ -4099,7 +4101,7 @@ msgstr "Operation metadata"
 msgid "Operators"
 msgstr "Operators"
 
-#: src/editor/markdown/visual-markdown-editor.tsx
+#: src/editor/markdown/visual-slash-items.ts
 #: src/open-knowledge-app/editor/bubble-menu/BlockTypeSelector.tsx
 msgid "Ordered List"
 msgstr "Ordered List"
@@ -4328,7 +4330,7 @@ msgstr "Pi"
 msgid "Pick a venue to set its canonical name and entry type, or edit any field by hand"
 msgstr "Pick a venue to set its canonical name and entry type, or edit any field by hand"
 
-#: src/editor/markdown/visual-markdown-editor.tsx
+#: src/editor/markdown/visual-slash-items.ts
 msgid "Pick an emoji to insert at the cursor."
 msgstr "Pick an emoji to insert at the cursor."
 
@@ -4353,7 +4355,7 @@ msgid "Plays quiet cues when a requested build or collaboration setup finishes"
 msgstr "Plays quiet cues when a requested build or collaboration setup finishes"
 
 #: src/components/ui/confirm-action-dialog.tsx
-#: src/editor/spreadsheet/spreadsheet-editor.tsx
+#: src/editor/spreadsheet/spreadsheet-univer.ts
 msgid "Please confirm that you want to continue."
 msgstr "Please confirm that you want to continue."
 
@@ -4573,7 +4575,7 @@ msgid "Quick open file"
 msgstr "Quick open file"
 
 #: src/editor/insert/insert-snippets.ts
-#: src/editor/markdown/visual-markdown-editor.tsx
+#: src/editor/markdown/visual-slash-items.ts
 #: src/open-knowledge-app/editor/bubble-menu/BlockTypeSelector.tsx
 msgid "Quote"
 msgstr "Quote"
@@ -4594,7 +4596,7 @@ msgstr "Rate limited; subsequent Semantic Scholar queries skipped"
 msgid "Read the full paper here"
 msgstr "Read the full paper here"
 
-#: src/editor/markdown/visual-markdown-editor.tsx
+#: src/editor/markdown/visual-slash-items.ts
 msgid "Read-only copy of a MirrorSource block from another doc. Edit at the source and it updates live."
 msgstr "Read-only copy of a MirrorSource block from another doc. Edit at the source and it updates live."
 
@@ -4824,7 +4826,7 @@ msgstr "Rendering first page…"
 
 #: src/canvas/document-canvas.tsx
 #: src/editor/comments/editor-comments-panel.tsx
-#: src/editor/markdown/visual-markdown-editor.tsx
+#: src/editor/markdown/visual-review-overlays.tsx
 #: src/overleaf/overleaf-comments.tsx
 msgid "Reopen"
 msgstr "Reopen"
@@ -4863,7 +4865,7 @@ msgstr "Replacement/new version"
 
 #: src/canvas/document-canvas.tsx
 #: src/editor/comments/editor-comments-panel.tsx
-#: src/editor/markdown/visual-markdown-editor.tsx
+#: src/editor/markdown/visual-review-overlays.tsx
 #: src/overleaf/overleaf-comments.tsx
 msgid "Reply"
 msgstr "Reply"
@@ -4951,7 +4953,7 @@ msgstr "Resolve changes to {path}"
 
 #: src/canvas/document-canvas.tsx
 #: src/editor/comments/editor-comments-panel.tsx
-#: src/editor/markdown/visual-markdown-editor.tsx
+#: src/editor/markdown/visual-review-overlays.tsx
 msgid "Resolve comment"
 msgstr "Resolve comment"
 
@@ -5423,7 +5425,7 @@ msgstr "Send the invite above. They open Live collaboration → Join → paste �
 msgid "Sent to Crossref to use its polite pool. No API key is needed."
 msgstr "Sent to Crossref to use its polite pool. No API key is needed."
 
-#: src/editor/markdown/visual-markdown-editor.tsx
+#: src/editor/markdown/visual-slash-items.ts
 msgid "Separator"
 msgstr "Separator"
 
@@ -5554,7 +5556,7 @@ msgstr "Similar to"
 msgid "Simplified Chinese"
 msgstr "Simplified Chinese"
 
-#: src/editor/markdown/visual-markdown-editor.tsx
+#: src/editor/markdown/visual-slash-items.ts
 msgid "Sixth-level heading."
 msgstr "Sixth-level heading."
 
@@ -5566,7 +5568,7 @@ msgstr "Skills"
 msgid "Skip tutorial"
 msgstr "Skip tutorial"
 
-#: src/editor/markdown/visual-markdown-editor.tsx
+#: src/editor/markdown/visual-slash-items.ts
 msgid "Small section heading."
 msgstr "Small section heading."
 
@@ -5921,15 +5923,15 @@ msgid "Syntax-highlighted listing (listings)"
 msgstr "Syntax-highlighted listing (listings)"
 
 #: src/editor/insert/insert-snippets.ts
-#: src/editor/markdown/visual-markdown-editor.tsx
+#: src/editor/markdown/visual-slash-items.ts
 msgid "Table"
 msgstr "Table"
 
-#: src/editor/markdown/visual-markdown-editor.tsx
+#: src/editor/markdown/visual-slash-items.ts
 msgid "Tabs"
 msgstr "Tabs"
 
-#: src/editor/markdown/visual-markdown-editor.tsx
+#: src/editor/markdown/visual-slash-items.ts
 #: src/open-knowledge-app/editor/bubble-menu/BlockTypeSelector.tsx
 msgid "Task List"
 msgstr "Task List"
@@ -6059,11 +6061,11 @@ msgstr "The service is rate-limiting requests. No retry was made."
 msgid "The shared version is shown. Your visual draft was kept — copy it, or restore it and try again."
 msgstr "The shared version is shown. Your visual draft was kept — copy it, or restore it and try again."
 
-#: src/editor/spreadsheet/spreadsheet-editor.tsx
+#: src/editor/spreadsheet/spreadsheet-univer.ts
 msgid "The worksheet and all of its contents will be removed and cannot be recovered."
 msgstr "The worksheet and all of its contents will be removed and cannot be recovered."
 
-#: src/editor/spreadsheet/spreadsheet-editor.tsx
+#: src/editor/spreadsheet/spreadsheet-univer.ts
 msgid "The worksheet and all of its contents will be removed."
 msgstr "The worksheet and all of its contents will be removed."
 
@@ -6250,7 +6252,7 @@ msgstr "Today"
 msgid "TODOs"
 msgstr "TODOs"
 
-#: src/editor/markdown/visual-markdown-editor.tsx
+#: src/editor/markdown/visual-slash-items.ts
 msgid "Toggle"
 msgstr "Toggle"
 
@@ -6362,7 +6364,7 @@ msgstr "Unnumbered centered equations"
 msgid "Unnumbered single-line equation"
 msgstr "Unnumbered single-line equation"
 
-#: src/editor/markdown/visual-markdown-editor.tsx
+#: src/editor/markdown/visual-slash-items.ts
 msgid "Unordered list of items."
 msgstr "Unordered list of items."
 

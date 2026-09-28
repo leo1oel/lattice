@@ -5,9 +5,7 @@ import { TooltipProvider } from "@ok-app/components/ui/tooltip";
 vi.mock("mermaid", () => ({
   default: {
     initialize: vi.fn(),
-    render: vi.fn(async () => ({
-      svg: '<svg viewBox="0 0 100 100"><g><text>Graph</text></g></svg>',
-    })),
+    render: vi.fn(async () => ({ svg: '<svg viewBox="0 0 100 100"><g><text>Graph</text></g></svg>' })),
   },
 }));
 
@@ -18,43 +16,25 @@ vi.mock("motion/react", async (importOriginal) => ({
 }));
 
 const panzoom = vi.hoisted(() => {
-  const instances: Array<{
-    pan: ReturnType<typeof vi.fn>;
-    zoomIn: ReturnType<typeof vi.fn>;
-    zoomOut: ReturnType<typeof vi.fn>;
-    reset: ReturnType<typeof vi.fn>;
-    destroy: ReturnType<typeof vi.fn>;
-  }> = [];
+  const instances: Array<Record<"pan" | "zoomIn" | "zoomOut" | "reset" | "destroy", ReturnType<typeof vi.fn>>> = [];
   const create = vi.fn(() => {
-    const instance = {
-      pan: vi.fn(),
-      zoomIn: vi.fn(),
-      zoomOut: vi.fn(),
-      reset: vi.fn(),
-      destroy: vi.fn(),
-    };
+    const instance = { pan: vi.fn(), zoomIn: vi.fn(), zoomOut: vi.fn(), reset: vi.fn(), destroy: vi.fn() };
     instances.push(instance);
     return instance;
   });
   return { create, instances };
 });
-
 vi.mock("@panzoom/panzoom", () => ({ default: panzoom.create }));
 
 import { MermaidView } from "@ok-app/editor/components/Mermaid";
 
-function renderDiagram() {
-  return render(
-    <TooltipProvider>
-      <MermaidView chart="graph TD; A-->B;" />
-    </TooltipProvider>,
-  );
-}
-
-async function waitForPanzoom() {
+async function renderDiagram() {
+  render(<TooltipProvider><MermaidView chart="graph TD; A-->B;" /></TooltipProvider>);
   await waitFor(() => expect(panzoom.instances).toHaveLength(1));
   return panzoom.instances[0]!;
 }
+
+const panOptions = (animate: boolean) => ({ animate, duration: 200, easing: "ease-out", relative: true });
 
 describe("Mermaid controls", () => {
   beforeEach(() => {
@@ -69,39 +49,22 @@ describe("Mermaid controls", () => {
   });
 
   it("pans the viewport in the labeled direction with ease-out motion", async () => {
-    renderDiagram();
-    const instance = await waitForPanzoom();
-
+    const instance = await renderDiagram();
     for (const name of ["Pan up", "Pan down", "Pan left", "Pan right"]) {
       fireEvent.click(screen.getByRole("button", { name }));
     }
-
-    const options = {
-      animate: true,
-      duration: 200,
-      easing: "ease-out",
-      relative: true,
-    };
     expect(instance.pan.mock.calls).toEqual([
-      [0, 48, options],
-      [0, -48, options],
-      [48, 0, options],
-      [-48, 0, options],
+      [0, 48, panOptions(true)],
+      [0, -48, panOptions(true)],
+      [48, 0, panOptions(true)],
+      [-48, 0, panOptions(true)],
     ]);
   });
 
   it("disables control animation when reduced motion is preferred", async () => {
     reducedMotion.value = true;
-
-    renderDiagram();
-    const instance = await waitForPanzoom();
+    const instance = await renderDiagram();
     fireEvent.click(screen.getByRole("button", { name: "Pan up" }));
-
-    expect(instance.pan).toHaveBeenCalledWith(0, 48, {
-      animate: false,
-      duration: 200,
-      easing: "ease-out",
-      relative: true,
-    });
+    expect(instance.pan).toHaveBeenCalledWith(0, 48, panOptions(false));
   });
 });

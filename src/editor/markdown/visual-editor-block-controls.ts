@@ -10,6 +10,9 @@ import { Extension, type Editor } from "@tiptap/core";
 import { DragHandlePlugin, normalizeNestedOptions } from "@tiptap/extension-drag-handle";
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 import { NodeSelection, Plugin, TextSelection, type EditorState, type Transaction } from "@tiptap/pm/state";
+import { element } from "../dom-utils";
+
+type Dispatch = ((transaction: Transaction) => void) | undefined;
 
 const HANDLE_HEIGHT = 20;
 const BODY_LINE_HEIGHT = 28;
@@ -22,29 +25,16 @@ export type PreserveVisualViewportMeta = {
 };
 
 /** Align block controls to the first line, or to an atomic divider itself. */
-export function blockControlCrossAxisOffset(
-  referenceHeight: number,
-  lineHeight: number,
-  nodeType?: string,
-  visualTopOffset?: number,
-): number {
-  if (visualTopOffset != null && Number.isFinite(visualTopOffset)) {
-    return Math.max(0, visualTopOffset);
-  }
+export function blockControlCrossAxisOffset(referenceHeight: number, lineHeight: number, nodeType?: string, visualTopOffset?: number): number {
+  if (visualTopOffset != null && Number.isFinite(visualTopOffset)) return Math.max(0, visualTopOffset);
   if (nodeType === "thematicBreak") return (referenceHeight - HANDLE_HEIGHT) / 2;
-  const firstLineHeight = Number.isFinite(lineHeight) && lineHeight > 0
-    ? Math.min(referenceHeight, lineHeight)
-    : Math.min(referenceHeight, BODY_LINE_HEIGHT);
+  const firstLineHeight = Math.min(referenceHeight, Number.isFinite(lineHeight) && lineHeight > 0 ? lineHeight : BODY_LINE_HEIGHT);
   return Math.max(0, (firstLineHeight - HANDLE_HEIGHT) / 2);
 }
 
 /** Restore the clicked block, then reveal only any new content below the viewport. */
 export function restoreVisualViewportWithReveal(
-  viewport: HTMLElement,
-  scrollTop: number,
-  anchor: HTMLElement | null,
-  anchorTop: number | null,
-  reveal: HTMLElement | null,
+  viewport: HTMLElement, scrollTop: number, anchor: HTMLElement | null, anchorTop: number | null, reveal: HTMLElement | null,
 ): void {
   viewport.scrollTop = scrollTop;
   if (anchor?.isConnected && anchorTop != null) {
@@ -56,40 +46,39 @@ export function restoreVisualViewportWithReveal(
   if (overflow > 0.25) viewport.scrollTop += overflow + INSERTED_BLOCK_BOTTOM_GAP;
 }
 
+const BLOCK_LABELS: Record<string, string> = {
+  blockquote: "quote",
+  codeBlock: "code block",
+  footnoteDefinition: "footnote",
+  heading: "heading",
+  listItem: "list item",
+  paragraph: "paragraph",
+  rawMdxFallback: "source-preserved Markdown",
+  table: "table",
+  thematicBreak: "divider",
+};
+const COMPONENT_LABELS: Record<string, string> = {
+  Math: "display equation",
+  DollarMath: "display equation",
+  MathFence: "display equation",
+  MermaidFence: "Mermaid diagram",
+};
+
 function blockLabel(node: ProseMirrorNode | null): string {
-  if (!node) return "Select block";
-  if (node.type.name === "listItem") return "Select list item";
-  if (node.type.name === "list") {
+  if (node?.type.name === "list") {
     const task = node.firstChild?.attrs.checked != null;
     return `Select ${task ? "task list" : node.attrs.ordered ? "numbered list" : "bullet list"}`;
   }
-  if (node.type.name === "jsxComponent") {
-    const name = String(node.attrs.componentName ?? "");
-    if (name === "Math" || name === "DollarMath" || name === "MathFence") return "Select display equation";
-    if (name === "MermaidFence") return "Select Mermaid diagram";
-    return "Select component";
-  }
-  const labels: Record<string, string> = {
-    blockquote: "quote",
-    codeBlock: "code block",
-    footnoteDefinition: "footnote",
-    heading: "heading",
-    paragraph: "paragraph",
-    rawMdxFallback: "source-preserved Markdown",
-    table: "table",
-    thematicBreak: "divider",
-  };
-  return `Select ${labels[node.type.name] ?? "block"}`;
+  const label = node?.type.name === "jsxComponent"
+    ? COMPONENT_LABELS[String(node.attrs.componentName ?? "")] ?? "component"
+    : BLOCK_LABELS[node?.type.name ?? ""] ?? "block";
+  return `Select ${label}`;
 }
 
-function imageVisualTopOffset(
-  editor: Editor,
-  node: ProseMirrorNode | null,
-  position: number,
-): number | undefined {
+/** Images align their controls to the resizable frame, not the wrapper's first line. */
+function imageVisualTopOffset(editor: Editor, node: ProseMirrorNode | null, position: number): number | undefined {
   if (node?.type.name !== "jsxComponent" || position < 0) return undefined;
-  const componentName = String(node.attrs.componentName ?? "");
-  if (!["img", "CommonMarkImage", "WikiEmbedImage"].includes(componentName)) return undefined;
+  if (!["img", "CommonMarkImage", "WikiEmbedImage"].includes(String(node.attrs.componentName ?? ""))) return undefined;
   const reference = editor.view.nodeDOM(position);
   if (!(reference instanceof HTMLElement)) return undefined;
   const image = reference.querySelector<HTMLElement>(".ok-image-resizable");
@@ -98,28 +87,28 @@ function imageVisualTopOffset(
   return Number.isFinite(offset) ? offset : undefined;
 }
 
-function createBlockControls() {
-  const container = document.createElement("div");
-  container.className = "visual-block-controls ok-block-controls";
-  container.style.visibility = "hidden";
+function controlButton(className: string, label: string, iconPaths: string): HTMLButtonElement {
+  const button = element("button", className);
+  button.type = "button";
+  button.setAttribute("aria-label", label);
+  button.innerHTML = `<svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${iconPaths}</svg>`;
+  return button;
+}
 
-  const addButton = document.createElement("button");
-  addButton.className = "visual-add-block-button ok-add-block-btn";
-  addButton.type = "button";
-  addButton.setAttribute("aria-label", "Add block below");
-  addButton.innerHTML = '<svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>';
+function createBlockControls() {
+  const container = element("div", "visual-block-controls ok-block-controls");
+  container.style.visibility = "hidden";
+  const addButton = controlButton("visual-add-block-button ok-add-block-btn", "Add block below", '<path d="M5 12h14"/><path d="M12 5v14"/>');
   addButton.addEventListener("mousedown", (event) => {
     event.preventDefault();
     event.stopPropagation();
   });
-
-  const grip = document.createElement("button");
-  grip.className = "visual-drag-grip ok-drag-grip";
-  grip.type = "button";
-  grip.setAttribute("aria-label", "Select block");
+  const grip = controlButton(
+    "visual-drag-grip ok-drag-grip",
+    "Select block",
+    [5, 12, 19].map((y) => `<circle cx="9" cy="${y}" r="1"/><circle cx="15" cy="${y}" r="1"/>`).join(""),
+  );
   grip.setAttribute("tabindex", "-1");
-  grip.innerHTML = '<svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="5" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="19" r="1"/></svg>';
-
   container.append(addButton, grip);
   return { container, addButton, grip };
 }
@@ -180,8 +169,7 @@ function listDropTarget(editor: Editor, parent: number, x: number, y: number) {
 }
 
 function createDragGhost(source: HTMLElement): HTMLElement {
-  const ghost = document.createElement("div");
-  ghost.className = "visual-block-drag-ghost";
+  const ghost = element("div", "visual-block-drag-ghost");
   ghost.setAttribute("aria-hidden", "true");
   ghost.inert = true;
   const clone = source.cloneNode(true) as HTMLElement;
@@ -205,13 +193,7 @@ function createDragGhost(source: HTMLElement): HTMLElement {
 }
 
 /** Reorder siblings without converting list types or changing nesting. */
-export function moveListItems(
-  state: EditorState,
-  dispatch: ((transaction: Transaction) => void) | undefined,
-  sourcePosition: number,
-  targetPosition: number,
-  placeAfter: boolean,
-): boolean {
+export function moveListItems(state: EditorState, dispatch: Dispatch, sourcePosition: number, targetPosition: number, placeAfter: boolean): boolean {
   const item = listItemAt(state, sourcePosition);
   const target = listItemAt(state, targetPosition);
   if (!item || !target || item.parent !== target.parent) return false;
@@ -231,17 +213,12 @@ export function moveListItems(
   // follow the new order after an explicit reorder (including non-1 starts).
   if (list.attrs.ordered) {
     list.forEach((child, offset, index) => {
-      tr.setNodeMarkup(item.parent + offset, undefined, {
-        ...child.attrs, sourceOrdinal: Number(list.attrs.start) + index,
-      });
+      tr.setNodeMarkup(item.parent + offset, undefined, { ...child.attrs, sourceOrdinal: Number(list.attrs.start) + index });
     });
   }
   if (preserveSelection && state.selection instanceof TextSelection) {
-    tr.setSelection(TextSelection.create(
-      tr.doc,
-      destination + state.selection.anchor - source.from,
-      destination + state.selection.head - source.from,
-    ));
+    const shift = destination - source.from;
+    tr.setSelection(TextSelection.create(tr.doc, state.selection.anchor + shift, state.selection.head + shift));
   } else {
     tr.setSelection(NodeSelection.create(tr.doc, destination));
   }
@@ -249,7 +226,7 @@ export function moveListItems(
   return true;
 }
 
-function moveSelectedListItems(state: EditorState, dispatch: ((tr: Transaction) => void) | undefined, down: boolean) {
+function moveSelectedListItems(state: EditorState, dispatch: Dispatch, down: boolean) {
   const items = selectedListItems(state);
   if (!items) return false;
   const parent = state.doc.nodeAt(items.parent - 1)!;
@@ -257,27 +234,19 @@ function moveSelectedListItems(state: EditorState, dispatch: ((tr: Transaction) 
   return moveListItems(state, dispatch, items.from, down ? items.to : items.from - 1, down);
 }
 
-export function moveTopLevelBlock(
-  state: EditorState,
-  dispatch: ((transaction: Transaction) => void) | undefined,
-  sourcePosition: number,
-  targetPosition: number,
-  placeAfter: boolean,
-): boolean {
+export function moveTopLevelBlock(state: EditorState, dispatch: Dispatch, sourcePosition: number, targetPosition: number, placeAfter: boolean): boolean {
   const source = topLevelBlockAt(state, sourcePosition);
   const target = topLevelBlockAt(state, targetPosition);
   if (!source || !target || source.from === target.from) return false;
   const insertAt = placeAfter ? target.to : target.from;
   if (insertAt >= source.from && insertAt <= source.to) return false;
-  const node = state.doc.nodeAt(source.from);
-  if (!node) return false;
   if (!dispatch) return true;
 
+  const content = state.doc.slice(source.from, source.to).content;
   const tr = state.tr.delete(source.from, source.to);
-  const mappedInsertAt = tr.mapping.map(insertAt);
-  tr.insert(mappedInsertAt, node);
-  tr.setSelection(NodeSelection.create(tr.doc, mappedInsertAt)).scrollIntoView();
-  dispatch(tr);
+  const destination = tr.mapping.map(insertAt);
+  tr.insert(destination, content);
+  dispatch(tr.setSelection(NodeSelection.create(tr.doc, destination)).scrollIntoView());
   return true;
 }
 
@@ -327,63 +296,34 @@ function currentTopLevelBlock(state: EditorState): { from: number; to: number } 
   return { from, to };
 }
 
-export function moveBlockUp(
-  state: EditorState,
-  dispatch: ((transaction: Transaction) => void) | undefined,
-): boolean {
-  if (listItemAt(state, state.selection.from)) return moveSelectedListItems(state, dispatch, false);
+/** Swap the current top-level block (or selected list items) with its neighbour. */
+function moveBlock(state: EditorState, dispatch: Dispatch, down: boolean): boolean {
+  if (listItemAt(state, state.selection.from)) return moveSelectedListItems(state, dispatch, down);
   const block = currentTopLevelBlock(state);
-  if (!block || block.from === 0) return false;
-  const $above = state.doc.resolve(block.from - 1);
-  if ($above.depth === 0) return false;
+  if (!block || (down ? block.to >= state.doc.content.size : block.from === 0)) return false;
+  const $neighbour = state.doc.resolve(down ? block.to + 1 : block.from - 1);
+  if ($neighbour.depth === 0) return false;
 
-  const aboveFrom = $above.before(1);
-  const movingNode = state.doc.slice(block.from, block.to).content;
-  const aboveNode = state.doc.slice(aboveFrom, block.from).content;
+  const from = down ? block.from : $neighbour.before(1);
+  const to = down ? $neighbour.after(1) : block.to;
+  const moving = state.doc.slice(block.from, block.to).content;
+  const neighbour = down ? state.doc.slice(block.to, to).content : state.doc.slice(from, block.from).content;
   if (!dispatch) return true;
 
-  const tr = state.tr.replaceWith(aboveFrom, block.to, movingNode.append(aboveNode));
+  const tr = state.tr.replaceWith(from, to, down ? neighbour.append(moving) : moving.append(neighbour));
+  const movedFrom = down ? from + neighbour.size : from;
   if (state.selection instanceof NodeSelection) {
-    tr.setSelection(NodeSelection.create(tr.doc, aboveFrom));
-    dispatch(tr.scrollIntoView());
-    return true;
+    tr.setSelection(NodeSelection.create(tr.doc, movedFrom));
+  } else {
+    const cursor = Math.min(movedFrom + 1 + state.selection.from - block.from, movedFrom + moving.size);
+    tr.setSelection(TextSelection.near(tr.doc.resolve(cursor)));
   }
-  const cursorOffset = state.selection.from - block.from;
-  const newBlockStart = aboveFrom + 1;
-  const newBlockEnd = aboveFrom + movingNode.size;
-  tr.setSelection(TextSelection.near(tr.doc.resolve(Math.min(newBlockStart + cursorOffset, newBlockEnd))));
   dispatch(tr.scrollIntoView());
   return true;
 }
 
-export function moveBlockDown(
-  state: EditorState,
-  dispatch: ((transaction: Transaction) => void) | undefined,
-): boolean {
-  if (listItemAt(state, state.selection.from)) return moveSelectedListItems(state, dispatch, true);
-  const block = currentTopLevelBlock(state);
-  if (!block || block.to >= state.doc.content.size) return false;
-  const $below = state.doc.resolve(block.to + 1);
-  if ($below.depth === 0) return false;
-
-  const belowTo = $below.after(1);
-  const movingNode = state.doc.slice(block.from, block.to).content;
-  const belowNode = state.doc.slice(block.to, belowTo).content;
-  if (!dispatch) return true;
-
-  const tr = state.tr.replaceWith(block.from, belowTo, belowNode.append(movingNode));
-  if (state.selection instanceof NodeSelection) {
-    tr.setSelection(NodeSelection.create(tr.doc, block.from + belowNode.size));
-    dispatch(tr.scrollIntoView());
-    return true;
-  }
-  const cursorOffset = state.selection.from - block.from;
-  const newBlockStart = block.from + belowNode.size + 1;
-  const newBlockEnd = block.from + belowNode.size + movingNode.size;
-  tr.setSelection(TextSelection.near(tr.doc.resolve(Math.min(newBlockStart + cursorOffset, newBlockEnd))));
-  dispatch(tr.scrollIntoView());
-  return true;
-}
+export const moveBlockUp = (state: EditorState, dispatch?: Dispatch) => moveBlock(state, dispatch, false);
+export const moveBlockDown = (state: EditorState, dispatch?: Dispatch) => moveBlock(state, dispatch, true);
 
 export const VisualBlockMover = Extension.create({
   name: "visualBlockMover",
@@ -404,19 +344,12 @@ export const VisualBlockControls = Extension.create({
     let didPointerDrag = false;
     let suppressNextClick = false;
     let previousDraggable: string | null = null;
-    let pointerStart: {
-      id: number;
-      x: number;
-      y: number;
-      sourcePosition: number;
-      ghostOffsetX: number;
-    } | null = null;
+    let pointerStart: { id: number; x: number; y: number; sourcePosition: number; ghostOffsetX: number } | null = null;
     let pointerTarget: { position: number; placeAfter: boolean } | null = null;
     let dragGhost: HTMLElement | null = null;
     const { container, addButton, grip } = createBlockControls();
 
-    const dropLine = document.createElement("div");
-    dropLine.className = "visual-block-drop-line";
+    const dropLine = element("div", "visual-block-drop-line");
     dropLine.hidden = true;
     const ensureDropLineMounted = () => {
       if (!dropLine.isConnected) document.body.appendChild(dropLine);
@@ -427,20 +360,27 @@ export const VisualBlockControls = Extension.create({
     // correct. The drag ghost already uses this same body-level plane.
     ensureDropLineMounted();
 
-    const resetPointerDrag = () => {
-      if (pointerStart && grip.hasPointerCapture(pointerStart.id)) {
-        grip.releasePointerCapture(pointerStart.id);
-      }
-      pointerStart = null;
+    const hideDropTarget = () => {
       pointerTarget = null;
-      didPointerDrag = false;
       dropLine.hidden = true;
+    };
+    const resetPointerDrag = () => {
+      if (pointerStart && grip.hasPointerCapture(pointerStart.id)) grip.releasePointerCapture(pointerStart.id);
+      pointerStart = null;
+      didPointerDrag = false;
+      hideDropTarget();
       dragGhost?.remove();
       dragGhost = null;
       container.dataset.dragging = "false";
       if (previousDraggable === null) container.removeAttribute("draggable");
       else container.setAttribute("draggable", previousDraggable);
       previousDraggable = null;
+    };
+
+    /** End the gesture; a real drag swallows the click that follows it. */
+    const cancelPointerDrag = () => {
+      suppressNextClick = didPointerDrag;
+      resetPointerDrag();
     };
 
     grip.addEventListener("pointerdown", (event) => {
@@ -459,13 +399,8 @@ export const VisualBlockControls = Extension.create({
       container.setAttribute("draggable", "false");
       const sourceDom = editor.view.nodeDOM(currentNodePosition);
       const sourceRect = sourceDom instanceof HTMLElement ? sourceDom.getBoundingClientRect() : null;
-      pointerStart = {
-        id: event.pointerId,
-        x: event.clientX,
-        y: event.clientY,
-        sourcePosition: currentNodePosition,
-        ghostOffsetX: sourceRect ? event.clientX - sourceRect.left : 0,
-      };
+      const ghostOffsetX = sourceRect ? event.clientX - sourceRect.left : 0;
+      pointerStart = { id: event.pointerId, x: event.clientX, y: event.clientY, sourcePosition: currentNodePosition, ghostOffsetX };
       grip.setPointerCapture(event.pointerId);
     });
     grip.addEventListener("pointermove", (event) => {
@@ -493,72 +428,42 @@ export const VisualBlockControls = Extension.create({
       const target = sourceItem
         ? listDropTarget(editor, sourceItem.parent, event.clientX, event.clientY)
         : coordinates && topLevelBlockAt(editor.state, coordinates.pos);
-      if (!target || target.from === pointerStart.sourcePosition) {
-        pointerTarget = null;
-        dropLine.hidden = true;
-        return;
-      }
+      if (!target || target.from === pointerStart.sourcePosition) return hideDropTarget();
       const targetDom = editor.view.nodeDOM(target.from);
       if (!(targetDom instanceof HTMLElement)) return;
       const rect = targetDom.getBoundingClientRect();
       const placeAfter = event.clientY >= rect.top + rect.height / 2;
-      if (sourceItem && !moveListItems(editor.state, undefined, sourceItem.from, target.from, placeAfter)) {
-        pointerTarget = null;
-        dropLine.hidden = true;
-        return;
-      }
+      if (sourceItem && !moveListItems(editor.state, undefined, sourceItem.from, target.from, placeAfter)) return hideDropTarget();
       pointerTarget = { position: target.from, placeAfter };
-      Object.assign(dropLine.style, {
-        left: `${rect.left}px`,
-        top: `${placeAfter ? rect.bottom : rect.top}px`,
-        width: `${rect.width}px`,
-      });
+      Object.assign(dropLine.style, { left: `${rect.left}px`, top: `${placeAfter ? rect.bottom : rect.top}px`, width: `${rect.width}px` });
       dropLine.hidden = false;
     });
     const finishPointerDrag = (event: PointerEvent) => {
       if (!pointerStart || event.pointerId !== pointerStart.id) return;
-      const start = pointerStart;
-      const target = pointerTarget;
-      const wasDragging = didPointerDrag;
-      if (didPointerDrag && target) {
+      const dragged = didPointerDrag;
+      if (dragged && pointerTarget) {
         event.preventDefault();
-        const move = listItemAt(editor.state, start.sourcePosition) ? moveListItems : moveTopLevelBlock;
-        move(
-          editor.state,
-          editor.view.dispatch,
-          start.sourcePosition,
-          target.position,
-          target.placeAfter,
-        );
+        const { sourcePosition } = pointerStart;
+        const move = listItemAt(editor.state, sourcePosition) ? moveListItems : moveTopLevelBlock;
+        move(editor.state, editor.view.dispatch, sourcePosition, pointerTarget.position, pointerTarget.placeAfter);
       }
-      suppressNextClick = wasDragging;
       resetPointerDrag();
+      suppressNextClick = dragged;
     };
     container.addEventListener("dragstart", (event) => {
       if (pointerStart) event.preventDefault();
     });
     grip.addEventListener("pointerup", finishPointerDrag);
-    grip.addEventListener("pointercancel", () => {
-      suppressNextClick = didPointerDrag;
-      resetPointerDrag();
-    });
+    grip.addEventListener("pointercancel", () => cancelPointerDrag());
 
     addButton.addEventListener("click", () => {
-      if (currentNode && currentNodePosition >= 0) {
-        addBlockBelow(editor, currentNodePosition, currentNode);
-      }
+      if (currentNode && currentNodePosition >= 0) addBlockBelow(editor, currentNodePosition, currentNode);
     });
     grip.addEventListener("click", () => {
-      if (suppressNextClick) {
-        suppressNextClick = false;
-        return;
-      }
-      if (currentNodePosition < 0) return;
-      const node = editor.state.doc.nodeAt(currentNodePosition);
-      if (!node) return;
-      editor.view.dispatch(
-        editor.state.tr.setSelection(NodeSelection.create(editor.state.doc, currentNodePosition)),
-      );
+      const suppressed = suppressNextClick;
+      suppressNextClick = false;
+      if (suppressed || currentNodePosition < 0 || !editor.state.doc.nodeAt(currentNodePosition)) return;
+      editor.view.dispatch(editor.state.tr.setSelection(NodeSelection.create(editor.state.doc, currentNodePosition)));
       editor.view.focus();
     });
 
@@ -589,10 +494,7 @@ export const VisualBlockControls = Extension.create({
           update: (_view, previousState) => {
             // External edits can invalidate pointer-held positions. Cancel
             // rather than moving a different item after a collaborative update.
-            if (pointerStart && previousState.doc !== editor.state.doc) {
-              suppressNextClick = didPointerDrag;
-              resetPointerDrag();
-            }
+            if (pointerStart && previousState.doc !== editor.state.doc) cancelPointerDrag();
           },
           destroy: () => {
             resetPointerDrag();
@@ -643,20 +545,9 @@ export const VisualBlockControls = Extension.create({
               const lineHeight = elements.reference instanceof Element
                 ? Number.parseFloat(getComputedStyle(elements.reference).lineHeight)
                 : Number.NaN;
-              const visualTopOffset = imageVisualTopOffset(
-                editor,
-                currentNode,
-                currentNodePosition,
-              );
-              return {
-                mainAxis: 10,
-                crossAxis: blockControlCrossAxisOffset(
-                  rects.reference.height,
-                  lineHeight,
-                  currentNode?.type.name,
-                  visualTopOffset,
-                ),
-              };
+              const visualTopOffset = imageVisualTopOffset(editor, currentNode, currentNodePosition);
+              const crossAxis = blockControlCrossAxisOffset(rects.reference.height, lineHeight, currentNode?.type.name, visualTopOffset);
+              return { mainAxis: 10, crossAxis };
             }),
           ],
         },

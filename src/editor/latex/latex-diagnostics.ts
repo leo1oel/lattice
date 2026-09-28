@@ -1,0 +1,153 @@
+import type { Diagnostic } from "@codemirror/lint";
+import { environmentEvents, type EnvironmentEvent } from "./latex-environments";
+import {
+  CITATION, GRAPHICS, INCLUDE, REFERENCE, argumentsOf, keySpans, resolveProjectPath, unwrapLatexPath, type KeySpan,
+} from "./latex-symbols";
+import { LABEL, type ReferenceInfo } from "./latex-text";
+import { unclosedMathDiagnostics } from "./math-region";
+
+const BIB_ENTRY = /@\w+\s*\{\s*([^,\s}]+)/g;
+
+const warning = (from: number, to: number, source: string, message: string): Diagnostic =>
+  ({ from, to, severity: "warning", message, source });
+const error = (span: { from: number; to: number }, message: string): Diagnostic =>
+  ({ from: span.from, to: span.to, severity: "error", message, source: "structure" });
+
+function labelSpans(text: string): KeySpan[] {
+  return argumentsOf(text, LABEL).flatMap(({ from, content }) => {
+    const key = content.trim();
+    return key ? [{ from, to: from + content.length, key }] : [];
+  });
+}
+
+function bibKeySpans(text: string): KeySpan[] {
+  return [...text.matchAll(BIB_ENTRY)].map((match) => {
+    const to = match.index + match[0].length;
+    return { from: to - match[1].length, to, key: match[1] };
+  });
+}
+
+/** Every repeat of a key after its first occurrence. */
+function duplicates(spans: KeySpan[], source: string, noun: string): Diagnostic[] {
+  const seen = new Set<string>();
+  return spans.flatMap(({ from, to, key }) => {
+    const repeat = seen.has(key);
+    seen.add(key);
+    return repeat ? [warning(from, to, source, `Duplicate ${noun} “${key}”.`)] : [];
+  });
+}
+
+function missingIncludeCreatePath(raw: string): string | null {
+  const path = unwrapLatexPath(raw);
+  if (!path || path.startsWith("/") || path.includes("..") || path.includes(":")) return null;
+  return path.endsWith(".tex") ? path : `${path}.tex`;
+}
+
+export function pathDiagnostics(
+  text: string,
+  projectPaths: string[],
+  graphicsRoots: string[] = [],
+  onCreateMissingFile?: (path: string) => void,
+): Diagnostic[] {
+  if (!projectPaths.length) return [];
+  const diagnostics: Diagnostic[] = [];
+  for (const { from, content } of argumentsOf(text, INCLUDE)) {
+    const path = content.trim();
+    if (!path || resolveProjectPath(path, projectPaths, "tex")) continue;
+    const createPath = missingIncludeCreatePath(path);
+    diagnostics.push({
+      ...warning(from, from + content.length, "paths", `Missing file “${path}”.`),
+      actions: createPath && onCreateMissingFile
+        ? [{ name: "Create file", apply: () => onCreateMissingFile(createPath) }]
+        : undefined,
+    });
+  }
+  for (const { from, content } of argumentsOf(text, GRAPHICS)) {
+    const raw = content.trim();
+    if (!raw || resolveProjectPath(raw, projectPaths, "graphics", graphicsRoots)) continue;
+    diagnostics.push(warning(from, from + content.length, "paths", `Missing figure “${unwrapLatexPath(raw) || raw}”.`));
+  }
+  return diagnostics;
+}
+
+/** Blank out `%` comments (outside inline math) so they cannot open or close anything. */
+function stripLineComments(text: string): string {
+  return text.split("\n").map((line) => {
+    let inMath = false;
+    for (let index = 0; index < line.length; index += 1) {
+      if (line[index - 1] === "\\") continue;
+      if (line[index] === "$") inMath = !inMath;
+      else if (!inMath && line[index] === "%") return line.slice(0, index).padEnd(line.length);
+    }
+    return line;
+  }).join("\n");
+}
+
+export function structureDiagnostics(text: string): Diagnostic[] {
+  const source = stripLineComments(text);
+  const diagnostics: Diagnostic[] = [];
+  const stack: EnvironmentEvent[] = [];
+  for (const event of environmentEvents(source)) {
+    if (event.kind === "begin") {
+      stack.push(event);
+      continue;
+    }
+    const open = stack.pop();
+    if (!open) diagnostics.push(error(event, `Unmatched \\end{${event.name}}.`));
+    else if (open.name !== event.name) {
+      diagnostics.push(error(event, `Expected \\end{${open.name}}, found \\end{${event.name}}.`));
+    }
+  }
+  return [
+    ...diagnostics,
+    ...stack.map((open) => error(open, `Unclosed \\begin{${open.name}}.`)),
+    ...duplicates(labelSpans(source), "labels", "label"),
+    ...duplicates(bibKeySpans(source), "bibliography", "bibliography key"),
+    ...unclosedMathDiagnostics(source),
+  ];
+}
+
+/** What the project index knows; missing lists are treated as empty. */
+export type LatexIndex = {
+  citationKeys: string[];
+  references: ReferenceInfo[];
+  unusedLabels?: string[];
+  unusedCitations?: string[];
+  projectPaths?: string[];
+  graphicsRoots?: string[];
+};
+
+export function indexDiagnostics(
+  text: string,
+  index: LatexIndex,
+  currentPath = "",
+  onCreateMissingFile?: (path: string) => void,
+): Diagnostic[] {
+  const citationKeys = new Set(index.citationKeys);
+  const labels = new Set(index.references.map((reference) => reference.label));
+  const unusedLabels = new Set(index.unusedLabels);
+  const unusedCitations = new Set(index.unusedCitations);
+  const labelPaths = new Map<string, Set<string>>();
+  for (const { label, path } of index.references) labelPaths.set(label, (labelPaths.get(label) ?? new Set()).add(path));
+  const unknown = (pattern: RegExp, known: Set<string>, source: string, noun: string) =>
+    argumentsOf(text, pattern).flatMap(({ from, content }) => keySpans(content, from)
+      .filter(({ key }) => !known.has(key))
+      .map(({ from, to, key }) => warning(from, to, source, `Unknown ${noun} “${key}”.`)));
+  const labelDiagnostics = labelSpans(text).flatMap(({ from, to, key }) => {
+    const others = currentPath ? [...labelPaths.get(key) ?? []].filter((path) => path !== currentPath) : [];
+    const message = others.length
+      ? `Duplicate label “${key}” also defined in ${others[0]}${others.length > 1 ? ` (+${others.length - 1} more)` : ""}.`
+      : unusedLabels.has(key) ? `Unused label “${key}”.` : null;
+    return message ? [warning(from, to, "labels", message)] : [];
+  });
+  return [
+    ...structureDiagnostics(text),
+    ...pathDiagnostics(text, index.projectPaths ?? [], index.graphicsRoots, onCreateMissingFile),
+    ...unknown(CITATION, citationKeys, "bibliography", "citation key"),
+    ...unknown(REFERENCE, labels, "labels", "label"),
+    ...labelDiagnostics,
+    ...bibKeySpans(text)
+      .filter(({ key }) => unusedCitations.has(key))
+      .map(({ from, to, key }) => warning(from, to, "bibliography", `Unused citation key “${key}”.`)),
+  ];
+}

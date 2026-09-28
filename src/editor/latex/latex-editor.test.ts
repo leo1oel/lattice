@@ -1,71 +1,54 @@
 import {
-  closeBrackets,
-  closeBracketsKeymap,
-  completionStatus,
-  currentCompletions,
-  insertBracket,
-  selectedCompletionIndex,
+  closeBrackets, closeBracketsKeymap, completionStatus, currentCompletions, insertBracket, selectedCompletionIndex,
   startCompletion,
 } from "@codemirror/autocomplete";
 import { defaultKeymap } from "@codemirror/commands";
 import { openSearchPanel, search, SearchQuery, setSearchQuery } from "@codemirror/search";
-import { EditorState, Transaction } from "@codemirror/state";
+import { EditorState, Transaction, type Extension } from "@codemirror/state";
 import { EditorView, keymap } from "@codemirror/view";
 import { fireEvent } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
-  beginEnvironmentClose,
-  insertLatexNewline,
-  bibliographyEntryLine,
-  citationCompletionRange,
-  citationHoverTarget,
-  citationTooltipSpace,
-  countWords,
-  definitionTargetAt,
-  enclosingEnvironment,
-  enclosingEnvironmentRange,
-  includeCompletionRange,
-  includeHoverTarget,
-  indexDiagnostics,
-  matchingEnvironmentTarget,
-  mergeReferences,
-  parseLocalLabels,
-  parseLocalMacros,
-  parseGraphicsPaths,
-  pathDiagnostics,
-  toggleLineComments,
-  renameEnvironmentAt,
-  sortSelectedLines,
-  symbolAt,
-  latexEditorExtensions,
-  harperLintWindow,
-  HARPER_WINDOW_THRESHOLD,
-  latexLanguageOptions,
-  selectionVisibilityExtension,
-  referenceCompletionRange,
-  referenceHoverTarget,
-  shouldInsertCommandBraces,
-  structureDiagnostics,
-  textStats,
-  transformCase,
-  wrapCommentRegion,
-  wrapEnvironment,
-  wrapRange,
+  insertLatexNewline, latexEditorExtensions, latexLanguageOptions, selectionVisibilityExtension,
+  type LatexEditorLiveData, type LatexEditorOptions,
 } from "./latex-editor";
+import { citationTooltipSpace } from "./latex-hover-cards";
 import { compactSearchPanel } from "./search-panel";
 
-function createProductionLatexView(citationKeys: string[]): EditorView {
-  return new EditorView({
-    parent: document.body,
-    state: EditorState.create({
-      extensions: [
-        closeBrackets(),
-        keymap.of([...closeBracketsKeymap, ...defaultKeymap]),
-        latexEditorExtensions(citationKeys),
-      ],
-    }),
-  });
+const EMPTY_LIVE: LatexEditorLiveData = {
+  citationKeys: [], citations: [], references: [], unusedLabels: [], unusedCitations: [], localMacros: [],
+  graphicsRoots: [], projectPaths: [], spellingWords: [],
+};
+
+const views: EditorView[] = [];
+afterEach(() => {
+  views.splice(0).forEach((view) => view.destroy());
+  vi.restoreAllMocks();
+});
+
+function mount(state: EditorState): EditorView {
+  const view = new EditorView({ parent: document.body, state });
+  views.push(view);
+  return view;
 }
+
+function latexView(
+  doc = "",
+  anchor = doc.length,
+  live: Partial<LatexEditorLiveData> = {},
+  options: Partial<LatexEditorOptions> = {},
+  before: Extension[] = [],
+): EditorView {
+  return mount(EditorState.create({
+    doc,
+    selection: { anchor },
+    extensions: [...before, latexEditorExtensions({ live: { current: { ...EMPTY_LIVE, ...live } }, ...options })],
+  }));
+}
+
+/** The editor as the app mounts it, including the bracket keymap that runs before ours. */
+const productionLatexView = (citationKeys: string[]) =>
+  latexView("", 0, { citationKeys }, {}, [closeBrackets(), keymap.of([...closeBracketsKeymap, ...defaultKeymap])]);
 
 function typeText(view: EditorView, text: string): void {
   for (const character of text) {
@@ -79,13 +62,8 @@ function typeText(view: EditorView, text: string): void {
 }
 
 function typeBracket(view: EditorView, bracket: "{" | "}"): void {
-  const event = new KeyboardEvent("keydown", {
-    key: bracket,
-    code: bracket === "{" ? "BracketLeft" : "BracketRight",
-    shiftKey: true,
-    bubbles: true,
-    cancelable: true,
-  });
+  const code = bracket === "{" ? "BracketLeft" : "BracketRight";
+  const event = new KeyboardEvent("keydown", { key: bracket, code, shiftKey: true, bubbles: true, cancelable: true });
   view.contentDOM.dispatchEvent(event);
   if (event.defaultPrevented) return;
   const transaction = insertBracket(view.state, bracket);
@@ -93,767 +71,209 @@ function typeBracket(view: EditorView, bracket: "{" | "}"): void {
   else typeText(view, bracket);
 }
 
-describe("LaTeX citation editing", () => {
+const press = (view: EditorView, ...keys: string[]) => {
+  for (const key of keys) fireEvent.keyDown(view.contentDOM, { key, code: key });
+};
+const labels = (view: EditorView) => currentCompletions(view.state).map((item) => item.label);
+const doc = (view: EditorView) => view.state.doc.toString();
+
+describe("LaTeX editor extensions", () => {
   it("shows the current and total matches in the find panel", () => {
-    const view = new EditorView({
-      parent: document.body,
-      state: EditorState.create({
-        doc: "alpha alpha alpha",
-        extensions: [search({ top: true }), compactSearchPanel],
-      }),
-    });
+    const view = mount(EditorState.create({ doc: "alpha alpha alpha", extensions: [search({ top: true }), compactSearchPanel] }));
     openSearchPanel(view);
-    view.dispatch({
-      effects: setSearchQuery.of(new SearchQuery({ search: "alpha" })),
-      selection: { anchor: 6, head: 11 },
-    });
+    view.dispatch({ effects: setSearchQuery.of(new SearchQuery({ search: "alpha" })), selection: { anchor: 6, head: 11 } });
     expect(view.dom.querySelector(".cm-search-count")).toHaveTextContent("2/3");
-    view.destroy();
   });
 
-  it("soft-wraps long logical lines instead of scrolling horizontally", () => {
-    const view = new EditorView({
-      state: EditorState.create({
-        doc: "A single logical line that can wrap across several visual rows.",
-        extensions: latexEditorExtensions([]),
-      }),
-    });
-    expect(view.contentDOM).toHaveClass("cm-lineWrapping");
-    view.destroy();
+  it("soft-wraps lines and keeps native spellcheck off whether or not Harper is enabled", () => {
+    for (const spellcheck of [false, true]) {
+      const view = latexView("A single logical line that can wrap across several visual rows.", 0, {}, { spellcheck });
+      expect(view.contentDOM).toHaveClass("cm-lineWrapping");
+      expect(view.contentDOM.getAttribute("spellcheck")).toBe("false");
+      expect(view.contentDOM.getAttribute("autocorrect")).toBe("off");
+    }
   });
 
   it("marks the editor when a text range is selected so active-line fill can clear", () => {
-    const view = new EditorView({
-      parent: document.body,
-      state: EditorState.create({
-        doc: "hello world",
-        extensions: selectionVisibilityExtension(),
-      }),
-    });
-    expect(view.dom.classList.contains("cm-lattice-has-selection")).toBe(false);
+    const view = mount(EditorState.create({ doc: "hello world", extensions: selectionVisibilityExtension() }));
+    const marked = () => view.dom.classList.contains("cm-lattice-has-selection");
+    expect(marked()).toBe(false);
     view.dispatch({ selection: { anchor: 0, head: 5 } });
-    expect(view.dom.classList.contains("cm-lattice-has-selection")).toBe(true);
+    expect(marked()).toBe(true);
     view.dispatch({ selection: { anchor: 5, head: 5 } });
-    expect(view.dom.classList.contains("cm-lattice-has-selection")).toBe(false);
-    view.destroy();
+    expect(marked()).toBe(false);
   });
 
   it("keeps package linting off while enabling hover documentation", () => {
-    expect(latexLanguageOptions).toMatchObject({
-      enableLinting: false,
-      enableTooltips: true,
-    });
-  });
-
-  it("adds braces after citation and reference commands", () => {
-    expect(shouldInsertCommandBraces("Text \\cite")).toBe(true);
-    expect(shouldInsertCommandBraces("See \\citet")).toBe(true);
-    expect(shouldInsertCommandBraces("Equation \\eqref")).toBe(true);
-    expect(shouldInsertCommandBraces("not a command cite")).toBe(false);
-  });
-
-  it("completes the current key inside citation braces", () => {
-    expect(citationCompletionRange("Text \\cite{", 11)).toEqual({ from: 11, query: "" });
-    expect(citationCompletionRange("Text \\cite{vas", 14)).toEqual({ from: 11, query: "vas" });
-    expect(citationCompletionRange("Text \\cite{first,", 17)).toEqual({ from: 17, query: "" });
-    expect(citationCompletionRange("Text \\cite{first, trans", 23)).toEqual({ from: 18, query: "trans" });
-    expect(citationCompletionRange("Text \\section{intro", 19)).toBeNull();
-  });
-
-  it("identifies the exact bibliography key hovered inside a citation", () => {
-    const source = "Evidence \\citep{vaswani2017attention, dosovitskiy2021image}.";
-    const first = source.indexOf("vaswani") + 3;
-    const second = source.indexOf("dosovitskiy") + 4;
-    expect(citationHoverTarget(source, first)?.key).toBe("vaswani2017attention");
-    expect(citationHoverTarget(source, second)?.key).toBe("dosovitskiy2021image");
-    expect(citationHoverTarget(source, source.indexOf("citep") + 2)).toBeNull();
-    expect(citationHoverTarget("Plain text", 3)).toBeNull();
+    expect(latexLanguageOptions).toMatchObject({ enableLinting: false, enableTooltips: true });
   });
 
   it("keeps citation tooltips inside the editor boundary", () => {
-    expect(citationTooltipSpace({ left: 320, right: 720, top: 80, bottom: 680 })).toEqual({
-      left: 328,
-      right: 712,
-      top: 88,
-      bottom: 672,
-    });
+    expect(citationTooltipSpace({ left: 320, right: 720, top: 80, bottom: 680 }))
+      .toEqual({ left: 328, right: 712, top: 88, bottom: 672 });
   });
 
-  it("identifies figure, table, and equation labels inside reference commands", () => {
-    const source = "See \\ref{fig:model}, \\cref{tab:results, eq:loss}, and \\autoref{sec:intro}.";
-    expect(referenceHoverTarget(source, source.indexOf("fig:model") + 3)?.label).toBe("fig:model");
-    expect(referenceHoverTarget(source, source.indexOf("tab:results") + 4)?.label).toBe("tab:results");
-    expect(referenceHoverTarget(source, source.indexOf("eq:loss") + 3)?.label).toBe("eq:loss");
-    expect(referenceHoverTarget(source, source.indexOf("sec:intro") + 3)?.label).toBe("sec:intro");
-    expect(referenceHoverTarget("Plain text", 3)).toBeNull();
-  });
-
-  it("completes project paths inside input, include, and includegraphics", () => {
-    expect(includeCompletionRange("\\input{", 7)).toEqual({ from: 7, query: "" });
-    expect(includeCompletionRange("\\include{sec", 12)).toEqual({ from: 9, query: "sec" });
-    expect(includeCompletionRange("\\includegraphics[width=\\linewidth]{fig", 37)).toEqual({ from: 34, query: "fig" });
-    expect(includeCompletionRange("\\section{intro", 14)).toBeNull();
-  });
-
-  it("resolves include paths for go-to-definition", () => {
-    const source = "\\input{sections/method}\n\\include{appendix}";
-    expect(includeHoverTarget(source, source.indexOf("method") + 2)?.path).toBe("sections/method");
-    expect(definitionTargetAt(source, source.indexOf("appendix") + 2, [])).toEqual({
-      kind: "include",
-      path: "appendix.tex",
-    });
-  });
-
-  it("resolves includegraphics paths for go-to-definition", () => {
-    const source = "\\includegraphics[width=\\linewidth]{figures/plot}";
-    expect(definitionTargetAt(source, source.indexOf("plot") + 1, [], ["figures/plot.png"])).toEqual({
-      kind: "asset",
-      path: "figures/plot.png",
-    });
-  });
-
-  it("waits for a typed citation's opening brace and keeps an existing pair", () => {
-    const parent = document.createElement("div");
-    const view = new EditorView({
-      parent,
-      state: EditorState.create({
-        doc: "\\cit",
-        selection: { anchor: 4 },
-        extensions: latexEditorExtensions(["vaswani2017attention"]),
-      }),
-    });
-    view.dispatch({
-      changes: { from: 4, insert: "e" },
-      selection: { anchor: 5 },
-      annotations: Transaction.userEvent.of("input.type"),
-    });
-    expect(view.state.doc.toString()).toBe("\\cite");
-    view.destroy();
-
-    const existing = new EditorView({
-      parent,
-      state: EditorState.create({
-        doc: "\\cit{}",
-        selection: { anchor: 4 },
-        extensions: latexEditorExtensions([]),
-      }),
-    });
-    existing.dispatch({
-      changes: { from: 4, insert: "e" },
-      selection: { anchor: 5 },
-      annotations: Transaction.userEvent.of("input.type"),
-    });
-    expect(existing.state.doc.toString()).toBe("\\cite{}");
-    existing.destroy();
+  it.each([
+    ["\\cit", ["vaswani2017attention"], "\\cite"],
+    ["\\cit{}", [], "\\cite{}"],
+  ])("waits for a typed citation's opening brace and keeps an existing pair (%s)", (source, citationKeys, expected) => {
+    const view = latexView(source, 4, { citationKeys });
+    typeText(view, "e");
+    expect(doc(view)).toBe(expected);
   });
 
   it("adds braces when a citation command is accepted from completion", () => {
-    const view = new EditorView({
-      state: EditorState.create({
-        doc: "\\ci",
-        selection: { anchor: 3 },
-        extensions: latexEditorExtensions([]),
-      }),
-    });
+    const view = latexView("\\ci");
     view.dispatch({
       changes: { from: 0, to: 3, insert: "\\cite" },
       selection: { anchor: 5 },
       annotations: Transaction.userEvent.of("input.complete"),
     });
-    expect(view.state.doc.toString()).toBe("\\cite{}");
-    view.destroy();
+    expect(doc(view)).toBe("\\cite{}");
   });
 
   it("shows citation keys immediately for an empty slot and after a comma", async () => {
-    const view = new EditorView({
-      state: EditorState.create({
-        doc: "\\cit",
-        selection: { anchor: 4 },
-        extensions: latexEditorExtensions(["vaswani2017attention", "dosovitskiy2021image"]),
-      }),
-    });
-    view.dispatch({
-      changes: { from: 4, insert: "e" },
-      selection: { anchor: 5 },
-      annotations: Transaction.userEvent.of("input.type"),
-    });
+    const view = latexView("\\cit", 4, { citationKeys: ["vaswani2017attention", "dosovitskiy2021image"] });
+    typeText(view, "e");
     typeBracket(view, "{");
     await vi.waitFor(() => expect(completionStatus(view.state)).toBe("active"));
-    expect(currentCompletions(view.state).map((completion) => completion.label)).toEqual([
-      "dosovitskiy2021image",
-      "vaswani2017attention",
-    ]);
-
-    view.dispatch({
-      changes: { from: 6, insert: "first," },
-      selection: { anchor: 12 },
-      annotations: Transaction.userEvent.of("input.type"),
-    });
+    expect(labels(view)).toEqual(["dosovitskiy2021image", "vaswani2017attention"]);
+    typeText(view, "first,");
     await vi.waitFor(() => expect(completionStatus(view.state)).toBe("active"));
-    expect(currentCompletions(view.state).map((completion) => completion.label)).toContain("vaswani2017attention");
-    view.destroy();
+    expect(labels(view)).toContain("vaswani2017attention");
   });
 
   it("finds citation keys by a multiword title while typing", async () => {
-    const view = new EditorView({
-      parent: document.body,
-      state: EditorState.create({
-        doc: "\\citep{Spatial}",
-        selection: { anchor: 14 },
-        extensions: latexEditorExtensions([], [
-          { key: "lee2026", title: "Exploring Spatial Workspace", authors: "Lee", year: "2026", venue: "" },
-          { key: "other2025", title: "Other work", authors: "Other", year: "2025", venue: "" },
-        ]),
-      }),
+    const view = latexView("\\citep{Spatial}", 14, {
+      citations: [
+        { key: "lee2026", title: "Exploring Spatial Workspace", authors: "Lee", year: "2026", venue: "" },
+        { key: "other2025", title: "Other work", authors: "Other", year: "2025", venue: "" },
+      ],
     });
-    try {
-      startCompletion(view);
-      await vi.waitFor(() => expect(currentCompletions(view.state).map((item) => item.label)).toEqual(["lee2026"]));
-      typeText(view, " Workspace");
-      await vi.waitFor(() => expect(currentCompletions(view.state).map((item) => item.label)).toEqual(["lee2026"]));
-      typeText(view, " nonexistent");
-      await vi.waitFor(() => expect(currentCompletions(view.state)).toEqual([]));
-    } finally {
-      view.destroy();
-    }
+    startCompletion(view);
+    await vi.waitFor(() => expect(labels(view)).toEqual(["lee2026"]));
+    typeText(view, " Workspace");
+    await vi.waitFor(() => expect(labels(view)).toEqual(["lee2026"]));
+    typeText(view, " nonexistent");
+    await vi.waitFor(() => expect(labels(view)).toEqual([]));
   });
 
   it.each(["A Study of Collaborative Writing", ""])("renders citation metadata with title %j but inserts only its key", async (title) => {
-    const doc = "\\cite{existing,work}";
-    const view = new EditorView({
-      parent: document.body,
-      state: EditorState.create({
-        doc,
-        selection: { anchor: doc.length - 1 },
-        extensions: latexEditorExtensions([], [
-          { key: "work2026", title, authors: "Alice Lee", year: "2026", venue: "CHI" },
-        ]),
-      }),
+    const source = "\\cite{existing,work}";
+    const view = latexView(source, source.length - 1, {
+      citations: [{ key: "work2026", title, authors: "Alice Lee", year: "2026", venue: "CHI" }],
     });
-    try {
-      startCompletion(view);
-      await vi.waitFor(() => {
-        const option = view.dom.querySelector(".cm-citation-option");
-        expect(option?.querySelector(".cm-completionLabel")?.textContent).toBe(title || "work2026");
-        expect(option?.querySelector(".cm-completionDetail")?.textContent).toBe(
-          title ? "work2026 · Alice Lee · 2026 · CHI" : "Alice Lee · 2026 · CHI",
-        );
-      });
-      fireEvent.keyDown(view.contentDOM, { key: "Enter", code: "Enter" });
-      expect(view.state.doc.toString()).toBe("\\cite{existing,work2026}");
-    } finally {
-      view.destroy();
-    }
+    startCompletion(view);
+    await vi.waitFor(() => {
+      const option = view.dom.querySelector(".cm-citation-option");
+      expect(option?.querySelector(".cm-completionLabel")?.textContent).toBe(title || "work2026");
+      expect(option?.querySelector(".cm-completionDetail")?.textContent).toBe(
+        title ? "work2026 · Alice Lee · 2026 · CHI" : "Alice Lee · 2026 · CHI",
+      );
+    });
+    press(view, "Enter");
+    expect(doc(view)).toBe("\\cite{existing,work2026}");
   });
 
   it.each([0, 3, 9])("replaces the whole citation key from cursor offset %i without touching adjacent entries", async (offset) => {
-    const doc = "\\citep{left2023,  alpha2024  ,right2025}";
-    const start = doc.indexOf("alpha2024");
-    const view = new EditorView({
-      parent: document.body,
-      state: EditorState.create({
-        doc,
-        selection: { anchor: start + offset },
-        extensions: latexEditorExtensions(["alpha2024", "alpha2024extended"]),
-      }),
-    });
-    try {
-      startCompletion(view);
-      await vi.waitFor(() => expect(completionStatus(view.state)).toBe("active"));
-      fireEvent.keyDown(view.contentDOM, { key: "Enter", code: "Enter" });
-      expect(view.state.doc.toString()).toBe(doc);
-      view.dispatch({ selection: { anchor: start + offset } });
-      startCompletion(view);
-      await vi.waitFor(() => expect(completionStatus(view.state)).toBe("active"));
-      fireEvent.keyDown(view.contentDOM, { key: "ArrowDown", code: "ArrowDown" });
-      fireEvent.keyDown(view.contentDOM, { key: "Enter", code: "Enter" });
-      expect(view.state.doc.toString()).toBe("\\citep{left2023,  alpha2024extended  ,right2025}");
-    } finally {
-      view.destroy();
-    }
+    const source = "\\citep{left2023,  alpha2024  ,right2025}";
+    const start = source.indexOf("alpha2024");
+    const view = latexView(source, start + offset, { citationKeys: ["alpha2024", "alpha2024extended"] });
+    startCompletion(view);
+    await vi.waitFor(() => expect(completionStatus(view.state)).toBe("active"));
+    press(view, "Enter");
+    expect(doc(view)).toBe(source);
+    view.dispatch({ selection: { anchor: start + offset } });
+    startCompletion(view);
+    await vi.waitFor(() => expect(completionStatus(view.state)).toBe("active"));
+    press(view, "ArrowDown", "Enter");
+    expect(doc(view)).toBe("\\citep{left2023,  alpha2024extended  ,right2025}");
   });
 
   it("lets an immediately pressed arrow and Enter choose a citation", async () => {
-    const now = vi.spyOn(Date, "now").mockReturnValue(1_000);
-    const view = new EditorView({
-      parent: document.body,
-      state: EditorState.create({
-        doc: "\\cite{}",
-        selection: { anchor: 6 },
-        extensions: latexEditorExtensions(["vaswani2017attention", "dosovitskiy2021image"]),
-      }),
-    });
+    vi.spyOn(Date, "now").mockReturnValue(1_000);
+    const view = latexView("\\cite{}", 6, { citationKeys: ["vaswani2017attention", "dosovitskiy2021image"] });
     startCompletion(view);
     await vi.waitFor(() => expect(completionStatus(view.state)).toBe("active"));
     expect(selectedCompletionIndex(view.state)).toBe(0);
-
-    fireEvent.keyDown(view.contentDOM, { key: "ArrowDown", code: "ArrowDown" });
+    press(view, "ArrowDown");
     expect(selectedCompletionIndex(view.state)).toBe(1);
-    fireEvent.keyDown(view.contentDOM, { key: "Enter", code: "Enter" });
-    expect(view.state.doc.toString()).toBe("\\cite{vaswani2017attention}");
-
-    view.destroy();
-    now.mockRestore();
+    press(view, "Enter");
+    expect(doc(view)).toBe("\\cite{vaswani2017attention}");
   });
 
-  it.each(["citep", "citet", "citeauthor", "parencite"])("opens citations after typing \\%s{ without swallowing the command suffix", async (command) => {
-    const view = createProductionLatexView(["alpha2024", "beta2025"]);
-    try {
-      typeText(view, `\\${command}`);
-      expect(view.state.doc.toString()).toBe(`\\${command}`);
-      typeBracket(view, "{");
-      expect(view.state.doc.toString()).toBe(`\\${command}{}`);
-      await vi.waitFor(() => expect(currentCompletions(view.state).map((item) => item.label)).toEqual([
-        "alpha2024", "beta2025",
-      ]));
-      fireEvent.keyDown(view.contentDOM, { key: "ArrowDown", code: "ArrowDown" });
-      fireEvent.keyDown(view.contentDOM, { key: "Enter", code: "Enter" });
-      expect(view.state.doc.toString()).toBe(`\\${command}{beta2025}`);
-    } finally {
-      view.destroy();
-    }
+  // A literally typed command with the production bracket keymap: the brace
+  // pair lands around the cursor and the choices open without the suffix lost.
+  it.each(["cite", "citep", "citet", "citeauthor", "parencite"])("opens citations after typing \\%s{ without swallowing the command suffix", async (command) => {
+    const view = productionLatexView(["alpha2024", "beta2025"]);
+    typeText(view, `\\${command}`);
+    expect(doc(view)).toBe(`\\${command}`);
+    typeBracket(view, "{");
+    expect(doc(view)).toBe(`\\${command}{}`);
+    expect(view.state.selection.main.head).toBe(command.length + 2);
+    await vi.waitFor(() => expect(labels(view)).toEqual(["alpha2024", "beta2025"]));
+    press(view, "ArrowDown");
+    expect(selectedCompletionIndex(view.state)).toBe(1);
+    press(view, "Enter");
+    expect(doc(view)).toBe(`\\${command}{beta2025}`);
   });
 
   it("reopens citation choices when the cursor returns, but respects Escape and selections", async () => {
-    const view = createProductionLatexView(["alpha2024", "beta2025"]);
-    try {
-      const doc = "Text \\citep{} and \\section{}";
-      view.dispatch({ changes: { from: 0, insert: doc } });
-      view.focus();
-      const slot = doc.indexOf("{}");
-      view.dispatch({ selection: { anchor: slot + 1 } });
-      await vi.waitFor(() => expect(currentCompletions(view.state).map((item) => item.label)).toEqual([
-        "alpha2024", "beta2025",
-      ]));
-      fireEvent.keyDown(view.contentDOM, { key: "Escape", code: "Escape" });
+    const view = productionLatexView(["alpha2024", "beta2025"]);
+    const source = "Text \\citep{} and \\section{}";
+    view.dispatch({ changes: { from: 0, insert: source } });
+    view.focus();
+    const slot = source.indexOf("{}");
+    view.dispatch({ selection: { anchor: slot + 1 } });
+    await vi.waitFor(() => expect(labels(view)).toEqual(["alpha2024", "beta2025"]));
+    press(view, "Escape");
+    expect(completionStatus(view.state)).toBeNull();
+    for (const selection of [undefined, { anchor: source.length - 1 }, { anchor: slot, head: slot + 2 }]) {
+      view.dispatch({ selection });
       expect(completionStatus(view.state)).toBeNull();
-      view.dispatch({});
-      expect(completionStatus(view.state)).toBeNull();
-      view.dispatch({ selection: { anchor: doc.length - 1 } });
-      expect(completionStatus(view.state)).toBeNull();
-      view.dispatch({ selection: { anchor: slot, head: slot + 2 } });
-      expect(completionStatus(view.state)).toBeNull();
-      view.dispatch({ selection: { anchor: slot + 1 } });
-      await vi.waitFor(() => expect(completionStatus(view.state)).toBe("active"));
-    } finally {
-      view.destroy();
     }
+    view.dispatch({ selection: { anchor: slot + 1 } });
+    await vi.waitFor(() => expect(completionStatus(view.state)).toBe("active"));
   });
 
   it("reopens an unchanged citation cursor after focus returns from another control", async () => {
-    const view = createProductionLatexView(["alpha2024"]);
-    const input = document.createElement("input");
-    document.body.append(input);
-    try {
-      input.focus();
-      view.dispatch({ changes: { from: 0, insert: "\\citep{}" }, selection: { anchor: 7 } });
-      expect(completionStatus(view.state)).toBeNull();
-      view.focus();
-      await vi.waitFor(() => expect(completionStatus(view.state)).toBe("active"));
-      input.focus();
-      await vi.waitFor(() => expect(completionStatus(view.state)).toBeNull());
-      view.focus();
-      await vi.waitFor(() => expect(completionStatus(view.state)).toBe("active"));
-    } finally {
-      view.destroy();
-      input.remove();
-    }
-  });
-
-  it("handles a literally typed citation command with the production bracket keymap", async () => {
-    const view = createProductionLatexView(["vaswani2017attention", "dosovitskiy2021image"]);
-
-    typeText(view, "\\cite");
-    typeBracket(view, "{");
-    expect(view.state.doc.toString()).toBe("\\cite{}");
-    expect(view.state.selection.main.head).toBe(6);
+    const view = productionLatexView(["alpha2024"]);
+    const input = document.body.appendChild(document.createElement("input"));
+    input.focus();
+    view.dispatch({ changes: { from: 0, insert: "\\citep{}" }, selection: { anchor: 7 } });
+    expect(completionStatus(view.state)).toBeNull();
+    view.focus();
     await vi.waitFor(() => expect(completionStatus(view.state)).toBe("active"));
-
-    fireEvent.keyDown(view.contentDOM, { key: "ArrowDown", code: "ArrowDown" });
-    expect(selectedCompletionIndex(view.state)).toBe(1);
-    fireEvent.keyDown(view.contentDOM, { key: "Enter", code: "Enter" });
-    expect(view.state.doc.toString()).toBe("\\cite{vaswani2017attention}");
-
-    view.destroy();
+    input.focus();
+    await vi.waitFor(() => expect(completionStatus(view.state)).toBeNull());
+    view.focus();
+    await vi.waitFor(() => expect(completionStatus(view.state)).toBe("active"));
+    input.remove();
   });
 
   it("does not accumulate closing braces while deleting a literally typed citation", () => {
-    const view = createProductionLatexView(["vaswani2017attention"]);
-
+    const view = productionLatexView(["vaswani2017attention"]);
     typeText(view, "\\cite");
     typeBracket(view, "{");
     typeBracket(view, "}");
-    expect(view.state.doc.toString()).toBe("\\cite{}");
+    expect(doc(view)).toBe("\\cite{}");
     expect(view.state.selection.main.head).toBe(7);
-
-    fireEvent.keyDown(view.contentDOM, { key: "Backspace", code: "Backspace" });
-    expect(view.state.doc.toString()).toBe("\\cite{");
-    fireEvent.keyDown(view.contentDOM, { key: "Backspace", code: "Backspace" });
-    expect(view.state.doc.toString()).toBe("\\cite");
-    fireEvent.keyDown(view.contentDOM, { key: "Backspace", code: "Backspace" });
-    expect(view.state.doc.toString()).toBe("\\cit");
-
-    view.destroy();
-  });
-
-  it("completes labels inside reference commands", () => {
-    expect(referenceCompletionRange("See \\ref{", 9)).toEqual({ from: 9, query: "" });
-    expect(referenceCompletionRange("See \\cref{fig:", 14)).toEqual({ from: 10, query: "fig:" });
-  });
-
-  it("warns about unknown citation keys and labels", () => {
-    const diagnostics = indexDiagnostics(
-      "See \\citep{missing} and \\ref{fig:gone}.",
-      ["known"],
-      [{ label: "fig:model", kind: "figure", title: "Model", snippet: "", path: "main.tex", line: 1 }],
-    );
-    expect(diagnostics.map((item) => item.message)).toEqual([
-      "Unknown citation key “missing”.",
-      "Unknown label “fig:gone”.",
-    ]);
-  });
-
-  it("resolves symbols under the cursor for find-references and rename", () => {
-    const source = "See \\ref{fig:model} and \\label{fig:model} plus \\citep{vaswani2017}.";
-    expect(symbolAt(source, source.indexOf("fig:model") + 2)).toEqual({ kind: "label", label: "fig:model" });
-    expect(symbolAt(source, source.indexOf("\\label{fig:model}") + 10)).toEqual({ kind: "label", label: "fig:model" });
-    expect(symbolAt(source, source.indexOf("vaswani") + 2)).toEqual({ kind: "citation", key: "vaswani2017" });
-  });
-
-  it("auto-closes begin environments and skips existing ends", () => {
-    expect(beginEnvironmentClose("\\begin{align}", "")).toEqual({
-      insert: "\n  \n\\end{align}",
-      cursorOffset: 3,
-    });
-    expect(beginEnvironmentClose("\\begin{align}", "\n\\end{align}")).toBeNull();
-    expect(beginEnvironmentClose("\\begin{align*}", "")?.insert).toContain("\\end{align*}");
-  });
-
-  it("starts the next line at the current indent, not an extra tab inside a document", () => {
-    const doc = "\\begin{document}\nHello\n\\end{document}";
-    const cursor = doc.indexOf("Hello") + "Hello".length;
-    const view = new EditorView({
-      state: EditorState.create({
-        doc,
-        selection: { anchor: cursor },
-        extensions: latexEditorExtensions([]),
-      }),
-    });
-    expect(insertLatexNewline(view)).toBe(true);
-    expect(view.state.doc.toString()).toBe("\\begin{document}\nHello\n\n\\end{document}");
-    view.destroy();
-  });
-
-  it("keeps an already-indented line's indent on newline", () => {
-    const doc = "\\begin{itemize}\n  \\item one\n\\end{itemize}";
-    const cursor = doc.indexOf("one") + "one".length;
-    const view = new EditorView({
-      state: EditorState.create({
-        doc,
-        selection: { anchor: cursor },
-        extensions: latexEditorExtensions([]),
-      }),
-    });
-    expect(insertLatexNewline(view)).toBe(true);
-    const line = view.state.doc.lineAt(view.state.selection.main.head);
-    expect(line.text).toBe("  ");
-    view.destroy();
-  });
-
-  it("lets Enter after \\begin{env} fall through so the environment can auto-close", () => {
-    const doc = "\\begin{align}";
-    const view = new EditorView({
-      state: EditorState.create({
-        doc,
-        selection: { anchor: doc.length },
-        extensions: latexEditorExtensions([]),
-      }),
-    });
-    expect(insertLatexNewline(view)).toBe(false);
-    expect(view.state.doc.toString()).toBe(doc);
-    view.destroy();
-  });
-
-  it("flags unmatched environments and duplicate labels", () => {
-    const diagnostics = structureDiagnostics(
-      "\\begin{figure}\n\\label{fig:a}\n\\label{fig:a}\n\\end{table}\n\\begin{equation}\n",
-    );
-    expect(diagnostics.map((item) => item.message)).toEqual([
-      "Expected \\end{figure}, found \\end{table}.",
-      "Unclosed \\begin{equation}.",
-      "Duplicate label “fig:a”.",
-    ]);
-  });
-
-  it("flags unclosed math delimiters", () => {
-    const diagnostics = structureDiagnostics("Hello $x + y and $$a");
-    expect(diagnostics.some((item) => item.message.includes("Unclosed display math $$"))).toBe(true);
-    expect(diagnostics.some((item) => item.message.includes("Unclosed inline math $"))).toBe(true);
-  });
-
-  it("warns about unused labels and bibliography keys", () => {
-    const diagnostics = indexDiagnostics(
-      "\\label{fig:dead} @article{dead, title={X},}",
-      ["dead"],
-      [{ label: "fig:dead", kind: "figure", title: "", snippet: "", path: "main.tex", line: 1 }],
-      ["fig:dead"],
-      ["dead"],
-      [],
-      "main.tex",
-    );
-    expect(diagnostics.map((item) => item.message)).toEqual([
-      "Unused label “fig:dead”.",
-      "Unused citation key “dead”.",
-    ]);
-  });
-
-  it("warns when a label is also defined in another file", () => {
-    const diagnostics = indexDiagnostics(
-      "\\label{fig:shared}",
-      [],
-      [
-        { label: "fig:shared", kind: "figure", title: "", snippet: "", path: "main.tex", line: 1 },
-        { label: "fig:shared", kind: "figure", title: "", snippet: "", path: "sections/a.tex", line: 3 },
-      ],
-      [],
-      [],
-      [],
-      "main.tex",
-    );
-    expect(diagnostics.some((item) => item.message.includes("also defined in sections/a.tex"))).toBe(true);
-  });
-
-  it("wraps and renames environments", () => {
-    expect(wrapEnvironment("x", 0, 1, "equation").insert).toContain("\\begin{equation}");
-    const source = "\\begin{align}x\\end{align}";
-    const edits = renameEnvironmentAt(source, 2, "align*");
-    expect(edits).toEqual([
-      { from: 0, to: "\\begin{align}".length, insert: "\\begin{align*}" },
-      { from: source.indexOf("\\end{align}"), to: source.length, insert: "\\end{align*}" },
-    ]);
-  });
-
-  it("merges live labels from the dirty buffer", () => {
-    const merged = mergeReferences(
-      [{ label: "fig:old", kind: "figure", title: "", snippet: "", path: "other.tex", line: 1 }],
-      "main.tex",
-      parseLocalLabels("main.tex", "\\label{fig:new}"),
-    );
-    expect(merged.map((item) => item.label).sort()).toEqual(["fig:new", "fig:old"]);
-  });
-
-  it("preserves figure preview metadata when overlaying dirty labels", () => {
-    const merged = mergeReferences(
-      [{
-        label: "fig:native-umm",
-        kind: "figure",
-        title: "Native UMM",
-        snippet: "\\includegraphics{figures/native-umm.pdf}",
-        path: "main.tex",
-        line: 12,
-        imagePath: "figures/native-umm.pdf",
-      }],
-      "main.tex",
-      parseLocalLabels("main.tex", "\\label{fig:native-umm}"),
-    );
-    expect(merged).toHaveLength(1);
-    expect(merged[0]?.imagePath).toBe("figures/native-umm.pdf");
-    expect(merged[0]?.kind).toBe("figure");
-    expect(merged[0]?.title).toBe("Native UMM");
-  });
-
-  it("flags missing include and graphics paths", () => {
-    const created: string[] = [];
-    const diagnostics = pathDiagnostics(
-      "\\input{missing}\n\\includegraphics{figures/gone.pdf}\n\\input{sections/ok}",
-      ["sections/ok.tex", "figures/kept.pdf"],
-      [],
-      (path) => {
-        created.push(path);
-      },
-    );
-    expect(diagnostics.map((item) => item.message)).toEqual([
-      "Missing file “missing”.",
-      "Missing figure “figures/gone.pdf”.",
-    ]);
-    diagnostics[0]?.actions?.[0]?.apply(null as never, 0, 0);
-    expect(created).toEqual(["missing.tex"]);
-  });
-
-  it("resolves includegraphics paths wrapped in detokenize", () => {
-    const diagnostics = pathDiagnostics(
-      "\\includegraphics[width=\\linewidth]{\\detokenize{figures/native-umm-converted.pdf}}",
-      ["figures/native-umm-converted.pdf"],
-    );
-    expect(diagnostics).toEqual([]);
-  });
-
-  it("resolves figures via graphicspath", () => {
-    const roots = parseGraphicsPaths(["\\graphicspath{{figs/}{images/}}\n"]);
-    expect(roots).toEqual(["figs", "images"]);
-    expect(pathDiagnostics(
-      "\\includegraphics{plot}",
-      ["figs/plot.pdf", "images/other.png"],
-      roots,
-    )).toEqual([]);
-    expect(pathDiagnostics(
-      "\\includegraphics{missing}",
-      ["figs/plot.pdf"],
-      roots,
-    ).map((item) => item.message)).toEqual(["Missing figure “missing”."]);
-  });
-
-  it("toggles % line comments", () => {
-    const source = "alpha\nbeta\ngamma\n";
-    const commented = toggleLineComments(source, 6, 10);
-    expect(commented.insert).toBe("% beta");
-    const restored = toggleLineComments(
-      `${source.slice(0, commented.from)}${commented.insert}${source.slice(commented.to)}`,
-      commented.from,
-      commented.from + commented.insert.length,
-    );
-    expect(restored.insert).toBe("beta");
-  });
-
-  it("parses project macros for completion", () => {
-    const macros = parseLocalMacros(["\\newcommand{\\loss}{L}\n\\newenvironment{proofbox}{}{}\n"]);
-    expect(macros.map((item) => item.label)).toEqual(["\\loss", "\\begin{proofbox}"]);
-  });
-
-  it("counts words for the editor status bar", () => {
-    expect(countWords("Hello, world — and pre-trained models.")).toBe(5);
-    expect(countWords("")).toBe(0);
-  });
-
-  it("wraps a selection or empty cursor for bold and math", () => {
-    expect(wrapRange("hello world", 0, 5, "\\textbf{", "}")).toEqual({
-      from: 0,
-      to: 5,
-      insert: "\\textbf{hello}",
-      cursorFrom: 8,
-      cursorTo: 13,
-    });
-    expect(wrapRange("x", 0, 0, "$", "$")).toEqual({
-      from: 0,
-      to: 0,
-      insert: "$$",
-      cursorFrom: 1,
-      cursorTo: 1,
-    });
-  });
-
-  it("jumps between matching begin and end environments", () => {
-    const source = "\\begin{figure}\\begin{center}x\\end{center}\\end{figure}";
-    const beginFigure = source.indexOf("\\begin{figure}");
-    const endFigure = source.indexOf("\\end{figure}");
-    const beginCenter = source.indexOf("\\begin{center}");
-    expect(matchingEnvironmentTarget(source, beginFigure + 2)).toEqual({
-      from: endFigure,
-      to: endFigure + "\\end{figure}".length,
-    });
-    expect(matchingEnvironmentTarget(source, endFigure + 2)).toEqual({
-      from: beginFigure,
-      to: beginFigure + "\\begin{figure}".length,
-    });
-    expect(matchingEnvironmentTarget(source, beginCenter + 2)).toEqual({
-      from: source.indexOf("\\end{center}"),
-      to: source.indexOf("\\end{center}") + "\\end{center}".length,
-    });
-    const inside = source.indexOf("x");
-    expect(matchingEnvironmentTarget(source, inside)).toEqual({
-      from: beginCenter,
-      to: beginCenter + "\\begin{center}".length,
-    });
-    expect(enclosingEnvironment(source, inside)?.name).toBe("center");
-    expect(enclosingEnvironmentRange(source, inside)).toEqual({
-      from: beginCenter,
-      to: source.indexOf("\\end{center}") + "\\end{center}".length,
-    });
-    expect(renameEnvironmentAt(source, inside, "quote")).toEqual([
-      { from: beginCenter, to: beginCenter + "\\begin{center}".length, insert: "\\begin{quote}" },
-      {
-        from: source.indexOf("\\end{center}"),
-        to: source.indexOf("\\end{center}") + "\\end{center}".length,
-        insert: "\\end{quote}",
-      },
-    ]);
-  });
-
-  it("warns about duplicate bibliography keys", () => {
-    const bib = "@article{same,\n  title={A},\n}\n@misc{same,\n  title={B},\n}\n";
-    const diagnostics = structureDiagnostics(bib);
-    expect(diagnostics.some((item) => item.message.includes('Duplicate bibliography key “same”'))).toBe(true);
-  });
-
-  it("keeps native spellcheck off when Harper is enabled", () => {
-    const off = new EditorView({
-      state: EditorState.create({ doc: "typo", extensions: latexEditorExtensions([]) }),
-    });
-    expect(off.contentDOM.getAttribute("spellcheck")).toBe("false");
-    off.destroy();
-    const on = new EditorView({
-      state: EditorState.create({
-        doc: "typo",
-        extensions: latexEditorExtensions([], [], [], undefined, undefined, [], undefined, undefined, true),
-      }),
-    });
-    expect(on.contentDOM.getAttribute("spellcheck")).toBe("false");
-    expect(on.contentDOM.getAttribute("autocorrect")).toBe("off");
-    on.destroy();
-  });
-
-  it("finds bibliography entry lines by key", () => {
-    const bib = "@article{first,\n  title={A},\n}\n@inproceedings{second,\n  title={B},\n}\n";
-    expect(bibliographyEntryLine(bib, "second")).toBe(4);
-    expect(bibliographyEntryLine(bib, "missing")).toBeNull();
-  });
-
-  it("sorts selected lines and transforms case", () => {
-    const source = "zeta\nalpha\nbeta\n";
-    expect(sortSelectedLines(source, 0, source.length - 1)).toEqual({
-      from: 0,
-      to: 15,
-      insert: "alpha\nbeta\nzeta",
-    });
-    expect(transformCase("hello WORLD", 0, 11, "title")?.insert).toBe("Hello World");
-    expect(transformCase("Hello", 0, 5, "upper")?.insert).toBe("HELLO");
-    expect(textStats("one two\nthree").words).toBe(3);
-  });
-
-  it("wraps selections in comment environments or iffalse blocks", () => {
-    expect(wrapCommentRegion("draft", 0, 5, "comment-env").insert).toBe(
-      "\\begin{comment}\ndraft\n\\end{comment}",
-    );
-    expect(wrapCommentRegion("draft", 0, 5, "iffalse").insert).toBe("\\iffalse\ndraft\n\\fi");
-  });
-
-  it("windows Harper linting only above the size threshold", () => {
-    const smallView = new EditorView({
-      parent: document.body,
-      state: EditorState.create({ doc: "short document\n".repeat(10) }),
-    });
-    expect(harperLintWindow(smallView)).toBeNull();
-    smallView.destroy();
-
-    const line = "a sentence that repeats across the large fixture document\n";
-    const doc = line.repeat(Math.ceil((HARPER_WINDOW_THRESHOLD + 50_000) / line.length));
-    const largeView = new EditorView({
-      parent: document.body,
-      state: EditorState.create({ doc }),
-    });
-    const window = harperLintWindow(largeView);
-    expect(window).not.toBeNull();
-    // A strict sub-range of the document, snapped to line boundaries.
-    expect(window!.from).toBeGreaterThanOrEqual(0);
-    expect(window!.to).toBeLessThanOrEqual(doc.length);
-    expect(window!.to - window!.from).toBeLessThan(doc.length);
-    expect(largeView.state.doc.lineAt(window!.from).from).toBe(window!.from);
-    expect(largeView.state.doc.lineAt(window!.to).to).toBe(window!.to);
-    // Every visible range is covered, margins included.
-    for (const range of largeView.visibleRanges) {
-      expect(window!.from).toBeLessThanOrEqual(range.from);
-      expect(window!.to).toBeGreaterThanOrEqual(range.to);
+    for (const expected of ["\\cite{", "\\cite", "\\cit"]) {
+      press(view, "Backspace");
+      expect(doc(view)).toBe(expected);
     }
-    largeView.destroy();
+  });
+
+  it.each([
+    ["starts the next line at the current indent, not an extra tab inside a document",
+      "\\begin{document}\nHello\n\\end{document}", "Hello", "\\begin{document}\nHello\n\n\\end{document}"],
+    ["keeps an already-indented line's indent on newline",
+      "\\begin{itemize}\n  \\item one\n\\end{itemize}", "one", "\\begin{itemize}\n  \\item one\n  \n\\end{itemize}"],
+    ["lets Enter after \\begin{env} fall through so the environment can auto-close",
+      "\\begin{align}", "\\begin{align}", null],
+  ])("%s", (_name, source, cursorAfter, expected) => {
+    const view = latexView(source, source.indexOf(cursorAfter) + cursorAfter.length);
+    expect(insertLatexNewline(view)).toBe(expected !== null);
+    expect(doc(view)).toBe(expected ?? source);
   });
 });

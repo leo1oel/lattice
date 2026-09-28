@@ -7,15 +7,20 @@
  * Licensed under GPL-3.0-or-later.
  */
 /* eslint-disable react-refresh/only-export-components */
-import { autoUpdate, computePosition, flip, offset, shift, size } from "@floating-ui/dom";
 import { Extension, type AnyExtension } from "@tiptap/core";
 import { PluginKey } from "@tiptap/pm/state";
-import { ReactRenderer } from "@tiptap/react";
-import Suggestion, { type SuggestionKeyDownProps, type SuggestionProps } from "@tiptap/suggestion";
+import Suggestion from "@tiptap/suggestion";
 import { FilePlus2, FileText } from "lucide-react";
-import { useEffect, useRef } from "react";
 import type { MarkdownWorkspaceIndex } from "./markdown-workspace-index";
 import { FluidHoverSurface } from "../../components/ui/fluid-hover-surface";
+import {
+  keepEditorFocus,
+  listboxProps,
+  optionProps,
+  suggestionPopupRenderer,
+  useSelectedOptionScroll,
+  type SuggestionMenuProps,
+} from "./suggestion-popup";
 
 const MAX_ITEMS = 8;
 const suggestionKey = new PluginKey("visualWikiLinkSuggestion");
@@ -25,57 +30,42 @@ type WikiLinkItem =
   | { kind: "create"; docName: string; actionLabel: string }
   | { kind: "anchor"; docName: string; level: number; text: string; slug: string };
 
-type ParsedQuery =
-  | { mode: "page"; pageTarget: ""; anchorQuery: "" }
-  | { mode: "anchor"; pageTarget: string; anchorQuery: string };
-
-function parseQuery(query: string): ParsedQuery {
+/** `Page#heading` queries list that page's headings; anything else lists pages. */
+function anchorQuery(query: string): { page: string; heading: string } | null {
   const hash = query.indexOf("#");
-  return hash >= 0
-    ? { mode: "anchor", pageTarget: query.slice(0, hash), anchorQuery: query.slice(hash + 1) }
-    : { mode: "page", pageTarget: "", anchorQuery: "" };
+  return hash >= 0 ? { page: query.slice(0, hash), heading: query.slice(hash + 1) } : null;
 }
 
-type MenuProps = {
-  items: WikiLinkItem[];
-  query: string;
-  selectedIndex: number;
-  idBase: string;
-  onSelect: (item: WikiLinkItem) => void;
-  onHoverIndex: (index: number) => void;
-};
+function itemLabel(item: WikiLinkItem | undefined): string | undefined {
+  if (item?.kind === "anchor") return `Heading H${item.level}: ${item.text}`;
+  return item?.kind === "create" ? item.actionLabel : item?.title;
+}
 
-function VisualWikiLinkMenu({ items, query, selectedIndex, idBase, onSelect, onHoverIndex }: MenuProps) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const parsed = parseQuery(query);
-  useEffect(() => {
-    containerRef.current?.querySelector<HTMLElement>(`[data-index="${selectedIndex}"]`)
-      ?.scrollIntoView({ block: "nearest" });
-  }, [selectedIndex]);
+function VisualWikiLinkMenu(props: SuggestionMenuProps<WikiLinkItem>) {
+  const { items, query, selectedIndex } = props;
+  const containerRef = useSelectedOptionScroll(selectedIndex);
+  const anchor = anchorQuery(query);
 
   if (!items.length) {
     return (
-      <div className="w-80 max-w-[min(28rem,90vw)] rounded-lg border bg-popover p-2 text-sm text-muted-foreground shadow-md" role="status" aria-live="polite" onMouseDown={(event) => event.preventDefault()}>
-        {parsed.mode === "anchor" ? `No headings in ${parsed.pageTarget}` : "No pages found"}
+      <div className="w-80 max-w-[min(28rem,90vw)] rounded-lg border bg-popover p-2 text-sm text-muted-foreground shadow-md" role="status" aria-live="polite" onMouseDown={keepEditorFocus}>
+        {anchor ? `No headings in ${anchor.page}` : "No pages found"}
       </div>
     );
   }
-  const selected = items[selectedIndex];
   return (
-    <div ref={containerRef} id={idBase} role="listbox" aria-label={parsed.mode === "anchor" ? "Heading suggestions" : "Wiki link suggestions"} aria-activedescendant={`${idBase}-option-${selectedIndex}`} tabIndex={-1} onMouseDown={(event) => event.preventDefault()} className="fluid-hover-surface popup-motion w-80 max-w-[min(28rem,90vw)] overflow-y-auto rounded-lg border bg-popover p-1 shadow-md" style={{ maxHeight: "var(--visual-menu-height, 40vh)" }}>
+    <div ref={containerRef} {...listboxProps(props, anchor ? "Heading suggestions" : "Wiki link suggestions")} onMouseDown={keepEditorFocus} className="fluid-hover-surface popup-motion w-80 max-w-[min(28rem,90vw)] overflow-y-auto rounded-lg border bg-popover p-1 shadow-md">
       <FluidHoverSurface />
-      <span className="sr-only" aria-live="polite" aria-atomic="true">
-        {selected?.kind === "anchor" ? `Heading H${selected.level}: ${selected.text}` : selected?.kind === "create" ? selected.actionLabel : selected?.title}
-      </span>
-      {parsed.mode === "anchor" && <div className="px-2 py-1 text-[length:var(--type-micro-size)] font-medium uppercase tracking-wide text-muted-foreground">{parsed.pageTarget}</div>}
+      <span className="sr-only" aria-live="polite" aria-atomic="true">{itemLabel(items[selectedIndex])}</span>
+      {anchor && <div className="px-2 py-1 text-[length:var(--type-micro-size)] font-medium uppercase tracking-wide text-muted-foreground">{anchor.page}</div>}
       {items.map((item, index) => {
-        const active = index === selectedIndex;
+        const Icon = item.kind === "create" ? FilePlus2 : FileText;
         return (
-          <button key={item.kind === "anchor" ? `${item.docName}#${item.slug}` : `${item.kind}:${item.docName}`} id={`${idBase}-option-${index}`} data-index={index} type="button" role="option" aria-selected={active} onMouseEnter={() => onHoverIndex(index)} onMouseDown={(event) => { event.preventDefault(); onSelect(item); }} className={`flex w-full items-start gap-2 rounded-md px-2 py-1.5 text-left text-sm ${active ? "bg-accent text-accent-foreground" : ""}`} style={item.kind === "anchor" ? { paddingLeft: `${(item.level - 1) * 10 + 8}px` } : undefined}>
+          <button key={item.kind === "anchor" ? `${item.docName}#${item.slug}` : `${item.kind}:${item.docName}`} {...optionProps(props, item, index)} className={`flex w-full items-start gap-2 rounded-md px-2 py-1.5 text-left text-sm ${index === selectedIndex ? "bg-accent text-accent-foreground" : ""}`} style={item.kind === "anchor" ? { paddingLeft: `${(item.level - 1) * 10 + 8}px` } : undefined}>
             {item.kind === "anchor" ? (
               <><span className="w-6 shrink-0 font-mono text-[length:var(--type-micro-size)] text-muted-foreground">H{item.level}</span><span className="truncate font-medium">{item.text}</span></>
             ) : (
-              <>{item.kind === "create" ? <FilePlus2 className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden /> : <FileText className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden />}<span className="flex min-w-0 flex-1 flex-col"><span className="truncate font-medium">{item.kind === "create" ? item.actionLabel : item.title}</span>{item.kind === "page" && item.title !== item.docName && <span className="line-clamp-2 break-all text-xs text-muted-foreground">{item.docName}</span>}</span></>
+              <><Icon className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden /><span className="flex min-w-0 flex-1 flex-col"><span className="truncate font-medium">{itemLabel(item)}</span>{item.kind === "page" && item.title !== item.docName && <span className="line-clamp-2 break-all text-xs text-muted-foreground">{item.docName}</span>}</span></>
             )}
           </button>
         );
@@ -83,6 +73,23 @@ function VisualWikiLinkMenu({ items, query, selectedIndex, idBase, onSelect, onH
       {items.length >= MAX_ITEMS && <div className="mt-1 border-t border-border px-2 py-1.5 text-xs text-muted-foreground">Showing top {items.length} — keep typing to narrow</div>}
     </div>
   );
+}
+
+function wikiLinkItems(index: MarkdownWorkspaceIndex, query: string): WikiLinkItem[] {
+  const anchor = anchorQuery(query);
+  if (anchor) {
+    const doc = index.getDoc(anchor.page);
+    const needle = anchor.heading.toLowerCase();
+    return !doc ? [] : doc.headings
+      .filter((heading) => heading.text.toLowerCase().includes(needle))
+      .slice(0, MAX_ITEMS)
+      .map((heading) => ({ kind: "anchor" as const, docName: doc.docName, ...heading }));
+  }
+  const trimmed = query.trim();
+  const needle = trimmed.toLowerCase();
+  const pages: WikiLinkItem[] = index.searchPages(query, MAX_ITEMS).map(({ docName, title }) => ({ kind: "page", docName, title }));
+  const exists = pages.some((item) => item.kind === "page" && (item.docName.toLowerCase() === needle || item.title.toLowerCase() === needle));
+  return trimmed && !exists ? [...pages, { kind: "create", docName: trimmed, actionLabel: `Create "${trimmed}"` }] : pages;
 }
 
 export function visualWikiLinkSuggestion(getIndex: () => MarkdownWorkspaceIndex | null): AnyExtension {
@@ -97,53 +104,18 @@ export function visualWikiLinkSuggestion(getIndex: () => MarkdownWorkspaceIndex 
         allowedPrefixes: null,
         items: ({ query }) => {
           const index = getIndex();
-          if (!index) return [];
-          const parsed = parseQuery(query);
-          if (parsed.mode === "anchor") {
-            const doc = index.getDoc(parsed.pageTarget);
-            if (!doc) return [];
-            const needle = parsed.anchorQuery.toLowerCase();
-            return index.headingsFor(doc.docName).filter((heading) => heading.text.toLowerCase().includes(needle)).slice(0, MAX_ITEMS).map((heading) => ({ kind: "anchor" as const, docName: doc.docName, ...heading }));
-          }
-          const trimmed = query.trim();
-          const pages: WikiLinkItem[] = index.searchPages(query, MAX_ITEMS).map(({ docName, title }) => ({ kind: "page", docName, title }));
-          if (trimmed && !pages.some((item) => item.kind === "page" && (item.docName.toLowerCase() === trimmed.toLowerCase() || item.title.toLowerCase() === trimmed.toLowerCase()))) pages.push({ kind: "create", docName: trimmed, actionLabel: `Create "${trimmed}"` });
-          return pages;
+          return index ? wikiLinkItems(index, query) : [];
         },
         command: ({ editor, range, props: item }) => {
-          const attrs = item.kind === "anchor"
-            ? { target: item.docName, alias: null, anchor: item.slug, resolved: true }
-            : { target: item.docName, alias: null, anchor: null, resolved: item.kind === "page" };
+          const attrs = {
+            target: item.docName,
+            alias: null,
+            anchor: item.kind === "anchor" ? item.slug : null,
+            resolved: item.kind !== "create",
+          };
           editor.chain().focus().deleteRange(range).insertContent([{ type: "wikiLink", attrs }, { type: "text", text: " " }]).run();
         },
-        render: () => {
-          const menuId = `visual-wiki-link-${Math.random().toString(36).slice(2)}`;
-          let renderer: ReactRenderer | null = null;
-          let currentProps: SuggestionProps<WikiLinkItem> | null = null;
-          let selectedIndex = 0;
-          let stopPositioning: (() => void) | null = null;
-          let popup: HTMLDivElement | null = null;
-          const rerender = () => renderer?.updateProps({ items: currentProps?.items ?? [], query: currentProps?.query ?? "", selectedIndex, idBase: menuId, onSelect: currentProps?.command, onHoverIndex: (index: number) => { selectedIndex = index; rerender(); } });
-          const position = () => {
-            if (!popup?.isConnected || !currentProps) return;
-            const virtualElement = { getBoundingClientRect: () => currentProps?.clientRect?.() ?? new DOMRect(), contextElement: currentProps.editor.view.dom };
-            void computePosition(virtualElement, popup, { strategy: "fixed", placement: "bottom-start", middleware: [offset(6), flip(), shift({ padding: 8 }), size({ apply({ availableHeight }) { popup?.style.setProperty("--visual-menu-height", `${Math.min(availableHeight, window.innerHeight * 0.5)}px`); } })] }).then(({ x, y }) => { if (!popup?.isConnected) return; popup.style.left = `${x}px`; popup.style.top = `${y}px`; popup.style.visibility = "visible"; });
-          };
-          return {
-            onStart(props: SuggestionProps<WikiLinkItem>) {
-              currentProps = props; selectedIndex = 0;
-              const dom = props.editor.view.dom; dom.setAttribute("role", "combobox"); dom.setAttribute("aria-expanded", "true"); dom.setAttribute("aria-haspopup", "listbox"); dom.setAttribute("aria-controls", menuId); if (props.items.length) dom.setAttribute("aria-activedescendant", `${menuId}-option-0`);
-              popup = document.createElement("div"); popup.className = "visual-wiki-link-popup"; popup.style.visibility = "hidden"; document.body.appendChild(popup);
-              renderer = new ReactRenderer(VisualWikiLinkMenu, { editor: props.editor, props: { items: props.items, query: props.query, selectedIndex, idBase: menuId, onSelect: props.command, onHoverIndex: (index: number) => { selectedIndex = index; rerender(); } } }); popup.appendChild(renderer.element);
-              const virtualElement = { getBoundingClientRect: () => currentProps?.clientRect?.() ?? new DOMRect(), contextElement: dom }; stopPositioning = autoUpdate(virtualElement, popup, position); position();
-            },
-            // @tiptap/suggestion sends a loading pass with empty items before
-            // every result, even for synchronous items. Keep the current menu.
-            onUpdate(props: SuggestionProps<WikiLinkItem>) { if (props.loading) return; currentProps = props; selectedIndex = Math.min(selectedIndex, Math.max(0, props.items.length - 1)); if (props.items.length) props.editor.view.dom.setAttribute("aria-activedescendant", `${menuId}-option-${selectedIndex}`); else props.editor.view.dom.removeAttribute("aria-activedescendant"); rerender(); position(); },
-            onKeyDown({ event }: SuggestionKeyDownProps) { const items = currentProps?.items ?? []; if (event.key === "Escape" || !items.length) return false; if (event.key === "ArrowDown") selectedIndex = (selectedIndex + 1) % items.length; else if (event.key === "ArrowUp") selectedIndex = (selectedIndex - 1 + items.length) % items.length; else if (event.key === "Enter" || event.key === "Tab") currentProps?.command(items[selectedIndex]); else return false; currentProps?.editor.view.dom.setAttribute("aria-activedescendant", `${menuId}-option-${selectedIndex}`); rerender(); return true; },
-            onExit() { const dom = currentProps?.editor.view.dom; dom?.setAttribute("role", "textbox"); dom?.removeAttribute("aria-expanded"); dom?.removeAttribute("aria-haspopup"); dom?.removeAttribute("aria-controls"); dom?.removeAttribute("aria-activedescendant"); stopPositioning?.(); stopPositioning = null; renderer?.destroy(); renderer = null; popup?.remove(); popup = null; currentProps = null; },
-          };
-        },
+        render: suggestionPopupRenderer("visual-wiki-link", "visual-wiki-link-popup", VisualWikiLinkMenu),
       })];
     },
   });

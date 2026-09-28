@@ -3,7 +3,7 @@
 ## Decision
 
 The result is **NO-GO**.
-Production remains on canonical `Y.Text("content")`, and the prototype is not imported by the production visual editor.
+Production remains on canonical `Y.Text("content")`. The prototype (`src/editor/markdown/markdown-structured-crdt-prototype.ts` and its benchmark test) was never imported by the production editor and has since been deleted; it remains in git history before the editor simplification.
 This decision follows correctness evidence rather than implementation complexity.
 
 ## Method
@@ -39,7 +39,7 @@ The bridge therefore returns no mapping instead of fabricating an inaccurate cur
 Unsupported-input and stale-conversion safety gates pass in the isolated harness.
 The fragment remains unchanged, the full local draft remains recoverable, and a remote state arriving during conversion is not overwritten by an older result.
 
-Performance ratios are printed by the prototype benchmark test for the current machine.
+Performance ratios were printed by the prototype benchmark test for the machine it ran on.
 They are supporting evidence only, because the mandatory correctness failures already force a NO-GO regardless of speed.
 
 ## Capabilities required for a future GO

@@ -30,6 +30,7 @@ describe("insert snippets", () => {
       "env-minipage": ["\n  ", "\n\\end{minipage}"],
       "sec-cite": ["\\citep{", "}"],
       "sec-includegraphics": ["\\includegraphics[width=\\linewidth]{", "}"],
+      "accents-hat{}": ["\\hat{", "}"],
     };
 
     for (const [id, [before, after]] of Object.entries(expectedCursorContexts)) {
@@ -50,8 +51,7 @@ describe("insert snippets", () => {
   });
 
   it("uses a baseline LaTeX degree expression instead of an undefined command", () => {
-    const degree = INSERT_SNIPPETS.find((snippet) => snippet.id === "symbols-degree");
-    expect(degree?.insert).toBe("^{\\circ}");
-    expect(degree?.mathPreview).toBe("90^{\\circ}");
+    const degree = INSERT_SNIPPETS.find((snippet) => snippet.glyph === "°");
+    expect(degree).toMatchObject({ group: "Symbols", insert: "^{\\circ}", mathPreview: "90^{\\circ}" });
   });
 });
