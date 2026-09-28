@@ -81,9 +81,10 @@ describe("FluidHoverSurface", () => {
     move(first, "touch");
     expect(first).not.toHaveAttribute("data-fluid-hover-active");
     move(first);
-    await waitFor(() => expect(first).toHaveAttribute("data-fluid-hover-active"));
+    expect(first).toHaveAttribute("data-fluid-hover-active");
+    // The fill mounts after measurement, a render later than the active attribute.
+    await waitFor(() => expect(container.querySelector('[data-slot="fluid-hover-highlight"]')).not.toBeNull());
     const original = container.querySelector('[data-slot="fluid-hover-highlight"]');
-    expect(original).not.toBeNull();
     // Crossing the separator starts a new fill instead of sliding through another section.
     move(screen.getByRole("menuitem", { name: "Second" }));
     await waitFor(() => {
