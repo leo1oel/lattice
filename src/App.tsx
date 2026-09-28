@@ -3581,51 +3581,29 @@ function App() {
     const finishClose = () => {
       setOpenTabs((tabs) => tabs.filter((tab) => tab !== path));
       tabRecency.current = tabRecency.current.filter((key) => key !== path);
-      closedTabsRef.current = [
-        path,
-        ...closedTabsRef.current.filter((item) => item !== path),
-      ].slice(0, 20);
+      closedTabsRef.current = [path, ...closedTabsRef.current.filter((item) => item !== path)].slice(0, 20);
     };
 
     if (isTwoPane(canvasMode)) {
-      const primaryPath = activePaper
-        ? paperTabKey(activePaper.arxivId)
-        : activeAsset?.path ?? activeFile;
+      const primaryPath = activePaper ? paperTabKey(activePaper.arxivId) : activeAsset?.path ?? activeFile;
       const secondaryPath = secondaryAsset?.path ?? secondaryFile;
       const closingPrimary = path === primaryPath;
-      const closingSecondary = path === secondaryPath;
-      const survivingPath = closingPrimary
-        ? secondaryPath
-        : closingSecondary
-          ? primaryPath
-          : null;
+      const survivingPath = closingPrimary ? secondaryPath : path === secondaryPath ? primaryPath : null;
       if (survivingPath && survivingPath !== path) {
-        const currentDualPreview = dualPanePreview?.projectRoot === projectRef.current?.root
-          ? dualPanePreview
-          : null;
+        const currentDualPreview = dualPanePreview?.projectRoot === projectRef.current?.root ? dualPanePreview : null;
         const survivingPreview = currentDualPreview
-          && (closingPrimary
-            ? currentDualPreview.secondaryPath === survivingPath
-            : currentDualPreview.primaryPath === survivingPath);
+          && (closingPrimary ? currentDualPreview.secondaryPath : currentDualPreview.primaryPath) === survivingPath;
         const closingDirtySource = (path === activeFile && sourceRef.current !== savedSourceRef.current)
           || (path === secondaryFile && secondarySourceRef.current !== secondarySavedRef.current);
         if (closingDirtySource && !(await save())) return;
-        if (await dropProjectPath(survivingPath, "center", {
-          preservePreview: Boolean(survivingPreview),
-        }) !== true) return;
+        if (await dropProjectPath(survivingPath, "center", { preservePreview: Boolean(survivingPreview) }) !== true) return;
         finishClose();
         return;
       }
     }
 
-    const closingActivePaper = Boolean(
-      isPaperTabKey(path)
-      && activePaper
-      && paperTabKey(activePaper.arxivId) === path,
-    );
-    const fileFallback = [...remaining].reverse().find((key) => (
-      !isPaperTabKey(key) && !projectAssetPaths.has(key)
-    ));
+    const closingActivePaper = Boolean(activePaper && paperTabKey(activePaper.arxivId) === path);
+    const fileFallback = [...remaining].reverse().find((key) => !isPaperTabKey(key) && !projectAssetPaths.has(key));
     if (closingActivePaper) {
       const loadGeneration = fileLoadGenerationRef.current + 1;
       fileLoadGenerationRef.current = loadGeneration;
@@ -3634,12 +3612,8 @@ function App() {
       // Flush before the dirty check and keep all ownership/tab mutations
       // behind a successful save and fallback load.
       if (visualMarkdownFlushRef.current?.() === false) return;
-      if (
-        (paperBuffersDirty())
-        && !(await save())
-      ) return;
-      if (fileLoadGenerationRef.current !== loadGeneration) return;
-      if (flushAndCheckPrimaryDirty("paper")) return;
+      if (paperBuffersDirty() && !(await save())) return;
+      if (fileLoadGenerationRef.current !== loadGeneration || flushAndCheckPrimaryDirty("paper")) return;
       if (fileFallback) {
         const applied = await loadFile(fileFallback, {
           revealSource: true,
@@ -3680,10 +3654,8 @@ function App() {
     if (path === secondaryFile) {
       showSecondaryText(null);
       setFocusedPane("primary");
-      if (path !== activeFile) return;
     }
-    if (path !== activeFile) return;
-    if (fileFallback) await openProjectFile(fileFallback);
+    if (path === activeFile && fileFallback) await openProjectFile(fileFallback);
   }, [
     activeAsset, activeFile, activePaper, canvasMode, closePaper, dropProjectPath, dualPanePreview,
     flushAndCheckPrimaryDirty, loadFile, openProjectFile, paperBuffersDirty, projectAssetPaths, projectRef,
