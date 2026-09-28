@@ -95,7 +95,7 @@ hover < pressed, and hover < selected < active.
 | Radix primitives (menu, select, popover) | Radix behavior, Lattice appearance | style through `menu-surface.ts` and `data-slot` hooks | fork the primitive to change appearance |
 | Tailwind / shadcn utilities | `src/index.css` `@theme inline` | map utilities onto the palette | enable preflight or introduce a parallel color scale |
 | CodeMirror, PDF.js, KaTeX | the library | theme through the documented extension points and `cm-*` / `pdf-*` classes it exposes | assume internal DOM structure beyond those hooks |
-| Motion / Framer Motion | the library | own shared durations and easings in `foundations.css`, with the global reduced-motion clamp in `adaptive-feedback.css` | animate a property the reduced-motion path cannot disable |
+| Motion (`motion/react`) | the library | own shared durations and easings in `foundations.css`, with the global reduced-motion clamp in `adaptive-feedback.css` | animate a property the reduced-motion path cannot disable |
 
 The bridge, not CSS, carries state across the Synara boundary: theme, settings
 section, frame height, confirmations, and notifications.
@@ -187,7 +187,7 @@ the research workspace and those embedded surfaces.
 | Multi-line form value | `Textarea` | value, callbacks, UI or monospace font, invalid state |
 | Form selection | `Select` with `SelectTrigger` | options, value, callback, semantic control size |
 | Compact mutually exclusive views | `SegmentedControl` | item labels, selected value, callback |
-| Section-level views | `SlidingTabs`; use the underline variant when appropriate | item labels, selected value, callback |
+| Section-level views | `SlidingTabs` | item labels, selected value, callback |
 | Repeated list row | `rowClassName` | semantic element, contents, selection behavior |
 | Panel or drawer title bar | `PanelHeader` | title, leading icon, feature actions |
 | Panel close action | `PanelHeader onClose` or `CloseButton` | callback and specific label |
