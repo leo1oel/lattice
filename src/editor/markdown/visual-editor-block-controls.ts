@@ -440,13 +440,15 @@ export const VisualBlockControls = Extension.create({
     });
     const finishPointerDrag = (event: PointerEvent) => {
       if (!pointerStart || event.pointerId !== pointerStart.id) return;
-      if (didPointerDrag && pointerTarget) {
+      const dragged = didPointerDrag;
+      if (dragged && pointerTarget) {
         event.preventDefault();
         const { sourcePosition } = pointerStart;
         const move = listItemAt(editor.state, sourcePosition) ? moveListItems : moveTopLevelBlock;
         move(editor.state, editor.view.dispatch, sourcePosition, pointerTarget.position, pointerTarget.placeAfter);
       }
-      cancelPointerDrag();
+      resetPointerDrag();
+      suppressNextClick = dragged;
     };
     container.addEventListener("dragstart", (event) => {
       if (pointerStart) event.preventDefault();

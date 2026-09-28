@@ -1444,6 +1444,9 @@ describe("VisualMarkdownEditor", () => {
       expect(document.querySelector<HTMLElement>(".visual-block-drop-line")?.hidden).toBe(true);
       pointer("pointermove", 208);
       pointer("pointerup", 208);
+      const droppedSelection = editor.state.selection;
+      fireEvent.click(grip);
+      expect(editor.state.selection.eq(droppedSelection)).toBe(true);
       expect([...surface.querySelectorAll("li")].map((item) => item.textContent)).toEqual(["Bravo longer", "Charlie", "Alpha"]);
       expect(surface.firstElementChild?.textContent).toBe("Before");
       expect(surface.lastElementChild?.textContent).toBe("After");
