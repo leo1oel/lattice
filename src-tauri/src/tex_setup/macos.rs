@@ -212,6 +212,12 @@ fn ensure_uv_installed(
     if verify_uv_as_current_user().is_ok() {
         return Ok(());
     }
+    if std::env::consts::ARCH != "aarch64" {
+        return Err(format!(
+            "Automatic uv installation is not available for this Mac architecture ({}).",
+            std::env::consts::ARCH
+        ));
+    }
     let archive = workspace.join("uv.tar.gz");
     send_progress(on_progress, "installing-tools", progress_start);
     let download_end = progress_start + (progress_end - progress_start) * 0.8;

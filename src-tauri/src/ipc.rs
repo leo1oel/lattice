@@ -78,15 +78,23 @@ where
     T: Send + 'static,
     F: FnOnce() -> Result<T, String> + Send + 'static,
 {
-    tauri::async_runtime::spawn_blocking(move || {
-        let result = task();
-        if let Err(reason) = &result {
+    run_quietly(label, move || {
+        task().inspect_err(|reason| {
             log::error!(target: "lattice::tasks", "{label} failed: {reason}");
-        }
-        result
+        })
     })
     .await
-    .map_err(|error| {
+}
+
+/// [`run_blocking`] without logging the task's own failures, for commands the
+/// frontend polls: a persistent failure there (offline, expired session) is
+/// routine and would otherwise add a log line on every poll.
+pub(crate) async fn run_quietly<T, F>(label: &'static str, task: F) -> Result<T, String>
+where
+    T: Send + 'static,
+    F: FnOnce() -> Result<T, String> + Send + 'static,
+{
+    tauri::async_runtime::spawn_blocking(task).await.map_err(|error| {
         log::error!(target: "lattice::tasks", "{label} stopped unexpectedly: {error}");
         format!("{label} stopped unexpectedly: {error}")
     })?

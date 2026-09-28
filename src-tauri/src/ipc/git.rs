@@ -1,6 +1,8 @@
 //! The project's Git repository.
 
-use super::{in_project, lease_if_pinned, maybe_pinned_root, run_blocking};
+use super::{
+    current_root, in_project, lease_if_pinned, maybe_pinned_root, run_blocking, run_quietly,
+};
 use crate::app_state::AppState;
 use crate::git;
 use crate::models::{self, GitStatus};
@@ -8,7 +10,8 @@ use tauri::{State, Window};
 
 #[tauri::command]
 pub async fn git_status(state: State<'_, AppState>, window: Window) -> Result<GitStatus, String> {
-    in_project(&state, &window, "Git status", git::status).await
+    let root = current_root(&state, &window)?;
+    run_quietly("Git status", move || git::status(&root)).await
 }
 
 #[tauri::command]

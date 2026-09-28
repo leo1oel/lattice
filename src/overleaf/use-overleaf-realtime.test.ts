@@ -29,10 +29,6 @@ let joins: { docId: string; fromVersion: number | null }[];
 /** Every applyOtUpdate. */
 let sends: { docId: string; version: number; ops: unknown[] }[];
 let leaves: string[];
-/** Sends that went out as suggestions rather than as edits. */
-let tracked: { docId: string; version: number; ops: unknown[] }[];
-/** Documents whose anchors were re-read. */
-let rangeReads: string[];
 /** What Overleaf says this account is, for the tests that vary it. */
 let account: { permission: string; trackChanges: boolean };
 /** The public connection id returned by the connect call, when known. */
@@ -86,8 +82,6 @@ beforeEach(() => {
   joins = [];
   sends = [];
   leaves = [];
-  tracked = [];
-  rangeReads = [];
   permissionWrites = [];
   connectCalls = 0;
   connectFailures = 0;
@@ -112,7 +106,6 @@ beforeEach(() => {
       "overleaf_rt_join_doc",
       "overleaf_rt_leave_doc",
       "overleaf_rt_send_ops",
-      "overleaf_rt_send_tracked_ops",
     ].includes(command)) {
       scopedRealtimeCalls.push({
         command,
@@ -134,29 +127,6 @@ beforeEach(() => {
         trackChanges: account.trackChanges,
         userId: "user-1",
       };
-    }
-    if (command === "overleaf_doc_ranges") {
-      rangeReads.push(input.docId as string);
-      return {
-        comments: [],
-        changes: [{
-          id: "made-by-us",
-          position: 0,
-          text: "suggested",
-          deletion: false,
-          userId: "user-1",
-          timestamp: null,
-          hue: 100,
-        }],
-      };
-    }
-    if (command === "overleaf_rt_send_tracked_ops") {
-      tracked.push({
-        docId: input.docId as string,
-        version: input.version as number,
-        ops: input.ops as unknown[],
-      });
-      return undefined;
     }
     if (command === "overleaf_rt_join_doc") {
       const fromVersion = (input.fromVersion as number | null) ?? null;
@@ -927,7 +897,6 @@ describe("what typing goes out as", () => {
 
     await typeInto(result);
     await waitFor(() => expect(sends).toHaveLength(1));
-    expect(tracked).toHaveLength(0);
   });
 
   it("always sends ordinary edits even when Overleaf's legacy setting is on", async () => {
@@ -939,7 +908,6 @@ describe("what typing goes out as", () => {
 
     await typeInto(result);
     await waitFor(() => expect(sends).toHaveLength(1));
-    expect(tracked).toHaveLength(0);
   });
 
   it("keeps sending ordinary edits when the legacy setting changes mid-session", async () => {
@@ -951,7 +919,6 @@ describe("what typing goes out as", () => {
     await waitFor(() => expect(result.current.trackChanges).toBe(true));
     await typeInto(result);
     await waitFor(() => expect(sends).toHaveLength(1));
-    expect(tracked).toHaveLength(0);
   });
 
   it("does not send text changes for a comment-only reviewer", async () => {
@@ -963,7 +930,6 @@ describe("what typing goes out as", () => {
 
     await typeInto(result);
     expect(sends).toHaveLength(0);
-    expect(tracked).toHaveLength(0);
   });
 
   it("does not let a viewer type at all", async () => {
@@ -974,7 +940,6 @@ describe("what typing goes out as", () => {
 
     await typeInto(result);
     expect(sends).toHaveLength(0);
-    expect(tracked).toHaveLength(0);
   });
 
   it("fails closed while Overleaf has not named a permission", async () => {
@@ -986,7 +951,6 @@ describe("what typing goes out as", () => {
 
     await typeInto(result);
     expect(sends).toHaveLength(0);
-    expect(tracked).toHaveLength(0);
     expect(permissionWrites).not.toContainEqual(expect.objectContaining({
       permission: "unknown",
     }));
@@ -1105,7 +1069,7 @@ describe("anchors as the text moves", () => {
 });
 
 describe("legacy suggesting state", () => {
-  it("does not turn a new edit into a suggestion or refresh suggestion ranges", async () => {
+  it("sends a new edit as an ordinary edit", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     account.trackChanges = true;
     const { result } = mount("a.tex");
@@ -1117,25 +1081,6 @@ describe("legacy suggesting state", () => {
       vi.advanceTimersByTime(300);
     });
     await waitFor(() => expect(sends).toHaveLength(1));
-    expect(tracked).toHaveLength(0);
-
-    await act(async () => {
-      vi.advanceTimersByTime(1000);
-    });
-    expect(rangeReads).toHaveLength(0);
-  });
-
-  it("is not read back for an ordinary edit", async () => {
-    vi.useFakeTimers({ shouldAdvanceTime: true });
-    const { result } = mount("a.tex");
-    await waitFor(() => expect(result.current.liveFile).toBe(true));
-
-    await act(async () => {
-      result.current.pushLocal("alpha edited");
-      vi.advanceTimersByTime(1300);
-    });
-    await waitFor(() => expect(sends).toHaveLength(1));
-    expect(rangeReads).toHaveLength(0);
   });
 });
 

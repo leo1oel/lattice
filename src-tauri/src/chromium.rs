@@ -216,7 +216,36 @@ pub(crate) fn terminate_process_group(child: &mut Child) {
 
 #[cfg(test)]
 mod tests {
-    use super::{encode_message, ShellMessage};
+    use super::{encode_message, NodeRuntime, ShellMessage, RUNTIME_EXECUTABLE};
+    use std::ffi::OsStr;
+    use std::path::Path;
+    use std::process::Command;
+
+    fn electron_env(runtime: &NodeRuntime) -> Option<Option<String>> {
+        let mut command = Command::new(&runtime.executable);
+        runtime.configure(&mut command);
+        command
+            .get_envs()
+            .find(|(key, _)| *key == OsStr::new("ELECTRON_RUN_AS_NODE"))
+            .map(|(_, value)| value.map(|value| value.to_string_lossy().into_owned()))
+    }
+
+    #[test]
+    fn sidecar_node_is_electron_as_node_in_release_and_standalone_in_development() {
+        let resources = Path::new("/resources");
+        let bin = Path::new("/runtime/bin");
+        let runtime = NodeRuntime::resolve(resources, bin);
+        if cfg!(debug_assertions) {
+            assert_eq!(runtime.executable, bin.join("node"));
+            assert_eq!(electron_env(&runtime), None);
+        } else {
+            assert_eq!(runtime.executable, resources.join(RUNTIME_EXECUTABLE));
+            assert_eq!(electron_env(&runtime), Some(Some("1".into())));
+        }
+        let electron =
+            NodeRuntime { executable: resources.join(RUNTIME_EXECUTABLE), electron: true };
+        assert_eq!(electron_env(&electron), Some(Some("1".into())));
+    }
 
     #[test]
     fn control_messages_keep_authenticated_urls_out_of_process_arguments() {

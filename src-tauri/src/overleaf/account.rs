@@ -231,9 +231,7 @@ pub fn list_projects(config_dir: &Path) -> Result<Vec<OverleafProject>, String> 
 ///
 /// Sessions signed in before this was recorded have no id, and there is no
 /// second chance to read it from the sign-in response. Everything stored per
-/// account then reads as if we were an anonymous guest — and turning
-/// suggestions on, which has to name the account it is for, cannot be done at
-/// all. Backfilling on the project list was not enough: someone who opens a
+/// account then reads as if we were an anonymous guest. Backfilling on the project list was not enough: someone who opens a
 /// project they already linked never goes near it.
 pub(super) fn ensure_user_id(config_dir: &Path, session: &mut SessionFile) -> Option<String> {
     if session.user_id.is_some() {

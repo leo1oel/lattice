@@ -23,7 +23,7 @@ pub(super) const MAX_LOCAL_HTML_BYTES: u64 = 32 * 1024 * 1024;
 /// edits by hand. The `.gitignore` lines of new and adopted projects, the
 /// tree's artifact filter ([`is_build_artifact`]), and the outputs deleted when
 /// a `.tex` file moves ([`tex_build_outputs`]) all derive from this list. Kept
-/// aligned with `overleaf::ARTIFACT_SUFFIXES`: a file sync refuses to upload
+/// aligned with `ARTIFACT_SUFFIXES` in `overleaf/files.rs`: a file sync refuses to upload
 /// should not sit in the tree pretending to be project content.
 const LATEX_ARTIFACT_EXTENSIONS: &[&str] = &[
     "aux",

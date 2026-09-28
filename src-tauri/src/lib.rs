@@ -30,7 +30,6 @@ mod link_preview;
 mod literature;
 mod literature_credentials;
 mod literature_service;
-#[cfg(target_os = "macos")]
 mod macos_window;
 mod models;
 mod openalex;
@@ -40,7 +39,6 @@ mod paper_pdf_proxy;
 mod papers;
 mod pdf_fonts;
 mod presentation;
-#[cfg(target_os = "macos")]
 mod process_inspector;
 mod project;
 mod project_fs;

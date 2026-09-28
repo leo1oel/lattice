@@ -4,7 +4,7 @@
 
 use super::overleaf_realtime::realtime_client;
 use super::workspace::documents_folder;
-use super::{current_root, in_project, pinned_root, run_blocking, scoped_root};
+use super::{current_root, in_project, pinned_root, run_blocking, run_quietly, scoped_root};
 use crate::app_state::{AppState, Lease, ProjectLease};
 use crate::{command_diagnostics, git, overleaf};
 use std::collections::BTreeSet;
@@ -144,13 +144,11 @@ pub async fn overleaf_poll_login(
     let header = pairs.join("; ");
     let config = overleaf_config_dir(&app)?;
     // Polled every second while the user signs in, and a rejected cookie is
-    // the normal "not yet", so this is deliberately not `run_blocking`, which
-    // would log each one as a failure.
-    let validated = tauri::async_runtime::spawn_blocking(move || {
-        overleaf::store_session_cookie(&config, &host, &header)
+    // the normal "not yet".
+    let validated = run_quietly("The Overleaf login task", move || {
+        Ok(overleaf::store_session_cookie(&config, &host, &header))
     })
-    .await
-    .map_err(|error| format!("The Overleaf login task stopped unexpectedly: {error}"))?;
+    .await?;
     match validated {
         // A session cookie exists before the user finishes signing in (even
         // anonymous visitors get one), so a rejected cookie usually just means
@@ -267,10 +265,9 @@ pub async fn overleaf_chat_messages(
     limit: Option<u32>,
 ) -> Result<Vec<overleaf::OverleafMessage>, String> {
     let limit = limit.unwrap_or(80);
-    rest_call(&app, &state, &window, &project_root, CHAT, move |config, root| {
-        overleaf::chat_messages(config, root, limit)
-    })
-    .await
+    let config = overleaf_config_dir(&app)?;
+    let root = scoped_root(&state, &window, &project_root)?;
+    run_quietly(CHAT, move || overleaf::chat_messages(&config, &root, limit)).await
 }
 
 #[tauri::command]
@@ -528,7 +525,7 @@ pub async fn overleaf_probe(
     let root = scoped_root(&state, &window, &project_root)?;
     let local_live_paths =
         check_local.unwrap_or(false).then(|| with_joined_paths(&lease, &root, live));
-    run_blocking("The Overleaf check", move || {
+    run_quietly("The Overleaf check", move || {
         overleaf::probe(&config, &root, local_live_paths.as_ref())
     })
     .await

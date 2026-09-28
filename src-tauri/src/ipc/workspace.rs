@@ -1,6 +1,6 @@
 //! Creating, opening and configuring projects.
 
-use super::{current_root, in_project, run_blocking};
+use super::{current_root, in_project, run_blocking, run_quietly};
 use crate::app_state::AppState;
 use crate::models::{ProjectManifest, ProjectSnapshot};
 use crate::{fs_watch, project};
@@ -174,7 +174,8 @@ pub async fn export_project_zip(
 pub async fn refresh_project(
     state: State<'_, AppState>, window: Window,
 ) -> Result<ProjectSnapshot, String> {
-    in_project(&state, &window, "Project refresh", project::open).await
+    let root = current_root(&state, &window)?;
+    run_quietly("Project refresh", move || project::open(&root)).await
 }
 
 #[tauri::command]
