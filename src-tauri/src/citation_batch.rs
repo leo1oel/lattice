@@ -67,16 +67,9 @@ pub(crate) fn lookup(ids: &[String]) -> Result<BTreeMap<String, Paper>, Failure>
         .map(std::path::PathBuf::from)
         .or_else(|| std::env::var_os("HOME").map(|p| std::path::PathBuf::from(p).join(".cache")))
         .ok_or(Failure::QueueBusy)?;
-    pace(
-        &root.join("bibcite/requests.sqlite3"),
-        &format!("{:x}", Sha256::digest(key.as_bytes())),
-    )
-    .map_err(|_| Failure::QueueBusy)?;
-    lookup_at(
-        ids,
-        &key,
-        "https://api.semanticscholar.org/graph/v1/paper/batch",
-    )
+    pace(&root.join("bibcite/requests.sqlite3"), &format!("{:x}", Sha256::digest(key.as_bytes())))
+        .map_err(|_| Failure::QueueBusy)?;
+    lookup_at(ids, &key, "https://api.semanticscholar.org/graph/v1/paper/batch")
 }
 
 // Protocol shared with bibcite.sources._s2_gate: epoch milliseconds, one
@@ -93,22 +86,13 @@ fn pace(path: &Path, key_hash: &str) -> Result<(), String> {
         db.busy_timeout(deadline.saturating_duration_since(Instant::now()))?;
         let tx = db.transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)?;
         let last: Option<i64> = tx
-            .query_row(
-                "SELECT last_dispatch FROM s2_pacing WHERE key = ?1",
-                [key_hash],
-                |r| r.get(0),
-            )
+            .query_row("SELECT last_dispatch FROM s2_pacing WHERE key = ?1", [key_hash], |r| {
+                r.get(0)
+            })
             .optional()?;
-        let now = || {
-            SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .map(|d| d.as_millis() as i64)
-        };
+        let now = || SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_millis() as i64);
         let wait = Duration::from_millis(
-            last.unwrap_or(0)
-                .saturating_add(1100)
-                .saturating_sub(now()?)
-                .max(0) as u64,
+            last.unwrap_or(0).saturating_add(1100).saturating_sub(now()?).max(0) as u64,
         );
         if Instant::now() + wait > deadline {
             return Err("Pacing queue busy".into());
@@ -125,9 +109,7 @@ fn pace(path: &Path, key_hash: &str) -> Result<(), String> {
 }
 
 fn lookup_at(
-    ids: &[String],
-    key: &str,
-    endpoint: &str,
+    ids: &[String], key: &str, endpoint: &str,
 ) -> Result<BTreeMap<String, Paper>, Failure> {
     if ids.len() > BATCH_SIZE {
         return Err(Failure::Malformed);
@@ -203,10 +185,8 @@ fn lookup_at(
         .filter_map(|(id, paper)| {
             let paper: Paper = serde_json::from_value(paper).ok()?;
             let (kind, value) = id.split_once(':')?;
-            let external = paper
-                .external_ids
-                .get(if kind == "DOI" { "DOI" } else { "ArXiv" })?
-                .as_str()?;
+            let external =
+                paper.external_ids.get(if kind == "DOI" { "DOI" } else { "ArXiv" })?.as_str()?;
             external.eq_ignore_ascii_case(value).then_some((id, paper))
         })
         .collect())
@@ -223,28 +203,17 @@ mod tests {
         pace(&path, "key-a").unwrap();
         let db = rusqlite::Connection::open(&path).unwrap();
         let first: i64 = db
-            .query_row(
-                "SELECT last_dispatch FROM s2_pacing WHERE key='key-a'",
-                [],
-                |r| r.get(0),
-            )
+            .query_row("SELECT last_dispatch FROM s2_pacing WHERE key='key-a'", [], |r| r.get(0))
             .unwrap();
         // A different key has its own quota, even in the same database.
         pace(&path, "key-b").unwrap();
         pace(&path, "key-a").unwrap();
         let second: i64 = db
-            .query_row(
-                "SELECT last_dispatch FROM s2_pacing WHERE key='key-a'",
-                [],
-                |r| r.get(0),
-            )
+            .query_row("SELECT last_dispatch FROM s2_pacing WHERE key='key-a'", [], |r| r.get(0))
             .unwrap();
         assert!(second - first >= 1100);
-        db.execute(
-            "UPDATE s2_pacing SET last_dispatch=?1 WHERE key='key-a'",
-            [second + 60_000],
-        )
-        .unwrap();
+        db.execute("UPDATE s2_pacing SET last_dispatch=?1 WHERE key='key-a'", [second + 60_000])
+            .unwrap();
         let start = Instant::now();
         assert!(pace(&path, "key-a").is_err());
         assert!(start.elapsed() < Duration::from_secs(1));
@@ -262,26 +231,18 @@ mod tests {
         let output = std::process::Command::new("uv").args(["run", "--project", &source, "python", "-c",
             "import sys; from pathlib import Path; from bibcite import sources; sources._s2_pacing_path=lambda:Path(sys.argv[1]); sources._s2_gate('integration')"])
             .arg(&path).output().unwrap();
-        assert!(
-            output.status.success(),
-            "{}",
-            String::from_utf8_lossy(&output.stderr)
-        );
+        assert!(output.status.success(), "{}", String::from_utf8_lossy(&output.stderr));
         let db = rusqlite::Connection::open(&path).unwrap();
         let previous: i64 = db
-            .query_row(
-                "SELECT last_dispatch FROM s2_pacing WHERE key='integration'",
-                [],
-                |r| r.get(0),
-            )
+            .query_row("SELECT last_dispatch FROM s2_pacing WHERE key='integration'", [], |r| {
+                r.get(0)
+            })
             .unwrap();
         pace(&path, "integration").unwrap();
         let next: i64 = db
-            .query_row(
-                "SELECT last_dispatch FROM s2_pacing WHERE key='integration'",
-                [],
-                |r| r.get(0),
-            )
+            .query_row("SELECT last_dispatch FROM s2_pacing WHERE key='integration'", [], |r| {
+                r.get(0)
+            })
             .unwrap();
         assert!(next - previous >= 1100);
         drop(db);
@@ -293,10 +254,7 @@ mod tests {
         let server = tiny_http::Server::http("127.0.0.1:0").unwrap();
         let endpoint = format!("http://{}/batch", server.server_addr());
         let responder = std::thread::spawn(move || {
-            let mut request = server
-                .recv_timeout(Duration::from_secs(5))
-                .unwrap()
-                .unwrap();
+            let mut request = server.recv_timeout(Duration::from_secs(5)).unwrap().unwrap();
             assert_eq!(request.method(), &tiny_http::Method::Post);
             let body: serde_json::Value = serde_json::from_reader(request.as_reader()).unwrap();
             assert_eq!(
@@ -309,13 +267,8 @@ mod tests {
                 {"externalIds":{"DOI":"10.1234/wrong"},"title":"Wrong paper"}
             ]"#)).unwrap();
         });
-        let ids = [
-            "DOI:10.1234/b",
-            "ARXIV:1706.03762",
-            "DOI:10.1234/a",
-            "DOI:10.1234/a",
-        ]
-        .map(str::to_string);
+        let ids = ["DOI:10.1234/b", "ARXIV:1706.03762", "DOI:10.1234/a", "DOI:10.1234/a"]
+            .map(str::to_string);
         let papers = lookup_at(&ids, "test-key", &endpoint).unwrap();
         responder.join().unwrap();
         assert_eq!(papers.len(), 1);
@@ -327,23 +280,16 @@ mod tests {
         let server = tiny_http::Server::http("127.0.0.1:0").unwrap();
         let endpoint = format!("http://{}/batch", server.server_addr());
         let responder = std::thread::spawn(move || {
-            let request = server
-                .recv_timeout(Duration::from_secs(5))
-                .unwrap()
-                .unwrap();
+            let request = server.recv_timeout(Duration::from_secs(5)).unwrap().unwrap();
             assert!(request
                 .headers()
                 .iter()
                 .any(|h| h.field.equiv("x-api-key") && h.value.as_str() == "test-only-secret"));
             request.respond(tiny_http::Response::empty(429)).unwrap();
-            assert!(server
-                .recv_timeout(Duration::from_millis(100))
-                .unwrap()
-                .is_none());
+            assert!(server.recv_timeout(Duration::from_millis(100)).unwrap().is_none());
         });
-        let error = lookup_at(&["DOI:10.1234/a".into()], "test-only-secret", &endpoint)
-            .err()
-            .unwrap();
+        let error =
+            lookup_at(&["DOI:10.1234/a".into()], "test-only-secret", &endpoint).err().unwrap();
         responder.join().unwrap();
         assert_eq!(error.code(), "rate_limited");
     }
@@ -353,11 +299,7 @@ mod tests {
         for (status, body, expected) in [
             (429, r#"{"code":"queue_busy"}"#, "queue_busy"),
             (429, r#"{"code":"daily_quota"}"#, "daily_quota"),
-            (
-                429,
-                r#"{"code":"upstream_rate_limit"}"#,
-                "upstream_rate_limit",
-            ),
+            (429, r#"{"code":"upstream_rate_limit"}"#, "upstream_rate_limit"),
             (502, r#"{"code":"upstream_timeout"}"#, "timeout"),
             (502, r#"{"code":"upstream_network"}"#, "network"),
             (503, r#"{"code":"provider_unauthorized"}"#, "unauthorized"),
@@ -373,9 +315,7 @@ mod tests {
                     .respond(tiny_http::Response::from_string(body).with_status_code(status))
                     .unwrap();
             });
-            let error = lookup_at(&["DOI:10.1234/a".into()], "test-key", &endpoint)
-                .err()
-                .unwrap();
+            let error = lookup_at(&["DOI:10.1234/a".into()], "test-key", &endpoint).err().unwrap();
             responder.join().unwrap();
             assert_eq!(error.code(), expected);
         }

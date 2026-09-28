@@ -25,26 +25,17 @@ struct IndexError {
 
 impl IndexError {
     fn other(message: impl ToString) -> Self {
-        Self {
-            message: message.to_string(),
-            sqlite_code: None,
-        }
+        Self { message: message.to_string(), sqlite_code: None }
     }
 
     fn is_corrupt(&self) -> bool {
-        matches!(
-            self.sqlite_code,
-            Some(ErrorCode::DatabaseCorrupt | ErrorCode::NotADatabase)
-        )
+        matches!(self.sqlite_code, Some(ErrorCode::DatabaseCorrupt | ErrorCode::NotADatabase))
     }
 }
 
 impl From<rusqlite::Error> for IndexError {
     fn from(error: rusqlite::Error) -> Self {
-        Self {
-            message: error.to_string(),
-            sqlite_code: error.sqlite_error_code(),
-        }
+        Self { message: error.to_string(), sqlite_code: error.sqlite_error_code() }
     }
 }
 
@@ -103,10 +94,7 @@ fn search_locked(root: &Path, terms: &[String]) -> IndexResult<Vec<ProjectSearch
             .to_string();
         let snippet = clip_snippet(&text);
         let line = if line <= 0 { None } else { Some(line as u32) };
-        let file_kind = path
-            .rsplit('.')
-            .next()
-            .map(|extension| extension.to_lowercase());
+        let file_kind = path.rsplit('.').next().map(|extension| extension.to_lowercase());
         results.push(ProjectSearchResult {
             kind: "file".to_string(),
             path,
@@ -143,9 +131,7 @@ pub(crate) fn update_paths(root: &Path, paths: &[PathBuf]) -> Result<(), String>
         Ok(()) => Ok(()),
         Err(error) if error.is_corrupt() => {
             reset_database(root).map_err(|reset_error| reset_error.to_string())?;
-            ensure_index(root)
-                .map(|_| ())
-                .map_err(|error| error.to_string())
+            ensure_index(root).map(|_| ()).map_err(|error| error.to_string())
         }
         Err(error) => Err(error.to_string()),
     }
@@ -160,18 +146,14 @@ pub(crate) fn reconcile(root: &Path) -> Result<(), String> {
         Ok(()) => Ok(()),
         Err(error) if error.is_corrupt() => {
             reset_database(root).map_err(|reset_error| reset_error.to_string())?;
-            ensure_index(root)
-                .map(|_| ())
-                .map_err(|error| error.to_string())
+            ensure_index(root).map(|_| ()).map_err(|error| error.to_string())
         }
         Err(error) => Err(error.to_string()),
     }
 }
 
 fn index_lock(root: &Path) -> Arc<Mutex<()>> {
-    let mut locks = INDEX_LOCKS
-        .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    let mut locks = INDEX_LOCKS.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
     if let Some(lock) = locks.get(root).and_then(Weak::upgrade) {
         return lock;
     }
@@ -241,10 +223,7 @@ fn read_stable_source(path: &Path) -> IndexResult<(String, (i64, i64))> {
             return Ok((content, before_stamp));
         }
     }
-    Err(IndexError::other(format!(
-        "{} kept changing while it was indexed",
-        path.display()
-    )))
+    Err(IndexError::other(format!("{} kept changing while it was indexed", path.display())))
 }
 
 fn same_file_generation(before: &fs::Metadata, after: &fs::Metadata) -> bool {
@@ -263,9 +242,7 @@ fn same_file_generation(before: &fs::Metadata, after: &fs::Metadata) -> bool {
 }
 
 fn append_path_matches(
-    conn: &Connection,
-    terms: &[String],
-    results: &mut Vec<ProjectSearchResult>,
+    conn: &Connection, terms: &[String], results: &mut Vec<ProjectSearchResult>,
     seen: &mut HashSet<String>,
 ) -> IndexResult<()> {
     let mut stmt = conn.prepare("SELECT path FROM indexed_files ORDER BY path")?;
@@ -292,10 +269,7 @@ fn append_path_matches(
             snippet: relative.clone(),
             line: Some(1),
             arxiv_id: None,
-            file_kind: relative
-                .rsplit('.')
-                .next()
-                .map(|extension| extension.to_lowercase()),
+            file_kind: relative.rsplit('.').next().map(|extension| extension.to_lowercase()),
         });
         if results.len() >= MAX_HITS {
             break;
@@ -328,16 +302,13 @@ fn collect_searchable_nodes(nodes: &[FileNode], paths: &mut Vec<String>) {
 fn collect_searchable_paths_under(root: &Path, relative: &Path) -> IndexResult<Vec<String>> {
     let absolute = root.join(relative);
     let mut paths = Vec::new();
-    let walker = WalkDir::new(&absolute)
-        .follow_links(false)
-        .into_iter()
-        .filter_entry(|entry| {
-            entry.depth() == 0
-                || entry
-                    .path()
-                    .strip_prefix(root)
-                    .is_ok_and(|relative| project::project_tree_path_visible(root, relative))
-        });
+    let walker = WalkDir::new(&absolute).follow_links(false).into_iter().filter_entry(|entry| {
+        entry.depth() == 0
+            || entry
+                .path()
+                .strip_prefix(root)
+                .is_ok_and(|relative| project::project_tree_path_visible(root, relative))
+    });
     for entry in walker {
         let entry = entry.map_err(IndexError::other)?;
         if !entry.file_type().is_file() {
@@ -365,21 +336,14 @@ fn update_paths_locked(root: &Path, paths: &[PathBuf]) -> IndexResult<()> {
 
     let mut relative_paths = Vec::<PathBuf>::new();
     for path in paths {
-        let absolute = if path.is_absolute() {
-            path.clone()
-        } else {
-            root.join(path)
-        };
+        let absolute = if path.is_absolute() { path.clone() } else { root.join(path) };
         let Ok(relative) = absolute.strip_prefix(root) else {
             return reconcile_connection(&mut conn, root);
         };
         if relative.as_os_str().is_empty() {
             return reconcile_connection(&mut conn, root);
         }
-        if !relative_paths
-            .iter()
-            .any(|known| relative.starts_with(known))
-        {
+        if !relative_paths.iter().any(|known| relative.starts_with(known)) {
             relative_paths.retain(|known| !known.starts_with(relative));
             relative_paths.push(relative.to_path_buf());
         }
@@ -501,10 +465,7 @@ fn delete_prefix(conn: &Connection, prefix: &Path) -> IndexResult<()> {
 
 fn delete_file(conn: &Connection, relative: &str) -> IndexResult<()> {
     conn.execute("DELETE FROM lines_fts WHERE path = ?1", params![relative])?;
-    conn.execute(
-        "DELETE FROM indexed_files WHERE path = ?1",
-        params![relative],
-    )?;
+    conn.execute("DELETE FROM indexed_files WHERE path = ?1", params![relative])?;
     Ok(())
 }
 
@@ -558,11 +519,7 @@ fn init_schema(conn: &Connection) -> IndexResult<()> {
 
 fn meta_get(conn: &Connection, key: &str) -> IndexResult<Option<String>> {
     Ok(conn
-        .query_row(
-            "SELECT value FROM meta WHERE key = ?1",
-            params![key],
-            |row| row.get(0),
-        )
+        .query_row("SELECT value FROM meta WHERE key = ?1", params![key], |row| row.get(0))
         .optional()?)
 }
 
@@ -577,11 +534,7 @@ fn meta_set(conn: &Connection, key: &str, value: &str) -> IndexResult<()> {
 
 fn reset_database(root: &Path) -> IndexResult<()> {
     let path = db_path(root);
-    for path in [
-        path.clone(),
-        sqlite_sidecar(&path, "-wal"),
-        sqlite_sidecar(&path, "-shm"),
-    ] {
+    for path in [path.clone(), sqlite_sidecar(&path, "-wal"), sqlite_sidecar(&path, "-shm")] {
         match fs::remove_file(path) {
             Ok(()) => {}
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
@@ -654,9 +607,7 @@ mod tests {
         assert!(hits.iter().any(|hit| hit.line == Some(3)));
 
         let path_hits = search(&root, "method.tex").unwrap();
-        assert!(path_hits
-            .iter()
-            .any(|hit| hit.path == "sections/method.tex"));
+        assert!(path_hits.iter().any(|hit| hit.path == "sections/method.tex"));
 
         fs::write(
             root.join("supplement.html"),
@@ -693,18 +644,10 @@ mod tests {
         let root = project::create(&parent, "paper").unwrap();
         fs::write(root.join(".private-notes.md"), "hidden_root_search_token\n").unwrap();
         fs::create_dir_all(root.join(".drafts")).unwrap();
-        fs::write(
-            root.join(".drafts/notes.md"),
-            "hidden_directory_search_token\n",
-        )
-        .unwrap();
+        fs::write(root.join(".drafts/notes.md"), "hidden_directory_search_token\n").unwrap();
 
-        assert!(search(&root, "hidden_root_search_token")
-            .unwrap()
-            .is_empty());
-        assert!(search(&root, "hidden_directory_search_token")
-            .unwrap()
-            .is_empty());
+        assert!(search(&root, "hidden_root_search_token").unwrap().is_empty());
+        assert!(search(&root, "hidden_directory_search_token").unwrap().is_empty());
         assert!(search(&root, "private notes").unwrap().is_empty());
 
         let _ = fs::remove_dir_all(parent);
@@ -736,14 +679,9 @@ mod tests {
         fs::write(root.join("a.tex"), "beta unique_token_two\n").unwrap();
         update_paths(&root, &[root.join("a.tex")]).unwrap();
         let hits = search(&root, "unique_token_two").unwrap();
-        assert!(hits
-            .iter()
-            .any(|hit| hit.snippet.contains("unique_token_two")));
+        assert!(hits.iter().any(|hit| hit.snippet.contains("unique_token_two")));
         assert!(search(&root, "unique_token_one").unwrap().is_empty());
-        assert!(search(&root, "untouched_token")
-            .unwrap()
-            .iter()
-            .any(|hit| hit.path == "b.tex"));
+        assert!(search(&root, "untouched_token").unwrap().iter().any(|hit| hit.path == "b.tex"));
 
         let conn = Connection::open(db_path(&root)).unwrap();
         let deleted = conn
@@ -765,22 +703,15 @@ mod tests {
         let _ = fs::create_dir_all(&parent);
         let root = project::create(&parent, "paper").unwrap();
         fs::write(root.join("transaction.tex"), "before_transaction_token\n").unwrap();
-        assert!(!search(&root, "before_transaction_token")
-            .unwrap()
-            .is_empty());
+        assert!(!search(&root, "before_transaction_token").unwrap().is_empty());
 
         project::apply_transaction(
             &root,
             "Edit transaction.tex",
-            vec![(
-                "transaction.tex".to_string(),
-                "after_transaction_token\n".to_string(),
-            )],
+            vec![("transaction.tex".to_string(), "after_transaction_token\n".to_string())],
         )
         .unwrap();
-        assert!(search(&root, "before_transaction_token")
-            .unwrap()
-            .is_empty());
+        assert!(search(&root, "before_transaction_token").unwrap().is_empty());
         assert!(search(&root, "after_transaction_token")
             .unwrap()
             .iter()
@@ -811,25 +742,13 @@ mod tests {
         assert!(search(&root, "draft.tex").unwrap().is_empty());
 
         fs::create_dir(root.join("old-sections")).unwrap();
-        fs::write(
-            root.join("old-sections/chapter.tex"),
-            "directory_rename_token\n",
-        )
-        .unwrap();
+        fs::write(root.join("old-sections/chapter.tex"), "directory_rename_token\n").unwrap();
         update_paths(&root, &[root.join("old-sections")]).unwrap();
         fs::rename(root.join("old-sections"), root.join("new-sections")).unwrap();
-        update_paths(
-            &root,
-            &[root.join("old-sections"), root.join("new-sections")],
-        )
-        .unwrap();
+        update_paths(&root, &[root.join("old-sections"), root.join("new-sections")]).unwrap();
         let hits = search(&root, "directory_rename_token").unwrap();
-        assert!(hits
-            .iter()
-            .any(|hit| hit.path == "new-sections/chapter.tex"));
-        assert!(hits
-            .iter()
-            .all(|hit| hit.path != "old-sections/chapter.tex"));
+        assert!(hits.iter().any(|hit| hit.path == "new-sections/chapter.tex"));
+        assert!(hits.iter().all(|hit| hit.path != "old-sections/chapter.tex"));
 
         let _ = fs::remove_dir_all(parent);
     }
@@ -848,10 +767,7 @@ mod tests {
             .iter()
             .any(|hit| hit.path == "notes.md"));
         let conn = Connection::open(db_path(&root)).unwrap();
-        assert_eq!(
-            meta_get(&conn, "schema").unwrap().as_deref(),
-            Some(SCHEMA_VERSION)
-        );
+        assert_eq!(meta_get(&conn, "schema").unwrap().as_deref(), Some(SCHEMA_VERSION));
         assert_eq!(
             conn.query_row(
                 "SELECT count(*) FROM indexed_files WHERE path = 'notes.md'",
@@ -885,10 +801,7 @@ mod tests {
             .iter()
             .any(|hit| hit.path == "upgrade.tex"));
         let conn = Connection::open(db_path(&root)).unwrap();
-        assert_eq!(
-            meta_get(&conn, "schema").unwrap().as_deref(),
-            Some(SCHEMA_VERSION)
-        );
+        assert_eq!(meta_get(&conn, "schema").unwrap().as_deref(), Some(SCHEMA_VERSION));
         assert_eq!(meta_get(&conn, "fingerprint").unwrap(), None);
         assert_eq!(
             conn.query_row(
@@ -912,11 +825,8 @@ mod tests {
         fs::write(root.join("external.tex"), "before_missed_event\n").unwrap();
         assert!(!search(&root, "before_missed_event").unwrap().is_empty());
 
-        fs::write(
-            root.join("external.tex"),
-            "after_missed_watcher_event_with_new_length\n",
-        )
-        .unwrap();
+        fs::write(root.join("external.tex"), "after_missed_watcher_event_with_new_length\n")
+            .unwrap();
         reconcile(&root).unwrap();
         assert!(search(&root, "before_missed_event").unwrap().is_empty());
         assert!(search(&root, "after_missed_watcher_event")
@@ -934,18 +844,13 @@ mod tests {
         let _ = fs::create_dir_all(&parent);
         let root = project::create(&parent, "paper").unwrap();
         fs::write(root.join("recovered.md"), "corruption_recovery_token\n").unwrap();
-        assert!(!search(&root, "corruption_recovery_token")
-            .unwrap()
-            .is_empty());
+        assert!(!search(&root, "corruption_recovery_token").unwrap().is_empty());
 
         fs::write(db_path(&root), b"not a sqlite database").unwrap();
         let hits = search(&root, "corruption_recovery_token").unwrap();
         assert!(hits.iter().any(|hit| hit.path == "recovered.md"));
         let conn = Connection::open(db_path(&root)).unwrap();
-        assert_eq!(
-            meta_get(&conn, "schema").unwrap().as_deref(),
-            Some(SCHEMA_VERSION)
-        );
+        assert_eq!(meta_get(&conn, "schema").unwrap().as_deref(), Some(SCHEMA_VERSION));
 
         let _ = fs::remove_dir_all(parent);
     }
@@ -974,10 +879,8 @@ mod tests {
 
     #[test]
     fn finds_a_bibliography_key_from_its_prefix() {
-        let parent = std::env::temp_dir().join(format!(
-            "lattice-fts-citation-prefix-{}",
-            uuid::Uuid::new_v4()
-        ));
+        let parent = std::env::temp_dir()
+            .join(format!("lattice-fts-citation-prefix-{}", uuid::Uuid::new_v4()));
         let _ = fs::create_dir_all(&parent);
         let root = project::create(&parent, "paper").unwrap();
         fs::write(

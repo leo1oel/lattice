@@ -246,32 +246,16 @@ pub struct OverleafLoginPoll {
 
 impl OverleafLoginPoll {
     pub fn pending() -> Self {
-        Self {
-            status: "pending",
-            session: None,
-            detail: None,
-        }
+        Self { status: "pending", session: None, detail: None }
     }
     pub fn pending_with(detail: String) -> Self {
-        Self {
-            status: "pending",
-            session: None,
-            detail: Some(detail),
-        }
+        Self { status: "pending", session: None, detail: Some(detail) }
     }
     pub fn cancelled() -> Self {
-        Self {
-            status: "cancelled",
-            session: None,
-            detail: None,
-        }
+        Self { status: "cancelled", session: None, detail: None }
     }
     pub fn connected(session: OverleafStatus) -> Self {
-        Self {
-            status: "connected",
-            session: Some(session),
-            detail: None,
-        }
+        Self { status: "connected", session: Some(session), detail: None }
     }
 }
 
@@ -359,9 +343,7 @@ fn err<E: std::fmt::Display>(e: E) -> String {
 }
 
 fn now_iso() -> String {
-    chrono::Utc::now()
-        .to_rfc3339_opts(chrono::SecondsFormat::Secs, true)
-        .to_string()
+    chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Secs, true).to_string()
 }
 
 fn session_path(config_dir: &Path) -> PathBuf {
@@ -402,8 +384,7 @@ fn save_session(config_dir: &Path, session: &SessionFile) -> Result<(), String> 
         #[cfg(unix)]
         {
             use std::os::unix::fs::PermissionsExt;
-            file.set_permissions(fs::Permissions::from_mode(0o600))
-                .map_err(err)?;
+            file.set_permissions(fs::Permissions::from_mode(0o600)).map_err(err)?;
         }
         fs::rename(&temporary, &path).map_err(err)?;
         Ok(())
@@ -424,10 +405,8 @@ fn load_state(root: &Path) -> Result<SyncState, String> {
 fn save_state(root: &Path, state: &SyncState) -> Result<(), String> {
     fs::create_dir_all(root.join(STATE_DIR)).map_err(err)?;
     let body = serde_json::to_string_pretty(state).map_err(err)?;
-    ProjectDir::open(root)?.atomic_write(
-        &format!("{STATE_DIR}/{STATE_FILE}"),
-        (body + "\n").as_bytes(),
-    )
+    ProjectDir::open(root)?
+        .atomic_write(&format!("{STATE_DIR}/{STATE_FILE}"), (body + "\n").as_bytes())
 }
 
 /// Called while the structural mutation/sync lease is held. Failure must
@@ -463,10 +442,7 @@ fn relocated_path(path: &str, from: &str, to: &str) -> Option<String> {
 /// macOS it silently drops every `.overleaf.com` cookie and the sign-in window
 /// never appears to log in. We read all cookies and match them ourselves.
 pub fn cookie_domain_matches(cookie_domain: &str, host: &str) -> bool {
-    let cookie_domain = cookie_domain
-        .trim()
-        .trim_start_matches('.')
-        .to_ascii_lowercase();
+    let cookie_domain = cookie_domain.trim().trim_start_matches('.').to_ascii_lowercase();
     let host = host.trim().trim_start_matches('.').to_ascii_lowercase();
     if cookie_domain.is_empty() || host.is_empty() {
         return false;
@@ -477,9 +453,7 @@ pub fn cookie_domain_matches(cookie_domain: &str, host: &str) -> bool {
 /// Does this cookie jar look like a signed-in session for `host`?
 /// `overleaf_session2` is overleaf.com; `sharelatex.sid` is self-hosted CE.
 pub fn has_session_cookie(names: &[String]) -> bool {
-    names
-        .iter()
-        .any(|name| name == "overleaf_session2" || name == "sharelatex.sid")
+    names.iter().any(|name| name == "overleaf_session2" || name == "sharelatex.sid")
 }
 
 pub fn normalize_host(host: &str) -> String {
@@ -520,9 +494,7 @@ fn check_authenticated(response: &reqwest::blocking::Response) -> Result<(), Str
 }
 
 fn fetch_projects_page(
-    client: &reqwest::blocking::Client,
-    host: &str,
-    cookie: &str,
+    client: &reqwest::blocking::Client, host: &str, cookie: &str,
 ) -> Result<String, String> {
     let response = client
         .get(format!("{host}/project"))
@@ -532,10 +504,7 @@ fn fetch_projects_page(
         .map_err(|e| format!("Could not reach Overleaf: {e}"))?;
     check_authenticated(&response)?;
     if !response.status().is_success() {
-        return Err(format!(
-            "Overleaf returned {} for the project list.",
-            response.status()
-        ));
+        return Err(format!("Overleaf returned {} for the project list.", response.status()));
     }
     response.text().map_err(|error| {
         format!("Could not reach Overleaf while reading the project list: {error}")
@@ -569,9 +538,9 @@ fn json_str(value: &serde_json::Value, keys: &[&str]) -> Option<String> {
 /// used per-user id arrays.
 fn json_flag(value: &serde_json::Value, key: &str) -> bool {
     match value.get(key) {
-        Some(v) => v
-            .as_bool()
-            .unwrap_or_else(|| v.as_array().map(|a| !a.is_empty()).unwrap_or(false)),
+        Some(v) => {
+            v.as_bool().unwrap_or_else(|| v.as_array().map(|a| !a.is_empty()).unwrap_or(false))
+        }
         None => false,
     }
 }
@@ -595,11 +564,7 @@ fn parse_projects_meta(html: &str) -> Result<Vec<OverleafProject>, String> {
         if let Some(blob) = meta_content(html, "ol-prefetchedProjectsBlob") {
             let value: serde_json::Value = serde_json::from_str(&blob)
                 .map_err(|e| format!("Could not parse the Overleaf project list: {e}"))?;
-            value
-                .get("projects")
-                .and_then(|p| p.as_array())
-                .cloned()
-                .unwrap_or_default()
+            value.get("projects").and_then(|p| p.as_array()).cloned().unwrap_or_default()
         } else if let Some(blob) = meta_content(html, "ol-projects") {
             serde_json::from_str(&blob)
                 .map_err(|e| format!("Could not parse the Overleaf project list: {e}"))?
@@ -633,19 +598,12 @@ fn parse_projects_meta(html: &str) -> Result<Vec<OverleafProject>, String> {
             trashed: json_flag(value, "trashed"),
         });
     }
-    projects.sort_by(|a, b| {
-        b.last_updated
-            .cmp(&a.last_updated)
-            .then(a.name.cmp(&b.name))
-    });
+    projects.sort_by(|a, b| b.last_updated.cmp(&a.last_updated).then(a.name.cmp(&b.name)));
     Ok(projects)
 }
 
 fn download_project_zip(
-    client: &reqwest::blocking::Client,
-    host: &str,
-    cookie: &str,
-    project_id: &str,
+    client: &reqwest::blocking::Client, host: &str, cookie: &str, project_id: &str,
 ) -> Result<Vec<u8>, String> {
     let response = client
         .get(format!("{host}/project/{project_id}/download/zip"))
@@ -654,10 +612,7 @@ fn download_project_zip(
         .map_err(|e| format!("Could not download the project from Overleaf: {e}"))?;
     check_authenticated(&response)?;
     if !response.status().is_success() {
-        return Err(format!(
-            "Overleaf returned {} for the project download.",
-            response.status()
-        ));
+        return Err(format!("Overleaf returned {} for the project download.", response.status()));
     }
     let content_type = response
         .headers()
@@ -727,9 +682,7 @@ fn is_latex_save_error_path(path: &str) -> bool {
     let Some(stem) = lower.strip_suffix("-save-error") else {
         return false;
     };
-    ARTIFACT_SUFFIXES
-        .iter()
-        .any(|suffix| stem.ends_with(suffix))
+    ARTIFACT_SUFFIXES.iter().any(|suffix| stem.ends_with(suffix))
 }
 
 /// Paths (forward-slash relative) that never participate in sync.
@@ -793,10 +746,8 @@ pub fn is_conflict_copy(file_name: &str) -> bool {
 
 fn relative_slash_path(root: &Path, path: &Path) -> Option<String> {
     let rel = path.strip_prefix(root).ok()?;
-    let parts: Vec<String> = rel
-        .components()
-        .map(|c| c.as_os_str().to_string_lossy().into_owned())
-        .collect();
+    let parts: Vec<String> =
+        rel.components().map(|c| c.as_os_str().to_string_lossy().into_owned()).collect();
     if parts.is_empty() {
         return None;
     }
@@ -905,9 +856,7 @@ pub fn checkpoint_realtime_text(root: &Path, rel: &str, text: &str) -> Result<()
     // older hash and a genuine shared ancestor, never a new hash with old text.
     write_local_file(root, &format!("{BASE_DIR}/{rel}"), text.as_bytes())?;
     write_local_file(root, &format!("{BASE_DIR}/.gitignore"), b"*\n")?;
-    state
-        .files
-        .insert(rel.to_string(), sha256_hex(text.as_bytes()));
+    state.files.insert(rel.to_string(), sha256_hex(text.as_bytes()));
     let body = serde_json::to_string_pretty(&state).map_err(err)? + "\n";
     write_local_file(root, &format!("{STATE_DIR}/{STATE_FILE}"), body.as_bytes())
 }
@@ -926,11 +875,9 @@ fn merge_three_way(root: &Path, rel: &str, remote: &[u8], local: &[u8]) -> Merge
     if !is_mergeable_text(rel, remote) || !is_mergeable_text(rel, local) {
         return MergeOutcome::Unmergeable;
     }
-    let (Some(base), Ok(ours), Ok(theirs)) = (
-        read_base_copy(root, rel),
-        std::str::from_utf8(local),
-        std::str::from_utf8(remote),
-    ) else {
+    let (Some(base), Ok(ours), Ok(theirs)) =
+        (read_base_copy(root, rel), std::str::from_utf8(local), std::str::from_utf8(remote))
+    else {
         return MergeOutcome::Unmergeable;
     };
     let options = diffy::MergeOptions::new();
@@ -999,26 +946,18 @@ fn read_local_files(root: &Path) -> Result<LocalFiles, String> {
 /// check: hashing the project on every remote-version poll would make the
 /// supposedly cheap path expensive again.
 fn local_files_changed(
-    root: &Path,
-    state: &SyncState,
-    live: &BTreeSet<String>,
+    root: &Path, state: &SyncState, live: &BTreeSet<String>,
 ) -> Result<bool, String> {
     let local = read_local_files(root)?.files;
-    let tracked_count = state
-        .files
-        .keys()
-        .filter(|path| !is_excluded(path) && !live.contains(*path))
-        .count();
+    let tracked_count =
+        state.files.keys().filter(|path| !is_excluded(path) && !live.contains(*path)).count();
     let local_count = local.keys().filter(|path| !live.contains(*path)).count();
     if tracked_count != local_count {
         return Ok(true);
     }
     Ok(local.iter().any(|(path, bytes)| {
         !live.contains(path)
-            && state
-                .files
-                .get(path)
-                .is_none_or(|expected| expected != &sha256_hex(bytes))
+            && state.files.get(path).is_none_or(|expected| expected != &sha256_hex(bytes))
     }))
 }
 
@@ -1077,9 +1016,7 @@ pub struct CloneTarget {
 
 /// Describe the destination without touching anything.
 pub fn clone_target(
-    project_id: &str,
-    project_name: &str,
-    dest_parent: &Path,
+    project_id: &str, project_name: &str, dest_parent: &Path,
 ) -> Result<CloneTarget, String> {
     let folder_name = sanitize_project_name(project_name)?;
     let root = dest_parent.join(&folder_name);
@@ -1107,10 +1044,7 @@ pub fn clone_target(
 /// `name (local conflict …)` — and files that are byte-identical stay quiet.
 /// Nothing is overwritten silently and nothing is thrown away.
 pub fn adopt_project(
-    config_dir: &Path,
-    project_id: &str,
-    project_name: &str,
-    root: &Path,
+    config_dir: &Path, project_id: &str, project_name: &str, root: &Path,
     access_level: Option<&str>,
 ) -> Result<PathBuf, String> {
     let session = load_session(config_dir)?;
@@ -1189,21 +1123,10 @@ struct Uploader<'a> {
 
 impl<'a> Uploader<'a> {
     fn new(
-        client: &'a reqwest::blocking::Client,
-        host: &'a str,
-        cookie: &'a str,
-        csrf: &'a str,
-        project_id: &'a str,
-        root_folder_id: &'a str,
+        client: &'a reqwest::blocking::Client, host: &'a str, cookie: &'a str, csrf: &'a str,
+        project_id: &'a str, root_folder_id: &'a str,
     ) -> Self {
-        Self {
-            client,
-            host,
-            cookie,
-            csrf,
-            project_id,
-            root_folder_id,
-        }
+        Self { client, host, cookie, csrf, project_id, root_folder_id }
     }
 
     fn upload(&self, rel: &str, bytes: Vec<u8>) -> Result<(), String> {
@@ -1261,9 +1184,7 @@ pub fn session_status(config_dir: &Path) -> Result<OverleafStatus, String> {
 }
 
 pub fn store_session_cookie(
-    config_dir: &Path,
-    host: &str,
-    cookie: &str,
+    config_dir: &Path, host: &str, cookie: &str,
 ) -> Result<OverleafStatus, String> {
     let host = normalize_host(host);
     let cookie = cookie.trim().to_string();
@@ -1283,14 +1204,9 @@ pub fn store_session_cookie(
     // signed-in marker rather than insisting on the projects blob alone: if
     // Overleaf renames that meta tag, connecting should still succeed and the
     // project list should be the thing that reports a clear parse error.
-    let signed_in = [
-        "ol-prefetchedProjectsBlob",
-        "ol-projects",
-        "ol-user",
-        "ol-usersEmail",
-    ]
-    .iter()
-    .any(|name| meta_content(&html, name).is_some());
+    let signed_in = ["ol-prefetchedProjectsBlob", "ol-projects", "ol-user", "ol-usersEmail"]
+        .iter()
+        .any(|name| meta_content(&html, name).is_some());
     if !signed_in {
         return Err(
             "That cookie did not open the Overleaf dashboard. Copy a fresh session cookie from a logged-in browser and try again."
@@ -1306,12 +1222,7 @@ pub fn store_session_cookie(
         user_id: meta_content(&html, "ol-user_id"),
     };
     save_session(config_dir, &session)?;
-    Ok(OverleafStatus {
-        connected: true,
-        email,
-        name,
-        host,
-    })
+    Ok(OverleafStatus { connected: true, email, name, host })
 }
 
 pub fn disconnect(config_dir: &Path) -> Result<(), String> {
@@ -1348,9 +1259,7 @@ pub fn list_projects(config_dir: &Path) -> Result<Vec<OverleafProject>, String> 
 /// edit made locally while the upload is in flight is pushed by the next sync
 /// rather than mistaken for content already present remotely.
 pub fn publish_project(
-    config_dir: &Path,
-    root: &Path,
-    requested_name: &str,
+    config_dir: &Path, root: &Path, requested_name: &str,
 ) -> Result<OverleafLink, String> {
     if state_path(root).exists() {
         return Err("This project is already linked to an Overleaf project.".to_string());
@@ -1358,10 +1267,7 @@ pub fn publish_project(
     let project_name = sanitize_project_name(requested_name)?;
     let LocalFiles { files, oversized } = read_local_files(root)?;
     if !oversized.is_empty() {
-        return Err(format!(
-            "These files are too large for Overleaf: {}.",
-            oversized.join(", ")
-        ));
+        return Err(format!("These files are too large for Overleaf: {}.", oversized.join(", ")));
     }
     if files.is_empty() {
         return Err("This project has no files that can be uploaded to Overleaf.".to_string());
@@ -1406,9 +1312,8 @@ pub fn publish_project(
         .file_name(archive_name.clone())
         .mime_str("application/zip")
         .map_err(err)?;
-    let form = reqwest::blocking::multipart::Form::new()
-        .text("name", archive_name)
-        .part("qqfile", part);
+    let form =
+        reqwest::blocking::multipart::Form::new().text("name", archive_name).part("qqfile", part);
     let response = client
         .post(format!("{}/project/new/upload", session.host))
         .header(reqwest::header::COOKIE, &session.cookie)
@@ -1432,14 +1337,8 @@ pub fn publish_project(
             .and_then(|value| value.get("error"))
             .and_then(|value| value.as_str())
             .unwrap_or(body.trim());
-        let detail = if detail.is_empty() {
-            "the server did not explain why"
-        } else {
-            detail
-        };
-        return Err(format!(
-            "Overleaf could not create the project ({status}): {detail}"
-        ));
+        let detail = if detail.is_empty() { "the server did not explain why" } else { detail };
+        return Err(format!("Overleaf could not create the project ({status}): {detail}"));
     }
     let project_id = payload
         .as_ref()
@@ -1450,10 +1349,7 @@ pub fn publish_project(
         .to_string();
 
     let remote_version = fetch_remote_version(&client, &session.host, &session.cookie, &project_id);
-    let state_files = files
-        .iter()
-        .map(|(path, bytes)| (path.clone(), sha256_hex(bytes)))
-        .collect();
+    let state_files = files.iter().map(|(path, bytes)| (path.clone(), sha256_hex(bytes))).collect();
     let state = SyncState {
         host: session.host.clone(),
         project_id: project_id.clone(),
@@ -1492,10 +1388,7 @@ pub fn publish_project(
 /// this account may do, so syncing respects it even before the realtime
 /// channel has a chance to confirm.
 pub fn clone_project(
-    config_dir: &Path,
-    project_id: &str,
-    project_name: &str,
-    dest_parent: &Path,
+    config_dir: &Path, project_id: &str, project_name: &str, dest_parent: &Path,
     access_level: Option<&str>,
 ) -> Result<PathBuf, String> {
     let session = load_session(config_dir)?;
@@ -1574,29 +1467,21 @@ pub struct OverleafMessage {
 
 /// Read the project chat, oldest first.
 pub fn chat_messages(
-    config_dir: &Path,
-    root: &Path,
-    limit: u32,
+    config_dir: &Path, root: &Path, limit: u32,
 ) -> Result<Vec<OverleafMessage>, String> {
     let session = load_session(config_dir)?;
     let state = load_state(root)?;
     let host = sync_host(&state, &session)?;
     let client = http_client(20)?;
     let response = client
-        .get(format!(
-            "{host}/project/{}/messages?limit={limit}",
-            state.project_id
-        ))
+        .get(format!("{host}/project/{}/messages?limit={limit}", state.project_id))
         .header(reqwest::header::COOKIE, &session.cookie)
         .header(reqwest::header::ACCEPT, "application/json")
         .send()
         .map_err(|e| format!("Could not reach Overleaf: {e}"))?;
     check_authenticated(&response)?;
     if !response.status().is_success() {
-        return Err(format!(
-            "Overleaf returned {} for the project chat.",
-            response.status()
-        ));
+        return Err(format!("Overleaf returned {} for the project chat.", response.status()));
     }
     let body: serde_json::Value = response.json().map_err(err)?;
     let mut messages = parse_chat_messages(&body, session.email.as_deref());
@@ -1667,10 +1552,7 @@ pub fn send_chat_message(config_dir: &Path, root: &Path, content: &str) -> Resul
         .map_err(|e| format!("Could not reach Overleaf: {e}"))?;
     check_authenticated(&response)?;
     if !response.status().is_success() {
-        return Err(format!(
-            "Overleaf returned {} when sending the message.",
-            response.status()
-        ));
+        return Err(format!("Overleaf returned {} when sending the message.", response.status()));
     }
     Ok(())
 }
@@ -1721,10 +1603,7 @@ pub fn threads(config_dir: &Path, root: &Path) -> Result<Vec<OverleafThread>, St
         .map_err(|e| format!("Could not reach Overleaf: {e}"))?;
     check_authenticated(&response)?;
     if !response.status().is_success() {
-        return Err(format!(
-            "Overleaf returned {} for the project's comments.",
-            response.status()
-        ));
+        return Err(format!("Overleaf returned {} for the project's comments.", response.status()));
     }
     let body: serde_json::Value = response.json().map_err(err)?;
     Ok(parse_threads(&body, session.email.as_deref()))
@@ -1742,10 +1621,7 @@ fn parse_threads(body: &serde_json::Value, my_email: Option<&str>) -> Vec<Overle
                 .get("messages")
                 .and_then(|value| value.as_array())
                 .map(|items| {
-                    items
-                        .iter()
-                        .filter_map(|item| parse_comment(item, my_email))
-                        .collect()
+                    items.iter().filter_map(|item| parse_comment(item, my_email)).collect()
                 })
                 .unwrap_or_default();
             OverleafThread {
@@ -1782,10 +1658,7 @@ fn parse_comment(item: &serde_json::Value, my_email: Option<&str>) -> Option<Ove
             .or_else(|| email.clone())
             .unwrap_or_else(|| "Someone".to_string()),
         author_email: email,
-        timestamp: item
-            .get("timestamp")
-            .and_then(|value| value.as_i64())
-            .unwrap_or(0),
+        timestamp: item.get("timestamp").and_then(|value| value.as_i64()).unwrap_or(0),
     })
 }
 
@@ -1804,10 +1677,7 @@ fn person_name(user: &serde_json::Value) -> Option<String> {
 /// POST/DELETE against a thread, answering with the status rather than an
 /// error, for the one caller that has a second route to try.
 fn thread_request_status(
-    config_dir: &Path,
-    root: &Path,
-    method: reqwest::Method,
-    path: &str,
+    config_dir: &Path, root: &Path, method: reqwest::Method, path: &str,
     body: Option<serde_json::Value>,
 ) -> Result<reqwest::StatusCode, String> {
     let session = load_session(config_dir)?;
@@ -1829,21 +1699,15 @@ fn thread_request_status(
         // this themselves; we have to say it out loud.
         request = request.header(reqwest::header::CONTENT_LENGTH, "0");
     }
-    let response = request
-        .send()
-        .map_err(|e| format!("Could not reach Overleaf: {e}"))?;
+    let response = request.send().map_err(|e| format!("Could not reach Overleaf: {e}"))?;
     check_authenticated(&response)?;
     Ok(response.status())
 }
 
 /// POST/DELETE against a thread, with the CSRF token Overleaf insists on.
 fn thread_request(
-    config_dir: &Path,
-    root: &Path,
-    method: reqwest::Method,
-    path: &str,
-    body: Option<serde_json::Value>,
-    what: &str,
+    config_dir: &Path, root: &Path, method: reqwest::Method, path: &str,
+    body: Option<serde_json::Value>, what: &str,
 ) -> Result<(), String> {
     let status = thread_request_status(config_dir, root, method, path, body)?;
     if !status.is_success() {
@@ -1874,8 +1738,7 @@ pub struct OverleafCommentAnchor {
 /// Answers `[{ "id": <docId>, "ranges": { "comments": [...], "changes": [...] } }]`;
 /// a document with nothing in it still appears, with empty ranges.
 pub fn comment_anchors(
-    config_dir: &Path,
-    root: &Path,
+    config_dir: &Path, root: &Path,
 ) -> Result<Vec<OverleafCommentAnchor>, String> {
     Ok(parse_comment_anchors(&project_ranges(config_dir, root)?))
 }
@@ -1923,8 +1786,7 @@ pub fn doc_ranges(config_dir: &Path, root: &Path, doc_id: &str) -> Result<DocRan
     let ranges = body
         .as_array()
         .and_then(|docs| {
-            docs.iter()
-                .find(|entry| json_str(entry, &["id", "_id"]).as_deref() == Some(doc_id))
+            docs.iter().find(|entry| json_str(entry, &["id", "_id"]).as_deref() == Some(doc_id))
         })
         .and_then(|entry| entry.get("ranges").cloned())
         .unwrap_or_default();
@@ -1944,14 +1806,14 @@ fn parse_comment_anchors(body: &serde_json::Value) -> Vec<OverleafCommentAnchor>
                     // The same `{ p, c, t }` shape the editing channel sends,
                     // so it goes through the same parser — including the
                     // transport unpacking the quoted text needs.
-                    crate::overleaf_rt::parse_comment_ranges(&ranges)
-                        .into_iter()
-                        .map(move |range| OverleafCommentAnchor {
+                    crate::overleaf_rt::parse_comment_ranges(&ranges).into_iter().map(
+                        move |range| OverleafCommentAnchor {
                             thread_id: range.thread_id,
                             doc_id: doc_id.clone(),
                             position: range.position,
                             quote: range.quote,
-                        })
+                        },
+                    )
                 })
                 .filter(|anchor| !anchor.doc_id.is_empty())
                 .collect()
@@ -1961,10 +1823,7 @@ fn parse_comment_anchors(body: &serde_json::Value) -> Vec<OverleafCommentAnchor>
 
 /// Add a message to an existing thread.
 pub fn reply_to_thread(
-    config_dir: &Path,
-    root: &Path,
-    thread_id: &str,
-    content: &str,
+    config_dir: &Path, root: &Path, thread_id: &str, content: &str,
 ) -> Result<(), String> {
     let content = content.trim();
     if content.is_empty() {
@@ -1983,11 +1842,7 @@ pub fn reply_to_thread(
 /// Resolving, reopening and deleting are all keyed by the document the thread
 /// sits in — Overleaf needs to know where to clear the marker.
 pub fn resolve_thread(
-    config_dir: &Path,
-    root: &Path,
-    doc_id: &str,
-    thread_id: &str,
-    resolved: bool,
+    config_dir: &Path, root: &Path, doc_id: &str, thread_id: &str, resolved: bool,
 ) -> Result<(), String> {
     let action = if resolved { "resolve" } else { "reopen" };
     thread_request(
@@ -1996,21 +1851,13 @@ pub fn resolve_thread(
         reqwest::Method::POST,
         &format!("/doc/{doc_id}/thread/{thread_id}/{action}"),
         None,
-        if resolved {
-            "resolving the comment"
-        } else {
-            "reopening the comment"
-        },
+        if resolved { "resolving the comment" } else { "reopening the comment" },
     )
 }
 
 /// Change what one message says. Overleaf only lets the author do this.
 pub fn edit_message(
-    config_dir: &Path,
-    root: &Path,
-    thread_id: &str,
-    message_id: &str,
-    content: &str,
+    config_dir: &Path, root: &Path, thread_id: &str, message_id: &str, content: &str,
 ) -> Result<(), String> {
     let content = content.trim();
     if content.is_empty() {
@@ -2035,10 +1882,7 @@ pub fn edit_message(
 /// the one that works for every role; the wider one is the fallback for
 /// self-hosted servers old enough not to have it.
 pub fn delete_message(
-    config_dir: &Path,
-    root: &Path,
-    thread_id: &str,
-    message_id: &str,
+    config_dir: &Path, root: &Path, thread_id: &str, message_id: &str,
 ) -> Result<(), String> {
     let status = thread_request_status(
         config_dir,
@@ -2051,9 +1895,7 @@ pub fn delete_message(
         return Ok(());
     }
     if status != reqwest::StatusCode::NOT_FOUND {
-        return Err(format!(
-            "Overleaf returned {status} when deleting the comment."
-        ));
+        return Err(format!("Overleaf returned {status} when deleting the comment."));
     }
     thread_request(
         config_dir,
@@ -2066,10 +1908,7 @@ pub fn delete_message(
 }
 
 pub fn delete_thread(
-    config_dir: &Path,
-    root: &Path,
-    doc_id: &str,
-    thread_id: &str,
+    config_dir: &Path, root: &Path, doc_id: &str, thread_id: &str,
 ) -> Result<(), String> {
     thread_request(
         config_dir,
@@ -2137,10 +1976,7 @@ fn history_get(config_dir: &Path, root: &Path, path: &str) -> Result<serde_json:
         return Err("Overleaf's full history needs a paid plan on this project.".to_string());
     }
     if !response.status().is_success() {
-        return Err(format!(
-            "Overleaf returned {} for the project history.",
-            response.status()
-        ));
+        return Err(format!("Overleaf returned {} for the project history.", response.status()));
     }
     response.json().map_err(err)
 }
@@ -2149,10 +1985,7 @@ fn history_get(config_dir: &Path, root: &Path, path: &str) -> Result<serde_json:
 /// `nextBefore` — which is a version number despite Overleaf calling it a
 /// timestamp.
 pub fn history_updates(
-    config_dir: &Path,
-    root: &Path,
-    before: Option<i64>,
-    count: u32,
+    config_dir: &Path, root: &Path, before: Option<i64>, count: u32,
 ) -> Result<(Vec<OverleafUpdate>, Option<i64>), String> {
     let query = match before {
         Some(before) => format!("/updates?min_count={count}&before={before}"),
@@ -2164,31 +1997,20 @@ pub fn history_updates(
         .and_then(serde_json::Value::as_array)
         .map(|items| items.iter().map(parse_history_update).collect())
         .unwrap_or_default();
-    let next = body
-        .get("nextBeforeTimestamp")
-        .and_then(serde_json::Value::as_i64);
+    let next = body.get("nextBeforeTimestamp").and_then(serde_json::Value::as_i64);
     Ok((updates, next))
 }
 
 fn parse_history_update(item: &serde_json::Value) -> OverleafUpdate {
     let meta = item.get("meta");
     OverleafUpdate {
-        from_version: item
-            .get("fromV")
-            .and_then(serde_json::Value::as_i64)
-            .unwrap_or(0),
-        to_version: item
-            .get("toV")
-            .and_then(serde_json::Value::as_i64)
-            .unwrap_or(0),
+        from_version: item.get("fromV").and_then(serde_json::Value::as_i64).unwrap_or(0),
+        to_version: item.get("toV").and_then(serde_json::Value::as_i64).unwrap_or(0),
         start_ts: meta
             .and_then(|m| m.get("start_ts"))
             .and_then(serde_json::Value::as_i64)
             .unwrap_or(0),
-        end_ts: meta
-            .and_then(|m| m.get("end_ts"))
-            .and_then(serde_json::Value::as_i64)
-            .unwrap_or(0),
+        end_ts: meta.and_then(|m| m.get("end_ts")).and_then(serde_json::Value::as_i64).unwrap_or(0),
         authors: meta
             .and_then(|m| m.get("users"))
             .and_then(serde_json::Value::as_array)
@@ -2200,9 +2022,7 @@ fn parse_history_update(item: &serde_json::Value) -> OverleafUpdate {
             .and_then(serde_json::Value::as_array)
             .map(|labels| labels.iter().filter_map(parse_label).collect())
             .unwrap_or_default(),
-        origin: meta
-            .and_then(|m| m.get("origin"))
-            .and_then(|origin| json_str(origin, &["kind"])),
+        origin: meta.and_then(|m| m.get("origin")).and_then(|origin| json_str(origin, &["kind"])),
     }
 }
 
@@ -2218,25 +2038,15 @@ fn update_paths(item: &serde_json::Value) -> Vec<String> {
         .get("pathnames")
         .and_then(serde_json::Value::as_array)
         .map(|paths| {
-            paths
-                .iter()
-                .filter_map(serde_json::Value::as_str)
-                .map(str::to_string)
-                .collect()
+            paths.iter().filter_map(serde_json::Value::as_str).map(str::to_string).collect()
         })
         .unwrap_or_default();
 
-    for op in item
-        .get("project_ops")
-        .and_then(serde_json::Value::as_array)
-        .into_iter()
-        .flatten()
-    {
+    for op in item.get("project_ops").and_then(serde_json::Value::as_array).into_iter().flatten() {
         // A rename is named by where the file ended up, which is what the
         // reader would go looking for now.
         let path = ["rename", "add", "remove"].into_iter().find_map(|kind| {
-            op.get(kind)
-                .and_then(|body| json_str(body, &["newPathname", "pathname"]))
+            op.get(kind).and_then(|body| json_str(body, &["newPathname", "pathname"]))
         });
         if let Some(path) = path {
             if !paths.contains(&path) {
@@ -2259,32 +2069,19 @@ fn parse_label(item: &serde_json::Value) -> Option<OverleafLabel> {
 
 /// How one file read at two versions, as insert/delete/unchanged runs.
 pub fn history_diff(
-    config_dir: &Path,
-    root: &Path,
-    path: &str,
-    from: i64,
-    to: i64,
+    config_dir: &Path, root: &Path, path: &str, from: i64, to: i64,
 ) -> Result<serde_json::Value, String> {
-    let query = format!(
-        "/diff?from={from}&to={to}&pathname={}",
-        crate::overleaf_rt::url_encode(path)
-    );
+    let query =
+        format!("/diff?from={from}&to={to}&pathname={}", crate::overleaf_rt::url_encode(path));
     history_get(config_dir, root, &query)
 }
 
 /// Every file as it stood across a version range. `from == to` lists the tree
 /// at one version; entries with no operation existed unchanged at both.
 pub fn history_files(
-    config_dir: &Path,
-    root: &Path,
-    from: i64,
-    to: i64,
+    config_dir: &Path, root: &Path, from: i64, to: i64,
 ) -> Result<serde_json::Value, String> {
-    history_get(
-        config_dir,
-        root,
-        &format!("/filetree/diff?from={from}&to={to}"),
-    )
+    history_get(config_dir, root, &format!("/filetree/diff?from={from}&to={to}"))
 }
 
 pub fn history_labels(config_dir: &Path, root: &Path) -> Result<Vec<OverleafLabel>, String> {
@@ -2301,20 +2098,14 @@ pub fn history_labels(config_dir: &Path, root: &Path) -> Result<Vec<OverleafLabe
 /// and the file tree events report a removal followed by a creation. That is
 /// expected, not a sign something went wrong.
 pub fn history_revert(
-    config_dir: &Path,
-    root: &Path,
-    version: i64,
-    path: Option<&str>,
+    config_dir: &Path, root: &Path, version: i64, path: Option<&str>,
 ) -> Result<(), String> {
     let (endpoint, body) = match path {
         Some(path) => (
             "/revert_file".to_string(),
             serde_json::json!({ "version": version, "pathname": path }),
         ),
-        None => (
-            "/revert-project".to_string(),
-            serde_json::json!({ "version": version }),
-        ),
+        None => ("/revert-project".to_string(), serde_json::json!({ "version": version })),
     };
     thread_request(
         config_dir,
@@ -2328,10 +2119,7 @@ pub fn history_revert(
 
 /// Bring back a file that was deleted, using the version it vanished at.
 pub fn history_restore_file(
-    config_dir: &Path,
-    root: &Path,
-    version: i64,
-    path: &str,
+    config_dir: &Path, root: &Path, version: i64, path: &str,
 ) -> Result<(), String> {
     thread_request(
         config_dir,
@@ -2344,10 +2132,7 @@ pub fn history_restore_file(
 }
 
 pub fn history_add_label(
-    config_dir: &Path,
-    root: &Path,
-    version: i64,
-    comment: &str,
+    config_dir: &Path, root: &Path, version: i64, comment: &str,
 ) -> Result<(), String> {
     thread_request(
         config_dir,
@@ -2376,10 +2161,7 @@ pub fn history_delete_label(config_dir: &Path, root: &Path, label_id: &str) -> R
 /// which is why it has an endpoint of its own rather than travelling as an
 /// operation the way rejecting does.
 pub fn accept_changes(
-    config_dir: &Path,
-    root: &Path,
-    doc_id: &str,
-    change_ids: &[String],
+    config_dir: &Path, root: &Path, doc_id: &str, change_ids: &[String],
 ) -> Result<(), String> {
     if change_ids.is_empty() {
         return Ok(());
@@ -2412,10 +2194,7 @@ pub fn change_authors(config_dir: &Path, root: &Path) -> Result<serde_json::Valu
         .map_err(|e| format!("Could not reach Overleaf: {e}"))?;
     check_authenticated(&response)?;
     if !response.status().is_success() {
-        return Err(format!(
-            "Overleaf returned {} for the suggestion authors.",
-            response.status()
-        ));
+        return Err(format!("Overleaf returned {} for the suggestion authors.", response.status()));
     }
     response.json().map_err(err)
 }
@@ -2425,9 +2204,7 @@ pub fn change_authors(config_dir: &Path, root: &Path) -> Result<serde_json::Valu
 /// The setting is project-wide but stored per account, so turning it on for
 /// ourselves means sending the whole map back with our own entry changed.
 pub fn set_track_changes(
-    config_dir: &Path,
-    root: &Path,
-    on_for: serde_json::Value,
+    config_dir: &Path, root: &Path, on_for: serde_json::Value,
 ) -> Result<(), String> {
     thread_request(
         config_dir,
@@ -2442,10 +2219,7 @@ pub fn set_track_changes(
 /// Create a document in the project, so a file added here shows up for
 /// everyone rather than waiting for the next upload to invent it.
 pub fn create_doc(
-    config_dir: &Path,
-    root: &Path,
-    parent_folder_id: &str,
-    name: &str,
+    config_dir: &Path, root: &Path, parent_folder_id: &str, name: &str,
 ) -> Result<String, String> {
     let session = load_session(config_dir)?;
     let state = load_state(root)?;
@@ -2463,10 +2237,7 @@ pub fn create_doc(
         .map_err(|e| format!("Could not reach Overleaf: {e}"))?;
     check_authenticated(&response)?;
     if !response.status().is_success() {
-        return Err(format!(
-            "Overleaf returned {} when creating {name}.",
-            response.status()
-        ));
+        return Err(format!("Overleaf returned {} when creating {name}.", response.status()));
     }
     let body: serde_json::Value = response.json().map_err(err)?;
     json_str(&body, &["_id"]).ok_or_else(|| "Overleaf created no document.".to_string())
@@ -2477,10 +2248,7 @@ pub fn create_doc(
 /// Syncing has never done this — a file deleted here simply stayed on
 /// Overleaf — which is safe but leaves the two sides permanently different.
 pub fn delete_entity(
-    config_dir: &Path,
-    root: &Path,
-    kind: &str,
-    entity_id: &str,
+    config_dir: &Path, root: &Path, kind: &str, entity_id: &str,
 ) -> Result<(), String> {
     if !matches!(kind, "doc" | "file" | "folder") {
         return Err(format!("{kind} is not something Overleaf can delete."));
@@ -2492,10 +2260,7 @@ pub fn delete_entity(
     let page = fetch_projects_page(&client, &host, &session.cookie)?;
     let csrf = meta_content(&page, "ol-csrfToken").ok_or_else(|| SESSION_EXPIRED.to_string())?;
     let response = client
-        .delete(format!(
-            "{host}/project/{}/{kind}/{entity_id}",
-            state.project_id
-        ))
+        .delete(format!("{host}/project/{}/{kind}/{entity_id}", state.project_id))
         .header(reqwest::header::COOKIE, &session.cookie)
         .header("X-Csrf-Token", &csrf)
         .header(reqwest::header::ACCEPT, "application/json")
@@ -2503,10 +2268,7 @@ pub fn delete_entity(
         .map_err(|e| format!("Could not reach Overleaf: {e}"))?;
     check_authenticated(&response)?;
     if !response.status().is_success() {
-        return Err(format!(
-            "Overleaf returned {} when deleting the {kind}.",
-            response.status()
-        ));
+        return Err(format!("Overleaf returned {} when deleting the {kind}.", response.status()));
     }
     Ok(())
 }
@@ -2516,9 +2278,7 @@ pub fn delete_entity(
 /// rootDoc_id. A failed/ambiguous request leaves the intent in state and stops
 /// content sync; it must never fall back to upload-and-delete.
 pub fn sync_relocations(
-    config_dir: &Path,
-    root: &Path,
-    entities: Option<Vec<crate::overleaf_rt::EntityEntry>>,
+    config_dir: &Path, root: &Path, entities: Option<Vec<crate::overleaf_rt::EntityEntry>>,
 ) -> Result<(), String> {
     let mut state = load_state(root)?;
     if state.pending_relocations.is_empty() {
@@ -2593,10 +2353,7 @@ pub fn sync_relocations(
                 change.from
             ));
         }
-        if entities
-            .iter()
-            .any(|other| other.path == change.to && other.id != entity.id)
-        {
+        if entities.iter().any(|other| other.path == change.to && other.id != entity.id) {
             return Err(format!(
                 "{} already exists on Overleaf. No files were overwritten.",
                 change.to
@@ -2696,8 +2453,7 @@ pub fn sync_relocations(
 /// What the realtime channel needs to open a connection for this project:
 /// (host, cookie, project id).
 pub fn realtime_config(
-    config_dir: &Path,
-    root: &Path,
+    config_dir: &Path, root: &Path,
 ) -> Result<(String, String, String, Option<String>), String> {
     let mut session = load_session(config_dir)?;
     let state = load_state(root)?;
@@ -2741,9 +2497,7 @@ fn ensure_user_id(config_dir: &Path, session: &mut SessionFile) -> Option<String
 /// downloads the whole project as a zip. Live mode polls this and only syncs
 /// for real when the version moved.
 pub fn probe(
-    config_dir: &Path,
-    root: &Path,
-    local_live_paths: Option<&BTreeSet<String>>,
+    config_dir: &Path, root: &Path, local_live_paths: Option<&BTreeSet<String>>,
 ) -> Result<OverleafProbe, String> {
     let session = load_session(config_dir)?;
     let state = load_state(root)?;
@@ -2755,20 +2509,14 @@ pub fn probe(
             .unwrap_or(false);
     let client = http_client(15)?;
     let response = client
-        .get(format!(
-            "{host}/project/{}/updates?min_count=1",
-            state.project_id
-        ))
+        .get(format!("{host}/project/{}/updates?min_count=1", state.project_id))
         .header(reqwest::header::COOKIE, &session.cookie)
         .header(reqwest::header::ACCEPT, "application/json")
         .send()
         .map_err(|e| format!("Could not reach Overleaf: {e}"))?;
     check_authenticated(&response)?;
     if !response.status().is_success() {
-        return Err(format!(
-            "Overleaf returned {} for the project history.",
-            response.status()
-        ));
+        return Err(format!("Overleaf returned {} for the project history.", response.status()));
     }
     let body: serde_json::Value = response.json().map_err(err)?;
     let remote_version = latest_update_version(&body);
@@ -2791,10 +2539,7 @@ pub fn probe(
 /// Best-effort read of the project's newest history version. A failure here
 /// only costs the next probe a redundant sync, so it never fails a sync.
 fn fetch_remote_version(
-    client: &reqwest::blocking::Client,
-    host: &str,
-    cookie: &str,
-    project_id: &str,
+    client: &reqwest::blocking::Client, host: &str, cookie: &str, project_id: &str,
 ) -> Option<i64> {
     let response = client
         .get(format!("{host}/project/{project_id}/updates?min_count=1"))
@@ -2820,10 +2565,7 @@ fn latest_update_version(body: &serde_json::Value) -> Option<i64> {
     let versions = updates
         .iter()
         .filter_map(|update| {
-            update
-                .get("toV")
-                .or_else(|| update.get("v"))
-                .and_then(|value| value.as_i64())
+            update.get("toV").or_else(|| update.get("v")).and_then(|value| value.as_i64())
         })
         .max();
     if versions.is_some() {
@@ -2953,23 +2695,18 @@ fn prepared_store() -> &'static Mutex<PreparedStore> {
 }
 
 fn state_digest(state: &SyncState) -> Result<String, String> {
-    serde_json::to_vec(state)
-        .map(|bytes| sha256_hex(&bytes))
-        .map_err(err)
+    serde_json::to_vec(state).map(|bytes| sha256_hex(&bytes)).map_err(err)
 }
 
 fn canonical_root(root: &Path) -> Result<PathBuf, String> {
-    root.canonicalize()
-        .map_err(|e| format!("Could not resolve project root: {e}"))
+    root.canonicalize().map_err(|e| format!("Could not resolve project root: {e}"))
 }
 
 fn validate_inventory_path(path: &str) -> Result<(), String> {
     if path.is_empty()
         || path.starts_with('/')
         || path.ends_with('/')
-        || path
-            .split('/')
-            .any(|part| part.is_empty() || part == "." || part == "..")
+        || path.split('/').any(|part| part.is_empty() || part == "." || part == "..")
         || path.contains('\\')
     {
         return Err(format!("Invalid authoritative inventory path: {path}"));
@@ -2997,24 +2734,17 @@ fn insert_prepared_plan(id: String, plan: StoredPlan) -> Result<(), String> {
     if plan.bytes > MAX_PREPARED_BYTES {
         return Err("The shared project is too large to stage for Overleaf sync.".to_string());
     }
-    let mut store = prepared_store()
-        .lock()
-        .expect("prepared sync store poisoned");
+    let mut store = prepared_store().lock().expect("prepared sync store poisoned");
     let now = Instant::now();
-    store
-        .plans
-        .retain(|_, existing| now.duration_since(existing.created) <= PREPARED_PLAN_TTL);
+    store.plans.retain(|_, existing| now.duration_since(existing.created) <= PREPARED_PLAN_TTL);
     store.plans.insert(id, plan);
     loop {
         let total: usize = store.plans.values().map(|plan| plan.bytes).sum();
         if store.plans.len() <= MAX_PREPARED_PLANS && total <= MAX_PREPARED_BYTES {
             break;
         }
-        let Some(oldest) = store
-            .plans
-            .iter()
-            .min_by_key(|(_, plan)| plan.created)
-            .map(|(id, _)| id.clone())
+        let Some(oldest) =
+            store.plans.iter().min_by_key(|(_, plan)| plan.created).map(|(id, _)| id.clone())
         else {
             break;
         };
@@ -3028,16 +2758,12 @@ fn insert_prepared_plan(id: String, plan: StoredPlan) -> Result<(), String> {
 /// `live` holds paths the realtime channel is currently editing. Those are
 /// converging through operations already, so this leaves them alone entirely.
 fn plan_sync(
-    root: &Path,
-    state: &SyncState,
-    remote: &BTreeMap<String, Vec<u8>>,
-    local: &BTreeMap<String, Vec<u8>>,
-    live: &BTreeSet<String>,
-    stamp: &str,
+    root: &Path, state: &SyncState, remote: &BTreeMap<String, Vec<u8>>,
+    local: &BTreeMap<String, Vec<u8>>, live: &BTreeSet<String>, stamp: &str,
 ) -> Result<SyncPlan, String> {
     if !state.pending_relocations.is_empty() {
         return Err(
-            "Sync pending file moves with Overleaf before comparing file contents.".to_string(),
+            "Sync pending file moves with Overleaf before comparing file contents.".to_string()
         );
     }
     let mut all_paths: BTreeSet<String> = BTreeSet::new();
@@ -3173,26 +2899,14 @@ fn fetch_remote_files(host: &str, cookie: &str, project_id: &str) -> Result<Remo
     // itself. Return app-owned leftovers for the frontend to remove; collapse
     // PDF renders to their stable parent folder so cleanup takes one request.
     // Until deletion succeeds, filtering below also prevents a pull.
-    let mut automatic_remote_deletes = entries
-        .keys()
-        .filter(|path| is_latex_save_error_path(path))
-        .cloned()
-        .collect::<Vec<_>>();
-    if entries
-        .keys()
-        .any(|path| is_transient_pdf_render_path(path))
-    {
+    let mut automatic_remote_deletes =
+        entries.keys().filter(|path| is_latex_save_error_path(path)).cloned().collect::<Vec<_>>();
+    if entries.keys().any(|path| is_transient_pdf_render_path(path)) {
         automatic_remote_deletes.push(TRANSIENT_PDF_RENDER_DIRECTORY.to_string());
     }
     automatic_remote_deletes.sort();
-    let files = entries
-        .into_iter()
-        .filter(|(path, _)| !is_excluded(path))
-        .collect();
-    Ok(RemoteFiles {
-        files,
-        automatic_remote_deletes,
-    })
+    let files = entries.into_iter().filter(|(path, _)| !is_excluded(path)).collect();
+    Ok(RemoteFiles { files, automatic_remote_deletes })
 }
 
 /// The exact Overleaf origin this project belongs to.
@@ -3242,9 +2956,7 @@ pub fn set_permission(root: &Path, permission: &str) -> Result<(), String> {
 /// This is persisted before the frontend treats the channel as live, so the
 /// first automatic sync can upload new files without racing the socket join.
 pub fn set_realtime_metadata(
-    root: &Path,
-    root_folder_id: &str,
-    permission: &str,
+    root: &Path, root_folder_id: &str, permission: &str,
 ) -> Result<(), String> {
     let root_folder_id = root_folder_id.trim();
     if root_folder_id.is_empty() {
@@ -3264,11 +2976,8 @@ pub fn set_realtime_metadata(
 /// Prepare a Share-safe sync from the Catalog/Yjs snapshot supplied by the
 /// caller. This performs network reads and base-copy reads, but no writes.
 pub fn prepare_sync(
-    config_dir: &Path,
-    root: &Path,
-    authoritative_inventory: &[OverleafAuthoritativeEntry],
-    live: &BTreeSet<String>,
-    observed_remote_version: Option<i64>,
+    config_dir: &Path, root: &Path, authoritative_inventory: &[OverleafAuthoritativeEntry],
+    live: &BTreeSet<String>, observed_remote_version: Option<i64>,
 ) -> Result<OverleafPreparedSync, String> {
     let session = load_session(config_dir)?;
     let mut state = load_state(root)?;
@@ -3288,20 +2997,11 @@ pub fn prepare_sync(
         if is_excluded(&entry.path) {
             continue;
         }
-        if !matches!(
-            entry.kind.as_str(),
-            "text" | "binary" | "board" | "spreadsheet"
-        ) {
-            return Err(format!(
-                "Invalid catalog kind for {}: {}",
-                entry.path, entry.kind
-            ));
+        if !matches!(entry.kind.as_str(), "text" | "binary" | "board" | "spreadsheet") {
+            return Err(format!("Invalid catalog kind for {}: {}", entry.path, entry.kind));
         }
         if local.contains_key(&entry.path) {
-            return Err(format!(
-                "Duplicate authoritative inventory path: {}",
-                entry.path
-            ));
+            return Err(format!("Duplicate authoritative inventory path: {}", entry.path));
         }
         let bytes = {
             use base64::Engine as _;
@@ -3321,10 +3021,8 @@ pub fn prepare_sync(
     let remote_version = fetch_remote_version(&client, &host, &session.cookie, &state.project_id)
         .or(observed_remote_version)
         .or(state.remote_version);
-    let RemoteFiles {
-        files: remote,
-        automatic_remote_deletes,
-    } = fetch_remote_files(&host, &session.cookie, &state.project_id)?;
+    let RemoteFiles { files: remote, automatic_remote_deletes } =
+        fetch_remote_files(&host, &session.cookie, &state.project_id)?;
     let plan = plan_sync(&root, &state, &remote, &local, live, &sync_stamp())?;
 
     let mut result = OverleafSyncResult {
@@ -3343,9 +3041,7 @@ pub fn prepare_sync(
         .conflict
         .iter()
         .filter_map(|conflict| {
-            local_kinds
-                .get(&conflict.path)
-                .map(|kind| (conflict.local_copy.clone(), kind.clone()))
+            local_kinds.get(&conflict.path).map(|kind| (conflict.local_copy.clone(), kind.clone()))
         })
         .collect::<BTreeMap<_, _>>();
     let mut add_action = |path: String,
@@ -3373,12 +3069,7 @@ pub fn prepare_sync(
         public_actions.push(public.clone());
         actions.insert(
             action_id,
-            StoredAction {
-                path: public.path,
-                kind: public.kind,
-                binary: public.binary,
-                role,
-            },
+            StoredAction { path: public.path, kind: public.kind, binary: public.binary, role },
         );
     };
     for path in &plan.push {
@@ -3393,11 +3084,7 @@ pub fn prepare_sync(
     for (path, bytes) in &plan.pull {
         add_action(
             path.clone(),
-            if local.contains_key(path) {
-                "write"
-            } else {
-                "create"
-            },
+            if local.contains_key(path) { "write" } else { "create" },
             local.get(path).map(Vec::as_slice),
             Some(bytes),
             PreparedRole::Pull,
@@ -3462,26 +3149,17 @@ pub fn prepare_sync(
         result: result.clone(),
     };
     insert_prepared_plan(plan_id.clone(), stored)?;
-    Ok(OverleafPreparedSync {
-        plan_id,
-        actions: public_actions,
-        result,
-        remote_version,
-    })
+    Ok(OverleafPreparedSync { plan_id, actions: public_actions, result, remote_version })
 }
 
 /// Commit a prepared sync after the frontend has first applied accepted
 /// incoming actions to Catalog/Yjs. Project files are never read or written.
 pub fn commit_prepared_sync(
-    config_dir: &Path,
-    root: &Path,
-    prepared_plan_id: &str,
+    config_dir: &Path, root: &Path, prepared_plan_id: &str,
     accepted_actions: &[OverleafAcceptedAction],
 ) -> Result<OverleafSyncResult, String> {
     let plan = {
-        let mut store = prepared_store()
-            .lock()
-            .expect("prepared sync store poisoned");
+        let mut store = prepared_store().lock().expect("prepared sync store poisoned");
         store
             .plans
             .remove(prepared_plan_id)
@@ -3573,10 +3251,7 @@ pub fn commit_prepared_sync(
         let action = &plan.actions[id];
         if writable
             && !held_back.contains(&action.path)
-            && matches!(
-                &action.role,
-                PreparedRole::Push | PreparedRole::Pull | PreparedRole::Merge
-            )
+            && matches!(&action.role, PreparedRole::Push | PreparedRole::Pull | PreparedRole::Merge)
         {
             let bytes = bytes.as_ref().expect("validated action bytes");
             if plan.remote.get(&action.path) != Some(bytes) {
@@ -3590,10 +3265,7 @@ pub fn commit_prepared_sync(
         && fetch_remote_version(&client, &plan.host, &session.cookie, &plan.project_id)
             != plan.remote_version
     {
-        let mut result = OverleafSyncResult {
-            read_only: !writable,
-            ..Default::default()
-        };
+        let mut result = OverleafSyncResult { read_only: !writable, ..Default::default() };
         result.skipped_large = plan.result.skipped_large;
         result.automatic_remote_deletes = plan.result.automatic_remote_deletes;
         return Ok(result);
@@ -3602,14 +3274,8 @@ pub fn commit_prepared_sync(
         let folder = plan.state.root_folder_id.as_deref().ok_or_else(|| {
             "Overleaf is still preparing file uploads. Try syncing again in a moment.".to_string()
         })?;
-        let uploader = Uploader::new(
-            &client,
-            &plan.host,
-            &session.cookie,
-            &csrf,
-            &plan.project_id,
-            folder,
-        );
+        let uploader =
+            Uploader::new(&client, &plan.host, &session.cookie, &csrf, &plan.project_id, folder);
         for (path, bytes) in &uploads {
             uploader
                 .upload(path, bytes.clone())
@@ -3721,11 +3387,7 @@ pub fn commit_prepared_sync(
     let mut state = plan.state;
     state.files = next_files;
     state.last_sync = Some(now_iso());
-    state.remote_version = if uploads.is_empty() {
-        plan.remote_version
-    } else {
-        None
-    };
+    state.remote_version = if uploads.is_empty() { plan.remote_version } else { None };
     save_state(root, &state)?;
     result.pushed = uploads.keys().cloned().collect();
     result.pulled.sort();
@@ -3742,9 +3404,7 @@ pub fn commit_prepared_sync(
 /// ancestor is Overleaf's snapshot. Live-held paths may match neither and
 /// deliberately keep their previous base.
 fn finalize_base_copies(
-    root: &Path,
-    previous_files: &BTreeMap<String, String>,
-    next_files: &BTreeMap<String, String>,
+    root: &Path, previous_files: &BTreeMap<String, String>, next_files: &BTreeMap<String, String>,
     remote: &BTreeMap<String, Vec<u8>>,
 ) -> Result<(), String> {
     for (path, expected_hash) in next_files {
@@ -3752,11 +3412,7 @@ fn finalize_base_copies(
         let agreed = disk
             .as_ref()
             .filter(|bytes| sha256_hex(bytes) == *expected_hash)
-            .or_else(|| {
-                remote
-                    .get(path)
-                    .filter(|bytes| sha256_hex(bytes) == *expected_hash)
-            });
+            .or_else(|| remote.get(path).filter(|bytes| sha256_hex(bytes) == *expected_hash));
         if let Some(bytes) = agreed {
             write_base_copy(root, path, bytes)?;
         }
@@ -3776,10 +3432,7 @@ fn finalize_base_copies(
 }
 
 pub fn sync(
-    config_dir: &Path,
-    root: &Path,
-    live: &BTreeSet<String>,
-    observed_remote_version: Option<i64>,
+    config_dir: &Path, root: &Path, live: &BTreeSet<String>, observed_remote_version: Option<i64>,
 ) -> Result<OverleafSyncResult, String> {
     let session = load_session(config_dir)?;
     let mut state = load_state(root)?;
@@ -3802,14 +3455,9 @@ pub fn sync(
             // is rate-limited instead of erasing a usable baseline.
             .or(observed_remote_version)
             .or(state.remote_version);
-    let RemoteFiles {
-        files: remote,
-        automatic_remote_deletes,
-    } = fetch_remote_files(&host, &session.cookie, &state.project_id)?;
-    let LocalFiles {
-        files: local,
-        oversized,
-    } = read_local_files(root)?;
+    let RemoteFiles { files: remote, automatic_remote_deletes } =
+        fetch_remote_files(&host, &session.cookie, &state.project_id)?;
+    let LocalFiles { files: local, oversized } = read_local_files(root)?;
 
     let plan = plan_sync(root, &state, &remote, &local, live, &sync_stamp())?;
 
@@ -3947,11 +3595,7 @@ pub fn sync(
     // resulting project version. Leave it unknown so the next probe performs
     // one verification sync instead of attributing an unverified latest
     // version to our upload.
-    state.remote_version = if result.pushed.is_empty() {
-        remote_version_before
-    } else {
-        None
-    };
+    state.remote_version = if result.pushed.is_empty() { remote_version_before } else { None };
     save_state(root, &state)?;
 
     result.pulled.sort();
@@ -3974,10 +3618,7 @@ fn displayable_text(bytes: &[u8]) -> Option<String> {
 /// Build one preview row. A side that exists but cannot be rendered as text
 /// makes the whole change binary, and then neither side is shipped to the UI.
 fn preview_change(
-    path: &str,
-    kind: &str,
-    before: Option<&[u8]>,
-    after: Option<&[u8]>,
+    path: &str, kind: &str, before: Option<&[u8]>, after: Option<&[u8]>,
 ) -> OverleafChange {
     let before_text = before.map(displayable_text);
     let after_text = after.map(displayable_text);
@@ -4010,9 +3651,7 @@ fn change_kind_rank(kind: &str) -> u8 {
 /// is exactly what runs. Nothing here writes to disk or uploads: the CSRF token
 /// a real sync needs for uploads is not even fetched.
 pub fn preview(
-    config_dir: &Path,
-    root: &Path,
-    live: &BTreeSet<String>,
+    config_dir: &Path, root: &Path, live: &BTreeSet<String>,
 ) -> Result<OverleafPreview, String> {
     let session = load_session(config_dir)?;
     let mut state = load_state(root)?;
@@ -4060,28 +3699,18 @@ pub fn preview(
         ));
     }
     for path in &plan.delete_local {
-        changes.push(preview_change(
-            path,
-            "deleteLocal",
-            local.get(path).map(Vec::as_slice),
-            None,
-        ));
+        changes.push(preview_change(path, "deleteLocal", local.get(path).map(Vec::as_slice), None));
     }
     for path in &plan.skipped_remote_deletes {
         changes.push(preview_change(path, "skippedRemoteDelete", None, None));
     }
     changes.sort_by(|a, b| {
-        change_kind_rank(&a.kind)
-            .cmp(&change_kind_rank(&b.kind))
-            .then_with(|| a.path.cmp(&b.path))
+        change_kind_rank(&a.kind).cmp(&change_kind_rank(&b.kind)).then_with(|| a.path.cmp(&b.path))
     });
 
     let client = http_client(30)?;
     let remote_version = fetch_remote_version(&client, &host, &session.cookie, &state.project_id);
-    Ok(OverleafPreview {
-        changes,
-        remote_version,
-    })
+    Ok(OverleafPreview { changes, remote_version })
 }
 
 // ---- Tests -------------------------------------------------------------------
@@ -4111,11 +3740,7 @@ mod tests {
         let (_, _, _, user_id) = realtime_config(&config, &root).expect("a linked project");
         let user_id = user_id.expect("our own Overleaf account id");
         println!("account id: {user_id}");
-        assert_eq!(
-            user_id.len(),
-            24,
-            "an Overleaf account id is a Mongo ObjectId"
-        );
+        assert_eq!(user_id.len(), 24, "an Overleaf account id is a Mongo ObjectId");
 
         for on in [true, false] {
             set_track_changes(&config, &root, serde_json::json!({ &user_id: on }))
@@ -4168,10 +3793,7 @@ mod tests {
         let doc_edit = serde_json::json!({
             "fromV": 65, "toV": 67, "pathnames": ["neurips_2026.tex"], "labels": [],
         });
-        assert_eq!(
-            update_paths(&doc_edit),
-            vec!["neurips_2026.tex".to_string()]
-        );
+        assert_eq!(update_paths(&doc_edit), vec!["neurips_2026.tex".to_string()]);
 
         let upload = serde_json::json!({
             "fromV": 43, "toV": 45, "pathnames": [], "labels": [],
@@ -4182,10 +3804,7 @@ mod tests {
         });
         assert_eq!(
             update_paths(&upload),
-            vec![
-                "figures/loss.png".to_string(),
-                "figures/old.png".to_string()
-            ],
+            vec!["figures/loss.png".to_string(), "figures/old.png".to_string()],
         );
 
         // A rename is listed under where the file ended up, and a path that
@@ -4197,10 +3816,7 @@ mod tests {
                 { "atV": 3, "add": { "pathname": "main.tex" } },
             ],
         });
-        assert_eq!(
-            update_paths(&mixed),
-            vec!["main.tex".to_string(), "final.tex".to_string()],
-        );
+        assert_eq!(update_paths(&mixed), vec!["main.tex".to_string(), "final.tex".to_string()],);
     }
 
     #[test]
@@ -4210,36 +3826,21 @@ mod tests {
         // equality check drops it.
         assert!(cookie_domain_matches(".overleaf.com", "www.overleaf.com"));
         assert!(cookie_domain_matches("overleaf.com", "www.overleaf.com"));
-        assert!(cookie_domain_matches(
-            "www.overleaf.com",
-            "www.overleaf.com"
-        ));
+        assert!(cookie_domain_matches("www.overleaf.com", "www.overleaf.com"));
         assert!(cookie_domain_matches("Overleaf.com", "WWW.Overleaf.com"));
-        assert!(cookie_domain_matches(
-            "latex.example.edu",
-            "latex.example.edu"
-        ));
+        assert!(cookie_domain_matches("latex.example.edu", "latex.example.edu"));
         // Must not leak cookies across unrelated sites.
         assert!(!cookie_domain_matches("evil.com", "www.overleaf.com"));
-        assert!(!cookie_domain_matches(
-            "notoverleaf.com",
-            "www.overleaf.com"
-        ));
+        assert!(!cookie_domain_matches("notoverleaf.com", "www.overleaf.com"));
         assert!(!cookie_domain_matches("www.overleaf.com", "overleaf.com"));
         assert!(!cookie_domain_matches("", "www.overleaf.com"));
     }
 
     #[test]
     fn session_cookie_detection_accepts_cloud_and_self_hosted_names() {
-        assert!(has_session_cookie(&[
-            "GCLB".to_string(),
-            "overleaf_session2".to_string()
-        ]));
+        assert!(has_session_cookie(&["GCLB".to_string(), "overleaf_session2".to_string()]));
         assert!(has_session_cookie(&["sharelatex.sid".to_string()]));
-        assert!(!has_session_cookie(&[
-            "GCLB".to_string(),
-            "_ga".to_string()
-        ]));
+        assert!(!has_session_cookie(&["GCLB".to_string(), "_ga".to_string()]));
     }
 
     #[derive(Debug, Clone)]
@@ -4276,11 +3877,7 @@ mod tests {
     }
 
     fn header_value(request: &tiny_http::Request, name: &'static str) -> Option<String> {
-        request
-            .headers()
-            .iter()
-            .find(|h| h.field.equiv(name))
-            .map(|h| h.value.as_str().to_string())
+        request.headers().iter().find(|h| h.field.equiv(name)).map(|h| h.value.as_str().to_string())
     }
 
     fn start_server(html: String, zip_bytes: Vec<u8>) -> MockServer {
@@ -4294,19 +3891,13 @@ mod tests {
     }
 
     fn start_server_versioned_with_upload_failure(
-        html: String,
-        zip_bytes: Vec<u8>,
-        versions: Vec<i64>,
-        fail_upload_at: Option<usize>,
+        html: String, zip_bytes: Vec<u8>, versions: Vec<i64>, fail_upload_at: Option<usize>,
     ) -> MockServer {
         start_server_with_failures(html, zip_bytes, versions, fail_upload_at, false)
     }
 
     fn start_server_with_failures(
-        html: String,
-        zip_bytes: Vec<u8>,
-        versions: Vec<i64>,
-        fail_upload_at: Option<usize>,
+        html: String, zip_bytes: Vec<u8>, versions: Vec<i64>, fail_upload_at: Option<usize>,
         fail_relocation: bool,
     ) -> MockServer {
         let server = tiny_http::Server::http("127.0.0.1:0").expect("bind mock server");
@@ -4403,10 +3994,7 @@ mod tests {
                 let _ = outcome;
             }
         });
-        MockServer {
-            base: format!("http://127.0.0.1:{port}"),
-            requests,
-        }
+        MockServer { base: format!("http://127.0.0.1:{port}"), requests }
     }
 
     fn attr(json: &str) -> String {
@@ -4466,9 +4054,7 @@ mod tests {
     fn build_zip(entries: &[(&str, &[u8])]) -> Vec<u8> {
         let mut writer = zip::ZipWriter::new(std::io::Cursor::new(Vec::new()));
         for (name, data) in entries {
-            writer
-                .start_file(*name, zip::write::SimpleFileOptions::default())
-                .unwrap();
+            writer.start_file(*name, zip::write::SimpleFileOptions::default()).unwrap();
             writer.write_all(data).unwrap();
         }
         writer.finish().unwrap().into_inner()
@@ -4496,10 +4082,8 @@ mod tests {
     }
 
     fn temp_dir(label: &str) -> PathBuf {
-        let dir = std::env::temp_dir().join(format!(
-            "overleaf-rs-test-{label}-{}",
-            uuid::Uuid::new_v4().simple()
-        ));
+        let dir = std::env::temp_dir()
+            .join(format!("overleaf-rs-test-{label}-{}", uuid::Uuid::new_v4().simple()));
         fs::create_dir_all(&dir).unwrap();
         dir
     }
@@ -4532,10 +4116,7 @@ mod tests {
         assert!(link.paused);
         assert_eq!(link.project_id, "proj-1");
         let paused_state = load_state(&root).unwrap();
-        assert_eq!(
-            paused_state.files.get("main.tex").map(String::as_str),
-            Some("abc123")
-        );
+        assert_eq!(paused_state.files.get("main.tex").map(String::as_str), Some("abc123"));
         assert_eq!(paused_state.remote_version, Some(42));
         assert_eq!(
             read_base_copy(&root, "main.tex").as_deref(),
@@ -4588,20 +4169,12 @@ mod tests {
         assert_eq!(target.kind, "occupied");
         assert_eq!(target.folder, "Attention Paper");
 
-        let adopted = adopt_project(
-            &config,
-            "proj-1",
-            "Attention Paper",
-            &root,
-            Some("readAndWrite"),
-        )
-        .unwrap();
+        let adopted =
+            adopt_project(&config, "proj-1", "Attention Paper", &root, Some("readAndWrite"))
+                .unwrap();
         assert_eq!(adopted, root);
         // The edit is untouched — adopting links, it does not download over it.
-        assert_eq!(
-            fs::read_to_string(root.join("main.tex")).unwrap(),
-            "edited after unlinking\n"
-        );
+        assert_eq!(fs::read_to_string(root.join("main.tex")).unwrap(), "edited after unlinking\n");
         // No common ancestor is claimed, which is what makes the first sync
         // treat a file that differs as a conflict instead of picking a winner.
         let state = load_state(&root).unwrap();
@@ -4611,19 +4184,9 @@ mod tests {
         assert_eq!(state.last_sync, None);
 
         // Now that it is linked, opening it again just opens it.
-        assert_eq!(
-            clone_target("proj-1", "Attention Paper", &parent)
-                .unwrap()
-                .kind,
-            "open"
-        );
+        assert_eq!(clone_target("proj-1", "Attention Paper", &parent).unwrap().kind, "open");
         // A different project of the same name is still a separate folder.
-        assert_eq!(
-            clone_target("proj-2", "Attention Paper", &parent)
-                .unwrap()
-                .kind,
-            "occupied"
-        );
+        assert_eq!(clone_target("proj-2", "Attention Paper", &parent).unwrap().kind, "occupied");
 
         let _ = fs::remove_dir_all(parent);
         let _ = fs::remove_dir_all(config);
@@ -4632,19 +4195,9 @@ mod tests {
     #[test]
     fn an_empty_or_absent_folder_is_a_plain_download() {
         let parent = temp_dir("fresh-target");
-        assert_eq!(
-            clone_target("proj-1", "Attention Paper", &parent)
-                .unwrap()
-                .kind,
-            "fresh"
-        );
+        assert_eq!(clone_target("proj-1", "Attention Paper", &parent).unwrap().kind, "fresh");
         fs::create_dir_all(parent.join("Attention Paper")).unwrap();
-        assert_eq!(
-            clone_target("proj-1", "Attention Paper", &parent)
-                .unwrap()
-                .kind,
-            "fresh"
-        );
+        assert_eq!(clone_target("proj-1", "Attention Paper", &parent).unwrap().kind, "fresh");
         let _ = fs::remove_dir_all(parent);
     }
 
@@ -4665,10 +4218,7 @@ mod tests {
     /// A linked local project: files on disk plus a state file whose hashes
     /// describe the given base contents.
     fn seed_linked_project(
-        root: &Path,
-        host: &str,
-        local_files: &[(&str, &[u8])],
-        base_files: &[(&str, &[u8])],
+        root: &Path, host: &str, local_files: &[(&str, &[u8])], base_files: &[(&str, &[u8])],
     ) {
         for (rel, data) in local_files {
             let path = local_disk_path(root, rel);
@@ -4680,10 +4230,8 @@ mod tests {
         for (rel, data) in base_files {
             write_base_copy(root, rel, data).unwrap();
         }
-        let files = base_files
-            .iter()
-            .map(|(rel, data)| (rel.to_string(), sha256_hex(data)))
-            .collect();
+        let files =
+            base_files.iter().map(|(rel, data)| (rel.to_string(), sha256_hex(data))).collect();
         save_state(
             root,
             &SyncState {
@@ -4791,10 +4339,8 @@ mod tests {
         let plan = plan_sync(&root, &after, &remote, &local, &BTreeSet::new(), "test").unwrap();
         assert!(plan.conflict.is_empty());
         assert_eq!(plan.push, vec!["main.tex"]);
-        let peer = BTreeMap::from([(
-            "main.tex".to_string(),
-            b"A peer replaced the ending.\n".to_vec(),
-        )]);
+        let peer =
+            BTreeMap::from([("main.tex".to_string(), b"A peer replaced the ending.\n".to_vec())]);
         assert_eq!(
             plan_sync(&root, &after, &peer, &local, &BTreeSet::new(), "test")
                 .unwrap()
@@ -4881,16 +4427,11 @@ mod tests {
             pending_relocations: Vec::new(),
         };
 
-        assert_eq!(
-            sync_host(&state, &session).unwrap(),
-            "https://overleaf.example"
-        );
+        assert_eq!(sync_host(&state, &session).unwrap(), "https://overleaf.example");
     }
 
     fn run_sync(
-        server: &MockServer,
-        local: &[(&str, &[u8])],
-        base: &[(&str, &[u8])],
+        server: &MockServer, local: &[(&str, &[u8])], base: &[(&str, &[u8])],
     ) -> (PathBuf, OverleafSyncResult) {
         let config = temp_dir("config");
         let root = temp_dir("project");
@@ -4902,9 +4443,7 @@ mod tests {
 
     /// A linked project plus its session, ready for a sync or a preview.
     fn seed_preview_project(
-        server: &MockServer,
-        local: &[(&str, &[u8])],
-        base: &[(&str, &[u8])],
+        server: &MockServer, local: &[(&str, &[u8])], base: &[(&str, &[u8])],
     ) -> (PathBuf, PathBuf) {
         let config = temp_dir("preview-config");
         let root = temp_dir("preview-project");
@@ -4914,9 +4453,7 @@ mod tests {
     }
 
     fn run_preview(
-        server: &MockServer,
-        local: &[(&str, &[u8])],
-        base: &[(&str, &[u8])],
+        server: &MockServer, local: &[(&str, &[u8])], base: &[(&str, &[u8])],
     ) -> (PathBuf, OverleafPreview) {
         let (config, root) = seed_preview_project(server, local, base);
         let result = preview(&config, &root, &BTreeSet::new()).unwrap();
@@ -4946,12 +4483,7 @@ mod tests {
     fn authoritative(path: &str, bytes: &[u8]) -> OverleafAuthoritativeEntry {
         OverleafAuthoritativeEntry {
             path: path.to_string(),
-            kind: if std::str::from_utf8(bytes).is_ok() {
-                "text"
-            } else {
-                "binary"
-            }
-            .to_string(),
+            kind: if std::str::from_utf8(bytes).is_ok() { "text" } else { "binary" }.to_string(),
             base64: encode_base64(bytes),
         }
     }
@@ -4979,11 +4511,7 @@ mod tests {
         assert_eq!(read_local(&root, "main.tex").unwrap(), base);
         assert_eq!(fs::read(state_path(&root)).unwrap(), state_before);
         assert_eq!(read_base_copy(&root, "main.tex").unwrap(), base_before);
-        let action = prepared
-            .actions
-            .iter()
-            .find(|action| action.path == "main.tex")
-            .unwrap();
+        let action = prepared.actions.iter().find(|action| action.path == "main.tex").unwrap();
         assert!(!action.outgoing);
 
         let result = commit_prepared_sync(
@@ -4999,14 +4527,8 @@ mod tests {
 
         assert_eq!(result.pulled, vec!["main.tex"]);
         assert!(server.uploads()[0].body_text().contains("peer note"));
-        assert_eq!(
-            state_files(&root).get("main.tex"),
-            Some(&sha256_hex(canonical))
-        );
-        assert_eq!(
-            read_base_copy(&root, "main.tex").unwrap(),
-            "remote body\npeer note"
-        );
+        assert_eq!(state_files(&root).get("main.tex"), Some(&sha256_hex(canonical)));
+        assert_eq!(read_base_copy(&root, "main.tex").unwrap(), "remote body\npeer note");
         // Staged sync never treats disk as authoritative or rewrites it itself.
         assert_eq!(read_local(&root, "main.tex").unwrap(), base);
     }
@@ -5105,11 +4627,7 @@ mod tests {
             None,
         )
         .unwrap();
-        let action = prepared
-            .actions
-            .iter()
-            .find(|action| action.outgoing)
-            .unwrap();
+        let action = prepared.actions.iter().find(|action| action.outgoing).unwrap();
         let result = commit_prepared_sync(
             &config,
             &root,
@@ -5142,11 +4660,7 @@ mod tests {
             None,
         )
         .unwrap();
-        let main = prepared
-            .actions
-            .iter()
-            .find(|action| action.path == "main.tex")
-            .unwrap();
+        let main = prepared.actions.iter().find(|action| action.path == "main.tex").unwrap();
 
         let error = commit_prepared_sync(
             &config,
@@ -5184,10 +4698,7 @@ mod tests {
         let prepared = prepare_sync(
             &config,
             &root,
-            &[
-                authoritative("a.tex", local_a),
-                authoritative("b.tex", local_b),
-            ],
+            &[authoritative("a.tex", local_a), authoritative("b.tex", local_b)],
             &BTreeSet::new(),
             None,
         )
@@ -5240,18 +4751,9 @@ mod tests {
 
         finalize_base_copies(&root, &previous, &next, &remote).unwrap();
 
-        assert_eq!(
-            read_base_copy(&root, "pulled.tex").as_deref(),
-            Some("new remote")
-        );
-        assert_eq!(
-            read_base_copy(&root, "conflict.tex").as_deref(),
-            Some("remote side")
-        );
-        assert_eq!(
-            read_base_copy(&root, "held.tex").as_deref(),
-            Some("old ancestor")
-        );
+        assert_eq!(read_base_copy(&root, "pulled.tex").as_deref(), Some("new remote"));
+        assert_eq!(read_base_copy(&root, "conflict.tex").as_deref(), Some("remote side"));
+        assert_eq!(read_base_copy(&root, "held.tex").as_deref(), Some("old ancestor"));
     }
 
     // ---- session + project list ------------------------------------------
@@ -5278,11 +4780,7 @@ mod tests {
         {
             use std::os::unix::fs::PermissionsExt;
             assert_eq!(
-                fs::metadata(session_path(&config))
-                    .unwrap()
-                    .permissions()
-                    .mode()
-                    & 0o777,
+                fs::metadata(session_path(&config)).unwrap().permissions().mode() & 0o777,
                 0o600,
             );
         }
@@ -5294,12 +4792,9 @@ mod tests {
     fn overleaf_store_session_cookie_validates_and_persists() {
         let server = start_server(projects_page_html(), Vec::new());
         let config = temp_dir("store-session");
-        let status = store_session_cookie(
-            &config,
-            &server.base,
-            "overleaf_session2=abc123; GCLB=balancer",
-        )
-        .unwrap();
+        let status =
+            store_session_cookie(&config, &server.base, "overleaf_session2=abc123; GCLB=balancer")
+                .unwrap();
         assert!(status.connected);
         assert_eq!(status.email.as_deref(), Some("researcher@example.edu"));
         assert_eq!(status.name.as_deref(), Some("Robin Researcher"));
@@ -5322,11 +4817,7 @@ mod tests {
         {
             use std::os::unix::fs::PermissionsExt;
             assert_eq!(
-                fs::metadata(session_path(&config))
-                    .unwrap()
-                    .permissions()
-                    .mode()
-                    & 0o777,
+                fs::metadata(session_path(&config)).unwrap().permissions().mode() & 0o777,
                 0o600,
             );
         }
@@ -5349,18 +4840,12 @@ mod tests {
         assert_eq!(projects[2].id, "proj-old");
         assert_eq!(projects[0].name, "New Paper");
         assert_eq!(projects[0].access_level.as_deref(), Some("readAndWrite"));
-        assert_eq!(
-            projects[0].owner_email.as_deref(),
-            Some("advisor@example.edu")
-        );
+        assert_eq!(projects[0].owner_email.as_deref(), Some("advisor@example.edu"));
         assert_eq!(projects[0].owner_name.as_deref(), Some("Ada Advisor"));
         assert!(projects[1].archived);
         assert!(!projects[1].trashed);
         assert!(!projects[0].archived);
-        assert_eq!(
-            projects[2].last_updated.as_deref(),
-            Some("2026-01-02T10:00:00.000Z")
-        );
+        assert_eq!(projects[2].last_updated.as_deref(), Some("2026-01-02T10:00:00.000Z"));
     }
 
     #[test]
@@ -5390,10 +4875,7 @@ mod tests {
             .find(|request| request.method == "POST" && request.url == "/project/new/upload")
             .expect("project upload request");
         assert_eq!(request.csrf_header.as_deref(), Some(CSRF));
-        assert_eq!(
-            request.cookie_header.as_deref(),
-            Some("overleaf_session2=fixture-cookie")
-        );
+        assert_eq!(request.cookie_header.as_deref(), Some("overleaf_session2=fixture-cookie"));
         let body = request.body_text();
         assert!(body.contains("name=\"name\""));
         assert!(body.contains("Local Paper.zip"));
@@ -5411,10 +4893,7 @@ mod tests {
             state.files.get("main.tex").map(String::as_str),
             Some(sha256_hex(b"local body").as_str())
         );
-        assert_eq!(
-            read_base_copy(&root, "main.tex").as_deref(),
-            Some("local body")
-        );
+        assert_eq!(read_base_copy(&root, "main.tex").as_deref(), Some("local body"));
         assert!(read_base_copy(&root, "figures/plot.pdf").is_none());
     }
 
@@ -5427,14 +4906,8 @@ mod tests {
             ("refs.bib", b"@article{a}".as_slice()),
             ("figures/fig1.pdf", b"%PDF-1.5 fake".as_slice()),
             ("nested/chapter.tex", b"\\section{One}".as_slice()),
-            (
-                "lambda_gpu_proposal.bbl-SAVE-ERROR",
-                b"failed bibliography output".as_slice(),
-            ),
-            (
-                "tmp/pdfs/full-appendix/page-01.png",
-                b"temporary preview".as_slice(),
-            ),
+            ("lambda_gpu_proposal.bbl-SAVE-ERROR", b"failed bibliography output".as_slice()),
+            ("tmp/pdfs/full-appendix/page-01.png", b"temporary preview".as_slice()),
         ]);
         let server = start_server(projects_page_html(), zip);
         let config = temp_dir("clone-config");
@@ -5443,18 +4916,9 @@ mod tests {
 
         let root = clone_project(&config, "proj-1", "Test: Project", &parent, None).unwrap();
         assert_eq!(root, parent.join("Test- Project"));
-        assert_eq!(
-            read_local(&root, "main.tex").unwrap(),
-            b"\\documentclass{article}"
-        );
-        assert_eq!(
-            read_local(&root, "nested/chapter.tex").unwrap(),
-            b"\\section{One}"
-        );
-        assert_eq!(
-            read_local(&root, "figures/fig1.pdf").unwrap(),
-            b"%PDF-1.5 fake"
-        );
+        assert_eq!(read_local(&root, "main.tex").unwrap(), b"\\documentclass{article}");
+        assert_eq!(read_local(&root, "nested/chapter.tex").unwrap(), b"\\section{One}");
+        assert_eq!(read_local(&root, "figures/fig1.pdf").unwrap(), b"%PDF-1.5 fake");
         assert!(read_local(&root, "lambda_gpu_proposal.bbl-SAVE-ERROR").is_none());
         assert!(read_local(&root, "tmp/pdfs/full-appendix/page-01.png").is_none());
 
@@ -5489,19 +4953,14 @@ mod tests {
 
     #[test]
     fn reopening_a_clone_clears_a_stale_writable_permission_when_role_is_unknown() {
-        let server = start_server(
-            projects_page_html(),
-            build_zip(&[("main.tex", b"body".as_slice())]),
-        );
+        let server =
+            start_server(projects_page_html(), build_zip(&[("main.tex", b"body".as_slice())]));
         let config = temp_dir("clone-permission-config");
         let parent = temp_dir("clone-permission-parent");
         write_session_file(&config, &server.base);
         let root =
             clone_project(&config, "proj-1", "Permission Test", &parent, Some("owner")).unwrap();
-        assert_eq!(
-            load_state(&root).unwrap().permission.as_deref(),
-            Some("owner")
-        );
+        assert_eq!(load_state(&root).unwrap().permission.as_deref(), Some("owner"));
 
         let reopened = clone_project(&config, "proj-1", "Permission Test", &parent, None).unwrap();
 
@@ -5562,10 +5021,7 @@ mod tests {
         assert!(result.pushed.is_empty());
         assert!(result.conflicts.is_empty());
         assert_eq!(read_local(&root, "main.tex").unwrap(), b"new remote body");
-        assert_eq!(
-            state_files(&root).get("main.tex").unwrap(),
-            &sha256_hex(b"new remote body")
-        );
+        assert_eq!(state_files(&root).get("main.tex").unwrap(), &sha256_hex(b"new remote body"));
         assert!(server.uploads().is_empty());
     }
 
@@ -5636,10 +5092,7 @@ mod tests {
         // Untouched on disk: the editor buffer owns it while the channel is up.
         assert_eq!(read_local(&root, "main.tex").unwrap(), b"local body");
         // Its recorded base survives, so a later sync can still merge it.
-        assert_eq!(
-            state_files(&root).get("main.tex").unwrap(),
-            &sha256_hex(base)
-        );
+        assert_eq!(state_files(&root).get("main.tex").unwrap(), &sha256_hex(base));
         // Everything else syncs as usual.
         assert_eq!(result.pulled, vec!["notes.tex"]);
     }
@@ -5652,11 +5105,8 @@ mod tests {
             projects_page_html(),
             build_zip(&[("main.tex", b"remote edit".as_slice())]),
         );
-        let (root, result) = run_sync(
-            &server,
-            &[("main.tex", b"local edit".as_slice())],
-            &[("main.tex", base)],
-        );
+        let (root, result) =
+            run_sync(&server, &[("main.tex", b"local edit".as_slice())], &[("main.tex", base)]);
         assert_eq!(result.conflicts.len(), 1);
         let conflict = &result.conflicts[0];
         assert_eq!(conflict.path, "main.tex");
@@ -5668,10 +5118,7 @@ mod tests {
         assert!(merged.contains("local edit"));
         assert!(merged.contains("remote edit"));
         // …and the untouched local version survives beside it.
-        assert_eq!(
-            read_local(&root, &conflict.local_copy).unwrap(),
-            b"local edit"
-        );
+        assert_eq!(read_local(&root, &conflict.local_copy).unwrap(), b"local edit");
         // Conflicted files are never uploaded in the same round.
         assert!(server.uploads().is_empty());
         assert!(result.pushed.is_empty());
@@ -5685,15 +5132,10 @@ mod tests {
         let base = "\\section{One}\nalpha\n\n\\section{Two}\nbeta\n";
         let remote = "\\section{One}\nALPHA from Overleaf\n\n\\section{Two}\nbeta\n";
         let local = "\\section{One}\nalpha\n\n\\section{Two}\nBETA edited locally\n";
-        let server = start_server(
-            projects_page_html(),
-            build_zip(&[("main.tex", remote.as_bytes())]),
-        );
-        let (root, result) = run_sync(
-            &server,
-            &[("main.tex", local.as_bytes())],
-            &[("main.tex", base.as_bytes())],
-        );
+        let server =
+            start_server(projects_page_html(), build_zip(&[("main.tex", remote.as_bytes())]));
+        let (root, result) =
+            run_sync(&server, &[("main.tex", local.as_bytes())], &[("main.tex", base.as_bytes())]);
 
         assert!(result.conflicts.is_empty());
         assert_eq!(result.merged, vec!["main.tex"]);
@@ -5711,10 +5153,7 @@ mod tests {
         assert!(body.contains("BETA edited locally"));
 
         // Both sides now agree, and that agreement is the next merge base.
-        assert_eq!(
-            state_files(&root).get("main.tex").unwrap(),
-            &sha256_hex(merged.as_bytes())
-        );
+        assert_eq!(state_files(&root).get("main.tex").unwrap(), &sha256_hex(merged.as_bytes()));
         assert_eq!(read_base_copy(&root, "main.tex").unwrap(), merged);
     }
 
@@ -5730,11 +5169,8 @@ mod tests {
             // First read (our snapshot), second read (just before uploading).
             vec![11, 12],
         );
-        let (root, result) = run_sync(
-            &server,
-            &[("main.tex", b"locally edited".as_slice())],
-            &[("main.tex", base)],
-        );
+        let (root, result) =
+            run_sync(&server, &[("main.tex", b"locally edited".as_slice())], &[("main.tex", base)]);
         assert!(result.pushed.is_empty());
         assert!(server.uploads().is_empty());
         // Dropped from state, so the very next sync re-detects the local edit
@@ -5753,12 +5189,7 @@ mod tests {
         let config = temp_dir("history-fallback-config");
         let root = temp_dir("history-fallback-project");
         write_session_file(&config, &server.base);
-        seed_linked_project(
-            &root,
-            &server.base,
-            &[("main.tex", base)],
-            &[("main.tex", base)],
-        );
+        seed_linked_project(&root, &server.base, &[("main.tex", base)], &[("main.tex", base)]);
         let mut state = load_state(&root).unwrap();
         state.remote_version = Some(42);
         save_state(&root, &state).unwrap();
@@ -5789,12 +5220,7 @@ mod tests {
         let config = temp_dir("snapshot-version-config");
         let root = temp_dir("snapshot-version-project");
         write_session_file(&config, &server.base);
-        seed_linked_project(
-            &root,
-            &server.base,
-            &[("main.tex", base)],
-            &[("main.tex", base)],
-        );
+        seed_linked_project(&root, &server.base, &[("main.tex", base)], &[("main.tex", base)]);
 
         let result = sync(&config, &root, &BTreeSet::new(), None).unwrap();
 
@@ -5817,11 +5243,8 @@ mod tests {
             build_zip(&[("main.tex", base)]),
             vec![11, 11, 12],
         );
-        let (root, result) = run_sync(
-            &server,
-            &[("main.tex", b"locally edited".as_slice())],
-            &[("main.tex", base)],
-        );
+        let (root, result) =
+            run_sync(&server, &[("main.tex", b"locally edited".as_slice())], &[("main.tex", base)]);
 
         assert_eq!(result.pushed, vec!["main.tex"]);
         assert_eq!(state_remote_version(&root), None);
@@ -5854,10 +5277,7 @@ mod tests {
         seed_linked_project(
             &root,
             &server.base,
-            &[
-                ("a.tex", b"edited a".as_slice()),
-                ("b.tex", b"edited b".as_slice()),
-            ],
+            &[("a.tex", b"edited a".as_slice()), ("b.tex", b"edited b".as_slice())],
             &[("a.tex", base_a), ("b.tex", base_b)],
         );
 
@@ -5883,17 +5303,11 @@ mod tests {
             build_zip(&[("main.tex", base)]),
             vec![11],
         );
-        let (root, result) = run_sync(
-            &server,
-            &[("main.tex", b"locally edited".as_slice())],
-            &[("main.tex", base)],
-        );
+        let (root, result) =
+            run_sync(&server, &[("main.tex", b"locally edited".as_slice())], &[("main.tex", base)]);
         assert_eq!(result.pushed, vec!["main.tex"]);
         assert_eq!(server.uploads().len(), 1);
-        assert_eq!(
-            state_files(&root).get("main.tex").unwrap(),
-            &sha256_hex(b"locally edited")
-        );
+        assert_eq!(state_files(&root).get("main.tex").unwrap(), &sha256_hex(b"locally edited"));
     }
 
     #[test]
@@ -5901,15 +5315,10 @@ mod tests {
         // A file still carrying markers must not be published to collaborators.
         let base = "alpha\n";
         let local = format!("{CONFLICT_MARKER} ours\nmine\n=======\ntheirs\n>>>>>>> theirs\n");
-        let server = start_server(
-            projects_page_html(),
-            build_zip(&[("main.tex", base.as_bytes())]),
-        );
-        let (root, result) = run_sync(
-            &server,
-            &[("main.tex", local.as_bytes())],
-            &[("main.tex", base.as_bytes())],
-        );
+        let server =
+            start_server(projects_page_html(), build_zip(&[("main.tex", base.as_bytes())]));
+        let (root, result) =
+            run_sync(&server, &[("main.tex", local.as_bytes())], &[("main.tex", base.as_bytes())]);
         assert!(result.pushed.is_empty());
         assert!(server.uploads().is_empty());
         // Left out of state, so it uploads as soon as the markers are gone.
@@ -5931,14 +5340,8 @@ mod tests {
         );
         assert!(result.merged.is_empty());
         assert_eq!(result.conflicts.len(), 1);
-        assert_eq!(
-            read_local(&root, "figures/fig.pdf").unwrap(),
-            b"%PDF remote"
-        );
-        assert_eq!(
-            read_local(&root, &result.conflicts[0].local_copy).unwrap(),
-            b"%PDF local"
-        );
+        assert_eq!(read_local(&root, "figures/fig.pdf").unwrap(), b"%PDF remote");
+        assert_eq!(read_local(&root, &result.conflicts[0].local_copy).unwrap(), b"%PDF local");
         // A figure has no spots to work through, so the app must not tell
         // anyone to resolve them or open a marker resolver on it.
         assert!(!result.conflicts[0].markers);
@@ -5949,17 +5352,11 @@ mod tests {
         let base = b"body".as_slice();
         let server = start_server(
             projects_page_html(),
-            build_zip(&[
-                ("main.tex", base),
-                ("figures/fig2.pdf", b"%PDF new figure".as_slice()),
-            ]),
+            build_zip(&[("main.tex", base), ("figures/fig2.pdf", b"%PDF new figure".as_slice())]),
         );
         let (root, result) = run_sync(&server, &[("main.tex", base)], &[("main.tex", base)]);
         assert_eq!(result.pulled, vec!["figures/fig2.pdf"]);
-        assert_eq!(
-            read_local(&root, "figures/fig2.pdf").unwrap(),
-            b"%PDF new figure"
-        );
+        assert_eq!(read_local(&root, "figures/fig2.pdf").unwrap(), b"%PDF new figure");
         assert!(server.uploads().is_empty());
     }
 
@@ -5969,10 +5366,7 @@ mod tests {
         let server = start_server(projects_page_html(), build_zip(&[("main.tex", base)]));
         let (root, result) = run_sync(
             &server,
-            &[
-                ("main.tex", base),
-                ("nested/new-chapter.tex", b"\\section{New}".as_slice()),
-            ],
+            &[("main.tex", base), ("nested/new-chapter.tex", b"\\section{New}".as_slice())],
             &[("main.tex", base)],
         );
         assert_eq!(result.pushed, vec!["nested/new-chapter.tex"]);
@@ -6027,23 +5421,15 @@ mod tests {
         let server = start_server(projects_page_html(), build_zip(&[("main.tex", base)]));
         let (root, result) = run_sync(
             &server,
-            &[
-                ("main.tex", base),
-                ("old.tex", b"edited after remote delete".as_slice()),
-            ],
+            &[("main.tex", base), ("old.tex", b"edited after remote delete".as_slice())],
             &[("main.tex", base), ("old.tex", b"original".as_slice())],
         );
         assert_eq!(result.pushed, vec!["old.tex"]);
         assert!(result.deleted_local.is_empty());
-        assert_eq!(
-            read_local(&root, "old.tex").unwrap(),
-            b"edited after remote delete"
-        );
+        assert_eq!(read_local(&root, "old.tex").unwrap(), b"edited after remote delete");
         let uploads = server.uploads();
         assert_eq!(uploads.len(), 1);
-        assert!(uploads[0]
-            .body_text()
-            .contains("edited after remote delete"));
+        assert!(uploads[0].body_text().contains("edited after remote delete"));
         assert!(state_files(&root).contains_key("old.tex"));
     }
 
@@ -6053,10 +5439,8 @@ mod tests {
         let root = crate::project::create_blank(&parent, "paper").unwrap();
         fs::remove_file(root.join("references.bib")).unwrap();
         // The download reflects the remote tree after the move endpoint.
-        let server = start_server(
-            projects_page_html(),
-            build_zip(&[("chapters/main.tex", b"body")]),
-        );
+        let server =
+            start_server(projects_page_html(), build_zip(&[("chapters/main.tex", b"body")]));
         let config = temp_dir("move-config");
         write_session_file(&config, &server.base);
         seed_linked_project(
@@ -6067,27 +5451,16 @@ mod tests {
         );
         fs::create_dir_all(root.join("chapters")).unwrap();
         crate::project::move_entry(&root, "main.tex", "chapters").unwrap();
-        sync_relocations(
-            &config,
-            &root,
-            Some(vec![entity("main-id", "main.tex", "doc")]),
-        )
-        .unwrap();
+        sync_relocations(&config, &root, Some(vec![entity("main-id", "main.tex", "doc")])).unwrap();
         let result = sync(&config, &root, &BTreeSet::new(), None).unwrap();
         assert!(
             result.skipped_remote_deletes.is_empty(),
             "a move must not prompt to delete main.tex"
         );
         assert!(!root.join("main.tex").exists());
-        assert_eq!(
-            read_local(&root, "chapters/main.tex").as_deref(),
-            Some(b"body".as_slice())
-        );
-        let mutations: Vec<_> = server
-            .recorded()
-            .into_iter()
-            .filter(|r| r.method == "POST")
-            .collect();
+        assert_eq!(read_local(&root, "chapters/main.tex").as_deref(), Some(b"body".as_slice()));
+        let mutations: Vec<_> =
+            server.recorded().into_iter().filter(|r| r.method == "POST").collect();
         assert_eq!(mutations.len(), 2);
         assert_eq!(mutations[0].url, "/project/proj-1/folder");
         assert_eq!(
@@ -6105,11 +5478,7 @@ mod tests {
     }
 
     fn entity(id: &str, path: &str, kind: &str) -> crate::overleaf_rt::EntityEntry {
-        crate::overleaf_rt::EntityEntry {
-            id: id.into(),
-            path: path.into(),
-            kind: kind.into(),
-        }
+        crate::overleaf_rt::EntityEntry { id: id.into(), path: path.into(), kind: kind.into() }
     }
 
     #[test]
@@ -6152,18 +5521,10 @@ mod tests {
         .unwrap();
         let state = load_state(&root).unwrap();
         assert_eq!(state.files["archive/renamed/main.tex"], sha256_hex(base));
-        assert_eq!(
-            state.files["archive/renamed/plot.png"],
-            sha256_hex(b"\0binary")
-        );
+        assert_eq!(state.files["archive/renamed/plot.png"], sha256_hex(b"\0binary"));
         assert!(state.files.contains_key("chapter-extra.tex"));
         assert!(!state.files.contains_key("chapter/main.tex"));
-        assert_eq!(
-            read_base_copy(&root, "archive/renamed/main.tex")
-                .unwrap()
-                .as_bytes(),
-            base
-        );
+        assert_eq!(read_base_copy(&root, "archive/renamed/main.tex").unwrap().as_bytes(), base);
         let plan = plan_sync(
             &root,
             &state,
@@ -6175,17 +5536,10 @@ mod tests {
         .unwrap();
         assert_eq!(
             plan.merge,
-            vec![(
-                "archive/renamed/main.tex".into(),
-                b"local heading\n\nremote ending\n".to_vec()
-            )]
+            vec![("archive/renamed/main.tex".into(), b"local heading\n\nremote ending\n".to_vec())]
         );
         assert!(plan.conflict.is_empty());
-        let posts: Vec<_> = server
-            .recorded()
-            .into_iter()
-            .filter(|r| r.method == "POST")
-            .collect();
+        let posts: Vec<_> = server.recorded().into_iter().filter(|r| r.method == "POST").collect();
         assert_eq!(posts.len(), 2);
         assert_eq!(posts[0].url, "/project/proj-1/folder/folder-id/rename");
         assert_eq!(
@@ -6214,17 +5568,10 @@ mod tests {
         );
         record_relocation(&root, "main.tex", "renamed.tex").unwrap();
         assert!(sync_relocations(&config, &root, None).is_err());
-        assert!(sync_relocations(
-            &config,
-            &root,
-            Some(vec![entity("main-id", "main.tex", "doc")])
-        )
-        .is_err());
+        assert!(sync_relocations(&config, &root, Some(vec![entity("main-id", "main.tex", "doc")]))
+            .is_err());
         let state = load_state(&root).unwrap();
-        assert_eq!(
-            state.pending_relocations[0].entity_id.as_deref(),
-            Some("main-id")
-        );
+        assert_eq!(state.pending_relocations[0].entity_id.as_deref(), Some("main-id"));
         assert!(plan_sync(
             &root,
             &state,
@@ -6247,14 +5594,7 @@ mod tests {
         .unwrap();
         assert!(load_state(&root).unwrap().pending_relocations.is_empty());
         assert_eq!(state_files(&root)["renamed.tex"], sha256_hex(b"base"));
-        assert_eq!(
-            server
-                .recorded()
-                .iter()
-                .filter(|r| r.method == "POST")
-                .count(),
-            1
-        );
+        assert_eq!(server.recorded().iter().filter(|r| r.method == "POST").count(), 1);
         assert!(server.uploads().is_empty());
     }
 
@@ -6278,12 +5618,8 @@ mod tests {
         let mut state = load_state(&root).unwrap();
         state.permission = Some("readOnly".into());
         save_state(&root, &state).unwrap();
-        assert!(sync_relocations(
-            &config,
-            &root,
-            Some(vec![entity("main-id", "main.tex", "doc")])
-        )
-        .is_err());
+        assert!(sync_relocations(&config, &root, Some(vec![entity("main-id", "main.tex", "doc")]))
+            .is_err());
         assert_eq!(load_state(&root).unwrap().pending_relocations.len(), 1);
         assert!(server.recorded().iter().all(|r| r.method == "GET"));
     }
@@ -6302,20 +5638,12 @@ mod tests {
         );
         record_relocation(&root, "figures/plot.png", "plot.png").unwrap();
         record_relocation(&root, "draft.tex", "new.tex").unwrap();
-        sync_relocations(
-            &config,
-            &root,
-            Some(vec![entity("plot-id", "figures/plot.png", "file")]),
-        )
-        .unwrap();
+        sync_relocations(&config, &root, Some(vec![entity("plot-id", "figures/plot.png", "file")]))
+            .unwrap();
         assert_eq!(state_files(&root)["plot.png"], sha256_hex(b"\0binary"));
         assert!(!state_files(&root).contains_key("new.tex"));
         assert!(load_state(&root).unwrap().pending_relocations.is_empty());
-        let posts: Vec<_> = server
-            .recorded()
-            .into_iter()
-            .filter(|r| r.method == "POST")
-            .collect();
+        let posts: Vec<_> = server.recorded().into_iter().filter(|r| r.method == "POST").collect();
         assert_eq!(posts.len(), 1);
         assert_eq!(posts[0].url, "/project/proj-1/file/plot-id/move");
         assert_eq!(
@@ -6334,10 +5662,7 @@ mod tests {
         assert!(crate::project::move_entry(&root, "main.tex", "chapters").is_err());
         assert!(root.join("main.tex").exists());
         assert!(!root.join("chapters/main.tex").exists());
-        assert_eq!(
-            fs::read(root.join(".research/project.json")).unwrap(),
-            manifest
-        );
+        assert_eq!(fs::read(root.join(".research/project.json")).unwrap(), manifest);
     }
 
     #[test]
@@ -6374,10 +5699,7 @@ mod tests {
                 (".DS_Store", b"finder noise".as_slice()),
                 ("main.pdf", b"%PDF compiled output".as_slice()),
                 ("main.synctex.gz", b"synctex".as_slice()),
-                (
-                    "tmp/pdfs/full-appendix/render-1.png",
-                    b"temporary preview".as_slice(),
-                ),
+                ("tmp/pdfs/full-appendix/render-1.png", b"temporary preview".as_slice()),
             ],
             &[("main.tex", base)],
         );
@@ -6425,9 +5747,7 @@ mod tests {
         assert!(result.pushed.is_empty());
         assert!(read_local(&root, "lambda_gpu_proposal.bbl-SAVE-ERROR").is_none());
         assert!(read_local(&root, "tmp/pdfs/full-appendix/page-01.png").is_none());
-        assert!(!state_files(&root)
-            .keys()
-            .any(|path| path.starts_with("tmp/pdfs/")));
+        assert!(!state_files(&root).keys().any(|path| path.starts_with("tmp/pdfs/")));
     }
 
     // ---- preview (dry run) --------------------------------------------------
@@ -6462,10 +5782,7 @@ mod tests {
         assert_eq!(read_base_copy(&root, "main.tex").unwrap(), base_copy_before);
         // …and never speaks to Overleaf beyond reading.
         assert!(server.uploads().is_empty());
-        assert!(!server
-            .recorded()
-            .iter()
-            .any(|r| r.method != "GET" && r.method != "HEAD"));
+        assert!(!server.recorded().iter().any(|r| r.method != "GET" && r.method != "HEAD"));
     }
 
     #[test]
@@ -6482,23 +5799,13 @@ mod tests {
         );
         let (root, preview) = run_preview(
             &server,
-            &[
-                ("main.tex", main_local.as_bytes()),
-                ("notes.tex", b"local edit".as_slice()),
-            ],
-            &[
-                ("main.tex", main_base.as_bytes()),
-                ("notes.tex", b"base body".as_slice()),
-            ],
+            &[("main.tex", main_local.as_bytes()), ("notes.tex", b"local edit".as_slice())],
+            &[("main.tex", main_base.as_bytes()), ("notes.tex", b"base body".as_slice())],
         );
 
         // Conflicts sort first: they are the rows that need a decision.
         assert_eq!(
-            preview
-                .changes
-                .iter()
-                .map(|c| (c.kind.as_str(), c.path.as_str()))
-                .collect::<Vec<_>>(),
+            preview.changes.iter().map(|c| (c.kind.as_str(), c.path.as_str())).collect::<Vec<_>>(),
             vec![("conflict", "notes.tex"), ("merge", "main.tex")]
         );
 
@@ -6517,10 +5824,7 @@ mod tests {
         assert!(marked.contains("remote edit"));
 
         // Still a dry run: nothing merged onto disk, no sidecar, no upload.
-        assert_eq!(
-            read_local(&root, "main.tex").unwrap(),
-            main_local.as_bytes()
-        );
+        assert_eq!(read_local(&root, "main.tex").unwrap(), main_local.as_bytes());
         assert_eq!(read_local(&root, "notes.tex").unwrap(), b"local edit");
         assert!(server.uploads().is_empty());
     }
@@ -6564,10 +5868,7 @@ mod tests {
         assert_eq!(change.after.as_deref(), Some("locally edited body"));
         assert!(!change.binary);
         assert!(server.uploads().is_empty());
-        assert_eq!(
-            read_local(&root, "main.tex").unwrap(),
-            b"locally edited body"
-        );
+        assert_eq!(read_local(&root, "main.tex").unwrap(), b"locally edited body");
     }
 
     #[test]
@@ -6608,10 +5909,7 @@ mod tests {
         assert_eq!(threads[1].id, "thread-old");
         assert!(threads[1].resolved);
         assert_eq!(threads[1].resolved_by.as_deref(), Some("Robin"));
-        assert_eq!(
-            threads[1].resolved_at.as_deref(),
-            Some("2026-07-01T10:00:00Z")
-        );
+        assert_eq!(threads[1].resolved_at.as_deref(), Some("2026-07-01T10:00:00Z"));
         assert_eq!(threads[1].messages[0].author_name, "Ada Lovelace");
 
         // An Overleaf without the review panel answers with nothing at all.
@@ -6655,18 +5953,10 @@ mod tests {
 
         // A reviewer may comment but not change the text, so the same applies.
         set_permission(&root, "review").unwrap();
-        assert!(
-            sync(&config, &root, &BTreeSet::new(), None)
-                .unwrap()
-                .read_only
-        );
+        assert!(sync(&config, &root, &BTreeSet::new(), None).unwrap().read_only);
         // An account that can write is unaffected.
         set_permission(&root, "readAndWrite").unwrap();
-        assert!(
-            !sync(&config, &root, &BTreeSet::new(), None)
-                .unwrap()
-                .read_only
-        );
+        assert!(!sync(&config, &root, &BTreeSet::new(), None).unwrap().read_only);
     }
 
     #[test]
@@ -6699,10 +5989,8 @@ mod tests {
     fn read_only_pull_refreshes_the_base_before_write_access_returns() {
         let original = b"alpha\nshared middle\nbeta\n".as_slice();
         let first_remote = b"alpha from Overleaf\nshared middle\nbeta\n".as_slice();
-        let first_server = start_server(
-            projects_page_html(),
-            build_zip(&[("main.tex", first_remote)]),
-        );
+        let first_server =
+            start_server(projects_page_html(), build_zip(&[("main.tex", first_remote)]));
         let config = temp_dir("permission-base-config");
         let root = temp_dir("permission-base-project");
         write_session_file(&config, &first_server.base);
@@ -6733,10 +6021,7 @@ mod tests {
         .unwrap();
         let second_server = start_server(
             projects_page_html(),
-            build_zip(&[(
-                "main.tex",
-                b"alpha revised remotely\nshared middle\nbeta\n".as_slice(),
-            )]),
+            build_zip(&[("main.tex", b"alpha revised remotely\nshared middle\nbeta\n".as_slice())]),
         );
         let mut state = load_state(&root).unwrap();
         state.host = second_server.base.clone();
@@ -6776,11 +6061,7 @@ mod tests {
                 update.to_version,
                 update.authors,
                 update.paths,
-                update
-                    .origin
-                    .as_deref()
-                    .map(|kind| format!(" via {kind}"))
-                    .unwrap_or_default()
+                update.origin.as_deref().map(|kind| format!(" via {kind}")).unwrap_or_default()
             );
         }
         assert!(!updates.is_empty(), "a synced project has history");
@@ -6844,12 +6125,8 @@ mod tests {
         assert!(!is_excluded("main.tex"));
         assert!(!is_excluded("nested/chapter.tex"));
         // Conflict copies are ours to hold locally, never the project's.
-        assert!(is_excluded(
-            "neurips_2026 (local conflict 20260724-1308).tex"
-        ));
-        assert!(is_excluded(
-            "nested/paper (local conflict 20260101-0900).tex"
-        ));
+        assert!(is_excluded("neurips_2026 (local conflict 20260724-1308).tex"));
+        assert!(is_excluded("nested/paper (local conflict 20260101-0900).tex"));
         assert!(is_conflict_copy("paper (local conflict 20260101-0900).tex"));
         assert!(!is_conflict_copy("paper.tex"));
         assert!(!is_conflict_copy("local conflict notes.tex"));

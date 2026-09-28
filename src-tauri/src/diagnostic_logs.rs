@@ -27,36 +27,18 @@ struct DiagnosticLogFile {
 
 #[tauri::command]
 pub fn collect_diagnostic_logs(app: tauri::AppHandle) -> Result<DiagnosticLogBundle, String> {
-    let log_root = app
-        .path()
-        .app_log_dir()
-        .map_err(|error| error.to_string())?;
-    let data_root = app
-        .path()
-        .app_data_dir()
-        .map_err(|error| error.to_string())?;
+    let log_root = app.path().app_log_dir().map_err(|error| error.to_string())?;
+    let data_root = app.path().app_data_dir().map_err(|error| error.to_string())?;
     let home = app.path().home_dir().ok();
     let specs = [
-        (
-            "lattice.log",
-            log_root.clone(),
-            PathBuf::from("lattice.log"),
-        ),
-        (
-            "sidecar.log",
-            data_root.clone(),
-            PathBuf::from("synara/lattice-logs/sidecar.log"),
-        ),
+        ("lattice.log", log_root.clone(), PathBuf::from("lattice.log")),
+        ("sidecar.log", data_root.clone(), PathBuf::from("synara/lattice-logs/sidecar.log")),
         (
             "sidecar-error.log",
             data_root.clone(),
             PathBuf::from("synara/lattice-logs/sidecar-error.log"),
         ),
-        (
-            "server.log",
-            data_root,
-            PathBuf::from("synara/userdata/logs/server.log"),
-        ),
+        ("server.log", data_root, PathBuf::from("synara/userdata/logs/server.log")),
     ];
 
     Ok(DiagnosticLogBundle {
@@ -70,10 +52,7 @@ pub fn collect_diagnostic_logs(app: tauri::AppHandle) -> Result<DiagnosticLogBun
 }
 
 fn collect_file(
-    name: &str,
-    root: &Path,
-    relative: &Path,
-    home: Option<&Path>,
+    name: &str, root: &Path, relative: &Path, home: Option<&Path>,
 ) -> DiagnosticLogFile {
     let path = root.join(relative);
     match read_allowed_tail(root, &path) {
@@ -103,12 +82,10 @@ fn read_allowed_tail(root: &Path, path: &Path) -> Result<(String, bool), String>
     if metadata.file_type().is_symlink() || !metadata.is_file() {
         return Err("refused non-regular or symlinked log file".to_string());
     }
-    let canonical_root = root
-        .canonicalize()
-        .map_err(|error| format!("log root unavailable: {error}"))?;
-    let canonical_path = path
-        .canonicalize()
-        .map_err(|error| format!("log unavailable: {error}"))?;
+    let canonical_root =
+        root.canonicalize().map_err(|error| format!("log root unavailable: {error}"))?;
+    let canonical_path =
+        path.canonicalize().map_err(|error| format!("log unavailable: {error}"))?;
     if !canonical_path.starts_with(&canonical_root) {
         return Err("refused log path outside its allowed root".to_string());
     }
@@ -127,15 +104,8 @@ fn read_allowed_tail(root: &Path, path: &Path) -> Result<(String, bool), String>
 
     // A tail can begin in the middle of a UTF-8 scalar. Drop only those leading
     // continuation bytes; malformed bytes elsewhere remain visible as replacement characters.
-    let skip = bytes
-        .iter()
-        .take(3)
-        .take_while(|byte| **byte & 0xc0 == 0x80)
-        .count();
-    Ok((
-        String::from_utf8_lossy(&bytes[skip..]).into_owned(),
-        truncated,
-    ))
+    let skip = bytes.iter().take(3).take_while(|byte| **byte & 0xc0 == 0x80).count();
+    Ok((String::from_utf8_lossy(&bytes[skip..]).into_owned(), truncated))
 }
 
 fn redact(input: &str, home: Option<&Path>) -> String {
@@ -146,28 +116,13 @@ fn redact(input: &str, home: Option<&Path>) -> String {
             r#"(?i)(authorization["']?\s*[:=]\s*["']?(?:bearer|basic)\s+)[^\s,;"']+"#.to_string(),
             "$1[REDACTED]",
         ),
-        (
-            format!(r#"(?i)(\b{keys}["']?\s*[:=]\s*")[^"]*(")"#),
-            "$1[REDACTED]$2",
-        ),
-        (
-            format!(r#"(?i)(\b{keys}["']?\s*[:=]\s*')[^']*(')"#),
-            "$1[REDACTED]$2",
-        ),
-        (
-            format!(r#"(?i)(\b{keys}\s*=\s*)[^\s&;,"']+"#),
-            "$1[REDACTED]",
-        ),
-        (
-            r"(?i)(https?://)[^\s/@:]+:[^\s/@]+@".to_string(),
-            "$1[REDACTED]@",
-        ),
+        (format!(r#"(?i)(\b{keys}["']?\s*[:=]\s*")[^"]*(")"#), "$1[REDACTED]$2"),
+        (format!(r#"(?i)(\b{keys}["']?\s*[:=]\s*')[^']*(')"#), "$1[REDACTED]$2"),
+        (format!(r#"(?i)(\b{keys}\s*=\s*)[^\s&;,"']+"#), "$1[REDACTED]"),
+        (r"(?i)(https?://)[^\s/@:]+:[^\s/@]+@".to_string(), "$1[REDACTED]@"),
     ];
     for (pattern, replacement) in substitutions {
-        output = Regex::new(&pattern)
-            .unwrap()
-            .replace_all(&output, replacement)
-            .into_owned();
+        output = Regex::new(&pattern).unwrap().replace_all(&output, replacement).into_owned();
     }
     if let Some(home) = home.and_then(Path::to_str).filter(|home| !home.is_empty()) {
         output = output.replace(home, "~");

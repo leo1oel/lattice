@@ -15,20 +15,12 @@ use crate::papers::arxiv_base_id;
 pub fn search(query: &str, precise: bool, page: u32) -> Result<LiteraturePage, String> {
     let open = openalex::search_works(query, precise, page + 1)?;
     let has_more = open.len() as u32 >= openalex::PER_PAGE;
-    let alpha = if page == 0 {
-        alphaxiv::search_works(query)
-    } else {
-        Ok(Vec::new())
-    };
-    Ok(LiteraturePage {
-        hits: merge_available(alpha, open),
-        has_more,
-    })
+    let alpha = if page == 0 { alphaxiv::search_works(query) } else { Ok(Vec::new()) };
+    Ok(LiteraturePage { hits: merge_available(alpha, open), has_more })
 }
 
 fn merge_available(
-    alpha: Result<Vec<AlphaxivWork>, String>,
-    open: Vec<OpenAlexWork>,
+    alpha: Result<Vec<AlphaxivWork>, String>, open: Vec<OpenAlexWork>,
 ) -> Vec<LiteratureHit> {
     let alpha = alpha.unwrap_or_else(|error| {
         // alphaXiv is an enrichment source. OpenAlex has already completed at
@@ -58,11 +50,7 @@ fn merge(alpha: Vec<AlphaxivWork>, open: Vec<OpenAlexWork>) -> Vec<LiteratureHit
             .arxiv_id
             .as_deref()
             .map(|id| format!("arxiv:{}", arxiv_base_id(id).to_lowercase()))
-            .or_else(|| {
-                work.doi
-                    .as_deref()
-                    .map(|doi| format!("doi:{}", doi.trim().to_lowercase()))
-            })
+            .or_else(|| work.doi.as_deref().map(|doi| format!("doi:{}", doi.trim().to_lowercase())))
             .unwrap_or_else(|| format!("openalex:{}", work.id.trim().to_lowercase()));
         let title_identity = format!("title:{}", work.title.trim().to_lowercase());
         if seen.contains(&identity) || seen.contains(&title_identity) {
@@ -150,15 +138,9 @@ mod tests {
     fn alphaxiv_leads_and_non_arxiv_openalex_follows() {
         let hits = merge(
             vec![alpha("2401.00001", "Alpha One")],
-            vec![
-                open(None, "No arXiv here"),
-                open(Some("2402.00002"), "Open Two"),
-            ],
+            vec![open(None, "No arXiv here"), open(Some("2402.00002"), "Open Two")],
         );
-        let sources: Vec<_> = hits
-            .iter()
-            .map(|h| (h.source.as_str(), h.title.as_str()))
-            .collect();
+        let sources: Vec<_> = hits.iter().map(|h| (h.source.as_str(), h.title.as_str())).collect();
         assert_eq!(
             sources,
             vec![

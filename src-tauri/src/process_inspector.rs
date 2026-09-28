@@ -39,10 +39,7 @@ pub(crate) fn run_if_requested() {
     let error =
         unsafe { lattice_process_snapshot(i32::from(with_parent), pids.as_ptr(), pids.len()) };
     if error != 0 {
-        eprintln!(
-            "Process snapshot failed: {}",
-            std::io::Error::from_raw_os_error(error)
-        );
+        eprintln!("Process snapshot failed: {}", std::io::Error::from_raw_os_error(error));
         std::process::exit(1);
     }
     std::process::exit(0);
@@ -55,10 +52,7 @@ mod tests {
     #[test]
     fn accepts_only_the_two_synara_snapshot_formats() {
         let args = |values: &[&str]| values.iter().map(|s| s.to_string()).collect::<Vec<_>>();
-        assert_eq!(
-            query(&args(&["-eo", "pid=,ppid=,command="])),
-            Ok((true, vec![]))
-        );
+        assert_eq!(query(&args(&["-eo", "pid=,ppid=,command="])), Ok((true, vec![])));
         assert_eq!(
             query(&args(&["-p", "31,72", "-o", "pid=,command="])),
             Ok((false, vec![31, 72]))

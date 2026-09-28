@@ -68,11 +68,7 @@ fn session_dictionary(project_words: &[String]) -> Arc<MergedDictionary> {
 pub fn lint(text: &str, project_words: &[String]) -> Vec<HarperLintOut> {
     let mut guard = SESSION.lock().unwrap();
     let words_key = project_words.join("\n");
-    if guard
-        .as_ref()
-        .map(|session| session.words_key != words_key)
-        .unwrap_or(true)
-    {
+    if guard.as_ref().map(|session| session.words_key != words_key).unwrap_or(true) {
         let dictionary = session_dictionary(project_words);
         *guard = Some(HarperSession {
             words_key,

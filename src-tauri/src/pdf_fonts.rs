@@ -69,10 +69,7 @@ fn font_metadata(bytes: &[u8]) -> Vec<u8> {
         // Image and page-content streams cannot contain PDF objects, and
         // inflating them made a figure-heavy paper spend tens of seconds and
         // hundreds of MiB on a font check after typesetting had already ended.
-        let dict_start = bytes[..stream_kw]
-            .iter()
-            .rposition(|&b| b == b'<')
-            .unwrap_or(0);
+        let dict_start = bytes[..stream_kw].iter().rposition(|&b| b == b'<').unwrap_or(0);
         let dict = &bytes[dict_start..stream_kw];
         let Some(end_rel) = find_subslice(&bytes[data_start..], b"endstream") else {
             break;
@@ -132,9 +129,7 @@ fn try_inflate(data: &[u8]) -> Option<Vec<u8>> {
 }
 
 fn find_subslice(haystack: &[u8], needle: &[u8]) -> Option<usize> {
-    haystack
-        .windows(needle.len())
-        .position(|window| window == needle)
+    haystack.windows(needle.len()).position(|window| window == needle)
 }
 
 fn contains_ascii_ci(haystack: &[u8], needle: &[u8]) -> bool {
@@ -143,10 +138,7 @@ fn contains_ascii_ci(haystack: &[u8], needle: &[u8]) -> bool {
     }
     let needle_lower: Vec<u8> = needle.iter().map(u8::to_ascii_lowercase).collect();
     haystack.windows(needle.len()).any(|window| {
-        window
-            .iter()
-            .zip(needle_lower.iter())
-            .all(|(a, b)| a.to_ascii_lowercase() == *b)
+        window.iter().zip(needle_lower.iter()).all(|(a, b)| a.to_ascii_lowercase() == *b)
     })
 }
 

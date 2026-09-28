@@ -46,16 +46,11 @@ fn deployment_key(value: &str) -> Result<String, String> {
     {
         return Err("invalid deployment".to_string());
     }
-    Ok(Sha256::digest(value.as_bytes())
-        .iter()
-        .map(|byte| format!("{byte:02x}"))
-        .collect())
+    Ok(Sha256::digest(value.as_bytes()).iter().map(|byte| format!("{byte:02x}")).collect())
 }
 
 fn legacy_entry(
-    credential_ref: &str,
-    project_instance_id: &str,
-    deployment: &str,
+    credential_ref: &str, project_instance_id: &str, deployment: &str,
 ) -> Result<keyring::Entry, String> {
     validate_component(credential_ref, "credential ref")?;
     validate_component(project_instance_id, "project instance id")?;
@@ -71,9 +66,7 @@ fn vault_entry() -> Result<keyring::Entry, String> {
 }
 
 fn vault_lock() -> Result<MutexGuard<'static, ()>, String> {
-    VAULT_LOCK
-        .lock()
-        .map_err(|_| "secure credential store unavailable".to_string())
+    VAULT_LOCK.lock().map_err(|_| "secure credential store unavailable".to_string())
 }
 
 fn read_vault(entry: &keyring::Entry) -> Result<CredentialVault, String> {
@@ -95,10 +88,7 @@ fn write_vault(entry: &keyring::Entry, vault: &CredentialVault) -> Result<(), St
 
 #[tauri::command]
 pub fn put_collab_credential(
-    credential_ref: String,
-    secret: String,
-    project_instance_id: String,
-    deployment: String,
+    credential_ref: String, secret: String, project_instance_id: String, deployment: String,
 ) -> Result<(), String> {
     if secret.is_empty() || secret.len() > MAX_SECRET || secret.contains(['\n', '\r', '\0']) {
         return Err("invalid credential secret".to_string());
@@ -115,9 +105,7 @@ pub fn put_collab_credential(
 
 #[tauri::command]
 pub fn get_collab_credential(
-    credential_ref: String,
-    project_instance_id: String,
-    deployment: String,
+    credential_ref: String, project_instance_id: String, deployment: String,
 ) -> Result<Option<String>, String> {
     validate_component(&credential_ref, "credential ref")?;
     validate_component(&project_instance_id, "project instance id")?;
@@ -146,9 +134,7 @@ pub fn get_collab_credential(
 
 #[tauri::command]
 pub fn delete_collab_credential(
-    credential_ref: String,
-    project_instance_id: String,
-    deployment: String,
+    credential_ref: String, project_instance_id: String, deployment: String,
 ) -> Result<(), String> {
     validate_component(&credential_ref, "credential ref")?;
     validate_component(&project_instance_id, "project instance id")?;
@@ -202,12 +188,8 @@ mod tests {
     #[test]
     fn vault_keeps_multiple_room_credentials_in_one_value() {
         let mut vault = CredentialVault::default();
-        vault
-            .credentials
-            .insert("collab_first".to_string(), "secret-a".to_string());
-        vault
-            .credentials
-            .insert("collab_second".to_string(), "secret-b".to_string());
+        vault.credentials.insert("collab_first".to_string(), "secret-a".to_string());
+        vault.credentials.insert("collab_second".to_string(), "secret-b".to_string());
 
         let encoded = serde_json::to_string(&vault).unwrap();
         let decoded: CredentialVault = serde_json::from_str(&encoded).unwrap();

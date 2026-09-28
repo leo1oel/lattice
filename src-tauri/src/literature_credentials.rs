@@ -70,9 +70,7 @@ pub struct LiteratureCredentialTest {
 }
 
 fn vault_lock() -> Result<MutexGuard<'static, Option<CredentialVault>>, String> {
-    VAULT
-        .lock()
-        .map_err(|_| "secure credential store unavailable".to_string())
+    VAULT.lock().map_err(|_| "secure credential store unavailable".to_string())
 }
 
 #[cfg(not(test))]
@@ -85,9 +83,7 @@ fn entry() -> Result<keyring::Entry, String> {
 fn entry() -> Result<keyring::Entry, String> {
     // Paper-import tests also resolve credentials. Never prompt for or expose
     // the developer's real vault while exercising fake literature tools.
-    Ok(keyring::Entry::new_with_credential(Box::new(
-        keyring::mock::MockCredential::default(),
-    )))
+    Ok(keyring::Entry::new_with_credential(Box::new(keyring::mock::MockCredential::default())))
 }
 
 fn loaded_vault() -> Result<CredentialVault, String> {
@@ -115,15 +111,11 @@ fn update_vault(update: impl FnOnce(&mut CredentialVault)) -> Result<(), String>
 }
 
 fn update_cached_vault(
-    cache: &mut Option<CredentialVault>,
-    entry: &keyring::Entry,
+    cache: &mut Option<CredentialVault>, entry: &keyring::Entry,
     update: impl FnOnce(&mut CredentialVault),
 ) -> Result<(), String> {
-    let mut next = if let Some(vault) = cache.as_ref() {
-        vault.clone()
-    } else {
-        read_vault(entry)?
-    };
+    let mut next =
+        if let Some(vault) = cache.as_ref() { vault.clone() } else { read_vault(entry)? };
     update(&mut next);
     let encoded = serde_json::to_string(&next)
         .map_err(|_| "could not save credentials in the system keychain".to_string())?;
@@ -164,33 +156,29 @@ fn normalized_email(email: String) -> Result<Option<String>, String> {
 
 fn env_value(names: &[&str]) -> Option<String> {
     names.iter().find_map(|name| {
-        env::var(name)
-            .ok()
-            .map(|value| value.trim().to_string())
-            .filter(|value| !value.is_empty())
+        env::var(name).ok().map(|value| value.trim().to_string()).filter(|value| !value.is_empty())
     })
 }
 
 fn effective(vault: &CredentialVault, provider: LiteratureProvider) -> Option<String> {
     match provider {
-        LiteratureProvider::OpenAlex => vault
-            .openalex
-            .clone()
-            .or_else(|| env_value(&["OPENALEX_API_KEY"])),
+        LiteratureProvider::OpenAlex => {
+            vault.openalex.clone().or_else(|| env_value(&["OPENALEX_API_KEY"]))
+        }
         LiteratureProvider::SemanticScholar => vault
             .semanticscholar
             .clone()
             .or_else(|| env_value(&["SEMANTIC_SCHOLAR_API_KEY", "S2_API_KEY"])),
-        LiteratureProvider::Firecrawl => vault
-            .firecrawl
-            .clone()
-            .or_else(|| env_value(&["LATTICE_FIRECRAWL_KEY"]))
-            .or_else(|| {
-                option_env!("LATTICE_FIRECRAWL_KEY")
-                    .map(str::trim)
-                    .filter(|value| !value.is_empty())
-                    .map(str::to_string)
-            }),
+        LiteratureProvider::Firecrawl => {
+            vault.firecrawl.clone().or_else(|| env_value(&["LATTICE_FIRECRAWL_KEY"])).or_else(
+                || {
+                    option_env!("LATTICE_FIRECRAWL_KEY")
+                        .map(str::trim)
+                        .filter(|value| !value.is_empty())
+                        .map(str::to_string)
+                },
+            )
+        }
     }
 }
 
@@ -238,10 +226,7 @@ pub(crate) fn openalex_key() -> Result<Option<String>, String> {
 }
 
 pub(crate) fn semanticscholar_key() -> Result<Option<String>, String> {
-    Ok(effective(
-        &loaded_vault()?,
-        LiteratureProvider::SemanticScholar,
-    ))
+    Ok(effective(&loaded_vault()?, LiteratureProvider::SemanticScholar))
 }
 
 /// Returns the personal Firecrawl key when saved, then the runtime override,
@@ -266,8 +251,7 @@ pub async fn get_literature_credentials() -> Result<LiteratureCredentialStatus, 
 
 #[tauri::command]
 pub async fn set_literature_credential(
-    provider: LiteratureProvider,
-    secret: Option<String>,
+    provider: LiteratureProvider, secret: Option<String>,
 ) -> Result<LiteratureCredentialStatus, String> {
     tauri::async_runtime::spawn_blocking(move || {
         let secret = secret.map(normalized_secret).transpose()?;
@@ -295,8 +279,7 @@ pub async fn set_literature_contact(email: String) -> Result<LiteratureCredentia
 
 #[tauri::command]
 pub async fn test_literature_credential(
-    provider: LiteratureProvider,
-    secret: Option<String>,
+    provider: LiteratureProvider, secret: Option<String>,
 ) -> Result<LiteratureCredentialTest, String> {
     tauri::async_runtime::spawn_blocking(move || {
         let key = match secret {
@@ -310,8 +293,7 @@ pub async fn test_literature_credential(
 }
 
 fn test_provider(
-    provider: LiteratureProvider,
-    key: Option<String>,
+    provider: LiteratureProvider, key: Option<String>,
 ) -> Result<LiteratureCredentialTest, String> {
     let url = match provider {
         LiteratureProvider::OpenAlex => {
@@ -326,9 +308,7 @@ fn test_provider(
 }
 
 fn test_provider_at(
-    provider: LiteratureProvider,
-    key: Option<String>,
-    url: &str,
+    provider: LiteratureProvider, key: Option<String>, url: &str,
 ) -> Result<LiteratureCredentialTest, String> {
     let client = reqwest::blocking::Client::builder()
         .timeout(TEST_TIMEOUT)
@@ -352,10 +332,7 @@ fn test_provider_at(
         Ok(response) if response.status().as_u16() == 429 => CredentialTestState::RateLimited,
         Ok(_) | Err(_) => CredentialTestState::Unavailable,
     };
-    Ok(LiteratureCredentialTest {
-        status,
-        authenticated,
-    })
+    Ok(LiteratureCredentialTest { status, authenticated })
 }
 
 #[cfg(test)]
@@ -364,10 +341,7 @@ mod tests {
 
     #[test]
     fn unit_tests_use_an_in_memory_credential_entry() {
-        assert!(entry()
-            .unwrap()
-            .get_credential()
-            .is::<keyring::mock::MockCredential>());
+        assert!(entry().unwrap().get_credential().is::<keyring::mock::MockCredential>());
     }
 
     #[test]
@@ -385,10 +359,7 @@ mod tests {
                 vault.openalex = Some("isolated-test-not-a-real-key".into());
             })?;
             let persisted = read_vault(&entry)?;
-            assert_eq!(
-                persisted.openalex.as_deref(),
-                Some("isolated-test-not-a-real-key")
-            );
+            assert_eq!(persisted.openalex.as_deref(), Some("isolated-test-not-a-real-key"));
             cache = None;
             update_cached_vault(&mut cache, &entry, |vault| vault.openalex = None)?;
             read_vault(&entry)
@@ -409,10 +380,7 @@ mod tests {
             vault.firecrawl = Some("third".into());
         })
         .unwrap();
-        assert_eq!(
-            read_vault(&entry).unwrap().openalex.as_deref(),
-            Some("first")
-        );
+        assert_eq!(read_vault(&entry).unwrap().openalex.as_deref(), Some("first"));
         entry
             .get_credential()
             .downcast_ref::<keyring::mock::MockCredential>()
@@ -423,10 +391,7 @@ mod tests {
         })
         .is_err());
         assert_eq!(cache.as_ref().unwrap().openalex.as_deref(), Some("first"));
-        assert_eq!(
-            read_vault(&entry).unwrap().openalex.as_deref(),
-            Some("first")
-        );
+        assert_eq!(read_vault(&entry).unwrap().openalex.as_deref(), Some("first"));
         // Simulate reopening with no in-process cache, then removing one key.
         cache = None;
         update_cached_vault(&mut cache, &entry, |vault| vault.openalex = None).unwrap();
@@ -474,10 +439,7 @@ mod tests {
             effective(&saved, LiteratureProvider::Firecrawl).as_deref(),
             Some("personal-key")
         );
-        assert_eq!(
-            source(&saved, LiteratureProvider::Firecrawl),
-            CredentialSource::Saved
-        );
+        assert_eq!(source(&saved, LiteratureProvider::Firecrawl), CredentialSource::Saved);
 
         let empty = CredentialVault::default();
         let empty_source = source(&empty, LiteratureProvider::Firecrawl);
@@ -491,15 +453,13 @@ mod tests {
     fn classifies_provider_response_without_echoing_key() {
         let server = tiny_http::Server::http("127.0.0.1:0").unwrap();
         let endpoint = format!("http://{}/paper", server.server_addr());
-        let responder = std::thread::spawn(move || {
-            let request = server.recv().unwrap();
-            assert!(request
-                .headers()
-                .iter()
-                .any(|header| header.field.equiv("x-api-key")
+        let responder =
+            std::thread::spawn(move || {
+                let request = server.recv().unwrap();
+                assert!(request.headers().iter().any(|header| header.field.equiv("x-api-key")
                     && header.value.as_str() == "draft-secret"));
-            request.respond(tiny_http::Response::empty(429)).unwrap();
-        });
+                request.respond(tiny_http::Response::empty(429)).unwrap();
+            });
         let result = test_provider_at(
             LiteratureProvider::SemanticScholar,
             Some("draft-secret".into()),
@@ -509,9 +469,7 @@ mod tests {
         responder.join().unwrap();
         assert_eq!(result.status, CredentialTestState::RateLimited);
         assert!(result.authenticated);
-        assert!(!serde_json::to_string(&result)
-            .unwrap()
-            .contains("draft-secret"));
+        assert!(!serde_json::to_string(&result).unwrap().contains("draft-secret"));
     }
 
     #[test]

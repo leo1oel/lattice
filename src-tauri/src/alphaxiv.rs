@@ -59,23 +59,16 @@ pub fn search_works(query: &str) -> Result<Vec<AlphaxivWork>, String> {
     if trimmed.is_empty() {
         return Ok(Vec::new());
     }
-    let url = format!(
-        "{SEARCH_URL}?q={}&limit={SEARCH_LIMIT}",
-        urlencoding(trimmed)
-    );
+    let url = format!("{SEARCH_URL}?q={}&limit={SEARCH_LIMIT}", urlencoding(trimmed));
     let response = http_client()?
         .get(&url)
         .send()
         .map_err(|error| format!("alphaXiv request failed: {error}"))?;
     if !response.status().is_success() {
-        return Err(format!(
-            "alphaXiv returned HTTP {}.",
-            response.status().as_u16()
-        ));
+        return Err(format!("alphaXiv returned HTTP {}.", response.status().as_u16()));
     }
-    let body = response
-        .bytes()
-        .map_err(|error| format!("Could not read alphaXiv response: {error}"))?;
+    let body =
+        response.bytes().map_err(|error| format!("Could not read alphaXiv response: {error}"))?;
     let hits = parse_search_hits(&body)?;
     Ok(hits.into_iter().filter_map(map_hit).collect())
 }
@@ -138,9 +131,7 @@ fn json_hex_code_unit(bytes: Option<&[u8]>) -> Option<u16> {
     if bytes.len() != 4 || !bytes.iter().all(u8::is_ascii_hexdigit) {
         return None;
     }
-    std::str::from_utf8(bytes)
-        .ok()
-        .and_then(|hex| u16::from_str_radix(hex, 16).ok())
+    std::str::from_utf8(bytes).ok().and_then(|hex| u16::from_str_radix(hex, 16).ok())
 }
 
 /// AlphaXiv also hosts reports without an arXiv identity. Keep those IDs out
@@ -153,20 +144,14 @@ pub fn paper_id_from_url(input: &str) -> Option<String> {
         return None;
     }
     let path = url.path().trim_end_matches('/');
-    let id = ["/abs/", "/pdf/", "/overview/"]
-        .iter()
-        .find_map(|prefix| path.strip_prefix(prefix))?;
-    let id = id
-        .strip_suffix(".pdf")
-        .or_else(|| id.strip_suffix(".md"))
-        .unwrap_or(id);
+    let id =
+        ["/abs/", "/pdf/", "/overview/"].iter().find_map(|prefix| path.strip_prefix(prefix))?;
+    let id = id.strip_suffix(".pdf").or_else(|| id.strip_suffix(".md")).unwrap_or(id);
     valid_paper_id(id).then(|| id.to_string())
 }
 
 fn valid_paper_id(id: &str) -> bool {
-    Regex::new(r"^[A-Za-z0-9][A-Za-z0-9.-]*(?:/[0-9]+(?:v[0-9]+)?)?$")
-        .unwrap()
-        .is_match(id)
+    Regex::new(r"^[A-Za-z0-9][A-Za-z0-9.-]*(?:/[0-9]+(?:v[0-9]+)?)?$").unwrap().is_match(id)
         && !id.contains("..")
 }
 
@@ -184,10 +169,8 @@ pub fn resolve_paper(id: &str) -> Result<Option<Paper>, String> {
     if !valid_paper_id(id) {
         return Err("Invalid alphaXiv paper id.".into());
     }
-    let response = http_client()?
-        .get(format!("{PAPER_API}/{id}"))
-        .send()
-        .map_err(|e| e.to_string())?;
+    let response =
+        http_client()?.get(format!("{PAPER_API}/{id}")).send().map_err(|e| e.to_string())?;
     if response.status().as_u16() == 404 {
         return Ok(None);
     }
@@ -212,10 +195,7 @@ pub fn resolve_title(title: &str) -> Result<Option<Paper>, String> {
         .map_err(|e| e.to_string())?;
     let hits = parse_search_hits(&response.bytes().map_err(|e| e.to_string())?)?;
     let normalize = |s: &str| {
-        s.chars()
-            .filter(|c| c.is_alphanumeric())
-            .flat_map(char::to_lowercase)
-            .collect::<String>()
+        s.chars().filter(|c| c.is_alphanumeric()).flat_map(char::to_lowercase).collect::<String>()
     };
     let title = normalize(title);
     let ids: std::collections::BTreeSet<_> = hits
@@ -309,14 +289,10 @@ pub fn fetch_overview(arxiv_id: &str) -> Result<Option<String>, String> {
         return Ok(None);
     }
     if !response.status().is_success() {
-        return Err(format!(
-            "alphaXiv overview returned HTTP {}.",
-            response.status().as_u16()
-        ));
+        return Err(format!("alphaXiv overview returned HTTP {}.", response.status().as_u16()));
     }
-    let body = response
-        .text()
-        .map_err(|error| format!("Could not read alphaXiv overview: {error}"))?;
+    let body =
+        response.text().map_err(|error| format!("Could not read alphaXiv overview: {error}"))?;
     if body.trim().len() < MIN_OVERVIEW_LEN {
         return Ok(None);
     }
@@ -341,13 +317,7 @@ fn map_hit(hit: SearchHit) -> Option<AlphaxivWork> {
         .map(|text| collapse_whitespace(&text))
         .filter(|text| !text.is_empty())
         .map(|text| truncate(&text, 240));
-    Some(AlphaxivWork {
-        paper_id,
-        title,
-        year,
-        votes,
-        snippet,
-    })
+    Some(AlphaxivWork { paper_id, title, year, votes, snippet })
 }
 
 fn collapse_whitespace(value: &str) -> String {
@@ -375,10 +345,8 @@ mod tests {
             "overview/2609.mimo-scaling-reinforcement-learning.md",
         ] {
             assert_eq!(
-                paper_id_from_url(&format!(
-                    "https://www.alphaxiv.org/{path}?source=test#page=8"
-                ))
-                .as_deref(),
+                paper_id_from_url(&format!("https://www.alphaxiv.org/{path}?source=test#page=8"))
+                    .as_deref(),
                 Some("2609.mimo-scaling-reinforcement-learning")
             );
         }
@@ -419,19 +387,15 @@ mod tests {
         let source = r#"<PaperCite page={0}>Keep this prose</PaperCite><ImageCaption src="javascript:alert(1)">Keep caption</ImageCaption>"#;
         let markdown = overview_markdown(source, "2609.report").unwrap();
         assert_eq!(markdown, "Keep this proseKeep caption");
-        assert!(
-            overview_markdown("<PaperCite {...execute()}>claim</PaperCite>", "2609.report")
-                .unwrap()
-                .contains("claim")
-        );
+        assert!(overview_markdown("<PaperCite {...execute()}>claim</PaperCite>", "2609.report")
+            .unwrap()
+            .contains("claim"));
     }
 
     #[test]
     #[ignore = "Live AlphaXiv API smoke test"]
     fn live_mimo_overview_contains_page_citations() {
-        let paper = resolve_paper("2609.mimo-scaling-reinforcement-learning")
-            .unwrap()
-            .unwrap();
+        let paper = resolve_paper("2609.mimo-scaling-reinforcement-learning").unwrap().unwrap();
         let markdown = fetch_paper_overview(&paper).unwrap().unwrap();
         assert!(markdown.contains(
             "[p8](https://www.alphaxiv.org/abs/2609.mimo-scaling-reinforcement-learning.pdf#page=8"
@@ -452,9 +416,7 @@ mod tests {
             votes: Some(7),
             snippets: Some(vec![
                 Snippet { snippet: None },
-                Snippet {
-                    snippet: Some("some\n  matching   text".into()),
-                },
+                Snippet { snippet: Some("some\n  matching   text".into()) },
             ]),
         };
         let work = map_hit(hit).unwrap();
@@ -484,10 +446,7 @@ mod tests {
         assert_eq!(hits.len(), 1);
         assert_eq!(hits[0].title.as_deref(), Some("Action + �..."));
         assert_eq!(
-            hits[0]
-                .snippets
-                .as_ref()
-                .and_then(|snippets| snippets[0].snippet.as_deref()),
+            hits[0].snippets.as_ref().and_then(|snippets| snippets[0].snippet.as_deref()),
             Some("valid pair: 𝑨; literal: \\ud835")
         );
     }

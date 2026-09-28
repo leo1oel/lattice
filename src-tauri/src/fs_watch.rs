@@ -93,22 +93,16 @@ pub fn spawn(app: tauri::AppHandle, root: PathBuf) -> Result<ProjectWatcher, Str
     let filter_root = root.clone();
     let mut watcher = notify::recommended_watcher(move |event: Result<Event, notify::Error>| {
         let batch = match event {
-            Ok(event) if relevant(&event, &filter_root) => WatchBatch {
-                paths: event.paths,
-                reconcile: false,
-            },
+            Ok(event) if relevant(&event, &filter_root) => {
+                WatchBatch { paths: event.paths, reconcile: false }
+            }
             Ok(_) => return,
-            Err(_) => WatchBatch {
-                paths: Vec::new(),
-                reconcile: true,
-            },
+            Err(_) => WatchBatch { paths: Vec::new(), reconcile: true },
         };
         let _ = sender.send(batch);
     })
     .map_err(|error| error.to_string())?;
-    watcher
-        .watch(&root, RecursiveMode::Recursive)
-        .map_err(|error| error.to_string())?;
+    watcher.watch(&root, RecursiveMode::Recursive).map_err(|error| error.to_string())?;
 
     std::thread::spawn(move || {
         // Reconcile an existing index once after attaching the watcher. This
@@ -171,10 +165,7 @@ pub fn spawn(app: tauri::AppHandle, root: PathBuf) -> Result<ProjectWatcher, Str
             // Broadcast; each window filters by its own project root.
             let _ = app.emit(
                 "project-fs-changed",
-                FsChangedPayload {
-                    root: root.to_string_lossy().to_string(),
-                    paths: changed_paths,
-                },
+                FsChangedPayload { root: root.to_string_lossy().to_string(), paths: changed_paths },
             );
         }
     });
@@ -197,10 +188,7 @@ mod tests {
         let root = PathBuf::from("/tmp/project");
         assert!(relevant(&event_for(vec![root.join("main.tex")]), &root));
         assert!(relevant(&event_for(vec![root.join(".git/index")]), &root));
-        assert!(!relevant(
-            &event_for(vec![root.join(".research/history/x.json")]),
-            &root
-        ));
+        assert!(!relevant(&event_for(vec![root.join(".research/history/x.json")]), &root));
         assert!(relevant(
             &event_for(vec![root.join(".research/papers/2401.00001/paper.md")]),
             &root
@@ -211,10 +199,7 @@ mod tests {
         ));
         // Mixed bursts stay relevant if any path matters.
         assert!(relevant(
-            &event_for(vec![
-                root.join(".research/cache/fts.sqlite"),
-                root.join("notes.md")
-            ]),
+            &event_for(vec![root.join(".research/cache/fts.sqlite"), root.join("notes.md")]),
             &root
         ));
     }
@@ -240,13 +225,7 @@ mod tests {
     fn omits_paths_when_the_changed_set_is_not_exact() {
         let root = PathBuf::from("/tmp/project");
         assert_eq!(payload_paths(&root, &[root.join("main.md")], true), None);
-        assert_eq!(
-            payload_paths(&root, std::slice::from_ref(&root), false),
-            None
-        );
-        assert_eq!(
-            payload_paths(&root, &[PathBuf::from("/tmp/other/main.md")], false),
-            None
-        );
+        assert_eq!(payload_paths(&root, std::slice::from_ref(&root), false), None);
+        assert_eq!(payload_paths(&root, &[PathBuf::from("/tmp/other/main.md")], false), None);
     }
 }

@@ -6,10 +6,7 @@ use serde_json::Value;
 pub(crate) const ENDPOINT: &str = "https://lattice-literature.paperlattice.workers.dev/v1/query";
 
 pub(crate) fn request(
-    client: &Client,
-    url: &str,
-    body: Option<Value>,
-    public: bool,
+    client: &Client, url: &str, body: Option<Value>, public: bool,
 ) -> Result<RequestBuilder, String> {
     let parsed = reqwest::Url::parse(url).map_err(|_| "Invalid literature URL.")?;
     let provider = match parsed.host_str() {
@@ -73,15 +70,9 @@ mod tests {
             assert!(
                 status.is_success(),
                 "public lookup {url} returned {status}: {}",
-                payload
-                    .get("error")
-                    .and_then(Value::as_str)
-                    .unwrap_or("unknown error")
+                payload.get("error").and_then(Value::as_str).unwrap_or("unknown error")
             );
-            assert_eq!(
-                payload.pointer(pointer).and_then(Value::as_str),
-                Some(expected)
-            );
+            assert_eq!(payload.pointer(pointer).and_then(Value::as_str), Some(expected));
         }
     }
 
@@ -106,10 +97,7 @@ mod tests {
             ("https://api.openalex.org/works?search=paper", false),
             ("http://127.0.0.1:12345/works", true),
         ] {
-            let request = request(&client, url, None, public)
-                .unwrap()
-                .build()
-                .unwrap();
+            let request = request(&client, url, None, public).unwrap().build().unwrap();
             assert_eq!(request.url().as_str(), url);
             assert_eq!(request.method(), reqwest::Method::GET);
         }

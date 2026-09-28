@@ -22,16 +22,12 @@ fn startup_error_message(fallback: &str, stderr: &str) -> String {
 }
 
 fn collect_startup_stderr(
-    stderr_thread: Option<std::thread::JoinHandle<()>>,
-    captured: &Mutex<String>,
+    stderr_thread: Option<std::thread::JoinHandle<()>>, captured: &Mutex<String>,
 ) -> String {
     if let Some(thread) = stderr_thread {
         let _ = thread.join();
     }
-    captured
-        .lock()
-        .map(|output| output.clone())
-        .unwrap_or_default()
+    captured.lock().map(|output| output.clone()).unwrap_or_default()
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -107,16 +103,9 @@ impl PresentationRuntime {
         let manifest = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         // A debug package has debug assertions but still owns a copied resource
         // tree. Only `tauri dev` should resolve Open Slide from the checkout.
-        let resources = if tauri::is_dev() {
-            manifest.clone()
-        } else {
-            app.path().resource_dir()?
-        };
-        let node = if cfg!(target_os = "windows") {
-            "node.exe"
-        } else {
-            "node"
-        };
+        let resources =
+            if tauri::is_dev() { manifest.clone() } else { app.path().resource_dir()? };
+        let node = if cfg!(target_os = "windows") { "node.exe" } else { "node" };
         let electron_node = cfg!(all(target_os = "macos", not(debug_assertions)));
         let javascript_runtime_path = if electron_node {
             resources.join("chromium-runtime/Lattice Chromium.app/Contents/MacOS/Electron")
@@ -141,12 +130,7 @@ impl PresentationRuntime {
 
     fn info(running: Option<&Running>, lease_id: Option<String>) -> PresentationInfo {
         PresentationInfo {
-            state: if running.is_some() {
-                "ready"
-            } else {
-                "stopped"
-            }
-            .into(),
+            state: if running.is_some() { "ready" } else { "stopped" }.into(),
             origin: running.map(|value| value.origin.clone()),
             session_url: running.map(|value| value.session_url.clone()),
             control_token: running.map(|value| value.control_token.clone()),
@@ -181,15 +165,10 @@ impl PresentationRuntime {
                 // traversing those unrelated trees made the first deck open
                 // take tens of seconds even though none of their files were
                 // copied into the managed Open Slide workspace.
-                for entry in walkdir::WalkDir::new(scoped)
-                    .follow_links(false)
-                    .into_iter()
-                {
+                for entry in walkdir::WalkDir::new(scoped).follow_links(false).into_iter() {
                     let entry = entry.map_err(|error| error.to_string())?;
-                    let relative = entry
-                        .path()
-                        .strip_prefix(source)
-                        .map_err(|error| error.to_string())?;
+                    let relative =
+                        entry.path().strip_prefix(source).map_err(|error| error.to_string())?;
                     if !Self::is_native_path(relative) || entry.file_type().is_symlink() {
                         continue;
                     }
@@ -232,11 +211,7 @@ impl PresentationRuntime {
             }
             digest.update(&buffer[..read]);
         }
-        Ok(NativeFile {
-            absolute: path.to_path_buf(),
-            size,
-            digest: digest.finalize().into(),
-        })
+        Ok(NativeFile { absolute: path.to_path_buf(), size, digest: digest.finalize().into() })
     }
 
     fn native_files(root: &Path) -> Result<BTreeMap<String, NativeFile>, String> {
@@ -260,10 +235,7 @@ impl PresentationRuntime {
                 files.insert(relative, Self::native_file(&scoped)?);
                 continue;
             }
-            for entry in walkdir::WalkDir::new(&scoped)
-                .follow_links(false)
-                .into_iter()
-            {
+            for entry in walkdir::WalkDir::new(&scoped).follow_links(false).into_iter() {
                 let entry = entry.map_err(|error| error.to_string())?;
                 if !entry.file_type().is_file() || entry.path_is_symlink() {
                     continue;
@@ -283,31 +255,19 @@ impl PresentationRuntime {
     pub fn refresh(&self, project_root: &str) -> Result<(), String> {
         let root = Self::scoped_root(project_root)?;
         let (shadow, origin, token) = {
-            let mut inner = self
-                .inner
-                .lock()
-                .map_err(|_| "Presentation runtime lock failed")?;
+            let mut inner = self.inner.lock().map_err(|_| "Presentation runtime lock failed")?;
             let Some(running) = inner.running.as_mut() else {
                 return Ok(());
             };
             if running.project_root != root {
                 return Ok(());
             }
-            if running
-                .child
-                .try_wait()
-                .map_err(|error| error.to_string())?
-                .is_some()
-            {
+            if running.child.try_wait().map_err(|error| error.to_string())?.is_some() {
                 let stopped = inner.running.take().unwrap();
                 let _ = std::fs::remove_dir_all(stopped.shadow_root);
                 return Ok(());
             }
-            (
-                running.shadow_root.clone(),
-                running.origin.clone(),
-                running.control_token.clone(),
-            )
+            (running.shadow_root.clone(), running.origin.clone(), running.control_token.clone())
         };
         let source = Self::native_files(&root)?;
         let mirrored = Self::native_files(&shadow)?;
@@ -371,10 +331,7 @@ impl PresentationRuntime {
 
     pub fn ensure(&self, project_root: &str) -> Result<PresentationInfo, String> {
         let root = Self::scoped_root(project_root)?;
-        let mut inner = self
-            .inner
-            .lock()
-            .map_err(|_| "Presentation runtime lock failed")?;
+        let mut inner = self.inner.lock().map_err(|_| "Presentation runtime lock failed")?;
         if inner.running.as_mut().is_some_and(|running| {
             running.project_root == root && running.child.try_wait().ok().flatten().is_none()
         }) {
@@ -414,10 +371,7 @@ impl PresentationRuntime {
             .arg(&self.entry_path)
             .current_dir(&shadow)
             .env("OPEN_SLIDE_SHADOW_ROOT", &shadow)
-            .env(
-                "OPEN_SLIDE_CACHE_ROOT",
-                self.shadow_parent.join(format!("vite-cache-{VERSION}")),
-            )
+            .env("OPEN_SLIDE_CACHE_ROOT", self.shadow_parent.join(format!("vite-cache-{VERSION}")))
             .env("OPEN_SLIDE_CONTROL_TOKEN", &control_token)
             // The pipe is a zero-polling parent-liveness signal. In dev mode
             // Tauri may replace this process without running normal shutdown;
@@ -518,14 +472,8 @@ impl PresentationRuntime {
 
     pub fn release(&self, project_root: &str, lease_id: &str) -> Result<(), String> {
         let root = Self::scoped_root(project_root)?;
-        let mut inner = self
-            .inner
-            .lock()
-            .map_err(|_| "Presentation runtime lock failed")?;
-        let Some(running) = inner
-            .running
-            .as_mut()
-            .filter(|running| running.project_root == root)
+        let mut inner = self.inner.lock().map_err(|_| "Presentation runtime lock failed")?;
+        let Some(running) = inner.running.as_mut().filter(|running| running.project_root == root)
         else {
             return Ok(());
         };
@@ -598,9 +546,8 @@ fn stop_child(child: &mut Child) {
     }
     #[cfg(windows)]
     {
-        let _ = Command::new("taskkill")
-            .args(["/T", "/F", "/PID", &child.id().to_string()])
-            .status();
+        let _ =
+            Command::new("taskkill").args(["/T", "/F", "/PID", &child.id().to_string()]).status();
     }
     let deadline = Instant::now() + Duration::from_secs(2);
     while Instant::now() < deadline {
@@ -618,10 +565,8 @@ fn stop_child(child: &mut Child) {
 
 fn remove_access_lease(origin: String, control_token: String, lease_id: String) {
     std::thread::spawn(move || {
-        let Ok(client) = reqwest::blocking::Client::builder()
-            .timeout(Duration::from_secs(2))
-            .no_proxy()
-            .build()
+        let Ok(client) =
+            reqwest::blocking::Client::builder().timeout(Duration::from_secs(2)).no_proxy().build()
         else {
             return;
         };
@@ -635,8 +580,7 @@ fn remove_access_lease(origin: String, control_token: String, lease_id: String) 
 
 #[tauri::command]
 pub async fn presentation_ensure_ready(
-    runtime: tauri::State<'_, PresentationRuntime>,
-    project_root: String,
+    runtime: tauri::State<'_, PresentationRuntime>, project_root: String,
 ) -> Result<PresentationInfo, String> {
     let runtime = (*runtime).clone();
     tauri::async_runtime::spawn_blocking(move || runtime.ensure(&project_root))
@@ -645,9 +589,7 @@ pub async fn presentation_ensure_ready(
 }
 #[tauri::command]
 pub fn presentation_release(
-    runtime: tauri::State<'_, PresentationRuntime>,
-    project_root: String,
-    lease_id: String,
+    runtime: tauri::State<'_, PresentationRuntime>, project_root: String, lease_id: String,
 ) -> Result<(), String> {
     runtime.release(&project_root, &lease_id)
 }
@@ -660,8 +602,7 @@ pub fn presentation_runtime_status(
 
 #[tauri::command]
 pub async fn presentation_refresh_native_workspace(
-    runtime: tauri::State<'_, PresentationRuntime>,
-    project_root: String,
+    runtime: tauri::State<'_, PresentationRuntime>, project_root: String,
 ) -> Result<(), String> {
     let runtime = (*runtime).clone();
     tauri::async_runtime::spawn_blocking(move || runtime.refresh(&project_root))
@@ -696,19 +637,11 @@ Node.js v24.20.0\n";
 
     #[test]
     fn shadows_only_native_open_slide_workspace_paths() {
-        assert!(PresentationRuntime::is_native_path(Path::new(
-            "slides/research-update/index.tsx"
-        )));
-        assert!(PresentationRuntime::is_native_path(Path::new(
-            "assets/chart.png"
-        )));
-        assert!(PresentationRuntime::is_native_path(Path::new(
-            "open-slide.config.ts"
-        )));
+        assert!(PresentationRuntime::is_native_path(Path::new("slides/research-update/index.tsx")));
+        assert!(PresentationRuntime::is_native_path(Path::new("assets/chart.png")));
+        assert!(PresentationRuntime::is_native_path(Path::new("open-slide.config.ts")));
         assert!(!PresentationRuntime::is_native_path(Path::new("main.tex")));
-        assert!(!PresentationRuntime::is_native_path(Path::new(
-            "slides-backup/index.tsx"
-        )));
+        assert!(!PresentationRuntime::is_native_path(Path::new("slides-backup/index.tsx")));
     }
 
     #[cfg(unix)]
@@ -716,10 +649,8 @@ Node.js v24.20.0\n";
     fn shadow_sync_does_not_walk_unrelated_project_directories() {
         use std::os::unix::fs::PermissionsExt;
 
-        let parent = std::env::temp_dir().join(format!(
-            "lattice-presentation-shadow-{}",
-            uuid::Uuid::new_v4()
-        ));
+        let parent = std::env::temp_dir()
+            .join(format!("lattice-presentation-shadow-{}", uuid::Uuid::new_v4()));
         let source = parent.join("project");
         let shadow = parent.join("shadow");
         let unrelated = source.join("large-paper-cache");

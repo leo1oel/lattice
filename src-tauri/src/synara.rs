@@ -51,29 +51,22 @@ fn prepare_process_inspector(home: &Path, executable: &Path) -> Result<PathBuf, 
         .to_str()
         .ok_or("The app executable path is not valid UTF-8")?
         .replace('\'', "'\\''");
-    let script = format!(
-        "#!/bin/sh\nexec '{executable}' {} \"$@\"\n",
-        crate::process_inspector::FLAG
-    );
+    let script =
+        format!("#!/bin/sh\nexec '{executable}' {} \"$@\"\n", crate::process_inspector::FLAG);
     let directory = home.join("process-tools");
     fs::create_dir_all(&directory)
         .map_err(|error| format!("Could not prepare process tools: {error}"))?;
     let temporary = directory.join(format!("ps-{}", uuid::Uuid::new_v4()));
     let destination = directory.join("ps");
     let result = (|| -> std::io::Result<()> {
-        let mut output = OpenOptions::new()
-            .write(true)
-            .create_new(true)
-            .open(&temporary)?;
+        let mut output = OpenOptions::new().write(true).create_new(true).open(&temporary)?;
         output.write_all(script.as_bytes())?;
         output.set_permissions(fs::Permissions::from_mode(0o755))?;
         fs::rename(&temporary, &destination)
     })();
     if let Err(error) = result {
         let _ = fs::remove_file(&temporary);
-        return Err(format!(
-            "Could not prepare unprivileged process inspector: {error}"
-        ));
+        return Err(format!("Could not prepare unprivileged process inspector: {error}"));
     }
     Ok(destination)
 }
@@ -132,10 +125,7 @@ pub struct SynaraRuntimeInfo {
 
 impl SynaraRuntimeInfo {
     fn ready(
-        origin: String,
-        auth_token: Option<String>,
-        startup_ms: u64,
-        version: Option<String>,
+        origin: String, auth_token: Option<String>, startup_ms: u64, version: Option<String>,
         revision: Option<String>,
     ) -> Self {
         Self {
@@ -226,22 +216,12 @@ impl SynaraRuntime {
         // source tree. Tauri's development marker distinguishes that package
         // from `tauri dev` without changing which JavaScript runtime it uses.
         let (runtime_root, bundled_skills_dir) = if tauri::is_dev() {
-            (
-                manifest_dir.join("synara-runtime"),
-                manifest_dir.join("src").join("embedded_skills"),
-            )
+            (manifest_dir.join("synara-runtime"), manifest_dir.join("src").join("embedded_skills"))
         } else {
             let resource_dir = app.path().resource_dir()?;
-            (
-                resource_dir.join("synara-runtime"),
-                resource_dir.join("src").join("embedded_skills"),
-            )
+            (resource_dir.join("synara-runtime"), resource_dir.join("src").join("embedded_skills"))
         };
-        let executable_name = if cfg!(target_os = "windows") {
-            "node.exe"
-        } else {
-            "node"
-        };
+        let executable_name = if cfg!(target_os = "windows") { "node.exe" } else { "node" };
         // Production macOS already ships Electron for the fixed Chromium
         // renderer. Its executable can run ordinary Node entry points without
         // launching a browser, so sharing it avoids bundling a second 120 MB
@@ -268,12 +248,8 @@ impl SynaraRuntime {
             home_dir,
             preferred_port,
             external_origin,
-            version: manifest
-                .as_ref()
-                .and_then(|manifest| manifest.synara_version.clone()),
-            revision: manifest
-                .as_ref()
-                .and_then(|manifest| manifest.synara_revision.clone()),
+            version: manifest.as_ref().and_then(|manifest| manifest.synara_version.clone()),
+            revision: manifest.as_ref().and_then(|manifest| manifest.synara_revision.clone()),
             state: Mutex::new(RuntimeState::default()),
         })
     }
@@ -467,11 +443,7 @@ impl SynaraRuntime {
             // the web UI; the Lattice shell grants it only because it packages
             // and exposes the simulator pane alongside the agent runtime.
             .env("LATTICE_DEVICE_CONTROL_ENABLED", "true")
-            .envs(
-                std::env::current_exe()
-                    .ok()
-                    .map(|path| ("LATTICE_BIN", path.into_os_string())),
-            )
+            .envs(std::env::current_exe().ok().map(|path| ("LATTICE_BIN", path.into_os_string())))
             .env("SYNARA_AUTH_TOKEN", &auth_token)
             .env("SYNARA_DESKTOP_SHUTDOWN_TOKEN", shutdown_token)
             .env("SYNARA_DESKTOP_PARENT_PID", std::process::id().to_string())
@@ -489,13 +461,7 @@ impl SynaraRuntime {
             .spawn()
             .map_err(|error| format!("Could not start the built-in agent service: {error}"))?;
 
-        Ok(RunningSynara {
-            child,
-            origin: String::new(),
-            auth_token,
-            startup_ms: 0,
-            startup_logs,
-        })
+        Ok(RunningSynara { child, origin: String::new(), auth_token, startup_ms: 0, startup_logs })
     }
 
     pub fn shutdown(&self) {
@@ -527,12 +493,8 @@ pub fn synara_ensure_ready(
 
 #[tauri::command]
 pub fn synara_open_skills_folder(app: tauri::AppHandle) -> Result<(), String> {
-    let skills_dir = app
-        .path()
-        .app_data_dir()
-        .map_err(|error| error.to_string())?
-        .join("synara")
-        .join("skills");
+    let skills_dir =
+        app.path().app_data_dir().map_err(|error| error.to_string())?.join("synara").join("skills");
     fs::create_dir_all(&skills_dir).map_err(|error| error.to_string())?;
     app.opener()
         .open_path(skills_dir.to_string_lossy().into_owned(), None::<String>)
@@ -541,26 +503,17 @@ pub fn synara_open_skills_folder(app: tauri::AppHandle) -> Result<(), String> {
 
 /// Keep the desktop token and loopback transport out of the renderer's CORS path.
 pub fn compile_repair_request(
-    runtime: &SynaraRuntime,
-    action: &str,
-    thread_id: Option<&str>,
-    payload: serde_json::Value,
+    runtime: &SynaraRuntime, action: &str, thread_id: Option<&str>, payload: serde_json::Value,
 ) -> Result<serde_json::Value, String> {
     let info = runtime.ensure_ready()?;
     let origin = info.origin.ok_or("The agent service is unavailable.")?;
     let mut url = reqwest::Url::parse(&origin).map_err(|error| error.to_string())?;
-    let mut segments = url
-        .path_segments_mut()
-        .map_err(|_| "Invalid agent address.")?;
-    segments
-        .clear()
-        .extend(["api", "lattice", "compile-repair"]);
+    let mut segments = url.path_segments_mut().map_err(|_| "Invalid agent address.")?;
+    segments.clear().extend(["api", "lattice", "compile-repair"]);
     match action {
         "start" => {}
         "status" | "cancel" => {
-            let id = thread_id
-                .filter(|id| !id.is_empty())
-                .ok_or("Missing repair task.")?;
+            let id = thread_id.filter(|id| !id.is_empty()).ok_or("Missing repair task.")?;
             segments.push(id);
             if action == "cancel" {
                 segments.push("cancel");
@@ -573,24 +526,17 @@ pub fn compile_repair_request(
         .timeout(Duration::from_secs(30))
         .build()
         .map_err(|error| error.to_string())?;
-    let mut request = if action == "status" {
-        client.get(url)
-    } else {
-        client.post(url).json(&payload)
-    };
+    let mut request =
+        if action == "status" { client.get(url) } else { client.post(url).json(&payload) };
     if let Some(token) = info.auth_token {
         request = request.bearer_auth(token);
     }
     let response = request.send().map_err(|error| error.to_string())?;
     let status = response.status();
-    let value: serde_json::Value = response
-        .json()
-        .map_err(|_| format!("Repair service returned {status}."))?;
+    let value: serde_json::Value =
+        response.json().map_err(|_| format!("Repair service returned {status}."))?;
     if !status.is_success() {
-        return Err(value["error"]
-            .as_str()
-            .unwrap_or("The repair request failed.")
-            .to_string());
+        return Err(value["error"].as_str().unwrap_or("The repair request failed.").to_string());
     }
     Ok(value)
 }
@@ -626,39 +572,24 @@ fn apply_system_proxy_environment(command: &mut Command) {
 }
 
 fn apply_proxy_environment(
-    command: &mut Command,
-    proxy: &SystemProxyEnvironment,
+    command: &mut Command, proxy: &SystemProxyEnvironment,
     inherited_env_is_set: impl Fn(&str) -> bool,
 ) {
-    let all_proxy_is_set = ["ALL_PROXY", "all_proxy"]
-        .into_iter()
-        .any(&inherited_env_is_set);
+    let all_proxy_is_set = ["ALL_PROXY", "all_proxy"].into_iter().any(&inherited_env_is_set);
     let mut applied_proxy = false;
-    if !all_proxy_is_set
-        && !["HTTP_PROXY", "http_proxy"]
-            .into_iter()
-            .any(&inherited_env_is_set)
-    {
+    if !all_proxy_is_set && !["HTTP_PROXY", "http_proxy"].into_iter().any(&inherited_env_is_set) {
         if let Some(value) = &proxy.http_proxy {
             command.env("HTTP_PROXY", value);
             applied_proxy = true;
         }
     }
-    if !all_proxy_is_set
-        && !["HTTPS_PROXY", "https_proxy"]
-            .into_iter()
-            .any(&inherited_env_is_set)
-    {
+    if !all_proxy_is_set && !["HTTPS_PROXY", "https_proxy"].into_iter().any(&inherited_env_is_set) {
         if let Some(value) = &proxy.https_proxy {
             command.env("HTTPS_PROXY", value);
             applied_proxy = true;
         }
     }
-    if applied_proxy
-        && !["NO_PROXY", "no_proxy"]
-            .into_iter()
-            .any(inherited_env_is_set)
-    {
+    if applied_proxy && !["NO_PROXY", "no_proxy"].into_iter().any(inherited_env_is_set) {
         if let Some(value) = &proxy.no_proxy {
             command.env("NO_PROXY", value);
         }
@@ -694,9 +625,7 @@ fn macos_system_proxy_environment() -> Option<SystemProxyEnvironment> {
 
 #[cfg(target_os = "macos")]
 fn macos_proxy_url(
-    settings: &CFDictionary<CFString, CFType>,
-    enabled_key: CFStringRef,
-    host_key: CFStringRef,
+    settings: &CFDictionary<CFString, CFType>, enabled_key: CFStringRef, host_key: CFStringRef,
     port_key: CFStringRef,
 ) -> Option<String> {
     let enabled = settings
@@ -766,15 +695,11 @@ fn proxy_bypass_list(exceptions: Vec<String>) -> String {
 }
 
 fn file_len(path: &Path) -> u64 {
-    fs::metadata(path)
-        .map(|metadata| metadata.len())
-        .unwrap_or(0)
+    fs::metadata(path).map(|metadata| metadata.len()).unwrap_or(0)
 }
 
 fn wait_until_ready(
-    running: &mut RunningSynara,
-    home_dir: &Path,
-    started: Instant,
+    running: &mut RunningSynara, home_dir: &Path, started: Instant,
 ) -> Result<String, String> {
     let runtime_state_path = home_dir.join(RUNTIME_STATE_RELATIVE_PATH);
     let client = Client::builder()
@@ -823,11 +748,7 @@ fn startup_log_excerpt(logs: &StartupLogs) -> Option<String> {
     .flatten()
     .collect::<Vec<_>>()
     .join("\n");
-    let lines = output
-        .lines()
-        .map(str::trim)
-        .filter(|line| !line.is_empty())
-        .collect::<Vec<_>>();
+    let lines = output.lines().map(str::trim).filter(|line| !line.is_empty()).collect::<Vec<_>>();
     if lines.is_empty() {
         return None;
     }
@@ -837,16 +758,9 @@ fn startup_log_excerpt(logs: &StartupLogs) -> Option<String> {
         .copied()
         .filter(|line| {
             let normalized = line.to_ascii_lowercase();
-            [
-                "error",
-                "failed",
-                "locked",
-                "missing",
-                "denied",
-                "unrecognized",
-            ]
-            .iter()
-            .any(|marker| normalized.contains(marker))
+            ["error", "failed", "locked", "missing", "denied", "unrecognized"]
+                .iter()
+                .any(|marker| normalized.contains(marker))
         })
         .collect::<Vec<_>>();
     let selected = if noteworthy.is_empty() {
@@ -857,10 +771,7 @@ fn startup_log_excerpt(logs: &StartupLogs) -> Option<String> {
     let excerpt = selected.join(" | ");
     let char_count = excerpt.chars().count();
     Some(if char_count > 1_200 {
-        format!(
-            "…{}",
-            excerpt.chars().skip(char_count - 1_200).collect::<String>()
-        )
+        format!("…{}", excerpt.chars().skip(char_count - 1_200).collect::<String>())
     } else {
         excerpt
     })
@@ -897,11 +808,7 @@ fn health_is_ready(client: &Client, origin: &str) -> bool {
     response
         .json::<serde_json::Value>()
         .ok()
-        .and_then(|value| {
-            value
-                .get("startupReady")
-                .and_then(serde_json::Value::as_bool)
-        })
+        .and_then(|value| value.get("startupReady").and_then(serde_json::Value::as_bool))
         .unwrap_or(false)
 }
 
@@ -966,11 +873,7 @@ fn initialize_research_writing_preference(home: &Path) -> Result<(), String> {
         Ok(bytes) => serde_json::from_slice(&bytes)
             .map_err(|error| format!("Could not read the agent skill preferences: {error}"))?,
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => serde_json::json!({}),
-        Err(error) => {
-            return Err(format!(
-                "Could not read the agent skill preferences: {error}"
-            ))
-        }
+        Err(error) => return Err(format!("Could not read the agent skill preferences: {error}")),
     };
     // Older Synara installations store plain settings, newer ones wrap them in
     // { revision, migrationVersion, settings }. Preserve either format and all
@@ -980,9 +883,7 @@ fn initialize_research_writing_preference(home: &Path) -> Result<(), String> {
     } else {
         &mut document
     };
-    let settings = settings
-        .as_object_mut()
-        .ok_or("The agent settings must be a JSON object.")?;
+    let settings = settings.as_object_mut().ok_or("The agent settings must be a JSON object.")?;
     let skills = settings
         .entry("skills")
         .or_insert_with(|| serde_json::json!({}))
@@ -997,8 +898,7 @@ fn initialize_research_writing_preference(home: &Path) -> Result<(), String> {
         return Err("The disabled agent skills must contain only names.".into());
     }
     if !disabled.iter().any(|name| {
-        name.as_str()
-            .is_some_and(|name| name.trim().eq_ignore_ascii_case("research-writing"))
+        name.as_str().is_some_and(|name| name.trim().eq_ignore_ascii_case("research-writing"))
     }) {
         disabled.push(serde_json::json!("research-writing"));
     }
@@ -1109,18 +1009,9 @@ mod tests {
             "Already repairing"
         );
         let requests = server.join().unwrap();
-        assert_eq!(
-            requests[0].0,
-            "POST /api/lattice/compile-repair HTTP/1.1\r\n"
-        );
-        assert_eq!(
-            serde_json::from_slice::<serde_json::Value>(&requests[0].1).unwrap(),
-            payload
-        );
-        assert_eq!(
-            requests[1].0,
-            "GET /api/lattice/compile-repair/repair:one HTTP/1.1\r\n"
-        );
+        assert_eq!(requests[0].0, "POST /api/lattice/compile-repair HTTP/1.1\r\n");
+        assert_eq!(serde_json::from_slice::<serde_json::Value>(&requests[0].1).unwrap(), payload);
+        assert_eq!(requests[1].0, "GET /api/lattice/compile-repair/repair:one HTTP/1.1\r\n");
         assert!(requests[1].1.is_empty());
         assert_eq!(
             requests[2].0,
@@ -1135,17 +1026,11 @@ mod tests {
         initialize_research_writing_preference(&home).unwrap();
         let path = home.join("userdata/settings.json");
         let initial: serde_json::Value = serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
-        assert_eq!(
-            initial,
-            serde_json::json!({"skills": {"disabled": ["research-writing"]}})
-        );
+        assert_eq!(initial, serde_json::json!({"skills": {"disabled": ["research-writing"]}}));
 
         // Synara's Settings switch removes the name when enabling and adds it
         // when disabling; subsequent host startups must preserve both choices.
-        for disabled in [
-            serde_json::json!([]),
-            serde_json::json!(["research-writing"]),
-        ] {
+        for disabled in [serde_json::json!([]), serde_json::json!(["research-writing"])] {
             let saved = serde_json::json!({
                 "revision": 8, "migrationVersion": 2,
                 "settings": {"skills": {"disabled": disabled}, "theme": "dark"}
@@ -1167,10 +1052,8 @@ mod tests {
     #[test]
     fn research_writing_upgrade_preserves_legacy_and_enveloped_settings() {
         for enveloped in [false, true] {
-            for disabled in [
-                serde_json::json!(["other"]),
-                serde_json::json!(["Research-Writing"]),
-            ] {
+            for disabled in [serde_json::json!(["other"]), serde_json::json!(["Research-Writing"])]
+            {
                 let home =
                     std::env::temp_dir().join(format!("lattice-skills-{}", uuid::Uuid::new_v4()));
                 fs::create_dir_all(home.join("userdata")).unwrap();
@@ -1188,11 +1071,7 @@ mod tests {
                 initialize_research_writing_preference(&home).unwrap();
                 let updated: serde_json::Value =
                     serde_json::from_slice(&fs::read(path).unwrap()).unwrap();
-                let settings = if enveloped {
-                    &mut expected["settings"]
-                } else {
-                    &mut expected
-                };
+                let settings = if enveloped { &mut expected["settings"] } else { &mut expected };
                 if settings["skills"]["disabled"] == serde_json::json!(["other"]) {
                     settings["skills"]["disabled"] =
                         serde_json::json!(["other", "research-writing"]);
@@ -1205,12 +1084,7 @@ mod tests {
 
     #[test]
     fn research_writing_does_not_overwrite_invalid_preferences() {
-        for invalid in [
-            "{",
-            "[]",
-            r#"{"settings":null}"#,
-            r#"{"skills":{"disabled":[1]}}"#,
-        ] {
+        for invalid in ["{", "[]", r#"{"settings":null}"#, r#"{"skills":{"disabled":[1]}}"#] {
             let home =
                 std::env::temp_dir().join(format!("lattice-skills-{}", uuid::Uuid::new_v4()));
             fs::create_dir_all(home.join("userdata")).unwrap();
@@ -1218,9 +1092,7 @@ mod tests {
             fs::write(&path, invalid).unwrap();
             assert!(initialize_research_writing_preference(&home).is_err());
             assert_eq!(fs::read_to_string(path).unwrap(), invalid);
-            assert!(!home
-                .join("userdata/.lattice-research-writing-default-v1")
-                .exists());
+            assert!(!home.join("userdata/.lattice-research-writing-default-v1").exists());
             fs::remove_dir_all(home).unwrap();
         }
     }
@@ -1262,14 +1134,9 @@ mod tests {
         fs::write(&executable, "#!/bin/sh\nprintf '%s\\n' \"$@\"\n").unwrap();
         fs::set_permissions(&executable, fs::Permissions::from_mode(0o755)).unwrap();
         let inspector = super::prepare_process_inspector(&home, &executable).unwrap();
-        assert_eq!(
-            fs::metadata(&inspector).unwrap().permissions().mode() & 0o7777,
-            0o755
-        );
-        let output = Command::new(&inspector)
-            .args(["-eo", "pid=,ppid=,command="])
-            .output()
-            .unwrap();
+        assert_eq!(fs::metadata(&inspector).unwrap().permissions().mode() & 0o7777, 0o755);
+        let output =
+            Command::new(&inspector).args(["-eo", "pid=,ppid=,command="]).output().unwrap();
         assert!(output.status.success());
         assert_eq!(
             String::from_utf8(output.stdout).unwrap(),
@@ -1277,10 +1144,7 @@ mod tests {
         );
         // A non-query executable must fail preflight, even if it exits zero.
         assert!(super::verify_process_inspector(&inspector).is_err());
-        assert_eq!(
-            super::prepare_process_inspector(&home, &executable).unwrap(),
-            inspector
-        );
+        assert_eq!(super::prepare_process_inspector(&home, &executable).unwrap(), inspector);
         fs::remove_dir_all(home).unwrap();
     }
 
@@ -1295,14 +1159,8 @@ mod tests {
         apply_proxy_environment(&mut command, &proxy, |key| key == "http_proxy");
 
         assert_eq!(command_env(&command, "HTTP_PROXY"), None);
-        assert_eq!(
-            command_env(&command, "HTTPS_PROXY").as_deref(),
-            Some("http://127.0.0.1:7897")
-        );
-        assert_eq!(
-            command_env(&command, "NO_PROXY").as_deref(),
-            Some("localhost,127.0.0.1,::1")
-        );
+        assert_eq!(command_env(&command, "HTTPS_PROXY").as_deref(), Some("http://127.0.0.1:7897"));
+        assert_eq!(command_env(&command, "NO_PROXY").as_deref(), Some("localhost,127.0.0.1,::1"));
 
         let mut explicit = Command::new("node");
         apply_proxy_environment(&mut explicit, &proxy, |key| key == "ALL_PROXY");
@@ -1352,10 +1210,7 @@ mod tests {
                 "mv \"$1\" \"$2\" && printf changed > \"$2\" && mv \"$2\" \"$1\"",
                 vec![bibliography.as_path(), renamed.as_path()],
             ),
-            (
-                "printf changed > \"$1\"",
-                vec![uppercase_bibliography.as_path()],
-            ),
+            ("printf changed > \"$1\"", vec![uppercase_bibliography.as_path()]),
             (
                 "ln \"$1\" \"$2\" && printf changed > \"$2\"",
                 vec![bibliography.as_path(), hardlink_alias.as_path()],
@@ -1367,21 +1222,12 @@ mod tests {
             ),
         ];
         for (script, args) in attempts {
-            assert!(
-                !run_bibliography_sandbox(script, &args),
-                "sandbox allowed: {script}"
-            );
+            assert!(!run_bibliography_sandbox(script, &args), "sandbox allowed: {script}");
         }
 
         assert_eq!(fs::read_to_string(&bibliography).unwrap(), "original");
-        assert_eq!(
-            fs::read_to_string(&uppercase_bibliography).unwrap(),
-            "uppercase"
-        );
-        assert!(run_bibliography_sandbox(
-            "printf changed > \"$1\"",
-            &[&ordinary],
-        ));
+        assert_eq!(fs::read_to_string(&uppercase_bibliography).unwrap(), "uppercase");
+        assert!(run_bibliography_sandbox("printf changed > \"$1\"", &[&ordinary],));
         assert_eq!(fs::read_to_string(&ordinary).unwrap(), "changed");
         let _ = fs::remove_dir_all(root);
     }
@@ -1409,11 +1255,8 @@ mod tests {
         let root = std::env::temp_dir().join(format!("lattice-synara-{}", uuid::Uuid::new_v4()));
         fs::create_dir_all(&root).expect("create temp directory");
         let path = root.join("manifest.json");
-        fs::write(
-            &path,
-            r#"{"synaraVersion":"0.6.3","synaraRevision":"abc123"}"#,
-        )
-        .expect("write manifest");
+        fs::write(&path, r#"{"synaraVersion":"0.6.3","synaraRevision":"abc123"}"#)
+            .expect("write manifest");
         let manifest = read_runtime_manifest(&path).expect("read manifest");
         assert_eq!(manifest.synara_version.as_deref(), Some("0.6.3"));
         assert_eq!(manifest.synara_revision.as_deref(), Some("abc123"));
@@ -1468,10 +1311,7 @@ mod tests {
         .expect("append current log");
 
         let excerpt = startup_log_excerpt(&logs).expect("startup excerpt");
-        assert_eq!(
-            excerpt,
-            "DatabaseLifecycleLockedError: owner pid 42 is live"
-        );
+        assert_eq!(excerpt, "DatabaseLifecycleLockedError: owner pid 42 is live");
         let _ = fs::remove_dir_all(root);
     }
 }

@@ -61,14 +61,7 @@ pub fn install_magnify_monitor(app: tauri::AppHandle) {
                         (location.x, height - location.y)
                     })
                     .unwrap_or((location.x, location.y));
-                let _ = window.emit(
-                    "trackpad-magnify",
-                    MagnifyEvent {
-                        magnification,
-                        x,
-                        y,
-                    },
-                );
+                let _ = window.emit("trackpad-magnify", MagnifyEvent { magnification, x, y });
             }
         }
         // Let the event continue on its way; we only observe it.
@@ -318,8 +311,7 @@ pub fn align_traffic_lights_to(window: &tauri::WebviewWindow, center_from_top: f
 
 #[cfg(not(target_os = "macos"))]
 pub fn align_traffic_lights_to(
-    _window: &tauri::WebviewWindow,
-    _center_from_top: f64,
+    _window: &tauri::WebviewWindow, _center_from_top: f64,
 ) -> Option<f64> {
     None
 }
@@ -343,9 +335,7 @@ fn measure_traffic_light_alignment(window: &tauri::WebviewWindow) -> Option<f64>
         let right = unsafe { align_traffic_lights_on_main(ptr as *mut std::ffi::c_void) };
         let _ = tx.send(right);
     });
-    rx.recv_timeout(std::time::Duration::from_millis(500))
-        .ok()
-        .flatten()
+    rx.recv_timeout(std::time::Duration::from_millis(500)).ok().flatten()
 }
 
 #[cfg(target_os = "macos")]
@@ -468,19 +458,12 @@ pub async fn print_webview(window: &tauri::WebviewWindow) -> Result<bool, String
             let _ = sender.send(operation.runOperation());
         })
         .map_err(|error| format!("Could not prepare the print dialog: {error}"))?;
-    receiver
-        .await
-        .map_err(|_| "The print dialog closed unexpectedly.".to_string())
+    receiver.await.map_err(|_| "The print dialog closed unexpectedly.".to_string())
 }
 
 fn rgb_hex(red: f64, green: f64, blue: f64) -> String {
     let channel = |value: f64| (value.clamp(0.0, 1.0) * 255.0).round() as u8;
-    format!(
-        "#{:02X}{:02X}{:02X}",
-        channel(red),
-        channel(green),
-        channel(blue)
-    )
+    format!("#{:02X}{:02X}{:02X}", channel(red), channel(green), channel(blue))
 }
 
 /// Open AppKit's system-wide color sampler and resolve after the user selects
@@ -505,11 +488,7 @@ pub async fn sample_screen_color(app: &tauri::AppHandle) -> Result<Option<String
                 // for the duration of the completion handler.
                 let color = unsafe { color.as_ref() };
                 let srgb = color.colorUsingColorSpace(&NSColorSpace::sRGBColorSpace())?;
-                Some(rgb_hex(
-                    srgb.redComponent(),
-                    srgb.greenComponent(),
-                    srgb.blueComponent(),
-                ))
+                Some(rgb_hex(srgb.redComponent(), srgb.greenComponent(), srgb.blueComponent()))
             });
             if let Some(sender) = sender.lock().ok().and_then(|mut slot| slot.take()) {
                 let _ = sender.send(selected);
@@ -521,9 +500,7 @@ pub async fn sample_screen_color(app: &tauri::AppHandle) -> Result<Option<String
     })
     .map_err(|reason| format!("Could not start the screen color sampler: {reason}"))?;
 
-    receiver
-        .await
-        .map_err(|_| "The screen color sampler ended without a result.".to_string())
+    receiver.await.map_err(|_| "The screen color sampler ended without a result.".to_string())
 }
 
 /// Strip Gatekeeper quarantine from our bundle (and an adjacent collab folder when present).
@@ -599,9 +576,7 @@ mod tests {
             "the macOS WebView must disable its opaque white backing surface"
         );
         assert_eq!(
-            include_str!("lib.rs")
-                .matches(".accept_first_mouse(true)")
-                .count(),
+            include_str!("lib.rs").matches(".accept_first_mouse(true)").count(),
             3,
             "the main, project, and paper lookup WebView windows must accept the activation click"
         );
@@ -618,13 +593,9 @@ mod tests {
         assert!(native_window.contains("appWindow.destroy()"));
         let capability: Value = serde_json::from_str(include_str!("../capabilities/default.json"))
             .expect("valid capability file");
-        let permissions = capability["permissions"]
-            .as_array()
-            .expect("capability permissions");
+        let permissions = capability["permissions"].as_array().expect("capability permissions");
         assert!(
-            permissions
-                .iter()
-                .any(|permission| permission == "core:window:allow-destroy"),
+            permissions.iter().any(|permission| permission == "core:window:allow-destroy"),
             "the window close handler needs core:window:allow-destroy"
         );
     }

@@ -19,10 +19,7 @@ impl DiagnosticContext {
             .map_err(|_| "Invalid diagnostic operation id".to_string())?;
         let request_id = Uuid::parse_str(&self.request_id)
             .map_err(|_| "Invalid diagnostic request id".to_string())?;
-        Ok(ValidatedDiagnosticContext {
-            operation_id,
-            request_id,
-        })
+        Ok(ValidatedDiagnosticContext { operation_id, request_id })
     }
 }
 
@@ -43,12 +40,10 @@ impl CommandDiagnostic {
             context: context.map(|context| {
                 // Invalid caller-controlled values must never reach logs. Keep a
                 // terminal event for the rejected command under fresh safe IDs.
-                context
-                    .validated()
-                    .unwrap_or_else(|_| ValidatedDiagnosticContext {
-                        operation_id: Uuid::new_v4(),
-                        request_id: Uuid::new_v4(),
-                    })
+                context.validated().unwrap_or_else(|_| ValidatedDiagnosticContext {
+                    operation_id: Uuid::new_v4(),
+                    request_id: Uuid::new_v4(),
+                })
             }),
             command,
             started: Instant::now(),
@@ -88,12 +83,7 @@ mod tests {
             request_id: Uuid::new_v4().to_string(),
         };
         assert!(valid.validate().is_ok());
-        assert!(DiagnosticContext {
-            request_id: "bad".into(),
-            ..valid
-        }
-        .validate()
-        .is_err());
+        assert!(DiagnosticContext { request_id: "bad".into(), ..valid }.validate().is_err());
     }
 
     #[test]
@@ -106,9 +96,7 @@ mod tests {
             }),
         );
 
-        let event = diagnostic
-            .completion_event(&Err::<(), _>("rejected".into()))
-            .unwrap();
+        let event = diagnostic.completion_event(&Err::<(), _>("rejected".into())).unwrap();
         assert!(Uuid::parse_str(event["operation_id"].as_str().unwrap()).is_ok());
         assert!(Uuid::parse_str(event["request_id"].as_str().unwrap()).is_ok());
         assert!(!event.to_string().contains("credential=secret"));

@@ -34,10 +34,7 @@ pub struct LinkMetadata {
 pub async fn link_preview(url: String) -> LinkPreviewResult {
     match tokio::time::timeout(Duration::from_millis(5000), preview(&url)).await {
         Ok(Ok(metadata)) => LinkPreviewResult::Success { ok: true, metadata },
-        _ => LinkPreviewResult::Failure {
-            ok: false,
-            reason: "blocked",
-        },
+        _ => LinkPreviewResult::Failure { ok: false, reason: "blocked" },
     }
 }
 
@@ -80,18 +77,12 @@ fn clean_url(mut url: Url) -> Result<Url, ()> {
 async fn client_for(url: &Url) -> Result<Client, ()> {
     let host = url.host_str().ok_or(())?;
     let port = url.port_or_known_default().ok_or(())?;
-    let addresses: Vec<SocketAddr> = tokio::net::lookup_host((host, port))
-        .await
-        .map_err(|_| ())?
-        .collect();
+    let addresses: Vec<SocketAddr> =
+        tokio::net::lookup_host((host, port)).await.map_err(|_| ())?.collect();
     if addresses.is_empty() || addresses.iter().any(|address| !is_public_ip(address.ip())) {
         return Err(());
     }
-    Client::builder()
-        .redirect(Policy::none())
-        .resolve(host, addresses[0])
-        .build()
-        .map_err(|_| ())
+    Client::builder().redirect(Policy::none()).resolve(host, addresses[0]).build().map_err(|_| ())
 }
 
 fn is_public_ip(ip: IpAddr) -> bool {
@@ -153,12 +144,8 @@ async fn fetch_page(mut url: Url) -> Result<(Url, String), ()> {
             if hop == 3 {
                 return Err(());
             }
-            let location = response
-                .headers()
-                .get(header::LOCATION)
-                .ok_or(())?
-                .to_str()
-                .map_err(|_| ())?;
+            let location =
+                response.headers().get(header::LOCATION).ok_or(())?.to_str().map_err(|_| ())?;
             url = url.join(location).map_err(|_| ())?;
             continue;
         }
@@ -168,22 +155,13 @@ async fn fetch_page(mut url: Url) -> Result<(Url, String), ()> {
             return Err(());
         }
         let bytes = read_head(response).await?;
-        return String::from_utf8(bytes)
-            .map(|html| (url, html))
-            .map_err(|_| ());
+        return String::from_utf8(bytes).map(|html| (url, html)).map_err(|_| ());
     }
     Err(())
 }
 
 fn content_type(response: &reqwest::Response) -> Option<&str> {
-    response
-        .headers()
-        .get(header::CONTENT_TYPE)?
-        .to_str()
-        .ok()?
-        .split(';')
-        .next()
-        .map(str::trim)
+    response.headers().get(header::CONTENT_TYPE)?.to_str().ok()?.split(';').next().map(str::trim)
 }
 
 async fn read_head(response: reqwest::Response) -> Result<Vec<u8>, ()> {
@@ -214,12 +192,8 @@ async fn fetch_icon(mut url: Url) -> Result<String, ()> {
             if hop == 3 {
                 return Err(());
             }
-            let location = response
-                .headers()
-                .get(header::LOCATION)
-                .ok_or(())?
-                .to_str()
-                .map_err(|_| ())?;
+            let location =
+                response.headers().get(header::LOCATION).ok_or(())?.to_str().map_err(|_| ())?;
             url = url.join(location).map_err(|_| ())?;
             continue;
         }
@@ -320,13 +294,11 @@ fn extract_metadata(html: &str) -> Extracted {
                 }
             } else if out.favicon.is_none()
                 && attrs.get("rel").is_some_and(|v| {
-                    v.split_ascii_whitespace()
-                        .any(|r| r.eq_ignore_ascii_case("icon"))
+                    v.split_ascii_whitespace().any(|r| r.eq_ignore_ascii_case("icon"))
                 })
             {
-                out.favicon = attrs
-                    .get("href")
-                    .map(|v| html_escape::decode_html_entities(v).into_owned());
+                out.favicon =
+                    attrs.get("href").map(|v| html_escape::decode_html_entities(v).into_owned());
             }
         }
     }
@@ -348,22 +320,12 @@ fn sanitized(value: &str, max: usize) -> Option<String> {
     if collapsed.chars().count() <= max {
         return Some(collapsed);
     }
-    Some(
-        collapsed
-            .chars()
-            .take(max.saturating_sub(1))
-            .collect::<String>()
-            + "…",
-    )
+    Some(collapsed.chars().take(max.saturating_sub(1)).collect::<String>() + "…")
 }
 
 fn display_domain(url: &Url) -> Result<String, ()> {
     let host = url.host_str().ok_or(())?;
-    Ok(host
-        .strip_prefix("www.")
-        .filter(|rest| rest.contains('.'))
-        .unwrap_or(host)
-        .to_string())
+    Ok(host.strip_prefix("www.").filter(|rest| rest.contains('.')).unwrap_or(host).to_string())
 }
 
 #[cfg(test)]
@@ -402,10 +364,7 @@ mod tests {
 
     #[test]
     fn sanitizes_entities_controls_and_length() {
-        assert_eq!(
-            sanitized(" A&nbsp; &amp;\u{202e}\u{0007} B ", 20).as_deref(),
-            Some("A & B")
-        );
+        assert_eq!(sanitized(" A&nbsp; &amp;\u{202e}\u{0007} B ", 20).as_deref(), Some("A & B"));
         assert_eq!(sanitized("abcdef", 5).as_deref(), Some("abcd…"));
     }
 

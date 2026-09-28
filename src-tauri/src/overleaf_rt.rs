@@ -106,11 +106,7 @@ pub struct RealtimeConfig {
 #[derive(Debug, Clone, Serialize)]
 // `rename_all` renames the variants; the fields inside them need their own
 // rule, or the app receives `root_folder_id` where it expects `rootFolderId`.
-#[serde(
-    rename_all = "camelCase",
-    rename_all_fields = "camelCase",
-    tag = "type"
-)]
+#[serde(rename_all = "camelCase", rename_all_fields = "camelCase", tag = "type")]
 pub enum RealtimeEvent {
     Connected {
         public_id: String,
@@ -299,9 +295,8 @@ pub fn encode_frame(kind: u8, id: &str, endpoint: &str, data: &str) -> String {
 pub fn parse_frame(raw: &str) -> Result<Frame, String> {
     let mut parts = raw.splitn(4, ':');
     let kind_text = parts.next().unwrap_or("");
-    let id = parts
-        .next()
-        .ok_or_else(|| format!("socket.io frame is missing its id field: {raw:?}"))?;
+    let id =
+        parts.next().ok_or_else(|| format!("socket.io frame is missing its id field: {raw:?}"))?;
     let endpoint = parts
         .next()
         .ok_or_else(|| format!("socket.io frame is missing its endpoint field: {raw:?}"))?;
@@ -312,12 +307,7 @@ pub fn parse_frame(raw: &str) -> Result<Frame, String> {
     if kind > FRAME_NOOP {
         return Err(format!("unknown socket.io frame type {kind}: {raw:?}"));
     }
-    Ok(Frame {
-        kind,
-        id: id.to_string(),
-        endpoint: endpoint.to_string(),
-        data: data.to_string(),
-    })
+    Ok(Frame { kind, id: id.to_string(), endpoint: endpoint.to_string(), data: data.to_string() })
 }
 
 /// Splits an ack payload (`"{id}+{json_array}"`, or a bare `"{id}"`) into the
@@ -352,11 +342,7 @@ pub fn parse_event(data: &str) -> Result<(String, Vec<Value>), String> {
         .and_then(Value::as_str)
         .ok_or_else(|| format!("socket.io event has no name: {data:?}"))?
         .to_string();
-    let args = parsed
-        .get("args")
-        .and_then(Value::as_array)
-        .cloned()
-        .unwrap_or_default();
+    let args = parsed.get("args").and_then(Value::as_array).cloned().unwrap_or_default();
     Ok((name, args))
 }
 
@@ -374,9 +360,7 @@ pub fn parse_handshake(body: &str) -> Result<(String, u64), String> {
     let sid = fields[0].trim();
     let looks_like_a_sid = !sid.is_empty()
         && sid.len() <= 128
-        && sid
-            .chars()
-            .all(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '_'));
+        && sid.chars().all(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '_'));
     if !looks_like_a_sid {
         return Err(format!(
             "Overleaf returned an unexpected socket.io handshake: {:?}",
@@ -447,10 +431,7 @@ pub fn url_encode(value: &str) -> String {
 }
 
 fn now_millis() -> u128 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map(|d| d.as_millis())
-        .unwrap_or(0)
+    SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_millis()).unwrap_or(0)
 }
 
 // ---- Handshake ------------------------------------------------------------
@@ -466,11 +447,8 @@ struct Handshake {
 }
 
 fn handshake_blocking(origin: &str, cookie: &str, project_id: &str) -> Result<Handshake, String> {
-    let url = format!(
-        "{origin}/socket.io/1/?projectId={}&t={}",
-        url_encode(project_id),
-        now_millis()
-    );
+    let url =
+        format!("{origin}/socket.io/1/?projectId={}&t={}", url_encode(project_id), now_millis());
     let client = reqwest::blocking::Client::builder()
         .user_agent(USER_AGENT)
         .timeout(Duration::from_secs(20))
@@ -499,10 +477,7 @@ fn handshake_blocking(origin: &str, cookie: &str, project_id: &str) -> Result<Ha
         return Err(SESSION_EXPIRED.to_string());
     }
     if !status.is_success() {
-        return Err(format!(
-            "Overleaf refused the realtime handshake (HTTP {}).",
-            status.as_u16()
-        ));
+        return Err(format!("Overleaf refused the realtime handshake (HTTP {}).", status.as_u16()));
     }
     let (sid, heartbeat_secs) = parse_handshake(&body).map_err(|e| {
         if body.trim_start().starts_with('<') {
@@ -511,11 +486,7 @@ fn handshake_blocking(origin: &str, cookie: &str, project_id: &str) -> Result<Ha
             e
         }
     })?;
-    Ok(Handshake {
-        sid,
-        heartbeat_secs,
-        cookie: merge_cookies(cookie, &handed_back),
-    })
+    Ok(Handshake { sid, heartbeat_secs, cookie: merge_cookies(cookie, &handed_back) })
 }
 
 /// Fold any cookies the handshake set into the ones we already had.
@@ -536,12 +507,7 @@ fn merge_cookies(base: &str, set_cookies: &[String]) -> String {
             push_cookie(&mut order, &mut values, pair);
         }
     }
-    order
-        .iter()
-        .filter_map(|name| values.get(name))
-        .cloned()
-        .collect::<Vec<_>>()
-        .join("; ")
+    order.iter().filter_map(|name| values.get(name)).cloned().collect::<Vec<_>>().join("; ")
 }
 
 /// Later values win, but a cookie keeps the position it first appeared in, so
@@ -777,9 +743,7 @@ async fn await_slot(shared: &Arc<Shared>, mut slot: AckSlot) -> Result<Vec<Value
 
 /// Emits `5:{id}+::{"name":…,"args":…}` and waits for the matching ack.
 async fn emit_with_ack<A: Serialize>(
-    shared: &Arc<Shared>,
-    name: &str,
-    args: A,
+    shared: &Arc<Shared>, name: &str, args: A,
 ) -> Result<Vec<Value>, String> {
     let payload = encode_event(name, args)?;
     let id = shared.next_ack.fetch_add(1, Ordering::SeqCst);
@@ -824,11 +788,7 @@ fn ack_error(value: &Value) -> Option<String> {
             map.get("message")
                 .and_then(Value::as_str)
                 .map(|m| m.to_string())
-                .or_else(|| {
-                    map.get("code")
-                        .and_then(Value::as_str)
-                        .map(|c| c.to_string())
-                })
+                .or_else(|| map.get("code").and_then(Value::as_str).map(|c| c.to_string()))
         }
         _ => None,
     }
@@ -909,10 +869,7 @@ pub(crate) fn parse_comment_ranges(ranges: &Value) -> Vec<CommentRange> {
         .get("comments")
         .and_then(Value::as_array)
         .map(|comments| {
-            comments
-                .iter()
-                .filter_map(|comment| parse_comment_range(comment.get("op")?))
-                .collect()
+            comments.iter().filter_map(|comment| parse_comment_range(comment.get("op")?)).collect()
         })
         .unwrap_or_default()
 }
@@ -998,11 +955,7 @@ fn parse_comment_range(op: &Value) -> Option<CommentRange> {
     Some(CommentRange {
         thread_id: op.get("t").and_then(Value::as_str)?.to_string(),
         position: op.get("p").and_then(Value::as_i64).unwrap_or(0),
-        quote: op
-            .get("c")
-            .and_then(Value::as_str)
-            .map(decode_packed_utf8)
-            .unwrap_or_default(),
+        quote: op.get("c").and_then(Value::as_str).map(decode_packed_utf8).unwrap_or_default(),
     })
 }
 
@@ -1075,10 +1028,7 @@ impl Permission {
     }
 
     fn can_suggest(self) -> bool {
-        matches!(
-            self,
-            Permission::Owner | Permission::ReadAndWrite | Permission::Review
-        )
+        matches!(self, Permission::Owner | Permission::ReadAndWrite | Permission::Review)
     }
 
     pub fn as_str(self) -> &'static str {
@@ -1129,11 +1079,7 @@ impl Tree {
     fn from_root(root: &Value) -> Self {
         let mut tree = Tree {
             nodes: HashMap::new(),
-            root: root
-                .get("_id")
-                .and_then(Value::as_str)
-                .unwrap_or_default()
-                .to_string(),
+            root: root.get("_id").and_then(Value::as_str).unwrap_or_default().to_string(),
         };
         tree.absorb(root, None, 0);
         tree
@@ -1149,49 +1095,30 @@ impl Tree {
         self.nodes.insert(
             id.to_string(),
             TreeNode {
-                name: folder
-                    .get("name")
-                    .and_then(Value::as_str)
-                    .unwrap_or_default()
-                    .to_string(),
+                name: folder.get("name").and_then(Value::as_str).unwrap_or_default().to_string(),
                 parent: parent.map(str::to_string),
                 kind: NodeKind::Folder,
             },
         );
         for (key, kind) in [("docs", NodeKind::Doc), ("fileRefs", NodeKind::File)] {
-            for entity in folder
-                .get(key)
-                .and_then(Value::as_array)
-                .into_iter()
-                .flatten()
-            {
+            for entity in folder.get(key).and_then(Value::as_array).into_iter().flatten() {
                 self.insert_entity(id, entity, kind);
             }
         }
-        for child in folder
-            .get("folders")
-            .and_then(Value::as_array)
-            .into_iter()
-            .flatten()
-        {
+        for child in folder.get("folders").and_then(Value::as_array).into_iter().flatten() {
             self.absorb(child, Some(id), depth + 1);
         }
     }
 
     fn insert_entity(&mut self, parent: &str, entity: &Value, kind: NodeKind) {
-        let (Some(id), Some(name)) = (
-            entity.get("_id").and_then(Value::as_str),
-            entity.get("name").and_then(Value::as_str),
-        ) else {
+        let (Some(id), Some(name)) =
+            (entity.get("_id").and_then(Value::as_str), entity.get("name").and_then(Value::as_str))
+        else {
             return;
         };
         self.nodes.insert(
             id.to_string(),
-            TreeNode {
-                name: name.to_string(),
-                parent: Some(parent.to_string()),
-                kind,
-            },
+            TreeNode { name: name.to_string(), parent: Some(parent.to_string()), kind },
         );
     }
 
@@ -1245,12 +1172,7 @@ impl Tree {
             .nodes
             .iter()
             .filter(|(_, node)| node.kind == NodeKind::Doc)
-            .filter_map(|(id, _)| {
-                Some(DocEntry {
-                    id: id.clone(),
-                    path: self.path_of(id)?,
-                })
-            })
+            .filter_map(|(id, _)| Some(DocEntry { id: id.clone(), path: self.path_of(id)? }))
             .collect();
         docs.sort_by(|a, b| a.path.cmp(&b.path));
         docs
@@ -1393,10 +1315,7 @@ fn handle_frame(shared: &Arc<Shared>, raw: &str, reason: &mut String) -> bool {
         }
         FRAME_EVENT => return handle_event(shared, &frame.data, reason),
         FRAME_ERROR => {
-            *reason = format!(
-                "The Overleaf realtime server returned an error: {}",
-                frame.data
-            );
+            *reason = format!("The Overleaf realtime server returned an error: {}", frame.data);
             shared.resolve(CONNECT_SLOT, AckMsg::Failed(reason.clone()));
             return false;
         }
@@ -1413,11 +1332,7 @@ fn handle_event(shared: &Arc<Shared>, data: &str, reason: &mut String) -> bool {
     match name.as_str() {
         // `[publicId]` on some deployments, `[null, publicId]` on others.
         "connectionAccepted" => {
-            let public_id = args
-                .iter()
-                .find_map(Value::as_str)
-                .unwrap_or_default()
-                .to_string();
+            let public_id = args.iter().find_map(Value::as_str).unwrap_or_default().to_string();
             *lock(&shared.public_id) = public_id.clone();
             shared.emit(RealtimeEvent::Connected { public_id });
         }
@@ -1442,10 +1357,7 @@ fn handle_event(shared: &Arc<Shared>, data: &str, reason: &mut String) -> bool {
                 .first()
                 .map(error_text)
                 .unwrap_or_else(|| "Overleaf rejected the edit.".to_string());
-            shared.emit(RealtimeEvent::OtError {
-                doc_id: doc_id_hint(&args),
-                message,
-            });
+            shared.emit(RealtimeEvent::OtError { doc_id: doc_id_hint(&args), message });
         }
         // Every one of these is a delta against the tree we hold; none of them
         // carries a path, and a deleted folder arrives as a single event for
@@ -1468,10 +1380,9 @@ fn handle_event(shared: &Arc<Shared>, data: &str, reason: &mut String) -> bool {
             }
         }
         "reciveEntityRename" => {
-            if let (Some(id), Some(new_name)) = (
-                args.first().and_then(Value::as_str),
-                args.get(1).and_then(Value::as_str),
-            ) {
+            if let (Some(id), Some(new_name)) =
+                (args.first().and_then(Value::as_str), args.get(1).and_then(Value::as_str))
+            {
                 let mut tree = lock(&shared.tree);
                 if tree.rename(id, new_name) {
                     let (docs, entities) = (tree.docs(), tree.entities());
@@ -1481,10 +1392,9 @@ fn handle_event(shared: &Arc<Shared>, data: &str, reason: &mut String) -> bool {
             }
         }
         "reciveEntityMove" => {
-            if let (Some(id), Some(folder)) = (
-                args.first().and_then(Value::as_str),
-                args.get(1).and_then(Value::as_str),
-            ) {
+            if let (Some(id), Some(folder)) =
+                (args.first().and_then(Value::as_str), args.get(1).and_then(Value::as_str))
+            {
                 let mut tree = lock(&shared.tree);
                 if tree.move_to(id, folder) {
                     let (docs, entities) = (tree.docs(), tree.entities());
@@ -1512,9 +1422,7 @@ fn handle_event(shared: &Arc<Shared>, data: &str, reason: &mut String) -> bool {
                     if current.is_empty() {
                         *current = id.to_string();
                         drop(current);
-                        shared.emit(RealtimeEvent::Connected {
-                            public_id: id.to_string(),
-                        });
+                        shared.emit(RealtimeEvent::Connected { public_id: id.to_string() });
                     }
                 }
                 shared.resolve(JOIN_SLOT, AckMsg::Ack(vec![body.clone()]));
@@ -1542,17 +1450,12 @@ fn handle_event(shared: &Arc<Shared>, data: &str, reason: &mut String) -> bool {
             }
         }
         "accept-changes" => {
-            if let (Some(doc_id), Some(ids)) = (
-                args.first().and_then(Value::as_str),
-                args.get(1).and_then(Value::as_array),
-            ) {
+            if let (Some(doc_id), Some(ids)) =
+                (args.first().and_then(Value::as_str), args.get(1).and_then(Value::as_array))
+            {
                 shared.emit(RealtimeEvent::ChangesAccepted {
                     doc_id: doc_id.to_string(),
-                    change_ids: ids
-                        .iter()
-                        .filter_map(Value::as_str)
-                        .map(str::to_string)
-                        .collect(),
+                    change_ids: ids.iter().filter_map(Value::as_str).map(str::to_string).collect(),
                 });
             }
         }
@@ -1584,29 +1487,20 @@ fn handle_event(shared: &Arc<Shared>, data: &str, reason: &mut String) -> bool {
 /// years, so read either rather than showing a blank author.
 fn chat_event(value: &Value) -> Option<RealtimeEvent> {
     let user = value.get("user");
-    let first = user
-        .and_then(|u| json_field(u, &["first_name", "firstName"]))
-        .unwrap_or_default();
-    let last = user
-        .and_then(|u| json_field(u, &["last_name", "lastName"]))
-        .unwrap_or_default();
+    let first = user.and_then(|u| json_field(u, &["first_name", "firstName"])).unwrap_or_default();
+    let last = user.and_then(|u| json_field(u, &["last_name", "lastName"])).unwrap_or_default();
     let author_email = user.and_then(|u| json_field(u, &["email"]));
     let name = format!("{first} {last}").trim().to_string();
     Some(RealtimeEvent::ChatMessage {
         id: json_field(value, &["id", "_id"])?,
         content: json_field(value, &["content"]).unwrap_or_default(),
         author_name: if name.is_empty() {
-            author_email
-                .clone()
-                .unwrap_or_else(|| "Someone".to_string())
+            author_email.clone().unwrap_or_else(|| "Someone".to_string())
         } else {
             name
         },
         author_email,
-        timestamp: value
-            .get("timestamp")
-            .and_then(Value::as_i64)
-            .unwrap_or_default(),
+        timestamp: value.get("timestamp").and_then(Value::as_i64).unwrap_or_default(),
     })
 }
 
@@ -1683,9 +1577,7 @@ fn presence_hue(user_id: Option<&str>) -> u32 {
 }
 
 fn json_field(value: &Value, keys: &[&str]) -> Option<String> {
-    keys.iter()
-        .find_map(|key| value.get(*key).and_then(Value::as_str))
-        .map(str::to_string)
+    keys.iter().find_map(|key| value.get(*key).and_then(Value::as_str)).map(str::to_string)
 }
 
 /// One `otUpdateApplied` payload, split into what it means for the text and
@@ -1757,10 +1649,7 @@ fn doc_update_events(value: &Value) -> Vec<RealtimeEvent> {
         for op in raw {
             if op.get("t").and_then(Value::as_str).is_some() {
                 if let Some(range) = parse_comment_range(op) {
-                    events.push(RealtimeEvent::CommentAnchored {
-                        doc_id: doc_id.clone(),
-                        range,
-                    });
+                    events.push(RealtimeEvent::CommentAnchored { doc_id: doc_id.clone(), range });
                 }
                 continue;
             }
@@ -1778,15 +1667,7 @@ fn doc_update_events(value: &Value) -> Vec<RealtimeEvent> {
         .map(str::to_string);
     // The version moves whatever the operation was, so this goes out even when
     // nothing in the text changed.
-    events.insert(
-        0,
-        RealtimeEvent::DocUpdate {
-            doc_id,
-            version,
-            ops,
-            source,
-        },
-    );
+    events.insert(0, RealtimeEvent::DocUpdate { doc_id, version, ops, source });
     events
 }
 
@@ -1802,11 +1683,7 @@ fn doc_id_hint(args: &[Value]) -> String {
             }
         }
     }
-    args.iter()
-        .skip(1)
-        .find_map(Value::as_str)
-        .unwrap_or_default()
-        .to_string()
+    args.iter().skip(1).find_map(Value::as_str).unwrap_or_default().to_string()
 }
 
 // ---- Client ---------------------------------------------------------------
@@ -1849,10 +1726,9 @@ pub struct ProjectTree {
 fn track_changes_for(state: Option<&Value>, user_id: Option<&str>) -> bool {
     match state {
         Some(Value::Bool(on)) => *on,
-        Some(Value::Object(map)) => map
-            .get(user_id.unwrap_or("__guests__"))
-            .and_then(Value::as_bool)
-            .unwrap_or(false),
+        Some(Value::Object(map)) => {
+            map.get(user_id.unwrap_or("__guests__")).and_then(Value::as_bool).unwrap_or(false)
+        }
         _ => false,
     }
 }
@@ -1874,8 +1750,7 @@ impl RealtimeClient {
     /// Connects, joins the project, and starts the read loop. `on_event` is
     /// called for every [`RealtimeEvent`] (from the client's own task).
     pub async fn connect(
-        config: RealtimeConfig,
-        on_event: impl Fn(RealtimeEvent) + Send + Sync + 'static,
+        config: RealtimeConfig, on_event: impl Fn(RealtimeEvent) + Send + Sync + 'static,
     ) -> Result<Self, String> {
         let origin = normalize_origin(&config.host)?;
         let cookie = config.cookie.trim().to_string();
@@ -1893,11 +1768,7 @@ impl RealtimeClient {
                 .await
                 .map_err(|e| format!("The Overleaf handshake task failed: {e}"))??
         };
-        let Handshake {
-            sid,
-            heartbeat_secs,
-            cookie,
-        } = handshake;
+        let Handshake { sid, heartbeat_secs, cookie } = handshake;
 
         let url = format!(
             "{}/socket.io/1/websocket/{}?projectId={}&t={}",
@@ -1951,11 +1822,8 @@ impl RealtimeClient {
         // them. A server that joins us from the handshake query pushes
         // `joinProjectResponse` immediately after accepting the connection,
         // and an answer that arrives before anyone is waiting is simply lost.
-        let connect_slot = open_slot(
-            &shared,
-            CONNECT_SLOT,
-            "Overleaf's realtime connect handshake".to_string(),
-        );
+        let connect_slot =
+            open_slot(&shared, CONNECT_SLOT, "Overleaf's realtime connect handshake".to_string());
         let join_slot = open_slot(&shared, JOIN_SLOT, "Overleaf's project join".to_string());
         rt::spawn(read_loop(source, shared.clone()));
         await_slot(&shared, connect_slot).await?;
@@ -1972,9 +1840,7 @@ impl RealtimeClient {
                 let asked = emit_with_ack(
                     &shared,
                     "joinProject",
-                    (JoinProjectArg {
-                        project_id: &project_id,
-                    },),
+                    (JoinProjectArg { project_id: &project_id },),
                 )
                 .await;
                 // Resolving is a no-op once the pushed answer has been taken.
@@ -2005,12 +1871,7 @@ impl RealtimeClient {
             permission,
         });
 
-        Ok(RealtimeClient {
-            shared,
-            sid,
-            heartbeat_secs,
-            project,
-        })
+        Ok(RealtimeClient { shared, sid, heartbeat_secs, project })
     }
 
     /// `joinDoc` → the document's current lines joined with `'\n'`, plus its
@@ -2026,20 +1887,12 @@ impl RealtimeClient {
     /// options)`, and -1 is how the server is told to send the whole document.
     /// Passing it inside the options object silently gets you a full join.
     pub async fn join_doc(
-        &self,
-        doc_id: &str,
-        from_version: Option<i64>,
+        &self, doc_id: &str, from_version: Option<i64>,
     ) -> Result<JoinedDoc, String> {
         let ack = emit_with_ack(
             &self.shared,
             "joinDoc",
-            (
-                doc_id,
-                from_version.unwrap_or(-1),
-                JoinDocOptions {
-                    encode_ranges: true,
-                },
-            ),
+            (doc_id, from_version.unwrap_or(-1), JoinDocOptions { encode_ranges: true }),
         )
         .await?;
         let body = ack_body(&ack, "joinDoc")?;
@@ -2071,14 +1924,7 @@ impl RealtimeClient {
             None => false,
             Some(from) => !caught_up.is_empty() || from == version,
         };
-        Ok(JoinedDoc {
-            text,
-            version,
-            comments,
-            changes,
-            caught_up,
-            resumed,
-        })
+        Ok(JoinedDoc { text, version, comments, changes, caught_up, resumed })
     }
 
     /// Send an edit as a suggestion.
@@ -2087,10 +1933,7 @@ impl RealtimeClient {
     /// and disconnects an account without edit rights that sends a plain
     /// update — and someone with write access uses it when track changes is on.
     pub async fn send_tracked_ops(
-        &self,
-        doc_id: &str,
-        version: i64,
-        ops: Vec<OtOp>,
+        &self, doc_id: &str, version: i64, ops: Vec<OtOp>,
     ) -> Result<(), String> {
         if ops.is_empty() {
             return Ok(());
@@ -2099,12 +1942,8 @@ impl RealtimeClient {
             return Err(READ_ONLY.to_string());
         }
         let seed = change_id_seed();
-        let update = TrackedUpdate {
-            doc: doc_id,
-            op: ops,
-            v: version,
-            meta: TrackedMeta { tc: &seed },
-        };
+        let update =
+            TrackedUpdate { doc: doc_id, op: ops, v: version, meta: TrackedMeta { tc: &seed } };
         let ack = emit_with_ack(&self.shared, "applyOtUpdate", (doc_id, update)).await?;
         ack_body(&ack, "applyOtUpdate")?;
         Ok(())
@@ -2119,10 +1958,7 @@ impl RealtimeClient {
     /// ordered from the end of the document backwards so that applying one
     /// does not move the next.
     pub async fn reject_changes(
-        &self,
-        doc_id: &str,
-        version: i64,
-        changes: &[TrackedChange],
+        &self, doc_id: &str, version: i64, changes: &[TrackedChange],
     ) -> Result<(), String> {
         if changes.is_empty() {
             return Ok(());
@@ -2153,20 +1989,11 @@ impl RealtimeClient {
     /// It travels as an operation like any edit, so it takes a version and is
     /// acknowledged the same way.
     pub async fn send_comment(
-        &self,
-        doc_id: &str,
-        version: i64,
-        position: i64,
-        quote: &str,
-        thread_id: &str,
+        &self, doc_id: &str, version: i64, position: i64, quote: &str, thread_id: &str,
     ) -> Result<(), String> {
         let update = CommentUpdate {
             doc: doc_id,
-            op: vec![CommentOp {
-                p: position,
-                c: quote,
-                t: thread_id,
-            }],
+            op: vec![CommentOp { p: position, c: quote, t: thread_id }],
             v: version,
         };
         let ack = emit_with_ack(&self.shared, "applyOtUpdate", (doc_id, update)).await?;
@@ -2202,15 +2029,9 @@ impl RealtimeClient {
         // we have not joined is dropped silently.
         let payload = encode_event(
             "clientTracking.updatePosition",
-            (CursorPosition {
-                doc_id,
-                row,
-                column,
-            },),
+            (CursorPosition { doc_id, row, column },),
         )?;
-        self.shared
-            .send_frame(encode_frame(FRAME_EVENT, "", "", &payload))
-            .await
+        self.shared.send_frame(encode_frame(FRAME_EVENT, "", "", &payload)).await
     }
 
     pub async fn leave_doc(&self, doc_id: &str) -> Result<(), String> {
@@ -2227,11 +2048,7 @@ impl RealtimeClient {
         if !self.project.permission.can_write() {
             return Err(READ_ONLY.to_string());
         }
-        let update = OtUpdate {
-            doc: doc_id,
-            op: ops,
-            v: version,
-        };
+        let update = OtUpdate { doc: doc_id, op: ops, v: version };
         let ack = emit_with_ack(&self.shared, "applyOtUpdate", (doc_id, update)).await?;
         ack_body(&ack, "applyOtUpdate")?;
         Ok(())
@@ -2342,10 +2159,7 @@ mod tests {
             let frame = parse_frame(raw).expect("parses");
             assert_eq!(frame.kind, kind);
             assert_eq!(frame.data, "");
-            assert_eq!(
-                encode_frame(frame.kind, &frame.id, &frame.endpoint, &frame.data),
-                raw
-            );
+            assert_eq!(encode_frame(frame.kind, &frame.id, &frame.endpoint, &frame.data), raw);
         }
     }
 
@@ -2363,9 +2177,9 @@ mod tests {
 
     #[test]
     fn parse_frame_rejects_malformed_input_without_panicking() {
-        for raw in [
-            "", "5", "5:1", "::", ":::", "x::", "9::", "255::", "300::", "-1::", "5 ::", "🙂::",
-        ] {
+        for raw in
+            ["", "5", "5:1", "::", ":::", "x::", "9::", "255::", "300::", "-1::", "5 ::", "🙂::"]
+        {
             assert!(
                 parse_frame(raw).is_err(),
                 "expected {raw:?} to be rejected, got {:?}",
@@ -2432,10 +2246,7 @@ mod tests {
         assert_eq!(sid, "testsid");
         assert_eq!(heartbeat, 25);
         // Heartbeat may legitimately be blank ("no heartbeat").
-        assert_eq!(
-            parse_handshake("abc::60:websocket").expect("parses"),
-            ("abc".into(), 0)
-        );
+        assert_eq!(parse_handshake("abc::60:websocket").expect("parses"), ("abc".into(), 0));
     }
 
     #[test]
@@ -2454,10 +2265,7 @@ mod tests {
             normalize_origin("https://www.overleaf.com/").unwrap(),
             "https://www.overleaf.com"
         );
-        assert_eq!(
-            ws_origin("https://www.overleaf.com"),
-            "wss://www.overleaf.com"
-        );
+        assert_eq!(ws_origin("https://www.overleaf.com"), "wss://www.overleaf.com");
         assert_eq!(ws_origin("http://127.0.0.1:8080"), "ws://127.0.0.1:8080");
         assert!(normalize_origin("overleaf.com").is_err());
         assert!(normalize_origin("  ").is_err());
@@ -2467,26 +2275,10 @@ mod tests {
 
     #[test]
     fn ot_ops_serialize_without_their_empty_halves() {
-        let insert = OtOp {
-            p: 5,
-            i: Some("hello".into()),
-            d: None,
-            u: None,
-        };
-        assert_eq!(
-            serde_json::to_string(&insert).unwrap(),
-            r#"{"p":5,"i":"hello"}"#
-        );
-        let delete = OtOp {
-            p: 0,
-            i: None,
-            d: Some("x".into()),
-            u: None,
-        };
-        assert_eq!(
-            serde_json::to_string(&delete).unwrap(),
-            r#"{"p":0,"d":"x"}"#
-        );
+        let insert = OtOp { p: 5, i: Some("hello".into()), d: None, u: None };
+        assert_eq!(serde_json::to_string(&insert).unwrap(), r#"{"p":5,"i":"hello"}"#);
+        let delete = OtOp { p: 0, i: None, d: Some("x".into()), u: None };
+        assert_eq!(serde_json::to_string(&delete).unwrap(), r#"{"p":0,"d":"x"}"#);
     }
 
     #[test]
@@ -2497,12 +2289,7 @@ mod tests {
                 "doc-1",
                 OtUpdate {
                     doc: "doc-1",
-                    op: vec![OtOp {
-                        p: 5,
-                        i: Some("hello".into()),
-                        d: None,
-                        u: None,
-                    }],
+                    op: vec![OtOp { p: 5, i: Some("hello".into()), d: None, u: None }],
                     v: 42,
                 },
             ),
@@ -2522,10 +2309,7 @@ mod tests {
     fn realtime_events_serialize_with_a_type_tag() {
         let joined = RealtimeEvent::ProjectJoined {
             root_folder_id: "root-1".into(),
-            docs: vec![DocEntry {
-                id: "doc-1".into(),
-                path: "sections/intro.tex".into(),
-            }],
+            docs: vec![DocEntry { id: "doc-1".into(), path: "sections/intro.tex".into() }],
             permission: Permission::ReadAndWrite,
         };
         assert_eq!(
@@ -2535,21 +2319,14 @@ mod tests {
         let update = RealtimeEvent::DocUpdate {
             doc_id: "doc-1".into(),
             version: 43,
-            ops: vec![OtOp {
-                p: 9,
-                i: Some("!".into()),
-                d: None,
-                u: None,
-            }],
+            ops: vec![OtOp { p: 9, i: Some("!".into()), d: None, u: None }],
             source: Some("pub-2".into()),
         };
         assert_eq!(
             serde_json::to_string(&update).unwrap(),
             r#"{"type":"docUpdate","docId":"doc-1","version":43,"ops":[{"p":9,"i":"!"}],"source":"pub-2"}"#
         );
-        let connected = RealtimeEvent::Connected {
-            public_id: "pub-1".into(),
-        };
+        let connected = RealtimeEvent::Connected { public_id: "pub-1".into() };
         assert_eq!(
             serde_json::to_string(&connected).unwrap(),
             r#"{"type":"connected","publicId":"pub-1"}"#
@@ -2628,12 +2405,8 @@ mod tests {
         let shifted = vec![json!(["a"]), json!(3)];
         assert_eq!(ack_body(&shifted, "joinDoc").unwrap(), &shifted[..]);
         // String and {message} errors both surface.
-        assert!(ack_body(&[json!("boom")], "joinDoc")
-            .unwrap_err()
-            .contains("boom"));
-        assert!(ack_body(&[json!({"message":"nope"})], "joinDoc")
-            .unwrap_err()
-            .contains("nope"));
+        assert!(ack_body(&[json!("boom")], "joinDoc").unwrap_err().contains("boom"));
+        assert!(ack_body(&[json!({"message":"nope"})], "joinDoc").unwrap_err().contains("nope"));
         // A project payload is not an error even though it is an object.
         assert!(ack_body(&[json!({"rootFolder":[]})], "joinProject").is_ok());
     }
@@ -2676,18 +2449,9 @@ mod tests {
         assert_eq!(
             tree.docs(),
             vec![
-                DocEntry {
-                    id: "doc-1".into(),
-                    path: "main.tex".into()
-                },
-                DocEntry {
-                    id: "doc-3".into(),
-                    path: "sections/deep/nested.tex".into()
-                },
-                DocEntry {
-                    id: "doc-2".into(),
-                    path: "sections/intro.tex".into()
-                },
+                DocEntry { id: "doc-1".into(), path: "main.tex".into() },
+                DocEntry { id: "doc-3".into(), path: "sections/deep/nested.tex".into() },
+                DocEntry { id: "doc-2".into(), path: "sections/intro.tex".into() },
             ]
         );
     }
@@ -2702,9 +2466,7 @@ mod tests {
         let entities = tree.entities();
 
         // Folders are listed too, because deleting one is its own endpoint.
-        assert!(entities
-            .iter()
-            .any(|entity| entity.path == "sections" && entity.kind == "folder"));
+        assert!(entities.iter().any(|entity| entity.path == "sections" && entity.kind == "folder"));
         assert!(entities.iter().any(|entity| entity.path == "main.tex"
             && entity.kind == "doc"
             && entity.id == "doc-1"));
@@ -2737,10 +2499,7 @@ mod tests {
         // Renaming a folder reindexes everything beneath it.
         assert!(tree.rename("folder-1", "chapters"));
         assert_eq!(tree.path_of("doc-2").as_deref(), Some("chapters/intro.tex"));
-        assert_eq!(
-            tree.path_of("doc-3").as_deref(),
-            Some("chapters/deep/nested.tex")
-        );
+        assert_eq!(tree.path_of("doc-3").as_deref(), Some("chapters/deep/nested.tex"));
 
         // Moving one does too, and to the root means no folder in the path.
         assert!(tree.move_to("folder-2", tree.root.clone().as_str()));
@@ -2793,10 +2552,7 @@ mod tests {
     fn start_mock_with(push_join: bool) -> (u16, Arc<Mutex<MockState>>) {
         let listener = TcpListener::bind("127.0.0.1:0").expect("bind the mock server");
         let port = listener.local_addr().expect("mock address").port();
-        let state = Arc::new(Mutex::new(MockState {
-            push_join,
-            ..MockState::default()
-        }));
+        let state = Arc::new(Mutex::new(MockState { push_join, ..MockState::default() }));
         let server_state = state.clone();
         std::thread::spawn(move || {
             for stream in listener.incoming() {
@@ -2867,10 +2623,7 @@ mod tests {
                 return;
             }
             let _ = stream.flush();
-            serve_websocket(
-                WebSocket::from_raw_socket(stream, Role::Server, None),
-                state,
-            );
+            serve_websocket(WebSocket::from_raw_socket(stream, Role::Server, None), state);
             return;
         }
 
@@ -2891,12 +2644,7 @@ mod tests {
     }
 
     fn event_frame(name: &str, args: Value) -> String {
-        encode_frame(
-            FRAME_EVENT,
-            "",
-            "",
-            &json!({"name": name, "args": args}).to_string(),
-        )
+        encode_frame(FRAME_EVENT, "", "", &json!({"name": name, "args": args}).to_string())
     }
 
     fn ack_frame(id: &str, args: Value) -> String {
@@ -2912,10 +2660,8 @@ mod tests {
                 json!([{"publicId": "pub-1", "project": project_tree(), "permissionsLevel": "owner"}]),
             )));
         } else {
-            let _ = ws.send(Message::text(event_frame(
-                "connectionAccepted",
-                json!([null, "pub-1"]),
-            )));
+            let _ =
+                ws.send(Message::text(event_frame("connectionAccepted", json!([null, "pub-1"]))));
         }
         loop {
             let message = match ws.read() {
@@ -2944,10 +2690,8 @@ mod tests {
                 // A server that pushed the project ignores the ask entirely,
                 // which is exactly the case the client has to survive.
                 "joinProject" if push_join => Ok(()),
-                "joinProject" => ws.send(Message::text(ack_frame(
-                    &id,
-                    json!([null, project_tree(), "owner", 2]),
-                ))),
+                "joinProject" => ws
+                    .send(Message::text(ack_frame(&id, json!([null, project_tree(), "owner", 2])))),
                 "joinDoc" => {
                     let ack = ws.send(Message::text(ack_frame(
                         &id,
@@ -3022,12 +2766,7 @@ mod tests {
         let events: Arc<Mutex<Vec<RealtimeEvent>>> = Arc::new(Mutex::new(Vec::new()));
         let sink = events.clone();
         let client = rt::block_on(RealtimeClient::connect(
-            RealtimeConfig {
-                user_id,
-                host,
-                cookie,
-                project_id,
-            },
+            RealtimeConfig { user_id, host, cookie, project_id },
             move |event| lock(&sink).push(event),
         ))
         .expect("connect to Overleaf");
@@ -3037,10 +2776,7 @@ mod tests {
         for doc in &client.project().docs {
             println!("  doc {} -> {}", doc.id, doc.path);
         }
-        assert!(
-            !client.project().docs.is_empty(),
-            "Overleaf reported no documents"
-        );
+        assert!(!client.project().docs.is_empty(), "Overleaf reported no documents");
 
         let first = client.project().docs[0].clone();
         let joined = rt::block_on(client.join_doc(&first.id, None)).expect("joinDoc");
@@ -3077,12 +2813,7 @@ mod tests {
         let events: Arc<Mutex<Vec<RealtimeEvent>>> = Arc::new(Mutex::new(Vec::new()));
         let sink = events.clone();
         let client = rt::block_on(RealtimeClient::connect(
-            RealtimeConfig {
-                user_id,
-                host,
-                cookie,
-                project_id,
-            },
+            RealtimeConfig { user_id, host, cookie, project_id },
             move |event| lock(&sink).push(event),
         ))
         .expect("connect to Overleaf");
@@ -3124,12 +2855,7 @@ mod tests {
         rt::block_on(client.send_ops(
             &doc.id,
             joined.version,
-            vec![OtOp {
-                p: 0,
-                i: Some(probe.into()),
-                d: None,
-                u: None,
-            }],
+            vec![OtOp { p: 0, i: Some(probe.into()), d: None, u: None }],
         ))
         .expect("send the insert");
         let after_insert = acked(&events, &doc.id, joined.version);
@@ -3148,12 +2874,7 @@ mod tests {
         rt::block_on(client.send_ops(
             &doc.id,
             midway.version,
-            vec![OtOp {
-                p: 0,
-                i: None,
-                d: Some(probe.into()),
-                u: None,
-            }],
+            vec![OtOp { p: 0, i: None, d: Some(probe.into()), u: None }],
         ))
         .expect("send the delete");
         let after_delete = acked(&events, &doc.id, midway.version);
@@ -3162,10 +2883,7 @@ mod tests {
         // Read it back from the server rather than trusting our own bookkeeping.
         rt::block_on(client.leave_doc(&doc.id)).expect("leaveDoc");
         let again = rt::block_on(client.join_doc(&doc.id, None)).expect("re-joinDoc");
-        assert_eq!(
-            again.text, before,
-            "the document did not come back unchanged"
-        );
+        assert_eq!(again.text, before, "the document did not come back unchanged");
         println!("document unchanged at v{}", again.version);
         client.shutdown();
     }
@@ -3199,10 +2917,8 @@ mod tests {
                 cookie: cookie.clone(),
                 project_id: project_id.clone(),
             };
-            rt::block_on(RealtimeClient::connect(settings, move |event| {
-                lock(&sink).push(event)
-            }))
-            .expect("connect to Overleaf")
+            rt::block_on(RealtimeClient::connect(settings, move |event| lock(&sink).push(event)))
+                .expect("connect to Overleaf")
         };
 
         let writer_events: Arc<Mutex<Vec<RealtimeEvent>>> = Arc::new(Mutex::new(Vec::new()));
@@ -3234,12 +2950,7 @@ mod tests {
         rt::block_on(writer.send_ops(
             &doc.id,
             started_at,
-            vec![OtOp {
-                p: 0,
-                i: Some(probe.into()),
-                d: None,
-                u: None,
-            }],
+            vec![OtOp { p: 0, i: Some(probe.into()), d: None, u: None }],
         ))
         .expect("send the insert");
 
@@ -3255,10 +2966,7 @@ mod tests {
                 }
             }
             for event in lock(&watcher_events).iter() {
-                if let RealtimeEvent::DocUpdate {
-                    doc_id, version, ..
-                } = event
-                {
+                if let RealtimeEvent::DocUpdate { doc_id, version, .. } = event {
                     if *doc_id == doc.id {
                         broadcast_at = Some(*version);
                     }
@@ -3278,10 +2986,7 @@ mod tests {
             })
             .expect("the text the watcher was sent");
         println!("watcher received {inserted:?}");
-        assert_eq!(
-            inserted, probe,
-            "a collaborator's text should arrive as it was typed"
-        );
+        assert_eq!(inserted, probe, "a collaborator's text should arrive as it was typed");
         println!("started at v{started_at}, acked v{acked_at}, broadcast v{broadcast_at}");
 
         assert_eq!(acked_at, started_at, "the ack names the version applied at");
@@ -3295,12 +3000,7 @@ mod tests {
         rt::block_on(writer.send_ops(
             &doc.id,
             started_at + 1,
-            vec![OtOp {
-                p: 0,
-                i: None,
-                d: Some(probe.into()),
-                u: None,
-            }],
+            vec![OtOp { p: 0, i: None, d: Some(probe.into()), u: None }],
         ))
         .expect("send the delete");
         std::thread::sleep(Duration::from_secs(2));
@@ -3333,12 +3033,7 @@ mod tests {
         let events: Arc<Mutex<Vec<RealtimeEvent>>> = Arc::new(Mutex::new(Vec::new()));
         let sink = events.clone();
         let client = rt::block_on(RealtimeClient::connect(
-            RealtimeConfig {
-                user_id,
-                host,
-                cookie,
-                project_id,
-            },
+            RealtimeConfig { user_id, host, cookie, project_id },
             move |event| lock(&sink).push(event),
         ))
         .expect("connect to Overleaf");
@@ -3393,12 +3088,7 @@ mod tests {
         let events: Arc<Mutex<Vec<RealtimeEvent>>> = Arc::new(Mutex::new(Vec::new()));
         let sink = events.clone();
         let client = rt::block_on(RealtimeClient::connect(
-            RealtimeConfig {
-                user_id,
-                host,
-                cookie,
-                project_id,
-            },
+            RealtimeConfig { user_id, host, cookie, project_id },
             move |event| lock(&sink).push(event),
         ))
         .expect("connect to Overleaf");
@@ -3420,12 +3110,7 @@ mod tests {
         rt::block_on(client.send_ops(
             &first.id,
             joined.version,
-            vec![OtOp {
-                p: 0,
-                i: Some(probe.into()),
-                d: None,
-                u: None,
-            }],
+            vec![OtOp { p: 0, i: Some(probe.into()), d: None, u: None }],
         ))
         .expect("send on the first document");
 
@@ -3447,20 +3132,12 @@ mod tests {
             "the first document's acknowledgement should still reach us after \
              joining the second — holding it open would be pointless otherwise"
         );
-        println!(
-            "acknowledged on {} while {} was open",
-            first.path, second.path
-        );
+        println!("acknowledged on {} while {} was open", first.path, second.path);
 
         rt::block_on(client.send_ops(
             &first.id,
             joined.version + 1,
-            vec![OtOp {
-                p: 0,
-                i: None,
-                d: Some(probe.into()),
-                u: None,
-            }],
+            vec![OtOp { p: 0, i: None, d: Some(probe.into()), u: None }],
         ))
         .expect("send the undo");
         std::thread::sleep(Duration::from_secs(2));
@@ -3515,12 +3192,7 @@ mod tests {
         rt::block_on(writer.send_ops(
             &doc.id,
             ahead.version,
-            vec![OtOp {
-                p: 0,
-                i: Some(probe.into()),
-                d: None,
-                u: None,
-            }],
+            vec![OtOp { p: 0, i: Some(probe.into()), d: None, u: None }],
         ))
         .expect("send");
         std::thread::sleep(Duration::from_secs(2));
@@ -3530,10 +3202,7 @@ mod tests {
         let fresh = rt::block_on(returner.join_doc(&doc.id, None)).expect("full joinDoc");
         assert!(fresh.caught_up.is_empty());
         assert!(!fresh.resumed);
-        assert!(
-            fresh.version > known,
-            "the document moved while we were away"
-        );
+        assert!(fresh.version > known, "the document moved while we were away");
         rt::block_on(returner.leave_doc(&doc.id)).expect("leaveDoc");
 
         // Joining from the version we had replays it.
@@ -3544,26 +3213,15 @@ mod tests {
         assert_eq!(missed.version, known, "the version it applied at");
         assert_eq!(missed.ops.len(), 1);
         assert_eq!(missed.ops[0].i.as_deref(), Some(probe));
-        assert!(
-            missed.source.is_some(),
-            "who sent it, so our own work is not applied twice"
-        );
-        println!(
-            "resumed from v{known}, replayed {} update(s)",
-            resumed.caught_up.len()
-        );
+        assert!(missed.source.is_some(), "who sent it, so our own work is not applied twice");
+        println!("resumed from v{known}, replayed {} update(s)", resumed.caught_up.len());
         rt::block_on(returner.leave_doc(&doc.id)).expect("leaveDoc");
 
         // Put it back.
         rt::block_on(writer.send_ops(
             &doc.id,
             ahead.version + 1,
-            vec![OtOp {
-                p: 0,
-                i: None,
-                d: Some(probe.into()),
-                u: None,
-            }],
+            vec![OtOp { p: 0, i: None, d: Some(probe.into()), u: None }],
         ))
         .expect("send the undo");
         std::thread::sleep(Duration::from_secs(1));
@@ -3591,12 +3249,7 @@ mod tests {
             crate::overleaf::realtime_config(&config, &root).expect("a linked project");
 
         let client = rt::block_on(RealtimeClient::connect(
-            RealtimeConfig {
-                user_id,
-                host,
-                cookie,
-                project_id,
-            },
+            RealtimeConfig { user_id, host, cookie, project_id },
             move |_| {},
         ))
         .expect("connect to Overleaf");
@@ -3638,10 +3291,8 @@ mod tests {
         println!("anchor: {} in {}", anchor.quote, anchor.doc_id);
 
         let found = crate::overleaf::threads(&config, &root).expect("read threads");
-        let made = found
-            .iter()
-            .find(|thread| thread.id == thread_id)
-            .expect("the thread we just made");
+        let made =
+            found.iter().find(|thread| thread.id == thread_id).expect("the thread we just made");
         assert_eq!(made.messages.len(), 1);
         assert_eq!(made.messages[0].content, "Lattice check: please ignore");
         assert!(made.messages[0].mine, "our own message should read as ours");
@@ -3706,20 +3357,14 @@ mod tests {
         // characters — which puts every later operation in the wrong place.
         let packed =
             |text: &str| -> String { text.as_bytes().iter().map(|b| *b as char).collect() };
-        for original in [
-            "第三节需要引用",
-            "café — naïve",
-            "\\section{Résultats}",
-            "emoji: \u{1F600}",
-        ] {
+        for original in
+            ["第三节需要引用", "café — naïve", "\\section{Résultats}", "emoji: \u{1F600}"]
+        {
             assert_eq!(decode_packed_utf8(&packed(original)), original);
         }
 
         // ASCII is its own packing, and must survive untouched.
-        assert_eq!(
-            decode_packed_utf8("\\documentclass{article}"),
-            "\\documentclass{article}"
-        );
+        assert_eq!(decode_packed_utf8("\\documentclass{article}"), "\\documentclass{article}");
 
         // Text that was never packed is left alone rather than mangled: not
         // every deployment encodes, and decoding twice is the same bug in
@@ -3745,19 +3390,11 @@ mod tests {
         println!("our account: {user_id:?}");
 
         let client = rt::block_on(RealtimeClient::connect(
-            RealtimeConfig {
-                user_id,
-                host,
-                cookie,
-                project_id,
-            },
+            RealtimeConfig { user_id, host, cookie, project_id },
             move |_| {},
         ))
         .expect("connect to Overleaf");
-        println!(
-            "track changes on for us: {}",
-            client.project().track_changes
-        );
+        println!("track changes on for us: {}", client.project().track_changes);
 
         let doc = client
             .project()
@@ -3779,12 +3416,7 @@ mod tests {
         rt::block_on(client.send_tracked_ops(
             &doc.id,
             joined.version,
-            vec![OtOp {
-                p: 0,
-                i: Some(probe.into()),
-                d: None,
-                u: None,
-            }],
+            vec![OtOp { p: 0, i: Some(probe.into()), d: None, u: None }],
         ))
         .expect("suggest an edit");
         std::thread::sleep(Duration::from_secs(2));
@@ -3796,10 +3428,7 @@ mod tests {
             .iter()
             .find(|change| change.text == probe)
             .expect("our suggestion should be a tracked change");
-        println!(
-            "suggestion {} at {} by {:?}",
-            mine.id, mine.position, mine.user_id
-        );
+        println!("suggestion {} at {} by {:?}", mine.id, mine.position, mine.user_id);
         // The project-wide ranges endpoint has to see it too: that is the
         // cheap way to learn our own suggestion exists, since the server never
         // echoes our own operation back to us.
@@ -3814,10 +3443,7 @@ mod tests {
             "our suggestion should be visible over REST as well"
         );
         assert!(!mine.deletion);
-        assert!(
-            again.text.starts_with(probe),
-            "the text carries it meanwhile"
-        );
+        assert!(again.text.starts_with(probe), "the text carries it meanwhile");
 
         // Rejecting undoes it, and takes the tracked change with it.
         rt::block_on(client.reject_changes(&doc.id, again.version, std::slice::from_ref(mine)))
@@ -3825,10 +3451,7 @@ mod tests {
         std::thread::sleep(Duration::from_secs(2));
         rt::block_on(client.leave_doc(&doc.id)).expect("leaveDoc");
         let settled = rt::block_on(client.join_doc(&doc.id, None)).expect("re-joinDoc");
-        assert_eq!(
-            settled.text, before,
-            "the document should be as we found it"
-        );
+        assert_eq!(settled.text, before, "the document should be as we found it");
         assert!(
             !settled.changes.iter().any(|change| change.id == mine.id),
             "the suggestion should be gone, not merely undone"
@@ -3858,10 +3481,7 @@ mod tests {
         assert_eq!(changes[0].text, "café");
         assert_eq!(changes[0].position, 12);
         assert_eq!(changes[0].user_id.as_deref(), Some("user-1"));
-        assert_eq!(
-            changes[0].timestamp.as_deref(),
-            Some("2026-07-01T10:00:00.000Z")
-        );
+        assert_eq!(changes[0].timestamp.as_deref(), Some("2026-07-01T10:00:00.000Z"));
 
         assert!(changes[1].deletion);
         assert_eq!(changes[1].text, "cut this");
@@ -3875,14 +3495,8 @@ mod tests {
         // everyone or a map naming the accounts it is on for.
         assert!(track_changes_for(Some(&json!(true)), Some("user-1")));
         assert!(!track_changes_for(Some(&json!(false)), Some("user-1")));
-        assert!(track_changes_for(
-            Some(&json!({"user-1": true, "user-2": false})),
-            Some("user-1")
-        ));
-        assert!(!track_changes_for(
-            Some(&json!({"user-1": true})),
-            Some("user-2")
-        ));
+        assert!(track_changes_for(Some(&json!({"user-1": true, "user-2": false})), Some("user-1")));
+        assert!(!track_changes_for(Some(&json!({"user-1": true})), Some("user-2")));
         // Anonymous sessions are named by a literal key.
         assert!(track_changes_for(Some(&json!({"__guests__": true})), None));
         // Absent entirely — the project owner has no such feature — is off.
@@ -3968,10 +3582,7 @@ mod tests {
             let hue = presence_hue(Some(id));
             assert!(hue < 360, "{id} produced {hue}");
             // The reserved band is 180..220 exclusive; nothing may land there.
-            assert!(
-                !(180..=219).contains(&hue) || hue == 180,
-                "{id} landed on {hue}"
-            );
+            assert!(!(180..=219).contains(&hue) || hue == 180, "{id} landed on {hue}");
         }
     }
 
@@ -3992,12 +3603,7 @@ mod tests {
         let events: Arc<Mutex<Vec<RealtimeEvent>>> = Arc::new(Mutex::new(Vec::new()));
         let sink = events.clone();
         let client = rt::block_on(RealtimeClient::connect(
-            RealtimeConfig {
-                user_id,
-                host,
-                cookie,
-                project_id,
-            },
+            RealtimeConfig { user_id, host, cookie, project_id },
             move |event| lock(&sink).push(event),
         ))
         .expect("connect to Overleaf");
@@ -4047,12 +3653,7 @@ mod tests {
             "meta": {"source": "pub-2"},
         }));
         match &events[0] {
-            RealtimeEvent::DocUpdate {
-                doc_id,
-                version,
-                ops,
-                source,
-            } => {
+            RealtimeEvent::DocUpdate { doc_id, version, ops, source } => {
                 assert_eq!(doc_id, "doc-1");
                 assert_eq!(*version, 44);
                 assert_eq!(source.as_deref(), Some("pub-2"));
@@ -4061,18 +3662,8 @@ mod tests {
                 assert_eq!(
                     ops,
                     &vec![
-                        OtOp {
-                            p: 5,
-                            i: Some("hello".into()),
-                            d: None,
-                            u: None,
-                        },
-                        OtOp {
-                            p: 20,
-                            i: None,
-                            d: Some("gone".into()),
-                            u: None,
-                        },
+                        OtOp { p: 5, i: Some("hello".into()), d: None, u: None },
+                        OtOp { p: 20, i: None, d: Some("gone".into()), u: None },
                     ]
                 );
             }
@@ -4189,10 +3780,7 @@ mod tests {
                 handshake_line.contains("/socket.io/1/?projectId=proj-1&t="),
                 "unexpected handshake request line: {handshake_line}"
             );
-            assert_eq!(
-                state.handshake_cookie.as_deref(),
-                Some("overleaf_session2=test-cookie")
-            );
+            assert_eq!(state.handshake_cookie.as_deref(), Some("overleaf_session2=test-cookie"));
             let ws_line = state.ws_line.clone().expect("websocket request");
             assert!(
                 ws_line.contains("/socket.io/1/websocket/testsid?projectId=proj-1&t="),
@@ -4219,27 +3807,17 @@ mod tests {
                 other => panic!("expected Connected, got {other:?}"),
             }
             match events.get(1).expect("a ProjectJoined event") {
-                RealtimeEvent::ProjectJoined {
-                    root_folder_id,
-                    docs,
-                    ..
-                } => {
+                RealtimeEvent::ProjectJoined { root_folder_id, docs, .. } => {
                     assert_eq!(root_folder_id, "root-1");
                     assert_eq!(
                         docs,
                         &vec![
-                            DocEntry {
-                                id: "doc-1".into(),
-                                path: "main.tex".into()
-                            },
+                            DocEntry { id: "doc-1".into(), path: "main.tex".into() },
                             DocEntry {
                                 id: "doc-3".into(),
                                 path: "sections/deep/nested.tex".into()
                             },
-                            DocEntry {
-                                id: "doc-2".into(),
-                                path: "sections/intro.tex".into()
-                            },
+                            DocEntry { id: "doc-2".into(), path: "sections/intro.tex".into() },
                         ]
                     );
                 }
@@ -4253,31 +3831,20 @@ mod tests {
         // Comment anchors ride in with the document, keyed by thread id.
         assert_eq!(
             joined.comments,
-            vec![CommentRange {
-                thread_id: "thread-1".into(),
-                position: 4,
-                quote: "one".into(),
-            }]
+            vec![CommentRange { thread_id: "thread-1".into(), position: 4, quote: "one".into() }]
         );
 
         rt::block_on(client.send_ops(
             "doc-1",
             42,
-            vec![OtOp {
-                p: 5,
-                i: Some("hello".into()),
-                d: None,
-                u: None,
-            }],
+            vec![OtOp { p: 5, i: Some("hello".into()), d: None, u: None }],
         ))
         .expect("applyOtUpdate");
         rt::block_on(client.leave_doc("doc-1")).expect("leaveDoc");
 
         // The unsolicited otUpdateApplied reaches the callback.
         wait_until("the DocUpdate event", || {
-            lock(&events)
-                .iter()
-                .any(|event| matches!(event, RealtimeEvent::DocUpdate { .. }))
+            lock(&events).iter().any(|event| matches!(event, RealtimeEvent::DocUpdate { .. }))
         });
         {
             let events = lock(&events);
@@ -4286,34 +3853,19 @@ mod tests {
                 .find(|event| matches!(event, RealtimeEvent::DocUpdate { .. }))
                 .expect("a DocUpdate event");
             match update {
-                RealtimeEvent::DocUpdate {
-                    doc_id,
-                    version,
-                    ops,
-                    source,
-                } => {
+                RealtimeEvent::DocUpdate { doc_id, version, ops, source } => {
                     assert_eq!(doc_id, "doc-1");
                     assert_eq!(*version, 43);
                     // Carried through so the app can recognise its own echo.
                     assert_eq!(source.as_deref(), Some("someone-else"));
-                    assert_eq!(
-                        ops,
-                        &vec![OtOp {
-                            p: 9,
-                            i: Some("!".into()),
-                            d: None,
-                            u: None,
-                        }]
-                    );
+                    assert_eq!(ops, &vec![OtOp { p: 9, i: Some("!".into()), d: None, u: None }]);
                 }
                 other => panic!("expected DocUpdate, got {other:?}"),
             }
         }
 
         // The server's `2::` gets echoed back.
-        wait_until("the heartbeat echo", || {
-            lock(&state).frames.iter().any(|frame| frame == "2::")
-        });
+        wait_until("the heartbeat echo", || lock(&state).frames.iter().any(|frame| frame == "2::"));
 
         // Exact wire bytes, in order, for everything we emit.
         let frames = lock(&state).frames.clone();
@@ -4334,9 +3886,7 @@ mod tests {
 
         client.shutdown();
         wait_until("the Disconnected event", || {
-            lock(&events)
-                .iter()
-                .any(|event| matches!(event, RealtimeEvent::Disconnected { .. }))
+            lock(&events).iter().any(|event| matches!(event, RealtimeEvent::Disconnected { .. }))
         });
     }
 

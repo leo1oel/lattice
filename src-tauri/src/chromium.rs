@@ -92,10 +92,7 @@ impl ChromiumRuntime {
         std::thread::spawn(move || {
             let status = child.wait();
             let runtime = app.state::<ChromiumRuntime>();
-            runtime
-                .pid
-                .compare_exchange(pid, 0, Ordering::AcqRel, Ordering::Acquire)
-                .ok();
+            runtime.pid.compare_exchange(pid, 0, Ordering::AcqRel, Ordering::Acquire).ok();
             if let Ok(mut input) = runtime.input.lock() {
                 *input = None;
             }

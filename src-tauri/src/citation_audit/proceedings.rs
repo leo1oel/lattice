@@ -28,11 +28,7 @@ pub(super) fn refine(before: &str, mut checked: AuditResult) -> AuditResult {
     let Some(title) = values.get("title") else {
         return checked;
     };
-    let source = if site == ICLR {
-        "ICLR Proceedings"
-    } else {
-        "NeurIPS Proceedings"
-    };
+    let source = if site == ICLR { "ICLR Proceedings" } else { "NeurIPS Proceedings" };
     match lookup(site, title) {
         Ok(Some(remote)) if metadata_identity_matches(basis, &remote) => {
             // When the index already confirmed a preprint-to-publication match,
@@ -45,10 +41,9 @@ pub(super) fn refine(before: &str, mut checked: AuditResult) -> AuditResult {
                     row.outcome = "matched".into();
                 }
             }
-            official.sources.push(SourceCheck {
-                source: source.into(),
-                outcome: "selected".into(),
-            });
+            official
+                .sources
+                .push(SourceCheck { source: source.into(), outcome: "selected".into() });
             official
         }
         outcome => {
@@ -79,10 +74,7 @@ pub(super) fn fetch(client: &Client, url: reqwest::Url) -> Result<String, String
         .error_for_status()
         .map_err(|e| e.to_string())?;
     let mut text = String::new();
-    response
-        .take(4 * 1024 * 1024 + 1)
-        .read_to_string(&mut text)
-        .map_err(|e| e.to_string())?;
+    response.take(4 * 1024 * 1024 + 1).read_to_string(&mut text).map_err(|e| e.to_string())?;
     if text.len() > 4 * 1024 * 1024 {
         return Err("Proceedings response too large".into());
     }
@@ -92,12 +84,7 @@ pub(super) fn fetch(client: &Client, url: reqwest::Url) -> Result<String, String
 pub(super) fn links(html: &str) -> Vec<(String, String)> {
     Html::parse_document(html)
         .select(&Selector::parse("a[href]").unwrap())
-        .map(|a| {
-            (
-                a.value().attr("href").unwrap().to_string(),
-                a.text().collect::<String>(),
-            )
-        })
+        .map(|a| (a.value().attr("href").unwrap().to_string(), a.text().collect::<String>()))
         .collect()
 }
 
@@ -136,9 +123,7 @@ fn lookup(site: &str, title: &str) -> Result<Option<String>, String> {
         .map_err(|e| e.to_string())?;
     let base = reqwest::Url::parse(site).unwrap();
     let mut search = base.join("/papers/search").unwrap();
-    search
-        .query_pairs_mut()
-        .append_pair("q", &clean(title).replace(['{', '}'], ""));
+    search.query_pairs_mut().append_pair("q", &clean(title).replace(['{', '}'], ""));
     let results = fetch(&client, search)?;
     let Some(path) = paper_path(&results, title) else {
         return Ok(None);
@@ -181,11 +166,8 @@ mod tests {
         let link = "<a href='/paper_files/paper/2026/hash/abc-Abstract-Conference.html'>Memory &amp; Agents</a>";
         assert!(paper_path(link, "Memory & Agents").is_some());
         assert!(paper_path(link, "Other Memory & Agents").is_none());
-        assert!(paper_path(
-            &link.replace("Conference.html", "Workshop.html"),
-            "Memory & Agents"
-        )
-        .is_none());
+        assert!(paper_path(&link.replace("Conference.html", "Workshop.html"), "Memory & Agents")
+            .is_none());
         assert!(paper_path(
             &link.replace("href='/", "href='https://evil.test/"),
             "Memory & Agents"

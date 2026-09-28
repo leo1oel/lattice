@@ -53,24 +53,19 @@ struct CacheEntry {
 }
 
 pub fn lookup(
-    root: &Path,
-    dois: impl IntoIterator<Item = String>,
+    root: &Path, dois: impl IntoIterator<Item = String>,
 ) -> BTreeMap<String, CitationHealth> {
     lookup_with_base(root, dois, CROSSREF_WORKS_URL)
 }
 
 fn lookup_with_base(
-    root: &Path,
-    dois: impl IntoIterator<Item = String>,
-    base_url: &str,
+    root: &Path, dois: impl IntoIterator<Item = String>, base_url: &str,
 ) -> BTreeMap<String, CitationHealth> {
     lookup_with_base_and_contact(root, dois, base_url, None)
 }
 
 fn lookup_with_base_and_contact(
-    root: &Path,
-    dois: impl IntoIterator<Item = String>,
-    base_url: &str,
+    root: &Path, dois: impl IntoIterator<Item = String>, base_url: &str,
     contact_override: Option<Option<String>>,
 ) -> BTreeMap<String, CitationHealth> {
     let dois = dois.into_iter().collect::<BTreeSet<_>>();
@@ -103,10 +98,7 @@ fn lookup_with_base_and_contact(
             Some(Ok(health)) => {
                 let mut health = health.clone();
                 health.checked_at = timestamp_now();
-                let entry = CacheEntry {
-                    checked_at_epoch: now,
-                    health: health.clone(),
-                };
+                let entry = CacheEntry { checked_at_epoch: now, health: health.clone() };
                 cache.entries.insert(doi.clone(), entry);
                 results.insert(doi, health);
             }
@@ -152,9 +144,7 @@ fn lookup_with_base_and_contact(
 }
 
 fn fetch_parallel(
-    dois: &[String],
-    base_url: &str,
-    contact_override: Option<Option<String>>,
+    dois: &[String], base_url: &str, contact_override: Option<Option<String>>,
 ) -> BTreeMap<String, Result<CitationHealth, String>> {
     if dois.is_empty() {
         return BTreeMap::new();
@@ -164,13 +154,7 @@ fn fetch_parallel(
         .unwrap_or_else(crate::literature_credentials::crossref_contact)
     {
         Ok(contact) => contact,
-        Err(error) => {
-            return dois
-                .iter()
-                .cloned()
-                .map(|doi| (doi, Err(error.clone())))
-                .collect()
-        }
+        Err(error) => return dois.iter().cloned().map(|doi| (doi, Err(error.clone()))).collect(),
     };
     let user_agent = contact
         .as_ref()
@@ -210,10 +194,7 @@ fn fetch_parallel(
 }
 
 fn fetch_one(
-    client: &reqwest::blocking::Client,
-    base_url: &str,
-    doi: &str,
-    contact: Option<&str>,
+    client: &reqwest::blocking::Client, base_url: &str, doi: &str, contact: Option<&str>,
 ) -> Result<CitationHealth, String> {
     // `updates` asks for update notices whose update-to target is this DOI.
     // That target is checked again while parsing: titles and search ranking
@@ -232,9 +213,7 @@ fn fetch_one(
     if !response.status().is_success() {
         return Err(format!("HTTP {}", response.status().as_u16()));
     }
-    let payload = response
-        .json::<Value>()
-        .map_err(|error| error.to_string())?;
+    let payload = response.json::<Value>().map_err(|error| error.to_string())?;
     parse_response(&payload, doi)
 }
 
@@ -245,32 +224,21 @@ fn parse_response(payload: &Value, doi: &str) -> Result<CitationHealth, String> 
         .ok_or_else(|| "response had no message.items array".to_string())?;
     let mut candidates = Vec::new();
     for item in items {
-        let notice_link = item
-            .get("URL")
-            .and_then(Value::as_str)
-            .map(str::to_string)
-            .or_else(|| {
+        let notice_link =
+            item.get("URL").and_then(Value::as_str).map(str::to_string).or_else(|| {
                 item.get("DOI")
                     .and_then(Value::as_str)
                     .map(|notice| format!("https://doi.org/{notice}"))
             });
-        for update in item
-            .get("update-to")
-            .and_then(Value::as_array)
-            .into_iter()
-            .flatten()
-        {
+        for update in item.get("update-to").and_then(Value::as_array).into_iter().flatten() {
             let Some(target) = update.get("DOI").and_then(Value::as_str) else {
                 continue;
             };
             if !target.eq_ignore_ascii_case(doi) {
                 continue;
             }
-            let update_type = update
-                .get("type")
-                .and_then(Value::as_str)
-                .unwrap_or("unknown")
-                .to_string();
+            let update_type =
+                update.get("type").and_then(Value::as_str).unwrap_or("unknown").to_string();
             let kind = classify(&update_type).to_string();
             let date = update
                 .pointer("/updated/date-time")
@@ -279,10 +247,7 @@ fn parse_response(payload: &Value, doi: &str) -> Result<CitationHealth, String> 
             candidates.push(CitationHealth {
                 kind,
                 update_type: Some(update_type),
-                source: update
-                    .get("source")
-                    .and_then(Value::as_str)
-                    .map(str::to_string),
+                source: update.get("source").and_then(Value::as_str).map(str::to_string),
                 date,
                 link: notice_link.clone(),
                 checked_at: String::new(),
@@ -344,10 +309,7 @@ fn read_cache(root: &Path) -> CitationHealthCache {
         .ok()
         .and_then(|bytes| serde_json::from_slice::<CitationHealthCache>(&bytes).ok())
         .filter(|cache| cache.schema == CACHE_SCHEMA)
-        .unwrap_or_else(|| CitationHealthCache {
-            schema: CACHE_SCHEMA,
-            entries: BTreeMap::new(),
-        })
+        .unwrap_or_else(|| CitationHealthCache { schema: CACHE_SCHEMA, entries: BTreeMap::new() })
 }
 
 fn write_cache(root: &Path, cache: &CitationHealthCache) -> Result<(), String> {
@@ -370,19 +332,13 @@ fn trim_cache(cache: &mut CitationHealthCache) {
         .map(|(doi, entry)| (doi.clone(), entry.checked_at_epoch))
         .collect::<Vec<_>>();
     oldest.sort_by_key(|(_, checked)| *checked);
-    for (doi, _) in oldest
-        .into_iter()
-        .take(cache.entries.len() - MAX_CACHE_ENTRIES)
-    {
+    for (doi, _) in oldest.into_iter().take(cache.entries.len() - MAX_CACHE_ENTRIES) {
         cache.entries.remove(&doi);
     }
 }
 
 fn epoch_seconds() -> u64 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_secs()
+    SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_secs()
 }
 
 fn timestamp_now() -> String {
@@ -432,10 +388,7 @@ mod tests {
         assert_eq!(health.update_type.as_deref(), Some("retraction"));
         assert_eq!(health.source.as_deref(), Some("retraction-watch"));
         assert_eq!(health.date.as_deref(), Some("2023-09-17"));
-        assert_eq!(
-            health.link.as_deref(),
-            Some("https://retractionwatch.com/example")
-        );
+        assert_eq!(health.link.as_deref(), Some("https://retractionwatch.com/example"));
     }
 
     #[test]
@@ -452,10 +405,7 @@ mod tests {
         let endpoint = format!("http://{}/works", server.server_addr());
         let fixture = fixture().to_string();
         let responder = std::thread::spawn(move || {
-            let request = server
-                .recv_timeout(Duration::from_secs(10))
-                .unwrap()
-                .unwrap();
+            let request = server.recv_timeout(Duration::from_secs(10)).unwrap().unwrap();
             assert!(request.url().contains("filter=updates:10.1234%2Fexample"));
             assert!(request.url().contains("mailto=person%40example.org"));
             request
@@ -477,11 +427,8 @@ mod tests {
         assert!(root.join(CACHE_PATH).is_file());
 
         // A fresh cache does not contact this unreachable endpoint.
-        let cached = lookup_with_base(
-            &root,
-            ["10.1234/example".to_string()],
-            "http://127.0.0.1:1/works",
-        );
+        let cached =
+            lookup_with_base(&root, ["10.1234/example".to_string()], "http://127.0.0.1:1/works");
         assert_eq!(cached["10.1234/example"].kind, "retracted");
         assert!(!cached["10.1234/example"].stale);
         fs::remove_dir_all(root).unwrap();

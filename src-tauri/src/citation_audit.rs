@@ -44,8 +44,7 @@ fn report_relative_path(root: &Path) -> Result<String, String> {
 }
 
 pub fn load_report(
-    data_dir: &Path,
-    root: &Path,
+    data_dir: &Path, root: &Path,
 ) -> Result<Option<Vec<(String, serde_json::Value)>>, String> {
     let path = data_dir.join(report_relative_path(root)?);
     let bytes = match fs::read(path) {
@@ -59,9 +58,7 @@ pub fn load_report(
 }
 
 pub fn save_report(
-    data_dir: &Path,
-    root: &Path,
-    report: Vec<(String, serde_json::Value)>,
+    data_dir: &Path, root: &Path, report: Vec<(String, serde_json::Value)>,
 ) -> Result<(), String> {
     let relative = report_relative_path(root)?;
     let bytes = serde_json::to_vec(&report).map_err(|error| error.to_string())?;
@@ -154,11 +151,7 @@ pub fn scan(root: &Path) -> Result<AuditScan, String> {
     let mut titles: HashMap<String, Vec<(String, String)>> = HashMap::new();
     for (path, source) in sources {
         if has_conflict_markers(&source) {
-            issues.push(AuditIssue {
-                path,
-                key: None,
-                message: UNRESOLVED_CONFLICT.into(),
-            });
+            issues.push(AuditIssue { path, key: None, message: UNRESOLVED_CONFLICT.into() });
             continue;
         }
         let spans = project::bibliography_entry_spans(&source);
@@ -193,13 +186,9 @@ pub fn scan(root: &Path) -> Result<AuditScan, String> {
                     message: message.clone(),
                 });
             }
-            keys.entry(key.to_ascii_lowercase())
-                .or_default()
-                .push((path.clone(), key.clone()));
+            keys.entry(key.to_ascii_lowercase()).or_default().push((path.clone(), key.clone()));
             if let Some(doi) = fields.get("doi").and_then(|v| normalize_doi(&clean(v))) {
-                dois.entry(doi)
-                    .or_default()
-                    .push((path.clone(), key.clone()));
+                dois.entry(doi).or_default().push((path.clone(), key.clone()));
             }
             if !title.is_empty() {
                 titles
@@ -207,13 +196,7 @@ pub fn scan(root: &Path) -> Result<AuditScan, String> {
                     .or_default()
                     .push((path.clone(), key.clone()));
             }
-            entries.push(AuditEntry {
-                path: path.clone(),
-                key,
-                title,
-                bibtex,
-                issues: local,
-            });
+            entries.push(AuditEntry { path: path.clone(), key, title, bibtex, issues: local });
         }
     }
     for (kind, groups) in [("citation key", keys), ("DOI", dois), ("title", titles)] {
@@ -236,10 +219,7 @@ pub fn check_batch(root: &Path, entries: Vec<AuditEntry>) -> Result<BatchAudit, 
     if entries.len() > crate::citation_batch::BATCH_SIZE {
         return Err("Too many entries in an audit batch.".into());
     }
-    let ids = entries
-        .iter()
-        .map(|entry| batch_id(&entry.bibtex))
-        .collect::<Vec<_>>();
+    let ids = entries.iter().map(|entry| batch_id(&entry.bibtex)).collect::<Vec<_>>();
     let requested = ids.iter().flatten().cloned().collect::<Vec<_>>();
     let papers = match crate::citation_batch::lookup(&requested) {
         Ok(papers) => papers,
@@ -266,10 +246,7 @@ pub fn check_batch(root: &Path, entries: Vec<AuditEntry>) -> Result<BatchAudit, 
             let id = id?;
             let paper = papers.get(&id)?;
             // The same snapshot guard as the individual path, before any proposal.
-            if registered_entry(root, &entry.path, &entry.key)
-                .ok()
-                .flatten()
-                .as_deref()
+            if registered_entry(root, &entry.path, &entry.key).ok().flatten().as_deref()
                 != Some(&entry.bibtex)
             {
                 return None;
@@ -289,10 +266,9 @@ pub fn check_batch(root: &Path, entries: Vec<AuditEntry>) -> Result<BatchAudit, 
                 // mislabeled as ACL) still needs the independent source lookup.
                 return None;
             }
-            checked.sources.push(SourceCheck {
-                source: "semanticscholar".into(),
-                outcome: "selected".into(),
-            });
+            checked
+                .sources
+                .push(SourceCheck { source: "semanticscholar".into(), outcome: "selected".into() });
             Some(publication::refine(cleanup_result(checked)))
         })
         .collect::<Vec<_>>();
@@ -320,34 +296,22 @@ pub fn check_batch(root: &Path, entries: Vec<AuditEntry>) -> Result<BatchAudit, 
             continue;
         };
         checked.health = health.get(&doi).cloned();
-        if checked
-            .health
-            .as_ref()
-            .is_none_or(|h| h.kind == "unavailable" || h.stale)
-        {
+        if checked.health.as_ref().is_none_or(|h| h.kind == "unavailable" || h.stale) {
             checked.status = "unavailable".into();
             checked.message =
                 "Metadata may be available, but the citation-health check was incomplete.".into();
         }
     }
-    Ok(BatchAudit {
-        results,
-        s2_failure: None,
-    })
+    Ok(BatchAudit { results, s2_failure: None })
 }
 
 fn batch_id(before: &str) -> Option<String> {
     let local = fields(before);
-    if local
-        .get("pubstate")
-        .is_some_and(|v| v.eq_ignore_ascii_case("preprint"))
-    {
+    if local.get("pubstate").is_some_and(|v| v.eq_ignore_ascii_case("preprint")) {
         return None;
     }
-    if let Some(doi) = local
-        .get("doi")
-        .and_then(|v| normalize_doi(v))
-        .filter(|v| !v.starts_with("10.48550/"))
+    if let Some(doi) =
+        local.get("doi").and_then(|v| normalize_doi(v)).filter(|v| !v.starts_with("10.48550/"))
     {
         return Some(format!("DOI:{doi}"));
     }
@@ -357,9 +321,7 @@ fn batch_id(before: &str) -> Option<String> {
 }
 
 fn batch_comparison(
-    before: &str,
-    paper: &crate::citation_batch::Paper,
-    normalized_bibtex: &str,
+    before: &str, paper: &crate::citation_batch::Paper, normalized_bibtex: &str,
     canonical_venue: Option<&str>,
 ) -> Option<AuditResult> {
     let local = fields(before);
@@ -392,10 +354,7 @@ fn batch_comparison(
             return None;
         }
         remote.pop();
-        remote = format!(
-            "{},\n  doi = {{{doi}}}\n}}",
-            remote.trim_end().trim_end_matches(',')
-        );
+        remote = format!("{},\n  doi = {{{doi}}}\n}}", remote.trim_end().trim_end_matches(','));
     }
     if preprint {
         let arxiv = paper.external_ids.get("ArXiv")?.as_str()?;
@@ -409,10 +368,8 @@ fn batch_comparison(
                 return None;
             }
             remote.pop();
-            remote = format!(
-                "{},\n  eprint = {{{arxiv}}}\n}}",
-                remote.trim_end().trim_end_matches(',')
-            );
+            remote =
+                format!("{},\n  eprint = {{{arxiv}}}\n}}", remote.trim_end().trim_end_matches(','));
         }
         if !metadata_identity_matches(before, &remote) {
             return None;
@@ -421,9 +378,7 @@ fn batch_comparison(
         if venue.is_empty()
             || is_preprint_venue(venue)
             || !["journal", "booktitle"].iter().any(|name| {
-                other
-                    .get(*name)
-                    .is_some_and(|v| normalize_text(v) == normalize_text(venue))
+                other.get(*name).is_some_and(|v| normalize_text(v) == normalize_text(venue))
             })
         {
             return None;
@@ -454,11 +409,7 @@ fn normalize_s2_batch(
         // Normalize the independent venue field too; the generated BibTeX
         // must agree with it before a preprint can become a publication.
         let venue = paper.venue.as_deref().unwrap_or("");
-        let venue = if venue.contains(['{', '}', '\\']) {
-            ""
-        } else {
-            venue
-        };
+        let venue = if venue.contains(['{', '}', '\\']) { "" } else { venue };
         input.push_str(&format!(
             "@misc{{latticeVenue{}, journal = {{{venue}}}, year = {{{}}}}}\n",
             order.len(),
@@ -488,16 +439,10 @@ fn normalize_s2_batch(
             .ok_or("missing normalized entry")?
             .to_string();
         cursor += 1;
-        let hint = values
-            .get(cursor)
-            .and_then(|v| v.as_str())
-            .ok_or("missing normalized venue")?;
+        let hint = values.get(cursor).and_then(|v| v.as_str()).ok_or("missing normalized venue")?;
         cursor += 1;
         let normalized = fields(hint);
-        let venue = normalized
-            .get("journal")
-            .or_else(|| normalized.get("booktitle"))
-            .cloned();
+        let venue = normalized.get("journal").or_else(|| normalized.get("booktitle")).cloned();
         result.insert(id, (bibtex, venue));
     }
     if cursor != values.len() {
@@ -507,9 +452,7 @@ fn normalize_s2_batch(
 }
 
 pub fn check_entry(
-    root: &Path,
-    request: AuditEntry,
-    s2_batch_status: Option<&str>,
+    root: &Path, request: AuditEntry, s2_batch_status: Option<&str>,
 ) -> Result<AuditResult, String> {
     check_entry_metadata(root, request, s2_batch_status)
         .map(cleanup_result)
@@ -517,9 +460,7 @@ pub fn check_entry(
 }
 
 fn check_entry_metadata(
-    root: &Path,
-    request: AuditEntry,
-    s2_batch_status: Option<&str>,
+    root: &Path, request: AuditEntry, s2_batch_status: Option<&str>,
 ) -> Result<AuditResult, String> {
     if s2_batch_status.is_some_and(|s| {
         !matches!(
@@ -542,11 +483,7 @@ fn check_entry_metadata(
     let before = match registered_entry(root, &request.path, &request.key)? {
         Some(value) if value == request.bibtex => value,
         Some(value) => {
-            return Ok(result(
-                "conflict",
-                "The bibliography entry changed after the scan.",
-                value,
-            ))
+            return Ok(result("conflict", "The bibliography entry changed after the scan.", value))
         }
         None => {
             return Ok(result(
@@ -559,9 +496,7 @@ fn check_entry_metadata(
     let local = fields(&before);
     let doi = local.get("doi").and_then(|v| normalize_doi(&clean(v)));
     let arxiv = local.contains_key("eprint")
-        || local
-            .values()
-            .any(|v| clean(v).to_ascii_lowercase().contains("arxiv"));
+        || local.values().any(|v| clean(v).to_ascii_lowercase().contains("arxiv"));
     if arxiv
         && clean(local.get("pubstate").map(String::as_str).unwrap_or(""))
             .eq_ignore_ascii_case("preprint")
@@ -577,10 +512,7 @@ fn check_entry_metadata(
     }
     if arxiv {
         let checked = upgrade_preprint(&before, s2_batch_status)?;
-        return Ok(annotate_s2(
-            proceedings::refine(&before, checked),
-            s2_batch_status,
-        ));
+        return Ok(annotate_s2(proceedings::refine(&before, checked), s2_batch_status));
     }
     let Some(doi) = doi else {
         let missing = identity_missing_fields(&before);
@@ -591,10 +523,7 @@ fn check_entry_metadata(
         }
         let title = clean(local.get("title").expect("checked above")).replace(['{', '}'], "");
         let metadata = audit_command(s2_batch_status).and_then(|command| {
-            run_bibcite(
-                &["get", &title, "--json", "--require-published"],
-                Some(command),
-            )
+            run_bibcite(&["get", &title, "--json", "--require-published"], Some(command))
         });
         let checked = match metadata {
             Ok(output) if is_clean_lookup_miss(&output) => {
@@ -622,11 +551,8 @@ fn check_entry_metadata(
                 }
             },
             Err(error) => {
-                let mut checked = result(
-                    "unavailable",
-                    &format!("Metadata check incomplete: {error}"),
-                    before,
-                );
+                let mut checked =
+                    result("unavailable", &format!("Metadata check incomplete: {error}"), before);
                 checked.publication_reason = Some("metadata_unavailable".into());
                 checked
             }
@@ -636,27 +562,15 @@ fn check_entry_metadata(
     let health = citation_health::lookup(root, [doi.clone()]).remove(&doi);
     let metadata = audit_command(s2_batch_status)
         .and_then(|command| run_bibcite(&["get", "--json", &doi], Some(command)));
-    let mut checked = match metadata
-        .as_ref()
-        .map_err(Clone::clone)
-        .and_then(parse_get_output)
-    {
+    let mut checked = match metadata.as_ref().map_err(Clone::clone).and_then(parse_get_output) {
         Ok(remote) => compare_doi_entry(&before, &remote),
-        Err(error) => result(
-            "unavailable",
-            &format!("Metadata check incomplete: {error}"),
-            before,
-        ),
+        Err(error) => result("unavailable", &format!("Metadata check incomplete: {error}"), before),
     };
     if let Ok(output) = &metadata {
         checked.sources = metadata_sources(output, &checked);
     }
     checked.health = health;
-    if checked
-        .health
-        .as_ref()
-        .is_none_or(|h| h.kind == "unavailable" || h.stale)
-    {
+    if checked.health.as_ref().is_none_or(|h| h.kind == "unavailable" || h.stale) {
         checked.status = "unavailable".into();
         checked.message =
             "Metadata may be available, but the citation-health check was incomplete.".into();
@@ -666,9 +580,7 @@ fn check_entry_metadata(
 
 fn annotate_s2(mut result: AuditResult, status: Option<&str>) -> AuditResult {
     if let Some(status) = status.filter(|status| *status != "checked") {
-        result
-            .sources
-            .retain(|source| source.source != "semanticscholar");
+        result.sources.retain(|source| source.source != "semanticscholar");
         result.sources.push(SourceCheck {
             source: "semanticscholar".into(),
             outcome: if status == "not_configured" {
@@ -727,11 +639,7 @@ pub fn apply(root: &Path, path: &str, key: &str, before: &str, after: &str) -> R
     // Audit writes bypass editor autosave formatting. Normalize only gaps so
     // pending entries still match the snapshots used by sequential bulk apply.
     // Reverse traversal keeps the original byte offsets valid after each edit.
-    let separator = if whole.contains("\r\n") {
-        "\r\n\r\n"
-    } else {
-        "\n\n"
-    };
+    let separator = if whole.contains("\r\n") { "\r\n\r\n" } else { "\n\n" };
     let entries = project::bibliography_entry_spans(&next);
     for pair in entries.windows(2).rev() {
         let (_, left_start, left_end) = &pair[0];
@@ -755,10 +663,7 @@ pub fn apply(root: &Path, path: &str, key: &str, before: &str, after: &str) -> R
 
 /// The key of a different entry that already carries `after`'s DOI, if any.
 fn doi_owned_by_another_entry(
-    sources: &[(String, String)],
-    path: &str,
-    key: &str,
-    after: &str,
+    sources: &[(String, String)], path: &str, key: &str, after: &str,
 ) -> Option<String> {
     let doi = fields(after).get("doi").and_then(|v| normalize_doi(v))?;
     sources.iter().find_map(|(other_path, source)| {
@@ -839,11 +744,7 @@ fn upgrade_preprint(before: &str, s2_batch_status: Option<&str>) -> Result<Audit
             "unavailable",
             &format!(
                 "Preprint check incomplete: {}",
-                if detail.is_empty() {
-                    "bibcite did not report a match"
-                } else {
-                    &detail
-                }
+                if detail.is_empty() { "bibcite did not report a match" } else { &detail }
             ),
             before.into(),
         ));
@@ -858,10 +759,7 @@ fn upgrade_preprint(before: &str, s2_batch_status: Option<&str>) -> Result<Audit
             ))
         }
     };
-    let Some(record) = report
-        .get("entries")
-        .and_then(|v| v.as_array())
-        .and_then(|v| v.first())
+    let Some(record) = report.get("entries").and_then(|v| v.as_array()).and_then(|v| v.first())
     else {
         return Ok(result(
             "skipped",
@@ -926,10 +824,7 @@ fn upgrade_preprint(before: &str, s2_batch_status: Option<&str>) -> Result<Audit
                 Some(audit_command(s2_batch_status)?),
             )
         });
-    let remote = remote_output
-        .as_ref()
-        .map_err(Clone::clone)
-        .and_then(parse_get_output);
+    let remote = remote_output.as_ref().map_err(Clone::clone).and_then(parse_get_output);
     let mut checked = match remote {
         Ok(remote)
             if metadata_identity_matches(before, &remote)
@@ -944,9 +839,7 @@ fn upgrade_preprint(before: &str, s2_batch_status: Option<&str>) -> Result<Audit
         Ok(remote) => {
             let mut checked = identity_conflict(before, &remote);
             if let Some(candidate) = checked.candidate.as_mut() {
-                candidate
-                    .reasons
-                    .extend(identity_conflicts(&after, &remote));
+                candidate.reasons.extend(identity_conflicts(&after, &remote));
                 candidate.reasons.sort();
                 candidate.reasons.dedup();
             }
@@ -999,11 +892,8 @@ fn title_acronym(title: &str) -> Option<String> {
     if rest.trim().is_empty() || head.split_whitespace().count() > 3 {
         return None;
     }
-    let key = head
-        .chars()
-        .filter(char::is_ascii_alphanumeric)
-        .collect::<String>()
-        .to_ascii_lowercase();
+    let key =
+        head.chars().filter(char::is_ascii_alphanumeric).collect::<String>().to_ascii_lowercase();
     (!key.is_empty()).then_some(key)
 }
 
@@ -1019,25 +909,15 @@ fn title_acronym(title: &str) -> Option<String> {
 /// Tracking for Natural Humanoid Whole-Body Control" — six of eight shared
 /// significant words — silently rewrites the entry into someone else's paper.
 fn renamed_paper(before: &str, after: &str) -> bool {
-    let name_of = |entry: &str| {
-        fields(entry)
-            .get("title")
-            .and_then(|title| title_acronym(&clean(title)))
-    };
+    let name_of =
+        |entry: &str| fields(entry).get("title").and_then(|title| title_acronym(&clean(title)));
     matches!((name_of(before), name_of(after)), (Some(a), Some(b)) if a != b)
 }
 
 fn upgrade_miss(before: &str, record: &serde_json::Value) -> AuditResult {
-    let reason = record
-        .get("reason")
-        .and_then(|v| v.as_str())
-        .unwrap_or("unknown");
+    let reason = record.get("reason").and_then(|v| v.as_str()).unwrap_or("unknown");
     let mut checked = result(
-        if reason == "no_published_version" {
-            "checked"
-        } else {
-            "unavailable"
-        },
+        if reason == "no_published_version" { "checked" } else { "unavailable" },
         if reason == "no_published_version" {
             "No published version was found."
         } else {
@@ -1055,11 +935,7 @@ fn publication_sources(stderr: &str) -> Vec<SourceCheck> {
         let Some((source, detail)) = line.strip_prefix('[').and_then(|s| s.split_once("] ")) else {
             continue;
         };
-        let source = if source == "dblp-fuzzy" || source == "dblp-exact" {
-            "dblp"
-        } else {
-            source
-        };
+        let source = if source == "dblp-fuzzy" || source == "dblp-exact" { "dblp" } else { source };
         if !matches!(
             source,
             "dblp" | "semanticscholar" | "googlescholar" | "crossref" | "unpaywall" | "openalex"
@@ -1104,9 +980,7 @@ fn publication_sources(stderr: &str) -> Vec<SourceCheck> {
         {
             "connection_failed"
         } else if detail.contains("server error")
-            || ["500", "502", "503", "504"]
-                .iter()
-                .any(|code| detail.contains(code))
+            || ["500", "502", "503", "504"].iter().any(|code| detail.contains(code))
         {
             "server_error"
         } else if detail.contains("no publication found") {
@@ -1121,10 +995,7 @@ fn publication_sources(stderr: &str) -> Vec<SourceCheck> {
         };
         sources.insert(source.to_string(), outcome.to_string());
     }
-    sources
-        .into_iter()
-        .map(|(source, outcome)| SourceCheck { source, outcome })
-        .collect()
+    sources.into_iter().map(|(source, outcome)| SourceCheck { source, outcome }).collect()
 }
 
 fn metadata_sources(output: &Output, checked: &AuditResult) -> Vec<SourceCheck> {
@@ -1140,12 +1011,7 @@ fn metadata_sources(output: &Output, checked: &AuditResult) -> Vec<SourceCheck> 
     }
     if let Some(source) = serde_json::from_slice::<serde_json::Value>(&output.stdout)
         .ok()
-        .and_then(|value| {
-            value
-                .get("source")
-                .and_then(|v| v.as_str())
-                .map(str::to_string)
-        })
+        .and_then(|value| value.get("source").and_then(|v| v.as_str()).map(str::to_string))
     {
         sources.retain(|row| row.source != source);
         let cached = stderr.lines().any(|line| line.starts_with("[cache] hit:"));
@@ -1213,25 +1079,16 @@ fn identity_missing_fields(entry: &str) -> Vec<String> {
     let values = fields(entry);
     ["title"]
         .into_iter()
-        .filter(|name| {
-            values
-                .get(*name)
-                .is_none_or(|value| clean(value).is_empty())
-        })
+        .filter(|name| values.get(*name).is_none_or(|value| clean(value).is_empty()))
         .map(str::to_string)
         .collect()
 }
 
 fn is_clean_lookup_miss(output: &Output) -> bool {
     output.status.code() == Some(2)
-        && publication_sources(&String::from_utf8_lossy(&output.stderr))
-            .iter()
-            .all(|source| {
-                matches!(
-                    source.outcome.as_str(),
-                    "no_match" | "not_configured" | "batch_reused"
-                )
-            })
+        && publication_sources(&String::from_utf8_lossy(&output.stderr)).iter().all(|source| {
+            matches!(source.outcome.as_str(), "no_match" | "not_configured" | "batch_reused")
+        })
         && String::from_utf8_lossy(&output.stderr).lines().any(|line| {
             line.starts_with("[bibcite] No match found anywhere for:")
                 || line.starts_with("[bibcite] Only an arXiv preprint was found for:")
@@ -1243,32 +1100,19 @@ fn differing_fields(before: &str, remote: &str) -> Vec<FieldChange> {
     let mut b = fields(remote);
     a.insert("ENTRYTYPE".into(), entry_type(before.trim()));
     b.insert("ENTRYTYPE".into(), entry_type(remote.trim()));
-    [
-        "ENTRYTYPE",
-        "title",
-        "author",
-        "year",
-        "journal",
-        "booktitle",
-        "doi",
-        "eprint",
-    ]
-    .into_iter()
-    .filter_map(|field| {
-        let before = a.get(field).map(|v| clean(v)).unwrap_or_default();
-        let after = b.get(field).map(|v| clean(v)).unwrap_or_default();
-        let equivalent = if field == "author" {
-            author_names(&before) == author_names(&after)
-        } else {
-            normalize_text(&before) == normalize_text(&after)
-        };
-        (!equivalent).then(|| FieldChange {
-            field: field.into(),
-            before,
-            after,
+    ["ENTRYTYPE", "title", "author", "year", "journal", "booktitle", "doi", "eprint"]
+        .into_iter()
+        .filter_map(|field| {
+            let before = a.get(field).map(|v| clean(v)).unwrap_or_default();
+            let after = b.get(field).map(|v| clean(v)).unwrap_or_default();
+            let equivalent = if field == "author" {
+                author_names(&before) == author_names(&after)
+            } else {
+                normalize_text(&before) == normalize_text(&after)
+            };
+            (!equivalent).then(|| FieldChange { field: field.into(), before, after })
         })
-    })
-    .collect()
+        .collect()
 }
 
 fn author_names(authors: &str) -> Vec<Vec<String>> {
@@ -1329,10 +1173,7 @@ fn author_names(authors: &str) -> Vec<Vec<String>> {
 }
 
 fn has_repeated_authors(authors: &[Vec<String>]) -> bool {
-    authors
-        .iter()
-        .enumerate()
-        .any(|(index, name)| authors[..index].contains(name))
+    authors.iter().enumerate().any(|(index, name)| authors[..index].contains(name))
 }
 
 fn is_safe_local_cleanup(before: &str, after: &str) -> bool {
@@ -1393,9 +1234,7 @@ fn identity_conflicts(before: &str, remote: &str) -> Vec<String> {
         .or_else(|| other.get("url").and_then(|v| normalize_doi(v)));
     let local_arxiv = project::bibliography_arxiv_id(&local);
     let remote_arxiv = project::bibliography_arxiv_id(&other);
-    let same_identifier = local_doi
-        .as_ref()
-        .is_some_and(|doi| Some(doi) == remote_doi.as_ref())
+    let same_identifier = local_doi.as_ref().is_some_and(|doi| Some(doi) == remote_doi.as_ref())
         || local_arxiv
             .as_deref()
             .zip(remote_arxiv.as_deref())
@@ -1413,10 +1252,9 @@ fn identity_conflicts(before: &str, remote: &str) -> Vec<String> {
             reasons.push("arxiv".into());
         }
     }
-    if let (Ok(a), Ok(b)) = (
-        value(&local, "year").trim().parse::<u32>(),
-        value(&other, "year").trim().parse::<u32>(),
-    ) {
+    if let (Ok(a), Ok(b)) =
+        (value(&local, "year").trim().parse::<u32>(), value(&other, "year").trim().parse::<u32>())
+    {
         if a.abs_diff(b) > 2 {
             reasons.push("year".into());
         }
@@ -1439,9 +1277,7 @@ fn identity_conflicts(before: &str, remote: &str) -> Vec<String> {
     if remote_doi
         .as_deref()
         .is_some_and(|doi| doi.starts_with("10.18653/v1/") && doi.contains(".findings-"))
-        && !venue(&other)
-            .split_whitespace()
-            .any(|word| word == "findings")
+        && !venue(&other).split_whitespace().any(|word| word == "findings")
     {
         reasons.push("venue".into());
     }
@@ -1482,12 +1318,8 @@ fn merge_metadata(before: &str, remote: &str, published: bool) -> AuditResult {
                 // Keep local protection, but do not confuse identity matching
                 // (case-insensitive) with typography: ImageNet != Imagenet.
                 (a.contains('{') && normalize_title(&a) == normalize_title(&b))
-                    || a.replace(['{', '}'], "")
-                        .split_whitespace()
-                        .collect::<Vec<_>>()
-                        == b.replace(['{', '}'], "")
-                            .split_whitespace()
-                            .collect::<Vec<_>>()
+                    || a.replace(['{', '}'], "").split_whitespace().collect::<Vec<_>>()
+                        == b.replace(['{', '}'], "").split_whitespace().collect::<Vec<_>>()
             } else {
                 normalize_text(&a) == normalize_text(&b)
             };
@@ -1532,9 +1364,7 @@ fn merge_metadata(before: &str, remote: &str, published: bool) -> AuditResult {
         })
     });
     if has_publication
-        && merged
-            .get("pubstate")
-            .is_none_or(|value| !clean(value).eq_ignore_ascii_case("preprint"))
+        && merged.get("pubstate").is_none_or(|value| !clean(value).eq_ignore_ascii_case("preprint"))
         && merged.get("howpublished").is_some_and(|value| {
             let value = value.to_lowercase();
             value.contains("arxiv") || value.contains("preprint")
@@ -1544,12 +1374,8 @@ fn merge_metadata(before: &str, remote: &str, published: bool) -> AuditResult {
     }
     // The remote record's explicit type is evidence. A booktitle alone is not:
     // chapters and conference papers both commonly carry one.
-    let remote_type = remote
-        .trim_start()
-        .trim_start_matches('@')
-        .split(['{', '('])
-        .next()
-        .unwrap_or("article");
+    let remote_type =
+        remote.trim_start().trim_start_matches('@').split(['{', '(']).next().unwrap_or("article");
     // S2 sometimes emits @article with only a conference booktitle. Correct
     // that known malformed shape, but never generalize booktitle to conference
     // for explicit chapter/book types.
@@ -1576,19 +1402,14 @@ fn merge_metadata(before: &str, remote: &str, published: bool) -> AuditResult {
 pub(crate) fn prepare_import(raw: &str) -> Result<String, String> {
     let checked = publication::refine(result("checked", "", raw.into()));
     if let Some(candidate) = &checked.candidate {
-        let doi = fields(&candidate.bibtex)
-            .get("doi")
-            .cloned()
-            .unwrap_or_default();
+        let doi = fields(&candidate.bibtex).get("doi").cloned().unwrap_or_default();
         return Err(format!("A published record was found ({doi}), but its identity fields differ from the preprint. Review the published record and import its DOI explicitly; no citation was added."));
     }
     Ok(cleanup_result(checked).after.unwrap_or_else(|| raw.into()))
 }
 
 pub(crate) fn protect_bibtex(raw: &str) -> String {
-    cleanup_result(result("checked", "", raw.into()))
-        .after
-        .unwrap_or_else(|| raw.into())
+    cleanup_result(result("checked", "", raw.into())).after.unwrap_or_else(|| raw.into())
 }
 
 fn cleanup_result(checked: AuditResult) -> AuditResult {
@@ -1641,10 +1462,7 @@ fn cleanup_result(checked: AuditResult) -> AuditResult {
             changed = true;
         }
     }
-    if let Some(author) = expressions
-        .get("author")
-        .and_then(|raw| deduplicated_authors(raw))
-    {
+    if let Some(author) = expressions.get("author").and_then(|raw| deduplicated_authors(raw)) {
         expressions.insert("author".into(), author);
         changed = true;
     }
@@ -1652,11 +1470,7 @@ fn cleanup_result(checked: AuditResult) -> AuditResult {
     // volume label. Omit that redundant label, not genuine numbered volumes
     // (including NeurIPS/PMLR or other journals with year-shaped volumes).
     let venue = normalize_text(
-        values
-            .get("journal")
-            .or_else(|| values.get("booktitle"))
-            .map(String::as_str)
-            .unwrap_or(""),
+        values.get("journal").or_else(|| values.get("booktitle")).map(String::as_str).unwrap_or(""),
     );
     let annual_venue = matches!(
         venue.as_str(),
@@ -1725,17 +1539,9 @@ fn deduplicated_authors(raw: &str) -> Option<String> {
             return None;
         }
         if depth == 0
-            && body
-                .get(index..index + 3)
-                .is_some_and(|word| word.eq_ignore_ascii_case("and"))
-            && body[..index]
-                .chars()
-                .next_back()
-                .is_some_and(char::is_whitespace)
-            && body[index + 3..]
-                .chars()
-                .next()
-                .is_some_and(char::is_whitespace)
+            && body.get(index..index + 3).is_some_and(|word| word.eq_ignore_ascii_case("and"))
+            && body[..index].chars().next_back().is_some_and(char::is_whitespace)
+            && body[index + 3..].chars().next().is_some_and(char::is_whitespace)
         {
             names.push(body[start..index].trim());
             start = index + 3;
@@ -1769,11 +1575,7 @@ fn deduplicated_authors(raw: &str) -> Option<String> {
                     .split_whitespace()
                     .last()
                     .is_some_and(|last| matches!(last, "Team" | "Consortium" | "Collaboration"));
-            kept.push(if corporate {
-                format!("{{{name}}}")
-            } else {
-                (*name).to_string()
-            });
+            kept.push(if corporate { format!("{{{name}}}") } else { (*name).to_string() });
         }
     }
     (kept != names).then(|| format!("{{{}}}", kept.join(" and ")))
@@ -1782,11 +1584,7 @@ fn deduplicated_authors(raw: &str) -> Option<String> {
 fn proposal(before: &str, after: String, message: &str) -> AuditResult {
     let a = fields(before);
     let b = fields(&after);
-    let mut all = a
-        .keys()
-        .chain(b.keys())
-        .cloned()
-        .collect::<std::collections::BTreeSet<_>>();
+    let mut all = a.keys().chain(b.keys()).cloned().collect::<std::collections::BTreeSet<_>>();
     all.insert("ENTRYTYPE".into());
     let changes: Vec<FieldChange> = all
         .iter()
@@ -1803,11 +1601,7 @@ fn proposal(before: &str, after: String, message: &str) -> AuditResult {
             } else {
                 normalize_text(&old) != normalize_text(&new)
             })
-            .then(|| FieldChange {
-                field: field.clone(),
-                before: old,
-                after: new,
-            })
+            .then(|| FieldChange { field: field.clone(), before: old, after: new })
         })
         .collect();
     if changes.is_empty() {
@@ -1844,10 +1638,7 @@ fn fields(entry: &str) -> BTreeMap<String, String> {
         .find(',')
         .map(|i| {
             let body = entry[i + 1..].trim_end();
-            let body = body
-                .strip_suffix('}')
-                .or_else(|| body.strip_suffix(')'))
-                .unwrap_or(body);
+            let body = body.strip_suffix('}').or_else(|| body.strip_suffix(')')).unwrap_or(body);
             project::parse_bibliography_fields_raw(body)
         })
         .unwrap_or_default()
@@ -1926,10 +1717,7 @@ fn local_validation(entry: &str) -> Vec<String> {
             issues.push(format!("Empty {name} field."));
         }
     }
-    if values
-        .get("author")
-        .is_some_and(|value| has_repeated_authors(&author_names(value)))
-    {
+    if values.get("author").is_some_and(|value| has_repeated_authors(&author_names(value))) {
         issues.push("Repeated author names; verify against the publication's author list before removing duplicates.".into());
     }
 
@@ -2054,11 +1842,7 @@ fn local_validation(entry: &str) -> Vec<String> {
         && !values.contains_key("booktitle")
         && (values.contains_key("journal") || values.contains_key("journaltitle"))
     {
-        let label = if kind == "conference" {
-            "Conference"
-        } else {
-            "Inproceedings"
-        };
+        let label = if kind == "conference" { "Conference" } else { "Inproceedings" };
         issues.push(format!("{label} entry uses journal instead of booktitle."));
     }
 
@@ -2067,9 +1851,7 @@ fn local_validation(entry: &str) -> Vec<String> {
         let value = values.get("year").map(String::as_str).unwrap_or("");
         let literal = expression == format!("{{{value}}}")
             || expression == format!("\"{value}\"")
-            || expression
-                .chars()
-                .all(|character| character.is_ascii_digit());
+            || expression.chars().all(|character| character.is_ascii_digit());
         let value = value.trim();
         if literal
             && !value.is_empty()
@@ -2084,11 +1866,7 @@ fn clean(value: &str) -> String {
     value.trim().to_string()
 }
 fn normalize_text(value: &str) -> String {
-    value
-        .to_lowercase()
-        .split_whitespace()
-        .collect::<Vec<_>>()
-        .join(" ")
+    value.to_lowercase().split_whitespace().collect::<Vec<_>>().join(" ")
 }
 fn normalize_title(value: &str) -> String {
     normalize_text(value).replace(['{', '}'], "")
@@ -2107,9 +1885,7 @@ fn bibliography_construct_count(source: &str) -> usize {
         while bytes.get(position).is_some_and(u8::is_ascii_whitespace) {
             position += 1;
         }
-        if bytes
-            .get(position)
-            .is_some_and(|b| matches!(b, b'{' | b'('))
+        if bytes.get(position).is_some_and(|b| matches!(b, b'{' | b'('))
             && !matches!(kind.as_str(), "comment" | "preamble" | "string")
         {
             count += 1;
@@ -2123,13 +1899,7 @@ fn normalize_doi(value: &str) -> Option<String> {
 }
 
 fn entry_type(entry: &str) -> String {
-    entry
-        .trim_start_matches('@')
-        .split(['{', '('])
-        .next()
-        .unwrap_or("")
-        .trim()
-        .to_lowercase()
+    entry.trim_start_matches('@').split(['{', '(']).next().unwrap_or("").trim().to_lowercase()
 }
 
 pub(crate) fn complete_entry(entry: &str) -> bool {
@@ -2199,10 +1969,7 @@ fn field_expressions(entry: &str) -> BTreeMap<String, String> {
             if byte == b',' && depth == 0 {
                 if let Some((name, value)) = body[start..i].split_once('=') {
                     let name = name.trim().to_ascii_lowercase();
-                    if name
-                        .chars()
-                        .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-')
-                    {
+                    if name.chars().all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-') {
                         fields.insert(name, value.trim().into());
                     }
                 }
@@ -2216,11 +1983,7 @@ fn field_expressions(entry: &str) -> BTreeMap<String, String> {
 fn parse_get_output(output: &Output) -> Result<String, String> {
     if !output.status.success() {
         let e = String::from_utf8_lossy(&output.stderr);
-        return Err(if e.trim().is_empty() {
-            "bibcite failed".into()
-        } else {
-            e.trim().into()
-        });
+        return Err(if e.trim().is_empty() { "bibcite failed".into() } else { e.trim().into() });
     }
     let value: serde_json::Value =
         serde_json::from_slice(&output.stdout).map_err(|_| "bibcite returned invalid JSON")?;
@@ -2244,20 +2007,15 @@ fn run_bibcite(args: &[&str], command: Option<Command>) -> Result<Output, String
     let stderr = capture.dir.join("stderr");
     command
         .args(args)
-        .stdout(Stdio::from(
-            fs::File::create(&stdout).map_err(|e| e.to_string())?,
-        ))
-        .stderr(Stdio::from(
-            fs::File::create(&stderr).map_err(|e| e.to_string())?,
-        ));
+        .stdout(Stdio::from(fs::File::create(&stdout).map_err(|e| e.to_string())?))
+        .stderr(Stdio::from(fs::File::create(&stderr).map_err(|e| e.to_string())?));
     #[cfg(unix)]
     {
         use std::os::unix::process::CommandExt;
         command.process_group(0);
     }
-    let mut child = command
-        .spawn()
-        .map_err(|e| crate::papers::uv_tool_spawn_error("bibcite", &e))?;
+    let mut child =
+        command.spawn().map_err(|e| crate::papers::uv_tool_spawn_error("bibcite", &e))?;
     let deadline = Instant::now() + Duration::from_secs(60);
     loop {
         if let Some(status) = child.try_wait().map_err(|e| e.to_string())? {
@@ -2338,18 +2096,11 @@ mod tests {
     fn title_repairs_preserve_expressions_and_explicit_protection() {
         let before = "@misc{x,title={Imagenet},author={Jane Doe},year={2009}}";
         let remote = before.replace("Imagenet", "ImageNet");
-        let repaired = cleanup_result(merge_metadata(before, &remote, false))
-            .after
-            .unwrap();
+        let repaired = cleanup_result(merge_metadata(before, &remote, false)).after.unwrap();
         assert_eq!(fields(&repaired)["title"], "{ImageNet}");
         let protected = before.replace("Imagenet", "{ImageNet}");
         assert!(merge_metadata(&protected, before, false).after.is_none());
-        for title in [
-            "prefix#{NASA}",
-            "{NASA}#suffix",
-            "{NASA} # {Data}",
-            r"{{NASA \} data}}",
-        ] {
+        for title in ["prefix#{NASA}", "{NASA}#suffix", "{NASA} # {Data}", r"{{NASA \} data}}"] {
             let raw = format!("@misc{{x,title={title},author={{Jane Doe}},year={{2024}}}}");
             assert_eq!(protect_bibtex(&raw), raw);
         }
@@ -2385,24 +2136,11 @@ mod tests {
             "<<<<<<< ours\n{entry}\n\n{other}\n||||||| original\n{entry}\n=======\n>>>>>>> theirs\n"
         );
         fs::write(root.join("references.bib"), &conflicted).unwrap();
-        fs::write(
-            root.join("references (local conflict 20260926-1808).bib"),
-            &local,
-        )
-        .unwrap();
+        fs::write(root.join("references (local conflict 20260926-1808).bib"), &local).unwrap();
 
         let conflicted_scan = scan(&root).unwrap();
-        assert!(
-            conflicted_scan.entries.is_empty(),
-            "{:?}",
-            conflicted_scan.entries
-        );
-        assert_eq!(
-            conflicted_scan.issues.len(),
-            1,
-            "{:?}",
-            conflicted_scan.issues
-        );
+        assert!(conflicted_scan.entries.is_empty(), "{:?}", conflicted_scan.entries);
+        assert_eq!(conflicted_scan.issues.len(), 1, "{:?}", conflicted_scan.issues);
         assert_eq!(conflicted_scan.issues[0].path, "references.bib");
         assert_eq!(conflicted_scan.issues[0].message, UNRESOLVED_CONFLICT);
 
@@ -2416,20 +2154,13 @@ mod tests {
             apply(&root, "references.bib", "doe2020", entry, entry).unwrap_err(),
             UNRESOLVED_CONFLICT
         );
-        assert_eq!(
-            fs::read_to_string(root.join("references.bib")).unwrap(),
-            conflicted
-        );
+        assert_eq!(fs::read_to_string(root.join("references.bib")).unwrap(), conflicted);
 
         // Once resolved, the backup copy is still not treated as a source.
         fs::write(root.join("references.bib"), &local).unwrap();
         let resolved_scan = scan(&root).unwrap();
         assert_eq!(resolved_scan.entries.len(), 2);
-        assert!(
-            resolved_scan.issues.is_empty(),
-            "{:?}",
-            resolved_scan.issues
-        );
+        assert!(resolved_scan.issues.is_empty(), "{:?}", resolved_scan.issues);
     }
 
     #[test]
@@ -2457,10 +2188,7 @@ mod tests {
         assert_eq!(load_report(&data_dir, &other_root).unwrap(), None);
 
         save_report(&data_dir, &other_root, Vec::new()).unwrap();
-        assert_eq!(
-            load_report(&data_dir, &other_root).unwrap(),
-            Some(Vec::new())
-        );
+        assert_eq!(load_report(&data_dir, &other_root).unwrap(), Some(Vec::new()));
         fs::remove_dir_all(parent).unwrap();
     }
 
@@ -2480,10 +2208,7 @@ mod tests {
 
     #[test]
     fn doi_normalization_is_exact() {
-        assert_eq!(
-            normalize_doi("https://doi.org/10.1234/ABC"),
-            Some("10.1234/abc".into())
-        );
+        assert_eq!(normalize_doi("https://doi.org/10.1234/ABC"), Some("10.1234/abc".into()));
         assert_eq!(normalize_doi("arxiv:1"), None);
     }
 
@@ -2503,23 +2228,13 @@ mod tests {
             Some("IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR)")
         );
         let before = "@article{mine, title={A paper}, author={Alice Smith}, year={2024}, eprint={2401.12345}, journal={arXiv}}";
-        assert!(batch_comparison(
-            before,
-            &papers["ARXIV:2401.12345"],
-            bibtex,
-            venue.as_deref()
-        )
-        .is_some());
+        assert!(batch_comparison(before, &papers["ARXIV:2401.12345"], bibtex, venue.as_deref())
+            .is_some());
         papers.get_mut("ARXIV:2401.12345").unwrap().venue = Some("ICLR".into());
         let normalized = normalize_s2_batch(&papers).unwrap();
         let (bibtex, venue) = &normalized["ARXIV:2401.12345"];
-        assert!(batch_comparison(
-            before,
-            &papers["ARXIV:2401.12345"],
-            bibtex,
-            venue.as_deref()
-        )
-        .is_none());
+        assert!(batch_comparison(before, &papers["ARXIV:2401.12345"], bibtex, venue.as_deref())
+            .is_none());
     }
 
     #[test]
@@ -2553,10 +2268,7 @@ mod tests {
         let before = "@article{vaswani2017, title={Attention Is All You Need}, author={Vaswani, Ashish and Shazeer, Noam and Parmar, Niki and Uszkoreit, Jakob and Jones, Llion and Gomez, Aidan N. and Kaiser, Lukasz and Polosukhin, I.}, year={2017}, eprint={1706.03762}, journal={arXiv preprint arXiv:1706.03762}}";
         let checked = compare_batch(before, &paper).expect("valid S2 publication retained");
         assert_eq!(checked.status, "update");
-        assert!(checked
-            .after
-            .unwrap()
-            .starts_with("@inproceedings{vaswani2017,"));
+        assert!(checked.after.unwrap().starts_with("@inproceedings{vaswani2017,"));
     }
 
     #[test]
@@ -2604,10 +2316,8 @@ mod tests {
         let root = project_root();
         fs::write(root.join("references.bib"), before).unwrap();
         let mock = root.parent().unwrap().join("mock-bibcite");
-        let published = before.replace(
-            "  year =",
-            "  doi = {10.1234/amradio},\n  pages = {12830--12840},\n  year =",
-        );
+        let published = before
+            .replace("  year =", "  doi = {10.1234/amradio},\n  pages = {12830--12840},\n  year =");
         let remote = serde_json::json!({"bibtex": published}).to_string();
         fs::write(
             &mock,
@@ -2631,11 +2341,8 @@ mod tests {
         // The independent record confirms the same arXiv ID and title. Its
         // corrected authors may now replace the upgrade's preserved input list.
         let script = fs::read_to_string(&mock).unwrap();
-        fs::write(
-            &mock,
-            script.replace(&remote, &remote.replace("Greg Heinrich", "Someone Else")),
-        )
-        .unwrap();
+        fs::write(&mock, script.replace(&remote, &remote.replace("Greg Heinrich", "Someone Else")))
+            .unwrap();
         let corrected = upgrade_preprint(before, None).unwrap();
         // A publication without a DOI must still be independently checked by
         // title. The mock rejects any lookup that allows a preprint fallback.
@@ -2664,15 +2371,8 @@ mod tests {
         };
         let title_checked = check_entry(&root, request(), None).unwrap();
         assert_eq!(title_checked.status, "update");
-        assert!(title_checked
-            .after
-            .as_ref()
-            .unwrap()
-            .starts_with("@inproceedings{titleonly,"));
-        assert!(!title_checked
-            .changes
-            .iter()
-            .any(|change| change.field == "author"));
+        assert!(title_checked.after.as_ref().unwrap().starts_with("@inproceedings{titleonly,"));
+        assert!(!title_checked.changes.iter().any(|change| change.field == "author"));
         for (code, message, reason) in [
             (
                 2,
@@ -2712,9 +2412,7 @@ mod tests {
         unsafe { std::env::remove_var("LATTICE_BIBCITE_BIN") };
         assert_eq!(corrected.status, "update");
         assert!(fields(corrected.after.as_ref().unwrap())["author"].contains("Someone Else"));
-        let after = checked
-            .after
-            .expect("mocked published metadata is proposed");
+        let after = checked.after.expect("mocked published metadata is proposed");
         assert_eq!(
             clean(fields(&after).get("booktitle").unwrap()),
             "IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR)"
@@ -2726,11 +2424,8 @@ mod tests {
     #[test]
     fn unchanged_publication_has_no_proposal() {
         let before = "@inproceedings{lora, title={LoRA: Low-Rank Adaptation of Large Language Models}, booktitle={ICLR}, year={2022}}";
-        let checked = proposal(
-            before,
-            before.replace(", ", ",\n  "),
-            "A published version is available.",
-        );
+        let checked =
+            proposal(before, before.replace(", ", ",\n  "), "A published version is available.");
         assert_eq!(checked.status, "checked");
         assert!(checked.after.is_none());
         assert!(checked.changes.is_empty());
@@ -2743,10 +2438,7 @@ mod tests {
         let accepted = compare_title_entry(before, good);
         assert_eq!(accepted.status, "update");
         assert!(accepted.after.is_some());
-        assert!(!accepted
-            .changes
-            .iter()
-            .any(|change| change.field == "author"));
+        assert!(!accepted.changes.iter().any(|change| change.field == "author"));
 
         for (remote, reason) in [
             (good.replace("Safe Paper", "Wrong Paper"), "title"),
@@ -2755,16 +2447,8 @@ mod tests {
         ] {
             let rejected = compare_title_entry(before, &remote);
             assert!(rejected.after.is_none());
-            assert_eq!(
-                rejected.publication_reason.as_deref(),
-                Some("identity_conflict")
-            );
-            assert!(rejected
-                .candidate
-                .unwrap()
-                .reasons
-                .iter()
-                .any(|r| r == reason));
+            assert_eq!(rejected.publication_reason.as_deref(), Some("identity_conflict"));
+            assert!(rejected.candidate.unwrap().reasons.iter().any(|r| r == reason));
         }
     }
 
@@ -2779,24 +2463,12 @@ mod tests {
         let accepted = compare_title_entry(&before, &remote);
         assert_eq!(accepted.status, "update");
         assert_eq!(fields(&accepted.after.unwrap())["author"], authors);
-        assert!(!accepted
-            .changes
-            .iter()
-            .any(|change| change.field == "author"));
-        assert!(!differing_fields(&before, &remote)
-            .iter()
-            .any(|change| change.field == "author"));
+        assert!(!accepted.changes.iter().any(|change| change.field == "author"));
+        assert!(!differing_fields(&before, &remote).iter().any(|change| change.field == "author"));
         let corrected = compare_title_entry(&before, &remote.replace("Simon Guo", "Sam Guo"));
         assert!(corrected.after.is_none());
-        assert_eq!(
-            corrected.publication_reason.as_deref(),
-            Some("identity_conflict")
-        );
-        assert!(corrected
-            .candidate
-            .unwrap()
-            .reasons
-            .contains(&"author".into()));
+        assert_eq!(corrected.publication_reason.as_deref(), Some("identity_conflict"));
+        assert!(corrected.candidate.unwrap().reasons.contains(&"author".into()));
     }
 
     #[test]
@@ -2809,20 +2481,11 @@ mod tests {
         ] {
             assert_eq!(author_names(tex), author_names("Christopher Ré"), "{tex}");
         }
-        assert_eq!(
-            author_names(r#"M{\"u}ller, Alice"#),
-            author_names("Alice Müller")
-        );
+        assert_eq!(author_names(r#"M{\"u}ller, Alice"#), author_names("Alice Müller"));
         assert_eq!(author_names(r"\v{S}imek, Bob"), author_names("Bob Šimek"));
-        assert_ne!(
-            author_names("Christopher Ré"),
-            author_names("Christopher Re")
-        );
+        assert_ne!(author_names("Christopher Ré"), author_names("Christopher Re"));
         assert_ne!(author_names(r"\bad{e}, Alice"), author_names("Alice Bade"));
-        assert_ne!(
-            author_names(r"\unknown, Alice"),
-            author_names("Alice ŭnknown")
-        );
+        assert_ne!(author_names(r"\unknown, Alice"), author_names("Alice ŭnknown"));
     }
 
     #[test]
@@ -2840,12 +2503,9 @@ mod tests {
             assert!(rejected.after.is_none());
             let candidate = rejected.candidate.unwrap();
             assert!(candidate.reasons.contains(&"ENTRYTYPE".into()));
-            assert!(candidate
-                .changes
-                .iter()
-                .any(|change| change.field == "ENTRYTYPE"
-                    && change.before == "book"
-                    && change.after == "article"));
+            assert!(candidate.changes.iter().any(|change| change.field == "ENTRYTYPE"
+                && change.before == "book"
+                && change.after == "article"));
             let with_id = before.replacen(", title=", ", doi={10.1234/collision}, title=", 1);
             let remote_with_id = remote.replace("10.1038/nature14539", "10.1234/collision");
             assert!(compare_doi_entry(&with_id, &remote_with_id).after.is_none());
@@ -2872,10 +2532,7 @@ mod tests {
 
     #[test]
     fn missing_identity_and_provider_outcomes_stay_distinct() {
-        assert_eq!(
-            identity_missing_fields("@misc{x,title={Only title}}"),
-            Vec::<String>::new()
-        );
+        assert_eq!(identity_missing_fields("@misc{x,title={Only title}}"), Vec::<String>::new());
         let outcomes = publication_sources("[openalex] HTTP 401 unauthorized\n[openalex] HTTP 403 forbidden\n[openalex] HTTP 503 server error");
         assert_eq!(outcomes[0].outcome, "server_error");
     }
@@ -2901,24 +2558,16 @@ mod tests {
         assert!(checked
             .changes
             .iter()
-            .all(
-                |change| ["primaryclass", "howpublished"].contains(&change.field.as_str())
-                    && change.after.is_empty()
-            ));
+            .all(|change| ["primaryclass", "howpublished"].contains(&change.field.as_str())
+                && change.after.is_empty()));
         let after = checked.after.unwrap();
         assert_eq!(fields(&after).get("doi"), fields(before).get("doi"));
         assert_eq!(fields(&after).get("eprint"), fields(before).get("eprint"));
-        assert_eq!(
-            fields(&after).get("archiveprefix"),
-            fields(before).get("archiveprefix")
-        );
+        assert_eq!(fields(&after).get("archiveprefix"), fields(before).get("archiveprefix"));
         let root = project_root();
         fs::write(root.join("references.bib"), before).unwrap();
         apply(&root, "references.bib", "paper", before, &after).unwrap();
-        assert_eq!(
-            fs::read_to_string(root.join("references.bib")).unwrap(),
-            after
-        );
+        assert_eq!(fs::read_to_string(root.join("references.bib")).unwrap(), after);
         assert_eq!(compare_doi_entry(&after, &after).status, "checked");
         fs::remove_dir_all(root.parent().unwrap()).unwrap();
     }
@@ -2928,9 +2577,7 @@ mod tests {
         assert!(is_preprint_venue("CoRR abs/2401.12345"));
         assert!(is_preprint_venue("arXiv preprint arXiv:2401.12345"));
         assert!(!is_preprint_venue("Corrosion Science"));
-        assert!(!is_preprint_venue(
-            "Corrosion Engineering, Science and Technology"
-        ));
+        assert!(!is_preprint_venue("Corrosion Engineering, Science and Technology"));
     }
 
     #[test]
@@ -2952,10 +2599,7 @@ mod tests {
         assert!(compare_doi_entry(&corrosion, before).after.is_some());
         let reordered_names =
             before.replace("Alice Smith and Bob Jones", "Smith, Alice and Jones, Bob");
-        assert_ne!(
-            compare_doi_entry(&reordered_names, before).status,
-            "unavailable"
-        );
+        assert_ne!(compare_doi_entry(&reordered_names, before).status, "unavailable");
     }
 
     #[test]
@@ -2984,11 +2628,7 @@ mod tests {
             );
             let checked = compare_title_entry(&before, &remote);
             assert!(checked.after.is_none());
-            assert!(checked
-                .candidate
-                .unwrap()
-                .reasons
-                .contains(&"author".into()));
+            assert!(checked.candidate.unwrap().reasons.contains(&"author".into()));
             let without_id = before.replace(&format!(",{id}"), "");
             assert!(compare_title_entry(&without_id, &remote).after.is_none());
             let wrong_id = remote
@@ -3015,24 +2655,14 @@ mod tests {
             let before = remote.replace(full, authors).replace("{remote,", "{mine,");
             let checked = compare_title_entry(&before, &remote);
             assert!(checked.after.is_none());
-            assert!(checked
-                .candidate
-                .unwrap()
-                .reasons
-                .contains(&"author".into()));
+            assert!(checked.candidate.unwrap().reasons.contains(&"author".into()));
             for corrected in [
                 remote.replace("Niket Tandon", "Another Person"),
-                remote.replace(
-                    "Aman Madaan and Niket Tandon",
-                    "Niket Tandon and Aman Madaan",
-                ),
+                remote.replace("Aman Madaan and Niket Tandon", "Niket Tandon and Aman Madaan"),
                 remote.replace("2023", "2024"),
                 remote.replace("NeurIPS", "ICML"),
             ] {
-                assert!(
-                    compare_title_entry(&before, &corrected).after.is_none(),
-                    "{corrected}"
-                );
+                assert!(compare_title_entry(&before, &corrected).after.is_none(), "{corrected}");
             }
         }
         let only_others = remote.replace(full, "others");
@@ -3046,25 +2676,15 @@ mod tests {
         let remote = format!("@inproceedings{{source,title={{Reflexion: language agents with verbal reinforcement learning}},author={{{authors}}},booktitle={{NeurIPS}},year={{2023}}}}");
         let checked = compare_title_entry(before, &remote);
         assert!(checked.after.is_none());
-        assert!(checked
-            .candidate
-            .unwrap()
-            .reasons
-            .contains(&"author".into()));
+        assert!(checked.candidate.unwrap().reasons.contains(&"author".into()));
         let missing_authors = before.replace("author={Shinn, Noah and Cassano, Federico and Berman, Edward and Gopinath, Ashwin and Narasimhan, Karthik and Yao, Shunyu},", "");
         assert!(identity_missing_fields(&missing_authors).is_empty());
         let missing = compare_title_entry(&missing_authors, &remote);
         assert!(missing.after.is_none());
-        assert!(missing
-            .candidate
-            .unwrap()
-            .reasons
-            .contains(&"author".into()));
-        assert!(
-            compare_title_entry(before, &remote.replace("Reflexion:", "Different paper:"))
-                .after
-                .is_none()
-        );
+        assert!(missing.candidate.unwrap().reasons.contains(&"author".into()));
+        assert!(compare_title_entry(before, &remote.replace("Reflexion:", "Different paper:"))
+            .after
+            .is_none());
     }
 
     #[test]
@@ -3084,28 +2704,18 @@ mod tests {
         assert!(after.starts_with("@book{deep,"));
         assert!(after.contains("month = jan"));
         assert!(after.contains("note = {Keep {NASA}}"));
+        assert!(!is_safe_local_cleanup(before, &after.replace("volume = {1}", "volume = {99}")));
         assert!(!is_safe_local_cleanup(
             before,
-            &after.replace("volume = {1}", "volume = {99}")
-        ));
-        assert!(!is_safe_local_cleanup(
-            before,
-            &after.replace(
-                "month = jan",
-                "url = {https://example.org/wrong}, month = jan"
-            )
+            &after.replace("month = jan", "url = {https://example.org/wrong}, month = jan")
         ));
         let root = project_root();
         fs::write(root.join("references.bib"), before).unwrap();
         apply(&root, "references.bib", "deep", before, &after).unwrap();
         fs::remove_dir_all(root.parent().unwrap()).unwrap();
         assert!(cleanup_result(result("checked", "", after)).after.is_none());
-        assert!(cleanup_result(result("skipped", "", before.into()))
-            .after
-            .is_some());
-        assert!(cleanup_result(result("conflict", "", before.into()))
-            .after
-            .is_none());
+        assert!(cleanup_result(result("skipped", "", before.into())).after.is_some());
+        assert!(cleanup_result(result("conflict", "", before.into())).after.is_none());
     }
 
     #[test]
@@ -3150,43 +2760,27 @@ mod tests {
             fs::write(root.join("references.bib"), &before).unwrap();
             apply(&root, "references.bib", "v", &before, &after).unwrap();
             fs::remove_dir_all(root.parent().unwrap()).unwrap();
-            assert!(cleanup_result(compare_title_entry(&after, &before))
-                .after
-                .is_none());
+            assert!(cleanup_result(compare_title_entry(&after, &before)).after.is_none());
             let real_volume = before.replace("volume={2024}", "volume={38}");
-            assert!(cleanup_result(result("checked", "", real_volume))
-                .after
-                .is_none());
+            assert!(cleanup_result(result("checked", "", real_volume)).after.is_none());
         }
         let unrelated = "@article{x,title={Paper},author={Alice Smith},journal={Other Journal},year={2024},volume={2024}}";
-        assert!(cleanup_result(result("checked", "", unrelated.into()))
-            .after
-            .is_none());
+        assert!(cleanup_result(result("checked", "", unrelated.into())).after.is_none());
     }
 
     #[test]
     fn repeated_authors_are_reported_and_not_imported_from_sources() {
         let before = "@article{mine,title={Example},author={Alice Smith and Bob Jones},year={2024},journal={Journal},doi={10.1234/exact}}";
-        let repeated = before.replace(
-            "Alice Smith and Bob Jones",
-            "Alice Smith and Bob Jones and Smith, Alice",
-        );
-        assert!(local_validation(&repeated)
+        let repeated = before
+            .replace("Alice Smith and Bob Jones", "Alice Smith and Bob Jones and Smith, Alice");
+        assert!(local_validation(&repeated).iter().any(|issue| issue.contains("Repeated author")));
+        assert!(!local_validation(before).iter().any(|issue| issue.contains("Repeated author")));
+        assert!(!local_validation(&before.replace("Bob Jones", "Adam Smith"))
             .iter()
             .any(|issue| issue.contains("Repeated author")));
-        assert!(!local_validation(before)
-            .iter()
-            .any(|issue| issue.contains("Repeated author")));
-        assert!(
-            !local_validation(&before.replace("Bob Jones", "Adam Smith"))
-                .iter()
-                .any(|issue| issue.contains("Repeated author"))
-        );
         assert!(compare_doi_entry(before, &repeated).after.is_none());
         assert!(compare_doi_entry(&repeated, before).after.is_none());
-        assert!(cleanup_result(result("checked", "", repeated))
-            .after
-            .is_some());
+        assert!(cleanup_result(result("checked", "", repeated)).after.is_some());
     }
 
     #[test]
@@ -3202,16 +2796,11 @@ mod tests {
             remote.replace("Shunyu Yao and Jeffrey Zhao", "Jeffrey Zhao and Shunyu Yao"),
             remote.replace(" and Yuan Cao", ""),
         ] {
-            assert!(
-                compare_title_entry(before, &corrected).after.is_none(),
-                "{corrected}"
-            );
+            assert!(compare_title_entry(before, &corrected).after.is_none(), "{corrected}");
         }
-        assert!(
-            compare_title_entry(&before.replace(",booktitle={ICLR}", ""), &remote)
-                .after
-                .is_some()
-        );
+        assert!(compare_title_entry(&before.replace(",booktitle={ICLR}", ""), &remote)
+            .after
+            .is_some());
     }
 
     #[test]
@@ -3244,10 +2833,7 @@ mod tests {
         assert!(after.contains("custom = {keep}"), "{after}");
         assert!(after.contains("month = jan"), "{after}");
         assert!(after.contains("note = {Keep {NASA}}"), "{after}");
-        assert!(
-            after.contains(r"howpublished = {\url{https://example.org}}"),
-            "{after}"
-        );
+        assert!(after.contains(r"howpublished = {\url{https://example.org}}"), "{after}");
         assert_eq!(got.status, "update");
     }
 
@@ -3272,26 +2858,12 @@ mod tests {
         .unwrap();
         let audit = scan(&root).unwrap();
         assert_eq!(audit.entries.len(), 2);
-        assert!(audit
-            .issues
-            .iter()
-            .any(|i| i.message.contains("Could not parse")));
+        assert!(audit.issues.iter().any(|i| i.message.contains("Could not parse")));
         assert!(
-            audit
-                .issues
-                .iter()
-                .filter(|i| i.message.contains("Duplicate citation key"))
-                .count()
+            audit.issues.iter().filter(|i| i.message.contains("Duplicate citation key")).count()
                 >= 2
         );
-        assert!(
-            audit
-                .issues
-                .iter()
-                .filter(|i| i.message.contains("Duplicate DOI"))
-                .count()
-                >= 2
-        );
+        assert!(audit.issues.iter().filter(|i| i.message.contains("Duplicate DOI")).count() >= 2);
         let _ = fs::remove_dir_all(root.parent().unwrap());
     }
 
@@ -3322,22 +2894,16 @@ mod tests {
             "@Article {a, author={A}, title={T}, journaltitle={J}, date={2024-05}}"
         )
         .is_empty());
-        assert!(
-            local_validation("@article{a, editor={E}, title={T}, journal={J}, year={2024}}")
-                .contains(&"Missing author field for article entry.".to_string())
-        );
-        assert!(
-            local_validation("@book{b, editor={E}, title={T}, publisher={P}, year={2024}}")
-                .is_empty()
-        );
+        assert!(local_validation("@article{a, editor={E}, title={T}, journal={J}, year={2024}}")
+            .contains(&"Missing author field for article entry.".to_string()));
+        assert!(local_validation("@book{b, editor={E}, title={T}, publisher={P}, year={2024}}")
+            .is_empty());
         assert!(local_validation(
             "@online{o, author={A}, title={T}, date={2024-05}, url={https://example.test}}"
         )
         .is_empty());
-        assert!(
-            local_validation("@madeup{x, title={T}, author={A}, year={2024}}")
-                .contains(&"Unknown bibliography entry type `madeup`.".to_string())
-        );
+        assert!(local_validation("@madeup{x, title={T}, author={A}, year={2024}}")
+            .contains(&"Unknown bibliography entry type `madeup`.".to_string()));
     }
 
     #[test]
@@ -3355,23 +2921,14 @@ mod tests {
 
     #[test]
     fn unavailable_preprint_lookup_is_not_reported_as_current() {
-        for reason in [
-            "sources_unavailable",
-            "identity_conflict",
-            "ambiguous",
-            "unexpected",
-        ] {
+        for reason in ["sources_unavailable", "identity_conflict", "ambiguous", "unexpected"] {
             assert_eq!(
                 upgrade_miss("entry", &serde_json::json!({"reason":reason})).status,
                 "unavailable"
             );
         }
         assert_eq!(
-            upgrade_miss(
-                "entry",
-                &serde_json::json!({"reason":"no_published_version"})
-            )
-            .status,
+            upgrade_miss("entry", &serde_json::json!({"reason":"no_published_version"})).status,
             "checked"
         );
         assert!(!complete_entry("@article{a,title={Broken}"));
@@ -3383,18 +2940,9 @@ mod tests {
         for (detail, expected) in [
             ("batch result reused", "batch_reused"),
             ("batch unavailable", "unavailable"),
-            (
-                "disabled: public literature service queue_busy",
-                "queue_busy",
-            ),
-            (
-                "disabled: public literature service daily_quota",
-                "daily_quota",
-            ),
-            (
-                "disabled: public literature service upstream_rate_limit",
-                "rate_limited",
-            ),
+            ("disabled: public literature service queue_busy", "queue_busy"),
+            ("disabled: public literature service daily_quota", "daily_quota"),
+            ("disabled: public literature service upstream_rate_limit", "rate_limited"),
         ] {
             let sources = publication_sources(&format!("[semanticscholar] {detail}"));
             assert_eq!(sources.len(), 1);
@@ -3409,10 +2957,8 @@ mod tests {
             "[unpaywall] disabled for the rest of this run: server error (500)\n",
             "[googlescholar] disabled for the rest of this run: captcha/429\n",
         ));
-        let pairs: Vec<_> = sources
-            .iter()
-            .map(|s| (s.source.as_str(), s.outcome.as_str()))
-            .collect();
+        let pairs: Vec<_> =
+            sources.iter().map(|s| (s.source.as_str(), s.outcome.as_str())).collect();
         assert_eq!(
             pairs,
             vec![
@@ -3424,10 +2970,8 @@ mod tests {
                 ("unpaywall", "server_error"),
             ]
         );
-        let mut result = upgrade_miss(
-            "entry",
-            &serde_json::json!({"reason":"sources_unavailable"}),
-        );
+        let mut result =
+            upgrade_miss("entry", &serde_json::json!({"reason":"sources_unavailable"}));
         result.sources = sources;
         let json = serde_json::to_string(&result).unwrap();
         assert!(json.contains("publicationReason"));
@@ -3441,14 +2985,8 @@ mod tests {
     fn batch_failure_replaces_only_the_s2_diagnostic() {
         let mut checked = result("unavailable", "Check incomplete", "entry".into());
         checked.sources = vec![
-            SourceCheck {
-                source: "dblp".into(),
-                outcome: "timeout".into(),
-            },
-            SourceCheck {
-                source: "semanticscholar".into(),
-                outcome: "unavailable".into(),
-            },
+            SourceCheck { source: "dblp".into(), outcome: "timeout".into() },
+            SourceCheck { source: "semanticscholar".into(), outcome: "unavailable".into() },
         ];
         let checked = annotate_s2(checked, Some("upstream_rate_limit"));
         assert_eq!(checked.sources.len(), 2);
@@ -3485,17 +3023,12 @@ mod tests {
             });
             eprintln!("Checked {}/{} entries", results.len(), scan.entries.len());
         }
-        assert_eq!(
-            fs::read_to_string(root.join("references.bib")).unwrap(),
-            original
-        );
+        assert_eq!(fs::read_to_string(root.join("references.bib")).unwrap(), original);
         for (entry, result) in scan.entries.iter().zip(&results) {
             if let Some(after) = &result.after {
                 apply(&root, &entry.path, &entry.key, &result.before, after).unwrap();
                 assert_eq!(
-                    registered_entry(&root, &entry.path, &entry.key)
-                        .unwrap()
-                        .as_deref(),
+                    registered_entry(&root, &entry.path, &entry.key).unwrap().as_deref(),
                     Some(after.as_str())
                 );
             }
@@ -3527,20 +3060,15 @@ mod tests {
         assert!(!stderr.contains("draft"));
         let capture = TempFile::new("").unwrap();
         use std::os::unix::fs::PermissionsExt;
-        assert_eq!(
-            fs::metadata(&capture.dir).unwrap().permissions().mode() & 0o777,
-            0o700
-        );
+        assert_eq!(fs::metadata(&capture.dir).unwrap().permissions().mode() & 0o777, 0o700);
     }
 
     #[test]
     #[cfg(unix)]
     fn captures_more_than_a_pipe_buffer_without_deadlocking() {
-        let output = run_bibcite(
-            &["-c", "head -c 131072 /dev/zero"],
-            Some(Command::new("/bin/sh")),
-        )
-        .unwrap();
+        let output =
+            run_bibcite(&["-c", "head -c 131072 /dev/zero"], Some(Command::new("/bin/sh")))
+                .unwrap();
         assert!(output.status.success());
         assert_eq!(output.stdout.len(), 131072);
     }
@@ -3597,9 +3125,7 @@ mod tests {
         let contents = fs::read_to_string(root.join(path)).unwrap();
         assert!(contents.contains(after));
         assert!(contents.contains(other));
-        assert!(apply(&root, path, "one", before, after)
-            .unwrap_err()
-            .contains("changed"));
+        assert!(apply(&root, path, "one", before, after).unwrap_err().contains("changed"));
         assert!(root.join(".research/history").is_dir());
         let _ = fs::remove_dir_all(root.parent().unwrap());
     }

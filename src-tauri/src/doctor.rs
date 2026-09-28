@@ -10,44 +10,18 @@ pub fn run(root: Option<&Path>) -> DoctorReport {
     push_runnable_tool(&mut checks, "pdflatex", "--version", "pdfLaTeX engine");
     push_runnable_tool(&mut checks, "xelatex", "--version", "XeLaTeX engine");
     push_runnable_tool(&mut checks, "lualatex", "--version", "LuaLaTeX engine");
-    push_runnable_tool(
-        &mut checks,
-        "synctex",
-        "help",
-        "SyncTeX bidirectional search",
-    );
-    push_runnable_tool(
-        &mut checks,
-        "bibtex",
-        "--version",
-        "BibTeX bibliography processor",
-    );
+    push_runnable_tool(&mut checks, "synctex", "help", "SyncTeX bidirectional search");
+    push_runnable_tool(&mut checks, "bibtex", "--version", "BibTeX bibliography processor");
     push_tool(&mut checks, "biber", "Biber bibliography processor");
-    push_tool(
-        &mut checks,
-        "texlab",
-        "TexLab language server (optional editor diagnostics)",
-    );
-    push_tool(
-        &mut checks,
-        "git",
-        "Git (optional project status / commit panel)",
-    );
-    push_tool(
-        &mut checks,
-        "texcount",
-        "TeXcount body word counts (optional status bar)",
-    );
+    push_tool(&mut checks, "texlab", "TexLab language server (optional editor diagnostics)");
+    push_tool(&mut checks, "git", "Git (optional project status / commit panel)");
+    push_tool(&mut checks, "texcount", "TeXcount body word counts (optional status bar)");
     push_managed_uv_tool(
         &mut checks,
         "uv",
         "Python tooling used for literature and bibliography tools",
     );
-    push_managed_uv_tool(
-        &mut checks,
-        "uvx",
-        "Runner used for Lattice's pinned literature tools",
-    );
+    push_managed_uv_tool(&mut checks, "uvx", "Runner used for Lattice's pinned literature tools");
 
     if let Some(root) = root {
         match project::read_manifest(root) {
@@ -57,9 +31,8 @@ pub fn run(root: Option<&Path>) -> DoctorReport {
                     .iter()
                     .find(|document| document.is_default)
                     .or_else(|| manifest.root_documents.first());
-                let root_path = root_document
-                    .map(|document| document.path.as_str())
-                    .unwrap_or("(none)");
+                let root_path =
+                    root_document.map(|document| document.path.as_str()).unwrap_or("(none)");
                 let root_exists = root_document
                     .map(|document| {
                         project::safe_path(root, &document.path)
@@ -113,35 +86,20 @@ pub fn run(root: Option<&Path>) -> DoctorReport {
             String::from_utf8_lossy(&output.stderr)
         );
         let line = text.lines().next().unwrap_or("latexmk available").trim();
-        checks.push(check(
-            "latexmk-version",
-            line.to_string(),
-            output.status.success(),
-        ));
+        checks.push(check("latexmk-version", line.to_string(), output.status.success()));
     }
 
     push_conference_fonts(&mut checks);
     push_project_pdf_fonts(&mut checks, root);
 
-    let required_ok = [
-        "latexmk",
-        "synctex",
-        "bibtex",
-        "uv",
-        "uvx",
-        "conference-fonts",
-    ]
-    .into_iter()
-    .all(|name| checks.iter().any(|item| item.name == name && item.ok))
+    let required_ok = ["latexmk", "synctex", "bibtex", "uv", "uvx", "conference-fonts"]
+        .into_iter()
+        .all(|name| checks.iter().any(|item| item.name == name && item.ok))
         && checks.iter().any(|item| {
             matches!(item.name.as_str(), "pdflatex" | "xelatex" | "lualatex") && item.ok
         });
 
-    DoctorReport {
-        ok: required_ok,
-        summary: format_summary(&checks, required_ok),
-        checks,
-    }
+    DoctorReport { ok: required_ok, summary: format_summary(&checks, required_ok), checks }
 }
 
 fn push_tool(checks: &mut Vec<DoctorCheck>, name: &str, detail: &str) {
@@ -242,10 +200,8 @@ fn push_neurips_packages(checks: &mut Vec<DoctorCheck>) {
         "microtype.sty",
         "booktabs.sty",
     ];
-    let missing: Vec<&str> = required
-        .into_iter()
-        .filter(|name| kpsewhich(name).is_none())
-        .collect();
+    let missing: Vec<&str> =
+        required.into_iter().filter(|name| kpsewhich(name).is_none()).collect();
     if missing.is_empty() {
         checks.push(check(
             "neurips-packages",
@@ -278,14 +234,7 @@ fn push_conference_fonts(checks: &mut Vec<DoctorCheck>) {
     }
     // Metrics (tfm/fd) can exist while Type1 outlines are missing — then pdfTeX
     // falls back to ugly bitmaps / CM and the PDF looks nothing like NeurIPS.
-    let required = [
-        "t1ptm.fd",
-        "ptmr8t.tfm",
-        "t1phv.fd",
-        "utmr8a.pfb",
-        "utmb8a.pfb",
-        "uhvr8a.pfb",
-    ];
+    let required = ["t1ptm.fd", "ptmr8t.tfm", "t1phv.fd", "utmr8a.pfb", "utmb8a.pfb", "uhvr8a.pfb"];
     let mut missing = Vec::new();
     let mut found = Vec::new();
     for name in required {
@@ -297,10 +246,7 @@ fn push_conference_fonts(checks: &mut Vec<DoctorCheck>) {
     if missing.is_empty() {
         checks.push(check(
             "conference-fonts",
-            format!(
-                "Times/Helvetica Type1 outlines found on disk. {}",
-                found.join("; ")
-            ),
+            format!("Times/Helvetica Type1 outlines found on disk. {}", found.join("; ")),
             true,
         ));
     } else {
@@ -378,11 +324,7 @@ fn kpsewhich(name: &str) -> Option<std::path::PathBuf> {
 }
 
 fn check(name: &str, detail: String, ok: bool) -> DoctorCheck {
-    DoctorCheck {
-        name: name.to_string(),
-        detail,
-        ok,
-    }
+    DoctorCheck { name: name.to_string(), detail, ok }
 }
 
 fn format_summary(checks: &[DoctorCheck], required_ok: bool) -> String {

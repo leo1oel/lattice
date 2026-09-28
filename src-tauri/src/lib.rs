@@ -61,8 +61,7 @@ use tauri_plugin_opener::OpenerExt;
 const OVERLEAF_FULL_SYNC_MIN_GAP: std::time::Duration = std::time::Duration::from_secs(7);
 
 fn overleaf_full_sync_delay(
-    previous: Option<tokio::time::Instant>,
-    now: tokio::time::Instant,
+    previous: Option<tokio::time::Instant>, now: tokio::time::Instant,
 ) -> std::time::Duration {
     previous
         .map(|started| (started + OVERLEAF_FULL_SYNC_MIN_GAP).saturating_duration_since(now))
@@ -105,17 +104,14 @@ impl OverleafRealtimeState {
     /// Caller holds the exclusive sync lease and this state's mutex through
     /// persistence. Neither a queued stale leave nor reconnect can move a base.
     fn checkpoint_before_leave(
-        &self,
-        root: &Path,
-        doc_id: &str,
-        receipt: &str,
+        &self, root: &Path, doc_id: &str, receipt: &str,
         checkpoint: Option<&overleaf::RealtimeCheckpoint>,
     ) -> Result<(), String> {
         if self.root.as_deref() != Some(root)
             || self.join_receipts.get(doc_id).map(String::as_str) != Some(receipt)
         {
             return Err(
-                "The Overleaf document ownership changed before it could be released.".to_string(),
+                "The Overleaf document ownership changed before it could be released.".to_string()
             );
         }
         let path = self
@@ -162,13 +158,9 @@ mod realtime_generation_tests {
             std::env::temp_dir().join(format!("missing-checkpoint-{}", uuid::Uuid::new_v4()));
         state.begin(root.clone());
         state.joined_paths.insert("doc".into(), "main.tex".into());
-        state
-            .join_receipts
-            .insert("doc".into(), "replacement".into());
-        let checkpoint = super::overleaf::RealtimeCheckpoint {
-            text: "human text".into(),
-            version: 11,
-        };
+        state.join_receipts.insert("doc".into(), "replacement".into());
+        let checkpoint =
+            super::overleaf::RealtimeCheckpoint { text: "human text".into(), version: 11 };
         assert!(state
             .checkpoint_before_leave(&root, "doc", "stale", Some(&checkpoint))
             .unwrap_err()
@@ -183,17 +175,13 @@ mod realtime_generation_tests {
         let mut paths = BTreeSet::new();
         state.extend_joined_paths(&root, &mut paths);
         assert_eq!(paths, BTreeSet::from(["main.tex".into()]));
-        assert!(state
-            .checkpoint_before_leave(&root, "doc", "replacement", None)
-            .is_ok());
+        assert!(state.checkpoint_before_leave(&root, "doc", "replacement", None).is_ok());
         state.begin(root.clone());
         assert!(state
             .checkpoint_before_leave(&root, "doc", "replacement", Some(&checkpoint))
             .is_err());
         state.joined_paths.insert("doc".into(), "main.tex".into());
-        state
-            .join_receipts
-            .insert("doc".into(), "new-connection".into());
+        state.join_receipts.insert("doc".into(), "new-connection".into());
         state.cancel(Some(&root));
         assert!(state
             .checkpoint_before_leave(&root, "doc", "new-connection", Some(&checkpoint))
@@ -251,9 +239,7 @@ mod realtime_generation_tests {
         let mut state = OverleafRealtimeState::default();
         let root = PathBuf::from("/project/a");
         state.begin(root.clone());
-        state
-            .joined_paths
-            .insert("doc-1".to_string(), "newly-joined.tex".to_string());
+        state.joined_paths.insert("doc-1".to_string(), "newly-joined.tex".to_string());
         let mut paths = BTreeSet::new();
 
         state.extend_joined_paths(&root, &mut paths);
@@ -307,14 +293,8 @@ mod realtime_generation_tests {
 
         // A second window building project B must not be able to abort the
         // build project A already has running.
-        assert!(Arc::ptr_eq(
-            &state.project(a).active_build,
-            &state.project(a).active_build
-        ));
-        assert!(!Arc::ptr_eq(
-            &state.project(a).active_build,
-            &state.project(b).active_build
-        ));
+        assert!(Arc::ptr_eq(&state.project(a).active_build, &state.project(a).active_build));
+        assert!(!Arc::ptr_eq(&state.project(a).active_build, &state.project(b).active_build));
     }
 
     #[test]
@@ -340,9 +320,7 @@ mod realtime_generation_tests {
     #[test]
     fn a_mismatched_request_cannot_grow_the_project_map_forever() {
         let state = super::AppState::from_environment();
-        state
-            .bind_window("main", PathBuf::from("/project/a"))
-            .unwrap();
+        state.bind_window("main", PathBuf::from("/project/a")).unwrap();
         state.project(Path::new("/project/a"));
         // A command takes the named project's lease before checking the window
         // still has it open, so a stale request creates an entry for a project
@@ -391,10 +369,7 @@ mod realtime_generation_tests {
         let state = super::AppState::from_environment();
         state.set_pending_action("project-1", "join".to_string());
 
-        assert_eq!(
-            state.take_pending_action("project-1").as_deref(),
-            Some("join")
-        );
+        assert_eq!(state.take_pending_action("project-1").as_deref(), Some("join"));
         // A reload of that window must not rejoin the room a second time, and
         // no other window may pick the instruction up.
         assert_eq!(state.take_pending_action("project-1"), None);
@@ -446,10 +421,7 @@ mod realtime_generation_tests {
     fn a_delayed_project_action_cannot_move_to_the_new_project() {
         let root_a = PathBuf::from("/project/a");
 
-        assert_eq!(
-            ensure_expected_project_root(root_a.clone(), "/project/a"),
-            Ok(root_a.clone())
-        );
+        assert_eq!(ensure_expected_project_root(root_a.clone(), "/project/a"), Ok(root_a.clone()));
         assert_eq!(
             ensure_expected_project_root(root_a, "/project/b"),
             Err("The project changed before the action could start.".to_string())
@@ -583,11 +555,8 @@ impl AppState {
                 pool.reset();
             }
             resources.semantic_search.cancel();
-            let client = resources
-                .realtime
-                .lock()
-                .ok()
-                .and_then(|mut realtime| realtime.cancel(None));
+            let client =
+                resources.realtime.lock().ok().and_then(|mut realtime| realtime.cancel(None));
             if let Some(client) = client {
                 client.shutdown();
             }
@@ -640,20 +609,14 @@ impl AppState {
     /// The window currently showing `root`, if any.
     fn window_showing(&self, root: &Path) -> Option<String> {
         let roots = self.roots.lock().ok()?;
-        roots
-            .iter()
-            .find(|(_, open)| open.as_path() == root)
-            .map(|(label, _)| label.clone())
+        roots.iter().find(|(_, open)| open.as_path() == root).map(|(label, _)| label.clone())
     }
 }
 
 fn current_root(
-    state: &tauri::State<'_, AppState>,
-    window: &tauri::Window,
+    state: &tauri::State<'_, AppState>, window: &tauri::Window,
 ) -> Result<PathBuf, String> {
-    state
-        .root_for(window.label())?
-        .ok_or_else(|| "Open a project first.".to_string())
+    state.root_for(window.label())?.ok_or_else(|| "Open a project first.".to_string())
 }
 
 fn ensure_expected_project_root(root: PathBuf, project_root: &str) -> Result<PathBuf, String> {
@@ -670,17 +633,13 @@ fn ensure_expected_project_root(root: PathBuf, project_root: &str) -> Result<Pat
 /// for A as an action on B. Every command that can mutate project files must
 /// use this guard before touching disk or the network.
 fn scoped_root(
-    state: &tauri::State<'_, AppState>,
-    window: &tauri::Window,
-    project_root: &str,
+    state: &tauri::State<'_, AppState>, window: &tauri::Window, project_root: &str,
 ) -> Result<PathBuf, String> {
     ensure_expected_project_root(current_root(state, window)?, project_root)
 }
 
 async fn set_root(
-    state: &tauri::State<'_, AppState>,
-    window: &tauri::Window,
-    root: PathBuf,
+    state: &tauri::State<'_, AppState>, window: &tauri::Window, root: PathBuf,
 ) -> Result<(), String> {
     // Everything below is scoped to the project this window is leaving, so a
     // switch in one window never disturbs another window's build, language
@@ -705,10 +664,7 @@ async fn set_root(
     // Hold the project root while invalidating realtime under the same lock
     // order used by connect. This makes "claim generation for A" and "switch
     // to B" mutually exclusive rather than two checks with a gap between.
-    let mut roots = state
-        .roots
-        .lock()
-        .map_err(|_| "Project state is unavailable.".to_string())?;
+    let mut roots = state.roots.lock().map_err(|_| "Project state is unavailable.".to_string())?;
     let previous = leaving
         .realtime
         .lock()
@@ -748,9 +704,7 @@ where
 /// one somewhere else.
 #[tauri::command]
 async fn create_project(
-    parent: String,
-    name: String,
-    venue: Option<String>,
+    parent: String, name: String, venue: Option<String>,
 ) -> Result<ProjectSnapshot, String> {
     let venue = project::Venue::parse(venue.as_deref().unwrap_or("neurips"))?;
     run_blocking("Project creation", move || {
@@ -766,9 +720,7 @@ async fn create_project(
 
 #[tauri::command]
 async fn open_tutorial_project(
-    app: tauri::AppHandle,
-    state: tauri::State<'_, AppState>,
-    window: tauri::Window,
+    app: tauri::AppHandle, state: tauri::State<'_, AppState>, window: tauri::Window,
 ) -> Result<ProjectSnapshot, String> {
     use tauri::Manager;
     let documents = app
@@ -792,9 +744,7 @@ async fn open_tutorial_project(
 /// Does not modify whatever project the guest had open before.
 #[tauri::command]
 async fn create_collab_join_workspace(
-    app: tauri::AppHandle,
-    room: String,
-    project_name: Option<String>,
+    app: tauri::AppHandle, room: String, project_name: Option<String>,
 ) -> Result<ProjectSnapshot, String> {
     use tauri::Manager;
     let room = room.trim();
@@ -803,13 +753,7 @@ async fn create_collab_join_workspace(
     }
     let safe_room: String = room
         .chars()
-        .map(|ch| {
-            if ch.is_ascii_alphanumeric() || ch == '-' || ch == '_' {
-                ch
-            } else {
-                '-'
-            }
-        })
+        .map(|ch| if ch.is_ascii_alphanumeric() || ch == '-' || ch == '_' { ch } else { '-' })
         .collect();
     let safe_title: String = project_name
         .unwrap_or_else(|| "Shared project".to_string())
@@ -820,11 +764,7 @@ async fn create_collab_join_workspace(
         .collect::<String>()
         .trim_matches([' ', '-', '_'])
         .to_string();
-    let safe_title = if safe_title.is_empty() {
-        "Shared project".to_string()
-    } else {
-        safe_title
-    };
+    let safe_title = if safe_title.is_empty() { "Shared project".to_string() } else { safe_title };
     let documents = app
         .path()
         .document_dir()
@@ -870,10 +810,8 @@ fn prune_old_share_workspaces(parent: &std::path::Path, current: &std::path::Pat
             if project::read_manifest(&path).ok()?.venue != "shared" {
                 return None;
             }
-            let modified = entry
-                .metadata()
-                .and_then(|meta| meta.modified())
-                .unwrap_or(std::time::UNIX_EPOCH);
+            let modified =
+                entry.metadata().and_then(|meta| meta.modified()).unwrap_or(std::time::UNIX_EPOCH);
             Some((modified, path))
         })
         .collect();
@@ -892,24 +830,19 @@ fn prune_old_share_workspaces(parent: &std::path::Path, current: &std::path::Pat
 
 #[tauri::command]
 async fn initial_project(
-    state: tauri::State<'_, AppState>,
-    window: tauri::Window,
+    state: tauri::State<'_, AppState>, window: tauri::Window,
 ) -> Result<Option<ProjectSnapshot>, String> {
     // Both the window the app launches with (bound from LATTICE_PROJECT) and a
     // window opened for a specific project (bound before it loads) find their
     // project here, so the frontend startup path is the same for either.
     let root = state.root_for(window.label())?;
-    run_blocking("Initial project load", move || {
-        root.map(|path| project::open(&path)).transpose()
-    })
-    .await
+    run_blocking("Initial project load", move || root.map(|path| project::open(&path)).transpose())
+        .await
 }
 
 #[tauri::command]
 async fn open_project(
-    state: tauri::State<'_, AppState>,
-    window: tauri::Window,
-    path: String,
+    state: tauri::State<'_, AppState>, window: tauri::Window, path: String,
 ) -> Result<ProjectSnapshot, String> {
     let snapshot = run_blocking("Project opening", move || project::open(Path::new(&path))).await?;
     let root = PathBuf::from(&snapshot.root);
@@ -938,8 +871,7 @@ struct OpenedProjectWindow {
 /// Take the one-shot instruction left for this window, if any.
 #[tauri::command]
 fn take_pending_window_action(
-    state: tauri::State<'_, AppState>,
-    window: tauri::Window,
+    state: tauri::State<'_, AppState>, window: tauri::Window,
 ) -> Option<String> {
     state.take_pending_action(window.label())
 }
@@ -967,12 +899,8 @@ fn is_open_slide_presenter_url(url: &tauri::Url) -> bool {
     {
         return false;
     }
-    let token = url
-        .query_pairs()
-        .find_map(|(key, value)| (key == "token").then_some(value));
-    let next = url
-        .query_pairs()
-        .find_map(|(key, value)| (key == "next").then_some(value));
+    let token = url.query_pairs().find_map(|(key, value)| (key == "token").then_some(value));
+    let next = url.query_pairs().find_map(|(key, value)| (key == "next").then_some(value));
     let Some(deck_id) = next
         .as_deref()
         .and_then(|path| path.strip_prefix("/s/"))
@@ -984,8 +912,7 @@ fn is_open_slide_presenter_url(url: &tauri::Url) -> bool {
 }
 
 fn build_project_window(
-    app: &tauri::AppHandle,
-    label: &str,
+    app: &tauri::AppHandle, label: &str,
 ) -> Result<tauri::WebviewWindow, String> {
     let builder = tauri::WebviewWindowBuilder::new(app, label, tauri::WebviewUrl::default())
         .title("Lattice")
@@ -1004,9 +931,8 @@ fn build_project_window(
         .title_bar_style(tauri::TitleBarStyle::Overlay)
         .hidden_title(true)
         .accept_first_mouse(true);
-    let created = builder
-        .build()
-        .map_err(|error| format!("Could not open a new Lattice window: {error}"))?;
+    let created =
+        builder.build().map_err(|error| format!("Could not open a new Lattice window: {error}"))?;
     #[cfg(target_os = "macos")]
     {
         macos_window::install_traffic_light_alignment(&created);
@@ -1017,9 +943,7 @@ fn build_project_window(
 
 #[tauri::command]
 async fn open_paper_lookup(
-    app: tauri::AppHandle,
-    window: tauri::Window,
-    title: String,
+    app: tauri::AppHandle, window: tauri::Window, title: String,
 ) -> Result<(), String> {
     let label = format!("paper-lookup-{}", window.label());
     if let Some(existing) = app.get_webview_window(&label) {
@@ -1057,12 +981,8 @@ async fn open_paper_lookup(
 /// raises that window instead of duplicating it.
 #[tauri::command]
 async fn open_project_window(
-    app: tauri::AppHandle,
-    window: tauri::Window,
-    state: tauri::State<'_, AppState>,
-    browser: tauri::State<'_, browser_host::BrowserHost>,
-    path: String,
-    pending: Option<String>,
+    app: tauri::AppHandle, window: tauri::Window, state: tauri::State<'_, AppState>,
+    browser: tauri::State<'_, browser_host::BrowserHost>, path: String, pending: Option<String>,
 ) -> Result<OpenedProjectWindow, String> {
     // Opened here, before any window exists, so a project that cannot be read
     // reports the failure into the window the writer is looking at rather than
@@ -1073,10 +993,7 @@ async fn open_project_window(
     if let Some(label) = state.window_showing(&root) {
         if label.starts_with("browser-") {
             if browser.reopen_window(&app, &label)? {
-                return Ok(OpenedProjectWindow {
-                    label,
-                    focused_existing: true,
-                });
+                return Ok(OpenedProjectWindow { label, focused_existing: true });
             }
         } else if let Some(existing) = app.get_webview_window(&label) {
             let _ = existing.unminimize();
@@ -1084,10 +1001,7 @@ async fn open_project_window(
             // The window is already up, so it will not run startup again. The
             // caller is told nothing was opened and acts on the instruction
             // itself rather than having it silently dropped here.
-            return Ok(OpenedProjectWindow {
-                label,
-                focused_existing: true,
-            });
+            return Ok(OpenedProjectWindow { label, focused_existing: true });
         }
         // The binding outlived its window. Drop it and open a fresh one.
         state.release_window(&label);
@@ -1095,10 +1009,7 @@ async fn open_project_window(
 
     if window.label().starts_with("browser-") {
         let label = browser.open_project(&app, &state, root, pending)?;
-        return Ok(OpenedProjectWindow {
-            label,
-            focused_existing: false,
-        });
+        return Ok(OpenedProjectWindow { label, focused_existing: false });
     }
 
     let label = next_project_window_label(|label| app.get_webview_window(label).is_some());
@@ -1111,10 +1022,7 @@ async fn open_project_window(
     match build_project_window(&app, &label) {
         Ok(created) => {
             let _ = created.set_focus();
-            Ok(OpenedProjectWindow {
-                label,
-                focused_existing: false,
-            })
+            Ok(OpenedProjectWindow { label, focused_existing: false })
         }
         Err(error) => {
             state.release_window(&label);
@@ -1129,10 +1037,8 @@ async fn open_project_window(
 /// bridge, so the caller never hangs waiting on a socket we just closed.
 #[tauri::command]
 fn return_to_desktop(
-    app: tauri::AppHandle,
-    state: tauri::State<'_, AppState>,
-    browser: tauri::State<'_, browser_host::BrowserHost>,
-    window: tauri::Window,
+    app: tauri::AppHandle, state: tauri::State<'_, AppState>,
+    browser: tauri::State<'_, browser_host::BrowserHost>, window: tauri::Window,
 ) -> Result<String, String> {
     if !window.label().starts_with("browser-") {
         return Err("This workspace is already open in the desktop app.".to_string());
@@ -1180,34 +1086,24 @@ async fn import_project_zip(zip_path: String, parent: String) -> Result<ProjectS
 
 #[tauri::command]
 async fn export_project_zip(
-    state: tauri::State<'_, AppState>,
-    window: tauri::Window,
-    zip_path: String,
+    state: tauri::State<'_, AppState>, window: tauri::Window, zip_path: String,
 ) -> Result<(), String> {
     let root = current_root(&state, &window)?;
-    run_blocking("Project export", move || {
-        project::export_project_zip(&root, Path::new(&zip_path))
-    })
-    .await
+    run_blocking("Project export", move || project::export_project_zip(&root, Path::new(&zip_path)))
+        .await
 }
 
 #[tauri::command]
 async fn stat_project_file(
-    state: tauri::State<'_, AppState>,
-    window: tauri::Window,
-    path: String,
+    state: tauri::State<'_, AppState>, window: tauri::Window, path: String,
 ) -> Result<project::ProjectFileStat, String> {
     let root = current_root(&state, &window)?;
-    run_blocking("Project file status", move || {
-        project::stat_file(&root, &path)
-    })
-    .await
+    run_blocking("Project file status", move || project::stat_file(&root, &path)).await
 }
 
 #[tauri::command]
 async fn refresh_project(
-    state: tauri::State<'_, AppState>,
-    window: tauri::Window,
+    state: tauri::State<'_, AppState>, window: tauri::Window,
 ) -> Result<ProjectSnapshot, String> {
     let root = current_root(&state, &window)?;
     tauri::async_runtime::spawn_blocking(move || project::open(&root))
@@ -1217,24 +1113,18 @@ async fn refresh_project(
 
 #[tauri::command]
 async fn list_project_tree_with_hidden(
-    state: tauri::State<'_, AppState>,
-    window: tauri::Window,
-    project_root: String,
+    state: tauri::State<'_, AppState>, window: tauri::Window, project_root: String,
 ) -> Result<Vec<models::FileNode>, String> {
     let root = current_root(&state, &window)?;
     if root != std::path::Path::new(&project_root) {
         return Err("Project changed while loading hidden files".to_string());
     }
-    run_blocking("Project tree", move || {
-        project::list_project_tree_with_hidden(&root)
-    })
-    .await
+    run_blocking("Project tree", move || project::list_project_tree_with_hidden(&root)).await
 }
 
 #[tauri::command]
 async fn collab_project_inventory_v2(
-    state: tauri::State<'_, AppState>,
-    window: tauri::Window,
+    state: tauri::State<'_, AppState>, window: tauri::Window,
 ) -> Result<project::CollabProjectInventoryV2, String> {
     let root = current_root(&state, &window)?;
     run_blocking("Collaboration project inventory", move || {
@@ -1245,9 +1135,7 @@ async fn collab_project_inventory_v2(
 
 #[tauri::command]
 async fn read_project_file(
-    state: tauri::State<'_, AppState>,
-    window: tauri::Window,
-    path: String,
+    state: tauri::State<'_, AppState>, window: tauri::Window, path: String,
     project_root: Option<String>,
 ) -> Result<String, String> {
     // Overleaf replaces incoming files atomically, so navigation can safely
@@ -1255,28 +1143,17 @@ async fn read_project_file(
     // full-sync write lease. Writes still take that lease: only reads bypass
     // it, and the pinned root check below still rejects stale project work.
     let root = current_root(&state, &window)?;
-    if project_root
-        .as_deref()
-        .is_some_and(|expected| root != Path::new(expected))
-    {
+    if project_root.as_deref().is_some_and(|expected| root != Path::new(expected)) {
         return Err("The project changed before the file could be read.".to_string());
     }
-    run_blocking("Project file read", move || {
-        project::read_file(&root, &path)
-    })
-    .await
+    run_blocking("Project file read", move || project::read_file(&root, &path)).await
 }
 
 #[tauri::command]
 #[allow(clippy::too_many_arguments)]
 async fn write_project_file(
-    state: tauri::State<'_, AppState>,
-    window: tauri::Window,
-    path: String,
-    content: String,
-    project_root: String,
-    base_content: Option<String>,
-    expected_content: Option<String>,
+    state: tauri::State<'_, AppState>, window: tauri::Window, path: String, content: String,
+    project_root: String, base_content: Option<String>, expected_content: Option<String>,
 ) -> Result<project::EditorWriteResult, String> {
     let project = state.project(Path::new(&project_root));
     let _lease = project.overleaf_sync_lease.read().await;
@@ -1295,8 +1172,7 @@ fn merge_project_text(base: String, edited: String, current: String) -> project:
 
 #[tauri::command]
 async fn list_citation_keys(
-    state: tauri::State<'_, AppState>,
-    window: tauri::Window,
+    state: tauri::State<'_, AppState>, window: tauri::Window,
 ) -> Result<Vec<String>, String> {
     let root = current_root(&state, &window)?;
     tauri::async_runtime::spawn_blocking(move || project::citation_keys(&root))
@@ -1306,8 +1182,7 @@ async fn list_citation_keys(
 
 #[tauri::command]
 async fn list_citations(
-    state: tauri::State<'_, AppState>,
-    window: tauri::Window,
+    state: tauri::State<'_, AppState>, window: tauri::Window,
 ) -> Result<Vec<CitationInfo>, String> {
     let root = current_root(&state, &window)?;
     tauri::async_runtime::spawn_blocking(move || project::citations(&root))
@@ -1317,35 +1192,23 @@ async fn list_citations(
 
 #[tauri::command]
 async fn read_bib_entry(
-    state: tauri::State<'_, AppState>,
-    window: tauri::Window,
-    key: String,
+    state: tauri::State<'_, AppState>, window: tauri::Window, key: String,
 ) -> Result<Option<ResolvedCitation>, String> {
     let root = current_root(&state, &window)?;
-    run_blocking("Bibliography read", move || {
-        project::read_bib_entry(&root, &key)
-    })
-    .await
+    run_blocking("Bibliography read", move || project::read_bib_entry(&root, &key)).await
 }
 
 #[tauri::command]
 async fn save_bib_entry(
-    state: tauri::State<'_, AppState>,
-    window: tauri::Window,
-    key: String,
-    bibtex: String,
+    state: tauri::State<'_, AppState>, window: tauri::Window, key: String, bibtex: String,
 ) -> Result<(), String> {
     let root = current_root(&state, &window)?;
-    run_blocking("Bibliography save", move || {
-        project::save_bib_entry(&root, &key, &bibtex)
-    })
-    .await
+    run_blocking("Bibliography save", move || project::save_bib_entry(&root, &key, &bibtex)).await
 }
 
 #[tauri::command]
 async fn list_references(
-    state: tauri::State<'_, AppState>,
-    window: tauri::Window,
+    state: tauri::State<'_, AppState>, window: tauri::Window,
 ) -> Result<Vec<ReferenceInfo>, String> {
     let root = current_root(&state, &window)?;
     tauri::async_runtime::spawn_blocking(move || project::references(&root))
@@ -1355,8 +1218,7 @@ async fn list_references(
 
 #[tauri::command]
 async fn list_unused_symbols(
-    state: tauri::State<'_, AppState>,
-    window: tauri::Window,
+    state: tauri::State<'_, AppState>, window: tauri::Window,
 ) -> Result<UnusedSymbols, String> {
     let root = current_root(&state, &window)?;
     tauri::async_runtime::spawn_blocking(move || project::unused_symbols(&root))
@@ -1366,8 +1228,7 @@ async fn list_unused_symbols(
 
 #[tauri::command]
 async fn list_todos(
-    state: tauri::State<'_, AppState>,
-    window: tauri::Window,
+    state: tauri::State<'_, AppState>, window: tauri::Window,
 ) -> Result<Vec<TodoHit>, String> {
     let root = current_root(&state, &window)?;
     run_blocking("TODO scan", move || project::list_todos(&root)).await
@@ -1375,8 +1236,7 @@ async fn list_todos(
 
 #[tauri::command]
 async fn count_project_words(
-    state: tauri::State<'_, AppState>,
-    window: tauri::Window,
+    state: tauri::State<'_, AppState>, window: tauri::Window,
 ) -> Result<WordCount, String> {
     let root = current_root(&state, &window)?;
     run_blocking("Word count", move || texcount::count_project(&root)).await
@@ -1385,26 +1245,12 @@ async fn count_project_words(
 #[tauri::command]
 #[allow(clippy::too_many_arguments)]
 async fn update_project_manifest(
-    state: tauri::State<'_, AppState>,
-    window: tauri::Window,
-    engine: Option<String>,
-    default_root: Option<String>,
-    trusted: Option<bool>,
-    word_budget: Option<u32>,
-    page_budget: Option<u32>,
-    clear_word_budget: Option<bool>,
-    clear_page_budget: Option<bool>,
+    state: tauri::State<'_, AppState>, window: tauri::Window, engine: Option<String>,
+    default_root: Option<String>, trusted: Option<bool>, word_budget: Option<u32>,
+    page_budget: Option<u32>, clear_word_budget: Option<bool>, clear_page_budget: Option<bool>,
 ) -> Result<ProjectManifest, String> {
-    let words = if clear_word_budget.unwrap_or(false) {
-        Some(None)
-    } else {
-        word_budget.map(Some)
-    };
-    let pages = if clear_page_budget.unwrap_or(false) {
-        Some(None)
-    } else {
-        page_budget.map(Some)
-    };
+    let words = if clear_word_budget.unwrap_or(false) { Some(None) } else { word_budget.map(Some) };
+    let pages = if clear_page_budget.unwrap_or(false) { Some(None) } else { page_budget.map(Some) };
     let root = current_root(&state, &window)?;
     run_blocking("Project settings update", move || {
         project::update_manifest_settings(&root, engine, default_root, trusted, words, pages, None)
@@ -1414,9 +1260,7 @@ async fn update_project_manifest(
 
 #[tauri::command]
 async fn set_project_spelling_words(
-    state: tauri::State<'_, AppState>,
-    window: tauri::Window,
-    words: Vec<String>,
+    state: tauri::State<'_, AppState>, window: tauri::Window, words: Vec<String>,
 ) -> Result<ProjectManifest, String> {
     let root = current_root(&state, &window)?;
     run_blocking("Project dictionary update", move || {
@@ -1427,10 +1271,7 @@ async fn set_project_spelling_words(
 
 #[tauri::command]
 async fn add_root_document(
-    state: tauri::State<'_, AppState>,
-    window: tauri::Window,
-    path: String,
-    name: Option<String>,
+    state: tauri::State<'_, AppState>, window: tauri::Window, path: String, name: Option<String>,
     make_default: Option<bool>,
 ) -> Result<ProjectManifest, String> {
     let root = current_root(&state, &window)?;
@@ -1442,25 +1283,16 @@ async fn add_root_document(
 
 #[tauri::command]
 async fn remove_root_document(
-    state: tauri::State<'_, AppState>,
-    window: tauri::Window,
-    path: String,
+    state: tauri::State<'_, AppState>, window: tauri::Window, path: String,
 ) -> Result<ProjectManifest, String> {
     let root = current_root(&state, &window)?;
-    run_blocking("Root document update", move || {
-        project::remove_root_document(&root, &path)
-    })
-    .await
+    run_blocking("Root document update", move || project::remove_root_document(&root, &path)).await
 }
 
 #[tauri::command]
 async fn preview_replace_in_project(
-    state: tauri::State<'_, AppState>,
-    window: tauri::Window,
-    query: String,
-    paths: Option<Vec<String>>,
-    match_case: Option<bool>,
-    use_regex: Option<bool>,
+    state: tauri::State<'_, AppState>, window: tauri::Window, query: String,
+    paths: Option<Vec<String>>, match_case: Option<bool>, use_regex: Option<bool>,
 ) -> Result<ReplacePreview, String> {
     let root = current_root(&state, &window)?;
     run_blocking("Replace preview", move || {
@@ -1477,13 +1309,8 @@ async fn preview_replace_in_project(
 
 #[tauri::command]
 async fn replace_in_project(
-    state: tauri::State<'_, AppState>,
-    window: tauri::Window,
-    query: String,
-    replacement: String,
-    paths: Option<Vec<String>>,
-    match_case: Option<bool>,
-    use_regex: Option<bool>,
+    state: tauri::State<'_, AppState>, window: tauri::Window, query: String, replacement: String,
+    paths: Option<Vec<String>>, match_case: Option<bool>, use_regex: Option<bool>,
 ) -> Result<ReplaceResult, String> {
     let root = current_root(&state, &window)?;
     run_blocking("Project replace", move || {
@@ -1501,63 +1328,40 @@ async fn replace_in_project(
 
 #[tauri::command]
 async fn find_label_occurrences(
-    state: tauri::State<'_, AppState>,
-    window: tauri::Window,
-    label: String,
+    state: tauri::State<'_, AppState>, window: tauri::Window, label: String,
 ) -> Result<Vec<SymbolOccurrence>, String> {
     let root = current_root(&state, &window)?;
-    run_blocking("Label search", move || {
-        project::find_label_occurrences(&root, &label)
-    })
-    .await
+    run_blocking("Label search", move || project::find_label_occurrences(&root, &label)).await
 }
 
 #[tauri::command]
 async fn find_citation_occurrences(
-    state: tauri::State<'_, AppState>,
-    window: tauri::Window,
-    key: String,
+    state: tauri::State<'_, AppState>, window: tauri::Window, key: String,
 ) -> Result<Vec<SymbolOccurrence>, String> {
     let root = current_root(&state, &window)?;
-    run_blocking("Citation search", move || {
-        project::find_citation_occurrences(&root, &key)
-    })
-    .await
+    run_blocking("Citation search", move || project::find_citation_occurrences(&root, &key)).await
 }
 
 #[tauri::command]
 async fn rename_label(
-    state: tauri::State<'_, AppState>,
-    window: tauri::Window,
-    old_label: String,
-    new_label: String,
+    state: tauri::State<'_, AppState>, window: tauri::Window, old_label: String, new_label: String,
 ) -> Result<RenameSymbolResult, String> {
     let root = current_root(&state, &window)?;
-    run_blocking("Label rename", move || {
-        project::rename_label(&root, &old_label, &new_label)
-    })
-    .await
+    run_blocking("Label rename", move || project::rename_label(&root, &old_label, &new_label)).await
 }
 
 #[tauri::command]
 async fn rename_citation_key(
-    state: tauri::State<'_, AppState>,
-    window: tauri::Window,
-    old_key: String,
-    new_key: String,
+    state: tauri::State<'_, AppState>, window: tauri::Window, old_key: String, new_key: String,
 ) -> Result<RenameSymbolResult, String> {
     let root = current_root(&state, &window)?;
-    run_blocking("Citation rename", move || {
-        project::rename_citation_key(&root, &old_key, &new_key)
-    })
-    .await
+    run_blocking("Citation rename", move || project::rename_citation_key(&root, &old_key, &new_key))
+        .await
 }
 
 #[tauri::command]
 async fn search_project(
-    state: tauri::State<'_, AppState>,
-    window: tauri::Window,
-    query: String,
+    state: tauri::State<'_, AppState>, window: tauri::Window, query: String,
 ) -> Result<Vec<ProjectSearchResult>, String> {
     let root = current_root(&state, &window)?;
     tauri::async_runtime::spawn_blocking(move || {
@@ -1580,9 +1384,7 @@ fn semantic_search_cache_path(app: &tauri::AppHandle) -> Result<PathBuf, String>
 
 #[tauri::command]
 fn semantic_search_start_index(
-    app: tauri::AppHandle,
-    state: tauri::State<'_, AppState>,
-    window: tauri::Window,
+    app: tauri::AppHandle, state: tauri::State<'_, AppState>, window: tauri::Window,
     project_root: String,
 ) -> Result<semantic_search::SemanticSearchStatus, String> {
     let root = scoped_root(&state, &window, &project_root)?;
@@ -1593,9 +1395,7 @@ fn semantic_search_start_index(
 
 #[tauri::command]
 fn semantic_search_status(
-    state: tauri::State<'_, AppState>,
-    window: tauri::Window,
-    project_root: String,
+    state: tauri::State<'_, AppState>, window: tauri::Window, project_root: String,
 ) -> Result<semantic_search::SemanticSearchStatus, String> {
     let root = scoped_root(&state, &window, &project_root)?;
     Ok(state.project(&root).semantic_search.status())
@@ -1603,9 +1403,7 @@ fn semantic_search_status(
 
 #[tauri::command]
 fn semantic_search_cancel(
-    state: tauri::State<'_, AppState>,
-    window: tauri::Window,
-    project_root: String,
+    state: tauri::State<'_, AppState>, window: tauri::Window, project_root: String,
 ) -> Result<semantic_search::SemanticSearchStatus, String> {
     let root = scoped_root(&state, &window, &project_root)?;
     Ok(state.project(&root).semantic_search.cancel())
@@ -1613,10 +1411,7 @@ fn semantic_search_cancel(
 
 #[tauri::command]
 async fn semantic_search_project(
-    state: tauri::State<'_, AppState>,
-    window: tauri::Window,
-    project_root: String,
-    query: String,
+    state: tauri::State<'_, AppState>, window: tauri::Window, project_root: String, query: String,
 ) -> Result<semantic_search::SemanticSearchResponse, String> {
     let root = scoped_root(&state, &window, &project_root)?;
     let search = Arc::clone(&state.project(&root).semantic_search);
@@ -1631,10 +1426,7 @@ async fn semantic_search_project(
 
 #[tauri::command]
 async fn create_project_entry(
-    state: tauri::State<'_, AppState>,
-    window: tauri::Window,
-    path: String,
-    kind: String,
+    state: tauri::State<'_, AppState>, window: tauri::Window, path: String, kind: String,
     project_root: String,
 ) -> Result<String, String> {
     let project = state.project(Path::new(&project_root));
@@ -1649,10 +1441,7 @@ async fn create_project_entry(
 
 #[tauri::command]
 async fn create_open_slide_deck(
-    state: tauri::State<'_, AppState>,
-    window: tauri::Window,
-    deck_id: String,
-    project_root: String,
+    state: tauri::State<'_, AppState>, window: tauri::Window, deck_id: String, project_root: String,
 ) -> Result<String, String> {
     let project = state.project(Path::new(&project_root));
     let _lease = project.overleaf_sync_lease.read().await;
@@ -1666,10 +1455,7 @@ async fn create_open_slide_deck(
 
 #[tauri::command]
 async fn delete_project_entry(
-    state: tauri::State<'_, AppState>,
-    window: tauri::Window,
-    path: String,
-    project_root: String,
+    state: tauri::State<'_, AppState>, window: tauri::Window, path: String, project_root: String,
 ) -> Result<(), String> {
     let project = state.project(Path::new(&project_root));
     let _lease = project.overleaf_sync_lease.read().await;
@@ -1683,10 +1469,7 @@ async fn delete_project_entry(
 
 #[tauri::command]
 async fn rename_project_entry(
-    state: tauri::State<'_, AppState>,
-    window: tauri::Window,
-    path: String,
-    new_name: String,
+    state: tauri::State<'_, AppState>, window: tauri::Window, path: String, new_name: String,
     project_root: String,
 ) -> Result<String, String> {
     let project = state.project(Path::new(&project_root));
@@ -1701,11 +1484,8 @@ async fn rename_project_entry(
 
 #[tauri::command]
 async fn move_project_entry(
-    state: tauri::State<'_, AppState>,
-    window: tauri::Window,
-    path: String,
-    target_directory: String,
-    project_root: String,
+    state: tauri::State<'_, AppState>, window: tauri::Window, path: String,
+    target_directory: String, project_root: String,
 ) -> Result<String, String> {
     let project = state.project(Path::new(&project_root));
     let _lease = project.overleaf_sync_lease.write().await;
@@ -1721,11 +1501,8 @@ async fn move_project_entry(
 
 #[tauri::command]
 async fn import_project_assets(
-    state: tauri::State<'_, AppState>,
-    window: tauri::Window,
-    paths: Vec<String>,
-    target_directory: String,
-    project_root: String,
+    state: tauri::State<'_, AppState>, window: tauri::Window, paths: Vec<String>,
+    target_directory: String, project_root: String,
 ) -> Result<Vec<String>, String> {
     let project = state.project(Path::new(&project_root));
     let _lease = project.overleaf_sync_lease.read().await;
@@ -1749,12 +1526,8 @@ async fn read_agent_composer_files(
 
 #[tauri::command]
 async fn import_project_files(
-    state: tauri::State<'_, AppState>,
-    window: tauri::Window,
-    paths: Vec<String>,
-    target_directory: String,
-    project_root: String,
-    copy_existing: Option<bool>,
+    state: tauri::State<'_, AppState>, window: tauri::Window, paths: Vec<String>,
+    target_directory: String, project_root: String, copy_existing: Option<bool>,
     uploads: Option<Vec<project::UploadedProjectFile>>,
 ) -> Result<Vec<project::ImportedProjectFile>, String> {
     let project = state.project(Path::new(&project_root));
@@ -1780,11 +1553,8 @@ async fn import_project_files(
 
 #[tauri::command]
 async fn import_project_sources(
-    state: tauri::State<'_, AppState>,
-    window: tauri::Window,
-    paths: Vec<String>,
-    target_directory: String,
-    project_root: String,
+    state: tauri::State<'_, AppState>, window: tauri::Window, paths: Vec<String>,
+    target_directory: String, project_root: String,
 ) -> Result<Vec<String>, String> {
     let project = state.project(Path::new(&project_root));
     let _lease = project.overleaf_sync_lease.read().await;
@@ -1799,12 +1569,8 @@ async fn import_project_sources(
 
 #[tauri::command]
 async fn import_clipboard_image(
-    state: tauri::State<'_, AppState>,
-    window: tauri::Window,
-    target_directory: String,
-    file_name: String,
-    base64_data: String,
-    project_root: String,
+    state: tauri::State<'_, AppState>, window: tauri::Window, target_directory: String,
+    file_name: String, base64_data: String, project_root: String,
 ) -> Result<String, String> {
     let project = state.project(Path::new(&project_root));
     let _lease = project.overleaf_sync_lease.read().await;
@@ -1819,41 +1585,28 @@ async fn import_clipboard_image(
 
 #[tauri::command]
 async fn resolve_citation_query(query: String) -> Result<ResolvedCitation, String> {
-    run_blocking("Citation lookup", move || {
-        project::resolve_citation_query(&query)
-    })
-    .await
+    run_blocking("Citation lookup", move || project::resolve_citation_query(&query)).await
 }
 
 #[tauri::command(rename_all = "camelCase")]
 async fn bibliography_audit_scan(
-    state: tauri::State<'_, AppState>,
-    window: tauri::Window,
-    project_root: String,
+    state: tauri::State<'_, AppState>, window: tauri::Window, project_root: String,
 ) -> Result<citation_audit::AuditScan, String> {
     // A sync writes pulled and conflicted bibliographies one file at a time;
     // scanning in between reads a half-applied project.
     let project = state.project(Path::new(&project_root));
     let _lease = project.overleaf_sync_lease.read().await;
     let root = scoped_root(&state, &window, &project_root)?;
-    run_blocking("Bibliography audit scan", move || {
-        citation_audit::scan(&root)
-    })
-    .await
+    run_blocking("Bibliography audit scan", move || citation_audit::scan(&root)).await
 }
 
 #[tauri::command(rename_all = "camelCase")]
 async fn bibliography_audit_report_load(
-    app: tauri::AppHandle,
-    state: tauri::State<'_, AppState>,
-    window: tauri::Window,
+    app: tauri::AppHandle, state: tauri::State<'_, AppState>, window: tauri::Window,
     project_root: String,
 ) -> Result<Option<Vec<(String, serde_json::Value)>>, String> {
     let root = scoped_root(&state, &window, &project_root)?;
-    let data_dir = app
-        .path()
-        .app_data_dir()
-        .map_err(|error| error.to_string())?;
+    let data_dir = app.path().app_data_dir().map_err(|error| error.to_string())?;
     run_blocking("Bibliography audit report load", move || {
         citation_audit::load_report(&data_dir, &root)
     })
@@ -1862,17 +1615,11 @@ async fn bibliography_audit_report_load(
 
 #[tauri::command(rename_all = "camelCase")]
 async fn bibliography_audit_report_save(
-    app: tauri::AppHandle,
-    state: tauri::State<'_, AppState>,
-    window: tauri::Window,
-    project_root: String,
-    report: Vec<(String, serde_json::Value)>,
+    app: tauri::AppHandle, state: tauri::State<'_, AppState>, window: tauri::Window,
+    project_root: String, report: Vec<(String, serde_json::Value)>,
 ) -> Result<(), String> {
     let root = scoped_root(&state, &window, &project_root)?;
-    let data_dir = app
-        .path()
-        .app_data_dir()
-        .map_err(|error| error.to_string())?;
+    let data_dir = app.path().app_data_dir().map_err(|error| error.to_string())?;
     run_blocking("Bibliography audit report save", move || {
         citation_audit::save_report(&data_dir, &root, report)
     })
@@ -1881,25 +1628,18 @@ async fn bibliography_audit_report_save(
 
 #[tauri::command(rename_all = "camelCase")]
 async fn bibliography_audit_batch(
-    state: tauri::State<'_, AppState>,
-    window: tauri::Window,
-    project_root: String,
+    state: tauri::State<'_, AppState>, window: tauri::Window, project_root: String,
     entries: Vec<citation_audit::AuditEntry>,
 ) -> Result<citation_audit::BatchAudit, String> {
     let root = scoped_root(&state, &window, &project_root)?;
-    run_blocking("Bibliography audit batch", move || {
-        citation_audit::check_batch(&root, entries)
-    })
-    .await
+    run_blocking("Bibliography audit batch", move || citation_audit::check_batch(&root, entries))
+        .await
 }
 
 #[tauri::command(rename_all = "camelCase")]
 async fn bibliography_audit_entry(
-    state: tauri::State<'_, AppState>,
-    window: tauri::Window,
-    project_root: String,
-    entry: citation_audit::AuditEntry,
-    s2_batch_status: Option<String>,
+    state: tauri::State<'_, AppState>, window: tauri::Window, project_root: String,
+    entry: citation_audit::AuditEntry, s2_batch_status: Option<String>,
 ) -> Result<citation_audit::AuditResult, String> {
     let root = scoped_root(&state, &window, &project_root)?;
     run_blocking("Bibliography audit entry", move || {
@@ -1910,13 +1650,8 @@ async fn bibliography_audit_entry(
 
 #[tauri::command(rename_all = "camelCase")]
 async fn bibliography_audit_apply(
-    state: tauri::State<'_, AppState>,
-    window: tauri::Window,
-    project_root: String,
-    path: String,
-    key: String,
-    before: String,
-    after: String,
+    state: tauri::State<'_, AppState>, window: tauri::Window, project_root: String, path: String,
+    key: String, before: String, after: String,
 ) -> Result<(), String> {
     // Like an editor save: the write must land entirely before or after a
     // sync, never between its snapshot and its merge.
@@ -1931,75 +1666,51 @@ async fn bibliography_audit_apply(
 
 #[tauri::command]
 async fn read_project_asset(
-    state: tauri::State<'_, AppState>,
-    window: tauri::Window,
-    path: String,
+    state: tauri::State<'_, AppState>, window: tauri::Window, path: String,
     project_root: Option<String>,
 ) -> Result<AssetPreview, String> {
     // Only a caller that pinned a project takes its lease; an unpinned read is
     // a best-effort convenience and must not queue behind a sync.
-    let project = project_root
-        .as_deref()
-        .map(|root| state.project(Path::new(root)));
+    let project = project_root.as_deref().map(|root| state.project(Path::new(root)));
     let _lease = match &project {
         Some(project) => Some(project.overleaf_sync_lease.read().await),
         None => None,
     };
     let root = current_root(&state, &window)?;
-    if project_root
-        .as_deref()
-        .is_some_and(|expected| root != Path::new(expected))
-    {
+    if project_root.as_deref().is_some_and(|expected| root != Path::new(expected)) {
         return Err("The project changed before the asset could be read.".to_string());
     }
-    run_blocking("Project asset read", move || {
-        project::read_asset(&root, &path)
-    })
-    .await
+    run_blocking("Project asset read", move || project::read_asset(&root, &path)).await
 }
 
 #[tauri::command]
 async fn write_project_bytes(
-    state: tauri::State<'_, AppState>,
-    window: tauri::Window,
-    path: String,
-    base64_data: String,
+    state: tauri::State<'_, AppState>, window: tauri::Window, path: String, base64_data: String,
     project_root: String,
 ) -> Result<(), String> {
     let project = state.project(Path::new(&project_root));
     let _lease = project.overleaf_sync_lease.read().await;
     let root = scoped_root(&state, &window, &project_root)
         .map_err(|_| "The project changed before the asset could be written.".to_string())?;
-    run_blocking("Project asset write", move || {
-        project::write_bytes(&root, &path, &base64_data)
-    })
-    .await
+    run_blocking("Project asset write", move || project::write_bytes(&root, &path, &base64_data))
+        .await
 }
 
 #[tauri::command]
 async fn prepare_latex_figure(
-    state: tauri::State<'_, AppState>,
-    window: tauri::Window,
-    path: String,
-    project_root: String,
+    state: tauri::State<'_, AppState>, window: tauri::Window, path: String, project_root: String,
 ) -> Result<String, String> {
     let project = state.project(Path::new(&project_root));
     let _lease = project.overleaf_sync_lease.read().await;
     let root = scoped_root(&state, &window, &project_root)
         .map_err(|_| "The project changed before the figure could be prepared.".to_string())?;
-    run_blocking("Figure preparation", move || {
-        project::prepare_latex_figure(&root, &path)
-    })
-    .await
+    run_blocking("Figure preparation", move || project::prepare_latex_figure(&root, &path)).await
 }
 
 #[tauri::command]
 async fn build_project(
-    state: tauri::State<'_, AppState>,
-    window: tauri::Window,
-    force: Option<bool>,
-    project_root: String,
-    document_path: Option<String>,
+    state: tauri::State<'_, AppState>, window: tauri::Window, force: Option<bool>,
+    project_root: String, document_path: Option<String>,
     diagnostic_context: Option<command_diagnostics::DiagnosticContext>,
 ) -> Result<BuildResult, String> {
     let diagnostic =
@@ -2028,14 +1739,9 @@ async fn build_project(
 #[tauri::command]
 #[allow(clippy::too_many_arguments)]
 async fn compile_repair(
-    state: tauri::State<'_, AppState>,
-    window: tauri::Window,
-    project_root: String,
-    action: String,
-    thread_id: Option<String>,
-    diagnostics: Option<Vec<serde_json::Value>>,
-    root_document: Option<String>,
-    runtime_mode: Option<String>,
+    state: tauri::State<'_, AppState>, window: tauri::Window, project_root: String, action: String,
+    thread_id: Option<String>, diagnostics: Option<Vec<serde_json::Value>>,
+    root_document: Option<String>, runtime_mode: Option<String>,
 ) -> Result<serde_json::Value, String> {
     // Status/cancel may refer to the outgoing project during a window switch.
     if action == "start" && current_root(&state, &window)? != Path::new(&project_root) {
@@ -2069,8 +1775,7 @@ fn abort_build(state: tauri::State<'_, AppState>, window: tauri::Window) -> Resu
 
 #[tauri::command]
 async fn clean_project(
-    state: tauri::State<'_, AppState>,
-    window: tauri::Window,
+    state: tauri::State<'_, AppState>, window: tauri::Window,
 ) -> Result<String, String> {
     let root = current_root(&state, &window)?;
     tauri::async_runtime::spawn_blocking(move || latex::clean(&root))
@@ -2080,8 +1785,7 @@ async fn clean_project(
 
 #[tauri::command]
 async fn run_doctor(
-    state: tauri::State<'_, AppState>,
-    window: tauri::Window,
+    state: tauri::State<'_, AppState>, window: tauri::Window,
 ) -> Result<DoctorReport, String> {
     // Reports on the window's own project, and still runs the environment
     // checks when that window has nothing open yet.
@@ -2091,9 +1795,7 @@ async fn run_doctor(
 
 #[tauri::command]
 fn watch_project(
-    app: tauri::AppHandle,
-    state: tauri::State<'_, AppState>,
-    window: tauri::Window,
+    app: tauri::AppHandle, state: tauri::State<'_, AppState>, window: tauri::Window,
 ) -> Result<(), String> {
     let root = current_root(&state, &window)?;
     let resources = state.project(&root);
@@ -2110,26 +1812,18 @@ fn watch_project(
 
 #[tauri::command]
 async fn harper_lint(
-    text: String,
-    project_words: Vec<String>,
+    text: String, project_words: Vec<String>,
 ) -> Result<Vec<harper::HarperLintOut>, String> {
     // Pure text in/out — no project state. spawn_blocking keeps the multi-
     // hundred-millisecond lint pass off the async reactor and (unlike the
     // old in-webview WASM path) off the UI thread entirely.
-    run_blocking("harper_lint", move || {
-        Ok(harper::lint(&text, &project_words))
-    })
-    .await
+    run_blocking("harper_lint", move || Ok(harper::lint(&text, &project_words))).await
 }
 
 #[tauri::command]
 async fn texlab_diagnostics(
-    state: tauri::State<'_, AppState>,
-    window: tauri::Window,
-    path: String,
-    text: String,
-    project_root: String,
-    request_id: String,
+    state: tauri::State<'_, AppState>, window: tauri::Window, path: String, text: String,
+    project_root: String, request_id: String,
 ) -> Result<(), String> {
     use tauri::Emitter;
     let root = current_root(&state, &window)?;
@@ -2138,9 +1832,7 @@ async fn texlab_diagnostics(
     }
     let pool = Arc::clone(&state.project(&root).texlab);
     tauri::async_runtime::spawn_blocking(move || {
-        let mut pool = pool
-            .lock()
-            .map_err(|_| "TexLab state is unavailable.".to_string())?;
+        let mut pool = pool.lock().map_err(|_| "TexLab state is unavailable.".to_string())?;
         pool.diagnostics(&root, &path, &text, move |diagnostics| {
             let _ = window.emit(
                 "texlab-diagnostics",
@@ -2157,19 +1849,13 @@ async fn texlab_diagnostics(
 
 #[tauri::command]
 async fn texlab_completion(
-    state: tauri::State<'_, AppState>,
-    window: tauri::Window,
-    path: String,
-    text: String,
-    line: u32,
-    character: u32,
+    state: tauri::State<'_, AppState>, window: tauri::Window, path: String, text: String,
+    line: u32, character: u32,
 ) -> Result<Vec<TexlabCompletionItem>, String> {
     let root = current_root(&state, &window)?;
     let pool = Arc::clone(&state.project(&root).texlab);
     tauri::async_runtime::spawn_blocking(move || {
-        let mut pool = pool
-            .lock()
-            .map_err(|_| "TexLab state is unavailable.".to_string())?;
+        let mut pool = pool.lock().map_err(|_| "TexLab state is unavailable.".to_string())?;
         pool.completion(&root, &path, &text, line, character)
     })
     .await
@@ -2178,19 +1864,13 @@ async fn texlab_completion(
 
 #[tauri::command]
 async fn texlab_hover(
-    state: tauri::State<'_, AppState>,
-    window: tauri::Window,
-    path: String,
-    text: String,
-    line: u32,
-    character: u32,
+    state: tauri::State<'_, AppState>, window: tauri::Window, path: String, text: String,
+    line: u32, character: u32,
 ) -> Result<Option<TexlabHover>, String> {
     let root = current_root(&state, &window)?;
     let pool = Arc::clone(&state.project(&root).texlab);
     tauri::async_runtime::spawn_blocking(move || {
-        let mut pool = pool
-            .lock()
-            .map_err(|_| "TexLab state is unavailable.".to_string())?;
+        let mut pool = pool.lock().map_err(|_| "TexLab state is unavailable.".to_string())?;
         pool.hover(&root, &path, &text, line, character)
     })
     .await
@@ -2199,19 +1879,13 @@ async fn texlab_hover(
 
 #[tauri::command]
 async fn texlab_definition(
-    state: tauri::State<'_, AppState>,
-    window: tauri::Window,
-    path: String,
-    text: String,
-    line: u32,
-    character: u32,
+    state: tauri::State<'_, AppState>, window: tauri::Window, path: String, text: String,
+    line: u32, character: u32,
 ) -> Result<Option<TexlabLocation>, String> {
     let root = current_root(&state, &window)?;
     let pool = Arc::clone(&state.project(&root).texlab);
     tauri::async_runtime::spawn_blocking(move || {
-        let mut pool = pool
-            .lock()
-            .map_err(|_| "TexLab state is unavailable.".to_string())?;
+        let mut pool = pool.lock().map_err(|_| "TexLab state is unavailable.".to_string())?;
         pool.definition(&root, &path, &text, line, character)
     })
     .await
@@ -2220,22 +1894,16 @@ async fn texlab_definition(
 
 #[tauri::command]
 async fn format_latex(
-    state: tauri::State<'_, AppState>,
-    window: tauri::Window,
-    path: String,
-    text: String,
+    state: tauri::State<'_, AppState>, window: tauri::Window, path: String, text: String,
 ) -> Result<String, String> {
     let root = current_root(&state, &window)?;
-    run_blocking("Document formatting", move || {
-        format_latex::format_document(&root, &path, &text)
-    })
-    .await
+    run_blocking("Document formatting", move || format_latex::format_document(&root, &path, &text))
+        .await
 }
 
 #[tauri::command]
 async fn search_openalex(
-    query: String,
-    precise: Option<bool>,
+    query: String, precise: Option<bool>,
 ) -> Result<Vec<OpenAlexWork>, String> {
     let precise = precise.unwrap_or(false);
     tauri::async_runtime::spawn_blocking(move || openalex::search_works(&query, precise, 1))
@@ -2245,9 +1913,7 @@ async fn search_openalex(
 
 #[tauri::command]
 async fn search_literature(
-    query: String,
-    precise: Option<bool>,
-    page: Option<u32>,
+    query: String, precise: Option<bool>, page: Option<u32>,
 ) -> Result<LiteraturePage, String> {
     let precise = precise.unwrap_or(false);
     let page = page.unwrap_or(0);
@@ -2258,8 +1924,7 @@ async fn search_literature(
 
 #[tauri::command]
 async fn git_status(
-    state: tauri::State<'_, AppState>,
-    window: tauri::Window,
+    state: tauri::State<'_, AppState>, window: tauri::Window,
 ) -> Result<GitStatus, String> {
     let root = current_root(&state, &window)?;
     tauri::async_runtime::spawn_blocking(move || git::status(&root))
@@ -2269,10 +1934,7 @@ async fn git_status(
 
 #[tauri::command]
 async fn git_diff(
-    state: tauri::State<'_, AppState>,
-    window: tauri::Window,
-    path: String,
-    staged: bool,
+    state: tauri::State<'_, AppState>, window: tauri::Window, path: String, staged: bool,
 ) -> Result<GitDiff, String> {
     let root = current_root(&state, &window)?;
     run_blocking("Git diff", move || git::diff(&root, &path, staged)).await
@@ -2280,9 +1942,7 @@ async fn git_diff(
 
 #[tauri::command]
 async fn git_stage(
-    state: tauri::State<'_, AppState>,
-    window: tauri::Window,
-    paths: Vec<String>,
+    state: tauri::State<'_, AppState>, window: tauri::Window, paths: Vec<String>,
 ) -> Result<(), String> {
     let root = current_root(&state, &window)?;
     run_blocking("Git stage", move || git::stage(&root, &paths)).await
@@ -2290,9 +1950,7 @@ async fn git_stage(
 
 #[tauri::command]
 async fn git_unstage(
-    state: tauri::State<'_, AppState>,
-    window: tauri::Window,
-    paths: Vec<String>,
+    state: tauri::State<'_, AppState>, window: tauri::Window, paths: Vec<String>,
 ) -> Result<(), String> {
     let root = current_root(&state, &window)?;
     run_blocking("Git unstage", move || git::unstage(&root, &paths)).await
@@ -2300,9 +1958,7 @@ async fn git_unstage(
 
 #[tauri::command]
 async fn git_commit(
-    state: tauri::State<'_, AppState>,
-    window: tauri::Window,
-    message: String,
+    state: tauri::State<'_, AppState>, window: tauri::Window, message: String,
 ) -> Result<String, String> {
     let root = current_root(&state, &window)?;
     run_blocking("Git commit", move || git::commit(&root, &message)).await
@@ -2310,8 +1966,7 @@ async fn git_commit(
 
 #[tauri::command]
 async fn git_init(
-    state: tauri::State<'_, AppState>,
-    window: tauri::Window,
+    state: tauri::State<'_, AppState>, window: tauri::Window,
 ) -> Result<GitStatus, String> {
     let root = current_root(&state, &window)?;
     run_blocking("Git initialization", move || git::init(&root)).await
@@ -2319,10 +1974,7 @@ async fn git_init(
 
 #[tauri::command]
 async fn git_set_remote(
-    state: tauri::State<'_, AppState>,
-    window: tauri::Window,
-    name: Option<String>,
-    url: String,
+    state: tauri::State<'_, AppState>, window: tauri::Window, name: Option<String>, url: String,
 ) -> Result<GitStatus, String> {
     let root = current_root(&state, &window)?;
     run_blocking("Git remote update", move || {
@@ -2333,8 +1985,7 @@ async fn git_set_remote(
 
 #[tauri::command]
 async fn git_push(
-    state: tauri::State<'_, AppState>,
-    window: tauri::Window,
+    state: tauri::State<'_, AppState>, window: tauri::Window,
 ) -> Result<GitRemoteResult, String> {
     let root = current_root(&state, &window)?;
     run_blocking("Git push", move || git::push(&root)).await
@@ -2342,8 +1993,7 @@ async fn git_push(
 
 #[tauri::command]
 async fn git_pull(
-    state: tauri::State<'_, AppState>,
-    window: tauri::Window,
+    state: tauri::State<'_, AppState>, window: tauri::Window,
 ) -> Result<GitRemoteResult, String> {
     let root = current_root(&state, &window)?;
     run_blocking("Git pull", move || git::pull(&root)).await
@@ -2351,8 +2001,7 @@ async fn git_pull(
 
 #[tauri::command]
 async fn git_fetch(
-    state: tauri::State<'_, AppState>,
-    window: tauri::Window,
+    state: tauri::State<'_, AppState>, window: tauri::Window,
 ) -> Result<GitRemoteResult, String> {
     let root = current_root(&state, &window)?;
     run_blocking("Git fetch", move || git::fetch(&root)).await
@@ -2360,80 +2009,50 @@ async fn git_fetch(
 
 #[tauri::command]
 async fn git_log(
-    state: tauri::State<'_, AppState>,
-    window: tauri::Window,
-    limit: Option<u32>,
+    state: tauri::State<'_, AppState>, window: tauri::Window, limit: Option<u32>,
 ) -> Result<Vec<models::GitLogEntry>, String> {
     let root = current_root(&state, &window)?;
-    run_blocking("Git history", move || {
-        git::log(&root, limit.unwrap_or(200) as usize)
-    })
-    .await
+    run_blocking("Git history", move || git::log(&root, limit.unwrap_or(200) as usize)).await
 }
 
 #[tauri::command]
 async fn git_show_diff(
-    state: tauri::State<'_, AppState>,
-    window: tauri::Window,
-    rev: String,
-    path: String,
+    state: tauri::State<'_, AppState>, window: tauri::Window, rev: String, path: String,
 ) -> Result<models::GitFileDiff, String> {
     let root = current_root(&state, &window)?;
-    run_blocking("Git revision diff", move || {
-        git::show_diff(&root, &rev, &path)
-    })
-    .await
+    run_blocking("Git revision diff", move || git::show_diff(&root, &rev, &path)).await
 }
 
 #[tauri::command]
 async fn git_restore_file(
-    state: tauri::State<'_, AppState>,
-    window: tauri::Window,
-    rev: String,
-    path: String,
+    state: tauri::State<'_, AppState>, window: tauri::Window, rev: String, path: String,
 ) -> Result<(), String> {
     let root = current_root(&state, &window)?;
-    run_blocking("Git file restore", move || {
-        git::restore_file(&root, &rev, &path)
-    })
-    .await
+    run_blocking("Git file restore", move || git::restore_file(&root, &rev, &path)).await
 }
 
 #[tauri::command]
 async fn git_restore_project(
-    state: tauri::State<'_, AppState>,
-    window: tauri::Window,
-    rev: String,
+    state: tauri::State<'_, AppState>, window: tauri::Window, rev: String,
 ) -> Result<String, String> {
     let root = current_root(&state, &window)?;
-    run_blocking("Git project restore", move || {
-        git::restore_project(&root, &rev)
-    })
-    .await
+    run_blocking("Git project restore", move || git::restore_project(&root, &rev)).await
 }
 
 #[tauri::command]
 async fn git_auto_commit(
-    state: tauri::State<'_, AppState>,
-    window: tauri::Window,
-    message: String,
-    author: Option<String>,
-    project_root: Option<String>,
+    state: tauri::State<'_, AppState>, window: tauri::Window, message: String,
+    author: Option<String>, project_root: Option<String>,
 ) -> Result<Option<String>, String> {
     // Only a caller that pinned a project takes its lease; an unpinned read is
     // a best-effort convenience and must not queue behind a sync.
-    let project = project_root
-        .as_deref()
-        .map(|root| state.project(Path::new(root)));
+    let project = project_root.as_deref().map(|root| state.project(Path::new(root)));
     let _lease = match &project {
         Some(project) => Some(project.overleaf_sync_lease.read().await),
         None => None,
     };
     let root = current_root(&state, &window)?;
-    if project_root
-        .as_deref()
-        .is_some_and(|expected| root != Path::new(expected))
-    {
+    if project_root.as_deref().is_some_and(|expected| root != Path::new(expected)) {
         return Err("The project changed before the version could be recorded.".to_string());
     }
     run_blocking("Git automatic commit", move || {
@@ -2485,10 +2104,8 @@ fn open_app_log_dir(app: tauri::AppHandle) -> Result<(), String> {
 /// every native capability behind a loopback-only, token-authenticated bridge.
 #[tauri::command]
 fn open_in_browser(
-    app: tauri::AppHandle,
-    browser: tauri::State<'_, browser_host::BrowserHost>,
-    state: tauri::State<'_, AppState>,
-    window: tauri::Window,
+    app: tauri::AppHandle, browser: tauri::State<'_, browser_host::BrowserHost>,
+    state: tauri::State<'_, AppState>, window: tauri::Window,
 ) -> Result<String, String> {
     let project_root = state.root_for(window.label())?;
     // Fail before changing login startup when another process owns the fixed
@@ -2532,8 +2149,7 @@ fn open_in_browser(
 /// the external tab is connected and restores it when the tab closes.
 #[tauri::command]
 fn open_in_system_browser(
-    app: tauri::AppHandle,
-    browser: tauri::State<'_, browser_host::BrowserHost>,
+    app: tauri::AppHandle, browser: tauri::State<'_, browser_host::BrowserHost>,
     window: tauri::Window,
 ) -> Result<(), String> {
     if browser.open_in_system_browser(&app, window.label())? {
@@ -2552,11 +2168,7 @@ fn browser_access_enabled(app: tauri::AppHandle) -> Result<bool, String> {
 
 #[tauri::command]
 fn set_browser_access_enabled(app: tauri::AppHandle, enabled: bool) -> Result<(), String> {
-    let result = if enabled {
-        app.autolaunch().enable()
-    } else {
-        app.autolaunch().disable()
-    };
+    let result = if enabled { app.autolaunch().enable() } else { app.autolaunch().disable() };
     result.map_err(|error| format!("Could not update browser access: {error}"))?;
     let browser = app.state::<browser_host::BrowserHost>();
     if enabled {
@@ -2592,30 +2204,24 @@ fn overleaf_begin_login(app: tauri::AppHandle, host: Option<String>) -> Result<(
     let url: tauri::Url = format!("{host}/login")
         .parse()
         .map_err(|error| format!("Invalid Overleaf host: {error}"))?;
-    tauri::WebviewWindowBuilder::new(
-        &app,
-        OVERLEAF_LOGIN_WINDOW,
-        tauri::WebviewUrl::External(url),
-    )
-    .title("Sign in to Overleaf")
-    .inner_size(1040.0, 780.0)
-    .build()
-    .map_err(|error| format!("Could not open the Overleaf sign-in window: {error}"))?;
+    tauri::WebviewWindowBuilder::new(&app, OVERLEAF_LOGIN_WINDOW, tauri::WebviewUrl::External(url))
+        .title("Sign in to Overleaf")
+        .inner_size(1040.0, 780.0)
+        .build()
+        .map_err(|error| format!("Could not open the Overleaf sign-in window: {error}"))?;
     Ok(())
 }
 
 #[tauri::command]
 async fn overleaf_poll_login(
-    app: tauri::AppHandle,
-    host: Option<String>,
+    app: tauri::AppHandle, host: Option<String>,
 ) -> Result<overleaf::OverleafLoginPoll, String> {
     let Some(window) = app.get_webview_window(OVERLEAF_LOGIN_WINDOW) else {
         return Ok(overleaf::OverleafLoginPoll::cancelled());
     };
     let host = overleaf::normalize_host(host.as_deref().unwrap_or(""));
-    let url: tauri::Url = host
-        .parse()
-        .map_err(|error| format!("Invalid Overleaf host: {error}"))?;
+    let url: tauri::Url =
+        host.parse().map_err(|error| format!("Invalid Overleaf host: {error}"))?;
     let target_host = url.host_str().unwrap_or_default().to_string();
     // Read the whole jar and match domains ourselves: wry's `cookies_for_url`
     // compares cookie domain and URL host for equality, so a `.overleaf.com`
@@ -2629,10 +2235,7 @@ async fn overleaf_poll_login(
                 .is_some_and(|domain| overleaf::cookie_domain_matches(domain, &target_host))
         })
         .collect::<Vec<_>>();
-    let names = matching
-        .iter()
-        .map(|cookie| cookie.name().to_string())
-        .collect::<Vec<_>>();
+    let names = matching.iter().map(|cookie| cookie.name().to_string()).collect::<Vec<_>>();
     if !overleaf::has_session_cookie(&names) {
         return Ok(overleaf::OverleafLoginPoll::pending());
     }
@@ -2662,9 +2265,7 @@ async fn overleaf_poll_login(
 
 #[tauri::command]
 async fn overleaf_store_cookie(
-    app: tauri::AppHandle,
-    host: String,
-    cookie: String,
+    app: tauri::AppHandle, host: String, cookie: String,
 ) -> Result<overleaf::OverleafStatus, String> {
     let config = overleaf_config_dir(&app)?;
     run_blocking("Overleaf sign-in", move || {
@@ -2675,8 +2276,7 @@ async fn overleaf_store_cookie(
 
 #[tauri::command]
 async fn overleaf_disconnect(
-    app: tauri::AppHandle,
-    state: tauri::State<'_, AppState>,
+    app: tauri::AppHandle, state: tauri::State<'_, AppState>,
 ) -> Result<(), String> {
     if let Some(window) = app.get_webview_window(OVERLEAF_LOGIN_WINDOW) {
         let _ = window.close();
@@ -2712,9 +2312,7 @@ fn overleaf_projects_dir(app: &tauri::AppHandle) -> Result<std::path::PathBuf, S
 /// What opening this project would do, so the app can ask before it acts.
 #[tauri::command]
 async fn overleaf_clone_target(
-    app: tauri::AppHandle,
-    project_id: String,
-    name: String,
+    app: tauri::AppHandle, project_id: String, name: String,
 ) -> Result<overleaf::CloneTarget, String> {
     let parent = overleaf_projects_dir(&app)?;
     run_blocking("Overleaf project location", move || {
@@ -2749,13 +2347,7 @@ async fn overleaf_clone_project(
                 );
             }
         }
-        overleaf::clone_project(
-            &config,
-            &project_id,
-            &name,
-            &parent,
-            access_level.as_deref(),
-        )
+        overleaf::clone_project(&config, &project_id, &name, &parent, access_level.as_deref())
     })
     .await
     .map_err(|error| format!("The Overleaf download stopped unexpectedly: {error}"))??;
@@ -2772,11 +2364,8 @@ async fn overleaf_clone_project(
 /// keep this same folder as its synchronized working copy.
 #[tauri::command]
 async fn overleaf_publish_project(
-    app: tauri::AppHandle,
-    state: tauri::State<'_, AppState>,
-    window: tauri::Window,
-    project_root: String,
-    project_name: String,
+    app: tauri::AppHandle, state: tauri::State<'_, AppState>, window: tauri::Window,
+    project_root: String, project_name: String,
 ) -> Result<overleaf::OverleafLink, String> {
     let project = state.project(Path::new(&project_root));
     let _lease = project.overleaf_sync_lease.write().await;
@@ -2791,21 +2380,16 @@ async fn overleaf_publish_project(
 
 #[tauri::command]
 async fn overleaf_link(
-    state: tauri::State<'_, AppState>,
-    window: tauri::Window,
+    state: tauri::State<'_, AppState>, window: tauri::Window,
 ) -> Result<Option<overleaf::OverleafLink>, String> {
     let root = current_root(&state, &window)?;
-    run_blocking("Overleaf project link", move || {
-        overleaf::project_link(&root)
-    })
-    .await
+    run_blocking("Overleaf project link", move || overleaf::project_link(&root)).await
 }
 
 // ---- Overleaf realtime editing ---------------------------------------------
 
 fn realtime_client(
-    state: &tauri::State<'_, AppState>,
-    window: &tauri::Window,
+    state: &tauri::State<'_, AppState>, window: &tauri::Window,
 ) -> Result<Arc<overleaf_rt::RealtimeClient>, String> {
     let root = current_root(state, window)?;
     let project = state.project(&root);
@@ -2828,9 +2412,7 @@ fn realtime_client(
 /// `overleaf-realtime`, which is where documents, chat and comments all arrive.
 #[tauri::command]
 async fn overleaf_rt_connect(
-    app: tauri::AppHandle,
-    state: tauri::State<'_, AppState>,
-    window: tauri::Window,
+    app: tauri::AppHandle, state: tauri::State<'_, AppState>, window: tauri::Window,
     project_root: String,
 ) -> Result<serde_json::Value, String> {
     let config = overleaf_config_dir(&app)?;
@@ -2858,10 +2440,7 @@ async fn overleaf_rt_connect(
     // successful check for A and let A become the newest live connection.
     let project = state.project(&root);
     let (generation, previous) = {
-        let roots = state
-            .roots
-            .lock()
-            .map_err(|_| "Project state is unavailable.".to_string())?;
+        let roots = state.roots.lock().map_err(|_| "Project state is unavailable.".to_string())?;
         if roots.get(window.label()) != Some(&root) {
             return Err("The project changed before Overleaf could connect.".to_string());
         }
@@ -2881,16 +2460,10 @@ async fn overleaf_rt_connect(
     let event_state = Arc::clone(&state.project(&root).realtime);
     let event_root = root.clone();
     let connecting = overleaf_rt::RealtimeClient::connect(
-        overleaf_rt::RealtimeConfig {
-            user_id,
-            host,
-            cookie,
-            project_id,
-        },
+        overleaf_rt::RealtimeConfig { user_id, host, cookie, project_id },
         move |event| {
-            let current = event_state
-                .lock()
-                .is_ok_and(|realtime| realtime.owns(generation, &event_root));
+            let current =
+                event_state.lock().is_ok_and(|realtime| realtime.owns(generation, &event_root));
             if current {
                 // Cancellation cannot retract events already queued for the UI.
                 // Carry the source root so consumers can reject late delivery
@@ -2908,10 +2481,7 @@ async fn overleaf_rt_connect(
                 let _ = emitter.emit_to(
                     emit_label.as_str(),
                     "overleaf-realtime",
-                    ScopedEvent {
-                        project_root: &event_root,
-                        event,
-                    },
+                    ScopedEvent { project_root: &event_root, event },
                 );
             }
         },
@@ -2987,11 +2557,7 @@ async fn overleaf_rt_connect(
 
 /// Close the live channel if one is open. Safe to call when there is none.
 fn shutdown_realtime(project: &ProjectResources) {
-    let previous = project
-        .realtime
-        .lock()
-        .ok()
-        .and_then(|mut realtime| realtime.cancel(None));
+    let previous = project.realtime.lock().ok().and_then(|mut realtime| realtime.cancel(None));
     if let Some(previous) = previous {
         previous.shutdown();
     }
@@ -3014,9 +2580,7 @@ fn shutdown_all_realtime(state: &tauri::State<'_, AppState>) {
 
 #[tauri::command]
 fn overleaf_rt_disconnect(
-    state: tauri::State<'_, AppState>,
-    window: tauri::Window,
-    project_root: Option<String>,
+    state: tauri::State<'_, AppState>, window: tauri::Window, project_root: Option<String>,
 ) -> Result<(), String> {
     // A stale React cleanup names the project it was watching; anything else
     // means "disconnect the window I am in". Either way the cancel is addressed
@@ -3046,12 +2610,9 @@ fn overleaf_rt_disconnect(
 /// our updates back, and this is how the app tells them from someone else's.
 #[tauri::command]
 fn overleaf_rt_connected(
-    state: tauri::State<'_, AppState>,
-    window: tauri::Window,
+    state: tauri::State<'_, AppState>, window: tauri::Window,
 ) -> Option<String> {
-    realtime_client(&state, &window)
-        .ok()
-        .map(|client| client.public_id())
+    realtime_client(&state, &window).ok().map(|client| client.public_id())
 }
 
 /// Subscribe to a document; returns its current text and version.
@@ -3061,12 +2622,8 @@ fn overleaf_rt_connected(
 /// never reached it survive coming back to a file.
 #[tauri::command]
 async fn overleaf_rt_join_doc(
-    state: tauri::State<'_, AppState>,
-    window: tauri::Window,
-    project_root: String,
-    doc_id: String,
-    from_version: Option<i64>,
-    receipt: String,
+    state: tauri::State<'_, AppState>, window: tauri::Window, project_root: String, doc_id: String,
+    from_version: Option<i64>, receipt: String,
 ) -> Result<overleaf_rt::JoinedDoc, String> {
     let project = state.project(Path::new(&project_root));
     let _lease = project.overleaf_sync_lease.write().await;
@@ -3085,10 +2642,7 @@ async fn overleaf_rt_join_doc(
             .lock()
             .map_err(|_| "The Overleaf connection is unavailable.".to_string())?;
         if realtime.root.as_ref() != Some(&root)
-            || !realtime
-                .client
-                .as_ref()
-                .is_some_and(|current| Arc::ptr_eq(current, &client))
+            || !realtime.client.as_ref().is_some_and(|current| Arc::ptr_eq(current, &client))
         {
             return Err("The Overleaf project changed before the document joined.".to_string());
         }
@@ -3100,11 +2654,7 @@ async fn overleaf_rt_join_doc(
                 .realtime
                 .lock()
                 .map_err(|_| "The Overleaf connection is unavailable.".to_string())?;
-            if !realtime
-                .client
-                .as_ref()
-                .is_some_and(|current| Arc::ptr_eq(current, &client))
-            {
+            if !realtime.client.as_ref().is_some_and(|current| Arc::ptr_eq(current, &client)) {
                 return Err("The Overleaf connection changed during the document join.".to_string());
             }
             realtime.join_receipts.insert(doc_id, receipt);
@@ -3112,11 +2662,7 @@ async fn overleaf_rt_join_doc(
         }
         Err(error) => {
             if let Ok(mut realtime) = project.realtime.lock() {
-                if realtime
-                    .client
-                    .as_ref()
-                    .is_some_and(|current| Arc::ptr_eq(current, &client))
-                {
+                if realtime.client.as_ref().is_some_and(|current| Arc::ptr_eq(current, &client)) {
                     if let Some(previous_path) = previous_path {
                         realtime.joined_paths.insert(doc_id.clone(), previous_path);
                     } else {
@@ -3132,9 +2678,7 @@ async fn overleaf_rt_join_doc(
 /// Everyone currently in the Overleaf project, ourselves included.
 #[tauri::command]
 async fn overleaf_rt_connected_users(
-    state: tauri::State<'_, AppState>,
-    window: tauri::Window,
-    project_root: String,
+    state: tauri::State<'_, AppState>, window: tauri::Window, project_root: String,
 ) -> Result<Vec<overleaf_rt::PresenceUser>, String> {
     let project = state.project(Path::new(&project_root));
     let _lease = project.overleaf_sync_lease.read().await;
@@ -3145,29 +2689,19 @@ async fn overleaf_rt_connected_users(
 /// Publish our caret, which is also what makes us visible to everyone else.
 #[tauri::command]
 async fn overleaf_rt_update_position(
-    state: tauri::State<'_, AppState>,
-    window: tauri::Window,
-    project_root: String,
-    doc_id: String,
-    row: i64,
-    column: i64,
+    state: tauri::State<'_, AppState>, window: tauri::Window, project_root: String, doc_id: String,
+    row: i64, column: i64,
 ) -> Result<(), String> {
     let project = state.project(Path::new(&project_root));
     let _lease = project.overleaf_sync_lease.read().await;
     scoped_root(&state, &window, &project_root)?;
-    realtime_client(&state, &window)?
-        .update_position(&doc_id, row, column)
-        .await
+    realtime_client(&state, &window)?.update_position(&doc_id, row, column).await
 }
 
 #[tauri::command]
 async fn overleaf_rt_leave_doc(
-    state: tauri::State<'_, AppState>,
-    window: tauri::Window,
-    project_root: String,
-    doc_id: String,
-    receipt: String,
-    checkpoint: Option<overleaf::RealtimeCheckpoint>,
+    state: tauri::State<'_, AppState>, window: tauri::Window, project_root: String, doc_id: String,
+    receipt: String, checkpoint: Option<overleaf::RealtimeCheckpoint>,
 ) -> Result<(), String> {
     let project = state.project(Path::new(&project_root));
     let _lease = project.overleaf_sync_lease.write().await;
@@ -3180,24 +2714,16 @@ async fn overleaf_rt_leave_doc(
             .realtime
             .lock()
             .map_err(|_| "The Overleaf connection is unavailable.".to_string())?;
-        if !realtime
-            .client
-            .as_ref()
-            .is_some_and(|current| Arc::ptr_eq(current, &client))
-        {
+        if !realtime.client.as_ref().is_some_and(|current| Arc::ptr_eq(current, &client)) {
             return Err(
-                "The Overleaf document ownership changed before it could be released.".to_string(),
+                "The Overleaf document ownership changed before it could be released.".to_string()
             );
         }
         realtime.checkpoint_before_leave(&root, &doc_id, &receipt, checkpoint.as_ref())?;
     }
     client.leave_doc(&doc_id).await?;
     if let Ok(mut realtime) = project.realtime.lock() {
-        if realtime
-            .client
-            .as_ref()
-            .is_some_and(|current| Arc::ptr_eq(current, &client))
-        {
+        if realtime.client.as_ref().is_some_and(|current| Arc::ptr_eq(current, &client)) {
             realtime.joined_paths.remove(&doc_id);
             realtime.join_receipts.remove(&doc_id);
         }
@@ -3207,19 +2733,13 @@ async fn overleaf_rt_leave_doc(
 
 #[tauri::command]
 async fn overleaf_rt_send_ops(
-    state: tauri::State<'_, AppState>,
-    window: tauri::Window,
-    project_root: String,
-    doc_id: String,
-    version: i64,
-    ops: Vec<overleaf_rt::OtOp>,
+    state: tauri::State<'_, AppState>, window: tauri::Window, project_root: String, doc_id: String,
+    version: i64, ops: Vec<overleaf_rt::OtOp>,
 ) -> Result<(), String> {
     let project = state.project(Path::new(&project_root));
     let _lease = project.overleaf_sync_lease.read().await;
     scoped_root(&state, &window, &project_root)?;
-    realtime_client(&state, &window)?
-        .send_ops(&doc_id, version, ops)
-        .await
+    realtime_client(&state, &window)?.send_ops(&doc_id, version, ops).await
 }
 
 /// Anchor a comment thread to a span of the open document.
@@ -3229,14 +2749,8 @@ async fn overleaf_rt_send_ops(
 #[allow(clippy::too_many_arguments)]
 #[tauri::command]
 async fn overleaf_rt_send_comment(
-    state: tauri::State<'_, AppState>,
-    window: tauri::Window,
-    project_root: String,
-    doc_id: String,
-    version: i64,
-    position: i64,
-    quote: String,
-    thread_id: String,
+    state: tauri::State<'_, AppState>, window: tauri::Window, project_root: String, doc_id: String,
+    version: i64, position: i64, quote: String, thread_id: String,
 ) -> Result<(), String> {
     let project = state.project(Path::new(&project_root));
     let _lease = project.overleaf_sync_lease.read().await;
@@ -3248,11 +2762,8 @@ async fn overleaf_rt_send_comment(
 
 #[tauri::command]
 async fn overleaf_chat_messages(
-    app: tauri::AppHandle,
-    state: tauri::State<'_, AppState>,
-    window: tauri::Window,
-    project_root: String,
-    limit: Option<u32>,
+    app: tauri::AppHandle, state: tauri::State<'_, AppState>, window: tauri::Window,
+    project_root: String, limit: Option<u32>,
 ) -> Result<Vec<overleaf::OverleafMessage>, String> {
     let config = overleaf_config_dir(&app)?;
     let root = scoped_root(&state, &window, &project_root)?;
@@ -3264,11 +2775,8 @@ async fn overleaf_chat_messages(
 
 #[tauri::command]
 async fn overleaf_send_chat_message(
-    app: tauri::AppHandle,
-    state: tauri::State<'_, AppState>,
-    window: tauri::Window,
-    project_root: String,
-    content: String,
+    app: tauri::AppHandle, state: tauri::State<'_, AppState>, window: tauri::Window,
+    project_root: String, content: String,
 ) -> Result<(), String> {
     let project = state.project(Path::new(&project_root));
     let _lease = project.overleaf_sync_lease.read().await;
@@ -3291,9 +2799,7 @@ fn live_paths(live: Option<Vec<String>>) -> std::collections::BTreeSet<String> {
 /// Record what Overleaf says this account may do to the linked project.
 #[tauri::command]
 async fn overleaf_set_permission(
-    state: tauri::State<'_, AppState>,
-    window: tauri::Window,
-    project_root: String,
+    state: tauri::State<'_, AppState>, window: tauri::Window, project_root: String,
     permission: String,
 ) -> Result<(), String> {
     let project = state.project(Path::new(&project_root));
@@ -3305,22 +2811,16 @@ async fn overleaf_set_permission(
     if root != Path::new(&project_root) {
         return Ok(());
     }
-    run_blocking("Overleaf permission update", move || {
-        overleaf::set_permission(&root, &permission)
-    })
-    .await
+    run_blocking("Overleaf permission update", move || overleaf::set_permission(&root, &permission))
+        .await
 }
 
 // ---- Overleaf's own history ----------------------------------------------
 
 #[tauri::command]
 async fn overleaf_history_updates(
-    app: tauri::AppHandle,
-    state: tauri::State<'_, AppState>,
-    window: tauri::Window,
-    project_root: String,
-    before: Option<i64>,
-    count: Option<u32>,
+    app: tauri::AppHandle, state: tauri::State<'_, AppState>, window: tauri::Window,
+    project_root: String, before: Option<i64>, count: Option<u32>,
 ) -> Result<serde_json::Value, String> {
     let config = overleaf_config_dir(&app)?;
     let root = scoped_root(&state, &window, &project_root)?;
@@ -3334,13 +2834,8 @@ async fn overleaf_history_updates(
 
 #[tauri::command]
 async fn overleaf_history_diff(
-    app: tauri::AppHandle,
-    state: tauri::State<'_, AppState>,
-    window: tauri::Window,
-    project_root: String,
-    path: String,
-    from: i64,
-    to: i64,
+    app: tauri::AppHandle, state: tauri::State<'_, AppState>, window: tauri::Window,
+    project_root: String, path: String, from: i64, to: i64,
 ) -> Result<serde_json::Value, String> {
     let config = overleaf_config_dir(&app)?;
     let root = scoped_root(&state, &window, &project_root)?;
@@ -3353,12 +2848,8 @@ async fn overleaf_history_diff(
 
 #[tauri::command]
 async fn overleaf_history_files(
-    app: tauri::AppHandle,
-    state: tauri::State<'_, AppState>,
-    window: tauri::Window,
-    project_root: String,
-    from: i64,
-    to: i64,
+    app: tauri::AppHandle, state: tauri::State<'_, AppState>, window: tauri::Window,
+    project_root: String, from: i64, to: i64,
 ) -> Result<serde_json::Value, String> {
     let config = overleaf_config_dir(&app)?;
     let root = scoped_root(&state, &window, &project_root)?;
@@ -3369,9 +2860,7 @@ async fn overleaf_history_files(
 
 #[tauri::command]
 async fn overleaf_history_labels(
-    app: tauri::AppHandle,
-    state: tauri::State<'_, AppState>,
-    window: tauri::Window,
+    app: tauri::AppHandle, state: tauri::State<'_, AppState>, window: tauri::Window,
     project_root: String,
 ) -> Result<Vec<overleaf::OverleafLabel>, String> {
     let config = overleaf_config_dir(&app)?;
@@ -3384,12 +2873,8 @@ async fn overleaf_history_labels(
 /// Roll one file back, or the whole project when `path` is absent.
 #[tauri::command]
 async fn overleaf_history_revert(
-    app: tauri::AppHandle,
-    state: tauri::State<'_, AppState>,
-    window: tauri::Window,
-    project_root: String,
-    version: i64,
-    path: Option<String>,
+    app: tauri::AppHandle, state: tauri::State<'_, AppState>, window: tauri::Window,
+    project_root: String, version: i64, path: Option<String>,
 ) -> Result<(), String> {
     let project = state.project(Path::new(&project_root));
     let _lease = project.overleaf_sync_lease.read().await;
@@ -3404,12 +2889,8 @@ async fn overleaf_history_revert(
 
 #[tauri::command]
 async fn overleaf_history_restore_file(
-    app: tauri::AppHandle,
-    state: tauri::State<'_, AppState>,
-    window: tauri::Window,
-    project_root: String,
-    version: i64,
-    path: String,
+    app: tauri::AppHandle, state: tauri::State<'_, AppState>, window: tauri::Window,
+    project_root: String, version: i64, path: String,
 ) -> Result<(), String> {
     let project = state.project(Path::new(&project_root));
     let _lease = project.overleaf_sync_lease.read().await;
@@ -3424,12 +2905,8 @@ async fn overleaf_history_restore_file(
 
 #[tauri::command]
 async fn overleaf_history_add_label(
-    app: tauri::AppHandle,
-    state: tauri::State<'_, AppState>,
-    window: tauri::Window,
-    project_root: String,
-    version: i64,
-    comment: String,
+    app: tauri::AppHandle, state: tauri::State<'_, AppState>, window: tauri::Window,
+    project_root: String, version: i64, comment: String,
 ) -> Result<(), String> {
     let project = state.project(Path::new(&project_root));
     let _lease = project.overleaf_sync_lease.read().await;
@@ -3444,11 +2921,8 @@ async fn overleaf_history_add_label(
 
 #[tauri::command]
 async fn overleaf_history_delete_label(
-    app: tauri::AppHandle,
-    state: tauri::State<'_, AppState>,
-    window: tauri::Window,
-    project_root: String,
-    label_id: String,
+    app: tauri::AppHandle, state: tauri::State<'_, AppState>, window: tauri::Window,
+    project_root: String, label_id: String,
 ) -> Result<(), String> {
     let project = state.project(Path::new(&project_root));
     let _lease = project.overleaf_sync_lease.read().await;
@@ -3464,12 +2938,8 @@ async fn overleaf_history_delete_label(
 /// Accept tracked changes, turning the suggested text into ordinary text.
 #[tauri::command]
 async fn overleaf_accept_changes(
-    app: tauri::AppHandle,
-    state: tauri::State<'_, AppState>,
-    window: tauri::Window,
-    project_root: String,
-    doc_id: String,
-    change_ids: Vec<String>,
+    app: tauri::AppHandle, state: tauri::State<'_, AppState>, window: tauri::Window,
+    project_root: String, doc_id: String, change_ids: Vec<String>,
 ) -> Result<(), String> {
     let project = state.project(Path::new(&project_root));
     let _lease = project.overleaf_sync_lease.read().await;
@@ -3485,45 +2955,31 @@ async fn overleaf_accept_changes(
 /// Reject tracked changes by undoing them through the editing channel.
 #[tauri::command]
 async fn overleaf_reject_changes(
-    state: tauri::State<'_, AppState>,
-    window: tauri::Window,
-    project_root: String,
-    doc_id: String,
-    version: i64,
-    changes: Vec<overleaf_rt::TrackedChange>,
+    state: tauri::State<'_, AppState>, window: tauri::Window, project_root: String, doc_id: String,
+    version: i64, changes: Vec<overleaf_rt::TrackedChange>,
 ) -> Result<(), String> {
     let project = state.project(Path::new(&project_root));
     let _lease = project.overleaf_sync_lease.read().await;
     scoped_root(&state, &window, &project_root)?;
-    realtime_client(&state, &window)?
-        .reject_changes(&doc_id, version, &changes)
-        .await
+    realtime_client(&state, &window)?.reject_changes(&doc_id, version, &changes).await
 }
 
 /// Send an edit as a suggestion rather than applying it outright.
 #[tauri::command]
 async fn overleaf_rt_send_tracked_ops(
-    state: tauri::State<'_, AppState>,
-    window: tauri::Window,
-    project_root: String,
-    doc_id: String,
-    version: i64,
-    ops: Vec<overleaf_rt::OtOp>,
+    state: tauri::State<'_, AppState>, window: tauri::Window, project_root: String, doc_id: String,
+    version: i64, ops: Vec<overleaf_rt::OtOp>,
 ) -> Result<(), String> {
     let project = state.project(Path::new(&project_root));
     let _lease = project.overleaf_sync_lease.read().await;
     scoped_root(&state, &window, &project_root)?;
-    realtime_client(&state, &window)?
-        .send_tracked_ops(&doc_id, version, ops)
-        .await
+    realtime_client(&state, &window)?.send_tracked_ops(&doc_id, version, ops).await
 }
 
 /// Who wrote the suggestions in this project.
 #[tauri::command]
 async fn overleaf_change_authors(
-    app: tauri::AppHandle,
-    state: tauri::State<'_, AppState>,
-    window: tauri::Window,
+    app: tauri::AppHandle, state: tauri::State<'_, AppState>, window: tauri::Window,
     project_root: String,
 ) -> Result<serde_json::Value, String> {
     let config = overleaf_config_dir(&app)?;
@@ -3536,11 +2992,8 @@ async fn overleaf_change_authors(
 /// Turn suggestions on or off for the accounts named in `on_for`.
 #[tauri::command]
 async fn overleaf_set_track_changes(
-    app: tauri::AppHandle,
-    state: tauri::State<'_, AppState>,
-    window: tauri::Window,
-    project_root: String,
-    on_for: serde_json::Value,
+    app: tauri::AppHandle, state: tauri::State<'_, AppState>, window: tauri::Window,
+    project_root: String, on_for: serde_json::Value,
 ) -> Result<(), String> {
     let project = state.project(Path::new(&project_root));
     let _lease = project.overleaf_sync_lease.read().await;
@@ -3556,12 +3009,8 @@ async fn overleaf_set_track_changes(
 /// Create a document on Overleaf, so a file made here exists for everyone.
 #[tauri::command]
 async fn overleaf_create_doc(
-    app: tauri::AppHandle,
-    state: tauri::State<'_, AppState>,
-    window: tauri::Window,
-    project_root: String,
-    parent_folder_id: String,
-    name: String,
+    app: tauri::AppHandle, state: tauri::State<'_, AppState>, window: tauri::Window,
+    project_root: String, parent_folder_id: String, name: String,
 ) -> Result<String, String> {
     let project = state.project(Path::new(&project_root));
     let _lease = project.overleaf_sync_lease.read().await;
@@ -3577,12 +3026,8 @@ async fn overleaf_create_doc(
 /// Delete a document, file or folder on Overleaf.
 #[tauri::command]
 async fn overleaf_delete_entity(
-    app: tauri::AppHandle,
-    state: tauri::State<'_, AppState>,
-    window: tauri::Window,
-    project_root: String,
-    kind: String,
-    entity_id: String,
+    app: tauri::AppHandle, state: tauri::State<'_, AppState>, window: tauri::Window,
+    project_root: String, kind: String, entity_id: String,
 ) -> Result<(), String> {
     let project = state.project(Path::new(&project_root));
     let _lease = project.overleaf_sync_lease.read().await;
@@ -3600,9 +3045,7 @@ async fn overleaf_delete_entity(
 
 #[tauri::command]
 async fn overleaf_threads(
-    app: tauri::AppHandle,
-    state: tauri::State<'_, AppState>,
-    window: tauri::Window,
+    app: tauri::AppHandle, state: tauri::State<'_, AppState>, window: tauri::Window,
     project_root: String,
 ) -> Result<Vec<overleaf::OverleafThread>, String> {
     let config = overleaf_config_dir(&app)?;
@@ -3615,11 +3058,8 @@ async fn overleaf_threads(
 /// What is anchored in one document right now, without re-joining it.
 #[tauri::command]
 async fn overleaf_doc_ranges(
-    app: tauri::AppHandle,
-    state: tauri::State<'_, AppState>,
-    window: tauri::Window,
-    project_root: String,
-    doc_id: String,
+    app: tauri::AppHandle, state: tauri::State<'_, AppState>, window: tauri::Window,
+    project_root: String, doc_id: String,
 ) -> Result<overleaf::DocRanges, String> {
     let config = overleaf_config_dir(&app)?;
     let root = scoped_root(&state, &window, &project_root)?;
@@ -3631,9 +3071,7 @@ async fn overleaf_doc_ranges(
 /// Where every comment in the project is anchored, whatever file it is in.
 #[tauri::command]
 async fn overleaf_comment_anchors(
-    app: tauri::AppHandle,
-    state: tauri::State<'_, AppState>,
-    window: tauri::Window,
+    app: tauri::AppHandle, state: tauri::State<'_, AppState>, window: tauri::Window,
     project_root: String,
 ) -> Result<Vec<overleaf::OverleafCommentAnchor>, String> {
     let config = overleaf_config_dir(&app)?;
@@ -3645,13 +3083,8 @@ async fn overleaf_comment_anchors(
 
 #[tauri::command]
 async fn overleaf_edit_message(
-    app: tauri::AppHandle,
-    state: tauri::State<'_, AppState>,
-    window: tauri::Window,
-    project_root: String,
-    thread_id: String,
-    message_id: String,
-    content: String,
+    app: tauri::AppHandle, state: tauri::State<'_, AppState>, window: tauri::Window,
+    project_root: String, thread_id: String, message_id: String, content: String,
 ) -> Result<(), String> {
     let project = state.project(Path::new(&project_root));
     let _lease = project.overleaf_sync_lease.read().await;
@@ -3666,12 +3099,8 @@ async fn overleaf_edit_message(
 
 #[tauri::command]
 async fn overleaf_delete_message(
-    app: tauri::AppHandle,
-    state: tauri::State<'_, AppState>,
-    window: tauri::Window,
-    project_root: String,
-    thread_id: String,
-    message_id: String,
+    app: tauri::AppHandle, state: tauri::State<'_, AppState>, window: tauri::Window,
+    project_root: String, thread_id: String, message_id: String,
 ) -> Result<(), String> {
     let project = state.project(Path::new(&project_root));
     let _lease = project.overleaf_sync_lease.read().await;
@@ -3686,12 +3115,8 @@ async fn overleaf_delete_message(
 
 #[tauri::command]
 async fn overleaf_reply_to_thread(
-    app: tauri::AppHandle,
-    state: tauri::State<'_, AppState>,
-    window: tauri::Window,
-    project_root: String,
-    thread_id: String,
-    content: String,
+    app: tauri::AppHandle, state: tauri::State<'_, AppState>, window: tauri::Window,
+    project_root: String, thread_id: String, content: String,
 ) -> Result<(), String> {
     let project = state.project(Path::new(&project_root));
     let _lease = project.overleaf_sync_lease.read().await;
@@ -3706,13 +3131,8 @@ async fn overleaf_reply_to_thread(
 
 #[tauri::command]
 async fn overleaf_resolve_thread(
-    app: tauri::AppHandle,
-    state: tauri::State<'_, AppState>,
-    window: tauri::Window,
-    project_root: String,
-    doc_id: String,
-    thread_id: String,
-    resolved: bool,
+    app: tauri::AppHandle, state: tauri::State<'_, AppState>, window: tauri::Window,
+    project_root: String, doc_id: String, thread_id: String, resolved: bool,
 ) -> Result<(), String> {
     let project = state.project(Path::new(&project_root));
     let _lease = project.overleaf_sync_lease.read().await;
@@ -3727,12 +3147,8 @@ async fn overleaf_resolve_thread(
 
 #[tauri::command]
 async fn overleaf_delete_thread(
-    app: tauri::AppHandle,
-    state: tauri::State<'_, AppState>,
-    window: tauri::Window,
-    project_root: String,
-    doc_id: String,
-    thread_id: String,
+    app: tauri::AppHandle, state: tauri::State<'_, AppState>, window: tauri::Window,
+    project_root: String, doc_id: String, thread_id: String,
 ) -> Result<(), String> {
     let project = state.project(Path::new(&project_root));
     let _lease = project.overleaf_sync_lease.read().await;
@@ -3748,11 +3164,8 @@ async fn overleaf_delete_thread(
 /// Dry run: what a sync would change, without writing or uploading anything.
 #[tauri::command]
 async fn overleaf_preview(
-    app: tauri::AppHandle,
-    state: tauri::State<'_, AppState>,
-    window: tauri::Window,
-    project_root: String,
-    live: Option<Vec<String>>,
+    app: tauri::AppHandle, state: tauri::State<'_, AppState>, window: tauri::Window,
+    project_root: String, live: Option<Vec<String>>,
 ) -> Result<overleaf::OverleafPreview, String> {
     let project = state.project(Path::new(&project_root));
     let _lease = project.overleaf_sync_lease.read().await;
@@ -3767,10 +3180,7 @@ async fn overleaf_preview(
 /// Stop or restart syncing for the open project.
 #[tauri::command]
 async fn overleaf_set_paused(
-    state: tauri::State<'_, AppState>,
-    window: tauri::Window,
-    project_root: String,
-    paused: bool,
+    state: tauri::State<'_, AppState>, window: tauri::Window, project_root: String, paused: bool,
 ) -> Result<(), String> {
     let project = state.project(Path::new(&project_root));
     let _lease = project.overleaf_sync_lease.write().await;
@@ -3780,20 +3190,13 @@ async fn overleaf_set_paused(
         // for a project the user just asked us to leave alone.
         shutdown_realtime(&project);
     }
-    run_blocking("Overleaf sync setting", move || {
-        overleaf::set_paused(&root, paused)
-    })
-    .await
+    run_blocking("Overleaf sync setting", move || overleaf::set_paused(&root, paused)).await
 }
 
 #[tauri::command]
 async fn overleaf_probe(
-    app: tauri::AppHandle,
-    state: tauri::State<'_, AppState>,
-    window: tauri::Window,
-    project_root: String,
-    check_local: Option<bool>,
-    live: Option<Vec<String>>,
+    app: tauri::AppHandle, state: tauri::State<'_, AppState>, window: tauri::Window,
+    project_root: String, check_local: Option<bool>, live: Option<Vec<String>>,
 ) -> Result<overleaf::OverleafProbe, String> {
     let project = state.project(Path::new(&project_root));
     let _lease = project.overleaf_sync_lease.read().await;
@@ -3815,12 +3218,8 @@ async fn overleaf_probe(
 
 #[tauri::command]
 async fn overleaf_sync(
-    app: tauri::AppHandle,
-    state: tauri::State<'_, AppState>,
-    window: tauri::Window,
-    project_root: String,
-    live: Option<Vec<String>>,
-    observed_remote_version: Option<i64>,
+    app: tauri::AppHandle, state: tauri::State<'_, AppState>, window: tauri::Window,
+    project_root: String, live: Option<Vec<String>>, observed_remote_version: Option<i64>,
     diagnostic_context: Option<command_diagnostics::DiagnosticContext>,
 ) -> Result<overleaf::OverleafSyncResult, String> {
     let diagnostic =
@@ -3850,9 +3249,8 @@ async fn overleaf_sync(
         if let Ok(realtime) = project.realtime.lock() {
             realtime.extend_joined_paths(&root, &mut live);
         }
-        let entities = realtime_client(&state, &window)
-            .ok()
-            .and_then(|client| client.current_entities());
+        let entities =
+            realtime_client(&state, &window).ok().and_then(|client| client.current_entities());
         tauri::async_runtime::spawn_blocking(move || {
             overleaf::sync_relocations(&config, &root, entities)?;
             overleaf::sync(&config, &root, &live, observed_remote_version)
@@ -3873,13 +3271,9 @@ async fn overleaf_sync(
 #[allow(clippy::too_many_arguments)]
 #[tauri::command]
 async fn overleaf_prepare_sync(
-    app: tauri::AppHandle,
-    state: tauri::State<'_, AppState>,
-    window: tauri::Window,
-    project_root: String,
-    authoritative_inventory: Vec<overleaf::OverleafAuthoritativeEntry>,
-    live: Option<Vec<String>>,
-    observed_remote_version: Option<i64>,
+    app: tauri::AppHandle, state: tauri::State<'_, AppState>, window: tauri::Window,
+    project_root: String, authoritative_inventory: Vec<overleaf::OverleafAuthoritativeEntry>,
+    live: Option<Vec<String>>, observed_remote_version: Option<i64>,
     diagnostic_context: Option<command_diagnostics::DiagnosticContext>,
 ) -> Result<overleaf::OverleafPreparedSync, String> {
     let diagnostic = command_diagnostics::CommandDiagnostic::new(
@@ -3905,9 +3299,8 @@ async fn overleaf_prepare_sync(
             return Err("The project changed before Overleaf sync could start.".to_string());
         }
         let live = live_paths(live);
-        let entities = realtime_client(&state, &window)
-            .ok()
-            .and_then(|client| client.current_entities());
+        let entities =
+            realtime_client(&state, &window).ok().and_then(|client| client.current_entities());
         tauri::async_runtime::spawn_blocking(move || {
             overleaf::sync_relocations(&config, &root, entities)?;
             overleaf::prepare_sync(
@@ -3928,11 +3321,8 @@ async fn overleaf_prepare_sync(
 
 #[tauri::command]
 async fn overleaf_commit_prepared_sync(
-    app: tauri::AppHandle,
-    state: tauri::State<'_, AppState>,
-    window: tauri::Window,
-    project_root: String,
-    prepared_plan_id: String,
+    app: tauri::AppHandle, state: tauri::State<'_, AppState>, window: tauri::Window,
+    project_root: String, prepared_plan_id: String,
     accepted_actions: Vec<overleaf::OverleafAcceptedAction>,
     diagnostic_context: Option<command_diagnostics::DiagnosticContext>,
 ) -> Result<overleaf::OverleafSyncResult, String> {
@@ -3964,59 +3354,40 @@ async fn overleaf_commit_prepared_sync(
 
 #[tauri::command]
 async fn list_pdf_annotations(
-    state: tauri::State<'_, AppState>,
-    window: tauri::Window,
+    state: tauri::State<'_, AppState>, window: tauri::Window,
 ) -> Result<Vec<PdfMark>, String> {
     let root = current_root(&state, &window)?;
-    run_blocking("PDF annotation read", move || {
-        project::read_pdf_marks(&root)
-    })
-    .await
+    run_blocking("PDF annotation read", move || project::read_pdf_marks(&root)).await
 }
 
 #[tauri::command]
 async fn save_pdf_annotations(
-    state: tauri::State<'_, AppState>,
-    window: tauri::Window,
-    annotations: Vec<PdfMark>,
+    state: tauri::State<'_, AppState>, window: tauri::Window, annotations: Vec<PdfMark>,
 ) -> Result<(), String> {
     let root = current_root(&state, &window)?;
-    run_blocking("PDF annotation save", move || {
-        project::write_pdf_marks(&root, annotations)
-    })
-    .await
+    run_blocking("PDF annotation save", move || project::write_pdf_marks(&root, annotations)).await
 }
 
 #[tauri::command]
 async fn list_editor_comments(
-    state: tauri::State<'_, AppState>,
-    window: tauri::Window,
+    state: tauri::State<'_, AppState>, window: tauri::Window,
 ) -> Result<Vec<EditorComment>, String> {
     let root = current_root(&state, &window)?;
-    run_blocking("Editor comment read", move || {
-        project::read_editor_comments(&root)
-    })
-    .await
+    run_blocking("Editor comment read", move || project::read_editor_comments(&root)).await
 }
 
 #[tauri::command]
 async fn save_editor_comments(
-    state: tauri::State<'_, AppState>,
-    window: tauri::Window,
-    comments: Vec<EditorComment>,
+    state: tauri::State<'_, AppState>, window: tauri::Window, comments: Vec<EditorComment>,
 ) -> Result<(), String> {
     let root = current_root(&state, &window)?;
-    run_blocking("Editor comment save", move || {
-        project::write_editor_comments(&root, comments)
-    })
-    .await
+    run_blocking("Editor comment save", move || project::write_editor_comments(&root, comments))
+        .await
 }
 
 #[tauri::command]
 async fn read_compiled_pdf(
-    state: tauri::State<'_, AppState>,
-    window: tauri::Window,
-    project_root: String,
+    state: tauri::State<'_, AppState>, window: tauri::Window, project_root: String,
 ) -> Result<tauri::ipc::Response, String> {
     let root = current_root(&state, &window)?;
     if root != Path::new(&project_root) {
@@ -4043,10 +3414,7 @@ async fn save_compiled_pdf(request: tauri::ipc::Request<'_>) -> Result<String, S
         tauri::ipc::InvokeBody::Raw(bytes) => bytes.clone(),
         _ => return Err("The PDF contents were not sent as binary data.".to_string()),
     };
-    run_blocking("Compiled PDF save", move || {
-        latex::save_pdf(Path::new(&path), &bytes)
-    })
-    .await
+    run_blocking("Compiled PDF save", move || latex::save_pdf(Path::new(&path), &bytes)).await
 }
 
 #[tauri::command]
@@ -4066,34 +3434,20 @@ async fn save_xlsx(request: tauri::ipc::Request<'_>) -> Result<String, String> {
         tauri::ipc::InvokeBody::Raw(bytes) => bytes.clone(),
         _ => return Err("The Excel workbook was not sent as binary data.".to_string()),
     };
-    run_blocking("Excel workbook save", move || {
-        xlsx::save_xlsx(Path::new(&path), &bytes)
-    })
-    .await
+    run_blocking("Excel workbook save", move || xlsx::save_xlsx(Path::new(&path), &bytes)).await
 }
 
 #[tauri::command]
 async fn synctex_edit(
-    state: tauri::State<'_, AppState>,
-    window: tauri::Window,
-    page: u32,
-    x: f64,
-    y: f64,
+    state: tauri::State<'_, AppState>, window: tauri::Window, page: u32, x: f64, y: f64,
 ) -> Result<SyncTexTarget, String> {
     let root = current_root(&state, &window)?;
-    run_blocking("SyncTeX lookup", move || {
-        latex::inverse_search(&root, page, x, y)
-    })
-    .await
+    run_blocking("SyncTeX lookup", move || latex::inverse_search(&root, page, x, y)).await
 }
 
 #[tauri::command]
 async fn synctex_view(
-    state: tauri::State<'_, AppState>,
-    window: tauri::Window,
-    path: String,
-    line: u32,
-    column: u32,
+    state: tauri::State<'_, AppState>, window: tauri::Window, path: String, line: u32, column: u32,
 ) -> Result<Option<PdfSyncTarget>, String> {
     let root = current_root(&state, &window)?;
     tauri::async_runtime::spawn_blocking(move || latex::forward_search(&root, &path, line, column))
@@ -4113,10 +3467,7 @@ fn emit_paper_progress(app: &tauri::AppHandle, window_label: &str, stage: &str) 
 
 #[tauri::command]
 async fn import_reference(
-    app: tauri::AppHandle,
-    state: tauri::State<'_, AppState>,
-    window: tauri::Window,
-    input: String,
+    app: tauri::AppHandle, state: tauri::State<'_, AppState>, window: tauri::Window, input: String,
     request_id: String,
 ) -> Result<ImportResult, String> {
     let root = current_root(&state, &window)?;
@@ -4126,10 +3477,7 @@ async fn import_reference(
         .paper_imports
         .lock()
         .map_err(|_| "Paper import state is unavailable.".to_string())?
-        .insert(
-            window_label.clone(),
-            (request_id.clone(), Arc::clone(&cancel)),
-        );
+        .insert(window_label.clone(), (request_id.clone(), Arc::clone(&cancel)));
     let result = tauri::async_runtime::spawn_blocking(move || {
         papers::import_reference_cancellable(
             &root,
@@ -4143,10 +3491,7 @@ async fn import_reference(
     .await
     .map_err(|error| format!("The paper import task stopped unexpectedly: {error}"));
     if let Ok(mut imports) = state.paper_imports.lock() {
-        if imports
-            .get(window.label())
-            .is_some_and(|(id, _)| id == &request_id)
-        {
+        if imports.get(window.label()).is_some_and(|(id, _)| id == &request_id) {
             imports.remove(window.label());
         }
     }
@@ -4155,14 +3500,10 @@ async fn import_reference(
 
 #[tauri::command]
 fn cancel_reference_import(
-    state: tauri::State<'_, AppState>,
-    window: tauri::Window,
-    request_id: String,
+    state: tauri::State<'_, AppState>, window: tauri::Window, request_id: String,
 ) -> Result<bool, String> {
-    let imports = state
-        .paper_imports
-        .lock()
-        .map_err(|_| "Paper import state is unavailable.".to_string())?;
+    let imports =
+        state.paper_imports.lock().map_err(|_| "Paper import state is unavailable.".to_string())?;
     let Some((active_id, cancel)) = imports.get(window.label()) else {
         return Ok(false);
     };
@@ -4175,9 +3516,7 @@ fn cancel_reference_import(
 
 #[tauri::command]
 async fn fetch_paper(
-    app: tauri::AppHandle,
-    state: tauri::State<'_, AppState>,
-    window: tauri::Window,
+    app: tauri::AppHandle, state: tauri::State<'_, AppState>, window: tauri::Window,
     arxiv_id: String,
 ) -> Result<papers::FetchResult, String> {
     let root = current_root(&state, &window)?;
@@ -4193,9 +3532,7 @@ async fn fetch_paper(
 
 #[tauri::command]
 async fn paper_pdf_preview_url(
-    state: tauri::State<'_, AppState>,
-    window: tauri::Window,
-    url: String,
+    state: tauri::State<'_, AppState>, window: tauri::Window, url: String,
 ) -> Result<String, String> {
     current_root(&state, &window)?;
     paper_pdf_proxy::preview_url(&url).await
@@ -4203,9 +3540,7 @@ async fn paper_pdf_preview_url(
 
 #[tauri::command]
 async fn fetch_web_reference(
-    state: tauri::State<'_, AppState>,
-    window: tauri::Window,
-    url: String,
+    state: tauri::State<'_, AppState>, window: tauri::Window, url: String,
 ) -> Result<papers::FetchResult, String> {
     let root = current_root(&state, &window)?;
     tauri::async_runtime::spawn_blocking(move || papers::fetch_web_reference(&root, &url))
@@ -4215,9 +3550,7 @@ async fn fetch_web_reference(
 
 #[tauri::command]
 async fn upgrade_bibliography(
-    state: tauri::State<'_, AppState>,
-    window: tauri::Window,
-    dry_run: Option<bool>,
+    state: tauri::State<'_, AppState>, window: tauri::Window, dry_run: Option<bool>,
 ) -> Result<papers::UpgradeResult, String> {
     let root = current_root(&state, &window)?;
     tauri::async_runtime::spawn_blocking(move || {
@@ -4247,24 +3580,18 @@ enum AgentBibliographyMutation {
 }
 
 fn bounded_agent_bibliography_value(
-    value: String,
-    label: &str,
-    max_chars: usize,
+    value: String, label: &str, max_chars: usize,
 ) -> Result<String, String> {
     let value = value.trim();
     if value.is_empty() || value.chars().count() > max_chars {
-        return Err(format!(
-            "{label} must contain between 1 and {max_chars} characters."
-        ));
+        return Err(format!("{label} must contain between 1 and {max_chars} characters."));
     }
     Ok(value.to_string())
 }
 
 #[tauri::command]
 async fn agent_bibliography_mutation(
-    state: tauri::State<'_, AppState>,
-    window: tauri::Window,
-    project_root: String,
+    state: tauri::State<'_, AppState>, window: tauri::Window, project_root: String,
     mutation: AgentBibliographyMutation,
 ) -> Result<serde_json::Value, String> {
     let root = scoped_root(&state, &window, &project_root)?;
@@ -4332,11 +3659,8 @@ mod agent_bibliography_mutation_tests {
 
 #[tauri::command]
 async fn remove_reference(
-    state: tauri::State<'_, AppState>,
-    window: tauri::Window,
-    key: String,
-    citation_mode: Option<String>,
-    project_root: String,
+    state: tauri::State<'_, AppState>, window: tauri::Window, key: String,
+    citation_mode: Option<String>, project_root: String,
 ) -> Result<papers::RemoveResult, String> {
     let root = scoped_root(&state, &window, &project_root)?;
     tauri::async_runtime::spawn_blocking(move || match citation_mode.as_deref() {
@@ -4352,8 +3676,7 @@ async fn remove_reference(
 
 #[tauri::command]
 async fn list_papers(
-    state: tauri::State<'_, AppState>,
-    window: tauri::Window,
+    state: tauri::State<'_, AppState>, window: tauri::Window,
 ) -> Result<Vec<PaperSummary>, String> {
     let root = current_root(&state, &window)?;
     tauri::async_runtime::spawn_blocking(move || papers::list_papers(&root))
@@ -4363,9 +3686,7 @@ async fn list_papers(
 
 #[tauri::command]
 async fn search_paper_library(
-    state: tauri::State<'_, AppState>,
-    window: tauri::Window,
-    query: String,
+    state: tauri::State<'_, AppState>, window: tauri::Window, query: String,
 ) -> Result<Vec<ProjectSearchResult>, String> {
     let root = current_root(&state, &window)?;
     tauri::async_runtime::spawn_blocking(move || papers::search_library(&root, &query))
@@ -4375,9 +3696,7 @@ async fn search_paper_library(
 
 #[tauri::command]
 async fn read_paper(
-    state: tauri::State<'_, AppState>,
-    window: tauri::Window,
-    arxiv_id: String,
+    state: tauri::State<'_, AppState>, window: tauri::Window, arxiv_id: String,
 ) -> Result<String, String> {
     let root = current_root(&state, &window)?;
     run_blocking("Paper read", move || papers::read_paper(&root, &arxiv_id)).await
@@ -4385,22 +3704,16 @@ async fn read_paper(
 
 #[tauri::command]
 async fn read_paper_blog_local(
-    state: tauri::State<'_, AppState>,
-    window: tauri::Window,
-    arxiv_id: String,
+    state: tauri::State<'_, AppState>, window: tauri::Window, arxiv_id: String,
 ) -> Result<Option<String>, String> {
     let root = current_root(&state, &window)?;
-    run_blocking("Paper overview read", move || {
-        papers::read_paper_blog_local(&root, &arxiv_id)
-    })
-    .await
+    run_blocking("Paper overview read", move || papers::read_paper_blog_local(&root, &arxiv_id))
+        .await
 }
 
 #[tauri::command]
 async fn read_paper_blog(
-    state: tauri::State<'_, AppState>,
-    window: tauri::Window,
-    arxiv_id: String,
+    state: tauri::State<'_, AppState>, window: tauri::Window, arxiv_id: String,
 ) -> Result<Option<String>, String> {
     // May reach the network (lazy backfill), so keep it off the main thread.
     let root = current_root(&state, &window)?;
@@ -4411,8 +3724,7 @@ async fn read_paper_blog(
 
 #[tauri::command]
 async fn list_history(
-    state: tauri::State<'_, AppState>,
-    window: tauri::Window,
+    state: tauri::State<'_, AppState>, window: tauri::Window,
 ) -> Result<Vec<HistoryItem>, String> {
     let root = current_root(&state, &window)?;
     tauri::async_runtime::spawn_blocking(move || project::history(&root))
@@ -4422,22 +3734,16 @@ async fn list_history(
 
 #[tauri::command]
 async fn get_history_entry(
-    state: tauri::State<'_, AppState>,
-    window: tauri::Window,
-    transaction_id: String,
+    state: tauri::State<'_, AppState>, window: tauri::Window, transaction_id: String,
 ) -> Result<TransactionRecord, String> {
     let root = current_root(&state, &window)?;
-    run_blocking("History entry read", move || {
-        project::get_history_entry(&root, &transaction_id)
-    })
-    .await
+    run_blocking("History entry read", move || project::get_history_entry(&root, &transaction_id))
+        .await
 }
 
 #[tauri::command]
 async fn revert_transaction(
-    state: tauri::State<'_, AppState>,
-    window: tauri::Window,
-    transaction_id: String,
+    state: tauri::State<'_, AppState>, window: tauri::Window, transaction_id: String,
     project_root: Option<String>,
 ) -> Result<String, String> {
     let root = match project_root {
@@ -4453,10 +3759,7 @@ async fn revert_transaction(
 
 #[tauri::command]
 async fn revert_history_file(
-    state: tauri::State<'_, AppState>,
-    window: tauri::Window,
-    transaction_id: String,
-    path: String,
+    state: tauri::State<'_, AppState>, window: tauri::Window, transaction_id: String, path: String,
 ) -> Result<String, String> {
     let root = current_root(&state, &window)?;
     run_blocking("History file revert", move || {
@@ -4468,15 +3771,10 @@ async fn revert_history_file(
 
 #[tauri::command]
 async fn delete_history_entry(
-    state: tauri::State<'_, AppState>,
-    window: tauri::Window,
-    transaction_id: String,
+    state: tauri::State<'_, AppState>, window: tauri::Window, transaction_id: String,
 ) -> Result<(), String> {
     let root = current_root(&state, &window)?;
-    run_blocking("History deletion", move || {
-        project::delete_history(&root, &transaction_id)
-    })
-    .await
+    run_blocking("History deletion", move || project::delete_history(&root, &transaction_id)).await
 }
 
 #[tauri::command]
@@ -4484,16 +3782,13 @@ async fn start_tex_install(
     mode: tex_setup::TexInstallMode,
     on_progress: tauri::ipc::Channel<tex_setup::TexInstallProgress>,
 ) -> Result<(), String> {
-    run_blocking("TeX installer launch", move || {
-        tex_setup::start_tex_install(mode, on_progress)
-    })
-    .await
+    run_blocking("TeX installer launch", move || tex_setup::start_tex_install(mode, on_progress))
+        .await
 }
 
 #[tauri::command]
 async fn start_tex_dependency_install(
-    missing_file: String,
-    on_progress: tauri::ipc::Channel<tex_setup::TexInstallProgress>,
+    missing_file: String, on_progress: tauri::ipc::Channel<tex_setup::TexInstallProgress>,
 ) -> Result<(), String> {
     run_blocking("TeX package installer launch", move || {
         tex_setup::start_tex_dependency_install(&missing_file, on_progress)
@@ -4534,17 +3829,13 @@ async fn print_webview(window: tauri::WebviewWindow) -> Result<bool, String> {
 
 #[tauri::command]
 fn align_traffic_lights(
-    window: tauri::WebviewWindow,
-    center_from_top: f64,
+    window: tauri::WebviewWindow, center_from_top: f64,
 ) -> Result<Option<f64>, String> {
     #[cfg(target_os = "macos")]
     {
         // The window that measured its own titlebar, not "main" — a second
         // window used to move the first window's buttons and never its own.
-        Ok(macos_window::align_traffic_lights_to(
-            &window,
-            center_from_top,
-        ))
+        Ok(macos_window::align_traffic_lights_to(&window, center_from_top))
     }
     #[cfg(not(target_os = "macos"))]
     {
@@ -4629,12 +3920,10 @@ fn run_cli() -> bool {
     };
     let root = std::path::Path::new(&root);
     let result = match request {
-        LiteratureRequest::SearchLiterature {
-            query,
-            precise,
-            page,
-        } => literature::search(&query, precise, page)
-            .and_then(|value| serde_json::to_value(value).map_err(|error| error.to_string())),
+        LiteratureRequest::SearchLiterature { query, precise, page } => {
+            literature::search(&query, precise, page)
+                .and_then(|value| serde_json::to_value(value).map_err(|error| error.to_string()))
+        }
         LiteratureRequest::FetchPaper { arxiv_id } => papers::fetch_paper(root, &arxiv_id)
             .and_then(|value| serde_json::to_value(value).map_err(|error| error.to_string())),
         // Wrapped in objects: the gateway rejects a bare JSON array as a
@@ -4661,10 +3950,7 @@ fn run_cli() -> bool {
     };
     match result {
         Ok(result) => {
-            println!(
-                "{}",
-                serde_json::to_string(&result).unwrap_or_else(|_| "{}".to_string())
-            );
+            println!("{}", serde_json::to_string(&result).unwrap_or_else(|_| "{}".to_string()));
             std::process::exit(0);
         }
         Err(reason) => {
@@ -4680,9 +3966,7 @@ fn show_desktop_window(app: &tauri::AppHandle) -> Result<(), String> {
         .map_err(|error| format!("Could not show Lattice in the Dock: {error}"))?;
 
     if let Some(window) = app.get_webview_window(MAIN_WINDOW_LABEL) {
-        window
-            .show()
-            .map_err(|error| format!("Could not show the Lattice window: {error}"))?;
+        window.show().map_err(|error| format!("Could not show the Lattice window: {error}"))?;
         let _ = window.set_focus();
         return Ok(());
     }
@@ -4708,9 +3992,8 @@ fn show_desktop_window(app: &tauri::AppHandle) -> Result<(), String> {
         .title_bar_style(tauri::TitleBarStyle::Overlay)
         .hidden_title(true)
         .accept_first_mouse(true);
-    let window = builder
-        .build()
-        .map_err(|error| format!("Could not create the Lattice window: {error}"))?;
+    let window =
+        builder.build().map_err(|error| format!("Could not create the Lattice window: {error}"))?;
     #[cfg(target_os = "macos")]
     {
         macos_window::install_traffic_light_alignment(&window);
@@ -4777,11 +4060,7 @@ pub fn run() {
         // In-app auto-update (checks GitHub Releases, verifies with the updater key).
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
-        .plugin(
-            tauri_plugin_autostart::Builder::new()
-                .arg(BROWSER_HOST_ARG)
-                .build(),
-        )
+        .plugin(tauri_plugin_autostart::Builder::new().arg(BROWSER_HOST_ARG).build())
         // Remember the window's size + position across launches.
         // The browser bridge is deliberately hidden. The plugin's default
         // restore path shows every newly created dynamic window, even when its
@@ -4825,13 +4104,10 @@ pub fn run() {
             app.manage(synara::SynaraRuntime::new(app)?);
             app.manage(presentation::PresentationRuntime::new(app)?);
             let background = browser_host_launch();
-            let chromium_packaged = !background
-                && app
-                    .state::<chromium::ChromiumRuntime>()
-                    .is_packaged(app.handle());
-            let browser_start = app
-                .state::<browser_host::BrowserHost>()
-                .start(app.handle(), chromium_packaged);
+            let chromium_packaged =
+                !background && app.state::<chromium::ChromiumRuntime>().is_packaged(app.handle());
+            let browser_start =
+                app.state::<browser_host::BrowserHost>().start(app.handle(), chromium_packaged);
             let chromium_ready = chromium_packaged && browser_start.is_ok();
             if let Err(reason) = &browser_start {
                 if background {
@@ -4863,8 +4139,7 @@ pub fn run() {
                     let _ = window.destroy();
                 }
                 #[cfg(target_os = "macos")]
-                app.handle()
-                    .set_activation_policy(tauri::ActivationPolicy::Accessory)?;
+                app.handle().set_activation_policy(tauri::ActivationPolicy::Accessory)?;
                 if chromium_ready {
                     app.state::<chromium::ChromiumRuntime>()
                         .launch(app.handle())

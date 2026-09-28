@@ -112,20 +112,14 @@ pub fn scrape(url: &str) -> Result<ScrapedPage, String> {
                     .replace(&key, "[redacted]")
             ));
         }
-        let data = parsed
-            .data
-            .ok_or_else(|| "Firecrawl reported success with no content.".to_string())?;
+        let data =
+            parsed.data.ok_or_else(|| "Firecrawl reported success with no content.".to_string())?;
         return scraped_page(data).map_err(|error| format!("{error} Source: {url}"));
     }
 }
 
 fn scraped_page(data: ScrapeData) -> Result<ScrapedPage, String> {
-    if let Some(status) = data
-        .metadata
-        .as_ref()
-        .and_then(|m| m.status_code)
-        .filter(|s| *s >= 400)
-    {
+    if let Some(status) = data.metadata.as_ref().and_then(|m| m.status_code).filter(|s| *s >= 400) {
         return Err(match status {
             404 | 410 => format!("The source link is missing or no longer available (HTTP {status}). Check the citation's DOI or replace its URL; retrying the same link may not help."),
             401 | 403 => format!("The source denied access (HTTP {status}). It may require sign-in or block automated access."),
@@ -143,15 +137,9 @@ fn scraped_page(data: ScrapeData) -> Result<ScrapedPage, String> {
     }
     Ok(ScrapedPage {
         markdown,
-        title: data
-            .metadata
-            .and_then(|metadata| metadata.title)
-            .and_then(|value| {
-                value
-                    .as_str()
-                    .or_else(|| value.as_array()?.first()?.as_str())
-                    .map(str::to_string)
-            }),
+        title: data.metadata.and_then(|metadata| metadata.title).and_then(|value| {
+            value.as_str().or_else(|| value.as_array()?.first()?.as_str()).map(str::to_string)
+        }),
         html: data.html.unwrap_or_default(),
     })
 }
@@ -169,10 +157,7 @@ mod tests {
             let error = scraped_page(data).err().unwrap();
             assert!(error.contains(&format!("HTTP {status}")));
             assert_eq!(error.contains("sign-in"), status == 403);
-            assert_eq!(
-                error.contains("missing or no longer available"),
-                status != 403
-            );
+            assert_eq!(error.contains("missing or no longer available"), status != 403);
         }
     }
 

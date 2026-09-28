@@ -75,13 +75,8 @@ async fn start_server() -> Result<ProxyServer, String> {
         }))
         .build()
         .map_err(|error| format!("Failed to create PDF proxy client: {error}"))?;
-    let state = Arc::new(ProxyState {
-        client,
-        token: token.clone(),
-    });
-    let app = Router::new()
-        .route("/paper.pdf", get(proxy).options(proxy))
-        .with_state(state);
+    let state = Arc::new(ProxyState { client, token: token.clone() });
+    let app = Router::new().route("/paper.pdf", get(proxy).options(proxy)).with_state(state);
     let listener = TcpListener::bind("127.0.0.1:0")
         .await
         .map_err(|error| format!("Failed to bind PDF proxy: {error}"))?;
@@ -95,15 +90,11 @@ async fn start_server() -> Result<ProxyServer, String> {
         }
     });
 
-    Ok(ProxyServer {
-        base_url: format!("http://{address}/paper.pdf"),
-        token,
-    })
+    Ok(ProxyServer { base_url: format!("http://{address}/paper.pdf"), token })
 }
 
 async fn proxy(
-    State(state): State<Arc<ProxyState>>,
-    Query(query): Query<HashMap<String, String>>,
+    State(state): State<Arc<ProxyState>>, Query(query): Query<HashMap<String, String>>,
     request: Request<Body>,
 ) -> Response<Body> {
     if query.get("token") != Some(&state.token) {
@@ -146,17 +137,14 @@ async fn proxy(
     let status = upstream.status();
     let copied_headers = upstream.headers().clone();
     let mut received = 0_u64;
-    let stream = upstream
-        .bytes_stream()
-        .map_err(io::Error::other)
-        .and_then(move |chunk| {
-            received = received.saturating_add(chunk.len() as u64);
-            std::future::ready(if received > MAX_PDF_BYTES {
-                Err(io::Error::other("PDF exceeds the 100 MiB limit"))
-            } else {
-                Ok(chunk)
-            })
-        });
+    let stream = upstream.bytes_stream().map_err(io::Error::other).and_then(move |chunk| {
+        received = received.saturating_add(chunk.len() as u64);
+        std::future::ready(if received > MAX_PDF_BYTES {
+            Err(io::Error::other("PDF exceeds the 100 MiB limit"))
+        } else {
+            Ok(chunk)
+        })
+    });
     let mut result = response(status, Body::from_stream(stream));
     for name in [CONTENT_TYPE, CONTENT_LENGTH, CONTENT_RANGE, ACCEPT_RANGES] {
         if let Some(value) = copied_headers.get(&name) {
@@ -164,13 +152,8 @@ async fn proxy(
         }
     }
     // Never serve publisher HTML as executable content on our loopback origin.
-    result
-        .headers_mut()
-        .insert(CONTENT_TYPE, HeaderValue::from_static("application/pdf"));
-    result.headers_mut().insert(
-        "x-content-type-options",
-        HeaderValue::from_static("nosniff"),
-    );
+    result.headers_mut().insert(CONTENT_TYPE, HeaderValue::from_static("application/pdf"));
+    result.headers_mut().insert("x-content-type-options", HeaderValue::from_static("nosniff"));
     cors(result)
 }
 
@@ -194,14 +177,8 @@ fn response(status: StatusCode, body: Body) -> Response<Body> {
 fn cors(mut response: Response<Body>) -> Response<Body> {
     let headers = response.headers_mut();
     headers.insert(ACCESS_CONTROL_ALLOW_ORIGIN, HeaderValue::from_static("*"));
-    headers.insert(
-        ACCESS_CONTROL_ALLOW_METHODS,
-        HeaderValue::from_static("GET, OPTIONS"),
-    );
-    headers.insert(
-        ACCESS_CONTROL_ALLOW_HEADERS,
-        HeaderValue::from_static("Range"),
-    );
+    headers.insert(ACCESS_CONTROL_ALLOW_METHODS, HeaderValue::from_static("GET, OPTIONS"));
+    headers.insert(ACCESS_CONTROL_ALLOW_HEADERS, HeaderValue::from_static("Range"));
     headers.insert(
         ACCESS_CONTROL_EXPOSE_HEADERS,
         HeaderValue::from_static("Content-Length, Content-Range, Accept-Ranges"),
@@ -228,9 +205,7 @@ mod tests {
         rejects_undeclared_oversized_streams().await;
         ignores_range_when_the_origin_does().await;
         assert!(preview_url("file:///tmp/paper.pdf").await.is_err());
-        assert!(preview_url("https://user:password@example.com/paper.pdf")
-            .await
-            .is_err());
+        assert!(preview_url("https://user:password@example.com/paper.pdf").await.is_err());
     }
 
     #[tokio::test]
@@ -295,10 +270,7 @@ mod tests {
         assert_eq!(&first[..], b"first");
         release_tx.send(()).unwrap();
         assert_eq!(
-            futures_util::TryStreamExt::try_next(&mut stream)
-                .await
-                .unwrap()
-                .unwrap(),
+            futures_util::TryStreamExt::try_next(&mut stream).await.unwrap().unwrap(),
             "second"
         );
     }
@@ -324,12 +296,7 @@ mod tests {
         let proxy = preview_url(&url).await.unwrap();
         let client = reqwest::Client::new();
 
-        let ranged = client
-            .get(&proxy)
-            .header(RANGE, "bytes=1-2")
-            .send()
-            .await
-            .unwrap();
+        let ranged = client.get(&proxy).header(RANGE, "bytes=1-2").send().await.unwrap();
         assert_eq!(ranged.status(), StatusCode::PARTIAL_CONTENT);
         assert_eq!(ranged.headers()[CONTENT_RANGE], "bytes 1-2/4");
         assert_eq!(ranged.bytes().await.unwrap(), "bc");
@@ -350,19 +317,10 @@ mod tests {
         let local = preview_url(&url).await.unwrap();
         assert_eq!(local, preview_url(&format!("{url}#page=2")).await.unwrap());
         let client = reqwest::Client::new();
-        let preflight = client
-            .request(Method::OPTIONS, &local)
-            .send()
-            .await
-            .unwrap();
+        let preflight = client.request(Method::OPTIONS, &local).send().await.unwrap();
         assert_eq!(preflight.status(), StatusCode::NO_CONTENT);
         assert_eq!(preflight.headers()[ACCESS_CONTROL_ALLOW_HEADERS], "Range");
-        let response = client
-            .get(local)
-            .header(RANGE, "bytes=1-2")
-            .send()
-            .await
-            .unwrap();
+        let response = client.get(local).header(RANGE, "bytes=1-2").send().await.unwrap();
         assert_eq!(response.status(), StatusCode::OK);
         assert_eq!(response.bytes().await.unwrap(), "full PDF");
     }
@@ -377,9 +335,7 @@ mod tests {
             }),
         ))
         .await;
-        let mut response = reqwest::get(preview_url(&url).await.unwrap())
-            .await
-            .unwrap();
+        let mut response = reqwest::get(preview_url(&url).await.unwrap()).await.unwrap();
         let mut bytes = 0;
         loop {
             match response.chunk().await {
@@ -404,10 +360,7 @@ mod tests {
         ))
         .await;
         assert_eq!(
-            reqwest::get(preview_url(&range_url).await.unwrap())
-                .await
-                .unwrap()
-                .status(),
+            reqwest::get(preview_url(&range_url).await.unwrap()).await.unwrap().status(),
             StatusCode::RANGE_NOT_SATISFIABLE
         );
 
@@ -417,10 +370,7 @@ mod tests {
         ))
         .await;
         assert_eq!(
-            reqwest::get(preview_url(&error_url).await.unwrap())
-                .await
-                .unwrap()
-                .status(),
+            reqwest::get(preview_url(&error_url).await.unwrap()).await.unwrap().status(),
             StatusCode::SERVICE_UNAVAILABLE
         );
     }
@@ -428,14 +378,8 @@ mod tests {
     async fn rejects_an_invalid_capability() {
         let url =
             origin(Router::new().route("/paper.pdf", get(|| async { Body::from("pdf") }))).await;
-        let proxy = preview_url(&url)
-            .await
-            .unwrap()
-            .replace("token=", "token=wrong");
-        assert_eq!(
-            reqwest::get(proxy).await.unwrap().status(),
-            StatusCode::UNAUTHORIZED
-        );
+        let proxy = preview_url(&url).await.unwrap().replace("token=", "token=wrong");
+        assert_eq!(reqwest::get(proxy).await.unwrap().status(), StatusCode::UNAUTHORIZED);
     }
 
     async fn rejects_declared_oversized_responses() {
@@ -452,10 +396,7 @@ mod tests {
         ))
         .await;
         assert_eq!(
-            reqwest::get(preview_url(&url).await.unwrap())
-                .await
-                .unwrap()
-                .status(),
+            reqwest::get(preview_url(&url).await.unwrap()).await.unwrap().status(),
             StatusCode::PAYLOAD_TOO_LARGE
         );
     }

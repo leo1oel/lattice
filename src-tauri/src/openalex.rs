@@ -71,18 +71,12 @@ pub fn search_works(query: &str, precise: bool, page: u32) -> Result<Vec<OpenAle
     if let Some(key) = key {
         request = request.bearer_auth(key);
     }
-    let response = request
-        .send()
-        .map_err(|_| "OpenAlex request failed.".to_string())?;
+    let response = request.send().map_err(|_| "OpenAlex request failed.".to_string())?;
     if !response.status().is_success() {
-        return Err(format!(
-            "OpenAlex returned HTTP {}.",
-            response.status().as_u16()
-        ));
+        return Err(format!("OpenAlex returned HTTP {}.", response.status().as_u16()));
     }
-    let payload: WorksResponse = response
-        .json()
-        .map_err(|error| format!("Could not parse OpenAlex response: {error}"))?;
+    let payload: WorksResponse =
+        response.json().map_err(|error| format!("Could not parse OpenAlex response: {error}"))?;
     Ok(payload.results.into_iter().filter_map(map_work).collect())
 }
 
@@ -117,9 +111,7 @@ fn map_work(work: WorkPayload) -> Option<OpenAlexWork> {
         cited_by_count: work.cited_by_count.unwrap_or(0),
         doi,
         arxiv_id,
-        landing_url: work
-            .primary_location
-            .and_then(|location| location.landing_page_url),
+        landing_url: work.primary_location.and_then(|location| location.landing_page_url),
         authors,
     })
 }
@@ -157,10 +149,7 @@ mod tests {
 
     #[test]
     fn extracts_arxiv_id_from_doi() {
-        assert_eq!(
-            arxiv_id_from_doi("10.48550/arXiv.1706.03762"),
-            Some("1706.03762".to_string())
-        );
+        assert_eq!(arxiv_id_from_doi("10.48550/arXiv.1706.03762"), Some("1706.03762".to_string()));
         assert_eq!(arxiv_id_from_doi("10.1145/123"), None);
     }
 
@@ -177,9 +166,7 @@ mod tests {
                 doi: Some("https://doi.org/10.48550/arXiv.1706.03762".into()),
             }),
             authorships: Some(vec![Authorship {
-                author: Some(Author {
-                    display_name: Some("Ashish Vaswani".into()),
-                }),
+                author: Some(Author { display_name: Some("Ashish Vaswani".into()) }),
             }]),
             primary_location: Some(PrimaryLocation {
                 landing_page_url: Some("https://arxiv.org/abs/1706.03762".into()),

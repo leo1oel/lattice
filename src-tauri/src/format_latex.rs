@@ -15,7 +15,7 @@ pub fn format_document(root: &Path, relative_path: &str, text: &str) -> Result<S
     }
     if !commands::available("latexindent") {
         return Err(
-            "latexindent is not installed. Install MacTeX/TeX Live tools, then retry.".to_string(),
+            "latexindent is not installed. Install MacTeX/TeX Live tools, then retry.".to_string()
         );
     }
     let _ = project::safe_path(root, &relative)?;
@@ -28,24 +28,17 @@ pub fn format_document(root: &Path, relative_path: &str, text: &str) -> Result<S
         .spawn()
         .map_err(|error| format!("Could not start latexindent: {error}"))?;
     {
-        let stdin = child
-            .stdin
-            .as_mut()
-            .ok_or_else(|| "Could not open latexindent stdin.".to_string())?;
+        let stdin =
+            child.stdin.as_mut().ok_or_else(|| "Could not open latexindent stdin.".to_string())?;
         stdin
             .write_all(text.as_bytes())
             .map_err(|error| format!("Could not write to latexindent: {error}"))?;
     }
-    let output = child
-        .wait_with_output()
-        .map_err(|error| format!("latexindent failed: {error}"))?;
+    let output =
+        child.wait_with_output().map_err(|error| format!("latexindent failed: {error}"))?;
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
-        return Err(if stderr.is_empty() {
-            "latexindent failed.".to_string()
-        } else {
-            stderr
-        });
+        return Err(if stderr.is_empty() { "latexindent failed.".to_string() } else { stderr });
     }
     String::from_utf8(output.stdout).map_err(|error| format!("Invalid latexindent output: {error}"))
 }

@@ -37,10 +37,7 @@ impl TexlabPool {
     }
 
     pub fn diagnostics(
-        &mut self,
-        root: &Path,
-        relative_path: &str,
-        text: &str,
+        &mut self, root: &Path, relative_path: &str, text: &str,
         publish: impl Fn(Vec<Diagnostic>) + Send + 'static,
     ) -> Result<(), String> {
         if !commands::available("texlab") {
@@ -54,11 +51,7 @@ impl TexlabPool {
         }
         let absolute = project::safe_path(root, &relative)?;
         let root_canon = root.canonicalize().unwrap_or_else(|_| root.to_path_buf());
-        if self
-            .live
-            .as_ref()
-            .is_some_and(|live| live.root != root_canon)
-        {
+        if self.live.as_ref().is_some_and(|live| live.root != root_canon) {
             self.reset();
         }
         if self.live.is_none() {
@@ -72,19 +65,13 @@ impl TexlabPool {
                 version: 0,
             });
         }
-        let live = self
-            .live
-            .as_mut()
-            .ok_or_else(|| "TexLab session missing.".to_string())?;
-        *live
-            .session
-            .subscription
-            .lock()
-            .map_err(|_| "TexLab subscription unavailable.")? = Some(DiagnosticSubscription {
-            uri: path_to_uri(&absolute),
-            relative: relative.clone(),
-            publish: Box::new(publish),
-        });
+        let live = self.live.as_mut().ok_or_else(|| "TexLab session missing.".to_string())?;
+        *live.session.subscription.lock().map_err(|_| "TexLab subscription unavailable.")? =
+            Some(DiagnosticSubscription {
+                uri: path_to_uri(&absolute),
+                relative: relative.clone(),
+                publish: Box::new(publish),
+            });
         match live.sync_document(&absolute, &relative, text) {
             Ok(_) => Ok(()),
             Err(_) => {
@@ -100,10 +87,8 @@ impl TexlabPool {
                 self.reset();
                 let mut session = TexlabSession::spawn(root)?;
                 session.initialize(root)?;
-                *session
-                    .subscription
-                    .lock()
-                    .map_err(|_| "TexLab subscription unavailable.")? = subscription;
+                *session.subscription.lock().map_err(|_| "TexLab subscription unavailable.")? =
+                    subscription;
                 let mut live = LiveTexlab {
                     root: root_canon,
                     session,
@@ -119,12 +104,7 @@ impl TexlabPool {
     }
 
     pub fn completion(
-        &mut self,
-        root: &Path,
-        relative_path: &str,
-        text: &str,
-        line: u32,
-        character: u32,
+        &mut self, root: &Path, relative_path: &str, text: &str, line: u32, character: u32,
     ) -> Result<Vec<TexlabCompletionItem>, String> {
         self.with_synced_document(root, relative_path, text, |live, file_uri| {
             let id = live.session.request(
@@ -143,12 +123,7 @@ impl TexlabPool {
     }
 
     pub fn hover(
-        &mut self,
-        root: &Path,
-        relative_path: &str,
-        text: &str,
-        line: u32,
-        character: u32,
+        &mut self, root: &Path, relative_path: &str, text: &str, line: u32, character: u32,
     ) -> Result<Option<TexlabHover>, String> {
         self.with_synced_document(root, relative_path, text, |live, file_uri| {
             let id = live.session.request(
@@ -167,12 +142,7 @@ impl TexlabPool {
     }
 
     pub fn definition(
-        &mut self,
-        root: &Path,
-        relative_path: &str,
-        text: &str,
-        line: u32,
-        character: u32,
+        &mut self, root: &Path, relative_path: &str, text: &str, line: u32, character: u32,
     ) -> Result<Option<TexlabLocation>, String> {
         let root_canon = root.canonicalize().unwrap_or_else(|_| root.to_path_buf());
         self.with_synced_document(root, relative_path, text, |live, file_uri| {
@@ -192,10 +162,7 @@ impl TexlabPool {
     }
 
     fn with_synced_document<T>(
-        &mut self,
-        root: &Path,
-        relative_path: &str,
-        text: &str,
+        &mut self, root: &Path, relative_path: &str, text: &str,
         work: impl FnOnce(&mut LiveTexlab, &str) -> Result<T, String>,
     ) -> Result<T, String> {
         if !commands::available("texlab") {
@@ -207,11 +174,7 @@ impl TexlabPool {
         }
         let absolute = project::safe_path(root, &relative)?;
         let root_canon = root.canonicalize().unwrap_or_else(|_| root.to_path_buf());
-        if self
-            .live
-            .as_ref()
-            .is_some_and(|live| live.root != root_canon)
-        {
+        if self.live.as_ref().is_some_and(|live| live.root != root_canon) {
             self.reset();
         }
         if self.live.is_none() {
@@ -225,10 +188,7 @@ impl TexlabPool {
                 version: 0,
             });
         }
-        let live = self
-            .live
-            .as_mut()
-            .ok_or_else(|| "TexLab session missing.".to_string())?;
+        let live = self.live.as_mut().ok_or_else(|| "TexLab session missing.".to_string())?;
         let file_uri = live.sync_document(&absolute, &relative, text)?;
         work(live, &file_uri)
     }
@@ -255,31 +215,16 @@ impl TexlabSession {
             use std::os::unix::process::CommandExt;
             command.process_group(0);
         }
-        let mut child = command
-            .spawn()
-            .map_err(|error| format!("Could not start TexLab: {error}"))?;
-        let stdin = child
-            .stdin
-            .take()
-            .ok_or_else(|| "Could not open TexLab stdin.".to_string())?;
-        let stdout = child
-            .stdout
-            .take()
-            .ok_or_else(|| "Could not open TexLab stdout.".to_string())?;
+        let mut child =
+            command.spawn().map_err(|error| format!("Could not start TexLab: {error}"))?;
+        let stdin = child.stdin.take().ok_or_else(|| "Could not open TexLab stdin.".to_string())?;
+        let stdout =
+            child.stdout.take().ok_or_else(|| "Could not open TexLab stdout.".to_string())?;
         let stdin = Arc::new(Mutex::new(stdin));
         let subscription = Arc::new(Mutex::new(None));
-        let messages = read_messages(
-            BufReader::new(stdout),
-            Arc::clone(&stdin),
-            Arc::clone(&subscription),
-        );
-        Ok(Self {
-            child,
-            stdin,
-            messages,
-            subscription,
-            next_id: 1,
-        })
+        let messages =
+            read_messages(BufReader::new(stdout), Arc::clone(&stdin), Arc::clone(&subscription));
+        Ok(Self { child, stdin, messages, subscription, next_id: 1 })
     }
 
     fn initialize(&mut self, root: &Path) -> Result<(), String> {
@@ -349,12 +294,10 @@ impl TexlabSession {
     }
 
     fn read_message_deadline(&mut self, timeout: Duration) -> Result<Value, String> {
-        self.messages
-            .recv_timeout(timeout)
-            .map_err(|error| match error {
-                mpsc::RecvTimeoutError::Timeout => "TexLab read timed out.".to_string(),
-                mpsc::RecvTimeoutError::Disconnected => "TexLab closed stdout.".to_string(),
-            })?
+        self.messages.recv_timeout(timeout).map_err(|error| match error {
+            mpsc::RecvTimeoutError::Timeout => "TexLab read timed out.".to_string(),
+            mpsc::RecvTimeoutError::Disconnected => "TexLab closed stdout.".to_string(),
+        })?
     }
 
     fn shutdown(&mut self) {
@@ -374,10 +317,7 @@ impl Drop for TexlabSession {
 
 impl LiveTexlab {
     fn sync_document(
-        &mut self,
-        absolute: &Path,
-        relative: &str,
-        text: &str,
+        &mut self, absolute: &Path, relative: &str, text: &str,
     ) -> Result<String, String> {
         let file_uri = path_to_uri(absolute);
         if self.open_relative == relative && !self.open_uri.is_empty() {
@@ -423,8 +363,7 @@ impl LiveTexlab {
 // even while idle or waiting for completion/hover responses. A single reader
 // also makes request timeouts independent of partial JSON-RPC frames.
 fn read_messages(
-    mut stdout: impl BufRead + Send + 'static,
-    stdin: Arc<Mutex<impl Write + Send + 'static>>,
+    mut stdout: impl BufRead + Send + 'static, stdin: Arc<Mutex<impl Write + Send + 'static>>,
     subscription: Arc<Mutex<Option<DiagnosticSubscription>>>,
 ) -> mpsc::Receiver<Result<Value, String>> {
     let (sender, receiver) = mpsc::channel();
@@ -476,12 +415,8 @@ fn write_message(stdin: &Mutex<impl Write>, value: &Value) -> Result<(), String>
     let mut stdin = stdin.lock().map_err(|_| "TexLab stdin unavailable.")?;
     write!(stdin, "Content-Length: {}\r\n\r\n", body.len())
         .map_err(|error| format!("Could not write TexLab headers: {error}"))?;
-    stdin
-        .write_all(&body)
-        .map_err(|error| format!("Could not write TexLab body: {error}"))?;
-    stdin
-        .flush()
-        .map_err(|error| format!("Could not flush TexLab stdin: {error}"))
+    stdin.write_all(&body).map_err(|error| format!("Could not write TexLab body: {error}"))?;
+    stdin.flush().map_err(|error| format!("Could not flush TexLab stdin: {error}"))
 }
 
 fn read_message(stdout: &mut impl BufRead) -> Result<Value, String> {
@@ -508,9 +443,7 @@ fn read_message(stdout: &mut impl BufRead) -> Result<Value, String> {
     let length =
         content_length.ok_or_else(|| "TexLab message missing Content-Length.".to_string())?;
     let mut body = vec![0u8; length];
-    stdout
-        .read_exact(&mut body)
-        .map_err(|error| format!("Could not read TexLab body: {error}"))?;
+    stdout.read_exact(&mut body).map_err(|error| format!("Could not read TexLab body: {error}"))?;
     serde_json::from_slice(&body).map_err(|error| format!("Invalid TexLab JSON: {error}"))
 }
 
@@ -551,9 +484,7 @@ fn encode_uri_component(value: &str) -> String {
 }
 
 fn publish_diagnostics_for(
-    message: &Value,
-    file_uri: &str,
-    relative: &str,
+    message: &Value, file_uri: &str, relative: &str,
 ) -> Option<Vec<Diagnostic>> {
     if message.get("method").and_then(|value| value.as_str())
         != Some("textDocument/publishDiagnostics")
@@ -566,12 +497,7 @@ fn publish_diagnostics_for(
         return None;
     }
     let items = params.get("diagnostics")?.as_array()?;
-    Some(
-        items
-            .iter()
-            .filter_map(|item| map_diagnostic(item, relative))
-            .collect(),
-    )
+    Some(items.iter().filter_map(|item| map_diagnostic(item, relative)).collect())
 }
 
 fn uri_matches(left: &str, right: &str) -> bool {
@@ -589,11 +515,7 @@ fn map_completions(result: Option<&Value>) -> Vec<TexlabCompletionItem> {
     } else {
         return Vec::new();
     };
-    items
-        .iter()
-        .filter_map(map_completion_item)
-        .take(80)
-        .collect()
+    items.iter().filter_map(map_completion_item).take(80).collect()
 }
 
 fn map_completion_item(item: &Value) -> Option<TexlabCompletionItem> {
@@ -614,17 +536,8 @@ fn map_completion_item(item: &Value) -> Option<TexlabCompletionItem> {
         .filter(|value| !value.is_empty())
         .map(str::to_string);
     let documentation = markup_to_string(item.get("documentation"));
-    let kind = item
-        .get("kind")
-        .and_then(|value| value.as_u64())
-        .map(completion_kind_name);
-    Some(TexlabCompletionItem {
-        label,
-        detail,
-        kind,
-        insert_text,
-        documentation,
-    })
+    let kind = item.get("kind").and_then(|value| value.as_u64()).map(completion_kind_name);
+    Some(TexlabCompletionItem { label, detail, kind, insert_text, documentation })
 }
 
 fn completion_kind_name(kind: u64) -> String {
@@ -670,11 +583,7 @@ fn map_hover(result: Option<&Value>) -> Option<TexlabHover> {
 
 fn map_definition(result: Option<&Value>, root: &Path) -> Option<TexlabLocation> {
     let result = result?;
-    let location = if let Some(array) = result.as_array() {
-        array.first()?
-    } else {
-        result
-    };
+    let location = if let Some(array) = result.as_array() { array.first()? } else { result };
     let uri = location
         .get("uri")
         .or_else(|| location.pointer("/targetUri"))
@@ -713,10 +622,9 @@ fn percent_decode(value: &str) -> String {
     let mut index = 0;
     while index < bytes.len() {
         if bytes[index] == b'%' && index + 2 < bytes.len() {
-            if let (Some(hi), Some(lo)) = (
-                (bytes[index + 1] as char).to_digit(16),
-                (bytes[index + 2] as char).to_digit(16),
-            ) {
+            if let (Some(hi), Some(lo)) =
+                ((bytes[index + 1] as char).to_digit(16), (bytes[index + 2] as char).to_digit(16))
+            {
                 out.push(((hi << 4) | lo) as u8 as char);
                 index += 3;
                 continue;
@@ -741,9 +649,7 @@ fn markup_to_string(value: Option<&Value>) -> Option<String> {
             .iter()
             .filter_map(|item| {
                 item.as_str().map(str::to_string).or_else(|| {
-                    item.get("value")
-                        .and_then(|inner| inner.as_str())
-                        .map(str::to_string)
+                    item.get("value").and_then(|inner| inner.as_str()).map(str::to_string)
                 })
             })
             .collect::<Vec<_>>()
@@ -845,23 +751,11 @@ mod tests {
         assert_eq!(first[0].message, "Undefined reference `fixed'.");
         // No further client request is needed to receive the correction, and
         // an interleaved hover response must not swallow either publication.
-        assert!(updates
-            .recv_timeout(Duration::from_secs(2))
-            .unwrap()
-            .is_empty());
+        assert!(updates.recv_timeout(Duration::from_secs(2)).unwrap().is_empty());
         assert!(updates.try_recv().is_err());
         let reply = read_message(&mut std::io::Cursor::new(stdin.lock().unwrap().clone())).unwrap();
-        assert_eq!(
-            reply,
-            json!({"jsonrpc": "2.0", "id": "server-request", "result": null})
-        );
-        assert_eq!(
-            responses
-                .recv_timeout(Duration::from_secs(2))
-                .unwrap()
-                .unwrap()["id"],
-            9
-        );
+        assert_eq!(reply, json!({"jsonrpc": "2.0", "id": "server-request", "result": null}));
+        assert_eq!(responses.recv_timeout(Duration::from_secs(2)).unwrap().unwrap()["id"], 9);
     }
 
     #[test]
@@ -930,10 +824,7 @@ mod tests {
         assert_eq!(completions.len(), 1);
         assert_eq!(completions[0].label, "\\usepackage");
         assert_eq!(completions[0].kind.as_deref(), Some("keyword"));
-        assert_eq!(
-            completions[0].documentation.as_deref(),
-            Some("Load a package")
-        );
+        assert_eq!(completions[0].documentation.as_deref(), Some("Load a package"));
 
         let hover = map_hover(Some(&json!({
             "contents": { "kind": "markdown", "value": "Package amsmath" }
@@ -1003,9 +894,7 @@ mod tests {
             }
         };
         await_diagnostics(&|items| {
-            items
-                .iter()
-                .any(|item| item.message.to_lowercase().contains("undefined reference"))
+            items.iter().any(|item| item.message.to_lowercase().contains("undefined reference"))
         });
         let fixed = text.replace("See", "\\label{fixed} See");
         std::fs::write(root.join("main.tex"), &fixed).unwrap();
@@ -1022,9 +911,7 @@ mod tests {
         )
         .unwrap();
         await_diagnostics(&|items| {
-            items
-                .iter()
-                .any(|item| item.message.contains("Undefined control sequence"))
+            items.iter().any(|item| item.message.contains("Undefined control sequence"))
         });
         std::fs::write(root.join("main.log"), "").unwrap();
         await_diagnostics(&|items| items.is_empty());

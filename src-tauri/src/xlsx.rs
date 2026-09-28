@@ -46,13 +46,9 @@ mod tests {
     fn test_workbook() -> Vec<u8> {
         let mut bytes = Vec::new();
         let mut archive = ZipWriter::new(Cursor::new(&mut bytes));
-        archive
-            .start_file("[Content_Types].xml", SimpleFileOptions::default())
-            .unwrap();
+        archive.start_file("[Content_Types].xml", SimpleFileOptions::default()).unwrap();
         archive.write_all(b"<Types/>").unwrap();
-        archive
-            .start_file("xl/workbook.xml", SimpleFileOptions::default())
-            .unwrap();
+        archive.start_file("xl/workbook.xml", SimpleFileOptions::default()).unwrap();
         archive.write_all(b"<workbook/>").unwrap();
         archive.finish().unwrap();
         bytes
@@ -74,10 +70,8 @@ mod tests {
 
     #[test]
     fn rejects_wrong_extensions_and_non_excel_archives() {
-        let directory = std::env::temp_dir().join(format!(
-            "lattice-xlsx-export-invalid-{}",
-            uuid::Uuid::new_v4()
-        ));
+        let directory = std::env::temp_dir()
+            .join(format!("lattice-xlsx-export-invalid-{}", uuid::Uuid::new_v4()));
         fs::create_dir_all(&directory).unwrap();
 
         assert!(save_xlsx(&directory.join("results.csv"), &test_workbook()).is_err());

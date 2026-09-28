@@ -103,10 +103,7 @@ fn finish_active(active: &ActiveBuild) -> bool {
 }
 
 fn run_tracked_command(
-    mut command: Command,
-    active: &ActiveBuild,
-    start_error: &str,
-    wait_error: &str,
+    mut command: Command, active: &ActiveBuild, start_error: &str, wait_error: &str,
 ) -> Result<(Output, bool), String> {
     #[cfg(unix)]
     {
@@ -114,9 +111,7 @@ fn run_tracked_command(
         command.process_group(0);
     }
 
-    let child = command
-        .spawn()
-        .map_err(|error| format!("{start_error}{error}"))?;
+    let child = command.spawn().map_err(|error| format!("{start_error}{error}"))?;
     let pid = child.id();
     if let Err(error) = begin_active(active, pid) {
         terminate_process_group(pid);
@@ -124,9 +119,7 @@ fn run_tracked_command(
         return Err(error);
     }
 
-    let output = child
-        .wait_with_output()
-        .map_err(|error| format!("{wait_error}{error}"))?;
+    let output = child.wait_with_output().map_err(|error| format!("{wait_error}{error}"))?;
     Ok((output, finish_active(active)))
 }
 
@@ -199,11 +192,8 @@ fn draft_bibliography(aux: &str) -> DraftBibliography {
 }
 
 fn draft_prewarm_candidate(
-    root: &Path,
-    root_document: &Path,
-    document_path: &str,
-    manifest: &crate::models::ProjectManifest,
-    force: bool,
+    root: &Path, root_document: &Path, document_path: &str,
+    manifest: &crate::models::ProjectManifest, force: bool,
 ) -> bool {
     if force
         || manifest.trusted
@@ -277,9 +267,7 @@ fn remove_draft_prewarm_artifacts(root_document: &Path) {
 }
 
 fn run_draft_pdflatex(
-    root: &Path,
-    document_path: &str,
-    active: &ActiveBuild,
+    root: &Path, document_path: &str, active: &ActiveBuild,
 ) -> Result<(Output, bool), String> {
     let mut command = commands::command("pdflatex");
     command
@@ -302,20 +290,14 @@ fn run_draft_pdflatex(
 }
 
 fn run_draft_bibtex(
-    root: &Path,
-    document_path: &str,
-    active: &ActiveBuild,
+    root: &Path, document_path: &str, active: &ActiveBuild,
 ) -> Result<(Output, bool), String> {
     let stem = Path::new(document_path)
         .file_stem()
         .and_then(|name| name.to_str())
         .ok_or_else(|| "The root document does not have a valid BibTeX name.".to_string())?;
     let mut command = commands::command("bibtex");
-    command
-        .current_dir(root)
-        .arg(stem)
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped());
+    command.current_dir(root).arg(stem).stdout(Stdio::piped()).stderr(Stdio::piped());
     run_tracked_command(
         command,
         active,
@@ -331,10 +313,7 @@ fn run_draft_bibtex(
 /// as it needs. This only replaces its earliest full-output passes with cheaper
 /// draft passes, and deliberately declines custom or stateful build setups.
 fn prewarm_cold_pdf_build(
-    root: &Path,
-    force: bool,
-    active: &ActiveBuild,
-    started: Instant,
+    root: &Path, force: bool, active: &ActiveBuild, started: Instant,
 ) -> Result<Option<BuildResult>, String> {
     let manifest = project::read_manifest(root)?;
     let document = default_root_document(&manifest)?;
@@ -422,19 +401,13 @@ pub fn clean(root: &Path) -> Result<String, String> {
         String::from_utf8_lossy(&output.stderr)
     );
     if !output.status.success() {
-        return Err(format!(
-            "latexmk could not clean the project.\n{}",
-            trim_log(&log)
-        ));
+        return Err(format!("latexmk could not clean the project.\n{}", trim_log(&log)));
     }
     Ok(trim_log(&log))
 }
 
 pub fn build(
-    root: &Path,
-    force: bool,
-    active: &ActiveBuild,
-    open_document: Option<&str>,
+    root: &Path, force: bool, active: &ActiveBuild, open_document: Option<&str>,
 ) -> Result<BuildResult, String> {
     // Overleaf's compile rule: the file open in the editor wins when it is a
     // compilable root itself (\documentclass) or names one via `% !TEX root`.
@@ -458,10 +431,7 @@ pub fn build(
         let _ = clean(root);
         result = run_latexmk(root, true, active, started)?;
         if !result.log.is_empty() {
-            result.log = format!(
-                "Cleared a stale failed build, then rebuilt.\n\n{}",
-                result.log
-            );
+            result.log = format!("Cleared a stale failed build, then rebuilt.\n\n{}", result.log);
         }
     }
     // A PDF built by anything else leaves latexmk with nothing to do, and
@@ -509,10 +479,7 @@ fn latexmk_pdf_default(engine: &str) -> &'static str {
 }
 
 fn run_latexmk(
-    root: &Path,
-    force: bool,
-    active: &ActiveBuild,
-    started: Instant,
+    root: &Path, force: bool, active: &ActiveBuild, started: Instant,
 ) -> Result<BuildResult, String> {
     let manifest = project::read_manifest(root)?;
     let document = default_root_document(&manifest)?;
@@ -771,17 +738,11 @@ pub fn inverse_search(root: &Path, page: u32, x: f64, y: f64) -> Result<SyncTexT
             return Ok(target);
         }
     }
-    Ok(SyncTexTarget {
-        path: relative.to_string_lossy().to_string(),
-        line,
-    })
+    Ok(SyncTexTarget { path: relative.to_string_lossy().to_string(), line })
 }
 
 pub fn forward_search(
-    root: &Path,
-    path: &str,
-    line: u32,
-    column: u32,
+    root: &Path, path: &str, line: u32, column: u32,
 ) -> Result<Option<PdfSyncTarget>, String> {
     if line == 0 {
         return Err("Choose a source line before locating it in the PDF.".to_string());
@@ -805,16 +766,8 @@ pub fn forward_search(
     }
     let mut lookup_path = relative.clone();
     let mut lookup_line = line;
-    let mut lookup_column = if column == 0 {
-        0
-    } else {
-        column.saturating_sub(1)
-    };
-    if Path::new(&relative)
-        .extension()
-        .and_then(|value| value.to_str())
-        == Some("bib")
-    {
+    let mut lookup_column = if column == 0 { 0 } else { column.saturating_sub(1) };
+    if Path::new(&relative).extension().and_then(|value| value.to_str()) == Some("bib") {
         let bbl_path = Path::new(&document.path).with_extension("bbl");
         let Some(target) =
             project::bbl_target_for_bib(root, Path::new(&relative), &bbl_path, line)?
@@ -874,13 +827,7 @@ fn parse_synctex_view(output: &str) -> Result<Vec<PdfSyncTarget>, String> {
         if page == 0 {
             continue;
         }
-        targets.push(PdfSyncTarget {
-            page,
-            x,
-            y,
-            width,
-            height,
-        });
+        targets.push(PdfSyncTarget { page, x, y, width, height });
     }
     if !saw_result {
         return Err("SyncTeX output contained no result block.".to_string());
@@ -935,9 +882,8 @@ fn normalize_log_path(path: &str) -> String {
 /// that are not submissions at all.
 fn log_loads_conference_template(log: &str) -> bool {
     let styles = Regex::new(r"([A-Za-z0-9_\-]+\.sty)").unwrap();
-    let loaded = styles
-        .captures_iter(log)
-        .any(|capture| conference_template_venue(&capture[1]).is_some());
+    let loaded =
+        styles.captures_iter(log).any(|capture| conference_template_venue(&capture[1]).is_some());
     loaded
 }
 
@@ -973,11 +919,8 @@ fn parse_diagnostics(log: &str) -> Vec<Diagnostic> {
         .take(40)
         .map(|capture| {
             let message = capture[3].trim().to_string();
-            let level = if message.to_ascii_lowercase().contains("warning") {
-                "warning"
-            } else {
-                "error"
-            };
+            let level =
+                if message.to_ascii_lowercase().contains("warning") { "warning" } else { "error" };
             Diagnostic {
                 file: Some(normalize_log_path(&capture[1])),
                 line: capture[2].parse().ok(),
@@ -1159,10 +1102,7 @@ fn playwright_browser_missing(log: &str) -> Option<String> {
 }
 
 fn shell_word(value: &str) -> String {
-    if value
-        .bytes()
-        .all(|byte| byte.is_ascii_alphanumeric() || b"/._+-@%=:,".contains(&byte))
-    {
+    if value.bytes().all(|byte| byte.is_ascii_alphanumeric() || b"/._+-@%=:,".contains(&byte)) {
         value.to_string()
     } else {
         format!("'{}'", value.replace('\'', "'\"'\"'"))
@@ -1228,13 +1168,7 @@ fn trim_log(log: &str) -> String {
 
 fn strip_latexmk_preamble(log: &str) -> String {
     let mut start = 0usize;
-    for marker in [
-        "This is pdfTeX",
-        "This is XeTeX",
-        "This is LuaTeX",
-        "This is TeX",
-        "LaTeX2e",
-    ] {
+    for marker in ["This is pdfTeX", "This is XeTeX", "This is LuaTeX", "This is TeX", "LaTeX2e"] {
         if let Some(index) = log.find(marker) {
             if start == 0 || index < start {
                 start = index;
@@ -1265,11 +1199,7 @@ mod tests {
         let root = temp_root();
         fs::create_dir_all(&root).unwrap();
         project::write_manifest(&root, &project::default_manifest("paper")).unwrap();
-        fs::write(
-            root.join(".latexmkrc"),
-            "# Asset rules, no engine selection.\n",
-        )
-        .unwrap();
+        fs::write(root.join(".latexmkrc"), "# Asset rules, no engine selection.\n").unwrap();
         // The repair agent forced PDF output inside a DVI-targeted build.
         // Both citation and label resolution must converge, not just emit a PDF.
         fs::write(
@@ -1300,11 +1230,7 @@ mod tests {
         fs::create_dir_all(&root).unwrap();
         for (engine, fallback) in [("pdf", 1), ("xelatex", 5), ("lualatex", 4)] {
             for configured in [0, 1, 2, 3, 4, 5] {
-                fs::write(
-                    root.join(".latexmkrc"),
-                    format!("$pdf_mode = {configured};\n"),
-                )
-                .unwrap();
+                fs::write(root.join(".latexmkrc"), format!("$pdf_mode = {configured};\n")).unwrap();
                 let output = commands::command("latexmk")
                     .current_dir(&root)
                     .arg("-e")
@@ -1313,11 +1239,7 @@ mod tests {
                     .arg("print qq(LATTICE_MODE=$pdf_mode\\n); exit 0;")
                     .output()
                     .unwrap();
-                let expected = if configured == 0 {
-                    fallback
-                } else {
-                    configured
-                };
+                let expected = if configured == 0 { fallback } else { configured };
                 assert!(output.status.success());
                 assert!(String::from_utf8_lossy(&output.stdout)
                     .contains(&format!("LATTICE_MODE={expected}\n")));
@@ -1341,14 +1263,8 @@ mod tests {
         .join();
         assert!(active.lock().is_err(), "the lock should now be poisoned");
 
-        assert!(
-            !finish_active(&active),
-            "a poisoned lock is not a cancellation"
-        );
-        assert!(
-            !abort(&active).unwrap(),
-            "nothing is running, so there is nothing to abort"
-        );
+        assert!(!finish_active(&active), "a poisoned lock is not a cancellation");
+        assert!(!abort(&active).unwrap(), "nothing is running, so there is nothing to abort");
 
         // And the state machine is still usable afterwards. No pid is aborted
         // here on purpose: abort() signals a whole process group, and a made-up
@@ -1358,10 +1274,7 @@ mod tests {
             begin_active(&active, std::process::id()).is_err(),
             "a second build is still refused while one is registered",
         );
-        assert!(
-            !finish_active(&active),
-            "an uncancelled build reports its own result"
-        );
+        assert!(!finish_active(&active), "an uncancelled build reports its own result");
     }
 
     #[test]
@@ -1401,10 +1314,7 @@ mod tests {
             draft_bibliography("\\@input{chapters/results.aux}\n"),
             DraftBibliography::Unsupported
         );
-        assert_eq!(
-            draft_bibliography("\\bibdata{references}\n"),
-            DraftBibliography::Unsupported
-        );
+        assert_eq!(draft_bibliography("\\bibdata{references}\n"), DraftBibliography::Unsupported);
     }
 
     #[test]
@@ -1429,58 +1339,25 @@ mod tests {
         fs::write(&root_document, "\\documentclass{article}\n").unwrap();
         let manifest = project::default_manifest("paper");
 
-        assert!(draft_prewarm_candidate(
-            &root,
-            &root_document,
-            "main.tex",
-            &manifest,
-            false
-        ));
-        assert!(!draft_prewarm_candidate(
-            &root,
-            &root_document,
-            "main.tex",
-            &manifest,
-            true
-        ));
+        assert!(draft_prewarm_candidate(&root, &root_document, "main.tex", &manifest, false));
+        assert!(!draft_prewarm_candidate(&root, &root_document, "main.tex", &manifest, true));
 
         let mut trusted = manifest.clone();
         trusted.trusted = true;
-        assert!(!draft_prewarm_candidate(
-            &root,
-            &root_document,
-            "main.tex",
-            &trusted,
-            false
-        ));
+        assert!(!draft_prewarm_candidate(&root, &root_document, "main.tex", &trusted, false));
 
         fs::write(root.join("main.aux"), "generated").unwrap();
-        assert!(!draft_prewarm_candidate(
-            &root,
-            &root_document,
-            "main.tex",
-            &manifest,
-            false
-        ));
+        assert!(!draft_prewarm_candidate(&root, &root_document, "main.tex", &manifest, false));
         fs::remove_file(root.join("main.aux")).unwrap();
         fs::write(root.join("latexmkrc"), "$pdf_mode = 1;").unwrap();
-        assert!(!draft_prewarm_candidate(
-            &root,
-            &root_document,
-            "main.tex",
-            &manifest,
-            false
-        ));
+        assert!(!draft_prewarm_candidate(&root, &root_document, "main.tex", &manifest, false));
         fs::remove_dir_all(parent).unwrap();
     }
 
     #[test]
     fn parses_inverse_synctex_locations() {
         let output = "SyncTeX result begin\nOutput:main.pdf\nInput:/tmp/paper/main.tex\nLine:33\nColumn:-1\nSyncTeX result end\n";
-        assert_eq!(
-            parse_synctex_edit(output).unwrap(),
-            ("/tmp/paper/main.tex".to_string(), 33)
-        );
+        assert_eq!(parse_synctex_edit(output).unwrap(), ("/tmp/paper/main.tex".to_string(), 33));
     }
 
     #[test]
@@ -1536,10 +1413,8 @@ mod tests {
 
     #[test]
     fn rejects_malformed_forward_synctex_result() {
-        assert!(
-            parse_synctex_view("SyncTeX result begin\nPage:not-a-page\nSyncTeX result end")
-                .is_err()
-        );
+        assert!(parse_synctex_view("SyncTeX result begin\nPage:not-a-page\nSyncTeX result end")
+            .is_err());
     }
 
     #[test]
@@ -1654,9 +1529,7 @@ Latexmk: Stopping because of problem with rc file
         );
         assert_eq!(diagnostics.len(), 1, "{diagnostics:?}");
         assert!(
-            diagnostics[0]
-                .message
-                .contains(".latexmkrc failed: Figure export failed."),
+            diagnostics[0].message.contains(".latexmkrc failed: Figure export failed."),
             "{diagnostics:?}"
         );
     }
@@ -1697,16 +1570,10 @@ Latexmk: Stopping because of problem with rc file
         .unwrap();
         let result = build(&root, false, &new_active_build(), None).unwrap();
         assert!(!result.success, "{}", result.log);
-        assert!(
-            result.log.contains("problem with rc file"),
-            "{}",
-            result.log
-        );
+        assert!(result.log.contains("problem with rc file"), "{}", result.log);
         assert_eq!(result.diagnostics.len(), 1, "{:?}", result.diagnostics);
         assert!(
-            result.diagnostics[0]
-                .message
-                .contains("-m playwright install chromium"),
+            result.diagnostics[0].message.contains("-m playwright install chromium"),
             "{:?}",
             result.diagnostics
         );
@@ -1724,12 +1591,7 @@ Latexmk: Stopping because of problem with rc file
 
     #[test]
     fn recognizes_missing_classes_and_bibliography_styles() {
-        for missing in [
-            "acmart.cls",
-            "plainnat.bst",
-            "authoryear.bbx",
-            "numeric.cbx",
-        ] {
+        for missing in ["acmart.cls", "plainnat.bst", "authoryear.bbx", "numeric.cbx"] {
             let diagnostics = parse_diagnostics(&format!(
                 "./main.tex:3: LaTeX Error: File `{missing}' not found.\n"
             ));
@@ -1740,8 +1602,7 @@ Latexmk: Stopping because of problem with rc file
                     panic!("expected a dependency repair hint for {missing}, got {diagnostics:?}")
                 });
             assert!(
-                hint.message
-                    .starts_with(&format!("Missing LaTeX dependency `{missing}`.")),
+                hint.message.starts_with(&format!("Missing LaTeX dependency `{missing}`.")),
                 "dependency name must not retain a log quote: {}",
                 hint.message
             );
@@ -1752,9 +1613,7 @@ Latexmk: Stopping because of problem with rc file
     fn a_pdf_someone_else_built_still_gets_its_synctex_written() {
         // latexmk's answer when the PDF is already current.
         assert!(skipped_recompile("Latexmk: Nothing to do for 'main.tex'."));
-        assert!(skipped_recompile(
-            "Latexmk: All targets (main.pdf) are up-to-date"
-        ));
+        assert!(skipped_recompile("Latexmk: All targets (main.pdf) are up-to-date"));
         // A run that actually typeset must not be repeated.
         assert!(!skipped_recompile("Latexmk: applying rule 'pdflatex'..."));
     }
@@ -1770,10 +1629,7 @@ Latexmk: Stopping because of problem with rc file
             !message.contains("usage:") && !message.contains("page:x:y:file"),
             "must not paste synctex's manual into the UI: {message}"
         );
-        assert!(
-            message.contains("Build"),
-            "must say how to fix it: {message}"
-        );
+        assert!(message.contains("Build"), "must say how to fix it: {message}");
     }
 
     #[test]
@@ -1849,9 +1705,7 @@ Latexmk: Stopping because of problem with rc file
         assert_eq!(diagnostics[0].level, "error");
         assert_eq!(diagnostics[1].file.as_deref(), Some("main.tex"));
         assert_eq!(diagnostics[1].level, "warning");
-        assert!(diagnostics
-            .iter()
-            .any(|item| item.file.is_none() && item.level == "warning"));
+        assert!(diagnostics.iter().any(|item| item.file.is_none() && item.level == "warning"));
     }
 
     #[test]

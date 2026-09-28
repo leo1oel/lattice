@@ -64,10 +64,7 @@ pub(crate) fn citation(html: &str, url: &str) -> Option<String> {
     let mut meta: BTreeMap<String, Vec<String>> = BTreeMap::new();
     for element in document.select(&Selector::parse("meta").unwrap()) {
         if let (Some(name), Some(content)) = (
-            element
-                .value()
-                .attr("name")
-                .or_else(|| element.value().attr("property")),
+            element.value().attr("name").or_else(|| element.value().attr("property")),
             element.value().attr("content"),
         ) {
             let content = text(content);
@@ -82,24 +79,17 @@ pub(crate) fn citation(html: &str, url: &str) -> Option<String> {
     }
     // A JavaScript application can expose only its generic site title before
     // rendering (for example "Tencent Hy"). That is not the article title.
-    if document
-        .select(&Selector::parse("script[src]").unwrap())
-        .next()
-        .is_some()
-    {
+    if document.select(&Selector::parse("script[src]").unwrap()).next().is_some() {
         let body_chars = document
             .select(&Selector::parse("body").unwrap())
             .flat_map(|body| body.descendants())
             .filter(|node| {
-                !node
-                    .ancestors()
-                    .filter_map(scraper::ElementRef::wrap)
-                    .any(|ancestor| {
-                        matches!(
-                            ancestor.value().name(),
-                            "script" | "style" | "noscript" | "nav" | "footer"
-                        )
-                    })
+                !node.ancestors().filter_map(scraper::ElementRef::wrap).any(|ancestor| {
+                    matches!(
+                        ancestor.value().name(),
+                        "script" | "style" | "noscript" | "nav" | "footer"
+                    )
+                })
             })
             .filter_map(|node| node.value().as_text())
             .flat_map(|value| value.chars())
@@ -111,9 +101,7 @@ pub(crate) fn citation(html: &str, url: &str) -> Option<String> {
         }
     }
     let first = |names: &[&str]| {
-        names
-            .iter()
-            .find_map(|name| meta.get(*name).and_then(|values| values.first()).cloned())
+        names.iter().find_map(|name| meta.get(*name).and_then(|values| values.first()).cloned())
     };
     let mut title = first(&["citation_title", "og:title", "twitter:title"])
         .or_else(|| {
@@ -176,10 +164,7 @@ pub(crate) fn citation(html: &str, url: &str) -> Option<String> {
                 .is_some_and(|headline| text(headline) == title),
         }
     });
-    if let Some(headline) = article
-        .and_then(|a| a.get("headline"))
-        .and_then(Value::as_str)
-    {
+    if let Some(headline) = article.and_then(|a| a.get("headline")).and_then(Value::as_str) {
         if !headline.trim().is_empty() {
             title = text(headline);
         }
@@ -200,21 +185,13 @@ pub(crate) fn citation(html: &str, url: &str) -> Option<String> {
         // Some publishers list every byline author here but only the first
         // author in JSON-LD. Preserve the explicit complete list.
         authors.extend(
-            value
-                .split(',')
-                .map(text)
-                .filter(|name| !name.is_empty())
-                .map(|name| bib_text(&name)),
+            value.split(',').map(text).filter(|name| !name.is_empty()).map(|name| bib_text(&name)),
         );
     } else if let Some(value) = article.and_then(|article| article.get("author")) {
-        let values: Vec<&Value> = value
-            .as_array()
-            .map(|items| items.iter().collect())
-            .unwrap_or_else(|| vec![value]);
+        let values: Vec<&Value> =
+            value.as_array().map(|items| items.iter().collect()).unwrap_or_else(|| vec![value]);
         for value in values {
-            if let Some(name) = value
-                .as_str()
-                .or_else(|| value.get("name").and_then(Value::as_str))
+            if let Some(name) = value.as_str().or_else(|| value.get("name").and_then(Value::as_str))
             {
                 let name = bib_text(&text(name));
                 authors.push(
@@ -246,10 +223,7 @@ pub(crate) fn citation(html: &str, url: &str) -> Option<String> {
     if authors.is_empty() {
         if let Some(publisher) = first(&["og:site_name"])
             .or_else(|| {
-                article
-                    .and_then(|a| a.pointer("/publisher/name"))
-                    .and_then(Value::as_str)
-                    .map(text)
+                article.and_then(|a| a.pointer("/publisher/name")).and_then(Value::as_str).map(text)
             })
             .or_else(|| {
                 // A site suffix is publisher evidence only when the rest of the
@@ -278,12 +252,7 @@ pub(crate) fn citation(html: &str, url: &str) -> Option<String> {
     .filter_map(|name| meta.get(*name))
     .flatten()
     .find_map(|value| year(value))
-    .or_else(|| {
-        article
-            .and_then(|a| a.get("datePublished"))
-            .and_then(Value::as_str)
-            .and_then(year)
-    })
+    .or_else(|| article.and_then(|a| a.get("datePublished")).and_then(Value::as_str).and_then(year))
     .or_else(|| {
         document
             .select(&Selector::parse("time, [class*='date'], [class*='Date']").unwrap())
@@ -317,10 +286,7 @@ pub(crate) fn citation(html: &str, url: &str) -> Option<String> {
         let heading = document
             .select(&Selector::parse("h1").unwrap())
             .find(|element| text(&element.text().collect::<String>()) == title)?;
-        let previous = heading
-            .prev_siblings()
-            .filter_map(scraper::ElementRef::wrap)
-            .next()?;
+        let previous = heading.prev_siblings().filter_map(scraper::ElementRef::wrap).next()?;
         let label = text(&previous.text().collect::<String>());
         year(label.split('·').next()?.trim())
     });
@@ -337,10 +303,7 @@ pub(crate) fn citation(html: &str, url: &str) -> Option<String> {
     if let Some(ref year) = published {
         fields.push(format!("  year = {{{year}}}"));
     }
-    let url = url
-        .replace('{', "%7B")
-        .replace('}', "%7D")
-        .replace('\\', "%5C");
+    let url = url.replace('{', "%7B").replace('}', "%7D").replace('\\', "%5C");
     fields.push(format!("  url = {{{url}}}"));
     Some(format!(
         "@misc{{{}{},\n{}\n}}",

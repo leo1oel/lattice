@@ -158,22 +158,13 @@ mod platform {
             {
                 return Err("Symbolic links cannot be moved or renamed.".into());
             }
-            match fs::statat(
-                &destination_parent,
-                &destination_name,
-                AtFlags::SYMLINK_NOFOLLOW,
-            ) {
+            match fs::statat(&destination_parent, &destination_name, AtFlags::SYMLINK_NOFOLLOW) {
                 Ok(_) => return Err("A file or folder already exists with that name.".into()),
                 Err(rustix::io::Errno::NOENT) => {}
                 Err(error_value) => return Err(error(error_value)),
             }
-            fs::renameat(
-                &source_parent,
-                &source_name,
-                &destination_parent,
-                &destination_name,
-            )
-            .map_err(error)
+            fs::renameat(&source_parent, &source_name, &destination_parent, &destination_name)
+                .map_err(error)
         }
 
         pub fn remove(&self, relative: &str) -> Result<(), String> {
@@ -212,9 +203,7 @@ mod platform {
                 .filter_map(Result::ok)
                 .filter_map(|entry| {
                     let bytes = entry.file_name().to_bytes();
-                    bytes
-                        .ends_with(b".json")
-                        .then(|| entry.file_name().to_owned())
+                    bytes.ends_with(b".json").then(|| entry.file_name().to_owned())
                 })
                 .collect::<Vec<_>>();
             names.sort();
@@ -274,9 +263,7 @@ pub struct ProjectDir {
 #[cfg(not(unix))]
 impl ProjectDir {
     pub fn open(root: &Path) -> Result<Self, String> {
-        Ok(Self {
-            root: root.canonicalize().map_err(|error| error.to_string())?,
-        })
+        Ok(Self { root: root.canonicalize().map_err(|error| error.to_string())? })
     }
     pub fn atomic_write(&self, relative: &str, bytes: &[u8]) -> Result<(), String> {
         let path = crate::project::creation_path(&self.root, relative)?;

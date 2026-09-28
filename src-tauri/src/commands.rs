@@ -104,18 +104,11 @@ fn configure_bibcite(command: Command) -> Result<Command, String> {
     let openalex = crate::literature_credentials::openalex_key()?;
     let semanticscholar = crate::literature_credentials::semanticscholar_key()?;
     let contact = crate::literature_credentials::crossref_contact()?;
-    Ok(configure_bibcite_env(
-        command,
-        openalex,
-        semanticscholar,
-        contact,
-    ))
+    Ok(configure_bibcite_env(command, openalex, semanticscholar, contact))
 }
 
 fn configure_bibcite_env(
-    mut command: Command,
-    openalex: Option<String>,
-    semanticscholar: Option<String>,
+    mut command: Command, openalex: Option<String>, semanticscholar: Option<String>,
     contact: Option<String>,
 ) -> Command {
     command.env_remove("OPENALEX_API_KEY");
@@ -127,10 +120,7 @@ fn configure_bibcite_env(
     // 0.6.10 caches publication matches by title without author/ID context.
     // Do not replay a cached candidate as independently verified metadata.
     command.env("BIBCITE_NO_CACHE", "1");
-    command.env(
-        "BIBCITE_PUBLIC_SERVICE_URL",
-        crate::literature_service::ENDPOINT,
-    );
+    command.env("BIBCITE_PUBLIC_SERVICE_URL", crate::literature_service::ENDPOINT);
     if let Some(key) = openalex {
         command.env("OPENALEX_API_KEY", key);
     }
@@ -186,9 +176,7 @@ pub(crate) fn bibcite_output(command: &mut Command, timeout: Duration) -> Result
 }
 
 pub(crate) fn bibcite_output_cancellable(
-    command: &mut Command,
-    timeout: Duration,
-    cancel: &AtomicBool,
+    command: &mut Command, timeout: Duration, cancel: &AtomicBool,
 ) -> Result<Output, String> {
     if cancel.load(Ordering::Acquire) {
         return Err("Paper import cancelled.".to_string());
@@ -197,12 +185,8 @@ pub(crate) fn bibcite_output_cancellable(
     let stdout_path = capture.path.join("stdout");
     let stderr_path = capture.path.join("stderr");
     command
-        .stdout(Stdio::from(
-            fs::File::create(&stdout_path).map_err(|error| error.to_string())?,
-        ))
-        .stderr(Stdio::from(
-            fs::File::create(&stderr_path).map_err(|error| error.to_string())?,
-        ));
+        .stdout(Stdio::from(fs::File::create(&stdout_path).map_err(|error| error.to_string())?))
+        .stderr(Stdio::from(fs::File::create(&stderr_path).map_err(|error| error.to_string())?));
 
     #[cfg(unix)]
     {
@@ -210,9 +194,7 @@ pub(crate) fn bibcite_output_cancellable(
         command.process_group(0);
     }
 
-    let mut child = command
-        .spawn()
-        .map_err(|error| format!("could not start bibcite: {error}"))?;
+    let mut child = command.spawn().map_err(|error| format!("could not start bibcite: {error}"))?;
     let deadline = Instant::now() + timeout;
     loop {
         match child.try_wait() {
@@ -270,10 +252,8 @@ struct BibciteCapture {
 
 impl BibciteCapture {
     fn new() -> Result<Self, String> {
-        let path = env::temp_dir().join(format!(
-            "lattice-bibcite-output-{}",
-            uuid::Uuid::new_v4().simple()
-        ));
+        let path = env::temp_dir()
+            .join(format!("lattice-bibcite-output-{}", uuid::Uuid::new_v4().simple()));
         let mut builder = fs::DirBuilder::new();
         #[cfg(unix)]
         {
@@ -386,10 +366,7 @@ pub(crate) fn uv_tool_status_at(path: &Path, name: &str) -> Result<(), String> {
         .map_err(|error| format!("{} is not installed: {error}", path.display()))?;
     if !metadata.file_type().is_file() || metadata.file_type().is_symlink() || !is_executable(path)
     {
-        return Err(format!(
-            "{} is not a regular executable file.",
-            path.display()
-        ));
+        return Err(format!("{} is not a regular executable file.", path.display()));
     }
     let output = Command::new(path)
         .arg("--version")
@@ -460,11 +437,7 @@ fn child_path() -> OsString {
 /// directory under Resources and the launcher shares Chromium's Node runtime.
 fn bundled_tools_dir() -> Option<PathBuf> {
     if tauri::is_dev() {
-        return Some(
-            PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-                .join("synara-runtime")
-                .join("bin"),
-        );
+        return Some(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("synara-runtime").join("bin"));
     }
 
     #[cfg(target_os = "macos")]
@@ -478,10 +451,7 @@ fn bundled_tools_dir() -> Option<PathBuf> {
 
     #[cfg(not(target_os = "macos"))]
     {
-        env::current_exe()
-            .ok()?
-            .parent()
-            .map(|directory| directory.join("synara-runtime/bin"))
+        env::current_exe().ok()?.parent().map(|directory| directory.join("synara-runtime/bin"))
     }
 }
 
@@ -520,9 +490,7 @@ fn command_directories() -> Vec<PathBuf> {
 fn discover_tex_directories() -> Vec<PathBuf> {
     let mut directories = vec![PathBuf::from("/Library/TeX/texbin")];
     directories.extend(discover_texlive_bins(PathBuf::from("/usr/local/texlive")));
-    directories.extend(discover_texlive_bins(PathBuf::from(
-        "/opt/homebrew/texlive",
-    )));
+    directories.extend(discover_texlive_bins(PathBuf::from("/opt/homebrew/texlive")));
     directories
 }
 
@@ -557,10 +525,7 @@ fn macos_path_helper_directories() -> Vec<PathBuf> {
 
     #[cfg(target_os = "macos")]
     {
-        let output = Command::new("/usr/libexec/path_helper")
-            .arg("-s")
-            .output()
-            .ok();
+        let output = Command::new("/usr/libexec/path_helper").arg("-s").output().ok();
         let Some(output) = output else {
             return Vec::new();
         };
@@ -620,10 +585,8 @@ mod tests {
     fn availability_requires_permission_to_execute() {
         use std::os::unix::fs::PermissionsExt;
 
-        let path = std::env::temp_dir().join(format!(
-            "lattice-command-permission-{}",
-            uuid::Uuid::new_v4().simple()
-        ));
+        let path = std::env::temp_dir()
+            .join(format!("lattice-command-permission-{}", uuid::Uuid::new_v4().simple()));
         fs::write(&path, "#!/bin/sh\nexit 0\n").unwrap();
         fs::set_permissions(&path, fs::Permissions::from_mode(0o600)).unwrap();
         assert!(!is_executable(&path));
@@ -641,13 +604,9 @@ mod tests {
             let managed_uvx = PathBuf::from("/lattice-managed/uvx");
             let command = tool.configured_uvx_command(managed_uvx.clone());
             assert_eq!(command.get_program(), managed_uvx);
-            let args: Vec<_> = command
-                .get_args()
-                .map(|arg| arg.to_string_lossy().into_owned())
-                .collect();
-            assert!(args
-                .windows(2)
-                .any(|pair| pair == ["--from", tool.requirement]));
+            let args: Vec<_> =
+                command.get_args().map(|arg| arg.to_string_lossy().into_owned()).collect();
+            assert!(args.windows(2).any(|pair| pair == ["--from", tool.requirement]));
         }
         // An exact pin, never `@latest`: a floating requirement makes uvx
         // refresh PyPI metadata on every bibcite invocation, which put a
@@ -683,14 +642,8 @@ mod tests {
             Some(crate::literature_service::ENDPOINT)
         );
         assert_eq!(envs["S2_API_KEY"].as_deref(), Some("semantic-saved"));
-        assert_eq!(
-            envs["SEMANTIC_SCHOLAR_API_KEY"].as_deref(),
-            Some("semantic-saved")
-        );
-        assert_eq!(
-            envs["BIBCITE_MAILTO"].as_deref(),
-            Some("person@example.org")
-        );
+        assert_eq!(envs["SEMANTIC_SCHOLAR_API_KEY"].as_deref(), Some("semantic-saved"));
+        assert_eq!(envs["BIBCITE_MAILTO"].as_deref(), Some("person@example.org"));
 
         let command = configure_bibcite_env(Command::new("bibcite"), None, None, None);
         let envs = command
@@ -730,10 +683,8 @@ mod tests {
     #[cfg(unix)]
     #[test]
     fn bibcite_output_timeout_terminates_descendants() {
-        let pid_file = env::temp_dir().join(format!(
-            "lattice-bibcite-descendant-{}",
-            uuid::Uuid::new_v4().simple()
-        ));
+        let pid_file = env::temp_dir()
+            .join(format!("lattice-bibcite-descendant-{}", uuid::Uuid::new_v4().simple()));
         let mut command = bibcite_helper_command("parent");
         command.env("LATTICE_BIBCITE_TEST_PID_FILE", &pid_file);
         let error = bibcite_output(&mut command, Duration::from_millis(500)).unwrap_err();
@@ -774,21 +725,13 @@ mod tests {
             std::thread::sleep(Duration::from_millis(10));
         }
         fs::remove_file(pid_file).unwrap();
-        assert_eq!(
-            unsafe { libc::kill(pid, 0) },
-            -1,
-            "converter survived cancellation"
-        );
+        assert_eq!(unsafe { libc::kill(pid, 0) }, -1, "converter survived cancellation");
     }
 
     fn bibcite_helper_command(mode: &str) -> Command {
         let mut command = Command::new(env::current_exe().unwrap());
         command
-            .args([
-                "--exact",
-                "commands::tests::bibcite_output_helper",
-                "--nocapture",
-            ])
+            .args(["--exact", "commands::tests::bibcite_output_helper", "--nocapture"])
             .env("LATTICE_BIBCITE_TEST_HELPER", mode);
         command
     }
@@ -797,13 +740,9 @@ mod tests {
     fn bibcite_output_helper() {
         match env::var("LATTICE_BIBCITE_TEST_HELPER").as_deref() {
             Ok("output") => {
-                std::io::stdout()
-                    .write_all(&vec![b'o'; 256 * 1024])
-                    .unwrap();
+                std::io::stdout().write_all(&vec![b'o'; 256 * 1024]).unwrap();
                 std::io::stdout().write_all(b"test-secret").unwrap();
-                std::io::stderr()
-                    .write_all(&vec![b'e'; 256 * 1024])
-                    .unwrap();
+                std::io::stderr().write_all(&vec![b'e'; 256 * 1024]).unwrap();
                 std::io::stderr().write_all(b"test-secret").unwrap();
             }
             Ok("parent") => {

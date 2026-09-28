@@ -150,10 +150,7 @@ fn normalize_converter_ordered_items(markdown: &str) -> String {
                 .then_some((number, remainder))
             })
         } else if let Some(after_bullet) = trimmed.strip_prefix("- ") {
-            let digits = after_bullet
-                .chars()
-                .take_while(|ch| ch.is_ascii_digit())
-                .count();
+            let digits = after_bullet.chars().take_while(|ch| ch.is_ascii_digit()).count();
             let number = &after_bullet[..digits];
             let after_number = &after_bullet[digits..];
             let delimiter = after_number.chars().next();
@@ -174,10 +171,7 @@ fn normalize_converter_ordered_items(markdown: &str) -> String {
 
         let mut body = remainder.trim().to_string();
         let mut consumed = 1;
-        while let Some(next) = lines
-            .get(index + consumed)
-            .filter(|next| !next.trim().is_empty())
-        {
+        while let Some(next) = lines.get(index + consumed).filter(|next| !next.trim().is_empty()) {
             let next_trimmed = next.trim_start();
             let next_indent = next.len() - next_trimmed.len();
             if next_indent < indent.len() || is_block_start(next_trimmed) {
@@ -209,10 +203,7 @@ fn is_block_start(line: &str) -> bool {
         let digits = trimmed.chars().take_while(|c| c.is_ascii_digit()).count();
         digits > 0
             && trimmed[digits..].starts_with(['.', ')'])
-            && trimmed[digits + 1..]
-                .chars()
-                .next()
-                .is_none_or(|c| c == ' ')
+            && trimmed[digits + 1..].chars().next().is_none_or(|c| c == ' ')
     };
     trimmed.starts_with('#')
         || trimmed.starts_with("- ")
@@ -368,11 +359,7 @@ fn link_contents_entries(markdown: &str) -> String {
                 continue;
             }
             let count = slug_counts.entry(base.clone()).or_insert(0);
-            let slug = if *count == 0 {
-                base.clone()
-            } else {
-                format!("{base}-{count}")
-            };
+            let slug = if *count == 0 { base.clone() } else { format!("{base}-{count}") };
             *count += 1;
             headings.push((text, slug));
         }
@@ -393,10 +380,8 @@ fn link_contents_entries(markdown: &str) -> String {
         let text = text.trim();
         // Consume matches in order: the table of contents mirrors document
         // order, so duplicate section names resolve to distinct headings.
-        let matched = headings
-            .iter()
-            .enumerate()
-            .find(|(i, (heading, _))| !consumed[*i] && heading == text);
+        let matched =
+            headings.iter().enumerate().find(|(i, (heading, _))| !consumed[*i] && heading == text);
         if let Some((i, (_, slug))) = matched {
             consumed[i] = true;
             let indent = &line[..line.len() - trimmed.len()];
@@ -480,44 +465,23 @@ pub enum HistoryMode {
 /// the spinner is waiting on. The agent CLI path and tests pass the no-op.
 #[cfg(test)]
 pub fn import_reference_with_progress(
-    root: &Path,
-    input: &str,
-    progress: &dyn Fn(&str),
+    root: &Path, input: &str, progress: &dyn Fn(&str),
 ) -> Result<ImportResult, String> {
     import_reference_cancellable(root, input, progress, &AtomicBool::new(false))
 }
 
 pub fn import_reference_cancellable(
-    root: &Path,
-    input: &str,
-    progress: &dyn Fn(&str),
-    cancel: &AtomicBool,
+    root: &Path, input: &str, progress: &dyn Fn(&str), cancel: &AtomicBool,
 ) -> Result<ImportResult, String> {
     let manifest = project::read_manifest(root)?;
-    import_citation(
-        root,
-        &manifest,
-        input,
-        HistoryMode::Record,
-        progress,
-        cancel,
-    )
+    import_citation(root, &manifest, input, HistoryMode::Record, progress, cancel)
 }
 
 pub(crate) fn import_reference_with_history(
-    root: &Path,
-    input: &str,
-    history: HistoryMode,
+    root: &Path, input: &str, history: HistoryMode,
 ) -> Result<ImportResult, String> {
     let manifest = project::read_manifest(root)?;
-    import_citation(
-        root,
-        &manifest,
-        input,
-        history,
-        &|_| {},
-        &AtomicBool::new(false),
-    )
+    import_citation(root, &manifest, input, history, &|_| {}, &AtomicBool::new(false))
 }
 
 /// Cache a complete, unfiltered arxiv2md conversion without touching the bibliography.
@@ -527,18 +491,13 @@ pub fn fetch_paper(root: &Path, requested: &str) -> Result<FetchResult, String> 
 
 /// See `import_reference_with_progress` for the stage contract.
 pub fn fetch_paper_with_progress(
-    root: &Path,
-    requested: &str,
-    progress: &dyn Fn(&str),
+    root: &Path, requested: &str, progress: &dyn Fn(&str),
 ) -> Result<FetchResult, String> {
     fetch_paper_with_progress_and_cancel(root, requested, progress, &AtomicBool::new(false))
 }
 
 fn fetch_paper_with_progress_and_cancel(
-    root: &Path,
-    requested: &str,
-    progress: &dyn Fn(&str),
-    cancel: &AtomicBool,
+    root: &Path, requested: &str, progress: &dyn Fn(&str), cancel: &AtomicBool,
 ) -> Result<FetchResult, String> {
     if cancel.load(Ordering::Acquire) {
         return Err("Paper import cancelled.".to_string());
@@ -638,10 +597,7 @@ fn fetch_paper_with_progress_and_cancel(
         validate_paper_bundle(&output_dir, &metadata)?;
         fs::write(
             output_dir.join("metadata.json"),
-            format!(
-                "{}\n",
-                serde_json::to_string_pretty(&metadata).map_err(err)?
-            ),
+            format!("{}\n", serde_json::to_string_pretty(&metadata).map_err(err)?),
         )
         .map_err(err)?;
         progress("overview");
@@ -717,16 +673,12 @@ fn fetch_paper_with_progress_and_cancel(
 }
 
 fn cache_overview_without_full_text(
-    dir: &Path,
-    blog: Option<&str>,
-    error: &str,
+    dir: &Path, blog: Option<&str>, error: &str,
 ) -> Result<(), String> {
     if cached_paper_has_body(&dir.join("blog.md")) {
         return Ok(());
     }
-    let blog = blog
-        .filter(|blog| markdown_has_body(blog))
-        .ok_or_else(|| error.to_string())?;
+    let blog = blog.filter(|blog| markdown_has_body(blog)).ok_or_else(|| error.to_string())?;
     fs::create_dir_all(dir).map_err(err)?;
     fs::write(dir.join("blog.md"), blog).map_err(err)
 }
@@ -748,10 +700,7 @@ fn is_pdf_url(url: &str) -> bool {
     reqwest::Url::parse(url).is_ok_and(|url| {
         matches!(url.scheme(), "http" | "https")
             && url.path().to_ascii_lowercase().ends_with(".pdf")
-            && !matches!(
-                url.host_str(),
-                Some("arxiv.org" | "www.arxiv.org" | "export.arxiv.org")
-            )
+            && !matches!(url.host_str(), Some("arxiv.org" | "www.arxiv.org" | "export.arxiv.org"))
     })
 }
 
@@ -764,18 +713,13 @@ pub fn fetch_web_reference(root: &Path, url: &str) -> Result<FetchResult, String
 }
 
 fn fetch_web_reference_with_page(
-    root: &Path,
-    url: &str,
-    page: Option<crate::firecrawl::ScrapedPage>,
+    root: &Path, url: &str, page: Option<crate::firecrawl::ScrapedPage>,
 ) -> Result<FetchResult, String> {
     fetch_web_reference_with_page_and_cancel(root, url, page, &AtomicBool::new(false))
 }
 
 fn fetch_web_reference_with_page_and_cancel(
-    root: &Path,
-    url: &str,
-    page: Option<crate::firecrawl::ScrapedPage>,
-    cancel: &AtomicBool,
+    root: &Path, url: &str, page: Option<crate::firecrawl::ScrapedPage>, cancel: &AtomicBool,
 ) -> Result<FetchResult, String> {
     if cancel.load(Ordering::Acquire) {
         return Err("Paper import cancelled.".to_string());
@@ -826,64 +770,64 @@ fn fetch_web_reference_with_page_and_cancel(
         // Direct PDFs have no HTML title and must not go through the webpage
         // scraper. Reuse its URL-keyed bundle so readers and bibliography joins
         // keep the same contract, without pretending the PDF is an arXiv work.
-        let (title, body, source, converter) =
-            if let Some(paper_id) = crate::alphaxiv::paper_id_from_url(url) {
-                let paper = crate::alphaxiv::resolve_paper(&paper_id)?
-                    .ok_or_else(|| "The alphaXiv paper was not found.".to_string())?;
-                blog = fs::read_to_string(dir.join("blog.md"))
-                    .ok()
-                    .filter(|blog| markdown_has_body(blog));
-                if blog.is_none() {
-                    blog = crate::alphaxiv::fetch_paper_overview(&paper).unwrap_or_else(|error| {
-                        log::debug!("alphaXiv overview unavailable: {error}");
-                        None
-                    });
+        let (title, body, source, converter) = if let Some(paper_id) =
+            crate::alphaxiv::paper_id_from_url(url)
+        {
+            let paper = crate::alphaxiv::resolve_paper(&paper_id)?
+                .ok_or_else(|| "The alphaXiv paper was not found.".to_string())?;
+            blog =
+                fs::read_to_string(dir.join("blog.md")).ok().filter(|blog| markdown_has_body(blog));
+            if blog.is_none() {
+                blog = crate::alphaxiv::fetch_paper_overview(&paper).unwrap_or_else(|error| {
+                    log::debug!("alphaXiv overview unavailable: {error}");
+                    None
+                });
+            }
+            if cancel.load(Ordering::Acquire) {
+                return Err("Paper import cancelled.".to_string());
+            }
+            let pdf_url = format!("https://www.alphaxiv.org/abs/{}.pdf", paper.universal_id);
+            let body = match download_pdf_text(&pdf_url) {
+                Ok(body) if markdown_has_body(&body) => body,
+                result if blog.is_some() => {
+                    log::debug!("alphaXiv PDF unavailable; keeping overview: {result:?}");
+                    String::new()
                 }
-                if cancel.load(Ordering::Acquire) {
-                    return Err("Paper import cancelled.".to_string());
-                }
-                let pdf_url = format!("https://www.alphaxiv.org/abs/{}.pdf", paper.universal_id);
-                let body = match download_pdf_text(&pdf_url) {
-                    Ok(body) if markdown_has_body(&body) => body,
-                    result if blog.is_some() => {
-                        log::debug!("alphaXiv PDF unavailable; keeping overview: {result:?}");
-                        String::new()
-                    }
-                    Err(error) => return Err(error),
-                    Ok(_) => return Err("The alphaXiv PDF has no readable text.".into()),
-                };
-                (paper.title, body, "pdf-text-layer", ANYDOC_CONVERTER)
-            } else if is_pdf_url(url) {
-                let body = download_pdf_text(url)?;
-                let title = body
-                    .lines()
-                    .find_map(|line| {
-                        line.strip_prefix("# ")
-                            .map(str::trim)
-                            .filter(|title| !title.is_empty())
-                            .map(str::to_string)
-                    })
-                    .unwrap_or_else(|| {
-                        url.split(['?', '#'])
-                            .next()
-                            .unwrap_or(url)
-                            .rsplit('/')
-                            .next()
-                            .unwrap_or(url)
-                            .to_string()
-                    });
-                (title, body, "pdf-text-layer", ANYDOC_CONVERTER)
-            } else {
-                let page = match page {
-                    Some(page) => page,
-                    None => crate::firecrawl::scrape(url)?,
-                };
-                let title = page
-                    .title
-                    .filter(|title| !title.trim().is_empty())
-                    .unwrap_or_else(|| url.to_string());
-                (title, page.markdown, "web", FIRECRAWL_CONVERTER)
+                Err(error) => return Err(error),
+                Ok(_) => return Err("The alphaXiv PDF has no readable text.".into()),
             };
+            (paper.title, body, "pdf-text-layer", ANYDOC_CONVERTER)
+        } else if is_pdf_url(url) {
+            let body = download_pdf_text(url)?;
+            let title = body
+                .lines()
+                .find_map(|line| {
+                    line.strip_prefix("# ")
+                        .map(str::trim)
+                        .filter(|title| !title.is_empty())
+                        .map(str::to_string)
+                })
+                .unwrap_or_else(|| {
+                    url.split(['?', '#'])
+                        .next()
+                        .unwrap_or(url)
+                        .rsplit('/')
+                        .next()
+                        .unwrap_or(url)
+                        .to_string()
+                });
+            (title, body, "pdf-text-layer", ANYDOC_CONVERTER)
+        } else {
+            let page = match page {
+                Some(page) => page,
+                None => crate::firecrawl::scrape(url)?,
+            };
+            let title = page
+                .title
+                .filter(|title| !title.trim().is_empty())
+                .unwrap_or_else(|| url.to_string());
+            (title, page.markdown, "web", FIRECRAWL_CONVERTER)
+        };
         if cancel.load(Ordering::Acquire) {
             return Err("Paper import cancelled.".to_string());
         }
@@ -923,10 +867,7 @@ fn fetch_web_reference_with_page_and_cancel(
         validate_paper_bundle(&output_dir, &metadata)?;
         fs::write(
             output_dir.join("metadata.json"),
-            format!(
-                "{}\n",
-                serde_json::to_string_pretty(&metadata).map_err(err)?
-            ),
+            format!("{}\n", serde_json::to_string_pretty(&metadata).map_err(err)?),
         )
         .map_err(err)?;
         let backup = dir.with_extension(format!("old-{}", Uuid::new_v4()));
@@ -952,10 +893,7 @@ fn fetch_web_reference_with_page_and_cancel(
         } else {
             String::new()
         },
-        blog_path: dir
-            .join("blog.md")
-            .is_file()
-            .then(|| format!(".research/papers/{id}/blog.md")),
+        blog_path: dir.join("blog.md").is_file().then(|| format!(".research/papers/{id}/blog.md")),
         reused: false,
     })
 }
@@ -969,11 +907,7 @@ fn fetch_web_reference_with_page_and_cancel(
 /// flattened into positioned glyphs. Only papers without usable source reach
 /// the deliberately lower-fidelity PDF text-layer fallback.
 fn convert_paper(
-    requested: &str,
-    base: &str,
-    output_dir: &Path,
-    output_path: &Path,
-    cancel: &AtomicBool,
+    requested: &str, base: &str, output_dir: &Path, output_path: &Path, cancel: &AtomicBool,
 ) -> Result<(String, &'static str), String> {
     let mut command = commands::ARXIV2MD.command()?;
     command
@@ -1036,11 +970,7 @@ fn convert_paper(
 /// tiny parser is materialized in uv's cache beside the existing literature
 /// tools. Any source failure still has the old local PDF text-layer route.
 fn source_then_pdf_fallback(
-    requested: &str,
-    base: &str,
-    output_dir: &Path,
-    html_error: &str,
-    cancel: &AtomicBool,
+    requested: &str, base: &str, output_dir: &Path, html_error: &str, cancel: &AtomicBool,
 ) -> Result<(String, &'static str), String> {
     match arxiv_source_markdown(requested, base, output_dir, cancel) {
         Ok(markdown) => Ok((markdown, commands::ARXIV_SOURCE2MD.requirement)),
@@ -1055,10 +985,7 @@ fn source_then_pdf_fallback(
 }
 
 fn arxiv_source_markdown(
-    requested: &str,
-    base: &str,
-    output_dir: &Path,
-    cancel: &AtomicBool,
+    requested: &str, base: &str, output_dir: &Path, cancel: &AtomicBool,
 ) -> Result<String, String> {
     let work_dir = output_dir.join(format!(".source-conversion-{}", Uuid::new_v4()));
     let converted_dir = work_dir.join("converted");
@@ -1126,15 +1053,10 @@ fn download_arxiv_source(requested: &str) -> Result<Vec<u8>, String> {
             response.status().as_u16()
         ));
     }
-    if response
-        .content_length()
-        .is_some_and(|length| length > MAX_PAPER_SOURCE_BYTES as u64)
-    {
+    if response.content_length().is_some_and(|length| length > MAX_PAPER_SOURCE_BYTES as u64) {
         return Err("The source archive is larger than the 100 MB conversion limit.".to_string());
     }
-    let bytes = response
-        .bytes()
-        .map_err(|error| format!("Source download failed: {error}"))?;
+    let bytes = response.bytes().map_err(|error| format!("Source download failed: {error}"))?;
     if bytes.len() > MAX_PAPER_SOURCE_BYTES {
         return Err("The source archive is larger than the 100 MB conversion limit.".to_string());
     }
@@ -1160,19 +1082,11 @@ fn arxiv_source_extension(bytes: &[u8]) -> Result<&'static str, String> {
             .take(512)
             .read_to_end(&mut sample)
             .map_err(|error| format!("The source gzip is unreadable: {error}"))?;
-        return Ok(if looks_like_tar(&sample) {
-            ".tar.gz"
-        } else {
-            ".tex.gz"
-        });
+        return Ok(if looks_like_tar(&sample) { ".tar.gz" } else { ".tex.gz" });
     }
     let head = &bytes[..bytes.len().min(4096)];
-    if head
-        .windows(b"\\documentclass".len())
-        .any(|part| part == b"\\documentclass")
-        || head
-            .windows(b"\\begin{document}".len())
-            .any(|part| part == b"\\begin{document}")
+    if head.windows(b"\\documentclass".len()).any(|part| part == b"\\documentclass")
+        || head.windows(b"\\begin{document}".len()).any(|part| part == b"\\begin{document}")
     {
         return Ok(".tex");
     }
@@ -1192,11 +1106,8 @@ fn prepare_arxiv_source_markdown(markdown: &str, output_dir: &Path) -> Result<St
         fs::remove_dir_all(&assets_dir).map_err(err)?;
     }
     fs::create_dir_all(&assets_dir).map_err(err)?;
-    fs::write(
-        assets_dir.join("manifest.json"),
-        "{\"schema_version\":1,\"assets\":[]}\n",
-    )
-    .map_err(err)?;
+    fs::write(assets_dir.join("manifest.json"), "{\"schema_version\":1,\"assets\":[]}\n")
+        .map_err(err)?;
     Ok(clean_arxiv_source_markdown(markdown))
 }
 
@@ -1253,10 +1164,7 @@ fn rewrite_source_image(line: &str) -> String {
 /// produced nothing usable; `previous_error` preserves both reasons if this
 /// final fallback also fails.
 fn pdf_fallback(
-    requested: &str,
-    base: &str,
-    output_dir: &Path,
-    previous_error: &str,
+    requested: &str, base: &str, output_dir: &Path, previous_error: &str,
 ) -> Result<(String, &'static str), String> {
     let markdown = pdf_text_markdown(requested, base).map_err(|pdf_error| {
         format!("{previous_error}\nThe PDF fallback also failed: {pdf_error}")
@@ -1270,11 +1178,8 @@ fn pdf_fallback(
         fs::remove_dir_all(&assets_dir).map_err(err)?;
     }
     fs::create_dir_all(&assets_dir).map_err(err)?;
-    fs::write(
-        assets_dir.join("manifest.json"),
-        "{\"schema_version\":1,\"assets\":[]}\n",
-    )
-    .map_err(err)?;
+    fs::write(assets_dir.join("manifest.json"), "{\"schema_version\":1,\"assets\":[]}\n")
+        .map_err(err)?;
     Ok((markdown, ANYDOC_CONVERTER))
 }
 
@@ -1325,20 +1230,15 @@ fn download_pdf_bytes(url: &str) -> Result<Vec<u8>, String> {
         .timeout(std::time::Duration::from_secs(120))
         .build()
         .map_err(|error| format!("Could not create the PDF download client: {error}"))?;
-    let response = client
-        .get(url)
-        .send()
-        .map_err(|error| format!("PDF download failed: {error}"))?;
+    let response =
+        client.get(url).send().map_err(|error| format!("PDF download failed: {error}"))?;
     if !response.status().is_success() {
         return Err(format!(
             "The server returned HTTP {} for the PDF.",
             response.status().as_u16()
         ));
     }
-    if response
-        .content_length()
-        .is_some_and(|length| length > MAX_PAPER_PDF_BYTES as u64)
-    {
+    if response.content_length().is_some_and(|length| length > MAX_PAPER_PDF_BYTES as u64) {
         return Err("The PDF is larger than the 100 MB conversion limit.".to_string());
     }
     let mut bytes = Vec::new();
@@ -1378,9 +1278,7 @@ fn validate_paper_bundle(directory: &Path, metadata: &PaperMetadata) -> Result<(
     for asset in manifest.assets {
         let relative = Path::new(&asset.path);
         if !relative.starts_with("paper_assets")
-            || relative
-                .components()
-                .any(|component| !matches!(component, Component::Normal(_)))
+            || relative.components().any(|component| !matches!(component, Component::Normal(_)))
         {
             return Err(format!("Unsafe paper asset path: {}", asset.path));
         }
@@ -1398,23 +1296,18 @@ fn validate_paper_bundle(directory: &Path, metadata: &PaperMetadata) -> Result<(
         }
         let bytes = fs::read(&canonical_path).map_err(err)?;
         if bytes.len() as u64 != asset.size || sha256_hex(&bytes) != asset.sha256 {
-            return Err(format!(
-                "Paper asset failed integrity validation: {}",
-                asset.path
-            ));
+            return Err(format!("Paper asset failed integrity validation: {}", asset.path));
         }
     }
     Ok(())
 }
 
 fn sha256_hex(bytes: &[u8]) -> String {
-    Sha256::digest(bytes)
-        .iter()
-        .fold(String::with_capacity(64), |mut output, byte| {
-            use std::fmt::Write;
-            let _ = write!(output, "{byte:02x}");
-            output
-        })
+    Sha256::digest(bytes).iter().fold(String::with_capacity(64), |mut output, byte| {
+        use std::fmt::Write;
+        let _ = write!(output, "{byte:02x}");
+        output
+    })
 }
 
 /// arXiv's LaTeXML output inconsistently spells same-document links as either
@@ -1509,12 +1402,8 @@ pub fn list_papers(root: &Path) -> Result<Vec<PaperSummary>, String> {
             has_full_text: matched
                 .as_ref()
                 .is_some_and(|(_, _, has_full_text, _, _)| *has_full_text),
-            has_blog: matched
-                .as_ref()
-                .is_some_and(|(_, _, _, has_blog, _)| *has_blog),
-            asset_paths: matched
-                .map(|(_, _, _, _, asset_paths)| asset_paths)
-                .unwrap_or_default(),
+            has_blog: matched.as_ref().is_some_and(|(_, _, _, has_blog, _)| *has_blog),
+            asset_paths: matched.map(|(_, _, _, _, asset_paths)| asset_paths).unwrap_or_default(),
             citation_health: citation
                 .doi
                 .as_ref()
@@ -1585,9 +1474,7 @@ fn paper_asset_paths(directory: &Path, arxiv_id: &str) -> Vec<String> {
     paths.extend(manifest.assets.into_iter().filter_map(|asset| {
         let path = Path::new(&asset.path);
         (path.starts_with("paper_assets")
-            && path
-                .components()
-                .all(|component| matches!(component, Component::Normal(_))))
+            && path.components().all(|component| matches!(component, Component::Normal(_))))
         .then(|| format!("{prefix}{}", asset.path))
     }));
     paths
@@ -1720,10 +1607,7 @@ pub fn search_library(root: &Path, query: &str) -> Result<Vec<ProjectSearchResul
 }
 
 fn library_hit(
-    paper: &LibraryPaper,
-    path: &str,
-    line: Option<u32>,
-    text: &str,
+    paper: &LibraryPaper, path: &str, line: Option<u32>, text: &str,
 ) -> ProjectSearchResult {
     let trimmed = text.trim();
     let snippet: String = trimmed.chars().take(180).collect();
@@ -1731,11 +1615,7 @@ fn library_hit(
         kind: "paper".to_string(),
         path: path.to_string(),
         title: paper.title.clone(),
-        snippet: if trimmed.chars().count() > 180 {
-            format!("{snippet}…")
-        } else {
-            snippet
-        },
+        snippet: if trimmed.chars().count() > 180 { format!("{snippet}…") } else { snippet },
         line,
         arxiv_id: (!paper.arxiv_id.is_empty()).then(|| paper.arxiv_id.clone()),
         file_kind: None,
@@ -1752,9 +1632,7 @@ pub fn read_paper(root: &Path, arxiv_id: &str) -> Result<String, String> {
 }
 
 fn cached_paper_has_body(path: &Path) -> bool {
-    fs::read_to_string(path)
-        .ok()
-        .is_some_and(|markdown| markdown_has_body(&markdown))
+    fs::read_to_string(path).ok().is_some_and(|markdown| markdown_has_body(&markdown))
 }
 
 fn markdown_has_body(markdown: &str) -> bool {
@@ -1840,18 +1718,13 @@ enum CitationRemovalMode {
 }
 
 pub(crate) fn remove_reference_with_history(
-    root: &Path,
-    key: &str,
-    history: HistoryMode,
+    root: &Path, key: &str, history: HistoryMode,
 ) -> Result<RemoveResult, String> {
     remove_reference_with_mode(root, key, history, CitationRemovalMode::Block)
 }
 
 fn remove_reference_with_mode(
-    root: &Path,
-    key: &str,
-    history: HistoryMode,
-    mode: CitationRemovalMode,
+    root: &Path, key: &str, history: HistoryMode, mode: CitationRemovalMode,
 ) -> Result<RemoveResult, String> {
     let key = key.trim();
     if key.is_empty() {
@@ -1892,10 +1765,8 @@ fn remove_reference_with_mode(
         (Vec::new(), 0)
     };
     file_edits.push((manifest.primary_bibliography.clone(), before, after));
-    let changed_files = file_edits
-        .iter()
-        .map(|(relative, _, _)| relative.clone())
-        .collect::<Vec<_>>();
+    let changed_files =
+        file_edits.iter().map(|(relative, _, _)| relative.clone()).collect::<Vec<_>>();
     let changes = file_edits
         .iter()
         .map(|(relative, before, after)| ReferenceFileChange {
@@ -1939,8 +1810,7 @@ fn remove_reference_with_mode(
 }
 
 fn citation_blockers(
-    root: &Path,
-    key: &str,
+    root: &Path, key: &str,
 ) -> Result<Vec<crate::models::SymbolOccurrence>, String> {
     project::find_citation_usages(root, key)
 }
@@ -1950,9 +1820,7 @@ pub fn upgrade_bibliography(root: &Path, dry_run: bool) -> Result<UpgradeResult,
 }
 
 pub(crate) fn upgrade_bibliography_with_history(
-    root: &Path,
-    dry_run: bool,
-    history: HistoryMode,
+    root: &Path, dry_run: bool, history: HistoryMode,
 ) -> Result<UpgradeResult, String> {
     let manifest = project::read_manifest(root)?;
     let path = project::safe_path(root, &manifest.primary_bibliography)?;
@@ -2015,11 +1883,7 @@ pub(crate) fn upgrade_bibliography_with_history(
         )?;
     }
     let _ = fs::remove_dir_all(temp);
-    Ok(UpgradeResult {
-        dry_run,
-        changed: after != before,
-        report,
-    })
+    Ok(UpgradeResult { dry_run, changed: after != before, report })
 }
 
 fn validate_bibliography_upgrade(before: &str, after: &str) -> Result<(), String> {
@@ -2034,9 +1898,7 @@ fn validate_bibliography_upgrade(before: &str, after: &str) -> Result<(), String
             .filter(|(candidate, _, _)| candidate == &key)
             .collect();
         if matches.len() != 1 {
-            return Err(format!(
-                "An upgrade must preserve the unique citation key '{key}'."
-            ));
+            return Err(format!("An upgrade must preserve the unique citation key '{key}'."));
         }
         let (_, a, b) = &matches[0];
         let previous = &before[start..end];
@@ -2102,8 +1964,7 @@ fn parse_arxiv_id(input: &str) -> Option<String> {
 /// to join a downloaded arXiv bundle back to it. Resolving the title first lets
 /// bibcite keep the published venue while carrying `eprint` and the arXiv URL.
 fn bibcite_query_for_input(
-    query: &str,
-    resolver: &dyn Fn(&str) -> Result<Option<String>, String>,
+    query: &str, resolver: &dyn Fn(&str) -> Result<Option<String>, String>,
 ) -> String {
     if is_web_url(query) || query.trim_start().starts_with('@') {
         return query.to_string();
@@ -2143,15 +2004,10 @@ fn resolve_arxiv_title(title: &str) -> Result<Option<String>, String> {
         .timeout(std::time::Duration::from_secs(20))
         .build()
         .map_err(|error| format!("Could not create arXiv client: {error}"))?;
-    let response = client
-        .get(url)
-        .send()
-        .map_err(|error| format!("arXiv title lookup failed: {error}"))?;
+    let response =
+        client.get(url).send().map_err(|error| format!("arXiv title lookup failed: {error}"))?;
     if !response.status().is_success() {
-        return Err(format!(
-            "arXiv title lookup returned HTTP {}.",
-            response.status().as_u16()
-        ));
+        return Err(format!("arXiv title lookup returned HTTP {}.", response.status().as_u16()));
     }
     let feed = response
         .text()
@@ -2199,8 +2055,7 @@ fn paper_titles_match(requested: &str, candidate: &str) -> bool {
 /// arXiv identity: titles are intentionally excluded because this path must
 /// never guess that two works are the same.
 fn existing_explicit_arxiv_citation(
-    bibliography: &str,
-    query: &str,
+    bibliography: &str, query: &str,
 ) -> Option<(String, String, String)> {
     let requested = explicit_arxiv_id(query)?;
     let base = arxiv_base_id(&requested);
@@ -2289,11 +2144,7 @@ fn arxiv_citation_from_html(id: &str, html: &str) -> Result<String, String> {
 }
 
 fn import_existing_arxiv_citation(
-    root: &Path,
-    bibliography: &str,
-    query: &str,
-    progress: &dyn Fn(&str),
-    cancel: &AtomicBool,
+    root: &Path, bibliography: &str, query: &str, progress: &dyn Fn(&str), cancel: &AtomicBool,
 ) -> Option<Result<ImportResult, String>> {
     let (arxiv_id, citation_key, entry_title) =
         existing_explicit_arxiv_citation(bibliography, query)?;
@@ -2401,13 +2252,7 @@ fn supplied_web_bibtex(html: &str, url: &str) -> Option<String> {
             // them after entity decoding, preserving Unicode author names.
             html_escape::decode_html_entities(&tags.replace_all(&block, ""))
                 .chars()
-                .map(|ch| {
-                    if ch.is_whitespace() && !ch.is_ascii() {
-                        ' '
-                    } else {
-                        ch
-                    }
-                })
+                .map(|ch| if ch.is_whitespace() && !ch.is_ascii() { ' ' } else { ch })
                 .collect::<String>()
         })
         .collect::<Vec<_>>()
@@ -2439,23 +2284,15 @@ pub(crate) fn alphaxiv_bibtex(paper: &crate::alphaxiv::Paper) -> Result<String, 
         .first()
         .filter(|entry| entries.len() == 1 && paper_titles_match(&entry.title, &paper.title))
         .ok_or_else(|| "alphaXiv did not supply a matching citation.".to_string())?;
-    let (head, body) = raw
-        .split_once(',')
-        .ok_or_else(|| "Invalid alphaXiv citation.".to_string())?;
-    let body = body
-        .strip_suffix('}')
-        .ok_or_else(|| "Invalid alphaXiv citation.".to_string())?;
+    let (head, body) =
+        raw.split_once(',').ok_or_else(|| "Invalid alphaXiv citation.".to_string())?;
+    let body = body.strip_suffix('}').ok_or_else(|| "Invalid alphaXiv citation.".to_string())?;
     let mut fields = project::parse_bibliography_fields_syntax(body);
     // Always attach the bundle to this AlphaXiv work, even when its suggested
     // citation points to an external announcement. Preserve the other fields.
-    fields.insert(
-        "url".into(),
-        format!("{{https://www.alphaxiv.org/abs/{}}}", paper.universal_id),
-    );
+    fields.insert("url".into(), format!("{{https://www.alphaxiv.org/abs/{}}}", paper.universal_id));
     if entry.year.is_empty() {
-        if let Some(date) = paper
-            .publication_date
-            .and_then(chrono::DateTime::from_timestamp_millis)
+        if let Some(date) = paper.publication_date.and_then(chrono::DateTime::from_timestamp_millis)
         {
             fields.insert("year".into(), format!("{{{}}}", date.format("%Y")));
         }
@@ -2474,17 +2311,13 @@ fn resolve_web_citation(url: &str) -> Result<Option<WebCitation>, String> {
     if let Some(id) = crate::alphaxiv::paper_id_from_url(url) {
         let paper = crate::alphaxiv::resolve_paper(&id)?
             .ok_or_else(|| "The alphaXiv paper was not found.".to_string())?;
-        return Ok(Some(WebCitation {
-            bibtex: alphaxiv_bibtex(&paper)?,
-            page: None,
-        }));
+        return Ok(Some(WebCitation { bibtex: alphaxiv_bibtex(&paper)?, page: None }));
     }
     resolve_web_citation_with(url, fetch_web_html(url), crate::firecrawl::scrape)
 }
 
 fn resolve_web_citation_with(
-    url: &str,
-    html: Result<String, String>,
+    url: &str, html: Result<String, String>,
     render: impl FnOnce(&str) -> Result<crate::firecrawl::ScrapedPage, String>,
 ) -> Result<Option<WebCitation>, String> {
     let reason = match html {
@@ -2509,10 +2342,7 @@ fn resolve_web_citation_with(
     if let Some(entry) = project::parse_bibliography(&bibtex).first() {
         page.title = Some(entry.title.clone());
     }
-    Ok(Some(WebCitation {
-        bibtex,
-        page: Some(page),
-    }))
+    Ok(Some(WebCitation { bibtex, page: Some(page) }))
 }
 
 fn fetch_web_html(url: &str) -> Result<String, String> {
@@ -2521,17 +2351,9 @@ fn fetch_web_html(url: &str) -> Result<String, String> {
         .timeout(std::time::Duration::from_secs(15))
         .build()
         .map_err(err)?;
-    let response = client
-        .get(url)
-        .send()
-        .map_err(err)?
-        .error_for_status()
-        .map_err(err)?;
+    let response = client.get(url).send().map_err(err)?.error_for_status().map_err(err)?;
     let mut bytes = Vec::new();
-    response
-        .take(4 * 1024 * 1024 + 1)
-        .read_to_end(&mut bytes)
-        .map_err(err)?;
+    response.take(4 * 1024 * 1024 + 1).read_to_end(&mut bytes).map_err(err)?;
     if bytes.len() > 4 * 1024 * 1024 {
         return Err("The webpage HTML exceeds the 4 MB citation extraction limit.".into());
     }
@@ -2539,17 +2361,11 @@ fn fetch_web_html(url: &str) -> Result<String, String> {
 }
 
 fn supplied_bibtex_with_source(raw: String, url: &str) -> String {
-    if project::parse_bibliography(&raw)
-        .first()
-        .is_some_and(|entry| entry.url.is_some())
-    {
+    if project::parse_bibliography(&raw).first().is_some_and(|entry| entry.url.is_some()) {
         return raw;
     }
     // Keep a source identity even when the recommended entry omitted its URL.
-    let url = url
-        .replace('{', "%7B")
-        .replace('}', "%7D")
-        .replace('\\', "%5C");
+    let url = url.replace('{', "%7B").replace('}', "%7D").replace('\\', "%5C");
     format!(
         "{},\n  url = {{{url}}}\n{}",
         raw[..raw.len() - 1].trim_end().trim_end_matches(','),
@@ -2566,28 +2382,22 @@ fn pdf_citation_bibtex(markdown: &str, title: &str, url: &str) -> String {
     let first_page: String = markdown.chars().take(6000).collect();
     let website = Regex::new(r"(?im)(?:^|\s)(?:\*\*)?(?:Website|Project(?: page)?|Homepage)(?:\*\*)?:\s*(?:\[[^\]]*\]\()?<?(https?://[^\s)>]+)").unwrap();
     let source_origin = reqwest::Url::parse(url).ok().map(|url| url.origin());
-    let supplied = website
-        .captures_iter(&first_page)
-        .take(3)
-        .find_map(|capture| {
-            let page_url = &capture[1];
-            let page = reqwest::Url::parse(page_url).ok()?;
-            if Some(page.origin()) != source_origin {
-                return None;
-            }
-            let raw = fetch_supplied_web_bibtex(page_url)?;
-            let entry = project::parse_bibliography(&raw).into_iter().next()?;
-            (normalized_paper_title(&entry.title) == normalized_paper_title(title)).then_some(raw)
-        });
+    let supplied = website.captures_iter(&first_page).take(3).find_map(|capture| {
+        let page_url = &capture[1];
+        let page = reqwest::Url::parse(page_url).ok()?;
+        if Some(page.origin()) != source_origin {
+            return None;
+        }
+        let raw = fetch_supplied_web_bibtex(page_url)?;
+        let entry = project::parse_bibliography(&raw).into_iter().next()?;
+        (normalized_paper_title(&entry.title) == normalized_paper_title(title)).then_some(raw)
+    });
     if let Some(raw) = supplied {
         let entry = project::parse_bibliography(&raw).remove(0);
         let body = &raw[raw.find(',').unwrap() + 1..raw.len() - 1];
         let mut fields = project::parse_bibliography_fields_raw(body);
         fields.insert("url".to_string(), url.to_string());
-        if fields
-            .get("note")
-            .is_some_and(|note| note.trim().eq_ignore_ascii_case("Blog post"))
-        {
+        if fields.get("note").is_some_and(|note| note.trim().eq_ignore_ascii_case("Blog post")) {
             fields.remove("note");
         }
         fields.remove("howpublished");
@@ -2625,10 +2435,7 @@ fn pdf_citation_bibtex(markdown: &str, title: &str, url: &str) -> String {
 /// round-tripping publisher fields through bibcite's lossy normalization.
 fn supplied_citation_key(raw: &str) -> String {
     use unicode_normalization::UnicodeNormalization;
-    let (_, start, end) = project::bibliography_entry_spans(raw)
-        .into_iter()
-        .next()
-        .unwrap();
+    let (_, start, end) = project::bibliography_entry_spans(raw).into_iter().next().unwrap();
     let raw = &raw[start..end];
     let hash = |value: &str| -> String {
         value
@@ -2640,28 +2447,16 @@ fn supplied_citation_key(raw: &str) -> String {
     };
     let fields =
         project::parse_bibliography_fields_raw(&raw[raw.find(',').unwrap() + 1..raw.len() - 1]);
-    let author = fields
-        .get("author")
-        .filter(|s| !s.is_empty())
-        .map(String::as_str)
-        .unwrap_or("anonymous");
+    let author =
+        fields.get("author").filter(|s| !s.is_empty()).map(String::as_str).unwrap_or("anonymous");
     let separator = regex::Regex::new(r"(?i)\s+and\s+").unwrap();
-    let first = separator
-        .split(author.trim())
-        .next()
-        .unwrap()
-        .trim()
-        .trim_matches(['{', '}']);
+    let first = separator.split(author.trim()).next().unwrap().trim().trim_matches(['{', '}']);
     let surname = first
         .split_once(',')
         .map(|(last, _)| last)
         .unwrap_or_else(|| first.split_whitespace().last().unwrap_or("anon"));
     let surname = hash(surname);
-    let year = fields
-        .get("year")
-        .filter(|s| !s.is_empty())
-        .map(String::as_str)
-        .unwrap_or("XXXX");
+    let year = fields.get("year").filter(|s| !s.is_empty()).map(String::as_str).unwrap_or("XXXX");
     let stopwords = "i me my myself we our ours ourselves you your yours yourself yourselves he him his himself she her hers herself it its itself they them their theirs themselves what which who whom this that these those am is are was were be been being have has had having do does did doing a an the and but if or because as until while of at by for with about against between into through during before after above below to from up down in out on off over under again further then once here there when where why how all any both each few more most other some such no nor not only own same so than too very s t can will just don should now";
     let words: Vec<String> = fields
         .get("title")
@@ -2673,18 +2468,11 @@ fn supplied_citation_key(raw: &str) -> String {
         .collect();
     let word = words
         .iter()
-        .find(|word| {
-            !stopwords
-                .split_whitespace()
-                .any(|stop| stop == word.as_str())
-        })
+        .find(|word| !stopwords.split_whitespace().any(|stop| stop == word.as_str()))
         .or_else(|| words.first())
         .map(String::as_str)
         .unwrap_or("paper");
-    format!(
-        "{}{year}{word}",
-        if surname.is_empty() { "anon" } else { &surname }
-    )
+    format!("{}{year}{word}", if surname.is_empty() { "anon" } else { &surname })
 }
 
 /// Let bibcite validate/normalize the supplied record without tidying the
@@ -2713,33 +2501,23 @@ fn merge_supplied_bibtex(before: &str, raw: &str) -> Result<(String, String, boo
                 .zip(item.url.as_deref())
                 .is_some_and(|(a, b)| same_citation_url(a, b))
         });
-        let mut key = existing
-            .map(|item| item.key.clone())
-            .unwrap_or_else(|| supplied_citation_key(raw));
+        let mut key =
+            existing.map(|item| item.key.clone()).unwrap_or_else(|| supplied_citation_key(raw));
         if existing.is_none() {
             let base = key.clone();
             let mut suffix = 2;
-            while entries
-                .iter()
-                .any(|item| item.key.eq_ignore_ascii_case(&key))
-            {
+            while entries.iter().any(|item| item.key.eq_ignore_ascii_case(&key)) {
                 key = format!("{base}-{suffix}");
                 suffix += 1;
             }
         }
-        let (_, start, end) = project::bibliography_entry_spans(normalized)
-            .into_iter()
-            .next()
-            .unwrap();
+        let (_, start, end) =
+            project::bibliography_entry_spans(normalized).into_iter().next().unwrap();
         let normalized = &normalized[start..end];
         let opening = normalized.find(['{', '(']).unwrap();
         let comma = normalized.find(',').unwrap();
-        let mut replacement = format!(
-            "{}{}{}",
-            &normalized[..opening + 1],
-            key,
-            &normalized[comma..]
-        );
+        let mut replacement =
+            format!("{}{}{}", &normalized[..opening + 1], key, &normalized[comma..]);
         let bibliography = if let Some((_, start, end)) = existing.and_then(|item| {
             project::bibliography_entry_spans(before)
                 .into_iter()
@@ -2785,19 +2563,11 @@ fn merge_supplied_bibtex(before: &str, raw: &str) -> Result<(String, String, boo
 /// Import the report itself, enriching its citation from explicitly supplied
 /// metadata rather than treating a binary URL as an HTML webpage.
 fn import_pdf_citation(
-    root: &Path,
-    manifest: &crate::models::ProjectManifest,
-    url: &str,
-    before: &str,
-    history: HistoryMode,
-    progress: &dyn Fn(&str),
-    cancel: &AtomicBool,
+    root: &Path, manifest: &crate::models::ProjectManifest, url: &str, before: &str,
+    history: HistoryMode, progress: &dyn Fn(&str), cancel: &AtomicBool,
 ) -> Result<ImportResult, String> {
     progress("fulltext");
-    let encoded_url = url
-        .replace('{', "%7B")
-        .replace('}', "%7D")
-        .replace('\\', "%5C");
+    let encoded_url = url.replace('{', "%7B").replace('}', "%7D").replace('\\', "%5C");
     let url = encoded_url.as_str();
     let fetched = match fetch_web_reference_with_page_and_cancel(root, url, None, cancel) {
         Ok(fetched) => fetched,
@@ -2815,10 +2585,8 @@ fn import_pdf_citation(
         }
         Err(error) => return Err(error),
     };
-    let metadata_path = project::safe_path(
-        root,
-        &format!(".research/papers/{}/metadata.json", fetched.arxiv_id),
-    )?;
+    let metadata_path =
+        project::safe_path(root, &format!(".research/papers/{}/metadata.json", fetched.arxiv_id))?;
     let metadata: PaperMetadata =
         serde_json::from_slice(&fs::read(metadata_path).map_err(err)?).map_err(err)?;
     let markdown =
@@ -2861,12 +2629,8 @@ fn import_pdf_citation(
 
 /// Resolve a citation and attach full text when its source is supported.
 fn import_citation(
-    root: &Path,
-    manifest: &crate::models::ProjectManifest,
-    query: &str,
-    history: HistoryMode,
-    progress: &dyn Fn(&str),
-    cancel: &AtomicBool,
+    root: &Path, manifest: &crate::models::ProjectManifest, query: &str, history: HistoryMode,
+    progress: &dyn Fn(&str), cancel: &AtomicBool,
 ) -> Result<ImportResult, String> {
     // A numeric AlphaXiv URL is still an arXiv work and should retain the
     // semantic HTML/source conversion and existing arXiv cache identity.
@@ -3035,7 +2799,7 @@ fn import_citation(
     if bibliography != before {
         if fs::read_to_string(&project_bibliography).unwrap_or_default() != before {
             return Err(
-                "The bibliography changed while resolving the citation. Retry the import.".into(),
+                "The bibliography changed while resolving the citation. Retry the import.".into()
             );
         }
         commit_bibliography(
@@ -3128,9 +2892,7 @@ fn run_bibcite(path: &PathBuf, query: &str) -> Result<String, String> {
 }
 
 fn run_bibcite_cancellable(
-    path: &PathBuf,
-    query: &str,
-    cancel: &AtomicBool,
+    path: &PathBuf, query: &str, cancel: &AtomicBool,
 ) -> Result<String, String> {
     let before = fs::read_to_string(path).map_err(err)?;
     if query.trim_start().starts_with('@') {
@@ -3185,32 +2947,25 @@ fn run_bibcite_cancellable(
 /// Preserve existing entries byte-for-byte; a metadata update is a separate,
 /// reviewed operation, never a side effect of adding a reference.
 fn merge_resolved_citation(
-    before: &str,
-    raw: &str,
-    key: &str,
+    before: &str, raw: &str, key: &str,
 ) -> Result<(String, String, bool), String> {
     let incoming = project::parse_bibliography(raw);
     if incoming.len() != 1 || incoming[0].key != key {
         return Err(
-            "Citation resolution must return exactly one entry with its reported key.".into(),
+            "Citation resolution must return exactly one entry with its reported key.".into()
         );
     }
     let incoming = &incoming[0];
     let entries = project::parse_bibliography(before);
     let spans = project::bibliography_entry_spans(before);
     let mut keys = std::collections::HashSet::new();
-    if entries
-        .iter()
-        .any(|entry| !keys.insert(entry.key.to_ascii_lowercase()))
-    {
+    if entries.iter().any(|entry| !keys.insert(entry.key.to_ascii_lowercase())) {
         return Err("The bibliography already contains duplicate citation keys. Resolve them before importing.".into());
     }
     let mut matches = Vec::new();
     for entry in &entries {
-        let existing_doi = entry
-            .doi
-            .clone()
-            .or_else(|| entry.url.as_deref().and_then(project::normalize_doi));
+        let existing_doi =
+            entry.doi.clone().or_else(|| entry.url.as_deref().and_then(project::normalize_doi));
         let incoming_doi = incoming
             .doi
             .clone()
@@ -3220,10 +2975,7 @@ fn merge_resolved_citation(
             .as_deref()
             .zip(incoming.arxiv_id.as_deref())
             .is_some_and(|(a, b)| arxiv_base_id(a).eq_ignore_ascii_case(arxiv_base_id(b)))
-            || existing_doi
-                .as_ref()
-                .zip(incoming_doi.as_ref())
-                .is_some_and(|(a, b)| a == b);
+            || existing_doi.as_ref().zip(incoming_doi.as_ref()).is_some_and(|(a, b)| a == b);
         let (_, start, end) = spans
             .iter()
             .find(|(key, _, _)| key == &entry.key)
@@ -3246,10 +2998,7 @@ fn merge_resolved_citation(
     }
     let mut new_key = key.to_string();
     let mut suffix = 2;
-    while entries
-        .iter()
-        .any(|entry| entry.key.eq_ignore_ascii_case(&new_key))
-    {
+    while entries.iter().any(|entry| entry.key.eq_ignore_ascii_case(&new_key)) {
         new_key = format!("{key}-{suffix}");
         suffix += 1;
     }
@@ -3257,16 +3006,7 @@ fn merge_resolved_citation(
     let raw = protected.as_str();
     let opening = raw.find(['{', '(']).ok_or("Invalid citation entry.")?;
     let comma = raw.find(',').ok_or("Invalid citation key.")?;
-    Ok((
-        format!(
-            "{before}\n{}{}{}\n",
-            &raw[..opening + 1],
-            new_key,
-            &raw[comma..]
-        ),
-        new_key,
-        false,
-    ))
+    Ok((format!("{before}\n{}{}{}\n", &raw[..opening + 1], new_key, &raw[comma..]), new_key, false))
 }
 
 pub(crate) fn validate_resolved_identity(query: &str, raw: &str) -> Result<(), String> {
@@ -3290,19 +3030,11 @@ pub(crate) fn validate_resolved_identity(query: &str, raw: &str) -> Result<(), S
             project::bibliography_arxiv_id(&[(key.clone(), value.clone())].into_iter().collect())
         })
         .collect();
-    if ids
-        .iter()
-        .any(|id| !arxiv_base_id(id).eq_ignore_ascii_case(arxiv_base_id(&ids[0])))
-    {
+    if ids.iter().any(|id| !arxiv_base_id(id).eq_ignore_ascii_case(arxiv_base_id(&ids[0]))) {
         return Err("The citation contains conflicting arXiv identifiers.".into());
     }
     let doi_url = entry.url.as_deref().and_then(project::normalize_doi);
-    if entry
-        .doi
-        .as_ref()
-        .zip(doi_url.as_ref())
-        .is_some_and(|(a, b)| a != b)
-    {
+    if entry.doi.as_ref().zip(doi_url.as_ref()).is_some_and(|(a, b)| a != b) {
         return Err("The citation DOI conflicts with its DOI URL.".into());
     }
     if let Some(requested) = explicit_arxiv_id(query) {
@@ -3315,9 +3047,7 @@ pub(crate) fn validate_resolved_identity(query: &str, raw: &str) -> Result<(), S
         }
     } else if let Some(doi) = project::normalize_doi(query) {
         if entry.doi.as_ref().or(doi_url.as_ref()) != Some(&doi) {
-            return Err(format!(
-                "Citation resolution did not return the requested DOI {doi}."
-            ));
+            return Err(format!("Citation resolution did not return the requested DOI {doi}."));
         }
     }
     Ok(())
@@ -3332,10 +3062,8 @@ pub(crate) fn verify_title_citation(query: &str, raw: &str) -> Result<(), String
     {
         return Ok(());
     }
-    let entry = project::parse_bibliography(raw)
-        .into_iter()
-        .next()
-        .ok_or("No citation was returned.")?;
+    let entry =
+        project::parse_bibliography(raw).into_iter().next().ok_or("No citation was returned.")?;
     if normalized_paper_title(query) != normalized_paper_title(&entry.title) {
         return Err("The resolved title differs from the requested title. Supply its DOI or arXiv URL instead.".into());
     }
@@ -3357,10 +3085,7 @@ fn run_bibcite_input(path: &PathBuf, query: &str, supplied: bool) -> Result<Stri
 }
 
 fn run_bibcite_input_cancellable(
-    path: &PathBuf,
-    query: &str,
-    supplied: bool,
-    cancel: &AtomicBool,
+    path: &PathBuf, query: &str, supplied: bool, cancel: &AtomicBool,
 ) -> Result<String, String> {
     let mut command = commands::BIBCITE.command()?;
     command.arg("add").arg("--no-tidy").arg(path);
@@ -3411,11 +3136,7 @@ fn run_bibcite_tidy(path: &Path) -> Result<(), String> {
 }
 
 fn commit_bibliography(
-    root: &Path,
-    relative: &str,
-    contents: &str,
-    label: &str,
-    history: HistoryMode,
+    root: &Path, relative: &str, contents: &str, label: &str, history: HistoryMode,
 ) -> Result<(), String> {
     match history {
         HistoryMode::Record => {
@@ -3685,21 +3406,12 @@ mod tests {
 
         let mut encoder = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::default());
         encoder.write_all(&tar).unwrap();
-        assert_eq!(
-            arxiv_source_extension(&encoder.finish().unwrap()),
-            Ok(".tar.gz")
-        );
+        assert_eq!(arxiv_source_extension(&encoder.finish().unwrap()), Ok(".tar.gz"));
 
         let mut encoder = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::default());
         encoder.write_all(b"\\documentclass{article}").unwrap();
-        assert_eq!(
-            arxiv_source_extension(&encoder.finish().unwrap()),
-            Ok(".tex.gz")
-        );
-        assert_eq!(
-            arxiv_source_extension(b"\\documentclass{article}"),
-            Ok(".tex")
-        );
+        assert_eq!(arxiv_source_extension(&encoder.finish().unwrap()), Ok(".tex.gz"));
+        assert_eq!(arxiv_source_extension(b"\\documentclass{article}"), Ok(".tex"));
         assert_eq!(arxiv_source_extension(b"PK\x03\x04zip"), Ok(".zip"));
         assert!(arxiv_source_extension(b"%PDF-1.7").is_err());
     }
@@ -3783,10 +3495,7 @@ mod tests {
     #[test]
     fn promotes_standalone_bullet_ordinals_to_one_ordered_list() {
         let source = "- 1.\nFirst answer.\n- 2.\nSecond answer.\n";
-        assert_eq!(
-            normalize_imported_markdown(source),
-            "1. First answer.\n2. Second answer.\n",
-        );
+        assert_eq!(normalize_imported_markdown(source), "1. First answer.\n2. Second answer.\n",);
 
         let source_samples = "---\nexample: - 3.\n---\n\n```md\n- 4.\nCode sample.\n```\n";
         assert_eq!(normalize_imported_markdown(source_samples), source_samples);
@@ -3868,10 +3577,7 @@ mod tests {
             }
         })
         .to_string();
-        assert_eq!(
-            parse_citation_key(&output).as_deref(),
-            Some("smith2024paper")
-        );
+        assert_eq!(parse_citation_key(&output).as_deref(), Some("smith2024paper"));
         assert_eq!(bibcite_report_source(&output).as_deref(), Some("crossref"));
         assert_eq!(
             parse_citation_key(r#"{"action":"ambiguous","candidates":[{"doi":"10.1234/a"}]}"#),
@@ -3889,18 +3595,12 @@ mod tests {
 
     #[test]
     fn reports_no_key_when_bibcite_found_nothing() {
-        assert_eq!(
-            parse_citation_key("[bibcite] No match found anywhere for: x\n"),
-            None
-        );
+        assert_eq!(parse_citation_key("[bibcite] No match found anywhere for: x\n"), None);
     }
 
     #[test]
     fn accepts_urls_and_ids() {
-        assert_eq!(
-            parse_arxiv_id("https://arxiv.org/abs/2401.12345").unwrap(),
-            "2401.12345"
-        );
+        assert_eq!(parse_arxiv_id("https://arxiv.org/abs/2401.12345").unwrap(), "2401.12345");
         assert_eq!(parse_arxiv_id("2401.12345v2").unwrap(), "2401.12345v2");
         assert_eq!(parse_arxiv_id("not a paper"), None);
     }
@@ -3934,10 +3634,7 @@ mod tests {
             run_bibcite_cancellable(&path, "10.1234/primitives", &AtomicBool::new(false)).unwrap();
         let bibliography = fs::read_to_string(&path).unwrap();
         assert!(bibliography.starts_with(before));
-        assert_eq!(
-            parse_citation_key(&output).as_deref(),
-            Some("diao2025pixels-2")
-        );
+        assert_eq!(parse_citation_key(&output).as_deref(), Some("diao2025pixels-2"));
         let entries = project::parse_bibliography(&bibliography);
         assert_eq!(entries.len(), 3);
         assert_eq!(entries[2].arxiv_id.as_deref(), Some("2510.14979v2"));
@@ -3966,10 +3663,7 @@ mod tests {
         let error = import_reference_with_history(&root, "10.1234/requested", HistoryMode::Defer)
             .unwrap_err();
         assert!(error.contains("requested DOI 10.1234/requested"), "{error}");
-        assert_eq!(
-            fs::read_to_string(root.join("references.bib")).unwrap(),
-            before
-        );
+        assert_eq!(fs::read_to_string(root.join("references.bib")).unwrap(), before);
         fs::remove_dir_all(parent).unwrap();
     }
 
@@ -3979,10 +3673,7 @@ mod tests {
             "@misc{old,title={A Shared Title},author={Alice Smith and Bob Jones},year={2025}}";
         let incoming = before.replace("{old,", "{new,");
         let (merged, key, exists) = merge_resolved_citation(before, &incoming, "new").unwrap();
-        assert_eq!(
-            (merged.as_str(), key.as_str(), exists),
-            (before, "old", true)
-        );
+        assert_eq!((merged.as_str(), key.as_str(), exists), (before, "old", true));
         for changed in [
             incoming.replace("Shared", "Similar"),
             incoming.replace("Alice", "Ann"),
@@ -3997,13 +3688,8 @@ mod tests {
             assert!(merged.starts_with(before));
             assert_eq!(project::parse_bibliography(&merged).len(), 2);
         }
-        let incoming = incoming
-            .replace("{new,", "{old,")
-            .replace("Shared", "Different");
-        assert_eq!(
-            merge_resolved_citation(before, &incoming, "old").unwrap().1,
-            "old-2"
-        );
+        let incoming = incoming.replace("{new,", "{old,").replace("Shared", "Different");
+        assert_eq!(merge_resolved_citation(before, &incoming, "old").unwrap().1, "old-2");
     }
 
     #[test]
@@ -4035,17 +3721,13 @@ mod tests {
         let before = "@article{old,title={Shared Title},author={Alice Smith},year={2025},url={https://doi.org/10.1234/a}}";
         let same =
             "@article{new,title={Shared Title},author={Alice Smith},year={2025},doi={10.1234/a}}";
-        assert!(crate::citation_audit::metadata_identity_matches(
-            before, same
-        ));
+        assert!(crate::citation_audit::metadata_identity_matches(before, same));
         assert_eq!(
             merge_resolved_citation(before, same, "new").unwrap(),
             (before.to_string(), "old".to_string(), true)
         );
         let different = same.replace("10.1234/a", "10.1234/b");
-        assert!(!crate::citation_audit::metadata_identity_matches(
-            before, &different
-        ));
+        assert!(!crate::citation_audit::metadata_identity_matches(before, &different));
         let (merged, key, exists) = merge_resolved_citation(before, &different, "new").unwrap();
         assert!(!exists);
         assert_eq!(key, "new");
@@ -4098,10 +3780,7 @@ mod tests {
             after.replace("{old,", "{new,"),
             format!("{after}\n{after}"),
         ] {
-            assert!(
-                validate_bibliography_upgrade(before, &invalid).is_err(),
-                "{invalid}"
-            );
+            assert!(validate_bibliography_upgrade(before, &invalid).is_err(), "{invalid}");
         }
     }
 
@@ -4109,9 +3788,7 @@ mod tests {
     #[ignore = "requires arxiv.org network access"]
     fn pixels_import_live_preserves_both_distinct_papers() {
         let before = "@misc{diao2026pixels,title={From Pixels to Words -- Towards Native One-Vision Models at Scale},author={Haiwen Diao},year={2026},eprint={2605.28820}}";
-        let raw = official_arxiv_citation("https://arxiv.org/abs/2510.14979")
-            .unwrap()
-            .unwrap();
+        let raw = official_arxiv_citation("https://arxiv.org/abs/2510.14979").unwrap().unwrap();
         let entry = project::parse_bibliography(&raw).remove(0);
         assert_eq!(
             entry.title,
@@ -4134,28 +3811,15 @@ mod tests {
         );
         assert_eq!(
             existing_explicit_arxiv_citation(bibliography, "https://arxiv.org/pdf/2609.01147v5"),
-            Some((
-                "2609.01147".to_string(),
-                "existingKey".to_string(),
-                "Exact paper".to_string(),
-            ))
+            Some(("2609.01147".to_string(), "existingKey".to_string(), "Exact paper".to_string(),))
         );
-        assert_eq!(
-            existing_explicit_arxiv_citation(bibliography, "2609.01148"),
-            None
-        );
-        assert_eq!(
-            existing_explicit_arxiv_citation(bibliography, "A tempting title match"),
-            None
-        );
+        assert_eq!(existing_explicit_arxiv_citation(bibliography, "2609.01148"), None);
+        assert_eq!(existing_explicit_arxiv_citation(bibliography, "A tempting title match"), None);
         assert_eq!(
             existing_explicit_arxiv_citation(bibliography, "https://example.org/2609.01147"),
             None
         );
-        assert_eq!(
-            existing_explicit_arxiv_citation(bibliography, "A study of 2609.01147"),
-            None
-        );
+        assert_eq!(existing_explicit_arxiv_citation(bibliography, "A study of 2609.01147"), None);
     }
 
     #[test]
@@ -4176,10 +3840,7 @@ mod tests {
             .as_deref(),
             Some("2407.06438")
         );
-        assert_eq!(
-            arxiv_id_from_title_feed(feed, "A Different Transformer"),
-            None
-        );
+        assert_eq!(arxiv_id_from_title_feed(feed, "A Different Transformer"), None);
         assert_eq!(
             arxiv_id_from_title_feed(
                 feed,
@@ -4199,10 +3860,7 @@ mod tests {
             }),
             "https://arxiv.org/abs/2407.06438"
         );
-        assert_eq!(
-            bibcite_query_for_input(title, &|_| Err("offline".to_string())),
-            title
-        );
+        assert_eq!(bibcite_query_for_input(title, &|_| Err("offline".to_string())), title);
         assert_eq!(
             bibcite_query_for_input("https://openreview.net/forum?id=nuzFG0Rbhy", &|_| {
                 panic!("URLs must go directly to bibcite")
@@ -4215,9 +3873,7 @@ mod tests {
     fn resolved_snapshot_skips_search_and_preserves_metadata() {
         let raw = "@article{chosen, title={A Verified Study}, author={Smith, Ada}, year={2026}, doi={10.1234/chosen}, url={https://doi.org/10.1234/chosen}, month={September}, note={Preserve {nested} details}}";
         assert_eq!(
-            bibcite_query_for_input(raw, &|_| panic!(
-                "a resolved snapshot must not search again"
-            )),
+            bibcite_query_for_input(raw, &|_| panic!("a resolved snapshot must not search again")),
             raw
         );
         let parent = std::env::temp_dir().join(format!("lattice-resolved-{}", Uuid::new_v4()));
@@ -4236,10 +3892,7 @@ mod tests {
         let repeated = import_reference_with_progress(&root, raw, &|_| {}).unwrap();
         assert!(repeated.already_imported);
         assert_eq!(repeated.citation_key, imported.citation_key);
-        assert_eq!(
-            fs::read_to_string(root.join("references.bib")).unwrap(),
-            bibliography
-        );
+        assert_eq!(fs::read_to_string(root.join("references.bib")).unwrap(), bibliography);
         assert!(run_bibcite_cancellable(
             &root.join("references.bib"),
             &format!("{raw}\n{raw}"),
@@ -4286,15 +3939,9 @@ mod tests {
     #[test]
     fn does_not_mistake_a_doi_or_a_title_for_an_arxiv_id() {
         assert_eq!(parse_arxiv_id("10.1145/3292500.3330701"), None);
-        assert_eq!(
-            parse_arxiv_id("https://doi.org/10.1038/s41586-021-03819-2"),
-            None
-        );
+        assert_eq!(parse_arxiv_id("https://doi.org/10.1038/s41586-021-03819-2"), None);
         assert_eq!(parse_arxiv_id("Attention Is All You Need"), None);
-        assert_eq!(
-            parse_arxiv_id("https://example.edu/blog/2024/some-post"),
-            None
-        );
+        assert_eq!(parse_arxiv_id("https://example.edu/blog/2024/some-post"), None);
         // Longer than any arXiv id, so it is not one with the tail ignored.
         assert_eq!(parse_arxiv_id("2401.123456789"), None);
         // Still found inside a real URL, which is what people paste.
@@ -4320,10 +3967,7 @@ mod tests {
     fn extracts_the_title_from_yaml_frontmatter() {
         let markdown =
             "---\ntitle: \"Attention Is All You Need\"\nsections: 28\n---\n\n## Contents\n";
-        assert_eq!(
-            parse_title(markdown),
-            Some("Attention Is All You Need".to_string())
-        );
+        assert_eq!(parse_title(markdown), Some("Attention Is All You Need".to_string()));
     }
 
     #[test]
@@ -4338,10 +3982,7 @@ mod tests {
         .unwrap();
         for (id, markdown) in [
             ("2501.00001", "---\ntitle: Empty\nsections: 0\n---\n\n"),
-            (
-                "2501.00002",
-                "---\ntitle: Full\n---\n\n# Introduction\nText.\n",
-            ),
+            ("2501.00002", "---\ntitle: Full\n---\n\n# Introduction\nText.\n"),
         ] {
             let directory = root.join(".research/papers").join(id);
             fs::create_dir_all(&directory).unwrap();
@@ -4349,24 +3990,10 @@ mod tests {
         }
 
         let papers = list_papers(&root).unwrap();
-        assert!(
-            !papers
-                .iter()
-                .find(|paper| paper.arxiv_id == "2501.00001")
-                .unwrap()
-                .has_full_text
-        );
-        assert!(
-            papers
-                .iter()
-                .find(|paper| paper.arxiv_id == "2501.00002")
-                .unwrap()
-                .has_full_text
-        );
+        assert!(!papers.iter().find(|paper| paper.arxiv_id == "2501.00001").unwrap().has_full_text);
+        assert!(papers.iter().find(|paper| paper.arxiv_id == "2501.00002").unwrap().has_full_text);
         assert!(read_paper(&root, "2501.00001").is_err());
-        assert!(read_paper(&root, "2501.00002")
-            .unwrap()
-            .contains("Introduction"));
+        assert!(read_paper(&root, "2501.00002").unwrap().contains("Introduction"));
         let _ = fs::remove_dir_all(parent);
     }
 
@@ -4381,11 +4008,7 @@ mod tests {
         .unwrap();
         let directory = root.join(".research/papers/2501.00003");
         fs::create_dir_all(&directory).unwrap();
-        fs::write(
-            directory.join("paper.md"),
-            "---\ntitle: Overview only\n---\n",
-        )
-        .unwrap();
+        fs::write(directory.join("paper.md"), "---\ntitle: Overview only\n---\n").unwrap();
         fs::write(directory.join("blog.md"), "# A useful overview\nDetails.\n").unwrap();
 
         let papers = list_papers(&root).unwrap();
@@ -4427,9 +4050,7 @@ mod tests {
         fs::write(dir.join("blog.md"), "My edited overview").unwrap();
         cache_overview_without_full_text(&dir, Some("Replacement"), "PDF failed").unwrap();
         assert_eq!(
-            read_paper_blog_local(&root, "2609.12345")
-                .unwrap()
-                .as_deref(),
+            read_paper_blog_local(&root, "2609.12345").unwrap().as_deref(),
             Some("My edited overview")
         );
         fs::remove_dir_all(parent).unwrap();
@@ -4446,10 +4067,7 @@ mod tests {
         };
         let raw = alphaxiv_bibtex(&paper).unwrap();
         let entry = project::parse_bibliography(&raw).remove(0);
-        assert_eq!(
-            entry.url.as_deref(),
-            Some("https://www.alphaxiv.org/abs/2609.report")
-        );
+        assert_eq!(entry.url.as_deref(), Some("https://www.alphaxiv.org/abs/2609.report"));
         assert_eq!(entry.year, "2026");
         assert!(raw.contains("note = {Keep {nested} braces}"));
         paper.title = "A different report".into();
@@ -4472,9 +4090,7 @@ mod tests {
             assert_eq!(papers.len(), 1);
             assert!(papers[0].has_blog);
             assert!(papers[0].has_full_text);
-            assert!(read_paper_blog_local(&root, &papers[0].arxiv_id)?
-                .unwrap()
-                .contains("[p8]"));
+            assert!(read_paper_blog_local(&root, &papers[0].arxiv_id)?.unwrap().contains("[p8]"));
             assert!(read_paper(&root, &papers[0].arxiv_id)?.contains("reinforcement"));
             let resolved = project::resolve_citation_query(&papers[0].title)?;
             assert_eq!(resolved.url, papers[0].url.as_deref().unwrap());
@@ -4501,11 +4117,7 @@ mod tests {
         .unwrap();
         let directory = root.join(".research/papers/1706.03762");
         fs::create_dir_all(&directory).unwrap();
-        fs::write(
-            directory.join("paper.md"),
-            "Title: Attention Is All You Need\n",
-        )
-        .unwrap();
+        fs::write(directory.join("paper.md"), "Title: Attention Is All You Need\n").unwrap();
         fs::write(
             directory.join("metadata.json"),
             r#"{"arxivId":"1706.03762","title":"Attention Is All You Need","citationKey":"vaswani2017attention"}"#,
@@ -4556,11 +4168,7 @@ mod tests {
         let web_id = web_reference_id(openreview);
         let web = root.join(".research/papers").join(&web_id);
         fs::create_dir_all(&web).unwrap();
-        fs::write(
-            web.join("paper.md"),
-            format!("# {title}\n\nOpenReview page."),
-        )
-        .unwrap();
+        fs::write(web.join("paper.md"), format!("# {title}\n\nOpenReview page.")).unwrap();
         fs::write(
             web.join("metadata.json"),
             serde_json::to_vec(&PaperMetadata {
@@ -4581,11 +4189,8 @@ mod tests {
 
         let arxiv = root.join(".research/papers/2407.06438");
         fs::create_dir_all(&arxiv).unwrap();
-        fs::write(
-            arxiv.join("paper.md"),
-            format!("# SOLO: {title}\n\nThe arXiv full text."),
-        )
-        .unwrap();
+        fs::write(arxiv.join("paper.md"), format!("# SOLO: {title}\n\nThe arXiv full text."))
+            .unwrap();
         fs::write(
             arxiv.join("metadata.json"),
             serde_json::to_vec(&PaperMetadata {
@@ -4615,16 +4220,9 @@ mod tests {
     fn lists_only_the_manifest_primary_bibliography() {
         let parent = std::env::temp_dir().join(format!("lattice-paper-primary-{}", Uuid::new_v4()));
         let root = project::create(&parent, "paper").unwrap();
-        fs::write(
-            root.join("references.bib"),
-            "@book{primary, title={Primary source}}\n",
-        )
-        .unwrap();
-        fs::write(
-            root.join("supplement.bib"),
-            "@book{secondary, title={Completion only}}\n",
-        )
-        .unwrap();
+        fs::write(root.join("references.bib"), "@book{primary, title={Primary source}}\n").unwrap();
+        fs::write(root.join("supplement.bib"), "@book{secondary, title={Completion only}}\n")
+            .unwrap();
 
         let papers = list_papers(&root).unwrap();
         assert_eq!(papers.len(), 1);
@@ -4650,9 +4248,7 @@ mod tests {
         assert!(!result.removed);
         assert!(!result.blockers.is_empty());
         assert!(cache.join("paper.md").is_file());
-        assert!(fs::read_to_string(root.join("references.bib"))
-            .unwrap()
-            .contains("keep"));
+        assert!(fs::read_to_string(root.join("references.bib")).unwrap().contains("keep"));
         let _ = fs::remove_dir_all(parent);
     }
 
@@ -4690,10 +4286,7 @@ mod tests {
         let preview = preview_reference_removal(&root, "target").unwrap();
         assert!(!preview.removed);
         assert_eq!(preview.blockers.len(), 2);
-        assert_eq!(
-            fs::read_to_string(root.join("main.tex")).unwrap(),
-            manuscript
-        );
+        assert_eq!(fs::read_to_string(root.join("main.tex")).unwrap(), manuscript);
 
         let result = remove_reference_and_citations(&root, "target").unwrap();
         assert!(result.removed);
@@ -4705,9 +4298,7 @@ mod tests {
         assert!(main.contains("\\begin{verbatim}\n\\cite{target}\n\\end{verbatim}"));
         assert!(main.contains("\\citep[see][p. 2]{first, last}"));
         assert!(main.contains("Solo remains grammatical."));
-        assert!(!fs::read_to_string(root.join("references.bib"))
-            .unwrap()
-            .contains("target"));
+        assert!(!fs::read_to_string(root.join("references.bib")).unwrap().contains("target"));
         assert!(cache.join("paper.md").is_file());
         let history = project::history(&root).unwrap();
         assert_eq!(history.len(), 1);
@@ -4737,13 +4328,8 @@ mod tests {
         assert!(result.removed);
         assert_eq!(result.removed_citations, 0);
         assert_eq!(result.changed_files, ["references.bib"]);
-        assert_eq!(
-            fs::read_to_string(root.join("main.tex")).unwrap(),
-            "See \\cite{keep}.\n"
-        );
-        assert!(!fs::read_to_string(root.join("references.bib"))
-            .unwrap()
-            .contains("keep"));
+        assert_eq!(fs::read_to_string(root.join("main.tex")).unwrap(), "See \\cite{keep}.\n");
+        assert!(!fs::read_to_string(root.join("references.bib")).unwrap().contains("keep"));
 
         let _ = fs::remove_dir_all(parent);
     }
@@ -4768,11 +4354,8 @@ mod tests {
             std::env::temp_dir().join(format!("lattice-paper-wildcard-{}", Uuid::new_v4()));
         let root = project::create(&parent, "paper").unwrap();
         fs::write(root.join("main.tex"), "\\nocite{*}\n").unwrap();
-        fs::write(
-            root.join("references.bib"),
-            "@article{keep, title={Keep everything}}\n",
-        )
-        .unwrap();
+        fs::write(root.join("references.bib"), "@article{keep, title={Keep everything}}\n")
+            .unwrap();
 
         assert!(!citation_blockers(&root, "keep").unwrap().is_empty());
         let _ = fs::remove_dir_all(parent);
@@ -4873,11 +4456,7 @@ mod tests {
         // and the stored id carries a version suffix the citation omits.
         let directory = root.join(".research/papers/2504.10462v2");
         fs::create_dir_all(&directory).unwrap();
-        fs::write(
-            directory.join("paper.md"),
-            "Title: The Scalability of Simplicity\n",
-        )
-        .unwrap();
+        fs::write(directory.join("paper.md"), "Title: The Scalability of Simplicity\n").unwrap();
         fs::write(
             directory.join("metadata.json"),
             r#"{"arxivId":"2504.10462v2","title":"The Scalability of Simplicity"}"#,
@@ -4885,11 +4464,7 @@ mod tests {
         .unwrap();
 
         let papers = list_papers(&root).unwrap();
-        assert_eq!(
-            papers.len(),
-            1,
-            "the fetched text and its citation are one work: {papers:?}"
-        );
+        assert_eq!(papers.len(), 1, "the fetched text and its citation are one work: {papers:?}");
         assert!(papers[0].has_full_text, "got: {:?}", papers[0]);
         let _ = fs::remove_dir_all(parent);
     }
@@ -4905,11 +4480,7 @@ mod tests {
         .unwrap();
         let directory = root.join(".research/papers/1706.03762");
         fs::create_dir_all(&directory).unwrap();
-        fs::write(
-            directory.join("paper.md"),
-            "Title: Attention Is All You Need\n",
-        )
-        .unwrap();
+        fs::write(directory.join("paper.md"), "Title: Attention Is All You Need\n").unwrap();
         fs::write(
             directory.join("metadata.json"),
             r#"{"arxivId":"1706.03762","title":"Attention Is All You Need","citationKey":"vaswani2017attention"}"#,
@@ -4941,11 +4512,7 @@ mod tests {
         // A second uncited cache entry is hidden too, regardless of metadata.
         let library = root.join(".research/papers/1706.03762");
         fs::create_dir_all(&library).unwrap();
-        fs::write(
-            library.join("paper.md"),
-            "Title: Attention Is All You Need\n",
-        )
-        .unwrap();
+        fs::write(library.join("paper.md"), "Title: Attention Is All You Need\n").unwrap();
         fs::write(
             library.join("metadata.json"),
             r#"{"arxivId":"1706.03762","title":"Attention Is All You Need","citationKey":null}"#,
@@ -4986,28 +4553,16 @@ mod tests {
         .unwrap();
         let directory = root.join(".research/papers/1706.03762");
         fs::create_dir_all(&directory).unwrap();
-        fs::write(
-            directory.join("paper.md"),
-            "Title: Attention Is All You Need\n",
-        )
-        .unwrap();
+        fs::write(directory.join("paper.md"), "Title: Attention Is All You Need\n").unwrap();
         fs::write(directory.join("blog.md"), "An overview with a body.\n").unwrap();
 
         let library = list_library(&root).unwrap();
         assert_eq!(library.len(), 2, "got: {library:?}");
-        let cached = library
-            .iter()
-            .find(|paper| paper.arxiv_id == "1706.03762")
-            .expect("the cached paper");
+        let cached =
+            library.iter().find(|paper| paper.arxiv_id == "1706.03762").expect("the cached paper");
         assert_eq!(cached.citation_key.as_deref(), Some("vaswani2017attention"));
-        assert_eq!(
-            cached.full_text_path.as_deref(),
-            Some(".research/papers/1706.03762/paper.md")
-        );
-        assert_eq!(
-            cached.overview_path.as_deref(),
-            Some(".research/papers/1706.03762/blog.md")
-        );
+        assert_eq!(cached.full_text_path.as_deref(), Some(".research/papers/1706.03762/paper.md"));
+        assert_eq!(cached.overview_path.as_deref(), Some(".research/papers/1706.03762/blog.md"));
         let uncached = library
             .iter()
             .find(|paper| paper.arxiv_id == "2401.99999")
@@ -5051,19 +4606,13 @@ mod tests {
         let papers = list_papers(&root).unwrap();
         assert_eq!(papers[0].doi.as_deref(), Some("10.1234/example"));
         assert_eq!(
-            papers[0]
-                .citation_health
-                .as_ref()
-                .map(|health| health.kind.as_str()),
+            papers[0].citation_health.as_ref().map(|health| health.kind.as_str()),
             Some("expressionOfConcern")
         );
         let library = list_library(&root).unwrap();
         assert_eq!(library[0].doi.as_deref(), Some("10.1234/example"));
         assert_eq!(
-            library[0]
-                .citation_health
-                .as_ref()
-                .and_then(|health| health.link.as_deref()),
+            library[0].citation_health.as_ref().and_then(|health| health.link.as_deref()),
             Some("https://doi.org/10.5555/notice")
         );
         let _ = fs::remove_dir_all(parent);
@@ -5096,11 +4645,7 @@ mod tests {
         // An uncited cache mentioning the same phrase must stay invisible.
         let uncited = root.join(".research/papers/2401.00001");
         fs::create_dir_all(&uncited).unwrap();
-        fs::write(
-            uncited.join("paper.md"),
-            "Another scaled dot-product variant.\n",
-        )
-        .unwrap();
+        fs::write(uncited.join("paper.md"), "Another scaled dot-product variant.\n").unwrap();
 
         let hits = search_library(&root, "scaled dot-product").unwrap();
         assert_eq!(hits.len(), 1, "got: {hits:?}");
@@ -5115,10 +4660,7 @@ mod tests {
 
         // A title match reports the readable file without a line number.
         let title_hits = search_library(&root, "attention is all you need").unwrap();
-        assert!(
-            title_hits.iter().any(|hit| hit.line.is_none()),
-            "got: {title_hits:?}"
-        );
+        assert!(title_hits.iter().any(|hit| hit.line.is_none()), "got: {title_hits:?}");
         let _ = fs::remove_dir_all(parent);
     }
 
@@ -5154,11 +4696,7 @@ mod tests {
             paper_sha256: sha256_hex(markdown.as_bytes()),
             asset_manifest_schema_version: ASSET_MANIFEST_SCHEMA_VERSION,
         };
-        fs::write(
-            directory.join("metadata.json"),
-            serde_json::to_vec(&metadata).unwrap(),
-        )
-        .unwrap();
+        fs::write(directory.join("metadata.json"), serde_json::to_vec(&metadata).unwrap()).unwrap();
 
         let bibcite = parent.join("bibcite-must-not-run");
         write_test_tool(&bibcite, "#!/bin/sh\nexit 91\n");
@@ -5174,10 +4712,7 @@ mod tests {
         assert_eq!(result.citation_key.as_deref(), Some("vaswani2017attention"));
         assert_eq!(result.paper_path, ".research/papers/1706.03762/paper.md");
         assert!(stages.borrow().is_empty(), "got: {:?}", stages.borrow());
-        assert_eq!(
-            fs::read_to_string(root.join("references.bib")).unwrap(),
-            bibliography
-        );
+        assert_eq!(fs::read_to_string(root.join("references.bib")).unwrap(), bibliography);
         fs::remove_dir_all(parent).unwrap();
     }
 
@@ -5196,11 +4731,7 @@ mod tests {
         let arxiv2md = tools.join("fake-arxiv2md");
         write_test_tool(
             &arxiv2md,
-            concat!(
-                "#!/bin/sh\n",
-                "echo 'fixture conversion failure' >&2\n",
-                "exit 1\n",
-            ),
+            concat!("#!/bin/sh\n", "echo 'fixture conversion failure' >&2\n", "exit 1\n",),
         );
         // Process-wide, but nothing else in the suite spawns these tools: the
         // other fetch/list tests are satisfied from on-disk caches.
@@ -5243,10 +4774,7 @@ mod tests {
 
         assert!(result.cancelled);
         assert!(result.citation_key.is_none());
-        assert_eq!(
-            fs::read_to_string(root.join("references.bib")).unwrap(),
-            before
-        );
+        assert_eq!(fs::read_to_string(root.join("references.bib")).unwrap(), before);
         fs::remove_dir_all(parent).unwrap();
     }
 
@@ -5349,12 +4877,7 @@ mod tests {
                 "The Éléphant in the Room",
                 "garcia2025elephant",
             ),
-            (
-                "{Thinking Machines Lab}",
-                "2026",
-                "Introducing Inkling-Small",
-                "lab2026introducing",
-            ),
+            ("{Thinking Machines Lab}", "2026", "Introducing Inkling-Small", "lab2026introducing"),
             ("", "2026", "GLM-5.3: Frontier Coding", "anonymous2026glm53"),
             ("", "", "The and a", "anonymousXXXXthe"),
             ("李", "2024", "研究", "anon2024paper"),
@@ -5372,10 +4895,7 @@ mod tests {
         let raw = supplied_web_bibtex(&html, "https://mirros.ai/blog/s-space#citation").unwrap();
         assert_eq!(raw, SUPPLIED_BLOG);
         assert!(raw.contains("author={{MirroS Team}}"));
-        let conflict = format!(
-            "{html}<code>{}</code>",
-            SUPPLIED_BLOG.replace("2026", "2025")
-        );
+        let conflict = format!("{html}<code>{}</code>", SUPPLIED_BLOG.replace("2026", "2025"));
         assert!(supplied_web_bibtex(&conflict, "https://mirros.ai/blog/s-space").is_none());
         let highlighted = "<title>A &amp; B</title><pre><code><span>@misc</span>{a,title={A &amp; B},author={{A Team}}}</code></pre>";
         assert_eq!(
@@ -5399,10 +4919,7 @@ mod tests {
         let _override = ScopedToolOverride::set(commands::BIBCITE.override_env, &tool);
         let (fresh, key, _) = merge_supplied_bibtex("", SUPPLIED_BLOG).unwrap();
         assert_eq!(key, "team2026sspace");
-        assert_eq!(
-            fresh.trim(),
-            SUPPLIED_BLOG.replacen("mirros2026sspace", "team2026sspace", 1)
-        );
+        assert_eq!(fresh.trim(), SUPPLIED_BLOG.replacen("mirros2026sspace", "team2026sspace", 1));
         let (unchanged, key, exists) = merge_supplied_bibtex(SUPPLIED_BLOG, SUPPLIED_BLOG).unwrap();
         assert!(exists);
         assert_eq!(key, "mirros2026sspace");
@@ -5448,11 +4965,8 @@ mod tests {
             )
             .into_bytes(),
         );
-        let pdf_url = reqwest::Url::parse(&page_url)
-            .unwrap()
-            .join("/original.pdf")
-            .unwrap()
-            .to_string();
+        let pdf_url =
+            reqwest::Url::parse(&page_url).unwrap().join("/original.pdf").unwrap().to_string();
         let raw = pdf_citation_bibtex(
             &format!("# {title}\n\nDate:September 7, 2026 Website:[{page_url}]({page_url}) Code:https://example.org/code\n"),
             title,
@@ -5485,9 +4999,7 @@ mod tests {
     #[test]
     fn direct_pdf_urls_do_not_steal_arxiv_or_webpage_queries() {
         assert!(is_pdf_url("https://mirros.ai/report/s-space.pdf"));
-        assert!(is_pdf_url(
-            "https://example.org/report.PDF?download=1#page=2"
-        ));
+        assert!(is_pdf_url("https://example.org/report.PDF?download=1#page=2"));
         assert!(is_pdf_url("https://example.org/2609.01147.pdf"));
         for query in [
             "https://arxiv.org/pdf/2609.01147.pdf",
@@ -5503,10 +5015,7 @@ mod tests {
     fn serve_pdf_response(body: Vec<u8>) -> (String, std::thread::JoinHandle<()>) {
         use std::io::{BufRead, BufReader, Write};
         let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
-        let url = format!(
-            "http://{}/report.PDF?download=1",
-            listener.local_addr().unwrap()
-        );
+        let url = format!("http://{}/report.PDF?download=1", listener.local_addr().unwrap());
         let server = std::thread::spawn(move || {
             let (mut stream, _) = listener.accept().unwrap();
             let mut reader = BufReader::new(&mut stream);
@@ -5551,9 +5060,7 @@ mod tests {
         for offset in &offsets[1..] {
             pdf.push_str(&format!("{offset:010} 00000 n \n"));
         }
-        pdf.push_str(&format!(
-            "trailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n{xref}\n%%EOF\n"
-        ));
+        pdf.push_str(&format!("trailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n{xref}\n%%EOF\n"));
         let (url, server) = serve_pdf_response(pdf.into_bytes());
         let parent = std::env::temp_dir().join(format!("lattice-pdf-import-{}", Uuid::new_v4()));
         let root = project::create(&parent, "paper").unwrap();
@@ -5566,10 +5073,7 @@ mod tests {
         let imported = import_reference_with_progress(&root, &url, &|_| {}).unwrap();
         server.join().unwrap();
         assert!(!imported.already_imported);
-        assert_eq!(
-            imported.citation_key.as_deref(),
-            Some(format!("{key}-2").as_str())
-        );
+        assert_eq!(imported.citation_key.as_deref(), Some(format!("{key}-2").as_str()));
         let markdown = read_paper(&root, &imported.arxiv_id).unwrap();
         assert!(markdown.contains("Evidence from the imported report remains readable."));
         assert!(markdown.contains("pdf-text-layer"));
@@ -5579,26 +5083,18 @@ mod tests {
         assert_eq!(entries.len(), 2);
         assert_eq!(entries[1].url.as_deref(), Some(url.as_str()));
         let listed = list_papers(&root).unwrap();
-        assert!(listed
-            .iter()
-            .any(|paper| paper.arxiv_id == imported.arxiv_id
-                && paper.has_full_text
-                && !paper.has_blog));
+        assert!(listed.iter().any(|paper| paper.arxiv_id == imported.arxiv_id
+            && paper.has_full_text
+            && !paper.has_blog));
         let again = import_reference_with_progress(&root, &url, &|_| {}).unwrap();
         assert!(again.already_imported);
         assert_eq!(again.citation_key, imported.citation_key);
-        assert_eq!(
-            fs::read_to_string(root.join("references.bib")).unwrap(),
-            bibliography
-        );
+        assert_eq!(fs::read_to_string(root.join("references.bib")).unwrap(), bibliography);
         // Only arXiv bundles may be joined by title. A generic PDF must not
         // get attached to a different citation just because titles coincide.
         fs::write(
             root.join("references.bib"),
-            format!(
-                "@misc{{decoy, title={{{}}}}}\n{bibliography}",
-                imported.title
-            ),
+            format!("@misc{{decoy, title={{{}}}}}\n{bibliography}", imported.title),
         )
         .unwrap();
         let listed = list_papers(&root).unwrap();
@@ -5644,10 +5140,7 @@ mod tests {
         )
         .unwrap();
         let markdown = read_paper(&root, &result.arxiv_id).unwrap();
-        assert!(
-            markdown.contains("S-Space"),
-            "expected the actual report text"
-        );
+        assert!(markdown.contains("S-Space"), "expected the actual report text");
         assert!(markdown.len() > 10_000);
         assert!(result.citation_key.is_some());
         assert!(result.fetch_error.is_none());
@@ -5658,17 +5151,10 @@ mod tests {
             .unwrap();
         assert_eq!(entry.authors, "MirroS Team");
         assert_eq!(entry.year, "2026");
-        assert_eq!(
-            entry.url.as_deref(),
-            Some("https://mirros.ai/report/s-space.pdf")
-        );
+        assert_eq!(entry.url.as_deref(), Some("https://mirros.ai/report/s-space.pdf"));
         assert!(!bib.contains("needs review"));
         assert!(!bib.contains("Blog post"));
-        eprintln!(
-            "Imported title: {}; {} bytes of Markdown",
-            result.title,
-            markdown.len()
-        );
+        eprintln!("Imported title: {}; {} bytes of Markdown", result.title, markdown.len());
         fs::remove_dir_all(parent).unwrap();
     }
 
@@ -5782,10 +5268,8 @@ mod tests {
         assert!(failure.contains("blocked after rendering"));
         assert!(resolve_web_citation_with(
             url,
-            Ok(
-                "<meta name='citation_doi' content='10.1/example'><title>Publication</title>"
-                    .into()
-            ),
+            Ok("<meta name='citation_doi' content='10.1/example'><title>Publication</title>"
+                .into()),
             |_| panic!("DOI resolution must not scrape")
         )
         .unwrap()
@@ -5814,21 +5298,12 @@ mod tests {
             let root = project::create(&parent, "paper").unwrap();
             let fetched = fetch_web_reference_with_page(&root, &url, result.page).unwrap();
             let markdown = read_paper(&root, &fetched.arxiv_id).unwrap();
-            assert!(
-                markdown.len() > 1000,
-                "captured article is unexpectedly short"
-            );
+            assert!(markdown.len() > 1000, "captured article is unexpectedly short");
             assert!(fetch_web_reference(&root, &url).unwrap().reused);
-            eprintln!(
-                "Captured {} bytes of Markdown; repeat import reused cache.",
-                markdown.len()
-            );
+            eprintln!("Captured {} bytes of Markdown; repeat import reused cache.", markdown.len());
             fs::remove_dir_all(parent).unwrap();
         }
-        assert_eq!(
-            project::parse_bibliography(&bib).remove(0).url.as_deref(),
-            Some(url.as_str())
-        );
+        assert_eq!(project::parse_bibliography(&bib).remove(0).url.as_deref(), Some(url.as_str()));
     }
 
     /// A webpage capture keys its bundle by URL digest; the readers accept
@@ -5865,11 +5340,7 @@ mod tests {
             paper_sha256: sha256_hex(markdown.as_bytes()),
             asset_manifest_schema_version: ASSET_MANIFEST_SCHEMA_VERSION,
         };
-        fs::write(
-            directory.join("metadata.json"),
-            serde_json::to_vec(&metadata).unwrap(),
-        )
-        .unwrap();
+        fs::write(directory.join("metadata.json"), serde_json::to_vec(&metadata).unwrap()).unwrap();
         fs::write(
             root.join("references.bib"),
             format!(
@@ -5922,10 +5393,7 @@ mod tests {
             asset_manifest_schema_version: ASSET_MANIFEST_SCHEMA_VERSION,
         };
         assert_eq!(validate_paper_bundle(&directory, &metadata), Ok(()));
-        let unknown = PaperMetadata {
-            converter: "anydoc@9.9.9".to_string(),
-            ..metadata
-        };
+        let unknown = PaperMetadata { converter: "anydoc@9.9.9".to_string(), ..metadata };
         assert!(validate_paper_bundle(&directory, &unknown).is_err());
         fs::remove_dir_all(directory).unwrap();
     }
@@ -5938,9 +5406,7 @@ mod tests {
     fn ar5iv_stub_output_has_no_body() {
         let stub = "---\ntitle: \"[2408.05088] Untitled Document\"\nurl: \"https://arxiv.org/abs/2408.05088\"\nsections: 0\nestimated_tokens: \"2\"\n---\n";
         assert!(!markdown_has_body(stub));
-        assert!(markdown_has_body(
-            "---\ntitle: \"A Paper\"\n---\n\nA real body.\n"
-        ));
+        assert!(markdown_has_body("---\ntitle: \"A Paper\"\n---\n\nA real body.\n"));
     }
 
     #[test]
@@ -6100,14 +5566,10 @@ mod tests {
         assert_eq!(result.title, "Attention Is All You Need");
         assert!(root.join(&result.paper_path).exists());
         // --frontmatter now leads the full text with a YAML block.
-        assert!(fs::read_to_string(root.join(&result.paper_path))
-            .unwrap()
-            .starts_with("---"));
+        assert!(fs::read_to_string(root.join(&result.paper_path)).unwrap().starts_with("---"));
         // The alphaXiv overview is fetched and stored as the blog view.
         assert!(root.join(".research/papers/1706.03762/blog.md").exists());
-        assert!(!fs::read_to_string(root.join("references.bib"))
-            .unwrap()
-            .is_empty());
+        assert!(!fs::read_to_string(root.join("references.bib")).unwrap().is_empty());
         fs::remove_dir_all(parent).unwrap();
     }
 }

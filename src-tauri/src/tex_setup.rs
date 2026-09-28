@@ -38,11 +38,8 @@ const UV_AARCH64_SHA256: &str = "546f7f8a6c70ff13a3a9d2bc958db3427298cebf3e0cb75
 #[cfg(any(target_os = "macos", test))]
 const UV_X86_64_SHA256: &str = "4c9f52262a14da336e4a42ed24992d12d0c956acde87619e4611d321dffa602b";
 #[cfg(any(target_os = "macos", test))]
-const REUSABLE_TEX_TOOLS: [(&str, &str); 3] = [
-    ("latexmk", "-version"),
-    ("synctex", "help"),
-    ("bibtex", "--version"),
-];
+const REUSABLE_TEX_TOOLS: [(&str, &str); 3] =
+    [("latexmk", "-version"), ("synctex", "help"), ("bibtex", "--version")];
 #[cfg(any(target_os = "macos", test))]
 const REUSABLE_TEX_ENGINES: [&str; 3] = ["pdflatex", "xelatex", "lualatex"];
 #[cfg(any(target_os = "macos", test))]
@@ -274,10 +271,8 @@ struct TexInstallWorkspace(PathBuf);
 #[cfg(target_os = "macos")]
 impl TexInstallWorkspace {
     fn create() -> Result<Self, String> {
-        let path = std::env::temp_dir().join(format!(
-            "lattice-basictex-install-{}",
-            uuid::Uuid::new_v4().simple()
-        ));
+        let path = std::env::temp_dir()
+            .join(format!("lattice-basictex-install-{}", uuid::Uuid::new_v4().simple()));
         fs::create_dir(&path)
             .map_err(|error| format!("Could not create the BasicTeX installer folder: {error}"))?;
         fs::set_permissions(&path, fs::Permissions::from_mode(0o700))
@@ -295,10 +290,7 @@ impl Drop for TexInstallWorkspace {
 
 #[cfg(target_os = "macos")]
 fn send_progress(channel: &Channel<TexInstallProgress>, stage: &str, progress: f64) {
-    let _ = channel.send(TexInstallProgress {
-        stage: stage.to_string(),
-        progress,
-    });
+    let _ = channel.send(TexInstallProgress { stage: stage.to_string(), progress });
 }
 
 #[cfg(any(target_os = "macos", all(test, unix)))]
@@ -313,8 +305,7 @@ fn create_private_file(path: &Path) -> Result<std::fs::File, String> {
 
 #[cfg(target_os = "macos")]
 fn download_basic_tex(
-    path: &Path,
-    on_progress: &Channel<TexInstallProgress>,
+    path: &Path, on_progress: &Channel<TexInstallProgress>,
 ) -> Result<(), String> {
     send_progress(on_progress, "downloading", 0.01);
     let client = reqwest::blocking::Client::builder()
@@ -353,8 +344,7 @@ fn download_basic_tex(
             }
         }
     }
-    file.flush()
-        .map_err(|error| format!("Could not finish saving BasicTeX: {error}"))?;
+    file.flush().map_err(|error| format!("Could not finish saving BasicTeX: {error}"))?;
     let actual = format!("{:x}", hasher.finalize());
     if actual != BASIC_TEX_SHA256 {
         return Err("The downloaded BasicTeX package failed its security check.".into());
@@ -382,12 +372,8 @@ fn uv_archive_for_arch(arch: &str) -> Option<(&'static str, &'static str, &'stat
 
 #[cfg(target_os = "macos")]
 fn download_uv_archive(
-    path: &Path,
-    url: &str,
-    expected_sha256: &str,
-    on_progress: &Channel<TexInstallProgress>,
-    progress_start: f64,
-    progress_end: f64,
+    path: &Path, url: &str, expected_sha256: &str, on_progress: &Channel<TexInstallProgress>,
+    progress_start: f64, progress_end: f64,
 ) -> Result<(), String> {
     send_progress(on_progress, "installing-tools", progress_start);
     let client = reqwest::blocking::Client::builder()
@@ -430,8 +416,7 @@ fn download_uv_archive(
             }
         }
     }
-    file.flush()
-        .map_err(|error| format!("Could not finish saving uv: {error}"))?;
+    file.flush().map_err(|error| format!("Could not finish saving uv: {error}"))?;
     let actual = format!("{:x}", hasher.finalize());
     if actual != expected_sha256 {
         return Err("The downloaded uv archive failed its security check.".into());
@@ -442,9 +427,7 @@ fn download_uv_archive(
 
 #[cfg(any(target_os = "macos", all(test, unix)))]
 fn extract_uv_archive(
-    archive_path: &Path,
-    staging: &Path,
-    archive_root: &str,
+    archive_path: &Path, staging: &Path, archive_root: &str,
 ) -> Result<(), String> {
     let file = fs::File::open(archive_path)
         .map_err(|error| format!("Could not read the uv archive: {error}"))?;
@@ -456,9 +439,8 @@ fn extract_uv_archive(
     let mut found_uv = false;
     let mut found_uvx = false;
 
-    for entry in archive
-        .entries()
-        .map_err(|error| format!("Could not inspect the uv archive: {error}"))?
+    for entry in
+        archive.entries().map_err(|error| format!("Could not inspect the uv archive: {error}"))?
     {
         let mut entry =
             entry.map_err(|error| format!("Could not inspect the uv archive: {error}"))?;
@@ -493,9 +475,7 @@ fn extract_uv_archive(
         let mut output = create_private_file(&destination)?;
         std::io::copy(&mut entry, &mut output)
             .map_err(|error| format!("Could not extract {name} from the uv archive: {error}"))?;
-        output
-            .flush()
-            .map_err(|error| format!("Could not finish extracting {name}: {error}"))?;
+        output.flush().map_err(|error| format!("Could not finish extracting {name}: {error}"))?;
         fs::set_permissions(&destination, fs::Permissions::from_mode(0o755))
             .map_err(|error| format!("Could not make {name} executable: {error}"))?;
     }
@@ -522,9 +502,7 @@ fn activate_uv_pair(staging: &Path, destination: &Path) -> Result<(), String> {
                 .map_err(|error| format!("Could not activate the managed uv tools: {error}"));
         }
         Err(error) => {
-            return Err(format!(
-                "Could not inspect the existing managed uv tools: {error}"
-            ));
+            return Err(format!("Could not inspect the existing managed uv tools: {error}"));
         }
         Ok(_) => {}
     }
@@ -549,9 +527,7 @@ fn activate_uv_pair(staging: &Path, destination: &Path) -> Result<(), String> {
 
 #[cfg(target_os = "macos")]
 fn ensure_uv_installed(
-    workspace: &Path,
-    on_progress: &Channel<TexInstallProgress>,
-    progress_start: f64,
+    workspace: &Path, on_progress: &Channel<TexInstallProgress>, progress_start: f64,
     progress_end: f64,
 ) -> Result<(), String> {
     if verify_uv_as_current_user().is_ok() {
@@ -566,14 +542,7 @@ fn ensure_uv_installed(
             )
         })?;
     let archive = workspace.join("uv.tar.gz");
-    download_uv_archive(
-        &archive,
-        url,
-        expected_sha256,
-        on_progress,
-        progress_start,
-        progress_end,
-    )?;
+    download_uv_archive(&archive, url, expected_sha256, on_progress, progress_start, progress_end)?;
 
     let destination = crate::commands::managed_tools_dir()
         .ok_or_else(|| "Could not locate your macOS Application Support folder.".to_string())?;
@@ -591,10 +560,7 @@ fn ensure_uv_installed(
         ));
     }
     fs::set_permissions(parent, fs::Permissions::from_mode(0o700)).map_err(|error| {
-        format!(
-            "Could not secure the managed tools folder {}: {error}",
-            parent.display()
-        )
+        format!("Could not secure the managed tools folder {}: {error}", parent.display())
     })?;
 
     let staging = parent.join(format!(
@@ -659,17 +625,14 @@ fn installer_stage_progress(stage: &str) -> Option<f64> {
 #[cfg(any(target_os = "macos", test))]
 fn install_error_detail(stderr: &str) -> String {
     let raw_detail = stderr.trim();
-    let detail = raw_detail
-        .split_once("execution error:")
-        .map_or(raw_detail, |(_, detail)| detail)
-        .trim();
+    let detail =
+        raw_detail.split_once("execution error:").map_or(raw_detail, |(_, detail)| detail).trim();
     let detail = detail
         .rsplit_once(" (")
         .filter(|(_, status)| {
-            status.strip_suffix(')').is_some_and(|code| {
-                code.bytes()
-                    .all(|byte| byte.is_ascii_digit() || byte == b'-')
-            })
+            status
+                .strip_suffix(')')
+                .is_some_and(|code| code.bytes().all(|byte| byte.is_ascii_digit() || byte == b'-'))
         })
         .map_or(detail, |(detail, _)| detail);
     let detail = detail
@@ -756,14 +719,9 @@ fn verify_tex_tool_as_current_user(tool: &str, version_arg: &str) -> Result<(), 
 
 #[cfg(target_os = "macos")]
 fn verify_conference_fonts_as_current_user() -> Result<(), String> {
-    for required_file in [
-        "t1ptm.fd",
-        "ptmr8t.tfm",
-        "t1phv.fd",
-        "utmr8a.pfb",
-        "utmb8a.pfb",
-        "uhvr8a.pfb",
-    ] {
+    for required_file in
+        ["t1ptm.fd", "ptmr8t.tfm", "t1phv.fd", "utmr8a.pfb", "utmb8a.pfb", "uhvr8a.pfb"]
+    {
         let output = crate::commands::command("kpsewhich")
             .arg(required_file)
             .output()
@@ -821,16 +779,9 @@ fn verify_tex_install_as_current_user() -> Result<(), String> {
 
 #[cfg(target_os = "macos")]
 fn run_basic_tex_installer(
-    command: &str,
-    status_path: &Path,
-    on_progress: &Channel<TexInstallProgress>,
+    command: &str, status_path: &Path, on_progress: &Channel<TexInstallProgress>,
 ) -> Result<(), String> {
-    run_privileged_tex_installer(
-        command,
-        status_path,
-        on_progress,
-        PrivilegedTexInstall::BasicTex,
-    )
+    run_privileged_tex_installer(command, status_path, on_progress, PrivilegedTexInstall::BasicTex)
 }
 
 #[cfg(target_os = "macos")]
@@ -842,9 +793,7 @@ enum PrivilegedTexInstall<'a> {
 
 #[cfg(target_os = "macos")]
 fn run_privileged_tex_installer(
-    command: &str,
-    status_path: &Path,
-    on_progress: &Channel<TexInstallProgress>,
+    command: &str, status_path: &Path, on_progress: &Channel<TexInstallProgress>,
     install: PrivilegedTexInstall<'_>,
 ) -> Result<(), String> {
     let (name, authorization_progress) = match install {
@@ -1000,9 +949,8 @@ fn tex_live_package_for_file(search_output: &str, missing_file: &str) -> Result<
     for line in search_output.lines() {
         let trimmed = line.trim();
         if !line.chars().next().is_some_and(char::is_whitespace) {
-            current_package = trimmed
-                .strip_suffix(':')
-                .filter(|package| valid_tex_package_name(package));
+            current_package =
+                trimmed.strip_suffix(':').filter(|package| valid_tex_package_name(package));
             continue;
         }
         if !trimmed.ends_with(&format!("/{missing_file}")) {
@@ -1030,15 +978,12 @@ fn tex_live_package_for_file(search_output: &str, missing_file: &str) -> Result<
 #[cfg(any(target_os = "macos", test))]
 fn valid_tex_package_name(package: &str) -> bool {
     !package.is_empty()
-        && package
-            .bytes()
-            .all(|byte| byte.is_ascii_alphanumeric() || b"._+-".contains(&byte))
+        && package.bytes().all(|byte| byte.is_ascii_alphanumeric() || b"._+-".contains(&byte))
 }
 
 #[cfg(target_os = "macos")]
 fn find_tex_live_package(
-    tlmgr: &Path,
-    missing_file: &str,
+    tlmgr: &Path, missing_file: &str,
 ) -> Result<(String, Option<&'static str>), String> {
     const FALLBACK_REPOSITORIES: [&str; 2] = [
         "https://mirrors.tuna.tsinghua.edu.cn/CTAN/systems/texlive/tlnet",
@@ -1064,10 +1009,7 @@ fn find_tex_live_package(
         failures.push(command_failure_detail(&output));
     }
     failures.dedup();
-    Err(format!(
-        "The TeX Live repository could not be searched.\n{}",
-        failures.join("\n")
-    ))
+    Err(format!("The TeX Live repository could not be searched.\n{}", failures.join("\n")))
 }
 
 #[cfg(target_os = "macos")]
@@ -1092,8 +1034,7 @@ fn verify_tex_dependency(kpsewhich: &Path, missing_file: &str) -> Result<String,
 }
 
 pub fn start_tex_install(
-    mode: TexInstallMode,
-    on_progress: Channel<TexInstallProgress>,
+    mode: TexInstallMode, on_progress: Channel<TexInstallProgress>,
 ) -> Result<(), String> {
     #[cfg(not(target_os = "macos"))]
     {
@@ -1120,10 +1061,8 @@ pub fn start_tex_install(
         }
 
         let package_path = workspace.0.join("BasicTeX.pkg");
-        let root_path = PathBuf::from("/private/var/tmp").join(format!(
-            "lattice-basictex-root-{}",
-            uuid::Uuid::new_v4().simple()
-        ));
+        let root_path = PathBuf::from("/private/var/tmp")
+            .join(format!("lattice-basictex-root-{}", uuid::Uuid::new_v4().simple()));
         let status_path = root_path.join("status");
         let tlmgr = Path::new("/Library/TeX/texbin/tlmgr");
         let install_base = active_tex_live_year(tlmgr).is_none_or(|year| year < BASIC_TEX_YEAR);
@@ -1144,10 +1083,7 @@ pub fn start_tex_install(
         }
 
         let script = BASIC_SCRIPT
-            .replace(
-                "__SOURCE_PACKAGE__",
-                &shell_quote(&package_path.to_string_lossy()),
-            )
+            .replace("__SOURCE_PACKAGE__", &shell_quote(&package_path.to_string_lossy()))
             .replace("__ROOT_PATH__", &shell_quote(&root_path.to_string_lossy()))
             .replace("__EXPECTED_SHA256__", BASIC_TEX_SHA256)
             .replace("__INSTALL_BASE__", if install_base { "1" } else { "0" });
@@ -1163,8 +1099,7 @@ pub fn start_tex_install(
 }
 
 pub fn start_tex_dependency_install(
-    missing_file: &str,
-    on_progress: Channel<TexInstallProgress>,
+    missing_file: &str, on_progress: Channel<TexInstallProgress>,
 ) -> Result<(), String> {
     #[cfg(not(target_os = "macos"))]
     {
@@ -1195,10 +1130,8 @@ pub fn start_tex_dependency_install(
 
         send_progress(&on_progress, "searching-packages", 0.02);
         let (package, repository) = find_tex_live_package(&tlmgr, missing_file)?;
-        let root_path = PathBuf::from("/private/var/tmp").join(format!(
-            "lattice-tex-dependency-root-{}",
-            uuid::Uuid::new_v4().simple()
-        ));
+        let root_path = PathBuf::from("/private/var/tmp")
+            .join(format!("lattice-tex-dependency-root-{}", uuid::Uuid::new_v4().simple()));
         let status_path = root_path.join("status");
         let repository = repository.map(shell_quote).unwrap_or_else(|| "''".into());
         let script = DEPENDENCY_SCRIPT
@@ -1228,9 +1161,7 @@ fn shell_quote(value: &str) -> String {
 #[cfg(any(target_os = "macos", test))]
 fn valid_tex_dependency_name(missing_file: &str) -> bool {
     let valid_name = !missing_file.is_empty()
-        && missing_file
-            .bytes()
-            .all(|byte| byte.is_ascii_alphanumeric() || b"._+-".contains(&byte));
+        && missing_file.bytes().all(|byte| byte.is_ascii_alphanumeric() || b"._+-".contains(&byte));
     let valid_extension = ["sty", "cls", "bst", "bbx", "cbx"]
         .iter()
         .any(|extension| missing_file.ends_with(&format!(".{extension}")));
@@ -1246,9 +1177,7 @@ mod tests {
         assert!(BASIC_TEX_URL.starts_with("https://mirror.ctan.org/"));
         assert_eq!(BASIC_TEX_YEAR, 2026);
         assert_eq!(BASIC_TEX_SHA256.len(), 64);
-        assert!(BASIC_TEX_SHA256
-            .bytes()
-            .all(|byte| byte.is_ascii_hexdigit()));
+        assert!(BASIC_TEX_SHA256.bytes().all(|byte| byte.is_ascii_hexdigit()));
         assert!(BASIC_SCRIPT.contains("status installing-base"));
         assert!(BASIC_SCRIPT.contains("status installing-packages"));
         assert!(!BASIC_SCRIPT.contains("status verifying"));
@@ -1260,9 +1189,7 @@ mod tests {
         let package_copy = BASIC_SCRIPT.find("/bin/cp").unwrap();
         let public_umask = BASIC_SCRIPT.find("umask 022").unwrap();
         let package_install = BASIC_SCRIPT.find("/usr/sbin/installer").unwrap();
-        let tlmgr_update = BASIC_SCRIPT
-            .find("tlmgr_with_fallback update --self")
-            .unwrap();
+        let tlmgr_update = BASIC_SCRIPT.find("tlmgr_with_fallback update --self").unwrap();
         assert!(private_umask < package_copy);
         assert!(package_copy < public_umask);
         assert!(public_umask < package_install);
@@ -1291,10 +1218,7 @@ mod tests {
             assert!(checksum.bytes().all(|byte| byte.is_ascii_hexdigit()));
         }
         assert!(uv_archive_for_arch("powerpc").is_none());
-        assert_eq!(
-            REUSABLE_TEX_TOOLS.map(|(tool, _)| tool),
-            ["latexmk", "synctex", "bibtex"]
-        );
+        assert_eq!(REUSABLE_TEX_TOOLS.map(|(tool, _)| tool), ["latexmk", "synctex", "bibtex"]);
         assert_eq!(REUSABLE_TEX_ENGINES, ["pdflatex", "xelatex", "lualatex"]);
     }
 
@@ -1302,10 +1226,8 @@ mod tests {
     #[test]
     fn uv_archive_extraction_accepts_only_the_expected_regular_files() {
         fn append_entry(
-            builder: &mut tar::Builder<flate2::write::GzEncoder<fs::File>>,
-            path: &str,
-            entry_type: tar::EntryType,
-            contents: &[u8],
+            builder: &mut tar::Builder<flate2::write::GzEncoder<fs::File>>, path: &str,
+            entry_type: tar::EntryType, contents: &[u8],
         ) {
             let mut header = tar::Header::new_gnu();
             header.set_entry_type(entry_type);
@@ -1315,10 +1237,8 @@ mod tests {
             builder.append_data(&mut header, path, contents).unwrap();
         }
 
-        let workspace = std::env::temp_dir().join(format!(
-            "lattice-uv-archive-test-{}",
-            uuid::Uuid::new_v4().simple()
-        ));
+        let workspace = std::env::temp_dir()
+            .join(format!("lattice-uv-archive-test-{}", uuid::Uuid::new_v4().simple()));
         fs::create_dir(&workspace).unwrap();
         let valid_archive = workspace.join("valid.tar.gz");
         let encoder = flate2::write::GzEncoder::new(
@@ -1367,18 +1287,9 @@ mod tests {
     #[test]
     fn package_install_progress_advances_with_tlmgr_output() {
         assert_eq!(installer_stage_progress("installing-packages"), Some(0.72));
-        assert_eq!(
-            installer_stage_progress("installing-packages 5 10"),
-            Some(0.825)
-        );
-        assert_eq!(
-            installer_stage_progress("installing-packages 10 10"),
-            Some(0.9299999999999999)
-        );
-        assert_eq!(
-            installer_stage_progress("installing-dependency 1 2"),
-            Some(0.6599999999999999)
-        );
+        assert_eq!(installer_stage_progress("installing-packages 5 10"), Some(0.825));
+        assert_eq!(installer_stage_progress("installing-packages 10 10"), Some(0.9299999999999999));
+        assert_eq!(installer_stage_progress("installing-dependency 1 2"), Some(0.6599999999999999));
     }
 
     #[test]
@@ -1421,10 +1332,7 @@ mod tests {
 other-package:
     texmf-dist/tex/latex/other/other.sty
 "#;
-        assert_eq!(
-            tex_live_package_for_file(search_output, "newtxmath.sty").unwrap(),
-            "newtx"
-        );
+        assert_eq!(tex_live_package_for_file(search_output, "newtxmath.sty").unwrap(), "newtx");
         assert!(DEPENDENCY_SCRIPT.contains("status installing-dependency"));
         assert!(DEPENDENCY_SCRIPT.contains("--repository \"${REPOSITORY}\""));
         assert!(DEPENDENCY_SCRIPT.contains("\"${TLMGR}\" install \"${PACKAGE}\""));
@@ -1443,11 +1351,9 @@ second:
         assert!(tex_live_package_for_file(ambiguous, "shared.sty")
             .unwrap_err()
             .contains("More than one"));
-        assert!(
-            tex_live_package_for_file("unrelated:\n    texmf-dist/other.sty\n", "custom.sty")
-                .unwrap_err()
-                .contains("custom project or conference-template file")
-        );
+        assert!(tex_live_package_for_file("unrelated:\n    texmf-dist/other.sty\n", "custom.sty")
+            .unwrap_err()
+            .contains("custom project or conference-template file"));
     }
 
     #[test]
@@ -1461,9 +1367,6 @@ second:
 
     #[test]
     fn shell_paths_are_quoted_before_being_written_to_the_installer() {
-        assert_eq!(
-            shell_quote("/Users/Ada's TeX/tlmgr"),
-            "'/Users/Ada'\"'\"'s TeX/tlmgr'"
-        );
+        assert_eq!(shell_quote("/Users/Ada's TeX/tlmgr"), "'/Users/Ada'\"'\"'s TeX/tlmgr'");
     }
 }

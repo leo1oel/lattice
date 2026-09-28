@@ -36,10 +36,7 @@ const CS_OPS_CDHASH: libc::c_uint = 5;
 #[cfg(target_os = "macos")]
 unsafe extern "C" {
     fn csops(
-        pid: libc::pid_t,
-        ops: libc::c_uint,
-        useraddr: *mut libc::c_void,
-        usersize: libc::size_t,
+        pid: libc::pid_t, ops: libc::c_uint, useraddr: *mut libc::c_void, usersize: libc::size_t,
     ) -> libc::c_int;
 }
 
@@ -238,8 +235,7 @@ fn bind_browser_listener(take_over_background_host: bool) -> io::Result<TcpListe
 
 #[cfg(target_os = "macos")]
 fn replace_stale_browser_host(
-    address: SocketAddrV4,
-    take_over_background_host: bool,
+    address: SocketAddrV4, take_over_background_host: bool,
 ) -> Option<TcpListener> {
     let current_exe = std::env::current_exe().ok()?;
     let candidate = stale_browser_host(&current_exe, take_over_background_host)?;
@@ -272,8 +268,7 @@ fn replace_stale_browser_host(
 
 #[cfg(target_os = "macos")]
 fn stale_browser_host(
-    current_exe: &std::path::Path,
-    take_over_background_host: bool,
+    current_exe: &std::path::Path, take_over_background_host: bool,
 ) -> Option<ProcessIdentity> {
     let pid = browser_listener_pid()?;
     let identity = process_identity(pid)?;
@@ -300,20 +295,13 @@ fn browser_host_arguments_match(arguments: &[Vec<u8>], current_exe: &std::path::
 fn process_executable_matches(pid: libc::pid_t, current_exe: &std::path::Path) -> bool {
     let mut path = vec![0_u8; libc::PROC_PIDPATHINFO_MAXSIZE as usize];
     let read = unsafe {
-        libc::proc_pidpath(
-            pid,
-            path.as_mut_ptr().cast(),
-            path.len().try_into().unwrap_or(u32::MAX),
-        )
+        libc::proc_pidpath(pid, path.as_mut_ptr().cast(), path.len().try_into().unwrap_or(u32::MAX))
     };
     if read <= 0 {
         return false;
     }
     let read = read as usize;
-    let length = path[..read]
-        .iter()
-        .position(|byte| *byte == 0)
-        .unwrap_or(read);
+    let length = path[..read].iter().position(|byte| *byte == 0).unwrap_or(read);
     path[..length] == *current_exe.as_os_str().as_encoded_bytes()
 }
 
@@ -440,8 +428,7 @@ fn process_code_hash(pid: libc::pid_t) -> Option<[u8; 20]> {
 /// bridge WebView itself.
 #[tauri::command]
 pub(crate) async fn browser_dialog_open(
-    window: tauri::WebviewWindow,
-    options: BrowserDialogOptions,
+    window: tauri::WebviewWindow, options: BrowserDialogOptions,
 ) -> Result<BrowserDialogSelection, String> {
     browser_dialog_window(&window)?;
     tauri::async_runtime::spawn_blocking(move || {
@@ -449,20 +436,12 @@ pub(crate) async fn browser_dialog_open(
         let multiple = options.multiple;
         let dialog = browser_dialog_builder(&options);
         if multiple {
-            let paths = if directory {
-                dialog.pick_folders()
-            } else {
-                dialog.pick_files()
-            };
+            let paths = if directory { dialog.pick_folders() } else { dialog.pick_files() };
             BrowserDialogSelection::Many(
                 paths.map(|paths| paths.into_iter().map(browser_dialog_path).collect()),
             )
         } else {
-            let path = if directory {
-                dialog.pick_folder()
-            } else {
-                dialog.pick_file()
-            };
+            let path = if directory { dialog.pick_folder() } else { dialog.pick_file() };
             BrowserDialogSelection::One(path.map(browser_dialog_path))
         }
     })
@@ -472,14 +451,11 @@ pub(crate) async fn browser_dialog_open(
 
 #[tauri::command]
 pub(crate) async fn browser_dialog_save(
-    window: tauri::WebviewWindow,
-    options: BrowserDialogOptions,
+    window: tauri::WebviewWindow, options: BrowserDialogOptions,
 ) -> Result<Option<String>, String> {
     browser_dialog_window(&window)?;
     tauri::async_runtime::spawn_blocking(move || {
-        browser_dialog_builder(&options)
-            .save_file()
-            .map(browser_dialog_path)
+        browser_dialog_builder(&options).save_file().map(browser_dialog_path)
     })
     .await
     .map_err(|error| format!("Browser save dialog stopped unexpectedly: {error}"))
@@ -487,10 +463,7 @@ pub(crate) async fn browser_dialog_save(
 
 impl BrowserHost {
     pub(crate) fn open(
-        &self,
-        app: &tauri::AppHandle,
-        source_label: &str,
-        project_root: Option<PathBuf>,
+        &self, app: &tauri::AppHandle, source_label: &str, project_root: Option<PathBuf>,
     ) -> Result<String, String> {
         let host_label = format!("browser-{}", uuid::Uuid::new_v4().simple());
         self.open_session(
@@ -504,10 +477,7 @@ impl BrowserHost {
     }
 
     pub(crate) fn open_project(
-        &self,
-        app: &tauri::AppHandle,
-        state: &AppState,
-        project_root: PathBuf,
+        &self, app: &tauri::AppHandle, state: &AppState, project_root: PathBuf,
         pending: Option<String>,
     ) -> Result<String, String> {
         let host_label = format!("browser-{}", uuid::Uuid::new_v4().simple());
@@ -515,14 +485,7 @@ impl BrowserHost {
         if let Some(pending) = pending {
             state.set_pending_action(&host_label, pending);
         }
-        match self.open_session(
-            app,
-            None,
-            host_label.clone(),
-            Some(project_root),
-            true,
-            false,
-        ) {
+        match self.open_session(app, None, host_label.clone(), Some(project_root), true, false) {
             Ok(_) => Ok(host_label),
             Err(reason) => {
                 state.release_window(&host_label);
@@ -537,9 +500,7 @@ impl BrowserHost {
     /// replace it with a fresh tab, depending on the browser; either outcome
     /// is usable, unlike focusing the deliberately hidden native host window.
     pub(crate) fn reopen_window(
-        &self,
-        app: &tauri::AppHandle,
-        host_label: &str,
+        &self, app: &tauri::AppHandle, host_label: &str,
     ) -> Result<bool, String> {
         let Some(browser_url) = self.workspace_url(host_label)? else {
             return Ok(false);
@@ -552,9 +513,7 @@ impl BrowserHost {
     /// browser. This deliberately bypasses `open_workspace_url`, whose normal
     /// packaged behavior is to route workspace URLs back into Chromium.
     pub(crate) fn open_in_system_browser(
-        &self,
-        app: &tauri::AppHandle,
-        host_label: &str,
+        &self, app: &tauri::AppHandle, host_label: &str,
     ) -> Result<bool, String> {
         let Some(browser_url) = self.workspace_url(host_label)? else {
             return Ok(false);
@@ -592,12 +551,10 @@ impl BrowserHost {
     }
 
     pub(crate) fn has_bundled_chromium(&self, host_label: &str) -> Result<bool, String> {
-        let sessions = self
-            .sessions()
-            .ok_or_else(|| "Browser server state is unavailable.".to_string())?;
-        let sessions = sessions
-            .lock()
-            .map_err(|_| "Browser session state is unavailable.".to_string())?;
+        let sessions =
+            self.sessions().ok_or_else(|| "Browser server state is unavailable.".to_string())?;
+        let sessions =
+            sessions.lock().map_err(|_| "Browser session state is unavailable.".to_string())?;
         Ok(sessions
             .values()
             .any(|session| session.host_label == host_label && session.bundled_chromium))
@@ -635,18 +592,13 @@ impl BrowserHost {
     /// it if the host bridge fails between returning the command and sending
     /// that acknowledgement.
     pub(crate) fn return_to_desktop(
-        &self,
-        app: &tauri::AppHandle,
-        host_label: &str,
-        bundled_chromium: bool,
+        &self, app: &tauri::AppHandle, host_label: &str, bundled_chromium: bool,
     ) -> Result<(), String> {
-        let sessions = self
-            .sessions()
-            .ok_or_else(|| "Browser server state is unavailable.".to_string())?;
+        let sessions =
+            self.sessions().ok_or_else(|| "Browser server state is unavailable.".to_string())?;
         let token = {
-            let mut sessions = sessions
-                .lock()
-                .map_err(|_| "Browser session state is unavailable.".to_string())?;
+            let mut sessions =
+                sessions.lock().map_err(|_| "Browser session state is unavailable.".to_string())?;
             let (token, session) = sessions
                 .iter_mut()
                 .find(|(_, session)| session.host_label == host_label)
@@ -673,12 +625,9 @@ impl BrowserHost {
     /// listener survives browser-tab teardown and is what makes the bookmarked
     /// address a permanent entry point.
     pub(crate) fn start(
-        &self,
-        app: &tauri::AppHandle,
-        take_over_background_host: bool,
+        &self, app: &tauri::AppHandle, take_over_background_host: bool,
     ) -> Result<u16, String> {
-        self.ensure_server(app, take_over_background_host)
-            .map(|(port, _)| port)
+        self.ensure_server(app, take_over_background_host).map(|(port, _)| port)
     }
 
     /// A native window with no WebView keeps Tauri's event loop alive after the
@@ -708,13 +657,8 @@ impl BrowserHost {
     }
 
     fn open_session(
-        &self,
-        app: &tauri::AppHandle,
-        source_label: Option<String>,
-        host_label: String,
-        project_root: Option<PathBuf>,
-        active: bool,
-        entry_session: bool,
+        &self, app: &tauri::AppHandle, source_label: Option<String>, host_label: String,
+        project_root: Option<PathBuf>, active: bool, entry_session: bool,
     ) -> Result<String, String> {
         let (port, sessions) = self.ensure_server(app, false)?;
         let token = uuid::Uuid::new_v4().simple().to_string();
@@ -723,9 +667,8 @@ impl BrowserHost {
             format!("{browser_origin}/#token={token}&bridgePort={port}&label={host_label}");
 
         {
-            let mut sessions = sessions
-                .lock()
-                .map_err(|_| "Browser session state is unavailable.".to_string())?;
+            let mut sessions =
+                sessions.lock().map_err(|_| "Browser session state is unavailable.".to_string())?;
             if sessions.values().any(|session| {
                 source_label.is_some() && session.source_label.as_ref() == source_label.as_ref()
             }) {
@@ -780,11 +723,7 @@ impl BrowserHost {
                     !session.active && session.source_label.as_deref() == Some(source_label)
                 })
                 .map(|(token, session)| {
-                    (
-                        token.clone(),
-                        session.host_label.clone(),
-                        session.project_root.clone(),
-                    )
+                    (token.clone(), session.host_label.clone(), session.project_root.clone())
                 })
                 .collect::<Vec<_>>(),
             Err(_) => return,
@@ -807,11 +746,7 @@ impl BrowserHost {
     }
 
     fn sessions(&self) -> Option<Sessions> {
-        self.running
-            .lock()
-            .ok()?
-            .as_ref()
-            .map(|server| Arc::clone(&server.sessions))
+        self.running.lock().ok()?.as_ref().map(|server| Arc::clone(&server.sessions))
     }
 
     /// Once the last native workspace has completed its browser handoff, the
@@ -851,14 +786,10 @@ impl BrowserHost {
     }
 
     fn ensure_server(
-        &self,
-        app: &tauri::AppHandle,
-        take_over_background_host: bool,
+        &self, app: &tauri::AppHandle, take_over_background_host: bool,
     ) -> Result<(u16, Sessions), String> {
-        let mut running = self
-            .running
-            .lock()
-            .map_err(|_| "Browser server state is unavailable.".to_string())?;
+        let mut running =
+            self.running.lock().map_err(|_| "Browser server state is unavailable.".to_string())?;
         if let Some(server) = running.as_ref() {
             return Ok((server.port, Arc::clone(&server.sessions)));
         }
@@ -879,11 +810,7 @@ impl BrowserHost {
             .map_err(|error| format!("Could not read the local browser address: {error}"))?
             .port();
         let sessions = Arc::new(Mutex::new(HashMap::new()));
-        let server_state = ServerState {
-            app: app.clone(),
-            port,
-            sessions: Arc::clone(&sessions),
-        };
+        let server_state = ServerState { app: app.clone(), port, sessions: Arc::clone(&sessions) };
         tauri::async_runtime::spawn(async move {
             let listener = match tokio::net::TcpListener::from_std(listener) {
                 Ok(listener) => listener,
@@ -901,19 +828,13 @@ impl BrowserHost {
                 log::error!(target: "lattice::browser", "browser server stopped: {error}");
             }
         });
-        *running = Some(RunningServer {
-            port,
-            sessions: Arc::clone(&sessions),
-        });
+        *running = Some(RunningServer { port, sessions: Arc::clone(&sessions) });
         Ok((port, sessions))
     }
 }
 
 fn open_workspace_url(app: &tauri::AppHandle, url: &str) -> Result<(), String> {
-    if app
-        .state::<crate::chromium::ChromiumRuntime>()
-        .open_url(url)?
-    {
+    if app.state::<crate::chromium::ChromiumRuntime>().open_url(url)? {
         return Ok(());
     }
     app.opener()
@@ -931,10 +852,7 @@ fn browser_origin(app: &tauri::AppHandle, port: u16) -> String {
 }
 
 fn build_host_window(
-    app: &tauri::AppHandle,
-    host_label: &str,
-    token: &str,
-    port: u16,
+    app: &tauri::AppHandle, host_label: &str, token: &str, port: u16,
 ) -> Result<(), String> {
     let config = serde_json::to_string(&HostBridgeConfig { token, port })
         .map_err(|error| format!("Could not configure browser access: {error}"))?;
@@ -946,9 +864,7 @@ fn build_host_window(
         // hidden-view policy suspends its JavaScript, which would leave later
         // browser invokes waiting forever.
         .background_throttling(tauri::utils::config::BackgroundThrottlingPolicy::Disabled)
-        .initialization_script(format!(
-            "window.__LATTICE_BROWSER_HOST_CONFIG__ = {config};"
-        ))
+        .initialization_script(format!("window.__LATTICE_BROWSER_HOST_CONFIG__ = {config};"))
         .build()
         .map(|_| ())
         .map_err(|error| format!("Could not start the browser bridge: {error}"))
@@ -966,18 +882,14 @@ fn session_config(token: &str, session: &BrowserSession, port: u16) -> BrowserSe
 /// a second tab. The latter makes the second tab replace the first browser peer
 /// instead of opening the same project in two independent native hosts.
 fn reusable_entry_config(
-    sessions: &Sessions,
-    port: u16,
-    resume_token: Option<&str>,
+    sessions: &Sessions, port: u16, resume_token: Option<&str>,
 ) -> Option<BrowserSessionConfig> {
     let sessions = sessions.lock().ok()?;
     reusable_entry_config_from(&sessions, port, resume_token)
 }
 
 fn reusable_entry_config_from(
-    sessions: &HashMap<String, BrowserSession>,
-    port: u16,
-    resume_token: Option<&str>,
+    sessions: &HashMap<String, BrowserSession>, port: u16, resume_token: Option<&str>,
 ) -> Option<BrowserSessionConfig> {
     if let Some(token) = resume_token {
         if let Some(session) = sessions.get(token) {
@@ -992,9 +904,7 @@ fn reusable_entry_config_from(
 }
 
 fn valid_loopback_host(headers: &HeaderMap, port: u16) -> bool {
-    headers
-        .get(header::HOST)
-        .and_then(|value| value.to_str().ok())
+    headers.get(header::HOST).and_then(|value| value.to_str().ok())
         == Some(format!("127.0.0.1:{port}").as_str())
 }
 
@@ -1002,21 +912,15 @@ fn valid_session_request(headers: &HeaderMap, browser_origin: &str, port: u16) -
     if !valid_loopback_host(headers, port) {
         return false;
     }
-    let origin_matches = headers
-        .get(header::ORIGIN)
-        .and_then(|value| value.to_str().ok())
-        == Some(browser_origin);
-    let same_origin_fetch = headers
-        .get("sec-fetch-site")
-        .and_then(|value| value.to_str().ok())
-        == Some("same-origin");
+    let origin_matches =
+        headers.get(header::ORIGIN).and_then(|value| value.to_str().ok()) == Some(browser_origin);
+    let same_origin_fetch =
+        headers.get("sec-fetch-site").and_then(|value| value.to_str().ok()) == Some("same-origin");
     origin_matches || same_origin_fetch
 }
 
 async fn open_browser_session(
-    State(state): State<ServerState>,
-    Query(query): Query<SessionQuery>,
-    headers: HeaderMap,
+    State(state): State<ServerState>, Query(query): Query<SessionQuery>, headers: HeaderMap,
 ) -> Response {
     let origin = browser_origin(&state.app, state.port);
     if !valid_session_request(&headers, &origin, state.port) {
@@ -1072,30 +976,22 @@ async fn open_browser_session(
     }
 
     let mut response = Json(config).into_response();
-    response
-        .headers_mut()
-        .insert(header::CACHE_CONTROL, HeaderValue::from_static("no-store"));
+    response.headers_mut().insert(header::CACHE_CONTROL, HeaderValue::from_static("no-store"));
     if let Ok(origin) = HeaderValue::from_str(&origin) {
-        response
-            .headers_mut()
-            .insert(header::ACCESS_CONTROL_ALLOW_ORIGIN, origin);
+        response.headers_mut().insert(header::ACCESS_CONTROL_ALLOW_ORIGIN, origin);
     }
     response
 }
 
 async fn upgrade_bridge(
-    State(state): State<ServerState>,
-    Query(query): Query<BridgeQuery>,
-    headers: HeaderMap,
+    State(state): State<ServerState>, Query(query): Query<BridgeQuery>, headers: HeaderMap,
     ws: WebSocketUpgrade,
 ) -> Response {
     let allowed = valid_loopback_host(&headers, state.port)
         && state.sessions.lock().ok().is_some_and(|sessions| {
             sessions.get(&query.token).is_some_and(|session| {
                 query.role == BridgeRole::Host
-                    || headers
-                        .get(header::ORIGIN)
-                        .and_then(|origin| origin.to_str().ok())
+                    || headers.get(header::ORIGIN).and_then(|origin| origin.to_str().ok())
                         == Some(session.browser_origin.as_str())
             })
         });
@@ -1109,10 +1005,7 @@ async fn upgrade_bridge(
 }
 
 async fn bridge_socket(
-    app: tauri::AppHandle,
-    sessions: Sessions,
-    query: BridgeQuery,
-    socket: WebSocket,
+    app: tauri::AppHandle, sessions: Sessions, query: BridgeQuery, socket: WebSocket,
 ) {
     let peer_id = uuid::Uuid::new_v4().simple().to_string();
     let (sender, mut outgoing) = mpsc::unbounded_channel();
@@ -1173,9 +1066,7 @@ async fn bridge_socket(
 }
 
 fn take_returning_session(
-    sessions: &Sessions,
-    token: &str,
-    host_peer_id: Option<&str>,
+    sessions: &Sessions, token: &str, host_peer_id: Option<&str>,
 ) -> Option<DesktopReturn> {
     let mut sessions = sessions.lock().ok()?;
     let session = sessions.get(token)?;
@@ -1199,29 +1090,20 @@ fn take_returning_session(
     session.desktop_return = None;
     session.visible_epoch = session.visible_epoch.wrapping_add(1);
     if let Some(browser) = session.browser.take() {
-        let _ = browser
-            .sender
-            .send(Message::Text(r#"{"type":"desktop-returned"}"#.into()));
+        let _ = browser.sender.send(Message::Text(r#"{"type":"desktop-returned"}"#.into()));
         let _ = browser.sender.send(Message::Close(None));
     }
     if let Some(host) = &session.host {
-        let _ = host
-            .sender
-            .send(Message::Text(r#"{"type":"browser-reset"}"#.into()));
+        let _ = host.sender.send(Message::Text(r#"{"type":"browser-reset"}"#.into()));
     }
     if let Some(desktop) = &session.desktop {
-        let _ = desktop
-            .sender
-            .send(Message::Text(r#"{"type":"desktop-resumed"}"#.into()));
+        let _ = desktop.sender.send(Message::Text(r#"{"type":"desktop-resumed"}"#.into()));
     }
     Some(DesktopReturn::Bundled(session.host_label.clone()))
 }
 
 fn complete_desktop_return(
-    app: &tauri::AppHandle,
-    sessions: &Sessions,
-    token: &str,
-    host_peer_id: Option<&str>,
+    app: &tauri::AppHandle, sessions: &Sessions, token: &str, host_peer_id: Option<&str>,
 ) -> bool {
     let Some(returned) = take_returning_session(sessions, token, host_peer_id) else {
         return false;
@@ -1236,9 +1118,7 @@ fn complete_desktop_return(
     };
     let host_label = session.host_label;
     if let Some(browser) = session.browser {
-        let _ = browser
-            .sender
-            .send(Message::Text(r#"{"type":"desktop-returned"}"#.into()));
+        let _ = browser.sender.send(Message::Text(r#"{"type":"desktop-returned"}"#.into()));
     }
     let app = app.clone();
     tauri::async_runtime::spawn(async move {
@@ -1251,10 +1131,7 @@ fn complete_desktop_return(
 }
 
 fn register_peer(
-    sessions: &Sessions,
-    query: &BridgeQuery,
-    peer_id: &str,
-    sender: mpsc::UnboundedSender<Message>,
+    sessions: &Sessions, query: &BridgeQuery, peer_id: &str, sender: mpsc::UnboundedSender<Message>,
 ) -> Option<PeerRegistration> {
     let mut sessions = sessions.lock().ok()?;
     let session = sessions.get_mut(&query.token)?;
@@ -1267,39 +1144,30 @@ fn register_peer(
         },
         complete_desktop_return: false,
     };
-    let peer = Peer {
-        id: peer_id.to_string(),
-        sender,
-    };
+    let peer = Peer { id: peer_id.to_string(), sender };
     match query.role {
         BridgeRole::Browser => {
             let reset_host = session.visible_epoch != 0;
             session.visible_epoch = session.visible_epoch.wrapping_add(1);
             if let Some(previous) = session.browser.replace(peer) {
-                let _ = previous
-                    .sender
-                    .send(Message::Text(r#"{"type":"browser-replaced"}"#.into()));
+                let _ =
+                    previous.sender.send(Message::Text(r#"{"type":"browser-replaced"}"#.into()));
                 let _ = previous.sender.send(Message::Close(None));
             }
             if let Some(desktop) = &session.desktop {
-                let _ = desktop
-                    .sender
-                    .send(Message::Text(r#"{"type":"desktop-suspended"}"#.into()));
+                let _ =
+                    desktop.sender.send(Message::Text(r#"{"type":"desktop-suspended"}"#.into()));
             }
             if reset_host {
                 if let Some(host) = &session.host {
-                    let _ = host
-                        .sender
-                        .send(Message::Text(r#"{"type":"browser-reset"}"#.into()));
+                    let _ = host.sender.send(Message::Text(r#"{"type":"browser-reset"}"#.into()));
                 }
             }
         }
         BridgeRole::Desktop => {
             session.bundled_chromium = true;
-            registration.complete_desktop_return = session
-                .desktop_return
-                .as_ref()
-                .is_some_and(|request| request.acknowledged);
+            registration.complete_desktop_return =
+                session.desktop_return.as_ref().is_some_and(|request| request.acknowledged);
             let reset_host = session.browser.is_none() && session.visible_epoch != 0;
             // Mark the initial fixed-Chromium connection so the session-create
             // timeout cannot retire it. Later standby reloads must preserve
@@ -1319,9 +1187,7 @@ fn register_peer(
                 }
             } else if reset_host {
                 if let Some(host) = &session.host {
-                    let _ = host
-                        .sender
-                        .send(Message::Text(r#"{"type":"browser-reset"}"#.into()));
+                    let _ = host.sender.send(Message::Text(r#"{"type":"browser-reset"}"#.into()));
                 }
             }
         }
@@ -1351,9 +1217,7 @@ fn notify_ready(session: &BrowserSession) {
 }
 
 fn other_peer(
-    sessions: &Sessions,
-    query: &BridgeQuery,
-    peer_id: &str,
+    sessions: &Sessions, query: &BridgeQuery, peer_id: &str,
 ) -> Option<mpsc::UnboundedSender<Message>> {
     let sessions = sessions.lock().ok()?;
     let session = sessions.get(&query.token)?;
@@ -1368,10 +1232,9 @@ fn other_peer(
             }
             (session.desktop.as_ref(), session.host.as_ref())
         }
-        BridgeRole::Host => (
-            session.host.as_ref(),
-            session.browser.as_ref().or(session.desktop.as_ref()),
-        ),
+        BridgeRole::Host => {
+            (session.host.as_ref(), session.browser.as_ref().or(session.desktop.as_ref()))
+        }
     };
     if source?.id != peer_id {
         return None;
@@ -1385,12 +1248,7 @@ fn shutdown_synara_if_idle(app: &tauri::AppHandle, sessions: &Sessions) {
     // WebView can request Synara, so observing it here is enough to keep that
     // new session's sidecar alive.
     let no_sessions = sessions.lock().is_ok_and(|sessions| sessions.is_empty());
-    if no_sessions
-        && app
-            .webview_windows()
-            .keys()
-            .all(|label| label.starts_with("browser-"))
-    {
+    if no_sessions && app.webview_windows().keys().all(|label| label.starts_with("browser-")) {
         // The listener itself is intentionally resident, but the agent sidecar
         // is not. It is recreated on demand when a later tab asks for Agent.
         app.state::<super::synara::SynaraRuntime>().shutdown();
@@ -1398,9 +1256,8 @@ fn shutdown_synara_if_idle(app: &tauri::AppHandle, sessions: &Sessions) {
 }
 
 fn show_chromium_workspace(app: &tauri::AppHandle, host_label: &str) {
-    if let Err(reason) = app
-        .state::<crate::chromium::ChromiumRuntime>()
-        .set_window_visibility(host_label, true)
+    if let Err(reason) =
+        app.state::<crate::chromium::ChromiumRuntime>().set_window_visibility(host_label, true)
     {
         log::warn!(target: "lattice::chromium", "could not restore Chromium workspace: {reason}");
     }
@@ -1409,10 +1266,7 @@ fn show_chromium_workspace(app: &tauri::AppHandle, host_label: &str) {
 /// Resume a parked bundled-Chromium surface, or atomically retire an entry
 /// session when no visible peer returned during its reconnect grace period.
 fn settle_browser_session(
-    sessions: &Sessions,
-    token: &str,
-    visible_epoch: u64,
-    resume_parked_desktop: bool,
+    sessions: &Sessions, token: &str, visible_epoch: u64, resume_parked_desktop: bool,
 ) -> SessionSettlement {
     let Ok(mut sessions) = sessions.lock() else {
         return SessionSettlement::Unchanged;
@@ -1432,13 +1286,9 @@ fn settle_browser_session(
             return SessionSettlement::Unchanged;
         }
         if let Some(host) = &session.host {
-            let _ = host
-                .sender
-                .send(Message::Text(r#"{"type":"browser-reset"}"#.into()));
+            let _ = host.sender.send(Message::Text(r#"{"type":"browser-reset"}"#.into()));
         }
-        let _ = desktop
-            .sender
-            .send(Message::Text(r#"{"type":"desktop-resumed"}"#.into()));
+        let _ = desktop.sender.send(Message::Text(r#"{"type":"desktop-resumed"}"#.into()));
         return SessionSettlement::ResumeDesktop(session.host_label.clone());
     }
     sessions
@@ -1448,9 +1298,7 @@ fn settle_browser_session(
 }
 
 fn apply_session_settlement(
-    app: &tauri::AppHandle,
-    sessions: &Sessions,
-    settlement: SessionSettlement,
+    app: &tauri::AppHandle, sessions: &Sessions, settlement: SessionSettlement,
 ) {
     match settlement {
         SessionSettlement::Unchanged => {}
@@ -1504,9 +1352,8 @@ fn unregister_peer(app: tauri::AppHandle, sessions: Sessions, query: BridgeQuery
                 } else {
                     r#"{"type":"host-disconnected"}"#
                 };
-                for browser in [session.browser.as_ref(), session.desktop.as_ref()]
-                    .into_iter()
-                    .flatten()
+                for browser in
+                    [session.browser.as_ref(), session.desktop.as_ref()].into_iter().flatten()
                 {
                     let _ = browser.sender.send(Message::Text(message.into()));
                 }
@@ -1542,13 +1389,9 @@ fn send_session_error(sessions: &Sessions, token: &str, reason: &str) {
     let message = serde_json::json!({ "type": "error", "message": reason }).to_string();
     if let Ok(sessions) = sessions.lock() {
         if let Some(session) = sessions.get(token) {
-            for peer in [
-                session.host.as_ref(),
-                session.browser.as_ref(),
-                session.desktop.as_ref(),
-            ]
-            .into_iter()
-            .flatten()
+            for peer in [session.host.as_ref(), session.browser.as_ref(), session.desktop.as_ref()]
+                .into_iter()
+                .flatten()
             {
                 let _ = peer.sender.send(Message::Text(message.clone().into()));
             }
@@ -1570,11 +1413,7 @@ async fn serve_asset(State(state): State<ServerState>, request: Request<Body>) -
     if requested.starts_with("__lattice_") || requested.contains("..") {
         return StatusCode::NOT_FOUND.into_response();
     }
-    let path = if requested.is_empty() {
-        "index.html"
-    } else {
-        requested
-    };
+    let path = if requested.is_empty() { "index.html" } else { requested };
     #[cfg(debug_assertions)]
     if path == "index.html" {
         let origin = browser_origin(&state.app, state.port);
@@ -1587,15 +1426,11 @@ async fn serve_asset(State(state): State<ServerState>, request: Request<Body>) -
     let mut response = Response::new(Body::from(asset.bytes));
     *response.status_mut() = StatusCode::OK;
     if let Ok(content_type) = HeaderValue::from_str(&asset.mime_type) {
-        response
-            .headers_mut()
-            .insert(header::CONTENT_TYPE, content_type);
+        response.headers_mut().insert(header::CONTENT_TYPE, content_type);
     }
     if let Some(csp) = asset.csp_header {
         if let Ok(csp) = HeaderValue::from_str(&csp) {
-            response
-                .headers_mut()
-                .insert(header::CONTENT_SECURITY_POLICY, csp);
+            response.headers_mut().insert(header::CONTENT_SECURITY_POLICY, csp);
         }
     }
     response.headers_mut().insert(
@@ -1606,14 +1441,10 @@ async fn serve_asset(State(state): State<ServerState>, request: Request<Body>) -
             HeaderValue::from_static("public, max-age=31536000, immutable")
         },
     );
-    response.headers_mut().insert(
-        header::X_CONTENT_TYPE_OPTIONS,
-        HeaderValue::from_static("nosniff"),
-    );
-    response.headers_mut().insert(
-        header::REFERRER_POLICY,
-        HeaderValue::from_static("no-referrer"),
-    );
+    response
+        .headers_mut()
+        .insert(header::X_CONTENT_TYPE_OPTIONS, HeaderValue::from_static("nosniff"));
+    response.headers_mut().insert(header::REFERRER_POLICY, HeaderValue::from_static("no-referrer"));
     response
 }
 
@@ -1653,10 +1484,7 @@ mod tests {
     }
 
     fn query(role: BridgeRole) -> BridgeQuery {
-        BridgeQuery {
-            token: "secret".to_string(),
-            role,
-        }
+        BridgeQuery { token: "secret".to_string(), role }
     }
 
     #[cfg(target_os = "macos")]
@@ -1687,10 +1515,8 @@ mod tests {
 
     #[test]
     fn inactive_handoff_does_not_relay_until_activated() {
-        let sessions = Arc::new(Mutex::new(HashMap::from([(
-            "secret".to_string(),
-            session(false),
-        )])));
+        let sessions =
+            Arc::new(Mutex::new(HashMap::from([("secret".to_string(), session(false))])));
         let (host_sender, mut host_messages) = mpsc::unbounded_channel();
         let (browser_sender, _browser_messages) = mpsc::unbounded_channel();
         let host_query = query(BridgeRole::Host);
@@ -1712,10 +1538,7 @@ mod tests {
 
     #[test]
     fn desktop_return_requires_the_marked_session_and_current_host() {
-        let sessions = Arc::new(Mutex::new(HashMap::from([(
-            "secret".to_string(),
-            session(true),
-        )])));
+        let sessions = Arc::new(Mutex::new(HashMap::from([("secret".to_string(), session(true))])));
         let (host_sender, _host_messages) = mpsc::unbounded_channel();
         let host_query = query(BridgeRole::Host);
         assert!(register_peer(&sessions, &host_query, "current-host", host_sender,).is_some());
@@ -1735,10 +1558,7 @@ mod tests {
 
     #[test]
     fn replacement_peer_revokes_the_previous_socket() {
-        let sessions = Arc::new(Mutex::new(HashMap::from([(
-            "secret".to_string(),
-            session(true),
-        )])));
+        let sessions = Arc::new(Mutex::new(HashMap::from([("secret".to_string(), session(true))])));
         let (host_sender, mut host_messages) = mpsc::unbounded_channel();
         let (first_sender, mut first_messages) = mpsc::unbounded_channel();
         let (second_sender, _second_messages) = mpsc::unbounded_channel();
@@ -1755,10 +1575,7 @@ mod tests {
             first_messages.try_recv(),
             Ok(Message::Text(message)) if message.as_str().contains("browser-replaced")
         ));
-        assert!(matches!(
-            first_messages.try_recv(),
-            Ok(Message::Close(None))
-        ));
+        assert!(matches!(first_messages.try_recv(), Ok(Message::Close(None))));
         assert!(matches!(
             host_messages.try_recv(),
             Ok(Message::Text(message)) if message.as_str().contains("browser-reset")
@@ -1769,10 +1586,7 @@ mod tests {
 
     #[test]
     fn desktop_reconnect_cancels_the_disconnected_desktop_grace_timer() {
-        let sessions = Arc::new(Mutex::new(HashMap::from([(
-            "secret".to_string(),
-            session(true),
-        )])));
+        let sessions = Arc::new(Mutex::new(HashMap::from([("secret".to_string(), session(true))])));
         let (host_sender, mut host_messages) = mpsc::unbounded_channel();
         let (desktop_sender, _desktop_messages) = mpsc::unbounded_channel();
         let host_query = query(BridgeRole::Host);
@@ -1807,10 +1621,7 @@ mod tests {
 
     #[test]
     fn external_browser_parks_and_then_resumes_bundled_chromium() {
-        let sessions = Arc::new(Mutex::new(HashMap::from([(
-            "secret".to_string(),
-            session(true),
-        )])));
+        let sessions = Arc::new(Mutex::new(HashMap::from([("secret".to_string(), session(true))])));
         let (host_sender, mut host_messages) = mpsc::unbounded_channel();
         let (desktop_sender, mut desktop_messages) = mpsc::unbounded_channel();
         let (browser_sender, _browser_messages) = mpsc::unbounded_channel();
@@ -1848,12 +1659,7 @@ mod tests {
         )
         .is_some());
         assert_eq!(
-            sessions
-                .lock()
-                .unwrap()
-                .get("secret")
-                .unwrap()
-                .visible_epoch,
+            sessions.lock().unwrap().get("secret").unwrap().visible_epoch,
             epoch,
             "a parked desktop reload must not cancel browser-close recovery"
         );
@@ -1876,28 +1682,15 @@ mod tests {
 
     #[test]
     fn explicit_desktop_return_restores_bundled_chromium_without_retiring_its_session() {
-        let sessions = Arc::new(Mutex::new(HashMap::from([(
-            "secret".to_string(),
-            session(true),
-        )])));
+        let sessions = Arc::new(Mutex::new(HashMap::from([("secret".to_string(), session(true))])));
         let (host_sender, mut host_messages) = mpsc::unbounded_channel();
         let (desktop_sender, mut desktop_messages) = mpsc::unbounded_channel();
         let (browser_sender, mut browser_messages) = mpsc::unbounded_channel();
         assert!(register_peer(&sessions, &query(BridgeRole::Host), "host", host_sender,).is_some());
-        assert!(register_peer(
-            &sessions,
-            &query(BridgeRole::Desktop),
-            "desktop",
-            desktop_sender,
-        )
-        .is_some());
-        assert!(register_peer(
-            &sessions,
-            &query(BridgeRole::Browser),
-            "browser",
-            browser_sender,
-        )
-        .is_some());
+        assert!(register_peer(&sessions, &query(BridgeRole::Desktop), "desktop", desktop_sender,)
+            .is_some());
+        assert!(register_peer(&sessions, &query(BridgeRole::Browser), "browser", browser_sender,)
+            .is_some());
         while host_messages.try_recv().is_ok() {}
         while desktop_messages.try_recv().is_ok() {}
         while browser_messages.try_recv().is_ok() {}
@@ -1950,10 +1743,7 @@ mod tests {
             browser_messages.try_recv(),
             Ok(Message::Text(message)) if message.as_str().contains("desktop-returned")
         ));
-        assert!(matches!(
-            browser_messages.try_recv(),
-            Ok(Message::Close(None))
-        ));
+        assert!(matches!(browser_messages.try_recv(), Ok(Message::Close(None))));
         assert!(matches!(
             host_messages.try_recv(),
             Ok(Message::Text(message)) if message.as_str().contains("browser-reset")
@@ -1966,10 +1756,8 @@ mod tests {
 
     #[test]
     fn fixed_entry_resumes_a_live_token_and_replaces_a_stale_one() {
-        let sessions = Arc::new(Mutex::new(HashMap::from([(
-            "current".to_string(),
-            session(true),
-        )])));
+        let sessions =
+            Arc::new(Mutex::new(HashMap::from([("current".to_string(), session(true))])));
 
         let resumed = reusable_entry_config(&sessions, PREFERRED_PORT, Some("current")).unwrap();
         let replaced = reusable_entry_config(&sessions, PREFERRED_PORT, Some("expired")).unwrap();
@@ -1982,10 +1770,8 @@ mod tests {
 
     #[test]
     fn expiry_atomically_removes_only_the_disconnected_generation() {
-        let sessions = Arc::new(Mutex::new(HashMap::from([(
-            "current".to_string(),
-            session(true),
-        )])));
+        let sessions =
+            Arc::new(Mutex::new(HashMap::from([("current".to_string(), session(true))])));
 
         assert!(matches!(
             settle_browser_session(&sessions, "current", 1, false),
@@ -2005,24 +1791,12 @@ mod tests {
         let mut headers = HeaderMap::new();
         headers.insert(header::HOST, "127.0.0.1:18452".parse().unwrap());
         headers.insert(header::ORIGIN, "http://127.0.0.1:18452".parse().unwrap());
-        assert!(valid_session_request(
-            &headers,
-            "http://127.0.0.1:18452",
-            PREFERRED_PORT
-        ));
+        assert!(valid_session_request(&headers, "http://127.0.0.1:18452", PREFERRED_PORT));
 
         headers.insert(header::HOST, "attacker.example".parse().unwrap());
-        assert!(!valid_session_request(
-            &headers,
-            "http://127.0.0.1:18452",
-            PREFERRED_PORT
-        ));
+        assert!(!valid_session_request(&headers, "http://127.0.0.1:18452", PREFERRED_PORT));
         headers.insert(header::HOST, "127.0.0.1:18452".parse().unwrap());
         headers.insert(header::ORIGIN, "https://attacker.example".parse().unwrap());
-        assert!(!valid_session_request(
-            &headers,
-            "http://127.0.0.1:18452",
-            PREFERRED_PORT
-        ));
+        assert!(!valid_session_request(&headers, "http://127.0.0.1:18452", PREFERRED_PORT));
     }
 }

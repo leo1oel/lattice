@@ -31,10 +31,7 @@ fn run_texcount(root: &Path, relative: &str) -> Result<WordCount, String> {
         .output()
         .map_err(|error| format!("Could not run texcount: {error}"))?;
     if !output.status.success() {
-        return Err(format!(
-            "texcount failed: {}",
-            String::from_utf8_lossy(&output.stderr).trim()
-        ));
+        return Err(format!("texcount failed: {}", String::from_utf8_lossy(&output.stderr).trim()));
     }
     let stdout = String::from_utf8_lossy(&output.stdout);
     parse_texcount_output(&stdout)
@@ -56,10 +53,7 @@ pub fn parse_texcount_output(stdout: &str) -> Result<WordCount, String> {
     }
     if text == 0 && headers == 0 && captions == 0 {
         // Fallback: `-sum -1` style single integer
-        if let Some(total) = stdout
-            .lines()
-            .find_map(|line| line.trim().parse::<u32>().ok())
-        {
+        if let Some(total) = stdout.lines().find_map(|line| line.trim().parse::<u32>().ok()) {
             return Ok(WordCount {
                 text: total,
                 headers: 0,
@@ -92,25 +86,11 @@ pub fn estimate_from_latex(source: &str) -> WordCount {
     // Drop comments
     text = text
         .lines()
-        .map(|line| {
-            if let Some((code, _)) = line.split_once('%') {
-                code
-            } else {
-                line
-            }
-        })
+        .map(|line| if let Some((code, _)) = line.split_once('%') { code } else { line })
         .collect::<Vec<_>>()
         .join("\n");
     // Drop common environments that are not body prose
-    for env in [
-        "figure",
-        "table",
-        "equation",
-        "align",
-        "gather",
-        "verbatim",
-        "lstlisting",
-    ] {
+    for env in ["figure", "table", "equation", "align", "gather", "verbatim", "lstlisting"] {
         let pattern =
             regex::Regex::new(&format!(r"(?s)\\begin\{{{env}\}}.*?\\end\{{{env}\}}")).ok();
         if let Some(regex) = pattern {
@@ -129,13 +109,7 @@ pub fn estimate_from_latex(source: &str) -> WordCount {
         })
         .filter(|token| !token.is_empty())
         .count() as u32;
-    WordCount {
-        text: words,
-        headers: 0,
-        captions: 0,
-        total: words,
-        source: "estimate".to_string(),
-    }
+    WordCount { text: words, headers: 0, captions: 0, total: words, source: "estimate".to_string() }
 }
 
 #[cfg(test)]
