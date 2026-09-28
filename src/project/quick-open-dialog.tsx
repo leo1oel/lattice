@@ -1,5 +1,6 @@
 import { useMemo } from "react";
-import { PickerDialog, rankMatches, subsequenceScore } from "../components/ui/search-picker-dialog";
+import { rankMatches, subsequenceScore } from "../components/ui/picker-ranking";
+import { PickerDialog } from "../components/ui/search-picker-dialog";
 
 function scorePath(path: string, query: string): number {
   const hay = path.toLocaleLowerCase();
