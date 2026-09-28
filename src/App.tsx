@@ -448,6 +448,10 @@ function App() {
   const [tutorialActive, setTutorialActive] = useState(false);
   const [tutorialStep, setTutorialStep] = useState(0);
   const autoTutorialAttemptedRef = useRef(false);
+  /** A toolbar action the guided tour points at but must not open while it runs. */
+  const outsideTour = (action: () => void) => () => {
+    if (!tutorialActive) action();
+  };
   const [postStartupInteraction, setPostStartupInteraction] = useState(false);
   const {
     workspaceIndex,
@@ -3173,6 +3177,13 @@ function App() {
     save, secondaryFile, secondarySavedSource, secondarySource, t,
   ]);
 
+  /** Opening the tour's sample paper moves the tour on to the reading step it offers. */
+  const advanceTutorialPastPaper = useCallback((arxivId: string, opened: { hasBlog: boolean } | null) => {
+    if (!tutorialActive || tutorialStep !== TUTORIAL_STEPS.importVit || arxivId !== "2010.11929") return;
+    if (opened?.hasBlog) changePaperView("blog");
+    setTutorialStep(opened?.hasBlog ? TUTORIAL_STEPS.paperBlog : TUTORIAL_STEPS.paperFullText);
+  }, [changePaperView, tutorialActive, tutorialStep]);
+
   const fetchAndOpenPaper = useCallback(async (paper: PaperSummary) => {
     if (!canDownloadPaper(paper)) {
       if (paper.url) {
@@ -3215,10 +3226,7 @@ function App() {
       if (fileLoadGenerationRef.current !== loadGeneration) return;
       const opened = await openPaper(fetched, loadGeneration);
       if (!opened || fileLoadGenerationRef.current !== loadGeneration) return;
-      if (tutorialActive && tutorialStep === TUTORIAL_STEPS.importVit && result.arxivId === "2010.11929") {
-        if (opened?.hasBlog) changePaperView("blog");
-        setTutorialStep(opened?.hasBlog ? TUTORIAL_STEPS.paperBlog : TUTORIAL_STEPS.paperFullText);
-      }
+      advanceTutorialPastPaper(result.arxivId, opened);
     } catch (reason) {
       setPaperFetchStates((current) => {
         const next = { ...current };
@@ -3232,7 +3240,7 @@ function App() {
       }
       referenceImport.clearStage();
     }
-  }, [changePaperView, openPaper, refreshProject, tutorialActive, tutorialStep]);
+  }, [advanceTutorialPastPaper, openPaper, refreshProject]);
 
   const readDraggedPaper = (paper: PaperSummary) => {
     if (paper.hasFullText || paper.hasBlog) void openPaper(paper);
@@ -5691,30 +5699,14 @@ function App() {
           mode={canvasMode}
           selectedDocumentViewMode={focusedPanePreview ? "pdf" : undefined}
           setMode={openDocumentMode}
-          supportsDocumentViewModes={paperFocused
-            || (!focusedAsset && isPreviewableSourceFilePath(focusedDocumentPath))}
-          onSplit={
-            !isOpenSlideDeckPath(focusedDocumentPath)
-            && !paperFocused
-            && (
-              (Boolean(activeAsset) && canvasMode === "asset")
-              || (
-                !activeAsset
-                && (
-                  canvasMode === "source"
-                  || (canvasMode === "pdf" && isPreviewableSourceFilePath(activeFile))
-                )
-              )
-            )
-              ? splitDocumentView
-              : undefined
-          }
-          onCloseSplit={isTwoPane(canvasMode)
-            ? closeSplitView
+          supportsDocumentViewModes={paperFocused || (!focusedAsset && isPreviewableSourceFilePath(focusedDocumentPath))}
+          onSplit={!isOpenSlideDeckPath(focusedDocumentPath) && !paperFocused && (activeAsset
+            ? canvasMode === "asset"
+            : canvasMode === "source" || (canvasMode === "pdf" && isPreviewableSourceFilePath(activeFile)))
+            ? splitDocumentView
             : undefined}
-          markdown={paperFocused
-            || (!focusedAsset
-              && focusedDocumentPath.toLocaleLowerCase().endsWith(".md"))}
+          onCloseSplit={isTwoPane(canvasMode) ? closeSplitView : undefined}
+          markdown={paperFocused || (!focusedAsset && focusedDocumentPath.toLocaleLowerCase().endsWith(".md"))}
           html={!paperFocused && !focusedAsset && isHtmlFilePath(focusedDocumentPath)}
           paperView={paperFocused ? paperView : undefined}
           paperHasBlog={paperBlog !== null}
@@ -5728,18 +5720,11 @@ function App() {
           activePath={paperFocused ? activePaper?.title ?? activeTabKey : activeTabKey}
           activeKind={focusedAsset ? "asset" : paperFocused ? "paper" : "document"}
           canInsert={canInsert}
-          dirty={paperFocused
-            ? activePaperDirty
-            : focusedPane === "secondary"
-              ? secondarySourceDirty
-              : source !== savedSource}
+          dirty={paperFocused ? activePaperDirty : focusedPane === "secondary" ? secondarySourceDirty : primarySourceDirty}
           onInsert={() => setInsertOpen(true)}
-          onCollab={() => {
-            // The tour points this row out rather than opening it, so the
-            // panels stay shut while it runs.
-            if (tutorialActive) return;
-            openCollabDialog("start");
-          }}
+          // The tour points these controls out rather than opening them, so
+          // their panels stay shut while it runs.
+          onCollab={outsideTour(() => openCollabDialog("start"))}
           collabLive={collabStatus === "synced" || collabStatus === "connecting"}
           collabPeers={collabPeers}
           collabPresence={collabPeerList.length > 0 ? (
@@ -5766,11 +5751,10 @@ function App() {
             </AvatarGroup>
           ) : null}
           onHistory={() => setHistoryOpen(true)}
-          onGit={() => {
-            if (tutorialActive) return;
+          onGit={outsideTour(() => {
             synara.requestRuntime();
             setGitOpen(true);
-          }}
+          })}
           commentCount={editorComments.all.filter((comment) => !comment.resolved).length}
           onComments={editorComments.openPanel}
           overleafLinked={overleafLink !== null}
@@ -5787,21 +5771,14 @@ function App() {
               onJump={jumpToOverleafPeer}
             />
           ) : null}
-          onOverleafSync={() => {
-            if (tutorialActive) return;
+          onOverleafSync={outsideTour(() => {
             // Manual mode is a review step, not a button that quietly
             // rewrites files: show what would change and let the user decide.
             if (overleafSyncMode === "manual") setOverleafReviewOpen(true);
             else void runOverleafSync();
-          }}
-          onOverleafOpenCurrent={overleafLink ? () => {
-            if (tutorialActive) return;
-            openCurrentOverleafProject();
-          } : undefined}
-          onOverleafOpen={() => {
-            if (tutorialActive) return;
-            setOverleafPickerOpen(true);
-          }}
+          })}
+          onOverleafOpenCurrent={overleafLink ? outsideTour(openCurrentOverleafProject) : undefined}
+          onOverleafOpen={outsideTour(() => setOverleafPickerOpen(true))}
           overleafUnreadChat={
             overleafChat.unread + overleafComments.threads.filter((thread) => !thread.resolved).length + overleafRealtime.changes.length
             + editorComments.comments.filter((comment) => !comment.resolved).length
@@ -5891,16 +5868,7 @@ function App() {
               onPasteImage={(targetDirectory) => void importSystemClipboardImage(targetDirectory)}
               assetDropTarget={assetDropTarget}
               assetImporting={assetImporting}
-              onPaper={(paper) => void openPaper(paper).then((opened) => {
-                if (
-                  tutorialActive
-                  && tutorialStep === TUTORIAL_STEPS.importVit
-                  && paper.arxivId === "2010.11929"
-                ) {
-                  if (opened?.hasBlog) changePaperView("blog");
-                  setTutorialStep(opened?.hasBlog ? TUTORIAL_STEPS.paperBlog : TUTORIAL_STEPS.paperFullText);
-                }
-              })}
+              onPaper={(paper) => void openPaper(paper).then((opened) => advanceTutorialPastPaper(paper.arxivId, opened))}
               onLikelyPaper={prewarmLikelyPaper}
               onFetchFullText={(paper) => void fetchAndOpenPaper(paper)}
               paperFetchStates={paperFetchStates}
