@@ -2886,7 +2886,10 @@ async fn overleaf_rt_connect(
             if current {
                 // Cancellation cannot retract events already queued for the UI.
                 // Carry the source root so consumers can reject late delivery
-                // after the window has switched projects.
+                // after the window has switched projects. `emit_to` alone does
+                // not keep this out of other windows: Tauri also delivers it to
+                // every untargeted listener, so the web UI must listen through
+                // `listenOverleafRealtime`, which names its own window.
                 #[derive(Clone, serde::Serialize)]
                 #[serde(rename_all = "camelCase")]
                 struct ScopedEvent<'a> {

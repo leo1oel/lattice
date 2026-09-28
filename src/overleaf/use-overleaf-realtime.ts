@@ -14,7 +14,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { invoke } from "@tauri-apps/api/core";
-import { listen } from "@tauri-apps/api/event";
+import { listenOverleafRealtime } from "./overleaf-realtime-listen";
 import { OtDesyncError, OtDocument } from "./ot-document";
 import type { OtOp } from "./ot-ops";
 import { isCollapsed, transformSpan } from "./ot-ranges";
@@ -795,7 +795,7 @@ export function useOverleafRealtime(options: {
   useEffect(() => {
     let disposed = false;
     let unlisten: (() => void) | null = null;
-    void listen<RealtimeEvent>("overleaf-realtime", (event) => {
+    void listenOverleafRealtime<RealtimeEvent>((event) => {
       const payload = event.payload;
       if (payload.type === "connected") {
         publicId.current = payload.publicId;

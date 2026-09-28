@@ -10,7 +10,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { invoke } from "@tauri-apps/api/core";
-import { listen } from "@tauri-apps/api/event";
+import { listenOverleafRealtime } from "./overleaf-realtime-listen";
 import type { OverleafMessage, OverleafStatus } from "../app-types";
 
 const HISTORY_LIMIT = 100;
@@ -113,7 +113,7 @@ export function useOverleafChat(options: {
     if (!enabled) return;
     let disposed = false;
     let unlisten: (() => void) | null = null;
-    void listen<ChatEvent>("overleaf-realtime", (event) => {
+    void listenOverleafRealtime<ChatEvent>((event) => {
       const payload = event.payload;
       if (payload.type !== "chatMessage" || !payload.id) return;
       if (seen.current.has(payload.id)) return;
