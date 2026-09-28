@@ -242,30 +242,33 @@ catching multiplies a count.
 
 The techniques came from Anthropic's write-up on making claude.ai faster. Each
 fix below was found by the benchmark or a trace and checked by it afterwards.
-Counts are per interaction on the production build, best of two runs. The
-code-block row predates pacing `code-highlight`'s keystrokes past the
-publication idle, so that scenario now publishes on every key and counts more
-than the row shows.
+The table compares main before this work (at #48, measured with this
+benchmark) against it after. Counts are per interaction on the production
+build, best of two runs; `recalcs` and `layouts` are reported only, not gated.
 
-| Interaction | commits | renders | hooks | recalcs | layouts | mutations |
-| --- | --- | --- | --- | --- | --- | --- |
-| startup (per load) | 25 → 22 | 3,395 → 1,740 | 16,993 → 11,654 | 83 → 83 | 59 → 58 | 1,512 → 1,453 |
-| LaTeX typing (per key) | 3.1 → 2.0 | 1,143 → 205 | 6,674 → 1,746 | 13.0 → 9.9 | 5.1 → 5.1 | 40.5 → 19.3 |
-| Markdown source typing | 2.1 → 1.1 | 323 → 150 | 3,096 → 1,537 | 6.7 → 6.7 | 3.1 → 3.1 | 7.4 → 7.4 |
-| Markdown visual typing | 1.4 → 1.2 | 77 → 28 | 649 → 228 | 1.8 → 1.5 | 1.2 → 1.1 | 4.7 → 4.3 |
-| file switch (per switch) | 15.3 → 13.5 | 3,512 → 2,517 | 17,413 → 13,358 | 100 → 73 | 50.8 → 24.3 | 2,954 → 2,930 |
-| code blocks (per action) | 2.1 → 2.0 | 707 → 643 | 3,563 → 2,951 | 13.0 → 5.5 | 10.1 → 3.1 | 234 → 240 |
-| open a 200-page PDF | 18 → 14 | 2,278 → 731 | 8,774 → 4,427 | 68 → 64 | 34 → 34 | 1,197 → 1,131 |
-| PDF scroll (per notch) | 1.0 → 0.8 | 149 → 35 | 630 → 306 | 2.9 → 2.4 | 1.0 → 1.1 | 26.6 → 22.4 |
-| source scroll (per notch) | 0.1 → 0.1 | 0.1 → 0.1 | 0.5 → 0.5 | 1.7 → 1.7 | 0.3 → 0.3 | 17.7 → 17.7 |
-| Markdown preview scroll | 0.3 → 0.3 | 3.5 → 3.5 | 25 → 25 | 3.5 → 3.6 | 0 → 0 | 4.8 → 4.8 |
-| compile and show the log | 8 → 8 | 1,946 → 1,084 | 11,133 → 8,699 | 83 → 80 | 9 → 9 | 159 → 123 |
+| Interaction | commits | renders | hooks | recalcs | layouts | mutations | long tasks | task ms |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| startup (per load) | 23 → 21 | 2,111 → 1,694 | 12,573 → 10,710 | 82 → 83 | 59 → 57 | 1,468 → 1,454 | 0 → 0 | 403 → 384 |
+| LaTeX typing (per key, 40) | 3.1 → 2.0 | 710 → 196 | 5,034 → 1,575 | 12.9 → 9.9 | 5.1 → 5.1 | 25.3 → 19.3 | 0 → 0 | 725 → 478 |
+| Markdown source typing (per key, 40) | 2.1 → 1.1 | 309 → 143 | 2,783 → 1,378 | 6.7 → 6.7 | 3.1 → 3.1 | 7.4 → 7.4 | 0 → 0 | 569 → 499 |
+| Markdown visual typing (per key, 24) | 1.4 → 1.2 | 73 → 26 | 609 → 215 | 1.8 → 1.5 | 1.2 → 1.1 | 4.7 → 4.3 | 27 → 2 | 4,732 → 625 |
+| file switch (per switch, 4) | 15.0 → 13.8 | 2,865 → 2,458 | 14,860 → 12,550 | 99 → 72 | 51 → 24.8 | 2,932 → 2,929 | 3 → 3 | 1,045 → 761 |
+| code blocks (per action, 21) | 5.4 → 4.3 | 1,256 → 894 | 9,857 → 5,942 | 14.6 → 6.4 | 10.0 → 3.0 | 242 → 241 | 41 → 1 | 6,329 → 1,786 |
+| open a 200-page PDF | 13 → 14 | 1,009 → 714 | 4,890 → 4,058 | 64 → 64 | 35 → 36 | 1,147 → 1,131 | 0 → 0 | 118 → 118 |
+| PDF scroll (per notch, 40) | 0.8 → 0.7 | 51.5 → 28.8 | 329 → 262 | 2.8 → 2.4 | 1.0 → 1.0 | 23.4 → 22.4 | 0 → 0 | 276 → 288 |
+| source scroll (per notch, 40) | 0.1 → 0.0 | 0.1 → 0.0 | 0.5 → 0.2 | 1.7 → 1.7 | 0.3 → 0.3 | 17.7 → 17.7 | 0 → 0 | 97 → 161 |
+| Markdown preview scroll (per notch, 40) | 0.3 → 0.3 | 3.5 → 3.5 | 24.9 → 24.9 | 3.5 → 3.6 | 0 → 0 | 4.8 → 4.8 | 0 → 0 | 588 → 400 |
+| compile and show the log | 8 → 8 | 1,231 → 1,041 | 8,423 → 7,869 | 82 → 81 | 9 → 9 | 133 → 125 | 1 → 0 | 208 → 187 |
 
-Wall-clock, same runs, on one Apple-silicon laptop, so only the large changes
-carry meaning. Main-thread work for 24 visual-editor keystrokes fell from 4.8 s
-to 0.5 s, and long tasks from 27 to 2. Switching to the code-block document fell
-from 2.5 s of task time to 1.0 s, with style recalculation going from 1,060 ms to
-298 ms and long tasks from 5 to 1.
+Long tasks and task time come from the same runs on one Apple-silicon laptop.
+They are wall-clock facts, so only the large changes carry meaning: visual-editor
+typing and the code-block document stopped producing long tasks. Measured
+against the older main this work started from (before the #43 viewer split),
+PDF scrolling also fell from 149 renders per notch to 35, and LaTeX typing from
+1,143 renders per keystroke.
+
+Stability: `pnpm perf:bench --check` passed 10 runs out of 10 in a row on the
+final branch, the last one with vitest running alongside.
 
 | Cause | Evidence | Fix |
 | --- | --- | --- |
@@ -277,6 +280,7 @@ from 2.5 s of task time to 1.0 s, with style recalculation going from 1,060 ms t
 | Frozen table headers and table insert controls measured each table right after writing to the previous one. | Trace of switching to `large.md` (40 tables): 35 forced passes from `computeAndApplyFrozenHeaders` and 36 from floating-ui `autoUpdate` in `addOverlay` | Measure every table, then write (`frozen-table-headers.ts`). Mount every overlay, then start positioning (`table-insert-controls.ts`). |
 | The heading rail queried every heading once per rail item, which is quadratic, and it re-measures after every edit. | 1,455 ms of `querySelectorAll` self time opening the 150-section code document | One query per measure (`editor/markdown/document-heading-rail.tsx`) |
 | The titlebar's tab strip, the navigator's protected paths and the build pipeline object were fresh on every App render. | Titlebar subtree re-rendered about 80 components per keystroke | Memoized in `App.tsx` and `app/use-build-pipeline.ts` |
+| The PDF toolbar's page buttons re-rendered on every page change while scrolling, and the overlay scrollbars revealed themselves through React state on every scroll burst. | Commits and renders per PDF scroll notch; scroll-scenario counts that moved between runs | Page buttons keep stable props (`pdf/pdf-viewer.tsx`); the scrollbar reveal is a DOM attribute, not a React commit (`components/ui/overlay-scrollbar.tsx`, `scrollbar-track.ts`, `external-scrollbar.tsx`, `canvas/codemirror-scrollbar.tsx`) |
 
 Checked and deliberately not applied:
 
@@ -305,7 +309,7 @@ Checked and deliberately not applied:
 - **Prefetch on hover** already exists (`usePreviewPrewarm`). **V8 code
   caching** does not apply to WebKit.
 
-Still open: App itself is not compiled (22 bailouts, see below) and renders
+Still open: App itself is not compiled (17 bailouts, see below) and renders
 about 200 components per keystroke. A PDF page change re-renders App because
 the agent context reads the page number. Radix tooltips and popovers render
 twice as they mount, which a document full of node views multiplies.
