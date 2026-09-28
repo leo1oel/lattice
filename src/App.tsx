@@ -4998,6 +4998,17 @@ function App() {
   }, []);
 
 
+  /** Move this workspace to another surface (browser or desktop app): claim the switch, roll it back on failure. */
+  const handOffWorkspace = async (blockedMessage: string, handOff: () => Promise<void>) => {
+    if (!await startProjectTransition()) throw new Error(blockedMessage);
+    try {
+      await handOff();
+    } catch (reason) {
+      cancelProjectTransition();
+      throw reason;
+    }
+  };
+
   const settingsDialog = settingsOpen ? (
     <Suspense fallback={null}>
       <SettingsDialog
@@ -5033,43 +5044,27 @@ function App() {
         building={building}
         browserHosted={browserHosted}
         bundledChromium={bundledChromium}
-        onOpenInBrowser={async () => {
-          if (!await startProjectTransition()) {
-            throw new Error(t`Save the current workspace before opening it in a browser.`);
-          }
-          try {
-            if (bundledChromium) {
-              await invoke("open_in_system_browser");
-              setSettingsOpen(false);
-              // The native workspace is not changing ownership yet. It stays
-              // parked behind a status screen only while the system-browser
-              // peer is connected, then reloads into the same Chromium window.
-              cancelProjectTransition();
-              return;
-            }
-            await invoke("open_in_browser");
+        onOpenInBrowser={() => handOffWorkspace(t`Save the current workspace before opening it in a browser.`, async () => {
+          if (bundledChromium) {
+            await invoke("open_in_system_browser");
             setSettingsOpen(false);
-            // The existing close-request path leaves collaboration presence
-            // before destruction. The backend activates the browser only once
-            // that cleanup completes, so the two surfaces never edit together.
-            await getCurrentWindow().close();
-          } catch (reason) {
+            // The native workspace is not changing ownership yet. It stays
+            // parked behind a status screen only while the system-browser
+            // peer is connected, then reloads into the same Chromium window.
             cancelProjectTransition();
-            throw reason;
+            return;
           }
-        }}
-        onReturnToDesktop={async () => {
-          if (!await startProjectTransition()) {
-            throw new Error(t`Save the current workspace before opening it in the desktop app.`);
-          }
-          try {
-            await invoke("return_to_desktop");
-            setSettingsOpen(false);
-          } catch (reason) {
-            cancelProjectTransition();
-            throw reason;
-          }
-        }}
+          await invoke("open_in_browser");
+          setSettingsOpen(false);
+          // The existing close-request path leaves collaboration presence
+          // before destruction. The backend activates the browser only once
+          // that cleanup completes, so the two surfaces never edit together.
+          await getCurrentWindow().close();
+        })}
+        onReturnToDesktop={() => handOffWorkspace(t`Save the current workspace before opening it in the desktop app.`, async () => {
+          await invoke("return_to_desktop");
+          setSettingsOpen(false);
+        })}
         appearance={appearance}
         setAppearance={setAppearance}
         localSemanticSearchEnabled={semanticSearch.enabled}
