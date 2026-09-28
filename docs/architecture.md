@@ -47,7 +47,7 @@ A running Lattice is three OS-level participants, not one:
 
 ### 1.1 Webview ↔ Rust: Tauri `invoke` / `listen`
 
-The webview calls Rust with `invoke("command_name", args)` against **163
+The webview calls Rust with `invoke("command_name", args)` against **162
 registered commands** (see §2). Data flows the other way over Tauri events, of
 which there are only **four** emitted from the project and editor layers:
 
@@ -224,7 +224,7 @@ parts — `project/`, `overleaf/`, `overleaf_rt/`, `papers/`, `citation_audit/`,
 ### 2.1 `lib.rs` wires; `ipc/` handles; domain modules decide
 
 `lib.rs` (~500 lines) declares the modules, sets up plugins, the window
-lifecycle and the child runtimes, and registers **163** commands in
+lifecycle and the child runtimes, and registers **162** commands in
 `tauri::generate_handler!`. Every `#[tauri::command]` in the tree is
 registered, and every registered command has a caller in `src/`.
 
@@ -487,7 +487,7 @@ Layout: `src/App.css` is a 10-line import manifest for `src/styles/`:
 `src/index.css` layers Tailwind v4 **without** preflight and maps shadcn's
 colour names onto the app's own theme variables.
 
-`src/styles/tokens.test.ts` (351 lines, 18 cases) fails the build when:
+`src/styles/tokens.test.ts` (325 lines, 14 cases) fails the build when:
 
 - a palette token (`--bg`, `--text`, …) is referenced outside theme/foundations
   (`:98`);
@@ -506,7 +506,7 @@ navigation controls (`:140`), one action width across sidebar modes (`:146`),
 contract for Settings controls (`:161`), one focus ring drawn exactly once
 (`:200`).
 
-`src/styles/surfaces.test.ts` (307 lines) covers the surface layer.
+`src/styles/surfaces.test.ts` (216 lines) covers the surface layer.
 
 Run them without the full gate:
 
