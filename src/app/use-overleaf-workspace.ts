@@ -1,31 +1,14 @@
-import {
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-  type RefObject,
-} from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { invoke } from "@tauri-apps/api/core";
-import { listenOverleafRealtime } from "../overleaf/overleaf-realtime-listen";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import {
-  loadOverleafRemoteDelete,
-  loadOverleafSyncMode,
-  type OverleafRemoteDelete,
-  type OverleafSyncMode,
-} from "../settings/app-settings";
+import { loadOverleafRemoteDelete, loadOverleafSyncMode, type OverleafRemoteDelete, type OverleafSyncMode } from "../settings/app-settings";
 import { logAction } from "../telemetry/app-notify";
 import { diagnosticInvoke } from "../telemetry/diagnostic-request";
 import { setError, setNotice, setWarning } from "./notify";
-import {
-  confirmAction,
-  isWholeFileEditorPath,
-  overleafLinkMatchesSession,
-  toMessage,
-} from "../app-utils";
+import { clearTimer, restartTimer, subscribeTauriEvent, useLatest, type TimerRef } from "./effect-helpers";
+import { confirmAction, isWholeFileEditorPath, overleafLinkMatchesSession, toMessage } from "../app-utils";
+import { listenOverleafRealtime } from "../overleaf/overleaf-realtime-listen";
 import { useOverleafRealtime, type OverleafRemoteTextContext } from "../overleaf/use-overleaf-realtime";
 import { useOverleafChat } from "../overleaf/use-overleaf-chat";
 import { useOverleafPresence, type PresenceUser } from "../overleaf/use-overleaf-presence";
@@ -37,23 +20,11 @@ import type { EditorComment } from "../editor/comments/editor-comment-data";
 import type { EditorCollabSession } from "../collab/collab-session";
 import { hasConflictMarkers } from "../history/conflict-markers";
 import type {
-  AssetPreview,
-  BuildResult,
-  EditorPosition,
-  FileViewState,
-  OverleafLink,
-  OverleafProbe,
-  OverleafStatus,
-  OverleafSyncResult,
-  PaperSummary,
-  ProjectSnapshot,
+  AssetPreview, BuildResult, EditorPosition, FileViewState, OverleafLink, OverleafProbe, OverleafStatus,
+  OverleafSyncResult, PaperSummary, ProjectSnapshot, RefreshProject, ViewRestoreRequest,
 } from "../app-types";
 
-/**
- * Marks a comment that lives on Overleaf rather than in this project. Module
- * scope so the comment handlers that still live in App can recognise the
- * prefix without the workspace hook having to hand it back.
- */
+/** Marks a comment that lives on Overleaf rather than in this project; App's comment handlers route on it. */
 export const OVERLEAF_COMMENT_PREFIX = "overleaf:";
 
 export function projectOverleafEditorComments(
@@ -65,14 +36,9 @@ export function projectOverleafEditorComments(
 ): EditorComment[] {
   // REST supplies ownership for every file; the joined document's live ranges
   // are authoritative, including anchors removed since the REST snapshot.
-  const mergedAnchors = new Map(anchors);
+  const mergedAnchors = new Map([...anchors].filter(([, anchor]) => anchor.docId !== liveDocId));
   if (liveDocId) {
-    for (const [id, anchor] of mergedAnchors) {
-      if (anchor.docId === liveDocId) mergedAnchors.delete(id);
-    }
-    for (const [id, anchor] of liveAnchors) {
-      mergedAnchors.set(id, { ...anchor, docId: liveDocId });
-    }
+    for (const [id, anchor] of liveAnchors) mergedAnchors.set(id, { ...anchor, docId: liveDocId });
   }
   return threads.flatMap((thread) => {
     const anchor = mergedAnchors.get(thread.id);
@@ -80,26 +46,16 @@ export function projectOverleafEditorComments(
     if (!anchor || !path) return [];
     const [first, ...rest] = thread.messages;
     return [{
-      id: `${OVERLEAF_COMMENT_PREFIX}${thread.id}`,
-      path,
-      from: anchor.position,
-      to: anchor.position + anchor.quote.length,
-      quote: anchor.quote,
-      prefix: "",
-      suffix: "",
-      body: first?.content ?? "",
-      authorId: first?.authorEmail ?? "overleaf",
-      authorName: first ? `${first.authorName} · Overleaf` : "Overleaf",
-      resolved: thread.resolved,
+      id: `${OVERLEAF_COMMENT_PREFIX}${thread.id}`, path,
+      from: anchor.position, to: anchor.position + anchor.quote.length, quote: anchor.quote, prefix: "", suffix: "",
+      body: first?.content ?? "", authorId: first?.authorEmail ?? "overleaf",
+      authorName: first ? `${first.authorName} · Overleaf` : "Overleaf", resolved: thread.resolved,
       replies: rest.map((message) => ({
-        id: message.id,
-        authorId: message.authorEmail ?? "overleaf",
-        authorName: message.authorName,
-        body: message.content,
-        createdAt: new Date(message.timestamp).toISOString(),
+        id: message.id, authorId: message.authorEmail ?? "overleaf", authorName: message.authorName,
+        body: message.content, createdAt: new Date(message.timestamp).toISOString(),
       })),
       createdAt: new Date(first?.timestamp ?? 0).toISOString(),
-      updatedAt: new Date(thread.messages[thread.messages.length - 1]?.timestamp ?? 0).toISOString(),
+      updatedAt: new Date(thread.messages.at(-1)?.timestamp ?? 0).toISOString(),
     }];
   });
 }
@@ -112,19 +68,43 @@ type OverleafSyncOptions = {
 };
 
 function isTransientOverleafTransportFailure(reason: unknown): boolean {
-  const message = toMessage(reason).toLowerCase();
-  return message.includes("could not reach overleaf")
-    || message.includes("error decoding response body");
+  return /could not reach overleaf|error decoding response body/i.test(toMessage(reason));
+}
+
+/** How often live mode asks Overleaf whether anything changed. */
+const OVERLEAF_LIVE_POLL_MS = 3_000;
+/** Quiet time after a save before local work is pushed up. */
+const OVERLEAF_PUSH_DEBOUNCE_MS = 2_500;
+/** Let editor cleanup writes settle before syncing a file that just became inactive. */
+const OVERLEAF_WHOLE_FILE_SETTLE_MS = 1_000;
+/** A long quiet edit still gets a durable remote checkpoint. */
+const OVERLEAF_WHOLE_FILE_IDLE_MS = 60_000;
+/** Cadence when Overleaf gives us no cheap way to detect a change. */
+const OVERLEAF_BLIND_POLL_MS = 120_000;
+/** Cadence once the channel carries documents: only figures and new files remain, and each "yes" is a full download. */
+const OVERLEAF_CHANNEL_POLL_MS = 45_000;
+/**
+ * Floor between full syncs: Overleaf answers 429 past ten project downloads a
+ * minute, and a collaborator typing moves the version on every poll.
+ */
+const minimumSyncGap = (channelLive: boolean) => (channelLive ? 30_000 : 12_000);
+
+/** The project's Overleaf link, and whether the signed-in session may use it. */
+type OverleafLinkFor = { root: string; link: OverleafLink; active: boolean };
+
+async function readOverleafLink(root: string): Promise<OverleafLinkFor | null> {
+  const [status, link] = await Promise.all([invoke<OverleafStatus>("overleaf_status"), invoke<OverleafLink | null>("overleaf_link")]);
+  return link ? {
+    root,
+    link: { ...link, host: link.host.trim() || status.host.trim() },
+    active: status.connected && !link.paused && overleafLinkMatchesSession(status.host, link.host),
+  } : null;
 }
 
 /**
- * Everything the Overleaf bridge borrows from App. Deliberately explicit: the
- * bridge sits in the middle of App's save/build/collaboration wiring, and an
- * `any`-shaped bag would hide which of those it is actually allowed to touch.
- *
- * The three sync-gate refs are owned by App rather than created here because
- * `beginProjectTransition` and `startProjectTransition` — both declared long
- * before this hook runs — have to be able to wait a sync out.
+ * Everything the Overleaf bridge borrows from App. App owns the three sync-gate
+ * refs because its project transitions, declared long before this hook runs,
+ * must be able to wait a sync out.
  */
 export type OverleafWorkspaceDeps = {
   project: ProjectSnapshot | null;
@@ -140,9 +120,7 @@ export type OverleafWorkspaceDeps = {
   savedSourceRef: RefObject<string>;
   setSource: (value: string) => void;
   setSavedSource: (value: string) => void;
-  setViewRestore: (
-    request: { path: string; cursor: number; scrollTop: number; id: string },
-  ) => void;
+  setViewRestore: (request: ViewRestoreRequest) => void;
   viewStateRef: RefObject<Map<string, FileViewState>>;
   editorPosition: EditorPosition | null;
   editorPositionRef: RefObject<EditorPosition | null>;
@@ -159,20 +137,12 @@ export type OverleafWorkspaceDeps = {
   collabName: string;
   /** Runs prepare → canonical Catalog/Yjs apply → exact-byte commit for an active Share. */
   runSharedOverleafSync: (
-    observedRemoteVersion?: number | null,
-    livePaths?: readonly string[],
-    diagnosticOperationId?: string,
+    observedRemoteVersion?: number | null, livePaths?: readonly string[], diagnosticOperationId?: string,
   ) => Promise<OverleafSyncResult>;
   save: () => Promise<boolean>;
   compile: () => Promise<void>;
-  loadFile: (
-    path: string,
-    options?: { expectedProjectRoot?: string; projectGeneration?: number; canCommit?: () => boolean },
-  ) => Promise<boolean>;
-  refreshProject: (scope?: {
-    expectedRoot: string;
-    generation: number;
-  }) => Promise<ProjectSnapshot>;
+  loadFile: (path: string, options?: { expectedProjectRoot?: string; projectGeneration?: number; canCommit?: () => boolean }) => Promise<boolean>;
+  refreshProject: RefreshProject;
   openProjectFile: (path: string, line?: number) => Promise<void>;
   /** True while a sync owns the project; a switch has to wait it out. */
   overleafSyncingRef: RefObject<boolean>;
@@ -199,18 +169,13 @@ export async function applyOverleafRemoteText(
   if (!isCurrent() || deps.sourceRef.current !== baseContent) return false;
   const saved = deps.savedSourceRef.current;
   if (text === baseContent && saved !== baseContent) return false;
-  // This is a compare-and-swap, not an unconditional replacement or a merge
-  // against a guessed ancestor. In particular, a join snapshot must not erase
-  // agent edits that have not reached the editor yet. Divergence is reconciled
-  // by ordinary sync, which has the actual shared Overleaf baseline.
-  await invoke("write_project_file", {
-    path, projectRoot, content: text, expectedContent: saved,
-  });
-  if (!isCurrent() || deps.sourceRef.current !== baseContent || deps.savedSourceRef.current !== saved) {
-    // Typing during IPC stays dirty against its original saved base; the
-    // ordinary editor save can merge it with the remote bytes now on disk.
-    return false;
-  }
+  // A compare-and-swap, never a merge against a guessed ancestor: a join
+  // snapshot must not erase agent edits that have not reached the editor yet.
+  // Ordinary sync, which has the real shared baseline, reconciles divergence.
+  await invoke("write_project_file", { path, projectRoot, content: text, expectedContent: saved });
+  // Typing during IPC stays dirty against its original saved base; the
+  // ordinary editor save can merge it with the remote bytes now on disk.
+  if (!isCurrent() || deps.sourceRef.current !== baseContent || deps.savedSourceRef.current !== saved) return false;
   deps.sourceRef.current = text;
   deps.savedSourceRef.current = text;
   deps.setSource(text);
@@ -227,63 +192,27 @@ export async function applyOverleafRemoteText(
  */
 export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
   const {
-    project,
-    projectRef,
-    projectOperationGenerationRef,
-    activeFile,
-    activeFileRef,
-    activePaper,
-    activeAsset,
-    source,
-    sourceRef,
-    savedSourceRef,
-    viewStateRef,
-    editorPosition,
-    editorPositionRef,
-    build,
-    saveGeneration,
-    savedPathsRef,
-    wholeFileEditingPaths,
-    wholeFileDraftPaths,
-    collabSession,
-    collabName,
-    runSharedOverleafSync,
-    save,
-    compile,
-    loadFile,
-    refreshProject,
-    openProjectFile,
-    overleafSyncingRef,
-    overleafSyncSettledRef,
-    resolveOverleafSyncRef,
+    project, projectRef, projectOperationGenerationRef, activeFile, activeFileRef, activePaper, activeAsset,
+    source, sourceRef, savedSourceRef, viewStateRef, editorPosition, editorPositionRef, build,
+    saveGeneration, savedPathsRef, wholeFileEditingPaths, wholeFileDraftPaths, collabSession, collabName,
+    runSharedOverleafSync, save, compile, loadFile, refreshProject, openProjectFile,
+    overleafSyncingRef, overleafSyncSettledRef, resolveOverleafSyncRef,
   } = deps;
   const { t } = useLingui();
 
   const [overleafPickerOpen, setOverleafPickerOpen] = useState(false);
-  // The link is stored with the root it was fetched for, and only counts while
-  // that root is still the open project. During a project switch there is one
-  // render where `project` already holds the new root but this state still
-  // holds the previous project's link; trusting the raw state in that window
-  // sent auto-sync at the new, unlinked project ("Sync failed: This project is
-  // not linked to an Overleaf project."). Keep inactive links too, so a paused
-  // link or a folder whose account is disconnected is not offered for upload
-  // as a second Overleaf project.
-  const [overleafLinkFor, setOverleafLinkFor] = useState<{
-    root: string;
-    link: OverleafLink;
-    active: boolean;
-  } | null>(null);
+  // The link counts only while the root it was fetched for is still open (for
+  // one render of a switch it is the old project's). Inactive links are kept,
+  // so a paused one is not offered for upload as a second Overleaf project.
+  const [overleafLinkFor, setOverleafLinkFor] = useState<OverleafLinkFor | null>(null);
   const overleafLinkLoadGenerationRef = useRef(0);
   const currentOverleafLink = overleafLinkFor?.root === project?.root ? overleafLinkFor : null;
-  const overleafLink = currentOverleafLink?.active
-    ? currentOverleafLink.link
-    : null;
+  const overleafLink = currentOverleafLink?.active ? currentOverleafLink.link : null;
   const overleafProjectLinked = currentOverleafLink !== null;
   const [overleafSyncing, setOverleafSyncing] = useState(false);
   const [overleafSyncMode, setOverleafSyncMode] = useState<OverleafSyncMode>(loadOverleafSyncMode);
-  const [overleafRemoteDelete, setOverleafRemoteDelete] = useState<OverleafRemoteDelete>(
-    loadOverleafRemoteDelete,
-  );
+  const [overleafRemoteDelete, setOverleafRemoteDelete] = useState<OverleafRemoteDelete>(loadOverleafRemoteDelete);
+  const overleafRemoteDeleteRef = useLatest(overleafRemoteDelete);
   const [overleafRemoteChanges, setOverleafRemoteChanges] = useState(false);
   const [overleafReviewOpen, setOverleafReviewOpen] = useState(false);
   const [overleafCollabOpen, setOverleafCollabOpen] = useState(false);
@@ -297,59 +226,44 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
   const externalChangesRef = useRef(new Map<string, symbol>());
   const [externalChangeGeneration, setExternalChangeGeneration] = useState(0);
   const resumeRealtimePathsRef = useRef<(paths: readonly string[]) => void>(() => {});
-  const overleafCommentsRef = useRef<OverleafComments>(null as unknown as OverleafComments);
   /** Files the realtime channel owns; syncing must not touch them. */
   const overleafLivePathsRef = useRef<string[]>([]);
-  const wholeFileEditingPathsRef = useRef<readonly string[]>(wholeFileEditingPaths);
-  const wholeFileDraftPathsRef = useRef<readonly string[]>(wholeFileDraftPaths);
+  const wholeFileEditingPathsRef = useLatest(wholeFileEditingPaths);
+  const wholeFileDraftPathsRef = useLatest(wholeFileDraftPaths);
   const deferredWholeFilePathsRef = useRef(new Set<string>());
   const wholeFileIdleTimerRef = useRef<number | null>(null);
   const wholeFileBoundaryTimerRef = useRef<number | null>(null);
   const wholeFileBoundaryPathsRef = useRef(new Set<string>());
-  const flushDeferredWholeFileSyncRef = useRef<(
-    paths?: readonly string[],
-  ) => Promise<void>>(async () => {});
+  const flushDeferredWholeFileSyncRef = useRef<(paths?: readonly string[]) => Promise<void>>(async () => {});
   /** Whether the realtime channel is up, for the poll loop to read. */
   const overleafChannelLiveRef = useRef(false);
   /** Path → Overleaf's id and kind, which is what its endpoints take. */
   const overleafEntitiesRef = useRef<Map<string, { id: string; kind: string }>>(new Map());
-  const overleafRemoteDeleteRef = useRef<OverleafRemoteDelete>("ask");
-  /** How often live mode asks Overleaf whether anything changed. */
-  const OVERLEAF_LIVE_POLL_MS = 3_000;
-  /** Quiet time after a save before local work is pushed up. */
-  const OVERLEAF_PUSH_DEBOUNCE_MS = 2_500;
-  /** Let editor cleanup writes settle before syncing a file that just became inactive. */
-  const OVERLEAF_WHOLE_FILE_SETTLE_MS = 1_000;
-  /** A long quiet edit still gets a durable remote checkpoint. */
-  const OVERLEAF_WHOLE_FILE_IDLE_MS = 60_000;
-  /** Cadence when Overleaf gives us no cheap way to detect a change. */
-  const OVERLEAF_BLIND_POLL_MS = 120_000;
-  /**
-   * Cadence once the realtime channel is up. Documents arrive as operations
-   * then, so polling only has figures and newly added files left to catch —
-   * and every "yes" costs a full project download, which is what earned a 429.
-   */
-  const OVERLEAF_CHANNEL_POLL_MS = 45_000;
-  /**
-   * Floor between full syncs. Overleaf allows ten project downloads a minute
-   * and answers 429 past that; a collaborator typing steadily moves the
-   * project version on every poll, so without a floor live mode would ask for
-   * the whole project every three seconds and get itself locked out.
-   */
-  const OVERLEAF_MIN_SYNC_GAP_MS = 12_000;
-  /**
-   * The same floor once the channel is up. Documents already travel as
-   * operations then, so this sweep is only carrying figures and files added
-   * outside the editor, and it can afford to be leisurely.
-   */
-  const OVERLEAF_CHANNEL_SYNC_GAP_MS = 30_000;
   const lastAutoSyncRef = useRef(0);
   const lastAutoVersionRef = useRef(0);
-
-  useLayoutEffect(() => {
-    wholeFileEditingPathsRef.current = wholeFileEditingPaths;
-    wholeFileDraftPathsRef.current = wholeFileDraftPaths;
-  }, [wholeFileDraftPaths, wholeFileEditingPaths]);
+  /** Every automatic sync stamps the rate-limit clock before it starts. */
+  const autoSync = useCallback((options: Omit<OverleafSyncOptions, "auto"> = {}) => {
+    lastAutoSyncRef.current = Date.now();
+    return overleafSyncRef.current({ auto: true, ...options });
+  }, []);
+  /** A project-scoped operation stays current until the window switches projects. */
+  const projectGuard = useCallback((root: string, generation: number) => () => (
+    projectOperationGenerationRef.current === generation && projectRef.current?.root === root
+  ), [projectOperationGenerationRef, projectRef]);
+  /** Mark a sync (or publish) as owning the project, so a switch mid-sync queues behind it. Returns the release. */
+  const holdSyncGate = useCallback(() => {
+    overleafSyncingRef.current = true;
+    setOverleafSyncing(true);
+    overleafSyncSettledRef.current = new Promise<void>((resolve) => { resolveOverleafSyncRef.current = resolve; });
+    return () => {
+      overleafSyncingRef.current = false;
+      setOverleafSyncing(false);
+      const settle = resolveOverleafSyncRef.current;
+      resolveOverleafSyncRef.current = null;
+      overleafSyncSettledRef.current = null;
+      settle?.();
+    };
+  }, [overleafSyncSettledRef, overleafSyncingRef, resolveOverleafSyncRef]);
 
   const currentOverleafLivePaths = useCallback((includeWholeFilePaths: readonly string[] = []) => {
     const included = new Set(includeWholeFilePaths);
@@ -358,142 +272,56 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
       ...overleafLivePathsRef.current,
       ...wholeFileEditingPathsRef.current.filter((path) => !included.has(path) || drafts.has(path)),
     ]));
-  }, []);
+  }, [wholeFileDraftPathsRef, wholeFileEditingPathsRef]);
 
   const captureSavedPaths = useCallback(() => {
     const paths = Array.from(savedPathsRef.current);
     savedPathsRef.current.clear();
-    for (const path of paths) {
-      if (isWholeFileEditorPath(path)) deferredWholeFilePathsRef.current.add(path);
-    }
+    for (const path of paths.filter(isWholeFileEditorPath)) deferredWholeFilePathsRef.current.add(path);
     return paths;
   }, [savedPathsRef]);
 
-  useEffect(() => {
-    overleafTransportRetryRef.current = false;
-    externalChangesRef.current.clear();
-  }, [project?.root]);
-
-  // ---- Overleaf bridge -----------------------------------------------------
-
-  // Know whether the open project is linked to an Overleaf project (cloned via
-  // "Open from Overleaf"). Drives the toolbar sync button and auto-sync.
-  useEffect(() => {
-    let cancelled = false;
+  /** Read `root`'s link; a newer load or a project switch discards the answer. */
+  const loadOverleafLink = useCallback((root: string) => {
     const generation = ++overleafLinkLoadGenerationRef.current;
-    setOverleafLinkFor(null);
-    if (!project?.root) return;
-    const root = project.root;
-    void Promise.all([
-      invoke<OverleafStatus>("overleaf_status"),
-      invoke<OverleafLink | null>("overleaf_link"),
-    ])
-      .then(([status, link]) => {
-        if (!cancelled && generation === overleafLinkLoadGenerationRef.current) {
-          setOverleafLinkFor(link ? {
-            root,
-            link: { ...link, host: link.host.trim() || status.host.trim() },
-            active: status.connected
-              && !link.paused
-              && overleafLinkMatchesSession(status.host, link.host),
-          } : null);
-        }
-      })
-      .catch(() => {
-        // A project without the state file is simply not linked.
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [project?.root]);
+    // A project without the state file is simply not linked.
+    void readOverleafLink(root).catch(() => null).then((linkFor) => {
+      if (generation === overleafLinkLoadGenerationRef.current) setOverleafLinkFor(linkFor);
+    });
+  }, []);
 
-  /**
-   * Re-read the link after Settings changes it. Unlinking has to be felt
-   * everywhere — the toolbar cloud, the live channel, chat, collaborators and
-   * the comment threads all key off this, and they used to keep running
-   * against a project that had just been unlinked.
-   */
+  // Whether the open project is linked drives the toolbar sync button and auto-sync.
+  useEffect(() => {
+    setOverleafLinkFor(null);
+    if (project?.root) loadOverleafLink(project.root);
+    return () => { overleafLinkLoadGenerationRef.current += 1; };
+  }, [loadOverleafLink, project?.root]);
+
+  /** Re-read the link after Settings changes it, so unlinking reaches every surface that rides it. */
   const refreshOverleafLink = useCallback(() => {
     const root = projectRef.current?.root;
-    if (!root) return;
-    const generation = ++overleafLinkLoadGenerationRef.current;
-    void Promise.all([
-      invoke<OverleafStatus>("overleaf_status"),
-      invoke<OverleafLink | null>("overleaf_link"),
-    ])
-      .then(([status, link]) => {
-        if (
-          projectRef.current?.root !== root
-          || generation !== overleafLinkLoadGenerationRef.current
-        ) return;
-        setOverleafLinkFor(link ? {
-          root,
-          link: { ...link, host: link.host.trim() || status.host.trim() },
-          active: status.connected
-            && !link.paused
-            && overleafLinkMatchesSession(status.host, link.host),
-        } : null);
-      })
-      .catch(() => {
-        if (generation === overleafLinkLoadGenerationRef.current) {
-          setOverleafLinkFor(null);
-        }
-      });
-    // The refs arrive through `deps`, so the lint rule cannot see that they are
-    // `useRef` results with a stable identity; listing them changes nothing.
-  }, [projectRef]);
+    if (root) loadOverleafLink(root);
+  }, [loadOverleafLink, projectRef]);
 
   const publishProjectToOverleaf = useCallback(async (projectName: string): Promise<boolean> => {
     if (!project || overleafSyncingRef.current) return false;
     const publishRoot = project.root;
-    const publishGeneration = projectOperationGenerationRef.current;
-    const stillCurrent = () => (
-      projectOperationGenerationRef.current === publishGeneration
-      && projectRef.current?.root === publishRoot
-    );
-    overleafSyncingRef.current = true;
-    setOverleafSyncing(true);
-    // Publishing mutates Overleaf and writes the local sync baseline. Give a
-    // project switch the same settlement gate as ordinary sync so the request
-    // cannot finish against a workspace the window has already left.
-    overleafSyncSettledRef.current = new Promise<void>((resolve) => {
-      resolveOverleafSyncRef.current = resolve;
-    });
-    const publish = save().then(async (saved) => {
+    const stillCurrent = projectGuard(publishRoot, projectOperationGenerationRef.current);
+    // Publishing mutates Overleaf and the local sync baseline, so it holds the sync gate.
+    const release = holdSyncGate();
+    return save().then(async (saved) => {
       if (!saved || !stillCurrent()) return false;
-      const link = await invoke<OverleafLink>("overleaf_publish_project", {
-        projectRoot: publishRoot,
-        projectName,
-      });
+      const link = await invoke<OverleafLink>("overleaf_publish_project", { projectRoot: publishRoot, projectName });
       if (!stillCurrent()) return false;
       setOverleafLinkFor({ root: publishRoot, link, active: true });
       return true;
-    });
-    return publish.finally(() => {
-      overleafSyncingRef.current = false;
-      setOverleafSyncing(false);
-      const settle = resolveOverleafSyncRef.current;
-      resolveOverleafSyncRef.current = null;
-      overleafSyncSettledRef.current = null;
-      settle?.();
-    });
-  }, [
-    overleafSyncSettledRef,
-    overleafSyncingRef,
-    project,
-    projectOperationGenerationRef,
-    projectRef,
-    resolveOverleafSyncRef,
-    save,
-  ]);
+    }).finally(release);
+  }, [holdSyncGate, overleafSyncingRef, project, projectGuard, projectOperationGenerationRef, save]);
 
   const openCurrentOverleafProject = useCallback(() => {
     if (!overleafLink) return;
     try {
-      const url = new URL(overleafLink.host);
-      url.pathname = `/project/${encodeURIComponent(overleafLink.projectId)}`;
-      url.search = "";
-      url.hash = "";
+      const url = new URL(`/project/${encodeURIComponent(overleafLink.projectId)}`, overleafLink.host);
       void openUrl(url.toString()).catch((reason) => {
         setError(`Could not open the project on Overleaf: ${toMessage(reason)}`);
       });
@@ -503,33 +331,20 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
   }, [overleafLink]);
 
   /**
-   * Deal with files that are gone here but still on Overleaf.
-   *
-   * Deleting an ordinary file from a shared project is not something to infer
-   * from its absence, so this obeys the setting: leave it, remove it, or ask.
-   * App-owned transient paths bypass that policy and are cleaned silently.
-   * Removing either kind needs the entity's Overleaf id, which only the
-   * realtime channel knows — without it there is nothing to name in the
-   * request, so the action waits for a later sync.
+   * Files gone here but still on Overleaf. Deletion is never inferred from
+   * absence: ordinary files obey the setting (leave, remove, or ask), app-owned
+   * transient paths are cleaned silently. Either needs the entity id only the
+   * realtime channel knows; without it the action waits for a later sync.
    */
-  const settleRemoteDeletes = useCallback(async (
-    paths: string[],
-    projectRoot: string,
-    generation: number,
-    automatic = false,
-  ) => {
-    const stillCurrent = () => (
-      projectOperationGenerationRef.current === generation
-      && projectRef.current?.root === projectRoot
-    );
+  const settleRemoteDeletes = useCallback(async (paths: string[], projectRoot: string, generation: number, automatic = false) => {
+    const stillCurrent = projectGuard(projectRoot, generation);
     if (!stillCurrent()) return;
     const policy = overleafRemoteDeleteRef.current;
     if (!automatic && policy === "never") return;
-    const known = paths
-      .map((path) => ({ path, entity: overleafEntitiesRef.current.get(path) }))
-      .filter((entry): entry is { path: string; entity: { id: string; kind: string } } => (
-        entry.entity !== undefined
-      ));
+    const known = paths.flatMap((path) => {
+      const entity = overleafEntitiesRef.current.get(path);
+      return entity ? [{ path, entity }] : [];
+    });
     if (!known.length) return;
     if (!automatic && policy === "ask") {
       const names = known.map((entry) => entry.path).join(", ");
@@ -548,15 +363,9 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
     for (const entry of known) {
       if (!stillCurrent()) return;
       try {
-        await invoke("overleaf_delete_entity", {
-          projectRoot,
-          kind: entry.entity.kind,
-          entityId: entry.entity.id,
-        });
+        await invoke("overleaf_delete_entity", { projectRoot, kind: entry.entity.kind, entityId: entry.entity.id });
       } catch (reason) {
-        if (stillCurrent()) {
-          setError(t({ message: `Could not remove ${entry.path} from Overleaf: ${toMessage(reason)}` }), "Overleaf");
-        }
+        if (stillCurrent()) setError(t({ message: `Could not remove ${entry.path} from Overleaf: ${toMessage(reason)}` }), "Overleaf");
         return;
       }
     }
@@ -565,35 +374,22 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
         ? t`Removed one file from Overleaf`
         : t({ message: `Removed ${known.length} files from Overleaf` }), "Overleaf");
     }
-  }, [projectOperationGenerationRef, projectRef, t]);
+  }, [overleafRemoteDeleteRef, projectGuard, t]);
 
   const runOverleafSync = useCallback(async (options?: OverleafSyncOptions) => {
     if (!project || overleafSyncingRef.current) return;
     const syncRoot = project.root;
     const syncGeneration = projectOperationGenerationRef.current;
-    const stillCurrent = () => (
-      projectOperationGenerationRef.current === syncGeneration
-      && projectRef.current?.root === syncRoot
-    );
-    overleafSyncingRef.current = true;
-    setOverleafSyncing(true);
-    // Handle a project switch can wait on, so a click that lands mid-sync
-    // queues behind it instead of being thrown away.
-    overleafSyncSettledRef.current = new Promise<void>((resolve) => { resolveOverleafSyncRef.current = resolve; });
+    const stillCurrent = projectGuard(syncRoot, syncGeneration);
+    const release = holdSyncGate();
     const trace = logAction("Overleaf", "Sync", options?.auto ? "automatic" : "requested");
-    // Saving below clears the dirty flag, which cancels the pending autosave
-    // compile — that is how a sync landing mid-edit left the editor showing a
-    // change the PDF never caught up with. Remember it so we can rebuild.
+    // Saving below clears the dirty flag, cancelling the pending autosave
+    // compile; remember it so the PDF still catches up with the edit.
     const hadUnsavedEdits = sourceRef.current !== savedSourceRef.current;
-    let compiled = false;
     try {
       if (!(await save())) return;
       if (!stillCurrent()) return;
-      const livePaths = currentOverleafLivePaths(
-        options?.auto
-          ? options.includeWholeFilePaths
-          : wholeFileEditingPathsRef.current,
-      );
+      const livePaths = currentOverleafLivePaths(options?.auto ? options.includeWholeFilePaths : wholeFileEditingPathsRef.current);
       const externalBatch = new Map(externalChangesRef.current);
       const sharedSync = collabSession !== null;
       const result = sharedSync
@@ -606,58 +402,33 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
       if (!stillCurrent()) return;
       overleafTransportRetryRef.current = false;
       trace.enrich({
-        automatic: options?.auto === true,
-        shared: sharedSync,
-        pulled: result.pulled.length,
-        pushed: result.pushed.length,
-        merged: result.merged.length,
-        conflicts: result.conflicts.length,
-        deleted_local: result.deletedLocal.length,
+        automatic: options?.auto === true, shared: sharedSync, pulled: result.pulled.length, pushed: result.pushed.length,
+        merged: result.merged.length, conflicts: result.conflicts.length, deleted_local: result.deletedLocal.length,
         read_only: result.readOnly === true,
       });
-      // Every pending whole-file path omitted from `livePaths` participated in
-      // this successful sync. Forget it now so a later blur does not perform a
-      // duplicate project download for work that is already remote.
-      const protectedPaths = new Set(livePaths);
+      // Pending whole-file paths omitted from `livePaths` went up with this
+      // sync; forget them so a later blur does not download the project again.
       for (const path of deferredWholeFilePathsRef.current) {
-        if (!protectedPaths.has(path)) deferredWholeFilePathsRef.current.delete(path);
+        if (!livePaths.includes(path)) deferredWholeFilePathsRef.current.delete(path);
       }
-      // PDF inspection generates contact sheets and page renders under this
-      // app-owned folder. Old versions uploaded them as project files; remove
-      // that legacy folder silently and never mix it into the user's ordinary
-      // remote-delete preference.
+      // Old versions uploaded PDF-inspection renders from an app-owned folder.
+      // Remove those silently, outside the user's remote-delete preference.
       if (result.automaticRemoteDeletes?.length && !result.readOnly) {
-        await settleRemoteDeletes(
-          result.automaticRemoteDeletes,
-          syncRoot,
-          syncGeneration,
-          true,
-        );
+        await settleRemoteDeletes(result.automaticRemoteDeletes, syncRoot, syncGeneration, true);
         if (!stillCurrent()) return;
       }
-      // A file gone from here is still on Overleaf, because syncing has never
-      // removed anything from a shared project on its own. What should happen
-      // instead is a decision only the user can make, so it is a setting.
+      // What happens to a file deleted here is the user's call (a setting).
       if (result.skippedRemoteDeletes.length) {
-        await settleRemoteDeletes(
-          result.skippedRemoteDeletes,
-          syncRoot,
-          syncGeneration,
-        );
+        await settleRemoteDeletes(result.skippedRemoteDeletes, syncRoot, syncGeneration);
         if (!stillCurrent()) return;
       }
-      // A file too big for Overleaf to accept stays here and is named, because
-      // to the writer it otherwise looks synced like everything else and the
+      // Name files too big for Overleaf; otherwise they look synced and the
       // absence is only discovered from the other side.
       if (result.skippedLarge?.length) {
-        setWarning(
-          `Too large for Overleaf, so left on this machine: ${result.skippedLarge.join(", ")}.`,
-          "Overleaf",
-        );
+        setWarning(`Too large for Overleaf, so left on this machine: ${result.skippedLarge.join(", ")}.`, "Overleaf");
       }
-      // Merged and conflicted files were rewritten on disk just like pulled
-      // ones, so the editor has to reload them too or it would keep showing
-      // stale text and save over the incoming edits.
+      // Merged and conflicted files were rewritten on disk like pulled ones;
+      // the editor must reload them or it would save over the incoming edits.
       const changedOnDisk = new Set([
         ...result.pulled,
         ...result.merged,
@@ -668,54 +439,36 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
           && !result.deletedLocal.includes(path) && !result.skippedRemoteDeletes.includes(path)),
       ]);
       if (result.conflicts.length) {
-        // A file with markers in it has spots to work through; a figure or a
-        // PDF does not, and saying "resolve each spot" about one — then
-        // opening a marker resolver that finds nothing — is worse than saying
-        // plainly that both versions are sitting on disk.
+        // Only a file with markers has spots to resolve; for a figure or PDF,
+        // say plainly that both versions are sitting on disk. A later disk
+        // write can supersede the snapshot, so never demand choices for a clean
+        // file; an unreadable one goes to the resolver, which reports it.
         const marked: OverleafSyncResult["conflicts"] = [];
         for (const item of result.conflicts.filter((conflict) => conflict.markers !== false)) {
-          // Autosave or a later disk write can supersede the sync snapshot
-          // before this response arrives. Never demand choices for a clean file.
-          try {
-            const content = await invoke<string>("read_project_file", { path: item.path, projectRoot: syncRoot });
-            if (hasConflictMarkers(content)) marked.push(item);
-          } catch {
-            // Let the resolver report the read failure rather than pretending
-            // a file we could not inspect is already resolved.
-            marked.push(item);
-          }
+          const content = await invoke<string>("read_project_file", { path: item.path, projectRoot: syncRoot }).catch(() => null);
+          if (content === null || hasConflictMarkers(content)) marked.push(item);
           if (!stillCurrent()) return;
         }
         const whole = result.conflicts.filter((item) => item.markers === false);
-        const parts: string[] = [];
-        if (marked.length) {
-          parts.push(
-            `Overleaf sync could not combine: ${marked.map((item) => item.path).join(", ")}. `
+        const names = (items: typeof marked) => items.map((item) => item.path).join(", ");
+        const parts = [
+          marked.length ? `Overleaf sync could not combine: ${names(marked)}. `
             + "Both versions are kept — resolve each spot to finish. "
             + "Your untouched version is also saved beside it in the “(local conflict …)” files, "
-            + "and nothing uploads until the conflicts are settled.",
-          );
-        }
-        if (whole.length) {
-          parts.push(
-            `Changed in both places and impossible to combine: ${whole.map((item) => item.path).join(", ")}. `
+            + "and nothing uploads until the conflicts are settled." : "",
+          whole.length ? `Changed in both places and impossible to combine: ${names(whole)}. `
             + "Overleaf's version is now the one in the project, and yours is kept beside it "
-            + "in the “(local conflict …)” files — keep whichever you want and delete the other.",
-          );
-        }
+            + "in the “(local conflict …)” files — keep whichever you want and delete the other." : "",
+        ].filter(Boolean);
         if (parts.length) setError(parts.join(" "));
         // Only worth opening for a file that actually has markers in it.
-        const first = marked[0]?.path ?? null;
-        if (first) setConflictPath(first);
+        if (marked[0]) setConflictPath(marked[0].path);
       }
       let reloadBlockedPath: string | null = null;
       if (changedOnDisk.size || result.deletedLocal.length) {
         await refreshProject({ expectedRoot: syncRoot, generation: syncGeneration });
         if (!stillCurrent()) return;
-        // Navigation is allowed while the network-bound sync is running. Use
-        // the file that is active now, not the one captured when sync began,
-        // so an incoming replacement cannot leave the newly opened editor on
-        // stale bytes.
+        // Navigation continues during the sync: reload the file active now.
         const currentActiveFile = activeFileRef.current;
         if (currentActiveFile && changedOnDisk.has(currentActiveFile)) {
           const buffer = sourceRef.current;
@@ -728,37 +481,29 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
           if (!reloaded) reloadBlockedPath = currentActiveFile;
           if (!stillCurrent()) return;
         }
-        if (!stillCurrent()) return;
-        // Pushing an agent checkpoint only refreshes our editor here. Its
-        // automatic-build path already owns compilation; do not build twice
-        // or turn manual build mode into an automatic build after upload.
-        if (result.pulled.length || result.merged.length || result.conflicts.length || result.deletedLocal.length) {
-          await compile();
-          if (!stillCurrent()) return;
-          compiled = true;
-        }
       }
-      // Nothing arrived, but we flushed the user's own unsaved edits — the
-      // autosave compile they were waiting on is gone, so run it here.
-      if (!compiled && hadUnsavedEdits) {
-        if (!stillCurrent()) return;
+      // A pushed agent checkpoint already owns its build (and manual build mode
+      // stays manual), but flushed unsaved edits lost their autosave compile.
+      const incoming = result.pulled.length > 0 || result.merged.length > 0
+        || result.conflicts.length > 0 || result.deletedLocal.length > 0;
+      if (incoming || hadUnsavedEdits) {
         await compile();
         if (!stillCurrent()) return;
-        compiled = true;
       }
+      // Rejoin realtime for what this pass settled. External edits count only
+      // if no newer edit replaced their token; anything still pending, blocked,
+      // conflicted, deleted or left behind stays out.
       const reconciled = new Set([...result.pushed, ...result.pulled, ...result.merged]);
       for (const [path, token] of externalBatch) {
-        if (path === reloadBlockedPath || livePaths.includes(path) || externalChangesRef.current.get(path) !== token) {
-          reconciled.delete(path);
-          continue;
-        }
+        if (path === reloadBlockedPath || livePaths.includes(path) || externalChangesRef.current.get(path) !== token) continue;
         externalChangesRef.current.delete(path);
         reconciled.add(path);
       }
-      for (const path of externalChangesRef.current.keys()) reconciled.delete(path);
-      if (reloadBlockedPath) reconciled.delete(reloadBlockedPath);
-      for (const conflict of result.conflicts) reconciled.delete(conflict.path);
-      for (const path of [...result.deletedLocal, ...result.skippedRemoteDeletes, ...(result.skippedLarge ?? [])]) reconciled.delete(path);
+      for (const path of [
+        ...externalChangesRef.current.keys(), ...(reloadBlockedPath ? [reloadBlockedPath] : []),
+        ...result.conflicts.map((conflict) => conflict.path),
+        ...result.deletedLocal, ...result.skippedRemoteDeletes, ...(result.skippedLarge ?? []),
+      ]) reconciled.delete(path);
       if (!result.readOnly) resumeRealtimePathsRef.current([...reconciled]);
       if (result.pulled.length || result.pushed.length || result.merged.length) {
         const parts = [`pulled ${result.pulled.length}`, `pushed ${result.pushed.length}`];
@@ -767,34 +512,22 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
       } else if (!options?.auto) {
         trace.ok("Overleaf: already up to date.");
       } else {
-        // A background sync with nothing to do stays out of the user's way, but
-        // still leaves a line in the log so a gap in sync history is explained.
+        // A quiet background no-op still logs, so a gap in sync history is explained.
         trace.finish("success", "Overleaf: already up to date.");
       }
-      const changedProjectContent = hadUnsavedEdits
-        || result.pulled.length > 0
-        || result.pushed.length > 0
-        || result.merged.length > 0
-        || result.conflicts.length > 0
-        || result.deletedLocal.length > 0;
-      // Only a real content transition becomes a version. A no-op sync used
-      // to run `git add -A` anyway, waking the filesystem watcher and making
-      // unrelated previews reload even though Overleaf changed nothing.
-      if (!stillCurrent()) return;
-      if (changedProjectContent) {
+      // Only a real content change becomes a version: committing a no-op woke
+      // the filesystem watcher and reloaded unrelated previews.
+      if (incoming || hadUnsavedEdits || result.pushed.length > 0) {
         void invoke<string | null>("git_auto_commit", {
-          message: "Overleaf sync",
-          author: collabName.trim() || null,
-          projectRoot: syncRoot,
+          message: "Overleaf sync", author: collabName.trim() || null, projectRoot: syncRoot,
         }).catch(() => {});
       }
-      if (stillCurrent()) refreshOverleafLink();
+      refreshOverleafLink();
     } catch (reason) {
       if (stillCurrent()) {
         if (options?.auto && isTransientOverleafTransportFailure(reason)) {
-          // The live loop retries on its normal, rate-limited cadence. Retrying
-          // immediately risks another 429, while raising a toast for a brief
-          // background outage interrupts work even when the next pass recovers.
+          // The live loop retries on its rate-limited cadence: retrying now
+          // risks another 429, and a toast for a brief outage interrupts work.
           overleafTransportRetryRef.current = true;
           trace.enrich({ retry_scheduled: true });
           trace.fail(reason, { toast: false });
@@ -804,253 +537,148 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
       }
     } finally {
       trace.finish("cancelled", t`Overleaf sync cancelled`);
-      overleafSyncingRef.current = false;
-      setOverleafSyncing(false);
-      const settle = resolveOverleafSyncRef.current;
-      resolveOverleafSyncRef.current = null;
-      overleafSyncSettledRef.current = null;
-      settle?.();
+      release();
     }
-    // The refs arrive through `deps`, so the lint rule cannot see that they are
-    // `useRef` results with a stable identity; listing them changes nothing at
-    // runtime. They are listed anyway so this callback stops carrying a standing
-    // exhaustive-deps warning, making the next genuine omission easier to miss.
   }, [
-    activeFileRef,
-    collabName,
-    collabSession,
-    compile,
-    currentOverleafLivePaths,
-    loadFile,
-    overleafSyncSettledRef,
-    overleafSyncingRef,
-    project,
-    projectOperationGenerationRef,
-    projectRef,
-    refreshOverleafLink,
-    refreshProject,
-    resolveOverleafSyncRef,
-    runSharedOverleafSync,
-    save,
-    savedSourceRef,
-    settleRemoteDeletes,
-    sourceRef,
-    t,
+    activeFileRef, collabName, collabSession, compile, currentOverleafLivePaths, holdSyncGate, loadFile,
+    overleafSyncingRef, project, projectGuard, projectOperationGenerationRef, refreshOverleafLink, refreshProject,
+    runSharedOverleafSync, save, savedSourceRef, settleRemoteDeletes, sourceRef, t, wholeFileEditingPathsRef,
   ]);
 
-  // Live mode keeps a linked project close to current without anyone pressing
-  // anything. Asking Overleaf "has your history moved?" is a small JSON call,
-  // so it can run every few seconds; the expensive full sync only follows when
-  // the answer is yes. That is what makes seconds-level latency affordable —
-  // polling the project itself would mean re-downloading it every time.
   overleafSyncRef.current = runOverleafSync;
 
   const flushDeferredWholeFileSync = useCallback(async (paths?: readonly string[]) => {
     if (!overleafLink || overleafSyncMode !== "live" || !project?.root) return;
     captureSavedPaths();
-    const requested = paths ?? Array.from(deferredWholeFilePathsRef.current);
+    const deferred = deferredWholeFilePathsRef.current;
+    const requested = paths ?? Array.from(deferred);
     const drafts = new Set(wholeFileDraftPathsRef.current);
-    const ready = requested.filter((path) => (
-      deferredWholeFilePathsRef.current.has(path) && !drafts.has(path)
-    ));
+    const ready = requested.filter((path) => deferred.has(path) && !drafts.has(path));
     if (!ready.length) {
-      if (requested.some((path) => deferredWholeFilePathsRef.current.has(path))) {
-        if (wholeFileIdleTimerRef.current !== null) {
-          window.clearTimeout(wholeFileIdleTimerRef.current);
-        }
-        wholeFileIdleTimerRef.current = window.setTimeout(() => {
-          wholeFileIdleTimerRef.current = null;
-          void flushDeferredWholeFileSyncRef.current(requested);
-        }, OVERLEAF_WHOLE_FILE_SETTLE_MS);
+      if (requested.some((path) => deferred.has(path))) {
+        restartTimer(wholeFileIdleTimerRef, OVERLEAF_WHOLE_FILE_SETTLE_MS, () => void flushDeferredWholeFileSyncRef.current(requested));
       }
       return;
     }
     const syncRoot = project.root;
-    if (overleafSyncingRef.current) {
-      await overleafSyncSettledRef.current;
-    }
+    if (overleafSyncingRef.current) await overleafSyncSettledRef.current;
     if (projectRef.current?.root !== syncRoot) return;
-    const pathsToSync = ready.filter((path) => deferredWholeFilePathsRef.current.has(path));
-    if (!pathsToSync.length) return;
-    lastAutoSyncRef.current = Date.now();
-    await overleafSyncRef.current({
-      auto: true,
-      includeWholeFilePaths: pathsToSync,
-    });
+    const pathsToSync = ready.filter((path) => deferred.has(path));
+    if (pathsToSync.length) await autoSync({ includeWholeFilePaths: pathsToSync });
   }, [
-    OVERLEAF_WHOLE_FILE_SETTLE_MS,
-    captureSavedPaths,
-    overleafLink,
-    overleafSyncMode,
-    overleafSyncSettledRef,
-    overleafSyncingRef,
-    project?.root,
-    projectRef,
+    autoSync, captureSavedPaths, overleafLink, overleafSyncMode, overleafSyncSettledRef, overleafSyncingRef, project?.root, projectRef,
+    wholeFileDraftPathsRef,
   ]);
   useLayoutEffect(() => {
     flushDeferredWholeFileSyncRef.current = flushDeferredWholeFileSync;
   }, [flushDeferredWholeFileSync]);
+
+  /** Sync the whole-file paths whose editors just closed, once cleanup writes settle. */
+  const flushBoundaryPathsSoon = useCallback(() => {
+    restartTimer(wholeFileBoundaryTimerRef, OVERLEAF_WHOLE_FILE_SETTLE_MS, () => {
+      const pathsToFlush = Array.from(wholeFileBoundaryPathsRef.current);
+      wholeFileBoundaryPathsRef.current.clear();
+      void flushDeferredWholeFileSyncRef.current(pathsToFlush);
+    });
+  }, []);
 
   const previousWholeFileEditingPathsRef = useRef<readonly string[]>(wholeFileEditingPaths);
   useEffect(() => {
     const editing = new Set(wholeFileEditingPaths);
     const left = previousWholeFileEditingPathsRef.current.filter((path) => !editing.has(path));
     previousWholeFileEditingPathsRef.current = wholeFileEditingPaths;
-    // A document switch can batch with the editor's final persistence update.
-    // Capture that path here too, rather than relying on the save-generation
-    // effect having run in an earlier commit.
+    // A document switch can batch with the editor's final persistence update,
+    // so capture that path here rather than rely on the save-generation effect.
     for (const path of left) {
-      if (!savedPathsRef.current.has(path)) continue;
-      savedPathsRef.current.delete(path);
-      deferredWholeFilePathsRef.current.add(path);
+      if (savedPathsRef.current.delete(path)) deferredWholeFilePathsRef.current.add(path);
     }
     const pending = left.filter((path) => deferredWholeFilePathsRef.current.has(path));
     if (!pending.length) return;
     for (const path of pending) wholeFileBoundaryPathsRef.current.add(path);
-    if (wholeFileBoundaryTimerRef.current !== null) {
-      window.clearTimeout(wholeFileBoundaryTimerRef.current);
-    }
-    wholeFileBoundaryTimerRef.current = window.setTimeout(() => {
-      wholeFileBoundaryTimerRef.current = null;
-      const pathsToFlush = Array.from(wholeFileBoundaryPathsRef.current);
-      wholeFileBoundaryPathsRef.current.clear();
-      void flushDeferredWholeFileSyncRef.current(pathsToFlush);
-    }, OVERLEAF_WHOLE_FILE_SETTLE_MS);
-  }, [OVERLEAF_WHOLE_FILE_SETTLE_MS, savedPathsRef, wholeFileEditingPaths]);
+    flushBoundaryPathsSoon();
+  }, [flushBoundaryPathsSoon, savedPathsRef, wholeFileEditingPaths]);
 
   useEffect(() => {
     if (!overleafLink || overleafSyncMode !== "live") return;
-    const onBlur = () => {
-      if (wholeFileBoundaryTimerRef.current !== null) {
-        window.clearTimeout(wholeFileBoundaryTimerRef.current);
-      }
-      wholeFileBoundaryTimerRef.current = window.setTimeout(() => {
-        wholeFileBoundaryTimerRef.current = null;
-        void flushDeferredWholeFileSyncRef.current();
-      }, OVERLEAF_WHOLE_FILE_SETTLE_MS);
-    };
+    const onBlur = () => restartTimer(wholeFileBoundaryTimerRef, OVERLEAF_WHOLE_FILE_SETTLE_MS, () => void flushDeferredWholeFileSyncRef.current());
     window.addEventListener("blur", onBlur);
     return () => window.removeEventListener("blur", onBlur);
-  }, [OVERLEAF_WHOLE_FILE_SETTLE_MS, overleafLink, overleafSyncMode]);
+  }, [overleafLink, overleafSyncMode]);
 
+  // Nothing queued for one project may carry over to the next.
   useEffect(() => {
-    const clearWholeFileSyncState = () => {
+    const clearProjectSyncState = () => {
+      overleafTransportRetryRef.current = false;
+      externalChangesRef.current.clear();
       deferredWholeFilePathsRef.current.clear();
       wholeFileBoundaryPathsRef.current.clear();
       savedPathsRef.current.clear();
-      if (wholeFileIdleTimerRef.current !== null) {
-        window.clearTimeout(wholeFileIdleTimerRef.current);
-        wholeFileIdleTimerRef.current = null;
-      }
-      if (wholeFileBoundaryTimerRef.current !== null) {
-        window.clearTimeout(wholeFileBoundaryTimerRef.current);
-        wholeFileBoundaryTimerRef.current = null;
-      }
+      clearTimer(wholeFileIdleTimerRef);
+      clearTimer(wholeFileBoundaryTimerRef);
     };
-    clearWholeFileSyncState();
-    return clearWholeFileSyncState;
+    clearProjectSyncState();
+    return clearProjectSyncState;
   }, [project?.root, savedPathsRef]);
 
+  // Live mode keeps a linked project current: "has your history moved?" is a
+  // small JSON call every few seconds; the full sync follows only on a yes.
   useEffect(() => {
     if (!overleafLink || overleafSyncMode !== "live" || !project?.root) return;
     const projectRoot = project.root;
     let stopped = false;
-    let timer: number | null = null;
+    const timer: TimerRef = { current: null };
     let running = false;
-    // Backs off when Overleaf pushes back, and stays slow when this instance
-    // cannot tell us a version — polling only earns its keep when a cheap
-    // check can rule a download out.
-    const baseWait = () =>
-      overleafChannelLiveRef.current ? OVERLEAF_CHANNEL_POLL_MS : OVERLEAF_LIVE_POLL_MS;
+    // Backs off when Overleaf pushes back, and stays slow without a version to compare.
+    const baseWait = () => overleafChannelLiveRef.current ? OVERLEAF_CHANNEL_POLL_MS : OVERLEAF_LIVE_POLL_MS;
     let wait = baseWait();
-    const scheduleNext = () => {
-      if (stopped) return;
-      if (timer !== null) window.clearTimeout(timer);
-      timer = window.setTimeout(() => {
-        timer = null;
-        void tick();
-      }, wait);
-    };
     const tick = async () => {
       if (stopped || running) return;
-      if (timer !== null) {
-        window.clearTimeout(timer);
-        timer = null;
-      }
+      clearTimer(timer);
       running = true;
       try {
         if (!overleafSyncingRef.current) {
           const probe = await invoke<OverleafProbe>("overleaf_probe", { projectRoot });
           wait = probe.versionKnown ? baseWait() : OVERLEAF_BLIND_POLL_MS;
-          const minimumSyncGap = overleafChannelLiveRef.current
-            ? OVERLEAF_CHANNEL_SYNC_GAP_MS
-            : OVERLEAF_MIN_SYNC_GAP_MS;
-          if (
-            !stopped
-            && (overleafTransportRetryRef.current || externalChangesRef.current.size > 0)
-            && Date.now() - lastAutoSyncRef.current >= minimumSyncGap
-          ) {
-            lastAutoSyncRef.current = Date.now();
-            await overleafSyncRef.current({ auto: true });
-          } else if (!stopped && !probe.versionKnown) {
-            // No change signal: fall back to syncing on a slow clock rather
-            // than downloading the project over and over.
-            if (Date.now() - lastAutoSyncRef.current >= OVERLEAF_BLIND_POLL_MS) {
-              lastAutoSyncRef.current = Date.now();
-              await overleafSyncRef.current({ auto: true });
-            }
-          } else if (
-            !stopped
-            && probe.changed
-            && Date.now() - lastAutoSyncRef.current >= minimumSyncGap
-          ) {
-            lastAutoSyncRef.current = Date.now();
-            await overleafSyncRef.current({
-              auto: true,
-              observedRemoteVersion: probe.remoteVersion,
-            });
+          const sinceLastSync = Date.now() - lastAutoSyncRef.current;
+          const gapElapsed = sinceLastSync >= minimumSyncGap(overleafChannelLiveRef.current);
+          const retry = overleafTransportRetryRef.current || externalChangesRef.current.size > 0;
+          if (stopped) return;
+          if (retry && gapElapsed) {
+            await autoSync();
+          } else if (!probe.versionKnown) {
+            // No change signal: sync on a slow clock instead.
+            if (sinceLastSync >= OVERLEAF_BLIND_POLL_MS) await autoSync();
+          } else if (probe.changed && gapElapsed) {
+            await autoSync({ observedRemoteVersion: probe.remoteVersion });
           }
         }
       } catch (reason) {
-        // Rate limiting means we are asking too often; ease off sharply rather
-        // than hammering a server that has already said no.
-        const message = String(reason);
-        wait = /429|Too Many Requests/i.test(message)
+        // A 429 means we are asking too often: ease off sharply.
+        wait = /429|Too Many Requests/i.test(String(reason))
           ? Math.min(wait * 4, 5 * 60_000)
           : Math.min(Math.max(wait * 2, baseWait()), 60_000);
       }
       running = false;
-      scheduleNext();
+      if (!stopped) restartTimer(timer, wait, () => void tick());
     };
     void tick();
-    // Coming back from the browser is the moment stale content is most
-    // obvious, so check immediately rather than waiting for the next tick.
-    const onFocus = () => {
-      if (timer !== null) {
-        window.clearTimeout(timer);
-        timer = null;
-      }
-      void tick();
-    };
+    // Coming back from the browser is when stale content is most obvious.
+    const onFocus = () => void tick();
     window.addEventListener("focus", onFocus);
     return () => {
       stopped = true;
-      if (timer !== null) window.clearTimeout(timer);
+      clearTimer(timer);
       window.removeEventListener("focus", onFocus);
     };
-  }, [overleafLink, overleafSyncMode, overleafSyncingRef, project?.root]);
+  }, [autoSync, overleafLink, overleafSyncMode, overleafSyncingRef, project?.root]);
 
-  // Editing through Overleaf's own channel, when the project is linked and
-  // live. It stays off during a Lattice share: two live channels writing the
-  // same buffer would fight over every keystroke, and the Yjs session already
-  // owns the editor then.
+  // Editing through Overleaf's own channel. Documents stay off during a Lattice
+  // share, whose Yjs session already owns the editor.
   const overleafRealtime = useOverleafRealtime({
     enabled: overleafLink !== null,
     documents: overleafSyncMode === "live" && !collabSession,
     projectRoot: project?.root ?? null,
-    // Slides, boards and spreadsheets serialize their whole document at once;
-    // feeding those bytes through Overleaf's character OT while their own
-    // editor is active creates competing writers for the same file.
+    // Whole-file editors (slides, boards, sheets) serialize at once; character OT would compete.
     activeFile: isWholeFileEditorPath(activeFile) ? null : activeFile,
     readCaret: () => viewStateRef.current.get(activeFileRef.current ?? "")?.text?.cursor ?? 0,
     onRemoteText: (text, caret, context) => applyOverleafRemoteText(deps, text, caret, context),
@@ -1063,101 +691,68 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
   useLayoutEffect(() => {
     resumeRealtimePathsRef.current = overleafRealtime.resumePaths;
   }, [overleafRealtime.resumePaths]);
-  // The poll loop and the sync both read these mid-flight, so keep them in
-  // refs rather than restarting either one every time the channel changes.
-  // "Carrying documents", not merely "connected": the channel also stays up in
-  // manual mode for chat, and slowing the sync down then would leave nothing
-  // watching the files.
-  overleafRemoteDeleteRef.current = overleafRemoteDelete;
+  // The poll loop and the sync read these mid-flight. "Channel live" means
+  // carrying documents: in manual mode it stays up for chat alone.
   overleafEntitiesRef.current = overleafRealtime.entities;
-  overleafChannelLiveRef.current = overleafRealtime.status === "live"
-    && overleafSyncMode === "live"
-    && !collabSession;
+  overleafChannelLiveRef.current = overleafRealtime.status === "live" && overleafSyncMode === "live" && !collabSession;
   overleafLivePathsRef.current = overleafRealtime.livePaths;
 
-  // Disk writes do not increment saveGeneration. Give them the same quiet
-  // period/rate limit as editor saves, retaining the request while another
-  // sync or an unacknowledged OT operation still owns the file.
-  useEffect(() => {
-    if (!overleafLink || overleafSyncMode !== "live" || !externalChangesRef.current.size) return;
-    let timer: number;
+  /**
+   * Push after the quiet period, waiting out the rest of the sync gap rather
+   * than dropping the push. `gate` can hold it ("wait", rechecked each second)
+   * or give it up ("drop"). Returns the cancel.
+   */
+  const schedulePush = useCallback((gate: () => "go" | "wait" | "drop" = () => "go") => {
+    let timer = 0;
     const attempt = () => {
-      if (!externalChangesRef.current.size) return;
-      if (overleafSyncingRef.current
-        || [...externalChangesRef.current.keys()].some((path) => overleafLivePathsRef.current.includes(path))) {
-        timer = window.setTimeout(attempt, 1_000);
-        return;
-      }
-      const gap = overleafChannelLiveRef.current ? OVERLEAF_CHANNEL_SYNC_GAP_MS : OVERLEAF_MIN_SYNC_GAP_MS;
-      const wait = gap - (Date.now() - lastAutoSyncRef.current);
-      if (wait > 0) {
-        timer = window.setTimeout(attempt, wait);
-        return;
-      }
-      lastAutoSyncRef.current = Date.now();
-      void overleafSyncRef.current({ auto: true });
+      const verdict = gate();
+      if (verdict === "drop") return;
+      const wait = verdict === "wait" ? 1_000 : minimumSyncGap(overleafChannelLiveRef.current) - (Date.now() - lastAutoSyncRef.current);
+      if (wait > 0) timer = window.setTimeout(attempt, wait);
+      else void autoSync();
     };
     timer = window.setTimeout(attempt, OVERLEAF_PUSH_DEBOUNCE_MS);
     return () => window.clearTimeout(timer);
-  }, [externalChangeGeneration, overleafLink, overleafSyncMode, overleafSyncingRef, project?.root]);
+  }, [autoSync]);
 
-  // On first open, check the cheap remote version and the local sync baseline
-  // before downloading the whole project. Wait for joinProject first: it
-  // records the root folder id that uploads require and lets the probe exclude
-  // documents already owned by realtime. If this Overleaf cannot report a
-  // version, or the probe itself fails, retain the safe full-sync fallback.
+  // Disk writes do not bump saveGeneration; give them the same quiet period,
+  // held while another sync or an unacknowledged OT operation owns the file.
+  useEffect(() => {
+    if (!overleafLink || overleafSyncMode !== "live" || !externalChangesRef.current.size) return;
+    return schedulePush(() => {
+      const pending = [...externalChangesRef.current.keys()];
+      if (!pending.length) return "drop";
+      return overleafSyncingRef.current || pending.some((path) => overleafLivePathsRef.current.includes(path)) ? "wait" : "go";
+    });
+  }, [externalChangeGeneration, overleafLink, overleafSyncMode, overleafSyncingRef, project?.root, schedulePush]);
+
+  // On first open, probe before downloading the whole project. Wait for
+  // joinProject: it records the root folder id uploads require and lets the
+  // probe exclude realtime-owned documents. A failed probe means a full sync.
   useEffect(() => {
     const projectRoot = project?.root;
     if (!projectRoot) return;
     if (!overleafLink || overleafSyncMode !== "live") {
-      if (overleafStartupCheckedRoot.current === projectRoot) {
-        overleafStartupCheckedRoot.current = null;
-      }
+      if (overleafStartupCheckedRoot.current === projectRoot) overleafStartupCheckedRoot.current = null;
       return;
     }
-    if (!["live", "error"].includes(overleafRealtime.status)) return;
-    if (overleafStartupCheckedRoot.current === projectRoot) return;
+    if (!["live", "error"].includes(overleafRealtime.status) || overleafStartupCheckedRoot.current === projectRoot) return;
     overleafStartupCheckedRoot.current = projectRoot;
     let cancelled = false;
     const linkGeneration = overleafLinkLoadGenerationRef.current;
-    const stillCurrent = () => (
-      !cancelled
-      && projectRef.current?.root === projectRoot
-      && overleafLinkLoadGenerationRef.current === linkGeneration
-    );
-    void invoke<OverleafProbe>("overleaf_probe", {
-      projectRoot,
-      checkLocal: true,
-      live: currentOverleafLivePaths(),
-    }).then((probe) => {
-      if (!stillCurrent()) return;
-      if (probe.versionKnown && !probe.changed && !probe.localChanged) return;
-      lastAutoSyncRef.current = Date.now();
-      void overleafSyncRef.current({
-        auto: true,
-        observedRemoteVersion: probe.remoteVersion,
-      });
+    const stillCurrent = () => !cancelled
+      && projectRef.current?.root === projectRoot && overleafLinkLoadGenerationRef.current === linkGeneration;
+    void invoke<OverleafProbe>("overleaf_probe", { projectRoot, checkLocal: true, live: currentOverleafLivePaths() }).then((probe) => {
+      if (!stillCurrent() || (probe.versionKnown && !probe.changed && !probe.localChanged)) return;
+      void autoSync({ observedRemoteVersion: probe.remoteVersion });
     }).catch(() => {
-      if (!stillCurrent()) return;
-      lastAutoSyncRef.current = Date.now();
-      void overleafSyncRef.current({ auto: true });
+      if (stillCurrent()) void autoSync();
     });
-    return () => {
-      cancelled = true;
-    };
-  }, [
-    currentOverleafLivePaths,
-    overleafLink,
-    overleafRealtime.status,
-    overleafSyncMode,
-    project?.root,
-    projectRef,
-  ]);
+    return () => { cancelled = true; };
+  }, [autoSync, currentOverleafLivePaths, overleafLink, overleafRealtime.status, overleafSyncMode, project?.root, projectRef]);
 
-  // Who else is in the Overleaf project, and where. Two things the presence
-  // hook cannot get anywhere else ride the same channel: our own connection
-  // id, announced once, and which file each document id is — the second is
-  // what lets a tooltip name the file and a click jump to it.
+  // The channel carries what presence cannot get elsewhere: our connection id,
+  // and which file each document id is (rebuilt on every tree change).
   const [overleafSelfId, setOverleafSelfId] = useState<string | null>(null);
   const [overleafDocPaths, setOverleafDocPaths] = useState<Map<string, string>>(new Map());
   useEffect(() => {
@@ -1167,39 +762,24 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
       return;
     }
     const projectRoot = project.root;
-    let disposed = false;
-    let unlisten: (() => void) | null = null;
-    void listenOverleafRealtime<{ projectRoot: string; type: string; publicId?: string; docs?: { id: string; path: string }[] }>(
-      (event) => {
-        const payload = event.payload;
-        if (disposed || payload.projectRoot !== projectRoot) return;
+    // Scoped to this window: a bare listen() also hears every other window's Overleaf project.
+    return subscribeTauriEvent<{ projectRoot: string; type: string; publicId?: string; docs?: { id: string; path: string }[] }>(
+      listenOverleafRealtime,
+      (payload) => {
+        if (payload.projectRoot !== projectRoot) return;
         if (payload.type === "connected" && payload.publicId) {
           setOverleafSelfId(payload.publicId);
-        } else if ((payload.type === "projectJoined" || payload.type === "treeChanged")
-          && payload.docs) {
-          // Rebuilt on every tree change, not only at join: a file renamed or
-          // added in the browser mid-session would otherwise keep answering
-          // with the name it had when we connected, and this map is what names
-          // the file behind a collaborator's caret or a comment.
+        } else if ((payload.type === "projectJoined" || payload.type === "treeChanged") && payload.docs) {
           setOverleafDocPaths(new Map(payload.docs.map((doc) => [doc.id, doc.path])));
         } else if (payload.type === "disconnected") {
           setOverleafSelfId(null);
         }
       },
-    ).then((dispose) => {
-      if (disposed) dispose();
-      else unlisten = dispose;
-    });
-    return () => {
-      disposed = true;
-      unlisten?.();
-    };
+    );
   }, [overleafLink, project?.root]);
 
   const overleafPresence = useOverleafPresence({
-    // A local project still has a root, but it has no Overleaf presence
-    // scope. Passing that root here kept the previous linked project's roster
-    // alive after switching projects.
+    // An unlinked project has no presence scope, or the last roster outlives a switch.
     projectRoot: overleafLink ? project?.root ?? null : null,
     docId: overleafRealtime.docId,
     selfId: overleafSelfId,
@@ -1211,86 +791,52 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
     },
   });
 
-  // Publishing a position is the only thing that makes us visible to a browser
-  // that is already open, so every real caret move in the live file has to
-  // reach it.
+  // Publishing is the only way an already-open browser sees our caret.
   useEffect(() => {
-    if (!editorPosition || editorPosition.path !== activeFile) return;
-    overleafPresence.publish(editorPosition.line - 1, editorPosition.column);
+    if (editorPosition?.path === activeFile) overleafPresence.publish(editorPosition.line - 1, editorPosition.column);
   }, [editorPosition, activeFile, overleafPresence]);
 
   const jumpToOverleafPeer = useCallback((peer: PresenceUser) => {
     const path = peer.docId ? overleafDocPaths.get(peer.docId) : null;
-    if (!path) {
-      setNotice(`${peer.name || "This collaborator"} is not in a file right now.`);
-      return;
-    }
-    void openProjectFile(path, (peer.row ?? 0) + 1);
+    if (path) void openProjectFile(path, (peer.row ?? 0) + 1);
+    else setNotice(`${peer.name || "This collaborator"} is not in a file right now.`);
   }, [overleafDocPaths, openProjectFile]);
 
   /** Carets to draw, which is only ever the document being edited live. */
   const overleafActiveCursors = useMemo<PresenceCursor[]>(() => {
     const docId = overleafRealtime.docId;
-    if (
-      !docId
-      || activePaper
-      || activeAsset
-      || overleafDocPaths.get(docId) !== activeFile
-    ) return [];
+    if (!docId || activePaper || activeAsset || overleafDocPaths.get(docId) !== activeFile) return [];
     return overleafPresence.peers
       .filter((peer): peer is PresenceUser & { row: number; column: number } => (
         peer.docId === docId && peer.row !== null && peer.column !== null
       ))
-      .map((peer) => ({
-        name: peer.name || "Anonymous",
-        hue: peer.hue,
-        row: peer.row,
-        column: peer.column,
-      }));
+      .map(({ name, hue, row, column }) => ({ name: name || "Anonymous", hue, row, column }));
   }, [activeAsset, activeFile, activePaper, overleafDocPaths, overleafPresence.peers, overleafRealtime.docId]);
 
-  // Collaborators who stayed in the browser talk in Overleaf's chat, so it has
-  // to be readable here or half the conversation happens where we cannot see
-  // it. It listens on the same channel the editor uses.
-  const overleafChat = useOverleafChat({
-    enabled: overleafLink !== null,
-    projectRoot: project?.root ?? null,
-  });
+  // Chat, comment threads and suggestions ride the linked project's channel.
+  const overleafChannel = { enabled: overleafLink !== null, projectRoot: project?.root ?? null };
+  const overleafChat = useOverleafChat(overleafChannel);
 
-
-  // Where each thread sits in the document being edited right now. Deliberately
-  // the realtime channel's copy and not the project-wide one the comments hook
-  // reads over REST: these positions become highlights in the editor, and the
-  // channel moves them as the text around them is typed, while a REST snapshot
-  // would keep pointing at where the words used to be until the next refresh.
+  // Where each thread sits in the live document: the channel's copy moves with
+  // typing, while the REST snapshot points at where the words used to be.
   const overleafAnchors = useMemo(
     () => new Map(overleafRealtime.comments.map((range) => [range.threadId, range])),
     [overleafRealtime.comments],
   );
   const overleafComments = useOverleafComments({
-    enabled: overleafLink !== null,
-    projectRoot: project?.root ?? null,
+    ...overleafChannel,
     anchor: overleafRealtime.anchorComment,
   });
 
-  // Overleaf's threads, dressed as editor comments so they highlight in the
-  // text and answer in place like any other. Their ids are prefixed, which is
-  // how every handler below knows to send the reply to Overleaf rather than
-  // writing it into this project's own comments file.
+  // Overleaf's threads dressed as editor comments, so they highlight and answer
+  // in place; the id prefix routes replies to Overleaf, not the comments file.
   const overleafEditorComments = useMemo(() => projectOverleafEditorComments(
-    overleafComments.threads,
-    overleafComments.anchors,
-    overleafDocPaths,
-    overleafRealtime.docId,
-    overleafAnchors,
+    overleafComments.threads, overleafComments.anchors, overleafDocPaths, overleafRealtime.docId, overleafAnchors,
   ), [overleafComments.threads, overleafComments.anchors, overleafDocPaths, overleafRealtime.docId, overleafAnchors]);
 
-  // Suggestions: reading them is the realtime hook's job, acting on them is
-  // this one's — accepting goes through an endpoint and reports no operation,
-  // so the document has to be re-read afterwards.
+  // Acting on a suggestion reports no operation, so the document is re-read afterwards.
   const overleafTrackChanges = useOverleafTrackChanges({
-    enabled: overleafLink !== null,
-    projectRoot: project?.root ?? null,
+    ...overleafChannel,
     docId: overleafRealtime.docId,
     reserveOperation: overleafRealtime.reserveOperation,
     noteReservedOperationUnknown: overleafRealtime.noteReservedOperationUnknown,
@@ -1299,42 +845,33 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
     canAct: overleafRealtime.canWrite,
     reload: overleafRealtime.reload,
   });
-  // The comment handlers are declared before this hook runs, so they reach its
-  // actions through a ref rather than forcing the whole tree to be reordered.
-  overleafCommentsRef.current = overleafComments;
+  // App's comment handlers are declared before this hook runs; they read the newest actions here.
+  const overleafCommentsRef = useLatest(overleafComments);
 
   // Keep the badge quiet while someone is reading the conversation.
+  const { messages: overleafChatMessages, markRead: markOverleafChatRead } = overleafChat;
   useEffect(() => {
-    if (overleafCollabOpen && overleafCollabTab === "chat") overleafChat.markRead();
-  }, [overleafCollabOpen, overleafCollabTab, overleafChat.messages, overleafChat.markRead]);
+    if (overleafCollabOpen && overleafCollabTab === "chat") markOverleafChatRead();
+  }, [overleafCollabOpen, overleafCollabTab, overleafChatMessages, markOverleafChatRead]);
 
-  // Everything typed goes to the live channel; it ignores text it already has,
-  // so this is safe to call on every change including our own remote applies.
-  // Depend on the two stable members, not the hook's return object — that is
-  // rebuilt every render, which made this run on every render while live.
+  // Everything typed goes to the live channel, which ignores text it already
+  // has. The hook's return object is rebuilt every render; depend on members.
   const { liveFile: overleafLiveFile, pushLocal: overleafPushLocal } = overleafRealtime;
   useEffect(() => {
-    if (!overleafLiveFile) return;
-    overleafPushLocal(source);
+    if (overleafLiveFile) overleafPushLocal(source);
   }, [overleafLiveFile, overleafPushLocal, source]);
 
-  // A live channel that could not start is invisible otherwise: the dot simply
-  // never appears and everything quietly keeps syncing. Say what happened once.
+  // A live channel that could not start is otherwise invisible. Say so once.
   const overleafRealtimeNotified = useRef<string | null>(null);
   useEffect(() => {
-    if (overleafRealtime.status !== "error" || !overleafRealtime.detail) return;
-    if (overleafRealtimeNotified.current === overleafRealtime.detail) return;
-    overleafRealtimeNotified.current = overleafRealtime.detail;
-    setNotice(
-      `Live editing with Overleaf could not start (${overleafRealtime.detail}). `
-      + "Your project still syncs every few seconds.",
-    );
+    const detail = overleafRealtime.detail;
+    if (overleafRealtime.status !== "error" || !detail || overleafRealtimeNotified.current === detail) return;
+    overleafRealtimeNotified.current = detail;
+    setNotice(`Live editing with Overleaf could not start (${detail}). Your project still syncs every few seconds.`);
   }, [overleafRealtime.detail, overleafRealtime.status]);
 
-  // Live mode also pushes. This keys off *saves* rather than unsaved edits:
-  // autosave clears the dirty flag about a second after typing stops, well
-  // before any sensible push delay, so watching for dirty text meant the push
-  // was almost always cancelled before it ran.
+  // Live mode also pushes, keyed off *saves*: autosave clears the dirty flag
+  // long before any sensible push delay, so watching dirty text cancelled it.
   useEffect(() => {
     if (!overleafLink || overleafSyncMode !== "live" || saveGeneration === 0) return;
     const savedPaths = captureSavedPaths();
@@ -1344,67 +881,16 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
       for (const path of wholeFilePaths) {
         if (!editing.has(path)) wholeFileBoundaryPathsRef.current.add(path);
       }
-      if (wholeFileBoundaryPathsRef.current.size) {
-        if (wholeFileBoundaryTimerRef.current !== null) {
-          window.clearTimeout(wholeFileBoundaryTimerRef.current);
-        }
-        wholeFileBoundaryTimerRef.current = window.setTimeout(() => {
-          wholeFileBoundaryTimerRef.current = null;
-          const pathsToFlush = Array.from(wholeFileBoundaryPathsRef.current);
-          wholeFileBoundaryPathsRef.current.clear();
-          void flushDeferredWholeFileSyncRef.current(pathsToFlush);
-        }, OVERLEAF_WHOLE_FILE_SETTLE_MS);
-      }
-      if (wholeFileIdleTimerRef.current !== null) {
-        window.clearTimeout(wholeFileIdleTimerRef.current);
-      }
-      wholeFileIdleTimerRef.current = window.setTimeout(() => {
-        wholeFileIdleTimerRef.current = null;
-        void flushDeferredWholeFileSyncRef.current();
-      }, OVERLEAF_WHOLE_FILE_IDLE_MS);
+      if (wholeFileBoundaryPathsRef.current.size) flushBoundaryPathsSoon();
+      restartTimer(wholeFileIdleTimerRef, OVERLEAF_WHOLE_FILE_IDLE_MS, () => void flushDeferredWholeFileSyncRef.current());
     }
-    // A save belonging only to a whole-file editor waits for a document
-    // boundary (or the long quiet fallback) instead of downloading and merging
-    // the Overleaf project after every serialized control change.
+    // Whole-file saves wait for a document boundary (or the idle fallback)
+    // instead of a project download after every serialized control change.
     if (!savedPaths.some((path) => !isWholeFileEditorPath(path))) return;
-    let cancelled = false;
-    let timer: number | null = null;
-    const attempt = () => {
-      if (cancelled) return;
-      // If a sync ran moments ago, wait out the remainder instead of dropping
-      // the push — dropping meant the edit sat here until something else
-      // happened to sync, which is what made pushes feel like they never came.
-      // The gap is a floor, not a delay: autosave fires about a second after
-      // typing stops, and syncing on each of those meant asking Overleaf for
-      // the whole project every couple of seconds, which is over its limit.
-      const gap = overleafChannelLiveRef.current
-        ? OVERLEAF_CHANNEL_SYNC_GAP_MS
-        : OVERLEAF_MIN_SYNC_GAP_MS;
-      const wait = gap - (Date.now() - lastAutoSyncRef.current);
-      if (wait > 0) {
-        timer = window.setTimeout(attempt, wait);
-        return;
-      }
-      lastAutoSyncRef.current = Date.now();
-      void overleafSyncRef.current({ auto: true });
-    };
-    timer = window.setTimeout(attempt, OVERLEAF_PUSH_DEBOUNCE_MS);
-    return () => {
-      cancelled = true;
-      if (timer) window.clearTimeout(timer);
-    };
-  }, [
-    OVERLEAF_WHOLE_FILE_IDLE_MS,
-    OVERLEAF_WHOLE_FILE_SETTLE_MS,
-    captureSavedPaths,
-    overleafLink,
-    overleafSyncMode,
-    saveGeneration,
-    savedPathsRef,
-  ]);
+    return schedulePush();
+  }, [captureSavedPaths, flushBoundaryPathsSoon, overleafLink, overleafSyncMode, saveGeneration, savedPathsRef, schedulePush, wholeFileEditingPathsRef]);
 
-  // Manual mode never syncs on its own; it just watches for incoming work so
-  // the toolbar can offer it, the way a repository shows commits to pull.
+  // Manual mode never syncs on its own; it only badges incoming work.
   useEffect(() => {
     if (!overleafLink || overleafSyncMode !== "manual" || !project?.root) {
       setOverleafRemoteChanges(false);
@@ -1412,14 +898,10 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
     }
     const projectRoot = project.root;
     let stopped = false;
-    const check = async () => {
-      try {
-        const probe = await invoke<OverleafProbe>("overleaf_probe", { projectRoot });
-        if (!stopped) setOverleafRemoteChanges(probe.changed);
-      } catch {
-        // Leave the badge as-is when the check cannot run.
-      }
-    };
+    // A check that cannot run leaves the badge as it was.
+    const check = () => invoke<OverleafProbe>("overleaf_probe", { projectRoot }).then((probe) => {
+      if (!stopped) setOverleafRemoteChanges(probe.changed);
+    }, () => undefined);
     void check();
     const timer = window.setInterval(() => void check(), 30_000);
     window.addEventListener("focus", check);
@@ -1430,58 +912,33 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
     };
   }, [overleafLink, overleafSyncMode, project?.root]);
 
-  // Auto-save a version after successful builds of Overleaf-linked projects,
-  // at most every 2 minutes. Unlinked projects only version on explicit "Save
-  // version" — never surprise-commit into a repo the user manages by hand.
+  // Version successful builds of linked projects at most every 2 minutes.
+  // Unlinked projects never get surprise commits in a repo managed by hand.
   useEffect(() => {
     if (!build?.success || !overleafLink) return;
     const now = Date.now();
     if (now - lastAutoVersionRef.current < 120_000) return;
     lastAutoVersionRef.current = now;
-    void invoke<string | null>("git_auto_commit", {
-      message: "Auto-saved version",
-      author: collabName.trim() || null,
-    }).catch(() => {});
+    void invoke<string | null>("git_auto_commit", { message: "Auto-saved version", author: collabName.trim() || null }).catch(() => {});
   }, [build, collabName, overleafLink]);
 
   return {
-    overleafLink,
-    overleafProjectLinked,
-    overleafSyncing,
-    overleafSyncMode,
-    setOverleafSyncMode,
-    overleafRemoteDelete,
-    setOverleafRemoteDelete,
-    overleafRemoteChanges,
-    setOverleafRemoteChanges,
-    overleafPickerOpen,
-    setOverleafPickerOpen,
-    overleafReviewOpen,
-    setOverleafReviewOpen,
-    overleafCollabOpen,
-    setOverleafCollabOpen,
-    overleafCollabTab,
-    setOverleafCollabTab,
-    conflictPath,
-    setConflictPath,
+    overleafLink, overleafProjectLinked, overleafSyncing,
+    overleafSyncMode, setOverleafSyncMode,
+    overleafRemoteDelete, setOverleafRemoteDelete,
+    overleafRemoteChanges, setOverleafRemoteChanges,
+    overleafPickerOpen, setOverleafPickerOpen,
+    overleafReviewOpen, setOverleafReviewOpen,
+    overleafCollabOpen, setOverleafCollabOpen,
+    overleafCollabTab, setOverleafCollabTab,
+    conflictPath, setConflictPath,
     /** Read by callers that must reach the newest sync without re-subscribing. */
     overleafSyncRef,
-    refreshOverleafLink,
-    publishProjectToOverleaf,
-    runOverleafSync,
-    flushDeferredWholeFileSync,
-    settleRemoteDeletes,
-    openCurrentOverleafProject,
-    jumpToOverleafPeer,
-    overleafRealtime,
-    overleafPresence,
-    overleafChat,
-    overleafComments,
+    refreshOverleafLink, publishProjectToOverleaf, runOverleafSync, flushDeferredWholeFileSync, settleRemoteDeletes,
+    openCurrentOverleafProject, jumpToOverleafPeer,
+    overleafRealtime, overleafPresence, overleafChat, overleafComments,
     /** The comment handlers in App reach the newest actions through this ref. */
     overleafCommentsRef,
-    overleafTrackChanges,
-    overleafDocPaths,
-    overleafEditorComments,
-    overleafActiveCursors,
+    overleafTrackChanges, overleafDocPaths, overleafEditorComments, overleafActiveCursors,
   };
 }

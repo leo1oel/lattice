@@ -1,10 +1,6 @@
 /**
- * Shared domain type declarations extracted from `App.tsx`.
- *
- * These are the compile-time types that describe the app's core data (projects,
- * editor state, papers, build results, and so on). They live
- * here so `App.tsx` and future modules can import them without pulling in the
- * whole component. Types are erased at runtime, so this file has no runtime cost.
+ * The app's shared domain model: projects, editor and view state, papers,
+ * builds, and the Overleaf and Git wire shapes the Rust side serializes.
  */
 import type { ReferenceAssetPreview } from "./project/reference-preview";
 import type { PdfSyncTarget } from "./pdf/pdf-viewer";
@@ -95,9 +91,7 @@ export type ImageFileViewState = ScrollFileViewState & {
   scale: number;
 };
 
-export type HtmlFileViewState = ScrollFileViewState & {
-  scale: number;
-};
+export type HtmlFileViewState = ImageFileViewState;
 
 /**
  * Per-user view state only. These values are stored in Lattice's local app
@@ -112,11 +106,6 @@ export type FileViewState = {
   html?: HtmlFileViewState;
   openSlide?: OpenSlideFileViewState;
   visualMarkdown?: ScrollFileViewState;
-};
-
-export type NavigationEntry = {
-  path: string;
-  line: number;
 };
 
 export type FileNode = {
@@ -173,10 +162,9 @@ export type FigurePointerDrag = {
   insertAtEditor: boolean;
 };
 
-export type SyncTexTarget = {
-  path: string;
-  line: number;
-};
+/** A line in a project file: a SyncTeX jump target, or a back/forward history entry. */
+export type SyncTexTarget = { path: string; line: number };
+export type NavigationEntry = SyncTexTarget;
 
 export type EditorNavigation = SyncTexTarget & { id: string };
 export type EditorPosition = { path: string; line: number; column: number };
@@ -234,15 +222,43 @@ export type RenameSymbolResult = {
   transactionId: string;
 };
 
-export type CanvasMode = "source" | "pdf" | "split" | "dual" | "columns" | "asset";
-export type EditorPaneId = "primary" | "secondary";
 export type DocumentViewMode = "source" | "split" | "pdf" | "dual" | "columns";
+export type CanvasMode = DocumentViewMode | "asset";
+export type EditorPaneId = "primary" | "secondary";
 export type SettingsTab = "appearance" | "editor" | "agent" | "mcp" | "overleaf" | "literature" | "api" | "doctor" | "logs";
 type CiteCommand = "cite" | "citep" | "citet";
 export type InsertSymbolCommand = CiteCommand | "ref" | "eqref";
 type DoctorCheck = { name: string; detail: string; ok: boolean };
 export type DoctorReport = { ok: boolean; summary: string; checks: DoctorCheck[] };
 export type EditorKeymap = "default" | "vim" | "emacs";
+
+// ---- Callbacks App hands to the modules split out of it -------------------
+
+export type OpenProjectFile = (
+  path: string,
+  line?: number,
+  targetPane?: EditorPaneId,
+  options?: { revealSource?: boolean },
+) => Promise<void>;
+export type RefreshProject = (scope?: { expectedRoot: string; generation: number }) => Promise<ProjectSnapshot>;
+export type CompileProject = (force?: boolean, sound?: boolean, options?: { consumeAgentAssociations?: boolean }) => Promise<void>;
+/** Put the caret (a character offset) and scroll position back in a file. */
+export type ViewRestoreRequest = { path: string; cursor: number; scrollTop: number; id: string };
+/** One-shot requests App hands the canvas; each is answered once and settled by its id. */
+export type CanvasRequests = {
+  /** Jump the editor holding `path` to a line. */
+  navigation: EditorNavigation | null;
+  /** Put a reopened file's cursor and scroll back where they were. */
+  restore: ViewRestoreRequest | null;
+  /** Rename the environment around the caret. */
+  rename: { newName: string; id: string } | null;
+  /** Wrap the selection in a new environment. */
+  wrap: { name: string; id: string } | null;
+  /** Insert `\cite{key}`-style commands at the caret. */
+  cite: { key: string; command: InsertSymbolCommand; id: string } | null;
+  /** Insert imported figures where they were dropped (or at the caret). */
+  figure: FigureDropRequest | null;
+};
 
 // ---- Overleaf bridge ----------------------------------------------------
 // Shapes mirror the Rust `overleaf` module's serde camelCase output exactly.
@@ -342,15 +358,8 @@ export type OverleafMessage = {
   mine: boolean;
 };
 
-/** One message in an Overleaf comment thread. */
-export type OverleafComment = {
-  id: string;
-  content: string;
-  authorName: string;
-  authorEmail: string | null;
-  timestamp: number;
-  mine: boolean;
-};
+/** One message in an Overleaf comment thread; the same shape as a chat message. */
+export type OverleafComment = OverleafMessage;
 
 /** A comment thread: everything said about one spot in the project. */
 export type OverleafThread = {

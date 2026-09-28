@@ -2,7 +2,6 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   absoluteProjectPath,
   applyProjectPathChanges,
-  canvasContentAt,
   classifyExternalProjectDrop,
   dropAgentPanelAt,
   dropCanvasAt,
@@ -21,7 +20,7 @@ import {
   resolveKnownWholeFileProjectPath,
   stripFrontmatter,
 } from "./app-utils";
-import type { ProjectSnapshot } from "./app-types";
+import type { FileNode, ProjectSnapshot } from "./app-types";
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -29,60 +28,57 @@ afterEach(() => {
   document.body.replaceChildren();
 });
 
+/** jsdom has no layout, so hit testing answers whatever `hit` returns. */
+function stubHit(root: Document | ShadowRoot, hit: () => Element) {
+  Object.defineProperty(root, "elementFromPoint", { configurable: true, value: vi.fn(hit) });
+}
+
+function expectEach<T>(check: (input: T) => unknown, cases: ReadonlyArray<readonly [T, unknown]>) {
+  for (const [input, expected] of cases) expect(check(input), String(input)).toEqual(expected);
+}
+
 describe("absoluteProjectPath", () => {
-  it("joins project-relative paths using the root's platform separator", () => {
-    expect(absoluteProjectPath("/Users/example/paper", "figures/result.png"))
-      .toBe("/Users/example/paper/figures/result.png");
-    expect(absoluteProjectPath("C:\\Users\\example\\paper", "figures/result.png"))
-      .toBe("C:\\Users\\example\\paper\\figures\\result.png");
-  });
-
-  it("does not duplicate a trailing root separator", () => {
-    expect(absoluteProjectPath("/Users/example/paper/", "main.tex"))
-      .toBe("/Users/example/paper/main.tex");
+  // Joins with the root's own platform separator, never doubling a trailing one.
+  it.each([
+    ["/Users/example/paper", "figures/result.png", "/Users/example/paper/figures/result.png"],
+    ["C:\\Users\\example\\paper", "figures/result.png", "C:\\Users\\example\\paper\\figures\\result.png"],
+    ["/Users/example/paper/", "main.tex", "/Users/example/paper/main.tex"],
+  ])("joins %s and %s", (root, path, expected) => {
+    expect(absoluteProjectPath(root, path)).toBe(expected);
   });
 });
 
-describe("isProjectSourceFilePath", () => {
-  it("recognizes native spreadsheets as importable project sources", () => {
-    expect(isProjectSourceFilePath("tables/results.lattice-sheet")).toBe(true);
-    expect(isProjectSourceFilePath("tables/results.LATTICE-SHEET")).toBe(true);
-  });
+it("recognizes native spreadsheets as importable project sources", () => {
+  expectEach(isProjectSourceFilePath, [
+    ["tables/results.lattice-sheet", true],
+    ["tables/results.LATTICE-SHEET", true],
+  ]);
 });
 
-describe("overleafHostsMatch", () => {
-  it("matches harmless spelling differences on the same origin", () => {
-    expect(overleafHostsMatch("HTTPS://OVERLEAF.EXAMPLE/", "https://overleaf.example"))
-      .toBe(true);
-    expect(overleafHostsMatch("overleaf.example", "https://overleaf.example/"))
-      .toBe(true);
+describe("Overleaf host matching", () => {
+  // Harmless spelling differences match; scheme, host, and port stay distinct.
+  it.each([
+    ["HTTPS://OVERLEAF.EXAMPLE/", "https://overleaf.example", true],
+    ["overleaf.example", "https://overleaf.example/", true],
+    ["https://overleaf-a.example", "https://overleaf-b.example", false],
+    ["https://overleaf.example", "http://overleaf.example", false],
+    ["https://overleaf.example:8443", "https://overleaf.example", false],
+    ["https://overleaf.example", "", false],
+  ])("compares %s with %s by origin", (left, right, expected) => {
+    expect(overleafHostsMatch(left, right)).toBe(expected);
   });
 
-  it("keeps scheme, host, and port boundaries distinct", () => {
-    expect(overleafHostsMatch("https://overleaf-a.example", "https://overleaf-b.example"))
-      .toBe(false);
-    expect(overleafHostsMatch("https://overleaf.example", "http://overleaf.example"))
-      .toBe(false);
-    expect(overleafHostsMatch("https://overleaf.example:8443", "https://overleaf.example"))
-      .toBe(false);
-  });
-});
-
-describe("overleafLinkMatchesSession", () => {
   it("treats a legacy link without a stored host as belonging to the session", () => {
     expect(overleafLinkMatchesSession("https://overleaf.example", "")).toBe(true);
-    expect(overleafHostsMatch("https://overleaf.example", "")).toBe(false);
   });
 });
 
 describe("stripFrontmatter", () => {
-  it("removes separator blank lines without changing indented Markdown", () => {
-    expect(stripFrontmatter("---\ntitle: Paper\n---\n\n    indented code\n"))
-      .toBe("    indented code\n");
-  });
-
-  it("returns an empty body for frontmatter-only papers", () => {
-    expect(stripFrontmatter("---\ntitle: Empty\n---")).toBe("");
+  it.each([
+    ["removes separator blank lines without changing indented Markdown", "---\ntitle: Paper\n---\n\n    indented code\n", "    indented code\n"],
+    ["returns an empty body for frontmatter-only papers", "---\ntitle: Empty\n---", ""],
+  ])("%s", (_name, markdown, expected) => {
+    expect(stripFrontmatter(markdown)).toBe(expected);
   });
 
   it.each([
@@ -101,99 +97,57 @@ describe("stripFrontmatter", () => {
 });
 
 describe("dropDirectoryAt", () => {
-  it("finds Pierre directory rows inside the file tree shadow root", () => {
+  function treeRow(type: "folder" | "file", path: string, parentPath?: string) {
+    const row = document.createElement("button");
+    row.dataset.itemType = type;
+    row.dataset.itemPath = path;
+    if (parentPath) row.dataset.itemParentPath = parentPath;
+    return row;
+  }
+
+  /** A navigator whose Pierre file tree renders `rows` inside its shadow root. */
+  function mountTree(rows: Element[], options: { projectSection?: boolean; treeClass?: string } = {}) {
     const navigator = document.createElement("aside");
     navigator.className = "navigator";
     const host = document.createElement("file-tree-container");
+    if (options.treeClass) host.className = options.treeClass;
     const shadowRoot = host.attachShadow({ mode: "open" });
-    const row = document.createElement("button");
-    row.dataset.itemType = "folder";
-    row.dataset.itemPath = "figures/results/";
-    shadowRoot.append(row);
-    navigator.append(host);
+    shadowRoot.append(...rows);
+    if (options.projectSection) {
+      const section = document.createElement("div");
+      section.className = "navigator-section project-section";
+      section.append(host);
+      navigator.append(section);
+    } else {
+      navigator.append(host);
+    }
     document.body.append(navigator);
+    stubHit(document, () => host);
+    return shadowRoot;
+  }
 
-    Object.defineProperty(document, "elementFromPoint", {
-      configurable: true,
-      value: vi.fn(() => host),
-    });
-    Object.defineProperty(shadowRoot, "elementFromPoint", {
-      configurable: true,
-      value: vi.fn(() => row),
-    });
+  it("finds Pierre directory rows inside the file tree shadow root", () => {
+    const row = treeRow("folder", "figures/results/");
+    stubHit(mountTree([row]), () => row);
 
     expect(dropDirectoryAt({ x: 24, y: 40 })).toBe("figures/results");
   });
 
   it("falls back to row geometry when native dragging hides the shadow hit target", () => {
-    const navigator = document.createElement("aside");
-    navigator.className = "navigator";
-    const section = document.createElement("div");
-    section.className = "navigator-section project-section";
-    const host = document.createElement("file-tree-container");
-    host.className = "lattice-file-tree";
-    const shadowRoot = host.attachShadow({ mode: "open" });
-    const row = document.createElement("button");
-    row.dataset.itemType = "folder";
-    row.dataset.itemPath = "figures/";
-    vi.spyOn(row, "getBoundingClientRect").mockReturnValue({
-      bottom: 72,
-      height: 32,
-      left: 10,
-      right: 210,
-      top: 40,
-      width: 200,
-      x: 10,
-      y: 40,
-      toJSON: () => ({}),
-    });
+    const row = treeRow("folder", "figures/");
+    vi.spyOn(row, "getBoundingClientRect").mockReturnValue(new DOMRect(10, 40, 200, 32));
     const background = document.createElement("div");
-    shadowRoot.append(row, background);
-    section.append(host);
-    navigator.append(section);
-    document.body.append(navigator);
-
-    Object.defineProperty(document, "elementFromPoint", {
-      configurable: true,
-      value: vi.fn(() => host),
-    });
-    Object.defineProperty(shadowRoot, "elementFromPoint", {
-      configurable: true,
-      value: vi.fn(() => background),
-    });
+    stubHit(mountTree([row, background], { projectSection: true, treeClass: "lattice-file-tree" }), () => background);
 
     expect(dropDirectoryAt({ x: 50, y: 60 })).toBe("figures");
   });
 
   it("targets a file row's parent folder and falls back to the project root", () => {
-    const navigator = document.createElement("aside");
-    navigator.className = "navigator";
-    const section = document.createElement("div");
-    section.className = "navigator-section project-section";
-    const host = document.createElement("file-tree-container");
-    const shadowRoot = host.attachShadow({ mode: "open" });
-    const nestedFile = document.createElement("button");
-    nestedFile.dataset.itemType = "file";
-    nestedFile.dataset.itemPath = "sections/intro.tex";
-    nestedFile.dataset.itemParentPath = "sections/";
-    const rootFile = document.createElement("button");
-    rootFile.dataset.itemType = "file";
-    rootFile.dataset.itemPath = "main.tex";
+    const nestedFile = treeRow("file", "sections/intro.tex", "sections/");
+    const rootFile = treeRow("file", "main.tex");
     const background = document.createElement("div");
-    shadowRoot.append(nestedFile, rootFile, background);
-    section.append(host);
-    navigator.append(section);
-    document.body.append(navigator);
-
     let hit: Element = nestedFile;
-    Object.defineProperty(document, "elementFromPoint", {
-      configurable: true,
-      value: vi.fn(() => host),
-    });
-    Object.defineProperty(shadowRoot, "elementFromPoint", {
-      configurable: true,
-      value: vi.fn(() => hit),
-    });
+    stubHit(mountTree([nestedFile, rootFile, background], { projectSection: true }), () => hit);
 
     expect(dropDirectoryAt({ x: 24, y: 40 })).toBe("sections");
     hit = rootFile;
@@ -214,10 +168,7 @@ describe("dropDirectoryAt", () => {
     document.body.append(navigator);
 
     let hit: Element = elsewhere;
-    Object.defineProperty(document, "elementFromPoint", {
-      configurable: true,
-      value: vi.fn(() => hit),
-    });
+    stubHit(document, () => hit);
 
     expect(dropDirectoryAt({ x: 24, y: 40 })).toBe(null);
     hit = papers;
@@ -231,12 +182,12 @@ describe("window dragging", () => {
     tabStrip.dataset.windowDragExclude = "";
     const scrollbarThumb = document.createElement("div");
     tabStrip.append(scrollbarThumb);
-    const button = document.createElement("button");
-    const emptyChrome = document.createElement("div");
 
-    expect(isWindowDragExcluded(scrollbarThumb)).toBe(true);
-    expect(isWindowDragExcluded(button)).toBe(true);
-    expect(isWindowDragExcluded(emptyChrome)).toBe(false);
+    expectEach(isWindowDragExcluded, [
+      [scrollbarThumb, true],
+      [document.createElement("button"), true],
+      [document.createElement("div"), false],
+    ]);
   });
 
   it("excludes tab-strip whitespace only while the strip overflows", () => {
@@ -257,117 +208,79 @@ describe("window dragging", () => {
 
 describe("editor file drops", () => {
   it("recognizes only native Open Slide deck entry paths", () => {
-    expect(isOpenSlideDeckPath("slides/research-update/index.tsx")).toBe(true);
-    expect(isOpenSlideDeckPath("slides\\research-update\\index.tsx")).toBe(true);
+    expectEach(isOpenSlideDeckPath, [
+      ["slides/research-update/index.tsx", true],
+      ["slides\\research-update\\index.tsx", true],
+      ["slides/research_update/index.tsx", false],
+      ["slides/research-update/notes.tsx", false],
+    ]);
     expect(deckIdFromOpenSlidePath("slides/research-update/index.tsx")).toBe("research-update");
-    expect(isOpenSlideDeckPath("slides/research_update/index.tsx")).toBe(false);
-    expect(isOpenSlideDeckPath("slides/research-update/notes.tsx")).toBe(false);
   });
 
   it("recognizes editors whose documents synchronize as whole files", () => {
-    expect(isWholeFileEditorPath("slides/research-update/index.tsx")).toBe(true);
-    expect(isWholeFileEditorPath("figures/model.tldr")).toBe(true);
-    expect(isWholeFileEditorPath("results.LATTICE-SHEET")).toBe(true);
-    expect(isWholeFileEditorPath("main.tex")).toBe(false);
-    expect(isWholeFileEditorPath("slides/research-update/theme.tsx")).toBe(false);
+    expectEach(isWholeFileEditorPath, [
+      ["slides/research-update/index.tsx", true],
+      ["figures/model.tldr", true],
+      ["results.LATTICE-SHEET", true],
+      ["main.tex", false],
+      ["slides/research-update/theme.tsx", false],
+    ]);
   });
 
-  it("recovers project-root whole-file links resolved relative to a Markdown folder", () => {
-    const paths = [
-      "notes/local.tldr",
-      "slides/research-update/index.tsx",
-      "results.lattice-sheet",
-      "sketch.tldr",
-    ];
+  it("recovers project-root whole-file links from a Markdown folder, keeping exact and missing paths", () => {
+    const paths = ["notes/local.tldr", "slides/research-update/index.tsx", "results.lattice-sheet", "sketch.tldr", "notes/other.md"];
 
-    expect(resolveKnownWholeFileProjectPath("notes/slides/research-update/index.tsx", paths))
-      .toBe("slides/research-update/index.tsx");
-    expect(resolveKnownWholeFileProjectPath("notes/results.lattice-sheet", paths))
-      .toBe("results.lattice-sheet");
-    expect(resolveKnownWholeFileProjectPath("notes/sketch.tldr", paths))
-      .toBe("sketch.tldr");
-  });
-
-  it("preserves exact, ordinary Markdown, and missing whole-file link paths", () => {
-    const paths = ["notes/local.tldr", "results.lattice-sheet", "notes/other.md"];
-
-    expect(resolveKnownWholeFileProjectPath("notes/local.tldr", paths)).toBe("notes/local.tldr");
-    expect(resolveKnownWholeFileProjectPath("notes/other.md", paths)).toBe("notes/other.md");
-    expect(resolveKnownWholeFileProjectPath("notes/missing.tldr", paths)).toBe("notes/missing.tldr");
+    expectEach((path: string) => resolveKnownWholeFileProjectPath(path, paths), [
+      ["notes/slides/research-update/index.tsx", "slides/research-update/index.tsx"],
+      ["notes/results.lattice-sheet", "results.lattice-sheet"],
+      ["notes/sketch.tldr", "sketch.tldr"],
+      ["notes/local.tldr", "notes/local.tldr"],
+      ["notes/other.md", "notes/other.md"],
+      ["notes/missing.tldr", "notes/missing.tldr"],
+    ]);
   });
 
   it("runs Harper only for prose source files", () => {
-    expect(isHarperProseFilePath("main.tex")).toBe(true);
-    expect(isHarperProseFilePath("notes.md")).toBe(true);
-    expect(isHarperProseFilePath("notes.txt")).toBe(true);
-    expect(isHarperProseFilePath("references.bib")).toBe(false);
-    expect(isHarperProseFilePath("conference.sty")).toBe(false);
-    expect(isHarperProseFilePath("article.cls")).toBe(false);
-    expect(isHarperProseFilePath("supplement.html")).toBe(false);
+    expectEach(isHarperProseFilePath, [
+      ["main.tex", true],
+      ["notes.md", true],
+      ["notes.txt", true],
+      ["references.bib", false],
+      ["conference.sty", false],
+      ["article.cls", false],
+      ["supplement.html", false],
+    ]);
   });
 
   it("classifies source files separately from figures and rejects mixed drops", () => {
-    expect(classifyExternalProjectDrop([
-      "/tmp/main.tex",
-      "C:\\paper\\references.bib",
-      "/tmp/supplement.html",
-    ]))
-      .toBe("source");
-    expect(classifyExternalProjectDrop(["/tmp/result.svg", "/tmp/plot.pdf"]))
-      .toBe("asset");
-    expect(classifyExternalProjectDrop(["/tmp/main.tex", "/tmp/result.png"]))
-      .toBe("mixed");
-    expect(classifyExternalProjectDrop(["/tmp/archive.zip"]))
-      .toBe("unsupported");
+    expectEach(classifyExternalProjectDrop, [
+      [["/tmp/main.tex", "C:\\paper\\references.bib", "/tmp/supplement.html"], "source"],
+      [["/tmp/result.svg", "/tmp/plot.pdf"], "asset"],
+      [["/tmp/main.tex", "/tmp/result.png"], "mixed"],
+      [["/tmp/archive.zip"], "unsupported"],
+    ]);
   });
 
-  it("identifies the editor pane under a native drop position", () => {
+  // An empty secondary editor is a file drop target too.
+  it.each(["source-editor", "dual-empty"])("identifies the editor pane under a native drop position (%s)", (className) => {
     const editor = document.createElement("div");
-    editor.className = "source-editor";
+    editor.className = className;
     editor.dataset.editorPane = "secondary";
     document.body.append(editor);
-    Object.defineProperty(document, "elementFromPoint", {
-      configurable: true,
-      value: vi.fn(() => editor),
-    });
+    stubHit(document, () => editor);
 
-    expect(dropEditorAt({ x: 24, y: 40 })).toEqual({
-      x: 24,
-      y: 40,
-      pane: "secondary",
-    });
+    expect(dropEditorAt({ x: 24, y: 40 })).toEqual({ x: 24, y: 40, pane: "secondary" });
   });
 
-  it("treats an empty secondary editor as a file drop target", () => {
-    const editor = document.createElement("div");
-    editor.className = "dual-empty";
-    editor.dataset.editorPane = "secondary";
-    document.body.append(editor);
-    Object.defineProperty(document, "elementFromPoint", {
-      configurable: true,
-      value: vi.fn(() => editor),
-    });
-
-    expect(dropEditorAt({ x: 24, y: 40 })).toEqual({
-      x: 24,
-      y: 40,
-      pane: "secondary",
-    });
-  });
-
-  it("identifies the document canvas for pointer and native drop coordinates", () => {
+  it("identifies the document canvas under a native drop position", () => {
     const canvas = document.createElement("div");
     canvas.className = "canvas-body";
     const preview = document.createElement("div");
     preview.className = "asset-preview";
     canvas.append(preview);
     document.body.append(canvas);
-    Object.defineProperty(document, "elementFromPoint", {
-      configurable: true,
-      value: vi.fn(() => preview),
-    });
+    stubHit(document, () => preview);
 
-    expect(canvasContentAt({ x: 24, y: 40 })).toBe(true);
     expect(dropCanvasAt({ x: 24, y: 40 })).toBe(true);
   });
 
@@ -378,19 +291,13 @@ describe("editor file drops", () => {
     frame.className = "synara-poc-frame";
     shell.append(frame);
     document.body.append(shell);
-    Object.defineProperty(document, "elementFromPoint", {
-      configurable: true,
-      value: vi.fn(() => frame),
-    });
+    let hit: Element = frame;
+    stubHit(document, () => hit);
 
     expect(dropAgentPanelAt({ x: 24, y: 40 })).toBe(false);
     shell.dataset.ready = "true";
     expect(dropAgentPanelAt({ x: 24, y: 40 })).toBe(true);
-
-    Object.defineProperty(document, "elementFromPoint", {
-      configurable: true,
-      value: vi.fn(() => document.body),
-    });
+    hit = document.body;
     expect(dropAgentPanelAt({ x: 24, y: 40 })).toBe(false);
   });
 });
@@ -406,19 +313,16 @@ const projectSnapshot: ProjectSnapshot = {
     trusted: false,
   },
   files: [
-    { name: "figures", path: "figures", kind: "directory", children: [] },
-    {
-      name: "sections",
-      path: "sections",
-      kind: "directory",
-      children: [
-        { name: "intro.tex", path: "sections/intro.tex", kind: "tex", children: [] },
-      ],
-    },
-    { name: "main.tex", path: "main.tex", kind: "tex", children: [] },
-    { name: "references.bib", path: "references.bib", kind: "bib", children: [] },
+    fileNode("figures", "directory"),
+    fileNode("sections", "directory", [fileNode("sections/intro.tex", "tex")]),
+    fileNode("main.tex", "tex"),
+    fileNode("references.bib", "bib"),
   ],
 };
+
+function fileNode(path: string, kind: string, children: FileNode[] = []): FileNode {
+  return { name: path.split("/").at(-1) ?? path, path, kind, children };
+}
 
 describe("project path changes", () => {
   it("moves a file into a directory without rescanning the project", () => {
@@ -466,13 +370,8 @@ describe("project path changes", () => {
   });
 
   it("remaps open paths inside a moved folder", () => {
-    expect(remapProjectPath("sections/intro.tex", [{
-      previousPath: "sections",
-      nextPath: "drafts/sections",
-    }])).toBe("drafts/sections/intro.tex");
-    expect(remapProjectPath("main.tex", [{
-      previousPath: "sections",
-      nextPath: "drafts/sections",
-    }])).toBe("main.tex");
+    const moveSections = [{ previousPath: "sections", nextPath: "drafts/sections" }];
+    expect(remapProjectPath("sections/intro.tex", moveSections)).toBe("drafts/sections/intro.tex");
+    expect(remapProjectPath("main.tex", moveSections)).toBe("main.tex");
   });
 });

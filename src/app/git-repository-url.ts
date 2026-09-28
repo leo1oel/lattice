@@ -17,9 +17,7 @@ export function githubRepositoryUrl(remoteUrl: string | null | undefined): strin
     }
   }
 
-  const segments = repositoryPath.replace(/^\/+|\/+$/g, "").split("/");
-  if (segments.length !== 2 || !segments[0] || !segments[1]) return null;
-  const repository = segments[1].replace(/\.git$/i, "");
-  if (!repository) return null;
-  return `https://github.com/${segments[0]}/${repository}`;
+  const [owner, name, ...extra] = repositoryPath.replace(/^\/+|\/+$/g, "").split("/");
+  const repository = name?.replace(/\.git$/i, "");
+  return owner && repository && !extra.length ? `https://github.com/${owner}/${repository}` : null;
 }

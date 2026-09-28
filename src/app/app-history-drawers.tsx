@@ -11,7 +11,7 @@
  * alone: a `null` fallback shared with the Git drawer would unmount an open
  * Git workspace while the history chunk loads.
  */
-import { lazy, Suspense, type Dispatch, type RefObject, type SetStateAction } from "react";
+import { lazy, Suspense, type Dispatch, type SetStateAction } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
@@ -20,11 +20,7 @@ import { Tip } from "../components/icon-tip";
 import { SlidingTabs } from "../components/ui/motion";
 import { ResizableDrawer } from "../components/ui/resizable-drawer";
 import { SynaraLoadingSurface } from "../agent/synara-loading-surface";
-import {
-  LATTICE_RESTORE_AGENT_CHECKPOINT,
-  type AgentGitWorkspaceView,
-  type SynaraRuntimeInfo,
-} from "../agent/synara-runtime";
+import { LATTICE_RESTORE_AGENT_CHECKPOINT, type AgentGitWorkspaceView } from "../agent/synara-runtime";
 import {
   synaraSourceControlUrl,
   synaraTurnReviewUrl,
@@ -32,97 +28,88 @@ import {
 } from "./app-synara-embed";
 import { setError } from "./notify";
 import { githubRepositoryUrl } from "./git-repository-url";
+import type { useSynaraHost } from "./use-synara-host";
 import { confirmAction, toMessage } from "../app-utils";
 import { type AppLocale, type Theme } from "../settings/app-settings";
 import { type HistoryItem } from "../history/history-drawer";
-import type { CollabProjectControllerV2 } from "../collab/collab-project-v2";
-import type {
-  EditorPaneId,
-  OverleafLink,
-  ProjectSnapshot,
-} from "../app-types";
+import type { CompileProject, OpenProjectFile, OverleafLink, ProjectSnapshot, RefreshProject } from "../app-types";
 
 const HistoryDrawer = lazy(() =>
   import("../history/history-drawer").then((module) => ({ default: module.HistoryDrawer })),
 );
 
-export type AppHistoryDrawersProps = {
-  activeFile: string;
-  agentTurnReview: AgentTurnReview | null;
-  appLocale: AppLocale;
-  compile: (force?: boolean, sound?: boolean, options?: { consumeAgentAssociations?: boolean; }) => Promise<void>;
-  deleteHistory: (id: string) => Promise<void>;
-  gitOpen: boolean;
-  gitRemoteUrl: string | null;
-  gitWorkspaceView: AgentGitWorkspaceView;
+/** Run a history change once the reader confirms it; a failure becomes an error toast. */
+async function afterConfirming(question: string, change: () => Promise<void>) {
+  if (!await confirmAction(question)) return;
+  try {
+    await change();
+  } catch (reason) {
+    setError(toMessage(reason));
+  }
+}
+
+/** Which drawer is open, and which Git view (or pinned agent turn) it shows. */
+export type HistoryDrawersState = {
   historyOpen: boolean;
-  loadFile: (path: string, options?: { restoreView?: boolean; revealSource?: boolean; expectedProjectRoot?: string; projectGeneration?: number; collabController?: CollabProjectControllerV2; gate?: Promise<boolean>; loadGeneration?: number; canCommit?: () => boolean; navigateToLine?: number; }) => Promise<boolean>;
-  openProjectFile: (path: string, line?: number, targetPane?: EditorPaneId, options?: { revealSource?: boolean; }) => Promise<void>;
-  overleafLink: OverleafLink | null;
-  project: ProjectSnapshot;
-  projectHistory: HistoryItem[];
-  refreshHistory: () => Promise<void>;
-  refreshProject: (scope?: { expectedRoot: string; generation: number; }) => Promise<ProjectSnapshot>;
-  retrySynaraRuntime: () => void;
-  revert: (id: string) => Promise<void>;
-  runOverleafSync: (options?: { auto?: boolean; }) => Promise<void>;
-  setAgentTurnReview: Dispatch<SetStateAction<AgentTurnReview | null>>;
-  setGitOpen: Dispatch<SetStateAction<boolean>>;
-  setGitWorkspaceView: Dispatch<SetStateAction<AgentGitWorkspaceView>>;
   setHistoryOpen: Dispatch<SetStateAction<boolean>>;
-  synaraIframeRef: RefObject<HTMLIFrameElement | null>;
-  synaraOrigin: string | null;
-  synaraRuntime: SynaraRuntimeInfo;
-  synaraSourceControlFrameRef: RefObject<HTMLIFrameElement | null>;
-  theme: Theme;
+  gitOpen: boolean;
+  setGitOpen: Dispatch<SetStateAction<boolean>>;
+  gitWorkspaceView: AgentGitWorkspaceView;
+  setGitWorkspaceView: Dispatch<SetStateAction<AgentGitWorkspaceView>>;
+  /**
+   * Non-null while the drawer is pinned to one agent turn's checkpoint diff.
+   * Kept separate from gitWorkspaceView: the review needs a thread + turn to
+   * mean anything, so the tab only exists while a request is present, and
+   * switching to Changes / Pull requests drops back to the working tree.
+   */
+  agentTurnReview: AgentTurnReview | null;
+  setAgentTurnReview: Dispatch<SetStateAction<AgentTurnReview | null>>;
 };
 
-export function AppHistoryDrawers(props: AppHistoryDrawersProps) {
+export function AppHistoryDrawers({ drawers, synara: {
+  postMessage, sourceControlFrameRef, origin: synaraOrigin, runtime: synaraRuntime, retry: retrySynaraRuntime,
+}, project, activeFile, ...props }: {
+  drawers: HistoryDrawersState;
+  synara: Pick<ReturnType<typeof useSynaraHost>, "postMessage" | "sourceControlFrameRef" | "origin" | "runtime" | "retry">;
+  project: ProjectSnapshot;
+  activeFile: string;
+  appLocale: AppLocale;
+  theme: Theme;
+  compile: CompileProject;
+  gitRemoteUrl: string | null;
+  loadFile: (path: string) => Promise<boolean>;
+  openProjectFile: OpenProjectFile;
+  overleafLink: OverleafLink | null;
+  projectHistory: HistoryItem[];
+  refreshHistory: () => Promise<void>;
+  refreshProject: RefreshProject;
+  runOverleafSync: (options?: { auto?: boolean; }) => Promise<void>;
+}) {
   const { t } = useLingui();
-  const {
-    activeFile,
-    agentTurnReview,
-    appLocale,
-    compile,
-    deleteHistory,
-    gitOpen,
-    gitRemoteUrl,
-    gitWorkspaceView,
-    historyOpen,
-    loadFile,
-    openProjectFile,
-    overleafLink,
-    project,
-    projectHistory,
-    refreshHistory,
-    refreshProject,
-    retrySynaraRuntime,
-    revert,
-    runOverleafSync,
-    setAgentTurnReview,
-    setGitOpen,
-    setGitWorkspaceView,
-    setHistoryOpen,
-    synaraIframeRef,
-    synaraOrigin,
-    synaraRuntime,
-    synaraSourceControlFrameRef,
-    theme,
-  } = props;
-  const repositoryUrl = githubRepositoryUrl(gitRemoteUrl);
+  const { agentTurnReview, gitWorkspaceView, setGitOpen } = drawers;
+  const repositoryUrl = githubRepositoryUrl(props.gitRemoteUrl);
+  const frame = synaraOrigin ? {
+    origin: synaraOrigin,
+    authToken: synaraRuntime.authToken,
+    projectRoot: project.root,
+    theme: props.theme,
+    locale: props.appLocale,
+  } : null;
+  /** Bring the project, the open file, history and the PDF up to date after a restore. */
+  const reloadAfterRestore = async () => {
+    await props.refreshProject();
+    if (activeFile) await props.loadFile(activeFile);
+    await props.refreshHistory();
+    await props.compile();
+  };
   return (
     <>
       <Suspense fallback={null}>
-      {historyOpen && (
+      {drawers.historyOpen && (
         <HistoryDrawer
-          history={projectHistory}
-          onClose={() => setHistoryOpen(false)}
-          onVersionsChanged={async () => {
-            await refreshProject();
-            if (activeFile) await loadFile(activeFile);
-            await refreshHistory();
-            await compile();
-          }}
+          history={props.projectHistory}
+          onClose={() => drawers.setHistoryOpen(false)}
+          onVersionsChanged={reloadAfterRestore}
           onRevert={(item) => {
             if (
               item.kind === "agent-checkpoint"
@@ -130,50 +117,42 @@ export function AppHistoryDrawers(props: AppHistoryDrawersProps) {
               && typeof item.turnCount === "number"
               && synaraOrigin
             ) {
-              synaraIframeRef.current?.contentWindow?.postMessage(
-                {
-                  type: LATTICE_RESTORE_AGENT_CHECKPOINT,
-                  threadId: item.threadId,
-                  turnCount: item.turnCount,
-                },
-                synaraOrigin,
-              );
+              void postMessage({ type: LATTICE_RESTORE_AGENT_CHECKPOINT, threadId: item.threadId, turnCount: item.turnCount });
               return;
             }
-            void revert(item.id);
+            void afterConfirming(
+              "Restore the project to the state before this change? The restore will be added as a new history entry.",
+              async () => {
+                await invoke("revert_transaction", { transactionId: item.id, projectRoot: project.root });
+                await reloadAfterRestore();
+              },
+            );
           }}
-          onRevertFile={async (id, path) => {
-            if (!await confirmAction(
-              `Restore only “${path}” to the state before this change? The restore will be added as a new history entry.`,
-            )) return;
-            try {
+          onRevertFile={(id, path) => afterConfirming(
+            `Restore only “${path}” to the state before this change? The restore will be added as a new history entry.`,
+            async () => {
               await invoke("revert_history_file", { transactionId: id, path });
-              if (activeFile === path || activeFile) await loadFile(activeFile);
-              await refreshProject();
-              await refreshHistory();
-              await compile();
-            } catch (reason) {
-              setError(toMessage(reason));
-            }
-          }}
-          onDelete={deleteHistory}
-          onOpenFile={(path, line) => { void openProjectFile(path, line); }}
-          overleafLinked={overleafLink !== null}
+              await reloadAfterRestore();
+            },
+          )}
+          onDelete={(id) => afterConfirming("Delete this history entry? This cannot be undone.", async () => {
+            await invoke("delete_history_entry", { transactionId: id });
+            await props.refreshHistory();
+          })}
+          onOpenFile={(path, line) => { void props.openProjectFile(path, line); }}
+          overleafLinked={props.overleafLink !== null}
           overleafProjectRoot={project.root}
           onOverleafRestored={async () => {
             // The restore happened on Overleaf's server and left the local
             // files alone, so pull it down the same way a manual sync does
             // before anything on this side reloads.
-            await runOverleafSync();
-            await refreshProject();
-            if (activeFile) await loadFile(activeFile);
-            await refreshHistory();
-            await compile();
+            await props.runOverleafSync();
+            await reloadAfterRestore();
           }}
         />
       )}
       </Suspense>
-      {gitOpen && project ? (
+      {drawers.gitOpen && project ? (
         <ResizableDrawer
           className="git-drawer synara-source-control-drawer"
           dataTour="git-panel"
@@ -184,8 +163,8 @@ export function AppHistoryDrawers(props: AppHistoryDrawersProps) {
               value={agentTurnReview ? "agent-turn" : gitWorkspaceView}
               onChange={(value) => {
                 if (value === "agent-turn") return;
-                setAgentTurnReview(null);
-                setGitWorkspaceView(value as AgentGitWorkspaceView);
+                drawers.setAgentTurnReview(null);
+                drawers.setGitWorkspaceView(value as AgentGitWorkspaceView);
               }}
               ariaLabel={t`Git workspace`}
               variant="none"
@@ -222,27 +201,13 @@ export function AppHistoryDrawers(props: AppHistoryDrawersProps) {
               </button>
             </div>
           </div>
-            {synaraOrigin ? (
+            {frame ? (
               <iframe
-                ref={synaraSourceControlFrameRef}
+                ref={sourceControlFrameRef}
                 className="synara-source-control-frame"
                 src={agentTurnReview
-                  ? synaraTurnReviewUrl(
-                    synaraOrigin,
-                    synaraRuntime.authToken,
-                    project.root,
-                    theme,
-                    appLocale,
-                    agentTurnReview,
-                  )
-                  : synaraSourceControlUrl(
-                    synaraOrigin,
-                    synaraRuntime.authToken,
-                    project.root,
-                    theme,
-                    appLocale,
-                    gitWorkspaceView,
-                  )}
+                  ? synaraTurnReviewUrl(frame, agentTurnReview)
+                  : synaraSourceControlUrl(frame, gitWorkspaceView)}
                 title={agentTurnReview
                   ? t`Agent turn review`
                   : gitWorkspaceView === "changes" ? t`Changes` : t`Pull requests`}

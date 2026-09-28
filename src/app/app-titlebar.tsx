@@ -9,11 +9,7 @@
  * of them, so pulling them through here would double the interface for a
  * component that only ever gets slotted into one place.
  */
-import {
-  type Dispatch,
-  type ReactNode,
-  type SetStateAction,
-} from "react";
+import { type ComponentProps, type Dispatch, type ReactNode, type SetStateAction } from "react";
 import { useLingui } from "@lingui/react/macro";
 import {
   Check,
@@ -25,107 +21,42 @@ import {
 } from "lucide-react";
 import { Tip } from "../components/icon-tip";
 import { StateSwap } from "../components/ui/motion";
-import {
-  DropdownMenu,
-  DropdownMenuTrigger,
-} from "../components/ui/dropdown-menu";
-import { EditorTabs, type EditorDropZone, type EditorTab } from "../canvas/editor-tabs";
+import { DropdownMenu, DropdownMenuTrigger } from "../components/ui/dropdown-menu";
+import { EditorTabs } from "../canvas/editor-tabs";
 import { ProjectMenu } from "../project/project-dialogs";
 import { beginWindowDrag, toggleWindowFullscreen } from "../app-utils";
-import type {
-  BuildPreferences,
-  RecentProject,
-} from "../settings/app-settings";
-import type {
-  BuildResult,
-  CanvasMode,
-  ProjectSnapshot,
-  SettingsTab,
-} from "../app-types";
+import type { BuildPreferences } from "../settings/app-settings";
+import type { CompileProject, ProjectSnapshot } from "../app-types";
+import type { BuildPipeline } from "./use-build-pipeline";
+import type { WorkspaceSidebar } from "./use-workspace-sidebar";
 
-export type AppTitlebarProps = {
-  abortBuild: () => Promise<void>;
-  activeTabKey: string;
-  build: BuildResult | null;
-  building: boolean;
-  buildPreferences: BuildPreferences;
-  busyLabel: string | null;
-  canvasMode: CanvasMode;
-  canvasToolbar: ReactNode;
-  chooseExisting: () => Promise<void>;
-  chooseRecentProject: (path: string) => Promise<void>;
-  cleanAndRebuild: () => Promise<void>;
-  cleaning: boolean;
-  compile: (force?: boolean, sound?: boolean, options?: { consumeAgentAssociations?: boolean; }) => Promise<void>;
-  dropProjectPath: (path: string, zone: EditorDropZone, options?: { preserveSplitRatio?: boolean; preservePreview?: boolean; }) => Promise<true | undefined>;
-  editorTabItems: EditorTab[];
-  exportProjectZip: () => Promise<void>;
-  importing: boolean;
-  openSettings: (tab?: SettingsTab) => void;
-  openTutorialProject: () => Promise<boolean>;
+export function AppTitlebar({ project, sidebar, buildPipeline, buildPreferences, compile, tabs, projectMenu, canvasToolbar }: {
   project: ProjectSnapshot;
-  projectMenuOpen: boolean;
-  recentProjects: RecentProject[];
-  requestCloseEditorTab: (path: string) => void;
-  setEditorTabPinned: (path: string, pinned: boolean) => void;
-  selectEditorTab: (path: string) => void;
-  setCreateError: Dispatch<SetStateAction<string | null>>;
-  setCreateOpen: Dispatch<SetStateAction<boolean>>;
-  setOpenTabs: Dispatch<SetStateAction<string[]>>;
-  setOverleafPickerOpen: Dispatch<SetStateAction<boolean>>;
-  setProjectMenuOpen: Dispatch<SetStateAction<boolean>>;
-  setSidebarOpen: Dispatch<SetStateAction<boolean>>;
-  sidebarOpen: boolean;
-  sidebarResizing: boolean;
-  sidebarWidth: number;
-};
-
-export function AppTitlebar(props: AppTitlebarProps) {
+  sidebar: Pick<WorkspaceSidebar, "sidebarOpen" | "setSidebarOpen" | "sidebarWidth" | "sidebarResizing">;
+  buildPipeline: Pick<BuildPipeline, "build" | "building" | "cleaning" | "abortBuild" | "cleanAndRebuild">;
+  buildPreferences: BuildPreferences;
+  compile: CompileProject;
+  tabs: ComponentProps<typeof EditorTabs>;
+  /** The project switcher's menu, plus whether it is open and what may disable it. */
+  projectMenu: Omit<ComponentProps<typeof ProjectMenu>, "currentPath"> & {
+    open: boolean;
+    setOpen: Dispatch<SetStateAction<boolean>>;
+    importing: boolean;
+  };
+  canvasToolbar: ReactNode;
+}) {
   const { t } = useLingui();
-  const {
-    abortBuild,
-    activeTabKey,
-    build,
-    building,
-    buildPreferences,
-    busyLabel,
-    canvasMode,
-    canvasToolbar,
-    chooseExisting,
-    chooseRecentProject,
-    cleanAndRebuild,
-    cleaning,
-    compile,
-    dropProjectPath,
-    editorTabItems,
-    exportProjectZip,
-    importing,
-    openSettings,
-    openTutorialProject,
-    project,
-    projectMenuOpen,
-    recentProjects,
-    requestCloseEditorTab,
-    setEditorTabPinned,
-    selectEditorTab,
-    setCreateError,
-    setCreateOpen,
-    setOpenTabs,
-    setOverleafPickerOpen,
-    setProjectMenuOpen,
-    setSidebarOpen,
-    sidebarOpen,
-    sidebarResizing,
-    sidebarWidth,
-  } = props;
+  const { build, building } = buildPipeline;
+  const { sidebarOpen } = sidebar;
+  const { open: menuOpen, setOpen: setMenuOpen, importing, ...menu } = projectMenu;
   return (
     <header className="titlebar" onMouseDown={beginWindowDrag} onDoubleClick={toggleWindowFullscreen}>
-      <div className={`titlebar-sidebar ${sidebarOpen ? "" : "collapsed"}`} style={{ width: sidebarOpen ? sidebarWidth + 1 : undefined }}>
+      <div className={`titlebar-sidebar ${sidebarOpen ? "" : "collapsed"}`} style={{ width: sidebarOpen ? sidebar.sidebarWidth + 1 : undefined }}>
         <div className="titlebar-navigator">
           <div className="traffic-space" />
           <div className="titlebar-sidebar-toggle">
             <Tip label={sidebarOpen ? t`Hide sidebar` : t`Show sidebar`}>
-              <button className="icon-button" onClick={() => setSidebarOpen((value) => !value)}>
+              <button className="icon-button" onClick={() => sidebar.setSidebarOpen((value) => !value)}>
                 <span key={sidebarOpen ? "open" : "closed"} className="toggle-icon">
                   {sidebarOpen ? <PanelLeftClose size={16} /> : <PanelLeftOpen size={16} />}
                 </span>
@@ -134,7 +65,7 @@ export function AppTitlebar(props: AppTitlebarProps) {
           </div>
         </div>
         <div className="project-switcher">
-          <DropdownMenu open={projectMenuOpen} onOpenChange={setProjectMenuOpen} modal={false}>
+          <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen} modal={false}>
             <DropdownMenuTrigger asChild>
               <button
                 className="project-title"
@@ -145,37 +76,13 @@ export function AppTitlebar(props: AppTitlebarProps) {
                 <ChevronDown size={13} />
               </button>
             </DropdownMenuTrigger>
-            <ProjectMenu
-              currentPath={project.root}
-              recentProjects={recentProjects}
-              busyLabel={busyLabel}
-              onRecent={chooseRecentProject}
-              onOpen={() => void chooseExisting()}
-              onNew={() => {
-                setCreateError(null);
-                setCreateOpen(true);
-              }}
-              onOpenOverleaf={() => setOverleafPickerOpen(true)}
-              onOpenTutorial={() => void openTutorialProject()}
-              onExportZip={() => void exportProjectZip()}
-              onSettings={() => openSettings("appearance")}
-            />
+            <ProjectMenu currentPath={project.root} {...menu} />
           </DropdownMenu>
           <div className="titlebar-drag-area" aria-hidden="true" />
         </div>
       </div>
       <div className="titlebar-main">
-        <EditorTabs
-          tabs={editorTabItems}
-          activePath={activeTabKey}
-          animateLayout={!sidebarResizing}
-          canCloseLast={canvasMode === "pdf"}
-          onDropTab={dropProjectPath}
-          onSelect={selectEditorTab}
-          onClose={requestCloseEditorTab}
-          onSetPinned={setEditorTabPinned}
-          onReorder={setOpenTabs}
-        />
+        <EditorTabs {...tabs} />
         {canvasToolbar}
         <div className="title-actions">
           <Tip label={building ? t`Stop the current LaTeX build` : buildPreferences.autoBuildMode === "automatic"
@@ -187,11 +94,11 @@ export function AppTitlebar(props: AppTitlebarProps) {
               data-tour="build"
               className={`build-button ${building ? "stop" : build?.success ? "success" : ""}`}
               onClick={(event) => {
-                if (building) void abortBuild();
-                else if (event.shiftKey) void cleanAndRebuild();
+                if (building) void buildPipeline.abortBuild();
+                else if (event.shiftKey) void buildPipeline.cleanAndRebuild();
                 else void compile(false, true);
               }}
-              disabled={!building && cleaning}
+              disabled={!building && buildPipeline.cleaning}
               aria-live="polite"
             >
               <StateSwap swapKey={building ? "building" : build?.success ? "success" : "idle"}>
