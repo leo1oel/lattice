@@ -1,6 +1,7 @@
-import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { Editor } from "@tiptap/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { getParseHealth, resetParseHealth } from "../../open-knowledge-core/metrics/parse-health.ts";
 import { VisualMarkdownEditor } from "./visual-markdown-editor";
 import { getMarkdownManager, parseVisualMarkdown } from "./visual-markdown-schema";
 
@@ -94,5 +95,59 @@ describe("deferred unknown JSX conversion", () => {
     });
 
     expect(serialize(editor)).toBe("Following bytes stay here.\n");
+  });
+});
+
+describe("JSX chrome actions resolve their live target", () => {
+  afterEach(() => {
+    cleanup();
+    resetParseHealth();
+  });
+
+  function calloutPositions(editor: Editor): number[] {
+    const positions: number[] = [];
+    editor.state.doc.descendants((node, pos) => {
+      if (node.type.name === "jsxComponent" && node.attrs.componentName === "Callout") {
+        positions.push(pos);
+      }
+    });
+    return positions;
+  }
+
+  it("deletes the component, not the block that now sits at its rendered position", async () => {
+    // A block inserted above shifts the component before React re-renders
+    // its NodeView; the chrome must not act on the position it rendered with.
+    const editor = mountEditor('<Callout title="Target">\nBody.\n</Callout>\n\nTail stays.\n');
+    const deleteButton = await screen.findByRole("button", { name: "Delete Callout" });
+    editor.view.dispatch(
+      editor.state.tr.insert(0, editor.schema.nodes.paragraph.create(null, editor.schema.text("Inserted"))),
+    );
+    expect(calloutPositions(editor)).toHaveLength(1);
+
+    fireEvent.click(deleteButton);
+
+    expect(calloutPositions(editor)).toEqual([]);
+    expect(serialize(editor)).toBe("Inserted\n\nTail stays.\n");
+  });
+
+  it("refuses a chrome action once its component changed underneath it", async () => {
+    const editor = mountEditor('<Callout title="Target">\nBody.\n</Callout>\n\nTail stays.\n');
+    const deleteButton = await screen.findByRole("button", { name: "Delete Callout" });
+    const [pos] = calloutPositions(editor);
+    const current = editor.state.doc.nodeAt(pos!)!;
+    // Update the node without letting React re-render the NodeView, as a
+    // concurrent write does between render and click.
+    editor.view.dispatch(
+      editor.state.tr.setNodeMarkup(pos!, undefined, {
+        ...current.attrs,
+        props: { ...(current.attrs.props as Record<string, unknown>), title: "Edited elsewhere" },
+        sourceDirty: true,
+      }),
+    );
+
+    fireEvent.click(deleteButton);
+
+    expect(calloutPositions(editor)).toHaveLength(1);
+    expect(getParseHealth().jsxActionAborted["delete-chrome"]).toBe(1);
   });
 });

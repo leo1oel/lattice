@@ -91,6 +91,9 @@ export const LinkFidelity = Link.extend({
       // emission (literal URL form, double-quote title).
       sourceUrlForm: { default: null, rendered: false },
       sourceTitleMarker: { default: null, rendered: false },
+      sourceTarget: { default: null, rendered: false },
+      sourceAnchor: { default: null, rendered: false },
+      sourceAlias: { default: null, rendered: false },
     };
   },
 });

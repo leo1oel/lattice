@@ -453,7 +453,10 @@ export function createInteractionLayer(
   // When `setActiveNode(id)` fires, we capture the element that OWNED focus
   // at dispatch time if it matches the chip whose node id we're activating.
   // On `setActiveNode(null)` we restore focus to that element. Falls back
-  // to `editor.view.dom` if the captured element is gone.
+  // to `editor.view.dom` if the captured element is gone. With no captured
+  // owner (hover activation) the editor is refocused only when focus sits in a
+  // layer-owned surface that is closing; otherwise focusing the editor would
+  // scroll the document back to its caret after a plain link hover.
   //
   // `restoringFocus` gates the `focusin` listener around the synchronous
   // `.focus()` call below: HTMLElement.focus() fires `focusin` synchronously
@@ -461,7 +464,8 @@ export function createInteractionLayer(
   // that synthetic event as a fresh keyboard activation and reopen the
   // popover we just dismissed (breaks Escape and Enter-to-navigate on
   // same-doc anchors).
-  let lastActivator: HTMLElement | null = null;
+  type FocusOwner = { kind: 'none' } | { kind: 'activator'; element: HTMLElement };
+  let focusOwner: FocusOwner = { kind: 'none' };
   let restoringFocus = false;
   const restoreFocusTo = (target: HTMLElement): void => {
     try {
@@ -479,18 +483,28 @@ export function createInteractionLayer(
       if (typeof document !== 'undefined') {
         const active = document.activeElement as HTMLElement | null;
         if (active && isPotentialChipElement(active, activeId)) {
-          lastActivator = active;
+          focusOwner = { kind: 'activator', element: active };
         } else {
-          lastActivator = null;
+          focusOwner = { kind: 'none' };
         }
+      } else {
+        focusOwner = { kind: 'none' };
       }
       return;
     }
+    const owner = focusOwner;
+    focusOwner = { kind: 'none' };
     if (typeof document === 'undefined') return;
-    const target = lastActivator;
-    lastActivator = null;
-    if (target && document.contains(target) && typeof target.focus === 'function') {
-      restoreFocusTo(target);
+    if (owner.kind === 'none') {
+      const active = document.activeElement;
+      if (
+        !active?.closest(
+          '[data-ok-prop-panel], [data-ok-layer-spawned], [data-ok-interaction-layer]',
+        )
+      )
+        return;
+    } else if (document.contains(owner.element) && typeof owner.element.focus === 'function') {
+      restoreFocusTo(owner.element);
       return;
     }
     const dom = editorDom ?? getEditorDom(editor);

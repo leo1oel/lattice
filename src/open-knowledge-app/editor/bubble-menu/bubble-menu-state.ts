@@ -9,12 +9,22 @@
 
 import { commentQuoteText } from '@ok-core';
 import { CellSelection } from '@tiptap/pm/tables';
+import type { EditorView } from '@tiptap/pm/view';
 import type { Editor } from '@tiptap/react';
 import { findMarkIdAt } from '../extensions/mark-identity';
 import { getFindReplaceState } from '../find-replace/tiptap-find-replace-extension';
 import { isFileNodeSelected } from './FileBubbleButtons';
 
-export function shouldShowBubbleMenu({ editor }: { editor: Editor }): boolean {
+export function shouldShowBubbleMenu({
+  editor,
+  view,
+}: {
+  editor: Editor;
+  view?: EditorView;
+}): boolean {
+  // A native drag of the selected text keeps the selection non-empty; the bar
+  // would otherwise float over the drop target for the whole gesture.
+  if (view?.dragging) return false;
   if (getFindReplaceState(editor.state).query) return false;
   if (editor.isActive('codeBlock')) return false;
   // Cell selections own a structure-specific Merge control. Inline formatting

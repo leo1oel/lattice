@@ -49,3 +49,6 @@ _to_delete/
 
 # Local `wrangler dev` Durable Object / R2 state for the collab server
 collab-server/.wrangler/
+
+# TypeScript incremental build caches
+*.tsbuildinfo
