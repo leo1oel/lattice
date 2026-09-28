@@ -112,21 +112,21 @@ Counts are tracked files directly in the directory (not nested), and lines are
 | `src/telemetry/` | 21 | 10 | 3,113 | Everything the app says about itself: the log store and log panel, toast notifications, the updater banner, global error capture, the root error boundary, interface sounds. |
 | `src/history/` | 14 | 5 | 2,610 | Version history and diffs: the history drawer, the versions timeline, `file-diff-view.tsx` and `pierre-diff.ts` (`@pierre/diffs` + shiki), conflict markers and the conflict resolver. |
 | `src/editor/insert/` | 12 | 4 | 1,179 | Putting things into a document: the insert palette, snippets and placeholders, figure and table generators, clipboard images. |
-| `src/styles/` | 11 | 3 | 603 | 8 CSS files (the token scale, palette, app shell, workspace) plus the three tests that enforce them (`tokens`, `surfaces`, `editor-selection-styles`). |
+| `src/styles/` | 11 | 3 | 599 | 8 CSS files (the token scale, palette, app shell, workspace) plus the three tests that enforce them (`tokens`, `surfaces`, `editor-selection-styles`). |
 | `src/build/` | 18 | 8 | 1,718 | Compiling LaTeX and the tooling around it: log-line diagnostics, the TexLab language client and its diagnostics, the TeX-install wizard. |
 | `src/papers/` | 28 | 11 | 3,466 | The paper library and bibliography: literature discovery, `bib-entry`, `venues.ts`, arXiv ids, paper links, import progress, the reference check (`bibliography-audit*`). |
 | `src/canvas/` | 27 | 3 | 5,732 | The editing surface shell: `document-canvas.tsx` and the modules it was broken into (editor extensions, HTML preview, Paper reader, asset preview, Markdown split-scroll and mode handoff, split layout, zoom), editor tabs, the canvas toolbar, the document outline, and the lazy-chunk registry (`canvas-lazy-modules.ts`). |
 | `src/editor/spreadsheet/` | 10 | 3 | 3,361 | The Univer-backed `.lattice-sheet` editor, its Univer setup and presence, format types, operations, CRDT bridge and XLSX import/export. |
 | `src/app/` | 48 | 9 | 7,789 | App orchestration: the hooks extracted from `App.tsx` (project state and library, document buffers, build pipeline, Synara host, collab session, Overleaf workspace, editor comments, reference import, …), the `app-*.tsx` surfaces App renders (title bar, sidebar, dialogs, drawers), shared effect helpers, and the window/panel geometry App owns. |
-| `src/settings/` | 11 | 3 | 2,031 | The settings dialog and its panes, the localStorage-backed preference store, appearance and fixed fonts. |
+| `src/settings/` | 11 | 3 | 2,058 | The settings dialog and its panes, the localStorage-backed preference store, appearance and fixed fonts. |
 | `src/pdf/` | 18 | 5 | 3,634 | The pdf.js viewer (`pdf-viewer.tsx` over the `use-pdf-*` hooks and `pdf-slick.ts`) with SyncTeX, search and annotations, plus base64/byte plumbing. |
-| `src/platform/` | 10 | 5 | 1,928 | Runtime bootstrap and the repo-level guards that pin it: the browser-host runtime and bridge, `perf-probe.ts`, `test-setup.ts`, and tests for compiler/security configuration and the pre-module compatibility script in `public/polyfills.js`. |
+| `src/platform/` | 10 | 5 | 1,934 | Runtime bootstrap and the repo-level guards that pin it: the browser-host runtime and bridge, `perf-probe.ts`, `test-setup.ts`, and tests for compiler/security configuration and the pre-module compatibility script in `public/polyfills.js`. |
 | `src/editor/` | 10 | 4 | 1,215 | Editor infrastructure shared by more than one editor kind: the hand-mounted CodeMirror host, language resolution, Harper spellcheck, paper drops, the go-to-line dialog, and `dom-utils.ts` (element, listener and idle-callback helpers for hand-built editor chrome). |
 | `src/animated-icons/` | 5 | 1 | 215 | The animated product icons (plus `bakai/`, 12 hand-rebuilt glyphs). Exercised by the playground in `tools/icon-lab/`. |
 | `src/editor/comments/` | 4 | 1 | 898 | Editor comments: the data shape, the CodeMirror/TipTap integration, the panel. |
 | `src/editor/board/` | 3 | 1 | 1,176 | The tldraw whiteboard and its Y.Doc bridge. Loaded only via `loadBoardEditorModule()`. |
 | `src/editor/presentation/` | 6 | 3 | 644 | The embedded Open Slide workspace and its loopback bridge. |
-| `src/onboarding/` | 3 | 1 | 627 | The first-run tour and its step definitions. |
+| `src/onboarding/` | 3 | 1 | 628 | The first-run tour and its step definitions. |
 | `src/components/` | 2 | 0 | 106 | `copy-button.tsx`, `icon-tip.tsx` (outside `ui/`). |
 | `src/hooks/` | 2 | 0 | 44 | Domain-free hooks: `use-latest-ref.ts`, `use-non-passive-wheel.ts`. |
 | `src/lib/` | 1 | 0 | — | `utils.ts` (the shadcn `cn` helper). |
