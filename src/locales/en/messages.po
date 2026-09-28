@@ -84,12 +84,17 @@ msgstr "{completed} of {progressTotal} references checked"
 msgid "{count} comments"
 msgstr "{count} comments"
 
+#: src/project/project-find-dialog.tsx
+msgid "{count} hits"
+msgstr "{count} hits"
+
 #: src/history/conflict-resolver.tsx
 msgid "{count} lines"
 msgstr "{count} lines"
 
 #: src/papers/paper-lookup.tsx
 #: src/project/paper-library.tsx
+#: src/project/project-find-dialog.tsx
 msgid "{count} papers"
 msgstr "{count} papers"
 
@@ -152,6 +157,10 @@ msgstr "⌘⇧H · all .tex files"
 msgid "⌘⇧T to reopen"
 msgstr "⌘⇧T to reopen"
 
+#: src/project/project-find-dialog.tsx
+msgid "1 hit"
+msgstr "1 hit"
+
 #: src/history/conflict-resolver.tsx
 msgid "1 line"
 msgstr "1 line"
@@ -162,6 +171,7 @@ msgstr "1 of {total} papers"
 
 #: src/papers/paper-lookup.tsx
 #: src/project/paper-library.tsx
+#: src/project/project-find-dialog.tsx
 msgid "1 paper"
 msgstr "1 paper"
 

@@ -5,6 +5,8 @@ import "tldraw/tldraw.css";
 import { createTldrawAgentCanvasAdapter } from "../../agent/agent-canvas-tldraw-adapter";
 import { registerAgentCanvasAdapter } from "../../agent/agent-canvas-tools";
 import type { BoardFileViewState } from "../../app-types";
+import type { Theme } from "../../settings/app-settings";
+import { boardAssetUrls } from "./board-asset-urls";
 import { createBoardStore, mergeExternalBoardSource, serializeBoard } from "./board-store";
 
 // Hobby-license keys are client-side by design (tldraw docs); embedded via
@@ -26,6 +28,8 @@ export type BoardEditorProps = {
   /** Per-user camera state. It never enters the .tldr file. */
   initialViewState?: BoardFileViewState;
   onViewState?: (state: BoardFileViewState) => void;
+  /** The resolved Lattice theme; "follow system" is resolved by the caller. */
+  theme: Theme;
 };
 
 /** Only the focused board owns the global Agent canvas tool adapter. */
@@ -43,6 +47,7 @@ export function BoardEditor({
   active = true,
   initialViewState,
   onViewState,
+  theme,
 }: BoardEditorProps) {
   const { i18n } = useLingui();
   const tldrawLocale = i18n.locale === "zh-CN" ? "zh-cn" : "en";
@@ -56,9 +61,11 @@ export function BoardEditor({
   useLayoutEffect(() => {
     callbacksRef.current = { onChange, onViewState };
   }, [onChange, onViewState]);
+  // Preferences, not <Tldraw colorScheme>: changing that prop recreates the
+  // editor, and a stored user preference would override it anyway.
   useLayoutEffect(() => {
-    editorRef.current?.user.updateUserPreferences({ locale: tldrawLocale });
-  }, [tldrawLocale]);
+    editorRef.current?.user.updateUserPreferences({ locale: tldrawLocale, colorScheme: theme });
+  }, [tldrawLocale, theme]);
   useLayoutEffect(() => () => {
     canWriteRef.current = false;
     disposeViewStateRef.current?.();
@@ -120,12 +127,14 @@ export function BoardEditor({
       <Tldraw
         store={store}
         licenseKey={LICENSE_KEY}
+        assetUrls={boardAssetUrls}
         locale={tldrawLocale}
         onMount={(editor) => {
           editorRef.current = editor;
           // Menus read the editor preference as well as the provider locale.
-          // Keep both aligned with Lattice instead of the browser language.
-          editor.user.updateUserPreferences({ locale: tldrawLocale });
+          // Keep both, and the color scheme, aligned with Lattice instead of
+          // the browser language or tldraw's own stored preference.
+          editor.user.updateUserPreferences({ locale: tldrawLocale, colorScheme: theme });
           const restoredPage = initialViewState
             ? editor.getPage(initialViewState.pageId as TLPageId)
             : undefined;

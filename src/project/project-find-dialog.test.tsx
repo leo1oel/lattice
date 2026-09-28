@@ -119,6 +119,26 @@ describe("ProjectFindDialog", () => {
     expect(props.onOpenHit).not.toHaveBeenCalled();
   });
 
+  it("counts several matches in one paper as one paper, while listing each match", async () => {
+    const vit = "An Image is Worth 16x16 Words";
+    const vitHit = (path: string, snippet: string, line?: number) => ({ kind: "paper", path, title: vit, snippet, line });
+    const { search } = renderFind({
+      hits: [
+        fileHit("main.tex", 1), fileHit("main.tex", 4), fileHit("notes.md", 2),
+        vitHit(".research/papers/2010.11929/paper.md", vit),
+        vitHit(".research/papers/2010.11929/paper.md", "image patches", 12),
+        vitHit(".research/papers/2010.11929/blog.md", "image recognition", 3),
+      ],
+    });
+
+    search("image");
+    expect(screen.getByRole("status")).toHaveTextContent("3 hits · 1 paper");
+    expect(screen.getAllByRole("button", { name: `Open paper result: ${vit}` })).toHaveLength(3);
+
+    await act(() => activateAppLocale("zh-CN"));
+    expect(screen.getByRole("status")).toHaveTextContent("3 个结果 · 1 篇论文");
+  });
+
   it("opens paper results by click and keyboard", () => {
     const path = ".research/papers/1706.03762/blog.md";
     const { props, input, search } = renderFind({

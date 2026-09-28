@@ -105,6 +105,7 @@
     "@tiptap/react": "3.31.3",
     "@tiptap/starter-kit": "3.31.3",
     "@tiptap/suggestion": "3.31.3",
+    "@tldraw/assets": "5.2.5",
     "@u-wave/react-vimeo": "^0.9.12",
     "@univerjs/core": "0.25.1",
     "@univerjs/engine-render": "0.25.1",

@@ -33,11 +33,12 @@ vi.mock("./canvas-lazy-modules", () => {
     path?: string; source?: string; initialViewState?: { camera?: { x: number; y: number; z: number } };
     editorComments?: Array<{ id: string; from: number; to: number }>; activeEditorCommentId?: string | null;
     onEligibilityChange?: (reason: string | null) => void; onEditorCommentClick?: (id: string) => void;
-    onCreateComment?: (from: number, to: number, body: string) => void;
+    onCreateComment?: (from: number, to: number, body: string) => void; theme?: string;
   }) => (
     <div
       data-testid={testId}
       data-path={props.path ?? ""}
+      data-theme={props.theme ?? ""}
       data-source={props.source ?? ""}
       data-restored-camera={String(props.initialViewState?.camera?.x ?? "")}
       data-comments={JSON.stringify(props.editorComments ?? [])}
@@ -595,6 +596,14 @@ describe("DocumentCanvas / per-file view state", () => {
     rerenderWith({ activeFile: "diagram.tldr", source: "{}" });
 
     expect((await screen.findByTestId("board-editor")).dataset.restoredCamera).toBe("120");
+  });
+
+  it("keeps the board on the app theme, including a live switch", async () => {
+    const { rerenderWith } = renderCanvas({ mode: "source", activeFile: "diagram.tldr", source: "{}", theme: "dark" });
+
+    expect((await screen.findByTestId("board-editor")).dataset.theme).toBe("dark");
+    rerenderWith({ activeFile: "diagram.tldr", source: "{}", theme: "light" });
+    expect(screen.getByTestId("board-editor").dataset.theme).toBe("light");
   });
 
   it("returns an open presentation tab to the page it was showing", async () => {
