@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import type { CanvasMode, EditorPosition, PaperSummary, ProjectSnapshot } from "../app-types";
 import {
@@ -9,8 +9,8 @@ import {
 } from "../agent/agent-host-context";
 import { buildAgentPaperLibrary } from "../agent/agent-paper-library";
 import type { OpenSlideContext } from "../editor/presentation/open-slide-bridge";
-import { useRefState } from "./effect-helpers";
-import { useSynaraSnapshots, type useSynaraHost } from "./use-synara-host";
+import { thenUnlessDisposed, useRefState } from "./effect-helpers";
+import type { useSynaraHost } from "./use-synara-host";
 
 type SelectionImage = AgentHostSelectionImage & { source: AgentHostSurface };
 
@@ -128,16 +128,10 @@ export function useAgentContext({ synara, project, papers, agentVisible, workspa
   const projectRoot = project?.root;
   useEffect(() => {
     if (!imageEnabled || !imagePath || !selectionSource || !projectRoot || !/\.webp$/i.test(imagePath)) return;
-    let disposed = false;
-    void invoke<string>("prepare_latex_figure", { path: imagePath, projectRoot })
-      .then((agentReadablePath) => {
-        if (disposed || !agentReadablePath) return;
-        setPreparedImage({ source: selectionSource, projectRoot, sourcePath: imagePath, agentReadablePath, mimeType: "image/png" });
-      })
-      .catch(() => undefined);
-    return () => {
-      disposed = true;
-    };
+    const preparing = invoke<string>("prepare_latex_figure", { path: imagePath, projectRoot }).catch(() => null);
+    return thenUnlessDisposed(preparing, (agentReadablePath) => {
+      if (agentReadablePath) setPreparedImage({ source: selectionSource, projectRoot, sourcePath: imagePath, agentReadablePath, mimeType: "image/png" });
+    });
   }, [imageEnabled, imagePath, projectRoot, selectionSource]);
   const preparedMatches = preparedImage !== null
     && preparedImage.projectRoot === projectRoot
@@ -156,7 +150,21 @@ export function useAgentContext({ synara, project, papers, agentVisible, workspa
     () => project ? buildAgentPaperLibrary({ workspaceRoot: project.root, papers }) : null,
     [papers, project],
   );
-  useSynaraSnapshots(synara, hostContext, paperLibrary);
+  // Keep the agent's view of the host (context and paper library) current while it is on screen.
+  const { deliverable, latest, postMessage } = synara;
+  useLayoutEffect(() => {
+    Object.assign(latest.current, { hostContext, paperLibrary });
+  }, [hostContext, latest, paperLibrary]);
+  useEffect(() => {
+    if (!hostContext || !deliverable) return;
+    const frame = window.requestAnimationFrame(() => void postMessage(hostContext));
+    return () => window.cancelAnimationFrame(frame);
+  }, [deliverable, hostContext, postMessage]);
+  useEffect(() => {
+    if (!paperLibrary || !deliverable) return;
+    const frame = window.requestAnimationFrame(() => void postMessage(paperLibrary));
+    return () => window.cancelAnimationFrame(frame);
+  }, [deliverable, paperLibrary, postMessage]);
 
   return { selection, reportSelection, activateSurface, dismissSelection, resetSelection };
 }

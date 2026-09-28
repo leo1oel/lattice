@@ -55,6 +55,11 @@ export function AppSearchDialogs({ open, setOpen, activeFile, openProjectFile, o
 }) {
   const { t } = useLingui();
   const close = () => setOpen(null);
+  /** Every pick closes the dialog on screen before acting on it. */
+  const closeThen = <A extends unknown[]>(act: (...args: A) => void) => (...args: A) => {
+    close();
+    act(...args);
+  };
   // Items are derived only for the dialog on screen.
   const symbolItems = (): SearchPickerItem[] => [
     ...flattenOutline(outlineNodes).filter((node) => node.kind !== "input").map((node) => ({
@@ -99,11 +104,10 @@ export function AppSearchDialogs({ open, setOpen, activeFile, openProjectFile, o
         paths={open === "quick-open" ? collectFilePaths(props.files, (node) => Boolean(node.path)) : []}
         onClose={close}
         onIntent={props.prewarmLikelyProjectFile}
-        onOpen={(path) => {
-          close();
+        onOpen={closeThen((path) => {
           if (isProjectAssetFilePath(path)) void props.openProjectAsset(path);
           else void openProjectFile(path);
-        }}
+        })}
       />
       <SearchPickerDialog
         open={open === "goto-symbol"}
@@ -111,8 +115,7 @@ export function AppSearchDialogs({ open, setOpen, activeFile, openProjectFile, o
         placeholder={t`Go to section or label…`}
         items={open === "goto-symbol" ? symbolItems() : []}
         onClose={close}
-        onSelect={(item) => {
-          close();
+        onSelect={closeThen((item) => {
           if (item.id.startsWith("section:")) {
             const node = flattenOutline(outlineNodes).find((entry) => `section:${entry.id}` === item.id);
             if (node) void openProjectFile(node.path || activeFile, node.line);
@@ -120,7 +123,7 @@ export function AppSearchDialogs({ open, setOpen, activeFile, openProjectFile, o
           }
           const reference = liveReferences.find((entry) => `label:${entry.path}:${entry.label}` === item.id);
           if (reference) void openProjectFile(reference.path, reference.line);
-        }}
+        })}
       />
       {insertPickers.map((picker) => (
         <SearchPickerDialog
@@ -130,10 +133,7 @@ export function AppSearchDialogs({ open, setOpen, activeFile, openProjectFile, o
           placeholder={picker.placeholder}
           items={open === picker.command ? picker.items() : []}
           onClose={close}
-          onSelect={(item) => {
-            close();
-            props.insertReference(item.label, picker.command);
-          }}
+          onSelect={closeThen((item) => props.insertReference(item.label, picker.command))}
         />
       ))}
       <GotoLineDialog
@@ -141,10 +141,7 @@ export function AppSearchDialogs({ open, setOpen, activeFile, openProjectFile, o
         line={props.editorPosition?.line ?? 1}
         maxLine={Math.max(1, props.source.split("\n").length)}
         onClose={close}
-        onGoto={(line) => {
-          close();
-          props.goToLine(line);
-        }}
+        onGoto={closeThen(props.goToLine)}
       />
     </>
   );

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type Dispatch, type SetStateAction } from "react";
+import { frameCoalescer } from "./effect-helpers";
 import { resolveSidebarModeTier, type SidebarModeTier } from "./sidebar-mode-layout";
 import { usePanelLayout } from "./use-panel-layout";
 
@@ -52,9 +53,7 @@ export function useWorkspaceSidebar(remeasureKey: string | undefined) {
     const actions = sidebarModeActionsRef.current;
     const tabs = header?.querySelector<HTMLElement>(".sidebar-mode-tabs");
     if (!header || !actions || !tabs) return;
-    let frameId: number | null = null;
-    const measure = () => {
-      frameId = null;
+    const [scheduleMeasure, cancelMeasure] = frameCoalescer(() => {
       const styles = getComputedStyle(header);
       const [collapsedWidth, expandedWidth, tabGap, actionsGap] = [
         "--navigation-control-height",
@@ -71,11 +70,7 @@ export function useWorkspaceSidebar(remeasureKey: string | undefined) {
       );
       const nextTier = resolveSidebarModeTier({ availableWidth, collapsedWidth, expandedWidth, tabCount, tabGap });
       setSidebarModeTier((current) => (current === nextTier ? current : nextTier));
-    };
-    const scheduleMeasure = () => {
-      if (frameId !== null) cancelAnimationFrame(frameId);
-      frameId = requestAnimationFrame(measure);
-    };
+    });
     scheduleMeasure();
     const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(scheduleMeasure);
     observer?.observe(header);
@@ -84,7 +79,7 @@ export function useWorkspaceSidebar(remeasureKey: string | undefined) {
     return () => {
       observer?.disconnect();
       window.removeEventListener("resize", scheduleMeasure);
-      if (frameId !== null) cancelAnimationFrame(frameId);
+      cancelMeasure();
     };
   }, [panel.sidebarOpen, remeasureKey, sidebarMode]);
   return {

@@ -90,10 +90,8 @@ export function planWorkspaceRestore(
   if (activeTab && !tabs.includes(activeTab)) tabs.push(activeTab);
   const activeKind = paperKeys.has(activeTab) ? "paper" : assetPaths.has(activeTab) ? "asset" : "document";
   const mode = restoredCanvasMode(activeTab, activeKind, layout, Boolean(secondaryFile));
-  const tabRecency = layout?.tabRecency.filter((path) => tabs.includes(path)) ?? [];
-  for (const path of tabs) {
-    if (!tabRecency.includes(path)) tabRecency.push(path);
-  }
+  // The saved recency order first, then any open tab it does not know yet.
+  const tabRecency = [...new Set([...(layout?.tabRecency ?? []).filter((path) => tabs.includes(path)), ...tabs])];
   const focusedPane: EditorPaneId = secondaryFile && isTwoPaneMode(mode) && layout?.focusedPane === "secondary"
     ? "secondary"
     : "primary";

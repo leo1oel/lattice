@@ -78,6 +78,12 @@ export function AppWorkspaceSidebar({ sidebar, synara, ...props }: AppWorkspaceS
     { icon: <Shapes />, label: t`New board`, request: props.setBoardCreateRequest },
     { icon: <Presentation />, label: t`New presentation`, request: props.setPresentationCreateRequest },
   ];
+  // Icon-only buttons: Tip names each one after its label.
+  const paperActions = [
+    { icon: <BookOpen size={14} />, label: t`Discover literature`, run: () => props.setLiteratureOpen(true) },
+    { icon: <BookMarked size={14} />, label: t`Add bibliography entry`, run: () => props.openBibEntryDialog() },
+    { icon: <ClipboardCheck size={14} aria-hidden="true" />, label: t`Check references`, run: props.onCheckReferences },
+  ];
   return (
     <>
       <section className="shared-sidebar" data-tour="sidebar" inert={!sidebarOpen} aria-hidden={!sidebarOpen}>
@@ -118,7 +124,6 @@ export function AppWorkspaceSidebar({ sidebar, synara, ...props }: AppWorkspaceS
                 </DropdownMenu>
                 <Tip label={t`Find in project`}>
                   <button
-                    aria-label={t`Find in project`}
                     onClick={() => {
                       props.setProjectSearchOpen(false);
                       props.openProjectFind();
@@ -129,23 +134,11 @@ export function AppWorkspaceSidebar({ sidebar, synara, ...props }: AppWorkspaceS
                 </Tip>
               </>
             )}
-            {sidebarMode === "papers" && (
-              <>
-                <Tip label={t`Discover literature`}>
-                  <button aria-label={t`Discover literature`} onClick={() => props.setLiteratureOpen(true)}>
-                    <BookOpen size={14} />
-                  </button>
-                </Tip>
-                <Tip label={t`Add bibliography entry`}>
-                  <button onClick={() => props.openBibEntryDialog()}><BookMarked size={14} /></button>
-                </Tip>
-                <Tip label={t`Check references`}>
-                  <button type="button" aria-label={t`Check references`} onClick={props.onCheckReferences}>
-                    <ClipboardCheck size={14} aria-hidden="true" />
-                  </button>
-                </Tip>
-              </>
-            )}
+            {sidebarMode === "papers" && paperActions.map((action) => (
+              <Tip key={action.label} label={action.label}>
+                <button type="button" onClick={action.run}>{action.icon}</button>
+              </Tip>
+            ))}
             {sidebarMode === "agent" && (
               <>
                 {synaraOrigin && <Suspense fallback={null}>

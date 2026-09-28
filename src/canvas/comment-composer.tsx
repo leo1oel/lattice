@@ -4,7 +4,7 @@ import type { EditorView } from "@codemirror/view";
 import { Textarea } from "../components/ui/textarea";
 import { resolveCommentAnchor } from "../editor/comments/editor-comments";
 import { clamp } from "../settings/app-settings";
-import { useLatest } from "../app/effect-helpers";
+import { onLayoutChange, useLatest } from "../app/effect-helpers";
 
 export type CommentDraft = {
   path: string;
@@ -36,7 +36,6 @@ export function CommentComposer({ draft, view, anchorKey, onBodyChange, onCancel
     const popup = popupRef.current;
     const host = view?.dom.closest(".source-editor");
     if (!view || !popup || !host) return;
-    let frame: number | null = null;
     let above: boolean | undefined;
     const reposition = () => {
       const range = resolveCommentAnchor(view.state.doc.toString(), draftRef.current);
@@ -61,25 +60,8 @@ export function CommentComposer({ draft, view, anchorKey, onBodyChange, onCancel
         maxHeight: `${Math.max(0, Math.min(280, above ? anchor.top - top - 8 : bottom - anchor.bottom - 8))}px`,
       });
     };
-    const scheduleReposition = () => {
-      if (frame !== null) return;
-      frame = window.requestAnimationFrame(() => {
-        frame = null;
-        reposition();
-      });
-    };
     reposition();
-    const observer = new ResizeObserver(scheduleReposition);
-    observer.observe(host);
-    observer.observe(view.contentDOM);
-    const listening = new AbortController();
-    window.addEventListener("scroll", scheduleReposition, { capture: true, signal: listening.signal });
-    window.addEventListener("resize", scheduleReposition, { signal: listening.signal });
-    return () => {
-      if (frame !== null) window.cancelAnimationFrame(frame);
-      observer.disconnect();
-      listening.abort();
-    };
+    return onLayoutChange([host, view.contentDOM], reposition);
   }, [anchorKey, draftRef, view]);
   return (
     <div

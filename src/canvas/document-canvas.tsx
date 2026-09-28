@@ -53,7 +53,7 @@ import {
   PROJECT_FIGURE_DRAG_TYPE,
 } from "../app-utils";
 import type { AgentHostSurface } from "../agent/agent-host-context";
-import { useLatest } from "../app/effect-helpers";
+import { frameCoalescer, onLayoutChange, thenUnlessDisposed, useLatest } from "../app/effect-helpers";
 import type { CollabPeer, EditorCollabBinding, EditorCollabSession } from "../collab/collab-session";
 import { mergeTextIntoYText, peerCaretOffsetsV2, publishCollabCursorV2 } from "../collab/collab-session";
 import { collabEditorExtensions } from "../collab/collab-editor";
@@ -132,28 +132,6 @@ function useRegistration<T>(register: ((value: T | null) => void) | undefined, v
     register(value);
     return () => register(null);
   }, [register, value]);
-}
-
-/** A focusable cell of the two-pane layout: pointer-down or focus anywhere inside it enters `pane`. */
-function PaneCell({ pane, focusedPane, classes, onEnter, children, ...attributes }: HTMLAttributes<HTMLDivElement> & {
-  pane: EditorPaneId;
-  focusedPane: EditorPaneId;
-  classes: string[];
-  onEnter: () => void;
-  "data-paper-side"?: string;
-}) {
-  return (
-    <div
-      className={[...classes, focusedPane === pane ? "focused" : ""].join(" ")}
-      data-editor-pane={pane}
-      tabIndex={0}
-      onPointerDownCapture={onEnter}
-      onFocusCapture={onEnter}
-      {...attributes}
-    >
-      {children}
-    </div>
-  );
 }
 
 export function DocumentCanvas(props: {
@@ -470,10 +448,6 @@ export function DocumentCanvas(props: {
     selectionToolbarOwnerRef.current = null;
     setSelectionToolbar(null);
   }, []);
-  /** Focus moving into `pane` drops a toolbar the other pane's selection owns. */
-  const claimSelectionToolbar = (pane: EditorPaneId) => {
-    if (selectionToolbarOwnerRef.current?.pane !== pane) dismissSelectionToolbar();
-  };
 
   const collabExtensions = useMemo(() => {
     // Binding before the host's Y.Texts have synced can create a competing
@@ -495,12 +469,10 @@ export function DocumentCanvas(props: {
   useEffect(() => {
     if (!secondaryFile) collabSession?.releaseSecondaryPath?.();
     if (!collabSession || !collabReady || !secondaryFile || !collabSession.openSecondaryPath) return;
-    let disposed = false;
     // A failed open leaves the pane unbound, exactly like a session with no binding for it.
-    void collabSession.openSecondaryPath(secondaryFile).catch(() => null).then((binding) => {
-      if (!disposed) setSecondaryCollabBinding(binding ? { session: collabSession, path: secondaryFile, binding } : null);
+    return thenUnlessDisposed(collabSession.openSecondaryPath(secondaryFile).catch(() => null), (binding) => {
+      setSecondaryCollabBinding(binding ? { session: collabSession, path: secondaryFile, binding } : null);
     });
-    return () => { disposed = true; };
   }, [collabReady, collabSession, secondaryBindingVersion, secondaryFile]);
   const secondaryCollabLive = collabReady && secondaryCollabBinding?.session === collabSession
     && secondaryCollabBinding.path === secondaryFile;
@@ -508,12 +480,12 @@ export function DocumentCanvas(props: {
     () => secondaryCollabLive ? collabEditorExtensions(secondaryCollabBinding.binding) : EMPTY_EXTENSIONS,
     [secondaryCollabBinding, secondaryCollabLive],
   );
-  // Lattice collab (v2) carets for the visual editor, resolved against the live
-  // Y.Text and shifted into preview coordinates like the Overleaf carets above.
+  // The Overleaf carets above plus Lattice collab (v2) carets, resolved against
+  // the live Y.Text and shifted into preview coordinates the same way.
   // Memoized on the peer list so other App renders dispatch no equal decorations.
-  const collabVisualCursors = useMemo(() => {
+  const allMarkdownVisualCursors = useMemo(() => {
+    if (!collabLive || !markdownDocument || !collabSession?.boardPresenceUser) return markdownVisualCursors;
     const cursors: PresenceCursor[] = [];
-    if (!collabLive || !markdownDocument || !collabSession?.boardPresenceUser) return cursors;
     const text = collabSession.ytext.toString();
     for (const caret of peerCaretOffsetsV2(collabSession)) {
       const before = text.slice(0, caret.index);
@@ -522,13 +494,9 @@ export function DocumentCanvas(props: {
       const column = caret.index - (before.lastIndexOf("\n") + 1);
       cursors.push({ name: caret.name, hue: hueFromColorHex(caret.color), color: caret.color, row: row - markdownPreviewLineOffset, column });
     }
-    return cursors;
+    return cursors.length ? [...markdownVisualCursors, ...cursors] : markdownVisualCursors;
     // onPeers publishes a fresh list for awareness updates, including carets.
-  }, [collabLive, collabSession, markdownDocument, markdownPreviewLineOffset, props.collabPeers, props.source]);
-  const allMarkdownVisualCursors = useMemo(
-    () => collabVisualCursors.length ? [...markdownVisualCursors, ...collabVisualCursors] : markdownVisualCursors,
-    [collabVisualCursors, markdownVisualCursors],
-  );
+  }, [collabLive, collabSession, markdownDocument, markdownPreviewLineOffset, markdownVisualCursors, props.collabPeers, props.source]);
   const mountSourceRef = useRef(props.source);
   const visualSourceHistoryRef = useRef<{ path: string; undo: string[]; redo: string[] }>({ path: activeFile, undo: [], redo: [] });
   const prevCollabEditorKeyRef = useRef(collabEditorKey);
@@ -652,37 +620,18 @@ export function DocumentCanvas(props: {
     [reportPaneUpdate],
   );
 
-  useEffect(() => {
-    let frame: number | null = null;
-    const scheduleReposition = () => {
-      if (frame != null || !selectionToolbarOwnerRef.current) return;
-      frame = window.requestAnimationFrame(() => {
-        frame = null;
-        const owner = selectionToolbarOwnerRef.current;
-        const view = owner && (owner.pane === "secondary" ? secondaryViewRef.current : primaryViewRef.current);
-        if (owner && view) updateSelectionToolbar(view, owner.path);
-      });
-    };
-    const resizeObserver = new ResizeObserver(scheduleReposition);
-    for (const view of [primaryViewRef.current, secondaryViewRef.current]) {
-      const editor = view?.dom.closest(".source-editor");
-      if (editor) resizeObserver.observe(editor);
-    }
-    const listening = new AbortController();
-    window.addEventListener("resize", scheduleReposition, { signal: listening.signal });
-    window.addEventListener("scroll", scheduleReposition, { capture: true, signal: listening.signal });
-    return () => {
-      if (frame != null) window.cancelAnimationFrame(frame);
-      resizeObserver.disconnect();
-      listening.abort();
-    };
-  }, [activeFile, focusedPane, secondaryFile, updateSelectionToolbar]);
+  useEffect(() => onLayoutChange(
+    [primaryViewRef.current, secondaryViewRef.current].map((view) => view?.dom.closest(".source-editor")),
+    () => {
+      const owner = selectionToolbarOwnerRef.current;
+      const view = owner && (owner.pane === "secondary" ? secondaryViewRef.current : primaryViewRef.current);
+      if (owner && view) updateSelectionToolbar(view, owner.path);
+    },
+  ), [activeFile, focusedPane, secondaryFile, updateSelectionToolbar]);
 
-  useEffect(() => {
-    if (props.mode === "pdf" || props.mode === "asset") dismissSelectionToolbar();
-  }, [dismissSelectionToolbar, props.mode]);
-
-  useEffect(dismissSelectionToolbar, [activeFile, dismissSelectionToolbar, secondaryFile]);
+  // Switching files, or to a mode without a source editor, drops the selection toolbar.
+  const sourceEditorHidden = props.mode === "pdf" || props.mode === "asset";
+  useEffect(dismissSelectionToolbar, [activeFile, dismissSelectionToolbar, secondaryFile, sourceEditorHidden]);
 
   useEffect(() => {
     primaryViewRef.current?.dispatch({ effects: setEditorCommentsEffect.of(commentsForActiveFile) });
@@ -930,20 +879,18 @@ export function DocumentCanvas(props: {
     const view = targetView();
     const preview = request.path === activeFile && markdownDocument ? markdownPreviewViewport?.deref() ?? null : null;
     if (!view && !preview) return;
-    let frame: number | null = null;
     let observer: MutationObserver | null = null;
     // codemirror-host holds an external value back while someone is typing, so
     // the view can still carry the previous file's text when a jump arrives.
     // Wait for the text to catch up — but not forever: a best-effort jump is
     // better than a request nobody answers.
     const staleDocumentDeadline = performance.now() + 600;
-    const navigate = () => {
-      frame = null;
+    const [scheduleNavigation, cancelNavigation] = frameCoalescer(() => {
       const currentView = targetView();
       if (currentView) {
         const currentSource = inSecondary ? secondarySource : editorSource;
         if (currentView.state.doc.toString() !== currentSource && performance.now() < staleDocumentDeadline) {
-          frame = window.requestAnimationFrame(navigate);
+          scheduleNavigation();
           return;
         }
         const line = currentView.state.doc.line(clamp(request.line, 1, currentView.state.doc.lines));
@@ -968,18 +915,14 @@ export function DocumentCanvas(props: {
       }
       observer?.disconnect();
       onRequestHandled(request.id);
-    };
-    const scheduleNavigation = () => {
-      if (frame != null) return;
-      frame = window.requestAnimationFrame(navigate);
-    };
+    });
     if (!view && preview) {
       observer = new MutationObserver(scheduleNavigation);
       observer.observe(preview, { attributes: true, attributeFilter: ["data-source-line"], childList: true, subtree: true });
     }
     scheduleNavigation();
     return () => {
-      if (frame != null) window.cancelAnimationFrame(frame);
+      cancelNavigation();
       observer?.disconnect();
     };
   }, [
@@ -1150,27 +1093,21 @@ export function DocumentCanvas(props: {
       : returnViewport?.path === path ? returnViewport : getFileViewState?.(path)?.visualMarkdown;
     if (!quoteFallback && returnViewport?.path === path) paperReturnViewportRef.current = null;
     let restoring = Boolean(saved);
-    let restoreFrame: number | null = null;
+    let attempts = 0;
+    // Retried each frame until the preview is tall enough to hold the saved place.
+    const [scheduleRestore, cancelRestore] = frameCoalescer(() => {
+      attempts += 1;
+      const ready = saved && restoreViewport(viewport, { scrollTop: saved.scrollTop, scrollRange: saved.scrollRange ?? 0 });
+      if (!ready && attempts < 30) scheduleRestore();
+      else restoring = false;
+    });
     const report = () => {
       if (!restoring) onFileViewState?.(path, { visualMarkdown: captureViewport(viewport) });
     };
     viewport.addEventListener("scroll", report, { passive: true });
-    if (saved) {
-      let attempts = 0;
-      const restore = () => {
-        restoreFrame = null;
-        attempts += 1;
-        const ready = restoreViewport(viewport, { scrollTop: saved.scrollTop, scrollRange: saved.scrollRange ?? 0 });
-        if (!ready && attempts < 30) {
-          restoreFrame = window.requestAnimationFrame(restore);
-          return;
-        }
-        restoring = false;
-      };
-      restoreFrame = window.requestAnimationFrame(restore);
-    }
+    if (saved) scheduleRestore();
     markdownPreviewPersistenceCleanupRef.current = () => {
-      if (restoreFrame !== null) window.cancelAnimationFrame(restoreFrame);
+      cancelRestore();
       restoring = false;
       report();
       viewport.removeEventListener("scroll", report);
@@ -1327,12 +1264,13 @@ export function DocumentCanvas(props: {
   };
   /**
    * Focus handler for `pane`: the agent surface it offers, whether it takes the
-   * selection toolbar, and whether its source view becomes the insertion
-   * target. The pane ref updates at once, ahead of the next render.
+   * selection toolbar (dropping one the other pane's selection owns), and
+   * whether its source view becomes the insertion target. The pane ref updates
+   * at once, ahead of the next render.
    */
   const focusPane = (pane: EditorPaneId, surface: AgentHostSurface | null, { claim = false, view = false } = {}) => {
     if (surface) props.onContextSurfaceActivate(surface);
-    if (claim) claimSelectionToolbar(pane);
+    if (claim && selectionToolbarOwnerRef.current?.pane !== pane) dismissSelectionToolbar();
     focusedPaneRef.current = pane;
     onFocusPane(pane);
     const paneView = pane === "secondary" ? secondaryViewRef.current : primaryViewRef.current;
@@ -1362,6 +1300,11 @@ export function DocumentCanvas(props: {
     // Opens the panel on that thread, like replying from the source editor's tooltip.
     onEditorCommentClick: props.onReplyEditorComment,
     onSelectionMarkdown: (value: string) => latestRef.current.setSelection(value),
+  };
+  /** A visual editor's caret moved to 1-based `line` of `path`. */
+  const reportVisualCaret = (path: string, line: number, column: number) => {
+    setStatusPosition({ line, column });
+    props.onEditorPosition({ path, line, column });
   };
   const markdownPreview = (
     <ScrollArea
@@ -1443,11 +1386,7 @@ export function DocumentCanvas(props: {
             activeFile, props.source, markdownPreviewStart + from, markdownPreviewStart + to, body,
           )}
           editable={props.editorEditable}
-          onCaretChange={(row, column) => {
-            const line = row + markdownPreviewLineOffset + 1;
-            setStatusPosition({ line, column });
-            props.onEditorPosition({ path: activeFile, line, column });
-          }}
+          onCaretChange={(row, column) => reportVisualCaret(activeFile, row + markdownPreviewLineOffset + 1, column)}
           onSourceCaretChange={(sourceOffset) => {
             if (collabLive && collabSession?.activePath === activeFile) {
               publishCollabCursorV2(collabSession, markdownPreviewStart + sourceOffset);
@@ -1466,8 +1405,7 @@ export function DocumentCanvas(props: {
       onOpenMarkdownPath={props.onOpenMarkdownPath}
       onContextSurfaceActivate={props.onContextSurfaceActivate}
       onTextSelect={props.onPaperTextSelect}
-      getFileViewState={props.getFileViewState}
-      onFileViewState={props.onFileViewState}
+      pdfViewState={viewStateBinding(activeFile, "pdf")}
     />
   ) : markdownPreview;
   const carriesFigure = (event: DragEvent) => Array.from(event.dataTransfer.types).includes(PROJECT_FIGURE_DRAG_TYPE);
@@ -1651,22 +1589,27 @@ export function DocumentCanvas(props: {
   if (props.mode === "pdf") return preview;
   if (twoPane) {
     /**
-     * A focusable cell of `pane`. Entering it offers the agent `surface`, and the
-     * secondary pane's cells also take over the selection toolbar.
+     * A focusable cell of `pane`: pointer-down or focus anywhere inside enters
+     * it, offering the agent `surface`. The secondary pane's cells also take
+     * over the selection toolbar.
      */
     const cell = (pane: EditorPaneId, classes: string[], content: ReactNode, {
       surface = "editor", ...attributes
-    }: HTMLAttributes<HTMLDivElement> & { surface?: AgentHostSurface | null; "data-paper-side"?: string } = {}) => (
-      <PaneCell
-        pane={pane}
-        focusedPane={focusedPane}
-        classes={classes}
-        onEnter={() => focusPane(pane, surface, { claim: pane === "secondary" })}
-        {...attributes}
-      >
-        {content}
-      </PaneCell>
-    );
+    }: HTMLAttributes<HTMLDivElement> & { surface?: AgentHostSurface | null; "data-paper-side"?: string } = {}) => {
+      const enter = () => focusPane(pane, surface, { claim: pane === "secondary" });
+      return (
+        <div
+          className={[...classes, focusedPane === pane ? "focused" : ""].join(" ")}
+          data-editor-pane={pane}
+          tabIndex={0}
+          onPointerDownCapture={enter}
+          onFocusCapture={enter}
+          {...attributes}
+        >
+          {content}
+        </div>
+      );
+    };
     /** An asset, board, sheet or deck fills its pane by itself; null for a text file. */
     const documentCell = (pane: EditorPaneId, paneClass: string, asset: AssetPreview | null, kind: StructuredDocumentKind | null) => (
       asset ? cell(pane, [paneClass, "asset-pane"], assetPreview(asset))
@@ -1727,11 +1670,7 @@ export function DocumentCanvas(props: {
         editable={props.secondaryEditorEditable}
         editorComments={commentsForSecondaryFile}
         onCreateComment={(from, to, body) => createComment(secondaryFile, secondarySource, from, to, body)}
-        onCaretChange={(row, column) => {
-          const line = row + 1;
-          setStatusPosition({ line, column });
-          props.onEditorPosition({ path: secondaryFile, line, column });
-        }}
+        onCaretChange={(row, column) => reportVisualCaret(secondaryFile, row + 1, column)}
       />
     ) : secondaryFile && isHtmlFilePath(secondaryFile)
       ? htmlPreview(secondaryFile, secondarySource)

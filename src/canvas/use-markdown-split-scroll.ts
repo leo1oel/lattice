@@ -54,6 +54,14 @@ export function useMarkdownSplitScroll({
         activeScrollOwner = null;
       });
     };
+    /** Whether `side` may move its peer now; a pending one-shot ignore is consumed instead. */
+    const mayLead = (side: Side) => {
+      if (panes[side].ignore) {
+        panes[side].ignore = false;
+        return false;
+      }
+      return !scrollSyncBlocked() && activeScrollOwner !== otherSide(side);
+    };
     /** Remeasure the anchor maps if the preview changed since they were built. */
     const refreshAnchors = () => {
       if (!anchorsDirty) return;
@@ -78,11 +86,7 @@ export function useMarkdownSplitScroll({
     const follow = (source: Side, measureAnchors = true) => {
       const from = panes[source];
       const to = panes[otherSide(source)];
-      if (from.ignore) {
-        from.ignore = false;
-        return;
-      }
-      if (scrollSyncBlocked() || activeScrollOwner === otherSide(source)) return;
+      if (!mayLead(source)) return;
       if (measureAnchors) refreshAnchors();
       const fromHalf = from.scroller.clientHeight / 2;
       const toHalf = to.scroller.clientHeight / 2;
@@ -166,12 +170,7 @@ export function useMarkdownSplitScroll({
     // also rejects a late or coalesced peer event, so it cannot write back
     // into the scrollbar the user is dragging.
     const ownScroll = (side: Side) => () => {
-      const pane = panes[side];
-      if (pane.ignore) {
-        pane.ignore = false;
-        return;
-      }
-      if (scrollSyncBlocked() || activeScrollOwner === otherSide(side)) return;
+      if (!mayLead(side)) return;
       holdScrollOwnership(side);
       if (peerScrollSettleMs > 0) followPeer(side);
       else scheduleFollow(side);
@@ -180,19 +179,17 @@ export function useMarkdownSplitScroll({
       panes[side].ignore = false;
       holdScrollOwnership(side);
     };
-    const editorInteraction = interaction("editor");
-    const previewInteraction = interaction("preview");
     const previewRoot = preview.closest<HTMLElement>("[data-slot='scroll-area']");
     const passive = { passive: true };
     const listeners: [EventTarget | null, string, () => void, AddEventListenerOptions?][] = [
       [view.scrollDOM, "scroll", ownScroll("editor"), passive],
       [preview, "scroll", ownScroll("preview"), passive],
-      [view.scrollDOM, "wheel", editorInteraction, passive],
-      [view.scrollDOM.closest(".source-editor") ?? view.scrollDOM, "pointerdown", editorInteraction, { capture: true, passive: true }],
-      [view.scrollDOM, "keydown", editorInteraction],
-      [previewRoot, "wheel", previewInteraction, passive],
-      [previewRoot, "pointerdown", previewInteraction, { capture: true, passive: true }],
-      [previewRoot, "keydown", previewInteraction],
+      [view.scrollDOM, "wheel", interaction("editor"), passive],
+      [view.scrollDOM.closest(".source-editor") ?? view.scrollDOM, "pointerdown", interaction("editor"), { capture: true, passive: true }],
+      [view.scrollDOM, "keydown", interaction("editor")],
+      [previewRoot, "wheel", interaction("preview"), passive],
+      [previewRoot, "pointerdown", interaction("preview"), { capture: true, passive: true }],
+      [previewRoot, "keydown", interaction("preview")],
     ];
     for (const [target, type, listener, options] of listeners) target?.addEventListener(type, listener, options);
     const markAnchorsDirty = () => {

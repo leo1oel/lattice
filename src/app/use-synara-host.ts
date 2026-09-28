@@ -167,6 +167,13 @@ export function useSynaraHost({ project, projectRef, agentVisible, bridge }: {
   useEffect(() => {
     if (!origin) return;
     const post = (message: object) => void postMessage(message);
+    // A file the agent named opens in the host's own surfaces (cached Paper
+    // markdown goes through the reader, like links inside our own preview).
+    const openNamedFile = (data: MessageData, host: typeof latest.current) => {
+      const path = synaraProjectRelativeFilePath(data.filePath, projectRef.current?.root);
+      if (path) host.bridge.openProjectPath(path);
+      return Boolean(path);
+    };
     /** Messages identified by their `type`. */
     const handlers: Record<string, (data: MessageData, host: typeof latest.current) => void> = {
       "synara:embed-ready": (_data, host) => {
@@ -181,12 +188,7 @@ export function useSynaraHost({ project, projectRef, agentVisible, bridge }: {
         setRuntimeRequested(true);
         host.bridge.openProviderSettings();
       },
-      "synara:open-file": (data, host) => {
-        // A file the agent named: open it in our editor (cached Paper markdown
-        // goes through the reader, like links inside our own preview).
-        const path = synaraProjectRelativeFilePath(data.filePath, projectRef.current?.root);
-        if (path) host.bridge.openProjectPath(path);
-      },
+      "synara:open-file": openNamedFile,
       "synara:open-external": (data) => {
         // WebKit does not hand an embedded frame's `_blank` navigation to the system browser.
         const url = stringField(data.url);
@@ -196,11 +198,7 @@ export function useSynaraHost({ project, projectRef, agentVisible, bridge }: {
         // A file row opens in the host's file surface; the bare Review button
         // opens the drawer pinned to that turn's checkpoint diff, since the
         // working tree may already be clean.
-        const filePath = synaraProjectRelativeFilePath(data.filePath, projectRef.current?.root);
-        if (filePath) {
-          host.bridge.openProjectPath(filePath);
-          return;
-        }
+        if (openNamedFile(data, host)) return;
         const threadId = stringField(data.threadId);
         const turnId = stringField(data.turnId);
         host.bridge.openReview(threadId && turnId ? { threadId, turnId } : null);
@@ -288,31 +286,10 @@ export function useSynaraHost({ project, projectRef, agentVisible, bridge }: {
     frameRef, sourceControlFrameRef, frameMounted, frameReady,
     permissionMode, autoModeAvailable, changePermissionMode,
     postMessage, notifyPanelOpened,
-    /** Delivery state for useSynaraSnapshots; not for rendering. */
+    /** Delivery state for the snapshots useAgentContext posts; not for rendering. */
     latest,
     deliverable: Boolean(origin && frameMounted && frameReady && agentVisible),
   };
 }
 
-/** Keep the agent's view of the host (context and paper library) current while it is on screen. */
-export function useSynaraSnapshots(
-  synara: ReturnType<typeof useSynaraHost>,
-  hostContext: AgentHostContextSnapshot | null,
-  paperLibrary: AgentPaperLibrarySnapshot | null,
-) {
-  const { deliverable, latest, postMessage } = synara;
-  useLayoutEffect(() => {
-    Object.assign(latest.current, { hostContext, paperLibrary });
-  }, [hostContext, latest, paperLibrary]);
-  useEffect(() => {
-    if (!hostContext || !deliverable) return;
-    const frame = window.requestAnimationFrame(() => void postMessage(hostContext));
-    return () => window.cancelAnimationFrame(frame);
-  }, [deliverable, hostContext, postMessage]);
-  useEffect(() => {
-    if (!paperLibrary || !deliverable) return;
-    const frame = window.requestAnimationFrame(() => void postMessage(paperLibrary));
-    return () => window.cancelAnimationFrame(frame);
-  }, [deliverable, paperLibrary, postMessage]);
-}
 export type SynaraHost = ReturnType<typeof useSynaraHost>;

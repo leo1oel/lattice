@@ -19,8 +19,7 @@ export function PaperReader({ paper, activeFile, pdf, markdown, ...props }: {
   onOpenMarkdownPath: (path: string) => void;
   onContextSurfaceActivate: (surface: AgentHostSurface) => void;
   onTextSelect: (value: string) => void;
-  getFileViewState?: (path: string) => FileViewState | undefined;
-  onFileViewState?: (path: string, update: Partial<FileViewState>) => void;
+  pdfViewState: { initialViewState?: FileViewState["pdf"]; onViewState: (state: FileViewState["pdf"]) => void };
 }) {
   const { t } = useLingui();
   const view = pdf.pdfView;
@@ -102,8 +101,7 @@ export function PaperReader({ paper, activeFile, pdf, markdown, ...props }: {
               timeoutMessage={t`The PDF took too long to load. Try again, or open the article in your browser.`}
               onTextSelect={props.onTextSelect}
               onPageChange={pdf.rememberPage}
-              initialViewState={props.getFileViewState?.(activeFile)?.pdf}
-              onViewState={(state) => props.onFileViewState?.(activeFile, { pdf: state })}
+              {...props.pdfViewState}
               onDocumentData={view.bytes ? undefined : pdf.capturePdf}
               toolbarStart={toolbarStart}
               toolbarEnd={toolbarEnd}

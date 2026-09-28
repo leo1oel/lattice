@@ -125,7 +125,7 @@ export function useProjectLibrary(state: ProjectState) {
   }, [applyBibliographyIndex, projectOperationGenerationRef, projectRef, projectRefreshGenerationRef, refreshUnusedSymbols, setProject]);
 
   return {
-    papers, citationKeys, setCitationKeys, citations, setCitations, references, setReferences,
+    papers, citationKeys, citations, references, setReferences,
     unusedSymbols, history, diskTodos, setDiskTodos, projectWordCount,
     loadHistory, loadTodos, loadWordCount, refreshUnusedSymbols, refreshHistory, refreshTodos, refreshWordCount,
     applyBibliographyIndex, claimBibliographyRefresh, refreshAfterSave, refreshProject,

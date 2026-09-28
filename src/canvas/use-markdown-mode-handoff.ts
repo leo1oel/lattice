@@ -29,7 +29,6 @@ export function useMarkdownModeHandoff({
   /** The file the primary view was created for; it can briefly lag a switch. */
   primaryViewPathRef: RefObject<string>;
   previewViewportRef: RefObject<HTMLDivElement | null>;
-  /** State mirrors of the two viewports, so a remount re-runs the restore. */
   /** Mount signals only (re-run the restore once a remounted pane exists); weak, never dereferenced here. */
   previewViewport: WeakRef<HTMLDivElement> | null;
   primaryView: WeakRef<EditorView> | null;

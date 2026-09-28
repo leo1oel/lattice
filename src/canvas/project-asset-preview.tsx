@@ -1,4 +1,4 @@
-import { Suspense, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { FileText, Image } from "lucide-react";
 import { ScrollArea } from "../components/ui/scroll-area";
@@ -45,15 +45,12 @@ export function ProjectAssetPreview({ asset, viewState, onViewState }: {
     });
     return () => window.cancelAnimationFrame(frame);
   }, [isPdf, initialImageViewState]);
-  useEffect(() => {
-    if (!imageViewRestoredRef.current || isPdf) return;
-    onViewStateRef.current?.({ image: imageViewState(stageViewportRef.current, scale) });
-  }, [isPdf, onViewStateRef, scale]);
-  useEffect(() => () => {
-    const viewport = stageViewportRef.current;
-    if (!imageViewRestoredRef.current || isPdf) return;
-    onViewStateRef.current?.({ image: imageViewState(viewport, scaleRef.current) });
-  }, [isPdf, onViewStateRef, scaleRef]);
+  /** File the image's zoom and scroll, once its saved place has been restored. */
+  const reportImageView = useCallback((viewport: HTMLElement | null, currentScale: number) => {
+    if (imageViewRestoredRef.current && !isPdf) onViewStateRef.current?.({ image: imageViewState(viewport, currentScale) });
+  }, [isPdf, onViewStateRef]);
+  useEffect(() => reportImageView(stageViewportRef.current, scale), [reportImageView, scale]);
+  useEffect(() => () => reportImageView(stageViewportRef.current, scaleRef.current), [reportImageView, scaleRef]);
   useNonPassiveWheel(stageViewportRef, (event) => {
     if (!(event.metaKey || event.ctrlKey) || !event.deltaY) return;
     event.preventDefault();
@@ -98,11 +95,7 @@ export function ProjectAssetPreview({ asset, viewState, onViewState }: {
         contentClassName="asset-preview-stage-content"
         viewportRef={stageViewportRef}
         viewportProps={{
-          onScroll: (event) => {
-            if (imageViewRestoredRef.current) {
-              onViewStateRef.current?.({ image: imageViewState(event.currentTarget, scaleRef.current) });
-            }
-          },
+          onScroll: (event) => reportImageView(event.currentTarget, scaleRef.current),
         }}
       >
         {image

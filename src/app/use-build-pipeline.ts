@@ -251,15 +251,15 @@ export function useBuildPipeline({
         // it when it is a compilable root — recomputed each pass because a
         // queued rebuild may run after the editor moved to another document.
         const documentPath = activeFileRef.current.toLowerCase().endsWith(".tex") ? activeFileRef.current : null;
-        let result: BuildResult;
-        try {
-          result = await diagnosticInvoke<BuildResult>("build_project", { force: currentForce, projectRoot, documentPath }, { operationId: trace.id });
-        } catch (reason) {
-          if (!scopeIsCurrent()) continue;
+        // A failure after the project moved on belongs to nobody: the pass is simply skipped.
+        const result = await diagnosticInvoke<BuildResult>(
+          "build_project", { force: currentForce, projectRoot, documentPath }, { operationId: trace.id },
+        ).catch((reason) => {
+          if (!scopeIsCurrent()) return null;
           reportCompiles(agentCompileAssociations, null);
           throw reason;
-        }
-        if (!scopeIsCurrent()) continue;
+        });
+        if (!result || !scopeIsCurrent()) continue;
         reportCompiles(agentCompileAssociations, result);
         trace.enrich({
           force: currentForce,
@@ -267,16 +267,11 @@ export function useBuildPipeline({
           diagnostics: result.diagnostics.length,
           has_pdf: result.hasPdf,
         });
-        let pdfBytes: ArrayBuffer | null = null;
-        if (result.hasPdf) {
-          try {
-            pdfBytes = await invoke<ArrayBuffer>("read_compiled_pdf", { projectRoot });
-          } catch (reason) {
-            if (!scopeIsCurrent()) continue;
-            throw reason;
-          }
-          if (!scopeIsCurrent()) continue;
-        }
+        const pdfBytes = result.hasPdf ? await invoke<ArrayBuffer>("read_compiled_pdf", { projectRoot }).catch((reason) => {
+          if (scopeIsCurrent()) throw reason;
+          return null;
+        }) : null;
+        if (!scopeIsCurrent()) continue;
         setBuild(result);
         const { rootDocument } = result;
         if (rootDocument) {

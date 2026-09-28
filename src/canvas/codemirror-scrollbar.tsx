@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { EditorView } from "@codemirror/view";
+import { frameCoalescer } from "../app/effect-helpers";
 
 function thumbGeometry(scroller: HTMLElement) {
   const trackHeight = Math.max(0, scroller.clientHeight - 8);
@@ -36,16 +37,9 @@ export function CodeMirrorScrollbar({ view }: { view: EditorView | null }) {
       if (thumb.style.height !== nextHeight) thumb.style.height = nextHeight;
       if (thumb.style.transform !== nextTransform) thumb.style.transform = nextTransform;
     };
-    let thumbFrame: number | null = null;
+    const [scheduleThumbUpdate, cancelThumbUpdate] = frameCoalescer(updateThumb);
     let scrollingTimer: number | null = null;
     let lastScrollAt = 0;
-    const scheduleThumbUpdate = () => {
-      if (thumbFrame != null) return;
-      thumbFrame = window.requestAnimationFrame(() => {
-        thumbFrame = null;
-        updateThumb();
-      });
-    };
     const finishScrolling = () => {
       const remaining = 180 - (performance.now() - lastScrollAt);
       if (remaining > 0) {
@@ -73,7 +67,7 @@ export function CodeMirrorScrollbar({ view }: { view: EditorView | null }) {
     return () => {
       resizeObserver.disconnect();
       scroller.removeEventListener("scroll", handleScroll);
-      if (thumbFrame != null) window.cancelAnimationFrame(thumbFrame);
+      cancelThumbUpdate();
       if (scrollingTimer != null) window.clearTimeout(scrollingTimer);
       scrollingActiveRef.current = false;
     };

@@ -4,6 +4,7 @@ import type { EditorView } from "@codemirror/view";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { useNonPassiveWheel } from "../hooks/use-non-passive-wheel";
 import { clamp } from "../settings/app-settings";
+import { clearTimer, frameCoalescer, restartTimer, type TimerRef } from "../app/effect-helpers";
 import { calculateVerticalScrollGeometry, EXTERNAL_SCROLLBAR_TRACK_INSET } from "../components/ui/external-scrollbar-geometry";
 import { normalizeDocRelativeAssetUrl } from "../open-knowledge-core/markdown/resolve-image-url";
 import type { HtmlFileViewState } from "../app-types";
@@ -177,7 +178,7 @@ export function HtmlPreview({ path, source, assetRevision = 0, sourceEditorView,
   }, [assetRevision, onLoadAsset, path, previewSource]);
 
   useEffect(() => {
-    let scrollingTimer: ReturnType<typeof setTimeout> | undefined;
+    const scrollingTimer: TimerRef = { current: null };
     const handleMessage = (event: MessageEvent<unknown>) => {
       if (event.source !== frameRef.current?.contentWindow) return;
       const data = event.data;
@@ -193,8 +194,7 @@ export function HtmlPreview({ path, source, assetRevision = 0, sourceEditorView,
           onViewStateRef.current?.({ scale: scaleRef.current, scrollTop: data.scrollTop, scrollRange: scrollRangeRef.current });
         }
         setScrolling(true);
-        clearTimeout(scrollingTimer);
-        scrollingTimer = setTimeout(() => setScrolling(false), 500);
+        restartTimer(scrollingTimer, 500, () => setScrolling(false));
         return;
       }
       if (data.type !== HTML_PREVIEW_OPEN_EXTERNAL || !("href" in data) || typeof data.href !== "string") return;
@@ -210,7 +210,7 @@ export function HtmlPreview({ path, source, assetRevision = 0, sourceEditorView,
     window.addEventListener("message", handleMessage);
     return () => {
       window.removeEventListener("message", handleMessage);
-      clearTimeout(scrollingTimer);
+      clearTimer(scrollingTimer);
       const range = scrollRange(scrollMetricsRef.current);
       onViewStateRef.current?.({ scale: scaleRef.current, scrollTop: restoreScrollTopRef.current, scrollRange: range });
     };
@@ -227,21 +227,16 @@ export function HtmlPreview({ path, source, assetRevision = 0, sourceEditorView,
   useEffect(() => {
     if (!sourceEditorView) return;
     const scroller = sourceEditorView.scrollDOM;
-    let frame = 0;
-    const followSource = () => {
-      if (frame) window.cancelAnimationFrame(frame);
-      frame = window.requestAnimationFrame(() => {
-        frame = 0;
-        const sourceRange = scrollRange(scroller);
-        const previewRange = scrollRange(scrollMetricsRef.current);
-        if (sourceRange <= 0 || previewRange <= 0) return;
-        setScrollTop(previewRange * clamp(scroller.scrollTop / sourceRange, 0, 1));
-      });
-    };
+    const [followSource, cancelFollow] = frameCoalescer(() => {
+      const sourceRange = scrollRange(scroller);
+      const previewRange = scrollRange(scrollMetricsRef.current);
+      if (sourceRange <= 0 || previewRange <= 0) return;
+      setScrollTop(previewRange * clamp(scroller.scrollTop / sourceRange, 0, 1));
+    });
     scroller.addEventListener("scroll", followSource, { passive: true });
     return () => {
       scroller.removeEventListener("scroll", followSource);
-      if (frame) window.cancelAnimationFrame(frame);
+      cancelFollow();
     };
   }, [setScrollTop, sourceEditorView]);
 

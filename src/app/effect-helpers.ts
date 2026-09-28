@@ -21,6 +21,15 @@ export function disposeWhenSettled(pending: Promise<() => void>): () => void {
   };
 }
 
+/** Hand `pending`'s value to `commit`, unless the returned disposer has run by then. */
+export function thenUnlessDisposed<T>(pending: Promise<T>, commit: (value: T) => void): () => void {
+  let disposed = false;
+  void pending.then((value) => {
+    if (!disposed) commit(value);
+  });
+  return () => { disposed = true; };
+}
+
 /**
  * Listen to a Tauri event until the returned disposer runs. `event` is an event
  * name, or a scoped subscribe function such as `listenOverleafRealtime`.
@@ -51,6 +60,37 @@ export function whenIdle(callback: () => void, timeout: number, fallbackMs: numb
   }
   const timer = globalThis.setTimeout(callback, fallbackMs);
   return () => globalThis.clearTimeout(timer);
+}
+
+/** Coalesce calls into one `run` on the next animation frame; `cancel` drops a pending run. */
+export function frameCoalescer(run: () => void): [schedule: () => void, cancel: () => void] {
+  let frame: number | null = null;
+  const schedule = () => {
+    frame ??= window.requestAnimationFrame(() => {
+      frame = null;
+      run();
+    });
+  };
+  const cancel = () => {
+    if (frame !== null) window.cancelAnimationFrame(frame);
+    frame = null;
+  };
+  return [schedule, cancel];
+}
+
+/** Run `update` at most once a frame while `targets` resize or the window scrolls (anywhere) or resizes. */
+export function onLayoutChange(targets: readonly (Element | null | undefined)[], update: () => void): () => void {
+  const [schedule, cancel] = frameCoalescer(update);
+  const observer = new ResizeObserver(schedule);
+  for (const target of targets) if (target) observer.observe(target);
+  const listening = new AbortController();
+  window.addEventListener("scroll", schedule, { capture: true, signal: listening.signal });
+  window.addEventListener("resize", schedule, { signal: listening.signal });
+  return () => {
+    cancel();
+    observer.disconnect();
+    listening.abort();
+  };
 }
 
 export type TimerRef = { current: number | null };

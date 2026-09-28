@@ -300,6 +300,8 @@ function isSynaraSettingsTab(tab: SettingsTab): boolean {
 }
 
 const isTwoPane = (mode: CanvasMode) => mode === "dual" || mode === "columns";
+/** A canvas-mode updater that brings an editor on screen, widening a preview-only or asset surface to split. */
+const showEditor = (mode: CanvasMode): CanvasMode => (mode === "pdf" || mode === "asset" ? "split" : mode);
 
 /**
  * A paper's full text and overview, read from the local library. They are
@@ -355,6 +357,16 @@ function recordNavigationTiming(
       .join(" ")}`,
     toast: false,
   });
+}
+
+/** Run `action`: success clears the error banner, a failure shows its message there. */
+async function showingErrors(action: () => Promise<unknown>) {
+  try {
+    await action();
+    setError(null);
+  } catch (reason) {
+    setError(toMessage(reason));
+  }
 }
 
 /**
@@ -790,7 +802,7 @@ function App() {
   /** Insert `\cite{key}`/`\ref{key}` at the caret, bringing an editor on screen first. */
   const insertCitation = useCallback((key: string, command: InsertSymbolCommand) => {
     updateCanvasRequest("cite", { key, command, id: crypto.randomUUID() });
-    setCanvasMode((mode) => (mode === "pdf" || mode === "asset" ? "split" : mode));
+    setCanvasMode(showEditor);
   }, [updateCanvasRequest]);
   const [bibliographyAuditRoot, setBibliographyAuditRoot] = useState<string | null>(null);
   const [bibliographyAuditOpen, setBibliographyAuditOpen] = useState(false);
@@ -1652,9 +1664,6 @@ function App() {
       setCanvasMode(restoreSplit.mode);
       setFocusedPane(restoreSecondary ? "secondary" : "primary");
     };
-    const keepDocumentMode = (mode: CanvasMode): CanvasMode => (
-      mode === "pdf" || mode === "asset" ? "split" : mode
-    );
     const requestedPane = targetPane ?? focusedPane;
     const secondaryFocused = isTwoPane(canvasMode)
       && requestedPane === "secondary"
@@ -1734,7 +1743,7 @@ function App() {
       restoreSplitLayout();
       if (line) {
         requestEditorLine(navigationPath, line);
-        setCanvasMode(keepDocumentMode);
+        setCanvasMode(showEditor);
         pushNavigation(navigationPath, line);
       }
       try {
@@ -1830,7 +1839,7 @@ function App() {
       if (restoreSecondary) requestEditorLine(navigationPath, line);
       // The jump itself rode the load's commit; this only widens a
       // preview-only surface so the editor it lands in is on screen.
-      setCanvasMode(keepDocumentMode);
+      setCanvasMode(showEditor);
       pushNavigation(navigationPath, line);
     } else {
       pushNavigation(navigationPath, 1);
@@ -1913,17 +1922,14 @@ function App() {
     const jumpPane: EditorPaneId | null = dualPreviewPanes.primary
       ? (secondaryFile && !secondaryAsset ? "secondary" : null)
       : dualPreviewPanes.secondary ? "primary" : null;
-    try {
+    await showingErrors(async () => {
       const target = await invoke<SyncTexTarget>("synctex_edit", { page, x, y });
       // A citation resolves into the bibliography, a macro into a .sty. Those
       // files own the whole editor area when opened deliberately, but a jump
       // out of the PDF must keep the preview it was made from on screen.
       await openProjectFile(target.path, target.line, jumpPane ?? undefined, { revealSource: false });
       if (!jumpPane) setCanvasMode((mode) => (mode === "source" ? mode : "split"));
-      setError(null);
-    } catch (reason) {
-      setError(toMessage(reason));
-    }
+    });
   }, [dualPreviewPanes.primary, dualPreviewPanes.secondary, openProjectFile, secondaryAsset, secondaryFile]);
 
   const compile = useCallback(async (
@@ -2209,13 +2215,10 @@ function App() {
       setError(diagnostic.message);
       return;
     }
-    try {
+    await showingErrors(async () => {
       await openProjectFile(path, diagnostic.line ?? undefined);
       setDiagnosticsExpanded(true);
-      setError(null);
-    } catch (reason) {
-      setError(toMessage(reason));
-    }
+    });
   }, [activeFile, openProjectFile, project, setDiagnosticsExpanded]);
   useEffect(() => {
     openCompileDiagnosticRef.current = openCompileDiagnostic;
@@ -3166,10 +3169,7 @@ function App() {
   ) => {
     const viewGeneration = documentViewGenerationRef.current + 1;
     documentViewGenerationRef.current = viewGeneration;
-    const hasExistingPaneDivider = options?.preserveSplitRatio
-      || canvasMode === "split"
-      || canvasMode === "dual"
-      || canvasMode === "columns";
+    const hasExistingPaneDivider = options?.preserveSplitRatio || canvasMode === "split" || isTwoPane(canvasMode);
     let primaryLoadGeneration = fileLoadGenerationRef.current;
     const projectRoot = projectRef.current?.root;
     const ownsProject = captureProjectScope();
@@ -3324,8 +3324,7 @@ function App() {
         && path === activeFileRef.current
         && !activePaper
         && !activeAssetRef.current
-        && canvasMode !== "dual"
-        && canvasMode !== "columns"
+        && !isTwoPane(canvasMode)
       ) {
         const fallback = [...openTabs].reverse().find((candidate) => (
           candidate !== path
@@ -4121,12 +4120,8 @@ function App() {
 
   const gotoDefinition = useCallback(async (target: DefinitionTarget) => {
     if (!project) return;
-    try {
-      if (target.kind === "reference") {
-        await openProjectFile(target.path, target.line);
-        setError(null);
-        return;
-      }
+    await showingErrors(async () => {
+      if (target.kind === "reference") return openProjectFile(target.path, target.line);
       if (target.kind === "include" || target.kind === "asset") {
         // A relative \input or \includegraphics path may name a file below a
         // search directory rather than the project root.
@@ -4135,30 +4130,19 @@ function App() {
           ? target.path
           : paths.find((path) => path.endsWith(`/${target.path}`));
         if (!resolved) {
-          setError(target.kind === "include"
+          throw new Error(target.kind === "include"
             ? `Could not find included file “${target.path}”.`
             : `Could not find figure “${target.path}”.`);
-          return;
         }
-        if (target.kind === "include") await openProjectFile(resolved, 1);
-        else await openProjectAsset(resolved);
-        setError(null);
-        return;
+        return target.kind === "include" ? openProjectFile(resolved, 1) : openProjectAsset(resolved);
       }
       const bibliography = project.manifest.primaryBibliography;
-      if (!bibliography) {
-        setError("This project has no primary bibliography.");
-        return;
-      }
+      if (!bibliography) throw new Error("This project has no primary bibliography.");
       const content = bibliography === activeFile
         ? source
         : await invoke<string>("read_project_file", { path: bibliography });
-      const line = bibliographyEntryLine(content, target.key) ?? 1;
-      await openProjectFile(bibliography, line);
-      setError(null);
-    } catch (reason) {
-      setError(toMessage(reason));
-    }
+      await openProjectFile(bibliography, bibliographyEntryLine(content, target.key) ?? 1);
+    });
   }, [activeFile, openProjectAsset, openProjectFile, project, source]);
 
   const deleteProjectEntries = useCallback(async (requestedPaths: string[]) => {
@@ -4463,14 +4447,9 @@ function App() {
     updateCanvasRequest, applyBibliographyIndex,
   ]);
 
-  const findSymbolReferences = useCallback(async (target: SymbolTarget) => {
-    try {
-      await showSymbolReferences(target.kind, target.kind === "label" ? target.label : target.key);
-      setError(null);
-    } catch (reason) {
-      setError(toMessage(reason));
-    }
-  }, [showSymbolReferences]);
+  const findSymbolReferences = useCallback((target: SymbolTarget) => showingErrors(
+    () => showSymbolReferences(target.kind, target.kind === "label" ? target.label : target.key),
+  ), [showSymbolReferences]);
 
   const beginRename = useCallback((target: RenameTarget) => {
     setRenameError(null);
@@ -4480,14 +4459,9 @@ function App() {
     ? { kind: "label", label: target.label }
     : { kind: "citation", key: target.key }), [beginRename]);
 
-  const openSymbolOccurrence = useCallback(async (occurrence: SymbolOccurrence) => {
-    try {
-      await openProjectFile(occurrence.path, occurrence.line);
-      setError(null);
-    } catch (reason) {
-      setError(toMessage(reason));
-    }
-  }, [openProjectFile]);
+  const openSymbolOccurrence = useCallback((occurrence: SymbolOccurrence) => showingErrors(
+    () => openProjectFile(occurrence.path, occurrence.line),
+  ), [openProjectFile]);
 
   /** Save pasted image bytes into the project (and a live share); resolves the new path. */
   const importImageBytes = useCallback(async (
@@ -4535,7 +4509,7 @@ function App() {
     }
     const path = await importSystemClipboardImage("figures");
     if (!path) return;
-    setCanvasMode((mode) => (mode === "pdf" || mode === "asset" ? "split" : mode));
+    setCanvasMode(showEditor);
     insertFigureAtCaret(path);
   }, [activeFile, importSystemClipboardImage, insertFigureAtCaret, project]);
 
@@ -4723,8 +4697,7 @@ function App() {
         }}
         tab={settingsTab}
         setTab={(tab) => {
-          if (isSynaraSettingsTab(tab)) synara.requestRuntime();
-          setSettingsTab(tab);
+          openSettings(tab);
           if (tab === "doctor") void texSetup.runDoctor();
         }}
         doctorReport={texSetup.doctorReport}
@@ -4770,17 +4743,12 @@ function App() {
         setBuildPreferences={setBuildPreferences}
         hasProject={Boolean(project)}
         project={project}
-        onUpdateManifest={async (patch) => {
-          try {
-            const manifest = patch.spellingWords != null
-              ? await invoke<ProjectManifest>("set_project_spelling_words", { words: patch.spellingWords })
-              : await invoke<ProjectManifest>("update_project_manifest", patch);
-            setProject((current) => current ? { ...current, manifest } : current);
-            setError(null);
-          } catch (reason) {
-            setError(toMessage(reason));
-          }
-        }}
+        onUpdateManifest={(patch) => showingErrors(async () => {
+          const manifest = patch.spellingWords != null
+            ? await invoke<ProjectManifest>("set_project_spelling_words", { words: patch.spellingWords })
+            : await invoke<ProjectManifest>("update_project_manifest", patch);
+          setProject((current) => current ? { ...current, manifest } : current);
+        })}
         onClose={() => setSettingsOpen(false)}
       />
     </Suspense>
@@ -5283,11 +5251,7 @@ function App() {
   const readablePaperCited = (key: string) => papers.find((item) => sameKey(item.citationKey, key) && (item.hasFullText || item.hasBlog));
   const citationUrl = (key: string) => citationSourceUrl(citations.find((item) => sameKey(item.key, key)));
 
-  const primaryOpenSlideActive = !activePaper
-    && !activeAsset
-    && isOpenSlideDeckPath(activeFile)
-    && canvasMode !== "dual"
-    && canvasMode !== "columns";
+  const primaryOpenSlideActive = !activePaper && !activeAsset && isOpenSlideDeckPath(activeFile) && !isTwoPane(canvasMode);
 
   return (
     <div
