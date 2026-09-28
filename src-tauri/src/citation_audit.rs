@@ -15,6 +15,27 @@ mod publication;
 
 const REPORT_DIRECTORY: &str = "bibliography-audits";
 
+/// An Overleaf sync that could not merge a bibliography leaves both versions in
+/// it between conflict markers. Every entry then appears twice, so checking it
+/// reported each one as a duplicate key instead of naming the real problem.
+const UNRESOLVED_CONFLICT: &str = "This bibliography has an unresolved Overleaf sync conflict. Resolve it before checking or updating its references.";
+
+fn has_conflict_markers(source: &str) -> bool {
+    source.lines().any(|line| line.starts_with("<<<<<<<"))
+}
+
+/// The project's bibliographies, minus the "(local conflict …)" backups Overleaf
+/// sync keeps beside a conflicted file: they are copies, not sources, and
+/// auditing them flagged every key as duplicated across files.
+fn audit_sources(root: &Path) -> Result<Vec<(String, String)>, String> {
+    Ok(project::iter_bibliography_sources(root)?
+        .into_iter()
+        .filter(|(path, _)| {
+            !crate::overleaf::is_conflict_copy(path.rsplit('/').next().unwrap_or(path))
+        })
+        .collect())
+}
+
 fn report_relative_path(root: &Path) -> Result<String, String> {
     let canonical = root.canonicalize().map_err(|error| error.to_string())?;
     let digest = Sha256::digest(canonical.to_string_lossy().as_bytes());
@@ -125,13 +146,21 @@ pub struct SourceCheck {
 }
 
 pub fn scan(root: &Path) -> Result<AuditScan, String> {
-    let sources = project::iter_bibliography_sources(root)?;
+    let sources = audit_sources(root)?;
     let mut entries = Vec::new();
     let mut issues = Vec::new();
     let mut keys: HashMap<String, Vec<(String, String)>> = HashMap::new();
     let mut dois: HashMap<String, Vec<(String, String)>> = HashMap::new();
     let mut titles: HashMap<String, Vec<(String, String)>> = HashMap::new();
     for (path, source) in sources {
+        if has_conflict_markers(&source) {
+            issues.push(AuditIssue {
+                path,
+                key: None,
+                message: UNRESOLVED_CONFLICT.into(),
+            });
+            continue;
+        }
         let spans = project::bibliography_entry_spans(&source);
         let at_count = bibliography_construct_count(&source);
         if spans.len() < at_count {
@@ -669,7 +698,7 @@ pub fn apply(root: &Path, path: &str, key: &str, before: &str, after: &str) -> R
             "The proposed replacement must be exactly one entry with the same citation key.".into(),
         );
     }
-    let sources = project::iter_bibliography_sources(root)?;
+    let sources = audit_sources(root)?;
     // Evidence independent of the title: a DOI that another entry already
     // claims means this proposal duplicates that paper rather than correcting
     // this one, which is the shape a wrong publication match takes.
@@ -747,11 +776,14 @@ fn doi_owned_by_another_entry(
 }
 
 fn registered_entry(root: &Path, path: &str, key: &str) -> Result<Option<String>, String> {
-    let sources = project::iter_bibliography_sources(root)?;
+    let sources = audit_sources(root)?;
     let (_, source) = sources
         .into_iter()
         .find(|(p, _)| p == path)
         .ok_or_else(|| "That bibliography is not registered in this project.".to_string())?;
+    if has_conflict_markers(&source) {
+        return Err(UNRESOLVED_CONFLICT.into());
+    }
     let matches = project::bibliography_entry_spans(&source)
         .into_iter()
         .filter(|(k, _, _)| k == key)
@@ -2337,6 +2369,67 @@ mod tests {
             std::env::temp_dir().join(format!("lattice-audit-test-{}", uuid::Uuid::new_v4()));
         fs::create_dir_all(&parent).unwrap();
         project::create_blank(&parent, "Audit").unwrap()
+    }
+
+    #[test]
+    fn an_overleaf_conflicted_bibliography_is_reported_once_instead_of_as_duplicates() {
+        // The shape Overleaf sync left behind when it could not merge
+        // references.bib: diff3 markers around the whole file, plus the
+        // untouched local copy saved beside it.
+        let root = project_root();
+        let entry =
+            "@misc{doe2020,\n  title = {A Study},\n  author = {Doe, Jane},\n  year = {2020},\n}";
+        let other = "@misc{roe2021,\n  title = {Another Study},\n  author = {Roe, Rick},\n  year = {2021},\n}";
+        let local = format!("{entry}\n\n{other}\n");
+        let conflicted = format!(
+            "<<<<<<< ours\n{entry}\n\n{other}\n||||||| original\n{entry}\n=======\n>>>>>>> theirs\n"
+        );
+        fs::write(root.join("references.bib"), &conflicted).unwrap();
+        fs::write(
+            root.join("references (local conflict 20260926-1808).bib"),
+            &local,
+        )
+        .unwrap();
+
+        let conflicted_scan = scan(&root).unwrap();
+        assert!(
+            conflicted_scan.entries.is_empty(),
+            "{:?}",
+            conflicted_scan.entries
+        );
+        assert_eq!(
+            conflicted_scan.issues.len(),
+            1,
+            "{:?}",
+            conflicted_scan.issues
+        );
+        assert_eq!(conflicted_scan.issues[0].path, "references.bib");
+        assert_eq!(conflicted_scan.issues[0].message, UNRESOLVED_CONFLICT);
+
+        // A check or update started before the sync wrote the markers must
+        // stop with the same explanation, not a duplicate-key error.
+        assert_eq!(
+            registered_entry(&root, "references.bib", "doe2020").unwrap_err(),
+            UNRESOLVED_CONFLICT
+        );
+        assert_eq!(
+            apply(&root, "references.bib", "doe2020", entry, entry).unwrap_err(),
+            UNRESOLVED_CONFLICT
+        );
+        assert_eq!(
+            fs::read_to_string(root.join("references.bib")).unwrap(),
+            conflicted
+        );
+
+        // Once resolved, the backup copy is still not treated as a source.
+        fs::write(root.join("references.bib"), &local).unwrap();
+        let resolved_scan = scan(&root).unwrap();
+        assert_eq!(resolved_scan.entries.len(), 2);
+        assert!(
+            resolved_scan.issues.is_empty(),
+            "{:?}",
+            resolved_scan.issues
+        );
     }
 
     #[test]

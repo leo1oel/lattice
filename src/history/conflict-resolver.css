@@ -1,14 +1,38 @@
-/* Conflict resolution: Pierre owns the code surface; the dialog owns saving. */
+/* Conflict resolution: one card per conflicting spot, each side under its own
+   name, and a scroll region whose bar stays visible so a long file can be
+   reviewed before choosing. */
 
 .conflict-resolver {
-  width: min(760px, calc(100vw - 48px));
-  max-height: calc(100vh - 64px);
+  width: min(960px, calc(100vw - 48px));
+  max-height: min(760px, calc(100vh - 64px));
   display: flex;
   flex-direction: column;
   gap: var(--space-6);
+  padding: var(--space-10) var(--space-12);
 }
-.conflict-resolver h2 { margin: 0; }
-.conflict-resolver > p { margin: 0; color: var(--text-secondary); font-size: var(--type-caption-size); line-height: 1.5; }
+
+.conflict-resolver-head {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-6);
+}
+.conflict-resolver-head .modal-icon {
+  flex: none;
+  color: var(--status-warning);
+  background: color-mix(in srgb, var(--status-warning) 14%, transparent);
+}
+.conflict-resolver-head h2 {
+  margin: 0 0 var(--space-2);
+  font-size: var(--type-title-large-size);
+  overflow-wrap: anywhere;
+}
+.conflict-resolver-head p {
+  margin: 0;
+  max-width: 72ch;
+  color: var(--text-secondary);
+  font-size: var(--type-caption-size);
+  line-height: 1.55;
+}
 
 /* Appearance is owned by `.ui-inline-message`; the tinted plate is local, so
    a failure still reads as a block inside the dialog's own stack. */
@@ -18,18 +42,120 @@
   background: color-mix(in srgb, var(--status-danger) 12%, transparent);
 }
 .conflict-loading {
+  flex: 1 1 auto;
   display: flex;
   align-items: center;
   gap: var(--space-4);
-  padding: var(--space-12) 0;
   justify-content: center;
   color: var(--text-secondary);
   font-size: var(--type-label-size);
 }
 .conflict-loading svg { color: var(--control-active); }
-.conflict-empty { margin: 0; padding: var(--space-10) 0; color: var(--text-tertiary); font-size: var(--type-caption-size); text-align: center; }
 
-.conflict-pierre-surface {
+.conflict-spots {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-surface);
+  background: var(--surface-app);
+}
+/* The dialog only has a max-height, so a percentage height on the viewport
+   would resolve to its content and never scroll. Let flex bound it instead. */
+.conflict-spots > .conflict-spots-viewport {
+  flex: 1 1 auto;
+  min-height: 0;
+  height: auto;
+}
+/* Overlay bars normally appear only while hovering or scrolling. Here the bar
+   is how someone knows there is more to review, so keep it on screen. */
+.conflict-spots > .lattice-scrollbar[data-orientation="vertical"] { opacity: 1; }
+.conflict-spot-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  padding: var(--space-6) var(--space-8) var(--space-6) var(--space-6);
+}
+
+.conflict-spot {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  padding: var(--space-6);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-panel);
+  background: var(--surface-panel);
+}
+.conflict-spot[data-decided="false"] { border-color: color-mix(in srgb, var(--status-warning) 45%, var(--border-subtle)); }
+.conflict-spot-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+.conflict-spot-title { display: flex; align-items: baseline; gap: var(--space-4); min-width: 0; }
+.conflict-spot-title h3 { margin: 0; font-size: var(--type-title-compact-size); }
+.conflict-spot-title span { color: var(--text-tertiary); font-size: var(--type-caption-size); }
+
+.conflict-choices { display: flex; flex-wrap: wrap; gap: var(--space-3); }
+
+.conflict-sides {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-4);
+}
+@media (max-width: 720px) {
+  .conflict-sides { grid-template-columns: minmax(0, 1fr); }
+}
+
+.conflict-side {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-control);
+  background: var(--surface-app);
+  transition: opacity var(--duration-quick) var(--ease-out), border-color var(--duration-quick) var(--ease-out);
+}
+.conflict-side[data-kept="true"] { border-color: var(--control-active); }
+.conflict-side[data-kept="false"] { opacity: 0.5; }
+.conflict-side-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-1) var(--space-3);
+  padding: var(--space-3) var(--space-5);
+  border-bottom: 1px solid var(--border-subtle);
+  font-size: var(--type-caption-size);
+}
+.conflict-side-head strong { font-size: var(--type-label-size); font-weight: 600; }
+.conflict-side-head span { color: var(--text-tertiary); }
+.conflict-side-head .conflict-side-count { margin-left: auto; font-size: var(--type-diff-meta-size); }
+
+.conflict-side-code {
+  margin: 0;
+  max-height: min(360px, 42vh);
+  overflow: auto;
+  padding: var(--space-4) var(--space-5);
+  font: var(--type-diff-code-size) / var(--type-diff-code-line-height) var(--editor-font);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  color: var(--text-primary);
+}
+/* Same always-visible treatment for each side's own scroller. */
+.conflict-side-code::-webkit-scrollbar-thumb {
+  background-color: color-mix(in srgb, var(--text-primary) 16%, transparent);
+}
+.conflict-side-empty {
+  margin: 0;
+  padding: var(--space-6) var(--space-5);
+  color: var(--text-tertiary);
+  font-size: var(--type-caption-size);
+  font-style: italic;
+}
+
+.conflict-editor {
   flex: 1 1 auto;
   min-height: 0;
   overflow-y: auto;
@@ -37,10 +163,9 @@
   border-radius: var(--radius-surface);
   background: var(--surface-app);
 }
-
-.conflict-pierre-surface > * {
-  min-height: 240px;
+.conflict-editor::-webkit-scrollbar-thumb {
+  background-color: color-mix(in srgb, var(--text-primary) 16%, transparent);
 }
 
-.conflict-actions { display: flex; align-items: center; justify-content: flex-end; gap: var(--space-4); }
-.conflict-progress { margin-right: auto; color: var(--text-tertiary); font-size: var(--type-micro-size); }
+.conflict-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: var(--space-4); }
+.conflict-progress { margin-right: auto; color: var(--text-tertiary); font-size: var(--type-caption-size); }

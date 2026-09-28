@@ -66,6 +66,37 @@ describe("conflict markers", () => {
     expect(conflictHunks(resolved)).toHaveLength(1);
   });
 
+  it("drops the diff3 base section Overleaf sync writes instead of keeping it as local text", () => {
+    // The shape of the references.bib conflict: Overleaf emptied the file while
+    // Lattice appended an entry, so the whole file sits in one diff3 block.
+    const diff3 = [
+      "<<<<<<< ours",
+      "@misc{a,}",
+      "",
+      "@misc{b,}",
+      "||||||| original",
+      "@misc{a,}",
+      "=======",
+      ">>>>>>> theirs",
+      "",
+    ].join("\n");
+    const [hunk] = conflictHunks(diff3);
+    expect(hunk.oursLines).toEqual(["@misc{a,}", "", "@misc{b,}"]);
+    expect(hunk.theirsLines).toEqual([]);
+    expect(resolveConflicts(diff3, new Map([[hunk.index, "ours"]]))).toBe("@misc{a,}\n\n@misc{b,}\n");
+    // An empty side resolves to nothing, not to a stray blank line.
+    expect(resolveConflicts(diff3, new Map([[hunk.index, "theirs"]]))).toBe("");
+    expect(resolveConflicts(diff3, new Map([[hunk.index, "both"]]))).toBe("@misc{a,}\n\n@misc{b,}\n");
+    // Undecided spots keep their markers exactly, base section included.
+    expect(resolveConflicts(diff3, new Map())).toBe(diff3);
+  });
+
+  it("removes a region cleanly when the kept side deleted it", () => {
+    const deleted = "keep\n<<<<<<< ours\n=======\ntheirs line\n>>>>>>> theirs\nend";
+    const [hunk] = conflictHunks(deleted);
+    expect(resolveConflicts(deleted, new Map([[hunk.index, "ours"]]))).toBe("keep\nend");
+  });
+
   it("treats an unterminated marker as ordinary text", () => {
     const broken = "before\n<<<<<<< ours\nstranded\n";
     expect(hasConflictMarkers(broken)).toBe(false);

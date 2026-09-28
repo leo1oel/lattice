@@ -4703,6 +4703,61 @@ mod tests {
     }
 
     #[test]
+    fn a_resolved_bibliography_conflict_uploads_exactly_the_kept_side() {
+        // Overleaf emptied references.bib while Papers had appended entries
+        // locally. The merge leaves diff3 markers (with the base section the
+        // resolver must drop) and records Overleaf's side as the new base.
+        let root = temp_dir("resolved-bib-conflict");
+        let base = b"@misc{a,\n  title = {A},\n}\n".as_slice();
+        let ours = b"@misc{a,\n  title = {A},\n}\n\n@misc{b,\n  title = {B},\n}\n".as_slice();
+        let theirs = b"".as_slice();
+        seed_linked_project(
+            &root,
+            "https://www.overleaf.com",
+            &[("references.bib", ours)],
+            &[("references.bib", base)],
+        );
+        let state = load_state(&root).unwrap();
+        let remote = BTreeMap::from([("references.bib".to_string(), theirs.to_vec())]);
+        let conflicted = plan_sync(
+            &root,
+            &state,
+            &remote,
+            &BTreeMap::from([("references.bib".to_string(), ours.to_vec())]),
+            &BTreeSet::new(),
+            "test",
+        )
+        .unwrap();
+        assert_eq!(conflicted.conflict.len(), 1);
+        let markers = String::from_utf8(conflicted.conflict[0].resolved.clone()).unwrap();
+        assert!(markers.contains("\n||||||| original\n"), "{markers}");
+        assert_eq!(conflicted.files["references.bib"], sha256_hex(theirs));
+
+        // What the next sync sees for each choice in the resolver.
+        let mut after = state.clone();
+        after.files = conflicted.files.clone();
+        write_base_copy(&root, "references.bib", theirs).unwrap();
+        let next = |local: &[u8]| {
+            plan_sync(
+                &root,
+                &after,
+                &remote,
+                &BTreeMap::from([("references.bib".to_string(), local.to_vec())]),
+                &BTreeSet::new(),
+                "test",
+            )
+            .unwrap()
+        };
+        let kept_local = next(ours);
+        assert_eq!(kept_local.push, vec!["references.bib"]);
+        assert!(kept_local.pull.is_empty() && kept_local.conflict.is_empty());
+        let kept_overleaf = next(theirs);
+        assert!(kept_overleaf.push.is_empty());
+        assert!(kept_overleaf.pull.is_empty() && kept_overleaf.conflict.is_empty());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
     fn realtime_checkpoint_keeps_agent_disk_edits_and_preserves_real_conflicts() {
         let root = temp_dir("realtime-checkpoint");
         let base = b"Old ending.\n";
