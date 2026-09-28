@@ -404,8 +404,6 @@ function trackProjectItemDrag(
   window.addEventListener("blur", end, { signal: listening.signal });
 }
 
-
-
 function App() {
   const { t } = useLingui();
   const browserHosted = isBrowserHosted();
@@ -610,15 +608,7 @@ function App() {
   const nativeDragPathsRef = useRef<string[]>([]);
   const suppressedFigureClick = useRef<string | null>(null);
   const suppressedProjectFileClick = useRef<string | null>(null);
-  const openProjectFileRef = useRef<(
-    path: string,
-    line?: number,
-    targetPane?: EditorPaneId,
-  ) => Promise<void>>(async () => undefined);
   const openMarkdownProjectPathRef = useRef<(path: string) => void>(() => undefined);
-  const dropProjectPathRef = useRef<(path: string, zone: EditorDropZone) => Promise<unknown>>(
-    async () => undefined,
-  );
   const markdownModeViewportCaptureRef = useRef<(() => void) | null>(null);
   const requestEditorLine = useCallback((path: string, line: number) => {
     updateCanvasRequest("navigation", { path, line, id: crypto.randomUUID() });
@@ -1855,9 +1845,7 @@ function App() {
     savedSourceRef, secondaryFile, secondarySavedSource, secondarySource, setSecondarySavedSource,
     showSecondaryText, sourceRef, viewStateRef, captureProjectScope,
   ]);
-  useEffect(() => {
-    openProjectFileRef.current = openProjectFile;
-  }, [openProjectFile]);
+  const openProjectFileRef = useLatest(openProjectFile);
 
   const openProjectFileFromClick = useCallback((path: string, line?: number) => {
     if (suppressedProjectFileClick.current === path) {
@@ -2706,8 +2694,6 @@ function App() {
     pendingJoinRef.current = rejoinCollabProjectV2;
   }, [rejoinCollabProjectV2]);
 
-
-
   const chooseExisting = useCallback(async () => {
     const selected = await open({ directory: true, multiple: false, title: "Open a LaTeX project" });
     if (!selected) return;
@@ -2886,7 +2872,6 @@ function App() {
     // initialProjectProbe is a stable useState value — listed to satisfy the
     // lint without changing the boot-once behavior.
   }, [initialProjectProbe]);
-
 
   useEffect(() => {
     try {
@@ -3548,9 +3533,7 @@ function App() {
     showActiveAsset, showSecondaryAsset, showSecondaryText, sourceRef,
   ]);
 
-  useEffect(() => {
-    dropProjectPathRef.current = dropProjectPath;
-  }, [dropProjectPath]);
+  const dropProjectPathRef = useLatest(dropProjectPath);
 
   // Paper and asset tabs need their content loaded through their specialized
   // readers after the base project state exists. File tabs are restored inside
@@ -3628,7 +3611,7 @@ function App() {
       setProjectFileDropPreview(null);
       setFigurePointerDrag(null);
     }, (zone) => void dropProjectPathRef.current(path, zone));
-  }, []);
+  }, [dropProjectPathRef]);
 
   const beginProjectFileDrag = useCallback((path: string, _label: string, event: React.PointerEvent) => {
     trackProjectItemDrag(path, event, suppressedProjectFileClick, (pointer, preview) => {
@@ -3638,7 +3621,7 @@ function App() {
       setFileDropTargetPane(null);
       setProjectFileDropPreview(null);
     }, (zone) => void dropProjectPathRef.current(path, zone));
-  }, []);
+  }, [dropProjectPathRef]);
 
   const ensureSecondaryFile = useCallback(async (preferred?: string | null) => {
     const primaryPath = activeFileRef.current;
@@ -4109,7 +4092,7 @@ function App() {
     };
   }, [
     activeFileRef, importProjectAssets, importProjectFiles, importProjectSources, openProjectAsset,
-    postSynaraMessage, project, secondaryFileRef, updateCanvasRequest,
+    postSynaraMessage, project, secondaryFileRef, updateCanvasRequest, openProjectFileRef,
   ]);
 
   const prepareLatexFigure = useCallback(async (path: string): Promise<string | null> => {
@@ -4556,9 +4539,6 @@ function App() {
     insertFigureAtCaret(path);
   }, [activeFile, importSystemClipboardImage, insertFigureAtCaret, project]);
 
-
-
-
   const revealProjectItem = useCallback(async (relativePath: string) => {
     if (!project) return;
     try {
@@ -4710,7 +4690,6 @@ function App() {
     setSettingsTab(tab);
     setSettingsOpen(true);
   }, [requestSynaraRuntime]);
-
 
   /** Move this workspace to another surface (browser or desktop app): claim the switch, roll it back on failure. */
   const handOffWorkspace = async (blockedMessage: string, handOff: () => Promise<void>) => {
