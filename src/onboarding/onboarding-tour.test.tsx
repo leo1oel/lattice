@@ -84,4 +84,22 @@ describe("onboarding tour", () => {
     expect(onStepIndexChange).toHaveBeenCalledWith(to);
     expect(onSelectTutorialFile).not.toHaveBeenCalled();
   });
+
+  it("drops the previous paper-blog spotlight when the reader comes back to that step", async () => {
+    const targets = document.createElement("div");
+    targets.innerHTML = '<div data-tour="paper-reading-view"></div><div class="paper-content-switcher"><button data-tour="paper-fulltext"></button></div>';
+    document.body.append(targets);
+    const nextFrame = () => act(() => new Promise((resolve) => requestAnimationFrame(() => resolve(undefined))));
+    const rings = () => Array.from(document.querySelectorAll(".lattice-tour-dual-spotlight-ring"), (ring) => ring.getAttribute("d"));
+    const callbacks = { onStepIndexChange: vi.fn(), onSkip: vi.fn(), onComplete: vi.fn(), onSelectTutorialFile: vi.fn() };
+    const { rerender } = render(<OnboardingTour active stepIndex={TUTORIAL_STEPS.paperBlog} {...callbacks} />);
+    await nextFrame();
+    expect(rings().every((d) => d?.startsWith("M "))).toBe(true);
+
+    rerender(<OnboardingTour active stepIndex={TUTORIAL_STEPS.paperFullText} {...callbacks} />);
+    targets.remove();
+    rerender(<OnboardingTour active stepIndex={TUTORIAL_STEPS.paperBlog} {...callbacks} />);
+    await nextFrame();
+    expect(rings()).toEqual([null, null]);
+  });
 });
