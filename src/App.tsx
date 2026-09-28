@@ -4950,19 +4950,9 @@ function App() {
       // can refuse to merge a stale whole-file result into a newer buffer.
       let conflictPath: string | null = null;
       for (const change of result.changes ?? []) {
-        if (
-          activeFileRef.current === change.path
-          && sourceRef.current !== change.before
-          && sourceRef.current !== change.after
-        ) {
-          conflictPath = change.path;
-          break;
-        }
-        if (
-          secondaryFileRef.current === change.path
-          && secondarySourceRef.current !== change.before
-          && secondarySourceRef.current !== change.after
-        ) {
+        const diverged = (text: string) => text !== change.before && text !== change.after;
+        if ((activeFileRef.current === change.path && diverged(sourceRef.current))
+          || (secondaryFileRef.current === change.path && diverged(secondarySourceRef.current))) {
           conflictPath = change.path;
           break;
         }
@@ -4970,8 +4960,7 @@ function App() {
         if (activeCollabVersion === 2 && controller?.hasTextPath(change.path)) {
           const ytext = await controller.openPath(change.path, "secondary", { sideload: true });
           if (!operationIsCurrent()) return;
-          const collabText = ytext.toString();
-          if (collabText !== change.before && collabText !== change.after) {
+          if (diverged(ytext.toString())) {
             conflictPath = change.path;
             break;
           }
@@ -4979,14 +4968,11 @@ function App() {
       }
       if (conflictPath) {
         let reverted = false;
+        // Revert itself is compare-and-swap guarded. If disk also changed,
+        // leave both versions intact and direct the user to History.
         if (result.transactionId) {
-          try {
-            await invoke("revert_transaction", { transactionId: result.transactionId, projectRoot });
-            reverted = true;
-          } catch {
-            // Revert itself is compare-and-swap guarded. If disk also changed,
-            // leave both versions intact and direct the user to History.
-          }
+          reverted = await invoke("revert_transaction", { transactionId: result.transactionId, projectRoot })
+            .then(() => true, () => false);
         }
         if (operationIsCurrent()) {
           setError(reverted
@@ -4998,20 +4984,11 @@ function App() {
         return;
       }
 
-      const changedFiles = result.changedFiles?.length
-        ? result.changedFiles
-        : bibliographyPath
-          ? [bibliographyPath]
-          : [];
-      const returnedChanges = new Map(
-        (result.changes ?? []).map((change) => [change.path, change.after]),
-      );
+      const changedFiles = result.changedFiles?.length ? result.changedFiles : bibliographyPath ? [bibliographyPath] : [];
+      const returnedChanges = new Map((result.changes ?? []).map((change) => [change.path, change.after]));
       for (const path of changedFiles) {
-        const content = returnedChanges.get(path)
-          ?? await invoke<string>("read_project_file", { path, projectRoot });
-        const published = collabSession
-          ? await publishTextToCollabV2(path, content)
-          : false;
+        const content = returnedChanges.get(path) ?? await invoke<string>("read_project_file", { path, projectRoot });
+        const published = collabSession ? await publishTextToCollabV2(path, content) : false;
         if (!published && path === activeFile) {
           commitPrimaryText(content);
           await markDiskMtime(path);
