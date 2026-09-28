@@ -105,23 +105,6 @@ msgstr "{0} markers"
 msgid "{0} others"
 msgstr "{0} others"
 
-#. placeholder {0}: citation.range
-#. placeholder {0}: citation.sheet
-#: src/agent/synara-runtime.ts
-msgid "{baseName} • {0}"
-msgstr "{baseName} • {0}"
-
-#. placeholder {0}: citation.sheet
-#. placeholder {1}: citation.range
-#: src/agent/synara-runtime.ts
-msgid "{baseName} • {0}!{1}"
-msgstr "{baseName} • {0}!{1}"
-
-#. placeholder {0}: citation.line
-#: src/agent/synara-runtime.ts
-msgid "{baseName}:L{0}"
-msgstr "{baseName}:L{0}"
-
 #. placeholder {0}: collabSession.room
 #: src/App.tsx
 msgid "{collabPeers} connected · {0}"
@@ -140,7 +123,7 @@ msgid "{count} lines"
 msgstr "{count} lines"
 
 #: src/papers/paper-lookup.tsx
-#: src/project/navigator.tsx
+#: src/project/paper-library.tsx
 msgid "{count} papers"
 msgstr "{count} papers"
 
@@ -156,7 +139,7 @@ msgstr "{decided} of {total} decided"
 msgid "{detail} Find in project will stay lexical"
 msgstr "{detail} Find in project will stay lexical"
 
-#: src/project/navigator.tsx
+#: src/project/paper-library.tsx
 msgid "{filtered} of {total} papers"
 msgstr "{filtered} of {total} papers"
 
@@ -179,7 +162,7 @@ msgstr "{names} was deleted from the local project, but is still on Overleaf. Ev
 msgid "{names} were deleted from the local project, but are still on Overleaf. Even if you remove them now, Overleaf's history will keep them."
 msgstr "{names} were deleted from the local project, but are still on Overleaf. Even if you remove them now, Overleaf's history will keep them."
 
-#: src/project/navigator.tsx
+#: src/project/paper-library.tsx
 msgid "{notice}. Open notice"
 msgstr "{notice}. Open notice"
 
@@ -187,7 +170,7 @@ msgstr "{notice}. Open notice"
 msgid "{roleLabel} · all project files · {fileCountLabel} · {othersLabel} · {connectedRoomLabel}"
 msgstr "{roleLabel} · all project files · {fileCountLabel} · {othersLabel} · {connectedRoomLabel}"
 
-#: src/project/navigator.tsx
+#: src/project/paper-library.tsx
 msgid "{title} — no local reading available"
 msgstr "{title} — no local reading available"
 
@@ -219,7 +202,7 @@ msgstr "1 file"
 msgid "1 line"
 msgstr "1 line"
 
-#: src/project/navigator.tsx
+#: src/project/paper-library.tsx
 msgid "1 of {total} papers"
 msgstr "1 of {total} papers"
 
@@ -228,7 +211,7 @@ msgid "1 other"
 msgstr "1 other"
 
 #: src/papers/paper-lookup.tsx
-#: src/project/navigator.tsx
+#: src/project/paper-library.tsx
 msgid "1 paper"
 msgstr "1 paper"
 
@@ -345,7 +328,7 @@ msgstr "Add papers in the project’s Papers sidebar"
 msgid "Add project term"
 msgstr "Add project term"
 
-#: src/project/navigator.tsx
+#: src/project/paper-library.tsx
 msgid "Add your first paper"
 msgstr "Add your first paper"
 
@@ -435,8 +418,7 @@ msgstr "All of your projects are archived or trashed. Tick “Show archived” t
 msgid "Allow external commands"
 msgstr "Allow external commands"
 
-#: src/build/tex-dependency-installer.tsx
-#: src/build/tex-setup-wizard.tsx
+#: src/build/tex-install-dialog.tsx
 msgid "Almost done"
 msgstr "Almost done"
 
@@ -527,8 +509,7 @@ msgstr "Apply this update"
 msgid "Approve for me"
 msgstr "Approve for me"
 
-#: src/build/tex-dependency-installer.tsx
-#: src/build/tex-setup-wizard.tsx
+#: src/build/tex-install-dialog.tsx
 msgid "Approve the macOS prompt to continue"
 msgstr "Approve the macOS prompt to continue"
 
@@ -845,7 +826,7 @@ msgstr "Bullet List"
 msgid "Bulleted list"
 msgstr "Bulleted list"
 
-#: src/project/navigator.tsx
+#: src/project/citation-health.ts
 msgid "cached"
 msgstr "cached"
 
@@ -870,7 +851,7 @@ msgstr "Callout"
 #: src/overleaf/overleaf-connect.tsx
 #: src/overleaf/overleaf-history.tsx
 #: src/papers/bib-entry-dialog.tsx
-#: src/project/navigator.tsx
+#: src/project/paper-library.tsx
 #: src/project/project-dialogs.tsx
 #: src/telemetry/app-log.tsx
 msgid "Cancel"
@@ -880,7 +861,7 @@ msgstr "Cancel"
 msgid "Cancel check"
 msgstr "Cancel check"
 
-#: src/project/navigator.tsx
+#: src/project/project-file-tree.tsx
 msgid "Cancel creation"
 msgstr "Cancel creation"
 
@@ -1037,7 +1018,7 @@ msgstr "Check spelling in prose"
 msgid "Check your connection and try again"
 msgstr "Check your connection and try again"
 
-#: src/project/navigator.tsx
+#: src/project/citation-health.ts
 msgid "checked"
 msgstr "checked"
 
@@ -1049,7 +1030,7 @@ msgstr "Checking the connection to {linkedHost}…"
 msgid "Checking your Overleaf connection…"
 msgstr "Checking your Overleaf connection…"
 
-#: src/build/tex-dependency-installer.tsx
+#: src/build/tex-install-dialog.tsx
 #: src/settings/settings-dialog.tsx
 msgid "Checking…"
 msgstr "Checking…"
@@ -1066,7 +1047,7 @@ msgstr "Checks all project bibliographies without changing them. Review differen
 msgid "Checks English spelling and grammar as you type with Harper"
 msgstr "Checks English spelling and grammar as you type with Harper"
 
-#: src/settings/settings-dialog.tsx
+#: src/settings/doctor-settings.tsx
 msgid "Checks the tools Lattice needs to compile LaTeX"
 msgstr "Checks the tools Lattice needs to compile LaTeX"
 
@@ -1126,7 +1107,7 @@ msgstr "Citation candidates"
 msgid "Citation key"
 msgstr "Citation key"
 
-#: src/project/navigator.tsx
+#: src/project/paper-library.tsx
 msgid "Citation only — no downloadable full text found"
 msgstr "Citation only — no downloadable full text found"
 
@@ -1477,7 +1458,7 @@ msgstr "Copy JSON"
 msgid "Copy notification command"
 msgstr "Copy notification command"
 
-#: src/project/navigator.tsx
+#: src/project/project-file-tree.tsx
 msgid "Copy path"
 msgstr "Copy path"
 
@@ -1485,7 +1466,7 @@ msgstr "Copy path"
 msgid "Copyright"
 msgstr "Copyright"
 
-#: src/project/navigator.tsx
+#: src/project/citation-health.ts
 msgid "Correction/update"
 msgstr "Correction/update"
 
@@ -1510,7 +1491,7 @@ msgid "Could not hand this file back to Overleaf sync ({detail}). Syncing remain
 msgstr "Could not hand this file back to Overleaf sync ({detail}). Syncing remains paused for this file."
 
 #: src/canvas/paper-reader.tsx
-#: src/pdf/pdf-viewer.tsx
+#: src/pdf/use-pdf-document.ts
 msgid "Could not load PDF"
 msgstr "Could not load PDF"
 
@@ -1591,15 +1572,15 @@ msgstr "Cross-reference label"
 msgid "Crossref"
 msgstr "Crossref"
 
-#: src/project/navigator.tsx
+#: src/project/citation-health.ts
 msgid "Crossref citation-health metadata is currently unavailable"
 msgstr "Crossref citation-health metadata is currently unavailable"
 
-#: src/project/navigator.tsx
+#: src/project/citation-health.ts
 msgid "Crossref reports update type"
 msgstr "Crossref reports update type"
 
-#: src/project/navigator.tsx
+#: src/project/citation-health.ts
 msgid "Crossref type"
 msgstr "Crossref type"
 
@@ -1664,7 +1645,7 @@ msgstr "Degree"
 #: src/editor/comments/editor-comments-panel.tsx
 #: src/editor/spreadsheet/spreadsheet-univer.ts
 #: src/overleaf/overleaf-comments.tsx
-#: src/project/navigator.tsx
+#: src/project/project-file-tree.tsx
 msgid "Delete"
 msgstr "Delete"
 
@@ -1845,11 +1826,11 @@ msgstr "Down arrow"
 msgid "Down double arrow"
 msgstr "Down double arrow"
 
-#: src/project/navigator.tsx
+#: src/project/paper-library.tsx
 msgid "Download {url}"
 msgstr "Download {url}"
 
-#: src/project/navigator.tsx
+#: src/project/paper-library.tsx
 msgid "Download arXiv {id}"
 msgstr "Download arXiv {id}"
 
@@ -1861,8 +1842,7 @@ msgstr "Download JSON"
 msgid "Download PDF"
 msgstr "Download PDF"
 
-#: src/build/tex-dependency-installer.tsx
-#: src/build/tex-setup-wizard.tsx
+#: src/build/tex-install-dialog.tsx
 msgid "Download time depends on your connection"
 msgstr "Download time depends on your connection"
 
@@ -1875,7 +1855,7 @@ msgstr "Downloaded paper files will be kept."
 msgid "Downloading {0} from Overleaf… this can take a minute for large projects"
 msgstr "Downloading {0} from Overleaf… this can take a minute for large projects"
 
-#: src/build/tex-setup-wizard.tsx
+#: src/build/tex-install-dialog.tsx
 msgid "Downloading BasicTeX…"
 msgstr "Downloading BasicTeX…"
 
@@ -1934,7 +1914,7 @@ msgid "Edit before saving"
 msgstr "Edit before saving"
 
 #: src/papers/bib-entry-dialog.tsx
-#: src/project/navigator.tsx
+#: src/project/paper-library.tsx
 msgid "Edit bibliography entry"
 msgstr "Edit bibliography entry"
 
@@ -2196,7 +2176,7 @@ msgstr "Export ZIP"
 msgid "Export…"
 msgstr "Export…"
 
-#: src/project/navigator.tsx
+#: src/project/citation-health.ts
 msgid "Expression of concern"
 msgstr "Expression of concern"
 
@@ -2279,8 +2259,7 @@ msgid "Finish"
 msgstr "Finish"
 
 #: src/app/use-collab-v2-session.ts
-#: src/build/tex-dependency-installer.tsx
-#: src/build/tex-setup-wizard.tsx
+#: src/build/tex-install-dialog.tsx
 msgid "Finishing setup…"
 msgstr "Finishing setup…"
 
@@ -2618,7 +2597,7 @@ msgstr "Import failed — retry Start sharing"
 msgid "Import figures"
 msgstr "Import figures"
 
-#: src/project/navigator.tsx
+#: src/project/project-file-tree.tsx
 msgid "Import images here"
 msgstr "Import images here"
 
@@ -2626,7 +2605,7 @@ msgstr "Import images here"
 msgid "Import Overleaf ZIP"
 msgstr "Import Overleaf ZIP"
 
-#: src/project/navigator.tsx
+#: src/project/paper-library.tsx
 msgid "Import paper"
 msgstr "Import paper"
 
@@ -2854,20 +2833,19 @@ msgid "Install required paper tools"
 msgstr "Install required paper tools"
 
 #: src/build/tex-setup-wizard.tsx
-#: src/settings/settings-dialog.tsx
+#: src/settings/doctor-settings.tsx
 msgid "Install required tools"
 msgstr "Install required tools"
 
-#: src/build/tex-setup-wizard.tsx
+#: src/build/tex-install-dialog.tsx
 msgid "Installing BasicTeX…"
 msgstr "Installing BasicTeX…"
 
-#: src/build/tex-dependency-installer.tsx
-#: src/build/tex-setup-wizard.tsx
+#: src/build/tex-install-dialog.tsx
 msgid "Installing LaTeX packages…"
 msgstr "Installing LaTeX packages…"
 
-#: src/build/tex-setup-wizard.tsx
+#: src/build/tex-install-dialog.tsx
 msgid "Installing required tools…"
 msgstr "Installing required tools…"
 
@@ -2875,7 +2853,7 @@ msgstr "Installing required tools…"
 msgid "Installing update…"
 msgstr "Installing update…"
 
-#: src/build/tex-setup-wizard.tsx
+#: src/build/tex-install-dialog.tsx
 msgid "Installing uv for paper imports and bibliography tools"
 msgstr "Installing uv for paper imports and bibliography tools"
 
@@ -3318,7 +3296,7 @@ msgstr "Loading Overleaf's history…"
 msgid "Loading PDF…"
 msgstr "Loading PDF…"
 
-#: src/settings/settings-dialog.tsx
+#: src/settings/synara-settings-pane.tsx
 msgid "Loading settings…"
 msgstr "Loading settings…"
 
@@ -3494,7 +3472,7 @@ msgstr "Mirror Source"
 msgid "Misc"
 msgstr "Misc"
 
-#: src/settings/settings-dialog.tsx
+#: src/settings/doctor-settings.tsx
 msgid "Missing required tools"
 msgstr "Missing required tools"
 
@@ -3603,11 +3581,11 @@ msgstr "New changes on Overleaf — click to bring them in"
 msgid "New document"
 msgstr "New document"
 
-#: src/project/navigator.tsx
+#: src/project/project-file-tree.tsx
 msgid "New file"
 msgstr "New file"
 
-#: src/project/navigator.tsx
+#: src/project/project-file-tree.tsx
 msgid "New folder"
 msgstr "New folder"
 
@@ -3687,7 +3665,7 @@ msgstr "No comments in this project. Comments made on Overleaf appear here as th
 msgid "No comments yet. Select text in the editor and click Comment"
 msgstr "No comments yet. Select text in the editor and click Comment"
 
-#: src/project/navigator.tsx
+#: src/project/citation-health.ts
 msgid "No Crossref update metadata found"
 msgstr "No Crossref update metadata found"
 
@@ -3724,7 +3702,7 @@ msgid "No matching logs"
 msgstr "No matching logs"
 
 #: src/papers/paper-lookup.tsx
-#: src/project/navigator.tsx
+#: src/project/paper-library.tsx
 msgid "No matching papers"
 msgstr "No matching papers"
 
@@ -3909,7 +3887,7 @@ msgstr "Open a project from Overleaf"
 msgid "Open a project to add its names, acronyms, and technical terms"
 msgstr "Open a project to add its names, acronyms, and technical terms"
 
-#: src/settings/settings-dialog.tsx
+#: src/settings/synara-settings-pane.tsx
 msgid "Open a project to manage Agent settings"
 msgstr "Open a project to manage Agent settings"
 
@@ -4014,7 +3992,7 @@ msgstr "Open Slide could not start"
 msgid "Open Slide editor for {deckId}"
 msgstr "Open Slide editor for {deckId}"
 
-#: src/project/navigator.tsx
+#: src/project/paper-library.tsx
 msgid "Open source page — no downloadable full text found"
 msgstr "Open source page — no downloadable full text found"
 
@@ -4213,7 +4191,7 @@ msgstr "Paper view shows the complete text, sections, equations, and figures as 
 #: src/app/app-workspace-sidebar.tsx
 #: src/canvas/use-paper-pdf.ts
 #: src/papers/paper-lookup.tsx
-#: src/project/navigator.tsx
+#: src/project/paper-library.tsx
 msgid "Papers"
 msgstr "Papers"
 
@@ -4241,12 +4219,12 @@ msgstr "Partial derivative"
 msgid "Partial results for {completed} of {progressTotal} references"
 msgstr "Partial results for {completed} of {progressTotal} references"
 
-#: src/project/navigator.tsx
+#: src/project/paper-library.tsx
 msgid "Paste an arXiv ID, DOI, URL, or title above to ground the agent in project evidence"
 msgstr "Paste an arXiv ID, DOI, URL, or title above to ground the agent in project evidence"
 
 #: src/App.tsx
-#: src/project/navigator.tsx
+#: src/project/project-file-tree.tsx
 msgid "Paste clipboard image as figure"
 msgstr "Paste clipboard image as figure"
 
@@ -4286,7 +4264,7 @@ msgstr "PDF document"
 msgid "PDF loading progress"
 msgstr "PDF loading progress"
 
-#: src/pdf/pdf-viewer.tsx
+#: src/pdf/use-pdf-document.ts
 msgid "PDF page {pageNumber}"
 msgstr "PDF page {pageNumber}"
 
@@ -4482,7 +4460,7 @@ msgstr "Project dictionary"
 msgid "Project dictionary terms"
 msgstr "Project dictionary terms"
 
-#: src/project/navigator.tsx
+#: src/project/project-file-tree.tsx
 msgid "Project files"
 msgstr "Project files"
 
@@ -4558,7 +4536,7 @@ msgstr "Public daily quota exhausted; subsequent Semantic Scholar queries skippe
 
 #: src/papers/bib-entry-dialog.tsx
 #: src/papers/bibliography-audit.tsx
-#: src/project/navigator.tsx
+#: src/project/citation-health.ts
 msgid "Publisher"
 msgstr "Publisher"
 
@@ -4615,7 +4593,7 @@ msgstr "Ready for {0} files ({1} blocks). {semanticSearchPrivacy}"
 msgid "Ready for 1 file ({0} blocks). {semanticSearchPrivacy}"
 msgstr "Ready for 1 file ({0} blocks). {semanticSearchPrivacy}"
 
-#: src/settings/settings-dialog.tsx
+#: src/settings/doctor-settings.tsx
 msgid "Ready to compile"
 msgstr "Ready to compile"
 
@@ -4721,7 +4699,7 @@ msgstr "Remove {0}?\n"
 "\n"
 "They will lose access immediately. Anyone who joined with the same invite will also lose access."
 
-#: src/project/navigator.tsx
+#: src/project/paper-library.tsx
 msgid "Remove {title}"
 msgstr "Remove {title}"
 
@@ -4781,8 +4759,8 @@ msgid "Removing…"
 msgstr "Removing…"
 
 #: src/collab/collab-dialog.tsx
-#: src/project/navigator.tsx
 #: src/project/project-dialogs.tsx
+#: src/project/project-file-tree.tsx
 msgid "Rename"
 msgstr "Rename"
 
@@ -4859,7 +4837,7 @@ msgstr "Repairing…"
 msgid "Replace in project"
 msgstr "Replace in project"
 
-#: src/project/navigator.tsx
+#: src/project/citation-health.ts
 msgid "Replacement/new version"
 msgstr "Replacement/new version"
 
@@ -4983,7 +4961,7 @@ msgstr "Resolved by {0}"
 msgid "Resolving citation metadata…"
 msgstr "Resolving citation metadata…"
 
-#: src/build/tex-dependency-installer.tsx
+#: src/build/tex-install-dialog.tsx
 #: src/papers/bib-entry-dialog.tsx
 msgid "Resolving…"
 msgstr "Resolving…"
@@ -5065,11 +5043,11 @@ msgstr "Restoring the conversation surface…"
 msgid "Resume syncing"
 msgstr "Resume syncing"
 
-#: src/project/navigator.tsx
+#: src/project/citation-health.ts
 msgid "Retracted"
 msgstr "Retracted"
 
-#: src/project/navigator.tsx
+#: src/project/citation-health.ts
 msgid "Retraction Watch"
 msgstr "Retraction Watch"
 
@@ -5176,11 +5154,11 @@ msgid "Run a command…"
 msgstr "Run a command…"
 
 #: src/App.tsx
-#: src/settings/settings-dialog.tsx
+#: src/settings/doctor-settings.tsx
 msgid "Run TeX doctor"
 msgstr "Run TeX doctor"
 
-#: src/settings/settings-dialog.tsx
+#: src/settings/doctor-settings.tsx
 msgid "Run the doctor to inspect this Mac’s TeX toolchain"
 msgstr "Run the doctor to inspect this Mac’s TeX toolchain"
 
@@ -5319,11 +5297,11 @@ msgstr "Search logs"
 msgid "Search logs…"
 msgstr "Search logs…"
 
-#: src/project/navigator.tsx
+#: src/project/paper-library.tsx
 msgid "Search or add by title, arXiv ID, DOI, or URL"
 msgstr "Search or add by title, arXiv ID, DOI, or URL"
 
-#: src/project/navigator.tsx
+#: src/project/paper-library.tsx
 msgid "Search or import papers"
 msgstr "Search or import papers"
 
@@ -5450,8 +5428,7 @@ msgstr "Settings"
 msgid "Settings sections"
 msgstr "Settings sections"
 
-#: src/build/tex-dependency-installer.tsx
-#: src/build/tex-setup-wizard.tsx
+#: src/build/tex-install-dialog.tsx
 msgid "Setup is complete"
 msgstr "Setup is complete"
 
@@ -5479,11 +5456,12 @@ msgstr "Show archived"
 msgid "Show document outline"
 msgstr "Show document outline"
 
-#: src/project/navigator.tsx
+#: src/project/project-file-tree.tsx
 msgid "Show hidden files"
 msgstr "Show hidden files"
 
-#: src/project/navigator.tsx
+#: src/project/paper-library.tsx
+#: src/project/project-file-tree.tsx
 msgid "Show in Finder"
 msgstr "Show in Finder"
 
@@ -5608,7 +5586,7 @@ msgstr "Source + PDF"
 msgid "Source candidate (not applied)"
 msgstr "Source candidate (not applied)"
 
-#: src/pdf/pdf-viewer.tsx
+#: src/pdf/pdf-source-targets.ts
 msgid "Source location in PDF"
 msgstr "Source location in PDF"
 
@@ -5885,7 +5863,7 @@ msgstr "Symbolic links are not followed"
 msgid "Symbols"
 msgstr "Symbols"
 
-#: src/settings/settings-dialog.tsx
+#: src/settings/synara-settings-pane.tsx
 msgid "Synara {synaraSettingsLabel} settings"
 msgstr "Synara {synaraSettingsLabel} settings"
 
@@ -5948,6 +5926,7 @@ msgstr "Terms Harper should accept in this project"
 msgid "Test connection"
 msgstr "Test connection"
 
+#: src/settings/doctor-settings.tsx
 #: src/settings/settings-dialog.tsx
 msgid "TeX doctor"
 msgstr "TeX doctor"
@@ -6170,7 +6149,7 @@ msgstr "This is a real, editable Open Slide deck. Use the thumbnail rail to brow
 msgid "This is not a native Open Slide deck."
 msgstr "This is not a native Open Slide deck."
 
-#: src/build/tex-setup-wizard.tsx
+#: src/build/tex-install-dialog.tsx
 msgid "This is the longest step and can take up to 15 minutes"
 msgstr "This is the longest step and can take up to 15 minutes"
 
@@ -6211,7 +6190,7 @@ msgstr "This shared project is closed"
 msgid "This source record is shown for comparison only. It was not verified and cannot be applied."
 msgstr "This source record is shown for comparison only. It was not verified and cannot be applied."
 
-#: src/build/tex-setup-wizard.tsx
+#: src/build/tex-install-dialog.tsx
 msgid "This step may take a minute"
 msgstr "This step may take a minute"
 
@@ -6256,7 +6235,7 @@ msgstr "TODOs"
 msgid "Toggle"
 msgstr "Toggle"
 
-#: src/settings/settings-dialog.tsx
+#: src/settings/doctor-settings.tsx
 msgid "Toolchain status"
 msgstr "Toolchain status"
 
@@ -6316,7 +6295,7 @@ msgstr "Type"
 msgid "Type directly in the formatted view without Markdown syntax. On an empty line, press / to insert headings, tables, math, or images"
 msgstr "Type directly in the formatted view without Markdown syntax. On an empty line, press / to insert headings, tables, math, or images"
 
-#: src/settings/settings-dialog.tsx
+#: src/settings/doctor-settings.tsx
 msgid "Unavailable"
 msgstr "Unavailable"
 
@@ -6486,7 +6465,7 @@ msgstr "Use Edit for the source, Split for both, and Preview for the finished re
 msgid "Use Formulas in the toolbar, or export the spreadsheet as an .xlsx file"
 msgstr "Use Formulas in the toolbar, or export the spreadsheet as an .xlsx file"
 
-#: src/project/navigator.tsx
+#: src/project/paper-library.tsx
 msgid "Use the + button to import this query if it isn't in your library yet"
 msgstr "Use the + button to import this query if it isn't in your library yet"
 
@@ -6571,8 +6550,7 @@ msgstr "Verified against the official 2026 style; creates a preprint draft"
 msgid "Verified publication match"
 msgstr "Verified publication match"
 
-#: src/build/tex-dependency-installer.tsx
-#: src/build/tex-setup-wizard.tsx
+#: src/build/tex-install-dialog.tsx
 msgid "Verifying installation…"
 msgstr "Verifying installation…"
 
@@ -6651,8 +6629,7 @@ msgstr "Vmatrix"
 msgid "Volume"
 msgstr "Volume"
 
-#: src/build/tex-dependency-installer.tsx
-#: src/build/tex-setup-wizard.tsx
+#: src/build/tex-install-dialog.tsx
 msgid "Waiting for administrator approval…"
 msgstr "Waiting for administrator approval…"
 
@@ -6705,7 +6682,7 @@ msgid "Words inside math mode"
 msgstr "Words inside math mode"
 
 #: src/papers/paper-import-progress.ts
-#: src/project/navigator.tsx
+#: src/project/paper-library.tsx
 msgid "Working…"
 msgstr "Working…"
 

@@ -275,10 +275,10 @@ export function PdfPreview({
     })
       .then(async (destination) => {
         if (!destination) return;
-        const savedPath = await invoke<string>("save_compiled_pdf", pdfBytes, {
+        const path = await invoke<string>("save_compiled_pdf", pdfBytes, {
           headers: { "x-pdf-destination": utf8ToBase64(destination) },
         });
-        trace.ok(t`Saved to ${savedPath}`);
+        trace.ok(t`Saved to ${path}`);
       })
       .catch((reason: unknown) => trace.fail(reason))
       .finally(() => setSavingPdf(false));
