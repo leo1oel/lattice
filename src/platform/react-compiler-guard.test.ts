@@ -47,8 +47,8 @@ const CEILINGS: Record<string, number> = {
   "src/editor/markdown/visual-markdown-editor.tsx": 1,
   "src/canvas/editor-tabs.tsx": 0,
   // Split out of the viewer, which had 5. Each remaining one is a tagged
-  // template or a preserved memo, not a ref write.
-  "src/pdf/pdf-viewer.tsx": 1,
+  // template or a preserved memo, not a ref write; the viewer itself compiles.
+  "src/pdf/pdf-viewer.tsx": 0,
   "src/pdf/use-pdf-document.ts": 1,
   "src/pdf/use-pdf-view.ts": 1,
   // Cleared August 2026 by moving render-phase ref writes into every-commit
