@@ -208,7 +208,11 @@ const box = (left: number, top: number, width: number, height: number) =>
   ({ left, top, width, height, right: left + width, bottom: top + height, x: left, y: top, toJSON: () => ({}) }) as DOMRect;
 
 describe("PDFSlick viewer integration", () => {
-  afterEach(() => cleanup());
+  afterEach(() => {
+    cleanup();
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+  });
 
   beforeEach(() => {
     Object.assign(pdf.state, {
@@ -236,7 +240,6 @@ describe("PDFSlick viewer integration", () => {
     const errors = consoleError.mock.calls.flat().join("\n");
     expect(errors).not.toContain("changing an uncontrolled input to be controlled");
     expect(errors).not.toContain("changing a controlled input to be uncontrolled");
-    consoleError.mockRestore();
   });
 
   it("starts from a file's local page and zoom without overwriting it before load", () => {
@@ -425,8 +428,6 @@ describe("PDFSlick viewer integration", () => {
     expect(onTextSelect).toHaveBeenLastCalledWith("");
     fireEvent.mouseUp(target);
     await waitFor(() => expect(onTextSelect).toHaveBeenLastCalledWith(""));
-    documentSelection.mockRestore();
-    selection.mockRestore();
 
     const link = view.getAllByTitle("https://example.com/paper")[0];
     expect(link).toHaveAttribute("target", "_blank");
@@ -551,25 +552,21 @@ describe("PDFSlick viewer integration", () => {
 
   it("restores a SyncTeX highlight cleared by first page rendering without replaying navigation", async () => {
     const scroll = vi.spyOn(Element.prototype, "scrollIntoView");
-    try {
-      const view = renderPdf({ syncTarget: { id: "cold-sync", page: 3, x: 83, y: 238, width: 421, height: 13 } });
-      const highlight = await view.findByLabelText("Source location in PDF");
-      expect(scroll).toHaveBeenCalledWith({ block: "center", inline: "nearest" });
-      const instance = pdf.state.instances[0]!;
-      const jumps = instance.gotoPage.mock.calls.length;
-      const scrolls = scroll.mock.calls.length;
+    const view = renderPdf({ syncTarget: { id: "cold-sync", page: 3, x: 83, y: 238, width: 421, height: 13 } });
+    const highlight = await view.findByLabelText("Source location in PDF");
+    expect(scroll).toHaveBeenCalledWith({ block: "center", inline: "nearest" });
+    const instance = pdf.state.instances[0]!;
+    const jumps = instance.gotoPage.mock.calls.length;
+    const scrolls = scroll.mock.calls.length;
 
-      // PDF.js clears page children on the first render of an unvisited page.
-      highlight.remove();
-      instance.args.container.scrollTop = 2_350;
-      act(() => instance.emit("pagerendered", { pageNumber: 3 }));
-      expect(await view.findByLabelText("Source location in PDF")).toBeInTheDocument();
-      expect(instance.gotoPage).toHaveBeenCalledTimes(jumps);
-      expect(scroll).toHaveBeenCalledTimes(scrolls);
-      expect(instance.args.container.scrollTop).toBe(2_350);
-    } finally {
-      scroll.mockRestore();
-    }
+    // PDF.js clears page children on the first render of an unvisited page.
+    highlight.remove();
+    instance.args.container.scrollTop = 2_350;
+    act(() => instance.emit("pagerendered", { pageNumber: 3 }));
+    expect(await view.findByLabelText("Source location in PDF")).toBeInTheDocument();
+    expect(instance.gotoPage).toHaveBeenCalledTimes(jumps);
+    expect(scroll).toHaveBeenCalledTimes(scrolls);
+    expect(instance.args.container.scrollTop).toBe(2_350);
   });
 
   it("navigates to a quote page but conservatively skips an ambiguous highlight", async () => {
@@ -727,18 +724,14 @@ describe("PDFSlick viewer integration", () => {
 
   it("returns assembled bytes only for URL-backed documents after first render", async () => {
     vi.useFakeTimers();
-    try {
-      const onDocumentData = vi.fn();
-      renderPdf({ onDocumentData });
-      for (const ms of [200, 800]) {
-        await act(async () => {
-          vi.advanceTimersByTime(ms);
-          await Promise.resolve();
-        });
-      }
-      expect(onDocumentData).toHaveBeenCalledWith(expect.any(ArrayBuffer));
-    } finally {
-      vi.useRealTimers();
+    const onDocumentData = vi.fn();
+    renderPdf({ onDocumentData });
+    for (const ms of [200, 800]) {
+      await act(async () => {
+        vi.advanceTimersByTime(ms);
+        await Promise.resolve();
+      });
     }
+    expect(onDocumentData).toHaveBeenCalledWith(expect.any(ArrayBuffer));
   });
 });

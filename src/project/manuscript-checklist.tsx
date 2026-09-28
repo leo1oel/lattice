@@ -113,26 +113,21 @@ export function ManuscriptChecklistPanel(props: {
           />
         </div>
         <div className="checklist-budgets">
-          <label>
-            Word budget
-            <Input
-              controlSize="compact"
-              inputMode="numeric"
-              value={wordBudget}
-              placeholder="e.g. 5500"
-              onChange={(event) => setWordBudget(event.target.value)}
-            />
-          </label>
-          <label>
-            Page budget
-            <Input
-              controlSize="compact"
-              inputMode="numeric"
-              value={pageBudget}
-              placeholder="e.g. 9"
-              onChange={(event) => setPageBudget(event.target.value)}
-            />
-          </label>
+          {([
+            ["Word budget", wordBudget, setWordBudget, "e.g. 5500"],
+            ["Page budget", pageBudget, setPageBudget, "e.g. 9"],
+          ] as const).map(([label, value, setValue, placeholder]) => (
+            <label key={label}>
+              {label}
+              <Input
+                controlSize="compact"
+                inputMode="numeric"
+                value={value}
+                placeholder={placeholder}
+                onChange={(event) => setValue(event.target.value)}
+              />
+            </label>
+          ))}
           <button type="button" onClick={() => props.onSaveBudgets(parseBudget(wordBudget), parseBudget(pageBudget))}>
             Save budgets
           </button>

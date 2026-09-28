@@ -3,23 +3,11 @@ import { useLingui } from "@lingui/react/macro";
 import { toMessage } from "../app-utils";
 import { isBrowserHosted } from "../platform/browser-runtime";
 import { pdfBase64Fingerprint, pdfBase64ToBytes, pdfBytesFingerprint } from "./pdf-bytes";
-import {
-  createViewerRecord,
-  destroyViewerRecord,
-  onPdfEvents,
-  pdfPageView,
-  pdfPointAt,
-  viewerOptions,
-} from "./pdf-slick";
+import { createViewerRecord, destroyViewerRecord, onPdfEvents, pdfPageView, pdfPointAt, viewerOptions } from "./pdf-slick";
 import { installPdfTextLayerSelection } from "./pdf-text-layer-selection";
 import { addListeners, clamp, pdfFitMode, pdfScaleValue, toAppScale } from "./pdf-viewer-utils";
-import {
-  useLatestRef,
-  type ActiveViewerRef,
-  type PdfViewerCallbacks,
-  type PdfLocationHistory,
-  type PdfViewState,
-} from "./use-pdf-view";
+import { useLatestRef } from "../hooks/use-latest-ref";
+import type { ActiveViewerRef, PdfViewerCallbacks, PdfLocationHistory, PdfViewState } from "./use-pdf-view";
 
 const PDF_LOAD_TIMEOUT_MS = 45_000;
 

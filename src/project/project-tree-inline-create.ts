@@ -4,7 +4,8 @@
  * Until then the path is an optimistic UI draft that must never leak out as a
  * file that does not exist.
  */
-import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
+import { useLatestRef } from "../hooks/use-latest-ref";
 import { fromPierrePath } from "./navigator-drag";
 import { treePath } from "./project-tree-files";
 import type { ProjectTreeModel } from "./project-tree-pointer-drag";
@@ -47,10 +48,7 @@ export function useInlineCreation(
 ) {
   const pendingRef = useRef(new Map<string, PendingCreation>());
   const cleanupTimersRef = useRef(new Map<string, number>());
-  const optionsRef = useRef(options);
-  useLayoutEffect(() => {
-    optionsRef.current = options;
-  });
+  const optionsRef = useLatestRef(options);
 
   const clear = useCallback((path: string) => {
     const normalizedPath = fromPierrePath(path);
@@ -86,7 +84,7 @@ export function useInlineCreation(
       );
     }
     return true;
-  }, [model]);
+  }, [model, optionsRef]);
 
   useEffect(
     () => model.onMutation("remove", (event) => {
@@ -165,13 +163,10 @@ export function useInlineCreation(
  */
 export function useCreateRequest(request: number | undefined, start: () => void) {
   const handledRef = useRef(request ?? 0);
-  const startRef = useRef(start);
-  useLayoutEffect(() => {
-    startRef.current = start;
-  });
+  const startRef = useLatestRef(start);
   useEffect(() => {
     if ((request ?? 0) === handledRef.current) return;
     handledRef.current = request ?? 0;
     startRef.current();
-  }, [request]);
+  }, [request, startRef]);
 }

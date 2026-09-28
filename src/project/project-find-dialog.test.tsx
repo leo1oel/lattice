@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ComponentProps } from "react";
 import { ProjectFindDialog, type ProjectFindHit } from "./project-find-dialog";
 import { activateAppLocale } from "../i18n";
+import { DISABLED_LOCAL_SEMANTIC_SEARCH_STATUS } from "./project-semantic-search";
 
 type FindProps = ComponentProps<typeof ProjectFindDialog>;
 
@@ -64,16 +65,8 @@ describe("ProjectFindDialog", () => {
     expect(screen.queryByText("Find in project")).not.toBeInTheDocument();
   });
 
-  it("lists hits and opens the selected file line", () => {
-    const { props, search } = renderFind({ hits: [fileHit("sections/method.tex", 2)] });
-
-    search("alignment");
-    fireEvent.click(screen.getByText("sections/method.tex:2"));
-    expect(props.onOpenHit).toHaveBeenCalledWith("sections/method.tex", 2);
-  });
-
-  it("announces the result count and labels file and paper result types in text", () => {
-    const { search } = renderFind({
+  it("lists and announces file and paper hits by type, and opens the selected file line", () => {
+    const { props, search } = renderFind({
       hits: [
         fileHit("sections/method.tex", 2),
         { kind: "paper", path: "paper-1", title: "Latent alignment", snippet: "A related paper." },
@@ -84,21 +77,14 @@ describe("ProjectFindDialog", () => {
     expect(screen.getByRole("status")).toHaveTextContent("1 hit · 1 paper");
     expect(screen.getByText("TEX file")).toBeInTheDocument();
     expect(screen.getByText("Paper")).toBeInTheDocument();
+    fireEvent.click(screen.getByText("sections/method.tex:2"));
+    expect(props.onOpenHit).toHaveBeenCalledWith("sections/method.tex", 2);
   });
 
   it("reports on-device readiness and labels semantic-only results", () => {
     const { search } = renderFind({
       semanticEnabled: true,
-      semanticStatus: {
-        state: "ready",
-        detail: "On-device",
-        modelVersion: "apple-nl-sentence-en-r1",
-        indexedFiles: 3,
-        indexedChunks: 8,
-        cachedChunks: 8,
-        totalChunks: 8,
-        generation: 1,
-      },
+      semanticStatus: { ...DISABLED_LOCAL_SEMANTIC_SEARCH_STATUS, state: "ready", indexedFiles: 3, totalChunks: 8 },
       hits: [fileHit("sections/security.tex", 4, { semantic: true })],
     });
 

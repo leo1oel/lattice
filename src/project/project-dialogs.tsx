@@ -1,37 +1,15 @@
 import { useState } from "react";
 import { useLingui } from "@lingui/react/macro";
-import {
-  Cloud,
-  FileArchive,
-  FileText,
-  Folder,
-  FolderOpen,
-  Pencil,
-  Plus,
-  Radio,
-  Settings,
-  Sparkles,
-} from "lucide-react";
+import { Cloud, FileArchive, FileText, Folder, FolderOpen, Pencil, Plus, Radio, Settings, Sparkles } from "lucide-react";
 import { MorphIcon, MotionButton } from "../components/ui/motion";
 import { InfinityLoader } from "../components/ui/activity-icons";
 import { Button } from "../components/ui/button";
 import { buttonClassName } from "../components/ui/button-styles";
 import { Input } from "../components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "../components/ui/select";
-import {
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-} from "../components/ui/dropdown-menu";
-import { type ProjectVenue, type RenameTarget } from "../app-types";
-import { type RecentProject } from "../settings/app-settings";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
+import { DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator } from "../components/ui/dropdown-menu";
+import type { ProjectVenue, RenameTarget } from "../app-types";
+import type { RecentProject } from "../settings/app-settings";
 import { beginWindowDrag, toggleWindowFullscreen } from "../app-utils";
 import { ModalDialog } from "../components/ui/modal-dialog";
 import { isCollabEnabled } from "../collab/collab-feature-policy";

@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useLatestRef } from "../hooks/use-latest-ref";
 import { useLingui } from "@lingui/react/macro";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import type { ContextMenuItem as PierreContextMenuItem, ContextMenuOpenContext, FileTreeDropTarget } from "@pierre/trees";
@@ -80,8 +81,8 @@ export function ProjectFileTree(props: ProjectFileTreeProps) {
   const { showHidden, toggleHidden, tree } = useProjectTreeFiles(props.projectKey, props.files, props.onError);
   const gitStatus = useMemo(() => toPierreGitStatus(props.gitStatus), [props.gitStatus]);
   const expansionStorageKey = `lattice:expanded-directories:${props.projectKey}`;
-  const propsRef = useRef(props);
-  const treeRef = useRef(tree);
+  const propsRef = useLatestRef(props);
+  const treeRef = useLatestRef(tree);
   const syncingSelectionRef = useRef(false);
   const lastLikelyFileRef = useRef<string | null>(null);
   // Pierre and the gesture hooks call these only after mount, so they may
@@ -162,10 +163,6 @@ export function ProjectFileTree(props: ProjectFileTreeProps) {
     [model],
   );
   useProjectTreeMotion(getTreeScrollViewport);
-  useLayoutEffect(() => {
-    propsRef.current = props;
-    treeRef.current = tree;
-  }, [props, tree]);
 
   const clipboard = useProjectTreeClipboard(model, () => ({ ...propsRef.current, nodes: treeRef.current.nodes }));
 
@@ -239,7 +236,7 @@ export function ProjectFileTree(props: ProjectFileTreeProps) {
         propsRef.current.onSearchOpenChange(nextSearchOpen);
       }
     });
-  }, [expansionStorageKey, model]);
+  }, [expansionStorageKey, model, propsRef, treeRef]);
 
   useEffect(() => {
     const markNativeDropTarget = () => {

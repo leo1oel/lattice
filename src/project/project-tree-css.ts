@@ -274,8 +274,6 @@ button[data-type="item"][data-lattice-pointer-drop-target="true"] {
 [data-file-tree-search-input]:focus-visible,
 [data-file-tree-search-input][data-file-tree-search-input-fake-focus="true"] {
   border-color: var(--search-control-interactive-border-color);
-  outline: none !important;
-  background: var(--search-control-background);
   box-shadow: none;
 }
 

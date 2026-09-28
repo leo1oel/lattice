@@ -17,15 +17,6 @@ export type PdfViewerCallbacks = {
 
 export type ActiveViewerRef = RefObject<ViewerRecord | null>;
 
-/** A ref that always holds the latest committed value, for imperative callbacks. */
-export function useLatestRef<T>(value: T): RefObject<T> {
-  const ref = useRef(value);
-  useLayoutEffect(() => {
-    ref.current = value;
-  });
-  return ref;
-}
-
 function loadPdfViewPreference(): { fitMode: PdfFitMode; scale: number } {
   try {
     const stored = JSON.parse(localStorage.getItem(PDF_VIEW_PREFERENCE_KEY) ?? "null") as

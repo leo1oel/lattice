@@ -1,24 +1,8 @@
 import { Fragment, useEffect, useMemo, useRef } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import {
-  BookMarked,
-  BookOpen,
-  Check,
-  Download,
-  ExternalLink,
-  FolderOpen,
-  Pencil,
-  Plus,
-  TriangleAlert,
-  X,
-} from "lucide-react";
-import {
-  ContextMenu,
-  ContextMenuContent,
-  ContextMenuItem,
-  ContextMenuTrigger,
-} from "../components/ui/context-menu";
+import { BookMarked, BookOpen, Check, Download, ExternalLink, FolderOpen, Pencil, Plus, TriangleAlert, X } from "lucide-react";
+import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger } from "../components/ui/context-menu";
 import { ScrollArea } from "../components/ui/scroll-area";
 import { DestructiveButton } from "../components/ui/destructive-button";
 import { InfinityLoader } from "../components/ui/activity-icons";
@@ -30,12 +14,7 @@ import { canDownloadPaper } from "../papers/paper-source";
 import { usePaperImportProgressFill } from "../papers/paper-import-progress";
 import { beginPaperDrag } from "../papers/paper-drag";
 import { citationHealthLabel, citationHealthTitle } from "./citation-health";
-import {
-  paperSearchIdentity,
-  rankPapers,
-  usePaperTextSearch,
-  type RecentPaperImport,
-} from "./paper-library-search";
+import { paperSearchIdentity, rankPapers, usePaperTextSearch, type RecentPaperImport } from "./paper-library-search";
 import { useCompositionGuard } from "./use-composition-guard";
 
 type PaperFetchState = "loading" | "success";
@@ -109,6 +88,10 @@ export function PaperLibrary(props: PaperLibraryProps) {
     else props.onImport();
   };
   const total = props.papers.length;
+  const emptyState = !total
+    ? [t`Add your first paper`, t`Paste an arXiv ID, DOI, URL, or title above to ground the agent in project evidence`]
+    : filteredPapers.length ? null
+      : [t`No matching papers`, t`Use the + button to import this query if it isn't in your library yet`];
 
   return (
     <div className="navigator-section papers-section">
@@ -249,16 +232,10 @@ export function PaperLibrary(props: PaperLibraryProps) {
             </Fragment>
           );
         })}
-        {!total && (
+        {emptyState && (
           <div className="papers-empty-state">
-            <strong>{t`Add your first paper`}</strong>
-            <p>{t`Paste an arXiv ID, DOI, URL, or title above to ground the agent in project evidence`}</p>
-          </div>
-        )}
-        {!!total && !filteredPapers.length && (
-          <div className="papers-empty-state">
-            <strong>{t`No matching papers`}</strong>
-            <p>{t`Use the + button to import this query if it isn't in your library yet`}</p>
+            <strong>{emptyState[0]}</strong>
+            <p>{emptyState[1]}</p>
           </div>
         )}
         {!!total && (

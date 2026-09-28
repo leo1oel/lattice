@@ -116,22 +116,20 @@ describe("PDF text-layer selection clipping", () => {
     expect(layer.querySelector(".endOfContent")).toBe(supplied);
   });
 
-  it("parks endOfContent after the selected glyph so the range cannot cover the page", () => {
+  it.each([
+    ["parks endOfContent after the selected glyph so the range cannot cover the page",
+      (range: Range, spans: HTMLElement[]) => range.selectNodeContents(spans[0]!)],
+    ["walks back when the range ends at the start of the next glyph", (range: Range, spans: HTMLElement[]) => {
+      range.setStart(spans[0]!.firstChild!, 0);
+      range.setEnd(spans[1]!, 0);
+    }],
+  ])("%s", (_case, select) => {
     const { spans, end, layers } = sentinelLayer("Hello", "world", "again");
     const range = document.createRange();
-    range.selectNodeContents(spans[0]!);
+    select(range, spans);
     placeEndOfContentForRange(range, null, layers);
     expect(spans[0]!.nextSibling).toBe(end);
     expect(spans[1]!.previousSibling).toBe(end);
-  });
-
-  it("walks back when the range ends at the start of the next glyph", () => {
-    const { spans, end, layers } = sentinelLayer("Hello", "world");
-    const range = document.createRange();
-    range.setStart(spans[0]!.firstChild!, 0);
-    range.setEnd(spans[1]!, 0);
-    placeEndOfContentForRange(range, null, layers);
-    expect(spans[0]!.nextSibling).toBe(end);
   });
 
   it("does not paint WebKit's page-sized range rectangle as selected text", async () => {
@@ -332,22 +330,18 @@ describe("PDF Command-C", () => {
 });
 
 describe("PDF title glyph scaling", () => {
-  it("replaces horizontal stretch with letter-spacing so a title can be selected across its visual width", () => {
-    const { layer, spans: [title] } = glyphLayer("深度学习研究");
-    title!.style.setProperty("--scale-x", "1.6");
-    Object.defineProperty(title, "offsetWidth", { configurable: true, value: 100 });
+  it.each([
+    ["replaces horizontal stretch with letter-spacing so a title can be selected across its visual width",
+      "深度学习研究", 100, "1", 60 / ("深度学习研究".length - 1)],
+    ["leaves single-glyph spans stretched, because letter-spacing has no gap to pad", "深", 20, "1.6", null],
+  ])("%s", (_case, text, width, scaleX, spacing) => {
+    const { layer, spans: [span] } = glyphLayer(text);
+    span!.style.setProperty("--scale-x", "1.6");
+    Object.defineProperty(span, "offsetWidth", { configurable: true, value: width });
     alignPdfTextLayerGlyphs(layer);
-    expect(title!.style.getPropertyValue("--scale-x")).toBe("1");
-    expect(Number.parseFloat(title!.style.letterSpacing)).toBeCloseTo(60 / ("深度学习研究".length - 1));
-  });
-
-  it("leaves single-glyph spans stretched, because letter-spacing has no gap to pad", () => {
-    const { layer, spans: [glyph] } = glyphLayer("深");
-    glyph!.style.setProperty("--scale-x", "1.6");
-    Object.defineProperty(glyph, "offsetWidth", { configurable: true, value: 20 });
-    alignPdfTextLayerGlyphs(layer);
-    expect(glyph!.style.getPropertyValue("--scale-x")).toBe("1.6");
-    expect(glyph!.style.letterSpacing).toBe("");
+    expect(span!.style.getPropertyValue("--scale-x")).toBe(scaleX);
+    if (spacing === null) expect(span!.style.letterSpacing).toBe("");
+    else expect(Number.parseFloat(span!.style.letterSpacing)).toBeCloseTo(spacing);
   });
 
   it("measures every run before changing layout, including compressed and astral glyphs", () => {

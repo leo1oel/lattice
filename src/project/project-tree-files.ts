@@ -2,7 +2,8 @@
  * What the project tree shows: the app's `FileNode` snapshot translated into
  * Pierre's path list, the opt-in hidden-files view, and the Git decorations.
  */
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useLatestRef } from "../hooks/use-latest-ref";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import type { GitStatusEntry } from "@pierre/trees";
@@ -97,8 +98,7 @@ export function useProjectTreeFiles(projectKey: string, files: FileNode[], onErr
     try { localStorage.setItem(SHOW_HIDDEN_FILES_KEY, String(next)); }
     catch { /* The toggle still works when storage is unavailable. */ }
   };
-  const onErrorRef = useRef(onError);
-  useEffect(() => { onErrorRef.current = onError; }, [onError]);
+  const onErrorRef = useLatestRef(onError);
   useEffect(() => {
     if (!showHidden) return;
     let disposed = false;
@@ -122,7 +122,7 @@ export function useProjectTreeFiles(projectKey: string, files: FileNode[], onErr
     }).catch(() => { /* The fallback poll also supports watcher-less hosts. */ });
     const timer = window.setInterval(() => void refresh(), 30_000);
     return () => { disposed = true; unlisten?.(); window.clearInterval(timer); };
-  }, [showHidden, projectKey, files]);
+  }, [showHidden, projectKey, files, onErrorRef]);
   const tree = useMemo(() => projectTreeEntries(showHidden
     ? (expandedTree?.root === projectKey ? expandedTree.files : files)
     : hideTemplateFiles(files)), [showHidden, expandedTree, projectKey, files]);

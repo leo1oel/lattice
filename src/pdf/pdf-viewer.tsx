@@ -49,7 +49,8 @@ import { usePdfSelectionReport } from "./pdf-text-layer-selection";
 import { clamp, PDF_MAX_SCALE, PDF_MIN_SCALE, parsePdfZoomPercent } from "./pdf-viewer-utils";
 import { pdfSource, usePdfDocument } from "./use-pdf-document";
 import { usePdfSearch } from "./use-pdf-search";
-import { useLatestRef, usePdfLocationHistory, usePdfViewState, type PdfViewerCallbacks } from "./use-pdf-view";
+import { useLatestRef } from "../hooks/use-latest-ref";
+import { usePdfLocationHistory, usePdfViewState, type PdfViewerCallbacks } from "./use-pdf-view";
 import { usePdfZoom } from "./use-pdf-zoom";
 import "@pdfslick/core/dist/pdf_viewer.css";
 import "./pdf-viewer.css";
@@ -58,37 +59,6 @@ export type { PdfSourceQuote, PdfSyncTarget };
 
 /** Notification source label for the PDF preview. */
 const PDF_SOURCE = "PDF";
-
-/** Hoisted out of the component: try/finally bodies make the React Compiler bail out. */
-async function downloadCompiledPdf(
-  pdfBytes: ArrayBuffer,
-  fileName: string,
-  setSavingPdf: (value: boolean) => void,
-  labels: {
-    title: string;
-    document: string;
-    action: string;
-    saved: (path: string) => string;
-  },
-): Promise<void> {
-  const trace = logAction(PDF_SOURCE, labels.action, fileName);
-  try {
-    const destination = await saveDialog({
-      title: labels.title,
-      defaultPath: fileName,
-      filters: [{ name: labels.document, extensions: ["pdf"] }],
-    });
-    if (!destination) return;
-    const savedPath = await invoke<string>("save_compiled_pdf", pdfBytes, {
-      headers: { "x-pdf-destination": utf8ToBase64(destination) },
-    });
-    trace.ok(labels.saved(savedPath));
-  } catch (reason) {
-    trace.fail(reason);
-  } finally {
-    setSavingPdf(false);
-  }
-}
 
 /** Focus the PDF surface on pointer down so keyboard shortcuts belong to it. */
 function focusPdfSurface(event: ReactPointerEvent<HTMLDivElement>) {
@@ -296,12 +266,22 @@ export function PdfPreview({
   const download = () => {
     if (!pdfBytes || savingPdf) return;
     setSavingPdf(true);
-    void downloadCompiledPdf(pdfBytes, fileName, setSavingPdf, {
+    const trace = logAction(PDF_SOURCE, t`Save PDF`, fileName);
+    // A promise chain, not try/finally: that statement makes the React Compiler bail out.
+    void saveDialog({
       title: t`Save compiled PDF`,
-      document: t`PDF document`,
-      action: t`Save PDF`,
-      saved: (path) => t`Saved to ${path}`,
-    });
+      defaultPath: fileName,
+      filters: [{ name: t`PDF document`, extensions: ["pdf"] }],
+    })
+      .then(async (destination) => {
+        if (!destination) return;
+        const savedPath = await invoke<string>("save_compiled_pdf", pdfBytes, {
+          headers: { "x-pdf-destination": utf8ToBase64(destination) },
+        });
+        trace.ok(t`Saved to ${savedPath}`);
+      })
+      .catch((reason: unknown) => trace.fail(reason))
+      .finally(() => setSavingPdf(false));
   };
   const pageCount = numPages ?? "–";
   const { query, matches } = search;
@@ -413,7 +393,7 @@ export function PdfPreview({
           {toolbarEnd}
           {showSave && (
             <Tip label={saveLabel ?? t`Save PDF as…`}>
-              <MotionButton disabled={!pdfBytes || savingPdf} onClick={() => void download()}>
+              <MotionButton disabled={!pdfBytes || savingPdf} onClick={download}>
                 {savingPdf ? <InfinityLoader size={14} /> : <Download size={14} />}
               </MotionButton>
             </Tip>

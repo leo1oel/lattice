@@ -81,16 +81,12 @@ export function ProjectReplaceDialog(props: {
           />
         </label>
         <div className="project-replace-options">
-          <CheckboxField
-            checked={matchCase}
-            label="Match case"
-            onChange={(event) => setMatchCase(event.target.checked)}
-          />
-          <CheckboxField
-            checked={useRegex}
-            label="Regex"
-            onChange={(event) => setUseRegex(event.target.checked)}
-          />
+          {([
+            ["Match case", matchCase, setMatchCase],
+            ["Regex", useRegex, setUseRegex],
+          ] as const).map(([label, checked, setChecked]) => (
+            <CheckboxField key={label} checked={checked} label={label} onChange={(event) => setChecked(event.target.checked)} />
+          ))}
         </div>
         {props.error && <p className="dialog-error" role="alert">{props.error}</p>}
         {preview && (

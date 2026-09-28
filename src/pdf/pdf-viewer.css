@@ -17,14 +17,13 @@
 .pdf-page-controls { justify-self: start; display: grid; grid-template-columns: 24px 44px 24px; gap: var(--gap-hairline); }
 .pdf-history-controls { display: grid; grid-template-columns: 24px 24px; gap: var(--gap-hairline); }
 .pdf-zoom-controls { width: auto; grid-column: 3; justify-self: end; gap: var(--space-2); }
-.pdf-page-value { position: relative; width: 44px; min-width: 44px; height: 25px; border-radius: var(--radius-compact); display: inline-flex; align-items: center; justify-content: center; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
-.pdf-page-value:focus-within { background: var(--field-control-background); box-shadow: inset 0 0 0 var(--field-control-border-width) var(--field-control-interactive-border-color); }
+.pdf-page-value, .pdf-zoom-value { position: relative; width: 44px; min-width: 44px; height: 25px; border-radius: var(--radius-compact); display: inline-flex; align-items: center; justify-content: center; color: var(--text-secondary); }
+.pdf-page-value:focus-within, .pdf-zoom-value:focus-within { background: var(--field-control-background); box-shadow: inset 0 0 0 var(--field-control-border-width) var(--field-control-interactive-border-color); }
+.pdf-page-value { font-variant-numeric: tabular-nums; }
 .pdf-page-value input { position: absolute; inset: 0; width: 100%; min-width: 0; border: 0; outline: 0; padding: 0; opacity: 0; background: transparent; color: inherit; font: inherit; text-align: right; font-variant-numeric: inherit; cursor: text; overflow-x: hidden; }
 .pdf-page-value.editing input { position: static; inset: auto; opacity: 1; }
 .pdf-page-display, .pdf-page-total { white-space: nowrap; }
 .pdf-page-total { padding-left: 3px; }
-.pdf-zoom-value { position: relative; width: 44px; min-width: 44px; height: 25px; border-radius: var(--radius-compact); display: inline-flex; align-items: center; justify-content: center; color: var(--text-secondary); }
-.pdf-zoom-value:focus-within { background: var(--field-control-background); box-shadow: inset 0 0 0 var(--field-control-border-width) var(--field-control-interactive-border-color); }
 .pdf-zoom-value input { width: 100%; border: 0; outline: 0; padding: 0 var(--space-5) 0 var(--space-1); background: transparent; color: inherit; font: inherit; text-align: center; font-variant-numeric: tabular-nums; overflow-x: hidden; }
 .pdf-zoom-value span { position: absolute; right: 8px; width: 7px; text-align: left; pointer-events: none; }
 .pdf-zoom-controls .pdf-fit-divider { width: 1px; height: 16px; background: var(--border-strong); }

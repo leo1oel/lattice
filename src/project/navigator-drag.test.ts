@@ -57,7 +57,7 @@ function tree() {
     },
   }) as unknown as PointerEvent;
 
-  return { addRow, host, pointerOver, root, surface };
+  return { addRow, pointerOver, root, surface };
 }
 
 const directoryTarget = (directoryPath: string, hoveredPath: string, flattenedSegmentPath: string | null = null) => ({
@@ -78,67 +78,35 @@ afterEach(() => {
 });
 
 describe("pointerDropTarget", () => {
-  it("drops into the folder under the pointer", () => {
-    const { addRow, pointerOver, root } = tree();
-    const folder = addRow({ path: "sections/", type: "folder" });
-
-    const location = pointerDropTarget(root, pointerOver(folder.label));
-
-    expect(location?.target).toEqual(directoryTarget("sections/", "sections/"));
-    expect(location?.row).toBe(folder.row);
-  });
-
-  it("drops beside a file, into the folder holding it", () => {
-    const { addRow, pointerOver, root } = tree();
-    const file = addRow({ path: "sections/intro.tex", parentPath: "sections/" });
-
-    expect(pointerDropTarget(root, pointerOver(file.label))?.target)
-      .toEqual(directoryTarget("sections/", "sections/intro.tex"));
-  });
-
-  it("treats a top-level file as the project root", () => {
-    const { addRow, pointerOver, root } = tree();
-    const file = addRow({ path: "main.tex" });
-
-    expect(pointerDropTarget(root, pointerOver(file.label))?.target).toEqual(rootTarget("main.tex"));
-  });
-
-  it("treats empty space below the rows as the project root", () => {
-    const { pointerOver, root, surface } = tree();
-
-    expect(pointerDropTarget(root, pointerOver(surface))?.target).toEqual(rootTarget(null));
-  });
-
-  it("aims at the collapsed segment the pointer is actually over", () => {
+  type Row = Parameters<ReturnType<typeof tree>["addRow"]>[0];
+  it.each<[string, Row | null, "label" | "segment" | "surface", ReturnType<typeof directoryTarget | typeof rootTarget>]>([
+    ["drops into the folder under the pointer",
+      { path: "sections/", type: "folder" }, "label", directoryTarget("sections/", "sections/")],
+    ["drops beside a file, into the folder holding it",
+      { path: "sections/intro.tex", parentPath: "sections/" }, "label", directoryTarget("sections/", "sections/intro.tex")],
+    ["treats a top-level file as the project root", { path: "main.tex" }, "label", rootTarget("main.tex")],
+    ["treats empty space below the rows as the project root", null, "surface", rootTarget(null)],
     // A folder chain with one child each renders as a single row
     // ("sections/method/"), and each segment of it is its own drop target.
-    const { addRow, pointerOver, root } = tree();
-    const folder = addRow({
-      path: "sections/method/",
-      type: "folder",
-      flattenedSegments: ["sections/", "sections/method/"],
-    });
-    const [firstSegment] = Array.from(folder.row.querySelectorAll<HTMLElement>("[data-item-flattened-subitem]"));
-
-    const location = pointerDropTarget(root, pointerOver(firstSegment));
-
-    expect(location?.target).toEqual(directoryTarget("sections/", "sections/method/", "sections/"));
-    expect(location?.flattenedSegment).toBe(firstSegment);
-  });
-
-  it("ignores a segment that names a file rather than a folder", () => {
+    ["aims at the collapsed segment the pointer is actually over",
+      { path: "sections/method/", type: "folder", flattenedSegments: ["sections/", "sections/method/"] }, "segment",
+      directoryTarget("sections/", "sections/method/", "sections/")],
     // Only a trailing slash makes a segment a directory; the file at the end of
     // a flattened chain must fall through to the row's own rules.
-    const { addRow, pointerOver, root } = tree();
-    const row = addRow({
-      path: "sections/intro.tex",
-      parentPath: "sections/",
-      flattenedSegments: ["sections/intro.tex"],
-    });
-    const [segment] = Array.from(row.row.querySelectorAll<HTMLElement>("[data-item-flattened-subitem]"));
+    ["ignores a segment that names a file rather than a folder",
+      { path: "sections/intro.tex", parentPath: "sections/", flattenedSegments: ["sections/intro.tex"] }, "segment",
+      directoryTarget("sections/", "sections/intro.tex")],
+  ])("%s", (_case, options, over, expected) => {
+    const { addRow, pointerOver, root, surface } = tree();
+    const added = options && addRow(options);
+    const segment = added?.row.querySelector<HTMLElement>("[data-item-flattened-subitem]") ?? null;
+    const target = { label: added?.label ?? null, segment, surface }[over];
 
-    expect(pointerDropTarget(root, pointerOver(segment))?.target)
-      .toEqual(directoryTarget("sections/", "sections/intro.tex"));
+    const location = pointerDropTarget(root, pointerOver(target));
+
+    expect(location?.target).toEqual(expected);
+    expect(location?.row).toBe(added?.row ?? null);
+    expect(location?.flattenedSegment).toBe(expected.flattenedSegmentPath ? segment : null);
   });
 
   it("declines a pointer that never reached the tree", () => {

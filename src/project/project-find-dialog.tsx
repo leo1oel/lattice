@@ -1,4 +1,5 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useLatestRef } from "../hooks/use-latest-ref";
 import { useLingui } from "@lingui/react/macro";
 import { Search } from "lucide-react";
 import { Button } from "../components/ui/button";
@@ -48,19 +49,16 @@ export function ProjectFindDialog(props: {
   const inputRef = useRef<HTMLInputElement>(null);
   const { compositionProps, isComposing } = useCompositionGuard();
   // Kept out of the debounce effect's deps so a new callback identity does not
-  // restart the timer mid-typing. Refreshed in a layout effect rather than
-  // during render: every reader is an effect or handler, so they all run after
-  // this lands, and a render-phase write makes the React Compiler skip the
-  // whole component.
-  const onSearchRef = useRef(props.onSearch);
-  useLayoutEffect(() => {
-    onSearchRef.current = props.onSearch;
-  });
+  // restart the timer mid-typing.
+  const onSearchRef = useLatestRef(props.onSearch);
 
-  useEffect(() => {
-    if (!props.open) return;
+  // New hits, or reopening, start again from the first hit.
+  const resetKey = props.open ? props.hits : null;
+  const [seenResetKey, setSeenResetKey] = useState(resetKey);
+  if (seenResetKey !== resetKey) {
+    setSeenResetKey(resetKey);
     setActiveIndex(0);
-  }, [props.hits, props.open]);
+  }
 
   useEffect(() => {
     if (!props.open) return;
@@ -74,7 +72,7 @@ export function ProjectFindDialog(props: {
       onSearchRef.current(trimmed);
     }, 180);
     return () => window.clearTimeout(timer);
-  }, [props.open, query]);
+  }, [onSearchRef, props.open, query]);
 
   const fileHits = useMemo(() => props.hits.filter((hit) => hit.kind === "file"), [props.hits]);
   const paperHits = useMemo(() => props.hits.filter((hit) => hit.kind === "paper"), [props.hits]);
