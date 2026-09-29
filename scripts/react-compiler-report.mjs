@@ -32,7 +32,7 @@ const linguiMacro = require("@lingui/babel-plugin-lingui-macro");
 export const GUARDED_FILES = [
   "src/App.tsx",
   "src/canvas/document-canvas.tsx",
-  "src/editor/markdown/visual-markdown-editor.tsx",
+  "src/editor/markdown/engine/lattice-visual-editor.tsx",
   "src/canvas/editor-tabs.tsx",
   "src/pdf/pdf-viewer.tsx",
 ];

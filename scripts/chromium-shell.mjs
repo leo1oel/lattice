@@ -118,7 +118,7 @@ async function inspectRenderer(window) {
     const state = await window.webContents.executeJavaScript(`({
       appMounted: Boolean(document.querySelector('#root > *')),
       browserHosted: document.querySelector('.app-shell')?.classList.contains('browser-hosted') ?? false,
-      visualEditorMounted: Boolean(document.querySelector('.visual-markdown-editor')),
+      visualEditorMounted: Boolean(document.querySelector('.lx-md-editor')),
       contentVisibility: CSS.supports('content-visibility', 'auto'),
       scrollTimeline: typeof ScrollTimeline === 'function',
       userAgent: navigator.userAgent,
