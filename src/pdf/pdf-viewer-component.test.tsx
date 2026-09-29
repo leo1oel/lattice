@@ -302,6 +302,10 @@ describe("PDFSlick viewer integration", () => {
   it("draws the pane's scrollbars as hover-reveal overlay bars on the PDF.js viewport", async () => {
     const view = renderPdf();
     expect(await view.findByLabelText("PDF page 1")).toBeInTheDocument();
+    // The page labels are DOM writes that can land before React commits the
+    // viewer's generation, which remounts the bars; wait for that commit so the
+    // bars queried below are the ones attached to the PDF.js viewport.
+    await waitFor(() => expect(view.getByLabelText("Fit page to width")).toBeEnabled());
 
     const area = view.container.querySelector(".pdf-scroll-area")!;
     expect(area.querySelectorAll(":scope > .overlay-scrollbar")).toHaveLength(2);
