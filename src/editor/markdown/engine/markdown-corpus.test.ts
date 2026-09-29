@@ -91,10 +91,12 @@ describe("visual engine corpus", () => {
           + entry.gapBefore.length;
         const blockEnd = blockStart + entry.source.length;
         // Everything before the gap preceding the block, and after the gap following it, is untouched.
-        expect(writtenBody.startsWith(body.slice(0, blockStart - entry.gapBefore.length))).toBe(true);
+        const before = body.slice(0, blockStart - entry.gapBefore.length);
         const next = baseline.entries[index + 1];
-        expect(writtenBody.endsWith(next ? body.slice(blockEnd + next.gapBefore.length) : baseline.trailing)).toBe(true);
-        expect(open(written).doc.textContent).toContain(word);
+        const after = next ? body.slice(blockEnd + next.gapBefore.length) : baseline.trailing;
+        expect(writtenBody.startsWith(before)).toBe(true);
+        expect(writtenBody.endsWith(after)).toBe(true);
+        expect(writtenBody.slice(before.length, writtenBody.length - after.length)).toContain(word);
       },
     ), { numRuns: 25 });
   });
