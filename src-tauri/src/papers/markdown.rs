@@ -196,10 +196,10 @@ fn separate_adjacent_blocks(markdown: &str) -> String {
     normalized.join("\n")
 }
 
-/// Rust twin of the vendored `toWikiLinkSlug` (open-knowledge-core
-/// utils/slug.ts): NFKD, strip combining marks, lowercase, collapse
-/// non-alphanumeric runs into single hyphens, trim edge hyphens. The two must
-/// stay in lockstep or Contents links stop landing on their headings.
+/// Rust twin of `headingSlug` (src/editor/markdown/heading-slug.ts): NFKD,
+/// strip combining marks, lowercase, collapse non-alphanumeric runs into
+/// single hyphens, trim edge hyphens. The two must stay in lockstep or
+/// Contents links stop landing on their headings.
 fn wiki_link_slug(text: &str) -> String {
     use unicode_normalization::{char::is_combining_mark, UnicodeNormalization};
     let mut slug = String::new();

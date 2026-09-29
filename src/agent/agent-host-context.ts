@@ -1,6 +1,6 @@
 import type { CanvasMode, EditorPosition, PaperSummary } from "../app-types";
 import type { AgentCommentsCollection } from "./agent-editor-comments";
-import { normalizeDocRelativeAssetUrl } from "../open-knowledge-core/markdown/resolve-image-url";
+import { documentRelativeProjectPath } from "../project/document-relative-path";
 import { agentPaperPath } from "./agent-paper-library";
 
 export const LATTICE_HOST_CONTEXT = "lattice:host-context";
@@ -52,11 +52,8 @@ export function selectedMarkdownImageProjectPath(
   } catch {
     return null;
   }
-  const normalized = normalizeDocRelativeAssetUrl(decoded, sourcePath);
-  if (!normalized.startsWith("/") || !AGENT_READABLE_IMAGE_EXTENSION.test(normalized)) {
-    return null;
-  }
-  return normalized.slice(1);
+  const projectPath = documentRelativeProjectPath(decoded, sourcePath);
+  return projectPath && AGENT_READABLE_IMAGE_EXTENSION.test(projectPath) ? projectPath : null;
 }
 
 const PRESENTATION_AUTHORING_CONTEXT = {

@@ -19,6 +19,7 @@ import { Extension, type Editor } from "@tiptap/core";
 import { NodeSelection, TextSelection } from "@tiptap/pm/state";
 import { GripVertical, Plus } from "lucide-react";
 import { moveBlockDown, moveBlockTo, moveBlockUp } from "../block-moves";
+import type { ChromeHost } from "./chrome-host";
 
 export const BlockMoveKeymap = Extension.create({
   name: "latticeBlockMoves",
@@ -31,10 +32,20 @@ export const BlockMoveKeymap = Extension.create({
 /** A block the controls act on: its DOM, its position, and what kind it is. */
 type Target = { element: HTMLElement; position: number; kind: "block" | "item" | "list"; listKind?: string };
 
-/** Insert a paragraph holding `/` after the block at `position`, caret after the slash. */
-export function addBlockBelow(editor: Editor, position: number) {
+/** How the host keeps its view still around a change: the block to hold in place, where it was, and one to reveal. */
+type ViewportLock = (anchor: HTMLElement | null, anchorTop: number | null, reveal: HTMLElement | null) => void;
+
+/**
+ * Insert a paragraph holding `/` after the block at `position`, caret after
+ * the slash. The block acted on stays where it is on screen and the new line
+ * is brought into view: by the host when it can hold its view (`lock`), else
+ * here.
+ */
+export function addBlockBelow(editor: Editor, position: number, lock?: ViewportLock) {
   const node = editor.state.doc.nodeAt(position);
   if (!node) return;
+  const anchor = editor.view.nodeDOM(position) as HTMLElement | null;
+  const anchorTop = anchor?.getBoundingClientRect().top ?? null;
   // Below a list item, the new line starts after its list.
   const $at = editor.state.doc.resolve(position);
   const after = $at.depth > 0 && editor.state.doc.nodeAt($at.before($at.depth)) ? $at.after(1) : position + node.nodeSize;
@@ -43,7 +54,8 @@ export function addBlockBelow(editor: Editor, position: number) {
   transaction.setSelection(TextSelection.create(transaction.doc, after + 2));
   editor.view.dispatch(transaction);
   editor.view.focus();
-  revealBelow(editor, after + 2);
+  if (lock) lock(anchor, anchorTop, editor.view.nodeDOM(after) as HTMLElement | null);
+  else revealBelow(editor, after + 2);
 }
 
 /** Bring a caret below the fold into view with some room to spare, without jumping otherwise. */
@@ -128,7 +140,7 @@ function resolveTopLevel(editor: Editor, position: number): number | null {
 
 type Drag = { target: Target; startY: number; ghost: HTMLElement | null; line: HTMLElement; drop: { position: number; after: boolean } | null };
 
-export function BlockControls({ editor, layer }: { editor: Editor; layer: HTMLElement | null }) {
+export function BlockControls({ editor, layer, host }: { editor: Editor; layer: HTMLElement | null; host: ChromeHost }) {
   const { t } = useLingui();
   const [target, setTarget] = useState<Target | null>(null);
   const drag = useRef<Drag | null>(null);
@@ -224,7 +236,7 @@ export function BlockControls({ editor, layer }: { editor: Editor; layer: HTMLEl
   return (
     <div className="lx-md-block-controls" data-kind={target.kind} data-direction={rtl ? "rtl" : undefined} style={{ top, left }} contentEditable={false}>
       {target.kind !== "item" && (
-        <button type="button" className="lx-md-block-control" aria-label={t`Add block below`} title={t`Add block below`} onMouseDown={(event) => event.preventDefault()} onClick={() => addBlockBelow(editor, target.position)}>
+        <button type="button" className="lx-md-block-control" aria-label={t`Add block below`} title={t`Add block below`} onMouseDown={(event) => event.preventDefault()} onClick={() => addBlockBelow(editor, target.position, host.props().onRequestViewportLock)}>
           <Plus aria-hidden="true" />
         </button>
       )}

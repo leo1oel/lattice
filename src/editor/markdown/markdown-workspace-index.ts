@@ -3,9 +3,7 @@
  */
 import type { FileNode } from "../../app-types";
 import { PageSearchIndex } from "../../project/workspace-search";
-import { createCodeFenceTracker } from "../../open-knowledge-core/utils/code-fence-tracker.ts";
-import { scanHeadingLine } from "../../open-knowledge-core/utils/heading-scan.ts";
-import type { HeadingEntry } from "../../open-knowledge-core/utils/slug.ts";
+import { scanHeadings, type HeadingEntry } from "./markdown-headings";
 
 export type MarkdownDocEntry = {
   path: string;
@@ -49,12 +47,7 @@ function parseDocument(path: string, content: string): MarkdownDocEntry {
     const end = lines.findIndex((line, index) => index > 0 && isDelimiter(line));
     body = end < 0 ? [] : lines.slice(end + 1);
   }
-  const slugCounts = new Map<string, number>();
-  const isInCodeFence = createCodeFenceTracker();
-  const headings = body.flatMap((line) => {
-    const heading = isInCodeFence(line) ? null : scanHeadingLine(line, slugCounts);
-    return heading ? [heading] : [];
-  });
+  const headings = scanHeadings(body);
   const title = headings.find((heading) => heading.level === 1)?.text ?? docName.split("/").pop() ?? docName;
   return { path: normalizedPath, docName, title, headings, content };
 }

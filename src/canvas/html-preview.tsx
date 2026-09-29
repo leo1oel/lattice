@@ -6,7 +6,7 @@ import { useNonPassiveWheel } from "../hooks/use-non-passive-wheel";
 import { clamp } from "../settings/app-settings";
 import { clearTimer, frameCoalescer, restartTimer, type TimerRef } from "../app/effect-helpers";
 import { calculateVerticalScrollGeometry, EXTERNAL_SCROLLBAR_TRACK_INSET } from "../components/ui/external-scrollbar-geometry";
-import { normalizeDocRelativeAssetUrl } from "../open-knowledge-core/markdown/resolve-image-url";
+import { documentRelativeProjectPath } from "../project/document-relative-path";
 import type { HtmlFileViewState } from "../app-types";
 import { scrollRange } from "./markdown-preview-sync";
 import { useZoomScale } from "./use-zoom-scale";
@@ -34,8 +34,7 @@ function htmlPreviewProjectPath(target: string, documentPath: string): string | 
   } catch {
     return null;
   }
-  const normalized = normalizeDocRelativeAssetUrl(decoded, documentPath);
-  return normalized.startsWith("/") && normalized.length > 1 ? normalized.slice(1) : null;
+  return documentRelativeProjectPath(decoded, documentPath);
 }
 
 function htmlSourceFromDataUrl(dataUrl: string): string | null {

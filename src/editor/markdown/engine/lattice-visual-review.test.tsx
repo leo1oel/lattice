@@ -458,3 +458,20 @@ describe("sections (R-BLK-13, R-BLK-14)", () => {
     expect(written).toContain("Some Opening context.");
   });
 });
+
+describe("the view around an added block (R-CHR-5)", () => {
+  it("asks the host to hold the acted-on block in place and reveal the new line", async () => {
+    const onRequestViewportLock = vi.fn();
+    renderEditor({ text: "First\n\nSecond", onRequestViewportLock });
+    const blocks = [...surface().children];
+    setRect(blocks[0]!, { top: 100, bottom: 128, left: 0, right: 400, height: 28, width: 400 });
+    setRect(blocks[1]!, { top: 156, bottom: 184, left: 0, right: 400, height: 28, width: 400 });
+    fireEvent.mouseMove(blocks[0]!, { clientX: 150, clientY: 112 });
+    fireEvent.click(await screen.findByRole("button", { name: "Add block below" }));
+    expect(onRequestViewportLock).toHaveBeenCalledOnce();
+    const [anchor, anchorTop, reveal] = onRequestViewportLock.mock.calls[0] as [HTMLElement, number, HTMLElement];
+    expect(anchor).toHaveTextContent("First");
+    expect(anchorTop).toBe(100);
+    expect(reveal).toHaveTextContent("/");
+  });
+});

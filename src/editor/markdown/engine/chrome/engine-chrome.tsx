@@ -69,7 +69,7 @@ export function EngineChrome({ editor, chrome, layer }: { editor: Editor; chrome
       <CommentCard editor={editor} host={chrome.host} />
       <ChangePopover editor={editor} host={chrome.host} />
       <CommentComposer editor={editor} host={chrome.host} />
-      <BlockControls editor={editor} layer={layer} />
+      <BlockControls editor={editor} layer={layer} host={chrome.host} />
     </>
   );
 }
