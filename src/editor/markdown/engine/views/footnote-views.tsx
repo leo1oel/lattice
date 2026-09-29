@@ -11,10 +11,11 @@
 import { useLingui } from "@lingui/react/macro";
 import { Extension } from "@tiptap/core";
 import type { Node as PmNode } from "@tiptap/pm/model";
-import { Plugin, PluginKey } from "@tiptap/pm/state";
+import { Plugin, PluginKey, type Transaction } from "@tiptap/pm/state";
 import { Decoration, DecorationSet } from "@tiptap/pm/view";
 import { NodeViewContent, NodeViewWrapper, type NodeViewProps } from "@tiptap/react";
 import { CornerLeftUp } from "lucide-react";
+import { changedBlockRanges, containsAny, replacedAny } from "../changed-ranges";
 
 const slug = (label: string) => label.toLowerCase().replace(/\s+/g, "-");
 export const footnoteId = (label: string) => `fn-${slug(label)}`;
@@ -91,6 +92,14 @@ function numbering(doc: PmNode): DecorationSet {
 }
 
 const numberingKey = new PluginKey<DecorationSet>("latticeFootnoteNumbers");
+const FOOTNOTE_NODES = new Set(["latticeFootnoteReference", "latticeFootnote"]);
+
+/** Numbers change only when an edit adds, removes or changes a reference or a note. */
+function updateNumbering(set: DecorationSet, transaction: Transaction): DecorationSet {
+  const touched = replacedAny(transaction, FOOTNOTE_NODES)
+    || containsAny(transaction.doc, changedBlockRanges(transaction), FOOTNOTE_NODES);
+  return touched ? numbering(transaction.doc) : set.map(transaction.mapping, transaction.doc);
+}
 
 export const FootnoteNumbering = Extension.create({
   name: "latticeFootnoteNumbering",
@@ -98,7 +107,7 @@ export const FootnoteNumbering = Extension.create({
     key: numberingKey,
     state: {
       init: (_config, state) => numbering(state.doc),
-      apply: (transaction, set) => (transaction.docChanged ? numbering(transaction.doc) : set),
+      apply: (transaction, set) => (transaction.docChanged ? updateNumbering(set, transaction) : set),
     },
     props: { decorations: (state) => numberingKey.getState(state) },
   })],

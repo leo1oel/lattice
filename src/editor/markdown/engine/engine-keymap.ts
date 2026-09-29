@@ -13,6 +13,7 @@
  */
 import { Extension } from "@tiptap/core";
 import { Plugin, PluginKey, TextSelection } from "@tiptap/pm/state";
+import { changedBlockRanges } from "./changed-ranges";
 import { COMPONENTS_WITH_BODY } from "./mdx-components";
 import { moveDownOrAppendRow } from "./table-commands";
 
@@ -48,15 +49,27 @@ export const EngineKeymap = Extension.create<{ ime: ImeGuard }>({
   addProseMirrorPlugins: () => [new Plugin({
     key: new PluginKey("latticeComponentRepair"),
     appendTransaction(transactions, _old, state) {
-      if (!transactions.some((transaction) => transaction.docChanged)) return null;
-      const empty: number[] = [];
-      state.doc.descendants((node, position) => {
-        if (node.type.name === "latticeComponent" && COMPONENTS_WITH_BODY.has(String(node.attrs.name)) && node.childCount === 0) empty.push(position);
-        return !node.isTextblock;
-      });
-      if (!empty.length) return null;
+      const changed = transactions.filter((transaction) => transaction.docChanged);
+      if (!changed.length) return null;
+      // Only the blocks the edit touched can have been emptied; map their ranges to the final state.
+      const empty = new Set<number>();
+      for (const transaction of changed) {
+        const rest = transactions.slice(transactions.indexOf(transaction) + 1);
+        for (const range of changedBlockRanges(transaction)) {
+          let { from, to } = range;
+          for (const later of rest) {
+            from = later.mapping.map(from, -1);
+            to = later.mapping.map(to, 1);
+          }
+          state.doc.nodesBetween(from, Math.min(to, state.doc.content.size), (node, position) => {
+            if (node.type.name === "latticeComponent" && COMPONENTS_WITH_BODY.has(String(node.attrs.name)) && node.childCount === 0) empty.add(position);
+            return !node.isTextblock;
+          });
+        }
+      }
+      if (!empty.size) return null;
       const transaction = state.tr;
-      for (const position of empty.reverse()) transaction.insert(position + 1, state.schema.nodes.paragraph!.create());
+      for (const position of [...empty].sort((left, right) => right - left)) transaction.insert(position + 1, state.schema.nodes.paragraph!.create());
       return transaction;
     },
   })],

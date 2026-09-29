@@ -14,7 +14,7 @@ import { useRef, useState, type PointerEvent as ReactPointerEvent } from "react"
 import { useLingui } from "@lingui/react/macro";
 import { Extension } from "@tiptap/core";
 import type { Node as PmNode } from "@tiptap/pm/model";
-import { Plugin, PluginKey, TextSelection } from "@tiptap/pm/state";
+import { Plugin, PluginKey, TextSelection, type Transaction } from "@tiptap/pm/state";
 import { Decoration, DecorationSet } from "@tiptap/pm/view";
 import { NodeViewWrapper, type NodeViewProps } from "@tiptap/react";
 import { AlignCenter, AlignLeft, AlignRight, ImageOff, Settings2 } from "lucide-react";
@@ -23,6 +23,7 @@ import { IconButton } from "../../../../components/ui/icon-button";
 import { Input } from "../../../../components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "../../../../components/ui/popover";
 import { useProjectImage } from "../../project-image-host";
+import { changedBlockRanges } from "../changed-ranges";
 import { Field, setNodeAttrs, useCommitKeys } from "./view-chrome";
 
 /** Schemes that never reach the DOM as an image source. */
@@ -202,9 +203,9 @@ function ImageProperties(props: NodeViewProps) {
 
 const figureKey = new PluginKey<DecorationSet>("latticeImageFigures");
 
-function figureDecorations(doc: PmNode): DecorationSet {
+function figureDecorations(doc: PmNode, from = 0, to = doc.content.size): Decoration[] {
   const decorations: Decoration[] = [];
-  doc.descendants((node, position) => {
+  doc.nodesBetween(from, to, (node, position) => {
     if (node.type.name !== "paragraph") return !node.isTextblock;
     const only = node.childCount === 1 ? node.firstChild : null;
     if (only?.type.name === "image") {
@@ -215,7 +216,17 @@ function figureDecorations(doc: PmNode): DecorationSet {
     }
     return false;
   });
-  return DecorationSet.create(doc, decorations);
+  return decorations;
+}
+
+/** Map the figure marks and look again only at the blocks the transaction touched. */
+function updateFigures(set: DecorationSet, transaction: Transaction): DecorationSet {
+  let next = set.map(transaction.mapping, transaction.doc);
+  for (const range of changedBlockRanges(transaction)) {
+    next = next.remove(next.find(range.from, range.to));
+    next = next.add(transaction.doc, figureDecorations(transaction.doc, range.from, range.to));
+  }
+  return next;
 }
 
 /** Marks paragraphs that hold nothing but an image, so the image aligns as a figure. */
@@ -224,8 +235,8 @@ export const ImageFigures = Extension.create({
   addProseMirrorPlugins: () => [new Plugin<DecorationSet>({
     key: figureKey,
     state: {
-      init: (_config, state) => figureDecorations(state.doc),
-      apply: (transaction, set) => (transaction.docChanged ? figureDecorations(transaction.doc) : set),
+      init: (_config, state) => DecorationSet.create(state.doc, figureDecorations(state.doc)),
+      apply: (transaction, set) => (transaction.docChanged ? updateFigures(set, transaction) : set),
     },
     props: { decorations: (state) => figureKey.getState(state) },
   })],
