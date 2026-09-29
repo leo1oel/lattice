@@ -17,6 +17,9 @@ export const loadVisualMarkdownEditorModule = () => import("../editor/markdown/v
     return module;
   });
 
+/** The clean-room visual Markdown engine, used when the `visualEditorEngine` setting is `lattice`. */
+export const loadLatticeVisualEditorModule = () => import("../editor/markdown/engine/lattice-visual-editor");
+
 /** Whether the visual Markdown chunk is already resolved, so a mount can be immediate. */
 export const isVisualMarkdownEditorWarmed = () => visualMarkdownEditorWarmed;
 

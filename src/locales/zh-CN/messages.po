@@ -1296,6 +1296,10 @@ msgstr "请先补全未完成的参考文献条目，再添加其他文献。"
 msgid "Completed"
 msgstr "已完成"
 
+#: src/editor/markdown/engine/lattice-visual-editor.tsx
+msgid "Component"
+msgstr "组件"
+
 #: src/editor/markdown/visual-slash-items.ts
 msgid "Components"
 msgstr "组件"
@@ -1404,6 +1408,7 @@ msgstr "将所选文字转换为行内公式"
 msgid "Copy"
 msgstr "复制"
 
+#: src/editor/markdown/engine/lattice-visual-editor.tsx
 #: src/editor/markdown/visual-markdown-editor.tsx
 msgid "Copy draft"
 msgstr "复制草稿"
@@ -1603,6 +1608,7 @@ msgid "Define an environment"
 msgstr "定义环境"
 
 #: src/editor/latex/latex-command-completions.ts
+#: src/editor/markdown/engine/lattice-visual-editor.tsx
 msgid "Definition"
 msgstr "定义"
 
@@ -2288,6 +2294,7 @@ msgid "Follow system (default)"
 msgstr "跟随系统（默认）"
 
 #: src/editor/insert/insert-snippets.ts
+#: src/editor/markdown/engine/lattice-visual-editor.tsx
 #: src/editor/markdown/visual-slash-items.ts
 msgid "Footnote"
 msgstr "脚注"
@@ -2323,6 +2330,10 @@ msgstr "四级标题。"
 #: src/editor/insert/insert-snippets.ts
 msgid "Fraction"
 msgstr "分式"
+
+#: src/editor/markdown/engine/lattice-visual-editor.tsx
+msgid "Frontmatter"
+msgstr "前置元数据"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Frown relation"
@@ -2544,6 +2555,7 @@ msgstr "用于分隔章节的水平线。"
 msgid "Horizontal space"
 msgstr "水平间距"
 
+#: src/editor/markdown/engine/lattice-visual-editor.tsx
 #: src/editor/markdown/visual-slash-items.ts
 msgid "HTML"
 msgstr "HTML"
@@ -3325,6 +3337,14 @@ msgstr "映射到"
 msgid "Mark a block as the source of truth. Mirrors elsewhere update live as you edit it."
 msgstr "将内容块设为唯一源；在此编辑时，其他位置的镜像会同步更新。"
 
+#: src/editor/markdown/engine/lattice-visual-editor.tsx
+msgid "Markdown document editor"
+msgstr "Markdown 文档编辑器"
+
+#: src/editor/markdown/engine/lattice-visual-editor.tsx
+msgid "Markdown source"
+msgstr "Markdown 源码"
+
 #: src/pdf/pdf-viewer.tsx
 msgid "Match case"
 msgstr "区分大小写"
@@ -3375,6 +3395,10 @@ msgstr "媒体"
 #: src/editor/markdown/visual-slash-items.ts
 msgid "Medium section heading."
 msgstr "用于次级章节的中标题。"
+
+#: src/editor/markdown/engine/lattice-visual-editor.tsx
+msgid "Merged table"
+msgstr "合并单元格的表格"
 
 #: src/editor/markdown/visual-slash-items.ts
 msgid "Mermaid"
@@ -4347,6 +4371,7 @@ msgid "Preparing this workspace"
 msgstr "正在准备此工作区"
 
 #: src/canvas/canvas-toolbar.tsx
+#: src/editor/markdown/engine/lattice-visual-editor.tsx
 #: src/editor/markdown/visual-markdown-editor.tsx
 msgid "Preview"
 msgstr "预览"
@@ -4893,6 +4918,7 @@ msgstr "把 {0} 恢复到这个版本"
 msgid "Restore {path} to this version? Your current file will be overwritten."
 msgstr "要把 {path} 恢复到这个版本吗？你当前的文件将被覆盖。"
 
+#: src/editor/markdown/engine/lattice-visual-editor.tsx
 #: src/editor/markdown/visual-markdown-editor.tsx
 msgid "Restore draft and retry"
 msgstr "恢复草稿并重试"
@@ -5906,6 +5932,7 @@ msgstr "暂时无法连接服务，未自动重试。"
 msgid "The service is rate-limiting requests. No retry was made."
 msgstr "服务正在限流，未自动重试。"
 
+#: src/editor/markdown/engine/lattice-visual-editor.tsx
 #: src/editor/markdown/visual-markdown-editor.tsx
 msgid "The shared version is shown. Your visual draft was kept — copy it, or restore it and try again."
 msgstr "当前显示共享版本。你的可视化编辑草稿已保留——你可以复制草稿，或恢复后重试。"
@@ -5987,6 +6014,7 @@ msgstr "自上次同步以来，本机和 Overleaf 都修改了此文件的同�
 msgid "This computer removed this part."
 msgstr "本机删除了这一部分。"
 
+#: src/editor/markdown/engine/lattice-visual-editor.tsx
 #: src/editor/markdown/visual-markdown-editor.tsx
 msgid "This document changed in the same place"
 msgstr "此文档的同一位置已被修改"
@@ -6498,6 +6526,10 @@ msgstr "Vim 和 Emacs 的模式键位仅在编辑器内生效"
 #: src/canvas/editor-status-bar.tsx
 msgid "Vim mode"
 msgstr "Vim 模式"
+
+#: src/editor/markdown/engine/lattice-visual-editor.tsx
+msgid "Visual editing is unavailable because this Markdown contains unsupported or lossy syntax. Use source mode to preserve it."
+msgstr "此 Markdown 含有不受支持或会丢失信息的语法，无法可视化编辑。请使用源码模式以保留原文。"
 
 #: src/editor/markdown/visual-markdown-editor.tsx
 msgid "Visual Markdown editor"

@@ -45,6 +45,9 @@ const CEILINGS: Record<string, number> = {
   "src/app/app-workspace-sidebar.tsx": 0,
   "src/canvas/document-canvas.tsx": 2,
   "src/editor/markdown/visual-markdown-editor.tsx": 1,
+  // The clean-room engine's editor keeps its mutable session in effects and
+  // editor storage, so it compiles fully; pinned so it stays that way.
+  "src/editor/markdown/engine/lattice-visual-editor.tsx": 0,
   "src/canvas/editor-tabs.tsx": 0,
   // Split out of the viewer, which had 5. Each remaining one is a tagged
   // template or a preserved memo, not a ref write; the viewer itself compiles.

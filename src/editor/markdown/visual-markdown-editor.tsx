@@ -30,8 +30,6 @@ import { ViewInSourceProvider } from "@ok-app/editor/bubble-menu/ViewInSourceBub
 import { serializeWysiwygSelection } from "@ok-app/editor/edit-with-ai-selection";
 import { EmojiInsertPopover } from "@ok-app/editor/components/EmojiInsertPopover";
 import { ImageSrcFidelity } from "../../open-knowledge-core/extensions/image-src-fidelity";
-import type { PaperSummary } from "../../app-types";
-import type { PresenceCursor, TrackedChangeTooltipActions } from "../../overleaf/overleaf-editor-extensions";
 import type { TrackedChange } from "../../overleaf/use-overleaf-realtime";
 import { editorCommentAuthorDisplayName, resolveCommentAnchor, type EditorComment } from "../comments/editor-comment-data";
 import { notifyError } from "../../telemetry/app-notify";
@@ -42,6 +40,7 @@ import { DocumentHeadingRail } from "./document-heading-rail";
 import { documentHeadingItems } from "./document-heading-items";
 import { listen, whenIdle } from "../dom-utils";
 import { rebaseMarkdownDraft } from "./markdown-collab";
+import type { VisualMarkdownEditorProps } from "./visual-editor-props";
 import { openMarkdownLink } from "./markdown-link-routing";
 import { LARGE_MARKDOWN_PREVIEW_THRESHOLD, markdownPreviewSyncPolicy } from "./markdown-preview-sync-policy";
 import type { MarkdownWorkspaceIndex } from "./markdown-workspace-index";
@@ -174,42 +173,6 @@ function useEditorViewMounted(editor: Editor | null): boolean {
   }, [editor]);
   return Boolean((editor as unknown as { editorView?: unknown } | null)?.editorView);
 }
-
-type VisualMarkdownEditorProps = {
-  text: string;
-  activePath: string;
-  projectRoot?: string;
-  onChangeMarkdown: (next: string, expected: string) => boolean;
-  onFlushPendingChange?: (flush: (() => boolean) | null) => void;
-  optimizeForReading?: boolean;
-  /** Lets a parent place the eligibility notice outside the article body. */
-  onEligibilityChange?: (reason: string | null) => void;
-  synchronizeSourceScroll?: boolean;
-  onRequestViewportLock?: (anchor: HTMLElement | null, anchorTop: number | null, reveal: HTMLElement | null) => void;
-  onOpenProjectPath?: (path: string) => void;
-  workspaceIndex?: MarkdownWorkspaceIndex | null;
-  /** Downloaded paper library backing the `@` citation typeahead. */
-  papers?: PaperSummary[];
-  macros?: Record<string, string>;
-  onUndo: () => boolean;
-  onRedo: () => boolean;
-  onEditSource?: () => void;
-  onViewInSource?: (sourceOffset: number, viewportY?: number, blockViewportY?: number) => void;
-  onImportAsset?: (file: File) => Promise<string | null>;
-  onLoadAsset?: (path: string) => Promise<string | null>;
-  assetRevision?: number;
-  presenceCursors?: PresenceCursor[];
-  onCaretChange?: (row: number, column: number) => void;
-  onSelectionMarkdown?: (value: string) => void;
-  overleafChanges?: TrackedChange[];
-  /** Comments anchored in this file, painted as highlights over the prose. */
-  editorComments?: EditorComment[];
-  activeEditorCommentId?: string | null;
-  onEditorCommentClick?: (id: string) => void;
-  overleafTrackChangeActions?: TrackedChangeTooltipActions;
-  onCreateComment?: (from: number, to: number, body: string) => void;
-  editable?: boolean;
-};
 
 type CompleteVisualMarkdownEditorProps = VisualMarkdownEditorProps & {
   /** Internal handoff from the passive block viewport to the complete editor. */

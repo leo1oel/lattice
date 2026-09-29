@@ -3,20 +3,24 @@ import { useLingui } from "@lingui/react/macro";
 import { FileCode2 } from "lucide-react";
 import { InfinityLoader } from "../components/ui/activity-icons";
 import { PdfLoading } from "../pdf/pdf-loading";
+import { loadVisualEditorEngine } from "../settings/app-settings";
 import {
-  isVisualMarkdownEditorWarmed, loadBoardEditorModule, loadOpenSlideWorkspaceModule, loadPdfPreviewModule,
-  loadSpreadsheetEditorModule, loadVisualMarkdownEditorModule, markVisualMarkdownEditorWarmed,
+  isVisualMarkdownEditorWarmed, loadBoardEditorModule, loadLatticeVisualEditorModule, loadOpenSlideWorkspaceModule,
+  loadPdfPreviewModule, loadSpreadsheetEditorModule, loadVisualMarkdownEditorModule, markVisualMarkdownEditorWarmed,
 } from "./canvas-lazy-modules";
 
 /** The canvas's heavy editors, each behind its own chunk (see canvas-lazy-modules). */
 export const PdfPreview = lazy(() => loadPdfPreviewModule().then((module) => ({ default: module.PdfPreview })));
 const VisualMarkdownEditor = lazy(() => loadVisualMarkdownEditorModule().then((module) => ({ default: module.VisualMarkdownEditor })));
+const LatticeVisualMarkdownEditor = lazy(() => loadLatticeVisualEditorModule().then((module) => ({ default: module.LatticeVisualMarkdownEditor })));
 export const BoardEditor = lazy(() => loadBoardEditorModule().then((module) => ({ default: module.BoardEditor })));
 export const SpreadsheetEditor = lazy(() => loadSpreadsheetEditorModule().then((module) => ({ default: module.SpreadsheetEditor })));
 export const OpenSlideWorkspace = lazy(() => loadOpenSlideWorkspaceModule().then((module) => ({ default: module.OpenSlideWorkspace })));
 
 export function DeferredVisualMarkdownEditor(props: ComponentProps<typeof VisualMarkdownEditor>) {
   const { t } = useLingui();
+  // Read once per mount: switching engines under a live editor would drop its session.
+  const [engine] = useState(loadVisualEditorEngine);
   const [ready, setReady] = useState(isVisualMarkdownEditorWarmed);
   useEffect(() => {
     if (ready) {
@@ -29,7 +33,7 @@ export function DeferredVisualMarkdownEditor(props: ComponentProps<typeof Visual
   if (!ready) {
     return <div className="visual-markdown-preparing" aria-busy="true" aria-label={t`Preparing Markdown editor`} />;
   }
-  return <VisualMarkdownEditor {...props} />;
+  return engine === "lattice" ? <LatticeVisualMarkdownEditor {...props} /> : <VisualMarkdownEditor {...props} />;
 }
 
 /** The PDF viewer's frame before a document shows: `toolbar` fills its bar, `children` replaces the spinner. */

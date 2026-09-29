@@ -1,0 +1,235 @@
+/*
+ * The Lattice visual Markdown engine's writing surface. Written from Lattice's
+ * design tokens (src/styles/foundations.css); every rule is scoped under
+ * `.lx-md-editor`, so nothing here reaches the vendored editor or the rest of
+ * the app. Clean implementation for Lattice; spec: docs/visual-editor-spec.md.
+ */
+
+/* The canvas pads previews to a 760px column; this surface centers its own. */
+.markdown-preview-content:has(> .lx-md-editor) { padding-inline: 0; }
+.markdown-preview-content > .lx-md-editor { width: 100%; min-height: 100%; margin: 0 auto; }
+
+.lx-md-editor {
+  /* The writing surface's own type contract: a comfortable long-form measure. */
+  --lx-md-measure: 760px;
+  --lx-md-font-size: 15px;
+  --lx-md-line-height: 1.7;
+  --lx-md-flow: 0.85em;
+  --lx-md-soft-surface: color-mix(in srgb, var(--text-primary) 4%, transparent);
+  --lx-md-code-surface: color-mix(in srgb, var(--text-primary) 6%, transparent);
+  position: relative;
+  min-height: 100%;
+  color: var(--text-primary);
+}
+
+.lx-md-editor.is-reading { --lx-md-font-size: var(--type-reading-size); --lx-md-line-height: 1.75; }
+
+.lx-md-eligibility {
+  max-width: var(--lx-md-measure);
+  margin: var(--space-8) auto 0;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-compact);
+  background: var(--status-warning-soft);
+}
+
+.lx-md-editor .lx-md-surface {
+  box-sizing: border-box;
+  max-width: calc(var(--lx-md-measure) + 2 * var(--space-12));
+  min-height: 100%;
+  margin: 0 auto;
+  padding: var(--space-16) var(--space-12) 40vh;
+  outline: none;
+  font-family: var(--ui-font);
+  font-size: var(--lx-md-font-size);
+  font-weight: var(--weight-regular);
+  line-height: var(--lx-md-line-height);
+  font-feature-settings: "cv11", "ss01";
+  letter-spacing: -0.003em;
+  overflow-wrap: break-word;
+  caret-color: var(--text-primary);
+}
+
+.lx-md-editor .lx-md-surface > :first-child { margin-top: 0; }
+.lx-md-editor .lx-md-surface ::selection { background: var(--editor-selection-surface); }
+
+/* Prose */
+.lx-md-editor .lx-md-surface p { margin: 0 0 var(--lx-md-flow); }
+.lx-md-editor .lx-md-surface :is(li, td, th, blockquote) > p:last-child { margin-bottom: 0; }
+
+.lx-md-editor .lx-md-surface :is(h1, h2, h3, h4, h5, h6) {
+  margin: 1.6em 0 0.45em;
+  color: var(--text-primary);
+  font-weight: var(--weight-semibold);
+  line-height: 1.3;
+  text-wrap: balance;
+}
+.lx-md-editor .lx-md-surface h1 { font-size: 1.8em; line-height: 1.2; letter-spacing: -0.022em; }
+.lx-md-editor .lx-md-surface h2 { font-size: 1.4em; letter-spacing: -0.016em; }
+.lx-md-editor .lx-md-surface h3 { font-size: 1.17em; letter-spacing: -0.01em; }
+.lx-md-editor .lx-md-surface h4 { font-size: 1em; }
+.lx-md-editor .lx-md-surface h5 { font-size: 0.92em; }
+.lx-md-editor .lx-md-surface h6 { font-size: 0.92em; color: var(--text-secondary); }
+
+.lx-md-editor .lx-md-surface strong { font-weight: var(--weight-semibold); }
+.lx-md-editor .lx-md-surface s { color: var(--text-secondary); text-decoration-color: color-mix(in srgb, currentColor 60%, transparent); }
+
+.lx-md-editor .lx-md-surface a {
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, var(--text-primary) 32%, transparent);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.22em;
+  transition: text-decoration-color var(--duration-quick) var(--ease-default);
+}
+.lx-md-editor .lx-md-surface a:hover { text-decoration-color: currentColor; }
+
+.lx-md-editor .lx-md-surface code {
+  padding: 0.12em 0.36em;
+  border-radius: var(--radius-compact);
+  background: var(--lx-md-code-surface);
+  font-family: var(--editor-font);
+  font-size: 0.86em;
+}
+
+/* Lists */
+.lx-md-editor .lx-md-surface :is(ul, ol) { margin: 0 0 var(--lx-md-flow); padding-inline-start: 1.45em; }
+.lx-md-editor .lx-md-surface li { margin: 0.2em 0; padding-inline-start: 0.15em; }
+.lx-md-editor .lx-md-surface li > :is(ul, ol) { margin: 0.2em 0 0; }
+.lx-md-editor .lx-md-surface li > p { margin-bottom: 0.2em; }
+.lx-md-editor .lx-md-surface li::marker { color: var(--text-tertiary); }
+.lx-md-editor .lx-md-surface ol > li::marker { font-variant-numeric: tabular-nums; }
+
+.lx-md-editor .lx-md-surface ul[data-type="taskList"] { padding-inline-start: 0.2em; list-style: none; }
+.lx-md-editor .lx-md-surface li[data-type="taskItem"] { display: flex; align-items: flex-start; gap: 0.55em; padding: 0; }
+.lx-md-editor .lx-md-surface li[data-type="taskItem"] > label { display: flex; align-items: center; height: calc(var(--lx-md-line-height) * 1em); margin: 0; user-select: none; }
+.lx-md-editor .lx-md-surface li[data-type="taskItem"] > label input { width: 0.95em; height: 0.95em; margin: 0; accent-color: var(--control-active); }
+.lx-md-editor .lx-md-surface li[data-type="taskItem"] > div { flex: 1; min-width: 0; }
+.lx-md-editor .lx-md-surface li[data-type="taskItem"][data-checked="true"] > div { color: var(--text-secondary); }
+
+/* Blocks */
+.lx-md-editor .lx-md-surface blockquote {
+  margin: 0 0 var(--lx-md-flow);
+  padding: 0.1em 0 0.1em 1em;
+  border-inline-start: 3px solid var(--border-strong);
+  color: var(--text-secondary);
+}
+
+.lx-md-editor .lx-md-surface hr {
+  height: 1px;
+  margin: 2em 0;
+  border: 0;
+  background: var(--border-subtle);
+}
+.lx-md-editor .lx-md-surface hr.ProseMirror-selectednode { outline: 2px solid var(--control-active-border); outline-offset: var(--space-3); }
+
+.lx-md-editor .lx-md-surface pre {
+  position: relative;
+  margin: 0 0 var(--lx-md-flow);
+  padding: var(--space-6) var(--space-8);
+  overflow-x: auto;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-panel);
+  background: var(--lx-md-soft-surface);
+  font-family: var(--editor-font);
+  font-size: 0.84em;
+  line-height: 1.6;
+  white-space: pre;
+  tab-size: 4;
+}
+.lx-md-editor .lx-md-surface pre code { padding: 0; border-radius: 0; background: none; font-size: inherit; }
+.lx-md-editor .lx-md-surface pre[data-language]::after {
+  content: attr(data-language);
+  position: absolute;
+  top: var(--space-2);
+  right: var(--space-4);
+  color: var(--text-tertiary);
+  font: var(--type-micro-weight) var(--type-micro-size) / var(--type-micro-line-height) var(--ui-font);
+  letter-spacing: 0.02em;
+  pointer-events: none;
+  user-select: none;
+}
+
+/* Source kept verbatim: HTML, components, definitions, frontmatter. */
+.lx-md-editor .lx-md-surface pre.lx-md-raw {
+  padding-top: var(--space-4);
+  border-style: dashed;
+  border-color: var(--border-strong);
+  background: transparent;
+  color: var(--text-secondary);
+  white-space: pre-wrap;
+}
+.lx-md-editor .lx-md-surface pre.lx-md-raw::before {
+  content: attr(data-label);
+  display: block;
+  margin-bottom: var(--space-1);
+  color: var(--text-tertiary);
+  font: var(--type-micro-weight) var(--type-micro-size) / var(--type-micro-line-height) var(--ui-font);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  user-select: none;
+}
+.lx-md-editor .lx-md-surface pre.lx-md-raw[data-lattice-raw="frontmatter"] {
+  border-style: solid;
+  border-color: var(--border-subtle);
+  background: var(--lx-md-soft-surface);
+}
+/* Converter anchors are scroll targets, not content. */
+.lx-md-editor .lx-md-surface pre.lx-md-raw[data-lattice-raw="anchor"] {
+  height: 0;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+}
+
+.lx-md-editor .lx-md-surface .lx-md-raw-inline {
+  padding: 0.05em 0.3em;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-compact);
+  color: var(--text-secondary);
+  font-family: var(--editor-font);
+  font-size: 0.84em;
+}
+
+/* Tables */
+.lx-md-editor .lx-md-surface .tableWrapper { margin: 0 0 var(--lx-md-flow); overflow-x: auto; }
+.lx-md-editor .lx-md-surface table {
+  margin: 0 0 var(--lx-md-flow);
+  border-collapse: collapse;
+  font-size: 0.94em;
+  font-variant-numeric: tabular-nums;
+}
+.lx-md-editor .lx-md-surface :is(th, td) {
+  min-width: 3em;
+  padding: 0.4em 0.75em;
+  border: 1px solid var(--border-subtle);
+  text-align: start;
+  vertical-align: top;
+}
+.lx-md-editor .lx-md-surface th { background: var(--lx-md-soft-surface); font-weight: var(--weight-semibold); }
+.lx-md-editor .lx-md-surface :is(th, td) > p { margin: 0; }
+.lx-md-editor .lx-md-surface .selectedCell { background: var(--editor-selection-surface); }
+
+/* Math */
+.lx-md-editor .lx-md-surface .lx-md-math { border-radius: var(--radius-compact); }
+.lx-md-editor .lx-md-surface .lx-md-math.is-selected { background: var(--editor-selection-surface); }
+.lx-md-editor .lx-md-surface .lx-md-math-block { margin: 0 0 var(--lx-md-flow); }
+.lx-md-editor .lx-md-surface .lx-md-math-preview { padding: var(--space-3) 0; overflow-x: auto; text-align: center; cursor: text; }
+.lx-md-editor .lx-md-surface .lx-md-math-empty { color: var(--text-tertiary); font-family: var(--editor-font); }
+.lx-md-editor .lx-md-surface .lx-md-math-source { display: none; margin-top: var(--space-2); white-space: pre-wrap; }
+.lx-md-editor .lx-md-surface .is-editing .lx-md-math-source { display: block; }
+
+/* Images */
+.lx-md-editor .lx-md-surface .lx-md-image { display: inline-block; max-width: 100%; vertical-align: bottom; }
+.lx-md-editor .lx-md-surface .lx-md-image img { display: block; max-width: 100%; height: auto; border-radius: var(--radius-control); }
+.lx-md-editor .lx-md-surface .lx-md-image.is-selected img { outline: 2px solid var(--control-active-border-strong); outline-offset: var(--space-1); }
+.lx-md-editor .lx-md-surface .lx-md-image-missing {
+  display: inline-block;
+  padding: var(--space-2) var(--space-4);
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-compact);
+  color: var(--text-tertiary);
+  font-size: 0.86em;
+}
+
+.lx-md-editor .lx-md-surface .ProseMirror-gapcursor::after { border-top-color: var(--text-primary); }
