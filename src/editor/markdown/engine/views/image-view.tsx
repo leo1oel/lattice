@@ -54,7 +54,7 @@ export function ImageView(props: NodeViewProps) {
     event.stopPropagation();
     const startX = event.clientX;
     const startWidth = element.getBoundingClientRect().width;
-    const available = element.closest(".lx-md-surface")?.getBoundingClientRect().width ?? Number.POSITIVE_INFINITY;
+    const available = element.closest(".lx-md-surface")?.getBoundingClientRect().width || Number.POSITIVE_INFINITY;
     let latest = startWidth;
     const move = (moveEvent: PointerEvent) => {
       const delta = (moveEvent.clientX - startX) * (side === "right" ? 1 : -1) * (align === "center" ? 2 : 1);

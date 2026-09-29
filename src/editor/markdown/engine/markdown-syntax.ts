@@ -173,7 +173,10 @@ function latticeHandlers(mode: SerializeMode, stock: Record<string, Handle>): Re
     },
     table(node, parent, state, info) {
       const marker = styleOf(node)?.layoutMarker;
-      const table = stock.table!(node, parent, state, info);
+      const lines = stock.table!(node, parent, state, info).split("\n");
+      // The delimiter row as Lattice writes it (spec §11.14): `---`, `:---`, `---:`, `:---:`.
+      if (lines[1]) lines[1] = lines[1].replace(/:?-+:?/g, (cell) => `${cell.startsWith(":") ? ":" : ""}---${cell.length > 1 && cell.endsWith(":") ? ":" : ""}`);
+      const table = lines.join("\n");
       return marker ? `${marker}\n\n${table}` : table;
     },
     // An MDX component: its tags as recorded, around its exact body or its
@@ -218,6 +221,12 @@ const baseOptions: Options = {
   resourceLink: false,
 };
 
+/**
+ * Table cells padded with single spaces (spec §11.14): an edited cell
+ * rewrites its own row, not the column widths of every other row.
+ */
+const gfmOptions = { tablePipeAlign: false };
+
 type Processor = { stringify: (tree: Root) => string };
 const processors = new Map<SerializeMode, Processor>();
 
@@ -232,11 +241,11 @@ function processorFor(mode: SerializeMode): Processor {
     Object.assign(stock, extension.handlers);
     extension.extensions?.forEach(collect);
   };
-  const probe = unified().use(remarkGfm).use(remarkMath).freeze();
+  const probe = unified().use(remarkGfm, gfmOptions).use(remarkMath).freeze();
   ((probe.data("toMarkdownExtensions") ?? []) as Extension[]).forEach(collect);
   const built = unified()
     .use(remarkStringify, { ...baseOptions, handlers: latticeHandlers(mode, stock) })
-    .use(remarkGfm)
+    .use(remarkGfm, gfmOptions)
     .use(remarkMath)
     .freeze();
   const processor: Processor = { stringify: (tree) => built.stringify(tree) };
