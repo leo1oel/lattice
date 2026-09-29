@@ -83,7 +83,7 @@ type Host = {
   /** The source map of the last document and baseline it was asked for. */
   map: SourceMap | null;
   /** What the host was last told of the caret and the selection, so it hears only changes. */
-  reported: { caret: string; selection: string };
+  reported: { caret: string | null; selection: string | null };
 };
 
 /**
@@ -253,7 +253,7 @@ function loadDocument(host: Host, text: string, draft?: string) {
   host.accepted = text;
   host.dirty = false;
   host.rejected = null;
-  host.reported = { caret: "", selection: "" };
+  host.reported = { caret: null, selection: null };
   const options = openOptions(host.props);
   const opened = openMarkdown(text, editor.schema, options);
   if ("unavailable" in opened) {

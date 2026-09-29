@@ -83,6 +83,19 @@ describe("the caret in Markdown (R-SRC-1)", () => {
     await waitFor(() => expect(onCaretChange).toHaveBeenCalledWith(0, 0));
   });
 
+  it("clears the previous file's selection when another file loads", async () => {
+    const onCaretChange = vi.fn();
+    const onSelectionMarkdown = vi.fn();
+    const view = renderEditor({ text: "Same\n", activePath: "a.md", onCaretChange, onSelectionMarkdown });
+    select(view.editor, 1, 5);
+    expect(onSelectionMarkdown).toHaveBeenLastCalledWith("Same");
+    expect(onCaretChange).toHaveBeenLastCalledWith(0, 4);
+    onCaretChange.mockClear();
+    view.rerender({ text: "Else\n", activePath: "b.md" });
+    await waitFor(() => expect(onSelectionMarkdown).toHaveBeenLastCalledWith(""));
+    expect(onCaretChange).toHaveBeenLastCalledWith(0, 4);
+  });
+
   it("follows marks, nesting and emoji, and a typed edit once it is published", async () => {
     const onCaretChange = vi.fn();
     const { editor } = renderEditor({ text: "**bold**\n\n- one\n- two 😀", onCaretChange });
