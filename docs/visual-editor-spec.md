@@ -231,8 +231,9 @@ here, with the requirement it rests on.
 - **LaTeX delimiters (R-RT-21).** `\(`…`\)` is a micromark construct that
   claims its span before emphasis is read, so underscores in TeX never pair
   across formulas. `\[`…`\]` on one line is a formula only as a whole
-  paragraph (the case R-RT-21 pins). As a construct inside prose it would turn
-  escaped brackets such as `a\[i\]` into math. A multi-line `\[` … `\]` is
+  paragraph with no `\]` before its end (the case R-RT-21 pins), so
+  `\[1\] Smith, see also \[2\]` stays prose. As a construct inside prose it
+  would turn escaped brackets such as `a\[i\]` into math. A multi-line `\[` … `\]` is
   joined across the paragraphs and setext headings CommonMark reads it as, as
   long as no blank line intervenes.
 - **Formula editing (R-INL-2, R-BLK-4, R-FMT-12).** The inline field commits
