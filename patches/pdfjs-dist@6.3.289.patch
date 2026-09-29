@@ -1,5 +1,5 @@
 diff --git a/web/pdf_viewer.mjs b/web/pdf_viewer.mjs
-index 29b3492cd9cb0869a906785739c34fc364ec1c17..c93a451b4b280913f14d97be692fdb630e9726ee 100644
+index 29b3492cd9cb0869a906785739c34fc364ec1c17..752cf57a111c221b8b357a454ab4be21d08400f3 100644
 --- a/web/pdf_viewer.mjs
 +++ b/web/pdf_viewer.mjs
 @@ -1576,7 +1576,8 @@ class PDFLinkService {
@@ -12,3 +12,30 @@ index 29b3492cd9cb0869a906785739c34fc364ec1c17..c93a451b4b280913f14d97be692fdb63
          ac.abort();
        }
      }, {
+@@ -6296,11 +6297,22 @@ class TextLayerBuilder {
+     }
+     this.#selectionChangeAC = new AbortController();
+     const signal = globalAbortSignal ? AbortSignal.any([this.#selectionChangeAC.signal, globalAbortSignal]) : this.#selectionChangeAC.signal;
++    // Lattice: runs on every keyup and selectionchange in the page, including
++    // typing in an editor beside the PDF; touch the DOM only when something
++    // changed, so an idle text layer costs no mutations or style recalcs.
+     const reset = (end, textLayer) => {
+-      textLayer.append(end);
+-      end.style.width = "";
+-      end.style.height = "";
+-      textLayer.classList.remove("selecting");
++      if (textLayer.lastChild !== end) {
++        textLayer.append(end);
++      }
++      if (end.style.width) {
++        end.style.width = "";
++      }
++      if (end.style.height) {
++        end.style.height = "";
++      }
++      if (textLayer.classList.contains("selecting")) {
++        textLayer.classList.remove("selecting");
++      }
+     };
+     let isPointerDown = false;
+     document.addEventListener("pointerdown", () => {

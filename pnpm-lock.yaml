@@ -25,7 +25,7 @@ patchedDependencies:
     hash: 8dce813bd5c655eff106ad77d6b141c03e74631e35dc529c98c65ba19d89ed0a
     path: patches/@tiptap__react@3.31.3.patch
   pdfjs-dist@6.3.289:
-    hash: bedd626f53a72247c40a3d7cedca7d7d37a8f35a745aa3946baff837bf560371
+    hash: 82fc7925e2e25b3439601b229a8e5f65c66534b747631bd2f3693a187508112d
     path: patches/pdfjs-dist@6.3.289.patch
 
 importers:
@@ -352,7 +352,7 @@ importers:
         version: 12.42.2(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
       pdfjs-dist:
         specifier: 6.3.289
-        version: 6.3.289(patch_hash=bedd626f53a72247c40a3d7cedca7d7d37a8f35a745aa3946baff837bf560371)
+        version: 6.3.289(patch_hash=82fc7925e2e25b3439601b229a8e5f65c66534b747631bd2f3693a187508112d)
       pdfjs-dist-v4:
         specifier: npm:pdfjs-dist@4.9.155
         version: pdfjs-dist@4.9.155
@@ -7480,7 +7480,7 @@ snapshots:
 
   '@pdfslick/core@4.0.2(@types/react@19.2.17)(react@19.2.7)(use-sync-external-store@1.6.0(react@19.2.7))':
     dependencies:
-      pdfjs-dist: 6.3.289(patch_hash=bedd626f53a72247c40a3d7cedca7d7d37a8f35a745aa3946baff837bf560371)
+      pdfjs-dist: 6.3.289(patch_hash=82fc7925e2e25b3439601b229a8e5f65c66534b747631bd2f3693a187508112d)
       zustand: 5.0.15(@types/react@19.2.17)(react@19.2.7)(use-sync-external-store@1.6.0(react@19.2.7))
     transitivePeerDependencies:
       - '@types/react'
@@ -11648,7 +11648,7 @@ snapshots:
     optionalDependencies:
       '@napi-rs/canvas': 0.1.100
 
-  pdfjs-dist@6.3.289(patch_hash=bedd626f53a72247c40a3d7cedca7d7d37a8f35a745aa3946baff837bf560371):
+  pdfjs-dist@6.3.289(patch_hash=82fc7925e2e25b3439601b229a8e5f65c66534b747631bd2f3693a187508112d):
     optionalDependencies:
       '@napi-rs/canvas': 1.0.8
 
