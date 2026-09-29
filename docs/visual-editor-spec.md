@@ -334,8 +334,10 @@ here, with the requirement it rests on.
   ArrowUp/ArrowDown move, Enter or Tab accepts, Escape dismisses, and a click
   accepts. Accepting writes `[[docName]]` or `[[docName#slug]]`, absorbing a
   `]]` already typed after the query. With no match the menu says "No matching
-  pages". There is no create-page flow: a link to a page that does not exist
-  yet is simply typed in full. Mod-click (or any click while read-only) opens
+  pages". The menu closes once its query contains `]]` or a line break, so
+  text typed after a complete link is never replaced. There is no create-page
+  flow: a link to a page that does not exist yet is simply typed in full, and
+  becomes a wiki link when its closing `]]` is typed. Mod-click (or any click while read-only) opens
   the page by its document name.
 - **Citations (R-INL-7, R-FMT-17).** A chip is one atom: Backspace or Delete
   beside it removes all of it in one step. Mod-K on a chip, or the hover
