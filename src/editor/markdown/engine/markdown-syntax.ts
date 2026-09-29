@@ -12,6 +12,7 @@ import remarkMath from "remark-math";
 import remarkParse from "remark-parse";
 import remarkStringify from "remark-stringify";
 import { unified } from "unified";
+import { remarkLatexMath } from "./latex-math-syntax";
 
 /** Style the parser recorded for one node, carried on `node.data.lattice` through serialization. */
 export type LatticeNodeStyle = {
@@ -24,19 +25,23 @@ export type LatticeNodeStyle = {
   incrementListMarker?: boolean;
   setext?: boolean;
   fence?: string;
+  /** The closing fence as authored, when it differs from the opening (a longer run). */
+  closeFence?: string;
   indented?: boolean;
   /** Exact syntax of a thematic break or of a hard break (without its newline). */
   markup?: string;
   /** How a link was written: `<url>` or a bare GFM literal. */
   autolink?: "angle" | "literal";
-  /** Exact source of an inline formula, kept while its TeX is unchanged. */
+  /** Exact source of a formula, kept while its TeX is unchanged. */
   source?: string;
+  /** A table's layout comment (merged cells), written directly above it. */
+  layoutMarker?: string;
 };
 
 type Styled = { data?: { lattice?: LatticeNodeStyle } };
 const styleOf = (node: unknown): LatticeNodeStyle | undefined => (node as Styled).data?.lattice;
 
-const parser = unified().use(remarkParse).use(remarkGfm).use(remarkMath).freeze();
+const parser = unified().use(remarkParse).use(remarkGfm).use(remarkMath).use(remarkLatexMath).freeze();
 
 /**
  * Parse Markdown into mdast with source positions. A `$` pair that pandoc's
@@ -56,7 +61,7 @@ function demoteCurrencyMath(parent: Parent, markdown: string) {
     if ("children" in child) demoteCurrencyMath(child as Parent, markdown);
     if (child.type !== "inlineMath" || child.position?.start.offset == null || child.position.end.offset == null) continue;
     const source = markdown.slice(child.position.start.offset, child.position.end.offset);
-    if (source.startsWith("$$")) continue;
+    if (source.startsWith("$$") || source.startsWith("\\")) continue;
     if (/^\s|\s$/.test(child.value) || /\d/.test(markdown.charAt(child.position.end.offset))) {
       children[index] = { type: "text", value: source, position: child.position } satisfies Text;
       changed = true;
@@ -144,8 +149,10 @@ function latticeHandlers(mode: SerializeMode, stock: Record<string, Handle>): Re
       let longest = 0;
       for (const run of code.value.match(marker === "~" ? /~+/g : /`+/g) ?? []) longest = Math.max(longest, run.length);
       const fence = marker.repeat(Math.max(style.fence?.length ?? 3, longest + 1, 3));
+      // A longer closing run, as authored, still closes the same fence.
+      const close = style.closeFence?.charAt(0) === marker && style.closeFence.length >= fence.length ? style.closeFence : fence;
       const infoString = [code.lang, code.meta].filter(Boolean).join(" ");
-      return code.value ? `${fence}${infoString}\n${code.value}\n${fence}` : `${fence}${infoString}\n${fence}`;
+      return code.value ? `${fence}${infoString}\n${code.value}\n${close}` : `${fence}${infoString}\n${close}`;
     },
     link(node, parent, state, info) {
       const link = node as { url: string; title?: string | null; children: RootContent[] };
@@ -159,6 +166,26 @@ function latticeHandlers(mode: SerializeMode, stock: Record<string, Handle>): Re
     inlineMath(node, parent, state, info) {
       const source = styleOf(node)?.source;
       return literal && source ? source : stock.inlineMath!(node, parent, state, info);
+    },
+    math(node, parent, state, info) {
+      const source = styleOf(node)?.source;
+      return literal && source ? source : stock.math!(node, parent, state, info);
+    },
+    table(node, parent, state, info) {
+      const marker = styleOf(node)?.layoutMarker;
+      const lines = stock.table!(node, parent, state, info).split("\n");
+      // The delimiter row as Lattice writes it (spec §11.14): `---`, `:---`, `---:`, `:---:`.
+      if (lines[1]) lines[1] = lines[1].replace(/:?-+:?/g, (cell) => `${cell.startsWith(":") ? ":" : ""}---${cell.length > 1 && cell.endsWith(":") ? ":" : ""}`);
+      const table = lines.join("\n");
+      return marker ? `${marker}\n\n${table}` : table;
+    },
+    // An MDX component: its tags as recorded, around its exact body or its
+    // re-serialized blocks (see document-to-markdown).
+    latticeComponent(node, _parent, state, info) {
+      const component = node as unknown as { open: string; close: string; inner?: string; lead?: string; trail?: string; children?: RootContent[] };
+      if (component.inner != null) return `${component.open}${component.inner}${component.close}`;
+      const body = component.children?.length ? state.containerFlow(node as Parameters<State["containerFlow"]>[0], info) : "";
+      return body ? `${component.open}${component.lead}${body}${component.trail}${component.close}` : `${component.open}\n\n${component.close}`;
     },
     // Verbatim inline source. Unlike `html`, a line break before it stays a
     // line break; the caller's verification catches the rare line start where
@@ -194,6 +221,12 @@ const baseOptions: Options = {
   resourceLink: false,
 };
 
+/**
+ * Table cells padded with single spaces (spec §11.14): an edited cell
+ * rewrites its own row, not the column widths of every other row.
+ */
+const gfmOptions = { tablePipeAlign: false };
+
 type Processor = { stringify: (tree: Root) => string };
 const processors = new Map<SerializeMode, Processor>();
 
@@ -208,11 +241,11 @@ function processorFor(mode: SerializeMode): Processor {
     Object.assign(stock, extension.handlers);
     extension.extensions?.forEach(collect);
   };
-  const probe = unified().use(remarkGfm).use(remarkMath).freeze();
+  const probe = unified().use(remarkGfm, gfmOptions).use(remarkMath).freeze();
   ((probe.data("toMarkdownExtensions") ?? []) as Extension[]).forEach(collect);
   const built = unified()
     .use(remarkStringify, { ...baseOptions, handlers: latticeHandlers(mode, stock) })
-    .use(remarkGfm)
+    .use(remarkGfm, gfmOptions)
     .use(remarkMath)
     .freeze();
   const processor: Processor = { stringify: (tree) => built.stringify(tree) };

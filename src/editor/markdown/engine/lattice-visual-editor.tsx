@@ -13,7 +13,7 @@
  */
 import { useEffect, useLayoutEffect, useRef, useState, type JSX } from "react";
 import { useLingui } from "@lingui/react/macro";
-import { Extension, type AnyExtension, type EditorOptions } from "@tiptap/core";
+import { Extension, type AnyExtension, type EditorOptions, type JSONContent } from "@tiptap/core";
 import type { Node as PmNode } from "@tiptap/pm/model";
 import { EditorContent, useEditor, type Editor } from "@tiptap/react";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
@@ -23,12 +23,16 @@ import { dismissAppToastByDedupeKey } from "../../../telemetry/app-log-store";
 import { rebaseMarkdownDraft } from "../markdown-collab";
 import { openMarkdownLink } from "../markdown-link-routing";
 import { markdownPreviewSyncPolicy } from "../markdown-preview-sync-policy";
+import { isPaperLibraryPath } from "../../../papers/paper-link";
 import { ProjectImageHostProvider } from "../project-image-host";
 import type { VisualMarkdownEditorProps } from "../visual-editor-props";
+import type { ImeGuard } from "./engine-keymap";
 import { MathMacrosContext, engineNodeViews } from "./engine-node-views";
-import { engineSchemaExtensions, type RawBlockKind } from "./engine-schema";
-import { openMarkdown, serializeMarkdown, type MarkdownBaseline } from "./markdown-document";
+import { engineSchema, engineSchemaExtensions, type RawBlockKind } from "./engine-schema";
+import { openMarkdown, serializeMarkdown, type MarkdownBaseline, type OpenOptions } from "./markdown-document";
+import { TableControls } from "./views/table-controls";
 import "./lattice-visual-editor.css";
+import "./lattice-visual-blocks.css";
 
 /** Transactions carrying this meta replace the document from canonical text; they are never published. */
 const CANONICAL = "latticeCanonicalMarkdown";
@@ -58,9 +62,21 @@ type Host = {
   idleTimer: ReturnType<typeof setTimeout> | null;
   maxTimer: ReturnType<typeof setTimeout> | null;
   setReason: (reason: string | null) => void;
+  setBusy: (busy: boolean) => void;
   /** Localized notification copy, refreshed every render. */
   messages: HostMessages | null;
+  /** The Enter that commits an IME candidate is swallowed until this time. */
+  ime: ImeGuard;
+  /** Bumped by every scheduled load; a load that is no longer the latest does nothing. */
+  loadGeneration: number;
+  /** The kind of load waiting for its microtask, if any. */
+  pending: "swap" | "canonical" | null;
 };
+
+/** How the file at `path` is read: paper reading mode infers merged table cells (R-BLK-11). */
+const openOptions = (props: VisualMarkdownEditorProps): OpenOptions => ({
+  paperSpans: Boolean(props.optimizeForReading && isPaperLibraryPath(props.activePath)),
+});
 
 type HostMessages = { unavailable: string; source: string; title: string; detail: string; copy: string; restore: string };
 
@@ -112,7 +128,14 @@ function publishPending(host: Host, allowDuringComposition = false): boolean {
   if (!host.dirty || !editor || editor.isDestroyed || !host.baseline) return true;
   if (host.composing && !allowDuringComposition) return false;
   host.dirty = false;
-  const result = serializeMarkdown(editor.state.doc, host.baseline);
+  let result: ReturnType<typeof serializeMarkdown>;
+  try {
+    result = serializeMarkdown(editor.state.doc, host.baseline);
+  } catch (error) {
+    // A document the serializer refuses (malformed table spans, R-FMT-11) is never written.
+    console.warn("[lattice-visual-editor] not publishing an unwritable document", error);
+    return true;
+  }
   if (result.text === host.accepted) return true;
   if (host.publish(result.text, host.accepted)) {
     host.accepted = result.text;
@@ -140,19 +163,20 @@ function loadDocument(host: Host, text: string, draft?: string) {
   host.accepted = text;
   host.dirty = false;
   host.rejected = null;
-  const opened = openMarkdown(text, editor.schema);
+  const options = openOptions(host.props);
+  const opened = openMarkdown(text, editor.schema, options);
   if ("unavailable" in opened) {
     host.baseline = null;
     // Still show what can be shown, read-only: a file with mixed line endings
     // reads fine once normalized, but it must never be written back that way.
-    const shown = openMarkdown(text.replace(/\r\n?/g, "\n"), editor.schema);
+    const shown = openMarkdown(text.replace(/\r\n?/g, "\n"), editor.schema, options);
     if ("unavailable" in shown) editor.commands.clearContent(false);
     else replaceDocument(editor, shown.doc);
     host.setReason(host.messages?.unavailable ?? "");
     return;
   }
   host.baseline = opened.baseline;
-  const restored = draft == null ? null : openMarkdown(draft, editor.schema);
+  const restored = draft == null ? null : openMarkdown(draft, editor.schema, options);
   if (restored && !("unavailable" in restored)) {
     replaceDocument(editor, restored.doc);
     schedulePublication(host);
@@ -170,7 +194,14 @@ function loadDocument(host: Host, text: string, draft?: string) {
 function reconcileCanonical(host: Host, text: string) {
   const { editor } = host;
   if (!editor || text === host.accepted) return;
-  const draft = host.dirty && host.baseline ? serializeMarkdown(editor.state.doc, host.baseline).text : host.rejected;
+  let draft = host.rejected;
+  if (host.dirty && host.baseline) {
+    try {
+      draft = serializeMarkdown(editor.state.doc, host.baseline).text;
+    } catch {
+      draft = null;
+    }
+  }
   if (draft == null || draft === host.accepted || draft === text) {
     loadDocument(host, text);
     return;
@@ -182,6 +213,37 @@ function reconcileCanonical(host: Host, text: string) {
   }
   loadDocument(host, text);
   notifyConflict(host, draft);
+}
+
+/**
+ * Apply the host's current file and text on a microtask: outside React's
+ * commit, so node views mount without lifecycle warnings (R-PUB-10). A swap
+ * keeps the view busy and read-only until the new file is shown (R-PUB-8);
+ * a later schedule supersedes an earlier one, so switching back before a swap
+ * lands keeps the retained document (R-PUB-9).
+ */
+function scheduleLoad(host: Host, kind: "swap" | "canonical") {
+  const generation = ++host.loadGeneration;
+  host.pending = kind;
+  if (kind === "swap") {
+    host.setBusy(true);
+    host.editor?.setEditable(false, false);
+  }
+  queueMicrotask(() => {
+    if (generation !== host.loadGeneration) return;
+    host.pending = null;
+    const { editor } = host;
+    if (!editor || editor.isDestroyed) return;
+    const text = host.props.text;
+    if (kind === "swap") {
+      loadDocument(host, text);
+      host.setBusy(false);
+      const canEdit = (host.props.editable ?? true) && host.baseline != null;
+      if (editor.isEditable !== canEdit) editor.setEditable(canEdit, false);
+    } else if (!host.composing) {
+      reconcileCanonical(host, text);
+    }
+  });
 }
 
 function notifyConflict(host: Host, draft: string) {
@@ -245,6 +307,8 @@ function surfaceProps(label: string): EditorOptions["editorProps"] {
       },
       compositionend: (view) => {
         const host = hostOf((view.dom as HTMLElement & { editor?: Editor }).editor);
+        // The committing Enter can follow in the same turn (WebKit); the keymap swallows it.
+        if (host) host.ime.composingUntil = performance.now() + 50;
         // WebKit can deliver the committing transaction right after compositionend.
         queueMicrotask(() => {
           if (!host) return;
@@ -267,8 +331,8 @@ function surfaceProps(label: string): EditorOptions["editorProps"] {
   };
 }
 
-function editorExtensions(labels: Partial<Record<RawBlockKind, string>>): AnyExtension[] {
-  const views = engineNodeViews();
+function editorExtensions(labels: Partial<Record<RawBlockKind, string>>, ime: ImeGuard): AnyExtension[] {
+  const views = engineNodeViews({ ime });
   const viewNames = new Set(views.map((view) => view.name));
   return [
     ...engineSchemaExtensions({ rawBlockLabels: labels }).filter((extension) => !viewNames.has(extension.name)),
@@ -307,42 +371,79 @@ function useRawBlockLabels(): Partial<Record<RawBlockKind, string>> {
     html: t`HTML`,
     component: t`Component`,
     definition: t`Definition`,
-    footnote: t`Footnote`,
     frontmatter: t`Frontmatter`,
-    "layout-table": t`Merged table`,
     unsupported: t`Markdown source`,
   };
+}
+
+/**
+ * The first document, read while the editor is created: node views built
+ * during editor creation mount on Tiptap's deferred path, outside React's
+ * lifecycle (R-PUB-10). Later loads are scheduled the same way.
+ */
+function initialDocument(props: VisualMarkdownEditorProps) {
+  const schema = engineSchema();
+  const options = openOptions(props);
+  const opened = openMarkdown(props.text, schema, options);
+  if (!("unavailable" in opened)) return { content: opened.doc.toJSON() as JSONContent, baseline: opened.baseline, unavailable: false };
+  const shown = openMarkdown(props.text.replace(/\r\n?/g, "\n"), schema, options);
+  return { content: "unavailable" in shown ? null : shown.doc.toJSON() as JSONContent, baseline: null, unavailable: true };
+}
+
+/**
+ * The first baseline was read with the view-less schema; ProseMirror compares
+ * nodes by schema, so move it onto the editor's own nodes, which were built
+ * from the same blocks.
+ */
+function rebindBaseline(baseline: MarkdownBaseline, editor: Editor): MarkdownBaseline {
+  const first = baseline.entries[0]?.node;
+  if (!first || first.type.schema === editor.schema) return baseline;
+  const { doc } = editor.state;
+  const entries = baseline.entries.map((entry, index) => ({
+    ...entry,
+    node: doc.childCount === baseline.entries.length ? doc.child(index) : editor.schema.nodeFromJSON(entry.node.toJSON()),
+  }));
+  return { ...baseline, entries };
 }
 
 export function LatticeVisualMarkdownEditor(props: VisualMarkdownEditorProps): JSX.Element {
   const { text, activePath, editable = true, optimizeForReading, onEligibilityChange, onFlushPendingChange } = props;
   const { t } = useLingui();
   const labels = useRawBlockLabels();
-  const [reason, setReason] = useState<string | null>(null);
+  const unavailableMessage = t`Visual editing is unavailable because this Markdown contains unsupported or lossy syntax. Use source mode to preserve it.`;
+  const [initial] = useState(() => initialDocument(props));
+  const [reason, setReason] = useState<string | null>(initial.unavailable ? unavailableMessage : null);
+  const [busy, setBusy] = useState(false);
+  const [layer, setLayer] = useState<HTMLDivElement | null>(null);
+  const [ime] = useState<ImeGuard>(() => ({ composingUntil: 0 }));
   const host = useRef<Host>({
     props,
     editor: null,
     composing: false,
-    path: "",
-    accepted: "",
-    baseline: null,
+    path: activePath,
+    accepted: text,
+    baseline: initial.baseline,
     publish: props.onChangeMarkdown,
     dirty: false,
     rejected: null,
     idleTimer: null,
     maxTimer: null,
     setReason,
+    setBusy,
     messages: null,
+    ime,
+    loadGeneration: 0,
+    pending: null,
   });
   // Extensions are read once, when the editor is created; labels are fixed then.
-  const [extensions] = useState(() => editorExtensions(labels));
+  const [extensions] = useState(() => editorExtensions(labels, ime));
 
   useLayoutEffect(() => {
     const current = host.current;
     current.props = props;
     current.messages = {
       // The vendored editor's notice, so hosts and users see one message whichever engine runs.
-      unavailable: t`Visual editing is unavailable because this Markdown contains unsupported or lossy syntax. Use source mode to preserve it.`,
+      unavailable: unavailableMessage,
       source: t`Preview`,
       title: t`This document changed in the same place`,
       detail: t`The shared version is shown. Your visual draft was kept — copy it, or restore it and try again.`,
@@ -356,6 +457,7 @@ export function LatticeVisualMarkdownEditor(props: VisualMarkdownEditorProps): J
   const [editorProps] = useState(() => surfaceProps(t`Markdown document editor`));
   const instance = useEditor({
     extensions,
+    content: initial.content,
     // Kept in step with the effect below: Tiptap re-applies these options on re-render.
     editable: editable && reason == null,
     immediatelyRender: true,
@@ -374,15 +476,17 @@ export function LatticeVisualMarkdownEditor(props: VisualMarkdownEditorProps): J
     current.editor = editor;
     if (!editor || editor.isDestroyed) return;
     attachHost(editor, current);
+    if (current.baseline) current.baseline = rebindBaseline(current.baseline, editor);
     if (current.path !== activePath) {
       // Publish the previous file's pending edit through the previous file's publisher.
       if (current.path) publishPending(current, true);
       current.path = activePath;
       current.publish = current.props.onChangeMarkdown;
-      loadDocument(current, text);
+      scheduleLoad(current, "swap");
       return;
     }
-    if (!current.composing) reconcileCanonical(current, text);
+    // A pending swap reads the latest text when it lands.
+    if (current.pending !== "swap" && (text !== current.accepted || current.pending)) scheduleLoad(current, "canonical");
   }, [activePath, editor, text]);
 
   useEffect(() => {
@@ -410,11 +514,12 @@ export function LatticeVisualMarkdownEditor(props: VisualMarkdownEditorProps): J
   return (
     <MathMacrosContext.Provider value={props.macros ?? EMPTY_MACROS}>
       <ProjectImageHostProvider activePath={activePath} loadAsset={props.onLoadAsset} revision={props.assetRevision}>
-        <div className={`lx-md-editor${optimizeForReading ? " is-reading" : ""}`}>
+        <div ref={setLayer} className={`lx-md-editor${optimizeForReading ? " is-reading" : ""}`} aria-busy={busy || undefined}>
           {reason && !onEligibilityChange && (
             <InlineMessage level="warning" className="lx-md-eligibility">{reason}</InlineMessage>
           )}
           <EditorContent editor={instance} />
+          {editor && <TableControls editor={editor} layer={layer} paperMode={openOptions(props).paperSpans ?? false} />}
         </div>
       </ProjectImageHostProvider>
     </MathMacrosContext.Provider>

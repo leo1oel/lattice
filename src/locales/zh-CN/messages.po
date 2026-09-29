@@ -278,6 +278,10 @@ msgstr "{minutes} 分钟前"
 msgid "{name} is not in a file right now."
 msgstr "{name} 当前未在任何文件中。"
 
+#: src/editor/markdown/engine/views/component-views.tsx
+msgid "{name} properties"
+msgstr "{name}属性"
+
 #: src/open-knowledge-app/editor/utils/validate-media-url.ts
 msgid "{name} URLs are not direct audio files. Paste a direct audio file URL."
 msgstr "{name} 的 URL 不是音频文件直链。请粘贴音频文件的直链 URL。"
@@ -536,6 +540,7 @@ msgstr "访问被拒绝，请检查密钥及其权限。"
 msgid "Access forbidden by provider"
 msgstr "提供商拒绝访问"
 
+#: src/editor/markdown/engine/views/component-views.tsx
 #: src/editor/markdown/visual-slash-items.ts
 #: src/open-knowledge-app/editor/components/Accordion.tsx
 #: src/open-knowledge-app/editor/registry/descriptor-labels.ts
@@ -770,10 +775,12 @@ msgstr "将一组内容块左对齐、居中或右对齐。"
 msgid "Align block"
 msgstr "对齐块"
 
+#: src/editor/markdown/engine/views/image-view.tsx
 #: src/open-knowledge-app/editor/extensions/JsxComponentView.tsx
 msgid "Align center"
 msgstr "居中对齐"
 
+#: src/editor/markdown/engine/views/image-view.tsx
 #: src/open-knowledge-app/editor/extensions/JsxComponentView.tsx
 msgid "Align left"
 msgstr "左对齐"
@@ -790,6 +797,7 @@ msgstr "预览左对齐"
 msgid "Align preview right"
 msgstr "预览右对齐"
 
+#: src/editor/markdown/engine/views/image-view.tsx
 #: src/open-knowledge-app/editor/extensions/JsxComponentView.tsx
 msgid "Align right"
 msgstr "右对齐"
@@ -797,6 +805,10 @@ msgstr "右对齐"
 #: src/editor/insert/insert-snippets.ts
 msgid "Align*"
 msgstr "对齐公式*"
+
+#: src/editor/markdown/engine/views/image-view.tsx
+msgid "Alignment"
+msgstr "对齐"
 
 #: src/editor/insert/insert-palette.tsx
 #: src/editor/latex/search-panel.ts
@@ -835,6 +847,10 @@ msgstr "已在论文库中"
 
 #: src/open-knowledge-app/editor/registry/descriptor-labels.ts
 msgid "Alt"
+msgstr "替代文本"
+
+#: src/editor/markdown/engine/views/image-view.tsx
+msgid "Alt text"
 msgstr "替代文本"
 
 #: src/editor/insert/insert-snippets.ts
@@ -1112,6 +1128,10 @@ msgstr "返回{view}"
 #: src/history/conflict-resolver.tsx
 msgid "Back to choices"
 msgstr "返回选择"
+
+#: src/editor/markdown/engine/views/footnote-views.tsx
+msgid "Back to reference"
+msgstr "返回引用处"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Bar accent"
@@ -1457,6 +1477,7 @@ msgstr "缓存"
 msgid "Calligraphic"
 msgstr "花体"
 
+#: src/editor/markdown/engine/views/component-views.tsx
 #: src/editor/markdown/visual-slash-items.ts
 #: src/open-knowledge-app/editor/registry/descriptor-labels.ts
 msgid "Callout"
@@ -1603,6 +1624,10 @@ msgstr "图或表的标题"
 #: src/editor/insert/insert-snippets.ts
 msgid "Cases"
 msgstr "分段函数"
+
+#: src/editor/markdown/engine/views/component-views.tsx
+msgid "Caution"
+msgstr "注意"
 
 #: src/editor/latex/latex-command-completions.ts
 msgid "Cell spanning columns"
@@ -1993,13 +2018,19 @@ msgstr "代码块"
 msgid "Code Block"
 msgstr "代码块"
 
+#: src/editor/markdown/engine/views/code-block-view.tsx
 #: src/open-knowledge-app/editor/extensions/CodeBlockView.tsx
 msgid "Code block language: {currentLabel}. Click to change."
 msgstr "代码块语言：{currentLabel}。点击以更改。"
 
+#: src/editor/markdown/engine/views/code-block-view.tsx
 #: src/open-knowledge-app/editor/extensions/CodeBlockView.tsx
 msgid "Code block settings"
 msgstr "代码块设置"
+
+#: src/editor/markdown/engine/views/code-block-view.tsx
+msgid "Code block title"
+msgstr "代码块标题"
 
 #: src/open-knowledge-app/lib/keyboard-shortcuts.ts
 msgid "Code field undo or redo"
@@ -2009,6 +2040,7 @@ msgstr "代码字段撤销或重做"
 msgid "Code listing"
 msgstr "代码清单"
 
+#: src/editor/markdown/engine/views/component-views.tsx
 #: src/open-knowledge-app/editor/registry/descriptor-labels.ts
 msgid "Collapsible"
 msgstr "可折叠"
@@ -2047,6 +2079,7 @@ msgstr "颜色主题"
 msgid "Colored text"
 msgstr "彩色文本"
 
+#: src/editor/markdown/engine/views/table-controls.tsx
 #: src/open-knowledge-app/editor/table-controls/TableCellHandles.tsx
 msgid "Column options"
 msgstr "列选项"
@@ -2277,6 +2310,7 @@ msgstr "将所选文字转换为行内公式"
 msgid "Convert the current block to a paragraph."
 msgstr "将当前块转换为段落。"
 
+#: src/editor/markdown/engine/views/code-block-view.tsx
 #: src/open-knowledge-app/editor/extensions/CodeBlockView.tsx
 msgid "Copied"
 msgstr "已复制"
@@ -2291,6 +2325,7 @@ msgctxt "macOS menu bar"
 msgid "Copy"
 msgstr "拷贝"
 
+#: src/editor/markdown/engine/views/code-block-view.tsx
 #: src/open-knowledge-app/editor/extensions/CodeBlockView.tsx
 msgid "Copy code"
 msgstr "复制代码"
@@ -2698,6 +2733,10 @@ msgstr "要从此项目中删除选中的 {count} 个项目吗？"
 msgid "Delete {deleteDescriptorLabel}"
 msgstr "删除{deleteDescriptorLabel}"
 
+#: src/editor/markdown/engine/views/component-views.tsx
+msgid "Delete {name}"
+msgstr "删除{name}"
+
 #: src/open-knowledge-app/lib/keyboard-shortcuts.ts
 msgid "Delete a table when the active table cell selection covers the full table."
 msgstr "当前单元格选区覆盖整个表格时，删除该表格。"
@@ -2718,13 +2757,19 @@ msgstr "要删除辅助文件并重新构建 PDF 吗？"
 msgid "Delete block"
 msgstr "删除块"
 
+#: src/editor/markdown/engine/views/code-block-view.tsx
 #: src/open-knowledge-app/editor/extensions/CodeBlockView.tsx
 msgid "Delete code block"
 msgstr "删除代码块"
 
+#: src/editor/markdown/engine/views/table-controls.tsx
 #: src/open-knowledge-app/editor/table-controls/TableCellHandles.tsx
 msgid "Delete column"
 msgstr "删除列"
+
+#: src/editor/markdown/engine/views/math-views.tsx
+msgid "Delete equation"
+msgstr "删除公式"
 
 #: src/app/use-build-pipeline.ts
 msgid "Delete LaTeX auxiliary files (`.aux`, `.log`, `.bbl`, …) from this project?"
@@ -2739,6 +2784,7 @@ msgstr "删除消息"
 msgid "Delete on Overleaf too"
 msgstr "同时在 Overleaf 上删除"
 
+#: src/editor/markdown/engine/views/table-controls.tsx
 #: src/open-knowledge-app/editor/table-controls/TableCellHandles.tsx
 msgid "Delete row"
 msgstr "删除行"
@@ -2751,6 +2797,7 @@ msgstr "删除所选文件或文件夹"
 msgid "Delete selected table"
 msgstr "删除所选表格"
 
+#: src/editor/markdown/engine/views/table-controls.tsx
 #: src/open-knowledge-app/editor/table-controls/TableCellHandles.tsx
 msgid "Delete table"
 msgstr "删除表格"
@@ -2813,6 +2860,7 @@ msgid "Delta"
 msgstr "德尔塔"
 
 #: src/editor/insert/insert-snippets.ts
+#: src/editor/markdown/engine/views/image-view.tsx
 #: src/open-knowledge-app/editor/registry/descriptor-labels.ts
 msgid "Description"
 msgstr "描述列表"
@@ -3372,6 +3420,10 @@ msgstr "{field} 字段为空。"
 msgid "Empty diagram"
 msgstr "空图表"
 
+#: src/editor/markdown/engine/views/math-views.tsx
+msgid "Empty equation"
+msgstr "空公式"
+
 #: src/history/file-diff-view.tsx
 msgid "Empty file added"
 msgstr "已添加空文件"
@@ -3468,8 +3520,13 @@ msgid "equation"
 msgstr "公式"
 
 #: src/editor/insert/insert-snippets.ts
+#: src/editor/markdown/engine/views/math-views.tsx
 msgid "Equation"
 msgstr "公式"
+
+#: src/editor/markdown/engine/views/math-views.tsx
+msgid "Equation properties"
+msgstr "公式属性"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Equation reference"
@@ -3539,6 +3596,10 @@ msgstr "已导出 Excel 工作簿"
 #: src/open-knowledge-app/editor/extensions/JsxComponentView.tsx
 msgid "Expand diagram"
 msgstr "展开图表"
+
+#: src/editor/markdown/engine/views/image-view.tsx
+msgid "Expand image"
+msgstr "放大图片"
 
 #: src/editor/latex/latex-diagnostics.ts
 msgid "Expected {expected}, found {found}."
@@ -3689,6 +3750,7 @@ msgstr "筛选评论…"
 msgid "Filter editor comments"
 msgstr "筛选编辑器评论"
 
+#: src/editor/markdown/engine/views/code-block-view.tsx
 #: src/open-knowledge-app/editor/extensions/CodeBlockView.tsx
 msgid "Filter languages"
 msgstr "筛选语言"
@@ -3847,11 +3909,14 @@ msgid "Follow system (default)"
 msgstr "跟随系统（默认）"
 
 #: src/editor/insert/insert-snippets.ts
-#: src/editor/markdown/engine/lattice-visual-editor.tsx
 #: src/editor/markdown/visual-slash-items.ts
 #: src/open-knowledge-app/editor/slash-command/items.tsx
 msgid "Footnote"
 msgstr "脚注"
+
+#: src/editor/markdown/engine/views/footnote-views.tsx
+msgid "Footnote {label}"
+msgstr "脚注 {label}"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Footnote at the cursor"
@@ -3881,6 +3946,7 @@ msgstr "设置所选 LaTeX 的格式"
 msgid "Formatted with latexindent."
 msgstr "已使用 latexindent 格式化。"
 
+#: src/editor/markdown/engine/views/math-views.tsx
 #: src/open-knowledge-app/editor/registry/descriptor-labels.ts
 msgid "Formula"
 msgstr "公式"
@@ -3907,6 +3973,7 @@ msgid "Fraction"
 msgstr "分式"
 
 #: src/editor/markdown/engine/lattice-visual-editor.tsx
+#: src/editor/markdown/engine/views/raw-block-view.tsx
 msgid "Frontmatter"
 msgstr "前置元数据"
 
@@ -4211,6 +4278,7 @@ msgstr "收起智能助手"
 msgid "Hide HTML preview"
 msgstr "隐藏 HTML 预览"
 
+#: src/editor/markdown/engine/views/code-block-view.tsx
 #: src/open-knowledge-app/editor/extensions/CodeBlockView.tsx
 msgid "Hide Mermaid preview"
 msgstr "隐藏 Mermaid 预览"
@@ -4277,6 +4345,7 @@ msgid "Horizontal space"
 msgstr "水平间距"
 
 #: src/editor/markdown/engine/lattice-visual-editor.tsx
+#: src/editor/markdown/engine/views/raw-block-view.tsx
 #: src/editor/markdown/visual-slash-items.ts
 #: src/open-knowledge-app/editor/slash-command/embed-starter-items.tsx
 msgid "HTML"
@@ -4334,6 +4403,7 @@ msgstr "标识符（id）"
 msgid "If and only if"
 msgstr "当且仅当"
 
+#: src/editor/markdown/engine/views/image-view.tsx
 #: src/editor/markdown/visual-slash-items.ts
 #: src/open-knowledge-app/editor/registry/descriptor-labels.ts
 msgid "Image"
@@ -4354,6 +4424,14 @@ msgstr "未找到图片"
 #: src/open-knowledge-app/components/ui/loading-image.tsx
 msgid "Image not found: {errorLabel}"
 msgstr "未找到图片：{errorLabel}"
+
+#: src/editor/markdown/engine/views/image-view.tsx
+msgid "Image properties"
+msgstr "图片属性"
+
+#: src/editor/markdown/engine/views/image-view.tsx
+msgid "Image source"
+msgstr "图片来源"
 
 #: src/canvas/project-asset-preview.tsx
 msgid "Image zoom percentage"
@@ -4395,6 +4473,10 @@ msgstr "导入论文"
 #: src/project/project-dialogs.tsx
 msgid "Import ZIP"
 msgstr "导入 ZIP"
+
+#: src/editor/markdown/engine/views/component-views.tsx
+msgid "Important"
+msgstr "重要"
 
 #: src/papers/literature-discovery-panel.tsx
 msgid "Imported"
@@ -4549,6 +4631,7 @@ msgstr "行内公式"
 msgid "Inline Math"
 msgstr "行内公式"
 
+#: src/editor/markdown/engine/views/math-views.tsx
 #: src/open-knowledge-app/editor/extensions/MathInlineView.tsx
 msgid "Inline Math Properties"
 msgstr "行内公式属性"
@@ -4617,10 +4700,12 @@ msgstr "插入引用"
 msgid "Insert cite at cursor after saving"
 msgstr "保存后在光标处插入引用"
 
+#: src/editor/markdown/engine/views/table-controls.tsx
 #: src/open-knowledge-app/editor/table-controls/TableCellHandles.tsx
 msgid "Insert column left"
 msgstr "在左侧插入列"
 
+#: src/editor/markdown/engine/views/table-controls.tsx
 #: src/open-knowledge-app/editor/table-controls/TableCellHandles.tsx
 msgid "Insert column right"
 msgstr "在右侧插入列"
@@ -4642,10 +4727,12 @@ msgstr "插入链接"
 msgid "Insert reference"
 msgstr "插入交叉引用"
 
+#: src/editor/markdown/engine/views/table-controls.tsx
 #: src/open-knowledge-app/editor/table-controls/TableCellHandles.tsx
 msgid "Insert row above"
 msgstr "在上方插入行"
 
+#: src/editor/markdown/engine/views/table-controls.tsx
 #: src/open-knowledge-app/editor/table-controls/TableCellHandles.tsx
 msgid "Insert row below"
 msgstr "在下方插入行"
@@ -4933,6 +5020,7 @@ msgstr "标签"
 msgid "Lambda"
 msgstr "兰姆达"
 
+#: src/editor/markdown/engine/views/code-block-view.tsx
 #: src/open-knowledge-app/editor/registry/descriptor-labels.ts
 #: src/settings/settings-dialog.tsx
 msgid "Language"
@@ -5202,6 +5290,10 @@ msgstr "表达式下方加横线"
 msgid "Link"
 msgstr "链接"
 
+#: src/editor/markdown/engine/views/raw-block-view.tsx
+msgid "Link definition"
+msgstr "链接定义"
+
 #: src/open-knowledge-app/lib/keyboard-shortcuts.ts
 msgid "Link the selected text, or edit the link under the caret."
 msgstr "为所选文本添加链接，或编辑光标处的链接。"
@@ -5440,6 +5532,7 @@ msgid "Markdown document editor"
 msgstr "Markdown 文档编辑器"
 
 #: src/editor/markdown/engine/lattice-visual-editor.tsx
+#: src/editor/markdown/engine/views/raw-block-view.tsx
 msgid "Markdown source"
 msgstr "Markdown 源码"
 
@@ -5511,13 +5604,10 @@ msgstr "媒体"
 msgid "Medium section heading."
 msgstr "用于次级章节的中标题。"
 
+#: src/editor/markdown/engine/views/table-controls.tsx
 #: src/editor/markdown/visual-table-span-controls.tsx
 msgid "Merge cells"
 msgstr "合并单元格"
-
-#: src/editor/markdown/engine/lattice-visual-editor.tsx
-msgid "Merged table"
-msgstr "合并单元格的表格"
 
 #: src/editor/markdown/visual-slash-items.ts
 #: src/open-knowledge-app/editor/registry/descriptor-labels.ts
@@ -5540,6 +5630,7 @@ msgstr "Mermaid 图表渲染失败。"
 msgid "Mermaid flowchart preview"
 msgstr "Mermaid 流程图预览"
 
+#: src/editor/markdown/engine/views/mermaid-preview.tsx
 #: src/open-knowledge-app/editor/extensions/CodeBlockView.tsx
 msgid "Mermaid preview"
 msgstr "Mermaid 预览"
@@ -5588,6 +5679,10 @@ msgstr "最小值"
 msgctxt "macOS menu bar"
 msgid "Minimize"
 msgstr "最小化"
+
+#: src/editor/markdown/engine/views/image-view.tsx
+msgid "Minimize image"
+msgstr "缩小图片"
 
 #: src/editor/insert/insert-snippets.ts
 #: src/editor/latex/latex-command-completions.ts
@@ -6174,6 +6269,7 @@ msgstr "没有可读取的论文内容。"
 msgid "No references to check"
 msgstr "暂无需要检查的引用"
 
+#: src/editor/markdown/engine/views/code-block-view.tsx
 #: src/open-knowledge-app/editor/slash-command/SlashCommandMenu.tsx
 msgid "No results"
 msgstr "无结果"
@@ -6261,6 +6357,10 @@ msgstr "尚未同步"
 #: src/papers/bibliography-audit.tsx
 msgid "Not verified"
 msgstr "未经核实"
+
+#: src/editor/markdown/engine/views/component-views.tsx
+msgid "Note"
+msgstr "说明"
 
 #: src/onboarding/onboarding-tour.tsx
 msgid "Notes and drafts in Markdown"
@@ -6420,6 +6520,10 @@ msgstr "打开另一个 Overleaf 项目"
 #: src/canvas/paper-reader.tsx
 msgid "Open article in browser"
 msgstr "在浏览器中打开文章"
+
+#: src/editor/markdown/engine/views/component-views.tsx
+msgid "Open by default"
+msgstr "默认展开"
 
 #: src/open-knowledge-app/lib/keyboard-shortcuts.ts
 msgid "Open CodeMirror search in source editor mode."
@@ -6878,18 +6982,22 @@ msgstr "页面缩略图"
 msgid "Pages"
 msgstr "页码"
 
+#: src/editor/markdown/engine/views/mermaid-preview.tsx
 #: src/open-knowledge-app/editor/components/Mermaid.tsx
 msgid "Pan down"
 msgstr "向下平移"
 
+#: src/editor/markdown/engine/views/mermaid-preview.tsx
 #: src/open-knowledge-app/editor/components/Mermaid.tsx
 msgid "Pan left"
 msgstr "向左平移"
 
+#: src/editor/markdown/engine/views/mermaid-preview.tsx
 #: src/open-knowledge-app/editor/components/Mermaid.tsx
 msgid "Pan right"
 msgstr "向右平移"
 
+#: src/editor/markdown/engine/views/mermaid-preview.tsx
 #: src/open-knowledge-app/editor/components/Mermaid.tsx
 msgid "Pan up"
 msgstr "向上平移"
@@ -7184,6 +7292,7 @@ msgstr "位置"
 msgid "Plain"
 msgstr "纯文本"
 
+#: src/editor/markdown/engine/views/code-block-view.tsx
 #: src/open-knowledge-app/editor/extensions/code-block-languages.ts
 msgid "Plain text"
 msgstr "纯文本"
@@ -7989,6 +8098,7 @@ msgstr "研究"
 msgid "Research, written with evidence"
 msgstr "让研究写作有据可循"
 
+#: src/editor/markdown/engine/views/mermaid-preview.tsx
 #: src/open-knowledge-app/editor/components/Mermaid.tsx
 msgid "Reset view"
 msgstr "重置视图"
@@ -8300,6 +8410,7 @@ msgstr "主文档"
 msgid "Root with index"
 msgstr "带次数的根号"
 
+#: src/editor/markdown/engine/views/table-controls.tsx
 #: src/open-knowledge-app/editor/table-controls/TableCellHandles.tsx
 msgid "Row options"
 msgstr "行选项"
@@ -8802,6 +8913,7 @@ msgstr "显示 HTML 预览"
 msgid "Show in Finder"
 msgstr "在访达中显示"
 
+#: src/editor/markdown/engine/views/code-block-view.tsx
 #: src/open-knowledge-app/editor/extensions/CodeBlockView.tsx
 msgid "Show Mermaid preview"
 msgstr "显示 Mermaid 预览"
@@ -8982,6 +9094,10 @@ msgstr "部分来源不可用"
 msgid "Someone"
 msgstr "某位协作者"
 
+#: src/editor/markdown/engine/views/image-view.tsx
+msgid "Source"
+msgstr "源码"
+
 #: src/App.tsx
 msgid "Source + PDF"
 msgstr "源码 + PDF"
@@ -9078,6 +9194,7 @@ msgstr "拆分视图"
 msgid "Split"
 msgstr "分栏"
 
+#: src/editor/markdown/engine/views/table-controls.tsx
 #: src/editor/markdown/visual-table-span-controls.tsx
 msgid "Split cell"
 msgstr "拆分单元格"
@@ -9466,6 +9583,10 @@ msgstr "表格"
 #: src/editor/latex/latex-command-completions.ts
 msgid "Table body"
 msgstr "表格主体"
+
+#: src/editor/markdown/engine/views/table-controls.tsx
+msgid "Table cells"
+msgstr "表格单元格"
 
 #: src/editor/insert/table-generator-dialog.tsx
 msgid "Table generator"
@@ -9942,6 +10063,12 @@ msgstr "时间导数记号"
 msgid "Times / cross product"
 msgstr "乘号 / 叉积"
 
+#: src/editor/markdown/engine/views/component-views.tsx
+msgid "Tip"
+msgstr "提示"
+
+#: src/editor/markdown/engine/views/code-block-view.tsx
+#: src/editor/markdown/engine/views/component-views.tsx
 #: src/open-knowledge-app/editor/extensions/CodeBlockView.tsx
 #: src/open-knowledge-app/editor/registry/descriptor-labels.ts
 #: src/papers/bib-entry-dialog.tsx
@@ -10164,6 +10291,7 @@ msgstr "双页（偶数页在左）"
 msgid "Two-page (odd)"
 msgstr "双页（奇数页在左）"
 
+#: src/editor/markdown/engine/views/component-views.tsx
 #: src/open-knowledge-app/editor/registry/descriptor-labels.ts
 #: src/papers/bib-entry-dialog.tsx
 msgid "Type"
@@ -10293,6 +10421,10 @@ msgstr "未知的参考文献条目类型 `{type}`。"
 msgid "Unknown citation key “{key}”."
 msgstr "未知的引用键“{key}”。"
 
+#: src/editor/markdown/engine/views/raw-block-view.tsx
+msgid "Unknown component: {componentName}"
+msgstr "未知组件：{componentName}"
+
 #: src/open-knowledge-app/editor/extensions/JsxComponentView.tsx
 msgid "Unknown component: {componentName} — source editable below"
 msgstr "未知组件：{componentName} — 可在下方编辑源码"
@@ -10369,6 +10501,10 @@ msgstr "不支持扩展名 .{extension}。支持：{accepted}。"
 #: src/editor/spreadsheet/spreadsheet-yjs.ts
 msgid "Unsupported spreadsheet collaboration format: {version}"
 msgstr "不支持的电子表格协作格式：{version}"
+
+#: src/editor/markdown/engine/views/component-views.tsx
+msgid "Untitled"
+msgstr "无标题"
 
 #: src/open-knowledge-app/editor/components/File.tsx
 msgid "Untitled file"
@@ -10784,6 +10920,7 @@ msgstr "正在启动本地服务…"
 msgid "WARN"
 msgstr "警告"
 
+#: src/editor/markdown/engine/views/component-views.tsx
 #: src/telemetry/app-log.tsx
 msgid "Warning"
 msgstr "警告"
@@ -10990,6 +11127,7 @@ msgid "Zoom"
 msgstr "缩放"
 
 #: src/canvas/zoom-controls.tsx
+#: src/editor/markdown/engine/views/mermaid-preview.tsx
 #: src/open-knowledge-app/editor/components/Mermaid.tsx
 #: src/open-knowledge-app/editor/components/Pdf.tsx
 #: src/pdf/pdf-viewer.tsx
@@ -10997,6 +11135,7 @@ msgid "Zoom in"
 msgstr "放大"
 
 #: src/canvas/zoom-controls.tsx
+#: src/editor/markdown/engine/views/mermaid-preview.tsx
 #: src/open-knowledge-app/editor/components/Mermaid.tsx
 #: src/open-knowledge-app/editor/components/Pdf.tsx
 #: src/pdf/pdf-viewer.tsx

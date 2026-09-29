@@ -97,13 +97,18 @@ are tagged `[DROP→RAW]` below.
   character references such as `&copy;`, the `\(`…`\)` delimiters) carries
   its authored spelling in a mark. Soft line breaks are nodes of their own, so
   the author's line structure is shown and kept.
+- The kept rich blocks are modelled nodes: Callout, Accordion and the paper
+  figure components (their bodies read as Markdown), footnote references and
+  definitions, `$…$` and `\(…\)` math, display math, tables with merged
+  cells (from a layout comment, or inferred in paper reading mode), and HTML
+  `<img>` as an image.
 - Whatever the engine does not model is kept as verbatim source instead of
-  approximated: a *raw block* (HTML, MDX components, link and footnote
-  definitions, frontmatter, tables under an explicit span layout, and any
-  construct not yet modelled) or a *raw inline* atom (inline HTML, reference
-  links, footnote references). A raw block's text *is* its Markdown, so
-  editing it edits the file. A converter anchor line (`<a id="…"></a>`) is a
-  raw block that renders as an invisible scroll target carrying that `id`.
+  approximated: a *raw block* (other HTML, other MDX components, link
+  definitions, frontmatter, and any construct not modelled) or a *raw inline*
+  atom (other inline HTML, reference links). A raw block's text *is* its
+  Markdown, so editing it edits the file. A converter anchor line
+  (`<a id="…"></a>`) is a raw block that renders as an invisible scroll target
+  carrying that `id`.
 
 **Saving.** The document is compared with the baseline: the blocks of the
 last accepted text, with their source bytes and gaps.
@@ -166,15 +171,18 @@ lazy chunk, loaded only when the setting selects it. Setting the key to
   to CRLF on the first write. Only source mode may change a file's line
   endings.
 
-### Status: what the engine meets today (phase 1)
+### Status: what the engine meets today (phase 2, first part)
 
-| Area | Met now | Still to come (phase 2) |
+Phase 2 ships in three parts: rich blocks (this state), editor chrome, and
+the integration behind engine-agnostic interfaces.
+
+| Area | Met now | Still to come |
 | --- | --- | --- |
-| Round trip, envelope (R-RT, R-ELIG) | Byte-exact untouched documents; untouched blocks, gaps, BOM, CRLF, trailing newlines and frontmatter preserved on edit; authored syntax inside edited paragraphs kept (R-RT-12 fixtures); escaped new text; nothing written on open; unsupported syntax isolated as raw blocks | `\(`…`\)` / `\[`…`\]` rendered as math (their bytes are already kept); spans on tables; paper-mode span inference |
-| Publication (R-PUB) | R-PUB-1–7, 9 and 11–17, and R-PUB-8 apart from its busy state during a swap; the host-level R-PUB-19–20 are unchanged host code | The busy and loading state during a file swap (R-PUB-8, R-PUB-10); IME Enter guards in rich blocks (R-PUB-18); remount-free echoes of rich views (R-PUB-21); live chrome targets (R-PUB-22) |
-| Blocks (R-BLK) | Paragraphs, headings, lists and task lists, quotes, code blocks, GFM tables, thematic breaks, display math, images, raw blocks | Callout, Accordion, PaperFigure, Mermaid preview, footnote UI, code-block chrome, section rail, table controls |
-| Inline (R-INL) | Marks, links (Mod-click), inline math, images, hard and soft breaks, raw inline source | Wiki-link and citation suggestions, link popover and hover |
-| Chrome, source mapping, performance (R-CHR, R-SRC, R-PERF) | Accessible textbox surface | Slash menu, toolbar, find and replace, block controls, carets, comments, tracked changes, passive viewport |
+| Round trip, envelope (R-RT, R-ELIG) | Byte-exact untouched documents; untouched blocks, gaps, BOM, CRLF, trailing newlines and frontmatter preserved on edit; authored syntax inside edited paragraphs kept (R-RT-12 fixtures); escaped new text; nothing written on open; `\(`…`\)` and `\[`…`\]` as math (R-RT-21); explicit and paper-inferred table spans (R-RT-23, R-FMT-13); components, legacy callout fences and footnotes kept byte for byte until edited | — |
+| Publication (R-PUB) | R-PUB-1–18, 21 and 22; the host-level R-PUB-19–20 are unchanged host code | — |
+| Blocks (R-BLK) | Paragraphs, headings, lists and task lists, quotes, thematic breaks; Callout and Accordion with their properties (R-BLK-1, 2); images with alignment, resizing and zoom (R-BLK-3); display math (R-BLK-4); Mermaid previews (R-BLK-5); footnotes (R-BLK-6); code blocks with their chrome (R-BLK-7); tables with handles, merge and split (R-BLK-11); paper figures (R-BLK-15); unknown components as source (R-BLK-16) | Section rail (R-BLK-13); generated paper Contents (R-BLK-14); task-list input rules and list movement (R-BLK-19); table drag reorder |
+| Inline (R-INL) | Marks, links (Mod-click), inline math with its formula field and `$…$` input rule (R-INL-2), images, footnote references, hard and soft breaks, raw inline source | Wiki-link and citation suggestions and chips (R-INL-6, 7), link popover and hover (R-CHR-4) |
+| Chrome, source mapping, performance (R-CHR, R-SRC, R-PERF) | Accessible textbox surface; per-keystroke plugin work limited to the blocks an edit touched | Slash menu, selection toolbar, find and replace, block controls and drag, emoji (R-CHR-1–7); frozen table headers (R-CHR-9); carets, comments, tracked changes, view in source (R-SRC); passive viewport (R-PERF-1–6) |
 
 **Tests.**
 
@@ -188,8 +196,101 @@ lazy chunk, loaded only when the setting selects it. Setting the key to
   - change only the edited block under random single-block edits
     (fast-check).
 - `markdown-document.test.ts` pins the core rules, including every R-RT-12
-  fixture under an edit.
-- `lattice-visual-editor.test.tsx` pins the host contract.
+  fixture under an edit; `rich-blocks.test.ts` pins how each rich block is
+  read and written.
+- `lattice-visual-editor.test.tsx` pins the host contract, and
+  `lattice-visual-blocks.test.tsx` drives every rich block through the editor.
+- `differential.test.tsx` runs the same corpus through the vendored editor
+  and the engine. The vendored editor is mounted only as a black box through
+  the shared props contract. For every document the engine must open what the
+  old editor opens as editable, write it back byte for byte, publish nothing
+  on open, and show the same headings, code and formulas. The harness goes
+  with the vendored editor in phase 3.
+
+### Phase 2 derivation notes
+
+Where a requirement leaves a choice open, the engine makes the one recorded
+here, with the requirement it rests on.
+
+- **Components (R-BLK-1, R-BLK-2, R-BLK-15, R-FMT-2, R-FMT-5).** Only the
+  keep list is modelled: Callout, Accordion, PaperFigure, PaperFigureRow and
+  PaperFigurePanel. A component whose properties include an expression other
+  than a string, number, `true` or `false` stays source, and so does any tag
+  the reader cannot fully account for. The body between the tags is read as
+  Markdown. The opening tag keeps its bytes while its properties are
+  unchanged, and the body keeps its bytes while its meaning is unchanged. An
+  edited body keeps the authored whitespace next to the tags, and a new
+  component gets blank lines (the R-FMT-2 form). Callout types map to five
+  tones: note (also info and default), tip (success), important, warning,
+  caution (danger, error). Each component edits only its own fields: a
+  Callout its title, tone and whether it collapses; an Accordion its title and
+  whether it starts open.
+- **Legacy callout fences (R-FMT-6).** Once edited, a fence is written as
+  `<Callout …>`, a blank line, the `content`, a blank line, and `</Callout>`.
+  The spec does not pin the layout; this is the new-component form.
+- **LaTeX delimiters (R-RT-21).** `\(`…`\)` is a micromark construct that
+  claims its span before emphasis is read, so underscores in TeX never pair
+  across formulas. `\[`…`\]` on one line is a formula only as a whole
+  paragraph with no `\]` before its end (the case R-RT-21 pins), so
+  `\[1\] Smith, see also \[2\]` stays prose. As a construct inside prose it
+  would turn escaped brackets such as `a\[i\]` into math. A multi-line `\[` … `\]` is
+  joined across the paragraphs and setext headings CommonMark reads it as, as
+  long as no blank line intervenes.
+- **Formula editing (R-INL-2, R-BLK-4, R-FMT-12).** The inline field commits
+  on Enter, and Escape cancels. A display formula is an atom whose selection
+  offers only its properties and delete. Its multi-line field adds lines on
+  Enter and commits on Mod-Enter. Both fields also commit when the reader
+  clicks away. An edit never changes the kind of formula the author wrote.
+  An edited inline formula (`$…$` or `\(…\)`) is written `$…$`. A formula
+  shown as display math is saved as display math. That includes a
+  whole-paragraph `\[…\]` on one line. When the new TeX still reads back in
+  the formula's own delimiters, they are kept: `\[…\]` stays `\[…\]` and
+  `$$…$$` stays `$$…$$`. A single-line `\[…\]` fits only if the TeX has no
+  line break and no `\]`. When the TeX does not fit, the formula is written in
+  the canonical display form, `$$…$$`, and never as `$…$`.
+- **Paper span inference (R-BLK-11), from its fixtures.** A table infers
+  nothing unless it has a second header level: a row that repeats a label
+  directly above it. Within the header levels, each repeated label must fill
+  an exact rectangle, which becomes one span. Any other shape makes the whole
+  table ambiguous, and nothing merges. Below the header, repeats down the
+  first column merge. Serialization writes no layout comment for spans that
+  inference would read back.
+- **Explicit layouts (R-BLK-11, R-FMT-10, R-FMT-11).** A layout is also
+  invalid when a covered cell does not repeat its origin's text; saving would
+  otherwise overwrite that cell. A merge of distinct values joins them in
+  reading order with a space. Splitting leaves an explicit layout of the
+  remaining spans. In paper reading mode that is `{"spans":[]}` when none
+  remain; elsewhere the empty layout is dropped.
+- **Table edits (R-FMT-22, §11.14).** Nothing is inserted above or deleted
+  from the header row, because GFM needs exactly one. Columns are inserted
+  and deleted only in tables without merged cells, and the alignment row
+  follows them. A written table pads cells with one space and uses `---`
+  delimiters, so an edited cell rewrites its own row.
+- **Images (R-BLK-3, R-FMT-7).** An HTML `<img>` is modelled only when its
+  attributes are among `src`, `alt`, `title`, `width` and `align`; anything
+  else stays source. Center alignment is the default and is written only when
+  it was authored.
+- **Footnotes (R-BLK-6).** A reference shows its label. Notes are numbered in
+  the order the document first refers to them; notes never referred to follow
+  in document order.
+- **Mermaid (R-BLK-5).** Only a fence of exactly three backticks on both
+  sides with the language `mermaid` renders. The diagram follows the app
+  theme. Dragging a preview edge resizes it symmetrically, and the new
+  `w=<n>px` is written when the drag ends.
+- **Code blocks (R-FMT-8, R-BLK-7).** A picked language is written as its
+  canonical token (`python`, `typescript`, `text`). A title commits on Enter
+  or when its popover closes. Tab indents by two spaces, and Mod-Enter leaves
+  the block.
+- **Unknown components (R-BLK-16).** The nested source editor is the block's
+  own editable text, not a separate editor: editing writes back and remote
+  changes reconcile silently, as required. A dropped component such as Embed
+  may show an unsafe URL as source text, but never gives it to the DOM as a
+  link or source (R-BLK-18).
+- **Loading and IME (R-PUB-8, R-PUB-10, R-PUB-18).** A file switch or
+  canonical text applies on a microtask, outside React's commit. A switch
+  keeps the surface busy and read-only until the new file is shown. The Enter
+  that commits an IME candidate is ignored for 50 ms after
+  `compositionend`.
 
 ---
 

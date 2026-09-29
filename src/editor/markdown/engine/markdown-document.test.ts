@@ -80,14 +80,14 @@ describe("Markdown round-trip core", () => {
     ].join("\n\n"));
     expect(blockTypes(doc)).toEqual([
       "raw:frontmatter", "heading", "paragraph", "blockquote", "bulletList", "orderedList", "taskList", "codeBlock",
-      "horizontalRule", "table", "latticeMathBlock", "raw:html", "raw:component", "raw:definition", "raw:footnote",
+      "horizontalRule", "table", "latticeMathBlock", "raw:html", "latticeComponent", "raw:definition", "latticeFootnote",
       "raw:unsupported",
     ]);
   });
 
-  it("labels components written without blank lines, and keeps converter anchors as invisible targets", () => {
-    const { doc } = open("<Callout type=\"note\">\nBody\n</Callout>\n\n<a id=\"S3.F1\"></a>\n\n<div>x</div>\n");
-    expect(blockTypes(doc)).toEqual(["raw:component", "raw:anchor", "raw:html"]);
+  it("models components written without blank lines, keeps unknown ones raw, and keeps converter anchors as invisible targets", () => {
+    const { doc } = open("<Callout type=\"note\">\nBody\n</Callout>\n\n<Unknown>\nBody\n</Unknown>\n\n<a id=\"S3.F1\"></a>\n\n<div>x</div>\n");
+    expect(blockTypes(doc)).toEqual(["latticeComponent", "raw:component", "raw:anchor", "raw:html"]);
   });
 
   it("re-serializes only the edited block and keeps tight neighbours tight", () => {

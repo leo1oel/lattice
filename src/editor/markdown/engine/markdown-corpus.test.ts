@@ -7,42 +7,14 @@
  *
  * Clean implementation for Lattice; spec: docs/visual-editor-spec.md.
  */
-import { readdirSync, readFileSync, statSync } from "node:fs";
-import { join } from "node:path";
 import type { Node as PmNode } from "@tiptap/pm/model";
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
+import { corpus, formatDocuments as formats, repositoryDocuments } from "./corpus-test-utils";
 import { engineSchema } from "./engine-schema";
 import { openMarkdown, semanticKey, serializeMarkdown, type OpenedMarkdown } from "./markdown-document";
-import formatFixtures from "./fixtures/lattice-formats.json";
 
 const schema = engineSchema();
-
-function markdownFiles(directory: string): string[] {
-  return readdirSync(directory).flatMap((name) => {
-    const path = join(directory, name);
-    if (statSync(path).isDirectory()) return markdownFiles(path);
-    return name.endsWith(".md") ? [path] : [];
-  });
-}
-
-const repositoryDocuments = [
-  "README.md",
-  "CONTRIBUTING.md",
-  "CLAUDE.md",
-  "THIRD_PARTY_NOTICES.md",
-  "literature-worker/README.md",
-  "src-tauri/templates/tutorial/notes.md",
-  ...markdownFiles("docs"),
-  ...markdownFiles("src-tauri/src/embedded_skills"),
-  ...markdownFiles(".github"),
-]
-  // The vendoring log describes the code this engine replaces; it is not corpus.
-  .filter((path) => !path.endsWith("open-knowledge-updates.md"))
-  .map((path) => [path, readFileSync(path, "utf8")] as const);
-
-const formats = Object.entries(formatFixtures as Record<string, string>);
-const corpus = [...repositoryDocuments, ...formats.map(([name, text]) => [`format: ${name}`, text] as const)];
 
 function open(text: string): OpenedMarkdown {
   const opened = openMarkdown(text, schema);

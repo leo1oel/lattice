@@ -278,6 +278,10 @@ msgstr "{minutes}m ago"
 msgid "{name} is not in a file right now."
 msgstr "{name} is not in a file right now."
 
+#: src/editor/markdown/engine/views/component-views.tsx
+msgid "{name} properties"
+msgstr "{name} properties"
+
 #: src/open-knowledge-app/editor/utils/validate-media-url.ts
 msgid "{name} URLs are not direct audio files. Paste a direct audio file URL."
 msgstr "{name} URLs are not direct audio files. Paste a direct audio file URL."
@@ -536,6 +540,7 @@ msgstr "Access denied. Check the key and its permissions."
 msgid "Access forbidden by provider"
 msgstr "Access forbidden by provider"
 
+#: src/editor/markdown/engine/views/component-views.tsx
 #: src/editor/markdown/visual-slash-items.ts
 #: src/open-knowledge-app/editor/components/Accordion.tsx
 #: src/open-knowledge-app/editor/registry/descriptor-labels.ts
@@ -770,10 +775,12 @@ msgstr "Align a group of blocks to the left, center, or right."
 msgid "Align block"
 msgstr "Align block"
 
+#: src/editor/markdown/engine/views/image-view.tsx
 #: src/open-knowledge-app/editor/extensions/JsxComponentView.tsx
 msgid "Align center"
 msgstr "Align center"
 
+#: src/editor/markdown/engine/views/image-view.tsx
 #: src/open-knowledge-app/editor/extensions/JsxComponentView.tsx
 msgid "Align left"
 msgstr "Align left"
@@ -790,6 +797,7 @@ msgstr "Align preview left"
 msgid "Align preview right"
 msgstr "Align preview right"
 
+#: src/editor/markdown/engine/views/image-view.tsx
 #: src/open-knowledge-app/editor/extensions/JsxComponentView.tsx
 msgid "Align right"
 msgstr "Align right"
@@ -797,6 +805,10 @@ msgstr "Align right"
 #: src/editor/insert/insert-snippets.ts
 msgid "Align*"
 msgstr "Align*"
+
+#: src/editor/markdown/engine/views/image-view.tsx
+msgid "Alignment"
+msgstr "Alignment"
 
 #: src/editor/insert/insert-palette.tsx
 #: src/editor/latex/search-panel.ts
@@ -836,6 +848,10 @@ msgstr "Already in Papers"
 #: src/open-knowledge-app/editor/registry/descriptor-labels.ts
 msgid "Alt"
 msgstr "Alt"
+
+#: src/editor/markdown/engine/views/image-view.tsx
+msgid "Alt text"
+msgstr "Alt text"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Amalgamation"
@@ -1112,6 +1128,10 @@ msgstr "Back to {view}"
 #: src/history/conflict-resolver.tsx
 msgid "Back to choices"
 msgstr "Back to choices"
+
+#: src/editor/markdown/engine/views/footnote-views.tsx
+msgid "Back to reference"
+msgstr "Back to reference"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Bar accent"
@@ -1457,6 +1477,7 @@ msgstr "cached"
 msgid "Calligraphic"
 msgstr "Calligraphic"
 
+#: src/editor/markdown/engine/views/component-views.tsx
 #: src/editor/markdown/visual-slash-items.ts
 #: src/open-knowledge-app/editor/registry/descriptor-labels.ts
 msgid "Callout"
@@ -1603,6 +1624,10 @@ msgstr "Caption of a figure or table"
 #: src/editor/insert/insert-snippets.ts
 msgid "Cases"
 msgstr "Cases"
+
+#: src/editor/markdown/engine/views/component-views.tsx
+msgid "Caution"
+msgstr "Caution"
 
 #: src/editor/latex/latex-command-completions.ts
 msgid "Cell spanning columns"
@@ -1993,13 +2018,19 @@ msgstr "Code block"
 msgid "Code Block"
 msgstr "Code Block"
 
+#: src/editor/markdown/engine/views/code-block-view.tsx
 #: src/open-knowledge-app/editor/extensions/CodeBlockView.tsx
 msgid "Code block language: {currentLabel}. Click to change."
 msgstr "Code block language: {currentLabel}. Click to change."
 
+#: src/editor/markdown/engine/views/code-block-view.tsx
 #: src/open-knowledge-app/editor/extensions/CodeBlockView.tsx
 msgid "Code block settings"
 msgstr "Code block settings"
+
+#: src/editor/markdown/engine/views/code-block-view.tsx
+msgid "Code block title"
+msgstr "Code block title"
 
 #: src/open-knowledge-app/lib/keyboard-shortcuts.ts
 msgid "Code field undo or redo"
@@ -2009,6 +2040,7 @@ msgstr "Code field undo or redo"
 msgid "Code listing"
 msgstr "Code listing"
 
+#: src/editor/markdown/engine/views/component-views.tsx
 #: src/open-knowledge-app/editor/registry/descriptor-labels.ts
 msgid "Collapsible"
 msgstr "Collapsible"
@@ -2047,6 +2079,7 @@ msgstr "Color theme"
 msgid "Colored text"
 msgstr "Colored text"
 
+#: src/editor/markdown/engine/views/table-controls.tsx
 #: src/open-knowledge-app/editor/table-controls/TableCellHandles.tsx
 msgid "Column options"
 msgstr "Column options"
@@ -2277,6 +2310,7 @@ msgstr "Convert selection to inline math"
 msgid "Convert the current block to a paragraph."
 msgstr "Convert the current block to a paragraph."
 
+#: src/editor/markdown/engine/views/code-block-view.tsx
 #: src/open-knowledge-app/editor/extensions/CodeBlockView.tsx
 msgid "Copied"
 msgstr "Copied"
@@ -2291,6 +2325,7 @@ msgctxt "macOS menu bar"
 msgid "Copy"
 msgstr "Copy"
 
+#: src/editor/markdown/engine/views/code-block-view.tsx
 #: src/open-knowledge-app/editor/extensions/CodeBlockView.tsx
 msgid "Copy code"
 msgstr "Copy code"
@@ -2698,6 +2733,10 @@ msgstr "Delete {count} selected items from this project?"
 msgid "Delete {deleteDescriptorLabel}"
 msgstr "Delete {deleteDescriptorLabel}"
 
+#: src/editor/markdown/engine/views/component-views.tsx
+msgid "Delete {name}"
+msgstr "Delete {name}"
+
 #: src/open-knowledge-app/lib/keyboard-shortcuts.ts
 msgid "Delete a table when the active table cell selection covers the full table."
 msgstr "Delete a table when the active table cell selection covers the full table."
@@ -2718,13 +2757,19 @@ msgstr "Delete auxiliary files and rebuild the PDF?"
 msgid "Delete block"
 msgstr "Delete block"
 
+#: src/editor/markdown/engine/views/code-block-view.tsx
 #: src/open-knowledge-app/editor/extensions/CodeBlockView.tsx
 msgid "Delete code block"
 msgstr "Delete code block"
 
+#: src/editor/markdown/engine/views/table-controls.tsx
 #: src/open-knowledge-app/editor/table-controls/TableCellHandles.tsx
 msgid "Delete column"
 msgstr "Delete column"
+
+#: src/editor/markdown/engine/views/math-views.tsx
+msgid "Delete equation"
+msgstr "Delete equation"
 
 #: src/app/use-build-pipeline.ts
 msgid "Delete LaTeX auxiliary files (`.aux`, `.log`, `.bbl`, …) from this project?"
@@ -2739,6 +2784,7 @@ msgstr "Delete message"
 msgid "Delete on Overleaf too"
 msgstr "Delete on Overleaf too"
 
+#: src/editor/markdown/engine/views/table-controls.tsx
 #: src/open-knowledge-app/editor/table-controls/TableCellHandles.tsx
 msgid "Delete row"
 msgstr "Delete row"
@@ -2751,6 +2797,7 @@ msgstr "Delete selected files or folders"
 msgid "Delete selected table"
 msgstr "Delete selected table"
 
+#: src/editor/markdown/engine/views/table-controls.tsx
 #: src/open-knowledge-app/editor/table-controls/TableCellHandles.tsx
 msgid "Delete table"
 msgstr "Delete table"
@@ -2813,6 +2860,7 @@ msgid "Delta"
 msgstr "Delta"
 
 #: src/editor/insert/insert-snippets.ts
+#: src/editor/markdown/engine/views/image-view.tsx
 #: src/open-knowledge-app/editor/registry/descriptor-labels.ts
 msgid "Description"
 msgstr "Description"
@@ -3372,6 +3420,10 @@ msgstr "Empty {field} field."
 msgid "Empty diagram"
 msgstr "Empty diagram"
 
+#: src/editor/markdown/engine/views/math-views.tsx
+msgid "Empty equation"
+msgstr "Empty equation"
+
 #: src/history/file-diff-view.tsx
 msgid "Empty file added"
 msgstr "Empty file added"
@@ -3468,8 +3520,13 @@ msgid "equation"
 msgstr "equation"
 
 #: src/editor/insert/insert-snippets.ts
+#: src/editor/markdown/engine/views/math-views.tsx
 msgid "Equation"
 msgstr "Equation"
+
+#: src/editor/markdown/engine/views/math-views.tsx
+msgid "Equation properties"
+msgstr "Equation properties"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Equation reference"
@@ -3539,6 +3596,10 @@ msgstr "Excel workbook exported"
 #: src/open-knowledge-app/editor/extensions/JsxComponentView.tsx
 msgid "Expand diagram"
 msgstr "Expand diagram"
+
+#: src/editor/markdown/engine/views/image-view.tsx
+msgid "Expand image"
+msgstr "Expand image"
 
 #: src/editor/latex/latex-diagnostics.ts
 msgid "Expected {expected}, found {found}."
@@ -3689,6 +3750,7 @@ msgstr "Filter comments…"
 msgid "Filter editor comments"
 msgstr "Filter editor comments"
 
+#: src/editor/markdown/engine/views/code-block-view.tsx
 #: src/open-knowledge-app/editor/extensions/CodeBlockView.tsx
 msgid "Filter languages"
 msgstr "Filter languages"
@@ -3847,11 +3909,14 @@ msgid "Follow system (default)"
 msgstr "Follow system (default)"
 
 #: src/editor/insert/insert-snippets.ts
-#: src/editor/markdown/engine/lattice-visual-editor.tsx
 #: src/editor/markdown/visual-slash-items.ts
 #: src/open-knowledge-app/editor/slash-command/items.tsx
 msgid "Footnote"
 msgstr "Footnote"
+
+#: src/editor/markdown/engine/views/footnote-views.tsx
+msgid "Footnote {label}"
+msgstr "Footnote {label}"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Footnote at the cursor"
@@ -3881,6 +3946,7 @@ msgstr "Format selected LaTeX"
 msgid "Formatted with latexindent."
 msgstr "Formatted with latexindent."
 
+#: src/editor/markdown/engine/views/math-views.tsx
 #: src/open-knowledge-app/editor/registry/descriptor-labels.ts
 msgid "Formula"
 msgstr "Formula"
@@ -3907,6 +3973,7 @@ msgid "Fraction"
 msgstr "Fraction"
 
 #: src/editor/markdown/engine/lattice-visual-editor.tsx
+#: src/editor/markdown/engine/views/raw-block-view.tsx
 msgid "Frontmatter"
 msgstr "Frontmatter"
 
@@ -4211,6 +4278,7 @@ msgstr "Hide assistant"
 msgid "Hide HTML preview"
 msgstr "Hide HTML preview"
 
+#: src/editor/markdown/engine/views/code-block-view.tsx
 #: src/open-knowledge-app/editor/extensions/CodeBlockView.tsx
 msgid "Hide Mermaid preview"
 msgstr "Hide Mermaid preview"
@@ -4277,6 +4345,7 @@ msgid "Horizontal space"
 msgstr "Horizontal space"
 
 #: src/editor/markdown/engine/lattice-visual-editor.tsx
+#: src/editor/markdown/engine/views/raw-block-view.tsx
 #: src/editor/markdown/visual-slash-items.ts
 #: src/open-knowledge-app/editor/slash-command/embed-starter-items.tsx
 msgid "HTML"
@@ -4334,6 +4403,7 @@ msgstr "Id"
 msgid "If and only if"
 msgstr "If and only if"
 
+#: src/editor/markdown/engine/views/image-view.tsx
 #: src/editor/markdown/visual-slash-items.ts
 #: src/open-knowledge-app/editor/registry/descriptor-labels.ts
 msgid "Image"
@@ -4354,6 +4424,14 @@ msgstr "Image not found"
 #: src/open-knowledge-app/components/ui/loading-image.tsx
 msgid "Image not found: {errorLabel}"
 msgstr "Image not found: {errorLabel}"
+
+#: src/editor/markdown/engine/views/image-view.tsx
+msgid "Image properties"
+msgstr "Image properties"
+
+#: src/editor/markdown/engine/views/image-view.tsx
+msgid "Image source"
+msgstr "Image source"
 
 #: src/canvas/project-asset-preview.tsx
 msgid "Image zoom percentage"
@@ -4395,6 +4473,10 @@ msgstr "Import paper"
 #: src/project/project-dialogs.tsx
 msgid "Import ZIP"
 msgstr "Import ZIP"
+
+#: src/editor/markdown/engine/views/component-views.tsx
+msgid "Important"
+msgstr "Important"
 
 #: src/papers/literature-discovery-panel.tsx
 msgid "Imported"
@@ -4549,6 +4631,7 @@ msgstr "Inline math"
 msgid "Inline Math"
 msgstr "Inline Math"
 
+#: src/editor/markdown/engine/views/math-views.tsx
 #: src/open-knowledge-app/editor/extensions/MathInlineView.tsx
 msgid "Inline Math Properties"
 msgstr "Inline Math Properties"
@@ -4617,10 +4700,12 @@ msgstr "Insert citation"
 msgid "Insert cite at cursor after saving"
 msgstr "Insert cite at cursor after saving"
 
+#: src/editor/markdown/engine/views/table-controls.tsx
 #: src/open-knowledge-app/editor/table-controls/TableCellHandles.tsx
 msgid "Insert column left"
 msgstr "Insert column left"
 
+#: src/editor/markdown/engine/views/table-controls.tsx
 #: src/open-knowledge-app/editor/table-controls/TableCellHandles.tsx
 msgid "Insert column right"
 msgstr "Insert column right"
@@ -4642,10 +4727,12 @@ msgstr "Insert link"
 msgid "Insert reference"
 msgstr "Insert reference"
 
+#: src/editor/markdown/engine/views/table-controls.tsx
 #: src/open-knowledge-app/editor/table-controls/TableCellHandles.tsx
 msgid "Insert row above"
 msgstr "Insert row above"
 
+#: src/editor/markdown/engine/views/table-controls.tsx
 #: src/open-knowledge-app/editor/table-controls/TableCellHandles.tsx
 msgid "Insert row below"
 msgstr "Insert row below"
@@ -4933,6 +5020,7 @@ msgstr "labels"
 msgid "Lambda"
 msgstr "Lambda"
 
+#: src/editor/markdown/engine/views/code-block-view.tsx
 #: src/open-knowledge-app/editor/registry/descriptor-labels.ts
 #: src/settings/settings-dialog.tsx
 msgid "Language"
@@ -5202,6 +5290,10 @@ msgstr "Line under an expression"
 msgid "Link"
 msgstr "Link"
 
+#: src/editor/markdown/engine/views/raw-block-view.tsx
+msgid "Link definition"
+msgstr "Link definition"
+
 #: src/open-knowledge-app/lib/keyboard-shortcuts.ts
 msgid "Link the selected text, or edit the link under the caret."
 msgstr "Link the selected text, or edit the link under the caret."
@@ -5440,6 +5532,7 @@ msgid "Markdown document editor"
 msgstr "Markdown document editor"
 
 #: src/editor/markdown/engine/lattice-visual-editor.tsx
+#: src/editor/markdown/engine/views/raw-block-view.tsx
 msgid "Markdown source"
 msgstr "Markdown source"
 
@@ -5511,13 +5604,10 @@ msgstr "Media"
 msgid "Medium section heading."
 msgstr "Medium section heading."
 
+#: src/editor/markdown/engine/views/table-controls.tsx
 #: src/editor/markdown/visual-table-span-controls.tsx
 msgid "Merge cells"
 msgstr "Merge cells"
-
-#: src/editor/markdown/engine/lattice-visual-editor.tsx
-msgid "Merged table"
-msgstr "Merged table"
 
 #: src/editor/markdown/visual-slash-items.ts
 #: src/open-knowledge-app/editor/registry/descriptor-labels.ts
@@ -5540,6 +5630,7 @@ msgstr "Mermaid diagram failed to render."
 msgid "Mermaid flowchart preview"
 msgstr "Mermaid flowchart preview"
 
+#: src/editor/markdown/engine/views/mermaid-preview.tsx
 #: src/open-knowledge-app/editor/extensions/CodeBlockView.tsx
 msgid "Mermaid preview"
 msgstr "Mermaid preview"
@@ -5588,6 +5679,10 @@ msgstr "Min"
 msgctxt "macOS menu bar"
 msgid "Minimize"
 msgstr "Minimize"
+
+#: src/editor/markdown/engine/views/image-view.tsx
+msgid "Minimize image"
+msgstr "Minimize image"
 
 #: src/editor/insert/insert-snippets.ts
 #: src/editor/latex/latex-command-completions.ts
@@ -6174,6 +6269,7 @@ msgstr "No readable paper content is available."
 msgid "No references to check"
 msgstr "No references to check"
 
+#: src/editor/markdown/engine/views/code-block-view.tsx
 #: src/open-knowledge-app/editor/slash-command/SlashCommandMenu.tsx
 msgid "No results"
 msgstr "No results"
@@ -6261,6 +6357,10 @@ msgstr "Not synced yet"
 #: src/papers/bibliography-audit.tsx
 msgid "Not verified"
 msgstr "Not verified"
+
+#: src/editor/markdown/engine/views/component-views.tsx
+msgid "Note"
+msgstr "Note"
 
 #: src/onboarding/onboarding-tour.tsx
 msgid "Notes and drafts in Markdown"
@@ -6420,6 +6520,10 @@ msgstr "Open another Overleaf project"
 #: src/canvas/paper-reader.tsx
 msgid "Open article in browser"
 msgstr "Open article in browser"
+
+#: src/editor/markdown/engine/views/component-views.tsx
+msgid "Open by default"
+msgstr "Open by default"
 
 #: src/open-knowledge-app/lib/keyboard-shortcuts.ts
 msgid "Open CodeMirror search in source editor mode."
@@ -6878,18 +6982,22 @@ msgstr "Page thumbnails"
 msgid "Pages"
 msgstr "Pages"
 
+#: src/editor/markdown/engine/views/mermaid-preview.tsx
 #: src/open-knowledge-app/editor/components/Mermaid.tsx
 msgid "Pan down"
 msgstr "Pan down"
 
+#: src/editor/markdown/engine/views/mermaid-preview.tsx
 #: src/open-knowledge-app/editor/components/Mermaid.tsx
 msgid "Pan left"
 msgstr "Pan left"
 
+#: src/editor/markdown/engine/views/mermaid-preview.tsx
 #: src/open-knowledge-app/editor/components/Mermaid.tsx
 msgid "Pan right"
 msgstr "Pan right"
 
+#: src/editor/markdown/engine/views/mermaid-preview.tsx
 #: src/open-knowledge-app/editor/components/Mermaid.tsx
 msgid "Pan up"
 msgstr "Pan up"
@@ -7184,6 +7292,7 @@ msgstr "Placement"
 msgid "Plain"
 msgstr "Plain"
 
+#: src/editor/markdown/engine/views/code-block-view.tsx
 #: src/open-knowledge-app/editor/extensions/code-block-languages.ts
 msgid "Plain text"
 msgstr "Plain text"
@@ -7989,6 +8098,7 @@ msgstr "Research"
 msgid "Research, written with evidence"
 msgstr "Research, written with evidence"
 
+#: src/editor/markdown/engine/views/mermaid-preview.tsx
 #: src/open-knowledge-app/editor/components/Mermaid.tsx
 msgid "Reset view"
 msgstr "Reset view"
@@ -8300,6 +8410,7 @@ msgstr "Root document"
 msgid "Root with index"
 msgstr "Root with index"
 
+#: src/editor/markdown/engine/views/table-controls.tsx
 #: src/open-knowledge-app/editor/table-controls/TableCellHandles.tsx
 msgid "Row options"
 msgstr "Row options"
@@ -8802,6 +8913,7 @@ msgstr "Show HTML preview"
 msgid "Show in Finder"
 msgstr "Show in Finder"
 
+#: src/editor/markdown/engine/views/code-block-view.tsx
 #: src/open-knowledge-app/editor/extensions/CodeBlockView.tsx
 msgid "Show Mermaid preview"
 msgstr "Show Mermaid preview"
@@ -8982,6 +9094,10 @@ msgstr "Some sources unavailable"
 msgid "Someone"
 msgstr "Someone"
 
+#: src/editor/markdown/engine/views/image-view.tsx
+msgid "Source"
+msgstr "Source"
+
 #: src/App.tsx
 msgid "Source + PDF"
 msgstr "Source + PDF"
@@ -9078,6 +9194,7 @@ msgstr "split"
 msgid "Split"
 msgstr "Split"
 
+#: src/editor/markdown/engine/views/table-controls.tsx
 #: src/editor/markdown/visual-table-span-controls.tsx
 msgid "Split cell"
 msgstr "Split cell"
@@ -9466,6 +9583,10 @@ msgstr "Table"
 #: src/editor/latex/latex-command-completions.ts
 msgid "Table body"
 msgstr "Table body"
+
+#: src/editor/markdown/engine/views/table-controls.tsx
+msgid "Table cells"
+msgstr "Table cells"
 
 #: src/editor/insert/table-generator-dialog.tsx
 msgid "Table generator"
@@ -9942,6 +10063,12 @@ msgstr "Time derivative mark"
 msgid "Times / cross product"
 msgstr "Times / cross product"
 
+#: src/editor/markdown/engine/views/component-views.tsx
+msgid "Tip"
+msgstr "Tip"
+
+#: src/editor/markdown/engine/views/code-block-view.tsx
+#: src/editor/markdown/engine/views/component-views.tsx
 #: src/open-knowledge-app/editor/extensions/CodeBlockView.tsx
 #: src/open-knowledge-app/editor/registry/descriptor-labels.ts
 #: src/papers/bib-entry-dialog.tsx
@@ -10164,6 +10291,7 @@ msgstr "Two-page (even)"
 msgid "Two-page (odd)"
 msgstr "Two-page (odd)"
 
+#: src/editor/markdown/engine/views/component-views.tsx
 #: src/open-knowledge-app/editor/registry/descriptor-labels.ts
 #: src/papers/bib-entry-dialog.tsx
 msgid "Type"
@@ -10293,6 +10421,10 @@ msgstr "Unknown bibliography entry type `{type}`."
 msgid "Unknown citation key “{key}”."
 msgstr "Unknown citation key “{key}”."
 
+#: src/editor/markdown/engine/views/raw-block-view.tsx
+msgid "Unknown component: {componentName}"
+msgstr "Unknown component: {componentName}"
+
 #: src/open-knowledge-app/editor/extensions/JsxComponentView.tsx
 msgid "Unknown component: {componentName} — source editable below"
 msgstr "Unknown component: {componentName} — source editable below"
@@ -10369,6 +10501,10 @@ msgstr "Unsupported extension .{extension}. Accepts: {accepted}."
 #: src/editor/spreadsheet/spreadsheet-yjs.ts
 msgid "Unsupported spreadsheet collaboration format: {version}"
 msgstr "Unsupported spreadsheet collaboration format: {version}"
+
+#: src/editor/markdown/engine/views/component-views.tsx
+msgid "Untitled"
+msgstr "Untitled"
 
 #: src/open-knowledge-app/editor/components/File.tsx
 msgid "Untitled file"
@@ -10784,6 +10920,7 @@ msgstr "Warming the local service…"
 msgid "WARN"
 msgstr "WARN"
 
+#: src/editor/markdown/engine/views/component-views.tsx
 #: src/telemetry/app-log.tsx
 msgid "Warning"
 msgstr "Warning"
@@ -10990,6 +11127,7 @@ msgid "Zoom"
 msgstr "Zoom"
 
 #: src/canvas/zoom-controls.tsx
+#: src/editor/markdown/engine/views/mermaid-preview.tsx
 #: src/open-knowledge-app/editor/components/Mermaid.tsx
 #: src/open-knowledge-app/editor/components/Pdf.tsx
 #: src/pdf/pdf-viewer.tsx
@@ -10997,6 +11135,7 @@ msgid "Zoom in"
 msgstr "Zoom in"
 
 #: src/canvas/zoom-controls.tsx
+#: src/editor/markdown/engine/views/mermaid-preview.tsx
 #: src/open-knowledge-app/editor/components/Mermaid.tsx
 #: src/open-knowledge-app/editor/components/Pdf.tsx
 #: src/pdf/pdf-viewer.tsx
