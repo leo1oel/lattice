@@ -402,3 +402,59 @@ describe("source labels, View in source and selection context (R-SRC-11, R-SRC-1
     expect(onSelectionMarkdown).toHaveBeenLastCalledWith("");
   });
 });
+
+describe("sections (R-BLK-13, R-BLK-14)", () => {
+  const CONTENTS = ["## Contents", "- [Introduction](#introduction)", "- [Method](#method)", "", "## Introduction", "Opening context.", "", "## Method", "Experimental details."].join("\n");
+
+  it("lists the sections in a rail that marks the current one, moves focus by arrow keys, and scrolls to a heading", async () => {
+    const { rerender } = renderEditor("# Example paper\n\n## Introduction\nOpening context.\n\n### Setup\nDetails.\n\n## Results\nThe result.");
+    const navigation = await screen.findByRole("navigation", { name: "Document sections" });
+    expect(within(navigation).queryByRole("button", { name: "Example paper" })).toBeNull();
+    const introduction = within(navigation).getByRole("button", { name: "Introduction" });
+    const setup = within(navigation).getByRole("button", { name: "Setup" });
+    expect(introduction).toHaveAttribute("aria-current", "location");
+    expect(introduction).toHaveAttribute("data-depth", "0");
+    expect(setup).toHaveAttribute("data-depth", "1");
+    act(() => introduction.focus());
+    fireEvent.keyDown(introduction, { key: "ArrowDown" });
+    expect(setup).toHaveFocus();
+    const results = document.getElementById("results")!;
+    expect(results.tagName).toBe("H2");
+    const scrollIntoView = vi.fn();
+    results.scrollIntoView = scrollIntoView;
+    fireEvent.click(within(navigation).getByRole("button", { name: "Results" }));
+    expect(scrollIntoView).toHaveBeenCalledWith({ block: "start" });
+    rerender({ text: "# Example\n\n## Only section\n\nBody." });
+    await waitFor(() => expect(screen.queryByRole("navigation", { name: "Document sections" })).toBeNull());
+  });
+
+  it("gives repeated headings distinct ids in document order", () => {
+    renderEditor("## Repeat\n\n### Repeat\n\n<Callout>\n## Repeat\n</Callout>");
+    expect([...surface().querySelectorAll("h2, h3")].map((heading) => heading.id)).toEqual(["repeat", "repeat-1", "repeat-2"]);
+  });
+
+  it("lists an authored Contents section in ordinary Markdown", async () => {
+    renderEditor(CONTENTS);
+    expect(await screen.findByRole("button", { name: "Contents" })).toBeInTheDocument();
+    expect(surface().querySelector(".lx-md-generated-contents")).toBeNull();
+  });
+
+  it("hides a generated paper Contents from view and from the rail, keeping it in the Markdown", async () => {
+    const { editor, onChange } = renderEditor({ text: CONTENTS, activePath: ".research/papers/2401.00001/paper.md", optimizeForReading: true });
+    const hidden = surface().querySelectorAll(".lx-md-generated-contents");
+    expect(hidden).toHaveLength(2);
+    for (const element of hidden) {
+      expect(element).toHaveAttribute("aria-hidden", "true");
+      expect(element).not.toHaveAttribute("hidden");
+    }
+    expect(await screen.findByRole("button", { name: "Introduction" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Contents" })).toBeNull();
+    act(() => {
+      editor.commands.insertContentAt(nodePos(editor, "Opening context."), "Some ");
+    });
+    await waitFor(() => expect(onChange).toHaveBeenCalled());
+    const written = String(onChange.mock.lastCall?.[0]);
+    expect(written.startsWith("## Contents\n- [Introduction](#introduction)\n- [Method](#method)\n")).toBe(true);
+    expect(written).toContain("Some Opening context.");
+  });
+});

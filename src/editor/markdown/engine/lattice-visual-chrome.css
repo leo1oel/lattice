@@ -453,3 +453,9 @@
 }
 .lx-md-comment-error { margin: 0; color: var(--status-danger); font-size: var(--type-caption-size); }
 .lx-md-comment-actions { display: flex; justify-content: flex-end; gap: var(--space-2); }
+
+/* --- Headings ------------------------------------------------------------------ */
+
+/* A converter-generated paper Contents stays in the document, out of view (R-BLK-14). */
+.lx-md-editor .lx-md-surface .lx-md-generated-contents { display: none; }
+.lx-md-editor .lx-md-surface :is(h1, h2, h3, h4, h5, h6)[id] { scroll-margin-top: var(--space-12); }

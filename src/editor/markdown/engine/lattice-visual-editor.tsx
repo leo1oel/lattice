@@ -16,7 +16,7 @@ import { useLingui } from "@lingui/react/macro";
 import { Extension, type AnyExtension, type EditorOptions, type JSONContent } from "@tiptap/core";
 import type { Node as PmNode } from "@tiptap/pm/model";
 import { NodeSelection } from "@tiptap/pm/state";
-import { EditorContent, useEditor, type Editor } from "@tiptap/react";
+import { EditorContent, useEditor, useEditorState, type Editor } from "@tiptap/react";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import { InlineMessage } from "../../../components/ui/inline-message";
 import { notifyError } from "../../../telemetry/app-notify";
@@ -26,7 +26,9 @@ import { openMarkdownLink } from "../markdown-link-routing";
 import { markdownPreviewSyncPolicy } from "../markdown-preview-sync-policy";
 import { isPaperLibraryPath } from "../../../papers/paper-link";
 import { ProjectImageHostProvider } from "../project-image-host";
+import { DocumentHeadingRail, type DocumentHeadingItem } from "../document-heading-rail";
 import type { VisualMarkdownEditorProps } from "../visual-editor-props";
+import { HeadingAnchors, REFRESH_ANCHORS, documentHeadings } from "./heading-anchors";
 import type { ImeGuard } from "./engine-keymap";
 import { MathMacrosContext, engineNodeViews } from "./engine-node-views";
 import { engineSchema, engineSchemaExtensions, type RawBlockKind } from "./engine-schema";
@@ -432,6 +434,18 @@ function surfaceProps(label: string): EditorOptions["editorProps"] {
   };
 }
 
+const NO_HEADINGS: DocumentHeadingItem[] = [];
+
+function railHeadings(doc: PmNode, paper: boolean): DocumentHeadingItem[] {
+  const size = Math.max(1, doc.content.size);
+  return documentHeadings(doc, paper)
+    .filter((heading) => heading.id && !heading.generatedContents)
+    .map((heading) => ({ id: heading.id, label: heading.text, level: heading.level, position: heading.pos / size }));
+}
+
+const sameHeadings = (a: DocumentHeadingItem[] | null, b: DocumentHeadingItem[] | null) =>
+  a === b || (!!a && !!b && a.length === b.length && a.every((item, index) => item.id === b[index]!.id && item.label === b[index]!.label && item.level === b[index]!.level));
+
 function editorExtensions(labels: Partial<Record<RawBlockKind, string>>, ime: ImeGuard, chrome: Chrome): AnyExtension[] {
   const views = engineNodeViews({ ime });
   const viewNames = new Set(views.map((view) => view.name));
@@ -440,6 +454,7 @@ function editorExtensions(labels: Partial<Record<RawBlockKind, string>>, ime: Im
     ...views,
     ...chromeExtensions(chrome),
     SourceOverlays,
+    HeadingAnchors.configure({ paper: () => Boolean(chrome.host.props().optimizeForReading) }),
     HostHistory,
   ];
 }
@@ -577,6 +592,16 @@ export function LatticeVisualMarkdownEditor(props: VisualMarkdownEditorProps): J
   }, []);
   const editor = useMountedEditor(instance);
 
+  // The section rail (R-BLK-13): the document's headings, less a generated paper Contents (R-BLK-14).
+  const railItems = useEditorState({
+    editor: instance,
+    selector: ({ editor: current }) => (current ? railHeadings(current.state.doc, Boolean(optimizeForReading)) : NO_HEADINGS),
+    equalityFn: sameHeadings,
+  }) ?? NO_HEADINGS;
+  useEffect(() => {
+    if (editor && !editor.isDestroyed) editor.view.dispatch(editor.state.tr.setMeta(REFRESH_ANCHORS, true).setMeta("addToHistory", false));
+  }, [editor, optimizeForReading]);
+
   // Load the active file, and reconcile canonical text from the host: our
   // own echo is ignored, anything else replaces the document.
   useEffect(() => {
@@ -647,6 +672,10 @@ export function LatticeVisualMarkdownEditor(props: VisualMarkdownEditorProps): J
           {reason && !onEligibilityChange && (
             <InlineMessage level="warning" className="lx-md-eligibility">{reason}</InlineMessage>
           )}
+          <DocumentHeadingRail
+            items={railItems}
+            onSelect={(item) => layer?.querySelector(`[id="${CSS.escape(item.id)}"]`)?.scrollIntoView({ block: "start" })}
+          />
           {/* Before the article, so the sticky find bar stays in view over its whole length. */}
           {editor && <EngineFindBar editor={editor} chrome={chrome} />}
           <EditorContent editor={instance} />
