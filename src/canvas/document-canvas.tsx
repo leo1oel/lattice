@@ -1113,7 +1113,7 @@ export function DocumentCanvas(props: {
     return (
       <Suspense fallback={<div className={fallbackClass} aria-busy="true" aria-label={fallbackLabel} data-tour={tour} />}>
         {kind === "board" ? (
-          <BoardEditor key={path} {...editor} {...viewStateBinding(path, "board")} />
+          <BoardEditor key={path} {...editor} theme={props.theme} {...viewStateBinding(path, "board")} />
         ) : kind === "spreadsheet" ? (
           <SpreadsheetEditor
             key={path} {...editor} onPersist={props.onSave} {...viewStateBinding(path, "spreadsheet")}

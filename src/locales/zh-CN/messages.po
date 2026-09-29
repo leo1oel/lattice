@@ -84,12 +84,17 @@ msgstr "已检查 {completed} / {progressTotal} 条引用"
 msgid "{count} comments"
 msgstr "{count} 条评论"
 
+#: src/project/project-find-dialog.tsx
+msgid "{count} hits"
+msgstr "{count} 个结果"
+
 #: src/history/conflict-resolver.tsx
 msgid "{count} lines"
 msgstr "{count} 行"
 
 #: src/papers/paper-lookup.tsx
 #: src/project/paper-library.tsx
+#: src/project/project-find-dialog.tsx
 msgid "{count} papers"
 msgstr "{count} 篇论文"
 
@@ -152,6 +157,10 @@ msgstr "⌘⇧H · 所有 .tex 文件"
 msgid "⌘⇧T to reopen"
 msgstr "⌘⇧T 重新打开"
 
+#: src/project/project-find-dialog.tsx
+msgid "1 hit"
+msgstr "1 个结果"
+
 #: src/history/conflict-resolver.tsx
 msgid "1 line"
 msgstr "1 行"
@@ -162,6 +171,7 @@ msgstr "共 {total} 篇论文，显示 1 篇"
 
 #: src/papers/paper-lookup.tsx
 #: src/project/paper-library.tsx
+#: src/project/project-find-dialog.tsx
 msgid "1 paper"
 msgstr "1 篇论文"
 

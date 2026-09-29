@@ -402,7 +402,8 @@ agent-facing adapter is isolated in `src/agent/agent-canvas-tldraw-adapter.ts` s
 `src/agent/agent-canvas-tools.ts` can register it without importing tldraw itself.
 
 Non-test value importers of `tldraw` today: `src/editor/board/board-editor.tsx`,
-`src/editor/board/board-store.ts`, `src/agent/agent-canvas-tldraw-adapter.ts` — all reachable
+`src/editor/board/board-store.ts`, `src/editor/board/board-asset-urls.ts`,
+`src/agent/agent-canvas-tldraw-adapter.ts` — all reachable
 only through the lazy board chunk.
 
 **This rule is not lint-enforced.** There is no `no-restricted-imports` entry

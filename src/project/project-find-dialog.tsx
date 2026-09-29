@@ -67,6 +67,14 @@ export function ProjectFindDialog(props: {
   const fileHits = useMemo(() => props.hits.filter((hit) => hit.kind === "file"), [props.hits]);
   const paperHits = useMemo(() => props.hits.filter((hit) => hit.kind === "paper"), [props.hits]);
   const selectableHits = [...fileHits, ...paperHits];
+  // One paper can match several times (title, overview and full-text lines);
+  // the summary counts papers, so count each library key once. Titles are not
+  // unique: a preprint and its published version can share one.
+  const paperCount = new Set(paperHits.map((hit) => /^\.research\/papers\/[^/]+\//.exec(hit.path)?.[0] ?? hit.path)).size;
+  // The object form, not an interpolated tagged template: the React Compiler
+  // bails out on the latter (react-compiler-guard.test.ts).
+  const countHits = (count: number) => (count === 1 ? t`1 hit` : t({ message: `${count} hits` }));
+  const countPapers = (count: number) => (count === 1 ? t`1 paper` : t({ message: `${count} papers` }));
 
   const close = () => {
     setDebouncing(false);
@@ -189,9 +197,9 @@ export function ProjectFindDialog(props: {
                 ? "Search failed."
               : searching
                 ? "Searching…"
-                : `${fileHits.length} hit${fileHits.length === 1 ? "" : "s"}${
-                  paperHits.length ? ` · ${paperHits.length} paper${paperHits.length === 1 ? "" : "s"}` : ""
-                }`}
+                : paperCount
+                  ? `${countHits(fileHits.length)} · ${countPapers(paperCount)}`
+                  : countHits(fileHits.length)}
           </div>
           {showResults && !selectableHits.length && (
             <EmptyState

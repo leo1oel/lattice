@@ -245,6 +245,9 @@ importers:
       '@tiptap/suggestion':
         specifier: 3.31.3
         version: 3.31.3(@floating-ui/dom@1.8.0)(@tiptap/core@3.31.3(@tiptap/pm@3.31.3))(@tiptap/pm@3.31.3)
+      '@tldraw/assets':
+        specifier: 5.2.5
+        version: 5.2.5
       '@u-wave/react-vimeo':
         specifier: ^0.9.12
         version: 0.9.12(react@19.2.7)
@@ -3123,6 +3126,10 @@ packages:
       prosemirror-view: ^1.9.10
       y-protocols: ^1.0.1
       yjs: ^13.5.38
+
+  '@tldraw/assets@5.2.5':
+    resolution: {integrity: sha512-dnwCWb9x/ZVUqRcKGEtgyvzwuaK4ZMcHl5WUA0u99Updr7F39dUDCorqjq7Lye3NrFyj0ztxSCy289s6hUm1gg==}
+    engines: {node: '>=22.12.0'}
 
   '@tldraw/driver@5.2.5':
     resolution: {integrity: sha512-smu4NnqTdIM59/hHTvuXxqJWQ5aLpFUR59ibS//o30P9pgMAoN4v/7NhYx9g+V7RAeOzIpDqREouz3hZdoEt9Q==}
@@ -8862,6 +8869,10 @@ snapshots:
       prosemirror-view: 1.42.6
       y-protocols: 1.0.7(yjs@13.6.32)
       yjs: 13.6.32
+
+  '@tldraw/assets@5.2.5':
+    dependencies:
+      '@tldraw/utils': 5.2.5
 
   '@tldraw/driver@5.2.5(@floating-ui/dom@1.8.0)(@types/react-dom@19.2.3(@types/react@19.2.17))(@types/react@19.2.17)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)':
     dependencies:
