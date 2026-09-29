@@ -63,10 +63,10 @@ up), file tree (already virtualized).
 
 A constraint to respect: **editable surfaces deliberately do not use
 `content-visibility: auto`** — deferred materialization destabilizes WebKit
-selection anchoring (see the comment on `.ok-chunk-wrapper` in
-`editor-globals.css`). The chunking plugin is therefore gated to read-only
-surfaces (`optimizeForReading`); enabling it for editable docs is a separate
-experiment behind a flag, measured before adoption.
+selection anchoring. Large read-only documents render through the engine's
+passive view (`editor/markdown/engine/passive-view.tsx`) instead; deferring
+rendering in editable docs is a separate experiment behind a flag, measured
+before adoption.
 
 ## Measurement playbook
 
