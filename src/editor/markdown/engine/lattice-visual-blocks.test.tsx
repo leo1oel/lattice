@@ -9,6 +9,7 @@ import type { Node as PmNode } from "@tiptap/pm/model";
 import { NodeSelection, TextSelection } from "@tiptap/pm/state";
 import { CellSelection } from "@tiptap/pm/tables";
 import type { Editor } from "@tiptap/react";
+import { useRef, useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { VisualMarkdownEditorProps } from "../visual-editor-props";
 import { LatticeVisualMarkdownEditor } from "./lattice-visual-editor";
@@ -77,6 +78,59 @@ function typeText(editor: Editor, text: string) {
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();
+});
+
+/** A host that accepts every publication, so each `text` prop is the editor's own echo. */
+function ControlledEditor({ initial, ...props }: Partial<Props> & { initial: string }) {
+  const [text, setText] = useState(initial);
+  const accepted = useRef(initial);
+  return (
+    <LatticeVisualMarkdownEditor
+      activePath="notes.md"
+      onUndo={() => true}
+      onRedo={() => true}
+      {...props}
+      text={text}
+      onChangeMarkdown={(next, expected) => {
+        if (accepted.current !== expected) return false;
+        accepted.current = next;
+        setText(next);
+        return true;
+      }}
+    />
+  );
+}
+
+describe("rich views across edits and file switches (R-PUB-8, R-PUB-10, R-PUB-21)", () => {
+  it("keeps a Mermaid preview and a loaded image mounted across adjacent inserts and their echoes", async () => {
+    const onLoadAsset = vi.fn(async () => PNG);
+    render(<ControlledEditor initial={["Before", "```mermaid\ngraph TD; A-->B\n```", "![Plot](figures/plot.png)", "Tail"].join("\n\n")} onLoadAsset={onLoadAsset} />);
+    const preview = await screen.findByRole("group", { name: "Mermaid preview" });
+    const image = await screen.findByRole("img", { name: "Plot" });
+    const { editor } = surface();
+    act(() => {
+      editor.view.dispatch(editor.state.tr.insert(editor.state.doc.firstChild!.nodeSize, editor.schema.nodes.heading!.create({ level: 2 }, editor.schema.text("Inserted"))));
+    });
+    await waitFor(() => expect(surface()).toHaveTextContent("Inserted"));
+    await settle(500);
+    expect(screen.getByRole("group", { name: "Mermaid preview" })).toBe(preview);
+    expect(screen.getByRole("img", { name: "Plot" })).toBe(image);
+    expect(onLoadAsset).toHaveBeenCalledTimes(1);
+  });
+
+  it("switches files busy and read-only until the new file is shown, without lifecycle warnings", async () => {
+    const errors = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const view = renderEditor({ text: "First\n", activePath: "a.md", onLoadAsset: async () => PNG });
+    view.rerender({ text: "![Plot](figures/plot.png)\n\n$$\nx\n$$\n", activePath: "b.md" });
+    const root = surface().closest(".lx-md-editor")!;
+    expect(root).toHaveAttribute("aria-busy", "true");
+    expect(surface()).toHaveAttribute("contenteditable", "false");
+    await screen.findByRole("img", { name: "Plot" });
+    expect(root).not.toHaveAttribute("aria-busy");
+    expect(surface()).toHaveAttribute("contenteditable", "true");
+    expect(errors.mock.calls.filter((call) => /lifecycle|flushSync/.test(String(call[0])))).toEqual([]);
+    errors.mockRestore();
+  });
 });
 
 describe("callouts and accordions (R-BLK-1, R-BLK-2, R-FMT-5)", () => {
