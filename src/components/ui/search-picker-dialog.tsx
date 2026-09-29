@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useLingui } from "@lingui/react/macro";
 import { CloseButton } from "./icon-button";
 import { EmptyState } from "./empty-state";
 import { ModalDialog } from "./modal-dialog";
@@ -123,6 +124,7 @@ export function SearchPickerDialog({ open, ...props }: SearchPickerProps & { ope
 }
 
 function SearchPickerDialogForm({ title, items, ...props }: SearchPickerProps) {
+  const { t } = useLingui();
   const rank = useMemo(() => (query: string) => rankMatches(
     items,
     (item) => scoreItem(item, query),
@@ -134,8 +136,8 @@ function SearchPickerDialogForm({ title, items, ...props }: SearchPickerProps) {
       {...props}
       label={title}
       searchLabel={title}
-      closeLabel={`Close ${title}`}
-      emptyText="No matches"
+      closeLabel={t`Close ${title}`}
+      emptyText={t`No matches`}
       rank={rank}
       itemKey={(item) => item.id}
       renderItem={(item) => <>

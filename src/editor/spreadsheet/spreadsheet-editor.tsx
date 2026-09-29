@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { msg } from "@lingui/core/macro";
 import { useLingui } from "@lingui/react";
 import { invoke } from "@tauri-apps/api/core";
 import { save as saveDialog } from "@tauri-apps/plugin-dialog";
@@ -23,6 +24,7 @@ import {
 } from "./spreadsheet-univer";
 import {
   SPREADSHEET_LOCAL_ORIGIN,
+  SpreadsheetDocumentError,
   applySpreadsheetCellChanges,
   reconcileSpreadsheetDocChanges,
   replaceSpreadsheetDocFromSource,
@@ -177,6 +179,7 @@ function updateSnapshotCells(sheet: SpreadsheetWorkbookData["sheets"][string], c
  */
 export function SpreadsheetEditor(props: SpreadsheetEditorProps) {
   const { path, source } = props;
+  const { i18n } = useLingui();
   const localState = useMemo(() => {
     const doc = new Y.Doc();
     try {
@@ -185,7 +188,7 @@ export function SpreadsheetEditor(props: SpreadsheetEditorProps) {
       return { doc, error: null };
     } catch (error) {
       doc.destroy();
-      return { doc: null, error: error instanceof Error ? error.message : "Invalid .lattice-sheet document" };
+      return { doc: null, error };
     }
   // The canvas remounts this editor per path; external source changes are
   // reconciled by the mounted surface rather than replacing the Y.Doc identity.
@@ -194,10 +197,14 @@ export function SpreadsheetEditor(props: SpreadsheetEditorProps) {
   useEffect(() => () => localState.doc?.destroy(), [localState.doc]);
 
   if (!localState.doc) {
+    const { error } = localState;
+    const detail = error instanceof SpreadsheetDocumentError
+      ? i18n._(error.descriptor)
+      : error instanceof Error && error.message ? error.message : i18n._(msg`Invalid .lattice-sheet document`);
     return (
       <div className="spreadsheet-editor-root spreadsheet-editor-error" role="alert">
-        <strong>Couldn’t open this spreadsheet</strong>
-        <span>{localState.error ?? "Invalid .lattice-sheet document"}</span>
+        <strong>{i18n._(msg`Couldn’t open this spreadsheet`)}</strong>
+        <span>{detail}</span>
       </div>
     );
   }
@@ -208,6 +215,7 @@ function SpreadsheetEditorSurface({
   path, source, onChange, onPersist, onFlushPendingChange, active = true, initialViewState, onViewState, doc,
 }: SpreadsheetEditorProps & { doc: Y.Doc }) {
   const { i18n } = useLingui();
+  // eslint-disable-next-line lingui/no-unlocalized-strings -- locale tags
   const interfaceLocale = i18n.locale === "zh-CN" ? "zh-CN" : "en";
   const containerRef = useRef<HTMLDivElement>(null);
   const workbookRef = useRef<FWorkbook | null>(null);
@@ -228,7 +236,7 @@ function SpreadsheetEditorSurface({
       const workbook = workbookRef.current;
       if (!workbook || exportingRef.current) return;
       const fileName = path.split(/[\\/]/).at(-1)?.replace(/\.lattice-sheet$/i, ".xlsx") || "spreadsheet.xlsx";
-      const trace = logAction("Spreadsheet", "Export Excel", fileName);
+      const trace = logAction(i18n._(msg`Spreadsheet`), i18n._(SPREADSHEET_MESSAGES.exportMenu), fileName);
       exportingRef.current = true;
       void (async () => {
         try {
@@ -244,9 +252,9 @@ function SpreadsheetEditorSurface({
           const savedPath = await invoke<string>("save_xlsx", bytes.buffer, {
             headers: { "x-xlsx-destination": utf8ToBase64(destination) },
           });
-          trace.ok("Excel workbook exported", { detail: savedPath });
+          trace.ok(i18n._(msg`Excel workbook exported`), { detail: savedPath });
         } catch (reason) {
-          trace.fail(reason);
+          trace.fail(reason instanceof SpreadsheetDocumentError ? new Error(i18n._(reason.descriptor)) : reason);
         } finally {
           exportingRef.current = false;
         }
@@ -442,6 +450,7 @@ function SpreadsheetEditorSurface({
     path,
     commit: async () => {
       flushRef.current();
+      // eslint-disable-next-line lingui/no-unlocalized-strings -- returned to the Agent as a tool error
       if (!(await callbacks.current.onPersist())) throw new Error("Lattice could not persist the spreadsheet update.");
     },
   }, active), [active, doc, path]);

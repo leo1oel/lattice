@@ -24,6 +24,7 @@ export function ProjectAssetPreview({ asset, viewState, onViewState }: {
   onViewState?: (update: Partial<FileViewState>) => void;
 }) {
   const { t } = useLingui();
+  // eslint-disable-next-line lingui/no-unlocalized-strings -- data URL
   const url = `data:${asset.mimeType};base64,${asset.base64}`;
   const [initialImageViewState] = useState(viewState?.image);
   const [scale, updateScale] = useZoomScale(initialImageViewState?.scale ?? 1, IMAGE_MIN_SCALE, IMAGE_MAX_SCALE);

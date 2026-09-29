@@ -13,7 +13,7 @@
  * singleton-listener rationale.
  */
 
-import { useLingui } from '@ok-app/shims/lingui-react-macro';
+import { useLingui } from '@lingui/react/macro';
 import type { Editor } from '@tiptap/react';
 import { useEffect, useState } from 'react';
 import { FrimousseEmojiPicker } from '@ok-app/components/emoji-picker';

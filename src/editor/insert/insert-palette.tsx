@@ -46,6 +46,7 @@ function snippetName(i18n: I18n, snippet: InsertSnippet): string {
 }
 
 /** Tabs, not groups: the eight symbol groups share one tab and stay as sections. */
+/* eslint-disable lingui/no-unlocalized-strings -- tab and group keys; useGroupLabels translates them */
 const INSERT_TABS = ["All", "Environment", "Structure", "Math", "Symbols"] as const;
 type InsertTab = (typeof INSERT_TABS)[number];
 
@@ -56,6 +57,7 @@ const TAB_GROUPS: Record<InsertTab, readonly InsertGroup[]> = {
   Math: ["Math"],
   Symbols: INSERT_SYMBOL_GROUPS,
 };
+/* eslint-enable lingui/no-unlocalized-strings */
 
 const IS_SYMBOL_GROUP = new Set<InsertGroup>(INSERT_SYMBOL_GROUPS);
 
@@ -128,6 +130,7 @@ export function InsertPalette(props: {
   const { i18n, t } = useLingui();
   const groupLabels = useGroupLabels();
   const [query, setQuery] = useState("");
+  // eslint-disable-next-line lingui/no-unlocalized-strings -- tab key; useGroupLabels translates it
   const [tab, setTab] = useState<InsertTab>("All");
   const locale = i18n.locale;
 

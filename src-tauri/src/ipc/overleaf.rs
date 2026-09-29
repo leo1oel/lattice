@@ -100,8 +100,11 @@ pub async fn overleaf_status(app: AppHandle) -> Result<overleaf::OverleafStatus,
 /// Open Overleaf's own login page in a dedicated window. The user signs in
 /// exactly as they would in a browser (including SSO); `overleaf_poll_login`
 /// then captures the session cookie — no manual copying for the common case.
+/// `title` is the window title in the interface language.
 #[tauri::command]
-pub fn overleaf_begin_login(app: AppHandle, host: Option<String>) -> Result<(), String> {
+pub fn overleaf_begin_login(
+    app: AppHandle, host: Option<String>, title: String,
+) -> Result<(), String> {
     if let Some(existing) = app.get_webview_window(LOGIN_WINDOW) {
         let _ = existing.set_focus();
         return Ok(());
@@ -111,7 +114,7 @@ pub fn overleaf_begin_login(app: AppHandle, host: Option<String>) -> Result<(), 
         .parse()
         .map_err(|error| format!("Invalid Overleaf host: {error}"))?;
     tauri::WebviewWindowBuilder::new(&app, LOGIN_WINDOW, tauri::WebviewUrl::External(url))
-        .title("Sign in to Overleaf")
+        .title(title)
         .inner_size(1040.0, 780.0)
         .build()
         .map_err(|error| format!("Could not open the Overleaf sign-in window: {error}"))?;

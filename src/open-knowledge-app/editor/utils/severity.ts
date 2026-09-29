@@ -20,8 +20,8 @@
  * logic in one testable place.
  */
 
-import type { MessageDescriptor } from '@ok-app/shims/lingui-core';
-import { msg } from '@ok-app/shims/lingui-core-macro';
+import type { MessageDescriptor } from '@lingui/core';
+import { msg } from '@lingui/core/macro';
 
 type Severity = 'info' | 'warn' | 'error';
 

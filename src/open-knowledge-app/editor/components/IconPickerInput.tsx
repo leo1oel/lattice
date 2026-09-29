@@ -23,7 +23,7 @@
  * PropPanel's `treatEmptyAsUndefined` logic as a delete signal for
  * optional props).
  */
-import { Trans, useLingui } from '@ok-app/shims/lingui-react-macro';
+import { Trans, useLingui } from '@lingui/react/macro';
 import { Command as CommandPrimitive } from 'cmdk';
 import { ChevronDown, X } from 'lucide-react';
 import { useState } from 'react';
@@ -64,7 +64,7 @@ export function IconPickerInput({ id, value, onChange, autoFocus }: IconPickerIn
           id={id}
           type="text"
           value={value}
-          placeholder="lucide:Lightbulb or 📘"
+          placeholder={t`lucide:Lightbulb or 📘`}
           onChange={(e) => onChange(e.target.value)}
           autoFocus={autoFocus}
           data-prop-autofocus={autoFocus ? '' : undefined}
@@ -123,7 +123,7 @@ export function IconPickerInput({ id, value, onChange, autoFocus }: IconPickerIn
                     data-icon-picker-clear=""
                   >
                     <X className="size-3.5" aria-hidden="true" />
-                    Clear icon
+                    <Trans>Clear icon</Trans>
                   </CommandItem>
                 </CommandGroup>
               )}

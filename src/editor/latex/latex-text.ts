@@ -1,3 +1,7 @@
+import { msg } from "@lingui/core/macro";
+import type { MessageDescriptor } from "@lingui/core";
+import { i18n } from "../../i18n";
+
 export const LABEL = /\\label\{([^}]*)\}/g;
 const GRAPHICSPATH = /\\graphicspath\s*\{((?:\{[^}]*\})+)\}/g;
 const NEWCOMMAND = /\\(?:new|renew|provide)command\*?\{(\\[A-Za-z@]+)\}/g;
@@ -25,6 +29,20 @@ export type ReferenceInfo = {
   line: number;
   imagePath?: string;
 };
+
+const REFERENCE_KINDS: Record<string, MessageDescriptor> = {
+  figure: msg`figure`,
+  table: msg`table`,
+  equation: msg`equation`,
+  section: msg`section`,
+  reference: msg`reference`,
+};
+
+/** The reference kind as shown in completions and hover cards; `kind` itself stays an identifier. */
+export function referenceKindLabel(kind: string): string {
+  const label = REFERENCE_KINDS[kind];
+  return label ? i18n._(label) : kind;
+}
 
 export type DefinitionTarget =
   | { kind: "reference"; path: string; line: number; label: string }
@@ -124,8 +142,8 @@ export function parseLocalMacros(sources: string[]): LocalMacro[] {
     if (!macros.has(label)) macros.set(label, { label, detail, type });
   };
   for (const source of sources) {
-    for (const [, name] of source.matchAll(NEWCOMMAND)) add(name, "project command", "keyword");
-    for (const [, name] of source.matchAll(NEWENVIRONMENT)) add(`\\begin{${name}}`, "project environment", "type");
+    for (const [, name] of source.matchAll(NEWCOMMAND)) add(name, i18n._(msg`project command`), "keyword");
+    for (const [, name] of source.matchAll(NEWENVIRONMENT)) add(`\\begin{${name}}`, i18n._(msg`project environment`), "type");
   }
   return [...macros.values()];
 }

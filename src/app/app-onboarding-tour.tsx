@@ -4,6 +4,7 @@
  * feature, so most of its props are the same navigation actions the command
  * surfaces use.
  */
+import { useLingui } from "@lingui/react/macro";
 import { lazy, Suspense, type Dispatch, type SetStateAction } from "react";
 import { markTutorialSeen } from "../settings/app-settings";
 import { TUTORIAL_STEPS } from "../onboarding/onboarding-steps";
@@ -57,6 +58,7 @@ function tutorialModeFor(path: string): CanvasMode {
 
 export function AppOnboardingTour(props: AppOnboardingTourProps) {
   const { canvasMode, openProjectFile, setCanvasMode, setTutorialStep } = props;
+  const { t } = useLingui();
   if (!props.tutorialActive) return null;
   const openAndAdvance = (path: string, nextStep: number) => openProjectFile(path).then(() => {
     setCanvasMode(tutorialModeFor(path));
@@ -102,7 +104,7 @@ export function AppOnboardingTour(props: AppOnboardingTourProps) {
           props.setSidebarOpen(true);
           void openProjectFile("main.tex").then(() => {
             setCanvasMode("split");
-            setNotice("Tutorial finished · keep poking around this project, or start one of your own.");
+            setNotice(t`Tutorial finished · keep poking around this project, or start one of your own.`);
           });
         }}
       />

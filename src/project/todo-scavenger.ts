@@ -5,6 +5,7 @@ export type TodoHit = {
   preview: string;
 };
 
+// eslint-disable-next-line lingui/no-unlocalized-strings -- markers matched in LaTeX comments, not interface copy
 const COMMENT_MARKERS = ["FIXME", "XXX", "TODO"];
 
 /** A marker in a `%` comment (first match in priority order), else a `\todo` command. */

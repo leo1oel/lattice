@@ -1,6 +1,8 @@
 import { act, cleanup, fireEvent, render, waitFor } from "@testing-library/react";
 import type { ComponentProps } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { activateAppLocale } from "../i18n";
+import { clearAppLogs, formatAppLogs } from "../telemetry/app-log-store";
 import { PdfPreview } from "./pdf-viewer";
 
 type Destination = { page: number; scrollTop: number; scrollLeft: number; scaleValue?: string };
@@ -13,6 +15,7 @@ const pdf = vi.hoisted(() => {
     numPages: 3,
     viewportScale: 1,
     deferLoad: false,
+    loadError: null as Error | null,
     deferReady: false,
     pendingLoad: null as null | { onProgress?: (progress: LoadProgress) => void; resolve: () => void },
     hosted: false,
@@ -131,6 +134,7 @@ const pdf = vi.hoisted(() => {
           state.pendingLoad = { onProgress: options?.onProgress, resolve };
         });
       }
+      if (state.loadError) throw state.loadError;
       this.document = {
         numPages: state.numPages,
         getData: async () => new Uint8Array([1, 2, 3]),
@@ -216,7 +220,7 @@ describe("PDFSlick viewer integration", () => {
 
   beforeEach(() => {
     Object.assign(pdf.state, {
-      instances: [], numPages: 3, viewportScale: 1, deferLoad: false, deferReady: false, pendingLoad: null, hosted: false,
+      instances: [], numPages: 3, viewportScale: 1, deferLoad: false, loadError: null, deferReady: false, pendingLoad: null, hosted: false,
     });
     localStorage.clear();
   });
@@ -322,6 +326,19 @@ describe("PDFSlick viewer integration", () => {
 
     fireEvent.scroll(viewport);
     expect(vertical).toHaveAttribute("data-scrolling");
+  });
+
+  it("explains a failed load in the interface language and keeps the PDF.js text as detail and in the app log", async () => {
+    clearAppLogs();
+    await activateAppLocale("zh-CN");
+    pdf.state.loadError = new Error("Invalid PDF structure.");
+    const view = renderPdf();
+
+    expect(await view.findByText("PDF 无法加载")).toBeInTheDocument();
+    expect(view.getByText("请尝试重新构建项目。")).toBeInTheDocument();
+    expect(view.container.querySelector(".pdf-placeholder-detail")).toHaveTextContent("Invalid PDF structure.");
+    expect(view.queryByText(/^Invalid PDF structure/, { selector: "p" })).toBeNull();
+    expect(formatAppLogs()).toContain("[PDF] PDF 无法加载\nInvalid PDF structure.");
   });
 
   it("shows real network progress and the first-page rendering stage", async () => {

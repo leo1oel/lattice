@@ -1,4 +1,6 @@
+import { msg } from "@lingui/core/macro";
 import { addAppLog } from "./app-log-store";
+import { translateOr } from "./early-i18n";
 
 let installed = false;
 // Recursion guard: if the logging path itself throws (or a wrapped console
@@ -11,6 +13,7 @@ function formatArg(value: unknown): string {
     const detail = !value.stack || value.stack.includes(value.message)
       ? value.stack ?? value.message
       : `${value.message}\n${value.stack}`;
+    // eslint-disable-next-line lingui/no-unlocalized-strings -- part of a stack trace, kept as the runtime prints it
     return value.cause === undefined ? detail : `${detail}\nCaused by: ${formatArg(value.cause)}`;
   }
   if (typeof value === "string") return value;
@@ -25,7 +28,8 @@ function report(level: "error" | "warning", title: string, detail: string) {
   if (handling) return;
   handling = true;
   try {
-    addAppLog({ level, source: "App", title, detail, toast: false });
+    // eslint-disable-next-line lingui/no-unlocalized-strings -- English until a catalog is active
+    addAppLog({ level, source: translateOr(msg`App`, "App"), title, detail, toast: false });
   } catch {
     // Logging must never throw back into the app.
   } finally {
@@ -54,10 +58,12 @@ export function installGlobalErrorCapture(): void {
       event.preventDefault();
       return;
     }
-    report("error", "Unexpected error", event.error ? formatArg(event.error) : event.message);
+    // eslint-disable-next-line lingui/no-unlocalized-strings -- English until a catalog is active
+    report("error", translateOr(msg`Unexpected error`, "Unexpected error"), event.error ? formatArg(event.error) : event.message);
   });
   window.addEventListener("unhandledrejection", (event) => {
-    report("error", "Unhandled promise rejection", formatArg(event.reason));
+    // eslint-disable-next-line lingui/no-unlocalized-strings -- English until a catalog is active
+    report("error", translateOr(msg`Unhandled promise rejection`, "Unhandled promise rejection"), formatArg(event.reason));
   });
 
   for (const [method, level] of [["error", "error"], ["warn", "warning"]] as const) {

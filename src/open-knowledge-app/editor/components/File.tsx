@@ -42,6 +42,7 @@
  * button when the row is NodeSelected).
  */
 
+import { useLingui } from '@lingui/react/macro';
 import { toDesktopAssetHref } from '@ok-core';
 import { FileUp } from 'lucide-react';
 
@@ -124,7 +125,8 @@ export function basenameFromUrl(src: string | undefined): string {
  * the `<a href>` substrate.
  */
 export function File(props: FileProps) {
-  const displayName = props.name?.trim() || basenameFromUrl(props.src) || 'Untitled file';
+  const { t } = useLingui();
+  const displayName = props.name?.trim() || basenameFromUrl(props.src) || t`Untitled file`;
   const sizeText = props.size?.trim() ? props.size : null;
   // Under Electron the renderer page origin has no asset middleware — rewrite
   // a server-absolute src onto `apiOrigin` (no-op in web/CLI builds).

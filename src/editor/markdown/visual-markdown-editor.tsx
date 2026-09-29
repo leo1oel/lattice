@@ -1,6 +1,7 @@
 import { memo, useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type JSX } from "react";
 import type { I18n } from "@lingui/core";
-import { useLingui } from "@lingui/react/macro";
+import { msg } from "@lingui/core/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { EditorContent, ReactNodeViewRenderer, useEditor, type Editor } from "@tiptap/react";
 import { Extension, posToDOMRect } from "@tiptap/core";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
@@ -33,6 +34,7 @@ import { ImageSrcFidelity } from "../../open-knowledge-core/extensions/image-src
 import type { TrackedChange } from "../../overleaf/use-overleaf-realtime";
 import { editorCommentAuthorDisplayName, resolveCommentAnchor, type EditorComment } from "../comments/editor-comment-data";
 import { notifyError } from "../../telemetry/app-notify";
+import { i18n as appI18n } from "../../i18n";
 import { addAppLog, dismissAppToastByDedupeKey } from "../../telemetry/app-log-store";
 import { InlineMessage } from "../../components/ui/inline-message";
 import { InfinityLoader } from "../../components/ui/activity-icons";
@@ -101,8 +103,6 @@ const EMPTY_MACROS: Record<string, string> = {};
 const EMPTY_EDITOR_COMMENTS: EditorComment[] = [];
 const VIRTUAL_BLOCK_MODEL_SOURCE_THRESHOLD = 20_000;
 const VIRTUAL_BLOCK_COUNT_THRESHOLD = 160;
-const VISUAL_EDITING_UNAVAILABLE_REASON =
-  "Visual editing is unavailable because this Markdown contains unsupported or lossy syntax. Use source mode to preserve it.";
 const SOURCE_LABELS = ["sourceLine", "sourceOffset", "sourceEndOffset"] as const;
 
 /** Prime the bounded visual parse cache without mounting an editor. */
@@ -132,6 +132,17 @@ function labelSourceBlock(element: HTMLElement, values?: readonly [string, strin
   SOURCE_LABELS.forEach((key, index) => {
     if (!values) delete element.dataset[key];
     else if (element.dataset[key] !== values[index]) element.dataset[key] = values[index];
+  });
+}
+
+function logSlowHandoff(activePath: string, handoffMs: number) {
+  addAppLog({
+    level: "info",
+    source: appI18n._(msg`Navigation performance`),
+    title: appI18n._(msg`Visual Markdown handoff`),
+    // eslint-disable-next-line lingui/no-unlocalized-strings -- diagnostic detail
+    detail: `${activePath}\nsetContentMs=${handoffMs.toFixed(1)}`,
+    toast: false,
   });
 }
 
@@ -352,6 +363,7 @@ function CompleteVisualMarkdownEditor(props: CompleteVisualMarkdownEditorProps):
     onConsumeInitialHandoff,
   } = props;
   const { i18n, t } = useLingui();
+  const unavailableReason = t`Visual editing is unavailable because this Markdown contains unsupported or lossy syntax. Use source mode to preserve it.`;
   const anonymousAuthor = t`Anonymous`;
   const headingItems = useMemo(() => documentHeadingItems(
     cachedVisualDocument(activePath, text).content,
@@ -573,7 +585,7 @@ function CompleteVisualMarkdownEditor(props: CompleteVisualMarkdownEditorProps):
     content: initialContent,
     editorProps: {
       attributes: (state) => ({
-        "aria-label": "Markdown document editor",
+        "aria-label": i18n._(msg`Markdown document editor`),
         "aria-multiline": "true",
         role: "textbox",
         // Only a real NodeSelection should suppress the browser's native
@@ -837,15 +849,7 @@ function CompleteVisualMarkdownEditor(props: CompleteVisualMarkdownEditorProps):
         } catch {
           // Older WebKit builds do not support PerformanceMeasureOptions.detail.
         }
-        if (handoffMs >= 50) {
-          addAppLog({
-            level: "info",
-            source: "Navigation performance",
-            title: "Visual Markdown handoff",
-            detail: `${activePath}\nsetContentMs=${handoffMs.toFixed(1)}`,
-            toast: false,
-          });
-        }
+        if (handoffMs >= 50) logSlowHandoff(activePath, handoffMs);
         // Fresh history so Undo cannot walk back into the previous file.
         editor.view.updateState(EditorState.create({ doc: editor.state.doc, plugins: editor.state.plugins }));
         // Eligibility still belongs to the outgoing document. Keep the new
@@ -889,7 +893,10 @@ function CompleteVisualMarkdownEditor(props: CompleteVisualMarkdownEditorProps):
   useEffect(() => {
     if (!editor || renderedPath !== activePath || activePathRef.current !== activePath) return;
     if (eligibility.current?.text === text) {
-      onEligibilityChange?.(eligibility.current.exact ? null : VISUAL_EDITING_UNAVAILABLE_REASON);
+      // Re-published on a locale change so the notice follows the language.
+      const reason = eligibility.current.exact ? null : unavailableReason;
+      setEligibilityReason(reason);
+      onEligibilityChange?.(reason);
       return;
     }
     // Eligibility is a property of the source parser's round trip, not of the
@@ -898,13 +905,13 @@ function CompleteVisualMarkdownEditor(props: CompleteVisualMarkdownEditorProps):
     // lossless paper appear incompatible only during the guided flow.
     const representedExactly = isRepresentedExactly(activePath, text, editor.state.schema);
     eligibility.current = { text, exact: representedExactly };
-    const reason = representedExactly ? null : VISUAL_EDITING_UNAVAILABLE_REASON;
+    const reason = representedExactly ? null : unavailableReason;
     setEligibilityReason(reason);
     onEligibilityChange?.(reason);
     const canEdit = representedExactly && editable;
     if (editor.isEditable !== canEdit) editor.setEditable(canEdit);
     editorReadyForChanges.current = true;
-  }, [activePath, editable, editor, onEligibilityChange, renderedPath, text]);
+  }, [activePath, editable, editor, onEligibilityChange, renderedPath, text, unavailableReason]);
 
   const editorViewMounted = useEditorViewMounted(editor);
 
@@ -1065,7 +1072,7 @@ function CompleteVisualMarkdownEditor(props: CompleteVisualMarkdownEditorProps):
     });
   }, [activePath, editor, flushPendingLocalUpdate, onCreateComment, t]);
 
-  if (!editor) return <div aria-label="Loading Markdown editor" />;
+  if (!editor) return <div aria-label={t`Loading Markdown editor`} />;
 
   const closeCommentComposer = () => {
     setCommentComposer(null);
@@ -1157,7 +1164,7 @@ function CompleteVisualMarkdownEditor(props: CompleteVisualMarkdownEditorProps):
       {!documentPending && eligibilityReason && !onEligibilityChange && (
         <InlineMessage level="warning" className="visual-markdown-eligibility">
           {eligibilityReason}
-          {onEditSource && <button type="button" onClick={onEditSource}>Edit Markdown source</button>}
+          {onEditSource && <button type="button" onClick={onEditSource}><Trans>Edit Markdown source</Trans></button>}
         </InlineMessage>
       )}
       {/* Upstream DOM shape (TiptapEditor.tsx): the .tiptap-editor grid

@@ -42,6 +42,14 @@ const markStyle = (defaults: Record<string, string | null>): Attributes => Objec
   }]),
 );
 
+/** How each Lattice node is recognized when HTML (a paste, a DOM re-read) is parsed back. */
+const rawBlockSelector = "pre[data-lattice-raw]";
+const rawInlineSelector = "span[data-lattice-raw-inline]";
+const softBreakSelector = "br[data-lattice-soft]";
+const inlineMathSelector = "span[data-lattice-math]";
+const mathBlockSelector = "div[data-lattice-math-block]";
+const sourceTextSelector = "span[data-lattice-source]";
+
 /** Style attribute names, dropped when two documents are compared for meaning. */
 export const STYLE_ATTRIBUTES = new Set([
   "setext", "bullet", "delimiter", "incrementListMarker", "spread", "fence", "indented", "markup", "marker", "autolink", "source",
@@ -61,6 +69,7 @@ export const ANCHOR_SOURCE = /^<a\s+id=(?:"([^"]+)"|'([^']+)')\s*><\/a>$/;
 const RawBlock = Node.create<{ labels: Partial<Record<RawBlockKind, string>> }>({
   name: "latticeRawBlock",
   group: "block",
+  // eslint-disable-next-line lingui/no-unlocalized-strings -- ProseMirror content expression
   content: "text*",
   marks: "",
   code: true,
@@ -68,7 +77,7 @@ const RawBlock = Node.create<{ labels: Partial<Record<RawBlockKind, string>> }>(
   addOptions: () => ({ labels: {} }),
   addAttributes: () => ({ kind: { default: "unsupported", rendered: false } }),
   // Above the code block's generic `pre` rule, so a copied raw block pastes back as one.
-  parseHTML: () => [{ tag: "pre[data-lattice-raw]", priority: 60, preserveWhitespace: "full", getAttrs: (element) => ({ kind: element.getAttribute("data-lattice-raw") }) }],
+  parseHTML: () => [{ tag: rawBlockSelector, priority: 60, preserveWhitespace: "full", getAttrs: (element) => ({ kind: element.getAttribute("data-lattice-raw") }) }],
   renderHTML({ node }) {
     const kind = node.attrs.kind as RawBlockKind;
     const anchor = kind === "anchor" ? node.textContent.match(ANCHOR_SOURCE) : null;
@@ -85,7 +94,7 @@ const RawInline = Node.create({
   atom: true,
   selectable: true,
   addAttributes: () => ({ source: { default: "", rendered: false } }),
-  parseHTML: () => [{ tag: "span[data-lattice-raw-inline]", getAttrs: (element) => ({ source: element.textContent ?? "" }) }],
+  parseHTML: () => [{ tag: rawInlineSelector, getAttrs: (element) => ({ source: element.textContent ?? "" }) }],
   renderHTML: ({ node }) => ["span", { class: "lx-md-raw-inline", "data-lattice-raw-inline": "", spellcheck: "false" }, String(node.attrs.source)],
   renderText: ({ node }) => String(node.attrs.source),
 });
@@ -99,7 +108,7 @@ const SoftBreak = Node.create({
   group: "inline",
   inline: true,
   selectable: false,
-  parseHTML: () => [{ tag: "br[data-lattice-soft]", priority: 60 }],
+  parseHTML: () => [{ tag: softBreakSelector, priority: 60 }],
   renderHTML: () => ["br", { "data-lattice-soft": "" }],
   renderText: () => "\n",
 });
@@ -112,7 +121,7 @@ export const InlineMath = Node.create({
   atom: true,
   selectable: true,
   addAttributes: () => ({ tex: { default: "", rendered: false }, ...style({ source: null }) }),
-  parseHTML: () => [{ tag: "span[data-lattice-math]", getAttrs: (element) => ({ tex: element.getAttribute("data-tex") ?? "" }) }],
+  parseHTML: () => [{ tag: inlineMathSelector, getAttrs: (element) => ({ tex: element.getAttribute("data-tex") ?? "" }) }],
   renderHTML: ({ node }) => ["span", { class: "lx-md-math", "data-lattice-math": "", "data-tex": node.attrs.tex }, String(node.attrs.tex)],
   renderText: ({ node }) => `$${String(node.attrs.tex)}$`,
 });
@@ -121,12 +130,13 @@ export const InlineMath = Node.create({
 export const MathBlock = Node.create({
   name: "latticeMathBlock",
   group: "block",
+  // eslint-disable-next-line lingui/no-unlocalized-strings -- ProseMirror content expression
   content: "text*",
   marks: "",
   code: true,
   defining: true,
   addAttributes: () => ({ meta: { default: null, rendered: false } }),
-  parseHTML: () => [{ tag: "div[data-lattice-math-block]", preserveWhitespace: "full" }],
+  parseHTML: () => [{ tag: mathBlockSelector, preserveWhitespace: "full" }],
   renderHTML: () => ["div", { class: "lx-md-math-block", "data-lattice-math-block": "" }, ["pre", { spellcheck: "false" }, ["code", 0]]],
 });
 
@@ -144,7 +154,7 @@ const SourceText = Mark.create({
     source: { default: "", parseHTML: (element) => element.getAttribute("data-source") ?? "", renderHTML: ({ source }) => ({ "data-source": source }) },
     value: { default: "", parseHTML: (element) => element.getAttribute("data-value") ?? "", renderHTML: ({ value }) => ({ "data-value": value }) },
   }),
-  parseHTML: () => [{ tag: "span[data-lattice-source]" }],
+  parseHTML: () => [{ tag: sourceTextSelector }],
   renderHTML: ({ HTMLAttributes }) => ["span", { ...HTMLAttributes, "data-lattice-source": "" }, 0],
 });
 

@@ -20,6 +20,7 @@ import { ConfirmActionProvider } from "./components/ui/confirm-action-dialog";
 import { installGlobalErrorCapture } from "./telemetry/global-error-capture";
 import { loadAppearance, resolveAppLocale } from "./settings/app-settings";
 import { activateAppLocale, i18n } from "./i18n";
+import { installNativeLocaleSync } from "./app/native-locale";
 
 async function startApp() {
   await browserRuntimeReady();
@@ -40,6 +41,7 @@ async function startApp() {
     root.render(<I18nProvider i18n={i18n}><PaperLookup owner={lookupOwner} /></I18nProvider>);
     return;
   }
+  installNativeLocaleSync();
   root.render(
     <MotionConfig reducedMotion="user">
       <I18nProvider i18n={i18n}>
@@ -60,7 +62,8 @@ async function startApp() {
 function showUnavailable(reason: unknown) {
   const root = document.getElementById("root");
   if (!root) return;
-  root.style.cssText = "min-height:100vh;display:grid;place-items:center;padding:var(--space-16);font:var(--font-ui-body) system-ui;color:CanvasText;background:Canvas";
+  const unavailableStyle = "min-height:100vh;display:grid;place-items:center;padding:var(--space-16);font:var(--font-ui-body) system-ui;color:CanvasText;background:Canvas";
+  root.style.cssText = unavailableStyle;
   root.textContent = reason instanceof Error ? reason.message : String(reason);
 }
 

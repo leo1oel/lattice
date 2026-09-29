@@ -139,10 +139,13 @@ import {
   parseYouTubeUrl,
   toDesktopAssetHref,
 } from '@ok-core';
+import { useLingui } from '@lingui/react/macro';
 import Vimeo from '@u-wave/react-vimeo';
 import { type CSSProperties, useEffect, useRef } from 'react';
 import LiteYouTubeEmbed from 'react-lite-youtube-embed';
 import 'react-lite-youtube-embed/dist/LiteYouTubeEmbed.css';
+import { i18n } from '@lingui/core';
+import { msg } from '@lingui/core/macro';
 
 interface VideoProps {
   src?: string;
@@ -238,8 +241,9 @@ interface VimeoPlayerWithElement {
 }
 
 function VimeoEmbed(props: VideoProps & { src: string }) {
+  const { t } = useLingui();
   const playerRef = useRef<VimeoPlayerWithElement | null>(null);
-  const fallbackTitle = 'Vimeo video player';
+  const fallbackTitle = t`Vimeo video player`;
   const effectiveTitle = props.title ?? fallbackTitle;
 
   // React Compiler is enabled (see CLAUDE.md / AGENTS.md) — no useCallback.
@@ -395,7 +399,7 @@ export function Video(props: VideoProps) {
       <div className="ok-video ok-video-youtube" style={buildVideoWrapperStyle(props)}>
         <LiteYouTubeEmbed
           id={yt.id}
-          title={props.title ?? 'YouTube video player'}
+          title={props.title ?? i18n._(msg`YouTube video player`)}
           // `cookie={true}` → youtube.com host; `cookie={false}` →
           // youtube-nocookie.com. Round-trips the input host so an
           // author who deliberately pasted nocookie keeps the privacy

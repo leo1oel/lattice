@@ -19,7 +19,7 @@ import {
   useSyncExternalStore,
   type ReactNode,
 } from "react";
-import { Trans } from "@ok-app/shims/lingui-react-macro";
+import { Trans } from "@lingui/react/macro";
 import { getSharedMarkdownManager } from "@ok-app/editor/utils/md-singleton";
 import { mdastToHtml } from "../../../open-knowledge-core/markdown/mdast-to-html";
 import type { MarkdownWorkspaceIndex } from "../../../editor/markdown/markdown-workspace-index";
@@ -129,15 +129,27 @@ export function Mirror(props: MirrorProps) {
   }
 
   if (!workspaceIndex) {
-    return <StatusFrame>Mirror workspace index is unavailable.</StatusFrame>;
+    return (
+      <StatusFrame>
+        <Trans>Mirror workspace index is unavailable.</Trans>
+      </StatusFrame>
+    );
   }
 
   if (resolved?.kind === "missing-source") {
-    return <StatusFrame>Mirror source <code>{src}</code> was not found.</StatusFrame>;
+    return (
+      <StatusFrame>
+        <Trans>Mirror source <code>{src}</code> was not found.</Trans>
+      </StatusFrame>
+    );
   }
 
   if (resolved?.kind === "missing-anchor") {
-    return <StatusFrame>Mirror source <code>{src}</code> has no <code>{anchor}</code> anchor.</StatusFrame>;
+    return (
+      <StatusFrame>
+        <Trans>Mirror source <code>{src}</code> has no <code>{anchor}</code> anchor.</Trans>
+      </StatusFrame>
+    );
   }
 
   return (

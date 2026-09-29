@@ -27,9 +27,6 @@ import { textFromDiffChunks, useOverleafHistory } from "./use-overleaf-history";
 import type { OverleafDiffChunk, OverleafFileEntry, OverleafFileOperation, OverleafUpdate } from "./use-overleaf-history";
 import "./overleaf-history.css";
 
-/** Notification source label for the Overleaf history drawer. */
-const OVERLEAF_HISTORY_SOURCE = "Overleaf history";
-
 /**
  * The clock time an entry was made, which is what tells two of them apart:
  * an afternoon's work is a dozen entries that would all read "3h ago", and the
@@ -37,6 +34,7 @@ const OVERLEAF_HISTORY_SOURCE = "Overleaf history";
  */
 function clockTime(ms: number): string {
   const when = new Date(ms);
+  // eslint-disable-next-line lingui/no-unlocalized-strings -- Intl.DateTimeFormat option values
   return Number.isFinite(when.getTime()) ? when.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "";
 }
 
@@ -61,6 +59,7 @@ export function OverleafHistoryPanel(props: {
   // come from someone typing in the browser doesn't read as if it did.
   const originNames: Record<string, string> = {
     upload: t`file upload`,
+    // eslint-disable-next-line lingui/no-unlocalized-strings -- product name
     dropbox: "Dropbox",
     "git-bridge": t`git bridge`,
     "file-restore": t`file restore`,
@@ -118,7 +117,7 @@ export function OverleafHistoryPanel(props: {
 
   /** Run a restore/label action and say what happened; on failure the hook surfaces the reason above the list. */
   const run = (onOk: string, action: () => Promise<void>) => action()
-    .then(() => notifySuccess(OVERLEAF_HISTORY_SOURCE, onOk))
+    .then(() => notifySuccess(t`Overleaf history`, onOk))
     .catch(() => undefined);
   const confirmThenRun = async (warning: string, onOk: string, action: () => Promise<void>) => {
     if (await confirmAction(warning)) void run(onOk, action);
@@ -145,12 +144,14 @@ export function OverleafHistoryPanel(props: {
 
   const renderFile = (update: OverleafUpdate, file: OverleafFileEntry) => {
     const deleted = file.operation === "removed" && file.deletedAtV != null;
+    const operation = fileOpLabel[file.operation ?? "edited"] ?? fileOpLabel.edited;
+    const pathname = file.pathname;
     return (
       <div className="overleaf-history-file-row" key={file.pathname}>
         <button
           type="button"
           className={`versions-file overleaf-history-file ${diff.key === file.pathname || diff.key === file.newPathname ? "active" : ""}`}
-          title={`${fileOpLabel[file.operation ?? "edited"] ?? fileOpLabel.edited}: ${file.pathname}`}
+          title={t`${operation}: ${pathname}`}
           onClick={() => openDiff(update, file.newPathname ?? file.pathname)}
         >
           <FileKindIcon kind={file.operation ?? "edited"} />

@@ -58,7 +58,7 @@ import {
 import { stex } from '@codemirror/legacy-modes/mode/stex';
 import { EditorState, type Extension } from '@codemirror/state';
 import { EditorView, keymap, lineNumbers } from '@codemirror/view';
-import { Trans, useLingui } from '@ok-app/shims/lingui-react-macro';
+import { Trans, useLingui } from '@lingui/react/macro';
 import { mermaid } from 'codemirror-lang-mermaid';
 import { type ReactNode, useCallback, useEffect, useRef, useState } from 'react';
 import { Button } from '@ok-app/components/ui/button';

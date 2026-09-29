@@ -18,7 +18,7 @@ const RB_BODY =
 
 export function RobotLive({ size = 16, className }: { size?: number; className?: string }) {
     const uid = useId().replace(/[^a-zA-Z0-9]/g, "");
-    const m = `rbMask${uid}`;
+    const m = `rb-mask-${uid}`;
     return (
         <svg width={size} height={size} viewBox="0 0 256 256" fill="currentColor" className={className}>
             <mask id={m} maskUnits="userSpaceOnUse" x="0" y="0" width="256" height="256">

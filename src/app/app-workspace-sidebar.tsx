@@ -198,12 +198,14 @@ function SidebarResizer({ sidebar }: { sidebar: AppWorkspaceSidebarProps["sideba
     sidebar.setSidebarOpen(false);
     document.querySelector<HTMLButtonElement>(".titlebar-sidebar-toggle button")?.focus();
   };
+  /* eslint-disable lingui/no-unlocalized-strings -- KeyboardEvent.key values */
   const keyActions = new Map<string, () => void>([
     ["Enter", collapse],
     [" ", collapse],
     ["ArrowLeft", () => sidebar.nudgeSidebar(-16)],
     ["ArrowRight", () => sidebar.nudgeSidebar(16)],
   ]);
+  /* eslint-enable lingui/no-unlocalized-strings */
   return (
     <TooltipProvider delayDuration={280}>
     <Tooltip open={tooltipOpen && !sidebar.sidebarResizing && open} onOpenChange={setTooltipOpen}>

@@ -5021,8 +5021,8 @@ describe("project workspace", () => {
         "LaTeX Error: File `newtxmath.sty' not found.\n",
       ),
     });
-    const diagnostics = await screen.findByLabelText("Compile diagnostics");
-    fireEvent.click(within(diagnostics).getByRole("button", { name: "Install" }));
+    const diagnostics = await screen.findByLabelText("编译诊断");
+    fireEvent.click(within(diagnostics).getByRole("button", { name: "安装" }));
     await expectInvoked("start_tex_dependency_install",
       expect.objectContaining({ missingFile: "newtxmath.sty", onProgress: expect.anything() }));
     expect(screen.getByRole("dialog", { name: "安装缺失的软件包" })).toBeInTheDocument();

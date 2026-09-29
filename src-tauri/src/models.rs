@@ -1,4 +1,10 @@
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
+
+/// The parameters of a message `code`, by name. A code names text Lattice
+/// itself wrote, so the interface can show it in its own language; the
+/// English text beside it stays for logs, copied reports and the agent.
+pub type MessageParams = BTreeMap<&'static str, String>;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -113,6 +119,10 @@ pub struct DoctorCheck {
     pub name: String,
     pub detail: String,
     pub ok: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub code: Option<&'static str>,
+    #[serde(skip_serializing_if = "BTreeMap::is_empty")]
+    pub params: MessageParams,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -165,6 +175,10 @@ pub struct Diagnostic {
     pub end_column: Option<u32>,
     pub level: String,
     pub message: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub code: Option<&'static str>,
+    #[serde(skip_serializing_if = "BTreeMap::is_empty")]
+    pub params: MessageParams,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -8,6 +8,7 @@ import type { PaperSummary } from "../app-types";
 export function paperReadingPath(
   paper: Pick<PaperSummary, "arxivId" | "hasFullText">,
 ): string {
+  // eslint-disable-next-line lingui/no-unlocalized-strings -- project-relative file path
   return `.research/papers/${paper.arxivId}/${paper.hasFullText ? "paper" : "blog"}.md`;
 }
 

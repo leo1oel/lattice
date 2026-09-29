@@ -38,7 +38,7 @@
  * container below.
  */
 
-import { Trans, useLingui } from '@ok-app/shims/lingui-react-macro';
+import { Trans, useLingui } from '@lingui/react/macro';
 import type { default as PanZoomNS, PanzoomObject } from '@panzoom/panzoom';
 import type { MermaidWysiwygEditor } from '@visimer/core';
 import type { MermaidCanvasView } from '@visimer/dom';

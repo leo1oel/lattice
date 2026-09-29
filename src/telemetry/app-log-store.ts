@@ -1,6 +1,8 @@
 import { useSyncExternalStore } from "react";
+import { msg } from "@lingui/core/macro";
 import { version } from "../../package.json";
 import { AppLogFileQueue, type LogLosses } from "./app-log-file-queue";
+import { translateOr } from "./early-i18n";
 
 export type AppLogContext = {
   operation_id: string;
@@ -69,11 +71,13 @@ const dedupeKeyByEntryId = new Map<string, string>();
 // document output is safe to share. Preserve local paths/compiler diagnostics;
 // remove common credential forms before persistence, forwarding, and export.
 function redactLogText(value: string): string {
+  /* eslint-disable lingui/no-unlocalized-strings -- redaction marker, part of the log format */
   return value
     .replace(/\b(Bearer\s+)\S+/gi, "$1[redacted]")
     .replace(/((?:["']?)(?:authorization|cookie|set-cookie)["']?\s*[:=]\s*)[^\r\n]+/gi, "$1[redacted]")
     .replace(/((?:["']?)(?:api[_-]?key|access[_-]?token|refresh[_-]?token|token|ticket|password|secret)["']?\s*[:=]\s*["']?)[^\s&"',;}]+/gi, "$1[redacted]")
     .replace(/(\/binary\/(?:uploads|downloads)\/)[^\s/?#"']+/gi, "$1[redacted]");
+  /* eslint-enable lingui/no-unlocalized-strings */
 }
 
 function sanitizeContext(context?: AppLogContext): AppLogContext | undefined {
@@ -160,13 +164,18 @@ function flushPersistence() {
     persistWarningIssued = true;
     // Defer so this entry is added after the current mutation finishes; its
     // own persist() failure is suppressed by the flag above.
+    /* eslint-disable lingui/no-unlocalized-strings -- English until a catalog is active */
     queueMicrotask(() => addAppLog({
       level: "warning",
-      source: "App",
-      title: "Log history can't be saved",
-      detail: "Browser storage is full or unavailable. New entries still reach the log file on disk, but this list may be lost on restart.",
+      source: translateOr(msg`App`, "App"),
+      title: translateOr(msg`Log history can't be saved`, "Log history can't be saved"),
+      detail: translateOr(
+        msg`Browser storage is full or unavailable. New entries still reach the log file on disk, but this list may be lost on restart.`,
+        "Browser storage is full or unavailable. New entries still reach the log file on disk, but this list may be lost on restart.",
+      ),
       toast: false,
     }));
+    /* eslint-enable lingui/no-unlocalized-strings */
   }
 }
 

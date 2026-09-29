@@ -3,8 +3,8 @@ import {
   findFootnoteDefinitionInsertPos,
   nextFootnoteIdentifier,
 } from '@ok-core';
-import { t } from '@ok-app/shims/lingui-core-macro';
-import { Trans } from '@ok-app/shims/lingui-react-macro';
+import { t } from '@lingui/core/macro';
+import { Trans } from '@lingui/react/macro';
 import type { EditorState } from '@tiptap/pm/state';
 import type { ChainedCommands, Editor } from '@tiptap/react';
 import {
@@ -376,11 +376,11 @@ export function getSlashCommandItems(): SlashCommandItem[] {
             <tbody>
               <tr>
                 <td className="border border-border px-2 py-1">Ada</td>
-                <td className="border border-border px-2 py-1">Engineer</td>
+                <td className="border border-border px-2 py-1"><Trans>Engineer</Trans></td>
               </tr>
               <tr>
                 <td className="border border-border px-2 py-1">Grace</td>
-                <td className="border border-border px-2 py-1">Admiral</td>
+                <td className="border border-border px-2 py-1"><Trans>Admiral</Trans></td>
               </tr>
             </tbody>
           </table>

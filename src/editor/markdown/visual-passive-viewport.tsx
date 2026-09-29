@@ -4,6 +4,7 @@
  * instance, and only chunks near the scroll viewport stay mounted. The first
  * editing or native-selection gesture hands off once to the complete editor.
  */
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { EditorContent, NodeViewWrapper, ReactNodeViewRenderer, useEditor, type NodeViewProps } from "@tiptap/react";
 import Zoom from "react-medium-image-zoom";
@@ -211,6 +212,7 @@ export function PassiveVisualMarkdownViewport({
   onOpenProjectPath?: (path: string) => void;
   workspaceIndex?: MarkdownWorkspaceIndex | null;
 }) {
+  const { t } = useLingui();
   const chunks = useMemo(() => passiveVisualChunks(model), [model]);
   const headingItems = useMemo(() => documentHeadingItems({
     type: "doc",
@@ -298,7 +300,7 @@ export function PassiveVisualMarkdownViewport({
       className={`visual-markdown-editor visual-markdown-virtual-viewport${optimizeForReading ? " optimize-for-reading" : ""}`}
       data-active-path={activePath}
       data-virtualized="true"
-      aria-label="Visual Markdown editor"
+      aria-label={t`Visual Markdown editor`}
       role="document"
       tabIndex={0}
       onFocusCapture={(event) => {
@@ -324,7 +326,7 @@ export function PassiveVisualMarkdownViewport({
       }}
     >
       <DocumentHeadingRail items={headingItems} virtualized onSelect={(item) => activateAt(`#${encodeURIComponent(item.id)}`)} />
-      <button type="button" className="visual-markdown-virtual-edit" onClick={() => activateAt()}>Edit document</button>
+      <button type="button" className="visual-markdown-virtual-edit" onClick={() => activateAt()}><Trans>Edit document</Trans></button>
       <EditorHostProviders activePath={activePath} onLoadAsset={onLoadAsset} assetRevision={assetRevision} workspaceIndex={workspaceIndex}>
         <div aria-hidden="true" style={{ height: `${sum(heights.slice(0, mountedRange.from))}px` }} />
         {chunks.slice(mountedRange.from, mountedRange.to).map((chunk, offset) => (

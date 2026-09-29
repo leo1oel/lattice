@@ -37,9 +37,10 @@ export function citationHealthTitle(health: CitationHealth | undefined): string 
   const updateType = health.updateType?.replaceAll("_", " ");
   const warning = citationHealthLabel(health);
   if (warning) {
-    return [warning, updateType && `${i18n._(msg`Crossref type`)}: ${updateType}`].filter(Boolean).join(". ");
+    return updateType ? i18n._(msg`${warning}. Crossref type: ${updateType}`) : warning;
   }
   if (health.kind === "unavailable") return i18n._(msg`Crossref citation-health metadata is currently unavailable`);
-  if (updateType) return `${i18n._(msg`Crossref reports update type`)}: ${updateType}`;
-  return `${i18n._(msg`No Crossref update metadata found`)} (${i18n._(msg`checked`)} ${health.checkedAt.slice(0, 10)})`;
+  if (updateType) return i18n._(msg`Crossref reports update type: ${updateType}`);
+  const checkedDate = health.checkedAt.slice(0, 10);
+  return i18n._(msg`No Crossref update metadata found (checked ${checkedDate})`);
 }

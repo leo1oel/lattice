@@ -32,7 +32,8 @@ import {
 // the only thing breaking the stack's rhythm, and severity already reads from
 // the status colour. Warning and error share the glyph on purpose.
 const LOG_ICON = { info: Info, success: CheckCircle2, warning: CircleAlert, error: CircleAlert };
-const LOG_LEVEL = { info: "INFO", success: "OK", warning: "WARN", error: "ERROR" };
+/** The terse level column; the full name is its tooltip. */
+const LOG_LEVEL = { info: msg`INFO`, success: msg`OK`, warning: msg`WARN`, error: msg`ERROR` };
 const LOG_LEVELS = ["info", "success", "warning", "error"] as const;
 /** Readable names for entry levels and for operation phases and outcomes. */
 const STATUS_LABELS = {
@@ -60,11 +61,12 @@ function visibleToastDetail(detail: string): string {
 
 /** The one-line head shared by a single entry and a whole operation. */
 function LogSummary(props: { entry: AppLogEntry; statusTitle: string; className: string; title: string; fields: string }) {
+  const { t } = useLingui();
   const { timestamp } = props.entry;
   return (
     <>
       <time dateTime={timestamp} title={new Date(timestamp).toLocaleString()}><span className="app-log-date">{timestamp.slice(0, 11)}</span>{timestamp.slice(11)}</time>
-      <span className="app-log-severity" title={props.statusTitle}>{LOG_LEVEL[props.entry.level]}</span>
+      <span className="app-log-severity" title={props.statusTitle}>{t(LOG_LEVEL[props.entry.level])}</span>
       <span className={props.className}>{props.title}<span className="app-log-inline-fields">{props.fields}</span></span>
       <ChevronRight className="app-log-chevron" size={13} aria-hidden="true" />
     </>
@@ -83,6 +85,7 @@ function LogEntryRow({ entry, onOperationFilter, onExport }: { entry: AppLogEntr
   return (
     <details className={`app-log-entry ${entry.level}`} data-log-entry="">
       <summary className="app-log-entry-summary" tabIndex={0}>
+        {/* eslint-disable-next-line lingui/no-unlocalized-strings -- structured log field name */}
         <LogSummary entry={entry} statusTitle={level} className="app-log-entry-title" title={summary} fields={` source=${entry.source}`} />
       </summary>
       <div className="app-log-entry-content">
@@ -376,6 +379,7 @@ export function AppLogsSettings() {
                       statusTitle={statusLabel(group.summary.context?.outcome ?? group.summary.context?.phase ?? "progress", t`Incomplete history`)}
                       className="app-log-operation-title"
                       title={group.summary.title}
+                      // eslint-disable-next-line lingui/no-unlocalized-strings -- structured log field names
                       fields={`${group.summary.context?.duration_ms !== undefined ? ` duration_ms=${group.summary.context.duration_ms}` : ""} operation_id=${group.operationId}`}
                     />
                   </summary>

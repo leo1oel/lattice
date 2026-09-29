@@ -1,3 +1,6 @@
+import { msg } from "@lingui/core/macro";
+import { i18n } from "../../i18n";
+
 export async function fileToBase64(file: File | Blob): Promise<string> {
   const buffer = await file.arrayBuffer();
   const bytes = new Uint8Array(buffer);
@@ -25,12 +28,13 @@ export async function rgbaImageToPngBase64(
   const canvas = document.createElement("canvas");
   canvas.width = width;
   canvas.height = height;
+  // eslint-disable-next-line lingui/no-unlocalized-strings -- canvas context id
   const context = canvas.getContext("2d");
-  if (!context) throw new Error("Could not encode the clipboard image.");
+  if (!context) throw new Error(i18n._(msg`Could not encode the clipboard image.`));
   const imageData = new ImageData(new Uint8ClampedArray(bytes), width, height);
   context.putImageData(imageData, 0, 0);
   const blob = await new Promise<Blob>((resolve, reject) => {
-    canvas.toBlob((value) => (value ? resolve(value) : reject(new Error("Could not encode PNG."))), "image/png");
+    canvas.toBlob((value) => (value ? resolve(value) : reject(new Error(i18n._(msg`Could not encode PNG.`)))), "image/png");
   });
   return fileToBase64(blob);
 }

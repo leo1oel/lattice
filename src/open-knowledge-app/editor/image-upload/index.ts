@@ -8,6 +8,8 @@
  * directory and insert a relative path instead.
  */
 import type { Editor } from "@tiptap/core";
+import { toast } from "../../shims/sonner";
+import { uploadFailureMessage } from "./upload-failure";
 
 function readAsDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -19,7 +21,16 @@ function readAsDataUrl(file: File): Promise<string> {
 }
 
 export async function uploadAndInsert(file: File, editor: Editor, insertPos: number): Promise<void> {
-  const src = await readAsDataUrl(file);
+  let src: string;
+  try {
+    src = await readAsDataUrl(file);
+  } catch (error) {
+    // Callers fire and forget (the slash menu's file picker), so this toast is
+    // the only place a failed read can reach the user.
+    console.warn("[image-upload] could not read the picked file", error);
+    toast.error(uploadFailureMessage("file-unreadable", file.name));
+    return;
+  }
   editor
     .chain()
     .insertContentAt(insertPos, {

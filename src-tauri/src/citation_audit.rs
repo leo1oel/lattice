@@ -64,6 +64,10 @@ pub struct AuditIssue {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub key: Option<String>,
     pub message: String,
+    /// `message` as a code the interface translates (src/papers/audit-messages.ts).
+    pub code: &'static str,
+    #[serde(skip_serializing_if = "crate::models::MessageParams::is_empty")]
+    pub params: crate::models::MessageParams,
 }
 
 #[derive(Debug, Serialize)]

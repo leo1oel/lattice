@@ -1,0 +1,2 @@
+/* Shown by macOS when Lattice first asks for the microphone. */
+"NSMicrophoneUsageDescription" = "Lattice 会在你于智能助手面板中录制语音备注时使用麦克风。";

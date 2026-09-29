@@ -30,11 +30,13 @@ const EXPORT_MENU_ID = "lattice.spreadsheet.export-xlsx";
 const FORMULA_SURFACE_LIGHT = "#FAFAFA";
 const CHROME_SURFACE_LIGHT = "#F4F4F5";
 const CHROME_SURFACE_DARK = "#18181A";
+// eslint-disable-next-line lingui/no-unlocalized-strings -- spreadsheet function names are formula syntax
 const COMMON_FORMULAS = ["SUMIF", "SUM", "AVERAGE", "IF", "COUNT", "MAX", "MIN"] as const;
 const HIDDEN_MENU_ITEMS = [
   // Univer's protection rules are not part of Lattice's Yjs workbook schema
   // yet. Hiding every entry point prevents a local-only rule from looking like
   // a reliable permission boundary to the Agent.
+  // eslint-disable-next-line lingui/no-unlocalized-strings -- Univer menu ID
   "sheet.contextMenu.permission",
   ...["add-range-protection-from-toolbar", "add-range-protection-from-context-menu", "set-range-protection-from-context-menu",
     "delete-range-protection-from-context-menu", "view-sheet-permission-from-context-menu", "add-range-protection-from-sheet-bar",
@@ -107,6 +109,7 @@ class LatticeSpreadsheetConfirmService implements IConfirmService<IConfirmPartMe
     const description = confirmLabelText(params.children);
     const cancelLabel = confirmLabelText(params.cancelText) ?? t(SPREADSHEET_MESSAGES.cancel);
     if (params.id === "sheet.confirm.remove-sheet") {
+      // eslint-disable-next-line lingui/no-unlocalized-strings -- matches Univer's own locale copy to detect a permanent removal
       const permanent = description?.includes(this.locale === "zh-CN" ? "删除后将不可找回" : "not be retrieved after deletion");
       return confirmAction({
         title: t(SPREADSHEET_MESSAGES.deleteWorksheetTitle),
@@ -234,8 +237,10 @@ function applyHeaderAppearance(renderManager: IRenderManagerService, unitId: str
   const render = renderManager.getRenderById(unitId);
   if (!render) return false;
   const surface = appearance.dark ? CHROME_SURFACE_DARK : CHROME_SURFACE_LIGHT;
+  // eslint-disable-next-line lingui/no-unlocalized-strings -- Univer render component keys
   const headers = ["__SpreadsheetRowHeader__", "__SpreadsheetColumnHeader__"]
     .map((key) => render.components.get(key) as unknown as CanvasHeader | undefined);
+  // eslint-disable-next-line lingui/no-unlocalized-strings -- Univer render component key
   const corner = render.components.get("__SpreadsheetLeftTopPlaceholder__") as unknown as CanvasCorner | undefined;
   if (!corner?.setProps || !headers.every((header) => header?.setCustomHeader)) return false;
   for (const header of headers) {
@@ -272,6 +277,7 @@ function applyFormulaBarAppearance(renderManager: IRenderManagerService, appeara
   canvas.style.backgroundColor = background;
   const { r, g, b } = new ColorKit(background).toRgb();
   const [red, green, blue] = appearance.dark ? invertColorByMatrix([r, g, b]) : [r, g, b];
+  // eslint-disable-next-line lingui/no-unlocalized-strings -- Univer render component key
   const docBackground = render.components.get("__Document_Render_Background__");
   if (docBackground && "setFillColors" in docBackground && typeof docBackground.setFillColors === "function") {
     // Univer's dark canvas color service inverts literal paint colors. Feed it
@@ -333,6 +339,7 @@ export function createSpreadsheetUniver(
           commandId: "formula-ui.operation.insert-function",
           title: translate(SPREADSHEET_MESSAGES.formulasMenu),
           tooltip: translate(SPREADSHEET_MESSAGES.formulasTooltip),
+          // eslint-disable-next-line lingui/no-unlocalized-strings -- Univer icon name
           icon: "FunctionIcon",
           type: MenuItemType.SELECTOR,
           selections: COMMON_FORMULAS.map((formula) => ({ label: { name: formula, selectable: false }, value: formula })),
@@ -350,6 +357,7 @@ export function createSpreadsheetUniver(
     id: EXPORT_MENU_ID,
     title: exportLabel,
     tooltip: exportLabel,
+    // eslint-disable-next-line lingui/no-unlocalized-strings -- Univer icon name
     icon: "ExportIcon",
     action: onExportExcel,
     order: Number.MAX_SAFE_INTEGER,

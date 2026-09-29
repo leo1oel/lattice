@@ -96,6 +96,7 @@ export function canonicalizeSupportedMarkdown(markdown: string): string {
         rows.push(row);
         next += 1;
       }
+      // eslint-disable-next-line lingui/no-unlocalized-strings -- internal placeholder token, never displayed
       result.push(`@@GFM_TABLE:${JSON.stringify({ header, alignments, rows })}@@`);
       index = next - 1;
     } else {

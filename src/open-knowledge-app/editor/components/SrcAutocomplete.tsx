@@ -32,7 +32,7 @@
  */
 
 import { PageSearchIndex } from '../../../project/workspace-search';
-import { useLingui } from '@ok-app/shims/lingui-react-macro';
+import { useLingui } from '@lingui/react/macro';
 import type { ReactNode } from 'react';
 import { useEffect, useId, useRef, useState } from 'react';
 import { useOptionalPageList } from '@ok-app/components/PageListContext';

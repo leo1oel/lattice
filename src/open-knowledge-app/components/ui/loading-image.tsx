@@ -1,4 +1,4 @@
-import { useLingui } from '@ok-app/shims/lingui-react-macro';
+import { useLingui } from '@lingui/react/macro';
 import { ImageOff } from 'lucide-react';
 import type { CSSProperties, ImgHTMLAttributes, Ref } from 'react';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';

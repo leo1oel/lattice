@@ -33,7 +33,7 @@
  * typically the same shape used for the codeblock preview `h=` token).
  */
 
-import { useLingui } from '@ok-app/shims/lingui-react-macro';
+import { useLingui } from '@lingui/react/macro';
 import { useRef } from 'react';
 import { cn } from '@ok-app/lib/utils';
 

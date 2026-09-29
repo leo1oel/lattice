@@ -1,72 +1,80 @@
-import { createHash } from "node:crypto";
-import { readFile } from "node:fs/promises";
+import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { ESLint } from "eslint";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const baselinePath = path.join(root, "scripts/i18n-unlocalized-baseline.txt");
+const allowlistPath = path.join(root, "scripts/i18n-unlocalized-baseline.txt");
+const catalogPath = path.join(root, "src/locales/zh-CN/messages.po");
 const ruleId = "lingui/no-unlocalized-strings";
+const failures = [];
 
-function sourceOffset(source, line, column) {
-  let offset = 0;
-  for (let currentLine = 1; currentLine < line; currentLine += 1) {
-    offset = source.indexOf("\n", offset) + 1;
+// 1. Strings that bypass Lingui are caught by ESLint (`pnpm lint`), which runs
+// `lingui/no-unlocalized-strings` as an error over all shipping code. Guard the
+// guard: a config edit that narrows the rule's `files` or downgrades it would
+// silently let English back into the zh-CN interface.
+const eslint = new ESLint({ cwd: root });
+const shippingFiles = (await readdir(path.join(root, "src"), { recursive: true }))
+  .map((file) => path.posix.join("src", file.split(path.sep).join("/")))
+  .filter((file) => /\.tsx?$/.test(file)
+    && !/\.test\.tsx?$/.test(file)
+    && file !== "src/platform/test-setup.ts"
+    && !file.startsWith("src/locales/")
+    && !file.startsWith("src/open-knowledge-app/")
+    && !file.startsWith("src/open-knowledge-core/"));
+for (const file of shippingFiles) {
+  const config = await eslint.calculateConfigForFile(path.join(root, file));
+  const severity = [config?.rules?.[ruleId]].flat()[0];
+  if (severity !== 2 && severity !== "error") {
+    failures.push(`${file}: ${ruleId} is not enforced as an error`);
   }
-  return offset + column - 1;
 }
 
-function diagnosticFingerprint(result, message) {
-  const source = result.source ?? "";
-  const start = sourceOffset(source, message.line, message.column);
-  const end = message.endLine && message.endColumn
-    ? sourceOffset(source, message.endLine, message.endColumn)
-    : start;
-  const relativePath = path.relative(root, result.filePath);
-  return `${relativePath}\0${source.slice(start, end)}`;
+// 2. Strings that reach the catalog but were never really translated: a zh-CN
+// entry must contain Chinese unless its source text is genuinely the same in
+// every language (a product or format name). Those are listed, one source
+// string per line, in the allowlist; an entry that no longer exists fails too,
+// so the list only ever shrinks to what is still needed.
+function parsePo(text) {
+  const entries = [];
+  let entry = null;
+  let field = null;
+  for (const line of text.split("\n")) {
+    const start = line.match(/^(msgid|msgstr) (".*")$/);
+    if (start) {
+      if (start[1] === "msgid") entries.push(entry = { msgid: "", msgstr: "" });
+      field = start[1];
+      entry[field] = JSON.parse(start[2]);
+    } else if (entry && field && line.startsWith("\"")) {
+      entry[field] += JSON.parse(line);
+    } else {
+      field = null;
+    }
+  }
+  return entries.filter((item) => item.msgid);
 }
 
-// Scoped to shipping code. Development-only pages under `tools/` (the
-// animated-icon playground) are never a build input and their labels are never
-// translated, so holding them to this inventory would only add noise. Note the
-// fingerprint below includes the file path: moving a file that has findings
-// changes the digest even when no string changed.
-const eslint = new ESLint({
-  cwd: root,
-  overrideConfig: [{
-    files: ["src/**/*.{ts,tsx}"],
-    ignores: ["src/**/*.test.{ts,tsx}", "src/platform/test-setup.ts"],
-    rules: {
-      [ruleId]: ["warn", {
-        ignore: [
-          "^[^\\p{L}]+$",
-          "^(?:Vim|Emacs|MCP|Overleaf|BasicTeX|pdfLaTeX|XeLaTeX|LuaLaTeX)$",
-          "^[a-z][a-z0-9:+./_-]*$",
-          // PDF.js annotation lookup syntax, not text displayed to readers.
-          "^\\.annotationLayer \\[data-internal-link\\] a$",
-          // The loopback and Agent host bridges run before a saved locale is
-          // available (or in a hidden host), so these are bootstrap diagnostics
-          // and protocol constants rather than localized app UI.
-          "^(?:The local Lattice app disconnected\\.|Could not connect to the local Lattice app\\.|The local Lattice app did not finish the browser handoff\\.|This workspace is open in your browser\\. It will return here when that browser tab closes\\.|This Lattice workspace is open in another browser tab\\.|This workspace is now open in the Lattice desktop app\\. If this tab did not close automatically, you can close it\\.|与本地 Lattice 应用的连接已断开。|本地 Lattice 应用未能完成浏览器切换。|此工作区已在浏览器中打开。关闭浏览器标签页后，它会自动返回这里。|此 Lattice 工作区已在另一个浏览器标签页中打开。|此工作区现已在 Lattice 桌面应用中打开。如果此标签页没有自动关闭，你可以手动关闭它。|The local Lattice entry returned .*|Open this page from the installed Lattice app to use its local tools\\.|Open a Lattice project before creating a document\\.|This shared project is read-only, so it cannot create documents\\.|The canvas did not open before the request expired:.*|The spreadsheet did not open before the request expired:.*|\\[Lattice browser host\\].*|__CHANNEL__:|plugin:event\\|unlisten|min-height:100vh;.*|position:fixed;inset:0;z-index:2147483647;.*)$",
-        ],
-      }],
-    },
-  }],
-});
-const results = await eslint.lintFiles(["src/**/*.{ts,tsx}"]);
-const fingerprints = results.flatMap((result) => result.messages
-  .filter((message) => message.ruleId === ruleId)
-  .map((message) => diagnosticFingerprint(result, message)));
-fingerprints.sort();
-const digest = createHash("sha256").update(fingerprints.join("\n")).digest("hex");
-const expected = (await readFile(baselinePath, "utf8")).trim();
+const allowed = new Set((await readFile(allowlistPath, "utf8"))
+  .split("\n")
+  .filter((line) => line.trim() && !line.startsWith("#")));
+const entries = parsePo(await readFile(catalogPath, "utf8"));
+const chinese = /[㐀-鿿]/;
+for (const { msgid, msgstr } of entries) {
+  // Placeholders and markup alone (`{count}`, `<0/>`) need no translation.
+  if (allowed.has(msgid) || !/[A-Za-z]/.test(msgid.replace(/\{[^}]*\}|<\/?\d+\/?>/g, ""))) continue;
+  if (!chinese.test(msgstr)) failures.push(`zh-CN has no Chinese translation for ${JSON.stringify(msgid)}`);
+}
+const catalogIds = new Set(entries.map((item) => item.msgid));
+for (const msgid of allowed) {
+  if (!catalogIds.has(msgid)) failures.push(`Allowlisted message is no longer in the catalog: ${JSON.stringify(msgid)}`);
+}
 
-if (digest !== expected) {
-  console.error("Unlocalized string inventory changed.");
-  console.error("Wrap new user-facing text in a Lingui macro and translate it in every catalog.");
-  console.error("If this change intentionally migrates existing text, review the ESLint findings and update:");
-  console.error(`  ${path.relative(root, baselinePath)} -> ${digest}`);
+if (failures.length) {
+  for (const failure of failures) console.error(failure);
+  console.error(`\n${failures.length} i18n coverage problem(s).`);
+  console.error("Wrap user-facing text in a Lingui macro and translate it in src/locales/zh-CN/messages.po.");
+  console.error(`Only text that reads the same in every language belongs in ${path.relative(root, allowlistPath)}.`);
   process.exitCode = 1;
 } else {
-  console.log(`i18n coverage guard: ${fingerprints.length} legacy findings unchanged`);
+  console.log(`i18n coverage guard: ${shippingFiles.length} files enforce ${ruleId}; ${entries.length} zh-CN messages translated (${allowed.size} allowlisted)`);
 }

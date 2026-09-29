@@ -37,6 +37,7 @@ export const listboxProps = ({ idBase, selectedIndex }: Pick<SuggestionMenuProps
   id: idBase,
   role: "listbox",
   "aria-label": label,
+  // eslint-disable-next-line lingui/no-unlocalized-strings -- element id reference
   "aria-activedescendant": `${idBase}-option-${selectedIndex}`,
   tabIndex: -1,
   style: { maxHeight: "var(--visual-menu-height, 40vh)" },

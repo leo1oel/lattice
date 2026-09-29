@@ -1,3 +1,4 @@
+import { useLingui } from "@lingui/react/macro";
 import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import type { ProjectSnapshot } from "../app-types";
@@ -32,6 +33,7 @@ export function useEditorComments({
   openSources: () => Map<string, string>;
   agentOptionsRef: { current: (() => BuildAgentCommentsOptions | null) | null };
 }) {
+  const { t } = useLingui();
   const [comments, setComments] = useState<EditorComment[]>([]);
   /** Read when the agent asks, where the state captured at render time may already be stale. */
   const commentsRef = useLatest(comments);
@@ -77,6 +79,7 @@ export function useEditorComments({
       void overleafCommentsRef.current.reply(threadId, body).catch((reason) => setError(toMessage(reason)));
       return;
     }
+    // eslint-disable-next-line lingui/no-unlocalized-strings -- stored sentinel; editorCommentAuthorDisplayName translates it
     const created = createEditorCommentReply({ body, authorId: author.id, authorName: author.name.trim() || "Anonymous" });
     if (created) update(commentId, (item) => ({ replies: [...item.replies, created] }));
   }, [author.id, author.name, overleafCommentsRef, update]);
@@ -90,13 +93,13 @@ export function useEditorComments({
       return;
     }
     if (!overleafRealtime.liveFile || overleafRealtime.docId !== docId) {
-      setError("This file is not live with Overleaf right now. Reconnect before commenting.");
+      setError(t`This file is not live with Overleaf right now. Reconnect before commenting.`);
       return;
     }
     void overleafComments
       .create({ projectRoot: project.root, docId, path: comment.path }, comment.from, comment.quote, comment.body)
       .catch((reason) => setError(toMessage(reason)));
-  }, [comments, overleafComments, overleafDocPaths, overleafLink, overleafRealtime.docId, overleafRealtime.liveFile, persist, project]);
+  }, [comments, overleafComments, overleafDocPaths, overleafLink, overleafRealtime.docId, overleafRealtime.liveFile, persist, project, t]);
 
   const openPanel = useCallback(() => {
     setPanelFocus(null);

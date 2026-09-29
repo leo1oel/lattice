@@ -36,13 +36,11 @@ pub fn run(root: Option<&Path>) -> DoctorReport {
     let mut checks: Vec<DoctorCheck> =
         RUNNABLE_TOOLS.iter().map(|(name, arg, detail)| runnable_tool(name, arg, detail)).collect();
     for (name, detail) in PRESENT_TOOLS {
-        let ok = commands::available(name);
-        let found = if ok {
-            commands::resolve(name).display().to_string()
+        checks.push(if commands::available(name) {
+            check(name, format!("{detail}: {}", commands::resolve(name).display()), true)
         } else {
-            "not found on PATH".into()
-        };
-        checks.push(check(name, format!("{detail}: {found}"), ok));
+            coded(check(name, format!("{detail}: not found on PATH"), false), "tool-not-found", &[])
+        });
     }
     for (name, detail) in [
         ("uv", "Python tooling used for literature and bibliography tools"),
@@ -50,7 +48,11 @@ pub fn run(root: Option<&Path>) -> DoctorReport {
     ] {
         checks.push(match commands::managed_uv_tool_status(name) {
             Ok(path) => check(name, format!("{detail}: {}", path.display()), true),
-            Err(error) => check(name, format!("{detail}: {error}"), false),
+            Err(error) => coded(
+                check(name, format!("{detail}: {error}"), false),
+                "managed-tool-failed",
+                &[("error", &error)],
+            ),
         });
     }
 
@@ -99,21 +101,25 @@ fn project_checks(root: &Path, manifest: &ProjectManifest) -> Vec<DoctorCheck> {
     let root_exists = document.is_some_and(|document| exists(&document.path));
     let root_path = document.map_or("(none)", |document| document.path.as_str());
     let engine = &manifest.engine;
-    let detail = format!(
-        "Project {} · engine {engine} · root {root_path}{}",
-        root.display(),
-        missing(root_exists)
-    );
+    let project = root.display().to_string();
+    let detail =
+        format!("Project {project} · engine {engine} · root {root_path}{}", missing(root_exists));
+    let mut root_check = check("project-root", detail, root_exists);
+    if !root_exists {
+        let params = [("project", project.as_str()), ("engine", engine), ("document", root_path)];
+        root_check = coded(root_check, "root-document-missing", &params);
+    }
     let bibliography = &manifest.primary_bibliography;
     let bib_exists = exists(bibliography);
-    let mut checks = vec![
-        check("project-root", detail, root_exists),
-        check(
-            "bibliography",
-            format!("Primary bibliography {bibliography}{}", missing(bib_exists)),
-            bib_exists,
-        ),
-    ];
+    let mut bib_check = check(
+        "bibliography",
+        format!("Primary bibliography {bibliography}{}", missing(bib_exists)),
+        bib_exists,
+    );
+    if !bib_exists {
+        bib_check = coded(bib_check, "bibliography-missing", &[("file", bibliography)]);
+    }
+    let mut checks = vec![root_check, bib_check];
     if manifest.venue.eq_ignore_ascii_case("icml") {
         // The ICML style needs `algorithms`, which bare BasicTeX lacks until
         // it or collection-latexextra is installed.
@@ -141,15 +147,15 @@ fn project_checks(root: &Path, manifest: &ProjectManifest) -> Vec<DoctorCheck> {
 
 fn runnable_tool(name: &str, version_arg: &str, detail: &str) -> DoctorCheck {
     let path = commands::resolve(name).display().to_string();
-    let (ok, suffix) = match commands::command(name).arg(version_arg).output() {
-        Ok(output) if output.status.success() => (true, path),
-        Ok(output) => (
-            false,
-            format!("{path} could not run: {}", String::from_utf8_lossy(&output.stderr).trim()),
-        ),
-        Err(error) => (false, format!("{path} could not run: {error}")),
+    let error = match commands::command(name).arg(version_arg).output() {
+        Ok(output) if output.status.success() => {
+            return check(name, format!("{detail}: {path}"), true)
+        }
+        Ok(output) => String::from_utf8_lossy(&output.stderr).trim().to_string(),
+        Err(error) => error.to_string(),
     };
-    check(name, format!("{detail}: {suffix}"), ok)
+    let failed = check(name, format!("{detail}: {path} could not run: {error}"), false);
+    coded(failed, "tool-failed", &[("path", &path), ("error", &error)])
 }
 
 /// Whether kpsewhich finds every one of `files`. `found` describes success
@@ -160,7 +166,7 @@ fn kpsewhich_check(
     if !commands::available("kpsewhich") {
         let detail =
             format!("Cannot verify {subject} (kpsewhich missing). Install BasicTeX from Lattice.");
-        return check(name, detail, false);
+        return coded(check(name, detail, false), "kpsewhich-missing", &[]);
     }
     let mut located = Vec::new();
     let mut missing = Vec::new();
@@ -173,7 +179,12 @@ fn kpsewhich_check(
     if missing.is_empty() {
         check(name, found(&located), true)
     } else {
-        check(name, format!("Missing {} — {hint}", missing.join(", ")), false)
+        let files = missing.join(", ");
+        coded(
+            check(name, format!("Missing {files} — {hint}"), false),
+            "files-missing",
+            &[("files", &files)],
+        )
     }
 }
 
@@ -191,16 +202,20 @@ fn project_pdf_fonts(root: &Path) -> Option<DoctorCheck> {
     }
     Some(match pdf_fonts::inspect_pdf_path(&pdf_path) {
         // Inconclusive scans (compressed streams we cannot name) are not failures.
-        Ok(report) => check(
-            "pdf-embedded-fonts",
-            report.detail,
-            !report.conclusive || report.ok_for_conference,
-        ),
-        Err(error) => check(
-            "pdf-embedded-fonts",
-            format!("Could not read {}: {error}", pdf_path.display()),
-            false,
-        ),
+        Ok(report) => {
+            let ok = !report.conclusive || report.ok_for_conference;
+            let fonts = check("pdf-embedded-fonts", report.detail, ok);
+            match report.problem.filter(|_| !ok) {
+                Some(code) => coded(fonts, code, &[("fonts", &report.fonts)]),
+                None => fonts,
+            }
+        }
+        Err(error) => {
+            let path = pdf_path.display().to_string();
+            let failed =
+                check("pdf-embedded-fonts", format!("Could not read {path}: {error}"), false);
+            coded(failed, "pdf-unreadable", &[("path", &path), ("error", &error)])
+        }
     })
 }
 
@@ -216,7 +231,18 @@ fn kpsewhich(name: &str) -> Option<PathBuf> {
 }
 
 fn check(name: &str, detail: String, ok: bool) -> DoctorCheck {
-    DoctorCheck { name: name.to_string(), detail, ok }
+    let (code, params) = (None, Default::default());
+    DoctorCheck { name: name.to_string(), detail, ok, code, params }
+}
+
+/// `check` with the message code the interface translates its detail by
+/// (src/build/tex-doctor-messages.ts); `detail` stays the English text.
+fn coded(
+    mut check: DoctorCheck, code: &'static str, params: &[(&'static str, &str)],
+) -> DoctorCheck {
+    check.code = Some(code);
+    check.params = params.iter().map(|(name, value)| (*name, value.to_string())).collect();
+    check
 }
 
 fn format_summary(checks: &[DoctorCheck], required_ok: bool) -> String {

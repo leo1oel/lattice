@@ -1,6 +1,9 @@
 import { EditorState } from "@codemirror/state";
 import { EditorView, ViewPlugin, type ViewUpdate } from "@codemirror/view";
 import { getSearchQuery, searchPanelOpen } from "@codemirror/search";
+import { msg } from "@lingui/core/macro";
+import type { MessageDescriptor } from "@lingui/core";
+import { i18n } from "../../i18n";
 import { element } from "../dom-utils";
 
 /**
@@ -8,18 +11,31 @@ import { element } from "../dom-utils";
  * "all", "match case", "regexp", "by word", "replace", "replace all" — which in
  * a narrow editor pushes the query field down to nothing. Swap the words for
  * the symbols editors conventionally use, through the phrase facet the panel
- * already reads.
+ * already reads. The same facet carries the translation of the words that stay
+ * (placeholders, the go-to-line dialog, screen-reader announcements).
  */
-const SEARCH_PHRASES: Record<string, string> = {
-  next: "↓", previous: "↑", all: "All", "match case": "Aa", regexp: ".*", "by word": "W",
-  replace: "Replace", "replace all": "All",
+// eslint-disable-next-line lingui/no-unlocalized-strings -- symbols editors use in every locale
+const SEARCH_SYMBOLS: Record<string, string> = { next: "↓", previous: "↑", "match case": "Aa", regexp: ".*", "by word": "W" };
+const SEARCH_WORDS: Record<string, MessageDescriptor> = {
+  all: msg`All`,
+  replace: msg`Replace`,
+  "replace all": msg`All`,
+  Find: msg`Find`,
+  Replace: msg`Replace`,
+  "current match": msg`current match`,
+  "on line": msg`on line`,
+  // CodeMirror substitutes the number for `$`.
+  "replaced match on line $": msg`replaced match on line $`,
+  "replaced $ matches": msg`replaced $ matches`,
+  "Go to line": msg`Go to line`,
+  go: msg`go`,
 };
 
 /** What each control does, now that its label no longer says so. */
-const SEARCH_TITLES: Record<string, string> = {
-  next: "Next match", prev: "Previous match", select: "Select all matches", replace: "Replace this match",
-  replaceAll: "Replace all matches", close: "Close search", case: "Match case", re: "Regular expression",
-  word: "Whole word",
+const SEARCH_TITLES: Record<string, MessageDescriptor> = {
+  next: msg`Next match`, prev: msg`Previous match`, select: msg`Select all matches`, replace: msg`Replace this match`,
+  replaceAll: msg`Replace all matches`, close: msg`Close search`, case: msg`Match case`, re: msg`Regular expression`,
+  word: msg`Whole word`,
 };
 
 /**
@@ -29,10 +45,11 @@ const SEARCH_TITLES: Record<string, string> = {
 function describeSearchControls(view: EditorView): void {
   for (const panel of view.dom.querySelectorAll(".cm-panel.cm-search")) {
     for (const control of panel.querySelectorAll<HTMLElement>("button[name], input[name]")) {
-      const description = SEARCH_TITLES[control.getAttribute("name") ?? ""];
+      const title = SEARCH_TITLES[control.getAttribute("name") ?? ""];
+      const description = title && i18n._(title);
       if (!description || control.title === description) continue;
       control.title = description;
-      if (!control.getAttribute("aria-label")) control.setAttribute("aria-label", description);
+      if (control instanceof HTMLButtonElement || !control.getAttribute("aria-label")) control.setAttribute("aria-label", description);
     }
 
     let count = panel.querySelector<HTMLElement>(".cm-search-count");
@@ -71,7 +88,11 @@ const describeSearchPanel = ViewPlugin.fromClass(class {
   }
 });
 
-export const compactSearchPanel = [
-  EditorState.phrases.of(SEARCH_PHRASES),
-  describeSearchPanel,
-];
+/** Phrases resolve against the active catalog, so build this per editor rather than at module load. */
+export function compactSearchPanel() {
+  const words = Object.fromEntries(Object.entries(SEARCH_WORDS).map(([phrase, message]) => [phrase, i18n._(message)]));
+  return [
+    EditorState.phrases.of({ ...words, ...SEARCH_SYMBOLS }),
+    describeSearchPanel,
+  ];
+}

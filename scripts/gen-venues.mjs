@@ -76,6 +76,10 @@ const out = `// Snapshot of bibcite's canonical venues (${venues.length} entries
 //   node scripts/gen-venues.mjs [path/to/bibcite]
 // Do not edit by hand.
 
+// Venue names are the proper names BibTeX entries cite, identical in every
+// interface language, and the search keys are matched against what the user types.
+/* eslint-disable lingui/no-unlocalized-strings */
+
 export type Venue = { name: string; entryType: "article" | "inproceedings"; search: string };
 
 export const VENUES: Venue[] = [

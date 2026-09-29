@@ -121,7 +121,7 @@ export function AppHistoryDrawers({ drawers, synara: {
               return;
             }
             void afterConfirming(
-              "Restore the project to the state before this change? The restore will be added as a new history entry.",
+              t`Restore the project to the state before this change? The restore will be added as a new history entry.`,
               async () => {
                 await invoke("revert_transaction", { transactionId: item.id, projectRoot: project.root });
                 await reloadAfterRestore();
@@ -129,13 +129,13 @@ export function AppHistoryDrawers({ drawers, synara: {
             );
           }}
           onRevertFile={(id, path) => afterConfirming(
-            `Restore only “${path}” to the state before this change? The restore will be added as a new history entry.`,
+            t`Restore only “${path}” to the state before this change? The restore will be added as a new history entry.`,
             async () => {
               await invoke("revert_history_file", { transactionId: id, path });
               await reloadAfterRestore();
             },
           )}
-          onDelete={(id) => afterConfirming("Delete this history entry? This cannot be undone.", async () => {
+          onDelete={(id) => afterConfirming(t`Delete this history entry? This cannot be undone.`, async () => {
             await invoke("delete_history_entry", { transactionId: id });
             await props.refreshHistory();
           })}

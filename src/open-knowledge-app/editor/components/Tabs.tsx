@@ -77,9 +77,11 @@
  * focus lands on the Label input ready to type.
  */
 
-import { useLingui } from '@ok-app/shims/lingui-react-macro';
+import { useLingui } from '@lingui/react/macro';
 import { useLayoutEffect, useRef, useState } from 'react';
 import { useJsxComponentHost } from './jsx-host-context.tsx';
+import { i18n } from '@lingui/core';
+import { msg } from '@lingui/core/macro';
 
 interface TabsProps {
   id?: string;
@@ -113,7 +115,8 @@ export function readTabSlots(root: HTMLElement): TabSummary[] {
   return renderers.map((r, i) => {
     const tabEl = r.querySelector<HTMLElement>('[data-tab-label]');
     const fromAttr = tabEl?.getAttribute('data-tab-label');
-    const label = fromAttr?.trim() || `Tab ${i + 1}`;
+    const tabNumber = i + 1;
+    const label = fromAttr?.trim() || i18n._(msg`Tab ${tabNumber}`);
     const panelId = tabEl?.getAttribute('data-tab-id') ?? null;
     return { index: i, label, panelId };
   });
@@ -256,7 +259,7 @@ export function Tabs({ id, children }: TabsProps) {
         <div
           ref={stripRef}
           role="tablist"
-          aria-label={id ? `Tabs: ${id}` : 'Tabs'}
+          aria-label={id ? t`Tabs: ${id}` : t`Tabs`}
           className="tabs-tablist"
           onKeyDown={handleStripKeyDown}
         >

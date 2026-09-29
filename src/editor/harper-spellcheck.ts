@@ -1,7 +1,9 @@
 import { forceLinting, linter, type Action, type Diagnostic } from "@codemirror/lint";
 import { StateEffect, type Extension } from "@codemirror/state";
 import type { EditorView } from "@codemirror/view";
+import { msg } from "@lingui/core/macro";
 import { invoke } from "@tauri-apps/api/core";
+import { i18n } from "../i18n";
 
 type HarperSuggestionSnapshot = {
   kind: "replace" | "remove" | "insert-after";
@@ -28,6 +30,7 @@ export const harperDictionaryChanged = StateEffect.define<null>();
 
 const words = (list: string) => list.trim().split(/\s+/);
 
+/* eslint-disable lingui/no-unlocalized-strings -- LaTeX command and environment names, not interface copy */
 /** Every argument of these commands is an identifier, path, or key rather than prose. */
 const OPAQUE_COMMANDS = new Set(words(`
   addbibresource author autocite begin bibliography bibliographystyle cite citealp citealt citeauthor citep citet
@@ -44,6 +47,7 @@ const NON_PROSE_ENVIRONMENTS = new Set(words(`
   align align* displaymath equation equation* gather gather* lstlisting math minted multline multline*
   tikzpicture verbatim verbatim*
 `));
+/* eslint-enable lingui/no-unlocalized-strings */
 
 const COMMAND = /\\([A-Za-z@]+|.)/y;
 
@@ -112,6 +116,7 @@ export function maskLatexForHarper(source: string): { prose: string; syntaxMask:
     // start (`$g$ shares`, for example), so it should not be forced uppercase.
     let cursor = from;
     while (cursor < Math.min(to, masked.length) && isLineBreak(cursor)) cursor += 1;
+    // eslint-disable-next-line lingui/no-unlocalized-strings -- placeholder subject fed to Harper, never shown
     if (cursor < Math.min(to, masked.length)) masked[cursor] = "X";
   };
   const skipSpace = (from: number) => {
@@ -239,8 +244,8 @@ export function createHarperDiagnostic(input: {
 }): Diagnostic {
   const actions: Action[] = input.suggestions.slice(0, 1).map(({ kind, replacement }) => ({
     name: kind === "remove"
-      ? "Remove"
-      : kind === "insert-after" ? `Insert “${replacement}”` : `Replace with “${replacement}”`,
+      ? i18n._(msg`Remove`)
+      : kind === "insert-after" ? i18n._(msg`Insert “${replacement}”`) : i18n._(msg`Replace with “${replacement}”`),
     apply(view, from, to) {
       view.dispatch({ changes: kind === "insert-after" ? { from: to, insert: replacement } : { from, to, insert: replacement } });
     },
@@ -248,7 +253,7 @@ export function createHarperDiagnostic(input: {
   const { projectWord, onAddProjectWord } = input;
   if (projectWord && onAddProjectWord) {
     actions.push({
-      name: `Add “${projectWord}” to project dictionary`,
+      name: i18n._(msg`Add “${projectWord}” to project dictionary`),
       apply(view) {
         void Promise.resolve(onAddProjectWord(projectWord)).then((accepted) => {
           if (accepted === false) return;

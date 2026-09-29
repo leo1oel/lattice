@@ -10,6 +10,7 @@
  */
 /* eslint-disable react-refresh/only-export-components */
 import { autoUpdate, computePosition, flip, offset, shift } from "@floating-ui/dom";
+import { useLingui } from "@lingui/react/macro";
 import { invoke } from "@tauri-apps/api/core";
 import { Extension } from "@tiptap/core";
 import { NodeSelection, Plugin, PluginKey, TextSelection } from "@tiptap/pm/state";
@@ -107,12 +108,13 @@ export function ExternalLinkPreviewCard({ metadata }: { metadata: LinkPreviewMet
 }
 
 function LinkPreviewPanel({ url, onEdit }: { url: string; onEdit: () => void }) {
+  const { t } = useLingui();
   const metadata = useExternalLinkPreview(url);
   return (
     <div className="visual-link-hover-panel rounded-md border border-border bg-popover p-2 text-foreground shadow-md">
       <div className="visual-link-hover-header">
         <div className="truncate font-mono text-xs text-muted-foreground">{url}</div>
-        <button type="button" aria-label="Edit link" onClick={onEdit}><Pencil aria-hidden="true" /></button>
+        <button type="button" aria-label={t`Edit link`} onClick={onEdit}><Pencil aria-hidden="true" /></button>
       </div>
       {metadata && <ExternalLinkPreviewCard metadata={metadata} />}
     </div>

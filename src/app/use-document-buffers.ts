@@ -6,6 +6,7 @@ export type PaperView = "blog" | "fulltext";
 
 /** The two cached reading files of an imported Paper. */
 export function paperDocumentPath(arxivId: string, view: PaperView): string {
+  // eslint-disable-next-line lingui/no-unlocalized-strings -- project-relative file path
   return `.research/papers/${arxivId}/${view === "blog" ? "blog.md" : "paper.md"}`;
 }
 

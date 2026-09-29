@@ -30,9 +30,11 @@ export function formatStamp(timestamp: number, locale?: string) {
   if (!timestamp) return "";
   const when = new Date(timestamp);
   const sameDay = when.toDateString() === new Date().toDateString();
+  /* eslint-disable lingui/no-unlocalized-strings -- Intl.DateTimeFormat option values */
   return when.toLocaleString(locale, sameDay
     ? { hour: "2-digit", minute: "2-digit" }
     : { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+  /* eslint-enable lingui/no-unlocalized-strings */
 }
 
 /** While an input method is composing, Enter is choosing a candidate, not sending. */

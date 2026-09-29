@@ -18,6 +18,10 @@ import {
 import { useLatestRef } from "../hooks/use-latest-ref";
 import { InfinityLoader } from "../components/ui/activity-icons";
 import { toMessage } from "../app-utils";
+import type { MessageDescriptor } from "@lingui/core";
+import { msg } from "@lingui/core/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
+import { i18n } from "../i18n";
 import { loadChoice, persistSetting } from "../settings/app-settings";
 import { addAppLog } from "./app-log-store";
 
@@ -91,9 +95,9 @@ export type UpdaterApi = UpdaterState & {
 };
 
 const IDLE: UpdaterState = { phase: "idle", version: null, progress: 0, error: null, errorKind: null };
-const FAILURE_TITLES: Record<UpdateErrorKind, string> = {
-  check: "Couldn’t check for Lattice updates",
-  install: "Lattice update failed",
+const FAILURE_TITLES: Record<UpdateErrorKind, MessageDescriptor> = {
+  check: msg`Couldn’t check for Lattice updates`,
+  install: msg`Lattice update failed`,
 };
 
 function useAppUpdater(intervalMs = DEFAULT_CHECK_INTERVAL_MS, autoCheck = true): UpdaterApi {
@@ -116,7 +120,7 @@ function useAppUpdater(intervalMs = DEFAULT_CHECK_INTERVAL_MS, autoCheck = true)
   const fail = useCallback((errorKind: UpdateErrorKind, reason: unknown) => {
     const detail = toMessage(reason);
     patch({ phase: "error", error: detail, errorKind });
-    addAppLog({ level: "error", source: "App updater", title: FAILURE_TITLES[errorKind], detail, toast: false });
+    addAppLog({ level: "error", source: i18n._(msg`App updater`), title: i18n._(FAILURE_TITLES[errorKind]), detail, toast: false });
   }, [patch]);
 
   const install = useCallback(async () => {
@@ -240,6 +244,7 @@ export function useUpdater(): UpdaterApi {
 
 /** The top-right corner card for an update being offered, installed, or failed. */
 export function UpdateBanner() {
+  const { t } = useLingui();
   const { phase, version, progress, error, errorKind, install, dismiss } = useUpdater();
 
   // A failed check has nothing to report here: it only happens when someone
@@ -254,15 +259,15 @@ export function UpdateBanner() {
   if (!(phase === "available" || stacked || phase === "ready" || failedInstall)) return null;
 
   const pct = Math.round(progress * 100);
-  const dismissButton = <button type="button" className="app-update-dismiss" aria-label="Dismiss" onClick={dismiss}>×</button>;
+  const dismissButton = <button type="button" className="app-update-dismiss" aria-label={t`Dismiss`} onClick={dismiss}>×</button>;
 
   return (
     <div className={`app-update-banner smooth-shadow-ring-lg top-right ${phase}${stacked ? " stacked" : ""}`} role="status" aria-live="polite">
       {phase === "available" && (
         <>
-          <div className="app-update-text"><strong>New version {version}</strong><span>Ready to install</span></div>
+          <div className="app-update-text"><strong><Trans>New version {version}</Trans></strong><span><Trans>Ready to install</Trans></span></div>
           <button type="button" className="app-update-primary" onClick={() => void install()}>
-            Update now
+            <Trans>Update now</Trans>
           </button>
           {dismissButton}
         </>
@@ -273,9 +278,9 @@ export function UpdateBanner() {
           <div className="app-update-text">
             <strong className="app-update-active-title">
               <InfinityLoader size={14} />
-              {phase === "installing" ? "Installing…" : "Downloading update…"}
+              {phase === "installing" ? t`Installing…` : t`Downloading update…`}
             </strong>
-            <span>{phase === "downloading" ? `${pct}%` : "Almost done"}</span>
+            <span>{phase === "downloading" ? `${pct}%` : t`Almost done`}</span>
           </div>
           <div className="app-update-progress"><div className="app-update-progress-fill" style={{ width: `${pct}%` }} /></div>
         </>
@@ -283,15 +288,15 @@ export function UpdateBanner() {
 
       {phase === "ready" && (
         <div className="app-update-text">
-          <strong className="app-update-active-title"><InfinityLoader size={14} /> Restarting…</strong>
+          <strong className="app-update-active-title"><InfinityLoader size={14} /> <Trans>Restarting…</Trans></strong>
         </div>
       )}
 
       {failedInstall && (
         <>
           <div className="app-update-text">
-            <strong>Update failed</strong>
-            <span title={error ?? undefined}>{error ?? "Please try again later"}</span>
+            <strong><Trans>Update failed</Trans></strong>
+            <span title={error ?? undefined}>{error ?? t`Please try again later`}</span>
           </div>
           {dismissButton}
         </>

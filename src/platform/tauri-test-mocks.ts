@@ -14,6 +14,7 @@ export type CommandTable = Record<string, unknown>;
 /** Answer mocked `invoke` calls from a table; a command missing from it rejects, like an unregistered Tauri command. */
 export function mockInvoke(commands: CommandTable): void {
   vi.mocked(invoke).mockImplementation(async (command, args) => {
+    // eslint-disable-next-line lingui/no-unlocalized-strings -- test helper, never shipped
     if (!Object.hasOwn(commands, command)) throw new Error(`Unexpected command: ${command}`);
     const answer = commands[command];
     return typeof answer === "function" ? answer((args ?? {}) as Record<string, unknown>) : answer;

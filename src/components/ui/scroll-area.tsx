@@ -14,6 +14,7 @@ import {
   type Ref,
 } from "react";
 import { ScrollArea as ScrollAreaPrimitive } from "@base-ui/react/scroll-area";
+import { useLingui } from "@lingui/react/macro";
 import { assignRef, cn } from "@/lib/utils";
 import "./scroll-area.css";
 
@@ -38,6 +39,7 @@ function registerScrollAreaOverflowProperties() {
   if (typeof CSS === "undefined" || typeof CSS.registerProperty !== "function") return;
   for (const name of SCROLL_AREA_OVERFLOW_PROPERTIES) {
     try {
+      // eslint-disable-next-line lingui/no-unlocalized-strings -- CSS property syntax descriptor
       CSS.registerProperty({ name, syntax: "<length>", inherits: false, initialValue: "0px" });
     } catch {
       // Already registered (by Base UI outside WebKit, or an earlier load).
@@ -135,6 +137,7 @@ const ScrollArea = forwardRef<
   },
   ref,
 ) {
+  const { t } = useLingui();
   const isTouch = useTouchPrimary();
   const [viewport, setViewport] = useState<HTMLDivElement | null>(null);
   const viewportCallback = useCallback((node: HTMLDivElement | null) => {
@@ -192,7 +195,7 @@ const ScrollArea = forwardRef<
         ref={ref}
         role="group"
         data-slot="scroll-area"
-        aria-roledescription="scroll area"
+        aria-roledescription={t`scroll area`}
         className={cn("relative overflow-hidden", className)}
         {...props}
       >

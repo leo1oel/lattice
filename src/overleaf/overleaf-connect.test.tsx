@@ -344,7 +344,7 @@ describe("Overleaf picker dialog", () => {
     fireEvent.click(screen.getByRole("button", { name: "Reconnect to Overleaf" }));
 
     expect(await screen.findByText("Attention Paper")).toBeInTheDocument();
-    expect(invoke).toHaveBeenCalledWith("overleaf_begin_login");
+    expect(invoke).toHaveBeenCalledWith("overleaf_begin_login", { title: "Sign in to Overleaf" });
     expect(invoke).toHaveBeenCalledWith("overleaf_poll_login");
   });
 

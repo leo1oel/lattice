@@ -11,6 +11,9 @@ import {
 } from "lucide-react";
 import { createPortal } from "react-dom";
 import { useEffect, useState } from "react";
+import { msg } from "@lingui/core/macro";
+import { useLingui } from "@lingui/react/macro";
+import type { MessageDescriptor } from "@lingui/core";
 import { PopIn } from "../../components/ui/motion";
 import { Tip } from "../../components/icon-tip";
 import { AppleColorPicker } from "../../components/ui/apple-color-picker";
@@ -36,16 +39,22 @@ export type LatexSelectionToolbarPosition = {
   maxWidth: number;
 };
 
-const actions: { action: LatexSelectionAction; label: string; icon: typeof Bold; separated?: boolean }[] = [
-  { action: "bold", label: "Bold", icon: Bold },
-  { action: "italic", label: "Italic", icon: Italic },
-  { action: "underline", label: "Underline", icon: Underline },
-  { action: "strikethrough", label: "Strikethrough", icon: Strikethrough },
-  { action: "quote", label: "Quote", icon: Quote },
-  { action: "comment", label: "Comment", icon: MessageSquareText, separated: true },
+const actions: { action: LatexSelectionAction; label: MessageDescriptor; icon: typeof Bold; separated?: boolean }[] = [
+  { action: "bold", label: msg`Bold`, icon: Bold },
+  { action: "italic", label: msg`Italic`, icon: Italic },
+  { action: "underline", label: msg`Underline`, icon: Underline },
+  { action: "strikethrough", label: msg`Strikethrough`, icon: Strikethrough },
+  { action: "quote", label: msg`Quote`, icon: Quote },
+  { action: "comment", label: msg`Comment`, icon: MessageSquareText, separated: true },
 ];
 
-const headingLevels = ["part", "chapter", "section", "subsection", "subsubsection"] as const;
+const headingLevels: { command: string; label: MessageDescriptor }[] = [
+  { command: "part", label: msg`Part` },
+  { command: "chapter", label: msg`Chapter` },
+  { command: "section", label: msg`Section` },
+  { command: "subsection", label: msg`Subsection` },
+  { command: "subsubsection", label: msg`Subsubsection` },
+];
 
 export function LatexSelectionToolbar(props: {
   position: LatexSelectionToolbarPosition;
@@ -54,6 +63,7 @@ export function LatexSelectionToolbar(props: {
   onAction: (action: LatexSelectionAction, value?: string) => void;
   onDismiss: () => void;
 }) {
+  const { i18n, t } = useLingui();
   const [linkUrl, setLinkUrl] = useState("https://");
   const [linkOpen, setLinkOpen] = useState(false);
   const [highlightColor, setHighlightColor] = useState("#FFFF00");
@@ -95,50 +105,53 @@ export function LatexSelectionToolbar(props: {
         maxWidth: props.position.maxWidth,
       }}
       role="toolbar"
-      aria-label={props.commentOnly ? "Comment on selected Markdown" : "Format selected LaTeX"}
+      aria-label={props.commentOnly ? t`Comment on selected Markdown` : t`Format selected LaTeX`}
       onPointerDown={(event) => {
         if (!(event.target as HTMLElement).closest("input")) event.preventDefault();
       }}
     >
       <PopIn className="latex-selection-toolbar">
-        {visibleActions.map(({ action, label, icon: Icon, separated }, index) => (
-          <span key={action} className={separated && index > 0 ? "latex-selection-tool separated" : "latex-selection-tool"}>
-            <Tip label={label} side="top">
-              <button type="button" aria-label={label} onClick={() => props.onAction(action)}>
-                <Icon size={14} strokeWidth={1.8} />
-              </button>
-            </Tip>
-          </span>
-        ))}
+        {visibleActions.map(({ action, label: descriptor, icon: Icon, separated }, index) => {
+          const label = i18n._(descriptor);
+          return (
+            <span key={action} className={separated && index > 0 ? "latex-selection-tool separated" : "latex-selection-tool"}>
+              <Tip label={label} side="top">
+                <button type="button" aria-label={label} onClick={() => props.onAction(action)}>
+                  <Icon size={14} strokeWidth={1.8} />
+                </button>
+              </Tip>
+            </span>
+          );
+        })}
         {!props.commentOnly && <>
         <span className="latex-selection-tool separated">
           <Popover open={linkOpen} onOpenChange={setLinkOpen}>
-            <Tip label="Link" side="top">
-              <PopoverTrigger asChild><button type="button" aria-label="Link"><Link size={14} strokeWidth={1.8} /></button></PopoverTrigger>
+            <Tip label={t`Link`} side="top">
+              <PopoverTrigger asChild><button type="button" aria-label={t`Link`}><Link size={14} strokeWidth={1.8} /></button></PopoverTrigger>
             </Tip>
             <PopoverContent side="top" sideOffset={8} className="latex-tool-menu link-menu">
-              <label>Link URL<Input controlSize="compact" autoFocus value={linkUrl} onChange={(event) => setLinkUrl(event.target.value)} onKeyDown={(event) => {
+              <label>{t`Link URL`}<Input controlSize="compact" autoFocus value={linkUrl} onChange={(event) => setLinkUrl(event.target.value)} onKeyDown={(event) => {
                 if (event.key === "Enter" && linkUrl.trim()) applyLink();
               }} /></label>
-              <button type="button" aria-label="Apply link" disabled={!linkUrl.trim()} onClick={applyLink}>Apply</button>
+              <button type="button" aria-label={t`Apply link`} disabled={!linkUrl.trim()} onClick={applyLink}>{t`Apply`}</button>
             </PopoverContent>
           </Popover>
         </span>
         <span className="latex-selection-tool">
           <Popover>
-            <Tip label="Heading level" side="top">
-              <PopoverTrigger asChild><button type="button" aria-label="Heading level"><Heading size={14} strokeWidth={1.8} /></button></PopoverTrigger>
+            <Tip label={t`Heading level`} side="top">
+              <PopoverTrigger asChild><button type="button" aria-label={t`Heading level`}><Heading size={14} strokeWidth={1.8} /></button></PopoverTrigger>
             </Tip>
             <PopoverContent side="top" sideOffset={8} className="latex-tool-menu heading-menu fluid-hover-surface">
               <FluidHoverSurface selector=".heading-menu > button" />
-              {headingLevels.map((command) => <button key={command} type="button" onClick={() => props.onAction("heading", command)}><span>{command[0].toUpperCase()}{command.slice(1)}</span><code>\{command}</code></button>)}
+              {headingLevels.map(({ command, label }) => <button key={command} type="button" onClick={() => props.onAction("heading", command)}><span>{i18n._(label)}</span><code>\{command}</code></button>)}
             </PopoverContent>
           </Popover>
         </span>
         <span className="latex-selection-tool separated">
           <Popover open={highlightOpen} onOpenChange={setHighlightOpen}>
-            <Tip label="Highlight color" side="top">
-              <PopoverTrigger asChild><button type="button" aria-label="Highlight color"><Highlighter size={14} strokeWidth={1.8} /></button></PopoverTrigger>
+            <Tip label={t`Highlight color`} side="top">
+              <PopoverTrigger asChild><button type="button" aria-label={t`Highlight color`}><Highlighter size={14} strokeWidth={1.8} /></button></PopoverTrigger>
             </Tip>
             <PopoverContent side="top" sideOffset={8} className="latex-highlight-picker">
               <AppleColorPicker

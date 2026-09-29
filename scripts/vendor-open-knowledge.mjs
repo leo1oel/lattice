@@ -10,9 +10,10 @@
  *
  *   '@/…'                      -> '@ok-app/…'   (upstream app alias -> vendored tree)
  *   '@inkeep/open-knowledge-core' -> '@ok-core' (local vendored core barrel)
- *   '@lingui/core/macro'       -> '@ok-app/shims/lingui-core-macro'
- *   '@lingui/react/macro'      -> '@ok-app/shims/lingui-react-macro'
- *   '@lingui/core'             -> '@ok-app/shims/lingui-core'
+ *
+ * Lingui imports ('@lingui/core', '@lingui/core/macro', '@lingui/react/macro')
+ * are kept as-is: the vendored UI compiles through the host's Lingui macro
+ * transform and its messages are extracted into the Lattice catalogs.
  *
  * Local seam files (facades/stubs/shims) live in the same tree but are NOT in
  * the manifest and are never overwritten by this script. Each carries a
@@ -235,9 +236,6 @@ const ASSET_DIRS = ["editor/slash-command/preview-assets"];
 const REWRITES = [
   [/from (['"])@\//g, "from $1@ok-app/"],
   [/from (['"])@inkeep\/open-knowledge-core\1/g, "from $1@ok-core$1"],
-  [/from '@lingui\/core\/macro'/g, "from '@ok-app/shims/lingui-core-macro'"],
-  [/from '@lingui\/react\/macro'/g, "from '@ok-app/shims/lingui-react-macro'"],
-  [/from '@lingui\/core'/g, "from '@ok-app/shims/lingui-core'"],
   // The slash menu must use the host's actual Lattice scrollbar rather than a
   // browser-native approximation. Keep the upstream listbox as the scroll
   // owner, hide only its native track, and paint ExternalScrollbar as a sibling
@@ -446,8 +444,8 @@ ${hostListbox}
   // restyling Open Knowledge's arrowed tooltip in parallel.
   [/from '@ok-app\/components\/ui\/tooltip'/g, "from '@/components/ui/tooltip'"],
   [
-    /import \{ Trans, useLingui \} from '@ok-app\/shims\/lingui-react-macro';\nimport type \{ Editor \} from '@tiptap\/react';\nimport \{ ArrowUpRight, CornerDownLeft, Link, Trash2 \} from 'lucide-react';/g,
-    "import { Trans, useLingui } from '@ok-app/shims/lingui-react-macro';\nimport type { Editor } from '@tiptap/react';\nimport { readText } from '@tauri-apps/plugin-clipboard-manager';\nimport { ArrowUpRight, CornerDownLeft, Link, Trash2 } from 'lucide-react';",
+    /import \{ Trans, useLingui \} from '@lingui\/react\/macro';\nimport type \{ Editor \} from '@tiptap\/react';\nimport \{ ArrowUpRight, CornerDownLeft, Link, Trash2 \} from 'lucide-react';/g,
+    "import { Trans, useLingui } from '@lingui/react/macro';\nimport type { Editor } from '@tiptap/react';\nimport { readText } from '@tauri-apps/plugin-clipboard-manager';\nimport { ArrowUpRight, CornerDownLeft, Link, Trash2 } from 'lucide-react';",
   ],
   [
     /    text = await navigator\.clipboard\.readText\(\);\n  \} catch \(error\) \{\n    \/\/ Expected denials \(permission, insecure context, empty clipboard\) arrive\n    \/\/ as DOMExceptions and degrade silently by design\. Anything else — a\n    \/\/ polyfill or CSP failure that would make pre-fill always-empty — warns\n    \/\/ \(debug is suppressed by default console filters\) so it is\n    \/\/ field-diagnosable\.\n    if \(!\(error instanceof DOMException\)\) \{\n      console\.warn\('\[link-popover\] clipboard pre-fill read failed unexpectedly', error\);\n    \}\n    return;/g,

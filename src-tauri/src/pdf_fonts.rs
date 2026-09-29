@@ -17,6 +17,11 @@ pub struct PdfFontReport {
     pub ok_for_conference: bool,
     pub detail: String,
     pub conclusive: bool,
+    /// For a conclusive failure, the message code of `detail`
+    /// (`pdf-fonts-computer-modern` or `pdf-fonts-not-times`).
+    pub problem: Option<&'static str>,
+    /// The embedded font names, comma-separated.
+    pub fonts: String,
 }
 
 pub fn inspect_pdf_bytes(bytes: &[u8]) -> PdfFontReport {
@@ -131,6 +136,11 @@ fn summarize_fonts(fonts: Vec<String>, times_marker: bool, cm_marker: bool) -> P
             let name = name.trim();
             ["cmr", "cmmi", "cmsy", "cmbx", "cmss", "cmtt"].iter().any(|cm| name.starts_with(cm))
         });
+    let problem = match (times_like, computer_modern) {
+        (true, _) => None,
+        (false, true) => Some("pdf-fonts-computer-modern"),
+        (false, false) => (!fonts.is_empty()).then_some("pdf-fonts-not-times"),
+    };
     let (conclusive, detail) = if fonts.is_empty() && !times_like && !computer_modern {
         // Inconclusive: do not fail the build. Real pdfTeX PDFs compress font dicts.
         (false, "Could not read embedded font names from this PDF (compressed streams). Not treated as a font failure.".to_string())
@@ -144,7 +154,8 @@ fn summarize_fonts(fonts: Vec<String>, times_marker: bool, cm_marker: bool) -> P
     } else {
         (true, format!("PDF fonts are not NeurIPS Times ({joined}). Expected NimbusRomNo9L-*."))
     };
-    PdfFontReport { ok_for_conference: times_like || !conclusive, conclusive, detail }
+    let ok_for_conference = times_like || !conclusive;
+    PdfFontReport { ok_for_conference, conclusive, detail, problem, fonts: joined }
 }
 
 #[cfg(test)]

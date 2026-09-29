@@ -18,7 +18,7 @@ import { flattenOutline, type OutlineNode } from "../editor/latex/latex-outline"
 import { ProjectFindDialog, type ProjectFindHit } from "../project/project-find-dialog";
 import type { ProjectSearch } from "./use-project-search";
 import { ProjectReplaceDialog, type ReplacePreviewResult } from "../project/project-replace-dialog";
-import type { CitationInfo, ReferenceInfo } from "../editor/latex/latex-text";
+import { referenceKindLabel, type CitationInfo, type ReferenceInfo } from "../editor/latex/latex-text";
 import { isProjectAssetFilePath, toMessage } from "../app-utils";
 import { setNotice } from "./notify";
 import { collectFilePaths } from "./workspace-restore";
@@ -60,14 +60,17 @@ export function AppSearchDialogs({ open, setOpen, activeFile, openProjectFile, o
       id: `section:${node.id}`,
       label: node.title,
       detail: `${node.path || activeFile}:${node.line}`,
-      group: "Section",
+      group: t`Section`,
     })),
-    ...liveReferences.map((reference) => ({
-      id: `label:${reference.path}:${reference.label}`,
-      label: reference.label,
-      detail: `${reference.path}:${reference.line}${reference.title && reference.title !== reference.label ? ` · ${reference.title}` : ""}`,
-      group: "Label",
-    })),
+    ...liveReferences.map((reference) => {
+      const title = reference.title || referenceKindLabel(reference.kind);
+      return {
+        id: `label:${reference.path}:${reference.label}`,
+        label: reference.label,
+        detail: `${reference.path}:${reference.line}${title !== reference.label ? ` · ${title}` : ""}`,
+        group: t`Label`,
+      };
+    }),
   ];
   const insertPickers = [
     {
@@ -77,9 +80,9 @@ export function AppSearchDialogs({ open, setOpen, activeFile, openProjectFile, o
           id: `cite:${citation.key}`,
           label: citation.key,
           detail: [citation.title, citation.authors, citation.year].filter(Boolean).join(" · "),
-          group: "Citation",
+          group: t`Citation`,
         }))
-        : props.citationKeys.map((key) => ({ id: `cite:${key}`, label: key, group: "Citation" })),
+        : props.citationKeys.map((key) => ({ id: `cite:${key}`, label: key, group: t`Citation` })),
     },
     {
       command: "ref", title: t`Insert reference`, placeholder: t({ message: "Insert \\ref{…}" }),
@@ -87,7 +90,7 @@ export function AppSearchDialogs({ open, setOpen, activeFile, openProjectFile, o
         id: `ref:${reference.path}:${reference.label}`,
         label: reference.label,
         detail: `${reference.path}:${reference.line}`,
-        group: "Reference",
+        group: t`Reference`,
       })),
     },
   ] as const;
@@ -155,6 +158,7 @@ export function AppProjectSearchDialogs({ search, captureProjectScope, projectRe
   refreshProject: RefreshProject;
   save: () => Promise<boolean>;
 }) {
+  const { t } = useLingui();
   const { find, setFind, replace, setReplace, searchGenerationRef } = search;
   /** Save a dirty buffer, then run one replace step with the dialog's busy/error state. */
   const runReplaceStep = async (step: () => Promise<void>, onError?: () => void) => {
@@ -224,9 +228,15 @@ export function AppProjectSearchDialogs({ search, captureProjectScope, projectRe
           await props.refreshProject();
           await props.refreshHistory();
           setReplace({ open: false, preview: null });
-          setNotice(result.replacements
-            ? `Replaced ${result.replacements} occurrence${result.replacements === 1 ? "" : "s"} in ${result.filesChanged.length} file${result.filesChanged.length === 1 ? "" : "s"}.`
-            : "No matches found.");
+          const replacements = result.replacements;
+          const files = result.filesChanged.length;
+          setNotice(!replacements
+            ? t`No matches found.`
+            : replacements === 1
+              ? t`Replaced ${replacements} occurrence in ${files} file.`
+              : files === 1
+                ? t`Replaced ${replacements} occurrences in ${files} file.`
+                : t`Replaced ${replacements} occurrences in ${files} files.`);
         })}
       />
     </>

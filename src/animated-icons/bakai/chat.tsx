@@ -28,7 +28,7 @@ const CT_BUBBLE =
 
 export function ChatLive({ size = 16, className, converted }: { size?: number; className?: string; converted?: boolean }) {
     const uid = useId().replace(/[^a-zA-Z0-9]/g, "");
-    const m = `ctMask${uid}`;
+    const m = `ct-mask-${uid}`;
     const dots = (fill?: string) => CT_DOT_X.map((cx, i) => <circle key={cx} className={`ct-d${i + 1}`} cx={cx} cy="128" r="12" fill={fill} />);
     return (
         <svg width={size} height={size} viewBox="0 0 256 256" fill="currentColor" className={className}>

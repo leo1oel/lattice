@@ -1,5 +1,7 @@
+import { msg } from "@lingui/core/macro";
 import { invoke } from "@tauri-apps/api/core";
 import type { OpenSlideMutation } from "../editor/presentation/open-slide-bridge";
+import { i18n } from "../i18n";
 
 export type EditorWriteResult = {
   content: string;
@@ -48,5 +50,5 @@ export async function writeOpenSlideMutation(
     return { base64: mutation.base64, hadConflicts: false };
   }
 
-  throw new Error(`Open Slide sent an incomplete edit for ${path}.`);
+  throw new Error(i18n._(msg`Open Slide sent an incomplete edit for ${path}.`));
 }

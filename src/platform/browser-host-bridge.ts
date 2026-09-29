@@ -1,8 +1,11 @@
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { decodeBridgeValue, encodeBridgeValue } from "./browser-runtime";
 
+/* eslint-disable lingui/no-unlocalized-strings -- Tauri IPC protocol markers */
 const CHANNEL_PREFIX = "__CHANNEL__:";
 const IPC_SERIALIZE_KEY = "__TAURI_TO_IPC_KEY__";
+const UNLISTEN_COMMAND = "plugin:event|unlisten";
+/* eslint-enable lingui/no-unlocalized-strings */
 
 interface HostConfig {
   token: string;
@@ -53,7 +56,7 @@ export function startBrowserHostBridge(config: HostConfig): void {
     eventCallbacks.clear();
     for (const [eventId, listener] of listeners) {
       internals.unregisterCallback(listener.callbackId);
-      void internals.invoke("plugin:event|unlisten", { event: listener.event, eventId }).catch(() => undefined);
+      void internals.invoke(UNLISTEN_COMMAND, { event: listener.event, eventId }).catch(() => undefined);
     }
   };
   const reviveChannels = (value: unknown, callbackIds: Set<number>): unknown => {
@@ -107,10 +110,10 @@ export function startBrowserHostBridge(config: HostConfig): void {
           // The browser page reset while this listen was in flight.
           internals.unregisterCallback(hostEventCallback);
           hostEventCallback = undefined;
-          await internals.invoke("plugin:event|unlisten", { event: args.event, eventId: value });
+          await internals.invoke(UNLISTEN_COMMAND, { event: args.event, eventId: value });
         }
       }
-      if (message.command === "plugin:event|unlisten" && typeof args.eventId === "number") {
+      if (message.command === UNLISTEN_COMMAND && typeof args.eventId === "number") {
         const listener = eventCallbacks.get(args.eventId);
         if (listener) {
           internals.unregisterCallback(listener.callbackId);

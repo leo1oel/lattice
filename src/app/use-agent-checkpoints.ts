@@ -1,3 +1,4 @@
+import { useLingui } from "@lingui/react/macro";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { BuildResult, ProjectSnapshot } from "../app-types";
 import {
@@ -35,6 +36,7 @@ export function useAgentCheckpoints({ project, projectRef, autoBuildModeRef, com
   onExternalEdits: { readonly current: (paths: readonly string[]) => void };
   postMessage: (message: object) => void;
 }) {
+  const { t } = useLingui();
   const [historyByThread, setHistoryByThread] = useState<Record<string, AgentCheckpointHistoryEntry[]>>({});
   const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
   // Snapshots re-arrive on every thread update (and stream while a turn is
@@ -154,9 +156,9 @@ export function useAgentCheckpoints({ project, projectRef, autoBuildModeRef, com
       restoreAvailable: entry.threadId === activeThreadId,
       restoreUnavailableReason: entry.threadId === activeThreadId
         ? null
-        : "Open this Agent task before restoring its files",
+        : t`Open this Agent task before restoring its files`,
     }))
-  )), [activeThreadId, historyByThread]);
+  )), [activeThreadId, historyByThread, t]);
 
   return { reset, takePendingCompiles, reportCompiles, handleSnapshot, historyItems };
 }

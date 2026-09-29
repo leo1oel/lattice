@@ -7,6 +7,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { useLingui } from "@lingui/react/macro";
 import { beginWindowDrag, toggleWindowFullscreen } from "../../app-utils";
 import "./scroll-area.css";
 
@@ -31,6 +32,7 @@ export function ResizableDrawer(props: {
   onClose: () => void;
   onScroll?: UIEventHandler<HTMLElement>;
 }) {
+  const { t } = useLingui();
   const [width, setWidth] = useState(defaultDrawerWidth);
   const [resizing, setResizing] = useState(false);
   const finishResizeRef = useRef<(() => void) | null>(null);
@@ -120,7 +122,7 @@ export function ResizableDrawer(props: {
         <div
           className="drawer-resizer panel-resizer"
           role="separator"
-          aria-label="Resize right panel"
+          aria-label={t`Resize right panel`}
           aria-orientation="vertical"
           aria-valuemin={MIN_DRAWER_WIDTH}
           aria-valuemax={Math.max(MIN_DRAWER_WIDTH, window.innerWidth - MIN_WORKSPACE_WIDTH)}

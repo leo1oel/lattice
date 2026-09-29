@@ -5,6 +5,7 @@ import type { Editor } from "@tiptap/react";
 import { getComponentItems, getInlineComponentItems } from "@ok-app/editor/slash-command/component-items";
 import { getEmbedStarterItems } from "@ok-app/editor/slash-command/embed-starter-items";
 import { getSlashCommandItems, type SlashCommandContext, type SlashCommandItem } from "@ok-app/editor/slash-command/items";
+import { i18n as appI18n } from "../../i18n";
 import { projectAssetMarkdownHref } from "./markdown-link-routing";
 
 export const VISUAL_LINK_INSERT_EVENT = "research-writer:visual-link-insert";
@@ -15,9 +16,11 @@ export function openVisualLinkInsert(editor: Editor) {
 }
 
 /**
- * The vendored editor is compiled through an English-only Lingui seam, so its
- * slash items cannot see Lattice's active catalog. Keep the host translation
- * at this composition boundary rather than patching generated vendor files.
+ * Lattice's wording for every slash item it shows. Component items take their
+ * label and description from the English core registry, so they are only
+ * localized here; the upstream built-ins already resolve through Lingui, and
+ * their entries pin Lattice's one-line description for both the row and the
+ * preview. `slashItemSources` rebuilds the list per locale.
  */
 const SLASH_ITEM_MESSAGES: Record<string, [label: MessageDescriptor, description: MessageDescriptor]> = {
   heading1: [msg`Heading 1`, msg`Big section heading.`],
@@ -69,6 +72,7 @@ const SLASH_CATEGORY_MESSAGES: Record<string, MessageDescriptor> = {
   embed: msg`Embeds`,
 };
 
+// eslint-disable-next-line lingui/no-unlocalized-strings -- slash item identifiers
 const UNSUPPORTED_COMPONENTS = ["component-video", "component-audio", "component-Pdf", "component-Embed", "component-File"];
 
 function localizeSlashItem(item: SlashCommandItem, i18n: I18n): SlashCommandItem {
@@ -99,7 +103,7 @@ function pickAndImportImage(
   const input = document.createElement("input");
   input.type = "file";
   input.accept = "image/*";
-  input.setAttribute("aria-label", "Choose image to upload");
+  input.setAttribute("aria-label", appI18n._(msg`Choose image to upload`));
   input.hidden = true;
   input.addEventListener("change", () => {
     const file = input.files?.[0];
@@ -151,7 +155,7 @@ export function slashItemSources(
     cached(getSlashCommandItems),
     cached(() => getComponentItems()
       .filter((item) => !UNSUPPORTED_COMPONENTS.includes(item.name))
-      .map((item) => item.label !== "Image" || !importAsset ? item : {
+      .map((item) => item.name !== "component-img" || !importAsset ? item : {
         ...item,
         command: (context: SlashCommandContext) => pickAndImportImage(context, importAsset, getActivePath),
       })),

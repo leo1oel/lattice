@@ -19,6 +19,7 @@ export function buildTabularSnippet(options: TableGeneratorOptions): {
   const rows = clampTableSize(options.rows);
   const cols = clampTableSize(options.cols);
   const align = "l".repeat(cols);
+  // eslint-disable-next-line lingui/no-unlocalized-strings -- sample header cells written into the LaTeX source
   const header = Array.from({ length: cols }, (_, index) => `Col ${index + 1}`).join(" & ");
   const empty = Array.from({ length: cols }, () => " ").join(" & ");
   const bodyRows = Array.from({ length: Math.max(0, rows - 1) }, () => `    ${empty} \\\\`).join("\n");
@@ -37,6 +38,7 @@ export function buildTabularSnippet(options: TableGeneratorOptions): {
     return { insert, cursorOffset: insert.indexOf("Col 1") };
   }
 
+  // eslint-disable-next-line lingui/no-unlocalized-strings -- placeholder caption written into the LaTeX source
   const caption = options.caption.trim() || "Caption";
   const label = options.label.trim() || "tab:name";
   const insert = [

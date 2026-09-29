@@ -49,6 +49,7 @@ const ACTIVE_ATTR = "data-fluid-hover-active";
 const ACTIVE_INDEX_ATTR = "data-fluid-hover-active-index";
 
 const ACTIVATOR_SELECTOR =
+  // eslint-disable-next-line lingui/no-unlocalized-strings -- DOM selector
   "a[href], button, [role='menuitem'], [role='menuitemradio'], [role='menuitemcheckbox'], [role='option'], [role='radio'], [role='checkbox'], [role='tab'], [role='link'], [role='button']";
 
 /**

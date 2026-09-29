@@ -12,6 +12,7 @@ import { playInterfaceSound } from "../telemetry/interface-sounds";
 import { clearTimer, restartTimer, useRefState } from "./effect-helpers";
 import { setError } from "./notify";
 import type { AgentCompileAssociation } from "./use-agent-checkpoints";
+import { BUILD_OPERATION } from "../telemetry/app-log-export";
 
 type BuildOptions = {
   immediatePreview?: boolean;
@@ -192,8 +193,8 @@ export function useBuildPipeline({
       if (options?.consumeAgentAssociations) reportCompiles(takePendingCompiles(), null);
       if (options?.requested) {
         setError(
-          "This project has no LaTeX document to build yet. Add a .tex file, or set one as the root document in project settings.",
-          "Build",
+          t`This project has no LaTeX document to build yet. Add a .tex file, or set one as the root document in project settings.`,
+          t`Build`,
         );
       }
       return;
@@ -207,7 +208,7 @@ export function useBuildPipeline({
     setBuilding(true);
     // One action name for both variants, so a clean rebuild that succeeds still
     // retracts the ordinary build's failure toast; "clean" lives in the detail.
-    let trace = logAction("Build", "Build", force ? "clean rebuild" : undefined);
+    let trace = logAction(t`Build`, t`Build`, force ? t`clean rebuild` : undefined, BUILD_OPERATION);
     let buildScope: { operationGeneration: number; previewGeneration: number; projectRoot: string } | null = null;
     const scopeIsCurrent = () => Boolean(buildScope
       && projectGenerationRef.current === buildScope.operationGeneration
@@ -226,7 +227,7 @@ export function useBuildPipeline({
       const takeQueuedBuild = () => {
         if (queue.force === null) return false;
         trace.finish("cancelled", t`Build superseded`);
-        trace = logAction("Build", "Build", queue.force ? "clean rebuild" : "queued");
+        trace = logAction(t`Build`, t`Build`, queue.force ? t`clean rebuild` : t`queued`, BUILD_OPERATION);
         currentForce = queue.force;
         shouldPlayCompletionSound ||= queue.sound;
         shouldNavigateToError = queue.sound;
@@ -301,7 +302,7 @@ export function useBuildPipeline({
             item.level === "error" && Boolean(item.file || item.line)
           )) ?? firstError;
           if (shouldNavigateToError && navigationError) void openDiagnosticRef.current(navigationError);
-          trace.fail("LaTeX compilation failed.", {
+          trace.fail(t`LaTeX compilation failed.`, {
             detail: firstError?.message ?? "",
             copyText: [result.log, ...result.diagnostics.map((item) => item.message)].join("\n"),
             // The diagnostics panel already owns this failure on screen and
@@ -319,7 +320,8 @@ export function useBuildPipeline({
           // A rebuild that succeeds retracts the previous failure instead of
           // leaving it on screen to time out on its own.
           trace.clear();
-          trace.finish("success", `Build succeeded in ${(result.durationMs / 1000).toFixed(1)}s`);
+          const seconds = (result.durationMs / 1000).toFixed(1);
+          trace.finish("success", t`Build succeeded in ${seconds}s`);
           completionSound = "build-succeeded";
         }
       } while (takeQueuedBuild());
@@ -354,17 +356,17 @@ export function useBuildPipeline({
 
   const cleanProject = useCallback(async () => {
     if (!project || cleaning || building) return;
-    await cleanAuxiliaryFiles("Delete LaTeX auxiliary files (`.aux`, `.log`, `.bbl`, …) from this project?", setCleaning);
-  }, [building, cleaning, project]);
+    await cleanAuxiliaryFiles(t({ message: "Delete LaTeX auxiliary files (`.aux`, `.log`, `.bbl`, …) from this project?" }), setCleaning);
+  }, [building, cleaning, project, t]);
 
   const cleanAndRebuild = useCallback(async () => {
     if (!project || cleaning) return;
     // The active build owns the backend until it settles. Preserve the clean
     // rebuild intent in its queue rather than cleaning files out from under it.
-    if (buildingRef.current || await cleanAuxiliaryFiles("Delete auxiliary files and rebuild the PDF?", setCleaning)) {
+    if (buildingRef.current || await cleanAuxiliaryFiles(t`Delete auxiliary files and rebuild the PDF?`, setCleaning)) {
       await runBuild(true, { requested: true, sound: true });
     }
-  }, [buildingRef, cleaning, project, runBuild]);
+  }, [buildingRef, cleaning, project, runBuild, t]);
 
   const dismissDiagnostics = useCallback((diagnostics: CompileDiagnostic[]) => {
     dismissedDiagnosticsRef.current = diagnosticsFingerprint(diagnostics);

@@ -3,7 +3,7 @@
 use super::{current_root, run_blocking};
 use crate::app_state::AppState;
 use crate::browser_host::{self, DesktopReturnTarget};
-use crate::{chromium, macos_window, project};
+use crate::{chromium, macos_window, native_locale, project};
 use std::path::{Path, PathBuf};
 use tauri::{AppHandle, Manager, State, WebviewWindow, Window};
 use tauri_plugin_autostart::ManagerExt as AutostartManagerExt;
@@ -263,6 +263,35 @@ pub fn restart_after_update(app: AppHandle) -> Result<(), String> {
 #[tauri::command]
 pub fn set_window_background(window: WebviewWindow, dark: bool) -> Result<(), String> {
     macos_window::apply_window_background(&window, dark);
+    Ok(())
+}
+
+/// Follow the web UI's interface language natively: rebuild the menu bar with
+/// its translated `menu` labels (absent from browser-hosted pages, which show
+/// no native menu), and pin the bundle language AppKit and WebKit use from the
+/// next launch (`None` follows the system again).
+#[tauri::command]
+pub fn set_native_locale(
+    app: AppHandle, menu: Option<native_locale::MenuLabels>, bundle_language: Option<String>,
+) -> Result<(), String> {
+    let language = match bundle_language.as_deref() {
+        None => None,
+        Some(requested) => Some(
+            native_locale::bundle_language(requested)
+                .ok_or_else(|| format!("Unsupported interface language: {requested}"))?,
+        ),
+    };
+    native_locale::set_bundle_language(language);
+    // Only macOS has an app-wide menu bar; elsewhere `set_menu` would add a
+    // menu bar to every window, which Lattice never had.
+    #[cfg(target_os = "macos")]
+    if let Some(labels) = menu {
+        let menu = native_locale::build_menu(&app, &labels)
+            .map_err(|error| format!("Could not build the menu bar: {error}"))?;
+        app.set_menu(menu).map_err(|error| format!("Could not set the menu bar: {error}"))?;
+    }
+    #[cfg(not(target_os = "macos"))]
+    let _ = (app, menu);
     Ok(())
 }
 

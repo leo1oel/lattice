@@ -117,6 +117,7 @@ export function LiteratureSettings() {
           {message(id)}
         </SettingsGroup>
       ))}
+      {/* eslint-disable-next-line no-restricted-syntax -- product name */}
       <SettingsGroup title="Crossref">
         <SettingsRow label={t`Contact email`} htmlFor="literature-email" description={t`Sent to Crossref to use its polite pool. No API key is needed.`} />
         <form className="literature-credential-form" onSubmit={(event) => {

@@ -132,7 +132,8 @@ export function useReferenceImport({
       // "cite it with \cite{…}" over the old "as \cite{…}": the key's whole
       // point is being pasted into the manuscript, so the notice hands over
       // the exact command instead of assuming the reader parses BibTeX-ese.
-      const citeHint = result.citationKey ? ` — cite it with \\cite{${result.citationKey}}` : "";
+      const cited = Boolean(result.citationKey);
+      const title = result.title;
       const citationCommand = `\\cite{${result.citationKey}}`;
       setNotice(result.cancelled
         ? result.citationKey
@@ -143,12 +144,16 @@ export function useReferenceImport({
             ? t`Paper import cancelled before changing the bibliography; the downloaded full text remains available.`
             : t`Paper import cancelled before making changes.`
         : result.alreadyImported
-        ? `“${result.title}” is already in Papers${citeHint}.`
+        ? cited ? t`“${title}” is already in Papers — cite it with ${citationCommand}.` : t`“${title}” is already in Papers.`
         : result.arxivId
           ? result.fetchError
-            ? `Added “${result.title}” to the bibliography${citeHint}. The full text could not be downloaded: ${fetchNote}`
-            : `Imported “${result.title}”${citeHint}.`
-          : `Added “${result.title}” to the bibliography${citeHint}. No full text to open.`);
+            ? cited
+              ? t`Added “${title}” to the bibliography — cite it with ${citationCommand}. The full text could not be downloaded: ${fetchNote}`
+              : t`Added “${title}” to the bibliography. The full text could not be downloaded: ${fetchNote}`
+            : cited ? t`Imported “${title}” — cite it with ${citationCommand}.` : t`Imported “${title}”.`
+          : cited
+            ? t`Added “${title}” to the bibliography — cite it with ${citationCommand}. No full text to open.`
+            : t`Added “${title}” to the bibliography. No full text to open.`);
       return result;
     } catch (reason) {
       if (isTitleQuery(trimmed) && superseded()) return;
@@ -181,11 +186,14 @@ export function useReferenceImport({
     try {
       const entry = await invoke<ResolvedCitationDraft | null>("read_bib_entry", { key: paper.citationKey });
       if (entry) showBibEntry("edit", entry);
-      else setError(`Couldn't find a bibliography entry for \\cite{${paper.citationKey}}.`);
+      else {
+        const citationCommand = `\\cite{${paper.citationKey}}`;
+        setError(t`Couldn't find a bibliography entry for ${citationCommand}.`);
+      }
     } catch (reason) {
       setError(toMessage(reason));
     }
-  }, [showBibEntry]);
+  }, [showBibEntry, t]);
 
   const resolveBibQuery = useCallback(async (query: string): Promise<ResolvedCitationDraft | null> => {
     setBibEntry({ resolving: true, error: null });
@@ -203,11 +211,11 @@ export function useReferenceImport({
     if (!project || (importRoot !== null && importRoot !== project.root)) return;
     const bibliography = project.manifest.primaryBibliography;
     if (!bibliography) {
-      setBibEntry({ error: "This project has no primary bibliography." });
+      setBibEntry({ error: t`This project has no primary bibliography.` });
       return;
     }
     if (!draft.title.trim() || !draft.author.trim() || !draft.year.trim()) {
-      setBibEntry({ error: "Title, author, and year are required." });
+      setBibEntry({ error: t`Title, author, and year are required.` });
       return;
     }
     setBibEntry({ busy: true, error: null });
@@ -246,7 +254,7 @@ export function useReferenceImport({
     }
   }, [
     activeFile, bibEntry, commit, dirty, importReference, onCite, project, projectRootRef,
-    refreshProject, save, setBibEntry, source, onExternalEdits,
+    refreshProject, save, setBibEntry, source, onExternalEdits, t,
   ]);
 
   const clearStage = useCallback(() => setStage(null), []);

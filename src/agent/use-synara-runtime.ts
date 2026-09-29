@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { msg } from "@lingui/core/macro";
 import { toMessage } from "../app-utils";
+import { i18n } from "../i18n";
 import {
   EMPTY_SYNARA_RUNTIME,
   normalizeSynaraOrigin,
@@ -18,7 +20,7 @@ const DEVELOPMENT_RUNTIME: SynaraRuntimeInfo | null = DEVELOPMENT_ORIGIN
 function normalizeRuntime(info: SynaraRuntimeInfo): SynaraRuntimeInfo {
   const origin = normalizeSynaraOrigin(info.origin);
   if (info.state !== "ready" || origin) return { ...info, origin };
-  return { ...info, state: "stopped", origin, message: "The bundled Agent service did not report a valid local address." };
+  return { ...info, state: "stopped", origin, message: i18n._(msg`The bundled Agent service did not report a valid local address.`) };
 }
 
 /**

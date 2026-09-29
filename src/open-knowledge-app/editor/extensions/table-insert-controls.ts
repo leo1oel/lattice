@@ -27,6 +27,7 @@
  */
 
 import { autoUpdate, computePosition } from '@floating-ui/dom';
+import { t } from '@lingui/core/macro';
 import type { Editor } from '@tiptap/core';
 import { Extension } from '@tiptap/core';
 import type { EditorState } from '@tiptap/pm/state';
@@ -122,8 +123,8 @@ class TableInsertControlsView {
     container.className = 'ok-table-insert-controls';
     container.setAttribute(OPT_OUT_ATTR, 'true');
 
-    const colBar = createBar('column', 'Add column');
-    const rowBar = createBar('row', 'Add row');
+    const colBar = createBar('column', t`Add column`);
+    const rowBar = createBar('row', t`Add row`);
     colBar.addEventListener('click', () => this.insert(wrapper, appendTableColumn));
     rowBar.addEventListener('click', () => this.insert(wrapper, appendTableRow));
     container.append(colBar, rowBar);

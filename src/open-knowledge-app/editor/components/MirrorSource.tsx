@@ -12,7 +12,7 @@
  *
  */
 
-import { Trans, useLingui } from '@ok-app/shims/lingui-react-macro';
+import { Trans, useLingui } from '@lingui/react/macro';
 import { CopyPlus } from 'lucide-react';
 
 interface MirrorSourceProps {

@@ -57,6 +57,7 @@ import { Pdf } from './Pdf.tsx';
 import { Tab } from './Tab.tsx';
 import { Tabs } from './Tabs.tsx';
 import { Video } from './Video.tsx';
+import { t } from '@lingui/core/macro';
 
 function UnregisteredBadgeRender(props: { children?: React.ReactNode }) {
   return <div className="prose-no-margin">{props.children}</div>;
@@ -93,7 +94,7 @@ export const componentMap: Record<string, React.ComponentType<any>> = {
   // `<Toggle />` renders as "Toggle" in the summary instead of falling
   // through to Accordion.tsx's hardcoded "Accordion" fallback.
   // biome-ignore lint/suspicious/noExplicitAny: mirrors componentMap's heterogeneous prop shape
-  Toggle: (props: any) => <Accordion {...props} title={props.title ?? 'Toggle'} />,
+  Toggle: (props: any) => <Accordion {...props} title={props.title ?? t`Toggle`} />,
   // `HtmlAlignBlock` — canonical renderer for promoted `<div align>` wrappers
   // (GitHub-README centered headers). Children stay ordinary editable
   // blocks; the wrapper only applies text alignment.

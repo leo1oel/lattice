@@ -1,5 +1,6 @@
 import { type ButtonHTMLAttributes, type ReactNode } from "react";
 import { X } from "lucide-react";
+import { useLingui } from "@lingui/react/macro";
 import { cn } from "@/lib/utils";
 import { Tip } from "@/components/icon-tip";
 import "./chrome.css";
@@ -45,11 +46,12 @@ export function IconButton({
 }
 
 export function CloseButton({
-  label = "Close panel",
+  label,
   ...props
 }: Omit<IconButtonProps, "children"> & { label?: string }) {
+  const { t } = useLingui();
   return (
-    <IconButton label={label} {...props}>
+    <IconButton label={label ?? t`Close panel`} {...props}>
       <X aria-hidden="true" />
     </IconButton>
   );

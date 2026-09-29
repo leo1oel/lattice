@@ -96,7 +96,9 @@ describe("visual engine corpus", () => {
         const after = next ? body.slice(blockEnd + next.gapBefore.length) : baseline.trailing;
         expect(writtenBody.startsWith(before)).toBe(true);
         expect(writtenBody.endsWith(after)).toBe(true);
-        expect(writtenBody.slice(before.length, writtenBody.length - after.length)).toContain(word);
+        // Read back through the parser: the serializer may spell the word as a
+        // character reference where plain letters would break a delimiter run.
+        expect(open(writtenBody.slice(before.length, writtenBody.length - after.length)).doc.textContent).toContain(word);
       },
     ), { numRuns: 25 });
   });

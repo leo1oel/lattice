@@ -1,10 +1,12 @@
 /** Hover cards for citation keys and `\ref` labels (with a figure preview when one exists). */
 import { hoverTooltip, type EditorView, type Rect } from "@codemirror/view";
+import { msg } from "@lingui/core/macro";
 import infinityLoaderUrl from "../../../infinity-loader.svg";
+import { i18n } from "../../i18n";
 import { element } from "../dom-utils";
 import type { LatexEditorLiveData } from "./latex-editor";
 import { citationHoverTarget, referenceHoverTarget } from "./latex-symbols";
-import type { ReferenceInfo } from "./latex-text";
+import { referenceKindLabel, type ReferenceInfo } from "./latex-text";
 
 function hoverCard(className: string, view: EditorView, minWidth: number): HTMLDivElement {
   const dom = element("div", className);
@@ -52,24 +54,25 @@ function figurePreview(
   loadImage: (path: string) => Promise<string | null>,
   destroyed: () => boolean,
 ): HTMLElement {
-  const media = element("div", "reference-hover-media loading");
+  const mediaClassName = "reference-hover-media loading";
+  const media = element("div", mediaClassName);
   media.setAttribute("role", "status");
   const loader = element("img", "reference-hover-loader");
   loader.src = infinityLoaderUrl;
   loader.alt = "";
-  media.append(loader, element("span", "", "Loading figure preview…"));
+  media.append(loader, element("span", "", i18n._(msg`Loading figure preview…`)));
   const settle = (content: string | Node) => {
     if (destroyed()) return;
     media.classList.remove("loading");
     media.replaceChildren(content);
   };
   void loadImage(reference.imagePath).then((source) => {
-    if (!source) return settle("Preview unavailable for this figure format.");
+    if (!source) return settle(i18n._(msg`Preview unavailable for this figure format.`));
     const image = element("img");
     image.src = source;
     image.alt = reference.title || reference.label;
     settle(image);
-  }).catch(() => settle("Figure preview could not be loaded."));
+  }).catch(() => settle(i18n._(msg`Figure preview could not be loaded.`)));
   return media;
 }
 
@@ -89,7 +92,7 @@ export function referenceTooltips(live: () => LatexEditorLiveData, loadImage?: (
         const { imagePath } = reference;
         if (imagePath && loadImage) dom.append(figurePreview({ ...reference, imagePath }, loadImage, () => destroyed));
         dom.append(
-          element("small", "", `${reference.kind} · ${reference.label}`),
+          element("small", "", `${referenceKindLabel(reference.kind)} · ${reference.label}`),
           element("strong", "", reference.title || reference.label),
         );
         if (reference.snippet) dom.append(element("pre", "", reference.snippet));
