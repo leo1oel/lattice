@@ -133,6 +133,7 @@ export function classifyExternalProjectDrop(
 
 // Papers ride in the same `openTabs` string[] as files. A paper's tab key is
 // its full-text path — unambiguous, since only papers live under this prefix.
+// eslint-disable-next-line lingui/no-unlocalized-strings -- project-relative path prefix
 const PAPER_TAB_PREFIX = ".research/papers/";
 // eslint-disable-next-line lingui/no-unlocalized-strings -- path suffix
 const PAPER_TAB_SUFFIX = "/paper.md";

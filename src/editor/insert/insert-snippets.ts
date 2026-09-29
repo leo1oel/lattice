@@ -223,10 +223,10 @@ export const INSERT_SNIPPETS: InsertSnippet[] = [
   /* eslint-disable lingui/no-unlocalized-strings -- group keys; the palette's useGroupLabels translates them */
   ...codeSnippets("Environment", ENVIRONMENTS),
   ...codeSnippets("Structure", STRUCTURES),
-  /* eslint-enable lingui/no-unlocalized-strings */
   ...MATH.map(([id, label, detail, insert, cursorOffset, mathPreview]): InsertSnippet => ({
     id, group: "Math", label, detail, insert, cursorOffset, mathPreview,
   })),
+  /* eslint-enable lingui/no-unlocalized-strings */
   ...INSERT_SYMBOL_GROUPS.flatMap((group) => SYMBOLS[group].map(([insert, glyph, detail, preview]): InsertSnippet => ({
     id: `${group.toLowerCase()}-${insert.replace(/\\/g, "")}`,
     group,

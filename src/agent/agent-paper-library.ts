@@ -22,6 +22,7 @@ export interface AgentPaperLibrarySnapshot {
 
 /** The locally cached Markdown view of a paper the Agent can read. */
 export function agentPaperPath(arxivId: string, view: "blog" | "fulltext"): string {
+  // eslint-disable-next-line lingui/no-unlocalized-strings -- project-relative file path
   return `.research/papers/${arxivId}/${view === "blog" ? "blog.md" : "paper.md"}`;
 }
 

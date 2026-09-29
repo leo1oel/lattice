@@ -22,6 +22,7 @@ const CLIP_TAB = "M128,32a32,32,0,0,1,32,32H96A32,32,0,0,1,128,32Z";
 const LOG_PITCH = 32;
 /* one line: y is the underside it sits on, w the width of its top edge. w=64 is
    Phosphor's own, as are the 8-radius caps. */
+// eslint-disable-next-line lingui/no-unlocalized-strings -- SVG path data
 const logLine = (y: number, w: number) => `M${96 + w},${y}H96a8,8,0,0,1,0-16h${w}a8,8,0,0,1,0,16Z`;
 const LOG_LINES = [64, 64, 40, 64, 64, 40];
 

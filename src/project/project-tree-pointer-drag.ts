@@ -109,7 +109,6 @@ function createDragPreview(
       }
       preview.style.transition = "opacity 60ms ease-out, box-shadow 60ms ease-out";
       preview.style.opacity = "0";
-      // eslint-disable-next-line lingui/no-unlocalized-strings -- CSS box-shadow value
       preview.style.boxShadow = "0 1px 3px color-mix(in srgb, #000 5%, transparent)";
       window.setTimeout(() => preview.remove(), 70);
     },
