@@ -81,7 +81,7 @@ describe("Markdown round-trip core", () => {
     expect(blockTypes(doc)).toEqual([
       "raw:frontmatter", "heading", "paragraph", "blockquote", "bulletList", "orderedList", "taskList", "codeBlock",
       "horizontalRule", "table", "latticeMathBlock", "raw:html", "latticeComponent", "raw:definition", "latticeFootnote",
-      "raw:unsupported",
+      "bulletList",
     ]);
   });
 

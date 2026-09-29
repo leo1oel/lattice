@@ -21,6 +21,7 @@ import {
   CALLOUT, COMPONENTS_WITH_BODY, MODELLED_COMPONENTS, findClosingTag, readOpenTag, type ComponentProp,
 } from "./mdx-components";
 import { parseMarkdownTree } from "./markdown-syntax";
+import { extendPhrasing, PAPER_HREF, type Phrasing } from "./inline-syntax";
 import { inferPaperSpans, looksLikeLayoutMarker, readLayoutMarker, spansFit, type Span } from "./table-spans";
 
 /** Thrown inside a block the engine cannot model; the block is kept raw. */
@@ -362,15 +363,15 @@ function legacyCallout(node: Code, source: string, context: Context): JSONConten
 function list(node: List, context: Context): JSONContent {
   const items = node.children;
   const checked = items.map((item) => item.checked);
-  const task = checked.some((value) => value != null);
-  if (task && (node.ordered || checked.some((value) => value == null))) throw new Unmodelled();
+  // A list of only task items is a task list; GFM also lets tasks sit among plain items.
+  const taskList = !node.ordered && checked.every((value) => value != null);
   const markers = items.map((item) => sliceOf(item, context).match(/^(\d{1,9})?([-+*.)])/));
   const first = markers[0];
   if (!first) throw new Unmodelled();
   const nested = { ...context, nested: true };
-  const content = items.map((item) => listItem(item, task, nested));
+  const content = items.map((item) => listItem(item, nested));
   const spread = Boolean(node.spread);
-  if (task) return { type: "taskList", attrs: { bullet: first[2], spread }, content };
+  if (taskList) return { type: "taskList", attrs: { bullet: first[2], spread }, content };
   if (!node.ordered) return { type: "bulletList", attrs: { bullet: first[2], spread }, content };
   const second = markers[1]?.[1];
   return {
@@ -385,12 +386,14 @@ function list(node: List, context: Context): JSONContent {
   };
 }
 
-function listItem(item: ListItem, task: boolean, context: Context): JSONContent {
+function listItem(item: ListItem, context: Context): JSONContent {
   const [head, ...rest] = item.children;
   if (head && head.type !== "paragraph") throw new Unmodelled();
   const content = head ? [block(head, context), ...nestedBlocks(rest, context)] : [{ type: "paragraph" }];
-  const attrs = task ? { checked: Boolean(item.checked), spread: Boolean(item.spread) } : { spread: Boolean(item.spread) };
-  return { type: task ? "taskItem" : "listItem", attrs, content };
+  if (item.checked == null) return { type: "listItem", attrs: { spread: Boolean(item.spread) }, content };
+  // An authored `[X]` is written back as typed (R-FMT-14).
+  const marker = /^\s*(?:\d{1,9}[.)]|[-+*])\s+\[X\]/.test(sliceOf(item, context)) ? "X" : null;
+  return { type: "taskItem", attrs: { checked: Boolean(item.checked), spread: Boolean(item.spread), marker }, content };
 }
 
 /**
@@ -446,7 +449,7 @@ function tableNode(node: Table, context: Context, layout: Span[] | null): JSONCo
 // --- Inline -----------------------------------------------------------------
 
 function inline(children: PhrasingContent[], marks: Mark[], context: Context): JSONContent[] {
-  return children.flatMap((child) => phrasing(child, marks, context));
+  return extendPhrasing(children, context.source).flatMap((child) => phrasing(child, marks, context));
 }
 
 const marked = (node: JSONContent, marks: Mark[]): JSONContent => (marks.length ? { ...node, marks } : node);
@@ -477,6 +480,8 @@ function phrasing(node: PhrasingContent, marks: Mark[], context: Context): JSONC
     case "link": {
       if (!node.children.length) return rawInline(node, marks, context);
       const source = sliceOf(node, context);
+      const citation = citationNode(node, source, context);
+      if (citation) return [marked(citation, marks)];
       const autolink = source.startsWith("<") ? "angle" : source.startsWith("[") ? null : "literal";
       return inline(node.children, [...marks, { type: "link", attrs: { href: node.url, title: node.title ?? null, autolink } }], context);
     }
@@ -496,16 +501,47 @@ function phrasing(node: PhrasingContent, marks: Mark[], context: Context): JSONC
     }
     case "footnoteReference":
       return [marked({ type: "latticeFootnoteReference", attrs: { label: node.label ?? node.identifier } }, marks)];
+    default:
+      return extended(node as unknown as Phrasing, marks, context);
+  }
+}
+
+/** The inline kinds inline-syntax.ts recognizes on top of mdast. */
+function extended(node: Phrasing, marks: Mark[], context: Context): JSONContent[] {
+  switch (node.type) {
+    case "latticeHighlight":
+      return inline((node.children ?? []) as unknown as PhrasingContent[], [...marks, { type: "highlight" }], context);
+    case "latticeUnderline":
+      return inline((node.children ?? []) as unknown as PhrasingContent[], [...marks, { type: "underline" }], context);
+    case "latticeWiki": {
+      const target = String(node.target);
+      return [marked({ type: "latticeWikiLink", attrs: { target, source: node.value, sourceKey: target } }, marks)];
+    }
     case "html": {
-      const image = htmlImage(node.value);
+      const image = htmlImage(node.value ?? "");
       if (image) return [marked(image, marks)];
-      return rawInline(node, marks, context, node.value);
+      return rawInline(node, marks, context, node.value ?? "");
     }
     default:
       // Reference links, and anything else inline: kept verbatim.
       return rawInline(node, marks, context);
   }
 }
+
+/**
+ * A link to a paper in the project library whose text is plain is a citation
+ * chip (R-INL-7). A titled link, or one with formatted text, stays a link.
+ */
+function citationNode(node: { url: string; title?: string | null; children: PhrasingContent[] }, source: string, context: Context): JSONContent | null {
+  if (!PAPER_HREF.test(node.url) || node.title || !node.children.every((child) => child.type === "text")) return null;
+  if (context.nested && source.includes("\n")) return null;
+  const label = node.children.map((child) => (child as { value: string }).value).join("");
+  if (!label.trim()) return null;
+  return { type: "latticeCitation", attrs: { label, href: node.url, source, sourceKey: citationKey(label, node.url) } };
+}
+
+/** What a citation means, to tell whether its authored source still describes it. */
+export const citationKey = (label: unknown, href: unknown) => JSON.stringify([String(label ?? ""), String(href ?? "")]);
 
 const IMAGE_PROPS = new Set(["src", "alt", "title", "width", "align"]);
 
