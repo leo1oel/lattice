@@ -6,6 +6,9 @@
  *
  * Clean implementation for Lattice; spec: docs/visual-editor-spec.md.
  */
+import hljsCore from "highlight.js/lib/core";
+import latex from "highlight.js/lib/languages/latex";
+import { common } from "lowlight";
 
 export type CodeLanguage = {
   /** Written into the info string when picked. */
@@ -18,48 +21,51 @@ export type CodeLanguage = {
 };
 
 /**
- * Offered in the picker, in this order after Plain text. Labels are proper
- * names, the same in every locale; Plain text's label is localized by the view.
+ * The picker's languages, in order, by highlight.js grammar name. Everything
+ * else (display names and the spellings an info string may use) is read from
+ * highlight.js's own registration of each grammar, so only Lattice's choices
+ * live here: which languages the picker offers, the token a pick writes when
+ * it differs from the grammar name, and a label where highlight.js's name is
+ * not the one Lattice shows.
  */
-/* eslint-disable lingui/no-unlocalized-strings -- language names and info-string tokens are proper names and syntax */
-export const CODE_LANGUAGES: readonly CodeLanguage[] = [
-  { value: "text", label: "Plain text", aliases: ["plain", "plaintext", "txt"] },
-  { value: "bash", label: "Bash", aliases: ["sh", "shell", "zsh", "console"], grammar: "bash" },
-  { value: "c", label: "C", aliases: ["h"], grammar: "c" },
-  { value: "cpp", label: "C++", aliases: ["c++", "cc", "hpp"], grammar: "cpp" },
-  { value: "csharp", label: "C#", aliases: ["cs", "c#"], grammar: "csharp" },
-  { value: "css", label: "CSS", grammar: "css" },
-  { value: "diff", label: "Diff", aliases: ["patch"], grammar: "diff" },
-  { value: "go", label: "Go", aliases: ["golang"], grammar: "go" },
-  { value: "graphql", label: "GraphQL", aliases: ["gql"], grammar: "graphql" },
-  { value: "html", label: "HTML", aliases: ["xml", "svg"], grammar: "xml" },
-  { value: "java", label: "Java", grammar: "java" },
-  { value: "javascript", label: "JavaScript", aliases: ["js", "jsx", "mjs", "cjs"], grammar: "javascript" },
-  { value: "json", label: "JSON", aliases: ["jsonc", "json5"], grammar: "json" },
-  { value: "kotlin", label: "Kotlin", aliases: ["kt"], grammar: "kotlin" },
-  { value: "latex", label: "LaTeX", aliases: ["tex"], grammar: "latex" },
-  { value: "lua", label: "Lua", grammar: "lua" },
-  { value: "makefile", label: "Makefile", aliases: ["make"], grammar: "makefile" },
-  { value: "markdown", label: "Markdown", aliases: ["md"], grammar: "markdown" },
-  { value: "mermaid", label: "Mermaid" },
-  { value: "php", label: "PHP", grammar: "php" },
-  { value: "python", label: "Python", aliases: ["py", "python3"], grammar: "python" },
-  { value: "r", label: "R", grammar: "r" },
-  { value: "ruby", label: "Ruby", aliases: ["rb"], grammar: "ruby" },
-  { value: "rust", label: "Rust", aliases: ["rs"], grammar: "rust" },
-  { value: "scss", label: "SCSS", aliases: ["sass"], grammar: "scss" },
-  { value: "sql", label: "SQL", grammar: "sql" },
-  { value: "swift", label: "Swift", grammar: "swift" },
-  { value: "toml", label: "TOML", aliases: ["ini"], grammar: "ini" },
-  { value: "typescript", label: "TypeScript", aliases: ["ts", "tsx", "mts", "cts"], grammar: "typescript" },
-  { value: "yaml", label: "YAML", aliases: ["yml"], grammar: "yaml" },
+/* eslint-disable lingui/no-unlocalized-strings -- grammar names, info-string tokens and proper names */
+type PickerEntry = { grammar: string; writes?: string; label?: string };
+/** Rendered by Lattice rather than highlighted (R-BLK-5), so highlight.js does not know it. */
+const MERMAID: CodeLanguage = { value: "mermaid", label: "Mermaid" };
+const PICKER: readonly (PickerEntry | CodeLanguage)[] = [
+  { grammar: "plaintext", writes: "text" },
+  { grammar: "bash" }, { grammar: "c" }, { grammar: "cpp" }, { grammar: "csharp" }, { grammar: "css" },
+  { grammar: "diff" }, { grammar: "go" }, { grammar: "graphql" },
+  { grammar: "xml", writes: "html", label: "HTML" },
+  { grammar: "java" }, { grammar: "javascript" }, { grammar: "json" }, { grammar: "kotlin" },
+  { grammar: "latex" }, { grammar: "lua" }, { grammar: "makefile" }, { grammar: "markdown" },
+  MERMAID, { grammar: "php", label: "PHP" }, { grammar: "python" }, { grammar: "r" }, { grammar: "ruby" },
+  { grammar: "rust" }, { grammar: "scss" }, { grammar: "sql" }, { grammar: "swift" },
+  { grammar: "ini", writes: "toml", label: "TOML" },
+  { grammar: "typescript" }, { grammar: "yaml" },
 ];
 /* eslint-enable lingui/no-unlocalized-strings */
+
+const registry = hljsCore.newInstance();
+for (const [name, grammar] of Object.entries({ ...common, latex })) registry.registerLanguage(name, grammar);
+
+function fromRegistry({ grammar, writes, label }: PickerEntry): CodeLanguage {
+  const registered = registry.getLanguage(grammar);
+  // eslint-disable-next-line lingui/no-unlocalized-strings -- a build-time invariant, never shown to readers
+  if (!registered) throw new Error(`highlight.js has no ${grammar} grammar`);
+  const value = writes ?? grammar;
+  const aliases = [grammar, ...(registered.aliases ?? [])].filter((alias) => alias !== value);
+  // Plain text has nothing to highlight.
+  return { value, label: label ?? registered.name ?? grammar, aliases, grammar: grammar === "plaintext" ? undefined : grammar };
+}
+
+/** Offered in the picker, in this order. Plain text's label is localized by the view. */
+export const CODE_LANGUAGES: readonly CodeLanguage[] = PICKER.map((entry) => ("value" in entry ? entry : fromRegistry(entry)));
 
 const byName = new Map<string, CodeLanguage>();
 for (const language of CODE_LANGUAGES) {
   byName.set(language.value, language);
-  for (const alias of language.aliases ?? []) byName.set(alias, language);
+  for (const alias of language.aliases ?? []) if (!byName.has(alias)) byName.set(alias, language);
 }
 
 /** The language an authored info-string token names, or null for plain or unknown text. */
