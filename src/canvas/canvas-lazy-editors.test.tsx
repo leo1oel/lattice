@@ -1,7 +1,7 @@
 /** Clean implementation for Lattice; spec: docs/visual-editor-spec.md */
 import { Suspense } from "react";
 import { cleanup, render, waitFor } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { VISUAL_EDITOR_ENGINE_KEY } from "../settings/app-settings";
 import { DeferredVisualMarkdownEditor } from "./canvas-lazy-editors";
 
@@ -25,4 +25,14 @@ describe("visual Markdown engine selection", () => {
     await waitFor(() => expect(container.querySelector(".visual-markdown-editor")).not.toBeNull(), { timeout: 10_000 });
     expect(container.querySelector(".lx-md-editor")).toBeNull();
   });
+});
+
+describe("visual Markdown chunk warmth", () => {
+  it("marks the chunk warmed once the Lattice engine has loaded", async () => {
+    vi.resetModules();
+    const modules = await import("./canvas-lazy-modules");
+    expect(modules.isVisualMarkdownEditorWarmed()).toBe(false);
+    await modules.loadLatticeVisualEditorModule();
+    expect(modules.isVisualMarkdownEditorWarmed()).toBe(true);
+  }, 10_000);
 });
