@@ -109,7 +109,7 @@ Counts are tracked files directly in the directory (not nested), and lines are
 | `src/telemetry/` | 21 | 10 | 3,113 | Everything the app says about itself: the log store and log panel, toast notifications, the updater banner, global error capture, the root error boundary, interface sounds. |
 | `src/history/` | 14 | 5 | 2,608 | Version history and diffs: the history drawer, the versions timeline, `file-diff-view.tsx` and `pierre-diff.ts` (`@pierre/diffs` + shiki), conflict markers and the conflict resolver. |
 | `src/editor/insert/` | 12 | 4 | 1,179 | Putting things into a document: the insert palette, snippets and placeholders, figure and table generators, clipboard images. |
-| `src/styles/` | 11 | 3 | 598 | 8 CSS files (the token scale, palette, app shell, workspace) plus the three tests that enforce them (`tokens`, `surfaces`, `editor-selection-styles`). |
+| `src/styles/` | 10 | 2 | 525 | 8 CSS files (the token scale, palette, app shell, workspace) plus the two tests that enforce them (`tokens`, `surfaces`). |
 | `src/build/` | 18 | 8 | 1,718 | Compiling LaTeX and the tooling around it: log-line diagnostics, the TexLab language client and its diagnostics, the TeX-install wizard. |
 | `src/papers/` | 28 | 11 | 3,466 | The paper library and bibliography: literature discovery, `bib-entry`, `venues.ts`, arXiv ids, paper links, import progress, the reference check (`bibliography-audit*`). |
 | `src/canvas/` | 27 | 3 | 5,734 | The editing surface shell: `document-canvas.tsx` and the modules it was broken into (editor extensions, HTML preview, Paper reader, asset preview, Markdown split-scroll and mode handoff, split layout, zoom), editor tabs, the canvas toolbar, the document outline, and the lazy-chunk registry (`canvas-lazy-modules.ts`). |
@@ -182,7 +182,7 @@ engine (§2), and a repository guard test keeps that code from coming back.
 | `src/canvas/document-canvas.tsx` | 1,609 | The editing surface: source pane, preview pane, split/dual layouts, and the mount points for every lazy editor. |
 | `src-tauri/src/overleaf_rt.rs` + `overleaf_rt/` | 3,028 | A hand-written Socket.IO 0.9 client for Overleaf's realtime channel. The module header of `overleaf_rt.rs` is the protocol spec. |
 | `src-tauri/src/lib.rs` + `ipc/` | 483 + 2,589 | `lib.rs` wires plugins, the window lifecycle, the child runtimes and the 162-command table; the thin handlers live in `ipc/`, one module per area. No domain logic in either. |
-| `src/editor/markdown/visual-markdown-editor.tsx` | 1,269 | The TipTap 3 / ProseMirror visual Markdown editor: canonical publication, path swaps, round-trip eligibility. Source mapping, serialization, overlays and the passive viewport live in sibling `visual-*` modules. |
+| `src/editor/markdown/engine/lattice-visual-editor.tsx` | 737 | The Lattice visual Markdown engine (TipTap 3 / ProseMirror): canonical publication, path swaps, round-trip eligibility. Parsing, serialization, source mapping, overlays and the passive viewport live in sibling modules under `engine/`. |
 | `src-tauri/src/papers.rs` + `papers/` | 4,779 | Paper import, materialization into `.research/papers/`, citation insertion, bibliography upgrade. |
 | `src/editor/latex/latex-editor.ts` | 390 | The CodeMirror 6 extension set for LaTeX: keymaps, `autocompletion`, `linter`, and hover wiring over the `latex-*` modules beside it. (Vim/Emacs keymaps are loaded lazily one level up, `src/canvas/editor-extensions.ts:60-62`.) |
 | `src/editor/spreadsheet/spreadsheet-editor.tsx` | 495 | The Univer-backed `.lattice-sheet` editor (Univer setup is `spreadsheet-univer.ts`). |
@@ -258,7 +258,6 @@ The others became `collab-session-peers.test.ts` (since removed with Lattice Sha
 
 Some test files still have no same-named source module, and those are fine —
 they assert across several modules or on files rather than testing one export:
-`src/styles/editor-selection-styles.test.ts`,
 `src/platform/polyfills.test.ts`,
 `src/platform/react-compiler-guard.test.ts`,
 `src/platform/tauri-security-config.test.ts`,
