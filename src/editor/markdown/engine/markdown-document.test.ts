@@ -84,6 +84,11 @@ describe("Markdown round-trip core", () => {
     ]);
   });
 
+  it("labels components written without blank lines, and keeps converter anchors as invisible targets", () => {
+    const { doc } = open("<Callout type=\"note\">\nBody\n</Callout>\n\n<a id=\"S3.F1\"></a>\n\n<div>x</div>\n");
+    expect(blockTypes(doc)).toEqual(["raw:component", "raw:anchor", "raw:html"]);
+  });
+
   it("re-serializes only the edited block and keeps tight neighbours tight", () => {
     const text = "## Contents\n- one\n- two\n\nTail paragraph\n";
     expect(editBlockText(text, 2, () => "Changed tail")).toBe("## Contents\n- one\n- two\n\nChanged tail\n");

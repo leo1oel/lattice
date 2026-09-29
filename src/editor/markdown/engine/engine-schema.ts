@@ -27,6 +27,21 @@ const style = (defaults: Record<string, unknown>): Attributes => Object.fromEntr
   Object.entries(defaults).map(([name, value]) => [name, { default: value, rendered: false }]),
 );
 
+/**
+ * The same for marks, carried through the DOM as `data-lx-*` attributes:
+ * ProseMirror re-reads typed text from the DOM, and a mark attribute the DOM
+ * does not hold would read back as its default and look like an edit.
+ */
+const markStyle = (defaults: Record<string, string | null>): Attributes => Object.fromEntries(
+  Object.entries(defaults).map(([name, value]) => [name, {
+    default: value,
+    parseHTML: (element: HTMLElement) => element.getAttribute(`data-lx-${name}`) ?? value,
+    renderHTML: (attributes: Record<string, unknown>) => (
+      attributes[name] == null || attributes[name] === value ? {} : { [`data-lx-${name}`]: String(attributes[name]) }
+    ),
+  }]),
+);
+
 /** Style attribute names, dropped when two documents are compared for meaning. */
 export const STYLE_ATTRIBUTES = new Set([
   "setext", "bullet", "delimiter", "incrementListMarker", "spread", "fence", "indented", "markup", "marker", "autolink", "source",
@@ -52,7 +67,8 @@ const RawBlock = Node.create<{ labels: Partial<Record<RawBlockKind, string>> }>(
   defining: true,
   addOptions: () => ({ labels: {} }),
   addAttributes: () => ({ kind: { default: "unsupported", rendered: false } }),
-  parseHTML: () => [{ tag: "pre[data-lattice-raw]", preserveWhitespace: "full", getAttrs: (element) => ({ kind: element.getAttribute("data-lattice-raw") }) }],
+  // Above the code block's generic `pre` rule, so a copied raw block pastes back as one.
+  parseHTML: () => [{ tag: "pre[data-lattice-raw]", priority: 60, preserveWhitespace: "full", getAttrs: (element) => ({ kind: element.getAttribute("data-lattice-raw") }) }],
   renderHTML({ node }) {
     const kind = node.attrs.kind as RawBlockKind;
     const anchor = kind === "anchor" ? node.textContent.match(ANCHOR_SOURCE) : null;
@@ -124,8 +140,12 @@ const SourceText = Mark.create({
   name: "latticeSource",
   inclusive: false,
   excludes: "",
-  addAttributes: () => ({ source: { default: "", rendered: false }, value: { default: "", rendered: false } }),
-  renderHTML: () => ["span", { "data-lattice-source": "" }, 0],
+  addAttributes: () => ({
+    source: { default: "", parseHTML: (element) => element.getAttribute("data-source") ?? "", renderHTML: ({ source }) => ({ "data-source": source }) },
+    value: { default: "", parseHTML: (element) => element.getAttribute("data-value") ?? "", renderHTML: ({ value }) => ({ "data-value": value }) },
+  }),
+  parseHTML: () => [{ tag: "span[data-lattice-source]" }],
+  renderHTML: ({ HTMLAttributes }) => ["span", { ...HTMLAttributes, "data-lattice-source": "" }, 0],
 });
 
 export type EngineSchemaOptions = { rawBlockLabels?: Partial<Record<RawBlockKind, string>> };
@@ -191,14 +211,14 @@ function listExtensions(): AnyExtension[] {
 }
 
 function markExtensions(): AnyExtension[] {
-  const marker = (fallback: string) => ({ addAttributes: () => style({ marker: fallback }) });
+  const marker = (fallback: string) => ({ addAttributes: () => markStyle({ marker: fallback }) });
   return [
     Bold.extend(marker("**")),
     Italic.extend(marker("*")),
     Strike.extend(marker("~~")),
     // Markdown can wrap inline code in emphasis or a link, so code excludes nothing.
     Code.extend({ excludes: "" }),
-    Link.extend({ addAttributes() { return { ...this.parent?.(), ...style({ autolink: null }) }; } })
+    Link.extend({ addAttributes() { return { ...this.parent?.(), ...markStyle({ autolink: null }) }; } })
       .configure({ openOnClick: false, autolink: false, linkOnPaste: true }),
   ];
 }

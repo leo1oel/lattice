@@ -84,7 +84,8 @@ are tagged `[DROP→RAW]` below.
   definitions, frontmatter, tables under an explicit span layout, and any
   construct not yet modelled) or a *raw inline* atom (inline HTML, reference
   links, footnote references). A raw block's text *is* its Markdown, so
-  editing it edits the file.
+  editing it edits the file. A converter anchor line (`<a id="…"></a>`) is a
+  raw block that renders as an invisible scroll target carrying that `id`.
 
 **Saving.** The document is compared with the baseline: the blocks of the
 last accepted text, with their source bytes and gaps.

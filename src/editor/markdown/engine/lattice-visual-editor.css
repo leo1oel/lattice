@@ -10,9 +10,9 @@
 .markdown-preview-content > .lx-md-editor { width: 100%; min-height: 100%; margin: 0 auto; }
 
 .lx-md-editor {
-  /* The writing surface's own type contract: a comfortable long-form measure. */
+  /* The writing surface: the long-form reading role, with a looser line for prose. */
   --lx-md-measure: 760px;
-  --lx-md-font-size: 15px;
+  --lx-md-font-size: var(--type-reading-size);
   --lx-md-line-height: 1.7;
   --lx-md-flow: 0.85em;
   --lx-md-soft-surface: color-mix(in srgb, var(--text-primary) 4%, transparent);
@@ -22,7 +22,7 @@
   color: var(--text-primary);
 }
 
-.lx-md-editor.is-reading { --lx-md-font-size: var(--type-reading-size); --lx-md-line-height: 1.75; }
+.lx-md-editor.is-reading { --lx-md-line-height: 1.75; }
 
 .lx-md-eligibility {
   max-width: var(--lx-md-measure);
@@ -47,6 +47,8 @@
   letter-spacing: -0.003em;
   overflow-wrap: break-word;
   caret-color: var(--text-primary);
+  /* The app turns synthesis off globally; the UI face has no italic of its own. */
+  font-synthesis: style;
 }
 
 .lx-md-editor .lx-md-surface > :first-child { margin-top: 0; }
@@ -95,16 +97,17 @@
 .lx-md-editor .lx-md-surface :is(ul, ol) { margin: 0 0 var(--lx-md-flow); padding-inline-start: 1.45em; }
 .lx-md-editor .lx-md-surface li { margin: 0.2em 0; padding-inline-start: 0.15em; }
 .lx-md-editor .lx-md-surface li > :is(ul, ol) { margin: 0.2em 0 0; }
-.lx-md-editor .lx-md-surface li > p { margin-bottom: 0.2em; }
+.lx-md-editor .lx-md-surface li p { margin-bottom: 0.2em; }
+.lx-md-editor .lx-md-surface li p:last-child { margin-bottom: 0; }
 .lx-md-editor .lx-md-surface li::marker { color: var(--text-tertiary); }
 .lx-md-editor .lx-md-surface ol > li::marker { font-variant-numeric: tabular-nums; }
 
 .lx-md-editor .lx-md-surface ul[data-type="taskList"] { padding-inline-start: 0.2em; list-style: none; }
-.lx-md-editor .lx-md-surface li[data-type="taskItem"] { display: flex; align-items: flex-start; gap: 0.55em; padding: 0; }
-.lx-md-editor .lx-md-surface li[data-type="taskItem"] > label { display: flex; align-items: center; height: calc(var(--lx-md-line-height) * 1em); margin: 0; user-select: none; }
-.lx-md-editor .lx-md-surface li[data-type="taskItem"] > label input { width: 0.95em; height: 0.95em; margin: 0; accent-color: var(--control-active); }
-.lx-md-editor .lx-md-surface li[data-type="taskItem"] > div { flex: 1; min-width: 0; }
-.lx-md-editor .lx-md-surface li[data-type="taskItem"][data-checked="true"] > div { color: var(--text-secondary); }
+.lx-md-editor .lx-md-surface ul[data-type="taskList"] > li { display: flex; align-items: flex-start; gap: 0.55em; padding: 0; }
+.lx-md-editor .lx-md-surface ul[data-type="taskList"] > li > label { display: flex; align-items: center; height: calc(var(--lx-md-line-height) * 1em); margin: 0; user-select: none; }
+.lx-md-editor .lx-md-surface ul[data-type="taskList"] > li > label input { width: 0.95em; height: 0.95em; margin: 0; accent-color: var(--control-active); }
+.lx-md-editor .lx-md-surface ul[data-type="taskList"] > li > div { flex: 1; min-width: 0; }
+.lx-md-editor .lx-md-surface ul[data-type="taskList"] > li[data-checked="true"] > div { color: var(--text-secondary); }
 
 /* Blocks */
 .lx-md-editor .lx-md-surface blockquote {
@@ -206,6 +209,8 @@
   text-align: start;
   vertical-align: top;
 }
+/* Specific enough to win over the app's global table rules for the editor it replaces. */
+.lx-md-editor .lx-md-surface .tableWrapper > table > tbody > tr > th,
 .lx-md-editor .lx-md-surface th { background: var(--lx-md-soft-surface); font-weight: var(--weight-semibold); }
 .lx-md-editor .lx-md-surface :is(th, td) > p { margin: 0; }
 .lx-md-editor .lx-md-surface .selectedCell { background: var(--editor-selection-surface); }

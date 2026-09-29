@@ -71,10 +71,32 @@ function clearTimers(host: Host) {
   host.maxTimer = null;
 }
 
-/** Replace the editor's document without an undo step, an update event, or a publication. */
+/**
+ * Replace the editor's document without an undo step, an update event, or a
+ * publication. Only the blocks that differ are replaced, so formulas and
+ * images elsewhere stay mounted when canonical text comes back.
+ */
 function replaceDocument(editor: Editor, doc: PmNode) {
-  const { state } = editor;
-  const transaction = state.tr.replaceWith(0, state.doc.content.size, doc.content);
+  const current = editor.state.doc;
+  let start = 0;
+  let from = 0;
+  while (start < current.childCount && start < doc.childCount && current.child(start).eq(doc.child(start))) {
+    from += current.child(start).nodeSize;
+    start += 1;
+  }
+  let end = 0;
+  let to = current.content.size;
+  let newTo = doc.content.size;
+  while (
+    end < current.childCount - start && end < doc.childCount - start
+    && current.child(current.childCount - 1 - end).eq(doc.child(doc.childCount - 1 - end))
+  ) {
+    to -= current.child(current.childCount - 1 - end).nodeSize;
+    newTo -= doc.child(doc.childCount - 1 - end).nodeSize;
+    end += 1;
+  }
+  if (start === current.childCount && start === doc.childCount) return;
+  const transaction = editor.state.tr.replaceWith(from, to, doc.slice(from, newTo).content);
   transaction.setMeta(CANONICAL, true).setMeta("addToHistory", false).setMeta("preventUpdate", true);
   editor.view.dispatch(transaction);
 }
@@ -213,6 +235,25 @@ const HostHistory = Extension.create<object, HostStorage>({
 function surfaceProps(label: string): EditorOptions["editorProps"] {
   return {
     attributes: { class: "lx-md-surface", role: "textbox", "aria-multiline": "true", "aria-label": label },
+    // IME: never publish or hand the document away mid-composition, and apply
+    // canonical text that arrived during it once the composition ends.
+    handleDOMEvents: {
+      compositionstart: (view) => {
+        const host = hostOf((view.dom as HTMLElement & { editor?: Editor }).editor);
+        if (host) host.composing = true;
+        return false;
+      },
+      compositionend: (view) => {
+        const host = hostOf((view.dom as HTMLElement & { editor?: Editor }).editor);
+        // WebKit can deliver the committing transaction right after compositionend.
+        queueMicrotask(() => {
+          if (!host) return;
+          host.composing = false;
+          if (host.props.activePath === host.path) reconcileCanonical(host, host.props.text);
+        });
+        return false;
+      },
+    },
     handleClickOn: (view, _position, _node, _nodePosition, event) => {
       const anchor = (event.target as HTMLElement | null)?.closest?.("a[href]");
       const host = hostOf((view.dom as HTMLElement & { editor?: Editor }).editor);
@@ -236,6 +277,29 @@ function editorExtensions(labels: Partial<Record<RawBlockKind, string>>): AnyExt
 }
 
 /** Chip labels for kept-verbatim blocks; anchors are invisible and need none. */
+/**
+ * The editor once its ProseMirror view is mounted, else null. Tiptap creates
+ * the editor before `EditorContent` mounts the view, and every view access
+ * before that throws; effects here wait for this instead.
+ */
+function useMountedEditor(editor: Editor | null): Editor | null {
+  const [mounted, setMounted] = useState<Editor | null>(null);
+  useEffect(() => {
+    if (!editor) return;
+    const update = () => setMounted(isMounted(editor) ? editor : null);
+    update();
+    editor.on("mount", update);
+    editor.on("unmount", update);
+    return () => {
+      editor.off("mount", update);
+      editor.off("unmount", update);
+    };
+  }, [editor]);
+  return mounted;
+}
+
+const isMounted = (editor: Editor) => !editor.isDestroyed && Boolean((editor as unknown as { editorView?: unknown }).editorView);
+
 function useRawBlockLabels(): Partial<Record<RawBlockKind, string>> {
   const { t } = useLingui();
   return {
@@ -289,7 +353,7 @@ export function LatticeVisualMarkdownEditor(props: VisualMarkdownEditorProps): J
   });
 
   const [editorProps] = useState(() => surfaceProps(t`Markdown document editor`));
-  const editor = useEditor({
+  const instance = useEditor({
     extensions,
     // Kept in step with the effect below: Tiptap re-applies these options on re-render.
     editable: editable && reason == null,
@@ -300,6 +364,7 @@ export function LatticeVisualMarkdownEditor(props: VisualMarkdownEditorProps): J
       if (transaction.docChanged && !transaction.getMeta(CANONICAL) && host.current.baseline) schedulePublication(host.current);
     },
   }, []);
+  const editor = useMountedEditor(instance);
 
   // Load the active file, and reconcile canonical text from the host: our
   // own echo is ignored, anything else replaces the document.
@@ -329,30 +394,6 @@ export function LatticeVisualMarkdownEditor(props: VisualMarkdownEditorProps): J
     if (editor.isEditable !== canEdit) editor.setEditable(canEdit, false);
   }, [editable, editor, reason]);
 
-  // IME: never publish or hand the document away mid-composition, and apply
-  // canonical text that arrived during it once the composition ends.
-  useEffect(() => {
-    if (!editor) return;
-    const dom = editor.view.dom;
-    const start = () => {
-      host.current.composing = true;
-    };
-    const end = () => {
-      // WebKit can deliver the committing transaction right after compositionend.
-      queueMicrotask(() => {
-        const current = host.current;
-        current.composing = false;
-        if (current.props.activePath === current.path) reconcileCanonical(current, current.props.text);
-      });
-    };
-    dom.addEventListener("compositionstart", start);
-    dom.addEventListener("compositionend", end);
-    return () => {
-      dom.removeEventListener("compositionstart", start);
-      dom.removeEventListener("compositionend", end);
-    };
-  }, [editor]);
-
   useLayoutEffect(() => {
     if (!onFlushPendingChange) return;
     onFlushPendingChange(() => publishPending(host.current));
@@ -372,7 +413,7 @@ export function LatticeVisualMarkdownEditor(props: VisualMarkdownEditorProps): J
           {reason && !onEligibilityChange && (
             <InlineMessage level="warning" className="lx-md-eligibility">{reason}</InlineMessage>
           )}
-          <EditorContent editor={editor} />
+          <EditorContent editor={instance} />
         </div>
       </ProjectImageHostProvider>
     </MathMacrosContext.Provider>

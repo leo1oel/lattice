@@ -47,10 +47,13 @@ export const rawBlock = (kind: RawBlockKind, source: string): JSONContent => (
 /** One top-level block as a node; anything it cannot model becomes raw source. */
 export function blockToDocument(node: RootContent, source: string): JSONContent {
   const context: Context = { source, nested: false };
+  // A converter anchor line is inline HTML, so CommonMark reads it as a paragraph.
+  if (node.type === "paragraph" && ANCHOR_SOURCE.test(sliceOf(node, context))) return rawBlock("anchor", sliceOf(node, context));
   const kind = rawKind(node);
   if (kind) {
     const source = sliceOf(node, context);
-    return rawBlock(kind === "html" && ANCHOR_SOURCE.test(source) ? "anchor" : kind, source);
+    if (kind !== "html") return rawBlock(kind, source);
+    return rawBlock(ANCHOR_SOURCE.test(source) ? "anchor" : /^<[A-Z]/.test(source) ? "component" : "html", source);
   }
   try {
     return block(node, context);
