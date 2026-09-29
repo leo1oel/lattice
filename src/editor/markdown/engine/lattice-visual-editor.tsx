@@ -28,6 +28,7 @@ import { isPaperLibraryPath } from "../../../papers/paper-link";
 import { ProjectImageHostProvider } from "../project-image-host";
 import { DocumentHeadingRail, type DocumentHeadingItem } from "../document-heading-rail";
 import type { VisualMarkdownEditorProps } from "../visual-editor-props";
+import { FrozenHeaders } from "./frozen-headers";
 import { HeadingAnchors, REFRESH_ANCHORS, documentHeadings } from "./heading-anchors";
 import type { ImeGuard } from "./engine-keymap";
 import { MathMacrosContext, engineNodeViews } from "./engine-node-views";
@@ -455,6 +456,7 @@ function editorExtensions(labels: Partial<Record<RawBlockKind, string>>, ime: Im
     ...chromeExtensions(chrome),
     SourceOverlays,
     HeadingAnchors.configure({ paper: () => Boolean(chrome.host.props().optimizeForReading) }),
+    FrozenHeaders,
     HostHistory,
   ];
 }

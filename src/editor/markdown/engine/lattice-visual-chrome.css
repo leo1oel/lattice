@@ -459,3 +459,10 @@
 /* A converter-generated paper Contents stays in the document, out of view (R-BLK-14). */
 .lx-md-editor .lx-md-surface .lx-md-generated-contents { display: none; }
 .lx-md-editor .lx-md-surface :is(h1, h2, h3, h4, h5, h6)[id] { scroll-margin-top: var(--space-12); }
+
+/* A pinned header row covers the rows it rides over (R-CHR-9). */
+.lx-md-editor .lx-md-surface table > tbody > tr:first-child > th {
+  position: relative;
+  z-index: 1;
+  background: linear-gradient(var(--lx-md-block-surface-strong), var(--lx-md-block-surface-strong)), var(--editor-bg);
+}
