@@ -210,6 +210,8 @@ function layoutTableRange(children: RootContent[], index: number, context: Conte
 }
 
 const DISPLAY_OPEN = /^ {0,3}\\\[[ \t]*$/;
+/** A whole paragraph that is one `\[…\]` formula on one line: no `\]` inside it (R-RT-21). */
+export const SINGLE_LINE_DISPLAY = /^\\\[((?:(?!\\\])[^\n])*)\\\]$/;
 const DISPLAY_CLOSE = /(?:^|\n) {0,3}\\\][ \t]*$/;
 
 /**
@@ -244,7 +246,7 @@ function block(node: RootContent, context: Context): JSONContent {
     case "paragraph": {
       const source = sliceOf(node, context);
       // A whole-paragraph `\[…\]` on one line is a formula (R-RT-21).
-      const single = source.match(/^\\\[([^\n]*)\\\]$/);
+      const single = source.match(SINGLE_LINE_DISPLAY);
       if (single) return { type: "paragraph", content: [{ type: "latticeMath", attrs: { tex: single[1], source } }] };
       return withContent({ type: "paragraph" }, inline(node.children, [], context));
     }

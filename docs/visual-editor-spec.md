@@ -239,7 +239,14 @@ here, with the requirement it rests on.
   on Enter, and Escape cancels. A display formula is an atom whose selection
   offers only its properties and delete. Its multi-line field adds lines on
   Enter and commits on Mod-Enter. Both fields also commit when the reader
-  clicks away.
+  clicks away. An edit never changes the kind of formula the author wrote.
+  An edited inline formula (`$…$` or `\(…\)`) is written `$…$`. A formula
+  shown as display math is saved as display math. That includes a
+  whole-paragraph `\[…\]` on one line. When the new TeX still reads back in
+  the formula's own delimiters, they are kept: `\[…\]` stays `\[…\]` and
+  `$$…$$` stays `$$…$$`. A single-line `\[…\]` fits only if the TeX has no
+  line break and no `\]`. When the TeX does not fit, the formula is written in
+  the canonical display form, `$$…$$`, and never as `$…$`.
 - **Paper span inference (R-BLK-11), from its fixtures.** A table infers
   nothing unless it has a second header level: a row that repeats a label
   directly above it. Within the header levels, each repeated label must fill

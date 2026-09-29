@@ -96,13 +96,13 @@ function highlightChanges(set: DecorationSet, transaction: Transaction): Decorat
     });
   });
   // Attribute-only changes (a language switch) map no ranges; find their blocks too.
-  for (const step of transaction.steps) {
+  transaction.steps.forEach((step, index) => {
     const position = (step as unknown as { pos?: number }).pos;
-    if (typeof position !== "number") continue;
-    const mapped = transaction.mapping.map(position);
+    if (typeof position !== "number") return;
+    const mapped = transaction.mapping.slice(index + 1).map(position);
     const node = transaction.doc.nodeAt(mapped);
     if (node?.type.name === "codeBlock") touched.set(mapped, node);
-  }
+  });
   for (const [position, node] of touched) {
     next = next.remove(next.find(position, position + node.nodeSize));
     next = next.add(transaction.doc, blockDecorations(node, position));

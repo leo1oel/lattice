@@ -8,7 +8,7 @@
 import type { Mark as PmMark, Node as PmNode } from "@tiptap/pm/model";
 import { TableMap } from "@tiptap/pm/tables";
 import type { LatticeNodeStyle } from "./markdown-syntax";
-import { imageKey } from "./markdown-to-document";
+import { imageKey, SINGLE_LINE_DISPLAY } from "./markdown-to-document";
 import { writeOpenTag, type ComponentProp } from "./mdx-components";
 import { semanticKey } from "./semantic-key";
 import { inferPaperSpans, sameSpans, writeLayoutMarker, type Span } from "./table-spans";
@@ -36,8 +36,14 @@ function blocks(nodes: readonly PmNode[], options: SerializeOptions): MdNode[] {
 function block(node: PmNode, options: SerializeOptions): MdNode {
   const attrs = node.attrs as Record<string, unknown>;
   switch (node.type.name) {
-    case "paragraph":
+    case "paragraph": {
+      // A whole-paragraph `\[…\]` formula whose edit no longer fits one line stays display math.
+      const only = node.childCount === 1 ? node.firstChild! : null;
+      if (only?.type.name === "latticeMath" && SINGLE_LINE_DISPLAY.test(String(only.attrs.source)) && formulaSource(only.attrs, String(only.attrs.tex ?? "")) === undefined) {
+        return { type: "math", meta: null, value: String(only.attrs.tex ?? "") };
+      }
       return { type: "paragraph", children: phrasing(node) };
+    }
     case "heading":
       return styled({ type: "heading", depth: attrs.level, children: phrasing(node) }, { setext: Boolean(attrs.setext) });
     case "blockquote":
@@ -64,8 +70,7 @@ function block(node: PmNode, options: SerializeOptions): MdNode {
       return table(node, options);
     case "latticeMathBlock": {
       const tex = String(attrs.tex ?? "");
-      const source = typeof attrs.source === "string" && mathSourceMatches(attrs.source, tex) ? attrs.source : undefined;
-      return styled({ type: "math", meta: attrs.meta || null, value: tex }, { source });
+      return styled({ type: "math", meta: attrs.meta || null, value: tex }, { source: formulaSource(attrs, tex) });
     }
     case "latticeComponent":
       return component(node, options);
@@ -91,6 +96,23 @@ export function mathSourceMatches(source: string, tex: string): boolean {
   if (!match) return false;
   const body = match.length === 3 ? match[2]! : match[1]!;
   return body === tex || body.replace(/^\n/, "").replace(/\n$/, "") === tex || body.replace(/^[ \t]*\n/, "").replace(/\n[ \t]*$/, "") === tex;
+}
+
+/**
+ * The source to write a formula with: its authored source while it still
+ * spells `tex`; after an edit, a display formula written with `\[`/`\]` keeps
+ * those delimiters when the new TeX still reads back there. Otherwise nothing,
+ * so the stock form is written: `$…$` inline, `$$…$$` display (R-FMT-12).
+ */
+function formulaSource(attrs: Record<string, unknown>, tex: string): string | undefined {
+  const source = attrs.source;
+  if (typeof source !== "string") return undefined;
+  if (mathSourceMatches(source, tex)) return source;
+  if (SINGLE_LINE_DISPLAY.test(source)) {
+    const edited = `\\[${tex}\\]`;
+    return SINGLE_LINE_DISPLAY.exec(edited)?.[1] === tex ? edited : undefined;
+  }
+  return /^ {0,3}\\\[[ \t]*\n/.test(source) ? `\\[\n${tex}\n\\]` : undefined;
 }
 
 /**
@@ -198,8 +220,7 @@ function leaves(parent: PmNode): Leaf[] {
         break;
       case "latticeMath": {
         const tex = String(attrs.tex ?? "");
-        const source = typeof attrs.source === "string" && mathSourceMatches(attrs.source, tex) ? attrs.source : undefined;
-        node = styled({ type: "inlineMath", value: tex }, { source });
+        node = styled({ type: "inlineMath", value: tex }, { source: formulaSource(attrs, tex) });
         break;
       }
       case "latticeFootnoteReference": {

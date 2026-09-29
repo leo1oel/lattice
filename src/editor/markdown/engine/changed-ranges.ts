@@ -21,13 +21,13 @@ export function changedBlockRanges(transaction: Transaction): Range[] {
     });
   });
   // Attribute-only steps map no range; the node they changed is at their position.
-  for (const step of transaction.steps) {
+  transaction.steps.forEach((step, index) => {
     const position = (step as unknown as { pos?: number }).pos;
     if (typeof position === "number") {
-      const mapped = mapping.map(position);
+      const mapped = mapping.slice(index + 1).map(position);
       ranges.push({ from: mapped, to: mapped + 1 });
     }
-  }
+  });
   return ranges.map((range) => topLevelSpan(doc, Math.min(range.from, doc.content.size), Math.min(Math.max(range.to, range.from), doc.content.size)));
 }
 

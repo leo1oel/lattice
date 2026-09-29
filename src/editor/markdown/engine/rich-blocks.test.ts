@@ -201,6 +201,14 @@ describe("LaTeX math (R-RT-21, R-FMT-12)", () => {
     expect(serializeMarkdown(doc, baseline).text).toBe("\\[E=mc^2\\]\n");
   });
 
+  it("keeps escaped-bracket prose with a \\] inside it as prose", () => {
+    const text = "\\[1\\] Smith et al., see also \\[2\\]\n";
+    const { doc, baseline } = open(text);
+    expect(() => find(doc, isType("latticeMath"))).toThrow();
+    expect(doc.textContent).toBe("[1] Smith et al., see also [2]");
+    expect(serializeMarkdown(doc, baseline).text).toBe(text);
+  });
+
   it("pairs several inline spans across what would read as emphasis", () => {
     const text = "\\(\\mathrm{supp}_{\\mathrm{par}}\\) 问的是「**哪些权重被编辑**」；\\(\\mathrm{supp}_{\\mathrm{tea}}\\) 问的是「**哪些特征被监督**」。\n";
     const { doc, baseline } = open(text);
@@ -218,11 +226,23 @@ describe("LaTeX math (R-RT-21, R-FMT-12)", () => {
     expect(doc.children.map((node) => node.type.name)).toEqual(["codeBlock"]);
   });
 
-  it("writes an edited formula with dollars, whatever it was written with", () => {
+  it("writes an edited inline formula with dollars, whatever it was written with", () => {
     for (const source of ["The result is $x^2$.", "The result is \\(x^2\\)."]) {
       expect(edited(source, setAttrs(isType("latticeMath"), { tex: "y^3" }))).toBe("The result is $y^3$.");
     }
-    expect(edited("Intro\n\n\\[\nx^2\n\\]\n", setAttrs(isType("latticeMathBlock"), { tex: "y^3" }))).toBe("Intro\n\n$$\ny^3\n$$\n");
+  });
+
+  it("writes an edited display formula as display math in its own delimiters", () => {
+    expect(edited("Intro\n\n\\[\nx^2\n\\]\n", setAttrs(isType("latticeMathBlock"), { tex: "y^3" }))).toBe("Intro\n\n\\[\ny^3\n\\]\n");
+    expect(edited("Intro\n\n$$\nx^2\n$$\n", setAttrs(isType("latticeMathBlock"), { tex: "y^3" }))).toBe("Intro\n\n$$\ny^3\n$$\n");
+    expect(edited("\\[x\\]\n", setAttrs(isType("latticeMath"), { tex: "y" }))).toBe("\\[y\\]\n");
+  });
+
+  it("writes an edited single-line \\[…\\] formula that no longer fits one line as a display block", () => {
+    const { doc, baseline } = open("\\[x\\]\n");
+    const written = serializeMarkdown(setAttrs(isType("latticeMath"), { tex: "a\\]b" })(doc), baseline).text;
+    expect(written).toBe("$$\na\\]b\n$$\n");
+    expect(open(written).doc.child(0).type.name).toBe("latticeMathBlock");
   });
 
   it("keeps a backslash-escaped parenthesis as prose", () => {
