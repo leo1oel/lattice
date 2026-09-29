@@ -40,5 +40,15 @@ function semanticJSON(node: JSONContent): unknown {
       content.push(value);
     }
   }
+  // A block's trailing whitespace has no Markdown form (R-ELIG-2).
+  const last = content[content.length - 1] as { text?: string } | undefined;
+  if (TEXTBLOCKS.has(node.type ?? "") && last?.text != null) {
+    const text = last.text.replace(/[ \t]+$/, "");
+    if (text) content[content.length - 1] = { ...last, text };
+    else content.pop();
+  }
+  if (node.type === "paragraph" && !content.length) return null;
   return { type: node.type, attrs, marks, content };
 }
+
+const TEXTBLOCKS = new Set(["paragraph", "heading"]);

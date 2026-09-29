@@ -379,3 +379,73 @@ describe("code fences (R-FMT-8, R-RT-12)", () => {
       .toBe("```python title=\"Example with spaces\"\nconst answer = 42;\n```");
   });
 });
+
+describe("inline syntax beyond CommonMark (R-FMT-1, R-INL-1, R-INL-6, R-INL-7, R-FMT-14)", () => {
+  const marksOf = (doc: PmNode, text: string) => find(doc, textNode(text)).node.marks.map((mark) => mark.type.name);
+
+  it("reads ==highlight== and <u>underline</u> as marks and keeps their bytes", () => {
+    const text = "Plain ==marked **bold**== and <u>under</u> end.";
+    const { doc, baseline } = open(text);
+    expect(marksOf(doc, "marked ")).toEqual(["highlight"]);
+    expect(marksOf(doc, "bold")).toEqual(expect.arrayContaining(["highlight", "bold"]));
+    expect(marksOf(doc, "under")).toEqual(["underline"]);
+    expect(serializeMarkdown(doc, baseline).text).toBe(text);
+    expect(edited(text, insertBefore("Plain ", "Very "))).toBe(`Very ${text}`);
+  });
+
+  it("writes new highlight and underline marks, and escapes typed == so it stays text", () => {
+    const { baseline } = open("");
+    const paragraph = schema.nodes.paragraph!.create(null, [
+      schema.text("Hello", [schema.marks.highlight!.create()]),
+      schema.text(" and "),
+      schema.text("under", [schema.marks.underline!.create()]),
+      schema.text(" ==typed== a==b"),
+    ]);
+    const written = serializeMarkdown(schema.nodes.doc!.create(null, paragraph), baseline);
+    // The run falls back to the escaped style, which escapes every `==`.
+    expect(written.text).toBe("==Hello== and <u>under</u> \\==typed\\== a\\==b");
+    expect(written.verified).toBe(true);
+  });
+
+  it("leaves escaped or spaced delimiters as text", () => {
+    const { doc } = open("Keep \\==this== and == spaced == text.");
+    let highlighted = false;
+    doc.descendants((node) => {
+      if (node.marks.some((mark) => mark.type.name === "highlight")) highlighted = true;
+    });
+    expect(highlighted).toBe(false);
+  });
+
+  it("reads [[wiki links]] with heading slugs, keeps them byte for byte, and escapes typed brackets", () => {
+    const text = "See [[notes/foo]] and [[Paper#results-1]] here.";
+    const { doc, baseline } = open(text);
+    const targets: string[] = [];
+    doc.descendants((node) => {
+      if (node.type.name === "latticeWikiLink") targets.push(String(node.attrs.target));
+    });
+    expect(targets).toEqual(["notes/foo", "Paper#results-1"]);
+    expect(serializeMarkdown(doc, baseline).text).toBe(text);
+    expect(edited(text, setAttrs(isType("latticeWikiLink"), { target: "notes/bar" }))).toBe("See [[notes/bar]] and [[Paper#results-1]] here.");
+    expect(edited("Plain", insertBefore("Plain", "[[x]] "))).toBe("\\[\\[x]] Plain");
+  });
+
+  it("reads links into the paper library as citation chips and leaves other links alone", () => {
+    const text = "Before [Attention](../.research/papers/1706.03762/paper.md) and [Docs](https://example.com).";
+    const { doc, baseline } = open(text);
+    const citation = find(doc, isType("latticeCitation")).node;
+    expect(citation.attrs).toMatchObject({ label: "Attention", href: "../.research/papers/1706.03762/paper.md" });
+    expect(doc.textBetween(0, doc.content.size, "", (leaf) => (leaf.type.name === "latticeCitation" ? String(leaf.attrs.label) : ""))).toBe("Before Attention and Docs.");
+    expect(serializeMarkdown(doc, baseline).text).toBe(text);
+    expect(edited(text, setAttrs(isType("latticeCitation"), { label: "A [B] & C: *results*" })))
+      .toBe("Before [A \\[B\\] & C: \\*results\\*](../.research/papers/1706.03762/paper.md) and [Docs](https://example.com).");
+  });
+
+  it("reads a list that mixes task and plain items, and keeps an uppercase task marker", () => {
+    const text = "- [X] Done\n- plain\n- [ ] Open\n";
+    const { doc, baseline } = open(text);
+    expect(doc.child(0).type.name).toBe("bulletList");
+    expect(doc.child(0).children.map((item) => item.type.name)).toEqual(["taskItem", "listItem", "taskItem"]);
+    expect(serializeMarkdown(doc, baseline).text).toBe(text);
+    expect(edited(text, insertBefore("Open", "Still "))).toBe("- [X] Done\n- plain\n- [ ] Still Open\n");
+  });
+});

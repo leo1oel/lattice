@@ -142,7 +142,8 @@ export function MathBlockView(props: NodeViewProps) {
   const formula = useFormulaDraft(props);
   const [editing, setEditing] = useState(false);
   if (editing && !props.selected) setEditing(false);
-  const open = formula.open && editing;
+  // An empty equation has nothing to show, so selecting it (as the slash menu does) edits it.
+  const open = formula.open && (editing || !String(props.node.attrs.tex ?? "").trim());
   const selectSelf = () => {
     const position = props.getPos();
     if (typeof position !== "number" || !props.editor.isEditable) return;

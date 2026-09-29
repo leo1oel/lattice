@@ -7,8 +7,8 @@
  */
 import type { Mark as PmMark, Node as PmNode } from "@tiptap/pm/model";
 import { TableMap } from "@tiptap/pm/tables";
-import type { LatticeNodeStyle } from "./markdown-syntax";
-import { displayMathTex, imageKey, SINGLE_LINE_DISPLAY } from "./markdown-to-document";
+import { UPPERCASE_CHECK, type LatticeNodeStyle } from "./markdown-syntax";
+import { citationKey, displayMathTex, imageKey, SINGLE_LINE_DISPLAY } from "./markdown-to-document";
 import { writeOpenTag, type ComponentProp } from "./mdx-components";
 import { semanticKey } from "./semantic-key";
 import { inferPaperSpans, sameSpans, writeLayoutMarker, type Span } from "./table-spans";
@@ -86,8 +86,9 @@ function block(node: PmNode, options: SerializeOptions): MdNode {
 
 function listItem(node: PmNode, options: SerializeOptions): MdNode {
   const children = blocks(node.children, options);
-  const checked = node.type.name === "taskItem" ? Boolean(node.attrs.checked) : null;
-  return { type: "listItem", spread: Boolean(node.attrs.spread), checked, children };
+  if (node.type.name !== "taskItem") return { type: "listItem", spread: Boolean(node.attrs.spread), checked: null, children };
+  const item: MdNode = { type: "listItem", spread: Boolean(node.attrs.spread), checked: Boolean(node.attrs.checked), children };
+  return node.attrs.marker === UPPERCASE_CHECK && node.attrs.checked ? styled(item, { marker: UPPERCASE_CHECK }) : item;
 }
 
 /** Whether a formula's authored source (with its delimiters) still spells `tex`. */
@@ -193,10 +194,22 @@ type Leaf = { node: MdNode; marks: readonly PmMark[]; source?: PmMark };
 
 /** Inline content: flatten to leaves carrying their marks, then nest marks back into mdast parents. */
 function phrasing(parent: PmNode): MdNode[] {
-  return nest(collapseSourceRuns(leaves(parent)), []);
+  return nest(collapseSourceRuns(trimLineEnd(leaves(parent))), []);
 }
 
-const FORMAT_MARKS = new Set(["bold", "italic", "strike", "link"]);
+/**
+ * Whitespace typed at the end of a block has no Markdown form (a parser drops
+ * it), so it is not written rather than escaped as `&#x20;` (spec R-ELIG-2).
+ */
+function trimLineEnd(input: Leaf[]): Leaf[] {
+  const last = input[input.length - 1];
+  if (!last || last.source || last.node.type !== "text") return input;
+  const value = String(last.node.value).replace(/[ \t]+$/, "");
+  const trimmed: Leaf = { ...last, node: { type: "text", value, data: { lattice: { pieces: [{ value }] } } } };
+  return value ? [...input.slice(0, -1), trimmed] : input.slice(0, -1);
+}
+
+const FORMAT_MARKS = new Set(["bold", "italic", "strike", "link", "highlight", "underline"]);
 
 function leaves(parent: PmNode): Leaf[] {
   const result: Leaf[] = [];
@@ -223,6 +236,19 @@ function leaves(parent: PmNode): Leaf[] {
       case "latticeMath": {
         const tex = String(attrs.tex ?? "");
         node = styled({ type: "inlineMath", value: tex }, { source: formulaSource(attrs, tex) });
+        break;
+      }
+      case "latticeWikiLink": {
+        const target = String(attrs.target ?? "");
+        node = { type: "latticeRaw", value: typeof attrs.source === "string" && attrs.sourceKey === target ? attrs.source : `[[${target}]]` };
+        break;
+      }
+      case "latticeCitation": {
+        const label = String(attrs.label ?? "");
+        const href = String(attrs.href ?? "");
+        node = typeof attrs.source === "string" && attrs.sourceKey === citationKey(label, href)
+          ? { type: "latticeRaw", value: attrs.source }
+          : { type: "link", url: href, title: null, children: [{ type: "text", value: label }] };
         break;
       }
       case "latticeFootnoteReference": {
@@ -297,6 +323,8 @@ function wrapper(mark: PmMark, children: MdNode[]): MdNode {
     case "bold": return styled({ type: "strong", children }, { marker: String(attrs.marker ?? "**") });
     case "italic": return styled({ type: "emphasis", children }, { marker: String(attrs.marker ?? "*") });
     case "strike": return styled({ type: "delete", children }, { marker: String(attrs.marker ?? "~~") });
+    case "highlight": return { type: "latticeHighlight", children };
+    case "underline": return { type: "latticeUnderline", children };
     default:
       return styled(
         { type: "link", url: String(attrs.href ?? ""), title: (attrs.title as string | null) || null, children },

@@ -183,6 +183,7 @@ msgstr "{count} 篇论文"
 msgid "{count} TODO"
 msgstr "{count} 项待办"
 
+#: src/editor/markdown/engine/chrome/find-replace.tsx
 #: src/editor/markdown/visual-markdown-find-replace.tsx
 msgid "{current} of {count}"
 msgstr "第 {current} 个，共 {count} 个"
@@ -540,6 +541,7 @@ msgstr "访问被拒绝，请检查密钥及其权限。"
 msgid "Access forbidden by provider"
 msgstr "提供商拒绝访问"
 
+#: src/editor/markdown/engine/chrome/slash-items.ts
 #: src/editor/markdown/engine/views/component-views.tsx
 #: src/editor/markdown/visual-slash-items.ts
 #: src/open-knowledge-app/editor/components/Accordion.tsx
@@ -626,6 +628,7 @@ msgstr "添加参考文献条目"
 msgid "Add bibliography entry and cache the arXiv paper"
 msgstr "添加参考文献条目并缓存该 arXiv 论文"
 
+#: src/editor/markdown/engine/chrome/block-controls.tsx
 #: src/editor/markdown/visual-editor-block-controls.ts
 #: src/onboarding/onboarding-tour.tsx
 msgid "Add block below"
@@ -1145,6 +1148,7 @@ msgstr "横线符示例"
 msgid "Bar over an expression"
 msgstr "表达式上方加横线"
 
+#: src/editor/markdown/engine/chrome/slash-items.ts
 #: src/editor/markdown/visual-slash-items.ts
 msgid "Basic blocks"
 msgstr "基础块"
@@ -1229,6 +1233,7 @@ msgstr "BibTeX 参考文献样式"
 msgid "BibTeX preview"
 msgstr "BibTeX 预览"
 
+#: src/editor/markdown/engine/chrome/slash-items.ts
 #: src/editor/markdown/visual-slash-items.ts
 #: src/open-knowledge-app/editor/slash-command/items.tsx
 msgid "Big section heading."
@@ -1271,6 +1276,7 @@ msgstr "黑色"
 msgid "Blackboard bold"
 msgstr "黑板粗体"
 
+#: src/editor/markdown/engine/chrome/slash-items.ts
 #: src/editor/markdown/visual-slash-items.ts
 #: src/open-knowledge-app/editor/slash-command/component-items.tsx
 msgid "Block math equation rendered with KaTeX from a LaTeX source string."
@@ -1279,6 +1285,10 @@ msgstr "使用 KaTeX 渲染 LaTeX 源字符串的块级数学公式。"
 #: src/editor/insert/insert-snippets.ts
 msgid "Block quotation"
 msgstr "独立成段的引文"
+
+#: src/editor/markdown/engine/chrome/selection-toolbar.tsx
+msgid "Block type"
+msgstr "块类型"
 
 #: src/canvas/canvas-toolbar.tsx
 #: src/canvas/paper-reader.tsx
@@ -1323,6 +1333,7 @@ msgstr "若已安装 TeXcount，正文词数由其统计（否则为本地估算
 
 #: src/editor/insert/insert-snippets.ts
 #: src/editor/latex/latex-selection-toolbar.tsx
+#: src/editor/markdown/engine/chrome/selection-toolbar.tsx
 #: src/open-knowledge-app/editor/bubble-menu/InlineFormatButtons.tsx
 #: src/open-knowledge-app/lib/keyboard-shortcuts.ts
 msgid "Bold"
@@ -1459,6 +1470,8 @@ msgstr "实心圆点"
 msgid "Bullet list"
 msgstr "无序列表"
 
+#: src/editor/markdown/engine/chrome/selection-toolbar.tsx
+#: src/editor/markdown/engine/chrome/slash-items.ts
 #: src/editor/markdown/visual-slash-items.ts
 #: src/open-knowledge-app/editor/bubble-menu/BlockTypeSelector.tsx
 #: src/open-knowledge-app/editor/slash-command/items.tsx
@@ -1477,6 +1490,7 @@ msgstr "缓存"
 msgid "Calligraphic"
 msgstr "花体"
 
+#: src/editor/markdown/engine/chrome/slash-items.ts
 #: src/editor/markdown/engine/views/component-views.tsx
 #: src/editor/markdown/visual-slash-items.ts
 #: src/open-knowledge-app/editor/registry/descriptor-labels.ts
@@ -1746,6 +1760,7 @@ msgstr "正在检查你的 Overleaf 连接…"
 msgid "Checking…"
 msgstr "正在检查…"
 
+#: src/editor/markdown/engine/chrome/slash-items.ts
 #: src/editor/markdown/visual-slash-items.ts
 #: src/open-knowledge-app/editor/slash-command/items.tsx
 msgid "Checklist with checkboxes."
@@ -1775,6 +1790,7 @@ msgstr "选择颜色"
 msgid "Choose icon"
 msgstr "选择图标"
 
+#: src/editor/markdown/engine/chrome/pickers.tsx
 #: src/editor/markdown/visual-slash-items.ts
 msgid "Choose image to upload"
 msgstr "选择要上传的图片"
@@ -1856,6 +1872,7 @@ msgstr "仅有引用 — 尚未找到可下载全文"
 msgid "Citation resolve query"
 msgstr "引文解析查询"
 
+#: src/editor/markdown/engine/chrome/link-chrome.tsx
 #: src/editor/markdown/visual-link-insert-popover.tsx
 msgid "Citation title"
 msgstr "引用标题"
@@ -1962,6 +1979,7 @@ msgstr "关闭 {0}"
 msgid "Close {title}"
 msgstr "关闭 {title}"
 
+#: src/editor/markdown/engine/chrome/find-replace.tsx
 #: src/editor/markdown/visual-markdown-find-replace.tsx
 msgid "Close find"
 msgstr "关闭查找"
@@ -2012,6 +2030,8 @@ msgstr "梅花"
 msgid "Code block"
 msgstr "代码块"
 
+#: src/editor/markdown/engine/chrome/selection-toolbar.tsx
+#: src/editor/markdown/engine/chrome/slash-items.ts
 #: src/editor/markdown/visual-slash-items.ts
 #: src/open-knowledge-app/editor/bubble-menu/BlockTypeSelector.tsx
 #: src/open-knowledge-app/editor/slash-command/items.tsx
@@ -2050,6 +2070,7 @@ msgstr "可折叠"
 msgid "Collapsible content block (Notion-style toggle)."
 msgstr "可折叠内容块（类似 Notion 的折叠块）。"
 
+#: src/editor/markdown/engine/chrome/slash-items.ts
 #: src/editor/markdown/visual-slash-items.ts
 #: src/open-knowledge-app/editor/slash-command/component-items.tsx
 msgid "Collapsible section with a clickable summary."
@@ -2182,6 +2203,7 @@ msgstr "组件"
 msgid "Component boundary navigation"
 msgstr "组件边界导航"
 
+#: src/editor/markdown/engine/chrome/slash-items.ts
 #: src/editor/markdown/visual-slash-items.ts
 msgid "Components"
 msgstr "组件"
@@ -2298,10 +2320,12 @@ msgstr "控制字符"
 msgid "Controls"
 msgstr "控件"
 
+#: src/editor/markdown/engine/chrome/selection-toolbar.tsx
 #: src/open-knowledge-app/editor/bubble-menu/FootnoteBubbleButton.tsx
 msgid "Convert selection to footnote"
 msgstr "将所选文字转换为脚注"
 
+#: src/editor/markdown/engine/chrome/selection-toolbar.tsx
 #: src/open-knowledge-app/editor/bubble-menu/InlineFormatButtons.tsx
 msgid "Convert selection to inline math"
 msgstr "将所选文字转换为行内公式"
@@ -2880,6 +2904,7 @@ msgstr "行列式样式的矩阵"
 msgid "Diagnostics"
 msgstr "诊断"
 
+#: src/editor/markdown/engine/chrome/slash-items.ts
 #: src/editor/markdown/visual-slash-items.ts
 #: src/open-knowledge-app/editor/slash-command/component-items.tsx
 msgid "Diagram from Mermaid source — flowchart, sequence, class, state, ER, gantt, pie."
@@ -2996,6 +3021,7 @@ msgstr "有可用的 DOI 元数据修正。"
 msgid "Dollar Math"
 msgstr "美元符号公式"
 
+#: src/editor/markdown/engine/chrome/link-chrome.tsx
 #: src/editor/markdown/visual-link-insert-popover.tsx
 #: src/open-knowledge-app/editor/extensions/JsxComponentView.tsx
 #: src/open-knowledge-app/editor/extensions/MathInlineView.tsx
@@ -3229,6 +3255,7 @@ msgstr "编辑文档"
 msgid "Edit HTML"
 msgstr "编辑 HTML"
 
+#: src/editor/markdown/engine/chrome/link-chrome.tsx
 #: src/editor/markdown/visual-link-hover.tsx
 msgid "Edit link"
 msgstr "编辑链接"
@@ -3374,6 +3401,7 @@ msgstr "嵌入音频文件，使用原生播放器控件。"
 msgid "Embed an external page in an inline iframe (docs, demos, Figma, CodeSandbox)."
 msgstr "以内联 iframe 嵌入外部页面（文档、演示、Figma、CodeSandbox）。"
 
+#: src/editor/markdown/engine/chrome/slash-items.ts
 #: src/editor/markdown/visual-slash-items.ts
 #: src/open-knowledge-app/editor/slash-command/component-items.tsx
 msgid "Embed an image with optional alt text."
@@ -3391,6 +3419,7 @@ msgstr "嵌入内容"
 msgid "Embeds"
 msgstr "嵌入内容"
 
+#: src/editor/markdown/engine/chrome/slash-items.ts
 #: src/editor/markdown/visual-slash-items.ts
 #: src/open-knowledge-app/editor/slash-command/items.tsx
 msgid "Emoji"
@@ -3665,6 +3694,7 @@ msgstr "无法渲染 PDF"
 msgid "Feedback"
 msgstr "反馈"
 
+#: src/editor/markdown/engine/chrome/slash-items.ts
 #: src/editor/markdown/visual-slash-items.ts
 #: src/open-knowledge-app/editor/slash-command/items.tsx
 msgid "Fenced code block with monospace text."
@@ -3682,6 +3712,7 @@ msgstr "正在获取论文概览…"
 msgid "Fetchpriority"
 msgstr "获取优先级（fetchpriority）"
 
+#: src/editor/markdown/engine/chrome/slash-items.ts
 #: src/editor/markdown/visual-slash-items.ts
 #: src/open-knowledge-app/editor/slash-command/items.tsx
 msgid "Fifth-level heading."
@@ -3772,6 +3803,7 @@ msgid "find"
 msgstr "查找"
 
 #: src/editor/latex/search-panel.ts
+#: src/editor/markdown/engine/chrome/find-replace.tsx
 #: src/editor/markdown/visual-markdown-find-replace.tsx
 #: src/open-knowledge-app/lib/keyboard-shortcuts.ts
 #: src/project/project-replace-dialog.tsx
@@ -3790,6 +3822,7 @@ msgstr "查找并安装 {missingFile} 对应的 TeX Live 软件包"
 msgid "Find field navigation"
 msgstr "查找字段导航"
 
+#: src/editor/markdown/engine/chrome/find-replace.tsx
 #: src/editor/markdown/visual-markdown-find-replace.tsx
 msgid "Find in document"
 msgstr "在文档中查找"
@@ -3909,6 +3942,7 @@ msgid "Follow system (default)"
 msgstr "跟随系统（默认）"
 
 #: src/editor/insert/insert-snippets.ts
+#: src/editor/markdown/engine/chrome/slash-items.ts
 #: src/editor/markdown/visual-slash-items.ts
 #: src/open-knowledge-app/editor/slash-command/items.tsx
 msgid "Footnote"
@@ -3946,6 +3980,10 @@ msgstr "设置所选 LaTeX 的格式"
 msgid "Formatted with latexindent."
 msgstr "已使用 latexindent 格式化。"
 
+#: src/editor/markdown/engine/chrome/selection-toolbar.tsx
+msgid "Formatting"
+msgstr "格式"
+
 #: src/editor/markdown/engine/views/math-views.tsx
 #: src/open-knowledge-app/editor/registry/descriptor-labels.ts
 msgid "Formula"
@@ -3963,6 +4001,7 @@ msgstr "公式与 Excel 导出"
 msgid "Forward"
 msgstr "前进"
 
+#: src/editor/markdown/engine/chrome/slash-items.ts
 #: src/editor/markdown/visual-slash-items.ts
 #: src/open-knowledge-app/editor/slash-command/items.tsx
 msgid "Fourth-level heading."
@@ -4139,6 +4178,7 @@ msgstr "网格"
 msgid "Grid generator"
 msgstr "网格生成器"
 
+#: src/editor/markdown/engine/chrome/slash-items.ts
 #: src/editor/markdown/visual-slash-items.ts
 #: src/open-knowledge-app/editor/slash-command/items.tsx
 msgid "Grid of rows and columns with a header row."
@@ -4176,36 +4216,48 @@ msgstr "帽号记号"
 msgid "Hat accent example"
 msgstr "帽号示例"
 
+#: src/editor/markdown/engine/chrome/selection-toolbar.tsx
+#: src/editor/markdown/engine/chrome/slash-items.ts
 #: src/editor/markdown/visual-slash-items.ts
 #: src/open-knowledge-app/editor/bubble-menu/BlockTypeSelector.tsx
 #: src/open-knowledge-app/editor/slash-command/items.tsx
 msgid "Heading 1"
 msgstr "一级标题"
 
+#: src/editor/markdown/engine/chrome/selection-toolbar.tsx
+#: src/editor/markdown/engine/chrome/slash-items.ts
 #: src/editor/markdown/visual-slash-items.ts
 #: src/open-knowledge-app/editor/bubble-menu/BlockTypeSelector.tsx
 #: src/open-knowledge-app/editor/slash-command/items.tsx
 msgid "Heading 2"
 msgstr "二级标题"
 
+#: src/editor/markdown/engine/chrome/selection-toolbar.tsx
+#: src/editor/markdown/engine/chrome/slash-items.ts
 #: src/editor/markdown/visual-slash-items.ts
 #: src/open-knowledge-app/editor/bubble-menu/BlockTypeSelector.tsx
 #: src/open-knowledge-app/editor/slash-command/items.tsx
 msgid "Heading 3"
 msgstr "三级标题"
 
+#: src/editor/markdown/engine/chrome/selection-toolbar.tsx
+#: src/editor/markdown/engine/chrome/slash-items.ts
 #: src/editor/markdown/visual-slash-items.ts
 #: src/open-knowledge-app/editor/bubble-menu/BlockTypeSelector.tsx
 #: src/open-knowledge-app/editor/slash-command/items.tsx
 msgid "Heading 4"
 msgstr "四级标题"
 
+#: src/editor/markdown/engine/chrome/selection-toolbar.tsx
+#: src/editor/markdown/engine/chrome/slash-items.ts
 #: src/editor/markdown/visual-slash-items.ts
 #: src/open-knowledge-app/editor/bubble-menu/BlockTypeSelector.tsx
 #: src/open-knowledge-app/editor/slash-command/items.tsx
 msgid "Heading 5"
 msgstr "五级标题"
 
+#: src/editor/markdown/engine/chrome/selection-toolbar.tsx
+#: src/editor/markdown/engine/chrome/slash-items.ts
 #: src/editor/markdown/visual-slash-items.ts
 #: src/open-knowledge-app/editor/bubble-menu/BlockTypeSelector.tsx
 #: src/open-knowledge-app/editor/slash-command/items.tsx
@@ -4296,6 +4348,7 @@ msgstr "隐藏侧边栏"
 msgid "Hide thumbnails"
 msgstr "隐藏缩略图"
 
+#: src/editor/markdown/engine/chrome/selection-toolbar.tsx
 #: src/open-knowledge-app/editor/bubble-menu/InlineFormatButtons.tsx
 #: src/open-knowledge-app/lib/keyboard-shortcuts.ts
 msgid "Highlight"
@@ -4305,6 +4358,7 @@ msgstr "高亮"
 msgid "Highlight color"
 msgstr "高亮颜色"
 
+#: src/editor/markdown/engine/chrome/slash-items.ts
 #: src/editor/markdown/visual-slash-items.ts
 #: src/open-knowledge-app/editor/slash-command/component-items.tsx
 msgid "Highlight tips, warnings, and notes."
@@ -4335,6 +4389,7 @@ msgstr "顶部为水平标签栏，下方显示当前面板；点击标签可切
 msgid "Horizontal rule in a table"
 msgstr "表格横线"
 
+#: src/editor/markdown/engine/chrome/slash-items.ts
 #: src/editor/markdown/visual-slash-items.ts
 #: src/open-knowledge-app/editor/slash-command/items.tsx
 msgid "Horizontal rule that divides sections."
@@ -4403,6 +4458,7 @@ msgstr "标识符（id）"
 msgid "If and only if"
 msgstr "当且仅当"
 
+#: src/editor/markdown/engine/chrome/slash-items.ts
 #: src/editor/markdown/engine/views/image-view.tsx
 #: src/editor/markdown/visual-slash-items.ts
 #: src/open-knowledge-app/editor/registry/descriptor-labels.ts
@@ -4579,6 +4635,7 @@ msgstr "增加或减少源码编辑器中各行的缩进。"
 msgid "Indent or outdent the current list item."
 msgstr "增加或减少当前列表项的缩进。"
 
+#: src/editor/markdown/engine/chrome/slash-items.ts
 #: src/editor/markdown/visual-slash-items.ts
 #: src/open-knowledge-app/editor/slash-command/items.tsx
 msgid "Indented blockquote for citations."
@@ -4612,11 +4669,13 @@ msgstr "开始版本跟踪"
 msgid "Inline another TeX file"
 msgstr "就地嵌入另一个 TeX 文件"
 
+#: src/editor/markdown/engine/chrome/selection-toolbar.tsx
 #: src/open-knowledge-app/editor/bubble-menu/InlineFormatButtons.tsx
 #: src/open-knowledge-app/lib/keyboard-shortcuts.ts
 msgid "Inline code"
 msgstr "行内代码"
 
+#: src/editor/markdown/engine/chrome/slash-items.ts
 #: src/editor/markdown/visual-slash-items.ts
 #: src/open-knowledge-app/editor/slash-command/items.tsx
 msgid "Inline LaTeX math rendered with KaTeX."
@@ -4626,6 +4685,7 @@ msgstr "使用 KaTeX 渲染的行内 LaTeX 公式。"
 msgid "Inline math"
 msgstr "行内公式"
 
+#: src/editor/markdown/engine/chrome/slash-items.ts
 #: src/editor/markdown/visual-slash-items.ts
 #: src/open-knowledge-app/editor/slash-command/items.tsx
 msgid "Inline Math"
@@ -4650,6 +4710,7 @@ msgstr "插入"
 
 #: src/editor/insert/figure-insert-dialog.tsx
 #: src/editor/insert/insert-palette.tsx
+#: src/editor/markdown/engine/chrome/slash-items.ts
 #: src/editor/markdown/visual-slash-items.ts
 msgid "Insert"
 msgstr "插入"
@@ -4666,6 +4727,7 @@ msgstr "插入 \\cite{…}"
 msgid "Insert \\ref{…}"
 msgstr "插入 \\ref{…}"
 
+#: src/editor/markdown/engine/chrome/slash-items.ts
 #: src/editor/markdown/visual-slash-items.ts
 #: src/open-knowledge-app/editor/slash-command/items.tsx
 msgid "Insert a footnote reference + matching definition stub."
@@ -4718,6 +4780,7 @@ msgstr "插入图"
 msgid "Insert LaTeX snippets"
 msgstr "插入 LaTeX 片段"
 
+#: src/editor/markdown/engine/chrome/selection-toolbar.tsx
 #: src/open-knowledge-app/editor/bubble-menu/LinkEditPopover.tsx
 msgid "Insert link"
 msgstr "插入链接"
@@ -4875,6 +4938,7 @@ msgid "Iota"
 msgstr "约塔"
 
 #: src/editor/latex/latex-selection-toolbar.tsx
+#: src/editor/markdown/engine/chrome/selection-toolbar.tsx
 #: src/open-knowledge-app/editor/bubble-menu/InlineFormatButtons.tsx
 #: src/open-knowledge-app/lib/keyboard-shortcuts.ts
 msgid "Italic"
@@ -5284,6 +5348,7 @@ msgid "Line under an expression"
 msgstr "表达式下方加横线"
 
 #: src/editor/latex/latex-selection-toolbar.tsx
+#: src/editor/markdown/engine/chrome/slash-items.ts
 #: src/editor/markdown/visual-slash-items.ts
 #: src/open-knowledge-app/editor/bubble-menu/LinkEditPopover.tsx
 #: src/open-knowledge-app/editor/slash-command/component-items.tsx
@@ -5298,12 +5363,14 @@ msgstr "链接定义"
 msgid "Link the selected text, or edit the link under the caret."
 msgstr "为所选文本添加链接，或编辑光标处的链接。"
 
+#: src/editor/markdown/engine/chrome/slash-items.ts
 #: src/editor/markdown/visual-slash-items.ts
 #: src/open-knowledge-app/editor/slash-command/component-items.tsx
 msgid "Link to a page or external URL."
 msgstr "链接到页面或外部 URL。"
 
 #: src/editor/latex/latex-selection-toolbar.tsx
+#: src/editor/markdown/engine/chrome/link-chrome.tsx
 #: src/editor/markdown/visual-link-insert-popover.tsx
 #: src/open-knowledge-app/editor/bubble-menu/LinkEditPopover.tsx
 msgid "Link URL"
@@ -5424,6 +5491,7 @@ msgstr "正在加载版本…"
 msgid "Loading your Overleaf projects…"
 msgstr "正在加载你的 Overleaf 项目…"
 
+#: src/editor/markdown/engine/chrome/pickers.tsx
 #: src/papers/literature-discovery-panel.tsx
 #: src/settings/literature-settings.tsx
 msgid "Loading…"
@@ -5548,6 +5616,7 @@ msgid "math"
 msgstr "公式"
 
 #: src/editor/insert/insert-palette.tsx
+#: src/editor/markdown/engine/chrome/slash-items.ts
 #: src/editor/markdown/visual-slash-items.ts
 #: src/open-knowledge-app/editor/registry/descriptor-labels.ts
 msgid "Math"
@@ -5595,10 +5664,12 @@ msgstr "MCP"
 msgid "Mean / conjugate mark"
 msgstr "均值 / 共轭记号"
 
+#: src/editor/markdown/engine/chrome/slash-items.ts
 #: src/editor/markdown/visual-slash-items.ts
 msgid "Media"
 msgstr "媒体"
 
+#: src/editor/markdown/engine/chrome/slash-items.ts
 #: src/editor/markdown/visual-slash-items.ts
 #: src/open-knowledge-app/editor/slash-command/items.tsx
 msgid "Medium section heading."
@@ -5609,6 +5680,7 @@ msgstr "用于次级章节的中标题。"
 msgid "Merge cells"
 msgstr "合并单元格"
 
+#: src/editor/markdown/engine/chrome/slash-items.ts
 #: src/editor/markdown/visual-slash-items.ts
 #: src/open-knowledge-app/editor/registry/descriptor-labels.ts
 msgid "Mermaid"
@@ -6051,6 +6123,7 @@ msgid "next"
 msgstr "下一个"
 
 #: src/editor/latex/search-panel.ts
+#: src/editor/markdown/engine/chrome/find-replace.tsx
 #: src/editor/markdown/visual-markdown-find-replace.tsx
 msgid "Next match"
 msgstr "下一个匹配项"
@@ -6172,6 +6245,7 @@ msgid "No markers"
 msgstr "没有标记"
 
 #: src/components/ui/search-picker-dialog.tsx
+#: src/editor/markdown/engine/chrome/find-replace.tsx
 #: src/editor/markdown/visual-markdown-find-replace.tsx
 msgid "No matches"
 msgstr "无匹配项"
@@ -6192,6 +6266,11 @@ msgstr "没有匹配的文件"
 msgid "No matching logs"
 msgstr "没有匹配的日志"
 
+#: src/editor/markdown/engine/chrome/references.tsx
+msgid "No matching pages"
+msgstr "没有匹配的页面"
+
+#: src/editor/markdown/engine/chrome/references.tsx
 #: src/papers/paper-lookup.tsx
 #: src/project/paper-library.tsx
 msgid "No matching papers"
@@ -6201,6 +6280,7 @@ msgstr "没有匹配的论文"
 msgid "No matching papers — import them in the Papers panel first"
 msgstr "没有匹配的论文——请先在论文面板中导入"
 
+#: src/editor/markdown/engine/chrome/link-chrome.tsx
 #: src/open-knowledge-app/editor/link-path-suggestions.tsx
 msgid "No matching paths"
 msgstr "没有匹配的路径"
@@ -6269,6 +6349,8 @@ msgstr "没有可读取的论文内容。"
 msgid "No references to check"
 msgstr "暂无需要检查的引用"
 
+#: src/editor/markdown/engine/chrome/pickers.tsx
+#: src/editor/markdown/engine/chrome/slash-menu.tsx
 #: src/editor/markdown/engine/views/code-block-view.tsx
 #: src/open-knowledge-app/editor/slash-command/SlashCommandMenu.tsx
 msgid "No results"
@@ -6410,6 +6492,7 @@ msgstr "数集，如 R、N"
 msgid "Numbered list"
 msgstr "带编号的列表"
 
+#: src/editor/markdown/engine/chrome/slash-items.ts
 #: src/editor/markdown/visual-slash-items.ts
 #: src/open-knowledge-app/editor/slash-command/items.tsx
 msgid "Numbered list of items."
@@ -6811,6 +6894,8 @@ msgstr "橙色"
 msgid "Ordered list"
 msgstr "有序列表"
 
+#: src/editor/markdown/engine/chrome/selection-toolbar.tsx
+#: src/editor/markdown/engine/chrome/slash-items.ts
 #: src/editor/markdown/visual-slash-items.ts
 #: src/open-knowledge-app/editor/bubble-menu/BlockTypeSelector.tsx
 #: src/open-knowledge-app/editor/slash-command/items.tsx
@@ -7013,6 +7098,7 @@ msgstr "论文"
 msgid "Paper actions"
 msgstr "论文操作"
 
+#: src/editor/markdown/engine/chrome/references.tsx
 #: src/editor/markdown/visual-paper-citation-suggestion.tsx
 msgid "Paper citation suggestions"
 msgstr "论文引用建议"
@@ -7130,10 +7216,15 @@ msgstr "将剪贴板图像粘贴为插图"
 msgid "Paste duplicate"
 msgstr "粘贴副本"
 
+#: src/editor/markdown/engine/chrome/link-chrome.tsx
+msgid "Paste or type a link"
+msgstr "粘贴或输入链接"
+
 #: src/settings/literature-settings.tsx
 msgid "Paste your API key"
 msgstr "粘贴你的 API 密钥"
 
+#: src/editor/markdown/engine/chrome/link-chrome.tsx
 #: src/open-knowledge-app/editor/link-path-suggestions.tsx
 msgid "Path suggestions"
 msgstr "路径建议"
@@ -7259,6 +7350,7 @@ msgstr "派"
 msgid "Pick a venue to set its canonical name and entry type, or edit any field by hand"
 msgstr "选择一个会议或期刊来填入其规范名称和条目类型，也可以手动编辑任意字段"
 
+#: src/editor/markdown/engine/chrome/slash-items.ts
 #: src/editor/markdown/visual-slash-items.ts
 #: src/open-knowledge-app/editor/slash-command/items.tsx
 msgid "Pick an emoji to insert at the cursor."
@@ -7418,6 +7510,7 @@ msgid "previous"
 msgstr "上一个"
 
 #: src/editor/latex/search-panel.ts
+#: src/editor/markdown/engine/chrome/find-replace.tsx
 #: src/editor/markdown/visual-markdown-find-replace.tsx
 msgid "Previous match"
 msgstr "上一个匹配项"
@@ -7604,6 +7697,8 @@ msgstr "退出 {name}"
 
 #: src/editor/insert/insert-snippets.ts
 #: src/editor/latex/latex-selection-toolbar.tsx
+#: src/editor/markdown/engine/chrome/selection-toolbar.tsx
+#: src/editor/markdown/engine/chrome/slash-items.ts
 #: src/editor/markdown/visual-slash-items.ts
 #: src/open-knowledge-app/editor/bubble-menu/BlockTypeSelector.tsx
 #: src/open-knowledge-app/editor/slash-command/items.tsx
@@ -7775,6 +7870,7 @@ msgstr "此预览中无法使用项目相对链接"
 
 #: src/components/ui/confirm-action-dialog.tsx
 #: src/editor/harper-spellcheck.ts
+#: src/editor/markdown/engine/chrome/link-chrome.tsx
 #: src/editor/markdown/visual-link-insert-popover.tsx
 msgid "Remove"
 msgstr "移除"
@@ -7964,6 +8060,7 @@ msgid "Repeated author names; verify against the publication's author list befor
 msgstr "作者姓名重复；请先对照该文献的作者列表核实，再删除重复项。"
 
 #: src/editor/latex/search-panel.ts
+#: src/editor/markdown/engine/chrome/find-replace.tsx
 #: src/open-knowledge-app/lib/keyboard-shortcuts.ts
 msgid "Replace"
 msgstr "替换"
@@ -7977,10 +8074,12 @@ msgid "Replace all"
 msgstr "全部替换"
 
 #: src/editor/latex/search-panel.ts
+#: src/editor/markdown/engine/chrome/find-replace.tsx
 #: src/editor/markdown/visual-markdown-find-replace.tsx
 msgid "Replace all matches"
 msgstr "替换所有匹配项"
 
+#: src/editor/markdown/engine/chrome/find-replace.tsx
 #: src/editor/markdown/visual-markdown-find-replace.tsx
 msgid "Replace current match"
 msgstr "替换当前匹配项"
@@ -8001,6 +8100,7 @@ msgstr "用替换字段中的内容替换当前匹配项。"
 msgid "Replace this match"
 msgstr "替换此匹配项"
 
+#: src/editor/markdown/engine/chrome/find-replace.tsx
 #: src/editor/markdown/visual-markdown-find-replace.tsx
 #: src/project/project-replace-dialog.tsx
 msgid "Replace with"
@@ -8577,6 +8677,7 @@ msgstr "按名称、含义或命令搜索（alpha、implies、fraction…）"
 msgid "Search by project or owner…"
 msgstr "按项目或所有者搜索…"
 
+#: src/editor/markdown/engine/chrome/pickers.tsx
 #: src/open-knowledge-app/components/emoji-picker.tsx
 msgid "Search emoji"
 msgstr "搜索表情符号"
@@ -8706,6 +8807,7 @@ msgstr "选择全部引用"
 msgid "Select all source"
 msgstr "全选源码"
 
+#: src/editor/markdown/engine/chrome/block-controls.tsx
 #: src/editor/markdown/visual-editor-block-controls.ts
 msgid "Select block"
 msgstr "选择块"
@@ -8713,6 +8815,10 @@ msgstr "选择块"
 #: src/editor/markdown/visual-editor-block-controls.ts
 msgid "Select bullet list"
 msgstr "选择项目符号列表"
+
+#: src/editor/markdown/engine/chrome/block-controls.tsx
+msgid "Select bulleted list"
+msgstr "选择无序列表"
 
 #: src/editor/markdown/visual-editor-block-controls.ts
 msgid "Select code block"
@@ -8742,6 +8848,7 @@ msgstr "选择脚注"
 msgid "Select heading"
 msgstr "选择标题"
 
+#: src/editor/markdown/engine/chrome/block-controls.tsx
 #: src/editor/markdown/visual-editor-block-controls.ts
 msgid "Select list item"
 msgstr "选择列表项"
@@ -8754,6 +8861,7 @@ msgstr "选择 Mermaid 图表"
 msgid "Select next occurrence"
 msgstr "选择下一个匹配项"
 
+#: src/editor/markdown/engine/chrome/block-controls.tsx
 #: src/editor/markdown/visual-editor-block-controls.ts
 msgid "Select numbered list"
 msgstr "选择编号列表"
@@ -8778,6 +8886,7 @@ msgstr "选择保留源码的 Markdown"
 msgid "Select table"
 msgstr "选择表格"
 
+#: src/editor/markdown/engine/chrome/block-controls.tsx
 #: src/editor/markdown/visual-editor-block-controls.ts
 msgid "Select task list"
 msgstr "选择任务列表"
@@ -8843,6 +8952,7 @@ msgstr "发送消息"
 msgid "Sent to Crossref to use its polite pool. No API key is needed."
 msgstr "向 Crossref 提供邮箱以使用礼貌访问池，无需 API 密钥。"
 
+#: src/editor/markdown/engine/chrome/slash-items.ts
 #: src/editor/markdown/visual-slash-items.ts
 #: src/open-knowledge-app/editor/slash-command/items.tsx
 msgid "Separator"
@@ -8938,6 +9048,7 @@ msgstr "显示或隐藏终端"
 msgid "Show outline"
 msgstr "显示大纲"
 
+#: src/editor/markdown/engine/chrome/find-replace.tsx
 #: src/editor/markdown/visual-markdown-find-replace.tsx
 msgid "Show replace"
 msgstr "显示替换"
@@ -9027,6 +9138,7 @@ msgstr "简体中文"
 msgid "Single page"
 msgstr "单页"
 
+#: src/editor/markdown/engine/chrome/slash-items.ts
 #: src/editor/markdown/visual-slash-items.ts
 #: src/open-knowledge-app/editor/slash-command/items.tsx
 msgid "Sixth-level heading."
@@ -9056,6 +9168,7 @@ msgstr "跳过教程"
 msgid "Slash command menu"
 msgstr "斜杠命令菜单"
 
+#: src/editor/markdown/engine/chrome/slash-menu.tsx
 #: src/onboarding/onboarding-tour.tsx
 #: src/open-knowledge-app/editor/slash-command/SlashCommandMenu.tsx
 msgid "Slash commands"
@@ -9069,6 +9182,7 @@ msgstr "滑块"
 msgid "Small capitals"
 msgstr "小型大写字母"
 
+#: src/editor/markdown/engine/chrome/slash-items.ts
 #: src/editor/markdown/visual-slash-items.ts
 #: src/open-knowledge-app/editor/slash-command/items.tsx
 msgid "Small section heading."
@@ -9357,6 +9471,7 @@ msgid "Stopping…"
 msgstr "正在停止…"
 
 #: src/editor/latex/latex-selection-toolbar.tsx
+#: src/editor/markdown/engine/chrome/selection-toolbar.tsx
 #: src/open-knowledge-app/editor/bubble-menu/InlineFormatButtons.tsx
 #: src/open-knowledge-app/lib/keyboard-shortcuts.ts
 msgid "Strikethrough"
@@ -9574,6 +9689,7 @@ msgid "table"
 msgstr "表格"
 
 #: src/editor/insert/insert-snippets.ts
+#: src/editor/markdown/engine/chrome/slash-items.ts
 #: src/editor/markdown/visual-slash-items.ts
 #: src/editor/markdown/visual-table-span-controls.tsx
 #: src/open-knowledge-app/editor/slash-command/items.tsx
@@ -9614,6 +9730,8 @@ msgstr "标签页：{id}"
 msgid "Task list"
 msgstr "任务列表"
 
+#: src/editor/markdown/engine/chrome/selection-toolbar.tsx
+#: src/editor/markdown/engine/chrome/slash-items.ts
 #: src/editor/markdown/visual-slash-items.ts
 #: src/open-knowledge-app/editor/bubble-menu/BlockTypeSelector.tsx
 #: src/open-knowledge-app/editor/slash-command/items.tsx
@@ -9653,6 +9771,7 @@ msgstr "TeXcount 正文词数统计（可选，显示在状态栏）"
 msgid "TexLab language server (optional editor diagnostics)"
 msgstr "TexLab 语言服务器（可选，用于编辑器诊断）"
 
+#: src/editor/markdown/engine/chrome/selection-toolbar.tsx
 #: src/open-knowledge-app/editor/bubble-menu/BlockTypeSelector.tsx
 msgid "Text"
 msgstr "正文"
@@ -10343,6 +10462,7 @@ msgstr "行内公式 {open} 未闭合。"
 
 #: src/editor/insert/insert-snippets.ts
 #: src/editor/latex/latex-selection-toolbar.tsx
+#: src/editor/markdown/engine/chrome/selection-toolbar.tsx
 #: src/open-knowledge-app/editor/bubble-menu/InlineFormatButtons.tsx
 #: src/open-knowledge-app/lib/keyboard-shortcuts.ts
 msgid "Underline"
@@ -10465,6 +10585,7 @@ msgstr "不编号的居中公式"
 msgid "Unnumbered single-line equation"
 msgstr "不编号的单行公式"
 
+#: src/editor/markdown/engine/chrome/slash-items.ts
 #: src/editor/markdown/visual-slash-items.ts
 #: src/open-knowledge-app/editor/slash-command/items.tsx
 msgid "Unordered list of items."
@@ -10988,6 +11109,7 @@ msgstr "Wiki 嵌入图片"
 msgid "Wiki Embed Video"
 msgstr "Wiki 嵌入视频"
 
+#: src/editor/markdown/engine/chrome/references.tsx
 #: src/editor/markdown/visual-wiki-link-suggestion.tsx
 msgid "Wiki link suggestions"
 msgstr "Wiki 链接建议"

@@ -6,7 +6,7 @@
  * Built only on unified/remark/micromark (MIT).
  */
 import type { Parent, Parents, Root, RootContent, Text } from "mdast";
-import { defaultHandlers, type Handle, type Options, type State } from "mdast-util-to-markdown";
+import { defaultHandlers, type ConstructName, type Handle, type Options, type State } from "mdast-util-to-markdown";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 import remarkParse from "remark-parse";
@@ -15,6 +15,10 @@ import { unified } from "unified";
 import { remarkLatexMath } from "./latex-math-syntax";
 
 /** Style the parser recorded for one node, carried on `node.data.lattice` through serialization. */
+/** The uppercase task box, `[X]`, recorded so an item is written back as typed (R-FMT-14). */
+// eslint-disable-next-line lingui/no-unlocalized-strings -- Markdown syntax, not interface copy
+export const UPPERCASE_CHECK = "X";
+
 export type LatticeNodeStyle = {
   /** A text run as authored: each piece's `source` is emitted verbatim in literal mode. */
   pieces?: { value: string; source?: string }[];
@@ -119,6 +123,11 @@ function latticeHandlers(mode: SerializeMode, stock: Record<string, Handle>): Re
       const value = state.containerPhrasing(node as Parents, { ...info, before: "~", after: "~" });
       return `~${value}~`;
     },
+    listItem(node, parent, state, info) {
+      const written = stock.listItem!(node, parent, state, info);
+      // An authored uppercase task marker stays uppercase (R-FMT-14).
+      return styleOf(node)?.marker === UPPERCASE_CHECK ? written.replace(/^(\s*(?:\d{1,9}[.)]|[-+*])\s+)\[x\]/, `$1[${UPPERCASE_CHECK}]`) : written;
+    },
     heading: (node, parent, state, info) => withOption(
       state, "setext", literal ? styleOf(node)?.setext : undefined, () => stock.heading!(node, parent, state, info),
     ),
@@ -187,6 +196,13 @@ function latticeHandlers(mode: SerializeMode, stock: Record<string, Handle>): Re
       const body = component.children?.length ? state.containerFlow(node as Parameters<State["containerFlow"]>[0], info) : "";
       return body ? `${component.open}${component.lead}${body}${component.trail}${component.close}` : `${component.open}\n\n${component.close}`;
     },
+    latticeHighlight(node, _parent, state, info) {
+      return `==${state.containerPhrasing(node as Parameters<State["containerPhrasing"]>[0], { ...info, before: "=", after: "=" })}==`;
+    },
+    latticeUnderline(node, _parent, state, info) {
+      // eslint-disable-next-line lingui/no-unlocalized-strings -- HTML markup written into the document
+      return `<u>${state.containerPhrasing(node as Parameters<State["containerPhrasing"]>[0], { ...info, before: ">", after: "<" })}</u>`;
+    },
     // Verbatim inline source. Unlike `html`, a line break before it stays a
     // line break; the caller's verification catches the rare line start where
     // that would now read as block HTML, and `safe` mode writes it as `html`.
@@ -201,6 +217,8 @@ function latticeHandlers(mode: SerializeMode, stock: Record<string, Handle>): Re
     delete: () => "~",
     latticeRaw: (node) => (node as { value: string }).value.charAt(0),
     inlineMath: () => "$",
+    latticeHighlight: () => "=",
+    latticeUnderline: () => "<",
     link(node, parent, state, info) {
       const only = (node as { children: RootContent[] }).children[0];
       if (literal && styleOf(node)?.autolink === "literal" && only?.type === "text") return only.value.charAt(0);
@@ -211,7 +229,14 @@ function latticeHandlers(mode: SerializeMode, stock: Record<string, Handle>): Re
   return handlers;
 }
 
+const notInPhrasingText: ConstructName[] = ["autolink", "destinationLiteral", "destinationRaw", "reference", "titleQuote", "titleApostrophe", "image", "imageReference"];
+
 const baseOptions: Options = {
+  // `==` would read back as a highlight, and `[[` as a wiki link (inline-syntax.ts).
+  unsafe: [
+    { character: "=", after: "=", inConstruct: "phrasing", notInConstruct: notInPhrasingText },
+    { character: "[", after: "\\[", inConstruct: "phrasing", notInConstruct: notInPhrasingText },
+  ],
   bullet: "-",
   emphasis: "*",
   strong: "*",

@@ -81,7 +81,7 @@ describe("Markdown round-trip core", () => {
     expect(blockTypes(doc)).toEqual([
       "raw:frontmatter", "heading", "paragraph", "blockquote", "bulletList", "orderedList", "taskList", "codeBlock",
       "horizontalRule", "table", "latticeMathBlock", "raw:html", "latticeComponent", "raw:definition", "latticeFootnote",
-      "raw:unsupported",
+      "bulletList",
     ]);
   });
 
@@ -105,6 +105,26 @@ describe("Markdown round-trip core", () => {
     const edited = paragraph.copy(paragraph.content.addToEnd(schema.text(" More.")));
     const next = doc.copy(doc.content.replaceChild(0, edited));
     expect(serializeMarkdown(next, baseline).text).toBe("Keep snake\\_case, _emphasis_ and __strong__ here. More.\n");
+  });
+
+  it.each([
+    ["a link destination", "[a](https://x.test/?t=abc==)"],
+    ["a link title", "[a](https://x.test \"x==y\")"],
+  ])("keeps == and [[ unescaped in %s of an edited paragraph", (_name, source) => {
+    const { doc, baseline } = open(`${source}\n`);
+    const paragraph = doc.child(0);
+    const edited = paragraph.copy(paragraph.content.addToEnd(schema.text(" More.")));
+    const next = doc.copy(doc.content.replaceChild(0, edited));
+    expect(serializeMarkdown(next, baseline).text).toBe(`${source} More.\n`);
+  });
+
+  it("keeps == unescaped in the alt text of a rewritten image", () => {
+    const { doc, baseline } = open("![a==b](plot.png) tail\n");
+    const paragraph = doc.child(0);
+    const image = paragraph.child(0);
+    const moved = image.type.create({ ...image.attrs, src: "figures/plot.png" }, null, image.marks);
+    const next = doc.copy(doc.content.replaceChild(0, paragraph.copy(paragraph.content.replaceChild(0, moved))));
+    expect(serializeMarkdown(next, baseline).text).toBe("![a==b](figures/plot.png) tail\n");
   });
 
   it("escapes new text that would otherwise read back as syntax", () => {

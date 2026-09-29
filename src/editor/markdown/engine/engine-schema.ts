@@ -6,7 +6,7 @@
  *
  * Clean implementation for Lattice; spec: docs/visual-editor-spec.md.
  */
-import { Mark, Node, getSchema, type AnyExtension, type Attributes } from "@tiptap/core";
+import { Mark, Node, getSchema, type AnyExtension, type Attributes, type KeyboardShortcutCommand } from "@tiptap/core";
 import Bold from "@tiptap/extension-bold";
 import Code from "@tiptap/extension-code";
 import CodeBlock from "@tiptap/extension-code-block";
@@ -15,7 +15,9 @@ import Heading from "@tiptap/extension-heading";
 import HorizontalRule from "@tiptap/extension-horizontal-rule";
 import Image from "@tiptap/extension-image";
 import Italic from "@tiptap/extension-italic";
+import Highlight from "@tiptap/extension-highlight";
 import Link from "@tiptap/extension-link";
+import Underline from "@tiptap/extension-underline";
 import { BulletList, ListItem, OrderedList, TaskItem, TaskList } from "@tiptap/extension-list";
 import Strike from "@tiptap/extension-strike";
 import { Table, TableCell, TableHeader, TableRow } from "@tiptap/extension-table";
@@ -53,6 +55,8 @@ const mathBlockSelector = "div[data-lattice-math-block]";
 const componentSelector = "div[data-lattice-component]";
 const footnoteReferenceSelector = "sup[data-lattice-footnote-ref]";
 const footnoteSelector = "aside[data-lattice-footnote]";
+const wikiLinkSelector = "span[data-lattice-wiki]";
+const citationSelector = "a[data-lattice-citation]";
 const sourceTextSelector = "span[data-lattice-source]";
 
 /** Style attribute names, dropped when two documents are compared for meaning. */
@@ -201,6 +205,67 @@ export const FootnoteReference = Node.create({
   renderText: ({ node }) => `[^${String(node.attrs.label)}]`,
 });
 
+/**
+ * A wiki link, `[[Page]]` or `[[Page#heading-slug]]`, to a project page by
+ * its document name (R-INL-6, R-FMT-18). `source` is the link as authored.
+ */
+export const WikiLink = Node.create({
+  name: "latticeWikiLink",
+  group: "inline",
+  inline: true,
+  atom: true,
+  selectable: true,
+  addAttributes: () => ({
+    target: { default: "", parseHTML: (element) => element.getAttribute("data-target") ?? "", renderHTML: ({ target }) => ({ "data-target": target }) },
+    ...style({ source: null }),
+  }),
+  parseHTML: () => [{ tag: wikiLinkSelector }],
+  renderHTML: ({ HTMLAttributes, node }) => ["span", { ...HTMLAttributes, class: "lx-md-wiki-link", "data-lattice-wiki": "" }, String(node.attrs.target)],
+  renderText: ({ node }) => `[[${String(node.attrs.target)}]]`,
+  addKeyboardShortcuts() {
+    return chipDeletion(this.name);
+  },
+});
+
+/**
+ * A citation: a Markdown link to a paper in the project library,
+ * `.research/papers/<id>/paper.md` or `blog.md` (R-INL-7, R-FMT-17). It edits
+ * as one chip; `source` is the link as authored.
+ */
+export const PaperCitation = Node.create({
+  name: "latticeCitation",
+  group: "inline",
+  inline: true,
+  atom: true,
+  selectable: true,
+  addAttributes: () => ({
+    label: { default: "", parseHTML: (element) => element.textContent ?? "", renderHTML: () => ({}) },
+    href: { default: "", parseHTML: (element) => element.getAttribute("href") ?? "", renderHTML: ({ href }) => ({ href }) },
+    ...style({ source: null }),
+  }),
+  parseHTML: () => [{ tag: citationSelector, priority: 60 }],
+  renderHTML: ({ HTMLAttributes, node }) => ["a", { ...HTMLAttributes, class: "lx-md-citation", "data-lattice-citation": "" }, String(node.attrs.label)],
+  renderText: ({ node }) => String(node.attrs.label),
+  addKeyboardShortcuts() {
+    return chipDeletion(this.name);
+  },
+});
+
+/**
+ * Backspace or Delete beside a chip removes the whole chip in one step, rather
+ * than leaving deletion of a non-editable element to the browser.
+ */
+function chipDeletion(name: string): Record<string, KeyboardShortcutCommand> {
+  const remove = (before: boolean): KeyboardShortcutCommand => ({ editor }) => {
+    const { selection } = editor.state;
+    const chip = before ? selection.$from.nodeBefore : selection.$from.nodeAfter;
+    if (!selection.empty || chip?.type.name !== name) return false;
+    const from = before ? selection.from - chip.nodeSize : selection.from;
+    return editor.commands.deleteRange({ from, to: from + chip.nodeSize });
+  };
+  return { Backspace: remove(true), Delete: remove(false) };
+}
+
 /** A footnote definition, `[^label]: …`, whose body is ordinary Markdown blocks (R-BLK-6, R-RT-20). */
 export const FootnoteDefinition = Node.create({
   name: "latticeFootnote",
@@ -276,6 +341,8 @@ export function engineSchemaExtensions(options: EngineSchemaOptions = {}): AnyEx
     Component,
     FootnoteReference,
     FootnoteDefinition,
+    WikiLink,
+    PaperCitation,
     SourceText,
   ];
 }
@@ -309,15 +376,24 @@ export const LatticeImage = Image.extend({
   },
 });
 
+/** GFM lets a list mix task items with plain ones; a list of only task items is a task list. */
+// eslint-disable-next-line lingui/no-unlocalized-strings -- ProseMirror content expression
+const MIXED_ITEMS = "(listItem | taskItem)+";
+
 function listExtensions(): AnyExtension[] {
   return [
-    BulletList.extend({ addAttributes() { return { ...this.parent?.(), ...style({ bullet: "-", spread: false }) }; } }),
+    BulletList.extend({ content: MIXED_ITEMS, addAttributes() { return { ...this.parent?.(), ...style({ bullet: "-", spread: false }) }; } }),
     OrderedList.extend({
+      content: MIXED_ITEMS,
       addAttributes() { return { ...this.parent?.(), ...style({ delimiter: ".", incrementListMarker: true, spread: false }) }; },
     }),
     ListItem.extend({ addAttributes() { return { ...this.parent?.(), ...style({ spread: false }) }; } }),
     TaskList.extend({ addAttributes() { return { ...this.parent?.(), ...style({ bullet: "-", spread: false }) }; } }),
-    TaskItem.extend({ addAttributes() { return { ...this.parent?.(), ...style({ spread: false }) }; } }).configure({ nested: true }),
+    // `marker` keeps an authored `[X]` (R-FMT-14); the engine's own input rules create task items.
+    TaskItem.extend({
+      addAttributes() { return { ...this.parent?.(), ...style({ spread: false, marker: null }) }; },
+      addInputRules: () => [],
+    }).configure({ nested: true }),
   ];
 }
 
@@ -329,6 +405,9 @@ function markExtensions(): AnyExtension[] {
     Strike.extend(marker("~~")),
     // Markdown can wrap inline code in emphasis or a link, so code excludes nothing.
     Code.extend({ excludes: "" }),
+    // `==highlight==` and `<u>underline</u>` (R-FMT-1, R-INL-1).
+    Highlight.configure({ multicolor: false }),
+    Underline,
     Link.extend({ addAttributes() { return { ...this.parent?.(), ...markStyle({ autolink: null }) }; } })
       .configure({ openOnClick: false, autolink: false, linkOnPaste: true }),
   ];

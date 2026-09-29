@@ -31,8 +31,10 @@ import { MathMacrosContext, engineNodeViews } from "./engine-node-views";
 import { engineSchema, engineSchemaExtensions, type RawBlockKind } from "./engine-schema";
 import { openMarkdown, serializeMarkdown, type MarkdownBaseline, type OpenOptions } from "./markdown-document";
 import { TableControls } from "./views/table-controls";
+import { EngineChrome, EngineFindBar, chromeExtensions, createChrome, type Chrome } from "./chrome/engine-chrome";
 import "./lattice-visual-editor.css";
 import "./lattice-visual-blocks.css";
+import "./lattice-visual-chrome.css";
 
 /** Transactions carrying this meta replace the document from canonical text; they are never published. */
 const CANONICAL = "latticeCanonicalMarkdown";
@@ -297,9 +299,31 @@ const HostHistory = Extension.create<object, HostStorage>({
 function surfaceProps(label: string): EditorOptions["editorProps"] {
   return {
     attributes: { class: "lx-md-surface", role: "textbox", "aria-multiline": "true", "aria-label": label },
-    // IME: never publish or hand the document away mid-composition, and apply
-    // canonical text that arrived during it once the composition ends.
     handleDOMEvents: {
+      // Editing owns plain clicks; Mod-click (or any click while read-only)
+      // follows a link or opens a wiki link's page. Handled on the DOM click,
+      // not ProseMirror's position-mapped click, so it never depends on layout.
+      click: (view, event) => {
+        const host = hostOf((view.dom as HTMLElement & { editor?: Editor }).editor);
+        if (!host || !(event.metaKey || event.ctrlKey || !view.editable)) return false;
+        const target = event.target as HTMLElement | null;
+        const wiki = target?.closest?.("[data-lattice-wiki]");
+        if (wiki) {
+          // A wiki link opens its page by document name; the heading slug stays for the page to use.
+          const name = (wiki.getAttribute("data-target") ?? "").split("#")[0]!;
+          const doc = host.props.workspaceIndex?.getDoc(name);
+          if (doc) host.props.onOpenProjectPath?.(doc.path);
+          event.preventDefault();
+          return true;
+        }
+        const anchor = target?.closest?.("a[href]");
+        if (!anchor) return false;
+        event.preventDefault();
+        openMarkdownLink(host.props.activePath, anchor.getAttribute("href") ?? "", host.props.onOpenProjectPath, view.dom);
+        return true;
+      },
+      // IME: never publish or hand the document away mid-composition, and apply
+      // canonical text that arrived during it once the composition ends.
       compositionstart: (view) => {
         const host = hostOf((view.dom as HTMLElement & { editor?: Editor }).editor);
         if (host) host.composing = true;
@@ -319,24 +343,16 @@ function surfaceProps(label: string): EditorOptions["editorProps"] {
         return false;
       },
     },
-    handleClickOn: (view, _position, _node, _nodePosition, event) => {
-      const anchor = (event.target as HTMLElement | null)?.closest?.("a[href]");
-      const host = hostOf((view.dom as HTMLElement & { editor?: Editor }).editor);
-      // Editing owns plain clicks; Mod-click (or any click while read-only) follows the link.
-      if (!anchor || !host || !(event.metaKey || event.ctrlKey || !view.editable)) return false;
-      event.preventDefault();
-      openMarkdownLink(host.props.activePath, anchor.getAttribute("href") ?? "", host.props.onOpenProjectPath, view.dom);
-      return true;
-    },
   };
 }
 
-function editorExtensions(labels: Partial<Record<RawBlockKind, string>>, ime: ImeGuard): AnyExtension[] {
+function editorExtensions(labels: Partial<Record<RawBlockKind, string>>, ime: ImeGuard, chrome: Chrome): AnyExtension[] {
   const views = engineNodeViews({ ime });
   const viewNames = new Set(views.map((view) => view.name));
   return [
     ...engineSchemaExtensions({ rawBlockLabels: labels }).filter((extension) => !viewNames.has(extension.name)),
     ...views,
+    ...chromeExtensions(chrome),
     HostHistory,
   ];
 }
@@ -435,12 +451,14 @@ export function LatticeVisualMarkdownEditor(props: VisualMarkdownEditorProps): J
     loadGeneration: 0,
     pending: null,
   });
+  const [chrome] = useState(() => createChrome(props));
   // Extensions are read once, when the editor is created; labels are fixed then.
-  const [extensions] = useState(() => editorExtensions(labels, ime));
+  const [extensions] = useState(() => editorExtensions(labels, ime, chrome));
 
   useLayoutEffect(() => {
     const current = host.current;
     current.props = props;
+    chrome.host.setProps(props);
     current.messages = {
       // The vendored editor's notice, so hosts and users see one message whichever engine runs.
       unavailable: unavailableMessage,
@@ -518,8 +536,11 @@ export function LatticeVisualMarkdownEditor(props: VisualMarkdownEditorProps): J
           {reason && !onEligibilityChange && (
             <InlineMessage level="warning" className="lx-md-eligibility">{reason}</InlineMessage>
           )}
+          {/* Before the article, so the sticky find bar stays in view over its whole length. */}
+          {editor && <EngineFindBar editor={editor} chrome={chrome} />}
           <EditorContent editor={instance} />
           {editor && <TableControls editor={editor} layer={layer} paperMode={openOptions(props).paperSpans ?? false} />}
+          {editor && <EngineChrome editor={editor} chrome={chrome} layer={layer} />}
         </div>
       </ProjectImageHostProvider>
     </MathMacrosContext.Provider>
