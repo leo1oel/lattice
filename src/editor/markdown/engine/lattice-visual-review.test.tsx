@@ -475,3 +475,23 @@ describe("the view around an added block (R-CHR-5)", () => {
     expect(reveal).toHaveTextContent("/");
   });
 });
+
+describe("heading anchors on a keystroke (R-PERF-10)", () => {
+  it("keeps the planned headings, and so the rail, untouched by typing in a paragraph", async () => {
+    const { plannedHeadings } = await import("./heading-anchors");
+    const { editor } = renderEditor("## One\n\nBody text.\n\n## Two");
+    const before = plannedHeadings(editor.state);
+    select(editor, nodePos(editor, "Body text.") + 4);
+    act(() => {
+      editor.commands.insertContent("x");
+    });
+    expect(plannedHeadings(editor.state)).toBe(before);
+    expect(document.getElementById("two")).not.toBeNull();
+    select(editor, nodePos(editor, "Two") + 3);
+    act(() => {
+      editor.commands.insertContent(" more");
+    });
+    expect(plannedHeadings(editor.state)).not.toBe(before);
+    expect(document.getElementById("two-more")).not.toBeNull();
+  });
+});

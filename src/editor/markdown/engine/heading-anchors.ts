@@ -12,9 +12,10 @@
  */
 import { Extension } from "@tiptap/core";
 import type { Node as PmNode } from "@tiptap/pm/model";
-import { Plugin, PluginKey } from "@tiptap/pm/state";
+import { Plugin, PluginKey, type EditorState, type Transaction } from "@tiptap/pm/state";
 import { Decoration, DecorationSet } from "@tiptap/pm/view";
 import { createHeadingSlugger } from "../heading-slug";
+import { changedBlockRanges, replacedAny } from "./changed-ranges";
 
 export type DocumentHeading = { pos: number; id: string; text: string; level: number; generatedContents: boolean };
 
@@ -66,8 +67,12 @@ export type AnchorMark = { pos: number; id: string; hidden: boolean };
 
 /** The anchor marks of a whole document: every heading's id, and a generated Contents heading and list hidden. */
 export function anchorMarks(doc: PmNode, paper: boolean): AnchorMark[] {
+  return anchorMarksOf(doc, documentHeadings(doc, paper));
+}
+
+function anchorMarksOf(doc: PmNode, headings: readonly DocumentHeading[]): AnchorMark[] {
   const marks: AnchorMark[] = [];
-  for (const heading of documentHeadings(doc, paper)) {
+  for (const heading of headings) {
     marks.push({ pos: heading.pos, id: heading.id, hidden: heading.generatedContents });
     if (heading.generatedContents) marks.push({ pos: heading.pos + doc.nodeAt(heading.pos)!.nodeSize, id: "", hidden: true });
   }
@@ -81,7 +86,9 @@ export function anchorMarks(doc: PmNode, paper: boolean): AnchorMark[] {
  */
 type AnchorOptions = { paper: () => boolean; marks: ((doc: PmNode) => AnchorMark[]) | null };
 
-const anchorsKey = new PluginKey<DecorationSet>("latticeHeadingAnchors");
+type AnchorState = { decorations: DecorationSet; headings: DocumentHeading[] };
+
+const anchorsKey = new PluginKey<AnchorState>("latticeHeadingAnchors");
 
 function anchors(doc: PmNode, marks: readonly AnchorMark[]): DecorationSet {
   const decorations: Decoration[] = [];
@@ -95,6 +102,25 @@ function anchors(doc: PmNode, marks: readonly AnchorMark[]): DecorationSet {
   return DecorationSet.create(doc, decorations);
 }
 
+/** Nodes whose edits can change the headings: headings themselves, and components that hold them. */
+const HEADING_HOLDERS = new Set(["heading", "latticeComponent"]);
+
+/** Whether a transaction could have changed a heading: it replaced or touched one, or a component. */
+function touchesHeadings(transaction: Transaction): boolean {
+  if (replacedAny(transaction, HEADING_HOLDERS)) return true;
+  return changedBlockRanges(transaction).some((range) => {
+    let found = false;
+    transaction.doc.nodesBetween(range.from, range.to, (node) => {
+      if (HEADING_HOLDERS.has(node.type.name)) found = true;
+      return false;
+    });
+    return found;
+  });
+}
+
+/** The document's headings as the anchors plugin last planned them (the section rail reads these). */
+export const plannedHeadings = (state: EditorState): readonly DocumentHeading[] => anchorsKey.getState(state)?.headings ?? [];
+
 /** Refresh the anchors after reading mode changes. */
 export const REFRESH_ANCHORS = "latticeRefreshAnchors";
 
@@ -103,14 +129,26 @@ export const HeadingAnchors = Extension.create<AnchorOptions>({
   addOptions: () => ({ paper: () => false, marks: null }),
   addProseMirrorPlugins() {
     const { paper, marks } = this.options;
-    const plan = (doc: PmNode) => (marks ? marks(doc) : anchorMarks(doc, paper()));
-    return [new Plugin<DecorationSet>({
+    const plan = (doc: PmNode): AnchorState => {
+      if (marks) return { decorations: anchors(doc, marks(doc)), headings: [] };
+      const headings = documentHeadings(doc, paper());
+      return { decorations: anchors(doc, anchorMarksOf(doc, headings)), headings };
+    };
+    return [new Plugin<AnchorState>({
       key: anchorsKey,
       state: {
-        init: (_config, state) => anchors(state.doc, plan(state.doc)),
-        apply: (transaction, set, _old, state) => (transaction.docChanged || transaction.getMeta(REFRESH_ANCHORS) ? anchors(state.doc, plan(state.doc)) : set),
+        init: (_config, state) => plan(state.doc),
+        apply: (transaction, current, _old, state) => {
+          if (!transaction.docChanged && !transaction.getMeta(REFRESH_ANCHORS)) return current;
+          // A keystroke in a paragraph moves the anchors without re-reading every heading (R-PERF-10).
+          // In paper reading mode a list's shape decides the generated Contents, so it always re-reads.
+          if (!transaction.getMeta(REFRESH_ANCHORS) && !paper() && !marks && !touchesHeadings(transaction)) {
+            return { decorations: current.decorations.map(transaction.mapping, transaction.doc), headings: current.headings };
+          }
+          return plan(state.doc);
+        },
       },
-      props: { decorations: (state) => anchorsKey.getState(state) },
+      props: { decorations: (state) => anchorsKey.getState(state)?.decorations },
     })];
   },
 });

@@ -29,7 +29,7 @@ import { ProjectImageHostProvider } from "../project-image-host";
 import { DocumentHeadingRail, type DocumentHeadingItem } from "../document-heading-rail";
 import type { VisualMarkdownEditorProps } from "../visual-editor-props";
 import { FrozenHeaders } from "./frozen-headers";
-import { HeadingAnchors, REFRESH_ANCHORS, documentHeadings } from "./heading-anchors";
+import { HeadingAnchors, REFRESH_ANCHORS, plannedHeadings, type DocumentHeading } from "./heading-anchors";
 import { PassiveView, passiveModel, type PassiveModel } from "./passive-view";
 import type { ImeGuard } from "./engine-keymap";
 import { MathMacrosContext, engineNodeViews } from "./engine-node-views";
@@ -438,11 +438,18 @@ function surfaceProps(label: string): EditorOptions["editorProps"] {
 
 const NO_HEADINGS: DocumentHeadingItem[] = [];
 
-function railHeadings(doc: PmNode, paper: boolean): DocumentHeadingItem[] {
-  const size = Math.max(1, doc.content.size);
-  return documentHeadings(doc, paper)
-    .filter((heading) => heading.id && !heading.generatedContents)
-    .map((heading) => ({ id: heading.id, label: heading.text, level: heading.level, position: heading.pos / size }));
+const railCache = new WeakMap<readonly DocumentHeading[], DocumentHeadingItem[]>();
+
+/** The rail's items for the planned headings: the same array while the headings are the same. */
+function railHeadings(headings: readonly DocumentHeading[], size: number): DocumentHeadingItem[] {
+  let items = railCache.get(headings);
+  if (!items) {
+    items = headings
+      .filter((heading) => heading.id && !heading.generatedContents)
+      .map((heading) => ({ id: heading.id, label: heading.text, level: heading.level, position: heading.pos / Math.max(1, size) }));
+    railCache.set(headings, items);
+  }
+  return items;
 }
 
 const sameHeadings = (a: DocumentHeadingItem[] | null, b: DocumentHeadingItem[] | null) =>
@@ -618,7 +625,7 @@ export function LatticeVisualMarkdownEditor(props: VisualMarkdownEditorProps): J
   // The section rail (R-BLK-13): the document's headings, less a generated paper Contents (R-BLK-14).
   const railItems = useEditorState({
     editor: instance,
-    selector: ({ editor: current }) => (current ? railHeadings(current.state.doc, Boolean(optimizeForReading)) : NO_HEADINGS),
+    selector: ({ editor: current }) => (current ? railHeadings(plannedHeadings(current.state), current.state.doc.content.size) : NO_HEADINGS),
     equalityFn: sameHeadings,
   }) ?? NO_HEADINGS;
   useEffect(() => {
