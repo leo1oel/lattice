@@ -6280,6 +6280,7 @@ msgstr "No matching papers"
 msgid "No matching papers — import them in the Papers panel first"
 msgstr "No matching papers — import them in the Papers panel first"
 
+#: src/editor/markdown/engine/chrome/link-chrome.tsx
 #: src/open-knowledge-app/editor/link-path-suggestions.tsx
 msgid "No matching paths"
 msgstr "No matching paths"
@@ -7223,6 +7224,7 @@ msgstr "Paste or type a link"
 msgid "Paste your API key"
 msgstr "Paste your API key"
 
+#: src/editor/markdown/engine/chrome/link-chrome.tsx
 #: src/open-knowledge-app/editor/link-path-suggestions.tsx
 msgid "Path suggestions"
 msgstr "Path suggestions"
