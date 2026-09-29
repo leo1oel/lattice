@@ -73,6 +73,16 @@ describe("the caret in Markdown (R-SRC-1)", () => {
     expect(onCaretChange).toHaveBeenLastCalledWith(row, column);
   });
 
+  it("reports the caret again when another file loads at the same place", async () => {
+    const onCaretChange = vi.fn();
+    const view = renderEditor({ text: "Same\n", activePath: "a.md", onCaretChange });
+    select(view.editor, 1);
+    expect(onCaretChange).toHaveBeenLastCalledWith(0, 0);
+    onCaretChange.mockClear();
+    view.rerender({ activePath: "b.md" });
+    await waitFor(() => expect(onCaretChange).toHaveBeenCalledWith(0, 0));
+  });
+
   it("follows marks, nesting and emoji, and a typed edit once it is published", async () => {
     const onCaretChange = vi.fn();
     const { editor } = renderEditor({ text: "**bold**\n\n- one\n- two 😀", onCaretChange });

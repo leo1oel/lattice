@@ -23,7 +23,7 @@
  *
  * Clean implementation for Lattice; spec: docs/visual-editor-spec.md.
  */
-import type { Node as PmNode } from "@tiptap/pm/model";
+import type { Mark, Node as PmNode } from "@tiptap/pm/model";
 import { TableMap } from "@tiptap/pm/tables";
 import { decodeNamedCharacterReference } from "decode-named-character-reference";
 import type { MarkdownBaseline } from "./markdown-document";
@@ -292,9 +292,14 @@ function alignBlock(node: PmNode, source: string): Segment[] {
     segments.push({ pmFrom, pmTo, from: at, to: at + piece.length, exact });
     cursor = at + piece.length;
   };
+  // The link the previous piece was in: its closing syntax comes before the next piece outside it.
+  let link: Mark | null = null;
   const visit = (parent: PmNode, base: number) => {
     parent.forEach((child, offset) => {
       const pos = base + offset;
+      const inLink = child.marks.find((mark) => mark.type.name === "link") ?? null;
+      if (link && !(inLink && link.eq(inLink))) cursor = linkEnd(source, cursor, link.attrs.autolink);
+      link = inLink;
       if (child.isText) {
         const text = child.text ?? "";
         const authored = child.marks.find((mark) => mark.type.name === "latticeSource")?.attrs.source as string | undefined;
@@ -327,6 +332,56 @@ function alignBlock(node: PmNode, source: string): Segment[] {
   };
   visit(node, 1);
   return segments;
+}
+
+/**
+ * Where a link's source ends, from `cursor` after its text: past `>` for an
+ * angle autolink, nowhere further for a literal one, and past
+ * `](destination "title")` for an inline link. The end of `source` when that
+ * syntax cannot be read, so nothing after it is misplaced.
+ */
+function linkEnd(source: string, cursor: number, autolink: unknown): number {
+  if (autolink === "literal") return cursor;
+  if (autolink === "angle") {
+    const close = source.indexOf(">", cursor);
+    return close < 0 ? source.length : close + 1;
+  }
+  const open = source.indexOf("](", cursor);
+  if (open < 0) return source.length;
+  let at = open + 2;
+  // Spaces, and a line break with the container prefix of the next line.
+  const skipSpace = () => {
+    while (at < source.length && /[ \t\n]/.test(source[at]!)) {
+      at += 1;
+      if (source[at - 1] === "\n") while (at < source.length && /[ \t>]/.test(source[at]!)) at += 1;
+    }
+  };
+  // Up to `close`, stepping over backslash escapes.
+  const skipTo = (close: string) => {
+    while (at < source.length && source[at] !== close) at += source[at] === "\\" ? 2 : 1;
+    at += 1;
+  };
+  skipSpace();
+  if (source[at] === "<") {
+    at += 1;
+    skipTo(">");
+  } else {
+    for (let depth = 0; at < source.length; at += 1) {
+      const char = source[at]!;
+      if (char === "\\") at += 1;
+      else if (/\s/.test(char) || (char === ")" && depth === 0)) break;
+      else if (char === "(") depth += 1;
+      else if (char === ")") depth -= 1;
+    }
+  }
+  skipSpace();
+  const closer = ({ '"': '"', "'": "'", "(": ")" } as Record<string, string>)[source[at] ?? ""];
+  if (closer) {
+    at += 1;
+    skipTo(closer);
+    skipSpace();
+  }
+  return source[at] === ")" ? at + 1 : source.length;
 }
 
 /**

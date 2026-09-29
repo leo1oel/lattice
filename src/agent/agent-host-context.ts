@@ -48,7 +48,7 @@ export function selectedMarkdownImageProjectPath(
 
   let decoded: string;
   try {
-    decoded = decodeURIComponent(rawDestination.replace(/\\(.)/g, "$1")).replace(/\\/g, "/");
+    decoded = decodeURIComponent(rawDestination.replace(/\\(.)/g, "$1").split(/[?#]/, 1)[0] ?? "").replace(/\\/g, "/");
   } catch {
     return null;
   }

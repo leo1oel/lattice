@@ -253,6 +253,7 @@ function loadDocument(host: Host, text: string, draft?: string) {
   host.accepted = text;
   host.dirty = false;
   host.rejected = null;
+  host.reported = { caret: "", selection: "" };
   const options = openOptions(host.props);
   const opened = openMarkdown(text, editor.schema, options);
   if ("unavailable" in opened) {
@@ -276,6 +277,7 @@ function loadDocument(host: Host, text: string, draft?: string) {
   host.baseline = adoptNodes(opened.baseline, editor.state.doc);
   host.setReason(null);
   refreshOverlays(host);
+  reportSelection(host);
 }
 
 /**

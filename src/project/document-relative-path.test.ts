@@ -10,7 +10,8 @@ describe("documentRelativeProjectPath", () => {
   it.each([
     ["paper_assets/figure-001.webp", ".research/papers/2010.11929/paper.md", ".research/papers/2010.11929/paper_assets/figure-001.webp"],
     ["../figures/My Plot.png", "notes/method.md", "figures/My Plot.png"],
-    ["./a/./b.png?raw#top", "notes.md", "a/b.png"],
+    ["./a/./b.png", "notes.md", "a/b.png"],
+    ["figures/fig#1?.png", "notes/method.md", "notes/figures/fig#1?.png"],
     ["/figures/root.png", "notes/deep/method.md", "figures/root.png"],
     ["..\\figures\\win.png", "notes/method.md", "figures/win.png"],
     ["../../figure.png", "notes/method.md", null],
