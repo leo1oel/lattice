@@ -39,6 +39,6 @@
       `pnpm --dir literature-worker typecheck` and `pnpm --dir literature-worker test`.
 - [ ] If I added a dependency, adapted code from elsewhere, or bundled an asset,
       I recorded it in `THIRD_PARTY_NOTICES.md`.
-- [ ] I understand my contribution is offered under **GPL-3.0-or-later**
+- [ ] I understand my contribution is offered under **Apache-2.0**
       (no CLA, no copyright assignment).
 

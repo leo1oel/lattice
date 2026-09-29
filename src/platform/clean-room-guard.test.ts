@@ -3,8 +3,9 @@
  * (docs/visual-editor-spec.md). The Open Knowledge code the earlier editor was
  * built on was removed with its vendoring scripts and locks; this guard fails
  * if any of it comes back as a file or directory, or as a dependency of any
- * package in the repository. Imports are guarded by `no-restricted-imports`
- * in eslint.config.js.
+ * package in the repository, and it keeps every Lattice package on the
+ * Apache-2.0 license that removal made possible. Imports are guarded by
+ * `no-restricted-imports` in eslint.config.js.
  */
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
@@ -18,7 +19,9 @@ function repositoryPaths(): string[] {
   return output.split("\0").filter(Boolean);
 }
 
-type Manifest = Partial<Record<"dependencies" | "devDependencies" | "optionalDependencies" | "peerDependencies", Record<string, string>>>;
+type Manifest = Partial<Record<"dependencies" | "devDependencies" | "optionalDependencies" | "peerDependencies", Record<string, string>>> & {
+  license?: string;
+};
 
 describe("clean-room guard", () => {
   const paths = repositoryPaths();
@@ -37,5 +40,17 @@ describe("clean-room guard", () => {
       return names.filter((name) => OPEN_KNOWLEDGE.test(name)).map((name) => `${path}: ${name}`);
     });
     expect(offenders).toEqual([]);
+  });
+
+  it("finds every Lattice package that declares a license declaring Apache-2.0", () => {
+    // Lattice left GPL-3.0 once the Open Knowledge code was gone; see NOTICE.
+    const declared = paths
+      .filter((path) => path === "package.json" || path.endsWith("/package.json"))
+      .flatMap((path) => {
+        const { license } = JSON.parse(readFileSync(path, "utf8")) as Manifest;
+        return license === undefined ? [] : [`${path}: ${license}`];
+      });
+    expect(declared.length).toBeGreaterThan(0);
+    expect(declared.filter((entry) => !entry.endsWith(": Apache-2.0"))).toEqual([]);
   });
 });

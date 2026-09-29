@@ -54,7 +54,7 @@ Bug reports and pull requests are welcome; please open an [issue](https://github
 
 Lattice is built on the work of many open-source projects. The major ones:
 
-- [Open Knowledge](https://github.com/inkeep/open-knowledge) by Inkeep, the original basis of Lattice's earlier visual Markdown editor, which Lattice has since replaced with its own engine.
+- [Open Knowledge](https://github.com/inkeep/open-knowledge) (inkeep/open-knowledge) by Inkeep, the original basis of Lattice's earlier visual Markdown editor. Lattice has since replaced it with its own engine, but the editor began there, and we are grateful.
 - [Synara](https://github.com/Emanuele-web04/synara) by T3 Tools Inc. and Emanuele Di Pietro, the agent runtime behind Lattice's AI assistant.
 - [Open Slide](https://github.com/open-slide/open-slide), which powers presentations.
 - [Tiptap](https://github.com/ueberdosis/tiptap) and [CodeMirror](https://codemirror.net/), the rich-text and source editors.
@@ -63,10 +63,11 @@ Lattice is built on the work of many open-source projects. The major ones:
 
 ## License
 
-Lattice is [GPL-3.0-or-later](LICENSE), with the MIT-licensed [Synara](https://github.com/Emanuele-web04/synara) agent runtime by T3 Tools Inc. and Emanuele Di Pietro.
+Lattice is licensed under the [Apache License 2.0](LICENSE) (see also [NOTICE](NOTICE)), with the MIT-licensed [Synara](https://github.com/Emanuele-web04/synara) agent runtime by T3 Tools Inc. and Emanuele Di Pietro.
+Releases up to and including 0.1.341 were GPL-3.0-or-later and remain available under those terms.
 See [third-party notices](THIRD_PARTY_NOTICES.md) for component licenses and [Synara integration notes](docs/synara-runtime.md) for the runtime details.
 
-The whiteboard's tldraw SDK has a source-available license that is not GPL-compatible.
-Its compatibility with Lattice's GPLv3 distribution remains unresolved; read the notices before redistributing a build.
+The whiteboard's tldraw SDK (`tldraw`, `@tldraw/editor`, `@tldraw/driver`) is not covered by the Apache License: it is source-available under the [tldraw license](public/licenses/tldraw-LICENSE.md), which requires a license key for production use.
+Official builds supply that key at build time; it is not in this repository, so a build without it runs tldraw in its watermarked mode.
 
 </details>

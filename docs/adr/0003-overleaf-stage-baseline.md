@@ -22,8 +22,8 @@ endpoints. Three problems arrived together:
 
 1. **Provenance was unrecorded.** The implementation had been guided by four
    external projects, and none of the commits named the upstream revisions
-   consulted. Two of those projects are AGPL-3.0 while Lattice is
-   GPL-3.0-or-later, so "which code did we look at, and did we copy expression
+   consulted. Two of those projects are AGPL-3.0 while Lattice was then
+   GPL-3.0-or-later (it is Apache-2.0 now), so "which code did we look at, and did we copy expression
    or only protocol facts" was a question nobody could answer from history.
 2. **The protocol knowledge lived only in the code.** Byte-level Socket.IO 0.9
    framing, ack allocation, the one-in-flight OT rule and the exclusion of

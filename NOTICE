@@ -1,0 +1,23 @@
+Lattice
+Copyright 2026 Leonardo and the Lattice contributors
+
+Lattice is licensed under the Apache License, Version 2.0 (see LICENSE).
+Releases up to and including 0.1.341 were distributed under
+GPL-3.0-or-later and remain available under those terms.
+
+Third-party components keep their own licenses. THIRD_PARTY_NOTICES.md
+records each of them; the notices it reproduces ship with the application.
+
+Exception: the tldraw SDK is not covered by the Apache License.
+The tldraw, @tldraw/editor and @tldraw/driver packages (and the icons,
+translations and embed icons in @tldraw/assets) are licensed under the
+tldraw license, a source-available license that permits production use
+only with a license key issued by tldraw. Its verbatim text is in
+public/licenses/tldraw-LICENSE.md and ships in the application as
+licenses/tldraw-LICENSE.md. The license key is supplied at build time and
+is not part of this repository; builds without it run tldraw in its
+unlicensed, watermarked mode.
+
+The visual Markdown editor was originally built on Open Knowledge by
+Inkeep (https://github.com/inkeep/open-knowledge). That code has been
+removed; the current editor is Lattice's own implementation.
