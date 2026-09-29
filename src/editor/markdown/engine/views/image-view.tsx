@@ -10,7 +10,7 @@
  * Clean implementation for Lattice; spec: docs/visual-editor-spec.md.
  */
 /* eslint-disable react-refresh/only-export-components -- the figure decoration belongs with the view */
-import { useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import { useCallback, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { Extension } from "@tiptap/core";
 import type { Node as PmNode } from "@tiptap/pm/model";
@@ -23,6 +23,7 @@ import { IconButton } from "../../../../components/ui/icon-button";
 import { Input } from "../../../../components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "../../../../components/ui/popover";
 import { useProjectImage } from "../../project-image-host";
+import { useNearViewport } from "../../use-near-viewport";
 import { changedBlockRanges } from "../changed-ranges";
 import { Field, setNodeAttrs, useCommitKeys } from "./view-chrome";
 
@@ -38,10 +39,16 @@ export function ImageView(props: NodeViewProps) {
   const { node, editor, getPos } = props;
   const authored = String(node.attrs.src ?? "");
   const safe = !UNSAFE_SOURCE.test(authored);
-  const image = useProjectImage(safe && authored ? authored : undefined);
+  // An image is read only as it nears the viewport (R-PERF-4, R-PERF-7).
+  const { nearViewport, viewportRef } = useNearViewport<HTMLSpanElement>();
+  const image = useProjectImage(safe && authored ? authored : undefined, nearViewport);
   const [loaded, setLoaded] = useState(false);
   const [dragWidth, setDragWidth] = useState<number | null>(null);
   const frame = useRef<HTMLSpanElement>(null);
+  const frameRef = useCallback((element: HTMLSpanElement | null) => {
+    frame.current = element;
+    viewportRef(element);
+  }, [viewportRef]);
   const width = dragWidth ?? (typeof node.attrs.width === "number" ? node.attrs.width : null);
   const align = (node.attrs.align as Align | null) ?? "center";
   const editable = editor.isEditable;
@@ -84,7 +91,7 @@ export function ImageView(props: NodeViewProps) {
       data-image-size={width ? "authored" : "auto"}
       data-align={align}
     >
-      <span ref={frame} className="lx-md-image-frame" style={width ? { width: `${width}px` } : undefined} contentEditable={false}>
+      <span ref={frameRef} className="lx-md-image-frame" style={width ? { width: `${width}px` } : undefined} contentEditable={false}>
         {missing
           ? (
             <span className="lx-md-image-missing" role="img" aria-label={alt || authored}>

@@ -14,6 +14,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { VisualMarkdownEditorProps } from "../visual-editor-props";
 import { LatticeVisualMarkdownEditor } from "./lattice-visual-editor";
 import { engineHealth } from "./views/view-chrome";
+import { moveTableColumn } from "./table-commands";
 
 vi.mock("mermaid", () => ({
   default: {
@@ -571,10 +572,46 @@ describe("tables (R-BLK-11, R-FMT-10, R-FMT-22)", () => {
     const { editor, onChange } = renderEditor(SIMPLE);
     setCaret(editor, nodePos(editor, "A") + 1);
     const rowOptions = await screen.findByRole("button", { name: "Row options" });
+    // A press without a drag opens the menu.
     fireEvent.pointerDown(rowOptions, { button: 0, ctrlKey: false });
+    fireEvent.pointerUp(document);
     fireEvent.click(await screen.findByRole("menuitem", { name: "Insert row below" }));
     await waitFor(() => expect(surface().querySelectorAll("tr")).toHaveLength(3));
     await waitFor(() => expect(lastChange(onChange)).toMatch(/\| Left\s+\| Right\s+\|\n\| -+ \| -+ \|\n\| A +\| B +\|\n\| +\| +\|/));
+  });
+
+  it("drags a body row to a new place by its handle, keeping the header first", async () => {
+    const { editor, onChange } = renderEditor("| H1 | H2 |\n| --- | --- |\n| a | 1 |\n| b | 2 |\n| c | 3 |");
+    setCaret(editor, nodePos(editor, "a") + 1);
+    const rows = [...surface().querySelectorAll("tr")];
+    rows.forEach((row, index) => vi.spyOn(row, "getBoundingClientRect").mockReturnValue(new DOMRect(0, 100 + index * 30, 300, 30)));
+    const handle = await screen.findByRole("button", { name: "Row options" });
+    expect(handle).toHaveAttribute("data-draggable");
+    fireEvent.pointerDown(handle, { button: 0, clientX: 0, clientY: 145 });
+    fireEvent.pointerMove(window, { clientX: 0, clientY: 219 });
+    expect(document.querySelector(".lx-md-table-drop")).not.toBeNull();
+    fireEvent.pointerUp(window, { clientX: 0, clientY: 219 });
+    expect(screen.queryByRole("menuitem", { name: "Insert row below" })).toBeNull();
+    await waitFor(() => expect(lastChange(onChange)).toMatch(/^\| H1 \| H2 \|\n\| -+ \| -+ \|\n\| b \| 2 \|\n\| c \| 3 \|\n\| a \| 1 \|$/));
+  });
+
+  it("moves a column with its alignment", async () => {
+    const { editor, onChange } = renderEditor("| Left | Right | Mid |\n| :--- | ---: | :---: |\n| a | b | c |");
+    setCaret(editor, nodePos(editor, "a") + 1);
+    act(() => {
+      expect(moveTableColumn(editor.state, editor.view.dispatch, 0, 2)).toBe(true);
+    });
+    await waitFor(() => expect(lastChange(onChange)).toMatch(/^\| Right \| Mid \| Left \|\n\| -+: \| :-+: \| :-+ \|\n\| b \| c \| a \|$/));
+  });
+
+  it("keeps merged tables out of drag reorder, their handles opening the menu on press", async () => {
+    const { editor } = renderEditor(['<!-- lattice-table-layout:v1 {"spans":[[0,0,1,2]]} -->', "", "| Group | Group | Metric |", "| --- | --- | --- |", "| A | B | 1 |"].join("\n"));
+    setCaret(editor, nodePos(editor, "B") + 1);
+    const handle = await screen.findByRole("button", { name: "Column options" });
+    expect(handle).not.toHaveAttribute("data-draggable");
+    expect(moveTableColumn(editor.state, undefined, 0, 1)).toBe(false);
+    fireEvent.pointerDown(handle, { button: 0, ctrlKey: false });
+    expect(await screen.findByRole("menuitem", { name: "Insert column left" })).toBeInTheDocument();
   });
 
   it("merges selected cells into one, showing equal values once and keeping alignment", async () => {

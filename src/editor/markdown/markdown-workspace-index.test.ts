@@ -33,6 +33,16 @@ describe("MarkdownWorkspaceIndex", () => {
     expect(index.contentFor("untitled")).toBe("Some text");
   });
 
+  test("leaves headings without text or slug out of the title and anchors", async () => {
+    const index = await indexOf({ "blank.md": ["#", "# #", "## !!!", "# Real", "## Part"].join("\n"), "empty.md": "#\n\nBody" });
+
+    expect(index.getDoc("blank")).toMatchObject({
+      title: "Real",
+      headings: [{ level: 1, text: "Real", slug: "real" }, { level: 2, text: "Part", slug: "part" }],
+    });
+    expect(index.getDoc("empty")?.title).toBe("empty");
+  });
+
   test("ranks an exact title first and preserves source order for an empty query", async () => {
     const index = await indexOf({ "z.md": "# Alpha details\nAlpha is mentioned here.", "a.md": "# Alpha", "m.md": "# Other" });
 

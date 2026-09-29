@@ -171,18 +171,21 @@ lazy chunk, loaded only when the setting selects it. Setting the key to
   to CRLF on the first write. Only source mode may change a file's line
   endings.
 
-### Status: what the engine meets today (phase 2, second part)
+### Status: what the engine meets today (phase 2, complete)
 
-Phase 2 ships in three parts: rich blocks, editor chrome (this state), and
-the integration behind engine-agnostic interfaces.
+Phase 2 shipped in three parts: rich blocks, editor chrome, and the
+integration behind engine-agnostic interfaces (this state). What remains is
+phase 3: the default flip and the removal of the vendored editor.
 
 | Area | Met now | Still to come |
 | --- | --- | --- |
 | Round trip, envelope (R-RT, R-ELIG) | Byte-exact untouched documents; untouched blocks, gaps, BOM, CRLF, trailing newlines and frontmatter preserved on edit; authored syntax inside edited paragraphs kept (R-RT-12 fixtures); escaped new text; nothing written on open; `\(`…`\)` and `\[`…`\]` as math (R-RT-21); explicit and paper-inferred table spans (R-RT-23, R-FMT-13); components, legacy callout fences and footnotes kept byte for byte until edited | — |
 | Publication (R-PUB) | R-PUB-1–18, 21 and 22; the host-level R-PUB-19–20 are unchanged host code | — |
-| Blocks (R-BLK) | Paragraphs, headings, lists and task lists, quotes, thematic breaks; Callout and Accordion with their properties (R-BLK-1, 2); images with alignment, resizing and zoom (R-BLK-3); display math (R-BLK-4); Mermaid previews (R-BLK-5); footnotes (R-BLK-6); code blocks with their chrome (R-BLK-7); tables with handles, merge and split (R-BLK-11); paper figures (R-BLK-15); unknown components as source (R-BLK-16); task-list input rules, mixed task lists and list movement (R-BLK-19) | Section rail (R-BLK-13); generated paper Contents (R-BLK-14); table drag reorder |
+| Blocks (R-BLK) | Paragraphs, headings, lists and task lists, quotes, thematic breaks; Callout and Accordion with their properties (R-BLK-1, 2); images with alignment, resizing and zoom (R-BLK-3); display math (R-BLK-4); Mermaid previews (R-BLK-5); footnotes (R-BLK-6); code blocks with their chrome (R-BLK-7); tables with handles, merge and split, and row and column drag reorder (R-BLK-11); headings with slug ids and the section rail (R-BLK-13); the generated paper Contents hidden in reading mode (R-BLK-14); paper figures (R-BLK-15); unknown components as source (R-BLK-16); task-list input rules, mixed task lists and list movement (R-BLK-19) | — |
 | Inline (R-INL) | Marks including highlight and underline, links (Mod-click, typed `[text](url)`), inline math with its formula field and `$…$` input rule (R-INL-2), images, footnote references, hard and soft breaks, raw inline source; wiki links and citation chips with their suggestions, drops and editors (R-INL-6, 7) | — |
-| Chrome, source mapping, performance (R-CHR, R-SRC, R-PERF) | Accessible textbox surface; per-keystroke plugin work limited to the blocks an edit touched; slash menu (R-CHR-1, §12), selection toolbar (R-CHR-2), find and replace (R-CHR-3), link editor and hover (R-CHR-4), block controls and drag (R-CHR-5), emoji (R-CHR-7) | The toolbar's View in source and read-only Comment (R-CHR-2, with R-SRC and comments); frozen table headers (R-CHR-9); carets, comments, tracked changes, view in source (R-SRC); passive viewport (R-PERF-1–6) |
+| Chrome (R-CHR) | Accessible textbox surface; slash menu (R-CHR-1, §12); selection toolbar with Comment and View in source, and Comment alone when read-only (R-CHR-2); find and replace (R-CHR-3); link editor and hover (R-CHR-4); block controls and drag, with the host holding the view around an added block (R-CHR-5); native selection hidden only for a node selection (R-CHR-6); emoji (R-CHR-7); frozen table headers outside paper reading mode (R-CHR-9) | — |
+| Source mapping (R-SRC) | The caret in Markdown coordinates (R-SRC-1); collaborators' carets, omitted where they have no exact place, and table coordinates (R-SRC-2–4); comments anchored in Markdown offsets, their composer, highlights and thread cards, also read-only (R-SRC-5–7, 9); tracked changes with Accept and Reject (R-SRC-8); frontmatter offsets stay the host's (R-SRC-10); block source labels and View in source (R-SRC-11); the selection as Markdown (R-SRC-12); mapping scoped to one block (R-SRC-13) | — |
+| Performance (R-PERF) | Per-keystroke plugin work limited to the blocks an edit touched; the passive view of a large read-only document, with links, paper fragments, immediate formulas and deferred images (R-PERF-1–6); images read near the viewport through the project image host (R-PERF-7); formulas drawn at once in the complete editor (R-PERF-8); no remounts (R-PERF-9); publication within the sync policy (R-PERF-10) | — |
 
 **Tests.**
 
@@ -203,6 +206,12 @@ the integration behind engine-agnostic interfaces.
   and `lattice-visual-chrome.test.tsx` drives the chrome as a reader uses it:
   the slash menu, toolbar, links, find, block controls, typed structure,
   citations and wiki links, in English and Chinese.
+- `source-map.test.ts` pins the source map on the R-SRC fixtures, and over
+  the whole corpus checks that every mapped caret lands on its own character
+  both ways. `lattice-visual-review.test.tsx` drives carets, collaborators'
+  carets, comments, tracked changes, View in source, selection context and
+  the section rail; `lattice-visual-passive.test.tsx` the passive view;
+  `frozen-headers.test.tsx` the pinned header rows.
 - `differential.test.tsx` runs the same corpus through the vendored editor
   and the engine. The vendored editor is mounted only as a black box through
   the shared props contract. For every document the engine must open what the
@@ -353,6 +362,77 @@ here, with the requirement it rests on.
   stops at atoms such as formulas and chips. The shortcuts also work in a
   read-only document. The bar sits at the top of the article and stays there
   while scrolling.
+- **Source map (R-SRC-1–4, R-SRC-11, R-SRC-13).** Built from the baseline:
+  each top-level node still equal to a baseline block has that block's exact
+  source and place in the text. Inside a block, text runs and atoms are found
+  in the source in order, so the syntax around them is skipped rather than
+  modelled, except that a link's closing syntax (its destination and title,
+  or an autolink's `>`) is stepped over after its text; a run written with
+  escapes or character references is aligned character by character, and
+  inline code wrapped across lines maps its spaces to the line breaks. A
+  position that cannot be aligned maps to nothing. At a formatting boundary a caret or range start takes the next
+  run's side, a range end the previous run's, so a quote never picks up
+  markup. Tables map by grid. The caret is reported only while the document
+  matches the Markdown the host has (after each publication), so it never
+  names coordinates in text the host has not seen. Blocks re-read at
+  publication take the editor's own nodes, keeping their identity.
+- **Offsets and rows (R-SRC-1, R-SRC-5, R-SRC-10).** Offsets are in the
+  host's text: after a byte-order mark and in CRLF when the file uses it. Rows
+  and columns count its lines without the byte-order mark. The host already
+  hands the editor its text after frontmatter and shifts every coordinate
+  itself, so the engine does nothing about frontmatter.
+- **Overlays (R-SRC-2, R-SRC-7, R-SRC-8).** Collaborators' carets are drawn
+  text in the document (not editable, hidden from assistive technology,
+  never in the way of a click), labelled in their collaborator color.
+  Comment and suggestion marks are repainted from source coordinates when
+  they change or the Markdown does, and follow edits in between. A comment
+  highlight names its card through `aria-describedby` in its own attributes.
+- **Comments (R-SRC-5, R-SRC-6, R-SRC-9).** Comment publishes a pending edit
+  first, so the offsets are in the text the host has. The selection stays
+  marked while the comment is written and follows edits; at submission it is
+  placed again, and refused ("The selected text changed…") if its text
+  changed. A whole-document selection is the whole text. In a read-only
+  document the toolbar offers only Comment.
+- **View in source and selection context (R-SRC-11, R-SRC-12).** View in
+  source reports where the selection starts, or its block's start when that
+  has no exact place. The selection is reported as the Markdown it was
+  written as: a selected block's source, or the source between the
+  selection's ends; an empty selection is "".
+- **Source labels (R-SRC-11).** Blocks carry `data-source-line`,
+  `data-source-offset` and `data-source-end-offset` only when the host scrolls
+  by them (`synchronizeSourceScroll`), sparing the labelling while typing.
+- **Headings and the rail (R-BLK-13, R-BLK-14).** Heading ids use the paper
+  converter's slug rule (shared as `heading-slug.ts`). Headings count at the
+  top level and inside components, as a line reader would find them. The
+  rail is Lattice's own. In paper reading mode a level-2 "Contents" whose
+  list holds only in-page links (or plain entries) is the converter's, and is
+  hidden from view and from the rail.
+- **Frozen headers (R-CHR-9, R-BLK-11).** Header rows move by Web
+  Animations, so the document's DOM is never written; a scroll timeline
+  drives them where supported, scroll events elsewhere. The header travels
+  one pixel per pixel scrolled until it reaches the last row or the scroll
+  ends. Paper reading mode has none.
+- **Table reorder (R-BLK-11).** Only in tables without merged cells: a body
+  row moves among body rows (the header stays first), a column moves with its
+  alignment. A handle press without a drag opens its menu.
+- **Viewport (R-CHR-5).** Add-below hands the host the block acted on, where
+  it was, and the new line; the host keeps the block in place and brings the
+  new line into view with 40 px under it (`src/canvas/viewport-restore.ts`).
+- **Passive view (R-PERF-1–6).** A read-only document of at least 120 blocks
+  (or 150,000 characters) opens passive, unless one block holds more than
+  400 items or 60,000 characters. The spec leaves these thresholds open.
+  Chunks hold 24 blocks and are drawn only near the viewport, keeping their
+  measured height while away. Heading ids and the hidden Contents are planned
+  over the whole document. A link into the paper switches to the complete
+  editor before it is followed, since its target may not be drawn yet.
+- **Images (R-PERF-4, R-PERF-7).** In both views an image reads its asset
+  only as it nears the viewport; formulas are drawn at once.
+- **Engine-agnostic host (phase 2 integration).** The canvas and the agent
+  context no longer import Open Knowledge code: document-relative project
+  paths (`src/project/document-relative-path.ts`), page headings for the
+  workspace index (`markdown-headings.ts`) and the viewport restore are
+  Lattice modules. Only the vendored editor and its own helpers still do,
+  and they go in phase 3.
 
 ---
 

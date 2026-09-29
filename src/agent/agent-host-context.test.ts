@@ -7,6 +7,7 @@ describe("selected Markdown image context", () => {
   it.each([
     ["![Figure](paper_assets/figure-001.webp)", ".research/papers/2010.11929/paper.md", ".research/papers/2010.11929/paper_assets/figure-001.webp"],
     ['<img src="../figures/My%20Plot.png" alt="Plot" width={223} />', "notes/method.md", "figures/My Plot.png"],
+    ["![Figure](figures/Figure%20%231.png?raw#top)", "notes/method.md", "notes/figures/Figure #1.png"],
     ["A paragraph", "notes.md", null],
     ["![Remote](https://example.com/figure.png)", "notes.md", null],
     ["![Outside](../../figure.png)", "notes/method.md", null],

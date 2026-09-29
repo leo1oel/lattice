@@ -11,11 +11,12 @@
  *
  * Clean implementation for Lattice; spec: docs/visual-editor-spec.md.
  */
-import { useEffect, useLayoutEffect, useRef, useState, type JSX } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type JSX } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { Extension, type AnyExtension, type EditorOptions, type JSONContent } from "@tiptap/core";
 import type { Node as PmNode } from "@tiptap/pm/model";
-import { EditorContent, useEditor, type Editor } from "@tiptap/react";
+import { NodeSelection } from "@tiptap/pm/state";
+import { EditorContent, useEditor, useEditorState, type Editor } from "@tiptap/react";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import { InlineMessage } from "../../../components/ui/inline-message";
 import { notifyError } from "../../../telemetry/app-notify";
@@ -25,11 +26,17 @@ import { openMarkdownLink } from "../markdown-link-routing";
 import { markdownPreviewSyncPolicy } from "../markdown-preview-sync-policy";
 import { isPaperLibraryPath } from "../../../papers/paper-link";
 import { ProjectImageHostProvider } from "../project-image-host";
+import { DocumentHeadingRail, type DocumentHeadingItem } from "../document-heading-rail";
 import type { VisualMarkdownEditorProps } from "../visual-editor-props";
+import { FrozenHeaders } from "./frozen-headers";
+import { HeadingAnchors, REFRESH_ANCHORS, plannedHeadings, type DocumentHeading } from "./heading-anchors";
+import { PassiveView, passiveModel, type PassiveModel } from "./passive-view";
 import type { ImeGuard } from "./engine-keymap";
 import { MathMacrosContext, engineNodeViews } from "./engine-node-views";
 import { engineSchema, engineSchemaExtensions, type RawBlockKind } from "./engine-schema";
-import { openMarkdown, serializeMarkdown, type MarkdownBaseline, type OpenOptions } from "./markdown-document";
+import { adoptNodes, openMarkdown, serializeMarkdown, type MarkdownBaseline, type OpenOptions } from "./markdown-document";
+import { SourceMap } from "./source-map";
+import { SourceOverlays, buildOverlays, setOverlays } from "./source-overlays";
 import { TableControls } from "./views/table-controls";
 import { EngineChrome, EngineFindBar, chromeExtensions, createChrome, type Chrome } from "./chrome/engine-chrome";
 import "./lattice-visual-editor.css";
@@ -73,7 +80,85 @@ type Host = {
   loadGeneration: number;
   /** The kind of load waiting for its microtask, if any. */
   pending: "swap" | "canonical" | null;
+  /** The source map of the last document and baseline it was asked for. */
+  map: SourceMap | null;
+  /** What the host was last told of the caret and the selection, so it hears only changes. */
+  reported: { caret: string | null; selection: string | null };
 };
+
+/**
+ * The source map for the document as shown against the accepted Markdown
+ * (R-SRC-1). Rebuilt only for a new document or baseline; the blocks'
+ * placement is shared per baseline, so a rebuild costs one pass over the
+ * top-level nodes.
+ */
+function sourceMapOf(host: Host): SourceMap | null {
+  const { editor, baseline } = host;
+  if (!editor || editor.isDestroyed || !baseline) return null;
+  const { doc } = editor.state;
+  if (host.map?.doc !== doc || host.map.baseline !== baseline) host.map = new SourceMap(doc, baseline, host.accepted);
+  return host.map;
+}
+
+/** Repaint what is placed from source coordinates: carets, comments, changes, labels (R-SRC-2–11). */
+function refreshOverlays(host: Host) {
+  const { editor, props } = host;
+  if (!editor || editor.isDestroyed) return;
+  const inputs = {
+    cursors: props.presenceCursors ?? [],
+    comments: props.editorComments ?? [],
+    activeComment: props.activeEditorCommentId ?? null,
+    changes: props.overleafChanges ?? [],
+    labels: Boolean(props.synchronizeSourceScroll),
+  };
+  const empty = !inputs.cursors.length && !inputs.comments.length && !inputs.changes.length && !inputs.labels;
+  if (empty && !editor.view.dom.querySelector("[data-source-line], [data-lx-comment], [data-lx-change], .lx-md-peer-caret")) return;
+  editor.view.dispatch(setOverlays(editor.state.tr, buildOverlays(editor.state.doc, empty ? null : sourceMapOf(host), inputs)));
+}
+
+/**
+ * Tell the host where the caret is in Markdown (row, column), and what the
+ * selection is as Markdown (R-SRC-1, R-SRC-12). The caret is reported only
+ * while the document matches the accepted Markdown, so a pending edit never
+ * reports coordinates in text the host has not seen yet; it follows once the
+ * edit is published.
+ */
+function reportSelection(host: Host) {
+  const { editor, props } = host;
+  if (!editor || editor.isDestroyed) return;
+  const { selection } = editor.state;
+  if (props.onCaretChange && !host.dirty) {
+    const caret = sourceMapOf(host)?.positionToRowColumn(selection.head);
+    const key = caret ? caret.join(":") : "";
+    if (caret && key !== host.reported.caret) {
+      host.reported.caret = key;
+      props.onCaretChange(caret[0], caret[1]);
+    }
+  }
+  if (props.onSelectionMarkdown) {
+    const value = selectionMarkdown(host);
+    if (value !== host.reported.selection) {
+      host.reported.selection = value;
+      props.onSelectionMarkdown(value);
+    }
+  }
+}
+
+/** The selection as the Markdown it was written as, or its text where that has no exact place. */
+function selectionMarkdown(host: Host): string {
+  const editor = host.editor!;
+  const { selection, doc } = editor.state;
+  if (selection.empty) return "";
+  const map = sourceMapOf(host);
+  if (map && selection instanceof NodeSelection && selection.$from.depth === 0) {
+    const range = map.blockRange(selection.$from.index(0));
+    if (range) return map.text.slice(range.from, range.to);
+  }
+  const from = map?.positionToOffset(selection.from);
+  const to = map?.positionToOffset(selection.to, "before");
+  if (map && from != null && to != null && to > from) return map.text.slice(from, to);
+  return doc.textBetween(selection.from, selection.to, "\n\n", " ");
+}
 
 /** How the file at `path` is read: paper reading mode infers merged table cells (R-BLK-11). */
 const openOptions = (props: VisualMarkdownEditorProps): OpenOptions => ({
@@ -141,8 +226,11 @@ function publishPending(host: Host, allowDuringComposition = false): boolean {
   if (result.text === host.accepted) return true;
   if (host.publish(result.text, host.accepted)) {
     host.accepted = result.text;
-    host.baseline = result.baseline;
+    host.baseline = adoptNodes(result.baseline, editor.state.doc);
     host.rejected = null;
+    // Carets and overlays follow the Markdown the host now has.
+    refreshOverlays(host);
+    reportSelection(host);
     return true;
   }
   host.rejected = result.text;
@@ -165,6 +253,7 @@ function loadDocument(host: Host, text: string, draft?: string) {
   host.accepted = text;
   host.dirty = false;
   host.rejected = null;
+  host.reported = { caret: null, selection: null };
   const options = openOptions(host.props);
   const opened = openMarkdown(text, editor.schema, options);
   if ("unavailable" in opened) {
@@ -185,7 +274,10 @@ function loadDocument(host: Host, text: string, draft?: string) {
   } else {
     replaceDocument(editor, opened.doc);
   }
+  host.baseline = adoptNodes(opened.baseline, editor.state.doc);
   host.setReason(null);
+  refreshOverlays(host);
+  reportSelection(host);
 }
 
 /**
@@ -346,13 +438,45 @@ function surfaceProps(label: string): EditorOptions["editorProps"] {
   };
 }
 
-function editorExtensions(labels: Partial<Record<RawBlockKind, string>>, ime: ImeGuard, chrome: Chrome): AnyExtension[] {
+const NO_HEADINGS: DocumentHeadingItem[] = [];
+
+const railCache = new WeakMap<readonly DocumentHeading[], DocumentHeadingItem[]>();
+
+/** The rail's items for the planned headings: the same array while the headings are the same. */
+function railHeadings(headings: readonly DocumentHeading[], size: number): DocumentHeadingItem[] {
+  let items = railCache.get(headings);
+  if (!items) {
+    items = headings
+      .filter((heading) => heading.id && !heading.generatedContents)
+      .map((heading) => ({ id: heading.id, label: heading.text, level: heading.level, position: heading.pos / Math.max(1, size) }));
+    railCache.set(headings, items);
+  }
+  return items;
+}
+
+const sameHeadings = (a: DocumentHeadingItem[] | null, b: DocumentHeadingItem[] | null) =>
+  a === b || (!!a && !!b && a.length === b.length && a.every((item, index) => item.id === b[index]!.id && item.label === b[index]!.label && item.level === b[index]!.level));
+
+/** What any view of a document needs: the engine's schema and its block views. */
+function readingExtensions(labels: Partial<Record<RawBlockKind, string>>, ime: ImeGuard): AnyExtension[] {
   const views = engineNodeViews({ ime });
   const viewNames = new Set(views.map((view) => view.name));
+  return [...engineSchemaExtensions({ rawBlockLabels: labels }).filter((extension) => !viewNames.has(extension.name)), ...views];
+}
+
+/** The passive layout for a large read-only document (R-PERF-1), or null to draw it whole. */
+function passiveFor(text: string, activePath: string, reading: boolean): PassiveModel | null {
+  const opened = openMarkdown(text, engineSchema(), { paperSpans: reading && isPaperLibraryPath(activePath) });
+  return "unavailable" in opened ? null : passiveModel(opened.doc, opened.baseline, text.length, reading);
+}
+
+function editorExtensions(labels: Partial<Record<RawBlockKind, string>>, ime: ImeGuard, chrome: Chrome): AnyExtension[] {
   return [
-    ...engineSchemaExtensions({ rawBlockLabels: labels }).filter((extension) => !viewNames.has(extension.name)),
-    ...views,
+    ...readingExtensions(labels, ime),
     ...chromeExtensions(chrome),
+    SourceOverlays,
+    HeadingAnchors.configure({ paper: () => Boolean(chrome.host.props().optimizeForReading) }),
+    FrozenHeaders.configure({ enabled: () => !openOptions(chrome.host.props()).paperSpans }),
     HostHistory,
   ];
 }
@@ -450,10 +574,22 @@ export function LatticeVisualMarkdownEditor(props: VisualMarkdownEditorProps): J
     ime,
     loadGeneration: 0,
     pending: null,
+    map: null,
+    reported: { caret: "", selection: "" },
   });
   const [chrome] = useState(() => createChrome(props));
   // Extensions are read once, when the editor is created; labels are fixed then.
   const [extensions] = useState(() => editorExtensions(labels, ime, chrome));
+  const [reading] = useState(() => () => readingExtensions(labels, ime));
+
+  // A large read-only document opens passive until the reader asks for the complete editor (R-PERF-1–3).
+  const [activated, setActivated] = useState<{ path: string; href: string | null } | null>(null);
+  const passiveWanted = !editable && activated?.path !== activePath;
+  // Only the text, the file and reading mode shape the passive layout.
+  const passive = useMemo(
+    () => (passiveWanted ? passiveFor(text, activePath, Boolean(optimizeForReading)) : null),
+    [passiveWanted, text, activePath, optimizeForReading],
+  );
 
   useLayoutEffect(() => {
     const current = host.current;
@@ -483,9 +619,20 @@ export function LatticeVisualMarkdownEditor(props: VisualMarkdownEditorProps): J
     editorProps,
     onTransaction: ({ transaction }) => {
       if (transaction.docChanged && !transaction.getMeta(CANONICAL) && host.current.baseline) schedulePublication(host.current);
+      if (transaction.selectionSet || transaction.docChanged) reportSelection(host.current);
     },
   }, []);
   const editor = useMountedEditor(instance);
+
+  // The section rail (R-BLK-13): the document's headings, less a generated paper Contents (R-BLK-14).
+  const railItems = useEditorState({
+    editor: instance,
+    selector: ({ editor: current }) => (current ? railHeadings(plannedHeadings(current.state), current.state.doc.content.size) : NO_HEADINGS),
+    equalityFn: sameHeadings,
+  }) ?? NO_HEADINGS;
+  useEffect(() => {
+    if (editor && !editor.isDestroyed) editor.view.dispatch(editor.state.tr.setMeta(REFRESH_ANCHORS, true).setMeta("addToHistory", false));
+  }, [editor, optimizeForReading]);
 
   // Load the active file, and reconcile canonical text from the host: our
   // own echo is ignored, anything else replaces the document.
@@ -510,6 +657,37 @@ export function LatticeVisualMarkdownEditor(props: VisualMarkdownEditorProps): J
   useEffect(() => {
     onEligibilityChange?.(reason);
   }, [onEligibilityChange, reason]);
+
+  // A link into the paper followed from the passive view lands once the complete editor shows (R-PERF-2).
+  useEffect(() => {
+    const href = activated?.href;
+    if (!href || passive || !editor || editor.isDestroyed) return;
+    const frame = requestAnimationFrame(() => {
+      openMarkdownLink(host.current.props.activePath, href, host.current.props.onOpenProjectPath, editor.view.dom);
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [activated, editor, passive]);
+
+  // The chrome reads the source map through the host; a settled read publishes a pending edit first.
+  useEffect(() => {
+    chrome.host.setSourceMap((settle) => {
+      if (settle) publishPending(host.current);
+      return sourceMapOf(host.current);
+    });
+  }, [chrome]);
+
+  // New carets, comments or changes from the host repaint, outside React's commit.
+  const { presenceCursors, editorComments, activeEditorCommentId, overleafChanges, synchronizeSourceScroll } = props;
+  useEffect(() => {
+    if (!editor) return;
+    let live = true;
+    queueMicrotask(() => {
+      if (live) refreshOverlays(host.current);
+    });
+    return () => {
+      live = false;
+    };
+  }, [activeEditorCommentId, editor, editorComments, overleafChanges, presenceCursors, synchronizeSourceScroll]);
 
   useEffect(() => {
     if (!editor || editor.isDestroyed) return;
@@ -536,11 +714,21 @@ export function LatticeVisualMarkdownEditor(props: VisualMarkdownEditorProps): J
           {reason && !onEligibilityChange && (
             <InlineMessage level="warning" className="lx-md-eligibility">{reason}</InlineMessage>
           )}
-          {/* Before the article, so the sticky find bar stays in view over its whole length. */}
-          {editor && <EngineFindBar editor={editor} chrome={chrome} />}
-          <EditorContent editor={instance} />
-          {editor && <TableControls editor={editor} layer={layer} paperMode={openOptions(props).paperSpans ?? false} />}
-          {editor && <EngineChrome editor={editor} chrome={chrome} layer={layer} />}
+          {passive ? (
+            <PassiveView model={passive} props={props} reading={reading} onActivate={(href) => setActivated({ path: activePath, href })} />
+          ) : (
+            <>
+              <DocumentHeadingRail
+                items={railItems}
+                onSelect={(item) => layer?.querySelector(`[id="${CSS.escape(item.id)}"]`)?.scrollIntoView({ block: "start" })}
+              />
+              {/* Before the article, so the sticky find bar stays in view over its whole length. */}
+              {editor && <EngineFindBar editor={editor} chrome={chrome} />}
+              <EditorContent editor={instance} />
+              {editor && <TableControls editor={editor} layer={layer} paperMode={openOptions(props).paperSpans ?? false} />}
+              {editor && <EngineChrome editor={editor} chrome={chrome} layer={layer} />}
+            </>
+          )}
         </div>
       </ProjectImageHostProvider>
     </MathMacrosContext.Provider>

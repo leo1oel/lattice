@@ -17,7 +17,7 @@ import {
 } from "../overleaf/overleaf-editor-extensions";
 import type { TrackedChange } from "../overleaf/use-overleaf-realtime";
 import type { MarkdownWorkspaceIndex } from "../editor/markdown/markdown-workspace-index";
-import { restoreVisualViewportWithReveal } from "../editor/markdown/visual-editor-block-controls";
+import { restoreViewportAround } from "./viewport-restore";
 import { Columns2 } from "lucide-react";
 import { latexEditorExtensions, textEditorExtensions } from "../editor/latex/latex-editor";
 import { latex } from "../editor/latex/latex-language";
@@ -976,7 +976,7 @@ export function DocumentCanvas(props: {
     viewport.style.overflowAnchor = "none";
     const restore = () => {
       if (markdownPreviewViewportLockRef.current !== lock || !viewport.isConnected) return false;
-      restoreVisualViewportWithReveal(viewport, scrollTop, anchor, anchorTop, reveal);
+      restoreViewportAround(viewport, scrollTop, anchor, anchorTop, reveal);
       return true;
     };
     restore();

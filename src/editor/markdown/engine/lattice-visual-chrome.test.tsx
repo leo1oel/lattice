@@ -226,7 +226,7 @@ describe("selection toolbar (R-CHR-2, R-FMT-1)", () => {
   ])("writes %s from the toolbar", async (name, expected) => {
     const { editor, onChange } = renderEditor("Hello");
     caret(editor, 1, 6);
-    fireEvent.mouseDown(await screen.findByRole("button", { name }));
+    fireEvent.click(await screen.findByRole("button", { name }));
     await waitFor(() => expect(onChange).toHaveBeenCalledWith(expected, "Hello"));
   });
 
@@ -238,7 +238,7 @@ describe("selection toolbar (R-CHR-2, R-FMT-1)", () => {
     for (const name of ["块类型", "粗体", "斜体", "下划线", "删除线", "行内代码", "高亮", "插入链接", "将所选文字转换为脚注", "将所选文字转换为行内公式"]) {
       expect(screen.getByRole("button", { name })).toBeInTheDocument();
     }
-    fireEvent.mouseDown(screen.getByRole("button", { name: "粗体" }));
+    fireEvent.click(screen.getByRole("button", { name: "粗体" }));
     await waitFor(() => expect(onChange).toHaveBeenCalledWith("**中文**格式测试", "中文格式测试"));
   });
 
@@ -257,7 +257,7 @@ describe("selection toolbar (R-CHR-2, R-FMT-1)", () => {
   it("converts a selection to a footnote whose note holds the text", async () => {
     const { editor, onChange } = renderEditor("Claim evidence here");
     caret(editor, 7, 15);
-    fireEvent.mouseDown(await screen.findByRole("button", { name: "Convert selection to footnote" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Convert selection to footnote" }));
     await waitFor(() => expect(lastChange(onChange)).toBe("Claim [^1] here\n\n[^1]: evidence"));
   });
 

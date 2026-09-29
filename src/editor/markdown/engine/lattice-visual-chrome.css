@@ -9,7 +9,7 @@
 
 /* --- Floating surfaces -------------------------------------------------------- */
 
-:is(.lx-md-menu, .lx-md-toolbar, .lx-md-link-editor, .lx-md-link-card, .lx-md-emoji-picker) {
+:is(.lx-md-menu, .lx-md-toolbar, .lx-md-link-editor, .lx-md-link-card, .lx-md-emoji-picker, .lx-md-change-popover, .lx-md-comment-composer) {
   z-index: var(--z-editor-popover);
   box-sizing: border-box;
   border: 1px solid var(--border-subtle);
@@ -375,3 +375,114 @@
 .lx-md-editor .lx-md-surface :is(ul, ol):not([data-type="taskList"]) > li[data-type="taskItem"] { display: flex; align-items: flex-start; gap: 0.55em; list-style: none; margin-inline-start: -1.2em; }
 .lx-md-editor .lx-md-surface :is(ul, ol):not([data-type="taskList"]) > li[data-type="taskItem"] > label { display: flex; align-items: center; height: calc(var(--lx-md-line-height) * 1em); margin: 0; user-select: none; }
 .lx-md-editor .lx-md-surface :is(ul, ol):not([data-type="taskList"]) > li[data-type="taskItem"] > div { flex: 1; min-width: 0; }
+
+/* --- Review: collaborators, comments, suggestions ------------------------------- */
+
+/* A collaborator's caret is drawn text: it takes no room and no clicks. */
+.lx-md-editor .lx-md-surface .lx-md-peer-caret {
+  --lx-md-peer-color: var(--control-active);
+  position: relative;
+  margin-inline: -1px;
+  border-left: 2px solid var(--lx-md-peer-color);
+  pointer-events: none;
+  user-select: none;
+}
+.lx-md-editor .lx-md-surface .lx-md-peer-caret-label {
+  position: absolute;
+  bottom: 100%;
+  left: -2px;
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-compact) var(--radius-compact) var(--radius-compact) 0;
+  background: var(--lx-md-peer-color);
+  /* Collaborator colors are saturated mid-tones in both themes, as in the source editor. */
+  color: white;
+  font: var(--type-micro-weight) var(--type-micro-size) / var(--type-micro-line-height) var(--ui-font);
+  white-space: nowrap;
+}
+
+/* Comment highlights take their author's color from the element itself. */
+.lx-md-editor .lx-md-surface .lx-md-comment {
+  border-radius: var(--gap-hairline);
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+  cursor: help;
+}
+.lx-md-editor .lx-md-surface .lx-md-comment.is-active { box-shadow: 0 0 0 1px var(--highlight-match-current-border); }
+.lx-md-editor .lx-md-surface .lx-md-comment-draft { border-radius: var(--gap-hairline); background: var(--editor-selection-tint); }
+.lx-md-comment-card { position: fixed; z-index: var(--z-editor-popover); max-width: min(320px, calc(100vw - var(--space-8))); }
+
+.lx-md-editor .lx-md-surface .lx-md-change {
+  --lx-md-change-color: var(--control-active);
+  --lx-md-change-tint: var(--control-active-soft);
+  border-radius: var(--gap-hairline);
+  background: var(--lx-md-change-tint);
+  cursor: pointer;
+}
+.lx-md-editor .lx-md-surface .lx-md-change.is-insert { box-shadow: inset 0 -2px 0 var(--lx-md-change-color); }
+.lx-md-editor .lx-md-surface .lx-md-change.is-delete { text-decoration: line-through 2px var(--lx-md-change-color); }
+.lx-md-editor .lx-md-surface .lx-md-change:focus-visible { outline: 2px solid var(--lx-md-change-color); outline-offset: 2px; }
+
+.lx-md-change-popover {
+  --lx-md-change-color: var(--control-active);
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-2) var(--space-2) var(--space-2) var(--space-4);
+}
+.lx-md-change-author { display: inline-flex; align-items: center; gap: var(--space-2); font-weight: var(--weight-semibold); white-space: nowrap; }
+.lx-md-change-dot { width: 8px; height: 8px; border-radius: var(--radius-pill); background: var(--lx-md-change-color); }
+.lx-md-change-actions { display: inline-flex; gap: var(--gap-hairline); }
+
+.lx-md-comment-composer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  width: min(320px, calc(100vw - var(--space-8)));
+  padding: var(--space-4);
+}
+.lx-md-comment-quote {
+  max-height: 96px;
+  margin: 0;
+  padding: var(--space-1) var(--space-4);
+  overflow: hidden;
+  border-left: 2px solid var(--border-strong);
+  color: var(--text-secondary);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line-height);
+  white-space: pre-wrap;
+}
+.lx-md-comment-error { margin: 0; color: var(--status-danger); font-size: var(--type-caption-size); }
+.lx-md-comment-actions { display: flex; justify-content: flex-end; gap: var(--space-2); }
+
+/* --- Headings ------------------------------------------------------------------ */
+
+/* A converter-generated paper Contents stays in the document, out of view (R-BLK-14). */
+.lx-md-editor .lx-md-surface .lx-md-generated-contents { display: none; }
+.lx-md-editor .lx-md-surface :is(h1, h2, h3, h4, h5, h6)[id] { scroll-margin-top: var(--space-12); }
+
+/* A pinned header row covers the rows it rides over (R-CHR-9). */
+.lx-md-editor .lx-md-surface table > tbody > tr:first-child > th {
+  position: relative;
+  /* Above body cells, including a first column kept in view while a wide table scrolls sideways. */
+  z-index: 2;
+  background: linear-gradient(var(--lx-md-block-surface-strong), var(--lx-md-block-surface-strong)), var(--editor-bg);
+}
+
+/* --- Passive view of a large read-only document (R-PERF-1) ---------------------- */
+
+.lx-md-editor .lx-md-passive-bar {
+  position: sticky;
+  z-index: var(--z-editor-overlay);
+  top: var(--space-4);
+  display: flex;
+  justify-content: flex-end;
+  height: 0;
+  margin-inline-end: var(--space-8);
+  overflow: visible;
+}
+.lx-md-editor .lx-md-passive-bar > button { background: var(--surface-panel-raised); box-shadow: var(--shadow-soft); }
+.lx-md-editor .lx-md-passive-chunk { display: flow-root; }
+/* Chunks read as one article: one top margin and one bottom scroll room; blocks keep their own spacing at the seams. */
+.lx-md-editor .lx-md-passive-chunk .lx-md-surface { min-height: 0; }
+.lx-md-editor .lx-md-passive-chunk:not(:last-child) .lx-md-surface { padding-bottom: 0; }
+.lx-md-editor .lx-md-passive-chunk + .lx-md-passive-chunk .lx-md-surface { padding-top: 0; }

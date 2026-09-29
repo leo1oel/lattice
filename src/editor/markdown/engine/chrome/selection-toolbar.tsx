@@ -1,9 +1,10 @@
 /**
- * The selection toolbar (spec R-CHR-2, R-FMT-1): a text selection shows the
- * block type and the inline formats, portalled to the body and hidden when
- * the editor loses focus. Marks write `**…**`, `*…*`, `<u>…</u>`, `~~…~~`,
- * `` `…` `` and `==…==`; the selection can also become a link, a footnote,
- * or an inline formula.
+ * The selection toolbar (spec R-CHR-2, R-FMT-1, R-SRC-6, R-SRC-9, R-SRC-11):
+ * a text selection shows the block type and the inline formats, portalled to
+ * the body and hidden when the editor loses focus. Marks write `**…**`,
+ * `*…*`, `<u>…</u>`, `~~…~~`, `` `…` `` and `==…==`; the selection can also
+ * become a link, a footnote, or an inline formula, be commented on, or be
+ * shown in the Markdown source. A read-only document offers only Comment.
  *
  * Clean implementation for Lattice; spec: docs/visual-editor-spec.md.
  */
@@ -17,13 +18,14 @@ import { CellSelection } from "@tiptap/pm/tables";
 import { useEditorState } from "@tiptap/react";
 import { BubbleMenu } from "@tiptap/react/menus";
 import {
-  Bold, Check, ChevronDown, Code, Highlighter, Italic, Link, Radical, Strikethrough, Superscript, Underline,
+  Bold, Check, ChevronDown, Code, FileCode, Highlighter, Italic, Link, MessageSquarePlus, Radical, Strikethrough, Superscript, Underline,
 } from "lucide-react";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
 } from "../../../../components/ui/dropdown-menu";
 import type { ChromeHost } from "./chrome-host";
 import { requestLinkEditor } from "./link-chrome";
+import { requestComment } from "./review-chrome";
 import { insertFootnote } from "./slash-items";
 
 type BlockType = {
@@ -104,10 +106,22 @@ function convertToFootnote(editor: Editor) {
 
 function selectionShows(editor: Editor, host: ChromeHost): boolean {
   const { selection } = editor.state;
-  if (!editor.isEditable || selection.empty || !editor.view.hasFocus()) return false;
+  if (selection.empty) return false;
+  // Read-only, the toolbar exists only to comment, and the surface never takes focus.
+  if (editor.isEditable ? !editor.view.hasFocus() : !host.props().onCreateComment) return false;
   if (selection instanceof NodeSelection || selection instanceof CellSelection) return false;
-  if (selection.$from.parent.type.spec.code) return false;
-  return host.request?.kind !== "link" && host.request?.kind !== "citation";
+  if (editor.isEditable && selection.$from.parent.type.spec.code) return false;
+  return !host.request || host.request.kind === "find";
+}
+
+/** Report where the selection starts in the Markdown, publishing a pending edit first (R-SRC-11). */
+function viewInSource(editor: Editor, host: ChromeHost) {
+  const map = host.sourceMap(true);
+  if (!map) return;
+  const { from } = editor.state.selection;
+  // Where the selection start has no exact place (inside syntax), its block's start.
+  const offset = map.positionToOffset(from) ?? map.blockRange(editor.state.doc.resolve(from).index(0))?.from;
+  if (offset != null) host.props().onViewInSource?.(offset);
 }
 
 export function SelectionToolbar({ editor, host }: { editor: Editor; host: ChromeHost }) {
@@ -135,10 +149,8 @@ export function SelectionToolbar({ editor, host }: { editor: Editor; host: Chrom
     document.body.append(layer);
     return () => layer.remove();
   }, [layer]);
-  const press = (action: () => void) => (event: React.MouseEvent) => {
-    event.preventDefault();
-    action();
-  };
+  const { onCreateComment, onViewInSource } = host.props();
+  const editable = editor.isEditable;
   return (
     <BubbleMenu
       editor={editor}
@@ -150,7 +162,7 @@ export function SelectionToolbar({ editor, host }: { editor: Editor; host: Chrom
       shouldShow={({ editor: current }) => selectionShows(current as Editor, host)}
       options={{ placement: "top", offset: 8, flip: true }}
     >
-      <DropdownMenu>
+      {editable && <><DropdownMenu>
         <DropdownMenuTrigger asChild>
           <button type="button" className="lx-md-toolbar-block" aria-label={t`Block type`} onMouseDown={(event) => event.preventDefault()}>
             <span>{i18n._(block.label)}</span>
@@ -167,27 +179,39 @@ export function SelectionToolbar({ editor, host }: { editor: Editor; host: Chrom
       </DropdownMenu>
       <span className="lx-md-toolbar-divider" aria-hidden="true" />
       {MARKS.map(({ mark, label, icon: Icon }, index) => (
-        <ToolbarButton key={mark} label={i18n._(label)} pressed={state.marks[index]} onMouseDown={press(() => editor.chain().focus().toggleMark(mark).run())}>
+        <ToolbarButton key={mark} label={i18n._(label)} pressed={state.marks[index]} onPress={() => editor.chain().focus().toggleMark(mark).run()}>
           <Icon aria-hidden="true" />
         </ToolbarButton>
       ))}
       <span className="lx-md-toolbar-divider" aria-hidden="true" />
-      <ToolbarButton label={t`Insert link`} pressed={state.link} onMouseDown={press(() => requestLinkEditor(editor, host))}>
+      <ToolbarButton label={t`Insert link`} pressed={state.link} onPress={() => requestLinkEditor(editor, host)}>
         <Link aria-hidden="true" />
       </ToolbarButton>
-      <ToolbarButton label={t`Convert selection to footnote`} onMouseDown={press(() => convertToFootnote(editor))}>
+      <ToolbarButton label={t`Convert selection to footnote`} onPress={() => convertToFootnote(editor)}>
         <Superscript aria-hidden="true" />
       </ToolbarButton>
-      <ToolbarButton label={t`Convert selection to inline math`} onMouseDown={press(() => convertToMath(editor))}>
+      <ToolbarButton label={t`Convert selection to inline math`} onPress={() => convertToMath(editor)}>
         <Radical aria-hidden="true" />
-      </ToolbarButton>
+      </ToolbarButton></>}
+      {editable && (onCreateComment || onViewInSource) && <span className="lx-md-toolbar-divider" aria-hidden="true" />}
+      {onCreateComment && (
+        <ToolbarButton label={t`Comment`} onPress={() => requestComment(host)}>
+          <MessageSquarePlus aria-hidden="true" />
+        </ToolbarButton>
+      )}
+      {editable && onViewInSource && (
+        <ToolbarButton label={t`View in source Markdown`} onPress={() => viewInSource(editor, host)}>
+          <FileCode aria-hidden="true" />
+        </ToolbarButton>
+      )}
     </BubbleMenu>
   );
 }
 
-function ToolbarButton({ label, pressed, onMouseDown, children }: { label: string; pressed?: boolean; onMouseDown: (event: React.MouseEvent) => void; children: ReactNode }) {
+/** A toolbar action; pressing it never takes focus or the selection from the editor. */
+function ToolbarButton({ label, pressed, onPress, children }: { label: string; pressed?: boolean; onPress: () => void; children: ReactNode }) {
   return (
-    <button type="button" className="lx-md-toolbar-button" aria-label={label} title={label} aria-pressed={pressed} onMouseDown={onMouseDown}>
+    <button type="button" className="lx-md-toolbar-button" aria-label={label} title={label} aria-pressed={pressed} onMouseDown={(event) => event.preventDefault()} onClick={onPress}>
       {children}
     </button>
   );
