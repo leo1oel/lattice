@@ -518,6 +518,7 @@ msgstr "Abstract environment"
 msgid "Accents"
 msgstr "Accents"
 
+#: src/editor/markdown/engine/chrome/review-chrome.tsx
 #: src/editor/markdown/visual-review-overlays.tsx
 #: src/overleaf/overleaf-changes.tsx
 #: src/overleaf/overleaf-editor-extensions.ts
@@ -639,6 +640,7 @@ msgid "Add column"
 msgstr "Add column"
 
 #: src/canvas/comment-composer.tsx
+#: src/editor/markdown/engine/chrome/review-chrome.tsx
 #: src/editor/markdown/visual-review-overlays.tsx
 msgid "Add comment"
 msgstr "Add comment"
@@ -1508,6 +1510,7 @@ msgstr "Callouts draw attention to key information."
 #: src/editor/goto-line-dialog.tsx
 #: src/editor/insert/figure-insert-dialog.tsx
 #: src/editor/insert/table-generator-dialog.tsx
+#: src/editor/markdown/engine/chrome/review-chrome.tsx
 #: src/editor/markdown/visual-review-overlays.tsx
 #: src/editor/spreadsheet/spreadsheet-univer.ts
 #: src/history/conflict-resolver.tsx
@@ -1566,6 +1569,7 @@ msgstr "Candidate record considered, not verified"
 msgid "Candidate record considered, not verified · cached record"
 msgstr "Candidate record considered, not verified · cached record"
 
+#: src/editor/markdown/engine/chrome/review-chrome.tsx
 #: src/editor/markdown/visual-markdown-editor.tsx
 msgid "Cannot precisely locate this selection in Markdown source. Switch to Source view to add a comment."
 msgstr "Cannot precisely locate this selection in Markdown source. Switch to Source view to add a comment."
@@ -2127,6 +2131,8 @@ msgid "comment"
 msgstr "comment"
 
 #: src/editor/latex/latex-selection-toolbar.tsx
+#: src/editor/markdown/engine/chrome/review-chrome.tsx
+#: src/editor/markdown/engine/chrome/selection-toolbar.tsx
 #: src/editor/markdown/visual-markdown-editor.tsx
 #: src/editor/markdown/visual-review-overlays.tsx
 #: src/open-knowledge-app/comments/CommentBubbleButton.tsx
@@ -3247,6 +3253,7 @@ msgstr "Edit bibliography entry"
 msgid "Edit cells and formulas directly"
 msgstr "Edit cells and formulas directly"
 
+#: src/editor/markdown/engine/passive-view.tsx
 #: src/editor/markdown/visual-passive-viewport.tsx
 msgid "Edit document"
 msgstr "Edit document"
@@ -7850,6 +7857,7 @@ msgstr "Regex"
 msgid "Regular expression"
 msgstr "Regular expression"
 
+#: src/editor/markdown/engine/chrome/review-chrome.tsx
 #: src/editor/markdown/visual-review-overlays.tsx
 #: src/overleaf/overleaf-changes.tsx
 #: src/overleaf/overleaf-editor-extensions.ts
@@ -9528,6 +9536,7 @@ msgstr "Succeeds or equal"
 msgid "Success"
 msgstr "Success"
 
+#: src/editor/markdown/engine/chrome/review-chrome.tsx
 #: src/editor/markdown/visual-review-overlays.tsx
 msgid "Suggested change"
 msgstr "Suggested change"
@@ -9949,6 +9958,7 @@ msgid "The same conversation as the chat panel in {projectName} on Overleaf. Mes
 msgstr "The same conversation as the chat panel in {projectName} on Overleaf. Messages appear on both sides as they are sent"
 
 #: src/canvas/document-canvas.tsx
+#: src/editor/markdown/engine/chrome/review-chrome.tsx
 #: src/editor/markdown/visual-markdown-editor.tsx
 msgid "The selected text changed. Select it again before commenting."
 msgstr "The selected text changed. Select it again before commenting."
@@ -10935,6 +10945,7 @@ msgstr "View"
 msgid "View in source"
 msgstr "View in source"
 
+#: src/editor/markdown/engine/chrome/selection-toolbar.tsx
 #: src/open-knowledge-app/editor/bubble-menu/ViewInSourceBubbleButton.tsx
 msgid "View in source Markdown"
 msgstr "View in source Markdown"
@@ -11004,6 +11015,7 @@ msgstr "Visual editor table"
 msgid "Visual editor table selection"
 msgstr "Visual editor table selection"
 
+#: src/editor/markdown/engine/passive-view.tsx
 #: src/editor/markdown/visual-markdown-editor.tsx
 #: src/editor/markdown/visual-passive-viewport.tsx
 msgid "Visual Markdown editor"

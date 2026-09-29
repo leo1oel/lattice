@@ -13,6 +13,7 @@
  *
  * Clean implementation for Lattice; spec: docs/visual-editor-spec.md.
  */
+/* eslint-disable react-refresh/only-export-components -- the passive layout and the view that draws it belong together */
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { Extension, type AnyExtension } from "@tiptap/core";

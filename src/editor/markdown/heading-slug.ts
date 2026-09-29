@@ -20,6 +20,7 @@ const COMBINING_MARK = /\p{M}/gu;
 export function headingSlug(text: string): string {
   let slug = "";
   let pendingHyphen = false;
+  // eslint-disable-next-line lingui/no-unlocalized-strings -- a Unicode normalization form
   for (const char of text.trim().normalize("NFKD").replace(COMBINING_MARK, "")) {
     if (LETTER_OR_DIGIT.test(char)) {
       if (pendingHyphen && slug) slug += "-";

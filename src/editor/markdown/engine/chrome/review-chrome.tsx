@@ -14,6 +14,7 @@
  *
  * Clean implementation for Lattice; spec: docs/visual-editor-spec.md.
  */
+/* eslint-disable react-refresh/only-export-components -- the Comment request and the composer it opens belong together */
 import { useEffect, useLayoutEffect, useState, useSyncExternalStore, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
 import { useLingui } from "@lingui/react/macro";

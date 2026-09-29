@@ -18,6 +18,7 @@ import { createHeadingSlugger } from "../heading-slug";
 
 export type DocumentHeading = { pos: number; id: string; text: string; level: number; generatedContents: boolean };
 
+// eslint-disable-next-line lingui/no-unlocalized-strings -- the heading the paper converter writes, not interface copy
 const CONTENTS_TITLE = "Contents";
 
 /** Whether the list after a "Contents" heading is the converter's: every entry one link to a heading on the page. */

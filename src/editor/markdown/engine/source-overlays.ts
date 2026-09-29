@@ -147,6 +147,7 @@ export function buildOverlays(doc: PmNode, map: SourceMap | null, inputs: Overla
 }
 
 /** A suggestion is drawn in its author's Overleaf color. */
+// eslint-disable-next-line lingui/no-unlocalized-strings -- a CSS declaration
 const changeColors = (hue: number) => `--lx-md-change-color: ${hueColor(hue)}; --lx-md-change-tint: ${hueColor(hue, 0.16)}`;
 
 function peerCaret(name: string, color: string): HTMLElement {
