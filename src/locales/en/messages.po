@@ -183,6 +183,7 @@ msgstr "{count} papers"
 msgid "{count} TODO"
 msgstr "{count} TODO"
 
+#: src/editor/markdown/engine/chrome/find-replace.tsx
 #: src/editor/markdown/visual-markdown-find-replace.tsx
 msgid "{current} of {count}"
 msgstr "{current} of {count}"
@@ -540,6 +541,7 @@ msgstr "Access denied. Check the key and its permissions."
 msgid "Access forbidden by provider"
 msgstr "Access forbidden by provider"
 
+#: src/editor/markdown/engine/chrome/slash-items.ts
 #: src/editor/markdown/engine/views/component-views.tsx
 #: src/editor/markdown/visual-slash-items.ts
 #: src/open-knowledge-app/editor/components/Accordion.tsx
@@ -626,6 +628,7 @@ msgstr "Add bibliography entry"
 msgid "Add bibliography entry and cache the arXiv paper"
 msgstr "Add bibliography entry and cache the arXiv paper"
 
+#: src/editor/markdown/engine/chrome/block-controls.tsx
 #: src/editor/markdown/visual-editor-block-controls.ts
 #: src/onboarding/onboarding-tour.tsx
 msgid "Add block below"
@@ -1145,6 +1148,7 @@ msgstr "Bar accent example"
 msgid "Bar over an expression"
 msgstr "Bar over an expression"
 
+#: src/editor/markdown/engine/chrome/slash-items.ts
 #: src/editor/markdown/visual-slash-items.ts
 msgid "Basic blocks"
 msgstr "Basic blocks"
@@ -1229,6 +1233,7 @@ msgstr "BibTeX bibliography style"
 msgid "BibTeX preview"
 msgstr "BibTeX preview"
 
+#: src/editor/markdown/engine/chrome/slash-items.ts
 #: src/editor/markdown/visual-slash-items.ts
 #: src/open-knowledge-app/editor/slash-command/items.tsx
 msgid "Big section heading."
@@ -1271,6 +1276,7 @@ msgstr "Black"
 msgid "Blackboard bold"
 msgstr "Blackboard bold"
 
+#: src/editor/markdown/engine/chrome/slash-items.ts
 #: src/editor/markdown/visual-slash-items.ts
 #: src/open-knowledge-app/editor/slash-command/component-items.tsx
 msgid "Block math equation rendered with KaTeX from a LaTeX source string."
@@ -1279,6 +1285,10 @@ msgstr "Block math equation rendered with KaTeX from a LaTeX source string."
 #: src/editor/insert/insert-snippets.ts
 msgid "Block quotation"
 msgstr "Block quotation"
+
+#: src/editor/markdown/engine/chrome/selection-toolbar.tsx
+msgid "Block type"
+msgstr "Block type"
 
 #: src/canvas/canvas-toolbar.tsx
 #: src/canvas/paper-reader.tsx
@@ -1323,6 +1333,7 @@ msgstr "Body words use TeXcount when installed (else a local estimate). Set budg
 
 #: src/editor/insert/insert-snippets.ts
 #: src/editor/latex/latex-selection-toolbar.tsx
+#: src/editor/markdown/engine/chrome/selection-toolbar.tsx
 #: src/open-knowledge-app/editor/bubble-menu/InlineFormatButtons.tsx
 #: src/open-knowledge-app/lib/keyboard-shortcuts.ts
 msgid "Bold"
@@ -1459,6 +1470,8 @@ msgstr "Bullet"
 msgid "Bullet list"
 msgstr "Bullet list"
 
+#: src/editor/markdown/engine/chrome/selection-toolbar.tsx
+#: src/editor/markdown/engine/chrome/slash-items.ts
 #: src/editor/markdown/visual-slash-items.ts
 #: src/open-knowledge-app/editor/bubble-menu/BlockTypeSelector.tsx
 #: src/open-knowledge-app/editor/slash-command/items.tsx
@@ -1477,6 +1490,7 @@ msgstr "cached"
 msgid "Calligraphic"
 msgstr "Calligraphic"
 
+#: src/editor/markdown/engine/chrome/slash-items.ts
 #: src/editor/markdown/engine/views/component-views.tsx
 #: src/editor/markdown/visual-slash-items.ts
 #: src/open-knowledge-app/editor/registry/descriptor-labels.ts
@@ -1746,6 +1760,7 @@ msgstr "Checking your Overleaf connection…"
 msgid "Checking…"
 msgstr "Checking…"
 
+#: src/editor/markdown/engine/chrome/slash-items.ts
 #: src/editor/markdown/visual-slash-items.ts
 #: src/open-knowledge-app/editor/slash-command/items.tsx
 msgid "Checklist with checkboxes."
@@ -1775,6 +1790,7 @@ msgstr "Choose color"
 msgid "Choose icon"
 msgstr "Choose icon"
 
+#: src/editor/markdown/engine/chrome/pickers.tsx
 #: src/editor/markdown/visual-slash-items.ts
 msgid "Choose image to upload"
 msgstr "Choose image to upload"
@@ -1856,6 +1872,7 @@ msgstr "Citation only — no downloadable full text found"
 msgid "Citation resolve query"
 msgstr "Citation resolve query"
 
+#: src/editor/markdown/engine/chrome/link-chrome.tsx
 #: src/editor/markdown/visual-link-insert-popover.tsx
 msgid "Citation title"
 msgstr "Citation title"
@@ -1962,6 +1979,7 @@ msgstr "Close {0}"
 msgid "Close {title}"
 msgstr "Close {title}"
 
+#: src/editor/markdown/engine/chrome/find-replace.tsx
 #: src/editor/markdown/visual-markdown-find-replace.tsx
 msgid "Close find"
 msgstr "Close find"
@@ -2012,6 +2030,8 @@ msgstr "Club suit"
 msgid "Code block"
 msgstr "Code block"
 
+#: src/editor/markdown/engine/chrome/selection-toolbar.tsx
+#: src/editor/markdown/engine/chrome/slash-items.ts
 #: src/editor/markdown/visual-slash-items.ts
 #: src/open-knowledge-app/editor/bubble-menu/BlockTypeSelector.tsx
 #: src/open-knowledge-app/editor/slash-command/items.tsx
@@ -2050,6 +2070,7 @@ msgstr "Collapsible"
 msgid "Collapsible content block (Notion-style toggle)."
 msgstr "Collapsible content block (Notion-style toggle)."
 
+#: src/editor/markdown/engine/chrome/slash-items.ts
 #: src/editor/markdown/visual-slash-items.ts
 #: src/open-knowledge-app/editor/slash-command/component-items.tsx
 msgid "Collapsible section with a clickable summary."
@@ -2182,6 +2203,7 @@ msgstr "Component"
 msgid "Component boundary navigation"
 msgstr "Component boundary navigation"
 
+#: src/editor/markdown/engine/chrome/slash-items.ts
 #: src/editor/markdown/visual-slash-items.ts
 msgid "Components"
 msgstr "Components"
@@ -2298,10 +2320,12 @@ msgstr "Control character"
 msgid "Controls"
 msgstr "Controls"
 
+#: src/editor/markdown/engine/chrome/selection-toolbar.tsx
 #: src/open-knowledge-app/editor/bubble-menu/FootnoteBubbleButton.tsx
 msgid "Convert selection to footnote"
 msgstr "Convert selection to footnote"
 
+#: src/editor/markdown/engine/chrome/selection-toolbar.tsx
 #: src/open-knowledge-app/editor/bubble-menu/InlineFormatButtons.tsx
 msgid "Convert selection to inline math"
 msgstr "Convert selection to inline math"
@@ -2880,6 +2904,7 @@ msgstr "Determinant-style matrix"
 msgid "Diagnostics"
 msgstr "Diagnostics"
 
+#: src/editor/markdown/engine/chrome/slash-items.ts
 #: src/editor/markdown/visual-slash-items.ts
 #: src/open-knowledge-app/editor/slash-command/component-items.tsx
 msgid "Diagram from Mermaid source — flowchart, sequence, class, state, ER, gantt, pie."
@@ -2996,6 +3021,7 @@ msgstr "DOI metadata corrections are available."
 msgid "Dollar Math"
 msgstr "Dollar Math"
 
+#: src/editor/markdown/engine/chrome/link-chrome.tsx
 #: src/editor/markdown/visual-link-insert-popover.tsx
 #: src/open-knowledge-app/editor/extensions/JsxComponentView.tsx
 #: src/open-knowledge-app/editor/extensions/MathInlineView.tsx
@@ -3229,6 +3255,7 @@ msgstr "Edit document"
 msgid "Edit HTML"
 msgstr "Edit HTML"
 
+#: src/editor/markdown/engine/chrome/link-chrome.tsx
 #: src/editor/markdown/visual-link-hover.tsx
 msgid "Edit link"
 msgstr "Edit link"
@@ -3374,6 +3401,7 @@ msgstr "Embed an audio file with native player controls."
 msgid "Embed an external page in an inline iframe (docs, demos, Figma, CodeSandbox)."
 msgstr "Embed an external page in an inline iframe (docs, demos, Figma, CodeSandbox)."
 
+#: src/editor/markdown/engine/chrome/slash-items.ts
 #: src/editor/markdown/visual-slash-items.ts
 #: src/open-knowledge-app/editor/slash-command/component-items.tsx
 msgid "Embed an image with optional alt text."
@@ -3391,6 +3419,7 @@ msgstr "Embedded content"
 msgid "Embeds"
 msgstr "Embeds"
 
+#: src/editor/markdown/engine/chrome/slash-items.ts
 #: src/editor/markdown/visual-slash-items.ts
 #: src/open-knowledge-app/editor/slash-command/items.tsx
 msgid "Emoji"
@@ -3665,6 +3694,7 @@ msgstr "Failed to render PDF"
 msgid "Feedback"
 msgstr "Feedback"
 
+#: src/editor/markdown/engine/chrome/slash-items.ts
 #: src/editor/markdown/visual-slash-items.ts
 #: src/open-knowledge-app/editor/slash-command/items.tsx
 msgid "Fenced code block with monospace text."
@@ -3682,6 +3712,7 @@ msgstr "Fetching the paper overview…"
 msgid "Fetchpriority"
 msgstr "Fetchpriority"
 
+#: src/editor/markdown/engine/chrome/slash-items.ts
 #: src/editor/markdown/visual-slash-items.ts
 #: src/open-knowledge-app/editor/slash-command/items.tsx
 msgid "Fifth-level heading."
@@ -3772,6 +3803,7 @@ msgid "find"
 msgstr "find"
 
 #: src/editor/latex/search-panel.ts
+#: src/editor/markdown/engine/chrome/find-replace.tsx
 #: src/editor/markdown/visual-markdown-find-replace.tsx
 #: src/open-knowledge-app/lib/keyboard-shortcuts.ts
 #: src/project/project-replace-dialog.tsx
@@ -3790,6 +3822,7 @@ msgstr "Find and install the TeX Live package for {missingFile}"
 msgid "Find field navigation"
 msgstr "Find field navigation"
 
+#: src/editor/markdown/engine/chrome/find-replace.tsx
 #: src/editor/markdown/visual-markdown-find-replace.tsx
 msgid "Find in document"
 msgstr "Find in document"
@@ -3909,6 +3942,7 @@ msgid "Follow system (default)"
 msgstr "Follow system (default)"
 
 #: src/editor/insert/insert-snippets.ts
+#: src/editor/markdown/engine/chrome/slash-items.ts
 #: src/editor/markdown/visual-slash-items.ts
 #: src/open-knowledge-app/editor/slash-command/items.tsx
 msgid "Footnote"
@@ -3946,6 +3980,10 @@ msgstr "Format selected LaTeX"
 msgid "Formatted with latexindent."
 msgstr "Formatted with latexindent."
 
+#: src/editor/markdown/engine/chrome/selection-toolbar.tsx
+msgid "Formatting"
+msgstr "Formatting"
+
 #: src/editor/markdown/engine/views/math-views.tsx
 #: src/open-knowledge-app/editor/registry/descriptor-labels.ts
 msgid "Formula"
@@ -3963,6 +4001,7 @@ msgstr "Formulas and Excel export"
 msgid "Forward"
 msgstr "Forward"
 
+#: src/editor/markdown/engine/chrome/slash-items.ts
 #: src/editor/markdown/visual-slash-items.ts
 #: src/open-knowledge-app/editor/slash-command/items.tsx
 msgid "Fourth-level heading."
@@ -4139,6 +4178,7 @@ msgstr "Grid"
 msgid "Grid generator"
 msgstr "Grid generator"
 
+#: src/editor/markdown/engine/chrome/slash-items.ts
 #: src/editor/markdown/visual-slash-items.ts
 #: src/open-knowledge-app/editor/slash-command/items.tsx
 msgid "Grid of rows and columns with a header row."
@@ -4176,36 +4216,48 @@ msgstr "Hat accent"
 msgid "Hat accent example"
 msgstr "Hat accent example"
 
+#: src/editor/markdown/engine/chrome/selection-toolbar.tsx
+#: src/editor/markdown/engine/chrome/slash-items.ts
 #: src/editor/markdown/visual-slash-items.ts
 #: src/open-knowledge-app/editor/bubble-menu/BlockTypeSelector.tsx
 #: src/open-knowledge-app/editor/slash-command/items.tsx
 msgid "Heading 1"
 msgstr "Heading 1"
 
+#: src/editor/markdown/engine/chrome/selection-toolbar.tsx
+#: src/editor/markdown/engine/chrome/slash-items.ts
 #: src/editor/markdown/visual-slash-items.ts
 #: src/open-knowledge-app/editor/bubble-menu/BlockTypeSelector.tsx
 #: src/open-knowledge-app/editor/slash-command/items.tsx
 msgid "Heading 2"
 msgstr "Heading 2"
 
+#: src/editor/markdown/engine/chrome/selection-toolbar.tsx
+#: src/editor/markdown/engine/chrome/slash-items.ts
 #: src/editor/markdown/visual-slash-items.ts
 #: src/open-knowledge-app/editor/bubble-menu/BlockTypeSelector.tsx
 #: src/open-knowledge-app/editor/slash-command/items.tsx
 msgid "Heading 3"
 msgstr "Heading 3"
 
+#: src/editor/markdown/engine/chrome/selection-toolbar.tsx
+#: src/editor/markdown/engine/chrome/slash-items.ts
 #: src/editor/markdown/visual-slash-items.ts
 #: src/open-knowledge-app/editor/bubble-menu/BlockTypeSelector.tsx
 #: src/open-knowledge-app/editor/slash-command/items.tsx
 msgid "Heading 4"
 msgstr "Heading 4"
 
+#: src/editor/markdown/engine/chrome/selection-toolbar.tsx
+#: src/editor/markdown/engine/chrome/slash-items.ts
 #: src/editor/markdown/visual-slash-items.ts
 #: src/open-knowledge-app/editor/bubble-menu/BlockTypeSelector.tsx
 #: src/open-knowledge-app/editor/slash-command/items.tsx
 msgid "Heading 5"
 msgstr "Heading 5"
 
+#: src/editor/markdown/engine/chrome/selection-toolbar.tsx
+#: src/editor/markdown/engine/chrome/slash-items.ts
 #: src/editor/markdown/visual-slash-items.ts
 #: src/open-knowledge-app/editor/bubble-menu/BlockTypeSelector.tsx
 #: src/open-knowledge-app/editor/slash-command/items.tsx
@@ -4296,6 +4348,7 @@ msgstr "Hide sidebar"
 msgid "Hide thumbnails"
 msgstr "Hide thumbnails"
 
+#: src/editor/markdown/engine/chrome/selection-toolbar.tsx
 #: src/open-knowledge-app/editor/bubble-menu/InlineFormatButtons.tsx
 #: src/open-knowledge-app/lib/keyboard-shortcuts.ts
 msgid "Highlight"
@@ -4305,6 +4358,7 @@ msgstr "Highlight"
 msgid "Highlight color"
 msgstr "Highlight color"
 
+#: src/editor/markdown/engine/chrome/slash-items.ts
 #: src/editor/markdown/visual-slash-items.ts
 #: src/open-knowledge-app/editor/slash-command/component-items.tsx
 msgid "Highlight tips, warnings, and notes."
@@ -4335,6 +4389,7 @@ msgstr "Horizontal pill strip + active panel below; click a pill to switch panel
 msgid "Horizontal rule in a table"
 msgstr "Horizontal rule in a table"
 
+#: src/editor/markdown/engine/chrome/slash-items.ts
 #: src/editor/markdown/visual-slash-items.ts
 #: src/open-knowledge-app/editor/slash-command/items.tsx
 msgid "Horizontal rule that divides sections."
@@ -4403,6 +4458,7 @@ msgstr "Id"
 msgid "If and only if"
 msgstr "If and only if"
 
+#: src/editor/markdown/engine/chrome/slash-items.ts
 #: src/editor/markdown/engine/views/image-view.tsx
 #: src/editor/markdown/visual-slash-items.ts
 #: src/open-knowledge-app/editor/registry/descriptor-labels.ts
@@ -4579,6 +4635,7 @@ msgstr "Indent or outdent source editor lines."
 msgid "Indent or outdent the current list item."
 msgstr "Indent or outdent the current list item."
 
+#: src/editor/markdown/engine/chrome/slash-items.ts
 #: src/editor/markdown/visual-slash-items.ts
 #: src/open-knowledge-app/editor/slash-command/items.tsx
 msgid "Indented blockquote for citations."
@@ -4612,11 +4669,13 @@ msgstr "Initialize version tracking"
 msgid "Inline another TeX file"
 msgstr "Inline another TeX file"
 
+#: src/editor/markdown/engine/chrome/selection-toolbar.tsx
 #: src/open-knowledge-app/editor/bubble-menu/InlineFormatButtons.tsx
 #: src/open-knowledge-app/lib/keyboard-shortcuts.ts
 msgid "Inline code"
 msgstr "Inline code"
 
+#: src/editor/markdown/engine/chrome/slash-items.ts
 #: src/editor/markdown/visual-slash-items.ts
 #: src/open-knowledge-app/editor/slash-command/items.tsx
 msgid "Inline LaTeX math rendered with KaTeX."
@@ -4626,6 +4685,7 @@ msgstr "Inline LaTeX math rendered with KaTeX."
 msgid "Inline math"
 msgstr "Inline math"
 
+#: src/editor/markdown/engine/chrome/slash-items.ts
 #: src/editor/markdown/visual-slash-items.ts
 #: src/open-knowledge-app/editor/slash-command/items.tsx
 msgid "Inline Math"
@@ -4650,6 +4710,7 @@ msgstr "insert"
 
 #: src/editor/insert/figure-insert-dialog.tsx
 #: src/editor/insert/insert-palette.tsx
+#: src/editor/markdown/engine/chrome/slash-items.ts
 #: src/editor/markdown/visual-slash-items.ts
 msgid "Insert"
 msgstr "Insert"
@@ -4666,6 +4727,7 @@ msgstr "Insert \\cite{…}"
 msgid "Insert \\ref{…}"
 msgstr "Insert \\ref{…}"
 
+#: src/editor/markdown/engine/chrome/slash-items.ts
 #: src/editor/markdown/visual-slash-items.ts
 #: src/open-knowledge-app/editor/slash-command/items.tsx
 msgid "Insert a footnote reference + matching definition stub."
@@ -4718,6 +4780,7 @@ msgstr "Insert figure"
 msgid "Insert LaTeX snippets"
 msgstr "Insert LaTeX snippets"
 
+#: src/editor/markdown/engine/chrome/selection-toolbar.tsx
 #: src/open-knowledge-app/editor/bubble-menu/LinkEditPopover.tsx
 msgid "Insert link"
 msgstr "Insert link"
@@ -4875,6 +4938,7 @@ msgid "Iota"
 msgstr "Iota"
 
 #: src/editor/latex/latex-selection-toolbar.tsx
+#: src/editor/markdown/engine/chrome/selection-toolbar.tsx
 #: src/open-knowledge-app/editor/bubble-menu/InlineFormatButtons.tsx
 #: src/open-knowledge-app/lib/keyboard-shortcuts.ts
 msgid "Italic"
@@ -5284,6 +5348,7 @@ msgid "Line under an expression"
 msgstr "Line under an expression"
 
 #: src/editor/latex/latex-selection-toolbar.tsx
+#: src/editor/markdown/engine/chrome/slash-items.ts
 #: src/editor/markdown/visual-slash-items.ts
 #: src/open-knowledge-app/editor/bubble-menu/LinkEditPopover.tsx
 #: src/open-knowledge-app/editor/slash-command/component-items.tsx
@@ -5298,12 +5363,14 @@ msgstr "Link definition"
 msgid "Link the selected text, or edit the link under the caret."
 msgstr "Link the selected text, or edit the link under the caret."
 
+#: src/editor/markdown/engine/chrome/slash-items.ts
 #: src/editor/markdown/visual-slash-items.ts
 #: src/open-knowledge-app/editor/slash-command/component-items.tsx
 msgid "Link to a page or external URL."
 msgstr "Link to a page or external URL."
 
 #: src/editor/latex/latex-selection-toolbar.tsx
+#: src/editor/markdown/engine/chrome/link-chrome.tsx
 #: src/editor/markdown/visual-link-insert-popover.tsx
 #: src/open-knowledge-app/editor/bubble-menu/LinkEditPopover.tsx
 msgid "Link URL"
@@ -5424,6 +5491,7 @@ msgstr "Loading versions…"
 msgid "Loading your Overleaf projects…"
 msgstr "Loading your Overleaf projects…"
 
+#: src/editor/markdown/engine/chrome/pickers.tsx
 #: src/papers/literature-discovery-panel.tsx
 #: src/settings/literature-settings.tsx
 msgid "Loading…"
@@ -5548,6 +5616,7 @@ msgid "math"
 msgstr "math"
 
 #: src/editor/insert/insert-palette.tsx
+#: src/editor/markdown/engine/chrome/slash-items.ts
 #: src/editor/markdown/visual-slash-items.ts
 #: src/open-knowledge-app/editor/registry/descriptor-labels.ts
 msgid "Math"
@@ -5595,10 +5664,12 @@ msgstr "MCP"
 msgid "Mean / conjugate mark"
 msgstr "Mean / conjugate mark"
 
+#: src/editor/markdown/engine/chrome/slash-items.ts
 #: src/editor/markdown/visual-slash-items.ts
 msgid "Media"
 msgstr "Media"
 
+#: src/editor/markdown/engine/chrome/slash-items.ts
 #: src/editor/markdown/visual-slash-items.ts
 #: src/open-knowledge-app/editor/slash-command/items.tsx
 msgid "Medium section heading."
@@ -5609,6 +5680,7 @@ msgstr "Medium section heading."
 msgid "Merge cells"
 msgstr "Merge cells"
 
+#: src/editor/markdown/engine/chrome/slash-items.ts
 #: src/editor/markdown/visual-slash-items.ts
 #: src/open-knowledge-app/editor/registry/descriptor-labels.ts
 msgid "Mermaid"
@@ -6051,6 +6123,7 @@ msgid "next"
 msgstr "next"
 
 #: src/editor/latex/search-panel.ts
+#: src/editor/markdown/engine/chrome/find-replace.tsx
 #: src/editor/markdown/visual-markdown-find-replace.tsx
 msgid "Next match"
 msgstr "Next match"
@@ -6172,6 +6245,7 @@ msgid "No markers"
 msgstr "No markers"
 
 #: src/components/ui/search-picker-dialog.tsx
+#: src/editor/markdown/engine/chrome/find-replace.tsx
 #: src/editor/markdown/visual-markdown-find-replace.tsx
 msgid "No matches"
 msgstr "No matches"
@@ -6192,6 +6266,11 @@ msgstr "No matching files"
 msgid "No matching logs"
 msgstr "No matching logs"
 
+#: src/editor/markdown/engine/chrome/references.tsx
+msgid "No matching pages"
+msgstr "No matching pages"
+
+#: src/editor/markdown/engine/chrome/references.tsx
 #: src/papers/paper-lookup.tsx
 #: src/project/paper-library.tsx
 msgid "No matching papers"
@@ -6269,6 +6348,8 @@ msgstr "No readable paper content is available."
 msgid "No references to check"
 msgstr "No references to check"
 
+#: src/editor/markdown/engine/chrome/pickers.tsx
+#: src/editor/markdown/engine/chrome/slash-menu.tsx
 #: src/editor/markdown/engine/views/code-block-view.tsx
 #: src/open-knowledge-app/editor/slash-command/SlashCommandMenu.tsx
 msgid "No results"
@@ -6410,6 +6491,7 @@ msgstr "Number sets like R, N"
 msgid "Numbered list"
 msgstr "Numbered list"
 
+#: src/editor/markdown/engine/chrome/slash-items.ts
 #: src/editor/markdown/visual-slash-items.ts
 #: src/open-knowledge-app/editor/slash-command/items.tsx
 msgid "Numbered list of items."
@@ -6811,6 +6893,8 @@ msgstr "Orange"
 msgid "Ordered list"
 msgstr "Ordered list"
 
+#: src/editor/markdown/engine/chrome/selection-toolbar.tsx
+#: src/editor/markdown/engine/chrome/slash-items.ts
 #: src/editor/markdown/visual-slash-items.ts
 #: src/open-knowledge-app/editor/bubble-menu/BlockTypeSelector.tsx
 #: src/open-knowledge-app/editor/slash-command/items.tsx
@@ -7013,6 +7097,7 @@ msgstr "Paper"
 msgid "Paper actions"
 msgstr "Paper actions"
 
+#: src/editor/markdown/engine/chrome/references.tsx
 #: src/editor/markdown/visual-paper-citation-suggestion.tsx
 msgid "Paper citation suggestions"
 msgstr "Paper citation suggestions"
@@ -7129,6 +7214,10 @@ msgstr "Paste clipboard image as figure"
 #: src/open-knowledge-app/lib/keyboard-shortcuts.ts
 msgid "Paste duplicate"
 msgstr "Paste duplicate"
+
+#: src/editor/markdown/engine/chrome/link-chrome.tsx
+msgid "Paste or type a link"
+msgstr "Paste or type a link"
 
 #: src/settings/literature-settings.tsx
 msgid "Paste your API key"
@@ -7259,6 +7348,7 @@ msgstr "Pi"
 msgid "Pick a venue to set its canonical name and entry type, or edit any field by hand"
 msgstr "Pick a venue to set its canonical name and entry type, or edit any field by hand"
 
+#: src/editor/markdown/engine/chrome/slash-items.ts
 #: src/editor/markdown/visual-slash-items.ts
 #: src/open-knowledge-app/editor/slash-command/items.tsx
 msgid "Pick an emoji to insert at the cursor."
@@ -7418,6 +7508,7 @@ msgid "previous"
 msgstr "previous"
 
 #: src/editor/latex/search-panel.ts
+#: src/editor/markdown/engine/chrome/find-replace.tsx
 #: src/editor/markdown/visual-markdown-find-replace.tsx
 msgid "Previous match"
 msgstr "Previous match"
@@ -7604,6 +7695,8 @@ msgstr "Quit {name}"
 
 #: src/editor/insert/insert-snippets.ts
 #: src/editor/latex/latex-selection-toolbar.tsx
+#: src/editor/markdown/engine/chrome/selection-toolbar.tsx
+#: src/editor/markdown/engine/chrome/slash-items.ts
 #: src/editor/markdown/visual-slash-items.ts
 #: src/open-knowledge-app/editor/bubble-menu/BlockTypeSelector.tsx
 #: src/open-knowledge-app/editor/slash-command/items.tsx
@@ -7775,6 +7868,7 @@ msgstr "Relative project links are unavailable in this preview"
 
 #: src/components/ui/confirm-action-dialog.tsx
 #: src/editor/harper-spellcheck.ts
+#: src/editor/markdown/engine/chrome/link-chrome.tsx
 #: src/editor/markdown/visual-link-insert-popover.tsx
 msgid "Remove"
 msgstr "Remove"
@@ -7964,6 +8058,7 @@ msgid "Repeated author names; verify against the publication's author list befor
 msgstr "Repeated author names; verify against the publication's author list before removing duplicates."
 
 #: src/editor/latex/search-panel.ts
+#: src/editor/markdown/engine/chrome/find-replace.tsx
 #: src/open-knowledge-app/lib/keyboard-shortcuts.ts
 msgid "Replace"
 msgstr "Replace"
@@ -7977,10 +8072,12 @@ msgid "Replace all"
 msgstr "Replace all"
 
 #: src/editor/latex/search-panel.ts
+#: src/editor/markdown/engine/chrome/find-replace.tsx
 #: src/editor/markdown/visual-markdown-find-replace.tsx
 msgid "Replace all matches"
 msgstr "Replace all matches"
 
+#: src/editor/markdown/engine/chrome/find-replace.tsx
 #: src/editor/markdown/visual-markdown-find-replace.tsx
 msgid "Replace current match"
 msgstr "Replace current match"
@@ -8001,6 +8098,7 @@ msgstr "Replace the active match from the replace field."
 msgid "Replace this match"
 msgstr "Replace this match"
 
+#: src/editor/markdown/engine/chrome/find-replace.tsx
 #: src/editor/markdown/visual-markdown-find-replace.tsx
 #: src/project/project-replace-dialog.tsx
 msgid "Replace with"
@@ -8577,6 +8675,7 @@ msgstr "Search by name, meaning, or command (alpha, implies, fraction…)"
 msgid "Search by project or owner…"
 msgstr "Search by project or owner…"
 
+#: src/editor/markdown/engine/chrome/pickers.tsx
 #: src/open-knowledge-app/components/emoji-picker.tsx
 msgid "Search emoji"
 msgstr "Search emoji"
@@ -8706,6 +8805,7 @@ msgstr "Select all references"
 msgid "Select all source"
 msgstr "Select all source"
 
+#: src/editor/markdown/engine/chrome/block-controls.tsx
 #: src/editor/markdown/visual-editor-block-controls.ts
 msgid "Select block"
 msgstr "Select block"
@@ -8713,6 +8813,10 @@ msgstr "Select block"
 #: src/editor/markdown/visual-editor-block-controls.ts
 msgid "Select bullet list"
 msgstr "Select bullet list"
+
+#: src/editor/markdown/engine/chrome/block-controls.tsx
+msgid "Select bulleted list"
+msgstr "Select bulleted list"
 
 #: src/editor/markdown/visual-editor-block-controls.ts
 msgid "Select code block"
@@ -8742,6 +8846,7 @@ msgstr "Select footnote"
 msgid "Select heading"
 msgstr "Select heading"
 
+#: src/editor/markdown/engine/chrome/block-controls.tsx
 #: src/editor/markdown/visual-editor-block-controls.ts
 msgid "Select list item"
 msgstr "Select list item"
@@ -8754,6 +8859,7 @@ msgstr "Select Mermaid diagram"
 msgid "Select next occurrence"
 msgstr "Select next occurrence"
 
+#: src/editor/markdown/engine/chrome/block-controls.tsx
 #: src/editor/markdown/visual-editor-block-controls.ts
 msgid "Select numbered list"
 msgstr "Select numbered list"
@@ -8778,6 +8884,7 @@ msgstr "Select source-preserved Markdown"
 msgid "Select table"
 msgstr "Select table"
 
+#: src/editor/markdown/engine/chrome/block-controls.tsx
 #: src/editor/markdown/visual-editor-block-controls.ts
 msgid "Select task list"
 msgstr "Select task list"
@@ -8843,6 +8950,7 @@ msgstr "Send message"
 msgid "Sent to Crossref to use its polite pool. No API key is needed."
 msgstr "Sent to Crossref to use its polite pool. No API key is needed."
 
+#: src/editor/markdown/engine/chrome/slash-items.ts
 #: src/editor/markdown/visual-slash-items.ts
 #: src/open-knowledge-app/editor/slash-command/items.tsx
 msgid "Separator"
@@ -8938,6 +9046,7 @@ msgstr "Show or hide Terminal"
 msgid "Show outline"
 msgstr "Show outline"
 
+#: src/editor/markdown/engine/chrome/find-replace.tsx
 #: src/editor/markdown/visual-markdown-find-replace.tsx
 msgid "Show replace"
 msgstr "Show replace"
@@ -9027,6 +9136,7 @@ msgstr "Simplified Chinese"
 msgid "Single page"
 msgstr "Single page"
 
+#: src/editor/markdown/engine/chrome/slash-items.ts
 #: src/editor/markdown/visual-slash-items.ts
 #: src/open-knowledge-app/editor/slash-command/items.tsx
 msgid "Sixth-level heading."
@@ -9056,6 +9166,7 @@ msgstr "Skip tutorial"
 msgid "Slash command menu"
 msgstr "Slash command menu"
 
+#: src/editor/markdown/engine/chrome/slash-menu.tsx
 #: src/onboarding/onboarding-tour.tsx
 #: src/open-knowledge-app/editor/slash-command/SlashCommandMenu.tsx
 msgid "Slash commands"
@@ -9069,6 +9180,7 @@ msgstr "Slider"
 msgid "Small capitals"
 msgstr "Small capitals"
 
+#: src/editor/markdown/engine/chrome/slash-items.ts
 #: src/editor/markdown/visual-slash-items.ts
 #: src/open-knowledge-app/editor/slash-command/items.tsx
 msgid "Small section heading."
@@ -9357,6 +9469,7 @@ msgid "Stopping…"
 msgstr "Stopping…"
 
 #: src/editor/latex/latex-selection-toolbar.tsx
+#: src/editor/markdown/engine/chrome/selection-toolbar.tsx
 #: src/open-knowledge-app/editor/bubble-menu/InlineFormatButtons.tsx
 #: src/open-knowledge-app/lib/keyboard-shortcuts.ts
 msgid "Strikethrough"
@@ -9574,6 +9687,7 @@ msgid "table"
 msgstr "table"
 
 #: src/editor/insert/insert-snippets.ts
+#: src/editor/markdown/engine/chrome/slash-items.ts
 #: src/editor/markdown/visual-slash-items.ts
 #: src/editor/markdown/visual-table-span-controls.tsx
 #: src/open-knowledge-app/editor/slash-command/items.tsx
@@ -9614,6 +9728,8 @@ msgstr "Tabs: {id}"
 msgid "Task list"
 msgstr "Task list"
 
+#: src/editor/markdown/engine/chrome/selection-toolbar.tsx
+#: src/editor/markdown/engine/chrome/slash-items.ts
 #: src/editor/markdown/visual-slash-items.ts
 #: src/open-knowledge-app/editor/bubble-menu/BlockTypeSelector.tsx
 #: src/open-knowledge-app/editor/slash-command/items.tsx
@@ -9653,6 +9769,7 @@ msgstr "TeXcount body word counts (optional status bar)"
 msgid "TexLab language server (optional editor diagnostics)"
 msgstr "TexLab language server (optional editor diagnostics)"
 
+#: src/editor/markdown/engine/chrome/selection-toolbar.tsx
 #: src/open-knowledge-app/editor/bubble-menu/BlockTypeSelector.tsx
 msgid "Text"
 msgstr "Text"
@@ -10343,6 +10460,7 @@ msgstr "Unclosed inline math {open}."
 
 #: src/editor/insert/insert-snippets.ts
 #: src/editor/latex/latex-selection-toolbar.tsx
+#: src/editor/markdown/engine/chrome/selection-toolbar.tsx
 #: src/open-knowledge-app/editor/bubble-menu/InlineFormatButtons.tsx
 #: src/open-knowledge-app/lib/keyboard-shortcuts.ts
 msgid "Underline"
@@ -10465,6 +10583,7 @@ msgstr "Unnumbered centered equations"
 msgid "Unnumbered single-line equation"
 msgstr "Unnumbered single-line equation"
 
+#: src/editor/markdown/engine/chrome/slash-items.ts
 #: src/editor/markdown/visual-slash-items.ts
 #: src/open-knowledge-app/editor/slash-command/items.tsx
 msgid "Unordered list of items."
@@ -10988,6 +11107,7 @@ msgstr "Wiki Embed Image"
 msgid "Wiki Embed Video"
 msgstr "Wiki Embed Video"
 
+#: src/editor/markdown/engine/chrome/references.tsx
 #: src/editor/markdown/visual-wiki-link-suggestion.tsx
 msgid "Wiki link suggestions"
 msgstr "Wiki link suggestions"

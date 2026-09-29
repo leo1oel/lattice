@@ -194,7 +194,19 @@ type Leaf = { node: MdNode; marks: readonly PmMark[]; source?: PmMark };
 
 /** Inline content: flatten to leaves carrying their marks, then nest marks back into mdast parents. */
 function phrasing(parent: PmNode): MdNode[] {
-  return nest(collapseSourceRuns(leaves(parent)), []);
+  return nest(collapseSourceRuns(trimLineEnd(leaves(parent))), []);
+}
+
+/**
+ * Whitespace typed at the end of a block has no Markdown form (a parser drops
+ * it), so it is not written rather than escaped as `&#x20;` (spec R-ELIG-2).
+ */
+function trimLineEnd(input: Leaf[]): Leaf[] {
+  const last = input[input.length - 1];
+  if (!last || last.source || last.node.type !== "text") return input;
+  const value = String(last.node.value).replace(/[ \t]+$/, "");
+  const trimmed: Leaf = { ...last, node: { type: "text", value, data: { lattice: { pieces: [{ value }] } } } };
+  return value ? [...input.slice(0, -1), trimmed] : input.slice(0, -1);
 }
 
 const FORMAT_MARKS = new Set(["bold", "italic", "strike", "link", "highlight", "underline"]);

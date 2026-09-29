@@ -6,7 +6,7 @@
  *
  * Clean implementation for Lattice; spec: docs/visual-editor-spec.md.
  */
-import { Mark, Node, getSchema, type AnyExtension, type Attributes } from "@tiptap/core";
+import { Mark, Node, getSchema, type AnyExtension, type Attributes, type KeyboardShortcutCommand } from "@tiptap/core";
 import Bold from "@tiptap/extension-bold";
 import Code from "@tiptap/extension-code";
 import CodeBlock from "@tiptap/extension-code-block";
@@ -222,6 +222,9 @@ export const WikiLink = Node.create({
   parseHTML: () => [{ tag: wikiLinkSelector }],
   renderHTML: ({ HTMLAttributes, node }) => ["span", { ...HTMLAttributes, class: "lx-md-wiki-link", "data-lattice-wiki": "" }, String(node.attrs.target)],
   renderText: ({ node }) => `[[${String(node.attrs.target)}]]`,
+  addKeyboardShortcuts() {
+    return chipDeletion(this.name);
+  },
 });
 
 /**
@@ -243,7 +246,25 @@ export const PaperCitation = Node.create({
   parseHTML: () => [{ tag: citationSelector, priority: 60 }],
   renderHTML: ({ HTMLAttributes, node }) => ["a", { ...HTMLAttributes, class: "lx-md-citation", "data-lattice-citation": "" }, String(node.attrs.label)],
   renderText: ({ node }) => String(node.attrs.label),
+  addKeyboardShortcuts() {
+    return chipDeletion(this.name);
+  },
 });
+
+/**
+ * Backspace or Delete beside a chip removes the whole chip in one step, rather
+ * than leaving deletion of a non-editable element to the browser.
+ */
+function chipDeletion(name: string): Record<string, KeyboardShortcutCommand> {
+  const remove = (before: boolean): KeyboardShortcutCommand => ({ editor }) => {
+    const { selection } = editor.state;
+    const chip = before ? selection.$from.nodeBefore : selection.$from.nodeAfter;
+    if (!selection.empty || chip?.type.name !== name) return false;
+    const from = before ? selection.from - chip.nodeSize : selection.from;
+    return editor.commands.deleteRange({ from, to: from + chip.nodeSize });
+  };
+  return { Backspace: remove(true), Delete: remove(false) };
+}
 
 /** A footnote definition, `[^label]: …`, whose body is ordinary Markdown blocks (R-BLK-6, R-RT-20). */
 export const FootnoteDefinition = Node.create({
