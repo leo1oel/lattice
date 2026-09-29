@@ -22,6 +22,8 @@ type ScrollTimelineConstructor = new (options: { source: Element; axis: "block" 
 type Pinned = { cells: HTMLElement[]; animations: Animation[]; start: number; shift: number };
 
 const DURATION = 1000;
+/** How long after the last edit the tables are measured again. */
+const SETTLE_MS = 150;
 
 function scrollerOf(element: HTMLElement): HTMLElement | null {
   for (let parent = element.parentElement; parent; parent = parent.parentElement) {
@@ -44,11 +46,26 @@ class FrozenHeadersView {
   }
 
   update(view: EditorView, previous: EditorView["state"]) {
-    if (!this.scroller || !view.state.doc.eq(previous.doc)) this.schedule();
+    if (!this.scroller) this.schedule();
+    // A table the document dropped stops at once; while typing, tables only
+    // move a little, so they are measured again once typing pauses.
+    else if (this.pinned.some((entry) => !entry.cells[0]?.isConnected)) this.schedule();
+    else if (!view.state.doc.eq(previous.doc)) this.settle();
+  }
+
+  private settleTimer: ReturnType<typeof setTimeout> | null = null;
+
+  private settle() {
+    if (this.settleTimer) clearTimeout(this.settleTimer);
+    this.settleTimer = setTimeout(() => {
+      this.settleTimer = null;
+      this.schedule();
+    }, SETTLE_MS);
   }
 
   destroy() {
     if (this.frame != null) cancelAnimationFrame(this.frame);
+    if (this.settleTimer) clearTimeout(this.settleTimer);
     this.scroller?.removeEventListener("scroll", this.onScroll);
     this.resize?.disconnect();
     this.release(this.pinned);
