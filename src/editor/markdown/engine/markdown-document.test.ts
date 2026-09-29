@@ -1,7 +1,8 @@
+/** Clean implementation for Lattice; spec: docs/visual-editor-spec.md */
 import type { Node as PmNode } from "@tiptap/pm/model";
 import { describe, expect, it } from "vitest";
 import { engineSchema } from "./engine-schema";
-import { openMarkdown, serializeMarkdown, type OpenedMarkdown } from "./markdown-document";
+import { openMarkdown, semanticKey, serializeMarkdown, type OpenedMarkdown } from "./markdown-document";
 
 const schema = engineSchema();
 
@@ -133,6 +134,47 @@ describe("Markdown round-trip core", () => {
     const once = serializeMarkdown(edited, first.baseline);
     expect(once.text).toBe("Alpha!\n\n\n\nBeta\n");
     expect(serializeMarkdown(edited, once.baseline).text).toBe(once.text);
+  });
+});
+
+describe("seams next to an edit", () => {
+  const bulletList = (...items: string[]) => schema.nodes.bulletList!.create(null, items.map((item) => (
+    schema.nodes.listItem!.create(null, schema.nodes.paragraph!.create(null, schema.text(item)))
+  )));
+
+  /** Serialize `next`, then check it reads back as the blocks the editor shows. */
+  function expectReadsBackAsShown(next: PmNode, baseline: OpenedMarkdown["baseline"]): string {
+    const written = serializeMarkdown(next, baseline);
+    expect(written.verified).toBe(true);
+    expect(semanticKey(open(written.text).doc.children)).toBe(semanticKey(next.children));
+    return written.text;
+  }
+
+  it("keeps two lists apart when the paragraph between them is deleted", () => {
+    const { doc, baseline } = open("- a\n\nPara\n\n- b\n");
+    const next = doc.copy(doc.content.cut(0, doc.child(0).nodeSize).append(doc.content.cut(doc.child(0).nodeSize + doc.child(1).nodeSize)));
+    expect(blockTypes(open(expectReadsBackAsShown(next, baseline)).doc)).toEqual(["bulletList", "bulletList"]);
+  });
+
+  it("keeps an untouched tight list apart from a list inserted above it", () => {
+    const { doc, baseline } = open("Intro\n\n- x\n- y\n");
+    const next = doc.copy(doc.content.cut(0, doc.child(0).nodeSize).addToEnd(bulletList("new")).append(doc.content.cut(doc.child(0).nodeSize)));
+    const text = expectReadsBackAsShown(next, baseline);
+    expect(text.startsWith("Intro\n\n")).toBe(true);
+    expect(blockTypes(open(text).doc)).toEqual(["paragraph", "bulletList", "bulletList"]);
+  });
+
+  it("keeps an untouched indented code block out of a list it now follows", () => {
+    const { doc, baseline } = open("Para\n\n    code\n");
+    const next = doc.copy(doc.content.replaceChild(0, bulletList("Para")));
+    expect(blockTypes(open(expectReadsBackAsShown(next, baseline)).doc)).toEqual(["bulletList", "codeBlock"]);
+  });
+
+  it("keeps the authored bytes of neighbours a seam does not merge", () => {
+    const text = "# Title\n\nFirst\n\nSecond\n";
+    const { doc, baseline } = open(text);
+    const next = doc.copy(doc.content.cut(0, doc.child(0).nodeSize).append(doc.content.cut(doc.child(0).nodeSize + doc.child(1).nodeSize)));
+    expect(serializeMarkdown(next, baseline).text).toBe("# Title\n\nSecond\n");
   });
 });
 

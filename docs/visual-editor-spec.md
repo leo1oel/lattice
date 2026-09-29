@@ -15,21 +15,39 @@ Lattice-owned engine so that Lattice can move to a permissive license. The
 legal question is whether protected expression was copied, so this document
 and the engine are kept separate from the vendored code by procedure:
 
-- **Allowed sources for this specification:** Lattice's own tests
-  (`src/editor/markdown/*.test.*`, the Markdown cases in
-  `src/canvas/document-canvas.test.tsx`, `src/canvas/canvas-toolbar.test.tsx`
-  and `src/App.test.tsx`), Lattice-owned integration modules read only for
-  their interfaces (`markdown-collab.ts`, `visual-markdown-serialization.ts`,
-  `visual-source-map.ts`, `visual-markdown-block-model.ts`,
-  `visual-slash-items.ts` for which items exist, the legacy-fence lines of
-  `visual-markdown-schema.ts`), the paper converter
-  (`src-tauri/src/papers/markdown.rs`) for the formats it writes, the tutorial
-  template (`src-tauri/templates/tutorial/notes.md`), Lattice docs, and the
-  English message catalog.
+- **Allowed sources for this specification, and only these:**
+  - Lattice's own tests: `src/editor/markdown/*.test.*`, the Markdown cases in
+    `src/canvas/document-canvas.test.tsx`, `src/canvas/canvas-toolbar.test.tsx`
+    and `src/App.test.tsx`. A test file whose header says it tests code
+    adapted from Open Knowledge is excluded (today that is
+    `visual-wiki-link-suggestion.test.tsx`).
+  - Observed black-box behavior of the current app: an input document, a user
+    action, and the saved output.
+  - Saved-file formats: the paper converter
+    (`src-tauri/src/papers/markdown.rs`) for the formats it writes, the
+    tutorial template (`src-tauri/templates/tutorial/notes.md`), and Lattice's
+    own Markdown documents.
+  - Lattice docs and UX, and the English message catalog
+    (`src/locales/en/messages.po`) and the zh-CN catalog for labels a test
+    pins in Chinese.
+  - CommonMark 0.31 and GFM.
 - **Not read:** anything under `src/open-knowledge-app/` or
-  `src/open-knowledge-core/`, the Lattice files whose headers say they were
-  adapted from Open Knowledge, the vendored stylesheet, the vendoring scripts
-  and log, and the upstream repository.
+  `src/open-knowledge-core/`; every Lattice file whose header says it was
+  adapted from Open Knowledge or maps onto its extensions
+  (`suggestion-popup.tsx`, `visual-editor-block-controls.ts`,
+  `visual-link-hover.tsx`, `visual-paper-citation-suggestion.tsx`,
+  `visual-source-dirty-observer.ts`, `visual-wiki-link-suggestion.tsx` and its
+  test, `visual-link-insert-popover.tsx`, `visual-slash-items.ts`,
+  `visual-markdown-schema.ts`); the vendored stylesheet; the vendoring script
+  and log (`scripts/vendor-open-knowledge.mjs`,
+  `docs/open-knowledge-updates.md`); and the upstream repository. The current
+  editor's implementation modules (for example
+  `visual-markdown-serialization.ts` and `visual-source-map.ts`) are not cited
+  as evidence either: a requirement rests on a test, a document, a saved
+  format, or observed behavior.
+- **Not evidenced** marks a statement no allowed source supports. It is kept
+  only as an open question for the new engine, never as a requirement the
+  engine was written from.
 - **Not copied into requirements:** upstream identifiers, class names, file or
   module names, and comments. Tests that query vendored DOM hooks are
   restated as user-observable behavior.
@@ -103,6 +121,12 @@ last accepted text, with their source bytes and gaps.
   unescaped. The result is re-parsed and compared with what the editor shows,
   ignoring style. If it would read back differently, the run is written in
   *safe* style instead, which escapes everything the grammar could misread.
+- Every new join (next to a changed run, or between untouched blocks that a
+  deletion made neighbors) is re-parsed as a two-block window. If the two
+  blocks would read back merged (two lists becoming one, an indented code
+  block continuing a list item), the untouched side joins the changed run and
+  is re-serialized with it, so the serializer keeps them apart. Only the
+  windows around changes are re-parsed, never the whole document.
 - The re-parse becomes the new baseline, so successive edits chain.
 
 **Editor.** `lattice-visual-editor.tsx` takes the same props as the vendored
@@ -131,8 +155,9 @@ lazy chunk, loaded only when the setting selects it. Setting the key to
 ### Deliberate differences from current behavior
 
 - **More blocks keep their bytes (R-RT-5).** Inserting or deleting a
-  top-level block no longer rewrites every other block. Untouched blocks keep
-  their bytes.
+  top-level block does not rewrite the other blocks. Untouched blocks keep
+  their bytes, except a neighbor that would otherwise merge across the new
+  join (R-RT-3), which is re-serialized with the changed run.
 - **Documents stay editable around unmappable syntax (R-ELIG-5).** Unmappable
   constructs no longer lock the whole document to source mode. They become raw
   blocks, and the rest stays editable.
@@ -188,7 +213,7 @@ lazy chunk, loaded only when the setting selects it. Setting the key to
   new engine renders it as a raw-preserved block (bytes kept exactly, no rich UI). Untagged =
   plain Markdown or editor infrastructure.
 - **"Derived from".** `path:line "test name"` for tests (line = the line holding the test name);
-  `path:line-line` for Lattice-owned code or docs. Test names that mention the upstream project by
+  `path:line-line` for Lattice docs, the tutorial template, and the paper converter's saved formats. Test names that mention the upstream project by
   name are elided with "…".
 - **"Current behavior" notes** mark observed Lattice behavior that the new engine may improve on
   but must not regress below.
@@ -213,7 +238,8 @@ top-level block whose content did not change is written back with its **original
 Only the edited blocks go through canonical serialization. A document with no changed block is
 written back byte-identical.
 Derived from: `src/editor/markdown/visual-markdown-editor.test.tsx:2575 "re-serializes only the edited block and leaves tight boundaries alone"`;
-`src/editor/markdown/visual-markdown-serialization.ts:85-156`.
+`…:2550 "keeps converter Markdown editable and byte-identical: %s"` (nothing is rewritten when nothing changed);
+`src/editor/markdown/visual-markdown-block-model.test.ts:5 "owns exact block slices while preserving every gap and envelope byte"`.
 ```json
 in:   "## Contents\n- 1 Introduction\n\nClosing prose.\n"
 edit: append "!" to "Closing prose."
@@ -221,23 +247,24 @@ out:  "## Contents\n- 1 Introduction\n\nClosing prose.!\n"
 ```
 
 **R-RT-3: Inter-block gaps.** The whitespace between two adjacent blocks comes from the source
-only when **both** blocks are unchanged. A gap next to an edited block is the serializer's
-canonical separator (a blank line), so a rewritten block is never spliced tight onto its
-neighbor. Leading bytes before the first block and trailing bytes after the last block come from
-the source when that block is unchanged.
-Derived from: `src/editor/markdown/visual-markdown-serialization.ts:139-155`;
-`src/editor/markdown/visual-markdown-editor.test.tsx:2575` (the tight `## Contents`/list boundary
-survives because both sides are untouched).
+when **both** blocks are unchanged. A gap next to an edited block holds at least one blank line,
+so a rewritten block is never spliced tight onto its neighbor, and the two blocks on either side
+of a new join must read back as the same two blocks. Leading bytes before the first block and
+trailing bytes after the last block come from the source.
+Derived from: `src/editor/markdown/visual-markdown-editor.test.tsx:2575` (the tight `## Contents`/list boundary
+survives because both sides are untouched); `src/editor/markdown/visual-markdown-block-model.test.ts:5`
+(leading bytes, gaps and trailing bytes are exact source); `src/editor/markdown/markdown-collab.test.ts:51 "preserves BOM, CRLF, and all trailing blank lines"`;
+CommonMark 0.31 §4.8 and §5.2–5.3 (without a blank line, a following line can continue a
+paragraph or a list item, so only a blank line keeps arbitrary blocks apart).
 
 **R-RT-4: What counts as "unchanged".** A block is unchanged when it is structurally identical to
-its parse from the last accepted text. A text block also counts as unchanged when its node type and
-attributes are identical and its text-and-mark semantics are equal. In that comparison a hard-break
-node and a literal newline in the text are equivalent, and a purely presentational "source literal"
-styling mark is ignored. Inline atoms (inline math, images) **are** content: deleting one is a
-change. A block the editing transaction reports as touched is always re-serialized. A heading
-whose level changed counts as changed even though its text did not.
-Derived from: `src/editor/markdown/visual-markdown-serialization.ts:64-83,129-136,170-192`;
-`src/editor/markdown/visual-markdown-editor.test.tsx:2510 "does not restore %s"` (cases "an
+its parse from the last accepted text: same node type, attributes and content. A heading whose
+level changed counts as changed even though its text did not. A block moved away from its
+original neighbors is not spliced back into its old position.
+*Not evidenced:* finer equivalences (for example a hard break against a literal newline, or
+whether a deleted inline atom is compared as content) are not pinned by any allowed source. The
+new engine treats every content difference as a change.
+Derived from: `src/editor/markdown/visual-markdown-editor.test.tsx:2510 "does not restore %s"` (cases "an
 ordinally shifted block after a non-adjacent move": `"A\n\nB\n\nC\n"`→`"B\n\nC\n\nA\n"`, and "a
 changed heading level with unchanged text": `"## Title\n"`→`"### Title\n"`. Both yield the
 serializer output, not spliced source).
@@ -253,11 +280,11 @@ Derived from: `src/editor/markdown/visual-markdown-editor.test.tsx:2494 "keeps u
 `src/editor/markdown/visual-source-map.test.ts:18 "checks the rendered block count on every call"`,
 `:25 "keeps rejecting ambiguous documents once their blocks are memoized"`,
 `:9 "answers for the text it is given, not the previous answer"`;
-`src/editor/markdown/visual-source-map.ts:119-160`; `src/editor/markdown/visual-markdown-serialization.ts:118-128`.
-*Current behavior note:* inserting or deleting a top-level block changes the block count, so
-Lattice falls back to canonical serialization of the whole document. Rich blocks still survive
-verbatim (R-RT-15) because they re-emit their pristine source. The new engine may preserve more,
-but not less.
+`src/editor/markdown/visual-markdown-block-model.test.ts:31 "refuses source shapes whose root ownership is not exact"`
+(a footnote definition followed by an indented paragraph).
+*Not evidenced:* no allowed source pins what the current editor writes for the other blocks after
+a top-level block is inserted or deleted. Rich blocks survive verbatim either way (R-RT-15). The
+new engine may preserve more, but not less.
 
 **R-RT-6: BOM envelope.** A leading U+FEFF is envelope, not content. It is preserved on every
 write. Source offsets used for mapping are body-relative, with a base of 1 when a BOM is present.
@@ -272,13 +299,13 @@ out:  "\uFEFFHello world\n"
 **R-RT-7: Line-ending envelope.** When the original body contains any CRLF, every newline in the
 written document is CRLF. Otherwise it is LF.
 Derived from: `src/editor/markdown/visual-markdown-editor.test.tsx:1061 "reports Markdown when the rendered paragraph is directly edited, keeping CRLF and a final newline: %j"`;
-`src/editor/markdown/markdown-collab.ts:42-49`; `src/editor/markdown/markdown-collab.test.ts:51 "preserves BOM, CRLF, and all trailing blank lines"`.
+`src/editor/markdown/markdown-collab.test.ts:51 "preserves BOM, CRLF, and all trailing blank lines"`.
 ```json
 in:   "Hello\r\n"      edit: replace paragraph text with "Changed"   out: "Changed\r\n"
 in:   "Hello"          edit: same                                     out: "Changed"
 ```
-*Current behavior note:* a mixed LF/CRLF file is normalized wholesale to CRLF on the first write
-(`markdown-collab.ts:45-46`). This is code-derived and no test pins it.
+*Not evidenced:* no allowed source pins how a file that mixes LF and CRLF is written. The new
+engine declines to edit such a file (see "Deliberate differences"), so no line ending changes.
 
 **R-RT-8: Trailing-newline envelope.** The written document ends with exactly the original run of
 trailing newlines: none, one, or several blank lines. It never ends with the serializer's own.
@@ -296,8 +323,7 @@ entire visible body. Frontmatter never shifts block mapping. Anchored comments t
 are not shown in the visual view.
 Derived from: `src/App.test.tsx:1763 "opens relative project files from Markdown previews"`;
 `src/editor/markdown/visual-markdown-editor.test.tsx:2550` (case "frontmatter");
-`src/canvas/document-canvas.test.tsx:278 "maps secondary Markdown comments around frontmatter and wires live threads and creation"`;
-`src/editor/markdown/visual-source-map.ts:40-53`.
+`src/canvas/document-canvas.test.tsx:278 "maps secondary Markdown comments around frontmatter and wires live threads and creation"`.
 ```json
 in:   "---\ntitle: Exact metadata\n---\n[Native unified view](native-unified-view.md)\n\n-\n  [ ] Review preview"
 edit: replace the whole visual body with "[Visually edited view](native-unified-view.md)\n\n- [ ] Review preview"
@@ -495,8 +521,9 @@ exactly**. The check is:
 5. compare with the original modulo the allowed equivalences of R-ELIG-2.
 
 Eligibility is a property of the (path, text) pair. It is re-evaluated whenever the text changes.
-Derived from: `src/editor/markdown/visual-markdown-serialization.ts:227-253`;
-`src/editor/markdown/visual-markdown-editor.test.tsx:2516 "reports a lossy paper to its parent without an in-article warning, then clears it once lossless"`.
+Derived from: `src/editor/markdown/visual-markdown-editor.test.tsx:2516 "reports a lossy paper to its parent without an in-article warning, then clears it once lossless"`;
+`…:2494 "keeps unmappable Markdown source-only and never splices best-effort ranges into it"`;
+`…:2550 "keeps converter Markdown editable and byte-identical: %s"`.
 
 **R-ELIG-2: Allowed equivalences, and only these.**
 1. GFM table formatting: cell padding, delimiter width, and the same alignment written differently
@@ -511,8 +538,9 @@ Double spaces inside prose are **not** equivalent. Setext headings (`Title\n---`
 one-column table whose header contains an unescaped pipe **is** a table.
 Derived from: `src/editor/markdown/markdown-collab.test.ts:27 "canonicalizes represented GFM table formatting without touching surrounding source"`,
 `:36 "treats a harmless escaped prose period as equivalent"`,
-`:42 "does not mistake setext headings or thematic breaks for one-column tables"`;
-`src/editor/markdown/markdown-collab.ts:65-111`; `src/editor/markdown/visual-markdown-serialization.ts:227-231`.
+`:42 "does not mistake setext headings or thematic breaks for one-column tables"`.
+Items 2 and 4 are *not evidenced* by a test; item 2 agrees with CommonMark 0.31 §6.7, where only
+two or more trailing spaces make a hard line break.
 ```json
 equal:     "Authored  prose\n\n| A | B |\n| :--- | ---: |\n| x | y |"  vs  "Authored  prose\n\n| A   | B   |\n| :---- | ----: |\n| x   | y   |"
 equal:     "Use w.r.t. here."  vs  "Use w\\.r.t. here."
@@ -578,8 +606,7 @@ readable prose. Nothing noisy is logged, and eligibility is still decided by the
 single block whose parse throws is isolated as a raw source block while its neighbors parse
 normally. The recovery is counted in health metrics without flooding the log.
 Derived from: `src/editor/markdown/visual-markdown-editor.test.tsx:2585 "survives a document whose raw MDX parse throws"`,
-`:2601 "records recovered malformed MDX without flooding the application log"`;
-`src/editor/markdown/visual-source-map.ts:40-53`.
+`:2601 "records recovered malformed MDX without flooding the application log"`.
 ```json
 "# UNIC quiet fallback\n\nBefore the break.\n\nvalue = {0|150|never closed\n\nAfter the break.\n"
 ```
@@ -678,8 +705,7 @@ Derived from: `src/editor/markdown/visual-markdown-editor.test.tsx:1025 "constru
 **R-PUB-11: History belongs to the host.** Mod-z calls the host's undo and Mod-Shift-z its redo.
 The editor never undoes locally. Replacing the document from canonical text, such as an external
 update or a file load, is not an undoable step and emits no update.
-Derived from: `src/editor/markdown/visual-markdown-editor.test.tsx:1086 "does not report an external text update and delegates history to the canonical document"`, `:920`;
-`src/editor/markdown/visual-markdown-serialization.ts:50-62`.
+Derived from: `src/editor/markdown/visual-markdown-editor.test.tsx:1086 "does not report an external text update and delegates history to the canonical document"`, `:920`.
 
 **R-PUB-12: External updates are applied silently.** When the host changes the canonical text
 (another pane, an agent, a file poll), the editor adopts it without publishing, without a lossy
@@ -697,8 +723,7 @@ external: "## Scope\n- **Measures**: Agent revision\n"
 **R-PUB-13: Internal normalization is not an edit.** After mount, the view may normalize parsed
 multi-line text into hard-break nodes. That normalization is neither published nor treated as a
 draft.
-Derived from: `src/editor/markdown/visual-markdown-serialization.ts:208-225`;
-`src/editor/markdown/visual-markdown-editor.test.tsx:1113`.
+Derived from: `src/editor/markdown/visual-markdown-editor.test.tsx:1113 "accepts an agent edit without mistaking passive editor normalization for a draft"`.
 
 **R-PUB-14: Minimal patches in UTF-16.** The local and remote changes are each computed as one
 minimal replacement: a common prefix, a common suffix, and the replaced middle, with offsets in
@@ -829,7 +854,7 @@ Derived from: `src/editor/markdown/visual-markdown-editor.test.tsx:1774 "inserts
 no prompt. With one, it opens a file picker, imports through the host, and writes the returned
 path relative to the current file. Either way the `/image` query text is removed.
 Derived from: `src/editor/markdown/visual-markdown-editor.test.tsx:1774` (label "an empty image without prompting, dropping the slash query"),
-`:1801 "imports an image through the host project workflow"`; `src/editor/markdown/visual-slash-items.ts:90-121`.
+`:1801 "imports an image through the host project workflow"`.
 ```json
 "<img src=\"\" />"
 "<img src=\"figures/uploaded.png\" />"      (active file notes.md, host returned figures/uploaded.png)
@@ -842,7 +867,7 @@ Derived from: `src/editor/markdown/visual-markdown-editor.test.tsx:1774` (label 
 - Remove unlinks, leaving the text.
 
 Derived from: `src/editor/markdown/visual-markdown-editor.test.tsx:1864 "opens the URL field when Link is inserted from the slash menu"`,
-`:2121 "edits and removes an existing Markdown link in place"`; `src/editor/markdown/visual-slash-items.ts:123-131`.
+`:2121 "edits and removes an existing Markdown link in place"`.
 ```json
 "" → slash Link, URL "https://example.com", Done → "[link](https://example.com)"
 "[Docs](https://old.example)" → URL "https://new.example", click outside → "[Docs](https://new.example)" → Remove → "Docs"
@@ -864,14 +889,15 @@ title "Changed & quoted "title"" → contains: title={"Changed & quoted \"title\
 byte-identical until the first visual edit of that block. After that edit it is written as an MDX
 `<Callout …>`: JSON keys other than `content` become attributes, the `content` string becomes the
 body, and the `rw-component` text disappears.
-Derived from: `src/editor/markdown/visual-markdown-editor.test.tsx:1988`; `src/editor/markdown/visual-markdown-schema.ts:35-70`.
+Derived from: `src/editor/markdown/visual-markdown-editor.test.tsx:1988 "preserves legacy component fences and migrates them only after a visual edit"`.
 ```json
 in:   "```rw-component callout\n{\"title\":\"Legacy\",\"content\":\"Kept\"}\n```"
 edit: title → "Migrated"
 out:  starts "<Callout ", contains "title=\"Migrated\"" and "Kept", not "rw-component"   (exact layout not pinned)
 ```
-Only kind `callout` is recognized (meta trimmed, case-insensitive). Invalid JSON, or JSON that is
-not an object, leaves the fence an ordinary code block (`visual-markdown-schema.ts:46-57`).
+*Not evidenced:* which other `rw-component` kinds exist, and what happens to a fence whose body is
+not a JSON object, are not pinned by any allowed source. The new engine keeps every such fence as
+a byte-preserved block.
 
 **R-FMT-7: Image resize and alignment become an HTML image.** Resizing or aligning a Markdown
 image writes an HTML `<img>` element:
@@ -988,9 +1014,12 @@ Derived from: `src/editor/markdown/visual-paper-citation-suggestion.test.tsx:51,
 delete atom (Backspace or Delete) → "Before  after"   (two spaces); undo restores the link
 ```
 
-**R-FMT-18: Wiki links.** Wiki links are written as `[[Doc]]`, `[[Doc#heading-slug]]`, or, for a
-page that does not exist yet, `[[NewPage]]`.
-Derived from: `src/editor/markdown/visual-wiki-link-suggestion.test.tsx:43,59,68`.
+**R-FMT-18: Wiki links.** Wiki links are written as `[[Doc]]` or `[[Doc#heading-slug]]`, where the
+slug is one the workspace index builds for that page's heading.
+Derived from: the rebuild's keep list (Part I, "Rebuild scope");
+`src/editor/markdown/markdown-workspace-index.test.ts:36,43` (heading slugs).
+*Not evidenced:* the bytes a suggestion writes, including for a page that does not exist yet. The
+only test of the suggestion menu is excluded (Part I).
 
 **R-FMT-19: Emoji** are written as plain Unicode at the caret, in one publication.
 Derived from: `src/editor/markdown/visual-markdown-editor.test.tsx:1811 "opens the emoji picker from the slash menu and inserts at the caret"`.
@@ -1082,8 +1111,8 @@ Definitions, including continuation paragraphs, are directly editable and write 
 back-link and other trailing footnote chrome are not natively selectable, while the note text is.
 The slash menu and the selection toolbar both offer footnote creation: a reference plus a
 definition stub, or the selection converted to a footnote.
-Derived from: `src/editor/markdown/visual-markdown-editor.test.tsx:2075`, `:2463`, `:275 "excludes trailing %s controls from native selection without excluding its content"`, `:1639`;
-`src/editor/markdown/visual-slash-items.ts:36`.
+Derived from: `src/editor/markdown/visual-markdown-editor.test.tsx:2075`, `:2463`, `:275 "excludes trailing %s controls from native selection without excluding its content"`, `:1639`,
+`:1710 "offers the complete set of Markdown-native insertions and unmounts the open menu cleanly"` (the slash menu offers Footnote).
 
 **R-BLK-7: Code blocks `[KEEP]`.**
 - Enter inserts a newline, and repeated Enter at the end keeps adding lines: there is no
@@ -1138,8 +1167,8 @@ Span semantics (all fixtures round-trip exactly):
   renders unmerged.
 
 Derived from: `src/editor/markdown/visual-markdown-editor.test.tsx:2181 "keeps %s editable"`, `:2195`, `:2209 "renders a flattened merged paper table without dropping or shifting columns"`, `:2220`, `:2251`,
-`:2260 "round-trips explicit layouts for tables nested in a blockquote"`, `:2390 "anchors handles to logical columns and keeps merged tables out of rectangular drag reorder"`, `:2411`, `:2420 "moves down a column instead of splitting the cell when table text is selected"`;
-`src/editor/markdown/visual-source-map.ts:235-307`.
+`:2260 "round-trips explicit layouts for tables nested in a blockquote"`, `:2390 "anchors handles to logical columns and keeps merged tables out of rectangular drag reorder"`, `:2411`, `:2420 "moves down a column instead of splitting the cell when table text is selected"`,
+`:2280`, `:2293`, `:2307`, `:2329`, `:2344` (the layout marker's serialized bytes).
 Row shapes below are cells per rendered row.
 ```json
 INFERRED (paper path) — rows [2,1,3], origin colspan 2 rowspan 2:
@@ -1212,7 +1241,9 @@ Derived from: `src/editor/markdown/visual-markdown-editor.test.tsx:2022 "renders
 parser. Unsafe `src` values become inert: `javascript:` and `file:` never reach the DOM, and an
 Embed with an unsafe scheme shows a placeholder instead of an iframe. They are excluded from the
 slash menu.
-Derived from: `src/editor/markdown/visual-markdown-editor.test.tsx:2004`; `src/editor/markdown/visual-slash-items.ts:72`.
+Derived from: `src/editor/markdown/visual-markdown-editor.test.tsx:2004`;
+`:1710` (no Video or Audio option) and `:1723 "localizes add-menu options and descriptions in Chinese"`
+(the complete item list, which has none of these five).
 
 **R-BLK-19: Lists and task lists.**
 - Typing `[] `, `[ ] `, `[x] ` or `[X] ` at the start of a paragraph creates a task item.
@@ -1282,14 +1313,13 @@ text/plain: "Native models.\nVisual features.\nLanguage connection.\n\nSee Study
 (R-RT-12). How it renders is not pinned beyond "the document stays editable".
 
 **R-INL-6: Wiki links `[KEEP]`.**
-- Typing `[[` opens "Wiki link suggestions" with page titles from the workspace index, filtered
-  as the user types. Enter inserts `[[DocName]]`.
-- `[[Doc#` lists that page's headings ("Heading suggestions") and inserts `[[Doc#slug]]`.
-- A query with no match offers `Create "<query>"`, which inserts an unresolved link that is
-  styled as unresolved.
-- Meta-click opens the target file, with literal percent escapes kept (`[[Agent%20Memory]]` →
-  `Agent%20Memory.md`).
-- An open menu unmounts cleanly.
+- `[[Page]]` and `[[Page#heading-slug]]` in a document are kept byte-exact and link to that
+  project page (R-FMT-18).
+- Typing `[[` offers page titles from the workspace index, filtered as the user types.
+
+*Not evidenced:* the suggestion menu's labels, keys and create-page flow, and how a link with
+percent escapes resolves. The only test of the menu is excluded (Part I); phase 2 specifies it
+from Lattice UX before building it.
 
 The workspace index:
 - takes the title from the first H1, falling back to the file name;
@@ -1299,7 +1329,7 @@ The workspace index:
 - applies live content updates, notifies subscribers on every mutation, and coalesces concurrent
   refreshes to the newest one.
 
-Derived from: `src/editor/markdown/visual-wiki-link-suggestion.test.tsx:43,59,68,82`; `src/editor/markdown/markdown-workspace-index.test.ts:16,36,43,50,67,81,96`.
+Derived from: the rebuild's keep list (Part I, "Rebuild scope"); `src/editor/markdown/markdown-workspace-index.test.ts:16,36,43,50,67,81,96`.
 
 **R-INL-7: Paper citations `[KEEP]`.**
 - Typing `@` opens "Paper citation suggestions". It lists only papers with local content (full
@@ -1428,7 +1458,7 @@ Derived from: `src/editor/markdown/visual-markdown-editor.test.tsx:515,529,599,6
 
 **R-SRC-3: Unmappable positions are omitted, never misplaced.** A cursor on a code-fence line, on an
 image atom, or inside an inferred paper span is not drawn. Surrogate pairs are never split.
-Derived from: `src/editor/markdown/visual-markdown-editor.test.tsx:572 "does not misplace an unmappable source-only cursor from %s"`, `:613 "keeps source positions after an inferred paper table aligned"`; `src/editor/markdown/visual-source-map.ts:323-380`.
+Derived from: `src/editor/markdown/visual-markdown-editor.test.tsx:572 "does not misplace an unmappable source-only cursor from %s"`, `:613 "keeps source positions after an inferred paper table aligned"`.
 
 **R-SRC-4: Table coordinates.**
 - A cursor on the delimiter row anchors in the corresponding header cell, including below an
@@ -1492,7 +1522,7 @@ Derived from: `src/editor/markdown/visual-markdown-editor.test.tsx:1273 "reports
 **R-SRC-13: Large-document mapping cost.** For large documents, caret-to-source mapping is scoped
 to the containing block when block ownership is exact. It must not reparse or reserialize the
 whole document on every keystroke.
-Derived from: `src/editor/markdown/visual-source-map.ts:410-460`; `docs/performance.md:278`.
+Derived from: `docs/performance.md:278`.
 
 ---
 
@@ -1521,9 +1551,10 @@ gaps and trailing bytes must re-concatenate to the body byte-for-byte, with a BO
 Duplicate blocks get distinct IDs. The model is refused when:
 - the document is unmappable;
 - there are fewer than 2 blocks;
-- one root exceeds 200,000 characters or 800 descendants (a single 900-item list, for example).
+- one root is too large to bound the mounted window (a single 900-item list, for example).
 
-Derived from: `src/editor/markdown/visual-markdown-block-model.test.ts:5,24,31,37`; `src/editor/markdown/visual-markdown-block-model.ts:4-5,54-114`.
+Derived from: `src/editor/markdown/visual-markdown-block-model.test.ts:5,24,31,37`.
+*Not evidenced:* the exact size thresholds and the minimum block count.
 
 **R-PERF-6: Near-viewport materialization.**
 - One shared buffered observer and one visibility observer exist per scroll root.
@@ -1552,9 +1583,10 @@ Derived from: `src/editor/markdown/visual-markdown-editor.test.tsx:2643`.
 **R-PERF-9: No remounts or reloads.** Adjacent inserts cause no remounts and no reloads (R-PUB-21).
 The editor instance is reused across files (R-PUB-8).
 
-**R-PERF-10: Publication budget.** Publication follows the sync policy in R-PUB-2. Parse results
-are cached per path and bounded: 64 entries or 4 M characters.
-Derived from: `src/editor/markdown/visual-markdown-serialization.ts:13-48`.
+**R-PERF-10: Publication budget.** Publication follows the sync policy in R-PUB-2, and publishing
+never re-parses or re-serializes the whole document for a local edit (R-SRC-13).
+Derived from: R-PUB-2; `docs/performance.md:278`.
+*Not evidenced:* any parse cache and its bounds.
 
 ---
 
@@ -1680,9 +1712,9 @@ paragraphs are indented 4 spaces; internal double spaces are preserved.
 ```
 Cite: `src-tauri/templates/tutorial/notes.md:179-181`; `src/editor/markdown/visual-markdown-editor.test.tsx:2075,2463`.
 
-**11.9 Wiki links (E).** `[[DocName]]`, `[[DocName#heading-slug]]`, `[[NewPage]]` (unresolved),
-and `[[Agent%20Memory]]` (escapes kept literal).
-Cite: `src/editor/markdown/visual-wiki-link-suggestion.test.tsx:43,59,68,82`.
+**11.9 Wiki links (E).** `[[DocName]]` and `[[DocName#heading-slug]]`, kept byte-exact.
+Cite: the rebuild's keep list; `src/editor/markdown/markdown-workspace-index.test.ts:36,43`.
+*Not evidenced:* the unresolved-page and percent-escape forms (R-INL-6).
 
 **11.10 Paper citations (E).** A plain Markdown link to the paper file:
 `[<title>](<rel>.research/papers/<arxivId>/paper.md)` or `…/blog.md`. A pointer drop uses the
@@ -1746,7 +1778,8 @@ becomes the body and the other keys become attributes.
 ```json
 "```rw-component callout\n{\"title\":\"Legacy\",\"content\":\"Kept\"}\n```"
 ```
-Cite: `src/editor/markdown/visual-markdown-editor.test.tsx:1988`; `src/editor/markdown/visual-markdown-schema.ts:35-70`.
+Cite: `src/editor/markdown/visual-markdown-editor.test.tsx:1988`. Only the `callout` kind is
+evidenced; other kinds are *not evidenced* (R-FMT-6).
 
 **11.13 Table span layout marker (E).** An HTML comment on its own line, followed by a blank line,
 immediately before a GFM table:
@@ -1765,7 +1798,7 @@ immediately before a GFM table:
 "<!-- lattice-table-layout:v1 {\"spans\":[]} -->"
 "> <!-- lattice-table-layout:v1 {\"spans\":[[0,0,1,2]]} -->\n>\n> | Group | Group | Metric |\n> | --- | --- | --- |\n> | A | B | 1 |"
 ```
-Cite: `src/editor/markdown/visual-markdown-editor.test.tsx:218-224,2251,2260,2280,2293,2307,2329,2344`; `src/editor/markdown/visual-source-map.ts:241-307`.
+Cite: `src/editor/markdown/visual-markdown-editor.test.tsx:218-224,2251,2260,2280,2293,2307,2329,2344`.
 
 **11.14 GFM tables (E/T).**
 - The canonical form pads cells with single spaces: `| A | B |`.
@@ -1813,54 +1846,58 @@ Cite: `src/editor/markdown/visual-markdown-editor.test.tsx:2455,2148,243`.
 
 **11.17 Hard breaks.** A backslash-newline `\` + `\n` and `<br>` are preserved. Two or more
 trailing spaces are significant; a single trailing space is not (R-ELIG-2).
-Cite: `src/editor/markdown/visual-markdown-editor.test.tsx:2148`; `src/editor/markdown/visual-markdown-serialization.ts:227-231`.
+Cite: `src/editor/markdown/visual-markdown-editor.test.tsx:2148`; CommonMark 0.31 §6.7.
 
 **11.18 Hashtags and emoji.** `#Tag` stays literal text with no escaping. Emoji are raw Unicode
 (`🧭`).
 Cite: `src/editor/markdown/visual-markdown-editor.test.tsx:2105,1811`; `src-tauri/templates/tutorial/notes.md:13`.
 
-**11.19 `%%` comments. NO EVIDENCE.** No allowed Lattice source (tests, Lattice-owned modules,
-converter, tutorial, docs, English catalog) contains `%%`-comment syntax. Treat `%%` as ordinary
+**11.19 `%%` comments. NO EVIDENCE.** No allowed Lattice source (tests, converter, tutorial,
+docs, English catalog) contains `%%`-comment syntax. Treat `%%` as ordinary
 text that must round-trip byte-exact. The rebuild drops "%% comment styling".
 
 ---
 
 ### 12. Slash menu items Lattice exposes today
 
-The menu has 28 items, in the order pinned by the zh-CN test. The visible groups are Basic blocks,
-Insert, Components and Media. The HTML starter is re-homed to Media.
-Derived from: `src/editor/markdown/visual-markdown-editor.test.tsx:1723 "localizes add-menu options and descriptions in Chinese"`, `:1710`; `src/editor/markdown/visual-slash-items.ts:22-70,133-166`.
+The menu has 28 items, in the order pinned by the zh-CN test. The zh-CN test also pins four
+visible group headings (基础块, 插入, 组件, 媒体). English labels are given where an English test
+pins them; the others are the zh-CN label's evident meaning and are marked *(zh-CN)*.
+Derived from: `src/editor/markdown/visual-markdown-editor.test.tsx:1723 "localizes add-menu options and descriptions in Chinese"` (the complete, ordered list),
+`:1710 "offers the complete set of Markdown-native insertions and unmounts the open menu cleanly"` (English labels),
+`:1699 "opens a searchable slash menu and inserts Heading %i"`, `:1774 "inserts %s"`, `:1783`, `:1801`, `:1811`, `:1829`, `:1864`.
+What an item inserts is given only where a test pins it; otherwise it is *not pinned*.
 
-| # | Label (en) | What it inserts (evidence) | Rebuild scope |
+| # | Label (zh-CN / en) | What it inserts (evidence) | Rebuild scope |
 |---|---|---|---|
-| 1–6 | Heading 1 … Heading 6 | Turns the block into an H1–H6 heading (`…:1699`) | Markdown-native |
-| 7 | Bullet List | Unordered list | Markdown-native |
-| 8 | Ordered List | Numbered list | Markdown-native |
-| 9 | Task List | `- [ ] ` checklist item | Markdown-native |
-| 10 | Quote | `> ` blockquote | Markdown-native |
-| 11 | Code Block | Fenced code block | **KEEP** (code blocks) |
-| 12 | Table | GFM table with a header row; spans via Merge/Split | **KEEP** (tables with spans) |
-| 13 | Separator | `---` | Markdown-native |
-| 14 | Footnote | A `[^id]` reference plus a matching definition stub (description only; bytes not pinned) | **KEEP** (footnotes) |
-| 15 | Emoji | Opens the picker; inserts plain Unicode (`…:1811`) | Markdown-native (no syntax) |
-| 16 | Inline Math | Inline `$…$` atom (bytes not pinned) | **KEEP** (math) |
-| 17 | Link | Placeholder `link` plus URL field → `[link](url)` (`…:1864`) | Markdown-native |
-| 18 | Callout | `<Callout type="note" collapsible={false} defaultOpen>\n\n</Callout>` (`…:1774`) | **KEEP** (callouts) |
-| 19 | Accordion | Collapsible `<Accordion …>` section (bytes not pinned) | **KEEP** (accordions) |
-| 20 | Toggle | Collapsible "Notion-style toggle" block, an alias of the accordion concept (bytes not pinned) | **DROP→RAW** (Toggle alias) |
-| 21 | Tabs | `<Tabs>` + `<Tab label="Tab 1">` + `<Tab label="Tab 2">` (`…:1783`) | **DROP→RAW** |
-| 22 | Math | Display math block (bytes not pinned; existing display math saves as `$$\n…\n$$`) | **KEEP** (math) |
-| 23 | Mermaid | Mermaid diagram as a fenced block (bytes not pinned) | **KEEP** (Mermaid) |
-| 24 | Mirror | `<Mirror src="…" anchor="…" />` (syntax per `…:2022`) | **DROP→RAW** |
-| 25 | Mirror Source | `<MirrorSource id="…">…</MirrorSource>` (syntax per `…:2022`) | **DROP→RAW** |
-| 26 | Align block | Groups blocks with left/center/right alignment (bytes not pinned) | **DROP→RAW** (Align) |
-| 27 | Image | `<img src="" />`, or import → `<img src="<relative path>" />` (`…:1774,1801`) | **KEEP** (images) |
-| 28 | HTML | ` ```html preview ` starter ("Hello, world!") with a sandboxed live preview (`…:1829`) | **DROP→RAW** (HTML live-preview starter) |
+| 1–6 | 一级标题 … 六级标题 / Heading 1 … Heading 6 | Turns the block into an H1–H6 heading (`…:1699`) | Markdown-native |
+| 7 | 无序列表 / bullet list *(zh-CN)* | Not pinned | Markdown-native |
+| 8 | 有序列表 / ordered list *(zh-CN)* | Not pinned | Markdown-native |
+| 9 | 任务列表 / Task List | Not pinned | Markdown-native |
+| 10 | 引文 / quote *(zh-CN)* | Not pinned | Markdown-native |
+| 11 | 代码块 / Code Block | Not pinned | **KEEP** (code blocks) |
+| 12 | 表格 / Table | Not pinned | **KEEP** (tables with spans) |
+| 13 | 分隔线 / separator *(zh-CN)* | Not pinned | Markdown-native |
+| 14 | 脚注 / Footnote | Not pinned | **KEEP** (footnotes) |
+| 15 | 表情符号 / Emoji | Opens the picker; inserts plain Unicode (`…:1811`) | Markdown-native (no syntax) |
+| 16 | 行内公式 / Inline Math | Not pinned | **KEEP** (math) |
+| 17 | 链接 / Link | Placeholder `link` plus URL field → `[link](url)` (`…:1864`) | Markdown-native |
+| 18 | 提示框 / Callout | `<Callout type="note" collapsible={false} defaultOpen>\n\n</Callout>` (`…:1774`) | **KEEP** (callouts) |
+| 19 | 折叠面板 / accordion *(zh-CN)* | Not pinned | **KEEP** (accordions) |
+| 20 | 折叠块 / toggle *(zh-CN)* | Not pinned | **DROP→RAW** (Toggle alias) |
+| 21 | 标签页 / Tabs | `<Tabs>` + `<Tab label="Tab 1">` + `<Tab label="Tab 2">` (`…:1783`) | **DROP→RAW** |
+| 22 | 数学 / math *(zh-CN)* | Not pinned (existing display math saves as `$$\n…\n$$`, §11) | **KEEP** (math) |
+| 23 | Mermaid 图表 / Mermaid | Not pinned | **KEEP** (Mermaid) |
+| 24 | 镜像 / mirror *(zh-CN)* | Not pinned (the component's syntax is `<Mirror src="…" anchor="…" />`, `…:2022`) | **DROP→RAW** |
+| 25 | 镜像源 / mirror source *(zh-CN)* | Not pinned (the component's syntax is `<MirrorSource id="…">…</MirrorSource>`, `…:2022`) | **DROP→RAW** |
+| 26 | 对齐块 / align block *(zh-CN)* | Not pinned | **DROP→RAW** (Align) |
+| 27 | 图片 / Image | `<img src="" />`, or import → `<img src="<relative path>" />` (`…:1774,1801`) | **KEEP** (images) |
+| 28 | HTML | A sandboxed live-preview HTML code block (`…:1829`) | **DROP→RAW** (HTML live-preview starter) |
 
-**Filtered out of the menu today:** Video, Audio, PDF, Embed, File
-(`visual-slash-items.ts:72`), Tag (`…:1718`), and every embed starter except HTML, so there is no
-"Chart" (`…:1832`; `visual-slash-items.ts:158-160`). The parser still accepts these components.
-The rebuild's decision is **DROP→RAW** for Video, Audio, Pdf, Embed and File.
+**Not in the menu today:** Tag, Video and Audio (`…:1710`); PDF, Embed and File, which the
+component set contains (`…:1736`) but the complete list (`…:1723`) omits; and Chart (`…:1829`).
+The parser still accepts these components. The rebuild's decision is **DROP→RAW** for Video,
+Audio, Pdf, Embed and File.
 
 **Not slash items, but in the keep list:** wiki links (triggered by typing `[[`, R-INL-6) and
 citations (triggered by `@` and by drag-drop from the Papers list, R-INL-7).
@@ -1873,14 +1910,20 @@ citations (triggered by `@` and by drag-drop from the Papers list, R-INL-7).
 
 ### 13. Gaps and open questions
 
-1. Exact inserted bytes for these slash items are not pinned by any test: Footnote, Table, Code
-   Block, Inline Math, Math, Mermaid, Accordion, Toggle and Align block.
+1. Exact inserted bytes for these slash items are not pinned by any test: bullet list, ordered
+   list, Task List, quote, Code Block, Table, separator, Footnote, Inline Math, accordion, toggle,
+   math, Mermaid, mirror, mirror source and align block.
 2. The exact layout of the migrated legacy Callout (R-FMT-6), and the bytes of a distinct-value
    cell merge (R-BLK-11), are not pinned.
 3. The saved form of Underline is not pinned.
 4. `<PaperFigure…>` is evidenced only by an editor test fixture. Its writer is outside the allowed
    sources.
 5. No `%%` comment syntax appears in any allowed source.
-6. Normalization of mixed LF/CRLF files (R-RT-7) is derived from code; no test pins it.
-7. The whole-document canonical fallback on a block-count change (R-RT-5 note) is current Lattice
-   behavior. It is a candidate for improvement, not a requirement.
+6. How the current editor writes a file with mixed LF/CRLF line endings (R-RT-7) is not
+   evidenced; the new engine declines to edit such files.
+7. What the current editor writes for the other blocks after a block-count change (R-RT-5 note)
+   is not evidenced.
+8. The wiki-link suggestion menu (R-INL-6, R-FMT-18) is not evidenced by an allowed source; its
+   only test is excluded. Phase 2 must specify it from Lattice UX first.
+9. Legacy `rw-component` kinds other than `callout`, and fences whose JSON is not an object
+   (R-FMT-6), are not evidenced.

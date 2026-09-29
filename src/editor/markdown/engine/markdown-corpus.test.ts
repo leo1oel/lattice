@@ -2,6 +2,10 @@
  * Corpus tests for the visual engine's round trip: Lattice's own documents
  * (README, docs, the tutorial template, embedded skills) plus the saved-file
  * formats catalogued in docs/visual-editor-spec.md §11, as byte-exact fixtures.
+ * Those fixtures (fixtures/lattice-formats.json, which cannot hold a comment)
+ * were written from the same spec: Lattice's saved formats, not upstream code.
+ *
+ * Clean implementation for Lattice; spec: docs/visual-editor-spec.md.
  */
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
@@ -83,17 +87,31 @@ describe("visual engine corpus", () => {
         const at = offsetSeed % (node.content.size + 1);
         const inserted = schema.text(word, node.resolve(at).marks());
         const block = node.copy(node.content.cut(0, at).addToEnd(inserted).append(node.content.cut(at)));
-        const { text: written } = serializeMarkdown(doc.copy(doc.content.replaceChild(index, block)), baseline);
+        const edited = doc.copy(doc.content.replaceChild(index, block));
+        const { text: written } = serializeMarkdown(edited, baseline);
         const body = text.replace(/^\uFEFF/, "");
         const writtenBody = written.replace(/^\uFEFF/, "");
-        const entry = baseline.entries[index]!;
-        const blockStart = baseline.entries.slice(0, index).reduce((sum, item) => sum + item.gapBefore.length + item.source.length, 0)
-          + entry.gapBefore.length;
-        const blockEnd = blockStart + entry.source.length;
-        // Everything before the gap preceding the block, and after the gap following it, is untouched.
-        const before = body.slice(0, blockStart - entry.gapBefore.length);
-        const next = baseline.entries[index + 1];
-        const after = next ? body.slice(blockEnd + next.gapBefore.length) : baseline.trailing;
+        const starts = baseline.entries.reduce<number[]>((offsets, item, position) => (
+          [...offsets, (position ? offsets[position - 1]! + baseline.entries[position - 1]!.source.length : 0) + item.gapBefore.length]
+        ), []);
+        /** The source before block `first`'s gap and after block `last`'s following gap. */
+        const outside = (first: number, last: number) => {
+          const entry = baseline.entries[Math.max(first, 0)]!;
+          const next = baseline.entries[last + 1];
+          const lastEnd = starts[Math.min(last, starts.length - 1)]! + baseline.entries[Math.min(last, starts.length - 1)]!.source.length;
+          return {
+            before: first < 0 ? "" : body.slice(0, starts[first]! - entry.gapBefore.length),
+            after: next ? body.slice(lastEnd + next.gapBefore.length) : baseline.trailing,
+          };
+        };
+        let { before, after } = outside(index, index);
+        if (!writtenBody.startsWith(before) || !writtenBody.endsWith(after)) {
+          // A neighbour whose reading depends on its tight join with the edited
+          // block cannot keep its bytes once a blank line separates them
+          // (R-RT-3); it is rewritten with the edit, and nothing further away.
+          ({ before, after } = outside(index - 1, index + 1));
+          expect(semanticKey(open(written).doc.children)).toBe(semanticKey(edited.children));
+        }
         expect(writtenBody.startsWith(before)).toBe(true);
         expect(writtenBody.endsWith(after)).toBe(true);
         // Read back through the parser: the serializer may spell the word as a

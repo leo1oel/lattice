@@ -250,6 +250,7 @@ function surfaceProps(label: string): EditorOptions["editorProps"] {
           if (!host) return;
           host.composing = false;
           if (host.props.activePath === host.path) reconcileCanonical(host, host.props.text);
+          if (host.dirty) schedulePublication(host);
         });
         return false;
       },
@@ -276,7 +277,6 @@ function editorExtensions(labels: Partial<Record<RawBlockKind, string>>): AnyExt
   ];
 }
 
-/** Chip labels for kept-verbatim blocks; anchors are invisible and need none. */
 /**
  * The editor once its ProseMirror view is mounted, else null. Tiptap creates
  * the editor before `EditorContent` mounts the view, and every view access
@@ -300,6 +300,7 @@ function useMountedEditor(editor: Editor | null): Editor | null {
 
 const isMounted = (editor: Editor) => !editor.isDestroyed && Boolean((editor as unknown as { editorView?: unknown }).editorView);
 
+/** Chip labels for kept-verbatim blocks; anchors are invisible and need none. */
 function useRawBlockLabels(): Partial<Record<RawBlockKind, string>> {
   const { t } = useLingui();
   return {

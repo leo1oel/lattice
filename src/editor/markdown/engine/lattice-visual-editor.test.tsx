@@ -1,4 +1,5 @@
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+/** Clean implementation for Lattice; spec: docs/visual-editor-spec.md */
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { Editor } from "@tiptap/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { loadVisualEditorEngine, VISUAL_EDITOR_ENGINE_KEY } from "../../../settings/app-settings";
@@ -113,6 +114,16 @@ describe("Lattice visual Markdown editor", () => {
     expect(onUndo).toHaveBeenCalledTimes(1);
     editor.commands.keyboardShortcut("Mod-Shift-z");
     expect(onRedo).toHaveBeenCalledTimes(1);
+  });
+
+  it("publishes an edit made during a long IME composition once the composition ends", async () => {
+    const { editor, onChange } = renderEditor({ text: "Hello\n" });
+    fireEvent.compositionStart(surface());
+    appendToBlock(editor, 0, " 世界");
+    await settle();
+    expect(onChange).not.toHaveBeenCalled();
+    fireEvent.compositionEnd(surface());
+    await waitFor(() => expect(onChange).toHaveBeenCalledWith("Hello 世界\n", "Hello\n"));
   });
 
   it("hands the host a synchronous flush and withdraws it on unmount", () => {

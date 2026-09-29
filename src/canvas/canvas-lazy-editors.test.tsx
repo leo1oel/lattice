@@ -1,3 +1,4 @@
+/** Clean implementation for Lattice; spec: docs/visual-editor-spec.md */
 import { Suspense } from "react";
 import { cleanup, render, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";

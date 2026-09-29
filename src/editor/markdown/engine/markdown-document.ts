@@ -250,46 +250,30 @@ function alignBlocks(current: readonly PmNode[], baseline: readonly PmNode[]): n
 /** A separator next to changed content: the authored one when it already holds a blank line. */
 const separatorNear = (authored: string | undefined) => (authored != null && /\n[ \t]*\n/.test(authored) ? authored : "\n\n");
 
-/** The document as Markdown, with every block that still equals its baseline written from its original bytes. */
+/** A new join: the entry at `at` and the one before it, and the baseline-matched children on either side. */
+type Seam = { at: number; children: number[] };
+
+type Assembly = { entries: BaselineEntry[]; labels: Labels; verified: boolean; seams: Seam[] };
+
+/**
+ * The document as Markdown, with every block that still equals its baseline
+ * written from its original bytes. Each new seam (next to changed content, or
+ * between baseline blocks a deletion made neighbours) is re-parsed on its own;
+ * where the two blocks would read back merged, the baseline side joins the
+ * changed run and is re-serialized with it, so the serializer's join guards
+ * keep them apart.
+ */
 export function serializeMarkdown(doc: PmNode, baseline: MarkdownBaseline): SerializedMarkdown {
-  const current = doc.children;
-  const base = baseline.entries;
-  const matches = alignBlocks(current, base.map((entry) => entry.node));
-  const schema = doc.type.schema;
-  const labels: Labels = { links: new Set(baseline.labels.links), footnotes: new Set(baseline.labels.footnotes) };
-  const entries: BaselineEntry[] = [];
-  let verified = true;
-  let previousBase = -1;
-  let previousWasBase = false;
-  let index = 0;
-  while (index < current.length) {
-    const match = matches[index]!;
-    const first = entries.length === 0;
-    if (match >= 0) {
-      const entry = base[match]!;
-      const gapBefore = first ? (base[0]?.gapBefore ?? "") : previousWasBase && match === previousBase + 1 ? entry.gapBefore : separatorNear(entry.gapBefore);
-      entries.push({ ...entry, gapBefore });
-      previousBase = match;
-      previousWasBase = true;
-      index += 1;
-      continue;
-    }
-    let end = index;
-    while (end < current.length && matches[end]! < 0) end += 1;
-    const nextBase = end < current.length ? matches[end]! : base.length;
-    const run = serializeRun(current.slice(index, end), schema, baseline.labels, first);
-    verified &&= run.verified;
-    if (run.parsed.entries.length) {
-      const replaced = previousBase + 1 < nextBase ? base[previousBase + 1]?.gapBefore : undefined;
-      run.parsed.entries[0] = { ...run.parsed.entries[0]!, gapBefore: first ? (base[0]?.gapBefore ?? "") : separatorNear(replaced) };
-      entries.push(...run.parsed.entries);
-      for (const label of run.parsed.labels.links) labels.links.add(label);
-      for (const label of run.parsed.labels.footnotes) labels.footnotes.add(label);
-      previousWasBase = false;
-    }
-    previousBase = nextBase - 1;
-    index = end;
+  const matches = alignBlocks(doc.children, baseline.entries.map((entry) => entry.node));
+  let assembly = assemble(doc, baseline, matches);
+  for (;;) {
+    const context = definitionContext(assembly.labels);
+    const merged = assembly.seams.find((seam) => !seamHolds(assembly.entries, seam.at, doc.type.schema, context));
+    if (!merged) break;
+    for (const child of merged.children) matches[child] = -1;
+    assembly = assemble(doc, baseline, matches);
   }
+  const { entries, labels, verified } = assembly;
   const trailing = baseline.trailing;
   const body = entries.map((entry) => entry.gapBefore + entry.source).join("") + trailing;
   return {
@@ -297,6 +281,69 @@ export function serializeMarkdown(doc: PmNode, baseline: MarkdownBaseline): Seri
     baseline: { envelope: baseline.envelope, entries, trailing, labels },
     verified,
   };
+}
+
+/** Splice baseline bytes and serialized runs in document order, noting every new seam. */
+function assemble(doc: PmNode, baseline: MarkdownBaseline, matches: readonly number[]): Assembly {
+  const current = doc.children;
+  const base = baseline.entries;
+  const labels: Labels = { links: new Set(baseline.labels.links), footnotes: new Set(baseline.labels.footnotes) };
+  const entries: BaselineEntry[] = [];
+  const seams: Seam[] = [];
+  let verified = true;
+  let previousBase = -1;
+  let previousWasBase = false;
+  /** The child written by the last entry when that entry is baseline bytes, else -1. */
+  let lastBaseChild = -1;
+  let index = 0;
+  while (index < current.length) {
+    const match = matches[index]!;
+    const first = entries.length === 0;
+    if (match >= 0) {
+      const entry = base[match]!;
+      const kept = previousWasBase && match === previousBase + 1;
+      const gapBefore = first ? (base[0]?.gapBefore ?? "") : kept ? entry.gapBefore : separatorNear(entry.gapBefore);
+      if (!first && !kept) seams.push({ at: entries.length, children: lastBaseChild >= 0 ? [lastBaseChild, index] : [index] });
+      entries.push({ ...entry, gapBefore });
+      previousBase = match;
+      previousWasBase = true;
+      lastBaseChild = index;
+      index += 1;
+      continue;
+    }
+    let end = index;
+    while (end < current.length && matches[end]! < 0) end += 1;
+    const nextBase = end < current.length ? matches[end]! : base.length;
+    const run = serializeRun(current.slice(index, end), doc.type.schema, baseline.labels, first);
+    verified &&= run.verified;
+    if (run.parsed.entries.length) {
+      const replaced = previousBase + 1 < nextBase ? base[previousBase + 1]?.gapBefore : undefined;
+      run.parsed.entries[0] = { ...run.parsed.entries[0]!, gapBefore: first ? (base[0]?.gapBefore ?? "") : separatorNear(replaced) };
+      if (!first) seams.push({ at: entries.length, children: [lastBaseChild] });
+      entries.push(...run.parsed.entries);
+      for (const label of run.parsed.labels.links) labels.links.add(label);
+      for (const label of run.parsed.labels.footnotes) labels.footnotes.add(label);
+      previousWasBase = false;
+      lastBaseChild = -1;
+    }
+    previousBase = nextBase - 1;
+    index = end;
+  }
+  return { entries, labels, verified, seams };
+}
+
+/** Whether the entry at `seam` and the one before it read back as the same two blocks when written together. */
+function seamHolds(entries: readonly BaselineEntry[], seam: number, schema: Schema, context: string): boolean {
+  const left = entries[seam - 1]!;
+  const right = entries[seam]!;
+  const atStart = seam === 1;
+  const window = `${atStart ? left.gapBefore : ""}${left.source}${right.gapBefore}${right.source}`;
+  try {
+    const parsed = parseBlocks(window, schema, context, atStart);
+    return semanticKey(parsed.entries.map((entry) => entry.node)) === semanticKey([left.node, right.node]);
+  } catch {
+    return false;
+  }
 }
 
 function serializeRun(nodes: readonly PmNode[], schema: Schema, labels: MarkdownBaseline["labels"], atStart: boolean) {

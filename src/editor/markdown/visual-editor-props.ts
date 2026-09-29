@@ -1,7 +1,10 @@
 /**
- * The contract between the document canvas and a visual Markdown editor. Both
- * editor engines (see `visualEditorEngine` in app-settings) take these props,
- * so the canvas can mount either without knowing which one it has.
+ * Lattice's host contract for visual Markdown editing: the props the document
+ * canvas hands a visual editor, implemented by both editor engines (see
+ * `visualEditorEngine` in app-settings), so the canvas can mount either one
+ * without knowing which it has.
+ *
+ * Clean implementation for Lattice; spec: docs/visual-editor-spec.md.
  */
 import type { PaperSummary } from "../../app-types";
 import type { PresenceCursor, TrackedChangeTooltipActions } from "../../overleaf/overleaf-editor-extensions";
