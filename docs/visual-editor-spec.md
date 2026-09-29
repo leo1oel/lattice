@@ -366,10 +366,11 @@ here, with the requirement it rests on.
   each top-level node still equal to a baseline block has that block's exact
   source and place in the text. Inside a block, text runs and atoms are found
   in the source in order, so the syntax around them is skipped rather than
-  modelled; a run written with escapes or character references is aligned
-  character by character, and inline code wrapped across lines maps its
-  spaces to the line breaks. A position that cannot be aligned maps to
-  nothing. At a formatting boundary a caret or range start takes the next
+  modelled, except that a link's closing syntax (its destination and title,
+  or an autolink's `>`) is stepped over after its text; a run written with
+  escapes or character references is aligned character by character, and
+  inline code wrapped across lines maps its spaces to the line breaks. A
+  position that cannot be aligned maps to nothing. At a formatting boundary a caret or range start takes the next
   run's side, a range end the previous run's, so a quote never picks up
   markup. Tables map by grid. The caret is reported only while the document
   matches the Markdown the host has (after each publication), so it never

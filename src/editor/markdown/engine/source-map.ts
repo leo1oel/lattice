@@ -8,10 +8,12 @@
  * a block, the node's inline content is aligned with the block's source in
  * order: every text run and atom is found in the source after the previous
  * one, so the Markdown syntax around them (markers, delimiters, escapes,
- * container prefixes) is skipped rather than modelled. Anything that cannot
- * be aligned is left out, so a lookup there yields null: a position is
- * omitted, never misplaced (R-SRC-3). A lookup costs one block, never the
- * document (R-SRC-13).
+ * container prefixes) is skipped rather than modelled. The one exception is
+ * a link's closing syntax (`](destination "title")`, an autolink's `>`),
+ * stepped over after its text so the next run is not found inside the
+ * destination. Anything that cannot be aligned is left out, so a lookup
+ * there yields null: a position is omitted, never misplaced (R-SRC-3). A
+ * lookup costs one block, never the document (R-SRC-13).
  *
  * Tables are aligned by grid instead: a source row and cell index name a
  * visual cell. The delimiter row anchors in its header cell, and a cell an
