@@ -282,6 +282,7 @@ export const SLASH_ITEMS: readonly SlashItem[] = [
     run: (editor, range) => insertBlock(
       editor,
       range,
+      // eslint-disable-next-line lingui/no-unlocalized-strings -- Mermaid source written into the document
       editor.schema.nodes.codeBlock!.create({ language: "mermaid" }, editor.schema.text("flowchart LR\n  A --> B")),
       "after",
     ),

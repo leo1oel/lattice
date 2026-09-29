@@ -29,7 +29,7 @@ export type Chrome = {
   citation: MenuStore<PaperSummary>;
 };
 
-export function createChrome(props: () => VisualMarkdownEditorProps): Chrome {
+export function createChrome(props: VisualMarkdownEditorProps): Chrome {
   return { host: createChromeHost(props), slash: createMenuStore(), wiki: createMenuStore(), citation: createMenuStore() };
 }
 
@@ -65,8 +65,12 @@ export function EngineChrome({ editor, chrome, layer }: { editor: Editor; chrome
       <LinkHoverCard editor={editor} host={chrome.host} />
       <EmojiPickerPopover editor={editor} host={chrome.host} />
       <ImageFilePicker editor={editor} host={chrome.host} />
-      <FindBar editor={editor} host={chrome.host} />
       <BlockControls editor={editor} layer={layer} />
     </>
   );
+}
+
+/** The find bar, placed by the host ahead of the article so it can stick to the top of the view. */
+export function EngineFindBar({ editor, chrome }: { editor: Editor; chrome: Chrome }) {
+  return <FindBar editor={editor} host={chrome.host} />;
 }

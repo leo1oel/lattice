@@ -15,7 +15,9 @@ export type ChromeRequest =
   | { kind: "find"; replace: boolean; seed: string };
 
 export type ChromeHost = {
+  /** The host's latest props; `setProps` keeps them current after each render. */
   props: () => VisualMarkdownEditorProps;
+  setProps: (props: VisualMarkdownEditorProps) => void;
   /** The latest request, until the chrome that serves it clears it. */
   request: ChromeRequest | null;
   ask: (request: ChromeRequest) => void;
@@ -23,10 +25,14 @@ export type ChromeHost = {
   subscribe: (listener: () => void) => () => void;
 };
 
-export function createChromeHost(props: () => VisualMarkdownEditorProps): ChromeHost {
+export function createChromeHost(initial: VisualMarkdownEditorProps): ChromeHost {
   const listeners = new Set<() => void>();
+  let latest = initial;
   const host: ChromeHost = {
-    props,
+    props: () => latest,
+    setProps: (props) => {
+      latest = props;
+    },
     request: null,
     ask: (request) => {
       host.request = request;

@@ -57,6 +57,17 @@
 }
 .lx-md-menu-icon svg { width: 13px; height: 13px; }
 .lx-md-menu-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lx-md-menu.is-citations .lx-md-menu-scroll { width: 380px; }
+.lx-md-menu.is-citations .lx-md-menu-option { padding-block: var(--space-2); }
+.lx-md-menu-stack { display: flex; flex-direction: column; min-width: 0; }
+.lx-md-menu-title {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-height: var(--type-title-line-height);
+}
+.lx-md-menu-meta { overflow: hidden; color: var(--text-tertiary); font-size: var(--type-caption-size); text-overflow: ellipsis; white-space: nowrap; }
 .lx-md-menu-detail {
   margin-left: auto;
   padding-left: var(--space-4);
@@ -144,6 +155,8 @@
 .lx-md-link-paths {
   display: flex;
   flex-basis: 100%;
+  /* Below the field and its buttons, which stay on one row. */
+  order: 1;
   flex-direction: column;
   max-height: 180px;
   overflow-y: auto;

@@ -171,18 +171,18 @@ lazy chunk, loaded only when the setting selects it. Setting the key to
   to CRLF on the first write. Only source mode may change a file's line
   endings.
 
-### Status: what the engine meets today (phase 2, first part)
+### Status: what the engine meets today (phase 2, second part)
 
-Phase 2 ships in three parts: rich blocks (this state), editor chrome, and
+Phase 2 ships in three parts: rich blocks, editor chrome (this state), and
 the integration behind engine-agnostic interfaces.
 
 | Area | Met now | Still to come |
 | --- | --- | --- |
 | Round trip, envelope (R-RT, R-ELIG) | Byte-exact untouched documents; untouched blocks, gaps, BOM, CRLF, trailing newlines and frontmatter preserved on edit; authored syntax inside edited paragraphs kept (R-RT-12 fixtures); escaped new text; nothing written on open; `\(`…`\)` and `\[`…`\]` as math (R-RT-21); explicit and paper-inferred table spans (R-RT-23, R-FMT-13); components, legacy callout fences and footnotes kept byte for byte until edited | — |
 | Publication (R-PUB) | R-PUB-1–18, 21 and 22; the host-level R-PUB-19–20 are unchanged host code | — |
-| Blocks (R-BLK) | Paragraphs, headings, lists and task lists, quotes, thematic breaks; Callout and Accordion with their properties (R-BLK-1, 2); images with alignment, resizing and zoom (R-BLK-3); display math (R-BLK-4); Mermaid previews (R-BLK-5); footnotes (R-BLK-6); code blocks with their chrome (R-BLK-7); tables with handles, merge and split (R-BLK-11); paper figures (R-BLK-15); unknown components as source (R-BLK-16) | Section rail (R-BLK-13); generated paper Contents (R-BLK-14); task-list input rules and list movement (R-BLK-19); table drag reorder |
-| Inline (R-INL) | Marks, links (Mod-click), inline math with its formula field and `$…$` input rule (R-INL-2), images, footnote references, hard and soft breaks, raw inline source | Wiki-link and citation suggestions and chips (R-INL-6, 7), link popover and hover (R-CHR-4) |
-| Chrome, source mapping, performance (R-CHR, R-SRC, R-PERF) | Accessible textbox surface; per-keystroke plugin work limited to the blocks an edit touched | Slash menu, selection toolbar, find and replace, block controls and drag, emoji (R-CHR-1–7); frozen table headers (R-CHR-9); carets, comments, tracked changes, view in source (R-SRC); passive viewport (R-PERF-1–6) |
+| Blocks (R-BLK) | Paragraphs, headings, lists and task lists, quotes, thematic breaks; Callout and Accordion with their properties (R-BLK-1, 2); images with alignment, resizing and zoom (R-BLK-3); display math (R-BLK-4); Mermaid previews (R-BLK-5); footnotes (R-BLK-6); code blocks with their chrome (R-BLK-7); tables with handles, merge and split (R-BLK-11); paper figures (R-BLK-15); unknown components as source (R-BLK-16); task-list input rules, mixed task lists and list movement (R-BLK-19) | Section rail (R-BLK-13); generated paper Contents (R-BLK-14); table drag reorder |
+| Inline (R-INL) | Marks including highlight and underline, links (Mod-click, typed `[text](url)`), inline math with its formula field and `$…$` input rule (R-INL-2), images, footnote references, hard and soft breaks, raw inline source; wiki links and citation chips with their suggestions, drops and editors (R-INL-6, 7) | — |
+| Chrome, source mapping, performance (R-CHR, R-SRC, R-PERF) | Accessible textbox surface; per-keystroke plugin work limited to the blocks an edit touched; slash menu (R-CHR-1, §12), selection toolbar (R-CHR-2), find and replace (R-CHR-3), link editor and hover (R-CHR-4), block controls and drag (R-CHR-5), emoji (R-CHR-7) | The toolbar's View in source and read-only Comment (R-CHR-2, with R-SRC and comments); frozen table headers (R-CHR-9); carets, comments, tracked changes, view in source (R-SRC); passive viewport (R-PERF-1–6) |
 
 **Tests.**
 
@@ -198,8 +198,11 @@ the integration behind engine-agnostic interfaces.
 - `markdown-document.test.ts` pins the core rules, including every R-RT-12
   fixture under an edit; `rich-blocks.test.ts` pins how each rich block is
   read and written.
-- `lattice-visual-editor.test.tsx` pins the host contract, and
-  `lattice-visual-blocks.test.tsx` drives every rich block through the editor.
+- `lattice-visual-editor.test.tsx` pins the host contract,
+  `lattice-visual-blocks.test.tsx` drives every rich block through the editor,
+  and `lattice-visual-chrome.test.tsx` drives the chrome as a reader uses it:
+  the slash menu, toolbar, links, find, block controls, typed structure,
+  citations and wiki links, in English and Chinese.
 - `differential.test.tsx` runs the same corpus through the vendored editor
   and the engine. The vendored editor is mounted only as a black box through
   the shared props contract. For every document the engine must open what the
@@ -291,6 +294,63 @@ here, with the requirement it rests on.
   keeps the surface busy and read-only until the new file is shown. The Enter
   that commits an IME candidate is ignored for 50 ms after
   `compositionend`.
+- **Whitespace at a block's end (R-ELIG-2).** Spaces or tabs typed at the end
+  of a paragraph or heading have no Markdown form, since a parser drops them.
+  They are not written, rather than escaped as `&#x20;`, and they alone do
+  not count as an edit. The space after an accepted citation (R-FMT-17)
+  therefore reaches the file with the next character typed after it.
+- **Underline and highlight (R-INL-1, R-FMT-1, §13.3).** Underline is written
+  `<u>…</u>`, the one HTML form Markdown readers agree on; highlight is
+  `==…==`. Both read back as marks wherever their text is written literally;
+  inside code or raw HTML, or when a delimiter is escaped, they stay text.
+- **Task lists (R-BLK-19, R-FMT-14).** A list may mix task and plain items,
+  and stays a task list only while every item has a box. An `[X]` box is
+  recorded and written back uppercase while it stays checked. The typed-box
+  rule fires only at the very start of a paragraph.
+- **Slash menu (R-CHR-1, §12, §13.1).** The kept items appear in §12's order
+  with its four groups; the dropped items (Toggle, Tabs, Mirror, Mirror
+  source, Align, the HTML starter) are not offered. Unpinned insertions:
+  lists, quote, code block and separator convert or insert the Markdown
+  construct around the caret; Table is 3×3 with a header row; Footnote
+  inserts the next free numeric label with its definition at the end of the
+  document and puts the caret in the note; Inline Math and Math insert an
+  empty formula with its field open; Accordion is `defaultOpen` with an empty body;
+  Mermaid starts from `flowchart LR` with one edge.
+- **Selection toolbar (R-CHR-2).** It floats in a layer of its own in the
+  body, and its block-type menu mounts inside that layer, so choosing a block
+  type does not count as leaving the toolbar, while focus anywhere else hides
+  it. Underline and Strikethrough write `<u>…</u>` and `~~…~~`; "Convert
+  selection to footnote" moves the selected text into a new note.
+- **Links (R-FMT-4, R-CHR-4).** Mod-K opens the link editor for the link at
+  the caret or the selected text. The URL field suggests project pages once
+  something is typed, written relative to the current file; nothing is
+  suggested for an external URL or an in-page anchor. Typing
+  `[text](url)` makes a link when `)` is typed; a URL with an unsafe scheme
+  is refused there as in the editor.
+- **Wiki links (R-INL-6, R-FMT-18, §13.8), specified here from Lattice UX.**
+  Typing `[[` opens "Wiki link suggestions": pages from the workspace index,
+  ranked by the index's own search, each showing its title and path. After a
+  page name, `#` lists that page's headings with the slugs the index builds.
+  ArrowUp/ArrowDown move, Enter or Tab accepts, Escape dismisses, and a click
+  accepts. Accepting writes `[[docName]]` or `[[docName#slug]]`, absorbing a
+  `]]` already typed after the query. With no match the menu says "No matching
+  pages". There is no create-page flow: a link to a page that does not exist
+  yet is simply typed in full. Mod-click (or any click while read-only) opens
+  the page by its document name.
+- **Citations (R-INL-7, R-FMT-17).** A chip is one atom: Backspace or Delete
+  beside it removes all of it in one step. Mod-K on a chip, or the hover
+  card's pencil, opens its title and URL.
+- **Block moves (R-FMT-15, R-FMT-16, R-CHR-5).** Mod-Shift-Up and
+  Mod-Shift-Down move the block at the caret, or the list items the selection
+  covers, one step. Dragging a grip while several list items are selected
+  moves all of them. On a hovered item's own row the marker gutter keeps the
+  item targeted, so its grip stays reachable (on the right in right-to-left
+  text); elsewhere the gutter targets the whole list. The drag ghost keeps
+  each text block's font metrics.
+- **Find (R-CHR-3).** Matching runs across formatting within a block but
+  stops at atoms such as formulas and chips. The shortcuts also work in a
+  read-only document. The bar sits at the top of the article and stays there
+  while scrolling.
 
 ---
 
@@ -2013,10 +2073,12 @@ citations (triggered by `@` and by drag-drop from the Papers list, R-INL-7).
 
 1. Exact inserted bytes for these slash items are not pinned by any test: bullet list, ordered
    list, Task List, quote, Code Block, Table, separator, Footnote, Inline Math, accordion, toggle,
-   math, Mermaid, mirror, mirror source and align block.
+   math, Mermaid, mirror, mirror source and align block. Phase 2's choices for the kept ones are
+   in Part I's derivation notes.
 2. The exact layout of the migrated legacy Callout (R-FMT-6), and the bytes of a distinct-value
    cell merge (R-BLK-11), are not pinned.
-3. The saved form of Underline is not pinned.
+3. The saved form of Underline is not pinned. Phase 2 writes `<u>…</u>` (Part I, derivation
+   notes).
 4. `<PaperFigure…>` is evidenced only by an editor test fixture. Its writer is outside the allowed
    sources.
 5. No `%%` comment syntax appears in any allowed source.
@@ -2025,6 +2087,6 @@ citations (triggered by `@` and by drag-drop from the Papers list, R-INL-7).
 7. What the current editor writes for the other blocks after a block-count change (R-RT-5 note)
    is not evidenced.
 8. The wiki-link suggestion menu (R-INL-6, R-FMT-18) is not evidenced by an allowed source; its
-   only test is excluded. Phase 2 must specify it from Lattice UX first.
+   only test is excluded. Phase 2 specifies it from Lattice UX in Part I's derivation notes.
 9. Legacy `rw-component` kinds other than `callout`, and fences whose JSON is not an object
    (R-FMT-6), are not evidenced.

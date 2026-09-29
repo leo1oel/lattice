@@ -169,6 +169,12 @@ describe("slash menu (R-CHR-1, §12)", () => {
     await waitFor(() => expect(lastChange(onChange)).toBe("[link](https://example.com)"));
   });
 
+  it.each([["math", /^Math/, "Formula"], ["inline", /Inline Math/, "Formula"]])("inserts an empty %s formula with its field open", async (query, option, field) => {
+    const { editor } = renderEditor("");
+    fireEvent.mouseDown(within(await openSlash(editor, query)).getByRole("option", { name: option }));
+    expect(await screen.findByRole("textbox", { name: field })).toBeInTheDocument();
+  });
+
   it("inserts a footnote reference with a definition to write the note in", async () => {
     const { editor, onChange } = renderEditor("Claim");
     caret(editor, editor.state.doc.content.size - 1);

@@ -7,7 +7,7 @@
  */
 import type { Mark as PmMark, Node as PmNode } from "@tiptap/pm/model";
 import { TableMap } from "@tiptap/pm/tables";
-import type { LatticeNodeStyle } from "./markdown-syntax";
+import { UPPERCASE_CHECK, type LatticeNodeStyle } from "./markdown-syntax";
 import { citationKey, displayMathTex, imageKey, SINGLE_LINE_DISPLAY } from "./markdown-to-document";
 import { writeOpenTag, type ComponentProp } from "./mdx-components";
 import { semanticKey } from "./semantic-key";
@@ -88,7 +88,7 @@ function listItem(node: PmNode, options: SerializeOptions): MdNode {
   const children = blocks(node.children, options);
   if (node.type.name !== "taskItem") return { type: "listItem", spread: Boolean(node.attrs.spread), checked: null, children };
   const item: MdNode = { type: "listItem", spread: Boolean(node.attrs.spread), checked: Boolean(node.attrs.checked), children };
-  return node.attrs.marker === "X" && node.attrs.checked ? styled(item, { marker: "X" }) : item;
+  return node.attrs.marker === UPPERCASE_CHECK && node.attrs.checked ? styled(item, { marker: UPPERCASE_CHECK }) : item;
 }
 
 /** Whether a formula's authored source (with its delimiters) still spells `tex`. */

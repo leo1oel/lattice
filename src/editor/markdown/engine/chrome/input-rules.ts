@@ -15,6 +15,7 @@
 import { Extension, InputRule } from "@tiptap/core";
 import { Fragment, type Node as PmNode } from "@tiptap/pm/model";
 import { TextSelection } from "@tiptap/pm/state";
+import { UPPERCASE_CHECK } from "../markdown-syntax";
 
 const SAFE_HREF = /^(?![\s]*(?:javascript|vbscript|data|file):)\S+$/i;
 
@@ -42,7 +43,7 @@ const taskItem = new InputRule({
     // Only at the very start of a paragraph.
     if (paragraph.type.name !== "paragraph" || range.from !== $from.start()) return null;
     const box = match[1] ?? "";
-    const attrs = { checked: box === "x" || box === "X", marker: box === "X" ? "X" : null };
+    const attrs = { checked: box === "x" || box === UPPERCASE_CHECK, marker: box === UPPERCASE_CHECK ? UPPERCASE_CHECK : null };
     const { schema } = state;
     const tr = state.tr;
     const rest = paragraph.content.cut(range.to - $from.start());

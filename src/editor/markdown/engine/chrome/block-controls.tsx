@@ -246,6 +246,7 @@ function createGhost(element: HTMLElement): HTMLElement {
   ghost.style.color = style.color;
   // Every text block keeps the metrics it has in place (a list item's
   // paragraphs, a heading's size), whatever the scope outside the surface says.
+  // eslint-disable-next-line lingui/no-unlocalized-strings -- a DOM selector
   const TEXT = "p, h1, h2, h3, h4, h5, h6, li, pre, code";
   const sources = [element, ...element.querySelectorAll<HTMLElement>(TEXT)];
   const copies = [ghost, ...ghost.querySelectorAll<HTMLElement>(TEXT)];

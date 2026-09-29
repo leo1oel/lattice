@@ -31,7 +31,7 @@ import { MathMacrosContext, engineNodeViews } from "./engine-node-views";
 import { engineSchema, engineSchemaExtensions, type RawBlockKind } from "./engine-schema";
 import { openMarkdown, serializeMarkdown, type MarkdownBaseline, type OpenOptions } from "./markdown-document";
 import { TableControls } from "./views/table-controls";
-import { EngineChrome, chromeExtensions, createChrome, type Chrome } from "./chrome/engine-chrome";
+import { EngineChrome, EngineFindBar, chromeExtensions, createChrome, type Chrome } from "./chrome/engine-chrome";
 import "./lattice-visual-editor.css";
 import "./lattice-visual-blocks.css";
 import "./lattice-visual-chrome.css";
@@ -432,9 +432,6 @@ export function LatticeVisualMarkdownEditor(props: VisualMarkdownEditorProps): J
   const [busy, setBusy] = useState(false);
   const [layer, setLayer] = useState<HTMLDivElement | null>(null);
   const [ime] = useState<ImeGuard>(() => ({ composingUntil: 0 }));
-  // The chrome reads the host's props through the host record, which always holds the latest.
-  // eslint-disable-next-line react-hooks/refs -- read on events, never during render
-  const [chrome] = useState(() => createChrome(() => host.current.props));
   const host = useRef<Host>({
     props,
     editor: null,
@@ -454,12 +451,14 @@ export function LatticeVisualMarkdownEditor(props: VisualMarkdownEditorProps): J
     loadGeneration: 0,
     pending: null,
   });
+  const [chrome] = useState(() => createChrome(props));
   // Extensions are read once, when the editor is created; labels are fixed then.
   const [extensions] = useState(() => editorExtensions(labels, ime, chrome));
 
   useLayoutEffect(() => {
     const current = host.current;
     current.props = props;
+    chrome.host.setProps(props);
     current.messages = {
       // The vendored editor's notice, so hosts and users see one message whichever engine runs.
       unavailable: unavailableMessage,
@@ -537,6 +536,8 @@ export function LatticeVisualMarkdownEditor(props: VisualMarkdownEditorProps): J
           {reason && !onEligibilityChange && (
             <InlineMessage level="warning" className="lx-md-eligibility">{reason}</InlineMessage>
           )}
+          {/* Before the article, so the sticky find bar stays in view over its whole length. */}
+          {editor && <EngineFindBar editor={editor} chrome={chrome} />}
           <EditorContent editor={instance} />
           {editor && <TableControls editor={editor} layer={layer} paperMode={openOptions(props).paperSpans ?? false} />}
           {editor && <EngineChrome editor={editor} chrome={chrome} layer={layer} />}

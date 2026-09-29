@@ -189,6 +189,7 @@ export function SuggestionListbox<T>({ editor, store, label, emptyLabel, itemKey
   const [element, setElement] = useState<HTMLDivElement | null>(null);
   const list = useRef<HTMLDivElement>(null);
   usePlacement(element, state.open ? state.rect : null);
+  // eslint-disable-next-line lingui/no-unlocalized-strings -- a DOM id
   const optionId = (index: number) => `${id}-option-${index}`;
   const hasItems = state.open && state.items.length > 0;
 

@@ -20,7 +20,7 @@ import { ANCHOR_SOURCE, type RawBlockKind } from "./engine-schema";
 import {
   CALLOUT, COMPONENTS_WITH_BODY, MODELLED_COMPONENTS, findClosingTag, readOpenTag, type ComponentProp,
 } from "./mdx-components";
-import { parseMarkdownTree } from "./markdown-syntax";
+import { parseMarkdownTree, UPPERCASE_CHECK } from "./markdown-syntax";
 import { extendPhrasing, PAPER_HREF, type Phrasing } from "./inline-syntax";
 import { inferPaperSpans, looksLikeLayoutMarker, readLayoutMarker, spansFit, type Span } from "./table-spans";
 
@@ -392,7 +392,7 @@ function listItem(item: ListItem, context: Context): JSONContent {
   const content = head ? [block(head, context), ...nestedBlocks(rest, context)] : [{ type: "paragraph" }];
   if (item.checked == null) return { type: "listItem", attrs: { spread: Boolean(item.spread) }, content };
   // An authored `[X]` is written back as typed (R-FMT-14).
-  const marker = /^\s*(?:\d{1,9}[.)]|[-+*])\s+\[X\]/.test(sliceOf(item, context)) ? "X" : null;
+  const marker = /^\s*(?:\d{1,9}[.)]|[-+*])\s+\[X\]/.test(sliceOf(item, context)) ? UPPERCASE_CHECK : null;
   return { type: "taskItem", attrs: { checked: Boolean(item.checked), spread: Boolean(item.spread), marker }, content };
 }
 

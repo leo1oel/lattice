@@ -139,12 +139,15 @@ export function CitationMenu({ editor, store }: { editor: Editor; store: MenuSto
       store={store}
       label={t`Paper citation suggestions`}
       emptyLabel={t`No matching papers`}
+      className="is-citations"
       itemKey={(paper) => `${paper.arxivId}\0${paper.citationKey ?? ""}`}
       renderItem={(paper) => (
         <>
           <span className="lx-md-menu-icon" aria-hidden="true"><Newspaper /></span>
-          <span className="lx-md-menu-label">{paper.title}</span>
-          {paper.citationKey && <span className="lx-md-menu-detail">{paper.citationKey}</span>}
+          <span className="lx-md-menu-stack">
+            <span className="lx-md-menu-title">{paper.title}</span>
+            {paper.citationKey && <span className="lx-md-menu-meta">@{paper.citationKey}</span>}
+          </span>
         </>
       )}
     />

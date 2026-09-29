@@ -9,7 +9,7 @@
  * Clean implementation for Lattice; spec: docs/visual-editor-spec.md.
  */
 /* eslint-disable react-refresh/only-export-components -- the find plugin and its bar belong together */
-import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { Extension, isMacOS, type Editor } from "@tiptap/core";
 import type { Node as PmNode } from "@tiptap/pm/model";
@@ -135,7 +135,6 @@ export function findShortcuts(host: ChromeHost) {
 
 export function FindBar({ editor, host }: { editor: Editor; host: ChromeHost }) {
   const { t } = useLingui();
-  const request = useSyncExternalStore(host.subscribe, () => host.request, () => host.request);
   const [open, setOpen] = useState(false);
   const [showReplace, setShowReplace] = useState(false);
   const [query, setQuery] = useState("");
@@ -144,17 +143,18 @@ export function FindBar({ editor, host }: { editor: Editor; host: ChromeHost }) 
   const input = useRef<HTMLInputElement>(null);
 
   // A find request (Mod-F, Mod-Alt-F) opens the bar and hands it the seed.
-  useLayoutEffect(() => {
+  useEffect(() => host.subscribe(() => {
+    const request = host.request;
     if (request?.kind !== "find") return;
     host.clear();
     setOpen(true);
     if (request.replace) setShowReplace(true);
     if (request.seed) setQuery(request.seed);
     requestAnimationFrame(() => {
-      input.current?.focus();
+      input.current?.focus({ preventScroll: true });
       input.current?.select();
     });
-  }, [host, request]);
+  }), [host]);
 
   useEffect(() => {
     if (!open) return;

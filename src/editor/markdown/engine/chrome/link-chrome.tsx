@@ -10,6 +10,7 @@
  *
  * Clean implementation for Lattice; spec: docs/visual-editor-spec.md.
  */
+/* eslint-disable react-refresh/only-export-components -- the Mod-K request and the editor it opens belong together */
 import { useEffect, useId, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import { useLingui } from "@lingui/react/macro";
@@ -315,29 +316,30 @@ export function LinkHoverCard({ editor, host }: { editor: Editor; host: ChromeHo
 
   useEffect(() => {
     const surface = editor.view.dom;
-    const cancelClose = () => clearTimeout(timers.current.close);
+    const pending = timers.current;
+    const cancelClose = () => clearTimeout(pending.close);
     const onOver = (event: MouseEvent) => {
       const anchor = (event.target as Element | null)?.closest?.("a[href]") as HTMLAnchorElement | null;
       if (!anchor || !surface.contains(anchor)) return;
       cancelClose();
-      clearTimeout(timers.current.open);
-      timers.current.open = setTimeout(() => {
+      clearTimeout(pending.open);
+      pending.open = setTimeout(() => {
         setHovered({ anchor, href: anchor.getAttribute("href") ?? "", citation: anchor.hasAttribute("data-lattice-citation") });
       }, DWELL_MS);
     };
     const onOut = (event: MouseEvent) => {
       const anchor = (event.target as Element | null)?.closest?.("a[href]");
       if (!anchor) return;
-      clearTimeout(timers.current.open);
-      timers.current.close = setTimeout(() => setHovered(null), GRACE_MS);
+      clearTimeout(pending.open);
+      pending.close = setTimeout(() => setHovered(null), GRACE_MS);
     };
     surface.addEventListener("mouseover", onOver);
     surface.addEventListener("mouseout", onOut);
     return () => {
       surface.removeEventListener("mouseover", onOver);
       surface.removeEventListener("mouseout", onOut);
-      clearTimeout(timers.current.open);
-      clearTimeout(timers.current.close);
+      clearTimeout(pending.open);
+      clearTimeout(pending.close);
     };
   }, [editor]);
 

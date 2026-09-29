@@ -15,6 +15,10 @@ import { unified } from "unified";
 import { remarkLatexMath } from "./latex-math-syntax";
 
 /** Style the parser recorded for one node, carried on `node.data.lattice` through serialization. */
+/** The uppercase task box, `[X]`, recorded so an item is written back as typed (R-FMT-14). */
+// eslint-disable-next-line lingui/no-unlocalized-strings -- Markdown syntax, not interface copy
+export const UPPERCASE_CHECK = "X";
+
 export type LatticeNodeStyle = {
   /** A text run as authored: each piece's `source` is emitted verbatim in literal mode. */
   pieces?: { value: string; source?: string }[];
@@ -122,7 +126,7 @@ function latticeHandlers(mode: SerializeMode, stock: Record<string, Handle>): Re
     listItem(node, parent, state, info) {
       const written = stock.listItem!(node, parent, state, info);
       // An authored uppercase task marker stays uppercase (R-FMT-14).
-      return styleOf(node)?.marker === "X" ? written.replace(/^(\s*(?:\d{1,9}[.)]|[-+*])\s+)\[x\]/, "$1[X]") : written;
+      return styleOf(node)?.marker === UPPERCASE_CHECK ? written.replace(/^(\s*(?:\d{1,9}[.)]|[-+*])\s+)\[x\]/, `$1[${UPPERCASE_CHECK}]`) : written;
     },
     heading: (node, parent, state, info) => withOption(
       state, "setext", literal ? styleOf(node)?.setext : undefined, () => stock.heading!(node, parent, state, info),
@@ -196,6 +200,7 @@ function latticeHandlers(mode: SerializeMode, stock: Record<string, Handle>): Re
       return `==${state.containerPhrasing(node as Parameters<State["containerPhrasing"]>[0], { ...info, before: "=", after: "=" })}==`;
     },
     latticeUnderline(node, _parent, state, info) {
+      // eslint-disable-next-line lingui/no-unlocalized-strings -- HTML markup written into the document
       return `<u>${state.containerPhrasing(node as Parameters<State["containerPhrasing"]>[0], { ...info, before: ">", after: "<" })}</u>`;
     },
     // Verbatim inline source. Unlike `html`, a line break before it stays a
