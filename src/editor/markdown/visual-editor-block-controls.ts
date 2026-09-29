@@ -6,10 +6,13 @@
  * Licensed under GPL-3.0-or-later.
  */
 import { offset } from "@floating-ui/dom";
+import type { MessageDescriptor } from "@lingui/core";
+import { msg } from "@lingui/core/macro";
 import { Extension, type Editor } from "@tiptap/core";
 import { DragHandlePlugin, normalizeNestedOptions } from "@tiptap/extension-drag-handle";
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 import { NodeSelection, Plugin, TextSelection, type EditorState, type Transaction } from "@tiptap/pm/state";
+import { i18n } from "../../i18n";
 import { element } from "../dom-utils";
 
 type Dispatch = ((transaction: Transaction) => void) | undefined;
@@ -46,38 +49,40 @@ export function restoreVisualViewportWithReveal(
   if (overflow > 0.25) viewport.scrollTop += overflow + INSERTED_BLOCK_BOTTOM_GAP;
 }
 
-const BLOCK_LABELS: Record<string, string> = {
-  blockquote: "quote",
-  codeBlock: "code block",
-  footnoteDefinition: "footnote",
-  heading: "heading",
-  listItem: "list item",
-  paragraph: "paragraph",
-  rawMdxFallback: "source-preserved Markdown",
-  table: "table",
-  thematicBreak: "divider",
+// Whole "Select …" phrases per block kind: the object noun's position differs by locale.
+const BLOCK_LABELS: Record<string, MessageDescriptor> = {
+  blockquote: msg`Select quote`,
+  codeBlock: msg`Select code block`,
+  footnoteDefinition: msg`Select footnote`,
+  heading: msg`Select heading`,
+  listItem: msg`Select list item`,
+  paragraph: msg`Select paragraph`,
+  rawMdxFallback: msg`Select source-preserved Markdown`,
+  table: msg`Select table`,
+  thematicBreak: msg`Select divider`,
 };
-const COMPONENT_LABELS: Record<string, string> = {
-  Math: "display equation",
-  DollarMath: "display equation",
-  MathFence: "display equation",
-  MermaidFence: "Mermaid diagram",
+const COMPONENT_LABELS: Record<string, MessageDescriptor> = {
+  Math: msg`Select display equation`,
+  DollarMath: msg`Select display equation`,
+  MathFence: msg`Select display equation`,
+  MermaidFence: msg`Select Mermaid diagram`,
 };
 
 function blockLabel(node: ProseMirrorNode | null): string {
   if (node?.type.name === "list") {
     const task = node.firstChild?.attrs.checked != null;
-    return `Select ${task ? "task list" : node.attrs.ordered ? "numbered list" : "bullet list"}`;
+    return i18n._(task ? msg`Select task list` : node.attrs.ordered ? msg`Select numbered list` : msg`Select bullet list`);
   }
   const label = node?.type.name === "jsxComponent"
-    ? COMPONENT_LABELS[String(node.attrs.componentName ?? "")] ?? "component"
-    : BLOCK_LABELS[node?.type.name ?? ""] ?? "block";
-  return `Select ${label}`;
+    ? COMPONENT_LABELS[String(node.attrs.componentName ?? "")] ?? msg`Select component`
+    : BLOCK_LABELS[node?.type.name ?? ""] ?? msg`Select block`;
+  return i18n._(label);
 }
 
 /** Images align their controls to the resizable frame, not the wrapper's first line. */
 function imageVisualTopOffset(editor: Editor, node: ProseMirrorNode | null, position: number): number | undefined {
   if (node?.type.name !== "jsxComponent" || position < 0) return undefined;
+  // eslint-disable-next-line lingui/no-unlocalized-strings -- component names
   if (!["img", "CommonMarkImage", "WikiEmbedImage"].includes(String(node.attrs.componentName ?? ""))) return undefined;
   const reference = editor.view.nodeDOM(position);
   if (!(reference instanceof HTMLElement)) return undefined;
@@ -91,21 +96,27 @@ function controlButton(className: string, label: string, iconPaths: string): HTM
   const button = element("button", className);
   button.type = "button";
   button.setAttribute("aria-label", label);
+  // eslint-disable-next-line lingui/no-unlocalized-strings -- SVG markup
   button.innerHTML = `<svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${iconPaths}</svg>`;
   return button;
 }
 
 function createBlockControls() {
-  const container = element("div", "visual-block-controls ok-block-controls");
+  const containerClassName = "visual-block-controls ok-block-controls";
+  const container = element("div", containerClassName);
   container.style.visibility = "hidden";
-  const addButton = controlButton("visual-add-block-button ok-add-block-btn", "Add block below", '<path d="M5 12h14"/><path d="M12 5v14"/>');
+  const addButtonClassName = "visual-add-block-button ok-add-block-btn";
+  const addIconPath = '<path d="M5 12h14"/><path d="M12 5v14"/>';
+  const addButton = controlButton(addButtonClassName, i18n._(msg`Add block below`), addIconPath);
   addButton.addEventListener("mousedown", (event) => {
     event.preventDefault();
     event.stopPropagation();
   });
+  const gripClassName = "visual-drag-grip ok-drag-grip";
   const grip = controlButton(
-    "visual-drag-grip ok-drag-grip",
-    "Select block",
+    gripClassName,
+    i18n._(msg`Select block`),
+    // eslint-disable-next-line lingui/no-unlocalized-strings -- SVG markup
     [5, 12, 19].map((y) => `<circle cx="9" cy="${y}" r="1"/><circle cx="15" cy="${y}" r="1"/>`).join(""),
   );
   grip.setAttribute("tabindex", "-1");

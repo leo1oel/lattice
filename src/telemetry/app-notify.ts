@@ -22,7 +22,9 @@ import {
   type AppLogLevel,
   type AppToastAction,
 } from "./app-log-store";
+import { msg } from "@lingui/core/macro";
 import { toMessage } from "../app-utils";
+import { i18n } from "../i18n";
 
 export type NotifyOptions = {
   detail?: string;
@@ -63,7 +65,8 @@ function notify(level: AppLogLevel, source: string, title: string, options: Acti
   // toast of its own, so it reads just before the notification it belongs to.
   if (copyText && !`${title}\n${detail}`.includes(copyText)) {
     const progress = context && { ...context, phase: "progress" as const, outcome: undefined, duration_ms: undefined };
-    addAppLog({ level, source, title: `${title} — full text`, detail: copyText, context: progress, toast: false });
+    const fullTextTitle = i18n._(msg`${title} — full text`);
+    addAppLog({ level, source, title: fullTextTitle, detail: copyText, context: progress, toast: false });
   }
   const { toast, dedupeKey = toastKey(source, title), detail: _detail, ...toastOptions } = { ...options, copyText };
   return addAppLog({ level, source, title, detail, context, toast, dedupeKey, toastOptions }).id;
@@ -104,15 +107,18 @@ function tagged(id: string, detail?: string): string {
  * The start is a crash breadcrumb; ok/fail raise a toast unless suppressed.
  * Every terminal event carries the initial context, accumulated counts, and
  * elapsed time. Use finish in finally for exits that did not reach ok/fail.
+ * `source` and `action` are translated display text; `operation` is the
+ * stable id recorded in the context (and allowlisted by the safe log export),
+ * so it must not follow the interface language.
  */
-export function logAction(source: string, action: string, detail?: string): ActionLog {
+export function logAction(source: string, action: string, detail?: string, operation = action): ActionLog {
   const id = crypto.randomUUID();
   const started = performance.now();
   let completed = false;
   let metrics: NonNullable<AppLogContext["metrics"]> = {};
   const context = (phase: AppLogContext["phase"]): AppLogContext => ({
     operation_id: id,
-    operation: action,
+    operation,
     phase,
     trigger: detail,
     metrics: { ...metrics },
@@ -136,7 +142,10 @@ export function logAction(source: string, action: string, detail?: string): Acti
       if (completed) return;
       completed = true;
       const level = outcome === "error" ? "error" : outcome === "success" ? "success" : "info";
-      logOnly(level, title ?? `${action} ${outcome}`, tagged(id), terminal(outcome));
+      const outcomeTitle = outcome === "error" ? i18n._(msg`${action} error`)
+        : outcome === "success" ? i18n._(msg`${action} success`)
+          : i18n._(msg`${action} cancelled`);
+      logOnly(level, title ?? outcomeTitle, tagged(id), terminal(outcome));
     },
     note: (message, noteDetail) => { logOnly("info", message, tagged(id, noteDetail), context("progress")); },
     ok: (title, options) => {
@@ -152,11 +161,13 @@ export function logAction(source: string, action: string, detail?: string): Acti
       if (completed) return;
       completed = true;
       const message = toMessage(reason);
-      notify("error", source, `${action} failed`, {
+      const failedTitle = i18n._(msg`${action} failed`);
+      notify("error", source, failedTitle, {
         ...options,
         detail: tagged(id, options?.detail ?? message),
-        copyText: options?.copyText ?? `${action} failed\n${message}`,
+        copyText: options?.copyText ?? `${failedTitle}\n${message}`,
         dedupeKey: options?.dedupeKey ?? outcomeKey,
+      // eslint-disable-next-line lingui/no-unlocalized-strings -- error_type is a JavaScript error class name
       }, { ...terminal("error"), error_type: reason instanceof Error ? reason.name : "Error" });
     },
     clear: () => dismissAppToastByDedupeKey(outcomeKey),

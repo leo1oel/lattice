@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { useLingui } from "@lingui/react/macro";
 import katex from "katex";
 import "katex/dist/katex.min.css";
 import { mathRegionAt } from "./math-region";
@@ -21,6 +22,7 @@ export function MathPreview(props: {
   cursor: number;
   macros?: Record<string, string>;
 }) {
+  const { t } = useLingui();
   const region = useMemo(() => mathRegionAt(props.source, props.cursor), [props.cursor, props.source]);
   const rendered = useMemo(() => {
     const source = region?.source && forPreview(region.source);
@@ -35,8 +37,8 @@ export function MathPreview(props: {
 
   if (!rendered) return null;
   return (
-    <div className="math-preview" aria-label="Math preview">
-      <small>Math preview</small>
+    <div className="math-preview" aria-label={t`Math preview`}>
+      <small>{t`Math preview`}</small>
       {rendered.error
         ? <InlineMessage level="error">{rendered.error}</InlineMessage>
         : <div className="math-preview-body" dangerouslySetInnerHTML={{ __html: rendered.html }} />}

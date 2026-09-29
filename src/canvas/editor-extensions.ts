@@ -31,6 +31,7 @@ export function useTextLanguageExtensions(path: string): Extension[] {
   return loaded.path === path ? loaded.extensions : immediateTextLanguageExtensions(path);
 }
 
+// eslint-disable-next-line lingui/no-unlocalized-strings -- module specifier
 type VimGetCM = typeof import("@replit/codemirror-vim").getCM;
 
 function readVimMode(cm: ReturnType<VimGetCM>): string {

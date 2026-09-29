@@ -24,8 +24,8 @@
  */
 
 import { PREVIEW_EMBED_STARTERS, type PreviewEmbedStarter } from '@ok-core';
-import { t } from '@ok-app/shims/lingui-core-macro';
-import { Trans } from '@ok-app/shims/lingui-react-macro';
+import { t } from '@lingui/core/macro';
+import { Trans } from '@lingui/react/macro';
 import { BarChart3, Code, LayoutGrid, Shapes, SlidersHorizontal } from 'lucide-react';
 import type { ReactNode } from 'react';
 import type { SlashCommandContext, SlashCommandItem } from './items';
@@ -85,12 +85,12 @@ const STARTER_UI: Record<PreviewEmbedStarter['id'], StarterUi> = {
     render: () => (
       <div className="flex gap-2">
         <div className="flex-1 rounded-md border border-border bg-card p-2">
-          <div className="text-[10px] text-muted-foreground">Users</div>
+          <div className="text-[10px] text-muted-foreground"><Trans>Users</Trans></div>
           <div className="text-sm font-bold text-card-foreground">12.4k</div>
           <div className="text-[10px] font-semibold text-chart-2">+8.2%</div>
         </div>
         <div className="flex-1 rounded-md border border-border bg-card p-2">
-          <div className="text-[10px] text-muted-foreground">Revenue</div>
+          <div className="text-[10px] text-muted-foreground"><Trans>Revenue</Trans></div>
           <div className="text-sm font-bold text-card-foreground">$48k</div>
           <div className="text-[10px] font-semibold text-chart-1">+3.1%</div>
         </div>
@@ -138,7 +138,7 @@ const STARTER_UI: Record<PreviewEmbedStarter['id'], StarterUi> = {
           <div className="absolute inset-y-0 left-0 w-1/3 rounded-full bg-primary" />
           <div className="-translate-x-1/2 -translate-y-1/2 absolute top-1/2 left-1/3 size-3 rounded-full bg-primary" />
         </div>
-        <div className="text-[10px] text-muted-foreground">Drag to adjust</div>
+        <div className="text-[10px] text-muted-foreground"><Trans>Drag to adjust</Trans></div>
       </div>
     ),
   },

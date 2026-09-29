@@ -1,12 +1,12 @@
 //! One latexmk build per project at a time, abortable from the UI.
 
 use super::build_log::{
-    diagnostic, is_stale_previous_invocation_log, log_loads_conference_template, parse_diagnostics,
+    advice, is_stale_previous_invocation_log, log_loads_conference_template, parse_diagnostics,
     skipped_recompile, trim_log,
 };
 use super::{default_root_document, prewarm, synctex_missing};
 use crate::commands;
-use crate::models::BuildResult;
+use crate::models::{BuildResult, Diagnostic};
 use crate::{pdf_fonts, project};
 use std::fs;
 use std::path::Path;
@@ -206,10 +206,11 @@ fn run_latexmk(
         None
     };
     let mut diagnostics = parse_diagnostics(&log);
-    if let Some(warning) =
+    if let Some(mut warning) =
         pdf_bytes.as_deref().filter(|_| success).and_then(|pdf| font_warning(pdf, &log))
     {
-        diagnostics.push(diagnostic(Some(document.path.clone()), None, "warning", warning));
+        warning.file = Some(document.path.clone());
+        diagnostics.push(warning);
     }
     Ok(BuildResult {
         success,
@@ -228,7 +229,7 @@ fn run_latexmk(
 /// that loaded a conference template — the expectation ("this should be
 /// Times") comes from those templates, not from the project, so a plain
 /// `article` asking for `lmodern` in a NeurIPS-created project is left alone.
-fn font_warning(pdf: &[u8], log: &str) -> Option<String> {
+fn font_warning(pdf: &[u8], log: &str) -> Option<Diagnostic> {
     if !log_loads_conference_template(log) {
         return None;
     }
@@ -236,14 +237,21 @@ fn font_warning(pdf: &[u8], log: &str) -> Option<String> {
     if !report.conclusive || report.ok_for_conference {
         return None;
     }
-    Some(if skipped_recompile(log) {
+    let code = report.problem?;
+    let up_to_date = skipped_recompile(log);
+    let message = if up_to_date {
         format!(
             "{} — latexmk did not recompile (Nothing to do / up-to-date). Hold Shift and click Build to force a rebuild with the installed Times fonts.",
             report.detail
         )
     } else {
         report.detail
-    })
+    };
+    let mut params = vec![("fonts", report.fonts.as_str())];
+    if up_to_date {
+        params.push(("upToDate", "true"));
+    }
+    Some(advice("warning", code, &params, message))
 }
 
 /// Someone stopped this build. Keep what latexmk had already written: a build
@@ -253,14 +261,12 @@ pub(super) fn cancelled_build(
     started: Instant, partial_log: &str, root_document: &str,
 ) -> BuildResult {
     let elapsed = started.elapsed();
-    let message = format!(
-        "Build stopped after {:.1}s. The log below is how far it got.",
-        elapsed.as_secs_f32()
-    );
+    let seconds = format!("{:.1}", elapsed.as_secs_f32());
+    let message = format!("Build stopped after {seconds}s. The log below is how far it got.");
     BuildResult {
         success: false,
         has_pdf: false,
-        diagnostics: vec![diagnostic(None, None, "error", message)],
+        diagnostics: vec![advice("error", "build-cancelled", &[("seconds", &seconds)], message)],
         log: if partial_log.trim().is_empty() {
             "Build cancelled before latexmk produced any output.".to_string()
         } else {

@@ -210,7 +210,7 @@ export function textEditorExtensions(
     }),
     syntaxHighlighting(luxLatexHighlightStyle),
     search({ top: true }),
-    compactSearchPanel,
+    compactSearchPanel(),
     highlightSelectionMatches(),
     tooltips({ tooltipSpace: (view) => citationTooltipSpace(view.dom.getBoundingClientRect()) }),
     ...(spellcheck ? [harperSpellcheck(live)] : []),
@@ -342,6 +342,7 @@ export function latexEditorExtensions(options: LatexEditorOptions): Extension[] 
       { key: "F2", run: symbolCommand(onRenameSymbol) },
       {
         key: "Ctrl-m",
+        // eslint-disable-next-line lingui/no-unlocalized-strings -- CodeMirror key binding
         mac: "Ctrl-m",
         run: (view) => {
           const text = view.state.doc.toString();

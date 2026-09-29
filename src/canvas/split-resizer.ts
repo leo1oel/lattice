@@ -5,7 +5,6 @@ export function setSplitResizerResistance(grip: HTMLElement, overshoot: number) 
   const split = grip.parentElement;
   if (!split) return;
   const offset = Math.sign(overshoot) * 24 * (1 - Math.exp(-Math.abs(overshoot) / 100));
-  // eslint-disable-next-line lingui/no-unlocalized-strings -- a CSS custom property name, not user-facing text.
   split.style.setProperty("--split-resizer-offset", `${offset}px`);
 }
 

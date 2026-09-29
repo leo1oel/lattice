@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useLingui } from "@lingui/react/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { ChevronDown, ChevronUp, CircleAlert, CircleHelp, LoaderCircle, Square, WandSparkles, ScrollText } from "lucide-react";
 import { CopyButton } from "../components/copy-button";
 import { Button } from "../components/ui/button";
@@ -15,13 +15,13 @@ import {
 } from "./compile-diagnostics";
 import { SlidingTabs } from "../components/ui/motion";
 import type { CompileRepairState } from "./use-compile-repair";
+import { compileDiagnosticText } from "./build-log-messages";
+import { compileRepairMessage } from "./compile-repair-messages";
 
 function SeverityIcon({ level }: { level: string }) {
   // Errors and warnings share the glyph; the status colour carries severity.
   return diagnosticSeverity(level) === "info" ? <CircleHelp size={15} /> : <CircleAlert size={15} />;
 }
-
-const SUMMARY_NOUNS = [["error", "error"], ["warning", "warning"], ["info", "note"]] as const;
 
 export function CompileDiagnosticsPanel(props: {
   diagnostics: CompileDiagnostic[];
@@ -42,18 +42,24 @@ export function CompileDiagnosticsPanel(props: {
   const diagnostics = sortDiagnostics(props.diagnostics);
   const summary = summarizeDiagnostics(diagnostics);
   const tone = summary.error > 0 || !props.success ? "error" : summary.warning > 0 ? "warning" : "info";
-  const parts = SUMMARY_NOUNS.filter(([severity]) => summary[severity])
-    .map(([severity, noun]) => `${summary[severity]} ${noun}${summary[severity] === 1 ? "" : "s"}`);
+  const errors = summary.error;
+  const warnings = summary.warning;
+  const notes = summary.info;
+  const parts = [
+    errors ? errors === 1 ? t`${errors} error` : t`${errors} errors` : "",
+    warnings ? warnings === 1 ? t`${warnings} warning` : t`${warnings} warnings` : "",
+    notes ? notes === 1 ? t`${notes} note` : t`${notes} notes` : "",
+  ].filter(Boolean);
   const hasLog = Boolean(props.log.trim());
   const [tab, setTab] = useState<"diagnostics" | "log">(diagnostics.length ? "diagnostics" : "log");
   if (props.success && !diagnostics.length && !props.repair) return null;
-  const title = parts.join(" · ") || (props.success ? "Build notes" : "Build failed");
+  const title = parts.join(" · ") || (props.success ? t`Build notes` : t`Build failed`);
   const busy = props.repair && !["completed", "failed"].includes(props.repair.status);
   const progress = props.repair?.status === "compiling" ? t`Recompiling…`
     : props.repair?.status === "awaiting-approval" ? t`Needs approval` : t`Repairing…`;
 
   return (
-    <section className={`compile-diagnostics ${tone}`} aria-label="Compile diagnostics">
+    <section className={`compile-diagnostics ${tone}`} aria-label={t`Compile diagnostics`}>
       <div className="compile-diagnostics-bar">
         <button className="compile-diagnostics-toggle" aria-expanded={props.expanded} onClick={() => props.onExpandedChange(!props.expanded)}>
           <SeverityIcon level={tone} />
@@ -74,10 +80,10 @@ export function CompileDiagnosticsPanel(props: {
             <WandSparkles size={13} />{t`Fix all`}
           </Button>
         )}
-        <CloseButton label="Dismiss diagnostics" size="compact" onClick={props.onDismiss} />
+        <CloseButton label={t`Dismiss diagnostics`} size="compact" onClick={props.onDismiss} />
       </div>
       {(props.repair?.message || props.repair?.status === "awaiting-approval") && (
-        <p className="compile-repair-detail" role="status">{props.repair.message ?? t`Open the repair task to continue.`}</p>
+        <p className="compile-repair-detail" role="status">{props.repair.message ? compileRepairMessage(props.repair.message) : t`Open the repair task to continue.`}</p>
       )}
       {props.expanded && (
         <div className="compile-diagnostics-body">
@@ -85,11 +91,11 @@ export function CompileDiagnosticsPanel(props: {
             <SlidingTabs
               value={tab}
               onChange={(next) => setTab(next as "diagnostics" | "log")}
-              ariaLabel="Build output"
+              ariaLabel={t`Build output`}
               className="compile-diagnostics-tabs"
               items={[
-                { value: "diagnostics", label: "Messages" },
-                { value: "log", label: <><ScrollText size={12} /> Log</> },
+                { value: "diagnostics", label: t`Messages` },
+                { value: "log", label: <><ScrollText size={12} /> <Trans>Log</Trans></> },
               ]}
             />
           )}
@@ -106,22 +112,22 @@ export function CompileDiagnosticsPanel(props: {
                       className={`compile-diagnostic-item ${severity}`}
                       disabled={!navigable}
                       onClick={() => props.onSelect(diagnostic)}
-                      title={navigable ? "Jump to this location" : diagnostic.message}
+                      title={navigable ? t`Jump to this location` : compileDiagnosticText(diagnostic)}
                     >
                       <SeverityIcon level={diagnostic.level} />
                       <span className="compile-diagnostic-location">{location}</span>
-                      <span className="compile-diagnostic-message">{diagnostic.message}</span>
+                      <span className="compile-diagnostic-message">{compileDiagnosticText(diagnostic)}</span>
                     </button>
                     {missingFile && (
-                      <Button variant="ghost" size="compact" title={`Find and install the TeX Live package for ${missingFile}`}
+                      <Button variant="ghost" size="compact" title={t`Find and install the TeX Live package for ${missingFile}`}
                         onClick={() => props.onInstallDependency(missingFile)}>
-                        Install
+                        <Trans>Install</Trans>
                       </Button>
                     )}
                     <CopyButton
                       className="compile-diagnostic-copy"
-                      aria-label="Copy error message"
-                      title="Copy error message"
+                      aria-label={t`Copy error message`}
+                      title={t`Copy error message`}
                       iconSize={12}
                       text={`${location} ${diagnostic.message}`}
                     />
@@ -138,7 +144,7 @@ export function CompileDiagnosticsPanel(props: {
           {(tab === "log" || !diagnostics.length) && hasLog && (
             <textarea
               className="compile-log"
-              aria-label="Raw build log"
+              aria-label={t`Raw build log`}
               readOnly
               spellCheck={false}
               value={props.log}
@@ -154,7 +160,7 @@ export function CompileDiagnosticsPanel(props: {
             />
           )}
           {!props.success && !diagnostics.length && !hasLog && (
-            <EmptyState align="start" density="compact" description="Build failed without a captured log" />
+            <EmptyState align="start" density="compact" description={t`Build failed without a captured log`} />
           )}
         </div>
       )}

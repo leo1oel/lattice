@@ -90,7 +90,8 @@ export function appendBibEntry(existing: string, entry: string): string {
   const keys = bibEntryKeys(entry);
   if (keys.length !== 1) throw new Error(i18n._(msg`Add exactly one bibliography entry at a time.`));
   if (bibEntryKeys(existing).some((key) => key.toLowerCase() === keys[0].toLowerCase())) {
-    throw new Error(`Citation key '${keys[0]}' already exists. Choose a different key or edit the existing reference.`);
+    const key = keys[0];
+    throw new Error(i18n._(msg`Citation key ''${key}'' already exists. Choose a different key or edit the existing reference.`));
   }
   const trimmed = existing.replace(/\s*$/, "");
   const terminated = entry.endsWith("\n") ? entry : `${entry}\n`;

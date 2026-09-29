@@ -1,3 +1,4 @@
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useState } from "react";
 import { MotionButton, PopIn } from "../components/ui/motion";
 import { Button } from "../components/ui/button";
@@ -19,6 +20,8 @@ export function GotoLineDialog(props: GotoLineDialogProps) {
 }
 
 function GotoLineDialogForm(props: GotoLineDialogProps) {
+  const { t } = useLingui();
+  const maxLine = props.maxLine;
   const [value, setValue] = useState(String(props.line));
   const submit = () => {
     const line = Number(value);
@@ -27,16 +30,16 @@ function GotoLineDialogForm(props: GotoLineDialogProps) {
   };
 
   return (
-    <ModalDialog label="Go to line" onClose={props.onClose}>
+    <ModalDialog label={t`Go to line`} onClose={props.onClose}>
       <PopIn className="modal goto-line-modal">
-        <h2>Go to line</h2>
-        <p>Enter a line between 1 and {props.maxLine}</p>
+        <h2><Trans>Go to line</Trans></h2>
+        <p>{t`Enter a line between 1 and ${maxLine}`}</p>
         <label>
-          Line
+          <Trans>Line</Trans>
           <Input
             controlSize="form"
             autoFocus
-            aria-label="Line number"
+            aria-label={t`Line number`}
             value={value}
             onChange={(event) => setValue(event.target.value)}
             onKeyDown={(event) => {
@@ -45,8 +48,8 @@ function GotoLineDialogForm(props: GotoLineDialogProps) {
           />
         </label>
         <div className="modal-actions">
-          <Button variant="ghost" onClick={props.onClose}>Cancel</Button>
-          <MotionButton type="button" className={buttonClassName({ variant: "primary" })} onClick={submit}>Go</MotionButton>
+          <Button variant="ghost" onClick={props.onClose}><Trans>Cancel</Trans></Button>
+          <MotionButton type="button" className={buttonClassName({ variant: "primary" })} onClick={submit}><Trans>Go</Trans></MotionButton>
         </div>
       </PopIn>
     </ModalDialog>

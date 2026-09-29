@@ -1,3 +1,5 @@
+/* eslint lingui/no-unlocalized-strings: "off" -- Protocol keys and Agent tool errors/results are never rendered by Lattice UI. */
+
 import type * as Y from "yjs";
 import {
   applySpreadsheetBatch,

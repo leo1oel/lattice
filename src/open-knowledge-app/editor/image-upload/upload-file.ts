@@ -8,6 +8,7 @@
  * admission via `ASSET_EXTENSIONS`), with magic-byte sniffing + path-escape
  * + symlink-realpath as the security boundary.
  */
+import { t } from '@lingui/core/macro';
 import { ProblemDetailsSchema, UploadAssetSuccessSchema } from '@ok-core';
 import { HttpResponseParseError } from '../http-client.ts';
 import { getCurrentDocName } from './current-doc-name.ts';
@@ -52,7 +53,7 @@ export async function uploadFile(
 
   const docName = deps.docName !== undefined ? deps.docName : getCurrentDocName();
   if (!docName) {
-    throw new Error('No document is open');
+    throw new Error(t`No document is open`);
   }
   // Send the bare docName (extension-less per OK's server convention). The
   // server only uses `dirname(parentDocName)` to derive the upload directory,

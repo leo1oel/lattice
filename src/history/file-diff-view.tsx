@@ -16,6 +16,7 @@ export function FileDiffView(props: {
   onOpenLine?: (path: string, line: number) => void;
 }) {
   const { after, before, path } = props.change;
+  const { t } = useLingui();
   const resources = usePierreResources(path);
   const fileDiff = useMemo(
     () => pierreFileDiff({ path, before, after }, resources.language),
@@ -23,16 +24,17 @@ export function FileDiffView(props: {
   );
 
   if (before === after) {
-    return <p className="lattice-file-diff-empty">No textual changes</p>;
+    return <p className="lattice-file-diff-empty">{t`No textual changes`}</p>;
   }
   if ((before == null && after === "") || (after == null && before === "")) {
-    return <p className="lattice-file-diff-empty">Empty file {before == null ? "added" : "deleted"}</p>;
+    return <p className="lattice-file-diff-empty">{before == null ? t`Empty file added` : t`Empty file deleted`}</p>;
   }
   if (resources.error) {
-    return <InlineMessage level="error" className="lattice-file-diff-inline">Could not render this diff: {resources.error.message}</InlineMessage>;
+    const errorMessage = resources.error.message;
+    return <InlineMessage level="error" className="lattice-file-diff-inline">{t`Could not render this diff: ${errorMessage}`}</InlineMessage>;
   }
   if (!resources.ready) {
-    return <p className="lattice-file-diff-loading" role="status"><InfinityLoader size={12} /> Rendering diff…</p>;
+    return <p className="lattice-file-diff-loading" role="status"><InfinityLoader size={12} /> {t`Rendering diff…`}</p>;
   }
 
   return (

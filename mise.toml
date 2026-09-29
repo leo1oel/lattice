@@ -32,6 +32,7 @@ sources = [
   "src/locales/**/*.po",
   "scripts/check-i18n-coverage.mjs",
   "scripts/i18n-unlocalized-baseline.txt",
+  "eslint.config.js",
 ]
 
 [tasks.lint]

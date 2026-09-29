@@ -1,4 +1,6 @@
 import type { Diagnostic } from "@codemirror/lint";
+import { msg } from "@lingui/core/macro";
+import { i18n } from "../../i18n";
 
 export type MathRegion = {
   from: number;
@@ -11,6 +13,7 @@ export type MathRegion = {
 
 type Delimiter = [open: string, close: string, display: boolean];
 
+// eslint-disable-next-line lingui/no-unlocalized-strings -- LaTeX environment names
 const ENVIRONMENTS = ["equation", "equation*", "align", "align*", "gather", "gather*", "multline", "multline*"];
 
 /** Search order matters: `$$` before `$`, and every other form before a bare `$`. */
@@ -56,7 +59,6 @@ export function matchingMathDelimiter(text: string, position: number): { from: n
 /** Flag unclosed $, $$, \\(, \\[ delimiters. Math environments are handled by structure lint. */
 export function unclosedMathDiagnostics(text: string): Diagnostic[] {
   return DELIMITERS.filter(([open]) => !open.startsWith("\\begin")).flatMap(([open, close, display]): Diagnostic[] => {
-    const label = `${display ? "display" : "inline"} math ${open}`;
     for (let start = text.indexOf(open); start >= 0;) {
       // Avoid matching single $ inside $$ when scanning for $.
       if (open === "$" && text.startsWith("$$", start)) {
@@ -65,7 +67,8 @@ export function unclosedMathDiagnostics(text: string): Diagnostic[] {
       }
       const end = text.indexOf(close, start + open.length);
       if (end < 0) {
-        return [{ from: start, to: start + open.length, severity: "error", message: `Unclosed ${label}.`, source: "math" }];
+        const message = display ? i18n._(msg`Unclosed display math ${open}.`) : i18n._(msg`Unclosed inline math ${open}.`);
+        return [{ from: start, to: start + open.length, severity: "error", message, source: i18n._(msg`math`) }];
       }
       start = text.indexOf(open, end + close.length);
     }

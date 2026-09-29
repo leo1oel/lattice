@@ -7,6 +7,7 @@ import { InlineMessage } from "../components/ui/inline-message";
 import { SettingsSectionHeader } from "../components/ui/settings-section-header";
 import { SettingsGroup } from "../components/ui/settings-row";
 import type { DoctorReport } from "../app-types";
+import { doctorCheckDetail, doctorCheckLabel } from "../build/tex-doctor-messages";
 
 export type DoctorSettingsProps = {
   doctorReport: DoctorReport | null;
@@ -43,9 +44,9 @@ export function DoctorSettings(props: DoctorSettingsProps) {
               {report.checks.map((check) => (
                 <li key={check.name} className={check.ok ? "ok" : "bad"}>
                   {check.ok ? <CheckCircle2 aria-hidden="true" /> : <CircleX aria-hidden="true" />}
-                  <strong>{check.name}</strong>
+                  <strong>{doctorCheckLabel(check.name)}</strong>
                   <span className="doctor-check-result">{check.ok ? t`Ready to compile` : t`Unavailable`}</span>
-                  {!check.ok && <span className="doctor-check-detail">{check.detail}</span>}
+                  {!check.ok && <span className="doctor-check-detail">{doctorCheckDetail(check)}</span>}
                 </li>
               ))}
             </ul>

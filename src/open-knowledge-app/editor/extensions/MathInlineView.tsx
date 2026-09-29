@@ -34,7 +34,7 @@
  */
 
 import { incrementJsxRenderFailure } from '@ok-core';
-import { Trans } from '@ok-app/shims/lingui-react-macro';
+import { Trans } from '@lingui/react/macro';
 import type { NodeViewProps } from '@tiptap/core';
 import { NodeSelection, TextSelection } from '@tiptap/pm/state';
 import { NodeViewWrapper } from '@tiptap/react';

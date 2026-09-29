@@ -1,5 +1,7 @@
+/* eslint-disable lingui/no-unlocalized-strings -- bridge protocol keys shared with Tauri and the native host */
 const IPC_SERIALIZE_KEY = "__TAURI_TO_IPC_KEY__";
 const BINARY_MARKER = "__latticeBridgeBinary";
+/* eslint-enable lingui/no-unlocalized-strings */
 const LOCAL_EVENT_START = -1;
 
 type Callback = (payload: unknown) => void;
@@ -111,10 +113,10 @@ export class BrowserRelay {
     this.socket = new WebSocket(socketUrl);
     this.socket.addEventListener("message", (event) => this.receive(event));
     this.socket.addEventListener("close", () => {
-      this.disconnect(new Error("The local Lattice app disconnected."));
+      this.disconnect(new Error(runtimeMessage("app-disconnected")));
     });
     this.socket.addEventListener("error", () => {
-      this.disconnect(new Error("Could not connect to the local Lattice app."));
+      this.disconnect(new Error(runtimeMessage("connect-failed")));
     });
     window.addEventListener("pagehide", () => {
       this.pageLeaving = true;
@@ -123,7 +125,7 @@ export class BrowserRelay {
     window.addEventListener("pageshow", (event) => {
       this.pageLeaving = false;
       if (event.persisted && this.socket.readyState !== WebSocket.OPEN) {
-        this.disconnect(new Error("The local Lattice app disconnected."));
+        this.disconnect(new Error(runtimeMessage("app-disconnected")));
       }
     });
     window.setTimeout(() => {
@@ -289,11 +291,31 @@ export class BrowserRelay {
 }
 
 // Shown before a saved locale is loaded (or after the app has gone), so these
-// bootstrap messages carry their own English and Chinese text.
+// bootstrap messages carry their own English and Chinese text: the saved
+// interface language lives in localStorage, which the native host mirrors
+// into this page only once the bridge connects, and Lingui is activated after
+// that. They are read at call time, so a live page follows the saved setting.
+/* eslint-disable lingui/no-unlocalized-strings -- self-translated bootstrap text, see above */
 const RUNTIME_MESSAGES = {
   "app-disconnected": [
     "The local Lattice app disconnected.",
     "与本地 Lattice 应用的连接已断开。",
+  ],
+  "connect-failed": [
+    "Could not connect to the local Lattice app.",
+    "无法连接到本地 Lattice 应用。",
+  ],
+  "entry-status": [
+    "The local Lattice entry returned {status}.",
+    "本地 Lattice 入口返回了 {status}。",
+  ],
+  "entry-invalid-session": [
+    "The local Lattice entry returned an invalid session.",
+    "本地 Lattice 入口返回了无效的会话。",
+  ],
+  "open-from-app": [
+    "Open this page from the installed Lattice app to use its local tools.",
+    "请从已安装的 Lattice 应用中打开此页面，以使用其本地工具。",
   ],
   "handoff-timeout": [
     "The local Lattice app did not finish the browser handoff.",
@@ -312,8 +334,9 @@ const RUNTIME_MESSAGES = {
     "此工作区现已在 Lattice 桌面应用中打开。如果此标签页没有自动关闭，你可以手动关闭它。",
   ],
 } satisfies Record<string, [english: string, chinese: string]>;
+/* eslint-enable lingui/no-unlocalized-strings */
 
-function runtimeMessage(message: keyof typeof RUNTIME_MESSAGES): string {
+function runtimeMessage(message: keyof typeof RUNTIME_MESSAGES, values: Record<string, string> = {}): string {
   let configuredLanguage: unknown;
   try {
     configuredLanguage = (JSON.parse(localStorage.getItem(APPEARANCE_KEY) ?? "{}") as {
@@ -326,7 +349,8 @@ function runtimeMessage(message: keyof typeof RUNTIME_MESSAGES): string {
   const chinese = configuredLanguage === "en" || configuredLanguage === "zh-CN"
     ? configuredLanguage === "zh-CN"
     : navigator.languages[0]?.toLocaleLowerCase().startsWith("zh");
-  return RUNTIME_MESSAGES[message][chinese ? 1 : 0];
+  return RUNTIME_MESSAGES[message][chinese ? 1 : 0]
+    .replace(/\{(\w+)\}/g, (placeholder, name: string) => values[name] ?? placeholder);
 }
 
 function showRuntimeFailure(reason: Error): void {
@@ -334,7 +358,8 @@ function showRuntimeFailure(reason: Error): void {
   const overlay = document.createElement("div");
   overlay.id = "lattice-browser-runtime-error";
   overlay.setAttribute("role", "alert");
-  overlay.style.cssText = "position:fixed;inset:0;z-index:2147483647;display:grid;place-items:center;padding:var(--space-16);font:var(--font-ui-body) system-ui;color:CanvasText;background:Canvas";
+  const overlayStyle = "position:fixed;inset:0;z-index:2147483647;display:grid;place-items:center;padding:var(--space-16);font:var(--font-ui-body) system-ui;color:CanvasText;background:Canvas";
+  overlay.style.cssText = overlayStyle;
   overlay.textContent = reason.message;
   document.body.append(overlay);
 }
@@ -369,6 +394,7 @@ export class BrowserEventRegistry {
     if (desktop && dragEvent) {
       return this.subscribe(event, callbackId, dragEvent, true, (raw, emit) => {
         const drag = raw as DragEvent;
+        // eslint-disable-next-line lingui/no-unlocalized-strings -- DataTransfer type for OS file drags
         if (!drag.dataTransfer?.types.includes("Files")) return;
         // Internal tree drags use text data. Only consume OS file drops, and
         // prevent Chromium from navigating to the dropped file. Capture runs
@@ -501,6 +527,7 @@ function mirrorLocalStorage(relay: BrowserRelay): void {
 }
 
 // Window commands the page answers itself. Anything else goes to the native host.
+/* eslint-disable lingui/no-unlocalized-strings -- Tauri command names */
 const ignored = () => undefined;
 const LOCAL_COMMANDS = new Map<string, (payload: { value?: unknown }) => unknown>([
   ["set_window_background", ignored],
@@ -532,6 +559,7 @@ const BROWSER_DIALOG_COMMANDS = new Map([
   ["plugin:dialog|open", "browser_dialog_open"],
   ["plugin:dialog|save", "browser_dialog_save"],
 ]);
+/* eslint-enable lingui/no-unlocalized-strings */
 
 function validBrowserConfig(
   token: string | null,
@@ -581,7 +609,7 @@ async function requestBrowserSession(
   if (resumeToken) endpoint.searchParams.set("token", resumeToken);
   const response = await fetch(endpoint, { cache: "no-store", mode: "cors" });
   if (!response.ok) {
-    throw new Error(`The local Lattice entry returned ${response.status}.`);
+    throw new Error(runtimeMessage("entry-status", { status: String(response.status) }));
   }
   const value = await response.json() as Partial<BrowserRuntimeConfig>;
   const config = validBrowserConfig(
@@ -589,7 +617,7 @@ async function requestBrowserSession(
     Number(value.bridgePort),
     typeof value.label === "string" ? value.label : null,
   );
-  if (!config) throw new Error("The local Lattice entry returned an invalid session.");
+  if (!config) throw new Error(runtimeMessage("entry-invalid-session"));
   persistBrowserConfig(config);
   return config;
 }
@@ -605,7 +633,7 @@ async function initializeBrowserRuntime(): Promise<void> {
     && window.location.port === "18452";
   const developmentEntry = new URLSearchParams(window.location.search).get("latticeBrowser") === "1";
   if (!stored && !fixedEntry && !developmentEntry) {
-    runtimeError = "Open this page from the installed Lattice app to use its local tools.";
+    runtimeError = runtimeMessage("open-from-app");
     return;
   }
   const config = await requestBrowserSession(stored?.bridgePort ?? 18_452, stored?.token);

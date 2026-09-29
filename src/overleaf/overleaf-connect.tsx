@@ -109,12 +109,12 @@ function useOverleafLogin(onConnected: (session: OverleafStatus) => void) {
     setNotice(null);
     setHint(null);
     attempts.current = 0;
-    void invoke("overleaf_begin_login").then(() => {
+    void invoke("overleaf_begin_login", { title: t`Sign in to Overleaf` }).then(() => {
       active.current = true;
       setPending(true);
       void poll();
     }, (reason) => setError(toMessage(reason)));
-  }, [poll]);
+  }, [poll, t]);
 
   return { pending, error, notice, hint, begin, cancel };
 }
@@ -347,6 +347,7 @@ Lattice will no longer be able to list your Overleaf projects, sync linked proje
 
   return (
     <div className="settings-section">
+      {/* eslint-disable-next-line no-restricted-syntax -- product name */}
       <SettingsSectionHeader title="Overleaf" description={t`Open and sync Overleaf projects in Lattice`} />
       <SettingsGroup title={t`Connection`}>
         {loading && !loadError && (

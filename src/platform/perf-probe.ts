@@ -39,6 +39,7 @@ function quantile(samples: Samples, q: number): number {
 }
 
 function percentiles(samples: Samples): string {
+  // eslint-disable-next-line lingui/no-unlocalized-strings -- dev-only perf console output
   return `p50 ${quantile(samples, 0.5).toFixed(1)}ms p95 ${quantile(samples, 0.95).toFixed(1)}ms (n=${samples.length})`;
 }
 

@@ -1,5 +1,6 @@
 import { forwardRef, type ComponentPropsWithoutRef, type ReactNode } from "react";
 import { Search, X } from "lucide-react";
+import { useLingui } from "@lingui/react/macro";
 import { cn } from "@/lib/utils";
 import "./search-field.css";
 
@@ -16,7 +17,7 @@ export const SearchField = forwardRef<HTMLInputElement, SearchFieldProps>(
   function SearchField(
     {
       className,
-      clearLabel = "Clear search",
+      clearLabel,
       containerClassName,
       controlSize = "default",
       disabled,
@@ -30,6 +31,8 @@ export const SearchField = forwardRef<HTMLInputElement, SearchFieldProps>(
     },
     ref,
   ) {
+    const { t } = useLingui();
+    const resolvedClearLabel = clearLabel ?? t`Clear search`;
     const hasValue = value !== undefined && value !== null && String(value).length > 0;
 
     return (
@@ -55,8 +58,8 @@ export const SearchField = forwardRef<HTMLInputElement, SearchFieldProps>(
             type="button"
             className="ui-search-field-clear"
             data-hit-area
-            aria-label={clearLabel}
-            title={clearLabel}
+            aria-label={resolvedClearLabel}
+            title={resolvedClearLabel}
             onMouseDown={(event) => event.preventDefault()}
             onClick={onClear}
           >

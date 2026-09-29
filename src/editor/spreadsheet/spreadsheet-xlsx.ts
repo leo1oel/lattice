@@ -35,6 +35,7 @@ function color(value: unknown): Partial<ExcelJS.Color> | undefined {
   const hex = rgb.match(/^#([\da-f]{3}|[\da-f]{6}|[\da-f]{8})$/i)?.[1];
   if (hex) {
     const expanded = hex.length === 3 ? [...hex].map((part) => part + part).join("") : hex;
+    // eslint-disable-next-line lingui/no-unlocalized-strings -- ARGB hex value
     return { argb: expanded.length === 8 ? expanded.toUpperCase() : `FF${expanded.toUpperCase()}` };
   }
   const channels = rgb.match(/^rgba?\(\s*(\d+(?:\.\d+)?)\s*,\s*(\d+(?:\.\d+)?)\s*,\s*(\d+(?:\.\d+)?)(?:\s*,\s*(\d*(?:\.\d+)?))?\s*\)$/i);

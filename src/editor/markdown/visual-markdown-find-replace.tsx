@@ -1,3 +1,6 @@
+import type { MessageDescriptor } from "@lingui/core";
+import { msg } from "@lingui/core/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useCallback, useEffect, useId, useRef, useState, type RefObject } from "react";
 import type { Editor } from "@tiptap/react";
 import { CaseSensitive, ChevronDown, ChevronUp, Replace, ReplaceAll, WholeWord, X } from "lucide-react";
@@ -13,7 +16,10 @@ function liveCommands(editor: Editor): Editor["commands"] | null {
 const selectMatch = (editor: Editor, previous: boolean) =>
   previous ? liveCommands(editor)?.selectPreviousFindMatch() : liveCommands(editor)?.selectNextFindMatch();
 
-const FIND_OPTIONS = [["caseSensitive", "Match case", CaseSensitive], ["wholeWord", "Whole word", WholeWord]] as const;
+const FIND_OPTIONS: ReadonlyArray<readonly ["caseSensitive" | "wholeWord", MessageDescriptor, typeof CaseSensitive]> = [
+  ["caseSensitive", msg`Match case`, CaseSensitive],
+  ["wholeWord", msg`Whole word`, WholeWord],
+];
 
 function selectedSingleLineText(editor: Editor): string {
   const { from, to, empty } = editor.state.selection;
@@ -31,6 +37,7 @@ export function VisualMarkdownFindReplace({
   editable: boolean;
   editorRoot: RefObject<HTMLElement | null>;
 }) {
+  const { i18n, t } = useLingui();
   const inputId = useId();
   const [open, setOpen] = useState(false);
   const [replaceOpen, setReplaceOpen] = useState(false);
@@ -89,18 +96,19 @@ export function VisualMarkdownFindReplace({
 
   if (!open) return null;
   const count = snapshot.matches.length;
-  const resultLabel = count ? `${snapshot.activeIndex + 1} of ${count}` : snapshot.query ? "No matches" : "0 matches";
+  const current = snapshot.activeIndex + 1;
+  const resultLabel = count ? t`${current} of ${count}` : snapshot.query ? t`No matches` : t`0 matches`;
 
   return (
     <div className="visual-find-anchor">
-      <div className="visual-find-panel" role="search" aria-label="Find in document">
+      <div className="visual-find-panel" role="search" aria-label={t`Find in document`}>
         <div className="visual-find-row">
-          <label className="sr-only" htmlFor={`${inputId}-find`}>Find</label>
+          <label className="sr-only" htmlFor={`${inputId}-find`}><Trans>Find</Trans></label>
           <input
             id={`${inputId}-find`}
             ref={findInputRef}
             type="search"
-            placeholder="Find"
+            placeholder={t`Find`}
             value={snapshot.query}
             onChange={(event) => liveCommands(editor)?.setFindQuery(event.target.value)}
             onKeyDown={(event) => {
@@ -111,32 +119,32 @@ export function VisualMarkdownFindReplace({
             }}
           />
           <span className="visual-find-count" role="status" aria-live="polite">{resultLabel}</span>
-          <IconButton size="compact" label="Previous match" onClick={() => selectMatch(editor, true)} disabled={!count}><ChevronUp aria-hidden="true" /></IconButton>
-          <IconButton size="compact" label="Next match" onClick={() => selectMatch(editor, false)} disabled={!count}><ChevronDown aria-hidden="true" /></IconButton>
-          <IconButton size="compact" label="Close find" onClick={close}><X aria-hidden="true" /></IconButton>
+          <IconButton size="compact" label={t`Previous match`} onClick={() => selectMatch(editor, true)} disabled={!count}><ChevronUp aria-hidden="true" /></IconButton>
+          <IconButton size="compact" label={t`Next match`} onClick={() => selectMatch(editor, false)} disabled={!count}><ChevronDown aria-hidden="true" /></IconButton>
+          <IconButton size="compact" label={t`Close find`} onClick={close}><X aria-hidden="true" /></IconButton>
         </div>
         <div className="visual-find-options">
           {FIND_OPTIONS.map(([option, label, Icon]) => (
             <IconButton
               key={option}
               size="compact"
-              label={label}
+              label={i18n._(label)}
               aria-pressed={snapshot.options[option]}
               onClick={() => liveCommands(editor)?.setFindOptions({ [option]: !snapshot.options[option] }, 0)}
             ><Icon aria-hidden="true" /></IconButton>
           ))}
           {!replaceOpen && (
-            <IconButton size="compact" label="Show replace" onClick={() => setReplaceOpen(true)}>
+            <IconButton size="compact" label={t`Show replace`} onClick={() => setReplaceOpen(true)}>
               <Replace aria-hidden="true" />
             </IconButton>
           )}
         </div>
         {replaceOpen && (
           <div className="visual-find-row visual-replace-row">
-            <label className="sr-only" htmlFor={`${inputId}-replace`}>Replace with</label>
-            <input id={`${inputId}-replace`} placeholder="Replace with" value={replacement} onChange={(event) => setReplacement(event.target.value)} />
-            <IconButton size="compact" label="Replace current match" disabled={!editable || !count} onClick={() => liveCommands(editor)?.replaceCurrentFindMatch(replacement)}><Replace aria-hidden="true" /></IconButton>
-            <IconButton size="compact" label="Replace all matches" disabled={!editable || !count} onClick={() => liveCommands(editor)?.replaceAllFindMatches(replacement)}><ReplaceAll aria-hidden="true" /></IconButton>
+            <label className="sr-only" htmlFor={`${inputId}-replace`}><Trans>Replace with</Trans></label>
+            <input id={`${inputId}-replace`} placeholder={t`Replace with`} value={replacement} onChange={(event) => setReplacement(event.target.value)} />
+            <IconButton size="compact" label={t`Replace current match`} disabled={!editable || !count} onClick={() => liveCommands(editor)?.replaceCurrentFindMatch(replacement)}><Replace aria-hidden="true" /></IconButton>
+            <IconButton size="compact" label={t`Replace all matches`} disabled={!editable || !count} onClick={() => liveCommands(editor)?.replaceAllFindMatches(replacement)}><ReplaceAll aria-hidden="true" /></IconButton>
           </div>
         )}
       </div>

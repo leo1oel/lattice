@@ -85,7 +85,10 @@ export async function launchChrome({ executable = findChrome(), headless = true,
         if (child.exitCode !== null) resolve();
         else child.once("exit", resolve);
       });
-      rmSync(profile, { recursive: true, force: true });
+      // Chrome's helper processes can outlive the browser process for a moment
+      // and keep writing into the profile, so a single rmdir races them
+      // (ENOTEMPTY). Node retries those errors with a linear backoff.
+      rmSync(profile, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
     },
   };
 }

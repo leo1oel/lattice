@@ -74,49 +74,129 @@ export default tseslint.config(
     },
   },
   {
-    // Start strict enforcement at each migrated UI boundary. Lingui's strict
-    // catalog compilation catches missing Chinese entries; this rule catches
-    // visible strings that were never added to a catalog in the first place.
-    files: [
-      "src/settings/settings-dialog.tsx",
-      "src/project/project-dialogs.tsx",
-      "src/project/navigator.tsx",
-      "src/canvas/canvas-toolbar.tsx",
-      "src/canvas/document-canvas.tsx",
-      "src/canvas/split-resizer.ts",
-      "src/editor/editor-languages.ts",
-      "src/editor/presentation/open-slide-workspace.tsx",
-      "src/onboarding/onboarding-tour.tsx",
-      "src/build/tex-setup-wizard.tsx",
-      "src/pdf/pdf-viewer.tsx",
+    // Every visible string in shipping code goes through Lingui, so a zh-CN
+    // interface never falls back to English. Lingui's strict catalog
+    // compilation catches missing Chinese entries; this rule catches visible
+    // strings that were never added to a catalog in the first place.
+    //
+    // The options below only exempt text that is not interface copy: product
+    // and format names, implementation syntax (selectors, CSS, SVG paths,
+    // shortcut glyphs), and the arguments of APIs that never render text. A
+    // string that really is not UI but fits none of these (an Agent-facing
+    // protocol message, a LaTeX template written into the user's document)
+    // carries an `eslint-disable-next-line lingui/no-unlocalized-strings -- why`
+    // at the site, so each exemption is reviewed where it lives.
+    files: ["src/**/*.{ts,tsx}"],
+    ignores: [
+      "src/**/*.test.{ts,tsx}",
+      "src/platform/test-setup.ts",
+      "src/locales/**",
     ],
     rules: {
+      // The Lingui rule trusts every attribute of a native DOM element except
+      // `placeholder`, `alt`, `aria-label`, and `value`, so these other
+      // user-visible attributes need their own check.
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector: "JSXAttribute[name.name=/^(?:title|label|aria-description|aria-roledescription|aria-valuetext|aria-placeholder)$/] > Literal[value=/[A-Za-z]{2}/]",
+          message: "Visible attribute text must be translated: use t`…` from useLingui().",
+        },
+        {
+          selector: "JSXAttribute[name.name=/^(?:title|label|aria-description|aria-roledescription|aria-valuetext|aria-placeholder)$/] > JSXExpressionContainer > TemplateLiteral > TemplateElement[value.raw=/[A-Za-z]{2}/]",
+          message: "Visible attribute text must be translated: use t`…` from useLingui().",
+        },
+      ],
       "lingui/no-unlocalized-strings": [
         "error",
         {
           ignore: [
-            "^(?:LATTICE|NeurIPS|ICML|ICLR|Vim|Emacs|MCP|Overleaf|BasicTeX|pdfLaTeX|XeLaTeX|LuaLaTeX)$",
+            // Product, service, and format names read the same in every locale.
+            "^(?:Lattice|LATTICE|Overleaf|Synara|TexLab|Harper|Vim|Emacs|MCP|BasicTeX|TeX Live|MacTeX|pdfLaTeX|XeLaTeX|LuaLaTeX|BibTeX|biber|LaTeX|TeX|PDF|HTML|URL|DOI|arXiv|NeurIPS|ICML|ICLR|OpenAlex|Crossref|DBLP|Unpaywall|Semantic Scholar|Google Scholar|Firecrawl|Open Slide|Mermaid|KaTeX|Markdown|GitHub|Git)$",
+            // Identifiers (including camelCase keys and ids), event names, MIME
+            // types, and relative paths.
             "^[a-z][a-z0-9:+./_-]*$",
-            // Stable implementation syntax: selectors/CSS, LaTeX insertion
-            // templates, CSS transforms, and generated local paper paths.
-            "^(?:[.#:\\[].*|.*\\[.*\\].*|@media .*|document\\..*|\\(\\(\\)=>.*|<!doctype html>.*|\\(prefers-reduced-motion: reduce\\)|\\\\(?:textbf|textit|underline|sout|colorbox|begin|end|href).*|%(?:5C|7B|7D)|(?:translate|scale|minmax)\\(.*|.*(?:px|ms|fr) .*|opacity 60ms ease-out|box-shadow 60ms ease-out|\\.research/papers/.*|/(?:paper|blog)\\.md|figure\\.pdf|data:.*|markdown-preview secondary-markdown-preview|@replit/codemirror-vim|F8|⇧F8|⌘F|⌘/|⌘⇧I)$",
-            "^(?:M .*|H .*|Q .*|V .*|Z|viewBox|Escape|var\\(--(?:surface-panel-raised|control-active|text-primary)\\)|rgb\\(8 10 14 / 0\\.48\\)|2d|pdf-search disabled|modal tex-setup-modal)$",
+            "^[a-z][a-z0-9]*(?:[A-Z][a-z0-9]*)+[-_:.]?$",
+            // CSS: custom properties, functions, values with units, media queries.
+            "^--[\\w-]+$",
+            "^(?:var|calc|min|max|clamp|translate|translate3d|translateX|translateY|scale|rotate|minmax|repeat|rgb|rgba|hsl|hsla|color-mix|url|cubic-bezier|steps)\\(.*\\)$",
+            "^(?=.*\\d(?:px|ms|fr|rem|deg|vh|vw)\\b)!?(?:[-+]?[\\d.]+(?:px|ms|fr|rem|em|deg|vh|vw|%|s)?|[a-z][a-z-]*(?:\\([^)]*\\))?)(?:[\\s,/]+!?(?:[-+]?[\\d.]+(?:px|ms|fr|rem|em|deg|vh|vw|%|s)?|[a-z][a-z-]*(?:\\([^)]*\\))?))*$",
+            "^(?:@media |\\((?:prefers-|pointer|hover|any-pointer|min-|max-|orientation))",
+            // DOM selectors: class, id, attribute, and pseudo-class selectors.
+            "^(?:[.#][\\w-]+|::?[a-z-]+(?:\\([^)]*\\))?|\\[[^\\]]+\\]|\\*|>)(?:[.#][\\w-]+|::?[a-z-]+(?:\\([^)]*\\))?|\\[[^\\]]+\\]|(?:\\s*[>+~,]\\s*|\\s+)(?:[a-z][\\w-]*|\\*|[.#][\\w-]+|::?[a-z-]+(?:\\([^)]*\\))?|\\[[^\\]]+\\]))*$",
+            // SVG path data.
+            "^[Mm][\\s,]*[-+.\\d][\\d\\s.,+\\-MmLlHhVvCcSsQqTtAaZz]*$",
+            // LaTeX source: commands, environments, and templates written into
+            // the user's document rather than shown as interface copy.
+            "^\\\\(?:[a-zA-Z@]+\\*?|[\\\\,;:!{}\\[\\]()])",
+            // Lone glyphs: Greek letters, accented letters, math and arrow symbols.
+            "^[^\\x00-\\x7F\\u3000-\\u9fff\\uff00-\\uffef]{1,3}$",
+            // Keyboard shortcut glyphs such as ⌘⇧L or ⌥↵.
+            "^[⌘⇧⌥⌃]+(?:[\\w,./;'`=\\[\\]\\\\-]|F\\d{1,2}|[^\\x00-\\x7F\\u3000-\\u9fff]{1,2})$",
+            // Absolute URLs and file globs.
+            "^(?:https?://|mailto:)\\S*$",
+            "^\\*?\\.[\\w.]+$",
           ],
           ignoreNames: [
-            "path",
-            "source",
+            { regex: { pattern: "^(?:className|class|style|key|id|htmlFor|role|type|path|variant|size|side|align|href|src|rel|method|accept|autoComplete|inputMode|enterKeyHint|lang|dir|mode|layoutId|insert|template|mathPreview|codePreview|glyph|preview|snippet)$" } },
+            { regex: { pattern: "^data-" } },
+            { regex: { pattern: "(?:[cC]lass(?:Name)?(?:es|s)?|[sS]elector|[sS]tyles?|CSS|Css|Transform|_PATH|_SOURCE|Path)$" } },
             "HTML_PREVIEW_SCROLLBAR_STYLES",
             "PIERRE_TREE_CSS",
-            "nextTransform",
-            "PDF_SOURCE",
-            "TEX_SETUP_SOURCE",
             "roundedSpotlightPath",
             "updatePaperBlogSpotlight",
             "renderPdfPageCanvas",
             "refineContinuousPageCanvas",
-            "trace",
-            "mode",
-            "backdropClassName",
+          ],
+          ignoreFunctions: [
+            "cn",
+            "clsx",
+            "cva",
+            "twMerge",
+            "console.*",
+            "EditorView.theme",
+            "EditorView.baseTheme",
+            "invoke",
+            "listen",
+            "emit",
+            "matchMedia",
+            "window.matchMedia",
+            "Symbol",
+            "Symbol.for",
+            "URL",
+            "RegExp",
+            "CustomEvent",
+            "Event",
+            "KeyboardEvent",
+            "MouseEvent",
+            "*.querySelector",
+            "*.querySelectorAll",
+            "*.closest",
+            "*.matches",
+            "*.setProperty",
+            "*.getPropertyValue",
+            "*.removeProperty",
+            "*.setAttribute",
+            "*.getAttribute",
+            "*.hasAttribute",
+            "*.removeAttribute",
+            "*.toggleAttribute",
+            "*.addEventListener",
+            "*.removeEventListener",
+            "*.createElement",
+            "*.createElementNS",
+            "*.getItem",
+            "*.setItem",
+            "*.removeItem",
+            "*.startsWith",
+            "*.endsWith",
+            "*.indexOf",
+            "*.lastIndexOf",
+            "*.searchParams.set",
+            "*.searchParams.get",
+            "*.searchParams.append",
+            "performance.mark",
+            "performance.measure",
           ],
         },
       ],

@@ -15,9 +15,7 @@ import { InfinityLoader, ReloadButton, ReloadIconButton } from "../components/ui
 import { Input } from "../components/ui/input";
 import { FileKindIcon, HistoryDiff } from "./file-diff-view";
 import { useLatestLoad } from "./use-latest-load";
-
-/** Notification source label for the version timeline. */
-const VERSIONS_SOURCE = "Versions";
+import { AUTO_COMMIT_MESSAGES, versionMessageLabel } from "./version-messages";
 
 type Phase = "loading" | "unavailable" | "no-repo" | "ready" | "error";
 
@@ -116,7 +114,7 @@ export function VersionsTimeline(props: {
   /** Run one logged action, then reload the timeline; resolves to its success message. */
   const runAction = async (label: string, detail: string | undefined, action: () => Promise<string>) => {
     setBusy(true);
-    const trace = logAction(VERSIONS_SOURCE, label, detail);
+    const trace = logAction(t`Versions`, label, detail);
     try {
       const outcome = await action();
       await load();
@@ -137,7 +135,7 @@ export function VersionsTimeline(props: {
     event.preventDefault();
     return runAction(t`Save version`, saveLabel.trim() || undefined, async () => {
       const hash = await invoke<string | null>("git_auto_commit", {
-        message: saveLabel.trim() || t`Saved version`,
+        message: saveLabel.trim() || AUTO_COMMIT_MESSAGES.saved,
         author: null,
       });
       setSaveOpen(false);
@@ -314,7 +312,7 @@ export function VersionsTimeline(props: {
                     {entry.files.length === 1 ? t`${entry.files.length} file` : t`${entry.files.length} files`}
                   </span>
                 </span>
-                <span className="versions-entry-message">{entry.message}</span>
+                <span className="versions-entry-message">{versionMessageLabel(entry.message)}</span>
               </button>
               {expanded && (
                 <div className="versions-entry-body">

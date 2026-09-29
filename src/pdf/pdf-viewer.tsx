@@ -197,7 +197,7 @@ export function PdfPreview({
     onFindMatches: search.setMatches,
     timeoutMessage: timeoutMessage ?? t`PDF preview timed out. Click Build again, or open the PDF in Preview.`,
   });
-  const { numPages, pdfError } = doc;
+  const { numPages, pdfError, pdfErrorDetail } = doc;
   useEffect(() => {
     if (pdfError) onLoadError?.();
   }, [pdfError, onLoadError]);
@@ -408,7 +408,14 @@ export function PdfPreview({
         <div ref={hostRef} className="pdf-viewer-host" />
         <OverlayScrollbars key={generation} getViewport={getScrollViewport} />
         {pdfError && !hasActiveViewer
-          ? <div className="pdf-placeholder"><CircleAlert size={24} /><p>{pdfError}</p></div>
+          ? (
+            <div className="pdf-placeholder">
+              <CircleAlert size={24} />
+              <p>{pdfError}</p>
+              {pdfErrorDetail ? <p>{t`Try building the project again.`}</p> : null}
+              {pdfErrorDetail ? <small className="pdf-placeholder-detail">{pdfErrorDetail}</small> : null}
+            </div>
+          )
           : null}
         {showBlockingLoader || showQuietLoader
           ? <PdfLoading label={loadLabel} percent={loadPercent} quiet={showQuietLoader} />

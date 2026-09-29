@@ -15,8 +15,10 @@
  * distinction (missing key fires the nudge; `alt=''` is the WCAG decorative
  * opt-in and does NOT fire either signal).
  */
+import { t } from '@lingui/core/macro';
 import type { LucideIcon } from 'lucide-react';
 import { getAutoFocusedPropName } from '../utils/editor-strings.ts';
+import { descriptorDisplayName, descriptorPlaceholderLabel } from './descriptor-labels.ts';
 import { resolveIcon } from './icons.ts';
 import type { JsxComponentDescriptor } from './types.ts';
 
@@ -34,9 +36,9 @@ export function resolveDescriptorPlaceholder(descriptor: JsxComponentDescriptor)
   label: string;
   Icon: LucideIcon;
 } {
-  const overrideLabel = descriptor.placeholder?.label;
-  const fallbackLabel = `Add ${(descriptor.displayName ?? descriptor.name).toLowerCase()}`;
-  const label = overrideLabel ?? fallbackLabel;
+  const overrideLabel = descriptorPlaceholderLabel(descriptor);
+  const name = descriptorDisplayName(descriptor).toLowerCase();
+  const label = overrideLabel ?? t`Add ${name}`;
 
   const iconName = descriptor.placeholder?.icon ?? descriptor.icon;
   const Icon = resolveIcon(iconName);

@@ -253,7 +253,7 @@ export function OverleafCommentsPanel(props: {
               onClick={() => void run(thread.id, () => props.onResolve(thread.id, !thread.resolved))}
             >
               {thread.resolved ? <RotateCcw size={12} /> : <Check size={12} />}
-              {thread.resolved ? t`Reopen` : t`Resolve`}
+              {thread.resolved ? t`Reopen` : t({ message: "Resolve", context: "comment thread" })}
             </button>
             <DestructiveButton
               className="danger"

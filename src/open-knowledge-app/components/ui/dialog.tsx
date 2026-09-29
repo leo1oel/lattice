@@ -1,4 +1,4 @@
-import { Trans } from '@ok-app/shims/lingui-react-macro';
+import { Trans } from '@lingui/react/macro';
 import { XIcon } from 'lucide-react';
 import { Dialog as DialogPrimitive } from 'radix-ui';
 import type * as React from 'react';

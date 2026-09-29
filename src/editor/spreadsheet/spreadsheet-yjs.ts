@@ -1,3 +1,5 @@
+import type { MessageDescriptor } from "@lingui/core";
+import { msg } from "@lingui/core/macro";
 import * as Y from "yjs";
 import {
   LATTICE_SPREADSHEET_FORMAT,
@@ -35,6 +37,16 @@ const AXES = ["row", "column"] as const;
 // round-trips as one JSON value.
 const SHEET_STRUCTURE_KEYS = ["id", "name", "rowCount", "columnCount", "cellData", "rowData", "columnData", "mergeData"];
 const WORKBOOK_STRUCTURE_KEYS = ["styles", "sheetOrder", "sheets"];
+
+/**
+ * A malformed workbook. `message` stays English because the Agent's spreadsheet
+ * tools return it verbatim; the editor shows the catalog `descriptor` instead.
+ */
+export class SpreadsheetDocumentError extends Error {
+  constructor(message: string, readonly descriptor: MessageDescriptor) {
+    super(message);
+  }
+}
 
 type StableMerge = { startRowId: string; startColumnId: string; endRowId: string; endColumnId: string };
 
@@ -85,6 +97,9 @@ export function createWorksheet(id: string, name: string, rows = DEFAULT_ROWS, c
 const spreadsheetFile = (workbook: SpreadsheetWorkbookData): LatticeSpreadsheetFile =>
   ({ format: LATTICE_SPREADSHEET_FORMAT, version: LATTICE_SPREADSHEET_VERSION, workbook });
 
+// Default names are stored workbook data: peers that open the same empty file
+// independently must derive byte-identical workbooks, whatever their locale.
+/* eslint-disable lingui/no-unlocalized-strings -- stored workbook defaults */
 export function createDefaultSpreadsheet(name = "Spreadsheet", deterministic = false): LatticeSpreadsheetFile {
   const sheetId = deterministic ? "sheet_default" : newId("sheet");
   return spreadsheetFile({
@@ -97,6 +112,7 @@ export function createDefaultSpreadsheet(name = "Spreadsheet", deterministic = f
     sheets: { [sheetId]: createWorksheet(sheetId, "Sheet1") },
   });
 }
+/* eslint-enable lingui/no-unlocalized-strings */
 
 function normalizeCell(value: unknown): SpreadsheetCellData | null {
   if (!isRecord(value)) return null;
@@ -154,6 +170,7 @@ function normalizeWorksheet(value: unknown, id: string, fallbackName: string): S
   return output;
 }
 
+/* eslint-disable lingui/no-unlocalized-strings -- stored workbook defaults */
 export function parseSpreadsheetFile(source: string): LatticeSpreadsheetFile | null {
   if (new TextEncoder().encode(source).byteLength > MAX_FILE_BYTES) return null;
   const trimmed = source.trim();
@@ -182,11 +199,13 @@ export function parseSpreadsheetFile(source: string): LatticeSpreadsheetFile | n
     sheets,
   });
 }
+/* eslint-enable lingui/no-unlocalized-strings */
 
 function parseWorkbook(source: string): SpreadsheetWorkbookData {
   const parsed = parseSpreadsheetFile(source);
   if (parsed) return parsed.workbook;
-  throw new Error("Invalid .lattice-sheet document");
+  // eslint-disable-next-line lingui/no-unlocalized-strings -- Agent-facing message; the descriptor is the UI copy
+  throw new SpreadsheetDocumentError("Invalid .lattice-sheet document", msg`Invalid .lattice-sheet document`);
 }
 
 function canonicalize(value: unknown): unknown {
@@ -220,7 +239,11 @@ type SheetParts = ReturnType<typeof sheetParts>;
 /** Project a worksheet onto the ID-keyed Y.Doc layout. */
 function sheetParts(input: SpreadsheetWorksheetData) {
   const sheet = normalizeWorksheet(input, input.id, input.name);
-  if (!sheet) throw new Error(`Invalid worksheet: ${input.name}`);
+  if (!sheet) {
+    const name = input.name;
+    // eslint-disable-next-line lingui/no-unlocalized-strings -- Agent-facing message; the descriptor is the UI copy
+    throw new SpreadsheetDocumentError(`Invalid worksheet: ${name}`, msg`Invalid worksheet: ${name}`);
+  }
   const lineIds = (axis: SpreadsheetAxis) => {
     const lines = sheet[SPREADSHEET_AXES[axis].data];
     const seen = new Set<string>();
@@ -361,7 +384,13 @@ function writeSheet(doc: Y.Doc, next: SheetParts, previous?: SheetParts): void {
 
 function sheetOrderOf(workbook: SpreadsheetWorkbookData): string[] {
   const order = workbook.sheetOrder.filter((id) => workbook.sheets[id]);
-  if (order.length === 0 || order.length > MAX_SHEETS) throw new Error("A spreadsheet must contain between 1 and 200 sheets");
+  if (order.length === 0 || order.length > MAX_SHEETS) {
+    throw new SpreadsheetDocumentError(
+      // eslint-disable-next-line lingui/no-unlocalized-strings -- Agent-facing message; the descriptor is the UI copy
+      "A spreadsheet must contain between 1 and 200 sheets",
+      msg`A spreadsheet must contain between 1 and 200 sheets`,
+    );
+  }
   return order;
 }
 
@@ -382,6 +411,7 @@ export function seedSpreadsheetDoc(doc: Y.Doc): boolean {
 
 function sheetFromDoc(doc: Y.Doc, sheetId: string): SpreadsheetWorksheetData {
   const metadata = sheetMap(doc, sheetId, "metadata");
+  // eslint-disable-next-line lingui/no-unlocalized-strings -- stored fallback sheet name
   const name = typeof metadata.get("name") === "string" ? String(metadata.get("name")) : "Sheet";
   const settings = metadata.get("settings");
   const ids = { row: uniqueOrder(sheetArray(doc, sheetId, "rows")), column: uniqueOrder(sheetArray(doc, sheetId, "columns")) };
@@ -424,8 +454,14 @@ function sheetFromDoc(doc: Y.Doc, sheetId: string): SpreadsheetWorksheetData {
 export function spreadsheetSnapshotFromDoc(doc: Y.Doc): SpreadsheetWorkbookData {
   if (!hasStructuredSpreadsheet(doc)) return parseWorkbook(doc.getText(CONTENT_KEY).toString());
   const meta = doc.getMap<unknown>(SPREADSHEET_META_KEY);
-  if (meta.get("formatVersion") !== LATTICE_SPREADSHEET_VERSION || !isRecord(meta.get("workbook"))) {
-    throw new Error(`Unsupported spreadsheet collaboration format: ${String(meta.get("formatVersion"))}`);
+  const formatVersion = meta.get("formatVersion");
+  if (formatVersion !== LATTICE_SPREADSHEET_VERSION || !isRecord(meta.get("workbook"))) {
+    const version = String(formatVersion);
+    throw new SpreadsheetDocumentError(
+      // eslint-disable-next-line lingui/no-unlocalized-strings -- Agent-facing message; the descriptor is the UI copy
+      `Unsupported spreadsheet collaboration format: ${version}`,
+      msg`Unsupported spreadsheet collaboration format: ${version}`,
+    );
   }
   const workbook = clone(meta.get("workbook")) as SpreadsheetWorkbookData;
   workbook.styles = clone(doc.getMap<Record<string, unknown> | null>(STYLES_KEY).toJSON());
@@ -435,7 +471,13 @@ export function spreadsheetSnapshotFromDoc(doc: Y.Doc): SpreadsheetWorkbookData 
   for (const sheetId of workbook.sheetOrder) {
     if (sheets.has(sheetId)) workbook.sheets[sheetId] = sheetFromDoc(doc, sheetId);
   }
-  if (Object.keys(workbook.sheets).length === 0) throw new Error("A spreadsheet must contain at least one sheet");
+  if (Object.keys(workbook.sheets).length === 0) {
+    throw new SpreadsheetDocumentError(
+      // eslint-disable-next-line lingui/no-unlocalized-strings -- Agent-facing message; the descriptor is the UI copy
+      "A spreadsheet must contain at least one sheet",
+      msg`A spreadsheet must contain at least one sheet`,
+    );
+  }
   return workbook;
 }
 

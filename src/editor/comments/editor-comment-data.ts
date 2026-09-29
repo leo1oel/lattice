@@ -135,6 +135,7 @@ export function createEditorComment(options: Authored & {
     suffix: options.source.slice(to, to + 32),
     body: options.body.trim(),
     authorId: options.authorId,
+    // eslint-disable-next-line lingui/no-unlocalized-strings -- stored sentinel; editorCommentAuthorDisplayName localizes it
     authorName: options.authorName.trim() || "Anonymous",
     resolved: false,
     replies: [],
@@ -149,6 +150,7 @@ export function createEditorCommentReply(options: Authored): EditorCommentReply 
   return {
     id: crypto.randomUUID(),
     authorId: options.authorId,
+    // eslint-disable-next-line lingui/no-unlocalized-strings -- stored sentinel; editorCommentAuthorDisplayName localizes it
     authorName: options.authorName.trim() || "Anonymous",
     body,
     createdAt: new Date().toISOString(),

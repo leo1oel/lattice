@@ -3,6 +3,7 @@
  * paper tab keys, window dragging, drop-target hit testing, project tree path
  * changes, and the confirmation prompts.
  */
+import { msg } from "@lingui/core/macro";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { confirm as confirmDialog } from "@tauri-apps/plugin-dialog";
 import type {
@@ -11,6 +12,7 @@ import type {
   ProjectSnapshot,
   EditorPaneId,
 } from "./app-types";
+import { i18n } from "./i18n";
 
 /** What the second line of a paper row says: where it came from, and its state. */
 export function paperSubtitle(paper: PaperSummary, snippet?: string): string {
@@ -131,7 +133,9 @@ export function classifyExternalProjectDrop(
 
 // Papers ride in the same `openTabs` string[] as files. A paper's tab key is
 // its full-text path — unambiguous, since only papers live under this prefix.
+// eslint-disable-next-line lingui/no-unlocalized-strings -- project-relative path prefix
 const PAPER_TAB_PREFIX = ".research/papers/";
+// eslint-disable-next-line lingui/no-unlocalized-strings -- path suffix
 const PAPER_TAB_SUFFIX = "/paper.md";
 export function isPaperTabKey(key: string): boolean {
   return key.startsWith(PAPER_TAB_PREFIX) && key.endsWith(PAPER_TAB_SUFFIX);
@@ -176,12 +180,12 @@ export function stripFrontmatter(markdown: string): string {
 }
 
 /** Controls that keep their own clicks rather than dragging or zooming the window. */
-const WINDOW_CONTROLS = "button, input, select, textarea, a";
+const windowControlSelector = "button, input, select, textarea, a";
 let windowDragTimer: ReturnType<typeof setTimeout> | undefined;
 
 export function isWindowDragExcluded(target: EventTarget | null): boolean {
   if (!(target instanceof Element)) return false;
-  if (target.closest(`[data-window-drag-exclude], ${WINDOW_CONTROLS}`)) return true;
+  if (target.closest(`[data-window-drag-exclude], ${windowControlSelector}`)) return true;
   const overflowRegion = target.closest("[data-window-drag-exclude-on-overflow]");
   if (!overflowRegion) return false;
   const viewport = overflowRegion.querySelector<HTMLElement>("[data-slot='scroll-area-viewport']");
@@ -200,7 +204,7 @@ export function beginWindowDrag(event: React.MouseEvent<HTMLElement>) {
 }
 
 export function toggleWindowFullscreen(event: React.MouseEvent<HTMLElement>) {
-  if ((event.target as Element).closest(WINDOW_CONTROLS)) return;
+  if ((event.target as Element).closest(windowControlSelector)) return;
   event.preventDefault();
   clearTimeout(windowDragTimer);
   windowDragTimer = undefined;
@@ -217,9 +221,15 @@ export function toMessage(reason: unknown): string {
 
 export function relativeTime(timestamp: string): string {
   const elapsed = Date.now() - new Date(timestamp).getTime();
-  if (!Number.isFinite(elapsed) || elapsed < 60_000) return "just now";
-  if (elapsed < 3_600_000) return `${Math.floor(elapsed / 60_000)}m ago`;
-  if (elapsed < 86_400_000) return `${Math.floor(elapsed / 3_600_000)}h ago`;
+  if (!Number.isFinite(elapsed) || elapsed < 60_000) return i18n._(msg`just now`);
+  if (elapsed < 3_600_000) {
+    const minutes = Math.floor(elapsed / 60_000);
+    return i18n._(msg`${minutes}m ago`);
+  }
+  if (elapsed < 86_400_000) {
+    const hours = Math.floor(elapsed / 3_600_000);
+    return i18n._(msg`${hours}h ago`);
+  }
   return new Date(timestamp).toLocaleDateString();
 }
 

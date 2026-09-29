@@ -1,1 +1,21 @@
-7532ec589bcd276864912ef62e5a61382ac60948078109e4d5f1f046a7abaee8
+# Catalog messages whose zh-CN text may stay as the English source, because it
+# reads the same in every language: product and service names, file formats,
+# and sample input. One exact source message per line. Everything else in the
+# zh-CN catalog must be translated into Chinese (see check-i18n-coverage.mjs);
+# remove a line as soon as its message leaves the catalog.
+Crossref
+DBLP
+Firecrawl
+Google Scholar
+HTML
+MCP
+name@example.org
+OK Desktop
+OpenAlex
+Overleaf
+PDF
+Retraction Watch
+Semantic Scholar
+Skills
+Unpaywall
+URL

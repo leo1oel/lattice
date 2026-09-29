@@ -1,6 +1,6 @@
 /** Review chrome over the visual editor: Overleaf tracked-change cards and editor-comment cards. */
 import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react";
-import { useLingui } from "@lingui/react/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { computePosition, flip, offset, shift } from "@floating-ui/dom";
 import type { Editor } from "@tiptap/react";
 import { Check, X } from "lucide-react";
@@ -53,6 +53,7 @@ export function TrackedChangeLayer({ sectionRef, changes, actions, hidden }: {
   actions?: TrackedChangeTooltipActions;
   hidden: boolean;
 }) {
+  const { t } = useLingui();
   const [hovered, setHovered] = useState<HoveredChanges | null>(null);
   const latest = useRef({ hovered, changes });
   useLayoutEffect(() => {
@@ -141,7 +142,7 @@ export function TrackedChangeLayer({ sectionRef, changes, actions, hidden }: {
       id="visual-tracked-change-tooltip"
       className="visual-tracked-change-tooltip"
       role="dialog"
-      aria-label="Suggested change"
+      aria-label={t`Suggested change`}
       style={{ left: hovered.left, top: hovered.top }}
       onMouseOver={(event) => event.stopPropagation()}
     >
@@ -167,10 +168,10 @@ export function TrackedChangeLayer({ sectionRef, changes, actions, hidden }: {
             </div>
             <div className="visual-tracked-change-tooltip-actions">
               <button className="accept" type="button" disabled={!canAct} onClick={() => decide(change, actions.onAccept)}>
-                <Check aria-hidden="true" />Accept
+                <Check aria-hidden="true" /><Trans>Accept</Trans>
               </button>
               <button className="reject" type="button" disabled={!canAct} onClick={() => decide(change, actions.onReject)}>
-                <X aria-hidden="true" />Reject
+                <X aria-hidden="true" /><Trans>Reject</Trans>
               </button>
             </div>
           </div>

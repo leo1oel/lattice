@@ -7,7 +7,7 @@
  * explanation. This surfaces what was blocked, in friendly terms, without
  * touching the policy itself.
  */
-import { Plural, Trans, useLingui } from '@ok-app/shims/lingui-react-macro';
+import { Plural, Trans, useLingui } from '@lingui/react/macro';
 import { ShieldAlert, X } from 'lucide-react';
 import type { PreviewBlockedRequest } from '../extensions/preview-iframe-header';
 

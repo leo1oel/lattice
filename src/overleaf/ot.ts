@@ -13,6 +13,9 @@
  * (`ot.test.ts` checks it on thousands of random operations).
  */
 
+import { msg } from "@lingui/core/macro";
+import { i18n } from "../i18n";
+
 /** One OT operation: insert `i` or delete `d`, both at character offset `p`. */
 export type OtOp = { p: number; i?: string; d?: string };
 
@@ -305,7 +308,8 @@ export class OtDocument {
   acknowledge(version?: number): { send: OtSend } {
     if (version != null && version < this.version) return { send: null };
     if (version != null && version !== this.version) {
-      throw new OtDesyncError(`Overleaf acknowledged version ${version} while this document is at ${this.version}.`);
+      const current = this.version;
+      throw new OtDesyncError(i18n._(msg`Overleaf acknowledged version ${version} while this document is at ${current}.`));
     }
     if (!this.inflight) return { send: null };
     this.inflight = null;
@@ -329,7 +333,8 @@ export class OtDocument {
   remote(ops: OtOp[], version: number): { text: string; applied: OtOp[] } {
     if (version < this.version) return { text: this.text, applied: [] };
     if (version !== this.version) {
-      throw new OtDesyncError(`Overleaf sent version ${version} while this document is at ${this.version}.`);
+      const current = this.version;
+      throw new OtDesyncError(i18n._(msg`Overleaf sent version ${version} while this document is at ${current}.`));
     }
     // The incoming operation is already in the server's history, so it takes
     // precedence and ours is transformed as the later one — exactly as the
@@ -339,7 +344,7 @@ export class OtDocument {
     if (this.inflight) [incoming, this.inflight] = transformBoth(incoming, this.inflight);
     if (this.pending) [incoming, this.pending] = transformBoth(incoming, this.pending);
     const next = applyOps(this.text, incoming);
-    if (next === null) throw new OtDesyncError("An update from Overleaf did not fit this document; it needs to be reloaded.");
+    if (next === null) throw new OtDesyncError(i18n._(msg`An update from Overleaf did not fit this document; it needs to be reloaded.`));
     this.text = next;
     this.version = version + 1;
     return { text: next, applied: incoming };

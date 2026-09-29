@@ -42,6 +42,7 @@ export function waitForAgentCanvasAdapter(path: string, timeoutMs: number): Prom
     path,
     timeoutMs,
     activeAdapter?.path === path,
+    // eslint-disable-next-line lingui/no-unlocalized-strings -- tool error returned to the Agent model
     `The canvas did not open before the request expired: ${path}`,
   );
 }
@@ -55,8 +56,10 @@ export function parseAgentCanvasToolRequest(value: unknown): AgentCanvasToolRequ
 export function executeAgentCanvasToolRequest(request: AgentCanvasToolRequest): Promise<AgentCanvasToolResult> {
   return runAgentTool(LATTICE_CANVAS_TOOL_RESULT, request.id, "canvas_tool_failed", () => {
     if (request.expiresAt <= Date.now()) {
+      // eslint-disable-next-line lingui/no-unlocalized-strings -- tool error returned to the Agent model
       throw toolError("The canvas request expired before execution.", "canvas_tool_expired");
     }
+    // eslint-disable-next-line lingui/no-unlocalized-strings -- tool error returned to the Agent model
     if (!activeAdapter) throw toolError("Open a .tldr canvas before using canvas tools.", "canvas_not_open");
     return activeAdapter.adapter.execute(request.action, request.args);
   }, false);

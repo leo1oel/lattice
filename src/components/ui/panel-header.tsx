@@ -1,4 +1,5 @@
 import { type ComponentPropsWithoutRef, type ReactNode } from "react";
+import { useLingui } from "@lingui/react/macro";
 import { cn } from "@/lib/utils";
 import { CloseButton } from "./icon-button";
 import "./chrome.css";
@@ -33,8 +34,9 @@ export function PanelHeader({
   titleAfter,
   ...props
 }: PanelHeaderProps) {
+  const { t } = useLingui();
   const resolvedCloseLabel = closeLabel
-    ?? (typeof title === "string" ? `Close ${title}` : "Close panel");
+    ?? (typeof title === "string" ? t`Close ${title}` : t`Close panel`);
 
   return (
     <div

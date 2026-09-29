@@ -7,10 +7,13 @@
  * Licensed under GPL-3.0-or-later.
  */
 /* eslint-disable react-refresh/only-export-components */
+import { msg } from "@lingui/core/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { Extension, type AnyExtension } from "@tiptap/core";
 import { PluginKey } from "@tiptap/pm/state";
 import Suggestion from "@tiptap/suggestion";
 import { FilePlus2, FileText } from "lucide-react";
+import { i18n } from "../../i18n";
 import type { MarkdownWorkspaceIndex } from "./markdown-workspace-index";
 import { FluidHoverSurface } from "../../components/ui/fluid-hover-surface";
 import {
@@ -27,7 +30,7 @@ const suggestionKey = new PluginKey("visualWikiLinkSuggestion");
 
 type WikiLinkItem =
   | { kind: "page"; docName: string; title: string }
-  | { kind: "create"; docName: string; actionLabel: string }
+  | { kind: "create"; docName: string }
   | { kind: "anchor"; docName: string; level: number; text: string; slug: string };
 
 /** `Page#heading` queries list that page's headings; anything else lists pages. */
@@ -37,24 +40,32 @@ function anchorQuery(query: string): { page: string; heading: string } | null {
 }
 
 function itemLabel(item: WikiLinkItem | undefined): string | undefined {
-  if (item?.kind === "anchor") return `Heading H${item.level}: ${item.text}`;
-  return item?.kind === "create" ? item.actionLabel : item?.title;
+  if (item?.kind === "anchor") {
+    const { level, text } = item;
+    return i18n._(msg`Heading H${level}: ${text}`);
+  }
+  if (item?.kind !== "create") return item?.title;
+  const name = item.docName;
+  return i18n._(msg`Create "${name}"`);
 }
 
 function VisualWikiLinkMenu(props: SuggestionMenuProps<WikiLinkItem>) {
   const { items, query, selectedIndex } = props;
+  const { t } = useLingui();
   const containerRef = useSelectedOptionScroll(selectedIndex);
   const anchor = anchorQuery(query);
+  const anchorPage = anchor?.page;
+  const count = items.length;
 
   if (!items.length) {
     return (
       <div className="w-80 max-w-[min(28rem,90vw)] rounded-lg border bg-popover p-2 text-sm text-muted-foreground shadow-md" role="status" aria-live="polite" onMouseDown={keepEditorFocus}>
-        {anchor ? `No headings in ${anchor.page}` : "No pages found"}
+        {anchor ? t`No headings in ${anchorPage}` : t`No pages found`}
       </div>
     );
   }
   return (
-    <div ref={containerRef} {...listboxProps(props, anchor ? "Heading suggestions" : "Wiki link suggestions")} onMouseDown={keepEditorFocus} className="fluid-hover-surface popup-motion w-80 max-w-[min(28rem,90vw)] overflow-y-auto rounded-lg border bg-popover p-1 shadow-md">
+    <div ref={containerRef} {...listboxProps(props, anchor ? t`Heading suggestions` : t`Wiki link suggestions`)} onMouseDown={keepEditorFocus} className="fluid-hover-surface popup-motion w-80 max-w-[min(28rem,90vw)] overflow-y-auto rounded-lg border bg-popover p-1 shadow-md">
       <FluidHoverSurface />
       <span className="sr-only" aria-live="polite" aria-atomic="true">{itemLabel(items[selectedIndex])}</span>
       {anchor && <div className="px-2 py-1 text-[length:var(--type-micro-size)] font-medium uppercase tracking-wide text-muted-foreground">{anchor.page}</div>}
@@ -63,6 +74,7 @@ function VisualWikiLinkMenu(props: SuggestionMenuProps<WikiLinkItem>) {
         return (
           <button key={item.kind === "anchor" ? `${item.docName}#${item.slug}` : `${item.kind}:${item.docName}`} {...optionProps(props, item, index)} className={`flex w-full items-start gap-2 rounded-md px-2 py-1.5 text-left text-sm ${index === selectedIndex ? "bg-accent text-accent-foreground" : ""}`} style={item.kind === "anchor" ? { paddingLeft: `${(item.level - 1) * 10 + 8}px` } : undefined}>
             {item.kind === "anchor" ? (
+              // eslint-disable-next-line lingui/no-unlocalized-strings -- heading level tag (H1–H6)
               <><span className="w-6 shrink-0 font-mono text-[length:var(--type-micro-size)] text-muted-foreground">H{item.level}</span><span className="truncate font-medium">{item.text}</span></>
             ) : (
               <><Icon className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden /><span className="flex min-w-0 flex-1 flex-col"><span className="truncate font-medium">{itemLabel(item)}</span>{item.kind === "page" && item.title !== item.docName && <span className="line-clamp-2 break-all text-xs text-muted-foreground">{item.docName}</span>}</span></>
@@ -70,7 +82,7 @@ function VisualWikiLinkMenu(props: SuggestionMenuProps<WikiLinkItem>) {
           </button>
         );
       })}
-      {items.length >= MAX_ITEMS && <div className="mt-1 border-t border-border px-2 py-1.5 text-xs text-muted-foreground">Showing top {items.length} — keep typing to narrow</div>}
+      {items.length >= MAX_ITEMS && <div className="mt-1 border-t border-border px-2 py-1.5 text-xs text-muted-foreground"><Trans>Showing top {count} — keep typing to narrow</Trans></div>}
     </div>
   );
 }
@@ -89,7 +101,7 @@ function wikiLinkItems(index: MarkdownWorkspaceIndex, query: string): WikiLinkIt
   const needle = trimmed.toLowerCase();
   const pages: WikiLinkItem[] = index.searchPages(query, MAX_ITEMS).map(({ docName, title }) => ({ kind: "page", docName, title }));
   const exists = pages.some((item) => item.kind === "page" && (item.docName.toLowerCase() === needle || item.title.toLowerCase() === needle));
-  return trimmed && !exists ? [...pages, { kind: "create", docName: trimmed, actionLabel: `Create "${trimmed}"` }] : pages;
+  return trimmed && !exists ? [...pages, { kind: "create", docName: trimmed }] : pages;
 }
 
 export function visualWikiLinkSuggestion(getIndex: () => MarkdownWorkspaceIndex | null): AnyExtension {

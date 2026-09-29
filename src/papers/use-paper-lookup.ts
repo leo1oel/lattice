@@ -23,6 +23,7 @@ export function usePaperLookup(state: PaperLookupState, onOpen: (paper: PaperSum
   useEffect(() => {
     const owner = getCurrentWindow().label;
     const label = `paper-lookup-${owner}`;
+    // eslint-disable-next-line lingui/no-unlocalized-strings -- Tauri event target kind
     const ownWindow = { target: { kind: "Window", label: owner } } as const;
     let disposed = false;
     let activeDrag: NativePaperDrag | null = null;

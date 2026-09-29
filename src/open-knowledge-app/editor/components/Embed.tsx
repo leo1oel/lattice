@@ -57,6 +57,7 @@
  * size survives reload and travels through the markdown round-trip.
  */
 
+import { useLingui } from '@lingui/react/macro';
 import { rewriteEmbedUrl } from '@ok-core';
 import { useEffect, useRef } from 'react';
 import { useJsxComponentHost } from './jsx-host-context.tsx';
@@ -71,7 +72,6 @@ interface EmbedProps {
 }
 
 const DEFAULT_HEIGHT = '26rem';
-const DEFAULT_TITLE = 'Embedded content';
 
 // Only `http://` and `https://` schemes load into the iframe. Anything
 // else (data:, blob:, javascript:, file:, …) is rejected at render — see
@@ -115,6 +115,7 @@ function isEmbedSrcSafe(src: string | undefined): boolean {
 }
 
 export function Embed({ src, title, width, height }: EmbedProps) {
+  const { t } = useLingui();
   const wrapperRef = useRef<HTMLDivElement | null>(null);
   const host = useJsxComponentHost();
 
@@ -151,11 +152,11 @@ export function Embed({ src, title, width, height }: EmbedProps) {
   //     same-origin iframe to remove its own sandbox; only cross-
   //     origin URLs are safe to frame.
   if (!isEmbedSrcSafe(src)) {
-    let message = 'Embed a URL';
+    let message = t`Embed a URL`;
     if (typeof src === 'string' && src.length > 0) {
       message = HTTP_SCHEME_RE.test(src)
-        ? 'Embed only supports cross-origin URLs'
-        : 'URL must start with http:// or https://';
+        ? t`Embed only supports cross-origin URLs`
+        : t`URL must start with http:// or https://`;
     }
     return (
       <div className="ok-embed ok-embed--placeholder" contentEditable={false}>
@@ -225,7 +226,7 @@ export function Embed({ src, title, width, height }: EmbedProps) {
   return (
     <div className="ok-embed" style={initialStyle} ref={wrapperRef} contentEditable={false}>
       <iframe
-        title={title || DEFAULT_TITLE}
+        title={title || t`Embedded content`}
         src={iframeSrc}
         // Sandbox without `allow-top-navigation`: blocks the canonical
         // attack vector (embedded page setting `window.top.location` to

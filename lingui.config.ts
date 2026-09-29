@@ -18,9 +18,7 @@ export default defineConfig({
     exclude: [
       "src/**/*.test.{ts,tsx}",
       "src/platform/test-setup.ts",
-      // The selection toolbar uses real Lingui macros; the rest of the
-      // vendor still uses its English-only runtime shims.
-      "src/open-knowledge-app/**/!(BlockTypeSelector|InlineFormatButtons|FootnoteBubbleButton|LinkEditPopover|ViewInSourceBubbleButton|CommentBubbleButton).{ts,tsx}",
+      // The vendored core carries no Lingui macros.
       "src/open-knowledge-core/**",
     ],
   }],

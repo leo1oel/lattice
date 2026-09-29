@@ -18,10 +18,12 @@ import { type PresenceCursor } from "../overleaf/overleaf-editor-extensions";
 import type { OverleafCollabTab } from "../overleaf/overleaf-collab";
 import type { EditorComment } from "../editor/comments/editor-comment-data";
 import { hasConflictMarkers } from "../history/conflict-markers";
+import { AUTO_COMMIT_MESSAGES } from "../history/version-messages";
 import type {
   AssetPreview, BuildResult, EditorPosition, FileViewState, OverleafLink, OverleafProbe, OverleafStatus,
   OverleafSyncResult, PaperSummary, ProjectSnapshot, RefreshProject, ViewRestoreRequest,
 } from "../app-types";
+import { SYNC_OPERATION } from "../telemetry/app-log-export";
 
 /** Marks a comment that lives on Overleaf rather than in this project; App's comment handlers route on it. */
 export const OVERLEAF_COMMENT_PREFIX = "overleaf:";
@@ -48,6 +50,7 @@ export function projectOverleafEditorComments(
       id: `${OVERLEAF_COMMENT_PREFIX}${thread.id}`, path,
       from: anchor.position, to: anchor.position + anchor.quote.length, quote: anchor.quote, prefix: "", suffix: "",
       body: first?.content ?? "", authorId: first?.authorEmail ?? "overleaf",
+      // eslint-disable-next-line lingui/no-unlocalized-strings -- a name tagged with the product, the same in every locale
       authorName: first ? `${first.authorName} · Overleaf` : "Overleaf", resolved: thread.resolved,
       replies: rest.map((message) => ({
         id: message.id, authorId: message.authorEmail ?? "overleaf", authorName: message.authorName,
@@ -317,12 +320,13 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
     try {
       const url = new URL(`/project/${encodeURIComponent(overleafLink.projectId)}`, overleafLink.host);
       void openUrl(url.toString()).catch((reason) => {
-        setError(`Could not open the project on Overleaf: ${toMessage(reason)}`);
+        const message = toMessage(reason);
+        setError(t`Could not open the project on Overleaf: ${message}`);
       });
     } catch {
-      setError("Could not open the project because its Overleaf host is invalid.");
+      setError(t`Could not open the project because its Overleaf host is invalid.`);
     }
-  }, [overleafLink]);
+  }, [overleafLink, t]);
 
   /**
    * Files gone here but still on Overleaf. Deletion is never inferred from
@@ -376,7 +380,7 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
     const syncGeneration = projectOperationGenerationRef.current;
     const stillCurrent = projectGuard(syncRoot, syncGeneration);
     const release = holdSyncGate();
-    const trace = logAction("Overleaf", "Sync", options?.auto ? "automatic" : "requested");
+    const trace = logAction("Overleaf", t`Sync`, options?.auto ? t`automatic` : t`requested`, SYNC_OPERATION);
     // Saving below clears the dirty flag, cancelling the pending autosave
     // compile; remember it so the PDF still catches up with the edit.
     const hadUnsavedEdits = sourceRef.current !== savedSourceRef.current;
@@ -416,7 +420,8 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
       // Name files too big for Overleaf; otherwise they look synced and the
       // absence is only discovered from the other side.
       if (result.skippedLarge?.length) {
-        setWarning(`Too large for Overleaf, so left on this machine: ${result.skippedLarge.join(", ")}.`, "Overleaf");
+        const files = result.skippedLarge.join(", ");
+        setWarning(t`Too large for Overleaf, so left on this machine: ${files}.`, "Overleaf");
       }
       // Merged and conflicted files were rewritten on disk like pulled ones;
       // the editor must reload them or it would save over the incoming edits.
@@ -441,15 +446,11 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
           if (!stillCurrent()) return;
         }
         const whole = result.conflicts.filter((item) => item.markers === false);
-        const names = (items: typeof marked) => items.map((item) => item.path).join(", ");
+        const markedFiles = marked.map((item) => item.path).join(", ");
+        const wholeFiles = whole.map((item) => item.path).join(", ");
         const parts = [
-          marked.length ? `Overleaf sync could not combine: ${names(marked)}. `
-            + "Both versions are kept — resolve each spot to finish. "
-            + "Your untouched version is also saved beside it in the “(local conflict …)” files, "
-            + "and nothing uploads until the conflicts are settled." : "",
-          whole.length ? `Changed in both places and impossible to combine: ${names(whole)}. `
-            + "Overleaf's version is now the one in the project, and yours is kept beside it "
-            + "in the “(local conflict …)” files — keep whichever you want and delete the other." : "",
+          marked.length ? t`Overleaf sync could not combine: ${markedFiles}. Both versions are kept — resolve each spot to finish. Your untouched version is also saved beside it in the “(local conflict …)” files, and nothing uploads until the conflicts are settled.` : "",
+          whole.length ? t`Changed in both places and impossible to combine: ${wholeFiles}. Overleaf's version is now the one in the project, and yours is kept beside it in the “(local conflict …)” files — keep whichever you want and delete the other.` : "",
         ].filter(Boolean);
         if (parts.length) setError(parts.join(" "));
         // Only worth opening for a file that actually has markers in it.
@@ -497,20 +498,23 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
       ]) reconciled.delete(path);
       if (!result.readOnly) resumeRealtimePathsRef.current([...reconciled]);
       if (result.pulled.length || result.pushed.length || result.merged.length) {
-        const parts = [`pulled ${result.pulled.length}`, `pushed ${result.pushed.length}`];
-        if (result.merged.length) parts.push(`merged ${result.merged.length}`);
-        trace.ok(`Overleaf: ${parts.join(", ")}.`);
+        const pulled = result.pulled.length;
+        const pushed = result.pushed.length;
+        const merged = result.merged.length;
+        trace.ok(merged
+          ? t`Overleaf: pulled ${pulled}, pushed ${pushed}, merged ${merged}.`
+          : t`Overleaf: pulled ${pulled}, pushed ${pushed}.`);
       } else if (!options?.auto) {
-        trace.ok("Overleaf: already up to date.");
+        trace.ok(t`Overleaf: already up to date.`);
       } else {
         // A quiet background no-op still logs, so a gap in sync history is explained.
-        trace.finish("success", "Overleaf: already up to date.");
+        trace.finish("success", t`Overleaf: already up to date.`);
       }
       // Only a real content change becomes a version: committing a no-op woke
       // the filesystem watcher and reloaded unrelated previews.
       if (incoming || hadUnsavedEdits || result.pushed.length > 0) {
         void invoke<string | null>("git_auto_commit", {
-          message: "Overleaf sync", author: authorName.trim() || null, projectRoot: syncRoot,
+          message: AUTO_COMMIT_MESSAGES.overleafSync, author: authorName.trim() || null, projectRoot: syncRoot,
         }).catch(() => {});
       }
       refreshOverleafLink();
@@ -789,8 +793,11 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
   const jumpToOverleafPeer = useCallback((peer: PresenceUser) => {
     const path = peer.docId ? overleafDocPaths.get(peer.docId) : null;
     if (path) void openProjectFile(path, (peer.row ?? 0) + 1);
-    else setNotice(`${peer.name || "This collaborator"} is not in a file right now.`);
-  }, [overleafDocPaths, openProjectFile]);
+    else if (peer.name) {
+      const name = peer.name;
+      setNotice(t`${name} is not in a file right now.`);
+    } else setNotice(t`This collaborator is not in a file right now.`);
+  }, [overleafDocPaths, openProjectFile, t]);
 
   /** Carets to draw, which is only ever the document being edited live. */
   const overleafActiveCursors = useMemo<PresenceCursor[]>(() => {
@@ -800,8 +807,8 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
       .filter((peer): peer is PresenceUser & { row: number; column: number } => (
         peer.docId === docId && peer.row !== null && peer.column !== null
       ))
-      .map(({ name, hue, row, column }) => ({ name: name || "Anonymous", hue, row, column }));
-  }, [activeAsset, activeFile, activePaper, overleafDocPaths, overleafPresence.peers, overleafRealtime.docId]);
+      .map(({ name, hue, row, column }) => ({ name: name || t`Anonymous`, hue, row, column }));
+  }, [activeAsset, activeFile, activePaper, overleafDocPaths, overleafPresence.peers, overleafRealtime.docId, t]);
 
   // Chat, comment threads and suggestions ride the linked project's channel.
   const overleafChannel = { enabled: overleafLink !== null, projectRoot: project?.root ?? null };
@@ -857,8 +864,8 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
     const detail = overleafRealtime.detail;
     if (overleafRealtime.status !== "error" || !detail || overleafRealtimeNotified.current === detail) return;
     overleafRealtimeNotified.current = detail;
-    setNotice(`Live editing with Overleaf could not start (${detail}). Your project still syncs every few seconds.`);
-  }, [overleafRealtime.detail, overleafRealtime.status]);
+    setNotice(t`Live editing with Overleaf could not start (${detail}). Your project still syncs every few seconds.`);
+  }, [overleafRealtime.detail, overleafRealtime.status, t]);
 
   // Live mode also pushes, keyed off *saves*: autosave clears the dirty flag
   // long before any sensible push delay, so watching dirty text cancelled it.
@@ -909,7 +916,9 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
     const now = Date.now();
     if (now - lastAutoVersionRef.current < 120_000) return;
     lastAutoVersionRef.current = now;
-    void invoke<string | null>("git_auto_commit", { message: "Auto-saved version", author: authorName.trim() || null }).catch(() => {});
+    void invoke<string | null>("git_auto_commit", {
+      message: AUTO_COMMIT_MESSAGES.autoSaved, author: authorName.trim() || null,
+    }).catch(() => {});
   }, [authorName, build, overleafLink]);
 
   return {

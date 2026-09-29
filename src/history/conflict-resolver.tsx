@@ -34,9 +34,6 @@ import { logAction } from "../telemetry/app-notify";
 import { PIERRE_UNSAFE_CSS, usePierreResources } from "./pierre-diff";
 import "./conflict-resolver.css";
 
-/** Notification source label for conflict resolution. */
-const CONFLICT_SOURCE = "Conflicts";
-
 const createEditor = (options: EditorOptions<undefined>) => new Editor(options);
 
 function ConflictSide(props: {
@@ -216,7 +213,7 @@ export function ConflictResolverDialog(props: {
   const save = async () => {
     setSaving(true);
     const savedContent = stage === "edit" ? draftRef.current : resolvedContent;
-    const trace = logAction(CONFLICT_SOURCE, "Save resolved file", path);
+    const trace = logAction(t`Conflicts`, t`Save resolved file`, path);
     try {
       await invoke("write_project_file", {
         path,
@@ -224,11 +221,11 @@ export function ConflictResolverDialog(props: {
         projectRoot: props.projectRoot,
       });
       if (stage === "edit" && draftRef.current !== savedContent) {
-        trace.fail("The file changed while it was saving. Review the latest text and save again.");
+        trace.fail(t`The file changed while it was saving. Review the latest text and save again.`);
         setSaving(false);
         return;
       }
-      trace.note(`Resolved ${path}`);
+      trace.note(t`Resolved ${path}`);
       props.onResolved(path);
       props.onClose();
     } catch (reason) {

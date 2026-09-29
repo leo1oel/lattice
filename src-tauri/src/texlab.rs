@@ -502,6 +502,8 @@ fn map_diagnostic(item: &Value, relative: &str) -> Option<Diagnostic> {
         end_column: one_based(item, "/range/end/character"),
         level: if error { "error" } else { "warning" }.to_string(),
         message,
+        code: None,
+        params: Default::default(),
     })
 }
 

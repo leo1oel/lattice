@@ -7,6 +7,7 @@
  * broken `<video>` element.
  */
 
+import { t } from '@lingui/core/macro';
 import {
   AUDIO_EXTENSIONS,
   IMAGE_EXTENSIONS,
@@ -164,7 +165,9 @@ export function mediaUrlPlaceholder(kind: MediaKind): string {
   const sample = Array.from(EXTENSIONS_BY_KIND[kind])
     .map((e) => `.${e}`)
     .join(', ');
-  return `Direct ${kind} file URL — ${sample}`;
+  if (kind === 'video') return t`Direct video file URL — ${sample}`;
+  if (kind === 'audio') return t`Direct audio file URL — ${sample}`;
+  return t`Direct image file URL — ${sample}`;
 }
 
 const PROVIDER_DISPLAY_NAMES: Record<EmbedProvider, string> = {
@@ -183,9 +186,9 @@ export function mediaUrlValidationMessage(
   kind: MediaKind,
 ): string {
   if (result.valid) return '';
-  if (result.reason === 'invalid-url') return 'Not a valid URL.';
+  if (result.reason === 'invalid-url') return t`Not a valid URL.`;
   if (result.reason === 'data-uri') {
-    return 'Data URIs are not supported for media fields. Use a hosted file URL.';
+    return t`Data URIs are not supported for media fields. Use a hosted file URL.`;
   }
   if (result.reason === 'embed-provider') {
     const name = PROVIDER_DISPLAY_NAMES[result.provider];
@@ -196,15 +199,19 @@ export function mediaUrlValidationMessage(
       // `?t=` grammar didn't pass (i.e., malformed share / embed
       // URL). Tell the user the provider IS supported but the URL
       // shape isn't.
-      return `Unrecognized ${name} URL. Paste a valid ${name} share or embed link, or a direct ${kind} file URL.`;
+      return t`Unrecognized ${name} URL. Paste a valid ${name} share or embed link, or a direct video file URL.`;
     }
-    return `${name} URLs are not direct ${kind} files. Paste a direct ${kind} file URL.`;
+    // One whole sentence per kind: the kind noun is not a separable fragment
+    // in every language.
+    if (kind === 'audio') return t`${name} URLs are not direct audio files. Paste a direct audio file URL.`;
+    return t`${name} URLs are not direct image files. Paste a direct image file URL.`;
   }
   const accepted = Array.from(EXTENSIONS_BY_KIND[kind])
     .map((e) => `.${e}`)
     .join(', ');
   if (result.extension === '') {
-    return `Missing file extension. Accepts: ${accepted}.`;
+    return t`Missing file extension. Accepts: ${accepted}.`;
   }
-  return `Unsupported extension .${result.extension}. Accepts: ${accepted}.`;
+  const extension = result.extension;
+  return t`Unsupported extension .${extension}. Accepts: ${accepted}.`;
 }

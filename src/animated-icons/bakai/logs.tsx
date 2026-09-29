@@ -22,6 +22,7 @@ const CLIP_TAB = "M128,32a32,32,0,0,1,32,32H96A32,32,0,0,1,128,32Z";
 const LOG_PITCH = 32;
 /* one line: y is the underside it sits on, w the width of its top edge. w=64 is
    Phosphor's own, as are the 8-radius caps. */
+// eslint-disable-next-line lingui/no-unlocalized-strings -- SVG path data
 const logLine = (y: number, w: number) => `M${96 + w},${y}H96a8,8,0,0,1,0-16h${w}a8,8,0,0,1,0,16Z`;
 const LOG_LINES = [64, 64, 40, 64, 64, 40];
 
@@ -29,8 +30,8 @@ export function ClipboardTextLive({ size = 16, className }: { size?: number; cla
     /* Per-instance ids: url(#…) resolves document-wide, so with a hard-coded id
        every copy would animate the first copy's mask. */
     const uid = useId().replace(/[^a-zA-Z0-9]/g, "");
-    const win = `lgLogWindow-${uid}`;
-    const msk = `lgLogMask-${uid}`;
+    const win = `lg-log-window-${uid}`;
+    const msk = `lg-log-mask-${uid}`;
     return (
         <svg width={size} height={size} viewBox="0 0 256 256" fill="currentColor" className={className}>
             <clipPath id={win}>

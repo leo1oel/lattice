@@ -13,6 +13,7 @@ export type FigureInsertOptions = {
 export const DEFAULT_FIGURE_OPTIONS: FigureInsertOptions = {
   width: "\\linewidth",
   placement: "t",
+  // eslint-disable-next-line lingui/no-unlocalized-strings -- placeholder caption written into the LaTeX source
   caption: "Describe the figure.",
 };
 
@@ -47,7 +48,7 @@ export function latexFigureInsertion(
 ): InsertionEdit {
   const width = options.width.trim() || "\\linewidth";
   const placement = options.placement.trim() || "t";
-  const caption = options.caption.trim() || "Describe the figure.";
+  const caption = options.caption.trim() || DEFAULT_FIGURE_OPTIONS.caption;
   const blocks = paths.map((path, index) => {
     const normalized = path.replace(/\\/g, "/");
     const base = options.label?.trim() || `fig:${figureLabelFromPath(normalized)}`;

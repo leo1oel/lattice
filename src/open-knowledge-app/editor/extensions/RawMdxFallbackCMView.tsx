@@ -17,7 +17,7 @@
 
 import { Compartment } from '@codemirror/state';
 import { EditorView as CMEditorView, keymap } from '@codemirror/view';
-import { useLingui } from '@ok-app/shims/lingui-react-macro';
+import { useLingui } from '@lingui/react/macro';
 import type { NodeViewProps } from '@tiptap/core';
 import type { Node as PmNode, Schema } from '@tiptap/pm/model';
 import type { Selection as PmSelection } from '@tiptap/pm/state';
@@ -28,6 +28,7 @@ import { useTheme } from '@ok-app/shims/next-themes';
 import { useEffect, useRef } from 'react';
 import { useConfigContext } from '@ok-app/lib/config-provider';
 import { markUserTyping } from '../observers';
+import { childComponentLabel } from '../registry/descriptor-labels';
 import { getEditorView } from '../utils/get-editor-view';
 import { getYDoc } from '../utils/get-ydoc';
 import { getSharedMarkdownManager } from '../utils/md-singleton';
@@ -230,6 +231,9 @@ export function computeChange(
  */
 const UNREGISTERED_REASON_PREFIX = 'Unregistered component:';
 
+/** Shape `JsxComponentView` stamps for a registered component that threw. */
+const RENDER_ERROR_REASON = /^Render error in <(.*?)>: ([\s\S]*)$/;
+
 /**
  * Pull the unregistered component's name out of the `reason` attribute.
  * Returns `null` when the reason wasn't produced by the wildcard path —
@@ -265,6 +269,17 @@ export function RawMdxFallbackView({ node, editor, getPos }: NodeViewProps) {
   // wildcards and don't take this metadata.
   const unregisteredComponentName =
     severity === 'info' ? extractUnregisteredComponentName(reason) : null;
+  // `reason` is a protocol string (severity keys off its English prefixes), so
+  // it is localized here, where it is shown, rather than where it is stamped.
+  const renderErrorReason = severity === 'warn' ? RENDER_ERROR_REASON.exec(reason) : null;
+  const failedComponent = renderErrorReason ? childComponentLabel(renderErrorReason[1] ?? '') : '';
+  const failureDetail = renderErrorReason?.[2] === 'unknown' ? t`unknown` : (renderErrorReason?.[2] ?? '');
+  const displayReason =
+    unregisteredComponentName !== null
+      ? t`Unregistered component: ${unregisteredComponentName}`
+      : renderErrorReason
+        ? t`Render error in <${failedComponent}>: ${failureDetail}`
+        : reason;
 
   // CM→PM sync: forward CM changes as PM transactions.
   // Uses getPos() and getEditorView(editor) directly (both stable across renders)
@@ -666,7 +681,7 @@ export function RawMdxFallbackView({ node, editor, getPos }: NodeViewProps) {
       >
         <span
           className={`rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${style.badgeClass}`}
-          title={reason}
+          title={displayReason}
         >
           {t(style.label)}
         </span>
@@ -685,7 +700,7 @@ export function RawMdxFallbackView({ node, editor, getPos }: NodeViewProps) {
         ref={cmContainerRef}
         className="raw-mdx-fallback-cm"
         role="group"
-        aria-label={t`Editing broken MDX source: ${reason}`}
+        aria-label={t`Editing broken MDX source: ${displayReason}`}
       />
     </NodeViewWrapper>
   );

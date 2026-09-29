@@ -48,7 +48,7 @@
  */
 
 import { parsePdfAnchor, toDesktopAssetHref } from '@ok-core';
-import { Trans, useLingui } from '@ok-app/shims/lingui-react-macro';
+import { Trans, useLingui } from '@lingui/react/macro';
 import { Check, ChevronDown, PanelLeft, ZoomIn, ZoomOut } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { computeBaseScale, type PdfLayoutMode } from './pdf-layout.ts';

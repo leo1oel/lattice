@@ -22,7 +22,7 @@ const CU_ARROW =
 
 export function CloudArrowUpLive({ size = 16, className }: { size?: number; className?: string }) {
     const uid = useId().replace(/[^a-zA-Z0-9]/g, "");
-    const m = `cuMask${uid}`;
+    const m = `cu-mask-${uid}`;
     return (
         <svg width={size} height={size} viewBox="0 0 256 256" fill="currentColor" className={className}>
             <mask id={m} maskUnits="userSpaceOnUse" x="0" y="0" width="256" height="256">

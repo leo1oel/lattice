@@ -18,6 +18,7 @@ const styles = stylex.create({
     outline: "none",
     padding: uiTokens.space1,
     transitionDuration: uiTokens.switchTransitionDuration,
+    // eslint-disable-next-line lingui/no-unlocalized-strings -- CSS property list
     transitionProperty: "background-color, opacity",
     transitionTimingFunction: uiTokens.switchTransitionTiming,
     width: uiTokens.controlWidthSwitch,

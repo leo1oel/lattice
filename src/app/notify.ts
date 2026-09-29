@@ -1,3 +1,5 @@
+import { msg } from "@lingui/core/macro";
+import { i18n } from "../i18n";
 import { notifyError, notifySuccess, notifyWarning } from "../telemetry/app-notify";
 
 /*
@@ -8,12 +10,12 @@ import { notifyError, notifySuccess, notifyWarning } from "../telemetry/app-noti
  * is searchable. Module scope, not `useCallback`, so no call site has to list
  * them as dependencies.
  */
-export function setError(message: string | null, source = "App") {
-  if (message) notifyError(source, message);
+export function setError(message: string | null, source?: string) {
+  if (message) notifyError(source ?? i18n._(msg`App`), message);
 }
-export function setWarning(message: string | null, source = "App") {
-  if (message) notifyWarning(source, message);
+export function setWarning(message: string | null, source?: string) {
+  if (message) notifyWarning(source ?? i18n._(msg`App`), message);
 }
-export function setNotice(message: string | null, source = "App") {
-  if (message) notifySuccess(source, message);
+export function setNotice(message: string | null, source?: string) {
+  if (message) notifySuccess(source ?? i18n._(msg`App`), message);
 }

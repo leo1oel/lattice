@@ -10,10 +10,12 @@ import { FluidHoverHighlight } from "./fluid-hover-highlight";
 // Fluid Functionalism (https://github.com/mickadesign/fluid-functionalism): MIT License, Copyright (c) 2026 Micka Touillaud.
 // Full license text: THIRD_PARTY_NOTICES.md.
 
+/* eslint-disable lingui/no-unlocalized-strings -- font-variation-settings values */
 const fontWeights = {
   normal: "'wght' 400, 'opsz' 14",
   semibold: "'wght' 550, 'opsz' 18",
 };
+/* eslint-enable lingui/no-unlocalized-strings */
 
 interface RadioGroupContextValue {
   registerItem: (index: number, element: HTMLElement | null) => void;
@@ -25,6 +27,7 @@ const RadioGroupContext = createContext<RadioGroupContextValue | null>(null);
 
 function useRadioGroupContext() {
   const ctx = useContext(RadioGroupContext);
+  // eslint-disable-next-line lingui/no-unlocalized-strings -- developer error for misuse of the component
   if (!ctx) throw new Error("useRadioGroup must be used within a RadioGroup");
   return ctx;
 }

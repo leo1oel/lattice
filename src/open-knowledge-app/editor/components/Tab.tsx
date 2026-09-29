@@ -16,6 +16,7 @@
  */
 
 import { useId } from 'react';
+import { t } from '@lingui/core/macro';
 
 interface TabProps {
   label?: string;
@@ -27,7 +28,7 @@ export function Tab({ label, id, children }: TabProps) {
   const internalId = useId();
   const panelId = id || `tab-panel-${internalId.replace(/:/g, '')}`;
   const tabButtonId = `${panelId}-tab`;
-  const safeLabel = label?.trim() || 'Tab';
+  const safeLabel = label?.trim() || t`Tab`;
   return (
     <section
       className="tab-panel"

@@ -16,9 +16,11 @@ export const PDF_STANDARD_FONT_DATA_URL = pdfAssetUrl("pdfjs/standard_fonts/");
 /** PDFSlick 4.0.2 still asks PDF.js 6 for legacy document-property IDs. */
 export function pdfSlickTranslationId(id: string): string {
   if (!id.startsWith("document_properties_page_size_")) return id;
+  /* eslint-disable lingui/no-unlocalized-strings -- PDF.js message ids */
   return `pdfjs-${id.replaceAll("_", "-")}`
     .replace(/-name-a3$/, "-name-a-three")
     .replace(/-name-a4$/, "-name-a-four");
+  /* eslint-enable lingui/no-unlocalized-strings */
 }
 
 /** Normalize a browser text selection from the PDF text layer for agent context. */

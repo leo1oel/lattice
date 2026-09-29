@@ -8,9 +8,11 @@ export type ReferenceAssetPreview = {
 
 export async function referenceAssetPreviewDataUrl(asset: ReferenceAssetPreview): Promise<string | null> {
   if (asset.mimeType.startsWith("image/")) {
+    // eslint-disable-next-line lingui/no-unlocalized-strings -- data: URL
     return `data:${asset.mimeType};base64,${asset.base64}`;
   }
   if (asset.mimeType === "text/html") {
+    // eslint-disable-next-line lingui/no-unlocalized-strings -- data: URL
     return `data:text/html;base64,${asset.base64}`;
   }
   if (asset.mimeType !== "application/pdf") return null;
@@ -42,6 +44,7 @@ export async function referenceAssetPreviewDataUrl(asset: ReferenceAssetPreview)
     const canvas = document.createElement("canvas");
     canvas.width = Math.max(1, Math.floor(viewport.width));
     canvas.height = Math.max(1, Math.floor(viewport.height));
+    // eslint-disable-next-line lingui/no-unlocalized-strings -- canvas context id
     const canvasContext = canvas.getContext("2d");
     await page.render({
       canvasContext: canvasContext as CanvasRenderingContext2D,

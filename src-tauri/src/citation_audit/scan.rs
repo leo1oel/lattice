@@ -1,6 +1,7 @@
 //! The offline half of an audit: parse every registered bibliography and
 //! report malformed entries, schema gaps and cross-file duplicates.
 use super::*;
+use crate::models::MessageParams;
 use regex::Regex;
 use std::collections::HashMap;
 use std::sync::LazyLock;
@@ -38,6 +39,25 @@ const REQUIRED_FIELDS: &[(&[&str], &[&str])] = &[
     (&["patent"], &["author or editor", "title", "number", "year or date"]),
 ];
 
+/// One finding about a bibliography: English `message` for the report and the
+/// agent, `code` and `params` for the interface.
+#[derive(Debug)]
+struct Finding {
+    code: &'static str,
+    params: MessageParams,
+    message: String,
+}
+
+fn finding(code: &'static str, params: &[(&'static str, &str)], message: String) -> Finding {
+    let params = params.iter().map(|(name, value)| (*name, value.to_string())).collect();
+    Finding { code, params, message }
+}
+
+fn audit_issue(path: &str, key: Option<&str>, found: Finding) -> AuditIssue {
+    let Finding { code, params, message } = found;
+    AuditIssue { path: path.to_string(), key: key.map(str::to_string), message, code, params }
+}
+
 pub fn scan(root: &Path) -> Result<AuditScan, String> {
     let mut entries = Vec::new();
     let mut issues = Vec::new();
@@ -45,30 +65,33 @@ pub fn scan(root: &Path) -> Result<AuditScan, String> {
     let mut groups: [HashMap<String, Vec<(String, String)>>; 3] = Default::default();
     for (path, source) in audit_sources(root)? {
         if has_conflict_markers(&source) {
-            issues.push(AuditIssue { path, key: None, message: UNRESOLVED_CONFLICT.into() });
+            let conflict = finding("bibliography-conflict", &[], UNRESOLVED_CONFLICT.into());
+            issues.push(audit_issue(&path, None, conflict));
             continue;
         }
         let spans = project::bibliography_entry_spans(&source);
         let unparsed = bibliography_construct_count(&source).saturating_sub(spans.len());
         if unparsed > 0 {
+            let count = unparsed.to_string();
             let message = format!("Could not parse {unparsed} bibliography construct(s).");
-            issues.push(AuditIssue { path: path.clone(), key: None, message });
+            let unparsed = finding("unparsed-constructs", &[("count", &count)], message);
+            issues.push(audit_issue(&path, None, unparsed));
         }
         for (key, start, end) in spans {
             let bibtex = source[start..end].to_string();
-            let issue = |message: String| AuditIssue {
-                path: path.clone(),
-                key: Some(key.clone()),
-                message,
-            };
+            let issue = |found: Finding| audit_issue(&path, Some(&key), found);
             if !complete_entry(&bibtex) {
-                issues.push(issue("Unclosed bibliography entry; online check skipped.".into()));
+                let message = "Unclosed bibliography entry; online check skipped.";
+                issues.push(issue(finding("unclosed-entry", &[], message.into())));
                 continue;
             }
             let values = fields(&bibtex);
             let title = field_value(&values, "title");
-            let local = local_validation(&bibtex);
-            issues.extend(local.iter().cloned().map(issue));
+            let (local, local_issues): (Vec<_>, Vec<_>) = local_validation(&bibtex)
+                .into_iter()
+                .map(|found| (found.message.clone(), issue(found)))
+                .unzip();
+            issues.extend(local_issues);
             let identities = [
                 Some(key.to_ascii_lowercase()),
                 values.get("doi").and_then(|v| normalize_doi(v)),
@@ -82,29 +105,33 @@ pub fn scan(root: &Path) -> Result<AuditScan, String> {
             entries.push(AuditEntry { path: path.clone(), key, title, bibtex, issues: local });
         }
     }
-    for (kind, group) in ["citation key", "DOI", "title"].into_iter().zip(groups) {
+    let kinds =
+        [("citation key", "duplicate-key"), ("DOI", "duplicate-doi"), ("title", "duplicate-title")];
+    for ((kind, code), group) in kinds.into_iter().zip(groups) {
         for (path, key) in group.into_values().filter(|members| members.len() > 1).flatten() {
             let message = format!("Duplicate {kind} across bibliography files.");
-            issues.push(AuditIssue { path, key: Some(key), message });
+            issues.push(audit_issue(&path, Some(&key), finding(code, &[], message)));
         }
     }
     Ok(AuditScan { entries, issues })
 }
 
-fn local_validation(entry: &str) -> Vec<String> {
+fn local_validation(entry: &str) -> Vec<Finding> {
     let kind = entry_type(entry);
     let values = fields(entry);
     let mut issues = Vec::new();
     if !SUPPORTED_TYPES.split_whitespace().any(|known| known == kind) {
-        issues.push(format!("Unknown bibliography entry type `{kind}`."));
+        let message = format!("Unknown bibliography entry type `{kind}`.");
+        issues.push(finding("unknown-entry-type", &[("type", &kind)], message));
     }
     for (name, value) in &values {
         if value.trim().is_empty() {
-            issues.push(format!("Empty {name} field."));
+            issues.push(finding("empty-field", &[("field", name)], format!("Empty {name} field.")));
         }
     }
     if values.get("author").is_some_and(|value| has_repeated_authors(&author_names(value))) {
-        issues.push("Repeated author names; verify against the publication's author list before removing duplicates.".into());
+        let message = "Repeated author names; verify against the publication's author list before removing duplicates.";
+        issues.push(finding("repeated-authors", &[], message.into()));
     }
 
     // A cross-referenced child may inherit every type-required field. Without
@@ -124,7 +151,9 @@ fn local_validation(entry: &str) -> Vec<String> {
         if !requirement.split(" or ").any(present)
             && !(*requirement == "journal" && present("journaltitle"))
         {
-            issues.push(format!("Missing {requirement} field for {kind} entry."));
+            let message = format!("Missing {requirement} field for {kind} entry.");
+            let params = [("requirement", *requirement), ("type", kind.as_str())];
+            issues.push(finding("missing-field", &params, message));
         }
     }
 
@@ -133,14 +162,16 @@ fn local_validation(entry: &str) -> Vec<String> {
         && !values.contains_key("journaltitle")
         && values.contains_key("booktitle")
     {
-        issues.push("Article entry uses booktitle instead of journal.".into());
+        let message = "Article entry uses booktitle instead of journal.";
+        issues.push(finding("article-uses-booktitle", &[], message.into()));
     }
     if matches!(kind.as_str(), "inproceedings" | "conference")
         && !values.contains_key("booktitle")
         && (values.contains_key("journal") || values.contains_key("journaltitle"))
     {
         let label = if kind == "conference" { "Conference" } else { "Inproceedings" };
-        issues.push(format!("{label} entry uses journal instead of booktitle."));
+        let message = format!("{label} entry uses journal instead of booktitle.");
+        issues.push(finding("proceedings-uses-journal", &[("type", &kind)], message));
     }
 
     if let Some(year) = field_expressions(entry).get("year") {
@@ -154,7 +185,8 @@ fn local_validation(entry: &str) -> Vec<String> {
             && !value.is_empty()
             && (value.len() != 4 || !value.chars().all(|character| character.is_ascii_digit()))
         {
-            issues.push("Invalid literal year; expected four digits.".into());
+            let message = "Invalid literal year; expected four digits.";
+            issues.push(finding("invalid-year", &[], message.into()));
         }
     }
     issues
@@ -180,7 +212,10 @@ mod tests {
     fn assert_reports(entry: &str, expected: &[&str]) {
         let issues = local_validation(entry);
         for issue in expected {
-            assert!(issues.iter().any(|found| found == issue), "{entry}: {issue} in {issues:?}");
+            assert!(
+                issues.iter().any(|found| found.message == *issue),
+                "{entry}: {issue} in {issues:?}"
+            );
         }
     }
 
@@ -255,7 +290,7 @@ mod tests {
         let repeated = before
             .replace("Alice Smith and Bob Jones", "Alice Smith and Bob Jones and Smith, Alice");
         let repeats = |entry: &str| {
-            local_validation(entry).iter().any(|issue| issue.contains("Repeated author"))
+            local_validation(entry).iter().any(|issue| issue.message.contains("Repeated author"))
         };
         assert!(repeats(&repeated));
         assert!(!repeats(before));

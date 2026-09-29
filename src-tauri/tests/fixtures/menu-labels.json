@@ -1,0 +1,23 @@
+{
+  "about": "关于 Lattice",
+  "services": "服务",
+  "hide": "隐藏 Lattice",
+  "hideOthers": "隐藏其他",
+  "showAll": "全部显示",
+  "quit": "退出 Lattice",
+  "file": "文件",
+  "edit": "编辑",
+  "undo": "撤销",
+  "redo": "重做",
+  "cut": "剪切",
+  "copy": "拷贝",
+  "paste": "粘贴",
+  "selectAll": "全选",
+  "view": "显示",
+  "fullscreen": "进入全屏幕",
+  "window": "窗口",
+  "minimize": "最小化",
+  "zoom": "缩放",
+  "closeWindow": "关闭窗口",
+  "help": "帮助"
+}

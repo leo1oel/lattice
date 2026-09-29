@@ -66,9 +66,6 @@ const gitignoreParser: StreamParser<{ atLineStart: boolean }> = {
 const GITIGNORE_EXTENSIONS: Extension[] = [
   new LanguageSupport(StreamLanguage.define(gitignoreParser)),
 ];
-// These are CSS custom-property references consumed by CodeMirror, not text
-// shown to the user.
-/* eslint-disable lingui/no-unlocalized-strings */
 const markdownHighlightStyle = HighlightStyle.define([
   { tag: tags.heading, color: "var(--syntax-function)", fontWeight: "600" },
   { tag: [tags.link, tags.url], color: "var(--syntax-variable-special)" },
@@ -79,7 +76,6 @@ const markdownHighlightStyle = HighlightStyle.define([
   { tag: tags.strong, fontWeight: "700" },
   { tag: tags.emphasis, fontStyle: "italic" },
 ]);
-/* eslint-enable lingui/no-unlocalized-strings */
 /** Starts `load` on first call and shares its promise afterwards. */
 function once<T>(load: () => Promise<T>): () => Promise<T> {
   let promise: Promise<T> | null = null;

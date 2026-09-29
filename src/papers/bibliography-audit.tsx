@@ -13,10 +13,14 @@ import { PanelHeader } from "../components/ui/panel-header";
 import { ResizableDrawer } from "../components/ui/resizable-drawer";
 import { ScrollArea } from "../components/ui/scroll-area";
 import { loadAuditReport, saveAuditReport, type AuditReport, type SavedAudit } from "./bibliography-audit-storage";
+import { auditIssueText, auditResultMessage, auditSourceName, type CodedAuditIssue } from "./audit-messages";
 import "./bibliography-audit.css";
 
 export type AuditEntry = { path: string; key: string; title: string; bibtex: string; issues: string[] };
-type AuditScan = { entries: AuditEntry[]; issues: { path: string; key?: string; message: string }[] };
+type AuditScan = { entries: AuditEntry[]; issues: ({ path: string; key?: string } & CodedAuditIssue)[] };
+/** Stored in the saved report as a key; the panel translates it where it renders. */
+// eslint-disable-next-line lingui/no-unlocalized-strings -- persisted message key, translated in publicationMessage
+const REFERENCE_CHANGED_MESSAGE = "Reference changed since the last check. Check this reference again.";
 type S2BatchStatus = "not_configured" | "queue_busy" | "daily_quota" | "upstream_rate_limit" | "rate_limited" | "unauthorized" | "timeout" | "network" | "malformed" | "unavailable";
 type BatchAudit = { results: (AuditResult | null)[]; s2Failure?: S2BatchStatus };
 export type AuditResult = {
@@ -233,7 +237,7 @@ export function BibliographyAudit(props: {
           if (disposed || run.current.generation !== generation) return;
           const restored = carryOver(value.entries, saved, (entry, prior) => ({
             status: "conflict", before: entry.bibtex, changes: [], checkedAt: prior.result.checkedAt,
-            message: "Reference changed since the last check. Check this reference again.",
+            message: REFERENCE_CHANGED_MESSAGE,
           }));
           setScan(value); setResults(restored.results); setApplied(restored.applied); setSelected(new Set());
         })
@@ -291,8 +295,8 @@ export function BibliographyAudit(props: {
   };
   const publicationMessage = (result: AuditResult) => !result.publicationReason
     ? result.message === "A published version is available." ? t`A published version is available.`
-      : result.message === "Reference changed since the last check. Check this reference again." ? t`Reference changed since the last check. Check this reference again.`
-      : result.message === "No update found." ? t`No update found` : result.message
+      : result.message === REFERENCE_CHANGED_MESSAGE ? t`Reference changed since the last check. Check this reference again.`
+      : result.message === "No update found." ? t`No update found` : auditResultMessage(result.message)
     : result.publicationReason === "identity_conflict" ? t`A source returned a possible record, but its identifying metadata conflicts with this reference.`
       : result.publicationReason === "metadata_unavailable" ? t`No independent metadata was available to verify a possible record. The reference may still be valid.`
         : result.publicationReason === "missing_identity" ? t`Add a title, full authors, and year, or add a DOI or arXiv identifier, before checking this reference.`
@@ -371,7 +375,7 @@ export function BibliographyAudit(props: {
     {storageFailed && <p role="alert" className="bibliography-audit-notice">{t`Could not save the report on this device. Keep this window open to retain the results.`}</p>}
     {scan && scan.issues.length > 0 && <Disclosure className="bibliography-audit-local" open
       summary={<><AlertTriangle size={14} /><span>{t`Local issues`}</span><Badge tone="warning">{scan.issues.length}</Badge></>}>
-      <ul>{scan.issues.map((issue, index) => <li key={index}><span>{issue.path}{issue.key ? ` · ${issue.key}` : ""}</span><p>{issue.message}</p></li>)}</ul>
+      <ul>{scan.issues.map((issue, index) => <li key={index}><span>{issue.path}{issue.key ? ` · ${issue.key}` : ""}</span><p>{auditIssueText(issue)}</p></li>)}</ul>
     </Disclosure>}
     {scan && total === 0 && <div className="bibliography-audit-empty"><ClipboardCheck size={24} aria-hidden="true" /><p>{t`No references to check`}</p></div>}
     {scan?.entries.map((entry, index) => {
@@ -413,7 +417,7 @@ export function BibliographyAudit(props: {
           <p>{publicationMessage(result)}</p>
           {!!result.sources?.length && <dl className="bibliography-audit-sources">
             {result.sources.map(source => <div key={source.source}>
-              <dt>{sourceNames[source.source] ?? source.source}</dt>
+              <dt>{sourceNames[source.source] ?? auditSourceName(source.source)}</dt>
               <dd>{sourceOutcome(result, source.outcome)}</dd>
             </div>)}
           </dl>}

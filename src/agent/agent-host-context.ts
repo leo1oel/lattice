@@ -60,6 +60,7 @@ export function selectedMarkdownImageProjectPath(
 }
 
 const PRESENTATION_AUTHORING_CONTEXT = {
+  // eslint-disable-next-line lingui/no-unlocalized-strings -- Agent-facing context, not shown in the interface
   nativeEntryPattern: "slides/<deck-id>/index.tsx",
   nativeFormat: "open_slide_tsx",
   skill: "authoring-presentations",

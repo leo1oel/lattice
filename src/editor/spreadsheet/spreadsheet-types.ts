@@ -104,6 +104,7 @@ export type SpreadsheetReadRequest = { sheet?: string; range?: string; include?:
 export type SpreadsheetBatchUpdateRequest = { operations: SpreadsheetBatchOperation[] };
 
 export function isSpreadsheetPath(path: string): boolean {
+  // eslint-disable-next-line lingui/no-unlocalized-strings -- locale tag for case folding
   return path.toLocaleLowerCase("en-US").endsWith(LATTICE_SPREADSHEET_EXTENSION);
 }
 
@@ -111,10 +112,12 @@ export function isSpreadsheetPath(path: string): boolean {
  * Worksheet fields per axis. Every row and column carries a stable ID in
  * `custom[idField]`, so CRDT cells stay attached across insertions and deletions.
  */
+/* eslint-disable lingui/no-unlocalized-strings -- worksheet field names */
 export const SPREADSHEET_AXES = {
   row: { idField: "__latticeRowId", count: "rowCount", data: "rowData", start: "startRow", end: "endRow", max: 1_048_576 },
   column: { idField: "__latticeColumnId", count: "columnCount", data: "columnData", start: "startColumn", end: "endColumn", max: 16_384 },
 } as const;
+/* eslint-enable lingui/no-unlocalized-strings */
 export type SpreadsheetAxis = keyof typeof SPREADSHEET_AXES;
 
 export function isRecord(value: unknown): value is Record<string, unknown> {

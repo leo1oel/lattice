@@ -15,7 +15,7 @@
  * caller's `treatEmptyAsUndefined` handling. A dedicated "Clear" button
  * surfaces when the value is non-empty.
  */
-import { useLingui } from '@ok-app/shims/lingui-react-macro';
+import { useLingui } from '@lingui/react/macro';
 import { Eraser } from 'lucide-react';
 import { useRef } from 'react';
 import { Button } from '../../components/ui/button';
@@ -62,7 +62,7 @@ export function ColorPickerInput({ id, value, onChange, autoFocus }: ColorPicker
           id={id}
           type="text"
           value={value}
-          placeholder="#F05032 or rgb(240,80,50)"
+          placeholder={t`#F05032 or rgb(240,80,50)`}
           onChange={(e) => onChange(e.target.value)}
           autoFocus={autoFocus}
           data-prop-autofocus={autoFocus ? '' : undefined}

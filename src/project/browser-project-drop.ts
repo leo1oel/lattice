@@ -1,5 +1,9 @@
 import { dropDirectoryAt } from "../app-utils";
 
+/** The DataTransfer type browsers report for a drag carrying files. */
+// eslint-disable-next-line lingui/no-unlocalized-strings -- DataTransfer type token
+const FILES_TRANSFER_TYPE = "Files";
+
 /** Ordinary browsers expose File bytes, not the OS paths used by the desktop. */
 export function listenForBrowserProjectDrops(
   onDrop: (files: File[], directory: string) => void,
@@ -11,7 +15,7 @@ export function listenForBrowserProjectDrops(
     return dropDirectoryAt({ x: event.clientX * scale, y: event.clientY * scale });
   };
   const over = (event: DragEvent) => {
-    if (!event.dataTransfer?.types.includes("Files")) return;
+    if (!event.dataTransfer?.types.includes(FILES_TRANSFER_TYPE)) return;
     const target = targetOf(event);
     onTarget(target);
     if (target === null) return;
@@ -20,7 +24,7 @@ export function listenForBrowserProjectDrops(
     event.dataTransfer.dropEffect = "copy";
   };
   const drop = (event: DragEvent) => {
-    if (!event.dataTransfer?.types.includes("Files")) return;
+    if (!event.dataTransfer?.types.includes(FILES_TRANSFER_TYPE)) return;
     onTarget(null);
     const target = targetOf(event);
     if (target === null) return;
