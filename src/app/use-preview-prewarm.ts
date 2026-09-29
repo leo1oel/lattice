@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, type RefObject } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import type { PaperSummary, ProjectSnapshot } from "../app-types";
-import { markdownFrontmatterEnd, stripFrontmatter } from "../app-utils";
 import { flattenProjectPaths } from "../build/compile-diagnostics";
 import { MarkdownWorkspaceIndex } from "../editor/markdown/markdown-workspace-index";
 import { whenIdle } from "./effect-helpers";
@@ -22,7 +21,7 @@ type PrewarmTask = (isCurrent: () => boolean) => Promise<boolean>;
 
 /**
  * Speculative, idle-time preparation: editor/preview chunks for the project's
- * file types, the Markdown search index, and a parsed preview of whichever
+ * file types, the Markdown search index, and the visual editor for whichever
  * document the reader is hovering toward.
  */
 export function usePreviewPrewarm(
@@ -102,17 +101,15 @@ export function usePreviewPrewarm(
     return cancelPreviewPrewarm;
   }, [cancelPreviewPrewarm, project?.root]);
 
-  const prewarmFile = useCallback((kind: "file" | "paper", path: string, prepare: (source: string) => string) => {
+  const prewarmFile = useCallback((kind: "file" | "paper", path: string) => {
     const root = projectRef.current?.root;
     if (!root) return;
     schedulePreviewPrewarm(`${kind}:${root}:${path}`, async (isCurrent) => {
-      const source = await invoke<string>("read_project_file", { path, projectRoot: root });
-      // A Paper without a local reading has nothing to parse yet.
-      if ((kind === "paper" && !source) || !isCurrent() || projectRef.current?.root !== root) return false;
       const startedAt = performance.now();
       const [, warm] = await Promise.all([loadDocumentCanvas(), loadCanvasPrewarm()]);
-      if (!isCurrent()) return false;
-      await warm.prewarmMarkdownPreviewDocument(path, prepare(source));
+      if (!isCurrent() || projectRef.current?.root !== root) return false;
+      // The editor keeps no parse cache across mounts, so the document itself is not read ahead.
+      await warm.prewarmMarkdownPreviewDocument();
       measure("lattice:markdown-prewarm", startedAt, { path });
       return isCurrent();
     });
@@ -121,12 +118,12 @@ export function usePreviewPrewarm(
   const { activeFile, activePaperId, paperView } = current;
   const prewarmLikelyProjectFile = useCallback((path: string) => {
     if (!/\.mdx?$/i.test(path) || path === activeFile) return;
-    prewarmFile("file", path, (source) => source.slice(markdownFrontmatterEnd(source)));
+    prewarmFile("file", path);
   }, [activeFile, prewarmFile]);
   const prewarmLikelyPaper = useCallback((paper: PaperSummary) => {
     if (!paper.arxivId || activePaperId === paper.arxivId) return;
     const useBlog = Boolean(paper.hasBlog && (paperView === "blog" || !paper.hasFullText));
-    prewarmFile("paper", paperDocumentPath(paper.arxivId, useBlog ? "blog" : "fulltext"), useBlog ? (source) => source : stripFrontmatter);
+    prewarmFile("paper", paperDocumentPath(paper.arxivId, useBlog ? "blog" : "fulltext"));
   }, [activePaperId, paperView, prewarmFile]);
 
   return { workspaceIndex, cancelPreviewPrewarm, prewarmLikelyProjectFile, prewarmLikelyPaper };

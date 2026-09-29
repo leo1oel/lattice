@@ -26,7 +26,7 @@ import { usePanelLayout } from "./app/use-panel-layout";
 import { openMarkdown } from "./editor/markdown/engine/markdown-document";
 import type { SynaraRuntimeInfo } from "./agent/synara-runtime";
 import { ConfirmActionProvider } from "./components/ui/confirm-action-dialog";
-import { loadLatticeVisualEditorModule } from "./canvas/canvas-lazy-modules";
+import { loadVisualMarkdownEditorModule } from "./canvas/canvas-lazy-modules";
 // Keep the cold Vite transforms of these real lazy surfaces outside interaction-test deadlines; the tests
 // still mount them, not doubles: the visual Markdown editor, the file-tree navigator, the canvas and
 // comment surfaces the comment-routing regression uses, and the PDF viewer source navigation needs.
@@ -1772,7 +1772,7 @@ describe("project workspace", () => {
     });
     persistLayout(snapshot.root, { openTabs: ["notes/index.md"], activeFile: "notes/index.md", secondaryFile: "", canvasMode: "split" });
 
-    await Promise.all([loadTextLanguageExtensions("notes/index.md"), loadLatticeVisualEditorModule()]);
+    await Promise.all([loadTextLanguageExtensions("notes/index.md"), loadVisualMarkdownEditorModule()]);
     renderApp({
       ...refreshableProject(snapshot), write_project_file: undefined,
       read_project_file: readFiles({
@@ -1951,7 +1951,7 @@ describe("project workspace", () => {
     };
     persistLayout(snapshot.root, { openTabs: ["notes/index.md"], activeFile: "notes/index.md", secondaryFile: "", canvasMode: "split" });
 
-    await Promise.all([loadTextLanguageExtensions("notes/index.md"), loadLatticeVisualEditorModule()]);
+    await Promise.all([loadTextLanguageExtensions("notes/index.md"), loadVisualMarkdownEditorModule()]);
     renderApp({
       ...refreshableProject(snapshot), write_project_file: undefined,
       read_project_file: (args) => {
@@ -2698,7 +2698,7 @@ describe("project workspace", () => {
   it.each(["source pane", "outside input"])("saves pending visual Markdown when focus moves to %s in manual build mode", async (destination) => {
     setAutoBuildMode("manual");
     persistLayout(ROOT, { openTabs: ["notes.md"], activeFile: "notes.md", secondaryFile: "", canvasMode: "split" });
-    await loadLatticeVisualEditorModule();
+    await loadVisualMarkdownEditorModule();
     const snapshot = projectSnapshot({ files: [fileNode("notes.md")] });
     renderApp({ ...refreshableProject(snapshot, "Original paragraph.\n"), write_project_file: undefined });
     const surface = await screen.findByRole("textbox", { name: "Markdown document editor" }, { timeout: 15_000 });
@@ -2731,7 +2731,7 @@ describe("project workspace", () => {
     persistLayout(ROOT, {
       openTabs: ["left.md", "right.md"], activeFile: "left.md", secondaryFile: "right.md", focusedPane: "secondary", canvasMode: "dual",
     });
-    await loadLatticeVisualEditorModule();
+    await loadVisualMarkdownEditorModule();
     renderApp({
       ...refreshableProject(projectSnapshot({ files: fileNodes("left.md", "right.md") })), write_project_file: undefined,
       read_project_file: readFiles({ "left.md": "Left unchanged.\n" }, "Right original.\n"),
@@ -3076,7 +3076,7 @@ describe("project workspace", () => {
     let source = "# Notes\nParagraph\n";
     let mtimeMs = 1;
 
-    await Promise.all([loadTextLanguageExtensions("notes.md"), loadLatticeVisualEditorModule()]);
+    await Promise.all([loadTextLanguageExtensions("notes.md"), loadVisualMarkdownEditorModule()]);
     renderApp({
       ...refreshableProject(markdownSnapshot()), read_project_file: () => source, stat_project_file: () => ({ exists: true, mtimeMs }),
       write_project_file: (args) => {
@@ -3854,7 +3854,7 @@ describe("project workspace", () => {
 
   it("publishes a visually selected Markdown block as Agent context", async () => {
     persistLayout(ROOT, { openTabs: ["notes.md"], activeFile: "notes.md", canvasMode: "pdf" });
-    await loadLatticeVisualEditorModule();
+    await loadVisualMarkdownEditorModule();
     renderApp({
       ...projectCommands(markdownSnapshot(), "## Selected context\n\nUnselected paragraph"),
       list_editor_comments: () => ["notes.md", "other.tex"].map((path) => ({

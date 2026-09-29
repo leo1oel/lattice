@@ -12,19 +12,6 @@
 # Everything, by default.
 *                                   @leo1oel
 
-# --- Vendored GPL-3.0-or-later code -----------------------------------------
-# `src/open-knowledge-app/` is regenerated verbatim from upstream by
-# scripts/vendor-open-knowledge.mjs; `open-knowledge-app.lock.json` is its
-# manifest and hand edits are overwritten on the next re-vendor.
-# `src/open-knowledge-core/` is a vendored subset that is NOT auto-synced, so
-# every intentional deviation has to stay marked. These two trees are why the
-# whole project is GPL — their LICENSE copies and attribution headers are a
-# legal obligation, not housekeeping.
-/src/open-knowledge-app/            @leo1oel
-/src/open-knowledge-core/           @leo1oel
-/open-knowledge-app.lock.json       @leo1oel
-/scripts/vendor-open-knowledge.mjs  @leo1oel
-
 # --- Licensing and attribution ----------------------------------------------
 /LICENSE                            @leo1oel
 /THIRD_PARTY_NOTICES.md             @leo1oel

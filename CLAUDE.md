@@ -52,7 +52,6 @@ Lint enforces a `--max-warnings` debt cap, owned by the `lint` script in
 - `src/components/ui/` — the one UI-primitive home: shadcn-style controls plus the app-level shared presentation (`motion.tsx`, `resizable-drawer.tsx`, `avatar-group.tsx`, `confirm-action-dialog.tsx`, `search-picker-dialog.tsx`, `collab-colors.ts`).
 - `src/overleaf/` — Overleaf sync: the OT engine (`ot.ts`), the realtime/chat/comments/track-changes hooks (`use-overleaf-*`), and their panels and stylesheets.
 - Filenames keep their domain prefix after a move (`overleaf/overleaf-presence.tsx`, not `overleaf/presence.tsx`) so the split stays a reviewable pure-rename diff.
-- `src/open-knowledge-app/` — **vendored** from an upstream repo by `scripts/vendor-open-knowledge.mjs` (see its MANIFEST). Local patches are accepted practice but re-vendoring can overwrite them; prefer changes outside when possible. `src/open-knowledge-core/` is related but NOT auto-synced.
 - `src-tauri/src/` — Rust: project validation/transactions (`project.rs`), LaTeX build (`latex.rs`), Overleaf sync (`overleaf*.rs`), papers/OpenAlex, TexLab, FTS, the Synara supervisor (`synara.rs`).
 - `literature-worker/` — Cloudflare Worker for the public literature proxy; own package.json; see `docs/public-literature-service.md`.
 - `src-tauri/synara-runtime/` — staged agent runtime (gitignored); produced by `scripts/prepare-synara-sidecar.mjs` from the pinned source in `scripts/synara-runtime.json`.

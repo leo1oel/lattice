@@ -160,9 +160,6 @@ export default defineConfig(() => ({
   resolve: {
     alias: {
       "@": path.resolve(fileURLToPath(new URL(".", import.meta.url)), "src"),
-      // Vendored Open Knowledge app layer (see scripts/vendor-open-knowledge.mjs).
-      "@ok-app": path.resolve(fileURLToPath(new URL(".", import.meta.url)), "src/open-knowledge-app"),
-      "@ok-core": path.resolve(fileURLToPath(new URL(".", import.meta.url)), "src/open-knowledge-core/index.ts"),
     },
   },
 

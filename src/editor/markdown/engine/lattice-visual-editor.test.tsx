@@ -2,7 +2,6 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { Editor } from "@tiptap/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { loadVisualEditorEngine, VISUAL_EDITOR_ENGINE_KEY } from "../../../settings/app-settings";
 import type { VisualMarkdownEditorProps } from "../visual-editor-props";
 import { LatticeVisualMarkdownEditor } from "./lattice-visual-editor";
 
@@ -40,16 +39,6 @@ afterEach(() => {
 });
 
 describe("Lattice visual Markdown editor", () => {
-  it("is the default, and only an explicit hidden fallback selects the vendored editor", () => {
-    expect(loadVisualEditorEngine()).toBe("lattice");
-    localStorage.setItem(VISUAL_EDITOR_ENGINE_KEY, "ok");
-    expect(loadVisualEditorEngine()).toBe("ok");
-    localStorage.setItem(VISUAL_EDITOR_ENGINE_KEY, "lattice");
-    expect(loadVisualEditorEngine()).toBe("lattice");
-    localStorage.setItem(VISUAL_EDITOR_ENGINE_KEY, "something-else");
-    expect(loadVisualEditorEngine()).toBe("lattice");
-  });
-
   it("renders Markdown visually, keeps unmodelled source verbatim, and never writes on open", async () => {
     const { onChange } = renderEditor({ text: "# Title\n\n- one\n- two\n\n<Tabs mode=\"x\">\n\nBody\n\n</Tabs>\n" });
     expect(surface().querySelector("h1")?.textContent).toBe("Title");

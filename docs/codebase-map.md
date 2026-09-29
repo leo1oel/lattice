@@ -17,10 +17,10 @@ description.
 
 | Directory | Tracked files | What it is |
 | --- | --- | --- |
-| `src/` | 930 | The React 19 / TypeScript frontend. Split by domain: 12 files at the root, the rest under `app/`, `agent/`, `build/`, `canvas/`, `components/`, `editor/{,latex,markdown,spreadsheet,board,insert,comments,presentation}/`, `history/`, `hooks/`, `onboarding/`, `overleaf/`, `papers/`, `pdf/`, `platform/`, `project/`, `settings/`, `styles/`, `telemetry/`, `locales/`, and two vendored trees. See §3. |
+| `src/` | 930 | The React 19 / TypeScript frontend. Split by domain: 12 files at the root, the rest under `app/`, `agent/`, `build/`, `canvas/`, `components/`, `editor/{,latex,markdown,spreadsheet,board,insert,comments,presentation}/`, `history/`, `hooks/`, `onboarding/`, `overleaf/`, `papers/`, `pdf/`, `platform/`, `project/`, `settings/`, `styles/`, `telemetry/`, and `locales/`. See §3. |
 | `src-tauri/` | 183 | The Rust host: 117 `.rs` files (~40.2k lines) under `src-tauri/src/` — large areas are a short `x.rs` map beside an `x/` directory of parts, command handlers are in `ipc/` — plus `tauri.conf.json`, capabilities, icons, and LaTeX project templates. |
 | `literature-worker/` | 8 | The public literature proxy Worker (`lattice-literature`, OpenAlex and Crossref). Own `package.json` and vitest config; see [`public-literature-service.md`](public-literature-service.md). |
-| `scripts/` | 45 | Build and maintenance tooling: version bump, size budget, i18n coverage, runtime staging and signing (Synara, Open Slide, Chromium), third-party notices, open-knowledge vendoring, perf fixtures, manual Electron regressions (`electron-regressions.mjs`), dev bootstrap (`setup-dev.sh`), Overleaf live verification. Shared helpers are in `scripts/lib/` (`util.mjs`, `codesign.mjs`). |
+| `scripts/` | 45 | Build and maintenance tooling: version bump, size budget, i18n coverage, runtime staging and signing (Synara, Open Slide, Chromium), third-party notices, perf fixtures, manual Electron regressions (`electron-regressions.mjs`), dev bootstrap (`setup-dev.sh`), Overleaf live verification. Shared helpers are in `scripts/lib/` (`util.mjs`, `codesign.mjs`). |
 | `tools/` | 2 | Development-only pages. `tools/icon-lab/` is the animated-icon playground behind the root `icon-lab.html`; it is served by `pnpm dev` and is deliberately **not** a build input, so it never ships. Typechecked and linted with the app. |
 | `docs/` | 10 | This directory. See [`README.md`](README.md). |
 | `evals/` | 2 | JSON fixtures for `scripts/agent-quality-eval.mjs` — pass/fail transcripts for the agent's research behaviour. |
@@ -37,7 +37,7 @@ description.
 | --- | --- |
 | **The app shell, global state, IPC wiring** | `src/App.tsx` (the hub — see §5), `src/app/` (the hooks and surfaces extracted out of it: `use-project-state.ts`, `use-document-buffers.ts`, `use-build-pipeline.ts`, `use-synara-host.ts`, `app-*.tsx` — see §6), `src/main.tsx` (root render, locale activation, error capture), `src/app-types.ts` (405 lines of shared shapes), `src/app-utils.ts`, `src/app/use-panel-layout.ts`, `src/app/window-layout.ts`, `src/app/sidebar-mode-layout.ts` |
 | **The LaTeX / CodeMirror source editor** | `src/editor/latex/latex-editor.ts` (390 — assembles the CM6 extension set from `latex-completions.ts`, `latex-diagnostics.ts`, `latex-hover-cards.ts`, `latex-environments.ts`, `latex-edits.ts`, `latex-symbols.ts`), `src/editor/codemirror-host.tsx` (the `@uiw/react-codemirror` wrapper), `src/canvas/document-canvas.tsx` (1,609 — the split source/preview shell that mounts it) and its modules in `src/canvas/` (`editor-extensions.ts`, `html-preview.tsx`, `paper-reader.tsx`, …), `src/editor/editor-languages.ts`, `src/editor/harper-spellcheck.ts`, `src/editor/latex/latex-outline.ts`, `src/editor/latex/latex-text.ts` |
-| **The visual Markdown (TipTap) editor** | The default is the Lattice-owned engine in `src/editor/markdown/engine/` (`lattice-visual-editor.tsx` is the host component, `markdown-document.ts` the round trip); its spec and status live in [`visual-editor-spec.md`](visual-editor-spec.md). What follows is the vendored editor, kept for one release as the hidden `visualEditorEngine` fallback: `src/editor/markdown/visual-markdown-editor.tsx` (1,269 — publication, path swaps, eligibility), `src/editor/markdown/visual-source-map.ts` (source ↔ ProseMirror offsets), `src/editor/markdown/visual-markdown-serialization.ts`, `src/editor/markdown/visual-source-decorations.ts` (presence, tracked-change and comment overlays), `src/editor/markdown/visual-passive-viewport.tsx` (large read-only documents), `src/editor/markdown/visual-markdown-schema.ts`, `src/editor/markdown/visual-markdown-block-model.ts`, plus the **vendored** `src/open-knowledge-app/editor/` (extensions, bubble menu, slash commands, table controls) and `src/open-knowledge-core/markdown/` (the Markdown ↔ ProseMirror bridge). Read §4 before editing either vendored tree. |
+| **The visual Markdown (TipTap) editor** | Lattice's own engine in `src/editor/markdown/engine/`: `lattice-visual-editor.tsx` (the host component: publication, path swaps, eligibility), `markdown-document.ts` (the byte-preserving Markdown round trip), `markdown-to-document.ts` / `document-to-markdown.ts`, `engine-schema.ts`, `source-map.ts` (Markdown offsets ↔ ProseMirror positions), `source-overlays.ts` (presence, tracked-change and comment overlays), `passive-view.tsx` (large read-only documents), and `chrome/` (slash menu, selection toolbar, links, find, block controls). The host contract is `src/editor/markdown/visual-editor-props.ts`; the spec and status live in [`visual-editor-spec.md`](visual-editor-spec.md). |
 | **The spreadsheet** | `src/editor/spreadsheet/spreadsheet-editor.tsx` (495, the React host), `src/editor/spreadsheet/spreadsheet-univer.ts` (Univer 0.25 setup, theme and menus), `src/editor/spreadsheet/spreadsheet-types.ts` (the `.lattice-sheet` format), `src/editor/spreadsheet/spreadsheet-operations.ts`, `src/editor/spreadsheet/spreadsheet-yjs.ts` (523 — the local Y.Doc model), `src/editor/spreadsheet/spreadsheet-xlsx.ts` + `src-tauri/src/xlsx.rs` (import/export) |
 | **The whiteboard** | `src/editor/board/board-editor.tsx` (tldraw 5), `src/editor/board/board-store.ts` (112 — the standalone tldraw store: load, serialize, replace), `src/editor/board/board-asset-urls.ts` (tldraw's fonts, icons and translations bundled from `@tldraw/assets` instead of its CDN), `src/agent/agent-canvas-tldraw-adapter.ts`. Loaded only via `loadBoardEditorModule()` — never import tldraw eagerly. |
 | **The PDF viewer** | `src/pdf/pdf-viewer.tsx` (415 — the toolbar and surface), which composes `src/pdf/use-pdf-document.ts` (building, swapping and tearing down PDFSlick viewers), `use-pdf-view.ts` (saved view state, link history), `use-pdf-zoom.ts`, `use-pdf-search.ts` and `pdf-source-targets.ts` (SyncTeX/quote highlights); `src/pdf/pdf-slick.ts` owns the PDF.js/PDFSlick plumbing. Also `src/pdf/pdf-viewer-utils.ts`, `src/pdf/pdf-bytes.ts`, `src-tauri/src/pdf_fonts.rs`, `public/pdfjs/` |
@@ -48,7 +48,7 @@ description.
 | **Overleaf sync** | `src/app/use-overleaf-workspace.ts` (934 — the React-side workspace state, extracted from `App.tsx`), `src-tauri/src/overleaf.rs` + `overleaf/` (4,196 — session, linking, REST, review, three-way merge) and `src-tauri/src/overleaf_rt.rs` + `overleaf_rt/` (3,028 — a hand-written Socket.IO 0.9 client; read the module header of `overleaf_rt.rs` first); handlers in `src-tauri/src/ipc/overleaf.rs` and `ipc/overleaf_realtime.rs`. Frontend: everything else is in `src/overleaf/` — `use-overleaf-realtime.ts` (1,013; its wire types and pure rules are `overleaf-realtime-model.ts`) and the other `use-overleaf-*` hooks, which all subscribe through the window-scoped `overleaf-realtime-listen.ts`; `overleaf-connect.tsx`; `ot.ts` (the OT transform). Live verification: `scripts/verify-overleaf.mjs` |
 | **The AI agent integration** | `src-tauri/src/synara.rs` (sidecar supervision), `src/agent/synara-runtime.ts` (iframe URL + inbound message parsers), `src/agent/agent-host-context.ts` (the context snapshot pushed to the agent), `useSynaraHost` in `src/app/use-synara-host.ts` (the `postMessage` bridge; the iframes mount in `src/app/app-agent-panel.tsx` and `src/app/app-history-drawers.tsx`), `src/agent/agent-*.ts` (canvas/spreadsheet/paper-library tool bridges), `run_cli()` in `src-tauri/src/agent_literature.rs` (the literature gateway the sidecar shells out to), `scripts/prepare-synara-sidecar.mjs` (staging + pruning). Runtime doc: [`synara-runtime.md`](synara-runtime.md) |
 | **Settings** | `src/settings/settings-dialog.tsx` (the dialog and its navigation), with panes in `doctor-settings.tsx`, `literature-settings.tsx` and `synara-settings-pane.tsx` and the shared rows in `settings-controls.tsx`; `src/settings/app-settings.ts` (localStorage-backed preferences and fixed font stacks), `src/settings/use-appearance.ts`, `src/telemetry/interface-sounds.ts`. Per-project settings go through `update_project_manifest` into `.research/project.json`. |
-| **i18n** | `src/i18n.ts`, `lingui.config.ts`, `src/locales/{en,zh-CN}/messages.po`, `scripts/check-i18n-coverage.mjs`. Use the `useLingui` macro. Run `pnpm i18n:check` — it extracts, fails on catalog drift (`git diff --exit-code -- src/locales`), compiles strictly, then runs the coverage guard, which fails when a zh-CN entry has no Chinese (unless listed in `scripts/i18n-unlocalized-baseline.txt`, reserved for product and format names) or when ESLint stops enforcing the rule below. `eslint.config.js` runs `lingui/no-unlocalized-strings` as an **error** over all shipping `src/` code (not the vendored Open Knowledge trees); text that is not UI is exempted by that block's patterns or a commented `eslint-disable-next-line` at the site. |
+| **i18n** | `src/i18n.ts`, `lingui.config.ts`, `src/locales/{en,zh-CN}/messages.po`, `scripts/check-i18n-coverage.mjs`. Use the `useLingui` macro. Run `pnpm i18n:check` — it extracts, fails on catalog drift (`git diff --exit-code -- src/locales`), compiles strictly, then runs the coverage guard, which fails when a zh-CN entry has no Chinese (unless listed in `scripts/i18n-unlocalized-baseline.txt`, reserved for product and format names) or when ESLint stops enforcing the rule below. `eslint.config.js` runs `lingui/no-unlocalized-strings` as an **error** over all shipping `src/` code; text that is not UI is exempted by that block's patterns or a commented `eslint-disable-next-line` at the site. |
 | **The design system** | `src/styles/foundations.css` (the token scale), `src/styles/theme.css` (the palette), `src/styles/tokens.test.ts` + `surfaces.test.ts` (the enforcement), `src/components/ui/` (52 shadcn-style primitives), `src/index.css` (Tailwind v4 without preflight). Decisions: [`design-system.md`](design-system.md) |
 | **Bundle size / startup** | `vite.config.ts` (`shikiTrimPlugin`, `manualChunkName`), `scripts/app-size-report.mjs` (the budgets), `src/canvas/canvas-lazy-modules.ts` (how to add a lazy chunk correctly). See [`architecture.md` §4](architecture.md#4-performance-and-bundle-constraints). |
 | **The release** | `node scripts/bump-version.mjs patch` — bumps `package.json`, `src-tauri/tauri.conf.json`, `src-tauri/Cargo.toml` and the `research-writer` entry in `src-tauri/Cargo.lock` in lockstep. It **only edits files**; it then prints the exact `git commit` / `git tag` / `git push` commands, and pushing the tag triggers `.github/workflows/release.yml`. Never edit the version numbers by hand. Full procedure: [`release-process.md`](release-process.md) |
@@ -129,8 +129,6 @@ Counts are tracked files directly in the directory (not nested), and lines are
 | `src/lib/` | 1 | 0 | — | `utils.ts` (the shadcn `cn` helper). |
 | `src/locales/` | 2 | — | — | Lingui catalogs: `en` and `zh-CN` `.po` sources (compiled `.js` are generated, not tracked). |
 | `src/assets/` | 7 | — | — | Fonts. |
-| `src/open-knowledge-app/` | 187 | — | — | **Vendored.** ~36.3k lines. See §4. |
-| `src/open-knowledge-core/` | 200 | — | — | **Vendored (not auto-synced).** ~37.5k lines. See §4. |
 
 Notes on the seams — the places where the domain boundary is a judgment call
 rather than a fact:
@@ -157,70 +155,20 @@ rather than a fact:
   *asset* (image or first PDF page) read through `read_project_asset`; it
   imports `pdf/pdf-viewer-utils.ts` but is not part of the viewer.
 | `src/locales/` | 2 | Lingui catalogs: `en` and `zh-CN` `.po` sources (the compiled `.js` are generated, not tracked) |
-| `src/open-knowledge-app/` | 187 | **Vendored.** ~36.3k lines. See §4. |
-| `src/open-knowledge-core/` | 200 | **Vendored (not auto-synced).** ~37.5k lines. See §4. |
 | `src/hooks/` | 2 | `use-latest-ref.ts`, `use-non-passive-wheel.ts` |
 | `src/lib/` | 1 | `utils.ts` (the shadcn `cn` helper) |
 | `src/animated-icons/` (17), `src/assets/` (7) | 24 | The animated product icons — `bakai/` (12 hand-rebuilt Phosphor glyphs), `bakai-icons.css`, `provided-icons.tsx`, and the `product-animated-icon.tsx` façade — plus fonts. Exercised by the dev playground in `tools/icon-lab/`. |
 
 ---
 
-## 4. Vendored code — read before editing
+## 4. Third-party code
 
-Two directories under `src/` are not written by this project.
-
-### `src/open-knowledge-app/` — auto-vendored
-
-- **Source**: `https://github.com/inkeep/open-knowledge`, `packages/app/src`.
-- **Sync script**: `scripts/vendor-open-knowledge.mjs`. The file list is a
-  `const MANIFEST` array **inside that script** (starts at
-  `scripts/vendor-open-knowledge.mjs:41`) — there is no separate manifest file.
-- **Commit pin + content hashes**: `open-knowledge-app.lock.json` at the repo
-  root. It records `upstream`, `commit`, `sourceRoot`, `vendoredAt`, and a
-  per-file hash.
-- The script rewrites imports on the way in: `@/…` → `@ok-app/…`,
-  `@inkeep/open-knowledge-core` → `@ok-core`; the `@lingui/*` macros stay real,
-  so vendored UI text is extracted into the app catalogs like any other — the
-  whole `REWRITES` table is
-  `scripts/vendor-open-knowledge.mjs` (grep `const REWRITES`). Those aliases are declared in
-  `vite.config.ts`, `vitest.config.ts` and `tsconfig.json`.
-- Verify without writing: `node scripts/vendor-open-knowledge.mjs --check`.
-
-**Local patches are accepted practice**, and there is an established convention
-for them ("Local seam — not upstream code" headers). But **re-vendoring can
-overwrite them** — the lock's note says so outright. Prefer making changes
-outside the vendored tree; if you must patch inside, add the seam header so the
-next re-vendor is a visible conflict rather than a silent revert.
-
-### `src/open-knowledge-core/` — related but NOT auto-synced
-
-The editor subset of upstream's `packages/core/src`. No script syncs it and it
-is not in the lock file. Treat it as owned-but-derived code: 200 files, ~37.5k
-lines, of which ~35.3k are TypeScript.
-
-This tree was recently pruned hard — it was 256 files and ~181k lines, the bulk
-of that being checked-in Markdown perf fixtures under `markdown/fixtures/perf/`.
-Those fixtures are gone; `markdown/fixtures/perf/` now holds only the generator
-(`generate.ts` + `generate.test.ts`) and all of `markdown/fixtures/` is under
-2k lines. Older notes that describe this directory as ~181k lines or that point
-at `util/doc-name.ts` are stale — the helper is at
-`src/open-knowledge-core/utils/doc-name.ts`.
-
-### Licensing
-
-Both trees are **GPL-3.0-or-later** and each carries its own `LICENSE` file.
-Lattice as a whole is GPL-3.0-or-later precisely because these are linked into
-the shipped binary (`src-tauri/Cargo.toml:7-9` says so). Adaptation headers and
-the `LICENSE` files must be preserved. Attribution is recorded in
-`THIRD_PARTY_NOTICES.md`.
-
-The two trees carry two different upstream commit pins, and that is correct, not
-a discrepancy:
-
-| Tree | Pin | Recorded in |
-| --- | --- | --- |
-| `src/open-knowledge-app/` | `7120dc1f61f67468e3fda71d18390a0c6f1503e3` | `open-knowledge-app.lock.json` (machine-generated, authoritative) and `THIRD_PARTY_NOTICES.md` |
-| `src/open-knowledge-core/` + the adapted files | `9e8a00e24c6eaea110b546758664aad0e7ebab7e` | `THIRD_PARTY_NOTICES.md` and the per-file adaptation headers only — there is no lock for this tree, by design, so the pin is prose and is flagged there as not machine-verified |
+No source tree under `src/` is vendored from another project. Files adapted
+from permissively licensed projects (a few UI primitives, icons, fonts, the
+Open Slide theme skill) keep their attribution headers, and each is recorded in
+[`THIRD_PARTY_NOTICES.md`](../THIRD_PARTY_NOTICES.md). The visual Markdown
+editor was once built on vendored Open Knowledge code; it is now Lattice's own
+engine (§2), and a repository guard test keeps that code from coming back.
 
 ---
 
@@ -319,19 +267,13 @@ they assert across several modules or on files rather than testing one export:
 intentional (a scenario suite, not a unit suite) — but you cannot infer what a
 test covers from its filename here. Open it.
 
-The three that assert on *files* rather than exercise a module —
-`react-compiler-guard`, `tauri-security-config`, `polyfills` — live in
+The four that assert on *files* rather than exercise a module —
+`react-compiler-guard`, `tauri-security-config`, `polyfills`, `clean-room-guard` — live in
 `src/platform/` because what they pin is the build/runtime platform, not any
-feature. The fourth of that shape, `editor-selection-styles`, sits in
-`src/styles/` because its subject is a stylesheet there.
+feature.
 
 ### Other things worth knowing
 
 - **`src/` has no `@types/node` by design** — it is browser-only by convention.
-  Vendored code that touches `process.env` is served by a hand-written ambient
-  declaration, `src/open-knowledge-core/vendor-globals.d.ts:8`
-  (`declare var process: { env: Record<string, string | undefined> };`).
-  `src/open-knowledge-core/index.ts` is a pure re-export barrel with no
-  `process` reference in it at all.
-- **`src/styles/editor-workspace.css` is 1,901 lines**, the largest stylesheet;
+- **`src/styles/editor-workspace.css` is 1,333 lines**, the largest stylesheet;
   `src/App.css` is a 10-line import manifest, so don't look for CSS there.

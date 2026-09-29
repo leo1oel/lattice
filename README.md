@@ -54,7 +54,7 @@ Bug reports and pull requests are welcome; please open an [issue](https://github
 
 Lattice is built on the work of many open-source projects. The major ones:
 
-- [Open Knowledge](https://github.com/inkeep/open-knowledge) by Inkeep, the foundation of Lattice's visual Markdown editor.
+- [Open Knowledge](https://github.com/inkeep/open-knowledge) by Inkeep, the original basis of Lattice's earlier visual Markdown editor, which Lattice has since replaced with its own engine.
 - [Synara](https://github.com/Emanuele-web04/synara) by T3 Tools Inc. and Emanuele Di Pietro, the agent runtime behind Lattice's AI assistant.
 - [Open Slide](https://github.com/open-slide/open-slide), which powers presentations.
 - [Tiptap](https://github.com/ueberdosis/tiptap) and [CodeMirror](https://codemirror.net/), the rich-text and source editors.
@@ -63,7 +63,7 @@ Lattice is built on the work of many open-source projects. The major ones:
 
 ## License
 
-Lattice is [GPL-3.0-or-later](LICENSE), with code from [Inkeep Open Knowledge](https://github.com/inkeep/open-knowledge) and the MIT-licensed [Synara](https://github.com/Emanuele-web04/synara) agent runtime by T3 Tools Inc. and Emanuele Di Pietro.
+Lattice is [GPL-3.0-or-later](LICENSE), with the MIT-licensed [Synara](https://github.com/Emanuele-web04/synara) agent runtime by T3 Tools Inc. and Emanuele Di Pietro.
 See [third-party notices](THIRD_PARTY_NOTICES.md) for component licenses and [Synara integration notes](docs/synara-runtime.md) for the runtime details.
 
 The whiteboard's tldraw SDK has a source-available license that is not GPL-compatible.

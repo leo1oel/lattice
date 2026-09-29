@@ -20,13 +20,6 @@ const appCss = [...APP_CSS_FILES].map(read).join("\n")
 function collectSources(dir: string, files: string[] = []): string[] {
   for (const entry of readdirSync(dir)) {
     const full = `${dir}/${entry}`
-    // Vendored Open Knowledge code carries upstream's styling (pinned
-    // byte-faithful editor CSS, embedded preview-starter CSS and the like)
-    // and is not held to this app's design token contract. This includes the
-    // editor-theme-seam, whose values intentionally mirror upstream's raw
-    // tokens; theme normalization is deferred by explicit user decision.
-    if (full === "src/open-knowledge-core") continue
-    if (full === "src/open-knowledge-app") continue
     if (statSync(full).isDirectory()) {
       collectSources(full, files)
       continue
@@ -96,10 +89,6 @@ const PALETTE = [
 const EXTERNAL_PREFIXES = [
   "--radix-",
   "--tw-",
-  // Vendored Open Knowledge editor hooks: referenced with fallbacks in
-  // index.css, defined only inside src/open-knowledge-app (excluded from
-  // this scan) so upstream editor scopes can re-route colliding token names.
-  "--ok-",
   "--cm-",
   "--color-",
   "--trees-",
@@ -133,11 +122,6 @@ describe("design token contract", () => {
       for (const match of text.matchAll(/(--[a-z0-9-]+)\s*:/gi)) declared.add(match[1])
     }
     for (const match of read("src/index.css").matchAll(/(--[a-z0-9-]+)\s*:/gi)) declared.add(match[1])
-    // The vendored tree is excluded from the scan, but index.css imports the
-    // seam stylesheet directly, so its declarations (e.g. --muted-foreground)
-    // are live everywhere and legitimate to reference from app CSS.
-    const editorThemeSeam = read("src/open-knowledge-app/editor-theme-seam.css")
-    for (const match of editorThemeSeam.matchAll(/(--[a-z0-9-]+)\s*:/gi)) declared.add(match[1])
 
     const missing = new Map<string, string>()
     for (const { file, text } of sources) {

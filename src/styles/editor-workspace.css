@@ -280,13 +280,6 @@ body:has(.modal-backdrop, .drawer-backdrop) .latex-selection-toolbar-anchor { di
 }
 .cm-tracked-change-tooltip { min-width: 220px; max-width: 340px; }
 .cm-editor-comment-tooltip { max-width: 320px; }
-.visual-editor-comment-tooltip {
-  position: fixed;
-  z-index: var(--z-editor-popover);
-  max-width: min(320px, calc(100vw - var(--space-8)));
-  max-height: calc(100vh - var(--space-8));
-  overflow: auto;
-}
 .cm-tracked-change-tooltip-item { display: flex; flex-direction: column; gap: var(--space-2); }
 .cm-editor-comment-tooltip-item,
 .cm-editor-comment-tooltip-main { display: flex; flex-direction: column; gap: var(--gap-tight); }
@@ -757,14 +750,10 @@ body:has(.modal-backdrop, .drawer-backdrop) .latex-selection-toolbar-anchor { di
 .markdown-preview-content { min-width: 100%; min-height: 100%; padding: var(--space-16) max(var(--space-12), calc((100% - 760px) / 2)); }
 .markdown-preview-content:has(> .markdown-preview-loading) { display: grid; place-items: center; }
 .markdown-preview-loading { display: inline-flex; align-items: center; justify-content: center; gap: var(--space-3); color: var(--text-secondary); font: var(--type-caption-size)/1.4 var(--ui-font); }
-/* The vendored .tiptap-editor grid owns content centering (1024px content
-   column + 4rem margin columns), so the visual editor spans the full pane
-   and the preview-content 760px inline padding is dropped for it. */
-.markdown-preview-content:has(> .visual-markdown-editor),
+/* The visual editor centers its own measure, so a paper's editor spans the
+   full pane and the preview-content 760px inline padding is dropped for it. */
 .markdown-preview-content:has(> .paper-visual-header) { padding-inline: 0; }
-.markdown-preview-content > .visual-markdown-editor { width: 100%; min-height: 100%; margin: 0 auto; }
 .paper-visual-header { margin-block-end: var(--space-16); font-family: var(--ui-font); }
-.markdown-preview-content:has(> .visual-markdown-editor > .visual-heading-rail) > .paper-visual-header { --margin-left-width: 7rem; }
 .paper-visual-header h1 { margin: 0; color: var(--text-primary); font-size: var(--type-display-size); font-weight: var(--weight-semibold); line-height: 1.2; letter-spacing: -0.02em; overflow-wrap: anywhere; text-wrap: balance; }
 .paper-visual-header p { margin: var(--space-6) 0 0; color: var(--text-secondary); font-size: var(--type-body-size); line-height: var(--type-body-line-height); overflow-wrap: anywhere; }
 .paper-visual-header .paper-visual-eligibility { margin: 0 0 var(--space-8); padding: var(--space-3) var(--space-4); border-radius: var(--radius-compact); background: var(--status-warning-soft); }
@@ -783,34 +772,7 @@ body:has(.modal-backdrop, .drawer-backdrop) .latex-selection-toolbar-anchor { di
   .paper-local-action { width: var(--control-size-icon); padding-inline: 0; }
   .paper-local-action span { display: none; }
 }
-.visual-markdown-editor { position: relative; }
-/* A zero-width text strut follows the first line's font/spacing, including
-   WebKit live font changes where a cached `lh` length can lag behind. */
-.visual-markdown-editor .ProseMirror li[data-type="taskItem"] > label {
-  display: flex;
-  align-items: center;
-  margin-top: 0;
-}
-.visual-markdown-editor .ProseMirror li[data-type="taskItem"] > label::before {
-  content: "\200b";
-}
-.visual-markdown-editor .ProseMirror li[data-type="taskItem"] > label input[type="checkbox"] {
-  width: 1em;
-  height: 1em;
-  font: inherit;
-}
-.visual-markdown-editor .ProseMirror li[data-type="taskItem"] > label input[type="checkbox"]:checked::after {
-  width: 0.65em;
-  height: 0.65em;
-}
-/* The document-edge caret replaces an unauthored trailing paragraph. */
-.visual-markdown-editor .ProseMirror-gapcursor::after { border-top-color: var(--text-primary); }
-/* TipTap's drag-handle hit test reads the first and last block rects.
-   Remove generated Contents from flow while retaining a nonzero first rect;
-   `display: none` or the HTML `hidden` attribute disables every block handle. */
-.visual-markdown-editor.optimize-for-reading .visual-generated-paper-contents { position: absolute; visibility: hidden; inset-block-start: 0; inset-inline-start: 0; inline-size: 100%; block-size: var(--space-1); margin: 0; padding: 0; overflow: hidden; pointer-events: none; user-select: none; }
 .visual-heading-rail { position: sticky; z-index: var(--z-editor-overlay); top: 50%; width: 0; height: 0; margin-inline-start: var(--space-6); overflow: visible; pointer-events: none; }
-.visual-markdown-editor:has(> .visual-heading-rail) .tiptap-editor { --margin-left-width: 7rem; }
 .visual-heading-rail-nav { position: relative; display: grid; grid-auto-rows: var(--control-size-icon-compact); width: calc(var(--space-12) + var(--space-12)); color: var(--text-tertiary); translate: 0 -50%; pointer-events: auto; user-select: none; }
 .visual-heading-rail-item { display: flex; width: calc(var(--space-12) + var(--space-12)); height: var(--control-size-icon-compact); align-items: center; justify-content: flex-start; padding: 0; border: 0; outline: none; background: transparent; color: color-mix(in srgb, var(--text-tertiary) 62%, transparent); }
 .visual-heading-rail-item[data-depth="1"] { padding-inline-start: var(--space-2); }
@@ -827,30 +789,6 @@ body:has(.modal-backdrop, .drawer-backdrop) .latex-selection-toolbar-anchor { di
 .visual-heading-rail-preview-row { position: relative; display: flex; align-items: center; }
 .visual-heading-rail-preview-anchor { position: absolute; z-index: var(--z-editor-popover); top: 50%; inset-inline-start: calc(100% + var(--space-3)); width: max-content; max-width: min(320px, calc(100vw - 96px)); translate: 0 -50%; }
 .visual-heading-rail-preview-card { @apply smooth-shadow-ring-md; max-width: inherit; padding: var(--space-5) var(--space-6); border-radius: var(--radius-panel); background: color-mix(in srgb, var(--surface-panel-raised) 96%, transparent); color: var(--text-primary); font: var(--type-caption-weight) var(--type-caption-size)/var(--type-caption-line-height) var(--ui-font); overflow-wrap: anywhere; backdrop-filter: blur(14px); }
-.visual-markdown-virtual-viewport { min-height: 100%; }
-.visual-markdown-virtual-block-content .ProseMirror { min-height: 0; }
-.visual-markdown-virtual-edit { position: absolute; z-index: 6; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
-.visual-markdown-virtual-edit:focus-visible { position: sticky; top: var(--space-3); left: var(--space-3); width: auto; height: auto; padding: var(--space-2) var(--space-3); clip-path: none; border-radius: var(--radius-control); background: var(--surface-panel-raised); color: var(--text-primary); outline: 2px solid Highlight; outline-offset: 2px; }
-.visual-markdown-editor.is-document-pending { min-height: 50vh; pointer-events: none; }
-.visual-markdown-editor.is-document-pending .tiptap-editor { visibility: hidden; pointer-events: none; }
-.visual-markdown-loading { position: absolute; z-index: 5; inset: 0; display: flex; align-items: center; justify-content: center; color: var(--text-tertiary); }
-.visual-markdown-editor .math-viewport-boundary { max-width: 100%; overflow-x: auto; overflow-y: hidden; }
-.visual-overleaf-caret { position: relative; display: inline; margin-left: -1px; border-left: 2px solid; pointer-events: none; user-select: none; }
-.visual-overleaf-caret * { pointer-events: none; user-select: none; }
-.visual-overleaf-caret-dot { position: absolute; top: -3px; left: -4px; width: 6px; height: 6px; border-radius: 50%; }
-.visual-overleaf-caret-label { position: absolute; z-index: 6; top: -1.35em; left: -1px; padding: 1px 5px; border-radius: 4px 4px 4px 0; color: white; font: 600 var(--type-micro-size)/1.2 var(--ui-font); white-space: nowrap; pointer-events: none; }
-/* Preview counterpart of the source editor's comment marks — same per-author
-   colour, so a comment reads the same on both surfaces. */
-.visual-editor-comment {
-  cursor: pointer;
-  background-color: var(--visual-comment-tint);
-  border-bottom: 2px solid var(--visual-comment-color);
-  border-radius: 2px;
-  box-decoration-break: clone;
-  -webkit-box-decoration-break: clone;
-}
-.visual-editor-comment-active { background-color: color-mix(in srgb, var(--visual-comment-color) 28%, transparent); }
-.visual-editor-comment:focus-visible { outline: 2px solid var(--visual-comment-color); outline-offset: 2px; }
 
 .editor-comment-draft {
   background-color: var(--control-active-soft);
@@ -860,211 +798,10 @@ body:has(.modal-backdrop, .drawer-backdrop) .latex-selection-toolbar-anchor { di
   -webkit-box-decoration-break: clone;
 }
 
-.visual-tracked-change { cursor: pointer; background: var(--visual-change-tint); }
-.visual-tracked-change-insert { border-bottom: 2px solid var(--visual-change-color); }
-.visual-tracked-change-delete { text-decoration: line-through 2px var(--visual-change-color); }
-.visual-tracked-change:focus-visible { outline: 2px solid var(--visual-change-color); outline-offset: 2px; }
-.visual-tracked-change-tooltip { @apply smooth-shadow-ring-md; position: fixed; z-index: var(--z-editor-popover); width: min(280px, calc(100vw - 16px)); padding: var(--space-4); border: 0; border-radius: var(--radius-chrome); background: var(--surface-panel-raised); color: var(--text-primary); font: var(--type-caption-size)/1.4 var(--ui-font); transform: translateY(calc(-100% - 10px)); }
-.visual-tracked-change-tooltip-item { display: flex; flex-direction: column; gap: var(--space-2); }
-.visual-tracked-change-tooltip-item + .visual-tracked-change-tooltip-item { margin-top: var(--space-3); padding-top: var(--space-3); border-top: 1px solid var(--border-subtle); }
-.visual-tracked-change-tooltip-head { display: flex; align-items: center; gap: var(--space-2); }
-.visual-tracked-change-tooltip-head > span { width: 9px; height: 9px; flex: none; border-radius: 50%; box-shadow: 0 0 0 3px color-mix(in srgb, currentColor 8%, transparent); }
-.visual-tracked-change-tooltip-head > div { display: flex; min-width: 0; flex: 1; align-items: baseline; gap: var(--space-2); }
-.visual-tracked-change-tooltip-head strong { font-weight: 600; }
-.visual-tracked-change-tooltip-head small { overflow: hidden; color: var(--text-tertiary); font-size: var(--type-nano-size); text-overflow: ellipsis; white-space: nowrap; }
-.visual-tracked-change-quote { padding: var(--space-2) var(--space-3); overflow: hidden; border-radius: var(--radius-compact); background: var(--visual-change-tint, var(--control-active-soft)); font-weight: 550; text-overflow: ellipsis; white-space: nowrap; }
-.visual-tracked-change-quote.is-deletion { text-decoration: line-through 2px var(--visual-change-color, currentColor); }
-.visual-tracked-change-tooltip-actions { display: flex; justify-content: flex-end; gap: var(--space-2); padding-top: var(--space-1); }
-.visual-tracked-change-tooltip-actions button { display: inline-flex; min-height: 30px; align-items: center; gap: var(--space-2); padding-inline: var(--space-3); border: 1px solid transparent; border-radius: var(--radius-control); color: var(--text-secondary); font-size: var(--type-micro-size); font-weight: 600; transition: background-color var(--duration-quick), border-color var(--duration-quick), color var(--duration-quick), scale var(--duration-quick); }
-.visual-tracked-change-tooltip-actions button svg { width: 13px; height: 13px; stroke-width: 2; }
-.visual-tracked-change-tooltip-actions button.accept { border-color: var(--border-subtle); background: var(--surface-app); }
-.visual-tracked-change-tooltip-actions button.accept:hover:not(:disabled) { border-color: var(--border-strong); color: var(--text-primary); }
-.visual-tracked-change-tooltip-actions button.reject:hover:not(:disabled) { background: var(--status-danger-soft); color: var(--status-danger); }
-.visual-tracked-change-tooltip-actions button:active:not(:disabled) { scale: .96; }
-.visual-tracked-change-tooltip-actions button:focus-visible { outline: 2px solid var(--control-active); outline-offset: 2px; }
-.visual-tracked-change-tooltip-actions button:disabled { opacity: .45; }
-.visual-comment-composer { @apply smooth-shadow-ring-md; position: fixed; z-index: var(--z-radix-popper); display: flex; width: min(320px, calc(100vw - 16px)); flex-direction: column; gap: var(--space-3); padding: var(--space-4); border-radius: var(--radius-chrome); background: var(--surface-panel-raised); }
-.visual-comment-composer textarea { width: 100%; min-height: 76px; resize: vertical; border: 1px solid var(--border-subtle); border-radius: var(--radius-compact); outline: none; padding: var(--space-3); background: var(--editor-bg); color: var(--text-primary); font: var(--type-caption-size)/1.45 var(--ui-font); }
-.visual-comment-composer textarea:focus-visible { border-color: var(--control-active-border-strong); box-shadow: 0 0 0 2px var(--control-active-soft); }
-/* The conflict banner this shared moved to the app's notifications; only the
-   eligibility note is left, and it carries the negative offset that tucks it
-   into the document's top padding. Without that offset the banner sat below
-   the padding and left a blank strip above itself. */
-.visual-markdown-eligibility { margin-top: calc(-1 * var(--space-16)); margin-bottom: var(--space-5); padding: var(--space-3) var(--space-4); border-radius: var(--radius-compact); background: var(--status-warning-soft); }
-/* Chromium can paint an empty native selection for AllSelection when the
-   document ends in selectable contenteditable=false chrome. Exclude only
-   these controls, not the editable body or rendered document content. */
-.visual-markdown-editor .footnote-backref,
-.visual-markdown-editor .ok-codeblock-chrome { user-select: none; }
-/* Host skin (explicit request): the code block Title field and the language
-   filter box follow the host's field-control look. Structure and behavior
-   stay upstream; only the input chrome is restyled. The Title field's box,
-   border and type come from the shared search-field rule further down. */
-[data-ok-vendor] [data-testid="ok-codeblock-title-input"] { padding: 0 var(--field-control-padding-inline); outline: none; }
-[data-ok-vendor] [data-testid="ok-codeblock-title-input"]:focus-visible { border-color: var(--control-active-border-strong); box-shadow: 0 0 0 2px var(--control-active-soft); }
-[data-ok-vendor] [data-slot="command-input-wrapper"] {
-  height: var(--search-control-height-compact); margin: var(--space-2); padding: 0 var(--search-control-padding-inline);
-  gap: var(--search-control-gap); border: var(--search-control-border-width) solid var(--search-control-border-color);
-  border-radius: var(--search-control-radius); background: var(--search-control-background);
-}
-[data-ok-vendor] [data-slot="command-input-wrapper"]:hover:not(:focus-within),
-[data-ok-vendor] [data-slot="command-input-wrapper"]:focus-within { border-color: var(--search-control-interactive-border-color); box-shadow: none; }
-[data-ok-vendor] [data-slot="command-input"] {
-  width: 100%; height: 100%; min-height: 0; padding: 0; border: 0; border-radius: 0;
-  outline: 0; background: transparent; color: var(--text-primary); font-family: var(--ui-font);
-  font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); box-shadow: none;
-}
-[data-ok-vendor] [data-slot="command-input"]:focus,
-[data-ok-vendor] [data-slot="command-input"]:focus-visible { border: 0; outline: 0; box-shadow: none; }
-[data-ok-vendor] [data-slot="command-list"],
-[data-ok-vendor] [data-slot="command-item"] {
+/* Visual editor popups: keep them on the same typography, compact-control
+   geometry, neutral surfaces, and scrollbar language as the Project/PDF tools. */
+[data-suggestion-popup] {
   font-family: var(--ui-font);
-  font-size: var(--type-micro-size);
-  line-height: var(--type-micro-line-height);
-}
-[data-ok-vendor] [data-slot="command-item"] { min-height: var(--control-height-compact); padding-block: var(--space-2); }
-
-/* Open Knowledge host skin: keep editor chrome on the same typography,
-   compact-control geometry, neutral surfaces, and scrollbar language as the
-   Project/PDF tools. The parsing and interaction logic stays upstream. */
-.tiptap-editor,
-[data-testid="bubble-menu-bar"],
-[data-suggestion-popup],
-[data-ok-layer-spawned],
-[data-ok-vendor] {
-  font-family: var(--ui-font);
-}
-
-.tiptap-editor .ProseMirror {
-  font-size: var(--type-reading-size);
-}
-
-.tiptap-editor .ProseMirror pre,
-.tiptap-editor .ProseMirror .ok-codeblock-pre {
-  background: var(--chrome-surface);
-  font-family: var(--editor-font);
-}
-
-.tiptap-editor .ok-codeblock-title {
-  min-height: 26px;
-  padding: 0 var(--space-5);
-  border-color: var(--border-subtle);
-  background: var(--surface-panel-raised);
-  color: var(--text-primary);
-  font-family: var(--ui-font);
-  font-size: var(--type-micro-size);
-}
-
-.tiptap-editor .ok-codeblock-chrome {
-  gap: 1px;
-  padding: var(--space-1);
-  padding-bottom: var(--space-2);
-  border-color: var(--border-subtle);
-  border-radius: var(--radius-compact);
-  background: var(--surface-panel-raised);
-  font-family: var(--ui-font);
-}
-
-.tiptap-editor .ok-codeblock-chrome-btn {
-  height: 20px;
-  min-width: 20px;
-  padding-inline: var(--space-2);
-  justify-content: center;
-  font-family: var(--ui-font);
-  font-size: var(--type-nano-size);
-  line-height: 1;
-}
-
-.tiptap-editor .ok-codeblock-chrome-btn svg {
-  width: 13px;
-  height: 13px;
-}
-
-[data-ok-vendor] [data-testid="ok-codeblock-title-input"],
-[data-ok-vendor] [data-prop-panel] [data-slot="input"] {
-  min-height: var(--search-control-height-compact);
-  height: var(--search-control-height-compact);
-  border: var(--search-control-border-width) solid var(--search-control-border-color);
-  border-radius: var(--search-control-radius);
-  background: var(--search-control-background);
-  color: var(--text-primary);
-  font-family: var(--ui-font);
-  font-size: var(--type-caption-size);
-  line-height: var(--type-caption-line-height);
-  box-shadow: none;
-}
-
-[data-ok-vendor] [data-prop-panel] {
-  gap: var(--space-3);
-  padding-block: var(--space-2);
-  color: var(--text-primary);
-  font-family: var(--ui-font);
-  font-size: var(--type-caption-size);
-}
-
-[data-ok-vendor] [data-prop-panel] + div button {
-  height: var(--control-height-compact);
-  min-height: var(--control-height-compact);
-  padding-inline: var(--space-4);
-  border-radius: var(--radius-control);
-  background: var(--control-active-soft);
-  color: var(--text-primary);
-  font-family: var(--ui-font);
-  font-size: var(--type-caption-size);
-  line-height: 1;
-}
-
-.tiptap-editor .ProseMirror th {
-  background: var(--chrome-surface);
-}
-
-.tiptap-editor .ProseMirror td,
-.tiptap-editor .ProseMirror .tableWrapper > table > tbody > tr > td:first-child {
-  background: var(--editor-bg);
-}
-
-.tiptap-editor .ProseMirror .tableWrapper > table > tbody > tr > th:first-child {
-  background: var(--chrome-surface);
-}
-
-.ok-table-cell-handle-layer {
-  position: fixed;
-  z-index: var(--z-radix-popper);
-  top: 0;
-  left: 0;
-  width: 0;
-  height: 0;
-  pointer-events: none;
-}
-
-.ok-table-cell-handle-layer.is-visible {
-  visibility: visible;
-  transition-delay: 0s;
-}
-
-body:has(.modal-backdrop, .drawer-backdrop) .ok-table-cell-handle-layer {
-  display: none;
-}
-
-.ok-table-cell-handle-layer [data-testid="table-cell-handle"] {
-  z-index: var(--z-radix-popper);
-  pointer-events: auto;
-}
-
-/* Preserve the row pill's original position, but keep its invisible expanded
-   target on the gutter side so it cannot intercept clicks in the first cell. */
-.ok-table-cell-handle-layer button[aria-label="Row options"]::before {
-  right: 0;
-}
-
-.tiptap-editor .callout {
-  border: 1px solid var(--border-subtle);
-}
-
-.tiptap-editor .ProseMirror hr {
-  cursor: default;
-  caret-color: transparent;
-  user-select: none;
 }
 
 [data-testid="emoji-picker-popover"] {
@@ -1091,192 +828,35 @@ body:has(.modal-backdrop, .drawer-backdrop) .ok-table-cell-handle-layer {
   pointer-events: none;
 }
 
-.visual-link-insert-popover {
-  position: fixed;
-  z-index: var(--z-editor-popover);
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  width: min(360px, calc(100% - var(--space-8)));
-  padding: var(--space-2);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-panel);
-  background: var(--surface-panel-raised);
-  box-shadow: var(--shadow-soft);
-  font-family: var(--ui-font);
-}
-
-.visual-link-insert-popover input {
-  min-width: 0;
-  height: var(--search-control-height-compact);
-  flex: 1;
-  padding-inline: var(--field-control-padding-inline);
-  border: 1px solid var(--search-control-border-color);
-  border-radius: var(--search-control-radius);
-  outline: none;
-  background: var(--search-control-background);
-  color: var(--text-primary);
-  font-size: var(--type-caption-size);
-}
-
-.visual-link-insert-popover input:focus-visible {
-  border-color: var(--control-active-border-strong);
-  box-shadow: 0 0 0 2px var(--control-active-soft);
-}
-
-.visual-link-insert-popover[data-citation] {
-  flex-wrap: wrap;
-}
-
-.visual-link-insert-popover[data-citation] input:first-child {
-  flex-basis: 100%;
-}
-
-.visual-link-insert-popover button {
-  height: var(--control-height-compact);
-  padding-inline: var(--space-4);
-  border-radius: var(--radius-control);
-  background: var(--control-active);
-  color: var(--control-active-contrast);
-  font-size: var(--type-caption-size);
-}
-.visual-link-insert-popover button.secondary {
-  background: transparent;
-  color: var(--text-secondary);
-}
-.visual-link-insert-popover button.secondary:hover {
-  background: var(--control-hover-surface);
-  color: var(--status-danger);
-}
-
 /* Same reason as theme.css: these would disable the pseudo-element rules below. */
 @supports not selector(::-webkit-scrollbar) {
-  [data-ok-vendor] [data-slot="command-list"],
   [data-testid="emoji-picker-popover"] [data-radix-scroll-area-viewport] {
     scrollbar-width: thin;
     scrollbar-color: transparent transparent;
   }
 
-  [data-ok-vendor] [data-slot="command-list"]:hover,
   [data-testid="emoji-picker-popover"] [data-radix-scroll-area-viewport]:hover {
     scrollbar-color: color-mix(in srgb, var(--text-primary) 12%, transparent) transparent;
   }
 }
 
-[data-ok-vendor] [data-slot="command-list"]::-webkit-scrollbar,
 [data-testid="emoji-picker-popover"] [data-radix-scroll-area-viewport]::-webkit-scrollbar {
   width: 10px;
   height: 10px;
 }
 
-[data-ok-vendor] [data-slot="command-list"]::-webkit-scrollbar-thumb,
 [data-testid="emoji-picker-popover"] [data-radix-scroll-area-viewport]::-webkit-scrollbar-thumb {
   border: 3px solid transparent;
   border-radius: var(--radius-pill);
   background: transparent;
   background-clip: content-box;
 }
-[data-ok-vendor] [data-slot="command-list"]:hover::-webkit-scrollbar-thumb,
 [data-testid="emoji-picker-popover"] [data-radix-scroll-area-viewport]:hover::-webkit-scrollbar-thumb {
   background: color-mix(in srgb, var(--text-primary) 12%, transparent);
   background-clip: content-box;
 }
-.tiptap-editor .tiptap > .ProseMirror-selectednode:not(.react-renderer) { border-radius: var(--radius-compact); background: var(--control-active-soft); outline: 1px solid var(--control-active-border); outline-offset: 4px; }
-/* A NodeSelection already has the local block surface above. WebKit also
-   paints its DOM range over the trailing block boundary as a full-width blue
-   line, so mirror ProseMirror's hidden-selection treatment for this state. */
-.visual-markdown-editor .tiptap[data-node-selection="true"]::selection,
-.visual-markdown-editor .tiptap[data-node-selection="true"] *::selection { background: transparent; }
-.tiptap-editor .tiptap li.ProseMirror-selectednode { border-radius: var(--radius-compact); background: var(--control-active-soft); }
-.tiptap-editor .tiptap li.ProseMirror-selectednode::after { content: none; }
-.tiptap-editor .tiptap > .tableWrapper.ProseMirror-selectednode { position: relative; }
-.tiptap-editor .tiptap > .tableWrapper.ProseMirror-selectednode::after { position: absolute; z-index: 4; inset: 0; border-radius: var(--radius-compact); background: var(--control-active-soft); content: ""; pointer-events: none; }
-.visual-table-span-controls [data-slot="button"] { min-height: 28px; gap: var(--space-2); padding: 0 7px; border: 0; border-radius: var(--radius-icon); background: transparent; color: var(--text-secondary); font: var(--type-micro-size)/1 var(--ui-font); transform: none; }
-.visual-table-span-controls [data-slot="button"]:hover:not(:disabled) { background: var(--control-hover-surface); color: var(--text-primary); }
-.visual-table-span-controls [data-slot="button"]:active:not(:disabled) { scale: .96; }
-.visual-table-span-controls [data-slot="button"]:disabled { opacity: .38; }
-.visual-table-span-controls [data-slot="button"]:focus-visible { outline: 2px solid var(--control-active); outline-offset: -2px; }
-.visual-table-span-controls [data-slot="button"] svg { width: 14px; height: 14px; stroke-width: 1.8; }
-.visual-block-controls { position: absolute; z-index: var(--z-editor-popover); display: flex; align-items: center; gap: var(--space-1); height: 20px; user-select: none; transition: opacity var(--duration-quick) var(--ease-out); }
-.visual-block-controls[style*="visibility: hidden"], .visual-block-controls[style*="visibility:hidden"] { opacity: 0; }
-.visual-add-block-button, .visual-drag-grip { position: relative; display: grid; place-items: center; width: 20px; height: 20px; padding: 0; border: 0; border-radius: 3px; background: transparent; color: oklch(.72 0 0); transition: background-color var(--duration-quick) var(--ease-out); }
-.visual-add-block-button::after, .visual-drag-grip::after { content: ""; position: absolute; inset: -2px; }
-.visual-add-block-button:hover, .visual-drag-grip:hover { background: var(--control-hover-surface); }
-.visual-add-block-button:active, .visual-drag-grip:active { scale: .96; }
-.visual-drag-grip { cursor: grab; touch-action: none; }
-.visual-drag-grip:active { cursor: grabbing; }
-.visual-block-drop-line { position: fixed; z-index: var(--z-drag-ghost); height: 2px; border-radius: var(--radius-pill); background: color-mix(in srgb, var(--control-active) 72%, var(--editor-bg)); box-shadow: 0 0 0 1px color-mix(in srgb, var(--editor-bg) 78%, transparent); pointer-events: none; translate: 0 -1px; transition: left var(--duration-quick) var(--ease-out), top var(--duration-quick) var(--ease-out), width var(--duration-quick) var(--ease-out); }
-.visual-block-drop-line::before, .visual-block-drop-line::after { position: absolute; top: 50%; width: 5px; height: 5px; border-radius: var(--radius-pill); background: var(--control-active); content: ""; translate: 0 -50%; }
-.visual-block-drop-line::before { left: -2px; }
-.visual-block-drop-line::after { right: -2px; }
-/* Entry fade stays unconditional: the shared policy in adaptive-feedback.css
-   clamps every transition to ~0ms when the user asks for reduced motion, so
-   gating this transition locally would be dead weight (and is test-forbidden). */
-.visual-block-drag-ghost { position: fixed; z-index: var(--z-drag-ghost); max-height: 180px; overflow: hidden; opacity: .72; pointer-events: none; transition: opacity var(--duration-quick) var(--ease-out); }
-@starting-style { .visual-block-drag-ghost { opacity: 0; } }
-:root[data-theme="dark"] .visual-add-block-button, :root[data-theme="dark"] .visual-drag-grip { color: oklch(.5 0 0); }
-.visual-add-block-button:focus-visible, .visual-drag-grip:focus-visible { outline: 2px solid var(--control-active); outline-offset: 1px; }
-.visual-wiki-link-popup, .visual-paper-citation-popup { --visual-menu-height: 50vh; position: fixed; z-index: var(--z-radix-popper); }
-/* These portaled buttons sit outside the editor. Explicit UI typography and
-   transparent idle fills keep global button defaults out of the completion list. */
-.visual-paper-citation-menu { width: min(420px, calc(100vw - 16px)); font: var(--type-body-size)/var(--type-body-line-height) var(--ui-font); }
-.visual-paper-citation-option { display: flex; align-items: flex-start; gap: var(--space-4); width: 100%; padding: var(--space-3) var(--space-4); border-radius: var(--nested-radius); background: transparent; color: var(--text-secondary); font: inherit; text-align: left; cursor: default; }
-.visual-paper-citation-option[aria-selected="true"] { background: var(--control-active-soft); color: var(--text-primary); }
-.visual-paper-citation-option > svg { flex: none; width: 14px; height: 14px; margin-top: 3px; color: var(--text-tertiary); stroke-width: 1.5; }
-.visual-paper-citation-label { display: flex; flex: 1; min-width: 0; flex-direction: column; }
-.visual-paper-citation-title, .visual-paper-citation-detail { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.visual-paper-citation-detail { color: var(--text-tertiary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); }
-.visual-paper-citation-empty { padding: var(--space-6); color: var(--text-tertiary); }
 [data-wiki-link] { color: var(--control-active); cursor: pointer; }
 [data-wiki-link][data-resolved="false"] { text-decoration: underline dashed; text-underline-offset: 3px; }
-.visual-link-preview-popup { position: fixed; top: 0; left: 0; z-index: var(--z-radix-popper); width: max-content; max-width: min(26rem, calc(100vw - 16px)); pointer-events: auto; }
-.visual-link-hover-panel { min-width: 180px; }
-.visual-link-hover-header { display: flex; min-width: 0; align-items: center; gap: var(--space-3); }
-.visual-link-hover-header > div { min-width: 0; flex: 1; translate: 0 1px; }
-.visual-link-hover-header button { display: grid; width: 24px; height: 24px; flex: none; place-items: center; border-radius: var(--radius-compact); color: var(--muted-foreground); }
-.visual-link-hover-header button:hover { background: var(--muted); color: var(--foreground); }
-.visual-link-hover-header button:active { scale: .96; }
-.visual-link-hover-header button svg { width: 14px; height: 14px; stroke-width: 2; }
-
-/* TipTap v3 appends BubbleMenuBar itself directly to body; it does not create
-   the [data-tippy-root] wrapper used by older TipTap versions. Target the
-   unique toolbar node directly so the host skin actually reaches production.
-   The table span controls float over the document in the same shell. */
-[data-testid="bubble-menu-bar"],
-.visual-table-span-controls {
-  @apply smooth-shadow-ring-md;
-  z-index: var(--z-selection-toolbar);
-  display: flex;
-  align-items: center;
-  gap: var(--space-1);
-  padding: 3px;
-  border: 0;
-  border-radius: var(--radius-panel);
-  background: var(--surface-panel-raised);
-  color: var(--text-secondary);
-}
-[data-testid="bubble-menu-bar"][data-suppressed] { display: none; }
-/* Tooltip/Popover triggers replace the Button's data-slot through asChild.
-   Match the native button so the LaTeX-sized controls and icons still apply. */
-[data-testid="bubble-menu-bar"] button[data-size="icon-xs"] {
-  width: 28px;
-  height: 28px;
-  min-width: 28px;
-  min-height: 28px;
-  padding: 0;
-  border: 0;
-  border-radius: var(--radius-icon);
-  background: transparent;
-  color: var(--text-secondary);
-  transform: none;
-}
-[data-testid="bubble-menu-bar"] button:hover,
-[data-testid="bubble-menu-bar"] button[data-state="open"] { background: var(--control-active-soft); color: var(--text-primary); }
-[data-testid="bubble-menu-bar"] button.bg-accent { background: var(--control-active-soft); color: var(--text-primary); }
-[data-testid="bubble-menu-bar"] button:focus-visible { outline: 2px solid var(--control-active); outline-offset: -2px; }
-[data-testid="bubble-menu-bar"] button svg { width: 14px; height: 14px; stroke-width: 1.8; }
-/* The superscript has a smaller optical footprint than the other glyphs. */
-[data-testid="bubble-menu-bar"] [data-testid="footnote-bubble-button"] svg { width: 16px; height: 16px; }
 [data-testid="block-type-selector"] {
   height: 28px;
   min-height: 28px;
@@ -1289,157 +869,10 @@ body:has(.modal-backdrop, .drawer-backdrop) .ok-table-cell-handle-layer {
   font: var(--type-caption-weight) var(--type-caption-size)/var(--type-caption-line-height) var(--ui-font);
   transform: none;
 }
-[data-testid="bubble-menu-bar"] > .flex { align-items: center; }
-[data-testid="bubble-menu-bar"] [data-slot="separator"] { height: 22px; margin-inline: 3px; background: var(--border-subtle); }
-.visual-block-type-menu {
-  width: 184px;
-  padding: var(--space-2);
-  border-radius: var(--radius-panel);
-  background: var(--surface-panel-raised);
-  color: var(--text-secondary);
-}
-.visual-block-type-menu [role="menuitem"] {
-  min-height: 28px;
-  padding: var(--space-2) var(--space-4);
-  gap: var(--space-4);
-  border-radius: var(--radius-icon);
-  font: var(--type-caption-weight) var(--type-caption-size)/var(--type-caption-line-height) var(--ui-font);
-}
-.visual-block-type-menu [role="menuitem"][data-active],
-.visual-block-type-menu [role="menuitem"][data-highlighted] { background: var(--control-active-soft); color: var(--text-primary); }
-.visual-block-type-menu [role="menuitem"] svg { width: 14px; height: 14px; stroke-width: 1.8; }
-.visual-block-type-menu .visual-block-type-check { margin-left: auto; color: var(--control-active); }
-.visual-block-type-menu [role="separator"] { margin: var(--space-2) var(--space-4); background: var(--border-subtle); }
-.visual-bubble-link-editor { display: flex; align-items: center; gap: 3px; }
-.visual-bubble-link-field {
-  display: flex;
-  height: 24px;
-  align-items: center;
-  gap: var(--space-1);
-  padding: 0 var(--space-1) 0 var(--pad-inline-control-tight);
-  border: 1px solid var(--field-control-border-color);
-  border-radius: var(--radius-icon);
-  background: var(--field-control-background);
-}
-.visual-bubble-link-field:focus-within { border-color: var(--control-active-border-strong); box-shadow: none; }
-.visual-bubble-link-field [data-slot="input"].visual-bubble-link-input {
-  box-sizing: border-box;
-  width: 160px;
-  min-width: 0;
-  height: 22px;
-  min-height: 0;
-  padding: 0;
-  border: 0;
-  border-radius: 0;
-  outline: 0;
-  background: transparent;
-  color: var(--text-primary);
-  font: var(--type-micro-size)/1 var(--ui-font);
-  box-shadow: none;
-  appearance: none;
-}
-.visual-bubble-link-field [data-slot="input"].visual-bubble-link-input:focus,
-.visual-bubble-link-field [data-slot="input"].visual-bubble-link-input:focus-visible { border: 0; outline: 0; box-shadow: none; }
-.visual-bubble-link-input::placeholder { color: var(--text-tertiary); }
-.visual-bubble-link-field [data-slot="button"] { width: 20px; min-width: 20px; height: 20px; min-height: 20px; }
-.tiptap-editor .ProseMirror em { font-style: italic; font-synthesis: style; }
-
-/* The slash menu keeps its upstream appearance. Hide only its native scrollbar;
-   ExternalScrollbar paints the exact Lattice track used by Markdown Preview.
-   The preview source dialog's editor below hides its native bar the same way. */
-.slash-command-scroll-viewport,
-[data-testid="ok-code-preview-edit-modal-source"] .cm-scroller {
-  -ms-overflow-style: none;
-  scrollbar-width: none;
-}
-.slash-command-scroll-viewport::-webkit-scrollbar,
-[data-testid="ok-code-preview-edit-modal-source"] .cm-scroller::-webkit-scrollbar {
-  display: none;
-  width: 0;
-  height: 0;
-}
-
-/* Keep the preview source dialog on the same canvas, typography, focus, and
-   scrollbar language as the main Markdown/CodeMirror editor. */
-[data-slot="dialog-content"]:has([data-testid="ok-code-preview-edit-modal-body"]) {
-  @apply smooth-shadow-ring-lg;
-  border: 0;
-  border-radius: var(--radius-chrome);
-  background: var(--editor-bg);
-  color: var(--text-primary);
-  font-family: var(--ui-font);
-}
-[data-slot="dialog-content"]:has([data-testid="ok-code-preview-edit-modal-body"]) [data-slot="dialog-title"] {
-  color: var(--text-primary);
-  font-family: var(--ui-font);
-  font-size: var(--type-heading-size);
-  font-weight: var(--weight-semibold);
-}
-[data-slot="dialog-content"]:has([data-testid="ok-code-preview-edit-modal-body"]) [data-slot="dialog-description"] {
-  color: var(--text-tertiary);
-  font-size: var(--type-micro-size);
-}
-[data-testid="ok-code-preview-edit-modal-source"] {
-  border-color: var(--border-subtle);
-  border-radius: var(--radius-compact);
-  background: var(--editor-bg);
-}
-[data-testid="ok-code-preview-edit-modal-source"]:focus-within {
-  border-color: var(--control-active-border-strong);
-  box-shadow: 0 0 0 2px var(--control-active-soft);
-}
-[data-testid="ok-code-preview-edit-modal-source"] .cm-editor,
-[data-testid="ok-code-preview-edit-modal-source"] .cm-scroller,
-[data-testid="ok-code-preview-edit-modal-source"] .cm-content {
-  background: var(--editor-bg);
-  color: var(--text-primary);
-  font-family: var(--editor-font) !important;
-  font-size: var(--editor-font-size) !important;
-}
-[data-testid="ok-code-preview-edit-modal-source"] .cm-gutters {
-  border-color: var(--border-subtle);
-  background: var(--editor-gutter);
-  color: var(--text-tertiary);
-}
-[data-testid="ok-code-preview-edit-modal-source"] .cm-activeLine,
-[data-testid="ok-code-preview-edit-modal-source"] .cm-activeLineGutter { background: var(--control-active-soft); }
-[data-testid="ok-code-preview-edit-modal-source"] .cm-content { caret-color: var(--control-active); }
-[data-testid="ok-code-preview-edit-modal-preview"] {
-  border-color: var(--border-subtle);
-  border-radius: var(--radius-compact);
-  background: var(--surface-panel-raised);
-}
-[data-slot="dialog-content"]:has([data-testid="ok-code-preview-edit-modal-body"]) [data-slot="dialog-footer"] {
-  margin-inline: calc(-1 * var(--space-4));
-  margin-bottom: calc(-1 * var(--space-4));
-  padding: var(--space-4);
-  border-color: var(--border-subtle);
-  border-radius: 0 0 var(--radius-chrome) var(--radius-chrome);
-  background: var(--surface-panel);
-}
 .visual-node-source-error { color: var(--status-danger); font-size: var(--type-nano-size); line-height: 1.45; }
-.visual-find-anchor { position: sticky; z-index: 12; top: var(--space-3); width: 100%; height: 0; pointer-events: none; }
-.visual-find-panel { @apply smooth-shadow-ring-md; position: relative; inset-inline-end: var(--space-4); display: flex; width: min(440px, calc(100% - 2 * var(--space-4))); margin-inline-start: auto; flex-direction: column; gap: var(--space-2); padding: var(--space-3); border-radius: var(--radius-chrome); background: var(--surface-panel-raised); color: var(--text-primary); pointer-events: auto; }
-.visual-find-row { display: flex; min-width: 0; align-items: center; gap: var(--space-2); }
-.visual-find-row input { min-width: 0; height: var(--search-control-height-compact); flex: 1; padding-inline: var(--search-control-padding-inline); border: var(--search-control-border-width) solid var(--search-control-border-color); border-radius: var(--search-control-radius); outline: none; background: var(--search-control-background); color: inherit; font: var(--type-caption-size)/var(--type-caption-line-height) var(--ui-font); }
-.visual-find-row input:hover:not(:focus) { border-color: var(--search-control-interactive-border-color); }
-.visual-find-row input:focus-visible { border-color: var(--search-control-interactive-border-color); box-shadow: none; }
-.visual-find-count { min-width: 54px; color: var(--text-tertiary); font-size: var(--type-nano-size); font-variant-numeric: tabular-nums; text-align: end; white-space: nowrap; }
-.visual-find-options { display: flex; align-items: center; gap: var(--space-1); padding-inline-start: var(--space-1); }
-.visual-find-panel .ui-icon-button[aria-pressed="true"] { background: var(--control-active-soft); color: var(--control-active); }
-.visual-replace-row { padding-block-start: var(--space-2); border-block-start: 1px solid var(--border-subtle); }
-.visual-find-panel button:focus-visible { outline: 2px solid var(--control-active-border-strong); outline-offset: 1px; }
-@media (pointer: coarse) {
-  .tiptap-editor .tiptap ul[data-type="taskList"] label { min-width: 44px; min-height: 44px; }
-  .visual-block-controls { display: none; }
-}
 @media (forced-colors: active) {
-  .tiptap-editor .tiptap:focus-visible { outline: 2px solid Highlight; outline-offset: 3px; }
-  .tiptap-editor .tiptap .selectedCell { outline: 2px solid Highlight; outline-offset: -2px; }
-  .tiptap-editor .tiptap .ProseMirror-selectednode { outline-color: Highlight; }
   .visual-heading-rail-item:focus-visible { outline-color: Highlight; }
   .visual-heading-rail-preview-card { border: 1px solid CanvasText; }
-  .visual-add-block-button:focus-visible, .visual-drag-grip:focus-visible { outline-color: Highlight; }
 }
 .html-preview { position: relative; height: 100%; background: white; }
 .html-preview-frame { display: block; width: 100%; height: 100%; border: 0; background: white; }
@@ -1886,11 +1319,9 @@ body > [role="tooltip"].univer-bg-gray-700 > div + div { display: none; }
 :root[data-theme="dark"] .spreadsheet-univer-host .univer-text-gray-200,
 :root[data-theme="dark"] .spreadsheet-univer-host [class*="dark:!univer-text-gray-200"] { --univer-gray-200: var(--text-primary); }
 
-/* tldraw's rich-text editor also uses ProseMirror. The Markdown editor's
-   unscoped `.ProseMirror` rules add a 200px minimum height, gutter offsets,
-   and paragraph spacing that make a shape label jump upward and clip its
-   first line as soon as editing starts. Restore tldraw's own label geometry
-   inside the board without weakening the Markdown editor styles. */
+/* tldraw's rich-text editor also uses ProseMirror. Pin its own label
+   geometry inside the board, so no app-level ProseMirror or paragraph rule
+   can make a shape label jump or clip its first line while it is edited. */
 .board-editor-root .tl-rich-text .ProseMirror {
   min-height: 0;
   margin-inline: 0;

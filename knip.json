@@ -27,18 +27,9 @@
   },
   // literature-worker/ is a separate workspace with its own package.json and is
   // not in `project`, so knip cannot see it.
-  //
-  // The two open-knowledge trees are vendored upstream code. Their export
-  // surface is upstream's public API, not our dead code, so knip flags ~330
-  // symbols there that are neither bugs nor safe to delete: re-vendoring
-  // restores anything removed. The lever that actually works is the file list
-  // in scripts/vendor-open-knowledge.mjs, not this config.
   "ignore": [
-    "literature-worker/**",
-    "src/open-knowledge-app/**",
-    "src/open-knowledge-core/**"
+    "literature-worker/**"
   ],
-  "ignoreDependencies": ["mdast-util-mdx-expression", "mdast-util-mdx-jsx"],
   // `pnpm check` shells out to mise, which is a system tool installed outside
   // the package manager (see CLAUDE.md), not a missing dependency. `typecheck`
   // is knip misreading `pnpm --dir literature-worker typecheck` in ci.yml as a

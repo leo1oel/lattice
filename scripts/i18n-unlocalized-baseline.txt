@@ -10,7 +10,6 @@ Google Scholar
 HTML
 MCP
 name@example.org
-OK Desktop
 OpenAlex
 Overleaf
 PDF

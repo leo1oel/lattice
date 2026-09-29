@@ -443,7 +443,7 @@ mod tests {
             ("2.1 Conditional Video Generation", "2-1-conditional-video-generation"),
             ("Why Video?", "why-video"),
             ("Simulating the SE(3) Action Space", "simulating-the-se-3-action-space"),
-            // NFKD + combining-mark stripping, as in toWikiLinkSlug.
+            // NFKD + combining-mark stripping, as in headingSlug.
             ("Café Décor", "cafe-decor"),
             ("  --- ", ""),
         ] {

@@ -47,19 +47,10 @@ msgstr "“{title}”已在论文库中。"
 msgid "(empty span)"
 msgstr "（空选区）"
 
-#: src/open-knowledge-app/editor/components/PreviewBlockedNotice.tsx
-msgid "(inline)"
-msgstr "（内联）"
-
 #: src/canvas/document-canvas.tsx
 #: src/editor/comments/editor-comments.ts
-#: src/editor/markdown/visual-review-overlays.tsx
 msgid "(no comment text)"
 msgstr "（无评论内容）"
-
-#: src/open-knowledge-app/editor/components/MirrorSource.tsx
-msgid "(no id)"
-msgstr "（无 ID）"
 
 #: src/overleaf/overleaf-changes.tsx
 msgid "(no text)"
@@ -68,11 +59,6 @@ msgstr "（无文本）"
 #: src/overleaf/overleaf-comments.tsx
 msgid "(this comment's text was removed)"
 msgstr "（此评论对应的文本已被删除）"
-
-#. placeholder {0}: blocked.length
-#: src/open-knowledge-app/editor/components/PreviewBlockedNotice.tsx
-msgid "{0, plural, one {# request blocked by the preview's security policy} other {# requests blocked by the preview's security policy}}"
-msgstr "{0, plural, one {预览的安全策略拦截了 # 个请求} other {预览的安全策略拦截了 # 个请求}}"
 
 #. placeholder {0}: work.citedByCount
 #: src/papers/literature-discovery-panel.tsx
@@ -125,14 +111,6 @@ msgstr "{changeSummary}。尚未写入任何内容"
 msgid "{completed} of {progressTotal} references checked"
 msgstr "已检查 {completed} / {progressTotal} 条引用"
 
-#: src/open-knowledge-app/editor/utils/editor-strings.ts
-msgid "{componentLabel} (empty)"
-msgstr "{componentLabel}（空）"
-
-#: src/open-knowledge-app/editor/utils/editor-strings.ts
-msgid "{componentLabel} with {childCount, plural, one {# item} other {# items}}"
-msgstr "{componentLabel}，包含 {childCount, plural, one {# 项} other {# 项}}"
-
 #: src/App.tsx
 msgid "{conflictPath} changed while the reference was being removed. Nothing was removed; try again."
 msgstr "移除参考文献条目时 {conflictPath} 发生了更改。未移除任何内容，请重试。"
@@ -184,7 +162,6 @@ msgid "{count} TODO"
 msgstr "{count} 项待办"
 
 #: src/editor/markdown/engine/chrome/find-replace.tsx
-#: src/editor/markdown/visual-markdown-find-replace.tsx
 msgid "{current} of {count}"
 msgstr "第 {current} 个，共 {count} 个"
 
@@ -215,10 +192,6 @@ msgstr "{description}：无法运行 {path}：{error}"
 #: src/build/tex-doctor-messages.ts
 msgid "{description}: not found on PATH"
 msgstr "{description}：在 PATH 中未找到"
-
-#: src/open-knowledge-app/editor/extensions/JsxComponentView.tsx
-msgid "{descriptorLabel} — render error, source editable below"
-msgstr "{descriptorLabel} — 渲染出错，可在下方编辑源码"
 
 #: src/build/compile-diagnostics-panel.tsx
 msgid "{errors} error"
@@ -283,14 +256,6 @@ msgstr "{name} 当前未在任何文件中。"
 msgid "{name} properties"
 msgstr "{name}属性"
 
-#: src/open-knowledge-app/editor/utils/validate-media-url.ts
-msgid "{name} URLs are not direct audio files. Paste a direct audio file URL."
-msgstr "{name} 的 URL 不是音频文件直链。请粘贴音频文件的直链 URL。"
-
-#: src/open-knowledge-app/editor/utils/validate-media-url.ts
-msgid "{name} URLs are not direct image files. Paste a direct image file URL."
-msgstr "{name} 的 URL 不是图片文件直链。请粘贴图片文件的直链 URL。"
-
 #: src/app/use-overleaf-workspace.ts
 msgid "{names} was deleted from the local project, but is still on Overleaf. Even if you remove it now, Overleaf's history will keep it."
 msgstr "{names} 已从本地项目删除，但仍保留在 Overleaf 上。即使现在删除，Overleaf 的历史记录仍会保留它。"
@@ -323,10 +288,6 @@ msgstr "{operation} 请求成功"
 msgid "{operation}: {pathname}"
 msgstr "{operation}：{pathname}"
 
-#: src/open-knowledge-app/editor/extensions/JsxComponentView.tsx
-msgid "{propPanelDescriptorLabel} Properties"
-msgstr "{propPanelDescriptorLabel} 属性"
-
 #: src/project/references-panel.tsx
 msgid "{references} reference"
 msgstr "{references} 处引用"
@@ -342,10 +303,6 @@ msgstr "{replacementCount} 处匹配"
 #: src/project/project-replace-dialog.tsx
 msgid "{replacementCount} matches"
 msgstr "{replacementCount} 处匹配"
-
-#: src/open-knowledge-app/editor/extensions/JsxComponentView.tsx
-msgid "{settingsDescriptorLabel} properties"
-msgstr "{settingsDescriptorLabel} 属性"
 
 #: src/telemetry/app-notify.ts
 msgid "{title} — full text"
@@ -395,26 +352,6 @@ msgstr "{warnings} 个警告"
 msgid "{words} words · {chars} chars"
 msgstr "{words} 词 · {chars} 字符"
 
-#: src/open-knowledge-app/editor/components/ColorPickerInput.tsx
-msgid "#F05032 or rgb(240,80,50)"
-msgstr "#F05032 或 rgb(240,80,50)"
-
-#: src/open-knowledge-app/editor/extensions/JsxComponentView.tsx
-msgid "+ Add {addChildName}"
-msgstr "+ 添加{addChildName}"
-
-#: src/open-knowledge-app/editor/extensions/JsxComponentView.tsx
-msgid "<{componentName}> isn't a known component. Copy the source to use it elsewhere, or delete the block."
-msgstr "<{componentName}> 不是已知组件。可复制源码在别处使用，或删除此块。"
-
-#: src/open-knowledge-app/editor/extensions/JsxComponentView.tsx
-msgid "<{descriptorLabel}> failed to render (likely a bad prop). Copy the source to see what went wrong, or delete the block."
-msgstr "<{descriptorLabel}> 渲染失败（可能是属性值有误）。可复制源码查看问题所在，或删除此块。"
-
-#: src/open-knowledge-app/editor/components/Mirror-host.tsx
-msgid "<0>Mirror — pick a source.</0> Set <1>src</1> + <2>anchor</2> via the property panel to point at a <3><MirrorSource></3> elsewhere."
-msgstr "<0>镜像 — 请选择一个源。</0>在属性面板中设置 <1>src</1> 和 <2>anchor</2>，指向其他位置的 <3><MirrorSource></3>。"
-
 #: src/App.tsx
 msgid "⌘⇧F · source files and papers"
 msgstr "⌘⇧F · 源文件和论文"
@@ -426,10 +363,6 @@ msgstr "⌘⇧H · 所有 .tex 文件"
 #: src/canvas/editor-tabs.tsx
 msgid "⌘⇧T to reopen"
 msgstr "⌘⇧T 重新打开"
-
-#: src/editor/markdown/visual-markdown-find-replace.tsx
-msgid "0 matches"
-msgstr "0 个匹配项"
 
 #: src/project/project-find-dialog.tsx
 msgid "1 hit"
@@ -453,10 +386,6 @@ msgstr "1 篇论文"
 msgid "10.1038/… or arXiv:1706.03762 or paper title"
 msgstr "10.1038/…、arXiv:1706.03762 或论文标题"
 
-#: src/open-knowledge-app/editor/slash-command/items.tsx
-msgid "A line with a footnote<0><1>[1]</1></0> and a definition shown below."
-msgstr "一行带有脚注<0><1>[1]</1></0>的文字，定义显示在下方。"
-
 #: src/overleaf/use-overleaf-realtime.ts
 msgid "A local edit has not settled on Overleaf yet, so this document cannot be reloaded safely."
 msgstr "有一处本地编辑尚未在 Overleaf 上生效，因此无法安全地重新载入此文档。"
@@ -472,10 +401,6 @@ msgstr "分子 a，分母 b"
 #: src/papers/bibliography-audit.tsx
 msgid "A published version is available."
 msgstr "找到了正式发表版本，请查看修改建议和元数据来源。"
-
-#: src/open-knowledge-app/editor/slash-command/items.tsx
-msgid "A pull quote stands out from the surrounding text."
-msgstr "醒目引文从周围文字中脱颖而出。"
 
 #: src/overleaf/overleaf-connect.tsx
 msgid "A secure Overleaf sign-in window will open. Lattice never sees your password — it only keeps the session Overleaf creates for you"
@@ -502,10 +427,6 @@ msgctxt "macOS menu bar"
 msgid "About {name}"
 msgstr "关于 {name}"
 
-#: src/open-knowledge-app/editor/slash-command/items.tsx
-msgid "Above"
-msgstr "上方"
-
 #: src/editor/insert/insert-snippets.ts
 msgid "Abstract"
 msgstr "摘要"
@@ -519,7 +440,6 @@ msgid "Accents"
 msgstr "重音符"
 
 #: src/editor/markdown/engine/chrome/review-chrome.tsx
-#: src/editor/markdown/visual-review-overlays.tsx
 #: src/overleaf/overleaf-changes.tsx
 #: src/overleaf/overleaf-editor-extensions.ts
 msgid "Accept"
@@ -544,31 +464,8 @@ msgstr "提供商拒绝访问"
 
 #: src/editor/markdown/engine/chrome/slash-items.ts
 #: src/editor/markdown/engine/views/component-views.tsx
-#: src/editor/markdown/visual-slash-items.ts
-#: src/open-knowledge-app/editor/components/Accordion.tsx
-#: src/open-knowledge-app/editor/registry/descriptor-labels.ts
 msgid "Accordion"
 msgstr "折叠面板"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Activate one of the first eight editor tabs."
-msgstr "切换到前八个编辑器标签页之一。"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Activate the last editor tab."
-msgstr "切换到最后一个编辑器标签页。"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Activate the next editor tab."
-msgstr "切换到下一个编辑器标签页。"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Activate the previous editor tab."
-msgstr "切换到上一个编辑器标签页。"
-
-#: src/open-knowledge-app/editor/slash-command/component-items.tsx
-msgid "Active panel content for the selected tab shows here."
-msgstr "所选标签页的面板内容显示在这里。"
 
 #: src/telemetry/app-log.tsx
 msgid "Activity log"
@@ -587,37 +484,9 @@ msgstr "添加"
 msgid "Add “{projectWord}” to project dictionary"
 msgstr "将“{projectWord}”添加到项目词典"
 
-#: src/open-knowledge-app/editor/registry/resolve-descriptor-placeholder.ts
-msgid "Add {name}"
-msgstr "添加{name}"
-
-#: src/open-knowledge-app/editor/registry/descriptor-labels.ts
-msgid "Add a file"
-msgstr "添加文件"
-
-#: src/open-knowledge-app/editor/registry/descriptor-labels.ts
-msgid "Add a Mermaid diagram"
-msgstr "添加 Mermaid 图表"
-
-#: src/open-knowledge-app/editor/registry/descriptor-labels.ts
-msgid "Add a PDF"
-msgstr "添加 PDF"
-
 #: src/papers/bibliography-audit.tsx
 msgid "Add a title, full authors, and year, or add a DOI or arXiv identifier, before checking this reference."
 msgstr "检查此参考文献前，请添加标题、完整作者名单和年份，或添加 DOI 或 arXiv 标识符。"
-
-#: src/open-knowledge-app/editor/registry/descriptor-labels.ts
-msgid "Add a video"
-msgstr "添加视频"
-
-#: src/open-knowledge-app/editor/registry/descriptor-labels.ts
-msgid "Add an image"
-msgstr "添加图片"
-
-#: src/open-knowledge-app/editor/registry/descriptor-labels.ts
-msgid "Add audio"
-msgstr "添加音频"
 
 #: src/App.tsx
 #: src/app/app-workspace-sidebar.tsx
@@ -630,18 +499,12 @@ msgid "Add bibliography entry and cache the arXiv paper"
 msgstr "添加参考文献条目并缓存该 arXiv 论文"
 
 #: src/editor/markdown/engine/chrome/block-controls.tsx
-#: src/editor/markdown/visual-editor-block-controls.ts
 #: src/onboarding/onboarding-tour.tsx
 msgid "Add block below"
 msgstr "在下方添加块"
 
-#: src/open-knowledge-app/editor/extensions/table-insert-controls.ts
-msgid "Add column"
-msgstr "添加列"
-
 #: src/canvas/comment-composer.tsx
 #: src/editor/markdown/engine/chrome/review-chrome.tsx
-#: src/editor/markdown/visual-review-overlays.tsx
 msgid "Add comment"
 msgstr "添加评论"
 
@@ -649,17 +512,9 @@ msgstr "添加评论"
 msgid "Add current color"
 msgstr "添加当前颜色"
 
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Add cursors or select matching occurrences through CodeMirror."
-msgstr "通过 CodeMirror 添加光标或选择匹配项。"
-
 #: src/papers/bib-entry.ts
 msgid "Add exactly one bibliography entry at a time."
 msgstr "每次只能添加一条参考文献。"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Add link"
-msgstr "添加链接"
 
 #: src/papers/paper-lookup.tsx
 msgid "Add papers in the project’s Papers sidebar"
@@ -668,18 +523,6 @@ msgstr "在项目的论文侧栏中添加论文"
 #: src/settings/settings-dialog.tsx
 msgid "Add project term"
 msgstr "添加项目术语"
-
-#: src/open-knowledge-app/editor/extensions/table-insert-controls.ts
-msgid "Add row"
-msgstr "添加行"
-
-#: src/open-knowledge-app/editor/components/Tabs.tsx
-msgid "Add tab"
-msgstr "添加标签页"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Add the next matching source selection."
-msgstr "将下一个匹配项加入源码选区。"
 
 #: src/project/paper-library.tsx
 msgid "Add your first paper"
@@ -705,14 +548,6 @@ msgstr "已将“{title}”添加到参考文献。没有可打开的全文。"
 #: src/app/use-reference-import.ts
 msgid "Added “{title}” to the bibliography. The full text could not be downloaded: {fetchNote}"
 msgstr "已将“{title}”添加到参考文献。无法下载全文：{fetchNote}"
-
-#: src/open-knowledge-app/editor/slash-command/items.tsx
-msgid "Admiral"
-msgstr "海军上将"
-
-#: src/open-knowledge-app/editor/components/PropPanel.tsx
-msgid "Advanced"
-msgstr "高级"
 
 #: src/app/app-agent-panel.tsx
 #: src/app/app-workspace-sidebar.tsx
@@ -758,52 +593,19 @@ msgstr "算法"
 msgid "Algorithm block (requires algorithm and algpseudocode)"
 msgstr "算法块（需要 algorithm 与 algpseudocode）"
 
-#: src/open-knowledge-app/editor/registry/descriptor-labels.ts
-msgid "Alias"
-msgstr "别名"
-
 #: src/editor/insert/insert-snippets.ts
 msgid "Align"
 msgstr "对齐公式"
 
-#: src/open-knowledge-app/editor/registry/descriptor-labels.ts
-msgctxt "layout property"
-msgid "Align"
-msgstr "对齐"
-
-#: src/editor/markdown/visual-slash-items.ts
-msgid "Align a group of blocks to the left, center, or right."
-msgstr "将一组内容块左对齐、居中或右对齐。"
-
-#: src/editor/markdown/visual-slash-items.ts
-#: src/open-knowledge-app/editor/registry/descriptor-labels.ts
-msgid "Align block"
-msgstr "对齐块"
-
 #: src/editor/markdown/engine/views/image-view.tsx
-#: src/open-knowledge-app/editor/extensions/JsxComponentView.tsx
 msgid "Align center"
 msgstr "居中对齐"
 
 #: src/editor/markdown/engine/views/image-view.tsx
-#: src/open-knowledge-app/editor/extensions/JsxComponentView.tsx
 msgid "Align left"
 msgstr "左对齐"
 
-#: src/open-knowledge-app/editor/extensions/CodeBlockView.tsx
-msgid "Align preview center"
-msgstr "预览居中对齐"
-
-#: src/open-knowledge-app/editor/extensions/CodeBlockView.tsx
-msgid "Align preview left"
-msgstr "预览左对齐"
-
-#: src/open-knowledge-app/editor/extensions/CodeBlockView.tsx
-msgid "Align preview right"
-msgstr "预览右对齐"
-
 #: src/editor/markdown/engine/views/image-view.tsx
-#: src/open-knowledge-app/editor/extensions/JsxComponentView.tsx
 msgid "Align right"
 msgstr "右对齐"
 
@@ -850,10 +652,6 @@ msgstr "阿尔法"
 msgid "Already in Papers"
 msgstr "已在论文库中"
 
-#: src/open-knowledge-app/editor/registry/descriptor-labels.ts
-msgid "Alt"
-msgstr "替代文本"
-
 #: src/editor/markdown/engine/views/image-view.tsx
 msgid "Alt text"
 msgstr "替代文本"
@@ -894,10 +692,6 @@ msgstr "来自 Overleaf 的更新与此文档不匹配，需要重新加载文�
 msgid "Analyze results in a live spreadsheet"
 msgstr "在实时电子表格中分析结果"
 
-#: src/open-knowledge-app/editor/registry/descriptor-labels.ts
-msgid "Anchor"
-msgstr "锚点"
-
 #: src/editor/insert/insert-snippets.ts
 msgid "Angle"
 msgstr "角"
@@ -906,9 +700,6 @@ msgstr "角"
 #: src/canvas/document-canvas.tsx
 #: src/editor/comments/editor-comments-panel.tsx
 #: src/editor/comments/editor-comments.ts
-#: src/editor/markdown/visual-markdown-editor.tsx
-#: src/editor/markdown/visual-review-overlays.tsx
-#: src/editor/markdown/visual-source-decorations.ts
 #: src/overleaf/overleaf-editor-extensions.ts
 #: src/overleaf/overleaf-presence.tsx
 msgid "Anonymous"
@@ -961,7 +752,6 @@ msgid "Apply highlight color"
 msgstr "应用高亮颜色"
 
 #: src/editor/latex/latex-selection-toolbar.tsx
-#: src/open-knowledge-app/editor/bubble-menu/LinkEditPopover.tsx
 msgid "Apply link"
 msgstr "应用链接"
 
@@ -1009,14 +799,6 @@ msgstr "article 条目使用了 booktitle，而非 journal。"
 msgid "arXiv identifier"
 msgstr "arXiv 标识符"
 
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Ask AI"
-msgstr "询问 AI"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Ask AI about selection"
-msgstr "就所选内容询问 AI"
-
 #: src/overleaf/overleaf-connect.tsx
 msgid "Ask before deleting"
 msgstr "删除前询问"
@@ -1033,14 +815,6 @@ msgstr "请求批准"
 msgid "Ask only for potentially unsafe actions"
 msgstr "仅对可能不安全的操作请求批准"
 
-#: src/open-knowledge-app/editor/link-path-suggestions.tsx
-msgid "Asset"
-msgstr "资源"
-
-#: src/open-knowledge-app/editor/components/SrcAutocomplete.tsx
-msgid "Asset suggestions"
-msgstr "资源建议"
-
 #: src/editor/insert/insert-snippets.ts
 msgid "Asterisk operator"
 msgstr "星号运算符"
@@ -1049,17 +823,9 @@ msgstr "星号运算符"
 msgid "Attention Is All You Need, diffusion, …"
 msgstr "Attention Is All You Need、扩散模型…"
 
-#: src/open-knowledge-app/editor/registry/descriptor-labels.ts
-msgid "Audio"
-msgstr "音频"
-
 #: src/papers/bib-entry-dialog.tsx
 msgid "Author"
 msgstr "作者"
-
-#: src/open-knowledge-app/editor/slash-command/component-items.tsx
-msgid "Authoritative content; mirrored verbatim everywhere it's referenced."
-msgstr "权威内容；在每个引用它的位置逐字镜像。"
 
 #: src/papers/bibliography-audit.tsx
 msgid "Authorization failed"
@@ -1101,10 +867,6 @@ msgstr "自动构建"
 msgid "Automatic updates"
 msgstr "自动更新"
 
-#: src/open-knowledge-app/editor/registry/descriptor-labels.ts
-msgid "Autoplay"
-msgstr "自动播放"
-
 #: src/settings/settings-dialog.tsx
 msgid "Auxiliary files"
 msgstr "辅助文件"
@@ -1118,7 +880,6 @@ msgid "Azure"
 msgstr "天蓝色"
 
 #: src/onboarding/onboarding-tour.tsx
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
 msgid "Back"
 msgstr "返回"
 
@@ -1151,7 +912,6 @@ msgid "Bar over an expression"
 msgstr "表达式上方加横线"
 
 #: src/editor/markdown/engine/chrome/slash-items.ts
-#: src/editor/markdown/visual-slash-items.ts
 msgid "Basic blocks"
 msgstr "基础块"
 
@@ -1174,10 +934,6 @@ msgstr "已复用批量查询结果"
 #: src/editor/latex/latex-command-completions.ts
 msgid "Beamer slide"
 msgstr "Beamer 幻灯片"
-
-#: src/open-knowledge-app/editor/slash-command/items.tsx
-msgid "Below"
-msgstr "下方"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Beta"
@@ -1236,8 +992,6 @@ msgid "BibTeX preview"
 msgstr "BibTeX 预览"
 
 #: src/editor/markdown/engine/chrome/slash-items.ts
-#: src/editor/markdown/visual-slash-items.ts
-#: src/open-knowledge-app/editor/slash-command/items.tsx
 msgid "Big section heading."
 msgstr "用于主要章节的大标题。"
 
@@ -1279,8 +1033,6 @@ msgid "Blackboard bold"
 msgstr "黑板粗体"
 
 #: src/editor/markdown/engine/chrome/slash-items.ts
-#: src/editor/markdown/visual-slash-items.ts
-#: src/open-knowledge-app/editor/slash-command/component-items.tsx
 msgid "Block math equation rendered with KaTeX from a LaTeX source string."
 msgstr "使用 KaTeX 渲染 LaTeX 源字符串的块级数学公式。"
 
@@ -1336,8 +1088,6 @@ msgstr "若已安装 TeXcount，正文词数由其统计（否则为本地估算
 #: src/editor/insert/insert-snippets.ts
 #: src/editor/latex/latex-selection-toolbar.tsx
 #: src/editor/markdown/engine/chrome/selection-toolbar.tsx
-#: src/open-knowledge-app/editor/bubble-menu/InlineFormatButtons.tsx
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
 msgid "Bold"
 msgstr "粗体"
 
@@ -1468,15 +1218,8 @@ msgstr "构建"
 msgid "Bullet"
 msgstr "实心圆点"
 
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Bullet list"
-msgstr "无序列表"
-
 #: src/editor/markdown/engine/chrome/selection-toolbar.tsx
 #: src/editor/markdown/engine/chrome/slash-items.ts
-#: src/editor/markdown/visual-slash-items.ts
-#: src/open-knowledge-app/editor/bubble-menu/BlockTypeSelector.tsx
-#: src/open-knowledge-app/editor/slash-command/items.tsx
 msgid "Bullet List"
 msgstr "无序列表"
 
@@ -1494,14 +1237,8 @@ msgstr "花体"
 
 #: src/editor/markdown/engine/chrome/slash-items.ts
 #: src/editor/markdown/engine/views/component-views.tsx
-#: src/editor/markdown/visual-slash-items.ts
-#: src/open-knowledge-app/editor/registry/descriptor-labels.ts
 msgid "Callout"
 msgstr "提示框"
-
-#: src/open-knowledge-app/editor/slash-command/component-items.tsx
-msgid "Callouts draw attention to key information."
-msgstr "提示框用于突出关键信息。"
 
 #: src/build/tex-dependency-installer.tsx
 #: src/canvas/comment-composer.tsx
@@ -1511,11 +1248,9 @@ msgstr "提示框用于突出关键信息。"
 #: src/editor/insert/figure-insert-dialog.tsx
 #: src/editor/insert/table-generator-dialog.tsx
 #: src/editor/markdown/engine/chrome/review-chrome.tsx
-#: src/editor/markdown/visual-review-overlays.tsx
 #: src/editor/spreadsheet/spreadsheet-univer.ts
 #: src/history/conflict-resolver.tsx
 #: src/history/versions-timeline.tsx
-#: src/open-knowledge-app/editor/components/CodePreviewEditModal.tsx
 #: src/overleaf/overleaf-comments.tsx
 #: src/overleaf/overleaf-connect.tsx
 #: src/overleaf/overleaf-history.tsx
@@ -1570,7 +1305,6 @@ msgid "Candidate record considered, not verified · cached record"
 msgstr "已考虑候选记录，但未经验证 · 缓存记录"
 
 #: src/editor/markdown/engine/chrome/review-chrome.tsx
-#: src/editor/markdown/visual-markdown-editor.tsx
 msgid "Cannot precisely locate this selection in Markdown source. Switch to Source view to add a comment."
 msgstr "无法在 Markdown 源码中精确定位所选内容。请切换到源码视图添加批注。"
 
@@ -1765,8 +1499,6 @@ msgid "Checking…"
 msgstr "正在检查…"
 
 #: src/editor/markdown/engine/chrome/slash-items.ts
-#: src/editor/markdown/visual-slash-items.ts
-#: src/open-knowledge-app/editor/slash-command/items.tsx
 msgid "Checklist with checkboxes."
 msgstr "带复选框的任务清单。"
 
@@ -1786,16 +1518,7 @@ msgstr "检查 Lattice 编译 LaTeX 所需的工具"
 msgid "Chi"
 msgstr "希"
 
-#: src/open-knowledge-app/editor/components/ColorPickerInput.tsx
-msgid "Choose color"
-msgstr "选择颜色"
-
-#: src/open-knowledge-app/editor/components/IconPickerInput.tsx
-msgid "Choose icon"
-msgstr "选择图标"
-
 #: src/editor/markdown/engine/chrome/pickers.tsx
-#: src/editor/markdown/visual-slash-items.ts
 msgid "Choose image to upload"
 msgstr "选择要上传的图片"
 
@@ -1877,7 +1600,6 @@ msgid "Citation resolve query"
 msgstr "引文解析查询"
 
 #: src/editor/markdown/engine/chrome/link-chrome.tsx
-#: src/editor/markdown/visual-link-insert-popover.tsx
 msgid "Citation title"
 msgstr "引用标题"
 
@@ -1917,14 +1639,6 @@ msgstr "正在清理…"
 msgid "Clear"
 msgstr "清空"
 
-#: src/open-knowledge-app/editor/components/ColorPickerInput.tsx
-msgid "Clear color"
-msgstr "清除颜色"
-
-#: src/open-knowledge-app/editor/components/IconPickerInput.tsx
-msgid "Clear icon"
-msgstr "清除图标"
-
 #: src/telemetry/app-log.tsx
 msgid "Clear log search"
 msgstr "清除日志搜索"
@@ -1959,17 +1673,12 @@ msgstr "点击“论文”"
 msgid "Click to collapse"
 msgstr "点击收起侧栏"
 
-#: src/open-knowledge-app/editor/slash-command/component-items.tsx
-msgid "Click to expand"
-msgstr "点击展开"
-
 #: src/canvas/canvas-toolbar.tsx
 msgid "click to sync"
 msgstr "点按以同步"
 
 #: src/canvas/editor-tabs.tsx
 #: src/editor/codemirror-host.tsx
-#: src/open-knowledge-app/components/ui/dialog.tsx
 msgid "Close"
 msgstr "关闭"
 
@@ -1984,7 +1693,6 @@ msgid "Close {title}"
 msgstr "关闭 {title}"
 
 #: src/editor/markdown/engine/chrome/find-replace.tsx
-#: src/editor/markdown/visual-markdown-find-replace.tsx
 msgid "Close find"
 msgstr "关闭查找"
 
@@ -2030,25 +1738,16 @@ msgstr "闭路积分"
 msgid "Club suit"
 msgstr "梅花"
 
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Code block"
-msgstr "代码块"
-
 #: src/editor/markdown/engine/chrome/selection-toolbar.tsx
 #: src/editor/markdown/engine/chrome/slash-items.ts
-#: src/editor/markdown/visual-slash-items.ts
-#: src/open-knowledge-app/editor/bubble-menu/BlockTypeSelector.tsx
-#: src/open-knowledge-app/editor/slash-command/items.tsx
 msgid "Code Block"
 msgstr "代码块"
 
 #: src/editor/markdown/engine/views/code-block-view.tsx
-#: src/open-knowledge-app/editor/extensions/CodeBlockView.tsx
 msgid "Code block language: {currentLabel}. Click to change."
 msgstr "代码块语言：{currentLabel}。点击以更改。"
 
 #: src/editor/markdown/engine/views/code-block-view.tsx
-#: src/open-knowledge-app/editor/extensions/CodeBlockView.tsx
 msgid "Code block settings"
 msgstr "代码块设置"
 
@@ -2056,37 +1755,21 @@ msgstr "代码块设置"
 msgid "Code block title"
 msgstr "代码块标题"
 
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Code field undo or redo"
-msgstr "代码字段撤销或重做"
-
 #: src/editor/insert/insert-snippets.ts
 msgid "Code listing"
 msgstr "代码清单"
 
 #: src/editor/markdown/engine/views/component-views.tsx
-#: src/open-knowledge-app/editor/registry/descriptor-labels.ts
 msgid "Collapsible"
 msgstr "可折叠"
 
-#: src/editor/markdown/visual-slash-items.ts
-#: src/open-knowledge-app/editor/slash-command/component-items.tsx
-msgid "Collapsible content block (Notion-style toggle)."
-msgstr "可折叠内容块（类似 Notion 的折叠块）。"
-
 #: src/editor/markdown/engine/chrome/slash-items.ts
-#: src/editor/markdown/visual-slash-items.ts
-#: src/open-knowledge-app/editor/slash-command/component-items.tsx
 msgid "Collapsible section with a clickable summary."
 msgstr "带可点击摘要的折叠章节。"
 
 #: src/telemetry/app-log.tsx
 msgid "Collecting runtime logs…"
 msgstr "正在收集运行日志…"
-
-#: src/open-knowledge-app/editor/registry/descriptor-labels.ts
-msgid "Color"
-msgstr "颜色"
 
 #: src/components/ui/apple-color-picker.tsx
 msgid "Color selection mode"
@@ -2105,7 +1788,6 @@ msgid "Colored text"
 msgstr "彩色文本"
 
 #: src/editor/markdown/engine/views/table-controls.tsx
-#: src/open-knowledge-app/editor/table-controls/TableCellHandles.tsx
 msgid "Column options"
 msgstr "列选项"
 
@@ -2122,7 +1804,6 @@ msgid "Coming from Overleaf"
 msgstr "来自 Overleaf"
 
 #: src/App.tsx
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
 msgid "Command palette"
 msgstr "命令面板"
 
@@ -2133,23 +1814,12 @@ msgstr "评论"
 #: src/editor/latex/latex-selection-toolbar.tsx
 #: src/editor/markdown/engine/chrome/review-chrome.tsx
 #: src/editor/markdown/engine/chrome/selection-toolbar.tsx
-#: src/editor/markdown/visual-markdown-editor.tsx
-#: src/editor/markdown/visual-review-overlays.tsx
-#: src/open-knowledge-app/comments/CommentBubbleButton.tsx
 msgid "Comment"
 msgstr "评论"
-
-#: src/editor/markdown/visual-markdown-editor.tsx
-msgid "Comment by {author}"
-msgstr "{author} 的评论"
 
 #: src/editor/latex/latex-selection-toolbar.tsx
 msgid "Comment on selected Markdown"
 msgstr "评论所选 Markdown"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Comment on selection"
-msgstr "评论所选内容"
 
 #: src/overleaf/overleaf-collab.tsx
 msgid "Comment source"
@@ -2164,10 +1834,6 @@ msgstr "评论显示范围"
 #: src/overleaf/overleaf-collab.tsx
 msgid "Comments"
 msgstr "评论"
-
-#: src/open-knowledge-app/editor/registry/descriptor-labels.ts
-msgid "CommonMark Image"
-msgstr "CommonMark 图片"
 
 #: src/overleaf/overleaf-review.tsx
 msgid "Comparing this project with Overleaf…"
@@ -2205,12 +1871,7 @@ msgstr "补全建议"
 msgid "Component"
 msgstr "组件"
 
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Component boundary navigation"
-msgstr "组件边界导航"
-
 #: src/editor/markdown/engine/chrome/slash-items.ts
-#: src/editor/markdown/visual-slash-items.ts
 msgid "Components"
 msgstr "组件"
 
@@ -2322,26 +1983,15 @@ msgstr "环路积分"
 msgid "Control character"
 msgstr "控制字符"
 
-#: src/open-knowledge-app/editor/registry/descriptor-labels.ts
-msgid "Controls"
-msgstr "控件"
-
 #: src/editor/markdown/engine/chrome/selection-toolbar.tsx
-#: src/open-knowledge-app/editor/bubble-menu/FootnoteBubbleButton.tsx
 msgid "Convert selection to footnote"
 msgstr "将所选文字转换为脚注"
 
 #: src/editor/markdown/engine/chrome/selection-toolbar.tsx
-#: src/open-knowledge-app/editor/bubble-menu/InlineFormatButtons.tsx
 msgid "Convert selection to inline math"
 msgstr "将所选文字转换为行内公式"
 
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Convert the current block to a paragraph."
-msgstr "将当前块转换为段落。"
-
 #: src/editor/markdown/engine/views/code-block-view.tsx
-#: src/open-knowledge-app/editor/extensions/CodeBlockView.tsx
 msgid "Copied"
 msgstr "已复制"
 
@@ -2356,12 +2006,10 @@ msgid "Copy"
 msgstr "拷贝"
 
 #: src/editor/markdown/engine/views/code-block-view.tsx
-#: src/open-knowledge-app/editor/extensions/CodeBlockView.tsx
 msgid "Copy code"
 msgstr "复制代码"
 
 #: src/editor/markdown/engine/lattice-visual-editor.tsx
-#: src/editor/markdown/visual-markdown-editor.tsx
 msgid "Copy draft"
 msgstr "复制草稿"
 
@@ -2384,18 +2032,6 @@ msgstr "复制通知中的命令"
 #: src/project/project-file-tree.tsx
 msgid "Copy path"
 msgstr "复制路径"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Copy selected file or folder"
-msgstr "复制所选文件或文件夹"
-
-#: src/open-knowledge-app/editor/extensions/JsxComponentView.tsx
-msgid "Copy source"
-msgstr "复制源码"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Copy the focused file-tree item so Paste can duplicate it."
-msgstr "复制文件树中当前聚焦的项目，以便通过粘贴创建副本。"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Copyright"
@@ -2553,30 +2189,6 @@ msgstr "无法安装更新"
 msgid "Couldn’t open this spreadsheet"
 msgstr "无法打开此电子表格"
 
-#: src/open-knowledge-app/editor/image-upload/upload-failure.ts
-msgid "Couldn't reach the Open Knowledge server to upload {fileName}."
-msgstr "无法连接 Open Knowledge 服务器，未能上传 {fileName}。"
-
-#: src/open-knowledge-app/editor/image-upload/upload-failure.ts
-msgid "Couldn't read {fileName}. It may have been moved, deleted, or not finished downloading. Try adding it again."
-msgstr "无法读取 {fileName}。它可能已被移动、删除或尚未下载完成。请重新添加。"
-
-#: src/editor/markdown/visual-wiki-link-suggestion.tsx
-msgid "Create \"{name}\""
-msgstr "创建“{name}”"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Create a file from the current document or folder context."
-msgstr "在当前文档或文件夹位置新建文件。"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Create a folder from the current document or folder context."
-msgstr "在当前文档或文件夹位置新建文件夹。"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Create a new list item from the current list item."
-msgstr "从当前列表项新建一个列表项。"
-
 #: src/overleaf/overleaf-connect.tsx
 msgid "Create a new Overleaf project and keep this folder connected to it"
 msgstr "创建新的 Overleaf 项目，并让此文件夹与其保持连接"
@@ -2610,10 +2222,6 @@ msgstr "正在创建项目…"
 msgid "Cross-reference label"
 msgstr "交叉引用标签"
 
-#: src/open-knowledge-app/editor/registry/descriptor-labels.ts
-msgid "Crossorigin"
-msgstr "跨源（crossorigin）"
-
 #: src/papers/bibliography-audit.tsx
 msgid "Crossref"
 msgstr "Crossref"
@@ -2645,11 +2253,6 @@ msgstr "当前匹配项"
 #: src/papers/bibliography-audit.tsx
 msgid "Current reference"
 msgstr "当前参考文献"
-
-#: src/editor/markdown/visual-slash-items.ts
-#: src/open-knowledge-app/editor/slash-command/embed-starter-items.tsx
-msgid "Custom HTML with a live preview pane (sandboxed iframe)."
-msgstr "带实时预览窗格的自定义 HTML（在沙盒 iframe 中运行）。"
 
 #: src/app/native-locale.ts
 msgctxt "macOS menu bar"
@@ -2684,14 +2287,6 @@ msgstr "深{name}"
 msgid "Dark Gray"
 msgstr "深灰色"
 
-#: src/editor/markdown/visual-slash-items.ts
-msgid "Data"
-msgstr "数据"
-
-#: src/open-knowledge-app/editor/utils/validate-media-url.ts
-msgid "Data URIs are not supported for media fields. Use a hosted file URL."
-msgstr "媒体字段不支持 Data URI。请使用托管文件的 URL。"
-
 #: src/papers/bibliography-audit.tsx
 msgid "DBLP"
 msgstr "DBLP"
@@ -2700,10 +2295,6 @@ msgstr "DBLP"
 msgid "Decided"
 msgstr "已决定"
 
-#: src/open-knowledge-app/editor/registry/descriptor-labels.ts
-msgid "Decoding"
-msgstr "解码（decoding）"
-
 #: src/papers/bib-entry-dialog.tsx
 msgid "Decrement year"
 msgstr "年份减一"
@@ -2711,10 +2302,6 @@ msgstr "年份减一"
 #: src/settings/settings-dialog.tsx
 msgid "Default"
 msgstr "默认"
-
-#: src/open-knowledge-app/editor/registry/descriptor-labels.ts
-msgid "Default Open"
-msgstr "默认展开"
 
 #: src/editor/latex/latex-command-completions.ts
 msgid "Define a command"
@@ -2745,7 +2332,6 @@ msgstr "度"
 #: src/components/ui/confirm-action-dialog.tsx
 #: src/editor/comments/editor-comments-panel.tsx
 #: src/editor/spreadsheet/spreadsheet-univer.ts
-#: src/open-knowledge-app/editor/extensions/JsxComponentView.tsx
 #: src/overleaf/overleaf-comments.tsx
 #: src/project/project-file-tree.tsx
 msgid "Delete"
@@ -2759,41 +2345,19 @@ msgstr "要从此项目中删除“{path}”吗？"
 msgid "Delete {count} selected items from this project?"
 msgstr "要从此项目中删除选中的 {count} 个项目吗？"
 
-#: src/open-knowledge-app/editor/extensions/JsxComponentView.tsx
-msgid "Delete {deleteDescriptorLabel}"
-msgstr "删除{deleteDescriptorLabel}"
-
 #: src/editor/markdown/engine/views/component-views.tsx
 msgid "Delete {name}"
 msgstr "删除{name}"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Delete a table when the active table cell selection covers the full table."
-msgstr "当前单元格选区覆盖整个表格时，删除该表格。"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Delete adjacent chip"
-msgstr "删除相邻标记块"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Delete an adjacent wiki-link chip."
-msgstr "删除相邻的 wiki 链接标记块。"
 
 #: src/app/use-build-pipeline.ts
 msgid "Delete auxiliary files and rebuild the PDF?"
 msgstr "要删除辅助文件并重新构建 PDF 吗？"
 
-#: src/open-knowledge-app/editor/extensions/RawMdxFallbackCMView.tsx
-msgid "Delete block"
-msgstr "删除块"
-
 #: src/editor/markdown/engine/views/code-block-view.tsx
-#: src/open-knowledge-app/editor/extensions/CodeBlockView.tsx
 msgid "Delete code block"
 msgstr "删除代码块"
 
 #: src/editor/markdown/engine/views/table-controls.tsx
-#: src/open-knowledge-app/editor/table-controls/TableCellHandles.tsx
 msgid "Delete column"
 msgstr "删除列"
 
@@ -2815,20 +2379,10 @@ msgid "Delete on Overleaf too"
 msgstr "同时在 Overleaf 上删除"
 
 #: src/editor/markdown/engine/views/table-controls.tsx
-#: src/open-knowledge-app/editor/table-controls/TableCellHandles.tsx
 msgid "Delete row"
 msgstr "删除行"
 
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Delete selected files or folders"
-msgstr "删除所选文件或文件夹"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Delete selected table"
-msgstr "删除所选表格"
-
 #: src/editor/markdown/engine/views/table-controls.tsx
-#: src/open-knowledge-app/editor/table-controls/TableCellHandles.tsx
 msgid "Delete table"
 msgstr "删除表格"
 
@@ -2891,11 +2445,9 @@ msgstr "德尔塔"
 
 #: src/editor/insert/insert-snippets.ts
 #: src/editor/markdown/engine/views/image-view.tsx
-#: src/open-knowledge-app/editor/registry/descriptor-labels.ts
 msgid "Description"
 msgstr "描述列表"
 
-#: src/open-knowledge-app/editor/components/Callout.tsx
 #: src/papers/bibliography-audit.tsx
 msgid "Details"
 msgstr "检查详情"
@@ -2911,8 +2463,6 @@ msgid "Diagnostics"
 msgstr "诊断"
 
 #: src/editor/markdown/engine/chrome/slash-items.ts
-#: src/editor/markdown/visual-slash-items.ts
-#: src/open-knowledge-app/editor/slash-command/component-items.tsx
 msgid "Diagram from Mermaid source — flowchart, sequence, class, state, ER, gantt, pie."
 msgstr "根据 Mermaid 源码生成的图表——支持流程图、时序图、类图、状态图、ER 图、甘特图和饼图。"
 
@@ -2929,18 +2479,6 @@ msgstr "方块"
 msgid "Diff for {0}"
 msgstr "{0} 的差异"
 
-#: src/open-knowledge-app/editor/utils/validate-media-url.ts
-msgid "Direct audio file URL — {sample}"
-msgstr "音频文件直链 URL — {sample}"
-
-#: src/open-knowledge-app/editor/utils/validate-media-url.ts
-msgid "Direct image file URL — {sample}"
-msgstr "图片文件直链 URL — {sample}"
-
-#: src/open-knowledge-app/editor/utils/validate-media-url.ts
-msgid "Direct video file URL — {sample}"
-msgstr "视频文件直链 URL — {sample}"
-
 #: src/App.tsx
 #: src/app/app-workspace-sidebar.tsx
 #: src/papers/literature-discovery-panel.tsx
@@ -2954,10 +2492,6 @@ msgstr "关闭"
 #: src/build/compile-diagnostics-panel.tsx
 msgid "Dismiss diagnostics"
 msgstr "关闭诊断"
-
-#: src/open-knowledge-app/editor/components/PreviewBlockedNotice.tsx
-msgid "Dismiss notice"
-msgstr "关闭通知"
 
 #: src/telemetry/app-log.tsx
 msgid "Dismiss notification"
@@ -3023,15 +2557,7 @@ msgstr "不存在"
 msgid "DOI metadata corrections are available."
 msgstr "有可用的 DOI 元数据修正。"
 
-#: src/open-knowledge-app/editor/registry/descriptor-labels.ts
-msgid "Dollar Math"
-msgstr "美元符号公式"
-
 #: src/editor/markdown/engine/chrome/link-chrome.tsx
-#: src/editor/markdown/visual-link-insert-popover.tsx
-#: src/open-knowledge-app/editor/extensions/JsxComponentView.tsx
-#: src/open-knowledge-app/editor/extensions/MathInlineView.tsx
-#: src/open-knowledge-app/editor/slash-command/items.tsx
 msgid "Done"
 msgstr "完成"
 
@@ -3083,10 +2609,6 @@ msgstr "下载 {url}"
 msgid "Download arXiv {id}"
 msgstr "下载 arXiv {id}"
 
-#: src/open-knowledge-app/editor/bubble-menu/FileBubbleButtons.tsx
-msgid "Download file"
-msgstr "下载文件"
-
 #: src/telemetry/app-log.tsx
 msgid "Download JSON"
 msgstr "下载 JSON"
@@ -3120,10 +2642,6 @@ msgstr "正在下载全文和图片…"
 #: src/telemetry/app-updater.tsx
 msgid "Downloading update…"
 msgstr "正在下载更新…"
-
-#: src/open-knowledge-app/editor/slash-command/embed-starter-items.tsx
-msgid "Drag to adjust"
-msgstr "拖动以调整"
 
 #: src/papers/paper-lookup.tsx
 msgid "Drag to cite · Click to read"
@@ -3177,18 +2695,6 @@ msgstr "标签“{key}”重复，也在 {path} 中定义。"
 msgid "Duplicate label “{key}”."
 msgstr "标签“{key}”重复。"
 
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Duplicate selected file or folder"
-msgstr "为所选文件或文件夹创建副本"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Duplicate the file-tree item copied from the Files sidebar."
-msgstr "为从文件侧边栏复制的文件树项目创建副本。"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Duplicate the focused file-tree item when focus is in the Files sidebar."
-msgstr "焦点位于文件侧边栏时，为当前聚焦的文件树项目创建副本。"
-
 #: src/papers/audit-messages.ts
 msgid "Duplicate title across bibliography files."
 msgstr "多个参考文献文件中存在重复的标题。"
@@ -3205,10 +2711,6 @@ msgstr "例如 9"
 msgid "e.g. Lattice"
 msgstr "例如 Lattice"
 
-#: src/open-knowledge-app/editor/extensions/CodeBlockView.tsx
-msgid "e.g. server.ts"
-msgstr "例如 server.ts"
-
 #: src/onboarding/onboarding-tour.tsx
 msgid "Each .bib entry appears here. Entries with an arXiv ID can be downloaded in full"
 msgstr ".bib 中的每个条目都会显示在这里。含 arXiv ID 的条目可以下载全文"
@@ -3223,10 +2725,6 @@ msgstr "编辑"
 msgctxt "macOS menu bar"
 msgid "Edit"
 msgstr "编辑"
-
-#: src/open-knowledge-app/editor/extensions/JsxComponentView.tsx
-msgid "Edit {sourceComponentLabel} source"
-msgstr "编辑{sourceComponentLabel}源码"
 
 #: src/onboarding/onboarding-tour.tsx
 msgid "Edit an Open Slide presentation"
@@ -3254,7 +2752,6 @@ msgid "Edit cells and formulas directly"
 msgstr "直接编辑单元格和公式"
 
 #: src/editor/markdown/engine/passive-view.tsx
-#: src/editor/markdown/visual-passive-viewport.tsx
 msgid "Edit document"
 msgstr "编辑文档"
 
@@ -3263,7 +2760,6 @@ msgid "Edit HTML"
 msgstr "编辑 HTML"
 
 #: src/editor/markdown/engine/chrome/link-chrome.tsx
-#: src/editor/markdown/visual-link-hover.tsx
 msgid "Edit link"
 msgstr "编辑链接"
 
@@ -3274,10 +2770,6 @@ msgstr "在左侧编辑 main.tex，右侧 PDF 会自动更新"
 #: src/canvas/canvas-toolbar.tsx
 msgid "Edit Markdown"
 msgstr "编辑 Markdown"
-
-#: src/editor/markdown/visual-markdown-editor.tsx
-msgid "Edit Markdown source"
-msgstr "编辑 Markdown 源码"
 
 #: src/overleaf/overleaf-comments.tsx
 msgid "Edit message"
@@ -3299,17 +2791,9 @@ msgstr "编辑源文件"
 msgid "Edit source and preview PDF"
 msgstr "编辑源文件并预览 PDF"
 
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Edit source pane and code property fields"
-msgstr "编辑源码窗格和代码属性字段"
-
 #: src/history/conflict-resolver.tsx
 msgid "Edit the combined file if anything still needs fixing, then save it."
 msgstr "如仍需修改，请编辑合并后的文件，然后保存。"
-
-#: src/open-knowledge-app/editor/slash-command/embed-starter-items.tsx
-msgid "Edit this HTML — the preview updates live."
-msgstr "编辑此 HTML — 预览会实时更新。"
 
 #: src/overleaf/overleaf-comments.tsx
 msgid "Edit this message"
@@ -3328,18 +2812,9 @@ msgstr "双方在同一位置都有编辑。应用后会在文件中标出这些
 msgid "Editing"
 msgstr "编辑"
 
-#: src/open-knowledge-app/editor/extensions/RawMdxFallbackCMView.tsx
-msgid "Editing broken MDX source: {displayReason}"
-msgstr "正在编辑有误的 MDX 源码：{displayReason}"
-
 #: src/canvas/canvas-toolbar.tsx
 msgid "Editing live with Overleaf · click to sync everything else"
 msgstr "正在与 Overleaf 实时编辑 · 点按以同步其他内容"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-#: src/open-knowledge-app/shims/sonner.ts
-msgid "Editor"
-msgstr "编辑器"
 
 #: src/settings/settings-dialog.tsx
 msgid "Editor & builds"
@@ -3359,10 +2834,6 @@ msgstr "编辑器字号"
 msgid "Editor keymap"
 msgstr "编辑器键位"
 
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Editor selection"
-msgstr "编辑器选区"
-
 #: src/canvas/editor-status-bar.tsx
 msgid "Editor shortcuts"
 msgstr "编辑器快捷键"
@@ -3370,10 +2841,6 @@ msgstr "编辑器快捷键"
 #: src/canvas/editor-status-bar.tsx
 msgid "Editor status"
 msgstr "编辑器状态"
-
-#: src/open-knowledge-app/editor/slash-command/component-items.tsx
-msgid "Edits at the source land here — no copy-paste drift."
-msgstr "在源处所做的编辑会同步到这里 — 无需复制粘贴，不会出现偏差。"
 
 #: src/overleaf/overleaf-connect.tsx
 msgid "Edits sync live with Overleaf"
@@ -3387,54 +2854,13 @@ msgstr "属于"
 msgid "Ellipsis"
 msgstr "省略号"
 
-#: src/open-knowledge-app/editor/registry/descriptor-labels.ts
-msgid "Embed"
-msgstr "嵌入"
-
-#: src/open-knowledge-app/editor/components/Embed.tsx
-#: src/open-knowledge-app/editor/registry/descriptor-labels.ts
-msgid "Embed a URL"
-msgstr "嵌入 URL"
-
-#: src/open-knowledge-app/editor/slash-command/component-items.tsx
-msgid "Embed a video with native player controls."
-msgstr "嵌入视频，使用原生播放器控件。"
-
-#: src/open-knowledge-app/editor/slash-command/component-items.tsx
-msgid "Embed an audio file with native player controls."
-msgstr "嵌入音频文件，使用原生播放器控件。"
-
-#: src/open-knowledge-app/editor/slash-command/component-items.tsx
-msgid "Embed an external page in an inline iframe (docs, demos, Figma, CodeSandbox)."
-msgstr "以内联 iframe 嵌入外部页面（文档、演示、Figma、CodeSandbox）。"
-
 #: src/editor/markdown/engine/chrome/slash-items.ts
-#: src/editor/markdown/visual-slash-items.ts
-#: src/open-knowledge-app/editor/slash-command/component-items.tsx
 msgid "Embed an image with optional alt text."
 msgstr "嵌入图片，并可添加替代文本。"
 
-#: src/open-knowledge-app/editor/components/Embed.tsx
-msgid "Embed only supports cross-origin URLs"
-msgstr "嵌入仅支持跨源 URL"
-
-#: src/open-knowledge-app/editor/components/Embed.tsx
-msgid "Embedded content"
-msgstr "嵌入内容"
-
-#: src/editor/markdown/visual-slash-items.ts
-msgid "Embeds"
-msgstr "嵌入内容"
-
 #: src/editor/markdown/engine/chrome/slash-items.ts
-#: src/editor/markdown/visual-slash-items.ts
-#: src/open-knowledge-app/editor/slash-command/items.tsx
 msgid "Emoji"
 msgstr "表情符号"
-
-#: src/open-knowledge-app/editor/components/EmojiInsertPopover.tsx
-msgid "Emoji picker"
-msgstr "表情符号选择器"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Emphasis"
@@ -3451,10 +2877,6 @@ msgstr "空"
 #: src/papers/audit-messages.ts
 msgid "Empty {field} field."
 msgstr "{field} 字段为空。"
-
-#: src/open-knowledge-app/editor/components/Mermaid.tsx
-msgid "Empty diagram"
-msgstr "空图表"
 
 #: src/editor/markdown/engine/views/math-views.tsx
 msgid "Empty equation"
@@ -3484,17 +2906,9 @@ msgstr "空集（变体）"
 msgid "Enable version tracking"
 msgstr "启用版本追踪"
 
-#: src/open-knowledge-app/editor/slash-command/component-items.tsx
-msgid "End"
-msgstr "结束"
-
 #: src/editor/latex/latex-command-completions.ts
 msgid "End an environment"
 msgstr "结束环境"
-
-#: src/open-knowledge-app/editor/slash-command/items.tsx
-msgid "Engineer"
-msgstr "工程师"
 
 #: src/settings/settings-dialog.tsx
 msgid "English"
@@ -3503,10 +2917,6 @@ msgstr "英文"
 #: src/editor/goto-line-dialog.tsx
 msgid "Enter a line between 1 and {maxLine}"
 msgstr "请输入 1 到 {maxLine} 之间的行号"
-
-#: src/open-knowledge-app/editor/utils/validate-css-length.ts
-msgid "Enter a number (e.g. 100), a number with a CSS unit (e.g. 100px, 50%, 26rem), or one of: auto, inherit, initial, unset."
-msgstr "请输入数字（如 100）、带 CSS 单位的数字（如 100px、50%、26rem），或以下值之一：auto、inherit、initial、unset。"
 
 #: src/pdf/pdf-viewer.tsx
 msgid "Enter a page number"
@@ -3628,11 +3038,6 @@ msgstr "Excel 工作簿"
 msgid "Excel workbook exported"
 msgstr "已导出 Excel 工作簿"
 
-#: src/open-knowledge-app/editor/components/Mermaid.tsx
-#: src/open-knowledge-app/editor/extensions/JsxComponentView.tsx
-msgid "Expand diagram"
-msgstr "展开图表"
-
 #: src/editor/markdown/engine/views/image-view.tsx
 msgid "Expand image"
 msgstr "放大图片"
@@ -3685,25 +3090,11 @@ msgstr "关注声明"
 msgid "Failed"
 msgstr "失败"
 
-#: src/open-knowledge-app/editor/components/Pdf.tsx
-msgid "Failed to load PDF"
-msgstr "无法加载 PDF"
-
-#: src/open-knowledge-app/editor/components/Pdf.tsx
-msgid "Failed to load PDF: {error}"
-msgstr "无法加载 PDF：{error}"
-
-#: src/open-knowledge-app/editor/components/Pdf.tsx
-msgid "Failed to render PDF"
-msgstr "无法渲染 PDF"
-
 #: src/settings/settings-dialog.tsx
 msgid "Feedback"
 msgstr "反馈"
 
 #: src/editor/markdown/engine/chrome/slash-items.ts
-#: src/editor/markdown/visual-slash-items.ts
-#: src/open-knowledge-app/editor/slash-command/items.tsx
 msgid "Fenced code block with monospace text."
 msgstr "使用等宽字体显示的围栏代码块。"
 
@@ -3715,13 +3106,7 @@ msgstr "正在获取 Overleaf 上的副本…"
 msgid "Fetching the paper overview…"
 msgstr "正在获取论文概览…"
 
-#: src/open-knowledge-app/editor/registry/descriptor-labels.ts
-msgid "Fetchpriority"
-msgstr "获取优先级（fetchpriority）"
-
 #: src/editor/markdown/engine/chrome/slash-items.ts
-#: src/editor/markdown/visual-slash-items.ts
-#: src/open-knowledge-app/editor/slash-command/items.tsx
 msgid "Fifth-level heading."
 msgstr "五级标题。"
 
@@ -3745,8 +3130,6 @@ msgstr "无法加载图预览。"
 msgid "Figures"
 msgstr "图片"
 
-#: src/open-knowledge-app/editor/registry/descriptor-labels.ts
-#: src/open-knowledge-app/editor/slash-command/component-items.tsx
 #: src/project/project-find-dialog.tsx
 msgid "File"
 msgstr "文件"
@@ -3772,10 +3155,6 @@ msgstr "文件上传"
 msgid "Files in this change"
 msgstr "本次更改涉及的文件"
 
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Files sidebar"
-msgstr "文件侧边栏"
-
 #: src/editor/insert/insert-snippets.ts
 msgid "Filled square"
 msgstr "实心方块"
@@ -3789,7 +3168,6 @@ msgid "Filter editor comments"
 msgstr "筛选编辑器评论"
 
 #: src/editor/markdown/engine/views/code-block-view.tsx
-#: src/open-knowledge-app/editor/extensions/CodeBlockView.tsx
 msgid "Filter languages"
 msgstr "筛选语言"
 
@@ -3811,8 +3189,6 @@ msgstr "查找"
 
 #: src/editor/latex/search-panel.ts
 #: src/editor/markdown/engine/chrome/find-replace.tsx
-#: src/editor/markdown/visual-markdown-find-replace.tsx
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
 #: src/project/project-replace-dialog.tsx
 msgid "Find"
 msgstr "查找"
@@ -3825,12 +3201,7 @@ msgstr "在项目中查找和替换"
 msgid "Find and install the TeX Live package for {missingFile}"
 msgstr "查找并安装 {missingFile} 对应的 TeX Live 软件包"
 
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Find field navigation"
-msgstr "查找字段导航"
-
 #: src/editor/markdown/engine/chrome/find-replace.tsx
-#: src/editor/markdown/visual-markdown-find-replace.tsx
 msgid "Find in document"
 msgstr "在文档中查找"
 
@@ -3843,14 +3214,6 @@ msgstr "在 PDF 中查找"
 #: src/project/project-find-dialog.tsx
 msgid "Find in project"
 msgstr "在项目中查找"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Find next match"
-msgstr "查找下一个匹配项"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Find previous match"
-msgstr "查找上一个匹配项"
 
 #: src/project/project-replace-dialog.tsx
 msgid "Find text to replace"
@@ -3876,14 +3239,6 @@ msgstr "正在完成设置…"
 msgid "Firecrawl"
 msgstr "Firecrawl"
 
-#: src/open-knowledge-app/editor/slash-command/items.tsx
-msgid "First item"
-msgstr "第一项"
-
-#: src/open-knowledge-app/editor/components/Pdf.tsx
-msgid "Fit height"
-msgstr "适合高度"
-
 #: src/pdf/pdf-viewer.tsx
 msgid "Fit page to height"
 msgstr "适合页面高度"
@@ -3891,10 +3246,6 @@ msgstr "适合页面高度"
 #: src/pdf/pdf-viewer.tsx
 msgid "Fit page to width"
 msgstr "适合页面宽度"
-
-#: src/open-knowledge-app/editor/components/Pdf.tsx
-msgid "Fit width"
-msgstr "适合宽度"
 
 #: src/build/compile-diagnostics-panel.tsx
 msgid "Fix all"
@@ -3924,14 +3275,6 @@ msgstr "输出浮动体并另起一页"
 msgid "Fold line"
 msgstr "折叠行"
 
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Fold or unfold source"
-msgstr "折叠或展开源码"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Fold, unfold, fold all, or unfold all source ranges."
-msgstr "折叠、展开、全部折叠或全部展开源码区域。"
-
 #: src/editor/codemirror-host.tsx
 msgid "folded code"
 msgstr "已折叠的代码"
@@ -3940,18 +3283,12 @@ msgstr "已折叠的代码"
 msgid "Folded lines"
 msgstr "已折叠行"
 
-#: src/open-knowledge-app/editor/link-path-suggestions.tsx
-msgid "Folder"
-msgstr "文件夹"
-
 #: src/settings/settings-dialog.tsx
 msgid "Follow system (default)"
 msgstr "跟随系统（默认）"
 
 #: src/editor/insert/insert-snippets.ts
 #: src/editor/markdown/engine/chrome/slash-items.ts
-#: src/editor/markdown/visual-slash-items.ts
-#: src/open-knowledge-app/editor/slash-command/items.tsx
 msgid "Footnote"
 msgstr "脚注"
 
@@ -3992,7 +3329,6 @@ msgid "Formatting"
 msgstr "格式"
 
 #: src/editor/markdown/engine/views/math-views.tsx
-#: src/open-knowledge-app/editor/registry/descriptor-labels.ts
 msgid "Formula"
 msgstr "公式"
 
@@ -4004,13 +3340,7 @@ msgstr "公式"
 msgid "Formulas and Excel export"
 msgstr "公式与 Excel 导出"
 
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Forward"
-msgstr "前进"
-
 #: src/editor/markdown/engine/chrome/slash-items.ts
-#: src/editor/markdown/visual-slash-items.ts
-#: src/open-knowledge-app/editor/slash-command/items.tsx
 msgid "Fourth-level heading."
 msgstr "四级标题。"
 
@@ -4055,7 +3385,6 @@ msgstr "居中公式组"
 msgid "Gather*"
 msgstr "居中公式组*"
 
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
 #: src/settings/settings-dialog.tsx
 msgid "General"
 msgstr "通用"
@@ -4071,10 +3400,6 @@ msgstr "深入阅读前先了解要点"
 #: src/editor/insert/insert-snippets.ts
 msgid "Gets (short left arrow)"
 msgstr "gets（短左箭头）"
-
-#: src/open-knowledge-app/editor/registry/descriptor-labels.ts
-msgid "GFM Callout"
-msgstr "GFM 提示框"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Gimel"
@@ -4096,14 +3421,6 @@ msgstr "Git 状态与提交"
 msgid "Git workspace"
 msgstr "Git 工作区"
 
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Global"
-msgstr "全局"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Global outside text fields"
-msgstr "全局（文本字段外）"
-
 #: src/editor/latex/search-panel.ts
 msgid "go"
 msgstr "跳转"
@@ -4123,7 +3440,6 @@ msgstr "前往 {title}"
 #: src/App.tsx
 #: src/editor/goto-line-dialog.tsx
 #: src/editor/latex/search-panel.ts
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
 msgid "Go to line"
 msgstr "跳转到行"
 
@@ -4186,8 +3502,6 @@ msgid "Grid generator"
 msgstr "网格生成器"
 
 #: src/editor/markdown/engine/chrome/slash-items.ts
-#: src/editor/markdown/visual-slash-items.ts
-#: src/open-knowledge-app/editor/slash-command/items.tsx
 msgid "Grid of rows and columns with a header row."
 msgstr "带表头行的行列网格。"
 
@@ -4203,17 +3517,9 @@ msgstr "引导式教程"
 msgid "H-bar / reduced Planck"
 msgstr "h-bar / 约化普朗克常数"
 
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Hand the checked comments to an agent in one turn. On This doc, that document's comments only; on This project, every checked comment. Does nothing while the Comments tab is closed."
-msgstr "在一轮对话中将勾选的评论交给智能助手。在“此文档”中仅包含该文档的评论；在“此项目”中包含所有勾选的评论。评论标签页关闭时无效。"
-
 #: src/editor/latex/latex-command-completions.ts
 msgid "Hand-written bibliography"
 msgstr "手写参考文献列表"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Hard break"
-msgstr "强制换行"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Hat accent"
@@ -4225,71 +3531,37 @@ msgstr "帽号示例"
 
 #: src/editor/markdown/engine/chrome/selection-toolbar.tsx
 #: src/editor/markdown/engine/chrome/slash-items.ts
-#: src/editor/markdown/visual-slash-items.ts
-#: src/open-knowledge-app/editor/bubble-menu/BlockTypeSelector.tsx
-#: src/open-knowledge-app/editor/slash-command/items.tsx
 msgid "Heading 1"
 msgstr "一级标题"
 
 #: src/editor/markdown/engine/chrome/selection-toolbar.tsx
 #: src/editor/markdown/engine/chrome/slash-items.ts
-#: src/editor/markdown/visual-slash-items.ts
-#: src/open-knowledge-app/editor/bubble-menu/BlockTypeSelector.tsx
-#: src/open-knowledge-app/editor/slash-command/items.tsx
 msgid "Heading 2"
 msgstr "二级标题"
 
 #: src/editor/markdown/engine/chrome/selection-toolbar.tsx
 #: src/editor/markdown/engine/chrome/slash-items.ts
-#: src/editor/markdown/visual-slash-items.ts
-#: src/open-knowledge-app/editor/bubble-menu/BlockTypeSelector.tsx
-#: src/open-knowledge-app/editor/slash-command/items.tsx
 msgid "Heading 3"
 msgstr "三级标题"
 
 #: src/editor/markdown/engine/chrome/selection-toolbar.tsx
 #: src/editor/markdown/engine/chrome/slash-items.ts
-#: src/editor/markdown/visual-slash-items.ts
-#: src/open-knowledge-app/editor/bubble-menu/BlockTypeSelector.tsx
-#: src/open-knowledge-app/editor/slash-command/items.tsx
 msgid "Heading 4"
 msgstr "四级标题"
 
 #: src/editor/markdown/engine/chrome/selection-toolbar.tsx
 #: src/editor/markdown/engine/chrome/slash-items.ts
-#: src/editor/markdown/visual-slash-items.ts
-#: src/open-knowledge-app/editor/bubble-menu/BlockTypeSelector.tsx
-#: src/open-knowledge-app/editor/slash-command/items.tsx
 msgid "Heading 5"
 msgstr "五级标题"
 
 #: src/editor/markdown/engine/chrome/selection-toolbar.tsx
 #: src/editor/markdown/engine/chrome/slash-items.ts
-#: src/editor/markdown/visual-slash-items.ts
-#: src/open-knowledge-app/editor/bubble-menu/BlockTypeSelector.tsx
-#: src/open-knowledge-app/editor/slash-command/items.tsx
 msgid "Heading 6"
 msgstr "六级标题"
-
-#: src/editor/markdown/visual-wiki-link-suggestion.tsx
-msgid "Heading H{level}: {text}"
-msgstr "H{level} 标题：{text}"
 
 #: src/editor/latex/latex-selection-toolbar.tsx
 msgid "Heading level"
 msgstr "标题级别"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Heading levels"
-msgstr "标题级别"
-
-#: src/editor/markdown/visual-wiki-link-suggestion.tsx
-msgid "Heading suggestions"
-msgstr "标题建议"
-
-#: src/open-knowledge-app/editor/slash-command/component-items.tsx
-msgid "Heads up"
-msgstr "请注意"
 
 #: src/papers/bibliography-audit.tsx
 msgid "Health checked at"
@@ -4298,14 +3570,6 @@ msgstr "健康状态检查时间"
 #: src/editor/insert/insert-snippets.ts
 msgid "Heart suit"
 msgstr "红桃"
-
-#: src/open-knowledge-app/editor/registry/descriptor-labels.ts
-msgid "Height"
-msgstr "高度"
-
-#: src/open-knowledge-app/editor/slash-command/embed-starter-items.tsx
-msgid "Hello, world!"
-msgstr "你好，世界！"
 
 #: src/app/native-locale.ts
 msgctxt "macOS menu bar"
@@ -4320,10 +3584,6 @@ msgstr "十六进制"
 msgid "Hex color"
 msgstr "十六进制颜色"
 
-#: src/open-knowledge-app/editor/slash-command/component-items.tsx
-msgid "Hidden content goes here."
-msgstr "隐藏的内容放在这里。"
-
 #: src/app/native-locale.ts
 msgctxt "macOS menu bar"
 msgid "Hide {name}"
@@ -4333,12 +3593,7 @@ msgstr "隐藏 {name}"
 msgid "Hide assistant"
 msgstr "收起智能助手"
 
-#: src/open-knowledge-app/editor/extensions/CodeBlockView.tsx
-msgid "Hide HTML preview"
-msgstr "隐藏 HTML 预览"
-
 #: src/editor/markdown/engine/views/code-block-view.tsx
-#: src/open-knowledge-app/editor/extensions/CodeBlockView.tsx
 msgid "Hide Mermaid preview"
 msgstr "隐藏 Mermaid 预览"
 
@@ -4351,13 +3606,7 @@ msgstr "隐藏其他"
 msgid "Hide sidebar"
 msgstr "隐藏侧边栏"
 
-#: src/open-knowledge-app/editor/components/Pdf.tsx
-msgid "Hide thumbnails"
-msgstr "隐藏缩略图"
-
 #: src/editor/markdown/engine/chrome/selection-toolbar.tsx
-#: src/open-knowledge-app/editor/bubble-menu/InlineFormatButtons.tsx
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
 msgid "Highlight"
 msgstr "高亮"
 
@@ -4366,8 +3615,6 @@ msgid "Highlight color"
 msgstr "高亮颜色"
 
 #: src/editor/markdown/engine/chrome/slash-items.ts
-#: src/editor/markdown/visual-slash-items.ts
-#: src/open-knowledge-app/editor/slash-command/component-items.tsx
 msgid "Highlight tips, warnings, and notes."
 msgstr "突出显示提示、警告和注释内容。"
 
@@ -4387,18 +3634,11 @@ msgstr "带钩左箭头"
 msgid "Hook right arrow"
 msgstr "带钩右箭头"
 
-#: src/editor/markdown/visual-slash-items.ts
-#: src/open-knowledge-app/editor/slash-command/component-items.tsx
-msgid "Horizontal pill strip + active panel below; click a pill to switch panels."
-msgstr "顶部为水平标签栏，下方显示当前面板；点击标签可切换面板。"
-
 #: src/editor/latex/latex-command-completions.ts
 msgid "Horizontal rule in a table"
 msgstr "表格横线"
 
 #: src/editor/markdown/engine/chrome/slash-items.ts
-#: src/editor/markdown/visual-slash-items.ts
-#: src/open-knowledge-app/editor/slash-command/items.tsx
 msgid "Horizontal rule that divides sections."
 msgstr "用于分隔章节的水平线。"
 
@@ -4408,18 +3648,12 @@ msgstr "水平间距"
 
 #: src/editor/markdown/engine/lattice-visual-editor.tsx
 #: src/editor/markdown/engine/views/raw-block-view.tsx
-#: src/editor/markdown/visual-slash-items.ts
-#: src/open-knowledge-app/editor/slash-command/embed-starter-items.tsx
 msgid "HTML"
 msgstr "HTML"
 
 #: src/onboarding/onboarding-tour.tsx
 msgid "HTML files render live here, so you can build interactive demos and figures"
 msgstr "HTML 文件会在这里实时渲染，可用于制作交互式演示和图表"
-
-#: src/open-knowledge-app/editor/extensions/CodeBlockView.tsx
-msgid "HTML preview"
-msgstr "HTML 预览"
 
 #: src/canvas/html-preview.tsx
 msgid "HTML preview for {path}"
@@ -4433,10 +3667,6 @@ msgstr "HTML 缩放控件"
 msgid "HTML zoom percentage"
 msgstr "HTML 缩放百分比"
 
-#: src/open-knowledge-app/editor/registry/descriptor-labels.ts
-msgid "HTML5 Details"
-msgstr "HTML5 详情块"
-
 #: src/editor/latex/latex-command-completions.ts
 msgid "Hyperlink with text"
 msgstr "带文字的超链接"
@@ -4449,44 +3679,14 @@ msgstr "ICLR 会议论文集"
 msgid "ICML packages"
 msgstr "ICML 宏包"
 
-#: src/open-knowledge-app/editor/registry/descriptor-labels.ts
-msgid "Icon"
-msgstr "图标"
-
-#: src/open-knowledge-app/editor/components/IconPickerInput.tsx
-msgid "Icon picker"
-msgstr "图标选择器"
-
-#: src/open-knowledge-app/editor/registry/descriptor-labels.ts
-msgid "Id"
-msgstr "标识符（id）"
-
 #: src/editor/insert/insert-snippets.ts
 msgid "If and only if"
 msgstr "当且仅当"
 
 #: src/editor/markdown/engine/chrome/slash-items.ts
 #: src/editor/markdown/engine/views/image-view.tsx
-#: src/editor/markdown/visual-slash-items.ts
-#: src/open-knowledge-app/editor/registry/descriptor-labels.ts
 msgid "Image"
 msgstr "图片"
-
-#: src/open-knowledge-app/components/ui/loading-image.tsx
-msgid "Image couldn't be displayed"
-msgstr "无法显示图片"
-
-#: src/open-knowledge-app/components/ui/loading-image.tsx
-msgid "Image couldn't be displayed: {errorLabel}"
-msgstr "无法显示图片：{errorLabel}"
-
-#: src/open-knowledge-app/components/ui/loading-image.tsx
-msgid "Image not found"
-msgstr "未找到图片"
-
-#: src/open-knowledge-app/components/ui/loading-image.tsx
-msgid "Image not found: {errorLabel}"
-msgstr "未找到图片：{errorLabel}"
 
 #: src/editor/markdown/engine/views/image-view.tsx
 msgid "Image properties"
@@ -4626,25 +3826,7 @@ msgstr "历史记录不完整"
 msgid "Increment year"
 msgstr "年份加一"
 
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Indent or outdent list item"
-msgstr "增加或减少列表项缩进"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Indent or outdent source"
-msgstr "增加或减少源码缩进"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Indent or outdent source editor lines."
-msgstr "增加或减少源码编辑器中各行的缩进。"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Indent or outdent the current list item."
-msgstr "增加或减少当前列表项的缩进。"
-
 #: src/editor/markdown/engine/chrome/slash-items.ts
-#: src/editor/markdown/visual-slash-items.ts
-#: src/open-knowledge-app/editor/slash-command/items.tsx
 msgid "Indented blockquote for citations."
 msgstr "用于引用内容的缩进块。"
 
@@ -4677,14 +3859,10 @@ msgid "Inline another TeX file"
 msgstr "就地嵌入另一个 TeX 文件"
 
 #: src/editor/markdown/engine/chrome/selection-toolbar.tsx
-#: src/open-knowledge-app/editor/bubble-menu/InlineFormatButtons.tsx
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
 msgid "Inline code"
 msgstr "行内代码"
 
 #: src/editor/markdown/engine/chrome/slash-items.ts
-#: src/editor/markdown/visual-slash-items.ts
-#: src/open-knowledge-app/editor/slash-command/items.tsx
 msgid "Inline LaTeX math rendered with KaTeX."
 msgstr "使用 KaTeX 渲染的行内 LaTeX 公式。"
 
@@ -4693,13 +3871,10 @@ msgid "Inline math"
 msgstr "行内公式"
 
 #: src/editor/markdown/engine/chrome/slash-items.ts
-#: src/editor/markdown/visual-slash-items.ts
-#: src/open-knowledge-app/editor/slash-command/items.tsx
 msgid "Inline Math"
 msgstr "行内公式"
 
 #: src/editor/markdown/engine/views/math-views.tsx
-#: src/open-knowledge-app/editor/extensions/MathInlineView.tsx
 msgid "Inline Math Properties"
 msgstr "行内公式属性"
 
@@ -4718,7 +3893,6 @@ msgstr "插入"
 #: src/editor/insert/figure-insert-dialog.tsx
 #: src/editor/insert/insert-palette.tsx
 #: src/editor/markdown/engine/chrome/slash-items.ts
-#: src/editor/markdown/visual-slash-items.ts
 msgid "Insert"
 msgstr "插入"
 
@@ -4735,18 +3909,12 @@ msgid "Insert \\ref{…}"
 msgstr "插入 \\ref{…}"
 
 #: src/editor/markdown/engine/chrome/slash-items.ts
-#: src/editor/markdown/visual-slash-items.ts
-#: src/open-knowledge-app/editor/slash-command/items.tsx
 msgid "Insert a footnote reference + matching definition stub."
 msgstr "插入脚注引用及与之匹配的定义占位符。"
 
 #: src/editor/spreadsheet/spreadsheet-univer.ts
 msgid "Insert a formula"
 msgstr "插入公式"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Insert a markdown hard break."
-msgstr "插入 Markdown 强制换行。"
 
 #: src/canvas/document-canvas.tsx
 msgid "Insert above line {line}"
@@ -4770,12 +3938,10 @@ msgid "Insert cite at cursor after saving"
 msgstr "保存后在光标处插入引用"
 
 #: src/editor/markdown/engine/views/table-controls.tsx
-#: src/open-knowledge-app/editor/table-controls/TableCellHandles.tsx
 msgid "Insert column left"
 msgstr "在左侧插入列"
 
 #: src/editor/markdown/engine/views/table-controls.tsx
-#: src/open-knowledge-app/editor/table-controls/TableCellHandles.tsx
 msgid "Insert column right"
 msgstr "在右侧插入列"
 
@@ -4788,7 +3954,6 @@ msgid "Insert LaTeX snippets"
 msgstr "插入 LaTeX 片段"
 
 #: src/editor/markdown/engine/chrome/selection-toolbar.tsx
-#: src/open-knowledge-app/editor/bubble-menu/LinkEditPopover.tsx
 msgid "Insert link"
 msgstr "插入链接"
 
@@ -4798,12 +3963,10 @@ msgid "Insert reference"
 msgstr "插入交叉引用"
 
 #: src/editor/markdown/engine/views/table-controls.tsx
-#: src/open-knowledge-app/editor/table-controls/TableCellHandles.tsx
 msgid "Insert row above"
 msgstr "在上方插入行"
 
 #: src/editor/markdown/engine/views/table-controls.tsx
-#: src/open-knowledge-app/editor/table-controls/TableCellHandles.tsx
 msgid "Insert row below"
 msgstr "在下方插入行"
 
@@ -4819,10 +3982,6 @@ msgstr "插入片段或符号 (⌘⇧I)"
 #: src/editor/insert/table-generator-dialog.tsx
 msgid "Insert table"
 msgstr "插入表格"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Insert, delete, move, copy, and indent source editor lines through CodeMirror's default keymap."
-msgstr "通过 CodeMirror 的默认键位插入、删除、移动、复制和缩进源码编辑器中的行。"
 
 #: src/build/compile-diagnostics-panel.tsx
 msgid "Install"
@@ -4946,8 +4105,6 @@ msgstr "约塔"
 
 #: src/editor/latex/latex-selection-toolbar.tsx
 #: src/editor/markdown/engine/chrome/selection-toolbar.tsx
-#: src/open-knowledge-app/editor/bubble-menu/InlineFormatButtons.tsx
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
 msgid "Italic"
 msgstr "斜体"
 
@@ -4975,25 +4132,9 @@ msgstr "期刊"
 msgid "Journal"
 msgstr "期刊"
 
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Jump to last tab"
-msgstr "跳到最后一个标签页"
-
-#: src/open-knowledge-app/editor/components/Pdf.tsx
-msgid "Jump to page {pageNumber}"
-msgstr "跳转到第 {pageNumber} 页"
-
 #: src/App.tsx
 msgid "Jump to PDF"
 msgstr "跳转到 PDF"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Jump to tab 1-8"
-msgstr "跳到第 1-8 个标签页"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Jump to the markdown source for the block at the cursor, centered and highlighted."
-msgstr "跳到光标所在块的 Markdown 源码，并居中高亮显示。"
 
 #: src/build/compile-diagnostics-panel.tsx
 msgid "Jump to this location"
@@ -5063,7 +4204,6 @@ msgstr "密钥存储在系统钥匙串中，而不是项目中。个人密钥优
 #: src/editor/insert/figure-insert-dialog.tsx
 #: src/editor/insert/insert-snippets.ts
 #: src/editor/insert/table-generator-dialog.tsx
-#: src/open-knowledge-app/editor/registry/descriptor-labels.ts
 msgid "Label"
 msgstr "标签"
 
@@ -5092,7 +4232,6 @@ msgid "Lambda"
 msgstr "兰姆达"
 
 #: src/editor/markdown/engine/views/code-block-view.tsx
-#: src/open-knowledge-app/editor/registry/descriptor-labels.ts
 #: src/settings/settings-dialog.tsx
 msgid "Language"
 msgstr "语言"
@@ -5223,21 +4362,11 @@ msgstr "Lattice 更新失败"
 msgid "Lattice will find and install the TeX Live package that provides {0}."
 msgstr "Lattice 将查找并安装提供 {0} 的 TeX Live 软件包。"
 
-#: src/editor/markdown/visual-slash-items.ts
-#: src/open-knowledge-app/editor/components/Pdf.tsx
-msgid "Layout"
-msgstr "布局"
-
-#: src/open-knowledge-app/editor/components/Pdf.tsx
-msgid "Layout options"
-msgstr "布局选项"
-
 #: src/App.tsx
 msgid "Learn Lattice with the Understanding Attention sample project"
 msgstr "通过 Understanding Attention 示例项目学习 Lattice"
 
 #: src/canvas/comment-composer.tsx
-#: src/editor/markdown/visual-review-overlays.tsx
 msgid "Leave a comment for collaborators…"
 msgstr "给协作者留言…"
 
@@ -5305,10 +4434,6 @@ msgstr "引理"
 msgid "Less than or equal"
 msgstr "小于或等于"
 
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Let Tab leave the source editor instead of indenting."
-msgstr "让 Tab 键移出源码编辑器，而不是缩进。"
-
 #: src/onboarding/onboarding-tour.tsx
 msgid "Let's download one of them"
 msgstr "来下载其中一篇"
@@ -5356,9 +4481,6 @@ msgstr "表达式下方加横线"
 
 #: src/editor/latex/latex-selection-toolbar.tsx
 #: src/editor/markdown/engine/chrome/slash-items.ts
-#: src/editor/markdown/visual-slash-items.ts
-#: src/open-knowledge-app/editor/bubble-menu/LinkEditPopover.tsx
-#: src/open-knowledge-app/editor/slash-command/component-items.tsx
 msgid "Link"
 msgstr "链接"
 
@@ -5366,20 +4488,12 @@ msgstr "链接"
 msgid "Link definition"
 msgstr "链接定义"
 
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Link the selected text, or edit the link under the caret."
-msgstr "为所选文本添加链接，或编辑光标处的链接。"
-
 #: src/editor/markdown/engine/chrome/slash-items.ts
-#: src/editor/markdown/visual-slash-items.ts
-#: src/open-knowledge-app/editor/slash-command/component-items.tsx
 msgid "Link to a page or external URL."
 msgstr "链接到页面或外部 URL。"
 
 #: src/editor/latex/latex-selection-toolbar.tsx
 #: src/editor/markdown/engine/chrome/link-chrome.tsx
-#: src/editor/markdown/visual-link-insert-popover.tsx
-#: src/open-knowledge-app/editor/bubble-menu/LinkEditPopover.tsx
 msgid "Link URL"
 msgstr "链接地址"
 
@@ -5433,12 +4547,6 @@ msgstr "加载宏包"
 msgid "Load more"
 msgstr "加载更多"
 
-#: src/open-knowledge-app/components/emoji-picker.tsx
-#: src/open-knowledge-app/components/ui/spinner.tsx
-#: src/open-knowledge-app/editor/registry/descriptor-labels.ts
-msgid "Loading"
-msgstr "正在加载"
-
 #: src/overleaf/overleaf-comments.tsx
 msgid "Loading comments…"
 msgstr "正在加载评论…"
@@ -5457,25 +4565,9 @@ msgstr "正在加载图预览…"
 msgid "Loading files…"
 msgstr "正在加载文件…"
 
-#: src/open-knowledge-app/components/ui/loading-image.tsx
-msgid "Loading image"
-msgstr "正在加载图片"
-
-#: src/editor/markdown/visual-markdown-editor.tsx
-msgid "Loading Markdown editor"
-msgstr "正在加载 Markdown 编辑器"
-
 #: src/overleaf/overleaf-history.tsx
 msgid "Loading Overleaf's history…"
 msgstr "正在加载 Overleaf 的历史记录…"
-
-#: src/open-knowledge-app/editor/link-path-suggestions.tsx
-msgid "Loading paths…"
-msgstr "正在加载路径…"
-
-#: src/open-knowledge-app/editor/components/Pdf.tsx
-msgid "Loading PDF"
-msgstr "正在加载 PDF"
 
 #: src/canvas/canvas-lazy-editors.tsx
 #: src/pdf/pdf-viewer.tsx
@@ -5553,17 +4645,9 @@ msgstr "跨行断开的长公式"
 msgid "Long quotation"
 msgstr "长引文"
 
-#: src/open-knowledge-app/editor/registry/descriptor-labels.ts
-msgid "Loop"
-msgstr "循环播放"
-
 #: src/build/tex-doctor-messages.ts
 msgid "LuaLaTeX engine"
 msgstr "LuaLaTeX 引擎"
-
-#: src/open-knowledge-app/editor/components/IconPickerInput.tsx
-msgid "lucide:Lightbulb or 📘"
-msgstr "lucide:Lightbulb 或 📘"
 
 #: src/components/ui/apple-color-picker.tsx
 msgid "Magenta"
@@ -5595,13 +4679,7 @@ msgstr "手稿待办事项"
 msgid "Maps to"
 msgstr "映射到"
 
-#: src/editor/markdown/visual-slash-items.ts
-#: src/open-knowledge-app/editor/slash-command/component-items.tsx
-msgid "Mark a block as the source of truth. Mirrors elsewhere update live as you edit it."
-msgstr "将内容块设为唯一源；在此编辑时，其他位置的镜像会同步更新。"
-
 #: src/editor/markdown/engine/lattice-visual-editor.tsx
-#: src/editor/markdown/visual-markdown-editor.tsx
 #: src/onboarding/onboarding-tour.tsx
 msgid "Markdown document editor"
 msgstr "Markdown 文档编辑器"
@@ -5612,7 +4690,6 @@ msgid "Markdown source"
 msgstr "Markdown 源码"
 
 #: src/editor/latex/search-panel.ts
-#: src/editor/markdown/visual-markdown-find-replace.tsx
 #: src/pdf/pdf-viewer.tsx
 #: src/project/project-replace-dialog.tsx
 msgid "Match case"
@@ -5624,18 +4701,12 @@ msgstr "公式"
 
 #: src/editor/insert/insert-palette.tsx
 #: src/editor/markdown/engine/chrome/slash-items.ts
-#: src/editor/markdown/visual-slash-items.ts
-#: src/open-knowledge-app/editor/registry/descriptor-labels.ts
 msgid "Math"
 msgstr "数学"
 
 #: src/editor/latex/latex-command-completions.ts
 msgid "Math array"
 msgstr "数学阵列"
-
-#: src/open-knowledge-app/editor/registry/descriptor-labels.ts
-msgid "Math Fence"
-msgstr "围栏公式"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Math inside a sentence"
@@ -5672,45 +4743,22 @@ msgid "Mean / conjugate mark"
 msgstr "均值 / 共轭记号"
 
 #: src/editor/markdown/engine/chrome/slash-items.ts
-#: src/editor/markdown/visual-slash-items.ts
 msgid "Media"
 msgstr "媒体"
 
 #: src/editor/markdown/engine/chrome/slash-items.ts
-#: src/editor/markdown/visual-slash-items.ts
-#: src/open-knowledge-app/editor/slash-command/items.tsx
 msgid "Medium section heading."
 msgstr "用于次级章节的中标题。"
 
 #: src/editor/markdown/engine/views/table-controls.tsx
-#: src/editor/markdown/visual-table-span-controls.tsx
 msgid "Merge cells"
 msgstr "合并单元格"
 
 #: src/editor/markdown/engine/chrome/slash-items.ts
-#: src/editor/markdown/visual-slash-items.ts
-#: src/open-knowledge-app/editor/registry/descriptor-labels.ts
 msgid "Mermaid"
 msgstr "Mermaid 图表"
 
-#: src/open-knowledge-app/editor/components/Mermaid.tsx
-msgid "Mermaid diagram"
-msgstr "Mermaid 图表"
-
-#: src/open-knowledge-app/editor/components/Mermaid.tsx
-msgid "Mermaid diagram controls"
-msgstr "Mermaid 图表控件"
-
-#: src/open-knowledge-app/editor/components/Mermaid.tsx
-msgid "Mermaid diagram failed to render."
-msgstr "Mermaid 图表渲染失败。"
-
-#: src/open-knowledge-app/editor/slash-command/component-items.tsx
-msgid "Mermaid flowchart preview"
-msgstr "Mermaid 流程图预览"
-
 #: src/editor/markdown/engine/views/mermaid-preview.tsx
-#: src/open-knowledge-app/editor/extensions/CodeBlockView.tsx
 msgid "Mermaid preview"
 msgstr "Mermaid 预览"
 
@@ -5776,40 +4824,6 @@ msgstr "小页"
 msgid "Minus-plus"
 msgstr "负正号"
 
-#: src/editor/markdown/visual-slash-items.ts
-#: src/open-knowledge-app/editor/registry/descriptor-labels.ts
-msgid "Mirror"
-msgstr "镜像"
-
-#: src/open-knowledge-app/editor/slash-command/component-items.tsx
-msgid "Mirror of <0>api-spec</0>"
-msgstr "<0>api-spec</0> 的镜像"
-
-#: src/editor/markdown/visual-slash-items.ts
-#: src/open-knowledge-app/editor/registry/descriptor-labels.ts
-msgid "Mirror Source"
-msgstr "镜像源"
-
-#: src/open-knowledge-app/editor/components/MirrorSource.tsx
-msgid "Mirror source <0>{label}</0>"
-msgstr "镜像源 <0>{label}</0>"
-
-#: src/open-knowledge-app/editor/components/Mirror-host.tsx
-msgid "Mirror source <0>{src}</0> has no <1>{anchor}</1> anchor."
-msgstr "镜像源 <0>{src}</0> 中没有 <1>{anchor}</1> 锚点。"
-
-#: src/open-knowledge-app/editor/components/Mirror-host.tsx
-msgid "Mirror source <0>{src}</0> was not found."
-msgstr "未找到镜像源 <0>{src}</0>。"
-
-#: src/open-knowledge-app/editor/slash-command/component-items.tsx
-msgid "Mirror source <0>api-spec</0>"
-msgstr "镜像源 <0>api-spec</0>"
-
-#: src/open-knowledge-app/editor/components/Mirror-host.tsx
-msgid "Mirror workspace index is unavailable."
-msgstr "镜像工作区索引不可用。"
-
 #: src/papers/bib-entry-dialog.tsx
 msgid "Misc"
 msgstr "其他"
@@ -5842,10 +4856,6 @@ msgstr "缺少图片“{figure}”。"
 msgid "Missing file “{path}”."
 msgstr "缺少文件“{path}”。"
 
-#: src/open-knowledge-app/editor/utils/validate-media-url.ts
-msgid "Missing file extension. Accepts: {accepted}."
-msgstr "缺少文件扩展名。支持：{accepted}。"
-
 #: src/build/build-log-messages.ts
 msgid "Missing LaTeX dependency `{file}`. BasicTeX does not include every package available on Overleaf. Use Install missing package to find and install its TeX Live package."
 msgstr "缺少 LaTeX 依赖 `{file}`。BasicTeX 并不包含 Overleaf 上提供的所有宏包。请使用“安装缺失的软件包”查找并安装对应的 TeX Live 软件包。"
@@ -5875,15 +4885,6 @@ msgstr "已修改"
 msgid "Monospaced text"
 msgstr "等宽文本"
 
-#: src/open-knowledge-app/editor/components/PreviewBlockedNotice.tsx
-msgid "More requests were blocked."
-msgstr "还有更多请求被拦截。"
-
-#. placeholder {0}: blocked.length
-#: src/open-knowledge-app/editor/components/PreviewBlockedNotice.tsx
-msgid "More than {0} requests were blocked by the preview's security policy"
-msgstr "预览的安全策略拦截了超过 {0} 个请求"
-
 #: src/app/app-workspace-sidebar.tsx
 msgid "Move assistant below editor"
 msgstr "将智能助手移到编辑器下方"
@@ -5892,57 +4893,9 @@ msgstr "将智能助手移到编辑器下方"
 msgid "Move assistant to sidebar"
 msgstr "将智能助手移到侧栏"
 
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Move between table cells"
-msgstr "在表格单元格间移动"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Move block"
-msgstr "移动块"
-
-#: src/open-knowledge-app/editor/extensions/JsxComponentView.tsx
-msgid "Move down"
-msgstr "下移"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Move the current block up or down one position."
-msgstr "将当前块上移或下移一个位置。"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Move the cursor or extend selection through CodeMirror's standard source-editor navigation keymap."
-msgstr "通过 CodeMirror 标准的源码编辑器导航键位移动光标或扩展选区。"
-
 #: src/settings/settings-dialog.tsx
 msgid "Move this workspace back to a Lattice window on this Mac"
 msgstr "将此工作区移回这台 Mac 上的 Lattice 窗口"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Move through slash, wiki-link, citation, and path suggestions; accept or dismiss the active suggestion."
-msgstr "在斜杠命令、wiki 链接、引用和路径建议之间移动；接受或关闭当前建议。"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Move through visual-editor find results from the find field."
-msgstr "从查找字段中浏览可视化编辑器的查找结果。"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Move to the next CodeMirror lint diagnostic."
-msgstr "移到下一条 CodeMirror 检查诊断。"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Move to the next or previous table cell."
-msgstr "移到下一个或上一个表格单元格。"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Move to the next visual-editor find result."
-msgstr "移到可视化编辑器的下一个查找结果。"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Move to the previous visual-editor find result."
-msgstr "移到可视化编辑器的上一个查找结果。"
-
-#: src/open-knowledge-app/editor/extensions/JsxComponentView.tsx
-msgid "Move up"
-msgstr "上移"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Mu"
@@ -5952,10 +4905,6 @@ msgstr "缪"
 msgid "Multi-line aligned equations"
 msgstr "多行对齐的公式"
 
-#: src/open-knowledge-app/editor/slash-command/component-items.tsx
-msgid "Multi-page PDF viewer with toolbar controls (thumbnails, page nav, zoom)."
-msgstr "多页 PDF 查看器，带工具栏控件（缩略图、翻页、缩放）。"
-
 #: src/editor/insert/insert-snippets.ts
 msgid "Multiset union"
 msgstr "多重集并"
@@ -5963,10 +4912,6 @@ msgstr "多重集并"
 #: src/editor/insert/insert-snippets.ts
 msgid "Multline"
 msgstr "多行长公式"
-
-#: src/open-knowledge-app/editor/registry/descriptor-labels.ts
-msgid "Muted"
-msgstr "静音"
 
 #: src/components/ui/apple-color-picker.tsx
 msgid "Muted {name}"
@@ -5976,8 +4921,6 @@ msgstr "灰{name}"
 msgid "Nabla / del"
 msgstr "纳布拉 / 梯度算子"
 
-#: src/open-knowledge-app/editor/registry/descriptor-labels.ts
-#: src/open-knowledge-app/editor/slash-command/items.tsx
 #: src/project/project-dialogs.tsx
 msgid "Name"
 msgstr "名称"
@@ -6014,16 +4957,7 @@ msgstr "自然连接 / 蝶形"
 msgid "Navigate"
 msgstr "导航"
 
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Navigate CodeMirror source search results or dismiss the search panel."
-msgstr "浏览 CodeMirror 源码搜索结果，或关闭搜索面板。"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Navigation and suggestions"
-msgstr "导航与建议"
-
 #: src/App.tsx
-#: src/editor/markdown/visual-markdown-editor.tsx
 msgid "Navigation performance"
 msgstr "导航性能"
 
@@ -6071,12 +5005,10 @@ msgstr "Overleaf 上有新更改 — 点按以拉取"
 msgid "New document"
 msgstr "新建文档"
 
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
 #: src/project/project-file-tree.tsx
 msgid "New file"
 msgstr "新建文件"
 
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
 #: src/project/project-file-tree.tsx
 msgid "New folder"
 msgstr "新建文件夹"
@@ -6105,17 +5037,9 @@ msgstr "新建演示文稿"
 msgid "New project"
 msgstr "新建项目"
 
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "New session"
-msgstr "新建会话"
-
 #: src/app/app-workspace-sidebar.tsx
 msgid "New spreadsheet"
 msgstr "新建电子表格"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "New tab"
-msgstr "新建标签页"
 
 #: src/telemetry/app-updater.tsx
 msgid "New version {version}"
@@ -6131,7 +5055,6 @@ msgstr "下一个"
 
 #: src/editor/latex/search-panel.ts
 #: src/editor/markdown/engine/chrome/find-replace.tsx
-#: src/editor/markdown/visual-markdown-find-replace.tsx
 msgid "Next match"
 msgstr "下一个匹配项"
 
@@ -6146,14 +5069,6 @@ msgstr "前往 PDF 下一位置"
 #: src/pdf/pdf-viewer.tsx
 msgid "Next search result"
 msgstr "下一个搜索结果"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Next source diagnostic"
-msgstr "下一条源码诊断"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Next tab"
-msgstr "下一个标签页"
 
 #: src/papers/paper-lookup.tsx
 msgid "No bibliography key"
@@ -6191,21 +5106,9 @@ msgstr "无诊断信息"
 msgid "No differences. You can close this window"
 msgstr "没有差异，可以关闭此窗口"
 
-#: src/open-knowledge-app/editor/image-upload/upload-file.ts
-msgid "No document is open"
-msgstr "没有打开的文档"
-
-#: src/open-knowledge-app/components/emoji-picker.tsx
-msgid "No emoji found."
-msgstr "未找到表情符号。"
-
 #: src/overleaf/overleaf-history.tsx
 msgid "No file changes recorded for this update"
 msgstr "这次更新没有记录任何文件更改"
-
-#: src/editor/markdown/visual-wiki-link-suggestion.tsx
-msgid "No headings in {anchorPage}"
-msgstr "{anchorPage} 中没有标题"
 
 #: src/overleaf/overleaf-history.tsx
 msgid "No history yet"
@@ -6214,10 +5117,6 @@ msgstr "暂无历史记录"
 #: src/papers/literature-discovery-panel.tsx
 msgid "No hits. Try broader terms or turn off precise mode."
 msgstr "没有结果。试试更宽泛的关键词，或关闭精确模式。"
-
-#: src/open-knowledge-app/editor/components/IconPickerInput.tsx
-msgid "No icons match."
-msgstr "没有匹配的图标。"
 
 #: src/App.tsx
 msgid "No image found on the clipboard."
@@ -6230,10 +5129,6 @@ msgstr "本段不缩进"
 #: src/papers/bibliography-audit.tsx
 msgid "No independent metadata was available to verify a possible record. The reference may still be valid."
 msgstr "没有可用于验证可能记录的独立元数据。此参考文献仍可能有效。"
-
-#: src/open-knowledge-app/editor/extensions/CodeBlockView.tsx
-msgid "No language match."
-msgstr "没有匹配的语言。"
 
 #: src/telemetry/app-log.tsx
 msgid "No logs at this level"
@@ -6253,7 +5148,6 @@ msgstr "没有标记"
 
 #: src/components/ui/search-picker-dialog.tsx
 #: src/editor/markdown/engine/chrome/find-replace.tsx
-#: src/editor/markdown/visual-markdown-find-replace.tsx
 msgid "No matches"
 msgstr "无匹配项"
 
@@ -6283,12 +5177,7 @@ msgstr "没有匹配的页面"
 msgid "No matching papers"
 msgstr "没有匹配的论文"
 
-#: src/editor/markdown/visual-paper-citation-suggestion.tsx
-msgid "No matching papers — import them in the Papers panel first"
-msgstr "没有匹配的论文——请先在论文面板中导入"
-
 #: src/editor/markdown/engine/chrome/link-chrome.tsx
-#: src/open-knowledge-app/editor/link-path-suggestions.tsx
 msgid "No matching paths"
 msgstr "没有匹配的路径"
 
@@ -6324,10 +5213,6 @@ msgstr "此项目中没有未解决的评论。在 Overleaf 上创建的评论�
 msgid "No other recent projects yet"
 msgstr "尚无其他最近使用的项目"
 
-#: src/editor/markdown/visual-wiki-link-suggestion.tsx
-msgid "No pages found"
-msgstr "未找到页面"
-
 #: src/settings/settings-dialog.tsx
 msgid "No project terms added"
 msgstr "尚未添加项目术语"
@@ -6359,7 +5244,6 @@ msgstr "暂无需要检查的引用"
 #: src/editor/markdown/engine/chrome/pickers.tsx
 #: src/editor/markdown/engine/chrome/slash-menu.tsx
 #: src/editor/markdown/engine/views/code-block-view.tsx
-#: src/open-knowledge-app/editor/slash-command/SlashCommandMenu.tsx
 msgid "No results"
 msgstr "无结果"
 
@@ -6406,10 +5290,6 @@ msgstr "右上箭头"
 #: src/editor/insert/insert-snippets.ts
 msgid "North-west arrow"
 msgstr "左上箭头"
-
-#: src/open-knowledge-app/editor/utils/validate-media-url.ts
-msgid "Not a valid URL."
-msgstr "不是有效的 URL。"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Not an element of"
@@ -6471,10 +5351,6 @@ msgstr "没有可显示的内容"
 msgid "Notify me (manual)"
 msgstr "通知我（手动安装）"
 
-#: src/open-knowledge-app/editor/slash-command/component-items.tsx
-msgid "Notion-style inline row for a downloadable file. Drag-drop also works."
-msgstr "Notion 风格的可下载文件内联行。也支持拖放。"
-
 #: src/history/versions-timeline.tsx
 msgid "Now tracking versions of this project."
 msgstr "已开始追踪此项目的版本。"
@@ -6500,8 +5376,6 @@ msgid "Numbered list"
 msgstr "带编号的列表"
 
 #: src/editor/markdown/engine/chrome/slash-items.ts
-#: src/editor/markdown/visual-slash-items.ts
-#: src/open-knowledge-app/editor/slash-command/items.tsx
 msgid "Numbered list of items."
 msgstr "有序编号项目列表。"
 
@@ -6509,18 +5383,10 @@ msgstr "有序编号项目列表。"
 msgid "Numbered single-line equation"
 msgstr "编号的单行公式"
 
-#: src/open-knowledge-app/editor/components/Pdf.tsx
-msgid "of {totalPages}"
-msgstr "/ {totalPages} 页"
-
 #: src/project/manuscript-checklist.tsx
 #: src/telemetry/app-log.tsx
 msgid "OK"
 msgstr "正常"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "OK Desktop"
-msgstr "OK Desktop"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Omega"
@@ -6529,10 +5395,6 @@ msgstr "欧米伽"
 #: src/editor/latex/search-panel.ts
 msgid "on line"
 msgstr "位于行"
-
-#: src/editor/markdown/visual-table-span-controls.tsx
-msgid "Only a complete rectangular group of cells can be merged."
-msgstr "只能合并完整的矩形单元格区域。"
 
 #: src/overleaf/overleaf-review.tsx
 msgid "Only binary files would change; line-by-line review is unavailable"
@@ -6559,17 +5421,9 @@ msgstr "请先打开一个 .tex 文件再进行格式化。"
 msgid "Open a .tex file before pasting a figure."
 msgstr "请先打开一个 .tex 文件再粘贴图片。"
 
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Open a blank editor tab."
-msgstr "打开一个空白编辑器标签页。"
-
 #: src/App.tsx
 msgid "Open a LaTeX project"
 msgstr "打开 LaTeX 项目"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Open a new session with your preferred AI. With text selected, stage it there instead of running it."
-msgstr "使用你偏好的 AI 打开新会话。如已选中文本，则将其放入会话待发送，而不直接运行。"
 
 #: src/canvas/canvas-toolbar.tsx
 msgid "Open a project from Overleaf"
@@ -6582,18 +5436,6 @@ msgstr "打开项目后，可添加其中的名称、缩写和技术术语"
 #: src/settings/synara-settings-pane.tsx
 msgid "Open a project to manage Agent settings"
 msgstr "打开项目以管理智能助手设置"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Open a single markdown file in a temporary session, without project setup."
-msgstr "在临时会话中打开单个 Markdown 文件，无需设置项目。"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Open an existing project folder from disk."
-msgstr "从磁盘打开现有项目文件夹。"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Open and focus the bottom Ask AI prompt composer."
-msgstr "打开并聚焦底部的“询问 AI”输入框。"
 
 #: src/overleaf/overleaf-connect.tsx
 msgid "Open and sync Overleaf projects in Lattice"
@@ -6615,37 +5457,13 @@ msgstr "在浏览器中打开文章"
 msgid "Open by default"
 msgstr "默认展开"
 
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Open CodeMirror search in source editor mode."
-msgstr "在源码编辑器模式下打开 CodeMirror 搜索。"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Open CodeMirror's go-to-line prompt."
-msgstr "打开 CodeMirror 的跳转到行提示框。"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Open CodeMirror's lint diagnostics panel."
-msgstr "打开 CodeMirror 的检查诊断面板。"
-
 #: src/editor/comments/editor-comments-panel.tsx
 msgid "Open comments"
 msgstr "打开评论"
 
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Open delete confirmation for the selected file-tree items."
-msgstr "为所选文件树项目打开删除确认。"
-
 #: src/settings/settings-dialog.tsx
 msgid "Open desktop app"
 msgstr "在桌面应用中打开"
-
-#: src/open-knowledge-app/editor/extensions/JsxComponentView.tsx
-msgid "Open embedded URL in new tab"
-msgstr "在新标签页中打开嵌入的 URL"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Open file"
-msgstr "打开文件"
 
 #: src/project/quick-open-dialog.tsx
 msgid "Open file…"
@@ -6655,7 +5473,6 @@ msgstr "打开文件…"
 msgid "Open files"
 msgstr "已打开的文件"
 
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
 #: src/project/project-dialogs.tsx
 msgid "Open folder"
 msgstr "打开文件夹"
@@ -6685,10 +5502,6 @@ msgstr "在 Overleaf 中打开"
 msgid "Open landing page"
 msgstr "打开论文主页"
 
-#: src/open-knowledge-app/editor/bubble-menu/LinkEditPopover.tsx
-msgid "Open link in new tab"
-msgstr "在新标签页打开链接"
-
 #: src/telemetry/app-log.tsx
 msgid "Open log folder"
 msgstr "打开日志文件夹"
@@ -6704,10 +5517,6 @@ msgstr "在左侧打开"
 #: src/canvas/editor-tabs.tsx
 msgid "Open on right"
 msgstr "在右侧打开"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Open or close visual-editor find."
-msgstr "打开或关闭可视化编辑器查找。"
 
 #: src/canvas/document-canvas.tsx
 msgid "Open or drag a file here"
@@ -6761,29 +5570,13 @@ msgstr "Open Slide 尚未就绪"
 msgid "Open Slide sent an incomplete edit for {path}."
 msgstr "Open Slide 发送的 {path} 编辑内容不完整。"
 
-#: src/open-knowledge-app/editor/extensions/JsxComponentView.tsx
-msgid "Open source doc: {mirrorSrc}"
-msgstr "打开源文档：{mirrorSrc}"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Open source lint panel"
-msgstr "打开源码检查面板"
-
 #: src/project/paper-library.tsx
 msgid "Open source page — no downloadable full text found"
 msgstr "打开来源页面 — 尚未找到可下载全文"
 
-#: src/open-knowledge-app/editor/extensions/JsxComponentView.tsx
-msgid "Open source: {mirrorSrc}"
-msgstr "打开源：{mirrorSrc}"
-
 #: src/onboarding/onboarding-tour.tsx
 msgid "Open the Agent tab to use Codex, Claude, or another provider"
 msgstr "打开 Agent 标签页，即可使用 Codex、Claude 或其他提供商"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Open the comment composer on the current selection and add it to the dispatch queue."
-msgstr "在当前选区上打开评论输入框，并将评论加入发送队列。"
 
 #: src/overleaf/use-overleaf-track-changes.ts
 msgid "Open the document this suggestion is in first."
@@ -6796,10 +5589,6 @@ msgstr "请先打开此修订建议所在的文件"
 #: src/canvas/canvas-toolbar.tsx
 msgid "Open the full paper Markdown"
 msgstr "打开论文全文 Markdown"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Open the insert menu in an empty or active text position."
-msgstr "在空白或当前文本位置打开插入菜单。"
 
 #: src/overleaf/overleaf-connect.tsx
 msgid "Open the linked Overleaf project before changing its sync setting."
@@ -6818,10 +5607,6 @@ msgstr "打开论文概览"
 msgid "Open the PDF in Lattice or your browser"
 msgstr "在 Lattice 或浏览器中打开 PDF"
 
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Open the Project Navigator."
-msgstr "打开项目导航器。"
-
 #: src/build/compile-diagnostics-panel.tsx
 msgid "Open the repair task to continue."
 msgstr "打开修正任务以继续。"
@@ -6835,10 +5620,6 @@ msgstr "请先打开这个智能助手任务，再恢复它涉及的文件"
 msgid "Open this repository on GitHub"
 msgstr "在 GitHub 上打开此仓库"
 
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Open this settings dialog."
-msgstr "打开此设置对话框。"
-
 #: src/settings/settings-dialog.tsx
 msgid "Open this workspace at http://127.0.0.1:18452. Files and credentials stay on this Mac"
 msgstr "在 http://127.0.0.1:18452 打开此工作区。文件和凭据仍保留在这台 Mac 上"
@@ -6846,14 +5627,6 @@ msgstr "在 http://127.0.0.1:18452 打开此工作区。文件和凭据仍保留
 #: src/settings/settings-dialog.tsx
 msgid "Open this workspace in your default browser. It returns to this window when the browser tab closes"
 msgstr "在默认浏览器中打开此工作区。关闭浏览器标签页后，工作区会自动返回此窗口"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Open visual-editor find with replace controls expanded."
-msgstr "打开可视化编辑器查找，并展开替换控件。"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Open, navigate, accept, or dismiss CodeMirror completion suggestions."
-msgstr "打开、浏览、接受或关闭 CodeMirror 补全建议。"
 
 #: src/papers/bibliography-audit.tsx
 #: src/settings/literature-settings.tsx
@@ -6897,15 +5670,8 @@ msgstr "运算符"
 msgid "Orange"
 msgstr "橙色"
 
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Ordered list"
-msgstr "有序列表"
-
 #: src/editor/markdown/engine/chrome/selection-toolbar.tsx
 #: src/editor/markdown/engine/chrome/slash-items.ts
-#: src/editor/markdown/visual-slash-items.ts
-#: src/open-knowledge-app/editor/bubble-menu/BlockTypeSelector.tsx
-#: src/open-knowledge-app/editor/slash-command/items.tsx
 msgid "Ordered List"
 msgstr "有序列表"
 
@@ -7046,51 +5812,31 @@ msgstr "Overleaf 自己对该项目的记录，包含 Lattice 关闭期间协作
 msgid "Overline"
 msgstr "上划线"
 
-#: src/open-knowledge-app/editor/link-path-suggestions.tsx
-msgid "Page"
-msgstr "页面"
-
-#: src/open-knowledge-app/editor/components/Pdf.tsx
-msgid "Page {pageNumber}"
-msgstr "第 {pageNumber} 页"
-
 #: src/project/manuscript-checklist.tsx
 msgid "Page budget"
 msgstr "页数上限"
 
-#: src/open-knowledge-app/editor/components/Pdf.tsx
-msgid "Page number"
-msgstr "页码"
-
 #: src/editor/latex/latex-command-completions.ts
 msgid "Page of a labeled item"
 msgstr "带标签项所在页码"
-
-#: src/open-knowledge-app/editor/components/Pdf.tsx
-msgid "Page thumbnails"
-msgstr "页面缩略图"
 
 #: src/papers/bibliography-audit.tsx
 msgid "Pages"
 msgstr "页码"
 
 #: src/editor/markdown/engine/views/mermaid-preview.tsx
-#: src/open-knowledge-app/editor/components/Mermaid.tsx
 msgid "Pan down"
 msgstr "向下平移"
 
 #: src/editor/markdown/engine/views/mermaid-preview.tsx
-#: src/open-knowledge-app/editor/components/Mermaid.tsx
 msgid "Pan left"
 msgstr "向左平移"
 
 #: src/editor/markdown/engine/views/mermaid-preview.tsx
-#: src/open-knowledge-app/editor/components/Mermaid.tsx
 msgid "Pan right"
 msgstr "向右平移"
 
 #: src/editor/markdown/engine/views/mermaid-preview.tsx
-#: src/open-knowledge-app/editor/components/Mermaid.tsx
 msgid "Pan up"
 msgstr "向上平移"
 
@@ -7106,25 +5852,12 @@ msgid "Paper actions"
 msgstr "论文操作"
 
 #: src/editor/markdown/engine/chrome/references.tsx
-#: src/editor/markdown/visual-paper-citation-suggestion.tsx
 msgid "Paper citation suggestions"
 msgstr "论文引用建议"
 
 #: src/canvas/canvas-toolbar.tsx
 msgid "Paper content"
 msgstr "论文内容"
-
-#: src/open-knowledge-app/editor/registry/descriptor-labels.ts
-msgid "Paper figure"
-msgstr "论文图"
-
-#: src/open-knowledge-app/editor/registry/descriptor-labels.ts
-msgid "Paper figure panel"
-msgstr "论文图子图"
-
-#: src/open-knowledge-app/editor/registry/descriptor-labels.ts
-msgid "Paper figure row"
-msgstr "论文图行"
 
 #: src/app/use-reference-import.ts
 msgid "Paper import cancelled before changing the bibliography; the downloaded full text remains available."
@@ -7156,10 +5889,6 @@ msgstr "论文视图以可搜索的 Markdown 显示完整文本、章节、公�
 msgid "Papers"
 msgstr "论文"
 
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Paragraph"
-msgstr "段落"
-
 #: src/editor/insert/insert-snippets.ts
 msgctxt "LaTeX heading"
 msgid "Paragraph"
@@ -7176,14 +5905,6 @@ msgstr "圆括号矩阵"
 #: src/editor/latex/latex-command-completions.ts
 msgid "Parenthetical citation"
 msgstr "括号式引用"
-
-#: src/open-knowledge-app/editor/utils/severity.ts
-msgid "parse error"
-msgstr "解析错误"
-
-#: src/open-knowledge-app/editor/extensions/RawMdxFallbackCMView.tsx
-msgid "Parse failed"
-msgstr "解析失败"
 
 #: src/editor/latex/latex-selection-toolbar.tsx
 msgid "Part"
@@ -7219,10 +5940,6 @@ msgstr "在上方粘贴 arXiv ID、DOI、URL 或标题，为智能体提供项�
 msgid "Paste clipboard image as figure"
 msgstr "将剪贴板图像粘贴为插图"
 
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Paste duplicate"
-msgstr "粘贴副本"
-
 #: src/editor/markdown/engine/chrome/link-chrome.tsx
 msgid "Paste or type a link"
 msgstr "粘贴或输入链接"
@@ -7232,7 +5949,6 @@ msgid "Paste your API key"
 msgstr "粘贴你的 API 密钥"
 
 #: src/editor/markdown/engine/chrome/link-chrome.tsx
-#: src/open-knowledge-app/editor/link-path-suggestions.tsx
 msgid "Path suggestions"
 msgstr "路径建议"
 
@@ -7257,7 +5973,6 @@ msgstr "要暂停与 Overleaf 的同步吗？\n"
 "恢复后会从中断处继续：暂停期间任一侧的编辑都会被合并，而不会被覆盖。"
 
 #: src/canvas/paper-reader.tsx
-#: src/open-knowledge-app/editor/registry/descriptor-labels.ts
 msgid "PDF"
 msgstr "PDF"
 
@@ -7358,8 +6073,6 @@ msgid "Pick a venue to set its canonical name and entry type, or edit any field 
 msgstr "选择一个会议或期刊来填入其规范名称和条目类型，也可以手动编辑任意字段"
 
 #: src/editor/markdown/engine/chrome/slash-items.ts
-#: src/editor/markdown/visual-slash-items.ts
-#: src/open-knowledge-app/editor/slash-command/items.tsx
 msgid "Pick an emoji to insert at the cursor."
 msgstr "选择一个表情符号并插入光标位置。"
 
@@ -7387,22 +6100,13 @@ msgstr "已固定"
 msgid "Placement"
 msgstr "位置"
 
-#: src/open-knowledge-app/editor/extensions/CodeBlockView.tsx
-msgid "Plain"
-msgstr "纯文本"
-
 #: src/editor/markdown/engine/views/code-block-view.tsx
-#: src/open-knowledge-app/editor/extensions/code-block-languages.ts
 msgid "Plain text"
 msgstr "纯文本"
 
 #: src/settings/settings-dialog.tsx
 msgid "Plays quiet cues when a requested build or collaboration setup finishes"
 msgstr "请求的构建或协作设置完成时播放轻微提示音"
-
-#: src/open-knowledge-app/editor/registry/descriptor-labels.ts
-msgid "Playsinline"
-msgstr "行内播放（playsinline）"
 
 #: src/components/ui/confirm-action-dialog.tsx
 #: src/editor/spreadsheet/spreadsheet-univer.ts
@@ -7417,10 +6121,6 @@ msgstr "请稍后再试"
 msgid "Plus-minus"
 msgstr "正负号"
 
-#: src/open-knowledge-app/editor/registry/descriptor-labels.ts
-msgid "Poster"
-msgstr "封面图"
-
 #: src/editor/insert/insert-snippets.ts
 msgid "Pounds sterling"
 msgstr "英镑符号"
@@ -7432,10 +6132,6 @@ msgstr "先于"
 #: src/editor/insert/insert-snippets.ts
 msgid "Precedes or equal"
 msgstr "先于或等于"
-
-#: src/open-knowledge-app/editor/registry/descriptor-labels.ts
-msgid "Preload"
-msgstr "预加载"
 
 #: src/canvas/document-canvas.tsx
 msgid "Preparing board editor"
@@ -7479,7 +6175,6 @@ msgstr "预印本检查返回的结果不完整或不明确。"
 
 #: src/canvas/canvas-toolbar.tsx
 #: src/editor/markdown/engine/lattice-visual-editor.tsx
-#: src/editor/markdown/visual-markdown-editor.tsx
 #: src/project/project-replace-dialog.tsx
 msgid "Preview"
 msgstr "预览"
@@ -7518,7 +6213,6 @@ msgstr "上一个"
 
 #: src/editor/latex/search-panel.ts
 #: src/editor/markdown/engine/chrome/find-replace.tsx
-#: src/editor/markdown/visual-markdown-find-replace.tsx
 msgid "Previous match"
 msgstr "上一个匹配项"
 
@@ -7533,10 +6227,6 @@ msgstr "返回 PDF 上一位置"
 #: src/pdf/pdf-viewer.tsx
 msgid "Previous search result"
 msgstr "上一个搜索结果"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Previous tab"
-msgstr "上一个标签页"
 
 #: src/build/tex-doctor-messages.ts
 msgid "Primary bibliography {file} (missing)"
@@ -7706,9 +6396,6 @@ msgstr "退出 {name}"
 #: src/editor/latex/latex-selection-toolbar.tsx
 #: src/editor/markdown/engine/chrome/selection-toolbar.tsx
 #: src/editor/markdown/engine/chrome/slash-items.ts
-#: src/editor/markdown/visual-slash-items.ts
-#: src/open-knowledge-app/editor/bubble-menu/BlockTypeSelector.tsx
-#: src/open-knowledge-app/editor/slash-command/items.tsx
 msgid "Quote"
 msgstr "引文"
 
@@ -7732,11 +6419,6 @@ msgstr "原始构建日志"
 msgid "Read the full paper here"
 msgstr "在此阅读全文"
 
-#: src/editor/markdown/visual-slash-items.ts
-#: src/open-knowledge-app/editor/slash-command/component-items.tsx
-msgid "Read-only copy of a MirrorSource block from another doc. Edit at the source and it updates live."
-msgstr "来自其他文档中“镜像源”内容块的只读副本；在源处编辑后，此处会实时更新。"
-
 #: src/history/conflict-resolver.tsx
 msgid "Reading the file…"
 msgstr "正在读取文件…"
@@ -7748,10 +6430,6 @@ msgstr "可以编译"
 #: src/telemetry/app-updater.tsx
 msgid "Ready to install"
 msgstr "可以安装"
-
-#: src/open-knowledge-app/editor/slash-command/component-items.tsx
-msgid "Ready?"
-msgstr "就绪？"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Real part"
@@ -7836,10 +6514,6 @@ msgstr "参考文献缺少识别元数据"
 msgid "Reference with its type name"
 msgstr "带类型名称的引用"
 
-#: src/open-knowledge-app/editor/registry/descriptor-labels.ts
-msgid "Referrerpolicy"
-msgstr "引用来源策略（referrerpolicy）"
-
 #: src/overleaf/overleaf-review.tsx
 msgid "Refresh"
 msgstr "刷新"
@@ -7858,7 +6532,6 @@ msgid "Regular expression"
 msgstr "正则表达式"
 
 #: src/editor/markdown/engine/chrome/review-chrome.tsx
-#: src/editor/markdown/visual-review-overlays.tsx
 #: src/overleaf/overleaf-changes.tsx
 #: src/overleaf/overleaf-editor-extensions.ts
 msgid "Reject"
@@ -7879,7 +6552,6 @@ msgstr "此预览中无法使用项目相对链接"
 #: src/components/ui/confirm-action-dialog.tsx
 #: src/editor/harper-spellcheck.ts
 #: src/editor/markdown/engine/chrome/link-chrome.tsx
-#: src/editor/markdown/visual-link-insert-popover.tsx
 msgid "Remove"
 msgstr "移除"
 
@@ -7911,10 +6583,6 @@ msgstr "移除条目"
 #: src/settings/literature-settings.tsx
 msgid "Remove key"
 msgstr "移除密钥"
-
-#: src/open-knowledge-app/editor/bubble-menu/LinkEditPopover.tsx
-msgid "Remove link"
-msgstr "移除链接"
 
 #: src/app/use-overleaf-workspace.ts
 msgid "Remove one file from the Overleaf project?"
@@ -7986,14 +6654,6 @@ msgstr "重命名光标处匹配的 \\begin 和 \\end"
 msgid "Renaming…"
 msgstr "正在重命名…"
 
-#: src/open-knowledge-app/editor/utils/severity.ts
-msgid "render error"
-msgstr "渲染错误"
-
-#: src/open-knowledge-app/editor/extensions/RawMdxFallbackCMView.tsx
-msgid "Render error in <{failedComponent}>: {failureDetail}"
-msgstr "<{failedComponent}> 渲染出错：{failureDetail}"
-
 #: src/history/history-drawer.tsx
 #: src/overleaf/overleaf-review.tsx
 msgid "Rendering changes…"
@@ -8010,22 +6670,13 @@ msgstr "正在渲染首页…"
 #: src/canvas/document-canvas.tsx
 #: src/editor/comments/editor-comments-panel.tsx
 #: src/editor/comments/editor-comments.ts
-#: src/editor/markdown/visual-review-overlays.tsx
 #: src/overleaf/overleaf-comments.tsx
 msgid "Reopen"
 msgstr "重新打开"
 
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Reopen closed tab"
-msgstr "重新打开已关闭的标签页"
-
 #: src/editor/comments/editor-comments-panel.tsx
 msgid "Reopen comment"
 msgstr "重新打开评论"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Reopen the most recently closed editor tab."
-msgstr "重新打开最近关闭的编辑器标签页。"
 
 #: src/build/use-compile-repair.ts
 msgid "Repair cancelled."
@@ -8069,7 +6720,6 @@ msgstr "作者姓名重复；请先对照该文献的作者列表核实，再删
 
 #: src/editor/latex/search-panel.ts
 #: src/editor/markdown/engine/chrome/find-replace.tsx
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
 msgid "Replace"
 msgstr "替换"
 
@@ -8083,33 +6733,22 @@ msgstr "全部替换"
 
 #: src/editor/latex/search-panel.ts
 #: src/editor/markdown/engine/chrome/find-replace.tsx
-#: src/editor/markdown/visual-markdown-find-replace.tsx
 msgid "Replace all matches"
 msgstr "替换所有匹配项"
 
 #: src/editor/markdown/engine/chrome/find-replace.tsx
-#: src/editor/markdown/visual-markdown-find-replace.tsx
 msgid "Replace current match"
 msgstr "替换当前匹配项"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Replace current match from field"
-msgstr "用字段内容替换当前匹配项"
 
 #: src/App.tsx
 msgid "Replace in project"
 msgstr "在项目中替换"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Replace the active match from the replace field."
-msgstr "用替换字段中的内容替换当前匹配项。"
 
 #: src/editor/latex/search-panel.ts
 msgid "Replace this match"
 msgstr "替换此匹配项"
 
 #: src/editor/markdown/engine/chrome/find-replace.tsx
-#: src/editor/markdown/visual-markdown-find-replace.tsx
 #: src/project/project-replace-dialog.tsx
 msgid "Replace with"
 msgstr "替换为"
@@ -8153,7 +6792,6 @@ msgstr "正在替换…"
 #: src/canvas/document-canvas.tsx
 #: src/editor/comments/editor-comments-panel.tsx
 #: src/editor/comments/editor-comments.ts
-#: src/editor/markdown/visual-review-overlays.tsx
 #: src/overleaf/overleaf-comments.tsx
 msgid "Reply"
 msgstr "回复"
@@ -8165,10 +6803,6 @@ msgstr "回复 {displayedCommentAuthor}"
 #: src/overleaf/overleaf-comments.tsx
 msgid "Reply…"
 msgstr "回复…"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Report a bug"
-msgstr "报告错误"
 
 #: src/papers/bibliography-audit.tsx
 msgid "Request queue busy"
@@ -8207,13 +6841,8 @@ msgid "Research, written with evidence"
 msgstr "让研究写作有据可循"
 
 #: src/editor/markdown/engine/views/mermaid-preview.tsx
-#: src/open-knowledge-app/editor/components/Mermaid.tsx
 msgid "Reset view"
 msgstr "重置视图"
-
-#: src/open-knowledge-app/editor/components/ResizeHandles.tsx
-msgid "Resize {handleKey}"
-msgstr "调整大小（{handleKey}）"
 
 #: src/canvas/document-canvas.tsx
 msgid "Resize dual source panes"
@@ -8263,7 +6892,6 @@ msgstr "解决 {path} 的更改"
 
 #: src/canvas/document-canvas.tsx
 #: src/editor/comments/editor-comments-panel.tsx
-#: src/editor/markdown/visual-review-overlays.tsx
 msgid "Resolve comment"
 msgstr "解决评论"
 
@@ -8327,7 +6955,6 @@ msgid "Restore {path} to this version? Your current file will be overwritten."
 msgstr "要把 {path} 恢复到这个版本吗？你当前的文件将被覆盖。"
 
 #: src/editor/markdown/engine/lattice-visual-editor.tsx
-#: src/editor/markdown/visual-markdown-editor.tsx
 msgid "Restore draft and retry"
 msgstr "恢复草稿并重试"
 
@@ -8422,10 +7049,6 @@ msgstr "重试"
 msgid "Reveal cursor in PDF (⌘⇧J)"
 msgstr "在 PDF 中显示光标位置 (⌘⇧J)"
 
-#: src/open-knowledge-app/editor/slash-command/embed-starter-items.tsx
-msgid "Revenue"
-msgstr "收入"
-
 #: src/editor/insert/insert-snippets.ts
 msgid "Reverse turnstile"
 msgstr "反向断言符"
@@ -8498,10 +7121,6 @@ msgstr "右正规子群（含等号）"
 msgid "Right vertical bar"
 msgstr "右竖线"
 
-#: src/open-knowledge-app/editor/slash-command/items.tsx
-msgid "Role"
-msgstr "角色"
-
 #: src/editor/insert/insert-snippets.ts
 msgid "Roman math"
 msgstr "数学正体"
@@ -8519,7 +7138,6 @@ msgid "Root with index"
 msgstr "带次数的根号"
 
 #: src/editor/markdown/engine/views/table-controls.tsx
-#: src/open-knowledge-app/editor/table-controls/TableCellHandles.tsx
 msgid "Row options"
 msgstr "行选项"
 
@@ -8552,14 +7170,6 @@ msgstr "行内段落标题"
 msgid "Runner used for Lattice's pinned literature tools"
 msgstr "Lattice 固定版本文献工具所用的运行器"
 
-#: src/open-knowledge-app/editor/slash-command/component-items.tsx
-msgid "Sample image"
-msgstr "示例图片"
-
-#: src/open-knowledge-app/editor/slash-command/embed-starter-items.tsx
-msgid "Sandboxed HTML embed — write HTML, see the rendered preview live."
-msgstr "沙盒化 HTML 嵌入 — 编写 HTML，实时查看渲染预览。"
-
 #: src/editor/latex/latex-command-completions.ts
 msgid "Sans-serif text"
 msgstr "无衬线文本"
@@ -8567,7 +7177,6 @@ msgstr "无衬线文本"
 #: src/App.tsx
 #: src/editor/comments/editor-comments-panel.tsx
 #: src/history/versions-timeline.tsx
-#: src/open-knowledge-app/editor/components/CodePreviewEditModal.tsx
 #: src/overleaf/overleaf-comments.tsx
 #: src/overleaf/overleaf-history.tsx
 #: src/settings/literature-settings.tsx
@@ -8578,7 +7187,6 @@ msgstr "保存"
 msgid "Save budgets"
 msgstr "保存上限"
 
-#: src/open-knowledge-app/editor/components/CodePreviewEditModal.tsx
 #: src/papers/bib-entry-dialog.tsx
 msgid "Save changes"
 msgstr "保存更改"
@@ -8668,7 +7276,6 @@ msgstr "手写体字母"
 msgid "scroll area"
 msgstr "滚动区域"
 
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
 #: src/papers/literature-discovery-panel.tsx
 msgid "Search"
 msgstr "搜索"
@@ -8686,21 +7293,12 @@ msgid "Search by project or owner…"
 msgstr "按项目或所有者搜索…"
 
 #: src/editor/markdown/engine/chrome/pickers.tsx
-#: src/open-knowledge-app/components/emoji-picker.tsx
 msgid "Search emoji"
 msgstr "搜索表情符号"
 
 #: src/project/project-find-dialog.tsx
 msgid "Search failed."
 msgstr "搜索失败。"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Search files, commands, projects, and AI handoff actions. The K chord adds a link instead when text is selected in the visual editor; the P chord always opens the palette."
-msgstr "搜索文件、命令、项目和 AI 移交操作。在可视化编辑器中选中文本时，K 组合键会改为添加链接；P 组合键始终打开命令面板。"
-
-#: src/open-knowledge-app/editor/components/IconPickerInput.tsx
-msgid "Search icons..."
-msgstr "搜索图标..."
 
 #: src/papers/literature-discovery-panel.tsx
 msgid "Search literature"
@@ -8743,10 +7341,6 @@ msgstr "搜索 PDF"
 msgid "Searching…"
 msgstr "正在搜索…"
 
-#: src/open-knowledge-app/editor/slash-command/items.tsx
-msgid "Second item"
-msgstr "第二项"
-
 #: src/editor/insert/insert-snippets.ts
 msgid "Second-level heading"
 msgstr "二级标题"
@@ -8765,10 +7359,6 @@ msgstr "节"
 msgid "Section sign"
 msgstr "节标记"
 
-#: src/open-knowledge-app/editor/slash-command/component-items.tsx
-msgid "See <0>Architecture</0> for the system overview."
-msgstr "系统概览见 <0>Architecture</0>。"
-
 #: src/canvas/editor-status-bar.tsx
 msgid "Sel {words} words · {chars} chars · {lines} lines"
 msgstr "选区 {words} 词 · {chars} 字符 · {lines} 行"
@@ -8782,14 +7372,6 @@ msgstr "选择 {0}"
 msgid "Select {color}"
 msgstr "选择 {color}"
 
-#: src/editor/markdown/visual-table-span-controls.tsx
-msgid "Select a complete rectangular group of cells"
-msgstr "请选择完整的矩形单元格区域"
-
-#: src/editor/markdown/visual-table-span-controls.tsx
-msgid "Select a complete rectangular group of cells."
-msgstr "请选择完整的矩形单元格区域。"
-
 #: src/papers/bibliography-audit.tsx
 msgid "Select all"
 msgstr "全选"
@@ -8799,10 +7381,6 @@ msgctxt "macOS menu bar"
 msgid "Select All"
 msgstr "全选"
 
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Select all files and folders"
-msgstr "选择所有文件和文件夹"
-
 #: src/editor/latex/search-panel.ts
 msgid "Select all matches"
 msgstr "选择所有匹配项"
@@ -8811,105 +7389,33 @@ msgstr "选择所有匹配项"
 msgid "Select all references"
 msgstr "选择全部引用"
 
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Select all source"
-msgstr "全选源码"
-
 #: src/editor/markdown/engine/chrome/block-controls.tsx
-#: src/editor/markdown/visual-editor-block-controls.ts
 msgid "Select block"
 msgstr "选择块"
-
-#: src/editor/markdown/visual-editor-block-controls.ts
-msgid "Select bullet list"
-msgstr "选择项目符号列表"
 
 #: src/editor/markdown/engine/chrome/block-controls.tsx
 msgid "Select bulleted list"
 msgstr "选择无序列表"
 
-#: src/editor/markdown/visual-editor-block-controls.ts
-msgid "Select code block"
-msgstr "选择代码块"
-
-#: src/editor/markdown/visual-editor-block-controls.ts
-msgid "Select component"
-msgstr "选择组件"
-
-#: src/editor/markdown/visual-editor-block-controls.ts
-msgid "Select display equation"
-msgstr "选择行间公式"
-
-#: src/editor/markdown/visual-editor-block-controls.ts
-msgid "Select divider"
-msgstr "选择分隔线"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Select every visible file-tree row when focus is in the Files sidebar."
-msgstr "焦点位于文件侧边栏时，选择文件树中所有可见的行。"
-
-#: src/editor/markdown/visual-editor-block-controls.ts
-msgid "Select footnote"
-msgstr "选择脚注"
-
-#: src/editor/markdown/visual-editor-block-controls.ts
-msgid "Select heading"
-msgstr "选择标题"
-
 #: src/editor/markdown/engine/chrome/block-controls.tsx
-#: src/editor/markdown/visual-editor-block-controls.ts
 msgid "Select list item"
 msgstr "选择列表项"
 
-#: src/editor/markdown/visual-editor-block-controls.ts
-msgid "Select Mermaid diagram"
-msgstr "选择 Mermaid 图表"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Select next occurrence"
-msgstr "选择下一个匹配项"
-
 #: src/editor/markdown/engine/chrome/block-controls.tsx
-#: src/editor/markdown/visual-editor-block-controls.ts
 msgid "Select numbered list"
 msgstr "选择编号列表"
-
-#: src/editor/markdown/visual-editor-block-controls.ts
-msgid "Select paragraph"
-msgstr "选择段落"
 
 #: src/onboarding/onboarding-tour.tsx
 msgid "Select PDF to read the original PDF in Lattice, or use the external-link button beside it to open the same PDF in your browser"
 msgstr "点击“PDF”可在 Lattice 中阅读论文原版 PDF；点击旁边的外链按钮，可在浏览器中打开同一份 PDF"
 
-#: src/editor/markdown/visual-editor-block-controls.ts
-msgid "Select quote"
-msgstr "选择引文"
-
-#: src/editor/markdown/visual-editor-block-controls.ts
-msgid "Select source-preserved Markdown"
-msgstr "选择保留源码的 Markdown"
-
-#: src/editor/markdown/visual-editor-block-controls.ts
-msgid "Select table"
-msgstr "选择表格"
-
 #: src/editor/markdown/engine/chrome/block-controls.tsx
-#: src/editor/markdown/visual-editor-block-controls.ts
 msgid "Select task list"
 msgstr "选择任务列表"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Select the full source document."
-msgstr "选择整个源码文档。"
 
 #: src/papers/bib-entry-dialog.tsx
 msgid "Select this record"
 msgstr "选择此记录"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Select, enter, or leave block components and fallback source blocks from keyboard boundaries."
-msgstr "在键盘边界处选择、进入或离开块组件和回退源码块。"
 
 #: src/editor/codemirror-host.tsx
 msgid "Selection deleted"
@@ -8948,10 +7454,6 @@ msgstr "Semantic Scholar 返回了无效响应；已跳过后续查询"
 msgid "Semantic Scholar unavailable; subsequent queries skipped"
 msgstr "Semantic Scholar 暂时不可用；已跳过后续查询"
 
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Send checked comments to chat"
-msgstr "将勾选的评论发送到聊天"
-
 #: src/components/ui/chat-panel.tsx
 msgid "Send message"
 msgstr "发送消息"
@@ -8961,8 +7463,6 @@ msgid "Sent to Crossref to use its polite pool. No API key is needed."
 msgstr "向 Crossref 提供邮箱以使用礼貌访问池，无需 API 密钥。"
 
 #: src/editor/markdown/engine/chrome/slash-items.ts
-#: src/editor/markdown/visual-slash-items.ts
-#: src/open-knowledge-app/editor/slash-command/items.tsx
 msgid "Separator"
 msgstr "分隔线"
 
@@ -8983,7 +7483,6 @@ msgstr "设置编辑器键位和构建行为"
 msgid "Sets"
 msgstr "集合"
 
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
 #: src/project/project-dialogs.tsx
 #: src/settings/settings-dialog.tsx
 msgid "Settings"
@@ -9000,10 +7499,6 @@ msgstr "设置已完成"
 #: src/editor/insert/insert-snippets.ts
 msgid "Sharp"
 msgstr "升号"
-
-#: src/open-knowledge-app/editor/extensions/code-block-languages.ts
-msgid "Shell session"
-msgstr "Shell 会话"
 
 #: src/app/native-locale.ts
 msgctxt "macOS menu bar"
@@ -9022,42 +7517,20 @@ msgstr "显示文档大纲"
 msgid "Show hidden files"
 msgstr "显示隐藏文件"
 
-#: src/open-knowledge-app/editor/extensions/CodeBlockView.tsx
-msgid "Show HTML preview"
-msgstr "显示 HTML 预览"
-
 #: src/project/paper-library.tsx
 #: src/project/project-file-tree.tsx
 msgid "Show in Finder"
 msgstr "在访达中显示"
 
 #: src/editor/markdown/engine/views/code-block-view.tsx
-#: src/open-knowledge-app/editor/extensions/CodeBlockView.tsx
 msgid "Show Mermaid preview"
 msgstr "显示 Mermaid 预览"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Show or hide agents"
-msgstr "显示或隐藏智能助手"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Show or hide document panel"
-msgstr "显示或隐藏文档面板"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Show or hide Files"
-msgstr "显示或隐藏文件"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Show or hide Terminal"
-msgstr "显示或隐藏终端"
 
 #: src/canvas/document-outline.tsx
 msgid "Show outline"
 msgstr "显示大纲"
 
 #: src/editor/markdown/engine/chrome/find-replace.tsx
-#: src/editor/markdown/visual-markdown-find-replace.tsx
 msgid "Show replace"
 msgstr "显示替换"
 
@@ -9070,21 +7543,9 @@ msgstr "显示侧边栏"
 msgid "Show this in the editor"
 msgstr "在编辑器中显示"
 
-#: src/open-knowledge-app/editor/components/Pdf.tsx
-msgid "Show thumbnails"
-msgstr "显示缩略图"
-
-#: src/editor/markdown/visual-wiki-link-suggestion.tsx
-msgid "Showing top {count} — keep typing to narrow"
-msgstr "显示前 {count} 项——继续输入以缩小范围"
-
 #: src/telemetry/app-log.tsx
 msgid "Shows 300 recent entries; disk logs rotate"
 msgstr "显示最近 300 条记录；磁盘日志会自动轮换"
-
-#: src/open-knowledge-app/editor/extensions/CodeBlockView.tsx
-msgid "Shows above the code body. Round-trips as `title=\"...\"` in markdown."
-msgstr "显示在代码正文上方。在 Markdown 中以 `title=\"...\"` 形式保存。"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Side-by-side column block"
@@ -9142,13 +7603,7 @@ msgstr "相似"
 msgid "Simplified Chinese"
 msgstr "简体中文"
 
-#: src/open-knowledge-app/editor/components/Pdf.tsx
-msgid "Single page"
-msgstr "单页"
-
 #: src/editor/markdown/engine/chrome/slash-items.ts
-#: src/editor/markdown/visual-slash-items.ts
-#: src/open-knowledge-app/editor/slash-command/items.tsx
 msgid "Sixth-level heading."
 msgstr "六级标题。"
 
@@ -9160,10 +7615,6 @@ msgstr "可伸缩右定界符"
 msgid "Sized opening delimiter"
 msgstr "可伸缩左定界符"
 
-#: src/open-knowledge-app/editor/registry/descriptor-labels.ts
-msgid "Sizes"
-msgstr "尺寸（sizes）"
-
 #: src/settings/settings-dialog.tsx
 msgid "Skills"
 msgstr "Skills"
@@ -9172,13 +7623,8 @@ msgstr "Skills"
 msgid "Skip tutorial"
 msgstr "跳过教程"
 
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Slash command menu"
-msgstr "斜杠命令菜单"
-
 #: src/editor/markdown/engine/chrome/slash-menu.tsx
 #: src/onboarding/onboarding-tour.tsx
-#: src/open-knowledge-app/editor/slash-command/SlashCommandMenu.tsx
 msgid "Slash commands"
 msgstr "斜杠命令"
 
@@ -9191,8 +7637,6 @@ msgid "Small capitals"
 msgstr "小型大写字母"
 
 #: src/editor/markdown/engine/chrome/slash-items.ts
-#: src/editor/markdown/visual-slash-items.ts
-#: src/open-knowledge-app/editor/slash-command/items.tsx
 msgid "Small section heading."
 msgstr "用于小节的小标题。"
 
@@ -9228,33 +7672,9 @@ msgstr "源码 + PDF"
 msgid "Source candidate (not applied)"
 msgstr "来源候选（未采用）"
 
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Source editing"
-msgstr "源码编辑"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Source editor"
-msgstr "源码编辑器"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Source editor search panel"
-msgstr "源码编辑器搜索面板"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Source find results"
-msgstr "源码查找结果"
-
 #: src/pdf/pdf-source-targets.ts
 msgid "Source location in PDF"
 msgstr "PDF 中的源位置"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Source multi-cursor and multi-select"
-msgstr "源码多光标与多选"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Source navigation and selection"
-msgstr "源码导航与选择"
 
 #: src/papers/bibliography-audit.tsx
 msgid "Source rate limit reached"
@@ -9268,10 +7688,6 @@ msgstr "已考虑来源记录，但未经验证"
 msgid "Source record considered, not verified · cached record"
 msgstr "已考虑来源记录，但未经验证 · 缓存记录"
 
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Source search"
-msgstr "源码搜索"
-
 #: src/papers/bibliography-audit.tsx
 msgid "Source service error"
 msgstr "来源服务异常"
@@ -9279,10 +7695,6 @@ msgstr "来源服务异常"
 #: src/papers/bibliography-audit.tsx
 msgid "Source temporarily unavailable"
 msgstr "来源暂时不可用"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Source undo or redo"
-msgstr "源码撤销或重做"
 
 #: src/papers/bib-entry-dialog.tsx
 msgid "Source:"
@@ -9317,17 +7729,12 @@ msgid "Split"
 msgstr "分栏"
 
 #: src/editor/markdown/engine/views/table-controls.tsx
-#: src/editor/markdown/visual-table-span-controls.tsx
 msgid "Split cell"
 msgstr "拆分单元格"
 
 #: src/canvas/canvas-toolbar.tsx
 msgid "Split editor right"
 msgstr "向右分栏编辑器"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Split list item"
-msgstr "拆分列表项"
 
 #: src/editor/latex/latex-command-completions.ts
 msgid "Split one equation"
@@ -9375,18 +7782,6 @@ msgstr "方形真超集"
 msgid "Square superset eq"
 msgstr "方形超集（含等号）"
 
-#: src/open-knowledge-app/editor/registry/descriptor-labels.ts
-msgid "Src"
-msgstr "源（src）"
-
-#: src/open-knowledge-app/editor/registry/descriptor-labels.ts
-msgid "Srcset"
-msgstr "源集（srcset）"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Stage the selected passage in the agents panel, ready to extend and send."
-msgstr "将所选段落放入智能助手面板，便于补充后发送。"
-
 #: src/build/build-log-messages.ts
 msgid "Stale failed build. Use Clean rebuild (Shift-click Build), or delete aux files and build again."
 msgstr "之前失败的构建已过时。请使用“全新重建”（按住 Shift 点击“构建”），或删除辅助文件后重新构建。"
@@ -9399,14 +7794,6 @@ msgstr "结果已过期"
 msgid "Star operator"
 msgstr "星形运算符"
 
-#: src/open-knowledge-app/editor/slash-command/component-items.tsx
-msgid "Start"
-msgstr "开始"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Start a bug report with a screenshot of the screen as it looks right now."
-msgstr "以当前屏幕截图开始一份错误报告。"
-
 #: src/editor/latex/latex-command-completions.ts
 msgid "Start a new page"
 msgstr "另起一页"
@@ -9418,10 +7805,6 @@ msgstr "开始环境"
 #: src/settings/settings-dialog.tsx
 msgid "Start browser access after login"
 msgstr "登录后启动浏览器访问服务"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Start source completion"
-msgstr "开始源码补全"
 
 #: src/editor/latex/latex-command-completions.ts
 msgid "Start the appendices"
@@ -9480,8 +7863,6 @@ msgstr "正在停止…"
 
 #: src/editor/latex/latex-selection-toolbar.tsx
 #: src/editor/markdown/engine/chrome/selection-toolbar.tsx
-#: src/open-knowledge-app/editor/bubble-menu/InlineFormatButtons.tsx
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
 msgid "Strikethrough"
 msgstr "删除线"
 
@@ -9537,25 +7918,8 @@ msgid "Success"
 msgstr "成功"
 
 #: src/editor/markdown/engine/chrome/review-chrome.tsx
-#: src/editor/markdown/visual-review-overlays.tsx
 msgid "Suggested change"
 msgstr "建议的修改"
-
-#: src/editor/markdown/visual-source-decorations.ts
-msgid "Suggested deletion"
-msgstr "建议删除"
-
-#: src/editor/markdown/visual-source-decorations.ts
-msgid "Suggested insertion"
-msgstr "建议插入"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Suggestion menu navigation"
-msgstr "建议菜单导航"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Suggestion menu open"
-msgstr "建议菜单已打开"
 
 #: src/overleaf/overleaf-changes.tsx
 msgid "Suggestions made on Overleaf, or by anyone with track changes on. Accepting turns the suggested text into ordinary text; rejecting undoes it. Both sides see the result at once"
@@ -9602,12 +7966,7 @@ msgstr "曲面 / 面积积分"
 msgid "Swap editor panes"
 msgstr "交换编辑器窗格"
 
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Switch between the visual and source editors, keeping your place."
-msgstr "在可视化编辑器和源码编辑器之间切换，并保持当前位置。"
-
 #: src/app/app-titlebar.tsx
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
 msgid "Switch project"
 msgstr "切换项目"
 
@@ -9676,32 +8035,12 @@ msgstr "SyncTeX 双向搜索"
 msgid "Syntax-highlighted listing (listings)"
 msgstr "语法高亮的代码（listings）"
 
-#: src/open-knowledge-app/editor/components/Tab.tsx
-#: src/open-knowledge-app/editor/registry/descriptor-labels.ts
-msgid "Tab"
-msgstr "标签页"
-
-#: src/open-knowledge-app/editor/components/Tabs.tsx
-msgid "Tab {tabNumber}"
-msgstr "标签页 {tabNumber}"
-
-#: src/open-knowledge-app/editor/slash-command/component-items.tsx
-msgid "Tab 1"
-msgstr "标签页 1"
-
-#: src/open-knowledge-app/editor/slash-command/component-items.tsx
-msgid "Tab 2"
-msgstr "标签页 2"
-
 #: src/editor/latex/latex-text.ts
 msgid "table"
 msgstr "表格"
 
 #: src/editor/insert/insert-snippets.ts
 #: src/editor/markdown/engine/chrome/slash-items.ts
-#: src/editor/markdown/visual-slash-items.ts
-#: src/editor/markdown/visual-table-span-controls.tsx
-#: src/open-knowledge-app/editor/slash-command/items.tsx
 msgid "Table"
 msgstr "表格"
 
@@ -9725,25 +8064,8 @@ msgstr "目录"
 msgid "Table preview"
 msgstr "表格预览"
 
-#: src/editor/markdown/visual-slash-items.ts
-#: src/open-knowledge-app/editor/components/Tabs.tsx
-#: src/open-knowledge-app/editor/registry/descriptor-labels.ts
-msgid "Tabs"
-msgstr "标签页"
-
-#: src/open-knowledge-app/editor/components/Tabs.tsx
-msgid "Tabs: {id}"
-msgstr "标签页：{id}"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Task list"
-msgstr "任务列表"
-
 #: src/editor/markdown/engine/chrome/selection-toolbar.tsx
 #: src/editor/markdown/engine/chrome/slash-items.ts
-#: src/editor/markdown/visual-slash-items.ts
-#: src/open-knowledge-app/editor/bubble-menu/BlockTypeSelector.tsx
-#: src/open-knowledge-app/editor/slash-command/items.tsx
 msgid "Task List"
 msgstr "任务列表"
 
@@ -9781,7 +8103,6 @@ msgid "TexLab language server (optional editor diagnostics)"
 msgstr "TexLab 语言服务器（可选，用于编辑器诊断）"
 
 #: src/editor/markdown/engine/chrome/selection-toolbar.tsx
-#: src/open-knowledge-app/editor/bubble-menu/BlockTypeSelector.tsx
 msgid "Text"
 msgstr "正文"
 
@@ -9853,10 +8174,6 @@ msgstr "文件在保存期间发生了变化。请查看最新内容后再次保
 msgid "The first is at {path}:{line}."
 msgstr "第一处位于 {path}:{line}。"
 
-#: src/open-knowledge-app/editor/slash-command/items.tsx
-msgid "The formula <0>c = √(a² + b²)</0> renders inline."
-msgstr "公式 <0>c = √(a² + b²)</0> 以行内方式渲染。"
-
 #: src/editor/latex/latex-command-completions.ts
 msgid "The LaTeX logo"
 msgstr "LaTeX 标志"
@@ -9888,10 +8205,6 @@ msgstr "与 Overleaf 项目的连接已失效。"
 #: src/canvas/paper-reader.tsx
 msgid "The PDF took too long to load. Try again, or open the article in your browser."
 msgstr "PDF 加载时间过长。请重试，或在浏览器中打开文章。"
-
-#: src/open-knowledge-app/editor/components/PreviewBlockedNotice.tsx
-msgid "The preview blocks resources that don't meet its security rules (for example plain http:// URLs, or code that uses eval). The content above may render incompletely."
-msgstr "预览会拦截不符合其安全规则的资源（例如纯 http:// URL，或使用 eval 的代码）。上方内容可能无法完整呈现。"
 
 #: src/onboarding/onboarding-tour.tsx
 msgid "The preview is editable too"
@@ -9959,7 +8272,6 @@ msgstr "这里显示与 Overleaf 中 {projectName} 项目的聊天面板相同�
 
 #: src/canvas/document-canvas.tsx
 #: src/editor/markdown/engine/chrome/review-chrome.tsx
-#: src/editor/markdown/visual-markdown-editor.tsx
 msgid "The selected text changed. Select it again before commenting."
 msgstr "所选文本已更改。请重新选择后再评论。"
 
@@ -9972,7 +8284,6 @@ msgid "The service is rate-limiting requests. No retry was made."
 msgstr "服务正在限流，未自动重试。"
 
 #: src/editor/markdown/engine/lattice-visual-editor.tsx
-#: src/editor/markdown/visual-markdown-editor.tsx
 msgid "The shared version is shown. Your visual draft was kept — copy it, or restore it and try again."
 msgstr "当前显示共享版本。你的可视化编辑草稿已保留——你可以复制草稿，或恢复后重试。"
 
@@ -10053,14 +8364,6 @@ msgstr "此评论还没有内容"
 msgid "This comment is no longer attached to any text, so Overleaf has nowhere to apply this."
 msgstr "此评论已不再关联任何文本，因此 Overleaf 无法应用此操作。"
 
-#: src/open-knowledge-app/editor/extensions/JsxComponentView.tsx
-msgid "This component changed. Try again."
-msgstr "此组件已更改，请重试。"
-
-#: src/open-knowledge-app/editor/extensions/JsxComponentView.tsx
-msgid "This component was removed."
-msgstr "此组件已被移除。"
-
 #: src/history/conflict-resolver.tsx
 msgid "This computer"
 msgstr "本机"
@@ -10074,7 +8377,6 @@ msgid "This computer removed this part."
 msgstr "本机删除了这一部分。"
 
 #: src/editor/markdown/engine/lattice-visual-editor.tsx
-#: src/editor/markdown/visual-markdown-editor.tsx
 msgid "This document changed in the same place"
 msgstr "此文档的同一位置已被修改"
 
@@ -10172,10 +8474,6 @@ msgstr "此步骤可能需要一分钟"
 msgid "Three ways to look at a document"
 msgstr "查看文档的三种方式"
 
-#: src/open-knowledge-app/editor/slash-command/component-items.tsx
-msgid "Thumbnails"
-msgstr "缩略图"
-
 #: src/editor/latex/latex-command-completions.ts
 msgid "TikZ drawing"
 msgstr "TikZ 绘图"
@@ -10198,8 +8496,6 @@ msgstr "提示"
 
 #: src/editor/markdown/engine/views/code-block-view.tsx
 #: src/editor/markdown/engine/views/component-views.tsx
-#: src/open-knowledge-app/editor/extensions/CodeBlockView.tsx
-#: src/open-knowledge-app/editor/registry/descriptor-labels.ts
 #: src/papers/bib-entry-dialog.tsx
 #: src/papers/bibliography-audit.tsx
 msgid "Title"
@@ -10221,10 +8517,6 @@ msgstr "至"
 msgid "To (short right arrow)"
 msgstr "to（短右箭头）"
 
-#: src/open-knowledge-app/editor/slash-command/items.tsx
-msgid "To do"
-msgstr "待办事项"
-
 #: src/overleaf/overleaf-history.tsx
 msgid "Today"
 msgstr "今天"
@@ -10237,100 +8529,6 @@ msgstr "今天的日期"
 #: src/project/manuscript-checklist.tsx
 msgid "TODOs"
 msgstr "待办"
-
-#: src/editor/markdown/visual-slash-items.ts
-#: src/open-knowledge-app/editor/components/componentMap.tsx
-#: src/open-knowledge-app/editor/registry/descriptor-labels.ts
-msgid "Toggle"
-msgstr "折叠块"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Toggle a bullet list."
-msgstr "切换无序列表。"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Toggle a fenced code block."
-msgstr "切换围栏代码块。"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Toggle a source comment through CodeMirror."
-msgstr "通过 CodeMirror 切换源码注释。"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Toggle a task list."
-msgstr "切换任务列表。"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Toggle an ordered list."
-msgstr "切换有序列表。"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Toggle bold formatting."
-msgstr "切换粗体格式。"
-
-#: src/open-knowledge-app/editor/table-controls/TableCellHandles.tsx
-msgid "Toggle header column"
-msgstr "切换表头列"
-
-#: src/open-knowledge-app/editor/table-controls/TableCellHandles.tsx
-msgid "Toggle header row"
-msgstr "切换表头行"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Toggle heading levels 1 through 6."
-msgstr "切换一至六级标题。"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Toggle highlight formatting."
-msgstr "切换高亮格式。"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Toggle inline code formatting."
-msgstr "切换行内代码格式。"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Toggle italic formatting."
-msgstr "切换斜体格式。"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Toggle source comment"
-msgstr "切换源码注释"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Toggle source tab focus mode"
-msgstr "切换源码 Tab 键焦点模式"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Toggle source view"
-msgstr "切换源码视图"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Toggle strikethrough formatting."
-msgstr "切换删除线格式。"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Toggle Terminal in its current dock."
-msgstr "在当前停靠位置显示或隐藏终端。"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Toggle the left file sidebar."
-msgstr "显示或隐藏左侧文件侧边栏。"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Toggle the right agents panel, where agent conversations live."
-msgstr "显示或隐藏右侧的智能助手面板（智能助手对话所在处）。"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Toggle the right document panel."
-msgstr "显示或隐藏右侧文档面板。"
-
-#: src/open-knowledge-app/editor/components/Pdf.tsx
-msgid "Toggle thumbnails"
-msgstr "切换缩略图"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Toggle underline formatting."
-msgstr "切换下划线格式。"
 
 #: src/app/use-overleaf-workspace.ts
 msgid "Too large for Overleaf, so left on this machine: {files}."
@@ -10359,14 +8557,6 @@ msgstr "追踪此项目的版本，即可看到谁改了什么，并安全地回
 #: src/overleaf/overleaf-connect.tsx
 msgid "Trashed"
 msgstr "已移入回收站"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Traverse OpenKnowledge navigation history backward."
-msgstr "在 OpenKnowledge 导航历史中后退。"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Traverse OpenKnowledge navigation history forward."
-msgstr "在 OpenKnowledge 导航历史中前进。"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Triangle"
@@ -10412,16 +8602,7 @@ msgstr "教程进度：第 {0} 步，共 {size} 步"
 msgid "Two files side by side"
 msgstr "并排显示两个文件"
 
-#: src/open-knowledge-app/editor/components/Pdf.tsx
-msgid "Two-page (even)"
-msgstr "双页（偶数页在左）"
-
-#: src/open-knowledge-app/editor/components/Pdf.tsx
-msgid "Two-page (odd)"
-msgstr "双页（奇数页在左）"
-
 #: src/editor/markdown/engine/views/component-views.tsx
-#: src/open-knowledge-app/editor/registry/descriptor-labels.ts
 #: src/papers/bib-entry-dialog.tsx
 msgid "Type"
 msgstr "类型"
@@ -10429,10 +8610,6 @@ msgstr "类型"
 #: src/onboarding/onboarding-tour.tsx
 msgid "Type directly in the formatted view without Markdown syntax. On an empty line, press / to insert headings, tables, math, or images"
 msgstr "无需 Markdown 语法，直接在格式化视图中输入。在空行中按 / 可插入标题、表格、公式或图片"
-
-#: src/open-knowledge-app/editor/components/CodePreviewEditModal.tsx
-msgid "Type to edit; <0>Cmd/Ctrl+Enter</0> saves, <1>Esc</1> cancels."
-msgstr "直接输入即可编辑；<0>Cmd/Ctrl+Enter</0> 保存，<1>Esc</1> 取消。"
 
 #: src/editor/latex/latex-command-completions.ts
 msgid "Typeset a URL"
@@ -10473,8 +8650,6 @@ msgstr "行内公式 {open} 未闭合。"
 #: src/editor/insert/insert-snippets.ts
 #: src/editor/latex/latex-selection-toolbar.tsx
 #: src/editor/markdown/engine/chrome/selection-toolbar.tsx
-#: src/open-knowledge-app/editor/bubble-menu/InlineFormatButtons.tsx
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
 msgid "Underline"
 msgstr "下划线"
 
@@ -10487,25 +8662,9 @@ msgctxt "macOS menu bar"
 msgid "Undo"
 msgstr "撤销"
 
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Undo or redo"
-msgstr "撤销或重做"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Undo or redo visual-editor changes through TipTap collaboration history."
-msgstr "通过 TipTap 协作历史撤销或重做可视化编辑器中的更改。"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Undo or redo your own edits, leaving edits from collaborators and agents in place."
-msgstr "撤销或重做你自己的编辑，协作者和智能助手的编辑保持不变。"
-
 #: src/history/history-drawer.tsx
 msgid "Undo this Agent turn's file changes"
 msgstr "撤销这轮智能助手对文件的更改"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Undo, redo, or step through selection changes in the Edit source pane or a code-shaped property field."
-msgstr "在编辑源码窗格或代码类属性字段中撤销、重做或逐步浏览选区变化。"
 
 #: src/telemetry/global-error-capture.ts
 msgid "Unexpected error"
@@ -10531,11 +8690,6 @@ msgstr "未处理的 Promise 拒绝"
 msgid "Union"
 msgstr "并集"
 
-#: src/open-knowledge-app/editor/extensions/RawMdxFallbackCMView.tsx
-#: src/open-knowledge-app/editor/utils/severity.ts
-msgid "unknown"
-msgstr "未知"
-
 #: src/history/versions-timeline.tsx
 #: src/overleaf/overleaf-history.tsx
 #: src/overleaf/use-overleaf-track-changes.ts
@@ -10554,18 +8708,6 @@ msgstr "未知的引用键“{key}”。"
 #: src/editor/markdown/engine/views/raw-block-view.tsx
 msgid "Unknown component: {componentName}"
 msgstr "未知组件：{componentName}"
-
-#: src/open-knowledge-app/editor/extensions/JsxComponentView.tsx
-msgid "Unknown component: {componentName} — source editable below"
-msgstr "未知组件：{componentName} — 可在下方编辑源码"
-
-#: src/open-knowledge-app/editor/extensions/RawMdxFallbackCMView.tsx
-msgid "Unknown component: {unregisteredComponentName}"
-msgstr "未知组件：{unregisteredComponentName}"
-
-#: src/open-knowledge-app/editor/utils/validate-css-length.ts
-msgid "Unknown CSS unit. Use px, %, rem, em, vh, vw, ch, ex, or fr."
-msgstr "未知的 CSS 单位。请使用 px、%、rem、em、vh、vw、ch、ex 或 fr。"
 
 #: src/editor/latex/latex-diagnostics.ts
 msgid "Unknown label “{key}”."
@@ -10596,8 +8738,6 @@ msgid "Unnumbered single-line equation"
 msgstr "不编号的单行公式"
 
 #: src/editor/markdown/engine/chrome/slash-items.ts
-#: src/editor/markdown/visual-slash-items.ts
-#: src/open-knowledge-app/editor/slash-command/items.tsx
 msgid "Unordered list of items."
 msgstr "无序项目列表。"
 
@@ -10609,14 +8749,6 @@ msgstr "Unpaywall"
 msgid "Unpin tab"
 msgstr "取消固定标签页"
 
-#: src/open-knowledge-app/editor/utils/validate-media-url.ts
-msgid "Unrecognized {name} URL. Paste a valid {name} share or embed link, or a direct video file URL."
-msgstr "无法识别的 {name} URL。请粘贴有效的 {name} 分享或嵌入链接，或视频文件的直链 URL。"
-
-#: src/open-knowledge-app/editor/extensions/RawMdxFallbackCMView.tsx
-msgid "Unregistered component: {unregisteredComponentName}"
-msgstr "未注册组件：{unregisteredComponentName}"
-
 #: src/overleaf/overleaf-comments.tsx
 msgid "Unresolved"
 msgstr "未解决"
@@ -10625,10 +8757,6 @@ msgstr "未解决"
 msgid "Unsaved changes"
 msgstr "未保存的更改"
 
-#: src/open-knowledge-app/editor/utils/validate-media-url.ts
-msgid "Unsupported extension .{extension}. Accepts: {accepted}."
-msgstr "不支持扩展名 .{extension}。支持：{accepted}。"
-
 #: src/editor/spreadsheet/spreadsheet-yjs.ts
 msgid "Unsupported spreadsheet collaboration format: {version}"
 msgstr "不支持的电子表格协作格式：{version}"
@@ -10636,10 +8764,6 @@ msgstr "不支持的电子表格协作格式：{version}"
 #: src/editor/markdown/engine/views/component-views.tsx
 msgid "Untitled"
 msgstr "无标题"
-
-#: src/open-knowledge-app/editor/components/File.tsx
-msgid "Untitled file"
-msgstr "未命名文件"
 
 #: src/App.tsx
 msgid "Untitled research"
@@ -10726,21 +8850,9 @@ msgstr "将“{name}”上传到 Overleaf 并连接此文件夹？\n"
 msgid "Upload and connect"
 msgstr "上传并连接"
 
-#: src/open-knowledge-app/editor/components/PropPanel.tsx
-msgid "Upload failed: {message}"
-msgstr "上传失败：{message}"
-
-#: src/open-knowledge-app/editor/components/PropPanel.tsx
-msgid "Upload from computer"
-msgstr "从电脑上传"
-
 #: src/overleaf/overleaf-connect.tsx
 msgid "Upload this project to Overleaf"
 msgstr "将此项目上传到 Overleaf"
-
-#: src/open-knowledge-app/editor/components/PropPanel.tsx
-msgid "Uploading"
-msgstr "正在上传"
 
 #. placeholder {0}: publishName.trim()
 #: src/overleaf/overleaf-connect.tsx
@@ -10762,10 +8874,6 @@ msgstr "宇普西龙"
 #: src/papers/bibliography-audit.tsx
 msgid "URL"
 msgstr "URL"
-
-#: src/open-knowledge-app/editor/components/Embed.tsx
-msgid "URL must start with http:// or https://"
-msgstr "URL 必须以 http:// 或 https:// 开头"
 
 #: src/onboarding/onboarding-tour.tsx
 msgid "Use + to create a presentation, spreadsheet, or board"
@@ -10794,10 +8902,6 @@ msgstr "在无限画布中绘制图表、箭头和手写笔记。每个形状都
 #: src/settings/literature-settings.tsx
 msgid "Use your own API quota for paper searches, imports, and citation checks."
 msgstr "为文献搜索、导入和引用检查配置个人 API 额度。"
-
-#: src/open-knowledge-app/editor/slash-command/embed-starter-items.tsx
-msgid "Users"
-msgstr "用户"
 
 #: src/settings/literature-settings.tsx
 msgid "Using environment key"
@@ -10928,10 +9032,6 @@ msgstr "垂直间距"
 msgid "via texcount -inc"
 msgstr "通过 texcount -inc 统计"
 
-#: src/open-knowledge-app/editor/registry/descriptor-labels.ts
-msgid "Video"
-msgstr "视频"
-
 #: src/App.tsx
 msgid "View"
 msgstr "视图"
@@ -10941,18 +9041,9 @@ msgctxt "macOS menu bar"
 msgid "View"
 msgstr "显示"
 
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "View in source"
-msgstr "在源码中查看"
-
 #: src/editor/markdown/engine/chrome/selection-toolbar.tsx
-#: src/open-knowledge-app/editor/bubble-menu/ViewInSourceBubbleButton.tsx
 msgid "View in source Markdown"
 msgstr "在 Markdown 源码中查看"
-
-#: src/open-knowledge-app/editor/components/Mermaid.tsx
-msgid "View only"
-msgstr "仅查看"
 
 #: src/canvas/paper-reader.tsx
 msgid "View original PDF"
@@ -10970,60 +9061,17 @@ msgstr "Vim 和 Emacs 的模式键位仅在编辑器内生效"
 msgid "Vim mode"
 msgstr "Vim 模式"
 
-#: src/open-knowledge-app/editor/components/Video.tsx
-msgid "Vimeo video player"
-msgstr "Vimeo 视频播放器"
-
 #: src/components/ui/apple-color-picker.tsx
 msgid "Violet"
 msgstr "紫罗兰色"
 
 #: src/editor/markdown/engine/lattice-visual-editor.tsx
-#: src/editor/markdown/visual-markdown-editor.tsx
 msgid "Visual editing is unavailable because this Markdown contains unsupported or lossy syntax. Use source mode to preserve it."
 msgstr "此 Markdown 包含不受支持或会丢失信息的语法，无法进行可视化编辑。请使用源码模式以保留原内容。"
 
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Visual editor"
-msgstr "可视化编辑器"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Visual editor find input focused"
-msgstr "可视化编辑器查找输入框已聚焦"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Visual editor find open"
-msgstr "可视化编辑器查找已打开"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Visual editor list item"
-msgstr "可视化编辑器列表项"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Visual editor replace input focused"
-msgstr "可视化编辑器替换输入框已聚焦"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Visual editor selection"
-msgstr "可视化编辑器选区"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Visual editor table"
-msgstr "可视化编辑器表格"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Visual editor table selection"
-msgstr "可视化编辑器表格选区"
-
 #: src/editor/markdown/engine/passive-view.tsx
-#: src/editor/markdown/visual-markdown-editor.tsx
-#: src/editor/markdown/visual-passive-viewport.tsx
 msgid "Visual Markdown editor"
 msgstr "可视化 Markdown 编辑器"
-
-#: src/editor/markdown/visual-markdown-editor.tsx
-msgid "Visual Markdown handoff"
-msgstr "可视化 Markdown 切换"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Vmatrix"
@@ -11074,10 +9122,6 @@ msgstr "魏尔斯特拉斯 p"
 msgid "Welcome to Lattice"
 msgstr "欢迎使用 Lattice"
 
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "When the Comments tab is open"
-msgstr "评论标签页打开时"
-
 #: src/overleaf/overleaf-connect.tsx
 msgid "When you delete a file here"
 msgstr "当你在这里删除文件时"
@@ -11087,13 +9131,11 @@ msgid "White"
 msgstr "白色"
 
 #: src/editor/latex/search-panel.ts
-#: src/editor/markdown/visual-markdown-find-replace.tsx
 #: src/pdf/pdf-viewer.tsx
 msgid "Whole word"
 msgstr "全词匹配"
 
 #: src/editor/insert/figure-insert-dialog.tsx
-#: src/open-knowledge-app/editor/registry/descriptor-labels.ts
 msgid "Width"
 msgstr "宽度"
 
@@ -11105,24 +9147,7 @@ msgstr "当前行宽"
 msgid "Width of the text block"
 msgstr "版心宽度"
 
-#: src/open-knowledge-app/editor/registry/descriptor-labels.ts
-msgid "Wiki Embed Audio"
-msgstr "Wiki 嵌入音频"
-
-#: src/open-knowledge-app/editor/registry/descriptor-labels.ts
-msgid "Wiki Embed File"
-msgstr "Wiki 嵌入文件"
-
-#: src/open-knowledge-app/editor/registry/descriptor-labels.ts
-msgid "Wiki Embed Image"
-msgstr "Wiki 嵌入图片"
-
-#: src/open-knowledge-app/editor/registry/descriptor-labels.ts
-msgid "Wiki Embed Video"
-msgstr "Wiki 嵌入视频"
-
 #: src/editor/markdown/engine/chrome/references.tsx
-#: src/editor/markdown/visual-wiki-link-suggestion.tsx
 msgid "Wiki link suggestions"
 msgstr "Wiki 链接建议"
 
@@ -11147,10 +9172,6 @@ msgstr "数学模式中的词语"
 #: src/project/paper-library.tsx
 msgid "Working…"
 msgstr "正在处理…"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Workspace"
-msgstr "工作区"
 
 #: src/project/project-dialogs.tsx
 msgid "Wrap in environment"
@@ -11192,10 +9213,6 @@ msgstr "暂无年份信息"
 #: src/components/ui/apple-color-picker.tsx
 msgid "Yellow"
 msgstr "黄色"
-
-#: src/open-knowledge-app/editor/slash-command/component-items.tsx
-msgid "yes"
-msgstr "是"
 
 #: src/overleaf/overleaf-history.tsx
 msgid "Yesterday"
@@ -11243,10 +9260,6 @@ msgstr "Overleaf 登录已过期。请重新登录以继续操作；本地文件
 msgid "Your project files are safe. Restart Lattice to reopen the window, or copy the error details if the problem continues."
 msgstr "你的项目文件安全无虞。重新启动 Lattice 即可重新打开窗口；如问题仍然存在，请复制错误详情。"
 
-#: src/open-knowledge-app/editor/components/Video.tsx
-msgid "YouTube video player"
-msgstr "YouTube 视频播放器"
-
 #: src/editor/insert/insert-snippets.ts
 msgid "Zeta"
 msgstr "泽塔"
@@ -11262,16 +9275,12 @@ msgstr "缩放"
 
 #: src/canvas/zoom-controls.tsx
 #: src/editor/markdown/engine/views/mermaid-preview.tsx
-#: src/open-knowledge-app/editor/components/Mermaid.tsx
-#: src/open-knowledge-app/editor/components/Pdf.tsx
 #: src/pdf/pdf-viewer.tsx
 msgid "Zoom in"
 msgstr "放大"
 
 #: src/canvas/zoom-controls.tsx
 #: src/editor/markdown/engine/views/mermaid-preview.tsx
-#: src/open-knowledge-app/editor/components/Mermaid.tsx
-#: src/open-knowledge-app/editor/components/Pdf.tsx
 #: src/pdf/pdf-viewer.tsx
 msgid "Zoom out"
 msgstr "缩小"

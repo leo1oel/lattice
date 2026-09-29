@@ -57,7 +57,6 @@ export class MarkdownWorkspaceIndex {
   private readonly pageSearch = new PageSearchIndex();
   private pendingFiles: FileNode[] | null = null;
   private updatePromise: Promise<void> | null = null;
-  private listeners = new Set<() => void>();
 
   constructor(private readonly readFile: (path: string) => Promise<string>) {}
 
@@ -106,27 +105,11 @@ export class MarkdownWorkspaceIndex {
     return this.docs.find((doc) => doc.docName.toLowerCase() === key);
   }
 
-  /** Current Markdown source for read-only cross-document projections such as Mirror. */
-  contentFor(docName: string): string | undefined {
-    return this.getDoc(docName)?.content;
-  }
-
-  /**
-   * The index is mutated in place and never changes identity, so a consumer
-   * that renders index content has to subscribe and take the content itself
-   * as its snapshot — see `Mirror` in open-knowledge-app/editor/components/Mirror-host.tsx.
-   */
-  subscribe(listener: () => void): () => void {
-    this.listeners.add(listener);
-    return () => this.listeners.delete(listener);
-  }
-
   private replaceDocs(docs: MarkdownDocEntry[]): void {
     this.docs = docs;
     // Page search reads names only and keeps the analysis of every page
     // whose name is unchanged, so a publication of one edited document does
     // not re-tokenize the workspace.
     this.pageSearch.update(docs.map((doc) => ({ path: doc.docName, title: doc.title })));
-    for (const listener of this.listeners) listener();
   }
 }

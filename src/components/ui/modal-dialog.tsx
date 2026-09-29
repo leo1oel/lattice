@@ -48,8 +48,7 @@ export function ModalDialog(props: {
           // Toasts sit above the modal layer so a failure raised *by* this
           // dialog stays readable. That also makes a click on one look like an
           // outside interaction — dismissing a toast would close the dialog
-          // under it and lose the work. Same guard as the vendored editor's
-          // `ignoreToastInteractOutside`.
+          // under it and lose the work.
           || originalTarget.closest("[data-app-toast]")))
     ) {
       event.preventDefault();

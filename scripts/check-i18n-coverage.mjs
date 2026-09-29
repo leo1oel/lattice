@@ -19,9 +19,7 @@ const shippingFiles = (await readdir(path.join(root, "src"), { recursive: true }
   .filter((file) => /\.tsx?$/.test(file)
     && !/\.test\.tsx?$/.test(file)
     && file !== "src/platform/test-setup.ts"
-    && !file.startsWith("src/locales/")
-    && !file.startsWith("src/open-knowledge-app/")
-    && !file.startsWith("src/open-knowledge-core/"));
+    && !file.startsWith("src/locales/"));
 for (const file of shippingFiles) {
   const config = await eslint.calculateConfigForFile(path.join(root, file));
   const severity = [config?.rules?.[ruleId]].flat()[0];

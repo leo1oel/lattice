@@ -73,9 +73,7 @@ vi.mock("./canvas-lazy-modules", () => {
   );
   return {
     loadPdfPreviewModule: async () => ({ PdfPreview }),
-    // The Lattice engine is the default; the vendored loader stays for the hidden fallback.
-    loadLatticeVisualEditorModule: async () => ({ LatticeVisualMarkdownEditor: editorStub("visual-markdown-editor") }),
-    loadVisualMarkdownEditorModule: async () => ({ VisualMarkdownEditor: editorStub("visual-markdown-editor") }),
+    loadVisualMarkdownEditorModule: async () => ({ LatticeVisualMarkdownEditor: editorStub("visual-markdown-editor") }),
     loadBoardEditorModule: async () => ({ BoardEditor: editorStub("board-editor") }),
     loadSpreadsheetEditorModule: async () => ({ SpreadsheetEditor: editorStub("spreadsheet-editor") }),
     loadOpenSlideWorkspaceModule: async () => ({ OpenSlideWorkspace }),
