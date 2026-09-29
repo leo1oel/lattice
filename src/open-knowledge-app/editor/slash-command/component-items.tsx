@@ -139,7 +139,7 @@ const PREVIEW_CONFIG: Record<string, PreviewConfig> = {
         <div className="flex items-center gap-1 border-b border-border bg-muted/40 px-1.5 py-1">
           {/* Thumbnails toggle (2x2 dots) */}
           <svg viewBox="0 0 12 12" className="size-3 text-muted-foreground" aria-hidden="true">
-            <title>Thumbnails</title>
+            <title>{t`Thumbnails`}</title>
             <rect x="1" y="1" width="4" height="4" fill="currentColor" rx="0.5" />
             <rect x="7" y="1" width="4" height="4" fill="currentColor" rx="0.5" />
             <rect x="1" y="7" width="4" height="4" fill="currentColor" rx="0.5" />
@@ -187,7 +187,7 @@ const PREVIEW_CONFIG: Record<string, PreviewConfig> = {
         aria-hidden="true"
         preserveAspectRatio="xMidYMid meet"
       >
-        <title>Mermaid flowchart preview</title>
+        <title>{t`Mermaid flowchart preview`}</title>
         <defs>
           <marker
             id="mermaid-preview-arrow"
@@ -214,7 +214,7 @@ const PREVIEW_CONFIG: Record<string, PreviewConfig> = {
           strokeOpacity="0.7"
         />
         <text x="42" y="38" textAnchor="middle" fontSize="10" fill="currentColor">
-          Start
+          <Trans>Start</Trans>
         </text>
         {/* Decision (diamond) */}
         <polygon
@@ -225,7 +225,7 @@ const PREVIEW_CONFIG: Record<string, PreviewConfig> = {
           strokeOpacity="0.7"
         />
         <text x="100" y="54" textAnchor="middle" fontSize="10" fill="currentColor">
-          Ready?
+          <Trans>Ready?</Trans>
         </text>
         {/* End (rounded) */}
         <rect
@@ -240,7 +240,7 @@ const PREVIEW_CONFIG: Record<string, PreviewConfig> = {
           strokeOpacity="0.7"
         />
         <text x="158" y="102" textAnchor="middle" fontSize="10" fill="currentColor">
-          End
+          <Trans>End</Trans>
         </text>
         {/* Edges */}
         <line
@@ -264,7 +264,7 @@ const PREVIEW_CONFIG: Record<string, PreviewConfig> = {
           markerEnd="url(#mermaid-preview-arrow)"
         />
         <text x="138" y="74" fontSize="8" fill="currentColor" opacity="0.6">
-          yes
+          <Trans>yes</Trans>
         </text>
       </svg>
     ),
@@ -278,9 +278,9 @@ const PREVIEW_CONFIG: Record<string, PreviewConfig> = {
       <div className="space-y-1.5">
         <div className="flex gap-1 border-b border-border pb-1">
           <span className="rounded-md bg-foreground/10 px-2 py-0.5 text-xs font-medium text-foreground">
-            Tab 1
+            <Trans>Tab 1</Trans>
           </span>
-          <span className="rounded-md px-2 py-0.5 text-xs text-muted-foreground">Tab 2</span>
+          <span className="rounded-md px-2 py-0.5 text-xs text-muted-foreground"><Trans>Tab 2</Trans></span>
         </div>
         <p className="px-1 text-xs text-muted-foreground">
           <Trans>Active panel content for the selected tab shows here.</Trans>
@@ -527,8 +527,8 @@ function createInsertCommand(
       const tab2 = createChildNode('Tab');
       const tab1Attrs = tab1.attrs as Record<string, unknown>;
       const tab2Attrs = tab2.attrs as Record<string, unknown>;
-      tab1Attrs.props = { ...(tab1Attrs.props as Record<string, unknown>), label: 'Tab 1' };
-      tab2Attrs.props = { ...(tab2Attrs.props as Record<string, unknown>), label: 'Tab 2' };
+      tab1Attrs.props = { ...(tab1Attrs.props as Record<string, unknown>), label: t`Tab 1` };
+      tab2Attrs.props = { ...(tab2Attrs.props as Record<string, unknown>), label: t`Tab 2` };
       (inserted as Record<string, unknown>).content = [tab1, tab2];
     }
     chain().insertContent(inserted).run();

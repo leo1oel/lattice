@@ -34,8 +34,6 @@ import { logAction } from "../telemetry/app-notify";
 import { PIERRE_UNSAFE_CSS, usePierreResources } from "./pierre-diff";
 import "./conflict-resolver.css";
 
-/** Notification source label for conflict resolution. */
-
 const createEditor = (options: EditorOptions<undefined>) => new Editor(options);
 
 function ConflictSide(props: {

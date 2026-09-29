@@ -273,7 +273,7 @@ export function RawMdxFallbackView({ node, editor, getPos }: NodeViewProps) {
   // it is localized here, where it is shown, rather than where it is stamped.
   const renderErrorReason = severity === 'warn' ? RENDER_ERROR_REASON.exec(reason) : null;
   const failedComponent = renderErrorReason ? childComponentLabel(renderErrorReason[1] ?? '') : '';
-  const failureDetail = renderErrorReason?.[2] ?? '';
+  const failureDetail = renderErrorReason?.[2] === 'unknown' ? t`unknown` : (renderErrorReason?.[2] ?? '');
   const displayReason =
     unregisteredComponentName !== null
       ? t`Unregistered component: ${unregisteredComponentName}`

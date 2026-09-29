@@ -1,9 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { useLingui } from "@lingui/react/macro";
-import { msg } from "@lingui/core/macro";
 import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { i18n } from "../i18n";
 import { loadOverleafRemoteDelete, loadOverleafSyncMode, type OverleafRemoteDelete, type OverleafSyncMode } from "../settings/app-settings";
 import { logAction } from "../telemetry/app-notify";
 import { diagnosticInvoke } from "../telemetry/diagnostic-request";
@@ -20,6 +18,7 @@ import { type PresenceCursor } from "../overleaf/overleaf-editor-extensions";
 import type { OverleafCollabTab } from "../overleaf/overleaf-collab";
 import type { EditorComment } from "../editor/comments/editor-comment-data";
 import { hasConflictMarkers } from "../history/conflict-markers";
+import { AUTO_COMMIT_MESSAGES } from "../history/version-messages";
 import type {
   AssetPreview, BuildResult, EditorPosition, FileViewState, OverleafLink, OverleafProbe, OverleafStatus,
   OverleafSyncResult, PaperSummary, ProjectSnapshot, RefreshProject, ViewRestoreRequest,
@@ -515,7 +514,7 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
       // the filesystem watcher and reloaded unrelated previews.
       if (incoming || hadUnsavedEdits || result.pushed.length > 0) {
         void invoke<string | null>("git_auto_commit", {
-          message: t`Overleaf sync`, author: authorName.trim() || null, projectRoot: syncRoot,
+          message: AUTO_COMMIT_MESSAGES.overleafSync, author: authorName.trim() || null, projectRoot: syncRoot,
         }).catch(() => {});
       }
       refreshOverleafLink();
@@ -918,7 +917,7 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
     if (now - lastAutoVersionRef.current < 120_000) return;
     lastAutoVersionRef.current = now;
     void invoke<string | null>("git_auto_commit", {
-      message: i18n._(msg`Auto-saved version`), author: authorName.trim() || null,
+      message: AUTO_COMMIT_MESSAGES.autoSaved, author: authorName.trim() || null,
     }).catch(() => {});
   }, [authorName, build, overleafLink]);
 

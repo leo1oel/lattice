@@ -390,6 +390,10 @@ msgstr "{warnings} warnings"
 msgid "{words} words · {chars} chars"
 msgstr "{words} words · {chars} chars"
 
+#: src/open-knowledge-app/editor/components/ColorPickerInput.tsx
+msgid "#F05032 or rgb(240,80,50)"
+msgstr "#F05032 or rgb(240,80,50)"
+
 #: src/open-knowledge-app/editor/extensions/JsxComponentView.tsx
 msgid "+ Add {addChildName}"
 msgstr "+ Add {addChildName}"
@@ -533,6 +537,7 @@ msgid "Access forbidden by provider"
 msgstr "Access forbidden by provider"
 
 #: src/editor/markdown/visual-slash-items.ts
+#: src/open-knowledge-app/editor/components/Accordion.tsx
 #: src/open-knowledge-app/editor/registry/descriptor-labels.ts
 msgid "Accordion"
 msgstr "Accordion"
@@ -690,6 +695,10 @@ msgstr "Added “{title}” to the bibliography. No full text to open."
 #: src/app/use-reference-import.ts
 msgid "Added “{title}” to the bibliography. The full text could not be downloaded: {fetchNote}"
 msgstr "Added “{title}” to the bibliography. The full text could not be downloaded: {fetchNote}"
+
+#: src/open-knowledge-app/editor/slash-command/items.tsx
+msgid "Admiral"
+msgstr "Admiral"
 
 #: src/open-knowledge-app/editor/components/PropPanel.tsx
 msgid "Advanced"
@@ -1051,7 +1060,7 @@ msgstr "Authors unavailable and unchecked"
 msgid "Authors unchecked"
 msgstr "Authors unchecked"
 
-#: src/app/use-overleaf-workspace.ts
+#: src/history/version-messages.ts
 msgid "Auto-saved version"
 msgstr "Auto-saved version"
 
@@ -1865,6 +1874,10 @@ msgstr "Clear"
 #: src/open-knowledge-app/editor/components/ColorPickerInput.tsx
 msgid "Clear color"
 msgstr "Clear color"
+
+#: src/open-knowledge-app/editor/components/IconPickerInput.tsx
+msgid "Clear icon"
+msgstr "Clear icon"
 
 #: src/telemetry/app-log.tsx
 msgid "Clear log search"
@@ -3022,6 +3035,10 @@ msgstr "Downloading full text and figures…"
 msgid "Downloading update…"
 msgstr "Downloading update…"
 
+#: src/open-knowledge-app/editor/slash-command/embed-starter-items.tsx
+msgid "Drag to adjust"
+msgstr "Drag to adjust"
+
 #: src/papers/paper-lookup.tsx
 msgid "Drag to cite · Click to read"
 msgstr "Drag to cite · Click to read"
@@ -3373,9 +3390,17 @@ msgstr "Empty set (variant)"
 msgid "Enable version tracking"
 msgstr "Enable version tracking"
 
+#: src/open-knowledge-app/editor/slash-command/component-items.tsx
+msgid "End"
+msgstr "End"
+
 #: src/editor/latex/latex-command-completions.ts
 msgid "End an environment"
 msgstr "End an environment"
+
+#: src/open-knowledge-app/editor/slash-command/items.tsx
+msgid "Engineer"
+msgstr "Engineer"
 
 #: src/settings/settings-dialog.tsx
 msgid "English"
@@ -4485,6 +4510,10 @@ msgstr "Info"
 msgid "INFO"
 msgstr "INFO"
 
+#: src/history/version-messages.ts
+msgid "Initialize version tracking"
+msgstr "Initialize version tracking"
+
 #: src/editor/insert/insert-snippets.ts
 msgid "Inline another TeX file"
 msgstr "Inline another TeX file"
@@ -5353,6 +5382,10 @@ msgstr "Loop"
 msgid "LuaLaTeX engine"
 msgstr "LuaLaTeX engine"
 
+#: src/open-knowledge-app/editor/components/IconPickerInput.tsx
+msgid "lucide:Lightbulb or 📘"
+msgstr "lucide:Lightbulb or 📘"
+
 #: src/components/ui/apple-color-picker.tsx
 msgid "Magenta"
 msgstr "Magenta"
@@ -5481,6 +5514,10 @@ msgstr "Mermaid diagram controls"
 #: src/open-knowledge-app/editor/components/Mermaid.tsx
 msgid "Mermaid diagram failed to render."
 msgstr "Mermaid diagram failed to render."
+
+#: src/open-knowledge-app/editor/slash-command/component-items.tsx
+msgid "Mermaid flowchart preview"
+msgstr "Mermaid flowchart preview"
 
 #: src/open-knowledge-app/editor/extensions/CodeBlockView.tsx
 msgid "Mermaid preview"
@@ -6756,7 +6793,7 @@ msgstr "Overleaf replayed updates before Lattice could identify this connection.
 msgid "Overleaf sent version {version} while this document is at {current}."
 msgstr "Overleaf sent version {version} while this document is at {current}."
 
-#: src/app/use-overleaf-workspace.ts
+#: src/history/version-messages.ts
 msgid "Overleaf sync"
 msgstr "Overleaf sync"
 
@@ -7479,6 +7516,10 @@ msgstr "Ready to compile"
 msgid "Ready to install"
 msgstr "Ready to install"
 
+#: src/open-knowledge-app/editor/slash-command/component-items.tsx
+msgid "Ready?"
+msgstr "Ready?"
+
 #: src/editor/insert/insert-snippets.ts
 msgid "Real part"
 msgstr "Real part"
@@ -8067,6 +8108,10 @@ msgstr "Restore only {0}"
 msgid "Restore project"
 msgstr "Restore project"
 
+#: src/history/version-messages.ts
+msgid "Restore project to {restored}"
+msgstr "Restore project to {restored}"
+
 #: src/history/versions-timeline.tsx
 msgid "Restore project to this version"
 msgstr "Restore project to this version"
@@ -8135,6 +8180,10 @@ msgstr "Retry"
 #: src/pdf/pdf-viewer.tsx
 msgid "Reveal cursor in PDF (⌘⇧J)"
 msgstr "Reveal cursor in PDF (⌘⇧J)"
+
+#: src/open-knowledge-app/editor/slash-command/embed-starter-items.tsx
+msgid "Revenue"
+msgstr "Revenue"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Reverse turnstile"
@@ -8348,7 +8397,7 @@ msgstr "Saved key removed."
 msgid "Saved to {path}"
 msgstr "Saved to {path}"
 
-#: src/history/versions-timeline.tsx
+#: src/history/version-messages.ts
 msgid "Saved version"
 msgstr "Saved version"
 
@@ -9088,6 +9137,10 @@ msgstr "Stale result"
 msgid "Star operator"
 msgstr "Star operator"
 
+#: src/open-knowledge-app/editor/slash-command/component-items.tsx
+msgid "Start"
+msgstr "Start"
+
 #: src/open-knowledge-app/lib/keyboard-shortcuts.ts
 msgid "Start a bug report with a screenshot of the screen as it looks right now."
 msgstr "Start a bug report with a screenshot of the screen as it looks right now."
@@ -9359,9 +9412,22 @@ msgstr "SyncTeX bidirectional search"
 msgid "Syntax-highlighted listing (listings)"
 msgstr "Syntax-highlighted listing (listings)"
 
+#: src/open-knowledge-app/editor/components/Tab.tsx
 #: src/open-knowledge-app/editor/registry/descriptor-labels.ts
 msgid "Tab"
 msgstr "Tab"
+
+#: src/open-knowledge-app/editor/components/Tabs.tsx
+msgid "Tab {tabNumber}"
+msgstr "Tab {tabNumber}"
+
+#: src/open-knowledge-app/editor/slash-command/component-items.tsx
+msgid "Tab 1"
+msgstr "Tab 1"
+
+#: src/open-knowledge-app/editor/slash-command/component-items.tsx
+msgid "Tab 2"
+msgstr "Tab 2"
 
 #: src/editor/latex/latex-text.ts
 msgid "table"
@@ -9391,9 +9457,14 @@ msgid "Table preview"
 msgstr "Table preview"
 
 #: src/editor/markdown/visual-slash-items.ts
+#: src/open-knowledge-app/editor/components/Tabs.tsx
 #: src/open-knowledge-app/editor/registry/descriptor-labels.ts
 msgid "Tabs"
 msgstr "Tabs"
+
+#: src/open-knowledge-app/editor/components/Tabs.tsx
+msgid "Tabs: {id}"
+msgstr "Tabs: {id}"
 
 #: src/open-knowledge-app/lib/keyboard-shortcuts.ts
 msgid "Task list"
@@ -9826,6 +9897,10 @@ msgstr "This step may take a minute"
 msgid "Three ways to look at a document"
 msgstr "Three ways to look at a document"
 
+#: src/open-knowledge-app/editor/slash-command/component-items.tsx
+msgid "Thumbnails"
+msgstr "Thumbnails"
+
 #: src/editor/latex/latex-command-completions.ts
 msgid "TikZ drawing"
 msgstr "TikZ drawing"
@@ -9883,6 +9958,7 @@ msgid "TODOs"
 msgstr "TODOs"
 
 #: src/editor/markdown/visual-slash-items.ts
+#: src/open-knowledge-app/editor/components/componentMap.tsx
 #: src/open-knowledge-app/editor/registry/descriptor-labels.ts
 msgid "Toggle"
 msgstr "Toggle"
@@ -10172,6 +10248,7 @@ msgstr "Unhandled promise rejection"
 msgid "Union"
 msgstr "Union"
 
+#: src/open-knowledge-app/editor/extensions/RawMdxFallbackCMView.tsx
 #: src/open-knowledge-app/editor/utils/severity.ts
 msgid "unknown"
 msgstr "unknown"
@@ -10425,6 +10502,10 @@ msgstr "Use the infinite canvas for diagrams, arrows, and freehand notes. Every 
 #: src/settings/literature-settings.tsx
 msgid "Use your own API quota for paper searches, imports, and citation checks."
 msgstr "Use your own API quota for paper searches, imports, and citation checks."
+
+#: src/open-knowledge-app/editor/slash-command/embed-starter-items.tsx
+msgid "Users"
+msgstr "Users"
 
 #: src/settings/literature-settings.tsx
 msgid "Using environment key"
@@ -10815,6 +10896,10 @@ msgstr "Year unavailable"
 msgid "Yellow"
 msgstr "Yellow"
 
+#: src/open-knowledge-app/editor/slash-command/component-items.tsx
+msgid "yes"
+msgstr "yes"
+
 #: src/overleaf/overleaf-history.tsx
 msgid "Yesterday"
 msgstr "Yesterday"
@@ -10860,6 +10945,10 @@ msgstr "Your Overleaf session has expired. Sign in again to continue. Your local
 #: src/telemetry/root-error-boundary.tsx
 msgid "Your project files are safe. Restart Lattice to reopen the window, or copy the error details if the problem continues."
 msgstr "Your project files are safe. Restart Lattice to reopen the window, or copy the error details if the problem continues."
+
+#: src/open-knowledge-app/editor/components/Video.tsx
+msgid "YouTube video player"
+msgstr "YouTube video player"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Zeta"

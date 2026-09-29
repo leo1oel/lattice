@@ -131,7 +131,7 @@ export function usePdfDocument({
       clearLoadFeedback();
       const title = t`PDF could not be loaded`;
       const detail = reason ? toMessage(reason) : "";
-      addAppLog({ level: "warning", source: "PDF", title, detail: detail || undefined });
+      addAppLog({ level: "warning", source: "PDF", title, detail: detail || undefined, toast: false });
       if (!recordRef.current) {
         setPdfError(title);
         setPdfErrorDetail(detail);

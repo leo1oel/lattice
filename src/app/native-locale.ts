@@ -92,6 +92,23 @@ function syncQuietly(): void {
 
 const currentKey = () => `${i18n.locale}|${loadAppearance().interfaceLanguage}`;
 
+// The last locale and preference sent while the sync is installed; `null`
+// when it is not.
+let sent: string | null = null;
+
+/**
+ * Resend when the locale or the saved preference moved since the last send.
+ * Switching between "system" and an explicit language that resolves to the
+ * same locale changes only the preference, so no catalog change reports it.
+ */
+export function syncNativeLocaleIfChanged(): void {
+  if (sent === null) return;
+  const key = currentKey();
+  if (key === sent) return;
+  sent = key;
+  syncQuietly();
+}
+
 /**
  * Keep the native locale in step with the interface language. Call after the
  * startup catalog is active. The menu bar is app-wide while each window holds
@@ -100,14 +117,9 @@ const currentKey = () => `${i18n.locale}|${loadAppearance().interfaceLanguage}`;
 export function installNativeLocaleSync(): () => void {
   // Lingui also reports catalog loads as changes; only a new locale or
   // preference needs a rebuild.
-  let sent = currentKey();
+  sent = currentKey();
   syncQuietly();
-  const stopLocale = i18n.on("change", () => {
-    const key = currentKey();
-    if (key === sent) return;
-    sent = key;
-    syncQuietly();
-  });
+  const stopLocale = i18n.on("change", syncNativeLocaleIfChanged);
   let stopFocus = () => {};
   if (!isBrowserHosted()) {
     try {
@@ -120,6 +132,7 @@ export function installNativeLocaleSync(): () => void {
     }
   }
   return () => {
+    sent = null;
     stopLocale();
     stopFocus();
   };

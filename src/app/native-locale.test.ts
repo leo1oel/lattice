@@ -4,7 +4,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { i18n } from "../i18n";
 import { isBrowserHosted } from "../platform/browser-runtime";
 import { invokeCalls, mockInvoke } from "../platform/tauri-test-mocks";
-import { bundleLanguage, installNativeLocaleSync, nativeMenuLabels, syncNativeLocale } from "./native-locale";
+import { loadAppearance, persistAppearance } from "../settings/app-settings";
+import { bundleLanguage, installNativeLocaleSync, nativeMenuLabels, syncNativeLocale, syncNativeLocaleIfChanged } from "./native-locale";
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
 vi.mock("@tauri-apps/api/window", () => ({
@@ -23,13 +24,10 @@ describe("native locale", () => {
     expect(labels.about).toBe("About Lattice");
     expect(labels.quit).toBe("Quit Lattice");
     expect(labels.copy).toBe("Copy");
-    // `MenuLabels` in native_locale.rs denies unknown and missing fields, so
-    // the two field lists must stay identical.
-    const rust = readFileSync("src-tauri/src/native_locale.rs", "utf8");
-    const struct = /pub\(crate\) struct MenuLabels \{([^}]*)\}/.exec(rust)?.[1] ?? "";
-    const rustFields = [...struct.matchAll(/(\w+): String/g)]
-      .map(([, field]) => field.replace(/_(\w)/g, (_, letter: string) => letter.toUpperCase()));
-    expect(Object.keys(labels).sort()).toEqual(rustFields.sort());
+    // `MenuLabels` in native_locale.rs denies unknown and missing fields and
+    // its test deserializes this same payload.
+    const fixture = JSON.parse(readFileSync("src-tauri/tests/fixtures/menu-labels.json", "utf8")) as Record<string, string>;
+    expect(Object.keys(labels).sort()).toEqual(Object.keys(fixture).sort());
   });
 
   it("pins only an explicit interface language", () => {
@@ -62,5 +60,23 @@ describe("native locale", () => {
     i18n.activate("zh-CN");
     i18n.activate(locale);
     expect(invokeCalls("set_native_locale")).toHaveLength(3);
+  });
+
+  it("resends when only the preference changes", async () => {
+    mockInvoke({ set_native_locale: null });
+    const original = loadAppearance();
+    persistAppearance({ ...original, interfaceLanguage: "en" });
+    const stop = installNativeLocaleSync();
+    syncNativeLocaleIfChanged();
+    expect(invokeCalls("set_native_locale")).toHaveLength(1);
+    persistAppearance({ ...original, interfaceLanguage: "system" });
+    syncNativeLocaleIfChanged();
+    expect(invokeCalls("set_native_locale")).toHaveLength(2);
+    expect(invokeCalls("set_native_locale")[1]).toMatchObject({ bundleLanguage: null });
+    stop();
+    persistAppearance({ ...original, interfaceLanguage: "en" });
+    syncNativeLocaleIfChanged();
+    expect(invokeCalls("set_native_locale")).toHaveLength(2);
+    persistAppearance(original);
   });
 });

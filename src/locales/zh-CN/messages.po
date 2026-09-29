@@ -390,6 +390,10 @@ msgstr "{warnings} 个警告"
 msgid "{words} words · {chars} chars"
 msgstr "{words} 词 · {chars} 字符"
 
+#: src/open-knowledge-app/editor/components/ColorPickerInput.tsx
+msgid "#F05032 or rgb(240,80,50)"
+msgstr "#F05032 或 rgb(240,80,50)"
+
 #: src/open-knowledge-app/editor/extensions/JsxComponentView.tsx
 msgid "+ Add {addChildName}"
 msgstr "+ 添加{addChildName}"
@@ -533,6 +537,7 @@ msgid "Access forbidden by provider"
 msgstr "提供商拒绝访问"
 
 #: src/editor/markdown/visual-slash-items.ts
+#: src/open-knowledge-app/editor/components/Accordion.tsx
 #: src/open-knowledge-app/editor/registry/descriptor-labels.ts
 msgid "Accordion"
 msgstr "折叠面板"
@@ -690,6 +695,10 @@ msgstr "已将“{title}”添加到参考文献。没有可打开的全文。"
 #: src/app/use-reference-import.ts
 msgid "Added “{title}” to the bibliography. The full text could not be downloaded: {fetchNote}"
 msgstr "已将“{title}”添加到参考文献。无法下载全文：{fetchNote}"
+
+#: src/open-knowledge-app/editor/slash-command/items.tsx
+msgid "Admiral"
+msgstr "海军上将"
 
 #: src/open-knowledge-app/editor/components/PropPanel.tsx
 msgid "Advanced"
@@ -1051,7 +1060,7 @@ msgstr "暂无作者信息，未核对"
 msgid "Authors unchecked"
 msgstr "作者信息未核对"
 
-#: src/app/use-overleaf-workspace.ts
+#: src/history/version-messages.ts
 msgid "Auto-saved version"
 msgstr "自动保存的版本"
 
@@ -1865,6 +1874,10 @@ msgstr "清空"
 #: src/open-knowledge-app/editor/components/ColorPickerInput.tsx
 msgid "Clear color"
 msgstr "清除颜色"
+
+#: src/open-knowledge-app/editor/components/IconPickerInput.tsx
+msgid "Clear icon"
+msgstr "清除图标"
 
 #: src/telemetry/app-log.tsx
 msgid "Clear log search"
@@ -3022,6 +3035,10 @@ msgstr "正在下载全文和图片…"
 msgid "Downloading update…"
 msgstr "正在下载更新…"
 
+#: src/open-knowledge-app/editor/slash-command/embed-starter-items.tsx
+msgid "Drag to adjust"
+msgstr "拖动以调整"
+
 #: src/papers/paper-lookup.tsx
 msgid "Drag to cite · Click to read"
 msgstr "拖入正文引用 · 点击阅读"
@@ -3373,9 +3390,17 @@ msgstr "空集（变体）"
 msgid "Enable version tracking"
 msgstr "启用版本追踪"
 
+#: src/open-knowledge-app/editor/slash-command/component-items.tsx
+msgid "End"
+msgstr "结束"
+
 #: src/editor/latex/latex-command-completions.ts
 msgid "End an environment"
 msgstr "结束环境"
+
+#: src/open-knowledge-app/editor/slash-command/items.tsx
+msgid "Engineer"
+msgstr "工程师"
 
 #: src/settings/settings-dialog.tsx
 msgid "English"
@@ -4485,6 +4510,10 @@ msgstr "信息"
 msgid "INFO"
 msgstr "信息"
 
+#: src/history/version-messages.ts
+msgid "Initialize version tracking"
+msgstr "开始版本跟踪"
+
 #: src/editor/insert/insert-snippets.ts
 msgid "Inline another TeX file"
 msgstr "就地嵌入另一个 TeX 文件"
@@ -5353,6 +5382,10 @@ msgstr "循环播放"
 msgid "LuaLaTeX engine"
 msgstr "LuaLaTeX 引擎"
 
+#: src/open-knowledge-app/editor/components/IconPickerInput.tsx
+msgid "lucide:Lightbulb or 📘"
+msgstr "lucide:Lightbulb 或 📘"
+
 #: src/components/ui/apple-color-picker.tsx
 msgid "Magenta"
 msgstr "品红色"
@@ -5481,6 +5514,10 @@ msgstr "Mermaid 图表控件"
 #: src/open-knowledge-app/editor/components/Mermaid.tsx
 msgid "Mermaid diagram failed to render."
 msgstr "Mermaid 图表渲染失败。"
+
+#: src/open-knowledge-app/editor/slash-command/component-items.tsx
+msgid "Mermaid flowchart preview"
+msgstr "Mermaid 流程图预览"
 
 #: src/open-knowledge-app/editor/extensions/CodeBlockView.tsx
 msgid "Mermaid preview"
@@ -6756,7 +6793,7 @@ msgstr "Overleaf 在 Lattice 识别此连接之前就重放了更新。此文件
 msgid "Overleaf sent version {version} while this document is at {current}."
 msgstr "Overleaf 发送了版本 {version}，但此文档当前为版本 {current}。"
 
-#: src/app/use-overleaf-workspace.ts
+#: src/history/version-messages.ts
 msgid "Overleaf sync"
 msgstr "Overleaf 同步"
 
@@ -7479,6 +7516,10 @@ msgstr "可以编译"
 msgid "Ready to install"
 msgstr "可以安装"
 
+#: src/open-knowledge-app/editor/slash-command/component-items.tsx
+msgid "Ready?"
+msgstr "就绪？"
+
 #: src/editor/insert/insert-snippets.ts
 msgid "Real part"
 msgstr "实部"
@@ -8067,6 +8108,10 @@ msgstr "仅恢复 {0}"
 msgid "Restore project"
 msgstr "恢复项目"
 
+#: src/history/version-messages.ts
+msgid "Restore project to {restored}"
+msgstr "将项目恢复到 {restored}"
+
 #: src/history/versions-timeline.tsx
 msgid "Restore project to this version"
 msgstr "把项目恢复到这个版本"
@@ -8135,6 +8180,10 @@ msgstr "重试"
 #: src/pdf/pdf-viewer.tsx
 msgid "Reveal cursor in PDF (⌘⇧J)"
 msgstr "在 PDF 中显示光标位置 (⌘⇧J)"
+
+#: src/open-knowledge-app/editor/slash-command/embed-starter-items.tsx
+msgid "Revenue"
+msgstr "收入"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Reverse turnstile"
@@ -8348,7 +8397,7 @@ msgstr "已移除保存的密钥。"
 msgid "Saved to {path}"
 msgstr "已保存到 {path}"
 
-#: src/history/versions-timeline.tsx
+#: src/history/version-messages.ts
 msgid "Saved version"
 msgstr "已保存的版本"
 
@@ -9088,6 +9137,10 @@ msgstr "结果已过期"
 msgid "Star operator"
 msgstr "星形运算符"
 
+#: src/open-knowledge-app/editor/slash-command/component-items.tsx
+msgid "Start"
+msgstr "开始"
+
 #: src/open-knowledge-app/lib/keyboard-shortcuts.ts
 msgid "Start a bug report with a screenshot of the screen as it looks right now."
 msgstr "以当前屏幕截图开始一份错误报告。"
@@ -9359,9 +9412,22 @@ msgstr "SyncTeX 双向搜索"
 msgid "Syntax-highlighted listing (listings)"
 msgstr "语法高亮的代码（listings）"
 
+#: src/open-knowledge-app/editor/components/Tab.tsx
 #: src/open-knowledge-app/editor/registry/descriptor-labels.ts
 msgid "Tab"
 msgstr "标签页"
+
+#: src/open-knowledge-app/editor/components/Tabs.tsx
+msgid "Tab {tabNumber}"
+msgstr "标签页 {tabNumber}"
+
+#: src/open-knowledge-app/editor/slash-command/component-items.tsx
+msgid "Tab 1"
+msgstr "标签页 1"
+
+#: src/open-knowledge-app/editor/slash-command/component-items.tsx
+msgid "Tab 2"
+msgstr "标签页 2"
 
 #: src/editor/latex/latex-text.ts
 msgid "table"
@@ -9391,9 +9457,14 @@ msgid "Table preview"
 msgstr "表格预览"
 
 #: src/editor/markdown/visual-slash-items.ts
+#: src/open-knowledge-app/editor/components/Tabs.tsx
 #: src/open-knowledge-app/editor/registry/descriptor-labels.ts
 msgid "Tabs"
 msgstr "标签页"
+
+#: src/open-knowledge-app/editor/components/Tabs.tsx
+msgid "Tabs: {id}"
+msgstr "标签页：{id}"
 
 #: src/open-knowledge-app/lib/keyboard-shortcuts.ts
 msgid "Task list"
@@ -9826,6 +9897,10 @@ msgstr "此步骤可能需要一分钟"
 msgid "Three ways to look at a document"
 msgstr "查看文档的三种方式"
 
+#: src/open-knowledge-app/editor/slash-command/component-items.tsx
+msgid "Thumbnails"
+msgstr "缩略图"
+
 #: src/editor/latex/latex-command-completions.ts
 msgid "TikZ drawing"
 msgstr "TikZ 绘图"
@@ -9883,6 +9958,7 @@ msgid "TODOs"
 msgstr "待办"
 
 #: src/editor/markdown/visual-slash-items.ts
+#: src/open-knowledge-app/editor/components/componentMap.tsx
 #: src/open-knowledge-app/editor/registry/descriptor-labels.ts
 msgid "Toggle"
 msgstr "折叠块"
@@ -10172,6 +10248,7 @@ msgstr "未处理的 Promise 拒绝"
 msgid "Union"
 msgstr "并集"
 
+#: src/open-knowledge-app/editor/extensions/RawMdxFallbackCMView.tsx
 #: src/open-knowledge-app/editor/utils/severity.ts
 msgid "unknown"
 msgstr "未知"
@@ -10425,6 +10502,10 @@ msgstr "在无限画布中绘制图表、箭头和手写笔记。每个形状都
 #: src/settings/literature-settings.tsx
 msgid "Use your own API quota for paper searches, imports, and citation checks."
 msgstr "为文献搜索、导入和引用检查配置个人 API 额度。"
+
+#: src/open-knowledge-app/editor/slash-command/embed-starter-items.tsx
+msgid "Users"
+msgstr "用户"
 
 #: src/settings/literature-settings.tsx
 msgid "Using environment key"
@@ -10815,6 +10896,10 @@ msgstr "暂无年份信息"
 msgid "Yellow"
 msgstr "黄色"
 
+#: src/open-knowledge-app/editor/slash-command/component-items.tsx
+msgid "yes"
+msgstr "是"
+
 #: src/overleaf/overleaf-history.tsx
 msgid "Yesterday"
 msgstr "昨天"
@@ -10860,6 +10945,10 @@ msgstr "Overleaf 登录已过期。请重新登录以继续操作；本地文件
 #: src/telemetry/root-error-boundary.tsx
 msgid "Your project files are safe. Restart Lattice to reopen the window, or copy the error details if the problem continues."
 msgstr "你的项目文件安全无虞。重新启动 Lattice 即可重新打开窗口；如问题仍然存在，请复制错误详情。"
+
+#: src/open-knowledge-app/editor/components/Video.tsx
+msgid "YouTube video player"
+msgstr "YouTube 视频播放器"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Zeta"

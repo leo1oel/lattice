@@ -120,19 +120,19 @@ export default tseslint.config(
             // CSS: custom properties, functions, values with units, media queries.
             "^--[\\w-]+$",
             "^(?:var|calc|min|max|clamp|translate|translate3d|translateX|translateY|scale|rotate|minmax|repeat|rgb|rgba|hsl|hsla|color-mix|url|cubic-bezier|steps)\\(.*\\)$",
-            "^[-\\w\\s,.()%!/]*\\d(?:px|ms|fr|rem|deg|vh|vw)\\b[-\\w\\s,.()%!/]*$",
+            "^(?=.*\\d(?:px|ms|fr|rem|deg|vh|vw)\\b)!?(?:[-+]?[\\d.]+(?:px|ms|fr|rem|em|deg|vh|vw|%|s)?|[a-z][a-z-]*(?:\\([^)]*\\))?)(?:[\\s,/]+!?(?:[-+]?[\\d.]+(?:px|ms|fr|rem|em|deg|vh|vw|%|s)?|[a-z][a-z-]*(?:\\([^)]*\\))?))*$",
             "^(?:@media |\\((?:prefers-|pointer|hover|any-pointer|min-|max-|orientation))",
             // DOM selectors: class, id, attribute, and pseudo-class selectors.
-            "^(?:[.#:*>]|\\[[\\w-]+(?:[~|^$*]?=|\\]))",
+            "^(?:[.#][\\w-]+|::?[a-z-]+(?:\\([^)]*\\))?|\\[[^\\]]+\\]|\\*|>)(?:[.#][\\w-]+|::?[a-z-]+(?:\\([^)]*\\))?|\\[[^\\]]+\\]|(?:\\s*[>+~,]\\s*|\\s+)(?:[a-z][\\w-]*|\\*|[.#][\\w-]+|::?[a-z-]+(?:\\([^)]*\\))?|\\[[^\\]]+\\]))*$",
             // SVG path data.
-            "^[Mm][\\d\\s.,+\\-MmLlHhVvCcSsQqTtAaZz]+$",
+            "^[Mm][\\s,]*[-+.\\d][\\d\\s.,+\\-MmLlHhVvCcSsQqTtAaZz]*$",
             // LaTeX source: commands, environments, and templates written into
             // the user's document rather than shown as interface copy.
             "^\\\\(?:[a-zA-Z@]+\\*?|[\\\\,;:!{}\\[\\]()])",
             // Lone glyphs: Greek letters, accented letters, math and arrow symbols.
             "^[^\\x00-\\x7F\\u3000-\\u9fff\\uff00-\\uffef]{1,3}$",
             // Keyboard shortcut glyphs such as ⌘⇧L or ⌥↵.
-            "^[⌘⇧⌥⌃]+.*$",
+            "^[⌘⇧⌥⌃]+(?:[\\w,./;'`=\\[\\]\\\\-]|F\\d{1,2}|[^\\x00-\\x7F\\u3000-\\u9fff]{1,2})$",
             // Absolute URLs and file globs.
             "^(?:https?://|mailto:)\\S*$",
             "^\\*?\\.[\\w.]+$",

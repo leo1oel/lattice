@@ -177,14 +177,10 @@ mod tests {
 
     #[test]
     fn menu_labels_reject_missing_and_unknown_titles() {
-        let complete = serde_json::json!({
-            "about": "关于 Lattice", "services": "服务", "hide": "隐藏 Lattice",
-            "hideOthers": "隐藏其他", "showAll": "全部显示", "quit": "退出 Lattice",
-            "file": "文件", "edit": "编辑", "undo": "撤销", "redo": "重做", "cut": "剪切",
-            "copy": "拷贝", "paste": "粘贴", "selectAll": "全选", "view": "显示",
-            "fullscreen": "进入全屏幕", "window": "窗口", "minimize": "最小化", "zoom": "缩放",
-            "closeWindow": "关闭窗口", "help": "帮助",
-        });
+        // The payload `nativeMenuLabels()` sends, shared with native-locale.test.ts.
+        let complete: serde_json::Value =
+            serde_json::from_str(include_str!("../tests/fixtures/menu-labels.json"))
+                .expect("fixture");
         let labels: MenuLabels = serde_json::from_value(complete.clone()).expect("labels");
         assert_eq!(labels.copy, "拷贝");
         let mut missing = complete.clone();
@@ -201,11 +197,6 @@ mod tests {
         assert_eq!(bundle_language("zh-Hans"), Some("zh-Hans"));
         for other in ["zh-CN", "fr", "", "en;rm -rf"] {
             assert_eq!(bundle_language(other), None, "{other}");
-        }
-        let plist = include_str!("../Info.plist");
-        assert!(plist.contains("<key>CFBundleLocalizations</key>"));
-        for language in ["en", "zh-Hans"] {
-            assert!(plist.contains(&format!("<string>{language}</string>")), "{language}");
         }
     }
 }

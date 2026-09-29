@@ -2,6 +2,7 @@ import type { Diagnostic as CmDiagnostic } from "@codemirror/lint";
 import type { Text } from "@codemirror/state";
 import { msg } from "@lingui/core/macro";
 import { i18n } from "../i18n";
+import { compileDiagnosticText } from "./build-log-messages";
 
 export type CompileDiagnostic = {
   file?: string;
@@ -126,7 +127,7 @@ export function editorDiagnosticsForFile(diagnostics: CompileDiagnostic[], activ
     const lineNumber = Math.min(Math.max(diagnostic.line ?? 1, 1), Math.max(doc.lines, 1));
     const line = doc.line(lineNumber);
     const severity = diagnosticSeverity(diagnostic.level);
-    return [{ from: line.from, to: line.to, severity, message: diagnostic.message, source: "latexmk" }];
+    return [{ from: line.from, to: line.to, severity, message: compileDiagnosticText(diagnostic), source: "latexmk" }];
   });
 }
 

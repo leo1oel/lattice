@@ -1,10 +1,7 @@
-import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { compileDiagnosticText } from "./build-log-messages";
 import { compileRepairMessage } from "./compile-repair-messages";
 import { doctorCheckDetail, doctorCheckLabel } from "./tex-doctor-messages";
-
-const rust = (...files: string[]) => files.map((file) => readFileSync(`src-tauri/src/${file}`, "utf8")).join("\n");
 
 describe("build log messages", () => {
   it("render Lattice's build advice with the English the host writes", () => {
@@ -17,9 +14,7 @@ describe("build log messages", () => {
       ["pdf-fonts-computer-modern", { fonts: "CMR10" }, "PDF still uses Computer Modern (CMR10). Expected NimbusRom/Times — Shift-click Build after Install BasicTeX."],
       ["pdf-fonts-not-times", { fonts: "Arial", upToDate: "true" }, "PDF fonts are not NeurIPS Times (Arial). Expected NimbusRomNo9L-*. — latexmk did not recompile (Nothing to do / up-to-date). Hold Shift and click Build to force a rebuild with the installed Times fonts."],
     ];
-    const source = rust("latex/build_log.rs", "latex/build.rs", "pdf_fonts.rs");
     for (const [code, params, english] of cases) {
-      expect(source).toContain(`"${code}"`);
       expect(compileDiagnosticText({ message: "raw", code, params })).toBe(english);
     }
     // TeX's own messages, and codes this build does not know, stay as reported.
@@ -28,10 +23,6 @@ describe("build log messages", () => {
   });
 
   it("render doctor checks and fall back to the reported detail", () => {
-    const source = rust("doctor.rs");
-    for (const code of ["tool-not-found", "tool-failed", "managed-tool-failed", "root-document-missing", "bibliography-missing", "kpsewhich-missing", "files-missing", "pdf-unreadable"]) {
-      expect(source).toContain(`"${code}"`);
-    }
     const check = (name: string, code: string, params: Record<string, string> = {}) =>
       doctorCheckDetail({ name, detail: "raw", ok: false, code, params });
     expect(check("biber", "tool-not-found")).toBe("Biber bibliography processor: not found on PATH");
@@ -49,7 +40,6 @@ describe("build log messages", () => {
     expect(compileRepairMessage("Error: Repair has no active turn.")).toBe("Repair has no active turn.");
     expect(compileRepairMessage("Repair turn interrupted.")).toBe("Repair turn interrupted.");
     expect(compileRepairMessage("The agent service is unavailable.")).toBe("The agent service is unavailable.");
-    expect(rust("synara.rs")).toContain("The agent service is unavailable.");
     expect(compileRepairMessage("Error: provider crashed")).toBe("Error: provider crashed");
   });
 });

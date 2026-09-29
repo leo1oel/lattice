@@ -144,6 +144,8 @@ import Vimeo from '@u-wave/react-vimeo';
 import { type CSSProperties, useEffect, useRef } from 'react';
 import LiteYouTubeEmbed from 'react-lite-youtube-embed';
 import 'react-lite-youtube-embed/dist/LiteYouTubeEmbed.css';
+import { i18n } from '@lingui/core';
+import { msg } from '@lingui/core/macro';
 
 interface VideoProps {
   src?: string;
@@ -397,7 +399,7 @@ export function Video(props: VideoProps) {
       <div className="ok-video ok-video-youtube" style={buildVideoWrapperStyle(props)}>
         <LiteYouTubeEmbed
           id={yt.id}
-          title={props.title ?? 'YouTube video player'}
+          title={props.title ?? i18n._(msg`YouTube video player`)}
           // `cookie={true}` → youtube.com host; `cookie={false}` →
           // youtube-nocookie.com. Round-trips the input host so an
           // author who deliberately pasted nocookie keeps the privacy

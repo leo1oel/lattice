@@ -15,6 +15,7 @@ import {
   systemTheme,
 } from "./app-settings";
 import { activateAppLocale, i18n } from "../i18n";
+import { syncNativeLocaleIfChanged } from "../app/native-locale";
 
 export type Appearance = {
   /** The resolved light/dark value everything else renders against. */
@@ -67,6 +68,8 @@ export function useAppearance(): Appearance {
     document.documentElement.style.setProperty("--editor-font-size", `${appearance.editorFontSize}px`);
     persistAppearance(appearance);
   }, [appearance]);
+
+  useEffect(() => { syncNativeLocaleIfChanged(); }, [appearance.interfaceLanguage]);
 
   useEffect(() => {
     void import("@tauri-apps/api/webview")

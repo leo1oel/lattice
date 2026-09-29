@@ -18,7 +18,7 @@ import { flattenOutline, type OutlineNode } from "../editor/latex/latex-outline"
 import { ProjectFindDialog, type ProjectFindHit } from "../project/project-find-dialog";
 import type { ProjectSearch } from "./use-project-search";
 import { ProjectReplaceDialog, type ReplacePreviewResult } from "../project/project-replace-dialog";
-import type { CitationInfo, ReferenceInfo } from "../editor/latex/latex-text";
+import { referenceKindLabel, type CitationInfo, type ReferenceInfo } from "../editor/latex/latex-text";
 import { isProjectAssetFilePath, toMessage } from "../app-utils";
 import { setNotice } from "./notify";
 import { collectFilePaths } from "./workspace-restore";
@@ -62,12 +62,15 @@ export function AppSearchDialogs({ open, setOpen, activeFile, openProjectFile, o
       detail: `${node.path || activeFile}:${node.line}`,
       group: t`Section`,
     })),
-    ...liveReferences.map((reference) => ({
-      id: `label:${reference.path}:${reference.label}`,
-      label: reference.label,
-      detail: `${reference.path}:${reference.line}${reference.title && reference.title !== reference.label ? ` · ${reference.title}` : ""}`,
-      group: t`Label`,
-    })),
+    ...liveReferences.map((reference) => {
+      const title = reference.title || referenceKindLabel(reference.kind);
+      return {
+        id: `label:${reference.path}:${reference.label}`,
+        label: reference.label,
+        detail: `${reference.path}:${reference.line}${title !== reference.label ? ` · ${title}` : ""}`,
+        group: t`Label`,
+      };
+    }),
   ];
   const insertPickers = [
     {
