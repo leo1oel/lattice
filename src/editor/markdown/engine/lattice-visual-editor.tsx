@@ -11,7 +11,7 @@
  *
  * Clean implementation for Lattice; spec: docs/visual-editor-spec.md.
  */
-import { useEffect, useLayoutEffect, useRef, useState, type JSX } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type JSX } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { Extension, type AnyExtension, type EditorOptions, type JSONContent } from "@tiptap/core";
 import type { Node as PmNode } from "@tiptap/pm/model";
@@ -30,6 +30,7 @@ import { DocumentHeadingRail, type DocumentHeadingItem } from "../document-headi
 import type { VisualMarkdownEditorProps } from "../visual-editor-props";
 import { FrozenHeaders } from "./frozen-headers";
 import { HeadingAnchors, REFRESH_ANCHORS, documentHeadings } from "./heading-anchors";
+import { PassiveView, passiveModel, type PassiveModel } from "./passive-view";
 import type { ImeGuard } from "./engine-keymap";
 import { MathMacrosContext, engineNodeViews } from "./engine-node-views";
 import { engineSchema, engineSchemaExtensions, type RawBlockKind } from "./engine-schema";
@@ -447,12 +448,22 @@ function railHeadings(doc: PmNode, paper: boolean): DocumentHeadingItem[] {
 const sameHeadings = (a: DocumentHeadingItem[] | null, b: DocumentHeadingItem[] | null) =>
   a === b || (!!a && !!b && a.length === b.length && a.every((item, index) => item.id === b[index]!.id && item.label === b[index]!.label && item.level === b[index]!.level));
 
-function editorExtensions(labels: Partial<Record<RawBlockKind, string>>, ime: ImeGuard, chrome: Chrome): AnyExtension[] {
+/** What any view of a document needs: the engine's schema and its block views. */
+function readingExtensions(labels: Partial<Record<RawBlockKind, string>>, ime: ImeGuard): AnyExtension[] {
   const views = engineNodeViews({ ime });
   const viewNames = new Set(views.map((view) => view.name));
+  return [...engineSchemaExtensions({ rawBlockLabels: labels }).filter((extension) => !viewNames.has(extension.name)), ...views];
+}
+
+/** The passive layout for a large read-only document (R-PERF-1), or null to draw it whole. */
+function passiveFor(text: string, props: VisualMarkdownEditorProps): PassiveModel | null {
+  const opened = openMarkdown(text, engineSchema(), openOptions(props));
+  return "unavailable" in opened ? null : passiveModel(opened.doc, opened.baseline, text.length, Boolean(props.optimizeForReading));
+}
+
+function editorExtensions(labels: Partial<Record<RawBlockKind, string>>, ime: ImeGuard, chrome: Chrome): AnyExtension[] {
   return [
-    ...engineSchemaExtensions({ rawBlockLabels: labels }).filter((extension) => !viewNames.has(extension.name)),
-    ...views,
+    ...readingExtensions(labels, ime),
     ...chromeExtensions(chrome),
     SourceOverlays,
     HeadingAnchors.configure({ paper: () => Boolean(chrome.host.props().optimizeForReading) }),
@@ -560,6 +571,17 @@ export function LatticeVisualMarkdownEditor(props: VisualMarkdownEditorProps): J
   const [chrome] = useState(() => createChrome(props));
   // Extensions are read once, when the editor is created; labels are fixed then.
   const [extensions] = useState(() => editorExtensions(labels, ime, chrome));
+  const [reading] = useState(() => () => readingExtensions(labels, ime));
+
+  // A large read-only document opens passive until the reader asks for the complete editor (R-PERF-1–3).
+  const [activated, setActivated] = useState<{ path: string; href: string | null } | null>(null);
+  const passiveWanted = !editable && activated?.path !== activePath;
+  const passive = useMemo(
+    () => (passiveWanted ? passiveFor(text, props) : null),
+    // Only the text, the file and reading mode shape the passive layout.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [passiveWanted, text, activePath, optimizeForReading],
+  );
 
   useLayoutEffect(() => {
     const current = host.current;
@@ -628,6 +650,16 @@ export function LatticeVisualMarkdownEditor(props: VisualMarkdownEditorProps): J
     onEligibilityChange?.(reason);
   }, [onEligibilityChange, reason]);
 
+  // A link into the paper followed from the passive view lands once the complete editor shows (R-PERF-2).
+  useEffect(() => {
+    const href = activated?.href;
+    if (!href || passive || !editor || editor.isDestroyed) return;
+    const frame = requestAnimationFrame(() => {
+      openMarkdownLink(host.current.props.activePath, href, host.current.props.onOpenProjectPath, editor.view.dom);
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [activated, editor, passive]);
+
   // The chrome reads the source map through the host; a settled read publishes a pending edit first.
   useEffect(() => {
     chrome.host.setSourceMap((settle) => {
@@ -674,15 +706,21 @@ export function LatticeVisualMarkdownEditor(props: VisualMarkdownEditorProps): J
           {reason && !onEligibilityChange && (
             <InlineMessage level="warning" className="lx-md-eligibility">{reason}</InlineMessage>
           )}
-          <DocumentHeadingRail
-            items={railItems}
-            onSelect={(item) => layer?.querySelector(`[id="${CSS.escape(item.id)}"]`)?.scrollIntoView({ block: "start" })}
-          />
-          {/* Before the article, so the sticky find bar stays in view over its whole length. */}
-          {editor && <EngineFindBar editor={editor} chrome={chrome} />}
-          <EditorContent editor={instance} />
-          {editor && <TableControls editor={editor} layer={layer} paperMode={openOptions(props).paperSpans ?? false} />}
-          {editor && <EngineChrome editor={editor} chrome={chrome} layer={layer} />}
+          {passive ? (
+            <PassiveView model={passive} props={props} reading={reading} onActivate={(href) => setActivated({ path: activePath, href })} />
+          ) : (
+            <>
+              <DocumentHeadingRail
+                items={railItems}
+                onSelect={(item) => layer?.querySelector(`[id="${CSS.escape(item.id)}"]`)?.scrollIntoView({ block: "start" })}
+              />
+              {/* Before the article, so the sticky find bar stays in view over its whole length. */}
+              {editor && <EngineFindBar editor={editor} chrome={chrome} />}
+              <EditorContent editor={instance} />
+              {editor && <TableControls editor={editor} layer={layer} paperMode={openOptions(props).paperSpans ?? false} />}
+              {editor && <EngineChrome editor={editor} chrome={chrome} layer={layer} />}
+            </>
+          )}
         </div>
       </ProjectImageHostProvider>
     </MathMacrosContext.Provider>

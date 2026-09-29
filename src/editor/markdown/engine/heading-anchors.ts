@@ -60,22 +60,36 @@ export function documentHeadings(doc: PmNode, paper: boolean): DocumentHeading[]
   return headings;
 }
 
-type AnchorOptions = { paper: () => boolean };
+/** What one node gets: its heading id, and whether it is a hidden part of a generated Contents. */
+export type AnchorMark = { pos: number; id: string; hidden: boolean };
+
+/** The anchor marks of a whole document: every heading's id, and a generated Contents heading and list hidden. */
+export function anchorMarks(doc: PmNode, paper: boolean): AnchorMark[] {
+  const marks: AnchorMark[] = [];
+  for (const heading of documentHeadings(doc, paper)) {
+    marks.push({ pos: heading.pos, id: heading.id, hidden: heading.generatedContents });
+    if (heading.generatedContents) marks.push({ pos: heading.pos + doc.nodeAt(heading.pos)!.nodeSize, id: "", hidden: true });
+  }
+  return marks;
+}
+
+/**
+ * `marks` supplies a plan made elsewhere (a part of a larger document, whose
+ * ids and hidden sections depend on what comes before it); by default the
+ * document plans its own.
+ */
+type AnchorOptions = { paper: () => boolean; marks: ((doc: PmNode) => AnchorMark[]) | null };
 
 const anchorsKey = new PluginKey<DecorationSet>("latticeHeadingAnchors");
 
-function anchors(doc: PmNode, paper: boolean): DecorationSet {
+function anchors(doc: PmNode, marks: readonly AnchorMark[]): DecorationSet {
   const decorations: Decoration[] = [];
-  for (const heading of documentHeadings(doc, paper)) {
-    const node = doc.nodeAt(heading.pos)!;
-    if (heading.generatedContents) {
-      const hidden = { class: "lx-md-generated-contents", "aria-hidden": "true" };
-      decorations.push(Decoration.node(heading.pos, heading.pos + node.nodeSize, heading.id ? { ...hidden, id: heading.id } : hidden));
-      const list = doc.nodeAt(heading.pos + node.nodeSize);
-      if (list) decorations.push(Decoration.node(heading.pos + node.nodeSize, heading.pos + node.nodeSize + list.nodeSize, hidden));
-    } else if (heading.id) {
-      decorations.push(Decoration.node(heading.pos, heading.pos + node.nodeSize, { id: heading.id }));
-    }
+  for (const mark of marks) {
+    const node = doc.nodeAt(mark.pos);
+    if (!node || (!mark.id && !mark.hidden)) continue;
+    const attributes: Record<string, string> = mark.id ? { id: mark.id } : {};
+    if (mark.hidden) Object.assign(attributes, { class: "lx-md-generated-contents", "aria-hidden": "true" });
+    decorations.push(Decoration.node(mark.pos, mark.pos + node.nodeSize, attributes));
   }
   return DecorationSet.create(doc, decorations);
 }
@@ -85,14 +99,15 @@ export const REFRESH_ANCHORS = "latticeRefreshAnchors";
 
 export const HeadingAnchors = Extension.create<AnchorOptions>({
   name: "latticeHeadingAnchors",
-  addOptions: () => ({ paper: () => false }),
+  addOptions: () => ({ paper: () => false, marks: null }),
   addProseMirrorPlugins() {
-    const { paper } = this.options;
+    const { paper, marks } = this.options;
+    const plan = (doc: PmNode) => (marks ? marks(doc) : anchorMarks(doc, paper()));
     return [new Plugin<DecorationSet>({
       key: anchorsKey,
       state: {
-        init: (_config, state) => anchors(state.doc, paper()),
-        apply: (transaction, set, _old, state) => (transaction.docChanged || transaction.getMeta(REFRESH_ANCHORS) ? anchors(state.doc, paper()) : set),
+        init: (_config, state) => anchors(state.doc, plan(state.doc)),
+        apply: (transaction, set, _old, state) => (transaction.docChanged || transaction.getMeta(REFRESH_ANCHORS) ? anchors(state.doc, plan(state.doc)) : set),
       },
       props: { decorations: (state) => anchorsKey.getState(state) },
     })];

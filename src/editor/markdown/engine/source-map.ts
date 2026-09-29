@@ -73,11 +73,11 @@ const isHighSurrogate = (code: number) => code >= 0xd800 && code <= 0xdbff;
 
 const segmentCache = new WeakMap<PmNode, { source: string; paperSpans: boolean; segments: Segment[] }>();
 
-type Placement = Pick<Block, "bodyFrom" | "textFrom" | "textTo" | "row" | "column">;
+export type Placement = Pick<Block, "bodyFrom" | "textFrom" | "textTo" | "row" | "column">;
 const placementCache = new WeakMap<MarkdownBaseline, Placement[]>();
 
 /** Where each baseline block sits in the text; computed once per baseline, so edits in between cost nothing. */
-function placements(baseline: MarkdownBaseline): Placement[] {
+export function placements(baseline: MarkdownBaseline): Placement[] {
   const cached = placementCache.get(baseline);
   if (cached) return cached;
   const bom = baseline.envelope.bom ? 1 : 0;

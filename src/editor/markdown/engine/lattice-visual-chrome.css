@@ -463,6 +463,26 @@
 /* A pinned header row covers the rows it rides over (R-CHR-9). */
 .lx-md-editor .lx-md-surface table > tbody > tr:first-child > th {
   position: relative;
-  z-index: 1;
+  /* Above body cells, including a first column kept in view while a wide table scrolls sideways. */
+  z-index: 2;
   background: linear-gradient(var(--lx-md-block-surface-strong), var(--lx-md-block-surface-strong)), var(--editor-bg);
 }
+
+/* --- Passive view of a large read-only document (R-PERF-1) ---------------------- */
+
+.lx-md-editor .lx-md-passive-bar {
+  position: sticky;
+  z-index: var(--z-editor-overlay);
+  top: var(--space-4);
+  display: flex;
+  justify-content: flex-end;
+  height: 0;
+  margin-inline-end: var(--space-8);
+  overflow: visible;
+}
+.lx-md-editor .lx-md-passive-bar > button { background: var(--surface-panel-raised); box-shadow: var(--shadow-soft); }
+.lx-md-editor .lx-md-passive-chunk { display: flow-root; }
+/* Chunks read as one article: one top margin and one bottom scroll room; blocks keep their own spacing at the seams. */
+.lx-md-editor .lx-md-passive-chunk .lx-md-surface { min-height: 0; }
+.lx-md-editor .lx-md-passive-chunk:not(:last-child) .lx-md-surface { padding-bottom: 0; }
+.lx-md-editor .lx-md-passive-chunk + .lx-md-passive-chunk .lx-md-surface { padding-top: 0; }

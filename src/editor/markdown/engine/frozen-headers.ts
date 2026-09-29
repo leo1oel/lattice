@@ -104,7 +104,8 @@ class FrozenHeadersView {
       const start = tableRect.top - origin;
       // The header rides down to the last row, never past the table.
       const shift = Math.max(0, tableRect.height - headerRect.height - table.rows[table.rows.length - 1]!.getBoundingClientRect().height);
-      if (shift <= 0) continue;
+      // A table whose top the scroll never reaches (or without room to move) is never pinned.
+      if (shift <= 0 || start >= range) continue;
       const cells = Array.from(header.cells);
       const kept = this.pinned.find((entry) => entry.cells.length === cells.length && entry.cells.every((cell, index) => cell === cells[index]));
       if (kept && kept.start === start && kept.shift === shift) {
@@ -121,11 +122,15 @@ class FrozenHeadersView {
   }
 
   private animate(cell: HTMLElement, start: number, shift: number, range: number): Animation {
+    // Linear in the scroll: pinned from the table's top, moving one pixel per
+    // pixel scrolled until the header reaches the last row or the scroll ends.
+    const end = Math.min(start + shift, range);
+    const moved = Math.max(0, end - start);
     const frames = [
       { transform: "translateY(0px)", offset: 0 },
       { transform: "translateY(0px)", offset: Math.min(1, Math.max(0, start / range)) },
-      { transform: `translateY(${shift}px)`, offset: Math.min(1, Math.max(0, (start + shift) / range)) },
-      { transform: `translateY(${shift}px)`, offset: 1 },
+      { transform: `translateY(${moved}px)`, offset: Math.min(1, Math.max(0, end / range)) },
+      { transform: `translateY(${moved}px)`, offset: 1 },
     ];
     if (this.timeline) {
       try {

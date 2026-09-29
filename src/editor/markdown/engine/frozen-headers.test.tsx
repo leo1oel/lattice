@@ -32,7 +32,7 @@ function stubAnimations() {
 }
 
 /** The editor inside a scrolling pane, with a laid-out table 400px down a 2000px document. */
-function mountInScroller(text: string) {
+function mountInScroller(text: string, tableTop = 400) {
   const view = render(
     <div className="editor-doc-scroll" style={{ overflowY: "auto" }}>
       <LatticeVisualMarkdownEditor text={text} activePath="notes.md" onChangeMarkdown={() => true} onUndo={() => true} onRedo={() => true} />
@@ -44,7 +44,7 @@ function mountInScroller(text: string) {
   const layout = () => {
     const table = scroller.querySelector("table");
     if (!table) return;
-    vi.spyOn(table, "getBoundingClientRect").mockReturnValue(new DOMRect(0, 400 - scroller.scrollTop, 600, 400));
+    vi.spyOn(table, "getBoundingClientRect").mockReturnValue(new DOMRect(0, tableTop - scroller.scrollTop, 600, 400));
     for (const row of table.rows) vi.spyOn(row, "getBoundingClientRect").mockReturnValue(new DOMRect(0, 0, 600, 40));
   };
   layout();
@@ -78,6 +78,21 @@ describe("frozen table headers (R-CHR-9)", () => {
         [0, "translateY(0px)"], [400 / 1500, "translateY(0px)"], [720 / 1500, "translateY(320px)"], [1, "translateY(320px)"],
       ]);
     }
+  });
+
+  it("moves one pixel per pixel scrolled even when the scroll ends before the header's full travel", async () => {
+    class ScrollTimeline {
+      constructor(readonly options: unknown) {}
+    }
+    Object.defineProperty(globalThis, "ScrollTimeline", { configurable: true, value: ScrollTimeline });
+    const recorded = stubAnimations();
+    mountInScroller(TABLE, 1400);
+    await frame();
+    const header = recorded.find((entry) => entry.target.tagName === "TH")!;
+    // 1500px of scroll end 100px after the table's top: the header moves those 100px, not its full 320.
+    expect(header.frames.map((keyframe) => [keyframe.offset, keyframe.transform])).toEqual([
+      [0, "translateY(0px)"], [1400 / 1500, "translateY(0px)"], [1, "translateY(100px)"], [1, "translateY(100px)"],
+    ]);
   });
 
   it("follows scroll events where there is no scroll timeline", async () => {
