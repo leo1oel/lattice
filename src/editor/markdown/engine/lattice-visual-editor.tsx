@@ -456,9 +456,9 @@ function readingExtensions(labels: Partial<Record<RawBlockKind, string>>, ime: I
 }
 
 /** The passive layout for a large read-only document (R-PERF-1), or null to draw it whole. */
-function passiveFor(text: string, props: VisualMarkdownEditorProps): PassiveModel | null {
-  const opened = openMarkdown(text, engineSchema(), openOptions(props));
-  return "unavailable" in opened ? null : passiveModel(opened.doc, opened.baseline, text.length, Boolean(props.optimizeForReading));
+function passiveFor(text: string, activePath: string, reading: boolean): PassiveModel | null {
+  const opened = openMarkdown(text, engineSchema(), { paperSpans: reading && isPaperLibraryPath(activePath) });
+  return "unavailable" in opened ? null : passiveModel(opened.doc, opened.baseline, text.length, reading);
 }
 
 function editorExtensions(labels: Partial<Record<RawBlockKind, string>>, ime: ImeGuard, chrome: Chrome): AnyExtension[] {
@@ -576,10 +576,9 @@ export function LatticeVisualMarkdownEditor(props: VisualMarkdownEditorProps): J
   // A large read-only document opens passive until the reader asks for the complete editor (R-PERF-1–3).
   const [activated, setActivated] = useState<{ path: string; href: string | null } | null>(null);
   const passiveWanted = !editable && activated?.path !== activePath;
+  // Only the text, the file and reading mode shape the passive layout.
   const passive = useMemo(
-    () => (passiveWanted ? passiveFor(text, props) : null),
-    // Only the text, the file and reading mode shape the passive layout.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    () => (passiveWanted ? passiveFor(text, activePath, Boolean(optimizeForReading)) : null),
     [passiveWanted, text, activePath, optimizeForReading],
   );
 
