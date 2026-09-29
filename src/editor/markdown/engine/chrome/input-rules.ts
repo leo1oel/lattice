@@ -3,6 +3,8 @@
  * typed (spec R-INL-3, R-BLK-19, R-FMT-14):
  *
  * - `[docs](https://example.com)` becomes a link when its `)` is typed.
+ * - `[[Page]]` becomes a wiki link when its `]]` is typed, so a link to a page
+ *   that does not exist yet can be typed in full (R-INL-6).
  * - `[] `, `[ ] `, `[x] ` or `[X] ` at the start of a paragraph makes a task
  *   item, keeping an uppercase `X`. Typed after a fresh list marker
  *   (`- [ ] `, character by character or in one IME chunk), it turns that
@@ -28,6 +30,19 @@ const markdownLink = new InputRule({
     const link = state.schema.marks.link!.create({ href });
     state.tr.replaceWith(start, range.to, state.schema.text(text, [...(state.doc.resolve(start).marks().filter((mark) => mark.type !== link.type)), link]));
     state.tr.removeStoredMark(link.type);
+    return undefined;
+  },
+});
+
+/** The same target grammar the Markdown reader accepts for `[[Page]]`. */
+const wikiLink = new InputRule({
+  find: /(?:^|[^\\[])(\[\[([^[\]\n|]+)\]\])$/,
+  handler: ({ state, range, match }) => {
+    const [, whole, raw] = match;
+    const target = raw?.trim();
+    if (!whole || !target) return null;
+    const start = range.from + (match[0].length - whole.length);
+    state.tr.replaceWith(start, range.to, state.schema.nodes.latticeWikiLink!.create({ target }, null, state.doc.resolve(start).marks()));
     return undefined;
   },
 });
@@ -92,5 +107,5 @@ function everyChild(node: PmNode, type: string): boolean {
 
 export const EngineInputRules = Extension.create({
   name: "latticeInputRules",
-  addInputRules: () => [markdownLink, taskItem],
+  addInputRules: () => [markdownLink, wikiLink, taskItem],
 });

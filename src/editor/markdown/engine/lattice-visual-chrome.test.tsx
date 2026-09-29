@@ -773,7 +773,19 @@ describe("wiki links (R-INL-6, R-FMT-18)", () => {
     await waitFor(() => expect(screen.queryByRole("listbox", { name: "Wiki link suggestions" })).toBeNull());
     fireEvent.keyDown(surface(), { key: "Enter" });
     expect(editor.getText()).toContain("See [[ideas]] ideas");
-    expect(nodePos(editor, (node) => node.type.name === "latticeWikiLink")).toBe(-1);
+    // The typed link itself is one wiki link; the prose after it stays text.
+    const link = nodePos(editor, (node) => node.type.name === "latticeWikiLink");
+    expect(editor.state.doc.nodeAt(link)?.attrs.target).toBe("ideas");
+    expect(nodePos(editor, " ideas")).toBe(link + 1);
+  });
+
+  it("makes a link to a page that does not exist yet when it is typed in full", async () => {
+    const workspaceIndex = await workspace();
+    const { editor, onChange } = renderEditor({ text: "See", workspaceIndex });
+    caret(editor, editor.state.doc.content.size - 1);
+    type(editor, " [[New Page]] about notes");
+    await waitFor(() => expect(lastChange(onChange)).toBe("See [[New Page]] about notes"));
+    expect(editor.state.doc.nodeAt(nodePos(editor, (node) => node.type.name === "latticeWikiLink"))?.attrs.target).toBe("New Page");
   });
 
   it("opens the linked page on Mod-click", async () => {
