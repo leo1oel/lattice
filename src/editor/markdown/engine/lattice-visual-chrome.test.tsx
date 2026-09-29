@@ -797,7 +797,29 @@ describe("wiki links (R-INL-6, R-FMT-18)", () => {
       expect(element).not.toBeNull();
       return element!;
     });
+    fireEvent.click(link);
+    expect(onOpenProjectPath).not.toHaveBeenCalled();
     fireEvent.click(link, { metaKey: true });
     await waitFor(() => expect(onOpenProjectPath).toHaveBeenCalledWith("ideas.md"));
+  });
+});
+
+describe("links (R-INL-3)", () => {
+  it.each([
+    ["space escape", "./Agent%20Memory.md", "notes/Agent Memory.md"],
+    ["fragment", "./Agent%20Memory.md#section", "notes/Agent Memory.md"],
+    ["literal parent segment", "../sibling/file.md", "sibling/file.md"],
+  ])("opens a relative project link containing %s on an ordinary click", async (_case, href, expected) => {
+    const onOpenProjectPath = vi.fn();
+    renderEditor({ text: `[Details](${href})`, activePath: "notes/index.md", onOpenProjectPath });
+    fireEvent.click(await screen.findByRole("link", { name: "Details" }));
+    expect(onOpenProjectPath).toHaveBeenCalledWith(expected);
+  });
+
+  it("leaves a Shift-click on a link to the selection", async () => {
+    const onOpenProjectPath = vi.fn();
+    renderEditor({ text: "[Details](other.md)", activePath: "notes.md", onOpenProjectPath });
+    fireEvent.click(await screen.findByRole("link", { name: "Details" }), { shiftKey: true });
+    expect(onOpenProjectPath).not.toHaveBeenCalled();
   });
 });

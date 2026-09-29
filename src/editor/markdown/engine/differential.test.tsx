@@ -1,17 +1,19 @@
 /**
- * Differential harness: the same corpus through the vendored visual editor
- * and the Lattice engine, compared on what a reader sees and whether they may
- * edit. The vendored editor is used strictly as a black box through the host
- * contract both engines implement (visual-editor-props.ts): text in, the
- * editable surface and the document it shows out. Nothing of its code is read.
+ * Differential harness: the same corpus through the Lattice engine, the
+ * default visual editor, and the vendored visual editor it replaced, compared
+ * on what a reader sees and whether they may edit. Both are mounted as the
+ * host mounts them, through the shared props contract (visual-editor-props.ts).
+ * The vendored editor is the oracle and is used strictly as a black box: text
+ * in, the editable surface and the document it shows out. Nothing of its code
+ * is read.
  *
- * Quarantined: it exists only while both engines ship, and is deleted with
- * the vendored editor (plan phase 3).
+ * Quarantined: it exists only while the vendored editor remains as a hidden
+ * fallback, and is deleted with it (plan phase 3).
  *
  * Checked for every document:
- * - one the old editor lets the reader edit, the new engine opens editable
- *   and writes back byte for byte (spec R-ELIG-1, deliberate differences in
- *   Part I aside);
+ * - the engine opens editable every document the old editor let the reader
+ *   edit, and writes it back byte for byte (spec R-ELIG-1, deliberate
+ *   differences in Part I aside);
  * - neither publishes anything on open (R-RT-1);
  * - both show the same headings, code, and formulas.
  *
@@ -23,7 +25,7 @@ import type { Editor } from "@tiptap/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { VisualMarkdownEditor } from "../visual-markdown-editor";
 import { corpus } from "./corpus-test-utils";
-import { engineSchema } from "./engine-schema";
+import { LatticeVisualMarkdownEditor } from "./lattice-visual-editor";
 import { openMarkdown, serializeMarkdown } from "./markdown-document";
 
 vi.mock("@tauri-apps/plugin-opener", () => ({ openUrl: vi.fn(async () => undefined) }));
@@ -59,42 +61,48 @@ function newFormula(node: PmNode): string | null {
   return node.type.name === "latticeMath" || node.type.name === "latticeMathBlock" ? String(node.attrs.tex) : null;
 }
 
-/** The old editor, mounted as the host mounts it. */
-async function observeOld(text: string) {
+/**
+ * An editor mounted as the host mounts it: whether the reader may edit, what
+ * it published on open, and the document it shows.
+ */
+async function observe(Component: typeof VisualMarkdownEditor, text: string) {
   const onChange = vi.fn(() => true);
-  render(<VisualMarkdownEditor text={text} activePath="notes.md" onChangeMarkdown={onChange} onUndo={() => false} onRedo={() => false} />);
-  const surface = screen.getByRole("textbox") as HTMLElement & { editor: Editor };
+  render(<Component text={text} activePath="notes.md" onChangeMarkdown={onChange} onUndo={() => false} onRedo={() => false} />);
+  const surface = await screen.findByRole("textbox", { name: "Markdown document editor" }) as HTMLElement & { editor: Editor };
   // R-ELIG-3: nothing is published once a document has been open for 50 ms.
   await new Promise((resolve) => setTimeout(resolve, 60));
   const observed = {
     editable: surface.getAttribute("contenteditable") === "true",
     published: onChange.mock.calls.length,
-    outline: outline(surface.editor.state.doc, oldFormula),
+    doc: surface.editor.state.doc,
   };
   cleanup();
   return observed;
 }
 
-function observeNew(text: string) {
-  const opened = openMarkdown(text, engineSchema());
-  if ("unavailable" in opened) return { editable: false, exact: false, outline: null };
-  return {
-    editable: true,
-    exact: serializeMarkdown(opened.doc, opened.baseline).text === text,
-    outline: outline(opened.doc, newFormula),
-  };
+/** The engine, mounted, plus whether its own reading of `text` writes back byte for byte. */
+async function observeEngine(text: string) {
+  const mounted = await observe(LatticeVisualMarkdownEditor, text);
+  const opened = openMarkdown(text, mounted.doc.type.schema);
+  const exact = !("unavailable" in opened) && serializeMarkdown(opened.doc, opened.baseline).text === text;
+  return { ...mounted, exact, outline: mounted.editable ? outline(mounted.doc, newFormula) : null };
+}
+
+async function observeOracle(text: string) {
+  const mounted = await observe(VisualMarkdownEditor, text);
+  return { ...mounted, outline: outline(mounted.doc, oldFormula) };
 }
 
 afterEach(() => cleanup());
 
 const compared = { documents: 0, editable: 0, headings: 0, code: 0, formulas: 0 };
 
-describe("differential: vendored editor vs Lattice engine", () => {
+describe("differential: Lattice engine vs the vendored fallback", () => {
   it.each(corpus)("agrees on %s", async (_name, text) => {
-    const before = observeOld(text);
-    const next = observeNew(text);
-    const old = await before;
+    const next = await observeEngine(text);
+    const old = await observeOracle(text);
     compared.documents += 1;
+    expect(next.published, "the engine wrote on open").toBe(0);
     expect(old.published, "the vendored editor wrote on open").toBe(0);
     if (old.editable) {
       compared.editable += 1;
