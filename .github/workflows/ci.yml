@@ -88,6 +88,27 @@ jobs:
       - name: Check the third-party notices are in sync
         run: pnpm notices:check
 
+  # Deterministic interaction benchmark (docs/performance.md, "Interaction
+  # benchmark and CI gate"). It builds the app's bench page, drives typing, file
+  # switching, PDF and scrolling scenarios in the runner's preinstalled Google
+  # Chrome, and fails when a gated per-interaction count exceeds its ceiling in
+  # scripts/perf-bench/budgets.json. Which counts are gated and which are
+  # report-only (frame-timing-dependent) is documented there. No Tauri host is
+  # involved; the page answers the app's IPC from an in-memory fixture project.
+  perf-bench:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 10
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm perf:bench --check
+
   rust:
     runs-on: macos-latest
     steps:

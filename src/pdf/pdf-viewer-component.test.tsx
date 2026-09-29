@@ -529,6 +529,37 @@ describe("PDFSlick viewer integration", () => {
     expect(forward).toBeDisabled();
   });
 
+  it("steps pages from the page scrolled to, not the page the buttons last rendered with", async () => {
+    pdf.state.numPages = 6;
+    const onPageChange = vi.fn();
+    const view = renderPdf({ onPageChange });
+    await view.findByLabelText("PDF page 1");
+    const instance = pdf.state.instances[0]!;
+    const previous = view.getByRole("button", { name: "Previous page" });
+    const next = view.getByRole("button", { name: "Next page" });
+    await waitFor(() => expect(next).toBeEnabled());
+    expect(previous).toBeDisabled();
+
+    fireEvent.click(next);
+    await waitFor(() => expect(onPageChange).toHaveBeenLastCalledWith(2));
+    expect(instance.gotoPage).toHaveBeenLastCalledWith(2);
+    expect(previous).toBeEnabled();
+
+    // Scrolling moves the page without going through the buttons.
+    act(() => instance.emit("pagechanging", { pageNumber: 5 }));
+    await waitFor(() => expect(onPageChange).toHaveBeenLastCalledWith(5));
+    fireEvent.click(next);
+    await waitFor(() => expect(onPageChange).toHaveBeenLastCalledWith(6));
+    expect(instance.gotoPage).toHaveBeenLastCalledWith(6);
+    await waitFor(() => expect(next).toBeDisabled());
+
+    act(() => instance.emit("pagechanging", { pageNumber: 3 }));
+    await waitFor(() => expect(onPageChange).toHaveBeenLastCalledWith(3));
+    fireEvent.click(previous);
+    await waitFor(() => expect(onPageChange).toHaveBeenLastCalledWith(2));
+    expect(instance.gotoPage).toHaveBeenLastCalledWith(2);
+  });
+
   it("preserves forward and reverse SyncTeX point coordinates", async () => {
     pdf.state.viewportScale = 2;
     const onSource = vi.fn();

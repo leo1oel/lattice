@@ -1,5 +1,5 @@
 diff --git a/dist/index.cjs b/dist/index.cjs
-index 598784fa2f5e8cdef8281c781a9b89177649be63..453f187252ed1a25300d6bea175c05aedf1cf712 100644
+index 598784fa2f5e8cdef8281c781a9b89177649be63..fe51bb3b689498d852949b287bfd12497e9267de 100644
 --- a/dist/index.cjs
 +++ b/dist/index.cjs
 @@ -79,10 +79,21 @@ function createContentComponent() {
@@ -24,8 +24,22 @@ index 598784fa2f5e8cdef8281c781a9b89177649be63..453f187252ed1a25300d6bea175c05ae
  			notifySubscribers();
  		},
  		/**
+@@ -763,6 +774,13 @@ function ReactMarkViewRenderer(component, options = {}) {
+ */
+ function captureDOMSelection(element) {
+ 	var _element$ownerDocumen;
++	// Lattice patch: reading the selection forces a synchronous style and
++	// layout pass, and every node view with content runs this as its content
++	// attaches: opening a document with 150 code blocks forced 150 of them. A
++	// caret worth keeping lives in the focused editor, so outside it the
++	// move keeps its old behavior and the reads are skipped.
++	const active = element.ownerDocument.activeElement;
++	if (!element.isConnected || !active || !active.contains(element)) return null;
+ 	const root = element.getRootNode();
+ 	const selection = typeof root.getSelection === "function" ? root.getSelection() : (_element$ownerDocumen = element.ownerDocument) === null || _element$ownerDocumen === void 0 || (_element$ownerDocumen = _element$ownerDocumen.defaultView) === null || _element$ownerDocumen === void 0 ? void 0 : _element$ownerDocumen.getSelection();
+ 	if (!selection || selection.rangeCount === 0) return null;
 diff --git a/dist/index.js b/dist/index.js
-index b6ab232ec8c3307a0c0cc2d0e7e77cb5eae63555..a2ae4b5d7c751956365ebab880e2d6aa57f1dd1f 100644
+index b6ab232ec8c3307a0c0cc2d0e7e77cb5eae63555..a42396ed601fef7b5385a0ce9b191955f1917dd5 100644
 --- a/dist/index.js
 +++ b/dist/index.js
 @@ -55,10 +55,21 @@ function createContentComponent() {
@@ -50,6 +64,20 @@ index b6ab232ec8c3307a0c0cc2d0e7e77cb5eae63555..a2ae4b5d7c751956365ebab880e2d6aa
  			notifySubscribers();
  		},
  		/**
+@@ -739,6 +750,13 @@ function ReactMarkViewRenderer(component, options = {}) {
+ */
+ function captureDOMSelection(element) {
+ 	var _element$ownerDocumen;
++	// Lattice patch: reading the selection forces a synchronous style and
++	// layout pass, and every node view with content runs this as its content
++	// attaches: opening a document with 150 code blocks forced 150 of them. A
++	// caret worth keeping lives in the focused editor, so outside it the
++	// move keeps its old behavior and the reads are skipped.
++	const active = element.ownerDocument.activeElement;
++	if (!element.isConnected || !active || !active.contains(element)) return null;
+ 	const root = element.getRootNode();
+ 	const selection = typeof root.getSelection === "function" ? root.getSelection() : (_element$ownerDocumen = element.ownerDocument) === null || _element$ownerDocumen === void 0 || (_element$ownerDocumen = _element$ownerDocumen.defaultView) === null || _element$ownerDocumen === void 0 ? void 0 : _element$ownerDocumen.getSelection();
+ 	if (!selection || selection.rangeCount === 0) return null;
 diff --git a/src/EditorContent.tsx b/src/EditorContent.tsx
 index 8ee8383030b14d7e4d1f980b50ff7a360d436f87..42173d28b4700cfea973c14605856f33003915a5 100644
 --- a/src/EditorContent.tsx
@@ -79,3 +107,24 @@ index 8ee8383030b14d7e4d1f980b50ff7a360d436f87..42173d28b4700cfea973c14605856f33
        notifySubscribers()
      },
      /**
+diff --git a/src/captureDOMSelection.ts b/src/captureDOMSelection.ts
+index c74ec5c3151a9d3693e057779ce68eebe2531985..c88420bb44215436ce80e0187fae093b283d7ee4 100644
+--- a/src/captureDOMSelection.ts
++++ b/src/captureDOMSelection.ts
+@@ -5,6 +5,16 @@ type SelectionRoot = Node & { getSelection?: () => Selection | null }
+  * Browsers drop the selection when an element moves, so restore it after the move.
+  */
+ export function captureDOMSelection(element: HTMLElement): (() => void) | null {
++  // Lattice patch: reading the selection forces a synchronous style and
++  // layout pass, and every node view with content runs this as its content
++  // attaches: opening a document with 150 code blocks forced 150 of them. A
++  // caret worth keeping lives in the focused editor, so outside it the
++  // move keeps its old behavior and the reads are skipped.
++  const active = element.ownerDocument.activeElement
++  if (!element.isConnected || !active || !active.contains(element)) {
++    return null
++  }
++
+   const root = element.getRootNode() as SelectionRoot
+   const selection =
+     typeof root.getSelection === 'function'

@@ -1,4 +1,4 @@
-import { Suspense, lazy, useCallback, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState, type SetStateAction } from "react";
+import { Suspense, lazy, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type SetStateAction } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { Image } from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
@@ -4059,6 +4059,11 @@ function App() {
   const rootDocumentPath = project?.manifest.rootDocuments.find((document) => document.isDefault)?.path
     ?? project?.manifest.rootDocuments[0]?.path
     ?? "";
+  const primaryBibliography = project?.manifest.primaryBibliography ?? "";
+  const protectedProjectPaths = useMemo(
+    () => [...(rootDocumentPath ? [rootDocumentPath] : []), primaryBibliography],
+    [primaryBibliography, rootDocumentPath],
+  );
   // Live buffers participate in the project-wide TeX derivations below
   // (outline, macros, labels, appendix) only for .tex files. Deriving the
   // nullable scalars here keeps every downstream memo inert while typing
@@ -4201,6 +4206,22 @@ function App() {
   const activeTabKey = isTwoPane(canvasMode) && focusedPane === "secondary"
     ? secondaryAsset?.path ?? secondaryFile ?? primaryTabKey
     : primaryTabKey;
+  // Memoized so the compiled titlebar's tab strip skips the renders that do not
+  // change a tab — every keystroke re-rendered it through a fresh object.
+  const titlebarTabs = useMemo(() => ({
+    tabs: editorTabItems,
+    activePath: activeTabKey,
+    animateLayout: !sidebarResizing,
+    canCloseLast: canvasMode === "pdf",
+    onDropTab: dropProjectPath,
+    onSelect: selectEditorTab,
+    onClose: requestCloseEditorTab,
+    onSetPinned: setEditorTabPinned,
+    onReorder: setOpenTabs,
+  }), [
+    activeTabKey, canvasMode, dropProjectPath, editorTabItems, requestCloseEditorTab, selectEditorTab,
+    setEditorTabPinned, sidebarResizing,
+  ]);
   // Whatever is on screen is the most-recently-used tab; the split's other pane
   // counts too. Tracking recency here covers every path that opens a tab.
   useEffect(() => {
@@ -4275,13 +4296,12 @@ function App() {
   const graphicsRoots = useMemo(() => parseGraphicsPaths(liveMacroSources), [liveMacroSources]);
   const katexMacros = useMemo(() => katexMacrosFromSources(liveMacroSources), [liveMacroSources]);
   // TODOs come from .md buffers too (todo_source_path on the Rust side), so
-  // this cannot ride the .tex-only scalars above. Deferring the source keeps
-  // the merge off the paint-critical path: the badge/panel may lag a
-  // keystroke under load, which is fine for a count.
-  const deferredTodoSource = useDeferredValue(source);
+  // this cannot ride the .tex-only scalars above. The rescan only visits
+  // candidate lines, so it runs in the keystroke's own render: deferring it
+  // with useDeferredValue re-rendered all of App a second time per keystroke.
   const todoHits = useMemo(
-    () => mergeTodosWithBuffer(diskTodos, activeFile, deferredTodoSource),
-    [activeFile, diskTodos, deferredTodoSource],
+    () => mergeTodosWithBuffer(diskTodos, activeFile, source),
+    [activeFile, diskTodos, source],
   );
 
   // Where \appendix sits, as two scalars rather than the marker object. The
@@ -4498,17 +4518,7 @@ function App() {
         buildPipeline={buildPipeline}
         buildPreferences={buildPreferences}
         compile={compile}
-        tabs={{
-          tabs: editorTabItems,
-          activePath: activeTabKey,
-          animateLayout: !sidebarResizing,
-          canCloseLast: canvasMode === "pdf",
-          onDropTab: dropProjectPath,
-          onSelect: selectEditorTab,
-          onClose: requestCloseEditorTab,
-          onSetPinned: setEditorTabPinned,
-          onReorder: setOpenTabs,
-        }}
+        tabs={titlebarTabs}
         projectMenu={{
           open: projectMenuOpen,
           setOpen: setProjectMenuOpen,
@@ -4646,10 +4656,7 @@ function App() {
               gitStatus={projectGit.gitFiles}
               activeFile={activeAsset || activePaper ? "" : activeFile}
               activeAssetPath={activeAsset?.path ?? ""}
-              protectedPaths={[
-                ...(rootDocumentPath ? [rootDocumentPath] : []),
-                project.manifest.primaryBibliography,
-              ]}
+              protectedPaths={protectedProjectPaths}
               papers={papers}
               activePaper={activePaper}
               onFile={openProjectFileFromClick}

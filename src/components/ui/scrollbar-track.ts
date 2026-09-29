@@ -1,4 +1,4 @@
-import { useCallback, useLayoutEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type RefObject } from "react";
+import { useCallback, useLayoutEffect, useRef, type PointerEvent as ReactPointerEvent, type RefObject } from "react";
 import { EXTERNAL_SCROLLBAR_TRACK_INSET, type ScrollAxisGeometry } from "./external-scrollbar-geometry";
 
 // Behaviour shared by the scrollbars drawn over a scroller Lattice cannot wrap
@@ -107,7 +107,7 @@ export function useScrollbarDrag(
 
 /**
  * The scroll owner a drawn scrollbar follows. Attaches to it once it exists,
- * coalesces re-measures into one per frame, and reports `scrolling` from each
+ * coalesces re-measures into one per frame, and calls `setScrolling` from each
  * scroll until `idleMs` after the last one; a drag in progress holds it.
  * `watch` adds the owner-specific listeners and observers and returns their
  * teardown. Attached in a layout effect: a scrollbar often mounts because its
@@ -119,11 +119,11 @@ export function useScrollbarViewport(
   measure: (viewport: HTMLElement | null) => void,
   idleMs: number,
   watch: (viewport: HTMLElement, scheduleMeasure: () => void) => () => void,
+  setScrolling: (scrolling: boolean) => void,
 ) {
   const viewportRef = useRef<HTMLElement | null>(null);
   const frameRef = useRef<number | null>(null);
   const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [scrolling, setScrolling] = useState(false);
   const drag = useScrollbarDrag(viewportRef, setScrolling);
   const { dragRef } = drag;
 
@@ -162,7 +162,7 @@ export function useScrollbarViewport(
       frameRef.current = idleTimerRef.current = null;
       viewportRef.current = null;
     };
-  }, [dragRef, getViewport, idleMs, scheduleMeasure, watch]);
+  }, [dragRef, getViewport, idleMs, scheduleMeasure, setScrolling, watch]);
 
-  return { viewportRef, scrolling, setScrolling, drag };
+  return { viewportRef, drag };
 }

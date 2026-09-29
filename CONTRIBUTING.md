@@ -175,8 +175,10 @@ That covers `literature-worker/` too, so there is nothing extra to run for a
 change in there. [`mise.toml`](mise.toml) is the definition; keep it and this
 table in step.
 
-The commands are the same ones CI runs, but the environments are not
-interchangeable: CI runs everything from a clean checkout with nothing skipped,
+The commands are the same ones CI runs, except its interaction benchmark
+(`pnpm perf:bench --check`, or `mise run perf-bench`; see
+[`docs/performance.md`](docs/performance.md)), which needs a local Chrome and a
+few quiet minutes. The environments are not interchangeable either: CI runs everything from a clean checkout with nothing skipped,
 on Node 22 (Rust on macOS, the rest on Ubuntu), while `pnpm check` runs on the
 Node and pnpm versions `mise.toml` pins and skips stages it considers fresh. If
 a stage passes locally and fails in CI, suspect the freshness cache first —

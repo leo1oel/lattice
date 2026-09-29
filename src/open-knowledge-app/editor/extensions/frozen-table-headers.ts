@@ -365,6 +365,11 @@ function computeAndApplyFrozenHeaders(
   const scrollMax = scrollEl.scrollHeight - scrollEl.clientHeight;
   const viewportHeight = scrollEl.clientHeight;
   const wrappers = editorDom.querySelectorAll<HTMLElement>('.tableWrapper');
+  // Measure every table before changing any of them. Each freeze writes
+  // animations, and a write between two tables' rects forced a synchronous
+  // style and layout pass per table: a document of 40 tables paid 40 of
+  // them on every open and file switch.
+  const measured: { firstRow: HTMLTableRowElement; tableRect: DOMRect; range: FreezeRange | null }[] = [];
   for (const wrapper of wrappers) {
     onTableWrapper?.(wrapper);
     if (nearOnly) {
@@ -402,7 +407,10 @@ function computeAndApplyFrozenHeaders(
       headerRect.height,
       topOffset,
     );
+    measured.push({ firstRow, tableRect, range });
+  }
 
+  for (const { firstRow, tableRect, range } of measured) {
     if (!range) {
       resetHeaderCells(firstRow);
       continue;

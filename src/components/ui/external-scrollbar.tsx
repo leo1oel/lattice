@@ -69,11 +69,13 @@ export function ExternalScrollbar({ getViewport }: { getViewport: () => HTMLElem
     };
   }, []);
 
-  const { viewportRef, scrolling, setScrolling, drag } = useScrollbarViewport(
+  const [scrolling, setScrolling] = useState(false);
+  const { viewportRef, drag } = useScrollbarViewport(
     getViewport,
     measure,
     SCROLLING_HIDE_DELAY_MS,
     watch,
+    setScrolling,
   );
 
   const handleWheel = (event: ReactWheelEvent<HTMLDivElement>) => {

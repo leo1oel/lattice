@@ -1,0 +1,20 @@
+<!doctype html>
+<!--
+  Development-only page for the performance benchmark (scripts/perf-bench.mjs,
+  docs/performance.md). It mounts the real app against an in-memory mock
+  backend holding the deterministic fixture project, so the benchmark needs no
+  Tauri host. Like icon-lab.html it is served by the dev server only and is not
+  a build input.
+-->
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Lattice · Performance bench</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script src="/polyfills.js"></script>
+    <script type="module" src="/tools/perf-bench/bench-page.ts"></script>
+  </body>
+</html>

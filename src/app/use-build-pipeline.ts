@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState, type Dispatch, type SetStateAction } from "react";
+import { useCallback, useMemo, useRef, useState, type Dispatch, type SetStateAction } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { invoke } from "@tauri-apps/api/core";
 import type { BuildResult, ProjectSnapshot } from "../app-types";
@@ -381,7 +381,10 @@ export function useBuildPipeline({
     void openDiagnosticRef.current(diagnostics[next]);
   }, [build, openDiagnosticRef]);
 
-  return {
+  // One object for as long as its members hold still: App hands it to the
+  // compiled titlebar, which re-rendered its build controls on every keystroke
+  // while this was a fresh literal per render.
+  return useMemo(() => ({
     build,
     setBuild,
     building,
@@ -400,6 +403,9 @@ export function useBuildPipeline({
     abortBuild,
     cleanProject,
     cleanAndRebuild,
-  };
+  }), [
+    abortBuild, build, building, cleanAndRebuild, cleanProject, cleaning, compiledSources, cycleDiagnostic,
+    diagnosticsDismissed, diagnosticsExpanded, dismissDiagnostics, pdfUrl, resetForProject, resetQueue, runBuild,
+  ]);
 }
 export type BuildPipeline = ReturnType<typeof useBuildPipeline>;

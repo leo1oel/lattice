@@ -29,6 +29,7 @@
     "eval:agent": "node scripts/agent-quality-eval.mjs",
     "size:report": "node scripts/app-size-report.mjs",
     "size:test": "node scripts/app-size-report-selftest.mjs",
+    "perf:bench": "node scripts/perf-bench.mjs",
     "notices": "node scripts/generate-notices.mjs",
     "notices:check": "node scripts/generate-notices.mjs --check --allow-unresolved",
     "chromium": "electron scripts/chromium-shell.mjs"

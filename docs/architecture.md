@@ -534,7 +534,10 @@ skipped when its declared `sources` have not changed (`mise.toml:191`):
 CI (`.github/workflows/ci.yml`) covers the same ground across four jobs:
 `test`, `literature-worker` (`typecheck` + `test` in that sub-project),
 `lint-and-build` (`pnpm lint`, `pnpm build`, `pnpm i18n:check`) and `rust`
-(`cargo fmt --check`, `cargo test`, `cargo clippy -D warnings`).
+(`cargo fmt --check`, `cargo test`, `cargo clippy -D warnings`). A fifth job,
+`perf-bench`, runs the interaction benchmark (`pnpm perf:bench --check`,
+`mise run perf-bench` locally), which `check` leaves out; see
+[`performance.md`](performance.md).
 
 `pnpm lint` runs ESLint with the `--max-warnings` cap set in the `lint` script
 in `package.json`. That cap is a debt ratchet:

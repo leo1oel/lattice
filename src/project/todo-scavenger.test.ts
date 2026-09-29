@@ -22,6 +22,24 @@ describe("todo scavenger", () => {
     ]);
   });
 
+  it("numbers lines like a line split, across CRLF and several words per line", () => {
+    const content = [
+      "Intro with a todo word in prose",
+      "% TODO first\r",
+      "",
+      "% todo lower, FIXME and XXX on one line",
+      "\\Todo*{starred}\r",
+      "%no marker here",
+      "   % xxx indented",
+    ].join("\n");
+    const expected = content.split(/\r?\n/).flatMap((text, index) => {
+      const kind = todoKindInLine(text);
+      return kind ? [{ line: index + 1, kind, preview: text.trim() }] : [];
+    });
+    expect(todosInText("a.tex", content).map(({ line, kind, preview }) => ({ line, kind, preview }))).toEqual(expected);
+    expect(expected.map(({ line }) => line)).toEqual([2, 4, 5, 7]);
+  });
+
   it("overlays dirty active-file hits", () => {
     const merged = mergeTodosWithBuffer(
       [
