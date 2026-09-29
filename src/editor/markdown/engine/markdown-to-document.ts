@@ -20,6 +20,7 @@ import { ANCHOR_SOURCE, type RawBlockKind } from "./engine-schema";
 import {
   CALLOUT, COMPONENTS_WITH_BODY, MODELLED_COMPONENTS, findClosingTag, readOpenTag, type ComponentProp,
 } from "./mdx-components";
+import { parseMarkdownTree } from "./markdown-syntax";
 import { inferPaperSpans, looksLikeLayoutMarker, readLayoutMarker, spansFit, type Span } from "./table-spans";
 
 /** Thrown inside a block the engine cannot model; the block is kept raw. */
@@ -220,7 +221,7 @@ const DISPLAY_CLOSE = /(?:^|\n) {0,3}\\\][ \t]*$/;
  * the siblings are joined back up to the one ending in `\]`, as long as no
  * blank line intervenes (TeX math cannot hold one either).
  */
-function displayMathRange(children: RootContent[], index: number, context: Context): GroupedRange | null {
+function displayMathRange(children: RootContent[], index: number, context: { source: string }): GroupedRange | null {
   const first = children[index]!;
   if (first.type !== "paragraph" && first.type !== "heading") return null;
   const from = start(first)!;
@@ -237,6 +238,13 @@ function displayMathRange(children: RootContent[], index: number, context: Conte
     return { to, last, json: { type: "latticeMathBlock", attrs: { tex: body, source } } };
   }
   return null;
+}
+
+/** The TeX of `markdown` when all of it reads back as one multi-line `\[` … `\]` formula. */
+export function displayMathTex(markdown: string): string | null {
+  const children = parseMarkdownTree(markdown).children;
+  const range = children.length ? displayMathRange(children, 0, { source: markdown }) : null;
+  return range && range.last === children.length - 1 ? String(range.json.attrs?.tex) : null;
 }
 
 // --- Blocks -----------------------------------------------------------------

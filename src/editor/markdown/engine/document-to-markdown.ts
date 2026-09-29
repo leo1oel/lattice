@@ -8,7 +8,7 @@
 import type { Mark as PmMark, Node as PmNode } from "@tiptap/pm/model";
 import { TableMap } from "@tiptap/pm/tables";
 import type { LatticeNodeStyle } from "./markdown-syntax";
-import { imageKey, SINGLE_LINE_DISPLAY } from "./markdown-to-document";
+import { displayMathTex, imageKey, SINGLE_LINE_DISPLAY } from "./markdown-to-document";
 import { writeOpenTag, type ComponentProp } from "./mdx-components";
 import { semanticKey } from "./semantic-key";
 import { inferPaperSpans, sameSpans, writeLayoutMarker, type Span } from "./table-spans";
@@ -112,7 +112,9 @@ function formulaSource(attrs: Record<string, unknown>, tex: string): string | un
     const edited = `\\[${tex}\\]`;
     return SINGLE_LINE_DISPLAY.exec(edited)?.[1] === tex ? edited : undefined;
   }
-  return /^ {0,3}\\\[[ \t]*\n/.test(source) ? `\\[\n${tex}\n\\]` : undefined;
+  if (!/^ {0,3}\\\[[ \t]*\n/.test(source)) return undefined;
+  const edited = `\\[\n${tex}\n\\]`;
+  return displayMathTex(edited) === tex ? edited : undefined;
 }
 
 /**

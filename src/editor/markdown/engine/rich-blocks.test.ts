@@ -238,6 +238,17 @@ describe("LaTeX math (R-RT-21, R-FMT-12)", () => {
     expect(edited("\\[x\\]\n", setAttrs(isType("latticeMath"), { tex: "y" }))).toBe("\\[y\\]\n");
   });
 
+  it.each([["empty", ""], ["with a blank line", "a\n\nb"], ["with a trailing line break", "y\n"], ["with a list line", "a\n- b"]])(
+    "writes an edited \\[ block whose TeX is %s as $$ display math",
+    (_name, tex) => {
+      const { doc, baseline } = open("Intro\n\n\\[\nx^2\n\\]\n");
+      const written = serializeMarkdown(setAttrs(isType("latticeMathBlock"), { tex })(doc), baseline).text;
+      expect(written.startsWith("Intro\n\n$$")).toBe(true);
+      const reopened = find(open(written).doc, isType("latticeMathBlock")).node;
+      expect(reopened.attrs.tex).toBe(tex);
+    },
+  );
+
   it("writes an edited single-line \\[…\\] formula that no longer fits one line as a display block", () => {
     const { doc, baseline } = open("\\[x\\]\n");
     const written = serializeMarkdown(setAttrs(isType("latticeMath"), { tex: "a\\]b" })(doc), baseline).text;

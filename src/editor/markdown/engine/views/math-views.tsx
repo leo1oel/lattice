@@ -2,7 +2,10 @@
  * Formulas in the visual engine (spec R-INL-2, R-BLK-4, R-FMT-12): KaTeX
  * renders them with the project's macros, and a formula field edits the TeX.
  * The field previews live in the document but changes nothing until the
- * author commits, and an edited formula is written with dollar delimiters.
+ * author commits. An edit never changes the formula's kind: an edited inline
+ * formula is written with dollar delimiters, and a display formula stays
+ * display math, in its own `\[…\]` delimiters while the new TeX still reads
+ * back there and as `$$…$$` otherwise.
  *
  * Clean implementation for Lattice; spec: docs/visual-editor-spec.md.
  */
