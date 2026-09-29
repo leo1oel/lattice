@@ -1,0 +1,44 @@
+/**
+ * What a document means, independent of how its Markdown was written: the
+ * comparison the round-trip core uses to tell an edited block from an
+ * untouched one, and to verify that written Markdown reads back as shown.
+ *
+ * Clean implementation for Lattice; spec: docs/visual-editor-spec.md.
+ */
+import type { JSONContent } from "@tiptap/core";
+import type { Node as PmNode } from "@tiptap/pm/model";
+import { STYLE_ATTRIBUTES } from "./engine-schema";
+
+/**
+ * What a sequence of nodes means, ignoring how it was written: style
+ * attributes, authored-source marks, text-node boundaries, and empty
+ * paragraphs (which have no Markdown) are dropped.
+ */
+export function semanticKey(nodes: readonly PmNode[]): string {
+  return JSON.stringify(nodes.map((node) => semanticJSON(node.toJSON() as JSONContent)).filter(Boolean));
+}
+
+function semanticJSON(node: JSONContent): unknown {
+  if (node.type === "paragraph" && !node.content?.length) return null;
+  const attrs = Object.fromEntries(
+    Object.entries(node.attrs ?? {})
+      .filter(([name]) => !STYLE_ATTRIBUTES.has(name))
+      .map(([name, value]) => [name, value === "" ? null : value]),
+  );
+  const marks = (node.marks ?? [])
+    .filter((mark) => mark.type !== "latticeSource")
+    .map((mark) => [mark.type, Object.fromEntries(Object.entries(mark.attrs ?? {}).filter(([name]) => !STYLE_ATTRIBUTES.has(name)))]);
+  if (node.type === "text") return { text: node.text, marks };
+  const content: unknown[] = [];
+  for (const child of node.content ?? []) {
+    const value = semanticJSON(child) as { text?: string; marks?: unknown } | null;
+    if (!value) continue;
+    const previous = content[content.length - 1] as { text?: string; marks?: unknown } | undefined;
+    if (value.text != null && previous?.text != null && JSON.stringify(previous.marks) === JSON.stringify(value.marks)) {
+      content[content.length - 1] = { ...previous, text: previous.text + value.text };
+    } else {
+      content.push(value);
+    }
+  }
+  return { type: node.type, attrs, marks, content };
+}

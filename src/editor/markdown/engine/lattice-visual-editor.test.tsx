@@ -49,12 +49,12 @@ describe("Lattice visual Markdown editor", () => {
   });
 
   it("renders Markdown visually, keeps unmodelled source verbatim, and never writes on open", async () => {
-    const { onChange } = renderEditor({ text: "# Title\n\n- one\n- two\n\n<Callout type=\"note\">\n\nBody\n\n</Callout>\n" });
+    const { onChange } = renderEditor({ text: "# Title\n\n- one\n- two\n\n<Tabs mode=\"x\">\n\nBody\n\n</Tabs>\n" });
     expect(surface().querySelector("h1")?.textContent).toBe("Title");
     expect(surface().querySelectorAll("li")).toHaveLength(2);
     const raw = surface().querySelector("pre[data-lattice-raw='component']");
     expect(raw?.getAttribute("data-label")).toBe("Component");
-    expect(raw?.textContent).toBe("<Callout type=\"note\">\n\nBody\n\n</Callout>");
+    expect(raw?.textContent).toBe("<Tabs mode=\"x\">\n\nBody\n\n</Tabs>");
     await settle();
     expect(onChange).not.toHaveBeenCalled();
   });

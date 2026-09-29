@@ -307,9 +307,7 @@ function useRawBlockLabels(): Partial<Record<RawBlockKind, string>> {
     html: t`HTML`,
     component: t`Component`,
     definition: t`Definition`,
-    footnote: t`Footnote`,
     frontmatter: t`Frontmatter`,
-    "layout-table": t`Merged table`,
     unsupported: t`Markdown source`,
   };
 }

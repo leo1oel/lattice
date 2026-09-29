@@ -14,13 +14,14 @@
  * Clean implementation for Lattice; spec: docs/visual-editor-spec.md.
  */
 import type { JSONContent } from "@tiptap/core";
-import type { Node as PmNode, Schema } from "@tiptap/pm/model";
-import type { RootContent } from "mdast";
+import { Fragment, type Node as PmNode, type Schema } from "@tiptap/pm/model";
 import { markdownFrontmatterEnd } from "../../../app-utils";
 import { documentToMarkdownTree } from "./document-to-markdown";
-import { STYLE_ATTRIBUTES } from "./engine-schema";
 import { parseMarkdownTree, stringifyMarkdownTree } from "./markdown-syntax";
-import { blockToDocument, rawBlock } from "./markdown-to-document";
+import { documentBlocks, rawBlock, type ParseOptions } from "./markdown-to-document";
+import { semanticKey } from "./semantic-key";
+
+export { semanticKey } from "./semantic-key";
 
 /** Beyond this many characters the engine declines a file; source mode handles it. */
 export const ENGINE_TEXT_LIMIT = 4_000_000;
@@ -37,9 +38,16 @@ type BaselineEntry = {
   gapBefore: string;
 };
 
+/** How a document is read; fixed for the life of its baseline. */
+export type OpenOptions = {
+  /** Paper reading mode: infer merged cells in converted tables (R-BLK-11). */
+  paperSpans?: boolean;
+};
+
 /** What the last accepted Markdown looked like, block by block. */
 export type MarkdownBaseline = {
   envelope: Envelope;
+  options: OpenOptions;
   entries: readonly BaselineEntry[];
   /** Bytes after the last block (or the whole body when there are no blocks). */
   trailing: string;
@@ -89,53 +97,13 @@ function definitionContext(labels: MarkdownBaseline["labels"]): string {
   return lines.length ? `\n\n${lines.join("\n\n")}\n` : "";
 }
 
-const PASCAL_COMPONENT = /^<([A-Z][\w.]*)(?=[\s/>])/;
-const TABLE_LAYOUT_MARKER = /^<!--\s*lattice-table-layout:v1\b/;
-
-/** Top-level block ranges; an MDX component and everything up to its closing tag is one range. */
-function blockRanges(children: RootContent[]): { from: number; to: number; node: RootContent | null }[] {
-  const ranges: { from: number; to: number; node: RootContent | null }[] = [];
-  for (let index = 0; index < children.length; index += 1) {
-    const child = children[index]!;
-    const from = child.position?.start.offset;
-    const to = child.position?.end.offset;
-    // Every parsed block carries a position; one that does not fails the open.
-    if (from == null || to == null) throw new Error();
-    const name = child.type === "html" ? child.value.match(PASCAL_COMPONENT)?.[1] : undefined;
-    const close = name ? componentClose(children, index, name) : -1;
-    if (close > index) {
-      ranges.push({ from, to: children[close]!.position!.end.offset!, node: null });
-      index = close;
-      continue;
-    }
-    ranges.push({ from, to, node: child });
-  }
-  return ranges;
-}
-
-/** Index of the html block that closes the component opened at `index`, or -1. */
-function componentClose(children: RootContent[], index: number, name: string): number {
-  const escaped = name.replace(/\./g, "\\.");
-  const opens = new RegExp(`<${escaped}(?=[\\s/>])(?:[^>"']|"[^"]*"|'[^']*')*?(/?)>`, "g");
-  const closes = new RegExp(`</${escaped}\\s*>`, "g");
-  let depth = 0;
-  for (let cursor = index; cursor < children.length; cursor += 1) {
-    const child = children[cursor]!;
-    if (child.type !== "html") continue;
-    for (const match of child.value.matchAll(opens)) if (!match[1]) depth += 1;
-    depth -= [...child.value.matchAll(closes)].length;
-    if (depth <= 0) return cursor === index ? -1 : cursor;
-  }
-  return -1;
-}
-
 type ParsedBlocks = { entries: BaselineEntry[]; trailing: string; labels: Labels };
 
 /**
  * Parse `body` into baseline entries. `context` is appended for parsing only;
  * `frontmatter` allows a leading frontmatter block (only at the file start).
  */
-function parseBlocks(body: string, schema: Schema, context: string, frontmatter: boolean): ParsedBlocks {
+function parseBlocks(body: string, schema: Schema, context: string, frontmatter: boolean, options: OpenOptions): ParsedBlocks {
   const labels: Labels = { links: new Set(), footnotes: new Set() };
   const entries: BaselineEntry[] = [];
   let cursor = 0;
@@ -150,33 +118,59 @@ function parseBlocks(body: string, schema: Schema, context: string, frontmatter:
   }
   const rest = body.slice(cursor);
   const offset = cursor;
-  const tree = parseMarkdownTree(rest + context);
-  collectLabels(tree, labels);
-  for (const range of blockRanges(tree.children)) {
-    if (range.from >= rest.length) break;
-    const from = offset + range.from;
-    const to = offset + Math.min(range.to, rest.length);
-    const previous = entries[entries.length - 1];
-    // A table under an explicit span layout is kept verbatim until the engine
-    // models spans: editing its cells here could desynchronize the layout.
-    const laidOut = range.node?.type === "table" && previous?.node.attrs.kind === "html" && TABLE_LAYOUT_MARKER.test(previous.source);
-    const json = !range.node ? rawBlock("component", body.slice(from, to))
-      : laidOut ? rawBlock("layout-table", body.slice(from, to))
-        : blockToDocument(range.node, rest);
-    push(from, to, json);
+  for (const range of parseRanges(rest, schema, context, options, labels)) {
+    push(offset + range.from, offset + Math.min(range.to, rest.length), range.json);
   }
   return { entries, trailing: body.slice(cursor), labels };
+}
+
+/** Block ranges of `text` (positions index into `text`), collecting its labels into `labels`. */
+function parseRanges(text: string, schema: Schema, context: string, options: OpenOptions, labels: Labels) {
+  const source = text + context;
+  const tree = parseMarkdownTree(source);
+  collectLabels(tree, labels);
+  const parseOptions: ParseOptions = {
+    paperSpans: Boolean(options.paperSpans),
+    // A component's body is read like a document of its own, against the same definitions.
+    parseBody: (inner) => parseRanges(inner, schema, context, options, labels).map((range) => range.json),
+    cellKey: (paragraph) => {
+      try {
+        return paragraph.content?.length ? semanticKey([schema.nodeFromJSON(paragraph)]) : "";
+      } catch {
+        return JSON.stringify(paragraph);
+      }
+    },
+  };
+  return documentBlocks(tree.children, source, text.length, parseOptions);
 }
 
 function nodeFromJSON(schema: Schema, json: JSONContent, source: string): PmNode {
   try {
     const node = schema.nodeFromJSON(json);
     node.check();
-    return node;
+    return stampComponentBodies(node);
   } catch {
     // A modelled block the schema still rejects (content it cannot hold) is kept verbatim.
     return schema.nodeFromJSON(rawBlock("unsupported", source));
   }
+}
+
+/**
+ * Record, on every component, what its body meant when it was read: a body
+ * that still means the same is written back from its exact source.
+ */
+function stampComponentBodies(node: PmNode): PmNode {
+  if (node.isTextblock || node.isLeaf) return node;
+  let changed = false;
+  const children: PmNode[] = [];
+  node.forEach((child) => {
+    const stamped = stampComponentBodies(child);
+    changed ||= stamped !== child;
+    children.push(stamped);
+  });
+  const current = changed ? node.copy(Fragment.fromArray(children)) : node;
+  if (current.type.name !== "latticeComponent") return current;
+  return current.type.create({ ...current.attrs, bodyKey: semanticKey(current.children) }, current.content, current.marks);
 }
 
 function emptyDocument(schema: Schema): PmNode {
@@ -184,13 +178,13 @@ function emptyDocument(schema: Schema): PmNode {
 }
 
 /** Open Markdown for visual editing, or say why the engine declines it. */
-export function openMarkdown(text: string, schema: Schema): OpenedMarkdown | { unavailable: UnavailableReason } {
+export function openMarkdown(text: string, schema: Schema, options: OpenOptions = {}): OpenedMarkdown | { unavailable: UnavailableReason } {
   if (text.length > ENGINE_TEXT_LIMIT) return { unavailable: "too-large" };
   const opened = openEnvelope(text);
   if (!opened) return { unavailable: "mixed-line-endings" };
   let parsed: ParsedBlocks;
   try {
-    parsed = parseBlocks(opened.body, schema, "", true);
+    parsed = parseBlocks(opened.body, schema, "", true, options);
   } catch {
     return { unavailable: "parse-failed" };
   }
@@ -199,7 +193,7 @@ export function openMarkdown(text: string, schema: Schema): OpenedMarkdown | { u
   const nodes = parsed.entries.map((entry) => entry.node);
   return {
     doc: nodes.length ? schema.topNodeType.create(null, nodes) : emptyDocument(schema),
-    baseline: { envelope: opened.envelope, entries: parsed.entries, trailing: parsed.trailing, labels: parsed.labels },
+    baseline: { envelope: opened.envelope, options, entries: parsed.entries, trailing: parsed.trailing, labels: parsed.labels },
   };
 }
 
@@ -268,7 +262,7 @@ export function serializeMarkdown(doc: PmNode, baseline: MarkdownBaseline): Seri
   let assembly = assemble(doc, baseline, matches);
   for (;;) {
     const context = definitionContext(assembly.labels);
-    const merged = assembly.seams.find((seam) => !seamHolds(assembly.entries, seam.at, doc.type.schema, context));
+    const merged = assembly.seams.find((seam) => !seamHolds(assembly.entries, seam.at, doc.type.schema, context, baseline.options));
     if (!merged) break;
     for (const child of merged.children) matches[child] = -1;
     assembly = assemble(doc, baseline, matches);
@@ -278,7 +272,7 @@ export function serializeMarkdown(doc: PmNode, baseline: MarkdownBaseline): Seri
   const body = entries.map((entry) => entry.gapBefore + entry.source).join("") + trailing;
   return {
     text: closeEnvelope(body, baseline.envelope),
-    baseline: { envelope: baseline.envelope, entries, trailing, labels },
+    baseline: { envelope: baseline.envelope, options: baseline.options, entries, trailing, labels },
     verified,
   };
 }
@@ -314,7 +308,7 @@ function assemble(doc: PmNode, baseline: MarkdownBaseline, matches: readonly num
     let end = index;
     while (end < current.length && matches[end]! < 0) end += 1;
     const nextBase = end < current.length ? matches[end]! : base.length;
-    const run = serializeRun(current.slice(index, end), doc.type.schema, baseline.labels, first);
+    const run = serializeRun(current.slice(index, end), doc.type.schema, baseline, first);
     verified &&= run.verified;
     if (run.parsed.entries.length) {
       const replaced = previousBase + 1 < nextBase ? base[previousBase + 1]?.gapBefore : undefined;
@@ -335,27 +329,28 @@ function assemble(doc: PmNode, baseline: MarkdownBaseline, matches: readonly num
 }
 
 /** Whether the entry at `seam` and the one before it read back as the same two blocks when written together. */
-function seamHolds(entries: readonly BaselineEntry[], seam: number, schema: Schema, context: string): boolean {
+function seamHolds(entries: readonly BaselineEntry[], seam: number, schema: Schema, context: string, options: OpenOptions): boolean {
   const left = entries[seam - 1]!;
   const right = entries[seam]!;
   const atStart = seam === 1;
   const window = `${atStart ? left.gapBefore : ""}${left.source}${right.gapBefore}${right.source}`;
   try {
-    const parsed = parseBlocks(window, schema, context, atStart);
+    const parsed = parseBlocks(window, schema, context, atStart, options);
     return semanticKey(parsed.entries.map((entry) => entry.node)) === semanticKey([left.node, right.node]);
   } catch {
     return false;
   }
 }
 
-function serializeRun(nodes: readonly PmNode[], schema: Schema, labels: MarkdownBaseline["labels"], atStart: boolean) {
-  const tree = documentToMarkdownTree(nodes) as unknown as Parameters<typeof stringifyMarkdownTree>[0];
+function serializeRun(nodes: readonly PmNode[], schema: Schema, baseline: MarkdownBaseline, atStart: boolean) {
   const expected = semanticKey(nodes);
-  const context = definitionContext(labels);
+  const context = definitionContext(baseline.labels);
   let fallback: { text: string; parsed: ParsedBlocks } | null = null;
   for (const mode of ["literal", "safe"] as const) {
+    // Each stringify consumes its tree (safe mode rewrites raw nodes in place).
+    const tree = documentToMarkdownTree(nodes, baseline.options) as unknown as Parameters<typeof stringifyMarkdownTree>[0];
     const text = stringifyMarkdownTree(tree, mode);
-    const parsed = parseBlocks(text, schema, context, atStart);
+    const parsed = parseBlocks(text, schema, context, atStart, baseline.options);
     // The run's bytes are exactly its entries: no leading or trailing gap.
     parsed.entries.forEach((entry, position) => {
       if (position === 0) entry.gapBefore = "";
@@ -364,38 +359,4 @@ function serializeRun(nodes: readonly PmNode[], schema: Schema, labels: Markdown
     fallback = { text, parsed };
   }
   return { parsed: fallback!.parsed, verified: false };
-}
-
-/**
- * What a sequence of nodes means, ignoring how it was written: style
- * attributes, authored-source marks, text-node boundaries, and empty
- * paragraphs (which have no Markdown) are dropped.
- */
-export function semanticKey(nodes: readonly PmNode[]): string {
-  return JSON.stringify(nodes.map((node) => semanticJSON(node.toJSON() as JSONContent)).filter(Boolean));
-}
-
-function semanticJSON(node: JSONContent): unknown {
-  if (node.type === "paragraph" && !node.content?.length) return null;
-  const attrs = Object.fromEntries(
-    Object.entries(node.attrs ?? {})
-      .filter(([name]) => !STYLE_ATTRIBUTES.has(name))
-      .map(([name, value]) => [name, value === "" ? null : value]),
-  );
-  const marks = (node.marks ?? [])
-    .filter((mark) => mark.type !== "latticeSource")
-    .map((mark) => [mark.type, Object.fromEntries(Object.entries(mark.attrs ?? {}).filter(([name]) => !STYLE_ATTRIBUTES.has(name)))]);
-  if (node.type === "text") return { text: node.text, marks };
-  const content: unknown[] = [];
-  for (const child of node.content ?? []) {
-    const value = semanticJSON(child) as { text?: string; marks?: unknown } | null;
-    if (!value) continue;
-    const previous = content[content.length - 1] as { text?: string; marks?: unknown } | undefined;
-    if (value.text != null && previous?.text != null && JSON.stringify(previous.marks) === JSON.stringify(value.marks)) {
-      content[content.length - 1] = { ...previous, text: previous.text + value.text };
-    } else {
-      content.push(value);
-    }
-  }
-  return { type: node.type, attrs, marks, content };
 }
