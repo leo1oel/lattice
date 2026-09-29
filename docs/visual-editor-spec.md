@@ -146,16 +146,21 @@ the host contract:
 - rebasing of a rejected draft;
 - the existing conflict notification when a rebase is refused.
 
-Mod-click opens links through Lattice's link routing. Images load through the
+A click on a link opens it through Lattice's link routing (R-INL-3); a wiki
+link opens on Mod-click, or any click while read-only (R-INL-6). Images load through the
 project image host, and formulas render with KaTeX using the project's
 macros. The stylesheet is new and written from Lattice's design tokens under a
 `lx-md-` prefix.
 
-**Enabling it.** The engine sits behind the `visualEditorEngine` setting
-(`"ok"` | `"lattice"`, default `"ok"`). It is stored in `localStorage` under
-`lattice.visual-editor-engine.v1` and has no UI yet. The engine is a separate
-lazy chunk, loaded only when the setting selects it. Setting the key to
-`lattice` and reopening the document switches engines.
+**Selecting it.** The engine is the default visual editor. The
+`visualEditorEngine` setting (`"ok"` | `"lattice"`, default `"lattice"`) keeps
+the vendored editor for one release as a hidden fallback: it is stored in
+`localStorage` under `lattice.visual-editor-engine.v1`, has no UI, and only an
+explicit `ok` selects the old editor (any other value, or none, gets the
+engine). Each engine is a separate lazy chunk, loaded only when selected;
+changing the key and reopening the document switches engines. A document the
+engine cannot open still falls back to source mode through the eligibility
+gate (R-ELIG).
 
 ### Deliberate differences from current behavior
 
@@ -175,14 +180,15 @@ lazy chunk, loaded only when the setting selects it. Setting the key to
 
 Phase 2 shipped in three parts: rich blocks, editor chrome, and the
 integration behind engine-agnostic interfaces (this state). What remains is
-phase 3: the default flip and the removal of the vendored editor.
+phase 3. Its first step, the default flip, is done: the engine is the
+default and the vendored editor is a hidden fallback until it is removed.
 
 | Area | Met now | Still to come |
 | --- | --- | --- |
 | Round trip, envelope (R-RT, R-ELIG) | Byte-exact untouched documents; untouched blocks, gaps, BOM, CRLF, trailing newlines and frontmatter preserved on edit; authored syntax inside edited paragraphs kept (R-RT-12 fixtures); escaped new text; nothing written on open; `\(`…`\)` and `\[`…`\]` as math (R-RT-21); explicit and paper-inferred table spans (R-RT-23, R-FMT-13); components, legacy callout fences and footnotes kept byte for byte until edited | — |
 | Publication (R-PUB) | R-PUB-1–18, 21 and 22; the host-level R-PUB-19–20 are unchanged host code | — |
 | Blocks (R-BLK) | Paragraphs, headings, lists and task lists, quotes, thematic breaks; Callout and Accordion with their properties (R-BLK-1, 2); images with alignment, resizing and zoom (R-BLK-3); display math (R-BLK-4); Mermaid previews (R-BLK-5); footnotes (R-BLK-6); code blocks with their chrome (R-BLK-7); tables with handles, merge and split, and row and column drag reorder (R-BLK-11); headings with slug ids and the section rail (R-BLK-13); the generated paper Contents hidden in reading mode (R-BLK-14); paper figures (R-BLK-15); unknown components as source (R-BLK-16); task-list input rules, mixed task lists and list movement (R-BLK-19) | — |
-| Inline (R-INL) | Marks including highlight and underline, links (Mod-click, typed `[text](url)`), inline math with its formula field and `$…$` input rule (R-INL-2), images, footnote references, hard and soft breaks, raw inline source; wiki links and citation chips with their suggestions, drops and editors (R-INL-6, 7) | — |
+| Inline (R-INL) | Marks including highlight and underline, links (opened on a click, R-INL-3; typed `[text](url)`), inline math with its formula field and `$…$` input rule (R-INL-2), images, footnote references, hard and soft breaks, raw inline source; wiki links and citation chips with their suggestions, drops and editors (R-INL-6, 7) | — |
 | Chrome (R-CHR) | Accessible textbox surface; slash menu (R-CHR-1, §12); selection toolbar with Comment and View in source, and Comment alone when read-only (R-CHR-2); find and replace (R-CHR-3); link editor and hover (R-CHR-4); block controls and drag, with the host holding the view around an added block (R-CHR-5); native selection hidden only for a node selection (R-CHR-6); emoji (R-CHR-7); frozen table headers outside paper reading mode (R-CHR-9) | — |
 | Source mapping (R-SRC) | The caret in Markdown coordinates (R-SRC-1); collaborators' carets, omitted where they have no exact place, and table coordinates (R-SRC-2–4); comments anchored in Markdown offsets, their composer, highlights and thread cards, also read-only (R-SRC-5–7, 9); tracked changes with Accept and Reject (R-SRC-8); frontmatter offsets stay the host's (R-SRC-10); block source labels and View in source (R-SRC-11); the selection as Markdown (R-SRC-12); mapping scoped to one block (R-SRC-13) | — |
 | Performance (R-PERF) | Per-keystroke plugin work limited to the blocks an edit touched; the passive view of a large read-only document, with links, paper fragments, immediate formulas and deferred images (R-PERF-1–6); images read near the viewport through the project image host (R-PERF-7); formulas drawn at once in the complete editor (R-PERF-8); no remounts (R-PERF-9); publication within the sync policy (R-PERF-10) | — |
@@ -212,12 +218,13 @@ phase 3: the default flip and the removal of the vendored editor.
   carets, comments, tracked changes, View in source, selection context and
   the section rail; `lattice-visual-passive.test.tsx` the passive view;
   `frozen-headers.test.tsx` the pinned header rows.
-- `differential.test.tsx` runs the same corpus through the vendored editor
-  and the engine. The vendored editor is mounted only as a black box through
-  the shared props contract. For every document the engine must open what the
-  old editor opens as editable, write it back byte for byte, publish nothing
-  on open, and show the same headings, code and formulas. The harness goes
-  with the vendored editor in phase 3.
+- `differential.test.tsx` mounts the engine, as the host does by default,
+  and runs the same corpus through the vendored editor as an oracle. The
+  vendored editor is mounted only as a black box through the shared props
+  contract. For every document the engine must open what the old editor opens
+  as editable, write it back byte for byte, publish nothing on open, and show
+  the same headings, code and formulas. The harness goes with the vendored
+  editor in phase 3.
 
 ### Phase 2 derivation notes
 
@@ -431,8 +438,8 @@ here, with the requirement it rests on.
   context no longer import Open Knowledge code: document-relative project
   paths (`src/project/document-relative-path.ts`), page headings for the
   workspace index (`markdown-headings.ts`) and the viewport restore are
-  Lattice modules. Only the vendored editor and its own helpers still do,
-  and they go in phase 3.
+  Lattice modules. Only the vendored editor and its own helpers still do;
+  they remain only as the hidden fallback and go in phase 3.
 
 ---
 

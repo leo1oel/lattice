@@ -1,8 +1,9 @@
 /**
  * The visual Markdown editor on Lattice's own engine: Tiptap for editing, the
  * round-trip core (markdown-document.ts) for reading and writing Markdown.
- * Mounted instead of the vendored editor when the `visualEditorEngine`
- * setting is `lattice`; it takes the same props (visual-editor-props.ts).
+ * The default visual editor; the vendored one is mounted instead only when
+ * the hidden `visualEditorEngine` fallback is `ok`. Both take the same props
+ * (visual-editor-props.ts).
  *
  * Publication follows the contract the canvas already uses: a debounced
  * compare-and-swap `onChangeMarkdown(next, expected)`, a synchronous flush the
@@ -392,15 +393,18 @@ function surfaceProps(label: string): EditorOptions["editorProps"] {
   return {
     attributes: { class: "lx-md-surface", role: "textbox", "aria-multiline": "true", "aria-label": label },
     handleDOMEvents: {
-      // Editing owns plain clicks; Mod-click (or any click while read-only)
-      // follows a link or opens a wiki link's page. Handled on the DOM click,
-      // not ProseMirror's position-mapped click, so it never depends on layout.
+      // A click on a link follows it (R-INL-3); Shift- or Alt-click, or a
+      // drag that selected text, stays with the selection. A wiki link keeps
+      // its text editable, so only Mod-click (or any click while read-only)
+      // opens its page (R-INL-6). Handled on the DOM click, not ProseMirror's
+      // position-mapped click, so it never depends on layout.
       click: (view, event) => {
         const host = hostOf((view.dom as HTMLElement & { editor?: Editor }).editor);
-        if (!host || !(event.metaKey || event.ctrlKey || !view.editable)) return false;
+        if (!host || event.shiftKey || event.altKey || window.getSelection()?.isCollapsed === false) return false;
         const target = event.target as HTMLElement | null;
         const wiki = target?.closest?.("[data-lattice-wiki]");
         if (wiki) {
+          if (!(event.metaKey || event.ctrlKey || !view.editable)) return false;
           // A wiki link opens its page by document name; the heading slug stays for the page to use.
           const name = (wiki.getAttribute("data-target") ?? "").split("#")[0]!;
           const doc = host.props.workspaceIndex?.getDoc(name);

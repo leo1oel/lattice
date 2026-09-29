@@ -23,14 +23,14 @@ import { loadTextLanguageExtensions } from "./editor/editor-languages";
 import { activateAppLocale } from "./i18n";
 import { referenceAssetPreviewDataUrl } from "./project/reference-preview";
 import { usePanelLayout } from "./app/use-panel-layout";
-import { parseVisualMarkdown } from "./editor/markdown/visual-markdown-schema";
+import { openMarkdown } from "./editor/markdown/engine/markdown-document";
 import type { SynaraRuntimeInfo } from "./agent/synara-runtime";
 import { ConfirmActionProvider } from "./components/ui/confirm-action-dialog";
-import { loadVisualMarkdownEditorModule } from "./canvas/canvas-lazy-modules";
+import { loadLatticeVisualEditorModule } from "./canvas/canvas-lazy-modules";
 // Keep the cold Vite transforms of these real lazy surfaces outside interaction-test deadlines; the tests
 // still mount them, not doubles: the visual Markdown editor, the file-tree navigator, the canvas and
 // comment surfaces the comment-routing regression uses, and the PDF viewer source navigation needs.
-import "./editor/markdown/visual-markdown-editor";
+import "./editor/markdown/engine/lattice-visual-editor";
 import "./project/navigator";
 import "./canvas/document-canvas";
 import "./overleaf/overleaf-collab";
@@ -665,6 +665,12 @@ const paneContent = (pane: "primary" | "secondary") => (
   document.querySelector<HTMLElement>(`.source-editor[data-editor-pane='${pane}'] .cm-content`)
 );
 const visualEditorOf = (surface: HTMLElement) => (surface as HTMLElement & { editor: TiptapEditor }).editor;
+/** `text` read as the visual editor's own document, for replacing what it shows the way a reader's edit would. */
+function visualDocument(editor: TiptapEditor, text: string) {
+  const opened = openMarkdown(text, editor.schema);
+  if ("unavailable" in opened) throw new Error(`The visual editor cannot open this Markdown: ${opened.unavailable}`);
+  return opened.doc.toJSON() as Record<string, unknown>;
+}
 const argPath = (args: InvokeArgs | undefined) => (args as { path: string }).path;
 
 /** Matches the editor tab of a project file by its file name. */
@@ -1502,10 +1508,10 @@ describe("project workspace", () => {
     await waitFor(() => expect(document.querySelectorAll(".source-editor .cm-editor")).toHaveLength(2), { timeout: 20_000 });
 
     fireEvent.click(within(documentView).getByRole("tab", { name: "Preview" }));
-    const visualPaths = () => Array.from(
-      document.querySelectorAll<HTMLElement>(".visual-markdown-editor"), (editor) => editor.dataset.activePath,
-    );
     const visualEditors = () => screen.getAllByRole("textbox", { name: "Markdown document editor" });
+    // Each file's visual editor is told apart by the heading it shows.
+    const visualPaths = () => screen.queryAllByRole("textbox", { name: "Markdown document editor" })
+      .map((editor) => `${editor.querySelector("h1")?.textContent?.split(" ")[0]?.toLowerCase()}.md`);
     await waitFor(() => expect(visualEditors()).toHaveLength(1), { timeout: 30_000 });
     expect(visualPaths()).toEqual(["left.md"]);
     const rightSource = paneContent("secondary");
@@ -1519,7 +1525,7 @@ describe("project workspace", () => {
     expect(visualEditors()).toHaveLength(2);
     expect(document.querySelectorAll(".source-editor .cm-editor")).toHaveLength(0);
 
-    act(() => { visualEditorOf(visualEditors()[1]).commands.setContent(parseVisualMarkdown("# Right preview edit")); });
+    act(() => { const right = visualEditorOf(visualEditors()[1]); right.commands.setContent(visualDocument(right, "# Right preview edit")); });
     fireEvent.click(within(documentView).getByRole("tab", { name: "Edit" }));
     await waitFor(() => expect(visualPaths()).toEqual(["left.md"]));
     expect(paneContent("secondary")).toHaveTextContent("# Right preview edit");
@@ -1766,7 +1772,7 @@ describe("project workspace", () => {
     });
     persistLayout(snapshot.root, { openTabs: ["notes/index.md"], activeFile: "notes/index.md", secondaryFile: "", canvasMode: "split" });
 
-    await Promise.all([loadTextLanguageExtensions("notes/index.md"), loadVisualMarkdownEditorModule()]);
+    await Promise.all([loadTextLanguageExtensions("notes/index.md"), loadLatticeVisualEditorModule()]);
     renderApp({
       ...refreshableProject(snapshot), write_project_file: undefined,
       read_project_file: readFiles({
@@ -1785,11 +1791,13 @@ describe("project workspace", () => {
     expect(await screen.findByTestId("editor-scroll-container")).toHaveStyle({ overflowAnchor: "none" });
     const visualEditor = visualEditorOf(await screen.findByRole("textbox", { name: "Markdown document editor" }));
     act(() => {
-      visualEditor.commands.setContent(parseVisualMarkdown("[Visually edited view](native-unified-view.md)\n\n- [ ] Review preview"));
+      visualEditor.commands.setContent(visualDocument(visualEditor, "[Visually edited view](native-unified-view.md)\n\n- [ ] Review preview"));
     });
     await waitFor(() => expect(editor.state.doc.toString()).toContain("[Visually edited view](native-unified-view.md)"));
+    // Only the changed link paragraph is rewritten: the task list still means what it did, so it keeps the
+    // bytes it was written with (spec R-RT-5).
     expect(editor.state.doc.toString()).toBe(
-      "---\ntitle: Exact metadata\n---\n[Visually edited view](native-unified-view.md)\n\n- [ ] Review preview",
+      "---\ntitle: Exact metadata\n---\n[Visually edited view](native-unified-view.md)\n\n-\n  [ ] Review preview",
     );
     await waitFor(() => expect(screen.getByRole("link", { name: "Visually edited view" })).toBeInTheDocument());
     fireEvent.click(await screen.findByRole("checkbox"));
@@ -1861,7 +1869,7 @@ describe("project workspace", () => {
     await waitFor(() => expect(scrollContainer().scrollTop).toBe(570));
 
     const previewEditor = visualEditorOf(screen.getByRole("textbox", { name: "Markdown document editor" }));
-    act(() => { previewEditor.commands.setTextSelection({ from: 1, to: 8 }); });
+    act(() => { previewEditor.chain().focus().setTextSelection({ from: 1, to: 8 }).run(); });
     const viewSourceButton = await screen.findByRole("button", { name: "View in source Markdown" });
     const explicitPreviewViewport = scrollContainer();
     explicitPreviewViewport.scrollTop = 480;
@@ -1889,7 +1897,7 @@ describe("project workspace", () => {
     });
     const lineBlockSpy = vi.spyOn(revealedEditor, "lineBlockAt").mockReturnValue({ top: 600, bottom: 620 } as never);
     const splitVisualEditor = visualEditorOf(screen.getByRole("textbox", { name: "Markdown document editor" }));
-    act(() => splitVisualEditor.commands.setTextSelection({ from: 1, to: 8 }));
+    act(() => { splitVisualEditor.chain().focus().setTextSelection({ from: 1, to: 8 }).run(); });
     fireEvent.click(await screen.findByRole("button", { name: "View in source Markdown" }));
     await waitFor(() => expect(revealedEditor.scrollDOM.scrollTop).toBe(410));
     await waitFor(() => expect(splitPreviewViewport.scrollTop).toBe(720));
@@ -1943,7 +1951,7 @@ describe("project workspace", () => {
     };
     persistLayout(snapshot.root, { openTabs: ["notes/index.md"], activeFile: "notes/index.md", secondaryFile: "", canvasMode: "split" });
 
-    await Promise.all([loadTextLanguageExtensions("notes/index.md"), loadVisualMarkdownEditorModule()]);
+    await Promise.all([loadTextLanguageExtensions("notes/index.md"), loadLatticeVisualEditorModule()]);
     renderApp({
       ...refreshableProject(snapshot), write_project_file: undefined,
       read_project_file: (args) => {
@@ -2690,7 +2698,7 @@ describe("project workspace", () => {
   it.each(["source pane", "outside input"])("saves pending visual Markdown when focus moves to %s in manual build mode", async (destination) => {
     setAutoBuildMode("manual");
     persistLayout(ROOT, { openTabs: ["notes.md"], activeFile: "notes.md", secondaryFile: "", canvasMode: "split" });
-    await loadVisualMarkdownEditorModule();
+    await loadLatticeVisualEditorModule();
     const snapshot = projectSnapshot({ files: [fileNode("notes.md")] });
     renderApp({ ...refreshableProject(snapshot, "Original paragraph.\n"), write_project_file: undefined });
     const surface = await screen.findByRole("textbox", { name: "Markdown document editor" }, { timeout: 15_000 });
@@ -2723,7 +2731,7 @@ describe("project workspace", () => {
     persistLayout(ROOT, {
       openTabs: ["left.md", "right.md"], activeFile: "left.md", secondaryFile: "right.md", focusedPane: "secondary", canvasMode: "dual",
     });
-    await loadVisualMarkdownEditorModule();
+    await loadLatticeVisualEditorModule();
     renderApp({
       ...refreshableProject(projectSnapshot({ files: fileNodes("left.md", "right.md") })), write_project_file: undefined,
       read_project_file: readFiles({ "left.md": "Left unchanged.\n" }, "Right original.\n"),
@@ -3068,7 +3076,7 @@ describe("project workspace", () => {
     let source = "# Notes\nParagraph\n";
     let mtimeMs = 1;
 
-    await Promise.all([loadTextLanguageExtensions("notes.md"), loadVisualMarkdownEditorModule()]);
+    await Promise.all([loadTextLanguageExtensions("notes.md"), loadLatticeVisualEditorModule()]);
     renderApp({
       ...refreshableProject(markdownSnapshot()), read_project_file: () => source, stat_project_file: () => ({ exists: true, mtimeMs }),
       write_project_file: (args) => {
@@ -3498,7 +3506,9 @@ describe("project workspace", () => {
     await openPaper("Attention Is All You Need");
     const paperEditor = await screen.findByRole("textbox", { name: "Markdown document editor" });
     await waitFor(() => expect(paperEditor).toHaveAttribute("contenteditable", "true"));
-    expect(document.querySelector(".ok-block-controls")).not.toBeNull();
+    // Block controls follow the pointer; hovering a block offers its grip.
+    fireEvent.mouseMove(paperEditor.firstElementChild!);
+    expect(await screen.findByRole("button", { name: "Select block" })).toBeInTheDocument();
   });
 
   it("routes toolbar and status comments to one Overleaf drawer while preserving local history", async () => {
@@ -3844,7 +3854,7 @@ describe("project workspace", () => {
 
   it("publishes a visually selected Markdown block as Agent context", async () => {
     persistLayout(ROOT, { openTabs: ["notes.md"], activeFile: "notes.md", canvasMode: "pdf" });
-    await loadVisualMarkdownEditorModule();
+    await loadLatticeVisualEditorModule();
     renderApp({
       ...projectCommands(markdownSnapshot(), "## Selected context\n\nUnselected paragraph"),
       list_editor_comments: () => ["notes.md", "other.tex"].map((path) => ({
@@ -3865,11 +3875,15 @@ describe("project workspace", () => {
     const hostContexts = () => postedOfType<HostContext>(postMessage, "lattice:host-context");
     await waitFor(() => expect(hostContexts().some((context) => context.editor?.selection === "## Selected context")).toBe(true));
 
-    const grip = document.querySelector<HTMLElement>(".ok-drag-grip");
-    expect(grip).not.toBeNull();
-    fireEvent.pointerDown(grip!, { button: 0, pointerId: 7, pointerType: "mouse" });
-    fireEvent.pointerUp(grip!, { button: 0, pointerId: 7, pointerType: "mouse" });
-    fireEvent.click(grip!);
+    // jsdom has no layout: give the two blocks their rows, then hover the heading's.
+    const [heading, paragraph] = [...surface.children];
+    vi.spyOn(heading!, "getBoundingClientRect").mockReturnValue(new DOMRect(100, 100, 400, 28));
+    vi.spyOn(paragraph!, "getBoundingClientRect").mockReturnValue(new DOMRect(100, 156, 400, 28));
+    fireEvent.mouseMove(heading!, { clientX: 150, clientY: 112 });
+    const grip = await screen.findByRole("button", { name: "Select block" });
+    fireEvent.pointerDown(grip, { button: 0, pointerId: 7, pointerType: "mouse" });
+    fireEvent.pointerUp(window, { button: 0, pointerId: 7, pointerType: "mouse" });
+    fireEvent.click(grip);
     expect(editor.state.selection).toBeInstanceOf(NodeSelection);
 
     // The grip focuses the same visual-editor surface after selecting the

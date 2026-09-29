@@ -436,11 +436,13 @@ export const loadOverleafRemoteDelete = () =>
 export const persistOverleafRemoteDelete = (mode: OverleafRemoteDelete) => persistSetting(OVERLEAF_REMOTE_DELETE_KEY, mode);
 
 /**
- * Which engine renders the visual Markdown editor. `ok` is the vendored Open
- * Knowledge editor and stays the default; `lattice` is the clean-room engine
- * (src/editor/markdown/engine, docs/visual-editor-spec.md), opt-in while it
- * reaches parity. There is deliberately no UI for it yet.
+ * Which engine renders the visual Markdown editor. `lattice` is the
+ * clean-room engine (src/editor/markdown/engine, docs/visual-editor-spec.md)
+ * and the default; `ok` is the vendored Open Knowledge editor, kept for one
+ * release as a hidden fallback and removed with it. There is deliberately no
+ * UI: only an explicit `ok` in storage selects the old editor, so an absent or
+ * stale value (including an earlier opt-in to `lattice`) gets the new one.
  */
 export type VisualEditorEngine = "ok" | "lattice";
 export const VISUAL_EDITOR_ENGINE_KEY = "lattice.visual-editor-engine.v1";
-export const loadVisualEditorEngine = () => loadChoice<VisualEditorEngine>(VISUAL_EDITOR_ENGINE_KEY, ["lattice"], "ok");
+export const loadVisualEditorEngine = () => loadChoice<VisualEditorEngine>(VISUAL_EDITOR_ENGINE_KEY, ["ok"], "lattice");

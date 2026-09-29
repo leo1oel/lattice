@@ -40,12 +40,14 @@ afterEach(() => {
 });
 
 describe("Lattice visual Markdown editor", () => {
-  it("is off unless the setting chooses it", () => {
+  it("is the default, and only an explicit hidden fallback selects the vendored editor", () => {
+    expect(loadVisualEditorEngine()).toBe("lattice");
+    localStorage.setItem(VISUAL_EDITOR_ENGINE_KEY, "ok");
     expect(loadVisualEditorEngine()).toBe("ok");
     localStorage.setItem(VISUAL_EDITOR_ENGINE_KEY, "lattice");
     expect(loadVisualEditorEngine()).toBe("lattice");
     localStorage.setItem(VISUAL_EDITOR_ENGINE_KEY, "something-else");
-    expect(loadVisualEditorEngine()).toBe("ok");
+    expect(loadVisualEditorEngine()).toBe("lattice");
   });
 
   it("renders Markdown visually, keeps unmodelled source verbatim, and never writes on open", async () => {
