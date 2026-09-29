@@ -518,7 +518,12 @@ export function DocumentCanvas(props: {
     return true;
   }, [reportEditorPosition, updateSelectionToolbar]);
   const onPrimaryUpdate = useCallback((viewUpdate: ViewUpdate) => {
-    const completionActive = completionStatus(viewUpdate.state) !== null;
+    // "pending" keeps the last answer. In LaTeX every typed letter queries the
+    // completion sources (pending) and usually finds nothing (null), and
+    // reporting both edges re-rendered all of App twice per keystroke. A menu
+    // that is already open stays active while it refreshes its results.
+    const status = completionStatus(viewUpdate.state);
+    const completionActive = status === "active" || (status === "pending" && completionActiveRef.current);
     if (completionActiveRef.current !== completionActive) {
       completionActiveRef.current = completionActive;
       latestRef.current.onCompletionActiveChange(completionActive);
@@ -1109,7 +1114,7 @@ export function DocumentCanvas(props: {
     return (
       <Suspense fallback={<div className={fallbackClass} aria-busy="true" aria-label={fallbackLabel} data-tour={tour} />}>
         {kind === "board" ? (
-          <BoardEditor key={path} {...editor} {...viewStateBinding(path, "board")} />
+          <BoardEditor key={path} {...editor} theme={props.theme} {...viewStateBinding(path, "board")} />
         ) : kind === "spreadsheet" ? (
           <SpreadsheetEditor
             key={path} {...editor} onPersist={props.onSave} {...viewStateBinding(path, "spreadsheet")}

@@ -182,7 +182,7 @@ export function PdfPreview({
   const [savingPdf, setSavingPdf] = useState(false);
 
   const view = usePdfViewState(recordRef, initialViewState, initialPage, callbacks);
-  const { pageNumber, scale, fitMode } = view;
+  const { pageNumber, scale, fitMode, viewRef, setPageNumber } = view;
   const history = usePdfLocationHistory(recordRef, view);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   const search = usePdfSearch(recordRef, generation, loadKey, previewRef, searchInputRef);
@@ -213,8 +213,12 @@ export function PdfPreview({
     if (!slick || !numPages) return;
     const page = clamp(Math.floor(nextPage), 1, numPages);
     slick.gotoPage(page);
-    view.setPageNumber(page);
+    setPageNumber(page);
   };
+  // The step buttons read the page when clicked rather than closing over it, so
+  // scrolling through pages does not re-render them and their tooltip trees.
+  const stepPage = (delta: 1 | -1) => goToPage(viewRef.current.page + delta);
+  const { availability, navigate } = history;
   const pageInput = useDraftInput(String(pageNumber), (draft) => {
     const requested = Number.parseInt(draft, 10);
     if (Number.isFinite(requested)) goToPage(requested);
@@ -278,7 +282,7 @@ export function PdfPreview({
         const path = await invoke<string>("save_compiled_pdf", pdfBytes, {
           headers: { "x-pdf-destination": utf8ToBase64(destination) },
         });
-        trace.ok(t`Saved to ${path}`);
+        trace.ok(t({ message: `Saved to ${path}` }));
       })
       .catch((reason: unknown) => trace.fail(reason))
       .finally(() => setSavingPdf(false));
@@ -300,7 +304,7 @@ export function PdfPreview({
           {toolbarStart}
           <div className="pdf-page-controls">
             <ToolbarButton label={t`Previous page`} icon={<ChevronLeft size={14} />}
-              disabled={pageNumber <= 1} onClick={() => goToPage(pageNumber - 1)} />
+              disabled={pageNumber <= 1} onClick={() => stepPage(-1)} />
             <label className={`pdf-page-value${pageInput.editing ? " editing" : ""}`} title={t`Enter a page number`}>
               <input
                 aria-label={t`PDF page number`}
@@ -313,13 +317,13 @@ export function PdfPreview({
                 : <span className="pdf-page-display" aria-hidden="true">{pageNumber} / {pageCount}</span>}
             </label>
             <ToolbarButton label={t`Next page`} icon={<ChevronRight size={14} />}
-              disabled={!numPages || pageNumber >= numPages} onClick={() => goToPage(pageNumber + 1)} />
+              disabled={!numPages || pageNumber >= numPages} onClick={() => stepPage(1)} />
           </div>
           <div className="pdf-history-controls">
             <ToolbarButton label={t`Previous PDF location`} icon={<CornerUpLeft size={14} />}
-              disabled={!history.availability.back} onClick={() => history.navigate("back")} />
+              disabled={!availability.back} onClick={() => navigate("back")} />
             <ToolbarButton label={t`Next PDF location`} icon={<CornerUpRight size={14} />}
-              disabled={!history.availability.forward} onClick={() => history.navigate("forward")} />
+              disabled={!availability.forward} onClick={() => navigate("forward")} />
           </div>
         </div>
         <div className="pdf-find-controls">

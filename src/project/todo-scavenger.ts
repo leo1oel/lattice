@@ -19,16 +19,30 @@ export function todoKindInLine(line: string): string | null {
 
 export function todosInText(path: string, content: string): TodoHit[] {
   const hits: TodoHit[] = [];
-  const lines = content.split(/\r?\n/);
-  for (let index = 0; index < lines.length; index += 1) {
-    const line = lines[index] ?? "";
-    const kind = todoKindInLine(line);
+  // The open file is rescanned on every keystroke. Every marker line contains
+  // one of these words in some letter case, so a single search over the text
+  // finds the few candidate lines instead of splitting and lowercasing every
+  // line of the document.
+  let line = 1;
+  let counted = 0;
+  let previousStart = -1;
+  for (const match of content.matchAll(/todo|fixme|xxx/gi)) {
+    const start = content.lastIndexOf("\n", match.index - 1) + 1;
+    if (start === previousStart) continue;
+    previousStart = start;
+    for (let newline = content.indexOf("\n", counted); newline !== -1 && newline < start; newline = content.indexOf("\n", newline + 1)) {
+      line += 1;
+    }
+    counted = start;
+    const end = content.indexOf("\n", start);
+    const text = content.slice(start, end === -1 ? content.length : end).replace(/\r$/, "");
+    const kind = todoKindInLine(text);
     if (!kind) continue;
-    const trimmed = line.trim();
+    const trimmed = text.trim();
     const clipped = trimmed.slice(0, 160);
     hits.push({
       path: path.replace(/\\/g, "/"),
-      line: index + 1,
+      line,
       kind,
       preview: trimmed.length > 160 ? `${clipped}…` : clipped,
     });

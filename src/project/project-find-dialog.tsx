@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useLatestRef } from "../hooks/use-latest-ref";
-import { plural } from "@lingui/core/macro";
 import { Trans, useLingui } from "@lingui/react/macro";
 import { Search } from "lucide-react";
 import { Button } from "../components/ui/button";
@@ -63,6 +62,14 @@ export function ProjectFindDialog(props: {
   const fileHits = useMemo(() => props.hits.filter((hit) => hit.kind === "file"), [props.hits]);
   const paperHits = useMemo(() => props.hits.filter((hit) => hit.kind === "paper"), [props.hits]);
   const selectableHits = [...fileHits, ...paperHits];
+  // One paper can match several times (title, overview and full-text lines);
+  // the summary counts papers, so count each library key once. Titles are not
+  // unique: a preprint and its published version can share one.
+  const paperCount = new Set(paperHits.map((hit) => /^\.research\/papers\/[^/]+\//.exec(hit.path)?.[0] ?? hit.path)).size;
+  // The object form, not an interpolated tagged template: the React Compiler
+  // bails out on the latter (react-compiler-guard.test.ts).
+  const countHits = (count: number) => (count === 1 ? t`1 hit` : t({ message: `${count} hits` }));
+  const countPapers = (count: number) => (count === 1 ? t`1 paper` : t({ message: `${count} papers` }));
 
   const close = () => {
     setDebouncing(false);
@@ -75,11 +82,6 @@ export function ProjectFindDialog(props: {
 
   const searching = debouncing || props.busy;
   const trimmedQuery = query.trim();
-  const fileCount = fileHits.length;
-  const paperCount = paperHits.length;
-  const hitSummary = t`${plural(fileCount, { one: "# hit", other: "# hits" })}`;
-  const paperSummary = t`${plural(paperCount, { one: "# paper", other: "# papers" })}`;
-  const summary = paperCount ? t`${hitSummary} · ${paperSummary}` : hitSummary;
   const showResults = Boolean(query.trim()) && !searching && !props.error;
   const openHit = (index: number) => {
     const hit = selectableHits[index];
@@ -198,7 +200,9 @@ export function ProjectFindDialog(props: {
                 ? t`Search failed.`
               : searching
                 ? t`Searching…`
-                : summary}
+                : paperCount
+                  ? `${countHits(fileHits.length)} · ${countPapers(paperCount)}`
+                  : countHits(fileHits.length)}
           </div>
           {showResults && !selectableHits.length && (
             <EmptyState

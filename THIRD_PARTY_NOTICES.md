@@ -50,6 +50,13 @@ The scope is narrower than the package names suggest, and the `license` fields a
 - `tldraw`, `@tldraw/editor` and `@tldraw/driver` declare `"SEE LICENSE IN LICENSE.md"` and ship the link stub. These are the packages the tldraw license governs.
 - `@tldraw/utils` and `@tldraw/validate` also declare `"SEE LICENSE IN LICENSE.md"`, but the file they point at is an ordinary **MIT** license, Copyright (c) 2024 tldraw Inc. The declaration is misleading; the shipped text governs.
 - `@tldraw/state`, `@tldraw/state-react`, `@tldraw/store` and `@tldraw/tlschema` declare `"MIT"` and ship the MIT text.
+- `@tldraw/assets` declares `"SEE LICENSE IN LICENSE.md"` and ships the link stub, so its icons, translations and embed icons are covered by the tldraw license too. Its fonts are not tldraw's: see the next section.
+
+### Board fonts (`@tldraw/assets`)
+
+tldraw's defaults load the board's fonts, icons, translations and embed icons from `cdn.tldraw.com`. Lattice instead bundles them from `@tldraw/assets@5.2.5` (pinned to the `tldraw` version) through `src/editor/board/board-asset-urls.ts`; Vite emits them into `dist/assets/`, so they ship inside the application.
+The sixteen `.woff2` files are IBM Plex Sans, Serif and Mono (Copyright © 2017 IBM Corp. with Reserved Font Name "Plex") and Shantell Sans (Copyright 2022 The Shantell Sans Project Authors), all under the SIL Open Font License 1.1 and bundled unmodified.
+Their metadata carries the copyright lines and a pointer to the OFL but not its text, so the license ships separately at [`public/licenses/tldraw-fonts-OFL.txt`](public/licenses/tldraw-fonts-OFL.txt) (both copyright notices plus the OFL), which Vite copies into the shipped application.
 
 ### Terms that bear on redistribution
 
@@ -315,6 +322,7 @@ The Synara sidecar has its own findings block further down; it is kept separate 
 
 | Package | Closure | Declared | Finding |
 | --- | --- | --- | --- |
+| `@tldraw/assets@5.2.5` | npm | `SEE LICENSE IN LICENSE.md` | source-available — non-SPDX license reference |
 | `@tldraw/driver@5.2.5` | npm | `SEE LICENSE IN LICENSE.md` | source-available — non-SPDX license reference |
 | `@tldraw/editor@5.2.5` | npm | `SEE LICENSE IN LICENSE.md` | source-available — non-SPDX license reference |
 | `tldraw@5.2.5` | npm | `SEE LICENSE IN LICENSE.md` | source-available — non-SPDX license reference |
@@ -346,7 +354,7 @@ vendored into this repository so that it is distributed with both the source
 and the binary (`public/` is copied into `dist/`, which `tauri.conf.json`
 embeds via `frontendDist`). It is reproduced below like any other notice.
 
-- [`public/licenses/tldraw-LICENSE.md`](public/licenses/tldraw-LICENSE.md) — for `@tldraw/driver@5.2.5`, `@tldraw/editor@5.2.5`, `tldraw@5.2.5`, because the published package ships a 104-byte LICENSE.md containing only a link, while the license it links to requires "a verbatim copy of this License in any distribution of the Software".
+- [`public/licenses/tldraw-LICENSE.md`](public/licenses/tldraw-LICENSE.md) — for `@tldraw/assets@5.2.5`, `@tldraw/driver@5.2.5`, `@tldraw/editor@5.2.5`, `tldraw@5.2.5`, because the published package ships a 104-byte LICENSE.md containing only a link, while the license it links to requires "a verbatim copy of this License in any distribution of the Software".
 
 ## Unresolved attribution — npm and crates
 
@@ -493,7 +501,7 @@ to reproduce is not available from the artifact we distribute.
 
 The production dependency closure of the root `package.json` — the superset of what Vite can bundle into the shipped web assets. Dev dependencies (Vite, ESLint, Vitest, Tauri CLI) are excluded: they build the app, they are not distributed in it.
 
-**771 packages.**
+**772 packages.**
 
 | Declared license | Packages |
 | --- | --- |
@@ -502,7 +510,7 @@ The production dependency closure of the root `package.json` — the superset of
 | `Apache-2.0` | 32 |
 | `BSD-3-Clause` | 24 |
 | `MIT OR Apache-2.0` | 6 |
-| `SEE LICENSE IN LICENSE.md` | 5 |
+| `SEE LICENSE IN LICENSE.md` | 6 |
 | `apache-2.0` | 4 |
 | `(no license field)` | 3 |
 | `OFL-1.1` | 3 |
@@ -600,7 +608,7 @@ parent package listed beside it.
 
 </details>
 
-### License texts (75 distinct texts across 771 packages)
+### License texts (75 distinct texts across 772 packages)
 
 #### 1. MIT (+2 other declarations) — 279 package(s), from `LICENSE`
 
@@ -2380,7 +2388,88 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-#### 23. OFL-1.1 — 3 package(s), from `LICENSE`
+#### 23. SEE LICENSE IN LICENSE.md — 4 package(s), from `public/licenses/tldraw-LICENSE.md`
+
+<details><summary>Packages sharing this text</summary>
+
+`@tldraw/assets@5.2.5`, `@tldraw/driver@5.2.5`, `@tldraw/editor@5.2.5`, `tldraw@5.2.5`
+
+</details>
+
+```text
+# tldraw license
+
+This License from tldraw, Inc. (“tldraw”) governs your use of the accompanying Software. By using the Software, you accept the terms of this License. The tldraw software is copyrighted by tldraw Inc.
+
+Alternative licenses are available from tldraw for commercial and non-commercial use. To get an alternative license or to learn more, visit https://tldraw.dev or contact sales@tldraw.com.
+
+## Definitions
+
+"Production Environment" means any production deployment of the Software that operates on servers, cloud platforms, web applications, or where the software is used to provide functionality to end users, customers, or the public. Production Environment excludes internal development.
+
+"Development Environment" means any internal hosting or deployment of the Software for development, testing, or staging purposes, operated by your organization and not accessible to end users, customers, or the public.
+
+"License Key" means the programmatically generated key that controls Software functionality and usage restrictions.
+
+## Permissions
+
+Subject to the following conditions, you are permitted to:
+
+- Use the Software in Development Environments.
+- Modify the Software to suit your needs.
+- Bundle the Software with your own projects.
+- Submit modifications of the Software to tldraw.
+
+## Conditions
+
+In exchange for these permissions, you agree:
+
+- Not to use the Software in Production Environments.
+- Not to disable, change, or interfere with the Software's License Key enforcement.
+- Not to remove any copyright or other notices from the Software.
+- Not to make the Software available under a license that supersedes or negates the effect of this License.
+- Not to distribute the Software or modifications of the Software as a standalone product, but only as part of another application.
+- To include a verbatim copy of this License in any distribution of the Software.
+- To comply with tldraw's trademark policy.
+
+## Trial license
+
+In the case that tldraw makes the Software available to you on a trial basis, you are permitted to use the Software in Production Environments for the specified period beginning from the date of the trial’s License Key issuance. Business units are limited to one trial period unless otherwise approved by tldraw in writing.
+
+## Commercial license
+
+In the case that tldraw makes the Software available to you under the terms of a separate commercial agreement, you are permitted to use the Software in Production Environments for the specified period beginning from the date of the agreement’s License Key issuance.
+
+## Termination
+
+Your license to use the Software will terminate automatically if you breach any terms of this License or initiate a copyright, trade secret, or patent claim against tldraw, any of its affiliates, or any user of the Software (including as modified by you).
+
+## Technical enforcement
+
+The Software includes technical measures to verify License Key validity, detect deployment environments, enforce usage restrictions based on license type, and ensure proper watermark display. The Software may collect and transmit usage data to tldraw for license compliance purposes.
+
+## Ownership of intellectual property
+
+tldraw retains all right, title, and interest in the Software, including all intellectual property rights therein. This Agreement grants you only the specific, limited rights expressly set forth herein, and tldraw reserves all rights not expressly granted.
+
+## Disclaimer of warranties
+
+The Software is provided "AS IS," without any warranties. This includes any implied warranties of merchantability, fitness for a particular purpose, or non-infringement. You must pass this disclaimer on whenever you distribute the Software or derivative works.
+
+## Limitation of liability
+
+tldraw is not liable for any damages related to the Software or this License, including direct, indirect, special, or incidental damages, to the fullest extent permitted by law. You must pass this limitation of liability on whenever you distribute the Software or derivative works.
+
+## Governing law
+
+This License is governed by the laws of Delaware, and the parties consent to exclusive jurisdiction in Delaware courts. The parties waive all defenses of lack of personal jurisdiction and forum non-conveniens.
+
+## Entire agreement / assignment
+
+This License is the entire agreement between the parties, and supersedes any and all prior agreements, understandings or communications, written or oral, between the parties relating to the subject matter hereof. This License may be assigned by tldraw without your prior consent.
+```
+
+#### 24. OFL-1.1 — 3 package(s), from `LICENSE`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -2495,7 +2584,7 @@ FROM, OUT OF THE USE OR INABILITY TO USE THE FONT SOFTWARE OR FROM
 OTHER DEALINGS IN THE FONT SOFTWARE.
 ```
 
-#### 24. MIT — 3 package(s), from `LICENSE`
+#### 25. MIT — 3 package(s), from `LICENSE`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -2533,88 +2622,19 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-#### 25. SEE LICENSE IN LICENSE.md — 3 package(s), from `public/licenses/tldraw-LICENSE.md`
+#### 26. SEE LICENSE IN LICENSE.md — 3 package(s), from `LICENSE.md`
 
 <details><summary>Packages sharing this text</summary>
 
-`@tldraw/driver@5.2.5`, `@tldraw/editor@5.2.5`, `tldraw@5.2.5`
+`@tldraw/assets@5.2.5`, `@tldraw/editor@5.2.5`, `tldraw@5.2.5`
 
 </details>
 
 ```text
-# tldraw license
-
-This License from tldraw, Inc. (“tldraw”) governs your use of the accompanying Software. By using the Software, you accept the terms of this License. The tldraw software is copyrighted by tldraw Inc.
-
-Alternative licenses are available from tldraw for commercial and non-commercial use. To get an alternative license or to learn more, visit https://tldraw.dev or contact sales@tldraw.com.
-
-## Definitions
-
-"Production Environment" means any production deployment of the Software that operates on servers, cloud platforms, web applications, or where the software is used to provide functionality to end users, customers, or the public. Production Environment excludes internal development.
-
-"Development Environment" means any internal hosting or deployment of the Software for development, testing, or staging purposes, operated by your organization and not accessible to end users, customers, or the public.
-
-"License Key" means the programmatically generated key that controls Software functionality and usage restrictions.
-
-## Permissions
-
-Subject to the following conditions, you are permitted to:
-
-- Use the Software in Development Environments.
-- Modify the Software to suit your needs.
-- Bundle the Software with your own projects.
-- Submit modifications of the Software to tldraw.
-
-## Conditions
-
-In exchange for these permissions, you agree:
-
-- Not to use the Software in Production Environments.
-- Not to disable, change, or interfere with the Software's License Key enforcement.
-- Not to remove any copyright or other notices from the Software.
-- Not to make the Software available under a license that supersedes or negates the effect of this License.
-- Not to distribute the Software or modifications of the Software as a standalone product, but only as part of another application.
-- To include a verbatim copy of this License in any distribution of the Software.
-- To comply with tldraw's trademark policy.
-
-## Trial license
-
-In the case that tldraw makes the Software available to you on a trial basis, you are permitted to use the Software in Production Environments for the specified period beginning from the date of the trial’s License Key issuance. Business units are limited to one trial period unless otherwise approved by tldraw in writing.
-
-## Commercial license
-
-In the case that tldraw makes the Software available to you under the terms of a separate commercial agreement, you are permitted to use the Software in Production Environments for the specified period beginning from the date of the agreement’s License Key issuance.
-
-## Termination
-
-Your license to use the Software will terminate automatically if you breach any terms of this License or initiate a copyright, trade secret, or patent claim against tldraw, any of its affiliates, or any user of the Software (including as modified by you).
-
-## Technical enforcement
-
-The Software includes technical measures to verify License Key validity, detect deployment environments, enforce usage restrictions based on license type, and ensure proper watermark display. The Software may collect and transmit usage data to tldraw for license compliance purposes.
-
-## Ownership of intellectual property
-
-tldraw retains all right, title, and interest in the Software, including all intellectual property rights therein. This Agreement grants you only the specific, limited rights expressly set forth herein, and tldraw reserves all rights not expressly granted.
-
-## Disclaimer of warranties
-
-The Software is provided "AS IS," without any warranties. This includes any implied warranties of merchantability, fitness for a particular purpose, or non-infringement. You must pass this disclaimer on whenever you distribute the Software or derivative works.
-
-## Limitation of liability
-
-tldraw is not liable for any damages related to the Software or this License, including direct, indirect, special, or incidental damages, to the fullest extent permitted by law. You must pass this limitation of liability on whenever you distribute the Software or derivative works.
-
-## Governing law
-
-This License is governed by the laws of Delaware, and the parties consent to exclusive jurisdiction in Delaware courts. The parties waive all defenses of lack of personal jurisdiction and forum non-conveniens.
-
-## Entire agreement / assignment
-
-This License is the entire agreement between the parties, and supersedes any and all prior agreements, understandings or communications, written or oral, between the parties relating to the subject matter hereof. This License may be assigned by tldraw without your prior consent.
+This code is licensed under the [tldraw license](https://github.com/tldraw/tldraw/blob/main/LICENSE.md)
 ```
 
-#### 26. MIT — 3 package(s), from `license.md`
+#### 27. MIT — 3 package(s), from `license.md`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -2640,7 +2660,7 @@ The above copyright notice and this permission notice shall be included in all c
 **THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.**
 ```
 
-#### 27. MPL-2.0 — 2 package(s), from `LICENSE`
+#### 28. MPL-2.0 — 2 package(s), from `LICENSE`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -3030,7 +3050,7 @@ This Source Code Form is "Incompatible With Secondary Licenses", as
 defined by the Mozilla Public License, v. 2.0.
 ```
 
-#### 28. BSD-3-Clause — 2 package(s), from `LICENSE`
+#### 29. BSD-3-Clause — 2 package(s), from `LICENSE`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -3075,18 +3095,6 @@ SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
 CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
 OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-```
-
-#### 29. SEE LICENSE IN LICENSE.md — 2 package(s), from `LICENSE.md`
-
-<details><summary>Packages sharing this text</summary>
-
-`@tldraw/editor@5.2.5`, `tldraw@5.2.5`
-
-</details>
-
-```text
-This code is licensed under the [tldraw license](https://github.com/tldraw/tldraw/blob/main/LICENSE.md)
 ```
 
 #### 30. MIT — 2 package(s), from `LICENSE.md`

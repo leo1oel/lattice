@@ -148,6 +148,175 @@ Still open, and bounded rather than growing:
   about 139 listeners to each. `large.md` therefore carries around 75k
   listeners while it is open.
 
+## Interaction benchmark and CI gate (September 2026)
+
+`pnpm perf:bench` measures Lattice's hot interactions deterministically, and CI
+fails a pull request that makes one of them do more React or DOM work. It builds
+`tools/perf-bench/` with the production config. That page is the real app, with
+an in-memory backend holding the fixture project from `scripts/perf-fixture.mjs`
+(the same content `gen-perf-fixture.mjs` writes to disk, at smaller sizes). The
+benchmark drives it in headless Chrome over the DevTools protocol with real
+mouse, wheel and key events at a fixed cadence. Every step waits for the next
+frame and a fixed pause, as a person would, so debounced work fires the same
+number of times on a fast laptop and a slow runner. Each run ends when nothing
+has committed or mutated for 1.5 s, longer than the app's slowest idle debounce.
+
+What it counts, per interaction (`scripts/perf-bench/probe.js`, injected before
+any page script):
+
+| Count | Source |
+| --- | --- |
+| `commits` | React commits, through a minimal React DevTools global hook |
+| `renders` | components that rendered in those commits (the `PerformedWork` walk React DevTools uses) |
+| `hooks` | hooks those renders ran |
+| `recalcs`, `layouts` | Chromium's own `RecalcStyleCount` / `LayoutCount` (`Performance.getMetrics`) |
+| `mutations` | `MutationObserver` records over the whole document |
+
+It also reports long tasks, layout shift by app region (titlebar, sidebar,
+source editor, visual editor, PDF, diagnostics), and script, style, layout and
+task durations. Those are wall-clock facts: reported, never gated.
+
+Scenarios (`scripts/perf-bench/scenarios.mjs`):
+
+| Scenario | Interaction |
+| --- | --- |
+| `startup` | load the app and open the fixture project with its PDF preview |
+| `latex-typing` | 40 characters into a 60 KB chapter, PDF preview beside it |
+| `markdown-source-typing` | 40 characters into the 400 KB Markdown document's source |
+| `markdown-visual-typing` | 24 characters into it in the visual editor (one publication) |
+| `file-switch` | tab switches between `main.tex`, `large.md`, a note and a chapter |
+| `code-highlight` | switch to a document of 150 highlighted code blocks, type 20 characters in one (each after the 200 ms publication idle, so each publishes) |
+| `pdf-open` | open a 200-page PDF from the navigator |
+| `pdf-scroll`, `source-scroll`, `markdown-preview-scroll` | 40 wheel notches each |
+| `compile` | build, then expand the diagnostics and show the 4,000-line log |
+
+### Running it
+
+- `pnpm perf:bench` measures and prints a table. `--check` also exits 1 when a
+  gated count exceeds its ceiling; that is what CI runs (the `perf-bench` job, and
+  `mise run perf-bench` locally).
+- `--only a,b` limits scenarios. `--runs N` repeats each scenario and keeps the
+  run with the fewest gated counts, because noise only ever adds work; the
+  report-only counts shown are that same run's and do not affect the choice.
+  The default is 2.
+- `--dev` uses the Vite dev server so component names stay readable. Its counts
+  match production's, but only production runs are gated or written.
+- `--json FILE` writes every run with `topComponents` (who rendered) and
+  `updateOrigins`. An update origin is a component whose own state or store
+  snapshot changed, such as `App#26`, App's 27th hook. It shows what started an
+  update, not just what re-rendered.
+- `--profile DIR` saves a CPU profile of each scenario to open in DevTools.
+- `--url URL` measures an already running app (for example the browser-hosted
+  real app) with the same probe, without ceilings.
+
+### Ceilings and the ratchet
+
+`scripts/perf-bench/budgets.json` holds a ceiling per scenario and gated
+count. A ceiling sits 20% (at least 5) above the measurement that set it.
+
+Only counts that repeat from run to run are gated; a flaky gate is worse than
+none. The rest depend on frame timing, so the same build measures them
+differently on each run and more so on a busy machine. They are still measured
+and printed, and `--json` keeps them, but no ceiling holds them
+(`REPORT_ONLY` and `REPORT_ONLY_BY_SCENARIO` in `scripts/perf-bench/budgets.mjs`):
+
+| Scenario | Gated | Report-only | Why report-only |
+| --- | --- | --- | --- |
+| every scenario | | `recalcs`, `layouts` | Two DOM changes landing in one frame share a pass. One build measured 120–207 `pdf-scroll` recalculations across runs, more under load. |
+| `pdf-scroll`, `source-scroll` | `commits`, `renders`, `hooks` | `mutations` | A Lattice scrollbar fades out 180 ms after the last scroll event, and how many of 40 notches that falls between depends on the machine (`pdf-scroll`: 936–1,028). The fade is written to the DOM, not React state, so it adds no commits. |
+| `markdown-preview-scroll` | | `commits`, `renders`, `hooks`, `mutations` | The same scrollbar fade, and Base UI's scroll area (the visual editor's scroller) re-renders when a scroll burst starts and 500 ms after it ends, in React state. How many bursts 40 notches make depends on stalls (139–259 renders on one machine, 225 on the CI runner). |
+| `latex-typing` | `renders`, `hooks`, `mutations` | `commits` | A keystroke's updates commit together or apart depending on timing: 81–85 commits on one machine, 101 on the CI runner, with renders within 4%. |
+| `markdown-visual-typing` | `commits`, `mutations` | `renders`, `hooks` | The 24 keystrokes publish in one or two batches depending on timing, and each batch re-renders the editor chrome (634–1,243 renders). |
+| `code-highlight` | `commits`, `renders`, `hooks` | `mutations` | 2,510–2,957 across runs of one build. |
+| all others | `commits`, `renders`, `hooks`, `mutations` | | |
+
+The gated counts repeat exactly or move by a commit or two when an async load
+lands before or after a step, well inside the headroom. A regression worth
+catching multiplies a count.
+
+- `pnpm perf:bench --ratchet` lowers every ceiling the counts now beat, and
+  never raises one. Run it after a speedup lands and commit the new
+  `budgets.json`. `--check` lists the ceilings that have room to ratchet.
+- Raising a ceiling is a hand edit with a reason in the pull request.
+  `--update` rewrites every ceiling from one run; review that diff like code.
+- A new scenario gets its ceilings on its first full run.
+
+### This round's findings (September 2026)
+
+The techniques came from Anthropic's write-up on making claude.ai faster. Each
+fix below was found by the benchmark or a trace and checked by it afterwards.
+The table compares main before this work (at #48, measured with this
+benchmark) against it after. Counts are per interaction on the production
+build, best of two runs; `recalcs` and `layouts` are reported only, not gated.
+
+| Interaction | commits | renders | hooks | recalcs | layouts | mutations | long tasks | task ms |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| startup (per load) | 23 → 21 | 2,111 → 1,694 | 12,573 → 10,710 | 82 → 83 | 59 → 57 | 1,468 → 1,454 | 0 → 0 | 403 → 384 |
+| LaTeX typing (per key, 40) | 3.1 → 2.0 | 710 → 196 | 5,034 → 1,575 | 12.9 → 9.9 | 5.1 → 5.1 | 25.3 → 19.3 | 0 → 0 | 725 → 478 |
+| Markdown source typing (per key, 40) | 2.1 → 1.1 | 309 → 143 | 2,783 → 1,378 | 6.7 → 6.7 | 3.1 → 3.1 | 7.4 → 7.4 | 0 → 0 | 569 → 499 |
+| Markdown visual typing (per key, 24) | 1.4 → 1.2 | 73 → 26 | 609 → 215 | 1.8 → 1.5 | 1.2 → 1.1 | 4.7 → 4.3 | 27 → 2 | 4,732 → 625 |
+| file switch (per switch, 4) | 15.0 → 13.8 | 2,865 → 2,458 | 14,860 → 12,550 | 99 → 72 | 51 → 24.8 | 2,932 → 2,929 | 3 → 3 | 1,045 → 761 |
+| code blocks (per action, 21) | 5.4 → 4.3 | 1,256 → 894 | 9,857 → 5,942 | 14.6 → 6.4 | 10.0 → 3.0 | 242 → 241 | 41 → 1 | 6,329 → 1,786 |
+| open a 200-page PDF | 13 → 14 | 1,009 → 714 | 4,890 → 4,058 | 64 → 64 | 35 → 36 | 1,147 → 1,131 | 0 → 0 | 118 → 118 |
+| PDF scroll (per notch, 40) | 0.8 → 0.7 | 51.5 → 28.8 | 329 → 262 | 2.8 → 2.4 | 1.0 → 1.0 | 23.4 → 22.4 | 0 → 0 | 276 → 288 |
+| source scroll (per notch, 40) | 0.1 → 0.0 | 0.1 → 0.0 | 0.5 → 0.2 | 1.7 → 1.7 | 0.3 → 0.3 | 17.7 → 17.7 | 0 → 0 | 97 → 161 |
+| Markdown preview scroll (per notch, 40) | 0.3 → 0.3 | 3.5 → 3.5 | 24.9 → 24.9 | 3.5 → 3.6 | 0 → 0 | 4.8 → 4.8 | 0 → 0 | 588 → 400 |
+| compile and show the log | 8 → 8 | 1,231 → 1,041 | 8,423 → 7,869 | 82 → 81 | 9 → 9 | 133 → 125 | 1 → 0 | 208 → 187 |
+
+Long tasks and task time come from the same runs on one Apple-silicon laptop.
+They are wall-clock facts, so only the large changes carry meaning: visual-editor
+typing and the code-block document stopped producing long tasks. Measured
+against the older main this work started from (before the #43 viewer split),
+PDF scrolling also fell from 149 renders per notch to 35, and LaTeX typing from
+1,143 renders per keystroke.
+
+Stability: `pnpm perf:bench --check` passed 10 runs out of 10 in a row on the
+final branch, the last one with vitest running alongside.
+
+| Cause | Evidence | Fix |
+| --- | --- | --- |
+| The visual editor parsed every block of the document after each pause in typing. The caret report mapped the caret through `exactVisualSourceRanges`, which parsed each top-level block on its own (about 1,000 parses at 400 KB). When that failed on the edited block, it serialized the whole document only for `reportVisualCaret` to discard the result. | CPU profile over 40 keystrokes: 10.1 s of main-thread tasks, 42 long tasks. `parseVisualMarkdown` took 8.2 s of that, inside `sourceOffsetForProseMirrorPosition` (7.5 s), and `renderedRootCount` took 5.6 s. | Memoize root counts per block source and ranges per text; skip the whole-document fallback while edits wait for publication; reuse the cached parse in `restoreUnchangedBlocks` (`editor/markdown/visual-source-map.ts`, `visual-markdown-serialization.ts`, `visual-markdown-editor.tsx`) |
+| Each LaTeX keystroke rendered all of App three times. CodeMirror reports a `pending` completion query for every typed letter and then `null`, and each edge flipped `editorCompletionActive` in App. `useDeferredValue(source)` for the TODO badge re-rendered App a third time. | Update origins: `App#84` (completion state) changed 80 times in 40 keystrokes. About 380 components rendered per App commit. | `pending` keeps the last answer (`canvas/document-canvas.tsx`). The TODO rescan runs in the keystroke's own render. |
+| The TODO rescan split the document into lines and lowercased every line on each keystroke. | Visible in the deferred render above | One case-insensitive search finds the candidate lines first (`project/todo-scavenger.ts`) |
+| The React Compiler skipped `PdfPreview`, because PDFSlick's property setters in its callbacks and two Lingui tagged templates blocked it. Uncompiled, `PdfPreview` re-rendered its toolbar and about 11 tooltips whenever the canvas did, including on every editor keystroke. | 231 of the 1,143 renders per LaTeX keystroke. 149 renders per PDF scroll notch. | Setters moved to module helpers (`pdf/pdf-slick.ts`), descriptor-form messages (`pdf/pdf-viewer.tsx`). The compiler guard pins the file at 0 bailouts. |
+| Every TipTap React node view forced a synchronous style and layout pass as its content attached: `captureDOMSelection` reads `selection.rangeCount`. | Trace of opening a document with 150 code blocks: 150 forced style recalculations and 150 forced layouts, all with the stack `captureDOMSelection < nodeViewContentRef`. 238 recalculations in total. | The `@tiptap/react` patch reads the selection only when the content sits in the focused element, where a caret can be. The same open then took 91 recalculations. |
+| Frozen table headers and table insert controls measured each table right after writing to the previous one. | Trace of switching to `large.md` (40 tables): 35 forced passes from `computeAndApplyFrozenHeaders` and 36 from floating-ui `autoUpdate` in `addOverlay` | Measure every table, then write (`frozen-table-headers.ts`). Mount every overlay, then start positioning (`table-insert-controls.ts`). |
+| The heading rail queried every heading once per rail item, which is quadratic, and it re-measures after every edit. | 1,455 ms of `querySelectorAll` self time opening the 150-section code document | One query per measure (`editor/markdown/document-heading-rail.tsx`) |
+| The titlebar's tab strip, the navigator's protected paths and the build pipeline object were fresh on every App render. | Titlebar subtree re-rendered about 80 components per keystroke | Memoized in `App.tsx` and `app/use-build-pipeline.ts` |
+| The PDF toolbar's page buttons re-rendered on every page change while scrolling, and the overlay scrollbars revealed themselves through React state on every scroll burst. | Commits and renders per PDF scroll notch; scroll-scenario counts that moved between runs | Page buttons keep stable props (`pdf/pdf-viewer.tsx`); the scrollbar reveal is a DOM attribute, not a React commit (`components/ui/overlay-scrollbar.tsx`, `scrollbar-track.ts`, `external-scrollbar.tsx`, `canvas/codemirror-scrollbar.tsx`) |
+
+Checked and deliberately not applied:
+
+- **One-byte strings before highlighting.** A code block sliced from a document
+  that contains an em dash is a two-byte string in both V8 and JavaScriptCore.
+  For 150 ASCII blocks run through lowlight, highlighting the slices against
+  flattened copies took 32.0 vs 31.0 ms in Playwright WebKit and 24.2 vs 22.9 ms
+  in Chromium. Not worth a copy per block.
+- **Expensive selectors under WebKit.** Removing all 64 `:has()` rules did not
+  reduce the style and layout forced at the start of each frame while typing in
+  the visual editor on `large.md` in Playwright WebKit (133 ms vs 166 ms over 64
+  keystrokes, which is noise). Removing the `[data-theme]` descendant variants,
+  the `:hover` rules or the `:where(.tiptap-editor, …)` preflight scope did not
+  help either. In Chromium, dropping them saved nothing on opening the
+  code-block document (105–112 ms of recalculation vs 103–108 ms). None of these
+  are a `:root:has()`-style rule, and none were changed.
+- **Tokenizing in a worker.** Lowlight already re-highlights only the code blocks
+  a transaction touched. A trace of typing five characters into a code block
+  recalculated 36 elements in total.
+- **Deferring data until after first paint, and layout shift.** Startup
+  cumulative layout shift is 0.0001 across all regions. The Markdown search
+  index costs about 12 ms of script at startup in the benchmark.
+- **An instant static shell.** The production bench renders the app root at
+  about 90 ms and paints first content at about 108 ms, so a static shell has
+  under a tenth of a second to win.
+- **Prefetch on hover** already exists (`usePreviewPrewarm`). **V8 code
+  caching** does not apply to WebKit.
+
+Still open: App itself is not compiled (17 bailouts, see below) and renders
+about 200 components per keystroke. A PDF page change re-renders App because
+the agent context reads the page number. Radix tooltips and popovers render
+twice as they mount, which a document full of node views multiplies.
+
 ## Results log
 
 The long-session measurements above are recorded in their own section. For
@@ -191,9 +360,9 @@ in order of value:
    leaving a `useMemo` that reads `.current` is still rejected, so the bailout
    guard catches it.
 3. The PDF viewer — split into `pdf-viewer.tsx` and the `use-pdf-*` hooks, it
-   is down from 5 bailouts to 3: a `tagged template with interpolations` in
-   `pdf-viewer.tsx` and in `use-pdf-document.ts`, and one preserved memo in
-   `use-pdf-view.ts`. None is a ref write.
+   is down from 5 bailouts to 2 and `PdfPreview` itself compiles: a `tagged
+   template with interpolations` in `use-pdf-document.ts` and one preserved
+   memo in `use-pdf-view.ts`. Neither is a ref write.
 4. `DocumentCanvas` is skipped wholesale because its extension memos carry
    intentional `react-hooks/exhaustive-deps` disables (identity stability the
    compiler cannot express yet). Resolving this needs a design, not an edit.

@@ -402,7 +402,8 @@ agent-facing adapter is isolated in `src/agent/agent-canvas-tldraw-adapter.ts` s
 `src/agent/agent-canvas-tools.ts` can register it without importing tldraw itself.
 
 Non-test value importers of `tldraw` today: `src/editor/board/board-editor.tsx`,
-`src/editor/board/board-store.ts`, `src/agent/agent-canvas-tldraw-adapter.ts` — all reachable
+`src/editor/board/board-store.ts`, `src/editor/board/board-asset-urls.ts`,
+`src/agent/agent-canvas-tldraw-adapter.ts` — all reachable
 only through the lazy board chunk.
 
 **This rule is not lint-enforced.** There is no `no-restricted-imports` entry
@@ -534,7 +535,10 @@ skipped when its declared `sources` have not changed (`mise.toml:191`):
 CI (`.github/workflows/ci.yml`) covers the same ground across four jobs:
 `test`, `literature-worker` (`typecheck` + `test` in that sub-project),
 `lint-and-build` (`pnpm lint`, `pnpm build`, `pnpm i18n:check`) and `rust`
-(`cargo fmt --check`, `cargo test`, `cargo clippy -D warnings`).
+(`cargo fmt --check`, `cargo test`, `cargo clippy -D warnings`). A fifth job,
+`perf-bench`, runs the interaction benchmark (`pnpm perf:bench --check`,
+`mise run perf-bench` locally), which `check` leaves out; see
+[`performance.md`](performance.md).
 
 `pnpm lint` runs ESLint with the `--max-warnings` cap set in the `lint` script
 in `package.json`. That cap is a debt ratchet:

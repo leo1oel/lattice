@@ -74,7 +74,7 @@ describe("ProjectFindDialog", () => {
     expect(screen.getByPlaceholderText("短语或关键词")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "关闭 在项目中查找" })).toBeInTheDocument();
     search("image");
-    expect(screen.getByText("2 处命中 · 1 篇论文")).toBeInTheDocument();
+    expect(screen.getByText("2 个结果 · 1 篇论文")).toBeInTheDocument();
     rerenderWith({ hits: [] });
     search("zzq");
     expect(screen.getByText("未找到“zzq”的结果")).toBeInTheDocument();
@@ -135,6 +135,27 @@ describe("ProjectFindDialog", () => {
 
     expect(screen.queryByText("sections/old.tex:4")).not.toBeInTheDocument();
     expect(props.onOpenHit).not.toHaveBeenCalled();
+  });
+
+  it("counts matches by paper key, not title, while listing each match", async () => {
+    const vit = "An Image is Worth 16x16 Words";
+    const vitHit = (path: string, snippet: string, line?: number) => ({ kind: "paper", path, title: vit, snippet, line });
+    const { search } = renderFind({
+      hits: [
+        fileHit("main.tex", 1), fileHit("main.tex", 4), fileHit("notes.md", 2),
+        vitHit(".research/papers/2010.11929/paper.md", vit),
+        vitHit(".research/papers/2010.11929/paper.md", "image patches", 12),
+        vitHit(".research/papers/2010.11929/blog.md", "image recognition", 3),
+        vitHit(".research/papers/vit-published/paper.md", "image classification", 8),
+      ],
+    });
+
+    search("image");
+    expect(screen.getByRole("status")).toHaveTextContent("3 hits · 2 papers");
+    expect(screen.getAllByRole("button", { name: `Open paper result: ${vit}` })).toHaveLength(4);
+
+    await act(() => activateAppLocale("zh-CN"));
+    expect(screen.getByRole("status")).toHaveTextContent("3 个结果 · 2 篇论文");
   });
 
   it("opens paper results by click and keyboard", () => {

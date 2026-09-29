@@ -1,0 +1,59 @@
+{
+  "scenarios": {
+    "startup": {
+      "commits": 26,
+      "renders": 2033,
+      "hooks": 12852,
+      "mutations": 1744
+    },
+    "latex-typing": {
+      "renders": 9414,
+      "hooks": 75614,
+      "mutations": 926
+    },
+    "markdown-source-typing": {
+      "commits": 54,
+      "renders": 6881,
+      "hooks": 66150,
+      "mutations": 357
+    },
+    "markdown-visual-typing": {
+      "commits": 34,
+      "mutations": 125
+    },
+    "file-switch": {
+      "commits": 65,
+      "renders": 11800,
+      "hooks": 60239,
+      "mutations": 14060
+    },
+    "code-highlight": {
+      "commits": 110,
+      "renders": 22530,
+      "hooks": 149730
+    },
+    "pdf-open": {
+      "commits": 19,
+      "renders": 857,
+      "hooks": 4870,
+      "mutations": 1358
+    },
+    "pdf-scroll": {
+      "commits": 34,
+      "renders": 1384,
+      "hooks": 12566
+    },
+    "source-scroll": {
+      "commits": 6,
+      "renders": 6,
+      "hooks": 14
+    },
+    "markdown-preview-scroll": {},
+    "compile": {
+      "commits": 13,
+      "renders": 1250,
+      "hooks": 9443,
+      "mutations": 148
+    }
+  }
+}

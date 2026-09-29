@@ -43,9 +43,18 @@ function navigableHeadingItems(items: DocumentHeadingItem[]): DocumentHeadingIte
   return withoutDocumentTitle.filter((item) => item.level === baseLevel);
 }
 
-function headingTarget(root: HTMLElement, id: string): HTMLElement | null {
-  return Array.from(root.querySelectorAll<HTMLElement>("h1[id], h2[id], h3[id], h4[id], h5[id], h6[id]"))
-    .find((heading) => heading.id === id) ?? null;
+/**
+ * The rendered heading for each id, from one query. Measuring used to query
+ * every heading once per rail item, which is quadratic: opening a document of
+ * 150 sections ran 150 queries of 150 headings, and the rail re-measures after
+ * every edit.
+ */
+function headingTargets(root: HTMLElement): Map<string, HTMLElement> {
+  const targets = new Map<string, HTMLElement>();
+  for (const heading of root.querySelectorAll<HTMLElement>("h1[id], h2[id], h3[id], h4[id], h5[id], h6[id]")) {
+    if (!targets.has(heading.id)) targets.set(heading.id, heading);
+  }
+  return targets;
 }
 
 function scaleForPointer(restingScale: number, index: number, pointerPosition: number): number {
@@ -103,8 +112,9 @@ export function DocumentHeadingRail({ items: rawItems, virtualized = false, onSe
     const measure = () => {
       frame = null;
       const viewportRect = scroller.getBoundingClientRect();
+      const targets = headingTargets(root);
       offsets = items.flatMap((item) => {
-        const target = headingTarget(root, item.id);
+        const target = targets.get(item.id);
         return target ? [{ id: item.id, top: target.getBoundingClientRect().top - viewportRect.top + scroller.scrollTop }] : [];
       });
       setFitsViewport(scroller.clientWidth === 0 || scroller.clientWidth >= MIN_RAIL_VIEWPORT_WIDTH);

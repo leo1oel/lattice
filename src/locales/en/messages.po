@@ -157,6 +157,10 @@ msgstr "{count} comments"
 msgid "{count} figures"
 msgstr "{count} figures"
 
+#: src/project/project-find-dialog.tsx
+msgid "{count} hits"
+msgstr "{count} hits"
+
 #: src/history/conflict-resolver.tsx
 msgid "{count} lines"
 msgstr "{count} lines"
@@ -171,6 +175,7 @@ msgstr "{count} markers"
 
 #: src/papers/paper-lookup.tsx
 #: src/project/paper-library.tsx
+#: src/project/project-find-dialog.tsx
 msgid "{count} papers"
 msgstr "{count} papers"
 
@@ -222,10 +227,6 @@ msgstr "{errors} error"
 msgid "{errors} errors"
 msgstr "{errors} errors"
 
-#: src/project/project-find-dialog.tsx
-msgid "{fileCount, plural, one {# hit} other {# hits}}"
-msgstr "{fileCount, plural, one {# hit} other {# hits}}"
-
 #: src/project/project-replace-dialog.tsx
 msgid "{fileCount} file"
 msgstr "{fileCount} file"
@@ -241,10 +242,6 @@ msgstr "{filtered} of {total} papers"
 #: src/project/project-find-dialog.tsx
 msgid "{format} file"
 msgstr "{format} file"
-
-#: src/project/project-find-dialog.tsx
-msgid "{hitSummary} · {paperSummary}"
-msgstr "{hitSummary} · {paperSummary}"
 
 #: src/app-utils.ts
 msgid "{hours}h ago"
@@ -320,10 +317,6 @@ msgstr "{operation} request success"
 #: src/overleaf/overleaf-history.tsx
 msgid "{operation}: {pathname}"
 msgstr "{operation}: {pathname}"
-
-#: src/project/project-find-dialog.tsx
-msgid "{paperCount, plural, one {# paper} other {# papers}}"
-msgstr "{paperCount, plural, one {# paper} other {# papers}}"
 
 #: src/open-knowledge-app/editor/extensions/JsxComponentView.tsx
 msgid "{propPanelDescriptorLabel} Properties"
@@ -429,6 +422,10 @@ msgstr "⌘⇧T to reopen"
 msgid "0 matches"
 msgstr "0 matches"
 
+#: src/project/project-find-dialog.tsx
+msgid "1 hit"
+msgstr "1 hit"
+
 #: src/history/conflict-resolver.tsx
 msgid "1 line"
 msgstr "1 line"
@@ -439,6 +436,7 @@ msgstr "1 of {total} papers"
 
 #: src/papers/paper-lookup.tsx
 #: src/project/paper-library.tsx
+#: src/project/project-find-dialog.tsx
 msgid "1 paper"
 msgstr "1 paper"
 

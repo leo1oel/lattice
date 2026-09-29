@@ -157,6 +157,10 @@ msgstr "{count} 条评论"
 msgid "{count} figures"
 msgstr "{count} 张图"
 
+#: src/project/project-find-dialog.tsx
+msgid "{count} hits"
+msgstr "{count} 个结果"
+
 #: src/history/conflict-resolver.tsx
 msgid "{count} lines"
 msgstr "{count} 行"
@@ -171,6 +175,7 @@ msgstr "{count} 个标记"
 
 #: src/papers/paper-lookup.tsx
 #: src/project/paper-library.tsx
+#: src/project/project-find-dialog.tsx
 msgid "{count} papers"
 msgstr "{count} 篇论文"
 
@@ -222,10 +227,6 @@ msgstr "{errors} 个错误"
 msgid "{errors} errors"
 msgstr "{errors} 个错误"
 
-#: src/project/project-find-dialog.tsx
-msgid "{fileCount, plural, one {# hit} other {# hits}}"
-msgstr "{fileCount, plural, one {# 处命中} other {# 处命中}}"
-
 #: src/project/project-replace-dialog.tsx
 msgid "{fileCount} file"
 msgstr "{fileCount} 个文件"
@@ -241,10 +242,6 @@ msgstr "显示 {filtered} / {total} 篇论文"
 #: src/project/project-find-dialog.tsx
 msgid "{format} file"
 msgstr "{format} 文件"
-
-#: src/project/project-find-dialog.tsx
-msgid "{hitSummary} · {paperSummary}"
-msgstr "{hitSummary} · {paperSummary}"
 
 #: src/app-utils.ts
 msgid "{hours}h ago"
@@ -320,10 +317,6 @@ msgstr "{operation} 请求成功"
 #: src/overleaf/overleaf-history.tsx
 msgid "{operation}: {pathname}"
 msgstr "{operation}：{pathname}"
-
-#: src/project/project-find-dialog.tsx
-msgid "{paperCount, plural, one {# paper} other {# papers}}"
-msgstr "{paperCount, plural, one {# 篇论文} other {# 篇论文}}"
 
 #: src/open-knowledge-app/editor/extensions/JsxComponentView.tsx
 msgid "{propPanelDescriptorLabel} Properties"
@@ -429,6 +422,10 @@ msgstr "⌘⇧T 重新打开"
 msgid "0 matches"
 msgstr "0 个匹配项"
 
+#: src/project/project-find-dialog.tsx
+msgid "1 hit"
+msgstr "1 个结果"
+
 #: src/history/conflict-resolver.tsx
 msgid "1 line"
 msgstr "1 行"
@@ -439,6 +436,7 @@ msgstr "共 {total} 篇论文，显示 1 篇"
 
 #: src/papers/paper-lookup.tsx
 #: src/project/paper-library.tsx
+#: src/project/project-find-dialog.tsx
 msgid "1 paper"
 msgstr "1 篇论文"
 

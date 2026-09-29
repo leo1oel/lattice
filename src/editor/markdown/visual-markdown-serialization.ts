@@ -106,7 +106,12 @@ export function restoreUnchangedBlocks(
 ): string {
   let expectedDoc: PmNode;
   try {
-    expectedDoc = currentDoc.type.schema.nodeFromJSON(parseVisualMarkdown(expected, sourcePath));
+    // The expected text is the one the editor last accepted, which the editor
+    // parsed through the path cache when it arrived; reuse that parse instead
+    // of parsing the whole document again on every publication. The cached
+    // JSON only feeds a read-only comparison document here.
+    const content = sourcePath === undefined ? parseVisualMarkdown(expected) : cachedVisualDocument(sourcePath, expected).content;
+    expectedDoc = currentDoc.type.schema.nodeFromJSON(content);
   } catch {
     return serialized;
   }
