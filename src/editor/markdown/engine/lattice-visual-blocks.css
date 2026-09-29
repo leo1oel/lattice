@@ -494,19 +494,22 @@
 .lx-md-editor .lx-md-surface .tableWrapper { position: relative; margin: 0 0 var(--lx-md-flow); overflow-x: auto; }
 .lx-md-editor .lx-md-surface table {
   width: 100%;
+  /* Columns size to their content (ProseMirror's own sheet fixes them). */
+  table-layout: auto;
   margin: 0;
   border: 1px solid var(--lx-md-block-border);
   border-radius: var(--radius-control);
   border-collapse: separate;
   border-spacing: 0;
   font-size: 0.93em;
-  font-variant-numeric: tabular-nums;
   line-height: 1.55;
   overflow: hidden;
 }
 .lx-md-editor .lx-md-surface :is(th, td) {
   min-width: 4em;
   padding: var(--space-3) var(--space-6);
+  /* Words stay whole: a wide table scrolls rather than breaking labels mid-word. */
+  overflow-wrap: normal;
   border: 0;
   border-right: 1px solid var(--lx-md-block-border);
   border-bottom: 1px solid var(--lx-md-block-border);
