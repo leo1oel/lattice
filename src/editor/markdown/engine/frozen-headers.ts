@@ -39,7 +39,7 @@ class FrozenHeadersView {
   private resize: ResizeObserver | null = null;
   private readonly supported = typeof Element !== "undefined" && "animate" in Element.prototype;
 
-  constructor(private readonly view: EditorView) {
+  constructor(private readonly view: EditorView, private readonly enabled: () => boolean) {
     this.schedule();
   }
 
@@ -93,6 +93,11 @@ class FrozenHeadersView {
   private measure() {
     const scroller = this.scroller;
     if (!scroller || !this.view.dom.isConnected) return;
+    if (!this.enabled()) {
+      this.release(this.pinned);
+      this.pinned = [];
+      return;
+    }
     const range = Math.max(1, scroller.scrollHeight - scroller.clientHeight);
     const origin = scroller.getBoundingClientRect().top - scroller.scrollTop;
     const next: Pinned[] = [];
@@ -157,7 +162,12 @@ class FrozenHeadersView {
   }
 }
 
-export const FrozenHeaders = Extension.create({
+/** `enabled` is read at every measure: paper reading mode uses light table handles and no frozen headers (R-BLK-11). */
+export const FrozenHeaders = Extension.create<{ enabled: () => boolean }>({
   name: "latticeFrozenHeaders",
-  addProseMirrorPlugins: () => [new Plugin({ key: new PluginKey("latticeFrozenHeaders"), view: (view) => new FrozenHeadersView(view) })],
+  addOptions: () => ({ enabled: () => true }),
+  addProseMirrorPlugins() {
+    const { enabled } = this.options;
+    return [new Plugin({ key: new PluginKey("latticeFrozenHeaders"), view: (view) => new FrozenHeadersView(view, enabled) })];
+  },
 });

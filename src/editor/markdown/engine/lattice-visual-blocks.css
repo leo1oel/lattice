@@ -549,6 +549,16 @@
 }
 .lx-md-editor .lx-md-table-handle:hover,
 .lx-md-editor .lx-md-table-handle[data-state="open"] { background: var(--control-active); color: var(--control-active-contrast); border-color: var(--control-active); }
+.lx-md-editor .lx-md-table-handle[data-draggable] { cursor: grab; }
+.lx-md-editor .lx-md-table-drop {
+  position: absolute;
+  z-index: var(--z-editor-overlay);
+  border-radius: var(--radius-pill);
+  background: var(--editor-selection-tint);
+  pointer-events: none;
+}
+.lx-md-editor .lx-md-table-drop[data-axis="row"] { height: 2px; transform: translateY(-1px); }
+.lx-md-editor .lx-md-table-drop[data-axis="column"] { width: 2px; transform: translateX(-1px); }
 .lx-md-editor .lx-md-table-handle[data-axis="column"] { width: var(--space-12); height: var(--space-6); transform: translate(-50%, -50%); }
 .lx-md-editor .lx-md-table-handle[data-axis="row"] { width: var(--space-6); height: var(--space-12); transform: translate(-50%, -50%); }
 .lx-md-editor .lx-md-table-handle svg { width: 12px; height: 12px; }

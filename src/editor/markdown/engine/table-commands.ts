@@ -274,3 +274,59 @@ export function splitCurrentCell(state: EditorState, dispatch: Dispatch, keepEmp
   dispatch(transaction);
   return true;
 }
+
+/**
+ * Move body row `from` so it becomes row `to` (both counted with the header
+ * as row 0, which never moves), keeping the caret in the moved row. Only for
+ * tables without merged cells (R-BLK-11).
+ */
+export function moveTableRow(state: EditorState, dispatch: Dispatch, from: number, to: number): boolean {
+  const context = tableContext(state);
+  if (!context || hasSpans(context.table)) return false;
+  const rows: PmNode[] = [];
+  context.table.forEach((row) => rows.push(row));
+  if (from < 1 || to < 1 || from >= rows.length || to >= rows.length || from === to) return false;
+  if (dispatch) {
+    const [moved] = rows.splice(from, 1);
+    rows.splice(to, 0, moved!);
+    const transaction = state.tr.replaceWith(context.tableStart, context.tableStart + context.table.content.size, Fragment.from(rows));
+    const map = TableMap.get(transaction.doc.nodeAt(context.tablePos)!);
+    dispatch(selectCell(transaction, context.tableStart, map.map[to * map.width + context.rect.left]!).scrollIntoView());
+  }
+  return true;
+}
+
+/**
+ * Move column `from` so it becomes column `to`, with its alignment, keeping
+ * the caret in the moved column. Only for tables without merged cells.
+ */
+export function moveTableColumn(state: EditorState, dispatch: Dispatch, from: number, to: number): boolean {
+  const context = tableContext(state);
+  if (!context || hasSpans(context.table)) return false;
+  const { width } = context.map;
+  if (from < 0 || to < 0 || from >= width || to >= width || from === to) return false;
+  if (dispatch) {
+    const reorder = <T,>(items: readonly T[]) => {
+      const next = [...items];
+      const [moved] = next.splice(from, 1);
+      next.splice(to, 0, moved!);
+      return next;
+    };
+    const rows: PmNode[] = [];
+    context.table.forEach((row) => {
+      const cells: PmNode[] = [];
+      row.forEach((cell) => cells.push(cell));
+      rows.push(row.copy(Fragment.from(reorder(cells))));
+    });
+    const align = context.table.attrs.align as (string | null)[] | null;
+    const table = context.table.type.create(
+      { ...context.table.attrs, align: Array.isArray(align) ? reorder(Array.from({ length: width }, (_, index) => align[index] ?? null)) : align },
+      Fragment.from(rows),
+      context.table.marks,
+    );
+    const transaction = state.tr.replaceWith(context.tablePos, context.tablePos + context.table.nodeSize, table);
+    const map = TableMap.get(transaction.doc.nodeAt(context.tablePos)!);
+    dispatch(selectCell(transaction, context.tableStart, map.map[context.rect.top * map.width + to]!).scrollIntoView());
+  }
+  return true;
+}
