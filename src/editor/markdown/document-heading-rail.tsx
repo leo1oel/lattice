@@ -90,7 +90,7 @@ export function DocumentHeadingRail({ items: rawItems, virtualized = false, onSe
   useLayoutEffect(() => {
     const nav = navRef.current;
     // Either visual editor engine hosts the rail.
-    const root = nav?.closest<HTMLElement>(".visual-markdown-editor, .lx-md-editor");
+    const root = nav?.closest<HTMLElement>(".lx-md-editor");
     const scroller = root?.closest<HTMLElement>(".editor-doc-scroll");
     if (!nav || !root || !scroller || items.length < 2) return;
 

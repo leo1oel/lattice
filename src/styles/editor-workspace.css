@@ -753,7 +753,8 @@ body:has(.modal-backdrop, .drawer-backdrop) .latex-selection-toolbar-anchor { di
 /* The visual editor centers its own measure, so a paper's editor spans the
    full pane and the preview-content 760px inline padding is dropped for it. */
 .markdown-preview-content:has(> .paper-visual-header) { padding-inline: 0; }
-.paper-visual-header { margin-block-end: var(--space-16); font-family: var(--ui-font); }
+/* Aligned with the visual editor's centered writing column beneath it. */
+.paper-visual-header { box-sizing: border-box; max-width: calc(760px + 2 * var(--space-12)); margin: 0 auto var(--space-16); padding-inline: var(--space-12); font-family: var(--ui-font); }
 .paper-visual-header h1 { margin: 0; color: var(--text-primary); font-size: var(--type-display-size); font-weight: var(--weight-semibold); line-height: 1.2; letter-spacing: -0.02em; overflow-wrap: anywhere; text-wrap: balance; }
 .paper-visual-header p { margin: var(--space-6) 0 0; color: var(--text-secondary); font-size: var(--type-body-size); line-height: var(--type-body-line-height); overflow-wrap: anywhere; }
 .paper-visual-header .paper-visual-eligibility { margin: 0 0 var(--space-8); padding: var(--space-3) var(--space-4); border-radius: var(--radius-compact); background: var(--status-warning-soft); }

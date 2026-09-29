@@ -1234,7 +1234,7 @@ export function DocumentCanvas(props: {
       } : undefined}
     >
       {props.activePaper && paperFullTextActive && (
-        <header className="paper-visual-header editor-content-aligned">
+        <header className="paper-visual-header">
           <div>
             {paperVisualEligibilityReason && (
               <InlineMessage level="warning" className="paper-visual-eligibility">

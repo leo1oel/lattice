@@ -25,22 +25,23 @@ export type CodeLanguage = {
  * else (display names and the spellings an info string may use) is read from
  * highlight.js's own registration of each grammar, so only Lattice's choices
  * live here: which languages the picker offers, the token a pick writes when
- * it differs from the grammar name, and a label where highlight.js's name is
- * not the one Lattice shows.
+ * it differs from the grammar name, a label where highlight.js's name is not
+ * the one Lattice shows, and spellings Lattice accepts that highlight.js does
+ * not register.
  */
 /* eslint-disable lingui/no-unlocalized-strings -- grammar names, info-string tokens and proper names */
-type PickerEntry = { grammar: string; writes?: string; label?: string };
+type PickerEntry = { grammar: string; writes?: string; label?: string; aliases?: string[] };
 /** Rendered by Lattice rather than highlighted (R-BLK-5), so highlight.js does not know it. */
 const MERMAID: CodeLanguage = { value: "mermaid", label: "Mermaid" };
 const PICKER: readonly (PickerEntry | CodeLanguage)[] = [
-  { grammar: "plaintext", writes: "text" },
-  { grammar: "bash" }, { grammar: "c" }, { grammar: "cpp" }, { grammar: "csharp" }, { grammar: "css" },
+  { grammar: "plaintext", writes: "text", aliases: ["plain"] },
+  { grammar: "bash", aliases: ["shell", "console"] }, { grammar: "c" }, { grammar: "cpp" }, { grammar: "csharp" }, { grammar: "css" },
   { grammar: "diff" }, { grammar: "go" }, { grammar: "graphql" },
   { grammar: "xml", writes: "html", label: "HTML" },
-  { grammar: "java" }, { grammar: "javascript" }, { grammar: "json" }, { grammar: "kotlin" },
+  { grammar: "java" }, { grammar: "javascript" }, { grammar: "json", aliases: ["json5"] }, { grammar: "kotlin" },
   { grammar: "latex" }, { grammar: "lua" }, { grammar: "makefile" }, { grammar: "markdown" },
-  MERMAID, { grammar: "php", label: "PHP" }, { grammar: "python" }, { grammar: "r" }, { grammar: "ruby" },
-  { grammar: "rust" }, { grammar: "scss" }, { grammar: "sql" }, { grammar: "swift" },
+  MERMAID, { grammar: "php", label: "PHP" }, { grammar: "python", aliases: ["python3"] }, { grammar: "r" }, { grammar: "ruby" },
+  { grammar: "rust" }, { grammar: "scss", aliases: ["sass"] }, { grammar: "sql" }, { grammar: "swift" },
   { grammar: "ini", writes: "toml", label: "TOML" },
   { grammar: "typescript" }, { grammar: "yaml" },
 ];
@@ -49,12 +50,12 @@ const PICKER: readonly (PickerEntry | CodeLanguage)[] = [
 const registry = hljsCore.newInstance();
 for (const [name, grammar] of Object.entries({ ...common, latex })) registry.registerLanguage(name, grammar);
 
-function fromRegistry({ grammar, writes, label }: PickerEntry): CodeLanguage {
+function fromRegistry({ grammar, writes, label, aliases: extra = [] }: PickerEntry): CodeLanguage {
   const registered = registry.getLanguage(grammar);
   // eslint-disable-next-line lingui/no-unlocalized-strings -- a build-time invariant, never shown to readers
   if (!registered) throw new Error(`highlight.js has no ${grammar} grammar`);
   const value = writes ?? grammar;
-  const aliases = [grammar, ...(registered.aliases ?? [])].filter((alias) => alias !== value);
+  const aliases = [...new Set([grammar, ...(registered.aliases ?? []), ...extra])].filter((alias) => alias !== value);
   // Plain text has nothing to highlight.
   return { value, label: label ?? registered.name ?? grammar, aliases, grammar: grammar === "plaintext" ? undefined : grammar };
 }
