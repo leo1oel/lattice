@@ -27,7 +27,7 @@ function listItemDepth($position: ResolvedPos): number {
 
 function selectedGroup(state: EditorState): Group | null {
   const { selection } = state;
-  if (selection instanceof NodeSelection) {
+  if (selection instanceof NodeSelection && selection.node.isBlock) {
     const $at = state.doc.resolve(selection.from);
     const index = $at.index();
     return { parent: $at.parent, parentStart: $at.start(), first: index, last: index, depth: $at.depth };

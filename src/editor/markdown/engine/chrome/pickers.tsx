@@ -10,7 +10,7 @@ import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } fr
 import { createPortal } from "react-dom";
 import { useLingui } from "@lingui/react/macro";
 import type { Editor } from "@tiptap/core";
-import { TextSelection } from "@tiptap/pm/state";
+import { TextSelection, type Transaction } from "@tiptap/pm/state";
 import { computePosition, flip, offset, shift } from "@floating-ui/dom";
 import { EmojiPicker } from "frimousse";
 import { projectAssetMarkdownHref } from "../../markdown-link-routing";
@@ -93,12 +93,16 @@ export function ImageFilePicker({ editor, host }: { editor: Editor; host: Chrome
   const { t } = useLingui();
   const request = useRequest(host);
   const input = useRef<HTMLInputElement>(null);
-  const at = request?.kind === "image" ? request.at : null;
+  const image = request?.kind === "image" ? request : null;
 
   useEffect(() => {
-    if (at == null) return;
-    input.current?.click();
-  }, [at]);
+    const element = input.current;
+    if (!image || !element) return;
+    const cancel = () => host.clear();
+    element.addEventListener("cancel", cancel);
+    element.click();
+    return () => element.removeEventListener("cancel", cancel);
+  }, [host, image]);
 
   return (
     <input
@@ -110,15 +114,19 @@ export function ImageFilePicker({ editor, host }: { editor: Editor; host: Chrome
       onChange={(event) => {
         const file = event.target.files?.[0];
         const importAsset = host.props().onImportAsset;
-        const position = at;
         host.clear();
         event.target.value = "";
-        if (!file || !importAsset || position == null) return;
-        void importAsset(file).then((path) => {
+        if (!file || !importAsset || !image) return;
+        let position = image.at;
+        const track = ({ transaction, appendedTransactions }: { transaction: Transaction; appendedTransactions: Transaction[] }) => {
+          for (const applied of [transaction, ...appendedTransactions]) position = applied.mapping.map(position);
+        };
+        editor.on("transaction", track);
+        void importAsset(file).finally(() => editor.off("transaction", track)).then((path) => {
           if (!path || editor.isDestroyed) return;
           const src = projectAssetMarkdownHref(host.props().activePath, path);
-          const image = editor.schema.nodes.image!.create({ src, html: true });
-          editor.view.dispatch(editor.state.tr.insert(Math.min(position, editor.state.doc.content.size), image));
+          const node = editor.schema.nodes.image!.create({ src, html: true });
+          editor.view.dispatch(editor.state.tr.insert(Math.min(position, editor.state.doc.content.size), node));
         });
       }}
     />

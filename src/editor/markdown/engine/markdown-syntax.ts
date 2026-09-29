@@ -6,7 +6,7 @@
  * Built only on unified/remark/micromark (MIT).
  */
 import type { Parent, Parents, Root, RootContent, Text } from "mdast";
-import { defaultHandlers, type Handle, type Options, type State } from "mdast-util-to-markdown";
+import { defaultHandlers, type ConstructName, type Handle, type Options, type State } from "mdast-util-to-markdown";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 import remarkParse from "remark-parse";
@@ -229,9 +229,14 @@ function latticeHandlers(mode: SerializeMode, stock: Record<string, Handle>): Re
   return handlers;
 }
 
+const notInPhrasingText: ConstructName[] = ["autolink", "destinationLiteral", "destinationRaw", "reference", "titleQuote", "titleApostrophe", "image", "imageReference"];
+
 const baseOptions: Options = {
   // `==` would read back as a highlight, and `[[` as a wiki link (inline-syntax.ts).
-  unsafe: [{ character: "=", after: "=" }, { character: "[", after: "\\[" }],
+  unsafe: [
+    { character: "=", after: "=", inConstruct: "phrasing", notInConstruct: notInPhrasingText },
+    { character: "[", after: "\\[", inConstruct: "phrasing", notInConstruct: notInPhrasingText },
+  ],
   bullet: "-",
   emphasis: "*",
   strong: "*",

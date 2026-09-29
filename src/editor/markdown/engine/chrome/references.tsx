@@ -56,6 +56,7 @@ export function wikiLinkExtension(store: MenuStore<PageSuggestion>, host: Chrome
     char: "[[",
     allowSpaces: true,
     allowedPrefixes: null,
+    allow: (editor, range) => !/\]\]|\n/.test(editor.state.doc.textBetween(range.from, range.to, "\n", "\n")),
     store,
     items: (query) => pageSuggestions(host, query),
     onSelect: (editor, range, item) => {

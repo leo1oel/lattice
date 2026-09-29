@@ -149,6 +149,35 @@ describe("slash menu (R-CHR-1, §12)", () => {
     await waitFor(() => expect(lastChange(onChange)).toBe("<img src=\"../figures/uploaded.png\" />"));
   });
 
+  it("opens the file dialog again after one is dismissed, and inserts where the caret's place moved to during the import", async () => {
+    const click = vi.spyOn(HTMLInputElement.prototype, "click");
+    let finish: (path: string) => void = () => undefined;
+    const onImportAsset = vi.fn(() => new Promise<string>((resolve) => {
+      finish = resolve;
+    }));
+    const { editor } = renderEditor({ text: "Hello", onImportAsset });
+    const chooseImage = async () => {
+      caret(editor, editor.state.doc.content.size - 1);
+      type(editor, " /image");
+      fireEvent.mouseDown(within(await screen.findByRole("listbox", { name: "Slash commands" })).getByRole("option", { name: /^Image/ }));
+    };
+    await chooseImage();
+    await waitFor(() => expect(click).toHaveBeenCalledTimes(1));
+    const input = screen.getByLabelText("Choose image to upload");
+    fireEvent(input, new Event("cancel"));
+    await chooseImage();
+    await waitFor(() => expect(click).toHaveBeenCalledTimes(2));
+    fireEvent.change(input, { target: { files: [new File(["image"], "plot.png", { type: "image/png" })] } });
+    await waitFor(() => expect(onImportAsset).toHaveBeenCalledTimes(1));
+    caret(editor, 1);
+    type(editor, "Big ", true);
+    await act(async () => finish("figures/plot.png"));
+    await waitFor(() => expect(nodePos(editor, (node) => node.type.name === "image")).toBeGreaterThan(0));
+    const image = nodePos(editor, (node) => node.type.name === "image");
+    expect(editor.state.doc.textBetween(0, image)).toBe("Big Hello  ");
+    click.mockRestore();
+  });
+
   it("opens the emoji picker without the query and inserts Unicode at the caret", async () => {
     const { editor } = renderEditor("Hello");
     caret(editor, editor.state.doc.content.size - 1);
@@ -369,6 +398,18 @@ describe("find and replace (R-CHR-3)", () => {
     await waitFor(() => expect(screen.getByRole("button", { name: "Replace all matches" })).toBeDisabled());
     expect(screen.getByRole("button", { name: "Replace current match" })).toBeDisabled();
   });
+
+  it("keeps match offsets in the original text after a letter whose lowercase is longer", async () => {
+    const { editor, onChange } = renderEditor("İstanbul alpha");
+    caret(editor, 1);
+    fireEvent.keyDown(surface(), { key: "f", altKey: true, ctrlKey: true });
+    fireEvent.change(await screen.findByRole("searchbox", { name: "Find" }), { target: { value: "ALPHA" } });
+    await waitFor(() => expect(within(screen.getByRole("search")).getByRole("status")).toHaveTextContent("1 of 1"));
+    expect(document.querySelector(".lx-md-find-match")).toHaveTextContent(/^alpha$/);
+    fireEvent.change(screen.getByRole("textbox", { name: "Replace with" }), { target: { value: "beta" } });
+    fireEvent.click(screen.getByRole("button", { name: "Replace all matches" }));
+    await waitFor(() => expect(lastChange(onChange)).toBe("İstanbul beta"));
+  });
 });
 
 describe("block moves (R-FMT-15, R-FMT-16)", () => {
@@ -421,6 +462,15 @@ describe("block moves (R-FMT-15, R-FMT-16)", () => {
     });
     expect(editor.state.selection).toBeInstanceOf(NodeSelection);
     await waitFor(() => expect(lastChange(onChange)).toBe("$$\nx\n$$\n\nBefore\n\nAfter"));
+  });
+
+  it("moves the paragraph around a selected inline formula, never the formula within its text", async () => {
+    const result = await moved("Before\n\nHello world $x$", (editor) => {
+      const formula = nodePos(editor, (node) => node.type.name === "latticeMath");
+      act(() => editor.view.dispatch(editor.state.tr.setSelection(NodeSelection.create(editor.state.doc, formula))));
+    }, (editor) => moveBlockUp(editor.state, editor.view.dispatch));
+    expect(result.text).toBe("Hello world $x$\n\nBefore");
+    expect((result.editor.state.selection as NodeSelection).node.type.name).toBe("latticeMath");
   });
 
   it("drags selected list items together, then moves another by keyboard", async () => {
@@ -711,6 +761,19 @@ describe("wiki links (R-INL-6, R-FMT-18)", () => {
     fireEvent.keyDown(surface(), { key: "ArrowDown" });
     fireEvent.keyDown(surface(), { key: "Enter" });
     await waitFor(() => expect(lastChange(onChange)).toBe("See [[notes/results#accuracy-1]]"));
+  });
+
+  it("closes at a typed ]] so the prose after a complete link is never taken as its query", async () => {
+    const workspaceIndex = await workspace();
+    const { editor } = renderEditor({ text: "See", workspaceIndex });
+    caret(editor, editor.state.doc.content.size - 1);
+    type(editor, " [[ideas");
+    await screen.findByRole("listbox", { name: "Wiki link suggestions" });
+    type(editor, "]] ideas");
+    await waitFor(() => expect(screen.queryByRole("listbox", { name: "Wiki link suggestions" })).toBeNull());
+    fireEvent.keyDown(surface(), { key: "Enter" });
+    expect(editor.getText()).toContain("See [[ideas]] ideas");
+    expect(nodePos(editor, (node) => node.type.name === "latticeWikiLink")).toBe(-1);
   });
 
   it("opens the linked page on Mod-click", async () => {

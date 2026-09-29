@@ -28,7 +28,7 @@ const EMPTY: FindState = { query: "", matches: [], current: 0, decorations: Deco
 /** Every case-insensitive occurrence of `query` in the text of the document's blocks. */
 function findMatches(doc: PmNode, query: string): Match[] {
   if (!query) return [];
-  const needle = query.toLocaleLowerCase();
+  const needle = new RegExp(query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "giu");
   const matches: Match[] = [];
   doc.descendants((node, position) => {
     if (!node.isTextblock) return true;
@@ -37,9 +37,8 @@ function findMatches(doc: PmNode, query: string): Match[] {
     let runStart = -1;
     const flush = () => {
       if (!run) return;
-      const haystack = run.toLocaleLowerCase();
-      for (let index = haystack.indexOf(needle); index >= 0; index = haystack.indexOf(needle, index + needle.length)) {
-        matches.push({ from: runStart + index, to: runStart + index + needle.length });
+      for (const match of run.matchAll(needle)) {
+        matches.push({ from: runStart + match.index, to: runStart + match.index + match[0].length });
       }
       run = "";
     };

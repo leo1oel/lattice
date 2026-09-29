@@ -107,6 +107,18 @@ describe("Markdown round-trip core", () => {
     expect(serializeMarkdown(next, baseline).text).toBe("Keep snake\\_case, _emphasis_ and __strong__ here. More.\n");
   });
 
+  it.each([
+    ["a link destination", "[a](https://x.test/?t=abc==)"],
+    ["a link title", "[a](https://x.test \"x==y\")"],
+    ["image alt text", "![x==y [[z](plot.png)"],
+  ])("keeps == and [[ unescaped in %s of an edited paragraph", (_name, source) => {
+    const { doc, baseline } = open(`${source}\n`);
+    const paragraph = doc.child(0);
+    const edited = paragraph.copy(paragraph.content.addToEnd(schema.text(" More.")));
+    const next = doc.copy(doc.content.replaceChild(0, edited));
+    expect(serializeMarkdown(next, baseline).text).toBe(`${source} More.\n`);
+  });
+
   it("escapes new text that would otherwise read back as syntax", () => {
     expect(editBlockText("Plain\n", 0, () => "*not emphasis*")).toBe("\\*not emphasis\\*\n");
     expect(editBlockText("Plain\n", 0, () => "# not a heading")).toBe("\\# not a heading\n");
