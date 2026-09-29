@@ -87,8 +87,18 @@ export async function launchChrome({ executable = findChrome(), headless = true,
       });
       // Chrome's helper processes can outlive the browser process for a moment
       // and keep writing into the profile, so a single rmdir races them
-      // (ENOTEMPTY). Node retries those errors with a linear backoff.
-      rmSync(profile, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+      // (ENOTEMPTY). rmSync's own maxRetries only re-attempts the final rmdir
+      // without deleting files written since its first pass, so retry the
+      // whole removal instead.
+      for (let attempt = 1; ; attempt++) {
+        try {
+          rmSync(profile, { recursive: true, force: true });
+          break;
+        } catch (error) {
+          if (error.code !== "ENOTEMPTY" || attempt === 20) throw error;
+          await new Promise((resolve) => setTimeout(resolve, 250));
+        }
+      }
     },
   };
 }
