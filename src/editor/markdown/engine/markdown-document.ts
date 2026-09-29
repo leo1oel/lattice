@@ -198,6 +198,35 @@ export function openMarkdown(text: string, schema: Schema, options: OpenOptions 
 }
 
 /**
+ * Move a baseline onto the editor's own top-level nodes: a block re-read at
+ * publication (or at load) is a new node that means the same as the one the
+ * editor shows, so the editor's node takes its place. Blocks then keep their
+ * identity across publications: the next save finds them unchanged at once,
+ * and the source map can place them (R-SRC-1).
+ */
+export function adoptNodes(baseline: MarkdownBaseline, doc: PmNode): MarkdownBaseline {
+  const index = new Map<PmNode, number>();
+  doc.forEach((child, _offset, position) => index.set(child, position));
+  let next = 0;
+  let changed = false;
+  const entries = baseline.entries.map((entry) => {
+    const own = index.get(entry.node);
+    if (own != null) {
+      next = Math.max(next, own + 1);
+      return entry;
+    }
+    // Empty paragraphs have no Markdown, so no entry.
+    while (next < doc.childCount && doc.child(next).type.name === "paragraph" && doc.child(next).childCount === 0) next += 1;
+    const child = next < doc.childCount ? doc.child(next) : null;
+    if (!child || (!child.eq(entry.node) && semanticKey([child]) !== semanticKey([entry.node]))) return entry;
+    next += 1;
+    changed = true;
+    return { ...entry, node: child };
+  });
+  return changed ? { ...baseline, entries } : baseline;
+}
+
+/**
  * Pair each current top-level node with the baseline node it still equals,
  * in order. Common prefix and suffix first; in between, identity (ProseMirror
  * reuses untouched nodes) and then a short structural look-ahead.
