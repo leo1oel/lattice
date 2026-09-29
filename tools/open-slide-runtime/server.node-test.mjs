@@ -22,10 +22,13 @@ import {
   transformOpenSlideThumbnailRail,
   transformOpenSlideToolbar,
 } from "./server.mjs";
-import { mkdtemp, mkdir, readdir, readFile, rm, stat, utimes, writeFile } from "node:fs/promises";
+import { execFile } from "node:child_process";
+import { copyFile, mkdtemp, mkdir, readdir, readFile, rm, stat, symlink, utimes, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { Readable } from "node:stream";
+import { fileURLToPath } from "node:url";
+import { promisify } from "node:util";
 import { setTimeout as delay } from "node:timers/promises";
 import { runInNewContext } from "node:vm";
 import { transform as transformTsx } from "esbuild";
@@ -78,6 +81,23 @@ test("reports the exact pinned Open Slide version in the readiness handshake", a
   assert.equal(server.match(/const VERSION = "([^"]+)";/)?.[1], version);
   assert.equal(supervisor.match(/const VERSION: &str = "([^"]+)";/)?.[1], version);
 });
+
+test("starts when installed under a path containing a space", () => withTempRoot(async (root) => {
+  // An app bundle such as "Lattice Beta.app" puts a space in the entry path;
+  // the entry check once compared it with a %20-encoded URL pathname, so the
+  // server exited silently and the host saw an empty handshake.
+  const runtime = path.join(root, "Lattice Beta.app", "presentation-runtime");
+  await mkdir(runtime, { recursive: true });
+  await copyFile(new URL("./server.mjs", import.meta.url), path.join(runtime, "server.mjs"));
+  await symlink(fileURLToPath(new URL("./node_modules", import.meta.url)), path.join(runtime, "node_modules"), "dir");
+  const env = { ...process.env };
+  for (const name of ["OPEN_SLIDE_SHADOW_ROOT", "OPEN_SLIDE_CONTROL_TOKEN", "OPEN_SLIDE_CACHE_ROOT"]) delete env[name];
+  // Without its managed roots, start() refuses; reaching that refusal proves it ran.
+  await assert.rejects(
+    promisify(execFile)(process.execPath, [path.join(runtime, "server.mjs")], { env, timeout: 30_000 }),
+    (error) => error.code === 1 && error.stderr.includes("Managed shadow root and control token are required"),
+  );
+}));
 
 test("provides every runtime icon imported by the pinned Open Slide editor", async () => {
   const root = new URL(`./${CORE}src/app/`, import.meta.url);

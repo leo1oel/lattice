@@ -1,4 +1,7 @@
-import { Suspense, lazy, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type SetStateAction } from "react";
+import {
+  Suspense, lazy, memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState,
+  type ComponentProps, type SetStateAction,
+} from "react";
 import { useLingui } from "@lingui/react/macro";
 import { msg } from "@lingui/core/macro";
 import { i18n } from "./i18n";
@@ -210,8 +213,10 @@ const ConflictResolverDialog = lazy(() =>
 );
 // Lazy: the navigator pulls @pierre/trees (~270 KB) and never renders on the
 // Welcome screen, so it must not weigh down first paint.
+// Memoized: its callbacks come through stable forwarders (navigatorHandlers in
+// App), so an editor keystroke does not re-render the file tree and paper library.
 const Navigator = lazy(() =>
-  import("./project/navigator").then((module) => ({ default: module.Navigator })),
+  import("./project/navigator").then((module) => ({ default: memo(module.Navigator) })),
 );
 const PaperLookupBridge = lazy(() => import("./papers/use-paper-lookup"));
 const BibliographyAudit = lazy(() =>
@@ -226,6 +231,13 @@ const DocumentCanvas = lazy(() =>
 const OpenSlideTabPool = lazy(() =>
   loadDocumentCanvas().then((module) => ({ default: module.OpenSlideTabPool })),
 );
+
+const NAVIGATOR_HANDLER_KEYS = [
+  "onFile", "onLikelyFile", "onAsset", "onBeginFigureDrag", "onBeginFileDrag", "onCreateEntry", "onDeleteEntries",
+  "onRenameEntry", "onMoveEntries", "onCopyEntries", "onError", "onReveal", "onImportAssets", "onPasteImage", "onPaper",
+  "onLikelyPaper", "onFetchFullText", "onDeletePaper", "onEditBibEntry", "setImportInput", "onImport", "onCancelImport",
+] as const;
+type NavigatorHandlers = Pick<ComponentProps<typeof Navigator>, typeof NAVIGATOR_HANDLER_KEYS[number]>;
 
 /** Shared empty word list: `?? []` in JSX rebuilds the editor's lint pass. */
 const EMPTY_SPELLING_WORDS: string[] = [];
@@ -4469,6 +4481,40 @@ function App() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [cycleDiagnostic, commandsRef]);
 
+  // The navigator's callbacks are mostly inline, so they change on every App
+  // render. The memoized Navigator gets stable forwarders instead, which call
+  // the latest handlers: refreshed after every commit, before any event.
+  const navigatorHandlersRef = useLatest<NavigatorHandlers>({
+    onFile: openProjectFileFromClick,
+    onLikelyFile: prewarmLikelyProjectFile,
+    onAsset: openProjectAssetFromClick,
+    onBeginFigureDrag: beginProjectFigureDrag,
+    onBeginFileDrag: beginProjectFileDrag,
+    onCreateEntry: createProjectEntry,
+    onDeleteEntries: deleteProjectEntries,
+    onRenameEntry: renameProjectEntry,
+    onMoveEntries: moveProjectEntries,
+    onCopyEntries: (paths, targetDirectory) => project
+      ? importProjectFiles(paths.map((path) => absoluteProjectPath(project.root, path)), targetDirectory, true)
+      : Promise.resolve([]),
+    onError: setError,
+    onReveal: revealProjectItem,
+    onImportAssets: chooseProjectAssets,
+    onPasteImage: (targetDirectory) => void importSystemClipboardImage(targetDirectory),
+    onPaper: (paper) => void openPaper(paper).then((opened) => advanceTutorialPastPaper(paper.arxivId, opened)),
+    onLikelyPaper: prewarmLikelyPaper,
+    onFetchFullText: (paper) => void fetchAndOpenPaper(paper),
+    onDeletePaper: deletePaper,
+    onEditBibEntry: (paper) => void referenceImport.editBibEntry(paper),
+    setImportInput: referenceImport.setInput,
+    onImport: referenceImport.importFromInput,
+    onCancelImport: referenceImport.cancelImport,
+  });
+  const [navigatorHandlers] = useState(() => Object.fromEntries(NAVIGATOR_HANDLER_KEYS.map((key) => [
+    key,
+    (...args: unknown[]) => (navigatorHandlersRef.current[key] as (...values: unknown[]) => unknown)(...args),
+  ])) as unknown as NavigatorHandlers);
+
   if (!project) {
     return (
       <>
@@ -4678,39 +4724,14 @@ function App() {
               protectedPaths={protectedProjectPaths}
               papers={papers}
               activePaper={activePaper}
-              onFile={openProjectFileFromClick}
-              onLikelyFile={prewarmLikelyProjectFile}
-              onAsset={openProjectAssetFromClick}
-              onBeginFigureDrag={beginProjectFigureDrag}
-              onBeginFileDrag={beginProjectFileDrag}
-              onCreateEntry={createProjectEntry}
-              onDeleteEntries={deleteProjectEntries}
-              onRenameEntry={renameProjectEntry}
-              onMoveEntries={moveProjectEntries}
-              onCopyEntries={(paths, targetDirectory) => importProjectFiles(
-                paths.map((path) => absoluteProjectPath(project.root, path)),
-                targetDirectory,
-                true,
-              )}
-              onError={setError}
-              onReveal={revealProjectItem}
-              onImportAssets={chooseProjectAssets}
-              onPasteImage={(targetDirectory) => void importSystemClipboardImage(targetDirectory)}
+              {...navigatorHandlers}
               assetDropTarget={assetDropTarget}
               assetImporting={assetImporting}
-              onPaper={(paper) => void openPaper(paper).then((opened) => advanceTutorialPastPaper(paper.arxivId, opened))}
-              onLikelyPaper={prewarmLikelyPaper}
-              onFetchFullText={(paper) => void fetchAndOpenPaper(paper)}
               paperFetchStates={paperFetchStates}
-              onDeletePaper={deletePaper}
-              onEditBibEntry={(paper) => void referenceImport.editBibEntry(paper)}
               importInput={referenceImport.input}
               recentImport={referenceImport.recentImport?.projectRoot === project.root ? referenceImport.recentImport : null}
               importStage={referenceImport.stage ? paperImportStageLabel(referenceImport.stage) : null}
               importStageId={referenceImport.stage}
-              setImportInput={referenceImport.setInput}
-              onImport={referenceImport.importFromInput}
-              onCancelImport={referenceImport.cancelImport}
               importing={referenceImport.importing}
             />
             </Suspense>
