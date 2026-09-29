@@ -31,6 +31,9 @@ import type { MarkdownBaseline } from "./markdown-document";
 /** How an offset that falls between aligned content resolves: only exactly, or to the next or previous aligned position. */
 export type Snap = "exact" | "forward" | "backward";
 
+/** At a position where formatting changes: the next run's side, or the previous run's. */
+export type Bias = "after" | "before";
+
 /**
  * One aligned piece of a block: editor positions `[pmFrom, pmTo]` against
  * source offsets `[from, to]`, block-relative. An exact piece maps every
@@ -70,65 +73,62 @@ const isHighSurrogate = (code: number) => code >= 0xd800 && code <= 0xdbff;
 
 const segmentCache = new WeakMap<PmNode, { source: string; paperSpans: boolean; segments: Segment[] }>();
 
+type Placement = Pick<Block, "bodyFrom" | "textFrom" | "textTo" | "row" | "column">;
+const placementCache = new WeakMap<MarkdownBaseline, Placement[]>();
+
+/** Where each baseline block sits in the text; computed once per baseline, so edits in between cost nothing. */
+function placements(baseline: MarkdownBaseline): Placement[] {
+  const cached = placementCache.get(baseline);
+  if (cached) return cached;
+  const bom = baseline.envelope.bom ? 1 : 0;
+  const { crlf } = baseline.envelope;
+  const result: Placement[] = [];
+  let body = 0;
+  let row = 0;
+  let column = 0;
+  for (const entry of baseline.entries) {
+    const gapLines = countNewlines(entry.gapBefore);
+    row += gapLines;
+    column = gapLines ? entry.gapBefore.length - entry.gapBefore.lastIndexOf("\n") - 1 : column + entry.gapBefore.length;
+    body += entry.gapBefore.length;
+    const lines = countNewlines(entry.source);
+    const textFrom = bom + body + (crlf ? row : 0);
+    result.push({ bodyFrom: body, textFrom, textTo: textFrom + entry.source.length + (crlf ? lines : 0), row, column });
+    body += entry.source.length;
+    column = lines ? entry.source.length - entry.source.lastIndexOf("\n") - 1 : column + entry.source.length;
+    row += lines;
+  }
+  placementCache.set(baseline, result);
+  return result;
+}
+
 export class SourceMap {
   private readonly blocks: Block[];
   private readonly byChild = new Map<number, Block>();
-  private readonly bom: number;
   private readonly crlf: boolean;
 
   constructor(readonly doc: PmNode, readonly baseline: MarkdownBaseline, readonly text: string) {
-    this.bom = baseline.envelope.bom ? 1 : 0;
     this.crlf = baseline.envelope.crlf;
     this.blocks = this.pair();
     for (const block of this.blocks) this.byChild.set(block.child, block);
   }
 
-  /** Pair each top-level node with the baseline block it still equals, and place the blocks in the text. */
+  /** Pair each top-level node with the baseline block it still equals; place those blocks in the text. */
   private pair(): Block[] {
     const { entries } = this.baseline;
+    const places = placements(this.baseline);
     const identity = new Map<PmNode, number>();
     entries.forEach((entry, index) => identity.set(entry.node, index));
-    const children: number[] = new Array(entries.length).fill(-1);
-    const positions: number[] = [];
+    const blocks: Block[] = [];
     let next = 0;
     this.doc.forEach((child, offset, index) => {
-      positions[index] = offset;
       let found = identity.get(child) ?? -1;
       if (found < next) found = next < entries.length && child.eq(entries[next]!.node) ? next : -1;
-      if (found >= next) {
-        children[found] = index;
-        next = found + 1;
-      }
+      if (found < next) return;
+      next = found + 1;
+      const place = places[found]!;
+      blocks.push({ child: index, pos: offset, node: child, source: entries[found]!.source, ...place });
     });
-    const blocks: Block[] = [];
-    let body = 0;
-    let row = 0;
-    let column = 0;
-    for (const [index, entry] of entries.entries()) {
-      const gapLines = countNewlines(entry.gapBefore);
-      row += gapLines;
-      column = gapLines ? entry.gapBefore.length - entry.gapBefore.lastIndexOf("\n") - 1 : column + entry.gapBefore.length;
-      body += entry.gapBefore.length;
-      const lines = countNewlines(entry.source);
-      const child = children[index]!;
-      if (child >= 0) {
-        const textFrom = this.bom + body + (this.crlf ? row : 0);
-        blocks.push({
-          child,
-          pos: positions[child]!,
-          node: this.doc.child(child),
-          source: entry.source,
-          bodyFrom: body,
-          textFrom,
-          textTo: textFrom + entry.source.length + (this.crlf ? lines : 0),
-          row,
-          column,
-        });
-      }
-      body += entry.source.length;
-      column = lines ? entry.source.length - entry.source.lastIndexOf("\n") - 1 : column + entry.source.length;
-      row += lines;
-    }
     return blocks;
   }
 
@@ -198,8 +198,13 @@ export class SourceMap {
     return relative;
   }
 
-  /** The text offset of document position `pos`, or null where it has no exact place in the Markdown. */
-  positionToOffset(pos: number): number | null {
+  /**
+   * The text offset of document position `pos`, or null where it has no
+   * exact place in the Markdown. Where formatting changes at `pos`, the offset
+   * is before the next run's markup (`after`, for a caret or a range start)
+   * or after the previous run's text (`before`, for a range end).
+   */
+  positionToOffset(pos: number, bias: Bias = "after"): number | null {
     const block = this.blockAtPosition(pos);
     if (!block) return null;
     const relative = pos - block.pos;
@@ -207,7 +212,7 @@ export class SourceMap {
     if (relative === block.node.nodeSize) return block.textTo;
     const source = block.node.type.spec.tableRole === "table"
       ? tablePositionToSource(block.node, block.source, relative)
-      : positionInSegments(this.segments(block), relative);
+      : positionInSegments(this.segments(block), relative, bias);
     return source == null ? null : this.textOffset(block, source);
   }
 
@@ -454,12 +459,13 @@ function leafSource(node: PmNode): string | null {
  * boundary between two pieces (where formatting changes), the position is the
  * start of the next piece, so it sits on the character after it.
  */
-function positionInSegments(segments: readonly Segment[], relative: number): number | null {
+function positionInSegments(segments: readonly Segment[], relative: number, bias: Bias = "after"): number | null {
   let ending: Segment | null = null;
   for (const segment of segments) {
     if (relative < segment.pmFrom) break;
     if (relative > segment.pmTo) continue;
     if (relative === segment.pmTo && segment.pmTo > segment.pmFrom) {
+      if (bias === "before") return offsetInSegment(segment, relative);
       ending = segment;
       continue;
     }

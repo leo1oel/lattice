@@ -14,6 +14,7 @@ import { FindBar, FindReplace, findShortcuts } from "./find-replace";
 import { EngineInputRules } from "./input-rules";
 import { LinkEditor, LinkHoverCard, requestLinkEditor } from "./link-chrome";
 import { EmojiPickerPopover, ImageFilePicker } from "./pickers";
+import { ChangePopover, CommentCard, CommentComposer } from "./review-chrome";
 import {
   CitationMenu, WikiLinkMenu, citationExtension, paperDropExtension, wikiLinkExtension, type PageSuggestion,
 } from "./references";
@@ -65,6 +66,9 @@ export function EngineChrome({ editor, chrome, layer }: { editor: Editor; chrome
       <LinkHoverCard editor={editor} host={chrome.host} />
       <EmojiPickerPopover editor={editor} host={chrome.host} />
       <ImageFilePicker editor={editor} host={chrome.host} />
+      <CommentCard editor={editor} host={chrome.host} />
+      <ChangePopover editor={editor} host={chrome.host} />
+      <CommentComposer editor={editor} host={chrome.host} />
       <BlockControls editor={editor} layer={layer} />
     </>
   );

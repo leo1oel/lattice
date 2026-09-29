@@ -15,6 +15,7 @@ import { useEffect, useLayoutEffect, useRef, useState, type JSX } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { Extension, type AnyExtension, type EditorOptions, type JSONContent } from "@tiptap/core";
 import type { Node as PmNode } from "@tiptap/pm/model";
+import { NodeSelection } from "@tiptap/pm/state";
 import { EditorContent, useEditor, type Editor } from "@tiptap/react";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import { InlineMessage } from "../../../components/ui/inline-message";
@@ -29,7 +30,9 @@ import type { VisualMarkdownEditorProps } from "../visual-editor-props";
 import type { ImeGuard } from "./engine-keymap";
 import { MathMacrosContext, engineNodeViews } from "./engine-node-views";
 import { engineSchema, engineSchemaExtensions, type RawBlockKind } from "./engine-schema";
-import { openMarkdown, serializeMarkdown, type MarkdownBaseline, type OpenOptions } from "./markdown-document";
+import { adoptNodes, openMarkdown, serializeMarkdown, type MarkdownBaseline, type OpenOptions } from "./markdown-document";
+import { SourceMap } from "./source-map";
+import { SourceOverlays, buildOverlays, setOverlays } from "./source-overlays";
 import { TableControls } from "./views/table-controls";
 import { EngineChrome, EngineFindBar, chromeExtensions, createChrome, type Chrome } from "./chrome/engine-chrome";
 import "./lattice-visual-editor.css";
@@ -73,7 +76,85 @@ type Host = {
   loadGeneration: number;
   /** The kind of load waiting for its microtask, if any. */
   pending: "swap" | "canonical" | null;
+  /** The source map of the last document and baseline it was asked for. */
+  map: SourceMap | null;
+  /** What the host was last told of the caret and the selection, so it hears only changes. */
+  reported: { caret: string; selection: string };
 };
+
+/**
+ * The source map for the document as shown against the accepted Markdown
+ * (R-SRC-1). Rebuilt only for a new document or baseline; the blocks'
+ * placement is shared per baseline, so a rebuild costs one pass over the
+ * top-level nodes.
+ */
+function sourceMapOf(host: Host): SourceMap | null {
+  const { editor, baseline } = host;
+  if (!editor || editor.isDestroyed || !baseline) return null;
+  const { doc } = editor.state;
+  if (host.map?.doc !== doc || host.map.baseline !== baseline) host.map = new SourceMap(doc, baseline, host.accepted);
+  return host.map;
+}
+
+/** Repaint what is placed from source coordinates: carets, comments, changes, labels (R-SRC-2–11). */
+function refreshOverlays(host: Host) {
+  const { editor, props } = host;
+  if (!editor || editor.isDestroyed) return;
+  const inputs = {
+    cursors: props.presenceCursors ?? [],
+    comments: props.editorComments ?? [],
+    activeComment: props.activeEditorCommentId ?? null,
+    changes: props.overleafChanges ?? [],
+    labels: Boolean(props.synchronizeSourceScroll),
+  };
+  const empty = !inputs.cursors.length && !inputs.comments.length && !inputs.changes.length && !inputs.labels;
+  if (empty && !editor.view.dom.querySelector("[data-source-line], [data-lx-comment], [data-lx-change], .lx-md-peer-caret")) return;
+  editor.view.dispatch(setOverlays(editor.state.tr, buildOverlays(editor.state.doc, empty ? null : sourceMapOf(host), inputs)));
+}
+
+/**
+ * Tell the host where the caret is in Markdown (row, column), and what the
+ * selection is as Markdown (R-SRC-1, R-SRC-12). The caret is reported only
+ * while the document matches the accepted Markdown, so a pending edit never
+ * reports coordinates in text the host has not seen yet; it follows once the
+ * edit is published.
+ */
+function reportSelection(host: Host) {
+  const { editor, props } = host;
+  if (!editor || editor.isDestroyed) return;
+  const { selection } = editor.state;
+  if (props.onCaretChange && !host.dirty) {
+    const caret = sourceMapOf(host)?.positionToRowColumn(selection.head);
+    const key = caret ? caret.join(":") : "";
+    if (caret && key !== host.reported.caret) {
+      host.reported.caret = key;
+      props.onCaretChange(caret[0], caret[1]);
+    }
+  }
+  if (props.onSelectionMarkdown) {
+    const value = selectionMarkdown(host);
+    if (value !== host.reported.selection) {
+      host.reported.selection = value;
+      props.onSelectionMarkdown(value);
+    }
+  }
+}
+
+/** The selection as the Markdown it was written as, or its text where that has no exact place. */
+function selectionMarkdown(host: Host): string {
+  const editor = host.editor!;
+  const { selection, doc } = editor.state;
+  if (selection.empty) return "";
+  const map = sourceMapOf(host);
+  if (map && selection instanceof NodeSelection && selection.$from.depth === 0) {
+    const range = map.blockRange(selection.$from.index(0));
+    if (range) return map.text.slice(range.from, range.to);
+  }
+  const from = map?.positionToOffset(selection.from);
+  const to = map?.positionToOffset(selection.to, "before");
+  if (map && from != null && to != null && to > from) return map.text.slice(from, to);
+  return doc.textBetween(selection.from, selection.to, "\n\n", " ");
+}
 
 /** How the file at `path` is read: paper reading mode infers merged table cells (R-BLK-11). */
 const openOptions = (props: VisualMarkdownEditorProps): OpenOptions => ({
@@ -141,8 +222,11 @@ function publishPending(host: Host, allowDuringComposition = false): boolean {
   if (result.text === host.accepted) return true;
   if (host.publish(result.text, host.accepted)) {
     host.accepted = result.text;
-    host.baseline = result.baseline;
+    host.baseline = adoptNodes(result.baseline, editor.state.doc);
     host.rejected = null;
+    // Carets and overlays follow the Markdown the host now has.
+    refreshOverlays(host);
+    reportSelection(host);
     return true;
   }
   host.rejected = result.text;
@@ -185,7 +269,9 @@ function loadDocument(host: Host, text: string, draft?: string) {
   } else {
     replaceDocument(editor, opened.doc);
   }
+  host.baseline = adoptNodes(opened.baseline, editor.state.doc);
   host.setReason(null);
+  refreshOverlays(host);
 }
 
 /**
@@ -353,6 +439,7 @@ function editorExtensions(labels: Partial<Record<RawBlockKind, string>>, ime: Im
     ...engineSchemaExtensions({ rawBlockLabels: labels }).filter((extension) => !viewNames.has(extension.name)),
     ...views,
     ...chromeExtensions(chrome),
+    SourceOverlays,
     HostHistory,
   ];
 }
@@ -450,6 +537,8 @@ export function LatticeVisualMarkdownEditor(props: VisualMarkdownEditorProps): J
     ime,
     loadGeneration: 0,
     pending: null,
+    map: null,
+    reported: { caret: "", selection: "" },
   });
   const [chrome] = useState(() => createChrome(props));
   // Extensions are read once, when the editor is created; labels are fixed then.
@@ -483,6 +572,7 @@ export function LatticeVisualMarkdownEditor(props: VisualMarkdownEditorProps): J
     editorProps,
     onTransaction: ({ transaction }) => {
       if (transaction.docChanged && !transaction.getMeta(CANONICAL) && host.current.baseline) schedulePublication(host.current);
+      if (transaction.selectionSet || transaction.docChanged) reportSelection(host.current);
     },
   }, []);
   const editor = useMountedEditor(instance);
@@ -510,6 +600,27 @@ export function LatticeVisualMarkdownEditor(props: VisualMarkdownEditorProps): J
   useEffect(() => {
     onEligibilityChange?.(reason);
   }, [onEligibilityChange, reason]);
+
+  // The chrome reads the source map through the host; a settled read publishes a pending edit first.
+  useEffect(() => {
+    chrome.host.setSourceMap((settle) => {
+      if (settle) publishPending(host.current);
+      return sourceMapOf(host.current);
+    });
+  }, [chrome]);
+
+  // New carets, comments or changes from the host repaint, outside React's commit.
+  const { presenceCursors, editorComments, activeEditorCommentId, overleafChanges, synchronizeSourceScroll } = props;
+  useEffect(() => {
+    if (!editor) return;
+    let live = true;
+    queueMicrotask(() => {
+      if (live) refreshOverlays(host.current);
+    });
+    return () => {
+      live = false;
+    };
+  }, [activeEditorCommentId, editor, editorComments, overleafChanges, presenceCursors, synchronizeSourceScroll]);
 
   useEffect(() => {
     if (!editor || editor.isDestroyed) return;
