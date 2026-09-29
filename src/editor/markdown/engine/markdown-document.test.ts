@@ -170,6 +170,24 @@ describe("seams next to an edit", () => {
     expect(blockTypes(open(expectReadsBackAsShown(next, baseline)).doc)).toEqual(["bulletList", "codeBlock"]);
   });
 
+  it.each([
+    ["two lists", "- a\n\nPara\n- b\n", ["bulletList", "paragraph", "bulletList"]],
+    ["an HTML block and a heading", "<div>x</div>\n\nPara\n# H\n", ["raw:html", "paragraph", "heading"]],
+  ])("keeps %s apart when the paragraph between them is emptied", (_name, text, kinds) => {
+    const { doc, baseline } = open(text);
+    expect(blockTypes(doc)).toEqual(kinds);
+    const next = doc.copy(doc.content.replaceChild(1, schema.nodes.paragraph!.create()));
+    const written = expectReadsBackAsShown(next, baseline);
+    expect(blockTypes(open(written).doc)).toEqual([kinds[0], kinds[2]]);
+  });
+
+  it("keeps every byte when an empty paragraph is inserted", () => {
+    const text = "## Contents\n- one\n";
+    const { doc, baseline } = open(text);
+    const next = doc.copy(doc.content.cut(0, doc.child(0).nodeSize).addToEnd(schema.nodes.paragraph!.create()).append(doc.content.cut(doc.child(0).nodeSize)));
+    expect(serializeMarkdown(next, baseline).text).toBe(text);
+  });
+
   it("keeps the authored bytes of neighbours a seam does not merge", () => {
     const text = "# Title\n\nFirst\n\nSecond\n";
     const { doc, baseline } = open(text);

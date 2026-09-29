@@ -122,7 +122,7 @@ last accepted text, with their source bytes and gaps.
   ignoring style. If it would read back differently, the run is written in
   *safe* style instead, which escapes everything the grammar could misread.
 - Every new join (next to a changed run, or between untouched blocks that a
-  deletion made neighbors) is re-parsed as a two-block window. If the two
+  deletion or an emptied block made neighbors) is re-parsed as a two-block window. If the two
   blocks would read back merged (two lists becoming one, an indented code
   block continuing a list item), the untouched side joins the changed run and
   is re-serialized with it, so the serializer keeps them apart. Only the

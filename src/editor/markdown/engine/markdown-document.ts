@@ -325,8 +325,10 @@ function assemble(doc: PmNode, baseline: MarkdownBaseline, matches: readonly num
       for (const label of run.parsed.labels.footnotes) labels.footnotes.add(label);
       previousWasBase = false;
       lastBaseChild = -1;
+      previousBase = nextBase - 1;
+    } else if (previousBase + 1 === nextBase) {
+      previousBase = nextBase - 1;
     }
-    previousBase = nextBase - 1;
     index = end;
   }
   return { entries, labels, verified, seams };
