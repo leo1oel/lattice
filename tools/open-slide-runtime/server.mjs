@@ -1,5 +1,5 @@
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
-import { createReadStream, createWriteStream, promises as fs } from "node:fs";
+import { createReadStream, createWriteStream, promises as fs, realpathSync } from "node:fs";
 import http from "node:http";
 import path from "node:path";
 import { Transform } from "node:stream";
@@ -2088,4 +2088,10 @@ export async function start({ root = process.env.OPEN_SLIDE_SHADOW_ROOT, control
   return { server, vite, port, sessionToken, controlToken };
 }
 
-if (process.argv[1] === new URL(import.meta.url).pathname) start().catch((error) => { console.error(error); process.exit(1); });
+// Compare real file paths, not a URL pathname: the URL form percent-encodes
+// spaces, so an app installed under a name with a space ("Lattice Beta.app")
+// exited without a handshake. Node resolves symlinks in import.meta.url but not
+// in argv[1], so resolve both sides.
+if (process.argv[1] && realpathSync(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  start().catch((error) => { console.error(error); process.exit(1); });
+}
