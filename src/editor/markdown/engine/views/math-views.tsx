@@ -7,7 +7,7 @@
  * Clean implementation for Lattice; spec: docs/visual-editor-spec.md.
  */
 /* eslint-disable react-refresh/only-export-components -- the input rule belongs with the views it feeds */
-import { createContext, useContext, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { createContext, useContext, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { InputRule } from "@tiptap/core";
 import type { NodeType } from "@tiptap/pm/model";
@@ -58,13 +58,16 @@ function useFormulaDraft(props: NodeViewProps) {
   const tex = String(props.node.attrs.tex ?? "");
   const [draft, setDraft] = useState<string | null>(null);
   const [dismissed, setDismissed] = useState(false);
-  const open = props.selected && props.editor.isEditable && !dismissed;
-  useEffect(() => {
+  // Leaving the atom resets the field (state adjusted while rendering, not in an effect).
+  const [wasSelected, setWasSelected] = useState(props.selected);
+  if (wasSelected !== props.selected) {
+    setWasSelected(props.selected);
     if (!props.selected) {
       setDismissed(false);
       setDraft(null);
     }
-  }, [props.selected]);
+  }
+  const open = props.selected && props.editor.isEditable && !dismissed;
   const commit = () => {
     if (draft != null && draft !== tex) setNodeAttrs(props.editor, props.getPos, props.node, { tex: draft });
     setDraft(null);
@@ -135,10 +138,8 @@ export function MathBlockView(props: NodeViewProps) {
   const { t } = useLingui();
   const formula = useFormulaDraft(props);
   const [editing, setEditing] = useState(false);
+  if (editing && !props.selected) setEditing(false);
   const open = formula.open && editing;
-  useEffect(() => {
-    if (!props.selected) setEditing(false);
-  }, [props.selected]);
   const selectSelf = () => {
     const position = props.getPos();
     if (typeof position !== "number" || !props.editor.isEditable) return;

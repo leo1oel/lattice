@@ -61,7 +61,7 @@ export function CodeBlockView(props: NodeViewProps) {
       <div className="lx-md-code-header" contentEditable={false}>
         {editable
           ? <LanguagePicker language={language} onPick={(value) => setNodeAttrs(editor, getPos, node, { language: value })} />
-          : <span className="lx-md-code-language">{codeLanguageLabel(language)}</span>}
+          : <span className="lx-md-code-language">{codeLanguageLabel(language, t`Plain text`)}</span>}
         {title && !preview && <span className="lx-md-code-title">{title}</span>}
         <span className="lx-md-code-actions">
           {mermaid && (
@@ -116,14 +116,15 @@ function LanguagePicker({ language, onPick }: { language: string | null; onPick:
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);
   const list = useRef<HTMLDivElement>(null);
-  const currentLabel = codeLanguageLabel(language);
+  const plainText = t`Plain text`;
+  const currentLabel = codeLanguageLabel(language, plainText);
   const current = resolveCodeLanguage(language)?.value ?? (language ? null : "text");
   const options = useMemo(() => {
     const needle = query.trim().toLowerCase();
     if (!needle) return CODE_LANGUAGES;
-    return CODE_LANGUAGES.filter((option) => option.label.toLowerCase().includes(needle)
+    return CODE_LANGUAGES.filter((option) => (option.value === "text" ? plainText : option.label).toLowerCase().includes(needle)
       || option.value.includes(needle) || option.aliases?.some((alias) => alias.includes(needle)));
-  }, [query]);
+  }, [plainText, query]);
   const pick = (value: string) => {
     setOpen(false);
     if (value !== language) onPick(value);
@@ -187,7 +188,7 @@ function LanguagePicker({ language, onPick }: { language: string | null; onPick:
               onMouseDown={(event) => event.preventDefault()}
               onClick={() => pick(option.value)}
             >
-              <span>{option.label}</span>
+              <span>{option.value === "text" ? plainText : option.label}</span>
               {option.value === current && <Check aria-hidden="true" />}
             </div>
           ))}
@@ -257,7 +258,7 @@ function PreviewSurface({ title, width, editable, onResize, children }: {
   const surface = useRef<HTMLDivElement>(null);
   const [dragWidth, setDragWidth] = useState<number | null>(null);
   const shown = dragWidth ?? width;
-  const startDrag = (side: "left" | "right") => (event: ReactPointerEvent) => {
+  const startDrag = (side: "left" | "right", event: ReactPointerEvent) => {
     const element = surface.current;
     if (!element) return;
     event.preventDefault();
@@ -290,8 +291,8 @@ function PreviewSurface({ title, width, editable, onResize, children }: {
       {children}
       {editable && (
         <>
-          <span className="lx-md-resize-handle" data-side="left" onPointerDown={startDrag("left")} aria-hidden="true" />
-          <span className="lx-md-resize-handle" data-side="right" onPointerDown={startDrag("right")} aria-hidden="true" />
+          <span className="lx-md-resize-handle" data-side="left" onPointerDown={(event) => startDrag("left", event)} aria-hidden="true" />
+          <span className="lx-md-resize-handle" data-side="right" onPointerDown={(event) => startDrag("right", event)} aria-hidden="true" />
         </>
       )}
     </div>

@@ -17,7 +17,11 @@ export type CodeLanguage = {
   grammar?: string;
 };
 
-/** Offered in the picker, in this order after Plain text. Labels are proper names, the same in every locale. */
+/**
+ * Offered in the picker, in this order after Plain text. Labels are proper
+ * names, the same in every locale; Plain text's label is localized by the view.
+ */
+/* eslint-disable lingui/no-unlocalized-strings -- language names and info-string tokens are proper names and syntax */
 export const CODE_LANGUAGES: readonly CodeLanguage[] = [
   { value: "text", label: "Plain text", aliases: ["plain", "plaintext", "txt"] },
   { value: "bash", label: "Bash", aliases: ["sh", "shell", "zsh", "console"], grammar: "bash" },
@@ -50,6 +54,7 @@ export const CODE_LANGUAGES: readonly CodeLanguage[] = [
   { value: "typescript", label: "TypeScript", aliases: ["ts", "tsx", "mts", "cts"], grammar: "typescript" },
   { value: "yaml", label: "YAML", aliases: ["yml"], grammar: "yaml" },
 ];
+/* eslint-enable lingui/no-unlocalized-strings */
 
 const byName = new Map<string, CodeLanguage>();
 for (const language of CODE_LANGUAGES) {
@@ -65,11 +70,12 @@ export function resolveCodeLanguage(authored: string | null | undefined): CodeLa
 
 /**
  * The label for an authored language: its proper name when Lattice knows it,
- * else the authored token itself, else Plain text.
+ * else the authored token itself; plain text gets the caller's localized label.
  */
-export function codeLanguageLabel(authored: string | null | undefined): string {
-  if (!authored) return CODE_LANGUAGES[0]!.label;
-  return resolveCodeLanguage(authored)?.label ?? authored;
+export function codeLanguageLabel(authored: string | null | undefined, plainText: string): string {
+  const language = resolveCodeLanguage(authored);
+  if (!authored || language?.value === "text") return plainText;
+  return language?.label ?? authored;
 }
 
 /**
@@ -97,6 +103,7 @@ export function metaTitle(meta: string | null | undefined): string {
 
 /** `meta` with its title replaced (or added at the end, or removed when empty). */
 export function withMetaTitle(meta: string | null | undefined, title: string): string | null {
+  // eslint-disable-next-line lingui/no-unlocalized-strings -- info-string syntax
   const token = title ? `title="${title.replace(/(["\\])/g, "\\$1")}"` : "";
   return replaceToken(meta, TITLE, token);
 }
@@ -109,6 +116,7 @@ export function metaWidth(meta: string | null | undefined): number | null {
 
 /** `meta` with its preview width replaced (or added, or removed when null). Height is never written. */
 export function withMetaWidth(meta: string | null | undefined, width: number | null): string | null {
+  // eslint-disable-next-line lingui/no-unlocalized-strings -- info-string syntax
   return replaceToken(meta, WIDTH, width ? `w=${Math.round(width)}px` : "");
 }
 

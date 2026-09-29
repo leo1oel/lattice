@@ -18,7 +18,7 @@ import type { Code, List, ListItem, PhrasingContent, RootContent, Table } from "
 import { decodeNumericCharacterReference } from "micromark-util-decode-numeric-character-reference";
 import { ANCHOR_SOURCE, type RawBlockKind } from "./engine-schema";
 import {
-  MODELLED_COMPONENTS, findClosingTag, readOpenTag, type ComponentProp,
+  CALLOUT, COMPONENTS_WITH_BODY, MODELLED_COMPONENTS, findClosingTag, readOpenTag, type ComponentProp,
 } from "./mdx-components";
 import { inferPaperSpans, looksLikeLayoutMarker, readLayoutMarker, spansFit, type Span } from "./table-spans";
 
@@ -168,8 +168,6 @@ function componentRange(children: RootContent[], index: number, context: Context
   return { to, last, json: componentNode(open.name, open.props, { openTag, closeTag, inner }, context) };
 }
 
-/** Callouts and accordions always hold a paragraph to type into; an empty one writes nothing. */
-const NEEDS_BODY = new Set(["Callout", "Accordion"]);
 
 function componentNode(
   name: string,
@@ -178,7 +176,7 @@ function componentNode(
   context: Context,
 ): JSONContent {
   let content = style.inner ? context.parseBody(style.inner) : [];
-  if (!content.length && NEEDS_BODY.has(name)) content = [{ type: "paragraph" }];
+  if (!content.length && COMPONENTS_WITH_BODY.has(name)) content = [{ type: "paragraph" }];
   return {
     type: "latticeComponent",
     attrs: {
@@ -347,7 +345,7 @@ function legacyCallout(node: Code, source: string, context: Context): JSONConten
       return null;
     }
   }
-  const json = componentNode("Callout", props, { openTag: null, closeTag: null, inner: body ? `\n\n${body}\n\n` : null, legacy: source }, context);
+  const json = componentNode(CALLOUT, props, { openTag: null, closeTag: null, inner: body ? `\n\n${body}\n\n` : null, legacy: source }, context);
   return json;
 }
 

@@ -415,6 +415,7 @@ export function LatticeVisualMarkdownEditor(props: VisualMarkdownEditorProps): J
   const [reason, setReason] = useState<string | null>(initial.unavailable ? unavailableMessage : null);
   const [busy, setBusy] = useState(false);
   const [layer, setLayer] = useState<HTMLDivElement | null>(null);
+  const [ime] = useState<ImeGuard>(() => ({ composingUntil: 0 }));
   const host = useRef<Host>({
     props,
     editor: null,
@@ -430,12 +431,12 @@ export function LatticeVisualMarkdownEditor(props: VisualMarkdownEditorProps): J
     setReason,
     setBusy,
     messages: null,
-    ime: { composingUntil: 0 },
+    ime,
     loadGeneration: 0,
     pending: null,
   });
   // Extensions are read once, when the editor is created; labels are fixed then.
-  const [extensions] = useState(() => editorExtensions(labels, host.current.ime));
+  const [extensions] = useState(() => editorExtensions(labels, ime));
 
   useLayoutEffect(() => {
     const current = host.current;

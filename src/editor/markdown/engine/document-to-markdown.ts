@@ -20,6 +20,10 @@ export type SerializeOptions = { paperSpans?: boolean };
 
 const styled = (node: MdNode, style: LatticeNodeStyle): MdNode => ({ ...node, data: { lattice: style } });
 
+/** A developer-facing refusal: malformed spans are never written (R-FMT-11). */
+// eslint-disable-next-line lingui/no-unlocalized-strings -- an exception message, not interface copy
+const MALFORMED_SPANS = "Cannot serialize malformed table spans";
+
 /** Top-level nodes as an mdast root. Empty paragraphs have no Markdown and are dropped. */
 export function documentToMarkdownTree(nodes: readonly PmNode[], options: SerializeOptions = {}): MdNode {
   return { type: "root", children: blocks(nodes, options) };
@@ -121,9 +125,9 @@ function table(node: PmNode, options: SerializeOptions): MdNode {
   try {
     map = TableMap.get(node);
   } catch {
-    throw new Error("Cannot serialize malformed table spans");
+    throw new Error(MALFORMED_SPANS);
   }
-  if (map.problems?.length) throw new Error("Cannot serialize malformed table spans");
+  if (map.problems?.length) throw new Error(MALFORMED_SPANS);
   const spans: Span[] = [];
   const slots: PmNode[][] = [];
   const seen = new Set<number>();

@@ -47,7 +47,7 @@ export function ImageView(props: NodeViewProps) {
   const alt = String(node.attrs.alt ?? "");
   const missing = !safe || !authored || image.targetExistence === "missing";
 
-  const startResize = (side: "left" | "right") => (event: ReactPointerEvent) => {
+  const startResize = (side: "left" | "right", event: ReactPointerEvent) => {
     const element = frame.current;
     if (!element) return;
     event.preventDefault();
@@ -122,8 +122,8 @@ export function ImageView(props: NodeViewProps) {
               </span>
               <ImageProperties {...props} />
             </span>
-            <span className="lx-md-resize-handle" data-side="left" onPointerDown={startResize("left")} aria-hidden="true" />
-            <span className="lx-md-resize-handle" data-side="right" onPointerDown={startResize("right")} aria-hidden="true" />
+            <span className="lx-md-resize-handle" data-side="left" onPointerDown={(event) => startResize("left", event)} aria-hidden="true" />
+            <span className="lx-md-resize-handle" data-side="right" onPointerDown={(event) => startResize("right", event)} aria-hidden="true" />
           </>
         )}
       </span>

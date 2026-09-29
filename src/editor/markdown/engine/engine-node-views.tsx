@@ -6,6 +6,7 @@
  *
  * Clean implementation for Lattice; spec: docs/visual-editor-spec.md.
  */
+/* eslint-disable react-refresh/only-export-components -- a registry of views, not a component module */
 import type { AnyExtension } from "@tiptap/core";
 import { ReactNodeViewRenderer } from "@tiptap/react";
 import { CodeHighlight } from "./code-highlight";

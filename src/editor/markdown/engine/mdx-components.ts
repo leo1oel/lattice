@@ -13,8 +13,14 @@
 import { decodeNamedCharacterReference } from "decode-named-character-reference";
 import { decodeNumericCharacterReference } from "micromark-util-decode-numeric-character-reference";
 
+/* eslint-disable lingui/no-unlocalized-strings -- MDX component names are Markdown syntax, not interface copy */
+export const CALLOUT = "Callout";
+export const ACCORDION = "Accordion";
 /** Components with a rich view. Everything else is kept as its source. */
-export const MODELLED_COMPONENTS = new Set(["Callout", "Accordion", "PaperFigure", "PaperFigureRow", "PaperFigurePanel"]);
+export const MODELLED_COMPONENTS = new Set([CALLOUT, ACCORDION, "PaperFigure", "PaperFigureRow", "PaperFigurePanel"]);
+/* eslint-enable lingui/no-unlocalized-strings */
+/** Components that always hold a paragraph to type into (an empty one writes nothing). */
+export const COMPONENTS_WITH_BODY = new Set([CALLOUT, ACCORDION]);
 
 /**
  * One property as written. `string` values were quoted or a string
@@ -143,6 +149,7 @@ const PORTABLE = /^[^"&{}<>\n]*$/;
 function writeProp(prop: ComponentProp): string {
   switch (prop.kind) {
     case "boolean":
+      // eslint-disable-next-line lingui/no-unlocalized-strings -- JSX syntax
       return prop.value ? prop.name : `${prop.name}={false}`;
     case "number":
       return `${prop.name}={${String(prop.value)}}`;

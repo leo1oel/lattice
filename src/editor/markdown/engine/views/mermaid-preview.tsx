@@ -53,9 +53,11 @@ export function MermaidDiagram({ chart }: { chart: string }) {
           startOnLoad: false,
           securityLevel: "strict",
           theme: theme === "dark" ? "dark" : "neutral",
+          // eslint-disable-next-line lingui/no-unlocalized-strings -- a CSS font stack
           fontFamily: "Inter Variable, Inter, system-ui, sans-serif",
         });
         renderSequence += 1;
+        // eslint-disable-next-line lingui/no-unlocalized-strings -- an element id
         const { svg: rendered } = await mermaid.render(`${baseId}-mermaid-${renderSequence}`, chart);
         if (cancelled) return;
         setSvg(rendered);
@@ -100,7 +102,6 @@ export function MermaidDiagram({ chart }: { chart: string }) {
         : svg == null
           ? <div className="lx-md-mermaid-loading" aria-hidden="true" />
           // Mermaid's own sanitizer ran on this SVG (securityLevel: strict).
-          // eslint-disable-next-line react/no-danger
           : <div className="lx-md-mermaid-viewport"><div ref={canvas} className="lx-md-mermaid-canvas" dangerouslySetInnerHTML={{ __html: svg }} /></div>}
       {svg != null && !error && (
         <div className="lx-md-mermaid-controls" contentEditable={false}>

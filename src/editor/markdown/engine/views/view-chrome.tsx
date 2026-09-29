@@ -5,6 +5,7 @@
  *
  * Clean implementation for Lattice; spec: docs/visual-editor-spec.md.
  */
+/* eslint-disable react-refresh/only-export-components -- chrome helpers and the one field component they format belong together */
 import { useRef, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from "react";
 import type { Node as PmNode } from "@tiptap/pm/model";
 import type { Transaction } from "@tiptap/pm/state";

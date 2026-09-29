@@ -21,6 +21,7 @@ import Strike from "@tiptap/extension-strike";
 import { Table, TableCell, TableHeader, TableRow } from "@tiptap/extension-table";
 import StarterKit from "@tiptap/starter-kit";
 import type { Schema } from "@tiptap/pm/model";
+import { CALLOUT } from "./mdx-components";
 
 
 /** Attributes that only record how a node was written; never rendered, never semantic. */
@@ -167,7 +168,7 @@ export const Component = Node.create({
   defining: true,
   isolating: true,
   addAttributes: () => ({
-    name: { default: "Callout", parseHTML: (element) => element.getAttribute("data-component") ?? "Callout", renderHTML: ({ name }) => ({ "data-component": name }) },
+    name: { default: CALLOUT, parseHTML: (element) => element.getAttribute("data-component") ?? CALLOUT, renderHTML: ({ name }) => ({ "data-component": name }) },
     props: {
       default: [],
       parseHTML: (element) => {
@@ -204,7 +205,6 @@ export const FootnoteReference = Node.create({
 export const FootnoteDefinition = Node.create({
   name: "latticeFootnote",
   group: "block",
-  // eslint-disable-next-line lingui/no-unlocalized-strings -- ProseMirror content expression
   content: "block+",
   defining: true,
   isolating: true,

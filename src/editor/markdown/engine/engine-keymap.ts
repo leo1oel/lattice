@@ -13,11 +13,11 @@
  */
 import { Extension } from "@tiptap/core";
 import { Plugin, PluginKey, TextSelection } from "@tiptap/pm/state";
+import { COMPONENTS_WITH_BODY } from "./mdx-components";
 import { moveDownOrAppendRow } from "./table-commands";
 
 /** Containers whose empty last paragraph stays inside on Enter. */
 const KEEPS_ENTER = new Set(["latticeComponent", "latticeFootnote"]);
-const NEEDS_BODY = new Set(["Callout", "Accordion"]);
 
 export type ImeGuard = { composingUntil: number };
 
@@ -51,7 +51,7 @@ export const EngineKeymap = Extension.create<{ ime: ImeGuard }>({
       if (!transactions.some((transaction) => transaction.docChanged)) return null;
       const empty: number[] = [];
       state.doc.descendants((node, position) => {
-        if (node.type.name === "latticeComponent" && NEEDS_BODY.has(String(node.attrs.name)) && node.childCount === 0) empty.push(position);
+        if (node.type.name === "latticeComponent" && COMPONENTS_WITH_BODY.has(String(node.attrs.name)) && node.childCount === 0) empty.push(position);
         return !node.isTextblock;
       });
       if (!empty.length) return null;

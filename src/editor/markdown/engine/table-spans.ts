@@ -41,6 +41,7 @@ export function readLayoutMarker(source: string): Span[] | null {
 /** The marker line for `spans`: compact JSON, spans in reading order. */
 export function writeLayoutMarker(spans: readonly Span[]): string {
   const ordered = [...spans].sort((left, right) => left[0] - right[0] || left[1] - right[1]);
+  // eslint-disable-next-line lingui/no-unlocalized-strings -- Markdown syntax
   return `<!-- lattice-table-layout:v1 ${JSON.stringify({ spans: ordered })} -->`;
 }
 
