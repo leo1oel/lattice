@@ -2141,6 +2141,10 @@ msgstr "Completed"
 msgid "Completions"
 msgstr "Completions"
 
+#: src/editor/markdown/engine/lattice-visual-editor.tsx
+msgid "Component"
+msgstr "Component"
+
 #: src/open-knowledge-app/lib/keyboard-shortcuts.ts
 msgid "Component boundary navigation"
 msgstr "Component boundary navigation"
@@ -2291,6 +2295,7 @@ msgstr "Copy"
 msgid "Copy code"
 msgstr "Copy code"
 
+#: src/editor/markdown/engine/lattice-visual-editor.tsx
 #: src/editor/markdown/visual-markdown-editor.tsx
 msgid "Copy draft"
 msgstr "Copy draft"
@@ -2663,6 +2668,7 @@ msgid "definition"
 msgstr "definition"
 
 #: src/editor/latex/latex-command-completions.ts
+#: src/editor/markdown/engine/lattice-visual-editor.tsx
 msgid "Definition"
 msgstr "Definition"
 
@@ -3841,6 +3847,7 @@ msgid "Follow system (default)"
 msgstr "Follow system (default)"
 
 #: src/editor/insert/insert-snippets.ts
+#: src/editor/markdown/engine/lattice-visual-editor.tsx
 #: src/editor/markdown/visual-slash-items.ts
 #: src/open-knowledge-app/editor/slash-command/items.tsx
 msgid "Footnote"
@@ -3898,6 +3905,10 @@ msgstr "Fourth-level heading."
 #: src/editor/insert/insert-snippets.ts
 msgid "Fraction"
 msgstr "Fraction"
+
+#: src/editor/markdown/engine/lattice-visual-editor.tsx
+msgid "Frontmatter"
+msgstr "Frontmatter"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Frown relation"
@@ -4265,6 +4276,7 @@ msgstr "Horizontal rule that divides sections."
 msgid "Horizontal space"
 msgstr "Horizontal space"
 
+#: src/editor/markdown/engine/lattice-visual-editor.tsx
 #: src/editor/markdown/visual-slash-items.ts
 #: src/open-knowledge-app/editor/slash-command/embed-starter-items.tsx
 msgid "HTML"
@@ -5421,10 +5433,15 @@ msgstr "Maps to"
 msgid "Mark a block as the source of truth. Mirrors elsewhere update live as you edit it."
 msgstr "Mark a block as the source of truth. Mirrors elsewhere update live as you edit it."
 
+#: src/editor/markdown/engine/lattice-visual-editor.tsx
 #: src/editor/markdown/visual-markdown-editor.tsx
 #: src/onboarding/onboarding-tour.tsx
 msgid "Markdown document editor"
 msgstr "Markdown document editor"
+
+#: src/editor/markdown/engine/lattice-visual-editor.tsx
+msgid "Markdown source"
+msgstr "Markdown source"
 
 #: src/editor/latex/search-panel.ts
 #: src/editor/markdown/visual-markdown-find-replace.tsx
@@ -5497,6 +5514,10 @@ msgstr "Medium section heading."
 #: src/editor/markdown/visual-table-span-controls.tsx
 msgid "Merge cells"
 msgstr "Merge cells"
+
+#: src/editor/markdown/engine/lattice-visual-editor.tsx
+msgid "Merged table"
+msgstr "Merged table"
 
 #: src/editor/markdown/visual-slash-items.ts
 #: src/open-knowledge-app/editor/registry/descriptor-labels.ts
@@ -7249,6 +7270,7 @@ msgid "Preprint check returned an incomplete or ambiguous result."
 msgstr "Preprint check returned an incomplete or ambiguous result."
 
 #: src/canvas/canvas-toolbar.tsx
+#: src/editor/markdown/engine/lattice-visual-editor.tsx
 #: src/editor/markdown/visual-markdown-editor.tsx
 #: src/project/project-replace-dialog.tsx
 msgid "Preview"
@@ -8086,6 +8108,7 @@ msgstr "Restore {0} to this version"
 msgid "Restore {path} to this version? Your current file will be overwritten."
 msgstr "Restore {path} to this version? Your current file will be overwritten."
 
+#: src/editor/markdown/engine/lattice-visual-editor.tsx
 #: src/editor/markdown/visual-markdown-editor.tsx
 msgid "Restore draft and retry"
 msgstr "Restore draft and retry"
@@ -9698,6 +9721,7 @@ msgstr "The service could not be reached. No retry was made."
 msgid "The service is rate-limiting requests. No retry was made."
 msgstr "The service is rate-limiting requests. No retry was made."
 
+#: src/editor/markdown/engine/lattice-visual-editor.tsx
 #: src/editor/markdown/visual-markdown-editor.tsx
 msgid "The shared version is shown. Your visual draft was kept — copy it, or restore it and try again."
 msgstr "The shared version is shown. Your visual draft was kept — copy it, or restore it and try again."
@@ -9799,6 +9823,7 @@ msgstr "This computer and Overleaf both changed the same part of this file since
 msgid "This computer removed this part."
 msgstr "This computer removed this part."
 
+#: src/editor/markdown/engine/lattice-visual-editor.tsx
 #: src/editor/markdown/visual-markdown-editor.tsx
 msgid "This document changed in the same place"
 msgstr "This document changed in the same place"
@@ -10685,6 +10710,7 @@ msgstr "Vimeo video player"
 msgid "Violet"
 msgstr "Violet"
 
+#: src/editor/markdown/engine/lattice-visual-editor.tsx
 #: src/editor/markdown/visual-markdown-editor.tsx
 msgid "Visual editing is unavailable because this Markdown contains unsupported or lossy syntax. Use source mode to preserve it."
 msgstr "Visual editing is unavailable because this Markdown contains unsupported or lossy syntax. Use source mode to preserve it."

@@ -1,0 +1,233 @@
+/**
+ * Markdown syntax for Lattice's visual editor engine: one parser and two
+ * serializers over the same grammar (CommonMark + GFM + `$` math).
+ *
+ * Clean implementation for Lattice; spec: docs/visual-editor-spec.md.
+ * Built only on unified/remark/micromark (MIT).
+ */
+import type { Parent, Parents, Root, RootContent, Text } from "mdast";
+import { defaultHandlers, type Handle, type Options, type State } from "mdast-util-to-markdown";
+import remarkGfm from "remark-gfm";
+import remarkMath from "remark-math";
+import remarkParse from "remark-parse";
+import remarkStringify from "remark-stringify";
+import { unified } from "unified";
+
+/** Style the parser recorded for one node, carried on `node.data.lattice` through serialization. */
+export type LatticeNodeStyle = {
+  /** A text run as authored: each piece's `source` is emitted verbatim in literal mode. */
+  pieces?: { value: string; source?: string }[];
+  /** `*`/`_` for emphasis, `**`/`__` for strong, `~`/`~~` for strikethrough. */
+  marker?: string;
+  bullet?: string;
+  delimiter?: string;
+  incrementListMarker?: boolean;
+  setext?: boolean;
+  fence?: string;
+  indented?: boolean;
+  /** Exact syntax of a thematic break or of a hard break (without its newline). */
+  markup?: string;
+  /** How a link was written: `<url>` or a bare GFM literal. */
+  autolink?: "angle" | "literal";
+  /** Exact source of an inline formula, kept while its TeX is unchanged. */
+  source?: string;
+};
+
+type Styled = { data?: { lattice?: LatticeNodeStyle } };
+const styleOf = (node: unknown): LatticeNodeStyle | undefined => (node as Styled).data?.lattice;
+
+const parser = unified().use(remarkParse).use(remarkGfm).use(remarkMath).freeze();
+
+/**
+ * Parse Markdown into mdast with source positions. A `$` pair that pandoc's
+ * rule would not accept as a formula (prices such as `$5 and $10`) stays prose.
+ */
+export function parseMarkdownTree(markdown: string): Root {
+  const tree = parser.parse(markdown);
+  demoteCurrencyMath(tree, markdown);
+  return tree;
+}
+
+function demoteCurrencyMath(parent: Parent, markdown: string) {
+  const children = parent.children as RootContent[];
+  let changed = false;
+  for (let index = 0; index < children.length; index += 1) {
+    const child = children[index]!;
+    if ("children" in child) demoteCurrencyMath(child as Parent, markdown);
+    if (child.type !== "inlineMath" || child.position?.start.offset == null || child.position.end.offset == null) continue;
+    const source = markdown.slice(child.position.start.offset, child.position.end.offset);
+    if (source.startsWith("$$")) continue;
+    if (/^\s|\s$/.test(child.value) || /\d/.test(markdown.charAt(child.position.end.offset))) {
+      children[index] = { type: "text", value: source, position: child.position } satisfies Text;
+      changed = true;
+    }
+  }
+  if (!changed) return;
+  // Any other parse yields one text node for adjacent prose; merge so the
+  // demoted formula compares equal to how serialized output re-parses.
+  for (let index = children.length - 1; index > 0; index -= 1) {
+    const left = children[index - 1]!;
+    const right = children[index]!;
+    if (left.type !== "text" || right.type !== "text") continue;
+    left.value += right.value;
+    if (left.position && right.position) left.position = { start: left.position.start, end: right.position.end };
+    children.splice(index, 1);
+  }
+}
+
+/**
+ * `literal` reproduces authored syntax: recorded markers and fences, and the
+ * exact source of unchanged text runs, with new text written unescaped.
+ * `safe` ignores recorded text and escapes whatever the grammar could misread.
+ * Callers verify a `literal` result by re-parsing and fall back to `safe`.
+ */
+export type SerializeMode = "literal" | "safe";
+
+/** Run `render` with one serializer option overridden, restoring it after. */
+function withOption<K extends keyof Options>(state: State, key: K, value: Options[K] | undefined, render: () => string): string {
+  if (value === undefined) return render();
+  const previous = state.options[key];
+  state.options[key] = value;
+  try {
+    return render();
+  } finally {
+    state.options[key] = previous;
+  }
+}
+
+function latticeHandlers(mode: SerializeMode, stock: Record<string, Handle>): Record<string, Handle> {
+  const literal = mode === "literal";
+  const handlers: Record<string, Handle> = {
+    text(node, parent, state, info) {
+      const pieces = styleOf(node)?.pieces;
+      if (!literal) return stock.text!(node, parent, state, info);
+      return pieces ? pieces.map((piece) => piece.source ?? piece.value).join("") : (node as Text).value;
+    },
+    emphasis: (node, parent, state, info) => withOption(
+      state, "emphasis", styleOf(node)?.marker as Options["emphasis"], () => stock.emphasis!(node, parent, state, info),
+    ),
+    strong: (node, parent, state, info) => withOption(
+      state, "strong", styleOf(node)?.marker?.charAt(0) as Options["strong"], () => stock.strong!(node, parent, state, info),
+    ),
+    delete(node, parent, state, info) {
+      if (!literal || styleOf(node)?.marker !== "~") return stock.delete!(node, parent, state, info);
+      const value = state.containerPhrasing(node as Parents, { ...info, before: "~", after: "~" });
+      return `~${value}~`;
+    },
+    heading: (node, parent, state, info) => withOption(
+      state, "setext", literal ? styleOf(node)?.setext : undefined, () => stock.heading!(node, parent, state, info),
+    ),
+    list(node, parent, state, info) {
+      const style = literal ? styleOf(node) : undefined;
+      const ordered = (node as { ordered?: boolean | null }).ordered;
+      const marker = ordered ? style?.delimiter : style?.bullet;
+      return withOption(state, ordered ? "bulletOrdered" : "bullet", marker as never, () => (
+        withOption(state, "incrementListMarker", style?.incrementListMarker, () => stock.list!(node, parent, state, info))
+      ));
+    },
+    thematicBreak(node, parent, state, info) {
+      const markup = styleOf(node)?.markup;
+      return literal && markup ? markup : stock.thematicBreak!(node, parent, state, info);
+    },
+    break(node, parent, state, info) {
+      const markup = styleOf(node)?.markup;
+      return literal && markup ? `${markup}\n` : stock.break!(node, parent, state, info);
+    },
+    code(node, parent, state, info) {
+      const style = styleOf(node);
+      const code = node as { value: string; lang?: string | null; meta?: string | null };
+      if (!literal || (!style?.fence && !style?.indented)) return stock.code!(node, parent, state, info);
+      if (style.indented && !code.lang && !code.meta && code.value.trim() !== "" && !/^\n|\n$/.test(code.value)) {
+        return code.value.split("\n").map((line) => (line ? `    ${line}` : line)).join("\n");
+      }
+      const marker = style.fence?.charAt(0) === "~" ? "~" : "`";
+      let longest = 0;
+      for (const run of code.value.match(marker === "~" ? /~+/g : /`+/g) ?? []) longest = Math.max(longest, run.length);
+      const fence = marker.repeat(Math.max(style.fence?.length ?? 3, longest + 1, 3));
+      const infoString = [code.lang, code.meta].filter(Boolean).join(" ");
+      return code.value ? `${fence}${infoString}\n${code.value}\n${fence}` : `${fence}${infoString}\n${fence}`;
+    },
+    link(node, parent, state, info) {
+      const link = node as { url: string; title?: string | null; children: RootContent[] };
+      const only = link.children.length === 1 ? link.children[0] : undefined;
+      if (literal && styleOf(node)?.autolink === "literal" && only?.type === "text" && !link.title) {
+        const text = only.value;
+        if (link.url === text || link.url === `http://${text}` || link.url === `mailto:${text}`) return text;
+      }
+      return stock.link!(node, parent, state, info);
+    },
+    inlineMath(node, parent, state, info) {
+      const source = styleOf(node)?.source;
+      return literal && source ? source : stock.inlineMath!(node, parent, state, info);
+    },
+    // Verbatim inline source. Unlike `html`, a line break before it stays a
+    // line break; the caller's verification catches the rare line start where
+    // that would now read as block HTML, and `safe` mode writes it as `html`.
+    latticeRaw: (node) => (node as { value: string }).value,
+  };
+  // Phrasing asks the next sibling's `peek` for its first character. Without
+  // one it runs the whole handler, and that handler's attention-encoding side
+  // effect then lands on the wrong sibling. Peeks must be side-effect free.
+  const peeks: Record<string, Handle> = {
+    emphasis: (node, _parent, state) => (literal && styleOf(node)?.marker) || state.options.emphasis || "*",
+    strong: (node, _parent, state) => (literal && styleOf(node)?.marker?.charAt(0)) || state.options.strong || "*",
+    delete: () => "~",
+    latticeRaw: (node) => (node as { value: string }).value.charAt(0),
+    inlineMath: () => "$",
+    link(node, parent, state, info) {
+      const only = (node as { children: RootContent[] }).children[0];
+      if (literal && styleOf(node)?.autolink === "literal" && only?.type === "text") return only.value.charAt(0);
+      return (stock.link as Handle & { peek: Handle }).peek(node, parent, state, info);
+    },
+  };
+  for (const [name, peek] of Object.entries(peeks)) Object.assign(handlers[name]!, { peek });
+  return handlers;
+}
+
+const baseOptions: Options = {
+  bullet: "-",
+  emphasis: "*",
+  strong: "*",
+  fence: "`",
+  rule: "-",
+  listItemIndent: "one",
+  resourceLink: false,
+};
+
+type Processor = { stringify: (tree: Root) => string };
+const processors = new Map<SerializeMode, Processor>();
+
+function processorFor(mode: SerializeMode): Processor {
+  const cached = processors.get(mode);
+  if (cached) return cached;
+  // Every wrapper delegates to the stock handler: mdast-util-to-markdown's
+  // core table plus whatever the GFM and math extensions contribute.
+  const stock: Record<string, Handle> = { ...(defaultHandlers as Record<string, Handle>) };
+  type Extension = { handlers?: Record<string, Handle>; extensions?: Extension[] };
+  const collect = (extension: Extension) => {
+    Object.assign(stock, extension.handlers);
+    extension.extensions?.forEach(collect);
+  };
+  const probe = unified().use(remarkGfm).use(remarkMath).freeze();
+  ((probe.data("toMarkdownExtensions") ?? []) as Extension[]).forEach(collect);
+  const built = unified()
+    .use(remarkStringify, { ...baseOptions, handlers: latticeHandlers(mode, stock) })
+    .use(remarkGfm)
+    .use(remarkMath)
+    .freeze();
+  const processor: Processor = { stringify: (tree) => built.stringify(tree) };
+  processors.set(mode, processor);
+  return processor;
+}
+
+/** Serialize block-level mdast, without the final newline remark-stringify appends. */
+export function stringifyMarkdownTree(tree: Root, mode: SerializeMode): string {
+  if (mode === "safe") asHtml(tree);
+  return processorFor(mode).stringify(tree).replace(/\n$/, "");
+}
+
+/** In safe mode verbatim inline source is written as `html`, with the serializer's own line-start guard. */
+function asHtml(node: { type: string; children?: unknown[] }) {
+  if (node.type === "latticeRaw") node.type = "html";
+  for (const child of (node.children ?? []) as (typeof node)[]) asHtml(child);
+}

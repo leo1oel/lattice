@@ -2141,6 +2141,10 @@ msgstr "已完成"
 msgid "Completions"
 msgstr "补全建议"
 
+#: src/editor/markdown/engine/lattice-visual-editor.tsx
+msgid "Component"
+msgstr "组件"
+
 #: src/open-knowledge-app/lib/keyboard-shortcuts.ts
 msgid "Component boundary navigation"
 msgstr "组件边界导航"
@@ -2291,6 +2295,7 @@ msgstr "拷贝"
 msgid "Copy code"
 msgstr "复制代码"
 
+#: src/editor/markdown/engine/lattice-visual-editor.tsx
 #: src/editor/markdown/visual-markdown-editor.tsx
 msgid "Copy draft"
 msgstr "复制草稿"
@@ -2663,6 +2668,7 @@ msgid "definition"
 msgstr "定义"
 
 #: src/editor/latex/latex-command-completions.ts
+#: src/editor/markdown/engine/lattice-visual-editor.tsx
 msgid "Definition"
 msgstr "定义"
 
@@ -3841,6 +3847,7 @@ msgid "Follow system (default)"
 msgstr "跟随系统（默认）"
 
 #: src/editor/insert/insert-snippets.ts
+#: src/editor/markdown/engine/lattice-visual-editor.tsx
 #: src/editor/markdown/visual-slash-items.ts
 #: src/open-knowledge-app/editor/slash-command/items.tsx
 msgid "Footnote"
@@ -3898,6 +3905,10 @@ msgstr "四级标题。"
 #: src/editor/insert/insert-snippets.ts
 msgid "Fraction"
 msgstr "分式"
+
+#: src/editor/markdown/engine/lattice-visual-editor.tsx
+msgid "Frontmatter"
+msgstr "前置元数据"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Frown relation"
@@ -4265,6 +4276,7 @@ msgstr "用于分隔章节的水平线。"
 msgid "Horizontal space"
 msgstr "水平间距"
 
+#: src/editor/markdown/engine/lattice-visual-editor.tsx
 #: src/editor/markdown/visual-slash-items.ts
 #: src/open-knowledge-app/editor/slash-command/embed-starter-items.tsx
 msgid "HTML"
@@ -5421,10 +5433,15 @@ msgstr "映射到"
 msgid "Mark a block as the source of truth. Mirrors elsewhere update live as you edit it."
 msgstr "将内容块设为唯一源；在此编辑时，其他位置的镜像会同步更新。"
 
+#: src/editor/markdown/engine/lattice-visual-editor.tsx
 #: src/editor/markdown/visual-markdown-editor.tsx
 #: src/onboarding/onboarding-tour.tsx
 msgid "Markdown document editor"
 msgstr "Markdown 文档编辑器"
+
+#: src/editor/markdown/engine/lattice-visual-editor.tsx
+msgid "Markdown source"
+msgstr "Markdown 源码"
 
 #: src/editor/latex/search-panel.ts
 #: src/editor/markdown/visual-markdown-find-replace.tsx
@@ -5497,6 +5514,10 @@ msgstr "用于次级章节的中标题。"
 #: src/editor/markdown/visual-table-span-controls.tsx
 msgid "Merge cells"
 msgstr "合并单元格"
+
+#: src/editor/markdown/engine/lattice-visual-editor.tsx
+msgid "Merged table"
+msgstr "合并单元格的表格"
 
 #: src/editor/markdown/visual-slash-items.ts
 #: src/open-knowledge-app/editor/registry/descriptor-labels.ts
@@ -7249,6 +7270,7 @@ msgid "Preprint check returned an incomplete or ambiguous result."
 msgstr "预印本检查返回的结果不完整或不明确。"
 
 #: src/canvas/canvas-toolbar.tsx
+#: src/editor/markdown/engine/lattice-visual-editor.tsx
 #: src/editor/markdown/visual-markdown-editor.tsx
 #: src/project/project-replace-dialog.tsx
 msgid "Preview"
@@ -8086,6 +8108,7 @@ msgstr "把 {0} 恢复到这个版本"
 msgid "Restore {path} to this version? Your current file will be overwritten."
 msgstr "要把 {path} 恢复到这个版本吗？你当前的文件将被覆盖。"
 
+#: src/editor/markdown/engine/lattice-visual-editor.tsx
 #: src/editor/markdown/visual-markdown-editor.tsx
 msgid "Restore draft and retry"
 msgstr "恢复草稿并重试"
@@ -9698,6 +9721,7 @@ msgstr "暂时无法连接服务，未自动重试。"
 msgid "The service is rate-limiting requests. No retry was made."
 msgstr "服务正在限流，未自动重试。"
 
+#: src/editor/markdown/engine/lattice-visual-editor.tsx
 #: src/editor/markdown/visual-markdown-editor.tsx
 msgid "The shared version is shown. Your visual draft was kept — copy it, or restore it and try again."
 msgstr "当前显示共享版本。你的可视化编辑草稿已保留——你可以复制草稿，或恢复后重试。"
@@ -9799,6 +9823,7 @@ msgstr "自上次同步以来，本机和 Overleaf 都修改了此文件的同�
 msgid "This computer removed this part."
 msgstr "本机删除了这一部分。"
 
+#: src/editor/markdown/engine/lattice-visual-editor.tsx
 #: src/editor/markdown/visual-markdown-editor.tsx
 msgid "This document changed in the same place"
 msgstr "此文档的同一位置已被修改"
@@ -10685,6 +10710,7 @@ msgstr "Vimeo 视频播放器"
 msgid "Violet"
 msgstr "紫罗兰色"
 
+#: src/editor/markdown/engine/lattice-visual-editor.tsx
 #: src/editor/markdown/visual-markdown-editor.tsx
 msgid "Visual editing is unavailable because this Markdown contains unsupported or lossy syntax. Use source mode to preserve it."
 msgstr "此 Markdown 包含不受支持或会丢失信息的语法，无法进行可视化编辑。请使用源码模式以保留原内容。"
