@@ -71,7 +71,7 @@ export const ANCHOR_SOURCE = /^<a\s+id=(?:"([^"]+)"|'([^']+)')\s*><\/a>$/;
  * footnote definition, frontmatter, or any construct it does not model. Its
  * text is the source itself, so editing it is editing Markdown.
  */
-const RawBlock = Node.create<{ labels: Partial<Record<RawBlockKind, string>> }>({
+export const RawBlock = Node.create<{ labels: Partial<Record<RawBlockKind, string>> }>({
   name: "latticeRawBlock",
   group: "block",
   // eslint-disable-next-line lingui/no-unlocalized-strings -- ProseMirror content expression
@@ -261,13 +261,7 @@ export function engineSchemaExtensions(options: EngineSchemaOptions = {}): AnyEx
     HorizontalRule.extend({ addAttributes: () => style({ markup: null }) }),
     HardBreak.extend({ addAttributes: () => style({ markup: null }) }),
     ...listExtensions(),
-    CodeBlock.extend({
-      addAttributes() { return { ...this.parent?.(), meta: { default: null, rendered: false }, ...style({ fence: null, closeFence: null, indented: false }) }; },
-      renderHTML: ({ node }) => {
-        const language = node.attrs.language as string | null;
-        return ["pre", language ? { "data-language": language } : {}, ["code", language ? { class: `language-${language}` } : {}, 0]];
-      },
-    }).configure({ defaultLanguage: null }),
+    LatticeCodeBlock,
     ...markExtensions(),
     LatticeImage.configure({ inline: true, allowBase64: true }),
     Table.extend({ addAttributes: () => ({ align: { default: null, rendered: false }, ...style({ layout: null }) }) }).configure({ resizable: false }),
@@ -285,6 +279,18 @@ export function engineSchemaExtensions(options: EngineSchemaOptions = {}): AnyEx
     SourceText,
   ];
 }
+
+/**
+ * Fenced and indented code (R-BLK-7). Enter only adds lines: there is no
+ * triple-Enter exit. The style attributes record the fences as authored.
+ */
+export const LatticeCodeBlock = CodeBlock.extend({
+  addAttributes() { return { ...this.parent?.(), meta: { default: null, rendered: false }, ...style({ fence: null, closeFence: null, indented: false }) }; },
+  renderHTML: ({ node }) => {
+    const language = node.attrs.language as string | null;
+    return ["pre", language ? { "data-language": language } : {}, ["code", language ? { class: `language-${language}` } : {}, 0]];
+  },
+}).configure({ defaultLanguage: null, exitOnTripleEnter: false, enableTabIndentation: true, tabSize: 2 });
 
 /**
  * Markdown and HTML images (R-BLK-3, R-FMT-7). `width` and `align` exist only

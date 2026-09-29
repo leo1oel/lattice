@@ -52,9 +52,8 @@ describe("Lattice visual Markdown editor", () => {
     const { onChange } = renderEditor({ text: "# Title\n\n- one\n- two\n\n<Tabs mode=\"x\">\n\nBody\n\n</Tabs>\n" });
     expect(surface().querySelector("h1")?.textContent).toBe("Title");
     expect(surface().querySelectorAll("li")).toHaveLength(2);
-    const raw = surface().querySelector("pre[data-lattice-raw='component']");
-    expect(raw?.getAttribute("data-label")).toBe("Component");
-    expect(raw?.textContent).toBe("<Tabs mode=\"x\">\n\nBody\n\n</Tabs>");
+    const raw = await screen.findByRole("group", { name: "Unknown component: Tabs" });
+    expect(raw.querySelector("pre")?.textContent).toBe("<Tabs mode=\"x\">\n\nBody\n\n</Tabs>");
     await settle();
     expect(onChange).not.toHaveBeenCalled();
   });
