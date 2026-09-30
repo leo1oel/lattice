@@ -6,6 +6,13 @@ It is the only input the rebuilt editor engine (`src/editor/markdown/engine/`)
 is written from. Part I records how the specification was made and how the
 engine meets it today; Part II is the specification itself.
 
+> **Frozen.** This document is kept as the clean-room record behind the
+> Apache-2.0 relicense and is no longer edited to track the code. Its
+> `Derived from:` citations point at tests as they stood before the vendored
+> editor and its tests were deleted: read them at commit `ce5bbc76^`
+> (`git show ce5bbc76^:<path>`), not at the current tree. Requirements the app
+> has since retired are marked obsolete in place rather than removed.
+
 ## Part I: provenance, engine, and status
 
 ### Provenance (clean-room rules)
@@ -1036,7 +1043,7 @@ Derived from: `src/editor/markdown/visual-markdown-editor.test.tsx:1898 "keeps a
 - When focus leaves the visual editor (to the source pane or any outside input), the latest
   transaction is written immediately, even with manual builds and without waiting for the
   debounce, as a CAS write (`content`, `baseContent`).
-- A non-collaborative secondary pane saves on blur and on idle.
+- *(Obsolete: removed with the dual-pane editor.)* A non-collaborative secondary pane saves on blur and on idle.
 - An open visual edit is written before a Paper opens, and is never written into the paper's path.
 - An edit made while a Paper read is pending is kept, and the late Paper does not replace it.
 
