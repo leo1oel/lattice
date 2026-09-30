@@ -21,7 +21,6 @@ describe("selected Markdown image context", () => {
 const baseInput: Parameters<typeof buildAgentHostContext>[0] = {
   workspaceRoot: "/tmp/paper",
   activeFile: "main.tex",
-  secondaryFile: null,
   editorPosition: null,
   activePaper: null,
   canvasMode: "split",
@@ -37,7 +36,6 @@ describe("agent host context", () => {
   it("shares bounded editor and PDF location metadata", () => {
     expect(buildAgentHostContext({
       ...baseInput,
-      secondaryFile: "appendix.tex",
       editorPosition: { path: "main.tex", line: 42, column: 7 },
       pdfPage: 3,
       pdfPageCount: 8,
@@ -60,7 +58,7 @@ describe("agent host context", () => {
         explicitUnsupportedRequestPolicy: "explain_unsupported_offer_native",
       },
       activeSurface: "editor",
-      editor: { path: "main.tex", line: 42, column: 7, secondaryPath: "appendix.tex", selection: "related work" },
+      editor: { path: "main.tex", line: 42, column: 7, selection: "related work" },
       pdf: { page: 3, pageCount: 8 },
     });
   });

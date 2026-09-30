@@ -32,7 +32,6 @@ export function useAgentContext({ synara, project, papers, agentVisible, workspa
   agentVisible: boolean;
   workspace: {
     activeFile: string;
-    secondaryFile: string | null;
     activePaper: PaperSummary | null;
     activePaperPath: string | null;
     canvasMode: CanvasMode;
@@ -44,7 +43,7 @@ export function useAgentContext({ synara, project, papers, agentVisible, workspa
   };
 }) {
   const {
-    activeFile, secondaryFile, activePaper, activePaperPath, canvasMode, paperView, editorPosition, pdfPage,
+    activeFile, activePaper, activePaperPath, canvasMode, paperView, editorPosition, pdfPage,
     pdfPageCount, presentation,
   } = workspace;
   const [selection, setSelection] = useState("");
@@ -140,11 +139,11 @@ export function useAgentContext({ synara, project, papers, agentVisible, workspa
   const selectionImage = directImage ?? (imageEnabled && preparedMatches ? preparedImage : null);
 
   const hostContext = useMemo(() => project ? buildAgentHostContext({
-    workspaceRoot: project.root, activeFile, secondaryFile, editorPosition, activePaper, canvasMode, paperView,
+    workspaceRoot: project.root, activeFile, editorPosition, activePaper, canvasMode, paperView,
     pdfPage, pdfPageCount, presentation, selection, selectionSource, selectionImage, activeSurface,
   }) : null, [
     activeFile, activePaper, activeSurface, canvasMode, editorPosition, paperView, pdfPage, pdfPageCount,
-    presentation, project, secondaryFile, selection, selectionImage, selectionSource,
+    presentation, project, selection, selectionImage, selectionSource,
   ]);
   const paperLibrary = useMemo(
     () => project ? buildAgentPaperLibrary({ workspaceRoot: project.root, papers }) : null,

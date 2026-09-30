@@ -93,7 +93,7 @@ type CanvasProps = ComponentProps<typeof DocumentCanvas>;
 
 /** Callbacks every canvas gets as a bare spy; the ones that must answer something are set in `baseProps`. */
 const HANDLERS = [
-  "setSecondarySource", "onFocusPane", "setSource", "setSelection", "onPdfTextSelect", "onPaperTextSelect",
+  "setSource", "setSelection", "onPdfTextSelect", "onPaperTextSelect",
   "onContextSurfaceActivate", "onViewMarkdownSource", "onEditorLeave", "onPasteImageFile", "onRequestHandled",
   "onEditorPosition", "onCompletionActiveChange", "onViewState",
   "onGotoDefinition", "onTexlabGoto", "onFindReferences", "onRenameSymbol", "onRenameEnvironment", "onWrapEnvironment",
@@ -121,24 +121,23 @@ function baseProps(): CanvasProps {
   return {
     ...Object.fromEntries(HANDLERS.map((name) => [name, vi.fn()])) as Record<(typeof HANDLERS)[number], Mock>,
     projectRoot: "/tmp/project", locale: "en", theme: "light", mode: "source",
-    source: "\\section{Intro}\n", activeFile: "main.tex", secondaryFile: null, secondarySource: "", focusedPane: "primary",
-    dualRatioResetGeneration: 0,
+    source: "\\section{Intro}\n", activeFile: "main.tex",
     onSave: vi.fn(async () => true),
     onOpenSlideMutation: vi.fn(async () => []),
     onLoadReferenceImage: vi.fn(async () => null),
     onPrepareFigure: vi.fn(async () => null),
     onAddSpellingWord: vi.fn(() => true),
     canOpenCitation: () => false,
-    pdfUrl: null, activePaper: null, paperSide: "left", activeAsset: null, secondaryAsset: null,
+    pdfUrl: null, activePaper: null, activeAsset: null,
     citationKeys: [], citations: [], references: [], unusedLabels: [], unusedCitations: [],
     localMacros: [], katexMacros: {}, spellingWords: [], projectPaths: ["main.tex"], graphicsRoots: [],
     buildDiagnostics: [], texlabDiagnostics: [], outlineNodes: [], editorComments: [],
     overleafPresenceCursors: [], overleafChanges: [],
-    requests: pending(), commentFocusRequest: null, fileDropTargetPane: null,
+    requests: pending(), commentFocusRequest: null, fileDropTargetActive: false,
     activeOutlineId: null, activeEditorCommentId: null, pdfSyncTarget: null, projectWordCount: null,
     nativeFigureDropActive: false, outlineOpen: false, tableGeneratorOpen: false,
     canForwardSync: false, locatingPdf: false, interactivePreviewsEnabled: false,
-    editorKeymap: "default", editorSpellcheck: false, editorEditable: true, secondaryEditorEditable: true,
+    editorKeymap: "default", editorSpellcheck: false, editorEditable: true,
     overleafTrackChangeActions: { authorName: () => "Unknown", canAct: () => false, onAccept: vi.fn(), onReject: vi.fn() },
     commentAuthorName: "Ada", commentAuthorId: "ada", todoCount: 0, editorKey: "local",
     trellis: {

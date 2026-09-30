@@ -129,12 +129,10 @@ import type {
   RenameTarget,
   RenameSymbolResult,
   CanvasMode,
-  EditorPaneId,
   DocumentViewMode,
   SettingsTab,
   InsertSymbolCommand,
   ViewRestoreRequest,
-  EditorDropZone,
 } from "./app-types";
 import {
   absoluteProjectPath,
@@ -248,7 +246,6 @@ function isSynaraSettingsTab(tab: SettingsTab): boolean {
   return tab === "agent" || tab === "mcp" || tab === "api";
 }
 
-const isTwoPane = (mode: CanvasMode) => mode === "dual";
 /** A canvas-mode updater that brings an editor on screen, widening a preview-only or asset surface to split. */
 const showEditor = (mode: CanvasMode): CanvasMode => (mode === "pdf" || mode === "asset" ? "split" : mode);
 
@@ -397,17 +394,13 @@ function App() {
     activeFile, activeFileRef,
     source, setSource, sourceRef, setPrimarySource,
     savedSource, setSavedSource, savedSourceRef, setPrimarySaved,
-    secondaryFile, secondaryFileRef,
-    secondarySource, setSecondarySource, secondarySourceRef, setSecondarySourceLive,
-    secondarySavedSource, setSecondarySavedSource, secondarySavedRef, setSecondarySaved,
     activeAsset, activeAssetRef, showActiveAsset,
-    secondaryAsset, secondaryAssetRef, showSecondaryAsset,
     activePaper, setActivePaper, activePaperPath, activePaperDirty,
     paperMarkdown, setPaperMarkdown, paperMarkdownRef, savedPaperMarkdown, savedPaperMarkdownRef,
     paperBlog, setPaperBlog, paperBlogRef, savedPaperBlog, savedPaperBlogRef, markPaperSaved,
-    paperView, setPaperView, paperSide, setPaperSide,
-    commitPrimaryText, commitSecondaryText, commitOpenText, commitCleanOpenText,
-    showPrimaryText, showSecondaryText, clearSecondaryPane,
+    paperView, setPaperView,
+    commitPrimaryText, commitOpenText, commitCleanOpenText,
+    showPrimaryText,
     setPaperBuffers, closePaper, paperBuffersDirty, remapOpenPaths,
   } = buffers;
   const autoTutorialAttemptedRef = useRef(false);
@@ -419,12 +412,6 @@ function App() {
     prewarmLikelyPaper,
   } = usePreviewPrewarm(project, projectRef, { activeFile, activePaperId: activePaper?.arxivId, paperView });
   const fileLoadGenerationRef = useRef(0);
-  // Set as soon as a Paper intent reserves the primary surface, including the
-  // network-fetch phase before openPaper starts. A later local-file intent in
-  // the secondary pane can then cancel that pending whole-canvas replacement
-  // instead of letting it unexpectedly collapse the user's split workspace.
-  const paperLoadGenerationRef = useRef<number | null>(null);
-  const secondaryFileLoadGenerationRef = useRef(0);
   const documentViewGenerationRef = useRef(0);
   const overleafSyncingRef = useRef(false);
   /** Resolves when the in-flight Overleaf sync has finished its disk refresh. */
@@ -449,16 +436,9 @@ function App() {
     window.addEventListener("keydown", enableInteractivePreviews, { capture: true, signal: listening.signal });
     return () => listening.abort();
   }, []);
-  const [focusedPane, setFocusedPane] = useState<EditorPaneId>("primary");
   const [editorCompletionActive, setEditorCompletionActive] = useState(false);
   const editorCompletionActiveRef = useRef(false);
-  const [dualRatioResetGeneration, setDualRatioResetGeneration] = useState(0);
   const [canvasMode, setCanvasMode] = useState<CanvasMode>("split");
-  const [dualPanePreview, setDualPanePreview] = useState<{
-    projectRoot: string;
-    primaryPath: string | null;
-    secondaryPath: string | null;
-  } | null>(null);
   const [editorPosition, setEditorPosition] = useState<EditorPosition | null>(null);
   // Read by the presence hook, which must not re-subscribe on every keystroke.
   const editorPositionRef = useRef<EditorPosition | null>(null);
@@ -567,7 +547,7 @@ function App() {
     setPaperView(view);
   }, [paperView, setPaperView]);
   const [nativeEditorDropActive, setNativeEditorDropActive] = useState(false);
-  const [fileDropTargetPane, setFileDropTargetPane] = useState<EditorPaneId | null>(null);
+  const [fileDropTargetActive, setFileDropTargetActive] = useState(false);
   const [agentPanelDropActive, setAgentPanelDropActive] = useState(false);
   const nativeDragPathsRef = useRef<string[]>([]);
   const suppressedFigureClick = useRef<string | null>(null);
@@ -595,19 +575,6 @@ function App() {
   const editorCommentAuthorId = useMemo(() => loadEditorCommentAuthorId(), []);
   const authorName = useMemo(() => loadAuthorDisplayName(), []);
   const [outlineOpen, setOutlineOpen] = useState(false);
-  const dualPreview = isTwoPane(canvasMode) && dualPanePreview?.projectRoot === project?.root ? dualPanePreview : null;
-  const dualPreviewPanes = {
-    primary: Boolean(dualPreview && dualPreview.primaryPath === activeFile),
-    secondary: Boolean(dualPreview && secondaryFile && dualPreview.secondaryPath === secondaryFile),
-  };
-  const focusedPanePreview = focusedPane === "secondary" ? dualPreviewPanes.secondary : dualPreviewPanes.primary;
-  // A reverse SyncTeX jump needs a pane that still holds an editor. Both panes
-  // previewing, or the only other pane holding an asset, leaves nowhere to land.
-  const canRevealPdfSource = dualPreviewPanes.primary
-    ? !dualPreviewPanes.secondary && Boolean(secondaryFile) && !secondaryAsset
-    : !dualPreviewPanes.secondary || !activeAsset;
-  const focusedAsset = isTwoPane(canvasMode) && focusedPane === "secondary" ? secondaryAsset : activeAsset;
-  const paperFocused = Boolean(activePaper && focusedPane === "primary");
   /** Bumped whenever a save actually writes, so pushes follow real edits. */
   const [saveGeneration, setSaveGeneration] = useState(0);
   const saveActivityRef = useRef({ pending: 0, generation: 0 });
@@ -633,40 +600,6 @@ function App() {
   const externalOverleafEditsRef = useRef<(paths: readonly string[]) => void>(() => {});
   const htmlViewModesRef = useRef(new Map<string, DocumentViewMode>());
   const documentModeRef = useRef<DocumentViewMode>("split");
-  // Split still consumes the whole canvas. When it is requested from the
-  // secondary pane, temporarily promote that file and restore pane ownership
-  // when the user returns to Edit.
-  const temporarilyPromotedSplitRef = useRef<{
-    projectRoot: string;
-    primaryPath: string;
-    splitPath: string;
-  } | null>(null);
-  // A standalone file (for example the bibliography) can hide a two-file
-  // layout. Remember its ownership so either member restores the same pair,
-  // rather than loading the right-hand file into both panes.
-  const textSplitRef = useRef<{
-    projectRoot: string;
-    primaryPath: string;
-    secondaryPath: string;
-    mode: "dual";
-  } | null>(null);
-  useLayoutEffect(() => {
-    if (
-      !secondaryFile
-      || textSplitRef.current?.projectRoot !== project?.root
-      || !openTabs.includes(textSplitRef.current?.primaryPath ?? "")
-    ) textSplitRef.current = null;
-    if (
-      project && !activePaper && !activeAsset && !secondaryAsset
-      && activeFile && secondaryFile && activeFile !== secondaryFile
-      && isTwoPane(canvasMode)
-    ) {
-      textSplitRef.current = {
-        projectRoot: project.root, primaryPath: activeFile,
-        secondaryPath: secondaryFile, mode: canvasMode,
-      };
-    }
-  }, [activeAsset, activeFile, activePaper, canvasMode, openTabs, project, secondaryAsset, secondaryFile]);
   useEffect(() => {
     if (
       !activePaper
@@ -785,7 +718,6 @@ function App() {
     activeFileRef,
     sourceRef,
     savedSourceRef,
-    secondarySourceRef,
     agent: agentCheckpoints,
     openDiagnosticRef: openCompileDiagnosticRef,
     onMissingTex: texSetup.openForMissingTex,
@@ -809,23 +741,19 @@ function App() {
     if (overleafSyncingRef.current && !force) return false;
     projectState.beginTransition();
     fileLoadGenerationRef.current += 1;
-    secondaryFileLoadGenerationRef.current += 1;
     resetAgentCompileTracking(true);
     cancelPreviewPrewarm();
     setPrimaryOpening(null);
     return true;
   }, [cancelPreviewPrewarm, projectState, resetAgentCompileTracking]);
-  // Forward SyncTeX starts from a .tex caret in a pane that is an editor, not a preview or an asset.
-  const forwardSyncPosition = editorPosition && pdfUrl && editorPosition.path.toLocaleLowerCase().endsWith(".tex") && (
-    isTwoPane(canvasMode)
-      ? (editorPosition.path === activeFile && !activeAsset && !dualPreviewPanes.primary)
-        || (editorPosition.path === secondaryFile && !secondaryAsset && !dualPreviewPanes.secondary)
-      : (canvasMode === "split" || canvasMode === "pdf") && !activeAsset && editorPosition.path === activeFile
-  ) ? editorPosition : null;
+  // Forward SyncTeX starts from a .tex caret in the editor, not a preview or an asset.
+  const forwardSyncPosition = editorPosition && pdfUrl && editorPosition.path.toLocaleLowerCase().endsWith(".tex")
+    && (canvasMode === "split" || canvasMode === "pdf") && !activeAsset && editorPosition.path === activeFile
+    ? editorPosition : null;
   const agentContext = useAgentContext({
     synara, project, papers, agentVisible,
     workspace: {
-      activeFile, secondaryFile, activePaper, activePaperPath, canvasMode, paperView, editorPosition,
+      activeFile, activePaper, activePaperPath, canvasMode, paperView, editorPosition,
       pdfPage: pdfPageNumber, pdfPageCount, presentation: openSlideContext,
     },
   });
@@ -938,7 +866,6 @@ function App() {
   )), [agentCheckpoints.historyItems, history]);
 
   const diskMtimeRef = useRef<number | null>(null);
-  const secondaryMtimeRef = useRef<number | null>(null);
   const registerVisualMarkdownFlush = useCallback((flush: (() => boolean) | null) => {
     visualMarkdownFlushRef.current = flush;
   }, []);
@@ -1059,9 +986,6 @@ function App() {
       const primaryPath = activeFileRef.current;
       const primarySource = sourceRef.current;
       const primarySavedSource = savedSourceRef.current;
-      const secondaryPath = secondaryFileRef.current;
-      const currentSecondarySource = secondarySourceRef.current;
-      const currentSecondarySavedSource = secondarySavedRef.current;
       const paperBuffers = [
         ["fulltext", paperMarkdownRef.current, savedPaperMarkdownRef.current],
         ["blog", paperBlogRef.current, savedPaperBlogRef.current],
@@ -1092,21 +1016,6 @@ function App() {
         diskMtimeRef.current = -1;
         writtenPaths.push(primaryPath);
       }
-      if (secondaryPath && currentSecondarySource !== currentSecondarySavedSource
-        && secondaryFileRef.current === secondaryPath && secondarySourceRef.current === currentSecondarySource) {
-        const content = formatForSave(secondaryPath, currentSecondarySource);
-        if (content !== currentSecondarySource) setSecondarySourceLive(content);
-        const writeResult = await writeEditorText(secondaryPath, content, currentSecondarySavedSource);
-        const writtenSource = writeResult?.content ?? content;
-        const secondaryUnchanged = secondaryFileRef.current === secondaryPath && secondarySourceRef.current === content;
-        if (writtenSource !== content && secondaryUnchanged) setSecondarySourceLive(writtenSource);
-        if (writeResult?.hadConflicts) setWarning(externalEditConflictMessage(secondaryPath));
-        // The project-transition late-edit check runs in the same async turn
-        // as this save, before React is guaranteed to commit the state setter.
-        setSecondarySaved(writtenSource);
-        secondaryMtimeRef.current = -1;
-        writtenPaths.push(secondaryPath);
-      }
       for (const [view, content, savedContent] of activePaper ? paperBuffers : []) {
         if (content === null || content === savedContent) continue;
         const path = paperDocumentPath(activePaper!.arxivId, view);
@@ -1135,8 +1044,7 @@ function App() {
   }, [
     activeAsset, activeFile, activeFileRef, activePaper, externalEditConflictMessage, markPaperSaved,
     paperBlogRef, paperMarkdownRef, project, recordSavedPaths, refreshAfterSave, savedPaperBlogRef,
-    savedPaperMarkdownRef, savedSourceRef, secondaryFileRef, secondarySavedRef, secondarySourceRef,
-    setPrimarySaved, setPrimarySource, setSecondarySaved, setSecondarySourceLive, sourceRef, t,
+    savedPaperMarkdownRef, savedSourceRef, setPrimarySaved, setPrimarySource, sourceRef, t,
   ]);
   // Keep activity tracking outside the save body: React Compiler cannot lower
   // try/finally, while Promise.finally still covers every early return/error.
@@ -1149,14 +1057,9 @@ function App() {
     saveBeforeProjectTransitionRef.current = save;
   }, [save]);
 
-  const acceptExternalText = useCallback(async (
-    path: string,
-    content: string,
-    pane: EditorPaneId,
-  ) => {
-    if (pane === "primary" && activeFileRef.current === path) commitPrimaryText(content);
-    if (pane === "secondary" && secondaryFileRef.current === path) commitSecondaryText(content);
-  }, [activeFileRef, commitPrimaryText, commitSecondaryText, secondaryFileRef]);
+  const acceptExternalText = useCallback(async (path: string, content: string) => {
+    if (activeFileRef.current === path) commitPrimaryText(content);
+  }, [activeFileRef, commitPrimaryText]);
 
   useLayoutEffect(() => {
     hasLateProjectTransitionEditRef.current = () => {
@@ -1164,12 +1067,9 @@ function App() {
       const primaryDirty = activePaper
         ? paperBuffersDirty()
         : !activeAsset && sourceRef.current !== savedSourceRef.current;
-      return primaryDirty || secondarySourceRef.current !== secondarySavedRef.current;
+      return primaryDirty;
     };
-  }, [
-    activeAsset, activePaper, paperBuffersDirty, savedSourceRef, secondarySavedRef, secondarySourceRef,
-    sourceRef,
-  ]);
+  }, [activeAsset, activePaper, paperBuffersDirty, savedSourceRef, sourceRef]);
 
   useEffect(() => {
     if (!browserHosted) return;
@@ -1207,12 +1107,10 @@ function App() {
           && !saveActivityRef.current.pending
           && saveActivityRef.current.generation === saveGenerationAtStart;
         /**
-         * Check one pane's file for an external edit: record its mtime the
+         * Check the open file for an external edit: record its mtime the
          * first time, then reload a newer version into a clean buffer.
-         * Resolves false when the poll should stop (stale read, missing file).
          */
-        const pollPane = async (
-          pane: EditorPaneId,
+        const pollFile = async (
           path: string,
           mtimeRef: { current: number | null },
           savedRef: { readonly current: string },
@@ -1232,13 +1130,12 @@ function App() {
           if (content === saved) return true;
           externalOverleafEditsRef.current([path]);
           if (bufferRef.current !== savedRef.current) return true;
-          await acceptExternalText(path, content, pane);
+          await acceptExternalText(path, content);
           if (buildPreferences.autoBuildMode === "automatic") void compileRef.current();
           return true;
         };
         try {
-          if (!(await pollPane("primary", activeFile, diskMtimeRef, savedSourceRef, sourceRef)) || !secondaryFile) return;
-          await pollPane("secondary", secondaryFile, secondaryMtimeRef, secondarySavedRef, secondarySourceRef);
+          await pollFile(activeFile, diskMtimeRef, savedSourceRef, sourceRef);
         } catch {
           // Ignore transient filesystem races while the editor is open.
         }
@@ -1250,7 +1147,7 @@ function App() {
     };
   }, [
     acceptExternalText, activeAsset, activeFile, activePaper, buildPreferences.autoBuildMode, project,
-    savedSourceRef, secondaryFile, secondarySavedRef, secondarySourceRef, sourceRef,
+    savedSourceRef, sourceRef,
   ]);
 
   const pushNavigation = useCallback((path: string, line: number) => {
@@ -1271,7 +1168,6 @@ function App() {
   const openProjectFile = useCallback(async (
     path: string,
     line?: number,
-    targetPane?: EditorPaneId,
     options?: {
       /**
        * Whether a file with no preview of its own (.bib, .sty, .cls) may take
@@ -1287,71 +1183,6 @@ function App() {
     // restore it supersedes is still waiting on the paper scan.
     const openingRoot = projectRef.current?.root;
     if (openingRoot) setTabsSettledRoot(openingRoot);
-    const rememberedSplit = textSplitRef.current;
-    const restoreSplit = targetPane === undefined
-      && !isTwoPane(canvasMode)
-      && rememberedSplit?.projectRoot === project?.root
-      && rememberedSplit?.secondaryPath === secondaryFile
-      && (path === rememberedSplit?.primaryPath || path === rememberedSplit?.secondaryPath)
-      ? rememberedSplit
-      : null;
-    const restoreSecondary = restoreSplit?.secondaryPath === path;
-    const navigationPath = path;
-    if (restoreSplit) path = restoreSplit.primaryPath;
-    const restoreSplitLayout = () => {
-      if (!restoreSplit) return;
-      documentModeRef.current = restoreSplit.mode;
-      setCanvasMode(restoreSplit.mode);
-      setFocusedPane(restoreSecondary ? "secondary" : "primary");
-    };
-    const requestedPane = targetPane ?? focusedPane;
-    const secondaryFocused = isTwoPane(canvasMode)
-      && requestedPane === "secondary"
-      && !activeAsset;
-    if (secondaryFocused) {
-      if (paperLoadGenerationRef.current === fileLoadGenerationRef.current) {
-        fileLoadGenerationRef.current += 1;
-        paperLoadGenerationRef.current = null;
-        setPrimaryOpening(null);
-      }
-      const requestGeneration = secondaryFileLoadGenerationRef.current + 1;
-      secondaryFileLoadGenerationRef.current = requestGeneration;
-      const projectRoot = project?.root;
-      const ownsProject = captureProjectScope();
-      const isLatestSecondaryLoad = () => requestGeneration === secondaryFileLoadGenerationRef.current && ownsProject();
-      if (path === secondaryFile) {
-        setFocusedPane("secondary");
-        if (line) {
-          requestEditorLine(path, line);
-          pushNavigation(path, line);
-        }
-        return;
-      }
-      if (secondaryFile && secondarySource !== secondarySavedSource) {
-        try {
-          await invoke("write_project_file", { path: secondaryFile, content: secondarySource, projectRoot: project?.root });
-          setSecondarySavedSource(secondarySource);
-        } catch (reason) {
-          setError(toMessage(reason));
-          return;
-        }
-      }
-      try {
-        const content = await invoke<string>("read_project_file", { path, projectRoot });
-        if (!isLatestSecondaryLoad()) return;
-        showSecondaryText(path, content);
-        addOpenTab(path);
-        setFocusedPane("secondary");
-        setError(null);
-        // Same commit as the content: a jump asked for afterwards paints the
-        // file at its top for a frame first.
-        if (line) requestEditorLine(path, line);
-        pushNavigation(path, line || 1);
-      } catch (reason) {
-        if (isLatestSecondaryLoad()) setError(toMessage(reason));
-      }
-      return;
-    }
     // Every click is a primary-surface intent, including reselecting the file
     // already on screen. Reserving it first prevents an older Paper/asset read
     // from replacing the surface after this click.
@@ -1363,15 +1194,13 @@ function App() {
       // This intent invalidates any older Paper/file request even though it
       // does not need its own opening UI.
       setPrimaryOpening(null);
-      setFocusedPane("primary");
       // The active document may have lost its tab (its panel was closed):
       // asking for it again brings the tab, and so its panel, back.
       addOpenTab(path);
-      restoreSplitLayout();
       if (line) {
-        requestEditorLine(navigationPath, line);
+        requestEditorLine(path, line);
         setCanvasMode(showEditor);
-        pushNavigation(navigationPath, line);
+        pushNavigation(path, line);
       }
       try {
         if (visualMarkdownFlushRef.current?.() === false) return;
@@ -1384,7 +1213,7 @@ function App() {
             && activeFileRef.current === path
             && content !== sourceRef.current
           ) {
-            await acceptExternalText(path, content, "primary");
+            await acceptExternalText(path, content);
             await markDiskMtime(path);
           }
         }
@@ -1431,11 +1260,11 @@ function App() {
     const paperDirty = Boolean(activePaper) && paperBuffersDirty();
     const targetAliasesDirtyPaper = paperDirty
       && (path === paperDocumentPath(activePaper!.arxivId, "fulltext") || path === paperDocumentPath(activePaper!.arxivId, "blog"));
-    if (sourceRef.current !== savedSourceRef.current || paperDirty || (secondaryFile && secondarySource !== secondarySavedSource)) {
-      if (path === secondaryFile || targetAliasesDirtyPaper) {
-        // save() rewrites this destination from either the secondary buffer or
-        // the Paper editor; overlapping it with the read below would hand the
-        // incoming editor pre-save contents after the write succeeds.
+    if (sourceRef.current !== savedSourceRef.current || paperDirty) {
+      if (targetAliasesDirtyPaper) {
+        // save() rewrites this destination from the Paper editor; overlapping
+        // it with the read below would hand the incoming editor pre-save
+        // contents after the write succeeds.
         if (!(await save()) || fileLoadGenerationRef.current !== loadGeneration) {
           clearOpening();
           return;
@@ -1453,30 +1282,26 @@ function App() {
       gate,
       loadGeneration,
       canCommit: () => !flushAndCheckPrimaryDirty(),
-      navigateToLine: restoreSecondary ? undefined : line,
+      navigateToLine: line,
     });
     clearOpening();
     if (!applied) return;
     recordNavigationTiming("file", path, switchStartedAt, {
       openingPaintMs, flushMs, saveAndReadMs: performance.now() - contentLoadStartedAt,
     });
-    setFocusedPane("primary");
-    restoreSplitLayout();
     if (line) {
-      if (restoreSecondary) requestEditorLine(navigationPath, line);
       // The jump itself rode the load's commit; this only widens a
       // preview-only surface so the editor it lands in is on screen.
       setCanvasMode(showEditor);
-      pushNavigation(navigationPath, line);
+      pushNavigation(path, line);
     } else {
-      pushNavigation(navigationPath, 1);
+      pushNavigation(path, 1);
     }
   }, [
     acceptExternalText, activeAsset, activeFile, activeFileRef, activePaper, addOpenTab,
-    cancelPreviewPrewarm, canvasMode, flushAndCheckPrimaryDirty, focusedPane, loadFile, markDiskMtime,
+    cancelPreviewPrewarm, flushAndCheckPrimaryDirty, loadFile, markDiskMtime,
     paperBuffersDirty, project?.root, projectRef, pushNavigation, requestEditorLine, save,
-    savedSourceRef, secondaryFile, secondarySavedSource, secondarySource, setSecondarySavedSource,
-    showSecondaryText, sourceRef, viewStateRef, captureProjectScope,
+    savedSourceRef, sourceRef, viewStateRef,
   ]);
   const openProjectFileRef = useLatest(openProjectFile);
 
@@ -1508,22 +1333,15 @@ function App() {
   }, [openProjectFile]);
 
   const revealPdfSource = useCallback(async (page: number, x: number, y: number) => {
-    // In dual/columns one pane can be showing this preview. The jump then
-    // belongs to the pane that still holds an editor, and the layout the reader
-    // arranged has to survive it — collapsing to split would close the other
-    // editor to make room for a preview that is already on screen.
-    const jumpPane: EditorPaneId | null = dualPreviewPanes.primary
-      ? (secondaryFile && !secondaryAsset ? "secondary" : null)
-      : dualPreviewPanes.secondary ? "primary" : null;
     await showingErrors(async () => {
       const target = await invoke<SyncTexTarget>("synctex_edit", { page, x, y });
       // A citation resolves into the bibliography, a macro into a .sty. Those
       // files own the whole editor area when opened deliberately, but a jump
       // out of the PDF must keep the preview it was made from on screen.
-      await openProjectFile(target.path, target.line, jumpPane ?? undefined, { revealSource: false });
-      if (!jumpPane) setCanvasMode((mode) => (mode === "source" ? mode : "split"));
+      await openProjectFile(target.path, target.line, { revealSource: false });
+      setCanvasMode((mode) => (mode === "source" ? mode : "split"));
     });
-  }, [dualPreviewPanes.primary, dualPreviewPanes.secondary, openProjectFile, secondaryAsset, secondaryFile]);
+  }, [openProjectFile]);
 
   const compile = useCallback(async (
     force = false,
@@ -1551,15 +1369,9 @@ function App() {
   // `src/app/use-overleaf-workspace.ts`. It has to be called here rather than
   // beside the rest of App's state: every sync path goes through save, compile,
   // loadFile and refreshProject, all of which are declared above.
-  const wholeFileEditingPaths = useMemo(() => [
-    ...(!activePaper && !activeAsset && !dualPreviewPanes.primary && canvasMode !== "pdf"
-      && isWholeFileEditorPath(activeFile) ? [activeFile] : []),
-    ...(isTwoPane(canvasMode) && secondaryFile && !secondaryAsset && !dualPreviewPanes.secondary
-      && isWholeFileEditorPath(secondaryFile) ? [secondaryFile] : []),
-  ], [
-    activeAsset, activeFile, activePaper, canvasMode, dualPreviewPanes.primary, dualPreviewPanes.secondary,
-    secondaryAsset, secondaryFile,
-  ]);
+  const wholeFileEditingPaths = useMemo(() => (
+    !activePaper && !activeAsset && canvasMode !== "pdf" && isWholeFileEditorPath(activeFile) ? [activeFile] : []
+  ), [activeAsset, activeFile, activePaper, canvasMode]);
   const wholeFileDraftPaths = useMemo(() => (
     openSlideContext?.pendingEdits
     && wholeFileEditingPaths.includes(openSlideContext.pagePath)
@@ -1623,8 +1435,7 @@ function App() {
 
   const openSources = useCallback(() => new Map([
     [activeFileRef.current, sourceRef.current],
-    ...(secondaryFileRef.current ? [[secondaryFileRef.current, secondarySourceRef.current] as const] : []),
-  ]), [activeFileRef, secondaryFileRef, secondarySourceRef, sourceRef]);
+  ]), [activeFileRef, sourceRef]);
   const editorComments = useEditorComments({
     project, projectRootRef, overleaf,
     author: { id: editorCommentAuthorId, name: authorName },
@@ -1669,10 +1480,7 @@ function App() {
     try {
       if (!(await save())) return;
       if (!isCurrentRequest()) return;
-      const sourceDirty = position.path === secondaryFile
-        ? secondarySource !== secondarySavedSource
-        : source !== savedSource;
-      if (sourceDirty || !pdfUrl) await runBuild();
+      if (source !== savedSource || !pdfUrl) await runBuild();
       if (!isCurrentRequest()) return;
       const target = await invoke<PdfSyncResponse | null>("synctex_view", {
         path: position.path,
@@ -1686,7 +1494,7 @@ function App() {
       }
       setWarning(null);
       setPdfSyncTarget({ ...target, id: crypto.randomUUID() });
-      setCanvasMode((mode) => (mode === "source" || isTwoPane(mode) ? "split" : mode));
+      setCanvasMode((mode) => (mode === "source" ? "split" : mode));
       setError(null);
     } catch (reason) {
       if (!isCurrentRequest()) return;
@@ -1701,8 +1509,7 @@ function App() {
       if (forwardSyncGenerationRef.current === requestGeneration) setLocatingPdf(false);
     }
   }, [
-    forwardSyncPosition, locatingPdf, pdfUrl, runBuild, save, savedSource, secondaryFile, secondarySavedSource,
-    secondarySource, source, captureProjectScope, t,
+    forwardSyncPosition, locatingPdf, pdfUrl, runBuild, save, savedSource, source, captureProjectScope, t,
   ]);
 
   const navigateOutline = useCallback(async (path: string, line: number) => {
@@ -1725,7 +1532,7 @@ function App() {
       const target = await invoke<PdfSyncResponse | null>("synctex_view", { path, line, column: 0 });
       if (!isCurrentRequest()) return;
       if (target) setPdfSyncTarget({ ...target, id: crypto.randomUUID() });
-      setCanvasMode((mode) => (mode === "source" || isTwoPane(mode) ? "split" : mode));
+      setCanvasMode((mode) => (mode === "source" ? "split" : mode));
       setError(null);
     } catch {
       // The source jump is still useful when this PDF has no SyncTeX map.
@@ -1768,20 +1575,13 @@ function App() {
       if (!root) return;
       const owns = () => projectRef.current?.root === root && projectOperationGenerationRef.current === generation;
       await refreshProject({ expectedRoot: root, generation });
-      const paneRefs = {
-        primary: [activeFileRef, sourceRef, savedSourceRef],
-        secondary: [secondaryFileRef, secondarySourceRef, secondarySavedRef],
-      } as const;
-      for (const pane of ["primary", "secondary"] as const) {
-        if (!owns()) return;
-        if (pane === "primary" ? activePaper || activeAssetRef.current : secondaryAssetRef.current) continue;
-        const [fileRef, bufferRef, savedRef] = paneRefs[pane];
-        const path = fileRef.current;
-        const clean = () => fileRef.current === path && bufferRef.current === savedRef.current;
-        if (!path || !clean()) continue;
+      if (!owns()) return;
+      const path = activeFileRef.current;
+      const clean = () => activeFileRef.current === path && sourceRef.current === savedSourceRef.current;
+      if (!activePaper && !activeAssetRef.current && path && clean()) {
         const content = await invoke<string>("read_project_file", { path, projectRoot: root });
         if (!owns()) return;
-        if (clean()) await acceptExternalText(path, content, pane);
+        if (clean()) await acceptExternalText(path, content);
       }
       if (owns()) await compileRef.current();
     },
@@ -1801,17 +1601,11 @@ function App() {
         // Only serialize the writes. runBuild owns build coalescing; awaiting
         // it here used to discard edits and attention changes during a build.
         void runBuild(false, { immediatePreview: false });
-      } while (automaticBuildQueued.current && (
-        sourceRef.current !== savedSourceRef.current
-        || secondarySourceRef.current !== secondarySavedRef.current
-      ));
+      } while (automaticBuildQueued.current && sourceRef.current !== savedSourceRef.current);
     } finally {
       automaticBuildPending.current = false;
     }
-  }, [
-    projectOperationGenerationRef, runBuild, save, savedSourceRef, secondarySavedRef, secondarySourceRef,
-    sourceRef,
-  ]);
+  }, [projectOperationGenerationRef, runBuild, save, savedSourceRef, sourceRef]);
   const saveRef = useRef(save);
   saveRef.current = save;
   const saveAndCompileAutomaticallyRef = useRef(saveAndCompileAutomatically);
@@ -1827,8 +1621,6 @@ function App() {
       const projectGeneration = projectOperationGenerationRef.current;
       const primaryRestoreGeneration = fileLoadGenerationRef.current + 1;
       fileLoadGenerationRef.current = primaryRestoreGeneration;
-      const secondaryRestoreGeneration = secondaryFileLoadGenerationRef.current + 1;
-      secondaryFileLoadGenerationRef.current = secondaryRestoreGeneration;
       const ownsProjectRestore = () => (
         projectOperationGenerationRef.current === projectGeneration
         && projectRef.current?.root === snapshot.root
@@ -1859,10 +1651,7 @@ function App() {
       setTodosOpen(false);
       setActivePaper(null);
       showActiveAsset(null);
-      showSecondaryAsset(null);
       setPaperBuffers("", null);
-      showSecondaryText(null);
-      setFocusedPane("primary");
       setOpenTabs([]);
       setCanvasMode("split");
       htmlViewModesRef.current.clear();
@@ -1883,35 +1672,20 @@ function App() {
       if (isLatestBibliography()) applyBibliographyIndex(bibliographyIndex);
       else setReferences(nextReferences ?? []);
       const plan = planWorkspaceRestore(snapshot, nextPapers, loadWorkspaceLayout(snapshot.root), loadLastFile(snapshot.root));
-      const { primaryFile, secondaryFile, activeTab, mode } = plan;
+      const { primaryFile, activeTab, mode } = plan;
       documentModeRef.current = plan.documentMode;
-      // A newer file intent from the writer (in either pane) cancels the rest of the restore.
+      // A newer file intent from the writer cancels the rest of the restore.
       let primaryGeneration = primaryRestoreGeneration;
-      const restoreIsCurrent = () => ownsProjectRestore()
-        && fileLoadGenerationRef.current === primaryGeneration
-        && secondaryFileLoadGenerationRef.current === secondaryRestoreGeneration;
+      const restoreIsCurrent = () => ownsProjectRestore() && fileLoadGenerationRef.current === primaryGeneration;
       if (!restoreIsCurrent()) return supersede();
       if (primaryFile && !(await loadFile(primaryFile, { expectedProjectRoot: snapshot.root, projectGeneration }))) return supersede();
       primaryGeneration = fileLoadGenerationRef.current;
       if (!ownsProjectRestore()) return;
-      if (secondaryFile) {
-        try {
-          if (!restoreIsCurrent()) return supersede();
-          const content = await invoke<string>("read_project_file", { path: secondaryFile, projectRoot: snapshot.root });
-          if (!restoreIsCurrent()) return supersede();
-          showSecondaryText(secondaryFile, content);
-        } catch {
-          if (ownsProjectRestore() && secondaryFileLoadGenerationRef.current === secondaryRestoreGeneration) {
-            showSecondaryText(null);
-          }
-        }
-      }
       if (!restoreIsCurrent()) return supersede();
       if (isHtmlFilePath(activeTab)) htmlViewModesRef.current.set(activeTab, mode as DocumentViewMode);
       setOpenTabs(plan.tabs);
       setTabsSettledRoot(snapshot.root);
       tabRecency.current = plan.tabRecency;
-      setFocusedPane(plan.focusedPane);
       setCanvasMode(mode);
       setPaperView(plan.paperView);
       setNavStack(primaryFile ? [{ path: primaryFile, line: 1 }] : []);
@@ -1941,8 +1715,7 @@ function App() {
       loadHistory, loadTodos, loadViewStatesForProject, loadWordCount, projectBeforeTransitionRef,
       projectOperationGenerationRef, projectRef, refreshUnusedSymbols, rememberProject, resetAgentSelection,
       resetEditorComments, resetForProject, runBuild, setActivePaper, setDiskTodos, setPaperBuffers,
-      setPaperView, setProject, setReferences, showActiveAsset,
-      showSecondaryAsset, showSecondaryText, showPrimaryText,
+      setPaperView, setProject, setReferences, showActiveAsset, showPrimaryText,
     ],
   );
   enterProjectRef.current = enterProject;
@@ -2220,19 +1993,6 @@ function App() {
     source,
   ]);
 
-  // Every secondary text buffer needs an idle save.
-  useEffect(() => {
-    if (!project || !secondaryFile) return;
-    if (secondarySource === secondarySavedSource) return;
-    const automatic = !activePaper && buildPreferences.autoBuildMode === "automatic";
-    if (automatic && editorCompletionActive) return;
-    const timer = window.setTimeout(() => {
-      if (automatic) void saveAndCompileAutomaticallyRef.current();
-      else void saveRef.current();
-    }, automatic ? 1_200 : 450);
-    return () => window.clearTimeout(timer);
-  }, [activePaper, buildPreferences.autoBuildMode, editorCompletionActive, project, secondaryFile, secondarySavedSource, secondarySource]);
-
   const saveWhenLeavingEditor = useCallback(() => {
     if (editorCompletionActiveRef.current) return;
     // A visual edit may still be debounced, and its publication updates refs
@@ -2241,18 +2001,16 @@ function App() {
     if (
       !activePaper
       && buildPreferences.autoBuildMode === "automatic"
-      && (sourceRef.current !== savedSourceRef.current
-        || secondarySourceRef.current !== secondarySavedRef.current)
+      && sourceRef.current !== savedSourceRef.current
     ) {
       void saveAndCompileAutomatically();
     } else {
       // Saving on attention changes is independent of automatic compilation
-      // and includes dirty secondary and paper buffers.
+      // and includes dirty paper buffers.
       void save();
     }
   }, [
-    activePaper, buildPreferences.autoBuildMode, save, saveAndCompileAutomatically, savedSourceRef,
-    secondarySavedRef, secondarySourceRef, sourceRef,
+    activePaper, buildPreferences.autoBuildMode, save, saveAndCompileAutomatically, savedSourceRef, sourceRef,
   ]);
 
   useEffect(() => {
@@ -2309,7 +2067,6 @@ function App() {
     ) return null;
     const loadGeneration = reservedLoadGeneration ?? fileLoadGenerationRef.current + 1;
     if (reservedLoadGeneration === undefined) fileLoadGenerationRef.current = loadGeneration;
-    paperLoadGenerationRef.current = loadGeneration;
     const ownsProject = captureProjectScope();
     const isLatestLoad = () => loadGeneration === fileLoadGenerationRef.current && ownsProject();
     const clearOpening = () => setPrimaryOpening((current) => (
@@ -2329,8 +2086,7 @@ function App() {
         path === paperDocumentPath(paper.arxivId, "fulltext") || path === paperDocumentPath(paper.arxivId, "blog")
       );
       const targetAliasesDirtyBuffer = (activePaper?.arxivId === paper.arxivId && paperBuffersDirty())
-        || (isPaperDocument(activeFile) && sourceRef.current !== savedSourceRef.current)
-        || (isPaperDocument(secondaryFile) && secondarySource !== secondarySavedSource);
+        || (isPaperDocument(activeFile) && sourceRef.current !== savedSourceRef.current);
       // A dirty buffer holding one of this Paper's files must reach disk before
       // the read; otherwise the save and the read are independent.
       const results = targetAliasesDirtyBuffer
@@ -2348,9 +2104,7 @@ function App() {
       setPaperView((current) => preferredPaperView(current, fullText, blog));
       if (!fullText && blog) setNotice(t`Full paper text is unavailable; showing the overview instead.`);
       setActivePaper(paper);
-      setPaperSide("left");
       showActiveAsset(null);
-      setFocusedPane("primary");
       setCanvasMode("pdf");
       addOpenTab(paperTabKey(paper.arxivId));
       recordNavigationTiming("paper", paper.title, switchStartedAt, {
@@ -2362,12 +2116,11 @@ function App() {
       return null;
     } finally {
       clearOpening();
-      if (paperLoadGenerationRef.current === loadGeneration) paperLoadGenerationRef.current = null;
     }
   }, [
     activeFile, activePaper, addOpenTab, cancelPreviewPrewarm, flushAndCheckPrimaryDirty, paperBuffersDirty,
-    save, savedSourceRef, secondaryFile, secondarySavedSource, secondarySource, setActivePaper, setPaperBuffers,
-    setPaperSide, setPaperView, showActiveAsset, sourceRef, t, captureProjectScope,
+    save, savedSourceRef, setActivePaper, setPaperBuffers, setPaperView, showActiveAsset, sourceRef, t,
+    captureProjectScope,
   ]);
 
   const fetchAndOpenPaper = useCallback(async (paper: PaperSummary) => {
@@ -2381,7 +2134,6 @@ function App() {
     // network fetch. Any later file/Paper/asset click invalidates this token.
     const loadGeneration = fileLoadGenerationRef.current + 1;
     fileLoadGenerationRef.current = loadGeneration;
-    paperLoadGenerationRef.current = loadGeneration;
     setPrimaryOpening(null);
     const key = paperKey(paper);
     const clearFetchState = () => setPaperFetchStates((current) => (
@@ -2413,7 +2165,6 @@ function App() {
       clearFetchState();
       if (fileLoadGenerationRef.current === loadGeneration) setError(toMessage(reason));
     } finally {
-      if (paperLoadGenerationRef.current === loadGeneration) paperLoadGenerationRef.current = null;
       clearImportStage();
     }
   }, [clearImportStage, openPaper, refreshProject]);
@@ -2455,282 +2206,6 @@ function App() {
     addOpenTab, closePaper, flushAndCheckPrimaryDirty, save, showActiveAsset, captureProjectScope,
   ]);
 
-  type DropPaperContent = {
-    kind: "paper";
-    path: string;
-    paper: PaperSummary;
-    markdown: string;
-    savedMarkdown: string;
-    blog: string | null;
-    savedBlog: string | null;
-    view: "blog" | "fulltext";
-  };
-  type DropPaneContent =
-    | { kind: "source"; path: string; source: string; savedSource: string }
-    | { kind: "asset"; path: string; asset: AssetPreview }
-    | DropPaperContent;
-
-  const dropProjectPath = useCallback(async (
-    path: string,
-    zone: EditorDropZone,
-    options?: { preserveSplitRatio?: boolean; preservePreview?: boolean },
-  ) => {
-    const viewGeneration = documentViewGenerationRef.current + 1;
-    documentViewGenerationRef.current = viewGeneration;
-    const hasExistingPaneDivider = options?.preserveSplitRatio || canvasMode === "split" || isTwoPane(canvasMode);
-    let primaryLoadGeneration = fileLoadGenerationRef.current;
-    const projectRoot = projectRef.current?.root;
-    const ownsProject = captureProjectScope();
-    const currentDualPreview = dualPanePreview?.projectRoot === projectRoot ? dualPanePreview : null;
-    const previewPaths = new Set<string>([
-      ...(canvasMode === "pdf" && activeFileRef.current ? [activeFileRef.current] : []),
-      // Split's right side is a generated preview with no file identity. When
-      // the left side is replaced, the displaced source becomes that right
-      // pane and must carry the preview state into the normalized dual layout.
-      ...(canvasMode === "split"
-        && zone === "left"
-        && !activeAssetRef.current
-        && activeFileRef.current
-        && !isOpenSlideDeckPath(activeFileRef.current)
-        && isPreviewableSourceFilePath(activeFileRef.current)
-        ? [activeFileRef.current]
-        : []),
-      ...(currentDualPreview
-        ? [currentDualPreview.primaryPath, currentDualPreview.secondaryPath].filter(Boolean) as string[]
-        : []),
-    ]);
-    const isCurrentDrop = () => (
-      documentViewGenerationRef.current === viewGeneration
-      && fileLoadGenerationRef.current === primaryLoadGeneration
-      && ownsProject()
-    );
-    const sourceContent = (path: string, source: string, savedSource = source): DropPaneContent => (
-      { kind: "source", path, source, savedSource }
-    );
-    const assetContent = (asset: AssetPreview | null): DropPaneContent | null => (
-      asset && { kind: "asset", path: asset.path, asset }
-    );
-    const paperContent = (paper: PaperSummary, texts: Omit<DropPaperContent, "kind" | "path" | "paper">): DropPaneContent => (
-      { kind: "paper", path: paperTabKey(paper.arxivId), paper, ...texts }
-    );
-    const activePaperContent = () => activePaper && paperContent(activePaper, {
-      markdown: paperMarkdownRef.current, savedMarkdown: savedPaperMarkdownRef.current,
-      blog: paperBlogRef.current, savedBlog: savedPaperBlogRef.current, view: paperView,
-    });
-    const primarySourceContent = () => (
-      activeFileRef.current ? sourceContent(activeFileRef.current, sourceRef.current, savedSourceRef.current) : null
-    );
-    const secondaryContent = () => assetContent(secondaryAssetRef.current) ?? (secondaryFileRef.current
-      ? sourceContent(secondaryFileRef.current, secondarySourceRef.current, secondarySavedRef.current)
-      : null);
-    const currentPanes = (): { left: DropPaneContent | null; right: DropPaneContent | null } => {
-      const currentPaper = activePaperContent();
-      const activeAssetContent = assetContent(activeAssetRef.current);
-      if (currentPaper) {
-        const other = secondaryContent();
-        if (!isTwoPane(canvasMode) || !other) return { left: currentPaper, right: null };
-        return paperSide === "right" ? { left: other, right: currentPaper } : { left: currentPaper, right: other };
-      }
-      if (canvasMode === "asset") return { left: activeAssetContent, right: null };
-      if (isTwoPane(canvasMode)) return { left: activeAssetContent ?? primarySourceContent(), right: secondaryContent() };
-      // Legacy source + asset splits stored the asset in activeAsset. Treat
-      // it as the right pane while normalizing future drops to dual panes.
-      if (canvasMode === "split") return { left: primarySourceContent(), right: activeAssetContent };
-      // A generated preview has no independent file identity. The backing
-      // source is the useful pane to preserve when a drop creates a split.
-      return { left: primarySourceContent(), right: null };
-    };
-    const sameContent = (a: DropPaneContent | null, b: DropPaneContent | null) => (
-      Boolean(a && b && a.path === b.path)
-    );
-    const updateDualPreviews = (left: DropPaneContent, right: DropPaneContent) => {
-      const primaryPath = left.kind === "source" && previewPaths.has(left.path) ? left.path : null;
-      const secondaryPath = right.kind === "source" && previewPaths.has(right.path) ? right.path : null;
-      setDualPanePreview(projectRoot && (primaryPath || secondaryPath)
-        ? { projectRoot, primaryPath, secondaryPath }
-        : null);
-    };
-    /** Put a source or asset in the secondary pane (and its tab in the strip). */
-    const showSecondary = (content: DropPaneContent) => {
-      secondaryFileLoadGenerationRef.current += 1;
-      if (content.kind === "source") showSecondaryText(content.path, content.source, content.savedSource);
-      else showSecondaryText(null);
-      showSecondaryAsset(content.kind === "asset" ? content.asset : null);
-      addOpenTab(content.path);
-    };
-    const enterDual = (focus: EditorPaneId) => {
-      documentModeRef.current = "dual";
-      if (!hasExistingPaneDivider) setDualRatioResetGeneration((generation) => generation + 1);
-      setCanvasMode("dual");
-      setFocusedPane(focus);
-      setError(null);
-    };
-    const loadDropContent = async (): Promise<DropPaneContent | null> => {
-      if (isPaperTabKey(path)) {
-        const currentPaper = activePaperContent();
-        if (currentPaper?.path === path) return currentPaper;
-        const paper = papers.find((item) => paperTabKey(item.arxivId) === path);
-        if (!paper) return null;
-        const { markdown, blog, failure } = await readPaperDocuments(paper.arxivId);
-        if (!isCurrentDrop()) return null;
-        if (!markdown && !blog) throw failure ?? new Error(t`No readable paper content is available.`);
-        return paperContent(paper, {
-          markdown, savedMarkdown: markdown, blog, savedBlog: blog, view: preferredPaperView(paperView, markdown, blog),
-        });
-      }
-      if (isProjectAssetFilePath(path) || projectAssetPaths.has(path)) {
-        const asset = await invoke<AssetPreview>("read_project_asset", { path });
-        return isCurrentDrop() ? assetContent(asset) : null;
-      }
-      if (!isProjectSourceFilePath(path)) return null;
-      if (path === activeFileRef.current) return primarySourceContent();
-      if (path === secondaryFileRef.current) {
-        return sourceContent(path, secondarySourceRef.current, secondarySavedRef.current);
-      }
-      const content = await invoke<string>("read_project_file", { path, projectRoot });
-      return isCurrentDrop() ? sourceContent(path, content) : null;
-    };
-
-    try {
-      if (zone === "center") {
-        if (isPaperTabKey(path)) {
-          const paper = papers.find((item) => paperTabKey(item.arxivId) === path);
-          if (!paper) return;
-          const opening = openPaper(paper);
-          primaryLoadGeneration = fileLoadGenerationRef.current;
-          if (!(await opening) || !isCurrentDrop()) return;
-          setPaperSide("left");
-        } else if (isProjectAssetFilePath(path) || projectAssetPaths.has(path)) {
-          const opening = openProjectAsset(path);
-          primaryLoadGeneration = fileLoadGenerationRef.current;
-          if (!(await opening) || !isCurrentDrop()) return;
-        } else {
-          const opening = openProjectFile(path, undefined, "primary");
-          primaryLoadGeneration = fileLoadGenerationRef.current;
-          await opening;
-          if (!isCurrentDrop() || activeFileRef.current !== path) return;
-          showActiveAsset(null);
-          const standaloneMode = options?.preservePreview ? "pdf" : "source";
-          if (isHtmlFilePath(path)) htmlViewModesRef.current.set(path, standaloneMode);
-          else documentModeRef.current = standaloneMode;
-          setCanvasMode(standaloneMode);
-        }
-        temporarilyPromotedSplitRef.current = null;
-        setDualPanePreview(null);
-        secondaryFileLoadGenerationRef.current += 1;
-        clearSecondaryPane();
-        setFocusedPane("primary");
-        return true;
-      }
-
-      if (visualMarkdownFlushRef.current?.() === false || !(await save()) || !isCurrentDrop()) return;
-      if (
-        zone === "right"
-        && path === activeFileRef.current
-        && !activePaper
-        && !activeAssetRef.current
-        && !isTwoPane(canvasMode)
-      ) {
-        const fallback = [...openTabs].reverse().find((candidate) => (
-          candidate !== path
-          && !isPaperTabKey(candidate)
-          && !projectAssetPaths.has(candidate)
-        ));
-        if (!fallback) return;
-        const outgoingSource = sourceRef.current;
-        const outgoingSavedSource = savedSourceRef.current;
-        const loadGeneration = fileLoadGenerationRef.current + 1;
-        fileLoadGenerationRef.current = loadGeneration;
-        primaryLoadGeneration = loadGeneration;
-        const openedPrimary = await loadFile(fallback, {
-          revealSource: true,
-          loadGeneration,
-          canCommit: () => (
-            isCurrentDrop()
-            && activeFileRef.current === path
-            && sourceRef.current === outgoingSource
-          ),
-        });
-        if (!openedPrimary || !isCurrentDrop()) return;
-        const displaced = sourceContent(path, outgoingSource, outgoingSavedSource);
-        showSecondary(displaced);
-        updateDualPreviews(sourceContent(fallback, sourceRef.current, savedSourceRef.current), displaced);
-        enterDual("secondary");
-        return;
-      }
-      const target = await loadDropContent();
-      if (!target || !isCurrentDrop()) return;
-      // The target takes the dropped side. What it displaces moves across
-      // when the other side is empty or was the target's old place.
-      const current = currentPanes();
-      const [near, far] = zone === "left" ? [current.left, current.right] : [current.right, current.left];
-      if (sameContent(target, near)) {
-        setFocusedPane(target.kind === "paper" || (zone === "left" && !activePaper) ? "primary" : "secondary");
-        return;
-      }
-      const across = !far || sameContent(target, far) ? near : far;
-      const [left, right] = zone === "left" ? [target, across] : [across, target];
-      if (!left || !right || sameContent(left, right)) return;
-
-      const arrangedPaper = left.kind === "paper"
-        ? left
-        : right.kind === "paper"
-          ? right
-          : null;
-      if (arrangedPaper) {
-        const other = left.kind === "paper" ? right : left;
-        if (other.kind === "paper") return;
-        fileLoadGenerationRef.current += 1;
-        primaryLoadGeneration = fileLoadGenerationRef.current;
-        setPrimaryOpening(null);
-        setPaperBuffers(
-          arrangedPaper.markdown,
-          arrangedPaper.blog,
-          arrangedPaper.savedMarkdown,
-          arrangedPaper.savedBlog,
-        );
-        setPaperView(arrangedPaper.view);
-        setActivePaper(arrangedPaper.paper);
-        setPaperSide(left.kind === "paper" ? "left" : "right");
-        showActiveAsset(null);
-        addOpenTab(arrangedPaper.path);
-        showSecondary(other);
-        setDualPanePreview(null);
-        enterDual(target.kind === "paper" ? "primary" : "secondary");
-        return;
-      }
-      if (left.kind === "paper" || right.kind === "paper") return;
-
-      if (left.kind === "source") {
-        const opening = openProjectFile(left.path, undefined, "primary");
-        primaryLoadGeneration = fileLoadGenerationRef.current;
-        await opening;
-        if (!isCurrentDrop() || activeFileRef.current !== left.path) return;
-        showActiveAsset(null);
-      } else {
-        fileLoadGenerationRef.current += 1;
-        primaryLoadGeneration = fileLoadGenerationRef.current;
-        setPrimaryOpening(null);
-        showActiveAsset(left.asset);
-        closePaper();
-        addOpenTab(left.path);
-      }
-
-      showSecondary(right);
-      updateDualPreviews(left, right);
-      enterDual(zone === "left" ? "primary" : "secondary");
-    } catch (reason) {
-      if (isCurrentDrop()) setError(toMessage(reason));
-    }
-  }, [
-    activeAssetRef, activeFileRef, activePaper, addOpenTab, canvasMode, clearSecondaryPane,
-    closePaper, dualPanePreview, loadFile, openPaper, openProjectAsset, openProjectFile, openTabs, paperBlogRef,
-    paperMarkdownRef, papers, paperSide, paperView, projectAssetPaths, projectRef, save, savedPaperBlogRef,
-    savedPaperMarkdownRef, savedSourceRef, secondaryAssetRef, secondaryFileRef, secondarySavedRef,
-    secondarySourceRef, setActivePaper, setPaperBuffers, setPaperSide, setPaperView, showActiveAsset,
-    showSecondaryAsset, showSecondaryText, sourceRef, t, captureProjectScope,
-  ]);
-
   const closeEditorTab = useCallback(async (path: string) => {
     // The writer already closed the document's panel: the last document does
     // not hold it open (its panel closes and the neighbours fill in).
@@ -2741,24 +2216,6 @@ function App() {
       tabRecency.current = tabRecency.current.filter((key) => key !== path);
       closedTabsRef.current = [path, ...closedTabsRef.current.filter((item) => item !== path)].slice(0, 20);
     };
-
-    if (isTwoPane(canvasMode)) {
-      const primaryPath = activePaper ? paperTabKey(activePaper.arxivId) : activeAsset?.path ?? activeFile;
-      const secondaryPath = secondaryAsset?.path ?? secondaryFile;
-      const closingPrimary = path === primaryPath;
-      const survivingPath = closingPrimary ? secondaryPath : path === secondaryPath ? primaryPath : null;
-      if (survivingPath && survivingPath !== path) {
-        const currentDualPreview = dualPanePreview?.projectRoot === projectRef.current?.root ? dualPanePreview : null;
-        const survivingPreview = currentDualPreview
-          && (closingPrimary ? currentDualPreview.secondaryPath : currentDualPreview.primaryPath) === survivingPath;
-        const closingDirtySource = (path === activeFile && sourceRef.current !== savedSourceRef.current)
-          || (path === secondaryFile && secondarySourceRef.current !== secondarySavedRef.current);
-        if (closingDirtySource && !(await save())) return;
-        if (await dropProjectPath(survivingPath, "center", { preservePreview: Boolean(survivingPreview) }) !== true) return;
-        finishClose();
-        return;
-      }
-    }
 
     const closingActivePaper = Boolean(activePaper && paperTabKey(activePaper.arxivId) === path);
     const fileFallback = [...remaining].reverse().find((key) => !isPaperTabKey(key) && !projectAssetPaths.has(key));
@@ -2779,7 +2236,6 @@ function App() {
           canCommit: () => !flushAndCheckPrimaryDirty("paper"),
         });
         if (!applied) return;
-        setFocusedPane("primary");
       } else {
         closePaper();
         setCanvasMode((mode) => mode === "pdf" ? "split" : mode);
@@ -2790,35 +2246,17 @@ function App() {
     // into the editor).
     if (isPaperTabKey(path)) return;
     if (projectAssetPaths.has(path)) {
-      if (secondaryAsset?.path === path) {
-        showSecondaryAsset(null);
-        setFocusedPane("primary");
-        setCanvasMode(activeAsset ? "asset" : "source");
-        return;
-      }
       if (activeAsset?.path === path) {
         showActiveAsset(null);
-        if (isTwoPane(canvasMode)) {
-          if (secondaryFile === activeFile) {
-            showSecondaryText(null);
-            setCanvasMode("source");
-          }
-          setFocusedPane("primary");
-        } else if (fileFallback) await openProjectFile(fileFallback);
+        if (fileFallback) await openProjectFile(fileFallback);
         else setCanvasMode((mode) => (mode === "asset" ? "split" : mode));
       }
       return;
     }
-    if (path === secondaryFile) {
-      showSecondaryText(null);
-      setFocusedPane("primary");
-    }
     if (path === activeFile && fileFallback) await openProjectFile(fileFallback);
   }, [
-    activeAsset, activeFile, activePaper, canvasMode, closePaper, dropProjectPath, dualPanePreview,
-    flushAndCheckPrimaryDirty, loadFile, openProjectFile, paperBuffersDirty, projectAssetPaths, projectRef,
-    save, savedSourceRef, secondaryAsset, secondaryFile, secondarySavedRef, secondarySourceRef,
-    showActiveAsset, showSecondaryAsset, showSecondaryText, sourceRef,
+    activeAsset, activeFile, activePaper, closePaper, flushAndCheckPrimaryDirty, loadFile, openProjectFile,
+    paperBuffersDirty, projectAssetPaths, save, showActiveAsset,
   ]);
 
 
@@ -2900,46 +2338,10 @@ function App() {
     trackProjectItemDrag(path, event, suppressedProjectFileClick, (pointer) => trellisTakesProjectDrag(trellis, path, pointer));
   }, [trellis]);
 
-  const ensureSecondaryFile = useCallback(async (preferred?: string | null) => {
-    const primaryPath = activeFileRef.current;
-    const eligible = (path: string) => (
-      path !== primaryPath && openTabs.includes(path) && !isPaperTabKey(path) && !projectAssetPaths.has(path)
-    );
-    const candidate = (preferred && eligible(preferred) ? preferred : null)
-      ?? tabRecency.current.find(eligible)
-      ?? (secondaryFile && secondaryFile !== primaryPath ? secondaryFile : null)
-      ?? openTabs.find((path) => path !== primaryPath && path.endsWith(".tex"))
-      ?? openTabs.find(eligible)
-      ?? null;
-    if (!candidate) return null;
-    if (candidate === secondaryFile) return candidate;
-    const requestGeneration = secondaryFileLoadGenerationRef.current + 1;
-    secondaryFileLoadGenerationRef.current = requestGeneration;
-    const projectRoot = projectRef.current?.root;
-    const ownsProject = captureProjectScope();
-    const primaryLoadGeneration = fileLoadGenerationRef.current;
-    const isLatestRequest = () => (
-      requestGeneration === secondaryFileLoadGenerationRef.current
-      && ownsProject()
-      && activeFileRef.current === primaryPath
-      && fileLoadGenerationRef.current === primaryLoadGeneration
-    );
-    const content = await invoke<string>("read_project_file", { path: candidate, projectRoot });
-    if (!isLatestRequest()) return null;
-    showSecondaryText(candidate, content);
-    addOpenTab(candidate);
-    return candidate;
-  }, [
-    activeFileRef, addOpenTab, openTabs, projectAssetPaths, projectRef, secondaryFile,
-    showSecondaryText, captureProjectScope,
-  ]);
-
   const openDocumentMode = useCallback((mode: DocumentViewMode) => {
     const viewGeneration = documentViewGenerationRef.current + 1;
     documentViewGenerationRef.current = viewGeneration;
     const primaryLoadGeneration = fileLoadGenerationRef.current;
-    const primaryPanePath = () => activeAssetRef.current?.path ?? activeFileRef.current;
-    const secondaryPanePath = () => secondaryAssetRef.current?.path ?? secondaryFileRef.current;
     const isCurrentViewRequest = () => (
       documentViewGenerationRef.current === viewGeneration
       && fileLoadGenerationRef.current === primaryLoadGeneration
@@ -2953,124 +2355,18 @@ function App() {
         setCanvasMode(mode);
         return;
       }
-      const promotedSplit = temporarilyPromotedSplitRef.current;
-      if (mode === "source" && promotedSplit) {
-        const canRestore = promotedSplit.projectRoot === projectRef.current?.root
-          && primaryPanePath() === promotedSplit.splitPath
-          && secondaryPanePath() === promotedSplit.primaryPath;
-        if (canRestore) {
-          const restoring = dropProjectPath(promotedSplit.primaryPath, "left", { preserveSplitRatio: true });
-          const restoreGeneration = documentViewGenerationRef.current;
-          await restoring;
-          if (
-            documentViewGenerationRef.current === restoreGeneration
-            && primaryPanePath() === promotedSplit.primaryPath
-            && secondaryPanePath() === promotedSplit.splitPath
-          ) {
-            temporarilyPromotedSplitRef.current = null;
-            setDualPanePreview(null);
-            documentModeRef.current = "dual";
-            setFocusedPane("secondary");
-            setCanvasMode("dual");
-          }
-          return;
-        }
-        temporarilyPromotedSplitRef.current = null;
-      }
-      if (
-        (mode === "source" || mode === "pdf")
-        && isTwoPane(canvasMode)
-      ) {
-        const projectRoot = projectRef.current?.root;
-        if (!projectRoot) return;
-        const panePath = focusedPane === "secondary" ? secondaryFile : activeFile;
-        const paneAsset = focusedPane === "secondary" ? secondaryAsset : activeAsset;
-        if (!panePath || paneAsset || !isPreviewableSourceFilePath(panePath)) return;
-        setDualPanePreview((current) => {
-          // The focused pane previews (pdf) or edits (source); the other pane keeps its state.
-          const kept = current?.projectRoot === projectRoot ? current : null;
-          const focusedPreview = mode === "pdf" ? panePath : null;
-          const next = focusedPane === "secondary"
-            ? { projectRoot, primaryPath: kept?.primaryPath ?? null, secondaryPath: focusedPreview }
-            : { projectRoot, primaryPath: focusedPreview, secondaryPath: kept?.secondaryPath ?? null };
-          return next.primaryPath || next.secondaryPath ? next : null;
-        });
-        documentModeRef.current = canvasMode;
-        markdownModeViewportCaptureRef.current?.();
-        return;
-      }
-      if (
-        mode === "split"
-        && isTwoPane(canvasMode)
-        && focusedPane === "secondary"
-        && secondaryFile
-        && isPreviewableSourceFilePath(secondaryFile)
-      ) {
-        const originalPrimaryPath = primaryPanePath();
-        const projectRoot = projectRef.current?.root;
-        if (!originalPrimaryPath || !projectRoot || originalPrimaryPath === secondaryFile) return;
-        const promoting = dropProjectPath(secondaryFile, "left");
-        const promotionGeneration = documentViewGenerationRef.current;
-        await promoting;
-        if (
-          documentViewGenerationRef.current !== promotionGeneration
-          || primaryPanePath() !== secondaryFile
-          || secondaryPanePath() !== originalPrimaryPath
-        ) return;
-        temporarilyPromotedSplitRef.current = { projectRoot, primaryPath: originalPrimaryPath, splitPath: secondaryFile };
-        setDualPanePreview(null);
-        if (isHtmlFilePath(secondaryFile)) htmlViewModesRef.current.set(secondaryFile, mode);
-        else documentModeRef.current = mode;
-        markdownModeViewportCaptureRef.current?.();
-        setFocusedPane("primary");
-        setCanvasMode(mode);
-        return;
-      }
-      // Split/Preview temporarily hide the second editor, but do not discard
-      // it. Returning to Edit restores the two files; a center drop remains the
-      // explicit way to collapse the layout to one editor.
-      const projectRoot = projectRef.current?.root;
-      const preserveStandalonePreview = mode === "dual"
-        && canvasMode === "pdf"
-        && Boolean(projectRoot && activeFile && isPreviewableSourceFilePath(activeFile));
-      setDualPanePreview(preserveStandalonePreview && projectRoot
-        ? { projectRoot, primaryPath: activeFile, secondaryPath: null }
-        : null);
-      const nextMode = mode === "source"
-        && (canvasMode === "split" || canvasMode === "pdf")
-        && (secondaryFile || secondaryAsset)
-        ? "dual"
-        : mode;
-      if (isHtmlFilePath(activeFile)) htmlViewModesRef.current.set(activeFile, nextMode);
-      else documentModeRef.current = nextMode;
+      if (isHtmlFilePath(activeFile)) htmlViewModesRef.current.set(activeFile, mode);
+      else documentModeRef.current = mode;
       showActiveAsset(null);
       closePaper();
       // PDF can stand alone without a source tab. Returning to any source-backed
       // view restores the active document to the strip before rendering it.
-      if (nextMode !== "pdf" && activeFile) addOpenTab(activeFile);
-      if (nextMode === "dual") {
-        try {
-          const openedSecondary = secondaryAsset ? secondaryAsset.path : await ensureSecondaryFile();
-          if (!isCurrentViewRequest()) return;
-          markdownModeViewportCaptureRef.current?.();
-          setCanvasMode(nextMode);
-          if (!openedSecondary) setFocusedPane("secondary");
-        } catch (reason) {
-          if (isCurrentViewRequest()) setError(toMessage(reason));
-        }
-        return;
-      }
+      if (mode !== "pdf" && activeFile) addOpenTab(activeFile);
       if (!isCurrentViewRequest()) return;
       markdownModeViewportCaptureRef.current?.();
-      setCanvasMode(nextMode);
+      setCanvasMode(mode);
     })();
-  }, [
-    activeAsset, activeAssetRef, activeFile, activeFileRef, activePaper, activePaperDirty, addOpenTab,
-    canvasMode, closePaper, dropProjectPath, ensureSecondaryFile, focusedPane, projectRef, save,
-    secondaryAsset, secondaryAssetRef, secondaryFile, secondaryFileRef, showActiveAsset,
-  ]);
-
-
+  }, [activeFile, activePaper, activePaperDirty, addOpenTab, closePaper, save, showActiveAsset]);
 
   const createProjectEntry = useCallback(async (
     path: string,
@@ -3224,7 +2520,7 @@ function App() {
       nativeDragPathsRef.current = [];
       setAssetDropTarget(null);
       setNativeEditorDropActive(false);
-      setFileDropTargetPane(null);
+      setFileDropTargetActive(false);
       setAgentPanelDropActive(false);
     };
     const dispose = disposeWhenSettled(import("@tauri-apps/api/webview")
@@ -3241,16 +2537,16 @@ function App() {
         const targetDirectory = dropDirectoryAt(event.payload.position);
         const agentPanelTarget = dropAgentPanelAt(event.payload.position);
         const dropKind = classifyExternalProjectDrop(dragPaths);
-        const editorPath = editorPosition?.pane === "secondary" ? secondaryFileRef.current : activeFileRef.current;
+        const editorPath = activeFileRef.current;
         const insertsIntoEditor = Boolean(editorPosition && dropKind === "asset" && /\.(?:tex|md)$/i.test(editorPath ?? ""));
         // The tree accepts every drop kind, so the highlight only tracks
         // geometry (null when the pointer is not over the Project tree).
         setAssetDropTarget(targetDirectory);
         setNativeEditorDropActive(insertsIntoEditor);
         setAgentPanelDropActive(agentPanelTarget && dropKind !== "unsupported");
-        // Sources open in the pane under the pointer; figures do too unless they insert into its text.
-        const opensInPane = dropKind === "source" || (dropKind === "asset" && !insertsIntoEditor);
-        setFileDropTargetPane(editorPosition && opensInPane ? editorPosition.pane : null);
+        // Sources open in the editor under the pointer; figures do too unless they insert into its text.
+        const opensInEditor = dropKind === "source" || (dropKind === "asset" && !insertsIntoEditor);
+        setFileDropTargetActive(Boolean(editorPosition && opensInEditor));
         if (event.payload.type === "drop") {
           clearDropHighlights();
           if (!event.payload.paths.length) return;
@@ -3265,7 +2561,7 @@ function App() {
               .catch((error) => setError(toMessage(error)));
           } else if (dropKind === "source" && (editorPosition || canvasTarget)) {
             void importProjectSources(event.payload.paths).then(async (paths) => {
-              for (const path of paths) await openProjectFileRef.current(path, undefined, editorPosition?.pane ?? "primary");
+              for (const path of paths) await openProjectFileRef.current(path);
             });
           } else if (targetDirectory !== null) {
             // The Project tree takes any mix, Finder-style, into the folder
@@ -3282,7 +2578,7 @@ function App() {
             void importProjectAssets(event.payload.paths, "figures").then((paths) => {
               if (!paths.length) return;
               updateCanvasRequest("figure", {
-                id: crypto.randomUUID(), paths, clientX: editorPosition.x, clientY: editorPosition.y, pane: editorPosition.pane,
+                id: crypto.randomUUID(), paths, clientX: editorPosition.x, clientY: editorPosition.y,
               });
             });
           } else if (canvasTarget) {
@@ -3302,7 +2598,7 @@ function App() {
     };
   }, [
     activeFileRef, importProjectAssets, importProjectFiles, importProjectSources, openProjectAsset,
-    postSynaraMessage, project, secondaryFileRef, updateCanvasRequest, openProjectFileRef, t,
+    postSynaraMessage, project, updateCanvasRequest, openProjectFileRef, t,
   ]);
 
   const prepareLatexFigure = useCallback(async (path: string): Promise<string | null> => {
@@ -3383,9 +2679,7 @@ function App() {
       // A successful disk deletion authoritatively retires every UI reference
       // to that path, including files removed through a deleted directory.
       const deletedActiveFile = wasDeleted(activeFile);
-      const deletedSecondaryFile = wasDeleted(secondaryFile);
       const deletedActiveAsset = wasDeleted(activeAsset?.path);
-      const deletedSecondaryAsset = wasDeleted(secondaryAsset?.path);
       const { tabs: remainingTabs } = forgetOpenPaths(wasDeleted);
       if (deletedActiveFile) {
         fileLoadGenerationRef.current += 1;
@@ -3393,30 +2687,6 @@ function App() {
         showPrimaryText("", "");
       }
       if (deletedActiveAsset) showActiveAsset(null);
-      if (deletedSecondaryFile || deletedSecondaryAsset) {
-        secondaryFileLoadGenerationRef.current += 1;
-        clearSecondaryPane();
-        setFocusedPane("primary");
-        if (
-          isTwoPane(canvasMode)
-          && !deletedActiveFile
-          && !deletedActiveAsset
-        ) {
-          const nextMode = activeAsset
-            ? "asset"
-            : dualPanePreview?.primaryPath === activeFile
-              ? "pdf"
-              : "source";
-          if (nextMode !== "asset") documentModeRef.current = nextMode;
-          setCanvasMode(nextMode);
-          setDualPanePreview(null);
-        }
-      }
-      setDualPanePreview((preview) => {
-        const kept = (path: string | null | undefined) => (path && !wasDeleted(path) ? path : null);
-        const [primaryPath, secondaryPath] = [kept(preview?.primaryPath), kept(preview?.secondaryPath)];
-        return preview && (primaryPath || secondaryPath) ? { ...preview, primaryPath, secondaryPath } : null;
-      });
       forgetViewStates(paths, wasDeleted);
       const snapshot = await refreshProject();
       if (deletedActiveFile && !activeAsset && !activePaper) {
@@ -3447,10 +2717,9 @@ function App() {
       setError(toMessage(reason));
     }
   }, [
-    activeAsset, activeFile, activePaper, canvasMode, clearSecondaryPane, dualPanePreview,
-    forgetViewStates, loadFile, overleafLink, project, projectOperationGenerationRef, refreshHistory,
-    refreshProject, secondaryAsset, secondaryFile, settleRemoteDeletes, showActiveAsset, t, forgetOpenPaths,
-    showPrimaryText,
+    activeAsset, activeFile, activePaper, forgetViewStates, loadFile, overleafLink, project,
+    projectOperationGenerationRef, refreshHistory, refreshProject, settleRemoteDeletes, showActiveAsset, t,
+    forgetOpenPaths, showPrimaryText,
   ]);
 
   const applyProjectEntryPathChanges = useCallback((changes: readonly ProjectPathChange[]) => {
@@ -3510,16 +2779,11 @@ function App() {
     }));
     const completedChanges: ProjectPathChange[] = [];
     const originalPrimaryPath = activeFileRef.current;
-    const originalSecondaryPath = secondaryFileRef.current;
     let optimisticChangesApplied = false;
     return withTreeMutation(async () => {
       try {
         if (plannedChanges.some((change) => (
-          /\.(?:tex|md)$/i.test(change.previousPath)
-          && (
-            change.previousPath === originalPrimaryPath
-            || change.previousPath === originalSecondaryPath
-          )
+          /\.(?:tex|md)$/i.test(change.previousPath) && change.previousPath === originalPrimaryPath
         ))) {
           if (visualMarkdownFlushRef.current?.() === false) {
             setError(t`Try again`);
@@ -3548,8 +2812,7 @@ function App() {
           }
           if (/\.(?:tex|md)$/i.test(planned.previousPath)) {
             const content = planned.previousPath === originalPrimaryPath ? sourceRef.current
-              : planned.previousPath === originalSecondaryPath ? secondarySourceRef.current
-                : await invoke<string>("read_project_file", { path: movedPath, projectRoot: project?.root });
+              : await invoke<string>("read_project_file", { path: movedPath, projectRoot: project?.root });
             const rewritten = rewriteMovedDocumentAssetPaths(
               content,
               planned.previousPath,
@@ -3558,12 +2821,8 @@ function App() {
             );
             if (rewritten !== content) {
               if (planned.previousPath === originalPrimaryPath) setPrimarySource(rewritten);
-              if (planned.previousPath === originalSecondaryPath) setSecondarySourceLive(rewritten);
               await invoke("write_project_file", { path: movedPath, content: rewritten, projectRoot: project?.root });
               if (planned.previousPath === originalPrimaryPath && sourceRef.current === rewritten) setPrimarySaved(rewritten);
-              if (planned.previousPath === originalSecondaryPath && secondarySourceRef.current === rewritten) {
-                setSecondarySaved(rewritten);
-              }
             }
           }
         }
@@ -3586,9 +2845,8 @@ function App() {
     });
   }, [
     activeFileRef, applyProjectEntryPathChanges, markDiskMtime, project?.root,
-    projectAssetPaths, reconcileProjectTree, save, secondaryFileRef, secondarySourceRef,
-    setPrimarySource, setSecondarySourceLive, sourceRef, t, withTreeMutation, setPrimarySaved,
-    setSecondarySaved,
+    projectAssetPaths, reconcileProjectTree, save, setPrimarySource, sourceRef, t, withTreeMutation,
+    setPrimarySaved,
   ]);
 
   /** List every occurrence of a label or citation key in the references panel. */
@@ -3782,8 +3040,7 @@ function App() {
       let conflictPath: string | null = null;
       for (const change of result.changes ?? []) {
         const diverged = (text: string) => text !== change.before && text !== change.after;
-        if ((activeFileRef.current === change.path && diverged(sourceRef.current))
-          || (secondaryFileRef.current === change.path && diverged(secondarySourceRef.current))) {
+        if (activeFileRef.current === change.path && diverged(sourceRef.current)) {
           conflictPath = change.path;
           break;
         }
@@ -3811,8 +3068,6 @@ function App() {
         if (path === activeFile) {
           commitPrimaryText(content);
           await markDiskMtime(path);
-        } else if (path === secondaryFile) {
-          commitSecondaryText(content);
         }
       }
       if (activePaper && paperKey(activePaper) === paperKey(paper)) {
@@ -3826,9 +3081,8 @@ function App() {
       setError(toMessage(reason));
     }
   }, [
-    activeFile, activeFileRef, activePaper, closePaper, commitPrimaryText,
-    commitSecondaryText, markDiskMtime, project, refreshHistory, refreshProject, save,
-    secondaryFile, secondaryFileRef, secondarySourceRef, sourceRef, t, captureProjectScope,
+    activeFile, activeFileRef, activePaper, closePaper, commitPrimaryText, markDiskMtime, project,
+    refreshHistory, refreshProject, save, sourceRef, t, captureProjectScope,
   ]);
 
   const openSettings = useCallback((tab: SettingsTab = "appearance") => {
@@ -3994,7 +3248,6 @@ function App() {
   // the parse chains behind them stop recomputing per character. For .tex the
   // scalar tracks `source` exactly, preserving today's behavior.
   const activeTexSource = activeFile.endsWith(".tex") ? source : null;
-  const secondaryTexSource = secondaryFile?.endsWith(".tex") ? secondarySource : null;
   const liveOutlineSources = useMemo(() => ({
     ...outlineSources,
     ...(activeTexSource != null ? { [activeFile]: activeTexSource } : {}),
@@ -4048,11 +3301,8 @@ function App() {
     if (activeTexSource != null) {
       merged = mergeReferences(merged, activeFile, parseLocalLabels(activeFile, activeTexSource));
     }
-    if (secondaryFile && secondaryTexSource != null) {
-      merged = mergeReferences(merged, secondaryFile, parseLocalLabels(secondaryFile, secondaryTexSource));
-    }
     return merged;
-  }, [activeFile, activeTexSource, references, secondaryFile, secondaryTexSource]);
+  }, [activeFile, activeTexSource, references]);
   const activeOutlineId = useMemo(() => {
     if (!activeFile.endsWith(".tex") || !editorPosition) return null;
     return activeOutlineNode(outlineNodes, activeFile, editorPosition.line)?.id ?? null;
@@ -4062,65 +3312,46 @@ function App() {
   // strip, the sidebar fit, and the active-tab lookup. Compare the buffers
   // here so the memo only recomputes when a document actually becomes dirty.
   const primarySourceDirty = source !== savedSource;
-  const secondarySourceDirty = Boolean(secondaryFile) && secondarySource !== secondarySavedSource;
   // Stable handlers: EditorTabs is memoized, and inline arrows here would hand
   // it a new identity on every keystroke, defeating that.
   const selectEditorTab = useCallback((path: string) => {
     if (isPaperTabKey(path)) {
-      if (activePaper && paperTabKey(activePaper.arxivId) === path) {
-        setFocusedPane("primary");
-        return;
-      }
+      if (activePaper && paperTabKey(activePaper.arxivId) === path) return;
       const paper = papers.find((item) => item.arxivId === arxivIdFromTabKey(path));
       if (paper) void openPaper(paper);
       else void closeEditorTab(path);
-    } else if (isTwoPane(canvasMode) && (secondaryAsset?.path === path || secondaryFile === path)) {
-      setFocusedPane("secondary");
     } else if (projectAssetPaths.has(path)) {
       void openProjectAsset(path);
     } else {
       void openProjectFile(path);
     }
   }, [
-    activePaper, canvasMode, closeEditorTab, openPaper, openProjectAsset, openProjectFile, papers,
-    projectAssetPaths, secondaryAsset?.path, secondaryFile,
+    activePaper, closeEditorTab, openPaper, openProjectAsset, openProjectFile, papers, projectAssetPaths,
   ]);
-  // The tab that reads as active: the open paper in paper mode, else the focused
-  // editor pane. Also the key eviction must never close.
-  const primaryTabKey = activePaper ? paperTabKey(activePaper.arxivId) : activeAsset?.path ?? activeFile;
-  const activeTabKey = isTwoPane(canvasMode) && focusedPane === "secondary"
-    ? secondaryAsset?.path ?? secondaryFile ?? primaryTabKey
-    : primaryTabKey;
-  // Whatever is on screen is the most-recently-used tab; the split's other pane
-  // counts too. Tracking recency here covers every path that opens a tab.
+  // The tab that reads as active: the open paper in paper mode, else the open
+  // asset or file. Also the key eviction must never close.
+  const activeTabKey = activePaper ? paperTabKey(activePaper.arxivId) : activeAsset?.path ?? activeFile;
+  // Whatever is on screen is the most-recently-used tab. Tracking recency here
+  // covers every path that opens a tab.
   useEffect(() => {
     if (activeTabKey) noteTabActive(activeTabKey);
   }, [activeTabKey, noteTabActive]);
   useEffect(() => {
-    if (secondaryFile && isTwoPane(canvasMode)) {
-      noteTabActive(secondaryFile);
-    }
-  }, [canvasMode, noteTabActive, secondaryFile]);
-  useEffect(() => {
     if (activeAsset) noteTabActive(activeAsset.path);
-    if (secondaryAsset) noteTabActive(secondaryAsset.path);
-  }, [activeAsset, noteTabActive, secondaryAsset]);
+  }, [activeAsset, noteTabActive]);
   useEffect(() => {
     if (!project?.root || workspacePersistenceReadyRoot !== project.root) return;
     persistWorkspaceLayout(project.root, {
       openTabs,
       activeFile,
       activeTab: activeTabKey,
-      secondaryFile,
-      focusedPane,
       canvasMode,
       documentMode: documentModeRef.current,
       paperView,
       tabRecency: tabRecency.current.filter((path) => openTabs.includes(path)),
     });
   }, [
-    activeFile, activeTabKey, canvasMode, focusedPane, openTabs, paperView, project?.root,
-    secondaryFile, workspacePersistenceReadyRoot,
+    activeFile, activeTabKey, canvasMode, openTabs, paperView, project?.root, workspacePersistenceReadyRoot,
   ]);
   // Versionless arXiv ids whose full text is already in the library — the
   // Discover panel shows these hits as done instead of importable.
@@ -4131,8 +3362,7 @@ function App() {
   const liveSourceMap = useMemo(() => ({
     ...outlineSources,
     ...(activeTexSource != null ? { [activeFile]: activeTexSource } : {}),
-    ...(secondaryFile && secondaryTexSource != null ? { [secondaryFile]: secondaryTexSource } : {}),
-  }), [activeFile, activeTexSource, outlineSources, secondaryFile, secondaryTexSource]);
+  }), [activeFile, activeTexSource, outlineSources]);
   const liveMacroSources = useMemo(() => Object.values(liveSourceMap), [liveSourceMap]);
   const liveMacros = useMemo(() => parseLocalMacros(liveMacroSources), [liveMacroSources]);
   const graphicsRoots = useMemo(() => parseGraphicsPaths(liveMacroSources), [liveMacroSources]);
@@ -4178,9 +3408,8 @@ function App() {
   const texlabActive = texSetup.doctorReport?.checks.some((check) => check.name === "texlab" && check.ok) ?? true;
 
   const formatFocusedDocument = () => {
-    const secondary = focusedPane === "secondary" && Boolean(secondaryFile);
-    const path = secondary ? secondaryFile! : activeFile;
-    const text = secondary ? secondarySource : source;
+    const path = activeFile;
+    const text = source;
     if (!path.endsWith(".tex")) {
       setError(t`Open a .tex file before formatting.`, t`Format`);
       return;
@@ -4193,7 +3422,7 @@ function App() {
           trace.ok(t`Document is already formatted.`);
           return;
         }
-        (secondary ? setSecondarySource : setSource)(formatted);
+        setSource(formatted);
         trace.ok(t`Formatted with latexindent.`);
       })
       .catch((reason) => trace.fail(reason));
@@ -4396,13 +3625,13 @@ function App() {
     }
     trellis.app.set({
       projectRoot: project.root,
-      activeKey: primaryTabKey,
+      activeKey: activeTabKey,
       activeDirty: trellisDirty,
       openTabs,
       tabsReady: tabsSettledRoot === project.root || workspacePersistenceReadyRoot === project.root,
       filesRevision: revision.revision,
     });
-  }, [openTabs, primaryTabKey, project, tabsSettledRoot, trellis, trellisDirty, workspacePersistenceReadyRoot]);
+  }, [activeTabKey, openTabs, project, tabsSettledRoot, trellis, trellisDirty, workspacePersistenceReadyRoot]);
   // Inactive panels paint the last text they showed while loading a fresh copy.
   useEffect(() => {
     if (activeFile && !activePaper) trellis.texts.set(activeFile, source);
@@ -4411,7 +3640,7 @@ function App() {
   const trellisViewModes = activePaper || activeAsset ? null
     : activeFile.toLocaleLowerCase().endsWith(".md") ? "markdown"
       : isHtmlFilePath(activeFile) ? "html" : null;
-  const trellisViewMode = focusedPanePreview || canvasMode === "pdf" ? "pdf" : canvasMode === "split" ? "split" : "source";
+  const trellisViewMode = canvasMode === "pdf" ? "pdf" : canvasMode === "split" ? "split" : "source";
   const trellisBuiltIn = build?.success ? build.durationMs / 1000 : null;
   const trellisPaperViews = Boolean(activePaper && paperBlog !== null && paperMarkdown);
   useLayoutEffect(() => {
@@ -4586,32 +3815,23 @@ function App() {
       locale={appLocale}
       theme={theme}
       mode={canvasMode}
-      dualPreviewPanes={dualPreviewPanes}
-      canRevealPdfSource={canRevealPdfSource}
       workspaceIndex={workspaceIndex}
       papers={papers}
       source={activePaper ? activePaperSource : source}
       markdownPreviewSource={activePaper ? activePaperPreviewSource : undefined}
       activeFile={activePaperPath ?? activeFile}
-      secondaryFile={secondaryFile}
-      secondarySource={secondarySource}
-      setSecondarySource={setSecondarySourceLive}
-      focusedPane={focusedPane}
-      onFocusPane={setFocusedPane}
-      dualRatioResetGeneration={dualRatioResetGeneration}
       setSource={activePaper ? setActivePaperSource : setPrimarySource}
       onSave={save}
       onVisualMarkdownFlushChange={registerVisualMarkdownFlush}
       onMarkdownModeViewportCaptureChange={registerMarkdownModeViewportCapture}
-      setSelection={(value) => agentContext.reportSelection(paperFocused ? "paper" : "editor", value)}
+      setSelection={(value) => agentContext.reportSelection(activePaper ? "paper" : "editor", value)}
       onPdfTextSelect={(value) => agentContext.reportSelection("pdf", value)}
       onPaperTextSelect={(value) => agentContext.reportSelection("paper", value)}
       onImportAsset={importClipboardImageFile}
       onContextSurfaceActivate={agentContext.activateSurface}
       onViewMarkdownSource={() => {
         markdownModeViewportCaptureRef.current?.();
-        if (isTwoPane(canvasMode)) openDocumentMode("source");
-        else setCanvasMode("split");
+        setCanvasMode("split");
       }}
       onOpenSlideMutation={applyOpenSlideMutation}
       onOpenSlideContext={setOpenSlideContext}
@@ -4650,9 +3870,7 @@ function App() {
         </Suspense>
       ) : null}
       activePaper={activePaper}
-      paperSide={paperSide}
       activeAsset={activeAsset}
-      secondaryAsset={secondaryAsset}
       canOpenCitation={(key) => Boolean(readablePaperCited(key) || citationUrl(key))}
       onOpenCitation={(key) => {
         const paper = readablePaperCited(key);
@@ -4671,7 +3889,7 @@ function App() {
       onPrepareFigure={prepareLatexFigure}
       onPasteImageFile={handlePasteImageFile}
       nativeFigureDropActive={nativeEditorDropActive}
-      fileDropTargetPane={fileDropTargetPane}
+      fileDropTargetActive={fileDropTargetActive}
       requests={canvasRequests}
       onRequestHandled={settleCanvasRequest}
       onEditorPosition={handleEditorPosition}
@@ -4702,7 +3920,7 @@ function App() {
       projectPaths={projectPaths}
       graphicsRoots={graphicsRoots}
       buildDiagnostics={
-        source === buildPipeline.compiledSources.primary && secondarySource === buildPipeline.compiledSources.secondary
+        source === buildPipeline.compiledSource
           ? build?.diagnostics ?? EMPTY_DIAGNOSTICS
           : EMPTY_DIAGNOSTICS
       }
@@ -4753,9 +3971,6 @@ function App() {
       // Papers live under .research/, which Overleaf deliberately
       // excludes from sync.
       editorEditable={editorEditableForPath(activeFile, activePaper !== null)}
-      secondaryEditorEditable={secondaryFile
-        ? editorEditableForPath(secondaryFile)
-        : false}
       editorKey={activePaper ? `paper:${activePaperPath}` : `local:${activeFile}`}
       trellis={{
         editorHost: trellis.hosts.editor,
@@ -4801,9 +4016,9 @@ function App() {
         canvasToolbar={(
         <CanvasToolbar
           onPaperLookup={() => setPaperLookupRequest((request) => request + 1)}
-          activePath={paperFocused ? activePaper?.title ?? activeTabKey : activeTabKey}
-          activeKind={focusedAsset ? "asset" : paperFocused ? "paper" : "document"}
-          dirty={paperFocused ? activePaperDirty : focusedPane === "secondary" ? secondarySourceDirty : primarySourceDirty}
+          activePath={activePaper ? activePaper.title : activeTabKey}
+          activeKind={activeAsset ? "asset" : activePaper ? "paper" : "document"}
+          dirty={activePaper ? activePaperDirty : primarySourceDirty}
           // The tour points these controls out rather than opening them, so
           // their panels stay shut while it runs.
           onHistory={() => {

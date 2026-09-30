@@ -48,7 +48,7 @@ import {
 } from "../app/window-layout";
 import type {
   WordCount, EditorViewState, FileViewState, AssetPreview, CanvasRequests, EditorPosition, PaperSummary, CanvasMode,
-  EditorPaneId, EditorKeymap,
+  EditorKeymap,
 } from "../app-types";
 import {
   isHarperProseFilePath, isHtmlFilePath, isOpenSlideDeckPath, isPreviewableSourceFilePath, markdownFrontmatterEnd,
@@ -138,19 +138,10 @@ export function DocumentCanvas(props: {
   locale: AppLocale;
   theme: Theme;
   mode: CanvasMode;
-  dualPreviewPanes?: { primary: boolean; secondary: boolean };
-  /** Whether some pane still holds an editor a PDF double-click can jump into. */
-  canRevealPdfSource?: boolean;
   workspaceIndex?: MarkdownWorkspaceIndex | null;
   source: string;
   markdownPreviewSource?: string;
   activeFile: string;
-  secondaryFile: string | null;
-  secondarySource: string;
-  setSecondarySource: (value: string) => void;
-  focusedPane: EditorPaneId;
-  onFocusPane: (pane: EditorPaneId) => void;
-  dualRatioResetGeneration: number;
   setSource: (value: string) => void;
   onSave: () => Promise<boolean>;
   onVisualMarkdownFlushChange?: (flush: (() => boolean) | null) => void;
@@ -167,11 +158,9 @@ export function DocumentCanvas(props: {
   pdfBytes?: ArrayBuffer | null;
   pdfTop?: ReactNode;
   activePaper: PaperSummary | null;
-  paperSide: "left" | "right";
   /** Downloaded paper library backing the visual editor's `@` citation typeahead. */
   papers?: PaperSummary[];
   activeAsset: AssetPreview | null;
-  secondaryAsset: AssetPreview | null;
   citationKeys: string[];
   citations: CitationInfo[];
   references: ReferenceInfo[];
@@ -184,7 +173,7 @@ export function DocumentCanvas(props: {
   onPasteImageFile: (file: File) => boolean | void;
   onImportAsset?: (file: File) => Promise<string | null>;
   nativeFigureDropActive: boolean;
-  fileDropTargetPane: EditorPaneId | null;
+  fileDropTargetActive: boolean;
   requests: CanvasRequests;
   /** Settle the request with this id (ids are unique across every kind). */
   onRequestHandled: (id: string) => void;
@@ -260,12 +249,11 @@ export function DocumentCanvas(props: {
     hibernatedPlaceholder: ReactNode;
   };
   editorEditable: boolean;
-  secondaryEditorEditable: boolean;
   onOpenCitation: (key: string) => void;
   canOpenCitation: (key: string) => boolean;
 }) {
   const {
-    activeFile, secondaryFile, secondarySource, setSecondarySource, focusedPane, onFocusPane, buildDiagnostics,
+    activeFile, buildDiagnostics,
     texlabDiagnostics, editorKey, editorKeymap, editorSpellcheck,
     katexMacros, onFindReferences, onGotoDefinition, onTexlabGoto, onGotoLineRequest,
     onOutlineNavigate, onOutlineOpenChange, onPrepareFigure, onPasteImageFile,
@@ -290,18 +278,11 @@ export function DocumentCanvas(props: {
   const latestRef = useRef(props);
   latestRef.current = props;
   const primaryVisualMarkdownFlushRef = useRef<(() => boolean) | null>(null);
-  const secondaryVisualMarkdownFlushRef = useRef<(() => boolean) | null>(null);
   const registerPrimaryVisualMarkdownFlush = useCallback((flush: (() => boolean) | null) => {
     primaryVisualMarkdownFlushRef.current = flush;
   }, []);
-  const registerSecondaryVisualMarkdownFlush = useCallback((flush: (() => boolean) | null) => {
-    secondaryVisualMarkdownFlushRef.current = flush;
-  }, []);
   const flushPrimaryVisualMarkdown = useCallback(() => primaryVisualMarkdownFlushRef.current?.(), []);
-  const flushVisualMarkdown = useCallback(
-    () => primaryVisualMarkdownFlushRef.current?.() !== false && secondaryVisualMarkdownFlushRef.current?.() !== false,
-    [],
-  );
+  const flushVisualMarkdown = useCallback(() => primaryVisualMarkdownFlushRef.current?.() !== false, []);
   useRegistration(props.onVisualMarkdownFlushChange, flushVisualMarkdown);
   const primarySurface: AgentHostSurface = props.activePaper ? "paper" : "editor";
   const primaryKind = props.activePaper ? null : structuredDocumentKind(activeFile);
@@ -348,7 +329,6 @@ export function DocumentCanvas(props: {
   const editorViewRef = useRef<EditorView | null>(null);
   const primaryViewRef = useRef<EditorView | null>(null);
   const primaryViewPathRef = useRef("");
-  const secondaryViewRef = useRef<EditorView | null>(null);
   // Weak on purpose; deref at the point of use and never keep the result in a
   // render-scope variable. Every closure created while rendering captures this
   // render's scope, and a CodeMirror view keeps its extensions' closures alive
@@ -379,14 +359,13 @@ export function DocumentCanvas(props: {
   const markdownPreviewReconcileFromSourceRef = useRef<(() => void) | null>(null);
   const markdownPreviewOverflowAnchorRef = useRef("");
   const lastInsertionPositionRef = useRef(0);
-  const pendingFigureCursorRef = useRef<{ pane: EditorPaneId; cursor: number } | null>(null);
-  const { splitRef, splitRatio, beginSplitResize, nudgeSplit } =
-    useSplitLayout(props.mode, props.dualRatioResetGeneration, SPLIT_MINIMUMS);
+  const pendingFigureCursorRef = useRef<number | null>(null);
+  const { splitRef, splitRatio, beginSplitResize, nudgeSplit } = useSplitLayout(props.mode, SPLIT_MINIMUMS);
   const splitMinimums = SPLIT_MINIMUMS;
   const [figureDropActive, setFigureDropActive] = useState(false);
   const [cursorOffset, setCursorOffset] = useState(0);
   const [statusPosition, setStatusPosition] = useState({ line: 1, column: 0 });
-  const [figureInsertPending, setFigureInsertPending] = useState<{ paths: string[]; position: number; pane: EditorPaneId } | null>(null);
+  const [figureInsertPending, setFigureInsertPending] = useState<{ paths: string[]; position: number } | null>(null);
   const [commentComposer, setCommentComposer] = useState<CommentDraft | null>(null);
   const commentComposerViewRef = useRef<EditorView | null>(null);
   const commentComposerRef = useLatest(commentComposer);
@@ -397,7 +376,7 @@ export function DocumentCanvas(props: {
   // canvas outlives a project switch, so the identity is tied to its root: the
   // outgoing project's file must not own the incoming project's saved PDF view.
   const [previewIdentity, setPreviewIdentity] = useState({ root: props.projectRoot, path: activeFile });
-  const previewOwner = [activeFile, secondaryFile].find((path) => path && isPreviewableSourceFilePath(path));
+  const previewOwner = isPreviewableSourceFilePath(activeFile) ? activeFile : undefined;
   if (previewIdentity.root !== props.projectRoot || (previewOwner && previewOwner !== previewIdentity.path)) {
     setPreviewIdentity({ root: props.projectRoot, path: previewOwner ?? activeFile });
   }
@@ -419,14 +398,11 @@ export function DocumentCanvas(props: {
   });
   useRegistration(props.onMarkdownModeViewportCaptureChange, captureMarkdownModeViewport);
 
-  const focusedPath = focusedPane === "secondary" && secondaryFile ? secondaryFile : activeFile;
-  const focusedSource = focusedPane === "secondary" && secondaryFile ? secondarySource : editorSource;
   const [selectedText, setSelectedText] = useState("");
-  const [selectionToolbar, setSelectionToolbar] = useState<{ pane: EditorPaneId; position: LatexSelectionToolbarPosition } | null>(null);
+  const [selectionToolbar, setSelectionToolbar] = useState<{ position: LatexSelectionToolbarPosition } | null>(null);
   const commentsForActiveFile = useMemo(() => editorComments.filter((comment) => comment.path === activeFile), [activeFile, editorComments]);
   const commentsForActiveFileRef = useRef(commentsForActiveFile);
   commentsForActiveFileRef.current = commentsForActiveFile;
-  const commentsForSecondaryFile = useMemo(() => editorComments.filter((comment) => comment.path === secondaryFile), [secondaryFile, editorComments]);
 
   // Comments rebased into the preview's own coordinates: it may render a slice
   // of the file, and resolves anchors against the text it was given.
@@ -436,21 +412,18 @@ export function DocumentCanvas(props: {
   );
 
   useEffect(() => {
-    for (const view of [primaryViewRef.current, secondaryViewRef.current]) if (view) refreshLint(view);
+    if (primaryViewRef.current) refreshLint(primaryViewRef.current);
   }, [buildDiagnostics, texlabDiagnostics]);
 
   useEffect(() => {
-    for (const view of [primaryViewRef.current, secondaryViewRef.current]) {
-      if (!view) continue;
-      view.dispatch({ effects: harperDictionaryChanged.of(null) });
-      refreshLint(view);
-    }
+    const view = primaryViewRef.current;
+    if (!view) return;
+    view.dispatch({ effects: harperDictionaryChanged.of(null) });
+    refreshLint(view);
   }, [props.spellingWords]);
 
-  const focusedPaneRef = useRef(focusedPane);
-  focusedPaneRef.current = focusedPane;
   const completionActiveRef = useRef(false);
-  const selectionToolbarOwnerRef = useRef<{ pane: EditorPaneId; path: string; from: number; to: number } | null>(null);
+  const selectionToolbarOwnerRef = useRef<{ path: string; from: number; to: number } | null>(null);
   const dismissSelectionToolbar = useCallback(() => {
     selectionToolbarOwnerRef.current = null;
     setSelectionToolbar(null);
@@ -495,10 +468,8 @@ export function DocumentCanvas(props: {
     const left = clamp(selectionCenter, editorBounds.left + halfWidth + 8, editorBounds.right - halfWidth - 8);
     const selectionTop = Math.min(start.top, end.top);
     const below = selectionTop - editorBounds.top < 52;
-    const pane: EditorPaneId = view === secondaryViewRef.current ? "secondary" : "primary";
-    selectionToolbarOwnerRef.current = { pane, path, from: range.from, to: range.to };
+    selectionToolbarOwnerRef.current = { path, from: range.from, to: range.to };
     setSelectionToolbar({
-      pane,
       position: { left, top: below ? start.bottom + 8 : selectionTop - 8, below, maxWidth: Math.max(0, editorBounds.width - 16) },
     });
   }, [dismissSelectionToolbar]);
@@ -512,9 +483,8 @@ export function DocumentCanvas(props: {
     latestRef.current.onViewState(path, { cursor: head, scrollTop: view.scrollDOM.scrollTop });
   }, []);
   const onPrimaryChange = useCallback((value: string) => latestRef.current.setSource(value), []);
-  /** Publish the focused pane's selection, caret and selection toolbar after an editor update of `path`. */
-  const reportPaneUpdate = useCallback((pane: EditorPaneId, { state, view }: ViewUpdate, path: string | null) => {
-    if (focusedPaneRef.current !== pane) return false;
+  /** Publish the editor's selection, caret and selection toolbar after an update of `path`. */
+  const reportEditorUpdate = useCallback(({ state, view }: ViewUpdate, path: string | null) => {
     const range = state.selection.main;
     lastInsertionPositionRef.current = range.head;
     const nextSelection = range.empty ? "" : state.sliceDoc(range.from, range.to);
@@ -524,7 +494,6 @@ export function DocumentCanvas(props: {
       updateSelectionToolbar(view, path);
       reportEditorPosition(view, path);
     }
-    return true;
   }, [reportEditorPosition, updateSelectionToolbar]);
   const onPrimaryUpdate = useCallback((viewUpdate: ViewUpdate) => {
     // "pending" keeps the last answer. In LaTeX every typed letter queries the
@@ -537,27 +506,26 @@ export function DocumentCanvas(props: {
       completionActiveRef.current = completionActive;
       latestRef.current.onCompletionActiveChange(completionActive);
     }
-    if (!reportPaneUpdate("primary", viewUpdate, latestRef.current.activeFile)) return;
+    reportEditorUpdate(viewUpdate, latestRef.current.activeFile);
     if (viewUpdate.state.selection.main.empty) setCommentComposer(null);
     markdownCursorRevealRef.current?.();
-  }, [reportPaneUpdate]);
+  }, [reportEditorUpdate]);
   useEffect(() => () => {
     if (completionActiveRef.current) latestRef.current.onCompletionActiveChange(false);
   }, []);
-  const onSecondaryChange = useCallback((value: string) => latestRef.current.setSecondarySource(value), []);
 
   useEffect(() => onLayoutChange(
-    [primaryViewRef.current, secondaryViewRef.current].map((view) => view?.dom.closest(".source-editor")),
+    [primaryViewRef.current?.dom.closest(".source-editor")],
     () => {
       const owner = selectionToolbarOwnerRef.current;
-      const view = owner && (owner.pane === "secondary" ? secondaryViewRef.current : primaryViewRef.current);
+      const view = primaryViewRef.current;
       if (owner && view) updateSelectionToolbar(view, owner.path);
     },
-  ), [activeFile, focusedPane, secondaryFile, updateSelectionToolbar]);
+  ), [activeFile, updateSelectionToolbar]);
 
   // Switching files, or to a mode without a source editor, drops the selection toolbar.
   const sourceEditorHidden = props.mode === "pdf" || props.mode === "asset";
-  useEffect(dismissSelectionToolbar, [activeFile, dismissSelectionToolbar, secondaryFile, sourceEditorHidden]);
+  useEffect(dismissSelectionToolbar, [activeFile, dismissSelectionToolbar, sourceEditorHidden]);
 
   useEffect(() => {
     primaryViewRef.current?.dispatch({ effects: setEditorCommentsEffect.of(commentsForActiveFile) });
@@ -568,10 +536,6 @@ export function DocumentCanvas(props: {
     primaryViewRef.current?.dispatch({ effects: setEditorCommentDraftEffect.of(draft) });
   }, [activeFile, commentComposer, editorKey]);
 
-  useEffect(() => {
-    secondaryViewRef.current?.dispatch({ effects: setEditorCommentsEffect.of(commentsForSecondaryFile) });
-  }, [commentsForSecondaryFile, editorKey]);
-
   // Someone else's caret has to repaint when they move it, not when we type next.
   useEffect(() => {
     primaryViewRef.current?.dispatch({ effects: setOverleafCursorsEffect.of(props.overleafPresenceCursors) });
@@ -581,7 +545,7 @@ export function DocumentCanvas(props: {
     if (!commentFocusRequest) return;
     const comment = editorComments.find((item) => item.id === commentFocusRequest.id);
     if (!comment) return;
-    const view = comment.path === activeFile ? primaryViewRef.current : comment.path === secondaryFile ? secondaryViewRef.current : null;
+    const view = comment.path === activeFile ? primaryViewRef.current : null;
     if (!view) return;
     const range = resolveCommentAnchor(view.state.doc.toString(), comment);
     if (range) {
@@ -589,21 +553,19 @@ export function DocumentCanvas(props: {
       view.focus();
     }
     onCommentFocusHandled(commentFocusRequest.nonce);
-  }, [activeFile, secondaryFile, commentFocusRequest, editorComments, onCommentFocusHandled]);
+  }, [activeFile, commentFocusRequest, editorComments, onCommentFocusHandled]);
 
   const applySelectionAction = useCallback((action: LatexSelectionAction, value?: string) => {
     const owner = selectionToolbarOwnerRef.current;
     if (!owner) return;
-    const view = owner.pane === "secondary" ? secondaryViewRef.current : primaryViewRef.current;
-    const ownerFile = owner.pane === "secondary" ? latestRef.current.secondaryFile : latestRef.current.activeFile;
-    if (!view || owner.path !== ownerFile) return;
+    const view = primaryViewRef.current;
+    if (!view || owner.path !== latestRef.current.activeFile) return;
     const range = view.state.selection.main;
     if (range.empty || range.from !== owner.from || range.to !== owner.to) {
       dismissSelectionToolbar();
       return;
     }
     if (action === "comment") {
-      if (owner.pane !== "primary") return;
       const quote = view.state.sliceDoc(range.from, range.to);
       if (activeFile && quote.trim()) {
         commentComposerViewRef.current = view;
@@ -616,13 +578,13 @@ export function DocumentCanvas(props: {
       dismissSelectionToolbar();
       return;
     }
-    if (owner.pane === "secondary" ? !props.secondaryEditorEditable : !props.editorEditable) return;
+    if (!props.editorEditable) return;
     const wrap = SELECTION_WRAPS[action](value);
     if (!wrap) return;
     const edit = wrapRange(view.state.doc.toString(), range.from, range.to, ...wrap);
     editAndFocus(view, { changes: edit, selection: { anchor: edit.cursorFrom, head: edit.cursorTo } });
     updateSelectionToolbar(view, owner.path);
-  }, [activeFile, dismissSelectionToolbar, props.editorEditable, props.secondaryEditorEditable, updateSelectionToolbar]);
+  }, [activeFile, dismissSelectionToolbar, props.editorEditable, updateSelectionToolbar]);
 
   /** Create a comment on `[from, to)` of `path`; false when that range holds nothing to anchor it. */
   const createComment = (path: string, source: string, from: number, to: number, body: string) => {
@@ -649,13 +611,13 @@ export function DocumentCanvas(props: {
     if (createComment(activeFile, editorSource, range.from, range.to, commentComposer.body)) closeCommentComposer();
   };
   const breadcrumb = useMemo(
-    () => focusedPath.endsWith(".tex") ? sectionBreadcrumbNodes(focusedSource, statusPosition.line, focusedPath) : [],
-    [focusedPath, focusedSource, statusPosition.line],
+    () => activeFile.endsWith(".tex") ? sectionBreadcrumbNodes(editorSource, statusPosition.line, activeFile) : [],
+    [activeFile, editorSource, statusPosition.line],
   );
   const [primaryKeymapExtensions, primaryVimMode] = useOptionalKeymapExtensions(editorKeymap);
   const primaryTextLanguageExtensions = useTextLanguageExtensions(isLatexSourcePath(activeFile) ? "" : activeFile);
   /**
-   * Everything either pane's editor of `path` runs, in precedence order; `extra`
+   * Everything the source editor of `path` runs, in precedence order; `extra`
    * slots in after the language. Every getter here runs in CodeMirror handlers,
    * transactions or tooltips, never during React render.
    */
@@ -702,7 +664,7 @@ export function DocumentCanvas(props: {
       { delay: 200 },
     )] : []),
   ];
-  // Both panes capture volatile inputs (macros, citations, diagnostics, App
+  // The extensions capture volatile inputs (macros, citations, diagnostics, App
   // lambdas) at reconfigure time or read them through refs. CodeMirrorHost
   // answers a new extensions identity with a full reconfigure, so listing them
   // would tear down language, linters and presence carets on every keystroke.
@@ -733,21 +695,16 @@ export function DocumentCanvas(props: {
     const anchor = from + Math.min(cursorOffset, insert.length);
     editAndFocus(view, { changes: { from, insert }, selection: { anchor } });
   }, []);
-  const insertFigures = useCallback(async (
-    paths: string[],
-    coordinates?: { x: number; y: number },
-    pane: EditorPaneId = focusedPane,
-  ) => {
-    const view = pane === "secondary" ? secondaryViewRef.current : primaryViewRef.current;
+  const insertFigures = useCallback(async (paths: string[], coordinates?: { x: number; y: number }) => {
+    const view = primaryViewRef.current;
     if (!view || !paths.length) return;
-    const targetPath = pane === "secondary" && secondaryFile ? secondaryFile : activeFile;
+    const targetPath = activeFile;
     const cursor = (coordinates && coordinates.x >= 0 && coordinates.y >= 0 ? positionAtPoint(view, coordinates) : null)
       ?? view.state.selection.main.head;
     const position = view.state.doc.lineAt(clamp(cursor, 0, view.state.doc.length)).from;
     if (targetPath.toLocaleLowerCase().endsWith(".md")) {
       const edit = markdownAssetInsertion(view.state.doc.toString(), position, paths, targetPath);
       editorViewRef.current = view;
-      onFocusPane(pane);
       editAndFocus(view, { changes: { from: position, insert: edit.text }, selection: { anchor: position + edit.cursorOffset } });
       return;
     }
@@ -758,39 +715,33 @@ export function DocumentCanvas(props: {
       if (latexPath) prepared.push(latexPath);
     }
     if (!prepared.length) return;
-    setFigureInsertPending({ paths: prepared, position, pane });
-  }, [activeFile, focusedPane, onFocusPane, onPrepareFigure, secondaryFile]);
+    setFigureInsertPending({ paths: prepared, position });
+  }, [activeFile, onPrepareFigure]);
   const confirmFigureInsert = useCallback((options: FigureInsertOptions) => {
     const pending = figureInsertPending;
     if (!pending) return;
-    const source = pending.pane === "secondary" ? secondarySource : editorSource;
-    const edit = latexFigureInsertion(source, pending.position, pending.paths, options);
-    pendingFigureCursorRef.current = { pane: pending.pane, cursor: pending.position + edit.cursorOffset };
-    const nextSource = `${source.slice(0, pending.position)}${edit.text}${source.slice(pending.position)}`;
-    (pending.pane === "secondary" ? setSecondarySource : setSource)(nextSource);
+    const edit = latexFigureInsertion(editorSource, pending.position, pending.paths, options);
+    pendingFigureCursorRef.current = pending.position + edit.cursorOffset;
+    setSource(`${editorSource.slice(0, pending.position)}${edit.text}${editorSource.slice(pending.position)}`);
     setFigureInsertPending(null);
-  }, [editorSource, figureInsertPending, secondarySource, setSecondarySource, setSource]);
+  }, [editorSource, figureInsertPending, setSource]);
   useEffect(() => {
     const pendingCursor = pendingFigureCursorRef.current;
-    if (!pendingCursor) return;
-    const view = pendingCursor.pane === "secondary" ? secondaryViewRef.current : primaryViewRef.current;
-    const currentSource = pendingCursor.pane === "secondary" ? secondarySource : editorSource;
-    if (!view || view.state.doc.toString() !== currentSource) return;
+    if (pendingCursor === null) return;
+    const view = primaryViewRef.current;
+    if (!view || view.state.doc.toString() !== editorSource) return;
     pendingFigureCursorRef.current = null;
     editorViewRef.current = view;
-    onFocusPane(pendingCursor.pane);
-    editAndFocus(view, { selection: { anchor: pendingCursor.cursor } });
-  }, [editorSource, onFocusPane, secondarySource]);
+    editAndFocus(view, { selection: { anchor: pendingCursor } });
+  }, [editorSource]);
   useEffect(() => {
     const request = editorNavigation;
     if (!request) return;
     const editorVisible = props.mode !== "pdf" && props.mode !== "asset";
-    const inSecondary = request.path === secondaryFile;
     // A ref can be assigned before CodeMirror's DOM reports connected; treat the
     // view as ready, since the later attachment does not rerun this effect.
     const targetView = () => !editorVisible ? null
-      : inSecondary ? secondaryViewRef.current
-        : request.path === activeFile ? primaryViewRef.current ?? editorViewRef.current : null;
+      : request.path === activeFile ? primaryViewRef.current ?? editorViewRef.current : null;
     const view = targetView();
     const preview = request.path === activeFile && markdownDocument ? markdownPreviewViewport?.deref() ?? null : null;
     if (!view && !preview) return;
@@ -803,8 +754,7 @@ export function DocumentCanvas(props: {
     const [scheduleNavigation, cancelNavigation] = frameCoalescer(() => {
       const currentView = targetView();
       if (currentView) {
-        const currentSource = inSecondary ? secondarySource : editorSource;
-        if (currentView.state.doc.toString() !== currentSource && performance.now() < staleDocumentDeadline) {
+        if (currentView.state.doc.toString() !== editorSource && performance.now() < staleDocumentDeadline) {
           scheduleNavigation();
           return;
         }
@@ -813,7 +763,6 @@ export function DocumentCanvas(props: {
         // not pinned to the top (jumping down) or bottom (jumping up).
         currentView.dispatch({ selection: { anchor: line.from }, effects: EditorView.scrollIntoView(line.from, { y: "center" }) });
         editorViewRef.current = currentView;
-        onFocusPane(inSecondary ? "secondary" : "primary");
         currentView.focus();
       } else if (preview) {
         const targetLine = Math.max(1, request.line - markdownPreviewLineOffset);
@@ -826,7 +775,6 @@ export function DocumentCanvas(props: {
         }, null) ?? anchors[0];
         const targetRect = target.getBoundingClientRect();
         preview.scrollTop += targetRect.top - preview.getBoundingClientRect().top - (preview.clientHeight - targetRect.height) / 2;
-        onFocusPane("primary");
       }
       observer?.disconnect();
       onRequestHandled(request.id);
@@ -842,12 +790,12 @@ export function DocumentCanvas(props: {
     };
   }, [
     activeFile, editorNavigation, editorSource, markdownDocument, markdownPreviewLineOffset, markdownPreviewViewport,
-    onRequestHandled, onFocusPane, props.mode, secondaryFile, secondarySource,
+    onRequestHandled, props.mode,
   ]);
   useEffect(() => {
     const request = figureDropRequest;
     if (!request) return;
-    void insertFigures(request.paths, { x: request.clientX, y: request.clientY }, request.pane).finally(() => onRequestHandled(request.id));
+    void insertFigures(request.paths, { x: request.clientX, y: request.clientY }).finally(() => onRequestHandled(request.id));
   }, [figureDropRequest, insertFigures, onRequestHandled]);
   // One-shot LaTeX edits at the insertion target's caret, each settled once applied.
   useEffect(() => {
@@ -1050,23 +998,19 @@ export function DocumentCanvas(props: {
     spreadsheet: ["spreadsheet-editor-root", t`Preparing spreadsheet editor`],
     presentation: ["open-slide-status", t`Starting Open Slide`],
   };
-  /**
-   * A board, spreadsheet or Open Slide deck in `pane`. `active` is left unset
-   * when the document owns the whole canvas.
-   */
-  const structuredEditor = (kind: StructuredDocumentKind, pane: EditorPaneId, active?: boolean) => {
-    const primary = pane === "primary";
-    const path = primary ? activeFile : secondaryFile!;
-    const source = primary ? props.source : secondarySource;
+  /** The board, spreadsheet or Open Slide deck that owns the canvas. */
+  const structuredEditor = (kind: StructuredDocumentKind) => {
+    const path = activeFile;
+    const source = props.source;
     const [fallbackClass, fallbackLabel] = structuredFallbacks[kind];
     const editor = {
-      path, source, active,
-      onChange: primary ? onPrimaryChange : onSecondaryChange,
-      onFlushPendingChange: primary ? registerPrimaryVisualMarkdownFlush : registerSecondaryVisualMarkdownFlush,
+      path, source,
+      onChange: onPrimaryChange,
+      onFlushPendingChange: registerPrimaryVisualMarkdownFlush,
     };
     // Remount per file so each board gets a fresh store; local boards serialize
     // back through the source buffer before a document switch.
-    const tour = kind === "presentation" && active === undefined ? "open-slide-workspace" : undefined;
+    const tour = kind === "presentation" ? "open-slide-workspace" : undefined;
     return (
       <Suspense fallback={<div className={fallbackClass} aria-busy="true" aria-label={fallbackLabel} data-tour={tour} />}>
         {kind === "board" ? (
@@ -1081,10 +1025,9 @@ export function DocumentCanvas(props: {
             projectRoot={props.projectRoot}
             path={path}
             source={source}
-            editable={primary ? props.editorEditable : props.secondaryEditorEditable}
+            editable={props.editorEditable}
             locale={props.locale}
             theme={props.theme}
-            active={active}
             initialViewState={props.getFileViewState?.(path)?.openSlide}
             onViewState={(openSlide) => props.onFileViewState?.(path, { openSlide })}
             onMutation={props.onOpenSlideMutation}
@@ -1104,19 +1047,10 @@ export function DocumentCanvas(props: {
       if (!event.currentTarget.contains(event.relatedTarget)) props.onEditorLeave();
     },
   };
-  /**
-   * Focus handler for `pane`: the agent surface it offers, whether it takes the
-   * selection toolbar (dropping one the other pane's selection owns), and
-   * whether its source view becomes the insertion target. The pane ref updates
-   * at once, ahead of the next render.
-   */
-  const focusPane = (pane: EditorPaneId, surface: AgentHostSurface | null, { claim = false, view = false } = {}) => {
-    if (surface) props.onContextSurfaceActivate(surface);
-    if (claim && selectionToolbarOwnerRef.current?.pane !== pane) dismissSelectionToolbar();
-    focusedPaneRef.current = pane;
-    onFocusPane(pane);
-    const paneView = pane === "secondary" ? secondaryViewRef.current : primaryViewRef.current;
-    if (view && paneView) editorViewRef.current = paneView;
+  /** Focusing the editor offers its agent surface and makes its source view the insertion target. */
+  const focusEditor = () => {
+    props.onContextSurfaceActivate(primarySurface);
+    if (primaryViewRef.current) editorViewRef.current = primaryViewRef.current;
   };
   const resizer = (label: string, onPointerDown: PointerEventHandler<HTMLDivElement>, attributes?: HTMLAttributes<HTMLDivElement>) => (
     <div
@@ -1129,7 +1063,7 @@ export function DocumentCanvas(props: {
       {...attributes}
     />
   );
-  /** Visual Markdown editor props that are the same in either pane. */
+  /** Props every visual Markdown editor shares. */
   const visualEditorProps = {
     onOpenProjectPath: props.onOpenMarkdownPath,
     workspaceIndex: props.workspaceIndex,
@@ -1252,10 +1186,10 @@ export function DocumentCanvas(props: {
         <div
           className={`source-editor ${
             figureDropActive || props.nativeFigureDropActive ? "figure-drop-active" : ""
-          } ${props.fileDropTargetPane === "primary" ? "file-drop-active" : ""}`}
+          } ${props.fileDropTargetActive ? "file-drop-active" : ""}`}
           data-editor-pane="primary"
           onPointerDownCapture={activatePrimarySurface}
-          onFocusCapture={() => focusPane("primary", primarySurface, { claim: true, view: true })}
+          onFocusCapture={focusEditor}
           {...leaveHandlers}
           onDragEnterCapture={(event) => {
             if (carriesFigure(event)) setFigureDropActive(true);
@@ -1275,7 +1209,7 @@ export function DocumentCanvas(props: {
             event.preventDefault();
             event.stopPropagation();
             setFigureDropActive(false);
-            void insertFigures([path], { x: event.clientX, y: event.clientY }, "primary");
+            void insertFigures([path], { x: event.clientX, y: event.clientY });
           }}
         >
           <CodeMirror
@@ -1288,7 +1222,7 @@ export function DocumentCanvas(props: {
               primaryViewRef.current = view;
               primaryViewPathRef.current = activeFile;
               setPrimaryScrollbarView(new WeakRef(view));
-              if (focusedPaneRef.current === "primary") editorViewRef.current = view;
+              editorViewRef.current = view;
               lastInsertionPositionRef.current = view.state.selection.main.head;
               reportEditorPosition(view, activeFile);
             }}
@@ -1308,8 +1242,8 @@ export function DocumentCanvas(props: {
             />
           )}
         </div>
-        {activeFile.endsWith(".tex") && focusedPane === "primary" && (
-          <MathPreview source={focusedSource} cursor={cursorOffset} macros={katexMacros} />
+        {activeFile.endsWith(".tex") && (
+          <MathPreview source={editorSource} cursor={cursorOffset} macros={katexMacros} />
         )}
         <EditorStatusBar
           position={statusPosition}
@@ -1317,7 +1251,7 @@ export function DocumentCanvas(props: {
           keymap={editorKeymap}
           vimMode={primaryVimMode}
           breadcrumb={breadcrumb}
-          breadcrumbPath={focusedPath}
+          breadcrumbPath={activeFile}
           onNavigate={onOutlineNavigate}
           hasDiagnostics={buildDiagnostics.length > 0}
           comments={commentsForActiveFile}
@@ -1326,7 +1260,7 @@ export function DocumentCanvas(props: {
           onOpenTodos={props.onOpenTodos}
           projectWordCount={props.projectWordCount}
           selectedText={selectedText}
-          source={focusedSource}
+          source={editorSource}
         />
       </div>
       <TableGeneratorDialog open={tableGeneratorOpen} onClose={() => onTableGeneratorOpenChange(false)} onInsert={insertTextAtCursor} />
@@ -1339,7 +1273,7 @@ export function DocumentCanvas(props: {
       {selectionToolbar && selectedText.trim() && !commentComposer && (
         <LatexSelectionToolbar
           position={selectionToolbar.position}
-          canComment={selectionToolbar.pane === "primary"}
+          canComment
           commentOnly={activeFile.toLocaleLowerCase().endsWith(".md") || !props.editorEditable}
           onAction={applySelectionAction}
           onDismiss={dismissSelectionToolbar}
@@ -1353,7 +1287,6 @@ export function DocumentCanvas(props: {
       // Scrolling the PDF need not blur CodeMirror: end completion explicitly, or
       // its active-menu guard can suspend autosave. Pointer leave keeps the menu.
       if (primaryViewRef.current) closeCompletion(primaryViewRef.current);
-      if (secondaryViewRef.current) closeCompletion(secondaryViewRef.current);
       props.onEditorLeave();
     };
     const activatePdf = () => {
@@ -1382,10 +1315,7 @@ export function DocumentCanvas(props: {
             canForwardSync={props.canForwardSync}
             locatingPdf={props.locatingPdf}
             onForwardSync={props.onForwardSync}
-            // Reverse-jump to source needs an editor to land in: PDF-only view and
-            // a dual layout of previews (or an asset) have none, so those clicks
-            // stay inert. Otherwise App picks the pane, since it owns that state.
-            // Under Trellis the jump always has a file panel to land in.
+            // Under Trellis a reverse jump always has a file panel to land in.
             onSource={props.onPdfSource}
             onTextSelect={props.onPdfTextSelect}
             onNumPages={props.onPdfPageCount}
@@ -1415,7 +1345,7 @@ export function DocumentCanvas(props: {
   const { editorHost, pdfHost, editorHibernated, hibernatedPlaceholder } = props.trellis;
   const readable = Boolean(props.activePaper) || markdownDocument || htmlDocument;
   const fileContent = props.activeAsset ? assetPreview(props.activeAsset)
-    : primaryKind ? (editorHibernated ? hibernatedPlaceholder : structuredEditor(primaryKind, "primary"))
+    : primaryKind ? (editorHibernated ? hibernatedPlaceholder : structuredEditor(primaryKind))
       : paperPdf.pdfView ? paperPreview
         : !readable || props.mode === "source" ? editor
           : props.mode === "pdf" ? preview

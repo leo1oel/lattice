@@ -81,7 +81,7 @@ export interface AgentHostContextSnapshot {
   editorComments?: AgentCommentsCollection;
   presentationAuthoring: typeof PRESENTATION_AUTHORING_CONTEXT;
   activeSurface: AgentHostSurface;
-  editor?: ImageSelectionContext & { path: string; line: number; column: number; secondaryPath?: string };
+  editor?: ImageSelectionContext & { path: string; line: number; column: number };
   presentation?: AgentPresentationContext;
   pdf?: SelectionContext & { page: number; pageCount: number | null };
   paper?: ImageSelectionContext & {
@@ -106,7 +106,6 @@ function boundedSelection(value: string): SelectionContext {
 export function buildAgentHostContext(input: {
   workspaceRoot: string;
   activeFile: string;
-  secondaryFile: string | null;
   editorPosition: EditorPosition | null;
   activePaper: PaperSummary | null;
   canvasMode: CanvasMode;
@@ -158,7 +157,6 @@ export function buildAgentHostContext(input: {
         path: input.editorPosition?.path || input.activeFile,
         line: Math.max(1, Math.floor(input.editorPosition?.line ?? 1)),
         column: Math.max(0, Math.floor(input.editorPosition?.column ?? 0)),
-        ...(input.secondaryFile ? { secondaryPath: input.secondaryFile } : {}),
         ...selected("editor"),
         ...selectedImage("editor"),
       }
@@ -172,7 +170,7 @@ export function buildAgentHostContext(input: {
   const activeSurface: AgentHostSurface =
     input.activeSurface === "pdf" ? "pdf" : "editor";
   const presentation = input.presentation
-    && [input.activeFile, input.secondaryFile].includes(input.presentation.pagePath)
+    && input.presentation.pagePath === input.activeFile
     ? input.presentation
     : null;
   return {

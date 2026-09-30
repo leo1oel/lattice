@@ -261,15 +261,14 @@ describe("editor file drops", () => {
     ]);
   });
 
-  // An empty secondary editor is a file drop target too.
-  it.each(["source-editor", "dual-empty"])("identifies the editor pane under a native drop position (%s)", (className) => {
+  it("identifies the source editor under a native drop position", () => {
     const editor = document.createElement("div");
-    editor.className = className;
-    editor.dataset.editorPane = "secondary";
+    editor.className = "source-editor";
+    editor.dataset.editorPane = "primary";
     document.body.append(editor);
     stubHit(document, () => editor);
 
-    expect(dropEditorAt({ x: 24, y: 40 })).toEqual({ x: 24, y: 40, pane: "secondary" });
+    expect(dropEditorAt({ x: 24, y: 40 })).toEqual({ x: 24, y: 40 });
   });
 
   it("identifies the document canvas under a native drop position", () => {
