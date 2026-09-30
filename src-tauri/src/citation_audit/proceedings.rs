@@ -94,10 +94,8 @@ pub(super) fn official_client(user_agent: &str, stop_off_host: bool) -> Result<C
             attempt.error("Proceedings redirect left the official host or exceeded its limit")
         }
     });
-    Client::builder()
-        .timeout(Duration::from_secs(12))
+    crate::http::blocking_as(user_agent, Duration::from_secs(12))
         .redirect(policy)
-        .user_agent(user_agent)
         .build()
         .map_err(|e| e.to_string())
 }

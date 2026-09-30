@@ -8645,12 +8645,12 @@ the licensed code:
 
 The normal and build dependency closure of `src-tauri/Cargo.toml`, from `cargo metadata`. `dev-dependencies` are excluded — they compile for `cargo test` and are never linked into a shipped binary. Target platforms are *not* filtered, so this covers the macOS, Linux and Windows builds alike.
 
-**923 packages.**
+**922 packages.**
 
 | Declared license | Packages |
 | --- | --- |
 | `MIT OR Apache-2.0` | 444 |
-| `MIT` | 221 |
+| `MIT` | 220 |
 | `Apache-2.0 OR MIT` | 64 |
 | `MIT/Apache-2.0` | 43 |
 | `Zlib OR Apache-2.0 OR MIT` | 20 |
@@ -8690,7 +8690,7 @@ The normal and build dependency closure of `src-tauri/Cargo.toml`, from `cargo m
 | `MIT AND BSD-3-Clause` | 1 |
 | `MIT OR Zlib OR Apache-2.0` | 1 |
 
-### License texts (95 distinct texts across 923 packages)
+### License texts (95 distinct texts across 922 packages)
 
 #### 1. MIT OR Apache-2.0 (+17 other declarations) — 453 package(s), from `LICENSE-MIT`
 
@@ -9160,11 +9160,11 @@ Apache License
    limitations under the License.
 ```
 
-#### 3. MIT (+6 other declarations) — 145 package(s), from `LICENSE`
+#### 3. MIT (+6 other declarations) — 144 package(s), from `LICENSE`
 
 <details><summary>Packages sharing this text</summary>
 
-`anydoc@0.1.9`, `arbitrary@1.4.2`, `arboard@3.6.1`, `ashpd@0.11.1`, `auto-launch@0.5.0`, `axum-core@0.5.6`, `blanket@0.4.0`, `bs58@0.5.1`, `burn-autodiff@0.19.1`, `burn-candle@0.19.1`, `burn-common@0.19.1`, `burn-core@0.19.1`, `burn-cubecl@0.19.1`, `burn-derive@0.19.1`, `burn-fusion@0.19.1`, `burn-ndarray@0.19.1`, `burn-tensor@0.19.1`, `burn-wgpu@0.19.1`, `burn@0.19.1`, `cached_proc_macro_types@0.1.1`, `cached_proc_macro@0.27.0`, `cached@0.59.0`, `caseless@0.2.2`, `cfb@0.14.0`, `cfb@0.7.3`, `cfg_aliases@0.2.1`, `convert_case@0.10.0`, `convert_case@0.8.0`, `crc32fast@1.5.0`, `cubecl-common@0.8.1`, `cubecl-core@0.8.1`, `cubecl-cpu@0.8.1`, `cubecl-cuda@0.8.1`, `cubecl-hip@0.8.1`, `cubecl-runtime@0.8.1`, `cubecl-wgpu@0.8.1`, `cubecl@0.8.1`, `darling_core@0.20.11`, `darling_core@0.21.3`, `darling_core@0.23.0`, `darling_macro@0.20.11`, `darling_macro@0.21.3`, `darling_macro@0.23.0`, `darling@0.20.11`, `darling@0.21.3`, `darling@0.23.0`, `derive_arbitrary@1.4.2`, `diff@0.1.13`, `dyn-stack-macros@0.1.3`, `dyn-stack@0.13.2`, `ecb@0.1.2`, `embed_plist@1.2.2`, `fdeflate@0.3.7`, `field-offset@0.3.6`, `float4@0.1.0`, `float8@0.4.2`, `float8@0.6.1`, `gemm-c32@0.19.0`, `gemm-c64@0.19.0`, `gemm-common@0.19.0`, `gemm-f16@0.19.0`, `gemm-f32@0.19.0`, `gemm-f64@0.19.0`, `gemm@0.19.0`, `half@2.7.1`, `html-escape@0.2.15`, `ico@0.5.0`, `ident_case@1.0.1`, `image@0.25.10`, `infer@0.19.0`, `is-docker@0.2.0`, `is-wsl@0.4.0`, `json-patch@3.0.1`, `jsonptr@0.6.3`, `libappindicator@0.9.0`, `libredox@0.1.18`, `lopdf@0.42.0`, `lru@0.18.2`, `macerator@0.2.10`, `matchit@0.8.4`, `miniz_oxide@0.8.9`, `moddef@0.3.0`, `muda@0.19.3`, `objc@0.2.7`, `pdf-inspector@1.17.0`, `precomputed-hash@0.1.1`, `proc-macro-error-attr@1.0.4`, `proc-macro-error@1.0.4`, `pulp@0.22.3`, `range-alloc@0.1.5`, `raw-window-handle@0.6.2`, `reborrow@0.5.5`, `redox_syscall@0.5.18`, `rfd@0.16.0`, `rmp-serde@1.3.1`, `rmp@0.8.15`, `rustls-platform-verifier@0.7.0`, `schemars_derive@0.8.22`, `schemars@0.8.22`, `schemars@0.9.0`, `schemars@1.2.1`, `serialize-to-javascript-impl@0.1.2`, `serialize-to-javascript@0.1.2`, `simd-adler32@0.3.10`, `simdutf8@0.1.5`, `sqlite-wasm-rs@0.5.5`, `static_assertions@1.1.0`, `strum_macros@0.28.0`, `strum@0.28.0`, `tauri-build@2.6.3`, `tauri-codegen@2.6.3`, `tauri-macros@2.6.3`, `tauri-plugin-autostart@2.5.1`, `tauri-plugin-clipboard-manager@2.3.2`, `tauri-plugin-dialog@2.7.2`, `tauri-plugin-fs@2.5.1`, `tauri-plugin-log@2.9.0`, `tauri-plugin-opener@2.5.4`, `tauri-plugin-process@2.3.1`, `tauri-plugin-updater@2.10.1`, `tauri-plugin-window-state@2.4.1`, `tauri-runtime-wry@2.11.4`, `tauri-runtime@2.11.3`, `tauri-utils@2.9.3`, `tauri@2.11.5`, `text_placeholder@0.5.1`, `tiff@0.11.3`, `tinyvec_macros@0.1.1`, `tokio-macros@2.7.2`, `tokio-util@0.7.18`, `tokio@1.53.1`, `tray-icon@0.24.1`, `tree_magic_mini@3.2.2`, `typed-arena@2.0.2`, `unicode-blocks@0.1.10`, `unicode-script@0.5.8`, `unty@0.0.4`, `urlpattern@0.3.0`, `variadics_please@1.1.0`, `web-time@1.1.0`, `wgpu-hal@26.0.6`, `window-vibrancy@0.6.0`, `wry@0.55.1`, `zune-core@0.5.1`, `zune-jpeg@0.5.15`
+`anydoc@0.1.9`, `arbitrary@1.4.2`, `arboard@3.6.1`, `ashpd@0.11.1`, `auto-launch@0.5.0`, `axum-core@0.5.6`, `blanket@0.4.0`, `bs58@0.5.1`, `burn-autodiff@0.19.1`, `burn-candle@0.19.1`, `burn-common@0.19.1`, `burn-core@0.19.1`, `burn-cubecl@0.19.1`, `burn-derive@0.19.1`, `burn-fusion@0.19.1`, `burn-ndarray@0.19.1`, `burn-tensor@0.19.1`, `burn-wgpu@0.19.1`, `burn@0.19.1`, `cached_proc_macro_types@0.1.1`, `cached_proc_macro@0.27.0`, `cached@0.59.0`, `caseless@0.2.2`, `cfb@0.14.0`, `cfb@0.7.3`, `cfg_aliases@0.2.1`, `convert_case@0.10.0`, `convert_case@0.8.0`, `crc32fast@1.5.0`, `cubecl-common@0.8.1`, `cubecl-core@0.8.1`, `cubecl-cpu@0.8.1`, `cubecl-cuda@0.8.1`, `cubecl-hip@0.8.1`, `cubecl-runtime@0.8.1`, `cubecl-wgpu@0.8.1`, `cubecl@0.8.1`, `darling_core@0.20.11`, `darling_core@0.21.3`, `darling_core@0.23.0`, `darling_macro@0.20.11`, `darling_macro@0.21.3`, `darling_macro@0.23.0`, `darling@0.20.11`, `darling@0.21.3`, `darling@0.23.0`, `derive_arbitrary@1.4.2`, `diff@0.1.13`, `dyn-stack-macros@0.1.3`, `dyn-stack@0.13.2`, `ecb@0.1.2`, `embed_plist@1.2.2`, `fdeflate@0.3.7`, `field-offset@0.3.6`, `float4@0.1.0`, `float8@0.4.2`, `float8@0.6.1`, `gemm-c32@0.19.0`, `gemm-c64@0.19.0`, `gemm-common@0.19.0`, `gemm-f16@0.19.0`, `gemm-f32@0.19.0`, `gemm-f64@0.19.0`, `gemm@0.19.0`, `half@2.7.1`, `ico@0.5.0`, `ident_case@1.0.1`, `image@0.25.10`, `infer@0.19.0`, `is-docker@0.2.0`, `is-wsl@0.4.0`, `json-patch@3.0.1`, `jsonptr@0.6.3`, `libappindicator@0.9.0`, `libredox@0.1.18`, `lopdf@0.42.0`, `lru@0.18.2`, `macerator@0.2.10`, `matchit@0.8.4`, `miniz_oxide@0.8.9`, `moddef@0.3.0`, `muda@0.19.3`, `objc@0.2.7`, `pdf-inspector@1.17.0`, `precomputed-hash@0.1.1`, `proc-macro-error-attr@1.0.4`, `proc-macro-error@1.0.4`, `pulp@0.22.3`, `range-alloc@0.1.5`, `raw-window-handle@0.6.2`, `reborrow@0.5.5`, `redox_syscall@0.5.18`, `rfd@0.16.0`, `rmp-serde@1.3.1`, `rmp@0.8.15`, `rustls-platform-verifier@0.7.0`, `schemars_derive@0.8.22`, `schemars@0.8.22`, `schemars@0.9.0`, `schemars@1.2.1`, `serialize-to-javascript-impl@0.1.2`, `serialize-to-javascript@0.1.2`, `simd-adler32@0.3.10`, `simdutf8@0.1.5`, `sqlite-wasm-rs@0.5.5`, `static_assertions@1.1.0`, `strum_macros@0.28.0`, `strum@0.28.0`, `tauri-build@2.6.3`, `tauri-codegen@2.6.3`, `tauri-macros@2.6.3`, `tauri-plugin-autostart@2.5.1`, `tauri-plugin-clipboard-manager@2.3.2`, `tauri-plugin-dialog@2.7.2`, `tauri-plugin-fs@2.5.1`, `tauri-plugin-log@2.9.0`, `tauri-plugin-opener@2.5.4`, `tauri-plugin-process@2.3.1`, `tauri-plugin-updater@2.10.1`, `tauri-plugin-window-state@2.4.1`, `tauri-runtime-wry@2.11.4`, `tauri-runtime@2.11.3`, `tauri-utils@2.9.3`, `tauri@2.11.5`, `text_placeholder@0.5.1`, `tiff@0.11.3`, `tinyvec_macros@0.1.1`, `tokio-macros@2.7.2`, `tokio-util@0.7.18`, `tokio@1.53.1`, `tray-icon@0.24.1`, `tree_magic_mini@3.2.2`, `typed-arena@2.0.2`, `unicode-blocks@0.1.10`, `unicode-script@0.5.8`, `unty@0.0.4`, `urlpattern@0.3.0`, `variadics_please@1.1.0`, `web-time@1.1.0`, `wgpu-hal@26.0.6`, `window-vibrancy@0.6.0`, `wry@0.55.1`, `zune-core@0.5.1`, `zune-jpeg@0.5.15`
 
 </details>
 

@@ -284,7 +284,7 @@ fn extract_metadata(html: &str) -> Extracted {
                 })
             {
                 out.favicon =
-                    attrs.get("href").map(|v| html_escape::decode_html_entities(v).into_owned());
+                    attrs.get("href").map(|v| crate::util::decode_html_entities(v).into_owned());
             }
         }
     }
@@ -297,7 +297,7 @@ fn extract_metadata(html: &str) -> Extracted {
 /// zero-width and bidi-override characters dropped and controls blanked.
 fn sanitized(value: &str, max: usize) -> Option<String> {
     let invisible = |c: &char| matches!(c, '\u{200b}'..='\u{200f}' | '\u{202a}'..='\u{202e}' | '\u{2060}'..='\u{206f}' | '\u{feff}');
-    let cleaned: String = html_escape::decode_html_entities(value)
+    let cleaned: String = crate::util::decode_html_entities(value)
         .chars()
         .filter(|c| !invisible(c))
         .map(|c| if c.is_control() { ' ' } else { c })

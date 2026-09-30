@@ -135,7 +135,7 @@ fn supplied_web_bibtex(html: &str, url: &str) -> Option<String> {
     let title = Regex::new(r"(?is)<title\b[^>]*>(.*?)</title\s*>")
         .unwrap()
         .captures(&html)
-        .map(|c| html_escape::decode_html_entities(&tags.replace_all(&c[1], "")).into_owned())
+        .map(|c| crate::util::decode_html_entities(&tags.replace_all(&c[1], "")).into_owned())
         .unwrap_or_default();
     let document = Html::parse_document(&html);
     let blocks = Selector::parse("pre, code, .citation, .bibtex").unwrap();
@@ -147,7 +147,7 @@ fn supplied_web_bibtex(html: &str, url: &str) -> Option<String> {
             let block = line_breaks.replace_all(&inner, "\n");
             // HTML layout spaces are not BibTeX syntax whitespace. Normalize
             // them after entity decoding, preserving Unicode author names.
-            html_escape::decode_html_entities(&tags.replace_all(&block, ""))
+            crate::util::decode_html_entities(&tags.replace_all(&block, ""))
                 .chars()
                 .map(|ch| if ch.is_whitespace() && !ch.is_ascii() { ' ' } else { ch })
                 .collect::<String>()

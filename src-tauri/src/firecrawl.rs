@@ -59,8 +59,7 @@ fn api_key() -> Result<String, String> {
 /// concurrency limits into messages a user can act on.
 pub fn scrape(url: &str) -> Result<ScrapedPage, String> {
     let key = api_key()?;
-    let client = reqwest::blocking::Client::builder()
-        .timeout(std::time::Duration::from_secs(120))
+    let client = crate::http::blocking(std::time::Duration::from_secs(120))
         .build()
         .map_err(|error| format!("Could not create the Firecrawl client: {error}"))?;
     let body = serde_json::json!({

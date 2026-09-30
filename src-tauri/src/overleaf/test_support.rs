@@ -175,7 +175,7 @@ pub(super) fn projects_page_html() -> String {
         "id": "u1", "email": "researcher@example.edu", "first_name": "Robin", "last_name": "Researcher"
     });
     let attr = |json: &serde_json::Value| {
-        html_escape::encode_double_quoted_attribute(&json.to_string()).into_owned()
+        json.to_string().replace('&', "&amp;").replace('"', "&quot;").replace('<', "&lt;")
     };
     format!(
         "<html><head>\

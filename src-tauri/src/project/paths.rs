@@ -21,7 +21,7 @@ pub(crate) fn creation_path(root: &Path, relative: &str) -> Result<PathBuf, Stri
 }
 
 /// Non-empty, relative, and made only of plain names (and `.`).
-fn stays_inside(relative: &Path) -> bool {
+pub(crate) fn stays_inside(relative: &Path) -> bool {
     !relative.as_os_str().is_empty()
         && !relative.is_absolute()
         && relative

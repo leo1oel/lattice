@@ -17,10 +17,7 @@ pub fn resolve_citation_query(query: &str) -> Result<ResolvedCitation, String> {
     {
         // Title ranking is not identity: Crossref can index different works
         // under the exact same title. Keep both DOI-exact snapshots for review.
-        let client = reqwest::blocking::Client::builder()
-            .user_agent("Lattice citation title lookup")
-            .timeout(std::time::Duration::from_secs(20))
-            .build()
+        let client = crate::papers::http_client("Lattice citation title lookup", 20)
             .map_err(|error| error.to_string())?;
         let report: serde_json::Value = client
             .get("https://api.crossref.org/works")

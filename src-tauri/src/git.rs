@@ -9,7 +9,7 @@ use crate::models::{GitFileDiff, GitLogEntry, GitStatus};
 use crate::project;
 use std::collections::{HashMap, HashSet};
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
 use std::process::{Command, Output};
 use std::sync::{LazyLock, Mutex};
 use std::time::{Duration, Instant};
@@ -272,12 +272,26 @@ fn primary_remote(root: &Path) -> Option<String> {
     names.iter().find(|name| **name == "origin").or(names.first()).map(|name| name.to_string())
 }
 
+/// A project path as git's `rev:path` and pathspec syntax expect it: plain
+/// names joined by `/`. The traversal guard is the project one, so a name that
+/// merely contains `..` (`a..b.tex`) is accepted while a `..` segment is not.
 fn normalize_relative(path: &str) -> Result<String, String> {
     let relative = path.trim().replace('\\', "/");
-    if relative.is_empty() || relative.starts_with('/') || relative.contains("..") {
-        return Err(format!("Invalid project path: {path}"));
+    let invalid = || format!("Invalid project path: {path}");
+    if !project::stays_inside(Path::new(&relative)) {
+        return Err(invalid());
     }
-    Ok(relative)
+    let names = Path::new(&relative)
+        .components()
+        .filter_map(|part| match part {
+            Component::Normal(name) => name.to_str(),
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+    if names.is_empty() {
+        return Err(invalid());
+    }
+    Ok(names.join("/"))
 }
 
 fn validate_rev(rev: &str) -> Result<String, String> {
@@ -518,6 +532,25 @@ mod tests {
         // A second identical restore finds a clean tree and returns HEAD.
         assert_eq!(restore_project(&root, &first).unwrap(), restored);
         assert_eq!(git(&root, &["rev-list", "--count", "HEAD"]), "3");
+    }
+
+    /// Only a `..` path segment is traversal; a file name that contains two
+    /// dots is an ordinary project file whose history can be read and restored.
+    #[test]
+    fn dotted_file_names_are_project_paths_but_parent_segments_are_not() {
+        for path in ["", ".", "/etc/passwd", "../a.tex", "a/../../b.tex", "a\\..\\b.tex"] {
+            assert!(normalize_relative(path).is_err(), "{path:?}");
+        }
+        assert_eq!(normalize_relative(" ./ch/a..b.tex ").unwrap(), "ch/a..b.tex");
+        assert_eq!(normalize_relative("ch\\intro.tex").unwrap(), "ch/intro.tex");
+
+        let Some(root) = repo("dotted") else { return };
+        let first = commit(&root, &[("a..b.tex", "one\n")], "first");
+        let second = commit(&root, &[("a..b.tex", "two\n")], "second");
+        let diff = show_diff(&root, &second, "a..b.tex").unwrap();
+        assert_eq!((diff.before.as_deref(), diff.after.as_deref()), (Some("one\n"), Some("two\n")));
+        restore_file(&root, &first, "a..b.tex").unwrap();
+        assert_eq!(fs::read_to_string(root.join("a..b.tex")).unwrap(), "one\n");
     }
 
     /// Lattice's own state, and a legacy `.omp/mcp.json` (whose `env` is where

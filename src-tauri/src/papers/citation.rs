@@ -87,7 +87,7 @@ fn arxiv_id_from_title_feed(feed: &str, requested_title: &str) -> Option<String>
     let matched = entries.captures_iter(feed).find_map(|entry| {
         let body = entry.get(1)?.as_str();
         let candidate_title =
-            html_escape::decode_html_entities(title.captures(body)?.get(1)?.as_str());
+            crate::util::decode_html_entities(title.captures(body)?.get(1)?.as_str());
         if !paper_titles_match(requested_title, &candidate_title) {
             return None;
         }

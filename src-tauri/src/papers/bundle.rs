@@ -10,7 +10,7 @@ use super::markdown::{
 };
 use super::{check_cancelled, err, is_web_url};
 use crate::firecrawl::ScrapedPage;
-use crate::util::sha256_hex;
+use crate::util::{sha256_hex, swap_in_dir, DirSwapError};
 use crate::{alphaxiv, commands, project};
 use serde::{Deserialize, Serialize};
 use std::fs;
@@ -395,21 +395,16 @@ fn build_in_scratch(
     built
 }
 
-/// Replace `dir` with the finished bundle, restoring the old one if the move fails.
+/// Replace `dir` with the finished bundle, restoring the old one if the move
+/// fails. A backup that cannot be deleted is left behind rather than failing
+/// a fetch whose bundle is already in place.
 fn swap_in_bundle(output_dir: &Path, dir: &Path) -> Result<(), String> {
     fs::create_dir_all(dir.parent().unwrap()).map_err(err)?;
-    let backup = dir.with_extension(format!("old-{}", Uuid::new_v4()));
-    if dir.exists() {
-        fs::rename(dir, &backup).map_err(err)?;
+    match swap_in_dir(output_dir, dir, &format!("old-{}", Uuid::new_v4())) {
+        Ok(()) | Err(DirSwapError::RemoveBackup(_)) => Ok(()),
+        Err(DirSwapError::Inspect(error) | DirSwapError::Backup(error)) => Err(err(error)),
+        Err(DirSwapError::Activate { error, .. }) => Err(err(error)),
     }
-    if let Err(error) = fs::rename(output_dir, dir) {
-        if backup.exists() {
-            let _ = fs::rename(&backup, dir);
-        }
-        return Err(err(error));
-    }
-    let _ = fs::remove_dir_all(backup);
-    Ok(())
 }
 
 fn bundle_result(key: &str, dir: &Path, reused: bool) -> FetchResult {

@@ -23,6 +23,7 @@ mod fs_watch;
 mod fts;
 mod git;
 mod harper;
+mod http;
 mod ipc;
 mod latex;
 mod link_preview;
