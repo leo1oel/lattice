@@ -181,7 +181,7 @@ engine (§2), and a repository guard test keeps that code from coming back.
 | `src-tauri/src/overleaf.rs` + `overleaf/` | 4,196 | Overleaf session, linking and clone, REST, review, and the three-way merge against `.research/overleaf-base/`. |
 | `src/canvas/document-canvas.tsx` | 1,391 | The editing surface: source pane, preview pane, the split layout, and the mount points for every lazy editor. |
 | `src-tauri/src/overleaf_rt.rs` + `overleaf_rt/` | 3,028 | A hand-written Socket.IO 0.9 client for Overleaf's realtime channel. The module header of `overleaf_rt.rs` is the protocol spec. |
-| `src-tauri/src/lib.rs` + `ipc/` | 483 + 2,589 | `lib.rs` wires plugins, the window lifecycle, the child runtimes and the 162-command table; the thin handlers live in `ipc/`, one module per area. No domain logic in either. |
+| `src-tauri/src/lib.rs` + `ipc/` | 486 + 2,512 | `lib.rs` wires plugins, the window lifecycle, the child runtimes and the command table; the thin handlers live in `ipc/`, one module per area. No domain logic in either. |
 | `src/editor/markdown/engine/lattice-visual-editor.tsx` | 737 | The Lattice visual Markdown engine (TipTap 3 / ProseMirror): canonical publication, path swaps, round-trip eligibility. Parsing, serialization, source mapping, overlays and the passive viewport live in sibling modules under `engine/`. |
 | `src-tauri/src/papers.rs` + `papers/` | 4,779 | Paper import, materialization into `.research/papers/`, citation insertion, bibliography upgrade. |
 | `src/editor/latex/latex-editor.ts` | 390 | The CodeMirror 6 extension set for LaTeX: keymaps, `autocompletion`, `linter`, and hover wiring over the `latex-*` modules beside it. (Vim/Emacs keymaps are loaded lazily one level up, `src/canvas/editor-extensions.ts:60-62`.) |
