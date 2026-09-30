@@ -776,7 +776,13 @@ function App() {
         .then((status) => (status?.connected ? status.name ?? null : null))
         .catch(() => null),
     ]).then(([git, overleaf]) => {
-      if (!cancelled) setKnownAuthorNames({ git: git ?? null, overleaf });
+      // Keep the same object when neither name changed, so the lookup that
+      // runs at every startup and Settings toggle does not re-render App.
+      if (!cancelled) {
+        setKnownAuthorNames((prev) => (
+          prev.git === (git ?? null) && prev.overleaf === overleaf ? prev : { git: git ?? null, overleaf }
+        ));
+      }
     });
     return () => {
       cancelled = true;
