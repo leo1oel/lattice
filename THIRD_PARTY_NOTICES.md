@@ -110,27 +110,6 @@ The above copyright notice and this permission notice shall be included in all c
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
 IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-## Inter (`video/src/inter.css`)
-
-The Remotion promo project in `video/` embeds the [Inter](https://github.com/rsms/inter)
-typeface as a data URI in `video/src/inter.css`, imported by `video/src/index.css`.
-Inter is licensed under the SIL Open Font License 1.1, Copyright (c) 2016 The Inter
-Project Authors. The full license is at
-https://github.com/rsms/inter/blob/master/LICENSE.txt.
-
-The OFL permits embedding and redistribution provided the font is not sold on its
-own and the copyright and license notice travel with it — which is what this
-section is for. Note that `video/` is a separate Remotion project that is not part
-of the Lattice application bundle.
-
-## Fraunces (`video/src/fraunces.css`)
-
-The promo also embeds [Fraunces](https://github.com/undercasetype/Fraunces) as a
-data URI in `video/src/fraunces.css`, used for brand words and section titles.
-Fraunces is licensed under the SIL Open Font License 1.1, Copyright 2020 The
-Fraunces Project Authors. The full license is at
-https://github.com/undercasetype/Fraunces/blob/master/OFL.txt.
-
 ## Fluid Functionalism and Lina (`src/components/ui/`)
 
 Several UI primitives are adapted from [Fluid Functionalism](https://github.com/mickadesign/fluid-functionalism) (MIT, Copyright (c) 2026 Micka Touillaud): `scroll-area.tsx`, `scroll-area.css`, `radio-group.tsx`, `switch.tsx`, `use-fluid-hover.ts`, `fluid-hover-highlight.tsx`, and the spring presets in `motion-values.ts`.
@@ -253,8 +232,6 @@ installed packages cannot answer.
 - **Phosphor Icons** (`src/animated-icons/bakai/*`). These components are hand-rebuilt from Phosphor glyphs (each file's header names the source glyph and weight, e.g. `Faders`, FILL weight). Phosphor Icons is MIT; the required copyright notice is not reproduced anywhere in this repository. Not a dependency, so not covered by the generator.
 - **The `@pierre/trees` patch** (`patches/@pierre__trees@1.0.0-beta.6.patch`). The package's own terms are now attributed (Apache-2.0). The patch is a modification, and Apache-2.0 §4(b) requires modified files to carry prominent notices of the change; whether the patch satisfies that has not been checked.
 - **Univer's commercial tier** (`@univerjs/*`). Every Univer package in the tree declares Apache-2.0 and is attributed in the generated section. Univer is also marketed with a commercial tier, so confirm that the Apache-2.0 packages Lattice actually depends on are the whole story and that no feature in use falls under separate terms.
-- **Remotion** (`video/package.json`: `remotion`, `@remotion/*`). The promo-video project depends on Remotion, which ships under Remotion's own company license rather than an OSI-approved one — free for individuals and small teams, paid above a headcount threshold. `video/` is a separate project with its own lockfile that the generator does not scan, and it is not part of the Lattice application bundle. Anyone building or redistributing `video/` needs to check Remotion's terms for themselves.
-- **`video/public/audio/*.mp3`.** Generated through the ElevenLabs sound-generation endpoint (see the header of `video/src/promo/Soundtrack.tsx`). Whether the generating plan's terms permit redistribution has not been determined. Currently moot: `video/.gitignore` excludes the whole `public/` directory, so these files are neither tracked nor distributed.
 
 <!-- BEGIN GENERATED NOTICES — do not edit below this line -->
 
