@@ -224,15 +224,19 @@ button.checklist-row:hover { border-color: var(--control-active-border); }
 .modal .field-error + .modal-actions { margin-top: var(--space-8); }
 .rename-modal { width: 420px; }
 /* Forms and tools that used to slide in from the right edge, now centered
-   dialogs (sheet-dialog.tsx). They keep the drawers' inset and title row; the
-   title row stays put while a long form scrolls under it. */
-.modal.sheet-dialog { width: min(520px, calc(100vw - 40px)); max-height: min(760px, calc(100dvh - 60px)); padding: var(--drawer-content-inset); overflow: auto; display: flex; flex-direction: column; gap: var(--space-6); }
+   dialogs (sheet-dialog.tsx). They share Settings' size (--dialog-large-*) and
+   keep the drawers' inset and title row; the title row and the action row stay
+   put while a long form scrolls between them. */
+.modal.sheet-dialog { width: var(--dialog-large-width); height: var(--dialog-large-height); padding: var(--drawer-content-inset); overflow: auto; display: flex; flex-direction: column; gap: var(--space-6); }
 .sheet-dialog > .drawer-header { position: sticky; z-index: 1; top: calc(-1 * var(--drawer-content-inset)); flex: none; height: 40px; margin: calc(-1 * var(--drawer-content-inset)) calc(-1 * var(--drawer-content-inset)) 0; padding: 0 var(--space-4) 0 var(--drawer-content-inset); border-bottom: 1px solid var(--border-subtle); background: var(--surface-panel-raised); }
 .sheet-dialog > .drawer-copy { margin: 0; }
-/* Surfaces with their own scrolling results keep a steady height, so the list scrolls instead of the dialog. */
-.modal.sheet-dialog:is(.project-find, .bibliography-audit) { height: min(760px, calc(100dvh - 60px)); overflow: hidden; }
-.modal.sheet-dialog.bibliography-audit { width: min(720px, calc(100vw - 40px)); gap: 0; }
-.settings-modal { width: min(900px, calc(100vw - 40px)); height: min(620px, calc(100vh - 40px)); border-radius: var(--radius-dialog); overflow: hidden; text-align: left; }
+/* The action row sits at the bottom of the fixed height: after a short form
+   its auto margin takes up the room, and a long one scrolls under it. */
+.sheet-dialog > .table-generator-actions { position: sticky; z-index: 1; bottom: calc(-1 * var(--drawer-content-inset)); flex: none; margin: auto calc(-1 * var(--drawer-content-inset)) calc(-1 * var(--drawer-content-inset)); padding: var(--space-6) var(--drawer-content-inset) var(--drawer-content-inset); border-top: 1px solid var(--border-subtle); background: var(--surface-panel-raised); }
+/* Surfaces with their own scrolling results scroll the list instead of the dialog. */
+.modal.sheet-dialog:is(.project-find, .bibliography-audit) { overflow: hidden; }
+.modal.sheet-dialog.bibliography-audit { gap: 0; }
+.settings-modal { width: var(--dialog-large-width); height: var(--dialog-large-height); border-radius: var(--radius-dialog); overflow: hidden; text-align: left; }
 .settings-header { height: var(--settings-header-height); padding: 0 14px 0 17px; border-bottom: 1px solid var(--border-subtle); background: var(--surface-chrome); }
 .settings-header [data-slot="panel-header-title"] > svg { color: var(--control-active); }
 .settings-body { height: calc(100% - var(--settings-header-height)); display: grid; grid-template-columns: var(--settings-nav-width) minmax(0, 1fr); }

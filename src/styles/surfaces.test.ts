@@ -31,6 +31,18 @@ function expectRules(css: string, has: Pattern[], lacks: Pattern[] = []) {
 }
 
 describe("shared surface contracts", () => {
+  // Settings, Open from Overleaf and every centered sheet dialog (Check
+  // references, the bibliography entry editor, the table generator, project
+  // find and replace) are one size; compact confirmations keep .modal's own.
+  it("gives the large centered dialogs one shared size", () => {
+    const large = /width: var\(--dialog-large-width\); height: var\(--dialog-large-height\);/
+    expectRules(appCss, [
+      new RegExp(`\\.settings-modal \\{ ${large.source}`),
+      new RegExp(`\\.modal\\.sheet-dialog \\{ ${large.source}`),
+    ], [/\.bibliography-audit \{[^}]*width:/, /\.sheet-dialog:is\([^)]*\) \{[^}]*height:/])
+    expectRules(read("src/overleaf/overleaf-connect.css"), [/\.overleaf-picker-modal \{\s*width: var\(--dialog-large-width\);\s*height: var\(--dialog-large-height\);/])
+  })
+
   it("is owned by App.css instead of being restated per feature", () => {
     expectRules(appCss, ['@import "./styles/surfaces.css"', ".history-drawer"])
     expectRules(surfacesCss, [

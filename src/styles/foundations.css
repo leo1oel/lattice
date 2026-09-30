@@ -277,6 +277,12 @@
   --row-height-comfortable: 44px;
   --row-height-tree: var(--row-height-compact);
 
+  /* The one size of the large centered dialogs: Settings, Open from Overleaf,
+     Check references, the bibliography entry editor, the table generator and
+     project find / replace. Small confirmations and alerts keep .modal's own
+     compact width. A window smaller than the dialog keeps a margin around it. */
+  --dialog-large-width: min(860px, calc(100vw - 40px));
+  --dialog-large-height: min(640px, calc(100dvh - 40px));
   /* Settings layout contract. A settings page is an unframed column: page
      heading, then groups whose own heading carries the only rule, then rows of
      copy on the left and one control on the right.
@@ -292,7 +298,7 @@
   --settings-content-padding-inline-compact: 20px;
   --settings-content-padding-bottom-compact: 32px;
   --settings-header-height: 50px;
-  --settings-nav-width: 190px;
+  --settings-nav-width: 172px;
   --settings-nav-width-compact: 132px;
   --settings-nav-padding-block: var(--space-6);
   --settings-nav-padding-inline: 9px;

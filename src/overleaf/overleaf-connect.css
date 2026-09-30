@@ -119,8 +119,8 @@
 /* ---- Picker dialog -------------------------------------------------------- */
 
 .overleaf-picker-modal {
-  width: min(640px, calc(100vw - 40px));
-  max-height: min(760px, calc(100dvh - 60px));
+  width: var(--dialog-large-width);
+  height: var(--dialog-large-height);
   overflow: hidden;
   display: flex;
   flex-direction: column;
