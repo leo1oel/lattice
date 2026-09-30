@@ -1737,8 +1737,7 @@ msgstr "评论所选 Markdown"
 msgid "Comment source"
 msgstr "评论来源"
 
-#: src/editor/comments/editor-comments-panel.tsx
-#: src/overleaf/overleaf-comments.tsx
+#: src/editor/comments/comment-visibility-filter.tsx
 msgid "Comment visibility"
 msgstr "评论显示范围"
 

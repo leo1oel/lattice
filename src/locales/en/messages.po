@@ -1737,8 +1737,7 @@ msgstr "Comment on selected Markdown"
 msgid "Comment source"
 msgstr "Comment source"
 
-#: src/editor/comments/editor-comments-panel.tsx
-#: src/overleaf/overleaf-comments.tsx
+#: src/editor/comments/comment-visibility-filter.tsx
 msgid "Comment visibility"
 msgstr "Comment visibility"
 

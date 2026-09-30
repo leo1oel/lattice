@@ -6,6 +6,7 @@ import { DestructiveButton } from "../../components/ui/destructive-button";
 import { PanelHeader } from "../../components/ui/panel-header";
 import { SearchField } from "../../components/ui/search-field";
 import { Textarea } from "../../components/ui/textarea";
+import { CommentVisibilityFilter } from "./comment-visibility-filter";
 import { editorCommentAuthorDisplayName, type EditorComment } from "./editor-comment-data";
 import { formatCommentTimestamp } from "./editor-comments";
 import { ResizableDrawer } from "../../components/ui/resizable-drawer";
@@ -77,19 +78,12 @@ export function EditorCommentsPanel(props: {
           onChange={(event) => setFilter(event.target.value)}
           onClear={() => setFilter("")}
         />
-        <div className="pdf-marks-kind-filter" role="group" aria-label={t`Comment visibility`}>
-          {([[false, t`Open comments`], [true, t`Include resolved`]] as const).map(([value, label]) => (
-            <button
-              key={label}
-              type="button"
-              className={`ui-compact-selectable${showResolved === value ? " active" : ""}`}
-              aria-pressed={showResolved === value}
-              onClick={() => setShowResolved(value)}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
+        <CommentVisibilityFilter
+          showResolved={showResolved}
+          onChange={setShowResolved}
+          openLabel={t`Open comments`}
+          resolvedLabel={t`Include resolved`}
+        />
       </div>
       <div className="pdf-marks-list">
         {!visible.length && (

@@ -92,7 +92,7 @@ hover < pressed, and hover < selected < active.
 | --- | --- | --- | --- |
 | Synara runtime (Agent, providers, MCP, skills) | Synara, isolated in an iframe | set frame size, loading and failure surfaces, theme and settings context over the bridge | reach into the embedded document with CSS or DOM selectors |
 | Pierre file tree | Pierre component | map every visual through the `--trees-*-override` tokens in `src/styles/app-shell.css` | restyle Pierre internals by class name |
-| Radix primitives (menu, select, popover) | Radix behavior, Lattice appearance | style through `menu-surface.ts` and `data-slot` hooks | fork the primitive to change appearance |
+| Radix primitives (menu, select, popover) | Radix behavior, Lattice appearance | style through `menu-surface.ts` and `data-slot` hooks | fork the primitive to change appearance, or import Radix outside `src/components/ui` (lint-enforced; add a wrapper there instead) |
 | Tailwind / shadcn utilities | `src/index.css` `@theme inline` | map utilities onto the palette | enable preflight or introduce a parallel color scale |
 | CodeMirror, PDF.js, KaTeX | the library | theme through the documented extension points and `cm-*` / `pdf-*` classes it exposes | assume internal DOM structure beyond those hooks |
 | Motion (`motion/react`) | the library | own shared durations and easings in `foundations.css`, with the global reduced-motion clamp in `adaptive-feedback.css` | animate a property the reduced-motion path cannot disable |

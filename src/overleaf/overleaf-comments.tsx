@@ -24,6 +24,7 @@ import { formatStamp, isComposingEnter } from "../components/ui/chat-panel";
 import { DestructiveButton } from "../components/ui/destructive-button";
 import { InlineMessage } from "../components/ui/inline-message";
 import { Textarea } from "../components/ui/textarea";
+import { CommentVisibilityFilter } from "../editor/comments/comment-visibility-filter";
 import { groupThreadsByFile } from "./overleaf-comment-anchors";
 import type { OverleafCommentAnchor } from "./use-overleaf-comments";
 
@@ -283,19 +284,13 @@ export function OverleafCommentsPanel(props: {
       {props.error && <InlineMessage level="error" className="overleaf-chat-inline">{props.error}</InlineMessage>}
 
       {resolvedCount > 0 && (
-        <div className="pdf-marks-kind-filter overleaf-thread-filter" role="group" aria-label={t`Comment visibility`}>
-          {([[false, t`Unresolved`], [true, t({ message: `Include resolved (${resolvedCount})` })]] as const).map(([value, label]) => (
-            <button
-              key={String(value)}
-              type="button"
-              className={`ui-compact-selectable${showResolved === value ? " active" : ""}`}
-              aria-pressed={showResolved === value}
-              onClick={() => setShowResolved(value)}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
+        <CommentVisibilityFilter
+          className="overleaf-thread-filter"
+          showResolved={showResolved}
+          onChange={setShowResolved}
+          openLabel={t`Unresolved`}
+          resolvedLabel={t({ message: `Include resolved (${resolvedCount})` })}
+        />
       )}
 
       <div className="overleaf-thread-list">

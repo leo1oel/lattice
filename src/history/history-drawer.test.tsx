@@ -6,7 +6,7 @@
  * Changes tab's multi-file review runs against a stubbed Pierre CodeView;
  * versions-timeline.test.tsx exercises the real renderer.
  */
-import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { invoke } from "@tauri-apps/api/core";
 import type { GitLogEntry } from "../app-types";
@@ -157,7 +157,14 @@ describe("HistoryDrawer", () => {
     render(<HistoryDrawer {...required} history={[localEntry, agentEntry]} onRevert={onRevert} />);
 
     fireEvent.click(screen.getByRole("tab", { name: "Changes" }));
-    fireEvent.click(screen.getByRole("button", { name: "Agent" }));
+    const filters = within(screen.getByRole("group", { name: "Filter project changes" }));
+    expect(filters.getByRole("button", { name: "All" })).toHaveClass("ui-compact-selectable", "active");
+    expect(filters.getByRole("button", { name: "All" })).toHaveAttribute("aria-pressed", "true");
+    fireEvent.click(filters.getByRole("button", { name: "Agent" }));
+    expect(filters.getByRole("button", { name: "Agent" })).toHaveClass("ui-compact-selectable", "active");
+    expect(filters.getByRole("button", { name: "Agent" })).toHaveAttribute("aria-pressed", "true");
+    expect(filters.getByRole("button", { name: "All" })).not.toHaveClass("active");
+    expect(filters.getByRole("button", { name: "All" })).toHaveAttribute("aria-pressed", "false");
     expect(screen.getByText("Agent: Revise the introduction")).toBeInTheDocument();
     expect(screen.queryByText("Edit methods.tex")).not.toBeInTheDocument();
 
