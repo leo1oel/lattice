@@ -1,6 +1,6 @@
 //! Small text, hashing and filesystem helpers shared across the host.
 
-use scraper::Html;
+use scraper::{Html, Selector};
 use sha2::{Digest, Sha256};
 use std::borrow::Cow;
 use std::fs;
@@ -58,6 +58,21 @@ pub(crate) fn decode_html_entities(text: &str) -> Cow<'_, str> {
     let escaped = text.replace('<', "&lt;");
     let fragment = Html::parse_fragment(&format!("<textarea>\n{escaped}</textarea>"));
     Cow::Owned(fragment.root_element().text().collect())
+}
+
+/// `value`, the raw text of an attribute value, with its character references
+/// decoded the way a browser decodes them in an attribute: a legacy named
+/// reference without `;` stays as written when a letter, digit or `=` follows
+/// it, so `?a=1&region=eu` keeps its query.
+pub(crate) fn decode_html_attribute(value: &str) -> Cow<'_, str> {
+    if !value.contains('&') {
+        return Cow::Borrowed(value);
+    }
+    let escaped = value.replace('"', "&quot;");
+    let fragment = Html::parse_fragment(&format!("<div title=\"{escaped}\"></div>"));
+    let div = Selector::parse("div").expect("valid selector");
+    let decoded = fragment.select(&div).next().and_then(|element| element.value().attr("title"));
+    Cow::Owned(decoded.unwrap_or_default().to_string())
 }
 
 /// The step of [`swap_in_dir`] that failed, so each caller can word it.
@@ -169,5 +184,22 @@ mod tests {
             assert_eq!(decode_html_entities(html), text, "{html:?}");
         }
         assert!(matches!(decode_html_entities("no references"), Cow::Borrowed(_)));
+    }
+
+    #[test]
+    fn decode_html_attribute_decodes_references_like_a_browser() {
+        let cases = [
+            ("plain", "plain"),
+            ("/favicon.ico?v=2&region=eu", "/favicon.ico?v=2&region=eu"),
+            ("?a=1&notify=x&times=2&copy=3&para&sect9", "?a=1&notify=x&times=2&copy=3¶&sect9"),
+            ("a &lt;b&gt; &amp; &quot;c&quot; \"d\" 'e' <f>", "a <b> & \"c\" \"d\" 'e' <f>"),
+            ("Fran&ccedil;ois &#39;x&#x27; &#128512; &copy 2020", "François 'x' 😀 © 2020"),
+            ("AT&T &unknown; a & b &amp;lt;", "AT&T &unknown; a & b &lt;"),
+            ("\nlead\ttab", "\nlead\ttab"),
+        ];
+        for (html, text) in cases {
+            assert_eq!(decode_html_attribute(html), text, "{html:?}");
+        }
+        assert!(matches!(decode_html_attribute("no references"), Cow::Borrowed(_)));
     }
 }

@@ -92,7 +92,7 @@ pub(super) fn meta_content(html: &str, name: &str) -> Option<String> {
         }
         let value_start = tag.find("content=\"")? + "content=\"".len();
         let value_end = value_start + tag[value_start..].find('"')?;
-        return Some(crate::util::decode_html_entities(&tag[value_start..value_end]).into_owned());
+        return Some(crate::util::decode_html_attribute(&tag[value_start..value_end]).into_owned());
     }
     None
 }

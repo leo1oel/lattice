@@ -223,7 +223,7 @@ fn overview_markdown(source: &str, id: &str) -> Result<String, String> {
     let components = Regex::new(r#"(?s)<(PaperCite|ImageCaption)\b((?:"[^"]*"|'[^']*'|[^'">])*?)(?:/>|>(.*?)</(?:PaperCite|ImageCaption)>)"#).unwrap();
     let markdown = components.replace_all(source, |capture: &regex::Captures<'_>| {
         let attrs: std::collections::HashMap<_, _> = attributes.captures_iter(&capture[2]).map(|a| {
-            (a[1].to_string(), crate::util::decode_html_entities(a.get(2).or_else(|| a.get(3)).or_else(|| a.get(4)).unwrap().as_str()).into_owned())
+            (a[1].to_string(), crate::util::decode_html_attribute(a.get(2).or_else(|| a.get(3)).or_else(|| a.get(4)).unwrap().as_str()).into_owned())
         }).collect();
         let content = capture.get(3).map_or("", |c| c.as_str());
         if &capture[1] == "PaperCite" {

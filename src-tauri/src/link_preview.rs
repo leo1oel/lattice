@@ -248,7 +248,8 @@ fn extract_metadata(html: &str) -> Extracted {
             if let Some(end) = lower.find('>') {
                 let rest = &html[found.start() + end + 1..];
                 if let Some(close) = rest.to_ascii_lowercase().find("</title") {
-                    fallback_title = sanitized(&rest[..close], 200);
+                    fallback_title =
+                        sanitized(&crate::util::decode_html_entities(&rest[..close]), 200);
                 }
             }
         } else if lower.starts_with("<meta") || lower.starts_with("<link") {
@@ -276,7 +277,9 @@ fn extract_metadata(html: &str) -> Extracted {
                     _ => continue,
                 };
                 if slot.is_none() {
-                    *slot = attrs.get("content").and_then(|v| sanitized(v, max));
+                    *slot = attrs
+                        .get("content")
+                        .and_then(|v| sanitized(&crate::util::decode_html_attribute(v), max));
                 }
             } else if out.favicon.is_none()
                 && attrs.get("rel").is_some_and(|v| {
@@ -284,7 +287,7 @@ fn extract_metadata(html: &str) -> Extracted {
                 })
             {
                 out.favicon =
-                    attrs.get("href").map(|v| crate::util::decode_html_entities(v).into_owned());
+                    attrs.get("href").map(|v| crate::util::decode_html_attribute(v).into_owned());
             }
         }
     }
@@ -293,11 +296,11 @@ fn extract_metadata(html: &str) -> Extracted {
     out
 }
 
-/// Entity-decoded, whitespace-collapsed text of at most `max` characters, with
+/// Whitespace-collapsed text of at most `max` characters, with
 /// zero-width and bidi-override characters dropped and controls blanked.
 fn sanitized(value: &str, max: usize) -> Option<String> {
     let invisible = |c: &char| matches!(c, '\u{200b}'..='\u{200f}' | '\u{202a}'..='\u{202e}' | '\u{2060}'..='\u{206f}' | '\u{feff}');
-    let cleaned: String = crate::util::decode_html_entities(value)
+    let cleaned: String = value
         .chars()
         .filter(|c| !invisible(c))
         .map(|c| if c.is_control() { ' ' } else { c })
@@ -352,19 +355,19 @@ mod tests {
     }
 
     #[test]
-    fn sanitizes_entities_controls_and_length() {
-        assert_eq!(sanitized(" A&nbsp; &amp;\u{202e}\u{0007} B ", 20).as_deref(), Some("A & B"));
+    fn sanitizes_controls_and_length() {
+        assert_eq!(sanitized(" A\u{a0} &\u{202e}\u{0007} B ", 20).as_deref(), Some("A & B"));
         assert_eq!(sanitized("abcdef", 5).as_deref(), Some("abcd…"));
     }
 
     #[test]
     fn extracts_head_metadata() {
-        let html = r#"<meta property="og:title" content="Open &amp; Clear"><meta name='description' content=' Summary '><meta property="og:site_name" content="Example"><link rel="shortcut icon" href="/x.png"><title>Fallback</title>"#;
+        let html = r#"<meta property="og:title" content="Open &amp; Clear"><meta name='description' content=' Summary '><meta property="og:site_name" content="Example"><link rel="shortcut icon" href="/x.png?v=2&region=eu"><title>Fallback</title>"#;
         let result = extract_metadata(html);
         assert_eq!(result.title.as_deref(), Some("Open & Clear"));
         assert_eq!(result.description.as_deref(), Some("Summary"));
         assert_eq!(result.site_name.as_deref(), Some("Example"));
-        assert_eq!(result.favicon.as_deref(), Some("/x.png"));
+        assert_eq!(result.favicon.as_deref(), Some("/x.png?v=2&region=eu"));
     }
 
     #[test]

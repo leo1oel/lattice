@@ -302,7 +302,7 @@ pub fn compile_repair_request(
         _ => return Err("Invalid repair action.".into()),
     }
     drop(segments);
-    let client = crate::http::blocking(Duration::from_secs(30))
+    let client = crate::http::loopback(Duration::from_secs(30))
         .build()
         .map_err(|error| error.to_string())?;
     let mut request =
