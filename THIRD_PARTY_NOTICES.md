@@ -1,6 +1,6 @@
 # Third-party notices
 
-Lattice itself is licensed GPL-3.0-or-later (see [`LICENSE`](LICENSE)). This
+Lattice itself is licensed Apache-2.0 (see [`LICENSE`](LICENSE) and [`NOTICE`](NOTICE)). This
 file records the separate terms of components that are bundled, vendored, or
 adapted into it.
 
@@ -67,7 +67,7 @@ tldraw 5.x is **not** Apache-2.0 and not an OSI-approved license. Quoting the te
 - Production use is reached only through the separate "Trial license" and "Commercial license" sections, each of which turns on a License Key issued by tldraw.
 - Both the warranty disclaimer and the liability limitation say "You must pass this \[…\] on whenever you distribute the Software or derivative works."
 
-The last two condition bullets are the mechanical source of the GPL conflict flagged in the [gaps](#known-attribution-gaps-todo) below: GPL-3.0 §7 permits only a closed list of additional restrictions, and neither "no production use" nor "do not interfere with License Key enforcement" is on it. Distributing tldraw under terms that carry those restrictions is exactly what "not to make the Software available under a license that supersedes or negates the effect of this License" forbids Lattice from resolving by relicensing. This is a derivation from the license text, not an inference about intent.
+**Carve-out.** Lattice is Apache-2.0, but the `tldraw`, `@tldraw/editor` and `@tldraw/driver` packages (and the parts of `@tldraw/assets` listed above) are licensed under the tldraw license, not Apache-2.0; `NOTICE` says so explicitly. Lattice does not relicense them, so the condition against making the Software "available under a license that supersedes or negates the effect of this License" is respected. The license key stays out of this repository: forks build tldraw in its unlicensed, watermarked mode, which does not interfere with key enforcement. (While Lattice was GPL-3.0, these restrictions conflicted with GPL-3.0 §7; that conflict ended with the relicense.)
 
 ### What this repository can and cannot verify about its own grant
 
@@ -200,8 +200,7 @@ Two observations, both checkable against the staged tree:
   points (`sdk.mjs`, `bridge.mjs` and `browser-sdk.js`, each around a megabyte
   when this was last measured) are copied into the application bundle under an all-rights-reserved notice. Anthropic's published
   terms are the ones linked above; nothing in this repository records a grant to
-  redistribute those files inside a third-party application, and GPL-3.0 §6
-  requires the corresponding source for everything conveyed in the binary.
+  redistribute those files inside a third-party application.
 
 That question has to be answered before a public release: either confirm the
 redistribution grant with Anthropic, or stop bundling the SDK and resolve it
@@ -231,8 +230,8 @@ installed packages cannot answer.
   - Synara's web app depends on `react-icons` (and `@tabler/icons-react`). At the pinned revision it imports eleven `react-icons` packs: `fa6`, `fi`, `go`, `hi2`, `io`, `lu`, `pi`, `ri`, `si`, `tb` and `vsc`. Two of them carry **CC-BY-4.0** icons, which require attribution: Font Awesome Free (`fa6`) and VS Code Codicons (`vsc`). The rest are under the MIT, ISC, Apache-2.0 or CC0 licenses of their icon sets and still need their notices reproduced; the Simple Icons brand logos (`si`) are CC0 but remain their owners' trademarks.
   - The client ships raw SVGs from `apps/web/public/central-icons-fill/` and `central-icons-reversed/` ("Central icons", rendered by `apps/web/src/lib/central-icons.tsx`). The Synara repository records **no license or provenance** for them. If they are the commercial Central Icon System, redistributing the raw SVGs may not be permitted. This needs an answer from the Synara upstream.
   - Every other package compiled into the client bundle (rather than installed in `node_modules`) is likewise unattributed until the generator, or Synara's own build, emits a notices file for it.
-- **The Claude Agent SDK's redistribution grant.** See the section above. Attribution is now complete — the terms are quoted in full — but whether Lattice may bundle proprietary, all-rights-reserved JavaScript inside a GPL-3.0 binary is a question only Anthropic can close.
-- **tldraw's GPL compatibility** (`tldraw@5.2.5`). See the tldraw section above. Attribution is resolved: the verbatim license is vendored at `public/licenses/tldraw-LICENSE.md` and reaches the shipped binary. What is not resolved is that the tldraw license imposes restrictions GPL-3.0 §7 does not permit, while itself forbidding relicensing that would negate them. Also unresolved: which grant the project's `VITE_TLDRAW_LICENSE_KEY` corresponds to.
+- **The Claude Agent SDK's redistribution grant.** See the section above. Attribution is now complete — the terms are quoted in full — but whether Lattice may redistribute proprietary, all-rights-reserved JavaScript inside its application is a question only Anthropic can close.
+- **tldraw's license grant** (`tldraw@5.2.5`). See the tldraw section above. Attribution and the Apache-2.0 carve-out are resolved: the verbatim license is vendored at `public/licenses/tldraw-LICENSE.md`, reaches the shipped binary, and `NOTICE` excludes the tldraw packages from the Apache License. Still unresolved: which grant the project's `VITE_TLDRAW_LICENSE_KEY` corresponds to (the maintainer is handling this with tldraw).
 - **Packages that declare a license but ship no text.** The generated "Unresolved attribution" sections list these — one for npm and crates, one inside the sidecar section. At the last run there were 139 across the three closures (118 npm/crates, 18 sidecar, plus the three below), overwhelmingly crates whose published `.crate` archive omits the `LICENSE` file present in their Git repository. The SPDX identifier is known for all but three, so this is a completeness problem rather than a permission one, but MIT and BSD require the *copyright notice* specifically, and that notice is what is missing. Three packages declare nothing at all: `khroma@2.1.0` and `@univerjs/telemetry@0.25.1` ship an unreferenced license file (MIT and Apache-2.0 respectively, readable on disk but not declared), and **`buffers@0.1.1` has neither a `license` field nor any license file** — a transitive dependency with no discoverable terms at all.
 - **`harper-core`'s dictionary data** (`src-tauri/Cargo.toml`). The crate itself is now attributed (Apache-2.0, though it ships no license text — see above). Its bundled dictionary and corpus data (`dictionary.dict`, `annotations.json`, the irregular-verb and proper-noun tables) may carry separate terms from the code; that has not been checked, and the generator only reads a crate's own license files.
 - **Phosphor Icons** (`src/animated-icons/bakai/*`). These components are hand-rebuilt from Phosphor glyphs (each file's header names the source glyph and weight, e.g. `Faders`, FILL weight). Phosphor Icons is MIT; the required copyright notice is not reproduced anywhere in this repository. Not a dependency, so not covered by the generator.
@@ -260,10 +259,11 @@ group reproduces one member's file verbatim.
 
 ## Copyleft, reciprocal and source-available dependencies — npm and crates
 
-Lattice ships under GPL-3.0-or-later. Everything below is a dependency whose
+Lattice ships under Apache-2.0. Everything below is a dependency whose
 terms are *not* plainly permissive, listed so the interaction with that
 license gets an answer rather than an assumption. A `dual` row offers a
-permissive alternative and is only listed for completeness; a `non-spdx` row
+permissive alternative, which Lattice elects (Apache-2.0 where offered) and
+names in the row; a `non-spdx` row
 has a misleading `license` field but a permissive license in the file it
 points at.
 
@@ -289,10 +289,10 @@ The Synara sidecar has its own findings block further down; it is kept separate 
 | `@fontsource-variable/inter@5.3.0` | npm | `OFL-1.1` | reciprocal — SIL OFL (reserved-name and bundling terms) |
 | `@fontsource/dm-sans@5.3.0` | npm | `OFL-1.1` | reciprocal — SIL OFL (reserved-name and bundling terms) |
 | `@fontsource/instrument-serif@5.3.0` | npm | `OFL-1.1` | reciprocal — SIL OFL (reserved-name and bundling terms) |
-| `r-efi@5.3.0` | crates | `MIT OR Apache-2.0 OR LGPL-2.1-or-later` | dual — LGPL offered as one alternative |
-| `r-efi@6.0.0` | crates | `MIT OR Apache-2.0 OR LGPL-2.1-or-later` | dual — LGPL offered as one alternative |
-| `dompurify@3.4.13` | npm | `(MPL-2.0 OR Apache-2.0)` | dual — file-level copyleft offered as one alternative |
-| `jszip@3.10.1` | npm | `(MIT OR GPL-3.0-or-later)` | dual — GPL offered as one alternative |
+| `r-efi@5.3.0` | crates | `MIT OR Apache-2.0 OR LGPL-2.1-or-later` | dual — LGPL offered as one alternative; Lattice elects Apache-2.0 |
+| `r-efi@6.0.0` | crates | `MIT OR Apache-2.0 OR LGPL-2.1-or-later` | dual — LGPL offered as one alternative; Lattice elects Apache-2.0 |
+| `dompurify@3.4.13` | npm | `(MPL-2.0 OR Apache-2.0)` | dual — file-level copyleft offered as one alternative; Lattice elects Apache-2.0 |
+| `jszip@3.10.1` | npm | `(MIT OR GPL-3.0-or-later)` | dual — GPL offered as one alternative; Lattice elects MIT |
 | `@tldraw/utils@5.2.5` | npm | `SEE LICENSE IN LICENSE.md` | non-spdx — non-SPDX `license` field; the file it points at is a permissive license |
 | `@tldraw/validate@5.2.5` | npm | `SEE LICENSE IN LICENSE.md` | non-spdx — non-SPDX `license` field; the file it points at is a permissive license |
 
@@ -17686,10 +17686,11 @@ The prepare script additionally stages these notices by hand: `src-tauri/synara-
 
 ### Copyleft, reciprocal and source-available dependencies — Synara sidecar
 
-Lattice ships under GPL-3.0-or-later. Everything below is a dependency whose
+Lattice ships under Apache-2.0. Everything below is a dependency whose
 terms are *not* plainly permissive, listed so the interaction with that
 license gets an answer rather than an assumption. A `dual` row offers a
-permissive alternative and is only listed for completeness; a `non-spdx` row
+permissive alternative, which Lattice elects (Apache-2.0 where offered) and
+names in the row; a `non-spdx` row
 has a misleading `license` field but a permissive license in the file it
 points at.
 
@@ -20571,10 +20572,11 @@ Original Author, when distributed with the Software.
 
 ### Copyleft, reciprocal and source-available dependencies — Open Slide runtime
 
-Lattice ships under GPL-3.0-or-later. Everything below is a dependency whose
+Lattice ships under Apache-2.0. Everything below is a dependency whose
 terms are *not* plainly permissive, listed so the interaction with that
 license gets an answer rather than an assumption. A `dual` row offers a
-permissive alternative and is only listed for completeness; a `non-spdx` row
+permissive alternative, which Lattice elects (Apache-2.0 where offered) and
+names in the row; a `non-spdx` row
 has a misleading `license` field but a permissive license in the file it
 points at.
 

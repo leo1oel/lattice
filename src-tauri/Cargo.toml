@@ -4,9 +4,8 @@ version = "0.1.341"
 description = "A local-first, agent-first scientific LaTeX writing environment"
 authors = ["Leonardo"]
 edition = "2021"
-# The frontend links a vendored GPL-3.0-or-later editor core into the shipped
-# binary, so the combined work is GPLv3. See ../LICENSE.
-license = "GPL-3.0-or-later"
+# The tldraw SDK in the frontend is under its own license; see ../NOTICE.
+license = "Apache-2.0"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 

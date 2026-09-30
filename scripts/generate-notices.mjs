@@ -509,6 +509,17 @@ const COPYLEFT = [
   ],
 ];
 
+/**
+ * The alternative Lattice takes from a dual-licensed dependency: Apache-2.0,
+ * Lattice's own license, when it is offered, else the first permissive one.
+ */
+function electedLicense(expression) {
+  const offered = expression.replace(/[()]/g, " ").split(/\s+OR\s+|\s*\/\s*/i).map((part) => part.trim()).filter(Boolean);
+  return offered.find((alt) => alt.toLowerCase() === "apache-2.0")
+    ?? offered.find((alt) => PERMISSIVE.has(alt.toLowerCase()))
+    ?? offered[0];
+}
+
 /** Rough top-level split of an SPDX-ish expression into its alternatives. */
 function licenseAlternatives(expression) {
   return expression
@@ -519,8 +530,8 @@ function licenseAlternatives(expression) {
 }
 
 /**
- * Flag anything that is not plainly permissive. For a GPL-3.0-or-later project
- * an AGPL, an SSPL or a proprietary dependency is a real finding, and a
+ * Flag anything that is not plainly permissive. For an Apache-2.0 project a
+ * copyleft, an SSPL or a proprietary dependency is a real finding, and a
  * "SEE LICENSE IN ..." field means the terms are whatever that file says.
  */
 function classify(entry) {
@@ -549,7 +560,9 @@ function classify(entry) {
   }
   const permissiveOption = licenseAlternatives(declared).some((alt) => PERMISSIVE.has(alt));
   for (const [pattern, severity, label, dualLabel] of COPYLEFT) {
-    if (pattern.test(value)) return permissiveOption ? { severity: "dual", label: dualLabel } : { severity, label };
+    if (pattern.test(value)) {
+      return permissiveOption ? { severity: "dual", label: `${dualLabel}; Lattice elects ${electedLicense(declared)}` } : { severity, label };
+    }
   }
   if (/\bofl-|open font/.test(value)) {
     return { severity: "reciprocal", label: "SIL OFL (reserved-name and bundling terms)" };
@@ -741,6 +754,16 @@ function renderUnresolved(all, { heading = "##", scope = "every closure" } = {})
   return { markdown: lines.join("\n"), missingField, missingText };
 }
 
+const FINDINGS_INTRO = [
+  "Lattice ships under Apache-2.0. Everything below is a dependency whose",
+  "terms are *not* plainly permissive, listed so the interaction with that",
+  "license gets an answer rather than an assumption. A `dual` row offers a",
+  "permissive alternative, which Lattice elects (Apache-2.0 where offered) and",
+  "names in the row; a `non-spdx` row",
+  "has a misleading `license` field but a permissive license in the file it",
+  "points at.",
+];
+
 function renderFindings(all, { heading = "##", scope = "all closures", note = "" } = {}) {
   const flagged = all
     .map((entry) => ({ entry, verdict: classify(entry) }))
@@ -755,12 +778,7 @@ function renderFindings(all, { heading = "##", scope = "all closures", note = ""
   const lines = [
     `${heading} Copyleft, reciprocal and source-available dependencies — ${scope}`,
     "",
-    "Lattice ships under GPL-3.0-or-later. Everything below is a dependency whose",
-    "terms are *not* plainly permissive, listed so the interaction with that",
-    "license gets an answer rather than an assumption. A `dual` row offers a",
-    "permissive alternative and is only listed for completeness; a `non-spdx` row",
-    "has a misleading `license` field but a permissive license in the file it",
-    "points at.",
+    ...FINDINGS_INTRO,
     "",
   ];
   if (note) lines.push(note, "");
@@ -869,7 +887,7 @@ function stagedSection(runtime, existing, findings, unresolved) {
     const previous = sliceSection(existing, runtime.begin, runtime.end);
     if (previous && !previous.includes(runtime.incomplete[0])) {
       runtime.carriedOver = true;
-      return [previous];
+      return [previous.replace(/^Lattice ships under [^\n]*\n(?:[^\n]+\n)*?points at\.$/gm, FINDINGS_INTRO.join("\n"))];
     }
     return [runtime.begin, [`## ${runtime.title}`, "", ...runtime.incomplete, ""].join("\n"), runtime.end];
   }

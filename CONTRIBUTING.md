@@ -200,10 +200,15 @@ experience before investing in a large implementation.
 
 ## Licensing
 
-Lattice is licensed under the **GNU General Public License, version 3 or later**
-(see [`LICENSE`](LICENSE)). By opening a pull request you agree that your
-contribution is offered under those terms. There is no CLA and no copyright
-assignment.
+Lattice is licensed under the **Apache License, Version 2.0** (see
+[`LICENSE`](LICENSE) and [`NOTICE`](NOTICE)). By opening a pull request you
+agree that your contribution is offered under those terms, as section 5 of the
+license describes. There is no CLA and no copyright assignment. Releases up to
+and including 0.1.341 were GPL-3.0-or-later and remain available under it.
+
+The tldraw SDK (`tldraw`, `@tldraw/editor`, `@tldraw/driver`) is not covered by
+the Apache License; it stays under the tldraw license, whose verbatim text is
+in `public/licenses/tldraw-LICENSE.md`. Never commit a tldraw license key.
 
 When you add a dependency, adapt code from elsewhere, or bundle an asset, record
 it in [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md). That file also lists

@@ -2,7 +2,7 @@
   "name": "research-writer",
   "private": true,
   "version": "0.1.341",
-  "license": "GPL-3.0-or-later",
+  "license": "Apache-2.0",
   "type": "module",
   "scripts": {
     "dev": "vite",

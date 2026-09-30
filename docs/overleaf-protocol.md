@@ -43,7 +43,7 @@ than picking a plausible ShareJS snapshot after the fact.
 
 ### License boundary
 
-Lattice is GPL-3.0-or-later. The two AGPL-3.0 projects above are protocol and
+Lattice is Apache-2.0. The two AGPL-3.0 projects above are protocol and
 interoperability references; their source is not vendored here. The two MIT
 projects are likewise references, not dependencies.
 
