@@ -52,14 +52,13 @@ describe("literature proxy", () => {
 
   it("does not reflect rejected values in errors", async () => {
     const secret = "attacker-supplied-secret";
-    const failed = await query("semanticscholar", `/graph/v1/paper/id/${secret}`);
+    const failed = await query("openalex", `/works/${secret}`);
     expect(failed.status).toBe(400);
     expect(await failed.text()).not.toContain(secret);
   });
 
-  it("rejects oversized and malformed S2 batches", async () => {
-    expect((await query("semanticscholar", "/graph/v1/paper/batch", {}, { ids: [] })).status).toBe(400);
-    expect((await query("semanticscholar", "/graph/v1/paper/batch", {}, { ids: Array.from({ length: 21 }, (_, index) => String(index)) })).status).toBe(400);
+  it("rejects request bodies, which no proxied query takes", async () => {
+    expect((await query("openalex", "/works", {}, { ids: ["W1"] })).status).toBe(400);
   });
 
   it("health only exposes configuration booleans", async () => {
@@ -67,7 +66,7 @@ describe("literature proxy", () => {
     expect(response.status).toBe(200);
     const text = await response.text();
     expect(text).not.toContain("api_key");
-    expect(JSON.parse(text)).toMatchObject({ ok: true, configured: { openalex: true, semanticscholar: false, crossref: true } });
+    expect(JSON.parse(text)).toMatchObject({ ok: true, configured: { openalex: true, crossref: true } });
   });
 
   it("reuses normalized cache entries for duplicate requests", async () => {
@@ -110,10 +109,10 @@ describe("literature proxy", () => {
     expect(await (await SELF.fetch("https://worker/health")).text()).not.toContain("test-secret");
   });
 
-  it("never dispatches Semantic Scholar requests even with stale secret bindings", async () => {
+  it("rejects Semantic Scholar as an unknown provider even with stale secret bindings", async () => {
     const response = await query("semanticscholar", "/graph/v1/paper/CorpusId:2", { fields: "title" });
-    expect(response.status).toBe(503);
-    expect(await response.json()).toEqual({ error: "literature provider is disabled", code: "provider_disabled" });
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({ error: "invalid provider" });
     expect(fetch).not.toHaveBeenCalledWith(expect.stringContaining("semanticscholar.org"), expect.anything());
   });
 
