@@ -50,7 +50,6 @@ describe("shared surface contracts", () => {
     expect(read("src/index.css")).toContain('@import "shadow-plugin"')
     expectRules(surfacesCss, ["@apply smooth-shadow-ring-lg", "@apply smooth-shadow-lg"])
     expectRules(appCss, [], [floatingChrome, drawerChrome, /@keyframes drawer-in/])
-    expect(read("tools/icon-lab/icon-lab.css")).not.toMatch(floatingChrome)
     // The frosted hover-card chrome lives in one place too.
     const frostedChrome =
       /background:\s*color-mix\(in srgb, var\(--surface-panel-raised\)\s*97%,\s*transparent\);[^}]*backdrop-filter:\s*blur\(14px\)/

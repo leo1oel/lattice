@@ -169,10 +169,8 @@ export default defineConfig(() => ({
   clearScreen: false,
   build: {
     rolldownOptions: {
-      // One entry, on purpose. The animated-icon playground (icon-lab.html →
-      // tools/icon-lab) is development-only: the dev server serves any html at
-      // the project root, so `pnpm dev` still reaches /icon-lab.html, while the
-      // production build never sees it and emits no icon-lab artifact.
+      // One entry, on purpose: scripts/app-size-report.mjs expects the app's
+      // chunks only.
       input: {
         app: path.resolve("index.html"),
       },

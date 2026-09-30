@@ -83,9 +83,6 @@ importers:
       '@fontsource-variable/inter':
         specifier: ^5.3.0
         version: 5.3.0
-      '@fontsource/dm-sans':
-        specifier: ^5.3.0
-        version: 5.3.0
       '@fontsource/instrument-serif':
         specifier: ^5.3.0
         version: 5.3.0
@@ -979,9 +976,6 @@ packages:
 
   '@fontsource-variable/inter@5.3.0':
     resolution: {integrity: sha512-OupL48va4JNofb97w6NYeF9S7W/kHNKM0Er8Dem5nqi4jeOLrVJDoE8tZEpnMJmtkvNbB1EIPPwHcdkF6b1oUA==}
-
-  '@fontsource/dm-sans@5.3.0':
-    resolution: {integrity: sha512-lYJtMXXO28q1z+yz+z8XKd0s4hXaa9QdkETzkyD760sidCv5heI86weYA0sx0Nc4pAMAQTUuyf4gO44cYKKS9g==}
 
   '@fontsource/instrument-serif@5.3.0':
     resolution: {integrity: sha512-mDiaIg0u67sYV59fie92Wz4sM8UiVlbL7fLxnFPCKkX15DMASEnQTREbaP5S5/3DCcsoAOcQ0sV9E4AeY4QqYQ==}
@@ -6536,8 +6530,6 @@ snapshots:
   '@floating-ui/utils@0.2.12': {}
 
   '@fontsource-variable/inter@5.3.0': {}
-
-  '@fontsource/dm-sans@5.3.0': {}
 
   '@fontsource/instrument-serif@5.3.0': {}
 
