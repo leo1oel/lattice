@@ -516,6 +516,9 @@ const TOKENS: Record<string, string> = {
   "--trellis-focus-ring": "0 0 0 var(--focus-ring-width) var(--focus-ring)",
 };
 
+/** Trellis's own shortcuts, less the whole-workspace overview (⌘⌥↑), which Lattice does not offer. */
+const KEYMAP = { "navigation.overview": null };
+
 type WorkspaceProps = { controller: TrellisController; projectRoot: string; dark: boolean };
 
 /** Memoized: App re-renders on every keystroke, and nothing here needs to follow it. */
@@ -724,6 +727,7 @@ export const TrellisWorkspace = memo(function TrellisWorkspace({ controller, pro
         className="lattice-trellis"
         theme={dark ? "dark" : "light"}
         tokens={TOKENS}
+        keymap={KEYMAP}
         navigation="free"
         floating="overlay"
         tabs={{ inset: 6 }}

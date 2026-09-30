@@ -8855,7 +8855,3 @@ msgstr "放大"
 #: src/pdf/pdf-viewer.tsx
 msgid "Zoom out"
 msgstr "缩小"
-
-#: src/trellis/trellis-titlebar.tsx
-msgid "Zoom out to show every panel"
-msgstr "缩小以显示所有面板"

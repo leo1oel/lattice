@@ -2101,6 +2101,15 @@ describe("project workspace", () => {
     const titlebarTools = titlebarMain.querySelector(".canvas-toolbar")!;
     expect(within(panelControls).getByRole("button", { name: "Panels" })).toBeInTheDocument();
     expect(within(panelControls).getByRole("button", { name: "Hide Project" })).toHaveAttribute("aria-pressed", "true");
+    // The Panels menu keeps maximize and reset; neither the whole-workspace
+    // overview nor the Trellis credit (kept in the About panel and notices) is there.
+    fireEvent.pointerDown(within(panelControls).getByRole("button", { name: "Panels" }), { button: 0 });
+    expect(await screen.findByRole("menuitem", { name: /Maximize focused panel/ })).toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: "Reset layout" })).toBeInTheDocument();
+    expect(screen.queryByRole("menuitem", { name: /Zoom out to show every panel/ })).not.toBeInTheDocument();
+    expect(screen.queryByText(/Uses Trellis/)).not.toBeInTheDocument();
+    fireEvent.keyDown(document.activeElement ?? document.body, { key: "Escape" });
+    await waitFor(() => expect(screen.queryByRole("menuitem", { name: "Reset layout" })).not.toBeInTheDocument());
     expect([...titlebarMain.children].indexOf(panelControls)).toBeLessThan([...titlebarMain.children].indexOf(titlebarTools));
     expect(titlebarTools).toContainElement(screen.getByRole("button", { name: "Project history" }));
     expect(titlebarTools).toContainElement(screen.getByRole("button", { name: "Git status and commit" }));

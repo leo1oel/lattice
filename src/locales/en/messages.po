@@ -8855,7 +8855,3 @@ msgstr "Zoom in"
 #: src/pdf/pdf-viewer.tsx
 msgid "Zoom out"
 msgstr "Zoom out"
-
-#: src/trellis/trellis-titlebar.tsx
-msgid "Zoom out to show every panel"
-msgstr "Zoom out to show every panel"
