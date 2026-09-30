@@ -238,7 +238,7 @@ for), take the project lease the operation needs (`AppState::lease`), and run
 the domain call on the blocking pool (`ipc::run_blocking` / `in_project`).
 Behaviour belongs in the domain modules. A few self-contained services keep
 their commands beside their state: `synara.rs`, `presentation.rs`,
-`browser_host.rs`, `literature_credentials.rs`, `link_preview.rs`,
+`browser_host/dialogs.rs`, `literature_credentials.rs`, `link_preview.rs`,
 `diagnostic_logs.rs`, `macos_window.rs`.
 
 Which project each window shows, and the per-project resources that must not be
