@@ -72,7 +72,8 @@ You will need:
   the exact versions (today: Node 26.5.0, pnpm 10.13.1). Installing
   [mise](https://mise.jdx.dev) and running `mise install` in the repository root
   gets you both at the right versions, and `pnpm check` needs mise anyway.
-  Known gap: `.github/workflows/ci.yml` still runs Node 22, so CI and local
+  Known gap: CI still runs Node 22 (pinned in
+  `.github/actions/setup-pnpm/action.yml` and `release.yml`), so CI and local
   development are not on the same major version. Nothing currently depends on
   the difference, but if you hit a Node-version-specific failure, that is why.
 - stable Rust with `rustfmt` and `clippy`;
