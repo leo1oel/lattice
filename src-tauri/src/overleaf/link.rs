@@ -494,9 +494,12 @@ mod tests {
         let after = chrono::Utc::now();
 
         assert!(iso.ends_with('Z'), "{iso}");
-        let parsed = chrono::DateTime::parse_from_rfc3339(&iso).unwrap().with_timezone(&chrono::Utc);
+        let parsed =
+            chrono::DateTime::parse_from_rfc3339(&iso).unwrap().with_timezone(&chrono::Utc);
         assert_eq!(parsed.to_rfc3339_opts(chrono::SecondsFormat::Secs, true), iso);
-        assert!(parsed.timestamp() >= before.timestamp() && parsed.timestamp() <= after.timestamp());
+        assert!(
+            parsed.timestamp() >= before.timestamp() && parsed.timestamp() <= after.timestamp()
+        );
 
         let local = chrono::NaiveDateTime::parse_from_str(&stamp, "%Y%m%d-%H%M").unwrap();
         assert_eq!(local.format("%Y%m%d-%H%M").to_string(), stamp);
