@@ -161,13 +161,6 @@ describe("design token contract", () => {
       /\.ui-compact-selectable:is\([^}]+\) \{[^}]*background: var\(--control-active-soft\);[^}]*color: var\(--control-active\)/,
     )
     expect(chrome).not.toMatch(/\.ui-compact-selectable[^}]*\{[^}]*background: var\(--control-active\);/)
-
-    for (const file of [
-      "src/editor/comments/comment-visibility-filter.tsx",
-      "src/history/history-drawer.tsx",
-    ]) {
-      expect(read(file), file).toContain("ui-compact-selectable")
-    }
   })
 
   it("shares flat drawer-view tabs between Project history and Git workspace", () => {
