@@ -182,20 +182,6 @@ describe("Tauri security boundary", () => {
       "chromium-runtime/Lattice Chromium.app/Contents/MacOS/Electron");
   });
 
-  it("keeps Chromium titlebar whitespace draggable without consuming tab interactions", () => {
-    expect(chromiumShell).toContain(`
-      .titlebar-main > .editor-tabs .editor-tabs-content {
-        -webkit-app-region: drag;
-      }
-      .titlebar-main > .editor-tabs .editor-tab {
-        -webkit-app-region: no-drag;
-      }`);
-    expect(chromiumShell).toContain(`
-      .resizable-drawer {
-        -webkit-app-region: no-drag;
-      }`);
-  });
-
   it("gives loopback browser tabs the product icon", () => {
     expect(indexHtml).toContain(
       '<link rel="icon" type="image/svg+xml" href="/src-tauri/icons/app-icon.svg" />',

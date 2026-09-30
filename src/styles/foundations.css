@@ -55,7 +55,7 @@
   --type-title-large-weight: 600;
   --type-heading-size: 18px;
   --type-display-size: 24px; /* The one title on a page that has only one. */
-  --insert-glyph-size: 22px; /* A character sample, sized by its tile. */
+  --insert-glyph-size: 22px; /* A character sample, sized by its tile (the visual editor's emoji picker). */
   --type-heading-line-height: 22px;
   --type-heading-weight: 600;
 
@@ -225,12 +225,6 @@
   --navigation-header-height: 40px;
   --navigation-control-height: 29px;
   --navigation-action-size: var(--navigation-control-height);
-  --navigation-tab-expanded-width: 85px;
-  --navigation-tab-gap: var(--space-4);
-  --navigation-mode-actions-gap: var(--space-4);
-  /* Project owns the widest action group at three controls. Reserve that same
-     width in every mode so switching modes cannot change the tab label tier. */
-  --navigation-mode-actions-reserved-width: calc(var(--navigation-action-size) + var(--navigation-action-size) + var(--navigation-action-size) + var(--gap-hairline) + var(--gap-hairline));
   --navigation-search-height: var(--search-control-height);
   --navigation-search-font-size: var(--type-label-size);
   --navigation-search-line-height: var(--type-project-tree-line-height);
@@ -246,37 +240,35 @@
      project switcher, and the tab strip in one row, so its geometry is shared
      rather than restated per element. */
   --titlebar-height: 40px;
-  --titlebar-sidebar-width: 320px;
-  --titlebar-navigator-width: 120px;
-  --titlebar-navigator-width-fullscreen: 50px;
-  /* Fallback until AppKit reports the green button's right edge at runtime. */
-  --titlebar-traffic-space-width: 70px;
-  --titlebar-toggle-center: calc((var(--titlebar-traffic-space-width) + var(--titlebar-navigator-width)) / 2);
+  /* No sidebar column under the titlebar any more: the traffic lights, then
+     the project switcher at its own width, then the panel controls. */
+  --titlebar-sidebar-width: auto;
+  --titlebar-navigator-width: auto;
+  --titlebar-navigator-width-fullscreen: auto;
+  /* Fallback until AppKit reports the green button's right edge at runtime:
+     72px in a native compact-toolbar titlebar. */
+  --titlebar-traffic-space-width: 72px;
+  /* The project switcher sits centered between the green button and the
+     Panels control: what you see on each side of it (the green light's edge
+     to the name, the chevron to the Panels icon) is this far, so it stays
+     centered whatever the name's length and at every interface zoom (all CSS
+     px, and the traffic space is converted from points). The two derived gaps
+     take off the paddings between the ink and the boxes; lucide's chevron and
+     panel glyphs add about 3px of side bearing between them. */
+  --titlebar-switcher-gap: 31px;
+  --titlebar-glyph-bearing: 3px;
+  --titlebar-leading-gap: calc(var(--titlebar-switcher-gap) - var(--space-4));
+  /* Project button's right padding, the panel controls' inline padding and
+     the Panels button's left padding sit between the chevron and the icon. */
+  --titlebar-trailing-gap: calc(var(--titlebar-switcher-gap) - var(--space-4) - var(--space-3) - var(--space-4) - var(--titlebar-glyph-bearing));
   --titlebar-action-size: var(--control-size-icon-large);
   --titlebar-project-title-max-width: 260px;
 
   /* Editor tab strip contract. The strip has two variants that share every
      state role: the standalone strip below a toolbar, and the compact chrome
      variant hosted in the titlebar. */
-  --tab-strip-height: 36px;
   --tab-strip-height-chrome: 34px;
-  --tab-height-chrome: var(--control-height-compact);
-  --tab-basis: 160px;
-  --tab-min-width: 104px;
-  --tab-max-width: 180px;
-  --tab-radius: var(--radius-chrome) var(--radius-chrome) 0 0;
-  --tab-hover-surface: color-mix(in srgb, var(--surface-panel-raised) 42%, transparent);
-  --tab-selected-surface: var(--editor-bg);
-  --tab-selected-border-color: var(--border-subtle);
-  --tab-chrome-surface: color-mix(in srgb, var(--surface-panel-raised) 58%, transparent);
-  --tab-chrome-hover-surface: color-mix(in srgb, var(--surface-panel-raised) 72%, transparent);
-  --tab-chrome-border-color: color-mix(in srgb, var(--border-subtle) 55%, transparent);
-  --tab-chrome-selected-shadow: 0 1px 2px rgb(0 0 0 / 4%);
-  --tab-dragging-opacity: 0.8;
-  --tab-label-fade-width: 12px;
-  --tab-close-fade-width: 48px;
   --tab-dirty-dot-size: 5px;
-  --tab-close-size: 22px;
 
   --badge-height: 20px;
   --badge-height-compact: 16px;
@@ -360,9 +352,6 @@
      left in a component stylesheet reads like an app-level claim. */
   --z-spreadsheet-scrollbar: 101;
   --z-drag-ghost: 120;
-  --z-tour-spotlight: 1499;
-  --z-tour-suggestion: 1650;
-  --z-tour-pointer: 1700;
   --z-app-updater: 9999;
   --z-toast: 10000;
 

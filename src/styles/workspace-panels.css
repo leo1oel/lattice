@@ -9,18 +9,6 @@
    along its full height. `right` is written inline from the drawer width. */
 .drawer-window-drag-strip { position: absolute; z-index: 1; top: 0; left: 0; height: var(--titlebar-height); user-select: none; }
 body.resizing-panels .resizable-drawer { transition: none; }
-.insert-palette { width: min(640px, 100%); display: flex; flex-direction: column; overflow: hidden; }
-.insert-palette-scroll {
-  min-height: 0;
-  flex: 1;
-  margin-right: calc(-1 * var(--drawer-content-inset));
-  margin-bottom: calc(-1 * var(--drawer-content-inset));
-}
-.insert-palette-scroll-content {
-  padding-top: var(--drawer-content-inset);
-  padding-right: var(--drawer-content-inset);
-  padding-bottom: var(--drawer-content-inset);
-}
 .drawer-header { height: 34px; }
 .resizable-drawer:not(.synara-source-control-drawer) > .drawer-header {
   height: 40px;
@@ -28,19 +16,6 @@ body.resizing-panels .resizable-drawer { transition: none; }
   padding: 0 var(--space-4) 0 var(--drawer-content-inset);
   border-bottom: 1px solid var(--border-subtle);
   flex: none;
-}
-.overleaf-picker-drawer { display: flex; flex-direction: column; overflow: hidden; }
-.resizable-drawer > .overleaf-picker-drawer-content {
-  width: 100%;
-  max-height: none;
-  min-height: 0;
-  flex: 1 1 auto;
-  overflow: hidden;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-  box-shadow: none;
-  padding: var(--drawer-content-inset) 0 0;
 }
 .drawer-copy { margin: var(--drawer-section-gap) 0; color: var(--text-secondary); font-size: var(--type-micro-size); line-height: 1.5; }
 .drawer-view-tabs { display: flex; align-items: center; gap: var(--space-1); min-width: 0; }

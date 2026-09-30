@@ -37,25 +37,40 @@ describe("PDF viewer helpers", () => {
 });
 
 describe("PDF scroll viewport", () => {
-  const viewerCss = String(readFileSync("src/pdf/pdf-viewer.css", "utf8"))
-  const viewport = /\.pdf-scroll-area-viewport \{[^}]*\}/.exec(viewerCss)?.[0] ?? ""
+  const style = document.createElement("style")
+  style.textContent = String(readFileSync("src/pdf/pdf-viewer.css", "utf8"))
+  document.head.append(style)
+  const rules = [...style.sheet!.cssRules].filter((rule): rule is CSSStyleRule => "selectorText" in rule)
+  document.body.innerHTML = `<div class="pdf-scroll-area-viewport pdfSlick"></div>`
+  const viewport = document.querySelector<HTMLElement>(".pdf-scroll-area-viewport")!
+  /** The value the last rule matching `element` gives `property`. */
+  const declared = (element: Element, property: string) => rules
+    .filter((rule) => element.matches(rule.selectorText))
+    .map((rule) => rule.style.getPropertyValue(property))
+    .filter(Boolean)
+    .at(-1) ?? null
 
   // PDF.js scales a fitted page to `container.clientWidth`, which counts
   // padding but not a border, and `removePageBorders` stops it from reserving
   // anything for the scrollbar. Padding here made every "fit width" page
   // exactly the horizontal inset too wide, so the pane always had a sideways
-  // scrollbar it could never satisfy.
+  // scrollbar it could never satisfy. SyncTeX maps clicks through the same
+  // page geometry, so the gutter must stay a border.
   it("insets the pages with a border so a fitted page still fits", () => {
-    expect(viewport).toContain("border: var(--space-10) solid transparent")
-    expect(viewport).toContain("box-sizing: border-box")
-    expect(viewport).not.toContain("padding")
+    expect(declared(viewport, "border")).toBe("var(--space-4) solid transparent")
+    expect(declared(viewport, "box-sizing")).toBe("border-box")
+    for (const side of ["padding", "padding-left", "padding-right", "padding-top", "padding-bottom"]) {
+      expect(declared(viewport, side)).toBeNull()
+    }
   })
 
   // PDFSlick styles this same element through `.pdfSlick`, so the override has
   // to out-specify it instead of relying on which chunk loads last.
   it("leaves its scrollbar to the Lattice overlay bars", () => {
-    expect(viewport).not.toContain("scrollbar-width")
-    expect(viewerCss).toContain(".pdf-scroll-area-viewport.pdfSlick { scrollbar-width: none; }")
-    expect(viewerCss).toContain(".pdf-scroll-area-viewport::-webkit-scrollbar { display: none;")
+    const scrollbarRules = rules.filter((rule) => viewport.matches(rule.selectorText) && rule.style.getPropertyValue("scrollbar-width"))
+    expect(scrollbarRules.map((rule) => [rule.selectorText, rule.style.getPropertyValue("scrollbar-width")]))
+      .toEqual([[".pdf-scroll-area-viewport.pdfSlick", "none"]])
+    const webkitBar = rules.find((rule) => rule.selectorText === ".pdf-scroll-area-viewport::-webkit-scrollbar")
+    expect(webkitBar?.style.getPropertyValue("display")).toBe("none")
   })
 })

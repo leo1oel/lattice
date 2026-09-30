@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  CHROMIUM_WINDOW_CSS,
   isOpenSlidePresenterUrl,
   openSlidePresenterWindowOptions,
 } from "./chromium-window-policy.mjs";
@@ -37,5 +38,35 @@ describe("Chromium window policy", () => {
   ])("rejects a non-presenter popup: %s", (url) => {
     expect(isOpenSlidePresenterUrl(url)).toBe(false);
     expect(openSlidePresenterWindowOptions(url)).toBeNull();
+  });
+});
+
+describe("Chromium window CSS", () => {
+  // jsdom's CSSOM drops properties it does not know, -webkit-app-region among
+  // them, so split the injected stylesheet into its rules here.
+  const rules = [...CHROMIUM_WINDOW_CSS.replace(/\/\*[\s\S]*?\*\//g, "").matchAll(/([^{}]+)\{([^}]*)\}/g)]
+    .map(([, selector, body]) => ({
+      selector: selector.trim(),
+      declarations: new Map(body.split(";").map((item) => item.split(":").map((part) => part.trim())).filter(([name]) => name)),
+    }));
+  /** The `-webkit-app-region` the injected stylesheet gives `element`, by the last matching rule. */
+  const appRegion = (element) => rules
+    .filter((rule) => element.matches(rule.selector) && rule.declarations.has("-webkit-app-region"))
+    .map((rule) => rule.declarations.get("-webkit-app-region"))
+    .at(-1) ?? null;
+
+  it("keeps titlebar whitespace draggable without consuming its buttons or drawers", () => {
+    document.body.innerHTML = `
+      <div class="titlebar-main">
+        <div class="trellis-titlebar"><button type="button">Panels</button></div>
+      </div>
+      <div class="titlebar-drag-area"></div>
+      <div class="resizable-drawer"></div>`;
+    const titlebar = document.querySelector(".trellis-titlebar");
+    expect(appRegion(titlebar)).toBe("drag");
+    expect(appRegion(document.querySelector(".titlebar-drag-area"))).toBe("drag");
+    expect(appRegion(titlebar.querySelector("button"))).toBe("no-drag");
+    expect(appRegion(document.querySelector(".resizable-drawer"))).toBe("no-drag");
+    document.body.innerHTML = "";
   });
 });

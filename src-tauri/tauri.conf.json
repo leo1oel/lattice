@@ -17,7 +17,7 @@
         "title": "Lattice",
         "width": 1440,
         "height": 900,
-        "minWidth": 1222,
+        "minWidth": 640,
         "minHeight": 680,
         "backgroundColor": "#F7F7F6",
         "center": true,

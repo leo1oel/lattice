@@ -55,6 +55,7 @@ Bug reports and pull requests are welcome; please open an [issue](https://github
 Lattice is built on the work of many open-source projects. The major ones:
 
 - [Open Knowledge](https://github.com/inkeep/open-knowledge) (inkeep/open-knowledge) by Inkeep, the original basis of Lattice's earlier visual Markdown editor. Lattice has since replaced it with its own engine, but the editor began there, and we are grateful.
+- [Trellis](https://github.com/DanFessler/trellis) by Dan Fessler, the dockable panel layout of Lattice's workspace. Uses Trellis by DanFessler - github.com/DanFessler/trellis.
 - [Synara](https://github.com/Emanuele-web04/synara) by T3 Tools Inc. and Emanuele Di Pietro, the agent runtime behind Lattice's AI assistant.
 - [Open Slide](https://github.com/open-slide/open-slide), which powers presentations.
 - [Tiptap](https://github.com/ueberdosis/tiptap) and [CodeMirror](https://codemirror.net/), the rich-text and source editors.
@@ -69,5 +70,9 @@ See [third-party notices](THIRD_PARTY_NOTICES.md) for component licenses and [Sy
 
 The whiteboard's tldraw SDK (`tldraw`, `@tldraw/editor`, `@tldraw/driver`) is not covered by the Apache License: it is source-available under the [tldraw license](public/licenses/tldraw-LICENSE.md), which requires a license key for production use.
 Official builds supply that key at build time; it is not in this repository, so a build without it runs tldraw in its watermarked mode.
+
+The workspace's panel layout, `@danfessler/trellis` (with `@danfessler/trellis-react`), is licensed under its own non-commercial license (with a commercial tier), not Apache-2.0: see [its license](public/licenses/trellis-LICENSE.md), the [non-commercial terms](public/licenses/trellis-LICENSE-NONCOMMERCIAL.md) and the [commercial terms](public/licenses/trellis-LICENSE-COMMERCIAL.md).
+Those terms apply to anyone using Lattice: the free tier covers non-commercial use only, so use at a company or a for-profit organization needs a Trellis license from its author.
+Uses Trellis by DanFessler - github.com/DanFessler/trellis.
 
 </details>

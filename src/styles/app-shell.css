@@ -61,66 +61,30 @@ input[type="search"]:focus-visible {
 .app-shell { height: 100%; background: var(--surface-app); display: flex; flex-direction: column; }
 .titlebar { position: relative; z-index: var(--z-chrome); height: var(--titlebar-height); flex: none; display: flex; align-items: center; background: var(--surface-sidebar); user-select: none; }
 .titlebar-sidebar { width: var(--titlebar-sidebar-width); min-width: 0; height: 100%; flex: none; display: flex; align-items: center; }
-.titlebar-sidebar.collapsed { width: auto; }
-.titlebar-sidebar.collapsed .project-switcher { flex: none; }
-.titlebar-sidebar.collapsed .titlebar-drag-area { display: none; }
-/* Collapsed, the section is sized by its content, so the title's cap must be a
-   definite length: a percentage cap is ignored while the parent measures its
-   max-content width, which sizes the section to the *untruncated* project name
-   and pushes the tab strip right by the elided remainder. */
-.titlebar-sidebar.collapsed .project-title { max-width: var(--titlebar-project-title-max-width); }
-/* Hide Sidebar is positioned at --titlebar-toggle-center (midpoint between the
-   measured green traffic-light right edge and the project label text), relative
-   to the titlebar so Tip wrappers cannot skew the math. */
-.titlebar-navigator { width: var(--titlebar-navigator-width); height: 100%; flex: none; display: flex; align-items: center; }
+.titlebar-navigator { width: var(--titlebar-navigator-width); height: 100%; flex: none; display: flex; align-items: center; padding-right: var(--titlebar-leading-gap); }
 .traffic-space { width: var(--titlebar-traffic-space-width); height: 100%; flex: none; }
-.titlebar-sidebar-toggle { flex: 1; min-width: 0; height: 100%; }
-.titlebar-sidebar-toggle .icon-button {
-  position: absolute;
-  left: var(--titlebar-toggle-center);
-  top: 50%;
-  translate: -50% -50%;
-}
 .app-shell:is(.fullscreen, .browser-hosted) .titlebar-navigator { width: var(--titlebar-navigator-width-fullscreen); padding: 0 var(--space-4); }
 .app-shell:is(.fullscreen, .browser-hosted) .traffic-space { width: 0; }
-/* Fullscreen and browser tabs have no traffic lights, so the measured midpoint
-   points at empty space the navigator no longer occupies: center the toggle
-   over the narrowed navigator instead. This overrides `left` rather than
-   redefining --titlebar-toggle-center because App.tsx writes that variable
-   inline on .app-shell, and an inline custom property beats any selector. */
-.app-shell:is(.fullscreen, .browser-hosted) .titlebar-sidebar-toggle .icon-button {
-  left: calc(var(--titlebar-navigator-width-fullscreen) / 2);
-}
 .icon-button { width: var(--titlebar-action-size); height: var(--titlebar-action-size); border-radius: var(--radius-chrome); background: transparent; display: grid; place-items: center; color: var(--text-secondary); }
 .icon-button:hover { background: var(--chrome-hover-surface); color: var(--text-primary); }
 /* Soften the light/dark switch on the big themed surfaces (a rare action, so a
    short color transition here is cheap even on weak WebKit). */
 .app-shell, .titlebar { transition: background-color var(--duration-slow) var(--ease-default), color var(--duration-slow) var(--ease-default); }
-.toggle-icon { display: grid; place-items: center; animation: icon-swap var(--duration-base) var(--ease-emphasized); }
-.project-switcher { min-width: 0; height: 100%; flex: 1; position: relative; display: flex; align-items: center; overflow: hidden; }
-.project-title { max-width: min(var(--titlebar-project-title-max-width), 100%); height: var(--titlebar-action-size); min-width: 0; flex: none; border-radius: var(--radius-chrome); padding: 0 var(--space-4); background: transparent; color: var(--text-chrome); display: flex; align-items: center; gap: var(--gap-inline); font-size: var(--type-title-size); font-weight: var(--weight-semibold); text-align: left; }
+.project-switcher { min-width: 0; height: 100%; flex: none; position: relative; display: flex; align-items: center; overflow: hidden; }
+.project-title { max-width: var(--titlebar-project-title-max-width); height: var(--titlebar-action-size); min-width: 0; flex: none; border-radius: var(--radius-chrome); padding: 0 var(--space-4); background: transparent; color: var(--text-chrome); display: flex; align-items: center; gap: var(--gap-inline); font-size: var(--type-title-size); font-weight: var(--weight-semibold); text-align: left; }
 .project-title:hover, .project-title:focus-visible, .project-title[aria-expanded="true"] { background: var(--chrome-hover-surface); }
 .project-title:disabled { opacity: 1; cursor: default; }
 .project-title > span:first-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .project-title > svg { flex: none; color: var(--text-tertiary); }
-.titlebar-drag-area { min-width: var(--space-6); height: 100%; flex: 1; }
-.title-actions { min-width: max-content; width: max-content; flex: none; display: flex; align-items: center; gap: var(--space-3); padding-right: var(--space-6); }
+/* A long name clamps at the title's max width; the percentage cap this used to
+   carry is cyclic inside the content-sized switcher, so the unclamped name set
+   the switcher's width and pushed Panels away. The gap after it is fixed, so
+   the switcher stays centered between the lights and Panels. */
+.titlebar-drag-area { width: var(--titlebar-trailing-gap); height: 100%; flex: none; }
 .titlebar-main { min-width: 0; height: 100%; flex: 1; background: var(--surface-sidebar); display: flex; align-items: center; overflow: hidden; }
-.titlebar-main > .editor-tabs { min-width: 220px; width: auto; height: var(--tab-strip-height-chrome); flex: 1 1 0; border: 0; background: transparent; }
-.titlebar-main > .editor-tabs .editor-tabs-content { padding: 0 var(--space-2); align-items: center; gap: var(--space-2); }
-.titlebar-main > .editor-tabs .editor-tab { --tab-surface: var(--tab-chrome-surface); height: var(--tab-height-chrome); border: 1px solid var(--tab-chrome-border-color); border-radius: var(--radius-chrome); }
-.titlebar-main > .editor-tabs .editor-tab:not(.active):hover { --tab-surface: var(--tab-chrome-hover-surface); }
-.titlebar-main > .editor-tabs .editor-tab.active { --tab-surface: var(--tab-selected-surface); border-color: var(--tab-selected-border-color); box-shadow: var(--tab-chrome-selected-shadow); }
 .titlebar-main > .canvas-toolbar { min-width: max-content; width: auto; height: 100%; flex: none; padding: 0 var(--space-3); border: 0; background: transparent; display: flex; align-items: center; gap: var(--space-4); overflow: visible; container-type: normal; container-name: none; }
 .titlebar-main > .canvas-toolbar .active-document { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
 .titlebar-main > .canvas-toolbar .canvas-actions { min-width: max-content; width: max-content; flex: none; overflow: visible; }
-.build-button { width: 67px; height: var(--control-height-compact); flex: none; border-radius: var(--radius-chrome); padding: 0 var(--space-4); display: flex; align-items: center; justify-content: center; gap: var(--space-3); background: var(--text-primary); color: var(--surface-app); font-size: var(--type-caption-size); font-weight: var(--weight-semibold); white-space: nowrap; font-variant-numeric: tabular-nums; transition: background-color var(--duration-base) var(--ease-default), color var(--duration-base) var(--ease-default), scale var(--duration-quick) var(--ease-default); }
-.build-button > .state-swap { display: grid; width: 100%; grid-template-columns: 15px minmax(0, 1fr); }
-.build-button > .state-swap > svg { justify-self: center; }
-.build-button-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; text-align: left; line-height: 1; }
-.build-button:active:not(:disabled) { scale: 0.96; }
-.build-button.success { background: var(--control-active-soft); color: var(--status-success); }
-.build-button.stop { background: color-mix(in srgb, var(--status-danger) 18%, var(--surface-panel-raised)); color: var(--status-danger); }
 .spin { animation: spin 0.8s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 @keyframes icon-swap { from { opacity: 0; transform: scale(.82); } to { opacity: 1; transform: scale(1); } }
@@ -197,56 +161,26 @@ input[type="search"]:focus-visible {
 .editor-status-bar .editor-breadcrumb i { color: var(--text-tertiary); font-style: normal; }
 .goto-line-modal, .figure-insert-modal { width: min(420px, calc(100vw - 40px)); }
 .canvas-body { position: relative; flex: 1 1 0; min-width: 0; min-height: 0; width: 100%; max-width: 100%; display: flex; flex-direction: column; overflow: hidden; }
-.open-slide-tab-pool, .open-slide-tab-session { position: absolute; inset: 0; min-width: 0; min-height: 0; visibility: hidden; pointer-events: none; }
-.open-slide-tab-pool[data-active="true"], .open-slide-tab-session[data-active="true"] { visibility: visible; pointer-events: auto; }
 .primary-opening-overlay { position: absolute; inset: 0; z-index: var(--z-editor-popover); display: flex; align-items: center; justify-content: center; gap: var(--space-3); background: color-mix(in srgb, var(--surface-app) 82%, transparent); color: var(--text-secondary); font: var(--type-caption-size)/1.4 var(--ui-font); cursor: progress; }
-.canvas-tour-card-anchor { position: fixed; right: 24px; bottom: 20px; width: 1px; height: 1px; pointer-events: none; }
 /* The titlebar overrides this height to fill its single chrome row. Keeping the
    strip's own default compact also makes the component usable in isolation. */
-.editor-tabs { position: relative; flex: 0 0 auto; min-width: 0; width: 100%; max-width: 100%; height: var(--tab-strip-height); border-bottom: 1px solid var(--border-subtle); background: var(--surface-panel); display: flex; overflow: hidden; }
-.editor-tabs-scroll { min-width: 0; width: auto; height: 100%; flex: 1 1 0; }
-.editor-tabs-viewport { min-width: 0; width: 100%; height: 100%; }
-.editor-tabs-viewport > [data-slot="scroll-area-content-shell"] { width: 100%; min-width: 100% !important; height: 100%; }
-.editor-tabs-content { width: 100%; min-width: 0; height: 100%; padding: 0 var(--space-4) 0 0; display: flex; align-items: stretch; gap: var(--space-1); }
-.editor-tab { --tab-surface: transparent; position: relative; isolation: isolate; flex: 1 1 var(--tab-basis); min-width: var(--tab-min-width); max-width: var(--tab-max-width); display: flex; align-items: stretch; border: 1px solid transparent; border-bottom: 0; border-radius: var(--tab-radius); background: var(--tab-surface); cursor: grab; overflow: hidden; }
-.editor-tab:not(.active):hover { --tab-surface: var(--tab-hover-surface); }
-.editor-tab.active { --tab-surface: var(--tab-selected-surface); border-color: var(--tab-selected-border-color); }
-.editor-tab.dragging { @apply smooth-shadow-ring-md; opacity: var(--tab-dragging-opacity); background: var(--tab-selected-surface); border-color: transparent; cursor: grabbing; }
 /* While a tab is being dragged, the whole strip shows the grab cursor and stops
    selecting text under the pointer. */
-body.reordering-tabs, body.reordering-tabs * { cursor: grabbing !important; user-select: none; }
 /* Embedded documents own their pointer stream. Let the parent canvas receive
    the rest of a tab/tree drag so HTML previews remain valid split drop targets. */
-body:is(.reordering-tabs, .dragging-project-item) iframe { pointer-events: none; }
-.editor-tab-split-drop-preview { position: fixed; z-index: var(--z-editor-overlay); overflow: hidden; pointer-events: none; }
-.editor-tab-split-drop-target { position: absolute; top: 0; left: 0; overflow: hidden; border: 1px solid var(--control-active-border-strong); background: oklch(0 0 0 / 22%); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--surface-app) 20%, transparent); will-change: transform, width, height; }
-.editor-tab-split-drop-label { position: absolute; inset: 0; display: grid; place-content: center; justify-items: center; }
-.editor-tab-split-drop-label-content { padding: var(--space-3) var(--space-4); border-radius: var(--radius-control); background: var(--surface-panel-raised); color: var(--text-primary); display: inline-flex; align-items: center; gap: var(--space-3); font-size: var(--type-caption-size); font-weight: var(--weight-semibold); box-shadow: 0 1px 8px oklch(0 0 0 / 16%); }
-.editor-tab-split-drop-label-content svg { color: var(--control-active); opacity: .9; }
-.editor-tab > button[role="tab"] { height: 100%; min-width: 0; padding: 0 7px 0 9px; border: 0; background: transparent; color: var(--text-secondary); display: inline-flex; flex: 1 1 auto; align-items: center; justify-content: flex-start; gap: var(--space-3); font-size: var(--type-caption-size); text-align: left; overflow: hidden; }
-.editor-tab-pin { flex: none; color: var(--text-tertiary); transform: rotate(-35deg); }
-.editor-tab > button[role="tab"] span { min-width: 0; flex: 1 1 auto; overflow: hidden; white-space: nowrap; -webkit-mask-image: linear-gradient(to right, #000 calc(100% - var(--tab-label-fade-width)), transparent); mask-image: linear-gradient(to right, #000 calc(100% - var(--tab-label-fade-width)), transparent); }
-.editor-tab.active > button[role="tab"] { color: var(--text-primary); font-weight: var(--weight-semibold); }
-.editor-tab > button[role="tab"] i { width: var(--tab-dirty-dot-size); height: var(--tab-dirty-dot-size); flex: none; border-radius: 50%; background: var(--control-active); }
-.editor-tab.closable::after { content: ""; position: absolute; z-index: 1; top: 0; right: 0; bottom: 0; width: var(--tab-close-fade-width); pointer-events: none; opacity: 0; background: linear-gradient(to right, transparent, var(--tab-surface) 42%, var(--tab-surface)); transition: opacity var(--duration-quick) var(--ease-default); }
-.editor-tab.closable:hover::after, .editor-tab.closable:focus-within::after { opacity: 1; }
-.editor-tab-close { position: absolute; z-index: 2; right: 3px; top: 50%; transform: translateY(-50%); width: var(--tab-close-size); height: var(--tab-close-size); margin: 0; padding: 0; flex: none; border: 0; border-radius: var(--radius-icon); background: var(--tab-surface); color: var(--text-tertiary); opacity: 0; pointer-events: none; display: inline-flex; align-items: center; justify-content: center; line-height: 0; transition: opacity var(--duration-quick) var(--ease-default), color var(--duration-quick) var(--ease-default), background-color var(--duration-quick) var(--ease-default); }
-.editor-tab-close svg { display: block; margin: 0; flex: none; }
-.editor-tab:hover .editor-tab-close, .editor-tab:focus-within .editor-tab-close, .editor-tab-close:focus-visible { opacity: 1; pointer-events: auto; }
-.editor-tab-close:hover { color: var(--text-primary); background: color-mix(in srgb, var(--text-primary) 9%, var(--tab-surface)); }
 .editor-status-bar .status-vim-mode { min-width: max-content; flex: none; color: var(--text-secondary); font-size: var(--type-micro-size); font-weight: var(--weight-semibold); letter-spacing: .02em; font-variant-numeric: tabular-nums; }
 /* Every step below is the measured width of the items that stay, plus their
    gaps, plus ~115px so the breadcrumb keeps one truncated crumb instead of
    collapsing to nothing: it is the only item that shrinks rather than
    disappears, so it absorbs the slack between steps. Keep them here as one
    ladder — a second copy elsewhere in the cascade silently wins and strands the
-   step you are reading. The narrowest single editor pane leaves the bar 376px
-   (SPLIT_SOURCE_MIN_WIDTH less its padding), so both counters survive it; only
-   the columns layout, whose editor tracks bottom out near 160px, goes lower. */
+   step you are reading. The narrowest editor track, a document panel's Split
+   source (SPLIT_SOURCE_MIN_WIDTH), leaves the bar 216px, so both counters
+   survive it. */
 @container (max-width: 730px) { .editor-status-bar .status-hint { display: none; } }
 @container (max-width: 570px) { .editor-status-bar .status-body-words { display: none; } }
-@container (max-width: 360px) { .editor-status-bar .status-manuscript-todos { display: none; } }
-@container (max-width: 300px) { .editor-status-bar .status-comments { display: none; } }
+@container (max-width: 200px) { .editor-status-bar .status-manuscript-todos { display: none; } }
+@container (max-width: 160px) { .editor-status-bar .status-comments { display: none; } }
 .table-generator, .project-replace, .bib-entry-dialog { width: min(480px, 100%); display: flex; flex-direction: column; gap: var(--space-6); }
 .bib-entry-dialog > .drawer-copy { margin: 0; }
 .bib-entry-form { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-5); }
@@ -318,71 +252,19 @@ body:is(.reordering-tabs, .dragging-project-item) iframe { pointer-events: none;
 
 /* Expansion is monotonic. Only closing and releasing an elastic boundary use
    the spring; the clipping column and its content always share one curve. */
-.workspace { --sidebar-easing: var(--ease-emphasized); flex: 1; min-width: 0; min-height: 0; display: grid; overflow: hidden; background: var(--surface-sidebar); transition: grid-template-columns var(--duration-slow) var(--sidebar-easing); }
-.workspace.sidebar-hidden, .workspace[data-sidebar-rebounding] { --sidebar-easing: linear(0, .16 8%, .48 18%, .78 30%, .96 43%, 1.035 56%, 1.045 65%, 1.025 78%, 1.006 90%, 1); }
-.workspace[data-sidebar-tracking] { transition: none; }
+.workspace { flex: 1; min-width: 0; min-height: 0; overflow: hidden; background: var(--surface-sidebar); }
 .workspace > * { min-width: 0; }
 .navigator { min-width: 0; display: flex; flex-direction: column; overflow: hidden; background: var(--surface-sidebar); }
-.shared-sidebar { position: relative; grid-area: sidebar; min-width: 0; min-height: 0; display: flex; flex-direction: column; overflow: hidden; background: var(--surface-sidebar); container-type: inline-size; }
 /* Keep the iframe and file tree at their real width while the grid closes its
    clipping column. Reopening does not remount the assistant or squeeze rows. */
-.workspace-sidebar-content { position: relative; height: 100%; flex: none; display: flex; flex-direction: column; transform: translateX(0); transition: transform var(--duration-slow) var(--sidebar-easing); }
-.sidebar-hidden .workspace-sidebar-content { transform: translateX(-100%); }
-.workspace[data-sidebar-tracking] .workspace-sidebar-content { transition: none; }
-.sidebar-hidden .sidebar-resizer { visibility: hidden; }
-.sidebar-pane { min-width: 0; min-height: 0; flex: 1; display: flex; overflow: hidden; }
-.sidebar-pane[hidden] { display: none; }
-.sidebar-pane:not([hidden]) { animation: sidebar-pane-in var(--duration-base) var(--ease-emphasized); }
-.synara-sidebar-pane:not(.active) { position: absolute; inset: 40px 0 0; visibility: hidden; pointer-events: none; animation: none; }
 @keyframes sidebar-pane-in { from { opacity: .65; transform: translateY(2px); } to { opacity: 1; transform: translateY(0); } }
-.sidebar-pane > .navigator { width: 100%; min-height: 0; flex: 1; }
-.sidebar-resizer { grid-area: sidebar-resizer; }
 .panel-resizer { position: relative; z-index: 2; width: 1px; min-width: 1px; height: 100%; cursor: col-resize; outline: none; background: transparent; touch-action: none; transition: background var(--duration-quick), box-shadow var(--duration-quick); }
 .panel-resizer::after { content: ""; position: absolute; inset: 0 -4px; }
 .panel-resizer:hover, .panel-resizer:focus-visible, body.resizing-panels .panel-resizer { background: var(--border-strong); box-shadow: 0 0 0 .5px var(--border-strong); }
-.sidebar-resizer:hover, .sidebar-resizer:focus-visible, body.resizing-panels .sidebar-resizer { background: transparent; box-shadow: none; }
 /* A wide invisible grab strip, but only a hairline of paint. Fade the ends
    clear of the canvas corner; resizing itself stays glued to the pointer. */
-.sidebar-resizer::before { content: ""; position: absolute; inset: var(--space-6) -1px 0 1px; background: var(--text-secondary); opacity: 0; pointer-events: none; mask-image: linear-gradient(to bottom, transparent, black var(--space-12), black calc(100% - var(--space-12)), transparent); transition: opacity var(--duration-quick) var(--ease-out); }
-.sidebar-resizer:hover::before { opacity: .5; }
-.sidebar-resizer:focus-visible::before, body.resizing-panels .sidebar-resizer::before { opacity: 1; }
-body.resizing-panels .sidebar-resizer::before { transition: none; }
+body.dragging-project-item iframe { pointer-events: none; }
 body.resizing-panels { cursor: col-resize; user-select: none; }
-.sidebar-mode-header { position: relative; height: var(--navigation-header-height); flex: none; padding: 5px var(--space-4) 5px var(--space-6); display: flex; align-items: center; gap: var(--space-4); }
-.sidebar-mode-tabs { --navigation-tabs-tier-width: calc(var(--navigation-control-height) + var(--navigation-control-height) + var(--navigation-control-height) + var(--navigation-tab-gap) + var(--navigation-tab-gap)); width: var(--navigation-tabs-tier-width); min-width: var(--navigation-tabs-tier-width); padding: 0; display: flex; flex: none; gap: var(--navigation-tab-gap); overflow: visible; border-radius: var(--radius-chrome); background: transparent; }
-.sidebar-mode-tabs .sliding-tab { position: relative; width: var(--navigation-control-height); min-width: var(--navigation-control-height); height: var(--navigation-control-height); padding: 0; flex: none; border-radius: var(--radius-icon); background: transparent; color: var(--text-secondary); font-size: var(--type-body-size); font-weight: 600; overflow: hidden; transition: width var(--duration-reveal) var(--ease-emphasized), background-color var(--duration-base) var(--ease-default); }
-.sidebar-mode-tabs .sliding-tab.active, .sidebar-mode-tabs .sliding-tab:hover { width: var(--navigation-tab-expanded-width); }
-.sidebar-mode-tabs .sliding-tab:hover { background: var(--navigation-tab-hover-surface); }
-.sidebar-mode-tabs .sliding-tab.active { color: var(--text-primary); }
-.sidebar-mode-tabs .sliding-tab-pill { position: absolute; inset: 0; border: 0; border-radius: var(--radius-icon); background: var(--navigation-tab-selected-surface); }
-.sidebar-mode-tabs .sliding-tab-label { position: relative; height: 100%; padding: 0 var(--pad-inline-control-tight); display: flex; align-items: center; justify-content: flex-start; box-sizing: border-box; }
-.sidebar-mode-tabs .sliding-tab-label svg { width: 15px; height: 15px; min-width: 15px; flex: none; margin: 0; transform: translateX(1px); }
-.sidebar-mode-tabs .sliding-tab-label span { position: absolute; left: 22px; right: 0; overflow: hidden; white-space: nowrap; text-align: center; opacity: 0; transition: opacity var(--duration-base) var(--ease-default); }
-.sidebar-mode-tabs .sliding-tab.active .sliding-tab-label span, .sidebar-mode-tabs .sliding-tab:hover .sliding-tab-label span { opacity: 1; }
-.sidebar-mode-header[data-mode-tier="1"] {
-  .sidebar-mode-tabs .sliding-tab.active, .sidebar-mode-tabs .sliding-tab:hover { width: var(--navigation-control-height); }
-  .sidebar-mode-tabs .sliding-tab.active .sliding-tab-label span, .sidebar-mode-tabs .sliding-tab:hover .sliding-tab-label span { opacity: 0; }
-}
-.sidebar-mode-header[data-mode-tier="2"] {
-  .sidebar-mode-tabs { --navigation-tabs-tier-width: calc(var(--navigation-tab-expanded-width) + var(--navigation-control-height) + var(--navigation-control-height) + var(--navigation-tab-gap) + var(--navigation-tab-gap)); }
-  .sidebar-mode-tabs .sliding-tab.active { width: var(--navigation-tab-expanded-width); }
-  .sidebar-mode-tabs .sliding-tab:not(.active):hover { width: var(--navigation-control-height); }
-  .sidebar-mode-tabs .sliding-tab.active .sliding-tab-label span { opacity: 1; }
-  .sidebar-mode-tabs .sliding-tab:not(.active):hover .sliding-tab-label span { opacity: 0; }
-}
-.sidebar-mode-header[data-mode-tier="3"] {
-  .sidebar-mode-tabs { --navigation-tabs-tier-width: calc(var(--navigation-tab-expanded-width) + var(--navigation-tab-expanded-width) + var(--navigation-control-height) + var(--navigation-tab-gap) + var(--navigation-tab-gap)); }
-  .sidebar-mode-tabs .sliding-tab.active, .sidebar-mode-tabs .sliding-tab:hover { width: var(--navigation-tab-expanded-width); }
-}
-.sidebar-mode-header[data-mode-tier="4"] {
-  .sidebar-mode-tabs { --navigation-tabs-tier-width: calc(var(--navigation-tab-expanded-width) + var(--navigation-tab-expanded-width) + var(--navigation-tab-expanded-width) + var(--navigation-tab-gap) + var(--navigation-tab-gap)); }
-  .sidebar-mode-tabs .sliding-tab { width: var(--navigation-tab-expanded-width); }
-  .sidebar-mode-tabs .sliding-tab-label span { opacity: 1; }
-}
-.sidebar-mode-actions { position: absolute; top: 50%; right: 8px; min-width: var(--navigation-mode-actions-reserved-width); height: 29px; transform: translateY(-50%); display: flex; align-items: center; justify-content: flex-end; gap: var(--gap-hairline); }
-.sidebar-mode-actions button:not([data-slot="select-trigger"]):not(.sidebar-provider-select) { width: var(--navigation-action-size); height: var(--navigation-action-size); border-radius: var(--radius-icon); background: transparent; color: var(--text-tertiary); display: grid; place-items: center; }
-.sidebar-mode-actions button:not([data-slot="select-trigger"]):not(.sidebar-provider-select):hover:not(:disabled), .sidebar-mode-actions button:not([data-slot="select-trigger"]):not(.sidebar-provider-select)[aria-pressed="true"] { background: var(--navigation-action-hover-surface); color: var(--text-primary); }
-.sidebar-mode-actions button:not([data-slot="select-trigger"]):not(.sidebar-provider-select):disabled { opacity: .4; }
 .synara-frame-shell {
   position: relative;
   width: 100%;
@@ -652,7 +534,6 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
 .active-document { min-width: 0; display: flex; align-items: center; gap: var(--space-3); color: var(--text-secondary); font-size: var(--type-caption-size); overflow: hidden; }
 .active-document span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .active-document i { width: 5px; height: 5px; border-radius: 50%; background: var(--control-active); flex: none; }
-.canvas-mode-controls { min-width: 0; display: flex; align-items: center; justify-content: center; gap: var(--space-3); }
 .canvas-actions { justify-self: end; min-width: 0; display: flex; align-items: center; gap: var(--space-1); flex-wrap: nowrap; justify-content: flex-end; overflow: hidden; }
 .canvas-actions button { width: 28px; height: 28px; border-radius: var(--radius-icon); display: grid; place-items: center; background: transparent; color: var(--text-secondary); position: relative; }
 .canvas-actions button:hover:not(:disabled) { background: var(--border-subtle); color: var(--text-primary); }
@@ -668,23 +549,19 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
 .canvas-actions .animated-product-icon--clock-back .ck-hour,
 .canvas-actions .animated-product-icon--clock-back .ck-min { stroke-width: 20; }
 .canvas-actions .animated-product-icon--clock-back .ck-arrow { stroke: currentColor; stroke-width: 4; stroke-linejoin: round; paint-order: stroke fill; }
-.overleaf-status-dot { position: absolute; top: 3px; right: 3px; width: 6px; height: 6px; border-radius: var(--radius-pill); background: var(--status-success); box-shadow: 0 0 0 1px var(--surface-panel); pointer-events: none; }
-.canvas-view-switcher.ui-segmented,
-.paper-content-switcher.ui-segmented {
-  height: 28px;
-  border-radius: var(--radius-control);
-}
-.canvas-view-switcher .ui-segmented-tab,
-.paper-content-switcher .ui-segmented-tab {
-  height: 23px;
-  border-radius: calc(var(--radius-control) - var(--space-1));
-}
-@container canvas-toolbar (max-width: 620px) {
-  .paper-content-switcher .ui-segmented-tab { padding-inline: var(--space-3); }
-}
+/* The Overleaf button's state at a glance: green while live or syncing, a
+   breathing amber while the live channel connects, red when it failed (sync
+   carries on; the tooltip says why), and an accent dot for manual-mode work
+   waiting on Overleaf. Ringed in the titlebar's own surface so the dot reads
+   as cut out of the button rather than stuck on it. */
+.overleaf-status-dot, .overleaf-channel-dot { position: absolute; top: 3px; right: 3px; width: 7px; height: 7px; border-radius: var(--radius-pill); background: var(--status-success); box-shadow: 0 0 0 1.5px var(--surface-sidebar); pointer-events: none; }
+.overleaf-channel-dot[data-state="connecting"] { background: var(--status-warning); animation: overleaf-channel-breathe 1.6s var(--ease-in-out) infinite; }
+.overleaf-channel-dot[data-state="error"] { background: var(--status-danger); }
+.canvas-actions .overleaf-pending-badge { top: 3px; right: 3px; min-width: 0; width: 7px; height: 7px; padding: 0; border-radius: var(--radius-pill); background: var(--control-active); box-shadow: 0 0 0 1.5px var(--surface-sidebar); color: transparent; font-size: 0; }
+@keyframes overleaf-channel-breathe { 50% { opacity: .35; } }
+
 /* Tighter still: the view switcher gives up its padding before anything is
    allowed to collide. */
 @container canvas-toolbar (max-width: 420px) {
-  .canvas-view-switcher .ui-segmented-tab { padding-inline: var(--space-3); }
   .canvas-toolbar { padding-left: var(--space-5); gap: var(--space-2); }
 }

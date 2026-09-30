@@ -2,6 +2,7 @@ import {
   Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState,
   type DragEvent, type FocusEvent, type HTMLAttributes, type PointerEventHandler, type ReactNode,
 } from "react";
+import { createPortal } from "react-dom";
 import { useLingui } from "@lingui/react/macro";
 import { CodeMirrorHost as CodeMirror } from "../editor/codemirror-host";
 import { paperDropExtension } from "../editor/paper-drop";
@@ -18,7 +19,6 @@ import {
 import type { TrackedChange } from "../overleaf/use-overleaf-realtime";
 import type { MarkdownWorkspaceIndex } from "../editor/markdown/markdown-workspace-index";
 import { restoreViewportAround } from "./viewport-restore";
-import { Columns2 } from "lucide-react";
 import { latexEditorExtensions, textEditorExtensions } from "../editor/latex/latex-editor";
 import { latex } from "../editor/latex/latex-language";
 import { wrapEnvironment, wrapRange } from "../editor/latex/latex-edits";
@@ -40,13 +40,12 @@ import { editorDiagnosticsForFile, type CompileDiagnostic } from "../build/compi
 import { editorTexlabDiagnosticsForFile } from "../build/texlab-diagnostics";
 import { DocumentOutline } from "./document-outline";
 import { sectionBreadcrumbNodes, type OutlineNode } from "../editor/latex/latex-outline";
-import { InsertPalette } from "../editor/insert/insert-palette";
-import type { InsertSnippet } from "../editor/insert/insert-snippets";
-import { expandSnippetPlaceholders, nextSnippetStop, previousSnippetStop } from "../editor/insert/snippet-placeholders";
 import { MathPreview } from "../editor/latex/math-preview";
 import { TableGeneratorDialog } from "../editor/insert/table-generator-dialog";
 import type { PdfSyncTarget } from "../pdf/pdf-viewer";
-import { SPLIT_PDF_MIN_WIDTH, SPLIT_SOURCE_MIN_WIDTH } from "../app/window-layout";
+import {
+  SPLIT_PREVIEW_MIN_WIDTH, SPLIT_SOURCE_MIN_WIDTH,
+} from "../app/window-layout";
 import type {
   WordCount, EditorViewState, FileViewState, AssetPreview, CanvasRequests, EditorPosition, PaperSummary, CanvasMode,
   EditorPaneId, EditorKeymap,
@@ -72,15 +71,15 @@ import {
 } from "./markdown-preview-sync";
 import { PaperReader } from "./paper-reader";
 import { ProjectAssetPreview } from "./project-asset-preview";
-import { SecondaryMarkdownPreview } from "./secondary-markdown-preview";
 import { useMarkdownModeHandoff } from "./use-markdown-mode-handoff";
 import { useMarkdownSplitScroll } from "./use-markdown-split-scroll";
 import { usePaperPdf } from "./use-paper-pdf";
-import { useSplitLayout } from "./use-split-layout";
+import { useSplitLayout, type SplitMinimums } from "./use-split-layout";
 
-export { OpenSlideTabPool } from "./open-slide-tab-pool";
 
 /** LaTeX wrappers the floating selection toolbar applies; null declines the edit. */
+const SPLIT_MINIMUMS: SplitMinimums = { source: SPLIT_SOURCE_MIN_WIDTH, preview: SPLIT_PREVIEW_MIN_WIDTH };
+
 const SELECTION_WRAPS: Record<Exclude<LatexSelectionAction, "comment">, (value?: string) => [string, string] | null> = {
   bold: () => ["\\textbf{", "}"],
   italic: () => ["\\textit{", "}"],
@@ -186,7 +185,6 @@ export function DocumentCanvas(props: {
   onImportAsset?: (file: File) => Promise<string | null>;
   nativeFigureDropActive: boolean;
   fileDropTargetPane: EditorPaneId | null;
-  figurePointerPosition: { x: number; y: number } | null;
   requests: CanvasRequests;
   /** Settle the request with this id (ids are unique across every kind). */
   onRequestHandled: (id: string) => void;
@@ -209,8 +207,6 @@ export function DocumentCanvas(props: {
   outlineNodes: OutlineNode[];
   activeOutlineId: string | null;
   onOutlineNavigate: (path: string, line: number) => void;
-  insertOpen: boolean;
-  onInsertOpenChange: (open: boolean) => void;
   tableGeneratorOpen: boolean;
   onTableGeneratorOpenChange: (open: boolean) => void;
   editorKeymap: EditorKeymap;
@@ -251,6 +247,18 @@ export function DocumentCanvas(props: {
   interactivePreviewsEnabled: boolean;
   /** Remounts the source editor when it changes: the open file, or the Paper. */
   editorKey: string;
+  /**
+   * Where the active document renders (its file panel's host) and where the
+   * project PDF renders (the PDF panel's host; null while that panel is
+   * closed or hibernated).
+   */
+  trellis: {
+    editorHost: HTMLElement;
+    pdfHost: HTMLElement | null;
+    /** A board, sheet or deck whose panel has been off screen long enough to unmount. */
+    editorHibernated: boolean;
+    hibernatedPlaceholder: ReactNode;
+  };
   editorEditable: boolean;
   secondaryEditorEditable: boolean;
   onOpenCitation: (key: string) => void;
@@ -258,9 +266,9 @@ export function DocumentCanvas(props: {
 }) {
   const {
     activeFile, secondaryFile, secondarySource, setSecondarySource, focusedPane, onFocusPane, buildDiagnostics,
-    texlabDiagnostics, editorKey, editorKeymap, editorSpellcheck, insertOpen,
+    texlabDiagnostics, editorKey, editorKeymap, editorSpellcheck,
     katexMacros, onFindReferences, onGotoDefinition, onTexlabGoto, onGotoLineRequest,
-    onInsertOpenChange, onOutlineNavigate, onOutlineOpenChange, onPrepareFigure, onPasteImageFile,
+    onOutlineNavigate, onOutlineOpenChange, onPrepareFigure, onPasteImageFile,
     onCreateMissingFile, onRenameEnvironment, onRenameSymbol, onTableGeneratorOpenChange, onWrapEnvironment,
     activeOutlineId, outlineNodes, outlineOpen, setSource, source: editorSource,
     tableGeneratorOpen, editorComments, commentAuthorName, commentAuthorId, onCreateEditorComment,
@@ -348,7 +356,6 @@ export function DocumentCanvas(props: {
   // before it (new view → extension closure → render scope → previous view),
   // so every file switch retained the previous editor and its whole document.
   const [primaryScrollbarView, setPrimaryScrollbarView] = useState<WeakRef<EditorView> | null>(null);
-  const [secondaryScrollbarView, setSecondaryScrollbarView] = useState<WeakRef<EditorView> | null>(null);
   const markdownPreviewViewportRef = useRef<HTMLDivElement | null>(null);
   // Weak for the same reason as the scrollbar views above: a retained render
   // scope must not pin a replaced preview and its whole rendered document.
@@ -373,13 +380,12 @@ export function DocumentCanvas(props: {
   const markdownPreviewOverflowAnchorRef = useRef("");
   const lastInsertionPositionRef = useRef(0);
   const pendingFigureCursorRef = useRef<{ pane: EditorPaneId; cursor: number } | null>(null);
-  const { splitRef, splitRatio, beginDualResize, beginSplitResize, nudgeSplit } =
-    useSplitLayout(props.mode, props.dualRatioResetGeneration);
+  const { splitRef, splitRatio, beginSplitResize, nudgeSplit } =
+    useSplitLayout(props.mode, props.dualRatioResetGeneration, SPLIT_MINIMUMS);
+  const splitMinimums = SPLIT_MINIMUMS;
   const [figureDropActive, setFigureDropActive] = useState(false);
-  const [figureDropMarker, setFigureDropMarker] = useState<{ top: number; line: number } | null>(null);
   const [cursorOffset, setCursorOffset] = useState(0);
   const [statusPosition, setStatusPosition] = useState({ line: 1, column: 0 });
-  const [snippetStops, setSnippetStops] = useState<{ base: number; stops: { from: number; to: number }[] } | null>(null);
   const [figureInsertPending, setFigureInsertPending] = useState<{ paths: string[]; position: number; pane: EditorPaneId } | null>(null);
   const [commentComposer, setCommentComposer] = useState<CommentDraft | null>(null);
   const commentComposerViewRef = useRef<EditorView | null>(null);
@@ -387,10 +393,14 @@ export function DocumentCanvas(props: {
   // Saved-view ownership for the preview column. Files without a preview of
   // their own (.bib, .sty) keep using the last previewable file's saved state.
   // This is separate from the mounted viewer's identity: all TeX source files
-  // share the project's compiled PDF, including across SyncTeX jumps.
-  const [previewIdentity, setPreviewIdentity] = useState(activeFile);
+  // share the project's compiled PDF, including across SyncTeX jumps. The
+  // canvas outlives a project switch, so the identity is tied to its root: the
+  // outgoing project's file must not own the incoming project's saved PDF view.
+  const [previewIdentity, setPreviewIdentity] = useState({ root: props.projectRoot, path: activeFile });
   const previewOwner = [activeFile, secondaryFile].find((path) => path && isPreviewableSourceFilePath(path));
-  if (previewOwner && previewOwner !== previewIdentity) setPreviewIdentity(previewOwner);
+  if (previewIdentity.root !== props.projectRoot || (previewOwner && previewOwner !== previewIdentity.path)) {
+    setPreviewIdentity({ root: props.projectRoot, path: previewOwner ?? activeFile });
+  }
 
   const { captureMarkdownModeViewport, viewMarkdownSource, livePrimaryView } = useMarkdownModeHandoff({
     activeFile,
@@ -417,7 +427,6 @@ export function DocumentCanvas(props: {
   const commentsForActiveFileRef = useRef(commentsForActiveFile);
   commentsForActiveFileRef.current = commentsForActiveFile;
   const commentsForSecondaryFile = useMemo(() => editorComments.filter((comment) => comment.path === secondaryFile), [secondaryFile, editorComments]);
-  const commentsForSecondaryFileRef = useLatest(commentsForSecondaryFile);
 
   // Comments rebased into the preview's own coordinates: it may render a slice
   // of the file, and resolves anchors against the text it was given.
@@ -536,10 +545,6 @@ export function DocumentCanvas(props: {
     if (completionActiveRef.current) latestRef.current.onCompletionActiveChange(false);
   }, []);
   const onSecondaryChange = useCallback((value: string) => latestRef.current.setSecondarySource(value), []);
-  const onSecondaryUpdate = useCallback(
-    (viewUpdate: ViewUpdate) => reportPaneUpdate("secondary", viewUpdate, latestRef.current.secondaryFile),
-    [reportPaneUpdate],
-  );
 
   useEffect(() => onLayoutChange(
     [primaryViewRef.current, secondaryViewRef.current].map((view) => view?.dom.closest(".source-editor")),
@@ -648,9 +653,7 @@ export function DocumentCanvas(props: {
     [focusedPath, focusedSource, statusPosition.line],
   );
   const [primaryKeymapExtensions, primaryVimMode] = useOptionalKeymapExtensions(editorKeymap);
-  const [secondaryKeymapExtensions, secondaryVimMode] = useOptionalKeymapExtensions(editorKeymap);
   const primaryTextLanguageExtensions = useTextLanguageExtensions(isLatexSourcePath(activeFile) ? "" : activeFile);
-  const secondaryTextLanguageExtensions = useTextLanguageExtensions(secondaryFile && !isLatexSourcePath(secondaryFile) ? secondaryFile : "");
   /**
    * Everything either pane's editor of `path` runs, in precedence order; `extra`
    * slots in after the language. Every getter here runs in CodeMirror handlers,
@@ -723,26 +726,13 @@ export function DocumentCanvas(props: {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional stability
     [activeFile, editorSpellcheck, primaryKeymapExtensions, primaryTextLanguageExtensions],
   );
-  const secondaryEditorExtensions = useMemo(
-    () => secondaryFile ? paneExtensions(
-      secondaryFile,
-      secondaryKeymapExtensions,
-      secondaryTextLanguageExtensions,
-      { getComments: () => commentsForSecondaryFileRef.current },
-    ) : [],
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional stability
-    [editorSpellcheck, secondaryFile, secondaryKeymapExtensions, secondaryTextLanguageExtensions],
-  );
   const insertTextAtCursor = useCallback((insert: string, cursorOffset = insert.length) => {
     const view = editorViewRef.current;
     if (!view) return;
     const from = view.state.selection.main.head;
-    const { text, stops } = expandSnippetPlaceholders(insert);
-    const anchor = from + (stops[0] ? stops[0].from : Math.min(cursorOffset, text.length));
-    setSnippetStops(stops.length > 1 ? { base: from, stops } : null);
-    editAndFocus(view, { changes: { from, insert: text }, selection: { anchor, head: stops[0] ? from + stops[0].to : anchor } });
+    const anchor = from + Math.min(cursorOffset, insert.length);
+    editAndFocus(view, { changes: { from, insert }, selection: { anchor } });
   }, []);
-  const insertSnippet = useCallback((snippet: InsertSnippet) => insertTextAtCursor(snippet.insert, snippet.cursorOffset), [insertTextAtCursor]);
   const insertFigures = useCallback(async (
     paths: string[],
     coordinates?: { x: number; y: number },
@@ -855,20 +845,6 @@ export function DocumentCanvas(props: {
     onRequestHandled, onFocusPane, props.mode, secondaryFile, secondarySource,
   ]);
   useEffect(() => {
-    const view = editorViewRef.current;
-    const point = props.figurePointerPosition;
-    if (!view || !point) {
-      setFigureDropMarker(null);
-      return;
-    }
-    const position = positionAtPoint(view, point) ?? lastInsertionPositionRef.current;
-    const line = view.state.doc.lineAt(clamp(position, 0, view.state.doc.length));
-    const editorBounds = view.dom.closest(".source-editor")?.getBoundingClientRect();
-    const lineCoordinates = view.coordsAtPos(line.from);
-    const top = editorBounds ? clamp((lineCoordinates?.top ?? point.y) - editorBounds.top, 0, editorBounds.height) : 0;
-    setFigureDropMarker({ top, line: line.number });
-  }, [props.figurePointerPosition]);
-  useEffect(() => {
     const request = figureDropRequest;
     if (!request) return;
     void insertFigures(request.paths, { x: request.clientX, y: request.clientY }, request.pane).finally(() => onRequestHandled(request.id));
@@ -916,26 +892,6 @@ export function DocumentCanvas(props: {
     });
     return () => window.cancelAnimationFrame(frame);
   }, [activeFile, onRequestHandled, viewRestore, editorSource, editorNavigation, primaryScrollbarView]);
-  useEffect(() => {
-    if (!snippetStops) return;
-    const { base, stops } = snippetStops;
-    const onKeyDown = (event: KeyboardEvent) => {
-      const view = editorViewRef.current;
-      if (event.key !== "Tab" || event.altKey || event.metaKey || event.ctrlKey || !view) return;
-      const cursor = view.state.selection.main.head;
-      const target = (event.shiftKey ? previousSnippetStop : nextSnippetStop)(stops, cursor, base);
-      if (!target) return;
-      event.preventDefault();
-      // Tabbing on from the last stop wraps to the first; end the snippet instead.
-      if (!event.shiftKey && cursor >= base + stops[stops.length - 1].to && target.from === base + stops[0].from) {
-        setSnippetStops(null);
-        return;
-      }
-      view.dispatch({ selection: { anchor: target.from, head: target.to }, scrollIntoView: true });
-    };
-    window.addEventListener("keydown", onKeyDown, true);
-    return () => window.removeEventListener("keydown", onKeyDown, true);
-  }, [snippetStops]);
 
   const replaceVisualMarkdown = useCallback((nextBody: string, expectedBody: string) => {
     // VisualMarkdownEditor retains the previous publisher until its layout
@@ -1140,7 +1096,6 @@ export function DocumentCanvas(props: {
     );
   };
 
-  if (props.mode === "asset" && props.activeAsset) return assetPreview(props.activeAsset);
   const activatePrimarySurface = () => props.onContextSurfaceActivate(primarySurface);
   /** Leaving `currentTarget` entirely, by pointer or by focus, counts as leaving the editor. */
   const leaveHandlers = {
@@ -1341,11 +1296,6 @@ export function DocumentCanvas(props: {
             onUpdate={onPrimaryUpdate}
           />
           <CodeMirrorScrollbar view={primaryScrollbarView?.deref() ?? null} />
-          {figureDropMarker && (
-            <div className="figure-drop-line" style={{ top: figureDropMarker.top }}>
-              <span>{t({ message: `Insert above line ${{ line: figureDropMarker.line }}` })}</span>
-            </div>
-          )}
           {commentComposer && (
             <CommentComposer
               draft={commentComposer}
@@ -1365,7 +1315,7 @@ export function DocumentCanvas(props: {
           position={statusPosition}
           onGotoLine={onGotoLineRequest}
           keymap={editorKeymap}
-          vimMode={focusedPane === "secondary" && secondaryFile ? secondaryVimMode : primaryVimMode}
+          vimMode={primaryVimMode}
           breadcrumb={breadcrumb}
           breadcrumbPath={focusedPath}
           onNavigate={onOutlineNavigate}
@@ -1379,7 +1329,6 @@ export function DocumentCanvas(props: {
           source={focusedSource}
         />
       </div>
-      <InsertPalette open={insertOpen} onClose={() => onInsertOpenChange(false)} onInsert={insertSnippet} />
       <TableGeneratorDialog open={tableGeneratorOpen} onClose={() => onTableGeneratorOpenChange(false)} onInsert={insertTextAtCursor} />
       <FigureInsertDialog
         open={Boolean(figureInsertPending)}
@@ -1399,7 +1348,7 @@ export function DocumentCanvas(props: {
     </div>
   );
   const projectPdfPreview = (requestedPath: string) => {
-    const previewPath = isPreviewableSourceFilePath(requestedPath) ? requestedPath : previewIdentity;
+    const previewPath = isPreviewableSourceFilePath(requestedPath) ? requestedPath : previewIdentity.path;
     const leaveEditorForPdf = () => {
       // Scrolling the PDF need not blur CodeMirror: end completion explicitly, or
       // its active-menu guard can suspend autosave. Pointer leave keeps the menu.
@@ -1436,7 +1385,8 @@ export function DocumentCanvas(props: {
             // Reverse-jump to source needs an editor to land in: PDF-only view and
             // a dual layout of previews (or an asset) have none, so those clicks
             // stay inert. Otherwise App picks the pane, since it owns that state.
-            onSource={props.mode === "pdf" || !props.canRevealPdfSource ? undefined : props.onPdfSource}
+            // Under Trellis the jump always has a file panel to land in.
+            onSource={props.onPdfSource}
             onTextSelect={props.onPdfTextSelect}
             onNumPages={props.onPdfPageCount}
             onPageChange={props.onPdfPageChange}
@@ -1460,156 +1410,52 @@ export function DocumentCanvas(props: {
     : markdownDocument ? paperPreview
       : htmlDocument ? htmlPreview(activeFile, props.source, props.mode === "split" ? primaryScrollbarView?.deref() ?? null : null)
         : projectPdfPreview(activeFile);
-  const twoPane = props.mode === "dual";
-  if (primaryKind && !twoPane) {
-    // App renders the primary deck through OpenSlideTabPool, which keeps it alive across tabs.
-    if (primaryKind === "presentation") return null;
-    return structuredEditor(primaryKind, "primary");
-  }
-  if (paperPdf.pdfView && !twoPane) return paperPreview;
-  if (props.mode === "source") return editor;
-  if (props.mode === "pdf") return preview;
-  if (twoPane) {
-    /**
-     * A focusable cell of `pane`: pointer-down or focus anywhere inside enters
-     * it, offering the agent `surface`. The secondary pane's cells also take
-     * over the selection toolbar.
-     */
-    const cell = (pane: EditorPaneId, classes: string[], content: ReactNode, {
-      surface = "editor", ...attributes
-    }: HTMLAttributes<HTMLDivElement> & { surface?: AgentHostSurface | null; "data-paper-side"?: string } = {}) => {
-      const enter = () => focusPane(pane, surface, { claim: pane === "secondary" });
-      return (
+  // The file panel shows the document the way its kind is edited; LaTeX
+  // and other source files never split here, the PDF is its own panel.
+  const { editorHost, pdfHost, editorHibernated, hibernatedPlaceholder } = props.trellis;
+  const readable = Boolean(props.activePaper) || markdownDocument || htmlDocument;
+  const fileContent = props.activeAsset ? assetPreview(props.activeAsset)
+    : primaryKind ? (editorHibernated ? hibernatedPlaceholder : structuredEditor(primaryKind, "primary"))
+      : paperPdf.pdfView ? paperPreview
+        : !readable || props.mode === "source" ? editor
+          : props.mode === "pdf" ? preview
+            : (
         <div
-          className={[...classes, focusedPane === pane ? "focused" : ""].join(" ")}
-          data-editor-pane={pane}
-          tabIndex={0}
-          onPointerDownCapture={enter}
-          onFocusCapture={enter}
-          {...attributes}
-        >
-          {content}
-        </div>
-      );
-    };
-    /** An asset, board, sheet or deck fills its pane by itself; null for a text file. */
-    const documentCell = (pane: EditorPaneId, paneClass: string, asset: AssetPreview | null, kind: StructuredDocumentKind | null) => (
-      asset ? cell(pane, [paneClass, "asset-pane"], assetPreview(asset))
-        : kind ? cell(pane, [paneClass], structuredEditor(kind, pane, focusedPane === pane)) : null
-    );
-    /** A source editor's pane: entering it also makes that pane's view the insertion target. */
-    const sourceCell = (pane: EditorPaneId, classes: string[], content: ReactNode) => (
-      <div
-        className={[...classes, focusedPane === pane ? "focused" : ""].join(" ")}
-        onPointerDownCapture={() => props.onContextSurfaceActivate("editor")}
-        onFocusCapture={() => focusPane(pane, "editor", { claim: pane === "secondary", view: true })}
-      >
-        {content}
-      </div>
-    );
-    const secondaryEditor = secondaryFile && (
-      <div
-        className={`source-editor ${props.fileDropTargetPane === "secondary" ? "file-drop-active" : ""}`}
-        data-editor-pane="secondary"
-        {...leaveHandlers}
-      >
-        <CodeMirror
-          className="code-editor-root"
-          value={secondarySource}
-          editable={props.secondaryEditorEditable}
-          extensions={secondaryEditorExtensions}
-          onCreateEditor={(view) => {
-            secondaryViewRef.current = view;
-            setSecondaryScrollbarView(new WeakRef(view));
-            if (focusedPane === "secondary") editorViewRef.current = view;
+          ref={splitRef}
+          className="split-canvas"
+          data-tour="split-workspace"
+          data-minimum-workspace-width={splitMinimums.source + splitMinimums.preview + 1}
+          style={{
+            gridTemplateColumns: `clamp(${splitMinimums.source}px, calc(${splitRatio * 100}% - ${splitRatio}px), calc(100% - ${splitMinimums.preview + 1}px)) 1px minmax(${splitMinimums.preview}px, 1fr)`,
           }}
-          onChange={onSecondaryChange}
-          onUpdate={onSecondaryUpdate}
-        />
-        <CodeMirrorScrollbar view={secondaryScrollbarView?.deref() ?? null} />
-      </div>
-    );
-    const secondaryKind = secondaryFile ? structuredDocumentKind(secondaryFile) : null;
-    const emptySecondary = (
-      <>
-        <Columns2 size={18} />
-        <p>{t`Open or drag a file here`}</p>
-      </>
-    );
-    const secondaryPane = documentCell("secondary", "dual-pane", props.secondaryAsset, secondaryKind)
-      ?? (secondaryEditor ? sourceCell("secondary", ["source-main", "dual-pane"], secondaryEditor)
-        : cell("secondary", ["dual-empty"], emptySecondary, { "aria-label": t`Empty secondary editor` }));
-    const secondaryPreview = secondaryFile?.toLocaleLowerCase().endsWith(".md") ? (
-      <SecondaryMarkdownPreview
-        {...visualEditorProps}
-        key={secondaryFile}
-        path={secondaryFile}
-        projectRoot={props.projectRoot}
-        source={secondarySource}
-        onChange={onSecondaryChange}
-        onFlushPendingChange={registerSecondaryVisualMarkdownFlush}
-        onEditSource={props.onViewMarkdownSource}
-        editable={props.secondaryEditorEditable}
-        editorComments={commentsForSecondaryFile}
-        onCreateComment={(from, to, body) => createComment(secondaryFile, secondarySource, from, to, body)}
-        onCaretChange={(row, column) => reportVisualCaret(secondaryFile, row + 1, column)}
-      />
-    ) : secondaryFile && isHtmlFilePath(secondaryFile)
-      ? htmlPreview(secondaryFile, secondarySource)
-      : projectPdfPreview(secondaryFile ?? activeFile);
-    const primaryPane = documentCell("primary", "dual-primary", props.activeAsset, primaryKind) ?? sourceCell("primary", ["dual-primary"], editor);
-    const paperPane = props.activePaper
-      && cell("primary", ["dual-pane", "dual-primary", "paper-pane"], paperPreview, { surface: "paper", "data-paper-side": props.paperSide });
-    const visiblePrimaryPane = paperPane
-      ?? (props.dualPreviewPanes?.primary ? cell("primary", ["dual-pane-preview", "dual-primary"], preview, { surface: null }) : primaryPane);
-    const visibleSecondaryPane = props.dualPreviewPanes?.secondary
-      ? cell("secondary", ["dual-pane-preview", "dual-pane"], secondaryPreview, leaveHandlers)
-      : secondaryPane;
-    const paperOnRight = Boolean(paperPane) && props.paperSide === "right";
-    const leftPane = paperOnRight ? visibleSecondaryPane : visiblePrimaryPane;
-    const rightPane = paperOnRight ? visiblePrimaryPane : visibleSecondaryPane;
-    return (
-      <div
-        ref={splitRef}
-        className="split-canvas dual-canvas"
-        style={{ gridTemplateColumns: `minmax(220px, ${splitRatio}fr) 1px minmax(220px, ${1 - splitRatio}fr)` }}
-      >
-        {leftPane}
-        {resizer(t`Resize dual source panes`, beginDualResize)}
-        {rightPane}
-      </div>
-    );
-  }
+        >
+          {editor}
+          {resizer(
+            props.activeAsset
+              ? t`Resize editor and asset preview`
+              : markdownDocument
+                ? t`Resize editor and Markdown preview`
+                : htmlDocument ? t`Resize editor and HTML preview` : t`Resize editor and PDF preview`,
+            beginSplitResize,
+            {
+              "aria-valuemin": 20,
+              "aria-valuemax": 80,
+              "aria-valuenow": Math.round(splitRatio * 100),
+              onKeyDown: (event) => {
+                if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+                event.preventDefault();
+                nudgeSplit(event.key === "ArrowLeft" ? -0.03 : 0.03);
+              },
+            },
+          )}
+          {preview}
+        </div>
+            );
   return (
-    <div
-      ref={splitRef}
-      className="split-canvas"
-      data-tour="split-workspace"
-      data-minimum-workspace-width={SPLIT_SOURCE_MIN_WIDTH + SPLIT_PDF_MIN_WIDTH + 1}
-      style={{
-        gridTemplateColumns: `clamp(${SPLIT_SOURCE_MIN_WIDTH}px, calc(${splitRatio * 100}% - ${splitRatio}px), calc(100% - ${SPLIT_PDF_MIN_WIDTH + 1}px)) 1px minmax(${SPLIT_PDF_MIN_WIDTH}px, 1fr)`,
-      }}
-    >
-      {editor}
-      {resizer(
-        props.activeAsset
-          ? t`Resize editor and asset preview`
-          : markdownDocument
-            ? t`Resize editor and Markdown preview`
-            : htmlDocument ? t`Resize editor and HTML preview` : t`Resize editor and PDF preview`,
-        beginSplitResize,
-        {
-          "aria-valuemin": 20,
-          "aria-valuemax": 80,
-          "aria-valuenow": Math.round(splitRatio * 100),
-          onKeyDown: (event) => {
-            if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
-            event.preventDefault();
-            nudgeSplit(event.key === "ArrowLeft" ? -0.03 : 0.03);
-          },
-        },
-      )}
-      {preview}
-    </div>
+    <>
+      {createPortal(fileContent, editorHost)}
+      {pdfHost && createPortal(projectPdfPreview(activeFile), pdfHost)}
+    </>
   );
+
 }

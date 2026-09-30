@@ -110,6 +110,39 @@ describe("paper lookup", () => {
     expect(screen.getByText("No matching papers")).toBeVisible();
   });
 
+  it("opens a dropped paper only on document panels and the titlebar", () => {
+    const open = vi.fn();
+    renderHook(() => usePaperLookup(state, open, vi.fn()));
+    document.body.innerHTML = `
+      <div class="titlebar-main"></div>
+      <div class="lattice-trellis">
+        ${["file", "pdf", "project", "papers", "agent", "history", "git", "comments", "todos", "checklist", "literature", "overleaf"].map((type) => `
+          <div data-trellis-part="tab" data-type="${type}"><span id="tab-${type}"></span></div>
+          <div data-trellis-part="surface" data-type="${type}"><div id="${type}"></div></div>`).join("")}
+      </div>`;
+    const values = new Map<string, string>();
+    const dataTransfer = {
+      get types() { return [...values.keys()]; },
+      setData: (type: string, value: string) => { values.set(type, value); },
+      getData: (type: string) => values.get(type) ?? "",
+    };
+    beginPaperDrag(dataTransfer as unknown as DataTransfer, state.projectRoot, state.papers[0]);
+    const accepts = (selector: string) => {
+      open.mockClear();
+      const drop = fireEvent.drop(document.querySelector(selector)!, { dataTransfer });
+      const over = fireEvent.dragOver(document.querySelector(selector)!, { dataTransfer });
+      return { opened: open.mock.calls.length === 1, dropHandled: !drop, overHandled: !over };
+    };
+    for (const selector of ["#file", "#tab-file", "#pdf", ".titlebar-main"]) {
+      expect(accepts(selector), selector).toEqual({ opened: true, dropHandled: true, overHandled: true });
+    }
+    for (const type of ["project", "papers", "agent", "history", "git", "comments", "todos", "checklist", "literature", "overleaf"]) {
+      expect(accepts(`#${type}`), type).toEqual({ opened: false, dropHandled: false, overHandled: false });
+      expect(accepts(`#tab-${type}`), `${type} tab`).toEqual({ opened: false, dropHandled: false, overHandled: false });
+    }
+    document.body.innerHTML = "";
+  });
+
   it("publishes current state, rejects stale project requests, and opens through the constrained native command", async () => {
     const open = vi.fn();
     const error = vi.fn();

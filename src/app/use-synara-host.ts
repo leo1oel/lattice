@@ -24,8 +24,6 @@ const LATTICE_AGENT_PERMISSION_MODE_REQUEST = "lattice:request-agent-permission-
 const LATTICE_AGENT_PERMISSION_MODE_SET = "lattice:set-agent-permission-mode";
 const LATTICE_AGENT_PANEL_OPENED = "lattice:agent-panel-opened";
 const LATTICE_HOST_POINTER = "lattice:host-pointer";
-const SYNARA_SIDEBAR_MINIMUM = 180;
-const SYNARA_SIDEBAR_MAXIMUM_MINIMUM = 720;
 
 // Keep import expressions outside the component: React Compiler cannot lower them.
 function loadAgentEditorComments() {
@@ -44,7 +42,6 @@ type SynaraHostBridge = {
   agentCommentsOptions: () => BuildAgentCommentsOptions | null;
   projectDocumentCreator: () => ((request: AgentProjectDocumentToolRequest) => Promise<string>) | null;
   onHistorySnapshot: (snapshot: NonNullable<ReturnType<typeof parseAgentProjectHistorySnapshot>>) => void;
-  onMinimumSidebarWidth: (width: number) => void;
 };
 
 type MessageData = Record<string, unknown> & { type?: unknown };
@@ -249,14 +246,6 @@ export function useSynaraHost({ project, projectRef, agentVisible, bridge }: {
         if (!isSynaraPermissionMode(data.mode)) return;
         setPermissionMode(data.mode);
         setAutoModeAvailable(data.autoModeAvailable !== false);
-      },
-      "synara:layout-metrics": (data, host) => {
-        const width = data.minimumSidebarWidth;
-        if (typeof width !== "number" || !Number.isFinite(width)) return;
-        // An intrinsic control width, not the assigned grid width, so it may safely decrease.
-        host.bridge.onMinimumSidebarWidth(Math.round(
-          Math.min(SYNARA_SIDEBAR_MAXIMUM_MINIMUM, Math.max(SYNARA_SIDEBAR_MINIMUM, width)),
-        ));
       },
     };
     const receive = (event: MessageEvent) => {

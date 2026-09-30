@@ -80,7 +80,7 @@ before adoption.
    - **Typing, large.md, source mode** — hold a key / type naturally for
      ~30 s in the middle of the document. Read keystroke p50/p95.
    - **Typing, large.md, split mode** — same, both panes visible.
-   - **Typing, main.tex, dual mode** — secondary pane showing a chapter.
+   - **Typing, main.tex, split mode** — source beside the PDF.
    - **Switching** — cycle large.md ↔ main.tex ↔ a few notes ~10 times.
      Read `switch(read→paint)` p50/p95 and the per-command IPC table
      (`write_project_file`, `read_project_file`, `stat_project_file`,
@@ -334,7 +334,7 @@ contents.
 
 `scripts/react-compiler-report.mjs` prints every compiler bailout in the hot
 files; `src/platform/react-compiler-guard.test.ts` pins per-file ceilings so new
-bailouts fail CI. As of August 2026: `editor-tabs.tsx` compiles fully, and
+bailouts fail CI. As of August 2026: the since-removed `editor-tabs.tsx` compiled fully, and
 several syntax-level blockers (`??=`, inline `import()`, default-parameter `??`)
 were cleared from `pdf-viewer.tsx`, the since-removed `visual-markdown-editor.tsx`,
 and `document-canvas.tsx`'s hooks. Its replacement,
@@ -349,7 +349,7 @@ in order of value:
    deps object, leave the `useCallback` as a thin arrow; per-file commits so
    regressions bisect. This is the single biggest render-cost win left.
 2. Render-phase ref access, each the *sole* bailout of its function:
-   `app/use-panel-layout.ts`, `project/project-find-dialog.tsx`,
+   `project/project-find-dialog.tsx`,
    `telemetry/app-updater.tsx`. Where a ref is passed as an argument during
    render, the fix is to wrap it in a closure (`() => ref.current`) rather
    than to move a write.

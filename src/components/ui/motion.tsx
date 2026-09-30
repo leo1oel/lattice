@@ -150,6 +150,7 @@ export function MorphIcon(props: { idle: ReactNode; hover: ReactNode; size?: num
       onMouseEnter={() => setOver(true)}
       onMouseLeave={() => setOver(false)}
     >
+      { }
       <AnimatePresence mode="popLayout" initial={false}>
         <motion.span
           key={over ? "hover" : "idle"}

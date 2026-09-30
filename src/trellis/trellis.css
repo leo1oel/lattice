@@ -1,0 +1,334 @@
+/* Trellis workspace: Trellis's chrome drawn in Lattice's design
+   language. Trellis rules are all :where(), so any selector here wins. */
+
+.workspace.trellis-workspace { display: flex; background: var(--surface-sidebar); padding: 0 var(--space-3) var(--space-3); }
+.workspace.trellis-workspace > .lattice-trellis { flex: 1 1 0; min-width: 0; min-height: 0; }
+
+/* Lattice positions selection toolbars, popovers and drawers with
+   position:fixed in viewport coordinates. Layout/paint containment on the root
+   and a will-change transform on surfaces would each make them relative to the
+   panel instead (the Trellis patch also places surfaces with left/top). */
+.lattice-trellis .trellis { contain: size style; }
+.lattice-trellis .trellis [data-trellis-part="surface"] { will-change: auto; }
+.lattice-trellis .trellis [data-trellis-part="content"] { overflow: hidden; }
+
+/* ---------------------------------------------------------------- surfaces
+   Each kind of panel keeps the background its content already has, and its
+   header takes the same one, so the two read as one surface. */
+.lattice-trellis .trellis { --lattice-panel-surface: var(--surface-app); }
+.lattice-trellis [data-trellis-part="panel"]:has([data-trellis-part="tab"][data-selected]:is([data-type="file"], [data-type="pdf"])) {
+  --lattice-panel-surface: var(--editor-bg);
+}
+.lattice-trellis [data-trellis-part="panel"]:has([data-trellis-part="tab"][data-selected]:is([data-type="project"], [data-type="papers"], [data-type="agent"])) {
+  --lattice-panel-surface: var(--surface-sidebar);
+}
+.lattice-trellis [data-trellis-part="panel"]:has([data-trellis-part="tab"][data-selected]:is([data-type="history"], [data-type="git"], [data-type="comments"], [data-type="overleaf"], [data-type="literature"], [data-type="todos"], [data-type="checklist"])) {
+  --lattice-panel-surface: var(--surface-input);
+}
+.lattice-trellis [data-trellis-part="panel"] { background: var(--lattice-panel-surface); box-shadow: 0 0 0 1px var(--border-subtle); }
+.lattice-trellis [data-trellis-part="surface"] { background: var(--surface-app); }
+.lattice-trellis [data-trellis-part="surface"]:is([data-type="file"], [data-type="pdf"]) { background: var(--editor-bg); }
+.lattice-trellis [data-trellis-part="surface"]:is([data-type="project"], [data-type="papers"], [data-type="agent"]) { background: var(--surface-sidebar); }
+.lattice-trellis [data-trellis-part="surface"]:is([data-type="history"], [data-type="git"], [data-type="comments"], [data-type="overleaf"], [data-type="literature"], [data-type="todos"], [data-type="checklist"]) { background: var(--surface-input); }
+
+/* The focused panel carries a quiet ring; its selected tab, an accent underline. */
+.lattice-trellis [data-trellis-part="panel"][data-focused] { box-shadow: 0 0 0 1px color-mix(in srgb, var(--control-active) 28%, var(--border-subtle)); }
+
+/* ---------------------------------------------------------------- floating
+   Floating panels lift off the workspace like Lattice's popovers. */
+.lattice-trellis .trellis {
+  --trellis-shadow-float: 0 0 0 1px var(--border-subtle), 0 2px 6px rgb(0 0 0 / 6%), 0 18px 44px -14px rgb(0 0 0 / 26%);
+  --trellis-shadow-lifted: 0 0 0 1px var(--border-strong), 0 4px 10px rgb(0 0 0 / 8%), 0 28px 64px -16px rgb(0 0 0 / 34%);
+}
+.lattice-trellis [data-trellis-part="panel"][data-floating] { box-shadow: var(--trellis-shadow-float); }
+.lattice-trellis [data-trellis-part="panel"][data-lifted] { box-shadow: var(--trellis-shadow-lifted); }
+
+/* ---------------------------------------------------------------- header
+   Browser-style tabs. Every panel's header is the same strip, a shade darker
+   than the darkest panel surface (the Project panel's); the selected tab takes
+   its panel's own surface and runs into the content below it (flared corners,
+   no line under it), while the other tabs sit on the strip. The whole strip
+   drags the panel, and tabs, actions and the menu never overlap. */
+.lattice-trellis .trellis {
+  --lattice-tabstrip-shade: 5%;
+  --lattice-tabstrip: color-mix(in srgb, var(--surface-sidebar), black var(--lattice-tabstrip-shade));
+}
+:root[data-theme="dark"] .lattice-trellis .trellis { --lattice-tabstrip-shade: 30%; }
+/* Declared on the panel so it resolves against the panel's own surface. */
+.lattice-trellis [data-trellis-part="panel"] { --trellis-tab-active: var(--lattice-panel-surface); }
+.lattice-trellis [data-trellis-part="tabbar"] {
+  gap: 0;
+  padding: 0 var(--space-2) 0 0;
+  background: var(--lattice-tabstrip);
+  box-shadow: none;
+  container-type: inline-size;
+}
+.lattice-trellis [data-trellis-part="tabs"] { gap: var(--space-1); }
+.lattice-trellis [data-trellis-part="tab"] {
+  min-width: 56px;
+  max-width: 200px;
+  gap: var(--space-3);
+  padding: 0 var(--space-2) 0 var(--space-5);
+  border-radius: var(--radius-chrome) var(--radius-chrome) 0 0;
+  color: var(--text-secondary);
+  font-size: var(--type-label-size);
+  font-weight: var(--weight-medium);
+}
+.lattice-trellis [data-trellis-part="tab"]:has(> [data-trellis-part="tab-close"][hidden]) { padding-right: var(--space-5); }
+.lattice-trellis [data-trellis-part="tab"]:hover { background: color-mix(in srgb, var(--trellis-tab-active) 55%, transparent); color: var(--text-primary); }
+.lattice-trellis [data-trellis-part="tab"][data-selected],
+.lattice-trellis [data-trellis-part="tab"][data-selected]:hover,
+.lattice-trellis [data-trellis-part="panel"][data-focused] [data-trellis-part="tab"][data-selected],
+.lattice-trellis [data-trellis-part="tabbar"][data-focused] [data-trellis-part="tab"][data-selected] {
+  background: var(--trellis-tab-active);
+  color: var(--text-primary);
+  box-shadow: none;
+}
+.lattice-trellis [data-trellis-part="tab-icon"] { color: var(--text-tertiary); }
+.lattice-trellis [data-trellis-part="tab"][data-selected] [data-trellis-part="tab-icon"] { color: var(--text-secondary); }
+.lattice-trellis [data-trellis-part="tab-icon"] svg { width: 14px; height: 14px; }
+.lattice-trellis [data-trellis-part="tab-badge"][data-dot] { width: var(--tab-dirty-dot-size); min-width: var(--tab-dirty-dot-size); height: var(--tab-dirty-dot-size); }
+.lattice-trellis [data-trellis-part="tab-close"],
+.lattice-trellis [data-trellis-part="panel-menu"] {
+  width: var(--toolbar-icon-width);
+  height: var(--toolbar-icon-height);
+  border-radius: var(--radius-icon);
+  color: var(--text-tertiary);
+  opacity: 1;
+}
+.lattice-trellis [data-trellis-part="tab-close"] { opacity: 0; }
+.lattice-trellis [data-trellis-part="tab"]:hover [data-trellis-part="tab-close"],
+.lattice-trellis [data-trellis-part="tab"][data-selected] [data-trellis-part="tab-close"] { opacity: 1; }
+.lattice-trellis [data-trellis-part="tab-close"]:hover,
+.lattice-trellis [data-trellis-part="panel-menu"]:hover,
+.lattice-trellis [data-trellis-part="panel-menu"][aria-expanded="true"] { background: var(--chrome-hover-surface); color: var(--text-primary); }
+.lattice-trellis [data-trellis-part="panel-menu"] { margin-left: var(--space-2); }
+
+/* Tabs use the space left after the action row, compress together to 80px,
+   then scroll. The Trellis patch uses the same minimum and a 480px panel cap.
+   Labels are never hidden just because a panel crossed a guessed breakpoint. */
+.lattice-trellis [data-trellis-part="tabs"] { flex: 1 1 0; min-width: 0; }
+.lattice-trellis [data-trellis-part="tab"] { flex: 0 1 auto; min-width: 80px; }
+.lattice-trellis [data-trellis-part="tab-title"] { min-width: 0; text-overflow: ellipsis; }
+/* Named panels (Project, Agent, PDF, tools) never ellipsize: the Trellis patch
+   (fitHeader) shows each whole name or only its icon, disclosing names in tab
+   order as the panel widens. The name stays in the tab's tooltip. */
+.lattice-trellis [data-trellis-part="tab"][data-atomic] { flex: none; min-width: 0; max-width: none; }
+.lattice-trellis [data-trellis-part="tab"][data-atomic][data-icon-only] { gap: 0; padding-inline: var(--space-4); }
+/* While a divider's rubber band squeezes a panel under its minimum, its tabs
+   give way for the moment rather than scroll under the actions. */
+/* The Trellis patch sets each file tab's share of the squeeze inline. */
+.lattice-trellis [data-trellis-part="panel"] { --trellis-squeeze-tab: 0px; }
+.lattice-trellis [data-trellis-part="panel"][data-squeezed] [data-trellis-part="tab"]:not([data-atomic]) { min-width: max(0px, calc(80px - var(--trellis-squeeze-tab))); }
+.lattice-trellis [data-trellis-part="panel"][data-squeezed="atomic"] [data-trellis-part="tab"] { flex-shrink: 1; min-width: 0; overflow: hidden; }
+.lattice-trellis [data-trellis-part="tab"][data-atomic][data-icon-only] > :is([data-trellis-part="tab-title"], [data-trellis-part="tab-close"]) { display: none; }
+/* A tab's trailing slot is the same width whatever it holds (close button,
+   unsaved dot or nothing yet visible), so hovering, saving or selecting a tab
+   never changes any tab's width. */
+.lattice-trellis [data-trellis-part="tab"][data-badge="dot"] [data-trellis-part="tab-badge"] { margin: 0 calc((var(--toolbar-icon-width) - var(--tab-dirty-dot-size)) / 2); }
+/* Past the 480px cap the strip scrolls; a fade on the clipped side reads as
+   "more tabs" instead of a tab cut off by the actions. The scroll timeline is
+   inactive (no fade) while everything fits. */
+@property --lattice-tabs-fade-start { syntax: "<length>"; inherits: false; initial-value: 0px; }
+@property --lattice-tabs-fade-end { syntax: "<length>"; inherits: false; initial-value: 0px; }
+@keyframes lattice-tabs-fade {
+  0% { --lattice-tabs-fade-start: 0px; --lattice-tabs-fade-end: var(--space-8); }
+  8%, 92% { --lattice-tabs-fade-start: var(--space-8); --lattice-tabs-fade-end: var(--space-8); }
+  100% { --lattice-tabs-fade-start: var(--space-8); --lattice-tabs-fade-end: 0px; }
+}
+.lattice-trellis [data-trellis-part="tabs"] {
+  mask-image: linear-gradient(to right, transparent, #000 var(--lattice-tabs-fade-start), #000 calc(100% - var(--lattice-tabs-fade-end)), transparent);
+  animation: lattice-tabs-fade linear both;
+  animation-timeline: scroll(self inline);
+}
+.lattice-trellis [data-trellis-part="panel-menu"],
+.lattice-trellis [data-trellis-part="accessories"] { flex-shrink: 0; }
+
+/* Actions ride in the header between the tabs and the menu; with too little
+   room they give way (they are also in the panel menu). Every view's actions
+   share one grid cell and the unselected ones stay laid out but invisible, so
+   the row is as wide as the widest view's actions and selecting another tab
+   never moves or resizes the tabs. The tab strip's end padding (room for the
+   selected tab's flared corner, 7px) is the whole gap from the last tab to
+   the actions: no bar gap or padding is added on top. */
+.lattice-trellis [data-trellis-part="accessories"] { display: grid; grid-template-areas: "actions"; align-items: center; }
+.lattice-trellis [data-trellis-part="accessory"] { grid-area: actions; justify-self: end; }
+.lattice-trellis [data-trellis-part="accessory"][data-inactive] { visibility: hidden; pointer-events: none; }
+.trellis-slot-inline { display: flex; align-items: center; min-width: 0; }
+.trellis-accessory-host { min-width: 0; display: flex; align-items: center; gap: var(--gap-hairline); }
+.trellis-accessory-host button:not([data-slot="select-trigger"]) { width: var(--navigation-action-size); height: var(--navigation-action-size); border-radius: var(--radius-icon); background: transparent; color: var(--text-tertiary); display: grid; place-items: center; }
+.trellis-accessory-host button:not([data-slot="select-trigger"]):hover:not(:disabled),
+.trellis-accessory-host button:not([data-slot="select-trigger"])[aria-pressed="true"] { background: var(--navigation-action-hover-surface); color: var(--text-primary); }
+.trellis-accessory-host button:not([data-slot="select-trigger"]):disabled { opacity: .4; }
+@container (max-width: 190px) {
+  .lattice-trellis [data-trellis-part="accessories"] { display: none; }
+}
+
+/* ---------------------------------------------------------------- header tools
+   A document's own actions ride at the right of its header: Build on a .tex
+   file (the old titlebar button, at header size) and the view switch on
+   Markdown, HTML and Papers. A panel's ⋯ menu repeats them. */
+.trellis-build-button {
+  height: calc(var(--control-height-compact) - var(--space-2));
+  display: inline-flex; align-items: center; gap: var(--space-3);
+  padding: 0 var(--space-5) 0 var(--space-4);
+  border-radius: var(--radius-icon);
+  /* Gray in both themes: a tint of the text on the panel's own surface. */
+  background: color-mix(in srgb, var(--text-primary) 9%, var(--trellis-tab-active));
+  box-shadow: inset 0 0 0 1px var(--border-subtle);
+  color: var(--text-primary);
+  font-size: var(--type-caption-size);
+  font-weight: var(--weight-semibold);
+  white-space: nowrap;
+  transition: background-color var(--duration-quick) var(--ease-out), scale var(--duration-quick) var(--ease-default);
+}
+.trellis-build-button:hover { background: color-mix(in srgb, var(--text-primary) 14%, var(--trellis-tab-active)); }
+.trellis-build-button:active { scale: 0.96; }
+.trellis-build-button.is-building { cursor: progress; }
+/* On the darker strip the switch is a row of icons; the chosen one sits on the panel's own surface, like the selected tab. */
+.trellis-view-switcher.ui-segmented { background: transparent; }
+/* An unselected document's switch holds its place in the stacked action row. */
+.trellis-tools-reserve { display: flex; visibility: hidden; }
+/* The chosen mode is raised (ring and lift); a hovered one is only a flat
+   plate, so the two never read alike, in dark mode especially. */
+.trellis-view-switcher .sliding-tab-pill { background: var(--trellis-tab-active); box-shadow: 0 0 0 1px var(--border-strong), var(--segmented-selected-shadow); }
+.trellis-view-switcher .ui-segmented-tab {
+  padding-inline: var(--space-3);
+  color: var(--text-secondary);
+  transition: background-color var(--duration-quick) var(--ease-out), color var(--duration-quick) var(--ease-out);
+}
+/* The other modes answer the pointer like every header button (the ⋯ menu,
+   a tab's close button): a plate and the primary text color on hover, a
+   firmer plate while pressed. The chosen mode keeps its raised surface and
+   does not react, since clicking it changes nothing. */
+.trellis-view-switcher .ui-segmented-tab:not(.active):hover { background: var(--chrome-hover-surface); color: var(--text-primary); }
+.trellis-view-switcher .ui-segmented-tab:not(.active):active { background: color-mix(in srgb, var(--text-primary) 14%, transparent); color: var(--text-primary); }
+.trellis-view-switcher .ui-segmented-tab.active { color: var(--text-primary); cursor: default; }
+@container (max-width: 300px) {
+  .trellis-build-label { display: none; }
+  .trellis-build-button { padding-inline: var(--space-4); }
+}
+
+/* ---------------------------------------------------------------- dividers */
+.lattice-trellis [data-trellis-part="divider"]::after { background: color-mix(in srgb, var(--control-active) 55%, transparent); border-radius: var(--radius-pill); }
+.lattice-trellis [data-trellis-part="divider"][data-axis="x"]::after { left: calc(50% - 1px); width: var(--space-1); }
+.lattice-trellis [data-trellis-part="divider"][data-axis="y"]::after { top: calc(50% - 1px); height: var(--space-1); }
+
+/* ---------------------------------------------------------------- drop previews */
+.lattice-trellis [data-trellis-part="drop-slot"] { border-radius: var(--radius-surface); }
+.lattice-trellis [data-trellis-part="drop-label"] { border-radius: var(--radius-pill); font-size: var(--type-label-size); font-weight: var(--weight-medium); }
+.lattice-trellis [data-trellis-part="snap-preview"] span,
+.lattice-trellis [data-trellis-part="marquee-target"] span { font-size: var(--type-label-size); font-weight: var(--weight-medium); }
+
+/* ---------------------------------------------------------------- content slots */
+.trellis-slot { position: absolute; inset: 0; display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+.trellis-slot > * { flex: 1 1 0; min-width: 0; min-height: 0; }
+.trellis-slot > .canvas-body { display: flex; flex-direction: column; overflow: hidden; }
+.trellis-navigator-host, .trellis-agent-host, .trellis-tool-host { position: relative; display: flex; flex-direction: column; overflow: hidden; background: var(--surface-sidebar); }
+.trellis-tool-host { background: var(--surface-input); }
+.trellis-navigator-host > .navigator { width: 100%; min-height: 0; flex: 1; }
+.trellis-agent-host > .synara-frame-shell { flex: 1 1 0; min-height: 0; }
+
+/* Drawers docked as tool panels fill the panel instead of sliding over the
+   app. The panel's own header names it and closes it, so the drawer's title
+   row keeps only its actions, and disappears when it has none. */
+.trellis-tool-host > .trellis-docked-drawer { position: relative; flex: 1 1 0; width: 100%; max-width: none; height: 100%; min-height: 0; box-shadow: none; border: 0; border-radius: 0; animation: none; backdrop-filter: none; background: var(--surface-input); }
+.trellis-docked-drawer > .drawer-header [data-slot="panel-header-title"] { display: none; }
+.trellis-docked-drawer > .drawer-header [data-slot="panel-header-actions"] > .ui-icon-button:last-child:has(> .lucide-x) { display: none; }
+/* A header left with nothing but its close button goes away entirely. (:has cannot nest, so match the lone close button directly.) */
+.trellis-docked-drawer > .drawer-header:not(:has([data-slot="panel-header-actions"])),
+.trellis-docked-drawer > .drawer-header:has([data-slot="panel-header-actions"] > .ui-icon-button:only-child > .lucide-x) { display: none; }
+.trellis-docked-drawer > .drawer-header { justify-content: flex-end; }
+
+/* ---------------------------------------------------------------- empty and sleeping states */
+.trellis-empty {
+  position: absolute; inset: 0; z-index: 1;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--space-3);
+  padding: var(--space-8);
+  background: var(--lattice-panel-surface, var(--surface-app));
+  color: var(--text-secondary);
+  font: var(--type-caption-size)/var(--type-caption-line-height) var(--ui-font);
+  text-align: center;
+}
+.trellis-empty-activatable { cursor: pointer; }
+.trellis-empty-activatable:hover .trellis-empty-icon { background: var(--chrome-hover-surface); color: var(--text-primary); }
+.trellis-empty-icon {
+  display: grid; place-items: center;
+  width: var(--control-height-default); height: var(--control-height-default);
+  border-radius: var(--radius-control);
+  background: color-mix(in srgb, var(--text-primary) 5%, transparent);
+  color: var(--text-secondary);
+  transition: background-color var(--duration-quick) var(--ease-out), color var(--duration-quick) var(--ease-out);
+}
+.trellis-empty strong { color: var(--text-primary); font-size: var(--type-label-size); font-weight: var(--weight-semibold); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.trellis-empty-detail { max-width: 320px; color: var(--text-tertiary); }
+.trellis-empty-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--space-2); margin-top: var(--space-2); }
+.trellis-empty-button {
+  display: inline-flex; align-items: center; gap: var(--space-3);
+  height: var(--control-height-compact);
+  padding: 0 var(--space-5);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-control);
+  background: var(--surface-app);
+  color: var(--text-primary);
+  font: var(--type-label-weight) var(--type-label-size)/var(--type-label-line-height) var(--ui-font);
+  transition: background-color var(--duration-quick) var(--ease-out);
+}
+.trellis-empty-button:hover { background: var(--chrome-hover-surface); }
+.trellis-empty-button kbd { color: var(--text-tertiary); font: inherit; }
+
+.trellis-snapshot { position: absolute; inset: 0; display: flex; flex-direction: column; cursor: text; }
+.trellis-snapshot-editor { flex: 1 1 0; min-height: 0; opacity: .9; }
+.trellis-snapshot-badge {
+  position: absolute; right: var(--space-4); bottom: var(--space-3);
+  padding: var(--space-1) var(--space-4); border-radius: var(--radius-pill);
+  background: var(--surface-panel-raised); box-shadow: 0 0 0 1px var(--border-subtle);
+  color: var(--text-secondary);
+  font: var(--type-micro-weight) var(--type-micro-size)/var(--type-micro-line-height) var(--ui-font);
+  pointer-events: none; opacity: 0; transition: opacity var(--duration-quick) var(--ease-out);
+}
+.trellis-snapshot:hover .trellis-snapshot-badge { opacity: 1; }
+
+/* ---------------------------------------------------------------- panel menus */
+.trellis-menu-check { display: inline-grid; place-items: center; width: 14px; flex: none; }
+.trellis-menu-shortcut, .trellis-menu-state { margin-left: auto; padding-left: var(--space-6); color: var(--text-tertiary); font-size: var(--type-caption-size); }
+
+/* ---------------------------------------------------------------- titlebar
+   Panel controls replace the editor tab strip. */
+.trellis-titlebar { display: flex; align-items: center; gap: var(--space-4); min-width: 0; flex: 1 1 auto; padding-inline: var(--space-3); }
+.trellis-titlebar-group { display: flex; align-items: center; gap: var(--space-1); padding-left: var(--space-4); border-left: 1px solid var(--border-subtle); }
+.trellis-titlebar button {
+  height: var(--control-height-compact);
+  display: inline-flex; align-items: center; gap: var(--space-3);
+  padding: 0 var(--space-4);
+  border-radius: var(--radius-chrome);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: var(--type-label-size);
+  transition: background-color var(--duration-quick) var(--ease-out), color var(--duration-quick) var(--ease-out);
+}
+.trellis-titlebar .trellis-titlebar-toggle { width: var(--control-height-compact); justify-content: center; padding: 0; }
+.trellis-titlebar button:hover { background: var(--chrome-hover-surface); color: var(--text-primary); }
+.trellis-titlebar .trellis-titlebar-toggle[aria-pressed="true"] { background: color-mix(in srgb, var(--text-primary) 8%, transparent); color: var(--text-primary); }
+.trellis-titlebar-hidden { display: flex; align-items: center; gap: var(--space-2); min-width: 0; overflow: hidden; }
+.trellis-titlebar .trellis-hidden-chip { max-width: 140px; height: var(--control-height-compact); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; border: 1px dashed var(--border-strong); }
+.trellis-attribution { max-width: 260px; color: var(--text-tertiary); font-size: var(--type-caption-size); font-weight: var(--weight-regular); white-space: normal; }
+
+/* A panel narrower than a split's tracks must not be scrolled sideways by an
+   editor's scrollIntoView (overflow: hidden still scrolls programmatically). */
+.lattice-trellis .split-canvas { overflow: clip; }
+
+/* ------------------------------------------------- visual Markdown engine
+   The heading rail sits in the writing surface's left margin. A document
+   panel is usually narrower than the surface's centered column, which leaves
+   that margin at the surface's own padding and puts the rail's ticks over the
+   first characters of every line (and over the text the pointer means to
+   click). While the rail is shown, the surface keeps the text start clear of
+   it: its padding grows by whatever the centering margin no longer provides. */
+.trellis-workspace .lx-md-editor:has(> .visual-heading-rail) .lx-md-surface {
+  --trellis-rail-clearance: calc(var(--space-6) + 2 * var(--space-12) + var(--space-4));
+  padding-inline-start: max(
+    var(--space-12),
+    min(var(--trellis-rail-clearance), calc(var(--trellis-rail-clearance) - (100% - var(--lx-md-measure) - 2 * var(--space-12)) / 2))
+  );
+}

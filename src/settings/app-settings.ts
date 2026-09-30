@@ -39,7 +39,6 @@ const OVERLEAF_REMOTE_DELETE_KEY = "lattice.overleaf.remote-delete.v1";
 const PROJECT_HISTORY_MAX = 60;
 const FILE_VIEW_STATE_FILE_MAX = 200;
 const RECENT_PROJECTS_MAX = 8;
-export const MAX_OPEN_TABS = 12;
 
 // Every preference here is a convenience: when storage is unavailable or holds
 // something unreadable, reads fall back to the default and writes last only for
@@ -200,14 +199,17 @@ export type WorkspaceLayout = {
   tabRecency: string[];
 };
 
-const CANVAS_MODES: readonly CanvasMode[] = ["source", "pdf", "split", "dual", "asset"];
+const CANVAS_MODES: readonly CanvasMode[] = ["source", "pdf", "split", "asset"];
 const DOCUMENT_MODES = CANVAS_MODES.filter((mode): mode is DocumentViewMode => mode !== "asset");
 // Retired modes and what replaced them: the Markdown and paper previews merged
-// into the unified preview, and the three-column layout became two editor panes.
-const RETIRED_CANVAS_MODES = new Map<unknown, CanvasMode>([
+// into the unified preview, and the two-editor view (and the three-column
+// layout before it) became the plain editor, since each document has its own
+// panel now.
+const RETIRED_CANVAS_MODES = new Map<unknown, DocumentViewMode>([
   ["markdown-preview", "pdf"],
   ["paper", "pdf"],
-  ["columns", "dual"],
+  ["columns", "source"],
+  ["dual", "source"],
 ]);
 
 function stringList(value: unknown): string[] {
@@ -222,9 +224,8 @@ function normalizeWorkspaceLayout(value: unknown): WorkspaceLayout | null {
   const openTabs = stringList(candidate.openTabs);
   const canvasMode = RETIRED_CANVAS_MODES.get(candidate.canvasMode)
     ?? oneOf(candidate.canvasMode, CANVAS_MODES, "split");
-  const documentMode = candidate.documentMode === "columns"
-    ? "dual"
-    : oneOf(candidate.documentMode, DOCUMENT_MODES, canvasMode === "asset" ? "split" : canvasMode);
+  const documentMode = RETIRED_CANVAS_MODES.get(candidate.documentMode)
+    ?? oneOf(candidate.documentMode, DOCUMENT_MODES, canvasMode === "asset" ? "split" : canvasMode);
   return {
     openTabs,
     pinnedTabs: stringList(candidate.pinnedTabs).filter((path) => openTabs.includes(path)),
@@ -350,8 +351,13 @@ export type AppearanceSettings = {
   editorKeymap: "default" | "vim" | "emacs";
   editorSpellcheck: boolean;
   interfaceSounds: boolean;
-  maxOpenTabs: number;
+  /** Title-bar tool buttons the writer chose to hide (Settings → Appearance). */
+  hiddenTitlebarTools: TitlebarTool[];
 };
+
+/** The tool buttons at the right of the title bar, each of which can be hidden. */
+export const TITLEBAR_TOOLS = ["comments", "overleaf", "paper-lookup", "git", "history"] as const;
+export type TitlebarTool = typeof TITLEBAR_TOOLS[number];
 
 export function resolveAppLocale(preference: InterfaceLanguage, systemLanguages?: readonly string[]): AppLocale {
   if (preference !== "system") return preference;
@@ -378,7 +384,7 @@ export function loadAppearance(): AppearanceSettings {
     editorKeymap: "default",
     editorSpellcheck: true,
     interfaceSounds: true,
-    maxOpenTabs: 5,
+    hiddenTitlebarTools: [],
   };
   return safely(() => {
     const current = localStorage.getItem(APPEARANCE_KEY);
@@ -403,7 +409,9 @@ export function loadAppearance(): AppearanceSettings {
       // non-English prose sees nothing from it.
       editorSpellcheck: value?.editorSpellcheck !== false,
       interfaceSounds: value?.interfaceSounds !== false,
-      maxOpenTabs: clamp(Math.round(Number(value?.maxOpenTabs) || defaults.maxOpenTabs), 1, MAX_OPEN_TABS),
+      hiddenTitlebarTools: Array.isArray(value?.hiddenTitlebarTools)
+        ? TITLEBAR_TOOLS.filter((tool) => value.hiddenTitlebarTools?.includes(tool))
+        : defaults.hiddenTitlebarTools,
     };
   }, defaults);
 }

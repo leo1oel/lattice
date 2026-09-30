@@ -39,6 +39,10 @@ pub(crate) struct MenuLabels {
     help: String,
 }
 
+/// The attribution Trellis's license asks shipped apps to show.
+pub(crate) const TRELLIS_ATTRIBUTION: &str =
+    "Uses Trellis by DanFessler - github.com/DanFessler/trellis";
+
 /// Tauri's default macOS menu (`Menu::default`), with translated titles. The
 /// Window and Help submenus keep Tauri's ids so they stay registered as
 /// NSApp's windows and help menus.
@@ -52,6 +56,9 @@ pub(crate) fn build_menu<R: Runtime>(
         version: Some(package.version.to_string()),
         copyright: config.bundle.copyright.clone(),
         authors: config.bundle.publisher.clone().map(|publisher| vec![publisher]),
+        // Trellis's license (commercial tier) requires this attribution; the
+        // non-commercial tier asks for it too. See NOTICE.
+        credits: Some(TRELLIS_ATTRIBUTION.to_string()),
         ..Default::default()
     };
     let app_menu = Submenu::with_items(

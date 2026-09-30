@@ -114,6 +114,7 @@ objc2-app-kit = { version = "0.3", default-features = false, features = [
   "NSPrintInfo",
   "NSPrintOperation",
   "NSResponder",
+  "NSToolbar",
   "NSView",
   "NSWindow",
 ] }

@@ -213,9 +213,9 @@ describe("Overleaf picker dialog", () => {
   it("lists projects with owner and update time, hides archived ones until asked, and filters by search", async () => {
     mockConnectedPicker();
     renderPicker();
-    const drawer = screen.getByLabelText("Open from Overleaf");
-    expect(drawer).toHaveClass("resizable-drawer");
-    expect(within(drawer).getByRole("separator", { name: "Resize right panel" })).toBeInTheDocument();
+    const dialog = screen.getByRole("dialog", { name: "Open from Overleaf" });
+    expect(dialog).toHaveClass("modal-dialog-content");
+    expect(within(dialog).queryByRole("separator")).not.toBeInTheDocument();
     expect(await screen.findByText("Attention Paper")).toBeInTheDocument();
     expect(screen.getByText("Thesis Draft")).toBeInTheDocument();
     expect(screen.getByText(/Ada · updated/)).toBeInTheDocument();
@@ -230,6 +230,52 @@ describe("Overleaf picker dialog", () => {
     fireEvent.change(screen.getByLabelText("Search Overleaf projects"), { target: { value: "atten" } });
     expect(screen.getByText("Attention Paper")).toBeInTheDocument();
     expect(screen.queryByText("Thesis Draft")).not.toBeInTheDocument();
+  });
+
+  it("groups owned projects and supports searching, arrow navigation and Enter to open", async () => {
+    mockConnectedPicker();
+    renderPicker();
+    await screen.findByText("Attention Paper");
+    expect(within(screen.getByRole("region", { name: "Your projects" })).getByText("Attention Paper")).toBeInTheDocument();
+    expect(within(screen.getByRole("region", { name: "Other projects" })).getByText("Thesis Draft")).toBeInTheDocument();
+    const search = screen.getByRole("searchbox", { name: "Search Overleaf projects" });
+    fireEvent.keyDown(search, { key: "ArrowDown" });
+    const first = screen.getByRole("button", { name: /Attention Paper/ });
+    expect(first).toHaveFocus();
+    fireEvent.keyDown(first, { key: "ArrowDown" });
+    const second = screen.getByRole("button", { name: /Thesis Draft/ });
+    expect(second).toHaveFocus();
+    fireEvent.keyDown(second, { key: "Home" });
+    expect(first).toHaveFocus();
+    fireEvent.keyDown(first, { key: "Enter" });
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("overleaf_clone_project", cloneArgs()));
+  });
+
+  it("opens the focused row on Enter, not the selected one, and leaves other targets and IME input alone", async () => {
+    mockConnectedPicker({ overleaf_clone_project: "/tmp/cloned/Thesis Draft" });
+    renderPicker();
+    const first = await screen.findByRole("button", { name: /Attention Paper/ });
+    fireEvent.click(first);
+    const search = screen.getByRole("searchbox", { name: "Search Overleaf projects" });
+    fireEvent.keyDown(search, { key: "Enter", isComposing: true });
+    // WebKit can report the accepting Enter as keyCode 229 / "Process", or
+    // right after compositionend with no composing flag at all.
+    fireEvent.keyDown(search, { key: "Enter", keyCode: 229 });
+    fireEvent.keyDown(search, { key: "Process" });
+    fireEvent.compositionStart(search);
+    fireEvent.compositionEnd(search);
+    fireEvent.keyDown(search, { key: "Enter" });
+    // The guard lifts once the event turn that ended composition is over.
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    fireEvent.change(search, { target: { value: "a" } });
+    const clear = screen.getByRole("button", { name: "Clear search" });
+    fireEvent.keyDown(clear, { key: "Enter" });
+    expect(invoke).not.toHaveBeenCalledWith("overleaf_clone_project", expect.anything());
+    fireEvent.keyDown(screen.getByRole("button", { name: /Thesis Draft/ }), { key: "Enter" });
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith(
+      "overleaf_clone_project", cloneArgs({ projectId: "p2", name: "Thesis Draft", accessLevel: "readAndWrite" }),
+    ));
+    expect(invoke).not.toHaveBeenCalledWith("overleaf_clone_project", cloneArgs());
   });
 
   it("uploads the current local project and keeps the dialog locked until it is linked", async () => {
@@ -307,8 +353,8 @@ describe("Overleaf picker dialog", () => {
     render(<AppToastStack />);
     const { onClose, onBeforeClone, onCloneCancelled } = renderPicker();
     await openFirstProject();
-    // The failure is a toast now, not a line inside the dialog; it still has to
-    // reach the user, and the dialog still has to stay open behind it.
+    // The modal repeats transfer errors inline so its focus trap does not
+    // hide the failure from assistive technology.
     expect(await screen.findByRole("alert")).toHaveTextContent(/Could not reach Overleaf/);
     expect(onBeforeClone).toHaveBeenCalledOnce();
     expect(onCloneCancelled).toHaveBeenCalledOnce();

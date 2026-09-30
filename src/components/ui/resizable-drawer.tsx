@@ -4,11 +4,14 @@ import {
   type UIEventHandler,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
 } from "react";
+import { createPortal } from "react-dom";
 import { useLingui } from "@lingui/react/macro";
 import { beginWindowDrag, toggleWindowFullscreen } from "../../app-utils";
+import { toolKindForDrawer, useTrellisController, type TrellisController, type TrellisToolKind } from "../../trellis/trellis-controller";
 import "./scroll-area.css";
 
 const MIN_DRAWER_WIDTH = 320;
@@ -23,7 +26,7 @@ function clampDrawerWidth(width: number) {
 
 const defaultDrawerWidth = () => clampDrawerWidth(window.innerWidth / 3);
 
-export function ResizableDrawer(props: {
+type ResizableDrawerProps = {
   children: ReactNode;
   className?: string;
   dataTour?: string;
@@ -31,7 +34,41 @@ export function ResizableDrawer(props: {
   closeDisabled?: boolean;
   onClose: () => void;
   onScroll?: UIEventHandler<HTMLElement>;
-}) {
+};
+
+/**
+ * A right-hand drawer over the workspace. In the Trellis workspace,
+ * drawers that have a tool panel (history, comments, TODOs, …) render into
+ * that dockable panel instead; the rest stay overlays.
+ */
+export function ResizableDrawer(props: ResizableDrawerProps) {
+  const trellis = useTrellisController();
+  const kind = trellis ? toolKindForDrawer(props.className) : null;
+  return trellis && kind ? <DockedDrawer {...props} trellis={trellis} kind={kind} /> : <OverlayDrawer {...props} />;
+}
+
+function DockedDrawer({ trellis, kind, ...props }: ResizableDrawerProps & { trellis: TrellisController; kind: TrellisToolKind }) {
+  const onCloseRef = useRef(props.onClose);
+  useLayoutEffect(() => { onCloseRef.current = props.onClose; });
+  useEffect(() => {
+    const close = () => onCloseRef.current();
+    trellis.openDrawer(kind, close);
+    return () => trellis.closeDrawer(kind, close);
+  }, [kind, trellis]);
+  return createPortal(
+    <aside
+      className={`history-drawer resizable-drawer native-hover-scrollbar trellis-docked-drawer ${props.className ?? ""}`.trim()}
+      data-tour={props.dataTour}
+      aria-label={props.ariaLabel}
+      onScroll={props.onScroll}
+    >
+      {props.children}
+    </aside>,
+    trellis.toolHost(kind),
+  );
+}
+
+function OverlayDrawer(props: ResizableDrawerProps) {
   const { t } = useLingui();
   const [width, setWidth] = useState(defaultDrawerWidth);
   const [resizing, setResizing] = useState(false);

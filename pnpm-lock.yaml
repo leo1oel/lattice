@@ -18,6 +18,9 @@ overrides:
   '@tiptap/extensions': 3.31.3
 
 patchedDependencies:
+  '@danfessler/trellis@0.2.0':
+    hash: 5a2f44ac56d89917d3051c348e1feaa8a313b501ea38b0ff2eadc85cd0e5303f
+    path: patches/@danfessler__trellis@0.2.0.patch
   '@pierre/trees@1.0.0-beta.6':
     hash: 0b3b5c9657cb6ba9fa84c150d134e22e7a6164310d2ed95d3c46d96092002e40
     path: patches/@pierre__trees@1.0.0-beta.6.patch
@@ -68,6 +71,12 @@ importers:
       '@codemirror/view':
         specifier: ^6.43.8
         version: 6.43.8
+      '@danfessler/trellis':
+        specifier: 0.2.0
+        version: 0.2.0(patch_hash=5a2f44ac56d89917d3051c348e1feaa8a313b501ea38b0ff2eadc85cd0e5303f)
+      '@danfessler/trellis-react':
+        specifier: 0.2.0
+        version: 0.2.0(@danfessler/trellis@0.2.0(patch_hash=5a2f44ac56d89917d3051c348e1feaa8a313b501ea38b0ff2eadc85cd0e5303f))(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
       '@floating-ui/dom':
         specifier: ^1.8.0
         version: 1.8.0
@@ -284,9 +293,6 @@ importers:
       react-dom:
         specifier: ^19.1.0
         version: 19.2.7(react@19.2.7)
-      react-joyride:
-        specifier: ^3.2.0
-        version: 3.2.0(@types/react@19.2.17)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
       react-medium-image-zoom:
         specifier: 5.4.3
         version: 5.4.3(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
@@ -710,6 +716,16 @@ packages:
     resolution: {integrity: sha512-QxULHAm7cNu72w97JUNCBFODFaXpbDg+dP8b/oWFAZ2MTRppA3U00Y2L1HqaS4J6yBqxwa/Y3nMBaxVKbB/NsA==}
     engines: {node: '>=20.19.0'}
 
+  '@danfessler/trellis-react@0.2.0':
+    resolution: {integrity: sha512-fm8KDylDYL7TBag1PS/pxz2CgLGgZPFK9/F9xT6jIrrIzhjNXA+Ww++TWmhMpaR/26mUVBQkfsAFrT+SzgZf1g==}
+    peerDependencies:
+      '@danfessler/trellis': ^0.2.0
+      react: '>=18.3'
+      react-dom: '>=18.3'
+
+  '@danfessler/trellis@0.2.0':
+    resolution: {integrity: sha512-gHtg2NYR8BLXMAW0LiQfuXQ46MOAsblEeVihmCiD158J9fh4AApc/I28mMaohIADkZzMUY+0r6cEdXtDmeLNpA==}
+
   '@dual-bundle/import-meta-resolve@4.2.1':
     resolution: {integrity: sha512-id+7YRUgoUX6CgV0DtuhirQWodeeA7Lf4i2x71JS/vtA5pRb/hIGWlw+G6MeXvsM+MXrz0VAydTGElX1rAfgPg==}
 
@@ -946,9 +962,6 @@ packages:
   '@fast-csv/parse@4.3.6':
     resolution: {integrity: sha512-uRsLYksqpbDmWaSmzvJcuApSEe38+6NQZBUsuAyMZKqHxH0g1wcJgsKUvN3WC8tewaqFjBMMGrkHmC+T7k8LvA==}
 
-  '@fastify/deepmerge@3.2.1':
-    resolution: {integrity: sha512-N5Oqvltoa2r9z1tbx4xjky0oRR60v+T47Ic4J1ukoVQcptLOrIdRnCSdTGmOmajZuHVKlTnfcmrjyqsGEW1ztA==}
-
   '@flatten-js/interval-tree@1.1.3':
     resolution: {integrity: sha512-xhFWUBoHJFF77cJO1D6REjdgJEMRf2Y2Z+eKEPav8evGKcLSnj1ud5pLXQSbGuxF3VSvT1rWhMfVpXEKJLTL+A==}
 
@@ -975,17 +988,6 @@ packages:
 
   '@fontsource/instrument-serif@5.3.0':
     resolution: {integrity: sha512-mDiaIg0u67sYV59fie92Wz4sM8UiVlbL7fLxnFPCKkX15DMASEnQTREbaP5S5/3DCcsoAOcQ0sV9E4AeY4QqYQ==}
-
-  '@gilbarbara/deep-equal@0.4.1':
-    resolution: {integrity: sha512-QF2BGeQjsa59T59XvFdR3is5jrl28Eg0J6giXAC5919bcqvR8XP4B+07tpbs6Y6/IQd4FBncaL2WVXIBgSxt4w==}
-
-  '@gilbarbara/hooks@0.11.0':
-    resolution: {integrity: sha512-CIVazdxqFRplUfm9wZL3/0X1TURJekhPMWGFdWzEmyJrGPiotX2yxA1KiB8N7VnhawIaMtb2Apnda4Y6DRwi2Q==}
-    peerDependencies:
-      react: 16.8 - 19
-
-  '@gilbarbara/types@0.2.2':
-    resolution: {integrity: sha512-QuQDBRRcm1Q8AbSac2W1YElurOhprj3Iko/o+P1fJxUWS4rOGKMVli98OXS7uo4z+cKAif6a+L9bcZFSyauQpQ==}
 
   '@grpc/grpc-js@1.14.4':
     resolution: {integrity: sha512-k9Dj3DV/itK9D06Y8f190Qgop7/Ui+D0njFV3LHMPwPT75DpXLQohE9Wmz0QElrJnzsjB7KPWiKJbOl7IPDArQ==}
@@ -4337,9 +4339,6 @@ packages:
     resolution: {integrity: sha512-qP1vozQRI+BMOPcjFzrjXuQvdak2pHNUMZoeG2eRbiSqyvbEf/wQtEOTOX1guk6E3t36RkaqiSt8A/6YElNxLQ==}
     engines: {node: '>=12'}
 
-  is-lite@2.0.0:
-    resolution: {integrity: sha512-70f2BMIQlbSUXVKaZUd9a9fJH3IH1PDckV0m4BIIO4LjnNYvOh4Ng7vXIXEwpA0KDZknRq+7fHwGTu0jIdx28g==}
-
   is-number@7.0.0:
     resolution: {integrity: sha512-41Cifkg6e8TylSpdtTpeLVMqvSBEVzTttHvERD741+pnZ8ANv0004MRL43QKPDlK9cGvNp6NZWZUBlbGXYxxng==}
     engines: {node: '>=0.12.0'}
@@ -5186,12 +5185,6 @@ packages:
     peerDependencies:
       react: ^19.2.7
 
-  react-innertext@1.1.5:
-    resolution: {integrity: sha512-PWAqdqhxhHIv80dT9znP2KvS+hfkbRovFp4zFYHFFlOoQLRiawIic81gKb3U1wEyJZgMwgs3JoLtwryASRWP3Q==}
-    peerDependencies:
-      '@types/react': '>=0.0.0 <=99'
-      react: '>=0.0.0 <=99'
-
   react-is@16.13.1:
     resolution: {integrity: sha512-24e6ynE2H+OKt4kqsOvNd8kBpV65zoxbA4BVsEOB3ARVWQki/DHzaUoC5KuON/BiccDaCCTZBuOcfZs70kR8bQ==}
 
@@ -5200,12 +5193,6 @@ packages:
 
   react-is@18.3.1:
     resolution: {integrity: sha512-/LLMVyas0ljjAtoYiPqYiL8VWXzUUdThrmU5+n20DZv+a+ClRoevUzw5JxU+Ieh5/c87ytoTBV9G1FiKfNJdmg==}
-
-  react-joyride@3.2.0:
-    resolution: {integrity: sha512-UrA/XWdWElMLNnjZt2eWmPFmpHl1IZ2CeI9XhS+PuEVvfqHMD9U4tavCq1csDAGVoj0YEGfaCDmhZwgNc9yE2g==}
-    peerDependencies:
-      react: 16.8 - 19
-      react-dom: 16.8 - 19
 
   react-medium-image-zoom@5.4.3:
     resolution: {integrity: sha512-cDIwdn35fRUPsGnnj/cG6Pacll+z+Mfv6EWU2wDO5ngbZjg5uLRb2ZhEnh92ufbXCJDFvXHekb8G3+oKqUcv5g==}
@@ -5358,12 +5345,6 @@ packages:
 
   scheduler@0.27.0:
     resolution: {integrity: sha512-eNv+WrVbKu1f3vbYJT/xtiF5syA5HPIMtf9IgY/nKg0sWqzAUEvqY/xm7OcZc/qafLx/iO9FgOmeSAp4v5ti/Q==}
-
-  scroll@3.0.1:
-    resolution: {integrity: sha512-pz7y517OVls1maEzlirKO5nPYle9AXsFzTMNJrRGmT951mzpIBy7sNHOg5o/0MQd/NqliCiWnAi0kZneMPFLcg==}
-
-  scrollparent@2.1.0:
-    resolution: {integrity: sha512-bnnvJL28/Rtz/kz2+4wpBjHzWoEzXhVg/TE8BeVGJHUqE8THNIRnDxDWMktwM+qahvlRdvlLdsQfYe+cuqfZeA==}
 
   semver@6.3.1:
     resolution: {integrity: sha512-BR7VvDCVHO+q2xBEWskxS6DJE1qRnb7DxzUrogb71CWoSficBxYsiAGd+Kl0mmq/MprG9yArRkyrQxTO6XjMzA==}
@@ -5590,10 +5571,6 @@ packages:
   type-check@0.4.0:
     resolution: {integrity: sha512-XleUoc9uwGXqjWwXaUTZAmzMcFZ5858QA2vvx1Ur5xIcixXIP+8LnFDgRplU30us6teqdlskFfu+ae4K79Ooew==}
     engines: {node: '>= 0.8.0'}
-
-  type-fest@4.41.0:
-    resolution: {integrity: sha512-TeTSQ6H5YHvpqVwBRcnLDCBnDOHWYu7IvGbHT6N8AOymcr9PJGjc1GTtiWZTYg0NCgYwvnYWEkVChQAr9bjfwA==}
-    engines: {node: '>=16'}
 
   typescript-eslint@8.67.0:
     resolution: {integrity: sha512-S2udFs8tCKEKffuJ4TB1idGUZiXdCPGi3IPBGWXarbLQ5UPXORV8QEVzJ4gCRduURMb5EkpNCdjbk0eDIuI8Yg==}
@@ -6375,6 +6352,14 @@ snapshots:
 
   '@csstools/css-tokenizer@4.0.0': {}
 
+  '@danfessler/trellis-react@0.2.0(@danfessler/trellis@0.2.0(patch_hash=5a2f44ac56d89917d3051c348e1feaa8a313b501ea38b0ff2eadc85cd0e5303f))(react-dom@19.2.7(react@19.2.7))(react@19.2.7)':
+    dependencies:
+      '@danfessler/trellis': 0.2.0(patch_hash=5a2f44ac56d89917d3051c348e1feaa8a313b501ea38b0ff2eadc85cd0e5303f)
+      react: 19.2.7
+      react-dom: 19.2.7(react@19.2.7)
+
+  '@danfessler/trellis@0.2.0(patch_hash=5a2f44ac56d89917d3051c348e1feaa8a313b501ea38b0ff2eadc85cd0e5303f)': {}
+
   '@dual-bundle/import-meta-resolve@4.2.1': {}
 
   '@electron-internal/extract-zip@1.0.5': {}
@@ -6548,8 +6533,6 @@ snapshots:
       lodash.isundefined: 3.0.1
       lodash.uniq: 4.5.0
 
-  '@fastify/deepmerge@3.2.1': {}
-
   '@flatten-js/interval-tree@1.1.3': {}
 
   '@floating-ui/core@1.8.0':
@@ -6574,17 +6557,6 @@ snapshots:
   '@fontsource/dm-sans@5.3.0': {}
 
   '@fontsource/instrument-serif@5.3.0': {}
-
-  '@gilbarbara/deep-equal@0.4.1': {}
-
-  '@gilbarbara/hooks@0.11.0(react@19.2.7)':
-    dependencies:
-      '@gilbarbara/deep-equal': 0.4.1
-      react: 19.2.7
-
-  '@gilbarbara/types@0.2.2':
-    dependencies:
-      type-fest: 4.41.0
 
   '@grpc/grpc-js@1.14.4':
     dependencies:
@@ -10147,8 +10119,6 @@ snapshots:
 
   is-interactive@2.0.0: {}
 
-  is-lite@2.0.0: {}
-
   is-number@7.0.0: {}
 
   is-plain-obj@4.1.0: {}
@@ -11256,33 +11226,11 @@ snapshots:
       react: 19.2.7
       scheduler: 0.27.0
 
-  react-innertext@1.1.5(@types/react@19.2.17)(react@19.2.7):
-    dependencies:
-      '@types/react': 19.2.17
-      react: 19.2.7
-
   react-is@16.13.1: {}
 
   react-is@17.0.2: {}
 
   react-is@18.3.1: {}
-
-  react-joyride@3.2.0(@types/react@19.2.17)(react-dom@19.2.7(react@19.2.7))(react@19.2.7):
-    dependencies:
-      '@fastify/deepmerge': 3.2.1
-      '@floating-ui/react-dom': 2.1.9(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
-      '@gilbarbara/deep-equal': 0.4.1
-      '@gilbarbara/hooks': 0.11.0(react@19.2.7)
-      '@gilbarbara/types': 0.2.2
-      is-lite: 2.0.0
-      react: 19.2.7
-      react-dom: 19.2.7(react@19.2.7)
-      react-innertext: 1.1.5(@types/react@19.2.17)(react@19.2.7)
-      scroll: 3.0.1
-      scrollparent: 2.1.0
-      use-sync-external-store: 1.6.0(react@19.2.7)
-    transitivePeerDependencies:
-      - '@types/react'
 
   react-medium-image-zoom@5.4.3(react-dom@19.2.7(react@19.2.7))(react@19.2.7):
     dependencies:
@@ -11470,10 +11418,6 @@ snapshots:
       xmlchars: 2.2.0
 
   scheduler@0.27.0: {}
-
-  scroll@3.0.1: {}
-
-  scrollparent@2.1.0: {}
 
   semver@6.3.1: {}
 
@@ -11684,8 +11628,6 @@ snapshots:
   type-check@0.4.0:
     dependencies:
       prelude-ls: 1.2.1
-
-  type-fest@4.41.0: {}
 
   typescript-eslint@8.67.0(eslint@10.7.0(jiti@2.7.0))(typescript@5.8.3):
     dependencies:

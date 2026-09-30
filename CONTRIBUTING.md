@@ -210,6 +210,14 @@ The tldraw SDK (`tldraw`, `@tldraw/editor`, `@tldraw/driver`) is not covered by
 the Apache License; it stays under the tldraw license, whose verbatim text is
 in `public/licenses/tldraw-LICENSE.md`. Never commit a tldraw license key.
 
+Trellis (`@danfessler/trellis`, `@danfessler/trellis-react`), the workspace's
+panel layout, is not covered by the Apache License either: it is licensed under
+its own non-commercial license (with a commercial tier), whose files are in
+`public/licenses/trellis-LICENSE*.md`. Keep those files and the attribution
+"Uses Trellis by DanFessler - github.com/DanFessler/trellis" (README, NOTICE and
+the macOS About panel). Change Trellis only through its pnpm patch,
+`patches/@danfessler__trellis@0.2.0.patch`.
+
 When you add a dependency, adapt code from elsewhere, or bundle an asset, record
 it in [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md). That file also lists
 the attribution gaps that are known and still open; adding to that list is a

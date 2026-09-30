@@ -66,7 +66,9 @@ pub async fn open_paper_lookup(
         .always_on_top(false)
         .disable_drag_drop_handler();
     let created = crate::overlay_title_bar(builder).build().map_err(|error| error.to_string())?;
-    macos_window::install_traffic_light_alignment(&created);
+    // The lookup never reports its titlebar center, so it takes no part in the
+    // shared alignment target the workspace windows set.
+    macos_window::install_compact_toolbar(&created);
     Ok(())
 }
 

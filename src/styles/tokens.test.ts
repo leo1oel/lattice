@@ -135,15 +135,10 @@ describe("design token contract", () => {
     expect(Object.fromEntries(missing)).toEqual({})
   })
 
-  it("shares one height across the navigation controls and one reserved width across sidebar modes", () => {
+  it("shares one height across the navigation controls", () => {
     expect(foundations).toMatch(/--navigation-action-size: var\(--navigation-control-height\)/)
     expect(foundations).toMatch(/--navigation-header-height: 40px/)
     expect(foundations).toMatch(/--titlebar-height: 40px/)
-    // …and one action width across sidebar modes.
-    expect(foundations).toMatch(/--navigation-mode-actions-reserved-width: calc\(/)
-    expect(appCss).toMatch(
-      /\.sidebar-mode-actions \{[^}]*min-width: var\(--navigation-mode-actions-reserved-width\)/,
-    )
   })
 
   it("keeps single-line controls on the 28px compact and 30px default scale, with one Settings type contract", () => {
@@ -168,7 +163,6 @@ describe("design token contract", () => {
     expect(chrome).not.toMatch(/\.ui-compact-selectable[^}]*\{[^}]*background: var\(--control-active\);/)
 
     for (const file of [
-      "src/editor/insert/insert-palette.tsx",
       "src/editor/comments/editor-comments-panel.tsx",
       "src/history/history-drawer.tsx",
       "src/overleaf/overleaf-comments.tsx",

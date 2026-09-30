@@ -90,8 +90,8 @@ application, loaded into a cross-origin `<iframe>`:
   `hostOrigin` and `section` as query params, and puts the auth token in the
   URL **fragment** (`#lattice-auth=…`, `src/agent/synara-runtime.ts:259`) so it never
   reaches a server log.
-- Mount points: three `<iframe>` elements — the agent sidebar
-  (`src/app/app-agent-panel.tsx`), the source-control / review drawer
+- Mount points: three `<iframe>` elements — the Agent panel
+  (`src/trellis/trellis-agent-surface.tsx`), the source-control / review drawer
   (`src/app/app-history-drawers.tsx`), and the agent settings pane in
   `src/settings/synara-settings-pane.tsx`. The first two get their URLs from
   `src/app/app-synara-embed.ts`. All three use
