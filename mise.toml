@@ -206,6 +206,7 @@ sources = [
   "tools/open-slide-runtime/*.mjs",
   "tools/open-slide-runtime/package.json",
   "tools/open-slide-runtime/pnpm-lock.yaml",
+  "src-tauri/src/presentation.rs",
 ]
 
 [tasks.check]
