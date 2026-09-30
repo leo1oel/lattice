@@ -6,6 +6,8 @@ export function ModalDialog(props: {
   describedBy?: string;
   onClose: () => void;
   closeDisabled?: boolean;
+  /** Unsaved input: a click outside keeps the dialog open (Escape and the close button still close it). */
+  keepOnOutsideClick?: boolean;
   focusDialogOnOpen?: boolean;
   backdropClassName?: string;
   windowDragTop?: {
@@ -21,6 +23,15 @@ export function ModalDialog(props: {
       : null,
   );
   const mountedRef = useRef(false);
+  const composingRef = useRef(false);
+  const compositionTimerRef = useRef<number | null>(null);
+  const cancelCompositionClear = () => {
+    if (compositionTimerRef.current !== null) window.clearTimeout(compositionTimerRef.current);
+    compositionTimerRef.current = null;
+  };
+  useEffect(() => () => {
+    if (compositionTimerRef.current !== null) window.clearTimeout(compositionTimerRef.current);
+  }, []);
   useEffect(() => {
     const returnFocus = returnFocusRef.current;
     mountedRef.current = true;
@@ -35,14 +46,17 @@ export function ModalDialog(props: {
       });
     };
   }, []);
-  const preventWhenDisabled = (event: Event) => {
-    if (props.closeDisabled) event.preventDefault();
+  const preventEscapeDismissal = (event: KeyboardEvent) => {
+    if (props.closeDisabled || event.isComposing || event.keyCode === 229 || composingRef.current) {
+      event.preventDefault();
+    }
   };
   const preventWindowDragDismissal = (event: Event) => {
     const originalTarget = (event as CustomEvent<{ originalEvent?: Event }>)
       .detail?.originalEvent?.target ?? event.target;
     if (
       props.closeDisabled
+      || props.keepOnOutsideClick
       || (originalTarget instanceof Element
         && (originalTarget.closest("[data-modal-window-drag]")
           // Toasts sit above the modal layer so a failure raised *by* this
@@ -84,7 +98,18 @@ export function ModalDialog(props: {
             event.preventDefault();
             contentRef.current?.focus({ preventScroll: true });
           }}
-          onEscapeKeyDown={preventWhenDisabled}
+          onCompositionStart={() => {
+            cancelCompositionClear();
+            composingRef.current = true;
+          }}
+          onCompositionEnd={() => {
+            cancelCompositionClear();
+            compositionTimerRef.current = window.setTimeout(() => {
+              composingRef.current = false;
+              compositionTimerRef.current = null;
+            }, 0);
+          }}
+          onEscapeKeyDown={preventEscapeDismissal}
           onPointerDownOutside={preventWindowDragDismissal}
           onInteractOutside={preventWindowDragDismissal}
           onCloseAutoFocus={(event) => {

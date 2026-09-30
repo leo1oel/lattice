@@ -61,12 +61,14 @@ describe("Chromium window CSS", () => {
         <div class="trellis-titlebar"><button type="button">Panels</button></div>
       </div>
       <div class="titlebar-drag-area"></div>
-      <div class="resizable-drawer"></div>`;
+      <div class="resizable-drawer"></div>
+      <div class="modal-dialog-content"></div>`;
     const titlebar = document.querySelector(".trellis-titlebar");
     expect(appRegion(titlebar)).toBe("drag");
     expect(appRegion(document.querySelector(".titlebar-drag-area"))).toBe("drag");
     expect(appRegion(titlebar.querySelector("button"))).toBe("no-drag");
     expect(appRegion(document.querySelector(".resizable-drawer"))).toBe("no-drag");
+    expect(appRegion(document.querySelector(".modal-dialog-content"))).toBe("no-drag");
     document.body.innerHTML = "";
   });
 });

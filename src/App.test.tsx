@@ -74,7 +74,7 @@ vi.mock("@tauri-apps/api/core", () => ({
     constructor() { tauriCoreApi.channel = this; }
   },
 }));
-vi.mock("@tauri-apps/api/window", () => ({ getCurrentWindow: () => windowApi }));
+vi.mock("@tauri-apps/api/window", () => ({ getCurrentWindow: () => windowApi, currentMonitor: async () => null }));
 vi.mock("@tauri-apps/api/webview", () => ({
   getCurrentWebview: () => ({ onDragDropEvent: async (handler: typeof webviewApi.dragDropHandler) => {
     webviewApi.dragDropHandler = handler;
@@ -1908,6 +1908,27 @@ describe("project workspace", () => {
     expect(document.querySelector('iframe[title="Changes"]')).not.toBeNull();
   });
 
+  it("keeps the Agent panel at least as wide as its composer reports it needs", async () => {
+    renderApp(projectCommands());
+    await screen.findByRole("button", { name: "Switch project" });
+    const { frame } = await openAgentFrame();
+    const minimumWidth = () => (windowApi.setMinSize.mock.calls.at(-1)?.[0] as { width: number } | undefined)?.width ?? 0;
+    await waitFor(() => expect(minimumWidth()).toBeGreaterThan(0));
+    const before = minimumWidth();
+    // Synara measures its composer (controls side by side, send button inside
+    // the box) and reports the frame width that needs; the layout, and so the
+    // window, may not go narrower.
+    postWindowMessage(frame.contentWindow, { type: "synara:layout-metrics", minimumSidebarWidth: 560 });
+    await waitFor(() => expect(minimumWidth()).toBeGreaterThanOrEqual(before + 200));
+    // A narrower report (a shorter model label) gives the room back.
+    postWindowMessage(frame.contentWindow, { type: "synara:layout-metrics", minimumSidebarWidth: 120 });
+    await waitFor(() => expect(minimumWidth()).toBe(before));
+    // Only the agent's own frame may report.
+    postWindowMessage(window, { type: "synara:layout-metrics", minimumSidebarWidth: 560 });
+    await pause(50);
+    expect(minimumWidth()).toBe(before);
+  });
+
   it.each(["undo", "undo in manual mode", "same-count edit"])("rebuilds after an Agent %s", async (change) => {
     if (change === "undo in manual mode") setAutoBuildMode("manual");
     renderApp({
@@ -2080,6 +2101,16 @@ describe("project workspace", () => {
     const titlebarTools = titlebarMain.querySelector(".canvas-toolbar")!;
     expect(within(panelControls).getByRole("button", { name: "Panels" })).toBeInTheDocument();
     expect(within(panelControls).getByRole("button", { name: "Hide Project" })).toHaveAttribute("aria-pressed", "true");
+    // The Panels menu keeps maximize and reset; neither the whole-workspace
+    // overview nor the Trellis credit is there. The credit is kept in the native
+    // macOS About panel (src-tauri/src/native_locale.rs) and in NOTICE / THIRD_PARTY_NOTICES.
+    fireEvent.pointerDown(within(panelControls).getByRole("button", { name: "Panels" }), { button: 0 });
+    expect(await screen.findByRole("menuitem", { name: /Maximize focused panel/ })).toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: "Reset layout" })).toBeInTheDocument();
+    expect(screen.queryByRole("menuitem", { name: /Zoom out to show every panel/ })).not.toBeInTheDocument();
+    expect(screen.queryByText(/Uses Trellis/)).not.toBeInTheDocument();
+    fireEvent.keyDown(document.activeElement ?? document.body, { key: "Escape" });
+    await waitFor(() => expect(screen.queryByRole("menuitem", { name: "Reset layout" })).not.toBeInTheDocument());
     expect([...titlebarMain.children].indexOf(panelControls)).toBeLessThan([...titlebarMain.children].indexOf(titlebarTools));
     expect(titlebarTools).toContainElement(screen.getByRole("button", { name: "Project history" }));
     expect(titlebarTools).toContainElement(screen.getByRole("button", { name: "Git status and commit" }));

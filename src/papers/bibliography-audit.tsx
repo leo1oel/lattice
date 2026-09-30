@@ -10,7 +10,7 @@ import { Button } from "../components/ui/button";
 import { IconButton } from "../components/ui/icon-button";
 import { Checkbox } from "../components/ui/checkbox";
 import { PanelHeader } from "../components/ui/panel-header";
-import { ResizableDrawer } from "../components/ui/resizable-drawer";
+import { SheetDialog } from "../components/ui/sheet-dialog";
 import { ScrollArea } from "../components/ui/scroll-area";
 import { loadAuditReport, saveAuditReport, type AuditReport, type SavedAudit } from "./bibliography-audit-storage";
 import { auditIssueText, auditResultMessage, auditSourceName, type CodedAuditIssue } from "./audit-messages";
@@ -346,7 +346,9 @@ export function BibliographyAudit(props: {
     ...fieldLabels, insufficient_identity: t`Insufficient identifying metadata`,
     record: t`Record identity`, venue: t`Venue`, arxiv: t`arXiv identifier`,
   };
-  return <ResizableDrawer className="bibliography-audit" ariaLabel={t`Check references`} onClose={props.onClose}>
+  // A running check or a selection waiting to be applied must survive a stray click outside.
+  const dirty = busy || applying !== null || selected.size > 0;
+  return <SheetDialog className="bibliography-audit" label={t`Check references`} dirty={dirty} onClose={props.onClose}>
     <PanelHeader className="drawer-header" icon={<ClipboardCheck size={16} />} title={t`Check references`} titleAfter={scan && <Badge>{total}</Badge>} onClose={props.onClose} />
     <div className="bibliography-audit-overview">
       <p className="bibliography-audit-copy">{t`Checks all project bibliographies without changing them. Review differences before applying an update.`}</p>
@@ -451,5 +453,5 @@ export function BibliographyAudit(props: {
     })}
     </div>
     </ScrollArea>
-  </ResizableDrawer>;
+  </SheetDialog>;
 }

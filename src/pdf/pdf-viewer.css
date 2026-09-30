@@ -95,4 +95,9 @@
   .pdf-zoom-controls { gap: var(--space-1); }
   .pdf-toolbar .pdf-zoom-step { display: none; }
 }
+/* The same narrow layout, for the one synchronous read that measures the PDF
+   panel's minimum width (pdf-toolbar-min-width.ts); keep the two in step. */
+.pdf-toolbar[data-measure-narrow] { padding-inline: var(--space-2); gap: var(--space-1); }
+.pdf-toolbar[data-measure-narrow] .pdf-zoom-controls { gap: var(--space-1); }
+.pdf-toolbar[data-measure-narrow] .pdf-zoom-step { display: none; }
 @keyframes synctex-highlight { 0%, 70% { opacity: 1; } 100% { opacity: 0; } }

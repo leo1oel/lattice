@@ -2,8 +2,7 @@
  * Titlebar controls for the Trellis workspace: a Panels menu that reopens any
  * panel or tool and resets the layout, one toggle each for Project, Papers and
  * the Agent, maximize/restore and reset, and a chip per hidden panel. The PDF
- * comes up from each .tex panel's Build button (and the Panels menu), and the
- * whole-workspace zoom lives in the Panels menu (⌘⌥↑).
+ * comes up from each .tex panel's Build button (and the Panels menu).
  * Eager but light: it drives the workspace only through the controller.
  */
 import { memo, useCallback, useMemo, useSyncExternalStore } from "react";
@@ -79,14 +78,7 @@ export const TrellisTitlebar = memo(function TrellisTitlebar({ controller }: { c
             <span className="flex-1">{t`Maximize focused panel`}</span>
             <span className="trellis-menu-shortcut">⌘⇧↩</span>
           </DropdownMenuItem>
-          <DropdownMenuItem onSelect={() => ws()?.navigation.frame("all")}>
-            <span className="flex-1">{t`Zoom out to show every panel`}</span>
-            <span className="trellis-menu-shortcut">⌘⌥↑</span>
-          </DropdownMenuItem>
           <DropdownMenuItem onSelect={() => void controller.resetLayout()}>{t`Reset layout`}</DropdownMenuItem>
-          <DropdownMenuSeparator />
-          {/* Attribution required by the Trellis license. */}
-          <DropdownMenuLabel className="trellis-attribution">{t`Uses Trellis by DanFessler — github.com/DanFessler/trellis`}</DropdownMenuLabel>
         </DropdownMenuContent>
       </DropdownMenu>
       <div className="trellis-titlebar-group" role="group" aria-label={t`Show or hide panels`}>

@@ -312,7 +312,6 @@
 .trellis-titlebar .trellis-titlebar-toggle[aria-pressed="true"] { background: color-mix(in srgb, var(--text-primary) 8%, transparent); color: var(--text-primary); }
 .trellis-titlebar-hidden { display: flex; align-items: center; gap: var(--space-2); min-width: 0; overflow: hidden; }
 .trellis-titlebar .trellis-hidden-chip { max-width: 140px; height: var(--control-height-compact); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; border: 1px dashed var(--border-strong); }
-.trellis-attribution { max-width: 260px; color: var(--text-tertiary); font-size: var(--type-caption-size); font-weight: var(--weight-regular); white-space: normal; }
 
 /* A panel narrower than a split's tracks must not be scrolled sideways by an
    editor's scrollIntoView (overflow: hidden still scrolls programmatically). */

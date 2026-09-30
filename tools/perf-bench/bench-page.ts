@@ -104,6 +104,13 @@ function pathArg(args: Args): string {
   return path.startsWith(`${ROOT}/`) ? path.slice(ROOT.length + 1) : path;
 }
 
+/** A library Paper with both a full text and a blog, so its panel carries the Blog / Paper switch. */
+const BENCH_PAPERS = [
+  { arxivId: "1706.03762v7", title: "Attention Is All You Need", citationKey: "vaswani2017attention", hasFullText: true, hasBlog: true },
+];
+
+const fullTextOnly = params.get("papers") === "fulltext";
+
 const unhandled = new Set<string>();
 const counts = new Map<string, number>();
 
@@ -178,6 +185,14 @@ function answer(command: string, args: Args): unknown {
     case "plugin:window|is_fullscreen":
     case "plugin:window|is_maximized":
       return false;
+    // Papers only with `?papers=1` (or `?papers=fulltext`, a Paper without a
+    // blog): the budgeted scenarios run with an empty library.
+    case "list_papers":
+      return params.has("papers") ? BENCH_PAPERS.map((paper) => ({ ...paper, hasBlog: !fullTextOnly })) : [];
+    case "read_paper":
+      return `## Abstract\n\n${"Paper content. ".repeat(40)}`;
+    case "read_paper_blog_local":
+      return fullTextOnly ? null : `## Overview\n\n${"Blog content. ".repeat(40)}`;
     case "synara_ensure_ready":
     case "run_doctor":
       // The agent runtime and the TeX toolchain check are outside the bench;

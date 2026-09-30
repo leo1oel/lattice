@@ -181,8 +181,6 @@ input[type="search"]:focus-visible {
 @container (max-width: 570px) { .editor-status-bar .status-body-words { display: none; } }
 @container (max-width: 200px) { .editor-status-bar .status-manuscript-todos { display: none; } }
 @container (max-width: 160px) { .editor-status-bar .status-comments { display: none; } }
-.table-generator, .project-replace, .bib-entry-dialog { width: min(480px, 100%); display: flex; flex-direction: column; gap: var(--space-6); }
-.bib-entry-dialog > .drawer-copy { margin: 0; }
 .bib-entry-form { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-5); }
 .bib-entry-form label { display: flex; flex-direction: column; gap: var(--space-3); color: var(--text-secondary); font-size: var(--type-micro-size); font-weight: 600; font-family: var(--ui-font); }
 .bib-entry-form .bib-resolve-field { grid-column: 1 / -1; }

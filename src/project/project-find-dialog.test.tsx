@@ -59,7 +59,7 @@ describe("ProjectFindDialog", () => {
     expect(screen.getByText("Find in project")).toBeInTheDocument();
     await act(() => activateAppLocale("zh-CN"));
     expect(screen.getByText("在项目中查找")).toBeInTheDocument();
-    expect(screen.getByRole("complementary", { name: "在项目中查找" })).toBeInTheDocument();
+    expect(screen.getByRole("dialog", { name: "在项目中查找" })).toBeInTheDocument();
     expect(screen.getByRole("searchbox", { name: "在项目中查找" })).toBeInTheDocument();
     expect(screen.queryByText("Find in project")).not.toBeInTheDocument();
   });
@@ -187,6 +187,20 @@ describe("ProjectFindDialog", () => {
 
     expect(props.onOpenHit).not.toHaveBeenCalled();
     expect(input()).toBeInTheDocument();
+  });
+
+  it("keeps the dialog open when Escape dismisses an IME candidate window", () => {
+    const { props, input } = renderFind();
+
+    fireEvent.compositionStart(input());
+    fireEvent.keyDown(input(), { key: "Escape", code: "Escape", keyCode: 229, isComposing: true });
+    fireEvent.compositionEnd(input());
+    fireEvent.keyDown(input(), { key: "Escape", code: "Escape", keyCode: 27, isComposing: false });
+    expect(props.onClose).not.toHaveBeenCalled();
+
+    act(() => vi.advanceTimersByTime(0));
+    fireEvent.keyDown(input(), { key: "Escape", code: "Escape", keyCode: 27 });
+    expect(props.onClose).toHaveBeenCalledOnce();
   });
 
   it("keeps late results hidden after the search is closed and reopened", () => {

@@ -7,6 +7,7 @@ import { EmptyState } from "../components/ui/empty-state";
 import { PanelHeader } from "../components/ui/panel-header";
 import { SearchField } from "../components/ui/search-field";
 import { ScrollArea } from "../components/ui/scroll-area";
+import { SheetDialog } from "../components/ui/sheet-dialog";
 import { useCompositionGuard } from "./use-composition-guard";
 
 export type ProjectFindHit = {
@@ -131,97 +132,88 @@ export function ProjectFindDialog(props: {
   );
 
   return (
-    <div className="drawer-backdrop" onMouseDown={close}>
-      <aside
-        className="project-replace project-find"
-        onMouseDown={(event) => event.stopPropagation()}
+    <SheetDialog className="project-replace project-find" label={t`Find in project`} onClose={close}>
+      <PanelHeader
+        className="drawer-header"
+        icon={<Search size={16} />}
+        title={t`Find in project`}
+        onClose={close}
+      />
+      <SearchField
+        ref={inputRef}
+        autoFocus
         aria-label={t`Find in project`}
-      >
-        <PanelHeader
-          className="drawer-header"
-          icon={<Search size={16} />}
-          title={t`Find in project`}
-          onClose={close}
-        />
-        <SearchField
-          ref={inputRef}
-          autoFocus
-          aria-label={t`Find in project`}
-          value={query}
-          onChange={(event) => {
-            setDebouncing(Boolean(event.target.value.trim()));
-            setQuery(event.target.value);
-          }}
-          onClear={clearSearch}
-          placeholder={t`Phrase or tokens`}
-          {...compositionProps}
-          onKeyDown={(event) => {
-            if (isComposing(event)) return;
-            const count = selectableHits.length;
-            switch (event.key) {
-              case "Escape":
-                close();
-                break;
-              case "ArrowDown":
-                setActiveIndex((index) => Math.min(index + 1, Math.max(count - 1, 0)));
-                break;
-              case "ArrowUp":
-                setActiveIndex((index) => Math.max(index - 1, 0));
-                break;
-              case "Enter":
-                if (event.metaKey || event.ctrlKey) return;
-                if (showResults) openHit(activeIndex);
-                break;
-              case "F3":
-                // F3 / Shift-F3 step through the hits, opening each one.
-                if (showResults && count) {
-                  const next = (activeIndex + (event.shiftKey ? count - 1 : 1)) % count;
-                  setActiveIndex(next);
-                  openHit(next);
-                }
-                break;
-              default:
-                return;
-            }
-            event.preventDefault();
-          }}
-        />
-        {props.error && <p className="dialog-error" role="alert">{props.error}</p>}
-        <div className="project-replace-preview">
-          <div
-            className="project-replace-preview-summary"
-            role="status"
-            aria-live="polite"
-            aria-atomic="true"
-          >
-            {!query.trim()
-              ? null
-              : props.error
-                ? t`Search failed.`
-              : searching
-                ? t`Searching…`
-                : paperCount
-                  ? `${countHits(fileHits.length)} · ${countPapers(paperCount)}`
-                  : countHits(fileHits.length)}
-          </div>
-          {showResults && !selectableHits.length && (
-            <EmptyState
-              align="start"
-              density="compact"
-              title={t`No results for “${trimmedQuery}”`}
-              description={t`Try a shorter phrase or different terms`}
-              actions={<Button size="compact" variant="secondary" onClick={clearSearch}><Trans>Clear search</Trans></Button>}
-            />
-          )}
-          {showResults && fileHits.length > 0 && renderHits(fileHits, 0)}
-          {showResults && paperHits.length > 0 && (
-            <div className="project-find-papers">
-              <div className="project-replace-preview-summary"><Trans>Papers</Trans></div>
-              {renderHits(paperHits, fileHits.length)}
-            </div>
-          )}
+        value={query}
+        onChange={(event) => {
+          setDebouncing(Boolean(event.target.value.trim()));
+          setQuery(event.target.value);
+        }}
+        onClear={clearSearch}
+        placeholder={t`Phrase or tokens`}
+        {...compositionProps}
+        onKeyDown={(event) => {
+          if (isComposing(event)) return;
+          const count = selectableHits.length;
+          switch (event.key) {
+            case "ArrowDown":
+              setActiveIndex((index) => Math.min(index + 1, Math.max(count - 1, 0)));
+              break;
+            case "ArrowUp":
+              setActiveIndex((index) => Math.max(index - 1, 0));
+              break;
+            case "Enter":
+              if (event.metaKey || event.ctrlKey) return;
+              if (showResults) openHit(activeIndex);
+              break;
+            case "F3":
+              // F3 / Shift-F3 step through the hits, opening each one.
+              if (showResults && count) {
+                const next = (activeIndex + (event.shiftKey ? count - 1 : 1)) % count;
+                setActiveIndex(next);
+                openHit(next);
+              }
+              break;
+            default:
+              return;
+          }
+          event.preventDefault();
+        }}
+      />
+      {props.error && <p className="dialog-error" role="alert">{props.error}</p>}
+      <div className="project-replace-preview">
+        <div
+          className="project-replace-preview-summary"
+          role="status"
+          aria-live="polite"
+          aria-atomic="true"
+        >
+          {!query.trim()
+            ? null
+            : props.error
+              ? t`Search failed.`
+            : searching
+              ? t`Searching…`
+              : paperCount
+                ? `${countHits(fileHits.length)} · ${countPapers(paperCount)}`
+                : countHits(fileHits.length)}
         </div>
-      </aside>
-    </div>
+        {showResults && !selectableHits.length && (
+          <EmptyState
+            align="start"
+            density="compact"
+            title={t`No results for “${trimmedQuery}”`}
+            description={t`Try a shorter phrase or different terms`}
+            actions={<Button size="compact" variant="secondary" onClick={clearSearch}><Trans>Clear search</Trans></Button>}
+          />
+        )}
+        {showResults && fileHits.length > 0 && renderHits(fileHits, 0)}
+        {showResults && paperHits.length > 0 && (
+          <div className="project-find-papers">
+            <div className="project-replace-preview-summary"><Trans>Papers</Trans></div>
+            {renderHits(paperHits, fileHits.length)}
+          </div>
+        )}
+      </div>
+    </SheetDialog>
   );
 }

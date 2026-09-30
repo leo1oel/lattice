@@ -995,6 +995,7 @@ msgid "Block type"
 msgstr "块类型"
 
 #: src/canvas/paper-reader.tsx
+#: src/trellis/trellis-header-tools.tsx
 #: src/trellis/trellis-workspace.tsx
 msgid "Blog"
 msgstr "概览"
@@ -1095,6 +1096,7 @@ msgstr "浏览器存储已满或不可用。新条目仍会写入磁盘上的日
 
 #: src/App.tsx
 #: src/app/use-build-pipeline.ts
+#: src/trellis/trellis-header-tools.tsx
 #: src/trellis/trellis-workspace.tsx
 msgid "Build"
 msgstr "构建"
@@ -1135,11 +1137,11 @@ msgstr "构建成功，用时 {seconds} 秒"
 msgid "Build superseded"
 msgstr "构建已被新操作取代"
 
-#: src/trellis/trellis-workspace.tsx
+#: src/trellis/trellis-header-tools.tsx
 msgid "Build the project and show the PDF · ⌘S · last build {seconds}s · Shift-click for a clean rebuild"
 msgstr "构建项目并显示 PDF · ⌘S · 上次构建用时 {seconds} 秒 · 按住 Shift 点击可执行全新重建"
 
-#: src/trellis/trellis-workspace.tsx
+#: src/trellis/trellis-header-tools.tsx
 msgid "Build the project and show the PDF · ⌘S · Shift-click for a clean rebuild"
 msgstr "构建项目并显示 PDF · ⌘S · 按住 Shift 点击可执行全新重建"
 
@@ -1151,7 +1153,7 @@ msgstr "构建项目以预览论文"
 msgid "Build to count"
 msgstr "构建后统计"
 
-#: src/trellis/trellis-workspace.tsx
+#: src/trellis/trellis-header-tools.tsx
 msgid "Building… · the PDF refreshes when it finishes"
 msgstr "正在构建… · 完成后 PDF 会刷新"
 
@@ -2442,7 +2444,7 @@ msgstr "文档章节"
 msgid "Document title"
 msgstr "文档标题"
 
-#: src/trellis/trellis-workspace.tsx
+#: src/trellis/trellis-header-tools.tsx
 msgid "Document view"
 msgstr "文稿视图"
 
@@ -2594,6 +2596,7 @@ msgstr "例如 Lattice"
 
 #: src/App.tsx
 #: src/editor/comments/editor-comments-panel.tsx
+#: src/trellis/trellis-header-tools.tsx
 #: src/trellis/trellis-workspace.tsx
 msgid "Edit"
 msgstr "编辑"
@@ -2603,11 +2606,11 @@ msgctxt "macOS menu bar"
 msgid "Edit"
 msgstr "编辑"
 
-#: src/trellis/trellis-workspace.tsx
+#: src/trellis/trellis-header-tools.tsx
 msgid "Edit and preview HTML"
 msgstr "编辑并预览 HTML"
 
-#: src/trellis/trellis-workspace.tsx
+#: src/trellis/trellis-header-tools.tsx
 msgid "Edit and preview Markdown"
 msgstr "编辑并预览 Markdown"
 
@@ -2624,7 +2627,7 @@ msgstr "编辑参考文献条目"
 msgid "Edit document"
 msgstr "编辑文档"
 
-#: src/trellis/trellis-workspace.tsx
+#: src/trellis/trellis-header-tools.tsx
 msgid "Edit HTML"
 msgstr "编辑 HTML"
 
@@ -2632,7 +2635,7 @@ msgstr "编辑 HTML"
 msgid "Edit link"
 msgstr "编辑链接"
 
-#: src/trellis/trellis-workspace.tsx
+#: src/trellis/trellis-header-tools.tsx
 msgid "Edit Markdown"
 msgstr "编辑 Markdown"
 
@@ -5280,7 +5283,7 @@ msgstr "请先打开此修订建议所在的文档。"
 msgid "Open the file this suggestion is in first"
 msgstr "请先打开此修订建议所在的文件"
 
-#: src/trellis/trellis-workspace.tsx
+#: src/trellis/trellis-header-tools.tsx
 msgid "Open the full paper Markdown"
 msgstr "打开论文全文 Markdown"
 
@@ -5293,7 +5296,7 @@ msgstr "请先打开已关联的 Overleaf 项目，再更改它的同步设置�
 msgid "Open the linked Overleaf project first."
 msgstr "请先打开已关联的 Overleaf 项目。"
 
-#: src/trellis/trellis-workspace.tsx
+#: src/trellis/trellis-header-tools.tsx
 msgid "Open the paper overview"
 msgstr "打开论文概览"
 
@@ -5530,6 +5533,7 @@ msgstr "面板"
 #: src/App.tsx
 #: src/canvas/paper-reader.tsx
 #: src/project/project-find-dialog.tsx
+#: src/trellis/trellis-header-tools.tsx
 #: src/trellis/trellis-workspace.tsx
 msgid "Paper"
 msgstr "论文"
@@ -5542,7 +5546,7 @@ msgstr "论文操作"
 msgid "Paper citation suggestions"
 msgstr "论文引用建议"
 
-#: src/trellis/trellis-workspace.tsx
+#: src/trellis/trellis-header-tools.tsx
 msgid "Paper content"
 msgstr "论文内容"
 
@@ -5851,15 +5855,16 @@ msgstr "预印本检查返回的结果不完整或不明确。"
 
 #: src/editor/markdown/engine/lattice-visual-editor.tsx
 #: src/project/project-replace-dialog.tsx
+#: src/trellis/trellis-header-tools.tsx
 #: src/trellis/trellis-workspace.tsx
 msgid "Preview"
 msgstr "预览"
 
-#: src/trellis/trellis-workspace.tsx
+#: src/trellis/trellis-header-tools.tsx
 msgid "Preview HTML"
 msgstr "预览 HTML"
 
-#: src/trellis/trellis-workspace.tsx
+#: src/trellis/trellis-header-tools.tsx
 msgid "Preview Markdown"
 msgstr "预览 Markdown"
 
@@ -7398,6 +7403,7 @@ msgstr "色谱"
 msgid "Spelling"
 msgstr "拼写"
 
+#: src/trellis/trellis-header-tools.tsx
 #: src/trellis/trellis-workspace.tsx
 msgid "Split"
 msgstr "分栏"
@@ -8488,10 +8494,6 @@ msgstr "使用“构建”按钮或 Command-S。源码更改仍会自动保存"
 msgid "Use your own API quota for paper searches, imports, and citation checks."
 msgstr "为文献搜索、导入和引用检查配置个人 API 额度。"
 
-#: src/trellis/trellis-titlebar.tsx
-msgid "Uses Trellis by DanFessler — github.com/DanFessler/trellis"
-msgstr "使用 DanFessler 的 Trellis — github.com/DanFessler/trellis"
-
 #: src/settings/literature-settings.tsx
 msgid "Using environment key"
 msgstr "正在使用环境变量密钥"
@@ -8853,7 +8855,3 @@ msgstr "放大"
 #: src/pdf/pdf-viewer.tsx
 msgid "Zoom out"
 msgstr "缩小"
-
-#: src/trellis/trellis-titlebar.tsx
-msgid "Zoom out to show every panel"
-msgstr "缩小以显示所有面板"

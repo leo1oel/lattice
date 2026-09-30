@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { PanelHeader } from "../components/ui/panel-header";
 import { popupMotionClassName } from "../components/ui/popup-motion";
 import { SearchField } from "../components/ui/search-field";
-import { ResizableDrawer } from "../components/ui/resizable-drawer";
+import { SheetDialog } from "../components/ui/sheet-dialog";
 import { FluidHoverSurface } from "../components/ui/fluid-hover-surface";
 
 /** The form's text fields; a seed or a resolved record replaces all of them at once. */
@@ -61,8 +61,10 @@ export function BibEntryDialog(props: {
   const { t } = useLingui();
   const editing = props.mode === "edit";
   const seed = props.initialDraft;
-  const [type, setType] = useState<BibEntryType>(() => inferType(seed));
-  const [fields, setFields] = useState(() => fieldsOf(seed));
+  const [initialType] = useState<BibEntryType>(() => inferType(seed));
+  const [initialFields] = useState(() => fieldsOf(seed));
+  const [type, setType] = useState<BibEntryType>(initialType);
+  const [fields, setFields] = useState(initialFields);
   const [insertCite, setInsertCite] = useState(!editing);
   const [resolveQuery, setResolveQuery] = useState(props.initialResolveQuery ?? "");
   const [venueOpen, setVenueOpen] = useState(false);
@@ -173,6 +175,9 @@ export function BibEntryDialog(props: {
   );
 
   const heading = editing ? t`Edit bibliography entry` : t`Add bibliography entry`;
+  // Anything typed or picked since the dialog opened; a click outside must not throw it away.
+  const dirty = type !== initialType || TEXT_FIELDS.some((name) => fields[name] !== initialFields[name])
+    || resolveQuery !== (props.initialResolveQuery ?? "") || insertCite !== !editing;
   // `BIB_ENTRY_TYPES` is BibTeX wire format; only the menu label is prose.
   const entryTypeLabel: Record<BibEntryType, string> = {
     article: t`Article`,
@@ -182,7 +187,7 @@ export function BibEntryDialog(props: {
   };
 
   return (
-    <ResizableDrawer className="bib-entry-dialog" ariaLabel={heading} onClose={props.onClose}>
+    <SheetDialog className="bib-entry-dialog" label={heading} dirty={dirty} onClose={props.onClose}>
       <PanelHeader className="drawer-header" icon={<BookMarked size={16} />} title={heading} onClose={props.onClose} />
       {editing && (
         <p className="drawer-copy">
@@ -315,7 +320,7 @@ export function BibEntryDialog(props: {
           {props.busy ? t`Saving…` : editing ? t`Save changes` : t`Save entry`}
         </Button>
       </div>
-    </ResizableDrawer>
+    </SheetDialog>
   );
 }
 
