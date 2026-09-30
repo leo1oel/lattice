@@ -909,6 +909,13 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
     };
   }, [overleafLink, overleafSyncMode, project?.root]);
 
+  // The author name changes as Git/Overleaf lookups settle; a rename alone
+  // must not re-run the versioning effect against an old build.
+  const authorNameRef = useRef(authorName);
+  useLayoutEffect(() => {
+    authorNameRef.current = authorName;
+  }, [authorName]);
+
   // Version successful builds of linked projects at most every 2 minutes.
   // Unlinked projects never get surprise commits in a repo managed by hand.
   useEffect(() => {
@@ -917,9 +924,9 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
     if (now - lastAutoVersionRef.current < 120_000) return;
     lastAutoVersionRef.current = now;
     void invoke<string | null>("git_auto_commit", {
-      message: AUTO_COMMIT_MESSAGES.autoSaved, author: authorName.trim() || null,
+      message: AUTO_COMMIT_MESSAGES.autoSaved, author: authorNameRef.current.trim() || null,
     }).catch(() => {});
-  }, [authorName, build, overleafLink]);
+  }, [build, overleafLink]);
 
   return {
     overleafLink, overleafProjectLinked, overleafSyncing,
