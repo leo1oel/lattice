@@ -347,8 +347,10 @@ Two gitignore files are written at project creation (`project/create.rs`):
 `.research/.gitignore` contains `history/ sessions/ checkpoints/ cache/`
 (`RESEARCH_GITIGNORE`), and the project's root `.gitignore`
 gets the same four paths plus `/main.pdf` and the LaTeX build-artifact list.
-`ensure_ignore_line` re-applies these when Lattice adopts a folder it did not
-create (`project/manifest.rs`) — otherwise the first commit would adopt every
+Every open (`project/manifest.rs`) writes `.research/.gitignore` only if it is
+missing (an existing one is left as is), and `ensure_ignore_line` adds
+`.research/checkpoints/`, `.research/cache/` and the build-artifact list to the
+root `.gitignore`. That covers folders Lattice did not create; otherwise the first commit would adopt every
 `.log` and `.fls` in the directory.
 
 Export (`export_project_zip`) excludes `.git/`, `.research/history`,
