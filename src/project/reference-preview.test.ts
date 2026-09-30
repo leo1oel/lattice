@@ -1,19 +1,23 @@
 import { expect, it, vi } from "vitest";
-import { GlobalWorkerOptions, getDocument } from "pdfjs-dist-v4/legacy/build/pdf.mjs";
-import workerUrl from "pdfjs-dist-v4/legacy/build/pdf.worker.min.mjs?url";
+import { GlobalWorkerOptions, getDocument } from "pdfjs-dist";
+import workerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 import { referenceAssetPreviewDataUrl } from "./reference-preview";
 
-vi.mock("pdfjs-dist-v4/legacy/build/pdf.mjs", () => ({
+vi.mock("pdfjs-dist", () => ({
   GlobalWorkerOptions: { workerSrc: "" },
   getDocument: vi.fn(),
 }));
 
-it("initializes the v4 worker before loading a PDF without opening the main viewer", async () => {
+it("initializes the PDF.js runtime before loading a PDF without opening the main viewer", async () => {
   GlobalWorkerOptions.workerSrc = "";
+  const nativeWithResolvers = Object.getOwnPropertyDescriptor(Promise, "withResolvers");
+  // Simulate a WKWebView that predates Promise.withResolvers.
+  Reflect.deleteProperty(Promise, "withResolvers");
   const render = vi.fn(() => ({ promise: Promise.resolve() }));
   const destroy = vi.fn(() => Promise.resolve());
   vi.mocked(getDocument).mockImplementation(() => {
     expect(GlobalWorkerOptions.workerSrc).toBe(workerUrl);
+    expect(typeof Reflect.get(Promise, "withResolvers")).toBe("function");
     return {
       promise: Promise.resolve({
         getPage: vi.fn(() => Promise.resolve({
@@ -36,5 +40,6 @@ it("initializes the v4 worker before loading a PDF without opening the main view
     expect(destroy).toHaveBeenCalled();
   } finally {
     toDataURL.mockRestore();
+    if (nativeWithResolvers) Object.defineProperty(Promise, "withResolvers", nativeWithResolvers);
   }
 });

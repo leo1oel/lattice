@@ -110,7 +110,6 @@
     "micromark-util-types": "^2.0.2",
     "motion": "^12.42.2",
     "pdfjs-dist": "6.3.289",
-    "pdfjs-dist-v4": "npm:pdfjs-dist@4.9.155",
     "radix-ui": "^1.6.5",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
