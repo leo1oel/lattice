@@ -430,13 +430,11 @@ function FileView({ controller }: { controller: TrellisController }) {
 /** Per-file tab icons: a type's `icon` is shared by all its views, so file panels portal their own. */
 function useFileTabIcon(controller: TrellisController, viewId: string, key: string) {
   const ws = controller.ws;
-  const [iconHost, setIconHost] = useState<HTMLElement | null>(null);
-  useEffect(() => {
-    if (!ws) return;
-    const find = () => setIconHost(ws.surfaces().find((surface) => surface.view.id === viewId)?.icon ?? null);
-    find();
-    return ws.on("surfaces", find);
-  }, [viewId, ws]);
+  // Read during render, not set from an effect: the tab's icon slot usually
+  // exists by the time the view renders, and an effect would cost every file
+  // panel an extra commit on mount.
+  const subscribe = useCallback((listener: () => void) => ws?.on("surfaces", listener) ?? (() => {}), [ws]);
+  const iconHost = useSyncExternalStore(subscribe, () => ws?.surfaces().find((surface) => surface.view.id === viewId)?.icon ?? null);
   const kind = controller.bridge?.tabKind(key) ?? "file";
   return iconHost ? createPortal(fileIcon(key, kind), iconHost) : null;
 }
@@ -597,10 +595,14 @@ export const TrellisWorkspace = memo(function TrellisWorkspace({ controller, pro
     saveTimer.current = window.setTimeout(() => saveLayout(projectRoot, document), 400);
     const snapshot = controller.ws?.getSnapshot();
     if (snapshot) {
-      controller.ui.set({
-        framed: snapshot.framed,
-        hidden: snapshot.hidden.map((entry) => ({ panelId: entry.panelId, title: entry.views.map((item) => item.title).join(", ") })),
-      });
+      const hidden = snapshot.hidden.map((entry) => ({ panelId: entry.panelId, title: entry.views.map((item) => item.title).join(", ") }));
+      const previous = controller.ui.get().hidden;
+      // Every layout change reports the hidden list; keep the old array when
+      // nothing in it changed, so its subscribers (the titlebar) do not
+      // re-render on each drag, resize or restore step.
+      const same = previous.length === hidden.length
+        && previous.every((entry, index) => entry.panelId === hidden[index].panelId && entry.title === hidden[index].title);
+      controller.ui.set({ framed: snapshot.framed, hidden: same ? previous : hidden });
     }
   }, [controller, projectRoot]);
   useEffect(() => () => {

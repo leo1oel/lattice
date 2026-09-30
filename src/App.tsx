@@ -1,5 +1,5 @@
 import {
-  Suspense, lazy, memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore,
+  Suspense, lazy, memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState,
   type ComponentProps, type SetStateAction,
 } from "react";
 import { createPortal } from "react-dom";
@@ -63,7 +63,7 @@ import { AppProjectDialogs, TexSetupDialogs, type CreateProjectForm } from "./ap
 import { AppProjectSearchDialogs, AppSearchDialogs, type SearchDialog } from "./app/app-search-dialogs";
 import { AppTitlebar } from "./app/app-titlebar";
 import { PanelActions } from "./trellis/trellis-panel-actions";
-import { TrellisController, TrellisControllerContext, type TrellisBridge, type TrellisToolKind, type TrellisUiState } from "./trellis/trellis-controller";
+import { TrellisController, TrellisControllerContext, useTrellisUi, type TrellisBridge, type TrellisToolKind } from "./trellis/trellis-controller";
 import { TrellisTitlebar } from "./trellis/trellis-titlebar";
 import { PANEL_TITLES, spaceMixedScript } from "./trellis/trellis-titles";
 import { CanvasToolbar } from "./canvas/canvas-toolbar";
@@ -369,7 +369,13 @@ function App() {
   const { t, i18n } = useLingui();
   // The Trellis workspace arranges every panel; App owns what is in them.
   const [trellis] = useState(() => new TrellisController());
-  const trellisUi = useSyncExternalStore<TrellisUiState>(trellis.ui.subscribe, trellis.ui.get);
+  // One subscription per field App reads: the rest of the workspace state
+  // (ready, other panels' presence, hidden panels…) changes during the layout
+  // restore and must not re-render App.
+  const agentPresent = useTrellisUi(trellis, (ui) => Boolean(ui.present.agent));
+  const agentVisible = useTrellisUi(trellis, (ui) => Boolean(ui.visible.agent));
+  const pdfLive = useTrellisUi(trellis, (ui) => ui.pdfLive);
+  const editorHibernated = useTrellisUi(trellis, (ui) => ui.editorHibernated);
   const browserHosted = isBrowserHosted();
   const bundledChromium = isBundledChromium();
   const projectState = useProjectState();
@@ -730,7 +736,6 @@ function App() {
   const [spreadsheetCreateRequest, setSpreadsheetCreateRequest] = useState(0);
   const [presentationCreateRequest, setPresentationCreateRequest] = useState(0);
   const [openSlideContext, setOpenSlideContext] = useState<OpenSlideContext | null>(null);
-  const agentVisible = Boolean(trellisUi.visible.agent);
   const synara = useSynaraHost({
     project,
     projectRef,
@@ -4753,8 +4758,8 @@ function App() {
       editorKey={activePaper ? `paper:${activePaperPath}` : `local:${activeFile}`}
       trellis={{
         editorHost: trellis.hosts.editor,
-        pdfHost: trellisUi.pdfLive ? trellis.hosts.pdf : null,
-        editorHibernated: trellisUi.editorHibernated,
+        pdfHost: pdfLive ? trellis.hosts.pdf : null,
+        editorHibernated,
         hibernatedPlaceholder: null,
       }}
     />
@@ -4870,7 +4875,7 @@ function App() {
         {createPortal(trellisActions.project, trellis.hosts.projectActions)}
         {createPortal(trellisActions.papers, trellis.hosts.papersActions)}
         {createPortal(trellisActions.agent, trellis.hosts.agentActions)}
-        {trellisUi.present.agent && createPortal(
+        {agentPresent && createPortal(
           <Suspense fallback={null}>
             <TrellisAgentSurface
               synara={synara}
