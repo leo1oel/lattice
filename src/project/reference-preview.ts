@@ -19,13 +19,9 @@ export async function referenceAssetPreviewDataUrl(asset: ReferenceAssetPreview)
 
   // Keep PDF.js out of startup for the common image-preview path: the same
   // PDF.js the viewer uses is loaded only for an actual PDF reference asset.
-  // A hover must also work before any PDF opens, so this sets the worker the
-  // viewer would (pdf/pdf-slick.ts) instead of relying on it.
-  const [{ getDocument, GlobalWorkerOptions }, { default: workerSrc }] = await Promise.all([
-    import("pdfjs-dist"),
-    import("pdfjs-dist/build/pdf.worker.min.mjs?url"),
-  ]);
-  GlobalWorkerOptions.workerSrc = workerSrc;
+  // A hover must also work before any PDF opens, so the shared runtime sets
+  // up the worker and polyfills the viewer relies on.
+  const { getDocument } = await import("../pdf/pdfjs-runtime");
   const binary = atob(asset.base64);
   const bytes = Uint8Array.from(binary, (character) => character.charCodeAt(0));
   const loadingTask = getDocument({

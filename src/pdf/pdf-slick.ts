@@ -6,8 +6,6 @@
  * React state stays in the hooks that drive it.
  */
 import { PDFSlick, type PDFSlickOptions } from "@pdfslick/core";
-import { GlobalWorkerOptions } from "pdfjs-dist";
-import pdfWorker from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 import {
   PDF_CMAP_URL,
   PDF_STANDARD_FONT_DATA_URL,
@@ -16,48 +14,9 @@ import {
   toViewerScale,
   type PdfFitMode,
 } from "./pdf-viewer-utils";
+import "./pdfjs-runtime";
 
 const PDF_RANGE_CHUNK_BYTES = 2 ** 20;
-
-GlobalWorkerOptions.workerSrc = pdfWorker;
-
-// PDF.js 6 uses Promise.withResolvers in its viewer code, while macOS 14's
-// first WKWebView releases predate that method.
-if (!("withResolvers" in Promise)) {
-  Object.defineProperty(Promise, "withResolvers", {
-    configurable: true,
-    value: function withResolvers<T>() {
-      let resolve!: (value: T | PromiseLike<T>) => void;
-      let reject!: (reason?: unknown) => void;
-      const promise = new Promise<T>((resolvePromise, rejectPromise) => {
-        resolve = resolvePromise;
-        reject = rejectPromise;
-      });
-      return { promise, resolve, reject };
-    },
-  });
-}
-
-// WKWebView 18 does not expose the async iterator that PDF.js 5+ uses while
-// streaming text. Supplying the standards-compatible adapter keeps PDFSlick's
-// native text selection and search path working without a second PDF.js build.
-if (typeof ReadableStream !== "undefined" && !(Symbol.asyncIterator in ReadableStream.prototype)) {
-  Object.defineProperty(ReadableStream.prototype, Symbol.asyncIterator, {
-    configurable: true,
-    value: async function* streamAsyncIterator<T>(this: ReadableStream<T>) {
-      const reader = this.getReader();
-      try {
-        while (true) {
-          const result = await reader.read();
-          if (result.done) return;
-          yield result.value;
-        }
-      } finally {
-        reader.releaseLock();
-      }
-    },
-  });
-}
 
 export type ViewerRecord = {
   key: string;
