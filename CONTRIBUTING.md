@@ -164,7 +164,7 @@ changed since the last successful run:
 | Stage | What it runs |
 | --- | --- |
 | `i18n-check` | catalog extraction, drift check, compile, coverage guard |
-| `lint` | ESLint over `src/` |
+| `lint` | ESLint over `src/` and `tools/`, then knip (unused files, dependencies and duplicate exports) |
 | `test` | the Vitest suite |
 | `build` | typecheck plus the production web bundle and its size budget |
 | `literature-worker` | `typecheck` and `test` inside `literature-worker/` |

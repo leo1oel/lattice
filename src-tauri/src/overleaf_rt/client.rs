@@ -5,6 +5,7 @@ use super::codec::*;
 use super::events::*;
 use super::tree::{parse_project, NodeKind, Tree};
 use super::{NOT_CONNECTED, SESSION_EXPIRED, USER_AGENT};
+use crate::util::url_encode;
 use futures_util::sink::{Sink, SinkExt};
 use futures_util::stream::{Stream, StreamExt};
 use serde::Serialize;

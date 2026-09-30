@@ -57,6 +57,7 @@ jobs:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/setup-pnpm
       - run: pnpm lint
+      - run: pnpm knip
       - run: pnpm build
       # Locally this is the `i18n-check` mise stage; it was the one stage of
       # `pnpm check` that CI never ran, so catalog drift passed here and only

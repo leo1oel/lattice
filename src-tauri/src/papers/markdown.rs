@@ -200,7 +200,7 @@ fn separate_adjacent_blocks(markdown: &str) -> String {
 /// strip combining marks, lowercase, collapse non-alphanumeric runs into
 /// single hyphens, trim edge hyphens. The two must stay in lockstep or
 /// Contents links stop landing on their headings.
-fn wiki_link_slug(text: &str) -> String {
+fn heading_slug(text: &str) -> String {
     use unicode_normalization::{char::is_combining_mark, UnicodeNormalization};
     let mut slug = String::new();
     let mut pending_hyphen = false;
@@ -240,7 +240,7 @@ fn link_contents_entries(markdown: &str) -> String {
             continue;
         }
         let text = trimmed[level + 1..].trim().to_string();
-        let base = wiki_link_slug(&text);
+        let base = heading_slug(&text);
         if base.is_empty() {
             continue;
         }
@@ -438,7 +438,7 @@ mod tests {
     }
 
     #[test]
-    fn slugs_match_the_editors_wiki_link_slugger() {
+    fn slugs_match_the_editors_heading_slugger() {
         for (text, slug) in [
             ("2.1 Conditional Video Generation", "2-1-conditional-video-generation"),
             ("Why Video?", "why-video"),
@@ -447,7 +447,7 @@ mod tests {
             ("Café Décor", "cafe-decor"),
             ("  --- ", ""),
         ] {
-            assert_eq!(wiki_link_slug(text), slug);
+            assert_eq!(heading_slug(text), slug);
         }
     }
 
