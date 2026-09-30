@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  ABOUT_PANEL_OPTIONS,
   CHROMIUM_WINDOW_CSS,
   isOpenSlidePresenterUrl,
   openSlidePresenterWindowOptions,
@@ -8,6 +9,10 @@ import {
 const presenterUrl = "http://127.0.0.1:43123/__lattice/bootstrap?token=session-secret&next=%2Fs%2Ftalk%2Fpresenter";
 
 describe("Chromium window policy", () => {
+  it("credits Trellis in the About panel, as its license asks shipped apps to", () => {
+    expect(ABOUT_PANEL_OPTIONS.credits).toBe("Uses Trellis by DanFessler - github.com/DanFessler/trellis");
+  });
+
   it("keeps authenticated Open Slide presenters in the bundled Chromium session", () => {
     expect(isOpenSlidePresenterUrl(presenterUrl)).toBe(true);
     expect(openSlidePresenterWindowOptions(presenterUrl)).toMatchObject({

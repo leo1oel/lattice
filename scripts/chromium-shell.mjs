@@ -76,6 +76,7 @@ async function showWorkspace(label) {
 }
 
 function installApplicationMenu() {
+  app.setAboutPanelOptions(ABOUT_PANEL_OPTIONS);
   Menu.setApplicationMenu(Menu.buildFromTemplate([
     {
       label: app.name,
