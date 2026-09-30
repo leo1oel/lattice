@@ -7,9 +7,9 @@
  * sign-in window, loading, empty, error, downloading) carries plain-language
  * guidance about what is happening and what to do next.
  */
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode, type KeyboardEvent } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { Cloud } from "lucide-react";
+import { Cloud, CloudAlert, CloudOff, FileText, Link2, SearchX, UploadCloud } from "lucide-react";
 import { useLingui } from "@lingui/react/macro";
 import { Badge } from "../components/ui/badge";
 import { InfinityLoader, ReloadButton } from "../components/ui/activity-icons";
@@ -26,7 +26,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { SettingsSectionHeader } from "../components/ui/settings-section-header";
 import { SettingsGroup, SettingsRow } from "../components/ui/settings-row";
 import { MotionButton } from "../components/ui/motion";
-import { ResizableDrawer } from "../components/ui/resizable-drawer";
+import { ModalDialog } from "../components/ui/modal-dialog";
 import type { CloneTarget, OverleafLink, OverleafLoginPoll, OverleafProject, OverleafStatus } from "../app-types";
 import { confirmAction, overleafLinkMatchesSession, relativeTime, toMessage } from "../app-utils";
 import { InlineMessage } from "../components/ui/inline-message";
@@ -142,7 +142,7 @@ function LoginControls(props: { login: OverleafLogin; label: string; hint?: stri
     <>
       {login.pending ? (
         <>
-          <div className="overleaf-waiting">
+          <div className="overleaf-waiting" role="status">
             <InfinityLoader size={15} />
             <span>{t`Waiting for you to sign in in the Overleaf window…`}</span>
             <Button size="compact" variant="ghost" onClick={login.cancel}>{t`Cancel`}</Button>
@@ -183,11 +183,54 @@ function Progress(props: { className?: string; text: string }) {
   );
 }
 
-/** A status dot, what it means, the detail beneath it, and an optional action. */
-function StatusRow(props: { dot: "connected" | "paused"; title: ReactNode; detail: ReactNode; children?: ReactNode }) {
+/**
+ * A small tinted tile holding an icon: the one visual anchor every Overleaf
+ * card, empty state and prompt shares, so they read as one family.
+ */
+function Glyph(props: { tone?: "accent" | "success" | "warning" | "danger" | "neutral"; size?: "compact" | "large"; children: ReactNode }) {
+  return (
+    <span className="overleaf-glyph" data-tone={props.tone ?? "accent"} data-size={props.size ?? "compact"} aria-hidden="true">
+      {props.children}
+    </span>
+  );
+}
+
+/** Placeholder rows shaped like the project list while it loads. */
+function ProjectSkeleton() {
+  return (
+    <ul className="overleaf-skeleton" aria-hidden="true">
+      {[62, 44, 70, 52, 38].map((width, index) => (
+        <li key={index} style={{ "--overleaf-skeleton-width": `${width}%` } as CSSProperties}>
+          <span className="overleaf-skeleton-tile" />
+          <span className="overleaf-skeleton-lines"><span /><span /></span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/**
+ * The centered state of the picker's list frame when there is no list to
+ * show: not connected yet, a session that expired, nothing found, or a load
+ * that failed. One layout, so switching between them never jumps.
+ */
+function StageMessage(props: { glyph: ReactNode; tone?: "accent" | "warning" | "danger" | "neutral"; children: ReactNode }) {
+  return (
+    <div className="overleaf-stage-message">
+      <Glyph tone={props.tone} size="large">{props.glyph}</Glyph>
+      {props.children}
+    </div>
+  );
+}
+
+/** A status tile, what it means, the detail beneath it, and an optional action. */
+function StatusRow(props: { dot: "connected" | "paused"; icon: ReactNode; title: ReactNode; detail: ReactNode; children?: ReactNode }) {
   return (
     <div className="overleaf-status-row">
-      <span className={`overleaf-dot ${props.dot}`} aria-hidden="true" />
+      <span className="overleaf-status-glyph">
+        <Glyph tone="neutral">{props.icon}</Glyph>
+        <span className={`overleaf-dot ${props.dot}`} aria-hidden="true" />
+      </span>
       <div className="overleaf-status-text"><strong>{props.title}</strong><small>{props.detail}</small></div>
       {props.children}
     </div>
@@ -360,7 +403,7 @@ Lattice will no longer be able to list your Overleaf projects, sync linked proje
         )}
         {loadError && <RetryRow error={loadError} busy={loading} label={t`Try again`} onRetry={() => void load()} />}
         {known?.connected && (
-          <StatusRow dot="connected" title={t`Connected as ${known.email ?? known.name ?? fallbackAccountName}`} detail={known.host}>
+          <StatusRow dot="connected" icon={<Cloud size={15} />} title={t`Connected as ${known.email ?? known.name ?? fallbackAccountName}`} detail={known.host}>
             <Button size="compact" disabled={disconnecting} onClick={() => void disconnect()}>
               {disconnecting && <InfinityLoader size={12} />}
               {t`Sign out`}
@@ -368,15 +411,21 @@ Lattice will no longer be able to list your Overleaf projects, sync linked proje
           </StatusRow>
         )}
         {known && !known.connected ? (
-          <LoginControls
-            login={login}
-            label={t`Connect to Overleaf`}
-            hint={t`A secure Overleaf sign-in window will open. Lattice never sees your password — it only keeps the session Overleaf creates for you`}
-          />
+          <div className="overleaf-connect-card">
+            <Glyph tone="accent"><Cloud size={15} /></Glyph>
+            <div className="overleaf-connect-card-body">
+              <LoginControls
+                login={login}
+                label={t`Connect to Overleaf`}
+                hint={t`A secure Overleaf sign-in window will open. Lattice never sees your password — it only keeps the session Overleaf creates for you`}
+              />
+            </div>
+          </div>
         ) : <LoginMessages login={login} />}
         {link && (
           <StatusRow
             dot={!connectedToLinkedHost || link.paused ? "paused" : "connected"}
+            icon={<Link2 size={15} />}
             title={!connectedToLinkedHost
               ? t`“${link.projectName}” stays linked`
               : link.paused
@@ -455,6 +504,7 @@ function OverleafPicker(props: PickerProps) {
   const [selected, setSelected] = useState<string | null>(null);
   const [cloning, setCloning] = useState<OverleafProject | null>(null);
   const [publishing, setPublishing] = useState(false);
+  const [transferError, setTransferError] = useState<string | null>(null);
   const [publishName, setPublishName] = useState(props.currentProject?.name ?? "");
   const [reconnectRequired, setReconnectRequired] = useState(false);
   const login = useOverleafLogin((session) => {
@@ -518,6 +568,7 @@ function OverleafPicker(props: PickerProps) {
 
 Lattice will create a new Overleaf project from the files that normally sync. Lattice app data, saved account credentials, build output and Git history stay on this Mac.`,
     )) return;
+    setTransferError(null);
     setPublishing(true);
     try {
       if (await props.onPublish(name)) {
@@ -525,13 +576,17 @@ Lattice will create a new Overleaf project from the files that normally sync. La
         onClose();
       }
     } catch (reason) {
-      await handleFailure(reason, (detail) => notifyError(OVERLEAF_SOURCE, t`Could not upload the project to Overleaf`, { detail }));
+      await handleFailure(reason, (detail) => {
+        setTransferError(detail);
+        notifyError(OVERLEAF_SOURCE, t`Could not upload the project to Overleaf`, { detail });
+      });
     }
     setPublishing(false);
   };
 
   const clone = async (project: OverleafProject) => {
     if (cloning || publishing) return;
+    setTransferError(null);
     setCloning(project);
     try {
       // A folder of this name already holding files, with no link to any
@@ -563,7 +618,10 @@ Cancel — download a separate copy into a new folder and leave that one alone.`
     } catch (reason) {
       setCloning(null);
       props.onCloneCancelled?.();
-      await handleFailure(reason, (detail) => notifyError(OVERLEAF_SOURCE, t`Could not open the Overleaf project`, { detail }));
+      await handleFailure(reason, (detail) => {
+        setTransferError(detail);
+        notifyError(OVERLEAF_SOURCE, t`Could not open the Overleaf project`, { detail });
+      });
     }
   };
 
@@ -575,10 +633,41 @@ Cancel — download a separate copy into a new folder and leave that one alone.`
     .filter((project) => !query || [project.name, project.ownerName ?? "", project.ownerEmail ?? ""]
       .some((value) => value.toLowerCase().includes(query)));
   const working = Boolean(cloning) || publishing;
+  const updated = (project: OverleafProject) => Date.parse(project.lastUpdated ?? "") || 0;
+  const owned = (project: OverleafProject) => project.accessLevel === "owner"
+    || Boolean(known?.email && project.ownerEmail?.toLowerCase() === known.email.toLowerCase());
+  const recent = [...visible].sort((a, b) => updated(b) - updated(a) || a.name.localeCompare(b.name));
+  const groups = [
+    { title: t`Your projects`, projects: recent.filter(owned) },
+    { title: t`Other projects`, projects: recent.filter((project) => !owned(project)) },
+  ].filter((group) => group.projects.length > 0);
+  const ordered = groups.flatMap((group) => group.projects);
+  const navigateProjects = (event: KeyboardEvent<HTMLDivElement>) => {
+    const target = event.target as HTMLElement;
+    if (working || !ordered.length || !(target.closest(".overleaf-project-main") || target.closest(".overleaf-search"))) return;
+    const index = ordered.findIndex((project) => project.id === selected);
+    if (event.key === "Enter") {
+      if (index >= 0) { event.preventDefault(); void clone(ordered[index]); }
+      return;
+    }
+    if (event.key !== "ArrowDown" && event.key !== "ArrowUp" && event.key !== "Home" && event.key !== "End") return;
+    // Home/End in the search field still move the text caret.
+    if (target instanceof HTMLInputElement && (event.key === "Home" || event.key === "End")) return;
+    event.preventDefault();
+    const next = event.key === "Home" ? 0 : event.key === "End" ? ordered.length - 1
+      : Math.max(0, Math.min(ordered.length - 1, index + (event.key === "ArrowUp" ? -1 : 1)));
+    const project = ordered[next];
+    setSelected(project.id);
+    const button = Array.from(event.currentTarget.querySelectorAll<HTMLButtonElement>("[data-project-id]"))
+      .find((element) => element.dataset.projectId === project.id);
+    button?.focus({ preventScroll: true });
+    button?.scrollIntoView?.({ block: "nearest" });
+  };
 
   const renderProject = (project: OverleafProject) => (
     <li key={project.id} className={rowClassName("store", `overleaf-project-row${selected === project.id ? " selected" : ""}`)}>
-      <button type="button" className="overleaf-project-main" disabled={working} onClick={() => setSelected(project.id)}>
+      <button type="button" className="overleaf-project-main" data-project-id={project.id} aria-pressed={selected === project.id} disabled={working} onClick={() => setSelected(project.id)}>
+        <span className="overleaf-project-icon" aria-hidden="true"><FileText size={15} /></span>
         <span className="overleaf-project-name">
           {project.name}
           {project.trashed
@@ -606,43 +695,124 @@ Cancel — download a separate copy into a new folder and leave that one alone.`
   );
 
   return (
-    <ResizableDrawer
-      className="overleaf-picker-drawer"
-      dataTour="overleaf-panel"
-      ariaLabel={t`Open from Overleaf`}
+    <ModalDialog
+      label={t`Open from Overleaf`}
       closeDisabled={working}
       onClose={onClose}
     >
+      <div className="modal overleaf-picker-modal" onKeyDown={navigateProjects}>
       <PanelHeader
-        className="drawer-header"
-        icon={<Cloud size={16} />}
+        className="overleaf-picker-header"
+        icon={<Cloud size={22} />}
         title={t`Open from Overleaf`}
         closeDisabled={working}
         closeTooltip={working ? t`You can close this once the transfer finishes` : undefined}
         onClose={onClose}
       />
-      <div className="modal overleaf-picker-modal overleaf-picker-drawer-content">
-        {statusLoading && !statusError && <Progress text={t`Checking your Overleaf connection…`} />}
-        {statusError && <RetryRow error={statusError} busy={statusLoading} label={t`Retry`} onRetry={() => void loadStatus()} />}
+      <div className="overleaf-picker-lede">
+        <p className="overleaf-picker-intro">{t`Bring your next idea into Lattice.`}</p>
+        {known?.connected && <p className="overleaf-picker-account">{known.email ?? known.name ?? known.host}</p>}
+      </div>
+      <div className="overleaf-picker-body">
+        {transferError && <InlineMessage level="error" className="overleaf-transfer-error">{transferError}</InlineMessage>}
+        {statusLoading && !statusError && (
+          <div className="overleaf-stage">
+            <Progress className="overleaf-stage-caption" text={t`Checking your Overleaf connection…`} />
+            <ProjectSkeleton />
+          </div>
+        )}
+        {statusError && (
+          <div className="overleaf-stage">
+            <StageMessage glyph={<CloudOff size={20} />} tone="danger">
+              <RetryRow error={statusError} busy={statusLoading} label={t`Retry`} onRetry={() => void loadStatus()} />
+            </StageMessage>
+          </div>
+        )}
         {known && !known.connected && (
-          <>
-            {reconnectRequired ? (
-              <InlineMessage level="warning" className="overleaf-inline">
-                {t`Your Overleaf session has expired. Sign in again to continue. Your local files and existing project links are unchanged`}
-              </InlineMessage>
-            ) : (
-              <p>{t`Your Overleaf account isn’t connected yet. Connect it once, and every project from your Overleaf account will show up here, ready to open in Lattice`}</p>
-            )}
-            <LoginControls login={login} label={reconnectRequired ? t`Reconnect to Overleaf` : t`Connect to Overleaf`} />
-          </>
+          <div className="overleaf-stage">
+            <StageMessage glyph={reconnectRequired ? <CloudAlert size={20} /> : <Cloud size={20} />} tone={reconnectRequired ? "warning" : "accent"}>
+              <p className="overleaf-stage-text">
+                {reconnectRequired
+                  ? t`Your Overleaf session has expired. Sign in again to continue. Your local files and existing project links are unchanged`
+                  : t`Your Overleaf account isn’t connected yet. Connect it once, and every project from your Overleaf account will show up here, ready to open in Lattice`}
+              </p>
+              <LoginControls
+                login={login}
+                label={reconnectRequired ? t`Reconnect to Overleaf` : t`Connect to Overleaf`}
+                hint={t`A secure Overleaf sign-in window will open. Lattice never sees your password — it only keeps the session Overleaf creates for you`}
+              />
+            </StageMessage>
+          </div>
         )}
         {known?.connected && (
           <>
+            <div className="overleaf-picker-controls">
+              <SearchField
+                aria-label={t`Search Overleaf projects`}
+                containerClassName="overleaf-search"
+                clearLabel={t`Clear search`}
+                placeholder={t`Search by project or owner…`}
+                autoFocus
+                value={search}
+                disabled={working}
+                onChange={(event) => setSearch(event.target.value)}
+                onClear={() => setSearch("")}
+              />
+              <CheckboxField
+                className="overleaf-checkbox"
+                checked={showArchived}
+                disabled={working}
+                label={t`Show archived`}
+                onChange={(event) => setShowArchived(event.target.checked)}
+              />
+            </div>
+            <div className="overleaf-stage" data-list={!projectsError && visible.length > 0 ? "" : undefined}>
+              {projectsError && (
+                <StageMessage glyph={<CloudOff size={20} />} tone="danger">
+                  <RetryRow error={projectsError} busy={projectsLoading} label={t`Retry`} onRetry={() => void loadProjects()} />
+                </StageMessage>
+              )}
+              {!projectsError && projects === null && (
+                <>
+                  <Progress className="overleaf-stage-caption" text={t`Loading your Overleaf projects…`} />
+                  <ProjectSkeleton />
+                </>
+              )}
+              {!projectsError && projects !== null && visible.length === 0 && (
+                <StageMessage glyph={projects.length === 0 ? <FileText size={20} /> : <SearchX size={20} />} tone="neutral">
+                  <p className="overleaf-empty">
+                    {projects.length === 0
+                      ? t`No projects in this account yet. Create one on Overleaf and it will appear here`
+                      : query
+                        ? t`No projects match your search`
+                        : t`All of your projects are archived or trashed. Tick “Show archived” to see them`}
+                  </p>
+                </StageMessage>
+              )}
+              {!projectsError && visible.length > 0 && (
+                <ScrollArea
+                  className="overleaf-project-list-scroll"
+                  orientation="vertical"
+                  viewportProps={{ "aria-label": t`Overleaf projects` }}
+                >
+                  {groups.map((group) => (
+                    <section key={group.title} className="overleaf-project-group" aria-label={group.title}>
+                      <h3>{group.title}<span>{t`Recently updated first`}</span></h3>
+                      <ul className="overleaf-project-list">{group.projects.map(renderProject)}</ul>
+                    </section>
+                  ))}
+                </ScrollArea>
+              )}
+            </div>
+            {visible.length > 0 && <p className="overleaf-picker-keyboard">{t`↑↓ to navigate · Enter to open`}</p>}
             {props.currentProject && props.onPublish && (
               <section className="overleaf-publish-card">
-                <div className="overleaf-publish-copy">
-                  <strong>{t`Upload this project to Overleaf`}</strong>
-                  <span>{t`Create a new Overleaf project and keep this folder connected to it`}</span>
+                <div className="overleaf-publish-head">
+                  <Glyph tone="neutral"><UploadCloud size={15} /></Glyph>
+                  <div className="overleaf-publish-copy">
+                    <strong>{t`Upload this project to Overleaf`}</strong>
+                    <span>{t`Create a new Overleaf project and keep this folder connected to it`}</span>
+                  </div>
                 </div>
                 <div className="overleaf-publish-actions">
                   <Input
@@ -664,45 +834,6 @@ Cancel — download a separate copy into a new folder and leave that one alone.`
                 </div>
               </section>
             )}
-            <div className="overleaf-picker-controls">
-              <SearchField
-                aria-label={t`Search Overleaf projects`}
-                containerClassName="overleaf-search"
-                placeholder={t`Search by project or owner…`}
-                autoFocus
-                value={search}
-                disabled={working}
-                onChange={(event) => setSearch(event.target.value)}
-                onClear={() => setSearch("")}
-              />
-              <CheckboxField
-                className="overleaf-checkbox"
-                checked={showArchived}
-                disabled={working}
-                label={t`Show archived`}
-                onChange={(event) => setShowArchived(event.target.checked)}
-              />
-            </div>
-            {projectsError && <RetryRow error={projectsError} busy={projectsLoading} label={t`Retry`} onRetry={() => void loadProjects()} />}
-            {!projectsError && projects === null && <Progress text={t`Loading your Overleaf projects…`} />}
-            {!projectsError && projects !== null && visible.length === 0 && (
-              <p className="overleaf-empty">
-                {projects.length === 0
-                  ? t`No projects in this account yet. Create one on Overleaf and it will appear here`
-                  : query
-                    ? t`No projects match your search`
-                    : t`All of your projects are archived or trashed. Tick “Show archived” to see them`}
-              </p>
-            )}
-            {!projectsError && visible.length > 0 && (
-              <ScrollArea
-                className="overleaf-project-list-scroll"
-                orientation="vertical"
-                viewportProps={{ "aria-label": t`Overleaf projects` }}
-              >
-                <ul className="overleaf-project-list">{visible.map(renderProject)}</ul>
-              </ScrollArea>
-            )}
             {working && (
               <Progress
                 className="overleaf-progress"
@@ -714,6 +845,7 @@ Cancel — download a separate copy into a new folder and leave that one alone.`
           </>
         )}
       </div>
-    </ResizableDrawer>
+      </div>
+    </ModalDialog>
   );
 }

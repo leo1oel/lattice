@@ -356,6 +356,10 @@ msgstr "{warnings} warnings"
 msgid "{words} words · {chars} chars"
 msgstr "{words} words · {chars} chars"
 
+#: src/overleaf/overleaf-connect.tsx
+msgid "↑↓ to navigate · Enter to open"
+msgstr "↑↓ to navigate · Enter to open"
+
 #: src/App.tsx
 msgid "⌘⇧F · source files and papers"
 msgstr "⌘⇧F · source files and papers"
@@ -1077,6 +1081,10 @@ msgstr "Breve accent example"
 msgid "Bring back {0}"
 msgstr "Bring back {0}"
 
+#: src/overleaf/overleaf-connect.tsx
+msgid "Bring your next idea into Lattice."
+msgstr "Bring your next idea into Lattice."
+
 #: src/settings/settings-dialog.tsx
 msgid "Browser"
 msgstr "Browser"
@@ -1574,6 +1582,7 @@ msgid "Clear PDF search"
 msgstr "Clear PDF search"
 
 #: src/components/ui/search-field.tsx
+#: src/overleaf/overleaf-connect.tsx
 #: src/papers/paper-lookup.tsx
 #: src/project/project-find-dialog.tsx
 msgid "Clear search"
@@ -5352,6 +5361,10 @@ msgstr "Orange"
 msgid "Ordered List"
 msgstr "Ordered List"
 
+#: src/overleaf/overleaf-connect.tsx
+msgid "Other projects"
+msgstr "Other projects"
+
 #: src/canvas/document-outline.tsx
 msgid "Outline"
 msgstr "Outline"
@@ -6096,6 +6109,10 @@ msgstr "Recent color {color}"
 #: src/project/project-dialogs.tsx
 msgid "Recent projects"
 msgstr "Recent projects"
+
+#: src/overleaf/overleaf-connect.tsx
+msgid "Recently updated first"
+msgstr "Recently updated first"
 
 #: src/build/compile-diagnostics-panel.tsx
 msgid "Recompiling…"
@@ -8807,6 +8824,10 @@ msgstr "Your Overleaf session has expired. Sign in again to continue. Your local
 #: src/telemetry/root-error-boundary.tsx
 msgid "Your project files are safe. Restart Lattice to reopen the window, or copy the error details if the problem continues."
 msgstr "Your project files are safe. Restart Lattice to reopen the window, or copy the error details if the problem continues."
+
+#: src/overleaf/overleaf-connect.tsx
+msgid "Your projects"
+msgstr "Your projects"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Zeta"

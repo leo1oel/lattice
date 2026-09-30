@@ -5,12 +5,12 @@
   max-height: calc(100vh - 64px);
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: var(--space-8);
 }
 
 .overleaf-review-head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-6); }
 .overleaf-review-head h2 { margin: 0 0 var(--space-2); }
-.overleaf-review-head p { margin: 0; color: var(--text-secondary); font-size: var(--type-caption-size); line-height: 1.5; }
+.overleaf-review-head p { margin: 0; color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); }
 
 /* Appearance is owned by `.ui-inline-message`; the tinted plate is local. */
 .overleaf-review-inline {
@@ -23,10 +23,11 @@
   display: flex;
   align-items: center;
   gap: var(--space-4);
-  padding: 28px 0;
+  min-height: 280px;
+  padding: var(--space-12) 0;
   justify-content: center;
   color: var(--text-secondary);
-  font-size: var(--type-label-size);
+  font-size: var(--type-caption-size);
 }
 .overleaf-review-loading svg { color: var(--control-active); }
 
@@ -35,7 +36,7 @@
   min-height: 0;
   display: grid;
   grid-template-columns: minmax(220px, 300px) 1fr;
-  gap: 14px;
+  gap: var(--space-8);
 }
 
 .overleaf-review-list {
@@ -44,7 +45,19 @@
   padding-right: var(--space-2);
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: var(--space-4);
+}
+/* Each kind of change is its own quiet card; the one that needs a decision
+   is tinted so it is found first. */
+.overleaf-review-group {
+  padding: var(--space-5) var(--space-5) var(--space-4);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-surface);
+  background: var(--surface-panel);
+}
+.overleaf-review-group:has(h3[data-kind="conflict"]) {
+  border-color: color-mix(in srgb, var(--status-danger) 28%, var(--border-subtle));
+  background: color-mix(in srgb, var(--status-danger) 5%, var(--surface-panel));
 }
 .overleaf-review-group h3 {
   margin: 0 0 var(--space-1);
@@ -52,7 +65,8 @@
   align-items: center;
   gap: var(--space-3);
   font-size: var(--type-caption-size);
-  font-weight: 650;
+  line-height: var(--type-caption-line-height);
+  font-weight: var(--weight-semibold);
   color: var(--text-primary);
 }
 /* The same group colours on the list headings and on each diff's header. */
@@ -60,30 +74,31 @@
 .overleaf-review-diff-kind[data-kind="conflict"] { color: var(--status-danger); }
 .overleaf-review-group h3[data-kind="incoming"],
 .overleaf-review-diff-kind[data-kind="incoming"] { color: var(--control-active); }
-.overleaf-review-group p { margin: 0 0 var(--space-3); color: var(--text-tertiary); font-size: var(--type-micro-size); line-height: 1.45; }
+.overleaf-review-group p { margin: 0 0 var(--space-4); color: var(--text-tertiary); font-size: var(--type-micro-size); line-height: var(--type-micro-line-height); }
 .overleaf-review-group ul { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-1); }
 .overleaf-review-group button {
   width: 100%;
   display: flex;
   align-items: center;
   gap: var(--space-3);
-  padding: 5px var(--space-4);
+  min-height: var(--control-height-compact);
+  padding: 0 var(--space-4);
   border: 0;
   border-radius: var(--radius-icon);
   background: transparent;
   color: var(--text-primary);
-  font: var(--type-caption-size)/1.4 var(--ui-font);
+  font: var(--type-caption-size)/var(--type-caption-line-height) var(--ui-font);
   text-align: left;
   cursor: pointer;
 }
-.overleaf-review-group button:hover:not(:disabled) { background: var(--border-subtle); }
+.overleaf-review-group button:hover:not(:disabled) { background: var(--control-hover-surface); }
 .overleaf-review-group button.active { background: var(--control-active-soft); color: var(--control-active); }
 .overleaf-review-group button:disabled { color: var(--text-tertiary); cursor: default; }
 .overleaf-review-path { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .overleaf-review-group em {
   flex: none;
-  padding: 1px 5px;
-  border-radius: var(--radius-compact);
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-pill);
   background: var(--border-subtle);
   color: var(--text-tertiary);
   font-size: var(--type-nano-size);

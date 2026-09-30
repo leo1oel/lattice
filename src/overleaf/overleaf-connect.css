@@ -1,11 +1,33 @@
 /* Overleaf connect section + project picker dialog. Semantic tokens only
    (--surface-*, --text-*, --status-*, --control-*), so light and dark themes
-   both work. Every class here is prefixed .overleaf-. */
+   both work. Every class here is prefixed .overleaf-.
+
+   One visual family: a tinted glyph tile anchors every card, prompt and empty
+   state; cards share one border, radius and padding; secondary text is always
+   caption/tertiary; state color is kept to small dots and the glyph tint. */
 
 /* ---- Shared ------------------------------------------------------------- */
 
-/* A card: the account/link rows in Settings, and the upload offer in the picker. */
+.overleaf-glyph {
+  --overleaf-glyph-tint: var(--control-active);
+  width: var(--control-height-compact);
+  height: var(--control-height-compact);
+  flex: none;
+  display: grid;
+  place-items: center;
+  border-radius: var(--radius-control);
+  background: color-mix(in srgb, var(--overleaf-glyph-tint) 12%, transparent);
+  color: var(--overleaf-glyph-tint);
+}
+.overleaf-glyph[data-size="large"] { width: 44px; height: 44px; border-radius: var(--radius-panel); }
+.overleaf-glyph[data-tone="success"] { --overleaf-glyph-tint: var(--status-success); }
+.overleaf-glyph[data-tone="warning"] { --overleaf-glyph-tint: var(--status-warning); }
+.overleaf-glyph[data-tone="danger"] { --overleaf-glyph-tint: var(--status-danger); }
+.overleaf-glyph[data-tone="neutral"] { --overleaf-glyph-tint: var(--text-secondary); }
+
+/* A card: the account/link rows and sign-in in Settings, the upload offer in the picker. */
 .overleaf-status-row,
+.overleaf-connect-card,
 .overleaf-publish-card {
   padding: var(--space-6);
   border: 1px solid var(--border-subtle);
@@ -22,12 +44,12 @@
   gap: var(--space-4);
   color: var(--text-secondary);
   font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line-height);
 }
 .overleaf-waiting svg,
 .overleaf-loading svg,
 .overleaf-progress svg { flex: none; color: var(--control-active); }
-.overleaf-loading,
-.overleaf-progress { margin-top: 14px; line-height: 1.5; }
+.overleaf-loading { margin-top: var(--space-6); }
 
 .overleaf-status-row .ui-button,
 .overleaf-waiting .ui-button,
@@ -38,79 +60,210 @@
 
 /* ---- Settings section ---------------------------------------------------- */
 
-.overleaf-status-row { margin-top: var(--space-6); display: flex; align-items: center; gap: var(--space-5); }
-.overleaf-dot { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--text-tertiary); }
+.overleaf-status-row { margin-top: var(--space-6); display: flex; align-items: center; gap: var(--space-6); }
+.overleaf-status-row + .overleaf-status-row { margin-top: var(--space-4); }
+/* The state dot sits on the glyph's corner, ringed in the card's surface. */
+.overleaf-status-glyph { position: relative; flex: none; display: grid; }
+.overleaf-dot {
+  position: absolute;
+  right: calc(var(--space-1) * -1);
+  bottom: calc(var(--space-1) * -1);
+  width: var(--space-5);
+  height: var(--space-5);
+  border-radius: var(--radius-pill);
+  background: var(--text-tertiary);
+  box-shadow: 0 0 0 var(--space-1) var(--surface-panel);
+}
 .overleaf-dot.connected { background: var(--status-success); }
 /* Linked but idle: neither the green of a working link nor the grey of none. */
 .overleaf-dot.paused { background: var(--status-warning); }
-.overleaf-status-text { flex: 1 1 auto; min-width: 0; }
+.overleaf-status-text { flex: 1 1 auto; min-width: 0; display: grid; gap: var(--space-1); }
 .overleaf-status-text strong {
-  display: block;
   color: var(--text-primary);
-  font-size: var(--type-caption-size);
-  font-weight: 600;
+  font-size: var(--type-label-size);
+  line-height: var(--type-label-line-height);
+  font-weight: var(--weight-semibold);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.overleaf-status-text small { display: block; margin-top: var(--space-1); color: var(--text-tertiary); font-size: var(--type-nano-size); }
+.overleaf-status-text small { color: var(--text-tertiary); font-size: var(--type-micro-size); line-height: var(--type-micro-line-height); }
 
-.overleaf-connect-row { margin-top: var(--space-6); }
+.overleaf-connect-card { margin-top: var(--space-6); display: flex; align-items: flex-start; gap: var(--space-6); }
+.overleaf-connect-card-body { flex: 1 1 auto; min-width: 0; }
+.overleaf-connect-card .overleaf-connect-row,
+.overleaf-connect-card .overleaf-waiting { margin-top: 0; }
+.overleaf-connect-card .overleaf-waiting { min-height: var(--control-height-compact); }
+
+.overleaf-connect-row { margin-top: var(--space-6); display: grid; gap: var(--space-5); justify-items: start; }
 .overleaf-connect-row .ui-button { width: fit-content; }
 
-.overleaf-hint { margin: var(--space-5) 0 0; color: var(--text-tertiary); font-size: var(--type-micro-size); line-height: 1.5; }
+.overleaf-hint { margin: var(--space-5) 0 0; max-width: 60ch; color: var(--text-tertiary); font-size: var(--type-micro-size); line-height: var(--type-micro-line-height); }
+.overleaf-connect-row .overleaf-hint { margin: 0; }
 /* Appearance is owned by `.ui-inline-message`; only the spacing is local. */
 .overleaf-inline { margin-top: var(--space-5); }
 .overleaf-retry-row { margin-top: var(--space-6); display: flex; }
 .overleaf-waiting { margin-top: var(--space-6); }
+/* Waiting on the sign-in window: the loader is the only motion. */
+.overleaf-waiting > span { flex: 0 1 auto; min-width: 0; }
 
 /* Whether the live editing channel actually came up. Without this the only
    sign of failure is a dot that never appears. */
-.overleaf-channel { display: inline-flex; align-items: center; gap: var(--space-2); vertical-align: middle; }
-.overleaf-channel::before { content: ""; width: 6px; height: 6px; flex: none; border-radius: 50%; background: currentColor; }
+.overleaf-channel { display: inline-flex; align-items: center; gap: var(--space-3); vertical-align: middle; }
+.overleaf-channel::before { content: ""; width: var(--space-3); height: var(--space-3); flex: none; border-radius: var(--radius-pill); background: currentColor; }
 .overleaf-channel-live { color: var(--status-success); }
 .overleaf-channel-connecting { color: var(--text-secondary); }
+.overleaf-channel-connecting::before { background: var(--status-warning); animation: overleaf-breathe 1.6s var(--ease-in-out) infinite; }
 .overleaf-channel-error { color: var(--status-danger); }
 
 /* ---- Picker dialog -------------------------------------------------------- */
 
 .overleaf-picker-modal {
-  width: min(560px, calc(100vw - 40px));
-  max-height: min(620px, calc(100vh - 60px));
+  width: min(640px, calc(100vw - 40px));
+  max-height: min(760px, calc(100dvh - 60px));
+  overflow: hidden;
   display: flex;
   flex-direction: column;
 }
-.overleaf-picker-modal > p { margin: 0 0 var(--drawer-section-gap); }
-.overleaf-picker-modal .overleaf-waiting,
-.overleaf-picker-modal .overleaf-connect-row { margin-top: var(--space-2); }
+.overleaf-picker-header { flex: none; height: auto; padding: 0; }
+.overleaf-picker-header .ui-panel-header-title { gap: var(--space-5); font-size: var(--type-heading-size); }
+.overleaf-picker-header .ui-panel-header-title > svg { color: var(--control-active); }
 
-.overleaf-publish-card { margin-bottom: var(--drawer-section-gap); }
-.overleaf-publish-copy { display: flex; flex-direction: column; gap: var(--gap-tight); margin-bottom: var(--space-5); }
-.overleaf-publish-copy strong { color: var(--text-primary); font-size: var(--type-label-size); }
-.overleaf-publish-copy span { color: var(--text-tertiary); font-size: var(--type-micro-size); line-height: 1.5; }
-.overleaf-publish-actions { display: flex; align-items: center; gap: var(--space-4); }
-.overleaf-publish-actions .ui-input { flex: 1 1 auto; min-width: 0; }
+.overleaf-picker-lede {
+  flex: none;
+  margin: var(--space-3) 0 var(--space-8);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-6);
+}
+.overleaf-picker-lede p { margin: 0; }
+.overleaf-picker-intro { color: var(--text-secondary); font-size: var(--type-caption-size); }
+/* The signed-in account, as a quiet chip with a live dot. */
+.overleaf-picker-account {
+  min-width: 0;
+  max-width: 50%;
+  height: var(--control-height-compact);
+  padding: 0 var(--space-5);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-pill);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+  color: var(--text-secondary);
+  font-size: var(--type-micro-size);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.overleaf-picker-account::before { content: ""; width: var(--space-3); height: var(--space-3); flex: none; border-radius: var(--radius-pill); background: var(--status-success); }
 
-.overleaf-picker-controls { display: flex; align-items: center; gap: var(--space-6); }
+.overleaf-picker-body { display: flex; flex-direction: column; min-height: 0; overflow: auto; }
+.overleaf-transfer-error { flex: none; margin-bottom: var(--space-6); }
+.overleaf-picker-controls { flex: none; display: flex; align-items: center; gap: var(--space-6); margin-bottom: var(--space-6); }
 .overleaf-search { flex: 1 1 auto; }
 
-.overleaf-project-list-scroll {
-  margin: var(--drawer-section-gap) 0 0;
+/* The list frame. Every state (checking, loading, empty, failed, signed out,
+   the list itself) renders inside the same frame at the same minimum height,
+   so moving between them never makes the dialog jump. */
+.overleaf-stage {
   flex: 1 1 auto;
-  min-height: 0;
+  min-height: 300px;
+  display: flex;
+  flex-direction: column;
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-surface);
+  background: var(--surface-input);
+  overflow: hidden;
+  animation: overleaf-settle var(--duration-reveal) var(--ease-entrance);
 }
+.overleaf-stage[data-list] { background: transparent; }
+.overleaf-stage-caption {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  color: var(--text-secondary);
+  padding: var(--space-5) var(--space-6);
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--surface-panel);
+  font-size: var(--type-micro-size);
+}
+.overleaf-stage-message {
+  flex: 1 1 auto;
+  padding: var(--space-12) var(--space-16);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-6);
+  text-align: center;
+}
+.overleaf-stage-message .overleaf-stage-text,
+.overleaf-stage-message .overleaf-empty {
+  margin: 0;
+  max-width: 44ch;
+  color: var(--text-secondary);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line-height);
+}
+.overleaf-stage-message .overleaf-connect-row { margin-top: var(--space-2); justify-items: center; }
+.overleaf-stage-message .overleaf-connect-row .overleaf-hint { max-width: 44ch; }
+.overleaf-stage-message .overleaf-waiting { margin-top: var(--space-2); }
+.overleaf-stage-message .overleaf-inline { margin-top: 0; text-align: left; }
+.overleaf-stage-message .overleaf-retry-row { margin-top: 0; justify-content: center; }
+.overleaf-stage-message > .ui-button { margin-top: var(--space-2); }
+
+/* Placeholder rows while the list loads. */
+.overleaf-skeleton { margin: 0; padding: 0; list-style: none; }
+.overleaf-skeleton li {
+  --overleaf-skeleton-width: 60%;
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  padding: var(--space-6);
+  border-bottom: 1px solid var(--border-subtle);
+}
+.overleaf-skeleton li:last-child { border-bottom: none; }
+.overleaf-skeleton-tile,
+.overleaf-skeleton-lines span {
+  background: linear-gradient(90deg, var(--border-subtle) 0%, color-mix(in srgb, var(--border-subtle) 40%, transparent) 50%, var(--border-subtle) 100%);
+  background-size: 200% 100%;
+  animation: overleaf-shimmer 1.6s var(--ease-in-out) infinite;
+}
+.overleaf-skeleton-tile { width: var(--control-height-compact); height: var(--control-height-compact); flex: none; border-radius: var(--radius-control); }
+.overleaf-skeleton-lines { flex: 1 1 auto; display: grid; gap: var(--space-3); }
+.overleaf-skeleton-lines span { height: var(--space-5); border-radius: var(--radius-pill); width: var(--overleaf-skeleton-width); }
+.overleaf-skeleton-lines span + span { height: var(--space-4); width: calc(var(--overleaf-skeleton-width) * .55); }
+
+.overleaf-project-list-scroll { flex: 1 1 auto; min-height: 0; max-height: 380px; }
 .overleaf-project-list { margin: 0; padding: 0; list-style: none; }
+.overleaf-project-group h3 {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-4);
+  margin: 0;
+  padding: var(--space-4) var(--space-6);
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--surface-panel);
+  color: var(--text-secondary);
+  font-size: var(--type-micro-size);
+  font-weight: var(--weight-semibold);
+}
+.overleaf-project-group h3 span { font-weight: var(--weight-regular); color: var(--text-tertiary); }
 .overleaf-project-row {
   display: flex;
   align-items: center;
   gap: var(--space-4);
-  padding-right: var(--space-5);
+  padding-right: var(--space-6);
   border-bottom: 1px solid var(--border-subtle);
+  transition: background-color var(--duration-quick) var(--ease-out);
 }
-.overleaf-project-row:last-child { border-bottom: none; }
-.overleaf-project-row:hover { background: var(--surface-panel); }
+.overleaf-project-group:last-child .overleaf-project-row:last-child { border-bottom: none; }
+.overleaf-project-row:hover { background: var(--control-hover-surface); }
 .overleaf-project-row.selected { background: var(--control-active-soft); }
 .overleaf-project-main {
   flex: 1 1 auto;
@@ -118,24 +271,78 @@
   padding: var(--space-5) var(--space-6);
   background: transparent;
   text-align: left;
-  display: flex;
-  flex-direction: column;
-  gap: var(--gap-tight);
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  column-gap: var(--space-6);
+  row-gap: var(--space-1);
+  align-items: center;
 }
+.overleaf-project-main:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: -2px; border-radius: var(--radius-control); }
+.overleaf-project-icon {
+  grid-row: span 2;
+  width: var(--control-height-compact);
+  height: var(--control-height-compact);
+  display: grid;
+  place-items: center;
+  border-radius: var(--radius-control);
+  background: var(--surface-panel);
+  box-shadow: inset 0 0 0 1px var(--border-subtle);
+  color: var(--text-tertiary);
+  transition: color var(--duration-quick) var(--ease-out), background-color var(--duration-quick) var(--ease-out);
+}
+.overleaf-project-row.selected .overleaf-project-icon { background: var(--surface-panel); color: var(--control-active); box-shadow: inset 0 0 0 1px var(--control-active-border); }
 .overleaf-project-name {
+  min-width: 0;
   display: flex;
   align-items: center;
   gap: var(--gap-inline);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   color: var(--text-primary);
   font-size: var(--type-label-size);
-  font-weight: 600;
+  font-weight: var(--weight-semibold);
 }
 .overleaf-project-meta {
+  min-width: 0;
   color: var(--text-tertiary);
   font-size: var(--type-micro-size);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.overleaf-open-button { animation: overleaf-settle var(--duration-base) var(--ease-entrance); }
 .overleaf-row-spinner { flex: none; color: var(--control-active); }
-.overleaf-empty { margin: 18px 0 var(--space-3); color: var(--text-tertiary); font-size: var(--type-caption-size); line-height: 1.55; }
+
+.overleaf-picker-keyboard { flex: none; margin: var(--space-4) 0 0; color: var(--text-tertiary); font-size: var(--type-micro-size); }
+
+.overleaf-publish-card { margin-top: var(--space-8); flex: none; display: grid; gap: var(--space-6); }
+.overleaf-publish-head { display: flex; align-items: center; gap: var(--space-6); }
+.overleaf-publish-copy { min-width: 0; display: flex; flex-direction: column; gap: var(--space-1); }
+.overleaf-publish-copy strong { color: var(--text-primary); font-size: var(--type-label-size); font-weight: var(--weight-semibold); }
+.overleaf-publish-copy span { color: var(--text-tertiary); font-size: var(--type-micro-size); line-height: var(--type-micro-line-height); }
+.overleaf-publish-actions { display: flex; align-items: center; gap: var(--space-4); }
+.overleaf-publish-actions .ui-input { flex: 1 1 auto; min-width: 0; }
+
+/* A transfer in progress: a quiet footer line under everything else. */
+.overleaf-progress {
+  flex: none;
+  margin-top: var(--space-6);
+  padding: var(--space-5) var(--space-6);
+  border-radius: var(--radius-control);
+  background: var(--control-active-soft);
+  color: var(--text-primary);
+}
+
+@keyframes overleaf-shimmer { from { background-position: 100% 0; } to { background-position: -100% 0; } }
+@keyframes overleaf-settle { from { opacity: 0; transform: translateY(var(--space-2)); } to { opacity: 1; transform: none; } }
+@keyframes overleaf-breathe { 50% { opacity: .35; } }
+
+@media (max-width: 600px) {
+  .overleaf-picker-controls { flex-wrap: wrap; gap: var(--space-4); }
+  .overleaf-search { flex-basis: 100%; }
+  .overleaf-project-group h3 span { display: none; }
+  .overleaf-publish-actions { flex-wrap: wrap; }
+  .overleaf-picker-lede { flex-wrap: wrap; }
+  .overleaf-picker-account { max-width: 100%; }
+}

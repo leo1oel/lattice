@@ -356,6 +356,10 @@ msgstr "{warnings} 个警告"
 msgid "{words} words · {chars} chars"
 msgstr "{words} 词 · {chars} 字符"
 
+#: src/overleaf/overleaf-connect.tsx
+msgid "↑↓ to navigate · Enter to open"
+msgstr "↑↓ 选择项目 · Enter 打开"
+
 #: src/App.tsx
 msgid "⌘⇧F · source files and papers"
 msgstr "⌘⇧F · 源文件和论文"
@@ -1077,6 +1081,10 @@ msgstr "短音符示例"
 msgid "Bring back {0}"
 msgstr "恢复 {0}"
 
+#: src/overleaf/overleaf-connect.tsx
+msgid "Bring your next idea into Lattice."
+msgstr "在 Lattice 中继续你的研究。"
+
 #: src/settings/settings-dialog.tsx
 msgid "Browser"
 msgstr "浏览器"
@@ -1574,6 +1582,7 @@ msgid "Clear PDF search"
 msgstr "清除 PDF 搜索"
 
 #: src/components/ui/search-field.tsx
+#: src/overleaf/overleaf-connect.tsx
 #: src/papers/paper-lookup.tsx
 #: src/project/project-find-dialog.tsx
 msgid "Clear search"
@@ -5352,6 +5361,10 @@ msgstr "橙色"
 msgid "Ordered List"
 msgstr "有序列表"
 
+#: src/overleaf/overleaf-connect.tsx
+msgid "Other projects"
+msgstr "其他项目"
+
 #: src/canvas/document-outline.tsx
 msgid "Outline"
 msgstr "大纲"
@@ -6096,6 +6109,10 @@ msgstr "最近使用的颜色 {color}"
 #: src/project/project-dialogs.tsx
 msgid "Recent projects"
 msgstr "最近使用的项目"
+
+#: src/overleaf/overleaf-connect.tsx
+msgid "Recently updated first"
+msgstr "按最近更新排序"
 
 #: src/build/compile-diagnostics-panel.tsx
 msgid "Recompiling…"
@@ -8807,6 +8824,10 @@ msgstr "Overleaf 登录已过期。请重新登录以继续操作；本地文件
 #: src/telemetry/root-error-boundary.tsx
 msgid "Your project files are safe. Restart Lattice to reopen the window, or copy the error details if the problem continues."
 msgstr "你的项目文件安全无虞。重新启动 Lattice 即可重新打开窗口；如问题仍然存在，请复制错误详情。"
+
+#: src/overleaf/overleaf-connect.tsx
+msgid "Your projects"
+msgstr "我的项目"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Zeta"
