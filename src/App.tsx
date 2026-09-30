@@ -369,13 +369,13 @@ function App() {
   const { t, i18n } = useLingui();
   // The Trellis workspace arranges every panel; App owns what is in them.
   const [trellis] = useState(() => new TrellisController());
-  // One subscription per field App reads: the rest of the workspace state
-  // (ready, other panels' presence, hidden panels…) changes during the layout
-  // restore and must not re-render App.
-  const agentPresent = useTrellisUi(trellis, (ui) => Boolean(ui.present.agent));
-  const agentVisible = useTrellisUi(trellis, (ui) => Boolean(ui.visible.agent));
-  const pdfLive = useTrellisUi(trellis, (ui) => ui.pdfLive);
-  const editorHibernated = useTrellisUi(trellis, (ui) => ui.editorHibernated);
+  // Only the fields App reads: the rest of the workspace state (ready, other
+  // panels' presence, hidden panels…) changes during the layout restore and
+  // must not re-render App. One subscription, not one per field, because each
+  // is two hooks on every App render; the snapshot is a string so an
+  // unchanged answer does not re-render.
+  const trellisFlags = useTrellisUi(trellis, (ui) => [ui.present.agent, ui.visible.agent, ui.pdfLive, ui.editorHibernated].map((flag) => (flag ? "1" : "0")).join(""));
+  const [agentPresent, agentVisible, pdfLive, editorHibernated] = [...trellisFlags].map((flag) => flag === "1");
   const browserHosted = isBrowserHosted();
   const bundledChromium = isBundledChromium();
   const projectState = useProjectState();
@@ -858,8 +858,7 @@ function App() {
   useEffect(() => {
     configureInterfaceSounds(appearance.interfaceSounds);
   }, [appearance.interfaceSounds]);
-  const layoutMinWidth = useMemo(() => ({ subscribe: trellis.ui.subscribe, get: () => trellis.ui.get().minWidth }), [trellis]);
-  useWindowMinimumSize(appearance.interfaceScale, layoutMinWidth);
+  useWindowMinimumSize(appearance.interfaceScale, trellis.layoutMinWidth);
   /**
    * Claim the right to switch projects, waiting out an Overleaf sync rather
    * than refusing.

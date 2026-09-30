@@ -174,6 +174,8 @@ export class TrellisController {
     ready: false, present: {}, visible: {}, pdfLive: false, editorHibernated: false, editorVisible: false,
     hidden: [], framed: null, minWidth: 0,
   });
+  /** The layout's minimum width as a live value the native window minimum follows. */
+  readonly layoutMinWidth = { subscribe: this.ui.subscribe, get: () => this.ui.get().minWidth };
   /** Tool drawers App currently has open, with the callback that closes each. */
   readonly openDrawers = new SmallStore<Partial<Record<TrellisToolKind, () => void>>>({});
   readonly docTools = new SmallStore<TrellisDocToolsState>({
