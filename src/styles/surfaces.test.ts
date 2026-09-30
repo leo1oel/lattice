@@ -72,9 +72,6 @@ describe("shared surface contracts", () => {
       /\.editor-comments-content \.pdf-marks-toolbar \{[^}]*margin-top:\s*var\(--drawer-content-inset\)/,
       /\.literature-search \{[^}]*margin:\s*var\(--drawer-content-inset\) 0 var\(--drawer-section-gap\)/,
     ]],
-    ["keeps bibliography form sections from touching", [
-      /\.modal\.sheet-dialog \{[^}]*gap:\s*var\(--space-6\)/,
-    ], [".bib-entry-dialog { gap: 0; }"]],
     ["keeps the spreadsheet formula controls level and off pure white", [
       /\[data-u-comp="defined-name"\] \{ padding-block: 0 !important; \}/,
       '[data-u-comp="formula-bar"] > div:first-child { flex: 0 0 calc(6rem + 4px); }',

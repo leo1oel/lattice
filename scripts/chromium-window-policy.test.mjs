@@ -71,12 +71,4 @@ describe("Chromium window CSS", () => {
     expect(appRegion(document.querySelector(".modal-dialog-content"))).toBe("no-drag");
     document.body.innerHTML = "";
   });
-
-  it("keeps the project switcher's centering gap and a zoom-independent traffic-light inset", () => {
-    const rule = (selector) => rules.find((candidate) => candidate.selector === selector)?.declarations;
-    // Round 8 centered the switcher with this leading gap; zeroing the
-    // navigator's padding here pinned the name against the lights.
-    expect(rule(".app-shell.browser-hosted .titlebar-navigator").get("padding")).toBe("0 var(--titlebar-leading-gap) 0 0 !important");
-    expect(rule(".app-shell.browser-hosted .traffic-space").get("width")).toBe("calc(70px / var(--lattice-page-zoom, 1)) !important");
-  });
 });

@@ -23,6 +23,15 @@ export function ModalDialog(props: {
       : null,
   );
   const mountedRef = useRef(false);
+  const composingRef = useRef(false);
+  const compositionTimerRef = useRef<number | null>(null);
+  const cancelCompositionClear = () => {
+    if (compositionTimerRef.current !== null) window.clearTimeout(compositionTimerRef.current);
+    compositionTimerRef.current = null;
+  };
+  useEffect(() => () => {
+    if (compositionTimerRef.current !== null) window.clearTimeout(compositionTimerRef.current);
+  }, []);
   useEffect(() => {
     const returnFocus = returnFocusRef.current;
     mountedRef.current = true;
@@ -37,8 +46,10 @@ export function ModalDialog(props: {
       });
     };
   }, []);
-  const preventWhenDisabled = (event: Event) => {
-    if (props.closeDisabled) event.preventDefault();
+  const preventEscapeDismissal = (event: KeyboardEvent) => {
+    if (props.closeDisabled || event.isComposing || event.keyCode === 229 || composingRef.current) {
+      event.preventDefault();
+    }
   };
   const preventWindowDragDismissal = (event: Event) => {
     const originalTarget = (event as CustomEvent<{ originalEvent?: Event }>)
@@ -87,7 +98,18 @@ export function ModalDialog(props: {
             event.preventDefault();
             contentRef.current?.focus({ preventScroll: true });
           }}
-          onEscapeKeyDown={preventWhenDisabled}
+          onCompositionStart={() => {
+            cancelCompositionClear();
+            composingRef.current = true;
+          }}
+          onCompositionEnd={() => {
+            cancelCompositionClear();
+            compositionTimerRef.current = window.setTimeout(() => {
+              composingRef.current = false;
+              compositionTimerRef.current = null;
+            }, 0);
+          }}
+          onEscapeKeyDown={preventEscapeDismissal}
           onPointerDownOutside={preventWindowDragDismissal}
           onInteractOutside={preventWindowDragDismissal}
           onCloseAutoFocus={(event) => {

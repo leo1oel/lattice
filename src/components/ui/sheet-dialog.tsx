@@ -11,15 +11,13 @@ import { ModalDialog } from "./modal-dialog";
 export function SheetDialog(props: {
   label: string;
   className?: string;
-  dataTour?: string;
   dirty?: boolean;
-  closeDisabled?: boolean;
   onClose: () => void;
   children: ReactNode;
 }) {
   return (
-    <ModalDialog label={props.label} closeDisabled={props.closeDisabled} keepOnOutsideClick={props.dirty} onClose={props.onClose}>
-      <div className={`modal sheet-dialog native-hover-scrollbar ${props.className ?? ""}`.trim()} data-tour={props.dataTour}>
+    <ModalDialog label={props.label} keepOnOutsideClick={props.dirty} onClose={props.onClose}>
+      <div className={`modal sheet-dialog native-hover-scrollbar ${props.className ?? ""}`.trim()}>
         {props.children}
       </div>
     </ModalDialog>

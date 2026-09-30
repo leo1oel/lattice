@@ -189,6 +189,20 @@ describe("ProjectFindDialog", () => {
     expect(input()).toBeInTheDocument();
   });
 
+  it("keeps the dialog open when Escape dismisses an IME candidate window", () => {
+    const { props, input } = renderFind();
+
+    fireEvent.compositionStart(input());
+    fireEvent.keyDown(input(), { key: "Escape", code: "Escape", keyCode: 229, isComposing: true });
+    fireEvent.compositionEnd(input());
+    fireEvent.keyDown(input(), { key: "Escape", code: "Escape", keyCode: 27, isComposing: false });
+    expect(props.onClose).not.toHaveBeenCalled();
+
+    act(() => vi.advanceTimersByTime(0));
+    fireEvent.keyDown(input(), { key: "Escape", code: "Escape", keyCode: 27 });
+    expect(props.onClose).toHaveBeenCalledOnce();
+  });
+
   it("keeps late results hidden after the search is closed and reopened", () => {
     const { props, input, search, rerenderWith } = renderFind();
 
