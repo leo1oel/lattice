@@ -44,7 +44,7 @@ Lint enforces a `--max-warnings` debt cap, owned by the `lint` script in
 
 ## Layout
 
-- `src/` — frontend, one directory per domain. Only 12 files sit at the root: `main.tsx`, `App.tsx`/`App.css`/`App.test.tsx`, `index.css`, `app-types.ts` (the shared domain model, 40 importers), `app-utils.ts` + its two tests, `i18n.ts` + test, `vite-env.d.ts`. There is deliberately **no `shared/`** — anything cross-domain enough to need one belongs at the root or in `components/ui/`. New work goes in the domain directory; place by who imports it, not by what it is called.
+- `src/` — frontend, one directory per domain. Only 11 files sit at the root: `main.tsx`, `App.tsx`/`App.css`, `index.css`, `app-types.ts` (the shared domain model, 40 importers), `app-utils.ts` + its two tests, `i18n.ts` + test, `vite-env.d.ts`. There is deliberately **no `shared/`** — anything cross-domain enough to need one belongs at the root or in `components/ui/`. New work goes in the domain directory; place by who imports it, not by what it is called.
 - `src/app/` — App orchestration: hooks extracted from `App.tsx` (`use-overleaf-workspace.ts`, `notify.ts`) plus window/panel geometry.
 - `src/canvas/` — the editing surface shell (`document-canvas.tsx`, toolbar, outline, `canvas-lazy-modules.ts`).
 - `src/editor/` — editor infrastructure shared by more than one editor kind (CodeMirror host, language resolution, spellcheck), with `editor/latex/`, `editor/markdown/`, `editor/spreadsheet/`, `editor/board/`, `editor/insert/`, `editor/comments/` beneath it.
@@ -85,7 +85,10 @@ Lint enforces a `--max-warnings` debt cap, owned by the `lint` script in
 ## Testing notes
 
 - Vitest + jsdom.
-- `App.test.tsx` renders the real App with mocked `invoke`; startup ordering
+- The App integration suites (`src/app/app-*.test.tsx`) render the real App
+  with mocked `invoke`. They share `src/app/app-test-utils.tsx` (the module
+  mocks, per-test setup and helpers), which each suite must import first so
+  its `vi.mock` calls land before any mocked module loads. Startup ordering
   matters (the backend's `initial_project` must beat the recent-project
   auto-reopen — see `initialProjectProbe` in App.tsx).
 - CI runners are slow: avoid tests that depend on nothing re-rendering between
