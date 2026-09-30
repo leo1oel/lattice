@@ -9,8 +9,8 @@ export interface Env {
   CROSSREF_DAILY_QUOTA?: string;
 }
 
-type Provider = "openalex" | "semanticscholar" | "crossref";
-type Query = { provider: Provider; path: string; params: Record<string, string>; body?: { ids: string[] } };
+type Provider = "openalex" | "crossref";
+type Query = { provider: Provider; path: string; params: Record<string, string> };
 
 const MAX_REQUEST_BYTES = 16 * 1024;
 const MAX_CACHE_BYTES = 1024 * 1024;
@@ -19,14 +19,13 @@ const MAX_CACHE_ENTRIES = 128;
 const DEFAULT_COOLDOWN_MS = 5000;
 const MAX_COOLDOWN_MS = 60_000;
 const PROJECT_URL = "https://github.com/leo1oel/bibcite";
-// Semantic Scholar stays in the request type for old-client compatibility, but is never dispatched.
-const HOSTS: Record<Provider, string> = { openalex: "api.openalex.org", semanticscholar: "disabled.invalid", crossref: "api.crossref.org" };
+// Semantic Scholar is personal-key-only and never proxied: a request naming it is an invalid provider.
+const HOSTS: Record<Provider, string> = { openalex: "api.openalex.org", crossref: "api.crossref.org" };
 const PARAMS: Record<Provider, Set<string>> = {
   openalex: new Set(["search", "filter", "per-page", "per_page", "page", "select"]),
-  semanticscholar: new Set(["fields", "query", "limit", "year"]),
   crossref: new Set(["query.title", "query.bibliographic", "rows", "select", "filter"]),
 };
-const LIMIT_PARAMS: Record<Provider, string[]> = { openalex: ["per-page", "per_page"], semanticscholar: ["limit"], crossref: ["rows"] };
+const LIMIT_PARAMS: Record<Provider, string[]> = { openalex: ["per-page", "per_page"], crossref: ["rows"] };
 /** How each upstream failure status reaches the client: [status, error, code]. Anything unlisted is a 502. */
 const UPSTREAM_FAILURES: Record<number, [number, string, string?]> = {
   400: [400, "provider rejected query", "upstream_bad_request"],
@@ -59,7 +58,6 @@ async function sha256Hex(value: string): Promise<string> {
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
   return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
 }
-const ARXIV_ID = /^(?:ARXIV|arXiv):(?:\d{4}\.\d{4,5}(?:v\d+)?|[a-z-]+(?:\.[A-Z]{2})?\/\d{7}(?:v\d+)?)$/;
 
 class ClientError extends Error { constructor(public status: number, message: string) { super(message); } }
 const jsonError = (status: number, error: string, code?: string): Response => Response.json({ error, ...(code ? { code } : {}) }, { status });
@@ -80,10 +78,6 @@ function validatePath(provider: Provider, rawPath: string): void {
   if (provider === "openalex") {
     const id = path.slice("/works/".length);
     if (path === "/works" || (path.startsWith("/works/") && (/^W\d+$/.test(id) || (id.startsWith("https://doi.org/") && DOI.test(id.slice(16)))))) return;
-  } else if (provider === "semanticscholar") {
-    const id = path.slice("/graph/v1/paper/".length);
-    if (path === "/graph/v1/paper/search" || path === "/graph/v1/paper/batch") return;
-    if (path.startsWith("/graph/v1/paper/") && (/^[a-fA-F0-9]{40}$/.test(id) || /^CorpusId:\d+$/.test(id) || ARXIV_ID.test(id) || /^DOI:10\.\d{4,9}\/[^\s/?#]+(?:\/[^\s?#]+)*$/.test(id))) return;
   } else if (path === "/works" || (path.startsWith("/works/") && DOI.test(path.slice("/works/".length).replace(/\/transform\/application\/x-bibtex$/, "")))) return;
   throw new ClientError(400, "path is not allowed");
 }
@@ -91,7 +85,7 @@ function validatePath(provider: Provider, rawPath: string): void {
 function validateQuery(input: unknown): Query {
   if (!input || typeof input !== "object" || Array.isArray(input)) throw new ClientError(400, "invalid request");
   const value = input as Record<string, unknown>;
-  if (!(["openalex", "semanticscholar", "crossref"] as unknown[]).includes(value.provider)) throw new ClientError(400, "invalid provider");
+  if (!(["openalex", "crossref"] as unknown[]).includes(value.provider)) throw new ClientError(400, "invalid provider");
   const provider = value.provider as Provider;
   if (typeof value.path !== "string" || !value.params || typeof value.params !== "object" || Array.isArray(value.params)) throw new ClientError(400, "invalid request");
   validatePath(provider, value.path);
@@ -111,16 +105,9 @@ function validateQuery(input: unknown): Query {
     const limit = Number(params[key]);
     if (params[key] !== undefined && (!Number.isInteger(limit) || limit < 1 || limit > 100)) throw new ClientError(400, "limit must be between 1 and 100");
   }
-  const batch = provider === "semanticscholar" && value.path === "/graph/v1/paper/batch";
-  let body: Query["body"];
-  if (value.body !== undefined) {
-    if (!batch || !value.body || typeof value.body !== "object") throw new ClientError(400, "body is not allowed");
-    const ids = (value.body as { ids?: unknown }).ids;
-    if (!Array.isArray(ids) || ids.length < 1 || ids.length > 20 || ids.some((id) => typeof id !== "string" || !id || id.length > 512)) throw new ClientError(400, "batch requires 1 to 20 ids");
-    body = { ids: ids as string[] };
-  } else if (batch) throw new ClientError(400, "batch body required");
-  if (value.purpose !== undefined && (value.purpose !== "audit" || !body)) throw new ClientError(400, "invalid purpose");
-  return { provider, path: value.path, params: Object.fromEntries(Object.entries(params).sort(([a], [b]) => a.localeCompare(b))), ...(body ? { body } : {}) };
+  if (value.body !== undefined) throw new ClientError(400, "body is not allowed");
+  if (value.purpose !== undefined) throw new ClientError(400, "invalid purpose");
+  return { provider, path: value.path, params: Object.fromEntries(Object.entries(params).sort(([a], [b]) => a.localeCompare(b))) };
 }
 
 function parseKeyPool(raw?: string): string[] {
@@ -133,15 +120,12 @@ function parseKeyPool(raw?: string): string[] {
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
-    if (request.method === "GET" && url.pathname === "/health") return Response.json({ ok: true, configured: { openalex: parseKeyPool(env.OPENALEX_API_KEYS).length > 0, semanticscholar: false, crossref: !!env.CROSSREF_EMAIL } });
+    if (request.method === "GET" && url.pathname === "/health") return Response.json({ ok: true, configured: { openalex: parseKeyPool(env.OPENALEX_API_KEYS).length > 0, crossref: !!env.CROSSREF_EMAIL } });
     if (request.method !== "POST" || url.pathname !== "/v1/query") return jsonError(404, "not found");
     try {
       const ip = request.headers.get("CF-Connecting-IP") ?? "unknown";
       if (!(await env.LiteratureRateLimiter.limit({ key: ip })).success) return jsonError(429, "rate limit exceeded");
       const query = validateQuery(await readBoundedJson(request));
-      // Semantic Scholar only permits personal client credentials. Reject old
-      // public-fallback clients before they can reach the Durable Object.
-      if (query.provider === "semanticscholar") return jsonError(503, "literature provider is disabled", "provider_disabled");
       const budget = env.LiteratureBudget.get(env.LiteratureBudget.idFromName("global-v1"));
       return await budget.fetch("https://literature.internal/query", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(query) });
     } catch (error) {
@@ -170,7 +154,7 @@ export class LiteratureBudget extends DurableObject<Env> {
     const respond = async (operation: Promise<SharedResponse>) => { const { bytes, status, headers } = await operation; return new Response(bytes.slice(0), { status, headers }); };
     try {
       const query = validateQuery(await request.json());
-      const key = await sha256Hex(JSON.stringify({ provider: query.provider, path: query.path, params: query.params, ...(query.body ? { body: query.body } : {}) }));
+      const key = await sha256Hex(JSON.stringify({ provider: query.provider, path: query.path, params: query.params }));
       const cached = this.cache.get(key);
       if (cached) {
         this.cache.delete(key);
@@ -231,7 +215,6 @@ export class LiteratureBudget extends DurableObject<Env> {
   }
 
   private async dispatch(query: Query, cacheKey: string): Promise<Response> {
-    if (query.provider === "semanticscholar") return jsonError(503, "literature provider is disabled", "provider_disabled");
     const secrets = query.provider === "openalex" ? parseKeyPool(this.bindings.OPENALEX_API_KEYS) : [""];
     // Keys are tracked in storage by a digest, never by the secret itself.
     const keys = await Promise.all(secrets.map(async (secret) => ({ secret, id: await sha256Hex(`${query.provider}\0${secret}`) })));
@@ -248,13 +231,12 @@ export class LiteratureBudget extends DurableObject<Env> {
     const headers = new Headers({ Accept: "application/json, application/x-bibtex;q=0.9", "User-Agent": `Lattice literature proxy/1.0 (${contact})` });
     if (query.provider === "openalex") url.searchParams.set("api_key", key.secret);
     else if (query.provider === "crossref" && this.bindings.CROSSREF_EMAIL) url.searchParams.set("mailto", this.bindings.CROSSREF_EMAIL);
-    if (query.body) headers.set("content-type", "application/json");
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 6000);
     let upstream: Response;
     try {
       // Workers supports manual/follow; reject 3xx below without forwarding credentials.
-      upstream = await fetch(url, { method: query.body ? "POST" : "GET", headers, body: query.body ? JSON.stringify(query.body) : undefined, redirect: "manual", signal: controller.signal });
+      upstream = await fetch(url, { method: "GET", headers, redirect: "manual", signal: controller.signal });
     } catch (error) {
       clearTimeout(timeout);
       console.warn("literature fetch failed", query.provider, error instanceof Error ? error.name : "unknown");

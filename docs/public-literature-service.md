@@ -31,9 +31,9 @@ pnpm exec wrangler secret put CROSSREF_EMAIL
 
 ## Requests and limits
 
-`POST /v1/query` accepts `{provider, path, params, body?}`.
+`POST /v1/query` accepts `{provider, path, params}`.
 Only allowlisted OpenAlex works and Crossref works operations are forwarded.
-Semantic Scholar requests from older clients receive HTTP 503 with stable code `provider_disabled`, even if stale Semantic Scholar secrets remain in the deployed Worker environment.
+A Semantic Scholar request, which only very old clients send, is rejected with HTTP 400 `invalid provider`, even if stale Semantic Scholar secrets remain in the deployed Worker environment.
 Users who enable Semantic Scholar must configure their own client key; the public service never receives or supplies it.
 The upstream host is fixed by the provider; callers cannot choose an arbitrary forwarding URL or retrieve keys.
 Successful responses retain the upstream JSON or BibTeX shape.
@@ -65,7 +65,7 @@ pnpm run deploy
 curl https://lattice-literature.paperlattice.workers.dev/health
 ```
 
-`/health` reports configuration booleans, not whether the provider accepts a key, and always reports `configured.semanticscholar` as `false` for compatibility.
+`/health` reports configuration booleans (`configured.openalex`, `configured.crossref`), not whether the provider accepts a key.
 Verify a real request after changing credentials:
 
 ```sh
