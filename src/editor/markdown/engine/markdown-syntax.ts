@@ -189,13 +189,27 @@ function withOption<K extends keyof Options>(state: State, key: K, value: Option
   }
 }
 
+const reference = (name: string) => `&${name};`;
+
+/**
+ * How to write a character escaped right after an autolink span: GFM would
+ * carry a backslash there into the link, but leaves a trailing `&name;` out
+ * of it. `~` has no named reference, but GFM leaves it out as trailing
+ * punctuation, written as itself.
+ */
+const AFTER_AUTOLINK: Record<string, string> = {
+  "*": reference("ast"), "_": reference("lowbar"), "~": "~", "[": reference("lsqb"), "]": reference("rsqb"),
+  "`": reference("grave"), "\\": reference("bsol"), "!": reference("excl"), "#": reference("num"),
+  "&": reference("amp"), "$": reference("dollar"), "|": reference("vert"),
+};
+
 /**
  * Text escaped wherever the grammar could misread it, except inside the spans
  * GFM reads as extended autolinks: those are linked whatever their escapes,
  * so a backslash there would only become part of the link. A span holding a
  * `|` or `]` that would end the enclosing table cell or link label is escaped
  * like other text, its opener too, so GFM reads it only after the escapes are
- * resolved.
+ * resolved. An escape right after a raw span is spelled another way.
  */
 function safeText(value: string, state: State, info: Info): string {
   const spans = autolinkLiteralSpans(value);
@@ -207,14 +221,19 @@ function safeText(value: string, state: State, info: Info): string {
     before: from ? value.charAt(from - 1) : info.before,
     after: to < value.length ? value.charAt(to) : info.after,
   });
+  let afterRawSpan = false;
   const escape = (to: number) => {
-    if (to > cursor) written += state.safe(value.slice(cursor, to), contextOf(cursor, to));
+    if (to <= cursor) return;
+    const escaped = state.safe(value.slice(cursor, to), contextOf(cursor, to));
+    const spelling = afterRawSpan && escaped.startsWith("\\") ? AFTER_AUTOLINK[escaped.charAt(1)] : undefined;
+    written += spelling ? `${spelling}${escaped.slice(2)}` : escaped;
   };
   for (const [from, to] of spans) {
     escape(from);
     const span = value.slice(from, to);
     const escaped = state.safe(span, contextOf(from, to));
-    written += /\\[|\]]/u.test(escaped) ? escaped.replace(/^(https?|www)([:.])|@/iu, (_match, opener: string | undefined, mark: string) => (opener ? `${opener}\\${mark}` : "\\@")) : span;
+    afterRawSpan = !/\\[|\]]/u.test(escaped);
+    written += afterRawSpan ? span : escaped.replace(/^(https?|www)([:.])|@/iu, (_match, opener: string | undefined, mark: string) => (opener ? `${opener}\\${mark}` : "\\@"));
     cursor = to;
   }
   escape(value.length);

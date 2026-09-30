@@ -244,6 +244,17 @@ describe("bare URLs typed into the visual editor", () => {
     expect(reopened.doc.textContent).toBe(edited.textContent);
   });
 
+  it.each([
+    ["*https://a.com/x*", "\\*https://a.com/x&ast;"],
+    ["_https://a.com/x_", "\\_https://a.com/x&lowbar;"],
+    ["~https://a.com/x~", "\\~https://a.com/x~"],
+  ])("keeps the escape after %s out of the link", (typed, expected) => {
+    const { written } = typeInto("x\n", typed);
+    expect(written.text).toBe(`${expected}\n`);
+    expect(written.verified).toBe(true);
+    expect(open(written.text).doc.textContent).toBe(typed);
+  });
+
   it("escapes a closing bracket of a URL typed as link text", () => {
     const { doc, baseline } = open("x\n");
     const typed = "https://x.com/a]";
