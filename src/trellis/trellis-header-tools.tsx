@@ -66,7 +66,7 @@ export function FileHeaderTools({ controller }: { controller: TrellisController 
             {(Object.keys(labels) as Array<keyof typeof labels>).map((name) => (
               <span key={name} className={name === shown ? undefined : "trellis-build-label-off"}>{labels[name]}</span>
             ))}
-            <span className="trellis-build-label-off">000.0s</span>
+            <span className="trellis-build-label-off">{"000.0"}s</span>
           </span>
         </button>
       );
