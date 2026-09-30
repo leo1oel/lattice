@@ -33,7 +33,6 @@ export const GUARDED_FILES = [
   "src/App.tsx",
   "src/canvas/document-canvas.tsx",
   "src/editor/markdown/engine/lattice-visual-editor.tsx",
-  "src/canvas/editor-tabs.tsx",
   "src/pdf/pdf-viewer.tsx",
 ];
 

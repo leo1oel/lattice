@@ -42,7 +42,7 @@ Editing long Markdown:
 | Visual editor renders the whole document into the DOM; the upstream `content-visibility` chunking plugin was never vendored (CSS was) | `editor-globals.css` `.ok-chunk-wrapper`, upstream `chunk-wrapper-decoration.ts` (the vendored editor, removed in phase 3 of the visual editor rebuild) |
 | `HeadingAnchors` rebuilt a whole-document DecorationSet on every view update, including caret-only moves | `open-knowledge-app/editor/extensions/heading-anchors.ts` (the vendored editor, since removed) |
 | Every keystroke rebuilt `liveSourceMap` and re-ran four whole-project parses (macros, graphics roots, katex macros, appendix) even for `.md` buffers | `App.tsx` around `liveSourceMap` |
-| React Compiler silently bailed out of `App`, `DocumentCanvas`, `VisualMarkdownEditor`, `EditorTabs`, `ContinuousPdfPage` (try/finally, `x++` in lambdas, inline `import()`), so none of the hot tree was auto-memoized | `scripts/react-compiler-report.mjs` finds these |
+| React Compiler silently bailed out of `App`, `DocumentCanvas`, `VisualMarkdownEditor`, `EditorTabs`, `ContinuousPdfPage` (try/finally, `x++` in lambdas, inline `import()`), so none of the hot tree was auto-memoized (`VisualMarkdownEditor` and `EditorTabs` have since been removed) | `scripts/react-compiler-report.mjs` finds these |
 | Secondary CodeMirror reconfigured all extensions every keystroke in dual/split mode | `document-canvas.tsx` `secondaryEditorExtensions` |
 | Comment decorations serialized the whole doc before checking whether any comments exist | `editor-comments.ts` |
 | Harper linted the whole document on the main thread every 350 ms of typing | `latex-editor.ts`, `harper-spellcheck.ts` |
@@ -280,7 +280,7 @@ final branch, the last one with vitest running alongside.
 | The TODO rescan split the document into lines and lowercased every line on each keystroke. | Visible in the deferred render above | One case-insensitive search finds the candidate lines first (`project/todo-scavenger.ts`) |
 | The React Compiler skipped `PdfPreview`, because PDFSlick's property setters in its callbacks and two Lingui tagged templates blocked it. Uncompiled, `PdfPreview` re-rendered its toolbar and about 11 tooltips whenever the canvas did, including on every editor keystroke. | 231 of the 1,143 renders per LaTeX keystroke. 149 renders per PDF scroll notch. | Setters moved to module helpers (`pdf/pdf-slick.ts`), descriptor-form messages (`pdf/pdf-viewer.tsx`). The compiler guard pins the file at 0 bailouts. |
 | Every TipTap React node view forced a synchronous style and layout pass as its content attached: `captureDOMSelection` reads `selection.rangeCount`. | Trace of opening a document with 150 code blocks: 150 forced style recalculations and 150 forced layouts, all with the stack `captureDOMSelection < nodeViewContentRef`. 238 recalculations in total. | The `@tiptap/react` patch reads the selection only when the content sits in the focused element, where a caret can be. The same open then took 91 recalculations. |
-| Frozen table headers and table insert controls measured each table right after writing to the previous one. | Trace of switching to `large.md` (40 tables): 35 forced passes from `computeAndApplyFrozenHeaders` and 36 from floating-ui `autoUpdate` in `addOverlay` | Measure every table, then write (`frozen-table-headers.ts`). Mount every overlay, then start positioning (`table-insert-controls.ts`). |
+| Frozen table headers and table insert controls measured each table right after writing to the previous one. | Trace of switching to `large.md` (40 tables): 35 forced passes from `computeAndApplyFrozenHeaders` and 36 from floating-ui `autoUpdate` in `addOverlay` | Measure every table, then write (`frozen-table-headers.ts`, since removed). Mount every overlay, then start positioning (`table-insert-controls.ts`, since removed). |
 | The heading rail queried every heading once per rail item, which is quadratic, and it re-measures after every edit. | 1,455 ms of `querySelectorAll` self time opening the 150-section code document | One query per measure (`editor/markdown/document-heading-rail.tsx`) |
 | The titlebar's tab strip, the navigator's protected paths and the build pipeline object were fresh on every App render. | Titlebar subtree re-rendered about 80 components per keystroke | Memoized in `App.tsx` and `app/use-build-pipeline.ts` |
 | The PDF toolbar's page buttons re-rendered on every page change while scrolling, and the overlay scrollbars revealed themselves through React state on every scroll burst. | Commits and renders per PDF scroll notch; scroll-scenario counts that moved between runs | Page buttons keep stable props (`pdf/pdf-viewer.tsx`); the scrollbar reveal is a DOM attribute, not a React commit (`components/ui/overlay-scrollbar.tsx`, `scrollbar-track.ts`, `external-scrollbar.tsx`, `canvas/codemirror-scrollbar.tsx`) |
@@ -316,19 +316,6 @@ Still open: App itself is not compiled (17 bailouts, see below) and renders
 about 200 components per keystroke. A PDF page change re-renders App because
 the agent context reads the page number. Radix tooltips and popovers render
 twice as they mount, which a document full of node views multiplies.
-
-## Results log
-
-The long-session measurements above are recorded in their own section. For
-the keystroke and switch playbook, **nothing has been recorded yet.** The table below is an empty template,
-kept so there is an agreed shape to fill in — it is not a record of any
-measurement, and the fixes described in this document shipped without one. If
-you run the playbook, add a row; do not infer anything from the current
-contents.
-
-| Date | Change | Keystroke p95 (md source / split / tex dual) | Switch p50 | Notes |
-| --- | --- | --- | --- | --- |
-| _(template — no measurements recorded)_ | — | — | — | — |
 
 ## React Compiler status
 

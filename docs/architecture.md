@@ -527,10 +527,10 @@ The reasoning behind the density and typography choices is in
 pnpm check     # = mise run check
 ```
 
-`mise.toml`'s `check` task depends on eight stages that run in parallel, each
-skipped when its declared `sources` have not changed (`mise.toml:191`):
+`mise.toml`'s `check` task depends on nine stages that run in parallel, each
+skipped when its declared `sources` have not changed (`[tasks.check]`):
 `i18n-check`, `lint`, `test`, `build`, `literature-worker`, `cargo-fmt`,
-`cargo-test`, `clippy`. It needs [mise](https://mise.jdx.dev).
+`cargo-test`, `clippy`, `notices`. It needs [mise](https://mise.jdx.dev).
 
 CI (`.github/workflows/ci.yml`) covers the same ground across four jobs:
 `test`, `literature-worker` (`typecheck` + `test` in that sub-project),

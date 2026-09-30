@@ -23,7 +23,6 @@
     "lint": "eslint src tools --max-warnings 43",
     "knip": "knip",
     "test": "vitest run",
-    "preview": "vite preview",
     "tauri": "tauri",
     "verify:overleaf": "node scripts/verify-overleaf.mjs",
     "eval:agent": "node scripts/agent-quality-eval.mjs",
@@ -31,8 +30,7 @@
     "size:test": "node scripts/app-size-report-selftest.mjs",
     "perf:bench": "node scripts/perf-bench.mjs",
     "notices": "node scripts/generate-notices.mjs",
-    "notices:check": "node scripts/generate-notices.mjs --check --allow-unresolved",
-    "chromium": "electron scripts/chromium-shell.mjs"
+    "notices:check": "node scripts/generate-notices.mjs --check --allow-unresolved"
   },
   "dependencies": {
     "@base-ui/react": "^1.6.0",

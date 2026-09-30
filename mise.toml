@@ -167,9 +167,7 @@ sources = [
 # is absent the previously generated section is carried over untouched and only
 # the npm and crates closures are verified — the generator says so on stderr.
 #
-# NOTE: unlike every other stage, this one has no counterpart in
-# `.github/workflows/ci.yml` yet, so notices drift is currently caught locally
-# and not in CI.
+# CI runs the same check in its `lint-and-build` job.
 [tasks.notices]
 description = "Check THIRD_PARTY_NOTICES.md against the installed npm and crates trees"
 run = "pnpm notices:check"
