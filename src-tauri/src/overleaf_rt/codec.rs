@@ -185,8 +185,6 @@ pub(super) fn ws_origin(origin: &str) -> String {
     }
 }
 
-pub(crate) use crate::util::url_encode;
-
 // ---- Emitted payloads -----------------------------------------------------
 //
 // These are typed structs rather than `serde_json::json!` values on purpose:

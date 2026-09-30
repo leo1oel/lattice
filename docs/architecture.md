@@ -539,7 +539,7 @@ skipped when its declared `sources` have not changed (`[tasks.check]`):
 CI (`.github/workflows/ci.yml`) covers the same ground across five jobs:
 `test`, `literature-worker` (`typecheck` + `test` in that sub-project),
 `open-slide-runtime` (`test` in `tools/open-slide-runtime`),
-`lint-and-build` (`pnpm lint`, `pnpm build`, `pnpm i18n:check`,
+`lint-and-build` (`pnpm lint`, `pnpm knip`, `pnpm build`, `pnpm i18n:check`,
 `pnpm notices:check`) and `rust`
 (`cargo fmt --check`, `cargo test`, `cargo clippy -D warnings`). A sixth job,
 `perf-bench`, runs the interaction benchmark (`pnpm perf:bench --check`,

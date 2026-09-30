@@ -52,7 +52,6 @@ pub(crate) mod tests;
 mod tree;
 
 pub use client::{RealtimeClient, RealtimeConfig};
-pub(crate) use codec::url_encode;
 pub(crate) use events::parse_comment_ranges;
 pub use events::{EntityEntry, JoinedDoc, OtOp, PresenceUser, RealtimeEvent, TrackedChange};
 

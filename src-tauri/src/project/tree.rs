@@ -398,13 +398,13 @@ mod tests {
     fn inventory_classifies_content_without_extension_and_hides_project_config() {
         let fixture = Fixture::empty("inventory-content");
         let root = &fixture.root;
-        let text = ["README", "known.bin", ".env.example", ".okignore", "opencode.json", "bom.txt"];
+        let text = ["README", "known.bin", ".env.example", ".ignore", "opencode.json", "bom.txt"];
         let scripts = ["source.tsx", "source.ts", "source.jsx", "source.js"];
         for (path, contents) in [
             ("README", &b"plain utf-8\r\n"[..]),
             ("known.bin", b"still text\n"),
             (".env.example", b"SAFE=value\n"),
-            (".okignore", b"private\n"),
+            (".ignore", b"private\n"),
             ("opencode.json", b"{}\n"),
             ("bom.txt", b"\xef\xbb\xbfhello\r\n"),
             ("nul.txt", b"hello\0world"),
@@ -415,8 +415,8 @@ mod tests {
             ("source.jsx", b"export default 1;\n"),
             ("source.js", b"export default 1;\n"),
             ("binary.tsx", b"export\0binary"),
-            (".ok/config.yml", b"title: hidden\n"),
-            (".pi/extensions/open-knowledge.ts", b"hidden\n"),
+            (".vscode/settings.json", b"{}\n"),
+            (".pi/extensions/extension.ts", b"hidden\n"),
             (".research/cache/private", b"private"),
             ("node_modules/generated.js", b"generated"),
         ] {
@@ -435,7 +435,7 @@ mod tests {
         }
         assert!(!paths(&files).contains(&"node_modules"));
         let project_tree = scan_tree(root, TreeView::Project).unwrap();
-        for hidden in [".env.example", ".okignore", ".ok", ".pi", ".research", "opencode.json"] {
+        for hidden in [".env.example", ".ignore", ".vscode", ".pi", ".research", "opencode.json"] {
             assert!(!paths(&project_tree).contains(&hidden), "{hidden}");
         }
         assert_eq!(read_file(root, "bom.txt").unwrap().as_bytes(), b"\xef\xbb\xbfhello\r\n");

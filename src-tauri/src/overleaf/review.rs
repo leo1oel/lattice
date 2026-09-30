@@ -7,7 +7,8 @@
 //! lives here, behind the same session cookie as everything else.
 
 use super::api::{err, expect_success, full_name, json_str, Remote};
-use crate::overleaf_rt::{parse_comment_ranges, url_encode};
+use crate::overleaf_rt::parse_comment_ranges;
+use crate::util::url_encode;
 use reqwest::{Method, StatusCode};
 use serde::Serialize;
 use serde_json::{json, Value};

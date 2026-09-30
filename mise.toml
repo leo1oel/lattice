@@ -35,13 +35,17 @@ sources = [
   "eslint.config.js",
 ]
 
+# knip rides along: it reads the same trees plus scripts/, and keeps unused
+# files, dependencies and duplicate exports from creeping back in.
 [tasks.lint]
-description = "ESLint over src and tools (the warning cap is a debt ratchet — lower it, never raise it)"
-run = "pnpm lint"
+description = "ESLint over src and tools (the warning cap is a debt ratchet — lower it, never raise it), then knip"
+run = ["pnpm lint", "pnpm knip"]
 sources = [
   "src/**",
   "!src/locales/**/*.js",
   "tools/**",
+  "scripts/**",
+  "knip.json",
   "eslint.config.js",
   "tsconfig.json",
   "package.json",
