@@ -27,7 +27,7 @@
 
 - [ ] I ran `pnpm check` and it passes.
       <!-- The full gate: i18n, lint, Vitest, the production web build, the
-           literature Worker, rustfmt, cargo test, Clippy with warnings denied,
+           literature Worker, the Open Slide server tests, rustfmt, cargo test, Clippy with warnings denied,
            and the third-party notices check. It needs mise. If a stage
            cannot run on your machine, say which one and why. -->
 - [ ] I did **not** bump the version.

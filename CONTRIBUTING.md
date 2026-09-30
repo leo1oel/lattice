@@ -157,7 +157,7 @@ pnpm check
 ```
 
 `pnpm check` is `mise run check` and needs [mise](https://mise.jdx.dev). It runs
-nine stages in parallel, skipping any whose declared `sources` have not
+ten stages in parallel, skipping any whose declared `sources` have not
 changed since the last successful run:
 
 | Stage | What it runs |
@@ -167,12 +167,13 @@ changed since the last successful run:
 | `test` | the Vitest suite |
 | `build` | typecheck plus the production web bundle and its size budget |
 | `literature-worker` | `typecheck` and `test` inside `literature-worker/` |
+| `open-slide-runtime` | the Open Slide presentation server's tests inside `tools/open-slide-runtime/` |
 | `cargo-fmt` | `cargo fmt --check` |
 | `cargo-test` | the Rust tests |
 | `clippy` | Clippy with warnings denied |
 | `notices` | `THIRD_PARTY_NOTICES.md` against the installed npm and crates trees |
 
-That covers `literature-worker/` too, so there is nothing extra to run for a
+That covers `literature-worker/` and `tools/open-slide-runtime/` too, so there is nothing extra to run for a
 change in there. [`mise.toml`](mise.toml) is the definition; keep it and this
 table in step.
 

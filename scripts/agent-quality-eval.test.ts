@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { evaluateTrace, parseTrace } from "./agent-quality-eval.mjs";
+import { evaluateFixtures, evaluateTrace, fixturePaths, parseTrace } from "./agent-quality-eval.mjs";
 
 const base = (records: object[]) => ({ schemaVersion: 1, records });
 const ids = { threadId: "t", turnId: "u" };
@@ -117,5 +117,12 @@ describe("agent quality eval", () => {
       { type: "stop", ...ids, status: "requested" },
       { type: "tool", ...ids, tool: { name: "read_paper", status: "success" } },
     ])).toEqual(["stop-terminal"]);
+  });
+  // The committed transcripts in evals/agent-research/ are the eval's own
+  // regression corpus: each must still come out the way it declares.
+  it("grades every committed eval fixture as its expected outcome", async () => {
+    const results = await evaluateFixtures(await fixturePaths());
+    expect(new Set(results.map((result) => result.expected))).toEqual(new Set(["pass", "fail"]));
+    for (const result of results) expect({ path: result.path, actual: result.actual }).toEqual({ path: result.path, actual: result.expected });
   });
 });
