@@ -2102,7 +2102,8 @@ describe("project workspace", () => {
     expect(within(panelControls).getByRole("button", { name: "Panels" })).toBeInTheDocument();
     expect(within(panelControls).getByRole("button", { name: "Hide Project" })).toHaveAttribute("aria-pressed", "true");
     // The Panels menu keeps maximize and reset; neither the whole-workspace
-    // overview nor the Trellis credit (kept in the About panel and notices) is there.
+    // overview nor the Trellis credit is there. The credit is kept in the native
+    // macOS About panel (src-tauri/src/native_locale.rs) and in NOTICE / THIRD_PARTY_NOTICES.
     fireEvent.pointerDown(within(panelControls).getByRole("button", { name: "Panels" }), { button: 0 });
     expect(await screen.findByRole("menuitem", { name: /Maximize focused panel/ })).toBeInTheDocument();
     expect(screen.getByRole("menuitem", { name: "Reset layout" })).toBeInTheDocument();
