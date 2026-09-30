@@ -136,7 +136,7 @@ function safeText(value: string, state: State, info: Info): string {
 function latticeHandlers(mode: SerializeMode, stock: Record<string, Handle>): Record<string, Handle> {
   const literal = mode === "literal";
   const handlers: Record<string, Handle> = {
-    text(node, parent, state, info) {
+    text(node, _parent, state, info) {
       const pieces = styleOf(node)?.pieces;
       if (!literal) return safeText((node as Text).value, state, info);
       return pieces ? pieces.map((piece) => piece.source ?? piece.value).join("") : (node as Text).value;
