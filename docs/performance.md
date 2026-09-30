@@ -398,9 +398,8 @@ library — see Future directions).
 
 - Editable-doc `content-visibility` experiment behind a dev flag, with
   selection/scroll behavior measured on WKWebView before any default flip.
-- `App.tsx` state extraction — in progress rather than unscheduled. The file is
-  ~9.8k lines with roughly 151 `useState`, and `src/app/use-overleaf-workspace.ts`
-  has already lifted the Overleaf state out of it. Still open: `DocumentCanvas` memoization
+- `App.tsx` state extraction — in progress rather than unscheduled; its current
+  size and extraction status live in `docs/codebase-map.md` §6. Still open: `DocumentCanvas` memoization
   — 126 props and 26 inline lambdas at the call site in `App.tsx`, up from 109
   props when this was first measured.
 - Split-mode publication: replace whole-document `setContent` with
