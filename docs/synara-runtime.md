@@ -266,7 +266,8 @@ Run `pnpm eval:agent` to replay the checked-in schema-version-1 research fixture
 more JSON/NDJSON trace paths after `--`. The harness correlates records by task and turn and exits
 successfully only when every fixture's declared expected pass/fail outcome matches. It is entirely
 offline: it does not contact a provider or the literature network. Vitest exercises individual
-rules and malformed input in `scripts/agent-quality-eval.test.ts`.
+rules and malformed input in `scripts/agent-quality-eval.test.ts`, and grades every checked-in
+fixture there too, so `pnpm check` and CI fail when a fixture stops matching its outcome.
 
 Quality traces are content-minimized by default: record event types, status, hashes, paths, counts,
 and correlation identifiers rather than prompts, model output, paper text, or tool payload content.

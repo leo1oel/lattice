@@ -185,21 +185,46 @@ export function parseTrace(text, source = "trace") {
   }
 }
 
-async function main(args) {
-  const paths = args.length ? args.map(resolve) : (await readdir(resolve("evals/agent-research")))
+/** The committed fixtures in evals/agent-research/ under `root` (the repository root). */
+export async function fixturePaths(root = process.cwd()) {
+  const directory = resolve(root, "evals/agent-research");
+  return (await readdir(directory))
     .filter((name) => name.endsWith(".json") || name.endsWith(".ndjson"))
-    .map((name) => resolve("evals/agent-research", name));
-  let mismatches = 0;
+    .sort()
+    .map((name) => resolve(directory, name));
+}
+
+/**
+ * Evaluate each fixture against its declared `expected` outcome ("pass" when
+ * absent). A fixture that cannot be read or parsed counts as a mismatch.
+ */
+export async function evaluateFixtures(paths) {
+  const results = [];
   for (const path of paths) {
     try {
       const fixture = parseTrace(await readFile(path, "utf8"), path);
       const result = evaluateTrace(fixture);
       const expected = fixture.expected ?? "pass";
-      const matched = result.pass === (expected === "pass");
-      if (!matched) mismatches += 1;
-      console.log(`${matched ? "PASS" : "FAIL"} ${path} expected=${expected} actual=${result.pass ? "pass" : "fail"}`);
-      if (!matched) for (const violation of result.violations) console.log(`  ${violation.rule}: ${violation.message}`);
-    } catch (error) { mismatches += 1; console.error(`FAIL ${path}: ${error.message}`); }
+      results.push({ path, expected, actual: result.pass ? "pass" : "fail", violations: result.violations });
+    } catch (error) {
+      results.push({ path, expected: "pass", actual: "error", violations: [], error: error.message });
+    }
+  }
+  return results;
+}
+
+async function main(args) {
+  const results = await evaluateFixtures(args.length ? args.map((arg) => resolve(arg)) : await fixturePaths());
+  let mismatches = 0;
+  for (const { path, expected, actual, violations, error } of results) {
+    const matched = actual === expected;
+    if (!matched) mismatches += 1;
+    if (error) {
+      console.error(`FAIL ${path}: ${error}`);
+      continue;
+    }
+    console.log(`${matched ? "PASS" : "FAIL"} ${path} expected=${expected} actual=${actual}`);
+    if (!matched) for (const violation of violations) console.log(`  ${violation.rule}: ${violation.message}`);
   }
   process.exitCode = mismatches ? 1 : 0;
 }

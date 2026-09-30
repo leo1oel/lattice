@@ -57,6 +57,8 @@ sources = [
   # Vitest also discovers script-level tests, whose imported implementation
   # modules must invalidate this stage just like src/ does.
   "scripts/**",
+  # scripts/agent-quality-eval.test.ts grades the committed agent transcripts.
+  "evals/**",
   # Compatibility tests execute the shipping script and check its HTML order.
   "public/polyfills.js",
   "index.html",
@@ -190,6 +192,23 @@ sources = [
 description = "Interaction benchmark: fail when a gated count exceeds its ceiling in scripts/perf-bench/budgets.json"
 run = "pnpm perf:bench --check"
 
+# The Open Slide presentation server is another nested pnpm project, staged
+# into the app by scripts/prepare-presentation-runtime.mjs. Its tests run on
+# node:test against server.mjs; the install is frozen and fast, so it runs
+# here rather than being a separate setup step to forget.
+[tasks.open-slide-runtime]
+description = "Test the Open Slide presentation server (its own pnpm project)"
+run = [
+  "pnpm --dir tools/open-slide-runtime install --frozen-lockfile",
+  "pnpm --dir tools/open-slide-runtime test",
+]
+sources = [
+  "tools/open-slide-runtime/*.mjs",
+  "tools/open-slide-runtime/package.json",
+  "tools/open-slide-runtime/pnpm-lock.yaml",
+  "src-tauri/src/presentation.rs",
+]
+
 [tasks.check]
 description = "THE gate: everything CI runs, in parallel, skipping unchanged stages"
 depends = [
@@ -198,6 +217,7 @@ depends = [
   "test",
   "build",
   "literature-worker",
+  "open-slide-runtime",
   "cargo-fmt",
   "cargo-test",
   "clippy",

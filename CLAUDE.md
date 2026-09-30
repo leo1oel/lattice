@@ -30,8 +30,8 @@ its pinned `revision` and point `SYNARA_SOURCE_DIR` at it (the default,
 with the pinned branch — derive it, don't hardcode it). See CONTRIBUTING.md and
 `scripts/setup-dev.sh`.
 
-`pnpm check` is `mise run check`: nine stages (`i18n-check`, `lint`, `test`,
-`build`, `literature-worker`, `cargo-fmt`, `cargo-test`, `clippy`, `notices`) in parallel,
+`pnpm check` is `mise run check`: ten stages (`i18n-check`, `lint`, `test`,
+`build`, `literature-worker`, `open-slide-runtime`, `cargo-fmt`, `cargo-test`, `clippy`, `notices`) in parallel,
 skipping any whose declared `sources` have not changed. Needs
 [mise](https://mise.jdx.dev). It runs the *same commands* as
 `.github/workflows/ci.yml` (except CI's interaction benchmark,

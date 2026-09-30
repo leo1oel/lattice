@@ -52,6 +52,24 @@ jobs:
       - run: pnpm --dir literature-worker typecheck
       - run: pnpm --dir literature-worker test
 
+  # The Open Slide presentation server (tools/open-slide-runtime) is its own
+  # pnpm project, staged into the app by prepare-presentation-runtime.mjs.
+  # Locally this is the `open-slide-runtime` mise stage.
+  open-slide-runtime:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 10
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: tools/open-slide-runtime/pnpm-lock.yaml
+      - run: pnpm --dir tools/open-slide-runtime install --frozen-lockfile
+      - run: pnpm --dir tools/open-slide-runtime test
+
   lint-and-build:
     runs-on: ubuntu-latest
     steps:
