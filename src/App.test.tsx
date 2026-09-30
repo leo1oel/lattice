@@ -1133,6 +1133,31 @@ describe("welcome screen", () => {
     if (setting === "interfaceSounds") expect(interfaceSounds.configure).toHaveBeenLastCalledWith(false);
   });
 
+  it("shows the Git name that signs comments and keeps Your name as the fallback", async () => {
+    renderApp({ ...projectCommands(projectSnapshot({ files: [] })), git_user_name: "Ada Lovelace" });
+    await expectInvoked("git_user_name");
+    await chooseProjectMenuItem("Settings");
+    fireEvent.click(await screen.findByRole("button", { name: "Editor & builds" }));
+    expect(await screen.findByText(/Your comments are signed as Ada Lovelace/)).toBeInTheDocument();
+    const field = screen.getByLabelText("Your name");
+    expect(field).toHaveAttribute("placeholder", "Ada Lovelace");
+    fireEvent.change(field, { target: { value: "Grace Hopper" } });
+    expect(localStorage.getItem("lattice.author-name.v1")).toBe("Grace Hopper");
+  });
+
+  it("keeps automatic commits signed as Lattice whatever name signs comments", async () => {
+    localStorage.setItem("lattice.author-name.v1", "Grace Hopper");
+    renderOverleafPaper({
+      git_user_name: "Ada Lovelace",
+      overleaf_sync: () => overleafSyncResult({ pushed: ["main.tex"] }),
+    }, { syncMode: "live" });
+    await expectInvoked("git_user_name");
+    await expectInvoked("overleaf_rt_connect", { projectRoot: "/tmp/lattice-overleaf-paper" });
+    fireEvent.click(await findOverleafSyncButton());
+    await expectInvoked("git_auto_commit", expect.objectContaining({ author: null }));
+    expect(invokeCalls("git_auto_commit").every(([, args]) => (args as { author: unknown }).author === null)).toBe(true);
+  });
+
   it("opens every Settings dropdown with the Settings popover contract", async () => {
     renderApp({ initial_project: null });
     for (const section of ["Appearance", "Editor & builds"]) {

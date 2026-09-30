@@ -260,7 +260,7 @@ Practical consequence: to find what a button does, grep the command name in
 | `bibliography` | 13 | `list_citation_keys`, `save_bib_entry`, `bibliography_audit_scan`, `agent_bibliography_mutation` |
 | `workspace` | 10 | `create_project`, `open_project`, `import_project_zip`, `update_project_manifest` |
 | `papers` | 10 | `search_literature`, `fetch_paper`, `import_reference`, `read_paper` |
-| `git` | 7 | `git_status`, `git_log`, `git_show_diff`, `git_restore_project`, `git_auto_commit` |
+| `git` | 8 | `git_status`, `git_user_name`, `git_log`, `git_show_diff`, `git_restore_project`, `git_auto_commit` |
 | `history` | 5 | `list_history`, `get_history_entry`, `revert_transaction` |
 | service modules | 14 | `synara_ensure_ready`, `presentation_ensure_ready`, `set_literature_credential`, `link_preview`, `collect_diagnostic_logs` |
 

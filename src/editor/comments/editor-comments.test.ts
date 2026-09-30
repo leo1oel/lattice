@@ -4,6 +4,9 @@ import { afterEach, describe, expect, it } from "vitest";
 import {
   createEditorComment,
   createEditorCommentReply,
+  loadAuthorNameSetting,
+  persistAuthorNameSetting,
+  resolveAuthorName,
   mergeEditorComments,
   resolveCommentAnchor,
   serializeEditorComments,
@@ -41,6 +44,27 @@ function mountView(getComments: () => EditorComment[], doc = SOURCE) {
   views.push(view);
   return view;
 }
+
+describe("comment author name", () => {
+  afterEach(() => localStorage.clear());
+
+  it("signs with the Git name, then the Overleaf name, then the Your name setting", () => {
+    expect(resolveAuthorName({ git: " Ada ", overleaf: "Robin", setting: "Sam" })).toBe("Ada");
+    expect(resolveAuthorName({ git: "  ", overleaf: "Robin", setting: "Sam" })).toBe("Robin");
+    expect(resolveAuthorName({ git: null, overleaf: null, setting: " Sam " })).toBe("Sam");
+    expect(resolveAuthorName({})).toBe("");
+  });
+
+  it("keeps a name set in the retired Shares dialog until the setting is saved", () => {
+    expect(loadAuthorNameSetting()).toBe("");
+    localStorage.setItem("lattice.collab.name", "Grace");
+    expect(loadAuthorNameSetting()).toBe("Grace");
+    persistAuthorNameSetting("  Ada Lovelace ");
+    expect(loadAuthorNameSetting()).toBe("Ada Lovelace");
+    persistAuthorNameSetting("");
+    expect(loadAuthorNameSetting()).toBe("");
+  });
+});
 
 describe("editor comment data", () => {
   it("creates a comment with quote and context", () => {

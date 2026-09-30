@@ -14,6 +14,16 @@ pub async fn git_status(state: State<'_, AppState>, window: Window) -> Result<Gi
     run_quietly("Git status", move || git::status(&root)).await
 }
 
+/// The name Git signs commits with for the current project, if one is set.
+/// Comments use it as the writer's name.
+#[tauri::command]
+pub async fn git_user_name(
+    state: State<'_, AppState>, window: Window,
+) -> Result<Option<String>, String> {
+    let root = current_root(&state, &window)?;
+    run_quietly("Git user name", move || Ok(git::user_name(&root))).await
+}
+
 #[tauri::command]
 pub async fn git_init(state: State<'_, AppState>, window: Window) -> Result<GitStatus, String> {
     in_project(&state, &window, "Git initialization", git::init).await

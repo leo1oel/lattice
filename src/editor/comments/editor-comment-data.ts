@@ -95,16 +95,35 @@ export function loadEditorCommentAuthorId(): string {
   }
 }
 
+const [AUTHOR_NAME_KEY, SHARES_AUTHOR_NAME_KEY] = ["lattice.author-name.v1", "lattice.collab.name"];
+
 /**
- * The name comments and version snapshots are signed with. Only the retired
- * Lattice Shares dialog ever wrote it, so a name set there keeps signing.
+ * The "Your name" setting. A name typed into the retired Lattice Shares
+ * dialog is read until the setting is first saved, so it keeps signing.
  */
-export function loadAuthorDisplayName(): string {
+export function loadAuthorNameSetting(): string {
   try {
-    return localStorage.getItem("lattice.collab.name") ?? "";
+    return localStorage.getItem(AUTHOR_NAME_KEY) ?? localStorage.getItem(SHARES_AUTHOR_NAME_KEY) ?? "";
   } catch {
     return "";
   }
+}
+
+export function persistAuthorNameSetting(name: string): void {
+  try {
+    localStorage.setItem(AUTHOR_NAME_KEY, name.trim());
+  } catch {
+    // Storage can be unavailable; the name then lasts for this session.
+  }
+}
+
+/**
+ * The name comments are signed with: the writer's Git
+ * `user.name`, else their Overleaf account name, else the "Your name"
+ * setting. Empty when none is known (the comment code shows "Anonymous").
+ */
+export function resolveAuthorName(sources: { git?: string | null; overleaf?: string | null; setting?: string | null }): string {
+  return [sources.git, sources.overleaf, sources.setting].map((name) => name?.trim() ?? "").find(Boolean) ?? "";
 }
 
 export function editorCommentAuthorDisplayName(authorName: string, anonymousLabel: string): string {
