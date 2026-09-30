@@ -214,7 +214,7 @@ which tools reach the model, and under what names.
 
 ## 2. The Rust backend
 
-`src-tauri/src/` is 117 Rust files and ~40k lines (tests included). `main.rs` is
+`src-tauri/src/` is 121 Rust files and ~40k lines (tests included). `main.rs` is
 a 6-line shim; all the work starts in `lib.rs::run()`. Large areas follow the
 2018 module layout: a short `x.rs` that maps the area (module docs, the `mod`
 list, the few re-exports other code uses) beside an `x/` directory holding the
