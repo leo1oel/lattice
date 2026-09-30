@@ -115,7 +115,6 @@ afterEach(() => {
   vi.restoreAllMocks();
   vi.stubGlobal("WebSocket", NativeWebSocket);
   localStorage.removeItem("lattice.appearance.v5");
-  sessionStorage.removeItem("lattice.desktop-browser-standby");
   runtimeError()?.remove();
 });
 
