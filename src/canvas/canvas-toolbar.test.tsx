@@ -5,9 +5,8 @@ import { CanvasToolbar } from "./canvas-toolbar";
 afterEach(cleanup);
 
 const baseProps = {
-  mode: "source" as const, activePath: "main.tex", activeKind: "document" as const, supportsDocumentViewModes: true, canInsert: true,
-  markdown: false, html: false, dirty: false, commentCount: 0,
-  setMode: vi.fn(), onInsert: vi.fn(), onHistory: vi.fn(), onGit: vi.fn(), onComments: vi.fn(),
+  activePath: "main.tex", activeKind: "document" as const, dirty: false, commentCount: 0,
+  onHistory: vi.fn(), onGit: vi.fn(), onComments: vi.fn(),
 };
 const openOverleafActions = () => fireEvent.pointerDown(
   screen.getByRole("button", { name: "Overleaf project actions" }),
@@ -63,40 +62,24 @@ describe("CanvasToolbar Overleaf status", () => {
   });
 });
 
-describe("CanvasToolbar document views", () => {
-  it("renders the insert action only for editors with snippets, and no file navigation", () => {
-    const { rerender } = render(<CanvasToolbar {...baseProps} />);
-    expect(screen.getByRole("button", { name: "Insert snippet or symbol (⌘⇧I)" })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Go back (⌘[)" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Go forward (⌘])" })).not.toBeInTheDocument();
-
-    rerender(<CanvasToolbar {...baseProps} activePath="sketch.tldr" canInsert={false} />);
-    expect(screen.queryByRole("button", { name: "Insert snippet or symbol (⌘⇧I)" })).not.toBeInTheDocument();
-  });
-
-  it("presents two editable panes as Edit rather than source-and-preview Split, with an explicit close", () => {
-    const onCloseSplit = vi.fn();
-    render(<CanvasToolbar {...baseProps} mode="dual" onCloseSplit={onCloseSplit} />);
-    expect(screen.getByRole("tab", { name: "Edit" })).toHaveAttribute("aria-selected", "true");
-    expect(screen.getByRole("tab", { name: "Split" })).toHaveAttribute("aria-selected", "false");
-    fireEvent.click(screen.getByRole("button", { name: "Close split" }));
-    expect(onCloseSplit).toHaveBeenCalledOnce();
-  });
-
-  it("replaces unsupported file view modes with one split action", () => {
-    const onSplit = vi.fn();
-    const { rerender } = render(<CanvasToolbar {...baseProps} />);
-    expect(screen.getByRole("tablist", { name: "Document view" })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Split editor right" })).not.toBeInTheDocument();
-
-    rerender(<CanvasToolbar {...baseProps} activePath="references.bib" supportsDocumentViewModes={false} onSplit={onSplit} />);
+describe("CanvasToolbar project tools", () => {
+  it("leaves document views, splits and insert palettes to the document panels", () => {
+    render(<CanvasToolbar {...baseProps} />);
     expect(screen.queryByRole("tablist", { name: "Document view" })).not.toBeInTheDocument();
-    const split = screen.getByRole("button", { name: "Split editor right" });
-    expect(split).toBe(split.closest(".canvas-actions")?.firstElementChild);
-    expect(split.textContent).toBe("");
-    expect(split.querySelector(".lucide-columns-2")).not.toBeNull();
-    fireEvent.click(split);
-    expect(onSplit).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("button", { name: "Split editor right" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Insert snippet/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Go back (⌘[)" })).not.toBeInTheDocument();
   });
 
+  it("hides the tools the writer turned off in Settings", () => {
+    const { rerender } = render(<CanvasToolbar {...baseProps} onPaperLookup={vi.fn()} />);
+    for (const name of ["Editor comments", "Paper lookup", "Git status and commit", "Project history"]) {
+      expect(screen.getByRole("button", { name })).toBeInTheDocument();
+    }
+    rerender(<CanvasToolbar {...baseProps} onPaperLookup={vi.fn()} hiddenTools={["comments", "history"]} />);
+    expect(screen.queryByRole("button", { name: "Editor comments" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Project history" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Git status and commit" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Paper lookup" })).toBeInTheDocument();
+  });
 });

@@ -34,7 +34,7 @@ describe("shared surface contracts", () => {
   it("is owned by App.css instead of being restated per feature", () => {
     expectRules(appCss, ['@import "./styles/surfaces.css"', ".history-drawer"])
     expectRules(surfacesCss, [
-      ".modal:not(.overleaf-picker-drawer-content),",
+      ".modal,",
       ".resizable-drawer,",
       "padding: var(--drawer-content-inset)",
       "@keyframes drawer-in",
@@ -64,18 +64,13 @@ describe("shared surface contracts", () => {
       /\.pdf-preview \{[^}]*position:\s*relative;[^}]*isolation:\s*isolate;/,
       /\.drawer-backdrop \{[^}]*z-index:\s*var\(--z-drawer-backdrop\);/,
     ]],
-    ["lets a Paper reader fill its split pane", [
-      /\.paper-pane > \.paper-reader-shell \{[^}]*flex:\s*1 1 0;[^}]*min-height:\s*0;/,
+    ["lets a Paper reader fill its document panel", [
+      /\.canvas-body > \.paper-reader-shell \{[^}]*flex:\s*1 1 0;[^}]*height:\s*0;/,
     ]],
     ["keeps drawer controls clear of surrounding dividers", [
       /\.history-filters \{[^}]*margin:\s*var\(--space-6\) 0/,
-      /\.insert-palette-scroll-content \{[^}]*padding-top:\s*var\(--drawer-content-inset\)/,
       /\.editor-comments-content \.pdf-marks-toolbar \{[^}]*margin-top:\s*var\(--drawer-content-inset\)/,
       /\.literature-search \{[^}]*margin:\s*var\(--drawer-content-inset\) 0 var\(--drawer-section-gap\)/,
-    ]],
-    ["lets the insert palette wrap to one column instead of clipping the second", [
-      /\.insert-palette-grid \{[^}]*minmax\(min\(188px, 100%\), 1fr\)/,
-      /\.insert-palette-groups > section \{[^}]*contain-intrinsic-inline-size:\s*0px;[^}]*min-width:\s*0/,
     ]],
     ["keeps bibliography form sections from touching", [
       /\.table-generator, \.project-replace, \.bib-entry-dialog \{[^}]*gap:\s*var\(--space-6\)/,

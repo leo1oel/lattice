@@ -1,0 +1,658 @@
+diff --git a/dist/index.js b/dist/index.js
+index 101e9570f85e3c58ed50ba757cab4487578bbeff..cef5326088a56f8e3e993e163be8e5b8260ada9f 100644
+--- a/dist/index.js
++++ b/dist/index.js
+@@ -1389,7 +1389,7 @@ function createDragController(host) {
+           previous.set(DROP_SLOT, screen);
+         }
+       }
+-      d.dropLabel = "Add as tab";
++      d.dropLabel = tl("addAsTab");
+     } else if (next?.kind === "stage") {
+       const world = d.dropBase.get(next.stage).rect;
+       d.layoutTargets.set(DROP_SLOT, world);
+@@ -1512,7 +1512,7 @@ function createDragController(host) {
+     host.setDoc(d.origin);
+     host.commit(next, from, repositioning || target.kind === "tab" ? null : lifted.id);
+     host.moved(lifted, d.fromFloat && !d.tabRollback ? "floating" : "docked", target.kind);
+-    host.announce("Moved");
++    host.announce(tl("moved"));
+   }
+   function floatRect(d, next, layer) {
+     const viewport = host.viewport();
+@@ -1633,6 +1633,62 @@ function place(el, r, round) {
+   setStyle(el, "height", `${Math.max(0, h2)}px`);
+ }
+ 
++// Lattice patch: every user-facing string goes through tl(), so a host app can
++// translate Trellis by assigning globalThis.__TRELLIS_LABELS__ (key -> (vars) => string).
++var TRELLIS_EN = {
++  addAsTab: () => "Add as tab",
++  moved: () => "Moved",
++  releaseToFocus: () => "Release to focus",
++  releaseToFocusTarget: (v) => `Release to focus ${v.title} \xB7 Esc to cancel`,
++  unavailable: () => "Unavailable",
++  workspace: () => "Workspace",
++  panelMenu: () => "Panel menu",
++  resizePanels: () => "Resize panels",
++  closeTab: (v) => `Close ${v.title}`,
++  groupPanels: (v) => `${v.count} panels. Double-click to zoom in.`,
++  doubleClickToZoomIn: () => "Double-click to zoom in",
++  restoreSize: () => "Restore size",
++  maximize: () => "Maximize",
++  dockBesideStage: () => "Dock beside stage",
++  dock: () => "Dock",
++  float: () => "Float",
++  newSplitRight: () => "New split right",
++  newSplitBelow: () => "New split below",
++  moveTo: (v) => `Move ${v.title} to`,
++  hide: () => "Hide",
++  closeView: (v) => `Close ${v.title}`,
++  closeOtherTabs: () => "Close other tabs",
++  theStage: () => "the stage",
++  thisGroup: () => "this group"
++};
++function tl(key, vars = {}) {
++  const own = globalThis.__TRELLIS_LABELS__?.[key];
++  try {
++    return (own ?? TRELLIS_EN[key])(vars);
++  } catch {
++    return TRELLIS_EN[key](vars);
++  }
++}
++
++// Lattice patch: like place(), but with left/top. A transform would make every
++// view surface the containing block of position:fixed descendants.
++function placeAt(el, r, round) {
++  let { x, y, w, h: h2 } = r;
++  if (round) {
++    const x2 = Math.round(x + w);
++    const y2 = Math.round(y + h2);
++    x = Math.round(x);
++    y = Math.round(y);
++    w = x2 - x;
++    h2 = y2 - y;
++  }
++  setStyle(el, "transform", "");
++  setStyle(el, "left", `${x}px`);
++  setStyle(el, "top", `${y}px`);
++  setStyle(el, "width", `${Math.max(0, w)}px`);
++  setStyle(el, "height", `${Math.max(0, h2)}px`);
++}
++
+ // src/runtime/motion.ts
+ var MOTION = {
+   spring: { stiffness: 210, damping: 29, maxStep: 0.032, epsilon: 1e-4 },
+@@ -1948,8 +2004,10 @@ function createNavigator(host) {
+     "wheel",
+     (e) => {
+       if (!free()) return;
+-      if (handleHierarchyWheel(e)) return;
+       const target = e.target;
++      // Lattice patch: see pointerdown above.
++      if (target?.closest?.("[data-trellis-part=surface]") && (e.shiftKey || target.closest("[data-trellis-owns-gestures]"))) return;
++      if (handleHierarchyWheel(e)) return;
+       if (!e.ctrlKey && !e.altKey && host.contentOwnsWheel(target, e)) return;
+       if (target.closest?.("[data-trellis-part=tabs]") && !e.ctrlKey) {
+         const list = target.closest("[data-trellis-part=tabs]");
+@@ -1993,7 +2051,7 @@ function createNavigator(host) {
+   const snapEl = h(
+     "div",
+     { "data-trellis-part": "snap-preview", "aria-hidden": "true" },
+-    h("span", {}, "Release to focus")
++    h("span", {}, tl("releaseToFocus"))
+   );
+   host.root.append(snapEl);
+   host.lifetime.add(() => snapEl.remove());
+@@ -2023,7 +2081,7 @@ function createNavigator(host) {
+     if (m.candidate) {
+       const entry = entries.get(m.candidate);
+       place2(candidateEl, host.panelScreen(entry.rect));
+-      candidateEl.querySelector("span").textContent = `Release to focus ${host.titleOf(entry.node)} \xB7 Esc to cancel`;
++      candidateEl.querySelector("span").textContent = tl("releaseToFocusTarget", { title: host.titleOf(entry.node) });
+     }
+   }
+   function finishMarquee(commit) {
+@@ -2056,6 +2114,9 @@ function createNavigator(host) {
+     "pointerdown",
+     (e) => {
+       if (!free() || host.busy() || e.button !== 0 || e.pointerType === "touch") return;
++      // Lattice patch: a press inside view content belongs to the content
++      // (Shift-click extends a selection, Alt-click places cursors).
++      if (e.target?.closest?.("[data-trellis-part=surface]")) return;
+       if (e.shiftKey && !dragZoom) {
+         e.preventDefault();
+         e.stopPropagation();
+@@ -2117,7 +2178,7 @@ function createNavigator(host) {
+       host.root,
+       type,
+       (e) => {
+-        if (free() && e.altKey || performance.now() < suppressClickUntil) {
++        if (free() && e.altKey && !e.target?.closest?.("[data-trellis-part=surface]") || performance.now() < suppressClickUntil) {
+           e.preventDefault();
+           e.stopPropagation();
+         }
+@@ -2739,7 +2800,7 @@ var TYPE_PLACEHOLDER = (type) => ({
+       h(
+         "div",
+         { class: "trellis-placeholder" },
+-        h("strong", {}, "Unavailable"),
++        h("strong", {}, tl("unavailable")),
+         h("span", {}, `No view type named \u201C${type}\u201D is registered.`)
+       )
+     );
+@@ -2762,7 +2823,7 @@ function createWorkspace(host, initialOptions) {
+     class: "trellis",
+     "data-trellis-root": "",
+     role: "region",
+-    "aria-label": options.label ?? "Workspace",
++    "aria-label": options.label ?? tl("workspace"),
+     tabindex: "-1"
+   });
+   const backdrop = h("div", { "data-trellis-part": "backdrop" });
+@@ -2853,7 +2914,7 @@ function createWorkspace(host, initialOptions) {
+     setAttr(root, "data-tab-bleed", tabs.inset === 0 ? "" : null);
+     if (tabs.inset !== void 0) root.style.setProperty("--trellis-tab-inset", `${tabs.inset}px`);
+     else if (!options.tokens?.["--trellis-tab-inset"]) root.style.removeProperty("--trellis-tab-inset");
+-    setAttr(root, "aria-label", options.label ?? "Workspace");
++    setAttr(root, "aria-label", options.label ?? tl("workspace"));
+     const tokens = options.tokens ?? {};
+     for (const key of appliedTokens) if (!(key in tokens)) root.style.removeProperty(key);
+     for (const [key, value] of Object.entries(tokens))
+@@ -3089,7 +3150,7 @@ function createWorkspace(host, initialOptions) {
+     const menuButton = h("button", {
+       "data-trellis-part": "panel-menu",
+       type: "button",
+-      "aria-label": "Panel menu",
++      "aria-label": tl("panelMenu"),
+       "aria-haspopup": "menu",
+       tabindex: "-1"
+     });
+@@ -3118,6 +3179,20 @@ function createWorkspace(host, initialOptions) {
+       endInset: 0
+     };
+     panelDoms.set(panelId, dom);
++    // Lattice patch: the header's fixed part (action row, menu, paddings) is
++    // measured from the live DOM whenever the action row or menu changes size
++    // (a locale, a label hidden by a container query, a view joining with
++    // wider actions), never guessed. Lattice CSS stacks every view's actions
++    // in one cell, so the row is as wide as the widest and does not change
++    // when another tab is selected. See fitHeader().
++    dom.header = null;
++    dom.headerDirty = true;
++    dom.actionObserver = new ResizeObserver(() => {
++      dom.headerDirty = true;
++      schedule();
++    });
++    dom.actionObserver.observe(accessories);
++    dom.actionObserver.observe(menuButton);
+     const d = dom;
+     const onPointerDown = (e) => {
+       const panel = findPanel(d.id);
+@@ -3182,6 +3257,7 @@ function createWorkspace(host, initialOptions) {
+   function destroyPanelDom(panelId) {
+     const dom = panelDoms.get(panelId);
+     if (!dom) return;
++    dom.actionObserver.disconnect();
+     dom.el.remove();
+     dom.tabbar.remove();
+     dom.handles?.remove();
+@@ -3211,6 +3287,7 @@ function createWorkspace(host, initialOptions) {
+       if (!wanted.has(viewId)) {
+         tab.el.remove();
+         dom.tabs.delete(viewId);
++        dom.headerDirty = true;
+       }
+     panel.views.forEach((viewId, index) => {
+       let tab = dom.tabs.get(viewId);
+@@ -3241,6 +3318,7 @@ function createWorkspace(host, initialOptions) {
+         });
+         tab = { el, title, badge, close: closeButton };
+         dom.tabs.set(viewId, tab);
++        dom.headerDirty = true;
+       } else if (tab.el.firstChild !== record.icon) tab.el.prepend(record.icon);
+       if (dom.tablist.children[index] !== tab.el)
+         dom.tablist.insertBefore(tab.el, dom.tablist.children[index] ?? null);
+@@ -3262,7 +3340,13 @@ function createWorkspace(host, initialOptions) {
+       for (const [viewId, tab] of dom.tabs) {
+         const selected = panel.selected === viewId;
+         const title = titleOf(viewId);
+-        if (tab.title.textContent !== title) tab.title.textContent = title;
++        if (tab.title.textContent !== title) {
++          tab.title.textContent = title;
++          dom.headerDirty = true;
++        }
++        // Lattice patch: a named panel (a singleton: Project, Agent, PDF, a
++        // tool) shows its whole name or only its icon, never an ellipsis.
++        setAttr(tab.el, "data-atomic", typeOf(viewId).singleton ? "" : null);
+         const badge = badges.get(viewId);
+         const dot = badge === true;
+         const text = badge === null || badge === void 0 || badge === "" || typeof badge === "boolean" ? "" : String(badge);
+@@ -3278,11 +3362,14 @@ function createWorkspace(host, initialOptions) {
+         setAttr(tab.el, "data-focused", focusedView === viewId ? "" : null);
+         const closable = typeOf(viewId).closable !== false;
+         setAttr(tab.close, "hidden", closable ? null : "");
+-        setAttr(tab.close, "title", `Close ${title}`);
++        setAttr(tab.close, "title", tl("closeTab", { title }));
++        setAttr(tab.el, "title", title);
+         setAttr(tab.el, "aria-keyshortcuts", closable ? "Delete Shift+F10" : "Shift+F10");
+         const record = records.get(viewId);
+         if (record) {
+-          setAttr(record.accessory, "hidden", selected ? null : "");
++          // Lattice patch: not `hidden` (app CSS forces display:none on it);
++          // Lattice CSS keeps unselected actions laid out but invisible.
++          setAttr(record.accessory, "data-inactive", selected ? null : "");
+           if (record.controller.state.title !== title) record.controller.update({ title });
+         }
+       }
+@@ -3301,7 +3388,7 @@ function createWorkspace(host, initialOptions) {
+     invalidate();
+   }
+   function sync() {
+-    entries = layoutRects(doc.root, layoutMetrics());
++    entries = layoutDoc();
+     const live2 = new Set(viewIds(doc));
+     for (const v of lifted()?.views ?? []) live2.add(v);
+     for (const l of leaving.values()) for (const v of l.panel.views) live2.add(v);
+@@ -3360,7 +3447,7 @@ function createWorkspace(host, initialOptions) {
+             role: "separator",
+             tabindex: "0",
+             "aria-orientation": node.axis === "x" ? "vertical" : "horizontal",
+-            "aria-label": "Resize panels"
++            "aria-label": tl("resizePanels")
+           });
+           el2.dataset.split = node.id;
+           el2.dataset.index = String(i);
+@@ -3660,8 +3747,8 @@ function createWorkspace(host, initialOptions) {
+         el.dataset.lines = lines;
+       }
+       const count = leafIds(e.node).length;
+-      setAttr(el, "aria-label", `${count} panels. Double-click to zoom in.`);
+-      setAttr(el, "title", "Double-click to zoom in");
++      setAttr(el, "aria-label", tl("groupPanels", { count }));
++      setAttr(el, "title", tl("doubleClickToZoomIn"));
+       const r = inset(toScreen(e.rect), pad());
+       const onscreen = r.x < viewport.w && r.y < viewport.h && r.x + r.w > 0 && r.y + r.h > 0;
+       setStyle(el, "display", onscreen ? "" : "none");
+@@ -3740,6 +3827,15 @@ function createWorkspace(host, initialOptions) {
+       setStyle(dom.el, "zIndex", String(z));
+       setAttr(dom.el, "data-lifted", lifted()?.id === panelId ? "" : null);
+       place(dom.el, r, round);
++      if (onscreen) fitHeader(dom, panel, r.w);
++      // Squeezed under its minimum by a divider's rubber band: Lattice CSS
++      // lets the tabs shrink for the moment instead of scrolling.
++      // The squeeze is shared by the file tabs (down from their minimum), or
++      // by the named tabs when there are no others.
++      const squeeze = elastic?.leaves.has(panelId) ? elastic.amount : 0;
++      const loose = panel.views.filter((v) => !typeOf(v).singleton).length;
++      setAttr(dom.el, "data-squeezed", !squeeze ? null : loose ? "" : "atomic");
++      setStyle(dom.el, "--trellis-squeeze-tab", squeeze && loose ? `${squeeze / loose}px` : "");
+       const float2 = doc.floating.find((f) => f.panel.id === panelId);
+       const clip = float2?.layer === "stage" && sScreen && lifted()?.id !== panelId ? clipInset(r, sScreen) : "";
+       setStyle(dom.el, "clipPath", clip);
+@@ -3866,7 +3962,7 @@ function createWorkspace(host, initialOptions) {
+     const min = minSizeOf(controller.id);
+     const scaleAt = (r) => Math.max(min ? Math.min(1, r.w / Math.max(1, min.width), r.h / Math.max(1, min.height)) : 1, 0.05);
+     const safe = scaleAt(body);
+-    place(shell, body, round);
++    placeAt(shell, body, round);
+     setStyle(shell, "zIndex", String(z));
+     setStyle(shell, "visibility", selected && !concealed ? "" : "hidden");
+     setStyle(shell, "opacity", opacity === 1 ? "" : String(opacity));
+@@ -3922,7 +4018,8 @@ function createWorkspace(host, initialOptions) {
+     for (const el of dividerEls.values()) {
+       const split = effectiveSplit(el.dataset.split);
+       const e = split && entries.get(split.id);
+-      if (!split || !e || !show || hiddenSplits.has(split.id)) {
++      const held = el === activeDivider && el.hasAttribute("data-active");
++      if (!split || !e || !show && !held || hiddenSplits.has(split.id)) {
+         setStyle(el, "display", "none");
+         continue;
+       }
+@@ -4383,16 +4480,16 @@ function createWorkspace(host, initialOptions) {
+     if (navigationMode() && region !== "floating")
+       items.push({
+         id: "maximize",
+-        label: framed() === panelId ? "Restore size" : "Maximize",
++        label: framed() === panelId ? tl("restoreSize") : tl("maximize"),
+         shortcut: hint("frame.toggle"),
+         run: () => toggleFrame(panelId)
+       });
+     if (region === "floating" && floatingLayer() === "stage") {
+-      items.push({ id: "dock", label: "Dock beside stage", run: () => toggleDock(panelId) });
++      items.push({ id: "dock", label: tl("dockBesideStage"), run: () => toggleDock(panelId) });
+     } else if (region === "floating") {
+       items.push({
+         id: "dock",
+-        label: "Dock",
++        label: tl("dock"),
+         run: () => dock(
+           panelId,
+           findStage(doc.root) && allowed(panel.views, "stage") ? "stage" : { beside: doc.root?.id ?? "", edge: "right", share: 0.3 }
+@@ -4401,7 +4498,7 @@ function createWorkspace(host, initialOptions) {
+     } else if (floatingLayer() && allowed(panel.views, "floating")) {
+       items.push({
+         id: "float",
+-        label: "Float",
++        label: tl("float"),
+         run: () => floatingLayer() === "stage" ? toggleDock(panelId) : float(panelId)
+       });
+     }
+@@ -4421,19 +4518,19 @@ function createWorkspace(host, initialOptions) {
+       moves.push(
+         {
+           id: "split-right",
+-          label: "New split right",
++          label: tl("newSplitRight"),
+           run: () => dock(viewId, { beside: panelId, edge: "right" })
+         },
+         {
+           id: "split-below",
+-          label: "New split below",
++          label: tl("newSplitBelow"),
+           run: () => dock(viewId, { beside: panelId, edge: "bottom" })
+         }
+       );
+-    if (moves.length) items.push({ id: "move", label: `Move ${titleOf(viewId)} to`, items: moves });
++    if (moves.length) items.push({ id: "move", label: tl("moveTo", { title: titleOf(viewId) }), items: moves });
+     items.push({
+       id: "hide",
+-      label: "Hide",
++      label: tl("hide"),
+       run: () => hide(panelId, { toward: options.hideToward?.(panelId) ?? void 0 })
+     });
+     const closable = panel.views.filter((v) => typeOf(v).closable !== false);
+@@ -4442,14 +4539,14 @@ function createWorkspace(host, initialOptions) {
+       if (typeOf(panel.selected).closable !== false)
+         items.push({
+           id: "close",
+-          label: `Close ${titleOf(panel.selected)}`,
++          label: tl("closeView", { title: titleOf(panel.selected) }),
+           shortcut: hint("view.close"),
+           run: () => void close(panel.selected)
+         });
+       if (panel.views.length > 1)
+         items.push({
+           id: "close-others",
+-          label: "Close other tabs",
++          label: tl("closeOtherTabs"),
+           run: () => panel.views.filter((v) => v !== panel.selected).forEach((v) => void close(v))
+         });
+     }
+@@ -4625,11 +4722,130 @@ function createWorkspace(host, initialOptions) {
+   function announce(text) {
+     live.textContent = text;
+   }
++  // Lattice: a panel is no smaller than its views' `minSize` (plus its tab
++  // bar), and a group no smaller than its children side by side, so dividers,
++  // drops and window resizes stop where headers still fit and content still
++  // lays out at full size, instead of every node sharing one 80px minimum.
++  function contentMin(node, axis) {
++    if (node.kind === "stage") return node.child ? contentMin(node.child, axis) : 120;
++    if (node.kind === "panel") {
++      const type = doc.views[node.selected]?.type;
++      const size = options.types[type]?.minSize;
++      if (axis === "y") return (size?.height ?? 28) + tabbarHeight - elasticCut(node, axis);
++      // The widest of the panel's views, not the selected one's: selecting
++      // another tab must not resize the panel (and so every tab in it).
++      const width = Math.max(PANEL_MIN.w, ...node.views.map((v) => options.types[doc.views[v]?.type]?.minSize?.width ?? 0));
++      // The header's measured minimum (fitHeader); before the first
++      // measurement, Lattice CSS: 80px per tab, 2px gaps, 41px chrome.
++      const measured = panelDoms.get(node.id)?.headerMin;
++      const header = measured ?? Math.min(480, 41 + ({ project: 63, papers: 93, agent: 32, file: 86 }[type] ?? 4) + 80 * node.views.length + 2 * Math.max(0, node.views.length - 1));
++      return Math.max(width, header) - elasticCut(node, axis);
++    }
++    const mins = node.children.map((child) => contentMin(child, axis));
++    return node.axis === axis ? mins.reduce((total, value) => total + value, 0) + gap * (mins.length - 1) : Math.max(0, ...mins);
++  }
++  // Lattice patch: measure a panel's header from the live DOM. Named tabs
++  // (data-atomic) are measured with and without their label; other tabs count
++  // at their CSS minimum. Returns false when the header is not laid out.
++  function measureHeader(dom, panel) {
++    // Not while squeezed by a divider's rubber band either: its tabs are
++    // shrunk below their real sizes for the moment.
++    if (!dom.tabbar.getClientRects().length || ["data-compact", "data-frame-only", "data-squeezed"].some((a) => dom.el.hasAttribute(a))) return false;
++    const tabs = panel.views.map((viewId) => ({ viewId, tab: dom.tabs.get(viewId) }));
++    if (tabs.some(({ tab }) => !tab)) return false;
++    const atomic = tabs.filter(({ tab }) => tab.el.hasAttribute("data-atomic"));
++    const before = atomic.map(({ tab }) => tab.el.hasAttribute("data-icon-only"));
++    atomic.forEach(({ tab }) => setAttr(tab.el, "data-icon-only", null));
++    const full = atomic.map(({ tab }) => tab.el.getBoundingClientRect().width);
++    atomic.forEach(({ tab }) => setAttr(tab.el, "data-icon-only", ""));
++    const compact = atomic.map(({ tab }) => tab.el.getBoundingClientRect().width);
++    atomic.forEach(({ tab }, i) => setAttr(tab.el, "data-icon-only", before[i] ? "" : null));
++    const list = getComputedStyle(dom.tablist);
++    const padding = (parseFloat(list.paddingLeft) || 0) + (parseFloat(list.paddingRight) || 0);
++    dom.header = {
++      views: panel.views.join("\n"),
++      // Everything in the bar but the tabs: actions, menu, gaps, paddings.
++      chrome: dom.tabbar.getBoundingClientRect().width - dom.tablist.getBoundingClientRect().width + padding,
++      gap: parseFloat(list.columnGap) || 0,
++      items: tabs.map(({ viewId, tab }) => {
++        const i = atomic.findIndex((a) => a.viewId === viewId);
++        return i >= 0 ? { viewId, atomic: true, full: full[i], compact: compact[i] } : { viewId, atomic: false, min: parseFloat(getComputedStyle(tab.el).minWidth) || 0 };
++      })
++    };
++    dom.headerDirty = false;
++    return true;
++  }
++  // Lattice patch: named tabs show their whole label or only their icon.
++  // Labels appear in tab order as the panel widens (none, the first, both...),
++  // with the other tabs at their minimum; the panel's minimum header is every
++  // named tab as an icon. Runs per frame on cached measurements only.
++  function fitHeader(dom, panel, width) {
++    if ((dom.headerDirty || dom.header?.views !== panel.views.join("\n")) && !measureHeader(dom, panel)) return;
++    const { chrome, gap, items } = dom.header;
++    const fixed = gap * Math.max(0, items.length - 1) + items.reduce((sum, item) => sum + (item.atomic ? 0 : item.min), 0);
++    const atomic = items.filter((item) => item.atomic);
++    const need = (k) => chrome + fixed + atomic.reduce((sum, item, i) => sum + (i < k ? item.full : item.compact), 0);
++    let labelled = atomic.length;
++    while (labelled > 0 && need(labelled) > width + 0.5) labelled--;
++    atomic.forEach((item, i) => {
++      const tab = dom.tabs.get(item.viewId);
++      if (tab) setAttr(tab.el, "data-icon-only", i < labelled ? null : "");
++    });
++    const min = Math.min(480, need(0));
++    if (dom.headerMin === void 0 || Math.abs(min - dom.headerMin) > 0.5) {
++      dom.headerMin = min;
++      entries = layoutDoc();
++      invalidate();
++      schedule();
++    }
++  }
++  if (typeof document !== "undefined" && document.fonts?.addEventListener) {
++    const remeasure = () => {
++      for (const dom of panelDoms.values()) dom.headerDirty = true;
++      schedule();
++    };
++    document.fonts.addEventListener("loadingdone", remeasure);
++    lifetime.add(() => document.fonts.removeEventListener("loadingdone", remeasure));
++  }
++  // Lattice patch: while a divider is pulled past its limit the panels on the
++  // squeezed side give up to `amount` px below their minimum (see
++  // beginDivider); only the leaves along that edge give, so nested splits
++  // follow without scaling.
++  let elastic = null;
++  // The divider boundary currently drawn stretched: { splitId, index, px, extent }.
++  // Every relayout goes through layoutDoc() so none of them (a commit, a
++  // header remeasure) can draw a frame of the unstretched layout mid-spring.
++  let stretched = null;
++  function layoutDoc(base = doc) {
++    elastic = null;
++    const node = stretched && findNode(base.root, stretched.splitId);
++    if (!node || node.kind !== "split" || Math.abs(stretched.px) < 0.05 || stretched.extent <= 0) return layoutRects(base.root, layoutMetrics());
++    const { index, px, extent } = stretched;
++    const squeezed = px > 0 ? node.children[index + 1] : node.children[index];
++    elastic = { axis: node.axis, amount: Math.abs(px), leaves: edgeLeaves(squeezed, node.axis, px > 0) };
++    const total = node.weights.reduce((sum, weight) => sum + weight, 0);
++    const weights = node.weights.map((weight) => weight / total);
++    const shift = Math.max(-weights[index] + 1e-3, Math.min(weights[index + 1] - 1e-3, px / extent));
++    weights[index] += shift;
++    weights[index + 1] -= shift;
++    return layoutRects(replaceNode(base.root, stretched.splitId, { ...node, weights }), layoutMetrics());
++  }
++  function elasticCut(node, axis) {
++    return elastic && elastic.axis === axis && elastic.leaves.has(node.id) ? elastic.amount : 0;
++  }
++  function edgeLeaves(node, axis, atStart, out = /* @__PURE__ */ new Set()) {
++    if (!node) return out;
++    if (node.kind === "stage") return edgeLeaves(node.child, axis, atStart, out);
++    if (node.kind === "panel") return out.add(node.id);
++    if (node.axis === axis) return edgeLeaves(atStart ? node.children[0] : node.children[node.children.length - 1], axis, atStart, out);
++    for (const child of node.children) edgeLeaves(child, axis, atStart, out);
++    return out;
++  }
+   function layoutMetrics() {
+     return {
+       width: viewport.w - pad() * 2,
+       height: viewport.h - pad() * 2,
+-      min: (node, axis) => (node.kind === "stage" && !node.child ? 120 : axis === "x" ? PANEL_MIN.w : tabbarHeight + 28) + gap
++      min: (node, axis) => contentMin(node, axis) + gap
+     };
+   }
+   function minFraction(split, index) {
+@@ -4644,47 +4860,126 @@ function createWorkspace(host, initialOptions) {
+     const node = entries.get(id)?.node;
+     return node?.kind === "split" ? node : null;
+   }
++  // Lattice patch: the divider being dragged (or springing back) stays shown.
++  let activeDivider = null;
++  let springFrame = 0;
++  function stopSpring() {
++    if (springFrame) cancelAnimationFrame(springFrame);
++    springFrame = 0;
++    stretched = null;
++    elastic = null;
++    if (activeDivider && !gesture) setAttr(activeDivider, "data-active", null);
++  }
+   function beginDivider(e, el) {
+     if (e.button !== 0) return;
+     e.preventDefault();
++    if (springFrame) {
++      stopSpring();
++      entries = layoutRects(doc.root, layoutMetrics());
++    }
+     const splitId = el.dataset.split;
+     const index = Number(el.dataset.index);
+     const split = effectiveSplit(splitId);
+     const entry = entries.get(splitId);
+     if (!split || !entry) return;
+     const origin = doc;
++    // Read geometry once, before any resize writes; pointer moves are batched
++    // into a frame. Past its limit the boundary follows the pointer with
++    // rubber-band resistance (up to STRETCH px): the panels on the squeezed
++    // side give up that much of their minimum for the moment, and on release
++    // the boundary springs back to the limit. The committed layout never goes
++    // under a minimum. Reduced motion clamps hard, as before.
++    const STRETCH = 40;
++    const bounds = root.getBoundingClientRect();
++    const r = toScreen(entry.rect);
++    const extent = split.axis === "x" ? r.w : r.h;
++    let pending = null;
++    let frame = 0;
++    let stretch = 0;
+     el.setPointerCapture(e.pointerId);
+     setAttr(root, "data-resizing", split.axis);
+     setAttr(el, "data-active", "");
++    activeDivider = el;
+     gesture = true;
+     updateInteractivity();
+-    const move = (ev) => {
+-      const p = localPoint(ev);
+-      const r = toScreen(entry.rect);
+-      const position = split.axis === "x" ? (p.x - r.x) / r.w : (p.y - r.y) / r.h;
++    // Lay out `base` with its boundary moved `px` further (and the squeezed
++    // side allowed `px` under its minimum), without committing it.
++    const showStretched = (base, px) => {
++      stretched = { splitId, index, px, extent };
++      entries = layoutDoc(base);
++    };
++    const apply = () => {
++      frame = 0;
++      if (!pending) return;
++      const ev = pending;
++      pending = null;
++      const position = split.axis === "x" ? (ev.clientX - bounds.left - r.x) / r.w : (ev.clientY - bounds.top - r.y) / r.h;
++      stretched = null;
++      entries = layoutDoc();
+       const current = effectiveSplit(splitId);
+       if (!current) return;
+       const resized = resizeBoundary(current, index, position, (i) => minFraction(current, i));
++      const total = resized.weights.reduce((sum, weight) => sum + weight, 0);
++      const actual = resized.weights.slice(0, index + 1).reduce((sum, weight) => sum + weight, 0) / total;
++      stretch = reduced() ? 0 : STRETCH * Math.tanh((position - actual) * extent / (STRETCH * 4));
+       doc = { ...doc, root: replaceNode(doc.root, splitId, resized) };
+-      entries = layoutRects(doc.root, layoutMetrics());
++      showStretched(doc, stretch);
+       render();
+     };
+-    const up = () => {
++    const move = (ev) => {
++      pending = ev;
++      if (!frame) frame = requestAnimationFrame(apply);
++    };
++    const up = (ev) => {
++      if (frame) cancelAnimationFrame(frame);
++      if (ev.type === "pointerup") apply();
+       el.removeEventListener("pointermove", move);
+       el.removeEventListener("pointerup", up);
+       el.removeEventListener("pointercancel", up);
++      el.removeEventListener("lostpointercapture", up);
++      if (el.hasPointerCapture(e.pointerId)) el.releasePointerCapture(e.pointerId);
+       setAttr(root, "data-resizing", null);
+-      setAttr(el, "data-active", null);
+       gesture = false;
+-      const next = doc;
++      const cancelled = ev.type === "pointercancel";
++      const next = cancelled ? origin : doc;
+       doc = origin;
+-      commit(next, { animate: false });
++      // Keep the release frame stretched; the spring takes it from there.
++      if (cancelled || !stretch || reduced()) stretched = null;
++      if (next === origin) {
++        entries = layoutRects(doc.root, layoutMetrics());
++        render();
++      } else commit(next, { animate: false });
+       updateInteractivity();
++      if (cancelled || !stretch || reduced()) {
++        setAttr(el, "data-active", null);
++        return;
++      }
++      // A damped spring from the stretched boundary: back through the limit
++      // by about a fifth of the stretch, then settled within ~half a second.
++      const from = stretch;
++      const start = performance.now();
++      const step = (now) => {
++        const t = (now - start) / 1e3;
++        const px = from * Math.exp(-t / 0.11) * Math.cos(2 * Math.PI * t / 0.36);
++        if (t > 0.6 || t > 0.2 && Math.abs(px) < 0.25) {
++          springFrame = 0;
++          stopSpring();
++          entries = layoutRects(doc.root, layoutMetrics());
++          render();
++          return;
++        }
++        showStretched(doc, px);
++        render();
++        springFrame = requestAnimationFrame(step);
++      };
++      springFrame = requestAnimationFrame(step);
+     };
+     el.addEventListener("pointermove", move);
+     el.addEventListener("pointerup", up);
+     el.addEventListener("pointercancel", up);
++    el.addEventListener("lostpointercapture", up);
+   }
++
+   function equalize(splitId, index) {
+     const split = findNode(doc.root, splitId);
+     if (!split) return;
+@@ -4902,7 +5197,7 @@ function createWorkspace(host, initialOptions) {
+       if (!surface) return false;
+       return typeOf(surface.dataset.view).gestures !== "workspace";
+     },
+-    titleOf: (node) => node.kind === "panel" ? titleOf(node.selected) : node.kind === "stage" ? "the stage" : "this group",
++    titleOf: (node) => node.kind === "panel" ? titleOf(node.selected) : node.kind === "stage" ? tl("theStage") : tl("thisGroup"),
+     schedule,
+     render: () => render(),
+     changed() {

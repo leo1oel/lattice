@@ -60,7 +60,7 @@ export function EditorStatusBar(props: {
         {props.hasDiagnostics
           // eslint-disable-next-line lingui/no-unlocalized-strings -- key name
           ? <><kbd>F8</kbd> {t`next`} · <kbd>⇧F8</kbd> {t`previous`}</>
-          : <><kbd>⌘F</kbd> {t`find`} · <kbd>⌘/</kbd> {t`comment`} · <kbd>⌘⇧I</kbd> {t`insert`}</>}
+          : <><kbd>⌘F</kbd> {t`find`} · <kbd>⌘/</kbd> {t`comment`}</>}
       </span>
       <button
         type="button"

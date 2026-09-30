@@ -16,11 +16,11 @@ import { InlineMessage } from "../components/ui/inline-message";
 import { ModalDialog } from "../components/ui/modal-dialog";
 import { useUpdater, type UpdaterApi } from "../telemetry/app-updater";
 import {
-  MAX_OPEN_TABS,
   type Theme,
   type ThemePreference,
   type BuildPreferences,
   type AppearanceSettings,
+  type TitlebarTool,
   type OverleafRemoteDelete,
   type OverleafSyncMode,
   resolveAppLocale,
@@ -258,6 +258,34 @@ function useBrowserWorkspace(props: SettingsDialogProps) {
 
 type BrowserWorkspace = ReturnType<typeof useBrowserWorkspace>;
 
+/** Which tool buttons sit at the right of the title bar; the commands stay in the palette either way. */
+function TitlebarToolsGroup(props: SettingsDialogProps) {
+  const { t } = useLingui();
+  const hidden = props.appearance.hiddenTitlebarTools;
+  const tools: Array<{ tool: TitlebarTool; label: string; description: string }> = [
+    { tool: "comments", label: t`Editor comments`, description: t`Comments on the open document, for projects not linked to Overleaf` },
+    { tool: "overleaf", label: t`Overleaf`, description: t`Sync, open and chat with the linked Overleaf project` },
+    { tool: "paper-lookup", label: t`Paper lookup`, description: t`Find a paper by title, DOI or arXiv ID` },
+    { tool: "git", label: t`Git status and commit`, description: t`Review and commit changes` },
+    { tool: "history", label: t`Project history`, description: t`Versions and changes of the whole project` },
+  ];
+  return (
+    <SettingsGroup title={t`Title bar tools`}>
+      {tools.map(({ tool, label, description }) => (
+        <SwitchField
+          key={tool}
+          label={label}
+          description={description}
+          checked={!hidden.includes(tool)}
+          onChange={(shown) => patchAppearance(props, {
+            hiddenTitlebarTools: shown ? hidden.filter((item) => item !== tool) : [...hidden, tool],
+          })}
+        />
+      ))}
+    </SettingsGroup>
+  );
+}
+
 function AppearanceSettingsPane({ browser, ...props }: SettingsDialogProps & { browser: BrowserWorkspace }) {
   const { t } = useLingui();
   const {
@@ -304,6 +332,7 @@ function AppearanceSettingsPane({ browser, ...props }: SettingsDialogProps & { b
           onChange={(editorFontSize) => patchAppearance(props, { editorFontSize })}
         />
       </SettingsGroup>
+      <TitlebarToolsGroup {...props} />
       <SettingsGroup title={t`Feedback`}>
         <SwitchField
           label={t`Interface sounds`}
@@ -392,15 +421,6 @@ function EditorSettingsPane({ projectWordDraft, setProjectWordDraft, ...props }:
           value={props.appearance.editorKeymap}
           options={{ default: t`Default`, vim: "Vim", emacs: "Emacs" }}
           onChange={(editorKeymap) => patchAppearance(props, { editorKeymap })}
-        />
-        <SliderRow
-          id="max-open-tabs"
-          label={t`Max open tabs`}
-          description={t`Lattice closes the least recently used tab past this count`}
-          min={1}
-          max={MAX_OPEN_TABS}
-          value={props.appearance.maxOpenTabs}
-          onChange={(maxOpenTabs) => patchAppearance(props, { maxOpenTabs })}
         />
       </SettingsGroup>
       <SettingsGroup title={t`Spelling`}>

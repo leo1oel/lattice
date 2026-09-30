@@ -163,6 +163,8 @@ function answer(command: string, args: Args): unknown {
       return { available: false, repository: false, branch: null, files: [] };
     case "browser_access_enabled":
       return false;
+    case "list_unused_symbols":
+      return { labels: [], citations: [] };
     case "plugin:window|scale_factor":
       return window.devicePixelRatio;
     case "plugin:window|inner_size":

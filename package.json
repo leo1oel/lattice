@@ -20,7 +20,7 @@
     "prepare:runtime:dev": "pnpm prepare:synara:dev && pnpm prepare:presentation",
     "prepare:build": "node scripts/prepare-build.mjs",
     "check": "mise run check",
-    "lint": "eslint src tools --max-warnings 45",
+    "lint": "eslint src tools --max-warnings 43",
     "knip": "knip",
     "test": "vitest run",
     "preview": "vite preview",
@@ -47,6 +47,8 @@
     "@codemirror/search": "^6.7.1",
     "@codemirror/state": "^6.7.1",
     "@codemirror/view": "^6.43.8",
+    "@danfessler/trellis": "0.2.0",
+    "@danfessler/trellis-react": "0.2.0",
     "@floating-ui/dom": "^1.8.0",
     "@fontsource-variable/inter": "^5.3.0",
     "@fontsource/dm-sans": "^5.3.0",
@@ -119,7 +121,6 @@
     "radix-ui": "^1.6.5",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
-    "react-joyride": "^3.2.0",
     "react-medium-image-zoom": "5.4.3",
     "remark-gfm": "^4.0.1",
     "remark-math": "^6.0.0",
@@ -187,7 +188,8 @@
     "patchedDependencies": {
       "@pierre/trees@1.0.0-beta.6": "patches/@pierre__trees@1.0.0-beta.6.patch",
       "pdfjs-dist@6.3.289": "patches/pdfjs-dist@6.3.289.patch",
-      "@tiptap/react@3.31.3": "patches/@tiptap__react@3.31.3.patch"
+      "@tiptap/react@3.31.3": "patches/@tiptap__react@3.31.3.patch",
+      "@danfessler/trellis@0.2.0": "patches/@danfessler__trellis@0.2.0.patch"
     }
   }
 }

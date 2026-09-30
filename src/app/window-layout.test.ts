@@ -5,26 +5,21 @@ import {
   APP_WINDOW_MIN_HEIGHT,
   APP_WINDOW_MIN_WIDTH,
   minimumWindowWidth,
-  SPLIT_PDF_MIN_WIDTH,
   SPLIT_SOURCE_MIN_WIDTH,
 } from "./window-layout";
 
 describe("minimumWindowWidth", () => {
   it.each([
-    ["keeps the application baseline when no wider layout is visible", 1, 0, false, APP_WINDOW_MIN_WIDTH],
-    ["reserves the complete sidebar, divider, and split workspace", 1, 901, true, 1222],
-    ["scales the native minimum with the webview zoom", 1.1, 901, true, 1345],
-  ])("%s", (_name, interfaceScale, minimumWorkspaceWidth, sidebarOpen, expected) => {
-    expect(minimumWindowWidth({ interfaceScale, minimumSidebarWidth: 320, minimumWorkspaceWidth, sidebarOpen }))
-      .toBe(expected);
+    ["keeps the application baseline at the default zoom", 1, APP_WINDOW_MIN_WIDTH],
+    ["scales the native minimum with the webview zoom", 1.1, 1345],
+    ["never goes below the baseline when zoomed out", 0.9, APP_WINDOW_MIN_WIDTH],
+  ])("%s", (_name, interfaceScale, expected) => {
+    expect(minimumWindowWidth(interfaceScale)).toBe(expected);
   });
 
-  it("derives the configured baseline from the split minimums", () => {
+  it("matches the native window configuration", () => {
     // tauri.conf.json and the multi-window builder in lib.rs carry the same
-    // number; a pane floor that moves without them leaves the native window
-    // able to open narrower than its own contents.
-    expect(SPLIT_SOURCE_MIN_WIDTH + SPLIT_PDF_MIN_WIDTH + 1 + 320 + 1)
-      .toBe(APP_WINDOW_MIN_WIDTH);
+    // number, so every window opens no narrower than the app lays out.
     const config = JSON.parse(readFileSync("src-tauri/tauri.conf.json", "utf8"));
     expect(config.app.windows[0].minWidth).toBe(APP_WINDOW_MIN_WIDTH);
     expect(readFileSync("src-tauri/src/lib.rs", "utf8"))

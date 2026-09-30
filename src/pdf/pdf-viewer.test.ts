@@ -46,7 +46,7 @@ describe("PDF scroll viewport", () => {
   // exactly the horizontal inset too wide, so the pane always had a sideways
   // scrollbar it could never satisfy.
   it("insets the pages with a border so a fitted page still fits", () => {
-    expect(viewport).toContain("border: var(--space-10) solid transparent")
+    expect(viewport).toContain("border: var(--space-4) solid transparent")
     expect(viewport).toContain("box-sizing: border-box")
     expect(viewport).not.toContain("padding")
   })

@@ -182,12 +182,12 @@ describe("Tauri security boundary", () => {
       "chromium-runtime/Lattice Chromium.app/Contents/MacOS/Electron");
   });
 
-  it("keeps Chromium titlebar whitespace draggable without consuming tab interactions", () => {
+  it("keeps Chromium titlebar whitespace draggable without consuming its buttons", () => {
     expect(chromiumShell).toContain(`
-      .titlebar-main > .editor-tabs .editor-tabs-content {
+      .titlebar-main > .trellis-titlebar {
         -webkit-app-region: drag;
       }
-      .titlebar-main > .editor-tabs .editor-tab {
+      .titlebar-main > .trellis-titlebar button {
         -webkit-app-region: no-drag;
       }`);
     expect(chromiumShell).toContain(`

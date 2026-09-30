@@ -1,8 +1,7 @@
-import { BookOpen, ChevronDown, Cloud, Columns2, ExternalLink, FileCode2, Image, MessagesSquare, Omega, PanelRightClose } from "lucide-react";
+import { BookOpen, ChevronDown, Cloud, ExternalLink, FileCode2, Image, MessagesSquare } from "lucide-react";
 import { memo, useMemo, type ButtonHTMLAttributes, type ReactNode } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { Tip } from "../components/icon-tip";
-import { type CanvasMode, type DocumentViewMode } from "../app-types";
 import { useLatest } from "../app/effect-helpers";
 import { AnimatedProductIcon } from "../animated-icons/product-animated-icon";
 import { InfinityLoader } from "../components/ui/activity-icons";
@@ -10,26 +9,12 @@ import { StateSwap } from "../components/ui/motion";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
 } from "../components/ui/dropdown-menu";
-import { SegmentedControl } from "../components/ui/segmented-control";
+import type { TitlebarTool } from "../settings/app-settings";
 
 type CanvasToolbarProps = {
-  mode: CanvasMode;
-  selectedDocumentViewMode?: DocumentViewMode;
-  setMode: (mode: DocumentViewMode) => void;
-  supportsDocumentViewModes: boolean;
-  onSplit?: () => void;
-  onCloseSplit?: () => void;
-  markdown: boolean;
-  html: boolean;
-  paperView?: "blog" | "fulltext";
-  paperHasBlog?: boolean;
-  paperHasFullText?: boolean;
-  onPaperView?: (view: "blog" | "fulltext") => void;
   activePath: string;
   activeKind: "document" | "paper" | "asset";
-  canInsert: boolean;
   dirty: boolean;
-  onInsert: () => void;
   onHistory: () => void;
   onPaperLookup?: () => void;
   onGit: () => void;
@@ -57,6 +42,8 @@ type CanvasToolbarProps = {
   onOverleafChat?: () => void;
   /** Slot for the Overleaf presence avatars. */
   overleafPresence?: ReactNode;
+  /** Tool buttons the writer hid in Settings → Appearance. */
+  hiddenTools?: readonly TitlebarTool[];
 };
 
 /** A toolbar button named and described by its tooltip. */
@@ -67,18 +54,9 @@ function ToolbarButton({ label, ...button }: ButtonHTMLAttributes<HTMLButtonElem
 const CanvasToolbarView = memo(function CanvasToolbarView(props: CanvasToolbarProps) {
   const { t } = useLingui();
   const ActiveIcon = props.activeKind === "asset" ? Image : props.activeKind === "paper" ? BookOpen : FileCode2;
-  // Two editable files are still an Edit view. "Split" in this control has
-  // always meant source + rendered preview, so marking a dual editor as Split
-  // left no visible way to bring the compiled PDF back beside the source.
-  const switcherMode = props.selectedDocumentViewMode
-    ?? (props.mode === "dual" ? "source" : props.mode);
+  const shows = (tool: TitlebarTool) => !props.hiddenTools?.includes(tool);
   const showOverleafOnline = Boolean(props.overleafLinked)
     && Boolean(props.overleafSyncing || props.overleafLiveEditing || props.overleafChannel === "live");
-  const [editTitle, splitTitle, previewTitle] = props.markdown
-    ? [t`Edit Markdown`, t`Edit and preview Markdown`, t`Preview Markdown`]
-    : props.html
-      ? [t`Edit HTML`, t`Edit and preview HTML`, t`Preview HTML`]
-      : [t`Edit source`, t`Edit source and preview PDF`, t`Preview PDF`];
   const overleafLabel = () => {
     if (!props.overleafLinked) return t`Open a project from Overleaf`;
     if (props.overleafSyncing) return t`Syncing with Overleaf…`;
@@ -99,42 +77,10 @@ const CanvasToolbarView = memo(function CanvasToolbarView(props: CanvasToolbarPr
   return (
     <div className="canvas-toolbar">
       <div className="active-document"><ActiveIcon size={14} /><span>{props.activePath}</span>{props.activeKind === "document" && props.dirty && <i />}</div>
-      <div className="canvas-mode-controls" data-tour="document-view">
-        {props.supportsDocumentViewModes ? (
-          <SegmentedControl
-            value={switcherMode}
-            onChange={(mode) => {
-              if (mode === "source" || mode === "split" || mode === "pdf") props.setMode(mode);
-            }}
-            ariaLabel={t`Document view`}
-            className="canvas-view-switcher"
-            items={[
-              { value: "source", label: t`Edit`, title: editTitle },
-              { value: "split", label: t`Split`, title: splitTitle },
-              { value: "pdf", label: t`Preview`, title: previewTitle },
-            ]}
-          />
-        ) : null}
-        {props.activeKind === "paper" && props.paperView && props.onPaperView && props.paperHasBlog && props.paperHasFullText && (
-          <SegmentedControl
-            value={props.paperView}
-            onChange={props.onPaperView}
-            ariaLabel={t`Paper content`}
-            className="paper-content-switcher"
-            items={[
-              { value: "blog", label: t`Blog`, title: t`Open the paper overview`, dataTour: "paper-blog" },
-              { value: "fulltext", label: t`Paper`, title: t`Open the full paper Markdown`, dataTour: "paper-fulltext" },
-            ]}
-          />
-        )}
-      </div>
       <div className="canvas-actions" data-tour="workspace-actions">
-        {props.onSplit && <ToolbarButton label={t`Split editor right`} onClick={props.onSplit}><Columns2 size={14} /></ToolbarButton>}
-        {props.onCloseSplit && <ToolbarButton label={t`Close split`} onClick={props.onCloseSplit}><PanelRightClose size={14} /></ToolbarButton>}
         {props.activeKind === "document" && (
           <>
-            {props.canInsert && <ToolbarButton label={t`Insert snippet or symbol (⌘⇧I)`} onClick={props.onInsert}><Omega size={14} /></ToolbarButton>}
-            {!props.overleafLinked && (
+            {!props.overleafLinked && shows("comments") && (
               <ToolbarButton label={t`Editor comments`} className={props.commentCount ? "active" : ""} onClick={props.onComments}>
                 <AnimatedProductIcon kind="chat" size={14} converted />
                 {props.commentCount > 0 ? <em className="collab-peer-badge">{props.commentCount}</em> : null}
@@ -142,7 +88,7 @@ const CanvasToolbarView = memo(function CanvasToolbarView(props: CanvasToolbarPr
             )}
           </>
         )}
-        {(props.onOverleafSync || props.onOverleafOpen) && (
+        {shows("overleaf") && (props.onOverleafSync || props.onOverleafOpen) && (
           <div className={props.overleafLinked ? "overleaf-toolbar-group" : undefined}>
             <Tip label={overleafLabel()}>
               <button
@@ -163,8 +109,12 @@ const CanvasToolbarView = memo(function CanvasToolbarView(props: CanvasToolbarPr
                 {showOverleafOnline
                   ? <em className="overleaf-status-dot" aria-hidden="true" />
                   : props.overleafPending && !props.overleafSyncing
-                    ? <em className="collab-peer-badge">•</em>
-                    : null}
+                    ? <em className="collab-peer-badge overleaf-pending-badge">•</em>
+                    : props.overleafLinked && (props.overleafChannel === "connecting" || props.overleafChannel === "error")
+                      // The channel is on its way up or failed: say so at a glance,
+                      // not only in the tooltip. Syncing carries on either way.
+                      ? <em className="overleaf-channel-dot" data-state={props.overleafChannel} aria-hidden="true" />
+                      : null}
               </button>
             </Tip>
             {props.overleafLinked && props.onOverleafOpenCurrent && props.onOverleafOpen && (
@@ -199,7 +149,7 @@ const CanvasToolbarView = memo(function CanvasToolbarView(props: CanvasToolbarPr
             )}
           </div>
         )}
-        {props.overleafLinked && props.onOverleafChat && (
+        {shows("overleaf") && props.overleafLinked && props.onOverleafChat && (
           <Tip label={props.overleafUnreadChat
             ? t({ message: `Overleaf comments and chat · ${{ count: props.overleafUnreadChat }} waiting` })
             : t`Overleaf comments and chat`}
@@ -215,22 +165,25 @@ const CanvasToolbarView = memo(function CanvasToolbarView(props: CanvasToolbarPr
           </Tip>
         )}
         {props.overleafPresence}
-        {props.onPaperLookup && (
+        {shows("paper-lookup") && props.onPaperLookup && (
           <ToolbarButton label={t`Paper lookup`} className="history-button" onClick={props.onPaperLookup}><BookOpen size={15} /></ToolbarButton>
         )}
-        <ToolbarButton label={t`Git status and commit`} className="history-button" data-tour="git" onClick={props.onGit}>
-          <AnimatedProductIcon kind="git-branch" size={15} />
-        </ToolbarButton>
-        <ToolbarButton label={t`Project history`} className="history-button" onClick={props.onHistory}>
-          <AnimatedProductIcon kind="clock-back" size={15} />
-        </ToolbarButton>
+        {shows("git") && (
+          <ToolbarButton label={t`Git status and commit`} className="history-button" data-tour="git" onClick={props.onGit}>
+            <AnimatedProductIcon kind="git-branch" size={15} />
+          </ToolbarButton>
+        )}
+        {shows("history") && (
+          <ToolbarButton label={t`Project history`} className="history-button" onClick={props.onHistory}>
+            <AnimatedProductIcon kind="clock-back" size={15} />
+          </ToolbarButton>
+        )}
       </div>
     </div>
   );
 });
 
 const FORWARDED_HANDLERS = {
-  setMode: true, onSplit: true, onCloseSplit: true, onPaperView: true, onInsert: true,
   onHistory: true, onGit: true, onComments: true, onOverleafSync: true, onOverleafOpenCurrent: true,
   onOverleafOpen: true, onOverleafChat: true,
 } as const satisfies Partial<Record<keyof CanvasToolbarProps, true>>;

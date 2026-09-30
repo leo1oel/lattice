@@ -41,7 +41,7 @@
    with `removePageBorders` it subtracts nothing for the scrollbar. Padding here
    therefore sized every fitted page to the padded width and left the pane
    permanently scrolled sideways by exactly the horizontal padding. */
-.pdf-scroll-area-viewport { position: absolute; inset: 0; overflow: auto; border: var(--space-10) solid transparent; box-sizing: border-box; }
+.pdf-scroll-area-viewport { position: absolute; inset: 0; overflow: auto; border: var(--space-4) solid transparent; box-sizing: border-box; }
 /* One scrollbar per surface: the Lattice overlay bars draw this pane's. The
    compound selector is deliberate — PDFSlick's stylesheet sets
    `scrollbar-width: thin` on this very element through `.pdfSlick`, at equal
@@ -53,7 +53,7 @@
 .pdf-scroll-area-viewport::-webkit-scrollbar { display: none; width: 0; height: 0; }
 .pdf-scroll-area-viewport.pdf-viewer-staging { visibility: hidden; pointer-events: none; }
 .pdf-preview .pdfViewer { min-width: 100%; min-height: 100%; }
-.pdf-preview .pdfViewer.removePageBorders .page { margin: 0 auto 18px; background: var(--pdf-page-surface); box-shadow: var(--shadow-soft); }
+.pdf-preview .pdfViewer.removePageBorders .page { margin: 0 auto var(--space-5); background: var(--pdf-page-surface); box-shadow: var(--shadow-soft); }
 /* The viewport's border already ends the column, and a trailing gap inside the
    scroll extent would make a height-fitted page scrollable by that gap. */
 .pdf-preview .pdfViewer.removePageBorders .page:last-child { margin-bottom: 0; }

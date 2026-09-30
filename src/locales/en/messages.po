@@ -95,10 +95,6 @@ msgstr "{action} failed"
 msgid "{action} success"
 msgstr "{action} success"
 
-#: src/app/app-titlebar.tsx
-msgid "{buildSeconds}s"
-msgstr "{buildSeconds}s"
-
 #: src/overleaf/overleaf-review.tsx
 msgid "{changeSummary} · {conflictSummary}. Nothing has been written yet"
 msgstr "{changeSummary} · {conflictSummary}. Nothing has been written yet"
@@ -150,6 +146,10 @@ msgstr "{count} marker"
 #: src/project/todo-scavenger-panel.tsx
 msgid "{count} markers"
 msgstr "{count} markers"
+
+#: src/trellis/trellis-labels.ts
+msgid "{count} panels. Double-click to zoom in."
+msgstr "{count} panels. Double-click to zoom in."
 
 #: src/papers/paper-lookup.tsx
 #: src/project/paper-library.tsx
@@ -247,6 +247,10 @@ msgstr "{matchSummary} in {fileSummary} (showing first 200)"
 #: src/app-utils.ts
 msgid "{minutes}m ago"
 msgstr "{minutes}m ago"
+
+#: src/trellis/trellis-workspace.tsx
+msgid "{name} could not be saved. Close it and discard the unsaved changes?"
+msgstr "{name} could not be saved. Close it and discard the unsaved changes?"
 
 #: src/app/use-overleaf-workspace.ts
 msgid "{name} is not in a file right now."
@@ -360,10 +364,6 @@ msgstr "⌘⇧F · source files and papers"
 msgid "⌘⇧H · all .tex files"
 msgstr "⌘⇧H · all .tex files"
 
-#: src/canvas/editor-tabs.tsx
-msgid "⌘⇧T to reopen"
-msgstr "⌘⇧T to reopen"
-
 #: src/project/project-find-dialog.tsx
 msgid "1 hit"
 msgstr "1 hit"
@@ -394,7 +394,7 @@ msgstr "A local edit has not settled on Overleaf yet, so this document cannot be
 msgid "A local-first LaTeX workspace where your writing agent, sources, manuscript, and rendered paper stay connected"
 msgstr "A local-first LaTeX workspace where your writing agent, sources, manuscript, and rendered paper stay connected"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "a over b"
 msgstr "a over b"
 
@@ -427,17 +427,9 @@ msgctxt "macOS menu bar"
 msgid "About {name}"
 msgstr "About {name}"
 
-#: src/editor/insert/insert-snippets.ts
-msgid "Abstract"
-msgstr "Abstract"
-
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Abstract environment"
 msgstr "Abstract environment"
-
-#: src/editor/insert/insert-palette.tsx
-msgid "Accents"
-msgstr "Accents"
 
 #: src/editor/markdown/engine/chrome/review-chrome.tsx
 #: src/overleaf/overleaf-changes.tsx
@@ -471,7 +463,7 @@ msgstr "Accordion"
 msgid "Activity log"
 msgstr "Activity log"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Acute accent example"
 msgstr "Acute accent example"
 
@@ -488,9 +480,13 @@ msgstr "Add “{projectWord}” to project dictionary"
 msgid "Add a title, full authors, and year, or add a DOI or arXiv identifier, before checking this reference."
 msgstr "Add a title, full authors, and year, or add a DOI or arXiv identifier, before checking this reference."
 
+#: src/trellis/trellis-labels.ts
+msgid "Add as tab"
+msgstr "Add as tab"
+
 #: src/App.tsx
-#: src/app/app-workspace-sidebar.tsx
 #: src/papers/bib-entry-dialog.tsx
+#: src/trellis/trellis-panel-actions.tsx
 msgid "Add bibliography entry"
 msgstr "Add bibliography entry"
 
@@ -499,7 +495,6 @@ msgid "Add bibliography entry and cache the arXiv paper"
 msgstr "Add bibliography entry and cache the arXiv paper"
 
 #: src/editor/markdown/engine/chrome/block-controls.tsx
-#: src/onboarding/onboarding-tour.tsx
 msgid "Add block below"
 msgstr "Add block below"
 
@@ -549,20 +544,20 @@ msgstr "Added “{title}” to the bibliography. No full text to open."
 msgid "Added “{title}” to the bibliography. The full text could not be downloaded: {fetchNote}"
 msgstr "Added “{title}” to the bibliography. The full text could not be downloaded: {fetchNote}"
 
-#: src/app/app-agent-panel.tsx
-#: src/app/app-workspace-sidebar.tsx
 #: src/history/history-drawer.tsx
 #: src/settings/settings-dialog.tsx
+#: src/trellis/trellis-agent-surface.tsx
+#: src/trellis/trellis-titles.ts
 msgid "Agent"
 msgstr "Agent"
-
-#: src/onboarding/onboarding-tour.tsx
-msgid "Agent can read your manuscript, notes, papers, spreadsheets, and Open Slide presentations. Ask it to draft text, verify a claim against a source, analyze results, build slides, or revise files across the project"
-msgstr "Agent can read your manuscript, notes, papers, spreadsheets, and Open Slide presentations. Ask it to draft text, verify a claim against a source, analyze results, build slides, or revise files across the project"
 
 #: src/agent/synara-permission-picker.tsx
 msgid "Agent permissions: {label}"
 msgstr "Agent permissions: {label}"
+
+#: src/App.tsx
+msgid "Agent settings…"
+msgstr "Agent settings…"
 
 #. placeholder {0}: item.threadTitle
 #: src/history/history-drawer.tsx
@@ -581,21 +576,13 @@ msgstr "Agent turn review"
 msgid "Agent unavailable"
 msgstr "Agent unavailable"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Aleph"
 msgstr "Aleph"
 
-#: src/editor/insert/insert-snippets.ts
-msgid "Algorithm"
-msgstr "Algorithm"
-
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Algorithm block (requires algorithm and algpseudocode)"
 msgstr "Algorithm block (requires algorithm and algpseudocode)"
-
-#: src/editor/insert/insert-snippets.ts
-msgid "Align"
-msgstr "Align"
 
 #: src/editor/markdown/engine/views/image-view.tsx
 msgid "Align center"
@@ -609,15 +596,10 @@ msgstr "Align left"
 msgid "Align right"
 msgstr "Align right"
 
-#: src/editor/insert/insert-snippets.ts
-msgid "Align*"
-msgstr "Align*"
-
 #: src/editor/markdown/engine/views/image-view.tsx
 msgid "Alignment"
 msgstr "Alignment"
 
-#: src/editor/insert/insert-palette.tsx
 #: src/editor/latex/search-panel.ts
 #: src/history/history-drawer.tsx
 msgid "All"
@@ -644,7 +626,7 @@ msgstr "Allow external commands"
 msgid "Almost done"
 msgstr "Almost done"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Alpha"
 msgstr "Alpha"
 
@@ -656,17 +638,9 @@ msgstr "Already in Papers"
 msgid "Alt text"
 msgstr "Alt text"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Amalgamation"
 msgstr "Amalgamation"
-
-#: src/editor/insert/insert-snippets.ts
-msgid "Ampersand"
-msgstr "Ampersand"
-
-#: src/onboarding/onboarding-tour.tsx
-msgid "An agent that works across your project"
-msgstr "An agent that works across your project"
 
 #: src/overleaf/use-overleaf-track-changes.ts
 msgid "An edit is still on its way to Overleaf. Try accepting again in a moment."
@@ -688,11 +662,7 @@ msgstr "An existing bibliography entry has an invalid citation key."
 msgid "An update from Overleaf did not fit this document; it needs to be reloaded."
 msgstr "An update from Overleaf did not fit this document; it needs to be reloaded."
 
-#: src/onboarding/onboarding-tour.tsx
-msgid "Analyze results in a live spreadsheet"
-msgstr "Analyze results in a live spreadsheet"
-
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Angle"
 msgstr "Angle"
 
@@ -771,7 +741,7 @@ msgstr "Approve for me"
 msgid "Approve the macOS prompt to continue"
 msgstr "Approve the macOS prompt to continue"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Approximately equal"
 msgstr "Approximately equal"
 
@@ -782,10 +752,6 @@ msgstr "Archived"
 #: src/editor/latex/latex-command-completions.ts
 msgid "Argument"
 msgstr "Argument"
-
-#: src/editor/insert/insert-palette.tsx
-msgid "Arrows"
-msgstr "Arrows"
 
 #: src/papers/bib-entry-dialog.tsx
 msgid "Article"
@@ -815,7 +781,7 @@ msgstr "Ask for approval"
 msgid "Ask only for potentially unsafe actions"
 msgstr "Ask only for potentially unsafe actions"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Asterisk operator"
 msgstr "Asterisk operator"
 
@@ -879,11 +845,7 @@ msgstr "Available offline"
 msgid "Azure"
 msgstr "Azure"
 
-#: src/onboarding/onboarding-tour.tsx
-msgid "Back"
-msgstr "Back"
-
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Back prime"
 msgstr "Back prime"
 
@@ -899,15 +861,7 @@ msgstr "Back to choices"
 msgid "Back to reference"
 msgstr "Back to reference"
 
-#: src/editor/insert/insert-snippets.ts
-msgid "Bar accent"
-msgstr "Bar accent"
-
-#: src/editor/insert/insert-snippets.ts
-msgid "Bar accent example"
-msgstr "Bar accent example"
-
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Bar over an expression"
 msgstr "Bar over an expression"
 
@@ -935,11 +889,11 @@ msgstr "Batch result reused"
 msgid "Beamer slide"
 msgstr "Beamer slide"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Beta"
 msgstr "Beta"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Beth"
 msgstr "Beth"
 
@@ -959,7 +913,7 @@ msgstr "Biber bibliography processor"
 msgid "biblatex bibliography file"
 msgstr "biblatex bibliography file"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Bibliographic citation (requires natbib or compatible package)"
 msgstr "Bibliographic citation (requires natbib or compatible package)"
 
@@ -995,11 +949,11 @@ msgstr "BibTeX preview"
 msgid "Big section heading."
 msgstr "Big section heading."
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Big triangle down"
 msgstr "Big triangle down"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Big triangle up"
 msgstr "Big triangle up"
 
@@ -1016,11 +970,7 @@ msgstr "Binary file — no line-by-line view"
 msgid "Binary file changed"
 msgstr "Binary file changed"
 
-#: src/editor/insert/insert-snippets.ts
-msgid "Binomial"
-msgstr "Binomial"
-
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Binomial coefficient"
 msgstr "Binomial coefficient"
 
@@ -1028,15 +978,11 @@ msgstr "Binomial coefficient"
 msgid "Black"
 msgstr "Black"
 
-#: src/editor/insert/insert-snippets.ts
-msgid "Blackboard bold"
-msgstr "Blackboard bold"
-
 #: src/editor/markdown/engine/chrome/slash-items.ts
 msgid "Block math equation rendered with KaTeX from a LaTeX source string."
 msgstr "Block math equation rendered with KaTeX from a LaTeX source string."
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Block quotation"
 msgstr "Block quotation"
 
@@ -1044,14 +990,10 @@ msgstr "Block quotation"
 msgid "Block type"
 msgstr "Block type"
 
-#: src/canvas/canvas-toolbar.tsx
 #: src/canvas/paper-reader.tsx
+#: src/trellis/trellis-workspace.tsx
 msgid "Blog"
 msgstr "Blog"
-
-#: src/onboarding/onboarding-tour.tsx
-msgid "Blog view gives you an illustrated overview before you read the full paper"
-msgstr "Blog view gives you an illustrated overview before you read the full paper"
 
 #: src/components/ui/apple-color-picker.tsx
 msgid "Blue"
@@ -1060,10 +1002,6 @@ msgstr "Blue"
 #: src/components/ui/apple-color-picker.tsx
 msgid "Blue value"
 msgstr "Blue value"
-
-#: src/editor/insert/insert-snippets.ts
-msgid "Bmatrix"
-msgstr "Bmatrix"
 
 #: src/canvas/editor-status-bar.tsx
 msgid "Body {body} · raw {raw} · {chars} chars"
@@ -1085,7 +1023,6 @@ msgstr "Body words ({source}): text {text}, headers {headers}, captions {caption
 msgid "Body words use TeXcount when installed (else a local estimate). Set budgets for your venue page/word limits"
 msgstr "Body words use TeXcount when installed (else a local estimate). Set budgets for your venue page/word limits"
 
-#: src/editor/insert/insert-snippets.ts
 #: src/editor/latex/latex-selection-toolbar.tsx
 #: src/editor/markdown/engine/chrome/selection-toolbar.tsx
 msgid "Bold"
@@ -1095,7 +1032,7 @@ msgstr "Bold"
 msgid "Bold math"
 msgstr "Bold math"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Bold text command"
 msgstr "Bold text command"
 
@@ -1115,7 +1052,7 @@ msgstr "Booktitle"
 msgid "Both sides edited different parts, so the two sets of edits join"
 msgstr "Both sides edited different parts, so the two sets of edits join"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Bottom / false"
 msgstr "Bottom / false"
 
@@ -1123,15 +1060,15 @@ msgstr "Bottom / false"
 msgid "Bottom table rule"
 msgstr "Bottom table rule"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Brace-delimited matrix"
 msgstr "Brace-delimited matrix"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Bracketed matrix"
 msgstr "Bracketed matrix"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Breve accent example"
 msgstr "Breve accent example"
 
@@ -1139,10 +1076,6 @@ msgstr "Breve accent example"
 #: src/overleaf/overleaf-history.tsx
 msgid "Bring back {0}"
 msgstr "Bring back {0}"
-
-#: src/onboarding/onboarding-tour.tsx
-msgid "Browse your bibliography"
-msgstr "Browse your bibliography"
 
 #: src/settings/settings-dialog.tsx
 msgid "Browser"
@@ -1153,14 +1086,10 @@ msgid "Browser storage is full or unavailable. New entries still reach the log f
 msgstr "Browser storage is full or unavailable. New entries still reach the log file on disk, but this list may be lost on restart."
 
 #: src/App.tsx
-#: src/app/app-titlebar.tsx
 #: src/app/use-build-pipeline.ts
+#: src/trellis/trellis-workspace.tsx
 msgid "Build"
 msgstr "Build"
-
-#: src/app/app-titlebar.tsx
-msgid "Build automatically · Command-S builds now. Shift-click for clean rebuild"
-msgstr "Build automatically · Command-S builds now. Shift-click for clean rebuild"
 
 #: src/build/compile-diagnostics-panel.tsx
 msgid "Build failed"
@@ -1177,10 +1106,6 @@ msgstr "Build log"
 #: src/build/compile-diagnostics-panel.tsx
 msgid "Build notes"
 msgstr "Build notes"
-
-#: src/app/app-titlebar.tsx
-msgid "Build only when requested · Command-S builds now. Shift-click for clean rebuild"
-msgstr "Build only when requested · Command-S builds now. Shift-click for clean rebuild"
 
 #: src/build/compile-diagnostics-panel.tsx
 msgid "Build output"
@@ -1202,6 +1127,14 @@ msgstr "Build succeeded in {seconds}s"
 msgid "Build superseded"
 msgstr "Build superseded"
 
+#: src/trellis/trellis-workspace.tsx
+msgid "Build the project and show the PDF · ⌘S · last build {seconds}s · Shift-click for a clean rebuild"
+msgstr "Build the project and show the PDF · ⌘S · last build {seconds}s · Shift-click for a clean rebuild"
+
+#: src/trellis/trellis-workspace.tsx
+msgid "Build the project and show the PDF · ⌘S · Shift-click for a clean rebuild"
+msgstr "Build the project and show the PDF · ⌘S · Shift-click for a clean rebuild"
+
 #: src/pdf/pdf-viewer.tsx
 msgid "Build the project to preview the paper"
 msgstr "Build the project to preview the paper"
@@ -1210,11 +1143,15 @@ msgstr "Build the project to preview the paper"
 msgid "Build to count"
 msgstr "Build to count"
 
+#: src/trellis/trellis-workspace.tsx
+msgid "Building… · the PDF refreshes when it finishes"
+msgstr "Building… · the PDF refreshes when it finishes"
+
 #: src/settings/settings-dialog.tsx
 msgid "Builds"
 msgstr "Builds"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Bullet"
 msgstr "Bullet"
 
@@ -1223,17 +1160,13 @@ msgstr "Bullet"
 msgid "Bullet List"
 msgstr "Bullet List"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Bulleted list"
 msgstr "Bulleted list"
 
 #: src/project/citation-health.ts
 msgid "cached"
 msgstr "cached"
-
-#: src/editor/insert/insert-snippets.ts
-msgid "Calligraphic"
-msgstr "Calligraphic"
 
 #: src/editor/markdown/engine/chrome/slash-items.ts
 #: src/editor/markdown/engine/views/component-views.tsx
@@ -1320,47 +1253,47 @@ msgstr "Cannot verify ICML packages (kpsewhich missing). Install BasicTeX from L
 msgid "Cannot verify NeurIPS packages (kpsewhich missing). Install BasicTeX from Lattice."
 msgstr "Cannot verify NeurIPS packages (kpsewhich missing). Install BasicTeX from Lattice."
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Capital delta"
 msgstr "Capital delta"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Capital gamma"
 msgstr "Capital gamma"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Capital lambda"
 msgstr "Capital lambda"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Capital omega"
 msgstr "Capital omega"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Capital phi"
 msgstr "Capital phi"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Capital pi"
 msgstr "Capital pi"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Capital psi"
 msgstr "Capital psi"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Capital sigma"
 msgstr "Capital sigma"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Capital theta"
 msgstr "Capital theta"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Capital upsilon"
 msgstr "Capital upsilon"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Capital xi"
 msgstr "Capital xi"
 
@@ -1373,10 +1306,6 @@ msgstr "Caption"
 msgid "Caption of a figure or table"
 msgstr "Caption of a figure or table"
 
-#: src/editor/insert/insert-snippets.ts
-msgid "Cases"
-msgstr "Cases"
-
 #: src/editor/markdown/engine/views/component-views.tsx
 msgid "Caution"
 msgstr "Caution"
@@ -1385,23 +1314,15 @@ msgstr "Caution"
 msgid "Cell spanning columns"
 msgstr "Cell spanning columns"
 
-#: src/editor/insert/insert-snippets.ts
-msgid "Center"
-msgstr "Center"
-
 #: src/editor/latex/latex-command-completions.ts
 msgid "Center the rest of this group"
 msgstr "Center the rest of this group"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Centered block"
 msgstr "Centered block"
 
-#: src/editor/insert/insert-snippets.ts
-msgid "Centered display equation"
-msgstr "Centered display equation"
-
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Centered dot"
 msgstr "Centered dot"
 
@@ -1409,7 +1330,7 @@ msgstr "Centered dot"
 msgid "Centered ellipsis"
 msgstr "Centered ellipsis"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Centered multi-line equations"
 msgstr "Centered multi-line equations"
 
@@ -1448,7 +1369,7 @@ msgstr "Chat"
 msgid "Check {0}"
 msgstr "Check {0}"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Check accent example"
 msgstr "Check accent example"
 
@@ -1468,8 +1389,9 @@ msgstr "Check incomplete"
 msgid "Check not started"
 msgstr "Check not started"
 
-#: src/app/app-workspace-sidebar.tsx
+#: src/App.tsx
 #: src/papers/bibliography-audit.tsx
+#: src/trellis/trellis-panel-actions.tsx
 msgid "Check references"
 msgstr "Check references"
 
@@ -1498,6 +1420,10 @@ msgstr "Checking your Overleaf connection…"
 msgid "Checking…"
 msgstr "Checking…"
 
+#: src/trellis/trellis-titles.ts
+msgid "Checklist"
+msgstr "Checklist"
+
 #: src/editor/markdown/engine/chrome/slash-items.ts
 msgid "Checklist with checkboxes."
 msgstr "Checklist with checkboxes."
@@ -1514,7 +1440,7 @@ msgstr "Checks English spelling and grammar as you type with Harper"
 msgid "Checks the tools Lattice needs to compile LaTeX"
 msgstr "Checks the tools Lattice needs to compile LaTeX"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Chi"
 msgstr "Chi"
 
@@ -1550,28 +1476,27 @@ msgstr "Choose where to create the project"
 msgid "Choose where to extract the project"
 msgstr "Choose where to extract the project"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Circled dot"
 msgstr "Circled dot"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Circled minus"
 msgstr "Circled minus"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Circled plus"
 msgstr "Circled plus"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Circled slash"
 msgstr "Circled slash"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Circled times / tensor"
 msgstr "Circled times / tensor"
 
 #: src/app/app-search-dialogs.tsx
-#: src/editor/insert/insert-snippets.ts
 msgid "Citation"
 msgstr "Citation"
 
@@ -1628,6 +1553,7 @@ msgid "clean rebuild"
 msgstr "clean rebuild"
 
 #: src/App.tsx
+#: src/trellis/trellis-workspace.tsx
 msgid "Clean rebuild"
 msgstr "Clean rebuild"
 
@@ -1653,42 +1579,21 @@ msgstr "Clear PDF search"
 msgid "Clear search"
 msgstr "Clear search"
 
-#: src/onboarding/onboarding-tour.tsx
-msgid "Click “An Image is Worth 16×16 Words”"
-msgstr "Click “An Image is Worth 16×16 Words”"
-
-#: src/onboarding/onboarding-tour.tsx
-msgid "Click Agent"
-msgstr "Click Agent"
-
-#: src/onboarding/onboarding-tour.tsx
-msgid "Click Paper to read the full text"
-msgstr "Click Paper to read the full text"
-
-#: src/onboarding/onboarding-tour.tsx
-msgid "Click Papers"
-msgstr "Click Papers"
-
-#: src/app/app-workspace-sidebar.tsx
-msgid "Click to collapse"
-msgstr "Click to collapse"
+#: src/trellis/trellis-workspace.tsx
+msgid "Click to edit"
+msgstr "Click to edit"
 
 #: src/canvas/canvas-toolbar.tsx
 msgid "click to sync"
 msgstr "click to sync"
 
-#: src/canvas/editor-tabs.tsx
 #: src/editor/codemirror-host.tsx
 msgid "Close"
 msgstr "Close"
 
-#. placeholder {0}: tabLabel(tab)
-#: src/canvas/editor-tabs.tsx
-msgid "Close {0}"
-msgstr "Close {0}"
-
 #: src/components/ui/panel-header.tsx
 #: src/components/ui/search-picker-dialog.tsx
+#: src/trellis/trellis-labels.ts
 msgid "Close {title}"
 msgstr "Close {title}"
 
@@ -1700,9 +1605,9 @@ msgstr "Close find"
 msgid "Close Git workspace"
 msgstr "Close Git workspace"
 
-#: src/editor/insert/insert-palette.tsx
-msgid "Close insert palette"
-msgstr "Close insert palette"
+#: src/trellis/trellis-labels.ts
+msgid "Close other tabs"
+msgstr "Close other tabs"
 
 #: src/components/ui/icon-button.tsx
 #: src/components/ui/panel-header.tsx
@@ -1721,20 +1626,20 @@ msgstr "Close search"
 msgid "Close settings"
 msgstr "Close settings"
 
-#: src/canvas/canvas-toolbar.tsx
-msgid "Close split"
-msgstr "Close split"
-
 #: src/app/native-locale.ts
 msgctxt "macOS menu bar"
 msgid "Close Window"
 msgstr "Close Window"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/trellis/trellis-titlebar.tsx
+msgid "Closed"
+msgstr "Closed"
+
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Closed-path integral"
 msgstr "Closed-path integral"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Club suit"
 msgstr "Club suit"
 
@@ -1754,10 +1659,6 @@ msgstr "Code block settings"
 #: src/editor/markdown/engine/views/code-block-view.tsx
 msgid "Code block title"
 msgstr "Code block title"
-
-#: src/editor/insert/insert-snippets.ts
-msgid "Code listing"
-msgstr "Code listing"
 
 #: src/editor/markdown/engine/views/component-views.tsx
 msgid "Collapsible"
@@ -1832,8 +1733,13 @@ msgstr "Comment visibility"
 
 #: src/canvas/editor-status-bar.tsx
 #: src/overleaf/overleaf-collab.tsx
+#: src/trellis/trellis-titles.ts
 msgid "Comments"
 msgstr "Comments"
+
+#: src/settings/settings-dialog.tsx
+msgid "Comments on the open document, for projects not linked to Overleaf"
+msgstr "Comments on the open document, for projects not linked to Overleaf"
 
 #: src/overleaf/overleaf-review.tsx
 msgid "Comparing this project with Overleaf…"
@@ -1875,7 +1781,7 @@ msgstr "Component"
 msgid "Components"
 msgstr "Components"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Composition / ring"
 msgstr "Composition / ring"
 
@@ -1907,7 +1813,7 @@ msgstr "Conflicting spots"
 msgid "Conflicts"
 msgstr "Conflicts"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Congruent"
 msgstr "Congruent"
 
@@ -1960,13 +1866,12 @@ msgstr "Contact email"
 msgid "Contact settings saved."
 msgstr "Contact settings saved."
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Contains as member"
 msgstr "Contains as member"
 
 #: src/components/ui/confirm-action-dialog.tsx
 #: src/editor/spreadsheet/spreadsheet-univer.ts
-#: src/onboarding/onboarding-tour.tsx
 msgid "Continue"
 msgstr "Continue"
 
@@ -1974,10 +1879,6 @@ msgstr "Continue"
 #: src/editor/spreadsheet/spreadsheet-univer.ts
 msgid "Continue?"
 msgstr "Continue?"
-
-#: src/editor/insert/insert-snippets.ts
-msgid "Contour integral"
-msgstr "Contour integral"
 
 #: src/editor/codemirror-host.tsx
 msgid "Control character"
@@ -2033,7 +1934,7 @@ msgstr "Copy notification command"
 msgid "Copy path"
 msgstr "Copy path"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Copyright"
 msgstr "Copyright"
 
@@ -2201,10 +2102,6 @@ msgstr "Create a research project"
 msgid "Create file"
 msgstr "Create file"
 
-#: src/onboarding/onboarding-tour.tsx
-msgid "Create with the + menu"
-msgstr "Create with the + menu"
-
 #: src/history/file-diff-view.tsx
 msgid "created"
 msgstr "created"
@@ -2218,7 +2115,7 @@ msgstr "Creates a {0} paper draft with bibliography and project brief"
 msgid "Creating project…"
 msgstr "Creating project…"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Cross-reference label"
 msgstr "Cross-reference label"
 
@@ -2237,10 +2134,6 @@ msgstr "Crossref citation-health metadata is currently unavailable"
 #: src/project/citation-health.ts
 msgid "Crossref reports update type: {updateType}"
 msgstr "Crossref reports update type: {updateType}"
-
-#: src/editor/insert/insert-snippets.ts
-msgid "Curly matrix"
-msgstr "Curly matrix"
 
 #: src/papers/bibliography-audit.tsx
 msgid "Current BibTeX"
@@ -2263,15 +2156,15 @@ msgstr "Cut"
 msgid "Cyan"
 msgstr "Cyan"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Dagger"
 msgstr "Dagger"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Dagger text symbol"
 msgstr "Dagger text symbol"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Daleth"
 msgstr "Daleth"
 
@@ -2323,10 +2216,6 @@ msgstr "definition"
 #: src/editor/markdown/engine/lattice-visual-editor.tsx
 msgid "Definition"
 msgstr "Definition"
-
-#: src/editor/insert/insert-snippets.ts
-msgid "Degree"
-msgstr "Degree"
 
 #: src/App.tsx
 #: src/components/ui/confirm-action-dialog.tsx
@@ -2435,15 +2324,10 @@ msgstr "Deleted here but still on Overleaf. Lattice never deletes remote files; 
 msgid "Deleted there and unchanged here, so it goes away locally too"
 msgstr "Deleted there and unchanged here, so it goes away locally too"
 
-#: src/editor/insert/insert-palette.tsx
-msgid "Delimiters"
-msgstr "Delimiters"
-
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Delta"
 msgstr "Delta"
 
-#: src/editor/insert/insert-snippets.ts
 #: src/editor/markdown/engine/views/image-view.tsx
 msgid "Description"
 msgstr "Description"
@@ -2452,7 +2336,7 @@ msgstr "Description"
 msgid "Details"
 msgstr "Details"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Determinant-style matrix"
 msgstr "Determinant-style matrix"
 
@@ -2466,11 +2350,11 @@ msgstr "Diagnostics"
 msgid "Diagram from Mermaid source — flowchart, sequence, class, state, ER, gantt, pie."
 msgstr "Diagram from Mermaid source — flowchart, sequence, class, state, ER, gantt, pie."
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Diamond operator"
 msgstr "Diamond operator"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Diamond suit"
 msgstr "Diamond suit"
 
@@ -2479,9 +2363,13 @@ msgstr "Diamond suit"
 msgid "Diff for {0}"
 msgstr "Diff for {0}"
 
+#: src/trellis/trellis-workspace.tsx
+msgid "Discard and close"
+msgstr "Discard and close"
+
 #: src/App.tsx
-#: src/app/app-workspace-sidebar.tsx
 #: src/papers/literature-discovery-panel.tsx
+#: src/trellis/trellis-panel-actions.tsx
 msgid "Discover literature"
 msgstr "Discover literature"
 
@@ -2505,21 +2393,21 @@ msgstr "Dismiss references"
 msgid "Display"
 msgstr "Display"
 
-#: src/editor/insert/insert-snippets.ts
-msgid "Display fraction"
-msgstr "Display fraction"
-
-#: src/editor/insert/insert-snippets.ts
-msgid "Display math"
-msgstr "Display math"
-
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Divides / conditioned on"
 msgstr "Divides / conditioned on"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Division"
 msgstr "Division"
+
+#: src/trellis/trellis-labels.ts
+msgid "Dock"
+msgstr "Dock"
+
+#: src/trellis/trellis-labels.ts
+msgid "Dock beside documents"
+msgstr "Dock beside documents"
 
 #: src/editor/latex/latex-command-completions.ts
 msgid "Document authors"
@@ -2545,11 +2433,11 @@ msgstr "Document sections"
 msgid "Document title"
 msgstr "Document title"
 
-#: src/canvas/canvas-toolbar.tsx
+#: src/trellis/trellis-workspace.tsx
 msgid "Document view"
 msgstr "Document view"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Does not exist"
 msgstr "Does not exist"
 
@@ -2561,43 +2449,35 @@ msgstr "DOI metadata corrections are available."
 msgid "Done"
 msgstr "Done"
 
-#: src/editor/insert/insert-snippets.ts
-msgid "Dot accent"
-msgstr "Dot accent"
-
-#: src/editor/insert/insert-snippets.ts
-msgid "Dot accent example"
-msgstr "Dot accent example"
-
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Dotless i"
 msgstr "Dotless i"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Dotless j"
 msgstr "Dotless j"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Double dagger"
 msgstr "Double dagger"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Double dagger text symbol"
 msgstr "Double dagger text symbol"
 
-#: src/editor/insert/insert-snippets.ts
-msgid "Double integral"
-msgstr "Double integral"
+#: src/trellis/trellis-labels.ts
+msgid "Double-click to zoom in"
+msgstr "Double-click to zoom in"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Double-dot accent example"
 msgstr "Double-dot accent example"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Down arrow"
 msgstr "Down arrow"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Down double arrow"
 msgstr "Down double arrow"
 
@@ -2647,10 +2527,6 @@ msgstr "Downloading update…"
 msgid "Drag to cite · Click to read"
 msgstr "Drag to cite · Click to read"
 
-#: src/app/app-workspace-sidebar.tsx
-msgid "Drag to resize"
-msgstr "Drag to resize"
-
 #: src/App.tsx
 msgid "Drop image or PDF files onto a TeX/Markdown editor to insert them, onto an open document to import and open them, or into the Project pane to add them."
 msgstr "Drop image or PDF files onto a TeX/Markdown editor to insert them, onto an open document to import and open them, or into the Project pane to add them."
@@ -2666,10 +2542,6 @@ msgstr "Drop source files and figures separately so Lattice knows whether to ope
 #: src/App.tsx
 msgid "Drop source files onto an editor to open them, or into the Project pane to add them."
 msgstr "Drop source files onto an editor to open them, or into the Project pane to add them."
-
-#: src/App.tsx
-msgid "Dual source view"
-msgstr "Dual source view"
 
 #: src/editor/latex/latex-diagnostics.ts
 msgid "Duplicate bibliography key “{key}”."
@@ -2711,13 +2583,9 @@ msgstr "e.g. 9"
 msgid "e.g. Lattice"
 msgstr "e.g. Lattice"
 
-#: src/onboarding/onboarding-tour.tsx
-msgid "Each .bib entry appears here. Entries with an arXiv ID can be downloaded in full"
-msgstr "Each .bib entry appears here. Entries with an arXiv ID can be downloaded in full"
-
 #: src/App.tsx
-#: src/canvas/canvas-toolbar.tsx
 #: src/editor/comments/editor-comments-panel.tsx
+#: src/trellis/trellis-workspace.tsx
 msgid "Edit"
 msgstr "Edit"
 
@@ -2726,15 +2594,11 @@ msgctxt "macOS menu bar"
 msgid "Edit"
 msgstr "Edit"
 
-#: src/onboarding/onboarding-tour.tsx
-msgid "Edit an Open Slide presentation"
-msgstr "Edit an Open Slide presentation"
-
-#: src/canvas/canvas-toolbar.tsx
+#: src/trellis/trellis-workspace.tsx
 msgid "Edit and preview HTML"
 msgstr "Edit and preview HTML"
 
-#: src/canvas/canvas-toolbar.tsx
+#: src/trellis/trellis-workspace.tsx
 msgid "Edit and preview Markdown"
 msgstr "Edit and preview Markdown"
 
@@ -2747,15 +2611,11 @@ msgstr "Edit before saving"
 msgid "Edit bibliography entry"
 msgstr "Edit bibliography entry"
 
-#: src/onboarding/onboarding-tour.tsx
-msgid "Edit cells and formulas directly"
-msgstr "Edit cells and formulas directly"
-
 #: src/editor/markdown/engine/passive-view.tsx
 msgid "Edit document"
 msgstr "Edit document"
 
-#: src/canvas/canvas-toolbar.tsx
+#: src/trellis/trellis-workspace.tsx
 msgid "Edit HTML"
 msgstr "Edit HTML"
 
@@ -2763,11 +2623,7 @@ msgstr "Edit HTML"
 msgid "Edit link"
 msgstr "Edit link"
 
-#: src/onboarding/onboarding-tour.tsx
-msgid "Edit main.tex on the left. The PDF on the right updates automatically"
-msgstr "Edit main.tex on the left. The PDF on the right updates automatically"
-
-#: src/canvas/canvas-toolbar.tsx
+#: src/trellis/trellis-workspace.tsx
 msgid "Edit Markdown"
 msgstr "Edit Markdown"
 
@@ -2778,18 +2634,6 @@ msgstr "Edit message"
 #: src/overleaf/overleaf-comments.tsx
 msgid "Edit message text"
 msgstr "Edit message text"
-
-#: src/onboarding/onboarding-tour.tsx
-msgid "Edit notes.md on the left and see the formatted result update live on the right"
-msgstr "Edit notes.md on the left and see the formatted result update live on the right"
-
-#: src/canvas/canvas-toolbar.tsx
-msgid "Edit source"
-msgstr "Edit source"
-
-#: src/canvas/canvas-toolbar.tsx
-msgid "Edit source and preview PDF"
-msgstr "Edit source and preview PDF"
 
 #: src/history/conflict-resolver.tsx
 msgid "Edit the combined file if anything still needs fixing, then save it."
@@ -2823,6 +2667,7 @@ msgstr "Editor & builds"
 #: src/canvas/canvas-toolbar.tsx
 #: src/canvas/editor-status-bar.tsx
 #: src/editor/comments/editor-comments-panel.tsx
+#: src/settings/settings-dialog.tsx
 msgid "Editor comments"
 msgstr "Editor comments"
 
@@ -2846,7 +2691,7 @@ msgstr "Editor status"
 msgid "Edits sync live with Overleaf"
 msgstr "Edits sync live with Overleaf"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Element of"
 msgstr "Element of"
 
@@ -2862,11 +2707,7 @@ msgstr "Embed an image with optional alt text."
 msgid "Emoji"
 msgstr "Emoji"
 
-#: src/editor/insert/insert-snippets.ts
-msgid "Emphasis"
-msgstr "Emphasis"
-
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Emphasized text command"
 msgstr "Emphasized text command"
 
@@ -2890,15 +2731,11 @@ msgstr "Empty file added"
 msgid "Empty file deleted"
 msgstr "Empty file deleted"
 
-#: src/canvas/document-canvas.tsx
-msgid "Empty secondary editor"
-msgstr "Empty secondary editor"
-
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Empty set"
 msgstr "Empty set"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Empty set (variant)"
 msgstr "Empty set (variant)"
 
@@ -2949,15 +2786,7 @@ msgstr "Entry changed"
 msgid "Entry type"
 msgstr "Entry type"
 
-#: src/editor/insert/insert-snippets.ts
-msgid "Enumerate"
-msgstr "Enumerate"
-
-#: src/editor/insert/insert-palette.tsx
-msgid "Environment"
-msgstr "Environment"
-
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Epsilon"
 msgstr "Epsilon"
 
@@ -2965,7 +2794,6 @@ msgstr "Epsilon"
 msgid "equation"
 msgstr "equation"
 
-#: src/editor/insert/insert-snippets.ts
 #: src/editor/markdown/engine/views/math-views.tsx
 msgid "Equation"
 msgstr "Equation"
@@ -2974,19 +2802,11 @@ msgstr "Equation"
 msgid "Equation properties"
 msgstr "Equation properties"
 
-#: src/editor/insert/insert-snippets.ts
-msgid "Equation reference"
-msgstr "Equation reference"
-
-#: src/editor/insert/insert-snippets.ts
-msgid "Equation*"
-msgstr "Equation*"
-
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Equilibrium arrows"
 msgstr "Equilibrium arrows"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Equivalent / congruent"
 msgstr "Equivalent / congruent"
 
@@ -3006,13 +2826,17 @@ msgstr "Error details copied"
 msgid "estimate"
 msgstr "estimate"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Estimator / unit vector mark"
 msgstr "Estimator / unit vector mark"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Eta"
 msgstr "Eta"
+
+#: src/trellis/trellis-workspace.tsx
+msgid "Every panel is closed"
+msgstr "Every panel is closed"
 
 #: src/history/conflict-resolver.tsx
 msgid "Every spot decided"
@@ -3021,10 +2845,6 @@ msgstr "Every spot decided"
 #: src/overleaf/overleaf-review.tsx
 msgid "Everything already matches Overleaf"
 msgstr "Everything already matches Overleaf"
-
-#: src/onboarding/onboarding-tour.tsx
-msgid "Everything for the paper lives in one folder"
-msgstr "Everything for the paper lives in one folder"
 
 #: src/papers/bib-entry-dialog.tsx
 msgid "Exact title match"
@@ -3118,10 +2938,6 @@ msgstr "fig:name (optional)"
 msgid "figure"
 msgstr "figure"
 
-#: src/editor/insert/insert-snippets.ts
-msgid "Figure"
-msgstr "Figure"
-
 #: src/editor/latex/latex-hover-cards.ts
 msgid "Figure preview could not be loaded."
 msgstr "Figure preview could not be loaded."
@@ -3155,7 +2971,7 @@ msgstr "file upload"
 msgid "Files in this change"
 msgstr "Files in this change"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Filled square"
 msgstr "Filled square"
 
@@ -3175,11 +2991,7 @@ msgstr "Filter languages"
 msgid "Filter project changes"
 msgstr "Filter project changes"
 
-#: src/editor/insert/insert-palette.tsx
-msgid "Filter snippets"
-msgstr "Filter snippets"
-
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Final sigma"
 msgstr "Final sigma"
 
@@ -3197,6 +3009,10 @@ msgstr "Find"
 msgid "Find & replace in project"
 msgstr "Find & replace in project"
 
+#: src/settings/settings-dialog.tsx
+msgid "Find a paper by title, DOI or arXiv ID"
+msgstr "Find a paper by title, DOI or arXiv ID"
+
 #: src/build/compile-diagnostics-panel.tsx
 msgid "Find and install the TeX Live package for {missingFile}"
 msgstr "Find and install the TeX Live package for {missingFile}"
@@ -3210,18 +3026,14 @@ msgid "Find in PDF"
 msgstr "Find in PDF"
 
 #: src/App.tsx
-#: src/app/app-workspace-sidebar.tsx
 #: src/project/project-find-dialog.tsx
+#: src/trellis/trellis-panel-actions.tsx
 msgid "Find in project"
 msgstr "Find in project"
 
 #: src/project/project-replace-dialog.tsx
 msgid "Find text to replace"
 msgstr "Find text to replace"
-
-#: src/onboarding/onboarding-tour.tsx
-msgid "Finish"
-msgstr "Finish"
 
 #: src/App.tsx
 msgid "Finish the current text composition, then switch projects again."
@@ -3255,15 +3067,19 @@ msgstr "Fix all"
 msgid "Fix all errors and warnings, then recompile"
 msgstr "Fix all errors and warnings, then recompile"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Flat"
 msgstr "Flat"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/trellis/trellis-labels.ts
+msgid "Float"
+msgstr "Float"
+
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Floating figure with image, caption, and label (requires graphicx)"
 msgstr "Floating figure with image, caption, and label (requires graphicx)"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Floating table with ruled rows (requires booktabs)"
 msgstr "Floating table with ruled rows (requires booktabs)"
 
@@ -3287,7 +3103,6 @@ msgstr "Folded lines"
 msgid "Follow system (default)"
 msgstr "Follow system (default)"
 
-#: src/editor/insert/insert-snippets.ts
 #: src/editor/markdown/engine/chrome/slash-items.ts
 msgid "Footnote"
 msgstr "Footnote"
@@ -3296,7 +3111,7 @@ msgstr "Footnote"
 msgid "Footnote {label}"
 msgstr "Footnote {label}"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Footnote at the cursor"
 msgstr "Footnote at the cursor"
 
@@ -3304,7 +3119,7 @@ msgstr "Footnote at the cursor"
 msgid "For Agent startup or connection failures. Includes recent lattice, sidecar, and server logs (up to 128 KiB each). Known credentials are masked, but paths and document content may remain. Review before sharing."
 msgstr "For Agent startup or connection failures. Includes recent lattice, sidecar, and server logs (up to 128 KiB each). Known credentials are masked, but paths and document content may remain. Review before sharing."
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "For all"
 msgstr "For all"
 
@@ -3336,24 +3151,16 @@ msgstr "Formula"
 msgid "Formulas"
 msgstr "Formulas"
 
-#: src/onboarding/onboarding-tour.tsx
-msgid "Formulas and Excel export"
-msgstr "Formulas and Excel export"
-
 #: src/editor/markdown/engine/chrome/slash-items.ts
 msgid "Fourth-level heading."
 msgstr "Fourth-level heading."
-
-#: src/editor/insert/insert-snippets.ts
-msgid "Fraction"
-msgstr "Fraction"
 
 #: src/editor/markdown/engine/lattice-visual-editor.tsx
 #: src/editor/markdown/engine/views/raw-block-view.tsx
 msgid "Frontmatter"
 msgstr "Frontmatter"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Frown relation"
 msgstr "Frown relation"
 
@@ -3373,17 +3180,9 @@ msgstr "Full-width floating figure"
 msgid "Full-width floating table"
 msgstr "Full-width floating table"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Gamma"
 msgstr "Gamma"
-
-#: src/editor/insert/insert-snippets.ts
-msgid "Gather"
-msgstr "Gather"
-
-#: src/editor/insert/insert-snippets.ts
-msgid "Gather*"
-msgstr "Gather*"
 
 #: src/settings/settings-dialog.tsx
 msgid "General"
@@ -3393,15 +3192,11 @@ msgstr "General"
 msgid "Get API key"
 msgstr "Get API key"
 
-#: src/onboarding/onboarding-tour.tsx
-msgid "Get the gist before you dive in"
-msgstr "Get the gist before you dive in"
-
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Gets (short left arrow)"
 msgstr "Gets (short left arrow)"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Gimel"
 msgstr "Gimel"
 
@@ -3414,6 +3209,7 @@ msgid "git bridge"
 msgstr "git bridge"
 
 #: src/canvas/canvas-toolbar.tsx
+#: src/settings/settings-dialog.tsx
 msgid "Git status and commit"
 msgstr "Git status and commit"
 
@@ -3469,7 +3265,7 @@ msgstr "Going to Overleaf"
 msgid "Google Scholar"
 msgstr "Google Scholar"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Grave accent example"
 msgstr "Grave accent example"
 
@@ -3477,13 +3273,9 @@ msgstr "Grave accent example"
 msgid "Gray"
 msgstr "Gray"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Greater than or equal"
 msgstr "Greater than or equal"
-
-#: src/editor/insert/insert-palette.tsx
-msgid "Greek"
-msgstr "Greek"
 
 #: src/components/ui/apple-color-picker.tsx
 msgid "Green"
@@ -3505,7 +3297,7 @@ msgstr "Grid generator"
 msgid "Grid of rows and columns with a header row."
 msgstr "Grid of rows and columns with a header row."
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Grouped numbered equations"
 msgstr "Grouped numbered equations"
 
@@ -3513,21 +3305,13 @@ msgstr "Grouped numbered equations"
 msgid "Guided tutorial"
 msgstr "Guided tutorial"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "H-bar / reduced Planck"
 msgstr "H-bar / reduced Planck"
 
 #: src/editor/latex/latex-command-completions.ts
 msgid "Hand-written bibliography"
 msgstr "Hand-written bibliography"
-
-#: src/editor/insert/insert-snippets.ts
-msgid "Hat accent"
-msgstr "Hat accent"
-
-#: src/editor/insert/insert-snippets.ts
-msgid "Hat accent example"
-msgstr "Hat accent example"
 
 #: src/editor/markdown/engine/chrome/selection-toolbar.tsx
 #: src/editor/markdown/engine/chrome/slash-items.ts
@@ -3567,7 +3351,7 @@ msgstr "Heading level"
 msgid "Health checked at"
 msgstr "Health checked at"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Heart suit"
 msgstr "Heart suit"
 
@@ -3584,14 +3368,26 @@ msgstr "Hex"
 msgid "Hex color"
 msgstr "Hex color"
 
+#: src/trellis/trellis-titlebar.tsx
+msgid "Hidden"
+msgstr "Hidden"
+
+#: src/trellis/trellis-titlebar.tsx
+msgid "Hidden panels"
+msgstr "Hidden panels"
+
+#: src/trellis/trellis-labels.ts
+msgid "Hide"
+msgstr "Hide"
+
+#: src/trellis/trellis-titlebar.tsx
+msgid "Hide {name}"
+msgstr "Hide {name}"
+
 #: src/app/native-locale.ts
 msgctxt "macOS menu bar"
 msgid "Hide {name}"
 msgstr "Hide {name}"
-
-#: src/app/app-agent-panel.tsx
-msgid "Hide assistant"
-msgstr "Hide assistant"
 
 #: src/editor/markdown/engine/views/code-block-view.tsx
 msgid "Hide Mermaid preview"
@@ -3601,10 +3397,6 @@ msgstr "Hide Mermaid preview"
 msgctxt "macOS menu bar"
 msgid "Hide Others"
 msgstr "Hide Others"
-
-#: src/app/app-titlebar.tsx
-msgid "Hide sidebar"
-msgstr "Hide sidebar"
 
 #: src/editor/markdown/engine/chrome/selection-toolbar.tsx
 msgid "Highlight"
@@ -3622,15 +3414,19 @@ msgstr "Highlight tips, warnings, and notes."
 msgid "Highlighted code"
 msgstr "Highlighted code"
 
+#: src/trellis/trellis-titles.ts
+msgid "History"
+msgstr "History"
+
 #: src/history/history-drawer.tsx
 msgid "History views"
 msgstr "History views"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Hook left arrow"
 msgstr "Hook left arrow"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Hook right arrow"
 msgstr "Hook right arrow"
 
@@ -3650,10 +3446,6 @@ msgstr "Horizontal space"
 #: src/editor/markdown/engine/views/raw-block-view.tsx
 msgid "HTML"
 msgstr "HTML"
-
-#: src/onboarding/onboarding-tour.tsx
-msgid "HTML files render live here, so you can build interactive demos and figures"
-msgstr "HTML files render live here, so you can build interactive demos and figures"
 
 #: src/canvas/html-preview.tsx
 msgid "HTML preview for {path}"
@@ -3679,7 +3471,7 @@ msgstr "ICLR Proceedings"
 msgid "ICML packages"
 msgstr "ICML packages"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "If and only if"
 msgstr "If and only if"
 
@@ -3700,11 +3492,11 @@ msgstr "Image source"
 msgid "Image zoom percentage"
 msgstr "Image zoom percentage"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Imaginary part"
 msgstr "Imaginary part"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Implies"
 msgstr "Implies"
 
@@ -3790,21 +3582,13 @@ msgstr "In progress"
 msgid "In this file"
 msgstr "In this file"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Include another TeX file"
 msgstr "Include another TeX file"
 
 #: src/telemetry/app-log.tsx
 msgid "Include app and Agent runtime logs"
 msgstr "Include app and Agent runtime logs"
-
-#: src/editor/insert/insert-snippets.ts
-msgid "Include file"
-msgstr "Include file"
-
-#: src/editor/insert/insert-snippets.ts
-msgid "Include graphics"
-msgstr "Include graphics"
 
 #: src/telemetry/app-log.tsx
 msgid "Include raw diagnostic text"
@@ -3838,7 +3622,7 @@ msgstr "Independent metadata unavailable"
 msgid "Indigo"
 msgstr "Indigo"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Infinity"
 msgstr "Infinity"
 
@@ -3854,7 +3638,7 @@ msgstr "INFO"
 msgid "Initialize version tracking"
 msgstr "Initialize version tracking"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Inline another TeX file"
 msgstr "Inline another TeX file"
 
@@ -3865,10 +3649,6 @@ msgstr "Inline code"
 #: src/editor/markdown/engine/chrome/slash-items.ts
 msgid "Inline LaTeX math rendered with KaTeX."
 msgstr "Inline LaTeX math rendered with KaTeX."
-
-#: src/editor/insert/insert-snippets.ts
-msgid "Inline math"
-msgstr "Inline math"
 
 #: src/editor/markdown/engine/chrome/slash-items.ts
 msgid "Inline Math"
@@ -3882,16 +3662,7 @@ msgstr "Inline Math Properties"
 msgid "Inproceedings entry uses journal instead of booktitle."
 msgstr "Inproceedings entry uses journal instead of booktitle."
 
-#: src/editor/insert/insert-snippets.ts
-msgid "Input file"
-msgstr "Input file"
-
-#: src/canvas/editor-status-bar.tsx
-msgid "insert"
-msgstr "insert"
-
 #: src/editor/insert/figure-insert-dialog.tsx
-#: src/editor/insert/insert-palette.tsx
 #: src/editor/markdown/engine/chrome/slash-items.ts
 msgid "Insert"
 msgstr "Insert"
@@ -3916,17 +3687,9 @@ msgstr "Insert a footnote reference + matching definition stub."
 msgid "Insert a formula"
 msgstr "Insert a formula"
 
-#: src/canvas/document-canvas.tsx
-msgid "Insert above line {line}"
-msgstr "Insert above line {line}"
-
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Insert an image path (requires graphicx)"
 msgstr "Insert an image path (requires graphicx)"
-
-#: src/editor/insert/insert-palette.tsx
-msgid "Insert categories"
-msgstr "Insert categories"
 
 #: src/App.tsx
 #: src/app/app-search-dialogs.tsx
@@ -3949,10 +3712,6 @@ msgstr "Insert column right"
 msgid "Insert figure"
 msgstr "Insert figure"
 
-#: src/editor/insert/insert-palette.tsx
-msgid "Insert LaTeX snippets"
-msgstr "Insert LaTeX snippets"
-
 #: src/editor/markdown/engine/chrome/selection-toolbar.tsx
 msgid "Insert link"
 msgstr "Insert link"
@@ -3969,14 +3728,6 @@ msgstr "Insert row above"
 #: src/editor/markdown/engine/views/table-controls.tsx
 msgid "Insert row below"
 msgstr "Insert row below"
-
-#: src/App.tsx
-msgid "Insert snippet"
-msgstr "Insert snippet"
-
-#: src/canvas/canvas-toolbar.tsx
-msgid "Insert snippet or symbol (⌘⇧I)"
-msgstr "Insert snippet or symbol (⌘⇧I)"
 
 #: src/App.tsx
 #: src/editor/insert/table-generator-dialog.tsx
@@ -4053,14 +3804,9 @@ msgstr "Installing…"
 msgid "Insufficient identifying metadata"
 msgstr "Insufficient identifying metadata"
 
-#: src/editor/insert/insert-snippets.ts
 #: src/editor/latex/latex-command-completions.ts
 msgid "Integral"
 msgstr "Integral"
-
-#: src/editor/insert/insert-snippets.ts
-msgid "Integral with limits"
-msgstr "Integral with limits"
 
 #: src/settings/settings-dialog.tsx
 msgid "Integrations"
@@ -4074,7 +3820,7 @@ msgstr "Interface language"
 msgid "Interface sounds"
 msgstr "Interface sounds"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Intersection"
 msgstr "Intersection"
 
@@ -4099,9 +3845,13 @@ msgstr "Invalid saved bibliography audit report."
 msgid "Invalid worksheet: {name}"
 msgstr "Invalid worksheet: {name}"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Iota"
 msgstr "Iota"
+
+#: src/trellis/trellis-workspace.tsx
+msgid "It resumes as soon as the panel is on screen."
+msgstr "It resumes as soon as the panel is on screen."
 
 #: src/editor/latex/latex-selection-toolbar.tsx
 #: src/editor/markdown/engine/chrome/selection-toolbar.tsx
@@ -4111,10 +3861,6 @@ msgstr "Italic"
 #: src/editor/latex/latex-command-completions.ts
 msgid "Italic text"
 msgstr "Italic text"
-
-#: src/editor/insert/insert-snippets.ts
-msgid "Itemize"
-msgstr "Itemize"
 
 #: src/overleaf/overleaf-comments.tsx
 msgid "Its span was deleted from the document, so Overleaf can't say which file to act on"
@@ -4144,7 +3890,7 @@ msgstr "Jump to this location"
 msgid "just now"
 msgstr "just now"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Kappa"
 msgstr "Kappa"
 
@@ -4202,7 +3948,6 @@ msgstr "Keys stay in your system keychain, not in the project. Personal keys tak
 
 #: src/app/app-search-dialogs.tsx
 #: src/editor/insert/figure-insert-dialog.tsx
-#: src/editor/insert/insert-snippets.ts
 #: src/editor/insert/table-generator-dialog.tsx
 msgid "Label"
 msgstr "Label"
@@ -4219,7 +3964,7 @@ msgstr "Label removed."
 msgid "Label this version (optional)"
 msgstr "Label this version (optional)"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Labeled description list"
 msgstr "Labeled description list"
 
@@ -4227,7 +3972,7 @@ msgstr "Labeled description list"
 msgid "labels"
 msgstr "labels"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Lambda"
 msgstr "Lambda"
 
@@ -4236,7 +3981,7 @@ msgstr "Lambda"
 msgid "Language"
 msgstr "Language"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Larger fraction"
 msgstr "Larger fraction"
 
@@ -4247,10 +3992,6 @@ msgstr "Last build"
 #: src/papers/bibliography-audit.tsx
 msgid "Last checked"
 msgstr "Last checked"
-
-#: src/onboarding/onboarding-tour.tsx
-msgid "Last stop: your writing agent"
-msgstr "Last stop: your writing agent"
 
 #. placeholder {0}: relativeTime(current.lastSync)
 #: src/overleaf/overleaf-connect.tsx
@@ -4317,10 +4058,6 @@ msgstr "Lattice checks in the background and installs updates on its own"
 msgid "Lattice checks in the background; you decide when to install"
 msgstr "Lattice checks in the background; you decide when to install"
 
-#: src/settings/settings-dialog.tsx
-msgid "Lattice closes the least recently used tab past this count"
-msgstr "Lattice closes the least recently used tab past this count"
-
 #: src/overleaf/use-overleaf-realtime.ts
 msgid "Lattice could not confirm whether Overleaf accepted the latest edit to {path} ({detail}). Syncing is paused for this file while Lattice checks."
 msgstr "Lattice could not confirm whether Overleaf accepted the latest edit to {path} ({detail}). Syncing is paused for this file while Lattice checks."
@@ -4336,10 +4073,6 @@ msgstr "Lattice couldn’t open this window"
 #: src/telemetry/root-error-boundary.tsx
 msgid "Lattice couldn’t restart automatically. Quit and reopen it manually."
 msgstr "Lattice couldn’t restart automatically. Quit and reopen it manually."
-
-#: src/onboarding/onboarding-tour.tsx
-msgid "Lattice downloads the full text, figures, and metadata and keeps them with the citation"
-msgstr "Lattice downloads the full text, figures, and metadata and keeps them with the citation"
 
 #: src/build/tex-setup-wizard.tsx
 msgid "Lattice needs uv to add papers and manage bibliographies. The verified download uses about 45 MB and usually installs in under a minute"
@@ -4362,6 +4095,14 @@ msgstr "Lattice update failed"
 msgid "Lattice will find and install the TeX Live package that provides {0}."
 msgstr "Lattice will find and install the TeX Live package that provides {0}."
 
+#: src/trellis/trellis-workspace.tsx
+msgid "Lattice workspace"
+msgstr "Lattice workspace"
+
+#: src/App.tsx
+msgid "Layout"
+msgstr "Layout"
+
 #: src/App.tsx
 msgid "Learn Lattice with the Understanding Attention sample project"
 msgstr "Learn Lattice with the Understanding Attention sample project"
@@ -4374,55 +4115,51 @@ msgstr "Leave a comment for collaborators…"
 msgid "Left alone"
 msgstr "Left alone"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Left angle bracket"
 msgstr "Left angle bracket"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Left arrow"
 msgstr "Left arrow"
 
-#: src/editor/insert/insert-snippets.ts
-msgid "Left brace"
-msgstr "Left brace"
-
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Left ceiling"
 msgstr "Left ceiling"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Left double arrow"
 msgstr "Left double arrow"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Left double vertical bar"
 msgstr "Left double vertical bar"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Left floor"
 msgstr "Left floor"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Left harpoon up"
 msgstr "Left harpoon up"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Left normal subgroup"
 msgstr "Left normal subgroup"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Left normal subgroup eq"
 msgstr "Left normal subgroup eq"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Left vertical bar"
 msgstr "Left vertical bar"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Left-right arrow"
 msgstr "Left-right arrow"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Left-right double arrow / iff"
 msgstr "Left-right double arrow / iff"
 
@@ -4430,13 +4167,9 @@ msgstr "Left-right double arrow / iff"
 msgid "Lemma"
 msgstr "Lemma"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Less than or equal"
 msgstr "Less than or equal"
-
-#: src/onboarding/onboarding-tour.tsx
-msgid "Let's download one of them"
-msgstr "Let's download one of them"
 
 #: src/settings/settings-dialog.tsx
 msgid "Lets trusted projects run external tools during builds"
@@ -4454,14 +4187,9 @@ msgstr "Light Gray"
 msgid "Lime"
 msgstr "Lime"
 
-#: src/editor/insert/insert-snippets.ts
 #: src/editor/latex/latex-command-completions.ts
 msgid "Limit"
 msgstr "Limit"
-
-#: src/editor/insert/insert-snippets.ts
-msgid "Limit expression"
-msgstr "Limit expression"
 
 #: src/editor/goto-line-dialog.tsx
 msgid "Line"
@@ -4475,7 +4203,7 @@ msgstr "line {line}"
 msgid "Line number"
 msgstr "Line number"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Line under an expression"
 msgstr "Line under an expression"
 
@@ -4501,9 +4229,13 @@ msgstr "Link URL"
 msgid "List item"
 msgstr "List item"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Literal code / text block"
 msgstr "Literal code / text block"
+
+#: src/trellis/trellis-titles.ts
+msgid "Literature"
+msgstr "Literature"
 
 #: src/settings/literature-settings.tsx
 #: src/settings/settings-dialog.tsx
@@ -4624,11 +4356,11 @@ msgstr "Log level filter"
 msgid "Logarithm"
 msgstr "Logarithm"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Logical and"
 msgstr "Logical and"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Logical or"
 msgstr "Logical or"
 
@@ -4637,7 +4369,7 @@ msgstr "Logical or"
 msgid "Logs"
 msgstr "Logs"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Long equation broken across lines"
 msgstr "Long equation broken across lines"
 
@@ -4657,10 +4389,6 @@ msgstr "Magenta"
 msgid "Main pages"
 msgstr "Main pages"
 
-#: src/onboarding/onboarding-tour.tsx
-msgid "Manage cited papers"
-msgstr "Manage cited papers"
-
 #: src/overleaf/overleaf-connect.tsx
 msgid "Manual"
 msgstr "Manual"
@@ -4675,12 +4403,11 @@ msgstr "Manual only"
 msgid "Manuscript TODOs"
 msgstr "Manuscript TODOs"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Maps to"
 msgstr "Maps to"
 
 #: src/editor/markdown/engine/lattice-visual-editor.tsx
-#: src/onboarding/onboarding-tour.tsx
 msgid "Markdown document editor"
 msgstr "Markdown document editor"
 
@@ -4699,7 +4426,6 @@ msgstr "Match case"
 msgid "math"
 msgstr "math"
 
-#: src/editor/insert/insert-palette.tsx
 #: src/editor/markdown/engine/chrome/slash-items.ts
 msgid "Math"
 msgstr "Math"
@@ -4708,28 +4434,26 @@ msgstr "Math"
 msgid "Math array"
 msgstr "Math array"
 
-#: src/editor/insert/insert-snippets.ts
-msgid "Math inside a sentence"
-msgstr "Math inside a sentence"
-
 #: src/editor/latex/math-preview.tsx
 msgid "Math preview"
 msgstr "Math preview"
 
-#: src/editor/insert/insert-snippets.ts
 #: src/editor/latex/latex-command-completions.ts
 msgid "Matrix"
 msgstr "Matrix"
 
-#: src/editor/insert/insert-snippets.ts
-msgid "Max"
-msgstr "Max"
+#: src/trellis/trellis-labels.ts
+msgid "Maximize"
+msgstr "Maximize"
 
-#: src/settings/settings-dialog.tsx
-msgid "Max open tabs"
-msgstr "Max open tabs"
+#: src/trellis/trellis-titlebar.tsx
+msgid "Maximize focused panel"
+msgstr "Maximize focused panel"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/trellis/trellis-titlebar.tsx
+msgid "Maximize the focused panel · ⌘⇧↩ or double-click its tab bar"
+msgstr "Maximize the focused panel · ⌘⇧↩ or double-click its tab bar"
+
 #: src/editor/latex/latex-command-completions.ts
 msgid "Maximum operator"
 msgstr "Maximum operator"
@@ -4738,7 +4462,7 @@ msgstr "Maximum operator"
 msgid "MCP"
 msgstr "MCP"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Mean / conjugate mark"
 msgstr "Mean / conjugate mark"
 
@@ -4794,14 +4518,6 @@ msgstr "Metadata source · cached"
 msgid "Middle table rule"
 msgstr "Middle table rule"
 
-#: src/canvas/editor-tabs.tsx
-msgid "Middle-click to close · ⌘⇧T to reopen"
-msgstr "Middle-click to close · ⌘⇧T to reopen"
-
-#: src/editor/insert/insert-snippets.ts
-msgid "Min"
-msgstr "Min"
-
 #: src/app/native-locale.ts
 msgctxt "macOS menu bar"
 msgid "Minimize"
@@ -4811,16 +4527,11 @@ msgstr "Minimize"
 msgid "Minimize image"
 msgstr "Minimize image"
 
-#: src/editor/insert/insert-snippets.ts
 #: src/editor/latex/latex-command-completions.ts
 msgid "Minimum operator"
 msgstr "Minimum operator"
 
-#: src/editor/insert/insert-snippets.ts
-msgid "Minipage"
-msgstr "Minipage"
-
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Minus-plus"
 msgstr "Minus-plus"
 
@@ -4873,7 +4584,7 @@ msgstr "Missing style file `{file}`. It is part of the {venue} template and belo
 msgid "Missing tools: {0}"
 msgstr "Missing tools: {0}"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Models / entails"
 msgstr "Models / entails"
 
@@ -4885,39 +4596,35 @@ msgstr "modified"
 msgid "Monospaced text"
 msgstr "Monospaced text"
 
-#: src/app/app-workspace-sidebar.tsx
-msgid "Move assistant below editor"
-msgstr "Move assistant below editor"
-
-#: src/app/app-agent-panel.tsx
-msgid "Move assistant to sidebar"
-msgstr "Move assistant to sidebar"
+#: src/trellis/trellis-labels.ts
+msgid "Move {title} to"
+msgstr "Move {title} to"
 
 #: src/settings/settings-dialog.tsx
 msgid "Move this workspace back to a Lattice window on this Mac"
 msgstr "Move this workspace back to a Lattice window on this Mac"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/trellis/trellis-labels.ts
+msgid "Moved"
+msgstr "Moved"
+
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Mu"
 msgstr "Mu"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Multi-line aligned equations"
 msgstr "Multi-line aligned equations"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Multiset union"
 msgstr "Multiset union"
-
-#: src/editor/insert/insert-snippets.ts
-msgid "Multline"
-msgstr "Multline"
 
 #: src/components/ui/apple-color-picker.tsx
 msgid "Muted {name}"
 msgstr "Muted {name}"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Nabla / del"
 msgstr "Nabla / del"
 
@@ -4945,11 +4652,11 @@ msgstr "Named operator"
 msgid "Native color picker"
 msgstr "Native color picker"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Natural"
 msgstr "Natural"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Natural join / bowtie"
 msgstr "Natural join / bowtie"
 
@@ -4973,7 +4680,7 @@ msgstr "Needs approval"
 msgid "Needs your decision"
 msgstr "Needs your decision"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Negation / not"
 msgstr "Negation / not"
 
@@ -4993,7 +4700,8 @@ msgstr "NeurIPS Proceedings"
 msgid "NeurIPS, CVPR, Nature, …"
 msgstr "NeurIPS, CVPR, Nature, …"
 
-#: src/app/app-workspace-sidebar.tsx
+#: src/App.tsx
+#: src/trellis/trellis-panel-actions.tsx
 msgid "New board"
 msgstr "New board"
 
@@ -5001,7 +4709,7 @@ msgstr "New board"
 msgid "New changes on Overleaf — click to bring them in"
 msgstr "New changes on Overleaf — click to bring them in"
 
-#: src/app/app-workspace-sidebar.tsx
+#: src/trellis/trellis-panel-actions.tsx
 msgid "New document"
 msgstr "New document"
 
@@ -5029,7 +4737,8 @@ msgstr "New name"
 msgid "New Overleaf project name"
 msgstr "New Overleaf project name"
 
-#: src/app/app-workspace-sidebar.tsx
+#: src/App.tsx
+#: src/trellis/trellis-panel-actions.tsx
 msgid "New presentation"
 msgstr "New presentation"
 
@@ -5037,7 +4746,16 @@ msgstr "New presentation"
 msgid "New project"
 msgstr "New project"
 
-#: src/app/app-workspace-sidebar.tsx
+#: src/trellis/trellis-labels.ts
+msgid "New split below"
+msgstr "New split below"
+
+#: src/trellis/trellis-labels.ts
+msgid "New split right"
+msgstr "New split right"
+
+#: src/App.tsx
+#: src/trellis/trellis-panel-actions.tsx
 msgid "New spreadsheet"
 msgstr "New spreadsheet"
 
@@ -5189,10 +4907,6 @@ msgstr "No matching publication found"
 msgid "No matching publication was found in the sources checked."
 msgstr "No matching publication was found in the sources checked."
 
-#: src/editor/insert/insert-palette.tsx
-msgid "No matching snippets. Try fraction, implies, align*, or eqref"
-msgstr "No matching snippets. Try fraction, implies, align*, or eqref"
-
 #: src/overleaf/overleaf-collab.tsx
 msgid "No messages yet. Say something and everyone in the project sees it"
 msgstr "No messages yet. Say something and everyone in the project sees it"
@@ -5283,15 +4997,15 @@ msgstr "No upgrade check was performed for this entry."
 msgid "No versions yet. Versions are saved automatically as you work, or press Save version"
 msgstr "No versions yet. Versions are saved automatically as you work, or press Save version"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "North-east arrow"
 msgstr "North-east arrow"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "North-west arrow"
 msgstr "North-west arrow"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Not an element of"
 msgstr "Not an element of"
 
@@ -5315,7 +5029,7 @@ msgstr "Not enabled · API key required"
 msgid "Not enabled · personal API key required"
 msgstr "Not enabled · personal API key required"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Not equal"
 msgstr "Not equal"
 
@@ -5330,10 +5044,6 @@ msgstr "Not verified"
 #: src/editor/markdown/engine/views/component-views.tsx
 msgid "Note"
 msgstr "Note"
-
-#: src/onboarding/onboarding-tour.tsx
-msgid "Notes and drafts in Markdown"
-msgstr "Notes and drafts in Markdown"
 
 #: src/overleaf/overleaf-connect.tsx
 msgid "Nothing is ever removed from the shared project from here. The two sides stay different"
@@ -5355,11 +5065,7 @@ msgstr "Notify me (manual)"
 msgid "Now tracking versions of this project."
 msgstr "Now tracking versions of this project."
 
-#: src/editor/insert/insert-snippets.ts
-msgid "Nth root"
-msgstr "Nth root"
-
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Nu"
 msgstr "Nu"
 
@@ -5367,11 +5073,11 @@ msgstr "Nu"
 msgid "Number"
 msgstr "Number"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Number sets like R, N"
 msgstr "Number sets like R, N"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Numbered list"
 msgstr "Numbered list"
 
@@ -5379,7 +5085,7 @@ msgstr "Numbered list"
 msgid "Numbered list of items."
 msgstr "Numbered list of items."
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Numbered single-line equation"
 msgstr "Numbered single-line equation"
 
@@ -5388,7 +5094,7 @@ msgstr "Numbered single-line equation"
 msgid "OK"
 msgstr "OK"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Omega"
 msgstr "Omega"
 
@@ -5408,10 +5114,13 @@ msgstr "Opacity"
 msgid "Opacity value"
 msgstr "Opacity value"
 
-#: src/canvas/editor-tabs.tsx
 #: src/overleaf/overleaf-connect.tsx
 msgid "Open"
 msgstr "Open"
+
+#: src/trellis/trellis-workspace.tsx
+msgid "Open {title}"
+msgstr "Open {title}"
 
 #: src/App.tsx
 msgid "Open a .tex file before formatting."
@@ -5420,6 +5129,10 @@ msgstr "Open a .tex file before formatting."
 #: src/App.tsx
 msgid "Open a .tex file before pasting a figure."
 msgstr "Open a .tex file before pasting a figure."
+
+#: src/trellis/trellis-workspace.tsx
+msgid "Open a file from Quick open, or bring the default panels back."
+msgstr "Open a file from Quick open, or bring the default panels back."
 
 #: src/App.tsx
 msgid "Open a LaTeX project"
@@ -5469,10 +5182,6 @@ msgstr "Open desktop app"
 msgid "Open file…"
 msgstr "Open file…"
 
-#: src/canvas/editor-tabs.tsx
-msgid "Open files"
-msgstr "Open files"
-
 #: src/project/project-dialogs.tsx
 msgid "Open folder"
 msgstr "Open folder"
@@ -5485,10 +5194,6 @@ msgstr "Open from Overleaf"
 #: src/App.tsx
 msgid "Open guided tutorial"
 msgstr "Open guided tutorial"
-
-#: src/canvas/editor-tabs.tsx
-msgid "Open here"
-msgstr "Open here"
 
 #: src/settings/settings-dialog.tsx
 msgid "Open in browser"
@@ -5510,25 +5215,9 @@ msgstr "Open log folder"
 msgid "Open notice"
 msgstr "Open notice"
 
-#: src/canvas/editor-tabs.tsx
-msgid "Open on left"
-msgstr "Open on left"
-
-#: src/canvas/editor-tabs.tsx
-msgid "Open on right"
-msgstr "Open on right"
-
-#: src/canvas/document-canvas.tsx
-msgid "Open or drag a file here"
-msgstr "Open or drag a file here"
-
 #: src/project/project-find-dialog.tsx
 msgid "Open paper result: {paperTitle}"
 msgstr "Open paper result: {paperTitle}"
-
-#: src/onboarding/onboarding-tour.tsx
-msgid "Open Papers to see the sources cited by this manuscript"
-msgstr "Open Papers to see the sources cited by this manuscript"
 
 #: src/canvas/paper-reader.tsx
 msgid "Open PDF in browser"
@@ -5574,10 +5263,6 @@ msgstr "Open Slide sent an incomplete edit for {path}."
 msgid "Open source page — no downloadable full text found"
 msgstr "Open source page — no downloadable full text found"
 
-#: src/onboarding/onboarding-tour.tsx
-msgid "Open the Agent tab to use Codex, Claude, or another provider"
-msgstr "Open the Agent tab to use Codex, Claude, or another provider"
-
 #: src/overleaf/use-overleaf-track-changes.ts
 msgid "Open the document this suggestion is in first."
 msgstr "Open the document this suggestion is in first."
@@ -5586,7 +5271,7 @@ msgstr "Open the document this suggestion is in first."
 msgid "Open the file this suggestion is in first"
 msgstr "Open the file this suggestion is in first"
 
-#: src/canvas/canvas-toolbar.tsx
+#: src/trellis/trellis-workspace.tsx
 msgid "Open the full paper Markdown"
 msgstr "Open the full paper Markdown"
 
@@ -5599,13 +5284,9 @@ msgstr "Open the linked Overleaf project before changing its sync setting."
 msgid "Open the linked Overleaf project first."
 msgstr "Open the linked Overleaf project first."
 
-#: src/canvas/canvas-toolbar.tsx
+#: src/trellis/trellis-workspace.tsx
 msgid "Open the paper overview"
 msgstr "Open the paper overview"
-
-#: src/onboarding/onboarding-tour.tsx
-msgid "Open the PDF in Lattice or your browser"
-msgstr "Open the PDF in Lattice or your browser"
 
 #: src/build/compile-diagnostics-panel.tsx
 msgid "Open the repair task to continue."
@@ -5662,10 +5343,6 @@ msgstr "Opening…"
 msgid "Operation metadata"
 msgstr "Operation metadata"
 
-#: src/editor/insert/insert-palette.tsx
-msgid "Operators"
-msgstr "Operators"
-
 #: src/components/ui/apple-color-picker.tsx
 msgid "Orange"
 msgstr "Orange"
@@ -5681,6 +5358,7 @@ msgstr "Outline"
 
 #: src/history/conflict-resolver.tsx
 #: src/settings/settings-dialog.tsx
+#: src/trellis/trellis-titles.ts
 msgid "Overleaf"
 msgstr "Overleaf"
 
@@ -5691,10 +5369,6 @@ msgstr "Overleaf / arXiv source pack"
 #: src/overleaf/ot.ts
 msgid "Overleaf acknowledged version {version} while this document is at {current}."
 msgstr "Overleaf acknowledged version {version} while this document is at {current}."
-
-#: src/onboarding/onboarding-tour.tsx
-msgid "Overleaf and history"
-msgstr "Overleaf and history"
 
 #: src/overleaf/overleaf-collab.tsx
 msgid "Overleaf chat messages"
@@ -5743,10 +5417,6 @@ msgstr "Overleaf live editing disconnected ({reason}). Reconnecting now…"
 #: src/overleaf/use-overleaf-realtime.ts
 msgid "Overleaf live editing reconnected."
 msgstr "Overleaf live editing reconnected."
-
-#: src/onboarding/onboarding-tour.tsx
-msgid "Overleaf opens or syncs an Overleaf project. Git and History let you commit and review versions"
-msgstr "Overleaf opens or syncs an Overleaf project. Git and History let you commit and review versions"
 
 #: src/canvas/canvas-toolbar.tsx
 msgid "Overleaf project actions"
@@ -5808,10 +5478,6 @@ msgstr "Overleaf: pulled {pulled}, pushed {pushed}."
 msgid "Overleaf's own record of this project, including everything collaborators changed in the browser while Lattice was closed. Restoring here changes Overleaf's copy — sync afterward to bring the result into this app"
 msgstr "Overleaf's own record of this project, including everything collaborators changed in the browser while Lattice was closed. Restoring here changes Overleaf's copy — sync afterward to bring the result into this app"
 
-#: src/editor/insert/insert-snippets.ts
-msgid "Overline"
-msgstr "Overline"
-
 #: src/project/manuscript-checklist.tsx
 msgid "Page budget"
 msgstr "Page budget"
@@ -5840,10 +5506,18 @@ msgstr "Pan right"
 msgid "Pan up"
 msgstr "Pan up"
 
+#: src/trellis/trellis-labels.ts
+msgid "Panel menu"
+msgstr "Panel menu"
+
+#: src/trellis/trellis-titlebar.tsx
+msgid "Panels"
+msgstr "Panels"
+
 #: src/App.tsx
-#: src/canvas/canvas-toolbar.tsx
 #: src/canvas/paper-reader.tsx
 #: src/project/project-find-dialog.tsx
+#: src/trellis/trellis-workspace.tsx
 msgid "Paper"
 msgstr "Paper"
 
@@ -5855,7 +5529,7 @@ msgstr "Paper actions"
 msgid "Paper citation suggestions"
 msgstr "Paper citation suggestions"
 
-#: src/canvas/canvas-toolbar.tsx
+#: src/trellis/trellis-workspace.tsx
 msgid "Paper content"
 msgstr "Paper content"
 
@@ -5870,6 +5544,7 @@ msgstr "Paper import cancelled before making changes."
 #: src/canvas/canvas-toolbar.tsx
 #: src/papers/paper-lookup.tsx
 #: src/papers/use-paper-lookup.ts
+#: src/settings/settings-dialog.tsx
 msgid "Paper lookup"
 msgstr "Paper lookup"
 
@@ -5877,28 +5552,19 @@ msgstr "Paper lookup"
 msgid "Paper switch"
 msgstr "Paper switch"
 
-#: src/onboarding/onboarding-tour.tsx
-msgid "Paper view shows the complete text, sections, equations, and figures as searchable Markdown beside your draft"
-msgstr "Paper view shows the complete text, sections, equations, and figures as searchable Markdown beside your draft"
-
-#: src/app/app-workspace-sidebar.tsx
 #: src/canvas/use-paper-pdf.ts
 #: src/papers/paper-lookup.tsx
 #: src/project/paper-library.tsx
 #: src/project/project-find-dialog.tsx
+#: src/trellis/trellis-titles.ts
 msgid "Papers"
 msgstr "Papers"
 
-#: src/editor/insert/insert-snippets.ts
-msgctxt "LaTeX heading"
-msgid "Paragraph"
-msgstr "Paragraph"
-
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Parallel"
 msgstr "Parallel"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Parenthesized matrix"
 msgstr "Parenthesized matrix"
 
@@ -5918,7 +5584,7 @@ msgstr "Part heading"
 msgid "Partial author information"
 msgstr "Partial author information"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Partial derivative"
 msgstr "Partial derivative"
 
@@ -5972,7 +5638,12 @@ msgstr "Pause syncing with Overleaf?\n"
 "\n"
 "Resuming picks up where this left off: edits made on either side while it was paused are merged, not overwritten."
 
+#: src/trellis/trellis-workspace.tsx
+msgid "Paused while hidden · click to resume"
+msgstr "Paused while hidden · click to resume"
+
 #: src/canvas/paper-reader.tsx
+#: src/trellis/trellis-titles.ts
 msgid "PDF"
 msgstr "PDF"
 
@@ -6012,6 +5683,10 @@ msgstr "PDF page number"
 msgid "PDF pages"
 msgstr "PDF pages"
 
+#: src/trellis/trellis-workspace.tsx
+msgid "PDF preview paused"
+msgstr "PDF preview paused"
+
 #: src/pdf/pdf-viewer.tsx
 msgid "PDF preview timed out. Click Build again, or open the PDF in Preview."
 msgstr "PDF preview timed out. Click Build again, or open the PDF in Preview."
@@ -6044,11 +5719,7 @@ msgstr "pdfLaTeX engine"
 msgid "People in this Overleaf project"
 msgstr "People in this Overleaf project"
 
-#: src/editor/insert/insert-snippets.ts
-msgid "Percent"
-msgstr "Percent"
-
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Perpendicular"
 msgstr "Perpendicular"
 
@@ -6056,7 +5727,7 @@ msgstr "Perpendicular"
 msgid "Personal key saved"
 msgstr "Personal key saved"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Phi"
 msgstr "Phi"
 
@@ -6064,7 +5735,7 @@ msgstr "Phi"
 msgid "Phrase or tokens"
 msgstr "Phrase or tokens"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Pi"
 msgstr "Pi"
 
@@ -6080,21 +5751,13 @@ msgstr "Pick an emoji to insert at the cursor."
 msgid "Pick color from screen"
 msgstr "Pick color from screen"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Piecewise definition"
 msgstr "Piecewise definition"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Pilcrow / paragraph"
 msgstr "Pilcrow / paragraph"
-
-#: src/canvas/editor-tabs.tsx
-msgid "Pin tab"
-msgstr "Pin tab"
-
-#: src/canvas/editor-tabs.tsx
-msgid "Pinned"
-msgstr "Pinned"
 
 #: src/editor/insert/figure-insert-dialog.tsx
 msgid "Placement"
@@ -6117,29 +5780,25 @@ msgstr "Please confirm that you want to continue."
 msgid "Please try again later"
 msgstr "Please try again later"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Plus-minus"
 msgstr "Plus-minus"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Pounds sterling"
 msgstr "Pounds sterling"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Precedes"
 msgstr "Precedes"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Precedes or equal"
 msgstr "Precedes or equal"
 
 #: src/canvas/document-canvas.tsx
 msgid "Preparing board editor"
 msgstr "Preparing board editor"
-
-#: src/App.tsx
-msgid "Preparing editor"
-msgstr "Preparing editor"
 
 #: src/canvas/canvas-lazy-editors.tsx
 msgid "Preparing HTML preview…"
@@ -6165,6 +5824,10 @@ msgstr "Preparing this workspace"
 msgid "Preparing tutorial…"
 msgstr "Preparing tutorial…"
 
+#: src/App.tsx
+msgid "Preparing workspace"
+msgstr "Preparing workspace"
+
 #: src/papers/audit-messages.ts
 msgid "Preprint check incomplete: {error}"
 msgstr "Preprint check incomplete: {error}"
@@ -6173,21 +5836,17 @@ msgstr "Preprint check incomplete: {error}"
 msgid "Preprint check returned an incomplete or ambiguous result."
 msgstr "Preprint check returned an incomplete or ambiguous result."
 
-#: src/canvas/canvas-toolbar.tsx
 #: src/editor/markdown/engine/lattice-visual-editor.tsx
 #: src/project/project-replace-dialog.tsx
+#: src/trellis/trellis-workspace.tsx
 msgid "Preview"
 msgstr "Preview"
 
-#: src/canvas/canvas-toolbar.tsx
+#: src/trellis/trellis-workspace.tsx
 msgid "Preview HTML"
 msgstr "Preview HTML"
 
-#: src/onboarding/onboarding-tour.tsx
-msgid "Preview interactive HTML"
-msgstr "Preview interactive HTML"
-
-#: src/canvas/canvas-toolbar.tsx
+#: src/trellis/trellis-workspace.tsx
 msgid "Preview Markdown"
 msgstr "Preview Markdown"
 
@@ -6198,10 +5857,6 @@ msgstr "Preview matches across `.tex`, `.bib`, and other project source files, t
 #: src/canvas/project-asset-preview.tsx
 msgid "Preview of {path}"
 msgstr "Preview of {path}"
-
-#: src/canvas/canvas-toolbar.tsx
-msgid "Preview PDF"
-msgstr "Preview PDF"
 
 #: src/editor/latex/latex-hover-cards.ts
 msgid "Preview unavailable for this figure format."
@@ -6232,25 +5887,20 @@ msgstr "Previous search result"
 msgid "Primary bibliography {file} (missing)"
 msgstr "Primary bibliography {file} (missing)"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Prime"
 msgstr "Prime"
 
-#: src/editor/insert/insert-snippets.ts
 #: src/editor/latex/latex-command-completions.ts
 msgid "Product"
 msgstr "Product"
-
-#: src/editor/insert/insert-snippets.ts
-msgid "Product with limits"
-msgstr "Product with limits"
 
 #: src/App.tsx
 msgid "project"
 msgstr "project"
 
 #: src/App.tsx
-#: src/app/app-workspace-sidebar.tsx
+#: src/trellis/trellis-titles.ts
 msgid "Project"
 msgstr "Project"
 
@@ -6284,6 +5934,7 @@ msgstr "Project find and replace"
 
 #: src/canvas/canvas-toolbar.tsx
 #: src/history/history-drawer.tsx
+#: src/settings/settings-dialog.tsx
 msgid "Project history"
 msgstr "Project history"
 
@@ -6308,15 +5959,11 @@ msgstr "Project restored."
 msgid "Project uploaded and connected to Overleaf."
 msgstr "Project uploaded and connected to Overleaf."
 
-#: src/editor/insert/insert-snippets.ts
-msgid "Proof"
-msgstr "Proof"
-
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Proof environment (requires amsthm)"
 msgstr "Proof environment (requires amsthm)"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Proportional to"
 msgstr "Proportional to"
 
@@ -6324,7 +5971,7 @@ msgstr "Proportional to"
 msgid "Proposed BibTeX"
 msgstr "Proposed BibTeX"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Proves / turnstile"
 msgstr "Proves / turnstile"
 
@@ -6332,7 +5979,7 @@ msgstr "Proves / turnstile"
 msgid "Providers"
 msgstr "Providers"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Psi"
 msgstr "Psi"
 
@@ -6378,6 +6025,10 @@ msgstr "Python tooling used for literature and bibliography tools"
 msgid "queued"
 msgstr "queued"
 
+#: src/trellis/trellis-workspace.tsx
+msgid "Quick open"
+msgstr "Quick open"
+
 #: src/App.tsx
 #: src/project/quick-open-dialog.tsx
 msgid "Quick open file"
@@ -6392,14 +6043,13 @@ msgctxt "macOS menu bar"
 msgid "Quit {name}"
 msgstr "Quit {name}"
 
-#: src/editor/insert/insert-snippets.ts
 #: src/editor/latex/latex-selection-toolbar.tsx
 #: src/editor/markdown/engine/chrome/selection-toolbar.tsx
 #: src/editor/markdown/engine/chrome/slash-items.ts
 msgid "Quote"
 msgstr "Quote"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Radical"
 msgstr "Radical"
 
@@ -6415,9 +6065,9 @@ msgstr "Rate limited; subsequent Semantic Scholar queries skipped"
 msgid "Raw build log"
 msgstr "Raw build log"
 
-#: src/onboarding/onboarding-tour.tsx
-msgid "Read the full paper here"
-msgstr "Read the full paper here"
+#: src/trellis/trellis-workspace.tsx
+msgid "Read-only preview · click to edit"
+msgstr "Read-only preview · click to edit"
 
 #: src/history/conflict-resolver.tsx
 msgid "Reading the file…"
@@ -6431,7 +6081,7 @@ msgstr "Ready to compile"
 msgid "Ready to install"
 msgstr "Ready to install"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Real part"
 msgstr "Real part"
 
@@ -6486,15 +6136,14 @@ msgid "reference"
 msgstr "reference"
 
 #: src/app/app-search-dialogs.tsx
-#: src/editor/insert/insert-snippets.ts
 msgid "Reference"
 msgstr "Reference"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Reference an equation label"
 msgstr "Reference an equation label"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Reference an existing label"
 msgstr "Reference an existing label"
 
@@ -6541,13 +6190,17 @@ msgstr "Reject"
 msgid "Reject all"
 msgstr "Reject all"
 
-#: src/editor/insert/insert-palette.tsx
-msgid "Relations"
-msgstr "Relations"
-
 #: src/canvas/html-preview.tsx
 msgid "Relative project links are unavailable in this preview"
 msgstr "Relative project links are unavailable in this preview"
+
+#: src/trellis/trellis-labels.ts
+msgid "Release to focus"
+msgstr "Release to focus"
+
+#: src/trellis/trellis-labels.ts
+msgid "Release to focus {title} · Esc to cancel"
+msgstr "Release to focus {title} · Esc to cancel"
 
 #: src/components/ui/confirm-action-dialog.tsx
 #: src/editor/harper-spellcheck.ts
@@ -6840,21 +6493,22 @@ msgstr "Research"
 msgid "Research, written with evidence"
 msgstr "Research, written with evidence"
 
+#: src/trellis/trellis-titlebar.tsx
+#: src/trellis/trellis-workspace.tsx
+msgid "Reset layout"
+msgstr "Reset layout"
+
+#: src/App.tsx
+msgid "Reset panel layout"
+msgstr "Reset panel layout"
+
 #: src/editor/markdown/engine/views/mermaid-preview.tsx
 msgid "Reset view"
 msgstr "Reset view"
 
 #: src/canvas/document-canvas.tsx
-msgid "Resize dual source panes"
-msgstr "Resize dual source panes"
-
-#: src/canvas/document-canvas.tsx
 msgid "Resize editor and asset preview"
 msgstr "Resize editor and asset preview"
-
-#: src/app/app-agent-panel.tsx
-msgid "Resize editor and assistant"
-msgstr "Resize editor and assistant"
 
 #: src/canvas/document-canvas.tsx
 msgid "Resize editor and HTML preview"
@@ -6868,13 +6522,13 @@ msgstr "Resize editor and Markdown preview"
 msgid "Resize editor and PDF preview"
 msgstr "Resize editor and PDF preview"
 
+#: src/trellis/trellis-labels.ts
+msgid "Resize panels"
+msgstr "Resize panels"
+
 #: src/components/ui/resizable-drawer.tsx
 msgid "Resize right panel"
 msgstr "Resize right panel"
-
-#: src/app/app-workspace-sidebar.tsx
-msgid "Resize workspace sidebar"
-msgstr "Resize workspace sidebar"
 
 #: src/papers/bib-entry-dialog.tsx
 msgid "Resolve"
@@ -6943,6 +6597,11 @@ msgstr "Restarting…"
 msgid "Restore"
 msgstr "Restore"
 
+#. placeholder {0}: entry.title
+#: src/trellis/trellis-titlebar.tsx
+msgid "Restore {0}"
+msgstr "Restore {0}"
+
 #. placeholder {0}: file.pathname
 #. placeholder {0}: target.path
 #: src/history/versions-timeline.tsx
@@ -6983,6 +6642,18 @@ msgstr "Restore project to {restored}"
 #: src/history/versions-timeline.tsx
 msgid "Restore project to this version"
 msgstr "Restore project to this version"
+
+#: src/trellis/trellis-labels.ts
+msgid "Restore size"
+msgstr "Restore size"
+
+#: src/trellis/trellis-titlebar.tsx
+msgid "Restore the layout"
+msgstr "Restore the layout"
+
+#: src/trellis/trellis-titlebar.tsx
+msgid "Restore the layout · ⌘⇧↩"
+msgstr "Restore the layout · ⌘⇧↩"
 
 #: src/app/app-history-drawers.tsx
 msgid "Restore the project to the state before this change? The restore will be added as a new history entry."
@@ -7045,13 +6716,21 @@ msgstr "Retrieved record information"
 msgid "Retry"
 msgstr "Retry"
 
+#: src/App.tsx
+msgid "Reveal cursor in PDF"
+msgstr "Reveal cursor in PDF"
+
 #: src/pdf/pdf-viewer.tsx
 msgid "Reveal cursor in PDF (⌘⇧J)"
 msgstr "Reveal cursor in PDF (⌘⇧J)"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Reverse turnstile"
 msgstr "Reverse turnstile"
+
+#: src/settings/settings-dialog.tsx
+msgid "Review and commit changes"
+msgstr "Review and commit changes"
 
 #: src/papers/bibliography-audit.tsx
 msgid "Review candidate"
@@ -7073,57 +6752,49 @@ msgstr "Review proposed changes"
 msgid "Review the final file before saving"
 msgstr "Review the final file before saving"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Rho"
 msgstr "Rho"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Right angle bracket"
 msgstr "Right angle bracket"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Right arrow"
 msgstr "Right arrow"
 
-#: src/editor/insert/insert-snippets.ts
-msgid "Right brace"
-msgstr "Right brace"
-
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Right ceiling"
 msgstr "Right ceiling"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Right double arrow / implies"
 msgstr "Right double arrow / implies"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Right double vertical bar"
 msgstr "Right double vertical bar"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Right floor"
 msgstr "Right floor"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Right harpoon up"
 msgstr "Right harpoon up"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Right normal subgroup"
 msgstr "Right normal subgroup"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Right normal subgroup eq"
 msgstr "Right normal subgroup eq"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Right vertical bar"
 msgstr "Right vertical bar"
-
-#: src/editor/insert/insert-snippets.ts
-msgid "Roman math"
-msgstr "Roman math"
 
 #: src/editor/latex/latex-command-completions.ts
 msgid "Roman text"
@@ -7132,10 +6803,6 @@ msgstr "Roman text"
 #: src/build/tex-doctor-messages.ts
 msgid "Root document"
 msgstr "Root document"
-
-#: src/editor/insert/insert-snippets.ts
-msgid "Root with index"
-msgstr "Root with index"
 
 #: src/editor/markdown/engine/views/table-controls.tsx
 msgid "Row options"
@@ -7162,7 +6829,7 @@ msgstr "Run the doctor to inspect this Mac’s TeX toolchain"
 msgid "Run without asking for approval"
 msgstr "Run without asking for approval"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Run-in paragraph heading"
 msgstr "Run-in paragraph heading"
 
@@ -7202,6 +6869,10 @@ msgstr "Save decided spots"
 #: src/papers/bib-entry-dialog.tsx
 msgid "Save entry"
 msgstr "Save entry"
+
+#: src/trellis/trellis-workspace.tsx
+msgid "Save failed, so the layout was not reset."
+msgstr "Save failed, so the layout was not reset."
 
 #: src/pdf/pdf-viewer.tsx
 msgid "Save PDF"
@@ -7264,11 +6935,11 @@ msgstr "Scanning bibliography files…"
 msgid "Scans `.tex` / `.md` for `% TODO`, `% FIXME`, `% XXX`, and `\\todo`. Click a hit to jump; the active unsaved buffer is included"
 msgstr "Scans `.tex` / `.md` for `% TODO`, `% FIXME`, `% XXX`, and `\\todo`. Click a hit to jump; the active unsaved buffer is included"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Script l"
 msgstr "Script l"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Script letters"
 msgstr "Script letters"
 
@@ -7283,10 +6954,6 @@ msgstr "Search"
 #: src/papers/literature-discovery-panel.tsx
 msgid "Search alphaXiv and OpenAlex to find related work before importing evidence"
 msgstr "Search alphaXiv and OpenAlex to find related work before importing evidence"
-
-#: src/editor/insert/insert-palette.tsx
-msgid "Search by name, meaning, or command (alpha, implies, fraction…)"
-msgstr "Search by name, meaning, or command (alpha, implies, fraction…)"
 
 #: src/overleaf/overleaf-connect.tsx
 msgid "Search by project or owner…"
@@ -7341,7 +7008,7 @@ msgstr "Search PDF"
 msgid "Searching…"
 msgstr "Searching…"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Second-level heading"
 msgstr "Second-level heading"
 
@@ -7350,12 +7017,11 @@ msgid "section"
 msgstr "section"
 
 #: src/app/app-search-dialogs.tsx
-#: src/editor/insert/insert-snippets.ts
 #: src/editor/latex/latex-selection-toolbar.tsx
 msgid "Section"
 msgstr "Section"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Section sign"
 msgstr "Section sign"
 
@@ -7404,10 +7070,6 @@ msgstr "Select list item"
 #: src/editor/markdown/engine/chrome/block-controls.tsx
 msgid "Select numbered list"
 msgstr "Select numbered list"
-
-#: src/onboarding/onboarding-tour.tsx
-msgid "Select PDF to read the original PDF in Lattice, or use the external-link button beside it to open the same PDF in your browser"
-msgstr "Select PDF to read the original PDF in Lattice, or use the external-link button beside it to open the same PDF in your browser"
 
 #: src/editor/markdown/engine/chrome/block-controls.tsx
 msgid "Select task list"
@@ -7471,17 +7133,13 @@ msgctxt "macOS menu bar"
 msgid "Services"
 msgstr "Services"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Set minus"
 msgstr "Set minus"
 
 #: src/settings/settings-dialog.tsx
 msgid "Set the editor keymap and build behavior"
 msgstr "Set the editor keymap and build behavior"
-
-#: src/editor/insert/insert-palette.tsx
-msgid "Sets"
-msgstr "Sets"
 
 #: src/project/project-dialogs.tsx
 #: src/settings/settings-dialog.tsx
@@ -7496,9 +7154,17 @@ msgstr "Settings sections"
 msgid "Setup is complete"
 msgstr "Setup is complete"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Sharp"
 msgstr "Sharp"
+
+#: src/trellis/trellis-titlebar.tsx
+msgid "Show {name}"
+msgstr "Show {name}"
+
+#: src/App.tsx
+msgid "Show {name} panel"
+msgstr "Show {name} panel"
 
 #: src/app/native-locale.ts
 msgctxt "macOS menu bar"
@@ -7526,6 +7192,10 @@ msgstr "Show in Finder"
 msgid "Show Mermaid preview"
 msgstr "Show Mermaid preview"
 
+#: src/trellis/trellis-titlebar.tsx
+msgid "Show or hide panels"
+msgstr "Show or hide panels"
+
 #: src/canvas/document-outline.tsx
 msgid "Show outline"
 msgstr "Show outline"
@@ -7533,10 +7203,6 @@ msgstr "Show outline"
 #: src/editor/markdown/engine/chrome/find-replace.tsx
 msgid "Show replace"
 msgstr "Show replace"
-
-#: src/app/app-titlebar.tsx
-msgid "Show sidebar"
-msgstr "Show sidebar"
 
 #: src/overleaf/overleaf-changes.tsx
 #: src/overleaf/overleaf-comments.tsx
@@ -7547,15 +7213,11 @@ msgstr "Show this in the editor"
 msgid "Shows 300 recent entries; disk logs rotate"
 msgstr "Shows 300 recent entries; disk logs rotate"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Side-by-side column block"
 msgstr "Side-by-side column block"
 
-#: src/app/app-workspace-sidebar.tsx
-msgid "Sidebar mode"
-msgstr "Sidebar mode"
-
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Sigma"
 msgstr "Sigma"
 
@@ -7587,7 +7249,7 @@ msgstr "Sign out of Overleaf?\n"
 msgid "Sign-in was cancelled. You can try again whenever you’re ready."
 msgstr "Sign-in was cancelled. You can try again whenever you’re ready."
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Similar or equal"
 msgstr "Similar or equal"
 
@@ -7595,7 +7257,7 @@ msgstr "Similar or equal"
 msgid "Similar title match"
 msgstr "Similar title match"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Similar to"
 msgstr "Similar to"
 
@@ -7619,14 +7281,13 @@ msgstr "Sized opening delimiter"
 msgid "Skills"
 msgstr "Skills"
 
-#: src/onboarding/onboarding-tour.tsx
-msgid "Skip tutorial"
-msgstr "Skip tutorial"
-
 #: src/editor/markdown/engine/chrome/slash-menu.tsx
-#: src/onboarding/onboarding-tour.tsx
 msgid "Slash commands"
 msgstr "Slash commands"
+
+#: src/trellis/trellis-workspace.tsx
+msgid "Sleeping · click to open"
+msgstr "Sleeping · click to open"
 
 #: src/components/ui/apple-color-picker.tsx
 msgid "Slider"
@@ -7640,7 +7301,7 @@ msgstr "Small capitals"
 msgid "Small section heading."
 msgstr "Small section heading."
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Smile relation"
 msgstr "Smile relation"
 
@@ -7664,13 +7325,13 @@ msgstr "Someone"
 msgid "Source"
 msgstr "Source"
 
-#: src/App.tsx
-msgid "Source + PDF"
-msgstr "Source + PDF"
-
 #: src/papers/bibliography-audit.tsx
 msgid "Source candidate (not applied)"
 msgstr "Source candidate (not applied)"
+
+#: src/trellis/trellis-titles.ts
+msgid "Source control"
+msgstr "Source control"
 
 #: src/pdf/pdf-source-targets.ts
 msgid "Source location in PDF"
@@ -7700,15 +7361,15 @@ msgstr "Source temporarily unavailable"
 msgid "Source:"
 msgstr "Source:"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "South-east arrow"
 msgstr "South-east arrow"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "South-west arrow"
 msgstr "South-west arrow"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Spade suit"
 msgstr "Spade suit"
 
@@ -7720,21 +7381,13 @@ msgstr "Spectrum"
 msgid "Spelling"
 msgstr "Spelling"
 
-#: src/App.tsx
-msgid "split"
-msgstr "split"
-
-#: src/canvas/canvas-toolbar.tsx
+#: src/trellis/trellis-workspace.tsx
 msgid "Split"
 msgstr "Split"
 
 #: src/editor/markdown/engine/views/table-controls.tsx
 msgid "Split cell"
 msgstr "Split cell"
-
-#: src/canvas/canvas-toolbar.tsx
-msgid "Split editor right"
-msgstr "Split editor right"
 
 #: src/editor/latex/latex-command-completions.ts
 msgid "Split one equation"
@@ -7750,35 +7403,31 @@ msgstr "Spot {0} of {1}"
 msgid "Spreadsheet"
 msgstr "Spreadsheet"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Square"
 msgstr "Square"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Square cap"
 msgstr "Square cap"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Square cup"
 msgstr "Square cup"
 
-#: src/editor/insert/insert-snippets.ts
-msgid "Square root"
-msgstr "Square root"
-
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Square subset"
 msgstr "Square subset"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Square subset eq"
 msgstr "Square subset eq"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Square superset"
 msgstr "Square superset"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Square superset eq"
 msgstr "Square superset eq"
 
@@ -7790,7 +7439,7 @@ msgstr "Stale failed build. Use Clean rebuild (Shift-click Build), or delete aux
 msgid "Stale result"
 msgstr "Stale result"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Star operator"
 msgstr "Star operator"
 
@@ -7823,7 +7472,6 @@ msgid "Starting Agent"
 msgstr "Starting Agent"
 
 #: src/canvas/document-canvas.tsx
-#: src/canvas/open-slide-tab-pool.tsx
 msgid "Starting Open Slide"
 msgstr "Starting Open Slide"
 
@@ -7845,17 +7493,13 @@ msgstr "Still not connected: {0}"
 msgid "Still waiting. Cancel this attempt, close the Overleaf window, and try connecting again"
 msgstr "Still waiting. Cancel this attempt, close the Overleaf window, and try connecting again"
 
-#: src/app/app-titlebar.tsx
-msgid "Stop"
-msgstr "Stop"
-
 #: src/App.tsx
 msgid "Stop build"
 msgstr "Stop build"
 
-#: src/app/app-titlebar.tsx
-msgid "Stop the current LaTeX build"
-msgstr "Stop the current LaTeX build"
+#: src/trellis/trellis-workspace.tsx
+msgid "Stop the build"
+msgstr "Stop the build"
 
 #: src/papers/bibliography-audit.tsx
 msgid "Stopping…"
@@ -7870,14 +7514,6 @@ msgstr "Strikethrough"
 msgid "structure"
 msgstr "structure"
 
-#: src/editor/insert/insert-palette.tsx
-msgid "Structure"
-msgstr "Structure"
-
-#: src/editor/insert/insert-snippets.ts
-msgid "Subequations"
-msgstr "Subequations"
-
 #: src/App.tsx
 #: src/project/manuscript-checklist.tsx
 msgid "Submission checklist"
@@ -7887,29 +7523,27 @@ msgstr "Submission checklist"
 msgid "Subparagraph heading"
 msgstr "Subparagraph heading"
 
-#: src/editor/insert/insert-snippets.ts
 #: src/editor/latex/latex-selection-toolbar.tsx
 msgid "Subsection"
 msgstr "Subsection"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Subset"
 msgstr "Subset"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Subset or equal"
 msgstr "Subset or equal"
 
-#: src/editor/insert/insert-snippets.ts
 #: src/editor/latex/latex-selection-toolbar.tsx
 msgid "Subsubsection"
 msgstr "Subsubsection"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Succeeds"
 msgstr "Succeeds"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Succeeds or equal"
 msgstr "Succeeds or equal"
 
@@ -7941,30 +7575,21 @@ msgstr "Suggests inserting \"{text}\""
 msgid "Suggests removing \"{text}\""
 msgstr "Suggests removing \"{text}\""
 
-#: src/editor/insert/insert-snippets.ts
-msgid "Sum with limits"
-msgstr "Sum with limits"
-
-#: src/editor/insert/insert-snippets.ts
 #: src/editor/latex/latex-command-completions.ts
 msgid "Summation"
 msgstr "Summation"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Superset"
 msgstr "Superset"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Superset or equal"
 msgstr "Superset or equal"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Surface / area integral"
 msgstr "Surface / area integral"
-
-#: src/App.tsx
-msgid "Swap editor panes"
-msgstr "Swap editor panes"
 
 #: src/app/app-titlebar.tsx
 msgid "Switch project"
@@ -7977,10 +7602,6 @@ msgstr "Switching project…"
 #: src/project/references-panel.tsx
 msgid "Symbol references"
 msgstr "Symbol references"
-
-#: src/editor/insert/insert-palette.tsx
-msgid "Symbols"
-msgstr "Symbols"
 
 #: src/settings/synara-settings-pane.tsx
 msgid "Synara {synaraSettingsLabel} settings"
@@ -8018,6 +7639,10 @@ msgstr "Sync only when you click the sync button"
 msgid "Sync with Overleaf"
 msgstr "Sync with Overleaf"
 
+#: src/settings/settings-dialog.tsx
+msgid "Sync, open and chat with the linked Overleaf project"
+msgstr "Sync, open and chat with the linked Overleaf project"
+
 #. placeholder {0}: link.projectName
 #: src/overleaf/overleaf-connect.tsx
 msgid "Syncing with “{0}” is paused"
@@ -8031,7 +7656,7 @@ msgstr "Syncing with Overleaf…"
 msgid "SyncTeX bidirectional search"
 msgstr "SyncTeX bidirectional search"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Syntax-highlighted listing (listings)"
 msgstr "Syntax-highlighted listing (listings)"
 
@@ -8039,7 +7664,6 @@ msgstr "Syntax-highlighted listing (listings)"
 msgid "table"
 msgstr "table"
 
-#: src/editor/insert/insert-snippets.ts
 #: src/editor/markdown/engine/chrome/slash-items.ts
 msgid "Table"
 msgstr "Table"
@@ -8069,7 +7693,7 @@ msgstr "Table preview"
 msgid "Task List"
 msgstr "Task List"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Tau"
 msgstr "Tau"
 
@@ -8105,10 +7729,6 @@ msgstr "TexLab language server (optional editor diagnostics)"
 #: src/editor/markdown/engine/chrome/selection-toolbar.tsx
 msgid "Text"
 msgstr "Text"
-
-#: src/editor/insert/insert-snippets.ts
-msgid "Text in math"
-msgstr "Text in math"
 
 #: src/project/project-replace-dialog.tsx
 msgid "Text to find"
@@ -8166,6 +7786,10 @@ msgstr "The document body"
 msgid "The document changed while saving. Save it, then switch projects again."
 msgstr "The document changed while saving. Save it, then switch projects again."
 
+#: src/trellis/trellis-labels.ts
+msgid "the documents area"
+msgstr "the documents area"
+
 #: src/history/conflict-resolver.tsx
 msgid "The file changed while it was saving. Review the latest text and save again."
 msgstr "The file changed while it was saving. Review the latest text and save again."
@@ -8205,10 +7829,6 @@ msgstr "The Overleaf project connection is no longer active."
 #: src/canvas/paper-reader.tsx
 msgid "The PDF took too long to load. Try again, or open the article in your browser."
 msgstr "The PDF took too long to load. Try again, or open the article in your browser."
-
-#: src/onboarding/onboarding-tour.tsx
-msgid "The preview is editable too"
-msgstr "The preview is editable too"
 
 #: src/overleaf/use-overleaf-realtime.ts
 msgid "The previous Overleaf document could not be released. Syncing remains paused."
@@ -8299,15 +7919,11 @@ msgstr "The worksheet and all of its contents will be removed."
 msgid "Theme"
 msgstr "Theme"
 
-#: src/editor/insert/insert-snippets.ts
-msgid "Theorem"
-msgstr "Theorem"
-
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Theorem block (requires amsthm and a \\newtheorem declaration)"
 msgstr "Theorem block (requires amsthm and a \\newtheorem declaration)"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "There exists"
 msgstr "There exists"
 
@@ -8319,15 +7935,11 @@ msgstr "These comments stay in Lattice and are not sent to Overleaf."
 msgid "These preferences apply across every project on this Mac"
 msgstr "These preferences apply across every project on this Mac"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Theta"
 msgstr "Theta"
 
-#: src/onboarding/onboarding-tour.tsx
-msgid "Think visually on a board"
-msgstr "Think visually on a board"
-
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Third-level heading"
 msgstr "Third-level heading"
 
@@ -8404,17 +8016,13 @@ msgstr "This file changed outside live editing. Local work was kept; regular Ove
 msgid "This file is not live with Overleaf right now. Reconnect before commenting."
 msgstr "This file is not live with Overleaf right now. Reconnect before commenting."
 
-#: src/onboarding/onboarding-tour.tsx
-msgid "This folder contains the manuscript, notes, figures, boards, spreadsheets, and cited papers. Click a file to open it"
-msgstr "This folder contains the manuscript, notes, figures, boards, spreadsheets, and cited papers. Click a file to open it"
-
 #: src/canvas/project-asset-preview.tsx
 msgid "This format cannot be rendered in the preview"
 msgstr "This format cannot be rendered in the preview"
 
-#: src/onboarding/onboarding-tour.tsx
-msgid "This is a real, editable Open Slide deck. Use the thumbnail rail to browse pages, Inspect or Design to edit, and Present to show it. Agent can also revise its React and TSX source"
-msgstr "This is a real, editable Open Slide deck. Use the thumbnail rail to browse pages, Inspect or Design to edit, and Present to show it. Agent can also revise its React and TSX source"
+#: src/trellis/trellis-labels.ts
+msgid "this group"
+msgstr "this group"
 
 #: src/editor/presentation/open-slide-workspace.tsx
 msgid "This is not a native Open Slide deck."
@@ -8470,23 +8078,19 @@ msgstr "This source record is shown for comparison only. It was not verified and
 msgid "This step may take a minute"
 msgstr "This step may take a minute"
 
-#: src/onboarding/onboarding-tour.tsx
-msgid "Three ways to look at a document"
-msgstr "Three ways to look at a document"
-
 #: src/editor/latex/latex-command-completions.ts
 msgid "TikZ drawing"
 msgstr "TikZ drawing"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Tilde accent example"
 msgstr "Tilde accent example"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Time derivative mark"
 msgstr "Time derivative mark"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Times / cross product"
 msgstr "Times / cross product"
 
@@ -8501,6 +8105,10 @@ msgstr "Tip"
 msgid "Title"
 msgstr "Title"
 
+#: src/settings/settings-dialog.tsx
+msgid "Title bar tools"
+msgstr "Title bar tools"
+
 #: src/app/use-reference-import.ts
 msgid "Title, author, and year are required."
 msgstr "Title, author, and year are required."
@@ -8513,7 +8121,7 @@ msgstr "Title/abstract only"
 msgid "to"
 msgstr "to"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "To (short right arrow)"
 msgstr "To (short right arrow)"
 
@@ -8527,6 +8135,7 @@ msgstr "Today's date"
 
 #: src/canvas/editor-status-bar.tsx
 #: src/project/manuscript-checklist.tsx
+#: src/trellis/trellis-titles.ts
 msgid "TODOs"
 msgstr "TODOs"
 
@@ -8538,7 +8147,11 @@ msgstr "Too large for Overleaf, so left on this machine: {files}."
 msgid "Toolchain status"
 msgstr "Toolchain status"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/trellis/trellis-titlebar.tsx
+msgid "Tools"
+msgstr "Tools"
+
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Top / true"
 msgstr "Top / true"
 
@@ -8546,7 +8159,7 @@ msgstr "Top / true"
 msgid "Top table rule"
 msgstr "Top table rule"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Top-level section heading"
 msgstr "Top-level section heading"
 
@@ -8558,15 +8171,15 @@ msgstr "Track versions of this project to see who changed what and roll back saf
 msgid "Trashed"
 msgstr "Trashed"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Triangle"
 msgstr "Triangle"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Triangle left"
 msgstr "Triangle left"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Triangle right"
 msgstr "Triangle right"
 
@@ -8585,31 +8198,10 @@ msgstr "Try again"
 msgid "Try building the project again."
 msgstr "Try building the project again."
 
-#: src/onboarding/onboarding-tour.tsx
-msgid "Try typing / in the visual editor"
-msgstr "Try typing / in the visual editor"
-
-#: src/app/app-onboarding-tour.tsx
-msgid "Tutorial finished · keep poking around this project, or start one of your own."
-msgstr "Tutorial finished · keep poking around this project, or start one of your own."
-
-#. placeholder {0}: index + 1
-#: src/onboarding/onboarding-tour.tsx
-msgid "Tutorial progress: step {0} of {size}"
-msgstr "Tutorial progress: step {0} of {size}"
-
-#: src/App.tsx
-msgid "Two files side by side"
-msgstr "Two files side by side"
-
 #: src/editor/markdown/engine/views/component-views.tsx
 #: src/papers/bib-entry-dialog.tsx
 msgid "Type"
 msgstr "Type"
-
-#: src/onboarding/onboarding-tour.tsx
-msgid "Type directly in the formatted view without Markdown syntax. On an empty line, press / to insert headings, tables, math, or images"
-msgstr "Type directly in the formatted view without Markdown syntax. On an empty line, press / to insert headings, tables, math, or images"
 
 #: src/editor/latex/latex-command-completions.ts
 msgid "Typeset a URL"
@@ -8628,6 +8220,7 @@ msgid "UI"
 msgstr "UI"
 
 #: src/settings/doctor-settings.tsx
+#: src/trellis/trellis-labels.ts
 msgid "Unavailable"
 msgstr "Unavailable"
 
@@ -8647,15 +8240,10 @@ msgstr "Unclosed display math {open}."
 msgid "Unclosed inline math {open}."
 msgstr "Unclosed inline math {open}."
 
-#: src/editor/insert/insert-snippets.ts
 #: src/editor/latex/latex-selection-toolbar.tsx
 #: src/editor/markdown/engine/chrome/selection-toolbar.tsx
 msgid "Underline"
 msgstr "Underline"
-
-#: src/editor/insert/insert-snippets.ts
-msgid "Underscore"
-msgstr "Underscore"
 
 #: src/app/native-locale.ts
 msgctxt "macOS menu bar"
@@ -8686,7 +8274,7 @@ msgstr "Unfolded lines"
 msgid "Unhandled promise rejection"
 msgstr "Unhandled promise rejection"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Union"
 msgstr "Union"
 
@@ -8725,15 +8313,15 @@ msgstr "Unknown source response"
 msgid "Unmatched {found}."
 msgstr "Unmatched {found}."
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Unnumbered aligned equations"
 msgstr "Unnumbered aligned equations"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Unnumbered centered equations"
 msgstr "Unnumbered centered equations"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Unnumbered single-line equation"
 msgstr "Unnumbered single-line equation"
 
@@ -8745,15 +8333,11 @@ msgstr "Unordered list of items."
 msgid "Unpaywall"
 msgstr "Unpaywall"
 
-#: src/canvas/editor-tabs.tsx
-msgid "Unpin tab"
-msgstr "Unpin tab"
-
 #: src/overleaf/overleaf-comments.tsx
 msgid "Unresolved"
 msgstr "Unresolved"
 
-#: src/canvas/editor-tabs.tsx
+#: src/trellis/trellis-workspace.tsx
 msgid "Unsaved changes"
 msgstr "Unsaved changes"
 
@@ -8785,19 +8369,19 @@ msgstr "Unused labels / cites"
 msgid "Unverified candidate BibTeX"
 msgstr "Unverified candidate BibTeX"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Up arrow"
 msgstr "Up arrow"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Up double arrow"
 msgstr "Up double arrow"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Up-down arrow"
 msgstr "Up-down arrow"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Up-down double arrow"
 msgstr "Up-down double arrow"
 
@@ -8863,29 +8447,17 @@ msgstr "Uploading {0} to Overleaf… this can take a minute for large projects"
 msgid "Uploading…"
 msgstr "Uploading…"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Upright text in math"
 msgstr "Upright text in math"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Upsilon"
 msgstr "Upsilon"
 
 #: src/papers/bibliography-audit.tsx
 msgid "URL"
 msgstr "URL"
-
-#: src/onboarding/onboarding-tour.tsx
-msgid "Use + to create a presentation, spreadsheet, or board"
-msgstr "Use + to create a presentation, spreadsheet, or board"
-
-#: src/onboarding/onboarding-tour.tsx
-msgid "Use Edit for the source, Split for both, and Preview for the finished result"
-msgstr "Use Edit for the source, Split for both, and Preview for the finished result"
-
-#: src/onboarding/onboarding-tour.tsx
-msgid "Use Formulas in the toolbar, or export the spreadsheet as an .xlsx file"
-msgstr "Use Formulas in the toolbar, or export the spreadsheet as an .xlsx file"
 
 #: src/project/paper-library.tsx
 msgid "Use the + button to import this query if it isn't in your library yet"
@@ -8895,13 +8467,13 @@ msgstr "Use the + button to import this query if it isn't in your library yet"
 msgid "Use the Build button or Command-S. Source changes are still saved automatically"
 msgstr "Use the Build button or Command-S. Source changes are still saved automatically"
 
-#: src/onboarding/onboarding-tour.tsx
-msgid "Use the infinite canvas for diagrams, arrows, and freehand notes. Every shape is editable"
-msgstr "Use the infinite canvas for diagrams, arrows, and freehand notes. Every shape is editable"
-
 #: src/settings/literature-settings.tsx
 msgid "Use your own API quota for paper searches, imports, and citation checks."
 msgstr "Use your own API quota for paper searches, imports, and citation checks."
+
+#: src/trellis/trellis-titlebar.tsx
+msgid "Uses Trellis by DanFessler — github.com/DanFessler/trellis"
+msgstr "Uses Trellis by DanFessler — github.com/DanFessler/trellis"
 
 #: src/settings/literature-settings.tsx
 msgid "Using environment key"
@@ -8911,35 +8483,27 @@ msgstr "Using environment key"
 msgid "Using shared quota"
 msgstr "Using shared quota"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Variant epsilon"
 msgstr "Variant epsilon"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Variant phi"
 msgstr "Variant phi"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Variant pi"
 msgstr "Variant pi"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Variant rho"
 msgstr "Variant rho"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Variant theta"
 msgstr "Variant theta"
 
-#: src/editor/insert/insert-snippets.ts
-msgid "Vector accent"
-msgstr "Vector accent"
-
-#: src/editor/insert/insert-snippets.ts
-msgid "Vector accent example"
-msgstr "Vector accent example"
-
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Vector arrow over a symbol"
 msgstr "Vector arrow over a symbol"
 
@@ -8959,10 +8523,6 @@ msgstr "Venue template"
 #: src/papers/bib-entry-dialog.tsx
 msgid "Venue unavailable"
 msgstr "Venue unavailable"
-
-#: src/editor/insert/insert-snippets.ts
-msgid "Verbatim"
-msgstr "Verbatim"
 
 #: src/project/project-dialogs.tsx
 msgid "Verified against the official 2026 conference style"
@@ -9024,6 +8584,10 @@ msgstr "Version to keep for spot {0}"
 msgid "Versions"
 msgstr "Versions"
 
+#: src/settings/settings-dialog.tsx
+msgid "Versions and changes of the whole project"
+msgstr "Versions and changes of the whole project"
+
 #: src/editor/latex/latex-command-completions.ts
 msgid "Vertical space"
 msgstr "Vertical space"
@@ -9031,10 +8595,6 @@ msgstr "Vertical space"
 #: src/project/manuscript-checklist.tsx
 msgid "via texcount -inc"
 msgstr "via texcount -inc"
-
-#: src/App.tsx
-msgid "View"
-msgstr "View"
 
 #: src/app/native-locale.ts
 msgctxt "macOS menu bar"
@@ -9073,10 +8633,6 @@ msgstr "Visual editing is unavailable because this Markdown contains unsupported
 msgid "Visual Markdown editor"
 msgstr "Visual Markdown editor"
 
-#: src/editor/insert/insert-snippets.ts
-msgid "Vmatrix"
-msgstr "Vmatrix"
-
 #: src/papers/bibliography-audit.tsx
 msgid "Volume"
 msgstr "Volume"
@@ -9110,17 +8666,9 @@ msgstr "Warning"
 msgid "Warning: raw diagnostic text may contain document content, file paths, or other sensitive information."
 msgstr "Warning: raw diagnostic text may contain document content, file paths, or other sensitive information."
 
-#: src/onboarding/onboarding-tour.tsx
-msgid "We opened the “Attention Is All You Need” sample project so you can try each feature on real files. You can skip the tutorial at any time"
-msgstr "We opened the “Attention Is All You Need” sample project so you can try each feature on real files. You can skip the tutorial at any time"
-
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Weierstrass p"
 msgstr "Weierstrass p"
-
-#: src/onboarding/onboarding-tour.tsx
-msgid "Welcome to Lattice"
-msgstr "Welcome to Lattice"
 
 #: src/overleaf/overleaf-connect.tsx
 msgid "When you delete a file here"
@@ -9164,7 +8712,7 @@ msgstr "Word budget"
 msgid "Words / pages / TODOs"
 msgstr "Words / pages / TODOs"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Words inside math mode"
 msgstr "Words inside math mode"
 
@@ -9172,6 +8720,10 @@ msgstr "Words inside math mode"
 #: src/project/paper-library.tsx
 msgid "Working…"
 msgstr "Working…"
+
+#: src/trellis/trellis-labels.ts
+msgid "Workspace"
+msgstr "Workspace"
 
 #: src/project/project-dialogs.tsx
 msgid "Wrap in environment"
@@ -9185,7 +8737,7 @@ msgstr "Wrap in table float"
 msgid "Wraps the current selection (or empty cursor) in \\begin{…}/\\end{…}"
 msgstr "Wraps the current selection (or empty cursor) in \\begin{…}/\\end{…}"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Wreath product"
 msgstr "Wreath product"
 
@@ -9197,7 +8749,7 @@ msgstr "XeLaTeX and LuaLaTeX support system fonts. A project latexmkrc takes pre
 msgid "XeLaTeX engine"
 msgstr "XeLaTeX engine"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Xi"
 msgstr "Xi"
 
@@ -9236,10 +8788,6 @@ msgstr "You’ll be notified when a new version is ready"
 msgid "You’re on the latest version"
 msgstr "You’re on the latest version"
 
-#: src/onboarding/onboarding-tour.tsx
-msgid "Your LaTeX and your PDF, side by side"
-msgstr "Your LaTeX and your PDF, side by side"
-
 #: src/history/conflict-resolver.tsx
 msgid "Your Lattice copy"
 msgstr "Your Lattice copy"
@@ -9260,7 +8808,7 @@ msgstr "Your Overleaf session has expired. Sign in again to continue. Your local
 msgid "Your project files are safe. Restart Lattice to reopen the window, or copy the error details if the problem continues."
 msgstr "Your project files are safe. Restart Lattice to reopen the window, or copy the error details if the problem continues."
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Zeta"
 msgstr "Zeta"
 
@@ -9284,3 +8832,7 @@ msgstr "Zoom in"
 #: src/pdf/pdf-viewer.tsx
 msgid "Zoom out"
 msgstr "Zoom out"
+
+#: src/trellis/trellis-titlebar.tsx
+msgid "Zoom out to show every panel"
+msgstr "Zoom out to show every panel"

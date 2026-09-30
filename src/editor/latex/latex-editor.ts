@@ -33,7 +33,7 @@ import { compactSearchPanel } from "./search-panel";
 
 const CITATION_COMMAND_END = new RegExp(`\\\\(?:${CITATION_COMMANDS})$`);
 
-const luxLatexHighlightStyle = HighlightStyle.define([
+export const luxLatexHighlightStyle = HighlightStyle.define([
   { tag: [tags.keyword, tags.definitionKeyword], color: "var(--syntax-keyword)", fontWeight: "600", fontStyle: "oblique" },
   { tag: tags.operator, color: "var(--syntax-operator)" },
   { tag: [tags.heading, tags.function(tags.variableName), tags.macroName], color: "var(--syntax-function)", fontWeight: "600" },

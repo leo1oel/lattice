@@ -14,7 +14,7 @@ import { describe, expect, it } from "vitest";
  * grow the skipped set. Lower a ceiling when you clear bailouts; never raise
  * one without a comment explaining why.
  *
- * Current ceilings (2026-08): editor-tabs is fully compiled. The rest are a
+ * Current ceilings (2026-08): the rest are a
  * staged cleanup — App.tsx needs its ~35 try/finally callback bodies hoisted
  * to module helpers, DocumentCanvas is skipped wholesale because its
  * intentional-stability memos carry react-hooks/exhaustive-deps disables
@@ -38,16 +38,14 @@ const CEILINGS: Record<string, number> = {
   "src/app/app-overleaf-drawer.tsx": 0,
   "src/app/app-editor-panels.tsx": 0,
   "src/app/app-history-drawers.tsx": 0,
-  "src/app/app-onboarding-tour.tsx": 0,
   "src/app/app-project-dialogs.tsx": 0,
   "src/app/app-search-dialogs.tsx": 2,
   "src/app/app-titlebar.tsx": 0,
-  "src/app/app-workspace-sidebar.tsx": 0,
-  "src/canvas/document-canvas.tsx": 2,
+  "src/trellis/trellis-panel-actions.tsx": 0,
+  "src/canvas/document-canvas.tsx": 1,
   // The clean-room engine's editor keeps its mutable session in effects and
   // editor storage, so it compiles fully; pinned so it stays that way.
   "src/editor/markdown/engine/lattice-visual-editor.tsx": 0,
-  "src/canvas/editor-tabs.tsx": 0,
   // Split out of the viewer, which had 5. Each remaining one is a tagged
   // template or a preserved memo, not a ref write; the viewer itself compiles.
   "src/pdf/pdf-viewer.tsx": 0,
@@ -56,7 +54,6 @@ const CEILINGS: Record<string, number> = {
   // Cleared August 2026 by moving render-phase ref writes into every-commit
   // layout effects (model: src/editor/codemirror-host.tsx). Pinned at 0 so the
   // pattern cannot creep back.
-  "src/app/use-panel-layout.ts": 0,
   "src/project/project-find-dialog.tsx": 0,
   "src/telemetry/app-updater.tsx": 1,
 };

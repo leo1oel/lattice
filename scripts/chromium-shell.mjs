@@ -214,16 +214,13 @@ async function createWindow(rawUrl) {
         width: var(--titlebar-navigator-width) !important;
         padding: 0 !important;
       }
-      .app-shell.browser-hosted .titlebar-sidebar-toggle .icon-button {
-        left: var(--titlebar-toggle-center) !important;
-      }
       .titlebar-drag-area {
         -webkit-app-region: drag;
       }
-      .titlebar-main > .editor-tabs .editor-tabs-content {
+      .titlebar-main > .trellis-titlebar {
         -webkit-app-region: drag;
       }
-      .titlebar-main > .editor-tabs .editor-tab {
+      .titlebar-main > .trellis-titlebar button {
         -webkit-app-region: no-drag;
       }
       /* Native drag regions ignore DOM stacking, so a drawer covering the

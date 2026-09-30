@@ -39,7 +39,6 @@ const OVERLEAF_REMOTE_DELETE_KEY = "lattice.overleaf.remote-delete.v1";
 const PROJECT_HISTORY_MAX = 60;
 const FILE_VIEW_STATE_FILE_MAX = 200;
 const RECENT_PROJECTS_MAX = 8;
-export const MAX_OPEN_TABS = 12;
 
 // Every preference here is a convenience: when storage is unavailable or holds
 // something unreadable, reads fall back to the default and writes last only for
@@ -350,8 +349,13 @@ export type AppearanceSettings = {
   editorKeymap: "default" | "vim" | "emacs";
   editorSpellcheck: boolean;
   interfaceSounds: boolean;
-  maxOpenTabs: number;
+  /** Title-bar tool buttons the writer chose to hide (Settings → Appearance). */
+  hiddenTitlebarTools: TitlebarTool[];
 };
+
+/** The tool buttons at the right of the title bar, each of which can be hidden. */
+export const TITLEBAR_TOOLS = ["comments", "overleaf", "paper-lookup", "git", "history"] as const;
+export type TitlebarTool = typeof TITLEBAR_TOOLS[number];
 
 export function resolveAppLocale(preference: InterfaceLanguage, systemLanguages?: readonly string[]): AppLocale {
   if (preference !== "system") return preference;
@@ -378,7 +382,7 @@ export function loadAppearance(): AppearanceSettings {
     editorKeymap: "default",
     editorSpellcheck: true,
     interfaceSounds: true,
-    maxOpenTabs: 5,
+    hiddenTitlebarTools: [],
   };
   return safely(() => {
     const current = localStorage.getItem(APPEARANCE_KEY);
@@ -403,7 +407,9 @@ export function loadAppearance(): AppearanceSettings {
       // non-English prose sees nothing from it.
       editorSpellcheck: value?.editorSpellcheck !== false,
       interfaceSounds: value?.interfaceSounds !== false,
-      maxOpenTabs: clamp(Math.round(Number(value?.maxOpenTabs) || defaults.maxOpenTabs), 1, MAX_OPEN_TABS),
+      hiddenTitlebarTools: Array.isArray(value?.hiddenTitlebarTools)
+        ? TITLEBAR_TOOLS.filter((tool) => value.hiddenTitlebarTools?.includes(tool))
+        : defaults.hiddenTitlebarTools,
     };
   }, defaults);
 }

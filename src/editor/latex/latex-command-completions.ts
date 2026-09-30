@@ -3,25 +3,24 @@
  * answer (it is optional, and only runs for `.tex` files): common commands,
  * environments, math symbols, packages and document classes.
  *
- * Most entries come from the insert palette's snippets, whose descriptions
- * are already translated; the rest are listed here. A command's `template`
- * is what completion inserts, with the caret in its first empty `{}`.
+ * Most entries come from `latex-vocabulary.ts`; the rest are listed here. A
+ * command's `template` is what completion inserts, with the caret in its first
+ * empty `{}`.
  * Environment completion inside `\begin{…}` also writes the matching
  * `\end{…}`, like pressing Enter after a typed `\begin{…}` does.
  */
 import type { Completion, CompletionContext, CompletionResult } from "@codemirror/autocomplete";
 import { pickedCompletion } from "@codemirror/autocomplete";
-import type { MessageDescriptor } from "@lingui/core";
 import { msg } from "@lingui/core/macro";
 import { Text, type EditorState } from "@codemirror/state";
 import type { EditorView } from "@codemirror/view";
 import { i18n } from "../../i18n";
-import { INSERT_SNIPPETS } from "../insert/insert-snippets";
 import { beginEnvironmentClose } from "./latex-environments";
 import { shouldInsertCommandBraces } from "./latex-symbols";
 import { mathRegionAt } from "./math-region";
+import { VOCABULARY_COMMANDS, VOCABULARY_ENVIRONMENTS, type VocabularyEntry } from "./latex-vocabulary";
 
-type Entry = { name: string; detail: MessageDescriptor; template?: string; package?: string; math?: boolean };
+type Entry = VocabularyEntry;
 
 const COMMANDS: Entry[] = [
   { name: "\\documentclass", detail: msg`Choose the document class`, template: "\\documentclass{}" },
@@ -121,32 +120,12 @@ const PACKAGES = [
 ];
 const DOCUMENT_CLASSES = ["article", "report", "book", "letter", "beamer", "memoir", "amsart", "scrartcl", "scrreprt", "standalone"];
 
-/** A command-shaped snippet: its name, and a template when all it adds is empty arguments. */
-const SNIPPET_COMMAND = /^(\\[A-Za-z]+)(?:\[[^\]]*\])?(?:\{\})*$/;
-const SNIPPET_ENVIRONMENT = /\\begin\{([^}]+)\}/;
-
-/** Palette snippets first (their names are what the palette shows), then the entries above. */
+/** The shared vocabulary first, then the entries above. */
 function vocabulary() {
   const commands = new Map<string, Entry>();
   const environments = new Map<string, Entry>();
-  for (const snippet of INSERT_SNIPPETS) {
-    const insert = snippet.insert.trim();
-    const environment = SNIPPET_ENVIRONMENT.exec(insert)?.[1];
-    if (environment) {
-      if (!environments.has(environment)) environments.set(environment, { name: environment, detail: snippet.detail });
-      continue;
-    }
-    const command = SNIPPET_COMMAND.exec(insert);
-    if (!command || commands.has(command[1])) continue;
-    commands.set(command[1], {
-      name: command[1],
-      detail: snippet.detail,
-      template: insert === command[1] ? undefined : insert,
-      math: snippet.group !== "Structure",
-    });
-  }
-  for (const entry of COMMANDS) if (!commands.has(entry.name)) commands.set(entry.name, entry);
-  for (const entry of ENVIRONMENTS) if (!environments.has(entry.name)) environments.set(entry.name, entry);
+  for (const entry of [...VOCABULARY_COMMANDS, ...COMMANDS]) if (!commands.has(entry.name)) commands.set(entry.name, entry);
+  for (const entry of [...VOCABULARY_ENVIRONMENTS, ...ENVIRONMENTS]) if (!environments.has(entry.name)) environments.set(entry.name, entry);
   return { commands, environments };
 }
 

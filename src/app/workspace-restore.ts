@@ -27,29 +27,29 @@ export function collectAssetPaths(nodes: FileNode[]): Set<string> {
     || node.kind === "figure" || node.contentKind === "binary" || node.contentKind === "symlink"));
 }
 
-const isTwoPaneMode = (mode: CanvasMode | undefined) => mode === "dual";
-
-/** The canvas mode a restored active tab opens in. */
+/**
+ * The canvas mode a restored active tab opens in. Workspaces saved by the old
+ * fixed layout may say "dual" (two editors side by side): documents now get a
+ * panel each, so that becomes the plain editor.
+ */
 function restoredCanvasMode(
   activeTab: string,
   kind: "paper" | "asset" | "document",
   layout: WorkspaceLayout | null,
-  hasSecondary: boolean,
 ): CanvasMode {
-  const saved = layout?.canvasMode;
+  const saved = layout?.canvasMode === "dual" ? "source" : layout?.canvasMode;
   if (kind === "paper") return saved === "source" || saved === "split" ? saved : "pdf";
   if (kind === "asset") return "asset";
   if (isHtmlFilePath(activeTab)) {
     return layout?.activeTab === activeTab && (saved === "source" || saved === "split" || saved === "pdf") ? saved : "pdf";
   }
-  if (!isPreviewableSourceFilePath(activeTab)) return isTwoPaneMode(saved) ? saved! : "source";
-  if (isTwoPaneMode(saved) && !hasSecondary) return "split";
+  if (!isPreviewableSourceFilePath(activeTab)) return "source";
   return saved ?? "split";
 }
 
 /**
  * Where to put a project's workspace back: which files load into the panes,
- * which tabs reopen (pinned first), the active tab and the canvas mode.
+ * which tabs reopen, the active tab and the canvas mode.
  * `layout` is the saved per-project workspace; `lastFile` is the single file
  * older releases remembered, kept as the migration fallback.
  */
@@ -76,29 +76,21 @@ export function planWorkspaceRestore(
     ?? rootDocuments[0];
   const primaryFile: string | undefined = [layout?.activeFile, lastFile, rootDocument?.path]
     .find((path): path is string => Boolean(path) && sourcePaths.has(path!)) ?? [...sourcePaths][0];
-  const secondaryFile = layout?.secondaryFile && layout.secondaryFile !== primaryFile
-    && sourcePaths.has(layout.secondaryFile) ? layout.secondaryFile : null;
+  // Each document has its own panel now: nothing loads into a second pane.
+  const secondaryFile: string | null = null;
 
   const tabs = layout ? layout.openTabs.filter(validTab) : primaryFile ? [primaryFile] : [];
-  const pinnedTabs = layout?.pinnedTabs?.filter(validTab) ?? [];
-  if (layout) {
-    const pinned = new Set(pinnedTabs);
-    tabs.sort((left, right) => Number(pinned.has(right)) - Number(pinned.has(left)));
-  }
   const activeTab = layout?.activeTab && validTab(layout.activeTab) ? layout.activeTab : primaryFile ?? tabs[0] ?? "";
   if (activeTab && !tabs.includes(activeTab)) tabs.push(activeTab);
   const activeKind = paperKeys.has(activeTab) ? "paper" : assetPaths.has(activeTab) ? "asset" : "document";
-  const mode = restoredCanvasMode(activeTab, activeKind, layout, Boolean(secondaryFile));
+  const mode = restoredCanvasMode(activeTab, activeKind, layout);
   // The saved recency order first, then any open tab it does not know yet.
   const tabRecency = [...new Set([...(layout?.tabRecency ?? []).filter((path) => tabs.includes(path)), ...tabs])];
-  const focusedPane: EditorPaneId = secondaryFile && isTwoPaneMode(mode) && layout?.focusedPane === "secondary"
-    ? "secondary"
-    : "primary";
+  const focusedPane: EditorPaneId = "primary";
   return {
     primaryFile,
     secondaryFile,
     tabs,
-    pinnedTabs,
     tabRecency,
     activeTab,
     /** A Paper or asset tab must be opened through its own reader once the project is in. */

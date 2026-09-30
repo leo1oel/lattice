@@ -95,10 +95,6 @@ msgstr "{action}失败"
 msgid "{action} success"
 msgstr "{action}成功"
 
-#: src/app/app-titlebar.tsx
-msgid "{buildSeconds}s"
-msgstr "{buildSeconds} 秒"
-
 #: src/overleaf/overleaf-review.tsx
 msgid "{changeSummary} · {conflictSummary}. Nothing has been written yet"
 msgstr "{changeSummary} · {conflictSummary}。尚未写入任何内容"
@@ -150,6 +146,10 @@ msgstr "{count} 个标记"
 #: src/project/todo-scavenger-panel.tsx
 msgid "{count} markers"
 msgstr "{count} 个标记"
+
+#: src/trellis/trellis-labels.ts
+msgid "{count} panels. Double-click to zoom in."
+msgstr "{count} 个面板。双击放大。"
 
 #: src/papers/paper-lookup.tsx
 #: src/project/paper-library.tsx
@@ -247,6 +247,10 @@ msgstr "{fileSummary}中共 {matchSummary}（仅显示前 200 处）"
 #: src/app-utils.ts
 msgid "{minutes}m ago"
 msgstr "{minutes} 分钟前"
+
+#: src/trellis/trellis-workspace.tsx
+msgid "{name} could not be saved. Close it and discard the unsaved changes?"
+msgstr "{name} 无法保存。要关闭并放弃未保存的更改吗？"
 
 #: src/app/use-overleaf-workspace.ts
 msgid "{name} is not in a file right now."
@@ -360,10 +364,6 @@ msgstr "⌘⇧F · 源文件和论文"
 msgid "⌘⇧H · all .tex files"
 msgstr "⌘⇧H · 所有 .tex 文件"
 
-#: src/canvas/editor-tabs.tsx
-msgid "⌘⇧T to reopen"
-msgstr "⌘⇧T 重新打开"
-
 #: src/project/project-find-dialog.tsx
 msgid "1 hit"
 msgstr "1 个结果"
@@ -394,7 +394,7 @@ msgstr "有一处本地编辑尚未在 Overleaf 上生效，因此无法安全�
 msgid "A local-first LaTeX workspace where your writing agent, sources, manuscript, and rendered paper stay connected"
 msgstr "一个本地优先的 LaTeX 工作空间，让写作助手、资料来源、手稿和渲染后的论文保持关联"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "a over b"
 msgstr "分子 a，分母 b"
 
@@ -427,17 +427,9 @@ msgctxt "macOS menu bar"
 msgid "About {name}"
 msgstr "关于 {name}"
 
-#: src/editor/insert/insert-snippets.ts
-msgid "Abstract"
-msgstr "摘要"
-
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Abstract environment"
 msgstr "摘要环境"
-
-#: src/editor/insert/insert-palette.tsx
-msgid "Accents"
-msgstr "重音符"
 
 #: src/editor/markdown/engine/chrome/review-chrome.tsx
 #: src/overleaf/overleaf-changes.tsx
@@ -471,7 +463,7 @@ msgstr "折叠面板"
 msgid "Activity log"
 msgstr "活动日志"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Acute accent example"
 msgstr "锐音符示例"
 
@@ -488,9 +480,13 @@ msgstr "将“{projectWord}”添加到项目词典"
 msgid "Add a title, full authors, and year, or add a DOI or arXiv identifier, before checking this reference."
 msgstr "检查此参考文献前，请添加标题、完整作者名单和年份，或添加 DOI 或 arXiv 标识符。"
 
+#: src/trellis/trellis-labels.ts
+msgid "Add as tab"
+msgstr "添加为标签页"
+
 #: src/App.tsx
-#: src/app/app-workspace-sidebar.tsx
 #: src/papers/bib-entry-dialog.tsx
+#: src/trellis/trellis-panel-actions.tsx
 msgid "Add bibliography entry"
 msgstr "添加参考文献条目"
 
@@ -499,7 +495,6 @@ msgid "Add bibliography entry and cache the arXiv paper"
 msgstr "添加参考文献条目并缓存该 arXiv 论文"
 
 #: src/editor/markdown/engine/chrome/block-controls.tsx
-#: src/onboarding/onboarding-tour.tsx
 msgid "Add block below"
 msgstr "在下方添加块"
 
@@ -549,20 +544,20 @@ msgstr "已将“{title}”添加到参考文献。没有可打开的全文。"
 msgid "Added “{title}” to the bibliography. The full text could not be downloaded: {fetchNote}"
 msgstr "已将“{title}”添加到参考文献。无法下载全文：{fetchNote}"
 
-#: src/app/app-agent-panel.tsx
-#: src/app/app-workspace-sidebar.tsx
 #: src/history/history-drawer.tsx
 #: src/settings/settings-dialog.tsx
+#: src/trellis/trellis-agent-surface.tsx
+#: src/trellis/trellis-titles.ts
 msgid "Agent"
 msgstr "智能助手"
-
-#: src/onboarding/onboarding-tour.tsx
-msgid "Agent can read your manuscript, notes, papers, spreadsheets, and Open Slide presentations. Ask it to draft text, verify a claim against a source, analyze results, build slides, or revise files across the project"
-msgstr "Agent 可以读取你的论文、笔记、文献、电子表格和 Open Slide 演示文稿。你可以让它起草文本、根据来源核实论点、分析结果、制作幻灯片，或修改项目中的文件"
 
 #: src/agent/synara-permission-picker.tsx
 msgid "Agent permissions: {label}"
 msgstr "智能助手权限：{label}"
+
+#: src/App.tsx
+msgid "Agent settings…"
+msgstr "智能助手设置…"
 
 #. placeholder {0}: item.threadTitle
 #: src/history/history-drawer.tsx
@@ -581,21 +576,13 @@ msgstr "助手轮次审查"
 msgid "Agent unavailable"
 msgstr "智能助手不可用"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Aleph"
 msgstr "阿列夫"
 
-#: src/editor/insert/insert-snippets.ts
-msgid "Algorithm"
-msgstr "算法"
-
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Algorithm block (requires algorithm and algpseudocode)"
 msgstr "算法块（需要 algorithm 与 algpseudocode）"
-
-#: src/editor/insert/insert-snippets.ts
-msgid "Align"
-msgstr "对齐公式"
 
 #: src/editor/markdown/engine/views/image-view.tsx
 msgid "Align center"
@@ -609,15 +596,10 @@ msgstr "左对齐"
 msgid "Align right"
 msgstr "右对齐"
 
-#: src/editor/insert/insert-snippets.ts
-msgid "Align*"
-msgstr "对齐公式*"
-
 #: src/editor/markdown/engine/views/image-view.tsx
 msgid "Alignment"
 msgstr "对齐"
 
-#: src/editor/insert/insert-palette.tsx
 #: src/editor/latex/search-panel.ts
 #: src/history/history-drawer.tsx
 msgid "All"
@@ -644,7 +626,7 @@ msgstr "允许外部命令"
 msgid "Almost done"
 msgstr "即将完成"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Alpha"
 msgstr "阿尔法"
 
@@ -656,17 +638,9 @@ msgstr "已在论文库中"
 msgid "Alt text"
 msgstr "替代文本"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Amalgamation"
 msgstr "合并运算"
-
-#: src/editor/insert/insert-snippets.ts
-msgid "Ampersand"
-msgstr "与号"
-
-#: src/onboarding/onboarding-tour.tsx
-msgid "An agent that works across your project"
-msgstr "可处理整个项目的 Agent"
 
 #: src/overleaf/use-overleaf-track-changes.ts
 msgid "An edit is still on its way to Overleaf. Try accepting again in a moment."
@@ -688,11 +662,7 @@ msgstr "现有参考文献条目的引用键无效。"
 msgid "An update from Overleaf did not fit this document; it needs to be reloaded."
 msgstr "来自 Overleaf 的更新与此文档不匹配，需要重新加载文档。"
 
-#: src/onboarding/onboarding-tour.tsx
-msgid "Analyze results in a live spreadsheet"
-msgstr "在实时电子表格中分析结果"
-
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Angle"
 msgstr "角"
 
@@ -771,7 +741,7 @@ msgstr "代我批准"
 msgid "Approve the macOS prompt to continue"
 msgstr "批准 macOS 提示以继续"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Approximately equal"
 msgstr "约等于"
 
@@ -782,10 +752,6 @@ msgstr "已归档"
 #: src/editor/latex/latex-command-completions.ts
 msgid "Argument"
 msgstr "辐角"
-
-#: src/editor/insert/insert-palette.tsx
-msgid "Arrows"
-msgstr "箭头"
 
 #: src/papers/bib-entry-dialog.tsx
 msgid "Article"
@@ -815,7 +781,7 @@ msgstr "请求批准"
 msgid "Ask only for potentially unsafe actions"
 msgstr "仅对可能不安全的操作请求批准"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Asterisk operator"
 msgstr "星号运算符"
 
@@ -879,11 +845,7 @@ msgstr "可离线阅读"
 msgid "Azure"
 msgstr "天蓝色"
 
-#: src/onboarding/onboarding-tour.tsx
-msgid "Back"
-msgstr "返回"
-
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Back prime"
 msgstr "反撇号"
 
@@ -899,15 +861,7 @@ msgstr "返回选择"
 msgid "Back to reference"
 msgstr "返回引用处"
 
-#: src/editor/insert/insert-snippets.ts
-msgid "Bar accent"
-msgstr "横线记号"
-
-#: src/editor/insert/insert-snippets.ts
-msgid "Bar accent example"
-msgstr "横线符示例"
-
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Bar over an expression"
 msgstr "表达式上方加横线"
 
@@ -935,11 +889,11 @@ msgstr "已复用批量查询结果"
 msgid "Beamer slide"
 msgstr "Beamer 幻灯片"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Beta"
 msgstr "贝塔"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Beth"
 msgstr "贝特"
 
@@ -959,7 +913,7 @@ msgstr "Biber 参考文献处理器"
 msgid "biblatex bibliography file"
 msgstr "biblatex 参考文献文件"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Bibliographic citation (requires natbib or compatible package)"
 msgstr "文献引用（需要 natbib 或兼容宏包）"
 
@@ -995,11 +949,11 @@ msgstr "BibTeX 预览"
 msgid "Big section heading."
 msgstr "用于主要章节的大标题。"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Big triangle down"
 msgstr "大三角形（向下）"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Big triangle up"
 msgstr "大三角形（向上）"
 
@@ -1016,11 +970,7 @@ msgstr "二进制文件 — 无法逐行查看"
 msgid "Binary file changed"
 msgstr "二进制文件已更改"
 
-#: src/editor/insert/insert-snippets.ts
-msgid "Binomial"
-msgstr "二项式"
-
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Binomial coefficient"
 msgstr "二项式系数"
 
@@ -1028,15 +978,11 @@ msgstr "二项式系数"
 msgid "Black"
 msgstr "黑色"
 
-#: src/editor/insert/insert-snippets.ts
-msgid "Blackboard bold"
-msgstr "黑板粗体"
-
 #: src/editor/markdown/engine/chrome/slash-items.ts
 msgid "Block math equation rendered with KaTeX from a LaTeX source string."
 msgstr "使用 KaTeX 渲染 LaTeX 源字符串的块级数学公式。"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Block quotation"
 msgstr "独立成段的引文"
 
@@ -1044,14 +990,10 @@ msgstr "独立成段的引文"
 msgid "Block type"
 msgstr "块类型"
 
-#: src/canvas/canvas-toolbar.tsx
 #: src/canvas/paper-reader.tsx
+#: src/trellis/trellis-workspace.tsx
 msgid "Blog"
 msgstr "概览"
-
-#: src/onboarding/onboarding-tour.tsx
-msgid "Blog view gives you an illustrated overview before you read the full paper"
-msgstr "博客视图提供带插图的论文概览，帮助你在阅读全文前快速了解内容"
 
 #: src/components/ui/apple-color-picker.tsx
 msgid "Blue"
@@ -1060,10 +1002,6 @@ msgstr "蓝色"
 #: src/components/ui/apple-color-picker.tsx
 msgid "Blue value"
 msgstr "蓝色值"
-
-#: src/editor/insert/insert-snippets.ts
-msgid "Bmatrix"
-msgstr "方括号矩阵"
 
 #: src/canvas/editor-status-bar.tsx
 msgid "Body {body} · raw {raw} · {chars} chars"
@@ -1085,7 +1023,6 @@ msgstr "正文词数（{source}）：文本 {text}，标题 {headers}，图注 {
 msgid "Body words use TeXcount when installed (else a local estimate). Set budgets for your venue page/word limits"
 msgstr "若已安装 TeXcount，正文词数由其统计（否则为本地估算）。可按投稿会议或期刊的页数/词数限制设置上限"
 
-#: src/editor/insert/insert-snippets.ts
 #: src/editor/latex/latex-selection-toolbar.tsx
 #: src/editor/markdown/engine/chrome/selection-toolbar.tsx
 msgid "Bold"
@@ -1095,7 +1032,7 @@ msgstr "粗体"
 msgid "Bold math"
 msgstr "数学粗体"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Bold text command"
 msgstr "粗体文字命令"
 
@@ -1115,7 +1052,7 @@ msgstr "会议录 / 书名"
 msgid "Both sides edited different parts, so the two sets of edits join"
 msgstr "双方编辑了不同部分，两边的修改会合并在一起"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Bottom / false"
 msgstr "底元 / 假"
 
@@ -1123,15 +1060,15 @@ msgstr "底元 / 假"
 msgid "Bottom table rule"
 msgstr "表格底线"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Brace-delimited matrix"
 msgstr "用花括号包裹的矩阵"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Bracketed matrix"
 msgstr "带方括号的矩阵"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Breve accent example"
 msgstr "短音符示例"
 
@@ -1139,10 +1076,6 @@ msgstr "短音符示例"
 #: src/overleaf/overleaf-history.tsx
 msgid "Bring back {0}"
 msgstr "恢复 {0}"
-
-#: src/onboarding/onboarding-tour.tsx
-msgid "Browse your bibliography"
-msgstr "浏览参考文献"
 
 #: src/settings/settings-dialog.tsx
 msgid "Browser"
@@ -1153,14 +1086,10 @@ msgid "Browser storage is full or unavailable. New entries still reach the log f
 msgstr "浏览器存储已满或不可用。新条目仍会写入磁盘上的日志文件，但此列表可能在重启后丢失。"
 
 #: src/App.tsx
-#: src/app/app-titlebar.tsx
 #: src/app/use-build-pipeline.ts
+#: src/trellis/trellis-workspace.tsx
 msgid "Build"
 msgstr "构建"
-
-#: src/app/app-titlebar.tsx
-msgid "Build automatically · Command-S builds now. Shift-click for clean rebuild"
-msgstr "自动构建 · Command-S 立即构建。按住 Shift 点击可执行全新重建"
 
 #: src/build/compile-diagnostics-panel.tsx
 msgid "Build failed"
@@ -1177,10 +1106,6 @@ msgstr "构建日志"
 #: src/build/compile-diagnostics-panel.tsx
 msgid "Build notes"
 msgstr "构建提示"
-
-#: src/app/app-titlebar.tsx
-msgid "Build only when requested · Command-S builds now. Shift-click for clean rebuild"
-msgstr "仅在请求时构建 · Command-S 立即构建。按住 Shift 点击可执行全新重建"
 
 #: src/build/compile-diagnostics-panel.tsx
 msgid "Build output"
@@ -1202,6 +1127,14 @@ msgstr "构建成功，用时 {seconds} 秒"
 msgid "Build superseded"
 msgstr "构建已被新操作取代"
 
+#: src/trellis/trellis-workspace.tsx
+msgid "Build the project and show the PDF · ⌘S · last build {seconds}s · Shift-click for a clean rebuild"
+msgstr "构建项目并显示 PDF · ⌘S · 上次构建用时 {seconds} 秒 · 按住 Shift 点击可执行全新重建"
+
+#: src/trellis/trellis-workspace.tsx
+msgid "Build the project and show the PDF · ⌘S · Shift-click for a clean rebuild"
+msgstr "构建项目并显示 PDF · ⌘S · 按住 Shift 点击可执行全新重建"
+
 #: src/pdf/pdf-viewer.tsx
 msgid "Build the project to preview the paper"
 msgstr "构建项目以预览论文"
@@ -1210,11 +1143,15 @@ msgstr "构建项目以预览论文"
 msgid "Build to count"
 msgstr "构建后统计"
 
+#: src/trellis/trellis-workspace.tsx
+msgid "Building… · the PDF refreshes when it finishes"
+msgstr "正在构建… · 完成后 PDF 会刷新"
+
 #: src/settings/settings-dialog.tsx
 msgid "Builds"
 msgstr "构建"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Bullet"
 msgstr "实心圆点"
 
@@ -1223,17 +1160,13 @@ msgstr "实心圆点"
 msgid "Bullet List"
 msgstr "无序列表"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Bulleted list"
 msgstr "带项目符号的列表"
 
 #: src/project/citation-health.ts
 msgid "cached"
 msgstr "缓存"
-
-#: src/editor/insert/insert-snippets.ts
-msgid "Calligraphic"
-msgstr "花体"
 
 #: src/editor/markdown/engine/chrome/slash-items.ts
 #: src/editor/markdown/engine/views/component-views.tsx
@@ -1320,47 +1253,47 @@ msgstr "无法验证 ICML 宏包（缺少 kpsewhich）。请从 Lattice 安装 B
 msgid "Cannot verify NeurIPS packages (kpsewhich missing). Install BasicTeX from Lattice."
 msgstr "无法验证 NeurIPS 宏包（缺少 kpsewhich）。请从 Lattice 安装 BasicTeX。"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Capital delta"
 msgstr "大写德尔塔"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Capital gamma"
 msgstr "大写伽马"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Capital lambda"
 msgstr "大写兰姆达"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Capital omega"
 msgstr "大写欧米伽"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Capital phi"
 msgstr "大写斐"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Capital pi"
 msgstr "大写派"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Capital psi"
 msgstr "大写普西"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Capital sigma"
 msgstr "大写西格马"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Capital theta"
 msgstr "大写西塔"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Capital upsilon"
 msgstr "大写宇普西龙"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Capital xi"
 msgstr "大写克西"
 
@@ -1373,10 +1306,6 @@ msgstr "题注"
 msgid "Caption of a figure or table"
 msgstr "图或表的标题"
 
-#: src/editor/insert/insert-snippets.ts
-msgid "Cases"
-msgstr "分段函数"
-
 #: src/editor/markdown/engine/views/component-views.tsx
 msgid "Caution"
 msgstr "注意"
@@ -1385,23 +1314,15 @@ msgstr "注意"
 msgid "Cell spanning columns"
 msgstr "跨列单元格"
 
-#: src/editor/insert/insert-snippets.ts
-msgid "Center"
-msgstr "居中"
-
 #: src/editor/latex/latex-command-completions.ts
 msgid "Center the rest of this group"
 msgstr "将本组其余内容居中"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Centered block"
 msgstr "居中块"
 
-#: src/editor/insert/insert-snippets.ts
-msgid "Centered display equation"
-msgstr "居中的行间公式"
-
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Centered dot"
 msgstr "居中点乘"
 
@@ -1409,7 +1330,7 @@ msgstr "居中点乘"
 msgid "Centered ellipsis"
 msgstr "居中省略号"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Centered multi-line equations"
 msgstr "居中的多行公式"
 
@@ -1448,7 +1369,7 @@ msgstr "聊天"
 msgid "Check {0}"
 msgstr "检查 {0}"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Check accent example"
 msgstr "抑扬符示例"
 
@@ -1468,8 +1389,9 @@ msgstr "检查未完成"
 msgid "Check not started"
 msgstr "尚未开始检查"
 
-#: src/app/app-workspace-sidebar.tsx
+#: src/App.tsx
 #: src/papers/bibliography-audit.tsx
+#: src/trellis/trellis-panel-actions.tsx
 msgid "Check references"
 msgstr "检查引用"
 
@@ -1498,6 +1420,10 @@ msgstr "正在检查你的 Overleaf 连接…"
 msgid "Checking…"
 msgstr "正在检查…"
 
+#: src/trellis/trellis-titles.ts
+msgid "Checklist"
+msgstr "检查清单"
+
 #: src/editor/markdown/engine/chrome/slash-items.ts
 msgid "Checklist with checkboxes."
 msgstr "带复选框的任务清单。"
@@ -1514,7 +1440,7 @@ msgstr "使用 Harper 在输入时检查英文拼写和语法"
 msgid "Checks the tools Lattice needs to compile LaTeX"
 msgstr "检查 Lattice 编译 LaTeX 所需的工具"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Chi"
 msgstr "希"
 
@@ -1550,28 +1476,27 @@ msgstr "选择创建项目的位置"
 msgid "Choose where to extract the project"
 msgstr "选择项目解压到的位置"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Circled dot"
 msgstr "圈点"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Circled minus"
 msgstr "圈减"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Circled plus"
 msgstr "圈加"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Circled slash"
 msgstr "圈斜线"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Circled times / tensor"
 msgstr "圈乘 / 张量积"
 
 #: src/app/app-search-dialogs.tsx
-#: src/editor/insert/insert-snippets.ts
 msgid "Citation"
 msgstr "引用文献"
 
@@ -1628,6 +1553,7 @@ msgid "clean rebuild"
 msgstr "全新重建"
 
 #: src/App.tsx
+#: src/trellis/trellis-workspace.tsx
 msgid "Clean rebuild"
 msgstr "全新重建"
 
@@ -1653,42 +1579,21 @@ msgstr "清除 PDF 搜索"
 msgid "Clear search"
 msgstr "清除搜索"
 
-#: src/onboarding/onboarding-tour.tsx
-msgid "Click “An Image is Worth 16×16 Words”"
-msgstr "点击“An Image is Worth 16×16 Words”"
-
-#: src/onboarding/onboarding-tour.tsx
-msgid "Click Agent"
-msgstr "点击 Agent"
-
-#: src/onboarding/onboarding-tour.tsx
-msgid "Click Paper to read the full text"
-msgstr "点击“论文”阅读全文"
-
-#: src/onboarding/onboarding-tour.tsx
-msgid "Click Papers"
-msgstr "点击“论文”"
-
-#: src/app/app-workspace-sidebar.tsx
-msgid "Click to collapse"
-msgstr "点击收起侧栏"
+#: src/trellis/trellis-workspace.tsx
+msgid "Click to edit"
+msgstr "点击编辑"
 
 #: src/canvas/canvas-toolbar.tsx
 msgid "click to sync"
 msgstr "点按以同步"
 
-#: src/canvas/editor-tabs.tsx
 #: src/editor/codemirror-host.tsx
 msgid "Close"
 msgstr "关闭"
 
-#. placeholder {0}: tabLabel(tab)
-#: src/canvas/editor-tabs.tsx
-msgid "Close {0}"
-msgstr "关闭 {0}"
-
 #: src/components/ui/panel-header.tsx
 #: src/components/ui/search-picker-dialog.tsx
+#: src/trellis/trellis-labels.ts
 msgid "Close {title}"
 msgstr "关闭 {title}"
 
@@ -1700,9 +1605,9 @@ msgstr "关闭查找"
 msgid "Close Git workspace"
 msgstr "关闭 Git 工作区"
 
-#: src/editor/insert/insert-palette.tsx
-msgid "Close insert palette"
-msgstr "关闭插入面板"
+#: src/trellis/trellis-labels.ts
+msgid "Close other tabs"
+msgstr "关闭其他标签页"
 
 #: src/components/ui/icon-button.tsx
 #: src/components/ui/panel-header.tsx
@@ -1721,20 +1626,20 @@ msgstr "关闭搜索"
 msgid "Close settings"
 msgstr "关闭设置"
 
-#: src/canvas/canvas-toolbar.tsx
-msgid "Close split"
-msgstr "关闭分栏"
-
 #: src/app/native-locale.ts
 msgctxt "macOS menu bar"
 msgid "Close Window"
 msgstr "关闭窗口"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/trellis/trellis-titlebar.tsx
+msgid "Closed"
+msgstr "已关闭"
+
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Closed-path integral"
 msgstr "闭路积分"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Club suit"
 msgstr "梅花"
 
@@ -1754,10 +1659,6 @@ msgstr "代码块设置"
 #: src/editor/markdown/engine/views/code-block-view.tsx
 msgid "Code block title"
 msgstr "代码块标题"
-
-#: src/editor/insert/insert-snippets.ts
-msgid "Code listing"
-msgstr "代码清单"
 
 #: src/editor/markdown/engine/views/component-views.tsx
 msgid "Collapsible"
@@ -1832,8 +1733,13 @@ msgstr "评论显示范围"
 
 #: src/canvas/editor-status-bar.tsx
 #: src/overleaf/overleaf-collab.tsx
+#: src/trellis/trellis-titles.ts
 msgid "Comments"
 msgstr "评论"
+
+#: src/settings/settings-dialog.tsx
+msgid "Comments on the open document, for projects not linked to Overleaf"
+msgstr "当前文档的评论（用于未关联 Overleaf 的项目）"
 
 #: src/overleaf/overleaf-review.tsx
 msgid "Comparing this project with Overleaf…"
@@ -1875,7 +1781,7 @@ msgstr "组件"
 msgid "Components"
 msgstr "组件"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Composition / ring"
 msgstr "复合 / 环运算"
 
@@ -1907,7 +1813,7 @@ msgstr "冲突位置"
 msgid "Conflicts"
 msgstr "冲突"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Congruent"
 msgstr "全等"
 
@@ -1960,13 +1866,12 @@ msgstr "联系邮箱"
 msgid "Contact settings saved."
 msgstr "联系邮箱设置已保存。"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Contains as member"
 msgstr "包含元素"
 
 #: src/components/ui/confirm-action-dialog.tsx
 #: src/editor/spreadsheet/spreadsheet-univer.ts
-#: src/onboarding/onboarding-tour.tsx
 msgid "Continue"
 msgstr "继续"
 
@@ -1974,10 +1879,6 @@ msgstr "继续"
 #: src/editor/spreadsheet/spreadsheet-univer.ts
 msgid "Continue?"
 msgstr "要继续吗？"
-
-#: src/editor/insert/insert-snippets.ts
-msgid "Contour integral"
-msgstr "环路积分"
 
 #: src/editor/codemirror-host.tsx
 msgid "Control character"
@@ -2033,7 +1934,7 @@ msgstr "复制通知中的命令"
 msgid "Copy path"
 msgstr "复制路径"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Copyright"
 msgstr "版权符号"
 
@@ -2201,10 +2102,6 @@ msgstr "创建研究项目"
 msgid "Create file"
 msgstr "创建文件"
 
-#: src/onboarding/onboarding-tour.tsx
-msgid "Create with the + menu"
-msgstr "用 + 创建内容"
-
 #: src/history/file-diff-view.tsx
 msgid "created"
 msgstr "已创建"
@@ -2218,7 +2115,7 @@ msgstr "创建一份采用 {0} 样式的论文草稿，并包含参考文献和�
 msgid "Creating project…"
 msgstr "正在创建项目…"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Cross-reference label"
 msgstr "交叉引用标签"
 
@@ -2237,10 +2134,6 @@ msgstr "Crossref 引用状态元数据当前不可用"
 #: src/project/citation-health.ts
 msgid "Crossref reports update type: {updateType}"
 msgstr "Crossref 报告的更新类型：{updateType}"
-
-#: src/editor/insert/insert-snippets.ts
-msgid "Curly matrix"
-msgstr "花括号矩阵"
 
 #: src/papers/bibliography-audit.tsx
 msgid "Current BibTeX"
@@ -2263,15 +2156,15 @@ msgstr "剪切"
 msgid "Cyan"
 msgstr "青色"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Dagger"
 msgstr "剑号"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Dagger text symbol"
 msgstr "剑号（文本符号）"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Daleth"
 msgstr "达列特"
 
@@ -2323,10 +2216,6 @@ msgstr "定义"
 #: src/editor/markdown/engine/lattice-visual-editor.tsx
 msgid "Definition"
 msgstr "定义"
-
-#: src/editor/insert/insert-snippets.ts
-msgid "Degree"
-msgstr "度"
 
 #: src/App.tsx
 #: src/components/ui/confirm-action-dialog.tsx
@@ -2435,15 +2324,10 @@ msgstr "已在本地删除，但仍保留在 Overleaf 上。Lattice 从不删除
 msgid "Deleted there and unchanged here, so it goes away locally too"
 msgstr "已在 Overleaf 上删除且本地未更改，因此本地也会删除"
 
-#: src/editor/insert/insert-palette.tsx
-msgid "Delimiters"
-msgstr "定界符"
-
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Delta"
 msgstr "德尔塔"
 
-#: src/editor/insert/insert-snippets.ts
 #: src/editor/markdown/engine/views/image-view.tsx
 msgid "Description"
 msgstr "描述列表"
@@ -2452,7 +2336,7 @@ msgstr "描述列表"
 msgid "Details"
 msgstr "检查详情"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Determinant-style matrix"
 msgstr "行列式样式的矩阵"
 
@@ -2466,11 +2350,11 @@ msgstr "诊断"
 msgid "Diagram from Mermaid source — flowchart, sequence, class, state, ER, gantt, pie."
 msgstr "根据 Mermaid 源码生成的图表——支持流程图、时序图、类图、状态图、ER 图、甘特图和饼图。"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Diamond operator"
 msgstr "菱形运算符"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Diamond suit"
 msgstr "方块"
 
@@ -2479,9 +2363,13 @@ msgstr "方块"
 msgid "Diff for {0}"
 msgstr "{0} 的差异"
 
+#: src/trellis/trellis-workspace.tsx
+msgid "Discard and close"
+msgstr "放弃并关闭"
+
 #: src/App.tsx
-#: src/app/app-workspace-sidebar.tsx
 #: src/papers/literature-discovery-panel.tsx
+#: src/trellis/trellis-panel-actions.tsx
 msgid "Discover literature"
 msgstr "发现文献"
 
@@ -2505,21 +2393,21 @@ msgstr "关闭引用列表"
 msgid "Display"
 msgstr "显示"
 
-#: src/editor/insert/insert-snippets.ts
-msgid "Display fraction"
-msgstr "大号分式"
-
-#: src/editor/insert/insert-snippets.ts
-msgid "Display math"
-msgstr "行间公式"
-
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Divides / conditioned on"
 msgstr "整除 / 条件于"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Division"
 msgstr "除号"
+
+#: src/trellis/trellis-labels.ts
+msgid "Dock"
+msgstr "停靠"
+
+#: src/trellis/trellis-labels.ts
+msgid "Dock beside documents"
+msgstr "停靠在文档旁"
 
 #: src/editor/latex/latex-command-completions.ts
 msgid "Document authors"
@@ -2545,11 +2433,11 @@ msgstr "文档章节"
 msgid "Document title"
 msgstr "文档标题"
 
-#: src/canvas/canvas-toolbar.tsx
+#: src/trellis/trellis-workspace.tsx
 msgid "Document view"
 msgstr "文稿视图"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Does not exist"
 msgstr "不存在"
 
@@ -2561,43 +2449,35 @@ msgstr "有可用的 DOI 元数据修正。"
 msgid "Done"
 msgstr "完成"
 
-#: src/editor/insert/insert-snippets.ts
-msgid "Dot accent"
-msgstr "点记号"
-
-#: src/editor/insert/insert-snippets.ts
-msgid "Dot accent example"
-msgstr "点符示例"
-
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Dotless i"
 msgstr "无点 i"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Dotless j"
 msgstr "无点 j"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Double dagger"
 msgstr "双剑号"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Double dagger text symbol"
 msgstr "双剑号（文本符号）"
 
-#: src/editor/insert/insert-snippets.ts
-msgid "Double integral"
-msgstr "二重积分"
+#: src/trellis/trellis-labels.ts
+msgid "Double-click to zoom in"
+msgstr "双击放大"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Double-dot accent example"
 msgstr "双点符示例"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Down arrow"
 msgstr "下箭头"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Down double arrow"
 msgstr "下双线箭头"
 
@@ -2647,10 +2527,6 @@ msgstr "正在下载更新…"
 msgid "Drag to cite · Click to read"
 msgstr "拖入正文引用 · 点击阅读"
 
-#: src/app/app-workspace-sidebar.tsx
-msgid "Drag to resize"
-msgstr "拖拽调整宽度"
-
 #: src/App.tsx
 msgid "Drop image or PDF files onto a TeX/Markdown editor to insert them, onto an open document to import and open them, or into the Project pane to add them."
 msgstr "将图片或 PDF 文件拖放到 TeX/Markdown 编辑器中可插入，拖放到已打开的文档上可导入并打开，拖放到项目面板中可添加到项目。"
@@ -2666,10 +2542,6 @@ msgstr "请分别拖放源文件和图片，以便 Lattice 判断是打开还是
 #: src/App.tsx
 msgid "Drop source files onto an editor to open them, or into the Project pane to add them."
 msgstr "将源文件拖放到编辑器中可打开，拖放到项目面板中可添加到项目。"
-
-#: src/App.tsx
-msgid "Dual source view"
-msgstr "双源码视图"
 
 #: src/editor/latex/latex-diagnostics.ts
 msgid "Duplicate bibliography key “{key}”."
@@ -2711,13 +2583,9 @@ msgstr "例如 9"
 msgid "e.g. Lattice"
 msgstr "例如 Lattice"
 
-#: src/onboarding/onboarding-tour.tsx
-msgid "Each .bib entry appears here. Entries with an arXiv ID can be downloaded in full"
-msgstr ".bib 中的每个条目都会显示在这里。含 arXiv ID 的条目可以下载全文"
-
 #: src/App.tsx
-#: src/canvas/canvas-toolbar.tsx
 #: src/editor/comments/editor-comments-panel.tsx
+#: src/trellis/trellis-workspace.tsx
 msgid "Edit"
 msgstr "编辑"
 
@@ -2726,15 +2594,11 @@ msgctxt "macOS menu bar"
 msgid "Edit"
 msgstr "编辑"
 
-#: src/onboarding/onboarding-tour.tsx
-msgid "Edit an Open Slide presentation"
-msgstr "编辑 Open Slide 演示文稿"
-
-#: src/canvas/canvas-toolbar.tsx
+#: src/trellis/trellis-workspace.tsx
 msgid "Edit and preview HTML"
 msgstr "编辑并预览 HTML"
 
-#: src/canvas/canvas-toolbar.tsx
+#: src/trellis/trellis-workspace.tsx
 msgid "Edit and preview Markdown"
 msgstr "编辑并预览 Markdown"
 
@@ -2747,15 +2611,11 @@ msgstr "保存前编辑"
 msgid "Edit bibliography entry"
 msgstr "编辑参考文献条目"
 
-#: src/onboarding/onboarding-tour.tsx
-msgid "Edit cells and formulas directly"
-msgstr "直接编辑单元格和公式"
-
 #: src/editor/markdown/engine/passive-view.tsx
 msgid "Edit document"
 msgstr "编辑文档"
 
-#: src/canvas/canvas-toolbar.tsx
+#: src/trellis/trellis-workspace.tsx
 msgid "Edit HTML"
 msgstr "编辑 HTML"
 
@@ -2763,11 +2623,7 @@ msgstr "编辑 HTML"
 msgid "Edit link"
 msgstr "编辑链接"
 
-#: src/onboarding/onboarding-tour.tsx
-msgid "Edit main.tex on the left. The PDF on the right updates automatically"
-msgstr "在左侧编辑 main.tex，右侧 PDF 会自动更新"
-
-#: src/canvas/canvas-toolbar.tsx
+#: src/trellis/trellis-workspace.tsx
 msgid "Edit Markdown"
 msgstr "编辑 Markdown"
 
@@ -2778,18 +2634,6 @@ msgstr "编辑消息"
 #: src/overleaf/overleaf-comments.tsx
 msgid "Edit message text"
 msgstr "编辑消息内容"
-
-#: src/onboarding/onboarding-tour.tsx
-msgid "Edit notes.md on the left and see the formatted result update live on the right"
-msgstr "在左侧编辑 notes.md，右侧会实时更新排版结果"
-
-#: src/canvas/canvas-toolbar.tsx
-msgid "Edit source"
-msgstr "编辑源文件"
-
-#: src/canvas/canvas-toolbar.tsx
-msgid "Edit source and preview PDF"
-msgstr "编辑源文件并预览 PDF"
 
 #: src/history/conflict-resolver.tsx
 msgid "Edit the combined file if anything still needs fixing, then save it."
@@ -2823,6 +2667,7 @@ msgstr "编辑器与构建"
 #: src/canvas/canvas-toolbar.tsx
 #: src/canvas/editor-status-bar.tsx
 #: src/editor/comments/editor-comments-panel.tsx
+#: src/settings/settings-dialog.tsx
 msgid "Editor comments"
 msgstr "编辑器评论"
 
@@ -2846,7 +2691,7 @@ msgstr "编辑器状态"
 msgid "Edits sync live with Overleaf"
 msgstr "编辑内容会与 Overleaf 实时同步"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Element of"
 msgstr "属于"
 
@@ -2862,11 +2707,7 @@ msgstr "嵌入图片，并可添加替代文本。"
 msgid "Emoji"
 msgstr "表情符号"
 
-#: src/editor/insert/insert-snippets.ts
-msgid "Emphasis"
-msgstr "强调"
-
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Emphasized text command"
 msgstr "强调文字命令"
 
@@ -2890,15 +2731,11 @@ msgstr "已添加空文件"
 msgid "Empty file deleted"
 msgstr "已删除空文件"
 
-#: src/canvas/document-canvas.tsx
-msgid "Empty secondary editor"
-msgstr "空白副编辑器"
-
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Empty set"
 msgstr "空集"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Empty set (variant)"
 msgstr "空集（变体）"
 
@@ -2949,15 +2786,7 @@ msgstr "条目已变更"
 msgid "Entry type"
 msgstr "条目类型"
 
-#: src/editor/insert/insert-snippets.ts
-msgid "Enumerate"
-msgstr "有序列表"
-
-#: src/editor/insert/insert-palette.tsx
-msgid "Environment"
-msgstr "环境"
-
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Epsilon"
 msgstr "艾普西龙"
 
@@ -2965,7 +2794,6 @@ msgstr "艾普西龙"
 msgid "equation"
 msgstr "公式"
 
-#: src/editor/insert/insert-snippets.ts
 #: src/editor/markdown/engine/views/math-views.tsx
 msgid "Equation"
 msgstr "公式"
@@ -2974,19 +2802,11 @@ msgstr "公式"
 msgid "Equation properties"
 msgstr "公式属性"
 
-#: src/editor/insert/insert-snippets.ts
-msgid "Equation reference"
-msgstr "公式引用"
-
-#: src/editor/insert/insert-snippets.ts
-msgid "Equation*"
-msgstr "公式*"
-
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Equilibrium arrows"
 msgstr "可逆箭头"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Equivalent / congruent"
 msgstr "恒等 / 同余"
 
@@ -3006,13 +2826,17 @@ msgstr "已复制错误详情"
 msgid "estimate"
 msgstr "估算"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Estimator / unit vector mark"
 msgstr "估计量 / 单位向量记号"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Eta"
 msgstr "伊塔"
+
+#: src/trellis/trellis-workspace.tsx
+msgid "Every panel is closed"
+msgstr "所有面板都已关闭"
 
 #: src/history/conflict-resolver.tsx
 msgid "Every spot decided"
@@ -3021,10 +2845,6 @@ msgstr "所有位置均已决定"
 #: src/overleaf/overleaf-review.tsx
 msgid "Everything already matches Overleaf"
 msgstr "所有内容已与 Overleaf 一致"
-
-#: src/onboarding/onboarding-tour.tsx
-msgid "Everything for the paper lives in one folder"
-msgstr "论文所需的一切都在一个文件夹中"
 
 #: src/papers/bib-entry-dialog.tsx
 msgid "Exact title match"
@@ -3118,10 +2938,6 @@ msgstr "fig:name（可选）"
 msgid "figure"
 msgstr "图"
 
-#: src/editor/insert/insert-snippets.ts
-msgid "Figure"
-msgstr "图"
-
 #: src/editor/latex/latex-hover-cards.ts
 msgid "Figure preview could not be loaded."
 msgstr "无法加载图预览。"
@@ -3155,7 +2971,7 @@ msgstr "文件上传"
 msgid "Files in this change"
 msgstr "本次更改涉及的文件"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Filled square"
 msgstr "实心方块"
 
@@ -3175,11 +2991,7 @@ msgstr "筛选语言"
 msgid "Filter project changes"
 msgstr "筛选项目更改"
 
-#: src/editor/insert/insert-palette.tsx
-msgid "Filter snippets"
-msgstr "筛选代码片段"
-
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Final sigma"
 msgstr "词尾西格马"
 
@@ -3197,6 +3009,10 @@ msgstr "查找"
 msgid "Find & replace in project"
 msgstr "在项目中查找和替换"
 
+#: src/settings/settings-dialog.tsx
+msgid "Find a paper by title, DOI or arXiv ID"
+msgstr "按标题、DOI 或 arXiv ID 查找论文"
+
 #: src/build/compile-diagnostics-panel.tsx
 msgid "Find and install the TeX Live package for {missingFile}"
 msgstr "查找并安装 {missingFile} 对应的 TeX Live 软件包"
@@ -3210,18 +3026,14 @@ msgid "Find in PDF"
 msgstr "在 PDF 中查找"
 
 #: src/App.tsx
-#: src/app/app-workspace-sidebar.tsx
 #: src/project/project-find-dialog.tsx
+#: src/trellis/trellis-panel-actions.tsx
 msgid "Find in project"
 msgstr "在项目中查找"
 
 #: src/project/project-replace-dialog.tsx
 msgid "Find text to replace"
 msgstr "查找要替换的文本"
-
-#: src/onboarding/onboarding-tour.tsx
-msgid "Finish"
-msgstr "完成"
 
 #: src/App.tsx
 msgid "Finish the current text composition, then switch projects again."
@@ -3255,15 +3067,19 @@ msgstr "全部修正"
 msgid "Fix all errors and warnings, then recompile"
 msgstr "修正所有错误和警告，然后重新编译"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Flat"
 msgstr "降号"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/trellis/trellis-labels.ts
+msgid "Float"
+msgstr "浮动"
+
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Floating figure with image, caption, and label (requires graphicx)"
 msgstr "浮动图，含图片、题注与标签（需要 graphicx）"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Floating table with ruled rows (requires booktabs)"
 msgstr "浮动表格，三线表样式（需要 booktabs）"
 
@@ -3287,7 +3103,6 @@ msgstr "已折叠行"
 msgid "Follow system (default)"
 msgstr "跟随系统（默认）"
 
-#: src/editor/insert/insert-snippets.ts
 #: src/editor/markdown/engine/chrome/slash-items.ts
 msgid "Footnote"
 msgstr "脚注"
@@ -3296,7 +3111,7 @@ msgstr "脚注"
 msgid "Footnote {label}"
 msgstr "脚注 {label}"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Footnote at the cursor"
 msgstr "在光标处插入脚注"
 
@@ -3304,7 +3119,7 @@ msgstr "在光标处插入脚注"
 msgid "For Agent startup or connection failures. Includes recent lattice, sidecar, and server logs (up to 128 KiB each). Known credentials are masked, but paths and document content may remain. Review before sharing."
 msgstr "用于排查 Agent 启动或连接失败。包含最近的 lattice、sidecar 和 server 日志（每份最多 128 KiB）。已遮盖已知凭据，但仍可能包含路径或文档内容，请在分享前检查。"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "For all"
 msgstr "任意"
 
@@ -3336,24 +3151,16 @@ msgstr "公式"
 msgid "Formulas"
 msgstr "公式"
 
-#: src/onboarding/onboarding-tour.tsx
-msgid "Formulas and Excel export"
-msgstr "公式与 Excel 导出"
-
 #: src/editor/markdown/engine/chrome/slash-items.ts
 msgid "Fourth-level heading."
 msgstr "四级标题。"
-
-#: src/editor/insert/insert-snippets.ts
-msgid "Fraction"
-msgstr "分式"
 
 #: src/editor/markdown/engine/lattice-visual-editor.tsx
 #: src/editor/markdown/engine/views/raw-block-view.tsx
 msgid "Frontmatter"
 msgstr "前置元数据"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Frown relation"
 msgstr "下弧关系"
 
@@ -3373,17 +3180,9 @@ msgstr "通栏浮动图"
 msgid "Full-width floating table"
 msgstr "通栏浮动表"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Gamma"
 msgstr "伽马"
-
-#: src/editor/insert/insert-snippets.ts
-msgid "Gather"
-msgstr "居中公式组"
-
-#: src/editor/insert/insert-snippets.ts
-msgid "Gather*"
-msgstr "居中公式组*"
 
 #: src/settings/settings-dialog.tsx
 msgid "General"
@@ -3393,15 +3192,11 @@ msgstr "通用"
 msgid "Get API key"
 msgstr "申请密钥"
 
-#: src/onboarding/onboarding-tour.tsx
-msgid "Get the gist before you dive in"
-msgstr "深入阅读前先了解要点"
-
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Gets (short left arrow)"
 msgstr "gets（短左箭头）"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Gimel"
 msgstr "吉梅尔"
 
@@ -3414,6 +3209,7 @@ msgid "git bridge"
 msgstr "git 桥接"
 
 #: src/canvas/canvas-toolbar.tsx
+#: src/settings/settings-dialog.tsx
 msgid "Git status and commit"
 msgstr "Git 状态与提交"
 
@@ -3469,7 +3265,7 @@ msgstr "发送到 Overleaf"
 msgid "Google Scholar"
 msgstr "Google Scholar"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Grave accent example"
 msgstr "抑音符示例"
 
@@ -3477,13 +3273,9 @@ msgstr "抑音符示例"
 msgid "Gray"
 msgstr "灰色"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Greater than or equal"
 msgstr "大于或等于"
-
-#: src/editor/insert/insert-palette.tsx
-msgid "Greek"
-msgstr "希腊字母"
 
 #: src/components/ui/apple-color-picker.tsx
 msgid "Green"
@@ -3505,7 +3297,7 @@ msgstr "网格生成器"
 msgid "Grid of rows and columns with a header row."
 msgstr "带表头行的行列网格。"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Grouped numbered equations"
 msgstr "成组编号的公式"
 
@@ -3513,21 +3305,13 @@ msgstr "成组编号的公式"
 msgid "Guided tutorial"
 msgstr "引导式教程"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "H-bar / reduced Planck"
 msgstr "h-bar / 约化普朗克常数"
 
 #: src/editor/latex/latex-command-completions.ts
 msgid "Hand-written bibliography"
 msgstr "手写参考文献列表"
-
-#: src/editor/insert/insert-snippets.ts
-msgid "Hat accent"
-msgstr "帽号记号"
-
-#: src/editor/insert/insert-snippets.ts
-msgid "Hat accent example"
-msgstr "帽号示例"
 
 #: src/editor/markdown/engine/chrome/selection-toolbar.tsx
 #: src/editor/markdown/engine/chrome/slash-items.ts
@@ -3567,7 +3351,7 @@ msgstr "标题级别"
 msgid "Health checked at"
 msgstr "健康状态检查时间"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Heart suit"
 msgstr "红桃"
 
@@ -3584,14 +3368,26 @@ msgstr "十六进制"
 msgid "Hex color"
 msgstr "十六进制颜色"
 
+#: src/trellis/trellis-titlebar.tsx
+msgid "Hidden"
+msgstr "已隐藏"
+
+#: src/trellis/trellis-titlebar.tsx
+msgid "Hidden panels"
+msgstr "已隐藏的面板"
+
+#: src/trellis/trellis-labels.ts
+msgid "Hide"
+msgstr "隐藏"
+
+#: src/trellis/trellis-titlebar.tsx
+msgid "Hide {name}"
+msgstr "隐藏{name}"
+
 #: src/app/native-locale.ts
 msgctxt "macOS menu bar"
 msgid "Hide {name}"
 msgstr "隐藏 {name}"
-
-#: src/app/app-agent-panel.tsx
-msgid "Hide assistant"
-msgstr "收起智能助手"
 
 #: src/editor/markdown/engine/views/code-block-view.tsx
 msgid "Hide Mermaid preview"
@@ -3601,10 +3397,6 @@ msgstr "隐藏 Mermaid 预览"
 msgctxt "macOS menu bar"
 msgid "Hide Others"
 msgstr "隐藏其他"
-
-#: src/app/app-titlebar.tsx
-msgid "Hide sidebar"
-msgstr "隐藏侧边栏"
 
 #: src/editor/markdown/engine/chrome/selection-toolbar.tsx
 msgid "Highlight"
@@ -3622,15 +3414,19 @@ msgstr "突出显示提示、警告和注释内容。"
 msgid "Highlighted code"
 msgstr "高亮代码"
 
+#: src/trellis/trellis-titles.ts
+msgid "History"
+msgstr "历史"
+
 #: src/history/history-drawer.tsx
 msgid "History views"
 msgstr "历史视图"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Hook left arrow"
 msgstr "带钩左箭头"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Hook right arrow"
 msgstr "带钩右箭头"
 
@@ -3650,10 +3446,6 @@ msgstr "水平间距"
 #: src/editor/markdown/engine/views/raw-block-view.tsx
 msgid "HTML"
 msgstr "HTML"
-
-#: src/onboarding/onboarding-tour.tsx
-msgid "HTML files render live here, so you can build interactive demos and figures"
-msgstr "HTML 文件会在这里实时渲染，可用于制作交互式演示和图表"
 
 #: src/canvas/html-preview.tsx
 msgid "HTML preview for {path}"
@@ -3679,7 +3471,7 @@ msgstr "ICLR 会议论文集"
 msgid "ICML packages"
 msgstr "ICML 宏包"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "If and only if"
 msgstr "当且仅当"
 
@@ -3700,11 +3492,11 @@ msgstr "图片来源"
 msgid "Image zoom percentage"
 msgstr "图像缩放百分比"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Imaginary part"
 msgstr "虚部"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Implies"
 msgstr "蕴含"
 
@@ -3790,21 +3582,13 @@ msgstr "进行中"
 msgid "In this file"
 msgstr "当前文件"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Include another TeX file"
 msgstr "引入另一个 TeX 文件"
 
 #: src/telemetry/app-log.tsx
 msgid "Include app and Agent runtime logs"
 msgstr "包含应用和 Agent 运行日志"
-
-#: src/editor/insert/insert-snippets.ts
-msgid "Include file"
-msgstr "引入文件"
-
-#: src/editor/insert/insert-snippets.ts
-msgid "Include graphics"
-msgstr "插入图片"
 
 #: src/telemetry/app-log.tsx
 msgid "Include raw diagnostic text"
@@ -3838,7 +3622,7 @@ msgstr "独立元数据不可用"
 msgid "Indigo"
 msgstr "靛蓝色"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Infinity"
 msgstr "无穷"
 
@@ -3854,7 +3638,7 @@ msgstr "信息"
 msgid "Initialize version tracking"
 msgstr "开始版本跟踪"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Inline another TeX file"
 msgstr "就地嵌入另一个 TeX 文件"
 
@@ -3865,10 +3649,6 @@ msgstr "行内代码"
 #: src/editor/markdown/engine/chrome/slash-items.ts
 msgid "Inline LaTeX math rendered with KaTeX."
 msgstr "使用 KaTeX 渲染的行内 LaTeX 公式。"
-
-#: src/editor/insert/insert-snippets.ts
-msgid "Inline math"
-msgstr "行内公式"
 
 #: src/editor/markdown/engine/chrome/slash-items.ts
 msgid "Inline Math"
@@ -3882,16 +3662,7 @@ msgstr "行内公式属性"
 msgid "Inproceedings entry uses journal instead of booktitle."
 msgstr "inproceedings 条目使用了 journal，而非 booktitle。"
 
-#: src/editor/insert/insert-snippets.ts
-msgid "Input file"
-msgstr "输入文件"
-
-#: src/canvas/editor-status-bar.tsx
-msgid "insert"
-msgstr "插入"
-
 #: src/editor/insert/figure-insert-dialog.tsx
-#: src/editor/insert/insert-palette.tsx
 #: src/editor/markdown/engine/chrome/slash-items.ts
 msgid "Insert"
 msgstr "插入"
@@ -3916,17 +3687,9 @@ msgstr "插入脚注引用及与之匹配的定义占位符。"
 msgid "Insert a formula"
 msgstr "插入公式"
 
-#: src/canvas/document-canvas.tsx
-msgid "Insert above line {line}"
-msgstr "在第 {line} 行上方插入"
-
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Insert an image path (requires graphicx)"
 msgstr "插入图片路径（需要 graphicx）"
-
-#: src/editor/insert/insert-palette.tsx
-msgid "Insert categories"
-msgstr "插入类别"
 
 #: src/App.tsx
 #: src/app/app-search-dialogs.tsx
@@ -3949,10 +3712,6 @@ msgstr "在右侧插入列"
 msgid "Insert figure"
 msgstr "插入图"
 
-#: src/editor/insert/insert-palette.tsx
-msgid "Insert LaTeX snippets"
-msgstr "插入 LaTeX 片段"
-
 #: src/editor/markdown/engine/chrome/selection-toolbar.tsx
 msgid "Insert link"
 msgstr "插入链接"
@@ -3969,14 +3728,6 @@ msgstr "在上方插入行"
 #: src/editor/markdown/engine/views/table-controls.tsx
 msgid "Insert row below"
 msgstr "在下方插入行"
-
-#: src/App.tsx
-msgid "Insert snippet"
-msgstr "插入片段"
-
-#: src/canvas/canvas-toolbar.tsx
-msgid "Insert snippet or symbol (⌘⇧I)"
-msgstr "插入片段或符号 (⌘⇧I)"
 
 #: src/App.tsx
 #: src/editor/insert/table-generator-dialog.tsx
@@ -4053,14 +3804,9 @@ msgstr "正在安装…"
 msgid "Insufficient identifying metadata"
 msgstr "识别元数据不足"
 
-#: src/editor/insert/insert-snippets.ts
 #: src/editor/latex/latex-command-completions.ts
 msgid "Integral"
 msgstr "积分"
-
-#: src/editor/insert/insert-snippets.ts
-msgid "Integral with limits"
-msgstr "带上下限的积分"
 
 #: src/settings/settings-dialog.tsx
 msgid "Integrations"
@@ -4074,7 +3820,7 @@ msgstr "界面语言"
 msgid "Interface sounds"
 msgstr "界面音效"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Intersection"
 msgstr "交集"
 
@@ -4099,9 +3845,13 @@ msgstr "已保存的参考文献审查报告格式无效。"
 msgid "Invalid worksheet: {name}"
 msgstr "无效的工作表：{name}"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Iota"
 msgstr "约塔"
+
+#: src/trellis/trellis-workspace.tsx
+msgid "It resumes as soon as the panel is on screen."
+msgstr "面板回到屏幕上时会立即恢复。"
 
 #: src/editor/latex/latex-selection-toolbar.tsx
 #: src/editor/markdown/engine/chrome/selection-toolbar.tsx
@@ -4111,10 +3861,6 @@ msgstr "斜体"
 #: src/editor/latex/latex-command-completions.ts
 msgid "Italic text"
 msgstr "斜体文本"
-
-#: src/editor/insert/insert-snippets.ts
-msgid "Itemize"
-msgstr "无序列表"
 
 #: src/overleaf/overleaf-comments.tsx
 msgid "Its span was deleted from the document, so Overleaf can't say which file to act on"
@@ -4144,7 +3890,7 @@ msgstr "跳转到此位置"
 msgid "just now"
 msgstr "刚刚"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Kappa"
 msgstr "卡帕"
 
@@ -4202,7 +3948,6 @@ msgstr "密钥存储在系统钥匙串中，而不是项目中。个人密钥优
 
 #: src/app/app-search-dialogs.tsx
 #: src/editor/insert/figure-insert-dialog.tsx
-#: src/editor/insert/insert-snippets.ts
 #: src/editor/insert/table-generator-dialog.tsx
 msgid "Label"
 msgstr "标签"
@@ -4219,7 +3964,7 @@ msgstr "已移除标签。"
 msgid "Label this version (optional)"
 msgstr "为这个版本加标签（可选）"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Labeled description list"
 msgstr "带条目标题的描述列表"
 
@@ -4227,7 +3972,7 @@ msgstr "带条目标题的描述列表"
 msgid "labels"
 msgstr "标签"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Lambda"
 msgstr "兰姆达"
 
@@ -4236,7 +3981,7 @@ msgstr "兰姆达"
 msgid "Language"
 msgstr "语言"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Larger fraction"
 msgstr "更大的分式"
 
@@ -4247,10 +3992,6 @@ msgstr "上次构建"
 #: src/papers/bibliography-audit.tsx
 msgid "Last checked"
 msgstr "上次检查"
-
-#: src/onboarding/onboarding-tour.tsx
-msgid "Last stop: your writing agent"
-msgstr "最后一站：你的写作 Agent"
 
 #. placeholder {0}: relativeTime(current.lastSync)
 #: src/overleaf/overleaf-connect.tsx
@@ -4317,10 +4058,6 @@ msgstr "Lattice 会在后台检查并自动安装更新"
 msgid "Lattice checks in the background; you decide when to install"
 msgstr "Lattice 会在后台检查更新，由你决定何时安装"
 
-#: src/settings/settings-dialog.tsx
-msgid "Lattice closes the least recently used tab past this count"
-msgstr "超过此数量后，Lattice 会关闭最久未使用的标签页"
-
 #: src/overleaf/use-overleaf-realtime.ts
 msgid "Lattice could not confirm whether Overleaf accepted the latest edit to {path} ({detail}). Syncing is paused for this file while Lattice checks."
 msgstr "Lattice 无法确认 Overleaf 是否已接受对 {path} 的最新编辑（{detail}）。在 Lattice 核实期间，此文件的同步已暂停。"
@@ -4336,10 +4073,6 @@ msgstr "Lattice 无法打开此窗口"
 #: src/telemetry/root-error-boundary.tsx
 msgid "Lattice couldn’t restart automatically. Quit and reopen it manually."
 msgstr "Lattice 无法自动重新启动。请退出后手动重新打开。"
-
-#: src/onboarding/onboarding-tour.tsx
-msgid "Lattice downloads the full text, figures, and metadata and keeps them with the citation"
-msgstr "Lattice 会下载全文、图片和元数据，并将它们与引用条目保存在一起"
 
 #: src/build/tex-setup-wizard.tsx
 msgid "Lattice needs uv to add papers and manage bibliographies. The verified download uses about 45 MB and usually installs in under a minute"
@@ -4362,6 +4095,14 @@ msgstr "Lattice 更新失败"
 msgid "Lattice will find and install the TeX Live package that provides {0}."
 msgstr "Lattice 将查找并安装提供 {0} 的 TeX Live 软件包。"
 
+#: src/trellis/trellis-workspace.tsx
+msgid "Lattice workspace"
+msgstr "Lattice 工作区"
+
+#: src/App.tsx
+msgid "Layout"
+msgstr "布局"
+
 #: src/App.tsx
 msgid "Learn Lattice with the Understanding Attention sample project"
 msgstr "通过 Understanding Attention 示例项目学习 Lattice"
@@ -4374,55 +4115,51 @@ msgstr "给协作者留言…"
 msgid "Left alone"
 msgstr "保持不变"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Left angle bracket"
 msgstr "左尖括号"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Left arrow"
 msgstr "左箭头"
 
-#: src/editor/insert/insert-snippets.ts
-msgid "Left brace"
-msgstr "左花括号"
-
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Left ceiling"
 msgstr "左上取整符"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Left double arrow"
 msgstr "左双线箭头"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Left double vertical bar"
 msgstr "左双竖线"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Left floor"
 msgstr "左下取整符"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Left harpoon up"
 msgstr "左上鱼叉箭头"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Left normal subgroup"
 msgstr "左正规子群"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Left normal subgroup eq"
 msgstr "左正规子群（含等号）"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Left vertical bar"
 msgstr "左竖线"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Left-right arrow"
 msgstr "左右箭头"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Left-right double arrow / iff"
 msgstr "左右双线箭头 / 当且仅当"
 
@@ -4430,13 +4167,9 @@ msgstr "左右双线箭头 / 当且仅当"
 msgid "Lemma"
 msgstr "引理"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Less than or equal"
 msgstr "小于或等于"
-
-#: src/onboarding/onboarding-tour.tsx
-msgid "Let's download one of them"
-msgstr "来下载其中一篇"
 
 #: src/settings/settings-dialog.tsx
 msgid "Lets trusted projects run external tools during builds"
@@ -4454,14 +4187,9 @@ msgstr "浅灰色"
 msgid "Lime"
 msgstr "黄绿色"
 
-#: src/editor/insert/insert-snippets.ts
 #: src/editor/latex/latex-command-completions.ts
 msgid "Limit"
 msgstr "极限"
-
-#: src/editor/insert/insert-snippets.ts
-msgid "Limit expression"
-msgstr "极限表达式"
 
 #: src/editor/goto-line-dialog.tsx
 msgid "Line"
@@ -4475,7 +4203,7 @@ msgstr "第 {line} 行"
 msgid "Line number"
 msgstr "行号"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Line under an expression"
 msgstr "表达式下方加横线"
 
@@ -4501,9 +4229,13 @@ msgstr "链接地址"
 msgid "List item"
 msgstr "列表项"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Literal code / text block"
 msgstr "原样代码 / 文本块"
+
+#: src/trellis/trellis-titles.ts
+msgid "Literature"
+msgstr "文献"
 
 #: src/settings/literature-settings.tsx
 #: src/settings/settings-dialog.tsx
@@ -4624,11 +4356,11 @@ msgstr "日志级别筛选"
 msgid "Logarithm"
 msgstr "对数"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Logical and"
 msgstr "逻辑与"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Logical or"
 msgstr "逻辑或"
 
@@ -4637,7 +4369,7 @@ msgstr "逻辑或"
 msgid "Logs"
 msgstr "日志"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Long equation broken across lines"
 msgstr "跨行断开的长公式"
 
@@ -4657,10 +4389,6 @@ msgstr "品红色"
 msgid "Main pages"
 msgstr "正文页数"
 
-#: src/onboarding/onboarding-tour.tsx
-msgid "Manage cited papers"
-msgstr "管理引用的论文"
-
 #: src/overleaf/overleaf-connect.tsx
 msgid "Manual"
 msgstr "手动"
@@ -4675,12 +4403,11 @@ msgstr "仅手动"
 msgid "Manuscript TODOs"
 msgstr "手稿待办事项"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Maps to"
 msgstr "映射到"
 
 #: src/editor/markdown/engine/lattice-visual-editor.tsx
-#: src/onboarding/onboarding-tour.tsx
 msgid "Markdown document editor"
 msgstr "Markdown 文档编辑器"
 
@@ -4699,7 +4426,6 @@ msgstr "区分大小写"
 msgid "math"
 msgstr "公式"
 
-#: src/editor/insert/insert-palette.tsx
 #: src/editor/markdown/engine/chrome/slash-items.ts
 msgid "Math"
 msgstr "数学"
@@ -4708,28 +4434,26 @@ msgstr "数学"
 msgid "Math array"
 msgstr "数学阵列"
 
-#: src/editor/insert/insert-snippets.ts
-msgid "Math inside a sentence"
-msgstr "句子中的数学公式"
-
 #: src/editor/latex/math-preview.tsx
 msgid "Math preview"
 msgstr "公式预览"
 
-#: src/editor/insert/insert-snippets.ts
 #: src/editor/latex/latex-command-completions.ts
 msgid "Matrix"
 msgstr "矩阵"
 
-#: src/editor/insert/insert-snippets.ts
-msgid "Max"
-msgstr "最大值"
+#: src/trellis/trellis-labels.ts
+msgid "Maximize"
+msgstr "最大化"
 
-#: src/settings/settings-dialog.tsx
-msgid "Max open tabs"
-msgstr "最多打开的标签页"
+#: src/trellis/trellis-titlebar.tsx
+msgid "Maximize focused panel"
+msgstr "最大化当前面板"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/trellis/trellis-titlebar.tsx
+msgid "Maximize the focused panel · ⌘⇧↩ or double-click its tab bar"
+msgstr "最大化当前面板 · ⌘⇧↩ 或双击其标签栏"
+
 #: src/editor/latex/latex-command-completions.ts
 msgid "Maximum operator"
 msgstr "最大值运算符"
@@ -4738,7 +4462,7 @@ msgstr "最大值运算符"
 msgid "MCP"
 msgstr "MCP"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Mean / conjugate mark"
 msgstr "均值 / 共轭记号"
 
@@ -4794,14 +4518,6 @@ msgstr "采用此来源的元数据 · 来自缓存"
 msgid "Middle table rule"
 msgstr "表格中线"
 
-#: src/canvas/editor-tabs.tsx
-msgid "Middle-click to close · ⌘⇧T to reopen"
-msgstr "中键关闭 · ⌘⇧T 重新打开"
-
-#: src/editor/insert/insert-snippets.ts
-msgid "Min"
-msgstr "最小值"
-
 #: src/app/native-locale.ts
 msgctxt "macOS menu bar"
 msgid "Minimize"
@@ -4811,16 +4527,11 @@ msgstr "最小化"
 msgid "Minimize image"
 msgstr "缩小图片"
 
-#: src/editor/insert/insert-snippets.ts
 #: src/editor/latex/latex-command-completions.ts
 msgid "Minimum operator"
 msgstr "最小值运算符"
 
-#: src/editor/insert/insert-snippets.ts
-msgid "Minipage"
-msgstr "小页"
-
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Minus-plus"
 msgstr "负正号"
 
@@ -4873,7 +4584,7 @@ msgstr "缺少样式文件 `{file}`。它属于 {venue} 模板，应与 main.tex
 msgid "Missing tools: {0}"
 msgstr "缺少工具：{0}"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Models / entails"
 msgstr "满足 / 蕴涵"
 
@@ -4885,39 +4596,35 @@ msgstr "已修改"
 msgid "Monospaced text"
 msgstr "等宽文本"
 
-#: src/app/app-workspace-sidebar.tsx
-msgid "Move assistant below editor"
-msgstr "将智能助手移到编辑器下方"
-
-#: src/app/app-agent-panel.tsx
-msgid "Move assistant to sidebar"
-msgstr "将智能助手移到侧栏"
+#: src/trellis/trellis-labels.ts
+msgid "Move {title} to"
+msgstr "将{title}移动到"
 
 #: src/settings/settings-dialog.tsx
 msgid "Move this workspace back to a Lattice window on this Mac"
 msgstr "将此工作区移回这台 Mac 上的 Lattice 窗口"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/trellis/trellis-labels.ts
+msgid "Moved"
+msgstr "已移动"
+
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Mu"
 msgstr "缪"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Multi-line aligned equations"
 msgstr "多行对齐的公式"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Multiset union"
 msgstr "多重集并"
-
-#: src/editor/insert/insert-snippets.ts
-msgid "Multline"
-msgstr "多行长公式"
 
 #: src/components/ui/apple-color-picker.tsx
 msgid "Muted {name}"
 msgstr "灰{name}"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Nabla / del"
 msgstr "纳布拉 / 梯度算子"
 
@@ -4945,11 +4652,11 @@ msgstr "命名算子"
 msgid "Native color picker"
 msgstr "系统颜色选择器"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Natural"
 msgstr "还原号"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Natural join / bowtie"
 msgstr "自然连接 / 蝶形"
 
@@ -4973,7 +4680,7 @@ msgstr "等待授权"
 msgid "Needs your decision"
 msgstr "需要你决定"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Negation / not"
 msgstr "否定 / 非"
 
@@ -4993,7 +4700,8 @@ msgstr "NeurIPS 会议论文集"
 msgid "NeurIPS, CVPR, Nature, …"
 msgstr "NeurIPS、CVPR、Nature 等"
 
-#: src/app/app-workspace-sidebar.tsx
+#: src/App.tsx
+#: src/trellis/trellis-panel-actions.tsx
 msgid "New board"
 msgstr "新建白板"
 
@@ -5001,7 +4709,7 @@ msgstr "新建白板"
 msgid "New changes on Overleaf — click to bring them in"
 msgstr "Overleaf 上有新更改 — 点按以拉取"
 
-#: src/app/app-workspace-sidebar.tsx
+#: src/trellis/trellis-panel-actions.tsx
 msgid "New document"
 msgstr "新建文档"
 
@@ -5029,7 +4737,8 @@ msgstr "新名称"
 msgid "New Overleaf project name"
 msgstr "新 Overleaf 项目名称"
 
-#: src/app/app-workspace-sidebar.tsx
+#: src/App.tsx
+#: src/trellis/trellis-panel-actions.tsx
 msgid "New presentation"
 msgstr "新建演示文稿"
 
@@ -5037,7 +4746,16 @@ msgstr "新建演示文稿"
 msgid "New project"
 msgstr "新建项目"
 
-#: src/app/app-workspace-sidebar.tsx
+#: src/trellis/trellis-labels.ts
+msgid "New split below"
+msgstr "在下方拆分"
+
+#: src/trellis/trellis-labels.ts
+msgid "New split right"
+msgstr "在右侧拆分"
+
+#: src/App.tsx
+#: src/trellis/trellis-panel-actions.tsx
 msgid "New spreadsheet"
 msgstr "新建电子表格"
 
@@ -5189,10 +4907,6 @@ msgstr "未找到匹配的出版物"
 msgid "No matching publication was found in the sources checked."
 msgstr "在已检查的来源中未找到匹配的出版物。"
 
-#: src/editor/insert/insert-palette.tsx
-msgid "No matching snippets. Try fraction, implies, align*, or eqref"
-msgstr "没有匹配的片段。试试 fraction、implies、align* 或 eqref"
-
 #: src/overleaf/overleaf-collab.tsx
 msgid "No messages yet. Say something and everyone in the project sees it"
 msgstr "还没有消息。发送一条消息，项目中的所有人都能看到"
@@ -5283,15 +4997,15 @@ msgstr "未对此条目执行升级检查。"
 msgid "No versions yet. Versions are saved automatically as you work, or press Save version"
 msgstr "暂无版本。版本会在你工作时自动保存，你也可以点击“保存版本”"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "North-east arrow"
 msgstr "右上箭头"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "North-west arrow"
 msgstr "左上箭头"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Not an element of"
 msgstr "不属于"
 
@@ -5315,7 +5029,7 @@ msgstr "未启用 · 需要 API 密钥"
 msgid "Not enabled · personal API key required"
 msgstr "未启用 · 需要填写自己的 API key"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Not equal"
 msgstr "不等于"
 
@@ -5330,10 +5044,6 @@ msgstr "未经核实"
 #: src/editor/markdown/engine/views/component-views.tsx
 msgid "Note"
 msgstr "说明"
-
-#: src/onboarding/onboarding-tour.tsx
-msgid "Notes and drafts in Markdown"
-msgstr "Markdown 笔记和草稿"
 
 #: src/overleaf/overleaf-connect.tsx
 msgid "Nothing is ever removed from the shared project from here. The two sides stay different"
@@ -5355,11 +5065,7 @@ msgstr "通知我（手动安装）"
 msgid "Now tracking versions of this project."
 msgstr "已开始追踪此项目的版本。"
 
-#: src/editor/insert/insert-snippets.ts
-msgid "Nth root"
-msgstr "n 次根"
-
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Nu"
 msgstr "纽"
 
@@ -5367,11 +5073,11 @@ msgstr "纽"
 msgid "Number"
 msgstr "期号"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Number sets like R, N"
 msgstr "数集，如 R、N"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Numbered list"
 msgstr "带编号的列表"
 
@@ -5379,7 +5085,7 @@ msgstr "带编号的列表"
 msgid "Numbered list of items."
 msgstr "有序编号项目列表。"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Numbered single-line equation"
 msgstr "编号的单行公式"
 
@@ -5388,7 +5094,7 @@ msgstr "编号的单行公式"
 msgid "OK"
 msgstr "正常"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Omega"
 msgstr "欧米伽"
 
@@ -5408,10 +5114,13 @@ msgstr "不透明度"
 msgid "Opacity value"
 msgstr "不透明度值"
 
-#: src/canvas/editor-tabs.tsx
 #: src/overleaf/overleaf-connect.tsx
 msgid "Open"
 msgstr "打开"
+
+#: src/trellis/trellis-workspace.tsx
+msgid "Open {title}"
+msgstr "打开{title}"
 
 #: src/App.tsx
 msgid "Open a .tex file before formatting."
@@ -5420,6 +5129,10 @@ msgstr "请先打开一个 .tex 文件再进行格式化。"
 #: src/App.tsx
 msgid "Open a .tex file before pasting a figure."
 msgstr "请先打开一个 .tex 文件再粘贴图片。"
+
+#: src/trellis/trellis-workspace.tsx
+msgid "Open a file from Quick open, or bring the default panels back."
+msgstr "用快速打开打开文件，或恢复默认面板。"
 
 #: src/App.tsx
 msgid "Open a LaTeX project"
@@ -5469,10 +5182,6 @@ msgstr "在桌面应用中打开"
 msgid "Open file…"
 msgstr "打开文件…"
 
-#: src/canvas/editor-tabs.tsx
-msgid "Open files"
-msgstr "已打开的文件"
-
 #: src/project/project-dialogs.tsx
 msgid "Open folder"
 msgstr "打开文件夹"
@@ -5485,10 +5194,6 @@ msgstr "从 Overleaf 打开"
 #: src/App.tsx
 msgid "Open guided tutorial"
 msgstr "打开引导式教程"
-
-#: src/canvas/editor-tabs.tsx
-msgid "Open here"
-msgstr "在此打开"
 
 #: src/settings/settings-dialog.tsx
 msgid "Open in browser"
@@ -5510,25 +5215,9 @@ msgstr "打开日志文件夹"
 msgid "Open notice"
 msgstr "查看通知"
 
-#: src/canvas/editor-tabs.tsx
-msgid "Open on left"
-msgstr "在左侧打开"
-
-#: src/canvas/editor-tabs.tsx
-msgid "Open on right"
-msgstr "在右侧打开"
-
-#: src/canvas/document-canvas.tsx
-msgid "Open or drag a file here"
-msgstr "在此打开或拖入文件"
-
 #: src/project/project-find-dialog.tsx
 msgid "Open paper result: {paperTitle}"
 msgstr "打开论文结果：{paperTitle}"
-
-#: src/onboarding/onboarding-tour.tsx
-msgid "Open Papers to see the sources cited by this manuscript"
-msgstr "打开“论文”，查看这份稿件引用的来源"
 
 #: src/canvas/paper-reader.tsx
 msgid "Open PDF in browser"
@@ -5574,10 +5263,6 @@ msgstr "Open Slide 发送的 {path} 编辑内容不完整。"
 msgid "Open source page — no downloadable full text found"
 msgstr "打开来源页面 — 尚未找到可下载全文"
 
-#: src/onboarding/onboarding-tour.tsx
-msgid "Open the Agent tab to use Codex, Claude, or another provider"
-msgstr "打开 Agent 标签页，即可使用 Codex、Claude 或其他提供商"
-
 #: src/overleaf/use-overleaf-track-changes.ts
 msgid "Open the document this suggestion is in first."
 msgstr "请先打开此修订建议所在的文档。"
@@ -5586,7 +5271,7 @@ msgstr "请先打开此修订建议所在的文档。"
 msgid "Open the file this suggestion is in first"
 msgstr "请先打开此修订建议所在的文件"
 
-#: src/canvas/canvas-toolbar.tsx
+#: src/trellis/trellis-workspace.tsx
 msgid "Open the full paper Markdown"
 msgstr "打开论文全文 Markdown"
 
@@ -5599,13 +5284,9 @@ msgstr "请先打开已关联的 Overleaf 项目，再更改它的同步设置�
 msgid "Open the linked Overleaf project first."
 msgstr "请先打开已关联的 Overleaf 项目。"
 
-#: src/canvas/canvas-toolbar.tsx
+#: src/trellis/trellis-workspace.tsx
 msgid "Open the paper overview"
 msgstr "打开论文概览"
-
-#: src/onboarding/onboarding-tour.tsx
-msgid "Open the PDF in Lattice or your browser"
-msgstr "在 Lattice 或浏览器中打开 PDF"
 
 #: src/build/compile-diagnostics-panel.tsx
 msgid "Open the repair task to continue."
@@ -5662,10 +5343,6 @@ msgstr "正在打开…"
 msgid "Operation metadata"
 msgstr "操作信息"
 
-#: src/editor/insert/insert-palette.tsx
-msgid "Operators"
-msgstr "运算符"
-
 #: src/components/ui/apple-color-picker.tsx
 msgid "Orange"
 msgstr "橙色"
@@ -5681,6 +5358,7 @@ msgstr "大纲"
 
 #: src/history/conflict-resolver.tsx
 #: src/settings/settings-dialog.tsx
+#: src/trellis/trellis-titles.ts
 msgid "Overleaf"
 msgstr "Overleaf"
 
@@ -5691,10 +5369,6 @@ msgstr "Overleaf / arXiv 源文件包"
 #: src/overleaf/ot.ts
 msgid "Overleaf acknowledged version {version} while this document is at {current}."
 msgstr "Overleaf 确认了版本 {version}，但此文档当前为版本 {current}。"
-
-#: src/onboarding/onboarding-tour.tsx
-msgid "Overleaf and history"
-msgstr "Overleaf 与历史"
 
 #: src/overleaf/overleaf-collab.tsx
 msgid "Overleaf chat messages"
@@ -5743,10 +5417,6 @@ msgstr "Overleaf 实时编辑已断开（{reason}）。正在重新连接…"
 #: src/overleaf/use-overleaf-realtime.ts
 msgid "Overleaf live editing reconnected."
 msgstr "Overleaf 实时编辑已重新连接。"
-
-#: src/onboarding/onboarding-tour.tsx
-msgid "Overleaf opens or syncs an Overleaf project. Git and History let you commit and review versions"
-msgstr "Overleaf 按钮用于打开或同步 Overleaf 项目。“Git”和“历史”用于提交和查看版本"
 
 #: src/canvas/canvas-toolbar.tsx
 msgid "Overleaf project actions"
@@ -5808,10 +5478,6 @@ msgstr "Overleaf：拉取 {pulled} 个，推送 {pushed} 个。"
 msgid "Overleaf's own record of this project, including everything collaborators changed in the browser while Lattice was closed. Restoring here changes Overleaf's copy — sync afterward to bring the result into this app"
 msgstr "Overleaf 自己对该项目的记录，包含 Lattice 关闭期间协作者在浏览器中所做的全部更改。在这里恢复会改动 Overleaf 上的副本——之后请同步，把结果带回本应用"
 
-#: src/editor/insert/insert-snippets.ts
-msgid "Overline"
-msgstr "上划线"
-
 #: src/project/manuscript-checklist.tsx
 msgid "Page budget"
 msgstr "页数上限"
@@ -5840,10 +5506,18 @@ msgstr "向右平移"
 msgid "Pan up"
 msgstr "向上平移"
 
+#: src/trellis/trellis-labels.ts
+msgid "Panel menu"
+msgstr "面板菜单"
+
+#: src/trellis/trellis-titlebar.tsx
+msgid "Panels"
+msgstr "面板"
+
 #: src/App.tsx
-#: src/canvas/canvas-toolbar.tsx
 #: src/canvas/paper-reader.tsx
 #: src/project/project-find-dialog.tsx
+#: src/trellis/trellis-workspace.tsx
 msgid "Paper"
 msgstr "论文"
 
@@ -5855,7 +5529,7 @@ msgstr "论文操作"
 msgid "Paper citation suggestions"
 msgstr "论文引用建议"
 
-#: src/canvas/canvas-toolbar.tsx
+#: src/trellis/trellis-workspace.tsx
 msgid "Paper content"
 msgstr "论文内容"
 
@@ -5870,6 +5544,7 @@ msgstr "已取消论文导入，未作任何修改。"
 #: src/canvas/canvas-toolbar.tsx
 #: src/papers/paper-lookup.tsx
 #: src/papers/use-paper-lookup.ts
+#: src/settings/settings-dialog.tsx
 msgid "Paper lookup"
 msgstr "论文速查"
 
@@ -5877,28 +5552,19 @@ msgstr "论文速查"
 msgid "Paper switch"
 msgstr "切换论文"
 
-#: src/onboarding/onboarding-tour.tsx
-msgid "Paper view shows the complete text, sections, equations, and figures as searchable Markdown beside your draft"
-msgstr "论文视图以可搜索的 Markdown 显示完整文本、章节、公式和图片，并与草稿并排呈现"
-
-#: src/app/app-workspace-sidebar.tsx
 #: src/canvas/use-paper-pdf.ts
 #: src/papers/paper-lookup.tsx
 #: src/project/paper-library.tsx
 #: src/project/project-find-dialog.tsx
+#: src/trellis/trellis-titles.ts
 msgid "Papers"
 msgstr "论文"
 
-#: src/editor/insert/insert-snippets.ts
-msgctxt "LaTeX heading"
-msgid "Paragraph"
-msgstr "段落标题"
-
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Parallel"
 msgstr "平行"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Parenthesized matrix"
 msgstr "圆括号矩阵"
 
@@ -5918,7 +5584,7 @@ msgstr "部分标题"
 msgid "Partial author information"
 msgstr "作者信息仅部分相符"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Partial derivative"
 msgstr "偏导数"
 
@@ -5972,7 +5638,12 @@ msgstr "要暂停与 Overleaf 的同步吗？\n"
 "\n"
 "恢复后会从中断处继续：暂停期间任一侧的编辑都会被合并，而不会被覆盖。"
 
+#: src/trellis/trellis-workspace.tsx
+msgid "Paused while hidden · click to resume"
+msgstr "隐藏时已暂停 · 点击恢复"
+
 #: src/canvas/paper-reader.tsx
+#: src/trellis/trellis-titles.ts
 msgid "PDF"
 msgstr "PDF"
 
@@ -6012,6 +5683,10 @@ msgstr "PDF 页码"
 msgid "PDF pages"
 msgstr "PDF 页数"
 
+#: src/trellis/trellis-workspace.tsx
+msgid "PDF preview paused"
+msgstr "PDF 预览已暂停"
+
 #: src/pdf/pdf-viewer.tsx
 msgid "PDF preview timed out. Click Build again, or open the PDF in Preview."
 msgstr "PDF 预览超时。请再次点击“构建”，或在“预览”中打开 PDF。"
@@ -6044,11 +5719,7 @@ msgstr "pdfLaTeX 引擎"
 msgid "People in this Overleaf project"
 msgstr "此 Overleaf 项目中的成员"
 
-#: src/editor/insert/insert-snippets.ts
-msgid "Percent"
-msgstr "百分号"
-
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Perpendicular"
 msgstr "垂直"
 
@@ -6056,7 +5727,7 @@ msgstr "垂直"
 msgid "Personal key saved"
 msgstr "已配置个人密钥"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Phi"
 msgstr "斐"
 
@@ -6064,7 +5735,7 @@ msgstr "斐"
 msgid "Phrase or tokens"
 msgstr "短语或关键词"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Pi"
 msgstr "派"
 
@@ -6080,21 +5751,13 @@ msgstr "选择一个表情符号并插入光标位置。"
 msgid "Pick color from screen"
 msgstr "从屏幕取色"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Piecewise definition"
 msgstr "分段定义"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Pilcrow / paragraph"
 msgstr "段落符号"
-
-#: src/canvas/editor-tabs.tsx
-msgid "Pin tab"
-msgstr "固定标签页"
-
-#: src/canvas/editor-tabs.tsx
-msgid "Pinned"
-msgstr "已固定"
 
 #: src/editor/insert/figure-insert-dialog.tsx
 msgid "Placement"
@@ -6117,29 +5780,25 @@ msgstr "请确认你要继续。"
 msgid "Please try again later"
 msgstr "请稍后再试"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Plus-minus"
 msgstr "正负号"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Pounds sterling"
 msgstr "英镑符号"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Precedes"
 msgstr "先于"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Precedes or equal"
 msgstr "先于或等于"
 
 #: src/canvas/document-canvas.tsx
 msgid "Preparing board editor"
 msgstr "正在准备白板编辑器"
-
-#: src/App.tsx
-msgid "Preparing editor"
-msgstr "正在准备编辑器"
 
 #: src/canvas/canvas-lazy-editors.tsx
 msgid "Preparing HTML preview…"
@@ -6165,6 +5824,10 @@ msgstr "正在准备此工作区"
 msgid "Preparing tutorial…"
 msgstr "正在准备教程…"
 
+#: src/App.tsx
+msgid "Preparing workspace"
+msgstr "正在准备工作区"
+
 #: src/papers/audit-messages.ts
 msgid "Preprint check incomplete: {error}"
 msgstr "预印本检查未完成：{error}"
@@ -6173,21 +5836,17 @@ msgstr "预印本检查未完成：{error}"
 msgid "Preprint check returned an incomplete or ambiguous result."
 msgstr "预印本检查返回的结果不完整或不明确。"
 
-#: src/canvas/canvas-toolbar.tsx
 #: src/editor/markdown/engine/lattice-visual-editor.tsx
 #: src/project/project-replace-dialog.tsx
+#: src/trellis/trellis-workspace.tsx
 msgid "Preview"
 msgstr "预览"
 
-#: src/canvas/canvas-toolbar.tsx
+#: src/trellis/trellis-workspace.tsx
 msgid "Preview HTML"
 msgstr "预览 HTML"
 
-#: src/onboarding/onboarding-tour.tsx
-msgid "Preview interactive HTML"
-msgstr "预览交互式 HTML"
-
-#: src/canvas/canvas-toolbar.tsx
+#: src/trellis/trellis-workspace.tsx
 msgid "Preview Markdown"
 msgstr "预览 Markdown"
 
@@ -6198,10 +5857,6 @@ msgstr "预览 `.tex`、`.bib` 及其他项目源文件中的匹配项，然后�
 #: src/canvas/project-asset-preview.tsx
 msgid "Preview of {path}"
 msgstr "{path} 的预览"
-
-#: src/canvas/canvas-toolbar.tsx
-msgid "Preview PDF"
-msgstr "预览 PDF"
 
 #: src/editor/latex/latex-hover-cards.ts
 msgid "Preview unavailable for this figure format."
@@ -6232,25 +5887,20 @@ msgstr "上一个搜索结果"
 msgid "Primary bibliography {file} (missing)"
 msgstr "主参考文献文件 {file}（缺失）"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Prime"
 msgstr "撇号"
 
-#: src/editor/insert/insert-snippets.ts
 #: src/editor/latex/latex-command-completions.ts
 msgid "Product"
 msgstr "连乘"
-
-#: src/editor/insert/insert-snippets.ts
-msgid "Product with limits"
-msgstr "带上下限的连乘"
 
 #: src/App.tsx
 msgid "project"
 msgstr "项目"
 
 #: src/App.tsx
-#: src/app/app-workspace-sidebar.tsx
+#: src/trellis/trellis-titles.ts
 msgid "Project"
 msgstr "项目"
 
@@ -6284,6 +5934,7 @@ msgstr "项目查找和替换"
 
 #: src/canvas/canvas-toolbar.tsx
 #: src/history/history-drawer.tsx
+#: src/settings/settings-dialog.tsx
 msgid "Project history"
 msgstr "项目历史"
 
@@ -6308,15 +5959,11 @@ msgstr "项目已恢复。"
 msgid "Project uploaded and connected to Overleaf."
 msgstr "项目已上传并连接到 Overleaf。"
 
-#: src/editor/insert/insert-snippets.ts
-msgid "Proof"
-msgstr "证明"
-
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Proof environment (requires amsthm)"
 msgstr "证明环境（需要 amsthm）"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Proportional to"
 msgstr "正比于"
 
@@ -6324,7 +5971,7 @@ msgstr "正比于"
 msgid "Proposed BibTeX"
 msgstr "建议的 BibTeX"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Proves / turnstile"
 msgstr "推出 / 断言符"
 
@@ -6332,7 +5979,7 @@ msgstr "推出 / 断言符"
 msgid "Providers"
 msgstr "模型"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Psi"
 msgstr "普西"
 
@@ -6378,6 +6025,10 @@ msgstr "文献与参考文献工具所用的 Python 工具链"
 msgid "queued"
 msgstr "已排队"
 
+#: src/trellis/trellis-workspace.tsx
+msgid "Quick open"
+msgstr "快速打开"
+
 #: src/App.tsx
 #: src/project/quick-open-dialog.tsx
 msgid "Quick open file"
@@ -6392,14 +6043,13 @@ msgctxt "macOS menu bar"
 msgid "Quit {name}"
 msgstr "退出 {name}"
 
-#: src/editor/insert/insert-snippets.ts
 #: src/editor/latex/latex-selection-toolbar.tsx
 #: src/editor/markdown/engine/chrome/selection-toolbar.tsx
 #: src/editor/markdown/engine/chrome/slash-items.ts
 msgid "Quote"
 msgstr "引文"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Radical"
 msgstr "根号"
 
@@ -6415,9 +6065,9 @@ msgstr "请求受到速率限制；已跳过后续 Semantic Scholar 查询"
 msgid "Raw build log"
 msgstr "原始构建日志"
 
-#: src/onboarding/onboarding-tour.tsx
-msgid "Read the full paper here"
-msgstr "在此阅读全文"
+#: src/trellis/trellis-workspace.tsx
+msgid "Read-only preview · click to edit"
+msgstr "只读预览 · 点击编辑"
 
 #: src/history/conflict-resolver.tsx
 msgid "Reading the file…"
@@ -6431,7 +6081,7 @@ msgstr "可以编译"
 msgid "Ready to install"
 msgstr "可以安装"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Real part"
 msgstr "实部"
 
@@ -6486,15 +6136,14 @@ msgid "reference"
 msgstr "引用"
 
 #: src/app/app-search-dialogs.tsx
-#: src/editor/insert/insert-snippets.ts
 msgid "Reference"
 msgstr "引用"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Reference an equation label"
 msgstr "引用公式标签"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Reference an existing label"
 msgstr "引用已有的标签"
 
@@ -6541,13 +6190,17 @@ msgstr "拒绝"
 msgid "Reject all"
 msgstr "全部拒绝"
 
-#: src/editor/insert/insert-palette.tsx
-msgid "Relations"
-msgstr "关系符"
-
 #: src/canvas/html-preview.tsx
 msgid "Relative project links are unavailable in this preview"
 msgstr "此预览中无法使用项目相对链接"
+
+#: src/trellis/trellis-labels.ts
+msgid "Release to focus"
+msgstr "松开以聚焦"
+
+#: src/trellis/trellis-labels.ts
+msgid "Release to focus {title} · Esc to cancel"
+msgstr "松开以聚焦{title} · 按 Esc 取消"
 
 #: src/components/ui/confirm-action-dialog.tsx
 #: src/editor/harper-spellcheck.ts
@@ -6840,21 +6493,22 @@ msgstr "研究"
 msgid "Research, written with evidence"
 msgstr "让研究写作有据可循"
 
+#: src/trellis/trellis-titlebar.tsx
+#: src/trellis/trellis-workspace.tsx
+msgid "Reset layout"
+msgstr "重置布局"
+
+#: src/App.tsx
+msgid "Reset panel layout"
+msgstr "重置面板布局"
+
 #: src/editor/markdown/engine/views/mermaid-preview.tsx
 msgid "Reset view"
 msgstr "重置视图"
 
 #: src/canvas/document-canvas.tsx
-msgid "Resize dual source panes"
-msgstr "调整双源文件窗格大小"
-
-#: src/canvas/document-canvas.tsx
 msgid "Resize editor and asset preview"
 msgstr "调整编辑器与资源预览大小"
-
-#: src/app/app-agent-panel.tsx
-msgid "Resize editor and assistant"
-msgstr "调整编辑器与智能助手的高度"
 
 #: src/canvas/document-canvas.tsx
 msgid "Resize editor and HTML preview"
@@ -6868,13 +6522,13 @@ msgstr "调整编辑器与 Markdown 预览大小"
 msgid "Resize editor and PDF preview"
 msgstr "调整编辑器与 PDF 预览大小"
 
+#: src/trellis/trellis-labels.ts
+msgid "Resize panels"
+msgstr "调整面板大小"
+
 #: src/components/ui/resizable-drawer.tsx
 msgid "Resize right panel"
 msgstr "调整右侧面板大小"
-
-#: src/app/app-workspace-sidebar.tsx
-msgid "Resize workspace sidebar"
-msgstr "调整工作区侧边栏大小"
 
 #: src/papers/bib-entry-dialog.tsx
 msgid "Resolve"
@@ -6943,6 +6597,11 @@ msgstr "正在重新启动…"
 msgid "Restore"
 msgstr "恢复"
 
+#. placeholder {0}: entry.title
+#: src/trellis/trellis-titlebar.tsx
+msgid "Restore {0}"
+msgstr "恢复{0}"
+
 #. placeholder {0}: file.pathname
 #. placeholder {0}: target.path
 #: src/history/versions-timeline.tsx
@@ -6983,6 +6642,18 @@ msgstr "将项目恢复到 {restored}"
 #: src/history/versions-timeline.tsx
 msgid "Restore project to this version"
 msgstr "把项目恢复到这个版本"
+
+#: src/trellis/trellis-labels.ts
+msgid "Restore size"
+msgstr "还原大小"
+
+#: src/trellis/trellis-titlebar.tsx
+msgid "Restore the layout"
+msgstr "恢复布局"
+
+#: src/trellis/trellis-titlebar.tsx
+msgid "Restore the layout · ⌘⇧↩"
+msgstr "恢复布局 · ⌘⇧↩"
 
 #: src/app/app-history-drawers.tsx
 msgid "Restore the project to the state before this change? The restore will be added as a new history entry."
@@ -7045,13 +6716,21 @@ msgstr "检索记录信息"
 msgid "Retry"
 msgstr "重试"
 
+#: src/App.tsx
+msgid "Reveal cursor in PDF"
+msgstr "在 PDF 中定位光标"
+
 #: src/pdf/pdf-viewer.tsx
 msgid "Reveal cursor in PDF (⌘⇧J)"
 msgstr "在 PDF 中显示光标位置 (⌘⇧J)"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Reverse turnstile"
 msgstr "反向断言符"
+
+#: src/settings/settings-dialog.tsx
+msgid "Review and commit changes"
+msgstr "查看并提交更改"
 
 #: src/papers/bibliography-audit.tsx
 msgid "Review candidate"
@@ -7073,57 +6752,49 @@ msgstr "查看拟议修改"
 msgid "Review the final file before saving"
 msgstr "保存前请检查最终文件"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Rho"
 msgstr "柔"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Right angle bracket"
 msgstr "右尖括号"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Right arrow"
 msgstr "右箭头"
 
-#: src/editor/insert/insert-snippets.ts
-msgid "Right brace"
-msgstr "右花括号"
-
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Right ceiling"
 msgstr "右上取整符"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Right double arrow / implies"
 msgstr "右双线箭头 / 蕴含"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Right double vertical bar"
 msgstr "右双竖线"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Right floor"
 msgstr "右下取整符"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Right harpoon up"
 msgstr "右上鱼叉箭头"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Right normal subgroup"
 msgstr "右正规子群"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Right normal subgroup eq"
 msgstr "右正规子群（含等号）"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Right vertical bar"
 msgstr "右竖线"
-
-#: src/editor/insert/insert-snippets.ts
-msgid "Roman math"
-msgstr "数学正体"
 
 #: src/editor/latex/latex-command-completions.ts
 msgid "Roman text"
@@ -7132,10 +6803,6 @@ msgstr "罗马体文本"
 #: src/build/tex-doctor-messages.ts
 msgid "Root document"
 msgstr "主文档"
-
-#: src/editor/insert/insert-snippets.ts
-msgid "Root with index"
-msgstr "带次数的根号"
 
 #: src/editor/markdown/engine/views/table-controls.tsx
 msgid "Row options"
@@ -7162,7 +6829,7 @@ msgstr "运行诊断以检查这台 Mac 上的 TeX 工具链"
 msgid "Run without asking for approval"
 msgstr "无需请求批准即可运行"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Run-in paragraph heading"
 msgstr "行内段落标题"
 
@@ -7202,6 +6869,10 @@ msgstr "保存已决定的位置"
 #: src/papers/bib-entry-dialog.tsx
 msgid "Save entry"
 msgstr "保存条目"
+
+#: src/trellis/trellis-workspace.tsx
+msgid "Save failed, so the layout was not reset."
+msgstr "保存失败，布局未重置。"
 
 #: src/pdf/pdf-viewer.tsx
 msgid "Save PDF"
@@ -7264,11 +6935,11 @@ msgstr "正在扫描参考文献文件…"
 msgid "Scans `.tex` / `.md` for `% TODO`, `% FIXME`, `% XXX`, and `\\todo`. Click a hit to jump; the active unsaved buffer is included"
 msgstr "扫描 `.tex` / `.md` 中的 `% TODO`、`% FIXME`、`% XXX` 和 `\\todo`。点击结果即可跳转；包括当前未保存的编辑内容"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Script l"
 msgstr "手写体 l"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Script letters"
 msgstr "手写体字母"
 
@@ -7283,10 +6954,6 @@ msgstr "搜索"
 #: src/papers/literature-discovery-panel.tsx
 msgid "Search alphaXiv and OpenAlex to find related work before importing evidence"
 msgstr "搜索 alphaXiv 和 OpenAlex，先找到相关工作再导入文献"
-
-#: src/editor/insert/insert-palette.tsx
-msgid "Search by name, meaning, or command (alpha, implies, fraction…)"
-msgstr "按名称、含义或命令搜索（alpha、implies、fraction…）"
 
 #: src/overleaf/overleaf-connect.tsx
 msgid "Search by project or owner…"
@@ -7341,7 +7008,7 @@ msgstr "搜索 PDF"
 msgid "Searching…"
 msgstr "正在搜索…"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Second-level heading"
 msgstr "二级标题"
 
@@ -7350,12 +7017,11 @@ msgid "section"
 msgstr "节"
 
 #: src/app/app-search-dialogs.tsx
-#: src/editor/insert/insert-snippets.ts
 #: src/editor/latex/latex-selection-toolbar.tsx
 msgid "Section"
 msgstr "节"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Section sign"
 msgstr "节标记"
 
@@ -7404,10 +7070,6 @@ msgstr "选择列表项"
 #: src/editor/markdown/engine/chrome/block-controls.tsx
 msgid "Select numbered list"
 msgstr "选择编号列表"
-
-#: src/onboarding/onboarding-tour.tsx
-msgid "Select PDF to read the original PDF in Lattice, or use the external-link button beside it to open the same PDF in your browser"
-msgstr "点击“PDF”可在 Lattice 中阅读论文原版 PDF；点击旁边的外链按钮，可在浏览器中打开同一份 PDF"
 
 #: src/editor/markdown/engine/chrome/block-controls.tsx
 msgid "Select task list"
@@ -7471,17 +7133,13 @@ msgctxt "macOS menu bar"
 msgid "Services"
 msgstr "服务"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Set minus"
 msgstr "集合差"
 
 #: src/settings/settings-dialog.tsx
 msgid "Set the editor keymap and build behavior"
 msgstr "设置编辑器键位和构建行为"
-
-#: src/editor/insert/insert-palette.tsx
-msgid "Sets"
-msgstr "集合"
 
 #: src/project/project-dialogs.tsx
 #: src/settings/settings-dialog.tsx
@@ -7496,9 +7154,17 @@ msgstr "设置分区"
 msgid "Setup is complete"
 msgstr "设置已完成"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Sharp"
 msgstr "升号"
+
+#: src/trellis/trellis-titlebar.tsx
+msgid "Show {name}"
+msgstr "显示{name}"
+
+#: src/App.tsx
+msgid "Show {name} panel"
+msgstr "显示{name}面板"
 
 #: src/app/native-locale.ts
 msgctxt "macOS menu bar"
@@ -7526,6 +7192,10 @@ msgstr "在访达中显示"
 msgid "Show Mermaid preview"
 msgstr "显示 Mermaid 预览"
 
+#: src/trellis/trellis-titlebar.tsx
+msgid "Show or hide panels"
+msgstr "显示或隐藏面板"
+
 #: src/canvas/document-outline.tsx
 msgid "Show outline"
 msgstr "显示大纲"
@@ -7533,10 +7203,6 @@ msgstr "显示大纲"
 #: src/editor/markdown/engine/chrome/find-replace.tsx
 msgid "Show replace"
 msgstr "显示替换"
-
-#: src/app/app-titlebar.tsx
-msgid "Show sidebar"
-msgstr "显示侧边栏"
 
 #: src/overleaf/overleaf-changes.tsx
 #: src/overleaf/overleaf-comments.tsx
@@ -7547,15 +7213,11 @@ msgstr "在编辑器中显示"
 msgid "Shows 300 recent entries; disk logs rotate"
 msgstr "显示最近 300 条记录；磁盘日志会自动轮换"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Side-by-side column block"
 msgstr "并排分栏块"
 
-#: src/app/app-workspace-sidebar.tsx
-msgid "Sidebar mode"
-msgstr "侧边栏模式"
-
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Sigma"
 msgstr "西格马"
 
@@ -7587,7 +7249,7 @@ msgstr "要退出 Overleaf 登录吗？\n"
 msgid "Sign-in was cancelled. You can try again whenever you’re ready."
 msgstr "登录已取消。你可以随时重新尝试。"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Similar or equal"
 msgstr "相似或等于"
 
@@ -7595,7 +7257,7 @@ msgstr "相似或等于"
 msgid "Similar title match"
 msgstr "标题近似匹配"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Similar to"
 msgstr "相似"
 
@@ -7619,14 +7281,13 @@ msgstr "可伸缩左定界符"
 msgid "Skills"
 msgstr "Skills"
 
-#: src/onboarding/onboarding-tour.tsx
-msgid "Skip tutorial"
-msgstr "跳过教程"
-
 #: src/editor/markdown/engine/chrome/slash-menu.tsx
-#: src/onboarding/onboarding-tour.tsx
 msgid "Slash commands"
 msgstr "斜杠命令"
+
+#: src/trellis/trellis-workspace.tsx
+msgid "Sleeping · click to open"
+msgstr "休眠中 · 点击打开"
 
 #: src/components/ui/apple-color-picker.tsx
 msgid "Slider"
@@ -7640,7 +7301,7 @@ msgstr "小型大写字母"
 msgid "Small section heading."
 msgstr "用于小节的小标题。"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Smile relation"
 msgstr "上弧关系"
 
@@ -7664,13 +7325,13 @@ msgstr "某位协作者"
 msgid "Source"
 msgstr "源码"
 
-#: src/App.tsx
-msgid "Source + PDF"
-msgstr "源码 + PDF"
-
 #: src/papers/bibliography-audit.tsx
 msgid "Source candidate (not applied)"
 msgstr "来源候选（未采用）"
+
+#: src/trellis/trellis-titles.ts
+msgid "Source control"
+msgstr "版本控制"
 
 #: src/pdf/pdf-source-targets.ts
 msgid "Source location in PDF"
@@ -7700,15 +7361,15 @@ msgstr "来源暂时不可用"
 msgid "Source:"
 msgstr "来源："
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "South-east arrow"
 msgstr "右下箭头"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "South-west arrow"
 msgstr "左下箭头"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Spade suit"
 msgstr "黑桃"
 
@@ -7720,21 +7381,13 @@ msgstr "色谱"
 msgid "Spelling"
 msgstr "拼写"
 
-#: src/App.tsx
-msgid "split"
-msgstr "拆分视图"
-
-#: src/canvas/canvas-toolbar.tsx
+#: src/trellis/trellis-workspace.tsx
 msgid "Split"
 msgstr "分栏"
 
 #: src/editor/markdown/engine/views/table-controls.tsx
 msgid "Split cell"
 msgstr "拆分单元格"
-
-#: src/canvas/canvas-toolbar.tsx
-msgid "Split editor right"
-msgstr "向右分栏编辑器"
 
 #: src/editor/latex/latex-command-completions.ts
 msgid "Split one equation"
@@ -7750,35 +7403,31 @@ msgstr "第 {0} 处，共 {1} 处"
 msgid "Spreadsheet"
 msgstr "电子表格"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Square"
 msgstr "空心方块"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Square cap"
 msgstr "方交"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Square cup"
 msgstr "方并"
 
-#: src/editor/insert/insert-snippets.ts
-msgid "Square root"
-msgstr "平方根"
-
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Square subset"
 msgstr "方形真子集"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Square subset eq"
 msgstr "方形子集（含等号）"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Square superset"
 msgstr "方形真超集"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Square superset eq"
 msgstr "方形超集（含等号）"
 
@@ -7790,7 +7439,7 @@ msgstr "之前失败的构建已过时。请使用“全新重建”（按住 Sh
 msgid "Stale result"
 msgstr "结果已过期"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Star operator"
 msgstr "星形运算符"
 
@@ -7823,7 +7472,6 @@ msgid "Starting Agent"
 msgstr "正在启动智能助手"
 
 #: src/canvas/document-canvas.tsx
-#: src/canvas/open-slide-tab-pool.tsx
 msgid "Starting Open Slide"
 msgstr "正在启动 Open Slide"
 
@@ -7845,17 +7493,13 @@ msgstr "仍未连接：{0}"
 msgid "Still waiting. Cancel this attempt, close the Overleaf window, and try connecting again"
 msgstr "仍在等待。请取消本次尝试，关闭 Overleaf 窗口，然后重新连接"
 
-#: src/app/app-titlebar.tsx
-msgid "Stop"
-msgstr "停止"
-
 #: src/App.tsx
 msgid "Stop build"
 msgstr "停止构建"
 
-#: src/app/app-titlebar.tsx
-msgid "Stop the current LaTeX build"
-msgstr "停止当前 LaTeX 构建"
+#: src/trellis/trellis-workspace.tsx
+msgid "Stop the build"
+msgstr "停止构建"
 
 #: src/papers/bibliography-audit.tsx
 msgid "Stopping…"
@@ -7870,14 +7514,6 @@ msgstr "删除线"
 msgid "structure"
 msgstr "结构"
 
-#: src/editor/insert/insert-palette.tsx
-msgid "Structure"
-msgstr "结构"
-
-#: src/editor/insert/insert-snippets.ts
-msgid "Subequations"
-msgstr "子公式组"
-
 #: src/App.tsx
 #: src/project/manuscript-checklist.tsx
 msgid "Submission checklist"
@@ -7887,29 +7523,27 @@ msgstr "投稿检查清单"
 msgid "Subparagraph heading"
 msgstr "子段落标题"
 
-#: src/editor/insert/insert-snippets.ts
 #: src/editor/latex/latex-selection-toolbar.tsx
 msgid "Subsection"
 msgstr "小节"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Subset"
 msgstr "真子集"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Subset or equal"
 msgstr "子集或等于"
 
-#: src/editor/insert/insert-snippets.ts
 #: src/editor/latex/latex-selection-toolbar.tsx
 msgid "Subsubsection"
 msgstr "小小节"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Succeeds"
 msgstr "后于"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Succeeds or equal"
 msgstr "后于或等于"
 
@@ -7941,30 +7575,21 @@ msgstr "建议插入“{text}”"
 msgid "Suggests removing \"{text}\""
 msgstr "建议删除“{text}”"
 
-#: src/editor/insert/insert-snippets.ts
-msgid "Sum with limits"
-msgstr "带上下限的求和"
-
-#: src/editor/insert/insert-snippets.ts
 #: src/editor/latex/latex-command-completions.ts
 msgid "Summation"
 msgstr "求和"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Superset"
 msgstr "真超集"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Superset or equal"
 msgstr "超集或等于"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Surface / area integral"
 msgstr "曲面 / 面积积分"
-
-#: src/App.tsx
-msgid "Swap editor panes"
-msgstr "交换编辑器窗格"
 
 #: src/app/app-titlebar.tsx
 msgid "Switch project"
@@ -7977,10 +7602,6 @@ msgstr "正在切换项目…"
 #: src/project/references-panel.tsx
 msgid "Symbol references"
 msgstr "符号引用"
-
-#: src/editor/insert/insert-palette.tsx
-msgid "Symbols"
-msgstr "符号"
 
 #: src/settings/synara-settings-pane.tsx
 msgid "Synara {synaraSettingsLabel} settings"
@@ -8018,6 +7639,10 @@ msgstr "仅在点击同步按钮时同步"
 msgid "Sync with Overleaf"
 msgstr "与 Overleaf 同步"
 
+#: src/settings/settings-dialog.tsx
+msgid "Sync, open and chat with the linked Overleaf project"
+msgstr "同步、打开关联的 Overleaf 项目并在其中聊天"
+
 #. placeholder {0}: link.projectName
 #: src/overleaf/overleaf-connect.tsx
 msgid "Syncing with “{0}” is paused"
@@ -8031,7 +7656,7 @@ msgstr "正在与 Overleaf 同步…"
 msgid "SyncTeX bidirectional search"
 msgstr "SyncTeX 双向搜索"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Syntax-highlighted listing (listings)"
 msgstr "语法高亮的代码（listings）"
 
@@ -8039,7 +7664,6 @@ msgstr "语法高亮的代码（listings）"
 msgid "table"
 msgstr "表格"
 
-#: src/editor/insert/insert-snippets.ts
 #: src/editor/markdown/engine/chrome/slash-items.ts
 msgid "Table"
 msgstr "表格"
@@ -8069,7 +7693,7 @@ msgstr "表格预览"
 msgid "Task List"
 msgstr "任务列表"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Tau"
 msgstr "陶"
 
@@ -8105,10 +7729,6 @@ msgstr "TexLab 语言服务器（可选，用于编辑器诊断）"
 #: src/editor/markdown/engine/chrome/selection-toolbar.tsx
 msgid "Text"
 msgstr "正文"
-
-#: src/editor/insert/insert-snippets.ts
-msgid "Text in math"
-msgstr "公式中的文字"
 
 #: src/project/project-replace-dialog.tsx
 msgid "Text to find"
@@ -8166,6 +7786,10 @@ msgstr "文档正文"
 msgid "The document changed while saving. Save it, then switch projects again."
 msgstr "保存期间文档发生了更改。请先保存，然后再切换项目。"
 
+#: src/trellis/trellis-labels.ts
+msgid "the documents area"
+msgstr "文档区域"
+
 #: src/history/conflict-resolver.tsx
 msgid "The file changed while it was saving. Review the latest text and save again."
 msgstr "文件在保存期间发生了变化。请查看最新内容后再次保存。"
@@ -8205,10 +7829,6 @@ msgstr "与 Overleaf 项目的连接已失效。"
 #: src/canvas/paper-reader.tsx
 msgid "The PDF took too long to load. Try again, or open the article in your browser."
 msgstr "PDF 加载时间过长。请重试，或在浏览器中打开文章。"
-
-#: src/onboarding/onboarding-tour.tsx
-msgid "The preview is editable too"
-msgstr "预览也可以编辑"
 
 #: src/overleaf/use-overleaf-realtime.ts
 msgid "The previous Overleaf document could not be released. Syncing remains paused."
@@ -8299,15 +7919,11 @@ msgstr "该工作表及其所有内容都将被删除。"
 msgid "Theme"
 msgstr "主题"
 
-#: src/editor/insert/insert-snippets.ts
-msgid "Theorem"
-msgstr "定理"
-
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Theorem block (requires amsthm and a \\newtheorem declaration)"
 msgstr "定理块（需要 amsthm，并声明 \\newtheorem）"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "There exists"
 msgstr "存在"
 
@@ -8319,15 +7935,11 @@ msgstr "这些评论保留在 Lattice 中，不会发送到 Overleaf。"
 msgid "These preferences apply across every project on this Mac"
 msgstr "这些偏好设置会应用于这台 Mac 上的所有项目"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Theta"
 msgstr "西塔"
 
-#: src/onboarding/onboarding-tour.tsx
-msgid "Think visually on a board"
-msgstr "在画板上进行可视化思考"
-
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Third-level heading"
 msgstr "三级标题"
 
@@ -8404,17 +8016,13 @@ msgstr "此文件在实时编辑之外发生了变化。已保留本地修改，
 msgid "This file is not live with Overleaf right now. Reconnect before commenting."
 msgstr "此文件当前未与 Overleaf 实时连接。请重新连接后再评论。"
 
-#: src/onboarding/onboarding-tour.tsx
-msgid "This folder contains the manuscript, notes, figures, boards, spreadsheets, and cited papers. Click a file to open it"
-msgstr "这个文件夹包含稿件、笔记、图片、画板、电子表格和引用的论文。点击文件即可打开"
-
 #: src/canvas/project-asset-preview.tsx
 msgid "This format cannot be rendered in the preview"
 msgstr "此格式无法在预览中渲染"
 
-#: src/onboarding/onboarding-tour.tsx
-msgid "This is a real, editable Open Slide deck. Use the thumbnail rail to browse pages, Inspect or Design to edit, and Present to show it. Agent can also revise its React and TSX source"
-msgstr "这是一份真实可编辑的 Open Slide 演示文稿。用缩略图栏浏览页面，用「检查」或「设计」编辑，再用「演示」展示。Agent 也可以修改它的 React 和 TSX 源码。"
+#: src/trellis/trellis-labels.ts
+msgid "this group"
+msgstr "此面板组"
 
 #: src/editor/presentation/open-slide-workspace.tsx
 msgid "This is not a native Open Slide deck."
@@ -8470,23 +8078,19 @@ msgstr "此来源记录仅供比较。它未经验证，无法应用。"
 msgid "This step may take a minute"
 msgstr "此步骤可能需要一分钟"
 
-#: src/onboarding/onboarding-tour.tsx
-msgid "Three ways to look at a document"
-msgstr "查看文档的三种方式"
-
 #: src/editor/latex/latex-command-completions.ts
 msgid "TikZ drawing"
 msgstr "TikZ 绘图"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Tilde accent example"
 msgstr "波浪符示例"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Time derivative mark"
 msgstr "时间导数记号"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Times / cross product"
 msgstr "乘号 / 叉积"
 
@@ -8501,6 +8105,10 @@ msgstr "提示"
 msgid "Title"
 msgstr "标题"
 
+#: src/settings/settings-dialog.tsx
+msgid "Title bar tools"
+msgstr "标题栏工具"
+
 #: src/app/use-reference-import.ts
 msgid "Title, author, and year are required."
 msgstr "标题、作者和年份为必填项。"
@@ -8513,7 +8121,7 @@ msgstr "仅标题/摘要"
 msgid "to"
 msgstr "至"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "To (short right arrow)"
 msgstr "to（短右箭头）"
 
@@ -8527,6 +8135,7 @@ msgstr "今天的日期"
 
 #: src/canvas/editor-status-bar.tsx
 #: src/project/manuscript-checklist.tsx
+#: src/trellis/trellis-titles.ts
 msgid "TODOs"
 msgstr "待办"
 
@@ -8538,7 +8147,11 @@ msgstr "以下文件对 Overleaf 来说过大，因此仅保留在本机：{file
 msgid "Toolchain status"
 msgstr "工具链状态"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/trellis/trellis-titlebar.tsx
+msgid "Tools"
+msgstr "工具"
+
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Top / true"
 msgstr "顶元 / 真"
 
@@ -8546,7 +8159,7 @@ msgstr "顶元 / 真"
 msgid "Top table rule"
 msgstr "表格顶线"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Top-level section heading"
 msgstr "顶级章节标题"
 
@@ -8558,15 +8171,15 @@ msgstr "追踪此项目的版本，即可看到谁改了什么，并安全地回
 msgid "Trashed"
 msgstr "已移入回收站"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Triangle"
 msgstr "三角形"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Triangle left"
 msgstr "左三角形"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Triangle right"
 msgstr "右三角形"
 
@@ -8585,31 +8198,10 @@ msgstr "重试"
 msgid "Try building the project again."
 msgstr "请尝试重新构建项目。"
 
-#: src/onboarding/onboarding-tour.tsx
-msgid "Try typing / in the visual editor"
-msgstr "尝试在可视化编辑器中输入 /"
-
-#: src/app/app-onboarding-tour.tsx
-msgid "Tutorial finished · keep poking around this project, or start one of your own."
-msgstr "教程已完成 · 可以继续探索这个项目，或者新建一个你自己的项目。"
-
-#. placeholder {0}: index + 1
-#: src/onboarding/onboarding-tour.tsx
-msgid "Tutorial progress: step {0} of {size}"
-msgstr "教程进度：第 {0} 步，共 {size} 步"
-
-#: src/App.tsx
-msgid "Two files side by side"
-msgstr "并排显示两个文件"
-
 #: src/editor/markdown/engine/views/component-views.tsx
 #: src/papers/bib-entry-dialog.tsx
 msgid "Type"
 msgstr "类型"
-
-#: src/onboarding/onboarding-tour.tsx
-msgid "Type directly in the formatted view without Markdown syntax. On an empty line, press / to insert headings, tables, math, or images"
-msgstr "无需 Markdown 语法，直接在格式化视图中输入。在空行中按 / 可插入标题、表格、公式或图片"
 
 #: src/editor/latex/latex-command-completions.ts
 msgid "Typeset a URL"
@@ -8628,6 +8220,7 @@ msgid "UI"
 msgstr "界面"
 
 #: src/settings/doctor-settings.tsx
+#: src/trellis/trellis-labels.ts
 msgid "Unavailable"
 msgstr "不可用"
 
@@ -8647,15 +8240,10 @@ msgstr "行间公式 {open} 未闭合。"
 msgid "Unclosed inline math {open}."
 msgstr "行内公式 {open} 未闭合。"
 
-#: src/editor/insert/insert-snippets.ts
 #: src/editor/latex/latex-selection-toolbar.tsx
 #: src/editor/markdown/engine/chrome/selection-toolbar.tsx
 msgid "Underline"
 msgstr "下划线"
-
-#: src/editor/insert/insert-snippets.ts
-msgid "Underscore"
-msgstr "下划线字符"
 
 #: src/app/native-locale.ts
 msgctxt "macOS menu bar"
@@ -8686,7 +8274,7 @@ msgstr "已展开行"
 msgid "Unhandled promise rejection"
 msgstr "未处理的 Promise 拒绝"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Union"
 msgstr "并集"
 
@@ -8725,15 +8313,15 @@ msgstr "未知的来源响应"
 msgid "Unmatched {found}."
 msgstr "{found} 没有匹配的开头。"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Unnumbered aligned equations"
 msgstr "不编号的对齐公式"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Unnumbered centered equations"
 msgstr "不编号的居中公式"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Unnumbered single-line equation"
 msgstr "不编号的单行公式"
 
@@ -8745,15 +8333,11 @@ msgstr "无序项目列表。"
 msgid "Unpaywall"
 msgstr "Unpaywall"
 
-#: src/canvas/editor-tabs.tsx
-msgid "Unpin tab"
-msgstr "取消固定标签页"
-
 #: src/overleaf/overleaf-comments.tsx
 msgid "Unresolved"
 msgstr "未解决"
 
-#: src/canvas/editor-tabs.tsx
+#: src/trellis/trellis-workspace.tsx
 msgid "Unsaved changes"
 msgstr "未保存的更改"
 
@@ -8785,19 +8369,19 @@ msgstr "未使用的标签 / 引用"
 msgid "Unverified candidate BibTeX"
 msgstr "未经验证的候选 BibTeX"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Up arrow"
 msgstr "上箭头"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Up double arrow"
 msgstr "上双线箭头"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Up-down arrow"
 msgstr "上下箭头"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Up-down double arrow"
 msgstr "上下双线箭头"
 
@@ -8863,29 +8447,17 @@ msgstr "正在将 {0} 上传到 Overleaf…大型项目可能需要一分钟"
 msgid "Uploading…"
 msgstr "正在上传…"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Upright text in math"
 msgstr "公式中的正体文字"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Upsilon"
 msgstr "宇普西龙"
 
 #: src/papers/bibliography-audit.tsx
 msgid "URL"
 msgstr "URL"
-
-#: src/onboarding/onboarding-tour.tsx
-msgid "Use + to create a presentation, spreadsheet, or board"
-msgstr "用 + 可以创建演示文稿、电子表格或画板"
-
-#: src/onboarding/onboarding-tour.tsx
-msgid "Use Edit for the source, Split for both, and Preview for the finished result"
-msgstr "“编辑”显示源文件，“拆分”同时显示源文件和预览，“预览”显示最终结果"
-
-#: src/onboarding/onboarding-tour.tsx
-msgid "Use Formulas in the toolbar, or export the spreadsheet as an .xlsx file"
-msgstr "使用工具栏中的“公式”，或将电子表格导出为 .xlsx 文件"
 
 #: src/project/paper-library.tsx
 msgid "Use the + button to import this query if it isn't in your library yet"
@@ -8895,13 +8467,13 @@ msgstr "如果资料库中尚无此内容，请使用 + 按钮导入当前查询
 msgid "Use the Build button or Command-S. Source changes are still saved automatically"
 msgstr "使用“构建”按钮或 Command-S。源码更改仍会自动保存"
 
-#: src/onboarding/onboarding-tour.tsx
-msgid "Use the infinite canvas for diagrams, arrows, and freehand notes. Every shape is editable"
-msgstr "在无限画布中绘制图表、箭头和手写笔记。每个形状都可以编辑"
-
 #: src/settings/literature-settings.tsx
 msgid "Use your own API quota for paper searches, imports, and citation checks."
 msgstr "为文献搜索、导入和引用检查配置个人 API 额度。"
+
+#: src/trellis/trellis-titlebar.tsx
+msgid "Uses Trellis by DanFessler — github.com/DanFessler/trellis"
+msgstr "使用 DanFessler 的 Trellis — github.com/DanFessler/trellis"
 
 #: src/settings/literature-settings.tsx
 msgid "Using environment key"
@@ -8911,35 +8483,27 @@ msgstr "正在使用环境变量密钥"
 msgid "Using shared quota"
 msgstr "正在使用共享配额"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Variant epsilon"
 msgstr "变体艾普西龙"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Variant phi"
 msgstr "变体斐"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Variant pi"
 msgstr "变体派"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Variant rho"
 msgstr "变体柔"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Variant theta"
 msgstr "变体西塔"
 
-#: src/editor/insert/insert-snippets.ts
-msgid "Vector accent"
-msgstr "向量箭头"
-
-#: src/editor/insert/insert-snippets.ts
-msgid "Vector accent example"
-msgstr "向量箭头示例"
-
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Vector arrow over a symbol"
 msgstr "在符号上方加向量箭头"
 
@@ -8959,10 +8523,6 @@ msgstr "会议模板"
 #: src/papers/bib-entry-dialog.tsx
 msgid "Venue unavailable"
 msgstr "暂无发表处信息"
-
-#: src/editor/insert/insert-snippets.ts
-msgid "Verbatim"
-msgstr "原样文本"
 
 #: src/project/project-dialogs.tsx
 msgid "Verified against the official 2026 conference style"
@@ -9024,6 +8584,10 @@ msgstr "第 {0} 处要保留的版本"
 msgid "Versions"
 msgstr "版本"
 
+#: src/settings/settings-dialog.tsx
+msgid "Versions and changes of the whole project"
+msgstr "整个项目的版本与更改"
+
 #: src/editor/latex/latex-command-completions.ts
 msgid "Vertical space"
 msgstr "垂直间距"
@@ -9031,10 +8595,6 @@ msgstr "垂直间距"
 #: src/project/manuscript-checklist.tsx
 msgid "via texcount -inc"
 msgstr "通过 texcount -inc 统计"
-
-#: src/App.tsx
-msgid "View"
-msgstr "视图"
 
 #: src/app/native-locale.ts
 msgctxt "macOS menu bar"
@@ -9073,10 +8633,6 @@ msgstr "此 Markdown 包含不受支持或会丢失信息的语法，无法进�
 msgid "Visual Markdown editor"
 msgstr "可视化 Markdown 编辑器"
 
-#: src/editor/insert/insert-snippets.ts
-msgid "Vmatrix"
-msgstr "行列式矩阵"
-
 #: src/papers/bibliography-audit.tsx
 msgid "Volume"
 msgstr "卷号"
@@ -9110,17 +8666,9 @@ msgstr "警告"
 msgid "Warning: raw diagnostic text may contain document content, file paths, or other sensitive information."
 msgstr "警告：原始诊断文本可能包含文档内容、文件路径或其他敏感信息。"
 
-#: src/onboarding/onboarding-tour.tsx
-msgid "We opened the “Attention Is All You Need” sample project so you can try each feature on real files. You can skip the tutorial at any time"
-msgstr "我们已打开“Attention Is All You Need”示例项目，你可以直接在真实文件中体验各项功能，也可以随时跳过教程"
-
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Weierstrass p"
 msgstr "魏尔斯特拉斯 p"
-
-#: src/onboarding/onboarding-tour.tsx
-msgid "Welcome to Lattice"
-msgstr "欢迎使用 Lattice"
 
 #: src/overleaf/overleaf-connect.tsx
 msgid "When you delete a file here"
@@ -9164,7 +8712,7 @@ msgstr "词数上限"
 msgid "Words / pages / TODOs"
 msgstr "字数 / 页数 / 待办事项"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Words inside math mode"
 msgstr "数学模式中的词语"
 
@@ -9172,6 +8720,10 @@ msgstr "数学模式中的词语"
 #: src/project/paper-library.tsx
 msgid "Working…"
 msgstr "正在处理…"
+
+#: src/trellis/trellis-labels.ts
+msgid "Workspace"
+msgstr "工作区"
 
 #: src/project/project-dialogs.tsx
 msgid "Wrap in environment"
@@ -9185,7 +8737,7 @@ msgstr "包裹在 table 浮动体中"
 msgid "Wraps the current selection (or empty cursor) in \\begin{…}/\\end{…}"
 msgstr "将当前选区（或空光标）包裹在 \\begin{…}/\\end{…} 中"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Wreath product"
 msgstr "圈积"
 
@@ -9197,7 +8749,7 @@ msgstr "XeLaTeX 和 LuaLaTeX 支持系统字体。项目中的 latexmkrc 优先�
 msgid "XeLaTeX engine"
 msgstr "XeLaTeX 引擎"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Xi"
 msgstr "克西"
 
@@ -9236,10 +8788,6 @@ msgstr "新版本可用时会通知你"
 msgid "You’re on the latest version"
 msgstr "当前已是最新版本"
 
-#: src/onboarding/onboarding-tour.tsx
-msgid "Your LaTeX and your PDF, side by side"
-msgstr "LaTeX 和 PDF 并排显示"
-
 #: src/history/conflict-resolver.tsx
 msgid "Your Lattice copy"
 msgstr "你的 Lattice 副本"
@@ -9260,7 +8808,7 @@ msgstr "Overleaf 登录已过期。请重新登录以继续操作；本地文件
 msgid "Your project files are safe. Restart Lattice to reopen the window, or copy the error details if the problem continues."
 msgstr "你的项目文件安全无虞。重新启动 Lattice 即可重新打开窗口；如问题仍然存在，请复制错误详情。"
 
-#: src/editor/insert/insert-snippets.ts
+#: src/editor/latex/latex-vocabulary.ts
 msgid "Zeta"
 msgstr "泽塔"
 
@@ -9284,3 +8832,7 @@ msgstr "放大"
 #: src/pdf/pdf-viewer.tsx
 msgid "Zoom out"
 msgstr "缩小"
+
+#: src/trellis/trellis-titlebar.tsx
+msgid "Zoom out to show every panel"
+msgstr "缩小以显示所有面板"

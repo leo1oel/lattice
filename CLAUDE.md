@@ -48,7 +48,7 @@ Lint enforces a `--max-warnings` debt cap, owned by the `lint` script in
 - `src/app/` — App orchestration: hooks extracted from `App.tsx` (`use-overleaf-workspace.ts`, `notify.ts`) plus window/panel geometry.
 - `src/canvas/` — the editing surface shell (`document-canvas.tsx`, editor tabs, toolbar, outline, `canvas-lazy-modules.ts`).
 - `src/editor/` — editor infrastructure shared by more than one editor kind (CodeMirror host, language resolution, spellcheck), with `editor/latex/`, `editor/markdown/`, `editor/spreadsheet/`, `editor/board/`, `editor/insert/`, `editor/comments/` beneath it.
-- `src/pdf/`, `src/build/`, `src/papers/`, `src/project/`, `src/history/`, `src/settings/`, `src/onboarding/`, `src/agent/` (Synara), `src/telemetry/` (logs, toasts, updater, error boundary, sounds), `src/platform/` (polyfills, perf probe, test setup, repo-level guard tests).
+- `src/pdf/`, `src/build/`, `src/papers/`, `src/project/`, `src/history/`, `src/settings/`, `src/trellis/` (the panel workspace), `src/agent/` (Synara), `src/telemetry/` (logs, toasts, updater, error boundary, sounds), `src/platform/` (polyfills, perf probe, test setup, repo-level guard tests).
 - `src/components/ui/` — the one UI-primitive home: shadcn-style controls plus the app-level shared presentation (`motion.tsx`, `resizable-drawer.tsx`, `avatar-group.tsx`, `confirm-action-dialog.tsx`, `search-picker-dialog.tsx`, `collab-colors.ts`).
 - `src/overleaf/` — Overleaf sync: the OT engine (`ot.ts`), the realtime/chat/comments/track-changes hooks (`use-overleaf-*`), and their panels and stylesheets.
 - Filenames keep their domain prefix after a move (`overleaf/overleaf-presence.tsx`, not `overleaf/presence.tsx`) so the split stays a reviewable pure-rename diff.

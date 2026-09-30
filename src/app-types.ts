@@ -153,14 +153,8 @@ export type FigureDropRequest = {
   pane?: EditorPaneId;
 };
 
-export type FigurePointerDrag = {
-  path: string;
-  label: string;
-  clientX: number;
-  clientY: number;
-  overCanvas: boolean;
-  insertAtEditor: boolean;
-};
+/** Where a document opens beside the one on screen (the editor keeps two panes internally). */
+export type EditorDropZone = "left" | "center" | "right";
 
 /** A line in a project file: a SyncTeX jump target, or a back/forward history entry. */
 export type SyncTexTarget = { path: string; line: number };

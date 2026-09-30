@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type PointerEvent } from "react";
 import { clamp, loadSplitRatio, persistSplitRatio } from "../settings/app-settings";
-import { SPLIT_PDF_MIN_WIDTH, SPLIT_SOURCE_MIN_WIDTH } from "../app/window-layout";
+import { SPLIT_PREVIEW_MIN_WIDTH, SPLIT_SOURCE_MIN_WIDTH } from "../app/window-layout";
 import type { CanvasMode } from "../app-types";
 import { setSplitResizerResistance, trackResizeDrag } from "./split-resizer";
 
@@ -9,7 +9,15 @@ import { setSplitResizerResistance, trackResizeDrag } from "./split-resizer";
  * dual editors), remembered across sessions, plus the resizer gestures that
  * change it.
  */
-export function useSplitLayout(mode: CanvasMode, dualRatioResetGeneration: number) {
+export type SplitMinimums = { source: number; preview: number };
+const SPLIT_MINIMUMS: SplitMinimums = { source: SPLIT_SOURCE_MIN_WIDTH, preview: SPLIT_PREVIEW_MIN_WIDTH };
+
+export function useSplitLayout(
+  mode: CanvasMode,
+  dualRatioResetGeneration: number,
+  minimums: SplitMinimums = SPLIT_MINIMUMS,
+) {
+  const { source: sourceMinimum, preview: previewMinimum } = minimums;
   const splitRef = useRef<HTMLDivElement | null>(null);
   const [splitRatio, setSplitRatio] = useState(loadSplitRatio);
   const preferredSplitRatioRef = useRef(splitRatio);
@@ -30,10 +38,10 @@ export function useSplitLayout(mode: CanvasMode, dualRatioResetGeneration: numbe
     const width = splitRef.current?.getBoundingClientRect().width ?? 0;
     if (!width) return clamp(ratio, 0.2, 0.8);
     const tracksWidth = Math.max(1, width - 1);
-    const minimum = Math.min(1, SPLIT_SOURCE_MIN_WIDTH / tracksWidth);
-    const maximum = Math.max(minimum, 1 - SPLIT_PDF_MIN_WIDTH / tracksWidth);
+    const minimum = Math.min(1, sourceMinimum / tracksWidth);
+    const maximum = Math.max(minimum, 1 - previewMinimum / tracksWidth);
     return clamp(ratio, minimum, maximum);
-  }, []);
+  }, [previewMinimum, sourceMinimum]);
 
   useEffect(() => {
     const split = splitRef.current;
@@ -70,14 +78,14 @@ export function useSplitLayout(mode: CanvasMode, dualRatioResetGeneration: numbe
         return;
       }
       const tracksWidth = Math.max(1, bounds.width - 1);
-      const minimum = Math.min(Math.ceil(tracksWidth), SPLIT_SOURCE_MIN_WIDTH);
-      const maximum = Math.max(minimum, Math.floor(tracksWidth - SPLIT_PDF_MIN_WIDTH));
+      const minimum = Math.min(Math.ceil(tracksWidth), sourceMinimum);
+      const maximum = Math.max(minimum, Math.floor(tracksWidth - previewMinimum));
       const sourceWidth = clamp(Math.round(moveEvent.clientX - bounds.left), minimum, maximum);
       latest = constrainSplitRatio(sourceWidth / tracksWidth);
       setSplitResizerResistance(grip, Math.round(moveEvent.clientX - bounds.left) - sourceWidth);
       // Keep the hot drag path outside React: re-rendering the PDF viewer per
       // pointer event made its toolbar icons shift. Pointer-up commits the ratio.
-      split.style.gridTemplateColumns = `${sourceWidth}px 1px minmax(${SPLIT_PDF_MIN_WIDTH}px, 1fr)`;
+      split.style.gridTemplateColumns = `${sourceWidth}px 1px minmax(${previewMinimum}px, 1fr)`;
     }, () => commitSplitRatio(latest));
   };
   const nudgeSplit = (delta: number) => commitSplitRatio(constrainSplitRatio(splitRatio + delta));

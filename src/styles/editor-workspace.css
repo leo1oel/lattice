@@ -1,7 +1,5 @@
 .split-canvas { --split-resizer-offset: 0px; min-width: 0; min-height: 0; width: 100%; display: grid; grid-template-rows: minmax(0, 1fr); overflow: hidden; }
 .split-canvas > .source-workspace, .split-canvas > .pdf-column, .split-canvas > .markdown-preview, .split-canvas > .html-preview { min-width: 0; min-height: 0; overflow: hidden; }
-.dual-pane-preview { min-width: 0; min-height: 0; display: flex; overflow: hidden; }
-.dual-pane-preview > .pdf-column, .dual-pane-preview > .markdown-preview, .dual-pane-preview > .html-preview { flex: 1 1 0; width: 100%; min-width: 0; min-height: 0; }
 .source-workspace, .source-editor, .pdf-preview, .pdf-column, .html-preview { min-width: 0; min-height: 0; overflow: hidden; }
 .canvas-body > .source-workspace, .canvas-body > .source-editor, .canvas-body > .pdf-preview, .canvas-body > .pdf-column, .canvas-body > .split-canvas, .canvas-body > .markdown-preview, .canvas-body > .html-preview, .canvas-body > .asset-preview, .canvas-body > .paper-reader-shell { flex: 1 1 0; width: 100%; max-width: 100%; min-width: 0; height: 0; }
 .pdf-column { position: relative; display: flex; flex-direction: column; }
@@ -730,12 +728,6 @@ body:has(.modal-backdrop, .drawer-backdrop) .latex-selection-toolbar-anchor { di
     inset 0 0 0 1px color-mix(in srgb, var(--control-active) 30%, transparent),
     inset 0 0 24px color-mix(in srgb, var(--control-active) 4%, transparent);
 }
-.figure-drop-line { position: absolute; z-index: var(--z-editor-overlay); left: 48px; right: 10px; height: 1px; background: color-mix(in srgb, var(--control-active) 78%, transparent); box-shadow: 0 0 0 1px color-mix(in srgb, var(--editor-bg) 65%, transparent); pointer-events: none; }
-.figure-drop-line::before { content: ""; position: absolute; left: -3px; top: -2px; width: 5px; height: 5px; border-radius: 50%; background: var(--control-active); }
-.figure-drop-line span { @apply smooth-shadow-ring-sm; --smooth-ring-color: var(--control-active-border); position: absolute; right: 0; bottom: 5px; padding: 3px var(--space-3); border-radius: var(--radius-compact); background: color-mix(in srgb, var(--surface-panel-raised) 94%, transparent); color: var(--control-active); font-size: var(--type-micro-size); font-weight: 600; line-height: 1; white-space: nowrap; }
-.figure-drag-ghost { position: fixed; z-index: var(--z-drag-ghost); max-width: 220px; height: 28px; padding: 0 var(--pad-inline-control); display: flex; align-items: center; gap: var(--space-3); border-radius: var(--radius-chrome); background: color-mix(in srgb, var(--surface-panel-raised) 94%, transparent); color: var(--text-secondary); font-size: var(--type-caption-size); font-weight: 600; pointer-events: none; transform: translateZ(0); }
-.figure-drag-ghost.ready { --smooth-ring-color: var(--control-active-border-strong); background: color-mix(in srgb, var(--control-active-soft) 70%, var(--surface-panel-raised)); color: var(--control-active); }
-.figure-drag-ghost span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* Keep the saved grid proportions intact, but resize the adjacent pane boxes
    with the grip. Both surfaces return on the same curve, without a gap. */
 .split-canvas > :nth-child(1), .split-canvas > :nth-child(3) { min-width: 0; max-width: none; transition: width var(--duration-disclosure) var(--ease-emphasized), margin-left var(--duration-disclosure) var(--ease-emphasized); }
@@ -759,7 +751,6 @@ body:has(.modal-backdrop, .drawer-backdrop) .latex-selection-toolbar-anchor { di
 .paper-visual-header p { margin: var(--space-6) 0 0; color: var(--text-secondary); font-size: var(--type-body-size); line-height: var(--type-body-line-height); overflow-wrap: anywhere; }
 .paper-visual-header .paper-visual-eligibility { margin: 0 0 var(--space-8); padding: var(--space-3) var(--space-4); border-radius: var(--radius-compact); background: var(--status-warning-soft); }
 .paper-reader-shell { container: paper-reader / inline-size; min-width: 0; min-height: 0; display: flex; flex-direction: column; overflow: hidden; background: var(--editor-bg); }
-.paper-pane > .paper-reader-shell { flex: 1 1 0; width: 100%; min-height: 0; }
 .paper-reader-header { min-height: var(--toolbar-height); flex: none; padding-inline: var(--space-5); border-bottom: 1px solid var(--border-subtle); display: flex; align-items: center; justify-content: flex-end; }
 .paper-local-actions { min-width: 0; display: flex; align-items: center; justify-content: flex-end; gap: var(--space-2); }
 .paper-local-action { min-width: var(--control-size-icon); height: var(--control-size-icon); padding: 0 var(--space-4); border: 0; border-radius: var(--radius-icon); background: transparent; color: var(--text-secondary); display: inline-flex; align-items: center; justify-content: center; gap: var(--gap-inline-tight); font-size: var(--type-micro-size); font-weight: var(--weight-semibold); white-space: nowrap; }

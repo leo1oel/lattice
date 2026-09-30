@@ -14,7 +14,7 @@ export const PAPER_LOOKUP_STATE = "paper-lookup-state";
 export const PAPER_LOOKUP_READY = "paper-lookup-ready";
 export const PAPER_LOOKUP_OPEN = "paper-lookup-open";
 /** Reading surfaces and tab chrome, where a dropped paper opens instead of being cited. */
-const READING_SURFACES = String.raw`.canvas-panel, .titlebar-main`;
+const READING_SURFACES = String.raw`.lattice-trellis, .titlebar-main`;
 
 export function usePaperLookup(state: PaperLookupState, onOpen: (paper: PaperSummary) => void, onError: (error: unknown) => void) {
   const latest = useRef({ state, onOpen, onError });

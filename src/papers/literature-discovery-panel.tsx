@@ -230,12 +230,14 @@ export function LiteratureDiscoveryPanel(props: {
             <article className="literature-result" key={key}>
               <div className="literature-result-body">
                 <span className={`lit-source lit-source-${work.source}`}>
+                  { }
                   {work.source === "alphaxiv" ? "alphaXiv" : "OpenAlex"}
                 </span>
                 <strong>{work.title}</strong>
                 <p>{hitMeta(work, { etAl: t` et al.`, cites: t`${work.citedByCount} cites` })}</p>
                 {work.snippet ? <p className="lit-snippet">{work.snippet}</p> : null}
                 <div className="literature-result-ids">
+                  { }
                   {work.arxivId ? <em>arXiv:{work.arxivId}</em> : null}
                   {work.doi ? <em>{work.doi}</em> : null}
                 </div>
