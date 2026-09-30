@@ -64,7 +64,7 @@ type SettingsDialogProps = DoctorSettingsProps & {
   onCleanProject: () => void;
   cleaning: boolean;
   building: boolean;
-  /** The "Your name" setting, and the Git or Overleaf name that signs ahead of it. */
+  /** The "Your name" setting, and the Git or Overleaf name that signs comments ahead of it. */
   authorName: string;
   knownAuthorName: string | null;
   onAuthorNameChange: (name: string) => void;
@@ -338,12 +338,12 @@ function EditorSettingsPane({ projectWordDraft, setProjectWordDraft, ...props }:
           onChange={(editorKeymap) => patchAppearance(props, { editorKeymap })}
         />
       </SettingsGroup>
-      <SettingsGroup title={t`Comments & snapshots`}>
+      <SettingsGroup title={t`Comments`}>
         <SettingsRow
           label={t`Your name`}
           description={props.knownAuthorName
-            ? t`Signed as ${props.knownAuthorName}, the name from Git or Overleaf. This name is used when neither has one`
-            : t`Signs your comments and snapshots. Lattice uses your Git or Overleaf name instead when one is set`}
+            ? t`Your comments are signed as ${props.knownAuthorName}, the name from Git or Overleaf. This name is used when neither has one`
+            : t`Signs your comments. Lattice uses your Git or Overleaf name instead when one is set`}
         >
           <Input
             controlSize="form"

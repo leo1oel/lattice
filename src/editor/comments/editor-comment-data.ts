@@ -118,7 +118,7 @@ export function persistAuthorNameSetting(name: string): void {
 }
 
 /**
- * The name comments and version snapshots are signed with: the writer's Git
+ * The name comments are signed with: the writer's Git
  * `user.name`, else their Overleaf account name, else the "Your name"
  * setting. Empty when none is known (the comment code shows "Anonymous").
  */

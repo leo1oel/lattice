@@ -1740,13 +1740,10 @@ msgstr "评论显示范围"
 
 #: src/canvas/editor-status-bar.tsx
 #: src/overleaf/overleaf-collab.tsx
+#: src/settings/settings-dialog.tsx
 #: src/trellis/trellis-titles.ts
 msgid "Comments"
 msgstr "评论"
-
-#: src/settings/settings-dialog.tsx
-msgid "Comments & snapshots"
-msgstr "评论与快照"
 
 #: src/settings/settings-dialog.tsx
 msgid "Comments on the open document, for projects not linked to Overleaf"
@@ -7235,14 +7232,9 @@ msgstr "要退出 Overleaf 登录吗？\n"
 msgid "Sign-in was cancelled. You can try again whenever you’re ready."
 msgstr "登录已取消。你可以随时重新尝试。"
 
-#. placeholder {0}: props.knownAuthorName
 #: src/settings/settings-dialog.tsx
-msgid "Signed as {0}, the name from Git or Overleaf. This name is used when neither has one"
-msgstr "当前署名为 {0}（来自 Git 或 Overleaf）。两者都没有名字时才使用这里的名字"
-
-#: src/settings/settings-dialog.tsx
-msgid "Signs your comments and snapshots. Lattice uses your Git or Overleaf name instead when one is set"
-msgstr "用于为你的评论和快照署名。若 Git 或 Overleaf 中设置了名字，Lattice 会优先使用它"
+msgid "Signs your comments. Lattice uses your Git or Overleaf name instead when one is set"
+msgstr "用于为你的评论署名。若 Git 或 Overleaf 中设置了名字，Lattice 会优先使用它"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Similar or equal"
@@ -8775,6 +8767,11 @@ msgstr "新版本可用时会通知你"
 #: src/settings/settings-dialog.tsx
 msgid "You’re on the latest version"
 msgstr "当前已是最新版本"
+
+#. placeholder {0}: props.knownAuthorName
+#: src/settings/settings-dialog.tsx
+msgid "Your comments are signed as {0}, the name from Git or Overleaf. This name is used when neither has one"
+msgstr "你的评论当前署名为 {0}（来自 Git 或 Overleaf）。两者都没有名字时才使用这里的名字"
 
 #: src/history/conflict-resolver.tsx
 msgid "Your Lattice copy"

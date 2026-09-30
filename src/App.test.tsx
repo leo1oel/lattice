@@ -1138,14 +1138,15 @@ describe("welcome screen", () => {
     await expectInvoked("git_user_name");
     await chooseProjectMenuItem("Settings");
     fireEvent.click(await screen.findByRole("button", { name: "Editor & builds" }));
-    expect(await screen.findByText(/Signed as Ada Lovelace/)).toBeInTheDocument();
+    expect(await screen.findByText(/Your comments are signed as Ada Lovelace/)).toBeInTheDocument();
     const field = screen.getByLabelText("Your name");
     expect(field).toHaveAttribute("placeholder", "Ada Lovelace");
     fireEvent.change(field, { target: { value: "Grace Hopper" } });
     expect(localStorage.getItem("lattice.author-name.v1")).toBe("Grace Hopper");
   });
 
-  it("keeps automatic commits unsigned when only Git and Overleaf know the writer's name", async () => {
+  it("keeps automatic commits signed as Lattice whatever name signs comments", async () => {
+    localStorage.setItem("lattice.author-name.v1", "Grace Hopper");
     renderOverleafPaper({
       git_user_name: "Ada Lovelace",
       overleaf_sync: () => overleafSyncResult({ pushed: ["main.tex"] }),

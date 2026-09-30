@@ -1740,13 +1740,10 @@ msgstr "Comment visibility"
 
 #: src/canvas/editor-status-bar.tsx
 #: src/overleaf/overleaf-collab.tsx
+#: src/settings/settings-dialog.tsx
 #: src/trellis/trellis-titles.ts
 msgid "Comments"
 msgstr "Comments"
-
-#: src/settings/settings-dialog.tsx
-msgid "Comments & snapshots"
-msgstr "Comments & snapshots"
 
 #: src/settings/settings-dialog.tsx
 msgid "Comments on the open document, for projects not linked to Overleaf"
@@ -7235,14 +7232,9 @@ msgstr "Sign out of Overleaf?\n"
 msgid "Sign-in was cancelled. You can try again whenever you’re ready."
 msgstr "Sign-in was cancelled. You can try again whenever you’re ready."
 
-#. placeholder {0}: props.knownAuthorName
 #: src/settings/settings-dialog.tsx
-msgid "Signed as {0}, the name from Git or Overleaf. This name is used when neither has one"
-msgstr "Signed as {0}, the name from Git or Overleaf. This name is used when neither has one"
-
-#: src/settings/settings-dialog.tsx
-msgid "Signs your comments and snapshots. Lattice uses your Git or Overleaf name instead when one is set"
-msgstr "Signs your comments and snapshots. Lattice uses your Git or Overleaf name instead when one is set"
+msgid "Signs your comments. Lattice uses your Git or Overleaf name instead when one is set"
+msgstr "Signs your comments. Lattice uses your Git or Overleaf name instead when one is set"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Similar or equal"
@@ -8775,6 +8767,11 @@ msgstr "You’ll be notified when a new version is ready"
 #: src/settings/settings-dialog.tsx
 msgid "You’re on the latest version"
 msgstr "You’re on the latest version"
+
+#. placeholder {0}: props.knownAuthorName
+#: src/settings/settings-dialog.tsx
+msgid "Your comments are signed as {0}, the name from Git or Overleaf. This name is used when neither has one"
+msgstr "Your comments are signed as {0}, the name from Git or Overleaf. This name is used when neither has one"
 
 #: src/history/conflict-resolver.tsx
 msgid "Your Lattice copy"

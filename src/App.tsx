@@ -575,7 +575,7 @@ function App() {
   const editorCommentAuthorId = useMemo(() => loadEditorCommentAuthorId(), []);
   const [authorNameSetting, setAuthorNameSetting] = useState(loadAuthorNameSetting);
   // The writer's name as Git and the Overleaf session know it, which sign
-  // comments and snapshots ahead of the "Your name" setting.
+  // comments ahead of the "Your name" setting.
   const [knownAuthorNames, setKnownAuthorNames] = useState<{ git: string | null; overleaf: string | null }>({
     git: null, overleaf: null,
   });
@@ -1405,7 +1405,7 @@ function App() {
     project, projectRef, projectOperationGenerationRef, activeFile, activeFileRef, activePaper, activeAsset,
     source, sourceRef, savedSourceRef, setSource, setSavedSource, setViewRestore, viewStateRef, editorPosition,
     editorPositionRef, build, saveGeneration, savedPathsRef, wholeFileEditingPaths, wholeFileDraftPaths,
-    commitAuthorName: authorNameSetting, save, compile, loadFile, refreshProject, openProjectFile,
+    save, compile, loadFile, refreshProject, openProjectFile,
     overleafSyncingRef, overleafSyncSettledRef, resolveOverleafSyncRef,
   });
   const {

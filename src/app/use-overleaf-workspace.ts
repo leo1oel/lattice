@@ -135,8 +135,6 @@ export type OverleafWorkspaceDeps = {
   wholeFileEditingPaths: readonly string[];
   /** Mounted whole-file documents that have an uncommitted control edit. */
   wholeFileDraftPaths: readonly string[];
-  /** The "Your name" setting that automatic commits are attributed to, when set. */
-  commitAuthorName: string;
   save: () => Promise<boolean>;
   compile: () => Promise<void>;
   loadFile: (path: string, options?: { expectedProjectRoot?: string; projectGeneration?: number; canCommit?: () => boolean }) => Promise<boolean>;
@@ -192,7 +190,7 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
   const {
     project, projectRef, projectOperationGenerationRef, activeFile, activeFileRef, activePaper, activeAsset,
     source, sourceRef, savedSourceRef, viewStateRef, editorPosition, editorPositionRef, build,
-    saveGeneration, savedPathsRef, wholeFileEditingPaths, wholeFileDraftPaths, commitAuthorName, save, compile, loadFile, refreshProject, openProjectFile,
+    saveGeneration, savedPathsRef, wholeFileEditingPaths, wholeFileDraftPaths, save, compile, loadFile, refreshProject, openProjectFile,
     overleafSyncingRef, overleafSyncSettledRef, resolveOverleafSyncRef,
   } = deps;
   const { t } = useLingui();
@@ -514,7 +512,7 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
       // the filesystem watcher and reloaded unrelated previews.
       if (incoming || hadUnsavedEdits || result.pushed.length > 0) {
         void invoke<string | null>("git_auto_commit", {
-          message: AUTO_COMMIT_MESSAGES.overleafSync, author: commitAuthorName.trim() || null, projectRoot: syncRoot,
+          message: AUTO_COMMIT_MESSAGES.overleafSync, author: null, projectRoot: syncRoot,
         }).catch(() => {});
       }
       refreshOverleafLink();
@@ -535,7 +533,7 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
       release();
     }
   }, [
-    activeFileRef, commitAuthorName, compile, currentOverleafLivePaths, holdSyncGate, loadFile,
+    activeFileRef, compile, currentOverleafLivePaths, holdSyncGate, loadFile,
     overleafSyncingRef, project, projectGuard, projectOperationGenerationRef, refreshOverleafLink, refreshProject,
     save, savedSourceRef, settleRemoteDeletes, sourceRef, t, wholeFileEditingPathsRef,
   ]);
@@ -909,9 +907,6 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
     };
   }, [overleafLink, overleafSyncMode, project?.root]);
 
-  // Renaming the author must not re-run the versioning effect against an old build.
-  const commitAuthorNameRef = useLatest(commitAuthorName);
-
   // Version successful builds of linked projects at most every 2 minutes.
   // Unlinked projects never get surprise commits in a repo managed by hand.
   useEffect(() => {
@@ -920,9 +915,9 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
     if (now - lastAutoVersionRef.current < 120_000) return;
     lastAutoVersionRef.current = now;
     void invoke<string | null>("git_auto_commit", {
-      message: AUTO_COMMIT_MESSAGES.autoSaved, author: commitAuthorNameRef.current.trim() || null,
+      message: AUTO_COMMIT_MESSAGES.autoSaved, author: null,
     }).catch(() => {});
-  }, [build, commitAuthorNameRef, overleafLink]);
+  }, [build, overleafLink]);
 
   return {
     overleafLink, overleafProjectLinked, overleafSyncing,

@@ -115,7 +115,7 @@ function syncFixture() {
     activePaper: null, activeAsset: null, viewStateRef: { current: new Map() },
     editorPosition: null, editorPositionRef: { current: null }, build: null,
     saveGeneration: 0, savedPathsRef: { current: new Set() },
-    wholeFileEditingPaths: [], wholeFileDraftPaths: [], authorName: "Writer", save: vi.fn(async () => true),
+    wholeFileEditingPaths: [], wholeFileDraftPaths: [], save: vi.fn(async () => true),
     loadFile: vi.fn(async (_path, options) => {
       if (options?.canCommit?.() === false) return false;
       remote.sourceRef.current = remote.savedSourceRef.current = disk;

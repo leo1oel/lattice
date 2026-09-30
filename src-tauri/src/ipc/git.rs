@@ -15,7 +15,7 @@ pub async fn git_status(state: State<'_, AppState>, window: Window) -> Result<Gi
 }
 
 /// The name Git signs commits with for the current project, if one is set.
-/// Comments and snapshots use it as the writer's name.
+/// Comments use it as the writer's name.
 #[tauri::command]
 pub async fn git_user_name(
     state: State<'_, AppState>, window: Window,
