@@ -9,8 +9,8 @@ engine meets it today; Part II is the specification itself.
 > **Frozen.** This document is kept as the clean-room record behind the
 > Apache-2.0 relicense and is no longer edited to track the code. Its
 > `Derived from:` citations point at tests as they stood before the vendored
-> editor and its tests were deleted: read them at commit `ce5bbc76^`
-> (`git show ce5bbc76^:<path>`), not at the current tree. Requirements the app
+> editor and its tests were deleted: read them at commit `c44f285a`
+> (`git show c44f285a:<path>`), not at the current tree. Requirements the app
 > has since retired are marked obsolete in place rather than removed.
 
 ## Part I: provenance, engine, and status
@@ -471,7 +471,7 @@ here, with the requirement it rests on.
 - **"Derived from".** `path:line "test name"` for tests (line = the line holding the test name);
   `path:line-line` for Lattice docs, the tutorial template, and the paper converter's saved formats. Test names that mention the upstream project by
   name are elided with "…". Tests of the vendored editor that were deleted with it in phase 3
-  (for example `visual-markdown-editor.test.tsx`) are cited as they stood at commit `8456cf79`.
+  (for example `visual-markdown-editor.test.tsx`) are cited as they stood at commit `c44f285a`.
 - **"Current behavior" notes** mark observed Lattice behavior that the new engine may improve on
   but must not regress below.
 
