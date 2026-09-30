@@ -163,9 +163,8 @@ describe("design token contract", () => {
     expect(chrome).not.toMatch(/\.ui-compact-selectable[^}]*\{[^}]*background: var\(--control-active\);/)
 
     for (const file of [
-      "src/editor/comments/editor-comments-panel.tsx",
+      "src/editor/comments/comment-visibility-filter.tsx",
       "src/history/history-drawer.tsx",
-      "src/overleaf/overleaf-comments.tsx",
     ]) {
       expect(read(file), file).toContain("ui-compact-selectable")
     }
