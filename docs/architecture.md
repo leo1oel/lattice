@@ -386,7 +386,7 @@ third eager chunk means the module grouping changed and the allowlist should be
 re-derived rather than widened.
 
 Heavy libraries must stay behind dynamic imports: pdfjs, mermaid, katex,
-harper, the CodeMirror language packs, TipTap, Univer, tldraw.
+the CodeMirror language packs, TipTap, Univer, tldraw.
 
 `src/canvas/canvas-lazy-modules.ts` is the canonical example of how to do this, and
 its header explains a subtlety worth repeating: **each loader is the identity of
@@ -527,14 +527,15 @@ The reasoning behind the density and typography choices is in
 pnpm check     # = mise run check
 ```
 
-`mise.toml`'s `check` task depends on eight stages that run in parallel, each
-skipped when its declared `sources` have not changed (`mise.toml:191`):
+`mise.toml`'s `check` task depends on nine stages that run in parallel, each
+skipped when its declared `sources` have not changed (`[tasks.check]`):
 `i18n-check`, `lint`, `test`, `build`, `literature-worker`, `cargo-fmt`,
-`cargo-test`, `clippy`. It needs [mise](https://mise.jdx.dev).
+`cargo-test`, `clippy`, `notices`. It needs [mise](https://mise.jdx.dev).
 
 CI (`.github/workflows/ci.yml`) covers the same ground across four jobs:
 `test`, `literature-worker` (`typecheck` + `test` in that sub-project),
-`lint-and-build` (`pnpm lint`, `pnpm build`, `pnpm i18n:check`) and `rust`
+`lint-and-build` (`pnpm lint`, `pnpm build`, `pnpm i18n:check`,
+`pnpm notices:check`) and `rust`
 (`cargo fmt --check`, `cargo test`, `cargo clippy -D warnings`). A fifth job,
 `perf-bench`, runs the interaction benchmark (`pnpm perf:bench --check`,
 `mise run perf-bench` locally), which `check` leaves out; see

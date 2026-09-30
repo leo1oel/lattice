@@ -66,7 +66,7 @@ Lint enforces a `--max-warnings` debt cap, owned by the `lint` script in
   runtime-reachable allowlist are stubbed. If new code can highlight more
   languages at runtime, extend the allowlist there.
 - The eager startup graph is two application-owned chunks (`app`, `ui`) plus Vite 8's tiny `rolldown-runtime` preload, with a 1.35 MiB JavaScript budget enforced by `pnpm build`. `scripts/app-size-report.mjs` allowlists those names; the production build has a single html entry, so any third eager chunk means something changed the module grouping.
-  Heavy libs (pdfjs, mermaid, katex, harper, codemirror langs, tiptap) must stay behind dynamic imports.
+  Heavy libs (pdfjs, mermaid, katex, codemirror langs, tiptap) must stay behind dynamic imports.
 - `src-tauri/Cargo.toml` has a size-tuned `[profile.release]`; `panic = "abort"`
   is intentionally off (a panic must not kill the app with unsaved edits).
 - `scripts/prepare-synara-sidecar.mjs` prunes unused artifacts but preserves installed production packages because upstream's externalized imports change between releases.

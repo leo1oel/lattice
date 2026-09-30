@@ -157,7 +157,7 @@ pnpm check
 ```
 
 `pnpm check` is `mise run check` and needs [mise](https://mise.jdx.dev). It runs
-eight stages in parallel, skipping any whose declared `sources` have not
+nine stages in parallel, skipping any whose declared `sources` have not
 changed since the last successful run:
 
 | Stage | What it runs |
@@ -170,6 +170,7 @@ changed since the last successful run:
 | `cargo-fmt` | `cargo fmt --check` |
 | `cargo-test` | the Rust tests |
 | `clippy` | Clippy with warnings denied |
+| `notices` | `THIRD_PARTY_NOTICES.md` against the installed npm and crates trees |
 
 That covers `literature-worker/` too, so there is nothing extra to run for a
 change in there. [`mise.toml`](mise.toml) is the definition; keep it and this
