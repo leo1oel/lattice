@@ -17,12 +17,15 @@ export async function referenceAssetPreviewDataUrl(asset: ReferenceAssetPreview)
   }
   if (asset.mimeType !== "application/pdf") return null;
 
-  // Keep PDF.js out of startup for the common image-preview path. The v4
-  // compatibility build is loaded only for an actual PDF reference asset.
-  const { getDocument, GlobalWorkerOptions } = await import("pdfjs-dist-v4/legacy/build/pdf.mjs");
-  // The main viewer uses a separate PDF.js version, so its worker setup does
-  // not initialize this runtime. A hover must also work before any PDF opens.
-  GlobalWorkerOptions.workerSrc = (await import("pdfjs-dist-v4/legacy/build/pdf.worker.min.mjs?url")).default;
+  // Keep PDF.js out of startup for the common image-preview path: the same
+  // PDF.js the viewer uses is loaded only for an actual PDF reference asset.
+  // A hover must also work before any PDF opens, so this sets the worker the
+  // viewer would (pdf/pdf-slick.ts) instead of relying on it.
+  const [{ getDocument, GlobalWorkerOptions }, { default: workerSrc }] = await Promise.all([
+    import("pdfjs-dist"),
+    import("pdfjs-dist/build/pdf.worker.min.mjs?url"),
+  ]);
+  GlobalWorkerOptions.workerSrc = workerSrc;
   const binary = atob(asset.base64);
   const bytes = Uint8Array.from(binary, (character) => character.charCodeAt(0));
   const loadingTask = getDocument({
@@ -44,13 +47,7 @@ export async function referenceAssetPreviewDataUrl(asset: ReferenceAssetPreview)
     const canvas = document.createElement("canvas");
     canvas.width = Math.max(1, Math.floor(viewport.width));
     canvas.height = Math.max(1, Math.floor(viewport.height));
-    // eslint-disable-next-line lingui/no-unlocalized-strings -- canvas context id
-    const canvasContext = canvas.getContext("2d");
-    await page.render({
-      canvasContext: canvasContext as CanvasRenderingContext2D,
-      viewport,
-      background: "#F9F9FA",
-    }).promise;
+    await page.render({ canvas, viewport, background: "#F9F9FA" }).promise;
     return canvas.toDataURL("image/png");
   } finally {
     await loadingTask.destroy();

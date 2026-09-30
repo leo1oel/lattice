@@ -1,14 +1,14 @@
 import { expect, it, vi } from "vitest";
-import { GlobalWorkerOptions, getDocument } from "pdfjs-dist-v4/legacy/build/pdf.mjs";
-import workerUrl from "pdfjs-dist-v4/legacy/build/pdf.worker.min.mjs?url";
+import { GlobalWorkerOptions, getDocument } from "pdfjs-dist";
+import workerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 import { referenceAssetPreviewDataUrl } from "./reference-preview";
 
-vi.mock("pdfjs-dist-v4/legacy/build/pdf.mjs", () => ({
+vi.mock("pdfjs-dist", () => ({
   GlobalWorkerOptions: { workerSrc: "" },
   getDocument: vi.fn(),
 }));
 
-it("initializes the v4 worker before loading a PDF without opening the main viewer", async () => {
+it("initializes the PDF.js worker before loading a PDF without opening the main viewer", async () => {
   GlobalWorkerOptions.workerSrc = "";
   const render = vi.fn(() => ({ promise: Promise.resolve() }));
   const destroy = vi.fn(() => Promise.resolve());

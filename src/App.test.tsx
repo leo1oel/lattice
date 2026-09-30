@@ -11,7 +11,7 @@ import { EditorView } from "@codemirror/view";
 import type { Editor as TiptapEditor } from "@tiptap/react";
 import { NodeSelection } from "@tiptap/pm/state";
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { getDocument } from "pdfjs-dist-v4/legacy/build/pdf.mjs";
+import { getDocument } from "pdfjs-dist";
 import * as Y from "yjs";
 import { createDocument, layout as panels } from "@danfessler/trellis";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -121,7 +121,7 @@ vi.mock("./telemetry/interface-sounds", () => ({
 vi.mock("./platform/browser-runtime", () => ({
   isBrowserHosted: () => browserRuntime.hosted, isBundledChromium: () => browserRuntime.bundled,
 }));
-vi.mock("pdfjs-dist-v4/legacy/build/pdf.mjs", () => ({
+vi.mock("pdfjs-dist", () => ({
   GlobalWorkerOptions: {},
   getDocument: vi.fn(),
   TextLayer: class {
@@ -236,7 +236,7 @@ vi.mock("@pdfslick/core", () => {
 
     async loadDocument(source: string | ArrayBuffer) {
       pdfSlickTestApi.sources.push(source);
-      const pdfjs = await import("pdfjs-dist-v4/legacy/build/pdf.mjs");
+      const pdfjs = await import("pdfjs-dist");
       const loadingTask = pdfjs.getDocument({
         ...(typeof source === "string" ? { url: source } : { data: new Uint8Array(source) }),
         ...this.args.options?.getDocumentParams,
