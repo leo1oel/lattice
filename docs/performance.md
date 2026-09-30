@@ -80,7 +80,7 @@ before adoption.
    - **Typing, large.md, source mode** — hold a key / type naturally for
      ~30 s in the middle of the document. Read keystroke p50/p95.
    - **Typing, large.md, split mode** — same, both panes visible.
-   - **Typing, main.tex, dual mode** — secondary pane showing a chapter.
+   - **Typing, main.tex, split mode** — source beside the PDF.
    - **Switching** — cycle large.md ↔ main.tex ↔ a few notes ~10 times.
      Read `switch(read→paint)` p50/p95 and the per-command IPC table
      (`write_project_file`, `read_project_file`, `stat_project_file`,
