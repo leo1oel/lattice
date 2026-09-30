@@ -149,13 +149,9 @@ pub(super) fn read_zip_entries(bytes: &[u8]) -> Result<BTreeMap<String, Vec<u8>>
         if file.is_dir() {
             continue;
         }
-        let name = file.name().replace('\\', "/");
-        let unsafe_path = file.enclosed_name().is_none()
-            || name.starts_with('/')
-            || name.split('/').any(|part| part == ".." || part.is_empty());
-        if unsafe_path {
-            return Err(format!("Refusing unsafe path in Overleaf zip: {name}"));
-        }
+        let name = crate::project::safe_zip_entry_name(&file).ok_or_else(|| {
+            format!("Refusing unsafe path in Overleaf zip: {}", file.name().replace('\\', "/"))
+        })?;
         let mut data = Vec::new();
         file.read_to_end(&mut data).map_err(err)?;
         entries.insert(name, data);
