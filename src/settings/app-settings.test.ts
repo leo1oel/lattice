@@ -3,7 +3,6 @@ import { beforeEach, describe, expect, it } from "vitest";
 import {
   APPEARANCE_KEY,
   FILE_VIEW_STATES_KEY,
-  RECENT_PROJECTS_KEY,
   TUTORIAL_SEEN_KEY,
   WORKSPACE_LAYOUT_KEY,
   forgetRecentProject,
@@ -211,13 +210,6 @@ describe("tutorial persistence", () => {
     markTutorialSeen();
     expect(localStorage.getItem(TUTORIAL_SEEN_KEY)).toBe("1");
     expect(hasSeenTutorial()).toBe(true);
-  });
-
-  it("recognizes tutorial projects opened by an earlier version", () => {
-    const path = "/Users/ada/Documents/Lattice Tutorials/Understanding Attention";
-    localStorage.setItem(RECENT_PROJECTS_KEY, JSON.stringify([{ name: "Understanding Attention", path }]));
-    expect(hasSeenTutorial()).toBe(true);
-    expect(localStorage.getItem(TUTORIAL_SEEN_KEY)).toBe("1");
   });
 });
 

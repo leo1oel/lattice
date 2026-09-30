@@ -21,7 +21,6 @@ const FIXED_EDITOR_FONT = '"Ioskeley Mono", Menlo, "SF Mono", ui-monospace, mono
 /* eslint-enable lingui/no-unlocalized-strings */
 
 export const RECENT_PROJECTS_KEY = "lattice.recent-projects.v1";
-export const THEME_KEY = "lattice.theme.v1";
 export const THEME_PREFERENCE_KEY = "lattice.theme-preference.v1";
 export const BUILD_PREFERENCES_KEY = "lattice.build-preferences.v2";
 const SPLIT_RATIO_KEY = "lattice.split-ratio.v1";
@@ -120,19 +119,7 @@ export function forgetRecentProject(path: string): RecentProject[] {
   return persistRecentProjects(loadRecentProjects().filter((item) => item.path !== path));
 }
 
-export function hasSeenTutorial(): boolean {
-  return safely(() => {
-    if (localStorage.getItem(TUTORIAL_SEEN_KEY) === "1") return true;
-    const seenInAnEarlierVersion = loadRecentProjects().some((project) => {
-      const path = project.path.replaceAll("\\", "/");
-      return project.name === "Understanding Attention"
-        // eslint-disable-next-line lingui/no-unlocalized-strings -- on-disk path of the tutorial project
-        && path.includes("/Lattice Tutorials/Understanding Attention");
-    });
-    if (seenInAnEarlierVersion) localStorage.setItem(TUTORIAL_SEEN_KEY, "1");
-    return seenInAnEarlierVersion;
-  }, false);
-}
+export const hasSeenTutorial = () => safely(() => localStorage.getItem(TUTORIAL_SEEN_KEY) === "1", false);
 
 export const markTutorialSeen = () => persistSetting(TUTORIAL_SEEN_KEY, "1");
 
@@ -142,15 +129,9 @@ export function systemTheme(): Theme {
   return window.matchMedia(SYSTEM_DARK_QUERY).matches ? "dark" : "light";
 }
 
-/**
- * Fresh installs follow the OS appearance. Builds before the `system` option
- * existed persisted a resolved light/dark value on every launch, so that older
- * key is migrated as an explicit choice rather than dropped — flipping those
- * users to `system` could change the appearance they have been looking at.
- */
+/** Fresh installs follow the OS appearance. */
 export function loadThemePreference(): ThemePreference {
-  const legacy = loadChoice<ThemePreference>(THEME_KEY, ["light", "dark"], "system");
-  return loadChoice(THEME_PREFERENCE_KEY, ["system", "light", "dark"], legacy);
+  return loadChoice(THEME_PREFERENCE_KEY, ["system", "light", "dark"], "system");
 }
 
 export const persistThemePreference = (preference: ThemePreference) =>
