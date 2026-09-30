@@ -245,10 +245,14 @@ describe("bare URLs typed into the visual editor", () => {
   });
 
   it.each([
-    ["*https://a.com/x*", "\\*https://a.com/x&ast;"],
-    ["_https://a.com/x_", "\\_https://a.com/x&lowbar;"],
-    ["~https://a.com/x~", "\\~https://a.com/x~"],
-  ])("keeps the escape after %s out of the link", (typed, expected) => {
+    ["*https://a.com/x*", "\\*https\\://a.com/x\\*"],
+    ["_https://a.com/x_", "\\_https\\://a.com/x\\_"],
+    ["~https://a.com/x~", "\\~https\\://a.com/x\\~"],
+    ["*https://a.com/x**", "\\*https\\://a.com/x\\*\\*"],
+    ["*https://a.com/x*_", "\\*https\\://a.com/x\\*\\_"],
+    ["https://a.com/x&copy;", "https\\://a.com/x\\&copy;"],
+    ["https://a.com/x<br>", "https\\://a.com/x\\<br>"],
+  ])("escapes %s, whose URL runs into an escape, like other text", (typed, expected) => {
     const { written } = typeInto("x\n", typed);
     expect(written.text).toBe(`${expected}\n`);
     expect(written.verified).toBe(true);
