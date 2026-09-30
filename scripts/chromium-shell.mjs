@@ -5,6 +5,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { app, BrowserWindow, dialog, Menu, shell } from "electron";
 import {
+  ABOUT_PANEL_OPTIONS,
   CHROMIUM_WINDOW_CSS,
   isOpenSlidePresenterUrl,
   openSlidePresenterWindowOptions,
