@@ -4,8 +4,7 @@ import type { AppLocale } from "./settings/app-settings";
 
 // The app must load and activate @lingui/core's global instance, not one from
 // `setupI18n()`: the `t`/`plural` macros from `@lingui/core/macro` compile to
-// calls on that global, and the vendored Open Knowledge editor uses them
-// outside React (slash-menu items, upload errors, component summaries).
+// calls on that global, including from modules outside React.
 export { i18n };
 
 const catalogLoaders: Record<AppLocale, () => Promise<{ messages: Messages }>> = {

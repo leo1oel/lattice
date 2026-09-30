@@ -1,9 +1,7 @@
 /**
  * The visual Markdown editor on Lattice's own engine: Tiptap for editing, the
  * round-trip core (markdown-document.ts) for reading and writing Markdown.
- * The default visual editor; the vendored one is mounted instead only when
- * the hidden `visualEditorEngine` fallback is `ok`. Both take the same props
- * (visual-editor-props.ts).
+ * The canvas mounts it through the host contract in visual-editor-props.ts.
  *
  * Publication follows the contract the canvas already uses: a debounced
  * compare-and-swap `onChangeMarkdown(next, expected)`, a synchronous flush the
@@ -600,7 +598,6 @@ export function LatticeVisualMarkdownEditor(props: VisualMarkdownEditorProps): J
     current.props = props;
     chrome.host.setProps(props);
     current.messages = {
-      // The vendored editor's notice, so hosts and users see one message whichever engine runs.
       unavailable: unavailableMessage,
       source: t`Preview`,
       title: t`This document changed in the same place`,

@@ -10,10 +10,13 @@ engine meets it today; Part II is the specification itself.
 
 ### Provenance (clean-room rules)
 
-The vendored Open Knowledge editor (GPL-3.0-or-later) is being replaced by a
-Lattice-owned engine so that Lattice can move to a permissive license. The
-legal question is whether protected expression was copied, so this document
-and the engine are kept separate from the vendored code by procedure:
+The visual editor Lattice once vendored from Open Knowledge
+(GPL-3.0-or-later) was replaced by this Lattice-owned engine so that Lattice
+can move to a permissive license. The legal question is whether protected
+expression was copied, so this document and the engine were kept separate
+from the vendored code by procedure. The vendored trees, the adapted files and
+the vendoring scripts named below were deleted in phase 3; the record of what
+was and was not read stands as written.
 
 - **Allowed sources for this specification, and only these:**
   - Lattice's own tests: `src/editor/markdown/*.test.*`, the Markdown cases in
@@ -134,9 +137,8 @@ last accepted text, with their source bytes and gaps.
   windows around changes are re-parsed, never the whole document.
 - The re-parse becomes the new baseline, so successive edits chain.
 
-**Editor.** `lattice-visual-editor.tsx` takes the same props as the vendored
-editor (`visual-editor-props.ts`), so the canvas can mount either. It keeps
-the host contract:
+**Editor.** `lattice-visual-editor.tsx` implements the host contract the
+canvas mounts it through (`visual-editor-props.ts`):
 
 - compare-and-swap publication, debounced by the shared Markdown sync policy;
 - a synchronous flush for ownership hand-off;
@@ -152,15 +154,10 @@ project image host, and formulas render with KaTeX using the project's
 macros. The stylesheet is new and written from Lattice's design tokens under a
 `lx-md-` prefix.
 
-**Selecting it.** The engine is the default visual editor. The
-`visualEditorEngine` setting (`"ok"` | `"lattice"`, default `"lattice"`) keeps
-the vendored editor for one release as a hidden fallback: it is stored in
-`localStorage` under `lattice.visual-editor-engine.v1`, has no UI, and only an
-explicit `ok` selects the old editor (any other value, or none, gets the
-engine). Each engine is a separate lazy chunk, loaded only when selected;
-changing the key and reopening the document switches engines. A document the
-engine cannot open still falls back to source mode through the eligibility
-gate (R-ELIG).
+**Loading it.** The engine is the only visual editor and loads as its own
+lazy chunk. The `visualEditorEngine` fallback that kept the vendored editor
+selectable for one release was removed with it. A document the engine cannot
+open still falls back to source mode through the eligibility gate (R-ELIG).
 
 ### Deliberate differences from current behavior
 
@@ -176,12 +173,14 @@ gate (R-ELIG).
   to CRLF on the first write. Only source mode may change a file's line
   endings.
 
-### Status: what the engine meets today (phase 2, complete)
+### Status: what the engine meets today (phase 3)
 
 Phase 2 shipped in three parts: rich blocks, editor chrome, and the
-integration behind engine-agnostic interfaces (this state). What remains is
-phase 3. Its first step, the default flip, is done: the engine is the
-default and the vendored editor is a hidden fallback until it is removed.
+integration behind engine-agnostic interfaces. Phase 3 made the engine the
+default and then removed the vendored editor, its vendoring scripts and locks,
+and the quarantined differential harness. The engine is now the only visual
+editor. `src/platform/clean-room-guard.test.ts` and a `no-restricted-imports`
+rule in `eslint.config.js` keep Open Knowledge code from coming back.
 
 | Area | Met now | Still to come |
 | --- | --- | --- |
@@ -218,13 +217,11 @@ default and the vendored editor is a hidden fallback until it is removed.
   carets, comments, tracked changes, View in source, selection context and
   the section rail; `lattice-visual-passive.test.tsx` the passive view;
   `frozen-headers.test.tsx` the pinned header rows.
-- `differential.test.tsx` mounts the engine, as the host does by default,
-  and runs the same corpus through the vendored editor as an oracle. The
-  vendored editor is mounted only as a black box through the shared props
-  contract. For every document the engine must open what the old editor opens
-  as editable, write it back byte for byte, publish nothing on open, and show
-  the same headings, code and formulas. The harness goes with the vendored
-  editor in phase 3.
+- Until phase 3 removed it, a quarantined differential harness ran the same
+  corpus through the vendored editor as a black-box oracle: the engine had to
+  open editable every document the old editor did, write it back byte for
+  byte, publish nothing on open, and show the same headings, code and
+  formulas.
 
 ### Phase 2 derivation notes
 
@@ -438,8 +435,8 @@ here, with the requirement it rests on.
   context no longer import Open Knowledge code: document-relative project
   paths (`src/project/document-relative-path.ts`), page headings for the
   workspace index (`markdown-headings.ts`) and the viewport restore are
-  Lattice modules. Only the vendored editor and its own helpers still do;
-  they remain only as the hidden fallback and go in phase 3.
+  Lattice modules. The vendored editor and its helpers were removed in
+  phase 3.
 
 ---
 
@@ -464,7 +461,8 @@ here, with the requirement it rests on.
   plain Markdown or editor infrastructure.
 - **"Derived from".** `path:line "test name"` for tests (line = the line holding the test name);
   `path:line-line` for Lattice docs, the tutorial template, and the paper converter's saved formats. Test names that mention the upstream project by
-  name are elided with "…".
+  name are elided with "…". Tests of the vendored editor that were deleted with it in phase 3
+  (for example `visual-markdown-editor.test.tsx`) are cited as they stood at commit `8456cf79`.
 - **"Current behavior" notes** mark observed Lattice behavior that the new engine may improve on
   but must not regress below.
 

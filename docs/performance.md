@@ -39,14 +39,14 @@ Editing long Markdown:
 
 | Cause | Where |
 | --- | --- |
-| Visual editor renders the whole document into the DOM; the upstream `content-visibility` chunking plugin was never vendored (CSS was) | `editor-globals.css` `.ok-chunk-wrapper`, upstream `chunk-wrapper-decoration.ts` |
-| `HeadingAnchors` rebuilt a whole-document DecorationSet on every view update, including caret-only moves | `open-knowledge-app/editor/extensions/heading-anchors.ts` |
+| Visual editor renders the whole document into the DOM; the upstream `content-visibility` chunking plugin was never vendored (CSS was) | `editor-globals.css` `.ok-chunk-wrapper`, upstream `chunk-wrapper-decoration.ts` (the vendored editor, removed in phase 3 of the visual editor rebuild) |
+| `HeadingAnchors` rebuilt a whole-document DecorationSet on every view update, including caret-only moves | `open-knowledge-app/editor/extensions/heading-anchors.ts` (the vendored editor, since removed) |
 | Every keystroke rebuilt `liveSourceMap` and re-ran four whole-project parses (macros, graphics roots, katex macros, appendix) even for `.md` buffers | `App.tsx` around `liveSourceMap` |
 | React Compiler silently bailed out of `App`, `DocumentCanvas`, `VisualMarkdownEditor`, `EditorTabs`, `ContinuousPdfPage` (try/finally, `x++` in lambdas, inline `import()`), so none of the hot tree was auto-memoized | `scripts/react-compiler-report.mjs` finds these |
 | Secondary CodeMirror reconfigured all extensions every keystroke in dual/split mode | `document-canvas.tsx` `secondaryEditorExtensions` |
 | Comment decorations serialized the whole doc before checking whether any comments exist | `editor-comments.ts` |
 | Harper linted the whole document on the main thread every 350 ms of typing | `latex-editor.ts`, `harper-spellcheck.ts` |
-| Single-slot mdast cache thrashed by the publication probe: 3 full parses where 1 suffices | `visual-markdown-editor.tsx` |
+| Single-slot mdast cache thrashed by the publication probe: 3 full parses where 1 suffices | `visual-markdown-editor.tsx` (the vendored editor, since removed) |
 
 Slow file switching:
 
@@ -63,10 +63,10 @@ up), file tree (already virtualized).
 
 A constraint to respect: **editable surfaces deliberately do not use
 `content-visibility: auto`** — deferred materialization destabilizes WebKit
-selection anchoring (see the comment on `.ok-chunk-wrapper` in
-`editor-globals.css`). The chunking plugin is therefore gated to read-only
-surfaces (`optimizeForReading`); enabling it for editable docs is a separate
-experiment behind a flag, measured before adoption.
+selection anchoring. Large read-only documents render through the engine's
+passive view (`editor/markdown/engine/passive-view.tsx`) instead; deferring
+rendering in editable docs is a separate experiment behind a flag, measured
+before adoption.
 
 ## Measurement playbook
 
@@ -117,7 +117,7 @@ in Playwright's WebKit 26.6 against the same backend.
 | Cause | Evidence | Fix |
 | --- | --- | --- |
 | Replaced PDF.js viewers were never detached | 3,860 detached PDF pages (ten viewers) after five cycles, retained by each viewer's document `copy` listener and PDF.js's static `TextLayerBuilder` map; PDF scroll CPU per burst grew 438 → 1,752 ms | `destroyViewerRecord` calls `PDFViewer.setDocument(null)` and zeroes canvases (`pdf/pdf-slick.ts`) |
-| Frozen table-header scroll animations outlived their cells | Scroll-driven `Animation`s stay in effect while the scroller is connected. Each file switch kept the replaced document alive through its header cells: +6.6k DOM nodes and +3.2 MB heap per `large.md` ⇄ note switch, with split-preview fps falling as stale animations piled up | the plugin view tracks animated cells and releases dropped ones (`open-knowledge-app/editor/extensions/frozen-table-headers.ts`) |
+| Frozen table-header scroll animations outlived their cells | Scroll-driven `Animation`s stay in effect while the scroller is connected. Each file switch kept the replaced document alive through its header cells: +6.6k DOM nodes and +3.2 MB heap per `large.md` ⇄ note switch, with split-preview fps falling as stale animations piled up | the plugin view tracks animated cells and releases dropped ones (`open-knowledge-app/editor/extensions/frozen-table-headers.ts`, in the vendored editor, since removed) |
 | DocumentCanvas render scopes chained replaced editors | DocumentCanvas is not compiled, so every closure captures its render scope. CodeMirror keeps extension closures for the view's life, and the scope held the previous `EditorView` and preview element in state, so each switch retained the previous editor and its whole document | that state holds `WeakRef`s (`canvas/document-canvas.tsx`) |
 | Base UI ScrollArea restyled the whole document on every scroll event in WebKit | Base UI writes four `--scroll-area-overflow-*` properties on the viewport per scroll event and registers them as non-inherited everywhere except WebKit. Same page, split preview of `large.md`: 2.1–2.2 fps (p95 frame ≈ 1.09 s) as shipped; 14.8–15.5 fps (p95 ≈ 0.13 s) with the properties registered | registered in `components/ui/scroll-area.tsx` |
 
@@ -275,7 +275,7 @@ final branch, the last one with vitest running alongside.
 
 | Cause | Evidence | Fix |
 | --- | --- | --- |
-| The visual editor parsed every block of the document after each pause in typing. The caret report mapped the caret through `exactVisualSourceRanges`, which parsed each top-level block on its own (about 1,000 parses at 400 KB). When that failed on the edited block, it serialized the whole document only for `reportVisualCaret` to discard the result. | CPU profile over 40 keystrokes: 10.1 s of main-thread tasks, 42 long tasks. `parseVisualMarkdown` took 8.2 s of that, inside `sourceOffsetForProseMirrorPosition` (7.5 s), and `renderedRootCount` took 5.6 s. | Memoize root counts per block source and ranges per text; skip the whole-document fallback while edits wait for publication; reuse the cached parse in `restoreUnchangedBlocks` (`editor/markdown/visual-source-map.ts`, `visual-markdown-serialization.ts`, `visual-markdown-editor.tsx`) |
+| The visual editor parsed every block of the document after each pause in typing. The caret report mapped the caret through `exactVisualSourceRanges`, which parsed each top-level block on its own (about 1,000 parses at 400 KB). When that failed on the edited block, it serialized the whole document only for `reportVisualCaret` to discard the result. | CPU profile over 40 keystrokes: 10.1 s of main-thread tasks, 42 long tasks. `parseVisualMarkdown` took 8.2 s of that, inside `sourceOffsetForProseMirrorPosition` (7.5 s), and `renderedRootCount` took 5.6 s. | Memoize root counts per block source and ranges per text; skip the whole-document fallback while edits wait for publication; reuse the cached parse in `restoreUnchangedBlocks` (`editor/markdown/visual-source-map.ts`, `visual-markdown-serialization.ts`, `visual-markdown-editor.tsx`; the vendored editor, since removed) |
 | Each LaTeX keystroke rendered all of App three times. CodeMirror reports a `pending` completion query for every typed letter and then `null`, and each edge flipped `editorCompletionActive` in App. `useDeferredValue(source)` for the TODO badge re-rendered App a third time. | Update origins: `App#84` (completion state) changed 80 times in 40 keystrokes. About 380 components rendered per App commit. | `pending` keeps the last answer (`canvas/document-canvas.tsx`). The TODO rescan runs in the keystroke's own render. |
 | The TODO rescan split the document into lines and lowercased every line on each keystroke. | Visible in the deferred render above | One case-insensitive search finds the candidate lines first (`project/todo-scavenger.ts`) |
 | The React Compiler skipped `PdfPreview`, because PDFSlick's property setters in its callbacks and two Lingui tagged templates blocked it. Uncompiled, `PdfPreview` re-rendered its toolbar and about 11 tooltips whenever the canvas did, including on every editor keystroke. | 231 of the 1,143 renders per LaTeX keystroke. 149 renders per PDF scroll notch. | Setters moved to module helpers (`pdf/pdf-slick.ts`), descriptor-form messages (`pdf/pdf-viewer.tsx`). The compiler guard pins the file at 0 bailouts. |
@@ -336,8 +336,9 @@ contents.
 files; `src/platform/react-compiler-guard.test.ts` pins per-file ceilings so new
 bailouts fail CI. As of August 2026: `editor-tabs.tsx` compiles fully, and
 several syntax-level blockers (`??=`, inline `import()`, default-parameter `??`)
-were cleared from `pdf-viewer.tsx`, `visual-markdown-editor.tsx`, and
-`document-canvas.tsx`'s hooks.
+were cleared from `pdf-viewer.tsx`, the since-removed `visual-markdown-editor.tsx`,
+and `document-canvas.tsx`'s hooks. Its replacement,
+`editor/markdown/engine/lattice-visual-editor.tsx`, is pinned at 0 bailouts.
 
 Run the report before planning any of this — a bailout's *cause* decides the
 recipe, and guessing from the file name has been wrong before. Remaining,
@@ -347,13 +348,11 @@ in order of value:
    inside try. Recipe: hoist each body to a module-level function taking a
    deps object, leave the `useCallback` as a thin arrow; per-file commits so
    regressions bisect. This is the single biggest render-cost win left.
-2. Render-phase ref access in `visual-markdown-editor.tsx` — its one
-   remaining bailout, in `CompleteVisualMarkdownEditor`, on the typing hot
-   path: the refs handed to `hostExtensions` during render. It is the
-   ref-passed-as-argument shape, so the fix is to wrap in a closure
-   (`() => ref.current`) rather than to move a write. Cheaper wins of the same
-   kind, each the *sole* bailout of its function: `app/use-panel-layout.ts`,
-   `project/project-find-dialog.tsx`, `telemetry/app-updater.tsx`.
+2. Render-phase ref access, each the *sole* bailout of its function:
+   `app/use-panel-layout.ts`, `project/project-find-dialog.tsx`,
+   `telemetry/app-updater.tsx`. Where a ref is passed as an argument during
+   render, the fix is to wrap it in a closure (`() => ref.current`) rather
+   than to move a write.
    Working model in the repo: `editor/codemirror-host.tsx:116-124` writes its
    refs in an every-commit `useLayoutEffect` and compiles with 0 bailouts.
    Note a wrong fix cannot land silently: moving the write to an effect while

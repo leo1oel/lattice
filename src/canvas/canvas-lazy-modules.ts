@@ -10,16 +10,10 @@ let visualMarkdownEditorWarmed = false;
 
 export const loadPdfPreviewModule = () => import("../pdf/pdf-viewer");
 
-export const loadVisualMarkdownEditorModule = () => import("../editor/markdown/visual-markdown-editor")
+/** The visual Markdown editor (Lattice's own engine). */
+export const loadVisualMarkdownEditorModule = () => import("../editor/markdown/engine/lattice-visual-editor")
   .then((module) => {
     // Chunk prewarm finished — skip DeferredVisualMarkdownEditor's one-frame blank.
-    visualMarkdownEditorWarmed = true;
-    return module;
-  });
-
-/** The clean-room visual Markdown engine, the default unless the hidden `visualEditorEngine` fallback selects `ok`. */
-export const loadLatticeVisualEditorModule = () => import("../editor/markdown/engine/lattice-visual-editor")
-  .then((module) => {
     visualMarkdownEditorWarmed = true;
     return module;
   });

@@ -6,9 +6,7 @@ import reactRefresh from "eslint-plugin-react-refresh";
 import tseslint from "typescript-eslint";
 
 export default tseslint.config(
-  // The open-knowledge trees are vendored upstream code (inkeep/open-knowledge)
-  // kept close to its source for diffability; it is not linted with app rules.
-  { ignores: ["dist", "src-tauri/target", "src/open-knowledge-core", "src/open-knowledge-app"] },
+  { ignores: ["dist", "src-tauri/target"] },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {
@@ -200,6 +198,21 @@ export default tseslint.config(
           ],
         },
       ],
+    },
+  },
+  {
+    // The visual Markdown editor is Lattice's own clean-room engine. Code from
+    // Open Knowledge (inkeep/open-knowledge), which the earlier editor was
+    // built on, must not come back in through an import; the repository guard
+    // in src/platform/clean-room-guard.test.ts covers files and packages.
+    files: ["**/*.{ts,tsx,js,mjs}"],
+    rules: {
+      "no-restricted-imports": ["error", {
+        patterns: [{
+          group: ["**/open-knowledge*", "**/open-knowledge*/**", "@ok-app", "@ok-app/**", "@ok-core", "@ok-core/**", "@inkeep/**"],
+          message: "Open Knowledge code must not return to Lattice (see docs/visual-editor-spec.md).",
+        }],
+      }],
     },
   },
 );

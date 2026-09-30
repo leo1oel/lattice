@@ -31,8 +31,6 @@ export const repositoryDocuments = [
   ...markdownFiles(".github"),
 ]
 /* eslint-enable lingui/no-unlocalized-strings */
-  // The vendoring log describes the code this engine replaces; it is not corpus.
-  .filter((path) => !path.endsWith("open-knowledge-updates.md"))
   .map((path) => [path, readFileSync(path, "utf8")] as const);
 
 export const formatDocuments = Object.entries(formatFixtures as Record<string, string>);

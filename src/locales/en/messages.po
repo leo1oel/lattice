@@ -47,19 +47,10 @@ msgstr "“{title}” is already in Papers."
 msgid "(empty span)"
 msgstr "(empty span)"
 
-#: src/open-knowledge-app/editor/components/PreviewBlockedNotice.tsx
-msgid "(inline)"
-msgstr "(inline)"
-
 #: src/canvas/document-canvas.tsx
 #: src/editor/comments/editor-comments.ts
-#: src/editor/markdown/visual-review-overlays.tsx
 msgid "(no comment text)"
 msgstr "(no comment text)"
-
-#: src/open-knowledge-app/editor/components/MirrorSource.tsx
-msgid "(no id)"
-msgstr "(no id)"
 
 #: src/overleaf/overleaf-changes.tsx
 msgid "(no text)"
@@ -68,11 +59,6 @@ msgstr "(no text)"
 #: src/overleaf/overleaf-comments.tsx
 msgid "(this comment's text was removed)"
 msgstr "(this comment's text was removed)"
-
-#. placeholder {0}: blocked.length
-#: src/open-knowledge-app/editor/components/PreviewBlockedNotice.tsx
-msgid "{0, plural, one {# request blocked by the preview's security policy} other {# requests blocked by the preview's security policy}}"
-msgstr "{0, plural, one {# request blocked by the preview's security policy} other {# requests blocked by the preview's security policy}}"
 
 #. placeholder {0}: work.citedByCount
 #: src/papers/literature-discovery-panel.tsx
@@ -125,14 +111,6 @@ msgstr "{changeSummary}. Nothing has been written yet"
 msgid "{completed} of {progressTotal} references checked"
 msgstr "{completed} of {progressTotal} references checked"
 
-#: src/open-knowledge-app/editor/utils/editor-strings.ts
-msgid "{componentLabel} (empty)"
-msgstr "{componentLabel} (empty)"
-
-#: src/open-knowledge-app/editor/utils/editor-strings.ts
-msgid "{componentLabel} with {childCount, plural, one {# item} other {# items}}"
-msgstr "{componentLabel} with {childCount, plural, one {# item} other {# items}}"
-
 #: src/App.tsx
 msgid "{conflictPath} changed while the reference was being removed. Nothing was removed; try again."
 msgstr "{conflictPath} changed while the reference was being removed. Nothing was removed; try again."
@@ -184,7 +162,6 @@ msgid "{count} TODO"
 msgstr "{count} TODO"
 
 #: src/editor/markdown/engine/chrome/find-replace.tsx
-#: src/editor/markdown/visual-markdown-find-replace.tsx
 msgid "{current} of {count}"
 msgstr "{current} of {count}"
 
@@ -215,10 +192,6 @@ msgstr "{description}: {path} could not run: {error}"
 #: src/build/tex-doctor-messages.ts
 msgid "{description}: not found on PATH"
 msgstr "{description}: not found on PATH"
-
-#: src/open-knowledge-app/editor/extensions/JsxComponentView.tsx
-msgid "{descriptorLabel} — render error, source editable below"
-msgstr "{descriptorLabel} — render error, source editable below"
 
 #: src/build/compile-diagnostics-panel.tsx
 msgid "{errors} error"
@@ -283,14 +256,6 @@ msgstr "{name} is not in a file right now."
 msgid "{name} properties"
 msgstr "{name} properties"
 
-#: src/open-knowledge-app/editor/utils/validate-media-url.ts
-msgid "{name} URLs are not direct audio files. Paste a direct audio file URL."
-msgstr "{name} URLs are not direct audio files. Paste a direct audio file URL."
-
-#: src/open-knowledge-app/editor/utils/validate-media-url.ts
-msgid "{name} URLs are not direct image files. Paste a direct image file URL."
-msgstr "{name} URLs are not direct image files. Paste a direct image file URL."
-
 #: src/app/use-overleaf-workspace.ts
 msgid "{names} was deleted from the local project, but is still on Overleaf. Even if you remove it now, Overleaf's history will keep it."
 msgstr "{names} was deleted from the local project, but is still on Overleaf. Even if you remove it now, Overleaf's history will keep it."
@@ -323,10 +288,6 @@ msgstr "{operation} request success"
 msgid "{operation}: {pathname}"
 msgstr "{operation}: {pathname}"
 
-#: src/open-knowledge-app/editor/extensions/JsxComponentView.tsx
-msgid "{propPanelDescriptorLabel} Properties"
-msgstr "{propPanelDescriptorLabel} Properties"
-
 #: src/project/references-panel.tsx
 msgid "{references} reference"
 msgstr "{references} reference"
@@ -342,10 +303,6 @@ msgstr "{replacementCount} match"
 #: src/project/project-replace-dialog.tsx
 msgid "{replacementCount} matches"
 msgstr "{replacementCount} matches"
-
-#: src/open-knowledge-app/editor/extensions/JsxComponentView.tsx
-msgid "{settingsDescriptorLabel} properties"
-msgstr "{settingsDescriptorLabel} properties"
 
 #: src/telemetry/app-notify.ts
 msgid "{title} — full text"
@@ -395,26 +352,6 @@ msgstr "{warnings} warnings"
 msgid "{words} words · {chars} chars"
 msgstr "{words} words · {chars} chars"
 
-#: src/open-knowledge-app/editor/components/ColorPickerInput.tsx
-msgid "#F05032 or rgb(240,80,50)"
-msgstr "#F05032 or rgb(240,80,50)"
-
-#: src/open-knowledge-app/editor/extensions/JsxComponentView.tsx
-msgid "+ Add {addChildName}"
-msgstr "+ Add {addChildName}"
-
-#: src/open-knowledge-app/editor/extensions/JsxComponentView.tsx
-msgid "<{componentName}> isn't a known component. Copy the source to use it elsewhere, or delete the block."
-msgstr "<{componentName}> isn't a known component. Copy the source to use it elsewhere, or delete the block."
-
-#: src/open-knowledge-app/editor/extensions/JsxComponentView.tsx
-msgid "<{descriptorLabel}> failed to render (likely a bad prop). Copy the source to see what went wrong, or delete the block."
-msgstr "<{descriptorLabel}> failed to render (likely a bad prop). Copy the source to see what went wrong, or delete the block."
-
-#: src/open-knowledge-app/editor/components/Mirror-host.tsx
-msgid "<0>Mirror — pick a source.</0> Set <1>src</1> + <2>anchor</2> via the property panel to point at a <3><MirrorSource></3> elsewhere."
-msgstr "<0>Mirror — pick a source.</0> Set <1>src</1> + <2>anchor</2> via the property panel to point at a <3><MirrorSource></3> elsewhere."
-
 #: src/App.tsx
 msgid "⌘⇧F · source files and papers"
 msgstr "⌘⇧F · source files and papers"
@@ -426,10 +363,6 @@ msgstr "⌘⇧H · all .tex files"
 #: src/canvas/editor-tabs.tsx
 msgid "⌘⇧T to reopen"
 msgstr "⌘⇧T to reopen"
-
-#: src/editor/markdown/visual-markdown-find-replace.tsx
-msgid "0 matches"
-msgstr "0 matches"
 
 #: src/project/project-find-dialog.tsx
 msgid "1 hit"
@@ -453,10 +386,6 @@ msgstr "1 paper"
 msgid "10.1038/… or arXiv:1706.03762 or paper title"
 msgstr "10.1038/… or arXiv:1706.03762 or paper title"
 
-#: src/open-knowledge-app/editor/slash-command/items.tsx
-msgid "A line with a footnote<0><1>[1]</1></0> and a definition shown below."
-msgstr "A line with a footnote<0><1>[1]</1></0> and a definition shown below."
-
 #: src/overleaf/use-overleaf-realtime.ts
 msgid "A local edit has not settled on Overleaf yet, so this document cannot be reloaded safely."
 msgstr "A local edit has not settled on Overleaf yet, so this document cannot be reloaded safely."
@@ -472,10 +401,6 @@ msgstr "a over b"
 #: src/papers/bibliography-audit.tsx
 msgid "A published version is available."
 msgstr "A published version is available."
-
-#: src/open-knowledge-app/editor/slash-command/items.tsx
-msgid "A pull quote stands out from the surrounding text."
-msgstr "A pull quote stands out from the surrounding text."
 
 #: src/overleaf/overleaf-connect.tsx
 msgid "A secure Overleaf sign-in window will open. Lattice never sees your password — it only keeps the session Overleaf creates for you"
@@ -502,10 +427,6 @@ msgctxt "macOS menu bar"
 msgid "About {name}"
 msgstr "About {name}"
 
-#: src/open-knowledge-app/editor/slash-command/items.tsx
-msgid "Above"
-msgstr "Above"
-
 #: src/editor/insert/insert-snippets.ts
 msgid "Abstract"
 msgstr "Abstract"
@@ -519,7 +440,6 @@ msgid "Accents"
 msgstr "Accents"
 
 #: src/editor/markdown/engine/chrome/review-chrome.tsx
-#: src/editor/markdown/visual-review-overlays.tsx
 #: src/overleaf/overleaf-changes.tsx
 #: src/overleaf/overleaf-editor-extensions.ts
 msgid "Accept"
@@ -544,31 +464,8 @@ msgstr "Access forbidden by provider"
 
 #: src/editor/markdown/engine/chrome/slash-items.ts
 #: src/editor/markdown/engine/views/component-views.tsx
-#: src/editor/markdown/visual-slash-items.ts
-#: src/open-knowledge-app/editor/components/Accordion.tsx
-#: src/open-knowledge-app/editor/registry/descriptor-labels.ts
 msgid "Accordion"
 msgstr "Accordion"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Activate one of the first eight editor tabs."
-msgstr "Activate one of the first eight editor tabs."
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Activate the last editor tab."
-msgstr "Activate the last editor tab."
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Activate the next editor tab."
-msgstr "Activate the next editor tab."
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Activate the previous editor tab."
-msgstr "Activate the previous editor tab."
-
-#: src/open-knowledge-app/editor/slash-command/component-items.tsx
-msgid "Active panel content for the selected tab shows here."
-msgstr "Active panel content for the selected tab shows here."
 
 #: src/telemetry/app-log.tsx
 msgid "Activity log"
@@ -587,37 +484,9 @@ msgstr "Add"
 msgid "Add “{projectWord}” to project dictionary"
 msgstr "Add “{projectWord}” to project dictionary"
 
-#: src/open-knowledge-app/editor/registry/resolve-descriptor-placeholder.ts
-msgid "Add {name}"
-msgstr "Add {name}"
-
-#: src/open-knowledge-app/editor/registry/descriptor-labels.ts
-msgid "Add a file"
-msgstr "Add a file"
-
-#: src/open-knowledge-app/editor/registry/descriptor-labels.ts
-msgid "Add a Mermaid diagram"
-msgstr "Add a Mermaid diagram"
-
-#: src/open-knowledge-app/editor/registry/descriptor-labels.ts
-msgid "Add a PDF"
-msgstr "Add a PDF"
-
 #: src/papers/bibliography-audit.tsx
 msgid "Add a title, full authors, and year, or add a DOI or arXiv identifier, before checking this reference."
 msgstr "Add a title, full authors, and year, or add a DOI or arXiv identifier, before checking this reference."
-
-#: src/open-knowledge-app/editor/registry/descriptor-labels.ts
-msgid "Add a video"
-msgstr "Add a video"
-
-#: src/open-knowledge-app/editor/registry/descriptor-labels.ts
-msgid "Add an image"
-msgstr "Add an image"
-
-#: src/open-knowledge-app/editor/registry/descriptor-labels.ts
-msgid "Add audio"
-msgstr "Add audio"
 
 #: src/App.tsx
 #: src/app/app-workspace-sidebar.tsx
@@ -630,18 +499,12 @@ msgid "Add bibliography entry and cache the arXiv paper"
 msgstr "Add bibliography entry and cache the arXiv paper"
 
 #: src/editor/markdown/engine/chrome/block-controls.tsx
-#: src/editor/markdown/visual-editor-block-controls.ts
 #: src/onboarding/onboarding-tour.tsx
 msgid "Add block below"
 msgstr "Add block below"
 
-#: src/open-knowledge-app/editor/extensions/table-insert-controls.ts
-msgid "Add column"
-msgstr "Add column"
-
 #: src/canvas/comment-composer.tsx
 #: src/editor/markdown/engine/chrome/review-chrome.tsx
-#: src/editor/markdown/visual-review-overlays.tsx
 msgid "Add comment"
 msgstr "Add comment"
 
@@ -649,17 +512,9 @@ msgstr "Add comment"
 msgid "Add current color"
 msgstr "Add current color"
 
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Add cursors or select matching occurrences through CodeMirror."
-msgstr "Add cursors or select matching occurrences through CodeMirror."
-
 #: src/papers/bib-entry.ts
 msgid "Add exactly one bibliography entry at a time."
 msgstr "Add exactly one bibliography entry at a time."
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Add link"
-msgstr "Add link"
 
 #: src/papers/paper-lookup.tsx
 msgid "Add papers in the project’s Papers sidebar"
@@ -668,18 +523,6 @@ msgstr "Add papers in the project’s Papers sidebar"
 #: src/settings/settings-dialog.tsx
 msgid "Add project term"
 msgstr "Add project term"
-
-#: src/open-knowledge-app/editor/extensions/table-insert-controls.ts
-msgid "Add row"
-msgstr "Add row"
-
-#: src/open-knowledge-app/editor/components/Tabs.tsx
-msgid "Add tab"
-msgstr "Add tab"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Add the next matching source selection."
-msgstr "Add the next matching source selection."
 
 #: src/project/paper-library.tsx
 msgid "Add your first paper"
@@ -705,14 +548,6 @@ msgstr "Added “{title}” to the bibliography. No full text to open."
 #: src/app/use-reference-import.ts
 msgid "Added “{title}” to the bibliography. The full text could not be downloaded: {fetchNote}"
 msgstr "Added “{title}” to the bibliography. The full text could not be downloaded: {fetchNote}"
-
-#: src/open-knowledge-app/editor/slash-command/items.tsx
-msgid "Admiral"
-msgstr "Admiral"
-
-#: src/open-knowledge-app/editor/components/PropPanel.tsx
-msgid "Advanced"
-msgstr "Advanced"
 
 #: src/app/app-agent-panel.tsx
 #: src/app/app-workspace-sidebar.tsx
@@ -758,52 +593,19 @@ msgstr "Algorithm"
 msgid "Algorithm block (requires algorithm and algpseudocode)"
 msgstr "Algorithm block (requires algorithm and algpseudocode)"
 
-#: src/open-knowledge-app/editor/registry/descriptor-labels.ts
-msgid "Alias"
-msgstr "Alias"
-
 #: src/editor/insert/insert-snippets.ts
 msgid "Align"
 msgstr "Align"
 
-#: src/open-knowledge-app/editor/registry/descriptor-labels.ts
-msgctxt "layout property"
-msgid "Align"
-msgstr "Align"
-
-#: src/editor/markdown/visual-slash-items.ts
-msgid "Align a group of blocks to the left, center, or right."
-msgstr "Align a group of blocks to the left, center, or right."
-
-#: src/editor/markdown/visual-slash-items.ts
-#: src/open-knowledge-app/editor/registry/descriptor-labels.ts
-msgid "Align block"
-msgstr "Align block"
-
 #: src/editor/markdown/engine/views/image-view.tsx
-#: src/open-knowledge-app/editor/extensions/JsxComponentView.tsx
 msgid "Align center"
 msgstr "Align center"
 
 #: src/editor/markdown/engine/views/image-view.tsx
-#: src/open-knowledge-app/editor/extensions/JsxComponentView.tsx
 msgid "Align left"
 msgstr "Align left"
 
-#: src/open-knowledge-app/editor/extensions/CodeBlockView.tsx
-msgid "Align preview center"
-msgstr "Align preview center"
-
-#: src/open-knowledge-app/editor/extensions/CodeBlockView.tsx
-msgid "Align preview left"
-msgstr "Align preview left"
-
-#: src/open-knowledge-app/editor/extensions/CodeBlockView.tsx
-msgid "Align preview right"
-msgstr "Align preview right"
-
 #: src/editor/markdown/engine/views/image-view.tsx
-#: src/open-knowledge-app/editor/extensions/JsxComponentView.tsx
 msgid "Align right"
 msgstr "Align right"
 
@@ -850,10 +652,6 @@ msgstr "Alpha"
 msgid "Already in Papers"
 msgstr "Already in Papers"
 
-#: src/open-knowledge-app/editor/registry/descriptor-labels.ts
-msgid "Alt"
-msgstr "Alt"
-
 #: src/editor/markdown/engine/views/image-view.tsx
 msgid "Alt text"
 msgstr "Alt text"
@@ -894,10 +692,6 @@ msgstr "An update from Overleaf did not fit this document; it needs to be reload
 msgid "Analyze results in a live spreadsheet"
 msgstr "Analyze results in a live spreadsheet"
 
-#: src/open-knowledge-app/editor/registry/descriptor-labels.ts
-msgid "Anchor"
-msgstr "Anchor"
-
 #: src/editor/insert/insert-snippets.ts
 msgid "Angle"
 msgstr "Angle"
@@ -906,9 +700,6 @@ msgstr "Angle"
 #: src/canvas/document-canvas.tsx
 #: src/editor/comments/editor-comments-panel.tsx
 #: src/editor/comments/editor-comments.ts
-#: src/editor/markdown/visual-markdown-editor.tsx
-#: src/editor/markdown/visual-review-overlays.tsx
-#: src/editor/markdown/visual-source-decorations.ts
 #: src/overleaf/overleaf-editor-extensions.ts
 #: src/overleaf/overleaf-presence.tsx
 msgid "Anonymous"
@@ -961,7 +752,6 @@ msgid "Apply highlight color"
 msgstr "Apply highlight color"
 
 #: src/editor/latex/latex-selection-toolbar.tsx
-#: src/open-knowledge-app/editor/bubble-menu/LinkEditPopover.tsx
 msgid "Apply link"
 msgstr "Apply link"
 
@@ -1009,14 +799,6 @@ msgstr "Article entry uses booktitle instead of journal."
 msgid "arXiv identifier"
 msgstr "arXiv identifier"
 
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Ask AI"
-msgstr "Ask AI"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Ask AI about selection"
-msgstr "Ask AI about selection"
-
 #: src/overleaf/overleaf-connect.tsx
 msgid "Ask before deleting"
 msgstr "Ask before deleting"
@@ -1033,14 +815,6 @@ msgstr "Ask for approval"
 msgid "Ask only for potentially unsafe actions"
 msgstr "Ask only for potentially unsafe actions"
 
-#: src/open-knowledge-app/editor/link-path-suggestions.tsx
-msgid "Asset"
-msgstr "Asset"
-
-#: src/open-knowledge-app/editor/components/SrcAutocomplete.tsx
-msgid "Asset suggestions"
-msgstr "Asset suggestions"
-
 #: src/editor/insert/insert-snippets.ts
 msgid "Asterisk operator"
 msgstr "Asterisk operator"
@@ -1049,17 +823,9 @@ msgstr "Asterisk operator"
 msgid "Attention Is All You Need, diffusion, …"
 msgstr "Attention Is All You Need, diffusion, …"
 
-#: src/open-knowledge-app/editor/registry/descriptor-labels.ts
-msgid "Audio"
-msgstr "Audio"
-
 #: src/papers/bib-entry-dialog.tsx
 msgid "Author"
 msgstr "Author"
-
-#: src/open-knowledge-app/editor/slash-command/component-items.tsx
-msgid "Authoritative content; mirrored verbatim everywhere it's referenced."
-msgstr "Authoritative content; mirrored verbatim everywhere it's referenced."
 
 #: src/papers/bibliography-audit.tsx
 msgid "Authorization failed"
@@ -1101,10 +867,6 @@ msgstr "Automatic build"
 msgid "Automatic updates"
 msgstr "Automatic updates"
 
-#: src/open-knowledge-app/editor/registry/descriptor-labels.ts
-msgid "Autoplay"
-msgstr "Autoplay"
-
 #: src/settings/settings-dialog.tsx
 msgid "Auxiliary files"
 msgstr "Auxiliary files"
@@ -1118,7 +880,6 @@ msgid "Azure"
 msgstr "Azure"
 
 #: src/onboarding/onboarding-tour.tsx
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
 msgid "Back"
 msgstr "Back"
 
@@ -1151,7 +912,6 @@ msgid "Bar over an expression"
 msgstr "Bar over an expression"
 
 #: src/editor/markdown/engine/chrome/slash-items.ts
-#: src/editor/markdown/visual-slash-items.ts
 msgid "Basic blocks"
 msgstr "Basic blocks"
 
@@ -1174,10 +934,6 @@ msgstr "Batch result reused"
 #: src/editor/latex/latex-command-completions.ts
 msgid "Beamer slide"
 msgstr "Beamer slide"
-
-#: src/open-knowledge-app/editor/slash-command/items.tsx
-msgid "Below"
-msgstr "Below"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Beta"
@@ -1236,8 +992,6 @@ msgid "BibTeX preview"
 msgstr "BibTeX preview"
 
 #: src/editor/markdown/engine/chrome/slash-items.ts
-#: src/editor/markdown/visual-slash-items.ts
-#: src/open-knowledge-app/editor/slash-command/items.tsx
 msgid "Big section heading."
 msgstr "Big section heading."
 
@@ -1279,8 +1033,6 @@ msgid "Blackboard bold"
 msgstr "Blackboard bold"
 
 #: src/editor/markdown/engine/chrome/slash-items.ts
-#: src/editor/markdown/visual-slash-items.ts
-#: src/open-knowledge-app/editor/slash-command/component-items.tsx
 msgid "Block math equation rendered with KaTeX from a LaTeX source string."
 msgstr "Block math equation rendered with KaTeX from a LaTeX source string."
 
@@ -1336,8 +1088,6 @@ msgstr "Body words use TeXcount when installed (else a local estimate). Set budg
 #: src/editor/insert/insert-snippets.ts
 #: src/editor/latex/latex-selection-toolbar.tsx
 #: src/editor/markdown/engine/chrome/selection-toolbar.tsx
-#: src/open-knowledge-app/editor/bubble-menu/InlineFormatButtons.tsx
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
 msgid "Bold"
 msgstr "Bold"
 
@@ -1468,15 +1218,8 @@ msgstr "Builds"
 msgid "Bullet"
 msgstr "Bullet"
 
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Bullet list"
-msgstr "Bullet list"
-
 #: src/editor/markdown/engine/chrome/selection-toolbar.tsx
 #: src/editor/markdown/engine/chrome/slash-items.ts
-#: src/editor/markdown/visual-slash-items.ts
-#: src/open-knowledge-app/editor/bubble-menu/BlockTypeSelector.tsx
-#: src/open-knowledge-app/editor/slash-command/items.tsx
 msgid "Bullet List"
 msgstr "Bullet List"
 
@@ -1494,14 +1237,8 @@ msgstr "Calligraphic"
 
 #: src/editor/markdown/engine/chrome/slash-items.ts
 #: src/editor/markdown/engine/views/component-views.tsx
-#: src/editor/markdown/visual-slash-items.ts
-#: src/open-knowledge-app/editor/registry/descriptor-labels.ts
 msgid "Callout"
 msgstr "Callout"
-
-#: src/open-knowledge-app/editor/slash-command/component-items.tsx
-msgid "Callouts draw attention to key information."
-msgstr "Callouts draw attention to key information."
 
 #: src/build/tex-dependency-installer.tsx
 #: src/canvas/comment-composer.tsx
@@ -1511,11 +1248,9 @@ msgstr "Callouts draw attention to key information."
 #: src/editor/insert/figure-insert-dialog.tsx
 #: src/editor/insert/table-generator-dialog.tsx
 #: src/editor/markdown/engine/chrome/review-chrome.tsx
-#: src/editor/markdown/visual-review-overlays.tsx
 #: src/editor/spreadsheet/spreadsheet-univer.ts
 #: src/history/conflict-resolver.tsx
 #: src/history/versions-timeline.tsx
-#: src/open-knowledge-app/editor/components/CodePreviewEditModal.tsx
 #: src/overleaf/overleaf-comments.tsx
 #: src/overleaf/overleaf-connect.tsx
 #: src/overleaf/overleaf-history.tsx
@@ -1570,7 +1305,6 @@ msgid "Candidate record considered, not verified · cached record"
 msgstr "Candidate record considered, not verified · cached record"
 
 #: src/editor/markdown/engine/chrome/review-chrome.tsx
-#: src/editor/markdown/visual-markdown-editor.tsx
 msgid "Cannot precisely locate this selection in Markdown source. Switch to Source view to add a comment."
 msgstr "Cannot precisely locate this selection in Markdown source. Switch to Source view to add a comment."
 
@@ -1765,8 +1499,6 @@ msgid "Checking…"
 msgstr "Checking…"
 
 #: src/editor/markdown/engine/chrome/slash-items.ts
-#: src/editor/markdown/visual-slash-items.ts
-#: src/open-knowledge-app/editor/slash-command/items.tsx
 msgid "Checklist with checkboxes."
 msgstr "Checklist with checkboxes."
 
@@ -1786,16 +1518,7 @@ msgstr "Checks the tools Lattice needs to compile LaTeX"
 msgid "Chi"
 msgstr "Chi"
 
-#: src/open-knowledge-app/editor/components/ColorPickerInput.tsx
-msgid "Choose color"
-msgstr "Choose color"
-
-#: src/open-knowledge-app/editor/components/IconPickerInput.tsx
-msgid "Choose icon"
-msgstr "Choose icon"
-
 #: src/editor/markdown/engine/chrome/pickers.tsx
-#: src/editor/markdown/visual-slash-items.ts
 msgid "Choose image to upload"
 msgstr "Choose image to upload"
 
@@ -1877,7 +1600,6 @@ msgid "Citation resolve query"
 msgstr "Citation resolve query"
 
 #: src/editor/markdown/engine/chrome/link-chrome.tsx
-#: src/editor/markdown/visual-link-insert-popover.tsx
 msgid "Citation title"
 msgstr "Citation title"
 
@@ -1917,14 +1639,6 @@ msgstr "Cleaning…"
 msgid "Clear"
 msgstr "Clear"
 
-#: src/open-knowledge-app/editor/components/ColorPickerInput.tsx
-msgid "Clear color"
-msgstr "Clear color"
-
-#: src/open-knowledge-app/editor/components/IconPickerInput.tsx
-msgid "Clear icon"
-msgstr "Clear icon"
-
 #: src/telemetry/app-log.tsx
 msgid "Clear log search"
 msgstr "Clear log search"
@@ -1959,17 +1673,12 @@ msgstr "Click Papers"
 msgid "Click to collapse"
 msgstr "Click to collapse"
 
-#: src/open-knowledge-app/editor/slash-command/component-items.tsx
-msgid "Click to expand"
-msgstr "Click to expand"
-
 #: src/canvas/canvas-toolbar.tsx
 msgid "click to sync"
 msgstr "click to sync"
 
 #: src/canvas/editor-tabs.tsx
 #: src/editor/codemirror-host.tsx
-#: src/open-knowledge-app/components/ui/dialog.tsx
 msgid "Close"
 msgstr "Close"
 
@@ -1984,7 +1693,6 @@ msgid "Close {title}"
 msgstr "Close {title}"
 
 #: src/editor/markdown/engine/chrome/find-replace.tsx
-#: src/editor/markdown/visual-markdown-find-replace.tsx
 msgid "Close find"
 msgstr "Close find"
 
@@ -2030,25 +1738,16 @@ msgstr "Closed-path integral"
 msgid "Club suit"
 msgstr "Club suit"
 
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Code block"
-msgstr "Code block"
-
 #: src/editor/markdown/engine/chrome/selection-toolbar.tsx
 #: src/editor/markdown/engine/chrome/slash-items.ts
-#: src/editor/markdown/visual-slash-items.ts
-#: src/open-knowledge-app/editor/bubble-menu/BlockTypeSelector.tsx
-#: src/open-knowledge-app/editor/slash-command/items.tsx
 msgid "Code Block"
 msgstr "Code Block"
 
 #: src/editor/markdown/engine/views/code-block-view.tsx
-#: src/open-knowledge-app/editor/extensions/CodeBlockView.tsx
 msgid "Code block language: {currentLabel}. Click to change."
 msgstr "Code block language: {currentLabel}. Click to change."
 
 #: src/editor/markdown/engine/views/code-block-view.tsx
-#: src/open-knowledge-app/editor/extensions/CodeBlockView.tsx
 msgid "Code block settings"
 msgstr "Code block settings"
 
@@ -2056,37 +1755,21 @@ msgstr "Code block settings"
 msgid "Code block title"
 msgstr "Code block title"
 
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Code field undo or redo"
-msgstr "Code field undo or redo"
-
 #: src/editor/insert/insert-snippets.ts
 msgid "Code listing"
 msgstr "Code listing"
 
 #: src/editor/markdown/engine/views/component-views.tsx
-#: src/open-knowledge-app/editor/registry/descriptor-labels.ts
 msgid "Collapsible"
 msgstr "Collapsible"
 
-#: src/editor/markdown/visual-slash-items.ts
-#: src/open-knowledge-app/editor/slash-command/component-items.tsx
-msgid "Collapsible content block (Notion-style toggle)."
-msgstr "Collapsible content block (Notion-style toggle)."
-
 #: src/editor/markdown/engine/chrome/slash-items.ts
-#: src/editor/markdown/visual-slash-items.ts
-#: src/open-knowledge-app/editor/slash-command/component-items.tsx
 msgid "Collapsible section with a clickable summary."
 msgstr "Collapsible section with a clickable summary."
 
 #: src/telemetry/app-log.tsx
 msgid "Collecting runtime logs…"
 msgstr "Collecting runtime logs…"
-
-#: src/open-knowledge-app/editor/registry/descriptor-labels.ts
-msgid "Color"
-msgstr "Color"
 
 #: src/components/ui/apple-color-picker.tsx
 msgid "Color selection mode"
@@ -2105,7 +1788,6 @@ msgid "Colored text"
 msgstr "Colored text"
 
 #: src/editor/markdown/engine/views/table-controls.tsx
-#: src/open-knowledge-app/editor/table-controls/TableCellHandles.tsx
 msgid "Column options"
 msgstr "Column options"
 
@@ -2122,7 +1804,6 @@ msgid "Coming from Overleaf"
 msgstr "Coming from Overleaf"
 
 #: src/App.tsx
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
 msgid "Command palette"
 msgstr "Command palette"
 
@@ -2133,23 +1814,12 @@ msgstr "comment"
 #: src/editor/latex/latex-selection-toolbar.tsx
 #: src/editor/markdown/engine/chrome/review-chrome.tsx
 #: src/editor/markdown/engine/chrome/selection-toolbar.tsx
-#: src/editor/markdown/visual-markdown-editor.tsx
-#: src/editor/markdown/visual-review-overlays.tsx
-#: src/open-knowledge-app/comments/CommentBubbleButton.tsx
 msgid "Comment"
 msgstr "Comment"
-
-#: src/editor/markdown/visual-markdown-editor.tsx
-msgid "Comment by {author}"
-msgstr "Comment by {author}"
 
 #: src/editor/latex/latex-selection-toolbar.tsx
 msgid "Comment on selected Markdown"
 msgstr "Comment on selected Markdown"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Comment on selection"
-msgstr "Comment on selection"
 
 #: src/overleaf/overleaf-collab.tsx
 msgid "Comment source"
@@ -2164,10 +1834,6 @@ msgstr "Comment visibility"
 #: src/overleaf/overleaf-collab.tsx
 msgid "Comments"
 msgstr "Comments"
-
-#: src/open-knowledge-app/editor/registry/descriptor-labels.ts
-msgid "CommonMark Image"
-msgstr "CommonMark Image"
 
 #: src/overleaf/overleaf-review.tsx
 msgid "Comparing this project with Overleaf…"
@@ -2205,12 +1871,7 @@ msgstr "Completions"
 msgid "Component"
 msgstr "Component"
 
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Component boundary navigation"
-msgstr "Component boundary navigation"
-
 #: src/editor/markdown/engine/chrome/slash-items.ts
-#: src/editor/markdown/visual-slash-items.ts
 msgid "Components"
 msgstr "Components"
 
@@ -2322,26 +1983,15 @@ msgstr "Contour integral"
 msgid "Control character"
 msgstr "Control character"
 
-#: src/open-knowledge-app/editor/registry/descriptor-labels.ts
-msgid "Controls"
-msgstr "Controls"
-
 #: src/editor/markdown/engine/chrome/selection-toolbar.tsx
-#: src/open-knowledge-app/editor/bubble-menu/FootnoteBubbleButton.tsx
 msgid "Convert selection to footnote"
 msgstr "Convert selection to footnote"
 
 #: src/editor/markdown/engine/chrome/selection-toolbar.tsx
-#: src/open-knowledge-app/editor/bubble-menu/InlineFormatButtons.tsx
 msgid "Convert selection to inline math"
 msgstr "Convert selection to inline math"
 
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Convert the current block to a paragraph."
-msgstr "Convert the current block to a paragraph."
-
 #: src/editor/markdown/engine/views/code-block-view.tsx
-#: src/open-knowledge-app/editor/extensions/CodeBlockView.tsx
 msgid "Copied"
 msgstr "Copied"
 
@@ -2356,12 +2006,10 @@ msgid "Copy"
 msgstr "Copy"
 
 #: src/editor/markdown/engine/views/code-block-view.tsx
-#: src/open-knowledge-app/editor/extensions/CodeBlockView.tsx
 msgid "Copy code"
 msgstr "Copy code"
 
 #: src/editor/markdown/engine/lattice-visual-editor.tsx
-#: src/editor/markdown/visual-markdown-editor.tsx
 msgid "Copy draft"
 msgstr "Copy draft"
 
@@ -2384,18 +2032,6 @@ msgstr "Copy notification command"
 #: src/project/project-file-tree.tsx
 msgid "Copy path"
 msgstr "Copy path"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Copy selected file or folder"
-msgstr "Copy selected file or folder"
-
-#: src/open-knowledge-app/editor/extensions/JsxComponentView.tsx
-msgid "Copy source"
-msgstr "Copy source"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Copy the focused file-tree item so Paste can duplicate it."
-msgstr "Copy the focused file-tree item so Paste can duplicate it."
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Copyright"
@@ -2553,30 +2189,6 @@ msgstr "Couldn’t install the update"
 msgid "Couldn’t open this spreadsheet"
 msgstr "Couldn’t open this spreadsheet"
 
-#: src/open-knowledge-app/editor/image-upload/upload-failure.ts
-msgid "Couldn't reach the Open Knowledge server to upload {fileName}."
-msgstr "Couldn't reach the Open Knowledge server to upload {fileName}."
-
-#: src/open-knowledge-app/editor/image-upload/upload-failure.ts
-msgid "Couldn't read {fileName}. It may have been moved, deleted, or not finished downloading. Try adding it again."
-msgstr "Couldn't read {fileName}. It may have been moved, deleted, or not finished downloading. Try adding it again."
-
-#: src/editor/markdown/visual-wiki-link-suggestion.tsx
-msgid "Create \"{name}\""
-msgstr "Create \"{name}\""
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Create a file from the current document or folder context."
-msgstr "Create a file from the current document or folder context."
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Create a folder from the current document or folder context."
-msgstr "Create a folder from the current document or folder context."
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Create a new list item from the current list item."
-msgstr "Create a new list item from the current list item."
-
 #: src/overleaf/overleaf-connect.tsx
 msgid "Create a new Overleaf project and keep this folder connected to it"
 msgstr "Create a new Overleaf project and keep this folder connected to it"
@@ -2610,10 +2222,6 @@ msgstr "Creating project…"
 msgid "Cross-reference label"
 msgstr "Cross-reference label"
 
-#: src/open-knowledge-app/editor/registry/descriptor-labels.ts
-msgid "Crossorigin"
-msgstr "Crossorigin"
-
 #: src/papers/bibliography-audit.tsx
 msgid "Crossref"
 msgstr "Crossref"
@@ -2645,11 +2253,6 @@ msgstr "current match"
 #: src/papers/bibliography-audit.tsx
 msgid "Current reference"
 msgstr "Current reference"
-
-#: src/editor/markdown/visual-slash-items.ts
-#: src/open-knowledge-app/editor/slash-command/embed-starter-items.tsx
-msgid "Custom HTML with a live preview pane (sandboxed iframe)."
-msgstr "Custom HTML with a live preview pane (sandboxed iframe)."
 
 #: src/app/native-locale.ts
 msgctxt "macOS menu bar"
@@ -2684,14 +2287,6 @@ msgstr "Dark {name}"
 msgid "Dark Gray"
 msgstr "Dark Gray"
 
-#: src/editor/markdown/visual-slash-items.ts
-msgid "Data"
-msgstr "Data"
-
-#: src/open-knowledge-app/editor/utils/validate-media-url.ts
-msgid "Data URIs are not supported for media fields. Use a hosted file URL."
-msgstr "Data URIs are not supported for media fields. Use a hosted file URL."
-
 #: src/papers/bibliography-audit.tsx
 msgid "DBLP"
 msgstr "DBLP"
@@ -2700,10 +2295,6 @@ msgstr "DBLP"
 msgid "Decided"
 msgstr "Decided"
 
-#: src/open-knowledge-app/editor/registry/descriptor-labels.ts
-msgid "Decoding"
-msgstr "Decoding"
-
 #: src/papers/bib-entry-dialog.tsx
 msgid "Decrement year"
 msgstr "Decrement year"
@@ -2711,10 +2302,6 @@ msgstr "Decrement year"
 #: src/settings/settings-dialog.tsx
 msgid "Default"
 msgstr "Default"
-
-#: src/open-knowledge-app/editor/registry/descriptor-labels.ts
-msgid "Default Open"
-msgstr "Default Open"
 
 #: src/editor/latex/latex-command-completions.ts
 msgid "Define a command"
@@ -2745,7 +2332,6 @@ msgstr "Degree"
 #: src/components/ui/confirm-action-dialog.tsx
 #: src/editor/comments/editor-comments-panel.tsx
 #: src/editor/spreadsheet/spreadsheet-univer.ts
-#: src/open-knowledge-app/editor/extensions/JsxComponentView.tsx
 #: src/overleaf/overleaf-comments.tsx
 #: src/project/project-file-tree.tsx
 msgid "Delete"
@@ -2759,41 +2345,19 @@ msgstr "Delete “{path}” from this project?"
 msgid "Delete {count} selected items from this project?"
 msgstr "Delete {count} selected items from this project?"
 
-#: src/open-knowledge-app/editor/extensions/JsxComponentView.tsx
-msgid "Delete {deleteDescriptorLabel}"
-msgstr "Delete {deleteDescriptorLabel}"
-
 #: src/editor/markdown/engine/views/component-views.tsx
 msgid "Delete {name}"
 msgstr "Delete {name}"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Delete a table when the active table cell selection covers the full table."
-msgstr "Delete a table when the active table cell selection covers the full table."
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Delete adjacent chip"
-msgstr "Delete adjacent chip"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Delete an adjacent wiki-link chip."
-msgstr "Delete an adjacent wiki-link chip."
 
 #: src/app/use-build-pipeline.ts
 msgid "Delete auxiliary files and rebuild the PDF?"
 msgstr "Delete auxiliary files and rebuild the PDF?"
 
-#: src/open-knowledge-app/editor/extensions/RawMdxFallbackCMView.tsx
-msgid "Delete block"
-msgstr "Delete block"
-
 #: src/editor/markdown/engine/views/code-block-view.tsx
-#: src/open-knowledge-app/editor/extensions/CodeBlockView.tsx
 msgid "Delete code block"
 msgstr "Delete code block"
 
 #: src/editor/markdown/engine/views/table-controls.tsx
-#: src/open-knowledge-app/editor/table-controls/TableCellHandles.tsx
 msgid "Delete column"
 msgstr "Delete column"
 
@@ -2815,20 +2379,10 @@ msgid "Delete on Overleaf too"
 msgstr "Delete on Overleaf too"
 
 #: src/editor/markdown/engine/views/table-controls.tsx
-#: src/open-knowledge-app/editor/table-controls/TableCellHandles.tsx
 msgid "Delete row"
 msgstr "Delete row"
 
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Delete selected files or folders"
-msgstr "Delete selected files or folders"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Delete selected table"
-msgstr "Delete selected table"
-
 #: src/editor/markdown/engine/views/table-controls.tsx
-#: src/open-knowledge-app/editor/table-controls/TableCellHandles.tsx
 msgid "Delete table"
 msgstr "Delete table"
 
@@ -2891,11 +2445,9 @@ msgstr "Delta"
 
 #: src/editor/insert/insert-snippets.ts
 #: src/editor/markdown/engine/views/image-view.tsx
-#: src/open-knowledge-app/editor/registry/descriptor-labels.ts
 msgid "Description"
 msgstr "Description"
 
-#: src/open-knowledge-app/editor/components/Callout.tsx
 #: src/papers/bibliography-audit.tsx
 msgid "Details"
 msgstr "Details"
@@ -2911,8 +2463,6 @@ msgid "Diagnostics"
 msgstr "Diagnostics"
 
 #: src/editor/markdown/engine/chrome/slash-items.ts
-#: src/editor/markdown/visual-slash-items.ts
-#: src/open-knowledge-app/editor/slash-command/component-items.tsx
 msgid "Diagram from Mermaid source — flowchart, sequence, class, state, ER, gantt, pie."
 msgstr "Diagram from Mermaid source — flowchart, sequence, class, state, ER, gantt, pie."
 
@@ -2929,18 +2479,6 @@ msgstr "Diamond suit"
 msgid "Diff for {0}"
 msgstr "Diff for {0}"
 
-#: src/open-knowledge-app/editor/utils/validate-media-url.ts
-msgid "Direct audio file URL — {sample}"
-msgstr "Direct audio file URL — {sample}"
-
-#: src/open-knowledge-app/editor/utils/validate-media-url.ts
-msgid "Direct image file URL — {sample}"
-msgstr "Direct image file URL — {sample}"
-
-#: src/open-knowledge-app/editor/utils/validate-media-url.ts
-msgid "Direct video file URL — {sample}"
-msgstr "Direct video file URL — {sample}"
-
 #: src/App.tsx
 #: src/app/app-workspace-sidebar.tsx
 #: src/papers/literature-discovery-panel.tsx
@@ -2954,10 +2492,6 @@ msgstr "Dismiss"
 #: src/build/compile-diagnostics-panel.tsx
 msgid "Dismiss diagnostics"
 msgstr "Dismiss diagnostics"
-
-#: src/open-knowledge-app/editor/components/PreviewBlockedNotice.tsx
-msgid "Dismiss notice"
-msgstr "Dismiss notice"
 
 #: src/telemetry/app-log.tsx
 msgid "Dismiss notification"
@@ -3023,15 +2557,7 @@ msgstr "Does not exist"
 msgid "DOI metadata corrections are available."
 msgstr "DOI metadata corrections are available."
 
-#: src/open-knowledge-app/editor/registry/descriptor-labels.ts
-msgid "Dollar Math"
-msgstr "Dollar Math"
-
 #: src/editor/markdown/engine/chrome/link-chrome.tsx
-#: src/editor/markdown/visual-link-insert-popover.tsx
-#: src/open-knowledge-app/editor/extensions/JsxComponentView.tsx
-#: src/open-knowledge-app/editor/extensions/MathInlineView.tsx
-#: src/open-knowledge-app/editor/slash-command/items.tsx
 msgid "Done"
 msgstr "Done"
 
@@ -3083,10 +2609,6 @@ msgstr "Download {url}"
 msgid "Download arXiv {id}"
 msgstr "Download arXiv {id}"
 
-#: src/open-knowledge-app/editor/bubble-menu/FileBubbleButtons.tsx
-msgid "Download file"
-msgstr "Download file"
-
 #: src/telemetry/app-log.tsx
 msgid "Download JSON"
 msgstr "Download JSON"
@@ -3120,10 +2642,6 @@ msgstr "Downloading full text and figures…"
 #: src/telemetry/app-updater.tsx
 msgid "Downloading update…"
 msgstr "Downloading update…"
-
-#: src/open-knowledge-app/editor/slash-command/embed-starter-items.tsx
-msgid "Drag to adjust"
-msgstr "Drag to adjust"
 
 #: src/papers/paper-lookup.tsx
 msgid "Drag to cite · Click to read"
@@ -3177,18 +2695,6 @@ msgstr "Duplicate label “{key}” also defined in {path}."
 msgid "Duplicate label “{key}”."
 msgstr "Duplicate label “{key}”."
 
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Duplicate selected file or folder"
-msgstr "Duplicate selected file or folder"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Duplicate the file-tree item copied from the Files sidebar."
-msgstr "Duplicate the file-tree item copied from the Files sidebar."
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Duplicate the focused file-tree item when focus is in the Files sidebar."
-msgstr "Duplicate the focused file-tree item when focus is in the Files sidebar."
-
 #: src/papers/audit-messages.ts
 msgid "Duplicate title across bibliography files."
 msgstr "Duplicate title across bibliography files."
@@ -3205,10 +2711,6 @@ msgstr "e.g. 9"
 msgid "e.g. Lattice"
 msgstr "e.g. Lattice"
 
-#: src/open-knowledge-app/editor/extensions/CodeBlockView.tsx
-msgid "e.g. server.ts"
-msgstr "e.g. server.ts"
-
 #: src/onboarding/onboarding-tour.tsx
 msgid "Each .bib entry appears here. Entries with an arXiv ID can be downloaded in full"
 msgstr "Each .bib entry appears here. Entries with an arXiv ID can be downloaded in full"
@@ -3223,10 +2725,6 @@ msgstr "Edit"
 msgctxt "macOS menu bar"
 msgid "Edit"
 msgstr "Edit"
-
-#: src/open-knowledge-app/editor/extensions/JsxComponentView.tsx
-msgid "Edit {sourceComponentLabel} source"
-msgstr "Edit {sourceComponentLabel} source"
 
 #: src/onboarding/onboarding-tour.tsx
 msgid "Edit an Open Slide presentation"
@@ -3254,7 +2752,6 @@ msgid "Edit cells and formulas directly"
 msgstr "Edit cells and formulas directly"
 
 #: src/editor/markdown/engine/passive-view.tsx
-#: src/editor/markdown/visual-passive-viewport.tsx
 msgid "Edit document"
 msgstr "Edit document"
 
@@ -3263,7 +2760,6 @@ msgid "Edit HTML"
 msgstr "Edit HTML"
 
 #: src/editor/markdown/engine/chrome/link-chrome.tsx
-#: src/editor/markdown/visual-link-hover.tsx
 msgid "Edit link"
 msgstr "Edit link"
 
@@ -3274,10 +2770,6 @@ msgstr "Edit main.tex on the left. The PDF on the right updates automatically"
 #: src/canvas/canvas-toolbar.tsx
 msgid "Edit Markdown"
 msgstr "Edit Markdown"
-
-#: src/editor/markdown/visual-markdown-editor.tsx
-msgid "Edit Markdown source"
-msgstr "Edit Markdown source"
 
 #: src/overleaf/overleaf-comments.tsx
 msgid "Edit message"
@@ -3299,17 +2791,9 @@ msgstr "Edit source"
 msgid "Edit source and preview PDF"
 msgstr "Edit source and preview PDF"
 
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Edit source pane and code property fields"
-msgstr "Edit source pane and code property fields"
-
 #: src/history/conflict-resolver.tsx
 msgid "Edit the combined file if anything still needs fixing, then save it."
 msgstr "Edit the combined file if anything still needs fixing, then save it."
-
-#: src/open-knowledge-app/editor/slash-command/embed-starter-items.tsx
-msgid "Edit this HTML — the preview updates live."
-msgstr "Edit this HTML — the preview updates live."
 
 #: src/overleaf/overleaf-comments.tsx
 msgid "Edit this message"
@@ -3328,18 +2812,9 @@ msgstr "Edited on both sides in the same place. Applying marks the spots in the 
 msgid "Editing"
 msgstr "Editing"
 
-#: src/open-knowledge-app/editor/extensions/RawMdxFallbackCMView.tsx
-msgid "Editing broken MDX source: {displayReason}"
-msgstr "Editing broken MDX source: {displayReason}"
-
 #: src/canvas/canvas-toolbar.tsx
 msgid "Editing live with Overleaf · click to sync everything else"
 msgstr "Editing live with Overleaf · click to sync everything else"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-#: src/open-knowledge-app/shims/sonner.ts
-msgid "Editor"
-msgstr "Editor"
 
 #: src/settings/settings-dialog.tsx
 msgid "Editor & builds"
@@ -3359,10 +2834,6 @@ msgstr "Editor font size"
 msgid "Editor keymap"
 msgstr "Editor keymap"
 
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Editor selection"
-msgstr "Editor selection"
-
 #: src/canvas/editor-status-bar.tsx
 msgid "Editor shortcuts"
 msgstr "Editor shortcuts"
@@ -3370,10 +2841,6 @@ msgstr "Editor shortcuts"
 #: src/canvas/editor-status-bar.tsx
 msgid "Editor status"
 msgstr "Editor status"
-
-#: src/open-knowledge-app/editor/slash-command/component-items.tsx
-msgid "Edits at the source land here — no copy-paste drift."
-msgstr "Edits at the source land here — no copy-paste drift."
 
 #: src/overleaf/overleaf-connect.tsx
 msgid "Edits sync live with Overleaf"
@@ -3387,54 +2854,13 @@ msgstr "Element of"
 msgid "Ellipsis"
 msgstr "Ellipsis"
 
-#: src/open-knowledge-app/editor/registry/descriptor-labels.ts
-msgid "Embed"
-msgstr "Embed"
-
-#: src/open-knowledge-app/editor/components/Embed.tsx
-#: src/open-knowledge-app/editor/registry/descriptor-labels.ts
-msgid "Embed a URL"
-msgstr "Embed a URL"
-
-#: src/open-knowledge-app/editor/slash-command/component-items.tsx
-msgid "Embed a video with native player controls."
-msgstr "Embed a video with native player controls."
-
-#: src/open-knowledge-app/editor/slash-command/component-items.tsx
-msgid "Embed an audio file with native player controls."
-msgstr "Embed an audio file with native player controls."
-
-#: src/open-knowledge-app/editor/slash-command/component-items.tsx
-msgid "Embed an external page in an inline iframe (docs, demos, Figma, CodeSandbox)."
-msgstr "Embed an external page in an inline iframe (docs, demos, Figma, CodeSandbox)."
-
 #: src/editor/markdown/engine/chrome/slash-items.ts
-#: src/editor/markdown/visual-slash-items.ts
-#: src/open-knowledge-app/editor/slash-command/component-items.tsx
 msgid "Embed an image with optional alt text."
 msgstr "Embed an image with optional alt text."
 
-#: src/open-knowledge-app/editor/components/Embed.tsx
-msgid "Embed only supports cross-origin URLs"
-msgstr "Embed only supports cross-origin URLs"
-
-#: src/open-knowledge-app/editor/components/Embed.tsx
-msgid "Embedded content"
-msgstr "Embedded content"
-
-#: src/editor/markdown/visual-slash-items.ts
-msgid "Embeds"
-msgstr "Embeds"
-
 #: src/editor/markdown/engine/chrome/slash-items.ts
-#: src/editor/markdown/visual-slash-items.ts
-#: src/open-knowledge-app/editor/slash-command/items.tsx
 msgid "Emoji"
 msgstr "Emoji"
-
-#: src/open-knowledge-app/editor/components/EmojiInsertPopover.tsx
-msgid "Emoji picker"
-msgstr "Emoji picker"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Emphasis"
@@ -3451,10 +2877,6 @@ msgstr "Empty"
 #: src/papers/audit-messages.ts
 msgid "Empty {field} field."
 msgstr "Empty {field} field."
-
-#: src/open-knowledge-app/editor/components/Mermaid.tsx
-msgid "Empty diagram"
-msgstr "Empty diagram"
 
 #: src/editor/markdown/engine/views/math-views.tsx
 msgid "Empty equation"
@@ -3484,17 +2906,9 @@ msgstr "Empty set (variant)"
 msgid "Enable version tracking"
 msgstr "Enable version tracking"
 
-#: src/open-knowledge-app/editor/slash-command/component-items.tsx
-msgid "End"
-msgstr "End"
-
 #: src/editor/latex/latex-command-completions.ts
 msgid "End an environment"
 msgstr "End an environment"
-
-#: src/open-knowledge-app/editor/slash-command/items.tsx
-msgid "Engineer"
-msgstr "Engineer"
 
 #: src/settings/settings-dialog.tsx
 msgid "English"
@@ -3503,10 +2917,6 @@ msgstr "English"
 #: src/editor/goto-line-dialog.tsx
 msgid "Enter a line between 1 and {maxLine}"
 msgstr "Enter a line between 1 and {maxLine}"
-
-#: src/open-knowledge-app/editor/utils/validate-css-length.ts
-msgid "Enter a number (e.g. 100), a number with a CSS unit (e.g. 100px, 50%, 26rem), or one of: auto, inherit, initial, unset."
-msgstr "Enter a number (e.g. 100), a number with a CSS unit (e.g. 100px, 50%, 26rem), or one of: auto, inherit, initial, unset."
 
 #: src/pdf/pdf-viewer.tsx
 msgid "Enter a page number"
@@ -3628,11 +3038,6 @@ msgstr "Excel workbook"
 msgid "Excel workbook exported"
 msgstr "Excel workbook exported"
 
-#: src/open-knowledge-app/editor/components/Mermaid.tsx
-#: src/open-knowledge-app/editor/extensions/JsxComponentView.tsx
-msgid "Expand diagram"
-msgstr "Expand diagram"
-
 #: src/editor/markdown/engine/views/image-view.tsx
 msgid "Expand image"
 msgstr "Expand image"
@@ -3685,25 +3090,11 @@ msgstr "Expression of concern"
 msgid "Failed"
 msgstr "Failed"
 
-#: src/open-knowledge-app/editor/components/Pdf.tsx
-msgid "Failed to load PDF"
-msgstr "Failed to load PDF"
-
-#: src/open-knowledge-app/editor/components/Pdf.tsx
-msgid "Failed to load PDF: {error}"
-msgstr "Failed to load PDF: {error}"
-
-#: src/open-knowledge-app/editor/components/Pdf.tsx
-msgid "Failed to render PDF"
-msgstr "Failed to render PDF"
-
 #: src/settings/settings-dialog.tsx
 msgid "Feedback"
 msgstr "Feedback"
 
 #: src/editor/markdown/engine/chrome/slash-items.ts
-#: src/editor/markdown/visual-slash-items.ts
-#: src/open-knowledge-app/editor/slash-command/items.tsx
 msgid "Fenced code block with monospace text."
 msgstr "Fenced code block with monospace text."
 
@@ -3715,13 +3106,7 @@ msgstr "Fetching the Overleaf copy…"
 msgid "Fetching the paper overview…"
 msgstr "Fetching the paper overview…"
 
-#: src/open-knowledge-app/editor/registry/descriptor-labels.ts
-msgid "Fetchpriority"
-msgstr "Fetchpriority"
-
 #: src/editor/markdown/engine/chrome/slash-items.ts
-#: src/editor/markdown/visual-slash-items.ts
-#: src/open-knowledge-app/editor/slash-command/items.tsx
 msgid "Fifth-level heading."
 msgstr "Fifth-level heading."
 
@@ -3745,8 +3130,6 @@ msgstr "Figure preview could not be loaded."
 msgid "Figures"
 msgstr "Figures"
 
-#: src/open-knowledge-app/editor/registry/descriptor-labels.ts
-#: src/open-knowledge-app/editor/slash-command/component-items.tsx
 #: src/project/project-find-dialog.tsx
 msgid "File"
 msgstr "File"
@@ -3772,10 +3155,6 @@ msgstr "file upload"
 msgid "Files in this change"
 msgstr "Files in this change"
 
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Files sidebar"
-msgstr "Files sidebar"
-
 #: src/editor/insert/insert-snippets.ts
 msgid "Filled square"
 msgstr "Filled square"
@@ -3789,7 +3168,6 @@ msgid "Filter editor comments"
 msgstr "Filter editor comments"
 
 #: src/editor/markdown/engine/views/code-block-view.tsx
-#: src/open-knowledge-app/editor/extensions/CodeBlockView.tsx
 msgid "Filter languages"
 msgstr "Filter languages"
 
@@ -3811,8 +3189,6 @@ msgstr "find"
 
 #: src/editor/latex/search-panel.ts
 #: src/editor/markdown/engine/chrome/find-replace.tsx
-#: src/editor/markdown/visual-markdown-find-replace.tsx
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
 #: src/project/project-replace-dialog.tsx
 msgid "Find"
 msgstr "Find"
@@ -3825,12 +3201,7 @@ msgstr "Find & replace in project"
 msgid "Find and install the TeX Live package for {missingFile}"
 msgstr "Find and install the TeX Live package for {missingFile}"
 
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Find field navigation"
-msgstr "Find field navigation"
-
 #: src/editor/markdown/engine/chrome/find-replace.tsx
-#: src/editor/markdown/visual-markdown-find-replace.tsx
 msgid "Find in document"
 msgstr "Find in document"
 
@@ -3843,14 +3214,6 @@ msgstr "Find in PDF"
 #: src/project/project-find-dialog.tsx
 msgid "Find in project"
 msgstr "Find in project"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Find next match"
-msgstr "Find next match"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Find previous match"
-msgstr "Find previous match"
 
 #: src/project/project-replace-dialog.tsx
 msgid "Find text to replace"
@@ -3876,14 +3239,6 @@ msgstr "Finishing setup…"
 msgid "Firecrawl"
 msgstr "Firecrawl"
 
-#: src/open-knowledge-app/editor/slash-command/items.tsx
-msgid "First item"
-msgstr "First item"
-
-#: src/open-knowledge-app/editor/components/Pdf.tsx
-msgid "Fit height"
-msgstr "Fit height"
-
 #: src/pdf/pdf-viewer.tsx
 msgid "Fit page to height"
 msgstr "Fit page to height"
@@ -3891,10 +3246,6 @@ msgstr "Fit page to height"
 #: src/pdf/pdf-viewer.tsx
 msgid "Fit page to width"
 msgstr "Fit page to width"
-
-#: src/open-knowledge-app/editor/components/Pdf.tsx
-msgid "Fit width"
-msgstr "Fit width"
 
 #: src/build/compile-diagnostics-panel.tsx
 msgid "Fix all"
@@ -3924,14 +3275,6 @@ msgstr "Flush floats and start a new page"
 msgid "Fold line"
 msgstr "Fold line"
 
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Fold or unfold source"
-msgstr "Fold or unfold source"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Fold, unfold, fold all, or unfold all source ranges."
-msgstr "Fold, unfold, fold all, or unfold all source ranges."
-
 #: src/editor/codemirror-host.tsx
 msgid "folded code"
 msgstr "folded code"
@@ -3940,18 +3283,12 @@ msgstr "folded code"
 msgid "Folded lines"
 msgstr "Folded lines"
 
-#: src/open-knowledge-app/editor/link-path-suggestions.tsx
-msgid "Folder"
-msgstr "Folder"
-
 #: src/settings/settings-dialog.tsx
 msgid "Follow system (default)"
 msgstr "Follow system (default)"
 
 #: src/editor/insert/insert-snippets.ts
 #: src/editor/markdown/engine/chrome/slash-items.ts
-#: src/editor/markdown/visual-slash-items.ts
-#: src/open-knowledge-app/editor/slash-command/items.tsx
 msgid "Footnote"
 msgstr "Footnote"
 
@@ -3992,7 +3329,6 @@ msgid "Formatting"
 msgstr "Formatting"
 
 #: src/editor/markdown/engine/views/math-views.tsx
-#: src/open-knowledge-app/editor/registry/descriptor-labels.ts
 msgid "Formula"
 msgstr "Formula"
 
@@ -4004,13 +3340,7 @@ msgstr "Formulas"
 msgid "Formulas and Excel export"
 msgstr "Formulas and Excel export"
 
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Forward"
-msgstr "Forward"
-
 #: src/editor/markdown/engine/chrome/slash-items.ts
-#: src/editor/markdown/visual-slash-items.ts
-#: src/open-knowledge-app/editor/slash-command/items.tsx
 msgid "Fourth-level heading."
 msgstr "Fourth-level heading."
 
@@ -4055,7 +3385,6 @@ msgstr "Gather"
 msgid "Gather*"
 msgstr "Gather*"
 
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
 #: src/settings/settings-dialog.tsx
 msgid "General"
 msgstr "General"
@@ -4071,10 +3400,6 @@ msgstr "Get the gist before you dive in"
 #: src/editor/insert/insert-snippets.ts
 msgid "Gets (short left arrow)"
 msgstr "Gets (short left arrow)"
-
-#: src/open-knowledge-app/editor/registry/descriptor-labels.ts
-msgid "GFM Callout"
-msgstr "GFM Callout"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Gimel"
@@ -4096,14 +3421,6 @@ msgstr "Git status and commit"
 msgid "Git workspace"
 msgstr "Git workspace"
 
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Global"
-msgstr "Global"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Global outside text fields"
-msgstr "Global outside text fields"
-
 #: src/editor/latex/search-panel.ts
 msgid "go"
 msgstr "go"
@@ -4123,7 +3440,6 @@ msgstr "Go to {title}"
 #: src/App.tsx
 #: src/editor/goto-line-dialog.tsx
 #: src/editor/latex/search-panel.ts
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
 msgid "Go to line"
 msgstr "Go to line"
 
@@ -4186,8 +3502,6 @@ msgid "Grid generator"
 msgstr "Grid generator"
 
 #: src/editor/markdown/engine/chrome/slash-items.ts
-#: src/editor/markdown/visual-slash-items.ts
-#: src/open-knowledge-app/editor/slash-command/items.tsx
 msgid "Grid of rows and columns with a header row."
 msgstr "Grid of rows and columns with a header row."
 
@@ -4203,17 +3517,9 @@ msgstr "Guided tutorial"
 msgid "H-bar / reduced Planck"
 msgstr "H-bar / reduced Planck"
 
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Hand the checked comments to an agent in one turn. On This doc, that document's comments only; on This project, every checked comment. Does nothing while the Comments tab is closed."
-msgstr "Hand the checked comments to an agent in one turn. On This doc, that document's comments only; on This project, every checked comment. Does nothing while the Comments tab is closed."
-
 #: src/editor/latex/latex-command-completions.ts
 msgid "Hand-written bibliography"
 msgstr "Hand-written bibliography"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Hard break"
-msgstr "Hard break"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Hat accent"
@@ -4225,71 +3531,37 @@ msgstr "Hat accent example"
 
 #: src/editor/markdown/engine/chrome/selection-toolbar.tsx
 #: src/editor/markdown/engine/chrome/slash-items.ts
-#: src/editor/markdown/visual-slash-items.ts
-#: src/open-knowledge-app/editor/bubble-menu/BlockTypeSelector.tsx
-#: src/open-knowledge-app/editor/slash-command/items.tsx
 msgid "Heading 1"
 msgstr "Heading 1"
 
 #: src/editor/markdown/engine/chrome/selection-toolbar.tsx
 #: src/editor/markdown/engine/chrome/slash-items.ts
-#: src/editor/markdown/visual-slash-items.ts
-#: src/open-knowledge-app/editor/bubble-menu/BlockTypeSelector.tsx
-#: src/open-knowledge-app/editor/slash-command/items.tsx
 msgid "Heading 2"
 msgstr "Heading 2"
 
 #: src/editor/markdown/engine/chrome/selection-toolbar.tsx
 #: src/editor/markdown/engine/chrome/slash-items.ts
-#: src/editor/markdown/visual-slash-items.ts
-#: src/open-knowledge-app/editor/bubble-menu/BlockTypeSelector.tsx
-#: src/open-knowledge-app/editor/slash-command/items.tsx
 msgid "Heading 3"
 msgstr "Heading 3"
 
 #: src/editor/markdown/engine/chrome/selection-toolbar.tsx
 #: src/editor/markdown/engine/chrome/slash-items.ts
-#: src/editor/markdown/visual-slash-items.ts
-#: src/open-knowledge-app/editor/bubble-menu/BlockTypeSelector.tsx
-#: src/open-knowledge-app/editor/slash-command/items.tsx
 msgid "Heading 4"
 msgstr "Heading 4"
 
 #: src/editor/markdown/engine/chrome/selection-toolbar.tsx
 #: src/editor/markdown/engine/chrome/slash-items.ts
-#: src/editor/markdown/visual-slash-items.ts
-#: src/open-knowledge-app/editor/bubble-menu/BlockTypeSelector.tsx
-#: src/open-knowledge-app/editor/slash-command/items.tsx
 msgid "Heading 5"
 msgstr "Heading 5"
 
 #: src/editor/markdown/engine/chrome/selection-toolbar.tsx
 #: src/editor/markdown/engine/chrome/slash-items.ts
-#: src/editor/markdown/visual-slash-items.ts
-#: src/open-knowledge-app/editor/bubble-menu/BlockTypeSelector.tsx
-#: src/open-knowledge-app/editor/slash-command/items.tsx
 msgid "Heading 6"
 msgstr "Heading 6"
-
-#: src/editor/markdown/visual-wiki-link-suggestion.tsx
-msgid "Heading H{level}: {text}"
-msgstr "Heading H{level}: {text}"
 
 #: src/editor/latex/latex-selection-toolbar.tsx
 msgid "Heading level"
 msgstr "Heading level"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Heading levels"
-msgstr "Heading levels"
-
-#: src/editor/markdown/visual-wiki-link-suggestion.tsx
-msgid "Heading suggestions"
-msgstr "Heading suggestions"
-
-#: src/open-knowledge-app/editor/slash-command/component-items.tsx
-msgid "Heads up"
-msgstr "Heads up"
 
 #: src/papers/bibliography-audit.tsx
 msgid "Health checked at"
@@ -4298,14 +3570,6 @@ msgstr "Health checked at"
 #: src/editor/insert/insert-snippets.ts
 msgid "Heart suit"
 msgstr "Heart suit"
-
-#: src/open-knowledge-app/editor/registry/descriptor-labels.ts
-msgid "Height"
-msgstr "Height"
-
-#: src/open-knowledge-app/editor/slash-command/embed-starter-items.tsx
-msgid "Hello, world!"
-msgstr "Hello, world!"
 
 #: src/app/native-locale.ts
 msgctxt "macOS menu bar"
@@ -4320,10 +3584,6 @@ msgstr "Hex"
 msgid "Hex color"
 msgstr "Hex color"
 
-#: src/open-knowledge-app/editor/slash-command/component-items.tsx
-msgid "Hidden content goes here."
-msgstr "Hidden content goes here."
-
 #: src/app/native-locale.ts
 msgctxt "macOS menu bar"
 msgid "Hide {name}"
@@ -4333,12 +3593,7 @@ msgstr "Hide {name}"
 msgid "Hide assistant"
 msgstr "Hide assistant"
 
-#: src/open-knowledge-app/editor/extensions/CodeBlockView.tsx
-msgid "Hide HTML preview"
-msgstr "Hide HTML preview"
-
 #: src/editor/markdown/engine/views/code-block-view.tsx
-#: src/open-knowledge-app/editor/extensions/CodeBlockView.tsx
 msgid "Hide Mermaid preview"
 msgstr "Hide Mermaid preview"
 
@@ -4351,13 +3606,7 @@ msgstr "Hide Others"
 msgid "Hide sidebar"
 msgstr "Hide sidebar"
 
-#: src/open-knowledge-app/editor/components/Pdf.tsx
-msgid "Hide thumbnails"
-msgstr "Hide thumbnails"
-
 #: src/editor/markdown/engine/chrome/selection-toolbar.tsx
-#: src/open-knowledge-app/editor/bubble-menu/InlineFormatButtons.tsx
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
 msgid "Highlight"
 msgstr "Highlight"
 
@@ -4366,8 +3615,6 @@ msgid "Highlight color"
 msgstr "Highlight color"
 
 #: src/editor/markdown/engine/chrome/slash-items.ts
-#: src/editor/markdown/visual-slash-items.ts
-#: src/open-knowledge-app/editor/slash-command/component-items.tsx
 msgid "Highlight tips, warnings, and notes."
 msgstr "Highlight tips, warnings, and notes."
 
@@ -4387,18 +3634,11 @@ msgstr "Hook left arrow"
 msgid "Hook right arrow"
 msgstr "Hook right arrow"
 
-#: src/editor/markdown/visual-slash-items.ts
-#: src/open-knowledge-app/editor/slash-command/component-items.tsx
-msgid "Horizontal pill strip + active panel below; click a pill to switch panels."
-msgstr "Horizontal pill strip + active panel below; click a pill to switch panels."
-
 #: src/editor/latex/latex-command-completions.ts
 msgid "Horizontal rule in a table"
 msgstr "Horizontal rule in a table"
 
 #: src/editor/markdown/engine/chrome/slash-items.ts
-#: src/editor/markdown/visual-slash-items.ts
-#: src/open-knowledge-app/editor/slash-command/items.tsx
 msgid "Horizontal rule that divides sections."
 msgstr "Horizontal rule that divides sections."
 
@@ -4408,18 +3648,12 @@ msgstr "Horizontal space"
 
 #: src/editor/markdown/engine/lattice-visual-editor.tsx
 #: src/editor/markdown/engine/views/raw-block-view.tsx
-#: src/editor/markdown/visual-slash-items.ts
-#: src/open-knowledge-app/editor/slash-command/embed-starter-items.tsx
 msgid "HTML"
 msgstr "HTML"
 
 #: src/onboarding/onboarding-tour.tsx
 msgid "HTML files render live here, so you can build interactive demos and figures"
 msgstr "HTML files render live here, so you can build interactive demos and figures"
-
-#: src/open-knowledge-app/editor/extensions/CodeBlockView.tsx
-msgid "HTML preview"
-msgstr "HTML preview"
 
 #: src/canvas/html-preview.tsx
 msgid "HTML preview for {path}"
@@ -4433,10 +3667,6 @@ msgstr "HTML zoom controls"
 msgid "HTML zoom percentage"
 msgstr "HTML zoom percentage"
 
-#: src/open-knowledge-app/editor/registry/descriptor-labels.ts
-msgid "HTML5 Details"
-msgstr "HTML5 Details"
-
 #: src/editor/latex/latex-command-completions.ts
 msgid "Hyperlink with text"
 msgstr "Hyperlink with text"
@@ -4449,44 +3679,14 @@ msgstr "ICLR Proceedings"
 msgid "ICML packages"
 msgstr "ICML packages"
 
-#: src/open-knowledge-app/editor/registry/descriptor-labels.ts
-msgid "Icon"
-msgstr "Icon"
-
-#: src/open-knowledge-app/editor/components/IconPickerInput.tsx
-msgid "Icon picker"
-msgstr "Icon picker"
-
-#: src/open-knowledge-app/editor/registry/descriptor-labels.ts
-msgid "Id"
-msgstr "Id"
-
 #: src/editor/insert/insert-snippets.ts
 msgid "If and only if"
 msgstr "If and only if"
 
 #: src/editor/markdown/engine/chrome/slash-items.ts
 #: src/editor/markdown/engine/views/image-view.tsx
-#: src/editor/markdown/visual-slash-items.ts
-#: src/open-knowledge-app/editor/registry/descriptor-labels.ts
 msgid "Image"
 msgstr "Image"
-
-#: src/open-knowledge-app/components/ui/loading-image.tsx
-msgid "Image couldn't be displayed"
-msgstr "Image couldn't be displayed"
-
-#: src/open-knowledge-app/components/ui/loading-image.tsx
-msgid "Image couldn't be displayed: {errorLabel}"
-msgstr "Image couldn't be displayed: {errorLabel}"
-
-#: src/open-knowledge-app/components/ui/loading-image.tsx
-msgid "Image not found"
-msgstr "Image not found"
-
-#: src/open-knowledge-app/components/ui/loading-image.tsx
-msgid "Image not found: {errorLabel}"
-msgstr "Image not found: {errorLabel}"
 
 #: src/editor/markdown/engine/views/image-view.tsx
 msgid "Image properties"
@@ -4626,25 +3826,7 @@ msgstr "Incomplete history"
 msgid "Increment year"
 msgstr "Increment year"
 
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Indent or outdent list item"
-msgstr "Indent or outdent list item"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Indent or outdent source"
-msgstr "Indent or outdent source"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Indent or outdent source editor lines."
-msgstr "Indent or outdent source editor lines."
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Indent or outdent the current list item."
-msgstr "Indent or outdent the current list item."
-
 #: src/editor/markdown/engine/chrome/slash-items.ts
-#: src/editor/markdown/visual-slash-items.ts
-#: src/open-knowledge-app/editor/slash-command/items.tsx
 msgid "Indented blockquote for citations."
 msgstr "Indented blockquote for citations."
 
@@ -4677,14 +3859,10 @@ msgid "Inline another TeX file"
 msgstr "Inline another TeX file"
 
 #: src/editor/markdown/engine/chrome/selection-toolbar.tsx
-#: src/open-knowledge-app/editor/bubble-menu/InlineFormatButtons.tsx
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
 msgid "Inline code"
 msgstr "Inline code"
 
 #: src/editor/markdown/engine/chrome/slash-items.ts
-#: src/editor/markdown/visual-slash-items.ts
-#: src/open-knowledge-app/editor/slash-command/items.tsx
 msgid "Inline LaTeX math rendered with KaTeX."
 msgstr "Inline LaTeX math rendered with KaTeX."
 
@@ -4693,13 +3871,10 @@ msgid "Inline math"
 msgstr "Inline math"
 
 #: src/editor/markdown/engine/chrome/slash-items.ts
-#: src/editor/markdown/visual-slash-items.ts
-#: src/open-knowledge-app/editor/slash-command/items.tsx
 msgid "Inline Math"
 msgstr "Inline Math"
 
 #: src/editor/markdown/engine/views/math-views.tsx
-#: src/open-knowledge-app/editor/extensions/MathInlineView.tsx
 msgid "Inline Math Properties"
 msgstr "Inline Math Properties"
 
@@ -4718,7 +3893,6 @@ msgstr "insert"
 #: src/editor/insert/figure-insert-dialog.tsx
 #: src/editor/insert/insert-palette.tsx
 #: src/editor/markdown/engine/chrome/slash-items.ts
-#: src/editor/markdown/visual-slash-items.ts
 msgid "Insert"
 msgstr "Insert"
 
@@ -4735,18 +3909,12 @@ msgid "Insert \\ref{…}"
 msgstr "Insert \\ref{…}"
 
 #: src/editor/markdown/engine/chrome/slash-items.ts
-#: src/editor/markdown/visual-slash-items.ts
-#: src/open-knowledge-app/editor/slash-command/items.tsx
 msgid "Insert a footnote reference + matching definition stub."
 msgstr "Insert a footnote reference + matching definition stub."
 
 #: src/editor/spreadsheet/spreadsheet-univer.ts
 msgid "Insert a formula"
 msgstr "Insert a formula"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Insert a markdown hard break."
-msgstr "Insert a markdown hard break."
 
 #: src/canvas/document-canvas.tsx
 msgid "Insert above line {line}"
@@ -4770,12 +3938,10 @@ msgid "Insert cite at cursor after saving"
 msgstr "Insert cite at cursor after saving"
 
 #: src/editor/markdown/engine/views/table-controls.tsx
-#: src/open-knowledge-app/editor/table-controls/TableCellHandles.tsx
 msgid "Insert column left"
 msgstr "Insert column left"
 
 #: src/editor/markdown/engine/views/table-controls.tsx
-#: src/open-knowledge-app/editor/table-controls/TableCellHandles.tsx
 msgid "Insert column right"
 msgstr "Insert column right"
 
@@ -4788,7 +3954,6 @@ msgid "Insert LaTeX snippets"
 msgstr "Insert LaTeX snippets"
 
 #: src/editor/markdown/engine/chrome/selection-toolbar.tsx
-#: src/open-knowledge-app/editor/bubble-menu/LinkEditPopover.tsx
 msgid "Insert link"
 msgstr "Insert link"
 
@@ -4798,12 +3963,10 @@ msgid "Insert reference"
 msgstr "Insert reference"
 
 #: src/editor/markdown/engine/views/table-controls.tsx
-#: src/open-knowledge-app/editor/table-controls/TableCellHandles.tsx
 msgid "Insert row above"
 msgstr "Insert row above"
 
 #: src/editor/markdown/engine/views/table-controls.tsx
-#: src/open-knowledge-app/editor/table-controls/TableCellHandles.tsx
 msgid "Insert row below"
 msgstr "Insert row below"
 
@@ -4819,10 +3982,6 @@ msgstr "Insert snippet or symbol (⌘⇧I)"
 #: src/editor/insert/table-generator-dialog.tsx
 msgid "Insert table"
 msgstr "Insert table"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Insert, delete, move, copy, and indent source editor lines through CodeMirror's default keymap."
-msgstr "Insert, delete, move, copy, and indent source editor lines through CodeMirror's default keymap."
 
 #: src/build/compile-diagnostics-panel.tsx
 msgid "Install"
@@ -4946,8 +4105,6 @@ msgstr "Iota"
 
 #: src/editor/latex/latex-selection-toolbar.tsx
 #: src/editor/markdown/engine/chrome/selection-toolbar.tsx
-#: src/open-knowledge-app/editor/bubble-menu/InlineFormatButtons.tsx
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
 msgid "Italic"
 msgstr "Italic"
 
@@ -4975,25 +4132,9 @@ msgstr "journal"
 msgid "Journal"
 msgstr "Journal"
 
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Jump to last tab"
-msgstr "Jump to last tab"
-
-#: src/open-knowledge-app/editor/components/Pdf.tsx
-msgid "Jump to page {pageNumber}"
-msgstr "Jump to page {pageNumber}"
-
 #: src/App.tsx
 msgid "Jump to PDF"
 msgstr "Jump to PDF"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Jump to tab 1-8"
-msgstr "Jump to tab 1-8"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Jump to the markdown source for the block at the cursor, centered and highlighted."
-msgstr "Jump to the markdown source for the block at the cursor, centered and highlighted."
 
 #: src/build/compile-diagnostics-panel.tsx
 msgid "Jump to this location"
@@ -5063,7 +4204,6 @@ msgstr "Keys stay in your system keychain, not in the project. Personal keys tak
 #: src/editor/insert/figure-insert-dialog.tsx
 #: src/editor/insert/insert-snippets.ts
 #: src/editor/insert/table-generator-dialog.tsx
-#: src/open-knowledge-app/editor/registry/descriptor-labels.ts
 msgid "Label"
 msgstr "Label"
 
@@ -5092,7 +4232,6 @@ msgid "Lambda"
 msgstr "Lambda"
 
 #: src/editor/markdown/engine/views/code-block-view.tsx
-#: src/open-knowledge-app/editor/registry/descriptor-labels.ts
 #: src/settings/settings-dialog.tsx
 msgid "Language"
 msgstr "Language"
@@ -5223,21 +4362,11 @@ msgstr "Lattice update failed"
 msgid "Lattice will find and install the TeX Live package that provides {0}."
 msgstr "Lattice will find and install the TeX Live package that provides {0}."
 
-#: src/editor/markdown/visual-slash-items.ts
-#: src/open-knowledge-app/editor/components/Pdf.tsx
-msgid "Layout"
-msgstr "Layout"
-
-#: src/open-knowledge-app/editor/components/Pdf.tsx
-msgid "Layout options"
-msgstr "Layout options"
-
 #: src/App.tsx
 msgid "Learn Lattice with the Understanding Attention sample project"
 msgstr "Learn Lattice with the Understanding Attention sample project"
 
 #: src/canvas/comment-composer.tsx
-#: src/editor/markdown/visual-review-overlays.tsx
 msgid "Leave a comment for collaborators…"
 msgstr "Leave a comment for collaborators…"
 
@@ -5305,10 +4434,6 @@ msgstr "Lemma"
 msgid "Less than or equal"
 msgstr "Less than or equal"
 
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Let Tab leave the source editor instead of indenting."
-msgstr "Let Tab leave the source editor instead of indenting."
-
 #: src/onboarding/onboarding-tour.tsx
 msgid "Let's download one of them"
 msgstr "Let's download one of them"
@@ -5356,9 +4481,6 @@ msgstr "Line under an expression"
 
 #: src/editor/latex/latex-selection-toolbar.tsx
 #: src/editor/markdown/engine/chrome/slash-items.ts
-#: src/editor/markdown/visual-slash-items.ts
-#: src/open-knowledge-app/editor/bubble-menu/LinkEditPopover.tsx
-#: src/open-knowledge-app/editor/slash-command/component-items.tsx
 msgid "Link"
 msgstr "Link"
 
@@ -5366,20 +4488,12 @@ msgstr "Link"
 msgid "Link definition"
 msgstr "Link definition"
 
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Link the selected text, or edit the link under the caret."
-msgstr "Link the selected text, or edit the link under the caret."
-
 #: src/editor/markdown/engine/chrome/slash-items.ts
-#: src/editor/markdown/visual-slash-items.ts
-#: src/open-knowledge-app/editor/slash-command/component-items.tsx
 msgid "Link to a page or external URL."
 msgstr "Link to a page or external URL."
 
 #: src/editor/latex/latex-selection-toolbar.tsx
 #: src/editor/markdown/engine/chrome/link-chrome.tsx
-#: src/editor/markdown/visual-link-insert-popover.tsx
-#: src/open-knowledge-app/editor/bubble-menu/LinkEditPopover.tsx
 msgid "Link URL"
 msgstr "Link URL"
 
@@ -5433,12 +4547,6 @@ msgstr "Load a package"
 msgid "Load more"
 msgstr "Load more"
 
-#: src/open-knowledge-app/components/emoji-picker.tsx
-#: src/open-knowledge-app/components/ui/spinner.tsx
-#: src/open-knowledge-app/editor/registry/descriptor-labels.ts
-msgid "Loading"
-msgstr "Loading"
-
 #: src/overleaf/overleaf-comments.tsx
 msgid "Loading comments…"
 msgstr "Loading comments…"
@@ -5457,25 +4565,9 @@ msgstr "Loading figure preview…"
 msgid "Loading files…"
 msgstr "Loading files…"
 
-#: src/open-knowledge-app/components/ui/loading-image.tsx
-msgid "Loading image"
-msgstr "Loading image"
-
-#: src/editor/markdown/visual-markdown-editor.tsx
-msgid "Loading Markdown editor"
-msgstr "Loading Markdown editor"
-
 #: src/overleaf/overleaf-history.tsx
 msgid "Loading Overleaf's history…"
 msgstr "Loading Overleaf's history…"
-
-#: src/open-knowledge-app/editor/link-path-suggestions.tsx
-msgid "Loading paths…"
-msgstr "Loading paths…"
-
-#: src/open-knowledge-app/editor/components/Pdf.tsx
-msgid "Loading PDF"
-msgstr "Loading PDF"
 
 #: src/canvas/canvas-lazy-editors.tsx
 #: src/pdf/pdf-viewer.tsx
@@ -5553,17 +4645,9 @@ msgstr "Long equation broken across lines"
 msgid "Long quotation"
 msgstr "Long quotation"
 
-#: src/open-knowledge-app/editor/registry/descriptor-labels.ts
-msgid "Loop"
-msgstr "Loop"
-
 #: src/build/tex-doctor-messages.ts
 msgid "LuaLaTeX engine"
 msgstr "LuaLaTeX engine"
-
-#: src/open-knowledge-app/editor/components/IconPickerInput.tsx
-msgid "lucide:Lightbulb or 📘"
-msgstr "lucide:Lightbulb or 📘"
 
 #: src/components/ui/apple-color-picker.tsx
 msgid "Magenta"
@@ -5595,13 +4679,7 @@ msgstr "Manuscript TODOs"
 msgid "Maps to"
 msgstr "Maps to"
 
-#: src/editor/markdown/visual-slash-items.ts
-#: src/open-knowledge-app/editor/slash-command/component-items.tsx
-msgid "Mark a block as the source of truth. Mirrors elsewhere update live as you edit it."
-msgstr "Mark a block as the source of truth. Mirrors elsewhere update live as you edit it."
-
 #: src/editor/markdown/engine/lattice-visual-editor.tsx
-#: src/editor/markdown/visual-markdown-editor.tsx
 #: src/onboarding/onboarding-tour.tsx
 msgid "Markdown document editor"
 msgstr "Markdown document editor"
@@ -5612,7 +4690,6 @@ msgid "Markdown source"
 msgstr "Markdown source"
 
 #: src/editor/latex/search-panel.ts
-#: src/editor/markdown/visual-markdown-find-replace.tsx
 #: src/pdf/pdf-viewer.tsx
 #: src/project/project-replace-dialog.tsx
 msgid "Match case"
@@ -5624,18 +4701,12 @@ msgstr "math"
 
 #: src/editor/insert/insert-palette.tsx
 #: src/editor/markdown/engine/chrome/slash-items.ts
-#: src/editor/markdown/visual-slash-items.ts
-#: src/open-knowledge-app/editor/registry/descriptor-labels.ts
 msgid "Math"
 msgstr "Math"
 
 #: src/editor/latex/latex-command-completions.ts
 msgid "Math array"
 msgstr "Math array"
-
-#: src/open-knowledge-app/editor/registry/descriptor-labels.ts
-msgid "Math Fence"
-msgstr "Math Fence"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Math inside a sentence"
@@ -5672,45 +4743,22 @@ msgid "Mean / conjugate mark"
 msgstr "Mean / conjugate mark"
 
 #: src/editor/markdown/engine/chrome/slash-items.ts
-#: src/editor/markdown/visual-slash-items.ts
 msgid "Media"
 msgstr "Media"
 
 #: src/editor/markdown/engine/chrome/slash-items.ts
-#: src/editor/markdown/visual-slash-items.ts
-#: src/open-knowledge-app/editor/slash-command/items.tsx
 msgid "Medium section heading."
 msgstr "Medium section heading."
 
 #: src/editor/markdown/engine/views/table-controls.tsx
-#: src/editor/markdown/visual-table-span-controls.tsx
 msgid "Merge cells"
 msgstr "Merge cells"
 
 #: src/editor/markdown/engine/chrome/slash-items.ts
-#: src/editor/markdown/visual-slash-items.ts
-#: src/open-knowledge-app/editor/registry/descriptor-labels.ts
 msgid "Mermaid"
 msgstr "Mermaid"
 
-#: src/open-knowledge-app/editor/components/Mermaid.tsx
-msgid "Mermaid diagram"
-msgstr "Mermaid diagram"
-
-#: src/open-knowledge-app/editor/components/Mermaid.tsx
-msgid "Mermaid diagram controls"
-msgstr "Mermaid diagram controls"
-
-#: src/open-knowledge-app/editor/components/Mermaid.tsx
-msgid "Mermaid diagram failed to render."
-msgstr "Mermaid diagram failed to render."
-
-#: src/open-knowledge-app/editor/slash-command/component-items.tsx
-msgid "Mermaid flowchart preview"
-msgstr "Mermaid flowchart preview"
-
 #: src/editor/markdown/engine/views/mermaid-preview.tsx
-#: src/open-knowledge-app/editor/extensions/CodeBlockView.tsx
 msgid "Mermaid preview"
 msgstr "Mermaid preview"
 
@@ -5776,40 +4824,6 @@ msgstr "Minipage"
 msgid "Minus-plus"
 msgstr "Minus-plus"
 
-#: src/editor/markdown/visual-slash-items.ts
-#: src/open-knowledge-app/editor/registry/descriptor-labels.ts
-msgid "Mirror"
-msgstr "Mirror"
-
-#: src/open-knowledge-app/editor/slash-command/component-items.tsx
-msgid "Mirror of <0>api-spec</0>"
-msgstr "Mirror of <0>api-spec</0>"
-
-#: src/editor/markdown/visual-slash-items.ts
-#: src/open-knowledge-app/editor/registry/descriptor-labels.ts
-msgid "Mirror Source"
-msgstr "Mirror Source"
-
-#: src/open-knowledge-app/editor/components/MirrorSource.tsx
-msgid "Mirror source <0>{label}</0>"
-msgstr "Mirror source <0>{label}</0>"
-
-#: src/open-knowledge-app/editor/components/Mirror-host.tsx
-msgid "Mirror source <0>{src}</0> has no <1>{anchor}</1> anchor."
-msgstr "Mirror source <0>{src}</0> has no <1>{anchor}</1> anchor."
-
-#: src/open-knowledge-app/editor/components/Mirror-host.tsx
-msgid "Mirror source <0>{src}</0> was not found."
-msgstr "Mirror source <0>{src}</0> was not found."
-
-#: src/open-knowledge-app/editor/slash-command/component-items.tsx
-msgid "Mirror source <0>api-spec</0>"
-msgstr "Mirror source <0>api-spec</0>"
-
-#: src/open-knowledge-app/editor/components/Mirror-host.tsx
-msgid "Mirror workspace index is unavailable."
-msgstr "Mirror workspace index is unavailable."
-
 #: src/papers/bib-entry-dialog.tsx
 msgid "Misc"
 msgstr "Misc"
@@ -5842,10 +4856,6 @@ msgstr "Missing figure “{figure}”."
 msgid "Missing file “{path}”."
 msgstr "Missing file “{path}”."
 
-#: src/open-knowledge-app/editor/utils/validate-media-url.ts
-msgid "Missing file extension. Accepts: {accepted}."
-msgstr "Missing file extension. Accepts: {accepted}."
-
 #: src/build/build-log-messages.ts
 msgid "Missing LaTeX dependency `{file}`. BasicTeX does not include every package available on Overleaf. Use Install missing package to find and install its TeX Live package."
 msgstr "Missing LaTeX dependency `{file}`. BasicTeX does not include every package available on Overleaf. Use Install missing package to find and install its TeX Live package."
@@ -5875,15 +4885,6 @@ msgstr "modified"
 msgid "Monospaced text"
 msgstr "Monospaced text"
 
-#: src/open-knowledge-app/editor/components/PreviewBlockedNotice.tsx
-msgid "More requests were blocked."
-msgstr "More requests were blocked."
-
-#. placeholder {0}: blocked.length
-#: src/open-knowledge-app/editor/components/PreviewBlockedNotice.tsx
-msgid "More than {0} requests were blocked by the preview's security policy"
-msgstr "More than {0} requests were blocked by the preview's security policy"
-
 #: src/app/app-workspace-sidebar.tsx
 msgid "Move assistant below editor"
 msgstr "Move assistant below editor"
@@ -5892,57 +4893,9 @@ msgstr "Move assistant below editor"
 msgid "Move assistant to sidebar"
 msgstr "Move assistant to sidebar"
 
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Move between table cells"
-msgstr "Move between table cells"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Move block"
-msgstr "Move block"
-
-#: src/open-knowledge-app/editor/extensions/JsxComponentView.tsx
-msgid "Move down"
-msgstr "Move down"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Move the current block up or down one position."
-msgstr "Move the current block up or down one position."
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Move the cursor or extend selection through CodeMirror's standard source-editor navigation keymap."
-msgstr "Move the cursor or extend selection through CodeMirror's standard source-editor navigation keymap."
-
 #: src/settings/settings-dialog.tsx
 msgid "Move this workspace back to a Lattice window on this Mac"
 msgstr "Move this workspace back to a Lattice window on this Mac"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Move through slash, wiki-link, citation, and path suggestions; accept or dismiss the active suggestion."
-msgstr "Move through slash, wiki-link, citation, and path suggestions; accept or dismiss the active suggestion."
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Move through visual-editor find results from the find field."
-msgstr "Move through visual-editor find results from the find field."
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Move to the next CodeMirror lint diagnostic."
-msgstr "Move to the next CodeMirror lint diagnostic."
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Move to the next or previous table cell."
-msgstr "Move to the next or previous table cell."
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Move to the next visual-editor find result."
-msgstr "Move to the next visual-editor find result."
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Move to the previous visual-editor find result."
-msgstr "Move to the previous visual-editor find result."
-
-#: src/open-knowledge-app/editor/extensions/JsxComponentView.tsx
-msgid "Move up"
-msgstr "Move up"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Mu"
@@ -5952,10 +4905,6 @@ msgstr "Mu"
 msgid "Multi-line aligned equations"
 msgstr "Multi-line aligned equations"
 
-#: src/open-knowledge-app/editor/slash-command/component-items.tsx
-msgid "Multi-page PDF viewer with toolbar controls (thumbnails, page nav, zoom)."
-msgstr "Multi-page PDF viewer with toolbar controls (thumbnails, page nav, zoom)."
-
 #: src/editor/insert/insert-snippets.ts
 msgid "Multiset union"
 msgstr "Multiset union"
@@ -5963,10 +4912,6 @@ msgstr "Multiset union"
 #: src/editor/insert/insert-snippets.ts
 msgid "Multline"
 msgstr "Multline"
-
-#: src/open-knowledge-app/editor/registry/descriptor-labels.ts
-msgid "Muted"
-msgstr "Muted"
 
 #: src/components/ui/apple-color-picker.tsx
 msgid "Muted {name}"
@@ -5976,8 +4921,6 @@ msgstr "Muted {name}"
 msgid "Nabla / del"
 msgstr "Nabla / del"
 
-#: src/open-knowledge-app/editor/registry/descriptor-labels.ts
-#: src/open-knowledge-app/editor/slash-command/items.tsx
 #: src/project/project-dialogs.tsx
 msgid "Name"
 msgstr "Name"
@@ -6014,16 +4957,7 @@ msgstr "Natural join / bowtie"
 msgid "Navigate"
 msgstr "Navigate"
 
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Navigate CodeMirror source search results or dismiss the search panel."
-msgstr "Navigate CodeMirror source search results or dismiss the search panel."
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Navigation and suggestions"
-msgstr "Navigation and suggestions"
-
 #: src/App.tsx
-#: src/editor/markdown/visual-markdown-editor.tsx
 msgid "Navigation performance"
 msgstr "Navigation performance"
 
@@ -6071,12 +5005,10 @@ msgstr "New changes on Overleaf — click to bring them in"
 msgid "New document"
 msgstr "New document"
 
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
 #: src/project/project-file-tree.tsx
 msgid "New file"
 msgstr "New file"
 
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
 #: src/project/project-file-tree.tsx
 msgid "New folder"
 msgstr "New folder"
@@ -6105,17 +5037,9 @@ msgstr "New presentation"
 msgid "New project"
 msgstr "New project"
 
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "New session"
-msgstr "New session"
-
 #: src/app/app-workspace-sidebar.tsx
 msgid "New spreadsheet"
 msgstr "New spreadsheet"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "New tab"
-msgstr "New tab"
 
 #: src/telemetry/app-updater.tsx
 msgid "New version {version}"
@@ -6131,7 +5055,6 @@ msgstr "next"
 
 #: src/editor/latex/search-panel.ts
 #: src/editor/markdown/engine/chrome/find-replace.tsx
-#: src/editor/markdown/visual-markdown-find-replace.tsx
 msgid "Next match"
 msgstr "Next match"
 
@@ -6146,14 +5069,6 @@ msgstr "Next PDF location"
 #: src/pdf/pdf-viewer.tsx
 msgid "Next search result"
 msgstr "Next search result"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Next source diagnostic"
-msgstr "Next source diagnostic"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Next tab"
-msgstr "Next tab"
 
 #: src/papers/paper-lookup.tsx
 msgid "No bibliography key"
@@ -6191,21 +5106,9 @@ msgstr "No diagnostics"
 msgid "No differences. You can close this window"
 msgstr "No differences. You can close this window"
 
-#: src/open-knowledge-app/editor/image-upload/upload-file.ts
-msgid "No document is open"
-msgstr "No document is open"
-
-#: src/open-knowledge-app/components/emoji-picker.tsx
-msgid "No emoji found."
-msgstr "No emoji found."
-
 #: src/overleaf/overleaf-history.tsx
 msgid "No file changes recorded for this update"
 msgstr "No file changes recorded for this update"
-
-#: src/editor/markdown/visual-wiki-link-suggestion.tsx
-msgid "No headings in {anchorPage}"
-msgstr "No headings in {anchorPage}"
 
 #: src/overleaf/overleaf-history.tsx
 msgid "No history yet"
@@ -6214,10 +5117,6 @@ msgstr "No history yet"
 #: src/papers/literature-discovery-panel.tsx
 msgid "No hits. Try broader terms or turn off precise mode."
 msgstr "No hits. Try broader terms or turn off precise mode."
-
-#: src/open-knowledge-app/editor/components/IconPickerInput.tsx
-msgid "No icons match."
-msgstr "No icons match."
 
 #: src/App.tsx
 msgid "No image found on the clipboard."
@@ -6230,10 +5129,6 @@ msgstr "No indent for this paragraph"
 #: src/papers/bibliography-audit.tsx
 msgid "No independent metadata was available to verify a possible record. The reference may still be valid."
 msgstr "No independent metadata was available to verify a possible record. The reference may still be valid."
-
-#: src/open-knowledge-app/editor/extensions/CodeBlockView.tsx
-msgid "No language match."
-msgstr "No language match."
 
 #: src/telemetry/app-log.tsx
 msgid "No logs at this level"
@@ -6253,7 +5148,6 @@ msgstr "No markers"
 
 #: src/components/ui/search-picker-dialog.tsx
 #: src/editor/markdown/engine/chrome/find-replace.tsx
-#: src/editor/markdown/visual-markdown-find-replace.tsx
 msgid "No matches"
 msgstr "No matches"
 
@@ -6283,12 +5177,7 @@ msgstr "No matching pages"
 msgid "No matching papers"
 msgstr "No matching papers"
 
-#: src/editor/markdown/visual-paper-citation-suggestion.tsx
-msgid "No matching papers — import them in the Papers panel first"
-msgstr "No matching papers — import them in the Papers panel first"
-
 #: src/editor/markdown/engine/chrome/link-chrome.tsx
-#: src/open-knowledge-app/editor/link-path-suggestions.tsx
 msgid "No matching paths"
 msgstr "No matching paths"
 
@@ -6324,10 +5213,6 @@ msgstr "No open comments in this project. Comments made on Overleaf appear here 
 msgid "No other recent projects yet"
 msgstr "No other recent projects yet"
 
-#: src/editor/markdown/visual-wiki-link-suggestion.tsx
-msgid "No pages found"
-msgstr "No pages found"
-
 #: src/settings/settings-dialog.tsx
 msgid "No project terms added"
 msgstr "No project terms added"
@@ -6359,7 +5244,6 @@ msgstr "No references to check"
 #: src/editor/markdown/engine/chrome/pickers.tsx
 #: src/editor/markdown/engine/chrome/slash-menu.tsx
 #: src/editor/markdown/engine/views/code-block-view.tsx
-#: src/open-knowledge-app/editor/slash-command/SlashCommandMenu.tsx
 msgid "No results"
 msgstr "No results"
 
@@ -6406,10 +5290,6 @@ msgstr "North-east arrow"
 #: src/editor/insert/insert-snippets.ts
 msgid "North-west arrow"
 msgstr "North-west arrow"
-
-#: src/open-knowledge-app/editor/utils/validate-media-url.ts
-msgid "Not a valid URL."
-msgstr "Not a valid URL."
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Not an element of"
@@ -6471,10 +5351,6 @@ msgstr "Nothing to show"
 msgid "Notify me (manual)"
 msgstr "Notify me (manual)"
 
-#: src/open-knowledge-app/editor/slash-command/component-items.tsx
-msgid "Notion-style inline row for a downloadable file. Drag-drop also works."
-msgstr "Notion-style inline row for a downloadable file. Drag-drop also works."
-
 #: src/history/versions-timeline.tsx
 msgid "Now tracking versions of this project."
 msgstr "Now tracking versions of this project."
@@ -6500,8 +5376,6 @@ msgid "Numbered list"
 msgstr "Numbered list"
 
 #: src/editor/markdown/engine/chrome/slash-items.ts
-#: src/editor/markdown/visual-slash-items.ts
-#: src/open-knowledge-app/editor/slash-command/items.tsx
 msgid "Numbered list of items."
 msgstr "Numbered list of items."
 
@@ -6509,18 +5383,10 @@ msgstr "Numbered list of items."
 msgid "Numbered single-line equation"
 msgstr "Numbered single-line equation"
 
-#: src/open-knowledge-app/editor/components/Pdf.tsx
-msgid "of {totalPages}"
-msgstr "of {totalPages}"
-
 #: src/project/manuscript-checklist.tsx
 #: src/telemetry/app-log.tsx
 msgid "OK"
 msgstr "OK"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "OK Desktop"
-msgstr "OK Desktop"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Omega"
@@ -6529,10 +5395,6 @@ msgstr "Omega"
 #: src/editor/latex/search-panel.ts
 msgid "on line"
 msgstr "on line"
-
-#: src/editor/markdown/visual-table-span-controls.tsx
-msgid "Only a complete rectangular group of cells can be merged."
-msgstr "Only a complete rectangular group of cells can be merged."
 
 #: src/overleaf/overleaf-review.tsx
 msgid "Only binary files would change; line-by-line review is unavailable"
@@ -6559,17 +5421,9 @@ msgstr "Open a .tex file before formatting."
 msgid "Open a .tex file before pasting a figure."
 msgstr "Open a .tex file before pasting a figure."
 
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Open a blank editor tab."
-msgstr "Open a blank editor tab."
-
 #: src/App.tsx
 msgid "Open a LaTeX project"
 msgstr "Open a LaTeX project"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Open a new session with your preferred AI. With text selected, stage it there instead of running it."
-msgstr "Open a new session with your preferred AI. With text selected, stage it there instead of running it."
 
 #: src/canvas/canvas-toolbar.tsx
 msgid "Open a project from Overleaf"
@@ -6582,18 +5436,6 @@ msgstr "Open a project to add its names, acronyms, and technical terms"
 #: src/settings/synara-settings-pane.tsx
 msgid "Open a project to manage Agent settings"
 msgstr "Open a project to manage Agent settings"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Open a single markdown file in a temporary session, without project setup."
-msgstr "Open a single markdown file in a temporary session, without project setup."
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Open an existing project folder from disk."
-msgstr "Open an existing project folder from disk."
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Open and focus the bottom Ask AI prompt composer."
-msgstr "Open and focus the bottom Ask AI prompt composer."
 
 #: src/overleaf/overleaf-connect.tsx
 msgid "Open and sync Overleaf projects in Lattice"
@@ -6615,37 +5457,13 @@ msgstr "Open article in browser"
 msgid "Open by default"
 msgstr "Open by default"
 
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Open CodeMirror search in source editor mode."
-msgstr "Open CodeMirror search in source editor mode."
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Open CodeMirror's go-to-line prompt."
-msgstr "Open CodeMirror's go-to-line prompt."
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Open CodeMirror's lint diagnostics panel."
-msgstr "Open CodeMirror's lint diagnostics panel."
-
 #: src/editor/comments/editor-comments-panel.tsx
 msgid "Open comments"
 msgstr "Open comments"
 
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Open delete confirmation for the selected file-tree items."
-msgstr "Open delete confirmation for the selected file-tree items."
-
 #: src/settings/settings-dialog.tsx
 msgid "Open desktop app"
 msgstr "Open desktop app"
-
-#: src/open-knowledge-app/editor/extensions/JsxComponentView.tsx
-msgid "Open embedded URL in new tab"
-msgstr "Open embedded URL in new tab"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Open file"
-msgstr "Open file"
 
 #: src/project/quick-open-dialog.tsx
 msgid "Open file…"
@@ -6655,7 +5473,6 @@ msgstr "Open file…"
 msgid "Open files"
 msgstr "Open files"
 
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
 #: src/project/project-dialogs.tsx
 msgid "Open folder"
 msgstr "Open folder"
@@ -6685,10 +5502,6 @@ msgstr "Open in Overleaf"
 msgid "Open landing page"
 msgstr "Open landing page"
 
-#: src/open-knowledge-app/editor/bubble-menu/LinkEditPopover.tsx
-msgid "Open link in new tab"
-msgstr "Open link in new tab"
-
 #: src/telemetry/app-log.tsx
 msgid "Open log folder"
 msgstr "Open log folder"
@@ -6704,10 +5517,6 @@ msgstr "Open on left"
 #: src/canvas/editor-tabs.tsx
 msgid "Open on right"
 msgstr "Open on right"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Open or close visual-editor find."
-msgstr "Open or close visual-editor find."
 
 #: src/canvas/document-canvas.tsx
 msgid "Open or drag a file here"
@@ -6761,29 +5570,13 @@ msgstr "Open Slide is not ready"
 msgid "Open Slide sent an incomplete edit for {path}."
 msgstr "Open Slide sent an incomplete edit for {path}."
 
-#: src/open-knowledge-app/editor/extensions/JsxComponentView.tsx
-msgid "Open source doc: {mirrorSrc}"
-msgstr "Open source doc: {mirrorSrc}"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Open source lint panel"
-msgstr "Open source lint panel"
-
 #: src/project/paper-library.tsx
 msgid "Open source page — no downloadable full text found"
 msgstr "Open source page — no downloadable full text found"
 
-#: src/open-knowledge-app/editor/extensions/JsxComponentView.tsx
-msgid "Open source: {mirrorSrc}"
-msgstr "Open source: {mirrorSrc}"
-
 #: src/onboarding/onboarding-tour.tsx
 msgid "Open the Agent tab to use Codex, Claude, or another provider"
 msgstr "Open the Agent tab to use Codex, Claude, or another provider"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Open the comment composer on the current selection and add it to the dispatch queue."
-msgstr "Open the comment composer on the current selection and add it to the dispatch queue."
 
 #: src/overleaf/use-overleaf-track-changes.ts
 msgid "Open the document this suggestion is in first."
@@ -6796,10 +5589,6 @@ msgstr "Open the file this suggestion is in first"
 #: src/canvas/canvas-toolbar.tsx
 msgid "Open the full paper Markdown"
 msgstr "Open the full paper Markdown"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Open the insert menu in an empty or active text position."
-msgstr "Open the insert menu in an empty or active text position."
 
 #: src/overleaf/overleaf-connect.tsx
 msgid "Open the linked Overleaf project before changing its sync setting."
@@ -6818,10 +5607,6 @@ msgstr "Open the paper overview"
 msgid "Open the PDF in Lattice or your browser"
 msgstr "Open the PDF in Lattice or your browser"
 
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Open the Project Navigator."
-msgstr "Open the Project Navigator."
-
 #: src/build/compile-diagnostics-panel.tsx
 msgid "Open the repair task to continue."
 msgstr "Open the repair task to continue."
@@ -6835,10 +5620,6 @@ msgstr "Open this Agent task before restoring its files"
 msgid "Open this repository on GitHub"
 msgstr "Open this repository on GitHub"
 
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Open this settings dialog."
-msgstr "Open this settings dialog."
-
 #: src/settings/settings-dialog.tsx
 msgid "Open this workspace at http://127.0.0.1:18452. Files and credentials stay on this Mac"
 msgstr "Open this workspace at http://127.0.0.1:18452. Files and credentials stay on this Mac"
@@ -6846,14 +5627,6 @@ msgstr "Open this workspace at http://127.0.0.1:18452. Files and credentials sta
 #: src/settings/settings-dialog.tsx
 msgid "Open this workspace in your default browser. It returns to this window when the browser tab closes"
 msgstr "Open this workspace in your default browser. It returns to this window when the browser tab closes"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Open visual-editor find with replace controls expanded."
-msgstr "Open visual-editor find with replace controls expanded."
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Open, navigate, accept, or dismiss CodeMirror completion suggestions."
-msgstr "Open, navigate, accept, or dismiss CodeMirror completion suggestions."
 
 #: src/papers/bibliography-audit.tsx
 #: src/settings/literature-settings.tsx
@@ -6897,15 +5670,8 @@ msgstr "Operators"
 msgid "Orange"
 msgstr "Orange"
 
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Ordered list"
-msgstr "Ordered list"
-
 #: src/editor/markdown/engine/chrome/selection-toolbar.tsx
 #: src/editor/markdown/engine/chrome/slash-items.ts
-#: src/editor/markdown/visual-slash-items.ts
-#: src/open-knowledge-app/editor/bubble-menu/BlockTypeSelector.tsx
-#: src/open-knowledge-app/editor/slash-command/items.tsx
 msgid "Ordered List"
 msgstr "Ordered List"
 
@@ -7046,51 +5812,31 @@ msgstr "Overleaf's own record of this project, including everything collaborator
 msgid "Overline"
 msgstr "Overline"
 
-#: src/open-knowledge-app/editor/link-path-suggestions.tsx
-msgid "Page"
-msgstr "Page"
-
-#: src/open-knowledge-app/editor/components/Pdf.tsx
-msgid "Page {pageNumber}"
-msgstr "Page {pageNumber}"
-
 #: src/project/manuscript-checklist.tsx
 msgid "Page budget"
 msgstr "Page budget"
 
-#: src/open-knowledge-app/editor/components/Pdf.tsx
-msgid "Page number"
-msgstr "Page number"
-
 #: src/editor/latex/latex-command-completions.ts
 msgid "Page of a labeled item"
 msgstr "Page of a labeled item"
-
-#: src/open-knowledge-app/editor/components/Pdf.tsx
-msgid "Page thumbnails"
-msgstr "Page thumbnails"
 
 #: src/papers/bibliography-audit.tsx
 msgid "Pages"
 msgstr "Pages"
 
 #: src/editor/markdown/engine/views/mermaid-preview.tsx
-#: src/open-knowledge-app/editor/components/Mermaid.tsx
 msgid "Pan down"
 msgstr "Pan down"
 
 #: src/editor/markdown/engine/views/mermaid-preview.tsx
-#: src/open-knowledge-app/editor/components/Mermaid.tsx
 msgid "Pan left"
 msgstr "Pan left"
 
 #: src/editor/markdown/engine/views/mermaid-preview.tsx
-#: src/open-knowledge-app/editor/components/Mermaid.tsx
 msgid "Pan right"
 msgstr "Pan right"
 
 #: src/editor/markdown/engine/views/mermaid-preview.tsx
-#: src/open-knowledge-app/editor/components/Mermaid.tsx
 msgid "Pan up"
 msgstr "Pan up"
 
@@ -7106,25 +5852,12 @@ msgid "Paper actions"
 msgstr "Paper actions"
 
 #: src/editor/markdown/engine/chrome/references.tsx
-#: src/editor/markdown/visual-paper-citation-suggestion.tsx
 msgid "Paper citation suggestions"
 msgstr "Paper citation suggestions"
 
 #: src/canvas/canvas-toolbar.tsx
 msgid "Paper content"
 msgstr "Paper content"
-
-#: src/open-knowledge-app/editor/registry/descriptor-labels.ts
-msgid "Paper figure"
-msgstr "Paper figure"
-
-#: src/open-knowledge-app/editor/registry/descriptor-labels.ts
-msgid "Paper figure panel"
-msgstr "Paper figure panel"
-
-#: src/open-knowledge-app/editor/registry/descriptor-labels.ts
-msgid "Paper figure row"
-msgstr "Paper figure row"
 
 #: src/app/use-reference-import.ts
 msgid "Paper import cancelled before changing the bibliography; the downloaded full text remains available."
@@ -7156,10 +5889,6 @@ msgstr "Paper view shows the complete text, sections, equations, and figures as 
 msgid "Papers"
 msgstr "Papers"
 
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Paragraph"
-msgstr "Paragraph"
-
 #: src/editor/insert/insert-snippets.ts
 msgctxt "LaTeX heading"
 msgid "Paragraph"
@@ -7176,14 +5905,6 @@ msgstr "Parenthesized matrix"
 #: src/editor/latex/latex-command-completions.ts
 msgid "Parenthetical citation"
 msgstr "Parenthetical citation"
-
-#: src/open-knowledge-app/editor/utils/severity.ts
-msgid "parse error"
-msgstr "parse error"
-
-#: src/open-knowledge-app/editor/extensions/RawMdxFallbackCMView.tsx
-msgid "Parse failed"
-msgstr "Parse failed"
 
 #: src/editor/latex/latex-selection-toolbar.tsx
 msgid "Part"
@@ -7219,10 +5940,6 @@ msgstr "Paste an arXiv ID, DOI, URL, or title above to ground the agent in proje
 msgid "Paste clipboard image as figure"
 msgstr "Paste clipboard image as figure"
 
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Paste duplicate"
-msgstr "Paste duplicate"
-
 #: src/editor/markdown/engine/chrome/link-chrome.tsx
 msgid "Paste or type a link"
 msgstr "Paste or type a link"
@@ -7232,7 +5949,6 @@ msgid "Paste your API key"
 msgstr "Paste your API key"
 
 #: src/editor/markdown/engine/chrome/link-chrome.tsx
-#: src/open-knowledge-app/editor/link-path-suggestions.tsx
 msgid "Path suggestions"
 msgstr "Path suggestions"
 
@@ -7257,7 +5973,6 @@ msgstr "Pause syncing with Overleaf?\n"
 "Resuming picks up where this left off: edits made on either side while it was paused are merged, not overwritten."
 
 #: src/canvas/paper-reader.tsx
-#: src/open-knowledge-app/editor/registry/descriptor-labels.ts
 msgid "PDF"
 msgstr "PDF"
 
@@ -7358,8 +6073,6 @@ msgid "Pick a venue to set its canonical name and entry type, or edit any field 
 msgstr "Pick a venue to set its canonical name and entry type, or edit any field by hand"
 
 #: src/editor/markdown/engine/chrome/slash-items.ts
-#: src/editor/markdown/visual-slash-items.ts
-#: src/open-knowledge-app/editor/slash-command/items.tsx
 msgid "Pick an emoji to insert at the cursor."
 msgstr "Pick an emoji to insert at the cursor."
 
@@ -7387,22 +6100,13 @@ msgstr "Pinned"
 msgid "Placement"
 msgstr "Placement"
 
-#: src/open-knowledge-app/editor/extensions/CodeBlockView.tsx
-msgid "Plain"
-msgstr "Plain"
-
 #: src/editor/markdown/engine/views/code-block-view.tsx
-#: src/open-knowledge-app/editor/extensions/code-block-languages.ts
 msgid "Plain text"
 msgstr "Plain text"
 
 #: src/settings/settings-dialog.tsx
 msgid "Plays quiet cues when a requested build or collaboration setup finishes"
 msgstr "Plays quiet cues when a requested build or collaboration setup finishes"
-
-#: src/open-knowledge-app/editor/registry/descriptor-labels.ts
-msgid "Playsinline"
-msgstr "Playsinline"
 
 #: src/components/ui/confirm-action-dialog.tsx
 #: src/editor/spreadsheet/spreadsheet-univer.ts
@@ -7417,10 +6121,6 @@ msgstr "Please try again later"
 msgid "Plus-minus"
 msgstr "Plus-minus"
 
-#: src/open-knowledge-app/editor/registry/descriptor-labels.ts
-msgid "Poster"
-msgstr "Poster"
-
 #: src/editor/insert/insert-snippets.ts
 msgid "Pounds sterling"
 msgstr "Pounds sterling"
@@ -7432,10 +6132,6 @@ msgstr "Precedes"
 #: src/editor/insert/insert-snippets.ts
 msgid "Precedes or equal"
 msgstr "Precedes or equal"
-
-#: src/open-knowledge-app/editor/registry/descriptor-labels.ts
-msgid "Preload"
-msgstr "Preload"
 
 #: src/canvas/document-canvas.tsx
 msgid "Preparing board editor"
@@ -7479,7 +6175,6 @@ msgstr "Preprint check returned an incomplete or ambiguous result."
 
 #: src/canvas/canvas-toolbar.tsx
 #: src/editor/markdown/engine/lattice-visual-editor.tsx
-#: src/editor/markdown/visual-markdown-editor.tsx
 #: src/project/project-replace-dialog.tsx
 msgid "Preview"
 msgstr "Preview"
@@ -7518,7 +6213,6 @@ msgstr "previous"
 
 #: src/editor/latex/search-panel.ts
 #: src/editor/markdown/engine/chrome/find-replace.tsx
-#: src/editor/markdown/visual-markdown-find-replace.tsx
 msgid "Previous match"
 msgstr "Previous match"
 
@@ -7533,10 +6227,6 @@ msgstr "Previous PDF location"
 #: src/pdf/pdf-viewer.tsx
 msgid "Previous search result"
 msgstr "Previous search result"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Previous tab"
-msgstr "Previous tab"
 
 #: src/build/tex-doctor-messages.ts
 msgid "Primary bibliography {file} (missing)"
@@ -7706,9 +6396,6 @@ msgstr "Quit {name}"
 #: src/editor/latex/latex-selection-toolbar.tsx
 #: src/editor/markdown/engine/chrome/selection-toolbar.tsx
 #: src/editor/markdown/engine/chrome/slash-items.ts
-#: src/editor/markdown/visual-slash-items.ts
-#: src/open-knowledge-app/editor/bubble-menu/BlockTypeSelector.tsx
-#: src/open-knowledge-app/editor/slash-command/items.tsx
 msgid "Quote"
 msgstr "Quote"
 
@@ -7732,11 +6419,6 @@ msgstr "Raw build log"
 msgid "Read the full paper here"
 msgstr "Read the full paper here"
 
-#: src/editor/markdown/visual-slash-items.ts
-#: src/open-knowledge-app/editor/slash-command/component-items.tsx
-msgid "Read-only copy of a MirrorSource block from another doc. Edit at the source and it updates live."
-msgstr "Read-only copy of a MirrorSource block from another doc. Edit at the source and it updates live."
-
 #: src/history/conflict-resolver.tsx
 msgid "Reading the file…"
 msgstr "Reading the file…"
@@ -7748,10 +6430,6 @@ msgstr "Ready to compile"
 #: src/telemetry/app-updater.tsx
 msgid "Ready to install"
 msgstr "Ready to install"
-
-#: src/open-knowledge-app/editor/slash-command/component-items.tsx
-msgid "Ready?"
-msgstr "Ready?"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Real part"
@@ -7836,10 +6514,6 @@ msgstr "Reference lacks identifying metadata"
 msgid "Reference with its type name"
 msgstr "Reference with its type name"
 
-#: src/open-knowledge-app/editor/registry/descriptor-labels.ts
-msgid "Referrerpolicy"
-msgstr "Referrerpolicy"
-
 #: src/overleaf/overleaf-review.tsx
 msgid "Refresh"
 msgstr "Refresh"
@@ -7858,7 +6532,6 @@ msgid "Regular expression"
 msgstr "Regular expression"
 
 #: src/editor/markdown/engine/chrome/review-chrome.tsx
-#: src/editor/markdown/visual-review-overlays.tsx
 #: src/overleaf/overleaf-changes.tsx
 #: src/overleaf/overleaf-editor-extensions.ts
 msgid "Reject"
@@ -7879,7 +6552,6 @@ msgstr "Relative project links are unavailable in this preview"
 #: src/components/ui/confirm-action-dialog.tsx
 #: src/editor/harper-spellcheck.ts
 #: src/editor/markdown/engine/chrome/link-chrome.tsx
-#: src/editor/markdown/visual-link-insert-popover.tsx
 msgid "Remove"
 msgstr "Remove"
 
@@ -7911,10 +6583,6 @@ msgstr "Remove entry"
 #: src/settings/literature-settings.tsx
 msgid "Remove key"
 msgstr "Remove key"
-
-#: src/open-knowledge-app/editor/bubble-menu/LinkEditPopover.tsx
-msgid "Remove link"
-msgstr "Remove link"
 
 #: src/app/use-overleaf-workspace.ts
 msgid "Remove one file from the Overleaf project?"
@@ -7986,14 +6654,6 @@ msgstr "Renames the matching \\begin and \\end pair under the cursor"
 msgid "Renaming…"
 msgstr "Renaming…"
 
-#: src/open-knowledge-app/editor/utils/severity.ts
-msgid "render error"
-msgstr "render error"
-
-#: src/open-knowledge-app/editor/extensions/RawMdxFallbackCMView.tsx
-msgid "Render error in <{failedComponent}>: {failureDetail}"
-msgstr "Render error in <{failedComponent}>: {failureDetail}"
-
 #: src/history/history-drawer.tsx
 #: src/overleaf/overleaf-review.tsx
 msgid "Rendering changes…"
@@ -8010,22 +6670,13 @@ msgstr "Rendering first page…"
 #: src/canvas/document-canvas.tsx
 #: src/editor/comments/editor-comments-panel.tsx
 #: src/editor/comments/editor-comments.ts
-#: src/editor/markdown/visual-review-overlays.tsx
 #: src/overleaf/overleaf-comments.tsx
 msgid "Reopen"
 msgstr "Reopen"
 
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Reopen closed tab"
-msgstr "Reopen closed tab"
-
 #: src/editor/comments/editor-comments-panel.tsx
 msgid "Reopen comment"
 msgstr "Reopen comment"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Reopen the most recently closed editor tab."
-msgstr "Reopen the most recently closed editor tab."
 
 #: src/build/use-compile-repair.ts
 msgid "Repair cancelled."
@@ -8069,7 +6720,6 @@ msgstr "Repeated author names; verify against the publication's author list befo
 
 #: src/editor/latex/search-panel.ts
 #: src/editor/markdown/engine/chrome/find-replace.tsx
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
 msgid "Replace"
 msgstr "Replace"
 
@@ -8083,33 +6733,22 @@ msgstr "Replace all"
 
 #: src/editor/latex/search-panel.ts
 #: src/editor/markdown/engine/chrome/find-replace.tsx
-#: src/editor/markdown/visual-markdown-find-replace.tsx
 msgid "Replace all matches"
 msgstr "Replace all matches"
 
 #: src/editor/markdown/engine/chrome/find-replace.tsx
-#: src/editor/markdown/visual-markdown-find-replace.tsx
 msgid "Replace current match"
 msgstr "Replace current match"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Replace current match from field"
-msgstr "Replace current match from field"
 
 #: src/App.tsx
 msgid "Replace in project"
 msgstr "Replace in project"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Replace the active match from the replace field."
-msgstr "Replace the active match from the replace field."
 
 #: src/editor/latex/search-panel.ts
 msgid "Replace this match"
 msgstr "Replace this match"
 
 #: src/editor/markdown/engine/chrome/find-replace.tsx
-#: src/editor/markdown/visual-markdown-find-replace.tsx
 #: src/project/project-replace-dialog.tsx
 msgid "Replace with"
 msgstr "Replace with"
@@ -8153,7 +6792,6 @@ msgstr "Replacing…"
 #: src/canvas/document-canvas.tsx
 #: src/editor/comments/editor-comments-panel.tsx
 #: src/editor/comments/editor-comments.ts
-#: src/editor/markdown/visual-review-overlays.tsx
 #: src/overleaf/overleaf-comments.tsx
 msgid "Reply"
 msgstr "Reply"
@@ -8165,10 +6803,6 @@ msgstr "Reply to {displayedCommentAuthor}"
 #: src/overleaf/overleaf-comments.tsx
 msgid "Reply…"
 msgstr "Reply…"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Report a bug"
-msgstr "Report a bug"
 
 #: src/papers/bibliography-audit.tsx
 msgid "Request queue busy"
@@ -8207,13 +6841,8 @@ msgid "Research, written with evidence"
 msgstr "Research, written with evidence"
 
 #: src/editor/markdown/engine/views/mermaid-preview.tsx
-#: src/open-knowledge-app/editor/components/Mermaid.tsx
 msgid "Reset view"
 msgstr "Reset view"
-
-#: src/open-knowledge-app/editor/components/ResizeHandles.tsx
-msgid "Resize {handleKey}"
-msgstr "Resize {handleKey}"
 
 #: src/canvas/document-canvas.tsx
 msgid "Resize dual source panes"
@@ -8263,7 +6892,6 @@ msgstr "Resolve changes to {path}"
 
 #: src/canvas/document-canvas.tsx
 #: src/editor/comments/editor-comments-panel.tsx
-#: src/editor/markdown/visual-review-overlays.tsx
 msgid "Resolve comment"
 msgstr "Resolve comment"
 
@@ -8327,7 +6955,6 @@ msgid "Restore {path} to this version? Your current file will be overwritten."
 msgstr "Restore {path} to this version? Your current file will be overwritten."
 
 #: src/editor/markdown/engine/lattice-visual-editor.tsx
-#: src/editor/markdown/visual-markdown-editor.tsx
 msgid "Restore draft and retry"
 msgstr "Restore draft and retry"
 
@@ -8422,10 +7049,6 @@ msgstr "Retry"
 msgid "Reveal cursor in PDF (⌘⇧J)"
 msgstr "Reveal cursor in PDF (⌘⇧J)"
 
-#: src/open-knowledge-app/editor/slash-command/embed-starter-items.tsx
-msgid "Revenue"
-msgstr "Revenue"
-
 #: src/editor/insert/insert-snippets.ts
 msgid "Reverse turnstile"
 msgstr "Reverse turnstile"
@@ -8498,10 +7121,6 @@ msgstr "Right normal subgroup eq"
 msgid "Right vertical bar"
 msgstr "Right vertical bar"
 
-#: src/open-knowledge-app/editor/slash-command/items.tsx
-msgid "Role"
-msgstr "Role"
-
 #: src/editor/insert/insert-snippets.ts
 msgid "Roman math"
 msgstr "Roman math"
@@ -8519,7 +7138,6 @@ msgid "Root with index"
 msgstr "Root with index"
 
 #: src/editor/markdown/engine/views/table-controls.tsx
-#: src/open-knowledge-app/editor/table-controls/TableCellHandles.tsx
 msgid "Row options"
 msgstr "Row options"
 
@@ -8552,14 +7170,6 @@ msgstr "Run-in paragraph heading"
 msgid "Runner used for Lattice's pinned literature tools"
 msgstr "Runner used for Lattice's pinned literature tools"
 
-#: src/open-knowledge-app/editor/slash-command/component-items.tsx
-msgid "Sample image"
-msgstr "Sample image"
-
-#: src/open-knowledge-app/editor/slash-command/embed-starter-items.tsx
-msgid "Sandboxed HTML embed — write HTML, see the rendered preview live."
-msgstr "Sandboxed HTML embed — write HTML, see the rendered preview live."
-
 #: src/editor/latex/latex-command-completions.ts
 msgid "Sans-serif text"
 msgstr "Sans-serif text"
@@ -8567,7 +7177,6 @@ msgstr "Sans-serif text"
 #: src/App.tsx
 #: src/editor/comments/editor-comments-panel.tsx
 #: src/history/versions-timeline.tsx
-#: src/open-knowledge-app/editor/components/CodePreviewEditModal.tsx
 #: src/overleaf/overleaf-comments.tsx
 #: src/overleaf/overleaf-history.tsx
 #: src/settings/literature-settings.tsx
@@ -8578,7 +7187,6 @@ msgstr "Save"
 msgid "Save budgets"
 msgstr "Save budgets"
 
-#: src/open-knowledge-app/editor/components/CodePreviewEditModal.tsx
 #: src/papers/bib-entry-dialog.tsx
 msgid "Save changes"
 msgstr "Save changes"
@@ -8668,7 +7276,6 @@ msgstr "Script letters"
 msgid "scroll area"
 msgstr "scroll area"
 
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
 #: src/papers/literature-discovery-panel.tsx
 msgid "Search"
 msgstr "Search"
@@ -8686,21 +7293,12 @@ msgid "Search by project or owner…"
 msgstr "Search by project or owner…"
 
 #: src/editor/markdown/engine/chrome/pickers.tsx
-#: src/open-knowledge-app/components/emoji-picker.tsx
 msgid "Search emoji"
 msgstr "Search emoji"
 
 #: src/project/project-find-dialog.tsx
 msgid "Search failed."
 msgstr "Search failed."
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Search files, commands, projects, and AI handoff actions. The K chord adds a link instead when text is selected in the visual editor; the P chord always opens the palette."
-msgstr "Search files, commands, projects, and AI handoff actions. The K chord adds a link instead when text is selected in the visual editor; the P chord always opens the palette."
-
-#: src/open-knowledge-app/editor/components/IconPickerInput.tsx
-msgid "Search icons..."
-msgstr "Search icons..."
 
 #: src/papers/literature-discovery-panel.tsx
 msgid "Search literature"
@@ -8743,10 +7341,6 @@ msgstr "Search PDF"
 msgid "Searching…"
 msgstr "Searching…"
 
-#: src/open-knowledge-app/editor/slash-command/items.tsx
-msgid "Second item"
-msgstr "Second item"
-
 #: src/editor/insert/insert-snippets.ts
 msgid "Second-level heading"
 msgstr "Second-level heading"
@@ -8765,10 +7359,6 @@ msgstr "Section"
 msgid "Section sign"
 msgstr "Section sign"
 
-#: src/open-knowledge-app/editor/slash-command/component-items.tsx
-msgid "See <0>Architecture</0> for the system overview."
-msgstr "See <0>Architecture</0> for the system overview."
-
 #: src/canvas/editor-status-bar.tsx
 msgid "Sel {words} words · {chars} chars · {lines} lines"
 msgstr "Sel {words} words · {chars} chars · {lines} lines"
@@ -8782,14 +7372,6 @@ msgstr "Select {0}"
 msgid "Select {color}"
 msgstr "Select {color}"
 
-#: src/editor/markdown/visual-table-span-controls.tsx
-msgid "Select a complete rectangular group of cells"
-msgstr "Select a complete rectangular group of cells"
-
-#: src/editor/markdown/visual-table-span-controls.tsx
-msgid "Select a complete rectangular group of cells."
-msgstr "Select a complete rectangular group of cells."
-
 #: src/papers/bibliography-audit.tsx
 msgid "Select all"
 msgstr "Select all"
@@ -8799,10 +7381,6 @@ msgctxt "macOS menu bar"
 msgid "Select All"
 msgstr "Select All"
 
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Select all files and folders"
-msgstr "Select all files and folders"
-
 #: src/editor/latex/search-panel.ts
 msgid "Select all matches"
 msgstr "Select all matches"
@@ -8811,105 +7389,33 @@ msgstr "Select all matches"
 msgid "Select all references"
 msgstr "Select all references"
 
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Select all source"
-msgstr "Select all source"
-
 #: src/editor/markdown/engine/chrome/block-controls.tsx
-#: src/editor/markdown/visual-editor-block-controls.ts
 msgid "Select block"
 msgstr "Select block"
-
-#: src/editor/markdown/visual-editor-block-controls.ts
-msgid "Select bullet list"
-msgstr "Select bullet list"
 
 #: src/editor/markdown/engine/chrome/block-controls.tsx
 msgid "Select bulleted list"
 msgstr "Select bulleted list"
 
-#: src/editor/markdown/visual-editor-block-controls.ts
-msgid "Select code block"
-msgstr "Select code block"
-
-#: src/editor/markdown/visual-editor-block-controls.ts
-msgid "Select component"
-msgstr "Select component"
-
-#: src/editor/markdown/visual-editor-block-controls.ts
-msgid "Select display equation"
-msgstr "Select display equation"
-
-#: src/editor/markdown/visual-editor-block-controls.ts
-msgid "Select divider"
-msgstr "Select divider"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Select every visible file-tree row when focus is in the Files sidebar."
-msgstr "Select every visible file-tree row when focus is in the Files sidebar."
-
-#: src/editor/markdown/visual-editor-block-controls.ts
-msgid "Select footnote"
-msgstr "Select footnote"
-
-#: src/editor/markdown/visual-editor-block-controls.ts
-msgid "Select heading"
-msgstr "Select heading"
-
 #: src/editor/markdown/engine/chrome/block-controls.tsx
-#: src/editor/markdown/visual-editor-block-controls.ts
 msgid "Select list item"
 msgstr "Select list item"
 
-#: src/editor/markdown/visual-editor-block-controls.ts
-msgid "Select Mermaid diagram"
-msgstr "Select Mermaid diagram"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Select next occurrence"
-msgstr "Select next occurrence"
-
 #: src/editor/markdown/engine/chrome/block-controls.tsx
-#: src/editor/markdown/visual-editor-block-controls.ts
 msgid "Select numbered list"
 msgstr "Select numbered list"
-
-#: src/editor/markdown/visual-editor-block-controls.ts
-msgid "Select paragraph"
-msgstr "Select paragraph"
 
 #: src/onboarding/onboarding-tour.tsx
 msgid "Select PDF to read the original PDF in Lattice, or use the external-link button beside it to open the same PDF in your browser"
 msgstr "Select PDF to read the original PDF in Lattice, or use the external-link button beside it to open the same PDF in your browser"
 
-#: src/editor/markdown/visual-editor-block-controls.ts
-msgid "Select quote"
-msgstr "Select quote"
-
-#: src/editor/markdown/visual-editor-block-controls.ts
-msgid "Select source-preserved Markdown"
-msgstr "Select source-preserved Markdown"
-
-#: src/editor/markdown/visual-editor-block-controls.ts
-msgid "Select table"
-msgstr "Select table"
-
 #: src/editor/markdown/engine/chrome/block-controls.tsx
-#: src/editor/markdown/visual-editor-block-controls.ts
 msgid "Select task list"
 msgstr "Select task list"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Select the full source document."
-msgstr "Select the full source document."
 
 #: src/papers/bib-entry-dialog.tsx
 msgid "Select this record"
 msgstr "Select this record"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Select, enter, or leave block components and fallback source blocks from keyboard boundaries."
-msgstr "Select, enter, or leave block components and fallback source blocks from keyboard boundaries."
 
 #: src/editor/codemirror-host.tsx
 msgid "Selection deleted"
@@ -8948,10 +7454,6 @@ msgstr "Semantic Scholar returned an invalid response; subsequent queries skippe
 msgid "Semantic Scholar unavailable; subsequent queries skipped"
 msgstr "Semantic Scholar unavailable; subsequent queries skipped"
 
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Send checked comments to chat"
-msgstr "Send checked comments to chat"
-
 #: src/components/ui/chat-panel.tsx
 msgid "Send message"
 msgstr "Send message"
@@ -8961,8 +7463,6 @@ msgid "Sent to Crossref to use its polite pool. No API key is needed."
 msgstr "Sent to Crossref to use its polite pool. No API key is needed."
 
 #: src/editor/markdown/engine/chrome/slash-items.ts
-#: src/editor/markdown/visual-slash-items.ts
-#: src/open-knowledge-app/editor/slash-command/items.tsx
 msgid "Separator"
 msgstr "Separator"
 
@@ -8983,7 +7483,6 @@ msgstr "Set the editor keymap and build behavior"
 msgid "Sets"
 msgstr "Sets"
 
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
 #: src/project/project-dialogs.tsx
 #: src/settings/settings-dialog.tsx
 msgid "Settings"
@@ -9000,10 +7499,6 @@ msgstr "Setup is complete"
 #: src/editor/insert/insert-snippets.ts
 msgid "Sharp"
 msgstr "Sharp"
-
-#: src/open-knowledge-app/editor/extensions/code-block-languages.ts
-msgid "Shell session"
-msgstr "Shell session"
 
 #: src/app/native-locale.ts
 msgctxt "macOS menu bar"
@@ -9022,42 +7517,20 @@ msgstr "Show document outline"
 msgid "Show hidden files"
 msgstr "Show hidden files"
 
-#: src/open-knowledge-app/editor/extensions/CodeBlockView.tsx
-msgid "Show HTML preview"
-msgstr "Show HTML preview"
-
 #: src/project/paper-library.tsx
 #: src/project/project-file-tree.tsx
 msgid "Show in Finder"
 msgstr "Show in Finder"
 
 #: src/editor/markdown/engine/views/code-block-view.tsx
-#: src/open-knowledge-app/editor/extensions/CodeBlockView.tsx
 msgid "Show Mermaid preview"
 msgstr "Show Mermaid preview"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Show or hide agents"
-msgstr "Show or hide agents"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Show or hide document panel"
-msgstr "Show or hide document panel"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Show or hide Files"
-msgstr "Show or hide Files"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Show or hide Terminal"
-msgstr "Show or hide Terminal"
 
 #: src/canvas/document-outline.tsx
 msgid "Show outline"
 msgstr "Show outline"
 
 #: src/editor/markdown/engine/chrome/find-replace.tsx
-#: src/editor/markdown/visual-markdown-find-replace.tsx
 msgid "Show replace"
 msgstr "Show replace"
 
@@ -9070,21 +7543,9 @@ msgstr "Show sidebar"
 msgid "Show this in the editor"
 msgstr "Show this in the editor"
 
-#: src/open-knowledge-app/editor/components/Pdf.tsx
-msgid "Show thumbnails"
-msgstr "Show thumbnails"
-
-#: src/editor/markdown/visual-wiki-link-suggestion.tsx
-msgid "Showing top {count} — keep typing to narrow"
-msgstr "Showing top {count} — keep typing to narrow"
-
 #: src/telemetry/app-log.tsx
 msgid "Shows 300 recent entries; disk logs rotate"
 msgstr "Shows 300 recent entries; disk logs rotate"
-
-#: src/open-knowledge-app/editor/extensions/CodeBlockView.tsx
-msgid "Shows above the code body. Round-trips as `title=\"...\"` in markdown."
-msgstr "Shows above the code body. Round-trips as `title=\"...\"` in markdown."
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Side-by-side column block"
@@ -9142,13 +7603,7 @@ msgstr "Similar to"
 msgid "Simplified Chinese"
 msgstr "Simplified Chinese"
 
-#: src/open-knowledge-app/editor/components/Pdf.tsx
-msgid "Single page"
-msgstr "Single page"
-
 #: src/editor/markdown/engine/chrome/slash-items.ts
-#: src/editor/markdown/visual-slash-items.ts
-#: src/open-knowledge-app/editor/slash-command/items.tsx
 msgid "Sixth-level heading."
 msgstr "Sixth-level heading."
 
@@ -9160,10 +7615,6 @@ msgstr "Sized closing delimiter"
 msgid "Sized opening delimiter"
 msgstr "Sized opening delimiter"
 
-#: src/open-knowledge-app/editor/registry/descriptor-labels.ts
-msgid "Sizes"
-msgstr "Sizes"
-
 #: src/settings/settings-dialog.tsx
 msgid "Skills"
 msgstr "Skills"
@@ -9172,13 +7623,8 @@ msgstr "Skills"
 msgid "Skip tutorial"
 msgstr "Skip tutorial"
 
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Slash command menu"
-msgstr "Slash command menu"
-
 #: src/editor/markdown/engine/chrome/slash-menu.tsx
 #: src/onboarding/onboarding-tour.tsx
-#: src/open-knowledge-app/editor/slash-command/SlashCommandMenu.tsx
 msgid "Slash commands"
 msgstr "Slash commands"
 
@@ -9191,8 +7637,6 @@ msgid "Small capitals"
 msgstr "Small capitals"
 
 #: src/editor/markdown/engine/chrome/slash-items.ts
-#: src/editor/markdown/visual-slash-items.ts
-#: src/open-knowledge-app/editor/slash-command/items.tsx
 msgid "Small section heading."
 msgstr "Small section heading."
 
@@ -9228,33 +7672,9 @@ msgstr "Source + PDF"
 msgid "Source candidate (not applied)"
 msgstr "Source candidate (not applied)"
 
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Source editing"
-msgstr "Source editing"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Source editor"
-msgstr "Source editor"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Source editor search panel"
-msgstr "Source editor search panel"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Source find results"
-msgstr "Source find results"
-
 #: src/pdf/pdf-source-targets.ts
 msgid "Source location in PDF"
 msgstr "Source location in PDF"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Source multi-cursor and multi-select"
-msgstr "Source multi-cursor and multi-select"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Source navigation and selection"
-msgstr "Source navigation and selection"
 
 #: src/papers/bibliography-audit.tsx
 msgid "Source rate limit reached"
@@ -9268,10 +7688,6 @@ msgstr "Source record considered, not verified"
 msgid "Source record considered, not verified · cached record"
 msgstr "Source record considered, not verified · cached record"
 
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Source search"
-msgstr "Source search"
-
 #: src/papers/bibliography-audit.tsx
 msgid "Source service error"
 msgstr "Source service error"
@@ -9279,10 +7695,6 @@ msgstr "Source service error"
 #: src/papers/bibliography-audit.tsx
 msgid "Source temporarily unavailable"
 msgstr "Source temporarily unavailable"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Source undo or redo"
-msgstr "Source undo or redo"
 
 #: src/papers/bib-entry-dialog.tsx
 msgid "Source:"
@@ -9317,17 +7729,12 @@ msgid "Split"
 msgstr "Split"
 
 #: src/editor/markdown/engine/views/table-controls.tsx
-#: src/editor/markdown/visual-table-span-controls.tsx
 msgid "Split cell"
 msgstr "Split cell"
 
 #: src/canvas/canvas-toolbar.tsx
 msgid "Split editor right"
 msgstr "Split editor right"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Split list item"
-msgstr "Split list item"
 
 #: src/editor/latex/latex-command-completions.ts
 msgid "Split one equation"
@@ -9375,18 +7782,6 @@ msgstr "Square superset"
 msgid "Square superset eq"
 msgstr "Square superset eq"
 
-#: src/open-knowledge-app/editor/registry/descriptor-labels.ts
-msgid "Src"
-msgstr "Src"
-
-#: src/open-knowledge-app/editor/registry/descriptor-labels.ts
-msgid "Srcset"
-msgstr "Srcset"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Stage the selected passage in the agents panel, ready to extend and send."
-msgstr "Stage the selected passage in the agents panel, ready to extend and send."
-
 #: src/build/build-log-messages.ts
 msgid "Stale failed build. Use Clean rebuild (Shift-click Build), or delete aux files and build again."
 msgstr "Stale failed build. Use Clean rebuild (Shift-click Build), or delete aux files and build again."
@@ -9399,14 +7794,6 @@ msgstr "Stale result"
 msgid "Star operator"
 msgstr "Star operator"
 
-#: src/open-knowledge-app/editor/slash-command/component-items.tsx
-msgid "Start"
-msgstr "Start"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Start a bug report with a screenshot of the screen as it looks right now."
-msgstr "Start a bug report with a screenshot of the screen as it looks right now."
-
 #: src/editor/latex/latex-command-completions.ts
 msgid "Start a new page"
 msgstr "Start a new page"
@@ -9418,10 +7805,6 @@ msgstr "Start an environment"
 #: src/settings/settings-dialog.tsx
 msgid "Start browser access after login"
 msgstr "Start browser access after login"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Start source completion"
-msgstr "Start source completion"
 
 #: src/editor/latex/latex-command-completions.ts
 msgid "Start the appendices"
@@ -9480,8 +7863,6 @@ msgstr "Stopping…"
 
 #: src/editor/latex/latex-selection-toolbar.tsx
 #: src/editor/markdown/engine/chrome/selection-toolbar.tsx
-#: src/open-knowledge-app/editor/bubble-menu/InlineFormatButtons.tsx
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
 msgid "Strikethrough"
 msgstr "Strikethrough"
 
@@ -9537,25 +7918,8 @@ msgid "Success"
 msgstr "Success"
 
 #: src/editor/markdown/engine/chrome/review-chrome.tsx
-#: src/editor/markdown/visual-review-overlays.tsx
 msgid "Suggested change"
 msgstr "Suggested change"
-
-#: src/editor/markdown/visual-source-decorations.ts
-msgid "Suggested deletion"
-msgstr "Suggested deletion"
-
-#: src/editor/markdown/visual-source-decorations.ts
-msgid "Suggested insertion"
-msgstr "Suggested insertion"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Suggestion menu navigation"
-msgstr "Suggestion menu navigation"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Suggestion menu open"
-msgstr "Suggestion menu open"
 
 #: src/overleaf/overleaf-changes.tsx
 msgid "Suggestions made on Overleaf, or by anyone with track changes on. Accepting turns the suggested text into ordinary text; rejecting undoes it. Both sides see the result at once"
@@ -9602,12 +7966,7 @@ msgstr "Surface / area integral"
 msgid "Swap editor panes"
 msgstr "Swap editor panes"
 
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Switch between the visual and source editors, keeping your place."
-msgstr "Switch between the visual and source editors, keeping your place."
-
 #: src/app/app-titlebar.tsx
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
 msgid "Switch project"
 msgstr "Switch project"
 
@@ -9676,32 +8035,12 @@ msgstr "SyncTeX bidirectional search"
 msgid "Syntax-highlighted listing (listings)"
 msgstr "Syntax-highlighted listing (listings)"
 
-#: src/open-knowledge-app/editor/components/Tab.tsx
-#: src/open-knowledge-app/editor/registry/descriptor-labels.ts
-msgid "Tab"
-msgstr "Tab"
-
-#: src/open-knowledge-app/editor/components/Tabs.tsx
-msgid "Tab {tabNumber}"
-msgstr "Tab {tabNumber}"
-
-#: src/open-knowledge-app/editor/slash-command/component-items.tsx
-msgid "Tab 1"
-msgstr "Tab 1"
-
-#: src/open-knowledge-app/editor/slash-command/component-items.tsx
-msgid "Tab 2"
-msgstr "Tab 2"
-
 #: src/editor/latex/latex-text.ts
 msgid "table"
 msgstr "table"
 
 #: src/editor/insert/insert-snippets.ts
 #: src/editor/markdown/engine/chrome/slash-items.ts
-#: src/editor/markdown/visual-slash-items.ts
-#: src/editor/markdown/visual-table-span-controls.tsx
-#: src/open-knowledge-app/editor/slash-command/items.tsx
 msgid "Table"
 msgstr "Table"
 
@@ -9725,25 +8064,8 @@ msgstr "Table of contents"
 msgid "Table preview"
 msgstr "Table preview"
 
-#: src/editor/markdown/visual-slash-items.ts
-#: src/open-knowledge-app/editor/components/Tabs.tsx
-#: src/open-knowledge-app/editor/registry/descriptor-labels.ts
-msgid "Tabs"
-msgstr "Tabs"
-
-#: src/open-knowledge-app/editor/components/Tabs.tsx
-msgid "Tabs: {id}"
-msgstr "Tabs: {id}"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Task list"
-msgstr "Task list"
-
 #: src/editor/markdown/engine/chrome/selection-toolbar.tsx
 #: src/editor/markdown/engine/chrome/slash-items.ts
-#: src/editor/markdown/visual-slash-items.ts
-#: src/open-knowledge-app/editor/bubble-menu/BlockTypeSelector.tsx
-#: src/open-knowledge-app/editor/slash-command/items.tsx
 msgid "Task List"
 msgstr "Task List"
 
@@ -9781,7 +8103,6 @@ msgid "TexLab language server (optional editor diagnostics)"
 msgstr "TexLab language server (optional editor diagnostics)"
 
 #: src/editor/markdown/engine/chrome/selection-toolbar.tsx
-#: src/open-knowledge-app/editor/bubble-menu/BlockTypeSelector.tsx
 msgid "Text"
 msgstr "Text"
 
@@ -9853,10 +8174,6 @@ msgstr "The file changed while it was saving. Review the latest text and save ag
 msgid "The first is at {path}:{line}."
 msgstr "The first is at {path}:{line}."
 
-#: src/open-knowledge-app/editor/slash-command/items.tsx
-msgid "The formula <0>c = √(a² + b²)</0> renders inline."
-msgstr "The formula <0>c = √(a² + b²)</0> renders inline."
-
 #: src/editor/latex/latex-command-completions.ts
 msgid "The LaTeX logo"
 msgstr "The LaTeX logo"
@@ -9888,10 +8205,6 @@ msgstr "The Overleaf project connection is no longer active."
 #: src/canvas/paper-reader.tsx
 msgid "The PDF took too long to load. Try again, or open the article in your browser."
 msgstr "The PDF took too long to load. Try again, or open the article in your browser."
-
-#: src/open-knowledge-app/editor/components/PreviewBlockedNotice.tsx
-msgid "The preview blocks resources that don't meet its security rules (for example plain http:// URLs, or code that uses eval). The content above may render incompletely."
-msgstr "The preview blocks resources that don't meet its security rules (for example plain http:// URLs, or code that uses eval). The content above may render incompletely."
 
 #: src/onboarding/onboarding-tour.tsx
 msgid "The preview is editable too"
@@ -9959,7 +8272,6 @@ msgstr "The same conversation as the chat panel in {projectName} on Overleaf. Me
 
 #: src/canvas/document-canvas.tsx
 #: src/editor/markdown/engine/chrome/review-chrome.tsx
-#: src/editor/markdown/visual-markdown-editor.tsx
 msgid "The selected text changed. Select it again before commenting."
 msgstr "The selected text changed. Select it again before commenting."
 
@@ -9972,7 +8284,6 @@ msgid "The service is rate-limiting requests. No retry was made."
 msgstr "The service is rate-limiting requests. No retry was made."
 
 #: src/editor/markdown/engine/lattice-visual-editor.tsx
-#: src/editor/markdown/visual-markdown-editor.tsx
 msgid "The shared version is shown. Your visual draft was kept — copy it, or restore it and try again."
 msgstr "The shared version is shown. Your visual draft was kept — copy it, or restore it and try again."
 
@@ -10053,14 +8364,6 @@ msgstr "This comment has no text yet"
 msgid "This comment is no longer attached to any text, so Overleaf has nowhere to apply this."
 msgstr "This comment is no longer attached to any text, so Overleaf has nowhere to apply this."
 
-#: src/open-knowledge-app/editor/extensions/JsxComponentView.tsx
-msgid "This component changed. Try again."
-msgstr "This component changed. Try again."
-
-#: src/open-knowledge-app/editor/extensions/JsxComponentView.tsx
-msgid "This component was removed."
-msgstr "This component was removed."
-
 #: src/history/conflict-resolver.tsx
 msgid "This computer"
 msgstr "This computer"
@@ -10074,7 +8377,6 @@ msgid "This computer removed this part."
 msgstr "This computer removed this part."
 
 #: src/editor/markdown/engine/lattice-visual-editor.tsx
-#: src/editor/markdown/visual-markdown-editor.tsx
 msgid "This document changed in the same place"
 msgstr "This document changed in the same place"
 
@@ -10172,10 +8474,6 @@ msgstr "This step may take a minute"
 msgid "Three ways to look at a document"
 msgstr "Three ways to look at a document"
 
-#: src/open-knowledge-app/editor/slash-command/component-items.tsx
-msgid "Thumbnails"
-msgstr "Thumbnails"
-
 #: src/editor/latex/latex-command-completions.ts
 msgid "TikZ drawing"
 msgstr "TikZ drawing"
@@ -10198,8 +8496,6 @@ msgstr "Tip"
 
 #: src/editor/markdown/engine/views/code-block-view.tsx
 #: src/editor/markdown/engine/views/component-views.tsx
-#: src/open-knowledge-app/editor/extensions/CodeBlockView.tsx
-#: src/open-knowledge-app/editor/registry/descriptor-labels.ts
 #: src/papers/bib-entry-dialog.tsx
 #: src/papers/bibliography-audit.tsx
 msgid "Title"
@@ -10221,10 +8517,6 @@ msgstr "to"
 msgid "To (short right arrow)"
 msgstr "To (short right arrow)"
 
-#: src/open-knowledge-app/editor/slash-command/items.tsx
-msgid "To do"
-msgstr "To do"
-
 #: src/overleaf/overleaf-history.tsx
 msgid "Today"
 msgstr "Today"
@@ -10237,100 +8529,6 @@ msgstr "Today's date"
 #: src/project/manuscript-checklist.tsx
 msgid "TODOs"
 msgstr "TODOs"
-
-#: src/editor/markdown/visual-slash-items.ts
-#: src/open-knowledge-app/editor/components/componentMap.tsx
-#: src/open-knowledge-app/editor/registry/descriptor-labels.ts
-msgid "Toggle"
-msgstr "Toggle"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Toggle a bullet list."
-msgstr "Toggle a bullet list."
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Toggle a fenced code block."
-msgstr "Toggle a fenced code block."
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Toggle a source comment through CodeMirror."
-msgstr "Toggle a source comment through CodeMirror."
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Toggle a task list."
-msgstr "Toggle a task list."
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Toggle an ordered list."
-msgstr "Toggle an ordered list."
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Toggle bold formatting."
-msgstr "Toggle bold formatting."
-
-#: src/open-knowledge-app/editor/table-controls/TableCellHandles.tsx
-msgid "Toggle header column"
-msgstr "Toggle header column"
-
-#: src/open-knowledge-app/editor/table-controls/TableCellHandles.tsx
-msgid "Toggle header row"
-msgstr "Toggle header row"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Toggle heading levels 1 through 6."
-msgstr "Toggle heading levels 1 through 6."
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Toggle highlight formatting."
-msgstr "Toggle highlight formatting."
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Toggle inline code formatting."
-msgstr "Toggle inline code formatting."
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Toggle italic formatting."
-msgstr "Toggle italic formatting."
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Toggle source comment"
-msgstr "Toggle source comment"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Toggle source tab focus mode"
-msgstr "Toggle source tab focus mode"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Toggle source view"
-msgstr "Toggle source view"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Toggle strikethrough formatting."
-msgstr "Toggle strikethrough formatting."
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Toggle Terminal in its current dock."
-msgstr "Toggle Terminal in its current dock."
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Toggle the left file sidebar."
-msgstr "Toggle the left file sidebar."
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Toggle the right agents panel, where agent conversations live."
-msgstr "Toggle the right agents panel, where agent conversations live."
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Toggle the right document panel."
-msgstr "Toggle the right document panel."
-
-#: src/open-knowledge-app/editor/components/Pdf.tsx
-msgid "Toggle thumbnails"
-msgstr "Toggle thumbnails"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Toggle underline formatting."
-msgstr "Toggle underline formatting."
 
 #: src/app/use-overleaf-workspace.ts
 msgid "Too large for Overleaf, so left on this machine: {files}."
@@ -10359,14 +8557,6 @@ msgstr "Track versions of this project to see who changed what and roll back saf
 #: src/overleaf/overleaf-connect.tsx
 msgid "Trashed"
 msgstr "Trashed"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Traverse OpenKnowledge navigation history backward."
-msgstr "Traverse OpenKnowledge navigation history backward."
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Traverse OpenKnowledge navigation history forward."
-msgstr "Traverse OpenKnowledge navigation history forward."
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Triangle"
@@ -10412,16 +8602,7 @@ msgstr "Tutorial progress: step {0} of {size}"
 msgid "Two files side by side"
 msgstr "Two files side by side"
 
-#: src/open-knowledge-app/editor/components/Pdf.tsx
-msgid "Two-page (even)"
-msgstr "Two-page (even)"
-
-#: src/open-knowledge-app/editor/components/Pdf.tsx
-msgid "Two-page (odd)"
-msgstr "Two-page (odd)"
-
 #: src/editor/markdown/engine/views/component-views.tsx
-#: src/open-knowledge-app/editor/registry/descriptor-labels.ts
 #: src/papers/bib-entry-dialog.tsx
 msgid "Type"
 msgstr "Type"
@@ -10429,10 +8610,6 @@ msgstr "Type"
 #: src/onboarding/onboarding-tour.tsx
 msgid "Type directly in the formatted view without Markdown syntax. On an empty line, press / to insert headings, tables, math, or images"
 msgstr "Type directly in the formatted view without Markdown syntax. On an empty line, press / to insert headings, tables, math, or images"
-
-#: src/open-knowledge-app/editor/components/CodePreviewEditModal.tsx
-msgid "Type to edit; <0>Cmd/Ctrl+Enter</0> saves, <1>Esc</1> cancels."
-msgstr "Type to edit; <0>Cmd/Ctrl+Enter</0> saves, <1>Esc</1> cancels."
 
 #: src/editor/latex/latex-command-completions.ts
 msgid "Typeset a URL"
@@ -10473,8 +8650,6 @@ msgstr "Unclosed inline math {open}."
 #: src/editor/insert/insert-snippets.ts
 #: src/editor/latex/latex-selection-toolbar.tsx
 #: src/editor/markdown/engine/chrome/selection-toolbar.tsx
-#: src/open-knowledge-app/editor/bubble-menu/InlineFormatButtons.tsx
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
 msgid "Underline"
 msgstr "Underline"
 
@@ -10487,25 +8662,9 @@ msgctxt "macOS menu bar"
 msgid "Undo"
 msgstr "Undo"
 
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Undo or redo"
-msgstr "Undo or redo"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Undo or redo visual-editor changes through TipTap collaboration history."
-msgstr "Undo or redo visual-editor changes through TipTap collaboration history."
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Undo or redo your own edits, leaving edits from collaborators and agents in place."
-msgstr "Undo or redo your own edits, leaving edits from collaborators and agents in place."
-
 #: src/history/history-drawer.tsx
 msgid "Undo this Agent turn's file changes"
 msgstr "Undo this Agent turn's file changes"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Undo, redo, or step through selection changes in the Edit source pane or a code-shaped property field."
-msgstr "Undo, redo, or step through selection changes in the Edit source pane or a code-shaped property field."
 
 #: src/telemetry/global-error-capture.ts
 msgid "Unexpected error"
@@ -10531,11 +8690,6 @@ msgstr "Unhandled promise rejection"
 msgid "Union"
 msgstr "Union"
 
-#: src/open-knowledge-app/editor/extensions/RawMdxFallbackCMView.tsx
-#: src/open-knowledge-app/editor/utils/severity.ts
-msgid "unknown"
-msgstr "unknown"
-
 #: src/history/versions-timeline.tsx
 #: src/overleaf/overleaf-history.tsx
 #: src/overleaf/use-overleaf-track-changes.ts
@@ -10554,18 +8708,6 @@ msgstr "Unknown citation key “{key}”."
 #: src/editor/markdown/engine/views/raw-block-view.tsx
 msgid "Unknown component: {componentName}"
 msgstr "Unknown component: {componentName}"
-
-#: src/open-knowledge-app/editor/extensions/JsxComponentView.tsx
-msgid "Unknown component: {componentName} — source editable below"
-msgstr "Unknown component: {componentName} — source editable below"
-
-#: src/open-knowledge-app/editor/extensions/RawMdxFallbackCMView.tsx
-msgid "Unknown component: {unregisteredComponentName}"
-msgstr "Unknown component: {unregisteredComponentName}"
-
-#: src/open-knowledge-app/editor/utils/validate-css-length.ts
-msgid "Unknown CSS unit. Use px, %, rem, em, vh, vw, ch, ex, or fr."
-msgstr "Unknown CSS unit. Use px, %, rem, em, vh, vw, ch, ex, or fr."
 
 #: src/editor/latex/latex-diagnostics.ts
 msgid "Unknown label “{key}”."
@@ -10596,8 +8738,6 @@ msgid "Unnumbered single-line equation"
 msgstr "Unnumbered single-line equation"
 
 #: src/editor/markdown/engine/chrome/slash-items.ts
-#: src/editor/markdown/visual-slash-items.ts
-#: src/open-knowledge-app/editor/slash-command/items.tsx
 msgid "Unordered list of items."
 msgstr "Unordered list of items."
 
@@ -10609,14 +8749,6 @@ msgstr "Unpaywall"
 msgid "Unpin tab"
 msgstr "Unpin tab"
 
-#: src/open-knowledge-app/editor/utils/validate-media-url.ts
-msgid "Unrecognized {name} URL. Paste a valid {name} share or embed link, or a direct video file URL."
-msgstr "Unrecognized {name} URL. Paste a valid {name} share or embed link, or a direct video file URL."
-
-#: src/open-knowledge-app/editor/extensions/RawMdxFallbackCMView.tsx
-msgid "Unregistered component: {unregisteredComponentName}"
-msgstr "Unregistered component: {unregisteredComponentName}"
-
 #: src/overleaf/overleaf-comments.tsx
 msgid "Unresolved"
 msgstr "Unresolved"
@@ -10625,10 +8757,6 @@ msgstr "Unresolved"
 msgid "Unsaved changes"
 msgstr "Unsaved changes"
 
-#: src/open-knowledge-app/editor/utils/validate-media-url.ts
-msgid "Unsupported extension .{extension}. Accepts: {accepted}."
-msgstr "Unsupported extension .{extension}. Accepts: {accepted}."
-
 #: src/editor/spreadsheet/spreadsheet-yjs.ts
 msgid "Unsupported spreadsheet collaboration format: {version}"
 msgstr "Unsupported spreadsheet collaboration format: {version}"
@@ -10636,10 +8764,6 @@ msgstr "Unsupported spreadsheet collaboration format: {version}"
 #: src/editor/markdown/engine/views/component-views.tsx
 msgid "Untitled"
 msgstr "Untitled"
-
-#: src/open-knowledge-app/editor/components/File.tsx
-msgid "Untitled file"
-msgstr "Untitled file"
 
 #: src/App.tsx
 msgid "Untitled research"
@@ -10726,21 +8850,9 @@ msgstr "Upload “{name}” to Overleaf and connect this folder?\n"
 msgid "Upload and connect"
 msgstr "Upload and connect"
 
-#: src/open-knowledge-app/editor/components/PropPanel.tsx
-msgid "Upload failed: {message}"
-msgstr "Upload failed: {message}"
-
-#: src/open-knowledge-app/editor/components/PropPanel.tsx
-msgid "Upload from computer"
-msgstr "Upload from computer"
-
 #: src/overleaf/overleaf-connect.tsx
 msgid "Upload this project to Overleaf"
 msgstr "Upload this project to Overleaf"
-
-#: src/open-knowledge-app/editor/components/PropPanel.tsx
-msgid "Uploading"
-msgstr "Uploading"
 
 #. placeholder {0}: publishName.trim()
 #: src/overleaf/overleaf-connect.tsx
@@ -10762,10 +8874,6 @@ msgstr "Upsilon"
 #: src/papers/bibliography-audit.tsx
 msgid "URL"
 msgstr "URL"
-
-#: src/open-knowledge-app/editor/components/Embed.tsx
-msgid "URL must start with http:// or https://"
-msgstr "URL must start with http:// or https://"
 
 #: src/onboarding/onboarding-tour.tsx
 msgid "Use + to create a presentation, spreadsheet, or board"
@@ -10794,10 +8902,6 @@ msgstr "Use the infinite canvas for diagrams, arrows, and freehand notes. Every 
 #: src/settings/literature-settings.tsx
 msgid "Use your own API quota for paper searches, imports, and citation checks."
 msgstr "Use your own API quota for paper searches, imports, and citation checks."
-
-#: src/open-knowledge-app/editor/slash-command/embed-starter-items.tsx
-msgid "Users"
-msgstr "Users"
 
 #: src/settings/literature-settings.tsx
 msgid "Using environment key"
@@ -10928,10 +9032,6 @@ msgstr "Vertical space"
 msgid "via texcount -inc"
 msgstr "via texcount -inc"
 
-#: src/open-knowledge-app/editor/registry/descriptor-labels.ts
-msgid "Video"
-msgstr "Video"
-
 #: src/App.tsx
 msgid "View"
 msgstr "View"
@@ -10941,18 +9041,9 @@ msgctxt "macOS menu bar"
 msgid "View"
 msgstr "View"
 
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "View in source"
-msgstr "View in source"
-
 #: src/editor/markdown/engine/chrome/selection-toolbar.tsx
-#: src/open-knowledge-app/editor/bubble-menu/ViewInSourceBubbleButton.tsx
 msgid "View in source Markdown"
 msgstr "View in source Markdown"
-
-#: src/open-knowledge-app/editor/components/Mermaid.tsx
-msgid "View only"
-msgstr "View only"
 
 #: src/canvas/paper-reader.tsx
 msgid "View original PDF"
@@ -10970,60 +9061,17 @@ msgstr "Vim and Emacs keep their modal bindings inside the editor only"
 msgid "Vim mode"
 msgstr "Vim mode"
 
-#: src/open-knowledge-app/editor/components/Video.tsx
-msgid "Vimeo video player"
-msgstr "Vimeo video player"
-
 #: src/components/ui/apple-color-picker.tsx
 msgid "Violet"
 msgstr "Violet"
 
 #: src/editor/markdown/engine/lattice-visual-editor.tsx
-#: src/editor/markdown/visual-markdown-editor.tsx
 msgid "Visual editing is unavailable because this Markdown contains unsupported or lossy syntax. Use source mode to preserve it."
 msgstr "Visual editing is unavailable because this Markdown contains unsupported or lossy syntax. Use source mode to preserve it."
 
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Visual editor"
-msgstr "Visual editor"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Visual editor find input focused"
-msgstr "Visual editor find input focused"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Visual editor find open"
-msgstr "Visual editor find open"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Visual editor list item"
-msgstr "Visual editor list item"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Visual editor replace input focused"
-msgstr "Visual editor replace input focused"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Visual editor selection"
-msgstr "Visual editor selection"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Visual editor table"
-msgstr "Visual editor table"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Visual editor table selection"
-msgstr "Visual editor table selection"
-
 #: src/editor/markdown/engine/passive-view.tsx
-#: src/editor/markdown/visual-markdown-editor.tsx
-#: src/editor/markdown/visual-passive-viewport.tsx
 msgid "Visual Markdown editor"
 msgstr "Visual Markdown editor"
-
-#: src/editor/markdown/visual-markdown-editor.tsx
-msgid "Visual Markdown handoff"
-msgstr "Visual Markdown handoff"
 
 #: src/editor/insert/insert-snippets.ts
 msgid "Vmatrix"
@@ -11074,10 +9122,6 @@ msgstr "Weierstrass p"
 msgid "Welcome to Lattice"
 msgstr "Welcome to Lattice"
 
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "When the Comments tab is open"
-msgstr "When the Comments tab is open"
-
 #: src/overleaf/overleaf-connect.tsx
 msgid "When you delete a file here"
 msgstr "When you delete a file here"
@@ -11087,13 +9131,11 @@ msgid "White"
 msgstr "White"
 
 #: src/editor/latex/search-panel.ts
-#: src/editor/markdown/visual-markdown-find-replace.tsx
 #: src/pdf/pdf-viewer.tsx
 msgid "Whole word"
 msgstr "Whole word"
 
 #: src/editor/insert/figure-insert-dialog.tsx
-#: src/open-knowledge-app/editor/registry/descriptor-labels.ts
 msgid "Width"
 msgstr "Width"
 
@@ -11105,24 +9147,7 @@ msgstr "Width of the current line"
 msgid "Width of the text block"
 msgstr "Width of the text block"
 
-#: src/open-knowledge-app/editor/registry/descriptor-labels.ts
-msgid "Wiki Embed Audio"
-msgstr "Wiki Embed Audio"
-
-#: src/open-knowledge-app/editor/registry/descriptor-labels.ts
-msgid "Wiki Embed File"
-msgstr "Wiki Embed File"
-
-#: src/open-knowledge-app/editor/registry/descriptor-labels.ts
-msgid "Wiki Embed Image"
-msgstr "Wiki Embed Image"
-
-#: src/open-knowledge-app/editor/registry/descriptor-labels.ts
-msgid "Wiki Embed Video"
-msgstr "Wiki Embed Video"
-
 #: src/editor/markdown/engine/chrome/references.tsx
-#: src/editor/markdown/visual-wiki-link-suggestion.tsx
 msgid "Wiki link suggestions"
 msgstr "Wiki link suggestions"
 
@@ -11147,10 +9172,6 @@ msgstr "Words inside math mode"
 #: src/project/paper-library.tsx
 msgid "Working…"
 msgstr "Working…"
-
-#: src/open-knowledge-app/lib/keyboard-shortcuts.ts
-msgid "Workspace"
-msgstr "Workspace"
 
 #: src/project/project-dialogs.tsx
 msgid "Wrap in environment"
@@ -11192,10 +9213,6 @@ msgstr "Year unavailable"
 #: src/components/ui/apple-color-picker.tsx
 msgid "Yellow"
 msgstr "Yellow"
-
-#: src/open-knowledge-app/editor/slash-command/component-items.tsx
-msgid "yes"
-msgstr "yes"
 
 #: src/overleaf/overleaf-history.tsx
 msgid "Yesterday"
@@ -11243,10 +9260,6 @@ msgstr "Your Overleaf session has expired. Sign in again to continue. Your local
 msgid "Your project files are safe. Restart Lattice to reopen the window, or copy the error details if the problem continues."
 msgstr "Your project files are safe. Restart Lattice to reopen the window, or copy the error details if the problem continues."
 
-#: src/open-knowledge-app/editor/components/Video.tsx
-msgid "YouTube video player"
-msgstr "YouTube video player"
-
 #: src/editor/insert/insert-snippets.ts
 msgid "Zeta"
 msgstr "Zeta"
@@ -11262,16 +9275,12 @@ msgstr "Zoom"
 
 #: src/canvas/zoom-controls.tsx
 #: src/editor/markdown/engine/views/mermaid-preview.tsx
-#: src/open-knowledge-app/editor/components/Mermaid.tsx
-#: src/open-knowledge-app/editor/components/Pdf.tsx
 #: src/pdf/pdf-viewer.tsx
 msgid "Zoom in"
 msgstr "Zoom in"
 
 #: src/canvas/zoom-controls.tsx
 #: src/editor/markdown/engine/views/mermaid-preview.tsx
-#: src/open-knowledge-app/editor/components/Mermaid.tsx
-#: src/open-knowledge-app/editor/components/Pdf.tsx
 #: src/pdf/pdf-viewer.tsx
 msgid "Zoom out"
 msgstr "Zoom out"

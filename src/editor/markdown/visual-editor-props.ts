@@ -1,8 +1,7 @@
 /**
  * Lattice's host contract for visual Markdown editing: the props the document
- * canvas hands a visual editor, implemented by both editor engines (see
- * `visualEditorEngine` in app-settings), so the canvas can mount either one
- * without knowing which it has.
+ * canvas hands the visual editor, so the canvas needs nothing of the engine
+ * behind it.
  *
  * Clean implementation for Lattice; spec: docs/visual-editor-spec.md.
  */

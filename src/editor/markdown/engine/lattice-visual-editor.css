@@ -1,8 +1,7 @@
 /*
  * The Lattice visual Markdown engine's writing surface. Written from Lattice's
  * design tokens (src/styles/foundations.css); every rule is scoped under
- * `.lx-md-editor`, so nothing here reaches the vendored editor or the rest of
- * the app. Clean implementation for Lattice; spec: docs/visual-editor-spec.md.
+ * `.lx-md-editor`, so nothing here reaches the rest of the app. Clean implementation for Lattice; spec: docs/visual-editor-spec.md.
  */
 
 /* The canvas pads previews to a 760px column; this surface centers its own. */

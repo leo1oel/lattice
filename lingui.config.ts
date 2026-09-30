@@ -18,8 +18,6 @@ export default defineConfig({
     exclude: [
       "src/**/*.test.{ts,tsx}",
       "src/platform/test-setup.ts",
-      // The vendored core carries no Lingui macros.
-      "src/open-knowledge-core/**",
     ],
   }],
 });

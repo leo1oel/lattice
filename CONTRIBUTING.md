@@ -195,9 +195,6 @@ a stage passes locally and fails in CI, suspect the freshness cache first —
 | `literature-worker/` | The public literature proxy Worker and its tests |
 | `docs/` | Design decisions and subsystem documentation for contributors |
 
-`src/open-knowledge-app/` is vendored from an upstream project and can be
-overwritten when it is refreshed. Prefer changes outside it when practical.
-
 If you are unsure where a change belongs, open an issue with the intended user
 experience before investing in a large implementation.
 
@@ -207,19 +204,6 @@ Lattice is licensed under the **GNU General Public License, version 3 or later**
 (see [`LICENSE`](LICENSE)). By opening a pull request you agree that your
 contribution is offered under those terms. There is no CLA and no copyright
 assignment.
-
-The project is GPL because it vendors and links GPL-3.0-or-later code from
-[Inkeep Open Knowledge](https://github.com/inkeep/open-knowledge). Three trees
-carry that inheritance, and each has rules:
-
-| Tree | What it is | Rule |
-| --- | --- | --- |
-| `src/open-knowledge-app/` | Vendored verbatim from upstream `packages/app/src` | Regenerate with `node scripts/vendor-open-knowledge.mjs`; `open-knowledge-app.lock.json` is the manifest. Do not hand-edit vendored files — local changes belong in the seam files, which carry a `Local seam — not upstream code` header. |
-| `src/open-knowledge-core/` | Vendored subset of upstream `packages/core/src` | Not auto-synced. `open-knowledge-core.lock.json` records the upstream and reviewed Lattice blob for every file; after an intentional change, re-review and refresh it (`node scripts/lock-open-knowledge-core.mjs --check` verifies it). |
-| Adapted files in `src/editor/markdown/` | Lattice code adapted from upstream | Each file's adaptation header names the upstream file and commit. **Preserve those headers** — they are the per-file attribution GPLv3 §5 requires. |
-
-Both vendored trees also carry a copy of the GPL at
-`src/open-knowledge-{app,core}/LICENSE`. Do not remove them.
 
 When you add a dependency, adapt code from elsewhere, or bundle an asset, record
 it in [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md). That file also lists
