@@ -8,7 +8,7 @@ use crate::models::ProjectSnapshot;
 use chrono::{Datelike, Local, NaiveDate, TimeZone, Timelike};
 use std::fs::{self, File};
 use std::io::{self, Read};
-use std::os::unix::fs::PermissionsExt;
+use std::os::unix::fs::{MetadataExt, PermissionsExt};
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 use walkdir::WalkDir;
@@ -58,7 +58,7 @@ pub fn export_project_zip(root: &Path, zip_path: &Path) -> Result<(), String> {
     }
     let written = File::create(zip_path)
         .map_err(err)
-        .and_then(|file| write_project_zip(&root, zip_path, file))
+        .and_then(|file| write_project_zip(&root, file))
         .map_err(|error| format!("Could not create the ZIP archive: {error}"));
     if written.is_err() {
         let _ = fs::remove_file(zip_path);
@@ -68,13 +68,23 @@ pub fn export_project_zip(root: &Path, zip_path: &Path) -> Result<(), String> {
 
 /// Add everything under `root` except the export exclusions, following
 /// symbolic links, with each entry's permissions and modification time.
-fn write_project_zip(root: &Path, zip_path: &Path, file: File) -> Result<(), String> {
-    // The archive may be written inside the project; it must not contain itself.
-    let archive_path = zip_path.canonicalize().map_err(err)?;
+/// Like `zip -r`, a dangling symbolic link or a link loop is skipped with a
+/// warning rather than failing the export.
+fn write_project_zip(root: &Path, file: File) -> Result<(), String> {
+    // The archive may be written inside the project (possibly through a
+    // symlinked folder); it must not contain itself.
+    let archive = file.metadata().map_err(err)?;
     let mut writer = ZipWriter::new(file);
     let walk = WalkDir::new(root).follow_links(true).sort_by_file_name().into_iter();
     for entry in walk.filter_entry(|entry| !excluded_dir(root, entry.path())) {
-        let entry = entry.map_err(err)?;
+        let entry = match entry {
+            Ok(entry) => entry,
+            Err(error) if unreadable_link(&error) => {
+                log::warn!(target: "lattice::project", "Skipping {error} in the ZIP export");
+                continue;
+            }
+            Err(error) => return Err(err(error)),
+        };
         let relative = entry.path().strip_prefix(root).map_err(err)?;
         if relative.as_os_str().is_empty() {
             continue;
@@ -88,13 +98,23 @@ fn write_project_zip(root: &Path, zip_path: &Path, file: File) -> Result<(), Str
             .large_file(metadata.len() >= u64::from(u32::MAX));
         if metadata.is_dir() {
             writer.add_directory(format!("{name}/"), options).map_err(err)?;
-        } else if !excluded_file(name) && entry.path() != archive_path {
+        } else if !excluded_file(name)
+            && (metadata.dev(), metadata.ino()) != (archive.dev(), archive.ino())
+        {
             writer.start_file(name, options).map_err(err)?;
             io::copy(&mut File::open(entry.path()).map_err(err)?, &mut writer).map_err(err)?;
         }
     }
     writer.finish().map_err(err)?;
     Ok(())
+}
+
+/// A walk error for a symbolic link whose target is missing or leads back
+/// into one of its own ancestors.
+fn unreadable_link(error: &walkdir::Error) -> bool {
+    error.loop_ancestor().is_some()
+        || (error.io_error().is_some_and(|io| io.kind() == io::ErrorKind::NotFound)
+            && error.path().is_some_and(|path| path.is_symlink()))
 }
 
 fn excluded_dir(root: &Path, path: &Path) -> bool {
@@ -173,12 +193,17 @@ pub fn import_project_zip(zip_path: &Path, parent: &Path) -> Result<ProjectSnaps
 }
 
 /// Extract every entry of `zip_path` beneath `dest`, keeping file permissions
-/// and modification times. Refuses the whole archive when any entry would
-/// land outside `dest`.
+/// and modification times. Symbolic-link entries are skipped with a warning;
+/// the whole archive is refused when any other entry would land outside
+/// `dest`.
 fn extract_zip(zip_path: &Path, dest: &Path) -> Result<(), String> {
     let mut archive = ZipArchive::new(File::open(zip_path).map_err(err)?).map_err(err)?;
     for index in 0..archive.len() {
         let mut file = archive.by_index(index).map_err(err)?;
+        if file.is_symlink() {
+            log::warn!(target: "lattice::project", "Skipping symbolic link {} in the ZIP import", file.name());
+            continue;
+        }
         let name = safe_zip_entry_name(&file)
             .ok_or_else(|| format!("refusing unsafe path {}", file.name()))?;
         let target = dest.join(&name);
@@ -194,8 +219,8 @@ fn extract_zip(zip_path: &Path, dest: &Path) -> Result<(), String> {
         if let Some(modified) = file.last_modified().and_then(system_time) {
             let _ = out.set_modified(modified);
         }
-        if let Some(mode) = file.unix_mode() {
-            fs::set_permissions(&target, fs::Permissions::from_mode(mode & 0o777)).map_err(err)?;
+        if let Some(mode) = file.unix_mode().map(|mode| mode & 0o777).filter(|&mode| mode != 0) {
+            fs::set_permissions(&target, fs::Permissions::from_mode(mode | 0o600)).map_err(err)?;
         }
     }
     Ok(())
@@ -282,6 +307,62 @@ mod tests {
                 "vendor/.git/HEAD",
             ]
         );
+    }
+
+    #[test]
+    fn export_skips_dangling_links_and_link_loops() {
+        let fixture = Fixture::empty("export-zip-links");
+        fixture.write("a.tex", "x\n");
+        std::os::unix::fs::symlink("nowhere", fixture.path("dangling")).unwrap();
+        std::os::unix::fs::symlink(".", fixture.path("loop")).unwrap();
+        let exports = Fixture::empty("export-zip-links-out");
+        let zip_path = exports.path("paper.zip");
+        export_project_zip(&fixture.root, &zip_path).unwrap();
+        assert_eq!(names(&zip_path), ["a.tex"]);
+    }
+
+    #[test]
+    fn export_into_a_symlinked_folder_does_not_include_itself() {
+        let fixture = Fixture::empty("export-zip-symlinked-out");
+        fixture.write("main.tex", "x\n");
+        let elsewhere = Fixture::empty("export-zip-elsewhere");
+        std::os::unix::fs::symlink(&elsewhere.root, fixture.path("out")).unwrap();
+        let zip_path = fixture.root.join("out/paper.zip");
+        export_project_zip(&fixture.root, &zip_path).unwrap();
+        assert_eq!(names(&zip_path), ["main.tex", "out/"]);
+    }
+
+    #[test]
+    fn import_keeps_owner_access_when_an_entry_stores_no_mode() {
+        let scratch = Fixture::empty("zip-zero-mode");
+        let zip_path = scratch.path("paper.zip");
+        let mut writer = ZipWriter::new(File::create(&zip_path).unwrap());
+        writer.start_file("main.tex", SimpleFileOptions::default().unix_permissions(0)).unwrap();
+        writer.write_all(b"ok").unwrap();
+        writer.finish().unwrap();
+
+        let parent = Fixture::empty("zip-zero-mode-parent");
+        let snapshot = import_project_zip(&zip_path, &parent.root).unwrap();
+        let main = PathBuf::from(&snapshot.root).join("main.tex");
+        assert_eq!(fs::read_to_string(&main).unwrap(), "ok");
+        assert_eq!(fs::metadata(&main).unwrap().permissions().mode() & 0o600, 0o600);
+    }
+
+    #[test]
+    fn import_skips_symbolic_link_entries() {
+        let scratch = Fixture::empty("zip-symlink-entry");
+        let zip_path = scratch.path("paper.zip");
+        let mut writer = ZipWriter::new(File::create(&zip_path).unwrap());
+        writer.start_file("main.tex", SimpleFileOptions::default()).unwrap();
+        writer.write_all(b"ok").unwrap();
+        writer.add_symlink("secrets", "/etc", SimpleFileOptions::default()).unwrap();
+        writer.finish().unwrap();
+
+        let parent = Fixture::empty("zip-symlink-entry-parent");
+        let snapshot = import_project_zip(&zip_path, &parent.root).unwrap();
+        let project = PathBuf::from(&snapshot.root);
+        assert_eq!(fs::read_to_string(project.join("main.tex")).unwrap(), "ok");
+        assert!(fs::symlink_metadata(project.join("secrets")).is_err());
     }
 
     #[test]
