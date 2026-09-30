@@ -79,3 +79,12 @@ export function openSlidePresenterWindowOptions(rawUrl) {
     },
   };
 }
+
+/**
+ * The About panel the release build shows: Electron's default one, not the
+ * Tauri panel. Trellis's license asks shipped apps to show this credit;
+ * keep it identical to `TRELLIS_ATTRIBUTION` in src-tauri/src/native_locale.rs.
+ */
+export const ABOUT_PANEL_OPTIONS = Object.freeze({
+  credits: "Uses Trellis by DanFessler - github.com/DanFessler/trellis",
+});
