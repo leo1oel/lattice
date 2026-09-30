@@ -754,6 +754,16 @@ function renderUnresolved(all, { heading = "##", scope = "every closure" } = {})
   return { markdown: lines.join("\n"), missingField, missingText };
 }
 
+const FINDINGS_INTRO = [
+  "Lattice ships under Apache-2.0. Everything below is a dependency whose",
+  "terms are *not* plainly permissive, listed so the interaction with that",
+  "license gets an answer rather than an assumption. A `dual` row offers a",
+  "permissive alternative, which Lattice elects (Apache-2.0 where offered) and",
+  "names in the row; a `non-spdx` row",
+  "has a misleading `license` field but a permissive license in the file it",
+  "points at.",
+];
+
 function renderFindings(all, { heading = "##", scope = "all closures", note = "" } = {}) {
   const flagged = all
     .map((entry) => ({ entry, verdict: classify(entry) }))
@@ -768,13 +778,7 @@ function renderFindings(all, { heading = "##", scope = "all closures", note = ""
   const lines = [
     `${heading} Copyleft, reciprocal and source-available dependencies — ${scope}`,
     "",
-    "Lattice ships under Apache-2.0. Everything below is a dependency whose",
-    "terms are *not* plainly permissive, listed so the interaction with that",
-    "license gets an answer rather than an assumption. A `dual` row offers a",
-    "permissive alternative, which Lattice elects (Apache-2.0 where offered) and",
-    "names in the row; a `non-spdx` row",
-    "has a misleading `license` field but a permissive license in the file it",
-    "points at.",
+    ...FINDINGS_INTRO,
     "",
   ];
   if (note) lines.push(note, "");
@@ -883,7 +887,7 @@ function stagedSection(runtime, existing, findings, unresolved) {
     const previous = sliceSection(existing, runtime.begin, runtime.end);
     if (previous && !previous.includes(runtime.incomplete[0])) {
       runtime.carriedOver = true;
-      return [previous];
+      return [previous.replace(/^Lattice ships under [^\n]*\n(?:[^\n]+\n)*?points at\.$/gm, FINDINGS_INTRO.join("\n"))];
     }
     return [runtime.begin, [`## ${runtime.title}`, "", ...runtime.incomplete, ""].join("\n"), runtime.end];
   }

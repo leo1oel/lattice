@@ -17686,10 +17686,11 @@ The prepare script additionally stages these notices by hand: `src-tauri/synara-
 
 ### Copyleft, reciprocal and source-available dependencies — Synara sidecar
 
-Lattice ships under GPL-3.0-or-later. Everything below is a dependency whose
+Lattice ships under Apache-2.0. Everything below is a dependency whose
 terms are *not* plainly permissive, listed so the interaction with that
 license gets an answer rather than an assumption. A `dual` row offers a
-permissive alternative and is only listed for completeness; a `non-spdx` row
+permissive alternative, which Lattice elects (Apache-2.0 where offered) and
+names in the row; a `non-spdx` row
 has a misleading `license` field but a permissive license in the file it
 points at.
 
@@ -20571,10 +20572,11 @@ Original Author, when distributed with the Software.
 
 ### Copyleft, reciprocal and source-available dependencies — Open Slide runtime
 
-Lattice ships under GPL-3.0-or-later. Everything below is a dependency whose
+Lattice ships under Apache-2.0. Everything below is a dependency whose
 terms are *not* plainly permissive, listed so the interaction with that
 license gets an answer rather than an assumption. A `dual` row offers a
-permissive alternative and is only listed for completeness; a `non-spdx` row
+permissive alternative, which Lattice elects (Apache-2.0 where offered) and
+names in the row; a `non-spdx` row
 has a misleading `license` field but a permissive license in the file it
 points at.
 
