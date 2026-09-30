@@ -21,6 +21,7 @@ import { Input } from "../components/ui/input";
 import { PanelHeader } from "../components/ui/panel-header";
 import { ScrollArea } from "../components/ui/scroll-area";
 import { SearchField } from "../components/ui/search-field";
+import { useCompositionGuard } from "../project/use-composition-guard";
 import { rowClassName } from "../components/ui/row";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
 import { SettingsSectionHeader } from "../components/ui/settings-section-header";
@@ -502,6 +503,7 @@ function OverleafPicker(props: PickerProps) {
   const [search, setSearch] = useState("");
   const [showArchived, setShowArchived] = useState(false);
   const [selected, setSelected] = useState<string | null>(null);
+  const { compositionProps, isComposing } = useCompositionGuard();
   const [cloning, setCloning] = useState<OverleafProject | null>(null);
   const [publishing, setPublishing] = useState(false);
   const [transferError, setTransferError] = useState<string | null>(null);
@@ -646,7 +648,7 @@ Cancel — download a separate copy into a new folder and leave that one alone.`
     const target = event.target as HTMLElement;
     const row = target.closest<HTMLElement>(".overleaf-project-main");
     const inSearch = target instanceof HTMLInputElement && Boolean(target.closest(".overleaf-search"));
-    if (working || !ordered.length || event.nativeEvent.isComposing || !(row || inSearch)) return;
+    if (working || !ordered.length || isComposing(event) || !(row || inSearch)) return;
     // A focused row acts from itself; the search field acts from the selected row.
     const current = row ? row.dataset.projectId : selected;
     const index = ordered.findIndex((project) => project.id === current);
@@ -757,6 +759,7 @@ Cancel — download a separate copy into a new folder and leave that one alone.`
                 clearLabel={t`Clear search`}
                 placeholder={t`Search by project or owner…`}
                 autoFocus
+                {...compositionProps}
                 value={search}
                 disabled={working}
                 onChange={(event) => setSearch(event.target.value)}

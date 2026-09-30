@@ -258,6 +258,15 @@ describe("Overleaf picker dialog", () => {
     fireEvent.click(first);
     const search = screen.getByRole("searchbox", { name: "Search Overleaf projects" });
     fireEvent.keyDown(search, { key: "Enter", isComposing: true });
+    // WebKit can report the accepting Enter as keyCode 229 / "Process", or
+    // right after compositionend with no composing flag at all.
+    fireEvent.keyDown(search, { key: "Enter", keyCode: 229 });
+    fireEvent.keyDown(search, { key: "Process" });
+    fireEvent.compositionStart(search);
+    fireEvent.compositionEnd(search);
+    fireEvent.keyDown(search, { key: "Enter" });
+    // The guard lifts once the event turn that ended composition is over.
+    await new Promise((resolve) => setTimeout(resolve, 0));
     fireEvent.change(search, { target: { value: "a" } });
     const clear = screen.getByRole("button", { name: "Clear search" });
     fireEvent.keyDown(clear, { key: "Enter" });
