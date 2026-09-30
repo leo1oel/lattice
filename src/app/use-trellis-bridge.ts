@@ -3,14 +3,14 @@ import { useEffect, useLayoutEffect, useRef } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { invoke } from "@tauri-apps/api/core";
 import type {
-  BuildResult, CanvasMode, DocumentViewMode, FileViewState, PaperSummary, ProjectSnapshot, SettingsTab,
+  CanvasMode, DocumentViewMode, FileViewState, PaperSummary, ProjectSnapshot, SettingsTab,
 } from "../app-types";
 import { arxivIdFromTabKey, isHtmlFilePath, isPaperTabKey } from "../app-utils";
 import type { ReferenceAssetPreview } from "../project/reference-preview";
 import type { TrellisBridge, TrellisController } from "../trellis/trellis-controller";
 import type { SearchDialog } from "./app-search-dialogs";
 import { setNotice } from "./notify";
-import type { useBuildPipeline } from "./use-build-pipeline";
+import type { BuildOutcome, useBuildPipeline } from "./use-build-pipeline";
 import type { PaperView } from "./use-document-buffers";
 import type { useEditorComments } from "./use-editor-comments";
 import type { useProjectSearch } from "./use-project-search";
@@ -40,7 +40,7 @@ export type TrellisBridgeApp = {
   paperView: PaperView | null;
   paperMarkdown: string;
   paperBlog: string | null;
-  build: BuildResult | null;
+  lastBuild: BuildOutcome | null;
   building: boolean;
   buildPipeline: Pick<ReturnType<typeof useBuildPipeline>, "cleanAndRebuild" | "abortBuild">;
   synara: Pick<ReturnType<typeof useSynaraHost>, "requestRuntime" | "mountFrame" | "notifyPanelOpened">;
@@ -82,7 +82,7 @@ export function useTrellisBridge(app: TrellisBridgeApp) {
   const {
     trellis, project, projectRef, projectAssetPaths, papers, activeFile, activeFileRef, activeTabKey, activePaper,
     activePaperDirty, activeAsset, source, sourceRef, savedSource, openTabs, tabsSettledRoot,
-    workspacePersistenceReadyRoot, canvasMode, paperView, paperMarkdown, paperBlog, build, building, buildPipeline,
+    workspacePersistenceReadyRoot, canvasMode, paperView, paperMarkdown, paperBlog, lastBuild, building, buildPipeline,
     synara, editorComments, referenceImport, projectSearch, getFileViewState, openProjectFile, selectEditorTab,
     closeEditorTab, save, compile, compileAndShowPdf, revealSourceInPdf, openDocumentMode, changePaperView,
     openSettings, openLiterature, refreshTodos, setSearchDialog, setHistoryOpen, setGitOpen, setTodosOpen,
@@ -208,16 +208,15 @@ export function useTrellisBridge(app: TrellisBridgeApp) {
     : activeFile.toLocaleLowerCase().endsWith(".md") ? "markdown"
       : isHtmlFilePath(activeFile) ? "html" : null;
   const trellisViewMode = canvasMode === "pdf" ? "pdf" : canvasMode === "split" ? "split" : "source";
-  const trellisBuiltIn = build?.success ? build.durationMs / 1000 : null;
   const trellisPaperViews = Boolean(activePaper && paperBlog !== null && paperMarkdown);
   useLayoutEffect(() => {
     trellis.docTools.set({
       building,
-      builtIn: trellisBuiltIn,
+      lastBuild,
       viewMode: trellisViewMode,
       viewModes: trellisViewModes,
       paperView: activePaper ? paperView : null,
       paperViews: trellisPaperViews,
     });
-  }, [activePaper, building, paperView, trellis, trellisBuiltIn, trellisPaperViews, trellisViewMode, trellisViewModes]);
+  }, [activePaper, building, lastBuild, paperView, trellis, trellisPaperViews, trellisViewMode, trellisViewModes]);
 }

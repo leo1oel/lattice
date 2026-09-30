@@ -1137,10 +1137,6 @@ msgid "Build superseded"
 msgstr "构建已被新操作取代"
 
 #: src/trellis/trellis-header-tools.tsx
-msgid "Build the project and show the PDF · ⌘S · last build {seconds}s · Shift-click for a clean rebuild"
-msgstr "构建项目并显示 PDF · ⌘S · 上次构建用时 {seconds} 秒 · 按住 Shift 点击可执行全新重建"
-
-#: src/trellis/trellis-header-tools.tsx
 msgid "Build the project and show the PDF · ⌘S · Shift-click for a clean rebuild"
 msgstr "构建项目并显示 PDF · ⌘S · 按住 Shift 点击可执行全新重建"
 
@@ -1159,6 +1155,10 @@ msgstr "正在构建… · 完成后 PDF 会刷新"
 #: src/settings/settings-dialog.tsx
 msgid "Builds"
 msgstr "构建"
+
+#: src/trellis/trellis-header-tools.tsx
+msgid "Built in {seconds}s · Build the project and show the PDF · ⌘S · Shift-click for a clean rebuild"
+msgstr "构建完成，用时 {seconds} 秒 · 构建项目并显示 PDF · ⌘S · 按住 Shift 点击可执行全新重建"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Bullet"
@@ -2919,6 +2919,7 @@ msgid "Expression of concern"
 msgstr "关注声明"
 
 #: src/project/manuscript-checklist.tsx
+#: src/trellis/trellis-header-tools.tsx
 msgid "Failed"
 msgstr "失败"
 
@@ -7785,6 +7786,10 @@ msgstr "文件在保存期间发生了变化。请查看最新内容后再次保
 #: src/App.tsx
 msgid "The first is at {path}:{line}."
 msgstr "第一处位于 {path}:{line}。"
+
+#: src/trellis/trellis-header-tools.tsx
+msgid "The last build failed · Build the project and show the PDF · ⌘S · Shift-click for a clean rebuild"
+msgstr "上次构建失败 · 构建项目并显示 PDF · ⌘S · 按住 Shift 点击可执行全新重建"
 
 #: src/editor/latex/latex-command-completions.ts
 msgid "The LaTeX logo"

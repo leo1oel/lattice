@@ -13,6 +13,7 @@
 import { createContext, useContext, useSyncExternalStore } from "react";
 import type { MenuItem, Placement, WorkspaceHandle } from "@danfessler/trellis";
 import { isHtmlFilePath } from "../app-utils";
+import type { BuildOutcome } from "../app/use-build-pipeline";
 
 /** Drawers that become dockable tool panels, keyed by their Trellis view type. */
 export const TOOL_KINDS = ["history", "git", "comments", "overleaf", "literature", "todos", "checklist"] as const;
@@ -87,8 +88,8 @@ export type TrellisBridge = {
 /** What the tools in a document panel's header show; App keeps it current. */
 export type TrellisDocToolsState = {
   building: boolean;
-  /** Seconds the last successful build took, or null. */
-  builtIn: number | null;
+  /** How the last build ended: its time on a success, a failure, or null when there is nothing to show. */
+  lastBuild: BuildOutcome | null;
   /** The active document's view, and whether it has Edit/Split/Preview at all. */
   viewMode: TrellisViewMode;
   viewModes: "markdown" | "html" | null;
@@ -193,7 +194,7 @@ export class TrellisController {
   /** Tool drawers App currently has open, with the callback that closes each. */
   readonly openDrawers = new SmallStore<Partial<Record<TrellisToolKind, () => void>>>({});
   readonly docTools = new SmallStore<TrellisDocToolsState>({
-    building: false, builtIn: null, viewMode: "source", viewModes: null, paperView: null, paperViews: false,
+    building: false, lastBuild: null, viewMode: "source", viewModes: null, paperView: null, paperViews: false,
   });
   /** Files being dragged in from the Project panel: open as panels, not yet as App tabs. */
   readonly pendingDrops = new Set<string>();

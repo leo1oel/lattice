@@ -21,6 +21,13 @@ type BuildOptions = {
   consumeAgentAssociations?: boolean;
 };
 
+/**
+ * How the last build ended, for the .tex panels' Build button: a success with
+ * its time, a failure, or null when there is nothing to report (no build yet,
+ * a new project, or a build the writer stopped).
+ */
+export type BuildOutcome = { status: "succeeded"; seconds: number } | { status: "failed" };
+
 /** A build asked for while another runs; `force: null` means nothing is queued. */
 type QueuedBuild = { force: boolean | null; sound: boolean; consumeAgentAssociations: boolean };
 const IDLE_QUEUE: QueuedBuild = { force: null, sound: false, consumeAgentAssociations: false };
@@ -84,6 +91,7 @@ export function useBuildPipeline({
 }) {
   const { t } = useLingui();
   const [build, setBuild] = useState<BuildResult | null>(null);
+  const [outcome, setOutcome] = useState<BuildOutcome | null>(null);
   const [building, , buildingRef, setBuilding] = useRefState(false);
   const queueRef = useRef<QueuedBuild>({ ...IDLE_QUEUE });
   const [cleaning, setCleaning] = useState(false);
@@ -139,6 +147,7 @@ export function useBuildPipeline({
    */
   const resetForProject = useCallback((projectRoot: string) => {
     setBuild(null);
+    setOutcome(null);
     const generation = ++previewGenerationRef.current;
     pdfFingerprintRef.current = null;
     displayedPdfBytesRef.current = null;
@@ -205,6 +214,9 @@ export function useBuildPipeline({
       return;
     }
     setBuilding(true);
+    // The spinner stands in while this runs; whatever the previous build
+    // reported must not come back if no pass of this one gets to report.
+    setOutcome(null);
     // One action name for both variants, so a clean rebuild that succeeds still
     // retracts the ordinary build's failure toast; "clean" lives in the detail.
     let trace = logAction(t`Build`, t`Build`, force ? t`clean rebuild` : undefined, BUILD_OPERATION);
@@ -271,6 +283,10 @@ export function useBuildPipeline({
         }) : null;
         if (!scopeIsCurrent()) continue;
         setBuild(result);
+        // A stopped build comes back as a failed result carrying the
+        // build-cancelled advice. The writer asked for that; it is not an error.
+        const cancelled = result.diagnostics.some((item) => item.code === "build-cancelled");
+        setOutcome(result.success ? { status: "succeeded", seconds: result.durationMs / 1000 } : cancelled ? null : { status: "failed" });
         const { rootDocument } = result;
         if (rootDocument) {
           setProject((current) => current?.root === projectRoot ? adoptRootDocument(current, rootDocument) : current);
@@ -326,6 +342,7 @@ export function useBuildPipeline({
     } catch (reason) {
       if (scopeIsCurrent()) {
         trace.fail(reason, { timeoutMs: shouldPlayCompletionSound ? 0 : undefined });
+        setOutcome({ status: "failed" });
         completionSound = "build-failed";
         if (isMissingTexBuildError(toMessage(reason))) onMissingTex();
       }
@@ -388,6 +405,7 @@ export function useBuildPipeline({
     build,
     setBuild,
     building,
+    outcome,
     cleaning,
     compiledSource,
     diagnosticsExpanded,
@@ -404,7 +422,7 @@ export function useBuildPipeline({
     cleanProject,
     cleanAndRebuild,
   }), [
-    abortBuild, build, building, cleanAndRebuild, cleanProject, cleaning, compiledSource, cycleDiagnostic,
+    abortBuild, build, building, outcome, cleanAndRebuild, cleanProject, cleaning, compiledSource, cycleDiagnostic,
     diagnosticsDismissed, diagnosticsExpanded, dismissDiagnostics, pdfUrl, resetForProject, resetQueue, runBuild,
   ]);
 }
