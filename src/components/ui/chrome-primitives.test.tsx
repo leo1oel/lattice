@@ -44,13 +44,11 @@ describe("shared chrome primitives", () => {
     const badge = screen.getByText("Connected");
     expect(badge).toHaveAttribute("data-tone", "success");
     expect(badge).toHaveClass("ui-badge");
-    expect(badge.classList.length).toBeGreaterThan(1);
 
     const message = screen.getByRole("status");
     expect(message).toHaveClass("ui-inline-message", "warning");
-    expect(message.classList.length).toBeGreaterThan(2);
-    expect(message.querySelector("svg")?.getAttribute("class")).toBeTruthy();
-    expect(message.querySelector("span")?.getAttribute("class")).toBeTruthy();
+    expect(message.querySelector("svg")).toHaveClass("ui-inline-message-icon");
+    expect(message.querySelector("span")).toHaveClass("ui-inline-message-copy");
   });
 
   it("gives primary buttons press feedback and keeps menu items concentric", () => {
@@ -73,14 +71,12 @@ describe("shared chrome primitives", () => {
     const { rerender } = render(<Switch checked={false} label="Enable server" onChange={onChange} />);
     const control = screen.getByRole("switch", { name: "Enable server" });
     expect(control).toHaveAttribute("aria-checked", "false");
-    const uncheckedClasses = control.className;
     fireEvent.click(control);
     expect(onChange).toHaveBeenCalledWith(true);
 
     rerender(<Switch checked label="Enable server" onChange={onChange} />);
-    expect(control.className).not.toBe(uncheckedClasses);
-    expect(control.querySelector(".ui-switch-thumb")?.classList.length)
-      .toBeGreaterThan(1);
+    expect(control).toHaveAttribute("aria-checked", "true");
+    expect(control.querySelector(".ui-switch-thumb")).not.toBeNull();
 
     rerender(<Switch checked disabled label="Enable server" onChange={onChange} />);
     fireEvent.click(control);

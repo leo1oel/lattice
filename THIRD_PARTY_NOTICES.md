@@ -313,7 +313,7 @@ Nothing on disk says what the terms are. Each needs to be looked up upstream.
 - `buffers@0.1.1` (npm)
 - `khroma@2.1.0` (npm) — ships `license`
 
-### Declared a license but shipped no license text (114)
+### Declared a license but shipped no license text (113)
 
 The SPDX identifier is known, but the package contains no `LICENSE`,
 `COPYING` or `NOTICE` file, so the copyright line those licenses require us
@@ -420,7 +420,6 @@ to reproduce is not available from the artifact we distribute.
 - `winapi-x86_64-pc-windows-gnu@0.4.0` (crates) — declared `MIT/Apache-2.0`
 - `@panzoom/panzoom@4.6.2` (npm) — declared `MIT`
 - `@pdfslick/core@4.0.2` (npm) — declared `MIT`
-- `@stylexjs/stylex@0.19.0` (npm) — declared `MIT`
 - `@univerjs/protocol@0.25.1` (npm) — declared `Apache-2.0`
 - `binary@0.3.0` (npm) — declared `MIT`
 - `chainsaw@0.1.0` (npm) — declared `MIT/X11`
@@ -438,11 +437,11 @@ to reproduce is not available from the artifact we distribute.
 
 The production dependency closure of the root `package.json` — the superset of what Vite can bundle into the shipped web assets. Dev dependencies (Vite, ESLint, Vitest, Tauri CLI) are excluded: they build the app, they are not distributed in it.
 
-**702 packages.**
+**697 packages.**
 
 | Declared license | Packages |
 | --- | --- |
-| `MIT` | 550 |
+| `MIT` | 546 |
 | `ISC` | 61 |
 | `Apache-2.0` | 32 |
 | `BSD-3-Clause` | 24 |
@@ -459,7 +458,6 @@ The production dependency closure of the root `package.json` — the superset of
 | `(MPL-2.0 OR Apache-2.0)` | 1 |
 | `0BSD` | 1 |
 | `Apache-2.0 OR MIT` | 1 |
-| `BSD` | 1 |
 
 <details><summary>Platform-gated optional packages not resolved here (71)</summary>
 
@@ -543,17 +541,17 @@ parent package listed beside it.
 
 </details>
 
-### License texts (75 distinct texts across 702 packages)
+### License texts (74 distinct texts across 697 packages)
 
-#### 1. MIT (+1 other declarations) — 258 package(s), from `LICENSE`
+#### 1. MIT (+1 other declarations) — 255 package(s), from `LICENSE`
 
 <details><summary>Packages sharing this text</summary>
 
-`@antfu/install-pkg@1.1.0`, `@babel/runtime@7.29.7`, `@base-ui/react@1.6.0`, `@base-ui/utils@0.3.1`, `@braintree/sanitize-url@7.1.2`, `@codemirror/autocomplete@6.20.3`, `@codemirror/commands@6.10.4`, `@codemirror/lang-angular@0.1.4`, `@codemirror/lang-cpp@6.0.3`, `@codemirror/lang-css@6.3.1`, `@codemirror/lang-go@6.0.1`, `@codemirror/lang-html@6.4.12`, `@codemirror/lang-java@6.0.2`, `@codemirror/lang-javascript@6.2.5`, `@codemirror/lang-jinja@6.0.1`, `@codemirror/lang-json@6.0.2`, `@codemirror/lang-less@6.0.2`, `@codemirror/lang-liquid@6.3.2`, `@codemirror/lang-markdown@6.5.2`, `@codemirror/lang-php@6.0.2`, `@codemirror/lang-python@6.2.1`, `@codemirror/lang-rust@6.0.2`, `@codemirror/lang-sass@6.0.2`, `@codemirror/lang-sql@6.10.0`, `@codemirror/lang-vue@0.1.3`, `@codemirror/lang-wast@6.0.2`, `@codemirror/lang-xml@6.1.0`, `@codemirror/lang-yaml@6.1.3`, `@codemirror/language-data@6.5.2`, `@codemirror/language@6.12.4`, `@codemirror/legacy-modes@6.5.3`, `@codemirror/lint@6.9.7`, `@codemirror/search@6.7.1`, `@codemirror/state@6.7.1`, `@codemirror/view@6.43.8`, `@flatten-js/interval-tree@1.1.3`, `@iconify/types@2.0.0`, `@iconify/utils@3.1.4`, `@jest/schemas@29.6.3`, `@jest/types@29.6.3`, `@js-sdsl/ordered-map@4.4.2`, `@lezer/common@1.5.2`, `@lezer/cpp@1.1.6`, `@lezer/css@1.3.5`, `@lezer/generator@1.8.0`, `@lezer/go@1.0.1`, `@lezer/highlight@1.2.3`, `@lezer/html@1.3.13`, `@lezer/java@1.1.3`, `@lezer/javascript@1.5.4`, `@lezer/json@1.0.3`, `@lezer/lr@1.4.10`, `@lezer/markdown@1.7.2`, `@lezer/php@1.0.5`, `@lezer/python@1.1.19`, `@lezer/rust@1.0.2`, `@lezer/sass@1.1.0`, `@lezer/xml@1.0.6`, `@lezer/yaml@1.0.4`, `@marijn/find-cluster-break@1.0.3`, `@napi-rs/canvas@0.1.100`, `@napi-rs/canvas@1.0.8`, `@oxc-project/types@0.144.0`, `@radix-ui/number@1.1.3`, `@radix-ui/primitive@1.1.7`, `@radix-ui/react-accessible-icon@1.1.13`, `@radix-ui/react-accordion@1.2.18`, `@radix-ui/react-alert-dialog@1.1.21`, `@radix-ui/react-arrow@1.1.13`, `@radix-ui/react-aspect-ratio@1.1.13`, `@radix-ui/react-avatar@1.2.4`, `@radix-ui/react-checkbox@1.3.9`, `@radix-ui/react-collapsible@1.1.18`, `@radix-ui/react-collection@1.1.13`, `@radix-ui/react-compose-refs@1.1.4`, `@radix-ui/react-context-menu@2.3.5`, `@radix-ui/react-context@1.2.1`, `@radix-ui/react-dialog@1.1.21`, `@radix-ui/react-direction@1.1.3`, `@radix-ui/react-dismissable-layer@1.1.17`, `@radix-ui/react-dropdown-menu@2.1.22`, `@radix-ui/react-focus-guards@1.1.5`, `@radix-ui/react-focus-scope@1.1.14`, `@radix-ui/react-form@0.1.14`, `@radix-ui/react-hover-card@1.1.21`, `@radix-ui/react-id@1.1.3`, `@radix-ui/react-label@2.1.13`, `@radix-ui/react-menu@2.1.22`, `@radix-ui/react-menubar@1.1.22`, `@radix-ui/react-navigation-menu@1.2.20`, `@radix-ui/react-one-time-password-field@0.1.14`, `@radix-ui/react-password-toggle-field@0.1.9`, `@radix-ui/react-popover@1.1.21`, `@radix-ui/react-popper@1.3.5`, `@radix-ui/react-portal@1.1.15`, `@radix-ui/react-presence@1.1.9`, `@radix-ui/react-primitive@2.1.8`, `@radix-ui/react-progress@1.1.14`, `@radix-ui/react-radio-group@1.4.5`, `@radix-ui/react-roving-focus@1.1.17`, `@radix-ui/react-scroll-area@1.2.16`, `@radix-ui/react-select@2.3.5`, `@radix-ui/react-separator@1.1.13`, `@radix-ui/react-slider@1.4.5`, `@radix-ui/react-slot@1.3.1`, `@radix-ui/react-switch@1.3.5`, `@radix-ui/react-tabs@1.1.19`, `@radix-ui/react-toast@1.2.21`, `@radix-ui/react-toggle-group@1.1.17`, `@radix-ui/react-toggle@1.1.16`, `@radix-ui/react-toolbar@1.1.17`, `@radix-ui/react-tooltip@1.2.14`, `@radix-ui/react-use-callback-ref@1.1.3`, `@radix-ui/react-use-controllable-state@1.2.5`, `@radix-ui/react-use-effect-event@0.0.4`, `@radix-ui/react-use-escape-keydown@1.1.4`, `@radix-ui/react-use-is-hydrated@0.1.2`, `@radix-ui/react-use-layout-effect@1.1.3`, `@radix-ui/react-use-previous@1.1.3`, `@radix-ui/react-use-rect@1.1.3`, `@radix-ui/react-use-size@1.1.3`, `@radix-ui/react-visually-hidden@1.2.9`, `@radix-ui/rect@1.1.3`, `@replit/codemirror-emacs@6.1.0`, `@replit/codemirror-vim-core@0.1.0`, `@replit/codemirror-vim@6.4.0`, `@rolldown/pluginutils@1.0.1`, `@shikijs/core@4.3.1`, `@shikijs/engine-javascript@4.3.1`, `@shikijs/engine-oniguruma@4.3.1`, `@shikijs/langs@4.3.1`, `@shikijs/langs@4.4.3`, `@shikijs/primitive@4.3.1`, `@shikijs/themes@4.3.1`, `@shikijs/themes@4.4.3`, `@shikijs/transformers@4.3.1`, `@shikijs/types@4.3.1`, `@shikijs/types@4.4.3`, `@tailwindcss/node@4.3.3`, `@tailwindcss/oxide@4.3.3`, `@tailwindcss/vite@4.3.3`, `@tauri-apps/api@2.11.1`, `@tiptap/core@3.31.3`, `@tiptap/extension-blockquote@3.31.3`, `@tiptap/extension-bold@3.31.3`, `@tiptap/extension-bubble-menu@3.31.3`, `@tiptap/extension-bullet-list@3.31.3`, `@tiptap/extension-code-block@3.31.3`, `@tiptap/extension-code@3.31.3`, `@tiptap/extension-document@3.31.3`, `@tiptap/extension-dropcursor@3.31.3`, `@tiptap/extension-floating-menu@3.31.3`, `@tiptap/extension-gapcursor@3.31.3`, `@tiptap/extension-hard-break@3.31.3`, `@tiptap/extension-heading@3.31.3`, `@tiptap/extension-highlight@3.31.3`, `@tiptap/extension-horizontal-rule@3.31.3`, `@tiptap/extension-image@3.31.3`, `@tiptap/extension-italic@3.31.3`, `@tiptap/extension-link@3.31.3`, `@tiptap/extension-list-item@3.31.3`, `@tiptap/extension-list-keymap@3.31.3`, `@tiptap/extension-list@3.31.3`, `@tiptap/extension-ordered-list@3.31.3`, `@tiptap/extension-paragraph@3.31.3`, `@tiptap/extension-strike@3.31.3`, `@tiptap/extension-table@3.31.3`, `@tiptap/extension-text@3.31.3`, `@tiptap/extension-underline@3.31.3`, `@tiptap/extensions@3.31.3`, `@tiptap/pm@3.31.3`, `@tiptap/react@3.31.3`, `@tiptap/starter-kit@3.31.3`, `@tiptap/suggestion@3.31.3`, `@univerjs/icons@1.4.0`, `@upsetjs/venn.js@2.0.0`, `ansi-regex@5.0.1`, `ansi-styles@4.3.0`, `ansi-styles@5.2.0`, `aria-hidden@1.2.6`, `brace-expansion@1.1.18`, `brace-expansion@2.1.4`, `camelcase@6.3.0`, `chalk@4.1.2`, `cjk-regex@3.4.0`, `clsx@2.1.1`, `cose-base@1.0.3`, `cose-base@2.2.0`, `cuelume@0.2.2`, `dayjs@1.11.21`, `detect-node-es@1.1.0`, `es-toolkit@1.50.0`, `escalade@3.2.0`, `escape-string-regexp@5.0.0`, `fast-equals@5.4.1`, `frimousse@0.3.0`, `get-nonce@1.0.1`, `hachure-fill@0.5.2`, `has-flag@4.0.0`, `invariant@2.2.4`, `is-fullwidth-code-point@3.0.0`, `is-plain-obj@4.1.0`, `jest-get-type@29.6.3`, `jest-validate@29.7.0`, `jiti@2.7.0`, `js-sha256@0.10.1`, `layout-base@1.0.2`, `layout-base@2.0.1`, `leven@3.1.0`, `lilconfig@3.1.3`, `lz-string@1.5.0`, `oniguruma-parser@0.12.2`, `oniguruma-to-es@4.3.6`, `package-manager-detector@1.8.0`, `path-data-parser@0.1.0`, `points-on-curve@0.2.0`, `points-on-path@0.2.1`, `pretty-format@29.7.0`, `prop-types@15.8.1`, `radix-ui@1.6.5`, `rbush@3.0.1`, `rbush@4.0.1`, `react-dom@19.2.7`, `react-is@16.13.1`, `react-is@18.3.1`, `react-remove-scroll@2.7.2`, `react-style-singleton@2.2.3`, `react@19.2.7`, `regex-recursion@6.0.2`, `regex-utilities@2.3.0`, `regex@6.1.0`, `regexp-util@2.0.3`, `roughjs@4.6.6`, `safer-buffer@2.1.2`, `scheduler@0.27.0`, `shadow-plugin@1.2.7`, `shiki@4.3.1`, `sonner@2.0.8`, `string-width@4.2.3`, `strip-ansi@6.0.1`, `styleq@0.2.1`, `stylis@4.4.0`, `supports-color@7.2.0`, `tailwind-merge@2.6.0`, `tailwind-merge@3.6.0`, `tailwindcss@4.3.3`, `tinyexec@1.2.4`, `tinyglobby@0.2.17`, `ts-dedent@2.3.0`, `tw-animate-css@1.4.0`, `undici-types@8.3.0`, `unicode-regex@4.2.0`, `use-callback-ref@1.3.3`, `use-sidecar@1.1.3`, `use-sync-external-store@1.6.0`, `wrap-ansi@7.0.0`, `yargs@17.7.3`, `zustand@5.0.15`
+`@antfu/install-pkg@1.1.0`, `@babel/runtime@7.29.7`, `@base-ui/react@1.6.0`, `@base-ui/utils@0.3.1`, `@braintree/sanitize-url@7.1.2`, `@codemirror/autocomplete@6.20.3`, `@codemirror/commands@6.10.4`, `@codemirror/lang-angular@0.1.4`, `@codemirror/lang-cpp@6.0.3`, `@codemirror/lang-css@6.3.1`, `@codemirror/lang-go@6.0.1`, `@codemirror/lang-html@6.4.12`, `@codemirror/lang-java@6.0.2`, `@codemirror/lang-javascript@6.2.5`, `@codemirror/lang-jinja@6.0.1`, `@codemirror/lang-json@6.0.2`, `@codemirror/lang-less@6.0.2`, `@codemirror/lang-liquid@6.3.2`, `@codemirror/lang-markdown@6.5.2`, `@codemirror/lang-php@6.0.2`, `@codemirror/lang-python@6.2.1`, `@codemirror/lang-rust@6.0.2`, `@codemirror/lang-sass@6.0.2`, `@codemirror/lang-sql@6.10.0`, `@codemirror/lang-vue@0.1.3`, `@codemirror/lang-wast@6.0.2`, `@codemirror/lang-xml@6.1.0`, `@codemirror/lang-yaml@6.1.3`, `@codemirror/language-data@6.5.2`, `@codemirror/language@6.12.4`, `@codemirror/legacy-modes@6.5.3`, `@codemirror/lint@6.9.7`, `@codemirror/search@6.7.1`, `@codemirror/state@6.7.1`, `@codemirror/view@6.43.8`, `@flatten-js/interval-tree@1.1.3`, `@iconify/types@2.0.0`, `@iconify/utils@3.1.4`, `@jest/schemas@29.6.3`, `@jest/types@29.6.3`, `@js-sdsl/ordered-map@4.4.2`, `@lezer/common@1.5.2`, `@lezer/cpp@1.1.6`, `@lezer/css@1.3.5`, `@lezer/generator@1.8.0`, `@lezer/go@1.0.1`, `@lezer/highlight@1.2.3`, `@lezer/html@1.3.13`, `@lezer/java@1.1.3`, `@lezer/javascript@1.5.4`, `@lezer/json@1.0.3`, `@lezer/lr@1.4.10`, `@lezer/markdown@1.7.2`, `@lezer/php@1.0.5`, `@lezer/python@1.1.19`, `@lezer/rust@1.0.2`, `@lezer/sass@1.1.0`, `@lezer/xml@1.0.6`, `@lezer/yaml@1.0.4`, `@marijn/find-cluster-break@1.0.3`, `@napi-rs/canvas@0.1.100`, `@napi-rs/canvas@1.0.8`, `@oxc-project/types@0.144.0`, `@radix-ui/number@1.1.3`, `@radix-ui/primitive@1.1.7`, `@radix-ui/react-accessible-icon@1.1.13`, `@radix-ui/react-accordion@1.2.18`, `@radix-ui/react-alert-dialog@1.1.21`, `@radix-ui/react-arrow@1.1.13`, `@radix-ui/react-aspect-ratio@1.1.13`, `@radix-ui/react-avatar@1.2.4`, `@radix-ui/react-checkbox@1.3.9`, `@radix-ui/react-collapsible@1.1.18`, `@radix-ui/react-collection@1.1.13`, `@radix-ui/react-compose-refs@1.1.4`, `@radix-ui/react-context-menu@2.3.5`, `@radix-ui/react-context@1.2.1`, `@radix-ui/react-dialog@1.1.21`, `@radix-ui/react-direction@1.1.3`, `@radix-ui/react-dismissable-layer@1.1.17`, `@radix-ui/react-dropdown-menu@2.1.22`, `@radix-ui/react-focus-guards@1.1.5`, `@radix-ui/react-focus-scope@1.1.14`, `@radix-ui/react-form@0.1.14`, `@radix-ui/react-hover-card@1.1.21`, `@radix-ui/react-id@1.1.3`, `@radix-ui/react-label@2.1.13`, `@radix-ui/react-menu@2.1.22`, `@radix-ui/react-menubar@1.1.22`, `@radix-ui/react-navigation-menu@1.2.20`, `@radix-ui/react-one-time-password-field@0.1.14`, `@radix-ui/react-password-toggle-field@0.1.9`, `@radix-ui/react-popover@1.1.21`, `@radix-ui/react-popper@1.3.5`, `@radix-ui/react-portal@1.1.15`, `@radix-ui/react-presence@1.1.9`, `@radix-ui/react-primitive@2.1.8`, `@radix-ui/react-progress@1.1.14`, `@radix-ui/react-radio-group@1.4.5`, `@radix-ui/react-roving-focus@1.1.17`, `@radix-ui/react-scroll-area@1.2.16`, `@radix-ui/react-select@2.3.5`, `@radix-ui/react-separator@1.1.13`, `@radix-ui/react-slider@1.4.5`, `@radix-ui/react-slot@1.3.1`, `@radix-ui/react-switch@1.3.5`, `@radix-ui/react-tabs@1.1.19`, `@radix-ui/react-toast@1.2.21`, `@radix-ui/react-toggle-group@1.1.17`, `@radix-ui/react-toggle@1.1.16`, `@radix-ui/react-toolbar@1.1.17`, `@radix-ui/react-tooltip@1.2.14`, `@radix-ui/react-use-callback-ref@1.1.3`, `@radix-ui/react-use-controllable-state@1.2.5`, `@radix-ui/react-use-effect-event@0.0.4`, `@radix-ui/react-use-escape-keydown@1.1.4`, `@radix-ui/react-use-is-hydrated@0.1.2`, `@radix-ui/react-use-layout-effect@1.1.3`, `@radix-ui/react-use-previous@1.1.3`, `@radix-ui/react-use-rect@1.1.3`, `@radix-ui/react-use-size@1.1.3`, `@radix-ui/react-visually-hidden@1.2.9`, `@radix-ui/rect@1.1.3`, `@replit/codemirror-emacs@6.1.0`, `@replit/codemirror-vim-core@0.1.0`, `@replit/codemirror-vim@6.4.0`, `@rolldown/pluginutils@1.0.1`, `@shikijs/core@4.3.1`, `@shikijs/engine-javascript@4.3.1`, `@shikijs/engine-oniguruma@4.3.1`, `@shikijs/langs@4.3.1`, `@shikijs/langs@4.4.3`, `@shikijs/primitive@4.3.1`, `@shikijs/themes@4.3.1`, `@shikijs/themes@4.4.3`, `@shikijs/transformers@4.3.1`, `@shikijs/types@4.3.1`, `@shikijs/types@4.4.3`, `@tailwindcss/node@4.3.3`, `@tailwindcss/oxide@4.3.3`, `@tailwindcss/vite@4.3.3`, `@tauri-apps/api@2.11.1`, `@tiptap/core@3.31.3`, `@tiptap/extension-blockquote@3.31.3`, `@tiptap/extension-bold@3.31.3`, `@tiptap/extension-bubble-menu@3.31.3`, `@tiptap/extension-bullet-list@3.31.3`, `@tiptap/extension-code-block@3.31.3`, `@tiptap/extension-code@3.31.3`, `@tiptap/extension-document@3.31.3`, `@tiptap/extension-dropcursor@3.31.3`, `@tiptap/extension-floating-menu@3.31.3`, `@tiptap/extension-gapcursor@3.31.3`, `@tiptap/extension-hard-break@3.31.3`, `@tiptap/extension-heading@3.31.3`, `@tiptap/extension-highlight@3.31.3`, `@tiptap/extension-horizontal-rule@3.31.3`, `@tiptap/extension-image@3.31.3`, `@tiptap/extension-italic@3.31.3`, `@tiptap/extension-link@3.31.3`, `@tiptap/extension-list-item@3.31.3`, `@tiptap/extension-list-keymap@3.31.3`, `@tiptap/extension-list@3.31.3`, `@tiptap/extension-ordered-list@3.31.3`, `@tiptap/extension-paragraph@3.31.3`, `@tiptap/extension-strike@3.31.3`, `@tiptap/extension-table@3.31.3`, `@tiptap/extension-text@3.31.3`, `@tiptap/extension-underline@3.31.3`, `@tiptap/extensions@3.31.3`, `@tiptap/pm@3.31.3`, `@tiptap/react@3.31.3`, `@tiptap/starter-kit@3.31.3`, `@tiptap/suggestion@3.31.3`, `@univerjs/icons@1.4.0`, `@upsetjs/venn.js@2.0.0`, `ansi-regex@5.0.1`, `ansi-styles@4.3.0`, `ansi-styles@5.2.0`, `aria-hidden@1.2.6`, `brace-expansion@1.1.18`, `brace-expansion@2.1.4`, `camelcase@6.3.0`, `chalk@4.1.2`, `cjk-regex@3.4.0`, `clsx@2.1.1`, `cose-base@1.0.3`, `cose-base@2.2.0`, `cuelume@0.2.2`, `dayjs@1.11.21`, `detect-node-es@1.1.0`, `es-toolkit@1.50.0`, `escalade@3.2.0`, `escape-string-regexp@5.0.0`, `fast-equals@5.4.1`, `frimousse@0.3.0`, `get-nonce@1.0.1`, `hachure-fill@0.5.2`, `has-flag@4.0.0`, `is-fullwidth-code-point@3.0.0`, `is-plain-obj@4.1.0`, `jest-get-type@29.6.3`, `jest-validate@29.7.0`, `jiti@2.7.0`, `js-sha256@0.10.1`, `layout-base@1.0.2`, `layout-base@2.0.1`, `leven@3.1.0`, `lilconfig@3.1.3`, `lz-string@1.5.0`, `oniguruma-parser@0.12.2`, `oniguruma-to-es@4.3.6`, `package-manager-detector@1.8.0`, `path-data-parser@0.1.0`, `points-on-curve@0.2.0`, `points-on-path@0.2.1`, `pretty-format@29.7.0`, `prop-types@15.8.1`, `radix-ui@1.6.5`, `rbush@3.0.1`, `rbush@4.0.1`, `react-dom@19.2.7`, `react-is@16.13.1`, `react-is@18.3.1`, `react-remove-scroll@2.7.2`, `react-style-singleton@2.2.3`, `react@19.2.7`, `regex-recursion@6.0.2`, `regex-utilities@2.3.0`, `regex@6.1.0`, `regexp-util@2.0.3`, `roughjs@4.6.6`, `safer-buffer@2.1.2`, `scheduler@0.27.0`, `shadow-plugin@1.2.7`, `shiki@4.3.1`, `sonner@2.0.8`, `string-width@4.2.3`, `strip-ansi@6.0.1`, `stylis@4.4.0`, `supports-color@7.2.0`, `tailwind-merge@2.6.0`, `tailwind-merge@3.6.0`, `tailwindcss@4.3.3`, `tinyexec@1.2.4`, `tinyglobby@0.2.17`, `ts-dedent@2.3.0`, `undici-types@8.3.0`, `unicode-regex@4.2.0`, `use-callback-ref@1.3.3`, `use-sidecar@1.1.3`, `use-sync-external-store@1.6.0`, `wrap-ansi@7.0.0`, `yargs@17.7.3`, `zustand@5.0.15`
 
 </details>
 
-Copyright notices (77):
+Copyright notices (75):
 
 ```text
 Copyright (C) 2018 by Marijn Haverbeke <marijn@haverbeke.berlin> and others
@@ -616,7 +614,6 @@ Copyright (c) 2024-present VoidZero Inc. & Contributors
 Copyright (c) 2025 Liveblocks
 Copyright (c) 2025 Steven Levithan
 Copyright (c) 2025 Tony Quetano
-Copyright (c) 2025 Wombosvideo
 Copyright (c) 2025, Tiptap GmbH
 Copyright (c) 2025-2026 Steven Levithan
 Copyright (c) 2026 Daniel Belyi
@@ -627,7 +624,6 @@ Copyright (c) Ika <ikatyang@gmail.com> (https://github.com/ikatyang)
 Copyright (c) Luke Edwards <luke.edwards05@gmail.com> (lukeed.com)
 Copyright (c) Matteo Collina and Undici contributors
 Copyright (c) Meta Platforms, Inc. and affiliates.
-Copyright (c) Nicolas Gallagher
 Copyright (c) Pooya Parsa <pooya@pi0.io>
 Copyright (c) Sindre Sorhus <sindresorhus@gmail.com> (https://sindresorhus.com)
 Copyright (c) Sindre Sorhus <sindresorhus@gmail.com> (sindresorhus.com)
@@ -8168,51 +8164,7 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-#### 66. BSD — 1 package(s), from `LICENSE`
-
-<details><summary>Packages sharing this text</summary>
-
-`css-mediaquery@0.1.2`
-
-</details>
-
-Copyright notices (1):
-
-```text
-Copyright 2014 Yahoo! Inc.
-```
-
-```text
-Copyright 2014 Yahoo! Inc.
-All rights reserved.
-
-Redistribution and use in source and binary forms, with or without
-modification, are permitted provided that the following conditions are met:
-
-    * Redistributions of source code must retain the above copyright
-      notice, this list of conditions and the following disclaimer.
-
-    * Redistributions in binary form must reproduce the above copyright
-      notice, this list of conditions and the following disclaimer in the
-      documentation and/or other materials provided with the distribution.
-
-    * Neither the name of the Yahoo! Inc. nor the
-      names of its contributors may be used to endorse or promote products
-      derived from this software without specific prior written permission.
-
-THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
-ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
-WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-DISCLAIMED. IN NO EVENT SHALL YAHOO! INC. BE LIABLE FOR ANY
-DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
-(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
-ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-```
-
-#### 67. MIT — 1 package(s), from `license`
+#### 66. MIT — 1 package(s), from `license`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -8252,7 +8204,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 ```
 
-#### 68. BSD-3-Clause — 1 package(s), from `LICENSE`
+#### 67. BSD-3-Clause — 1 package(s), from `LICENSE`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -8308,7 +8260,7 @@ standalone and requires a support library to be linked with it. This
 support library is itself covered by the above license.
 ```
 
-#### 69. apache-2.0 — 1 package(s), from `NOTICE.md`
+#### 68. apache-2.0 — 1 package(s), from `NOTICE.md`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -8358,7 +8310,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 ````
 
-#### 70. BSD-3-Clause — 1 package(s), from `LICENSE`
+#### 69. BSD-3-Clause — 1 package(s), from `LICENSE`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -8401,7 +8353,7 @@ NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
 EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ```
 
-#### 71. BSD-3-Clause — 1 package(s), from `LICENSE`
+#### 70. BSD-3-Clause — 1 package(s), from `LICENSE`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -8448,7 +8400,7 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ```
 
-#### 72. MIT — 1 package(s), from `LICENCE.md`
+#### 71. MIT — 1 package(s), from `LICENCE.md`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -8487,7 +8439,7 @@ TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-#### 73. BSD-3-Clause — 1 package(s), from `LICENSE`
+#### 72. BSD-3-Clause — 1 package(s), from `LICENSE`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -8515,7 +8467,7 @@ Redistribution and use in source and binary forms, with or without modification,
 THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ```
 
-#### 74. MIT — 1 package(s), from `LICENSE.txt`
+#### 73. MIT — 1 package(s), from `LICENSE.txt`
 
 <details><summary>Packages sharing this text</summary>
 
@@ -8554,7 +8506,7 @@ OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-#### 75. ISC — 1 package(s), from `LICENSE`
+#### 74. ISC — 1 package(s), from `LICENSE`
 
 <details><summary>Packages sharing this text</summary>
 
