@@ -157,7 +157,8 @@ it emits **no** Tauri events, only two commands (`synara_ensure_ready`,
   (`RUNTIME_STATE_RELATIVE_PATH`). `wait_until_ready` polls that file every
   50 ms for up to 20 s, requires `pid` to match the child it spawned, then
   `GET {origin}/health` and checks `startupReady` (`health_is_ready`). The
-  health client is built `.no_proxy()` on purpose — a system `ALL_PROXY`
+  health client (like the repair client) comes from `http::loopback`, which
+  skips proxies on purpose — a system `ALL_PROXY`
   otherwise makes a healthy loopback sidecar look dead until the timeout.
 - Credentials: `SYNARA_AUTH_TOKEN` and `SYNARA_DESKTOP_SHUTDOWN_TOKEN` are each
   two concatenated UUIDv4s minted per spawn.
