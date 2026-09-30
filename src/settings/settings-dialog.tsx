@@ -1,7 +1,6 @@
 import { Settings } from "lucide-react";
-import { type FormEvent, type ReactNode, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { type FormEvent, type ReactNode, useLayoutEffect, useRef, useState } from "react";
 import { useLingui } from "@lingui/react/macro";
-import { invoke } from "@tauri-apps/api/core";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { ReloadButton } from "../components/ui/activity-icons";
@@ -12,7 +11,6 @@ import { PanelHeader } from "../components/ui/panel-header";
 import { SettingsSectionHeader } from "../components/ui/settings-section-header";
 import { SettingsGroup, SettingsRow } from "../components/ui/settings-row";
 import { SwitchField } from "../components/ui/switch-field";
-import { InlineMessage } from "../components/ui/inline-message";
 import { ModalDialog } from "../components/ui/modal-dialog";
 import { useUpdater, type UpdaterApi } from "../telemetry/app-updater";
 import {
@@ -26,7 +24,7 @@ import {
   resolveAppLocale,
 } from "./app-settings";
 import type { ProjectSnapshot, SettingsTab } from "../app-types";
-import { beginWindowDrag, toggleWindowFullscreen, toMessage } from "../app-utils";
+import { beginWindowDrag, toggleWindowFullscreen } from "../app-utils";
 import { OverleafSettingsSection } from "../overleaf/overleaf-connect";
 import { LiteratureSettings } from "./literature-settings";
 import { DoctorSettings, type DoctorSettingsProps } from "./doctor-settings";
@@ -66,10 +64,6 @@ type SettingsDialogProps = DoctorSettingsProps & {
   onCleanProject: () => void;
   cleaning: boolean;
   building: boolean;
-  browserHosted: boolean;
-  bundledChromium: boolean;
-  onOpenInBrowser: () => Promise<void>;
-  onReturnToDesktop: () => Promise<void>;
   onClose: () => void;
 };
 
@@ -97,7 +91,6 @@ export function SettingsDialog(props: SettingsDialogProps) {
   const settingsNavItems = settingsNavGroups
     .flatMap((group): ReadonlyArray<{ tab: SettingsTab; label: string }> => group.items);
   const settingsViewportRef = useRef<HTMLDivElement>(null);
-  const browser = useBrowserWorkspace(props);
   const [projectWordDraft, setProjectWordDraft] = useState("");
   const synaraSettingsSection = SYNARA_SETTINGS_SECTIONS[props.tab];
   const synaraEmbedUrl = props.synaraRuntime.state === "ready" ? props.synaraRuntime.origin : null;
@@ -131,7 +124,7 @@ export function SettingsDialog(props: SettingsDialogProps) {
   }, [props.tab, synaraSettingsUrl]);
 
   const panes: Partial<Record<SettingsTab, ReactNode>> = {
-    appearance: <AppearanceSettingsPane {...props} browser={browser} />,
+    appearance: <AppearanceSettingsPane {...props} />,
     editor: <EditorSettingsPane {...props} projectWordDraft={projectWordDraft} setProjectWordDraft={setProjectWordDraft} />,
     logs: <AppLogsSettings />,
     literature: <LiteratureSettings />,
@@ -208,56 +201,6 @@ function patchAppearance(props: SettingsDialogProps, patch: Partial<AppearanceSe
   props.setAppearance({ ...props.appearance, ...patch });
 }
 
-function useBrowserWorkspace(props: SettingsDialogProps) {
-  const [browserOpening, setBrowserOpening] = useState(false);
-  const [browserOpenError, setBrowserOpenError] = useState("");
-  const [browserAccessEnabled, setBrowserAccessEnabled] = useState(false);
-  const [browserAccessLoading, setBrowserAccessLoading] = useState(true);
-  const browserOutsideChromium = props.browserHosted && !props.bundledChromium;
-
-  useEffect(() => {
-    let active = true;
-    void invoke<boolean>("browser_access_enabled")
-      .then((enabled) => { if (active) setBrowserAccessEnabled(enabled); })
-      .catch((reason) => { if (active) setBrowserOpenError(toMessage(reason)); })
-      .finally(() => { if (active) setBrowserAccessLoading(false); });
-    return () => { active = false; };
-  }, []);
-
-  const updateBrowserAccess = async (enabled: boolean) => {
-    if (browserAccessLoading) return;
-    setBrowserAccessLoading(true);
-    setBrowserOpenError("");
-    await invoke("set_browser_access_enabled", { enabled }).then(
-      () => setBrowserAccessEnabled(enabled),
-      (reason) => setBrowserOpenError(toMessage(reason)),
-    );
-    setBrowserAccessLoading(false);
-  };
-  // Outside the bundled Chromium the workspace can only go back to the desktop
-  // app; everywhere else it can move out to the default browser.
-  const moveWorkspace = async () => {
-    if (browserOpening) return;
-    setBrowserOpening(true);
-    setBrowserOpenError("");
-    await (browserOutsideChromium ? props.onReturnToDesktop : props.onOpenInBrowser)().catch((reason) => {
-      setBrowserOpenError(toMessage(reason));
-      setBrowserOpening(false);
-    });
-  };
-  return {
-    browserOpening,
-    browserOpenError,
-    browserAccessEnabled,
-    browserAccessLoading,
-    browserOutsideChromium,
-    updateBrowserAccess,
-    moveWorkspace,
-  };
-}
-
-type BrowserWorkspace = ReturnType<typeof useBrowserWorkspace>;
-
 /** Which tool buttons sit at the right of the title bar; the commands stay in the palette either way. */
 function TitlebarToolsGroup(props: SettingsDialogProps) {
   const { t } = useLingui();
@@ -286,18 +229,8 @@ function TitlebarToolsGroup(props: SettingsDialogProps) {
   );
 }
 
-function AppearanceSettingsPane({ browser, ...props }: SettingsDialogProps & { browser: BrowserWorkspace }) {
+function AppearanceSettingsPane(props: SettingsDialogProps) {
   const { t } = useLingui();
-  const {
-    browserOpening,
-    browserOpenError,
-    browserAccessEnabled,
-    browserAccessLoading,
-    browserOutsideChromium,
-    updateBrowserAccess,
-    moveWorkspace,
-  } = browser;
-  const moveLabel = browserOutsideChromium ? t`Open desktop app` : t`Open in browser`;
 
   return (
     <div className="settings-section">
@@ -340,28 +273,6 @@ function AppearanceSettingsPane({ browser, ...props }: SettingsDialogProps & { b
           checked={props.appearance.interfaceSounds}
           onChange={(interfaceSounds) => patchAppearance(props, { interfaceSounds })}
         />
-      </SettingsGroup>
-      <SettingsGroup title={t`Browser`}>
-        <SwitchField
-          label={t`Start browser access after login`}
-          description={t`Keep http://127.0.0.1:18452 available after login. Quitting Lattice stops it`}
-          checked={browserAccessEnabled}
-          disabled={browserAccessLoading}
-          onChange={(enabled) => { void updateBrowserAccess(enabled); }}
-        />
-        <SettingsRow
-          label={moveLabel}
-          description={browserOutsideChromium
-            ? t`Move this workspace back to a Lattice window on this Mac`
-            : props.bundledChromium
-              ? t`Open this workspace in your default browser. It returns to this window when the browser tab closes`
-              : t`Open this workspace at http://127.0.0.1:18452. Files and credentials stay on this Mac`}
-        >
-          <Button size="compact" disabled={browserOpening} onClick={() => void moveWorkspace()}>
-            {browserOpening ? t`Opening…` : moveLabel}
-          </Button>
-        </SettingsRow>
-        {browserOpenError && <InlineMessage level="error" className="settings-inline">{browserOpenError}</InlineMessage>}
       </SettingsGroup>
     </div>
   );

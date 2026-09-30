@@ -1086,10 +1086,6 @@ msgstr "Bring back {0}"
 msgid "Bring your next idea into Lattice."
 msgstr "Bring your next idea into Lattice."
 
-#: src/settings/settings-dialog.tsx
-msgid "Browser"
-msgstr "Browser"
-
 #: src/telemetry/app-log-store.ts
 msgid "Browser storage is full or unavailable. New entries still reach the log file on disk, but this list may be lost on restart."
 msgstr "Browser storage is full or unavailable. New entries still reach the log file on disk, but this list may be lost on restart."
@@ -3914,10 +3910,6 @@ msgstr "Keep both"
 msgid "Keep citations"
 msgstr "Keep citations"
 
-#: src/settings/settings-dialog.tsx
-msgid "Keep http://127.0.0.1:18452 available after login. Quitting Lattice stops it"
-msgstr "Keep http://127.0.0.1:18452 available after login. Quitting Lattice stops it"
-
 #: src/overleaf/overleaf-connect.tsx
 msgid "Keep it on Overleaf"
 msgstr "Keep it on Overleaf"
@@ -4612,10 +4604,6 @@ msgstr "Monospaced text"
 msgid "Move {title} to"
 msgstr "Move {title} to"
 
-#: src/settings/settings-dialog.tsx
-msgid "Move this workspace back to a Lattice window on this Mac"
-msgstr "Move this workspace back to a Lattice window on this Mac"
-
 #: src/trellis/trellis-labels.ts
 msgid "Moved"
 msgstr "Moved"
@@ -5186,10 +5174,6 @@ msgstr "Open by default"
 msgid "Open comments"
 msgstr "Open comments"
 
-#: src/settings/settings-dialog.tsx
-msgid "Open desktop app"
-msgstr "Open desktop app"
-
 #: src/project/quick-open-dialog.tsx
 msgid "Open file…"
 msgstr "Open file…"
@@ -5206,10 +5190,6 @@ msgstr "Open from Overleaf"
 #: src/App.tsx
 msgid "Open guided tutorial"
 msgstr "Open guided tutorial"
-
-#: src/settings/settings-dialog.tsx
-msgid "Open in browser"
-msgstr "Open in browser"
 
 #: src/canvas/canvas-toolbar.tsx
 msgid "Open in Overleaf"
@@ -5313,14 +5293,6 @@ msgstr "Open this Agent task before restoring its files"
 msgid "Open this repository on GitHub"
 msgstr "Open this repository on GitHub"
 
-#: src/settings/settings-dialog.tsx
-msgid "Open this workspace at http://127.0.0.1:18452. Files and credentials stay on this Mac"
-msgstr "Open this workspace at http://127.0.0.1:18452. Files and credentials stay on this Mac"
-
-#: src/settings/settings-dialog.tsx
-msgid "Open this workspace in your default browser. It returns to this window when the browser tab closes"
-msgstr "Open this workspace in your default browser. It returns to this window when the browser tab closes"
-
 #: src/papers/bibliography-audit.tsx
 #: src/settings/literature-settings.tsx
 msgid "OpenAlex"
@@ -5346,10 +5318,6 @@ msgstr "Opening the Overleaf project…"
 #: src/App.tsx
 msgid "Opening window…"
 msgstr "Opening window…"
-
-#: src/settings/settings-dialog.tsx
-msgid "Opening…"
-msgstr "Opening…"
 
 #: src/telemetry/app-log.tsx
 msgid "Operation metadata"
@@ -6916,14 +6884,6 @@ msgstr "Save pending edits before updating references."
 msgid "Save resolved file"
 msgstr "Save resolved file"
 
-#: src/App.tsx
-msgid "Save the current workspace before opening it in a browser."
-msgstr "Save the current workspace before opening it in a browser."
-
-#: src/App.tsx
-msgid "Save the current workspace before opening it in the desktop app."
-msgstr "Save the current workspace before opening it in the desktop app."
-
 #: src/build/use-compile-repair.ts
 msgid "Save the project before repairing."
 msgstr "Save the project before repairing."
@@ -7473,10 +7433,6 @@ msgstr "Start a new page"
 #: src/editor/latex/latex-command-completions.ts
 msgid "Start an environment"
 msgstr "Start an environment"
-
-#: src/settings/settings-dialog.tsx
-msgid "Start browser access after login"
-msgstr "Start browser access after login"
 
 #: src/editor/latex/latex-command-completions.ts
 msgid "Start the appendices"

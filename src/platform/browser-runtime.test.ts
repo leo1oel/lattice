@@ -100,12 +100,12 @@ describe("Chromium file drops", () => {
 
 const config: BrowserRuntimeConfig = { token: "secret", bridgePort: 18_452, label: "browser-test" };
 
-function connectedRelay(reload = vi.fn(), role: "browser" | "desktop" = "browser", closePage = vi.fn()) {
-  const relay = new BrowserRelay(config, new Map(), reload, role, closePage);
+function connectedRelay(reload = vi.fn(), role: "browser" | "desktop" = "browser") {
+  const relay = new BrowserRelay(config, new Map(), reload, role);
   const socket = lastSocket();
   socket.message({ type: "ready", label: config.label });
   socket.message({ type: "storage", entries: [] });
-  return { relay, socket, reload, closePage };
+  return { relay, socket, reload };
 }
 
 afterEach(() => {
@@ -173,16 +173,10 @@ describe("browser bridge recovery", () => {
       reloads: 0,
       error: "This Lattice workspace is open in another browser tab.",
     }],
-    ["stays closed after returning the workspace to the desktop app", [message("desktop-returned"), disconnect], {
-      reloads: 0,
-      closes: 1,
-      error: "This workspace is now open in the Lattice desktop app. If this tab did not close automatically, you can close it.",
-    }],
-  ])("%s", (_, steps, expected: { reloads?: number; closes?: number; error?: string }) => {
-    const { socket, reload, closePage } = connectedRelay();
+  ])("%s", (_, steps, expected: { reloads?: number; error?: string }) => {
+    const { socket, reload } = connectedRelay();
     for (const step of steps) step(socket);
     if (expected.reloads !== undefined) expect(reload).toHaveBeenCalledTimes(expected.reloads);
-    if (expected.closes !== undefined) expect(closePage).toHaveBeenCalledTimes(expected.closes);
     if (expected.error) expect(runtimeError()).toHaveTextContent(expected.error);
   });
 
@@ -193,57 +187,20 @@ describe("browser bridge recovery", () => {
     expect(runtimeError()).toHaveTextContent("The local Lattice app disconnected.");
   });
 
-  it.each(["browser-replaced", "desktop-suspended"])("tells embedded editors to stop accepting edits after %s", async (type) => {
+  it("tells embedded editors to stop accepting edits after another tab takes over", async () => {
     // Detachment is page-lifetime state, so each case needs a fresh module.
     vi.resetModules();
     const runtime = await import("./browser-runtime");
     const detached = vi.fn();
     runtime.subscribeBrowserRuntimeDetached(detached);
-    new runtime.BrowserRelay(config, new Map(), vi.fn(), type === "desktop-suspended" ? "desktop" : "browser");
+    new runtime.BrowserRelay(config, new Map(), vi.fn(), "browser");
     const socket = sockets.at(-1)!;
     socket.message({ type: "ready", label: "browser-test" });
     socket.message({ type: "storage", entries: [] });
     expect(runtime.browserRuntimeDetached()).toBe(false);
-    socket.message({ type });
+    socket.message({ type: "browser-replaced" });
     expect(runtime.browserRuntimeDetached()).toBe(true);
     expect(detached).toHaveBeenCalledOnce();
   });
-
-  it("parks bundled Chromium while a browser tab is active and reloads it on return", () => {
-    const { socket, reload } = connectedRelay(vi.fn(), "desktop");
-
-    expect(new URL(socket.url).searchParams.get("role")).toBe("desktop");
-    socket.message({ type: "desktop-suspended" });
-
-    expect(reload).toHaveBeenCalledOnce();
-    expect(runtimeError()).toHaveTextContent(
-      "This workspace is open in your browser. It will return here when that browser tab closes.",
-    );
-
-    reload.mockClear();
-    socket.message({ type: "desktop-resumed" });
-    expect(reload).toHaveBeenCalledOnce();
-  });
-
-  it("shows the translated handoff status after the standby page reloads", () => {
-    localStorage.setItem("lattice.appearance.v5", JSON.stringify({ interfaceLanguage: "zh-CN" }));
-    sessionStorage.setItem("lattice.desktop-browser-standby", "1");
-    const reload = vi.fn();
-    new BrowserRelay(config, new Map(), reload, "desktop");
-
-    lastSocket().message({ type: "desktop-suspended" });
-
-    expect(reload).not.toHaveBeenCalled();
-    expect(runtimeError()).toHaveTextContent("此工作区已在浏览器中打开。关闭浏览器标签页后，它会自动返回这里。");
-  });
-
-  it("reconnects a parked desktop if its standby socket is discarded", () => {
-    sessionStorage.setItem("lattice.desktop-browser-standby", "1");
-    const { socket, reload } = connectedRelay(vi.fn(), "desktop");
-    socket.message({ type: "desktop-suspended" });
-
-    socket.disconnect();
-
-    expect(reload).toHaveBeenCalledOnce();
-  });
 });
+

@@ -168,8 +168,6 @@ function answer(command: string, args: Args): unknown {
       return { connected: false, email: null, name: null, host: "https://www.overleaf.com" };
     case "git_status":
       return { available: false, repository: false, branch: null, files: [] };
-    case "browser_access_enabled":
-      return false;
     case "list_unused_symbols":
       return { labels: [], citations: [] };
     case "plugin:window|scale_factor":

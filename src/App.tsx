@@ -7,7 +7,6 @@ import { useLingui } from "@lingui/react/macro";
 import { msg } from "@lingui/core/macro";
 import { i18n } from "./i18n";
 import { invoke } from "@tauri-apps/api/core";
-import { getCurrentWindow } from "@tauri-apps/api/window";
 import { open, save as saveDialog } from "@tauri-apps/plugin-dialog";
 import { openUrl, revealItemInDir } from "@tauri-apps/plugin-opener";
 import * as Y from "yjs";
@@ -24,14 +23,13 @@ import {
 } from "./editor/latex/latex-text";
 import { formatBibDocument } from "./papers/bib-format";
 import { clipboardImageFileName, fileToBase64, rgbaImageToPngBase64 } from "./editor/insert/clipboard-image";
-import { listenForBrowserProjectDrops } from "./project/browser-project-drop";
 import { SearchPickerDialog } from "./components/ui/search-picker-dialog";
 import { parsePaperLinkPath } from "./papers/paper-link";
 import { canDownloadPaper, citationSourceUrl } from "./papers/paper-source";
 import { paperImportStageLabel } from "./papers/paper-import-progress";
 import { loadAuthorDisplayName, loadEditorCommentAuthorId } from "./editor/comments/editor-comment-data";
 import { useAppearance } from "./settings/use-appearance";
-import { isBrowserHosted, isBundledChromium } from "./platform/browser-runtime";
+import { isBrowserHosted } from "./platform/browser-runtime";
 import { configureInterfaceSounds } from "./telemetry/interface-sounds";
 import { useFileViewStates } from "./app/use-file-view-states";
 import { useProjectSearch } from "./app/use-project-search";
@@ -374,7 +372,6 @@ function App() {
   const trellisFlags = useTrellisUi(trellis, (ui) => [ui.present.agent, ui.visible.agent, ui.pdfLive, ui.editorHibernated].map((flag) => (flag ? "1" : "0")).join(""));
   const [agentPresent, agentVisible, pdfLive, editorHibernated] = [...trellisFlags].map((flag) => flag === "1");
   const browserHosted = isBrowserHosted();
-  const bundledChromium = isBundledChromium();
   const projectState = useProjectState();
   const {
     project, setProject, projectRef, projectBeforeTransitionRef,
@@ -2483,25 +2480,13 @@ function App() {
     paths: string[],
     targetDirectory = "",
     copyExisting = false,
-    browserFiles: File[] = [],
-  ) => (paths.length || browserFiles.length ? importIntoProject(async () => {
-    const uploads = browserFiles.length
-      ? await Promise.all(browserFiles.map(async (file) => ({ name: file.name, base64: await fileToBase64(file) })))
-      : undefined;
+  ) => (paths.length ? importIntoProject(async () => {
     const imported = await invoke<{ path: string }[]>("import_project_files", {
       paths, targetDirectory, projectRoot: project?.root,
-      ...(copyExisting ? { copyExisting: true } : {}), ...(uploads ? { uploads } : {}),
+      ...(copyExisting ? { copyExisting: true } : {}),
     });
     return imported.map((file) => file.path);
   }) : []), [importIntoProject, project?.root]);
-
-  useEffect(() => {
-    if (!project || !browserHosted || isBundledChromium()) return;
-    // Desktop Chromium already routes OS paths via BrowserEventRegistry.
-    return listenForBrowserProjectDrops((files, target) => {
-      void importProjectFiles([], target, false, files);
-    }, setAssetDropTarget);
-  }, [browserHosted, project, importProjectFiles]);
 
   const chooseProjectAssets = useCallback(async (targetDirectory = "figures") => {
     const selected = await open({
@@ -3091,17 +3076,6 @@ function App() {
     setSettingsOpen(true);
   }, [requestSynaraRuntime]);
 
-  /** Move this workspace to another surface (browser or desktop app): claim the switch, roll it back on failure. */
-  const handOffWorkspace = async (blockedMessage: string, handOff: () => Promise<void>) => {
-    if (!await startProjectTransition()) throw new Error(blockedMessage);
-    try {
-      await handOff();
-    } catch (reason) {
-      cancelProjectTransition();
-      throw reason;
-    }
-  };
-
   const settingsDialog = settingsOpen ? (
     <Suspense fallback={null}>
       <SettingsDialog
@@ -3134,28 +3108,6 @@ function App() {
         onCleanProject={() => { void cleanProject(); }}
         cleaning={cleaning}
         building={building}
-        browserHosted={browserHosted}
-        bundledChromium={bundledChromium}
-        onOpenInBrowser={() => handOffWorkspace(t`Save the current workspace before opening it in a browser.`, async () => {
-          if (bundledChromium) {
-            await invoke("open_in_system_browser");
-            setSettingsOpen(false);
-            // The native workspace is not changing ownership yet. It stays
-            // parked behind a status screen only while the system-browser
-            // peer is connected, then reloads into the same Chromium window.
-            cancelProjectTransition();
-            return;
-          }
-          await invoke("open_in_browser");
-          setSettingsOpen(false);
-          // The backend activates the browser only once this window is gone,
-          // so the two surfaces never edit together.
-          await getCurrentWindow().close();
-        })}
-        onReturnToDesktop={() => handOffWorkspace(t`Save the current workspace before opening it in the desktop app.`, async () => {
-          await invoke("return_to_desktop");
-          setSettingsOpen(false);
-        })}
         appearance={appearance}
         setAppearance={setAppearance}
         theme={theme}

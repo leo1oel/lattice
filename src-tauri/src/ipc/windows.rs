@@ -1,12 +1,11 @@
-//! Windows, the browser handoff, and app-level chores (logs, restart).
+//! Windows and app-level chores (logs, restart).
 
-use super::{current_root, run_blocking};
+use super::run_blocking;
 use crate::app_state::AppState;
-use crate::browser_host::{self, DesktopReturnTarget};
-use crate::{chromium, macos_window, native_locale, project};
+use crate::browser_host;
+use crate::{macos_window, native_locale, project};
 use std::path::{Path, PathBuf};
 use tauri::{AppHandle, Manager, State, WebviewWindow, Window};
-use tauri_plugin_autostart::ManagerExt as AutostartManagerExt;
 use tauri_plugin_opener::OpenerExt;
 
 /// What `open_project_window` did, so the caller can tell "opened" from
@@ -92,7 +91,7 @@ pub async fn open_project_window(
 
     if let Some(label) = state.window_showing(&root) {
         if label.starts_with("browser-") {
-            if browser.reopen_window(&app, &label, false)? {
+            if browser.reopen_window(&app, &label)? {
                 return Ok(OpenedProjectWindow { label, focused_existing: true });
             }
         } else if let Some(existing) = app.get_webview_window(&label) {
@@ -113,39 +112,6 @@ pub async fn open_project_window(
         label
     };
     Ok(OpenedProjectWindow { label, focused_existing: false })
-}
-
-/// Move a browser-hosted project back into an ordinary desktop window. The
-/// browser relay is retired only after this command's response has crossed the
-/// bridge, so the caller never hangs waiting on a socket we just closed.
-#[tauri::command]
-pub fn return_to_desktop(
-    app: AppHandle, state: State<'_, AppState>, browser: State<'_, browser_host::BrowserHost>,
-    window: Window,
-) -> Result<String, String> {
-    if !window.label().starts_with("browser-") {
-        return Err("This workspace is already open in the desktop app.".to_string());
-    }
-    if browser.has_bundled_chromium(window.label())? {
-        // The fixed Chromium build already owns this workspace and is merely
-        // parked while the system-browser peer is connected. Resume that same
-        // renderer instead of creating a slower WebKit desktop window.
-        browser.return_to_desktop(&app, window.label(), DesktopReturnTarget::Bundled)?;
-        return Ok(window.label().to_string());
-    }
-    let root = current_root(&state, &window)?;
-    app.set_activation_policy(tauri::ActivationPolicy::Regular)
-        .map_err(|error| format!("Could not show Lattice in the Dock: {error}"))?;
-    let (label, desktop) = open_desktop_window(&app, &state, root)?;
-    if let Err(reason) =
-        browser.return_to_desktop(&app, window.label(), DesktopReturnTarget::Native)
-    {
-        let _ = desktop.destroy();
-        state.abandon_window(&label);
-        return Err(reason);
-    }
-    let _ = desktop.set_focus();
-    Ok(label)
 }
 
 fn app_log_dir(app: &AppHandle) -> Result<PathBuf, String> {
@@ -173,79 +139,6 @@ pub fn open_app_log_dir(app: AppHandle) -> Result<(), String> {
     app.opener()
         .open_path(app_log_dir(&app)?.to_string_lossy(), None::<&str>)
         .map_err(|error| format!("Could not open the log folder: {error}"))
-}
-
-/// Hand the current workspace to a browser tab while this installed app keeps
-/// every native capability behind a loopback-only, token-authenticated bridge.
-#[tauri::command]
-pub fn open_in_browser(
-    app: AppHandle, browser: State<'_, browser_host::BrowserHost>, state: State<'_, AppState>,
-    window: Window,
-) -> Result<String, String> {
-    let project_root = state.root_for(window.label())?;
-    // Fail before changing login startup when another process owns the fixed
-    // entry. The setting should not look enabled after an unsuccessful open.
-    browser.start(&app, false)?;
-    // Opening the fixed browser entry opts into its defining behavior: after
-    // the next login, a windowless Lattice process keeps the bookmarked local
-    // address available without making the writer open the desktop UI first.
-    let access_was_enabled = browser_access_enabled(app.clone())?;
-    if !access_was_enabled {
-        app.autolaunch()
-            .enable()
-            .map_err(|error| format!("Could not keep browser access ready after login: {error}"))?;
-    }
-    let resident_was_present = app.get_window(browser_host::SERVICE_WINDOW_LABEL).is_some();
-    let opened = browser.keep_resident(&app).and_then(|()| {
-        browser.open(&app, window.label(), project_root).inspect_err(|_| {
-            if !resident_was_present {
-                browser.stop_resident(&app);
-            }
-        })
-    });
-    if opened.is_err() && !access_was_enabled {
-        let _ = app.autolaunch().disable();
-    }
-    opened
-}
-
-/// Open the bundled-Chromium workspace in the user's default browser without
-/// tearing down its desktop surface. The browser host parks that surface while
-/// the external tab is connected and restores it when the tab closes.
-#[tauri::command]
-pub fn open_in_system_browser(
-    app: AppHandle, browser: State<'_, browser_host::BrowserHost>, window: Window,
-) -> Result<(), String> {
-    if browser.reopen_window(&app, window.label(), true)? {
-        Ok(())
-    } else {
-        Err("This Lattice workspace is no longer available.".to_string())
-    }
-}
-
-#[tauri::command]
-pub fn browser_access_enabled(app: AppHandle) -> Result<bool, String> {
-    app.autolaunch()
-        .is_enabled()
-        .map_err(|error| format!("Could not read the browser access setting: {error}"))
-}
-
-#[tauri::command]
-pub fn set_browser_access_enabled(app: AppHandle, enabled: bool) -> Result<(), String> {
-    let result = if enabled { app.autolaunch().enable() } else { app.autolaunch().disable() };
-    result.map_err(|error| format!("Could not update browser access: {error}"))?;
-    let browser = app.state::<browser_host::BrowserHost>();
-    if enabled {
-        return browser.keep_resident(&app);
-    }
-    // Packaged Chromium is still the running desktop application after its
-    // last window closes on macOS. Its small native owner must stay alive
-    // until the user explicitly quits so the Dock can reopen it and the
-    // loopback browser address does not disappear.
-    if !app.state::<chromium::ChromiumRuntime>().is_running() {
-        browser.stop_resident(&app);
-    }
-    Ok(())
 }
 
 /// Finish an installed update without relying on an event-loop restart

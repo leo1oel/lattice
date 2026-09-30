@@ -1086,10 +1086,6 @@ msgstr "恢复 {0}"
 msgid "Bring your next idea into Lattice."
 msgstr "在 Lattice 中继续你的研究。"
 
-#: src/settings/settings-dialog.tsx
-msgid "Browser"
-msgstr "浏览器"
-
 #: src/telemetry/app-log-store.ts
 msgid "Browser storage is full or unavailable. New entries still reach the log file on disk, but this list may be lost on restart."
 msgstr "浏览器存储已满或不可用。新条目仍会写入磁盘上的日志文件，但此列表可能在重启后丢失。"
@@ -3914,10 +3910,6 @@ msgstr "两者都保留"
 msgid "Keep citations"
 msgstr "保留引用"
 
-#: src/settings/settings-dialog.tsx
-msgid "Keep http://127.0.0.1:18452 available after login. Quitting Lattice stops it"
-msgstr "登录后保持 http://127.0.0.1:18452 可用。退出 Lattice 后，该地址将停止服务"
-
 #: src/overleaf/overleaf-connect.tsx
 msgid "Keep it on Overleaf"
 msgstr "在 Overleaf 上保留"
@@ -4612,10 +4604,6 @@ msgstr "等宽文本"
 msgid "Move {title} to"
 msgstr "将{title}移动到"
 
-#: src/settings/settings-dialog.tsx
-msgid "Move this workspace back to a Lattice window on this Mac"
-msgstr "将此工作区移回这台 Mac 上的 Lattice 窗口"
-
 #: src/trellis/trellis-labels.ts
 msgid "Moved"
 msgstr "已移动"
@@ -5186,10 +5174,6 @@ msgstr "默认展开"
 msgid "Open comments"
 msgstr "打开评论"
 
-#: src/settings/settings-dialog.tsx
-msgid "Open desktop app"
-msgstr "在桌面应用中打开"
-
 #: src/project/quick-open-dialog.tsx
 msgid "Open file…"
 msgstr "打开文件…"
@@ -5206,10 +5190,6 @@ msgstr "从 Overleaf 打开"
 #: src/App.tsx
 msgid "Open guided tutorial"
 msgstr "打开引导式教程"
-
-#: src/settings/settings-dialog.tsx
-msgid "Open in browser"
-msgstr "在浏览器中打开"
 
 #: src/canvas/canvas-toolbar.tsx
 msgid "Open in Overleaf"
@@ -5313,14 +5293,6 @@ msgstr "请先打开这个智能助手任务，再恢复它涉及的文件"
 msgid "Open this repository on GitHub"
 msgstr "在 GitHub 上打开此仓库"
 
-#: src/settings/settings-dialog.tsx
-msgid "Open this workspace at http://127.0.0.1:18452. Files and credentials stay on this Mac"
-msgstr "在 http://127.0.0.1:18452 打开此工作区。文件和凭据仍保留在这台 Mac 上"
-
-#: src/settings/settings-dialog.tsx
-msgid "Open this workspace in your default browser. It returns to this window when the browser tab closes"
-msgstr "在默认浏览器中打开此工作区。关闭浏览器标签页后，工作区会自动返回此窗口"
-
 #: src/papers/bibliography-audit.tsx
 #: src/settings/literature-settings.tsx
 msgid "OpenAlex"
@@ -5346,10 +5318,6 @@ msgstr "正在打开 Overleaf 项目…"
 #: src/App.tsx
 msgid "Opening window…"
 msgstr "正在打开窗口…"
-
-#: src/settings/settings-dialog.tsx
-msgid "Opening…"
-msgstr "正在打开…"
 
 #: src/telemetry/app-log.tsx
 msgid "Operation metadata"
@@ -6916,14 +6884,6 @@ msgstr "请先保存未保存的编辑，再更新引用。"
 msgid "Save resolved file"
 msgstr "保存已解决的文件"
 
-#: src/App.tsx
-msgid "Save the current workspace before opening it in a browser."
-msgstr "请先保存当前工作区，再在浏览器中打开。"
-
-#: src/App.tsx
-msgid "Save the current workspace before opening it in the desktop app."
-msgstr "请先保存当前工作区，再在桌面应用中打开。"
-
 #: src/build/use-compile-repair.ts
 msgid "Save the project before repairing."
 msgstr "请先保存项目，再进行修正。"
@@ -7473,10 +7433,6 @@ msgstr "另起一页"
 #: src/editor/latex/latex-command-completions.ts
 msgid "Start an environment"
 msgstr "开始环境"
-
-#: src/settings/settings-dialog.tsx
-msgid "Start browser access after login"
-msgstr "登录后启动浏览器访问服务"
 
 #: src/editor/latex/latex-command-completions.ts
 msgid "Start the appendices"

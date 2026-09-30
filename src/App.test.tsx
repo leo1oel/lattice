@@ -64,7 +64,7 @@ const interfaceSounds = vi.hoisted(() => ({ configure: vi.fn(), play: vi.fn() })
 const openSlideWorkspaceApi = vi.hoisted(() => ({
   onMutation: null as null | ((mutation: OpenSlideMutation) => Promise<OpenSlideSyncOperation[]>),
 }));
-const browserRuntime = vi.hoisted(() => ({ hosted: false, bundled: false }));
+const browserRuntime = vi.hoisted(() => ({ hosted: false }));
 const pdfSlickTestApi = vi.hoisted(() => ({ sources: [] as Array<string | ArrayBuffer> }));
 const tauriCoreApi = vi.hoisted(() => ({ channel: null as { onmessage: ((message: unknown) => void) | null } | null }));
 vi.mock("@tauri-apps/api/core", () => ({
@@ -119,7 +119,7 @@ vi.mock("./telemetry/interface-sounds", () => ({
   configureInterfaceSounds: interfaceSounds.configure, playInterfaceSound: interfaceSounds.play,
 }));
 vi.mock("./platform/browser-runtime", () => ({
-  isBrowserHosted: () => browserRuntime.hosted, isBundledChromium: () => browserRuntime.bundled,
+  isBrowserHosted: () => browserRuntime.hosted,
 }));
 vi.mock("pdfjs-dist-v4/legacy/build/pdf.mjs", () => ({
   GlobalWorkerOptions: {},
@@ -281,8 +281,6 @@ vi.mock("@pdfslick/core", () => {
 
 /** Answers the commands every window issues at startup; rejects any other command a test did not declare. */
 function mockAppCommand(command: string) {
-  if (command === "set_browser_access_enabled") return null;
-  if (command === "browser_access_enabled") return false;
   if (["list_citation_keys", "list_citations", "list_references"].includes(command)) return [];
   throw new Error(`Unexpected command: ${command}`);
 }
@@ -510,7 +508,7 @@ Element.prototype.getBoundingClientRect = function (this: Element) {
 beforeEach(() => {
   localStorage.clear();
   localStorage.setItem("lattice.tutorial-seen.v1", "1");
-  Object.assign(browserRuntime, { hosted: false, bundled: false });
+  Object.assign(browserRuntime, { hosted: false });
   pdfSlickTestApi.sources.length = 0;
   openSlideWorkspaceApi.onMutation = null;
   webviewApi.dragDropHandler = null;
@@ -1135,25 +1133,6 @@ describe("welcome screen", () => {
     if (setting === "interfaceSounds") expect(interfaceSounds.configure).toHaveBeenLastCalledWith(false);
   });
 
-  it("keeps the resident browser entry at the bottom of Appearance and controls login startup", async () => {
-    renderApp({ initial_project: null, browser_access_enabled: true, set_browser_access_enabled: null });
-    await openSettings();
-    const residentAccess = await screen.findByLabelText("Start browser access after login");
-    expect(residentAccess).toBeChecked();
-    expect(screen.getByText("Browser").compareDocumentPosition(screen.getByText("Feedback")))
-      .toBe(Node.DOCUMENT_POSITION_PRECEDING);
-    expect(screen.getAllByText(/http:\/\/127\.0\.0\.1:18452/)).toHaveLength(2);
-    fireEvent.click(residentAccess);
-    await expectInvoked("set_browser_access_enabled", { enabled: false });
-    expect(residentAccess).not.toBeChecked();
-    fireEvent.click(screen.getByRole("button", { name: "Editor & builds" }));
-    fireEvent.click(screen.getByRole("button", { name: "Appearance" }));
-    const revisited = screen.getByLabelText("Start browser access after login");
-    expect(revisited).not.toBeChecked();
-    expect(revisited).toBeEnabled();
-    expect(invokeCalls("browser_access_enabled")).toHaveLength(1);
-  });
-
   it("opens every Settings dropdown with the Settings popover contract", async () => {
     renderApp({ initial_project: null });
     for (const section of ["Appearance", "Editor & builds"]) {
@@ -1171,26 +1150,6 @@ describe("welcome screen", () => {
       fireEvent.click(screen.getByRole("button", { name: "Close settings" }));
       await waitFor(() => expect(screen.queryByRole("dialog", { name: "Settings" })).not.toBeInTheDocument());
     }
-  });
-
-  it("moves a browser workspace back into the desktop app from Settings", async () => {
-    browserRuntime.hosted = true;
-    renderApp({ ...projectCommands(projectSnapshot({ files: [] })), return_to_desktop: "project-1" });
-    await screen.findByRole("tab", { name: "main.tex" });
-    await chooseProjectMenuItem("Settings");
-    fireEvent.click(await screen.findByRole("button", { name: "Open desktop app" }));
-    await expectInvoked("return_to_desktop");
-    expect(screen.queryByRole("dialog", { name: "Settings" })).not.toBeInTheDocument();
-  });
-
-  it("opens the bundled Chromium workspace in the default browser", async () => {
-    Object.assign(browserRuntime, { hosted: true, bundled: true });
-    renderApp({ open_in_system_browser: null });
-    await openSettings();
-    await screen.findByLabelText("Start browser access after login");
-    fireEvent.click(screen.getByRole("button", { name: "Open in browser" }));
-    await expectInvoked("open_in_system_browser");
-    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Settings" })).not.toBeInTheDocument());
   });
 
   it.each([
@@ -3798,30 +3757,6 @@ describe("project workspace", () => {
     await expectInvoked("import_project_files", { paths, targetDirectory, projectRoot: ROOT });
     // Filing into the tree does not open the file; editor drops do that.
     expect(invoke).not.toHaveBeenCalledWith("read_project_file", expect.objectContaining({ path: "sections/notes.md" }));
-  });
-
-  it.each([false, true])("uploads external file bytes only in an ordinary browser (bundled: %s)", async (bundled) => {
-    Object.assign(browserRuntime, { hosted: true, bundled });
-    const snapshot = () => projectSnapshot({ name: "Paper", rootDocuments: MAIN_DOCUMENT, files: [fileNode("main.tex"), dirNode("sections")] });
-    renderApp({
-      initial_project: snapshot, refresh_project: snapshot, import_project_files: () => [{ path: "sections/notes.md", kind: "text" }],
-    });
-    const row = await findProjectTreeItem("sections/");
-    stubElementFromPoint(row);
-    const file = new File(["hello"], "notes.md");
-    Object.defineProperty(file, "arrayBuffer", { value: async () => new TextEncoder().encode("hello").buffer });
-    const drop = new MouseEvent("drop", { bubbles: true, composed: true, cancelable: true, clientX: 90, clientY: 120 });
-    Object.defineProperty(drop, "dataTransfer", { value: { types: ["Files"], files: [file], items: [], getData: () => "" } });
-    fireEvent(row, drop);
-    if (bundled) {
-      expect(drop.defaultPrevented).toBe(false);
-      expect(invoke).not.toHaveBeenCalledWith("import_project_files", expect.anything());
-      return;
-    }
-    await expectInvoked("import_project_files", {
-      paths: [], targetDirectory: "sections", projectRoot: ROOT, uploads: [{ name: "notes.md", base64: "aGVsbG8=" }],
-    });
-    expect(drop.defaultPrevented).toBe(true);
   });
 
   it("keeps text-classified SVG tabs as images after switching files", async () => {
