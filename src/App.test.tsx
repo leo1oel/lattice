@@ -4369,7 +4369,9 @@ describe("project workspace", () => {
     await expectInvoked("open_tutorial_project");
     await waitFor(() => expect(screen.getByRole("button", { name: "Switch project" })).toHaveTextContent("Overleaf paper"));
     fireEvent.keyDown(window, { key: "s", metaKey: true });
-    await pause(0);
+    // Long enough for the incoming project's PDF panel to mount and report its first view state, which must
+    // not be filed under the outgoing project's file.
+    await pause(500);
     expect(invokeCalls("write_project_file")).toEqual([["write_project_file", {
       path: "draft.md", content: "# Private draft\nLocal only.", baseContent: "# Private draft", projectRoot: "/tmp/notes",
     }]]);

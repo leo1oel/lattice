@@ -393,10 +393,14 @@ export function DocumentCanvas(props: {
   // Saved-view ownership for the preview column. Files without a preview of
   // their own (.bib, .sty) keep using the last previewable file's saved state.
   // This is separate from the mounted viewer's identity: all TeX source files
-  // share the project's compiled PDF, including across SyncTeX jumps.
-  const [previewIdentity, setPreviewIdentity] = useState(activeFile);
+  // share the project's compiled PDF, including across SyncTeX jumps. The
+  // canvas outlives a project switch, so the identity is tied to its root: the
+  // outgoing project's file must not own the incoming project's saved PDF view.
+  const [previewIdentity, setPreviewIdentity] = useState({ root: props.projectRoot, path: activeFile });
   const previewOwner = [activeFile, secondaryFile].find((path) => path && isPreviewableSourceFilePath(path));
-  if (previewOwner && previewOwner !== previewIdentity) setPreviewIdentity(previewOwner);
+  if (previewIdentity.root !== props.projectRoot || (previewOwner && previewOwner !== previewIdentity.path)) {
+    setPreviewIdentity({ root: props.projectRoot, path: previewOwner ?? activeFile });
+  }
 
   const { captureMarkdownModeViewport, viewMarkdownSource, livePrimaryView } = useMarkdownModeHandoff({
     activeFile,
@@ -1344,7 +1348,7 @@ export function DocumentCanvas(props: {
     </div>
   );
   const projectPdfPreview = (requestedPath: string) => {
-    const previewPath = isPreviewableSourceFilePath(requestedPath) ? requestedPath : previewIdentity;
+    const previewPath = isPreviewableSourceFilePath(requestedPath) ? requestedPath : previewIdentity.path;
     const leaveEditorForPdf = () => {
       // Scrolling the PDF need not blur CodeMirror: end completion explicitly, or
       // its active-menu guard can suspend autosave. Pointer leave keeps the menu.
