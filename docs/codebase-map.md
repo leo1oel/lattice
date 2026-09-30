@@ -119,7 +119,7 @@ Counts are tracked files directly in the directory (not nested), and lines are
 | `src/settings/` | 11 | 3 | 2,058 | The settings dialog and its panes, the localStorage-backed preference store, appearance and fixed fonts. |
 | `src/pdf/` | 18 | 5 | 3,634 | The pdf.js viewer (`pdf-viewer.tsx` over the `use-pdf-*` hooks and `pdf-slick.ts`) with SyncTeX, search and annotations, plus base64/byte plumbing. |
 | `src/platform/` | 11 | 5 | 2,031 | Runtime bootstrap and the repo-level guards that pin it: the browser-host runtime and bridge, `perf-probe.ts`, `test-setup.ts`, and tests for compiler/security configuration and the pre-module compatibility script in `public/polyfills.js`. |
-| `src/editor/` | 10 | 4 | 1,215 | Editor infrastructure shared by more than one editor kind: the hand-mounted CodeMirror host, language resolution, Harper spellcheck, paper drops, the go-to-line dialog, and `dom-utils.ts` (element, listener and idle-callback helpers for hand-built editor chrome). |
+| `src/editor/` | 10 | 4 | 1,215 | Editor infrastructure shared by more than one editor kind: the hand-mounted CodeMirror host, language resolution, Harper spellcheck, paper drops, the go-to-line dialog, and `dom-utils.ts` (the `element()` helper for hand-built editor chrome). |
 | `src/animated-icons/` | 5 | 1 | 215 | The animated product icons (plus `bakai/`, 12 hand-rebuilt glyphs). Exercised by the playground in `tools/icon-lab/`. |
 | `src/editor/comments/` | 4 | 1 | 898 | Editor comments: the data shape, the CodeMirror/TipTap integration, the panel. |
 | `src/editor/board/` | 3 | 1 | 387 | The tldraw whiteboard and its standalone store. Loaded only via `loadBoardEditorModule()`. |

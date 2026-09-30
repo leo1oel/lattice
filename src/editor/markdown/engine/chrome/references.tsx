@@ -35,7 +35,7 @@ export type PageSuggestion =
 const pageKey = (item: PageSuggestion) => (item.kind === "page" ? item.doc.path : `${item.doc.path}#${item.slug}`);
 
 /** Pages for `query`, or a page's headings once the query names a page and a `#`. */
-export function pageSuggestions(host: ChromeHost, query: string): PageSuggestion[] {
+function pageSuggestions(host: ChromeHost, query: string): PageSuggestion[] {
   const index = host.props().workspaceIndex;
   if (!index) return [];
   const hash = query.indexOf("#");
@@ -101,7 +101,7 @@ export function WikiLinkMenu({ editor, store }: { editor: Editor; store: MenuSto
 // --- Citations --------------------------------------------------------------
 
 /** Papers with local content (full text or blog), matching every word of `query` against title and key. */
-export function matchPapers(papers: readonly PaperSummary[], query: string): PaperSummary[] {
+function matchPapers(papers: readonly PaperSummary[], query: string): PaperSummary[] {
   const words = query.toLowerCase().split(/\s+/).filter(Boolean);
   const seen = new Set<string>();
   return papers.filter((paper) => {

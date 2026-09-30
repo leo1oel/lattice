@@ -31,8 +31,8 @@ import type { MarkdownBaseline } from "./markdown-document";
 import { placements } from "./source-map";
 
 /** A read-only document of at least this many blocks (or this much text) opens passive. */
-export const PASSIVE_MIN_BLOCKS = 120;
-export const PASSIVE_MIN_LENGTH = 150_000;
+const PASSIVE_MIN_BLOCKS = 120;
+const PASSIVE_MIN_LENGTH = 150_000;
 /** Blocks per chunk: a 180-block document is eight chunks. */
 const CHUNK_BLOCKS = 24;
 /** One block this large (a 900-item list, say) would defeat the bound on what is drawn: no passive view. */
@@ -41,7 +41,7 @@ const MAX_BLOCK_LENGTH = 60_000;
 
 type Label = { pos: number; line: number; from: number; to: number };
 
-export type PassiveChunk = {
+type PassiveChunk = {
   id: string;
   nodes: PmNode[];
   /** Heading ids and hidden Contents, at positions in this chunk. */

@@ -15,7 +15,7 @@
  * Clean implementation for Lattice; spec: docs/visual-editor-spec.md.
  */
 /* eslint-disable react-refresh/only-export-components -- the Comment request and the composer it opens belong together */
-import { useEffect, useLayoutEffect, useState, useSyncExternalStore, type CSSProperties } from "react";
+import { useEffect, useLayoutEffect, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
 import { useLingui } from "@lingui/react/macro";
 import type { Editor } from "@tiptap/core";
@@ -27,7 +27,7 @@ import { hueColor } from "../../../../components/ui/collab-colors";
 import { Textarea } from "../../../../components/ui/textarea";
 import { buildCommentTooltipDom } from "../../../comments/editor-comments";
 import { commentCardId, commentDraft, setCommentDraft } from "../source-overlays";
-import type { ChromeHost } from "./chrome-host";
+import { useChromeRequest, type ChromeHost } from "./chrome-host";
 
 function place(element: HTMLElement, anchor: { getBoundingClientRect: () => DOMRect }, placement: "top" | "bottom" = "top") {
   void computePosition(anchor, element, {
@@ -224,7 +224,7 @@ function anchorDraft(editor: Editor, host: ChromeHost, draft: Draft | null) {
 
 export function CommentComposer({ editor, host }: { editor: Editor; host: ChromeHost }) {
   const { t } = useLingui();
-  const request = useSyncExternalStore(host.subscribe, () => host.request, () => host.request);
+  const request = useChromeRequest(host);
   const [draft, setDraft] = useState<Draft | null>(null);
   const [error, setError] = useState<"locate" | "changed" | null>(null);
   const [body, setBody] = useState("");

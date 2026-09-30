@@ -24,7 +24,7 @@ type Token = { from: number; to: number; className: string };
 type HastNode = { type: string; value?: string; properties?: { className?: string[] }; children?: HastNode[] };
 
 /** Token ranges (relative to the code's start) for `code` in `grammar`. */
-export function highlightTokens(code: string, grammar: string): Token[] {
+function highlightTokens(code: string, grammar: string): Token[] {
   if (!lowlight.registered(grammar)) return [];
   let tree: HastNode;
   try {

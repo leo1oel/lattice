@@ -1,6 +1,7 @@
 /* eslint-disable lingui/no-unlocalized-strings -- Agent spreadsheet tool protocol: every message here is a tool error the Agent reads, never interface copy */
 import type * as Y from "yjs";
-import { HORIZONTAL_ALIGNMENTS, SPREADSHEET_AXES, SPREADSHEET_READ_FIELDS, VERTICAL_ALIGNMENTS, clone, isRecord, isSpreadsheetCellValue, newId } from "./spreadsheet-types";
+import { isRecord } from "../../app-utils";
+import { HORIZONTAL_ALIGNMENTS, SPREADSHEET_AXES, SPREADSHEET_READ_FIELDS, VERTICAL_ALIGNMENTS, clone, isSpreadsheetCellValue, newId } from "./spreadsheet-types";
 import type {
   SpreadsheetAxis,
   SpreadsheetBatchOperation,
@@ -55,7 +56,7 @@ export function columnLabel(index: number): string {
   return output;
 }
 
-export function a1Range(range: SpreadsheetRangeData): string {
+function a1Range(range: SpreadsheetRangeData): string {
   const start = `${columnLabel(range.startColumn)}${range.startRow + 1}`;
   const end = `${columnLabel(range.endColumn)}${range.endRow + 1}`;
   return start === end ? start : `${start}:${end}`;

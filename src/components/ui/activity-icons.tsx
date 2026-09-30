@@ -1,6 +1,6 @@
 import { useState, type MouseEventHandler, type ReactNode } from "react";
 import { RefreshCw } from "lucide-react";
-import infinityLoaderUrl from "../../../infinity-loader.svg";
+import infinityLoaderUrl from "./infinity-loader.svg";
 import { cn } from "@/lib/utils";
 import { Button, type ButtonProps } from "./button";
 import { IconButton, type IconButtonProps } from "./icon-button";

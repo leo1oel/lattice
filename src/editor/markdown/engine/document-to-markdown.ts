@@ -92,7 +92,7 @@ function listItem(node: PmNode, options: SerializeOptions): MdNode {
 }
 
 /** Whether a formula's authored source (with its delimiters) still spells `tex`. */
-export function mathSourceMatches(source: string, tex: string): boolean {
+function mathSourceMatches(source: string, tex: string): boolean {
   const match = source.match(/^(\$+)([\s\S]*)\1$/) ?? source.match(/^\\\(([\s\S]*)\\\)$/) ?? source.match(/^\\\[([\s\S]*)\\\]$/);
   if (!match) return false;
   const body = match.length === 3 ? match[2]! : match[1]!;

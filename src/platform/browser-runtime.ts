@@ -1,3 +1,5 @@
+import { APPEARANCE_KEY } from "../settings/app-settings";
+
 /* eslint-disable lingui/no-unlocalized-strings -- bridge protocol keys shared with Tauri and the native host */
 const IPC_SERIALIZE_KEY = "__TAURI_TO_IPC_KEY__";
 const BINARY_MARKER = "__latticeBridgeBinary";
@@ -20,7 +22,6 @@ type BrowserMessage =
 type BrowserPeerRole = "browser" | "desktop";
 
 const DESKTOP_STANDBY_KEY = "lattice.desktop-browser-standby";
-const APPEARANCE_KEY = "lattice.appearance.v5";
 
 interface BrowserInternals {
   invoke: (command: string, args?: unknown, options?: unknown) => Promise<unknown>;

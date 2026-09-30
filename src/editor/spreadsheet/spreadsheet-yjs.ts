@@ -1,13 +1,13 @@
 import type { MessageDescriptor } from "@lingui/core";
 import { msg } from "@lingui/core/macro";
 import * as Y from "yjs";
+import { isRecord } from "../../app-utils";
 import {
   LATTICE_SPREADSHEET_FORMAT,
   LATTICE_SPREADSHEET_VERSION,
   SPREADSHEET_AXES,
   clone,
   inBounds,
-  isRecord,
   isSpreadsheetCellValue,
   jsonEqual,
   newId,

@@ -81,7 +81,7 @@ export type OpenSlideFileViewState = {
   page: number;
 };
 
-export type ScrollFileViewState = {
+type ScrollFileViewState = {
   scrollTop: number;
   scrollLeft?: number;
   scrollRange?: number;
@@ -145,7 +145,7 @@ export type GitStatus = {
 
 export type AssetPreview = ReferenceAssetPreview;
 
-export type FigureDropRequest = {
+type FigureDropRequest = {
   id: string;
   paths: string[];
   clientX: number;
@@ -160,7 +160,7 @@ export type EditorDropZone = "left" | "center" | "right";
 export type SyncTexTarget = { path: string; line: number };
 export type NavigationEntry = SyncTexTarget;
 
-export type EditorNavigation = SyncTexTarget & { id: string };
+type EditorNavigation = SyncTexTarget & { id: string };
 export type EditorPosition = { path: string; line: number; column: number };
 export type PdfSyncResponse = Omit<PdfSyncTarget, "id">;
 

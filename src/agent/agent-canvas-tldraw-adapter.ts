@@ -15,8 +15,9 @@ import {
   type TLShapeId,
   type TLShapePartial,
 } from "tldraw";
+import { isRecord } from "../app-utils";
 import type { AgentCanvasAdapter } from "./agent-canvas-tools";
-import { isRecord, toolError } from "./agent-protocol";
+import { toolError } from "./agent-protocol";
 
 const MAX_SHAPES_PER_CALL = 100;
 const MAX_ARGUMENT_BYTES = 512 * 1024;

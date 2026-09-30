@@ -34,7 +34,7 @@ export type OverlayInputs = {
 
 type OverlayState = { decorations: DecorationSet; draft: { from: number; to: number } | null };
 
-export const sourceOverlaysKey = new PluginKey<OverlayState>("latticeSourceOverlays");
+const sourceOverlaysKey = new PluginKey<OverlayState>("latticeSourceOverlays");
 
 type OverlayMeta = { decorations?: DecorationSet; draft?: { from: number; to: number } | null };
 

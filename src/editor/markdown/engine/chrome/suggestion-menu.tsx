@@ -143,7 +143,7 @@ export function suggestionExtension<T>(config: SuggestionConfig<T>) {
 }
 
 /** The menu's live state. */
-export function useMenuState<T>(store: MenuStore<T>): MenuState<T> {
+function useMenuState<T>(store: MenuStore<T>): MenuState<T> {
   return useSyncExternalStore(store.subscribe, store.get, store.get);
 }
 

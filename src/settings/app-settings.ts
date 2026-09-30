@@ -12,7 +12,7 @@ export type ThemePreference = "system" | Theme;
 export type AppLocale = "en" | "zh-CN";
 export type InterfaceLanguage = "system" | AppLocale;
 export type RecentProject = { name: string; path: string };
-export type AutoBuildMode = "manual" | "automatic";
+type AutoBuildMode = "manual" | "automatic";
 export type BuildPreferences = { autoBuildMode: AutoBuildMode };
 
 /* eslint-disable lingui/no-unlocalized-strings -- CSS font stacks */
@@ -25,8 +25,6 @@ export const THEME_KEY = "lattice.theme.v1";
 export const THEME_PREFERENCE_KEY = "lattice.theme-preference.v1";
 export const BUILD_PREFERENCES_KEY = "lattice.build-preferences.v2";
 const SPLIT_RATIO_KEY = "lattice.split-ratio.v1";
-const SIDEBAR_OPEN_KEY = "lattice.sidebar-open.v1";
-const SIDEBAR_WIDTH_KEY = "lattice.sidebar-width.v1";
 const LAST_FILE_KEY = "lattice.last-file.v1";
 export const WORKSPACE_LAYOUT_KEY = "lattice.workspace-layout.v1";
 export const FILE_VIEW_STATES_KEY = "lattice.file-view-states.v1";
@@ -165,10 +163,6 @@ export function loadBuildPreferences(): BuildPreferences {
 
 export const loadSplitRatio = () => readNumber(SPLIT_RATIO_KEY, 0.46, 0.2, 0.8);
 export const persistSplitRatio = (ratio: number) => persistSetting(SPLIT_RATIO_KEY, String(ratio));
-export const loadSidebarOpen = () => safely(() => localStorage.getItem(SIDEBAR_OPEN_KEY) !== "0", true);
-export const persistSidebarOpen = (open: boolean) => persistSetting(SIDEBAR_OPEN_KEY, open ? "1" : "0");
-export const loadSidebarWidth = () => readNumber(SIDEBAR_WIDTH_KEY, 320, 180, 2400);
-export const persistSidebarWidth = (width: number) => persistSetting(SIDEBAR_WIDTH_KEY, String(width));
 
 // Unlike the other per-project maps, an unreadable last-file map is replaced
 // on the next write rather than preserved.
@@ -356,7 +350,7 @@ export type AppearanceSettings = {
 };
 
 /** The tool buttons at the right of the title bar, each of which can be hidden. */
-export const TITLEBAR_TOOLS = ["comments", "overleaf", "paper-lookup", "git", "history"] as const;
+const TITLEBAR_TOOLS = ["comments", "overleaf", "paper-lookup", "git", "history"] as const;
 export type TitlebarTool = typeof TITLEBAR_TOOLS[number];
 
 export function resolveAppLocale(preference: InterfaceLanguage, systemLanguages?: readonly string[]): AppLocale {

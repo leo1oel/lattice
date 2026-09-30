@@ -224,7 +224,7 @@ const latexStreamParser: StreamParser<LatexStreamState> = {
   },
 };
 
-export const latexLanguage = StreamLanguage.define(latexStreamParser);
+const latexLanguage = StreamLanguage.define(latexStreamParser);
 
 const SECTION_LEVELS: Record<string, number> = {
   part: 0, chapter: 1, section: 2, subsection: 3, subsubsection: 4, paragraph: 5, subparagraph: 6,
@@ -361,7 +361,7 @@ function commentFold(state: EditorState, line: Line) {
  * multi-line brace groups and comment blocks. The fold gutter asks for every
  * visible line on each update, so each branch first rejects lines cheaply.
  */
-export function latexFoldRange(state: EditorState, lineStart: number): { from: number; to: number } | null {
+function latexFoldRange(state: EditorState, lineStart: number): { from: number; to: number } | null {
   const line = state.doc.lineAt(lineStart);
   const text = uncommented(line.text);
   return (text.includes("\\begin") ? environmentFold(state, line, text) : null)

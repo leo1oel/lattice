@@ -104,7 +104,7 @@ export function insertFootnote(editor: Editor, range: Range, note?: PmNode[]) {
   editor.view.focus();
 }
 
-export const SLASH_ITEMS: readonly SlashItem[] = [
+const SLASH_ITEMS: readonly SlashItem[] = [
   heading(1, msg`Heading 1`, msg`Big section heading.`, Heading1),
   heading(2, msg`Heading 2`, msg`Medium section heading.`, Heading2),
   heading(3, msg`Heading 3`, msg`Small section heading.`, Heading3),

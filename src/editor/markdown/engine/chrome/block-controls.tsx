@@ -41,7 +41,7 @@ type ViewportLock = (anchor: HTMLElement | null, anchorTop: number | null, revea
  * is brought into view: by the host when it can hold its view (`lock`), else
  * here.
  */
-export function addBlockBelow(editor: Editor, position: number, lock?: ViewportLock) {
+function addBlockBelow(editor: Editor, position: number, lock?: ViewportLock) {
   const node = editor.state.doc.nodeAt(position);
   if (!node) return;
   const anchor = editor.view.nodeDOM(position) as HTMLElement | null;

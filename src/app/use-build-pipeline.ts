@@ -410,4 +410,3 @@ export function useBuildPipeline({
     diagnosticsDismissed, diagnosticsExpanded, dismissDiagnostics, pdfUrl, resetForProject, resetQueue, runBuild,
   ]);
 }
-export type BuildPipeline = ReturnType<typeof useBuildPipeline>;

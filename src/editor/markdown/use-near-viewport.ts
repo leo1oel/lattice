@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { whenIdle } from "../dom-utils";
+import { whenIdle } from "../../app/effect-helpers";
 
 type VisibilityListener = (visible: boolean) => void;
 

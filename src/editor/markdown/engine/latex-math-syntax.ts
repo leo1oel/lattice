@@ -115,12 +115,12 @@ function tokenizeLatexMath(this: TokenizeContext, effects: Effects, ok: State, n
 const latexMathText: Construct = { name: "latexMathText", tokenize: tokenizeLatexMath };
 
 /** The micromark syntax extension: tried before character escapes at every backslash. */
-export function latexMathSyntax(): Extension {
+function latexMathSyntax(): Extension {
   return { text: { [BACKSLASH]: { ...latexMathText, add: "before" } as Construct } };
 }
 
 /** mdast: the span becomes `inlineMath` whose value is the TeX between the delimiters. */
-export function latexMathFromMarkdown(): FromMarkdownExtension {
+function latexMathFromMarkdown(): FromMarkdownExtension {
   return {
     enter: {
       latexMathText(this: CompileContext, token: Token) {

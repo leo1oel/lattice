@@ -1,6 +1,6 @@
 import { useEffect, type RefObject } from "react";
-import { confirmAction } from "../app-utils";
-import { boundedString, isRecord, listenToSynaraFrame } from "./agent-protocol";
+import { confirmAction, isRecord } from "../app-utils";
+import { boundedString, listenToSynaraFrame } from "./agent-protocol";
 
 export const SYNARA_CONFIRMATION_REQUEST = "synara:confirmation-request";
 export const LATTICE_CONFIRMATION_ACK = "lattice:confirmation-ack";

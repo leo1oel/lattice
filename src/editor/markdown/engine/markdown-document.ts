@@ -24,7 +24,7 @@ import { semanticKey } from "./semantic-key";
 export { semanticKey } from "./semantic-key";
 
 /** Beyond this many characters the engine declines a file; source mode handles it. */
-export const ENGINE_TEXT_LIMIT = 4_000_000;
+const ENGINE_TEXT_LIMIT = 4_000_000;
 
 export type UnavailableReason = "mixed-line-endings" | "too-large" | "parse-failed";
 

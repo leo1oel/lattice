@@ -10,7 +10,7 @@ import { synaraEmbedUrl } from "../app/app-synara-embed";
 import type { SynaraHost } from "../app/use-synara-host";
 import type { AppLocale, Theme } from "../settings/app-settings";
 
-export function TrellisAgentSurface({ synara, projectRoot, theme, appLocale, dropActive }: {
+function TrellisAgentSurface({ synara, projectRoot, theme, appLocale, dropActive }: {
   synara: SynaraHost;
   projectRoot: string;
   theme: Theme;

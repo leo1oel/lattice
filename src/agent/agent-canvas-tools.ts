@@ -3,7 +3,8 @@
 // App.tsx loads this module eagerly, and a tldraw import here puts the whole
 // ~1.5 MB package in the startup chunk. The tldraw-facing adapter lives in
 // agent-canvas-tldraw-adapter.ts, loaded only with the lazy board editor.
-import { createOpenWaiters, isRecord, parseToolEnvelope, runAgentTool, toolError, type AgentToolResult } from "./agent-protocol";
+import { isRecord } from "../app-utils";
+import { createOpenWaiters, parseToolEnvelope, runAgentTool, toolError, type AgentToolResult } from "./agent-protocol";
 
 export const SYNARA_CANVAS_TOOL_REQUEST = "synara:canvas-tool-request";
 const LATTICE_CANVAS_TOOL_RESULT = "lattice:canvas-tool-result";

@@ -17,7 +17,7 @@
 import { listen, type EventCallback, type UnlistenFn } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 
-export const OVERLEAF_REALTIME_EVENT = "overleaf-realtime";
+const OVERLEAF_REALTIME_EVENT = "overleaf-realtime";
 
 function currentWindowLabel(): string | null {
   try {

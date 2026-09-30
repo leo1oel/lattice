@@ -6,7 +6,7 @@
  *
  * Clean implementation for Lattice; spec: docs/visual-editor-spec.md.
  */
-import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useLingui } from "@lingui/react/macro";
 import type { Editor } from "@tiptap/core";
@@ -14,15 +14,11 @@ import { TextSelection, type Transaction } from "@tiptap/pm/state";
 import { computePosition, flip, offset, shift } from "@floating-ui/dom";
 import { EmojiPicker } from "frimousse";
 import { projectAssetMarkdownHref } from "../../markdown-link-routing";
-import type { ChromeHost } from "./chrome-host";
-
-function useRequest(host: ChromeHost) {
-  return useSyncExternalStore(host.subscribe, () => host.request, () => host.request);
-}
+import { useChromeRequest, type ChromeHost } from "./chrome-host";
 
 export function EmojiPickerPopover({ editor, host }: { editor: Editor; host: ChromeHost }) {
   const { t, i18n } = useLingui();
-  const request = useRequest(host);
+  const request = useChromeRequest(host);
   const at = request?.kind === "emoji" ? request.at : null;
   const [element, setElement] = useState<HTMLDivElement | null>(null);
 
@@ -91,7 +87,7 @@ export function EmojiPickerPopover({ editor, host }: { editor: Editor; host: Chr
 /** The file picker behind the slash Image item, when the host can import files. */
 export function ImageFilePicker({ editor, host }: { editor: Editor; host: ChromeHost }) {
   const { t } = useLingui();
-  const request = useRequest(host);
+  const request = useChromeRequest(host);
   const input = useRef<HTMLInputElement>(null);
   const image = request?.kind === "image" ? request : null;
 

@@ -18,8 +18,8 @@ import { CornerLeftUp } from "lucide-react";
 import { changedBlockRanges, containsAny, replacedAny } from "../changed-ranges";
 
 const slug = (label: string) => label.toLowerCase().replace(/\s+/g, "-");
-export const footnoteId = (label: string) => `fn-${slug(label)}`;
-export const footnoteReferenceId = (label: string) => `fnref-${slug(label)}`;
+const footnoteId = (label: string) => `fn-${slug(label)}`;
+const footnoteReferenceId = (label: string) => `fnref-${slug(label)}`;
 
 function scrollToId(id: string, from: HTMLElement) {
   const target = from.ownerDocument.getElementById(id);

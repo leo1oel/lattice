@@ -1,7 +1,7 @@
 /** Hover cards for citation keys and `\ref` labels (with a figure preview when one exists). */
 import { hoverTooltip, type EditorView, type Rect } from "@codemirror/view";
 import { msg } from "@lingui/core/macro";
-import infinityLoaderUrl from "../../../infinity-loader.svg";
+import infinityLoaderUrl from "../../components/ui/infinity-loader.svg";
 import { i18n } from "../../i18n";
 import { element } from "../dom-utils";
 import type { LatexEditorLiveData } from "./latex-editor";

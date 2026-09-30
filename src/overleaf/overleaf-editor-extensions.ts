@@ -14,6 +14,7 @@ import { StateEffect, StateField, type Extension, type StateEffectType, type Tex
 import { Decoration, EditorView, hoverTooltip, ViewPlugin, WidgetType, type DecorationSet } from "@codemirror/view";
 import { msg } from "@lingui/core/macro";
 import { formatCommentTimestamp } from "../editor/comments/editor-comments";
+import { element } from "../editor/dom-utils";
 import { i18n } from "../i18n";
 import type { TrackedChange } from "./use-overleaf-realtime";
 import { hueColor } from "../components/ui/collab-colors";
@@ -42,13 +43,6 @@ function listDecorationField<T>(
     },
     provide: (field) => EditorView.decorations.from(field, (state) => state.decorations),
   });
-}
-
-function element<K extends keyof HTMLElementTagNameMap>(tag: K, className: string, text?: string) {
-  const node = document.createElement(tag);
-  node.className = className;
-  if (text !== undefined) node.textContent = text;
-  return node;
 }
 
 // ---- other people's carets --------------------------------------------------

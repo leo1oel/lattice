@@ -39,8 +39,6 @@ const DRAIN_TIMEOUT_MS = 15_000;
 const SEND_DEBOUNCE_MS = 250;
 const driftNotice = () => i18n._(msg`This document drifted from Overleaf's copy, so live editing stopped. Syncing will reconcile it.`);
 
-export type OverleafRealtime = ReturnType<typeof useOverleafRealtime>;
-
 export function useOverleafRealtime(options: {
   /** Connect whenever the project is linked: chat and presence ride here too. */
   enabled: boolean;

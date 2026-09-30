@@ -1,10 +1,10 @@
 /* eslint lingui/no-unlocalized-strings: "off" -- Protocol field names and Agent diagnostics are never rendered by Lattice UI. */
 
 import { invoke } from "@tauri-apps/api/core";
+import { isRecord } from "../app-utils";
 import {
   hasOnlyKeys,
   isNonBlankString,
-  isRecord,
   jsonBytes,
   parseToolEnvelope,
   runAgentTool,

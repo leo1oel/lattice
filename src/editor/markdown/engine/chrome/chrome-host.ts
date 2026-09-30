@@ -5,10 +5,11 @@
  *
  * Clean implementation for Lattice; spec: docs/visual-editor-spec.md.
  */
+import { useSyncExternalStore } from "react";
 import type { VisualMarkdownEditorProps } from "../../visual-editor-props";
 import type { SourceMap } from "../source-map";
 
-export type ChromeRequest =
+type ChromeRequest =
   | { kind: "link"; from: number; to: number }
   | { kind: "citation"; at: number }
   | { kind: "emoji"; at: number }
@@ -63,4 +64,9 @@ export function createChromeHost(initial: VisualMarkdownEditorProps): ChromeHost
     },
   };
   return host;
+}
+
+/** The host's current request, re-rendering the caller whenever it changes. */
+export function useChromeRequest(host: ChromeHost): ChromeRequest | null {
+  return useSyncExternalStore(host.subscribe, () => host.request, () => host.request);
 }

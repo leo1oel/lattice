@@ -60,7 +60,7 @@ export type LocalMacro = {
   type: "keyword" | "type";
 };
 
-export const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 /**
  * Maps ascending offsets to 1-based lines in one pass over the source, so

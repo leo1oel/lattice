@@ -83,7 +83,7 @@ function moveChildren(state: EditorState, group: Group, target: number, selectMo
 }
 
 /** Move the current block (or the selected list items) one step up or down. */
-export function moveBlock(state: EditorState, dispatch: Dispatch, direction: -1 | 1): boolean {
+function moveBlock(state: EditorState, dispatch: Dispatch, direction: -1 | 1): boolean {
   const group = selectedGroup(state);
   if (!group) return false;
   const target = direction < 0 ? group.first - 1 : group.last + 2;

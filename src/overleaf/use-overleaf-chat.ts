@@ -24,8 +24,6 @@ type ChatEvent = {
   timestamp?: number;
 };
 
-export type OverleafChat = ReturnType<typeof useOverleafChat>;
-
 export function useOverleafChat(options: { enabled: boolean; projectRoot: string | null }) {
   const { t } = useLingui();
   const [messages, setMessages] = useState<OverleafMessage[]>([]);

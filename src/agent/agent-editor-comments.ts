@@ -2,11 +2,11 @@
 
 import type { OverleafThread } from "../app-types";
 import { invoke } from "@tauri-apps/api/core";
-import { toMessage } from "../app-utils";
+import { isRecord, toMessage } from "../app-utils";
 import type { EditorComment } from "../editor/comments/editor-comment-data";
 import { resolveCommentAnchor } from "../editor/comments/editor-comment-data";
 import type { OverleafCommentAnchor } from "../overleaf/use-overleaf-comments";
-import { hasOnlyKeys, isNonBlankString, isRecord, isWorkspaceRelativePath, parseToolEnvelope } from "./agent-protocol";
+import { hasOnlyKeys, isNonBlankString, isWorkspaceRelativePath, parseToolEnvelope } from "./agent-protocol";
 
 export const SYNARA_EDITOR_COMMENTS_TOOL_REQUEST = "synara:editor-comments-tool-request";
 export const LATTICE_EDITOR_COMMENTS_TOOL_RESULT = "lattice:editor-comments-tool-result";

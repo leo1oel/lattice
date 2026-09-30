@@ -209,7 +209,7 @@ export const FootnoteReference = Node.create({
  * A wiki link, `[[Page]]` or `[[Page#heading-slug]]`, to a project page by
  * its document name (R-INL-6, R-FMT-18). `source` is the link as authored.
  */
-export const WikiLink = Node.create({
+const WikiLink = Node.create({
   name: "latticeWikiLink",
   group: "inline",
   inline: true,
@@ -232,7 +232,7 @@ export const WikiLink = Node.create({
  * `.research/papers/<id>/paper.md` or `blog.md` (R-INL-7, R-FMT-17). It edits
  * as one chip; `source` is the link as authored.
  */
-export const PaperCitation = Node.create({
+const PaperCitation = Node.create({
   name: "latticeCitation",
   group: "inline",
   inline: true,

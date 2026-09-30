@@ -219,6 +219,11 @@ export function toMessage(reason: unknown): string {
   return reason instanceof Error ? reason.message : String(reason);
 }
 
+/** A plain object (not null, not an array), narrowed for field access. */
+export function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
 export function relativeTime(timestamp: string): string {
   const elapsed = Date.now() - new Date(timestamp).getTime();
   if (!Number.isFinite(elapsed) || elapsed < 60_000) return i18n._(msg`just now`);
