@@ -14,8 +14,17 @@ const WEB = /(?:https?:\/\/|www\.)([\p{L}\p{N}_-]+(?:\.[\p{L}\p{N}_-]+)*)[^\s<]*
 /** An email address, with an optional scheme; `xmpp:` may carry a `/resource`. */
 const EMAIL = /(?:mailto:|xmpp:)?[\w.+-]+@([\w-]+(?:\.[\w-]+)+)(?:\/[\w.@-]+)?/gu;
 
-/** GFM may start an extended autolink only after these (or at the start). */
-const OPENS_AFTER = /[\s*_~(]/u;
+/**
+ * Whether GFM may start an extended autolink after `previous` (empty at the
+ * start): a URL with a scheme after anything but an ASCII letter, a `www.`
+ * host after whitespace or one of `(*_[]~`, an email after anything but `/`
+ * (the email pattern already starts after the last address character).
+ */
+function opensAfter(pattern: RegExp, url: string, previous: string): boolean {
+  if (!previous) return true;
+  if (pattern === EMAIL) return previous !== "/";
+  return /^www\./iu.test(url) ? /[\s(*_[\]~]/u.test(previous) : !/[A-Za-z]/u.test(previous);
+}
 /** Trailing characters GFM leaves out of a link. */
 const TRAILING = /[?!.,:*_~'"]$/u;
 const TRAILING_ENTITY = /&[A-Za-z0-9]+;$/u;
@@ -26,7 +35,7 @@ export function autolinkLiteralSpans(text: string): [number, number][] {
   for (const [pattern, trim] of [[WEB, trimUrl], [EMAIL, trimEmail]] as const) {
     for (const match of text.matchAll(pattern)) {
       const from = match.index;
-      if (from > 0 && !OPENS_AFTER.test(text.charAt(from - 1))) continue;
+      if (!opensAfter(pattern, match[0], text.charAt(from - 1))) continue;
       const domain = match[1]!;
       // GFM: no underscore in the last two domain labels, and at least one period for a URL.
       if (domain.split(".").slice(-2).some((label) => label.includes("_"))) continue;

@@ -269,8 +269,24 @@ describe("bare URLs typed into the visual editor", () => {
     expect(open(written.text).doc.textContent).toBe(typed);
   });
 
+  it.each([
+    ["a quote", '"https://example.com/*a*_b_"'],
+    ["a digit", "1https://example.com/*a*_b_"],
+    ["an opening bracket", "[https://example.com/*a*_b_"],
+    ["a closing bracket", "]https://example.com/*a*_b_"],
+    ["a colon", "x:https://example.com/*a*b"],
+    ["a slash", "a/https://example.com/*a*_b_"],
+    ["a period", "a.https://example.com/*a*_b_"],
+    ["an opening bracket before www", "[www.example.com/*a*_b_"],
+    ["a quote before an email", '"someone_x@example.com"'],
+  ])("reads back a URL typed after %s as shown", (_name, typed) => {
+    const { written } = typeInto("x\n", typed);
+    expect(written.verified).toBe(true);
+    expect(open(written.text).doc.textContent).toBe(typed);
+  });
+
   it("still escapes text that only looks like a URL", () => {
-    // Not an autolink start: GFM needs whitespace, `*`, `_`, `~` or `(` before it.
+    // Not an autolink start: GFM starts a URL with a scheme only after a character that is not an ASCII letter.
     expect(editBlockText("Plain\n", 0, () => "*x*https://example.com")).toBe("\\*x\\*https://example.com\n");
     expect(editBlockText("Plain\n", 0, () => "snake_case https://example.com")).toBe("snake_case https://example.com\n");
   });
