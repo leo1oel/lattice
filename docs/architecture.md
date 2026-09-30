@@ -353,7 +353,8 @@ create (`project/manifest.rs`) — otherwise the first commit would adopt every
 
 Export (`export_project_zip`) excludes `.git/`, `.research/history`,
 `sessions`, `omp-*`, `checkpoints`, `cache`, and the usual TeX artifacts
-(`EXPORT_EXCLUDES` in `project/archive.rs`). Raw byte writes
+(`EXPORT_EXCLUDED_DIRS` and
+`EXPORT_EXCLUDED_SUFFIXES` in `project/archive.rs`). Raw byte writes
 (`write_project_bytes`, used by Open Slide) refuse history, sessions, `omp-*`,
 checkpoints, cache and paper bundles (`UNSYNCED_RESEARCH_PREFIXES` in
 `project/imports.rs`).
