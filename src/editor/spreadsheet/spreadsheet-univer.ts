@@ -22,8 +22,8 @@ import "@univerjs/preset-sheets-core/lib/index.css";
 import { IRenderManagerService, SHEET_VIEWPORT_KEY, type IScrollBarProps } from "@univerjs/engine-render";
 import { IMenuManagerService, MenuItemType, UniverUIPlugin, type IConfirmPartMethodOptions } from "@univerjs/ui";
 import { BehaviorSubject } from "rxjs";
-import { confirmAction } from "../../app-utils";
-import { clone, isRecord, type SpreadsheetWorkbookData } from "./spreadsheet-types";
+import { confirmAction, isRecord } from "../../app-utils";
+import { clone, type SpreadsheetWorkbookData } from "./spreadsheet-types";
 
 const FORMULAS_MENU_ID = "lattice.spreadsheet.formulas";
 const EXPORT_MENU_ID = "lattice.spreadsheet.export-xlsx";

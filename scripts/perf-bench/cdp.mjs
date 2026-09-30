@@ -10,7 +10,7 @@ import os from "node:os";
 import path from "node:path";
 
 /** The first Chrome/Chromium the machine has, unless `CHROME_PATH` names one. */
-export function findChrome() {
+function findChrome() {
   if (process.env.CHROME_PATH) return process.env.CHROME_PATH;
   const candidates = [
     "/usr/bin/google-chrome",
@@ -103,7 +103,7 @@ export async function launchChrome({ executable = findChrome(), headless = true,
   };
 }
 
-export class CdpConnection {
+class CdpConnection {
   static async connect(url) {
     const socket = new WebSocket(url);
     await new Promise((resolve, reject) => {

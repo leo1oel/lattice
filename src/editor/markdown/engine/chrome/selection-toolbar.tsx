@@ -8,7 +8,7 @@
  *
  * Clean implementation for Lattice; spec: docs/visual-editor-spec.md.
  */
-import { useLayoutEffect, useState, useSyncExternalStore, type ReactNode } from "react";
+import { useLayoutEffect, useState, type ReactNode } from "react";
 import type { MessageDescriptor } from "@lingui/core";
 import { msg } from "@lingui/core/macro";
 import { useLingui } from "@lingui/react/macro";
@@ -23,7 +23,7 @@ import {
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
 } from "../../../../components/ui/dropdown-menu";
-import type { ChromeHost } from "./chrome-host";
+import { useChromeRequest, type ChromeHost } from "./chrome-host";
 import { requestLinkEditor } from "./link-chrome";
 import { requestComment } from "./review-chrome";
 import { insertFootnote } from "./slash-items";
@@ -127,7 +127,7 @@ function viewInSource(editor: Editor, host: ChromeHost) {
 export function SelectionToolbar({ editor, host }: { editor: Editor; host: ChromeHost }) {
   const { t, i18n } = useLingui();
   // The toolbar steps aside while the link editor it opened is showing.
-  useSyncExternalStore(host.subscribe, () => host.request, () => host.request);
+  useChromeRequest(host);
   const state = useEditorState({
     editor,
     selector: ({ editor: current }) => ({

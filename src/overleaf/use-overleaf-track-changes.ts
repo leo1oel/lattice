@@ -40,8 +40,6 @@ function displayName(author: ChangeAuthor | undefined, fallback: string): string
   return full || (email ? email.slice(0, email.indexOf("@") > 0 ? email.indexOf("@") : undefined) : fallback);
 }
 
-export type OverleafTrackChanges = ReturnType<typeof useOverleafTrackChanges>;
-
 export function useOverleafTrackChanges(options: {
   enabled: boolean;
   projectRoot: string | null;

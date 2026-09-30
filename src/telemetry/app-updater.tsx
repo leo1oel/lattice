@@ -25,7 +25,7 @@ import { i18n } from "../i18n";
 import { loadChoice, persistSetting } from "../settings/app-settings";
 import { addAppLog } from "./app-log-store";
 
-export type UpdateMode = "auto" | "manual";
+type UpdateMode = "auto" | "manual";
 type UpdatePhase = "idle" | "checking" | "up-to-date" | "available" | "downloading" | "installing" | "ready" | "error";
 
 /**

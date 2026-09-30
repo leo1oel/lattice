@@ -4,7 +4,7 @@ import { i18n } from "../i18n";
 import { addAppLog } from "./app-log-store";
 
 export type DiagnosticOperationContext = { operationId: string; requestId?: string };
-export type DiagnosticContext = { operation_id: string; request_id: string };
+type DiagnosticContext = { operation_id: string; request_id: string };
 
 function logCompletion(operation: string, context: DiagnosticContext, started: number, outcome: "success" | "error", error?: unknown, parentRequestId?: string, status?: number) {
   try {

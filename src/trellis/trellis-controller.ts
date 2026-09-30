@@ -36,8 +36,7 @@ export function toolKindForDrawer(className: string | undefined): TrellisToolKin
   return DRAWER_TOOL_CLASSES.find(([name]) => classes.includes(name))?.[1] ?? null;
 }
 
-export const SINGLETON_KINDS = ["project", "papers", "agent", "pdf", ...TOOL_KINDS] as const;
-export type TrellisSingleton = typeof SINGLETON_KINDS[number];
+export type TrellisSingleton = "project" | "papers" | "agent" | "pdf" | TrellisToolKind;
 
 /** What a file panel holds: a project text/structured file, an asset preview or a Paper. */
 export type TrellisTabKind = "file" | "asset" | "paper";

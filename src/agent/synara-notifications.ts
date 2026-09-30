@@ -1,11 +1,12 @@
 import { useEffect, type RefObject } from "react";
+import { isRecord } from "../app-utils";
 import {
   addAppLog,
   dismissAppToast,
   updateAppLog,
   type AppToastOptions,
 } from "../telemetry/app-log-store";
-import { boundedString, isRecord, listenToSynaraFrame } from "./agent-protocol";
+import { boundedString, listenToSynaraFrame } from "./agent-protocol";
 
 export const SYNARA_EMBEDDED_NOTIFICATION = "synara:embedded-notification";
 const LATTICE_EMBEDDED_NOTIFICATION_ACTION =

@@ -6,13 +6,14 @@ import { save as saveDialog } from "@tauri-apps/plugin-dialog";
 import * as Y from "yjs";
 import { CommandType, DOCS_FORMULA_BAR_EDITOR_UNIT_ID_KEY, type IWorkbookData } from "@univerjs/core";
 import type { FWorkbook } from "@univerjs/preset-sheets-core";
+import { isRecord } from "../../app-utils";
 import { logAction } from "../../telemetry/app-notify";
 import type { SpreadsheetFileViewState } from "../../app-types";
 import { ExternalScrollbar } from "../../components/ui/external-scrollbar";
-import { whenIdle } from "../dom-utils";
+import { whenIdle } from "../../app/effect-helpers";
 import { utf8ToBase64 } from "../../pdf/pdf-bytes";
 import { registerAgentSpreadsheetDocument } from "../../agent/agent-spreadsheet-tools";
-import { clone, inBounds, isRecord, jsonEqual, type SpreadsheetCellData, type SpreadsheetWorkbookData } from "./spreadsheet-types";
+import { clone, inBounds, jsonEqual, type SpreadsheetCellData, type SpreadsheetWorkbookData } from "./spreadsheet-types";
 import {
   SPREADSHEET_MESSAGES,
   appearanceDefaultStyle,

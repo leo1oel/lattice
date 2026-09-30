@@ -1,4 +1,4 @@
-export const LARGE_MARKDOWN_PREVIEW_THRESHOLD = 50_000;
+const LARGE_MARKDOWN_PREVIEW_THRESHOLD = 50_000;
 
 export type MarkdownPreviewSyncPolicy = {
   publicationIdleMs: number;

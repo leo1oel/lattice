@@ -8,7 +8,7 @@
  */
 
 /** Space left under a revealed block, so it never sits on the pane's bottom edge. */
-export const REVEAL_ROOM = 40;
+const REVEAL_ROOM = 40;
 
 /**
  * Set `viewport`'s scroll from the position it had (`scrollTop`) so that

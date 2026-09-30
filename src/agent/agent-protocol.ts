@@ -3,11 +3,7 @@
 // the field names, error codes, and size bounds here are part of that wire
 // contract. Kept free of heavy imports: App.tsx loads the bridges eagerly.
 import type { RefObject } from "react";
-import { toMessage } from "../app-utils";
-
-export function isRecord(value: unknown): value is Record<string, unknown> {
-  return value !== null && typeof value === "object" && !Array.isArray(value);
-}
+import { isRecord, toMessage } from "../app-utils";
 
 export function hasOnlyKeys(value: Record<string, unknown>, allowed: readonly string[]): boolean {
   return Object.keys(value).every((key) => allowed.includes(key));

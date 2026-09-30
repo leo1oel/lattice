@@ -1,9 +1,9 @@
 import type ExcelJS from "exceljs";
+import { isRecord } from "../../app-utils";
 import { columnLabel } from "./spreadsheet-operations";
 import {
   HORIZONTAL_ALIGNMENTS,
   VERTICAL_ALIGNMENTS,
-  isRecord,
   type SpreadsheetCellData,
   type SpreadsheetWorkbookData,
   type SpreadsheetWorksheetData,

@@ -1,4 +1,5 @@
-import { hasOnlyKeys, isRecord, isWorkspaceRelativePath } from "./agent-protocol";
+import { isRecord } from "../app-utils";
+import { hasOnlyKeys, isWorkspaceRelativePath } from "./agent-protocol";
 
 type SynaraRuntimeState = "starting" | "ready" | "stopped";
 

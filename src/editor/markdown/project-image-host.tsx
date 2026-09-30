@@ -172,7 +172,3 @@ export function useProjectImage(src: string | undefined, enabled = true): Projec
   const cached = enabled ? cachesByLoader.get(loadAsset)?.get(cacheKey(revision, projectPath))?.dataUrl : null;
   return cached ? { src: cached, targetExistence: "exists" } : { src: undefined, targetExistence: "unknown" };
 }
-
-export function useProjectImageSrc(src: string | undefined, enabled = true): string | undefined {
-  return useProjectImage(src, enabled).src;
-}

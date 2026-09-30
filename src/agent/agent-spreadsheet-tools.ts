@@ -1,6 +1,7 @@
 /* eslint lingui/no-unlocalized-strings: "off" -- Protocol keys and Agent tool errors/results are never rendered by Lattice UI. */
 
 import type * as Y from "yjs";
+import { isRecord } from "../app-utils";
 import {
   applySpreadsheetBatch,
   parseSpreadsheetBatchUpdateArgs,
@@ -11,7 +12,6 @@ import type { SpreadsheetBatchUpdateRequest } from "../editor/spreadsheet/spread
 import { SPREADSHEET_AGENT_ORIGIN } from "../editor/spreadsheet/spreadsheet-yjs";
 import {
   createOpenWaiters,
-  isRecord,
   isWorkspaceRelativePath,
   jsonBytes,
   parseToolEnvelope,

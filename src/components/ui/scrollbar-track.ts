@@ -15,7 +15,7 @@ const MAX_VIEWPORT_ATTACH_FRAMES = 60;
  * a viewport that never appears (a lookup the test mocks never satisfy) must
  * not spin. Returns the teardown, which also runs `attach`'s own.
  */
-export function attachToViewport(
+function attachToViewport(
   getViewport: () => HTMLElement | null,
   attach: (viewport: HTMLElement) => () => void,
 ): () => void {
@@ -47,7 +47,7 @@ function setScrollOffset(viewport: HTMLElement, axis: Axis, value: number) {
  * track keeps pointer capture until release, and `setScrolling` holds the bar
  * revealed for the whole gesture.
  */
-export function useScrollbarDrag(
+function useScrollbarDrag(
   viewportRef: RefObject<HTMLElement | null>,
   setScrolling: (scrolling: boolean) => void,
 ) {

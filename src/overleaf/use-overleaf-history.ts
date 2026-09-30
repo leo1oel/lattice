@@ -32,7 +32,7 @@ export type OverleafUpdate = {
   origin: string | null;
 };
 
-export type OverleafLabel = {
+type OverleafLabel = {
   id: string;
   comment: string;
   version: number;

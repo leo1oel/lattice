@@ -11,7 +11,7 @@
  * Clean implementation for Lattice; spec: docs/visual-editor-spec.md.
  */
 /* eslint-disable react-refresh/only-export-components -- the Mod-K request and the editor it opens belong together */
-import { useEffect, useId, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useLingui } from "@lingui/react/macro";
 import type { Editor } from "@tiptap/core";
@@ -24,7 +24,7 @@ import { Input } from "../../../../components/ui/input";
 import { projectAssetMarkdownHref } from "../../markdown-link-routing";
 import type { VisualMarkdownEditorProps } from "../../visual-editor-props";
 import { PAPER_HREF } from "../inline-syntax";
-import type { ChromeHost } from "./chrome-host";
+import { useChromeRequest, type ChromeHost } from "./chrome-host";
 import { loadLinkPreview, type LinkMetadata } from "./link-preview";
 
 const UNSAFE_URL = /^\s*(?:javascript|vbscript|data|file):/i;
@@ -88,10 +88,6 @@ export function requestLinkEditor(editor: Editor, host: ChromeHost): boolean {
   return true;
 }
 
-function useRequest(host: ChromeHost) {
-  return useSyncExternalStore(host.subscribe, () => host.request, () => host.request);
-}
-
 /** Close when the pointer goes down outside `element`, committing first. */
 function useOutsideCommit(element: HTMLElement | null, active: boolean, commit: () => void) {
   const latest = useRef(commit);
@@ -109,7 +105,7 @@ function useOutsideCommit(element: HTMLElement | null, active: boolean, commit: 
 }
 
 export function LinkEditor({ editor, host }: { editor: Editor; host: ChromeHost }) {
-  const request = useRequest(host);
+  const request = useChromeRequest(host);
   if (request?.kind === "link") return <TextLinkEditor key={`${request.from}:${request.to}`} editor={editor} host={host} from={request.from} to={request.to} />;
   if (request?.kind === "citation") return <CitationEditor key={request.at} editor={editor} host={host} at={request.at} />;
   return null;
@@ -397,7 +393,7 @@ export function LinkHoverCard({ editor, host }: { editor: Editor; host: ChromeHo
 }
 
 /** A page's title, description and domain; its favicon only when it came inline as a `data:` URI. */
-export function ExternalLinkPreview({ metadata }: { metadata: LinkMetadata }) {
+function ExternalLinkPreview({ metadata }: { metadata: LinkMetadata }) {
   const favicon = metadata.faviconDataUri?.startsWith("data:image/") ? metadata.faviconDataUri : null;
   return (
     <div className="lx-md-link-card-preview">

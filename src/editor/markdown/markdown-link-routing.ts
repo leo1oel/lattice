@@ -1,5 +1,6 @@
 /** Where a link clicked in the visual editor goes: an in-document anchor, a project file, or the web. */
 import { openUrl } from "@tauri-apps/plugin-opener";
+import { baseArxivId } from "../../papers/arxiv-id";
 
 const toSlashes = (path: string) => path.replace(/\\/g, "/");
 const directoryParts = (path: string) => toSlashes(path).split("/").slice(0, -1).filter(Boolean);
@@ -47,7 +48,6 @@ function paperArxivIdFromPath(activePath: string): string | null {
 }
 
 const ARXIV_HTML_PATH = "/html/";
-const baseArxivId = (id: string) => id.replace(/v\d+$/i, "").toLocaleLowerCase();
 
 function attempt<T>(read: () => T): T | null {
   try {
@@ -66,7 +66,7 @@ export function localPaperFragment(activePath: string, href: string): { id: stri
     const url = paperId ? attempt(() => new URL(href)) : null;
     if (!url || !/^(?:www\.)?arxiv\.org$/i.test(url.hostname) || !url.pathname.startsWith(ARXIV_HTML_PATH) || !url.hash) return null;
     const linkedId = attempt(() => decodeURIComponent(url.pathname.slice(ARXIV_HTML_PATH.length)));
-    if (linkedId === null || baseArxivId(linkedId) !== baseArxivId(paperId!)) return null;
+    if (linkedId === null || baseArxivId(linkedId.toLocaleLowerCase()) !== baseArxivId(paperId!.toLocaleLowerCase())) return null;
     fragment = url.hash;
     fallbackUrl = href;
   }

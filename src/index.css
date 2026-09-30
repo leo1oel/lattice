@@ -17,7 +17,6 @@
 @import "tailwindcss/utilities.css" layer(utilities);
 @import "tw-animate-css";
 @import "shadow-plugin";
-@plugin "tailwind-scrollbar";
 
 /* The app toggles dark mode with :root[data-theme="dark"] (not Tailwind's
    default `.dark` class), so point the `dark:` variant at that selector —

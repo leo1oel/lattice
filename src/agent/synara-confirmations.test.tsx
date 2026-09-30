@@ -10,7 +10,7 @@ import {
 } from "./synara-confirmations";
 import { mountSynaraFrames, postFromFrame, postUntrusted, SYNARA_TEST_ORIGIN } from "./synara-frame-test-utils";
 
-vi.mock("../app-utils", () => ({ confirmAction: vi.fn() }));
+vi.mock("../app-utils", async (importOriginal) => ({ ...await importOriginal<typeof import("../app-utils")>(), confirmAction: vi.fn() }));
 
 afterEach(() => {
   document.body.replaceChildren();

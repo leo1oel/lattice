@@ -522,7 +522,7 @@ const KEYMAP = { "navigation.overview": null };
 type WorkspaceProps = { controller: TrellisController; projectRoot: string; dark: boolean };
 
 /** Memoized: App re-renders on every keystroke, and nothing here needs to follow it. */
-export const TrellisWorkspace = memo(function TrellisWorkspace({ controller, projectRoot, dark }: WorkspaceProps) {
+const TrellisWorkspace = memo(function TrellisWorkspace({ controller, projectRoot, dark }: WorkspaceProps) {
   const { t, i18n } = useLingui();
   const [{ initial, agentMinSize, pdfMinSize }] = useState(() => {
     installTrellisLabels();

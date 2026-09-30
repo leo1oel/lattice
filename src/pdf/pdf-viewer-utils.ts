@@ -1,4 +1,5 @@
 import type { PdfFileViewState } from "../app-types";
+import { clamp } from "../settings/app-settings";
 
 /** Copied from pdfjs-dist into public/pdfjs by the Vite pdfjs-assets plugin. */
 function pdfAssetUrl(relative: string): string {
@@ -34,10 +35,6 @@ export const PDF_MAX_SCALE = 5;
 const PDF_TO_CSS_UNITS = 96 / 72;
 
 export type PdfFitMode = PdfFileViewState["fitMode"];
-
-export function clamp(value: number, minimum: number, maximum: number) {
-  return Math.min(maximum, Math.max(minimum, value));
-}
 
 export const clampPdfScale = (scale: number) => clamp(scale, PDF_MIN_SCALE, PDF_MAX_SCALE);
 /** App scales are CSS-pixel ratios; PDF.js viewer scales are relative to its 75% baseline. */

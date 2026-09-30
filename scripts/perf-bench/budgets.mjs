@@ -30,8 +30,8 @@ export const COUNTS = ["commits", "renders", "hooks", "recalcs", "layouts", "mut
  *   area re-renders when a scroll burst starts and 500 ms after it ends, and
  *   how many bursts 40 notches make depends on stalls (139–259 renders).
  */
-export const REPORT_ONLY = ["recalcs", "layouts"];
-export const REPORT_ONLY_BY_SCENARIO = {
+const REPORT_ONLY = ["recalcs", "layouts"];
+const REPORT_ONLY_BY_SCENARIO = {
   "latex-typing": ["commits"],
   "markdown-visual-typing": ["renders", "hooks"],
   "code-highlight": ["mutations"],
@@ -64,8 +64,8 @@ export function bestOf(scenario, runs) {
  * set the ceiling. A regression worth catching multiplies a count, so it still
  * fails.
  */
-export const HEADROOM = 0.2;
-export const HEADROOM_MIN = 5;
+const HEADROOM = 0.2;
+const HEADROOM_MIN = 5;
 
 export const ceilingFor = (value) => Math.ceil(value + Math.max(HEADROOM_MIN, value * HEADROOM));
 
