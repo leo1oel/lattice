@@ -114,7 +114,7 @@ Counts are tracked files directly in the directory (not nested), and lines are
 | `src/papers/` | 28 | 11 | 3,466 | The paper library and bibliography: literature discovery, `bib-entry`, `venues.ts`, arXiv ids, paper links, import progress, the reference check (`bibliography-audit*`). |
 | `src/canvas/` | 26 | 4 | 4,601 | The editing surface shell: `document-canvas.tsx` and the modules it was broken into (editor extensions, HTML preview, Paper reader, asset preview, Markdown split-scroll and mode handoff, split layout, zoom), the canvas toolbar, the document outline, and the lazy-chunk registry (`canvas-lazy-modules.ts`). |
 | `src/editor/spreadsheet/` | 9 | 3 | 3,075 | The Univer-backed `.lattice-sheet` editor, its Univer setup, format types, operations, local Y.Doc model and XLSX import/export. |
-| `src/app/` | 45 | 14 | 10,316 | App orchestration: the hooks extracted from `App.tsx` (project state and library, document buffers, build pipeline, Synara host, Overleaf workspace, editor comments, reference import, …), the `app-*.tsx` surfaces App renders (title bar, dialogs, drawers), shared effect helpers, and the window/panel geometry App owns. Also the App integration suites, one per area (`app-documents.test.tsx`, `app-agent.test.tsx`, `app-project.test.tsx`, `app-builds.test.tsx`, `app-overleaf.test.tsx`, `app-papers.test.tsx`, `app-welcome.test.tsx`), which render the real App through the shared mocks and helpers in `app-test-utils.tsx`. |
+| `src/app/` | 47 | 14 | 10,589 | App orchestration: the hooks extracted from `App.tsx` (project state and library, document buffers, build pipeline, Synara host, Overleaf workspace, editor comments, reference import, …), the `app-*.tsx` surfaces App renders (title bar, dialogs, drawers), shared effect helpers, and the window/panel geometry App owns. Also the App integration suites, one per area (`app-documents.test.tsx`, `app-agent.test.tsx`, `app-project.test.tsx`, `app-builds.test.tsx`, `app-overleaf.test.tsx`, `app-papers.test.tsx`, `app-welcome.test.tsx`), which render the real App through the shared mocks and helpers in `app-test-utils.tsx`. |
 | `src/settings/` | 11 | 3 | 2,058 | The settings dialog and its panes, the localStorage-backed preference store, appearance and fixed fonts. |
 | `src/pdf/` | 18 | 5 | 3,634 | The pdf.js viewer (`pdf-viewer.tsx` over the `use-pdf-*` hooks and `pdf-slick.ts`) with SyncTeX, search and annotations, plus base64/byte plumbing. |
 | `src/platform/` | 11 | 5 | 2,031 | Runtime bootstrap and the repo-level guards that pin it: the browser-host runtime and bridge, `perf-probe.ts`, `test-setup.ts`, and tests for compiler/security configuration and the pre-module compatibility script in `public/polyfills.js`. |
@@ -176,7 +176,7 @@ engine (§2), and a repository guard test keeps that code from coming back.
 
 | File | LOC | Role |
 | --- | --- | --- |
-| `src/App.tsx` | ~4,300 | The hub. Composes the `src/app/` hooks and owns what still spans them: file/Paper/asset opening, pane arrangement, tree mutations, the command table and the top-level layout. See §6. |
+| `src/App.tsx` | ~4,100 | The hub. Composes the `src/app/` hooks and owns what still spans them: file/Paper/asset opening, pane arrangement, tree mutations, the command table and the top-level layout. See §6. |
 | `src-tauri/src/project.rs` + `project/` | 6,262 | Project validation, path safety, the transaction/history model, file classification, tree building, zip import/export. `project.rs` maps the submodules; most Rust areas depend on it. |
 | `src-tauri/src/overleaf.rs` + `overleaf/` | 4,196 | Overleaf session, linking and clone, REST, review, and the three-way merge against `.research/overleaf-base/`. |
 | `src/canvas/document-canvas.tsx` | 1,391 | The editing surface: source pane, preview pane, the split layout, and the mount points for every lazy editor. |
@@ -199,7 +199,7 @@ into cohesive modules (see §2).
 
 Stated plainly so you are not surprised.
 
-### `App.tsx` is still the hub, at ~4,300 lines
+### `App.tsx` is still the hub, at ~4,100 lines
 
 It was 10,891 lines before the simplification pass that split it up. Most
 self-contained state now lives in hooks under `src/app/`, and App composes
@@ -208,6 +208,7 @@ them:
 - **Project and documents:** `use-project-state.ts` (project identity, transitions, `captureProjectScope`), `use-project-library.ts` (papers, citations, history, TODOs), `use-document-buffers.ts` (every editor buffer and its ref twin), `use-file-view-states.ts`, `workspace-restore.ts` (a pure restore plan).
 - **Build and agent:** `use-build-pipeline.ts`, `use-tex-setup.ts`, `use-agent-checkpoints.ts`, `use-agent-context.ts`, `use-synara-host.ts`.
 - **Overleaf and Open Slide:** `use-overleaf-workspace.ts` and `open-slide-writes.ts` (Open Slide writes).
+- **Workspace and commands:** `use-trellis-bridge.ts` (the Trellis bridge, panel menus and doc tools), `use-app-commands.ts` (the palette's `runCommand` and the global ⌘/Ctrl-shortcut and F8 keydown listener).
 - **Surfaces:** `app-titlebar.tsx`, `app-history-drawers.tsx`, `app-search-dialogs.tsx`, `app-project-dialogs.tsx`, `app-overleaf-drawer.tsx`, `app-editor-panels.tsx`, each handed the hook object it renders rather than dozens of loose props. The workspace itself is the Trellis panel layout in `src/trellis/`.
 - **Shared plumbing:** `effect-helpers.ts` (`disposeWhenSettled`, `subscribeTauriEvent`, `whenIdle`, `frameCoalescer`, `onLayoutChange`, timers, `useLatest`, `useRefState`).
 

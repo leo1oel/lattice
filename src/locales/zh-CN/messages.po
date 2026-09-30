@@ -489,6 +489,7 @@ msgid "Add as tab"
 msgstr "添加为标签页"
 
 #: src/App.tsx
+#: src/app/use-trellis-bridge.ts
 #: src/papers/bib-entry-dialog.tsx
 #: src/trellis/trellis-panel-actions.tsx
 msgid "Add bibliography entry"
@@ -559,7 +560,7 @@ msgstr "智能助手"
 msgid "Agent permissions: {label}"
 msgstr "智能助手权限：{label}"
 
-#: src/App.tsx
+#: src/app/use-trellis-bridge.ts
 msgid "Agent settings…"
 msgstr "智能助手设置…"
 
@@ -1119,6 +1120,7 @@ msgid "Build output"
 msgstr "构建输出"
 
 #: src/App.tsx
+#: src/app/use-trellis-bridge.ts
 msgid "Build project"
 msgstr "构建项目"
 
@@ -1396,7 +1398,7 @@ msgstr "检查未完成"
 msgid "Check not started"
 msgstr "尚未开始检查"
 
-#: src/App.tsx
+#: src/app/use-trellis-bridge.ts
 #: src/papers/bibliography-audit.tsx
 #: src/trellis/trellis-panel-actions.tsx
 msgid "Check references"
@@ -2376,6 +2378,7 @@ msgid "Discard and close"
 msgstr "放弃并关闭"
 
 #: src/App.tsx
+#: src/app/use-trellis-bridge.ts
 #: src/papers/literature-discovery-panel.tsx
 #: src/trellis/trellis-panel-actions.tsx
 msgid "Discover literature"
@@ -3035,6 +3038,7 @@ msgid "Find in PDF"
 msgstr "在 PDF 中查找"
 
 #: src/App.tsx
+#: src/app/use-trellis-bridge.ts
 #: src/project/project-find-dialog.tsx
 #: src/trellis/trellis-panel-actions.tsx
 msgid "Find in project"
@@ -4701,7 +4705,7 @@ msgstr "NeurIPS 会议论文集"
 msgid "NeurIPS, CVPR, Nature, …"
 msgstr "NeurIPS、CVPR、Nature 等"
 
-#: src/App.tsx
+#: src/app/use-trellis-bridge.ts
 #: src/trellis/trellis-panel-actions.tsx
 msgid "New board"
 msgstr "新建白板"
@@ -4738,7 +4742,7 @@ msgstr "新名称"
 msgid "New Overleaf project name"
 msgstr "新 Overleaf 项目名称"
 
-#: src/App.tsx
+#: src/app/use-trellis-bridge.ts
 #: src/trellis/trellis-panel-actions.tsx
 msgid "New presentation"
 msgstr "新建演示文稿"
@@ -4755,7 +4759,7 @@ msgstr "在下方拆分"
 msgid "New split right"
 msgstr "在右侧拆分"
 
-#: src/App.tsx
+#: src/app/use-trellis-bridge.ts
 #: src/trellis/trellis-panel-actions.tsx
 msgid "New spreadsheet"
 msgstr "新建电子表格"
@@ -5499,7 +5503,7 @@ msgstr "面板菜单"
 msgid "Panels"
 msgstr "面板"
 
-#: src/App.tsx
+#: src/app/use-trellis-bridge.ts
 #: src/canvas/paper-reader.tsx
 #: src/project/project-find-dialog.tsx
 #: src/trellis/trellis-header-tools.tsx
@@ -6707,7 +6711,7 @@ msgstr "检索记录信息"
 msgid "Retry"
 msgstr "重试"
 
-#: src/App.tsx
+#: src/app/use-trellis-bridge.ts
 msgid "Reveal cursor in PDF"
 msgstr "在 PDF 中定位光标"
 

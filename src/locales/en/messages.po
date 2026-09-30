@@ -489,6 +489,7 @@ msgid "Add as tab"
 msgstr "Add as tab"
 
 #: src/App.tsx
+#: src/app/use-trellis-bridge.ts
 #: src/papers/bib-entry-dialog.tsx
 #: src/trellis/trellis-panel-actions.tsx
 msgid "Add bibliography entry"
@@ -559,7 +560,7 @@ msgstr "Agent"
 msgid "Agent permissions: {label}"
 msgstr "Agent permissions: {label}"
 
-#: src/App.tsx
+#: src/app/use-trellis-bridge.ts
 msgid "Agent settings…"
 msgstr "Agent settings…"
 
@@ -1119,6 +1120,7 @@ msgid "Build output"
 msgstr "Build output"
 
 #: src/App.tsx
+#: src/app/use-trellis-bridge.ts
 msgid "Build project"
 msgstr "Build project"
 
@@ -1396,7 +1398,7 @@ msgstr "Check incomplete"
 msgid "Check not started"
 msgstr "Check not started"
 
-#: src/App.tsx
+#: src/app/use-trellis-bridge.ts
 #: src/papers/bibliography-audit.tsx
 #: src/trellis/trellis-panel-actions.tsx
 msgid "Check references"
@@ -2376,6 +2378,7 @@ msgid "Discard and close"
 msgstr "Discard and close"
 
 #: src/App.tsx
+#: src/app/use-trellis-bridge.ts
 #: src/papers/literature-discovery-panel.tsx
 #: src/trellis/trellis-panel-actions.tsx
 msgid "Discover literature"
@@ -3035,6 +3038,7 @@ msgid "Find in PDF"
 msgstr "Find in PDF"
 
 #: src/App.tsx
+#: src/app/use-trellis-bridge.ts
 #: src/project/project-find-dialog.tsx
 #: src/trellis/trellis-panel-actions.tsx
 msgid "Find in project"
@@ -4701,7 +4705,7 @@ msgstr "NeurIPS Proceedings"
 msgid "NeurIPS, CVPR, Nature, …"
 msgstr "NeurIPS, CVPR, Nature, …"
 
-#: src/App.tsx
+#: src/app/use-trellis-bridge.ts
 #: src/trellis/trellis-panel-actions.tsx
 msgid "New board"
 msgstr "New board"
@@ -4738,7 +4742,7 @@ msgstr "New name"
 msgid "New Overleaf project name"
 msgstr "New Overleaf project name"
 
-#: src/App.tsx
+#: src/app/use-trellis-bridge.ts
 #: src/trellis/trellis-panel-actions.tsx
 msgid "New presentation"
 msgstr "New presentation"
@@ -4755,7 +4759,7 @@ msgstr "New split below"
 msgid "New split right"
 msgstr "New split right"
 
-#: src/App.tsx
+#: src/app/use-trellis-bridge.ts
 #: src/trellis/trellis-panel-actions.tsx
 msgid "New spreadsheet"
 msgstr "New spreadsheet"
@@ -5499,7 +5503,7 @@ msgstr "Panel menu"
 msgid "Panels"
 msgstr "Panels"
 
-#: src/App.tsx
+#: src/app/use-trellis-bridge.ts
 #: src/canvas/paper-reader.tsx
 #: src/project/project-find-dialog.tsx
 #: src/trellis/trellis-header-tools.tsx
@@ -6707,7 +6711,7 @@ msgstr "Retrieved record information"
 msgid "Retry"
 msgstr "Retry"
 
-#: src/App.tsx
+#: src/app/use-trellis-bridge.ts
 msgid "Reveal cursor in PDF"
 msgstr "Reveal cursor in PDF"
 

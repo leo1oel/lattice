@@ -55,6 +55,8 @@ import {
 } from "./app/use-native-window";
 import { afterNextPaintOpportunity, disposeWhenSettled, useLatest } from "./app/effect-helpers";
 import { useOverleafWorkspace } from "./app/use-overleaf-workspace";
+import { useAppCommands, type AppCommand } from "./app/use-app-commands";
+import { useTrellisBridge } from "./app/use-trellis-bridge";
 import { writeOpenSlideMutation, type EditorWriteResult } from "./app/open-slide-writes";
 import { AppOverleafCollabDrawer } from "./app/app-overleaf-drawer";
 import { AppEditorPanels } from "./app/app-editor-panels";
@@ -63,7 +65,7 @@ import { AppProjectDialogs, TexSetupDialogs, type CreateProjectForm } from "./ap
 import { AppProjectSearchDialogs, AppSearchDialogs, type SearchDialog } from "./app/app-search-dialogs";
 import { AppTitlebar } from "./app/app-titlebar";
 import { PanelActions } from "./trellis/trellis-panel-actions";
-import { TrellisController, TrellisControllerContext, useTrellisUi, type TrellisBridge, type TrellisToolKind } from "./trellis/trellis-controller";
+import { TrellisController, TrellisControllerContext, useTrellisUi, type TrellisToolKind } from "./trellis/trellis-controller";
 import { TrellisTitlebar } from "./trellis/trellis-titlebar";
 import { PANEL_TITLES, spaceMixedScript } from "./trellis/trellis-titles";
 import { CanvasToolbar } from "./canvas/canvas-toolbar";
@@ -3418,21 +3420,8 @@ function App() {
       .catch((reason) => trace.fail(reason));
   };
   const todoCount = todoHits.length;
-  /**
-   * Every app-level action, as the command palette lists it (entries with a
-   * label) and as the global ⌘/Ctrl shortcuts reach it (entries with a key;
-   * `shift` must match). `when: false` hides an entry and disables its key.
-   */
-  const commands: Array<{
-    id: string;
-    run: () => void;
-    label?: string;
-    detail?: string;
-    group?: string;
-    key?: string;
-    shift?: boolean;
-    when?: boolean;
-  }> = [
+  /** Every app-level action: the palette entries and the global shortcuts (see AppCommand). */
+  const commands: AppCommand[] = [
     { id: "build", label: t`Build project`, detail: t`Compile LaTeX`, group: t`Build`, run: () => void compileAndShowPdf(false, true) },
     { id: "rebuild", label: t`Clean rebuild`, detail: t`latexmk -c then -g`, group: t`Build`, run: () => void cleanAndRebuild() },
     { id: "clean", label: t`Clean aux files`, group: t`Build`, run: () => void cleanProject() },
@@ -3486,163 +3475,20 @@ function App() {
     { id: "doctor", label: t`Run TeX doctor`, group: t`Project`, run: () => openSettings("doctor") },
     { id: "settings", label: t`Open settings`, group: t`Project`, run: () => openSettings("appearance") },
   ];
-  const runCommand = (id: string) => {
-    const command = commands.find((item) => item.id === id);
-    if (command && command.when !== false) command.run();
-  };
-  // Read at keypress, so a shortcut always runs the current render's closures.
-  const commandsRef = useLatest(commands);
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "F8") {
-        event.preventDefault();
-        cycleDiagnostic(event.shiftKey ? -1 : 1);
-        return;
-      }
-      if (!(event.metaKey || event.ctrlKey) || event.altKey) return;
-      const key = event.key.toLocaleLowerCase();
-      const command = commandsRef.current.find((item) => item.key === key && Boolean(item.shift) === event.shiftKey);
-      if (!command || command.when === false) return;
-      event.preventDefault();
-      command.run();
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [cycleDiagnostic, commandsRef]);
+  const runCommand = useAppCommands(commands, cycleDiagnostic);
 
   // Trellis workspace: App stays the owner of every document; the
   // workspace reads App through this bridge (at event time) and the store below.
-  const trellisDirty = activePaper ? activePaperDirty : source !== savedSource;
-  const trellisFilesRevisionRef = useRef<{ files: unknown; revision: number }>({ files: null, revision: 0 });
-  useLayoutEffect(() => {
-    const bridge: TrellisBridge = {
-      activate: (key, line) => {
-        if (line !== undefined && !isPaperTabKey(key) && !projectAssetPaths.has(key)) void openProjectFile(key, line);
-        else selectEditorTab(key);
-      },
-      closeTab: async (key) => {
-        await closeEditorTab(key);
-        return true;
-      },
-      save,
-      tabKind: (key) => (isPaperTabKey(key) ? "paper" : projectAssetPaths.has(key) ? "asset" : "file"),
-      tabLabel: (key) => (isPaperTabKey(key)
-        ? papers.find((paper) => paper.arxivId === arxivIdFromTabKey(key))?.title ?? t`Paper`
-        : key.split("/").at(-1) || key),
-      readText: async (path) => {
-        if (path === activeFileRef.current) return sourceRef.current;
-        const root = projectRef.current?.root;
-        if (!root) return null;
-        try {
-          return await invoke<string>("read_project_file", { path, projectRoot: root });
-        } catch {
-          return null;
-        }
-      },
-      textScrollTop: (path) => getFileViewState(path)?.text?.scrollTop ?? null,
-      openTool: (kind) => {
-        if (trellis.openDrawers.get()[kind]) {
-          trellis.revealTool(kind);
-          return;
-        }
-        if (kind === "history") setHistoryOpen(true);
-        else if (kind === "git") {
-          synara.requestRuntime();
-          setGitOpen(true);
-        } else if (kind === "comments" || kind === "overleaf") editorComments.openPanel();
-        else if (kind === "literature") referenceImport.setLiteratureOpen(true);
-        else if (kind === "todos") {
-          void refreshTodos();
-          setTodosOpen(true);
-        } else setChecklistOpen(true);
-      },
-      agentShown: () => {
-        synara.mountFrame();
-        synara.notifyPanelOpened();
-      },
-      notify: (message) => setNotice(message),
-      panelMenu: (kind) => {
-        if (kind === "project") {
-          return [
-            { id: "new-spreadsheet", label: t`New spreadsheet`, run: () => setSpreadsheetCreateRequest((request) => request + 1) },
-            { id: "new-board", label: t`New board`, run: () => setBoardCreateRequest((request) => request + 1) },
-            { id: "new-presentation", label: t`New presentation`, run: () => setPresentationCreateRequest((request) => request + 1) },
-            { id: "find", label: t`Find in project`, run: () => { setProjectSearchOpen(false); projectSearch.openFind(); } },
-          ];
-        }
-        if (kind === "papers") {
-          return [
-            { id: "discover", label: t`Discover literature`, run: () => openLiterature(true) },
-            { id: "bib-entry", label: t`Add bibliography entry`, run: () => referenceImport.openBibEntry() },
-            {
-              id: "check-references", label: t`Check references`, run: () => {
-                const root = projectRef.current?.root;
-                if (!root) return;
-                setBibliographyAuditRoot(root);
-                setBibliographyAuditOpen(true);
-              },
-            },
-          ];
-        }
-        if (kind === "agent") return [{ id: "agent-settings", label: t`Agent settings…`, run: () => openSettings("agent") }];
-        return [
-          { id: "build", label: t`Build project`, shortcut: "⌘S", run: () => void compileAndShowPdf(false, true) },
-          { id: "reveal", label: t`Reveal cursor in PDF`, shortcut: "⌘⇧J", run: () => void revealSourceInPdf() },
-        ];
-      },
-      quickOpen: () => setSearchDialog("quick-open"),
-      build: (key, options) => {
-        void (async () => {
-          // The build follows the active document (it may be a root of its own), so the panel's file goes first.
-          if (activeFileRef.current !== key && !isPaperTabKey(key) && !projectAssetPaths.has(key)) await openProjectFile(key);
-          trellis.showPdfFor(options?.beside);
-          if (options?.clean) await buildPipeline.cleanAndRebuild();
-          else await compile(false, true);
-        })();
-      },
-      stopBuild: () => void buildPipeline.abortBuild(),
-      setViewMode: (mode) => openDocumentMode(mode),
-      setPaperView: (view) => changePaperView(view),
-    };
-    trellis.setBridge(bridge);
+  useTrellisBridge({
+    trellis, project, projectRef, projectAssetPaths, papers, activeFile, activeFileRef, activeTabKey, activePaper,
+    activePaperDirty, activeAsset, source, sourceRef, savedSource, openTabs, tabsSettledRoot,
+    workspacePersistenceReadyRoot, canvasMode, paperView, paperMarkdown, paperBlog, build, building, buildPipeline,
+    synara, editorComments, referenceImport, projectSearch, getFileViewState, openProjectFile, selectEditorTab,
+    closeEditorTab, save, compile, compileAndShowPdf, revealSourceInPdf, openDocumentMode, changePaperView,
+    openSettings, openLiterature, refreshTodos, setSearchDialog, setHistoryOpen, setGitOpen, setTodosOpen,
+    setChecklistOpen, setProjectSearchOpen, setBibliographyAuditRoot, setBibliographyAuditOpen,
+    setSpreadsheetCreateRequest, setBoardCreateRequest, setPresentationCreateRequest,
   });
-  useLayoutEffect(() => {
-    if (!project) return;
-    const revision = trellisFilesRevisionRef.current;
-    if (revision.files !== project.files) {
-      revision.files = project.files;
-      revision.revision += 1;
-    }
-    trellis.app.set({
-      projectRoot: project.root,
-      activeKey: activeTabKey,
-      activeDirty: trellisDirty,
-      openTabs,
-      tabsReady: tabsSettledRoot === project.root || workspacePersistenceReadyRoot === project.root,
-      filesRevision: revision.revision,
-    });
-  }, [activeTabKey, openTabs, project, tabsSettledRoot, trellis, trellisDirty, workspacePersistenceReadyRoot]);
-  // Inactive panels paint the last text they showed while loading a fresh copy.
-  useEffect(() => {
-    if (activeFile && !activePaper) trellis.texts.set(activeFile, source);
-  }, [activeFile, activePaper, source, trellis]);
-  // What the document panels' header tools show: build state, the active document's view, the Paper's view.
-  const trellisViewModes = activePaper || activeAsset ? null
-    : activeFile.toLocaleLowerCase().endsWith(".md") ? "markdown"
-      : isHtmlFilePath(activeFile) ? "html" : null;
-  const trellisViewMode = canvasMode === "pdf" ? "pdf" : canvasMode === "split" ? "split" : "source";
-  const trellisBuiltIn = build?.success ? build.durationMs / 1000 : null;
-  const trellisPaperViews = Boolean(activePaper && paperBlog !== null && paperMarkdown);
-  useLayoutEffect(() => {
-    trellis.docTools.set({
-      building,
-      builtIn: trellisBuiltIn,
-      viewMode: trellisViewMode,
-      viewModes: trellisViewModes,
-      paperView: activePaper ? paperView : null,
-      paperViews: trellisPaperViews,
-    });
-  }, [activePaper, building, paperView, trellis, trellisBuiltIn, trellisPaperViews, trellisViewMode, trellisViewModes]);
   // Panel action rows (Trellis tab-bar accessories): memoized, because App
   // re-renders on every keystroke and each row is a set of tooltip buttons.
   const { permissionMode, autoModeAvailable, changePermissionMode } = synara;
