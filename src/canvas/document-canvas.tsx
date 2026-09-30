@@ -617,7 +617,7 @@ export function DocumentCanvas(props: {
   const [primaryKeymapExtensions, primaryVimMode] = useOptionalKeymapExtensions(editorKeymap);
   const primaryTextLanguageExtensions = useTextLanguageExtensions(isLatexSourcePath(activeFile) ? "" : activeFile);
   /**
-   * Everything either pane's editor of `path` runs, in precedence order; `extra`
+   * Everything the source editor of `path` runs, in precedence order; `extra`
    * slots in after the language. Every getter here runs in CodeMirror handlers,
    * transactions or tooltips, never during React render.
    */
@@ -664,7 +664,7 @@ export function DocumentCanvas(props: {
       { delay: 200 },
     )] : []),
   ];
-  // Both panes capture volatile inputs (macros, citations, diagnostics, App
+  // The extensions capture volatile inputs (macros, citations, diagnostics, App
   // lambdas) at reconfigure time or read them through refs. CodeMirrorHost
   // answers a new extensions identity with a full reconfigure, so listing them
   // would tear down language, linters and presence carets on every keystroke.
