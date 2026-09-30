@@ -9,7 +9,7 @@
  * (text) or a sleeping card (boards, sheets, decks, assets, papers) until it is
  * clicked. A panel that is not on screen renders nothing at all.
  */
-import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
+import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useLingui } from "@lingui/react/macro";
 import {
@@ -64,9 +64,17 @@ const MIN_SIZE = {
   tool: { width: 200, height: 160 },
 } as const;
 
-/** A static minimum raised to a width measured from the live content (0 until measured). */
-function measuredMinSize(base: { width: number; height: number }, measured: number) {
-  return { width: Math.max(base.width, measured), height: base.height };
+/**
+ * A static minimum raised to a width measured from the live content (0 until
+ * measured). Trellis reads `minSize.width` whenever it lays out, so a getter
+ * follows the measurement without re-rendering the workspace; the workspace
+ * asks Trellis to lay out again when a measurement changes.
+ */
+function measuredMinSize(base: { width: number; height: number }, measured: () => number) {
+  return {
+    get width() { return Math.max(base.width, measured()); },
+    height: base.height,
+  };
 }
 
 const PANEL_ICONS: Record<TrellisSingleton, ReactNode> = {
@@ -181,46 +189,43 @@ function EmptyState({ icon, title, detail, children, onActivate }: {
  * changes (a build loads, the locale changes a label), when fonts arrive, and
  * once the panel is first laid out; never per resize or per rendered page.
  */
-function usePdfToolbarMinimum(controller: TrellisController) {
-  useEffect(() => {
-    const host = controller.hosts.pdf;
-    let frame = 0;
-    let measured = false;
-    const measure = () => {
-      frame = 0;
-      const toolbar = host.querySelector<HTMLElement>(".pdf-toolbar");
-      const width = toolbar ? measurePdfToolbarMinWidth(toolbar) : null;
-      if (width === null) return;
-      measured = true;
-      controller.ui.set({ pdfMinWidth: width });
-    };
-    const schedule = () => {
-      if (!frame) frame = requestAnimationFrame(measure);
-    };
-    const inToolbar = (node: Node) => node instanceof Element && (node.closest(".pdf-toolbar") !== null || node.querySelector(".pdf-toolbar") !== null);
-    const mutations = new MutationObserver((records) => {
-      if (records.some((record) => inToolbar(record.target) || [...record.addedNodes].some(inToolbar))) schedule();
-    });
-    mutations.observe(host, { subtree: true, childList: true, attributes: true, attributeFilter: ["placeholder"] });
-    const firstLayout = new ResizeObserver(() => {
-      if (!measured) schedule();
-    });
-    firstLayout.observe(host);
-    document.fonts?.addEventListener("loadingdone", schedule);
-    schedule();
-    return () => {
-      cancelAnimationFrame(frame);
-      mutations.disconnect();
-      firstLayout.disconnect();
-      document.fonts?.removeEventListener("loadingdone", schedule);
-    };
-  }, [controller]);
+function observePdfToolbarMinimum(controller: TrellisController): () => void {
+  const host = controller.hosts.pdf;
+  let frame = 0;
+  let measured = false;
+  const measure = () => {
+    frame = 0;
+    const toolbar = host.querySelector<HTMLElement>(".pdf-toolbar");
+    const width = toolbar ? measurePdfToolbarMinWidth(toolbar) : null;
+    if (width === null) return;
+    measured = true;
+    controller.ui.set({ pdfMinWidth: width });
+  };
+  const schedule = () => {
+    if (!frame) frame = requestAnimationFrame(measure);
+  };
+  const inToolbar = (node: Node) => node instanceof Element && (node.closest(".pdf-toolbar") !== null || node.querySelector(".pdf-toolbar") !== null);
+  const mutations = new MutationObserver((records) => {
+    if (records.some((record) => inToolbar(record.target) || [...record.addedNodes].some(inToolbar))) schedule();
+  });
+  mutations.observe(host, { subtree: true, childList: true, attributes: true, attributeFilter: ["placeholder"] });
+  const firstLayout = new ResizeObserver(() => {
+    if (!measured) schedule();
+  });
+  firstLayout.observe(host);
+  document.fonts?.addEventListener("loadingdone", schedule);
+  schedule();
+  return () => {
+    cancelAnimationFrame(frame);
+    mutations.disconnect();
+    firstLayout.disconnect();
+    document.fonts?.removeEventListener("loadingdone", schedule);
+  };
 }
 
 function PdfView({ controller }: { controller: TrellisController }) {
   const { t } = useLingui();
   useReportPanel(controller, "pdf");
-  usePdfToolbarMinimum(controller);
   const live = useSyncExternalStore(controller.ui.subscribe, () => controller.ui.get().pdfLive);
   return (
     <>
@@ -516,13 +521,13 @@ type WorkspaceProps = { controller: TrellisController; projectRoot: string; dark
 /** Memoized: App re-renders on every keystroke, and nothing here needs to follow it. */
 export const TrellisWorkspace = memo(function TrellisWorkspace({ controller, projectRoot, dark }: WorkspaceProps) {
   const { t, i18n } = useLingui();
-  const agentMinWidth = useSyncExternalStore(controller.ui.subscribe, () => controller.ui.get().agentMinWidth);
-  const pdfMinWidth = useSyncExternalStore(controller.ui.subscribe, () => controller.ui.get().pdfMinWidth);
-  const agentMinSize = useMemo(() => measuredMinSize(MIN_SIZE.agent, agentMinWidth), [agentMinWidth]);
-  const pdfMinSize = useMemo(() => measuredMinSize(MIN_SIZE.pdf, pdfMinWidth), [pdfMinWidth]);
-  const [initial] = useState(() => {
+  const [{ initial, agentMinSize, pdfMinSize }] = useState(() => {
     installTrellisLabels();
-    return loadLayout(projectRoot);
+    return {
+      initial: loadLayout(projectRoot),
+      agentMinSize: measuredMinSize(MIN_SIZE.agent, () => controller.ui.get().agentMinWidth),
+      pdfMinSize: measuredMinSize(MIN_SIZE.pdf, () => controller.ui.get().pdfMinWidth),
+    };
   });
   const [ws, setWs] = useState<WorkspaceHandle | null>(null);
   const [menu, setMenu] = useState<MenuRequest | null>(null);
@@ -558,8 +563,22 @@ export const TrellisWorkspace = memo(function TrellisWorkspace({ controller, pro
     };
     update();
     const unsubscribe = ws.subscribe(update);
+    // The Agent's and the PDF's measured minimums reach Trellis through their
+    // minSize getters; lay out again when either changes. (Kept in this effect
+    // rather than their own hooks: the workspace renders on startup and each
+    // hook there is counted by the performance budget.)
+    let measured = { agent: 0, pdf: 0 };
+    const offMeasured = controller.ui.subscribe(() => {
+      const { agentMinWidth: agent, pdfMinWidth: pdf } = controller.ui.get();
+      if (agent === measured.agent && pdf === measured.pdf) return;
+      measured = { agent, pdf };
+      ws.update({});
+    });
+    const stopPdf = observePdfToolbarMinimum(controller);
     return () => {
       unsubscribe();
+      offMeasured();
+      stopPdf();
       controller.ui.set({ minWidth: 0 });
     };
   }, [controller, ws]);
