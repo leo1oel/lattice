@@ -12,7 +12,9 @@ engine meets it today; Part II is the specification itself.
 
 The visual editor Lattice once vendored from Open Knowledge
 (GPL-3.0-or-later) was replaced by this Lattice-owned engine so that Lattice
-can move to a permissive license. The legal question is whether protected
+could move to a permissive license; it is Apache-2.0 now, and the scans that
+cleared the move are recorded in
+[`clean-room-provenance.md`](clean-room-provenance.md). The legal question is whether protected
 expression was copied, so this document and the engine were kept separate
 from the vendored code by procedure. The vendored trees, the adapted files and
 the vendoring scripts named below were deleted in phase 3; the record of what
