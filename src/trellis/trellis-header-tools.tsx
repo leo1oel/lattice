@@ -45,7 +45,7 @@ export function FileHeaderTools({ controller }: { controller: TrellisController 
     const seconds = lastBuild?.status === "succeeded" ? lastBuild.seconds.toFixed(1) : null;
     const button = (live: boolean) => {
       const state = !live ? "idle" : building ? "building" : lastBuild?.status ?? "idle";
-      const labels = { build: t`Build`, failed: t`Failed`, time: `${seconds ?? "000.0"}s` };
+      const labels = { build: t`Build`, failed: t`Failed`, time: seconds ? `${seconds}s` : "" };
       const shown = state === "succeeded" ? "time" : state === "failed" ? "failed" : "build";
       return (
         <button
@@ -59,12 +59,14 @@ export function FileHeaderTools({ controller }: { controller: TrellisController 
             : state === "succeeded" ? <Check size={13} strokeWidth={2.5} className="trellis-build-status" />
               : state === "failed" ? <X size={13} strokeWidth={2.5} className="trellis-build-status" />
                 : <Play size={11} fill="currentColor" />}
-          {/* Every label is laid out in one cell, so the button keeps the width of
-              the widest whatever it shows, and the header's measured tools with it. */}
+          {/* Every label is laid out in one cell, with a hidden widest time beside
+              them, so the button keeps the width of the widest whatever it shows,
+              and the header's measured tools with it. */}
           <span className="trellis-build-label">
             {(Object.keys(labels) as Array<keyof typeof labels>).map((name) => (
               <span key={name} className={name === shown ? undefined : "trellis-build-label-off"}>{labels[name]}</span>
             ))}
+            <span className="trellis-build-label-off">000.0s</span>
           </span>
         </button>
       );
