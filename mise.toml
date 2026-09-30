@@ -57,8 +57,6 @@ sources = [
   # Vitest also discovers script-level tests, whose imported implementation
   # modules must invalidate this stage just like src/ does.
   "scripts/**",
-  # src/styles/surfaces.test.ts reads the dev playground's stylesheet off disk.
-  "tools/**",
   # Compatibility tests execute the shipping script and check its HTML order.
   "public/polyfills.js",
   "index.html",

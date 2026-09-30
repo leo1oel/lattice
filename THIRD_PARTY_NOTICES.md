@@ -282,7 +282,6 @@ The Synara sidecar has its own findings block further down; it is kept separate 
 | `lightningcss@1.32.0` | npm | `MPL-2.0` | weak-copyleft — file-level copyleft |
 | `lightningcss@1.33.0` | npm | `MPL-2.0` | weak-copyleft — file-level copyleft |
 | `@fontsource-variable/inter@5.3.0` | npm | `OFL-1.1` | reciprocal — SIL OFL (reserved-name and bundling terms) |
-| `@fontsource/dm-sans@5.3.0` | npm | `OFL-1.1` | reciprocal — SIL OFL (reserved-name and bundling terms) |
 | `@fontsource/instrument-serif@5.3.0` | npm | `OFL-1.1` | reciprocal — SIL OFL (reserved-name and bundling terms) |
 | `r-efi@5.3.0` | crates | `MIT OR Apache-2.0 OR LGPL-2.1-or-later` | dual — LGPL offered as one alternative; Lattice elects Apache-2.0 |
 | `r-efi@6.0.0` | crates | `MIT OR Apache-2.0 OR LGPL-2.1-or-later` | dual — LGPL offered as one alternative; Lattice elects Apache-2.0 |
@@ -439,7 +438,7 @@ to reproduce is not available from the artifact we distribute.
 
 The production dependency closure of the root `package.json` — the superset of what Vite can bundle into the shipped web assets. Dev dependencies (Vite, ESLint, Vitest, Tauri CLI) are excluded: they build the app, they are not distributed in it.
 
-**703 packages.**
+**702 packages.**
 
 | Declared license | Packages |
 | --- | --- |
@@ -451,9 +450,9 @@ The production dependency closure of the root `package.json` — the superset of
 | `MIT OR Apache-2.0` | 6 |
 | `apache-2.0` | 4 |
 | `(no license field)` | 3 |
-| `OFL-1.1` | 3 |
 | `MIT/X11` | 2 |
 | `MPL-2.0` | 2 |
+| `OFL-1.1` | 2 |
 | `Unlicense` | 2 |
 | `(MIT AND Zlib)` | 1 |
 | `(MIT OR GPL-3.0-or-later)` | 1 |
@@ -544,7 +543,7 @@ parent package listed beside it.
 
 </details>
 
-### License texts (75 distinct texts across 703 packages)
+### License texts (75 distinct texts across 702 packages)
 
 #### 1. MIT (+1 other declarations) — 258 package(s), from `LICENSE`
 
@@ -2379,19 +2378,94 @@ This License is governed by the laws of Delaware, and the parties consent to exc
 This License is the entire agreement between the parties, and supersedes any and all prior agreements, understandings or communications, written or oral, between the parties relating to the subject matter hereof. This License may be assigned by tldraw without your prior consent.
 ```
 
-#### 24. OFL-1.1 — 3 package(s), from `LICENSE`
+#### 24. MIT — 3 package(s), from `LICENSE`
 
 <details><summary>Packages sharing this text</summary>
 
-`@fontsource-variable/inter@5.3.0`, `@fontsource/dm-sans@5.3.0`, `@fontsource/instrument-serif@5.3.0`
+`cytoscape-cose-bilkent@4.1.0`, `cytoscape-fcose@2.2.0`, `cytoscape@3.34.0`
 
 </details>
 
-Copyright notices (7):
+Copyright notices (3):
+
+```text
+Copyright (c) 2016-2018, The Cytoscape Consortium.
+Copyright (c) 2016-2026, The Cytoscape Consortium.
+Copyright (c) 2018 - present, iVis-at-Bilkent.
+```
+
+```text
+Copyright (c) 2016-2018, The Cytoscape Consortium.
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of
+this software and associated documentation files (the “Software”), to deal in
+the Software without restriction, including without limitation the rights to
+use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies
+of the Software, and to permit persons to whom the Software is furnished to do
+so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+#### 25. SEE LICENSE IN LICENSE.md — 3 package(s), from `LICENSE.md`
+
+<details><summary>Packages sharing this text</summary>
+
+`@tldraw/assets@5.2.5`, `@tldraw/editor@5.2.5`, `tldraw@5.2.5`
+
+</details>
+
+```text
+This code is licensed under the [tldraw license](https://github.com/tldraw/tldraw/blob/main/LICENSE.md)
+```
+
+#### 26. MIT — 3 package(s), from `license.md`
+
+<details><summary>Packages sharing this text</summary>
+
+`lie@3.1.1`, `lie@3.3.0`, `process-nextick-args@2.0.1`
+
+</details>
+
+Copyright notices (3):
+
+```text
+Copyright (c) 2014 Calvin Metcalf
+Copyright (c) 2014-2018 Calvin Metcalf, Jordan Harband
+Copyright (c) 2015 Calvin Metcalf
+```
+
+```text
+#Copyright (c) 2014-2018 Calvin Metcalf, Jordan Harband
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+
+**THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.**
+```
+
+#### 27. OFL-1.1 — 2 package(s), from `LICENSE`
+
+<details><summary>Packages sharing this text</summary>
+
+`@fontsource-variable/inter@5.3.0`, `@fontsource/instrument-serif@5.3.0`
+
+</details>
+
+Copyright notices (6):
 
 ```text
 COPYRIGHT HOLDER BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
-Copyright 2014 The DM Sans Project Authors (https://github.com/googlefonts/dm-fonts) DMSans-Italic[opsz,wght].ttf: Copyright 2014 The DM Sans Project Authors (https://github.com/googlefonts/dm-fonts)
 Copyright 2016 The Inter Project Authors (https://github.com/rsms/inter) Inter-Italic[opsz,wght].ttf: Copyright 2016 The Inter Project Authors (https://github.com/rsms/inter)
 Copyright 2022 The Instrument Serif Project Authors (https://github.com/Instrument/instrument-serif) InstrumentSerif-Italic.ttf: Copyright 2022 The Instrument Serif Project Authors (https://github.com/Instrument/instrument-serif)
 Copyright Holder(s) and the Author(s) or with their explicit written
@@ -2492,82 +2566,6 @@ INCLUDING ANY GENERAL, SPECIAL, INDIRECT, INCIDENTAL, OR CONSEQUENTIAL
 DAMAGES, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
 FROM, OUT OF THE USE OR INABILITY TO USE THE FONT SOFTWARE OR FROM
 OTHER DEALINGS IN THE FONT SOFTWARE.
-```
-
-#### 25. MIT — 3 package(s), from `LICENSE`
-
-<details><summary>Packages sharing this text</summary>
-
-`cytoscape-cose-bilkent@4.1.0`, `cytoscape-fcose@2.2.0`, `cytoscape@3.34.0`
-
-</details>
-
-Copyright notices (3):
-
-```text
-Copyright (c) 2016-2018, The Cytoscape Consortium.
-Copyright (c) 2016-2026, The Cytoscape Consortium.
-Copyright (c) 2018 - present, iVis-at-Bilkent.
-```
-
-```text
-Copyright (c) 2016-2018, The Cytoscape Consortium.
-
-Permission is hereby granted, free of charge, to any person obtaining a copy of
-this software and associated documentation files (the “Software”), to deal in
-the Software without restriction, including without limitation the rights to
-use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies
-of the Software, and to permit persons to whom the Software is furnished to do
-so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-```
-
-#### 26. SEE LICENSE IN LICENSE.md — 3 package(s), from `LICENSE.md`
-
-<details><summary>Packages sharing this text</summary>
-
-`@tldraw/assets@5.2.5`, `@tldraw/editor@5.2.5`, `tldraw@5.2.5`
-
-</details>
-
-```text
-This code is licensed under the [tldraw license](https://github.com/tldraw/tldraw/blob/main/LICENSE.md)
-```
-
-#### 27. MIT — 3 package(s), from `license.md`
-
-<details><summary>Packages sharing this text</summary>
-
-`lie@3.1.1`, `lie@3.3.0`, `process-nextick-args@2.0.1`
-
-</details>
-
-Copyright notices (3):
-
-```text
-Copyright (c) 2014 Calvin Metcalf
-Copyright (c) 2014-2018 Calvin Metcalf, Jordan Harband
-Copyright (c) 2015 Calvin Metcalf
-```
-
-```text
-#Copyright (c) 2014-2018 Calvin Metcalf, Jordan Harband
-
-Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
-
-**THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.**
 ```
 
 #### 28. MPL-2.0 — 2 package(s), from `LICENSE`

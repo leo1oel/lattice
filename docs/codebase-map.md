@@ -21,8 +21,8 @@ description.
 | `src/` | 596 | The React 19 / TypeScript frontend. Split by domain: 12 files at the root, the rest under `app/`, `agent/`, `build/`, `canvas/`, `components/`, `editor/{,latex,markdown,spreadsheet,board,insert,comments,presentation}/`, `history/`, `hooks/`, `overleaf/`, `papers/`, `pdf/`, `platform/`, `project/`, `settings/`, `styles/`, `telemetry/`, `trellis/`, and `locales/`. See §3. |
 | `src-tauri/` | 186 | The Rust host: 118 `.rs` files (~40.7k lines) under `src-tauri/src/` — large areas are a short `x.rs` map beside an `x/` directory of parts, command handlers are in `ipc/` — plus `tauri.conf.json`, capabilities, icons, and LaTeX project templates. |
 | `literature-worker/` | 8 | The public literature proxy Worker (`lattice-literature`, OpenAlex and Crossref). Own `package.json` and vitest config; see [`public-literature-service.md`](public-literature-service.md). |
-| `scripts/` | 52 | Build and maintenance tooling: version bump, size budget, i18n coverage, runtime staging and signing (Synara, Open Slide, Chromium), third-party notices, perf fixtures, manual Electron regressions (`electron-regressions.mjs`), dev bootstrap (`setup-dev.sh`), Overleaf live verification. Shared helpers are in `scripts/lib/` (`util.mjs`, `codesign.mjs`). |
-| `tools/` | 9 | Development-only code outside the app bundle. `tools/icon-lab/` is the animated-icon playground behind the root `icon-lab.html`; it is served by `pnpm dev` and is deliberately **not** a build input, so it never ships. `tools/perf-bench/` is the interaction benchmark's page, and `tools/open-slide-runtime/` is the Open Slide presentation server staged into the app by `scripts/prepare-presentation-runtime.mjs`. Typechecked and linted with the app. |
+| `scripts/` | 50 | Build and maintenance tooling: version bump, size budget, i18n coverage, runtime staging and signing (Synara, Open Slide, Chromium), third-party notices, perf fixtures, dev bootstrap (`setup-dev.sh`), Overleaf live verification. Shared helpers are in `scripts/lib/` (`util.mjs`, `codesign.mjs`). |
+| `tools/` | 7 | Development-only code outside the app bundle. `tools/perf-bench/` is the interaction benchmark's page, and `tools/open-slide-runtime/` is the Open Slide presentation server staged into the app by `scripts/prepare-presentation-runtime.mjs`. Typechecked and linted with the app. |
 | `docs/` | 17 | This directory. See [`README.md`](README.md). |
 | `evals/` | 2 | JSON fixtures for `scripts/agent-quality-eval.mjs` — pass/fail transcripts for the agent's research behaviour. |
 | `patches/` | 4 | pnpm patches: `@danfessler/trellis@0.2.0`, `@pierre/trees@1.0.0-beta.6`, `@tiptap/react@3.31.3` and `pdfjs-dist@6.3.289`. |
@@ -119,7 +119,7 @@ Counts are tracked files directly in the directory (not nested), and lines are
 | `src/pdf/` | 18 | 5 | 3,634 | The pdf.js viewer (`pdf-viewer.tsx` over the `use-pdf-*` hooks and `pdf-slick.ts`) with SyncTeX, search and annotations, plus base64/byte plumbing. |
 | `src/platform/` | 11 | 5 | 2,031 | Runtime bootstrap and the repo-level guards that pin it: the browser-host runtime and bridge, `perf-probe.ts`, `test-setup.ts`, and tests for compiler/security configuration and the pre-module compatibility script in `public/polyfills.js`. |
 | `src/editor/` | 10 | 4 | 1,215 | Editor infrastructure shared by more than one editor kind: the hand-mounted CodeMirror host, language resolution, Harper spellcheck, paper drops, the go-to-line dialog, and `dom-utils.ts` (the `element()` helper for hand-built editor chrome). |
-| `src/animated-icons/` | 5 | 1 | 215 | The animated product icons (plus `bakai/`, 12 hand-rebuilt glyphs). Exercised by the playground in `tools/icon-lab/`. |
+| `src/animated-icons/` | 5 | 1 | 215 | The animated product icons (plus `bakai/`, 12 hand-rebuilt glyphs). |
 | `src/editor/comments/` | 4 | 1 | 898 | Editor comments: the data shape, the CodeMirror/TipTap integration, the panel. |
 | `src/editor/board/` | 3 | 1 | 387 | The tldraw whiteboard and its standalone store. Loaded only via `loadBoardEditorModule()`. |
 | `src/editor/presentation/` | 6 | 3 | 931 | The embedded Open Slide workspace and its loopback bridge. |
@@ -157,7 +157,7 @@ rather than a fact:
 | `src/locales/` | 2 | Lingui catalogs: `en` and `zh-CN` `.po` sources (the compiled `.js` are generated, not tracked) |
 | `src/hooks/` | 2 | `use-latest-ref.ts`, `use-non-passive-wheel.ts` |
 | `src/lib/` | 1 | `utils.ts` (the shadcn `cn` helper) |
-| `src/animated-icons/` (17), `src/assets/` (7) | 24 | The animated product icons — `bakai/` (12 hand-rebuilt Phosphor glyphs), `bakai-icons.css`, `provided-icons.tsx`, and the `product-animated-icon.tsx` façade — plus fonts. Exercised by the dev playground in `tools/icon-lab/`. |
+| `src/animated-icons/` (17), `src/assets/` (7) | 24 | The animated product icons — `bakai/` (12 hand-rebuilt Phosphor glyphs), `bakai-icons.css`, `provided-icons.tsx`, and the `product-animated-icon.tsx` façade — plus fonts. |
 
 ---
 

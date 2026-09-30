@@ -26,9 +26,9 @@
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true
   },
-  // `tools/` holds development-only pages (the animated-icon playground) that
-  // are never a build input. They still import app modules, so they are
-  // typechecked here — otherwise a rename in src/ could silently break them.
+  // `tools/` holds development-only code (the interaction benchmark's page)
+  // that is never a build input. It still imports app modules, so it is
+  // typechecked here — otherwise a rename in src/ could silently break it.
   "include": ["src", "tools"],
   "exclude": [
     // Runs the compiler-report script through node:child_process; needs node

@@ -49,7 +49,6 @@
     "@danfessler/trellis-react": "0.2.0",
     "@floating-ui/dom": "^1.8.0",
     "@fontsource-variable/inter": "^5.3.0",
-    "@fontsource/dm-sans": "^5.3.0",
     "@fontsource/instrument-serif": "^5.3.0",
     "@lezer/highlight": "^1.2.3",
     "@lingui/core": "^6.6.0",
