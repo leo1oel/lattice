@@ -12,9 +12,6 @@ export default defineConfig({
   catalogs: [{
     path: "src/locales/{locale}/messages",
     include: ["src"],
-    // The dev-only icon playground needs no exclusion: it lives in `tools/`,
-    // outside `include`. The production icon components it exercises
-    // (src/animated-icons/**) carry no macros, so extraction sees nothing there.
     exclude: [
       "src/**/*.test.{ts,tsx}",
       "src/platform/test-setup.ts",
