@@ -3,7 +3,8 @@
  * and `http(s)://` URLs and email addresses, with or without `mailto:` or
  * `xmpp:`. The parser links them however their characters are escaped, so the
  * safe serializer writes these spans as typed and escapes only around them.
- * An approximation is harmless: every written run is verified by re-parsing.
+ * An approximation is caught, not corrected: a run that reads back otherwise is
+ * reported unverified.
  *
  * Clean implementation for Lattice; spec: docs/visual-editor-spec.md.
  */

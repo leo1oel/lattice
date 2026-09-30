@@ -230,6 +230,30 @@ describe("bare URLs typed into the visual editor", () => {
     expect(open(written.text).doc.textContent).toBe(typed);
   });
 
+  it.each([
+    ["a pipe in a table cell", "| a |\n| --- |\n| x |\n", "https://a.com/x|y"],
+    ["two URLs split by a pipe in a table cell", "| a |\n| --- |\n| x |\n", "https://a.com|https://b.com"],
+    ["a character reference", "x\n", "https://a.com/?a=1&copy;x"],
+    ["a backslash before punctuation", "x\n", "https://a.com/\\*x"],
+    ["a closing bracket in a paragraph", "x\n", "https://a.com/a]b"],
+  ])("escapes %s inside a URL so it reads back as shown", (_name, text, typed) => {
+    const { edited, written } = typeInto(text, typed);
+    expect(written.verified).toBe(true);
+    const reopened = open(written.text);
+    expect(blockTypes(reopened.doc)).toEqual(blockTypes(edited));
+    expect(reopened.doc.textContent).toBe(edited.textContent);
+  });
+
+  it("escapes a closing bracket of a URL typed as link text", () => {
+    const { doc, baseline } = open("x\n");
+    const typed = "https://x.com/a]";
+    const link = schema.text(typed, [schema.marks.link!.create({ href: "https://example.org" })]);
+    const next = doc.copy(doc.content.replaceChild(0, schema.nodes.paragraph!.create(null, link)));
+    const written = serializeMarkdown(next, baseline);
+    expect(written.verified).toBe(true);
+    expect(open(written.text).doc.textContent).toBe(typed);
+  });
+
   it("still escapes text that only looks like a URL", () => {
     // Not an autolink start: GFM needs whitespace, `*`, `_`, `~` or `(` before it.
     expect(editBlockText("Plain\n", 0, () => "*x*https://example.com")).toBe("\\*x\\*https://example.com\n");

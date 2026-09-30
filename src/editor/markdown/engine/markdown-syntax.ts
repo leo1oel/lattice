@@ -192,25 +192,29 @@ function withOption<K extends keyof Options>(state: State, key: K, value: Option
 /**
  * Text escaped wherever the grammar could misread it, except inside the spans
  * GFM reads as extended autolinks: those are linked whatever their escapes,
- * so a backslash there would only become part of the link.
+ * so a backslash there would only become part of the link. A span holding a
+ * `|` or `]` that would end the enclosing table cell or link label is escaped
+ * like other text, its opener too, so GFM reads it only after the escapes are
+ * resolved.
  */
 function safeText(value: string, state: State, info: Info): string {
   const spans = autolinkLiteralSpans(value);
   if (!spans.length) return state.safe(value, info);
   let written = "";
   let cursor = 0;
+  const contextOf = (from: number, to: number): Info => ({
+    ...info,
+    before: from ? value.charAt(from - 1) : info.before,
+    after: to < value.length ? value.charAt(to) : info.after,
+  });
   const escape = (to: number) => {
-    if (to > cursor) {
-      written += state.safe(value.slice(cursor, to), {
-        ...info,
-        before: cursor ? value.charAt(cursor - 1) : info.before,
-        after: to < value.length ? value.charAt(to) : info.after,
-      });
-    }
+    if (to > cursor) written += state.safe(value.slice(cursor, to), contextOf(cursor, to));
   };
   for (const [from, to] of spans) {
     escape(from);
-    written += value.slice(from, to);
+    const span = value.slice(from, to);
+    const escaped = state.safe(span, contextOf(from, to));
+    written += /\\[|\]]/u.test(escaped) ? escaped.replace(/^(https?|www)([:.])|@/iu, (_match, opener: string | undefined, mark: string) => (opener ? `${opener}\\${mark}` : "\\@")) : span;
     cursor = to;
   }
   escape(value.length);
