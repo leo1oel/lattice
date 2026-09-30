@@ -76,3 +76,56 @@ describe("@tiptap/react node view content hole", () => {
     expect(contentDOM).toHaveTextContent("k!ept");
   });
 });
+
+// Lattice's @tiptap/react patch re-renders an already-mounted node view in the
+// same task instead of deferring it to a microtask. Deferred, React's
+// controlled-input restore first resets a field rendered from node attrs to
+// its old value, which throws the caret to the end (the Callout title bug).
+function TitleField({ node, updateAttributes }: NodeViewProps) {
+  return (
+    <NodeViewWrapper>
+      <input
+        data-testid="title-field"
+        value={String(node.attrs.title)}
+        onChange={(event) => updateAttributes({ title: event.target.value })}
+      />
+    </NodeViewWrapper>
+  );
+}
+
+const titled = Node.create({
+  name: "titled",
+  group: "block",
+  atom: true,
+  addAttributes: () => ({ title: { default: "" } }),
+  parseHTML: () => [{ tag: "div[data-titled]", getAttrs: (element) => ({ title: element.getAttribute("title") }) }],
+  renderHTML: ({ HTMLAttributes }) => ["div", { "data-titled": "", ...HTMLAttributes }],
+  addNodeView: () => ReactNodeViewRenderer(TitleField),
+});
+
+function TitledHarness() {
+  const editor = useEditor({
+    immediatelyRender: true,
+    extensions: [Document, Paragraph, Text, titled],
+    content: '<div data-titled title="abcd"></div>',
+  });
+  return <EditorContent editor={editor} />;
+}
+
+describe("@tiptap/react node view prop fields", () => {
+  it("keeps the caret in place when typing mid-value into a field bound to node attrs", async () => {
+    const { container } = render(<TitledHarness />);
+    const editor = container.querySelector<HTMLElement & { editor: Editor }>(".tiptap")!.editor;
+    const input = await screen.findByTestId<HTMLInputElement>("title-field");
+    input.focus();
+    // Type "X" between "ab" and "cd" the way the browser does: the native
+    // value setter (so React's value tracker sees a change), then the caret.
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(input, "abXcd");
+    input.setSelectionRange(3, 3);
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    await Promise.resolve();
+    expect(editor.state.doc.firstChild?.attrs.title).toBe("abXcd");
+    expect(input.value).toBe("abXcd");
+    expect(input.selectionStart).toBe(3);
+  });
+});
