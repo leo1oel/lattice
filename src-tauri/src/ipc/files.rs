@@ -138,20 +138,16 @@ pub async fn read_agent_composer_files(
 pub async fn import_project_files(
     state: State<'_, AppState>, window: Window, paths: Vec<String>, target_directory: String,
     project_root: String, copy_existing: Option<bool>,
-    uploads: Option<Vec<project::UploadedProjectFile>>,
 ) -> Result<Vec<project::ImportedProjectFile>, String> {
     let _lease = state.structural_lease(&project_root, Lease::Shared).await;
     let root = file_root(&state, &window, &project_root, "the files could be imported")?;
     let copy_existing = copy_existing.unwrap_or(false);
-    run_blocking("File import", move || match uploads {
-        Some(_) if !paths.is_empty() || copy_existing => {
-            Err("Upload files separately from local path imports.".to_string())
-        }
-        Some(uploads) => project::import_uploaded_files(&root, &uploads, &target_directory),
-        None if copy_existing => {
+    run_blocking("File import", move || {
+        if copy_existing {
             project::import_files_with_copy(&root, &paths, &target_directory, true)
+        } else {
+            project::import_files(&root, &paths, &target_directory)
         }
-        None => project::import_files(&root, &paths, &target_directory),
     })
     .await
 }

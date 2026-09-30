@@ -1,20 +1,19 @@
 //! The session table behind the browser bridge.
 //!
 //! Each session pairs one hidden native *host* WebView with the surface that
-//! shows it: a system-browser tab (*browser*) or the bundled-Chromium window
-//! (*desktop*). The host relays IPC with the visible peer. While a browser tab
-//! is attached, the desktop window is parked (suspended and hidden) and it
-//! resumes once the tab is gone. `visible_epoch` counts visible-peer
-//! generations so a delayed grace timer can tell whether anything reconnected
-//! in the meantime.
+//! shows it: the bundled-Chromium window (*desktop*) or, on the development
+//! and testing path, an ordinary browser tab (*browser*). The host relays IPC
+//! with that visible peer. A session belongs to one kind of surface: the fixed
+//! entry never hands a Chromium workspace to a browser tab or the other way
+//! round. `visible_epoch` counts visible-peer generations so a delayed grace
+//! timer can tell whether anything reconnected in the meantime.
 //!
 //! Functions here only update the table and message peers; the caller applies
-//! the returned app-level effects (windows, Chromium, Synara).
+//! the returned app-level effects (windows, Synara).
 
 use axum::extract::ws::Message;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::path::PathBuf;
 use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::Instant;
 use tokio::sync::mpsc;
@@ -28,39 +27,31 @@ pub(super) fn lock(
 }
 
 pub(super) struct BrowserSession {
-    pub(super) source_label: Option<String>,
     pub(super) host_label: String,
-    pub(super) project_root: Option<PathBuf>,
     pub(super) browser_origin: String,
     /// Reusable by later loads of the fixed browser entry.
     pub(super) entry_session: bool,
     pub(super) created_at: Instant,
-    /// A handoff stays inactive (nothing is relayed) until its source window closed.
-    pub(super) active: bool,
     pub(super) host: Option<Peer>,
     pub(super) browser: Option<Peer>,
     pub(super) desktop: Option<Peer>,
+    /// Shown by the bundled Chromium window rather than a browser tab.
     pub(super) bundled_chromium: bool,
     pub(super) visible_epoch: u64,
-    pub(super) desktop_return: Option<DesktopReturnRequest>,
 }
 
 impl BrowserSession {
     pub(super) fn new(host_label: String, browser_origin: String) -> Self {
         Self {
-            source_label: None,
             host_label,
-            project_root: None,
             browser_origin,
             entry_session: false,
             created_at: Instant::now(),
-            active: true,
             host: None,
             browser: None,
             desktop: None,
             bundled_chromium: false,
             visible_epoch: 0,
-            desktop_return: None,
         }
     }
 
@@ -75,17 +66,6 @@ impl BrowserSession {
     fn visible(&self) -> Option<&Peer> {
         self.browser.as_ref().or(self.desktop.as_ref())
     }
-}
-
-#[derive(Clone, Copy, PartialEq, Eq)]
-pub(crate) enum DesktopReturnTarget {
-    Bundled,
-    Native,
-}
-
-pub(super) struct DesktopReturnRequest {
-    target: DesktopReturnTarget,
-    acknowledged: bool,
 }
 
 pub(super) struct Peer {
@@ -117,9 +97,10 @@ pub(super) struct BridgeQuery {
     pub(super) role: BridgeRole,
 }
 
-#[derive(Clone, Copy, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Copy, Default, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
 pub(super) enum BridgeRole {
+    #[default]
     Browser,
     Desktop,
     Host,
@@ -146,72 +127,55 @@ impl BrowserSessionConfig {
     }
 }
 
-/// Reuse a live token on reload and reuse the newest fixed-entry workspace for
-/// a second tab. The latter makes the second tab replace the first browser peer
-/// instead of opening the same project in two independent native hosts.
+/// Reuse a live token on reload, and the newest fixed-entry workspace of the
+/// same kind of surface (Chromium window or browser tab) for a second load.
+/// The latter makes a second tab replace the first browser peer instead of
+/// opening the same project in two independent native hosts.
 pub(super) fn reusable_entry_config(
     sessions: &HashMap<String, BrowserSession>, port: u16, resume_token: Option<&str>,
+    bundled_chromium: bool,
 ) -> Option<BrowserSessionConfig> {
-    if let Some((token, session)) = resume_token.and_then(|token| sessions.get_key_value(token)) {
+    if let Some((token, session)) = resume_token
+        .and_then(|token| sessions.get_key_value(token))
+        .filter(|(_, session)| session.bundled_chromium == bundled_chromium)
+    {
         return Some(BrowserSessionConfig::new(token, session, port));
     }
     sessions
         .iter()
-        .filter(|(_, session)| session.entry_session)
+        .filter(|(_, session)| {
+            session.entry_session && session.bundled_chromium == bundled_chromium
+        })
         .max_by_key(|(_, session)| session.created_at)
         .map(|(token, session)| BrowserSessionConfig::new(token, session, port))
 }
 
-pub(super) struct PeerRegistration {
-    pub(super) host_label: String,
-    pub(super) hide_desktop: bool,
-    pub(super) complete_desktop_return: bool,
-}
-
+/// Attach a peer and return its session's host label, or None when the token
+/// is unknown or the session is shown by the other kind of surface. A
+/// Chromium window claims a session for good; a browser tab never takes one.
 pub(super) fn register_peer(
     sessions: &Sessions, query: &BridgeQuery, peer_id: &str, sender: mpsc::UnboundedSender<Message>,
-) -> Option<PeerRegistration> {
+) -> Option<String> {
     let mut sessions = sessions.lock().ok()?;
     let session = sessions.get_mut(&query.token)?;
-    let mut registration = PeerRegistration {
-        host_label: session.host_label.clone(),
-        hide_desktop: false,
-        complete_desktop_return: false,
-    };
     let peer = Peer { id: peer_id.to_string(), sender };
     match query.role {
-        BridgeRole::Browser => {
-            registration.hide_desktop = session.bundled_chromium;
+        BridgeRole::Browser | BridgeRole::Desktop => {
+            let claimed = match query.role {
+                BridgeRole::Browser => session.bundled_chromium || session.desktop.is_some(),
+                _ => session.browser.is_some(),
+            };
+            if claimed {
+                return None;
+            }
+            session.bundled_chromium |= query.role == BridgeRole::Desktop;
             let reset_host = session.visible_epoch != 0;
             session.visible_epoch = session.visible_epoch.wrapping_add(1);
-            if let Some(previous) = session.browser.replace(peer) {
+            if let Some(previous) = session.slot(query.role).replace(peer) {
                 notify(Some(&previous), "browser-replaced");
                 previous.close();
             }
-            notify(session.desktop.as_ref(), "desktop-suspended");
             if reset_host {
-                notify(session.host.as_ref(), "browser-reset");
-            }
-        }
-        BridgeRole::Desktop => {
-            registration.hide_desktop = session.browser.is_some();
-            session.bundled_chromium = true;
-            registration.complete_desktop_return =
-                session.desktop_return.as_ref().is_some_and(|request| request.acknowledged);
-            let reset_host = session.browser.is_none() && session.visible_epoch != 0;
-            // Mark the initial fixed-Chromium connection so the session-create
-            // timeout cannot retire it. Later standby reloads must preserve
-            // the browser generation: otherwise a desktop reconnect during
-            // the browser-close grace period cancels the pending resume.
-            if session.visible_epoch == 0 {
-                session.visible_epoch = 1;
-            }
-            if let Some(previous) = session.desktop.replace(peer) {
-                previous.close();
-            }
-            if session.browser.is_some() {
-                notify(session.desktop.as_ref(), "desktop-suspended");
-            } else if reset_host {
                 notify(session.host.as_ref(), "browser-reset");
             }
         }
@@ -222,13 +186,10 @@ pub(super) fn register_peer(
         }
     }
     notify_ready(session);
-    Some(registration)
+    Some(session.host_label.clone())
 }
 
-pub(super) fn notify_ready(session: &BrowserSession) {
-    if !session.active {
-        return;
-    }
+fn notify_ready(session: &BrowserSession) {
     let (Some(host), Some(visible)) = (&session.host, session.visible()) else {
         return;
     };
@@ -239,16 +200,14 @@ pub(super) fn notify_ready(session: &BrowserSession) {
 }
 
 /// The peer that should receive a message from `peer_id`, if that peer is
-/// still the current one for its role and the session relays at all.
+/// still the current one for its role.
 pub(super) fn other_peer(
     sessions: &Sessions, query: &BridgeQuery, peer_id: &str,
 ) -> Option<mpsc::UnboundedSender<Message>> {
     let sessions = sessions.lock().ok()?;
-    let session = sessions.get(&query.token).filter(|session| session.active)?;
+    let session = sessions.get(&query.token)?;
     let (source, target) = match query.role {
         BridgeRole::Browser => (&session.browser, session.host.as_ref()),
-        // A parked desktop stays silent while a browser tab owns the host.
-        BridgeRole::Desktop if session.browser.is_some() => return None,
         BridgeRole::Desktop => (&session.desktop, session.host.as_ref()),
         BridgeRole::Host => (&session.host, session.visible()),
     };
@@ -277,124 +236,27 @@ pub(super) fn detach_peer(
     }
     *slot = None;
     match query.role {
-        BridgeRole::Browser => {
-            session.visible_epoch = session.visible_epoch.wrapping_add(1);
-            Some(Detached::Grace(session.visible_epoch))
-        }
-        // A parked Chromium renderer reloads after browser takeover. Its
-        // socket replacement must not invalidate the browser's grace timer,
-        // but a real desktop close still needs a timer that expires the
-        // hidden host when no browser replaces it.
-        BridgeRole::Desktop => {
-            session.browser.is_none().then_some(Detached::Grace(session.visible_epoch))
-        }
+        BridgeRole::Browser | BridgeRole::Desktop => Some(Detached::Grace(session.visible_epoch)),
         BridgeRole::Host => {
-            let kind = if session.desktop_return.is_some() {
-                "desktop-returned"
-            } else {
-                "host-disconnected"
-            };
-            notify(session.browser.as_ref(), kind);
-            notify(session.desktop.as_ref(), kind);
+            notify(session.visible(), "host-disconnected");
             table.remove(&query.token);
             Some(Detached::SessionRemoved)
         }
     }
 }
 
-pub(super) enum SessionSettlement {
-    ResumeDesktop(String),
-    Expire(String),
-}
-
-/// Resume a parked bundled-Chromium surface, or atomically retire an entry
-/// session when no visible peer returned during its reconnect grace period.
-/// `None` leaves the session as it is.
-pub(super) fn settle_browser_session(
-    sessions: &Sessions, token: &str, visible_epoch: u64, resume_parked_desktop: bool,
-) -> Option<SessionSettlement> {
+/// Atomically retire a session whose visible peer did not come back during
+/// its reconnect grace period, returning its host label. `None` leaves the
+/// session as it is: a peer reconnected, or a newer generation owns it.
+pub(super) fn expire_abandoned_session(
+    sessions: &Sessions, token: &str, visible_epoch: u64,
+) -> Option<String> {
     let mut sessions = sessions.lock().ok()?;
-    let session = sessions.get_mut(token)?;
-    if session.browser.is_some() || session.visible_epoch != visible_epoch {
+    let session = sessions.get(token)?;
+    if session.visible().is_some() || session.visible_epoch != visible_epoch {
         return None;
     }
-    if session.desktop.is_some() {
-        // A replacement Desktop peer makes the disconnected Desktop's grace
-        // timer stale. Only a Browser disconnect may resume a parked Desktop;
-        // otherwise every Desktop reload would schedule another reload five
-        // seconds later and loop forever.
-        if !resume_parked_desktop {
-            return None;
-        }
-        notify(session.host.as_ref(), "browser-reset");
-        notify(session.desktop.as_ref(), "desktop-resumed");
-        return Some(SessionSettlement::ResumeDesktop(session.host_label.clone()));
-    }
-    sessions.remove(token).map(|session| SessionSettlement::Expire(session.host_label))
-}
-
-/// Mark a session to return to the desktop once its host acknowledges.
-pub(super) fn request_desktop_return(
-    sessions: &Sessions, host_label: &str, target: DesktopReturnTarget,
-) -> Result<String, String> {
-    let mut sessions = lock(sessions)?;
-    let (token, session) = sessions
-        .iter_mut()
-        .find(|(_, session)| session.host_label == host_label)
-        .ok_or_else(|| "This browser workspace is no longer active.".to_string())?;
-    session.desktop_return = Some(DesktopReturnRequest { target, acknowledged: false });
-    Ok(token.clone())
-}
-
-pub(super) enum DesktopReturn {
-    /// The parked renderer is reconnecting; finish when it registers.
-    PendingBundled,
-    /// Reveal the bundled-Chromium window again; the session lives on.
-    Bundled(String),
-    /// The session ended; retire its hidden host window.
-    Native(String),
-}
-
-pub(super) fn take_returning_session(
-    sessions: &Sessions, token: &str, host_peer_id: Option<&str>,
-) -> Option<DesktopReturn> {
-    let mut sessions = sessions.lock().ok()?;
-    let session = sessions.get_mut(token)?;
-    let current_host = session.host.as_ref().map(|host| host.id.as_str());
-    if host_peer_id.is_some_and(|peer_id| current_host != Some(peer_id)) {
-        return None;
-    }
-    let request = session.desktop_return.as_mut()?;
-    request.acknowledged = true;
-    if request.target == DesktopReturnTarget::Native {
-        let session = sessions.remove(token)?;
-        notify(session.browser.as_ref(), "desktop-returned");
-        return Some(DesktopReturn::Native(session.host_label));
-    }
-    if session.desktop.is_none() {
-        // The parked renderer reloads when takeover starts, so its socket can
-        // be briefly absent when the host acknowledges the command response.
-        // Keep the browser and host alive until that renderer reconnects.
-        return Some(DesktopReturn::PendingBundled);
-    }
-    session.desktop_return = None;
-    session.visible_epoch = session.visible_epoch.wrapping_add(1);
-    if let Some(browser) = session.browser.take() {
-        notify(Some(&browser), "desktop-returned");
-        browser.close();
-    }
-    notify(session.host.as_ref(), "browser-reset");
-    notify(session.desktop.as_ref(), "desktop-resumed");
-    Some(DesktopReturn::Bundled(session.host_label.clone()))
-}
-
-pub(super) fn send_error(sessions: &Sessions, token: &str, reason: &str) {
-    let message = serde_json::json!({ "type": "error", "message": reason }).to_string();
-    if let Some(session) = sessions.lock().ok().as_ref().and_then(|sessions| sessions.get(token)) {
-        for peer in [&session.host, &session.browser, &session.desktop].into_iter().flatten() {
-            peer.send(Message::Text(message.clone().into()));
-        }
-    }
+    sessions.remove(token).map(|session| session.host_label)
 }
 
 pub(super) fn remove(sessions: &Sessions, token: &str) {
@@ -410,11 +272,10 @@ mod tests {
 
     const TOKEN: &str = "secret";
 
-    fn sessions(active: bool) -> Sessions {
+    fn sessions(bundled_chromium: bool) -> Sessions {
         let session = BrowserSession {
-            source_label: Some("main".to_string()),
             entry_session: true,
-            active,
+            bundled_chromium,
             ..BrowserSession::new("browser-test".into(), "http://127.0.0.1:18452".into())
         };
         Arc::new(Mutex::new(HashMap::from([(TOKEN.to_string(), session)])))
@@ -424,19 +285,19 @@ mod tests {
         BridgeQuery { token: TOKEN.to_string(), role }
     }
 
-    fn connect(
+    fn try_connect(
         sessions: &Sessions, role: BridgeRole, id: &str,
-    ) -> (PeerRegistration, UnboundedReceiver<Message>) {
+    ) -> Option<UnboundedReceiver<Message>> {
         let (sender, receiver) = mpsc::unbounded_channel();
-        (register_peer(sessions, &query(role), id, sender).expect("registered"), receiver)
+        register_peer(sessions, &query(role), id, sender).map(|_| receiver)
+    }
+
+    fn connect(sessions: &Sessions, role: BridgeRole, id: &str) -> UnboundedReceiver<Message> {
+        try_connect(sessions, role, id).expect("registered")
     }
 
     fn relays(sessions: &Sessions, role: BridgeRole, id: &str) -> bool {
         other_peer(sessions, &query(role), id).is_some()
-    }
-
-    fn with_session<T>(sessions: &Sessions, update: impl FnOnce(&mut BrowserSession) -> T) -> T {
-        update(sessions.lock().unwrap().get_mut(TOKEN).expect("session"))
     }
 
     /// The next queued message: its text, "close", or "none".
@@ -468,42 +329,46 @@ mod tests {
     }
 
     #[test]
-    fn inactive_handoff_does_not_relay_until_activated() {
+    fn host_and_visible_peer_are_told_they_are_ready_and_relay() {
         let sessions = sessions(false);
-        let (_, mut host) = connect(&sessions, BridgeRole::Host, "host");
-        let (_, _browser) = connect(&sessions, BridgeRole::Browser, "browser");
-        assert!(!relays(&sessions, BridgeRole::Browser, "browser"));
+        let mut host = connect(&sessions, BridgeRole::Host, "host");
         assert_eq!(next(&mut host), "none");
+        let mut browser = connect(&sessions, BridgeRole::Browser, "browser");
 
-        with_session(&sessions, |session| {
-            session.active = true;
-            notify_ready(session);
-        });
-
-        assert_eq!(next(&mut host), r#"{"type":"ready","label":"browser-test"}"#);
+        let ready = r#"{"type":"ready","label":"browser-test"}"#;
+        assert_eq!(next(&mut host), ready);
+        assert_eq!(next(&mut browser), ready);
         assert!(relays(&sessions, BridgeRole::Browser, "browser"));
+        assert!(relays(&sessions, BridgeRole::Host, "host"));
     }
 
     #[test]
-    fn desktop_return_requires_the_marked_session_and_current_host() {
-        let sessions = sessions(true);
-        let (_, _host) = connect(&sessions, BridgeRole::Host, "current-host");
+    fn a_session_is_shown_by_one_kind_of_surface() {
+        // A Chromium window keeps its session even across a reload gap.
+        let chromium = sessions(true);
+        assert!(try_connect(&chromium, BridgeRole::Browser, "tab").is_none());
+        let _window = connect(&chromium, BridgeRole::Desktop, "window");
+        detach_with_grace(&chromium, BridgeRole::Desktop, "window");
+        assert!(try_connect(&chromium, BridgeRole::Browser, "tab").is_none());
 
-        assert!(take_returning_session(&sessions, TOKEN, Some("current-host")).is_none());
-        request_desktop_return(&sessions, "browser-test", DesktopReturnTarget::Native).unwrap();
-        assert!(take_returning_session(&sessions, TOKEN, Some("stale-host")).is_none());
-        assert!(take_returning_session(&sessions, TOKEN, Some("current-host")).is_some());
-        assert!(sessions.lock().unwrap().is_empty());
+        // A workspace opened for a new project claims its session when the
+        // Chromium window connects; a tab already showing one keeps it.
+        let fresh = sessions(false);
+        let _window = connect(&fresh, BridgeRole::Desktop, "window");
+        assert!(fresh.lock().unwrap()[TOKEN].bundled_chromium);
+        let tab = sessions(false);
+        let _tab = connect(&tab, BridgeRole::Browser, "tab");
+        assert!(try_connect(&tab, BridgeRole::Desktop, "window").is_none());
     }
 
     #[test]
     fn replacement_peer_revokes_the_previous_socket() {
-        let sessions = sessions(true);
-        let (_, mut host) = connect(&sessions, BridgeRole::Host, "host");
-        let (_, mut first) = connect(&sessions, BridgeRole::Browser, "first");
+        let sessions = sessions(false);
+        let mut host = connect(&sessions, BridgeRole::Host, "host");
+        let mut first = connect(&sessions, BridgeRole::Browser, "first");
         drain(&mut [&mut host, &mut first]);
 
-        let (_, _second) = connect(&sessions, BridgeRole::Browser, "second");
+        let _second = connect(&sessions, BridgeRole::Browser, "second");
 
         assert_eq!(next(&mut first), control("browser-replaced"));
         assert_eq!(next(&mut first), "close");
@@ -515,111 +380,62 @@ mod tests {
     #[test]
     fn desktop_reconnect_cancels_the_disconnected_desktop_grace_timer() {
         let sessions = sessions(true);
-        let (_, mut host) = connect(&sessions, BridgeRole::Host, "host");
-        let (_, _desktop) = connect(&sessions, BridgeRole::Desktop, "desktop");
+        let mut host = connect(&sessions, BridgeRole::Host, "host");
+        let _desktop = connect(&sessions, BridgeRole::Desktop, "desktop");
         let epoch = detach_with_grace(&sessions, BridgeRole::Desktop, "desktop");
-        let (_, mut reconnected) = connect(&sessions, BridgeRole::Desktop, "desktop-reconnected");
+        let mut reconnected = connect(&sessions, BridgeRole::Desktop, "desktop-reconnected");
         drain(&mut [&mut host, &mut reconnected]);
 
-        assert!(settle_browser_session(&sessions, TOKEN, epoch, false).is_none());
-        assert_eq!(next(&mut host), "none");
-        assert_eq!(next(&mut reconnected), "none");
-    }
-
-    #[test]
-    fn external_browser_parks_and_then_resumes_bundled_chromium() {
-        let sessions = sessions(true);
-        let (_, mut host) = connect(&sessions, BridgeRole::Host, "host");
-        let (_, mut desktop) = connect(&sessions, BridgeRole::Desktop, "desktop");
-        drain(&mut [&mut host, &mut desktop]);
-
-        let (registration, _browser) = connect(&sessions, BridgeRole::Browser, "browser");
-        assert!(registration.hide_desktop);
-        assert_eq!(next(&mut desktop), control("desktop-suspended"));
-        assert!(!relays(&sessions, BridgeRole::Desktop, "desktop"));
-
-        let epoch = detach_with_grace(&sessions, BridgeRole::Browser, "browser");
-        let (_, mut reconnected) = connect(&sessions, BridgeRole::Desktop, "desktop-reconnected");
-        assert_eq!(
-            with_session(&sessions, |session| session.visible_epoch),
-            epoch,
-            "a parked desktop reload must not cancel browser-close recovery"
-        );
-        drain(&mut [&mut host, &mut reconnected]);
-        assert!(matches!(
-            settle_browser_session(&sessions, TOKEN, epoch, true),
-            Some(SessionSettlement::ResumeDesktop(label)) if label == "browser-test"
-        ));
-        assert_eq!(next(&mut host), control("browser-reset"));
-        assert_eq!(next(&mut reconnected), control("desktop-resumed"));
+        assert!(expire_abandoned_session(&sessions, TOKEN, epoch).is_none());
         assert!(relays(&sessions, BridgeRole::Desktop, "desktop-reconnected"));
     }
 
     #[test]
-    fn explicit_desktop_return_restores_bundled_chromium_without_retiring_its_session() {
+    fn host_disconnect_ends_the_session_and_tells_the_visible_peer() {
         let sessions = sessions(true);
-        let (_, mut host) = connect(&sessions, BridgeRole::Host, "host");
-        let (_, mut desktop) = connect(&sessions, BridgeRole::Desktop, "desktop");
-        let (_, mut browser) = connect(&sessions, BridgeRole::Browser, "browser");
-        drain(&mut [&mut host, &mut desktop, &mut browser]);
-        // Browser takeover asks the parked Chromium page to reload. The
-        // explicit return can arrive during the resulting socket gap.
-        with_session(&sessions, |session| session.desktop = None);
-        request_desktop_return(&sessions, "browser-test", DesktopReturnTarget::Bundled).unwrap();
+        let _host = connect(&sessions, BridgeRole::Host, "host");
+        let mut desktop = connect(&sessions, BridgeRole::Desktop, "desktop");
+        drain(&mut [&mut desktop]);
 
         assert!(matches!(
-            take_returning_session(&sessions, TOKEN, Some("host")),
-            Some(DesktopReturn::PendingBundled)
+            detach_peer(&sessions, &query(BridgeRole::Host), "host"),
+            Some(Detached::SessionRemoved)
         ));
-        with_session(&sessions, |session| {
-            assert!(session.browser.is_some());
-            assert!(session.desktop_return.as_ref().unwrap().acknowledged);
-        });
-
-        let (registration, mut reconnected) =
-            connect(&sessions, BridgeRole::Desktop, "desktop-reconnected");
-        assert!(registration.complete_desktop_return);
-        drain(&mut [&mut host, &mut browser, &mut reconnected]);
-        assert!(matches!(
-            take_returning_session(&sessions, TOKEN, None),
-            Some(DesktopReturn::Bundled(label)) if label == "browser-test"
-        ));
-
-        with_session(&sessions, |session| {
-            assert!(session.browser.is_none());
-            assert!(session.desktop.is_some());
-            assert!(session.desktop_return.is_none());
-        });
-        assert_eq!(next(&mut browser), control("desktop-returned"));
-        assert_eq!(next(&mut browser), "close");
-        assert_eq!(next(&mut host), control("browser-reset"));
-        assert_eq!(next(&mut reconnected), control("desktop-resumed"));
+        assert_eq!(next(&mut desktop), control("host-disconnected"));
+        assert!(sessions.lock().unwrap().is_empty());
     }
 
     #[test]
     fn fixed_entry_resumes_a_live_token_and_replaces_a_stale_one() {
-        let sessions = sessions(true);
+        let sessions = sessions(false);
         let sessions = sessions.lock().unwrap();
         for token in [TOKEN, "expired"] {
-            let entry = reusable_entry_config(&sessions, 18452, Some(token)).unwrap();
+            let entry = reusable_entry_config(&sessions, 18452, Some(token), false).unwrap();
             let config = (entry.token.as_str(), entry.bridge_port, entry.label.as_str());
             assert_eq!(config, (TOKEN, 18452, "browser-test"), "{token}");
         }
     }
 
     #[test]
-    fn expiry_atomically_removes_only_the_disconnected_generation() {
+    fn fixed_entry_never_hands_a_chromium_workspace_to_a_browser_tab() {
         let sessions = sessions(true);
-        let entry =
-            |sessions: &Sessions| reusable_entry_config(&sessions.lock().unwrap(), 18452, None);
+        let sessions = sessions.lock().unwrap();
+        assert!(reusable_entry_config(&sessions, 18452, Some(TOKEN), false).is_none());
+        assert!(reusable_entry_config(&sessions, 18452, None, false).is_none());
+        assert!(reusable_entry_config(&sessions, 18452, None, true).is_some());
+    }
 
-        assert!(settle_browser_session(&sessions, TOKEN, 1, false).is_none());
+    #[test]
+    fn expiry_atomically_removes_only_the_disconnected_generation() {
+        let sessions = sessions(false);
+        let entry = |sessions: &Sessions| {
+            reusable_entry_config(&sessions.lock().unwrap(), 18452, None, false)
+        };
+
+        assert!(expire_abandoned_session(&sessions, TOKEN, 1).is_none());
         assert!(entry(&sessions).is_some());
 
-        assert!(matches!(
-            settle_browser_session(&sessions, TOKEN, 0, false),
-            Some(SessionSettlement::Expire(label)) if label == "browser-test"
-        ));
+        assert_eq!(expire_abandoned_session(&sessions, TOKEN, 0).as_deref(), Some("browser-test"));
         assert!(entry(&sessions).is_none());
     }
 }

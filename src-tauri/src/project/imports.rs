@@ -1,4 +1,4 @@
-//! Bringing content into a project — Finder drops, browser uploads, pasted
+//! Bringing content into a project — Finder drops, pasted
 //! images, Open Slide byte writes — and the agent composer's read-only relay
 //! of dropped files.
 
@@ -12,12 +12,10 @@ use super::paths::{
 use super::tree::{classify_regular_file, is_paper_library_path, is_supported_asset, ContentKind};
 use crate::project_fs::ProjectDir;
 use base64::{engine::general_purpose::STANDARD, Engine};
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use std::collections::BTreeSet;
 use std::fs;
-use std::os::unix::fs::DirBuilderExt;
 use std::path::{Path, PathBuf};
-use uuid::Uuid;
 use walkdir::WalkDir;
 
 /// Where a drop lands: a folder row or a file's parent folder, or `None` for
@@ -219,41 +217,6 @@ pub struct ImportedProjectFile {
     pub path: String,
     /// How the file was classified: "text", "board", "spreadsheet", or "binary".
     pub kind: String,
-}
-
-#[derive(Deserialize)]
-pub struct UploadedProjectFile {
-    pub name: String,
-    pub base64: String,
-}
-
-/// Browsers provide bytes, never trustworthy host filesystem paths. Stage
-/// outside the project so the existing importer retains collision handling,
-/// content classification, and text history without overwriting project files.
-pub fn import_uploaded_files(
-    root: &Path, uploads: &[UploadedProjectFile], target_directory: &str,
-) -> Result<Vec<ImportedProjectFile>, String> {
-    let staging = std::env::temp_dir().join(format!("lattice-upload-{}", Uuid::new_v4()));
-    fs::DirBuilder::new().mode(0o700).create(&staging).map_err(err)?;
-    let result = (|| {
-        let mut sources = Vec::new();
-        for (index, upload) in uploads.iter().enumerate() {
-            let name = validate_entry_name(&upload.name)?;
-            if name.contains('\\') {
-                return Err("Choose a simple file name without folders.".to_string());
-            }
-            let bytes = STANDARD.decode(&upload.base64).map_err(err)?;
-            // Separate parents preserve duplicate basenames in a single drop.
-            let parent = staging.join(index.to_string());
-            fs::create_dir(&parent).map_err(err)?;
-            let source = parent.join(name);
-            fs::write(&source, bytes).map_err(err)?;
-            sources.push(source.to_string_lossy().to_string());
-        }
-        import_files(root, &sources, target_directory)
-    })();
-    let _ = fs::remove_dir_all(staging);
-    result
 }
 
 /// One Finder drop, any mix of files and folders. Folder imports preserve their
@@ -474,10 +437,6 @@ mod tests {
         files.iter().map(|file| (file.path.as_str(), file.kind.as_str())).collect()
     }
 
-    fn upload(name: &str, bytes: impl AsRef<[u8]>) -> UploadedProjectFile {
-        UploadedProjectFile { name: name.into(), base64: STANDARD.encode(bytes) }
-    }
-
     #[test]
     fn imported_assets_are_copied_renamed_on_collision_and_follow_the_drop_target() {
         let fixture = Fixture::project("import-assets");
@@ -552,47 +511,6 @@ mod tests {
         let error = import_files_with_copy(root, &source, "notes/empty", true).unwrap_err();
         assert!(error.contains("inside itself"), "{error}");
         assert!(!fixture.path("notes/empty/notes").exists());
-    }
-
-    #[test]
-    fn browser_uploads_preserve_bytes_avoid_collisions_and_reject_unsafe_input() {
-        let fixture = Fixture::project("browser-upload");
-        let uploads = [
-            upload("notes.md", "first"),
-            upload("notes.md", "second"),
-            upload("plot.png", [0, 255, 17]),
-            upload("empty.txt", ""),
-        ];
-        let imported = import_uploaded_files(&fixture.root, &uploads, "sections").unwrap();
-        let expected = [
-            ("sections/notes.md", "text", &b"first"[..]),
-            ("sections/notes-2.md", "text", b"second"),
-            ("sections/plot.png", "binary", &[0, 255, 17]),
-            ("sections/empty.txt", "text", b""),
-        ];
-        assert_eq!(routes(&imported), expected.map(|(path, kind, _)| (path, kind)));
-        for (path, _, bytes) in expected {
-            assert_eq!(fs::read(fixture.path(path)).unwrap(), bytes, "{path}");
-        }
-        import_uploaded_files(&fixture.root, &uploads[..1], "sections").unwrap();
-        assert_eq!(fixture.read("sections/notes-3.md"), "first");
-
-        // Unsafe names and invalid data refuse the whole drop before import.
-        let root = &fixture.root;
-        for (name, base64) in [
-            ("../escape", "YQ=="),
-            ("/absolute", "YQ=="),
-            ("..\\escape", "YQ=="),
-            ("bad.txt", "!invalid"),
-        ] {
-            let uploads = [
-                upload("valid.txt", "a"),
-                UploadedProjectFile { name: name.into(), base64: base64.into() },
-            ];
-            assert!(import_uploaded_files(root, &uploads, "uploads").is_err(), "{name}");
-            assert!(!fixture.path("uploads").exists());
-        }
-        assert!(import_uploaded_files(root, &[upload("safe.txt", "a")], "../outside").is_err());
     }
 
     #[test]

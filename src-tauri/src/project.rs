@@ -56,8 +56,7 @@ pub use history::{
 };
 pub use imports::{
     import_assets, import_files, import_files_with_copy, import_image_bytes, import_sources,
-    import_uploaded_files, read_agent_composer_files, write_bytes, AgentComposerFile,
-    ImportedProjectFile, UploadedProjectFile,
+    read_agent_composer_files, write_bytes, AgentComposerFile, ImportedProjectFile,
 };
 pub use manifest::{
     has_latexmkrc, latexmk_engine_arg, open, read_editor_comments, read_manifest,

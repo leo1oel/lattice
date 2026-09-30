@@ -155,9 +155,6 @@ fn on_window_event(window: &tauri::Window, event: &tauri::WindowEvent) {
         macos_window::clear_pdf_copy_text(window.label());
         let state = window.state::<AppState>();
         state.release_window(window.label());
-        let browser = window.state::<browser_host::BrowserHost>();
-        browser.activate_source(window.label(), &state);
-        browser.hide_desktop_shell_if_browser_only(window.app_handle());
         state.retire_unused_projects();
     }
 }
@@ -185,8 +182,16 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
         // owner, so this exceptional launch falls back to WK instead.
         log::warn!(target: "lattice::browser", "{reason}");
     }
-    let access_enabled = background || app.autolaunch().is_enabled().unwrap_or(false);
-    if access_enabled || chromium_ready {
+    // Browser access after login was removed. The login item it installed
+    // launches `--browser-host` at every login, so switch it off here once.
+    // TODO(next release): drop this cleanup, the autostart plugin and
+    // browser_host/takeover.rs together.
+    if app.autolaunch().is_enabled().unwrap_or(false) {
+        if let Err(error) = app.autolaunch().disable() {
+            log::warn!(target: "lattice::browser", "could not remove the browser login item: {error}");
+        }
+    }
+    if background || chromium_ready {
         app.state::<browser_host::BrowserHost>()
             .keep_resident(app.handle())
             .map_err(std::io::Error::other)?;
@@ -302,13 +307,8 @@ pub fn run() {
             ipc::workspace::watch_project,
             ipc::windows::open_paper_lookup,
             ipc::windows::open_project_window,
-            ipc::windows::return_to_desktop,
             ipc::windows::get_app_log_dir,
             ipc::windows::open_app_log_dir,
-            ipc::windows::open_in_browser,
-            ipc::windows::open_in_system_browser,
-            ipc::windows::browser_access_enabled,
-            ipc::windows::set_browser_access_enabled,
             ipc::windows::restart_after_update,
             ipc::windows::set_window_background,
             ipc::windows::set_native_locale,

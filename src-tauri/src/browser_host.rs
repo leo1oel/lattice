@@ -1,11 +1,11 @@
 //! Loopback browser host: serves the app to a browser on a fixed local port.
 //!
-//! `http://127.0.0.1:18452` is a permanent, bookmarkable entry point. Every
-//! workspace opened there (or handed off from a native window) is backed by a
-//! hidden native *host* WebView that owns the project and relays IPC to the
-//! visible page over a WebSocket bridge (`session`). In packaged builds the
-//! visible page is normally the bundled Chromium renderer (`crate::chromium`);
-//! the system browser can take a workspace over and hand it back.
+//! `http://127.0.0.1:18452` is the fixed entry point. Every workspace opened
+//! there is backed by a hidden native *host* WebView that owns the project and
+//! relays IPC to the visible page over a WebSocket bridge (`session`). In
+//! packaged builds the visible page is the bundled Chromium renderer
+//! (`crate::chromium`); an ordinary browser tab can use the same entry on the
+//! development and testing path (`--browser-host`).
 //!
 //! - `/__lattice_session` mints or resumes a session token for the fixed entry.
 //! - `/__lattice_bridge` upgrades a host, browser, or desktop peer.
@@ -28,11 +28,7 @@ use axum::{
 };
 use futures_util::{SinkExt, StreamExt};
 use serde::{Deserialize, Serialize};
-pub(crate) use session::DesktopReturnTarget;
-use session::{
-    BridgeQuery, BridgeRole, BrowserSession, BrowserSessionConfig, DesktopReturn, Detached,
-    SessionSettlement, Sessions,
-};
+use session::{BridgeQuery, BridgeRole, BrowserSession, BrowserSessionConfig, Detached, Sessions};
 use std::{
     collections::HashMap,
     io,
@@ -48,9 +44,8 @@ use tokio::sync::mpsc;
 const PREFERRED_PORT: u16 = 18452;
 const MAX_BRIDGE_MESSAGE_SIZE: usize = 256 * 1024 * 1024;
 const SESSION_CONNECT_TIMEOUT: Duration = Duration::from_secs(30);
-/// How long a disconnected workspace waits for a reload or desktop return.
+/// How long a disconnected workspace waits for a reload.
 const RECONNECT_GRACE: Duration = Duration::from_secs(5);
-const DESKTOP_RETURN_COMPLETE: &str = r#"{"type":"desktop-return-complete"}"#;
 const SERVER_UNAVAILABLE: &str = "Browser server state is unavailable.";
 pub(crate) const SERVICE_WINDOW_LABEL: &str = "browser-service";
 
@@ -75,6 +70,9 @@ struct ServerState {
 #[derive(Default, Deserialize)]
 struct SessionQuery {
     token: Option<String>,
+    /// Which surface asks: the bundled Chromium window or a browser tab.
+    #[serde(default)]
+    role: BridgeRole,
 }
 
 #[derive(Serialize)]
@@ -206,27 +204,13 @@ fn new_token() -> String {
 }
 
 impl BrowserHost {
-    pub(crate) fn open(
-        &self, app: &tauri::AppHandle, source_label: &str, project_root: Option<PathBuf>,
-    ) -> Result<String, String> {
-        self.open_session(app, |origin| BrowserSession {
-            source_label: Some(source_label.to_string()),
-            project_root,
-            entry_session: true,
-            active: false,
-            ..BrowserSession::new(new_host_label(), origin)
-        })
-    }
-
     pub(crate) fn open_project(
         &self, app: &tauri::AppHandle, state: &AppState, project_root: PathBuf,
     ) -> Result<String, String> {
         let host_label = new_host_label();
         state.bind_window(&host_label, project_root.clone())?;
-        let opened = self.open_session(app, |origin| BrowserSession {
-            project_root: Some(project_root),
-            ..BrowserSession::new(host_label.clone(), origin)
-        });
+        let opened =
+            self.open_session(app, |origin| BrowserSession::new(host_label.clone(), origin));
         if let Err(reason) = opened {
             state.abandon_window(&host_label);
             return Err(reason);
@@ -235,32 +219,21 @@ impl BrowserHost {
     }
 
     /// Open a browser-hosted project's authenticated URL again; false when no
-    /// session backs `host_label`. The browser may focus the existing tab or
+    /// session backs `host_label`. The surface may focus the existing page or
     /// replace it with a fresh one; either outcome is usable, unlike focusing
     /// the deliberately hidden native host window.
-    ///
-    /// `system_browser` deliberately bypasses `open_workspace_url`, whose normal
-    /// packaged behavior is to route workspace URLs back into Chromium.
     pub(crate) fn reopen_window(
-        &self, app: &tauri::AppHandle, host_label: &str, system_browser: bool,
+        &self, app: &tauri::AppHandle, host_label: &str,
     ) -> Result<bool, String> {
         let Some(browser_url) = self.workspace_url(host_label)? else {
             return Ok(false);
         };
-        if system_browser {
-            open_in_default_browser(app, &browser_url)?;
-        } else {
-            open_workspace_url(app, &browser_url)?;
-        }
+        open_workspace_url(app, &browser_url)?;
         Ok(true)
     }
 
     fn server(&self) -> Result<Option<RunningServer>, String> {
         Ok(self.running.lock().map_err(|_| SERVER_UNAVAILABLE.to_string())?.clone())
-    }
-
-    fn sessions(&self) -> Result<Sessions, String> {
-        self.server()?.map(|server| server.sessions).ok_or_else(|| SERVER_UNAVAILABLE.to_string())
     }
 
     fn workspace_url(&self, host_label: &str) -> Result<Option<String>, String> {
@@ -275,48 +248,20 @@ impl BrowserHost {
         ))
     }
 
-    pub(crate) fn has_bundled_chromium(&self, host_label: &str) -> Result<bool, String> {
-        let sessions = self.sessions()?;
-        let sessions = session::lock(&sessions)?;
-        Ok(sessions
-            .values()
-            .any(|session| session.host_label == host_label && session.bundled_chromium))
-    }
-
-    /// Reopen the workspace owned by the fixed local browser entry, if one is
-    /// still alive. This is also the macOS reopen behavior while Lattice is
-    /// running as a background login item.
+    /// Reopen the Chromium workspace owned by the fixed entry, if one is still
+    /// alive. This is the macOS reopen behavior while its window is closed.
     pub(crate) fn reopen_entry(&self, app: &tauri::AppHandle) -> Result<bool, String> {
         let Some(server) = self.server()? else {
             return Ok(false);
         };
-        let config = server
-            .sessions
-            .lock()
-            .ok()
-            .and_then(|sessions| session::reusable_entry_config(&sessions, server.port, None));
+        let config = server.sessions.lock().ok().and_then(|sessions| {
+            session::reusable_entry_config(&sessions, server.port, None, true)
+        });
         let Some(config) = config else {
             return Ok(false);
         };
         open_workspace_url(app, &config.url(&browser_origin(app, server.port)))?;
         Ok(true)
-    }
-
-    /// Mark a session for retirement once the hidden host confirms that the
-    /// command response is already queued for the browser. A fallback retires
-    /// it if the host bridge fails between returning the command and sending
-    /// that acknowledgement.
-    pub(crate) fn return_to_desktop(
-        &self, app: &tauri::AppHandle, host_label: &str, target: DesktopReturnTarget,
-    ) -> Result<(), String> {
-        let sessions = self.sessions()?;
-        let token = session::request_desktop_return(&sessions, host_label, target)?;
-        let app = app.clone();
-        tauri::async_runtime::spawn(async move {
-            tokio::time::sleep(RECONNECT_GRACE).await;
-            let _ = complete_desktop_return(&app, &sessions, &token, None);
-        });
-        Ok(())
     }
 
     /// Start the small loopback listener without creating a workspace. The
@@ -348,12 +293,6 @@ impl BrowserHost {
             .map_err(|error| format!("Could not keep local browser access ready: {error}"))
     }
 
-    pub(crate) fn stop_resident(&self, app: &tauri::AppHandle) {
-        if let Some(window) = app.get_window(SERVICE_WINDOW_LABEL) {
-            let _ = window.destroy();
-        }
-    }
-
     /// Register a new session, start its hidden host, and open its page.
     fn open_session(
         &self, app: &tauri::AppHandle, session: impl FnOnce(String) -> BrowserSession,
@@ -364,15 +303,7 @@ impl BrowserHost {
         let host_label = session.host_label.clone();
         let browser_url =
             BrowserSessionConfig::new(&token, &session, server.port).url(&session.browser_origin);
-        {
-            let mut sessions = session::lock(&server.sessions)?;
-            if session.source_label.is_some()
-                && sessions.values().any(|other| other.source_label == session.source_label)
-            {
-                return Err("This Lattice window is already opening in a browser.".to_string());
-            }
-            sessions.insert(token.clone(), session);
-        }
+        session::lock(&server.sessions)?.insert(token.clone(), session);
 
         let opened = build_host_window(app, &host_label, &token, server.port).and_then(|()| {
             open_workspace_url(app, &browser_url).inspect_err(|_| destroy_window(app, &host_label))
@@ -382,71 +313,6 @@ impl BrowserHost {
             return Err(error);
         }
         Ok(browser_url)
-    }
-
-    /// Complete a handoff only after the source window has run its normal
-    /// close-request cleanup. Until then the browser's IPC calls remain queued,
-    /// so two interfaces can never operate on the same project concurrently.
-    pub(crate) fn activate_source(&self, source_label: &str, state: &AppState) {
-        let Ok(sessions) = self.sessions() else {
-            return;
-        };
-        let handoffs = sessions.lock().map_or_else(
-            |_| Vec::new(),
-            |sessions| {
-                sessions
-                    .iter()
-                    .filter(|(_, session)| {
-                        !session.active && session.source_label.as_deref() == Some(source_label)
-                    })
-                    .map(|(token, session)| {
-                        (token.clone(), session.host_label.clone(), session.project_root.clone())
-                    })
-                    .collect::<Vec<_>>()
-            },
-        );
-        for (token, host_label, project_root) in handoffs {
-            let bound = project_root.map_or(Ok(()), |root| state.bind_window(&host_label, root));
-            if let Err(reason) = bound {
-                session::send_error(&sessions, &token, &reason);
-                continue;
-            }
-            if let Ok(mut sessions) = sessions.lock() {
-                if let Some(session) = sessions.get_mut(&token) {
-                    session.active = true;
-                    session::notify_ready(session);
-                }
-            }
-        }
-    }
-
-    /// Once the last native workspace has completed its browser handoff, the
-    /// app is only a local service for the tab. Keep that hidden bridge out of
-    /// the Dock, Command-Tab, and the Window menu instead of exposing its
-    /// implementation title as though it were another document window.
-    pub(crate) fn hide_desktop_shell_if_browser_only(&self, app: &tauri::AppHandle) {
-        let Ok(sessions) = self.sessions() else {
-            return;
-        };
-        let app = app.clone();
-        tauri::async_runtime::spawn(async move {
-            // The Destroyed callback can run before Tauri removes the source
-            // from its window map. Let that lifecycle settle before deciding
-            // whether any native workspace remains.
-            tokio::time::sleep(Duration::from_millis(100)).await;
-            let has_session = sessions.lock().is_ok_and(|sessions| !sessions.is_empty());
-            let windows = app.webview_windows();
-            let browser_only =
-                !windows.is_empty() && windows.keys().all(|label| label.starts_with("browser-"));
-            if has_session && browser_only {
-                if let Err(error) = app.set_activation_policy(tauri::ActivationPolicy::Accessory) {
-                    log::warn!(
-                        target: "lattice::browser",
-                        "could not hide browser host from the desktop: {error}"
-                    );
-                }
-            }
-        });
     }
 
     fn ensure_server(
@@ -543,15 +409,6 @@ fn destroy_window(app: &tauri::AppHandle, label: &str) {
     }
 }
 
-/// Park (hide) or restore the Chromium window of a workspace.
-fn show_chromium_workspace(app: &tauri::AppHandle, host_label: &str, visible: bool) {
-    let chromium = app.state::<crate::chromium::ChromiumRuntime>();
-    if let Err(reason) = chromium.set_window_visibility(host_label, visible) {
-        let action = if visible { "restore" } else { "hide" };
-        log::warn!(target: "lattice::chromium", "could not {action} Chromium workspace: {reason}");
-    }
-}
-
 fn shutdown_synara_if_idle(app: &tauri::AppHandle, sessions: &Sessions) {
     // Re-read the live map instead of acting on a snapshot taken while an old
     // host disconnected. A new fixed-entry session is inserted before its
@@ -565,53 +422,20 @@ fn shutdown_synara_if_idle(app: &tauri::AppHandle, sessions: &Sessions) {
     }
 }
 
-/// After `delay`, resume a parked desktop or retire a session nobody reclaimed.
+/// After `delay`, retire a session whose visible peer never came back.
 fn settle_later(
-    app: &tauri::AppHandle, sessions: &Sessions, token: String, visible_epoch: u64,
-    resume_parked_desktop: bool, delay: Duration,
+    app: &tauri::AppHandle, sessions: &Sessions, token: String, visible_epoch: u64, delay: Duration,
 ) {
     let (app, sessions) = (app.clone(), Arc::clone(sessions));
     tauri::async_runtime::spawn(async move {
         tokio::time::sleep(delay).await;
-        match session::settle_browser_session(
-            &sessions,
-            &token,
-            visible_epoch,
-            resume_parked_desktop,
-        ) {
-            None => {}
-            Some(SessionSettlement::ResumeDesktop(host_label)) => {
-                show_chromium_workspace(&app, &host_label, true)
-            }
-            Some(SessionSettlement::Expire(host_label)) => {
-                destroy_window(&app, &host_label);
-                shutdown_synara_if_idle(&app, &sessions);
-            }
+        if let Some(host_label) =
+            session::expire_abandoned_session(&sessions, &token, visible_epoch)
+        {
+            destroy_window(&app, &host_label);
+            shutdown_synara_if_idle(&app, &sessions);
         }
     });
-}
-
-/// Finish a requested desktop return. False means the session is over and
-/// the acknowledging host socket should close.
-fn complete_desktop_return(
-    app: &tauri::AppHandle, sessions: &Sessions, token: &str, host_peer_id: Option<&str>,
-) -> bool {
-    match session::take_returning_session(sessions, token, host_peer_id) {
-        None => false,
-        Some(DesktopReturn::PendingBundled) => true,
-        Some(DesktopReturn::Bundled(host_label)) => {
-            show_chromium_workspace(app, &host_label, true);
-            true
-        }
-        Some(DesktopReturn::Native(host_label)) => {
-            let app = app.clone();
-            tauri::async_runtime::spawn(async move {
-                tokio::time::sleep(Duration::from_millis(50)).await;
-                destroy_window(&app, &host_label);
-            });
-            false
-        }
-    }
 }
 
 fn valid_loopback_host(headers: &HeaderMap, port: u16) -> bool {
@@ -636,15 +460,20 @@ async fn open_browser_session(
 
     // Select or reserve the entry under one lock so simultaneous fixed-address
     // loads converge on one privileged host.
+    let bundled_chromium = query.role == BridgeRole::Desktop;
     let selected = state.sessions.lock().ok().map(|mut sessions| {
-        if let Some(config) =
-            session::reusable_entry_config(&sessions, state.port, query.token.as_deref())
-        {
+        if let Some(config) = session::reusable_entry_config(
+            &sessions,
+            state.port,
+            query.token.as_deref(),
+            bundled_chromium,
+        ) {
             return (config, None);
         }
         let token = new_token();
         let session = BrowserSession {
             entry_session: true,
+            bundled_chromium,
             ..BrowserSession::new(new_host_label(), origin.clone())
         };
         let config = BrowserSessionConfig::new(&token, &session, state.port);
@@ -661,7 +490,7 @@ async fn open_browser_session(
         }
         // A page that requests a token but never completes its WebSocket
         // handshake must not leave a hidden WebView alive indefinitely.
-        settle_later(&state.app, &state.sessions, token, 0, false, SESSION_CONNECT_TIMEOUT);
+        settle_later(&state.app, &state.sessions, token, 0, SESSION_CONNECT_TIMEOUT);
     }
 
     let mut response = Json(config).into_response();
@@ -699,14 +528,8 @@ async fn bridge_socket(
     let peer_id = new_token();
     let (sender, mut outgoing) = mpsc::unbounded_channel();
     let (mut sink, mut incoming) = socket.split();
-    let Some(registration) = session::register_peer(&sessions, &query, &peer_id, sender) else {
+    if session::register_peer(&sessions, &query, &peer_id, sender).is_none() {
         return;
-    };
-    if registration.hide_desktop {
-        show_chromium_workspace(&app, &registration.host_label, false);
-    }
-    if registration.complete_desktop_return {
-        let _ = complete_desktop_return(&app, &sessions, &query.token, None);
     }
 
     loop {
@@ -719,14 +542,6 @@ async fn bridge_socket(
             message = incoming.next() => {
                 let Some(Ok(message)) = message else { break };
                 match message {
-                    Message::Text(text)
-                        if query.role == BridgeRole::Host
-                            && text.as_str() == DESKTOP_RETURN_COMPLETE =>
-                    {
-                        if !complete_desktop_return(&app, &sessions, &query.token, Some(&peer_id)) {
-                            break;
-                        }
-                    }
                     Message::Text(_) | Message::Binary(_) => {
                         if let Some(target) = session::other_peer(&sessions, &query, &peer_id) {
                             let _ = target.send(message);
@@ -748,15 +563,7 @@ async fn bridge_socket(
         // A reload briefly replaces the browser socket. Preserve the host
         // across that gap, but retire it when the tab is actually gone.
         Some(Detached::Grace(epoch)) => {
-            let resume_parked_desktop = query.role == BridgeRole::Browser;
-            settle_later(
-                &app,
-                &sessions,
-                query.token,
-                epoch,
-                resume_parked_desktop,
-                RECONNECT_GRACE,
-            );
+            settle_later(&app, &sessions, query.token, epoch, RECONNECT_GRACE);
         }
     }
 }

@@ -16,12 +16,10 @@ type BrowserMessage =
   | { type: "response"; id: number; ok: true; value: BridgeValue }
   | { type: "response"; id: number; ok: false; error: BridgeValue }
   | { type: "callback"; id: number; payload: BridgeValue }
-  | { type: "desktop-suspended" | "desktop-resumed" | "browser-replaced" | "desktop-returned" | "host-disconnected" }
+  | { type: "browser-replaced" | "host-disconnected" }
   | { type: "error"; message: string };
 
 type BrowserPeerRole = "browser" | "desktop";
-
-const DESKTOP_STANDBY_KEY = "lattice.desktop-browser-standby";
 
 interface BrowserInternals {
   invoke: (command: string, args?: unknown, options?: unknown) => Promise<unknown>;
@@ -59,8 +57,8 @@ let runtimeReady: Promise<void> = Promise.resolve();
 let runtimeDetached = false;
 const detachListeners = new Set<() => void>();
 
-// The page stays alive under the failure overlay after another tab or the
-// desktop shell takes over, but its bridge no longer reaches the native host.
+// The page stays alive under the failure overlay after another tab takes
+// over, but its bridge no longer reaches the native host.
 // Anything embedded here that accepts edits must stop doing so: nothing on
 // this page can apply them to the project any more.
 function detachRuntime(): void {
@@ -98,15 +96,13 @@ export class BrowserRelay {
   private pageLeaving = false;
   private terminal = false;
   private recovering = false;
-  private standby = false;
   readonly storageReady = this.storageGate.promise;
 
   constructor(
     config: BrowserRuntimeConfig,
     private readonly callbacks: Map<number, Callback>,
     private readonly reloadPage: () => void = () => window.location.reload(),
-    private readonly role: BrowserPeerRole = isChromiumPeer() ? "desktop" : "browser",
-    private readonly closePage: () => void = () => window.close(),
+    role: BrowserPeerRole = isChromiumPeer() ? "desktop" : "browser",
   ) {
     const socketUrl = new URL(`ws://127.0.0.1:${config.bridgePort}/__lattice_bridge`);
     socketUrl.searchParams.set("token", config.token);
@@ -130,7 +126,7 @@ export class BrowserRelay {
       }
     });
     window.setTimeout(() => {
-      if (!this.ready && !this.standby) this.fail(new Error(runtimeMessage("handoff-timeout")));
+      if (!this.ready) this.fail(new Error(runtimeMessage("handoff-timeout")));
     }, 20_000);
   }
 
@@ -167,7 +163,6 @@ export class BrowserRelay {
     }
     switch (message.type) {
       case "ready":
-        if (this.role === "desktop") sessionStorage.removeItem(DESKTOP_STANDBY_KEY);
         if (!this.ready) {
           this.ready = true;
           this.readyGate.resolve();
@@ -193,43 +188,9 @@ export class BrowserRelay {
       case "host-disconnected":
         this.disconnect(new Error(runtimeMessage("app-disconnected")));
         break;
-      case "desktop-suspended": {
-        this.standby = true;
-        detachRuntime();
-        const reason = new Error(runtimeMessage("desktop-suspended"));
-        showRuntimeFailure(reason);
-        this.rejectPending(reason);
-        if (sessionStorage.getItem(DESKTOP_STANDBY_KEY) !== "1") {
-          sessionStorage.setItem(DESKTOP_STANDBY_KEY, "1");
-          // If the reload is refused, the status remains visible and the server
-          // will resume this peer when the external browser closes.
-          this.reloadToRecover();
-        }
-        break;
-      }
-      case "desktop-resumed":
-        sessionStorage.removeItem(DESKTOP_STANDBY_KEY);
-        try {
-          this.reloadPage();
-        } catch (reason) {
-          this.fail(reason instanceof Error ? reason : new Error(String(reason)));
-        }
-        break;
       case "browser-replaced":
         this.terminal = true;
         this.fail(new Error(runtimeMessage("browser-replaced")));
-        break;
-      case "desktop-returned":
-        this.terminal = true;
-        this.syncStorage();
-        try {
-          this.closePage();
-        } catch {
-          // Browsers may reject window.close() for a tab opened by another app.
-        }
-        // If the browser permits the close, this document disappears before the
-        // fallback paints. Otherwise, leave an explicit completion message.
-        this.fail(new Error(runtimeMessage("desktop-returned")));
         break;
       case "error":
         this.terminal = true;
@@ -240,10 +201,6 @@ export class BrowserRelay {
 
   private disconnect(reason: Error): void {
     if (this.terminal || this.pageLeaving || this.recovering) return;
-    if (this.standby) {
-      this.reloadToRecover(() => this.fail(reason));
-      return;
-    }
     if (!this.ready) {
       this.fail(reason);
       return;
@@ -267,13 +224,13 @@ export class BrowserRelay {
     });
   }
 
-  private reloadToRecover(onFailure?: () => void): void {
+  private reloadToRecover(onFailure: () => void): void {
     this.recovering = true;
     try {
       this.reloadPage();
     } catch {
       this.recovering = false;
-      onFailure?.();
+      onFailure();
     }
   }
 
@@ -322,17 +279,9 @@ const RUNTIME_MESSAGES = {
     "The local Lattice app did not finish the browser handoff.",
     "本地 Lattice 应用未能完成浏览器切换。",
   ],
-  "desktop-suspended": [
-    "This workspace is open in your browser. It will return here when that browser tab closes.",
-    "此工作区已在浏览器中打开。关闭浏览器标签页后，它会自动返回这里。",
-  ],
   "browser-replaced": [
     "This Lattice workspace is open in another browser tab.",
     "此 Lattice 工作区已在另一个浏览器标签页中打开。",
-  ],
-  "desktop-returned": [
-    "This workspace is now open in the Lattice desktop app. If this tab did not close automatically, you can close it.",
-    "此工作区现已在 Lattice 桌面应用中打开。如果此标签页没有自动关闭，你可以手动关闭它。",
   ],
 } satisfies Record<string, [english: string, chinese: string]>;
 /* eslint-enable lingui/no-unlocalized-strings */
@@ -612,6 +561,8 @@ async function requestBrowserSession(
 ): Promise<BrowserRuntimeConfig> {
   const endpoint = new URL(`http://127.0.0.1:${bridgePort}/__lattice_session`);
   if (resumeToken) endpoint.searchParams.set("token", resumeToken);
+  // The entry keeps Chromium windows and browser tabs in separate workspaces.
+  endpoint.searchParams.set("role", isChromiumPeer() ? "desktop" : "browser");
   const response = await fetch(endpoint, { cache: "no-store", mode: "cors" });
   if (!response.ok) {
     throw new Error(runtimeMessage("entry-status", { status: String(response.status) }));
@@ -704,10 +655,6 @@ if (!runtimeWindow.__TAURI_INTERNALS__ && isLoopbackPage()) {
 
 export function isBrowserHosted(): boolean {
   return browserRuntime;
-}
-
-export function isBundledChromium(): boolean {
-  return browserRuntime && isChromiumPeer();
 }
 
 export function browserRuntimeError(): string | null {
