@@ -33,6 +33,22 @@ The above copyright notice and this permission notice shall be included in all c
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
 IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
+## Trellis
+
+The workspace's dockable panel layout is built with [Trellis](https://github.com/DanFessler/trellis) by Dan Fessler, pinned at `@danfessler/trellis@0.2.0` and `@danfessler/trellis-react@0.2.0` in `package.json`.
+
+Uses Trellis by DanFessler - github.com/DanFessler/trellis
+
+**Trellis is not covered by Lattice's Apache License.** `@danfessler/trellis` is licensed under its own non-commercial license (with a commercial tier), not Apache-2.0. Its terms, as the packages ship them:
+
+- **Non-commercial (free):** use, modification and distribution for non-commercial purposes only. It excludes use that generates revenue, use developed within a for-profit organization, and use at a company with more than one employee or developer unless explicitly licensed; it forbids distributing a fork or derivative under a different license; and it requires the license file and attribution to be retained.
+- **Commercial:** an active GitHub sponsorship of the author ([github.com/sponsors/danfessler](https://github.com/sponsors/danfessler)) at the individual or small-studio tier, for organizations with 10 or fewer developers; the rights last while the sponsorship is active, and the attribution above is required.
+- **Enterprise:** more than 10 developers, by arrangement with the author.
+
+These terms apply to anyone using Lattice, because Lattice ships Trellis to its users: someone using Lattice at a company or for a for-profit organization needs a Trellis license from its author.
+
+The three license files are copied verbatim to [`public/licenses/trellis-LICENSE.md`](public/licenses/trellis-LICENSE.md), [`public/licenses/trellis-LICENSE-NONCOMMERCIAL.md`](public/licenses/trellis-LICENSE-NONCOMMERCIAL.md) and [`public/licenses/trellis-LICENSE-COMMERCIAL.md`](public/licenses/trellis-LICENSE-COMMERCIAL.md), which Vite copies into the shipped application; the generated section below also reproduces the texts the packages ship. Lattice modifies Trellis only through the pnpm patch [`patches/@danfessler__trellis@0.2.0.patch`](patches/@danfessler__trellis@0.2.0.patch) (layout fixes); the packages' own license files are left untouched. The macOS About panel shows the attribution.
+
 ## tldraw
 
 The board editor is built with the [tldraw SDK](https://github.com/tldraw/tldraw), pinned at `tldraw@5.2.5` in `package.json`.

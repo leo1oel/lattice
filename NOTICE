@@ -18,6 +18,18 @@ licenses/tldraw-LICENSE.md. The license key is supplied at build time and
 is not part of this repository; builds without it run tldraw in its
 unlicensed, watermarked mode.
 
+Exception: Trellis is not covered by the Apache License.
+@danfessler/trellis (and @danfessler/trellis-react) is licensed under its
+own non-commercial license (with a commercial tier), not Apache-2.0. Its
+license files are in public/licenses/trellis-LICENSE.md,
+trellis-LICENSE-NONCOMMERCIAL.md and trellis-LICENSE-COMMERCIAL.md, and
+ship in the application under licenses/. Its terms apply to anyone using
+Lattice: the free tier permits non-commercial use only, so use at a
+company or for-profit organization requires a Trellis license from its
+author. Lattice applies a small patch to Trellis
+(patches/@danfessler__trellis@0.2.0.patch).
+Uses Trellis by DanFessler - github.com/DanFessler/trellis
+
 The visual Markdown editor was originally built on Open Knowledge by
 Inkeep (https://github.com/inkeep/open-knowledge). That code has been
 removed; the current editor is Lattice's own implementation.
