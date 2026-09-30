@@ -18,7 +18,7 @@ description.
 
 | Directory | Tracked files | What it is |
 | --- | --- | --- |
-| `src/` | 598 | The React 19 / TypeScript frontend. Split by domain: 12 files at the root, the rest under `app/`, `agent/`, `build/`, `canvas/`, `components/`, `editor/{,latex,markdown,spreadsheet,board,insert,comments,presentation}/`, `history/`, `hooks/`, `overleaf/`, `papers/`, `pdf/`, `platform/`, `project/`, `settings/`, `styles/`, `telemetry/`, `trellis/`, and `locales/`. See §3. |
+| `src/` | 605 | The React 19 / TypeScript frontend. Split by domain: 11 files at the root, the rest under `app/`, `agent/`, `build/`, `canvas/`, `components/`, `editor/{,latex,markdown,spreadsheet,board,insert,comments,presentation}/`, `history/`, `hooks/`, `overleaf/`, `papers/`, `pdf/`, `platform/`, `project/`, `settings/`, `styles/`, `telemetry/`, `trellis/`, and `locales/`. See §3. |
 | `src-tauri/` | 186 | The Rust host: 118 `.rs` files (~40.7k lines) under `src-tauri/src/` — large areas are a short `x.rs` map beside an `x/` directory of parts, command handlers are in `ipc/` — plus `tauri.conf.json`, capabilities, icons, and LaTeX project templates. |
 | `literature-worker/` | 8 | The public literature proxy Worker (`lattice-literature`, OpenAlex and Crossref). Own `package.json` and vitest config; see [`public-literature-service.md`](public-literature-service.md). |
 | `scripts/` | 50 | Build and maintenance tooling: version bump, size budget, i18n coverage, runtime staging and signing (Synara, Open Slide, Chromium), third-party notices, perf fixtures, dev bootstrap (`setup-dev.sh`), Overleaf live verification. Shared helpers are in `scripts/lib/` (`util.mjs`, `codesign.mjs`). |
@@ -79,14 +79,14 @@ Two rules govern the layout, and both are deliberate:
 
 ### What stays at `src/` root
 
-Twelve files, and the bar is "the application shell, or a contract every domain
+Eleven files, and the bar is "the application shell, or a contract every domain
 depends on". There is no `shared/` directory: a grab-bag named `shared` attracts
 files, and a root you can read in one screen does not.
 
 | File | Why it is not in a domain |
 | --- | --- |
 | `main.tsx` | The Vite entry. `index.html` names `/src/main.tsx` literally. |
-| `App.tsx`, `App.css`, `App.test.tsx` | The root component and its stylesheet. `App.css` is the `@import` hub for `src/styles/*.css`. |
+| `App.tsx`, `App.css` | The root component and its stylesheet. `App.css` is the `@import` hub for `src/styles/*.css`. |
 | `index.css` | Tailwind v4 entry; `components.json` names it. |
 | `app-types.ts` | 40 importers spanning every domain — the shared domain model. |
 | `app-utils.ts`, `app-utils.test.ts`, `app-utils-confirm.test.ts` | 26 importers spanning every domain. `app-utils-confirm.test.ts` covers the confirm-action registry that lives in `app-utils.ts`; it is separate because it needs a module-level `@tauri-apps/plugin-dialog` mock. |
@@ -114,7 +114,7 @@ Counts are tracked files directly in the directory (not nested), and lines are
 | `src/papers/` | 28 | 11 | 3,466 | The paper library and bibliography: literature discovery, `bib-entry`, `venues.ts`, arXiv ids, paper links, import progress, the reference check (`bibliography-audit*`). |
 | `src/canvas/` | 26 | 4 | 4,601 | The editing surface shell: `document-canvas.tsx` and the modules it was broken into (editor extensions, HTML preview, Paper reader, asset preview, Markdown split-scroll and mode handoff, split layout, zoom), the canvas toolbar, the document outline, and the lazy-chunk registry (`canvas-lazy-modules.ts`). |
 | `src/editor/spreadsheet/` | 9 | 3 | 3,075 | The Univer-backed `.lattice-sheet` editor, its Univer setup, format types, operations, local Y.Doc model and XLSX import/export. |
-| `src/app/` | 37 | 7 | 5,457 | App orchestration: the hooks extracted from `App.tsx` (project state and library, document buffers, build pipeline, Synara host, Overleaf workspace, editor comments, reference import, …), the `app-*.tsx` surfaces App renders (title bar, dialogs, drawers), shared effect helpers, and the window/panel geometry App owns. |
+| `src/app/` | 45 | 14 | 10,316 | App orchestration: the hooks extracted from `App.tsx` (project state and library, document buffers, build pipeline, Synara host, Overleaf workspace, editor comments, reference import, …), the `app-*.tsx` surfaces App renders (title bar, dialogs, drawers), shared effect helpers, and the window/panel geometry App owns. Also the App integration suites, one per area (`app-documents.test.tsx`, `app-agent.test.tsx`, `app-project.test.tsx`, `app-builds.test.tsx`, `app-overleaf.test.tsx`, `app-papers.test.tsx`, `app-welcome.test.tsx`), which render the real App through the shared mocks and helpers in `app-test-utils.tsx`. |
 | `src/settings/` | 11 | 3 | 2,058 | The settings dialog and its panes, the localStorage-backed preference store, appearance and fixed fonts. |
 | `src/pdf/` | 18 | 5 | 3,634 | The pdf.js viewer (`pdf-viewer.tsx` over the `use-pdf-*` hooks and `pdf-slick.ts`) with SyncTeX, search and annotations, plus base64/byte plumbing. |
 | `src/platform/` | 11 | 5 | 2,031 | Runtime bootstrap and the repo-level guards that pin it: the browser-host runtime and bridge, `perf-probe.ts`, `test-setup.ts`, and tests for compiler/security configuration and the pre-module compatibility script in `public/polyfills.js`. |
