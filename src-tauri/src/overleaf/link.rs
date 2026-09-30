@@ -484,6 +484,31 @@ mod tests {
     use crate::overleaf::files::read_base_copy;
     use crate::overleaf::test_support::*;
 
+    /// `last_sync` and conflict-copy stamps are written with chrono; both
+    /// must parse back into the instant they were taken.
+    #[test]
+    fn sync_timestamps_round_trip_through_chrono() {
+        let before = chrono::Utc::now();
+        let iso = now_iso();
+        let stamp = crate::overleaf::sync::sync_stamp();
+        let after = chrono::Utc::now();
+
+        assert!(iso.ends_with('Z'), "{iso}");
+        let parsed =
+            chrono::DateTime::parse_from_rfc3339(&iso).unwrap().with_timezone(&chrono::Utc);
+        assert_eq!(parsed.to_rfc3339_opts(chrono::SecondsFormat::Secs, true), iso);
+        assert!(
+            parsed.timestamp() >= before.timestamp() && parsed.timestamp() <= after.timestamp()
+        );
+
+        let local = chrono::NaiveDateTime::parse_from_str(&stamp, "%Y%m%d-%H%M").unwrap();
+        assert_eq!(local.format("%Y%m%d-%H%M").to_string(), stamp);
+        let minute = |t: chrono::DateTime<chrono::Utc>| {
+            t.with_timezone(&chrono::Local).naive_local().format("%Y%m%d-%H%M").to_string()
+        };
+        assert!(stamp == minute(before) || stamp == minute(after), "{stamp}");
+    }
+
     /// Pausing, and recording what the realtime channel learned, keep what a
     /// resumed sync needs to merge.
     ///

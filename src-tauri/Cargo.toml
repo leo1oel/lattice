@@ -41,7 +41,7 @@ tauri-plugin-dialog = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 base64 = "0.22"
-chrono = { version = "0.4", features = ["serde"] }
+chrono = "0.4"
 regex = "1"
 # `system-proxy` is one of reqwest's defaults, so `default-features = false`
 # silently dropped it: every request here ignored the macOS proxy settings AND
@@ -85,9 +85,9 @@ anydoc = "0.1.9"
 # Already in the tree transitively; direct so paper.md normalization can slug
 # headings with the exact NFKD semantics of the editor's toWikiLinkSlug.
 unicode-normalization = "0.1"
-harper-core = { version = "2.7.0", features = ["concurrent"] }
+harper-core = { version = "2.7.0", default-features = false, features = ["concurrent"] }
 notify = "8"
-scraper = "0.24"
+scraper = "0.27"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 # Provider CLIs are ordinary child processes and do not use CFNetwork, so a
