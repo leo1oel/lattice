@@ -180,7 +180,7 @@ engine (§2), and a repository guard test keeps that code from coming back.
 | `src/App.tsx` | ~5,100 | The hub. Composes the `src/app/` hooks and owns what still spans them: file/Paper/asset opening, pane arrangement, tree mutations, the command table and the top-level layout. See §6. |
 | `src-tauri/src/project.rs` + `project/` | 6,262 | Project validation, path safety, the transaction/history model, file classification, tree building, zip import/export. `project.rs` maps the submodules; most Rust areas depend on it. |
 | `src-tauri/src/overleaf.rs` + `overleaf/` | 4,196 | Overleaf session, linking and clone, REST, review, and the three-way merge against `.research/overleaf-base/`. |
-| `src/canvas/document-canvas.tsx` | 1,609 | The editing surface: source pane, preview pane, split/dual layouts, and the mount points for every lazy editor. |
+| `src/canvas/document-canvas.tsx` | 1,609 | The editing surface: source pane, preview pane, the split layout, and the mount points for every lazy editor. |
 | `src-tauri/src/overleaf_rt.rs` + `overleaf_rt/` | 3,028 | A hand-written Socket.IO 0.9 client for Overleaf's realtime channel. The module header of `overleaf_rt.rs` is the protocol spec. |
 | `src-tauri/src/lib.rs` + `ipc/` | 483 + 2,589 | `lib.rs` wires plugins, the window lifecycle, the child runtimes and the 162-command table; the thin handlers live in `ipc/`, one module per area. No domain logic in either. |
 | `src/editor/markdown/engine/lattice-visual-editor.tsx` | 737 | The Lattice visual Markdown engine (TipTap 3 / ProseMirror): canonical publication, path swaps, round-trip eligibility. Parsing, serialization, source mapping, overlays and the passive viewport live in sibling modules under `engine/`. |
