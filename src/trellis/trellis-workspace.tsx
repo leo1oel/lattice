@@ -18,6 +18,9 @@ import {
   type WorkspaceHandle,
 } from "@danfessler/trellis-react";
 import "@danfessler/trellis/style.css";
+// Panel menus open at the pointer, with submenus and without the fluid hover
+// surface of the shared DropdownMenuContent, so they build on the primitive.
+// eslint-disable-next-line no-restricted-imports -- see above
 import { DropdownMenu as MenuPrimitive } from "radix-ui";
 import { EditorState } from "@codemirror/state";
 import { EditorView, lineNumbers } from "@codemirror/view";

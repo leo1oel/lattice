@@ -16,13 +16,12 @@ import { InputRule } from "@tiptap/core";
 import type { NodeType } from "@tiptap/pm/model";
 import { NodeSelection, TextSelection } from "@tiptap/pm/state";
 import { NodeViewWrapper, type NodeViewProps } from "@tiptap/react";
-import { Popover as PopoverPrimitive } from "radix-ui";
 import katex from "katex";
 import "katex/dist/katex.min.css";
 import { Settings2, Trash2 } from "lucide-react";
 import { IconButton } from "../../../../components/ui/icon-button";
 import { Input } from "../../../../components/ui/input";
-import { Popover, PopoverContent } from "../../../../components/ui/popover";
+import { Popover, PopoverAnchor, PopoverContent } from "../../../../components/ui/popover";
 import { Textarea } from "../../../../components/ui/textarea";
 import { deleteNode, setNodeAttrs, useCommitKeys } from "./view-chrome";
 
@@ -242,9 +241,9 @@ function FormulaPopover({ open, onOutside, anchor, title, children }: {
   const anchorRef = useRef<HTMLSpanElement>(null);
   return (
     <Popover open={open}>
-      <PopoverPrimitive.Anchor asChild>
+      <PopoverAnchor asChild>
         <span ref={anchorRef} className="lx-md-formula-anchor" data-state={open ? "open" : "closed"}>{anchor}</span>
-      </PopoverPrimitive.Anchor>
+      </PopoverAnchor>
       <PopoverContent
         align="center"
         className="lx-md-popover lx-md-formula-popover w-80"

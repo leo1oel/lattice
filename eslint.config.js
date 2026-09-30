@@ -4,6 +4,11 @@ import reactHooks from "eslint-plugin-react-hooks";
 import reactRefresh from "eslint-plugin-react-refresh";
 import tseslint from "typescript-eslint";
 
+const OPEN_KNOWLEDGE_IMPORTS = {
+  group: ["**/open-knowledge*", "**/open-knowledge*/**", "@ok-app", "@ok-app/**", "@ok-core", "@ok-core/**", "@inkeep/**"],
+  message: "Open Knowledge code must not return to Lattice (see docs/visual-editor-spec.md).",
+};
+
 export default tseslint.config(
   { ignores: ["dist", "src-tauri/target"] },
   js.configs.recommended,
@@ -197,10 +202,21 @@ export default tseslint.config(
     // in src/platform/clean-room-guard.test.ts covers files and packages.
     files: ["**/*.{ts,tsx,js,mjs}"],
     rules: {
+      "no-restricted-imports": ["error", { patterns: [OPEN_KNOWLEDGE_IMPORTS] }],
+    },
+  },
+  {
+    // Headless primitives are styled once, in src/components/ui; feature code
+    // uses those wrappers so menus, popovers and dialogs keep one look. The
+    // rule restates the Open Knowledge guard because a later block replaces
+    // the options of an earlier one for the same files.
+    files: ["src/**/*.{ts,tsx}"],
+    ignores: ["src/components/ui/**", "src/**/*.test.{ts,tsx}"],
+    rules: {
       "no-restricted-imports": ["error", {
-        patterns: [{
-          group: ["**/open-knowledge*", "**/open-knowledge*/**", "@ok-app", "@ok-app/**", "@ok-core", "@ok-core/**", "@inkeep/**"],
-          message: "Open Knowledge code must not return to Lattice (see docs/visual-editor-spec.md).",
+        patterns: [OPEN_KNOWLEDGE_IMPORTS, {
+          group: ["radix-ui", "@radix-ui/*"],
+          message: "Use (or add) the wrapper in src/components/ui instead of a Radix primitive.",
         }],
       }],
     },
