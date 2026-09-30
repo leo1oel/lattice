@@ -36,6 +36,7 @@ mod symbols;
 pub(crate) mod test_support;
 mod tree;
 
+pub(crate) use archive::safe_zip_entry_name;
 pub use archive::{export_project_zip, import_project_zip};
 pub use assets::{prepare_latex_figure, read_asset};
 pub use bibliography::{
