@@ -2,7 +2,7 @@ import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { invoke } from "@tauri-apps/api/core";
 
-import { APPEARANCE_KEY, SYSTEM_DARK_QUERY, THEME_KEY, THEME_PREFERENCE_KEY } from "./app-settings";
+import { APPEARANCE_KEY, SYSTEM_DARK_QUERY, THEME_PREFERENCE_KEY } from "./app-settings";
 import { useAppearance } from "./use-appearance";
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
@@ -75,16 +75,6 @@ describe("useAppearance", () => {
 
     await waitFor(() => expect(localStorage.getItem(THEME_PREFERENCE_KEY)).toBe("light"));
     expect(document.documentElement.dataset.theme).toBe("light");
-  });
-
-  it("keeps the theme older builds persisted instead of reverting to the system", async () => {
-    localStorage.clear();
-    mockSystemDark(true);
-    localStorage.setItem(THEME_KEY, "light");
-    const { result } = renderHook(() => useAppearance());
-
-    await waitFor(() => expect(document.documentElement.dataset.theme).toBe("light"));
-    expect(result.current.themePreference).toBe("light");
   });
 
   it("follows the system language until the user chooses an override", async () => {

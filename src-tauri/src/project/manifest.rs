@@ -35,12 +35,9 @@ pub fn open(root: &Path) -> Result<ProjectSnapshot, String> {
         eprintln!("Could not prune old conversation checkpoints: {error}");
     }
     let research_ignore = root.join(".research/.gitignore");
-    if research_ignore.exists() {
-        ensure_ignore_line(&research_ignore, "checkpoints/")?;
-    } else {
+    if !research_ignore.exists() {
         fs::write(&research_ignore, RESEARCH_GITIGNORE).map_err(err)?;
     }
-    ensure_ignore_line(&research_ignore, "cache/")?;
     // A folder Lattice did not create gets the same artifact ignores a new
     // project is born with. Version tracking usually starts here, so without
     // them the first commit adopts every .log and .fls in the folder, and from
@@ -57,20 +54,6 @@ pub fn open(root: &Path) -> Result<ProjectSnapshot, String> {
     } else {
         adopt_folder(&root)?
     };
-    // Retire a root document that was never there: older opens named
-    // `default_manifest`'s main.tex for any folder. Only a folder with no .tex
-    // anywhere qualifies; a root document merely absent right now (mid-checkout,
-    // renamed, on a detached branch) is still the reader's setting.
-    if !manifest.root_documents.is_empty()
-        && !manifest
-            .root_documents
-            .iter()
-            .any(|document| safe_path(&root, &document.path).is_ok_and(|path| path.is_file()))
-        && detect_root_document(&root).is_none()
-    {
-        manifest.root_documents.clear();
-        write_manifest(&root, &manifest)?;
-    }
     if apply_tex_magic_comments(&root, &mut manifest)? {
         write_manifest(&root, &manifest)?;
     }
@@ -492,12 +475,6 @@ mod tests {
         fixture.write("ideas.md", "# Ideas\n");
         let roots = || root_paths(&open(&fixture.root).unwrap().manifest).len();
         assert_eq!(roots(), 0);
-
-        // What Markdown folders opened by older versions carry: a root document
-        // pointing at a file that never existed. It is retired and written down.
-        write_manifest(&fixture.root, &default_manifest("notes")).unwrap();
-        assert_eq!(roots(), 0);
-        assert!(read_manifest(&fixture.root).unwrap().root_documents.is_empty());
 
         // Adding LaTeX later is still detected on the next open.
         fixture.write("paper.tex", ARTICLE);
