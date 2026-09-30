@@ -59,7 +59,7 @@ describe("ProjectFindDialog", () => {
     expect(screen.getByText("Find in project")).toBeInTheDocument();
     await act(() => activateAppLocale("zh-CN"));
     expect(screen.getByText("在项目中查找")).toBeInTheDocument();
-    expect(screen.getByRole("complementary", { name: "在项目中查找" })).toBeInTheDocument();
+    expect(screen.getByRole("dialog", { name: "在项目中查找" })).toBeInTheDocument();
     expect(screen.getByRole("searchbox", { name: "在项目中查找" })).toBeInTheDocument();
     expect(screen.queryByText("Find in project")).not.toBeInTheDocument();
   });

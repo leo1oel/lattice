@@ -6,6 +6,8 @@ export function ModalDialog(props: {
   describedBy?: string;
   onClose: () => void;
   closeDisabled?: boolean;
+  /** Unsaved input: a click outside keeps the dialog open (Escape and the close button still close it). */
+  keepOnOutsideClick?: boolean;
   focusDialogOnOpen?: boolean;
   backdropClassName?: string;
   windowDragTop?: {
@@ -43,6 +45,7 @@ export function ModalDialog(props: {
       .detail?.originalEvent?.target ?? event.target;
     if (
       props.closeDisabled
+      || props.keepOnOutsideClick
       || (originalTarget instanceof Element
         && (originalTarget.closest("[data-modal-window-drag]")
           // Toasts sit above the modal layer so a failure raised *by* this

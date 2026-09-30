@@ -9,7 +9,7 @@
  * (text) or a sleeping card (boards, sheets, decks, assets, papers) until it is
  * clicked. A panel that is not on screen renders nothing at all.
  */
-import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useLingui } from "@lingui/react/macro";
 import {
@@ -23,14 +23,11 @@ import { EditorState } from "@codemirror/state";
 import { EditorView, lineNumbers } from "@codemirror/view";
 import { defaultHighlightStyle, syntaxHighlighting } from "@codemirror/language";
 import {
-  BookOpen, Bot, Check, ChevronRight, ClipboardCheck, Columns2, Eye, FileImage, FileText, FolderTree, GitBranch, History,
-  Leaf, Library, ListTodo, MessageSquare, Moon, Newspaper, PenLine, Play, Presentation, Shapes, Table2,
+  BookOpen, Bot, Check, ChevronRight, ClipboardCheck, FileImage, FileText, FolderTree, GitBranch, History,
+  Leaf, Library, ListTodo, MessageSquare, Moon, Presentation, Shapes, Table2,
   BookMarked, FileCode2, Search,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Tip } from "../components/icon-tip";
-import { SegmentedControl } from "../components/ui/segmented-control";
-import { InfinityLoader } from "../components/ui/activity-icons";
 import { floatingSurfaceClassName, menuItemClassName, menuViewportClassName } from "@/components/ui/menu-surface";
 import { popupMotionClassName } from "@/components/ui/popup-motion";
 import { confirmAction, isOpenSlideDeckPath } from "../app-utils";
@@ -38,11 +35,13 @@ import { isSpreadsheetPath } from "../editor/spreadsheet/spreadsheet-types";
 import { luxLatexHighlightStyle } from "../editor/latex/latex-editor";
 import { useTextLanguageExtensions } from "../canvas/editor-extensions";
 import {
-  TOOL_KINDS, useTrellisApp, type TrellisController, type TrellisSingleton, type TrellisToolKind, type TrellisViewMode,
+  TOOL_KINDS, documentTools, useTrellisApp, type TrellisController, type TrellisSingleton, type TrellisToolKind,
 } from "./trellis-controller";
 import { defaultLayout, loadLayout, saveLayout, clearLayout, withDocumentPanel, VIEW_TYPES } from "./trellis-layout";
 import { installTrellisLabels } from "./trellis-labels";
 import { PANEL_TITLES, spaceMixedScript } from "./trellis-titles";
+import { FileHeaderTools } from "./trellis-header-tools";
+import { measurePdfToolbarMinWidth } from "../pdf/pdf-toolbar-min-width";
 import "./trellis.css";
 
 // Before any workspace exists: Trellis writes some labels once, at creation.
@@ -52,8 +51,10 @@ installTrellisLabels();
 const HIBERNATE_AFTER_MS = 20_000;
 
 /** Content minima only. The Trellis patch separately reserves header actions
- * and all tabs at 80px each (capped at 480px, then the strip scrolls). Only
- * the selected content constrains its panel, not an inactive Agent tab. */
+ * and all tabs at 80px each (capped at 480px, then the strip scrolls). A panel
+ * is as wide as the widest of its views needs, so selecting another tab never
+ * resizes it. The Agent and the PDF raise theirs to what their live content
+ * measures (see `measuredMinSize`). */
 const MIN_SIZE = {
   project: { width: 140, height: 120 },
   papers: { width: 180, height: 120 },
@@ -62,6 +63,11 @@ const MIN_SIZE = {
   file: { width: 180, height: 140 },
   tool: { width: 200, height: 160 },
 } as const;
+
+/** A static minimum raised to a width measured from the live content (0 until measured). */
+function measuredMinSize(base: { width: number; height: number }, measured: number) {
+  return { width: Math.max(base.width, measured), height: base.height };
+}
 
 const PANEL_ICONS: Record<TrellisSingleton, ReactNode> = {
   project: <FolderTree size={14} />,
@@ -78,16 +84,6 @@ const PANEL_ICONS: Record<TrellisSingleton, ReactNode> = {
 };
 
 type FileParams = { key: string };
-
-/** Which tools a document panel's header carries. */
-function fileTools(controller: TrellisController, key: string): "build" | "views" | "paper" | null {
-  const kind = controller.bridge?.tabKind(key) ?? "file";
-  if (kind === "paper") return "paper";
-  if (kind !== "file") return null;
-  const lower = key.toLocaleLowerCase();
-  if (lower.endsWith(".tex")) return "build";
-  return lower.endsWith(".md") || lower.endsWith(".html") ? "views" : null;
-}
 
 /** Boards, sheets and decks: expensive enough to unmount when their panel is off screen. */
 function isHeavyDocument(key: string) {
@@ -122,95 +118,6 @@ function HostSlot({ host, className, inline = false }: { host: HTMLElement; clas
     };
   }, [host]);
   return <div ref={ref} className={cn(inline ? "trellis-slot-inline" : "trellis-slot", className)} />;
-}
-
-/**
- * A document panel's header tools: Build on a .tex file (it builds the
- * project and brings the PDF up), Edit / Split / Preview on the active
- * Markdown or HTML file, and Blog / Paper on the active Paper.
- */
-function FileHeaderTools({ controller }: { controller: TrellisController }) {
-  const { t } = useLingui();
-  const view = useView<FileParams>();
-  const key = view.params.key;
-  const active = useTrellisApp(controller, (state) => state.activeKey === key);
-  const tools = useSyncExternalStore(controller.docTools.subscribe, controller.docTools.get);
-  const which = fileTools(controller, key);
-  if (which === "build") {
-    // The label always reads Build; a running build shows as a spinner in
-    // place of the play icon, and another press queues a fresh build.
-    const { building } = tools;
-    const seconds = tools.builtIn?.toFixed(1);
-    const label = building
-      ? t`Building… · the PDF refreshes when it finishes`
-      : seconds
-        ? t({ message: `Build the project and show the PDF · ⌘S · last build ${seconds}s · Shift-click for a clean rebuild` })
-        : t`Build the project and show the PDF · ⌘S · Shift-click for a clean rebuild`;
-    return (
-      <Tip label={label}>
-        <button
-          type="button"
-          className={cn("trellis-build-button", building && "is-building")}
-          aria-label={t`Build`}
-          aria-busy={building || undefined}
-          onClick={(event) => controller.bridge?.build(key, { clean: event.shiftKey, beside: view.panelId })}
-        >
-          {building ? <InfinityLoader size={13} /> : <Play size={11} fill="currentColor" />}
-          <span className="trellis-build-label">{t`Build`}</span>
-        </button>
-      </Tip>
-    );
-  }
-  const viewItems = [
-    { value: "source" as const, label: <><PenLine size={13} /><span className="sr-only">{t`Edit`}</span></> },
-    { value: "split" as const, label: <><Columns2 size={13} /><span className="sr-only">{t`Split`}</span></> },
-    { value: "pdf" as const, label: <><Eye size={13} /><span className="sr-only">{t`Preview`}</span></> },
-  ];
-  const paperItems = [
-    { value: "blog" as const, label: <><Newspaper size={13} /><span className="sr-only">{t`Blog`}</span></>, title: t`Open the paper overview` },
-    { value: "fulltext" as const, label: <><FileText size={13} /><span className="sr-only">{t`Paper`}</span></>, title: t`Open the full paper Markdown` },
-  ];
-  if (!active) {
-    // An unselected document keeps its switch laid out but inert: Trellis
-    // hides it, and Lattice CSS stacks every view's actions in one cell, so
-    // the header reserves the widest view's actions and selecting another
-    // tab never resizes the tabs.
-    if (which !== "views" && which !== "paper") return null;
-    return (
-      <span className="trellis-tools-reserve" inert aria-hidden="true">
-        {which === "views"
-          ? <SegmentedControl<TrellisViewMode> value="source" onChange={() => {}} ariaLabel="" className="trellis-view-switcher" items={viewItems} />
-          : <SegmentedControl<"blog" | "fulltext"> value="blog" onChange={() => {}} ariaLabel="" className="trellis-view-switcher" items={paperItems} />}
-      </span>
-    );
-  }
-  if (which === "views" && tools.viewModes) {
-    const [editTitle, splitTitle, previewTitle] = tools.viewModes === "markdown"
-      ? [t`Edit Markdown`, t`Edit and preview Markdown`, t`Preview Markdown`]
-      : [t`Edit HTML`, t`Edit and preview HTML`, t`Preview HTML`];
-    const titles = [editTitle, splitTitle, previewTitle];
-    return (
-      <SegmentedControl<TrellisViewMode>
-        value={tools.viewMode}
-        onChange={(mode) => controller.bridge?.setViewMode(mode)}
-        ariaLabel={t`Document view`}
-        className="trellis-view-switcher"
-        items={viewItems.map((item, i) => ({ ...item, title: titles[i] }))}
-      />
-    );
-  }
-  if (which === "paper" && tools.paperViews && tools.paperView) {
-    return (
-      <SegmentedControl<"blog" | "fulltext">
-        value={tools.paperView}
-        onChange={(paperView) => controller.bridge?.setPaperView(paperView)}
-        ariaLabel={t`Paper content`}
-        className="trellis-view-switcher"
-        items={paperItems}
-      />
-    );
-  }
-  return null;
 }
 
 /** Report a singleton panel's presence and visibility to the controller. */
@@ -268,9 +175,52 @@ function EmptyState({ icon, title, detail, children, onActivate }: {
   );
 }
 
+/**
+ * Keep the PDF panel's minimum at what its toolbar needs (every control, and
+ * the whole "Find in PDF" placeholder). Re-measured when the toolbar itself
+ * changes (a build loads, the locale changes a label), when fonts arrive, and
+ * once the panel is first laid out; never per resize or per rendered page.
+ */
+function usePdfToolbarMinimum(controller: TrellisController) {
+  useEffect(() => {
+    const host = controller.hosts.pdf;
+    let frame = 0;
+    let measured = false;
+    const measure = () => {
+      frame = 0;
+      const toolbar = host.querySelector<HTMLElement>(".pdf-toolbar");
+      const width = toolbar ? measurePdfToolbarMinWidth(toolbar) : null;
+      if (width === null) return;
+      measured = true;
+      controller.ui.set({ pdfMinWidth: width });
+    };
+    const schedule = () => {
+      if (!frame) frame = requestAnimationFrame(measure);
+    };
+    const inToolbar = (node: Node) => node instanceof Element && (node.closest(".pdf-toolbar") !== null || node.querySelector(".pdf-toolbar") !== null);
+    const mutations = new MutationObserver((records) => {
+      if (records.some((record) => inToolbar(record.target) || [...record.addedNodes].some(inToolbar))) schedule();
+    });
+    mutations.observe(host, { subtree: true, childList: true, attributes: true, attributeFilter: ["placeholder"] });
+    const firstLayout = new ResizeObserver(() => {
+      if (!measured) schedule();
+    });
+    firstLayout.observe(host);
+    document.fonts?.addEventListener("loadingdone", schedule);
+    schedule();
+    return () => {
+      cancelAnimationFrame(frame);
+      mutations.disconnect();
+      firstLayout.disconnect();
+      document.fonts?.removeEventListener("loadingdone", schedule);
+    };
+  }, [controller]);
+}
+
 function PdfView({ controller }: { controller: TrellisController }) {
   const { t } = useLingui();
   useReportPanel(controller, "pdf");
+  usePdfToolbarMinimum(controller);
   const live = useSyncExternalStore(controller.ui.subscribe, () => controller.ui.get().pdfLive);
   return (
     <>
@@ -566,6 +516,10 @@ type WorkspaceProps = { controller: TrellisController; projectRoot: string; dark
 /** Memoized: App re-renders on every keystroke, and nothing here needs to follow it. */
 export const TrellisWorkspace = memo(function TrellisWorkspace({ controller, projectRoot, dark }: WorkspaceProps) {
   const { t, i18n } = useLingui();
+  const agentMinWidth = useSyncExternalStore(controller.ui.subscribe, () => controller.ui.get().agentMinWidth);
+  const pdfMinWidth = useSyncExternalStore(controller.ui.subscribe, () => controller.ui.get().pdfMinWidth);
+  const agentMinSize = useMemo(() => measuredMinSize(MIN_SIZE.agent, agentMinWidth), [agentMinWidth]);
+  const pdfMinSize = useMemo(() => measuredMinSize(MIN_SIZE.pdf, pdfMinWidth), [pdfMinWidth]);
   const [initial] = useState(() => {
     installTrellisLabels();
     return loadLayout(projectRoot);
@@ -723,7 +677,7 @@ export const TrellisWorkspace = memo(function TrellisWorkspace({ controller, pro
     const bridge = controller.bridge;
     const tools = controller.docTools.get();
     const active = controller.app.get().activeKey === key;
-    switch (fileTools(controller, key)) {
+    switch (documentTools(controller.bridge?.tabKind(key) ?? "file", key)) {
       case "build":
         return [
           { id: "build", label: t`Build`, shortcut: "⌘S", run: () => bridge?.build(key, { beside: view.panelId }) },
@@ -775,13 +729,13 @@ export const TrellisWorkspace = memo(function TrellisWorkspace({ controller, pro
           <NavigatorView controller={controller} kind="papers" />
         </ViewType>
         <ViewType
-          id="agent" title={title("agent")} singleton icon={PANEL_ICONS.agent} minSize={MIN_SIZE.agent} scaling={false}
+          id="agent" title={title("agent")} singleton icon={PANEL_ICONS.agent} minSize={agentMinSize} scaling={false}
           accessory={<HostSlot host={controller.hosts.agentActions} inline />} menu={actions("agent")}
         >
           <AgentView controller={controller} />
         </ViewType>
         <ViewType
-          id="pdf" title={title("pdf")} singleton icon={PANEL_ICONS.pdf} minSize={MIN_SIZE.pdf} scaling={false}
+          id="pdf" title={title("pdf")} singleton icon={PANEL_ICONS.pdf} minSize={pdfMinSize} scaling={false}
           menu={actions("pdf")}
         >
           <PdfView controller={controller} />

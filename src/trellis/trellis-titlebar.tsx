@@ -84,9 +84,6 @@ export const TrellisTitlebar = memo(function TrellisTitlebar({ controller }: { c
             <span className="trellis-menu-shortcut">⌘⌥↑</span>
           </DropdownMenuItem>
           <DropdownMenuItem onSelect={() => void controller.resetLayout()}>{t`Reset layout`}</DropdownMenuItem>
-          <DropdownMenuSeparator />
-          {/* Attribution required by the Trellis license. */}
-          <DropdownMenuLabel className="trellis-attribution">{t`Uses Trellis by DanFessler — github.com/DanFessler/trellis`}</DropdownMenuLabel>
         </DropdownMenuContent>
       </DropdownMenu>
       <div className="trellis-titlebar-group" role="group" aria-label={t`Show or hide panels`}>

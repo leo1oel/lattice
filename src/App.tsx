@@ -759,6 +759,7 @@ function App() {
       agentCommentsOptions: () => agentCommentsOptionsRef.current?.() ?? null,
       projectDocumentCreator: () => agentProjectDocumentCreatorRef.current,
       onHistorySnapshot: (snapshot) => agentCheckpoints.handleSnapshot(snapshot),
+      onMinimumWidth: (width) => trellis.ui.set({ agentMinWidth: width }),
     },
   });
   const {

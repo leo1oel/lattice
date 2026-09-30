@@ -547,7 +547,11 @@ const LOCAL_COMMANDS = new Map<string, (payload: { value?: unknown }) => unknown
     if (typeof value === "string") document.title = value;
   }],
   ["plugin:webview|set_webview_zoom", ({ value }) => {
-    if (typeof value === "number") document.documentElement.style.zoom = String(value);
+    if (typeof value !== "number") return;
+    document.documentElement.style.zoom = String(value);
+    // Native chrome drawn over the page (the bundled Chromium's traffic
+    // lights) does not zoom; its injected CSS divides its inset by this.
+    document.documentElement.style.setProperty("--lattice-page-zoom", String(value));
   }],
 ]);
 

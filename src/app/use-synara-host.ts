@@ -24,6 +24,13 @@ const LATTICE_AGENT_PERMISSION_MODE_REQUEST = "lattice:request-agent-permission-
 const LATTICE_AGENT_PERMISSION_MODE_SET = "lattice:set-agent-permission-mode";
 const LATTICE_AGENT_PANEL_OPENED = "lattice:agent-panel-opened";
 const LATTICE_HOST_POINTER = "lattice:host-pointer";
+/**
+ * Bounds for the width the agent's composer reports it needs (its controls
+ * side by side, the send button inside the box). The ceiling only guards
+ * against a malformed report.
+ */
+const SYNARA_MINIMUM_WIDTH_FLOOR = 180;
+const SYNARA_MINIMUM_WIDTH_CEILING = 720;
 
 // Keep import expressions outside the component: React Compiler cannot lower them.
 function loadAgentEditorComments() {
@@ -42,6 +49,8 @@ type SynaraHostBridge = {
   agentCommentsOptions: () => BuildAgentCommentsOptions | null;
   projectDocumentCreator: () => ((request: AgentProjectDocumentToolRequest) => Promise<string>) | null;
   onHistorySnapshot: (snapshot: NonNullable<ReturnType<typeof parseAgentProjectHistorySnapshot>>) => void;
+  /** The narrowest the agent frame can be with its composer intact, in CSS px. */
+  onMinimumWidth: (width: number) => void;
 };
 
 type MessageData = Record<string, unknown> & { type?: unknown };
@@ -246,6 +255,16 @@ export function useSynaraHost({ project, projectRef, agentVisible, bridge }: {
         if (!isSynaraPermissionMode(data.mode)) return;
         setPermissionMode(data.mode);
         setAutoModeAvailable(data.autoModeAvailable !== false);
+      },
+      // The composer measures its own controls (latticeComposerLayout.ts in
+      // Synara) and reports the frame width that keeps them, and the send
+      // button, inside the box. An intrinsic width, so it may also decrease.
+      "synara:layout-metrics": (data, host) => {
+        const width = data.minimumSidebarWidth;
+        if (typeof width !== "number" || !Number.isFinite(width)) return;
+        host.bridge.onMinimumWidth(Math.round(
+          Math.min(SYNARA_MINIMUM_WIDTH_CEILING, Math.max(SYNARA_MINIMUM_WIDTH_FLOOR, width)),
+        ));
       },
     };
     const receive = (event: MessageEvent) => {

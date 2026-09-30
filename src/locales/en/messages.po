@@ -995,6 +995,7 @@ msgid "Block type"
 msgstr "Block type"
 
 #: src/canvas/paper-reader.tsx
+#: src/trellis/trellis-header-tools.tsx
 #: src/trellis/trellis-workspace.tsx
 msgid "Blog"
 msgstr "Blog"
@@ -1095,6 +1096,7 @@ msgstr "Browser storage is full or unavailable. New entries still reach the log 
 
 #: src/App.tsx
 #: src/app/use-build-pipeline.ts
+#: src/trellis/trellis-header-tools.tsx
 #: src/trellis/trellis-workspace.tsx
 msgid "Build"
 msgstr "Build"
@@ -1135,11 +1137,11 @@ msgstr "Build succeeded in {seconds}s"
 msgid "Build superseded"
 msgstr "Build superseded"
 
-#: src/trellis/trellis-workspace.tsx
+#: src/trellis/trellis-header-tools.tsx
 msgid "Build the project and show the PDF · ⌘S · last build {seconds}s · Shift-click for a clean rebuild"
 msgstr "Build the project and show the PDF · ⌘S · last build {seconds}s · Shift-click for a clean rebuild"
 
-#: src/trellis/trellis-workspace.tsx
+#: src/trellis/trellis-header-tools.tsx
 msgid "Build the project and show the PDF · ⌘S · Shift-click for a clean rebuild"
 msgstr "Build the project and show the PDF · ⌘S · Shift-click for a clean rebuild"
 
@@ -1151,7 +1153,7 @@ msgstr "Build the project to preview the paper"
 msgid "Build to count"
 msgstr "Build to count"
 
-#: src/trellis/trellis-workspace.tsx
+#: src/trellis/trellis-header-tools.tsx
 msgid "Building… · the PDF refreshes when it finishes"
 msgstr "Building… · the PDF refreshes when it finishes"
 
@@ -2442,7 +2444,7 @@ msgstr "Document sections"
 msgid "Document title"
 msgstr "Document title"
 
-#: src/trellis/trellis-workspace.tsx
+#: src/trellis/trellis-header-tools.tsx
 msgid "Document view"
 msgstr "Document view"
 
@@ -2594,6 +2596,7 @@ msgstr "e.g. Lattice"
 
 #: src/App.tsx
 #: src/editor/comments/editor-comments-panel.tsx
+#: src/trellis/trellis-header-tools.tsx
 #: src/trellis/trellis-workspace.tsx
 msgid "Edit"
 msgstr "Edit"
@@ -2603,11 +2606,11 @@ msgctxt "macOS menu bar"
 msgid "Edit"
 msgstr "Edit"
 
-#: src/trellis/trellis-workspace.tsx
+#: src/trellis/trellis-header-tools.tsx
 msgid "Edit and preview HTML"
 msgstr "Edit and preview HTML"
 
-#: src/trellis/trellis-workspace.tsx
+#: src/trellis/trellis-header-tools.tsx
 msgid "Edit and preview Markdown"
 msgstr "Edit and preview Markdown"
 
@@ -2624,7 +2627,7 @@ msgstr "Edit bibliography entry"
 msgid "Edit document"
 msgstr "Edit document"
 
-#: src/trellis/trellis-workspace.tsx
+#: src/trellis/trellis-header-tools.tsx
 msgid "Edit HTML"
 msgstr "Edit HTML"
 
@@ -2632,7 +2635,7 @@ msgstr "Edit HTML"
 msgid "Edit link"
 msgstr "Edit link"
 
-#: src/trellis/trellis-workspace.tsx
+#: src/trellis/trellis-header-tools.tsx
 msgid "Edit Markdown"
 msgstr "Edit Markdown"
 
@@ -5280,7 +5283,7 @@ msgstr "Open the document this suggestion is in first."
 msgid "Open the file this suggestion is in first"
 msgstr "Open the file this suggestion is in first"
 
-#: src/trellis/trellis-workspace.tsx
+#: src/trellis/trellis-header-tools.tsx
 msgid "Open the full paper Markdown"
 msgstr "Open the full paper Markdown"
 
@@ -5293,7 +5296,7 @@ msgstr "Open the linked Overleaf project before changing its sync setting."
 msgid "Open the linked Overleaf project first."
 msgstr "Open the linked Overleaf project first."
 
-#: src/trellis/trellis-workspace.tsx
+#: src/trellis/trellis-header-tools.tsx
 msgid "Open the paper overview"
 msgstr "Open the paper overview"
 
@@ -5530,6 +5533,7 @@ msgstr "Panels"
 #: src/App.tsx
 #: src/canvas/paper-reader.tsx
 #: src/project/project-find-dialog.tsx
+#: src/trellis/trellis-header-tools.tsx
 #: src/trellis/trellis-workspace.tsx
 msgid "Paper"
 msgstr "Paper"
@@ -5542,7 +5546,7 @@ msgstr "Paper actions"
 msgid "Paper citation suggestions"
 msgstr "Paper citation suggestions"
 
-#: src/trellis/trellis-workspace.tsx
+#: src/trellis/trellis-header-tools.tsx
 msgid "Paper content"
 msgstr "Paper content"
 
@@ -5851,15 +5855,16 @@ msgstr "Preprint check returned an incomplete or ambiguous result."
 
 #: src/editor/markdown/engine/lattice-visual-editor.tsx
 #: src/project/project-replace-dialog.tsx
+#: src/trellis/trellis-header-tools.tsx
 #: src/trellis/trellis-workspace.tsx
 msgid "Preview"
 msgstr "Preview"
 
-#: src/trellis/trellis-workspace.tsx
+#: src/trellis/trellis-header-tools.tsx
 msgid "Preview HTML"
 msgstr "Preview HTML"
 
-#: src/trellis/trellis-workspace.tsx
+#: src/trellis/trellis-header-tools.tsx
 msgid "Preview Markdown"
 msgstr "Preview Markdown"
 
@@ -7398,6 +7403,7 @@ msgstr "Spectrum"
 msgid "Spelling"
 msgstr "Spelling"
 
+#: src/trellis/trellis-header-tools.tsx
 #: src/trellis/trellis-workspace.tsx
 msgid "Split"
 msgstr "Split"
@@ -8487,10 +8493,6 @@ msgstr "Use the Build button or Command-S. Source changes are still saved automa
 #: src/settings/literature-settings.tsx
 msgid "Use your own API quota for paper searches, imports, and citation checks."
 msgstr "Use your own API quota for paper searches, imports, and citation checks."
-
-#: src/trellis/trellis-titlebar.tsx
-msgid "Uses Trellis by DanFessler — github.com/DanFessler/trellis"
-msgstr "Uses Trellis by DanFessler — github.com/DanFessler/trellis"
 
 #: src/settings/literature-settings.tsx
 msgid "Using environment key"

@@ -12,6 +12,7 @@
  */
 import { createContext, useContext, useSyncExternalStore } from "react";
 import type { MenuItem, Placement, WorkspaceHandle } from "@danfessler/trellis";
+import { isHtmlFilePath } from "../app-utils";
 
 /** Drawers that become dockable tool panels, keyed by their Trellis view type. */
 export const TOOL_KINDS = ["history", "git", "comments", "overleaf", "literature", "todos", "checklist"] as const;
@@ -40,6 +41,17 @@ export type TrellisSingleton = typeof SINGLETON_KINDS[number];
 
 /** What a file panel holds: a project text/structured file, an asset preview or a Paper. */
 export type TrellisTabKind = "file" | "asset" | "paper";
+
+export type DocumentTools = "build" | "views" | "paper" | null;
+
+/** Which tools a document panel's header carries for one document. */
+export function documentTools(kind: TrellisTabKind, key: string): DocumentTools {
+  if (kind === "paper") return "paper";
+  if (kind !== "file") return null;
+  const lower = key.toLocaleLowerCase();
+  if (lower.endsWith(".tex")) return "build";
+  return lower.endsWith(".md") || isHtmlFilePath(key) ? "views" : null;
+}
 
 /** Edit, Split or Preview for a Markdown or HTML document. */
 export type TrellisViewMode = "source" | "split" | "pdf";
@@ -116,6 +128,9 @@ export type TrellisUiState = {
   framed: string | null;
   /** The narrowest window content, in CSS px, at which the docked layout still fits at full size (0 without a workspace). */
   minWidth: number;
+  /** Content minimums measured from the live panels, in CSS px (0 until measured): the Agent's from its composer, the PDF's from its toolbar. */
+  agentMinWidth: number;
+  pdfMinWidth: number;
 };
 
 type Listener = () => void;
@@ -172,7 +187,7 @@ export class TrellisController {
   });
   readonly ui = new SmallStore<TrellisUiState>({
     ready: false, present: {}, visible: {}, pdfLive: false, editorHibernated: false, editorVisible: false,
-    hidden: [], framed: null, minWidth: 0,
+    hidden: [], framed: null, minWidth: 0, agentMinWidth: 0, pdfMinWidth: 0,
   });
   /** The layout's minimum width as a live value the native window minimum follows. */
   readonly layoutMinWidth = { subscribe: this.ui.subscribe, get: () => this.ui.get().minWidth };

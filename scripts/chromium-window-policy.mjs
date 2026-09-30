@@ -5,14 +5,19 @@ const PRESENTER_PATH = "/__lattice/bootstrap";
  * Browser-hosted CSS assumes an ordinary browser tab has no traffic
  * lights. Restore the native macOS inset and make empty titlebar chrome
  * draggable so this Chromium experiment behaves like an app window.
+ *
+ * The lights stay 70pt wide whatever the interface zoom, which is CSS zoom on
+ * the root here (browser-runtime.ts publishes it as --lattice-page-zoom), so
+ * the space is divided by it. The project switcher's leading gap is kept: it
+ * is what centers the switcher between the lights and the Panels control.
  */
 export const CHROMIUM_WINDOW_CSS = `
   .app-shell.browser-hosted .traffic-space {
-    width: 70px !important;
+    width: calc(70px / var(--lattice-page-zoom, 1)) !important;
   }
   .app-shell.browser-hosted .titlebar-navigator {
     width: var(--titlebar-navigator-width) !important;
-    padding: 0 !important;
+    padding: 0 var(--titlebar-leading-gap) 0 0 !important;
   }
   .titlebar-drag-area {
     -webkit-app-region: drag;
@@ -25,7 +30,7 @@ export const CHROMIUM_WINDOW_CSS = `
   }
   /* Native drag regions ignore DOM stacking, so a drawer covering the
      titlebar must explicitly subtract its interactive area. */
-  .resizable-drawer {
+  .resizable-drawer, .modal-dialog-content {
     -webkit-app-region: no-drag;
   }
 `;

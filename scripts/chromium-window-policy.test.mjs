@@ -61,12 +61,22 @@ describe("Chromium window CSS", () => {
         <div class="trellis-titlebar"><button type="button">Panels</button></div>
       </div>
       <div class="titlebar-drag-area"></div>
-      <div class="resizable-drawer"></div>`;
+      <div class="resizable-drawer"></div>
+      <div class="modal-dialog-content"></div>`;
     const titlebar = document.querySelector(".trellis-titlebar");
     expect(appRegion(titlebar)).toBe("drag");
     expect(appRegion(document.querySelector(".titlebar-drag-area"))).toBe("drag");
     expect(appRegion(titlebar.querySelector("button"))).toBe("no-drag");
     expect(appRegion(document.querySelector(".resizable-drawer"))).toBe("no-drag");
+    expect(appRegion(document.querySelector(".modal-dialog-content"))).toBe("no-drag");
     document.body.innerHTML = "";
+  });
+
+  it("keeps the project switcher's centering gap and a zoom-independent traffic-light inset", () => {
+    const rule = (selector) => rules.find((candidate) => candidate.selector === selector)?.declarations;
+    // Round 8 centered the switcher with this leading gap; zeroing the
+    // navigator's padding here pinned the name against the lights.
+    expect(rule(".app-shell.browser-hosted .titlebar-navigator").get("padding")).toBe("0 var(--titlebar-leading-gap) 0 0 !important");
+    expect(rule(".app-shell.browser-hosted .traffic-space").get("width")).toBe("calc(70px / var(--lattice-page-zoom, 1)) !important");
   });
 });

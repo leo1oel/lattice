@@ -44,9 +44,7 @@
 }
 
 /* Right-edge drawers share one shell; width and overflow stay feature-owned. */
-.resizable-drawer,
-.table-generator,
-.project-replace {
+.resizable-drawer {
   @apply smooth-shadow-lg;
   position: relative;
   z-index: 1;
