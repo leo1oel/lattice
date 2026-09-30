@@ -1,5 +1,18 @@
+diff --git a/dist/index.d.ts b/dist/index.d.ts
+index 717aa3e9b59f30c9fcbd581a9db24a7e5aab7afc..c3905d0a8e561c63cffa3c8336d1979372c855d3 100644
+--- a/dist/index.d.ts
++++ b/dist/index.d.ts
+@@ -440,6 +440,8 @@ interface WorkspaceSnapshot {
+     canGoForward: boolean;
+     framings: Framing[];
+     dragging: boolean;
++    /** Lattice patch: the narrowest width the docked layout fits at full size. */
++    minWidth: number;
+ }
+ interface WorkspaceEvents {
+     /** Committed layout changes only; never fires mid-drag or mid-animation. */
 diff --git a/dist/index.js b/dist/index.js
-index 101e9570f85e3c58ed50ba757cab4487578bbeff..cef5326088a56f8e3e993e163be8e5b8260ada9f 100644
+index 101e9570f85e3c58ed50ba757cab4487578bbeff..3531bdb3c8b97d5c1151a1923a151bb2c68ec572 100644
 --- a/dist/index.js
 +++ b/dist/index.js
 @@ -1389,7 +1389,7 @@ function createDragController(host) {
@@ -647,7 +660,19 @@ index 101e9570f85e3c58ed50ba757cab4487578bbeff..cef5326088a56f8e3e993e163be8e5b8
    function equalize(splitId, index) {
      const split = findNode(doc.root, splitId);
      if (!split) return;
-@@ -4902,7 +5197,7 @@ function createWorkspace(host, initialOptions) {
+@@ -4794,7 +5089,10 @@ function createWorkspace(host, initialOptions) {
+       canGoBack: nav.canGoBack,
+       canGoForward: nav.canGoForward,
+       framings: nav.framings.list(),
+-      dragging: !!dragActive()
++      dragging: !!dragActive(),
++      // Lattice patch: the narrowest the workspace can be before the docked
++      // layout has to scale down, from the same minimums its dividers use.
++      minWidth: doc.root ? layoutMetrics().min(doc.root, "x") + pad() * 2 : 0
+     };
+     return snapshot;
+   }
+@@ -4902,7 +5200,7 @@ function createWorkspace(host, initialOptions) {
        if (!surface) return false;
        return typeOf(surface.dataset.view).gestures !== "workspace";
      },

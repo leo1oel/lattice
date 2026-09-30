@@ -5,6 +5,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { app, BrowserWindow, dialog, Menu, shell } from "electron";
 import {
+  CHROMIUM_WINDOW_CSS,
   isOpenSlidePresenterUrl,
   openSlidePresenterWindowOptions,
 } from "./chromium-window-policy.mjs";
@@ -165,7 +166,7 @@ async function createWindow(rawUrl) {
     title: "Lattice",
     width: 1_440,
     height: 900,
-    minWidth: 1_222,
+    minWidth: 640,
     minHeight: 680,
     backgroundColor: "#F7F7F6",
     show: false,
@@ -203,32 +204,7 @@ async function createWindow(rawUrl) {
   });
   window.webContents.on("will-attach-webview", (event) => event.preventDefault());
   window.webContents.on("did-finish-load", () => {
-    // Browser-hosted CSS assumes an ordinary browser tab has no traffic
-    // lights. Restore the native macOS inset and make empty titlebar chrome
-    // draggable so this Chromium experiment behaves like an app window.
-    void window.webContents.insertCSS(`
-      .app-shell.browser-hosted .traffic-space {
-        width: 70px !important;
-      }
-      .app-shell.browser-hosted .titlebar-navigator {
-        width: var(--titlebar-navigator-width) !important;
-        padding: 0 !important;
-      }
-      .titlebar-drag-area {
-        -webkit-app-region: drag;
-      }
-      .titlebar-main > .trellis-titlebar {
-        -webkit-app-region: drag;
-      }
-      .titlebar-main > .trellis-titlebar button {
-        -webkit-app-region: no-drag;
-      }
-      /* Native drag regions ignore DOM stacking, so a drawer covering the
-         titlebar must explicitly subtract its interactive area. */
-      .resizable-drawer {
-        -webkit-app-region: no-drag;
-      }
-    `);
+    void window.webContents.insertCSS(CHROMIUM_WINDOW_CSS);
   });
   window.once("ready-to-show", () => window.show());
   window.on("closed", () => {

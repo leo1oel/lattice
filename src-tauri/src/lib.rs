@@ -101,7 +101,7 @@ fn workspace_window(app: &AppHandle, label: &str, center: bool) -> tauri::Result
     let builder = WebviewWindowBuilder::new(app, label, tauri::WebviewUrl::default())
         .title("Lattice")
         .inner_size(1440.0, 900.0)
-        .min_inner_size(1222.0, 680.0)
+        .min_inner_size(640.0, 680.0)
         .background_color(tauri::window::Color(0xF7, 0xF7, 0xF6, 0xFF))
         .on_new_window(|url, _| {
             if is_open_slide_presenter_url(&url) {

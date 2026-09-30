@@ -644,8 +644,12 @@ Cancel — download a separate copy into a new folder and leave that one alone.`
   const ordered = groups.flatMap((group) => group.projects);
   const navigateProjects = (event: KeyboardEvent<HTMLDivElement>) => {
     const target = event.target as HTMLElement;
-    if (working || !ordered.length || !(target.closest(".overleaf-project-main") || target.closest(".overleaf-search"))) return;
-    const index = ordered.findIndex((project) => project.id === selected);
+    const row = target.closest<HTMLElement>(".overleaf-project-main");
+    const inSearch = target instanceof HTMLInputElement && Boolean(target.closest(".overleaf-search"));
+    if (working || !ordered.length || event.nativeEvent.isComposing || !(row || inSearch)) return;
+    // A focused row acts from itself; the search field acts from the selected row.
+    const current = row ? row.dataset.projectId : selected;
+    const index = ordered.findIndex((project) => project.id === current);
     if (event.key === "Enter") {
       if (index >= 0) { event.preventDefault(); void clone(ordered[index]); }
       return;

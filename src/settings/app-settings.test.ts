@@ -30,8 +30,8 @@ const layout: WorkspaceLayout = {
   activeTab: "sections/method.tex",
   secondaryFile: "sections/method.tex",
   focusedPane: "secondary",
-  canvasMode: "dual",
-  documentMode: "dual",
+  canvasMode: "source",
+  documentMode: "source",
   paperView: "fulltext",
   tabRecency: ["sections/method.tex", "main.tex", "figures/model.png"],
 };
@@ -125,11 +125,13 @@ describe("workspace layout persistence", () => {
   });
 
   // The Markdown and paper previews merged into the unified preview, and the
-  // three-column layout became two editor panes.
+  // two-editor view and the three-column layout became the plain editor.
   it.each([
     [{ canvasMode: "markdown-preview" }, { canvasMode: "pdf" }],
     [{ canvasMode: "paper" }, { canvasMode: "pdf" }],
-    [{ canvasMode: "columns", documentMode: "columns" }, { canvasMode: "dual", documentMode: "dual" }],
+    [{ canvasMode: "columns", documentMode: "columns" }, { canvasMode: "source", documentMode: "source" }],
+    [{ canvasMode: "dual", documentMode: "dual" }, { canvasMode: "source", documentMode: "source" }],
+    [{ canvasMode: "split", documentMode: "dual" }, { canvasMode: "split", documentMode: "source" }],
   ])("migrates the retired layout %j", (retired, migrated) => {
     localStorage.setItem(WORKSPACE_LAYOUT_KEY, JSON.stringify({ "/papers/alpha": { ...layout, ...retired } }));
     expect(loadWorkspaceLayout("/papers/alpha")).toEqual({ ...layout, ...migrated });

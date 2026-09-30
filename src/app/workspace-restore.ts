@@ -27,17 +27,13 @@ export function collectAssetPaths(nodes: FileNode[]): Set<string> {
     || node.kind === "figure" || node.contentKind === "binary" || node.contentKind === "symlink"));
 }
 
-/**
- * The canvas mode a restored active tab opens in. Workspaces saved by the old
- * fixed layout may say "dual" (two editors side by side): documents now get a
- * panel each, so that becomes the plain editor.
- */
+/** The canvas mode a restored active tab opens in. */
 function restoredCanvasMode(
   activeTab: string,
   kind: "paper" | "asset" | "document",
   layout: WorkspaceLayout | null,
 ): CanvasMode {
-  const saved = layout?.canvasMode === "dual" ? "source" : layout?.canvasMode;
+  const saved = layout?.canvasMode;
   if (kind === "paper") return saved === "source" || saved === "split" ? saved : "pdf";
   if (kind === "asset") return "asset";
   if (isHtmlFilePath(activeTab)) {

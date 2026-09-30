@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useState, type RefObject } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { LogicalSize } from "@tauri-apps/api/dpi";
-import { getCurrentWindow } from "@tauri-apps/api/window";
+import { currentMonitor, getCurrentWindow } from "@tauri-apps/api/window";
 import { clearTimer, disposeWhenSettled, restartTimer, type TimerRef } from "./effect-helpers";
 import { APP_WINDOW_MIN_HEIGHT, minimumWindowWidth } from "./window-layout";
 
@@ -14,27 +14,56 @@ function getCurrentWindowSafely() {
   }
 }
 
-type AppWindow = NonNullable<ReturnType<typeof getCurrentWindowSafely>>;
-
-/** Run `callback` once native resize events have been quiet for `delayMs`. */
-function onResizeSettled(appWindow: AppWindow, delayMs: number, callback: () => void): () => void {
+/** Run `callback` once the native events `listen` subscribes to have been quiet for `delayMs`. */
+function onSettled(listen: (handler: () => void) => Promise<() => void>, delayMs: number, callback: () => void): () => void {
   const timer: TimerRef = { current: null };
-  const stop = disposeWhenSettled(appWindow.onResized(() => restartTimer(timer, delayMs, callback)));
+  const stop = disposeWhenSettled(listen(() => restartTimer(timer, delayMs, callback)));
   return () => {
     clearTimer(timer);
     stop();
   };
 }
 
-/** Keep the native minimum size in step with the interface zoom. */
-export function useWindowMinimumSize(interfaceScale: number) {
+/** A live value the window minimum follows without re-rendering its owner. */
+export type LiveValue<T> = { subscribe(listener: () => void): () => void; get(): T };
+
+/**
+ * Keep the native minimum size in step with the workspace layout's minimum
+ * (CSS px) and the interface zoom, within the visible width of the screen the
+ * window is on.
+ */
+export function useWindowMinimumSize(interfaceScale: number, layoutMinWidth: LiveValue<number>) {
   useLayoutEffect(() => {
     const appWindow = getCurrentWindowSafely();
     if (typeof appWindow?.setMinSize !== "function") return;
-    void appWindow.setMinSize(new LogicalSize(minimumWindowWidth(interfaceScale), APP_WINDOW_MIN_HEIGHT)).catch(() => {
-      // Browser previews and older desktop capabilities may not expose this.
-    });
-  }, [interfaceScale]);
+    let active = true;
+    let applied: number | null = null;
+    const apply = (force: boolean) => {
+      const layoutMin = layoutMinWidth.get();
+      if (!force && layoutMin === applied) return;
+      applied = layoutMin;
+      // Chained, so a runtime without the monitor API lands in the catch too.
+      void Promise.resolve().then(() => currentMonitor()).then((monitor) => {
+        if (!active) return;
+        const screenWidth = monitor ? monitor.workArea.size.width / monitor.scaleFactor : Infinity;
+        const width = minimumWindowWidth({ layoutMinWidth: layoutMin, interfaceScale, screenWidth });
+        return appWindow.setMinSize(new LogicalSize(width, APP_WINDOW_MIN_HEIGHT));
+      }).catch(() => {
+        // Browser previews and older desktop capabilities may not expose this.
+      });
+    };
+    apply(true);
+    const unsubscribe = layoutMinWidth.subscribe(() => apply(false));
+    // Moving to another screen changes how wide the minimum may be.
+    const stop = typeof appWindow.onMoved === "function"
+      ? onSettled((handler) => appWindow.onMoved(handler), 200, () => apply(true))
+      : () => {};
+    return () => {
+      active = false;
+      unsubscribe();
+      stop();
+    };
+  }, [interfaceScale, layoutMinWidth]);
 }
 
 export function useFullscreen(): boolean {
@@ -46,7 +75,7 @@ export function useFullscreen(): boolean {
     const refresh = () => void appWindow.isFullscreen().then((value) => active && setIsFullscreen(value));
     refresh();
     // A trailing check avoids an IPC round trip per native resize event.
-    const stop = onResizeSettled(appWindow, 80, refresh);
+    const stop = onSettled((handler) => appWindow.onResized(handler), 80, refresh);
     return () => {
       active = false;
       stop();
@@ -98,7 +127,7 @@ export function useTrafficLightAlignment(
     const initialTimer = window.setTimeout(align, 120);
     const appWindow = getCurrentWindowSafely();
     // Measure once AppKit's live-resize layout settles; every event would make the buttons jitter.
-    const stop = typeof appWindow?.onResized === "function" ? onResizeSettled(appWindow, 120, align) : undefined;
+    const stop = typeof appWindow?.onResized === "function" ? onSettled((handler) => appWindow.onResized(handler), 120, align) : undefined;
     return () => {
       active = false;
       window.cancelAnimationFrame(frame);

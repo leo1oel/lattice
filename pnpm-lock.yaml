@@ -19,7 +19,7 @@ overrides:
 
 patchedDependencies:
   '@danfessler/trellis@0.2.0':
-    hash: 0592fa85aff6f25a569cad872d69934a9b26362d7280d0fa37f9d3b145ac34f3
+    hash: 5a2f44ac56d89917d3051c348e1feaa8a313b501ea38b0ff2eadc85cd0e5303f
     path: patches/@danfessler__trellis@0.2.0.patch
   '@pierre/trees@1.0.0-beta.6':
     hash: 0b3b5c9657cb6ba9fa84c150d134e22e7a6164310d2ed95d3c46d96092002e40
@@ -73,10 +73,10 @@ importers:
         version: 6.43.8
       '@danfessler/trellis':
         specifier: 0.2.0
-        version: 0.2.0(patch_hash=0592fa85aff6f25a569cad872d69934a9b26362d7280d0fa37f9d3b145ac34f3)
+        version: 0.2.0(patch_hash=5a2f44ac56d89917d3051c348e1feaa8a313b501ea38b0ff2eadc85cd0e5303f)
       '@danfessler/trellis-react':
         specifier: 0.2.0
-        version: 0.2.0(@danfessler/trellis@0.2.0(patch_hash=0592fa85aff6f25a569cad872d69934a9b26362d7280d0fa37f9d3b145ac34f3))(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+        version: 0.2.0(@danfessler/trellis@0.2.0(patch_hash=5a2f44ac56d89917d3051c348e1feaa8a313b501ea38b0ff2eadc85cd0e5303f))(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
       '@floating-ui/dom':
         specifier: ^1.8.0
         version: 1.8.0
@@ -6352,13 +6352,13 @@ snapshots:
 
   '@csstools/css-tokenizer@4.0.0': {}
 
-  '@danfessler/trellis-react@0.2.0(@danfessler/trellis@0.2.0(patch_hash=0592fa85aff6f25a569cad872d69934a9b26362d7280d0fa37f9d3b145ac34f3))(react-dom@19.2.7(react@19.2.7))(react@19.2.7)':
+  '@danfessler/trellis-react@0.2.0(@danfessler/trellis@0.2.0(patch_hash=5a2f44ac56d89917d3051c348e1feaa8a313b501ea38b0ff2eadc85cd0e5303f))(react-dom@19.2.7(react@19.2.7))(react@19.2.7)':
     dependencies:
-      '@danfessler/trellis': 0.2.0(patch_hash=0592fa85aff6f25a569cad872d69934a9b26362d7280d0fa37f9d3b145ac34f3)
+      '@danfessler/trellis': 0.2.0(patch_hash=5a2f44ac56d89917d3051c348e1feaa8a313b501ea38b0ff2eadc85cd0e5303f)
       react: 19.2.7
       react-dom: 19.2.7(react@19.2.7)
 
-  '@danfessler/trellis@0.2.0(patch_hash=0592fa85aff6f25a569cad872d69934a9b26362d7280d0fa37f9d3b145ac34f3)': {}
+  '@danfessler/trellis@0.2.0(patch_hash=5a2f44ac56d89917d3051c348e1feaa8a313b501ea38b0ff2eadc85cd0e5303f)': {}
 
   '@dual-bundle/import-meta-resolve@4.2.1': {}
 

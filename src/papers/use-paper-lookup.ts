@@ -13,8 +13,12 @@ export type PaperLookupState = { projectRoot: string; papers: PaperSummary[]; th
 export const PAPER_LOOKUP_STATE = "paper-lookup-state";
 export const PAPER_LOOKUP_READY = "paper-lookup-ready";
 export const PAPER_LOOKUP_OPEN = "paper-lookup-open";
-/** Reading surfaces and tab chrome, where a dropped paper opens instead of being cited. */
-const READING_SURFACES = String.raw`.lattice-trellis, .titlebar-main`;
+/**
+ * Reading surfaces and tab chrome, where a dropped paper opens instead of
+ * being cited: document and PDF panels (their content and their tabs) and
+ * the titlebar. The Project, Papers, Agent and tool panels are not.
+ */
+const READING_SURFACES = String.raw`.lattice-trellis :is([data-trellis-part="surface"], [data-trellis-part="tab"]):is([data-type="file"], [data-type="pdf"]), .titlebar-main`;
 
 export function usePaperLookup(state: PaperLookupState, onOpen: (paper: PaperSummary) => void, onError: (error: unknown) => void) {
   const latest = useRef({ state, onOpen, onError });

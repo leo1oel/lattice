@@ -251,6 +251,24 @@ describe("Overleaf picker dialog", () => {
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("overleaf_clone_project", cloneArgs()));
   });
 
+  it("opens the focused row on Enter, not the selected one, and leaves other targets and IME input alone", async () => {
+    mockConnectedPicker({ overleaf_clone_project: "/tmp/cloned/Thesis Draft" });
+    renderPicker();
+    const first = await screen.findByRole("button", { name: /Attention Paper/ });
+    fireEvent.click(first);
+    const search = screen.getByRole("searchbox", { name: "Search Overleaf projects" });
+    fireEvent.keyDown(search, { key: "Enter", isComposing: true });
+    fireEvent.change(search, { target: { value: "a" } });
+    const clear = screen.getByRole("button", { name: "Clear search" });
+    fireEvent.keyDown(clear, { key: "Enter" });
+    expect(invoke).not.toHaveBeenCalledWith("overleaf_clone_project", expect.anything());
+    fireEvent.keyDown(screen.getByRole("button", { name: /Thesis Draft/ }), { key: "Enter" });
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith(
+      "overleaf_clone_project", cloneArgs({ projectId: "p2", name: "Thesis Draft", accessLevel: "readAndWrite" }),
+    ));
+    expect(invoke).not.toHaveBeenCalledWith("overleaf_clone_project", cloneArgs());
+  });
+
   it("uploads the current local project and keeps the dialog locked until it is linked", async () => {
     mockConnectedPicker();
     vi.mocked(confirm).mockResolvedValue(true);

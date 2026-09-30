@@ -858,7 +858,8 @@ function App() {
   useEffect(() => {
     configureInterfaceSounds(appearance.interfaceSounds);
   }, [appearance.interfaceSounds]);
-  useWindowMinimumSize(appearance.interfaceScale);
+  const layoutMinWidth = useMemo(() => ({ subscribe: trellis.ui.subscribe, get: () => trellis.ui.get().minWidth }), [trellis]);
+  useWindowMinimumSize(appearance.interfaceScale, layoutMinWidth);
   /**
    * Claim the right to switch projects, waiting out an Overleaf sync rather
    * than refusing.

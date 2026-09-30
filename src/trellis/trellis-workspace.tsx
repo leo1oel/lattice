@@ -588,11 +588,39 @@ export const TrellisWorkspace = memo(function TrellisWorkspace({ controller, pro
   useTabSync(controller, ws, quietCloses);
   useHibernation(controller);
 
+  // The window's minimum follows the layout's: its panels' minimums plus
+  // whatever sits beside the workspace. Measured only when the layout's own
+  // minimum changes, not on every layout frame.
+  useEffect(() => {
+    if (!ws) return;
+    let last = -1;
+    const update = () => {
+      const min = ws.getSnapshot().minWidth;
+      if (min === last) return;
+      last = min;
+      const width = ws.element.getBoundingClientRect().width;
+      const beside = width > 0 ? Math.max(0, window.innerWidth - width) : 0;
+      controller.ui.set({ minWidth: Math.ceil(min + beside) });
+    };
+    update();
+    const unsubscribe = ws.subscribe(update);
+    return () => {
+      unsubscribe();
+      controller.ui.set({ minWidth: 0 });
+    };
+  }, [controller, ws]);
+
   // Persist the layout per project, debounced.
   const saveTimer = useRef<number | null>(null);
+  const pendingSave = useRef<(() => void) | null>(null);
   const onDocumentChange = useCallback((document: LayoutDocument) => {
     if (saveTimer.current !== null) window.clearTimeout(saveTimer.current);
-    saveTimer.current = window.setTimeout(() => saveLayout(projectRoot, document), 400);
+    pendingSave.current = () => saveLayout(projectRoot, document);
+    saveTimer.current = window.setTimeout(() => {
+      saveTimer.current = null;
+      pendingSave.current?.();
+      pendingSave.current = null;
+    }, 400);
     const snapshot = controller.ws?.getSnapshot();
     if (snapshot) {
       const hidden = snapshot.hidden.map((entry) => ({ panelId: entry.panelId, title: entry.views.map((item) => item.title).join(", ") }));
@@ -605,8 +633,12 @@ export const TrellisWorkspace = memo(function TrellisWorkspace({ controller, pro
       controller.ui.set({ framed: snapshot.framed, hidden: same ? previous : hidden });
     }
   }, [controller, projectRoot]);
+  // Unmounting (a project switch, the window closing) writes the last change now.
   useEffect(() => () => {
     if (saveTimer.current !== null) window.clearTimeout(saveTimer.current);
+    saveTimer.current = null;
+    pendingSave.current?.();
+    pendingSave.current = null;
   }, []);
 
   // Focusing a document panel makes its document App's active one.

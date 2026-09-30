@@ -9,17 +9,26 @@ import {
 } from "./window-layout";
 
 describe("minimumWindowWidth", () => {
+  // A 1440 pt screen with the Dock and menu bar taking nothing off its width.
+  const screenWidth = 1440;
+
   it.each([
-    ["keeps the application baseline at the default zoom", 1, APP_WINDOW_MIN_WIDTH],
-    ["scales the native minimum with the webview zoom", 1.1, 1345],
-    ["never goes below the baseline when zoomed out", 0.9, APP_WINDOW_MIN_WIDTH],
-  ])("%s", (_name, interfaceScale, expected) => {
-    expect(minimumWindowWidth(interfaceScale)).toBe(expected);
+    ["is the layout's own minimum at interface zoom 1.0", 1100, 1, 1100],
+    ["grows with interface zoom 1.35, but never past the screen's visible width", 1100, 1.35, 1440],
+    ["grows with interface zoom 1.35 while it still fits the screen", 1000, 1.35, 1350],
+    ["keeps room for the titlebar controls when the layout needs less", 300, 1, APP_WINDOW_MIN_WIDTH],
+    ["scales that titlebar floor with the zoom too", 0, 1.35, Math.ceil(APP_WINDOW_MIN_WIDTH * 1.35)],
+  ])("%s", (_name, layoutMinWidth, interfaceScale, expected) => {
+    expect(minimumWindowWidth({ layoutMinWidth, interfaceScale, screenWidth })).toBe(expected);
+  });
+
+  it("is unclamped when the screen is unknown", () => {
+    expect(minimumWindowWidth({ layoutMinWidth: 1100, interfaceScale: 1.35, screenWidth: Infinity })).toBe(1485);
   });
 
   it("matches the native window configuration", () => {
     // tauri.conf.json and the multi-window builder in lib.rs carry the same
-    // number, so every window opens no narrower than the app lays out.
+    // titlebar floor, which every window keeps until its layout reports more.
     const config = JSON.parse(readFileSync("src-tauri/tauri.conf.json", "utf8"));
     expect(config.app.windows[0].minWidth).toBe(APP_WINDOW_MIN_WIDTH);
     expect(readFileSync("src-tauri/src/lib.rs", "utf8"))

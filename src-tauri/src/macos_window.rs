@@ -22,6 +22,9 @@ const DARK_WINDOW_BACKGROUND: (f64, f64, f64) = (23.0, 23.0, 24.0);
 const DEFAULT_TRAFFIC_LIGHT_CENTER_FROM_TOP: f64 = 20.0;
 static TRAFFIC_LIGHT_CENTER_FROM_TOP: Mutex<f64> =
     Mutex::new(DEFAULT_TRAFFIC_LIGHT_CENTER_FROM_TOP);
+/// Longer than AppKit's full-screen transition, after which a window that is
+/// still not in full screen failed to get there.
+const FULL_SCREEN_SETTLE: Duration = Duration::from_secs(2);
 
 /// Payload of the `trackpad-magnify` event the web UI listens for.
 #[derive(Clone, serde::Serialize)]
@@ -193,33 +196,58 @@ pub fn install_traffic_light_alignment(window: &tauri::WebviewWindow) {
 /// A toolbar stays on screen in full screen unless the window asks AppKit to
 /// auto-hide it, and tao owns the delegate that answers that. Full screen has
 /// no traffic lights beside the web titlebar to align anyway, so the window
-/// simply goes back to its plain overlay titlebar there. The toolbar is empty
+/// simply goes back to its plain overlay titlebar there, and gets the toolbar
+/// back when it leaves full screen or never makes it in. The toolbar is empty
 /// and the titlebar transparent: it draws nothing, and hit-testing still hands
 /// every click in the row to the web view.
-fn install_compact_toolbar(window: &tauri::WebviewWindow) {
+///
+/// On its own this puts the lights at the native compact position, which is
+/// all a window that never reports its titlebar center (the paper lookup,
+/// whose titlebar is never zoomed) needs.
+pub fn install_compact_toolbar(window: &tauri::WebviewWindow) {
     let Some(address) = ns_window_address(window) else {
         return;
     };
+    let handle = window.clone();
     let _ = window.run_on_main_thread(move || unsafe {
         use objc2::rc::Retained;
         use objc2_app_kit::{
-            NSWindowDidExitFullScreenNotification, NSWindowWillEnterFullScreenNotification,
+            NSWindowDidExitFullScreenNotification, NSWindowStyleMask,
+            NSWindowWillEnterFullScreenNotification,
         };
         use objc2_foundation::{NSNotification, NSNotificationCenter};
 
         attach_compact_toolbar(&*(address as *const NSWindow));
         let center = NSNotificationCenter::defaultCenter();
         let window = &*(address as *const NSWindow);
-        let on_enter = RcBlock::new(|notification: NonNull<NSNotification>| {
+        let on_enter = RcBlock::new(move |notification: NonNull<NSNotification>| {
             if let Some(object) = notification.as_ref().object() {
                 (*(Retained::as_ptr(&object) as *const NSWindow)).setToolbar(None);
             }
+            // A failed entry posts no notification (only tao's window delegate
+            // hears it) and leaves the window windowed without its toolbar.
+            // The full-screen style bit is set for the whole transition, so a
+            // window without it once the transition is over never got there.
+            // Attaching the toolbar re-lays the titlebar out, which realigns
+            // the lights of a window that has alignment observers.
+            let handle = handle.clone();
+            std::thread::spawn(move || {
+                std::thread::sleep(FULL_SCREEN_SETTLE);
+                let Some(address) = ns_window_address(&handle) else {
+                    return;
+                };
+                let _ = handle.run_on_main_thread(move || {
+                    let window = &*(address as *const NSWindow);
+                    if !window.styleMask().contains(NSWindowStyleMask::FullScreen) {
+                        attach_compact_toolbar(window);
+                    }
+                });
+            });
         });
+        // Registered before the alignment observers, which realign after it.
         let on_exit = RcBlock::new(|notification: NonNull<NSNotification>| {
             if let Some(object) = notification.as_ref().object() {
-                let window = &*(Retained::as_ptr(&object) as *const NSWindow);
-                attach_compact_toolbar(window);
-                let _ = align_traffic_lights_on_main(window);
+                attach_compact_toolbar(&*(Retained::as_ptr(&object) as *const NSWindow));
             }
         });
         for (name, block) in [

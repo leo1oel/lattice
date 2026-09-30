@@ -199,14 +199,17 @@ export type WorkspaceLayout = {
   tabRecency: string[];
 };
 
-const CANVAS_MODES: readonly CanvasMode[] = ["source", "pdf", "split", "dual", "asset"];
+const CANVAS_MODES: readonly CanvasMode[] = ["source", "pdf", "split", "asset"];
 const DOCUMENT_MODES = CANVAS_MODES.filter((mode): mode is DocumentViewMode => mode !== "asset");
 // Retired modes and what replaced them: the Markdown and paper previews merged
-// into the unified preview, and the three-column layout became two editor panes.
-const RETIRED_CANVAS_MODES = new Map<unknown, CanvasMode>([
+// into the unified preview, and the two-editor view (and the three-column
+// layout before it) became the plain editor, since each document has its own
+// panel now.
+const RETIRED_CANVAS_MODES = new Map<unknown, DocumentViewMode>([
   ["markdown-preview", "pdf"],
   ["paper", "pdf"],
-  ["columns", "dual"],
+  ["columns", "source"],
+  ["dual", "source"],
 ]);
 
 function stringList(value: unknown): string[] {
@@ -221,9 +224,8 @@ function normalizeWorkspaceLayout(value: unknown): WorkspaceLayout | null {
   const openTabs = stringList(candidate.openTabs);
   const canvasMode = RETIRED_CANVAS_MODES.get(candidate.canvasMode)
     ?? oneOf(candidate.canvasMode, CANVAS_MODES, "split");
-  const documentMode = candidate.documentMode === "columns"
-    ? "dual"
-    : oneOf(candidate.documentMode, DOCUMENT_MODES, canvasMode === "asset" ? "split" : canvasMode);
+  const documentMode = RETIRED_CANVAS_MODES.get(candidate.documentMode)
+    ?? oneOf(candidate.documentMode, DOCUMENT_MODES, canvasMode === "asset" ? "split" : canvasMode);
   return {
     openTabs,
     pinnedTabs: stringList(candidate.pinnedTabs).filter((path) => openTabs.includes(path)),

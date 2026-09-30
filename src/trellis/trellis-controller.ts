@@ -114,6 +114,8 @@ export type TrellisUiState = {
   editorVisible: boolean;
   hidden: Array<{ panelId: string; title: string }>;
   framed: string | null;
+  /** The narrowest window content, in CSS px, at which the docked layout still fits at full size (0 without a workspace). */
+  minWidth: number;
 };
 
 type Listener = () => void;
@@ -170,7 +172,7 @@ export class TrellisController {
   });
   readonly ui = new SmallStore<TrellisUiState>({
     ready: false, present: {}, visible: {}, pdfLive: false, editorHibernated: false, editorVisible: false,
-    hidden: [], framed: null,
+    hidden: [], framed: null, minWidth: 0,
   });
   /** Tool drawers App currently has open, with the callback that closes each. */
   readonly openDrawers = new SmallStore<Partial<Record<TrellisToolKind, () => void>>>({});
