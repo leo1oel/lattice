@@ -64,7 +64,7 @@ describe("document panel header tools", () => {
       unmount();
       return result;
     });
-    const expected = { build: ["build"], views: ["switch:3"], paper: ["switch:2"] }[document.tools ?? ""] ?? [];
+    const expected = document.tools ? { build: ["build"], views: ["switch:3"], paper: ["switch:2"] }[document.tools] : [];
     for (const result of footprints) expect(result).toEqual(expected);
   });
 
