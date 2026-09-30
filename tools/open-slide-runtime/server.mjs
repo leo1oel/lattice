@@ -111,13 +111,36 @@ const LATTICE_EDITOR_STYLES = `
 }
 `;
 
+/** The file a Vite module id names, without its query and with forward slashes. */
+function moduleFilePath(id) {
+  return id.split("?", 1)[0].replaceAll("\\", "/");
+}
+
+/**
+ * Every patch below edits upstream source it expects verbatim. When an
+ * @open-slide/core upgrade moves any of it, fail loudly instead of shipping a
+ * half-patched editor.
+ */
+function requireContract(source, fragments, contract) {
+  if (!fragments.every((fragment) => source.includes(fragment))) {
+    throw new Error(`Open Slide's ${contract} contract changed`);
+  }
+}
+
+function replaceRequired(source, before, after, contract) {
+  requireContract(source, [before], contract);
+  return source.replace(before, after);
+}
+
+function sendJson(res, status, body, headers = {}) {
+  res.writeHead(status, { ...headers, "content-type": "application/json" }).end(JSON.stringify(body));
+}
+
 export function transformOpenSlideEditorStyles(source, id) {
-  const modulePath = id.split("?", 1)[0].replaceAll("\\", "/");
+  const modulePath = moduleFilePath(id);
   if (!modulePath.endsWith("/@open-slide/core/src/app/styles.css")) return null;
   const fontImport = '@import "@fontsource-variable/geist";';
-  if (!source.includes(fontImport) || !source.includes('"Geist Variable"')) {
-    throw new Error("Open Slide's editor font contract changed");
-  }
+  requireContract(source, [fontImport, '"Geist Variable"'], "editor font");
   const withLatticeFont = source
     .replace(fontImport, '@import "@fontsource-variable/inter";')
     .replaceAll('"Geist Variable"', '"Inter Variable"');
@@ -128,13 +151,11 @@ export function transformOpenSlideEditorStyles(source, id) {
 }
 
 export function transformOpenSlideThumbnailRail(source, id) {
-  const modulePath = id.split("?", 1)[0].replaceAll("\\", "/");
+  const modulePath = moduleFilePath(id);
   if (!modulePath.endsWith("/@open-slide/core/src/app/components/thumbnail-rail.tsx")) return null;
   const roomyGap = "group/thumb flex w-full items-start gap-2.5 rounded-[6px]";
   const trailingNumber = "mt-1.5 flex w-7 shrink-0 flex-col items-end gap-1";
-  if (!source.includes(roomyGap) || !source.includes(trailingNumber)) {
-    throw new Error("Open Slide's thumbnail rail layout contract changed");
-  }
+  requireContract(source, [roomyGap, trailingNumber], "thumbnail rail layout");
   // Center the preview itself inside the hover surface and place the folio in
   // the resulting left gutter. Keeping both items in normal flex flow makes
   // the much wider preview look right-heavy even when their bounds are centered.
@@ -150,16 +171,14 @@ export function transformOpenSlideThumbnailRail(source, id) {
 }
 
 export function transformOpenSlideComments(source, id) {
-  const modulePath = id.split("?", 1)[0].replaceAll("\\", "/");
+  const modulePath = moduleFilePath(id);
   if (modulePath.endsWith("/@open-slide/core/src/app/lib/inspector/use-comments.ts")) {
     const silentRemove = `      const res = await fetch(\`/__comments/\${id}?slideId=\${encodeURIComponent(slideId)}\`, {
         method: 'DELETE',
       });
       if (!res.ok) throw new Error(\`DELETE /__comments/\${id} → \${res.status}\`);
       await refetch();`;
-    if (!source.includes(silentRemove)) {
-      throw new Error("Open Slide's comment removal contract changed");
-    }
+    requireContract(source, [silentRemove], "comment removal");
     // Upstream lets delete failures escape from an unawaited click handler, so
     // read-only and network errors look like a dead button. Keep the comment and
     // surface the server's explanation in the existing comment-panel error row.
@@ -185,9 +204,7 @@ export function transformOpenSlideComments(source, id) {
                 </code>
                 {t.inspector.commentsApplyHintSuffix}
               </div>`;
-    if (!source.includes(manualApplyHint)) {
-      throw new Error("Open Slide's comment apply hint contract changed");
-    }
+    requireContract(source, [manualApplyHint], "comment apply hint");
     return source.replace(manualApplyHint, `              <div className="border-t px-3 py-2 text-[11px] text-muted-foreground">
                 {t.inspector.commentsApplyHintPrefix}
                 {t.inspector.commentsApplyHintSuffix}
@@ -198,20 +215,18 @@ export function transformOpenSlideComments(source, id) {
 }
 
 export function transformOpenSlideInspectorPanel(source, id) {
-  const modulePath = id.split("?", 1)[0].replaceAll("\\", "/");
+  const modulePath = moduleFilePath(id);
   if (!modulePath.endsWith("/@open-slide/core/src/app/components/inspector/inspector-panel.tsx")) return null;
   const agentImport = "import { useAgentSocketConnected } from '@/lib/use-agent-socket';\n";
   const badgeCall = "            <AgentWatchingBadge />\n";
   const badgeStart = "function AgentWatchingBadge() {";
   const badgeEnd = "// The cue animation re-mounts with every element selection;";
-  if (
-    !source.includes(agentImport)
-    || !source.includes(badgeCall)
-    || !source.includes(badgeStart)
-    || !source.includes(badgeEnd)
-  ) {
-    throw new Error("Open Slide's inspector agent badge contract changed");
-  }
+  requireContract(source, [
+    agentImport,
+    badgeCall,
+    badgeStart,
+    badgeEnd,
+  ], "inspector agent badge");
   // Lattice shows included context beside the agent composer. A second badge
   // inside the inspector claims the agent is actively watching and duplicates
   // connection state without giving the user another action.
@@ -225,14 +240,12 @@ export function transformOpenSlideInspectorPanel(source, id) {
 }
 
 export function transformOpenSlideSaveFeedback(source, id) {
-  const modulePath = id.split("?", 1)[0].replaceAll("\\", "/");
+  const modulePath = moduleFilePath(id);
   if (modulePath.endsWith("/@open-slide/core/src/app/components/inspector/save-bar.tsx")) {
     const swallowedFailure = `    // Each provider surfaces its own errors via toast; swallow here so
     // one failure doesn't reject the combined save.
     await Promise.all(tasks).catch(() => {});`;
-    if (!source.includes(swallowedFailure)) {
-      throw new Error("Open Slide's combined save contract changed");
-    }
+    requireContract(source, [swallowedFailure], "combined save");
     return source.replace(swallowedFailure, `    // Each provider owns its detailed error toast, but the rejection must
     // reach SaveCard so a failed write is never announced as saved.
     await Promise.all(tasks);`);
@@ -245,9 +258,7 @@ export function transformOpenSlideSaveFeedback(source, id) {
     const cardRoot = `    <div
       {...dataAttrs}
       className={cn(`;
-    if (!source.includes(optimisticSave) || !source.includes(cardRoot)) {
-      throw new Error("Open Slide's save card contract changed");
-    }
+    requireContract(source, [optimisticSave, cardRoot], "save card");
     return source
       .replace(optimisticSave, `  const handleSave = async () => {
     try {
@@ -265,9 +276,7 @@ export function transformOpenSlideSaveFeedback(source, id) {
   }
   if (modulePath.endsWith("/@open-slide/core/src/app/components/inspector/inspector-provider.tsx")) {
     const reportedPartialFailure = "      if (failures.length > 0) toast.error(`${t.inspector.saveFailed} ${failures.join('; ')}`);";
-    if (!source.includes(reportedPartialFailure)) {
-      throw new Error("Open Slide's inspector partial-save contract changed");
-    }
+    requireContract(source, [reportedPartialFailure], "inspector partial-save");
     // A batch can return HTTP 200 while individual edits fail. Reject that
     // outcome too, so the save card keeps the remaining edits marked dirty.
     return source.replace(
@@ -277,9 +286,7 @@ export function transformOpenSlideSaveFeedback(source, id) {
   }
   if (modulePath.endsWith("/@open-slide/core/src/app/components/style-panel/design-provider.tsx")) {
     const reportedDesignFailure = "    if (!r.ok) toast.error(r.error ?? 'Failed to save');";
-    if (!source.includes(reportedDesignFailure)) {
-      throw new Error("Open Slide's design save contract changed");
-    }
+    requireContract(source, [reportedDesignFailure], "design save");
     return source.replace(reportedDesignFailure, `    if (!r.ok) {
       const message = r.error ?? 'Failed to save';
       toast.error(message);
@@ -290,7 +297,7 @@ export function transformOpenSlideSaveFeedback(source, id) {
 }
 
 export function transformOpenSlideSelection(source, id) {
-  const modulePath = id.split("?", 1)[0].replaceAll("\\", "/");
+  const modulePath = moduleFilePath(id);
   if (!modulePath.endsWith("/@open-slide/core/src/app/components/inspector/inspector-provider.tsx")) return null;
   const reattach = `        const anchor = target.anchor.isConnected
           ? target.anchor
@@ -299,9 +306,7 @@ export function transformOpenSlideSelection(source, id) {
         if (!anchor) return target;`;
   const selectionEnd = `      });
       if (changed) setSelection(next);`;
-  if (!source.includes(reattach) || !source.includes(selectionEnd)) {
-    throw new Error("Open Slide's selection recovery contract changed");
-  }
+  requireContract(source, [reattach, selectionEnd], "selection recovery");
   // A comment causes HMR to replace DOM instances. Shared components have the
   // same source location, and canvas paths can point at a sibling after a
   // reorder. Recover only an unchanged, unique instance; preserve connected
@@ -324,7 +329,7 @@ export function transformOpenSlideSelection(source, id) {
 }
 
 export function transformOpenSlideToolbar(source, id) {
-  const modulePath = id.split("?", 1)[0].replaceAll("\\", "/");
+  const modulePath = moduleFilePath(id);
   if (!modulePath.endsWith("/@open-slide/core/src/app/routes/slide.tsx")) return null;
   const viewportCentered = "pointer-events-none relative flex min-w-0 justify-center px-2 md:absolute md:inset-x-0";
   const presentGroup = '<div className="inline-flex items-stretch">';
@@ -347,16 +352,14 @@ export function transformOpenSlideToolbar(source, id) {
   }, [selected]);
   return null;
 }`;
-  if (
-    !source.includes(viewportCentered)
-    || !source.includes(presentGroup)
-    || !source.includes(badgeCall)
-    || !source.includes(badgeStart)
-    || !source.includes(badgeEnd)
-    || !source.includes(selectionReporter)
-  ) {
-    throw new Error("Open Slide's toolbar layout contract changed");
-  }
+  requireContract(source, [
+    viewportCentered,
+    presentGroup,
+    badgeCall,
+    badgeStart,
+    badgeEnd,
+    selectionReporter,
+  ], "toolbar layout");
   // Open Slide's absolute md+ title can overlap both toolbar groups when a
   // deck is hosted in a narrow Lattice pane. Keep its mobile behavior, then
   // let the title consume and truncate within the real remaining space.
@@ -423,7 +426,7 @@ export function transformOpenSlideToolbar(source, id) {
 }
 
 export function transformOpenSlideConnectionCopy(source, id) {
-  const modulePath = id.split("?", 1)[0].replaceAll("\\", "/");
+  const modulePath = moduleFilePath(id);
   const replacements = modulePath.endsWith("/@open-slide/core/src/locale/en.ts")
     ? [
         ["agentDisconnected: 'Agent disconnected'", "agentDisconnected: 'Live context disconnected'"],
@@ -492,22 +495,16 @@ export function transformOpenSlideConnectionCopy(source, id) {
   if (!replacements) return null;
   let transformed = source;
   for (const [before, after] of replacements) {
-    if (!transformed.includes(before)) {
-      throw new Error("Open Slide's locale copy contract changed");
-    }
-    transformed = transformed.replace(before, after);
+    transformed = replaceRequired(transformed, before, after, "locale copy");
   }
   return transformed;
 }
 
 export function transformOpenSlideAssets(source, id) {
-  const modulePath = id.split("?", 1)[0].replaceAll("\\", "/");
+  const modulePath = moduleFilePath(id);
   let transformed = source;
   const replace = (before, after) => {
-    if (!transformed.includes(before)) {
-      throw new Error("Open Slide's project asset contract changed");
-    }
-    transformed = transformed.replace(before, after);
+    transformed = replaceRequired(transformed, before, after, "project asset");
   };
 
   if (modulePath.endsWith("/@open-slide/core/src/app/lib/assets.ts")) {
@@ -685,13 +682,10 @@ export async function listAssets(slideId: string): Promise<AssetEntry[]> {
 }
 
 export function transformOpenSlideHomeChrome(source, id) {
-  const modulePath = id.split("?", 1)[0].replaceAll("\\", "/");
+  const modulePath = moduleFilePath(id);
   let transformed = source;
   const remove = (fragment) => {
-    if (!transformed.includes(fragment)) {
-      throw new Error("Open Slide's home chrome contract changed");
-    }
-    transformed = transformed.replace(fragment, "");
+    transformed = replaceRequired(transformed, fragment, "", "home chrome");
   };
   const removeRange = (start, end) => {
     const startIndex = transformed.indexOf(start);
@@ -704,9 +698,7 @@ export function transformOpenSlideHomeChrome(source, id) {
 
   if (modulePath.endsWith("/@open-slide/core/src/app/routes/home.tsx")) {
     const spaciousGrid = "grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-x-6 gap-y-9 md:grid-cols-[repeat(auto-fill,minmax(300px,1fr))]";
-    if (!transformed.includes(spaciousGrid)) {
-      throw new Error("Open Slide's home content contract changed");
-    }
+    requireContract(transformed, [spaciousGrid], "home content");
     // V2 already uses compact section titles; only the card density needs an override.
     return transformed
       .replace(
@@ -752,14 +744,12 @@ export function transformOpenSlideHomeChrome(source, id) {
     const homeShellStart = "export function HomeShell() {";
     const sidebarStart = "      <div className=\"hidden md:block\">\n        <Sidebar\n";
     const sidebarEnd = "        />\n      </div>\n\n      <div className=\"relative flex min-w-0 flex-1 flex-col md:py-2 md:pr-2\">";
-    if (
-      !transformed.includes(reactImport)
-      || !transformed.includes(homeShellStart)
-      || !transformed.includes(sidebarStart)
-      || !transformed.includes(sidebarEnd)
-    ) {
-      throw new Error("Open Slide's home layout contract changed");
-    }
+    requireContract(transformed, [
+      reactImport,
+      homeShellStart,
+      sidebarStart,
+      sidebarEnd,
+    ], "home layout");
     const resizableSidebar = `const HOME_SIDEBAR_WIDTH_STORAGE_KEY = 'open-slide:home-sidebar-width';
 const DEFAULT_HOME_SIDEBAR_WIDTH = 264;
 const MIN_HOME_SIDEBAR_WIDTH = 200;
@@ -900,9 +890,7 @@ function ResizableHomeSidebar({ children }: { children: ReactNode }) {
     remove("      <SidebarFooter />\n");
     const fixedWidth = "relative flex h-full w-[16.5rem] shrink-0 flex-col";
     const navigationStart = "      <div className=\"space-y-0.5 px-2\">\n";
-    if (!transformed.includes(fixedWidth) || !transformed.includes(navigationStart)) {
-      throw new Error("Open Slide's home layout contract changed");
-    }
+    requireContract(transformed, [fixedWidth, navigationStart], "home layout");
     return transformed
       .replace(fixedWidth, "relative flex h-full w-full shrink-0 flex-col")
       .replace(navigationStart, "      <div className=\"space-y-0.5 px-2 pt-3\">\n");
@@ -957,9 +945,7 @@ function ResizableHomeSidebar({ children }: { children: ReactNode }) {
 `);
     remove("      { id: 'appearance', heading: t.commandMenu.groupAppearance, items: appearance },\n");
     const dependencies = "  }, [t, theme, setTheme, canRestart, restarting, restartServer]);\n";
-    if (!transformed.includes(dependencies)) {
-      throw new Error("Open Slide's home chrome contract changed");
-    }
+    requireContract(transformed, [dependencies], "home chrome");
     return transformed.replace(
       dependencies,
       "  }, [t, canRestart, restarting, restartServer]);\n",
@@ -1835,14 +1821,14 @@ export async function start({ root = process.env.OPEN_SLIDE_SHADOW_ROOT, control
       ))
       && !access.writable()
     ) {
-      res.writeHead(403, { "content-type": "application/json" }).end(JSON.stringify({ error: "This Lattice project is read-only." }));
+      sendJson(res, 403, { error: "This Lattice project is read-only." });
       return;
     }
     const commentDelete = /^\/__comments\/(c-[a-f0-9]+)$/.exec(url.pathname);
     if (commentDelete && req.method === "DELETE") {
       const slideId = url.searchParams.get("slideId") || "";
       if (!PRESENTATION_ID_RE.test(slideId)) {
-        res.writeHead(400, { "content-type": "application/json" }).end(JSON.stringify({ error: "invalid slideId" }));
+        sendJson(res, 400, { error: "invalid slideId" });
         return;
       }
       const file = path.join(root, "slides", slideId, "index.tsx");
@@ -1853,26 +1839,20 @@ export async function start({ root = process.env.OPEN_SLIDE_SHADOW_ROOT, control
         // Deletion is idempotent. A stale HMR response can briefly retain a
         // comment after its marker is gone; treating that retry as success lets
         // the panel refetch the source instead of getting stuck on 404.
-        res.writeHead(200, {
-          "cache-control": "no-store",
-          "content-type": "application/json",
-        }).end(JSON.stringify({ ok: true }));
+        sendJson(res, 200, { ok: true }, { "cache-control": "no-store" });
       } catch (error) {
         const status = error.code === "ENOENT" ? 404 : 500;
-        res.writeHead(status, { "content-type": "application/json" }).end(JSON.stringify({ error: error.message }));
+        sendJson(res, status, { error: error.message });
       }
       return;
     }
     if (url.pathname === "/__lattice/assets-used" && req.method === "GET") {
       try {
         const names = await listUsedGlobalAssetNames(root, url.searchParams.get("slideId") || "");
-        res.writeHead(200, {
-          "cache-control": "no-store",
-          "content-type": "application/json",
-        }).end(JSON.stringify({ names }));
+        sendJson(res, 200, { names }, { "cache-control": "no-store" });
       } catch (error) {
         const status = error.code === "ENOENT" ? 404 : 400;
-        res.writeHead(status, { "content-type": "application/json" }).end(JSON.stringify({ error: error.message }));
+        sendJson(res, status, { error: error.message });
       }
       return;
     }
@@ -1887,9 +1867,9 @@ export async function start({ root = process.env.OPEN_SLIDE_SHADOW_ROOT, control
         }
         const body = JSON.parse(Buffer.concat(chunks));
         const result = await renameGlobalAsset(root, body.from, body.to, queue);
-        res.writeHead(result.status, { "content-type": "application/json" }).end(JSON.stringify(result));
+        sendJson(res, result.status, result);
       } catch (error) {
-        res.writeHead(400, { "content-type": "application/json" }).end(JSON.stringify({ error: error.message }));
+        sendJson(res, 400, { error: error.message });
       }
       return;
     }
