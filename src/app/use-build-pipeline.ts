@@ -65,7 +65,7 @@ async function cleanAuxiliaryFiles(question: string, setCleaning: (cleaning: boo
  */
 export function useBuildPipeline({
   project, projectRef, setProject, projectGenerationRef,
-  activeFileRef, sourceRef, savedSourceRef, secondarySourceRef,
+  activeFileRef, sourceRef, savedSourceRef,
   agent, openDiagnosticRef, onMissingTex,
 }: {
   project: ProjectSnapshot | null;
@@ -75,7 +75,6 @@ export function useBuildPipeline({
   activeFileRef: Ref<string>;
   sourceRef: Ref<string>;
   savedSourceRef: Ref<string>;
-  secondarySourceRef: Ref<string>;
   agent: {
     takePendingCompiles: () => AgentCompileAssociation[];
     reportCompiles: (associations: AgentCompileAssociation[], result: BuildResult | null) => void;
@@ -88,8 +87,8 @@ export function useBuildPipeline({
   const [building, , buildingRef, setBuilding] = useRefState(false);
   const queueRef = useRef<QueuedBuild>({ ...IDLE_QUEUE });
   const [cleaning, setCleaning] = useState(false);
-  /** The buffers each build compiled, so diagnostics only show against the text they describe. */
-  const [compiledSources, setCompiledSources] = useState({ primary: "", secondary: "" });
+  /** The buffer each build compiled, so diagnostics only show against the text they describe. */
+  const [compiledSource, setCompiledSource] = useState("");
   const [diagnosticsExpanded, setDiagnosticsExpanded] = useState(false);
   const [diagnosticsDismissed, setDiagnosticsDismissed] = useState(false);
   /** Fingerprint of the diagnostics the reader last dismissed, so an unchanged
@@ -245,8 +244,7 @@ export function useBuildPipeline({
         const projectRoot = projectRef.current?.root;
         if (!projectRoot) continue;
         buildScope = { operationGeneration: projectGenerationRef.current, previewGeneration, projectRoot };
-        const compiledSource = sourceRef.current;
-        const compiledSecondarySource = secondarySourceRef.current;
+        const sourceAtBuild = sourceRef.current;
         // The open file rides along so the backend can re-target the build on
         // it when it is a compilable root — recomputed each pass because a
         // queued rebuild may run after the editor moved to another document.
@@ -277,7 +275,7 @@ export function useBuildPipeline({
         if (rootDocument) {
           setProject((current) => current?.root === projectRoot ? adoptRootDocument(current, rootDocument) : current);
         }
-        setCompiledSources({ primary: compiledSource, secondary: compiledSecondarySource });
+        setCompiledSource(sourceAtBuild);
         // Reopening the panel is for news. Autosave rebuilds after every pause
         // in typing, and reopening unconditionally meant a warning the writer
         // had chosen to live with returned seconds after they dismissed it, for
@@ -346,7 +344,7 @@ export function useBuildPipeline({
     }
   }, [
     activeFileRef, buildingRef, onMissingTex, openDiagnosticRef, projectGenerationRef, projectRef, reportCompiles,
-    savedSourceRef, secondarySourceRef, setBuilding, setProject, showPreview, sourceRef, t, takePendingCompiles,
+    savedSourceRef, setBuilding, setProject, showPreview, sourceRef, t, takePendingCompiles,
   ]);
 
   const abortBuild = useCallback(async () => {
@@ -391,7 +389,7 @@ export function useBuildPipeline({
     setBuild,
     building,
     cleaning,
-    compiledSources,
+    compiledSource,
     diagnosticsExpanded,
     setDiagnosticsExpanded,
     diagnosticsDismissed,
@@ -406,7 +404,7 @@ export function useBuildPipeline({
     cleanProject,
     cleanAndRebuild,
   }), [
-    abortBuild, build, building, cleanAndRebuild, cleanProject, cleaning, compiledSources, cycleDiagnostic,
+    abortBuild, build, building, cleanAndRebuild, cleanProject, cleaning, compiledSource, cycleDiagnostic,
     diagnosticsDismissed, diagnosticsExpanded, dismissDiagnostics, pdfUrl, resetForProject, resetQueue, runBuild,
   ]);
 }

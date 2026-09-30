@@ -150,11 +150,7 @@ export type FigureDropRequest = {
   paths: string[];
   clientX: number;
   clientY: number;
-  pane?: EditorPaneId;
 };
-
-/** Where a document opens beside the one on screen (the editor keeps two panes internally). */
-export type EditorDropZone = "left" | "center" | "right";
 
 /** A line in a project file: a SyncTeX jump target, or a back/forward history entry. */
 export type SyncTexTarget = { path: string; line: number };
@@ -216,9 +212,8 @@ export type RenameSymbolResult = {
   transactionId: string;
 };
 
-export type DocumentViewMode = "source" | "split" | "pdf" | "dual";
+export type DocumentViewMode = "source" | "split" | "pdf";
 export type CanvasMode = DocumentViewMode | "asset";
-export type EditorPaneId = "primary" | "secondary";
 export type SettingsTab = "appearance" | "editor" | "agent" | "mcp" | "overleaf" | "literature" | "api" | "doctor" | "logs";
 type CiteCommand = "cite" | "citep" | "citet";
 export type InsertSymbolCommand = CiteCommand | "ref" | "eqref";
@@ -231,7 +226,6 @@ export type EditorKeymap = "default" | "vim" | "emacs";
 export type OpenProjectFile = (
   path: string,
   line?: number,
-  targetPane?: EditorPaneId,
   options?: { revealSource?: boolean },
 ) => Promise<void>;
 export type RefreshProject = (scope?: { expectedRoot: string; generation: number }) => Promise<ProjectSnapshot>;

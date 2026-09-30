@@ -1,4 +1,4 @@
-import type { CanvasMode, EditorPaneId, FileNode, PaperSummary, ProjectSnapshot } from "../app-types";
+import type { CanvasMode, FileNode, PaperSummary, ProjectSnapshot } from "../app-types";
 import {
   isHtmlFilePath,
   isPaperTabKey,
@@ -44,7 +44,7 @@ function restoredCanvasMode(
 }
 
 /**
- * Where to put a project's workspace back: which files load into the panes,
+ * Where to put a project's workspace back: which file loads into the editor,
  * which tabs reopen, the active tab and the canvas mode.
  * `layout` is the saved per-project workspace; `lastFile` is the single file
  * older releases remembered, kept as the migration fallback.
@@ -72,8 +72,6 @@ export function planWorkspaceRestore(
     ?? rootDocuments[0];
   const primaryFile: string | undefined = [layout?.activeFile, lastFile, rootDocument?.path]
     .find((path): path is string => Boolean(path) && sourcePaths.has(path!)) ?? [...sourcePaths][0];
-  // Each document has its own panel now: nothing loads into a second pane.
-  const secondaryFile: string | null = null;
 
   const tabs = layout ? layout.openTabs.filter(validTab) : primaryFile ? [primaryFile] : [];
   const activeTab = layout?.activeTab && validTab(layout.activeTab) ? layout.activeTab : primaryFile ?? tabs[0] ?? "";
@@ -82,17 +80,14 @@ export function planWorkspaceRestore(
   const mode = restoredCanvasMode(activeTab, activeKind, layout);
   // The saved recency order first, then any open tab it does not know yet.
   const tabRecency = [...new Set([...(layout?.tabRecency ?? []).filter((path) => tabs.includes(path)), ...tabs])];
-  const focusedPane: EditorPaneId = "primary";
   return {
     primaryFile,
-    secondaryFile,
     tabs,
     tabRecency,
     activeTab,
     /** A Paper or asset tab must be opened through its own reader once the project is in. */
     activeKind,
     mode,
-    focusedPane,
     documentMode: layout?.documentMode ?? "split",
     paperView: layout?.paperView ?? "blog",
   };

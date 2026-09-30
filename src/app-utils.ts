@@ -10,7 +10,6 @@ import type {
   PaperSummary,
   FileNode,
   ProjectSnapshot,
-  EditorPaneId,
 } from "./app-types";
 import { i18n } from "./i18n";
 
@@ -324,18 +323,10 @@ function closestAt(point: { x: number; y: number }, selector: string): HTMLEleme
   return document.elementFromPoint(point.x, point.y)?.closest<HTMLElement>(selector) ?? null;
 }
 
-export function editorPaneAt(position: { x: number; y: number }): EditorPaneId | null {
-  const editor = closestAt(position, ".source-editor[data-editor-pane], .dual-empty[data-editor-pane]");
-  if (!editor) return null;
-  return editor.dataset.editorPane === "secondary" ? "secondary" : "primary";
-}
-
-export function dropEditorAt(
-  position: { x: number; y: number },
-): { x: number; y: number; pane: EditorPaneId } | null {
+/** The CSS-pixel drop point when it lands on the source editor. */
+export function dropEditorAt(position: { x: number; y: number }): { x: number; y: number } | null {
   const point = toCssPoint(position);
-  const pane = editorPaneAt(point);
-  return pane ? { ...point, pane } : null;
+  return closestAt(point, ".source-editor[data-editor-pane]") ? point : null;
 }
 
 export function dropCanvasAt(position: { x: number; y: number }): boolean {

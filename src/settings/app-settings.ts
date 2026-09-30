@@ -191,8 +191,6 @@ export type WorkspaceLayout = {
   pinnedTabs?: string[];
   activeFile: string;
   activeTab: string;
-  secondaryFile: string | null;
-  focusedPane: "primary" | "secondary";
   canvasMode: CanvasMode;
   documentMode: DocumentViewMode;
   paperView: "blog" | "fulltext";
@@ -231,10 +229,6 @@ function normalizeWorkspaceLayout(value: unknown): WorkspaceLayout | null {
     pinnedTabs: stringList(candidate.pinnedTabs).filter((path) => openTabs.includes(path)),
     activeFile,
     activeTab: typeof candidate.activeTab === "string" && candidate.activeTab ? candidate.activeTab : activeFile,
-    secondaryFile: typeof candidate.secondaryFile === "string" && candidate.secondaryFile
-      ? candidate.secondaryFile
-      : null,
-    focusedPane: oneOf(candidate.focusedPane, ["secondary"], "primary"),
     canvasMode,
     documentMode,
     paperView: oneOf(candidate.paperView, ["fulltext"], "blog"),

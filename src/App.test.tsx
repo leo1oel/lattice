@@ -685,7 +685,7 @@ async function dropFinderPaths(paths: string[]) {
 /** Persists the layout a test restores; omitted fields take a single-pane default. */
 function persistLayout(root: string, layout: Pick<WorkspaceLayout, "openTabs" | "activeFile" | "canvasMode"> & Partial<WorkspaceLayout>) {
   persistWorkspaceLayout(root, {
-    activeTab: layout.activeFile, secondaryFile: null, focusedPane: "primary",
+    activeTab: layout.activeFile,
     documentMode: layout.canvasMode as WorkspaceLayout["documentMode"], paperView: "blog", tabRecency: layout.openTabs, ...layout,
   });
 }
@@ -1317,7 +1317,8 @@ describe("project workspace", () => {
     persistLayout(snapshot.root, {
       openTabs: ["intro.tex", "main.tex", "method.tex"], activeFile: "main.tex", activeTab: "method.tex",
       // The retired three-column mode, as an older build saved it.
-      secondaryFile: "method.tex", focusedPane: "secondary", canvasMode: "columns" as WorkspaceLayout["canvasMode"],
+      canvasMode: "columns" as WorkspaceLayout["canvasMode"],
+      ...{ secondaryFile: "method.tex", focusedPane: "secondary" } as unknown as Partial<WorkspaceLayout>,
       tabRecency: ["method.tex", "main.tex", "intro.tex"],
     });
     renderApp({ ...projectCommands(snapshot), read_project_file: readPathContent });
@@ -1437,7 +1438,7 @@ describe("project workspace", () => {
     const snapshot = projectSnapshot({
       files: [fileNode("main.tex"), dirNode("notes", fileNodes("notes/index.md", "notes/native-unified-view.md"))],
     });
-    persistLayout(snapshot.root, { openTabs: ["notes/index.md"], activeFile: "notes/index.md", secondaryFile: "", canvasMode: "split" });
+    persistLayout(snapshot.root, { openTabs: ["notes/index.md"], activeFile: "notes/index.md", canvasMode: "split" });
 
     await Promise.all([loadTextLanguageExtensions("notes/index.md"), loadVisualMarkdownEditorModule()]);
     renderApp({
@@ -1616,7 +1617,7 @@ describe("project workspace", () => {
       "notes/index.md": "[Open slides](slides/native/index.tsx)\n\n[Open sheet](results.lattice-sheet)\n\n[Open board](sketch.tldr)",
       "slides/native/index.tsx": "export default [];\n", "results.lattice-sheet": "{}", "sketch.tldr": EMPTY_BOARD,
     };
-    persistLayout(snapshot.root, { openTabs: ["notes/index.md"], activeFile: "notes/index.md", secondaryFile: "", canvasMode: "split" });
+    persistLayout(snapshot.root, { openTabs: ["notes/index.md"], activeFile: "notes/index.md", canvasMode: "split" });
 
     await Promise.all([loadTextLanguageExtensions("notes/index.md"), loadVisualMarkdownEditorModule()]);
     renderApp({
@@ -2187,7 +2188,7 @@ describe("project workspace", () => {
 
   it.each(["source pane", "outside input"])("saves pending visual Markdown when focus moves to %s in manual build mode", async (destination) => {
     setAutoBuildMode("manual");
-    persistLayout(ROOT, { openTabs: ["notes.md"], activeFile: "notes.md", secondaryFile: "", canvasMode: "split" });
+    persistLayout(ROOT, { openTabs: ["notes.md"], activeFile: "notes.md", canvasMode: "split" });
     await loadVisualMarkdownEditorModule();
     const snapshot = projectSnapshot({ files: [fileNode("notes.md")] });
     renderApp({ ...refreshableProject(snapshot, "Original paragraph.\n"), write_project_file: undefined });
@@ -2495,7 +2496,7 @@ describe("project workspace", () => {
   });
 
   it("accepts an agent edit in an open Markdown preview and still switches files", async () => {
-    persistLayout(ROOT, { openTabs: ["methods.md", "notes.md"], activeFile: "methods.md", secondaryFile: "", canvasMode: "pdf" });
+    persistLayout(ROOT, { openTabs: ["methods.md", "notes.md"], activeFile: "methods.md", canvasMode: "pdf" });
     const sources: Record<string, string> = { "methods.md": "## Scope\n- **Measures**: Initial result\n", "notes.md": "# Notes" };
     let mtimeMs = 1;
     renderApp({
