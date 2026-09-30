@@ -147,9 +147,7 @@ impl PresentationRuntime {
         };
         let source = native_files(&root)?;
         let mirrored = native_files(&shadow)?;
-        let client = reqwest::blocking::Client::builder()
-            .timeout(Duration::from_secs(300))
-            .no_proxy()
+        let client = crate::http::loopback(Duration::from_secs(300))
             .build()
             .map_err(|error| error.to_string())?;
         for (path, file) in &source {
@@ -486,9 +484,7 @@ fn native_files(root: &Path) -> Result<BTreeMap<String, NativeFile>, String> {
 
 fn remove_access_lease(origin: String, control_token: String, lease_id: String) {
     thread::spawn(move || {
-        let Ok(client) =
-            reqwest::blocking::Client::builder().timeout(Duration::from_secs(2)).no_proxy().build()
-        else {
+        let Ok(client) = crate::http::loopback(Duration::from_secs(2)).build() else {
             return;
         };
         let _ = client

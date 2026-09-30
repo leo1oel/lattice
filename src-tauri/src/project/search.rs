@@ -150,7 +150,7 @@ pub(crate) fn searchable_text_lines(path: &str, content: &str) -> Vec<(u32, Stri
         .lines()
         .enumerate()
         .filter_map(|(index, line)| {
-            let decoded = html_escape::decode_html_entities(line);
+            let decoded = crate::util::decode_html_entities(line);
             let text = crate::util::collapse_whitespace(&decoded);
             (!text.is_empty()).then(|| (first_line + index as u32, text))
         })

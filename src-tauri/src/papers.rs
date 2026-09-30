@@ -58,10 +58,7 @@ const ARXIV2MD_CACHE_ENV: &str = "ARXIV2MD_CACHE_PATH";
 pub(crate) fn http_client(
     user_agent: &str, timeout_secs: u64,
 ) -> reqwest::Result<reqwest::blocking::Client> {
-    reqwest::blocking::Client::builder()
-        .user_agent(user_agent)
-        .timeout(Duration::from_secs(timeout_secs))
-        .build()
+    crate::http::blocking_as(user_agent, Duration::from_secs(timeout_secs)).build()
 }
 
 /// Send `request`, reporting a transport failure as `"{failed}: {error}"` and

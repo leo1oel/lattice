@@ -302,8 +302,7 @@ pub fn compile_repair_request(
         _ => return Err("Invalid repair action.".into()),
     }
     drop(segments);
-    let client = Client::builder()
-        .timeout(Duration::from_secs(30))
+    let client = crate::http::loopback(Duration::from_secs(30))
         .build()
         .map_err(|error| error.to_string())?;
     let mut request =
@@ -337,12 +336,9 @@ fn wait_until_ready(
     child: &mut Child, startup_logs: &[LogTail], home_dir: &Path, started: Instant,
 ) -> Result<String, String> {
     let runtime_state_path = home_dir.join(RUNTIME_STATE_RELATIVE_PATH);
-    let client = Client::builder()
-        // The bundled service only listens on loopback. Never route its health
-        // check through HTTP(S)_PROXY or ALL_PROXY, which can make a healthy
-        // sidecar look unavailable until the startup timeout expires.
-        .no_proxy()
-        .timeout(Duration::from_millis(350))
+    // The bundled service only listens on loopback; a proxied health check
+    // can make a healthy sidecar look unavailable until startup times out.
+    let client = crate::http::loopback(Duration::from_millis(350))
         .build()
         .map_err(|error| format!("Could not initialize the agent health check: {error}"))?;
 

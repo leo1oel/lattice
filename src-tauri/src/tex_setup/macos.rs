@@ -10,6 +10,7 @@ use super::installer::{
 };
 use super::{TexInstallMode, TexInstallProgress};
 use crate::commands;
+use crate::util::{swap_in_dir, DirSwapError};
 use sha2::{Digest, Sha256};
 use std::fs;
 use std::io::{Read, Write};
@@ -166,10 +167,9 @@ fn download(
     pinned: &PinnedDownload, path: &Path, mut on_bytes: impl FnMut(u64, u64),
 ) -> Result<(), String> {
     let name = pinned.name;
-    let client = reqwest::blocking::Client::builder()
+    let user_agent = format!("Lattice/{}", env!("CARGO_PKG_VERSION"));
+    let client = crate::http::blocking_as(&user_agent, pinned.timeout)
         .connect_timeout(Duration::from_secs(20))
-        .timeout(pinned.timeout)
-        .user_agent(format!("Lattice/{}", env!("CARGO_PKG_VERSION")))
         .build()
         .map_err(|error| format!("Could not initialize the {name} download: {error}"))?;
     let mut response = client
@@ -285,31 +285,21 @@ fn ensure_uv_installed(
 /// Move the verified `staging` pair into place, keeping the previous pair
 /// until the new one is in.
 fn activate_uv_pair(staging: &Path, destination: &Path) -> Result<(), String> {
-    match fs::symlink_metadata(destination) {
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
-            return fs::rename(staging, destination)
-                .map_err(|error| format!("Could not activate the managed uv tools: {error}"));
+    let backup = format!("lattice-backup-{}", uuid::Uuid::new_v4().simple());
+    swap_in_dir(staging, destination, &backup).map_err(|failure| match failure {
+        DirSwapError::Inspect(error) => {
+            format!("Could not inspect the existing managed uv tools: {error}")
         }
-        Err(error) => {
-            return Err(format!("Could not inspect the existing managed uv tools: {error}"));
+        DirSwapError::Backup(error) => format!("Could not prepare the managed uv update: {error}"),
+        DirSwapError::Activate { error, restore: None } => {
+            format!("Could not activate the managed uv update: {error}")
         }
-        Ok(_) => {}
-    }
-
-    let backup =
-        destination.with_extension(format!("lattice-backup-{}", uuid::Uuid::new_v4().simple()));
-    fs::rename(destination, &backup)
-        .map_err(|error| format!("Could not prepare the managed uv update: {error}"))?;
-    if let Err(error) = fs::rename(staging, destination) {
-        return match fs::rename(&backup, destination) {
-            Ok(()) => Err(format!("Could not activate the managed uv update: {error}")),
-            Err(restore_error) => Err(format!(
-                "Could not activate the managed uv update ({error}) or restore the previous tools ({restore_error})."
-            )),
-        };
-    }
-    fs::remove_dir_all(&backup).map_err(|error| {
-        format!("uv was updated, but its old managed copy could not be removed: {error}")
+        DirSwapError::Activate { error, restore: Some(restore_error) } => format!(
+            "Could not activate the managed uv update ({error}) or restore the previous tools ({restore_error})."
+        ),
+        DirSwapError::RemoveBackup(error) => {
+            format!("uv was updated, but its old managed copy could not be removed: {error}")
+        }
     })
 }
 

@@ -63,8 +63,8 @@ pub use manifest::{
     resolve_compile_root, set_compile_root, set_spelling_words, update_manifest_settings,
     write_editor_comments,
 };
-pub(crate) use paths::creation_path;
 pub use paths::safe_path;
+pub(crate) use paths::{creation_path, stays_inside};
 pub use references::references;
 pub(crate) use search::{
     file_search_result, matches_search, search_terms, searchable_text_lines, searchable_text_path,

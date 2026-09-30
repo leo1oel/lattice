@@ -61,9 +61,7 @@ fn handshake_blocking(
 ) -> Result<(String, String), String> {
     let url =
         format!("{origin}/socket.io/1/?projectId={}&t={}", url_encode(project_id), now_millis());
-    let client = reqwest::blocking::Client::builder()
-        .user_agent(USER_AGENT)
-        .timeout(Duration::from_secs(20))
+    let client = crate::http::blocking_as(USER_AGENT, Duration::from_secs(20))
         .build()
         .map_err(|e| format!("Could not build the HTTP client: {e}"))?;
     let response = client

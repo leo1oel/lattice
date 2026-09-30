@@ -11,8 +11,7 @@ pub(crate) const ENDPOINT: &str = "https://lattice-literature.paperlattice.worke
 /// A blocking client that never follows redirects, so a provider response
 /// cannot bounce a query, or the API key attached to it, to another host.
 pub(crate) fn client(timeout: Duration, user_agent: Option<&str>) -> reqwest::Result<Client> {
-    let mut builder =
-        Client::builder().timeout(timeout).redirect(reqwest::redirect::Policy::none());
+    let mut builder = crate::http::blocking(timeout).redirect(reqwest::redirect::Policy::none());
     if let Some(agent) = user_agent {
         builder = builder.user_agent(agent);
     }
