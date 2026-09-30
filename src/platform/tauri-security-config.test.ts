@@ -29,7 +29,11 @@ const config = readJson<TauriConfig>("src-tauri/tauri.conf.json");
 const capability = readJson<Capability>("src-tauri/capabilities/default.json");
 const packageJson = readJson<{ scripts: Record<string, string> }>("package.json");
 const rustApp = readFileSync("src-tauri/src/lib.rs", "utf8");
-const browserHost = readFileSync("src-tauri/src/browser_host.rs", "utf8");
+// The browser host module: its listener and windows, plus the HTTP server and
+// dialog commands split out beside it.
+const browserHost = ["browser_host.rs", "browser_host/server.rs", "browser_host/dialogs.rs"]
+  .map((file) => readFileSync(`src-tauri/src/${file}`, "utf8"))
+  .join("\n");
 const chromiumRuntime = readFileSync("src-tauri/src/chromium.rs", "utf8");
 const chromiumShell = readFileSync("scripts/chromium-shell.mjs", "utf8");
 const chromiumPrepare = readFileSync("scripts/prepare-chromium-runtime.mjs", "utf8");

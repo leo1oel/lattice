@@ -214,7 +214,7 @@ which tools reach the model, and under what names.
 
 ## 2. The Rust backend
 
-`src-tauri/src/` is 117 Rust files and ~40k lines (tests included). `main.rs` is
+`src-tauri/src/` is 121 Rust files and ~40k lines (tests included). `main.rs` is
 a 6-line shim; all the work starts in `lib.rs::run()`. Large areas follow the
 2018 module layout: a short `x.rs` that maps the area (module docs, the `mod`
 list, the few re-exports other code uses) beside an `x/` directory holding the
@@ -238,7 +238,7 @@ for), take the project lease the operation needs (`AppState::lease`), and run
 the domain call on the blocking pool (`ipc::run_blocking` / `in_project`).
 Behaviour belongs in the domain modules. A few self-contained services keep
 their commands beside their state: `synara.rs`, `presentation.rs`,
-`browser_host.rs`, `literature_credentials.rs`, `link_preview.rs`,
+`browser_host/dialogs.rs`, `literature_credentials.rs`, `link_preview.rs`,
 `diagnostic_logs.rs`, `macos_window.rs`.
 
 Which project each window shows, and the per-project resources that must not be
