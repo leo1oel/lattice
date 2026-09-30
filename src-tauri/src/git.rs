@@ -333,6 +333,20 @@ fn show_blob_bytes(root: &Path, spec: &str) -> Option<Vec<u8>> {
         .map(|output| output.stdout)
 }
 
+/// The `user.name` Git would sign a commit in `root` with (the repository's
+/// own setting, else the global one), or None when git is missing or no name
+/// is configured. Outside a repository `git config` reads only the global and
+/// system files, which is the right answer for a folder without history.
+pub fn user_name(root: &Path) -> Option<String> {
+    if !commands::available("git") {
+        return None;
+    }
+    let output = run_git(root, &["config", "--get", "user.name"]).ok()?;
+    let name = String::from_utf8(output.stdout).ok()?;
+    let name = name.trim();
+    (output.status.success() && !name.is_empty()).then(|| name.to_string())
+}
+
 fn git_command(root: &Path) -> Command {
     let mut command = commands::command("git");
     command.current_dir(root).env("GIT_TERMINAL_PROMPT", "0").env("GIT_OPTIONAL_LOCKS", "0");
@@ -401,6 +415,14 @@ mod tests {
             .unwrap();
         assert!(output.status.success(), "git {} failed", args.join(" "));
         String::from_utf8_lossy(&output.stdout).trim().to_string()
+    }
+
+    #[test]
+    fn user_name_reads_the_repository_identity() {
+        let Some(root) = repo("user-name") else { return };
+        assert_eq!(user_name(&root).as_deref(), Some("Lattice"));
+        git(&root, &["config", "user.name", "  Ada Lovelace  "]);
+        assert_eq!(user_name(&root).as_deref(), Some("Ada Lovelace"));
     }
 
     /// Write `files`, commit everything as `message`, and return the new HEAD.

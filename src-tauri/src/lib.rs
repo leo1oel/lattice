@@ -386,6 +386,7 @@ pub fn run() {
             ipc::build::start_tex_install,
             ipc::build::start_tex_dependency_install,
             ipc::git::git_status,
+            ipc::git::git_user_name,
             ipc::git::git_init,
             ipc::git::git_log,
             ipc::git::git_show_diff,
