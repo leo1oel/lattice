@@ -54,8 +54,92 @@ const parser = unified().use(remarkParse).use(remarkGfm).use(remarkMath).use(rem
  */
 export function parseMarkdownTree(markdown: string): Root {
   const tree = parser.parse(markdown);
+  positionAutolinkLiterals(tree, markdown);
   demoteCurrencyMath(tree, markdown);
   return tree;
+}
+
+type Located = { type: string; value?: string; children?: Located[]; position?: { start: { offset?: number }; end: { offset?: number } } };
+
+const offsetOf = (node: Located | undefined, edge: "start" | "end") => node?.position?.[edge].offset;
+
+/**
+ * GFM finds some literal autolinks after parsing, in text whose escapes are
+ * already resolved (a file saved as `https\://example.com`), and the pieces
+ * it splits that text into carry no source position. Each run of such pieces
+ * is located again in the source it came from, so the paragraph reads as
+ * text and a link instead of an unplaceable block. A run that cannot be
+ * aligned stays unpositioned and its block is kept raw.
+ */
+function positionAutolinkLiterals(parent: Located, markdown: string) {
+  const children = parent.children ?? [];
+  for (let index = 0; index < children.length; index += 1) {
+    const child = children[index]!;
+    if (child.position) {
+      positionAutolinkLiterals(child, markdown);
+      continue;
+    }
+    let last = index;
+    while (last + 1 < children.length && !children[last + 1]!.position) last += 1;
+    const run = children.slice(index, last + 1);
+    const from = offsetOf(children[index - 1], "end") ?? offsetOf(parent, "start");
+    const to = offsetOf(children[last + 1], "start") ?? offsetOf(parent, "end");
+    if (from != null && to != null && run.every((node) => node.type === "text" || isAutolinkPiece(node))) {
+      // Between two placed siblings the run fills the gap exactly; at the
+      // parent's edges it may sit after a prefix (`# `) or before a suffix.
+      locateRun(run, markdown, from, to, { exactStart: index > 0, exactEnd: last + 1 < children.length });
+    }
+    index = last;
+  }
+}
+
+const isAutolinkPiece = (node: Located) => node.type === "link" && node.children?.length === 1 && node.children[0]!.type === "text" && !node.children[0]!.position;
+
+const pieceText = (node: Located) => (node.type === "text" ? node.value! : node.children![0]!.value!);
+
+/** Place `run` at the first offset in `[from, to)` whose source spells its text. */
+function locateRun(run: Located[], markdown: string, from: number, to: number, edges: { exactStart: boolean; exactEnd: boolean }) {
+  for (let start = from; start < (edges.exactStart ? from + 1 : to); start += 1) {
+    const ends: number[] = [];
+    let cursor: number | null = start;
+    for (const node of run) {
+      cursor = spell(pieceText(node), markdown, cursor, to);
+      if (cursor == null) break;
+      ends.push(cursor);
+    }
+    if (cursor == null || (edges.exactEnd && cursor !== to)) continue;
+    run.forEach((node, position) => {
+      const location = { start: { offset: position ? ends[position - 1]! : start }, end: { offset: ends[position]! } };
+      node.position = location as Located["position"];
+      if (node.type === "link") node.children![0]!.position = { ...location };
+    });
+    return;
+  }
+}
+
+/**
+ * Where the source spelling `value` from `at` ends: each character written as
+ * itself or as a backslash escape, a line break followed by the container
+ * prefix of the next line. `null` when the source spells something else.
+ */
+function spell(value: string, markdown: string, at: number, limit: number): number | null {
+  let cursor = at;
+  for (const character of value) {
+    if (character === "\n") {
+      while (cursor < limit && (markdown[cursor] === " " || markdown[cursor] === "\t")) cursor += 1;
+      if (markdown[cursor] !== "\n") return null;
+      cursor += 1;
+      while (cursor < limit && /[ \t>]/.test(markdown[cursor]!)) cursor += 1;
+    } else if (markdown[cursor] === "\\" && markdown[cursor + 1] === character && /[!-/:-@[-`{-~]/.test(character)) {
+      cursor += 2;
+    } else if (markdown[cursor] === character) {
+      cursor += 1;
+    } else {
+      return null;
+    }
+    if (cursor > limit) return null;
+  }
+  return cursor;
 }
 
 function demoteCurrencyMath(parent: Parent, markdown: string) {

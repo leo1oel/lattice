@@ -237,6 +237,47 @@ describe("bare URLs typed into the visual editor", () => {
   });
 });
 
+describe("files saved with escaped bare URLs", () => {
+  const linkOf = (node: PmNode) => {
+    const links: { text: string; href: unknown }[] = [];
+    node.descendants((child) => {
+      const link = child.marks.find((mark) => mark.type.name === "link");
+      if (child.isText && link) links.push({ text: child.text!, href: link.attrs.href });
+    });
+    return links;
+  };
+
+  it.each([
+    ["a paragraph", "See https\\://example.com/a\\_b now\n", "paragraph", "See https://example.com/a_b now", "https://example.com/a_b"],
+    ["a heading", "# Go to https\\://example.com\n", "heading", "Go to https://example.com", "https://example.com"],
+    ["a list item", "- mail foo\\@example.com\n", "bulletList", "mail foo@example.com", "mailto:foo@example.com"],
+    ["a blockquote", "> *x* www\\.example.com.\n", "blockquote", "x www.example.com.", "http://www.example.com"],
+    ["a table cell", "| a |\n| --- |\n| https\\://example.com?q=1 |\n", "table", "ahttps://example.com?q=1", "https://example.com?q=1"],
+  ])("opens %s as visual text with a link and keeps it byte for byte", (_name, text, kind, shown, href) => {
+    const { doc, baseline } = open(text);
+    expect(blockTypes(doc)).toEqual([kind]);
+    expect(doc.textContent).toBe(shown);
+    expect(linkOf(doc).map((link) => link.href)).toEqual([href]);
+    expect(serializeMarkdown(doc, baseline).text).toBe(text);
+  });
+
+  it("writes an edited paragraph without the stray backslashes", () => {
+    const text = "Keep\n\nSee https\\://example.com and foo\\@example.com\n";
+    const written = editBlockText(text, 1, (content) => `${content} now`);
+    expect(written).toBe("Keep\n\nSee https://example.com and foo@example.com now\n");
+    const reopened = open(written);
+    expect(linkOf(reopened.doc).map((link) => link.href)).toEqual(["https://example.com", "mailto:foo@example.com"]);
+    expect(serializeMarkdown(reopened.doc, reopened.baseline).text).toBe(written);
+  });
+
+  it("keeps other authored escapes in the unchanged runs of that paragraph", () => {
+    const { doc, baseline } = open("snake\\_case https\\://example.com\n");
+    const paragraph = doc.child(0);
+    const edited = paragraph.copy(paragraph.content.addToEnd(schema.text(" More.")));
+    expect(serializeMarkdown(doc.copy(doc.content.replaceChild(0, edited)), baseline).text).toBe("snake\\_case https://example.com More.\n");
+  });
+});
+
 describe("seams next to an edit", () => {
   const bulletList = (...items: string[]) => schema.nodes.bulletList!.create(null, items.map((item) => (
     schema.nodes.listItem!.create(null, schema.nodes.paragraph!.create(null, schema.text(item)))
