@@ -1,0 +1,22 @@
+name: Set up pnpm
+description: >
+  pnpm 10 on Node 22 with the pnpm store cached, then a frozen install of one
+  pnpm project (the root by default; literature-worker and
+  tools/open-slide-runtime are projects of their own).
+inputs:
+  project:
+    description: Directory of the pnpm project to install.
+    default: "."
+runs:
+  using: composite
+  steps:
+    - uses: pnpm/action-setup@v6
+      with:
+        version: 10
+    - uses: actions/setup-node@v7
+      with:
+        node-version: 22
+        cache: pnpm
+        cache-dependency-path: ${{ inputs.project }}/pnpm-lock.yaml
+    - run: pnpm --dir "${{ inputs.project }}" install --frozen-lockfile
+      shell: bash

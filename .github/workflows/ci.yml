@@ -20,14 +20,7 @@ jobs:
         shard: [1, 2, 3]
     steps:
       - uses: actions/checkout@v7
-      - uses: pnpm/action-setup@v6
-        with:
-          version: 10
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 22
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
+      - uses: ./.github/actions/setup-pnpm
       - run: pnpm vitest run --shard=${{ matrix.shard }}/3
 
   # The literature Worker is its own pnpm project with its own lockfile and is
@@ -40,15 +33,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: pnpm/action-setup@v6
+      - uses: ./.github/actions/setup-pnpm
         with:
-          version: 10
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 22
-          cache: pnpm
-          cache-dependency-path: literature-worker/pnpm-lock.yaml
-      - run: pnpm --dir literature-worker install --frozen-lockfile
+          project: literature-worker
       - run: pnpm --dir literature-worker typecheck
       - run: pnpm --dir literature-worker test
 
@@ -59,29 +46,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: pnpm/action-setup@v6
+      - uses: ./.github/actions/setup-pnpm
         with:
-          version: 10
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 22
-          cache: pnpm
-          cache-dependency-path: tools/open-slide-runtime/pnpm-lock.yaml
-      - run: pnpm --dir tools/open-slide-runtime install --frozen-lockfile
+          project: tools/open-slide-runtime
       - run: pnpm --dir tools/open-slide-runtime test
 
   lint-and-build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: pnpm/action-setup@v6
-        with:
-          version: 10
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 22
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
+      - uses: ./.github/actions/setup-pnpm
       - run: pnpm lint
       - run: pnpm build
       # Locally this is the `i18n-check` mise stage; it was the one stage of
@@ -117,14 +91,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: pnpm/action-setup@v6
-        with:
-          version: 10
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 22
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
+      - uses: ./.github/actions/setup-pnpm
       - run: pnpm perf:bench --check
 
   rust:
