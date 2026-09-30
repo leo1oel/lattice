@@ -6,12 +6,13 @@
  * Built only on unified/remark/micromark (MIT).
  */
 import type { Parent, Parents, Root, RootContent, Text } from "mdast";
-import { defaultHandlers, type ConstructName, type Handle, type Options, type State } from "mdast-util-to-markdown";
+import { defaultHandlers, type ConstructName, type Handle, type Info, type Options, type State } from "mdast-util-to-markdown";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 import remarkParse from "remark-parse";
 import remarkStringify from "remark-stringify";
 import { unified } from "unified";
+import { autolinkLiteralSpans } from "./autolink-literal";
 import { remarkLatexMath } from "./latex-math-syntax";
 
 /** Style the parser recorded for one node, carried on `node.data.lattice` through serialization. */
@@ -104,12 +105,40 @@ function withOption<K extends keyof Options>(state: State, key: K, value: Option
   }
 }
 
+/**
+ * Text escaped wherever the grammar could misread it, except inside the spans
+ * GFM reads as extended autolinks: those are linked whatever their escapes,
+ * so a backslash there would only become part of the link.
+ */
+function safeText(value: string, state: State, info: Info): string {
+  const spans = autolinkLiteralSpans(value);
+  if (!spans.length) return state.safe(value, info);
+  let written = "";
+  let cursor = 0;
+  const escape = (to: number) => {
+    if (to > cursor) {
+      written += state.safe(value.slice(cursor, to), {
+        ...info,
+        before: cursor ? value.charAt(cursor - 1) : info.before,
+        after: to < value.length ? value.charAt(to) : info.after,
+      });
+    }
+  };
+  for (const [from, to] of spans) {
+    escape(from);
+    written += value.slice(from, to);
+    cursor = to;
+  }
+  escape(value.length);
+  return written;
+}
+
 function latticeHandlers(mode: SerializeMode, stock: Record<string, Handle>): Record<string, Handle> {
   const literal = mode === "literal";
   const handlers: Record<string, Handle> = {
     text(node, parent, state, info) {
       const pieces = styleOf(node)?.pieces;
-      if (!literal) return stock.text!(node, parent, state, info);
+      if (!literal) return safeText((node as Text).value, state, info);
       return pieces ? pieces.map((piece) => piece.source ?? piece.value).join("") : (node as Text).value;
     },
     emphasis: (node, parent, state, info) => withOption(
@@ -252,6 +281,36 @@ const baseOptions: Options = {
  */
 const gfmOptions = { tablePipeAlign: false };
 
+type Unsafe = NonNullable<Options["unsafe"]>[number];
+type ToMarkdownExtension = Options & { extensions?: ToMarkdownExtension[] };
+
+/**
+ * The escapes GFM's serializer writes into bare URLs, `www.` hosts and email
+ * addresses (`https\://`, `www\.`, `a\@b`). The parser links that text
+ * after resolving escapes, so they never keep it plain; they only corrupt the
+ * text the reader typed. Such text is written as is and reads back as a
+ * literal autolink, which is the same reading (semantic-key.ts).
+ */
+const autolinkLiteralGuard = (pattern: Unsafe) => (
+  (pattern.character === ":" && pattern.before === "[ps]")
+  || (pattern.character === "." && pattern.before === "[Ww]")
+  || (pattern.character === "@" && pattern.after === "[\\-.\\w]")
+);
+
+function withoutAutolinkGuards(extension: ToMarkdownExtension): ToMarkdownExtension {
+  return {
+    ...extension,
+    ...(extension.unsafe ? { unsafe: extension.unsafe.filter((pattern) => !autolinkLiteralGuard(pattern)) } : {}),
+    ...(extension.extensions ? { extensions: extension.extensions.map(withoutAutolinkGuards) } : {}),
+  };
+}
+
+/** Drop the autolink-literal escapes from the extensions registered before it. */
+function remarkPlainAutolinkLiterals(this: ReturnType<typeof unified>) {
+  const data = this.data();
+  data.toMarkdownExtensions = (data.toMarkdownExtensions ?? []).map((extension) => withoutAutolinkGuards(extension as ToMarkdownExtension));
+}
+
 type Processor = { stringify: (tree: Root) => string };
 const processors = new Map<SerializeMode, Processor>();
 
@@ -272,6 +331,7 @@ function processorFor(mode: SerializeMode): Processor {
     .use(remarkStringify, { ...baseOptions, handlers: latticeHandlers(mode, stock) })
     .use(remarkGfm, gfmOptions)
     .use(remarkMath)
+    .use(remarkPlainAutolinkLiterals)
     .freeze();
   const processor: Processor = { stringify: (tree) => built.stringify(tree) };
   processors.set(mode, processor);
