@@ -1145,6 +1145,18 @@ describe("welcome screen", () => {
     expect(localStorage.getItem("lattice.author-name.v1")).toBe("Grace Hopper");
   });
 
+  it("keeps automatic commits unsigned when only Git and Overleaf know the writer's name", async () => {
+    renderOverleafPaper({
+      git_user_name: "Ada Lovelace",
+      overleaf_sync: () => overleafSyncResult({ pushed: ["main.tex"] }),
+    }, { syncMode: "live" });
+    await expectInvoked("git_user_name");
+    await expectInvoked("overleaf_rt_connect", { projectRoot: "/tmp/lattice-overleaf-paper" });
+    fireEvent.click(await findOverleafSyncButton());
+    await expectInvoked("git_auto_commit", expect.objectContaining({ author: null }));
+    expect(invokeCalls("git_auto_commit").every(([, args]) => (args as { author: unknown }).author === null)).toBe(true);
+  });
+
   it("opens every Settings dropdown with the Settings popover contract", async () => {
     renderApp({ initial_project: null });
     for (const section of ["Appearance", "Editor & builds"]) {

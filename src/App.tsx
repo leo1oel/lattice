@@ -1405,7 +1405,7 @@ function App() {
     project, projectRef, projectOperationGenerationRef, activeFile, activeFileRef, activePaper, activeAsset,
     source, sourceRef, savedSourceRef, setSource, setSavedSource, setViewRestore, viewStateRef, editorPosition,
     editorPositionRef, build, saveGeneration, savedPathsRef, wholeFileEditingPaths, wholeFileDraftPaths,
-    authorName, save, compile, loadFile, refreshProject, openProjectFile,
+    commitAuthorName: authorNameSetting, save, compile, loadFile, refreshProject, openProjectFile,
     overleafSyncingRef, overleafSyncSettledRef, resolveOverleafSyncRef,
   });
   const {
