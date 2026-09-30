@@ -174,14 +174,11 @@ describe("shared surface contracts", () => {
   })
 
   it("draws in-place messages through the shared inline component", () => {
-    const inlineMessage = read("src/components/ui/inline-message.tsx")
-    expectRules(inlineMessage, [
-      "stylex.create",
-      /stylex\.props\(\s*styles\.root,/,
-      // Same status roles as the toast, so the two read as one system.
-      ...["info", "success", "warning", "error"].map((level) => `${level}Icon:`),
+    // Same status roles as the toast, so the two read as one system.
+    expectRules(read("src/components/ui/chrome.css"), [
+      ".ui-inline-message {",
+      ...["info", "success", "warning", "error"].map((level) => `.ui-inline-message.${level} .ui-inline-message-icon`),
     ])
-    expect(read("src/components/ui/chrome.css")).not.toContain(".ui-inline-message {")
     // Feature stylesheets may add spacing and a plate; they may not restate the
     // colour, which is what made every panel's error look slightly different.
     const featureCss = [

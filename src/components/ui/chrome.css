@@ -525,3 +525,92 @@ label.ui-checkbox-field[data-slot="checkbox-field"] {
   opacity: var(--control-disabled-opacity);
   cursor: not-allowed;
 }
+
+/* Badge, inline message and switch. Layered, like the StyleX rules they
+   replace, so a feature stylesheet's unlayered spacing or plate still wins. */
+@layer components {
+  .ui-badge {
+    height: var(--badge-height);
+    min-width: 0;
+    padding-block: 0;
+    padding-inline: var(--space-3);
+    border-radius: var(--radius-icon);
+    background-color: var(--border-subtle);
+    color: var(--text-secondary);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-2);
+    font-size: var(--type-micro-size);
+    font-style: normal;
+    font-weight: var(--type-micro-weight);
+    line-height: var(--type-micro-line-height);
+    white-space: nowrap;
+  }
+  .ui-badge[data-size="compact"] { height: var(--badge-height-compact); padding-inline: var(--space-2); }
+  .ui-badge[data-tone="success"] { background-color: var(--status-success-soft); color: var(--status-success); }
+  .ui-badge[data-tone="warning"] { background-color: var(--status-warning-soft); color: var(--status-warning); }
+
+  .ui-inline-message {
+    min-width: 0;
+    margin: 0;
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-3);
+    color: var(--text-secondary);
+    font-size: var(--type-caption-size);
+    font-weight: var(--type-caption-weight);
+    line-height: var(--type-caption-line-height);
+    overflow-wrap: anywhere;
+  }
+  .ui-inline-message.error { color: var(--text-primary); }
+  /* The 13px icon sits centred on the first line of text. */
+  .ui-inline-message-icon { flex: 0 0 auto; margin-top: calc((var(--type-caption-line-height) - 13px) / 2); }
+  .ui-inline-message.info .ui-inline-message-icon { color: var(--status-info); }
+  .ui-inline-message.success .ui-inline-message-icon { color: var(--status-success); }
+  .ui-inline-message.warning .ui-inline-message-icon { color: var(--status-warning); }
+  .ui-inline-message.error .ui-inline-message-icon { color: var(--status-danger); }
+  .ui-inline-message-copy { min-width: 0; }
+
+  .ui-switch {
+    width: var(--control-width-switch);
+    height: var(--control-height-switch);
+    margin: 0;
+    padding: var(--space-1);
+    flex: 0 0 auto;
+    border: none;
+    border-radius: var(--radius-pill);
+    outline: none;
+    background-color: var(--control-off-surface);
+    cursor: pointer;
+    transition-property: background-color, opacity;
+    transition-duration: var(--duration-base), var(--duration-quick);
+    transition-timing-function: var(--ease-default), var(--ease-default);
+  }
+  .ui-switch[aria-checked="true"] { background-color: var(--control-on-surface); }
+  .ui-switch:disabled { cursor: not-allowed; opacity: var(--control-disabled-opacity); }
+  .ui-switch-thumb {
+    width: var(--control-size-switch-thumb);
+    height: var(--control-size-switch-thumb);
+    border-radius: var(--radius-pill);
+    background-color: var(--control-thumb-surface);
+    display: block;
+  }
+}
+
+/* The tooltip's entrance: a short fade and grow from 95%, drifting in from
+   the side it opens on. Only open states animate, so a closed tooltip
+   unmounts at once and never lingers under the next one. */
+@keyframes ui-tooltip-enter {
+  from {
+    opacity: 0;
+    transform: translate3d(var(--ui-tooltip-enter-x, 0), var(--ui-tooltip-enter-y, 0), 0) scale3d(0.95, 0.95, 0.95);
+  }
+}
+@layer components {
+  .ui-tooltip-content:is([data-state="delayed-open"], [data-state="instant-open"]) { animation: ui-tooltip-enter var(--duration-base) ease; }
+  .ui-tooltip-content[data-side="bottom"] { --ui-tooltip-enter-y: -0.5rem; }
+  .ui-tooltip-content[data-side="top"] { --ui-tooltip-enter-y: 0.5rem; }
+  .ui-tooltip-content[data-side="left"] { --ui-tooltip-enter-x: 0.5rem; }
+  .ui-tooltip-content[data-side="right"] { --ui-tooltip-enter-x: -0.5rem; }
+}
