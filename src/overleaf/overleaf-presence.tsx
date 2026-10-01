@@ -15,6 +15,8 @@ const MAX_AVATARS = 5;
 
 export function OverleafPresenceAvatars(props: {
   peers: PresenceUser[];
+  /** The connection dropped: these are who was here, shown dimmed until it is back. */
+  reconnecting?: boolean;
   /** Resolve a document id to the project-relative path shown in the tooltip. */
   pathForDoc: (docId: string) => string | null;
   /** Jump to where this person is; the caller owns opening the file and moving the caret. */
@@ -27,11 +29,15 @@ export function OverleafPresenceAvatars(props: {
   const overflow = peers.slice(MAX_AVATARS);
 
   return (
-    <AvatarGroup className="overleaf-presence-avatars" ariaLabel={t`People in this Overleaf project`}>
+    <AvatarGroup
+      className={props.reconnecting ? "overleaf-presence-avatars reconnecting" : "overleaf-presence-avatars"}
+      ariaLabel={props.reconnecting ? t`Reconnecting to Overleaf — people last seen in this project` : t`People in this Overleaf project`}
+    >
       {shown.map((peer) => {
         const label = peer.name || t`Anonymous`;
         const path = peer.docId ? props.pathForDoc(peer.docId) : null;
-        const title = path ? t`${label} · ${path} — click to jump there` : label;
+        const where = path ? t`${label} · ${path} — click to jump there` : label;
+        const title = props.reconnecting ? t`${where} (reconnecting…)` : where;
         return (
           <button
             key={peer.id}

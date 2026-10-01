@@ -3876,6 +3876,7 @@ function App() {
           overleafPresence={overleafPresence.peers.length ? (
             <OverleafPresenceAvatars
               peers={overleafPresence.peers}
+              reconnecting={overleafPresence.reconnecting}
               pathForDoc={(id) => overleafDocPaths.get(id) ?? null}
               onJump={jumpToOverleafPeer}
             />

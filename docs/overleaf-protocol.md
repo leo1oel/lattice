@@ -36,6 +36,35 @@ invent a pin.**
 The local-project upload contract was separately verified against official commit [`6323fddbd8e584b76cf42a65faa15600d5ff218f`](https://github.com/overleaf/overleaf/tree/6323fddbd8e584b76cf42a65faa15600d5ff218f) from 2026-06-17.
 The relevant evidence is [`UploadsRouter.mjs`](https://github.com/overleaf/overleaf/blob/6323fddbd8e584b76cf42a65faa15600d5ff218f/services/web/app/src/Features/Uploads/UploadsRouter.mjs#L20-L28), [`ProjectUploadController.mjs`](https://github.com/overleaf/overleaf/blob/6323fddbd8e584b76cf42a65faa15600d5ff218f/services/web/app/src/Features/Uploads/ProjectUploadController.mjs#L39-L77), and Overleaf's own [`use-project-uploader.tsx`](https://github.com/overleaf/overleaf/blob/6323fddbd8e584b76cf42a65faa15600d5ff218f/services/web/frontend/js/features/project-list/hooks/use-project-uploader.tsx#L19-L95).
 
+On 2026-10-01 Overleaf Workshop was re-reviewed through default-branch head
+[`63f105d`](https://github.com/overleaf-workshop/Overleaf-Workshop/tree/63f105dd71b6d5e44106e6fe5b5fc005b394b62f)
+(2026-09-13), including its then-open PRs
+[#419](https://github.com/overleaf-workshop/Overleaf-Workshop/pull/419),
+[#418](https://github.com/overleaf-workshop/Overleaf-Workshop/pull/418),
+[#406](https://github.com/overleaf-workshop/Overleaf-Workshop/pull/406) and
+[#375](https://github.com/overleaf-workshop/Overleaf-Workshop/pull/375). That
+review is not a historical pin and does not change the one above. The protocol
+facts Lattice adopted from it were verified against Overleaf's own server and
+client at official commit
+[`e039ad26`](https://github.com/overleaf/overleaf/tree/e039ad26c5bf5422eb57b89fc7e57c75055e631d),
+not taken from Workshop's code:
+
+- `dupIfSource` and per-connection `publicId`:
+  [`real-time/app/js/Router.js`](https://github.com/overleaf/overleaf/blob/e039ad26c5bf5422eb57b89fc7e57c75055e631d/services/real-time/app/js/Router.js),
+  [`WebsocketController.js`](https://github.com/overleaf/overleaf/blob/e039ad26c5bf5422eb57b89fc7e57c75055e631d/services/real-time/app/js/WebsocketController.js),
+  [`document-updater/app/js/sharejs/server/model.js`](https://github.com/overleaf/overleaf/blob/e039ad26c5bf5422eb57b89fc7e57c75055e631d/services/document-updater/app/js/sharejs/server/model.js)
+  and the web client's
+  [`sharejs.js`](https://github.com/overleaf/overleaf/blob/e039ad26c5bf5422eb57b89fc7e57c75055e631d/services/web/frontend/js/vendor/libs/sharejs.js)
+  (`inflightSubmittedIds`, and dropping an emptied operation);
+- surrogate replacement:
+  [`UpdateManager.js`](https://github.com/overleaf/overleaf/blob/e039ad26c5bf5422eb57b89fc7e57c75055e631d/services/document-updater/app/js/UpdateManager.js)
+  (`_sanitizeUpdate`);
+- the update `hash`:
+  [`ShareJsUpdateManager.js`](https://github.com/overleaf/overleaf/blob/e039ad26c5bf5422eb57b89fc7e57c75055e631d/services/document-updater/app/js/ShareJsUpdateManager.js)
+  (`_computeHash`);
+- the heartbeat timeout: `socket.io-client` 0.9.17 `lib/socket.js`
+  (`setHeartbeatTimeout`), the version Overleaf ships.
+
 One provenance gap has no candidate at all: `OtDocument` in `src/overleaf/ot.ts` says
 its client state mirrors the ShareJS client Overleaf uses, but no repository,
 version or commit for that reference was recorded. Keep it **unknown** rather
@@ -127,6 +156,12 @@ purpose.
   legacy project-list meta tags, including HTML entity decoding.
 - Mutating HTTP requests carry the CSRF value from the same authenticated
   origin.
+- A transient failure is retried at most twice, with backoff, and only when
+  the retry cannot do anything twice: any request that never connected or was
+  answered 429 (honouring a `Retry-After` of up to 8 s), and a safe one (GET
+  or HEAD) on a reset, 502, 503 or 504. An idempotent DELETE is not retried
+  there: a repeat after it landed answers 404. Timeouts, other statuses and non-replayable
+  bodies are never retried (`retry_wait` in `src-tauri/src/overleaf/api.rs`).
 - Creating a project from local files uses `POST /project/new/upload` with
   multipart fields `name` and `qqfile`; success is identified by the returned
   `project_id`, not by a redirect.
@@ -158,6 +193,30 @@ purpose.
 - **A timeout is not proof of rejection.** A document whose send outcome is
   unknown stays owned by OT until a late ack or a rejoin/catch-up proves what
   happened. Ordinary file sync must not resend it blindly.
+- **Overleaf names every connection afresh.** The `publicId` it stamps on our
+  updates as `meta.source` changes on every reconnect, so a document remembers
+  every connection its in-flight operation went out on, and a replayed update
+  from any of them is our own acknowledgement. After a replay on a *new*
+  connection, the still-unanswered operation is resent with `dupIfSource`
+  naming those connections — Overleaf then acknowledges a copy that already
+  landed instead of applying it twice, which is what its own editor does. It is
+  never resent on the connection that already carried it.
+- An operation that transformed to nothing is dropped, never sent: an empty
+  `applyOtUpdate` is not answered, and every later edit would queue behind it.
+- Overleaf's document updater replaces every UTF-16 surrogate in inserted text
+  with U+FFFD and still acknowledges the operation. Operations never split a
+  surrogate pair, and inserted surrogates are replaced before sending — in the
+  operation, the OT copy and the editor alike — so both sides keep identical
+  text (`asOverleafStores` in `src/overleaf/ot.ts`).
+- At most every five seconds per document, an update whose text is known
+  exactly carries `hash` — SHA-1 of `blob {UTF-16 length}\0{UTF-8 text}`, the
+  value Overleaf's document updater computes. A mismatch comes back as
+  `otUpdateError`, which drops that document to ordinary sync rather than
+  letting a drifted copy keep editing.
+- Silence is a disconnect. When nothing arrives for the heartbeat timeout the
+  handshake names (`{sid}:{heartbeat}:…`), the connection is ended and reported
+  as `Disconnected`, exactly as the Socket.IO 0.9 client does; otherwise a
+  half-open socket after sleep or a network change is never noticed.
 - A transient disconnect retries with bounded exponential backoff. Network
   recovery and window focus may request an immediate retry, but authentication,
   authorization and project-identity failures stop the loop and require user

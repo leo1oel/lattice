@@ -12,6 +12,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { invoke } from "@tauri-apps/api/core";
 import { activateAppLocale } from "../i18n";
 import { invokeCalls, mockInvoke, mockListen } from "../platform/tauri-test-mocks";
+import { overleafDocHash } from "./overleaf-realtime-model";
 import { useOverleafRealtime } from "./use-overleaf-realtime";
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
@@ -29,6 +30,10 @@ const freshBackend = () => ({
   publicId: "me" as string | null,
   /** Simulate a server commit whose acknowledgement never reaches the command. */
   loseSendAck: false,
+  /** Joins fail, as they do while the socket that carried a send is going down. */
+  joinsFail: false,
+  /** The lost send never reached Overleaf at all, so a replay holds nothing of ours. */
+  lostSendMissing: false,
   /** Transient connection failures still to return before succeeding, and what they say. */
   connectFailures: 0,
   connectError: "network unavailable",
@@ -51,8 +56,16 @@ const expectLeft = (fields: Record<string, unknown>) =>
 
 function joinAnswer(docId: string, fromVersion: number | null = null) {
   const { anchors } = backend;
+  if (backend.joinsFail) throw new Error("the connection is closing");
+  if (docId === DOC_A && fromVersion === 10 && backend.lostSendMissing && sends().length) {
+    return { text: "alpha", version: 10, ...anchors, caughtUp: [], resumed: true };
+  }
   if (docId === DOC_A && fromVersion === 10 && backend.loseSendAck && sends().length) {
     return { text: "alpha edited", version: 11, ...anchors, caughtUp: [{ version: 10, ops: sends()[0]!.ops, source: "me" }], resumed: true };
+  }
+  // The lost send did land: that is the server's copy from now on.
+  if (docId === DOC_A && backend.loseSendAck && !backend.lostSendMissing && sends().length) {
+    return { text: "alpha edited", version: 11, ...anchors, caughtUp: [], resumed: fromVersion === 11 };
   }
   return { text: docId === DOC_A ? "alpha" : "beta", version: 10, ...anchors, caughtUp: [], resumed: false };
 }
@@ -517,6 +530,114 @@ describe("an acknowledgement whose outcome is not known", () => {
     expect(sends()).toHaveLength(1);
     expect(result.current.livePaths).toEqual(["a.tex"]);
     expect(result.current.detail).toMatch(/paused/i);
+  });
+
+  /** Send "alpha edited", lose its answer with the connection, and reconnect under a new id. */
+  async function loseSendAcrossReconnect(onRemoteText: Options["onRemoteText"]) {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    backend.loseSendAck = true;
+    const view = await mountLive({ onRemoteText });
+    backend.joinsFail = true;
+    await typeAndSend(view.result, "alpha edited");
+    await waitFor(() => expect(sends()).toHaveLength(1));
+    emit({ type: "disconnected", reason: "network changed" });
+    // Overleaf names every connection afresh, so the replay of what we sent
+    // before still says "me" while this connection is "me-2".
+    backend.publicId = "me-2";
+    backend.joinsFail = false;
+    await act(async () => { await vi.advanceTimersByTimeAsync(1_500); });
+    await waitFor(() => expect(joins()).toContainEqual({ docId: DOC_A, fromVersion: 10 }));
+    await act(async () => { await vi.advanceTimersByTimeAsync(500); });
+    return view;
+  }
+
+  it("recognises its own update replayed under the previous connection's id instead of applying it twice", async () => {
+    const seen: string[] = [];
+    const { result } = await loseSendAcrossReconnect((text) => { seen.push(text); });
+
+    expect(seen.some((text) => text.includes("edited edited"))).toBe(false);
+    await waitFor(() => expect(seen.at(-1)).toBe("alpha edited"));
+    // It landed; nothing is resent, and the file is no longer held back.
+    expect(sends()).toHaveLength(1);
+    expect(result.current.settledVersion()).toBe(11);
+  });
+
+  it("resends an update that never landed, naming the connection it first went out on", async () => {
+    backend.lostSendMissing = true;
+    const { result } = await loseSendAcrossReconnect(() => undefined);
+
+    await waitFor(() => expect(sends()).toHaveLength(2));
+    const [first, resend] = invokeCalls("overleaf_rt_send_ops");
+    expect(first).not.toHaveProperty("dupIfSource");
+    // Overleaf acknowledges rather than reapplies it if the first copy lands late.
+    expect(resend).toMatchObject({ docId: DOC_A, version: 10, ops: first!.ops, dupIfSource: ["me"] });
+    expect(result.current.livePaths).toEqual(["a.tex"]);
+
+    emit({ type: "docAck", docId: DOC_A, version: 10 });
+    await waitFor(() => expect(result.current.settledVersion()).toBe(11));
+    // Once answered on this connection it is never sent a third time.
+    expect(sends()).toHaveLength(2);
+  });
+
+  it("recognises the first copy landing late under the previous connection's id instead of applying it twice", async () => {
+    backend.lostSendMissing = true;
+    const seen: string[] = [];
+    const { result } = await loseSendAcrossReconnect((text) => { seen.push(text); });
+    await waitFor(() => expect(sends()).toHaveLength(2));
+    const [first] = invokeCalls("overleaf_rt_send_ops");
+
+    // The first copy commits after all and is broadcast under its old id.
+    emit({ type: "docUpdate", docId: DOC_A, version: 10, ops: first!.ops, source: "me" });
+    // Overleaf then answers the resend as a duplicate.
+    emit({ type: "docAck", docId: DOC_A, version: 10 });
+    await waitFor(() => expect(result.current.settledVersion()).toBe(11));
+    expect(seen.some((text) => text.includes("edited edited"))).toBe(false);
+  });
+});
+
+describe("the update hash", () => {
+  it("is Overleaf's git-blob SHA-1 of the text the update produces", async () => {
+    expect(await overleafDocHash("")).toBe("e69de29bb2d1d6434b8b29ae775ad8c2e48c5391");
+    expect(await overleafDocHash("hello\n")).toBe("ce013625030ba8dba906f756967f9e9ca394464a");
+  });
+
+  it("rides on an update now and then, never on one sent behind queued work", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const { result } = await mountLive();
+    await typeAndSend(result, "alpha edited");
+    await waitFor(() => expect(sends()).toHaveLength(1));
+    // `printf 'alpha edited' | git hash-object --stdin`
+    expect(sends()[0]).toMatchObject({ version: 10, hash: "4d07786ac58e50541ba6ca85027b45ba5e038dba" });
+
+    emit({ type: "docAck", docId: DOC_A, version: 10 });
+    await typeAndSend(result, "alpha edited!");
+    await waitFor(() => expect(sends()).toHaveLength(2));
+    // Within five seconds of the last one: no hash, the same as Overleaf's editor.
+    expect(sends()[1]).not.toHaveProperty("hash");
+  });
+});
+
+describe("characters Overleaf cannot store", () => {
+  it("sends and shows U+FFFD in their place, the way the server stores them, and says so once", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const onRemoteText = vi.fn();
+    const onNotice = vi.fn();
+    const { result } = await mountLive({ onRemoteText, onNotice });
+
+    await typeAndSend(result, "alpha \u{1F535}");
+    await waitFor(() => expect(sends()).toHaveLength(1));
+    expect(sends()[0]!.ops).toEqual([{ p: 5, i: " \uFFFD\uFFFD" }]);
+    // The editor is swapped to the stored text, guarded on still holding what was typed.
+    await waitFor(() => expect(onRemoteText).toHaveBeenLastCalledWith(
+      "alpha \uFFFD\uFFFD", 0, expect.objectContaining({ baseContent: "alpha \u{1F535}" }),
+    ));
+    expect(onNotice).toHaveBeenCalledTimes(1);
+    expect(onNotice.mock.calls[0]![0]).toMatch(/replaced with �/);
+
+    emit({ type: "docAck", docId: DOC_A, version: 10 });
+    await typeAndSend(result, "alpha \uFFFD\uFFFD \u{1D538}");
+    await waitFor(() => expect(sends()).toHaveLength(2));
+    expect(onNotice).toHaveBeenCalledTimes(1);
   });
 });
 

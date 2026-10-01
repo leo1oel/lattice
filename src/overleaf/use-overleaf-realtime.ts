@@ -20,7 +20,7 @@ import { i18n } from "../i18n";
 import { OtDocument, transformCaret, type OtOp } from "./ot";
 import { onOverleafEvent } from "./overleaf-realtime-listen";
 import {
-  anchorsAfter, isOwnUpdate, promoteShared, shouldRetryConnection,
+  anchorsAfter, isOwnUpdate, overleafDocHash, promoteShared, shouldRetryConnection,
   type CommentRange, type DocEntry, type DocumentProof, type DocUpdateEvent, type EntityEntry, type JoinedDoc,
   type JoinedProject, type OpenDoc, type OverleafCommentTarget, type OverleafPermission, type OverleafRemoteTextContext,
   type RealtimeEvent, type RealtimeStatus, type ReplayedUpdate, type ReservedOperation, type TrackedChange,
@@ -35,9 +35,12 @@ const RECONNECT_BASE_MS = 1_000;
 const RECONNECT_MAX_MS = 30_000;
 /** How long a document that will not settle is allowed to hold the channel. */
 const DRAIN_TIMEOUT_MS = 15_000;
+/** At most this often per document, an update carries the hash of the text it produces. */
+const HASH_INTERVAL_MS = 5_000;
 /** How long typing is coalesced into one operation. */
 const SEND_DEBOUNCE_MS = 250;
 const driftNotice = () => i18n._(msg`This document drifted from Overleaf's copy, so live editing stopped. Syncing will reconcile it.`);
+const replacedNotice = () => i18n._(msg`Overleaf can't store emoji and some other special characters, so they were replaced with � — the same thing everyone else in the project sees.`);
 
 export function useOverleafRealtime(options: {
   /** Connect whenever the project is linked: chat and presence ride here too. */
@@ -107,7 +110,7 @@ export function useOverleafRealtime(options: {
   const unsentText = useRef<string | null>(null);
   /** Set by `reload`: take the server's copy instead of resuming from ours. */
   const forceFullJoin = useRef(false);
-  const flushRef = useRef<(id: string | null, send: { version: number; ops: OtOp[] } | null) => Promise<void>>(async () => undefined);
+  const flushRef = useRef<(id: string | null, send: { version: number; ops: OtOp[] } | null, dupIfSource?: readonly string[]) => Promise<void>>(async () => undefined);
   const reconcileUnknownRef = useRef<(id: string) => void>(() => undefined);
   const requestReconnectRef = useRef<(reason: string, immediate?: boolean) => void>(() => undefined);
   /** The root that owns every document currently held by this hook. */
@@ -116,6 +119,15 @@ export function useOverleafRealtime(options: {
   const proofs = useRef(new WeakMap<OtDocument, DocumentProof>());
   const leaving = useRef(new Map<string, Promise<boolean>>());
   const documentEpoch = useRef(0);
+  /** When each document last sent a hash; see `HASH_INTERVAL_MS`. */
+  const lastHashed = useRef(new WeakMap<OtDocument, number>());
+  /** Said once per session: see `asOverleafStores` in ./ot. */
+  const toldAboutReplacement = useRef(false);
+  const noteReplaced = () => {
+    if (toldAboutReplacement.current) return;
+    toldAboutReplacement.current = true;
+    callbacks.current.onNotice(replacedNotice());
+  };
 
   // A permission is only meaningful for the project whose connect result
   // supplied it. During a root switch, the previous render's role must not be
@@ -137,10 +149,26 @@ export function useOverleafRealtime(options: {
     canContribute.current = canWrite;
   });
 
-  const isMine = (source: string | null) => isOwnUpdate(source, publicId.current);
+  /** Whether `source` is us: this connection, or an earlier one that carried `doc`'s unanswered operation. */
+  const isMine = (source: string | null, doc?: OtDocument) => isOwnUpdate(source, publicId.current, doc?.submittedVia);
   /** Replay a join's catch-up into `doc`; our own updates coming back are acknowledgements. */
   const replay = (doc: OtDocument, updates: ReplayedUpdate[]) =>
-    doc.catchUp(updates.map((update) => ({ ...update, mine: isOwnUpdate(update.source, publicId.current) })));
+    doc.catchUp(updates.map((update) => ({ ...update, mine: isOwnUpdate(update.source, publicId.current, doc.submittedVia) })));
+  /**
+   * After a replay on a new connection, send the still-unanswered operation
+   * again, naming every connection it went out on before. If one of those
+   * already landed it, Overleaf acknowledges the resend instead of applying it
+   * twice; if none did, this is the operation finally arriving. This is what
+   * Overleaf's own editor does on reconnect. On the connection that already
+   * carried it, nothing is resent: a missing answer there may still come.
+   */
+  const resendAfterReplay = (id: string, doc: OtDocument) => {
+    const current = publicId.current;
+    const earlier = doc.submittedVia;
+    if (!current || !doc.waiting || !earlier.length || earlier.includes(current)) return;
+    const send = doc.resend();
+    if (send) void flushRef.current(id, send, send.dupIfSource);
+  };
   const deliveryPending = (doc: OtDocument | null | undefined) => Boolean(doc && remoteDeliveries.current.get(doc)?.pending);
   const patchOpenDoc = useCallback((id: string, patch: (current: OpenDoc) => Partial<OpenDoc> | null) => {
     setOpenDoc((current) => {
@@ -268,7 +296,9 @@ export function useOverleafRealtime(options: {
       const proof = proofs.current.get(doc);
       if (proof) proof.locallyAppliedText = typed;
       // The last thing typed leaves the same way everything before it did.
-      void flushRef.current(previous, doc.local(typed).send);
+      const { send, replaced } = doc.local(typed);
+      if (replaced) noteReplaced();
+      void flushRef.current(previous, send);
     }
     if (doc.settled) {
       release(previous);
@@ -444,7 +474,7 @@ export function useOverleafRealtime(options: {
         }
         return;
       }
-      const sawOurUpdate = caughtUp.some((update) => isMine(update.source));
+      const sawOurUpdate = caughtUp.some((update) => isMine(update.source, doc));
       const caret = docId.current === id ? callbacks.current.readCaret() : 0;
       const baseContent = doc.text;
       const result = replay(doc, caughtUp);
@@ -454,12 +484,13 @@ export function useOverleafRealtime(options: {
         patchOpenDoc(id, (current) => ({ comments: joined.comments ?? current.comments, changes: joined.changes ?? current.changes }));
         deliverRemoteText(id, result.text, transformCaret(caret, result.applied), baseContent);
       }
+      if (result.send) void flushRef.current(id, result.send);
+      else resendAfterReplay(id, doc);
       if (sawOurUpdate || doc.settled) {
         uncertain.current.delete(id);
         publishLivePaths();
         if (docId.current === id) setDetail(null);
       }
-      if (result.send) void flushRef.current(id, result.send);
       releaseIfDone(id, doc);
     } catch {
       // Still unknown. Keeping the path in livePaths is the safety mechanism;
@@ -473,15 +504,35 @@ export function useOverleafRealtime(options: {
   }, [reconcileUnknown]);
 
   /** Send whatever a document says is ready, if anything. */
-  const flush = useCallback(async (id: string | null, send: { version: number; ops: OtOp[] } | null) => {
+  const flush = useCallback(async (
+    id: string | null, send: { version: number; ops: OtOp[] } | null, dupIfSource: readonly string[] = [],
+  ) => {
     if (!send || !id) return;
     const projectRoot = connectionRoot.current;
     if (!projectRoot) {
       markOutcomeUnknown(id, i18n._(msg`the Overleaf project connection is no longer active`));
       return;
     }
+    const doc = documents.current.get(id);
+    // Recorded before the send can fail: an operation whose answer is lost
+    // with its connection must still be recognised as ours when it is
+    // replayed under this id after a reconnect.
+    if (publicId.current) doc?.noteSubmitted(publicId.current);
+    // Now and then, say what the document should read once this lands.
+    // Overleaf rejects the update when its copy disagrees, so a copy that has
+    // drifted fails loudly — and falls back to syncing — instead of every
+    // later edit landing in the wrong place. Like Overleaf's own editor, not
+    // on every keystroke: hashing the whole document costs.
+    const sentText = doc && doc.version === send.version ? doc.sentText : null;
+    const now = Date.now();
+    const hashDue = sentText !== null && now - (lastHashed.current.get(doc!) ?? -Infinity) >= HASH_INTERVAL_MS;
+    if (hashDue) lastHashed.current.set(doc!, now);
     try {
-      await invoke("overleaf_rt_send_ops", { projectRoot, docId: id, version: send.version, ops: send.ops });
+      const hash = hashDue ? await overleafDocHash(sentText) : null;
+      await invoke("overleaf_rt_send_ops", {
+        projectRoot, docId: id, version: send.version, ops: send.ops,
+        ...(dupIfSource.length ? { dupIfSource } : {}), ...(hash ? { hash } : {}),
+      });
     } catch (reason) {
       // A rejected Promise only says the acknowledgement did not reach this
       // call. The server may already have committed the operation, so handing
@@ -574,7 +625,7 @@ export function useOverleafRealtime(options: {
         }
         // Our own work coming back is already in this copy; only the separate
         // acknowledgement moves the state machine on.
-        if (isMine(payload.source)) return;
+        if (isMine(payload.source, doc)) return;
         try {
           const onScreen = payload.docId === docId.current;
           const caret = onScreen ? callbacks.current.readCaret() : 0;
@@ -809,12 +860,16 @@ export function useOverleafRealtime(options: {
           );
           return;
         }
+        // Classified before replaying: an acknowledgement in the replay
+        // forgets which connections carried the operation it answers.
+        const sawOurUpdate = caughtUp.some((update) => isMine(update.source, held));
         const result = replay(held, caughtUp);
         text = result.text;
         promoteShared(held, heldProof);
         caret = transformCaret(caret, result.applied);
-        if (held.settled || caughtUp.some((update) => isMine(update.source))) uncertain.current.delete(id);
-        void flush(id, result.send);
+        if (result.send) void flush(id, result.send);
+        else resendAfterReplay(id, held);
+        if (held.settled || sawOurUpdate) uncertain.current.delete(id);
       } else {
         // Either the first time here, or the server would not reach back far
         // enough. Its copy is the only thing both sides agree on.
@@ -894,13 +949,20 @@ export function useOverleafRealtime(options: {
       // another file in the meantime, and this text belongs to the old one.
       const current = docId.current === id ? documents.current.get(id) : null;
       if (!current) return;
-      const { send } = current.local(text);
+      const { send, replaced } = current.local(text);
       const proof = proofs.current.get(current);
       if (proof) proof.locallyAppliedText = text;
       if (send) shiftAnchors(id, send.ops);
       void flush(id, send);
+      if (replaced) {
+        // Overleaf stores these characters as U+FFFD, and so does the
+        // document now; the editor has to show the same, or the two copies
+        // disagree without anyone being told. Same length, same caret.
+        noteReplaced();
+        deliverRemoteText(id, current.text, callbacks.current.readCaret(), text);
+      }
     }, SEND_DEBOUNCE_MS);
-  }, [flush, shiftAnchors]);
+  }, [deliverRemoteText, flush, shiftAnchors]);
 
   /**
    * Anchor a new comment thread to a span of the open document. Resolves once

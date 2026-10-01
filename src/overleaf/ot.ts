@@ -32,9 +32,15 @@ export function diffToOps(before: string, after: string): OtOp[] {
   let prefix = 0;
   const maxPrefix = Math.min(before.length, after.length);
   while (prefix < maxPrefix && before[prefix] === after[prefix]) prefix += 1;
+  // Never cut a character in half. Two emoji can share the first half of
+  // their UTF-16 pair, and an op holding only the second half is a lone
+  // surrogate that Overleaf turns into U+FFFD — corrupting a character the
+  // edit never meant to touch.
+  if (prefix > 0 && isHighSurrogate(before.charCodeAt(prefix - 1))) prefix -= 1;
   let suffix = 0;
   const maxSuffix = maxPrefix - prefix;
   while (suffix < maxSuffix && before[before.length - 1 - suffix] === after[after.length - 1 - suffix]) suffix += 1;
+  if (suffix > 0 && isLowSurrogate(before.charCodeAt(before.length - suffix))) suffix -= 1;
   const removed = before.slice(prefix, before.length - suffix);
   const inserted = after.slice(prefix, after.length - suffix);
   // Delete first: the insert's position is then expressed against the text
@@ -43,6 +49,32 @@ export function diffToOps(before: string, after: string): OtOp[] {
     ...(removed ? [{ p: prefix, d: removed }] : []),
     ...(inserted ? [{ p: prefix, i: inserted }] : []),
   ];
+}
+
+const isHighSurrogate = (code: number) => code >= 0xd800 && code <= 0xdbff;
+const isLowSurrogate = (code: number) => code >= 0xdc00 && code <= 0xdfff;
+const SURROGATE = /[\uD800-\uDFFF]/;
+const SURROGATES = new RegExp(SURROGATE.source, "g");
+
+/**
+ * What Overleaf actually stores for these ops.
+ *
+ * Its document updater replaces every UTF-16 surrogate in inserted text with
+ * U+FFFD — both halves of an emoji or a `unicode-math` letter like 𝔸, one
+ * replacement character each — and still acknowledges the operation as sent.
+ * Sending such text unchanged leaves this side holding characters the server
+ * does not have, with nothing to say so until a later sync quietly replaces
+ * them. Mirroring the server keeps the two copies identical, and lengths (so
+ * every position) stay the same.
+ */
+export function asOverleafStores(ops: OtOp[]): { ops: OtOp[]; replaced: boolean } {
+  let replaced = false;
+  const stored = ops.map((op) => {
+    if (typeof op.i !== "string" || !SURROGATE.test(op.i)) return op;
+    replaced = true;
+    return { ...op, i: op.i.replace(SURROGATES, "\uFFFD") };
+  });
+  return { ops: stored, replaced };
 }
 
 /**
@@ -261,6 +293,14 @@ export class OtDocument {
   private inflight: OtOp[] | null = null;
   /** Typed while `inflight` was outstanding. */
   private pending: OtOp[] | null = null;
+  /**
+   * Every connection `inflight` has gone out on. Overleaf names a new
+   * connection id each time the socket reconnects and stamps it on the update
+   * as its source, so after a reconnect the replay of an operation we sent
+   * earlier carries an id that is no longer ours — and only this list can
+   * still recognise it as our own acknowledgement.
+   */
+  private submitted: string[] = [];
 
   /** `text` includes unsent work; `version` is the last server version seen. */
   constructor(public text: string, public version: number) {}
@@ -268,6 +308,48 @@ export class OtDocument {
   /** True while the server still owes us an acknowledgement. */
   get waiting(): boolean {
     return this.inflight !== null;
+  }
+
+  /** The connections the operation in flight has been sent on, oldest first. */
+  get submittedVia(): readonly string[] {
+    return this.submitted;
+  }
+
+  /** Record that the operation in flight went out on connection `publicId`. */
+  noteSubmitted(publicId: string) {
+    if (this.inflight && !this.submitted.includes(publicId)) this.submitted.push(publicId);
+  }
+
+  /**
+   * The operation in flight again, to resend after a reconnect, naming the
+   * connections it went out on so Overleaf can recognise a duplicate. Only
+   * valid once a replay has brought `version` up to date, which also
+   * transformed the operation to match.
+   *
+   * The replay can cancel it out entirely — a collaborator deleted the same
+   * words. It never landed (the replay would have answered it), so there is
+   * nothing left to wait for: it is settled here without moving the version,
+   * and anything typed meanwhile goes out in its place as a fresh operation.
+   */
+  resend(): (NonNullable<OtSend> & { dupIfSource: readonly string[] }) | null {
+    if (!this.inflight) return null;
+    if (this.inflight.length) return { version: this.version, ops: this.inflight, dupIfSource: [...this.submitted] };
+    this.inflight = null;
+    this.submitted = [];
+    if (!this.pending) return null;
+    this.inflight = this.pending;
+    this.pending = null;
+    return { version: this.version, ops: this.inflight, dupIfSource: [] };
+  }
+
+  /**
+   * The text the server will hold once the operation in flight lands exactly
+   * as sent, which is what Overleaf's update `hash` describes. Null when
+   * nothing is in flight, or when later work is queued on top of it and this
+   * copy is already ahead of that.
+   */
+  get sentText(): string | null {
+    return this.inflight && !this.pending ? this.text : null;
   }
 
   /** True when everything typed here has reached the server. */
@@ -280,16 +362,19 @@ export class OtDocument {
    * is in flight the new work waits, because the server numbers versions and
    * would reject a second operation built on a version it has not confirmed.
    */
-  local(nextText: string): { send: OtSend } {
-    const ops = diffToOps(this.text, nextText);
-    this.text = nextText;
-    if (ops.length === 0) return { send: null };
+  local(nextText: string): { send: OtSend; replaced: boolean } {
+    const typed = diffToOps(this.text, nextText);
+    // See `asOverleafStores`: when it changes what was typed, `text` takes
+    // the stored form and the caller has to show it in place of the original.
+    const { ops, replaced } = asOverleafStores(typed);
+    this.text = replaced ? applyOps(this.text, ops) ?? nextText : nextText;
+    if (ops.length === 0) return { send: null, replaced };
     if (this.inflight) {
       this.pending = this.pending ? composeOps(this.pending, ops) : ops;
-      return { send: null };
+      return { send: null, replaced };
     }
     this.inflight = ops;
-    return { send: { version: this.version, ops } };
+    return { send: { version: this.version, ops }, replaced };
   }
 
   /**
@@ -313,8 +398,18 @@ export class OtDocument {
     }
     if (!this.inflight) return { send: null };
     this.inflight = null;
+    this.submitted = [];
     this.version += 1;
     if (!this.pending) return { send: null };
+    // Work typed while waiting can cancel out entirely against someone else's
+    // edit — both deleted the same words. There is then nothing to send, and
+    // sending an empty operation anyway is worse than useless: nothing goes
+    // on the wire, so no acknowledgement ever comes, and every later edit
+    // queues behind it forever. Overleaf's own client drops it the same way.
+    if (this.pending.length === 0) {
+      this.pending = null;
+      return { send: null };
+    }
     this.inflight = this.pending;
     this.pending = null;
     return { send: { version: this.version, ops: this.inflight } };
@@ -342,7 +437,11 @@ export class OtDocument {
     // differently here and never converge.
     let incoming = ops;
     if (this.inflight) [incoming, this.inflight] = transformBoth(incoming, this.inflight);
-    if (this.pending) [incoming, this.pending] = transformBoth(incoming, this.pending);
+    if (this.pending) {
+      [incoming, this.pending] = transformBoth(incoming, this.pending);
+      // Cancelled out entirely (see `acknowledge`): nothing is left to send.
+      if (this.pending.length === 0) this.pending = null;
+    }
     const next = applyOps(this.text, incoming);
     if (next === null) throw new OtDesyncError(i18n._(msg`An update from Overleaf did not fit this document; it needs to be reloaded.`));
     this.text = next;
@@ -377,5 +476,6 @@ export class OtDocument {
     this.version = version;
     this.inflight = null;
     this.pending = null;
+    this.submitted = [];
   }
 }

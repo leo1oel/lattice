@@ -17,7 +17,10 @@
 //!   0 disconnect, 1 connect, 2 heartbeat, 3 message, 4 json, 5 event, 6 ack,
 //!   7 error, 8 noop. The trailing `:{data}` is omitted when there is no
 //!   payload, which is why a heartbeat is the three-byte string `2::`. The
-//!   server drops clients that do not echo `2::` promptly.
+//!   server drops clients that do not echo `2::` promptly, and in turn the
+//!   client gives the connection up when nothing at all arrives within the
+//!   handshake's heartbeat timeout — a socket can stay open long after the
+//!   network under it is gone.
 //! - **Events.** `5:::{"name":…,"args":[…]}`; adding an ack id turns it into
 //!   `5:{id}+::{"name":…}` and the server answers `6:::{id}+[…args…]`.
 //!
@@ -52,6 +55,7 @@ pub(crate) mod tests;
 mod tree;
 
 pub use client::{RealtimeClient, RealtimeConfig};
+pub use codec::Submission;
 pub(crate) use events::parse_comment_ranges;
 pub use events::{EntityEntry, JoinedDoc, OtOp, PresenceUser, RealtimeEvent, TrackedChange};
 

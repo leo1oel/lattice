@@ -29,3 +29,6 @@
 }
 .avatar-group.avatar-group.overleaf-presence-avatars > button { color: #fff; }
 .overleaf-presence-avatar.more { background: var(--surface-panel); color: var(--text-secondary); cursor: default; }
+/* The connection dropped: who was here, shown faded until the reconnect
+   confirms them again (or the grace period clears them). */
+.avatar-group.overleaf-presence-avatars.reconnecting > * { opacity: .45; }

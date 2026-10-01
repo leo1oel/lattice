@@ -100,6 +100,31 @@ fn frames_round_trip_every_field_and_keep_colons_in_the_payload() {
 }
 
 #[test]
+fn updates_name_earlier_submissions_only_when_resending() {
+    let ops = vec![insert(5, "hello")];
+    let first =
+        Update { doc: "doc-1", op: ops.clone(), v: 42, meta: None, dup_if_source: &[], hash: None };
+    // Overleaf validates updates with a strict schema: a first submission
+    // must not carry an empty `dupIfSource` it never asked for.
+    assert_eq!(
+        serde_json::to_value(&first).expect("serializes"),
+        json!({"doc": "doc-1", "op": [{"p": 5, "i": "hello"}], "v": 42})
+    );
+    let earlier = ["P.old".to_string()];
+    let resend = Update {
+        doc: "doc-1",
+        op: ops,
+        v: 42,
+        meta: None,
+        dup_if_source: &earlier,
+        hash: Some("2aae6c35c94fcfb415dbe95f408b9ce91ee846ed"),
+    };
+    let resend = serde_json::to_value(&resend).expect("serializes");
+    assert_eq!(resend["dupIfSource"], json!(["P.old"]));
+    assert_eq!(resend["hash"], json!("2aae6c35c94fcfb415dbe95f408b9ce91ee846ed"));
+}
+
+#[test]
 fn parse_frame_rejects_malformed_input_without_panicking() {
     for raw in ["", "5", "5:1", "::", ":::", "x::", "9::", "255::", "300::", "-1::", "5 ::", "🙂::"]
     {
@@ -605,6 +630,11 @@ struct MockState {
 
 /// The mock's host, and what it has seen.
 fn start_mock(push_join: bool) -> (String, Arc<Mutex<MockState>>) {
+    start_mock_with(push_join, 60)
+}
+
+/// A mock that names `heartbeat` seconds as its heartbeat timeout.
+fn start_mock_with(push_join: bool, heartbeat: u64) -> (String, Arc<Mutex<MockState>>) {
     let state = Arc::new(Mutex::new(MockState { push_join, ..MockState::default() }));
     let seen = state.clone();
     let host = serve_http(move |request| {
@@ -616,7 +646,7 @@ fn start_mock(push_join: bool) -> (String, Arc<Mutex<MockState>>) {
             // Load balancers pin the realtime session with a cookie of their
             // own; the upgrade has to carry it back or it lands on another
             // instance.
-            let body = Response::from_string("testsid:60:60:websocket");
+            let body = Response::from_string(format!("testsid:{heartbeat}:60:websocket"));
             let body = with_header(body, "Set-Cookie: ol-affinity=instance-7; Path=/; HttpOnly");
             let _ = request.respond(with_header(body, "Content-Type: text/plain"));
             return;
@@ -701,6 +731,18 @@ fn serve_websocket<S: Read + Write>(mut ws: WebSocket<S>, state: Arc<Mutex<MockS
 }
 
 #[test]
+fn a_server_that_goes_quiet_past_its_heartbeat_timeout_is_reported_lost() {
+    // The mock never sends a heartbeat after joining: a half-open socket.
+    let (host, _state) = start_mock_with(false, 1);
+    let (_client, events) = connect(mock_config(&host, "overleaf_session2=test-cookie"));
+    let lost = wait_for(&events, 5, |event| match event {
+        RealtimeEvent::Disconnected { reason } => Some(reason.clone()),
+        _ => None,
+    });
+    assert!(lost.is_some_and(|reason| reason.contains("sent nothing")), "{:?}", lock(&events));
+}
+
+#[test]
 fn joins_a_project_the_server_pushes_without_being_asked() {
     let (host, _state) = start_mock(true);
     let (client, events) = connect(mock_config(&host, "overleaf_session2=test-cookie"));
@@ -755,8 +797,14 @@ fn talks_the_whole_protocol_to_a_mock_server() {
     let anchor = CommentRange { thread_id: "thread-1".into(), position: 4, quote: "one".into() };
     assert_eq!(joined.comments, vec![anchor]);
 
-    rt::block_on(client.send_ops("doc-1", 42, vec![insert(5, "hello")], false))
-        .expect("applyOtUpdate");
+    rt::block_on(client.send_ops(
+        "doc-1",
+        42,
+        vec![insert(5, "hello")],
+        false,
+        Submission::default(),
+    ))
+    .expect("applyOtUpdate");
     rt::block_on(client.leave_doc("doc-1")).expect("leaveDoc");
 
     // The unsolicited otUpdateApplied reaches the callback, carrying its
@@ -883,7 +931,8 @@ impl Live {
     }
 
     fn send(&self, doc_id: &str, version: i64, op: OtOp) {
-        rt::block_on(self.client.send_ops(doc_id, version, vec![op], false)).expect("send ops");
+        rt::block_on(self.client.send_ops(doc_id, version, vec![op], false, Submission::default()))
+            .expect("send ops");
     }
 
     /// Whether Overleaf acknowledged our update on `doc_id` applied at `at`.
@@ -1159,8 +1208,14 @@ fn tracks_a_change_on_the_real_overleaf() {
     let before = live.join(&doc.id);
 
     let probe = "SUGGESTED café";
-    rt::block_on(live.client.send_ops(&doc.id, before.version, vec![insert(0, probe)], true))
-        .expect("suggest an edit");
+    rt::block_on(live.client.send_ops(
+        &doc.id,
+        before.version,
+        vec![insert(0, probe)],
+        true,
+        Submission::default(),
+    ))
+    .expect("suggest an edit");
     std::thread::sleep(Duration::from_secs(2));
 
     let again = live.rejoin(&doc.id);
