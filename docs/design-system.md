@@ -121,6 +121,7 @@ section, frame height, confirmations, and notifications.
 
 Compact interface copy — titles, setting descriptions, dialog subtitles, tour cards, empty states, and helper text — does not end in a full stop.
 Punctuation inside multi-sentence copy remains.
+A description, subtitle, or explainer paragraph appears only when it says something the label or control does not. A settings group gets a heading only when it holds several rows.
 
 ## Geometry
 
@@ -206,6 +207,10 @@ the primitive standardizes density without changing those semantics.
 
 ## Interaction patterns
 
+- A reversible action happens at once and its toast offers the way back
+  (Undo, Resume) instead of a confirmation in front of it. Confirm only what
+  cannot be undone. A toast's action dismisses the toast unless it sets
+  `keepOpen`.
 - Panel and drawer headers use an icon-only X close control with an accessible
   label through `PanelHeader` or `CloseButton`. Dialog footer actions may still
   say Cancel or Close when that wording communicates an operation.
@@ -240,6 +245,44 @@ the primitive standardizes density without changing those semantics.
   editor's.
 - Embedded Settings routes delegate scrolling to the Lattice `ScrollArea`; the
   embedded document must not expose a second viewport scrollbar.
+
+## Identity and motion moments
+
+The app icon's woven lattice is Lattice's mark, and a small set of touches
+reuse its vocabulary so the product reads as one thing:
+
+- `LatticeMark` (`src/components/ui/lattice-mark.tsx`) draws the icon live from
+  its own geometry. Its two threads have their own roles, `--mark-weft` (blue)
+  and `--mark-warp` (teal), plus `--mark-glint`. They are identity, not
+  interaction: they color the mark and the one accent stroke of an
+  illustration, never a control, so the interaction accent stays neutral.
+- `EmptyIllustration` (`src/components/ui/empty-illustration.tsx`) holds the
+  empty-state drawings: neutral line work in the host's text color with one
+  weft or warp thread. Pass one to `EmptyState`'s `icon`.
+- The welcome screen's lattice field (`src/project/welcome-lattice.tsx`)
+  repeats the mark as a faint backdrop.
+
+Motion follows three rules:
+
+- **Moments, not loops.** Motion marks a state change (a build ending, the
+  Overleaf channel coming up, a dialog arriving) or something appearing (an
+  empty state, a skeleton). It plays once. The only ambient loops are the
+  welcome screen, which is never on screen while writing, loading
+  placeholders such as the PDF skeleton, which last only until content arrives,
+  and the comments empty state's typing dots, which run only while hovered.
+- **Never in the writing surface.** Nothing animates in the editor, and nothing
+  near it repeats while the writer works. A flourish that a remount could
+  replay is guarded, as the Build button's `isFreshOutcome` is.
+- **Paint-cheap and layout-free.** Animate `transform`, `opacity`, and
+  `stroke-dashoffset`; never geometry. Times come from the `--duration-*`
+  scale (`--duration-draw` for a line drawing itself, `--duration-flourish`
+  for a one-time ripple or burst). Ambient loops longer than the scale may use
+  literal times.
+
+Reduced motion is owned by `src/styles/adaptive-feedback.css`. Its universal
+clamp finishes every one-shot animation at once, so a moment's resting style
+must be its finished frame. An ambient loop also needs an `animation: none`
+entry there, and its resting style must be invisible or still.
 
 ## Migration rule
 

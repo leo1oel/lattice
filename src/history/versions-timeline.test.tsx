@@ -64,10 +64,10 @@ describe("VersionsTimeline", () => {
     });
     render(<VersionsTimeline />);
 
-    expect(await screen.findByText("Track versions of this project to see who changed what and roll back safely")).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: /Enable version tracking/ })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /Enable version tracking/ }));
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("git_init"));
-    expect(await screen.findByText(/No versions yet\./)).toBeInTheDocument();
+    expect(await screen.findByText(/No versions yet/)).toBeInTheDocument();
   });
 
   it("renders timeline entries with authors, messages, and file counts", async () => {
@@ -171,7 +171,7 @@ describe("VersionsTimeline", () => {
     fireEvent.click(restore);
 
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("git_restore_project", { rev: "aaa111" }));
-    expect(vi.mocked(confirm).mock.calls[0]?.[0]).toMatch(/nothing is lost/);
+    expect(vi.mocked(confirm).mock.calls[0]?.[0]).toMatch(/Nothing is lost/);
     await waitFor(() => expect(onVersionsChanged).toHaveBeenCalledTimes(1));
     expect(restore).toBeDisabled();
     expect(screen.queryByText("Project restored.")).not.toBeInTheDocument();

@@ -26,6 +26,7 @@ import { ProjectTreeHover } from "./project-tree-hover";
 import { settleTreePath, useCreateRequest, useInlineCreation, type EntryKind } from "./project-tree-inline-create";
 import { useProjectTreeMotion } from "./project-tree-motion";
 import { afterNextPaint, selectionIncluding, useProjectTreePointerDrag } from "./project-tree-pointer-drag";
+import { notifyCopied } from "../telemetry/app-notify";
 
 // @pierre/trees virtualizes by a numeric item height, so this mirrors the
 // design-system `--row-height-tree` / compact 32px row role.
@@ -280,7 +281,11 @@ export function ProjectFileTree(props: ProjectFileTreeProps) {
     const actions: MenuAction[] = [
       ...creationActions(directory ? path : parentDirectory(path)),
       { icon: Pencil, label: t`Rename`, run: () => model.startRenaming(item.path) },
-      { icon: Copy, label: t`Copy path`, run: () => void writeText(absoluteProjectPath(props.projectKey, path)) },
+      {
+        icon: Copy,
+        label: t`Copy path`,
+        run: () => void writeText(absoluteProjectPath(props.projectKey, path)).then(() => notifyCopied(t`Path copied`)),
+      },
       { icon: FolderOpen, label: t`Show in Finder`, run: () => props.onReveal(path) },
       hiddenFilesAction,
       ...(directory ? [

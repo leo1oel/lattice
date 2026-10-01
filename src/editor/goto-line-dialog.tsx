@@ -1,6 +1,6 @@
 import { Trans, useLingui } from "@lingui/react/macro";
 import { useState } from "react";
-import { MotionButton, PopIn } from "../components/ui/motion";
+import { MotionButton } from "../components/ui/motion";
 import { Button } from "../components/ui/button";
 import { buttonClassName } from "../components/ui/button-styles";
 import { Input } from "../components/ui/input";
@@ -31,7 +31,7 @@ function GotoLineDialogForm(props: GotoLineDialogProps) {
 
   return (
     <ModalDialog label={t`Go to line`} onClose={props.onClose}>
-      <PopIn className="modal goto-line-modal">
+      <div className="modal goto-line-modal">
         <h2><Trans>Go to line</Trans></h2>
         <p>{t`Enter a line between 1 and ${maxLine}`}</p>
         <label>
@@ -51,7 +51,7 @@ function GotoLineDialogForm(props: GotoLineDialogProps) {
           <Button variant="ghost" onClick={props.onClose}><Trans>Cancel</Trans></Button>
           <MotionButton type="button" className={buttonClassName({ variant: "primary" })} onClick={submit}><Trans>Go</Trans></MotionButton>
         </div>
-      </PopIn>
+      </div>
     </ModalDialog>
   );
 }

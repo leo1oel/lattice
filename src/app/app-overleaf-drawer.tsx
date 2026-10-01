@@ -39,7 +39,6 @@ export function AppOverleafCollabDrawer({ overleaf, onClose, setViewRestore, act
         {...localCommentProps}
         tab={overleaf.overleafCollabTab}
         onTab={overleaf.setOverleafCollabTab}
-        projectName={overleafLink.projectName}
         onClose={onClose}
         threads={overleafComments.threads}
         anchors={overleafComments.anchors}

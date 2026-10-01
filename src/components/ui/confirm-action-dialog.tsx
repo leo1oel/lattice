@@ -10,7 +10,7 @@ import { ModalDialog } from "./modal-dialog";
 import { Button } from "./button";
 import { buttonClassName } from "./button-styles";
 import { DestructiveButton } from "./destructive-button";
-import { MotionButton, PopIn } from "./motion";
+import { MotionButton } from "./motion";
 
 type PendingConfirmation = {
   id: number;
@@ -102,7 +102,7 @@ export function ConfirmActionProvider({ children }: { children: ReactNode }) {
           onClose={() => settle("cancel")}
           backdropClassName="confirm-action-backdrop"
         >
-          <PopIn
+          <div
             className="modal confirm-action-modal"
             data-destructive={copy.destructive}
             data-has-alternative={Boolean(current.options.alternativeLabel)}
@@ -125,7 +125,7 @@ export function ConfirmActionProvider({ children }: { children: ReactNode }) {
                 </MotionButton>
               )}
             </div>
-          </PopIn>
+          </div>
         </ModalDialog>
       )}
     </>

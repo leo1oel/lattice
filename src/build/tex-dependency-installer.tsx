@@ -24,7 +24,7 @@ export function TexDependencyInstaller(props: {
     <TexInstallDialog
       label={t`Install missing package`}
       title={t`Install missing package`}
-      description={t`Lattice will find and install the TeX Live package that provides ${status.missingFile}.`}
+      description={t`Installs the TeX Live package that provides ${status.missingFile}`}
       closeDisabled={status.installing}
       onClose={props.onClose}
       progress={{

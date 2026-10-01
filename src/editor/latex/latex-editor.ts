@@ -23,7 +23,7 @@ import {
 import {
   beginEnvironmentClose, enclosingEnvironment, enclosingEnvironmentRange, environmentAt, matchingEnvironmentTarget,
 } from "./latex-environments";
-import { citationTooltips, citationTooltipSpace, referenceTooltips } from "./latex-hover-cards";
+import { citationTooltips, citationTooltipSpace, graphicsTooltips, referenceTooltips } from "./latex-hover-cards";
 import {
   CITATION_COMMANDS, citationCompletionRange, definitionTargetAt, shouldInsertCommandBraces, symbolAt,
 } from "./latex-symbols";
@@ -263,6 +263,7 @@ export function latexEditorExtensions(options: LatexEditorOptions): Extension[] 
     ...textEditorExtensions(options.spellcheck, options.live, options.onPasteImage),
     citationTooltips(live),
     referenceTooltips(live, options.loadReferenceImage),
+    options.loadReferenceImage ? graphicsTooltips(live, options.loadReferenceImage) : [],
     texlabHoverTooltip(texlabPath, latexCommandHover, options.texlab),
     linter((view) => indexDiagnostics(view.state.doc.toString(), live(), currentPath, options.onCreateMissingFile), {
       delay: 400,

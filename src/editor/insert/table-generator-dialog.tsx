@@ -26,6 +26,10 @@ export function TableGeneratorDialog(props: {
 
   const dirty = rows !== 3 || cols !== 3 || !booktabs || !float || caption !== "Caption" || label !== "tab:name";
   const preview = buildTabularSnippet({ rows, cols, booktabs, float, caption, label });
+  const insert = () => {
+    props.onInsert(preview.insert, preview.cursorOffset);
+    props.onClose();
+  };
 
   return (
     <SheetDialog className="table-generator" label={t`Table generator`} dirty={dirty} onClose={props.onClose}>
@@ -35,10 +39,20 @@ export function TableGeneratorDialog(props: {
         title={t`Insert table`}
         onClose={props.onClose}
       />
-      <div className="table-generator-form">
+      {/* Enter in a field inserts, as a form would; the actions sit in the
+          sheet's sticky footer, outside this block. */}
+      <div
+        className="table-generator-form"
+        onKeyDown={(event) => {
+          if (event.key !== "Enter" || event.nativeEvent.isComposing) return;
+          if (!(event.target instanceof HTMLInputElement) || event.target.type === "checkbox") return;
+          event.preventDefault();
+          insert();
+        }}
+      >
         <label>
           {t`Rows`}
-          <Input type="number" min={1} max={20} value={rows} onChange={(event) => setRows(Number(event.target.value))} />
+          <Input autoFocus type="number" min={1} max={20} value={rows} onChange={(event) => setRows(Number(event.target.value))} />
         </label>
         <label>
           {t`Columns`}
@@ -62,13 +76,7 @@ export function TableGeneratorDialog(props: {
       <pre className="table-generator-preview" aria-label={t`Table preview`}>{preview.insert}</pre>
       <div className="table-generator-actions">
         <Button variant="ghost" onClick={props.onClose}>{t`Cancel`}</Button>
-        <Button
-          variant="primary"
-          onClick={() => {
-            props.onInsert(preview.insert, preview.cursorOffset);
-            props.onClose();
-          }}
-        >
+        <Button variant="primary" onClick={insert}>
           {t`Insert table`}
         </Button>
       </div>

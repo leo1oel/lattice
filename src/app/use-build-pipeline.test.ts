@@ -24,6 +24,7 @@ function renderPipeline(answer: () => Promise<BuildResult>) {
   vi.mocked(invoke).mockImplementation(async (command) => {
     if (command === "build_project") return answer();
     if (command === "abort_build") return true;
+    if (command === "clean_project") return undefined;
     throw new Error(`unexpected ${command}`);
   });
   const ref = <T,>(current: T) => ({ current });
@@ -93,5 +94,16 @@ describe("the build outcome the Build button reports", () => {
     vi.mocked(invoke).mockImplementation(async () => { throw new Error("no cached PDF"); });
     act(() => view.result.current.resetForProject("/other"));
     expect(view.result.current.outcome).toBeNull();
+  });
+});
+
+describe("cleaning build files", () => {
+  // Every file a clean removes is one the next build writes again, so there is
+  // nothing to confirm: it runs at once.
+  it("cleans without asking first", async () => {
+    const view = renderPipeline(async () => result());
+    await act(() => view.result.current.cleanProject());
+    expect(invoke).toHaveBeenCalledWith("clean_project");
+    expect(view.result.current.cleaning).toBe(false);
   });
 });

@@ -154,11 +154,9 @@ button.checklist-row:hover { border-color: var(--control-active-border); }
 .brand-mark { --smooth-shadow-color: var(--control-active); width: 50px; height: 50px; border-radius: 14px; display: grid; place-items: center; color: var(--control-active); }
 .eyebrow { margin: 17px 0 var(--space-4); color: var(--control-active); font-size: var(--type-micro-size); font-weight: 600; letter-spacing: .22em; }
 .welcome-content h1 { margin: 0; font-family: "Instrument Serif", Georgia, serif; font-size: clamp(42px, 6vw, 68px); line-height: 1.02; font-weight: 400; letter-spacing: -.025em; text-wrap: balance; }
-.welcome-copy { max-width: 470px; margin: 19px 0 26px; color: var(--text-secondary); font-size: var(--type-reading-size); line-height: 1.65; text-wrap: pretty; }
 
 /* Only the welcome composition enters; busy updates and project contents do not. */
 .welcome-content > :not(.busy-label) { animation: welcome-rise var(--duration-reveal) var(--ease-out) both; }
-.welcome-content > .welcome-copy { animation-delay: 30ms; }
 .welcome-content > .welcome-actions,
 .welcome-content > .welcome-more,
 .welcome-content > .welcome-tex-setup { animation-delay: 60ms; }
@@ -166,7 +164,7 @@ button.checklist-row:hover { border-color: var(--control-active-border); }
   from { opacity: 0; transform: translateY(6px); }
   to { opacity: 1; transform: translateY(0); }
 }
-.welcome-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 9px; }
+.welcome-actions { margin-top: var(--space-16); display: flex; flex-wrap: wrap; justify-content: center; gap: 9px; }
 
 /* The ways into an existing project. Quieter than the two above, and on one
    line at the width the content column actually has. */
@@ -204,6 +202,20 @@ button.checklist-row:hover { border-color: var(--control-active-border); }
 .modal-backdrop { position: fixed; inset: 0; z-index: var(--z-modal-backdrop); background: rgba(10, 10, 12, .4); display: grid; place-items: center; }
 .modal-window-drag-strip { position: fixed; z-index: var(--z-modal); top: 0; left: 0; right: 0; height: var(--titlebar-height); pointer-events: auto; user-select: none; }
 .modal-dialog-content { position: fixed; top: 50%; left: 50%; z-index: var(--z-modal); width: max-content; transform: translate(-50%, -50%); }
+/* Dialogs arrive: the scrim fades in while the card rises a few pixels and
+   settles. `translate` and `scale` are their own properties, so they compose
+   with the centring transform above instead of replacing it. Dialogs unmount
+   on close, so there is no exit to mirror. */
+.modal-backdrop { animation: modal-scrim-in var(--duration-reveal) var(--ease-out) both; }
+.modal-dialog-content { animation: modal-rise var(--duration-reveal) var(--ease-entrance) both; }
+@keyframes modal-scrim-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes modal-rise {
+  from { opacity: 0; translate: 0 var(--space-3); scale: .98; }
+  to { opacity: 1; translate: 0 0; scale: 1; }
+}
 /* The install guide (launched from Settings) and confirmations open over
    another dialog, so both stack above it. */
 .tex-setup-backdrop, .confirm-action-backdrop { z-index: var(--z-nested-modal-backdrop); }

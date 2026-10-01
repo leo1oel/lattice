@@ -3,6 +3,7 @@ import {
   citationCompletionRange,
   citationHoverTarget,
   definitionTargetAt,
+  graphicsHoverTarget,
   includeCompletionRange,
   referenceCompletionRange,
   referenceHoverTarget,
@@ -40,6 +41,18 @@ describe("LaTeX symbols", () => {
     expect(citationHoverTarget(source, source.indexOf("dosovitskiy") + 4)?.key).toBe("dosovitskiy2021image");
     expect(citationHoverTarget(source, source.indexOf("citep") + 2)).toBeNull();
     expect(citationHoverTarget("Plain text", 3)).toBeNull();
+  });
+
+  it("identifies the figure path hovered inside \\includegraphics, options and \\detokenize included", () => {
+    const source = "\\includegraphics[width=0.8\\linewidth]{figures/plot} and \\includegraphics{\\detokenize{figs/a b.png}}";
+    expect(graphicsHoverTarget(source, source.indexOf("plot"))).toEqual({
+      from: source.indexOf("figures/plot"),
+      to: source.indexOf("figures/plot") + "figures/plot".length,
+      path: "figures/plot",
+    });
+    expect(graphicsHoverTarget(source, source.indexOf("a b"))?.path).toBe("figs/a b.png");
+    expect(graphicsHoverTarget(source, source.indexOf("width"))).toBeNull();
+    expect(graphicsHoverTarget("Plain text", 3)).toBeNull();
   });
 
   it("identifies figure, table, and equation labels inside reference commands", () => {

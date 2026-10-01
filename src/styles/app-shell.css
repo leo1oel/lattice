@@ -25,9 +25,8 @@ input[type="search"]:focus-visible {
 
 .root-error-page { min-height: 100vh; padding: var(--space-16); display: grid; place-items: center; background: var(--surface-app); color: var(--text-primary); }
 .root-error-card { width: min(100%, 520px); padding: var(--space-16); border-radius: 14px; }
-.root-error-eyebrow { margin: 0 0 var(--space-4); color: var(--text-tertiary); font-size: var(--type-micro-size); font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
 .root-error-card h1 { margin: 0; font-size: var(--type-display-size); line-height: 1.2; }
-.root-error-card > p:not(.root-error-eyebrow) { margin: var(--space-6) 0 0; color: var(--text-secondary); font-size: var(--type-body-size); line-height: 1.6; }
+.root-error-card > p { margin: var(--space-6) 0 0; color: var(--text-secondary); font-size: var(--type-body-size); line-height: 1.6; }
 .root-error-actions { margin-top: 22px; display: flex; flex-wrap: wrap; gap: var(--space-4); }
 .root-error-card > .root-error-action-error { color: var(--status-danger); font-size: var(--type-caption-size); }
 .root-error-details { margin-top: 22px; border-top: 1px solid var(--border-subtle); padding-top: 14px; color: var(--text-secondary); font-size: var(--type-caption-size); }
@@ -506,6 +505,10 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
 .paper-row.citation-retracted .paper-citation-health { color: var(--status-danger); }
 .paper-list-end { margin: var(--space-6) 7px var(--space-2); color: var(--text-tertiary); font-size: var(--type-micro-size); text-align: center; }
 .papers-empty-state { margin: 14px 7px; padding: 14px var(--space-6); border: 1px dashed var(--border-strong); border-radius: var(--radius-panel); background: color-mix(in srgb, var(--editor-bg) 55%, transparent); text-align: center; }
+.papers-empty-heading { display: flex; align-items: center; justify-content: center; gap: var(--space-3); }
+/* Drawn a little smaller than compact and let into the card's padding, so the
+   heading grows by only a few pixels. */
+.papers-empty-heading .empty-illustration { width: 40px; height: 30px; margin-block: calc(-1 * var(--space-2)); }
 .papers-empty-state strong { display: block; color: var(--text-primary); font-size: var(--type-label-size); font-weight: 600; }
 .papers-empty-state p { margin: 5px 0 11px; color: var(--text-tertiary); font-size: var(--type-caption-size); line-height: 1.5; }
 .papers-empty-state button { height: 28px; padding: 0 var(--pad-inline-control); border: 1px solid var(--border-strong); border-radius: var(--radius-chrome); background: var(--editor-bg); color: var(--text-secondary); font-size: var(--type-micro-size); font-weight: 600; }
@@ -558,6 +561,21 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
 .overleaf-channel-dot[data-state="error"] { background: var(--status-danger); }
 .canvas-actions .overleaf-pending-badge { top: 3px; right: 3px; min-width: 0; width: 7px; height: 7px; padding: 0; border-radius: var(--radius-pill); background: var(--control-active); box-shadow: 0 0 0 1.5px var(--surface-sidebar); color: transparent; font-size: 0; }
 @keyframes overleaf-channel-breathe { 50% { opacity: .35; } }
+/* The channel's moments, once each. Coming online sends one ripple out of the
+   green dot; dropping to an error pops the red one. Both dots are the same
+   element across states, so the animation starts when the class or state
+   changes, not on every render, and nothing repeats while the writer works. */
+.overleaf-status-dot::after { content: ""; position: absolute; inset: 0; border-radius: inherit; box-shadow: 0 0 0 1.5px var(--status-success); opacity: 0; animation: overleaf-dot-ripple var(--duration-flourish) var(--ease-out) both; }
+.overleaf-channel-dot[data-state="error"] { animation: overleaf-dot-pop var(--duration-slow) var(--ease-entrance) both; }
+@keyframes overleaf-dot-ripple {
+  from { opacity: .9; transform: scale(1); }
+  to { opacity: 0; transform: scale(2.6); }
+}
+@keyframes overleaf-dot-pop {
+  from { transform: scale(.4); }
+  60% { transform: scale(1.35); }
+  to { transform: scale(1); }
+}
 
 /* Tighter still: the view switcher gives up its padding before anything is
    allowed to collide. */

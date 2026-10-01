@@ -25,7 +25,7 @@ export function SettingsSelect<T extends string>(props: SettingsSelectProps<T>) 
   );
 }
 
-export function SelectRow<T extends string>({ description, ...select }: SettingsSelectProps<T> & { description: string }) {
+export function SelectRow<T extends string>({ description, ...select }: SettingsSelectProps<T> & { description?: string }) {
   return (
     <SettingsRow label={select.label} description={description}>
       <SettingsSelect {...select} />

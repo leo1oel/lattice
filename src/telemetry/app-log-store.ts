@@ -32,6 +32,8 @@ export type AppLogEntry = {
 export type AppToastAction = {
   label: string;
   onClick: () => void | Promise<void>;
+  /** An action dismisses its toast once it runs, unless the toast still has a choice left to offer. */
+  keepOpen?: boolean;
 };
 
 export type AppToastOptions = {

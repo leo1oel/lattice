@@ -132,7 +132,7 @@ it("does not repeat a failed batch request in subsequent groups", async () => {
 it("continues other sources while S2 waits and discards its late result after cancellation", async () => {
   const finishBatch = holdBatch();
   await renderChecked();
-  await screen.findByText(/Semantic Scholar is queued or querying/);
+  await screen.findByText(/Waiting for Semantic Scholar/);
   await waitFor(() => expect(screen.getAllByText("Check incomplete")).toHaveLength(3));
   expect(invoke).toHaveBeenCalledWith("bibliography_audit_entry", expect.objectContaining({ s2BatchStatus: "checked" }));
   fireEvent.click(screen.getByRole("button", { name: "Cancel check" }));

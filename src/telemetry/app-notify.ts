@@ -79,6 +79,11 @@ export const notifyWarning = notifier("warning");
 export const notifySuccess = notifier("success");
 export const notifyInfo = notifier("info");
 
+/** A brief "it's on the clipboard" for copies that have nothing else to show for themselves. */
+export function notifyCopied(title: string) {
+  notifyInfo(i18n._(msg`Clipboard`), title, { timeoutMs: 1_800, dedupeKey: "clipboard-copied" });
+}
+
 export type ActionLog = {
   /** Full correlation id; only the legacy text tag is shortened for readability. */
   id: string;

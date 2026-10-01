@@ -12,11 +12,10 @@ import { translateOr } from "./early-i18n";
  */
 /* eslint-disable lingui/no-unlocalized-strings -- English fallback for the recovery page */
 const COPY = {
-  eyebrow: [msg`Recovery`, "Recovery"],
   heading: [msg`Lattice couldn’t open this window`, "Lattice couldn’t open this window"],
   body: [
-    msg`Your project files are safe. Restart Lattice to reopen the window, or copy the error details if the problem continues.`,
-    "Your project files are safe. Restart Lattice to reopen the window, or copy the error details if the problem continues.",
+    msg`Your project files are safe`,
+    "Your project files are safe",
   ],
   restart: [msg`Restart Lattice`, "Restart Lattice"],
   copy: [msg`Copy error details`, "Copy error details"],
@@ -90,7 +89,6 @@ export function RootErrorFallback({
   return (
     <main className="root-error-page">
       <section className="root-error-card" role="alert" aria-labelledby="root-error-title">
-        <p className="root-error-eyebrow">{copy("eyebrow")}</p>
         <h1 id="root-error-title">{copy("heading")}</h1>
         <p>{copy("body")}</p>
         <div className="root-error-actions">

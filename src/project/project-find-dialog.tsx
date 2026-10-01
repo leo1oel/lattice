@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLatestRef } from "../hooks/use-latest-ref";
 import { Trans, useLingui } from "@lingui/react/macro";
 import { Search } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { EmptyState } from "../components/ui/empty-state";
+import { EmptyIllustration } from "../components/ui/empty-illustration";
 import { PanelHeader } from "../components/ui/panel-header";
 import { SearchField } from "../components/ui/search-field";
 import { ScrollArea } from "../components/ui/scroll-area";
@@ -42,9 +43,20 @@ export function ProjectFindDialog(props: {
   const resetKey = props.open ? props.hits : null;
   const [seenResetKey, setSeenResetKey] = useState(resetKey);
   if (seenResetKey !== resetKey) {
+    // Reopening keeps the last query and runs it again; until that search
+    // answers, show it as searching rather than as a query with no results.
+    if (seenResetKey === null && query.trim()) setDebouncing(true);
     setSeenResetKey(resetKey);
     setActiveIndex(0);
   }
+
+  // The kept query comes back selected: Enter repeats it, typing replaces it.
+  // Selected when the input mounts, not in an effect on `open`: the dialog's
+  // portal mounts its content a commit later, so the ref is still empty then.
+  const attachInput = useCallback((node: HTMLInputElement | null) => {
+    inputRef.current = node;
+    node?.select();
+  }, []);
 
   useEffect(() => {
     if (!props.open) return;
@@ -74,7 +86,6 @@ export function ProjectFindDialog(props: {
 
   const close = () => {
     setDebouncing(false);
-    setQuery("");
     onSearchRef.current("");
     props.onClose();
   };
@@ -140,7 +151,7 @@ export function ProjectFindDialog(props: {
         onClose={close}
       />
       <SearchField
-        ref={inputRef}
+        ref={attachInput}
         autoFocus
         aria-label={t`Find in project`}
         value={query}
@@ -201,6 +212,7 @@ export function ProjectFindDialog(props: {
           <EmptyState
             align="start"
             density="compact"
+            icon={<EmptyIllustration kind="search" size="compact" />}
             title={t`No results for “${trimmedQuery}”`}
             description={t`Try a shorter phrase or different terms`}
             actions={<Button size="compact" variant="secondary" onClick={clearSearch}><Trans>Clear search</Trans></Button>}

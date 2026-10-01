@@ -49,6 +49,9 @@ textarea {
   --success: #2c785c;
   --warning: #8d6400;
   --info: #6488c5;
+  --brand-weft: #4568f6;
+  --brand-warp: #25b4bb;
+  --brand-glint: rgba(255, 255, 255, 0.85);
   --shadow: 0 20px 60px rgba(22, 22, 24, 0.12);
   --shadow-soft: 0 8px 24px rgba(22, 22, 24, 0.08);
   --editor-bg: #f9f9fa;
@@ -89,6 +92,9 @@ textarea {
   --success: #66bd99;
   --warning: #d7a62b;
   --info: #8fabd8;
+  --brand-weft: #7f97ff;
+  --brand-warp: #4fd2c6;
+  --brand-glint: rgba(255, 255, 255, 0.7);
   --shadow: 0 24px 70px rgba(0, 0, 0, 0.38);
   --shadow-soft: 0 10px 28px rgba(0, 0, 0, 0.28);
   --editor-bg: var(--panel);

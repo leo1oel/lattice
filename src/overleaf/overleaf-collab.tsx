@@ -31,7 +31,6 @@ export function OverleafCollabDrawer(props: {
   focusThreadId?: string | null;
   tab: OverleafCollabTab;
   onTab: (tab: OverleafCollabTab) => void;
-  projectName: string;
   onClose: () => void;
 
   threads: OverleafThread[];
@@ -70,7 +69,6 @@ export function OverleafCollabDrawer(props: {
 }) {
   const { t } = useLingui();
   const [commentSource, setCommentSource] = useState(props.focusLocalComments ? "local" : "overleaf");
-  const projectName = props.projectName || t`this project`;
   const chatMessages = useMemo(() => props.messages.map((message) => ({
     id: message.id,
     authorKey: `${message.mine}:${message.authorName}`,
@@ -155,11 +153,6 @@ export function OverleafCollabDrawer(props: {
           <ChatPanel
             header={(
               <>
-                <p className="drawer-copy">
-                  {t({
-                    message: `The same conversation as the chat panel in ${projectName} on Overleaf. Messages appear on both sides as they are sent`,
-                  })}
-                </p>
                 {props.chatError && <InlineMessage level="error" className="overleaf-chat-inline">{props.chatError}</InlineMessage>}
               </>
             )}

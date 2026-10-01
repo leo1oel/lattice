@@ -275,7 +275,7 @@ export function LiteratureDiscoveryPanel(props: {
           </button>
         )}
         {!loading && !results.length && !error && !notice && (
-          <EmptyState description={t`Search alphaXiv and OpenAlex to find related work before importing evidence`} />
+          <EmptyState description={t`Search alphaXiv and OpenAlex for related work`} />
         )}
       </div>
     </ResizableDrawer>

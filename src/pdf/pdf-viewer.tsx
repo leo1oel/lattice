@@ -24,7 +24,6 @@ import {
   CornerUpLeft,
   CornerUpRight,
   Download,
-  FileText,
   LocateFixed,
   RectangleHorizontal,
   RectangleVertical,
@@ -36,6 +35,7 @@ import {
 import { Tip } from "../components/icon-tip";
 import { InfinityLoader } from "../components/ui/activity-icons";
 import { PdfLoading } from "./pdf-loading";
+import { EmptyIllustration } from "../components/ui/empty-illustration";
 import { PdfCitationHover, type PdfCitationProps } from "./pdf-citation-hover";
 import { SearchField } from "../components/ui/search-field";
 import { MotionButton } from "../components/ui/motion";
@@ -261,7 +261,7 @@ export function PdfPreview({
           <div className="pdf-zoom-controls" />
         </div>
         <div className="pdf-placeholder">
-          <FileText size={28} />
+          <EmptyIllustration kind="preview" />
           <p>{t`Build the project to preview the paper`}</p>
         </div>
       </div>

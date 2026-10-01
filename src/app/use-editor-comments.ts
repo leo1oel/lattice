@@ -57,6 +57,25 @@ export function useEditorComments({
     }
   }, []);
 
+  /**
+   * Delete a comment, its replies with it, and hand back what puts it back
+   * where it was. The undo reads the list as it is then, so anything changed
+   * in between survives, and it does nothing once another project is open.
+   */
+  const remove = useCallback((id: string): (() => void) | null => {
+    const before = commentsRef.current;
+    const index = before.findIndex((comment) => comment.id === id);
+    if (index < 0) return null;
+    const removed = before[index];
+    const root = projectRootRef.current;
+    void persist(before.filter((comment) => comment.id !== id));
+    return () => {
+      const current = commentsRef.current;
+      if (projectRootRef.current !== root || current.some((comment) => comment.id === id)) return;
+      void persist([...current.slice(0, index), removed, ...current.slice(index)]);
+    };
+  }, [commentsRef, persist, projectRootRef]);
+
   const update = useCallback((id: string, change: (comment: EditorComment) => Partial<EditorComment>) => {
     void persist(comments.map((item) => (
       item.id === id ? { ...item, ...change(item), updatedAt: new Date().toISOString() } : item
@@ -150,7 +169,7 @@ export function useEditorComments({
   }, [agentOptionsRef, commentsRef, openSources, overleafComments.anchors, overleafComments.threads, overleafDocPaths, overleafLink, project, projectRootRef]);
 
   return {
-    comments, all, persist, update, create, toggleResolved, reply, reset, load,
+    comments, all, persist, remove, update, create, toggleResolved, reply, reset, load,
     panelOpen, openPanel, openReply, closePanel, panelFocus, panelFocusId, setPanelFocus,
     activeId, setActiveId, focusRequest, setFocusRequest, openGenerationRef,
   };

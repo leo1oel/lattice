@@ -102,7 +102,7 @@ export const TrellisTitlebar = memo(function TrellisTitlebar({ controller }: { c
         })}
       </div>
       <div className="trellis-titlebar-group">
-        <Tip label={framed ? t`Restore the layout · ⌘⇧↩` : t`Maximize the focused panel · ⌘⇧↩ or double-click its tab bar`}>
+        <Tip label={framed ? t`Restore the layout · ⌘⇧↩` : t`Maximize panel · ⌘⇧↩`}>
           <button
             type="button"
             className="trellis-titlebar-toggle"

@@ -454,8 +454,8 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
         const markedFiles = marked.map((item) => item.path).join(", ");
         const wholeFiles = whole.map((item) => item.path).join(", ");
         const parts = [
-          marked.length ? t`Overleaf sync could not combine: ${markedFiles}. Both versions are kept — resolve each spot to finish. Your untouched version is also saved beside it in the “(local conflict …)” files, and nothing uploads until the conflicts are settled.` : "",
-          whole.length ? t`Changed in both places and impossible to combine: ${wholeFiles}. Overleaf's version is now the one in the project, and yours is kept beside it in the “(local conflict …)” files — keep whichever you want and delete the other.` : "",
+          marked.length ? t`Couldn’t merge ${markedFiles}. Both versions are kept; resolve each spot to finish. Nothing uploads until then.` : "",
+          whole.length ? t`${wholeFiles} changed on both sides. Overleaf’s version is in the project; yours is in the “(local conflict …)” file beside it.` : "",
         ].filter(Boolean);
         if (parts.length) setError(parts.join(" "));
         // Only worth opening for a file that actually has markers in it.

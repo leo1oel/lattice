@@ -16,6 +16,7 @@ import { beginPaperDrag } from "../papers/paper-drag";
 import { citationHealthLabel, citationHealthTitle } from "./citation-health";
 import { paperSearchIdentity, rankPapers, usePaperTextSearch, type RecentPaperImport } from "./paper-library-search";
 import { useCompositionGuard } from "./use-composition-guard";
+import { EmptyIllustration } from "../components/ui/empty-illustration";
 
 type PaperFetchState = "loading" | "success";
 
@@ -89,9 +90,9 @@ export function PaperLibrary(props: PaperLibraryProps) {
   };
   const total = props.papers.length;
   const emptyState = !total
-    ? [t`Add your first paper`, t`Paste an arXiv ID, DOI, URL, or title above to ground the agent in project evidence`]
+    ? [t`Add your first paper`, t`Paste an arXiv ID, DOI, URL or title above`]
     : filteredPapers.length ? null
-      : [t`No matching papers`, t`Use the + button to import this query if it isn't in your library yet`];
+      : [t`No matching papers`, t`Press + to import it`];
 
   return (
     <div className="navigator-section papers-section">
@@ -235,7 +236,12 @@ export function PaperLibrary(props: PaperLibraryProps) {
         })}
         {emptyState && (
           <div className="papers-empty-state">
-            <strong>{emptyState[0]}</strong>
+            {/* Beside the title, not above it: the card sits in a short panel
+                at startup, and a taller card would overflow it. */}
+            <div className="papers-empty-heading">
+              <EmptyIllustration kind={total ? "search" : "papers"} size="compact" />
+              <strong>{emptyState[0]}</strong>
+            </div>
             <p>{emptyState[1]}</p>
           </div>
         )}

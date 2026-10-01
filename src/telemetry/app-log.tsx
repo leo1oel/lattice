@@ -174,12 +174,12 @@ function ExportDialog({ entries, onClose }: { entries: readonly AppLogEntry[]; o
     <ModalDialog label={t`Export diagnostic log`} onClose={onClose} describedBy="app-log-export-warning">
       <div className="app-log-export-dialog">
         <h2>{t`Export diagnostic log`}</h2>
-        <p id="app-log-export-warning">{t`The safe export contains only validated operation metadata and known counts. It stays on this device until you copy or download it.`}</p>
+        <p id="app-log-export-warning">{t`Only operation metadata and counts. Nothing leaves this Mac until you copy or download it`}</p>
         <CheckboxField
           checked={includeRaw}
           onChange={(event) => setIncludeRaw(event.target.checked)}
           label={t`Include raw diagnostic text`}
-          description={t`Warning: raw diagnostic text may contain document content, file paths, or other sensitive information.`}
+          description={t`May include document text and file paths`}
         />
         <CheckboxField
           checked={includeRuntime}
@@ -189,7 +189,7 @@ function ExportDialog({ entries, onClose }: { entries: readonly AppLogEntry[]; o
             else { request.current += 1; setRuntime({}); }
           }}
           label={t`Include app and Agent runtime logs`}
-          description={t`For Agent startup or connection failures. Includes recent lattice, sidecar, and server logs (up to 128 KiB each). Known credentials are masked, but paths and document content may remain. Review before sharing.`}
+          description={t`For Agent failures. Credentials are masked, but paths and document text may remain`}
         />
         {includeRuntime && !runtime.logs && (runtime.error ? (
           <div role="alert">
@@ -261,7 +261,16 @@ function AppToast({ entry, options }: { entry: AppLogEntry; options?: AppToastOp
               </CopyButton>
             )}
             {actions.map((action, index) => (
-              <button key={index} type="button" className="app-toast-action" onClick={() => void action.onClick()}>
+              <button
+                key={index}
+                type="button"
+                className="app-toast-action"
+                onClick={() => {
+                  void action.onClick();
+                  // The action was the answer, so it is not also reported as a dismissal.
+                  if (!action.keepOpen) dismissAppToast(entry.id, false);
+                }}
+              >
                 {action.label}
               </button>
             ))}
@@ -335,7 +344,7 @@ export function AppLogsSettings() {
   );
   return (
     <div className="settings-section app-logs-settings">
-      <SettingsSectionHeader title={t`Logs`} description={t`Shows 300 recent entries; disk logs rotate`} />
+      <SettingsSectionHeader title={t`Logs`} description={t`The last 300 entries`} />
       <SettingsGroup title={t`Activity log`}>
         <div className="app-log-actions">
           <div className="app-log-query-row">
