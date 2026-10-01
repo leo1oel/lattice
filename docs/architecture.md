@@ -65,7 +65,7 @@ which there are only **four** emitted from the project and editor layers:
 `PresenceUpdated`, `PresenceLeft`, `ChangesAccepted`, `TrackChangesToggled`,
 `ThreadsChanged`, `ChatMessage`, `Disconnected`). Four
 different frontend hooks subscribe to it and filter by `type`
-(`src/overleaf/use-overleaf-realtime.ts:499`, `src/overleaf/use-overleaf-presence.ts:86`,
+(`src/overleaf/use-overleaf-realtime.ts:552`, `src/overleaf/use-overleaf-presence.ts:104`,
 `src/overleaf/use-overleaf-chat.ts:57`, `src/overleaf/use-overleaf-comments.ts:103`).
 Rust addresses each window's events with `emit_to`, but Tauri still delivers
 them to every untargeted listener, so subscribe only through
