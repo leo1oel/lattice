@@ -1,7 +1,7 @@
 /**
  * The window title bar: the project switcher over the left column, then the
- * panel controls and the project-wide tools (comments, Overleaf, paper
- * lookup, Git, history). A document's own actions (Build, Edit / Split /
+ * panel controls and the project-wide tools (comments, Overleaf, Git,
+ * history). A document's own actions (Build, Edit / Split /
  * Preview) live in its panel's header instead.
  *
  * The canvas toolbar arrives as an element rather than as props. It reads about

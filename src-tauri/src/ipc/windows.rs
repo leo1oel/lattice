@@ -46,31 +46,6 @@ fn open_desktop_window(
     }
 }
 
-#[tauri::command]
-pub async fn open_paper_lookup(
-    app: AppHandle, window: Window, title: String,
-) -> Result<(), String> {
-    let label = format!("paper-lookup-{}", window.label());
-    if let Some(existing) = app.get_webview_window(&label) {
-        existing.show().map_err(|error| error.to_string())?;
-        return existing.set_focus().map_err(|error| error.to_string());
-    }
-    // The owner is an application-generated window label, never a path or URL
-    // supplied by the renderer. Lookup windows do not bind a second project.
-    let url = format!("index.html?paper-lookup={}", window.label());
-    let builder = tauri::WebviewWindowBuilder::new(&app, label, tauri::WebviewUrl::App(url.into()))
-        .title(title)
-        .inner_size(390.0, 600.0)
-        .min_inner_size(320.0, 340.0)
-        .always_on_top(false)
-        .disable_drag_drop_handler();
-    let created = crate::overlay_title_bar(builder).build().map_err(|error| error.to_string())?;
-    // The lookup never reports its titlebar center, so it takes no part in the
-    // shared alignment target the workspace windows set.
-    macos_window::install_compact_toolbar(&created);
-    Ok(())
-}
-
 /// Open a project in a window of its own.
 ///
 /// A project may only be open in one window at a time. Two windows on one

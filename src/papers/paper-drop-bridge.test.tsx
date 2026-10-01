@@ -1,18 +1,13 @@
-import { act, cleanup, fireEvent, render, renderHook, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import PaperLookup from "./paper-lookup";
 import { beginPaperDrag, resolvePaperDrag } from "./paper-drag";
-import { PAPER_LOOKUP_OPEN, PAPER_LOOKUP_READY, PAPER_LOOKUP_STATE, usePaperLookup, type PaperLookupState } from "./use-paper-lookup";
+import { usePaperDropRouting, type PaperDropLibrary } from "./paper-drop-bridge";
 
 const native = vi.hoisted(() => ({
   listeners: new Map<string, (event: { payload: unknown }) => void>(),
   emitTo: vi.fn(async () => {}),
-  pin: vi.fn(async (_value: boolean) => {}),
-  focus: vi.fn(async () => {}),
   cleanup: vi.fn(),
-  invoke: vi.fn(async () => {}),
 }));
-vi.mock("@tauri-apps/api/core", () => ({ invoke: native.invoke }));
 vi.mock("@tauri-apps/api/event", () => ({
   listen: vi.fn(async (event: string, callback: (event: { payload: unknown }) => void) => {
     native.listeners.set(event, callback);
@@ -20,13 +15,13 @@ vi.mock("@tauri-apps/api/event", () => ({
   }),
   emitTo: native.emitTo,
 }));
-vi.mock("@tauri-apps/api/window", () => ({ getCurrentWindow: () => ({ label: "main", setAlwaysOnTop: native.pin, setFocus: native.focus }) }));
+vi.mock("@tauri-apps/api/window", () => ({ getCurrentWindow: () => ({ label: "main" }) }));
 vi.mock("@tauri-apps/api/webview", () => ({ getCurrentWebview: () => ({ onDragDropEvent: async (callback: (event: { payload: unknown }) => void) => {
   native.listeners.set("native-drop", callback);
   return native.cleanup;
 } }) }));
-const state: PaperLookupState = {
-  projectRoot: "/projects/Research", theme: "light", papers: [
+const state: PaperDropLibrary = {
+  projectRoot: "/projects/Research", papers: [
     { arxivId: "1706.03762", title: "Attention Is All You Need", authors: "Vaswani et al.", citationKey: "vaswani2017", hasFullText: true, hasBlog: false },
     { arxivId: "", title: "Cited reference", citationKey: "smith2020", hasFullText: false, hasBlog: false },
   ],
@@ -35,7 +30,7 @@ const identity = { projectRoot: state.projectRoot, arxivId: state.papers[0].arxi
 afterEach(() => { cleanup(); vi.clearAllMocks(); vi.unstubAllGlobals(); native.listeners.clear(); });
 const send = (event: string, payload: unknown) => act(() => native.listeners.get(event)?.({ payload }));
 
-describe("paper lookup", () => {
+describe("paper drop bridge", () => {
   it("relays an intercepted native paper drop without consuming Finder files or cancelled drags", async () => {
     vi.stubGlobal("DataTransfer", class {
       values = new Map<string, string>();
@@ -52,7 +47,7 @@ describe("paper lookup", () => {
     target.addEventListener("drop", received);
     const hitTest = vi.fn(() => target);
     Object.defineProperty(document, "elementFromPoint", { configurable: true, value: hitTest });
-    renderHook(() => usePaperLookup(state, vi.fn(), vi.fn()));
+    renderHook(() => usePaperDropRouting(state, vi.fn(), vi.fn()));
     await waitFor(() => expect(native.listeners.has("native-drop")).toBe(true));
     const start = () => send("paper-native-drag", { id: "drag-1", paper: identity });
     const enter = (paths: string[] = []) => send("native-drop", { type: "enter", paths, position: { x: 92, y: 158 } });
@@ -78,41 +73,20 @@ describe("paper lookup", () => {
     delete (document as Partial<Document>).elementFromPoint;
   });
 
-  it("sends the drag identity and matching dragend to the lookup's owner", async () => {
+  it("sends the drag identity and matching dragend to its own window's bridge", async () => {
     vi.stubGlobal("__TAURI_INTERNALS__", {});
     const values = new Map<string, string>();
     const data = { setData: (key: string, value: string) => values.set(key, value) } as unknown as DataTransfer;
-    beginPaperDrag(data, state.projectRoot, state.papers[0], "project-2");
-    expect(native.emitTo).toHaveBeenLastCalledWith("project-2", "paper-native-drag", { id: expect.any(String), paper: identity });
+    beginPaperDrag(data, state.projectRoot, state.papers[0]);
+    expect(native.emitTo).toHaveBeenLastCalledWith("main", "paper-native-drag", { id: expect.any(String), paper: identity });
     const id = (native.emitTo.mock.lastCall as unknown as [string, string, { id: string }])[2].id;
     window.dispatchEvent(new Event("dragend"));
-    await waitFor(() => expect(native.emitTo).toHaveBeenLastCalledWith("project-2", "paper-native-drag", { id, paper: null }));
-  });
-
-  it("handshakes before receiving the library, filters, reads in the owner, and toggles global pinning", async () => {
-    render(<PaperLookup owner="project-2" />);
-    await waitFor(() => expect(native.emitTo).toHaveBeenCalledWith("project-2", PAPER_LOOKUP_READY));
-    send(PAPER_LOOKUP_STATE, state);
-    expect(screen.getAllByRole("listitem")).toHaveLength(2);
-    fireEvent.change(screen.getByRole("searchbox"), { target: { value: "vaswani need" } });
-    expect(screen.getAllByRole("listitem")).toHaveLength(1);
-    fireEvent.click(screen.getByRole("button", { name: /Attention Is All/ }));
-    expect(native.emitTo).toHaveBeenCalledWith("project-2", PAPER_LOOKUP_OPEN, { projectRoot: state.projectRoot, arxivId: "1706.03762", citationKey: "vaswani2017" });
-    const pin = screen.getByRole("button", { name: "Keep on top" });
-    expect(pin).toHaveAttribute("aria-pressed", "false");
-    fireEvent.click(pin);
-    await waitFor(() => expect(pin).toHaveAttribute("aria-pressed", "true"));
-    expect(native.pin).toHaveBeenLastCalledWith(true);
-    fireEvent.click(pin);
-    await waitFor(() => expect(pin).toHaveAttribute("aria-pressed", "false"));
-    expect(native.pin).toHaveBeenLastCalledWith(false);
-    fireEvent.change(screen.getByRole("searchbox"), { target: { value: "no-match" } });
-    expect(screen.getByText("No matching papers")).toBeVisible();
+    await waitFor(() => expect(native.emitTo).toHaveBeenLastCalledWith("main", "paper-native-drag", { id, paper: null }));
   });
 
   it("opens a dropped paper only on document panels and the titlebar", () => {
     const open = vi.fn();
-    renderHook(() => usePaperLookup(state, open, vi.fn()));
+    renderHook(() => usePaperDropRouting(state, open, vi.fn()));
     document.body.innerHTML = `
       <div class="titlebar-main"></div>
       <div class="lattice-trellis">
@@ -143,24 +117,26 @@ describe("paper lookup", () => {
     document.body.innerHTML = "";
   });
 
-  it("publishes current state, rejects stale project requests, and opens through the constrained native command", async () => {
+  it("opens through the latest library and releases its listeners on unmount", async () => {
     const open = vi.fn();
-    const error = vi.fn();
-    const hook = renderHook(({ library }) => usePaperLookup(library, open, error), { initialProps: { library: state } });
-    send(PAPER_LOOKUP_READY, undefined);
-    expect(native.emitTo).toHaveBeenLastCalledWith("paper-lookup-main", PAPER_LOOKUP_STATE, state);
-    send(PAPER_LOOKUP_OPEN, { projectRoot: state.projectRoot, ...state.papers[0] });
+    const hook = renderHook(({ library }) => usePaperDropRouting(library, open, vi.fn()), { initialProps: { library: state } });
+    await waitFor(() => expect(native.listeners.has("native-drop")).toBe(true));
+    const values = new Map<string, string>();
+    const dataTransfer = {
+      get types() { return [...values.keys()]; },
+      setData: (type: string, value: string) => { values.set(type, value); },
+      getData: (type: string) => values.get(type) ?? "",
+    };
+    beginPaperDrag(dataTransfer as unknown as DataTransfer, state.projectRoot, state.papers[0]);
+    document.body.innerHTML = `<div class="titlebar-main"></div>`;
+    fireEvent.drop(document.querySelector(".titlebar-main")!, { dataTransfer });
     expect(open).toHaveBeenCalledWith(state.papers[0]);
-    hook.rerender({ library: { ...state, projectRoot: "/new-project", papers: [] } });
-    send(PAPER_LOOKUP_OPEN, { projectRoot: state.projectRoot, ...state.papers[0] });
+    // A drag from the previous project resolves against today's library only.
+    hook.rerender({ library: { projectRoot: "/new-project", papers: [] } });
+    fireEvent.drop(document.querySelector(".titlebar-main")!, { dataTransfer });
     expect(open).toHaveBeenCalledTimes(1);
-    expect(error).not.toHaveBeenCalled();
-    await act(() => hook.result.current());
-    expect(native.invoke).toHaveBeenCalledWith("open_paper_lookup", { title: "Paper lookup" });
-    native.invoke.mockRejectedValueOnce(new Error("Could not create window"));
-    await act(() => hook.result.current());
-    expect(error).toHaveBeenCalledWith(expect.objectContaining({ message: "Could not create window" }));
     hook.unmount();
-    await waitFor(() => expect(native.cleanup).toHaveBeenCalledTimes(4));
+    await waitFor(() => expect(native.cleanup).toHaveBeenCalledTimes(2));
+    document.body.innerHTML = "";
   });
 });

@@ -256,7 +256,7 @@ Practical consequence: to find what a button does, grep the command name in
 | `files` | 21 | `read_project_file`, `write_project_file`, `create_project_entry`, `move_project_entry` |
 | `build` | 17 | `build_project`, `abort_build`, `synctex_edit`, `texlab_diagnostics`, `start_tex_install`, `run_doctor` |
 | `search` | 11 | `search_project`, `replace_in_project`, `rename_label`, `list_todos` |
-| `windows` | 9 | `open_project_window`, `open_paper_lookup`, `restart_after_update`, `set_window_background` |
+| `windows` | 8 | `open_project_window`, `restart_after_update`, `set_window_background` |
 | `bibliography` | 13 | `list_citation_keys`, `save_bib_entry`, `bibliography_audit_scan`, `agent_bibliography_mutation` |
 | `workspace` | 10 | `create_project`, `open_project`, `import_project_zip`, `update_project_manifest` |
 | `papers` | 10 | `search_literature`, `fetch_paper`, `import_reference`, `read_paper` |

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { paperKey } from "../app-utils";
 import type { PaperSummary } from "../app-types";
@@ -74,13 +74,22 @@ export function rankPapers(
 /**
  * Debounced full-text search over the local paper cache, keyed by paper
  * identity (first hit wins). Hits for an older query are never returned.
+ * `searchNow` skips the debounce for the current query (Enter in the box).
  */
-export function usePaperTextSearch(query: string, enabled: boolean): ReadonlyMap<string, PaperLibrarySearchHit> {
+export function usePaperTextSearch(query: string, enabled: boolean): {
+  hits: ReadonlyMap<string, PaperLibrarySearchHit>;
+  searchNow: () => void;
+} {
   const [search, setSearch] = useState<{ query: string; hits: PaperLibrarySearchHit[] }>({ query: "", hits: [] });
+  const runNow = useRef<(() => void) | null>(null);
   useEffect(() => {
     if (!enabled || !query) return;
     let disposed = false;
-    const timer = window.setTimeout(() => {
+    let started = false;
+    const run = () => {
+      if (started) return;
+      started = true;
+      window.clearTimeout(timer);
       void invoke<PaperLibrarySearchHit[]>("search_paper_library", { query })
         .then((hits) => {
           if (!disposed) setSearch({ query, hits: Array.isArray(hits) ? hits : [] });
@@ -89,13 +98,17 @@ export function usePaperTextSearch(query: string, enabled: boolean): ReadonlyMap
           // Metadata filtering remains useful if the cache cannot be read.
           if (!disposed) setSearch({ query, hits: [] });
         });
-    }, 120);
+    };
+    const timer = window.setTimeout(run, 120);
+    runNow.current = run;
     return () => {
       disposed = true;
+      runNow.current = null;
       window.clearTimeout(timer);
     };
   }, [enabled, query]);
-  return useMemo(() => {
+  const searchNow = useCallback(() => runNow.current?.(), []);
+  const hits = useMemo(() => {
     const firstHit = new Map<string, PaperLibrarySearchHit>();
     for (const hit of search.query === query ? search.hits : []) {
       const identity = paperSearchIdentity(hit);
@@ -103,4 +116,5 @@ export function usePaperTextSearch(query: string, enabled: boolean): ReadonlyMap
     }
     return firstHit;
   }, [search, query]);
+  return { hits, searchNow };
 }

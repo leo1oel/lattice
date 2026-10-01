@@ -325,7 +325,7 @@ export type AppearanceSettings = {
 };
 
 /** The tool buttons at the right of the title bar, each of which can be hidden. */
-const TITLEBAR_TOOLS = ["comments", "overleaf", "paper-lookup", "git", "history"] as const;
+const TITLEBAR_TOOLS = ["comments", "overleaf", "git", "history"] as const;
 export type TitlebarTool = typeof TITLEBAR_TOOLS[number];
 
 export function resolveAppLocale(preference: InterfaceLanguage, systemLanguages?: readonly string[]): AppLocale {

@@ -36,12 +36,6 @@ async function startApp() {
 
   await activateAppLocale(resolveAppLocale(loadAppearance().interfaceLanguage));
   const root = ReactDOM.createRoot(document.getElementById("root") as HTMLElement);
-  const lookupOwner = new URLSearchParams(location.search).get("paper-lookup");
-  if (lookupOwner) {
-    const { default: PaperLookup } = await import("./papers/paper-lookup");
-    root.render(<I18nProvider i18n={i18n}><PaperLookup owner={lookupOwner} /></I18nProvider>);
-    return;
-  }
   installNativeLocaleSync();
   root.render(
     <MotionConfig reducedMotion="user">

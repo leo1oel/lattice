@@ -9,7 +9,7 @@ const PAPER_DRAG_URI = "lattice-paper:";
 export type PaperDrag = { projectRoot: string; arxivId: string; citationKey?: string };
 export type NativePaperDrag = { id: string; paper: PaperDrag | null };
 
-export function beginPaperDrag(data: DataTransfer, projectRoot: string, paper: PaperSummary, owner?: string) {
+export function beginPaperDrag(data: DataTransfer, projectRoot: string, paper: PaperSummary) {
   data.effectAllowed = "copy";
   const identity: PaperDrag = { projectRoot, arxivId: paper.arxivId, citationKey: paper.citationKey };
   const payload = JSON.stringify(identity);
@@ -21,10 +21,11 @@ export function beginPaperDrag(data: DataTransfer, projectRoot: string, paper: P
   // chooses TeX or Markdown syntax. A bare @key silently becomes TeX prose.
   data.setData("text/plain", uri);
   // Tauri's native file-drop handler consumes even non-file drops before
-  // WKWebView sees them. Give the owner the identity separately; its native
-  // drop callback supplies the pointer position. Finder drops stay native.
+  // WKWebView sees them. Give this window's drop bridge the identity
+  // separately; its native drop callback supplies the pointer position.
+  // Finder drops stay native.
   if ("__TAURI_INTERNALS__" in window) {
-    const target = owner ?? getCurrentWindow().label;
+    const target = getCurrentWindow().label;
     const id = crypto.randomUUID();
     const started = emitTo(target, PAPER_NATIVE_DRAG, { id, paper: identity } satisfies NativePaperDrag);
     void started.catch(() => {});

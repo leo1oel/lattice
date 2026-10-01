@@ -151,7 +151,6 @@ msgstr "{count} markers"
 msgid "{count} panels. Double-click to zoom in."
 msgstr "{count} panels. Double-click to zoom in."
 
-#: src/papers/paper-lookup.tsx
 #: src/project/paper-library.tsx
 #: src/project/project-find-dialog.tsx
 msgid "{count} papers"
@@ -380,7 +379,6 @@ msgstr "1 line"
 msgid "1 of {total} papers"
 msgstr "1 of {total} papers"
 
-#: src/papers/paper-lookup.tsx
 #: src/project/paper-library.tsx
 #: src/project/project-find-dialog.tsx
 msgid "1 paper"
@@ -516,9 +514,9 @@ msgstr "Add current color"
 msgid "Add exactly one bibliography entry at a time."
 msgstr "Add exactly one bibliography entry at a time."
 
-#: src/papers/paper-lookup.tsx
-msgid "Add papers in the project’s Papers sidebar"
-msgstr "Add papers in the project’s Papers sidebar"
+#: src/project/paper-library.tsx
+msgid "Add paper"
+msgstr "Add paper"
 
 #: src/settings/settings-dialog.tsx
 msgid "Add project term"
@@ -842,10 +840,6 @@ msgstr "Automatic updates"
 #: src/settings/settings-dialog.tsx
 msgid "Auxiliary files"
 msgstr "Auxiliary files"
-
-#: src/papers/paper-lookup.tsx
-msgid "Available offline"
-msgstr "Available offline"
 
 #: src/components/ui/apple-color-picker.tsx
 msgid "Azure"
@@ -1584,7 +1578,6 @@ msgstr "Clear PDF search"
 
 #: src/components/ui/search-field.tsx
 #: src/overleaf/overleaf-connect.tsx
-#: src/papers/paper-lookup.tsx
 #: src/project/project-find-dialog.tsx
 msgid "Clear search"
 msgstr "Clear search"
@@ -1847,10 +1840,6 @@ msgstr "Connecting live editing…"
 #: src/canvas/canvas-toolbar.tsx
 msgid "Connecting to Overleaf's live channel…"
 msgstr "Connecting to Overleaf's live channel…"
-
-#: src/papers/paper-lookup.tsx
-msgid "Connecting to project…"
-msgstr "Connecting to project…"
 
 #: src/overleaf/overleaf-connect.tsx
 msgid "Connection"
@@ -2534,10 +2523,6 @@ msgstr "Downloading full text and figures…"
 msgid "Downloading update…"
 msgstr "Downloading update…"
 
-#: src/papers/paper-lookup.tsx
-msgid "Drag to cite · Click to read"
-msgstr "Drag to cite · Click to read"
-
 #: src/App.tsx
 msgid "Drop image or PDF files onto a TeX/Markdown editor to insert them, onto an open document to import and open them, or into the Project pane to add them."
 msgstr "Drop image or PDF files onto a TeX/Markdown editor to insert them, onto an open document to import and open them, or into the Project pane to add them."
@@ -3021,10 +3006,6 @@ msgstr "Find"
 #: src/project/project-replace-dialog.tsx
 msgid "Find & replace in project"
 msgstr "Find & replace in project"
-
-#: src/settings/settings-dialog.tsx
-msgid "Find a paper by title, DOI or arXiv ID"
-msgstr "Find a paper by title, DOI or arXiv ID"
 
 #: src/build/compile-diagnostics-panel.tsx
 msgid "Find and install the TeX Live package for {missingFile}"
@@ -3535,10 +3516,6 @@ msgstr "Import images here"
 msgid "Import Overleaf ZIP"
 msgstr "Import Overleaf ZIP"
 
-#: src/project/paper-library.tsx
-msgid "Import paper"
-msgstr "Import paper"
-
 #: src/project/project-dialogs.tsx
 msgid "Import ZIP"
 msgstr "Import ZIP"
@@ -3919,10 +3896,6 @@ msgstr "Keep citations"
 #: src/overleaf/overleaf-connect.tsx
 msgid "Keep it on Overleaf"
 msgstr "Keep it on Overleaf"
-
-#: src/papers/paper-lookup.tsx
-msgid "Keep on top"
-msgstr "Keep on top"
 
 #: src/history/conflict-resolver.tsx
 msgid "Keep Overleaf's version"
@@ -4794,10 +4767,6 @@ msgstr "Next PDF location"
 msgid "Next search result"
 msgstr "Next search result"
 
-#: src/papers/paper-lookup.tsx
-msgid "No bibliography key"
-msgstr "No bibliography key"
-
 #: src/history/history-drawer.tsx
 msgid "No changes match this filter"
 msgstr "No changes match this filter"
@@ -4896,7 +4865,6 @@ msgid "No matching pages"
 msgstr "No matching pages"
 
 #: src/editor/markdown/engine/chrome/references.tsx
-#: src/papers/paper-lookup.tsx
 #: src/project/paper-library.tsx
 msgid "No matching papers"
 msgstr "No matching papers"
@@ -5532,19 +5500,11 @@ msgstr "Paper import cancelled before changing the bibliography; the downloaded 
 msgid "Paper import cancelled before making changes."
 msgstr "Paper import cancelled before making changes."
 
-#: src/canvas/canvas-toolbar.tsx
-#: src/papers/paper-lookup.tsx
-#: src/papers/use-paper-lookup.ts
-#: src/settings/settings-dialog.tsx
-msgid "Paper lookup"
-msgstr "Paper lookup"
-
 #: src/App.tsx
 msgid "Paper switch"
 msgstr "Paper switch"
 
 #: src/canvas/use-paper-pdf.ts
-#: src/papers/paper-lookup.tsx
 #: src/project/paper-library.tsx
 #: src/project/project-find-dialog.tsx
 #: src/trellis/trellis-titles.ts
@@ -6978,14 +6938,6 @@ msgstr "Search or import papers"
 #: src/overleaf/overleaf-connect.tsx
 msgid "Search Overleaf projects"
 msgstr "Search Overleaf projects"
-
-#: src/papers/paper-lookup.tsx
-msgid "Search papers"
-msgstr "Search papers"
-
-#: src/papers/paper-lookup.tsx
-msgid "Search papers, authors, citation keys…"
-msgstr "Search papers, authors, citation keys…"
 
 #: src/pdf/pdf-viewer.tsx
 msgid "Search PDF"
