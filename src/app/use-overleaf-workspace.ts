@@ -500,7 +500,7 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
         ...externalChangesRef.current.keys(), ...(reloadBlockedPath ? [reloadBlockedPath] : []),
         ...result.conflicts.map((conflict) => conflict.path),
         ...result.deletedLocal, ...result.skippedRemoteDeletes, ...(result.skippedLarge ?? []),
-        ...(result.refusedIncoming ?? []),
+        ...(result.refusedIncoming ?? []).filter((path) => !result.pushed.includes(path)),
       ]) reconciled.delete(path);
       if (!result.readOnly) resumeRealtimePathsRef.current([...reconciled]);
       if (result.pulled.length || result.pushed.length || result.merged.length) {
