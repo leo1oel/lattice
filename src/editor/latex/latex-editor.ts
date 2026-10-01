@@ -9,6 +9,7 @@ import { EditorView, keymap, tooltips, type Command } from "@codemirror/view";
 import { tags } from "@lezer/highlight";
 import { resolveTexlabDefinition, texlabCompletionSource, texlabHoverTooltip } from "../../build/texlab-language";
 import { floatingSurfaceClassName } from "../../components/ui/menu-surface";
+import { withoutAppShortcuts } from "../editor-app-shortcuts";
 import { harperSpellcheck } from "../harper-spellcheck";
 import { latexCommandCompletions, latexCommandHover } from "./latex-command-completions";
 import {
@@ -316,7 +317,7 @@ export function latexEditorExtensions(options: LatexEditorOptions): Extension[] 
       { key: "}", run: skipExistingCommandCloseBrace },
     ])),
     keymap.of([
-      ...searchKeymap,
+      ...withoutAppShortcuts(searchKeymap),
       { key: "Mod-f", run: openSearchPanel },
       { key: "Mod-Alt-a", run: replaceAll },
       { key: "Mod-/", run: editCommand(toggleLineComments) },

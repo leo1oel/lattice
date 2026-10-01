@@ -405,8 +405,9 @@ function markExtensions(): AnyExtension[] {
     Strike.extend(marker("~~")),
     // Markdown can wrap inline code in emphasis or a link, so code excludes nothing.
     Code.extend({ excludes: "" }),
-    // `==highlight==` and `<u>underline</u>` (R-FMT-1, R-INL-1).
-    Highlight.configure({ multicolor: false }),
+    // `==highlight==` and `<u>underline</u>` (R-FMT-1, R-INL-1). Highlight's
+    // ⌘⇧H is the app's Replace in project, which ran too (editor-app-shortcuts).
+    Highlight.extend({ addKeyboardShortcuts: () => ({}) }).configure({ multicolor: false }),
     Underline,
     Link.extend({ addAttributes() { return { ...this.parent?.(), ...markStyle({ autolink: null }) }; } })
       .configure({ openOnClick: false, autolink: false, linkOnPaste: true }),
