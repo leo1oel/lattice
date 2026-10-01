@@ -302,13 +302,13 @@ export function OverleafCommentsPanel(props: {
         )}
 
         {groups.map((group) => (
-          <div key={group.key}>
+          <section key={group.key} className="overleaf-thread-section">
             <h3 className="overleaf-thread-group">{group.label}</h3>
             {group.threadIds.flatMap((id) => {
               const thread = threadsById.get(id);
               return thread ? [renderThread(thread)] : [];
             })}
-          </div>
+          </section>
         ))}
       </div>
     </>

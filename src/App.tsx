@@ -4167,6 +4167,7 @@ function App() {
         open={commandPaletteOpen}
         title={t`Command palette`}
         placeholder={t`Run a command…`}
+        detailPlacement="end"
         items={commands.flatMap(({ id, label, detail, group, when }) => (
           label && when !== false ? [{ id, label, detail, group }] : []
         ))}

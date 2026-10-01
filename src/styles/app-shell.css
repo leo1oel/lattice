@@ -143,12 +143,25 @@ input[type="search"]:focus-visible {
 .editor-status-bar > * { flex: none; white-space: nowrap; }
 .editor-status-bar .status-goto { border: 0; background: transparent; color: inherit; font: inherit; padding: 0; cursor: pointer; }
 .editor-status-bar .status-goto:hover { color: var(--control-active); }
+/* Comments and TODOs travel together toward the counts at the end rather than
+   floating mid-bar whenever the hint and the breadcrumb are absent. */
+.editor-status-bar .status-comments { margin-left: auto; }
+.editor-status-bar .status-body-words { margin-left: var(--space-3); }
 .editor-status-bar .status-hint { min-width: 0; flex: 0 1 auto; overflow: hidden; text-overflow: ellipsis; color: var(--text-tertiary); opacity: .85; }
 .editor-status-bar .status-hint kbd { font: inherit; color: var(--text-secondary); }
 .editor-status-bar .editor-breadcrumb { min-width: 0; flex: 1 1 auto; overflow: hidden; color: var(--text-secondary); text-align: center; display: inline-flex; align-items: center; justify-content: center; gap: var(--space-2); flex-wrap: nowrap; }
-.quick-open-modal { width: min(520px, calc(100vw - 40px)); padding: 0; overflow: hidden; }
+/* `.modal` (dialogs.css) loads later with its own width and padding, so these
+   carry the base class too or they silently lose to it. */
+.modal.quick-open-modal { width: min(520px, calc(100vw - 40px)); padding: 0; overflow: hidden; }
 .quick-open-header { position: relative; padding: var(--space-4) var(--space-5); display: flex; align-items: center; }
 .quick-open-header::after { content: ""; position: absolute; inset-inline: var(--space-5); bottom: 0; height: 1px; background: var(--border-subtle); }
+/* The divider already frames the query, so the field drops its own box. */
+.quick-open-header .ui-search-field { height: var(--control-height-segmented-default); border-color: transparent; background: transparent; }
+/* Pickers whose details are short (the command palette's shortcuts) keep each
+   row to one line, with the detail trailing at the end. */
+.quick-open-modal[data-detail="end"] .quick-open-list button { flex-direction: row; align-items: center; justify-content: space-between; gap: var(--space-8); }
+.quick-open-modal[data-detail="end"] .picker-label { flex: 1 1 auto; }
+.quick-open-modal[data-detail="end"] .picker-detail { flex: 0 1 auto; max-width: 45%; }
 .quick-open-list { --surface-radius: var(--radius-dialog); --surface-inset: var(--space-3); max-height: min(360px, 50vh); overflow: auto; padding: var(--surface-inset); display: grid; gap: var(--space-1); }
 .quick-open-list button { min-height: var(--control-height-default); border: 0; border-radius: var(--nested-radius); padding: 7px var(--space-5); background: transparent; color: var(--text-secondary); text-align: left; font-size: var(--type-label-size); display: flex; flex-direction: column; align-items: stretch; justify-content: center; gap: var(--gap-tight); min-width: 0; overflow: hidden; }
 .quick-open-list button.active, .quick-open-list button:hover { background: var(--control-active-soft); color: var(--control-active); }
@@ -158,7 +171,7 @@ input[type="search"]:focus-visible {
 .editor-status-bar .editor-breadcrumb button { border: 0; background: transparent; color: inherit; padding: 0; font: inherit; max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .editor-status-bar .editor-breadcrumb button:hover { color: var(--control-active); }
 .editor-status-bar .editor-breadcrumb i { color: var(--text-tertiary); font-style: normal; }
-.goto-line-modal, .figure-insert-modal { width: min(420px, calc(100vw - 40px)); }
+.modal:is(.goto-line-modal, .figure-insert-modal) { width: min(420px, calc(100vw - 40px)); }
 .canvas-body { position: relative; flex: 1 1 0; min-width: 0; min-height: 0; width: 100%; max-width: 100%; display: flex; flex-direction: column; overflow: hidden; }
 .primary-opening-overlay { position: absolute; inset: 0; z-index: var(--z-editor-popover); display: flex; align-items: center; justify-content: center; gap: var(--space-3); background: color-mix(in srgb, var(--surface-app) 82%, transparent); color: var(--text-secondary); font: var(--type-caption-size)/1.4 var(--ui-font); cursor: progress; }
 /* The titlebar overrides this height to fill its single chrome row. Keeping the

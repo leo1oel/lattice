@@ -58,7 +58,7 @@
 .empty-illustration-text .empty-illustration-faint { transform-box: view-box; transition: rotate var(--duration-base) var(--ease-emphasized), translate var(--duration-base) var(--ease-emphasized), opacity var(--duration-base) var(--ease-out); }
 .empty-illustration-sheet[data-part="back"] { transform-origin: 26px 40px; }
 .empty-illustration-sheet[data-part="front"] { transform-origin: 36px 42px; }
-.empty-illustration-lens { transform-origin: 38px 22px; }
+.empty-illustration-lens { transform-origin: 39px 27px; }
 .empty-illustration-now { transition: scale var(--duration-base) var(--ease-emphasized); }
 
 :is(.ui-empty-state:hover, :hover > .empty-illustration) .empty-illustration-sheet[data-part="back"] { rotate: -5deg; }
