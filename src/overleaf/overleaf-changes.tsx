@@ -103,10 +103,6 @@ export function OverleafChangesPanel(props: {
 
   return (
     <>
-      <p className="drawer-copy">
-        {t`Suggestions made on Overleaf, or by anyone with track changes on. Accepting turns the suggested text into ordinary text; rejecting undoes it. Both sides see the result at once`}
-      </p>
-
       {props.error && <InlineMessage level="error" className="overleaf-change-inline">{props.error}</InlineMessage>}
 
       {sorted.length > 1 && (

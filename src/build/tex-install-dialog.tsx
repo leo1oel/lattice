@@ -3,7 +3,6 @@ import { useLingui } from "@lingui/react/macro";
 import { Wrench } from "lucide-react";
 import { InlineMessage } from "../components/ui/inline-message";
 import { ModalDialog } from "../components/ui/modal-dialog";
-import { PopIn } from "../components/ui/motion";
 import type { TexDependencyInstallProgress, TexInstallProgress } from "./tex-setup";
 
 type TexInstallStage = TexInstallProgress["stage"] | TexDependencyInstallProgress["stage"];
@@ -12,16 +11,16 @@ type TexInstallStage = TexInstallProgress["stage"] | TexDependencyInstallProgres
 function useStageCopy(): Record<TexInstallStage, readonly [stage: string, detail: string]> {
   const { t } = useLingui();
   return {
-    downloading: [t`Downloading BasicTeX…`, t`Download time depends on your connection`],
+    downloading: [t`Downloading BasicTeX…`, ""],
     authorizing: [t`Waiting for administrator approval…`, t`Approve the macOS prompt to continue`],
-    "installing-base": [t`Installing BasicTeX…`, t`This step may take a minute`],
-    "installing-packages": [t`Installing LaTeX packages…`, t`This is the longest step and can take up to 15 minutes`],
-    "installing-tools": [t`Installing required tools…`, t`Installing uv for paper imports and bibliography tools`],
-    verifying: [t`Verifying installation…`, t`Almost done`],
-    complete: [t`Finishing setup…`, t`Setup is complete`],
+    "installing-base": [t`Installing BasicTeX…`, ""],
+    "installing-packages": [t`Installing LaTeX packages…`, t`Can take up to 15 minutes`],
+    "installing-tools": [t`Installing required tools…`, ""],
+    verifying: [t`Verifying installation…`, ""],
+    complete: [t`Finishing setup…`, ""],
     "searching-packages": [t`Resolving…`, t`Checking…`],
-    "installing-dependency": [t`Installing LaTeX packages…`, t`Download time depends on your connection`],
-    "verifying-dependency": [t`Verifying installation…`, t`Almost done`],
+    "installing-dependency": [t`Installing LaTeX packages…`, ""],
+    "verifying-dependency": [t`Verifying installation…`, ""],
   };
 }
 
@@ -40,7 +39,7 @@ export function TexInstallDialog({ label, title, description, closeDisabled, onC
   const [stage, detail] = useStageCopy()[progress?.stage ?? "complete"];
   return (
     <ModalDialog label={label} onClose={onClose} closeDisabled={closeDisabled} backdropClassName="tex-setup-backdrop">
-      <PopIn className={["modal", "tex-setup-modal"].join(" ")}>
+      <div className={["modal", "tex-setup-modal"].join(" ")}>
         <div className="modal-icon"><Wrench size={18} /></div>
         <h2>{title}</h2>
         <p>{description}</p>
@@ -58,13 +57,13 @@ export function TexInstallDialog({ label, title, description, closeDisabled, onC
             </div>
             <div className="tex-setup-progress-copy">
               <span>{stage} {progress.percent}%</span>
-              <small>{detail}</small>
+              {detail && <small>{detail}</small>}
             </div>
           </div>
         )}
         {error && <InlineMessage level="error" className="tex-setup-status">{error}</InlineMessage>}
         {children}
-      </PopIn>
+      </div>
     </ModalDialog>
   );
 }

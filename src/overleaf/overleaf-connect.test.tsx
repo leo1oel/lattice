@@ -4,7 +4,7 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-li
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { OverleafPickerDialog, OverleafSettingsSection } from "./overleaf-connect";
 import { AppToastStack } from "../telemetry/app-log";
-import { clearAppLogs } from "../telemetry/app-log-store";
+import { clearAppLogs, getAppLogEntry, getAppToastOptions, getVisibleAppToastIds } from "../telemetry/app-log-store";
 import type { OverleafLink, OverleafProject, OverleafStatus } from "../app-types";
 import { invokeCalls, mockInvoke, type CommandTable } from "../platform/tauri-test-mocks";
 
@@ -112,7 +112,7 @@ describe("Overleaf settings section", () => {
     let poll: unknown = { status: "pending", session: null };
     mockInvoke({ ...signsIn, overleaf_status: disconnected, overleaf_poll_login: () => poll });
     render(settings());
-    expect(await screen.findByText(/Open and sync Overleaf projects in Lattice/)).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Overleaf" })).toBeInTheDocument();
 
     // The waiting state shows while the login window is open, and cancels cleanly.
     fireEvent.click(await screen.findByRole("button", { name: /Connect to Overleaf/ }));
@@ -137,7 +137,7 @@ describe("Overleaf settings section", () => {
       overleaf_link: () => ({ ...linkedProject, host: "", lastSync: null, paused }),
       overleaf_set_paused: (args: { paused: boolean }) => { paused = args.paused; },
     });
-    vi.mocked(confirm).mockResolvedValue(true);
+    vi.mocked(confirm).mockClear();
     render(settings({ onLinkChanged }));
     expect(await screen.findByText(/This project syncs with “Attention Paper”/)).toBeInTheDocument();
     expect(screen.queryByText(/This project uses \./)).not.toBeInTheDocument();
@@ -147,6 +147,11 @@ describe("Overleaf settings section", () => {
     // Without this the cloud button, live channel and chat all kept running
     // against a project that had just been told to stop.
     await waitFor(() => expect(onLinkChanged).toHaveBeenCalled());
+    // Nothing is lost by pausing, so it happens at once and the notice offers
+    // Resume instead of a confirmation standing in front of it.
+    expect(confirm).not.toHaveBeenCalled();
+    const notice = getVisibleAppToastIds().map(getAppLogEntry).find((entry) => entry?.title === "Overleaf sync paused");
+    expect(notice && getAppToastOptions(notice.id)?.primaryAction?.label).toBe("Resume");
 
     // The link is still here — that is the whole point, so resuming can merge
     // rather than start over.
@@ -180,13 +185,13 @@ describe("Overleaf settings section", () => {
 
     fireEvent.click(signOut);
     await waitFor(() => expect(confirm).toHaveBeenLastCalledWith(
-      expect.stringMatching(/Sign out of Overleaf\?[\s\S]*list your Overleaf projects[\s\S]*sync linked projects[\s\S]*live editing[\s\S]*Files already downloaded to this Mac will not be deleted/),
+      expect.stringMatching(/Sign out of Overleaf\?[\s\S]*Linked projects stop syncing[\s\S]*Downloaded files stay on this Mac/),
       expect.objectContaining({ kind: "warning" }),
     ));
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("overleaf_disconnect"));
     expect(await screen.findByRole("button", { name: /Connect to Overleaf/ })).toBeInTheDocument();
     expect(screen.getByText(/“Attention Paper” stays linked/)).toBeInTheDocument();
-    expect(screen.getByText(/Sign in to resume syncing and live editing/)).toBeInTheDocument();
+    expect(screen.getByText(/Sign in to https:\/\/www\.overleaf\.com to resume syncing/)).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Pause syncing|Resume syncing/ })).not.toBeInTheDocument();
     expect(onLinkChanged).toHaveBeenCalled();
   });
@@ -195,11 +200,11 @@ describe("Overleaf settings section", () => {
     ["the account belongs to another host", {
       overleaf_status: { ...connected, host: "https://overleaf-b.example" },
       overleaf_link: { ...linkedProject, host: "https://overleaf-a.example" },
-    }, [/This project uses https:\/\/overleaf-a\.example/, /Sign out above, then connect to that host/]],
+    }, [/This project uses https:\/\/overleaf-a\.example/, /Sign out and connect to it to resume/]],
     ["connection status cannot be read", {
       overleaf_status: () => { throw new Error("Keychain is unavailable"); },
       overleaf_link: linkedProject,
-    }, ["Keychain is unavailable", /Connection status is unavailable\. This project remains linked to https:\/\/www\.overleaf\.com/]],
+    }, ["Keychain is unavailable", /Couldn’t check the connection\. Still linked to https:\/\/www\.overleaf\.com/]],
   ])("keeps a linked project's controls unavailable when %s", async (_case, commands: CommandTable, notices) => {
     mockInvoke(commands);
     render(settings());
@@ -292,7 +297,7 @@ describe("Overleaf picker dialog", () => {
     await waitFor(() => expect(confirm).toHaveBeenCalledOnce());
     expect(vi.mocked(confirm).mock.calls[0]![0]).toContain("Lattice app data");
     await waitFor(() => expect(onPublish).toHaveBeenCalledWith("Shared Draft"));
-    expect(await screen.findByText(/Uploading Shared Draft to Overleaf/)).toBeInTheDocument();
+    expect(await screen.findByText(/Uploading Shared Draft…/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Close Open from Overleaf" })).toBeDisabled();
     expect(screen.getByLabelText("Search Overleaf projects")).toBeDisabled();
     finishPublish(true);
@@ -344,7 +349,7 @@ describe("Overleaf picker dialog", () => {
     await openFirstProject();
 
     await waitFor(() => expect(confirm).toHaveBeenCalled());
-    expect(vi.mocked(confirm).mock.calls[0]![0]).toContain("local conflict");
+    expect(vi.mocked(confirm).mock.calls[0]![0]).toContain("kept side by side");
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("overleaf_clone_project", cloneArgs({ adopt: accepted })));
   });
 
@@ -364,7 +369,7 @@ describe("Overleaf picker dialog", () => {
   it("runs the standard connect flow inside the dialog when not connected", async () => {
     mockInvoke({ overleaf_status: disconnected, overleaf_list_projects: projects, ...signsIn });
     renderPicker();
-    expect(await screen.findByText(/isn’t connected yet/)).toBeInTheDocument();
+    expect(await screen.findByText(/Connect your Overleaf account to see your projects/)).toBeInTheDocument();
     // The disconnected state stays focused on standard sign-in.
     expect(screen.queryByRole("button", { name: "Advanced options" })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Connect to Overleaf" }));
@@ -384,7 +389,7 @@ describe("Overleaf picker dialog", () => {
     });
     renderPicker();
 
-    expect(await screen.findByText(/Your Overleaf session has expired/)).toBeInTheDocument();
+    expect(await screen.findByText(/Your Overleaf session expired/)).toBeInTheDocument();
     expect(screen.queryByText(/Reconnect in Settings/)).not.toBeInTheDocument();
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("overleaf_disconnect"));
     fireEvent.click(screen.getByRole("button", { name: "Reconnect to Overleaf" }));
@@ -399,7 +404,7 @@ describe("Overleaf picker dialog", () => {
     mockConnectedPicker({ overleaf_clone_project: () => new Promise<string>((resolve) => { resolveClone = resolve; }) });
     const { onClose } = renderPicker();
     await openFirstProject();
-    expect(await screen.findByText(/Downloading Attention Paper from Overleaf/)).toBeInTheDocument();
+    expect(await screen.findByText(/Downloading Attention Paper…/)).toBeInTheDocument();
     fireEvent.keyDown(window, { key: "Escape" });
     expect(onClose).not.toHaveBeenCalled();
     expect(screen.getByRole("button", { name: "Close Open from Overleaf" })).toBeDisabled();

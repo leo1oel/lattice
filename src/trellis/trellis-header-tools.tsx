@@ -137,12 +137,12 @@ export function FileHeaderTools({ controller }: { controller: TrellisController 
     };
     if (!active) return <Reserve>{button(false)}</Reserve>;
     const label = building
-      ? t`Building… · the PDF refreshes when it finishes`
+      ? t`Building…`
       : seconds
-        ? t({ message: `Built in ${seconds}s · Build the project and show the PDF · ⌘S · Shift-click for a clean rebuild` })
+        ? t({ message: `Built in ${seconds}s · ⌘S · ⇧-click for a clean rebuild` })
         : lastBuild?.status === "failed"
-          ? t`The last build failed · Build the project and show the PDF · ⌘S · Shift-click for a clean rebuild`
-          : t`Build the project and show the PDF · ⌘S · Shift-click for a clean rebuild`;
+          ? t`Last build failed · ⌘S · ⇧-click for a clean rebuild`
+          : t`Build and show the PDF · ⌘S · ⇧-click for a clean rebuild`;
     return <Tip label={label}>{button(true)}</Tip>;
   }
   if (which === "views") {

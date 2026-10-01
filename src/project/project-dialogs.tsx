@@ -45,9 +45,6 @@ export function Welcome(props: {
         <div className="brand-mark"><LatticeMark size={34} motion="weave" /></div>
         <p className="eyebrow">LATTICE</p>
         <h1>{t`Research, written with evidence`}</h1>
-        <p className="welcome-copy">
-          {t`A local-first LaTeX workspace where your writing agent, sources, manuscript, and rendered paper stay connected`}
-        </p>
         <div className="welcome-actions">
           <MotionButton
             className={buttonClassName({ variant: "primary", size: "form" })}
@@ -82,7 +79,7 @@ export function Welcome(props: {
           </button>
         </div>
         <Button size="compact" variant="ghost" className="welcome-tex-setup" onClick={props.onInstallTex}>
-          {t`Install LaTeX tools (needed to compile PDFs)`}
+          {t`Install LaTeX tools`}
         </Button>
         {props.busyLabel && <p className="busy-label"><InfinityLoader size={15} /> {props.busyLabel}</p>}
       </div>
@@ -123,9 +120,6 @@ export function CreateProjectDialog(props: {
       <div className="modal create-project-modal">
         <div className="modal-icon"><FileText size={20} /></div>
         <h2>{t`Create a research project`}</h2>
-        <p>
-          {t`Creates a ${venue.label} paper draft with bibliography and project brief`}
-        </p>
         <label>
           {t`Project name`}
           <Input controlSize="form" autoFocus value={props.projectName} onChange={(event) => props.setProjectName(event.target.value)} onKeyDown={(event) => event.key === "Enter" && props.onCreate()} />
@@ -147,8 +141,8 @@ export function CreateProjectDialog(props: {
           </Select>
           <small className="venue-picker-detail">
             {venue.id === "iclr"
-              ? t`Verified against the official 2026 conference style`
-              : t`Verified against the official 2026 style; creates a preprint draft`}
+              ? t`Official 2026 style`
+              : t`Official 2026 style · preprint draft`}
           </small>
         </div>
         {props.error && <p className="field-error" role="alert">{props.error}</p>}
@@ -177,10 +171,10 @@ export function RenameDialog(props: {
   ));
   const [busy, setBusy] = useState(false);
   const [title, copy] = {
-    label: [t`Rename label`, t`Updates every \\label and \\ref/\\cref occurrence across the project`],
-    citation: [t`Rename citation key`, t`Updates the bibliography entry and every \\cite occurrence across the project`],
-    environment: [t`Rename environment`, t`Renames the matching \\begin and \\end pair under the cursor`],
-    "wrap-environment": [t`Wrap in environment`, t`Wraps the current selection (or empty cursor) in \\begin{…}/\\end{…}`],
+    label: [t`Rename label`, t`Updates every \\ref to it`],
+    citation: [t`Rename citation key`, t`Updates the .bib entry and every \\cite`],
+    environment: [t`Rename environment`, t`The \\begin and \\end under the cursor`],
+    "wrap-environment": [t`Wrap in environment`, t`Wraps the selection in \\begin…\\end`],
   }[target.kind];
   const submit = async () => {
     if (!name.trim() || busy) return;

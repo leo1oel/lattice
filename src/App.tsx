@@ -95,6 +95,8 @@ import {
   hasSeenTutorial,
   markTutorialSeen,
   resolveAppLocale,
+  loadSettingsTab,
+  persistSettingsTab,
 } from "./settings/app-settings";
 import { waitForAgentCanvasAdapter } from "./agent/agent-canvas-tools";
 import type { AgentProjectDocumentToolRequest } from "./agent/agent-project-document-tools";
@@ -790,7 +792,7 @@ function App() {
       cancelled = true;
     };
   }, [project?.root, settingsOpen]);
-  const [settingsTab, setSettingsTab] = useState<SettingsTab>("appearance");
+  const [settingsTab, setSettingsTab] = useState<SettingsTab>(loadSettingsTab);
   useEffect(() => {
     if (!synaraOrigin || !gitOpen) return;
     const closeSourceControl = (event: MessageEvent) => {
@@ -2587,11 +2589,11 @@ function App() {
             // without opening; editor/canvas drops import and open instead.
             void importProjectFiles(event.payload.paths, targetDirectory);
           } else if (dropKind === "source") {
-            setError(t`Drop source files onto an editor to open them, or into the Project pane to add them.`);
+            setError(t`Drop source files onto an editor or the Project pane`);
           } else if (dropKind === "mixed") {
-            setError(t`Drop source files and figures separately so Lattice knows whether to open or insert them.`);
+            setError(t`Drop source files and figures separately`);
           } else if (dropKind === "unsupported") {
-            setError(t`Lattice can open TeX, bibliography, Markdown, style, class, and text files dropped onto an editor.`);
+            setError(t`This file type can’t be opened in an editor`);
           } else if (editorPosition && insertsIntoEditor) {
             void importProjectAssets(event.payload.paths, "figures").then((paths) => {
               if (!paths.length) return;
@@ -2604,7 +2606,7 @@ function App() {
               for (const path of paths) await openProjectAsset(path);
             });
           } else {
-            setError(t`Drop image or PDF files onto a TeX/Markdown editor to insert them, onto an open document to import and open them, or into the Project pane to add them.`);
+            setError(t`Drop figures onto a TeX or Markdown editor, or the Project pane`);
           }
         }
       }))
@@ -3103,9 +3105,12 @@ function App() {
     refreshHistory, refreshProject, save, sourceRef, t, captureProjectScope,
   ]);
 
-  const openSettings = useCallback((tab: SettingsTab = "appearance") => {
+  /** Opens on `tab`, or without one on the page Settings was last left on. */
+  const openSettings = useCallback((requested?: SettingsTab) => {
+    const tab = requested ?? loadSettingsTab();
     if (isSynaraSettingsTab(tab)) requestSynaraRuntime();
     setSettingsTab(tab);
+    persistSettingsTab(tab);
     setSettingsOpen(true);
   }, [requestSynaraRuntime]);
 
@@ -3421,7 +3426,7 @@ function App() {
   const todoCount = todoHits.length;
   /** Every app-level action: the palette entries and the global shortcuts (see AppCommand). */
   const commands: AppCommand[] = [
-    { id: "build", label: t`Build project`, detail: t`Compile LaTeX`, group: t`Build`, run: () => void compileAndShowPdf(false, true) },
+    { id: "build", label: t`Build project`, detail: "⌘S", group: t`Build`, run: () => void compileAndShowPdf(false, true) },
     { id: "rebuild", label: t`Clean rebuild`, detail: t`latexmk -c then -g`, group: t`Build`, run: () => void cleanAndRebuild() },
     { id: "clean", label: t`Clean aux files`, group: t`Build`, run: () => void cleanProject() },
     { id: "stop-build", label: t`Stop build`, group: t`Build`, run: () => void abortBuild() },
@@ -3472,7 +3477,7 @@ function App() {
       detail: t`Learn Lattice with the Understanding Attention sample project`,
     },
     { id: "doctor", label: t`Run TeX doctor`, group: t`Project`, run: () => openSettings("doctor") },
-    { id: "settings", label: t`Open settings`, group: t`Project`, run: () => openSettings("appearance") },
+    { id: "settings", label: t`Open settings`, detail: "⌘,", group: t`Project`, key: ",", run: () => openSettings() },
   ];
   const runCommand = useAppCommands(commands, cycleDiagnostic);
 
@@ -3579,7 +3584,7 @@ function App() {
           onOpen={chooseExisting}
           onImportZip={() => void importOverleafZip()}
           onOpenTutorial={() => void openTutorialProject()}
-          onSettings={() => openSettings("appearance")}
+          onSettings={() => openSettings()}
           onInstallTex={texSetup.openWizard}
           onOpenOverleaf={() => setOverleafPickerOpen(true)}
         />
@@ -3844,7 +3849,7 @@ function App() {
           onOpenOverleaf: () => setOverleafPickerOpen(true),
           onOpenTutorial: () => void openTutorialProject(),
           onExportZip: () => void exportProjectZip(),
-          onSettings: () => openSettings("appearance"),
+          onSettings: () => openSettings(),
         }}
         panelControls={<TrellisTitlebar controller={trellis} />}
         canvasToolbar={(

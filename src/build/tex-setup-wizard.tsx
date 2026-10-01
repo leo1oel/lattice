@@ -92,8 +92,8 @@ export function TexSetupWizard(props: {
       label={t`Install LaTeX tools`}
       title={paperToolsOnly ? t`Install required paper tools` : t`Install LaTeX to compile`}
       description={paperToolsOnly
-        ? t({ message: "Lattice needs uv to add papers and manage bibliographies. The verified download uses about 45 MB and usually installs in under a minute" })
-        : t({ message: `BasicTeX and Lattice’s required paper tools use about ${TEX_INSTALL_SIZE_HINT} after installation. Initial setup can take up to 15 minutes` })}
+        ? t({ message: "Needed to add papers and manage bibliographies · about 45 MB" })
+        : t({ message: `About ${TEX_INSTALL_SIZE_HINT} · setup can take up to 15 minutes` })}
       closeDisabled
       onClose={props.onClose}
       progress={installing ? {

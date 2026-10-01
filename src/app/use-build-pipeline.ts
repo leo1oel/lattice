@@ -2,7 +2,7 @@ import { useCallback, useMemo, useRef, useState, type Dispatch, type SetStateAct
 import { useLingui } from "@lingui/react/macro";
 import { invoke } from "@tauri-apps/api/core";
 import type { BuildResult, ProjectSnapshot } from "../app-types";
-import { confirmAction, toMessage } from "../app-utils";
+import { toMessage } from "../app-utils";
 import { diagnosticsFingerprint, missingTexDependencyFile, type CompileDiagnostic } from "../build/compile-diagnostics";
 import { isMissingTexBuildError } from "../build/tex-setup";
 import { pdfBytesFingerprint, pdfBytesToObjectUrl } from "../pdf/pdf-bytes";
@@ -10,7 +10,7 @@ import { logAction } from "../telemetry/app-notify";
 import { diagnosticInvoke } from "../telemetry/diagnostic-request";
 import { playInterfaceSound } from "../telemetry/interface-sounds";
 import { clearTimer, restartTimer, useRefState } from "./effect-helpers";
-import { setError } from "./notify";
+import { setError, setNotice } from "./notify";
 import type { AgentCompileAssociation } from "./use-agent-checkpoints";
 import { BUILD_OPERATION } from "../telemetry/app-log-export";
 
@@ -50,9 +50,11 @@ function adoptRootDocument(project: ProjectSnapshot, rootDocument: string): Proj
   return { ...project, manifest: { ...project.manifest, rootDocuments } };
 }
 
-/** Ask, then delete LaTeX auxiliary files while `cleaning` is held; false when declined or failed. */
-async function cleanAuxiliaryFiles(question: string, setCleaning: (cleaning: boolean) => void): Promise<boolean> {
-  if (!await confirmAction(question)) return false;
+/**
+ * Delete LaTeX auxiliary files while `cleaning` is held; false when it failed.
+ * No confirmation: every file it removes is one the next build writes again.
+ */
+async function cleanAuxiliaryFiles(setCleaning: (cleaning: boolean) => void): Promise<boolean> {
   setCleaning(true);
   try {
     await invoke("clean_project");
@@ -371,17 +373,17 @@ export function useBuildPipeline({
 
   const cleanProject = useCallback(async () => {
     if (!project || cleaning || building) return;
-    await cleanAuxiliaryFiles(t({ message: "Delete LaTeX auxiliary files (`.aux`, `.log`, `.bbl`, …) from this project?" }), setCleaning);
+    if (await cleanAuxiliaryFiles(setCleaning)) setNotice(t`Build files cleaned`, t`Build`);
   }, [building, cleaning, project, t]);
 
   const cleanAndRebuild = useCallback(async () => {
     if (!project || cleaning) return;
     // The active build owns the backend until it settles. Preserve the clean
     // rebuild intent in its queue rather than cleaning files out from under it.
-    if (buildingRef.current || await cleanAuxiliaryFiles(t`Delete auxiliary files and rebuild the PDF?`, setCleaning)) {
+    if (buildingRef.current || await cleanAuxiliaryFiles(setCleaning)) {
       await runBuild(true, { requested: true, sound: true });
     }
-  }, [buildingRef, cleaning, project, runBuild, t]);
+  }, [buildingRef, cleaning, project, runBuild]);
 
   const dismissDiagnostics = useCallback((diagnostics: CompileDiagnostic[]) => {
     dismissedDiagnosticsRef.current = diagnosticsFingerprint(diagnostics);

@@ -282,7 +282,7 @@ export function OverleafHistoryPanel(props: {
   return (
     <div className="overleaf-history-panel">
       <p className="drawer-copy">
-        {t`Overleaf's own record of this project, including everything collaborators changed in the browser while Lattice was closed. Restoring here changes Overleaf's copy — sync afterward to bring the result into this app`}
+        {t`Restoring changes Overleaf’s copy. Sync afterwards to bring it here`}
       </p>
 
       {history.error && <InlineMessage level="error" className="versions-inline">{history.error}</InlineMessage>}

@@ -104,7 +104,7 @@ describe("HistoryDrawer", () => {
     render(<HistoryDrawer {...required} overleafLinked />);
 
     fireEvent.click(screen.getByRole("tab", { name: "Overleaf" }));
-    expect(await screen.findByText(/Overleaf's own record of this project/)).toBeInTheDocument();
+    expect(await screen.findByText(/Restoring changes Overleaf’s copy/)).toBeInTheDocument();
     expect(invoke).toHaveBeenCalledWith("overleaf_history_updates", { projectRoot: "/tmp/project", count: 20 });
   });
 

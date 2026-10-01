@@ -4,7 +4,7 @@
  * imported anywhere without pulling in the rest of the app.
  */
 
-import type { CanvasMode, DocumentViewMode, FileViewState } from "../app-types";
+import type { CanvasMode, DocumentViewMode, FileViewState, SettingsTab } from "../app-types";
 
 export type Theme = "light" | "dark";
 /** What the user picked; `system` tracks the OS appearance as it changes. */
@@ -32,6 +32,7 @@ export const APPEARANCE_KEY = "lattice.appearance.v5";
 const LEGACY_APPEARANCE_KEYS = ["lattice.appearance.v4", "lattice.appearance.v3"];
 const OVERLEAF_SYNC_MODE_KEY = "lattice.overleaf.sync-mode.v1";
 const OVERLEAF_REMOTE_DELETE_KEY = "lattice.overleaf.remote-delete.v1";
+const SETTINGS_TAB_KEY = "lattice.settings-tab.v1";
 /** Per-project maps (last file, workspace layout, file views) keep this many projects. */
 const PROJECT_HISTORY_MAX = 60;
 const FILE_VIEW_STATE_FILE_MAX = 200;
@@ -122,6 +123,12 @@ export function forgetRecentProject(path: string): RecentProject[] {
 export const hasSeenTutorial = () => safely(() => localStorage.getItem(TUTORIAL_SEEN_KEY) === "1", false);
 
 export const markTutorialSeen = () => persistSetting(TUTORIAL_SEEN_KEY, "1");
+
+const SETTINGS_TABS: readonly SettingsTab[] = ["appearance", "editor", "agent", "mcp", "overleaf", "literature", "api", "doctor", "logs"];
+
+/** Settings reopens on the page it was last left on. */
+export const loadSettingsTab = () => loadChoice(SETTINGS_TAB_KEY, SETTINGS_TABS, "appearance");
+export const persistSettingsTab = (tab: SettingsTab) => persistSetting(SETTINGS_TAB_KEY, tab);
 
 export const SYSTEM_DARK_QUERY = "(prefers-color-scheme: dark)";
 

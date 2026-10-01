@@ -10,9 +10,11 @@ import {
   loadAppearance,
   loadFileViewStates,
   loadRecentProjects,
+  loadSettingsTab,
   loadWorkspaceLayout,
   markTutorialSeen,
   persistFileViewStates,
+  persistSettingsTab,
   persistWorkspaceLayout,
   rememberRecentProject,
   resolveAppLocale,
@@ -210,6 +212,16 @@ describe("tutorial persistence", () => {
     markTutorialSeen();
     expect(localStorage.getItem(TUTORIAL_SEEN_KEY)).toBe("1");
     expect(hasSeenTutorial()).toBe(true);
+  });
+});
+
+describe("settings page persistence", () => {
+  it("reopens Settings on the page it was left on, and on Appearance for anything unknown", () => {
+    expect(loadSettingsTab()).toBe("appearance");
+    persistSettingsTab("literature");
+    expect(loadSettingsTab()).toBe("literature");
+    localStorage.setItem("lattice.settings-tab.v1", "retired-page");
+    expect(loadSettingsTab()).toBe("appearance");
   });
 });
 

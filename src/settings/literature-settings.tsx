@@ -43,7 +43,7 @@ export function LiteratureSettings() {
       setCredentials(value);
       setEmail(value.crossrefEmail);
     }).catch(() => {
-      if (!disposed) setNotice({ target: "load", level: "error", text: t`Could not read the system keychain. Reopen these settings to try again.` });
+      if (!disposed) setNotice({ target: "load", level: "error", text: t`Couldn’t read the keychain. Reopen Settings to retry` });
     }).finally(() => { if (!disposed) setBusy(null); });
     return () => { disposed = true; active.current = false; };
   }, [t]);
@@ -57,7 +57,7 @@ export function LiteratureSettings() {
       await action();
     } catch {
       // Never render backend errors here: a provider/library may include a URL or credential.
-      if (active.current) setNotice({ target, level: "error", text: t`Could not complete this action. Check your input and system keychain access.` });
+      if (active.current) setNotice({ target, level: "error", text: t`That didn’t work. Check the input and keychain access` });
     } finally {
       pending.current = false;
       if (active.current) setBusy(null);
@@ -69,7 +69,7 @@ export function LiteratureSettings() {
     if (!active.current) return;
     setCredentials(value);
     setDrafts((current) => ({ ...current, [provider]: "" }));
-    setNotice({ target: provider, level: "success", text: secret === null ? t`Saved key removed.` : t`Key saved in the system keychain.` });
+    setNotice({ target: provider, level: "success", text: secret === null ? t`Key removed` : t`Key saved to the keychain` });
   }
 
   async function test(provider: Provider) {
@@ -77,10 +77,10 @@ export function LiteratureSettings() {
     const result = await invoke<TestResult>("test_literature_credential", { provider, secret: draft || null });
     if (!active.current) return;
     const text = result.status === "ok"
-      ? (result.authenticated ? t`Connection succeeded with the key. Testing does not save it.` : t`Public API connection succeeded.`)
-      : result.status === "unauthorized" ? t`Access denied. Check the key and its permissions.`
-      : result.status === "rate_limited" ? t`The service is rate-limiting requests. No retry was made.`
-      : t`The service could not be reached. No retry was made.`;
+      ? (result.authenticated ? t`The key works. Testing doesn’t save it` : t`Connected without a key`)
+      : result.status === "unauthorized" ? t`Access denied. Check the key`
+      : result.status === "rate_limited" ? t`Rate-limited. Try again later`
+      : t`Couldn’t reach the service`;
     setNotice({ target: provider, level: result.status === "ok" ? "success" : "warning", text });
   }
 
@@ -92,8 +92,7 @@ export function LiteratureSettings() {
 
   return (
     <div className="settings-section literature-settings" aria-busy={busy !== null}>
-      <SettingsSectionHeader title={t`Literature services`} description={t`Use your own API quota for paper searches, imports, and citation checks.`} />
-      <InlineMessage>{t`Keys stay in your system keychain, not in the project. Personal keys take priority over shared or environment credentials.`}</InlineMessage>
+      <SettingsSectionHeader title={t`Literature services`} description={t`Keys stay in your system keychain and take priority over shared ones`} />
       {busy === "load" && <InfinityLoader size={16} />}
       {message("load")}
       {providers.map(({ id, name, url }) => (
@@ -119,7 +118,7 @@ export function LiteratureSettings() {
       ))}
       {/* eslint-disable-next-line no-restricted-syntax -- product name */}
       <SettingsGroup title="Crossref">
-        <SettingsRow label={t`Contact email`} htmlFor="literature-email" description={t`Sent to Crossref to use its polite pool. No API key is needed.`} />
+        <SettingsRow label={t`Contact email`} htmlFor="literature-email" description={t`Sent to Crossref for faster lookups. No key needed`} />
         <form className="literature-credential-form" onSubmit={(event) => {
           event.preventDefault();
           void run("crossref", async () => {

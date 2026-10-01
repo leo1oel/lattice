@@ -189,11 +189,6 @@ export function BibEntryDialog(props: {
   return (
     <SheetDialog className="bib-entry-dialog" label={heading} dirty={dirty} onClose={props.onClose}>
       <PanelHeader className="drawer-header" icon={<BookMarked size={16} />} title={heading} onClose={props.onClose} />
-      {editing && (
-        <p className="drawer-copy">
-          {t`Pick a venue to set its canonical name and entry type, or edit any field by hand`}
-        </p>
-      )}
       <div className="bib-entry-form">
         {!editing && props.onResolve && (
           <label className="bib-resolve-field">

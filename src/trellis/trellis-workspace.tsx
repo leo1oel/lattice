@@ -235,7 +235,7 @@ function PdfView({ controller }: { controller: TrellisController }) {
     <>
       <HostSlot host={controller.hosts.pdf} className="trellis-pdf" />
       {!live && (
-        <EmptyState icon={<Moon size={16} />} title={t`PDF preview paused`} detail={t`It resumes as soon as the panel is on screen.`} />
+        <EmptyState icon={<Moon size={16} />} title={t`PDF preview paused`} />
       )}
     </>
   );
@@ -405,7 +405,6 @@ function WorkspaceEmpty({ controller }: { controller: TrellisController }) {
     <EmptyState
       icon={<FileText size={18} />}
       title={t`Every panel is closed`}
-      detail={t`Open a file from Quick open, or bring the default panels back.`}
     >
       <button type="button" className="trellis-empty-button" onClick={() => controller.bridge?.quickOpen()}>
         <Search size={13} />

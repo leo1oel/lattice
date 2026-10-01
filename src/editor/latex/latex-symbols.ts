@@ -71,6 +71,16 @@ function keyAt(text: string, pattern: RegExp, position: number): KeySpan | null 
 export const citationHoverTarget = (text: string, position: number) => keyAt(text, CITATION, position);
 export const referenceHoverTarget = (text: string, position: number) => keyAt(text, REFERENCE, position);
 
+/** The `\includegraphics` path under `position`, as written, with its span. */
+export function graphicsHoverTarget(text: string, position: number): { from: number; to: number; path: string } | null {
+  const offset = Math.max(0, position - 800);
+  for (const { from, content } of argumentsOf(text.slice(offset, position + 800), GRAPHICS, offset)) {
+    const path = unwrapLatexPath(content);
+    if (path && position >= from && position <= from + content.length) return { from, to: from + content.length, path };
+  }
+  return null;
+}
+
 /** A whole-argument target (label, include, or figure path) under `position`. */
 function argumentAt(text: string, pattern: RegExp, position: number, read: (raw: string) => string) {
   for (const { from, content } of argumentsOf(text, pattern)) {

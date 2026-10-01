@@ -145,6 +145,25 @@ describe("AppToastStack", () => {
     await waitFor(() => expect(toast).not.toBeInTheDocument());
   });
 
+  // An Undo or Resume is the answer to the toast, so the toast goes with it,
+  // without also reporting a dismissal. A toast with a choice left keeps open.
+  it("takes a toast down once its action runs, unless the action keeps it open", () => {
+    render(<AppToastStack />);
+    const undo = vi.fn();
+    const onDismiss = vi.fn();
+    show({ level: "info", source: "Comments", title: "Comment deleted", toastOptions: { primaryAction: { label: "Undo", onClick: undo }, onDismiss } });
+    fireEvent.click(screen.getByRole("button", { name: "Undo" }));
+    expect(undo).toHaveBeenCalledOnce();
+    expect(onDismiss).not.toHaveBeenCalled();
+    expect(screen.queryByRole("status")).toBeNull();
+
+    const copy = vi.fn();
+    show({ level: "error", source: "Editor", title: "Draft kept", toastOptions: { timeoutMs: 0, primaryAction: { label: "Copy draft", onClick: copy, keepOpen: true } } });
+    fireEvent.click(screen.getByRole("button", { name: "Copy draft" }));
+    expect(copy).toHaveBeenCalledOnce();
+    expect(screen.getByRole("alert")).toHaveTextContent("Draft kept");
+  });
+
   it("stops collapsing once the toast it was folding into is gone", () => {
     const synced = { level: "info", source: "Overleaf", title: "Synced", dedupeKey: "sync" } as const;
     render(<AppToastStack />);
@@ -168,7 +187,7 @@ describe("AppToastStack", () => {
     expect(screen.queryByLabelText("Only slow (over 2000 ms)")).not.toBeInTheDocument();
     expect(filter).toHaveClass("app-log-level-filter");
     expect(screen.queryByText("/tmp/lattice-logs")).not.toBeInTheDocument();
-    expect(screen.getByText("Shows 300 recent entries; disk logs rotate")).toBeInTheDocument();
+    expect(screen.getByText("The last 300 entries")).toBeInTheDocument();
     await waitFor(() => expect(screen.getByRole("button", { name: "Open log folder" })).toBeEnabled());
   });
 

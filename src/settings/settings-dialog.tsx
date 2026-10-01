@@ -209,19 +209,18 @@ function patchAppearance(props: SettingsDialogProps, patch: Partial<AppearanceSe
 function TitlebarToolsGroup(props: SettingsDialogProps) {
   const { t } = useLingui();
   const hidden = props.appearance.hiddenTitlebarTools;
-  const tools: Array<{ tool: TitlebarTool; label: string; description: string }> = [
-    { tool: "comments", label: t`Editor comments`, description: t`Comments on the open document, for projects not linked to Overleaf` },
-    { tool: "overleaf", label: t`Overleaf`, description: t`Sync, open and chat with the linked Overleaf project` },
-    { tool: "git", label: t`Git status and commit`, description: t`Review and commit changes` },
-    { tool: "history", label: t`Project history`, description: t`Versions and changes of the whole project` },
+  const tools: Array<{ tool: TitlebarTool; label: string }> = [
+    { tool: "comments", label: t`Editor comments` },
+    { tool: "overleaf", label: t`Overleaf` },
+    { tool: "git", label: t`Git status and commit` },
+    { tool: "history", label: t`Project history` },
   ];
   return (
     <SettingsGroup title={t`Title bar tools`}>
-      {tools.map(({ tool, label, description }) => (
+      {tools.map(({ tool, label }) => (
         <SwitchField
           key={tool}
           label={label}
-          description={description}
           checked={!hidden.includes(tool)}
           onChange={(shown) => patchAppearance(props, {
             hiddenTitlebarTools: shown ? hidden.filter((item) => item !== tool) : [...hidden, tool],
@@ -237,51 +236,44 @@ function AppearanceSettingsPane(props: SettingsDialogProps) {
 
   return (
     <div className="settings-section">
-      <SettingsSectionHeader title={t`Appearance`} description={t`These preferences apply across every project on this Mac`} />
-      <SettingsGroup title={t`Language`}>
+      <SettingsSectionHeader title={t`Appearance`} />
+      <SettingsGroup title={t`General`}>
         <SelectRow
           label={t`Interface language`}
-          description={t`Choose the language used for menus, settings, and help text`}
           value={props.appearance.interfaceLanguage}
           options={{ system: t`Follow system (default)`, en: t`English`, "zh-CN": t`Simplified Chinese` }}
           onChange={(interfaceLanguage) => patchAppearance(props, { interfaceLanguage })}
         />
-      </SettingsGroup>
-      <SettingsGroup title={t`Theme`}>
         <SelectRow
           label={t`Color theme`}
-          description={t`Choose the theme for Lattice on this device`}
           value={props.themePreference}
           options={{ system: t`Follow system (default)`, light: t`Light`, dark: t`Dark` }}
           onChange={props.setThemePreference}
         />
-      </SettingsGroup>
-      <SettingsGroup title={t`Display`}>
         <SliderRow
           id="editor-font-size"
           label={t`Editor font size`}
-          description={t`Applies to the LaTeX source editor only`}
+          description={t`Source editor only`}
           min={10}
           max={24}
           value={props.appearance.editorFontSize}
           unit="px"
           onChange={(editorFontSize) => patchAppearance(props, { editorFontSize })}
         />
-      </SettingsGroup>
-      <TitlebarToolsGroup {...props} />
-      <SettingsGroup title={t`Feedback`}>
         <SwitchField
           label={t`Interface sounds`}
-          description={t`Plays quiet cues when a requested build or collaboration setup finishes`}
+          description={t`When a build or Overleaf setup finishes`}
           checked={props.appearance.interfaceSounds}
           onChange={(interfaceSounds) => patchAppearance(props, { interfaceSounds })}
         />
       </SettingsGroup>
+      <TitlebarToolsGroup {...props} />
     </div>
   );
 }
 
-function useUpdateStatus(updater: UpdaterApi): { title: string; detail: string } {
+/** What the updater has to report, if anything. The mode's own option label already says how updates arrive. */
+function useUpdateStatus(updater: UpdaterApi): { title: string | undefined; detail: string | undefined } {
   const { t } = useLingui();
   const phaseTitles: Partial<Record<UpdaterApi["phase"], string>> = {
     available: t`Version ${updater.version ?? ""} is ready to install`,
@@ -294,15 +286,9 @@ function useUpdateStatus(updater: UpdaterApi): { title: string; detail: string }
     error: updater.errorKind === "install" ? t`Couldn’t install the update` : t`Couldn’t check for updates`,
     "up-to-date": t`You’re on the latest version`,
   };
-  const auto = updater.mode === "auto";
   return {
-    title: phaseTitles[updater.phase]
-      ?? (auto ? t`New versions install automatically` : t`You’ll be notified when a new version is ready`),
-    detail: updater.phase === "error"
-      ? (updater.error ?? t`Check your connection and try again`)
-      : auto
-        ? t`Lattice checks in the background and installs updates on its own`
-        : t`Lattice checks in the background; you decide when to install`,
+    title: phaseTitles[updater.phase],
+    detail: updater.phase === "error" ? (updater.error ?? t`Check your connection and try again`) : undefined,
   };
 }
 
@@ -327,22 +313,19 @@ function EditorSettingsPane({ projectWordDraft, setProjectWordDraft, ...props }:
 
   return (
     <div className="settings-section">
-      <SettingsSectionHeader title={t`Editor & builds`} description={t`Set the editor keymap and build behavior`} />
-      <SettingsGroup title={t`Editing`}>
+      <SettingsSectionHeader title={t`Editor & builds`} />
+      <SettingsGroup title={t`Editor`}>
         <SelectRow
           label={t`Editor keymap`}
-          description={t`Vim and Emacs keep their modal bindings inside the editor only`}
           value={props.appearance.editorKeymap}
           options={{ default: t`Default`, vim: "Vim", emacs: "Emacs" }}
           onChange={(editorKeymap) => patchAppearance(props, { editorKeymap })}
         />
-      </SettingsGroup>
-      <SettingsGroup title={t`Comments`}>
         <SettingsRow
           label={t`Your name`}
           description={props.knownAuthorName
-            ? t`Your comments are signed as ${props.knownAuthorName}, the name from Git or Overleaf. This name is used when neither has one`
-            : t`Signs your comments. Lattice uses your Git or Overleaf name instead when one is set`}
+            ? t`Comments are signed ${props.knownAuthorName}, from Git or Overleaf`
+            : t`Signs your comments when Git and Overleaf have no name`}
         >
           <Input
             controlSize="form"
@@ -352,11 +335,9 @@ function EditorSettingsPane({ projectWordDraft, setProjectWordDraft, ...props }:
             onChange={(event) => props.onAuthorNameChange(event.target.value)}
           />
         </SettingsRow>
-      </SettingsGroup>
-      <SettingsGroup title={t`Spelling`}>
         <SwitchField
           label={t`Check spelling in prose`}
-          description={t`Checks English spelling and grammar as you type with Harper`}
+          description={t`English, with Harper`}
           checked={props.appearance.editorSpellcheck}
           onChange={(editorSpellcheck) => patchAppearance(props, { editorSpellcheck })}
         />
@@ -365,7 +346,7 @@ function EditorSettingsPane({ projectWordDraft, setProjectWordDraft, ...props }:
           label={t`Project dictionary`}
           description={props.project
             ? t`Terms Harper should accept in this project`
-            : t`Open a project to add its names, acronyms, and technical terms`}
+            : t`Open a project to add terms`}
         >
           <div className="settings-project-dictionary">
             <form className="settings-project-dictionary-form" onSubmit={addProjectSpellingWord}>
@@ -407,13 +388,13 @@ function EditorSettingsPane({ projectWordDraft, setProjectWordDraft, ...props }:
         <SelectRow
           label={t`Automatic build`}
           description={props.buildPreferences.autoBuildMode === "automatic"
-            ? t`Lattice saves and builds when you leave the editor or stop typing for 1.2 seconds`
-            : t`Use the Build button or Command-S. Source changes are still saved automatically`}
+            ? t`Builds 1.2 s after you stop typing`
+            : t`Build with ⌘S. Edits still save on their own`}
           value={props.buildPreferences.autoBuildMode}
           options={{ manual: t`Manual only`, automatic: t`Automatic` }}
           onChange={(autoBuildMode) => props.setBuildPreferences({ autoBuildMode })}
         />
-        <SettingsRow label={t`Auxiliary files`} description={t`Removes .aux, .log, and other build leftovers from this project`}>
+        <SettingsRow label={t`Auxiliary files`} description={t`Removes .aux, .log and other build files`}>
           <Button size="compact" disabled={!props.hasProject || props.cleaning || props.building} onClick={props.onCleanProject}>
             {props.cleaning ? t`Cleaning…` : t`Clean`}
           </Button>
@@ -422,14 +403,14 @@ function EditorSettingsPane({ projectWordDraft, setProjectWordDraft, ...props }:
           <>
             <SelectRow
               label={t`Compile engine`}
-              description={t`XeLaTeX and LuaLaTeX support system fonts. A project latexmkrc takes precedence`}
+              description={t`A project latexmkrc overrides this`}
               value={props.project.manifest.engine ?? "pdf"}
               options={{ pdf: "pdfLaTeX", xelatex: "XeLaTeX", lualatex: "LuaLaTeX" }}
               onChange={(engine) => props.onUpdateManifest({ engine })}
             />
             <SwitchField
               label={t`Allow external commands`}
-              description={t`Lets trusted projects run external tools during builds`}
+              description={t`Shell escape during builds`}
               checked={props.project.manifest.trusted}
               onChange={(trusted) => props.onUpdateManifest({ trusted })}
             />

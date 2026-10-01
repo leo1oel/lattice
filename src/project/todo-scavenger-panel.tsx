@@ -20,10 +20,7 @@ export function TodoScavengerPanel(props: {
           onClose={props.onClose}
         />
         <p className="drawer-copy">
-          <Trans>
-            Scans `.tex` / `.md` for `% TODO`, `% FIXME`, `% XXX`, and `\todo`.
-            Click a hit to jump; the active unsaved buffer is included
-          </Trans>
+          <Trans>Finds `% TODO`, `% FIXME`, `% XXX` and `\todo`</Trans>
         </p>
         <div className="project-replace-preview-summary">
           {count === 0

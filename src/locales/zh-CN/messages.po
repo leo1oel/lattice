@@ -19,16 +19,12 @@ msgstr " 等"
 
 #. placeholder {0}: target.folder
 #: src/overleaf/overleaf-connect.tsx
-msgid "“{0}” already has files in it and isn’t linked to Overleaf.\n"
+msgid "“{0}” already has files and isn’t linked to Overleaf\n"
 "\n"
-"OK — link that folder to this Overleaf project. Files that differ are kept both ways: Overleaf’s version takes the filename and yours is saved beside it as “name (local conflict …)”. Nothing is overwritten or thrown away.\n"
+"Files that differ are kept side by side. Nothing is overwritten"
+msgstr "“{0}”中已有文件，且未关联 Overleaf\n"
 "\n"
-"Cancel — download a separate copy into a new folder and leave that one alone."
-msgstr "“{0}”中已经有文件，并且没有关联到 Overleaf。\n"
-"\n"
-"确定——把该文件夹关联到这个 Overleaf 项目。有差异的文件会双向保留：Overleaf 上的版本沿用原文件名，你本地的版本会以“名称（本地冲突 …）”保存在旁边。不会覆盖或丢弃任何内容。\n"
-"\n"
-"取消——下载一份独立副本到新文件夹，原文件夹保持不动。"
+"不同的文件会并排保留，不会覆盖任何内容"
 
 #. placeholder {0}: link.projectName
 #: src/overleaf/overleaf-connect.tsx
@@ -96,12 +92,8 @@ msgid "{action} success"
 msgstr "{action}成功"
 
 #: src/overleaf/overleaf-review.tsx
-msgid "{changeSummary} · {conflictSummary}. Nothing has been written yet"
-msgstr "{changeSummary} · {conflictSummary}。尚未写入任何内容"
-
-#: src/overleaf/overleaf-review.tsx
-msgid "{changeSummary}. Nothing has been written yet"
-msgstr "{changeSummary}。尚未写入任何内容"
+msgid "{changeSummary} · {conflictSummary}"
+msgstr "{changeSummary} · {conflictSummary}"
 
 #: src/papers/bibliography-audit.tsx
 msgid "{completed} of {progressTotal} references checked"
@@ -155,6 +147,10 @@ msgstr "{count} 个面板。双击放大。"
 #: src/project/project-find-dialog.tsx
 msgid "{count} papers"
 msgstr "{count} 篇论文"
+
+#: src/project/project-tree-clipboard.ts
+msgid "{count} paths copied"
+msgstr "已复制 {count} 个路径"
 
 #: src/canvas/editor-status-bar.tsx
 msgid "{count} TODO"
@@ -355,6 +351,10 @@ msgstr "{warnings} 个警告"
 msgid "{where} (reconnecting…)"
 msgstr "{where}（正在重新连接…）"
 
+#: src/app/use-overleaf-workspace.ts
+msgid "{wholeFiles} changed on both sides. Overleaf’s version is in the project; yours is in the “(local conflict …)” file beside it."
+msgstr "{wholeFiles} 两边都有改动。项目中现在是 Overleaf 的版本，你的版本保存在旁边的“(local conflict …)”文件中。"
+
 #: src/canvas/editor-status-bar.tsx
 msgid "{words} words · {chars} chars"
 msgstr "{words} 词 · {chars} 字符"
@@ -396,21 +396,17 @@ msgstr "10.1038/…、arXiv:1706.03762 或论文标题"
 msgid "A local edit has not settled on Overleaf yet, so this document cannot be reloaded safely."
 msgstr "有一处本地编辑尚未在 Overleaf 上生效，因此无法安全地重新载入此文档。"
 
-#: src/project/project-dialogs.tsx
-msgid "A local-first LaTeX workspace where your writing agent, sources, manuscript, and rendered paper stay connected"
-msgstr "一个本地优先的 LaTeX 工作空间，让写作助手、资料来源、手稿和渲染后的论文保持关联"
-
 #: src/editor/latex/latex-vocabulary.ts
 msgid "a over b"
 msgstr "分子 a，分母 b"
 
+#: src/settings/settings-dialog.tsx
+msgid "A project latexmkrc overrides this"
+msgstr "项目中的 latexmkrc 优先"
+
 #: src/papers/bibliography-audit.tsx
 msgid "A published version is available."
 msgstr "找到了正式发表版本，请查看修改建议和元数据来源。"
-
-#: src/overleaf/overleaf-connect.tsx
-msgid "A secure Overleaf sign-in window will open. Lattice never sees your password — it only keeps the session Overleaf creates for you"
-msgstr "将打开一个安全的 Overleaf 登录窗口。Lattice 不会看到你的密码——它只保存 Overleaf 为你创建的会话"
 
 #: src/papers/bibliography-audit.tsx
 msgid "A source returned a possible record, but its identifying metadata conflicts with this reference."
@@ -425,13 +421,17 @@ msgid "A spreadsheet must contain between 1 and 200 sheets"
 msgstr "电子表格必须包含 1 到 200 个工作表"
 
 #: src/overleaf/overleaf-connect.tsx
-msgid "A sync that finds a file missing here offers to remove it from Overleaf too"
-msgstr "同步时若发现本地缺少某个文件，会询问是否同时从 Overleaf 删除"
+msgid "A sync asks first"
+msgstr "同步时先询问"
 
 #: src/app/native-locale.ts
 msgctxt "macOS menu bar"
 msgid "About {name}"
 msgstr "关于 {name}"
+
+#: src/build/tex-setup-wizard.tsx
+msgid "About {TEX_INSTALL_SIZE_HINT} · setup can take up to 15 minutes"
+msgstr "约 {TEX_INSTALL_SIZE_HINT} · 安装最长可能需要 15 分钟"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Abstract environment"
@@ -453,8 +453,8 @@ msgid "Accept all updates"
 msgstr "全部接受更新"
 
 #: src/settings/literature-settings.tsx
-msgid "Access denied. Check the key and its permissions."
-msgstr "访问被拒绝，请检查密钥及其权限。"
+msgid "Access denied. Check the key"
+msgstr "访问被拒绝，请检查密钥"
 
 #: src/papers/bibliography-audit.tsx
 msgid "Access forbidden by provider"
@@ -621,14 +621,13 @@ msgid "All levels"
 msgstr "所有级别"
 
 #: src/overleaf/overleaf-connect.tsx
-msgid "All of your projects are archived or trashed. Tick “Show archived” to see them"
-msgstr "你的所有项目都已归档或移入回收站。勾选“显示已归档”即可看到它们"
+msgid "All your projects are archived or trashed"
+msgstr "你的项目都已归档或移入回收站"
 
 #: src/settings/settings-dialog.tsx
 msgid "Allow external commands"
 msgstr "允许外部命令"
 
-#: src/build/tex-install-dialog.tsx
 #: src/telemetry/app-updater.tsx
 msgid "Almost done"
 msgstr "即将完成"
@@ -712,10 +711,6 @@ msgstr "应用更新"
 #: src/settings/settings-dialog.tsx
 msgid "Appearance"
 msgstr "外观"
-
-#: src/settings/settings-dialog.tsx
-msgid "Applies to the LaTeX source editor only"
-msgstr "仅应用于 LaTeX 源码编辑器"
 
 #: src/editor/latex/latex-selection-toolbar.tsx
 msgid "Apply"
@@ -874,10 +869,6 @@ msgid "Basic blocks"
 msgstr "基础块"
 
 #: src/build/tex-setup-wizard.tsx
-msgid "BasicTeX and Lattice’s required paper tools use about {TEX_INSTALL_SIZE_HINT} after installation. Initial setup can take up to 15 minutes"
-msgstr "BasicTeX 和 Lattice 所需的论文工具安装后约占用 {TEX_INSTALL_SIZE_HINT}。初始设置最多可能需要 15 分钟"
-
-#: src/build/tex-setup-wizard.tsx
 msgid "BasicTeX installation progress"
 msgstr "BasicTeX 安装进度"
 
@@ -1024,10 +1015,6 @@ msgstr "正文词数"
 msgid "Body words ({source}): text {text}, headers {headers}, captions {captions}"
 msgstr "正文词数（{source}）：文本 {text}，标题 {headers}，图注 {captions}"
 
-#: src/project/manuscript-checklist.tsx
-msgid "Body words use TeXcount when installed (else a local estimate). Set budgets for your venue page/word limits"
-msgstr "若已安装 TeXcount，正文词数由其统计（否则为本地估算）。可按投稿会议或期刊的页数/词数限制设置上限"
-
 #: src/editor/latex/latex-selection-toolbar.tsx
 #: src/editor/markdown/engine/chrome/selection-toolbar.tsx
 msgid "Bold"
@@ -1052,6 +1039,10 @@ msgstr "Booktabs 三线表"
 #: src/papers/bibliography-audit.tsx
 msgid "Booktitle"
 msgstr "会议录 / 书名"
+
+#: src/history/conflict-resolver.tsx
+msgid "Both sides changed these spots. Pick a version for each; saving uploads it to Overleaf"
+msgstr "这些位置两边都改过。请逐处选择版本，保存后会上传到 Overleaf"
 
 #: src/overleaf/overleaf-review.tsx
 msgid "Both sides edited different parts, so the two sets of edits join"
@@ -1082,10 +1073,6 @@ msgstr "短音符示例"
 msgid "Bring back {0}"
 msgstr "恢复 {0}"
 
-#: src/overleaf/overleaf-connect.tsx
-msgid "Bring your next idea into Lattice."
-msgstr "在 Lattice 中继续你的研究。"
-
 #: src/telemetry/app-log-store.ts
 msgid "Browser storage is full or unavailable. New entries still reach the log file on disk, but this list may be lost on restart."
 msgstr "浏览器存储已满或不可用。新条目仍会写入磁盘上的日志文件，但此列表可能在重启后丢失。"
@@ -1097,6 +1084,10 @@ msgstr "浏览器存储已满或不可用。新条目仍会写入磁盘上的日
 msgid "Build"
 msgstr "构建"
 
+#: src/trellis/trellis-header-tools.tsx
+msgid "Build and show the PDF · ⌘S · ⇧-click for a clean rebuild"
+msgstr "构建并显示 PDF · ⌘S · ⇧ 点击可全新重建"
+
 #: src/build/compile-diagnostics-panel.tsx
 msgid "Build failed"
 msgstr "构建失败"
@@ -1104,6 +1095,10 @@ msgstr "构建失败"
 #: src/build/compile-diagnostics-panel.tsx
 msgid "Build failed without a captured log"
 msgstr "构建失败，未捕获到日志"
+
+#: src/app/use-build-pipeline.ts
+msgid "Build files cleaned"
+msgstr "已清理构建文件"
 
 #: src/build/compile-diagnostics.ts
 msgid "Build log"
@@ -1134,10 +1129,6 @@ msgstr "构建成功，用时 {seconds} 秒"
 msgid "Build superseded"
 msgstr "构建已被新操作取代"
 
-#: src/trellis/trellis-header-tools.tsx
-msgid "Build the project and show the PDF · ⌘S · Shift-click for a clean rebuild"
-msgstr "构建项目并显示 PDF · ⌘S · 按住 Shift 点击可执行全新重建"
-
 #: src/pdf/pdf-viewer.tsx
 msgid "Build the project to preview the paper"
 msgstr "构建项目以预览论文"
@@ -1146,17 +1137,25 @@ msgstr "构建项目以预览论文"
 msgid "Build to count"
 msgstr "构建后统计"
 
+#: src/settings/settings-dialog.tsx
+msgid "Build with ⌘S. Edits still save on their own"
+msgstr "用 ⌘S 构建，编辑内容仍会自动保存"
+
 #: src/trellis/trellis-header-tools.tsx
-msgid "Building… · the PDF refreshes when it finishes"
-msgstr "正在构建… · 完成后 PDF 会刷新"
+msgid "Building…"
+msgstr "正在构建…"
 
 #: src/settings/settings-dialog.tsx
 msgid "Builds"
 msgstr "构建"
 
+#: src/settings/settings-dialog.tsx
+msgid "Builds 1.2 s after you stop typing"
+msgstr "停止输入 1.2 秒后构建"
+
 #: src/trellis/trellis-header-tools.tsx
-msgid "Built in {seconds}s · Build the project and show the PDF · ⌘S · Shift-click for a clean rebuild"
-msgstr "构建完成，用时 {seconds} 秒 · 构建项目并显示 PDF · ⌘S · 按住 Shift 点击可执行全新重建"
+msgid "Built in {seconds}s · ⌘S · ⇧-click for a clean rebuild"
+msgstr "构建用时 {seconds} 秒 · ⌘S · ⇧ 点击可全新重建"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Bullet"
@@ -1179,6 +1178,10 @@ msgstr "缓存"
 #: src/editor/markdown/engine/views/component-views.tsx
 msgid "Callout"
 msgstr "提示框"
+
+#: src/build/tex-install-dialog.tsx
+msgid "Can take up to 15 minutes"
+msgstr "最长可能需要 15 分钟"
 
 #: src/build/tex-dependency-installer.tsx
 #: src/canvas/comment-composer.tsx
@@ -1345,10 +1348,6 @@ msgstr "居中的多行公式"
 msgid "Changed here, untouched there"
 msgstr "本地已更改，Overleaf 上未变"
 
-#: src/app/use-overleaf-workspace.ts
-msgid "Changed in both places and impossible to combine: {wholeFiles}. Overleaf's version is now the one in the project, and yours is kept beside it in the “(local conflict …)” files — keep whichever you want and delete the other."
-msgstr "两边都有更改且无法合并：{wholeFiles}。项目中现在使用的是 Overleaf 的版本，你的版本保存在旁边的“(local conflict …)”文件中——保留你想要的版本，删除另一个即可。"
-
 #: src/overleaf/overleaf-review.tsx
 msgid "Changed there, untouched here"
 msgstr "Overleaf 上已更改，本地未变"
@@ -1435,18 +1434,6 @@ msgstr "检查清单"
 msgid "Checklist with checkboxes."
 msgstr "带复选框的任务清单。"
 
-#: src/papers/bibliography-audit.tsx
-msgid "Checks all project bibliographies without changing them. Review differences before applying an update."
-msgstr "检查项目中的所有参考文献文件，不会修改内容。请确认差异后再应用更新。"
-
-#: src/settings/settings-dialog.tsx
-msgid "Checks English spelling and grammar as you type with Harper"
-msgstr "使用 Harper 在输入时检查英文拼写和语法"
-
-#: src/settings/doctor-settings.tsx
-msgid "Checks the tools Lattice needs to compile LaTeX"
-msgstr "检查 Lattice 编译 LaTeX 所需的工具"
-
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Chi"
 msgstr "希"
@@ -1463,17 +1450,9 @@ msgstr "选择位置"
 msgid "Choose the document class"
 msgstr "选择文档类"
 
-#: src/settings/settings-dialog.tsx
-msgid "Choose the language used for menus, settings, and help text"
-msgstr "选择菜单、设置和帮助文字所使用的语言"
-
 #: src/papers/bib-entry-dialog.tsx
 msgid "Choose the matching record before saving"
 msgstr "请先选择匹配的记录，再保存"
-
-#: src/settings/settings-dialog.tsx
-msgid "Choose the theme for Lattice on this device"
-msgstr "选择这台设备上 Lattice 使用的主题"
 
 #: src/App.tsx
 msgid "Choose where to create the project"
@@ -1593,6 +1572,10 @@ msgstr "点击编辑"
 #: src/canvas/canvas-toolbar.tsx
 msgid "click to sync"
 msgstr "点按以同步"
+
+#: src/telemetry/app-notify.ts
+msgid "Clipboard"
+msgstr "剪贴板"
 
 #: src/editor/codemirror-host.tsx
 msgid "Close"
@@ -1725,6 +1708,10 @@ msgstr "评论"
 msgid "Comment"
 msgstr "评论"
 
+#: src/app/app-editor-panels.tsx
+msgid "Comment deleted"
+msgstr "评论已删除"
+
 #: src/editor/latex/latex-selection-toolbar.tsx
 msgid "Comment on selected Markdown"
 msgstr "评论所选 Markdown"
@@ -1737,16 +1724,17 @@ msgstr "评论来源"
 msgid "Comment visibility"
 msgstr "评论显示范围"
 
+#: src/app/app-editor-panels.tsx
 #: src/canvas/editor-status-bar.tsx
 #: src/overleaf/overleaf-collab.tsx
-#: src/settings/settings-dialog.tsx
 #: src/trellis/trellis-titles.ts
 msgid "Comments"
 msgstr "评论"
 
+#. placeholder {0}: props.knownAuthorName
 #: src/settings/settings-dialog.tsx
-msgid "Comments on the open document, for projects not linked to Overleaf"
-msgstr "当前文档的评论（用于未关联 Overleaf 的项目）"
+msgid "Comments are signed {0}, from Git or Overleaf"
+msgstr "评论署名为 {0}（来自 Git 或 Overleaf）"
 
 #: src/overleaf/overleaf-review.tsx
 msgid "Comparing this project with Overleaf…"
@@ -1763,10 +1751,6 @@ msgstr "编译诊断"
 #: src/settings/settings-dialog.tsx
 msgid "Compile engine"
 msgstr "编译引擎"
-
-#: src/App.tsx
-msgid "Compile LaTeX"
-msgstr "编译 LaTeX"
 
 #: src/papers/bib-format.ts
 msgid "Complete the unfinished bibliography entry before adding another reference."
@@ -1828,14 +1812,18 @@ msgstr "全等"
 msgid "Connect to Overleaf"
 msgstr "连接 Overleaf"
 
+#: src/overleaf/overleaf-connect.tsx
+msgid "Connect your Overleaf account to see your projects"
+msgstr "连接 Overleaf 账号即可查看你的项目"
+
 #. placeholder {0}: known.email ?? known.name ?? fallbackAccountName
 #: src/overleaf/overleaf-connect.tsx
 msgid "Connected as {0}"
 msgstr "已登录为 {0}"
 
-#: src/canvas/canvas-toolbar.tsx
-msgid "Connected live · click to sync everything"
-msgstr "已实时连接 · 点按以同步全部内容"
+#: src/settings/literature-settings.tsx
+msgid "Connected without a key"
+msgstr "无需密钥即可连接"
 
 #: src/overleaf/overleaf-connect.tsx
 msgid "Connecting live editing…"
@@ -1852,14 +1840,6 @@ msgstr "连接"
 #: src/papers/bibliography-audit.tsx
 msgid "Connection failed"
 msgstr "连接失败"
-
-#: src/overleaf/overleaf-connect.tsx
-msgid "Connection status is unavailable. This project remains linked to {linkedHost}; try checking the connection again above"
-msgstr "无法获取连接状态。此项目仍关联到 {linkedHost}；请在上方重新检查连接"
-
-#: src/settings/literature-settings.tsx
-msgid "Connection succeeded with the key. Testing does not save it."
-msgstr "已使用密钥连接成功。测试不会保存密钥。"
 
 #: src/settings/literature-settings.tsx
 msgid "Contact email"
@@ -1953,10 +1933,6 @@ msgstr "无法更改 Overleaf 同步设置"
 msgid "Could not collect runtime logs."
 msgstr "无法收集运行日志。"
 
-#: src/settings/literature-settings.tsx
-msgid "Could not complete this action. Check your input and system keychain access."
-msgstr "操作未完成，请检查输入内容及系统钥匙串访问权限。"
-
 #: src/overleaf/overleaf-connect.tsx
 msgid "Could not disconnect from Overleaf"
 msgstr "无法断开与 Overleaf 的连接"
@@ -2008,10 +1984,6 @@ msgstr "无法解析 {count} 处参考文献结构。"
 #: src/build/tex-doctor-messages.ts
 msgid "Could not read {path}: {error}"
 msgstr "无法读取 {path}：{error}"
-
-#: src/settings/literature-settings.tsx
-msgid "Could not read the system keychain. Reopen these settings to try again."
-msgstr "无法读取系统钥匙串，请重新打开此设置页面。"
 
 #: src/overleaf/use-overleaf-realtime.ts
 msgid "Could not record Overleaf's {scopedPermission} permission locally ({detail})."
@@ -2077,6 +2049,10 @@ msgstr "无法检查 Lattice 更新"
 msgid "Couldn’t check for updates"
 msgstr "无法检查更新"
 
+#: src/overleaf/overleaf-connect.tsx
+msgid "Couldn’t check the connection. Still linked to {linkedHost}"
+msgstr "无法检查连接，仍关联到 {linkedHost}"
+
 #: src/telemetry/root-error-boundary.tsx
 msgid "Couldn’t copy the details. Expand Technical details and copy them manually."
 msgstr "无法复制详情。请展开“技术详情”并手动复制。"
@@ -2089,13 +2065,21 @@ msgstr "找不到 {citationCommand} 对应的参考文献条目。"
 msgid "Couldn’t install the update"
 msgstr "无法安装更新"
 
+#: src/app/use-overleaf-workspace.ts
+msgid "Couldn’t merge {markedFiles}. Both versions are kept; resolve each spot to finish. Nothing uploads until then."
+msgstr "无法合并 {markedFiles}。两个版本都已保留，逐处解决后即可完成；在此之前不会上传。"
+
 #: src/editor/spreadsheet/spreadsheet-editor.tsx
 msgid "Couldn’t open this spreadsheet"
 msgstr "无法打开此电子表格"
 
-#: src/overleaf/overleaf-connect.tsx
-msgid "Create a new Overleaf project and keep this folder connected to it"
-msgstr "创建新的 Overleaf 项目，并让此文件夹与其保持连接"
+#: src/settings/literature-settings.tsx
+msgid "Couldn’t reach the service"
+msgstr "无法连接到该服务"
+
+#: src/settings/literature-settings.tsx
+msgid "Couldn’t read the keychain. Reopen Settings to retry"
+msgstr "无法读取钥匙串，请重新打开设置再试"
 
 #: src/project/project-dialogs.tsx
 msgid "Create a research project"
@@ -2108,11 +2092,6 @@ msgstr "创建文件"
 #: src/history/file-diff-view.tsx
 msgid "created"
 msgstr "已创建"
-
-#. placeholder {0}: venue.label
-#: src/project/project-dialogs.tsx
-msgid "Creates a {0} paper draft with bibliography and project brief"
-msgstr "创建一份采用 {0} 样式的论文草稿，并包含参考文献和项目简介"
 
 #: src/App.tsx
 msgid "Creating project…"
@@ -2241,10 +2220,6 @@ msgstr "要从此项目中删除选中的 {count} 个项目吗？"
 msgid "Delete {name}"
 msgstr "删除{name}"
 
-#: src/app/use-build-pipeline.ts
-msgid "Delete auxiliary files and rebuild the PDF?"
-msgstr "要删除辅助文件并重新构建 PDF 吗？"
-
 #: src/editor/markdown/engine/views/code-block-view.tsx
 msgid "Delete code block"
 msgstr "删除代码块"
@@ -2256,10 +2231,6 @@ msgstr "删除列"
 #: src/editor/markdown/engine/views/math-views.tsx
 msgid "Delete equation"
 msgstr "删除公式"
-
-#: src/app/use-build-pipeline.ts
-msgid "Delete LaTeX auxiliary files (`.aux`, `.log`, `.bbl`, …) from this project?"
-msgstr "要从此项目中删除 LaTeX 辅助文件（`.aux`、`.log`、`.bbl` 等）吗？"
 
 #: src/overleaf/overleaf-comments.tsx
 msgid "Delete message"
@@ -2277,10 +2248,6 @@ msgstr "删除行"
 #: src/editor/markdown/engine/views/table-controls.tsx
 msgid "Delete table"
 msgstr "删除表格"
-
-#: src/app/app-editor-panels.tsx
-msgid "Delete this comment? Its replies will be removed too. This cannot be undone."
-msgstr "要删除这条评论吗？它的回复也会一并删除，且无法撤销。"
 
 #: src/overleaf/overleaf-comments.tsx
 msgid "Delete this discussion? Every message in the thread will be removed from Overleaf. This cannot be undone."
@@ -2393,10 +2360,6 @@ msgstr "关闭通知"
 msgid "Dismiss references"
 msgstr "关闭引用列表"
 
-#: src/settings/settings-dialog.tsx
-msgid "Display"
-msgstr "显示"
-
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Divides / conditioned on"
 msgstr "整除 / 条件于"
@@ -2489,6 +2452,10 @@ msgstr "下双线箭头"
 msgid "Download {url}"
 msgstr "下载 {url}"
 
+#: src/overleaf/overleaf-connect.tsx
+msgid "Download a new copy"
+msgstr "下载一个新副本"
+
 #: src/project/paper-library.tsx
 msgid "Download arXiv {id}"
 msgstr "下载 arXiv {id}"
@@ -2501,18 +2468,14 @@ msgstr "下载 JSON"
 msgid "Download PDF"
 msgstr "下载 PDF"
 
-#: src/build/tex-install-dialog.tsx
-msgid "Download time depends on your connection"
-msgstr "下载时间取决于你的网络连接"
-
 #: src/App.tsx
 msgid "Downloaded paper files will be kept."
 msgstr "已下载的论文文件将会保留。"
 
 #. placeholder {0}: cloning.name
 #: src/overleaf/overleaf-connect.tsx
-msgid "Downloading {0} from Overleaf… this can take a minute for large projects"
-msgstr "正在从 Overleaf 下载 {0}…大项目可能需要一分钟左右"
+msgid "Downloading {0}…"
+msgstr "正在下载 {0}…"
 
 #: src/build/tex-install-dialog.tsx
 msgid "Downloading BasicTeX…"
@@ -2528,20 +2491,20 @@ msgid "Downloading update…"
 msgstr "正在下载更新…"
 
 #: src/App.tsx
-msgid "Drop image or PDF files onto a TeX/Markdown editor to insert them, onto an open document to import and open them, or into the Project pane to add them."
-msgstr "将图片或 PDF 文件拖放到 TeX/Markdown 编辑器中可插入，拖放到已打开的文档上可导入并打开，拖放到项目面板中可添加到项目。"
+msgid "Drop figures onto a TeX or Markdown editor, or the Project pane"
+msgstr "请将图片拖到 TeX 或 Markdown 编辑器，或项目面板中"
 
 #: src/canvas/project-asset-preview.tsx
 msgid "Drop project files here to open them, or drag this into a TeX or Markdown editor to insert it"
 msgstr "将项目文件拖到此处打开，或将此文件拖入 TeX 或 Markdown 编辑器以插入"
 
 #: src/App.tsx
-msgid "Drop source files and figures separately so Lattice knows whether to open or insert them."
-msgstr "请分别拖放源文件和图片，以便 Lattice 判断是打开还是插入。"
+msgid "Drop source files and figures separately"
+msgstr "请分别拖入源文件和图片"
 
 #: src/App.tsx
-msgid "Drop source files onto an editor to open them, or into the Project pane to add them."
-msgstr "将源文件拖放到编辑器中可打开，拖放到项目面板中可添加到项目。"
+msgid "Drop source files onto an editor or the Project pane"
+msgstr "请将源文件拖到编辑器或项目面板中"
 
 #: src/editor/latex/latex-diagnostics.ts
 msgid "Duplicate bibliography key “{key}”."
@@ -2636,10 +2599,6 @@ msgstr "编辑消息"
 msgid "Edit message text"
 msgstr "编辑消息内容"
 
-#: src/history/conflict-resolver.tsx
-msgid "Edit the combined file if anything still needs fixing, then save it."
-msgstr "如仍需修改，请编辑合并后的文件，然后保存。"
-
 #: src/overleaf/overleaf-comments.tsx
 msgid "Edit this message"
 msgstr "编辑此消息"
@@ -2654,12 +2613,8 @@ msgid "Edited on both sides in the same place. Applying marks the spots in the f
 msgstr "双方在同一位置都有编辑。应用后会在文件中标出这些位置，供你选择"
 
 #: src/settings/settings-dialog.tsx
-msgid "Editing"
-msgstr "编辑"
-
-#: src/canvas/canvas-toolbar.tsx
-msgid "Editing live with Overleaf · click to sync everything else"
-msgstr "正在与 Overleaf 实时编辑 · 点按以同步其他内容"
+msgid "Editor"
+msgstr "编辑器"
 
 #: src/settings/settings-dialog.tsx
 msgid "Editor & builds"
@@ -2687,6 +2642,10 @@ msgstr "编辑器快捷键"
 #: src/canvas/editor-status-bar.tsx
 msgid "Editor status"
 msgstr "编辑器状态"
+
+#: src/overleaf/overleaf-connect.tsx
+msgid "Edits on both sides merge when you resume"
+msgstr "恢复后会合并两边的编辑"
 
 #: src/overleaf/overleaf-connect.tsx
 msgid "Edits sync live with Overleaf"
@@ -2751,6 +2710,10 @@ msgstr "结束环境"
 #: src/settings/settings-dialog.tsx
 msgid "English"
 msgstr "英文"
+
+#: src/settings/settings-dialog.tsx
+msgid "English, with Harper"
+msgstr "英文，由 Harper 检查"
 
 #: src/editor/goto-line-dialog.tsx
 msgid "Enter a line between 1 and {maxLine}"
@@ -2912,10 +2875,6 @@ msgstr "关注声明"
 msgid "Failed"
 msgstr "失败"
 
-#: src/settings/settings-dialog.tsx
-msgid "Feedback"
-msgstr "反馈"
-
 #: src/editor/markdown/engine/chrome/slash-items.ts
 msgid "Fenced code block with monospace text."
 msgstr "使用等宽字体显示的围栏代码块。"
@@ -3034,6 +2993,10 @@ msgstr "在项目中查找"
 msgid "Find text to replace"
 msgstr "查找要替换的文本"
 
+#: src/project/todo-scavenger-panel.tsx
+msgid "Finds `% TODO`, `% FIXME`, `% XXX` and `\\todo`"
+msgstr "查找 `% TODO`、`% FIXME`、`% XXX` 和 `\\todo`"
+
 #: src/App.tsx
 msgid "Finish the current text composition, then switch projects again."
 msgstr "请先完成当前的输入法输入，然后再切换项目。"
@@ -3065,6 +3028,10 @@ msgstr "全部修正"
 #: src/build/compile-diagnostics-panel.tsx
 msgid "Fix all errors and warnings, then recompile"
 msgstr "修正所有错误和警告，然后重新编译"
+
+#: src/history/conflict-resolver.tsx
+msgid "Fix anything left, then save"
+msgstr "修正剩余问题后保存"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Flat"
@@ -3115,8 +3082,8 @@ msgid "Footnote at the cursor"
 msgstr "在光标处插入脚注"
 
 #: src/telemetry/app-log.tsx
-msgid "For Agent startup or connection failures. Includes recent lattice, sidecar, and server logs (up to 128 KiB each). Known credentials are masked, but paths and document content may remain. Review before sharing."
-msgstr "用于排查 Agent 启动或连接失败。包含最近的 lattice、sidecar 和 server 日志（每份最多 128 KiB）。已遮盖已知凭据，但仍可能包含路径或文档内容，请在分享前检查。"
+msgid "For Agent failures. Credentials are masked, but paths and document text may remain"
+msgstr "用于排查 Agent 故障。凭据会被遮盖，但可能仍包含路径和文档内容"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "For all"
@@ -3750,12 +3717,9 @@ msgid "Install LaTeX to compile"
 msgstr "安装 LaTeX 以进行编译"
 
 #: src/build/tex-setup-wizard.tsx
+#: src/project/project-dialogs.tsx
 msgid "Install LaTeX tools"
 msgstr "安装 LaTeX 工具"
-
-#: src/project/project-dialogs.tsx
-msgid "Install LaTeX tools (needed to compile PDFs)"
-msgstr "安装 LaTeX 工具（编译 PDF 时需要）"
 
 #: src/app/use-tex-setup.ts
 #: src/build/tex-dependency-installer.tsx
@@ -3787,13 +3751,14 @@ msgstr "正在安装所需工具…"
 msgid "Installing update…"
 msgstr "正在安装更新…"
 
-#: src/build/tex-install-dialog.tsx
-msgid "Installing uv for paper imports and bibliography tools"
-msgstr "正在安装用于导入论文和管理参考文献的 uv"
-
 #: src/telemetry/app-updater.tsx
 msgid "Installing…"
 msgstr "正在安装…"
+
+#. placeholder {0}: status.missingFile
+#: src/build/tex-dependency-installer.tsx
+msgid "Installs the TeX Live package that provides {0}"
+msgstr "安装提供 {0} 的 TeX Live 宏包"
 
 #: src/papers/bibliography-audit.tsx
 msgid "Insufficient identifying metadata"
@@ -3843,10 +3808,6 @@ msgstr "无效的工作表：{name}"
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Iota"
 msgstr "约塔"
-
-#: src/trellis/trellis-workspace.tsx
-msgid "It resumes as soon as the panel is on screen."
-msgstr "面板回到屏幕上时会立即恢复。"
 
 #: src/editor/latex/latex-selection-toolbar.tsx
 #: src/editor/markdown/engine/chrome/selection-toolbar.tsx
@@ -3913,10 +3874,6 @@ msgstr "保留本机的版本"
 msgid "Keeping the citation commands will leave them unresolved."
 msgstr "保留引用命令会使这些引用无法解析。"
 
-#: src/overleaf/overleaf-connect.tsx
-msgid "Keeps both sides identical. Overleaf's own history still has the file if it was a mistake"
-msgstr "保持两边完全一致。如果删错了，Overleaf 自己的历史记录中仍保留该文件"
-
 #: src/papers/audit-messages.ts
 msgid "Kept as a preprint because pubstate is explicitly preprint."
 msgstr "pubstate 明确标记为 preprint，因此保留为预印本。"
@@ -3934,12 +3891,16 @@ msgid "Kept your copy of {files}. Overleaf sent these files empty or much smalle
 msgstr "已保留你在本机的 {files}。Overleaf 发来的这些文件是空的或明显变小，但它的历史记录无法确认这一修改。如果仍要采用 Overleaf 的版本，请在本机删除该文件后再同步。"
 
 #: src/settings/literature-settings.tsx
-msgid "Key saved in the system keychain."
-msgstr "密钥已保存到系统钥匙串。"
+msgid "Key removed"
+msgstr "密钥已移除"
 
 #: src/settings/literature-settings.tsx
-msgid "Keys stay in your system keychain, not in the project. Personal keys take priority over shared or environment credentials."
-msgstr "密钥存储在系统钥匙串中，而不是项目中。个人密钥优先于共享或环境凭据。"
+msgid "Key saved to the keychain"
+msgstr "密钥已保存到钥匙串"
+
+#: src/settings/literature-settings.tsx
+msgid "Keys stay in your system keychain and take priority over shared ones"
+msgstr "密钥保存在系统钥匙串中，优先于共享密钥"
 
 #: src/app/app-search-dialogs.tsx
 #: src/editor/insert/figure-insert-dialog.tsx
@@ -3972,7 +3933,6 @@ msgid "Lambda"
 msgstr "兰姆达"
 
 #: src/editor/markdown/engine/views/code-block-view.tsx
-#: src/settings/settings-dialog.tsx
 msgid "Language"
 msgstr "语言"
 
@@ -3983,6 +3943,10 @@ msgstr "更大的分式"
 #: src/project/manuscript-checklist.tsx
 msgid "Last build"
 msgstr "上次构建"
+
+#: src/trellis/trellis-header-tools.tsx
+msgid "Last build failed · ⌘S · ⇧-click for a clean rebuild"
+msgstr "上次构建失败 · ⌘S · ⇧ 点击可全新重建"
 
 #: src/papers/bibliography-audit.tsx
 msgid "Last checked"
@@ -4037,21 +4001,9 @@ msgstr "由于 {file} 失败，latexmk 在运行 LaTeX 之前就已停止。“�
 msgid "latexmk version"
 msgstr "latexmk 版本"
 
-#: src/App.tsx
-msgid "Lattice can open TeX, bibliography, Markdown, style, class, and text files dropped onto an editor."
-msgstr "Lattice 可以打开拖放到编辑器中的 TeX、参考文献、Markdown、样式、文档类和文本文件。"
-
 #: src/overleaf/use-overleaf-realtime.ts
 msgid "Lattice cannot yet identify which replayed edits to {activeFile} are its own. Syncing remains paused for this file."
 msgstr "Lattice 暂时无法识别 {activeFile} 的重放编辑中哪些是自己发出的。此文件的同步仍处于暂停状态。"
-
-#: src/settings/settings-dialog.tsx
-msgid "Lattice checks in the background and installs updates on its own"
-msgstr "Lattice 会在后台检查并自动安装更新"
-
-#: src/settings/settings-dialog.tsx
-msgid "Lattice checks in the background; you decide when to install"
-msgstr "Lattice 会在后台检查更新，由你决定何时安装"
 
 #: src/overleaf/use-overleaf-realtime.ts
 msgid "Lattice could not confirm whether Overleaf accepted the latest edit to {path} ({detail}). Syncing is paused for this file while Lattice checks."
@@ -4069,14 +4021,6 @@ msgstr "Lattice 无法打开此窗口"
 msgid "Lattice couldn’t restart automatically. Quit and reopen it manually."
 msgstr "Lattice 无法自动重新启动。请退出后手动重新打开。"
 
-#: src/build/tex-setup-wizard.tsx
-msgid "Lattice needs uv to add papers and manage bibliographies. The verified download uses about 45 MB and usually installs in under a minute"
-msgstr "Lattice 需要 uv 来添加论文和管理参考文献。经验证的下载约为 45 MB，通常不到一分钟即可安装"
-
-#: src/settings/settings-dialog.tsx
-msgid "Lattice saves and builds when you leave the editor or stop typing for 1.2 seconds"
-msgstr "离开编辑器或停止输入 1.2 秒后，Lattice 会保存并构建"
-
 #: src/telemetry/root-error-boundary.tsx
 msgid "Lattice UI crashed"
 msgstr "Lattice 界面崩溃"
@@ -4084,11 +4028,6 @@ msgstr "Lattice 界面崩溃"
 #: src/telemetry/app-updater.tsx
 msgid "Lattice update failed"
 msgstr "Lattice 更新失败"
-
-#. placeholder {0}: status.missingFile
-#: src/build/tex-dependency-installer.tsx
-msgid "Lattice will find and install the TeX Live package that provides {0}."
-msgstr "Lattice 将查找并安装提供 {0} 的 TeX Live 软件包。"
 
 #: src/trellis/trellis-workspace.tsx
 msgid "Lattice workspace"
@@ -4167,10 +4106,6 @@ msgid "Less than or equal"
 msgstr "小于或等于"
 
 #: src/settings/settings-dialog.tsx
-msgid "Lets trusted projects run external tools during builds"
-msgstr "允许受信任的项目在构建时运行外部工具"
-
-#: src/settings/settings-dialog.tsx
 msgid "Light"
 msgstr "浅色"
 
@@ -4211,6 +4146,10 @@ msgstr "链接"
 msgid "Link definition"
 msgstr "链接定义"
 
+#: src/overleaf/overleaf-connect.tsx
+msgid "Link this folder"
+msgstr "关联此文件夹"
+
 #: src/editor/markdown/engine/chrome/slash-items.ts
 msgid "Link to a page or external URL."
 msgstr "链接到页面或外部 URL。"
@@ -4237,6 +4176,10 @@ msgstr "文献"
 msgid "Literature services"
 msgstr "文献服务"
 
+#: src/canvas/canvas-toolbar.tsx
+msgid "Live · click to sync"
+msgstr "实时连接 · 点击同步"
+
 #: src/overleaf/overleaf-connect.tsx
 msgid "Live editing is connected"
 msgstr "实时编辑已连接"
@@ -4260,6 +4203,10 @@ msgstr "无法启动与 Overleaf 的实时编辑（{detail}）。你的项目仍
 #: src/overleaf/overleaf-connect.tsx
 msgid "Live sync"
 msgstr "实时同步"
+
+#: src/canvas/canvas-toolbar.tsx
+msgid "Live with Overleaf · click to sync"
+msgstr "正与 Overleaf 实时编辑 · 点击同步"
 
 #: src/canvas/editor-status-bar.tsx
 msgid "Ln {line}, Col {column}"
@@ -4446,12 +4393,16 @@ msgid "Maximize focused panel"
 msgstr "最大化当前面板"
 
 #: src/trellis/trellis-titlebar.tsx
-msgid "Maximize the focused panel · ⌘⇧↩ or double-click its tab bar"
-msgstr "最大化当前面板 · ⌘⇧↩ 或双击其标签栏"
+msgid "Maximize panel · ⌘⇧↩"
+msgstr "最大化面板 · ⌘⇧↩"
 
 #: src/editor/latex/latex-command-completions.ts
 msgid "Maximum operator"
 msgstr "最大值运算符"
+
+#: src/telemetry/app-log.tsx
+msgid "May include document text and file paths"
+msgstr "可能包含文档内容和文件路径"
 
 #: src/settings/settings-dialog.tsx
 msgid "MCP"
@@ -4659,6 +4610,10 @@ msgstr "导航"
 msgid "Navigation performance"
 msgstr "导航性能"
 
+#: src/build/tex-setup-wizard.tsx
+msgid "Needed to add papers and manage bibliographies · about 45 MB"
+msgstr "添加论文和管理参考文献需要它 · 约 45 MB"
+
 #: src/history/conflict-resolver.tsx
 msgid "Needs a decision"
 msgstr "待决定"
@@ -4697,8 +4652,8 @@ msgid "New board"
 msgstr "新建白板"
 
 #: src/canvas/canvas-toolbar.tsx
-msgid "New changes on Overleaf — click to bring them in"
-msgstr "Overleaf 上有新更改 — 点按以拉取"
+msgid "New changes on Overleaf · click to pull"
+msgstr "Overleaf 上有新更改 · 点击拉取"
 
 #: src/trellis/trellis-panel-actions.tsx
 msgid "New document"
@@ -4754,10 +4709,6 @@ msgstr "新建电子表格"
 msgid "New version {version}"
 msgstr "新版本 {version}"
 
-#: src/settings/settings-dialog.tsx
-msgid "New versions install automatically"
-msgstr "新版本会自动安装"
-
 #: src/canvas/editor-status-bar.tsx
 msgid "next"
 msgstr "下一个"
@@ -4792,8 +4743,8 @@ msgid "No changes since the last version."
 msgstr "自上个版本以来没有任何更改。"
 
 #: src/overleaf/overleaf-comments.tsx
-msgid "No comments in this project. Comments made on Overleaf appear here as they are written"
-msgstr "此项目中没有评论。在 Overleaf 上创建的评论会在输入时实时显示在这里"
+msgid "No comments yet"
+msgstr "还没有评论"
 
 #: src/editor/comments/editor-comments-panel.tsx
 msgid "No comments yet. Select text in the editor and click Comment"
@@ -4906,8 +4857,8 @@ msgid "No occurrences found"
 msgstr "未找到出现位置"
 
 #: src/overleaf/overleaf-comments.tsx
-msgid "No open comments in this project. Comments made on Overleaf appear here as they are written"
-msgstr "此项目中没有未解决的评论。在 Overleaf 上创建的评论会在输入时实时显示在这里"
+msgid "No open comments"
+msgstr "没有未解决的评论"
 
 #: src/project/project-dialogs.tsx
 msgid "No other recent projects yet"
@@ -4980,8 +4931,8 @@ msgid "No upgrade check was performed for this entry."
 msgstr "未对此条目执行升级检查。"
 
 #: src/history/versions-timeline.tsx
-msgid "No versions yet. Versions are saved automatically as you work, or press Save version"
-msgstr "暂无版本。版本会在你工作时自动保存，你也可以点击“保存版本”"
+msgid "No versions yet"
+msgstr "还没有版本"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "North-east arrow"
@@ -5001,6 +4952,10 @@ msgstr "未构建"
 
 #: src/papers/bibliography-audit.tsx
 msgid "Not checked"
+msgstr "尚未检查"
+
+#: src/settings/doctor-settings.tsx
+msgid "Not checked yet"
 msgstr "尚未检查"
 
 #: src/papers/bibliography-audit.tsx
@@ -5030,10 +4985,6 @@ msgstr "未经核实"
 #: src/editor/markdown/engine/views/component-views.tsx
 msgid "Note"
 msgstr "说明"
-
-#: src/overleaf/overleaf-connect.tsx
-msgid "Nothing is ever removed from the shared project from here. The two sides stay different"
-msgstr "永远不会从这里删除共享项目中的任何内容。两边会保持不同"
 
 #: src/overleaf/overleaf-connect.tsx
 msgid "Nothing is sent or fetched until you resume"
@@ -5075,6 +5026,14 @@ msgstr "有序编号项目列表。"
 msgid "Numbered single-line equation"
 msgstr "编号的单行公式"
 
+#: src/project/project-dialogs.tsx
+msgid "Official 2026 style"
+msgstr "2026 官方样式"
+
+#: src/project/project-dialogs.tsx
+msgid "Official 2026 style · preprint draft"
+msgstr "2026 官方样式 · 预印本草稿"
+
 #: src/project/manuscript-checklist.tsx
 #: src/telemetry/app-log.tsx
 msgid "OK"
@@ -5091,6 +5050,10 @@ msgstr "位于行"
 #: src/overleaf/overleaf-review.tsx
 msgid "Only binary files would change; line-by-line review is unavailable"
 msgstr "只有二进制文件会发生变化，无法逐行审阅"
+
+#: src/telemetry/app-log.tsx
+msgid "Only operation metadata and counts. Nothing leaves this Mac until you copy or download it"
+msgstr "仅包含操作元数据和计数。复制或下载前不会离开这台 Mac"
 
 #: src/components/ui/apple-color-picker.tsx
 msgid "Opacity"
@@ -5116,10 +5079,6 @@ msgstr "请先打开一个 .tex 文件再进行格式化。"
 msgid "Open a .tex file before pasting a figure."
 msgstr "请先打开一个 .tex 文件再粘贴图片。"
 
-#: src/trellis/trellis-workspace.tsx
-msgid "Open a file from Quick open, or bring the default panels back."
-msgstr "用快速打开打开文件，或恢复默认面板。"
-
 #: src/App.tsx
 msgid "Open a LaTeX project"
 msgstr "打开 LaTeX 项目"
@@ -5129,16 +5088,12 @@ msgid "Open a project from Overleaf"
 msgstr "从 Overleaf 打开项目"
 
 #: src/settings/settings-dialog.tsx
-msgid "Open a project to add its names, acronyms, and technical terms"
-msgstr "打开项目后，可添加其中的名称、缩写和技术术语"
+msgid "Open a project to add terms"
+msgstr "打开项目后即可添加术语"
 
 #: src/settings/synara-settings-pane.tsx
 msgid "Open a project to manage Agent settings"
 msgstr "打开项目以管理智能助手设置"
-
-#: src/overleaf/overleaf-connect.tsx
-msgid "Open and sync Overleaf projects in Lattice"
-msgstr "在 Lattice 中打开并同步 Overleaf 项目"
 
 #: src/project/project-dialogs.tsx
 msgid "Open another folder"
@@ -5380,6 +5335,14 @@ msgstr "Overleaf 不支持实时编辑此文件，将改用常规同步。"
 msgid "Overleaf history"
 msgstr "Overleaf 历史"
 
+#: src/overleaf/overleaf-connect.tsx
+msgid "Overleaf history keeps a copy"
+msgstr "Overleaf 历史记录会保留副本"
+
+#: src/overleaf/overleaf-connect.tsx
+msgid "Overleaf keeps its copy"
+msgstr "Overleaf 保留其副本"
+
 #: src/overleaf/use-overleaf-realtime.ts
 msgid "Overleaf live editing disconnected ({reason}). Reconnecting in {seconds}s…"
 msgstr "Overleaf 实时编辑已断开（{reason}）。将在 {seconds} 秒后重新连接…"
@@ -5432,13 +5395,13 @@ msgstr "Overleaf 同步"
 msgid "Overleaf sync cancelled"
 msgstr "Overleaf 同步已取消"
 
-#: src/app/use-overleaf-workspace.ts
-msgid "Overleaf sync could not combine: {markedFiles}. Both versions are kept — resolve each spot to finish. Your untouched version is also saved beside it in the “(local conflict …)” files, and nothing uploads until the conflicts are settled."
-msgstr "Overleaf 同步无法合并：{markedFiles}。两个版本都已保留——逐一解决各处冲突即可完成。你未经改动的版本也另存在旁边的“(local conflict …)”文件中；在冲突解决之前不会上传任何内容。"
-
 #: src/App.tsx
 msgid "Overleaf sync is finishing. Try switching projects again in a moment."
 msgstr "Overleaf 同步即将完成，请稍后再尝试切换项目。"
+
+#: src/overleaf/overleaf-connect.tsx
+msgid "Overleaf sync paused"
+msgstr "Overleaf 同步已暂停"
 
 #: src/app/use-overleaf-workspace.ts
 msgid "Overleaf: already up to date."
@@ -5451,10 +5414,6 @@ msgstr "Overleaf：拉取 {pulled} 个，推送 {pushed} 个，合并 {merged} �
 #: src/app/use-overleaf-workspace.ts
 msgid "Overleaf: pulled {pulled}, pushed {pushed}."
 msgstr "Overleaf：拉取 {pulled} 个，推送 {pushed} 个。"
-
-#: src/overleaf/overleaf-history.tsx
-msgid "Overleaf's own record of this project, including everything collaborators changed in the browser while Lattice was closed. Restoring here changes Overleaf's copy — sync afterward to bring the result into this app"
-msgstr "Overleaf 自己对该项目的记录，包含 Lattice 关闭期间协作者在浏览器中所做的全部更改。在这里恢复会改动 Overleaf 上的副本——之后请同步，把结果带回本应用"
 
 #: src/project/manuscript-checklist.tsx
 msgid "Page budget"
@@ -5569,8 +5528,8 @@ msgid "Paste"
 msgstr "粘贴"
 
 #: src/project/paper-library.tsx
-msgid "Paste an arXiv ID, DOI, URL, or title above to ground the agent in project evidence"
-msgstr "在上方粘贴 arXiv ID、DOI、URL 或标题，为智能体提供项目证据"
+msgid "Paste an arXiv ID, DOI, URL or title above"
+msgstr "在上方粘贴 arXiv ID、DOI、URL 或标题"
 
 #: src/App.tsx
 #: src/project/project-file-tree.tsx
@@ -5585,6 +5544,11 @@ msgstr "粘贴或输入链接"
 msgid "Paste your API key"
 msgstr "粘贴你的 API 密钥"
 
+#: src/project/project-file-tree.tsx
+#: src/project/project-tree-clipboard.ts
+msgid "Path copied"
+msgstr "已复制路径"
+
 #: src/editor/markdown/engine/chrome/link-chrome.tsx
 msgid "Path suggestions"
 msgstr "路径建议"
@@ -5596,18 +5560,6 @@ msgstr "路径"
 #: src/overleaf/overleaf-connect.tsx
 msgid "Pause syncing"
 msgstr "暂停同步"
-
-#: src/overleaf/overleaf-connect.tsx
-msgid "Pause syncing with Overleaf?\n"
-"\n"
-"Nothing is sent or fetched until you resume, and live editing, chat and collaborators stop. Every file stays where it is on both sides.\n"
-"\n"
-"Resuming picks up where this left off: edits made on either side while it was paused are merged, not overwritten."
-msgstr "要暂停与 Overleaf 的同步吗？\n"
-"\n"
-"在你恢复之前不会发送或获取任何内容，实时编辑、聊天和协作者功能也会停止。两边的文件都保持原样。\n"
-"\n"
-"恢复后会从中断处继续：暂停期间任一侧的编辑都会被合并，而不会被覆盖。"
 
 #: src/trellis/trellis-workspace.tsx
 msgid "Paused while hidden · click to resume"
@@ -5710,10 +5662,6 @@ msgstr "短语或关键词"
 msgid "Pi"
 msgstr "派"
 
-#: src/papers/bib-entry-dialog.tsx
-msgid "Pick a venue to set its canonical name and entry type, or edit any field by hand"
-msgstr "选择一个会议或期刊来填入其规范名称和条目类型，也可以手动编辑任意字段"
-
 #: src/editor/markdown/engine/chrome/slash-items.ts
 msgid "Pick an emoji to insert at the cursor."
 msgstr "选择一个表情符号并插入光标位置。"
@@ -5737,10 +5685,6 @@ msgstr "位置"
 #: src/editor/markdown/engine/views/code-block-view.tsx
 msgid "Plain text"
 msgstr "纯文本"
-
-#: src/settings/settings-dialog.tsx
-msgid "Plays quiet cues when a requested build or collaboration setup finishes"
-msgstr "请求的构建或协作设置完成时播放轻微提示音"
 
 #: src/components/ui/confirm-action-dialog.tsx
 #: src/editor/spreadsheet/spreadsheet-univer.ts
@@ -5807,6 +5751,10 @@ msgstr "预印本检查未完成：{error}"
 msgid "Preprint check returned an incomplete or ambiguous result."
 msgstr "预印本检查返回的结果不完整或不明确。"
 
+#: src/project/paper-library.tsx
+msgid "Press + to import it"
+msgstr "按 + 导入"
+
 #: src/editor/markdown/engine/lattice-visual-editor.tsx
 #: src/project/project-replace-dialog.tsx
 #: src/trellis/trellis-header-tools.tsx
@@ -5821,10 +5769,6 @@ msgstr "预览 HTML"
 #: src/trellis/trellis-header-tools.tsx
 msgid "Preview Markdown"
 msgstr "预览 Markdown"
-
-#: src/project/project-replace-dialog.tsx
-msgid "Preview matches across `.tex`, `.bib`, and other project source files, then confirm replace. Changes are recorded in project history"
-msgstr "预览 `.tex`、`.bib` 及其他项目源文件中的匹配项，然后确认替换。更改会记录在项目历史中"
 
 #: src/canvas/project-asset-preview.tsx
 msgid "Preview of {path}"
@@ -5959,10 +5903,6 @@ msgstr "普西"
 msgid "Public access · no key"
 msgstr "公共访问 · 未配置密钥"
 
-#: src/settings/literature-settings.tsx
-msgid "Public API connection succeeded."
-msgstr "公共 API 连接成功。"
-
 #: src/papers/bibliography-audit.tsx
 msgid "Public daily quota exhausted"
 msgstr "公共服务今日额度已用完"
@@ -6033,6 +5973,10 @@ msgstr "请求被限流"
 msgid "Rate limited; subsequent Semantic Scholar queries skipped"
 msgstr "请求受到速率限制；已跳过后续 Semantic Scholar 查询"
 
+#: src/settings/literature-settings.tsx
+msgid "Rate-limited. Try again later"
+msgstr "请求过于频繁，请稍后再试"
+
 #: src/build/compile-diagnostics-panel.tsx
 msgid "Raw build log"
 msgstr "原始构建日志"
@@ -6069,10 +6013,6 @@ msgstr "最近使用的颜色 {color}"
 msgid "Recent projects"
 msgstr "最近使用的项目"
 
-#: src/overleaf/overleaf-connect.tsx
-msgid "Recently updated first"
-msgstr "按最近更新排序"
-
 #: src/build/compile-diagnostics-panel.tsx
 msgid "Recompiling…"
 msgstr "正在重新编译…"
@@ -6088,10 +6028,6 @@ msgstr "正在重新连接 Overleaf — 最近在此项目中的成员"
 #: src/papers/bibliography-audit.tsx
 msgid "Record identity"
 msgstr "记录身份"
-
-#: src/telemetry/root-error-boundary.tsx
-msgid "Recovery"
-msgstr "恢复"
 
 #: src/components/ui/apple-color-picker.tsx
 msgid "Red"
@@ -6249,8 +6185,8 @@ msgid "Removed one file from Overleaf"
 msgstr "已从 Overleaf 删除 1 个文件"
 
 #: src/settings/settings-dialog.tsx
-msgid "Removes .aux, .log, and other build leftovers from this project"
-msgstr "移除此项目中的 .aux、.log 和其他构建残留文件"
+msgid "Removes .aux, .log and other build files"
+msgstr "删除 .aux、.log 等构建文件"
 
 #: src/project/project-dialogs.tsx
 #: src/project/project-file-tree.tsx
@@ -6278,10 +6214,6 @@ msgstr "重命名符号"
 #: src/overleaf/overleaf-history.tsx
 msgid "renamed"
 msgstr "已重命名"
-
-#: src/project/project-dialogs.tsx
-msgid "Renames the matching \\begin and \\end pair under the cursor"
-msgstr "重命名光标处匹配的 \\begin 和 \\end"
 
 #: src/project/project-dialogs.tsx
 msgid "Renaming…"
@@ -6417,6 +6349,10 @@ msgstr "替换文本"
 #: src/project/citation-health.ts
 msgid "Replacement/new version"
 msgstr "替代版本/新版本"
+
+#: src/project/project-replace-dialog.tsx
+msgid "Replacements are recorded in project history"
+msgstr "替换会记录在项目历史中"
 
 #: src/project/project-replace-dialog.tsx
 msgid "Replacing…"
@@ -6640,8 +6576,12 @@ msgid "Restore the project to the state before this change? The restore will be 
 msgstr "将项目恢复到此更改之前的状态？此次恢复将作为一条新的历史记录添加。"
 
 #: src/history/versions-timeline.tsx
-msgid "Restore the project to this version? All current files will be rewound to that point — nothing is lost, and the restore itself is saved as a new version."
-msgstr "要把项目恢复到这个版本吗？当前所有文件都会回退到那个时间点——不会丢失任何内容，而且这次恢复本身也会保存为一个新版本。"
+msgid "Restore the project to this version?\n"
+"\n"
+"Nothing is lost: the restore is saved as a new version"
+msgstr "将项目恢复到此版本？\n"
+"\n"
+"不会丢失任何内容：恢复操作会保存为一个新版本"
 
 #: src/history/history-drawer.tsx
 msgid "Restore the state before this change"
@@ -6670,9 +6610,17 @@ msgstr "已恢复 {0}。"
 msgid "Restored {path}."
 msgstr "已恢复 {path}。"
 
+#: src/overleaf/overleaf-history.tsx
+msgid "Restoring changes Overleaf’s copy. Sync afterwards to bring it here"
+msgstr "恢复会修改 Overleaf 上的副本，之后同步即可带回本地"
+
 #: src/agent/synara-loading-surface.tsx
 msgid "Restoring the conversation surface…"
 msgstr "正在恢复对话界面…"
+
+#: src/overleaf/overleaf-connect.tsx
+msgid "Resume"
+msgstr "恢复"
 
 #: src/overleaf/overleaf-connect.tsx
 msgid "Resume syncing"
@@ -6707,10 +6655,6 @@ msgstr "在 PDF 中显示光标位置 (⌘⇧J)"
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Reverse turnstile"
 msgstr "反向断言符"
-
-#: src/settings/settings-dialog.tsx
-msgid "Review and commit changes"
-msgstr "查看并提交更改"
 
 #: src/papers/bibliography-audit.tsx
 msgid "Review candidate"
@@ -6801,10 +6745,6 @@ msgstr "运行命令…"
 msgid "Run TeX doctor"
 msgstr "运行 TeX 诊断"
 
-#: src/settings/doctor-settings.tsx
-msgid "Run the doctor to inspect this Mac’s TeX toolchain"
-msgstr "运行诊断以检查这台 Mac 上的 TeX 工具链"
-
 #: src/agent/synara-permission-picker.tsx
 msgid "Run without asking for approval"
 msgstr "无需请求批准即可运行"
@@ -6882,10 +6822,6 @@ msgstr "请先保存项目，再进行修正。"
 msgid "Save version"
 msgstr "保存版本"
 
-#: src/settings/literature-settings.tsx
-msgid "Saved key removed."
-msgstr "已移除保存的密钥。"
-
 #: src/pdf/pdf-viewer.tsx
 msgid "Saved to {path}"
 msgstr "已保存到 {path}"
@@ -6902,10 +6838,6 @@ msgstr "正在保存…"
 #: src/papers/bibliography-audit.tsx
 msgid "Scanning bibliography files…"
 msgstr "正在扫描参考文献文件…"
-
-#: src/project/todo-scavenger-panel.tsx
-msgid "Scans `.tex` / `.md` for `% TODO`, `% FIXME`, `% XXX`, and `\\todo`. Click a hit to jump; the active unsaved buffer is included"
-msgstr "扫描 `.tex` / `.md` 中的 `% TODO`、`% FIXME`、`% XXX` 和 `\\todo`。点击结果即可跳转；包括当前未保存的编辑内容"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Script l"
@@ -6924,8 +6856,8 @@ msgid "Search"
 msgstr "搜索"
 
 #: src/papers/literature-discovery-panel.tsx
-msgid "Search alphaXiv and OpenAlex to find related work before importing evidence"
-msgstr "搜索 alphaXiv 和 OpenAlex，先找到相关工作再导入文献"
+msgid "Search alphaXiv and OpenAlex for related work"
+msgstr "在 alphaXiv 和 OpenAlex 中搜索相关工作"
 
 #: src/overleaf/overleaf-connect.tsx
 msgid "Search by project or owner…"
@@ -7061,10 +6993,6 @@ msgid "Semantic Scholar connection failed; subsequent queries skipped"
 msgstr "Semantic Scholar 连接失败；已跳过后续查询"
 
 #: src/papers/bibliography-audit.tsx
-msgid "Semantic Scholar is queued or querying. Other sources continue; you can cancel without waiting for it."
-msgstr "Semantic Scholar 正在排队或查询，其他来源继续检查。可取消，无需等待它返回。"
-
-#: src/papers/bibliography-audit.tsx
 msgid "Semantic Scholar rate limited the service; subsequent queries skipped"
 msgstr "Semantic Scholar 对服务实施了速率限制；已跳过后续查询"
 
@@ -7085,8 +7013,8 @@ msgid "Send message"
 msgstr "发送消息"
 
 #: src/settings/literature-settings.tsx
-msgid "Sent to Crossref to use its polite pool. No API key is needed."
-msgstr "向 Crossref 提供邮箱以使用礼貌访问池，无需 API 密钥。"
+msgid "Sent to Crossref for faster lookups. No key needed"
+msgstr "发送给 Crossref 以加快查询，无需密钥"
 
 #: src/editor/markdown/engine/chrome/slash-items.ts
 msgid "Separator"
@@ -7101,10 +7029,6 @@ msgstr "服务"
 msgid "Set minus"
 msgstr "集合差"
 
-#: src/settings/settings-dialog.tsx
-msgid "Set the editor keymap and build behavior"
-msgstr "设置编辑器键位和构建行为"
-
 #: src/project/project-dialogs.tsx
 #: src/settings/settings-dialog.tsx
 msgid "Settings"
@@ -7114,13 +7038,13 @@ msgstr "设置"
 msgid "Settings sections"
 msgstr "设置分区"
 
-#: src/build/tex-install-dialog.tsx
-msgid "Setup is complete"
-msgstr "设置已完成"
-
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Sharp"
 msgstr "升号"
+
+#: src/settings/settings-dialog.tsx
+msgid "Shell escape during builds"
+msgstr "构建时允许 shell escape"
 
 #: src/trellis/trellis-titlebar.tsx
 msgid "Show {name}"
@@ -7173,10 +7097,6 @@ msgstr "显示替换"
 msgid "Show this in the editor"
 msgstr "在编辑器中显示"
 
-#: src/telemetry/app-log.tsx
-msgid "Shows 300 recent entries; disk logs rotate"
-msgstr "显示最近 300 条记录；磁盘日志会自动轮换"
-
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Side-by-side column block"
 msgstr "并排分栏块"
@@ -7186,16 +7106,16 @@ msgid "Sigma"
 msgstr "西格马"
 
 #: src/overleaf/overleaf-connect.tsx
-msgid "Sign in to {linkedHost}, then resume syncing when you are ready. Local files stay on this Mac"
-msgstr "请登录 {linkedHost}，准备好后再恢复同步。本地文件会留在这台 Mac 上"
+msgid "Sign in to {linkedHost} to resume syncing"
+msgstr "登录 {linkedHost} 以恢复同步"
+
+#: src/overleaf/overleaf-connect.tsx
+msgid "Sign in to {linkedHost}, then resume"
+msgstr "登录 {linkedHost} 后恢复"
 
 #: src/overleaf/overleaf-connect.tsx
 msgid "Sign in to Overleaf"
 msgstr "登录 Overleaf"
-
-#: src/overleaf/overleaf-connect.tsx
-msgid "Sign in to resume syncing and live editing on {linkedHost}. Local files stay on this Mac"
-msgstr "登录后即可在 {linkedHost} 上恢复同步和实时编辑。本地文件会留在这台 Mac 上"
 
 #: src/overleaf/overleaf-connect.tsx
 msgid "Sign out"
@@ -7204,18 +7124,18 @@ msgstr "退出登录"
 #: src/overleaf/overleaf-connect.tsx
 msgid "Sign out of Overleaf?\n"
 "\n"
-"Lattice will no longer be able to list your Overleaf projects, sync linked projects, or use live editing until you sign in again. Files already downloaded to this Mac will not be deleted."
-msgstr "要退出 Overleaf 登录吗？\n"
+"Linked projects stop syncing until you sign in again. Downloaded files stay on this Mac."
+msgstr "退出 Overleaf 登录？\n"
 "\n"
-"在你再次登录之前，Lattice 将无法列出你的 Overleaf 项目、同步已关联的项目或使用实时编辑。已下载到这台 Mac 上的文件不会被删除。"
+"已关联的项目会停止同步，直到你重新登录。已下载的文件会保留在这台 Mac 上。"
 
 #: src/overleaf/overleaf-connect.tsx
 msgid "Sign-in was cancelled. You can try again whenever you’re ready."
 msgstr "登录已取消。你可以随时重新尝试。"
 
 #: src/settings/settings-dialog.tsx
-msgid "Signs your comments. Lattice uses your Git or Overleaf name instead when one is set"
-msgstr "用于为你的评论署名。若 Git 或 Overleaf 中设置了名字，Lattice 会优先使用它"
+msgid "Signs your comments when Git and Overleaf have no name"
+msgstr "Git 和 Overleaf 都没有名字时用于评论署名"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Similar or equal"
@@ -7301,6 +7221,10 @@ msgstr "来源候选（未采用）"
 msgid "Source control"
 msgstr "版本控制"
 
+#: src/settings/settings-dialog.tsx
+msgid "Source editor only"
+msgstr "仅源码编辑器"
+
 #: src/pdf/pdf-source-targets.ts
 msgid "Source location in PDF"
 msgstr "PDF 中的源位置"
@@ -7344,10 +7268,6 @@ msgstr "黑桃"
 #: src/components/ui/apple-color-picker.tsx
 msgid "Spectrum"
 msgstr "色谱"
-
-#: src/settings/settings-dialog.tsx
-msgid "Spelling"
-msgstr "拼写"
 
 #: src/trellis/trellis-header-tools.tsx
 #: src/trellis/trellis-workspace.tsx
@@ -7521,10 +7441,6 @@ msgid "Suggested change"
 msgstr "建议的修改"
 
 #: src/overleaf/overleaf-changes.tsx
-msgid "Suggestions made on Overleaf, or by anyone with track changes on. Accepting turns the suggested text into ordinary text; rejecting undoes it. Both sides see the result at once"
-msgstr "这里显示 Overleaf 上创建的修订建议，以及任何启用修订模式的协作者所做的更改。接受会将建议文本转为普通文本；拒绝会撤销该更改。结果会立即同步到两端"
-
-#: src/overleaf/overleaf-changes.tsx
 msgid "suggests deleting"
 msgstr "建议删除"
 
@@ -7603,10 +7519,6 @@ msgstr "仅在点击同步按钮时同步"
 #: src/canvas/canvas-toolbar.tsx
 msgid "Sync with Overleaf"
 msgstr "与 Overleaf 同步"
-
-#: src/settings/settings-dialog.tsx
-msgid "Sync, open and chat with the linked Overleaf project"
-msgstr "同步、打开关联的 Overleaf 项目并在其中聊天"
 
 #. placeholder {0}: link.projectName
 #: src/overleaf/overleaf-connect.tsx
@@ -7703,6 +7615,14 @@ msgstr "要查找的文本"
 msgid "Textual citation"
 msgstr "文中式引用"
 
+#: src/settings/literature-settings.tsx
+msgid "That didn’t work. Check the input and keychain access"
+msgstr "操作未成功，请检查输入和钥匙串权限"
+
+#: src/project/project-dialogs.tsx
+msgid "The \\begin and \\end under the cursor"
+msgstr "光标处的 \\begin 和 \\end"
+
 #: src/overleaf/use-overleaf-realtime.ts
 msgid "the acknowledgement did not arrive in time"
 msgstr "未能及时收到确认"
@@ -7763,9 +7683,13 @@ msgstr "文件在保存期间发生了变化。请查看最新内容后再次保
 msgid "The first is at {path}:{line}."
 msgstr "第一处位于 {path}:{line}。"
 
-#: src/trellis/trellis-header-tools.tsx
-msgid "The last build failed · Build the project and show the PDF · ⌘S · Shift-click for a clean rebuild"
-msgstr "上次构建失败 · 构建项目并显示 PDF · ⌘S · 按住 Shift 点击可执行全新重建"
+#: src/settings/literature-settings.tsx
+msgid "The key works. Testing doesn’t save it"
+msgstr "密钥可用。测试不会保存它"
+
+#: src/telemetry/app-log.tsx
+msgid "The last 300 entries"
+msgstr "最近 300 条"
 
 #: src/editor/latex/latex-command-completions.ts
 msgid "The LaTeX logo"
@@ -7847,30 +7771,10 @@ msgstr "所需工具"
 msgid "The results did not identify a unique matching publication."
 msgstr "查询结果未能确定唯一匹配的发表版本。"
 
-#: src/telemetry/app-log.tsx
-msgid "The safe export contains only validated operation metadata and known counts. It stays on this device until you copy or download it."
-msgstr "安全导出仅包含经过验证的操作元数据和已知计数。在你复制或下载之前，数据会保留在此设备上。"
-
-#: src/overleaf/overleaf-comments.tsx
-msgid "The same comments as the review panel on Overleaf. Replies, resolutions and deletions show up on both sides straight away"
-msgstr "这里显示与 Overleaf 审阅面板相同的评论。回复、解决和删除操作会立即同步到两端"
-
-#: src/overleaf/overleaf-collab.tsx
-msgid "The same conversation as the chat panel in {projectName} on Overleaf. Messages appear on both sides as they are sent"
-msgstr "这里显示与 Overleaf 中 {projectName} 项目的聊天面板相同的对话。消息发送后会立即显示在两端"
-
 #: src/canvas/document-canvas.tsx
 #: src/editor/markdown/engine/chrome/review-chrome.tsx
 msgid "The selected text changed. Select it again before commenting."
 msgstr "所选文本已更改。请重新选择后再评论。"
-
-#: src/settings/literature-settings.tsx
-msgid "The service could not be reached. No retry was made."
-msgstr "暂时无法连接服务，未自动重试。"
-
-#: src/settings/literature-settings.tsx
-msgid "The service is rate-limiting requests. No retry was made."
-msgstr "服务正在限流，未自动重试。"
 
 #: src/editor/markdown/engine/lattice-visual-editor.tsx
 msgid "The shared version is shown. Your visual draft was kept — copy it, or restore it and try again."
@@ -7884,10 +7788,6 @@ msgstr "该工作表及其所有内容都将被删除，且无法恢复。"
 msgid "The worksheet and all of its contents will be removed."
 msgstr "该工作表及其所有内容都将被删除。"
 
-#: src/settings/settings-dialog.tsx
-msgid "Theme"
-msgstr "主题"
-
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Theorem block (requires amsthm and a \\newtheorem declaration)"
 msgstr "定理块（需要 amsthm，并声明 \\newtheorem）"
@@ -7899,10 +7799,6 @@ msgstr "存在"
 #: src/overleaf/overleaf-collab.tsx
 msgid "These comments stay in Lattice and are not sent to Overleaf."
 msgstr "这些评论保留在 Lattice 中，不会发送到 Overleaf。"
-
-#: src/settings/settings-dialog.tsx
-msgid "These preferences apply across every project on this Mac"
-msgstr "这些偏好设置会应用于这台 Mac 上的所有项目"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Theta"
@@ -7950,10 +7846,6 @@ msgid "This computer"
 msgstr "本机"
 
 #: src/history/conflict-resolver.tsx
-msgid "This computer and Overleaf both changed the same part of this file since the last sync. Choose which version to keep for each spot. Saving writes your choice to this file, and Overleaf sync then uploads it."
-msgstr "自上次同步以来，本机和 Overleaf 都修改了此文件的同一部分。请为每一处选择要保留的版本。保存会把你的选择写入此文件，随后由 Overleaf 同步上传。"
-
-#: src/history/conflict-resolver.tsx
 msgid "This computer removed this part."
 msgstr "本机删除了这一部分。"
 
@@ -7985,6 +7877,10 @@ msgstr "此文件在实时编辑之外发生了变化。已保留本地修改，
 msgid "This file is not live with Overleaf right now. Reconnect before commenting."
 msgstr "此文件当前未与 Overleaf 实时连接。请重新连接后再评论。"
 
+#: src/App.tsx
+msgid "This file type can’t be opened in an editor"
+msgstr "此类文件无法在编辑器中打开"
+
 #: src/canvas/project-asset-preview.tsx
 msgid "This format cannot be rendered in the preview"
 msgstr "此格式无法在预览中渲染"
@@ -7997,10 +7893,6 @@ msgstr "此面板组"
 msgid "This is not a native Open Slide deck."
 msgstr "这不是原生 Open Slide 演示文稿。"
 
-#: src/build/tex-install-dialog.tsx
-msgid "This is the longest step and can take up to 15 minutes"
-msgstr "这是耗时最长的一步，最多可能需要 15 分钟"
-
 #: src/papers/bib-entry-dialog.tsx
 msgid "This match information describes the retrieved record; you have edited its fields."
 msgstr "匹配信息对应检索到的原始记录；你已修改其中的字段。"
@@ -8008,10 +7900,6 @@ msgstr "匹配信息对应检索到的原始记录；你已修改其中的字段
 #: src/App.tsx
 msgid "This paper has no local reading or downloadable source."
 msgstr "这篇论文没有本地全文或可下载的来源。"
-
-#: src/overleaf/overleaf-collab.tsx
-msgid "this project"
-msgstr "此项目"
 
 #: src/app/use-build-pipeline.ts
 msgid "This project has no LaTeX document to build yet. Add a .tex file, or set one as the root document in project settings."
@@ -8028,8 +7916,8 @@ msgid "This project syncs with “{0}”"
 msgstr "此项目与“{0}”同步"
 
 #: src/overleaf/overleaf-connect.tsx
-msgid "This project uses {linkedHost}. Sign out above, then connect to that host to resume. Local files stay on this Mac"
-msgstr "此项目使用 {linkedHost}。请在上方退出登录，然后连接到该服务器以恢复同步。本地文件会留在这台 Mac 上"
+msgid "This project uses {linkedHost}. Sign out and connect to it to resume"
+msgstr "此项目使用 {linkedHost}。请退出登录并连接到它以恢复"
 
 #: src/App.tsx
 msgid "This reference cannot be updated."
@@ -8042,10 +7930,6 @@ msgstr "此源码行在 PDF 中没有对应的位置。"
 #: src/papers/bibliography-audit.tsx
 msgid "This source record is shown for comparison only. It was not verified and cannot be applied."
 msgstr "此来源记录仅供比较。它未经验证，无法应用。"
-
-#: src/build/tex-install-dialog.tsx
-msgid "This step may take a minute"
-msgstr "此步骤可能需要一分钟"
 
 #: src/editor/latex/latex-command-completions.ts
 msgid "TikZ drawing"
@@ -8132,10 +8016,6 @@ msgstr "表格顶线"
 msgid "Top-level section heading"
 msgstr "顶级章节标题"
 
-#: src/history/versions-timeline.tsx
-msgid "Track versions of this project to see who changed what and roll back safely"
-msgstr "追踪此项目的版本，即可看到谁改了什么，并安全地回退"
-
 #: src/overleaf/overleaf-connect.tsx
 msgid "Trashed"
 msgstr "已移入回收站"
@@ -8213,6 +8093,10 @@ msgstr "行内公式 {open} 未闭合。"
 #: src/editor/markdown/engine/chrome/selection-toolbar.tsx
 msgid "Underline"
 msgstr "下划线"
+
+#: src/app/app-editor-panels.tsx
+msgid "Undo"
+msgstr "撤销"
 
 #: src/app/native-locale.ts
 msgctxt "macOS menu bar"
@@ -8380,12 +8264,12 @@ msgid "updated {0}"
 msgstr "更新于 {0}"
 
 #: src/project/project-dialogs.tsx
-msgid "Updates every \\label and \\ref/\\cref occurrence across the project"
-msgstr "更新整个项目中的每个 \\label 和 \\ref/\\cref"
+msgid "Updates every \\ref to it"
+msgstr "更新所有指向它的 \\ref"
 
 #: src/project/project-dialogs.tsx
-msgid "Updates the bibliography entry and every \\cite occurrence across the project"
-msgstr "更新参考文献条目以及整个项目中的每个 \\cite"
+msgid "Updates the .bib entry and every \\cite"
+msgstr "更新 .bib 条目和所有 \\cite"
 
 #: src/pdf/pdf-viewer.tsx
 msgid "Updating…"
@@ -8409,8 +8293,8 @@ msgstr "将此项目上传到 Overleaf"
 
 #. placeholder {0}: publishName.trim()
 #: src/overleaf/overleaf-connect.tsx
-msgid "Uploading {0} to Overleaf… this can take a minute for large projects"
-msgstr "正在将 {0} 上传到 Overleaf…大型项目可能需要一分钟"
+msgid "Uploading {0}…"
+msgstr "正在上传 {0}…"
 
 #: src/overleaf/overleaf-connect.tsx
 msgid "Uploading…"
@@ -8427,18 +8311,6 @@ msgstr "宇普西龙"
 #: src/papers/bibliography-audit.tsx
 msgid "URL"
 msgstr "URL"
-
-#: src/project/paper-library.tsx
-msgid "Use the + button to import this query if it isn't in your library yet"
-msgstr "如果资料库中尚无此内容，请使用 + 按钮导入当前查询"
-
-#: src/settings/settings-dialog.tsx
-msgid "Use the Build button or Command-S. Source changes are still saved automatically"
-msgstr "使用“构建”按钮或 Command-S。源码更改仍会自动保存"
-
-#: src/settings/literature-settings.tsx
-msgid "Use your own API quota for paper searches, imports, and citation checks."
-msgstr "为文献搜索、导入和引用检查配置个人 API 额度。"
 
 #: src/settings/literature-settings.tsx
 msgid "Using environment key"
@@ -8488,14 +8360,6 @@ msgstr "会议模板"
 #: src/papers/bib-entry-dialog.tsx
 msgid "Venue unavailable"
 msgstr "暂无发表处信息"
-
-#: src/project/project-dialogs.tsx
-msgid "Verified against the official 2026 conference style"
-msgstr "已与官方 2026 年会议样式核验"
-
-#: src/project/project-dialogs.tsx
-msgid "Verified against the official 2026 style; creates a preprint draft"
-msgstr "已与官方 2026 年样式核验；创建预印本草稿"
 
 #: src/papers/bibliography-audit.tsx
 msgid "Verified publication match"
@@ -8549,10 +8413,6 @@ msgstr "第 {0} 处要保留的版本"
 msgid "Versions"
 msgstr "版本"
 
-#: src/settings/settings-dialog.tsx
-msgid "Versions and changes of the whole project"
-msgstr "整个项目的版本与更改"
-
 #: src/editor/latex/latex-command-completions.ts
 msgid "Vertical space"
 msgstr "垂直间距"
@@ -8578,10 +8438,6 @@ msgstr "查看原始 PDF"
 msgid "View repair"
 msgstr "查看修正任务"
 
-#: src/settings/settings-dialog.tsx
-msgid "Vim and Emacs keep their modal bindings inside the editor only"
-msgstr "Vim 和 Emacs 的模式键位仅在编辑器内生效"
-
 #: src/canvas/editor-status-bar.tsx
 msgid "Vim mode"
 msgstr "Vim 模式"
@@ -8606,6 +8462,10 @@ msgstr "卷号"
 msgid "Waiting for administrator approval…"
 msgstr "正在等待管理员批准…"
 
+#: src/papers/bibliography-audit.tsx
+msgid "Waiting for Semantic Scholar…"
+msgstr "正在等待 Semantic Scholar…"
+
 #: src/overleaf/overleaf-connect.tsx
 msgid "Waiting for you to sign in in the Overleaf window…"
 msgstr "正在等待你在 Overleaf 窗口中登录…"
@@ -8627,13 +8487,13 @@ msgstr "警告"
 msgid "Warning"
 msgstr "警告"
 
-#: src/telemetry/app-log.tsx
-msgid "Warning: raw diagnostic text may contain document content, file paths, or other sensitive information."
-msgstr "警告：原始诊断文本可能包含文档内容、文件路径或其他敏感信息。"
-
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Weierstrass p"
 msgstr "魏尔斯特拉斯 p"
+
+#: src/settings/settings-dialog.tsx
+msgid "When a build or Overleaf setup finishes"
+msgstr "构建或 Overleaf 设置完成时"
 
 #: src/overleaf/overleaf-connect.tsx
 msgid "When you delete a file here"
@@ -8699,16 +8559,12 @@ msgid "Wrap in table float"
 msgstr "包裹在 table 浮动体中"
 
 #: src/project/project-dialogs.tsx
-msgid "Wraps the current selection (or empty cursor) in \\begin{…}/\\end{…}"
-msgstr "将当前选区（或空光标）包裹在 \\begin{…}/\\end{…} 中"
+msgid "Wraps the selection in \\begin…\\end"
+msgstr "用 \\begin…\\end 包裹所选内容"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Wreath product"
 msgstr "圈积"
-
-#: src/settings/settings-dialog.tsx
-msgid "XeLaTeX and LuaLaTeX support system fonts. A project latexmkrc takes precedence"
-msgstr "XeLaTeX 和 LuaLaTeX 支持系统字体。项目中的 latexmkrc 优先级更高"
 
 #: src/build/tex-doctor-messages.ts
 msgid "XeLaTeX engine"
@@ -8745,18 +8601,13 @@ msgstr "你"
 msgid "You can close this once the transfer finishes"
 msgstr "传输完成后即可关闭此面板"
 
-#: src/settings/settings-dialog.tsx
-msgid "You’ll be notified when a new version is ready"
-msgstr "新版本可用时会通知你"
+#: src/overleaf/overleaf-connect.tsx
+msgid "You sign in on Overleaf. Lattice never sees your password"
+msgstr "在 Overleaf 上登录，Lattice 不会看到你的密码"
 
 #: src/settings/settings-dialog.tsx
 msgid "You’re on the latest version"
 msgstr "当前已是最新版本"
-
-#. placeholder {0}: props.knownAuthorName
-#: src/settings/settings-dialog.tsx
-msgid "Your comments are signed as {0}, the name from Git or Overleaf. This name is used when neither has one"
-msgstr "你的评论当前署名为 {0}（来自 Git 或 Overleaf）。两者都没有名字时才使用这里的名字"
 
 #: src/history/conflict-resolver.tsx
 msgid "Your Lattice copy"
@@ -8771,16 +8622,12 @@ msgid "your Overleaf account"
 msgstr "你的 Overleaf 账户"
 
 #: src/overleaf/overleaf-connect.tsx
-msgid "Your Overleaf account isn’t connected yet. Connect it once, and every project from your Overleaf account will show up here, ready to open in Lattice"
-msgstr "你还没有连接 Overleaf 账户。连接一次之后，你 Overleaf 账户下的所有项目都会显示在这里，随时可以在 Lattice 中打开"
-
-#: src/overleaf/overleaf-connect.tsx
-msgid "Your Overleaf session has expired. Sign in again to continue. Your local files and existing project links are unchanged"
-msgstr "Overleaf 登录已过期。请重新登录以继续操作；本地文件和已有项目连接均未发生更改"
+msgid "Your Overleaf session expired. Sign in again"
+msgstr "Overleaf 会话已过期，请重新登录"
 
 #: src/telemetry/root-error-boundary.tsx
-msgid "Your project files are safe. Restart Lattice to reopen the window, or copy the error details if the problem continues."
-msgstr "你的项目文件安全无虞。重新启动 Lattice 即可重新打开窗口；如问题仍然存在，请复制错误详情。"
+msgid "Your project files are safe"
+msgstr "你的项目文件是安全的"
 
 #: src/overleaf/overleaf-connect.tsx
 msgid "Your projects"

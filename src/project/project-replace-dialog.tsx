@@ -63,7 +63,7 @@ export function ProjectReplaceDialog(props: {
         title={t`Find & replace in project`}
         onClose={props.onClose}
       />
-      <p className="drawer-copy"><Trans>Preview matches across `.tex`, `.bib`, and other project source files, then confirm replace. Changes are recorded in project history</Trans></p>
+      <p className="drawer-copy"><Trans>Replacements are recorded in project history</Trans></p>
       <label>
         <Trans>Find</Trans>
         <SearchField

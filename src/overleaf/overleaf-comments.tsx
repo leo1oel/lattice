@@ -277,10 +277,6 @@ export function OverleafCommentsPanel(props: {
 
   return (
     <>
-      <p className="drawer-copy">
-        {t`The same comments as the review panel on Overleaf. Replies, resolutions and deletions show up on both sides straight away`}
-      </p>
-
       {props.error && <InlineMessage level="error" className="overleaf-chat-inline">{props.error}</InlineMessage>}
 
       {resolvedCount > 0 && (
@@ -300,8 +296,8 @@ export function OverleafCommentsPanel(props: {
         {!props.loading && !visible.length && !props.error && (
           <p className="git-empty">
             {showResolved
-              ? t`No comments in this project. Comments made on Overleaf appear here as they are written`
-              : t`No open comments in this project. Comments made on Overleaf appear here as they are written`}
+              ? t`No comments yet`
+              : t`No open comments`}
           </p>
         )}
 

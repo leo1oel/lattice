@@ -155,7 +155,9 @@ export function VersionsTimeline(props: {
   };
 
   const restoreProject = async (hash: string) => {
-    const warning = t`Restore the project to this version? All current files will be rewound to that point — nothing is lost, and the restore itself is saved as a new version.`;
+    const warning = t`Restore the project to this version?
+
+Nothing is lost: the restore is saved as a new version`;
     if (!await confirmAction(warning)) return;
     await runAction(t`Restore project`, hash, async () => {
       await invoke<string>("git_restore_project", { rev: hash });
@@ -201,7 +203,6 @@ export function VersionsTimeline(props: {
   if (phase === "no-repo") {
     return (
       <div className="versions-empty">
-        <p>{t`Track versions of this project to see who changed what and roll back safely`}</p>
         {error && <InlineMessage level="error" className="versions-inline">{error}</InlineMessage>}
         <button
           type="button"
@@ -285,7 +286,7 @@ export function VersionsTimeline(props: {
       {error && <InlineMessage level="error" className="versions-inline">{error}</InlineMessage>}
       {!entries.length && (
         <p className="versions-note">
-          {t`No versions yet. Versions are saved automatically as you work, or press Save version`}
+          {t`No versions yet`}
         </p>
       )}
       <div className="versions-list">

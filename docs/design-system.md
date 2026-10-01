@@ -121,6 +121,7 @@ section, frame height, confirmations, and notifications.
 
 Compact interface copy — titles, setting descriptions, dialog subtitles, tour cards, empty states, and helper text — does not end in a full stop.
 Punctuation inside multi-sentence copy remains.
+A description, subtitle, or explainer paragraph appears only when it says something the label or control does not. A settings group gets a heading only when it holds several rows.
 
 ## Geometry
 
@@ -206,6 +207,10 @@ the primitive standardizes density without changing those semantics.
 
 ## Interaction patterns
 
+- A reversible action happens at once and its toast offers the way back
+  (Undo, Resume) instead of a confirmation in front of it. Confirm only what
+  cannot be undone. A toast's action dismisses the toast unless it sets
+  `keepOpen`.
 - Panel and drawer headers use an icon-only X close control with an accessible
   label through `PanelHeader` or `CloseButton`. Dialog footer actions may still
   say Cancel or Close when that wording communicates an operation.

@@ -40,7 +40,7 @@ it("tests a draft once without saving, disables concurrent actions, and explains
   expect(screen.getAllByRole("button", { name: "Test connection" })[0]).toBeDisabled();
   expect(invoke).toHaveBeenLastCalledWith("test_literature_credential", { provider: "semanticscholar", secret: "s2-draft" });
   await act(async () => resolve({ status: "rate_limited", authenticated: true }));
-  await screen.findByText("The service is rate-limiting requests. No retry was made.");
+  await screen.findByText("Rate-limited. Try again later");
   expect(vi.mocked(invoke).mock.calls.filter(([command]) => command !== "get_literature_credentials")).toHaveLength(1);
   expect(screen.getAllByLabelText("API key")[1]).toHaveValue("s2-draft");
 });
@@ -49,7 +49,7 @@ it("tests the effective credentials when the input is empty", async () => {
   await ready();
   vi.mocked(invoke).mockResolvedValueOnce({ status: "ok", authenticated: false });
   fireEvent.click(screen.getAllByRole("button", { name: "Test connection" })[0]);
-  await screen.findByText("Public API connection succeeded.");
+  await screen.findByText("Connected without a key");
   expect(invoke).toHaveBeenLastCalledWith("test_literature_credential", { provider: "openalex", secret: null });
 });
 

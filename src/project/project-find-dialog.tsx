@@ -43,9 +43,17 @@ export function ProjectFindDialog(props: {
   const resetKey = props.open ? props.hits : null;
   const [seenResetKey, setSeenResetKey] = useState(resetKey);
   if (seenResetKey !== resetKey) {
+    // Reopening keeps the last query and runs it again; until that search
+    // answers, show it as searching rather than as a query with no results.
+    if (seenResetKey === null && query.trim()) setDebouncing(true);
     setSeenResetKey(resetKey);
     setActiveIndex(0);
   }
+
+  // The kept query comes back selected: Enter repeats it, typing replaces it.
+  useEffect(() => {
+    if (props.open) inputRef.current?.select();
+  }, [props.open]);
 
   useEffect(() => {
     if (!props.open) return;
@@ -75,7 +83,6 @@ export function ProjectFindDialog(props: {
 
   const close = () => {
     setDebouncing(false);
-    setQuery("");
     onSearchRef.current("");
     props.onClose();
   };

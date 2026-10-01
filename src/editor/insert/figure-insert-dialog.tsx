@@ -7,7 +7,7 @@ import { Button } from "../../components/ui/button";
 import { buttonClassName } from "../../components/ui/button-styles";
 import { Input } from "../../components/ui/input";
 import { PanelHeader } from "../../components/ui/panel-header";
-import { MotionButton, PopIn } from "../../components/ui/motion";
+import { MotionButton } from "../../components/ui/motion";
 import { DEFAULT_FIGURE_OPTIONS, type FigureInsertOptions } from "./figure-insertion";
 import { ModalDialog } from "../../components/ui/modal-dialog";
 
@@ -30,10 +30,18 @@ export function FigureInsertDialog(props: {
 
   if (!props.open || !props.paths.length) return null;
   const count = props.paths.length;
+  const insert = () => props.onInsert({ ...options, label: options.label.trim() || undefined });
 
   return (
     <ModalDialog label={t`Insert figure`} onClose={props.onClose}>
-      <PopIn className="modal figure-insert-modal">
+      {/* A form, so Enter in any field inserts. */}
+      <form
+        className="modal figure-insert-modal"
+        onSubmit={(event) => {
+          event.preventDefault();
+          insert();
+        }}
+      >
         <div className="modal-icon"><ImagePlus size={19} /></div>
         <PanelHeader
           className="drawer-header"
@@ -42,11 +50,12 @@ export function FigureInsertDialog(props: {
           onClose={props.onClose}
         />
         <p>{count === 1 ? props.paths[0] : t`${count} figures`}</p>
-        {FIELDS.map(([key, name, placeholder]) => (
+        {FIELDS.map(([key, name, placeholder], index) => (
           <label key={key}>
             {i18n._(name)}
             <Input
               controlSize="form"
+              autoFocus={index === 0}
               value={options[key]}
               onChange={(event) => setOptions({ ...options, [key]: event.target.value })}
               placeholder={typeof placeholder === "string" || !placeholder ? placeholder : i18n._(placeholder)}
@@ -55,15 +64,11 @@ export function FigureInsertDialog(props: {
         ))}
         <div className="modal-actions">
           <Button variant="ghost" onClick={props.onClose}>{t`Cancel`}</Button>
-          <MotionButton
-            type="button"
-            className={buttonClassName({ variant: "primary" })}
-            onClick={() => props.onInsert({ ...options, label: options.label.trim() || undefined })}
-          >
+          <MotionButton type="submit" className={buttonClassName({ variant: "primary" })}>
             {t`Insert`}
           </MotionButton>
         </div>
-      </PopIn>
+      </form>
     </ModalDialog>
   );
 }

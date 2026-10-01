@@ -1,12 +1,12 @@
-/** Hover cards for citation keys and `\ref` labels (with a figure preview when one exists). */
+/** Hover cards for citation keys, `\ref` labels and `\includegraphics` paths, with a figure preview when one exists. */
 import { hoverTooltip, type EditorView, type Rect } from "@codemirror/view";
 import { msg } from "@lingui/core/macro";
 import infinityLoaderUrl from "../../components/ui/infinity-loader.svg";
 import { i18n } from "../../i18n";
 import { element } from "../dom-utils";
 import type { LatexEditorLiveData } from "./latex-editor";
-import { citationHoverTarget, referenceHoverTarget } from "./latex-symbols";
-import { referenceKindLabel, type ReferenceInfo } from "./latex-text";
+import { citationHoverTarget, graphicsHoverTarget, referenceHoverTarget, resolveProjectPath } from "./latex-symbols";
+import { referenceKindLabel } from "./latex-text";
 
 function hoverCard(className: string, view: EditorView, minWidth: number): HTMLDivElement {
   const dom = element("div", className);
@@ -50,7 +50,8 @@ export function citationTooltips(live: () => LatexEditorLiveData) {
 }
 
 function figurePreview(
-  reference: ReferenceInfo & { imagePath: string },
+  imagePath: string,
+  alt: string,
   loadImage: (path: string) => Promise<string | null>,
   destroyed: () => boolean,
 ): HTMLElement {
@@ -66,11 +67,11 @@ function figurePreview(
     media.classList.remove("loading");
     media.replaceChildren(content);
   };
-  void loadImage(reference.imagePath).then((source) => {
+  void loadImage(imagePath).then((source) => {
     if (!source) return settle(i18n._(msg`Preview unavailable for this figure format.`));
     const image = element("img");
     image.src = source;
-    image.alt = reference.title || reference.label;
+    image.alt = alt;
     settle(image);
   }).catch(() => settle(i18n._(msg`Figure preview could not be loaded.`)));
   return media;
@@ -90,13 +91,39 @@ export function referenceTooltips(live: () => LatexEditorLiveData, loadImage?: (
         let destroyed = false;
         const dom = hoverCard("reference-hover-card", view, 180);
         const { imagePath } = reference;
-        if (imagePath && loadImage) dom.append(figurePreview({ ...reference, imagePath }, loadImage, () => destroyed));
+        if (imagePath && loadImage) dom.append(figurePreview(imagePath, reference.title || reference.label, loadImage, () => destroyed));
         dom.append(
           element("small", "", `${referenceKindLabel(reference.kind)} · ${reference.label}`),
           element("strong", "", reference.title || reference.label),
         );
         if (reference.snippet) dom.append(element("pre", "", reference.snippet));
         dom.append(element("em", "", reference.path));
+        return { dom, destroy: () => { destroyed = true; } };
+      },
+    };
+  });
+}
+
+/**
+ * The figure an `\includegraphics` path names, resolved the way the build
+ * resolves it (extensions, \graphicspath). A path that names no project file
+ * gets no card: the missing-figure diagnostic already says so.
+ */
+export function graphicsTooltips(live: () => LatexEditorLiveData, loadImage: (path: string) => Promise<string | null>) {
+  return hoverTooltip((view, position) => {
+    const target = graphicsHoverTarget(view.state.doc.toString(), position);
+    if (!target || /^https?:/.test(target.path)) return null;
+    const data = live();
+    const resolved = resolveProjectPath(target.path, data.projectPaths, "graphics", data.graphicsRoots);
+    if (!resolved) return null;
+    return {
+      pos: target.from,
+      end: target.to,
+      above: true,
+      create() {
+        let destroyed = false;
+        const dom = hoverCard("reference-hover-card", view, 180);
+        dom.append(figurePreview(resolved, resolved, loadImage, () => destroyed), element("em", "", resolved));
         return { dom, destroy: () => { destroyed = true; } };
       },
     };

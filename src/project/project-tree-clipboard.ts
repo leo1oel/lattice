@@ -1,6 +1,9 @@
 import { useRef } from "react";
 import { readText, writeText } from "@tauri-apps/plugin-clipboard-manager";
+import { msg } from "@lingui/core/macro";
 import { absoluteProjectPath } from "../app-utils";
+import { i18n } from "../i18n";
+import { notifyCopied } from "../telemetry/app-notify";
 import type { FileNode } from "../app-types";
 import { fromPierrePath, normalizePointerDraggedPaths } from "./navigator-drag";
 import { isDirectoryNode, parentDirectory } from "./project-tree-files";
@@ -28,10 +31,14 @@ export function useProjectTreeClipboard(model: ProjectTreeModel, current: () => 
     const text = paths.map((path) => absoluteProjectPath(projectKey, path)).join("\n");
     const copied = writeText(text).then(() => ({ projectKey, paths, text }));
     copiedEntriesRef.current = copied;
-    void copied.catch((reason) => {
-      if (copiedEntriesRef.current === copied) copiedEntriesRef.current = null;
-      current().onError(String(reason));
-    });
+    const count = paths.length;
+    void copied.then(
+      () => notifyCopied(count === 1 ? i18n._(msg`Path copied`) : i18n._(msg`${count} paths copied`)),
+      (reason) => {
+        if (copiedEntriesRef.current === copied) copiedEntriesRef.current = null;
+        current().onError(String(reason));
+      },
+    );
   };
   const paste = async () => {
     const selectedPath = model.getSelectedPaths().at(-1) ?? "";

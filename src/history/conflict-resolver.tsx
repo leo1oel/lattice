@@ -253,8 +253,8 @@ export function ConflictResolverDialog(props: {
             <h2>{t`Resolve changes to ${path}`}</h2>
             <p>
               {stage === "edit"
-                ? t`Edit the combined file if anything still needs fixing, then save it.`
-                : t`This computer and Overleaf both changed the same part of this file since the last sync. Choose which version to keep for each spot. Saving writes your choice to this file, and Overleaf sync then uploads it.`}
+                ? t`Fix anything left, then save`
+                : t`Both sides changed these spots. Pick a version for each; saving uploads it to Overleaf`}
             </p>
           </div>
         </div>

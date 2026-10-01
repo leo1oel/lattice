@@ -51,7 +51,7 @@ describe("welcome screen", () => {
     expect(screen.getByRole("heading", { name: "Create a research project" })).toBeInTheDocument();
     expect(screen.getByLabelText("Project name")).toHaveValue("Untitled research");
     expect(screen.getByRole("combobox", { name: "Venue template" })).toHaveTextContent("NeurIPS");
-    expect(screen.getByText("Verified against the official 2026 style; creates a preprint draft")).toBeInTheDocument();
+    expect(screen.getByText("Official 2026 style · preprint draft")).toBeInTheDocument();
   });
 
   it("keeps duplicate project errors inside the creation dialog", async () => {
@@ -173,7 +173,7 @@ describe("welcome screen", () => {
     expect(section("Appearance")).not.toHaveAttribute("aria-current");
     expect(section("Editor & builds")).toHaveAttribute("aria-current", "page");
     expect(screen.getByLabelText("Automatic build")).toHaveTextContent("Automatic");
-    expect(screen.getByText(/leave the editor or stop typing for 1.2 seconds/i)).toBeInTheDocument();
+    expect(screen.getByText(/1.2 s after you stop typing/i)).toBeInTheDocument();
     await waitFor(() => expect(localStorage.getItem("lattice.build-preferences.v2")).toContain("automatic"));
     expect(synaraHook.enabledCalls).not.toContain(true);
     fireEvent.click(screen.getByRole("button", { name: "Providers" }));
@@ -299,7 +299,7 @@ describe("welcome screen", () => {
     expect(await screen.findByRole("dialog", { name: "设置" })).toBeInTheDocument();
     expect(screen.getByRole("navigation", { name: "设置分区" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "外观" })).toBeInTheDocument();
-    expect(screen.getByText("选择菜单、设置和帮助文字所使用的语言")).toBeInTheDocument();
+    expect(screen.getByText("仅源码编辑器")).toBeInTheDocument();
     expect(localStorage.getItem("lattice.appearance.v5")).toContain('"interfaceLanguage":"zh-CN"');
     fireEvent.click(screen.getByRole("button", { name: "关闭设置" }));
     expect(await screen.findByRole("heading", { name: "让研究写作有据可循" })).toBeInTheDocument();
@@ -343,7 +343,7 @@ describe("welcome screen", () => {
     await expectInvoked("git_user_name");
     await chooseProjectMenuItem("Settings");
     fireEvent.click(await screen.findByRole("button", { name: "Editor & builds" }));
-    expect(await screen.findByText(/Your comments are signed as Ada Lovelace/)).toBeInTheDocument();
+    expect(await screen.findByText(/Comments are signed Ada Lovelace/)).toBeInTheDocument();
     const field = screen.getByLabelText("Your name");
     expect(field).toHaveAttribute("placeholder", "Ada Lovelace");
     fireEvent.change(field, { target: { value: "Grace Hopper" } });

@@ -25,9 +25,8 @@ input[type="search"]:focus-visible {
 
 .root-error-page { min-height: 100vh; padding: var(--space-16); display: grid; place-items: center; background: var(--surface-app); color: var(--text-primary); }
 .root-error-card { width: min(100%, 520px); padding: var(--space-16); border-radius: 14px; }
-.root-error-eyebrow { margin: 0 0 var(--space-4); color: var(--text-tertiary); font-size: var(--type-micro-size); font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
 .root-error-card h1 { margin: 0; font-size: var(--type-display-size); line-height: 1.2; }
-.root-error-card > p:not(.root-error-eyebrow) { margin: var(--space-6) 0 0; color: var(--text-secondary); font-size: var(--type-body-size); line-height: 1.6; }
+.root-error-card > p { margin: var(--space-6) 0 0; color: var(--text-secondary); font-size: var(--type-body-size); line-height: 1.6; }
 .root-error-actions { margin-top: 22px; display: flex; flex-wrap: wrap; gap: var(--space-4); }
 .root-error-card > .root-error-action-error { color: var(--status-danger); font-size: var(--type-caption-size); }
 .root-error-details { margin-top: 22px; border-top: 1px solid var(--border-subtle); padding-top: 14px; color: var(--text-secondary); font-size: var(--type-caption-size); }

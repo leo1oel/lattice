@@ -12,8 +12,9 @@ import { invoke } from "@tauri-apps/api/core";
 import { ManuscriptChecklistPanel } from "../project/manuscript-checklist";
 import { type TodoHit } from "../project/todo-scavenger";
 import { TodoScavengerPanel } from "../project/todo-scavenger-panel";
-import { confirmAction, toMessage } from "../app-utils";
+import { toMessage } from "../app-utils";
 import { setError } from "./notify";
+import { notifyInfo } from "../telemetry/app-notify";
 import type { EditorComments } from "./use-editor-comments";
 import type {
   BuildResult,
@@ -52,7 +53,7 @@ export function AppEditorPanels({ comments, renderCommentsSurface, ...props }: {
 }) {
   const { t } = useLingui();
   const { openProjectFile, project, setChecklistOpen, setTodosOpen, todoHits, unusedSymbols } = props;
-  const { openGenerationRef, persist, setActiveId } = comments;
+  const { openGenerationRef, setActiveId } = comments;
   const commentsPanel = (
     <EditorCommentsPanel
       key={comments.panelFocusId ? comments.panelFocus?.nonce : undefined}
@@ -71,14 +72,17 @@ export function AppEditorPanels({ comments, renderCommentsSurface, ...props }: {
           comments.setFocusRequest({ id: comment.id, nonce: crypto.randomUUID() });
         });
       }}
-      onDelete={async (id) => {
-        if (!await confirmAction(
-          t`Delete this comment? Its replies will be removed too. This cannot be undone.`,
-        )) {
-          return;
-        }
-        await persist(comments.comments.filter((comment) => comment.id !== id));
+      onDelete={(id) => {
+        // Deleted at once, with an Undo, rather than behind a confirmation:
+        // the comment and its replies are local and can be put back.
+        const undo = comments.remove(id);
         setActiveId((current) => (current === id ? null : current));
+        if (undo) {
+          notifyInfo(t`Comments`, t`Comment deleted`, {
+            dedupeKey: `editor-comment-deleted:${id}`,
+            primaryAction: { label: t`Undo`, onClick: undo },
+          });
+        }
       }}
       onToggleResolved={(comment) => comments.toggleResolved(comment.id)}
       onUpdateBody={(comment, body) => {

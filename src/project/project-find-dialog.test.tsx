@@ -203,7 +203,10 @@ describe("ProjectFindDialog", () => {
     expect(props.onClose).toHaveBeenCalledOnce();
   });
 
-  it("keeps late results hidden after the search is closed and reopened", () => {
+  // Reopening keeps the last query, selected, and runs it again. Until that
+  // search answers, results that arrived while the dialog was closed stay
+  // hidden and Enter opens nothing.
+  it("reruns the kept query after reopening without showing late results", () => {
     const { props, input, search, rerenderWith } = renderFind();
 
     search("late result");
@@ -211,12 +214,15 @@ describe("ProjectFindDialog", () => {
 
     const lateHits = [fileHit("sections/late.tex", 8, { snippet: "A result from the closed request." })];
     rerenderWith({ open: false, hits: lateHits });
+    vi.mocked(props.onSearch).mockClear();
     rerenderWith({ open: true });
 
-    expect(screen.getByRole("status")).toBeEmptyDOMElement();
+    expect(input()).toHaveValue("late result");
     expect(screen.queryByText("sections/late.tex:8")).not.toBeInTheDocument();
     fireEvent.keyDown(input(), { key: "Enter" });
     expect(props.onOpenHit).not.toHaveBeenCalled();
+    act(() => vi.advanceTimersByTime(200));
+    expect(props.onSearch).toHaveBeenLastCalledWith("late result");
   });
 
   it.each([

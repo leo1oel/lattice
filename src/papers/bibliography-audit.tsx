@@ -351,7 +351,6 @@ export function BibliographyAudit(props: {
   return <SheetDialog className="bibliography-audit" label={t`Check references`} dirty={dirty} onClose={props.onClose}>
     <PanelHeader className="drawer-header" icon={<ClipboardCheck size={16} />} title={t`Check references`} titleAfter={scan && <Badge>{total}</Badge>} onClose={props.onClose} />
     <div className="bibliography-audit-overview">
-      <p className="bibliography-audit-copy">{t`Checks all project bibliographies without changing them. Review differences before applying an update.`}</p>
       <div className="bibliography-audit-toolbar">
         <p role="status" className="bibliography-audit-status">
           {busy ? <InfinityLoader size={14} /> : <ClipboardCheck size={14} aria-hidden="true" />}
@@ -368,7 +367,7 @@ export function BibliographyAudit(props: {
         <Button size="compact" variant="ghost" disabled={busy || applying !== null || selected.size === 0} onClick={() => void start([...selected])}>{t`Check selected`}</Button>
         {updates.length > 0 && <Button size="compact" variant="primary" disabled={busy || applying !== null} onClick={() => void apply(updates, -1)}><Check size={12} />{t`Accept all updates`}</Button>}
       </div>}
-      {waitingForS2 && <p className="bibliography-audit-copy" role="status">{t`Semantic Scholar is queued or querying. Other sources continue; you can cancel without waiting for it.`}</p>}
+      {waitingForS2 && <p className="bibliography-audit-copy" role="status">{t`Waiting for Semantic Scholar…`}</p>}
       {scan && <progress aria-label={t`Reference check progress`} max={Math.max(progressTotal, 1)} value={waitingForS2 ? undefined : completed} />}
     </div>
     <ScrollArea className="bibliography-audit-scroll" viewportClassName="bibliography-audit-viewport">

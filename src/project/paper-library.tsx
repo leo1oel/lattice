@@ -90,9 +90,9 @@ export function PaperLibrary(props: PaperLibraryProps) {
   };
   const total = props.papers.length;
   const emptyState = !total
-    ? [t`Add your first paper`, t`Paste an arXiv ID, DOI, URL, or title above to ground the agent in project evidence`]
+    ? [t`Add your first paper`, t`Paste an arXiv ID, DOI, URL or title above`]
     : filteredPapers.length ? null
-      : [t`No matching papers`, t`Use the + button to import this query if it isn't in your library yet`];
+      : [t`No matching papers`, t`Press + to import it`];
 
   return (
     <div className="navigator-section papers-section">

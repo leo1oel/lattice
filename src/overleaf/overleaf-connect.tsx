@@ -31,7 +31,8 @@ import { ModalDialog } from "../components/ui/modal-dialog";
 import type { CloneTarget, OverleafLink, OverleafLoginPoll, OverleafProject, OverleafStatus } from "../app-types";
 import { confirmAction, overleafLinkMatchesSession, relativeTime, toMessage } from "../app-utils";
 import { InlineMessage } from "../components/ui/inline-message";
-import { notifyError, notifySuccess } from "../telemetry/app-notify";
+import { notifyError, notifyInfo, notifySuccess } from "../telemetry/app-notify";
+import { dismissAppToastByDedupeKey } from "../telemetry/app-log-store";
 import type { OverleafRemoteDelete, OverleafSyncMode } from "../settings/app-settings";
 import "./overleaf-connect.css";
 
@@ -313,17 +314,21 @@ export function OverleafSettingsSection(props: {
       notifyError(OVERLEAF_SOURCE, t`Open the linked Overleaf project before changing its sync setting.`);
       return;
     }
-    if (paused && !await confirmAction(
-      t`Pause syncing with Overleaf?
-
-Nothing is sent or fetched until you resume, and live editing, chat and collaborators stop. Every file stays where it is on both sides.
-
-Resuming picks up where this left off: edits made on either side while it was paused are merged, not overwritten.`,
-    )) return;
+    // Pausing takes effect at once, with Resume in the notice instead of a
+    // confirmation in front of it: nothing is lost, and resuming merges.
     try {
       await invoke("overleaf_set_paused", { projectRoot: props.projectRoot, paused });
       setLink((current) => (current ? { ...current, paused } : current));
       props.onLinkChanged();
+      if (paused) {
+        notifyInfo(OVERLEAF_SOURCE, t`Overleaf sync paused`, {
+          detail: t`Edits on both sides merge when you resume`,
+          dedupeKey: "overleaf-sync-paused",
+          primaryAction: { label: t`Resume`, onClick: () => setPaused(false) },
+        });
+      } else {
+        dismissAppToastByDedupeKey("overleaf-sync-paused");
+      }
     } catch (reason) {
       notifyError(OVERLEAF_SOURCE, t`Could not change Overleaf sync`, { detail: toMessage(reason) });
     }
@@ -336,7 +341,7 @@ Resuming picks up where this left off: edits made on either side while it was pa
       if (!await confirmAction({
         message: t`Sign out of Overleaf?
 
-Lattice will no longer be able to list your Overleaf projects, sync linked projects, or use live editing until you sign in again. Files already downloaded to this Mac will not be deleted.`,
+Linked projects stop syncing until you sign in again. Downloaded files stay on this Mac.`,
         confirmLabel: t`Sign out`,
         destructive: false,
       })) return;
@@ -371,20 +376,20 @@ Lattice will no longer be able to list your Overleaf projects, sync linked proje
     ? t`Sync only when you click the sync button`
     : channelDescriptions[props.channel];
   const deleteDescriptions = {
-    ask: t`A sync that finds a file missing here offers to remove it from Overleaf too`,
-    always: t`Keeps both sides identical. Overleaf's own history still has the file if it was a mistake`,
-    never: t`Nothing is ever removed from the shared project from here. The two sides stay different`,
+    ask: t`A sync asks first`,
+    always: t`Overleaf history keeps a copy`,
+    never: t`Overleaf keeps its copy`,
   };
 
   const linkDetail = (current: OverleafLink) => {
-    if (loadError) return t`Connection status is unavailable. This project remains linked to ${linkedHost}; try checking the connection again above`;
+    if (loadError) return t`Couldn’t check the connection. Still linked to ${linkedHost}`;
     if (loading || !status) return t`Checking the connection to ${linkedHost}…`;
     if (!status.connected) {
       return current.paused
-        ? t`Sign in to ${linkedHost}, then resume syncing when you are ready. Local files stay on this Mac`
-        : t`Sign in to resume syncing and live editing on ${linkedHost}. Local files stay on this Mac`;
+        ? t`Sign in to ${linkedHost}, then resume`
+        : t`Sign in to ${linkedHost} to resume syncing`;
     }
-    if (!connectedToLinkedHost) return t`This project uses ${linkedHost}. Sign out above, then connect to that host to resume. Local files stay on this Mac`;
+    if (!connectedToLinkedHost) return t`This project uses ${linkedHost}. Sign out and connect to it to resume`;
     if (current.paused) return t`Nothing is sent or fetched until you resume`;
     return current.lastSync ? t`Last synced ${relativeTime(current.lastSync)}` : t`Not synced yet`;
   };
@@ -392,7 +397,7 @@ Lattice will no longer be able to list your Overleaf projects, sync linked proje
   return (
     <div className="settings-section">
       {/* eslint-disable-next-line no-restricted-syntax -- product name */}
-      <SettingsSectionHeader title="Overleaf" description={t`Open and sync Overleaf projects in Lattice`} />
+      <SettingsSectionHeader title="Overleaf" />
       <SettingsGroup title={t`Connection`}>
         {loading && !loadError && (
           <EmptyState
@@ -418,7 +423,7 @@ Lattice will no longer be able to list your Overleaf projects, sync linked proje
               <LoginControls
                 login={login}
                 label={t`Connect to Overleaf`}
-                hint={t`A secure Overleaf sign-in window will open. Lattice never sees your password — it only keeps the session Overleaf creates for you`}
+                hint={t`You sign in on Overleaf. Lattice never sees your password`}
               />
             </div>
           </div>
@@ -597,13 +602,15 @@ Lattice will create a new Overleaf project from the files that normally sync. La
       // a folder nothing points at, so this asks rather than choosing.
       const target = await invoke<CloneTarget>("overleaf_clone_target", { projectId: project.id, name: project.name })
         .catch(() => null);
-      const adopt = target?.kind === "occupied" && await confirmAction(
-        t`“${target.folder}” already has files in it and isn’t linked to Overleaf.
+      // Named buttons say what each choice does, so the question stays short.
+      // Declining downloads a separate copy, as it always has.
+      const adopt = target?.kind === "occupied" && await confirmAction({
+        message: t`“${target.folder}” already has files and isn’t linked to Overleaf
 
-OK — link that folder to this Overleaf project. Files that differ are kept both ways: Overleaf’s version takes the filename and yours is saved beside it as “name (local conflict …)”. Nothing is overwritten or thrown away.
-
-Cancel — download a separate copy into a new folder and leave that one alone.`,
-      );
+Files that differ are kept side by side. Nothing is overwritten`,
+        confirmLabel: t`Link this folder`,
+        cancelLabel: t`Download a new copy`,
+      });
       if (await props.onBeforeClone?.() === false) {
         setCloning(null);
         return;
@@ -715,10 +722,11 @@ Cancel — download a separate copy into a new folder and leave that one alone.`
         closeTooltip={working ? t`You can close this once the transfer finishes` : undefined}
         onClose={onClose}
       />
-      <div className="overleaf-picker-lede">
-        <p className="overleaf-picker-intro">{t`Bring your next idea into Lattice.`}</p>
-        {known?.connected && <p className="overleaf-picker-account">{known.email ?? known.name ?? known.host}</p>}
-      </div>
+      {known?.connected && (
+        <div className="overleaf-picker-lede">
+          <p className="overleaf-picker-account">{known.email ?? known.name ?? known.host}</p>
+        </div>
+      )}
       <div className="overleaf-picker-body">
         {transferError && <InlineMessage level="error" className="overleaf-transfer-error">{transferError}</InlineMessage>}
         {statusLoading && !statusError && (
@@ -739,13 +747,13 @@ Cancel — download a separate copy into a new folder and leave that one alone.`
             <StageMessage glyph={reconnectRequired ? <CloudAlert size={20} /> : <Cloud size={20} />} tone={reconnectRequired ? "warning" : "accent"}>
               <p className="overleaf-stage-text">
                 {reconnectRequired
-                  ? t`Your Overleaf session has expired. Sign in again to continue. Your local files and existing project links are unchanged`
-                  : t`Your Overleaf account isn’t connected yet. Connect it once, and every project from your Overleaf account will show up here, ready to open in Lattice`}
+                  ? t`Your Overleaf session expired. Sign in again`
+                  : t`Connect your Overleaf account to see your projects`}
               </p>
               <LoginControls
                 login={login}
                 label={reconnectRequired ? t`Reconnect to Overleaf` : t`Connect to Overleaf`}
-                hint={t`A secure Overleaf sign-in window will open. Lattice never sees your password — it only keeps the session Overleaf creates for you`}
+                hint={t`You sign in on Overleaf. Lattice never sees your password`}
               />
             </StageMessage>
           </div>
@@ -792,7 +800,7 @@ Cancel — download a separate copy into a new folder and leave that one alone.`
                       ? t`No projects in this account yet. Create one on Overleaf and it will appear here`
                       : query
                         ? t`No projects match your search`
-                        : t`All of your projects are archived or trashed. Tick “Show archived” to see them`}
+                        : t`All your projects are archived or trashed`}
                   </p>
                 </StageMessage>
               )}
@@ -804,7 +812,7 @@ Cancel — download a separate copy into a new folder and leave that one alone.`
                 >
                   {groups.map((group) => (
                     <section key={group.title} className="overleaf-project-group" aria-label={group.title}>
-                      <h3>{group.title}<span>{t`Recently updated first`}</span></h3>
+                      <h3>{group.title}</h3>
                       <ul className="overleaf-project-list">{group.projects.map(renderProject)}</ul>
                     </section>
                   ))}
@@ -818,7 +826,6 @@ Cancel — download a separate copy into a new folder and leave that one alone.`
                   <Glyph tone="neutral"><UploadCloud size={15} /></Glyph>
                   <div className="overleaf-publish-copy">
                     <strong>{t`Upload this project to Overleaf`}</strong>
-                    <span>{t`Create a new Overleaf project and keep this folder connected to it`}</span>
                   </div>
                 </div>
                 <div className="overleaf-publish-actions">
@@ -845,8 +852,8 @@ Cancel — download a separate copy into a new folder and leave that one alone.`
               <Progress
                 className="overleaf-progress"
                 text={cloning
-                  ? t`Downloading ${cloning.name} from Overleaf… this can take a minute for large projects`
-                  : t`Uploading ${publishName.trim()} to Overleaf… this can take a minute for large projects`}
+                  ? t`Downloading ${cloning.name}…`
+                  : t`Uploading ${publishName.trim()}…`}
               />
             )}
           </>

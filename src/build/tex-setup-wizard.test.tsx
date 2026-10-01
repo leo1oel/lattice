@@ -74,7 +74,7 @@ describe("tex setup wizard helpers", () => {
 
     expect(screen.getAllByRole("button")).toHaveLength(1);
     expect(screen.getByRole("button", { name: "Install required tools" })).toBeEnabled();
-    expect(screen.getByText(/verified download uses about 45 MB/)).toBeInTheDocument();
+    expect(screen.getByText(/about 45 MB/)).toBeInTheDocument();
     const uvMissing = report(check("uv", false), check("uvx", false));
     expect(isRequiredSetupMissing(uvMissing)).toBe(true);
     expect(missingRequiredToolNames(uvMissing)).toEqual(["uv", "uvx"]);
@@ -107,7 +107,7 @@ describe("tex setup wizard helpers", () => {
     expect(document.querySelector(".tex-setup-progress-fill")).toHaveStyle({ width: "37%" });
 
     act(() => tauri.channel?.onmessage?.({ stage: "installing-packages", progress: 0.82 }));
-    expect(screen.getByText("This is the longest step and can take up to 15 minutes")).toBeInTheDocument();
+    expect(screen.getByText("Can take up to 15 minutes")).toBeInTheDocument();
 
     await act(async () => finishInstall());
     expect(onRecheck).toHaveBeenCalledOnce();

@@ -31,7 +31,6 @@ export function DoctorSettings(props: DoctorSettingsProps) {
     <div className="settings-section">
       <SettingsSectionHeader
         title={t`TeX doctor`}
-        description={t`Checks the tools Lattice needs to compile LaTeX`}
         actions={<ReloadIconButton label={t`Run TeX doctor`} busy={props.doctorBusy} disabled={props.doctorBusy} onClick={props.onRunDoctor} />}
       />
       <SettingsGroup title={t`Toolchain status`}>
@@ -55,7 +54,7 @@ export function DoctorSettings(props: DoctorSettingsProps) {
         )}
         {!report && !props.doctorBusy && (
           <>
-            <EmptyState align="start" density="compact" description={t`Run the doctor to inspect this Mac’s TeX toolchain`} />
+            <EmptyState align="start" density="compact" description={t`Not checked yet`} />
             {installAction}
           </>
         )}

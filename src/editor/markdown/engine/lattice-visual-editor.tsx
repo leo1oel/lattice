@@ -349,7 +349,8 @@ function notifyConflict(host: Host, draft: string) {
     detail: messages.detail,
     timeoutMs: 0,
     dedupeKey: key,
-    primaryAction: { label: messages.copy, onClick: () => writeText(draft) },
+    // Copying keeps the toast: Restore is still to be decided.
+    primaryAction: { label: messages.copy, onClick: () => writeText(draft), keepOpen: true },
     secondaryAction: {
       label: messages.restore,
       onClick: () => {

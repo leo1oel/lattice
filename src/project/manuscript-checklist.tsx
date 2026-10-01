@@ -80,9 +80,6 @@ export function ManuscriptChecklistPanel(props: {
           title={t`Submission checklist`}
           onClose={props.onClose}
         />
-        <p className="drawer-copy">
-          <Trans>Body words use TeXcount when installed (else a local estimate). Set budgets for your venue page/word limits</Trans>
-        </p>
         <div className="checklist-rows">
           <BudgetRow
             label={t`Body words`}

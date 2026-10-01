@@ -49,7 +49,7 @@ describe("CanvasToolbar Overleaf status", () => {
   it.each([
     // The dot is non-layout-shifting: it marks live editing and active syncs,
     // but never an idle manual connection.
-    { state: { overleafChannel: "live" }, name: /Connected live/, online: true, disabled: false },
+    { state: { overleafChannel: "live" }, name: /^Live · click to sync/, online: true, disabled: false },
     { state: { overleafSyncing: true }, name: "Syncing with Overleaf…", online: true, disabled: true },
     { state: { overleafChannel: "off" }, name: "Sync with Overleaf", online: false, disabled: false },
   ] as const)("shows the online dot for $name: $online", ({ state, name, online, disabled }) => {
