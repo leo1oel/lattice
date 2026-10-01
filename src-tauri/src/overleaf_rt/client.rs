@@ -24,6 +24,8 @@ const ACK_TIMEOUT: Duration = Duration::from_secs(10);
 /// Granularity of the ack timeout helper thread; also how fast it notices that
 /// the waiter is gone and exits early.
 const ACK_TIMER_TICK: Duration = Duration::from_millis(100);
+/// How often the heartbeat watchdog looks at the clock.
+const WATCHDOG_TICK: Duration = Duration::from_millis(500);
 /// Outgoing frame queue depth. Deep enough that `try_send` from non-async
 /// contexts (heartbeat echo, shutdown) never realistically fails.
 const OUT_QUEUE: usize = 256;
@@ -54,12 +56,12 @@ fn now_millis() -> u128 {
 
 // ---- Handshake ------------------------------------------------------------
 
-/// What the handshake settled: the session id, and the cookies to carry into
-/// the websocket upgrade. Runs on a blocking thread because the crate only has
+/// What the handshake settled: the session id, the heartbeat timeout in
+/// seconds (0 = none), and the cookies to carry into the websocket upgrade. Runs on a blocking thread because the crate only has
 /// `reqwest`'s blocking client.
 fn handshake_blocking(
     origin: &str, cookie: &str, project_id: &str,
-) -> Result<(String, String), String> {
+) -> Result<(String, u64, String), String> {
     let url =
         format!("{origin}/socket.io/1/?projectId={}&t={}", url_encode(project_id), now_millis());
     let client = crate::http::blocking_as(USER_AGENT, Duration::from_secs(20))
@@ -88,10 +90,10 @@ fn handshake_blocking(
         return Err(format!("Overleaf refused the realtime handshake (HTTP {}).", status.as_u16()));
     }
     let login_page = body.trim_start().starts_with('<');
-    let (sid, _heartbeat) =
+    let (sid, heartbeat) =
         parse_handshake(&body)
             .map_err(|e| if login_page { SESSION_EXPIRED.to_string() } else { e })?;
-    Ok((sid, merge_cookies(cookie, &handed_back)))
+    Ok((sid, heartbeat, merge_cookies(cookie, &handed_back)))
 }
 
 /// Fold any cookies the handshake set into the ones we already had.
@@ -151,6 +153,8 @@ struct Shared {
     pending: Mutex<HashMap<u32, rt::Sender<Ack>>>,
     next_ack: AtomicU32,
     public_id: Mutex<String>,
+    /// When the server last sent anything at all; see `watch_heartbeat`.
+    last_heard: Mutex<Instant>,
     finished: AtomicBool,
     on_event: Box<dyn Fn(RealtimeEvent) + Send + Sync + 'static>,
 }
@@ -269,6 +273,7 @@ where
 {
     let mut reason = "The Overleaf realtime connection closed.".to_string();
     while let Some(next) = source.next().await {
+        *lock(&shared.last_heard) = Instant::now();
         let handled = match next {
             Ok(Message::Text(text)) => handle_frame(&shared, text.as_str()),
             Ok(Message::Binary(bytes)) => {
@@ -287,6 +292,33 @@ where
         }
     }
     shared.finish(reason);
+}
+
+/// Ends a connection the server has gone quiet on.
+///
+/// A socket can stay open after the network under it is gone — the laptop
+/// slept, the Wi-Fi changed — and then nothing arrives and nothing fails:
+/// collaborators' edits stop, ours time out one by one, and no reconnect is
+/// ever asked for, because no disconnect was ever seen. Overleaf sends a
+/// heartbeat well inside the timeout it names in the handshake, and the
+/// Socket.IO 0.9 client its editor uses closes the connection when that much
+/// time passes without hearing anything; so does this. Finishing reports
+/// `Disconnected`, which is what sets the app reconnecting.
+fn watch_heartbeat(shared: Arc<Shared>, timeout: Duration) {
+    std::thread::spawn(move || loop {
+        std::thread::sleep(WATCHDOG_TICK);
+        if shared.finished.load(Ordering::SeqCst) {
+            return;
+        }
+        let silent = lock(&shared.last_heard).elapsed();
+        if silent > timeout {
+            shared.finish(format!(
+                "Overleaf has sent nothing for {}s, so the connection is presumed lost.",
+                silent.as_secs()
+            ));
+            return;
+        }
+    });
 }
 
 /// `Err` carries why the read loop should stop.
@@ -506,7 +538,7 @@ impl RealtimeClient {
             return Err("No Overleaf project selected.".to_string());
         }
 
-        let (sid, cookie) = {
+        let (sid, heartbeat, cookie) = {
             let (origin, project_id) = (origin.clone(), project_id.clone());
             rt::spawn_blocking(move || handshake_blocking(&origin, &cookie, &project_id))
                 .await
@@ -551,6 +583,7 @@ impl RealtimeClient {
             pending: Mutex::new(HashMap::new()),
             next_ack: AtomicU32::new(1),
             public_id: Mutex::new(String::new()),
+            last_heard: Mutex::new(Instant::now()),
             finished: AtomicBool::new(false),
             on_event: Box::new(on_event),
         });
@@ -564,6 +597,10 @@ impl RealtimeClient {
             open_slot(&shared, CONNECT_SLOT, "Overleaf's realtime connect handshake");
         let join_slot = open_slot(&shared, JOIN_SLOT, "Overleaf's project join");
         rt::spawn(read_loop(source, shared.clone()));
+        // Zero is the handshake saying it sends no heartbeats at all.
+        if heartbeat > 0 {
+            watch_heartbeat(shared.clone(), Duration::from_secs(heartbeat));
+        }
         await_slot(&shared, connect_slot).await?;
 
         // Two generations of Overleaf answer this differently: the older one

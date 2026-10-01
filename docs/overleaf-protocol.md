@@ -173,6 +173,10 @@ purpose.
   surrogate pair, and inserted surrogates are replaced before sending — in the
   operation, the OT copy and the editor alike — so both sides keep identical
   text (`asOverleafStores` in `src/overleaf/ot.ts`).
+- Silence is a disconnect. When nothing arrives for the heartbeat timeout the
+  handshake names (`{sid}:{heartbeat}:…`), the connection is ended and reported
+  as `Disconnected`, exactly as the Socket.IO 0.9 client does; otherwise a
+  half-open socket after sleep or a network change is never noticed.
 - A transient disconnect retries with bounded exponential backoff. Network
   recovery and window focus may request an immediate retry, but authentication,
   authorization and project-identity failures stop the loop and require user

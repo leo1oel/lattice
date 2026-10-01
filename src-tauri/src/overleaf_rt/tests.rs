@@ -620,6 +620,11 @@ struct MockState {
 
 /// The mock's host, and what it has seen.
 fn start_mock(push_join: bool) -> (String, Arc<Mutex<MockState>>) {
+    start_mock_with(push_join, 60)
+}
+
+/// A mock that names `heartbeat` seconds as its heartbeat timeout.
+fn start_mock_with(push_join: bool, heartbeat: u64) -> (String, Arc<Mutex<MockState>>) {
     let state = Arc::new(Mutex::new(MockState { push_join, ..MockState::default() }));
     let seen = state.clone();
     let host = serve_http(move |request| {
@@ -631,7 +636,7 @@ fn start_mock(push_join: bool) -> (String, Arc<Mutex<MockState>>) {
             // Load balancers pin the realtime session with a cookie of their
             // own; the upgrade has to carry it back or it lands on another
             // instance.
-            let body = Response::from_string("testsid:60:60:websocket");
+            let body = Response::from_string(format!("testsid:{heartbeat}:60:websocket"));
             let body = with_header(body, "Set-Cookie: ol-affinity=instance-7; Path=/; HttpOnly");
             let _ = request.respond(with_header(body, "Content-Type: text/plain"));
             return;
@@ -713,6 +718,18 @@ fn serve_websocket<S: Read + Write>(mut ws: WebSocket<S>, state: Arc<Mutex<MockS
             break;
         }
     }
+}
+
+#[test]
+fn a_server_that_goes_quiet_past_its_heartbeat_timeout_is_reported_lost() {
+    // The mock never sends a heartbeat after joining: a half-open socket.
+    let (host, _state) = start_mock_with(false, 1);
+    let (_client, events) = connect(mock_config(&host, "overleaf_session2=test-cookie"));
+    let lost = wait_for(&events, 5, |event| match event {
+        RealtimeEvent::Disconnected { reason } => Some(reason.clone()),
+        _ => None,
+    });
+    assert!(lost.is_some_and(|reason| reason.contains("sent nothing")), "{:?}", lock(&events));
 }
 
 #[test]
