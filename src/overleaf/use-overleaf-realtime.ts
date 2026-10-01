@@ -38,6 +38,7 @@ const DRAIN_TIMEOUT_MS = 15_000;
 /** How long typing is coalesced into one operation. */
 const SEND_DEBOUNCE_MS = 250;
 const driftNotice = () => i18n._(msg`This document drifted from Overleaf's copy, so live editing stopped. Syncing will reconcile it.`);
+const replacedNotice = () => i18n._(msg`Overleaf can't store emoji and some other special characters, so they were replaced with � — the same thing everyone else in the project sees.`);
 
 export function useOverleafRealtime(options: {
   /** Connect whenever the project is linked: chat and presence ride here too. */
@@ -116,6 +117,13 @@ export function useOverleafRealtime(options: {
   const proofs = useRef(new WeakMap<OtDocument, DocumentProof>());
   const leaving = useRef(new Map<string, Promise<boolean>>());
   const documentEpoch = useRef(0);
+  /** Said once per session: see `asOverleafStores` in ./ot. */
+  const toldAboutReplacement = useRef(false);
+  const noteReplaced = () => {
+    if (toldAboutReplacement.current) return;
+    toldAboutReplacement.current = true;
+    callbacks.current.onNotice(replacedNotice());
+  };
 
   // A permission is only meaningful for the project whose connect result
   // supplied it. During a root switch, the previous render's role must not be
@@ -284,7 +292,9 @@ export function useOverleafRealtime(options: {
       const proof = proofs.current.get(doc);
       if (proof) proof.locallyAppliedText = typed;
       // The last thing typed leaves the same way everything before it did.
-      void flushRef.current(previous, doc.local(typed).send);
+      const { send, replaced } = doc.local(typed);
+      if (replaced) noteReplaced();
+      void flushRef.current(previous, send);
     }
     if (doc.settled) {
       release(previous);
@@ -923,13 +933,20 @@ export function useOverleafRealtime(options: {
       // another file in the meantime, and this text belongs to the old one.
       const current = docId.current === id ? documents.current.get(id) : null;
       if (!current) return;
-      const { send } = current.local(text);
+      const { send, replaced } = current.local(text);
       const proof = proofs.current.get(current);
       if (proof) proof.locallyAppliedText = text;
       if (send) shiftAnchors(id, send.ops);
       void flush(id, send);
+      if (replaced) {
+        // Overleaf stores these characters as U+FFFD, and so does the
+        // document now; the editor has to show the same, or the two copies
+        // disagree without anyone being told. Same length, same caret.
+        noteReplaced();
+        deliverRemoteText(id, current.text, callbacks.current.readCaret(), text);
+      }
     }, SEND_DEBOUNCE_MS);
-  }, [flush, shiftAnchors]);
+  }, [deliverRemoteText, flush, shiftAnchors]);
 
   /**
    * Anchor a new comment thread to a span of the open document. Resolves once

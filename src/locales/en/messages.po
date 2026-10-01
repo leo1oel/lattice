@@ -5328,6 +5328,10 @@ msgstr "Overleaf / arXiv source pack"
 msgid "Overleaf acknowledged version {version} while this document is at {current}."
 msgstr "Overleaf acknowledged version {version} while this document is at {current}."
 
+#: src/overleaf/use-overleaf-realtime.ts
+msgid "Overleaf can't store emoji and some other special characters, so they were replaced with � — the same thing everyone else in the project sees."
+msgstr "Overleaf can't store emoji and some other special characters, so they were replaced with � — the same thing everyone else in the project sees."
+
 #: src/overleaf/overleaf-collab.tsx
 msgid "Overleaf chat messages"
 msgstr "Overleaf chat messages"

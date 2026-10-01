@@ -168,6 +168,11 @@ purpose.
   never resent on the connection that already carried it.
 - An operation that transformed to nothing is dropped, never sent: an empty
   `applyOtUpdate` is not answered, and every later edit would queue behind it.
+- Overleaf's document updater replaces every UTF-16 surrogate in inserted text
+  with U+FFFD and still acknowledges the operation. Operations never split a
+  surrogate pair, and inserted surrogates are replaced before sending — in the
+  operation, the OT copy and the editor alike — so both sides keep identical
+  text (`asOverleafStores` in `src/overleaf/ot.ts`).
 - A transient disconnect retries with bounded exponential backoff. Network
   recovery and window focus may request an immediate retry, but authentication,
   authorization and project-identity failures stop the loop and require user

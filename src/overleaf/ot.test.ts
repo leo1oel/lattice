@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   applyOps,
+  asOverleafStores,
   composeOps,
   diffToOps,
   OtDesyncError,
@@ -26,9 +27,25 @@ describe("diffToOps", () => {
     // The naive prefix/suffix walk must not overlap; "aa" → "aaa" is one insert.
     ["repeated text without inventing a bigger change", "aa", "aaa", [{ p: 2, i: "a" }]],
     ["a multi-line LaTeX edit", "\\begin{abstract}\nOne.\n\\end{abstract}\n", "\\begin{abstract}\nOne. Added.\n\\end{abstract}\n", [{ p: 21, i: " Added." }]],
+    // 🔵 and 🔴 share the first half of their UTF-16 pair; replacing only the
+    // second half would send lone surrogates.
+    ["a whole emoji when only its second half differs", "a \u{1F535} b", "a \u{1F534} b", [{ p: 2, d: "\u{1F535}" }, { p: 2, i: "\u{1F534}" }]],
+    ["a whole emoji when only its first half differs", "\u{1F600}", "\u{1D600}", [{ p: 0, d: "\u{1F600}" }, { p: 0, i: "\u{1D600}" }]],
   ])("describes %s, and the ops reproduce the change", (_label, before, after, ops) => {
     expect(diffToOps(before, after)).toEqual(ops);
     expect(applyOps(before, ops)).toBe(after);
+  });
+});
+
+describe("asOverleafStores", () => {
+  it("replaces every surrogate in inserted text with U+FFFD, the way Overleaf's server does, and leaves the rest alone", () => {
+    const ops: OtOp[] = [{ p: 0, d: "\u{1F535}" }, { p: 0, i: "x \u{1D538} y" }];
+    expect(asOverleafStores(ops)).toEqual({
+      ops: [{ p: 0, d: "\u{1F535}" }, { p: 0, i: "x \uFFFD\uFFFD y" }],
+      replaced: true,
+    });
+    const plain: OtOp[] = [{ p: 1, i: "café — naïve" }];
+    expect(asOverleafStores(plain)).toEqual({ ops: plain, replaced: false });
   });
 });
 
@@ -318,6 +335,16 @@ describe("OtDocument", () => {
     // The next keystroke goes straight out rather than queueing behind an
     // empty operation that nothing will ever acknowledge.
     expect(doc.local("hello X!").send).toEqual({ version: 12, ops: [{ p: 7, i: "!" }] });
+  });
+
+  it("keeps what Overleaf will store, not the emoji it cannot, and says so", () => {
+    const doc = new OtDocument("note: ", 3);
+    const typed = doc.local("note: \u{1F535} done");
+    expect(typed).toEqual({ send: { version: 3, ops: [{ p: 6, i: "\uFFFD\uFFFD done" }] }, replaced: true });
+    expect(doc.text).toBe("note: \uFFFD\uFFFD done");
+    // Text that already holds the replacement is ordinary text from then on.
+    doc.acknowledge(3);
+    expect(doc.local("note: \uFFFD\uFFFD done!")).toEqual({ send: { version: 4, ops: [{ p: 13, i: "!" }] }, replaced: false });
   });
 
   it("drops unsent work when reset to the server's copy", () => {

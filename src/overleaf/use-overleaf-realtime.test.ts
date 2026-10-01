@@ -579,6 +579,30 @@ describe("an acknowledgement whose outcome is not known", () => {
   });
 });
 
+describe("characters Overleaf cannot store", () => {
+  it("sends and shows U+FFFD in their place, the way the server stores them, and says so once", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const onRemoteText = vi.fn();
+    const onNotice = vi.fn();
+    const { result } = await mountLive({ onRemoteText, onNotice });
+
+    await typeAndSend(result, "alpha \u{1F535}");
+    await waitFor(() => expect(sends()).toHaveLength(1));
+    expect(sends()[0]!.ops).toEqual([{ p: 5, i: " \uFFFD\uFFFD" }]);
+    // The editor is swapped to the stored text, guarded on still holding what was typed.
+    await waitFor(() => expect(onRemoteText).toHaveBeenLastCalledWith(
+      "alpha \uFFFD\uFFFD", 0, expect.objectContaining({ baseContent: "alpha \u{1F535}" }),
+    ));
+    expect(onNotice).toHaveBeenCalledTimes(1);
+    expect(onNotice.mock.calls[0]![0]).toMatch(/replaced with �/);
+
+    emit({ type: "docAck", docId: DOC_A, version: 10 });
+    await typeAndSend(result, "alpha \uFFFD\uFFFD \u{1D538}");
+    await waitFor(() => expect(sends()).toHaveLength(2));
+    expect(onNotice).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe("an error in one document", () => {
   it("is ignored for a document we are not holding, and otherwise stops that file without the connection", async () => {
     const { result } = await mountLive();

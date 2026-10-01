@@ -32,9 +32,15 @@ export function diffToOps(before: string, after: string): OtOp[] {
   let prefix = 0;
   const maxPrefix = Math.min(before.length, after.length);
   while (prefix < maxPrefix && before[prefix] === after[prefix]) prefix += 1;
+  // Never cut a character in half. Two emoji can share the first half of
+  // their UTF-16 pair, and an op holding only the second half is a lone
+  // surrogate that Overleaf turns into U+FFFD — corrupting a character the
+  // edit never meant to touch.
+  if (prefix > 0 && isHighSurrogate(before.charCodeAt(prefix - 1))) prefix -= 1;
   let suffix = 0;
   const maxSuffix = maxPrefix - prefix;
   while (suffix < maxSuffix && before[before.length - 1 - suffix] === after[after.length - 1 - suffix]) suffix += 1;
+  if (suffix > 0 && isLowSurrogate(before.charCodeAt(before.length - suffix))) suffix -= 1;
   const removed = before.slice(prefix, before.length - suffix);
   const inserted = after.slice(prefix, after.length - suffix);
   // Delete first: the insert's position is then expressed against the text
@@ -43,6 +49,32 @@ export function diffToOps(before: string, after: string): OtOp[] {
     ...(removed ? [{ p: prefix, d: removed }] : []),
     ...(inserted ? [{ p: prefix, i: inserted }] : []),
   ];
+}
+
+const isHighSurrogate = (code: number) => code >= 0xd800 && code <= 0xdbff;
+const isLowSurrogate = (code: number) => code >= 0xdc00 && code <= 0xdfff;
+const SURROGATE = /[\uD800-\uDFFF]/;
+const SURROGATES = new RegExp(SURROGATE.source, "g");
+
+/**
+ * What Overleaf actually stores for these ops.
+ *
+ * Its document updater replaces every UTF-16 surrogate in inserted text with
+ * U+FFFD — both halves of an emoji or a `unicode-math` letter like 𝔸, one
+ * replacement character each — and still acknowledges the operation as sent.
+ * Sending such text unchanged leaves this side holding characters the server
+ * does not have, with nothing to say so until a later sync quietly replaces
+ * them. Mirroring the server keeps the two copies identical, and lengths (so
+ * every position) stay the same.
+ */
+export function asOverleafStores(ops: OtOp[]): { ops: OtOp[]; replaced: boolean } {
+  let replaced = false;
+  const stored = ops.map((op) => {
+    if (typeof op.i !== "string" || !SURROGATE.test(op.i)) return op;
+    replaced = true;
+    return { ...op, i: op.i.replace(SURROGATES, "\uFFFD") };
+  });
+  return { ops: stored, replaced };
 }
 
 /**
@@ -307,16 +339,19 @@ export class OtDocument {
    * is in flight the new work waits, because the server numbers versions and
    * would reject a second operation built on a version it has not confirmed.
    */
-  local(nextText: string): { send: OtSend } {
-    const ops = diffToOps(this.text, nextText);
-    this.text = nextText;
-    if (ops.length === 0) return { send: null };
+  local(nextText: string): { send: OtSend; replaced: boolean } {
+    const typed = diffToOps(this.text, nextText);
+    // See `asOverleafStores`: when it changes what was typed, `text` takes
+    // the stored form and the caller has to show it in place of the original.
+    const { ops, replaced } = asOverleafStores(typed);
+    this.text = replaced ? applyOps(this.text, ops) ?? nextText : nextText;
+    if (ops.length === 0) return { send: null, replaced };
     if (this.inflight) {
       this.pending = this.pending ? composeOps(this.pending, ops) : ops;
-      return { send: null };
+      return { send: null, replaced };
     }
     this.inflight = ops;
-    return { send: { version: this.version, ops } };
+    return { send: { version: this.version, ops }, replaced };
   }
 
   /**

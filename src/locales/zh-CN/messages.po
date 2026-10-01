@@ -5328,6 +5328,10 @@ msgstr "Overleaf / arXiv 源文件包"
 msgid "Overleaf acknowledged version {version} while this document is at {current}."
 msgstr "Overleaf 确认了版本 {version}，但此文档当前为版本 {current}。"
 
+#: src/overleaf/use-overleaf-realtime.ts
+msgid "Overleaf can't store emoji and some other special characters, so they were replaced with � — the same thing everyone else in the project sees."
+msgstr "Overleaf 无法保存表情符号和部分特殊字符，因此已替换为 �，与项目中其他人看到的一致。"
+
 #: src/overleaf/overleaf-collab.tsx
 msgid "Overleaf chat messages"
 msgstr "Overleaf 聊天消息"
