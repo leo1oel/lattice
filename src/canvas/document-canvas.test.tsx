@@ -281,6 +281,45 @@ describe("DocumentCanvas / mode", () => {
     expect(props.onCreateEditorComment).toHaveBeenCalledWith(expect.objectContaining({ quote: "bold", body: "Keep this draft", from: 6, to: 10 }));
   });
 
+  it("keeps the selection toolbar off a panel that replaced the editor", async () => {
+    renderCanvas({ source: "Hello bold world" });
+    const view = await primarySourceView();
+    const bounds = new DOMRect(0, 0, 600, 500);
+    vi.spyOn(view.dom.closest(".source-editor")!, "getBoundingClientRect").mockReturnValue(bounds);
+    vi.spyOn(view, "coordsAtPos").mockImplementation(() => ({ left: 100, right: 150, top: 100, bottom: 120 }));
+    const toolbar = () => screen.queryByRole("toolbar", { name: "Format selected LaTeX" });
+    const select = (anchor: number) => act(() => {
+      view.focus();
+      view.dispatch({ selection: { anchor, head: 10 } });
+    });
+    const outside = document.body.appendChild(document.createElement("button"));
+    try {
+      select(6);
+      expect(toolbar()).not.toBeNull();
+      // A click elsewhere (a tab, the titlebar's Comments) dismisses it, and
+      // the editor's blur that follows must not bring it back.
+      fireEvent.pointerDown(outside);
+      act(() => outside.focus());
+      // CodeMirror reports a focus change 10 ms after the blur.
+      await act(() => new Promise((resolve) => setTimeout(resolve, 30)));
+      expect(toolbar()).toBeNull();
+
+      // Focus moved by the keyboard (a shortcut opening a panel) hides it too.
+      select(5);
+      expect(toolbar()).not.toBeNull();
+      act(() => outside.focus());
+      await waitFor(() => expect(toolbar()).toBeNull());
+
+      // An editor in a tab behind another one is laid out but hidden.
+      documentHost.setAttribute("inert", "");
+      select(6);
+      expect(toolbar()).toBeNull();
+    } finally {
+      outside.remove();
+      documentHost.removeAttribute("inert");
+    }
+  });
+
   it("highlights the source selection while composing and removes only the draft on cancel", async () => {
     const source = "Hello bold world";
     const existing = createEditorComment({ path: "main.tex", source, from: 6, to: 10, body: "Existing", authorId: "ada", authorName: "Ada" })!;
