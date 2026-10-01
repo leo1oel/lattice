@@ -355,13 +355,19 @@ pub async fn overleaf_rt_update_position(
     client.update_position(&doc_id, row, column).await
 }
 
+// `dupIfSource` and `hash` are Overleaf's own optional update fields, and
+// `window` scopes the call to one window's project, as for comments below.
+#[allow(clippy::too_many_arguments)]
 #[tauri::command]
 pub async fn overleaf_rt_send_ops(
     state: State<'_, AppState>, window: Window, project_root: String, doc_id: String, version: i64,
-    ops: Vec<overleaf_rt::OtOp>, dup_if_source: Option<Vec<String>>,
+    ops: Vec<overleaf_rt::OtOp>, dup_if_source: Option<Vec<String>>, hash: Option<String>,
 ) -> Result<(), String> {
     let (client, _lease) = live_client(&state, &window, &project_root).await?;
-    client.send_ops(&doc_id, version, ops, false, &dup_if_source.unwrap_or_default()).await
+    let dup_if_source = dup_if_source.unwrap_or_default();
+    let submission =
+        overleaf_rt::Submission { dup_if_source: &dup_if_source, hash: hash.as_deref() };
+    client.send_ops(&doc_id, version, ops, false, submission).await
 }
 
 /// Anchor a comment thread to a span of the open document.

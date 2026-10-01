@@ -173,6 +173,11 @@ purpose.
   surrogate pair, and inserted surrogates are replaced before sending — in the
   operation, the OT copy and the editor alike — so both sides keep identical
   text (`asOverleafStores` in `src/overleaf/ot.ts`).
+- At most every five seconds per document, an update whose text is known
+  exactly carries `hash` — SHA-1 of `blob {UTF-16 length}\0{UTF-8 text}`, the
+  value Overleaf's document updater computes. A mismatch comes back as
+  `otUpdateError`, which drops that document to ordinary sync rather than
+  letting a drifted copy keep editing.
 - Silence is a disconnect. When nothing arrives for the heartbeat timeout the
   handshake names (`{sid}:{heartbeat}:…`), the connection is ended and reported
   as `Disconnected`, exactly as the Socket.IO 0.9 client does; otherwise a

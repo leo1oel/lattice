@@ -102,7 +102,8 @@ fn frames_round_trip_every_field_and_keep_colons_in_the_payload() {
 #[test]
 fn updates_name_earlier_submissions_only_when_resending() {
     let ops = vec![insert(5, "hello")];
-    let first = Update { doc: "doc-1", op: ops.clone(), v: 42, meta: None, dup_if_source: &[] };
+    let first =
+        Update { doc: "doc-1", op: ops.clone(), v: 42, meta: None, dup_if_source: &[], hash: None };
     // Overleaf validates updates with a strict schema: a first submission
     // must not carry an empty `dupIfSource` it never asked for.
     assert_eq!(
@@ -110,8 +111,17 @@ fn updates_name_earlier_submissions_only_when_resending() {
         json!({"doc": "doc-1", "op": [{"p": 5, "i": "hello"}], "v": 42})
     );
     let earlier = ["P.old".to_string()];
-    let resend = Update { doc: "doc-1", op: ops, v: 42, meta: None, dup_if_source: &earlier };
-    assert_eq!(serde_json::to_value(&resend).expect("serializes")["dupIfSource"], json!(["P.old"]));
+    let resend = Update {
+        doc: "doc-1",
+        op: ops,
+        v: 42,
+        meta: None,
+        dup_if_source: &earlier,
+        hash: Some("2aae6c35c94fcfb415dbe95f408b9ce91ee846ed"),
+    };
+    let resend = serde_json::to_value(&resend).expect("serializes");
+    assert_eq!(resend["dupIfSource"], json!(["P.old"]));
+    assert_eq!(resend["hash"], json!("2aae6c35c94fcfb415dbe95f408b9ce91ee846ed"));
 }
 
 #[test]
@@ -787,8 +797,14 @@ fn talks_the_whole_protocol_to_a_mock_server() {
     let anchor = CommentRange { thread_id: "thread-1".into(), position: 4, quote: "one".into() };
     assert_eq!(joined.comments, vec![anchor]);
 
-    rt::block_on(client.send_ops("doc-1", 42, vec![insert(5, "hello")], false, &[]))
-        .expect("applyOtUpdate");
+    rt::block_on(client.send_ops(
+        "doc-1",
+        42,
+        vec![insert(5, "hello")],
+        false,
+        Submission::default(),
+    ))
+    .expect("applyOtUpdate");
     rt::block_on(client.leave_doc("doc-1")).expect("leaveDoc");
 
     // The unsolicited otUpdateApplied reaches the callback, carrying its
@@ -915,7 +931,7 @@ impl Live {
     }
 
     fn send(&self, doc_id: &str, version: i64, op: OtOp) {
-        rt::block_on(self.client.send_ops(doc_id, version, vec![op], false, &[]))
+        rt::block_on(self.client.send_ops(doc_id, version, vec![op], false, Submission::default()))
             .expect("send ops");
     }
 
@@ -1192,8 +1208,14 @@ fn tracks_a_change_on_the_real_overleaf() {
     let before = live.join(&doc.id);
 
     let probe = "SUGGESTED café";
-    rt::block_on(live.client.send_ops(&doc.id, before.version, vec![insert(0, probe)], true, &[]))
-        .expect("suggest an edit");
+    rt::block_on(live.client.send_ops(
+        &doc.id,
+        before.version,
+        vec![insert(0, probe)],
+        true,
+        Submission::default(),
+    ))
+    .expect("suggest an edit");
     std::thread::sleep(Duration::from_secs(2));
 
     let again = live.rejoin(&doc.id);

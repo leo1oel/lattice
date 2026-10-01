@@ -12,6 +12,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { invoke } from "@tauri-apps/api/core";
 import { activateAppLocale } from "../i18n";
 import { invokeCalls, mockInvoke, mockListen } from "../platform/tauri-test-mocks";
+import { overleafDocHash } from "./overleaf-realtime-model";
 import { useOverleafRealtime } from "./use-overleaf-realtime";
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
@@ -576,6 +577,28 @@ describe("an acknowledgement whose outcome is not known", () => {
     await waitFor(() => expect(result.current.settledVersion()).toBe(11));
     // Once answered on this connection it is never sent a third time.
     expect(sends()).toHaveLength(2);
+  });
+});
+
+describe("the update hash", () => {
+  it("is Overleaf's git-blob SHA-1 of the text the update produces", async () => {
+    expect(await overleafDocHash("")).toBe("e69de29bb2d1d6434b8b29ae775ad8c2e48c5391");
+    expect(await overleafDocHash("hello\n")).toBe("ce013625030ba8dba906f756967f9e9ca394464a");
+  });
+
+  it("rides on an update now and then, never on one sent behind queued work", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const { result } = await mountLive();
+    await typeAndSend(result, "alpha edited");
+    await waitFor(() => expect(sends()).toHaveLength(1));
+    // `printf 'alpha edited' | git hash-object --stdin`
+    expect(sends()[0]).toMatchObject({ version: 10, hash: "4d07786ac58e50541ba6ca85027b45ba5e038dba" });
+
+    emit({ type: "docAck", docId: DOC_A, version: 10 });
+    await typeAndSend(result, "alpha edited!");
+    await waitFor(() => expect(sends()).toHaveLength(2));
+    // Within five seconds of the last one: no hash, the same as Overleaf's editor.
+    expect(sends()[1]).not.toHaveProperty("hash");
   });
 });
 

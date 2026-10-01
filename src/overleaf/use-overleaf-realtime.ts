@@ -20,7 +20,7 @@ import { i18n } from "../i18n";
 import { OtDocument, transformCaret, type OtOp } from "./ot";
 import { onOverleafEvent } from "./overleaf-realtime-listen";
 import {
-  anchorsAfter, isOwnUpdate, promoteShared, shouldRetryConnection,
+  anchorsAfter, isOwnUpdate, overleafDocHash, promoteShared, shouldRetryConnection,
   type CommentRange, type DocEntry, type DocumentProof, type DocUpdateEvent, type EntityEntry, type JoinedDoc,
   type JoinedProject, type OpenDoc, type OverleafCommentTarget, type OverleafPermission, type OverleafRemoteTextContext,
   type RealtimeEvent, type RealtimeStatus, type ReplayedUpdate, type ReservedOperation, type TrackedChange,
@@ -35,6 +35,8 @@ const RECONNECT_BASE_MS = 1_000;
 const RECONNECT_MAX_MS = 30_000;
 /** How long a document that will not settle is allowed to hold the channel. */
 const DRAIN_TIMEOUT_MS = 15_000;
+/** At most this often per document, an update carries the hash of the text it produces. */
+const HASH_INTERVAL_MS = 5_000;
 /** How long typing is coalesced into one operation. */
 const SEND_DEBOUNCE_MS = 250;
 const driftNotice = () => i18n._(msg`This document drifted from Overleaf's copy, so live editing stopped. Syncing will reconcile it.`);
@@ -117,6 +119,8 @@ export function useOverleafRealtime(options: {
   const proofs = useRef(new WeakMap<OtDocument, DocumentProof>());
   const leaving = useRef(new Map<string, Promise<boolean>>());
   const documentEpoch = useRef(0);
+  /** When each document last sent a hash; see `HASH_INTERVAL_MS`. */
+  const lastHashed = useRef(new WeakMap<OtDocument, number>());
   /** Said once per session: see `asOverleafStores` in ./ot. */
   const toldAboutReplacement = useRef(false);
   const noteReplaced = () => {
@@ -509,13 +513,25 @@ export function useOverleafRealtime(options: {
       markOutcomeUnknown(id, i18n._(msg`the Overleaf project connection is no longer active`));
       return;
     }
+    const doc = documents.current.get(id);
     // Recorded before the send can fail: an operation whose answer is lost
     // with its connection must still be recognised as ours when it is
     // replayed under this id after a reconnect.
-    if (publicId.current) documents.current.get(id)?.noteSubmitted(publicId.current);
+    if (publicId.current) doc?.noteSubmitted(publicId.current);
+    // Now and then, say what the document should read once this lands.
+    // Overleaf rejects the update when its copy disagrees, so a copy that has
+    // drifted fails loudly — and falls back to syncing — instead of every
+    // later edit landing in the wrong place. Like Overleaf's own editor, not
+    // on every keystroke: hashing the whole document costs.
+    const sentText = doc && doc.version === send.version ? doc.sentText : null;
+    const now = Date.now();
+    const hashDue = sentText !== null && now - (lastHashed.current.get(doc!) ?? -Infinity) >= HASH_INTERVAL_MS;
+    if (hashDue) lastHashed.current.set(doc!, now);
     try {
+      const hash = hashDue ? await overleafDocHash(sentText) : null;
       await invoke("overleaf_rt_send_ops", {
-        projectRoot, docId: id, version: send.version, ops: send.ops, ...(dupIfSource.length ? { dupIfSource } : {}),
+        projectRoot, docId: id, version: send.version, ops: send.ops,
+        ...(dupIfSource.length ? { dupIfSource } : {}), ...(hash ? { hash } : {}),
       });
     } catch (reason) {
       // A rejected Promise only says the acknowledgement did not reach this

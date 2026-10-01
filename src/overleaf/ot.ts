@@ -329,6 +329,16 @@ export class OtDocument {
     return this.inflight?.length ? { version: this.version, ops: this.inflight } : null;
   }
 
+  /**
+   * The text the server will hold once the operation in flight lands exactly
+   * as sent, which is what Overleaf's update `hash` describes. Null when
+   * nothing is in flight, or when later work is queued on top of it and this
+   * copy is already ahead of that.
+   */
+  get sentText(): string | null {
+    return this.inflight && !this.pending ? this.text : null;
+  }
+
   /** True when everything typed here has reached the server. */
   get settled(): boolean {
     return this.inflight === null && this.pending === null;

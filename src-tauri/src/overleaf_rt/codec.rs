@@ -241,6 +241,22 @@ pub(super) struct Update<'a, Op: Serialize> {
     /// resend an operation whose first answer was lost with its connection.
     #[serde(rename = "dupIfSource", skip_serializing_if = "<[String]>::is_empty")]
     pub dup_if_source: &'a [String],
+    /// What the document should hash to once this applies; see [`Submission`].
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub hash: Option<&'a str>,
+}
+
+/// How one submission of ops goes out, beyond the ops themselves. The default
+/// is a plain first send.
+#[derive(Debug, Default, Clone, Copy)]
+pub struct Submission<'a> {
+    /// The connections an earlier submission of these same ops went out on.
+    pub dup_if_source: &'a [String],
+    /// `sha1("blob {utf16 length}\0{utf-8 text}")` of the document once the
+    /// ops apply. Overleaf checks it when nothing else landed first and
+    /// rejects the update on a mismatch — turning a copy that drifted from
+    /// the server's into a loud `otUpdateError` instead of silent divergence.
+    pub hash: Option<&'a str>,
 }
 
 /// What makes an update tracked. `tc` is not a flag but the seed Overleaf mints

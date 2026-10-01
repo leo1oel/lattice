@@ -126,3 +126,15 @@ export function anchorsAfter(current: OpenDoc, ops: OtOp[]): Pick<OpenDoc, "comm
     }),
   };
 }
+
+/**
+ * The `hash` Overleaf checks an update against: SHA-1 of
+ * `blob {length}\0{text}`, a git blob hash with the length counted in UTF-16
+ * units the way JavaScript counts it and the text as UTF-8 — exactly what its
+ * document updater computes for the text the update produces.
+ */
+export async function overleafDocHash(text: string): Promise<string> {
+  // eslint-disable-next-line lingui/no-unlocalized-strings -- digest algorithm and the hashed wire format
+  const digest = await crypto.subtle.digest("SHA-1", new TextEncoder().encode(`blob ${text.length}\0${text}`));
+  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
+}
