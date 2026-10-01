@@ -8,8 +8,8 @@ use super::files::is_excluded;
 use super::link::{load_state, SyncState, PAUSED};
 use crate::overleaf_rt::{SESSION_EXPIRED, USER_AGENT};
 use reqwest::blocking::{Client, RequestBuilder, Response};
-use reqwest::header::{ACCEPT, CONTENT_LENGTH, CONTENT_TYPE, COOKIE};
-use reqwest::Method;
+use reqwest::header::{ACCEPT, CONTENT_LENGTH, CONTENT_TYPE, COOKIE, RETRY_AFTER};
+use reqwest::{Method, StatusCode};
 use serde_json::Value;
 use std::collections::BTreeMap;
 use std::io::Read;
@@ -40,12 +40,91 @@ fn check_authenticated(response: &Response) -> Result<(), String> {
 }
 
 /// Send, naming a transport failure with `failed` and a dead session as such.
+/// A transient failure is retried first; see [`retry_wait`].
 pub(super) fn send_as(
     request: RequestBuilder, failed: impl FnOnce(reqwest::Error) -> String,
 ) -> Result<Response, String> {
-    let response = request.send().map_err(failed)?;
+    let response = send_with_retries(request).map_err(failed)?;
     check_authenticated(&response)?;
     Ok(response)
+}
+
+/// Attempts after the first one, for a failure that is likely to pass.
+const TRANSIENT_RETRIES: u32 = 2;
+/// The first wait between attempts; it doubles each time.
+const RETRY_BASE: Duration = Duration::from_secs(1);
+/// The longest `Retry-After` honoured. Anything longer fails now instead of
+/// leaving a sync hanging with no explanation.
+const MAX_RETRY_WAIT: Duration = Duration::from_secs(8);
+
+/// How one attempt ended, as far as deciding on another goes.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Attempt<'a> {
+    /// The connection was never made, so the request never reached Overleaf.
+    NotConnected,
+    /// Sent, but no complete answer came back — the connection was reset.
+    NoAnswer,
+    Answered(StatusCode, Option<&'a str>),
+}
+
+/// How long to wait before trying again, or `None` to give up now.
+///
+/// A blip — a gateway error while Overleaf restarts an instance, a reset
+/// connection, a rate limit — otherwise fails a whole sync or a history read
+/// that would have worked a second later. Retrying is only safe when it cannot
+/// do something twice, though: anything is retried when it provably never
+/// reached Overleaf (no connection, or 429, which refuses before doing
+/// anything); a request that may have been carried out only when doing it
+/// again is harmless, which for HTTP is what an idempotent method promises.
+fn retry_wait(attempt: Attempt, idempotent: bool, retries_done: u32) -> Option<Duration> {
+    if retries_done >= TRANSIENT_RETRIES {
+        return None;
+    }
+    let backoff = RETRY_BASE * 2u32.pow(retries_done);
+    match attempt {
+        Attempt::NotConnected => Some(backoff),
+        Attempt::NoAnswer if idempotent => Some(backoff),
+        Attempt::Answered(StatusCode::TOO_MANY_REQUESTS, retry_after) => {
+            match retry_after.map(|value| value.trim().parse::<u64>()) {
+                Some(Ok(seconds)) if Duration::from_secs(seconds) > MAX_RETRY_WAIT => None,
+                Some(Ok(seconds)) => Some(Duration::from_secs(seconds)),
+                _ => Some(backoff),
+            }
+        }
+        Attempt::Answered(
+            StatusCode::BAD_GATEWAY | StatusCode::SERVICE_UNAVAILABLE | StatusCode::GATEWAY_TIMEOUT,
+            _,
+        ) if idempotent => Some(backoff),
+        _ => None,
+    }
+}
+
+fn send_with_retries(mut request: RequestBuilder) -> reqwest::Result<Response> {
+    // A streamed body (a multipart upload) cannot be cloned, and so is never
+    // retried: `try_clone` answers `None` for it.
+    let idempotent = (request.try_clone().and_then(|copy| copy.build().ok()))
+        .is_some_and(|built| built.method().is_idempotent());
+    let mut retries_done = 0;
+    loop {
+        let again = request.try_clone();
+        let outcome = request.send();
+        let attempt = match &outcome {
+            Ok(response) => Attempt::Answered(
+                response.status(),
+                response.headers().get(RETRY_AFTER).and_then(|value| value.to_str().ok()),
+            ),
+            Err(error) if error.is_connect() => Attempt::NotConnected,
+            // A timeout already spent the caller's whole budget (two minutes
+            // for a project download); tripling it is not a retry.
+            Err(error) if error.is_timeout() => return outcome,
+            Err(_) => Attempt::NoAnswer,
+        };
+        let wait = retry_wait(attempt, idempotent, retries_done);
+        let (Some(wait), Some(again)) = (wait, again) else { return outcome };
+        std::thread::sleep(wait);
+        request = again;
+        retries_done += 1;
+    }
 }
 
 pub(super) fn send(request: RequestBuilder) -> Result<Response, String> {
@@ -357,6 +436,53 @@ impl Remote {
 mod tests {
     use super::*;
     use crate::overleaf::test_support::*;
+    use std::sync::{Arc, Mutex};
+
+    #[test]
+    fn retries_only_what_cannot_happen_twice() {
+        let answered = |code: u16| Attempt::Answered(StatusCode::from_u16(code).unwrap(), None);
+        let second = Some(Duration::from_secs(2));
+        // Never reached Overleaf: safe for anything.
+        assert_eq!(retry_wait(Attempt::NotConnected, false, 0), Some(RETRY_BASE));
+        assert_eq!(retry_wait(answered(429), false, 1), second);
+        // May have been carried out: only an idempotent request goes again.
+        for attempt in [Attempt::NoAnswer, answered(502), answered(503), answered(504)] {
+            assert_eq!(retry_wait(attempt, true, 0), Some(RETRY_BASE), "{attempt:?}");
+            assert_eq!(retry_wait(attempt, false, 0), None, "{attempt:?}");
+        }
+        // Not transient, out of attempts, or told to wait too long.
+        for code in [200, 400, 404, 500] {
+            assert_eq!(retry_wait(answered(code), true, 0), None, "{code}");
+        }
+        assert_eq!(retry_wait(Attempt::NotConnected, true, TRANSIENT_RETRIES), None);
+        let rate_limited = |after| Attempt::Answered(StatusCode::TOO_MANY_REQUESTS, Some(after));
+        assert_eq!(retry_wait(rate_limited("3"), false, 0), Some(Duration::from_secs(3)));
+        assert_eq!(retry_wait(rate_limited("600"), false, 0), None);
+    }
+
+    #[test]
+    fn a_read_survives_a_gateway_blip_and_a_mutation_is_not_repeated() {
+        let hits = Arc::new(Mutex::new(Vec::<String>::new()));
+        let seen = Arc::clone(&hits);
+        let base = crate::overleaf_rt::tests::serve_http(move |request| {
+            let method = request.method().as_str().to_string();
+            let first = {
+                let mut seen = seen.lock().unwrap();
+                seen.push(method.clone());
+                seen.iter().filter(|m| **m == method).count() == 1
+            };
+            let status = if first { 503 } else { 200 };
+            let _ =
+                request.respond(tiny_http::Response::from_string("ok").with_status_code(status));
+        });
+        let client = http_client(10).unwrap();
+        let read = send(client.get(format!("{base}/project/p/updates"))).unwrap();
+        assert_eq!(read.status(), StatusCode::OK);
+        // A 503 to a POST may still have done its work: report it, never resend.
+        let write = send(client.post(format!("{base}/project/p/thread")).body("{}")).unwrap();
+        assert_eq!(write.status(), StatusCode::SERVICE_UNAVAILABLE);
+        assert_eq!(*hits.lock().unwrap(), ["GET", "GET", "POST"]);
+    }
 
     #[test]
     fn linked_host_matching_uses_url_origins() {

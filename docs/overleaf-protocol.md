@@ -127,6 +127,11 @@ purpose.
   legacy project-list meta tags, including HTML entity decoding.
 - Mutating HTTP requests carry the CSRF value from the same authenticated
   origin.
+- A transient failure is retried at most twice, with backoff, and only when
+  the retry cannot do anything twice: any request that never connected or was
+  answered 429 (honouring a `Retry-After` of up to 8 s), and an idempotent one
+  on a reset, 502, 503 or 504. Timeouts, other statuses and non-replayable
+  bodies are never retried (`retry_wait` in `src-tauri/src/overleaf/api.rs`).
 - Creating a project from local files uses `POST /project/new/upload` with
   multipart fields `name` and `qqfile`; success is identified by the returned
   `project_id`, not by a redirect.
