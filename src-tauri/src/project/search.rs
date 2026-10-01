@@ -18,7 +18,26 @@ use std::sync::LazyLock;
 const MAX_SEARCH_RESULTS: usize = 200;
 
 pub fn search_files(root: &Path, query: &str) -> Result<Vec<ProjectSearchResult>, String> {
+    // The index's unicode61 tokenizer keeps a run of Chinese or Japanese text
+    // between punctuation as one token, and the index matches token prefixes:
+    // "注意力" inside "我们提出了注意力机制" found nothing. Those queries read
+    // the files instead, which matches substrings.
+    if search_terms(query).iter().any(|term| term.chars().any(is_unspaced_script)) {
+        return search_files_linear(root, query);
+    }
     crate::fts::search(root, query).or_else(|_| search_files_linear(root, query))
+}
+
+/// A character from a script written without spaces between words.
+fn is_unspaced_script(character: char) -> bool {
+    matches!(character,
+        '\u{3040}'..='\u{30FF}' // Hiragana, Katakana
+        | '\u{3400}'..='\u{4DBF}' // CJK Extension A
+        | '\u{4E00}'..='\u{9FFF}' // CJK Unified Ideographs
+        | '\u{F900}'..='\u{FAFF}' // CJK Compatibility Ideographs
+        | '\u{0E00}'..='\u{0E7F}' // Thai
+        | '\u{20000}'..='\u{2FA1F}' // CJK Extensions B–F, compatibility supplement
+    )
 }
 
 /// A project-file search hit; line 1 with the path as snippet for path matches.
@@ -333,6 +352,17 @@ mod tests {
             assert_eq!(hit.path, "sections/method.tex", "{query}");
         }
         assert!(search_files(root, "latent alignment").unwrap()[0].snippet.contains("distinctive"));
+
+        // A Chinese word inside a sentence, which the index keeps as one token.
+        fixture.write("sections/intro.tex", "我们提出了注意力机制，效果很好。\n");
+        for query in ["注意力", "机制", "注意力 效果"] {
+            let hits = search_files(root, query).unwrap();
+            assert_eq!(
+                hits.iter().map(|hit| hit.path.as_str()).collect::<Vec<_>>(),
+                ["sections/intro.tex"],
+                "{query}"
+            );
+        }
 
         // The linear fallback also skips hidden paths and HTML outside the body.
         fixture.write(
