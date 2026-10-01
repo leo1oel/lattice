@@ -74,6 +74,12 @@ pub(super) struct SyncState {
     /// from identical bytes (two different files may have the same content).
     #[serde(default)]
     pub pending_relocations: Vec<PendingRelocation>,
+    /// Paths whose download would have emptied, gutted or dropped the local
+    /// file with no change in Overleaf's history to show for it, each with
+    /// the last sync before it was first refused. History from then on can
+    /// still confirm the change, even when one check could not read it.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub refused_since: BTreeMap<String, String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -310,7 +310,8 @@ export type OverleafChangeKind =
   | "merge"
   | "conflict"
   | "deleteLocal"
-  | "skippedRemoteDelete";
+  | "skippedRemoteDelete"
+  | "refusedIncoming";
 type OverleafChange = {
   path: string;
   kind: OverleafChangeKind;
@@ -370,6 +371,12 @@ export type OverleafSyncResult = {
   automaticRemoteDeletes?: string[];
   /** Left behind for being bigger than Overleaf will take. */
   skippedLarge?: string[];
+  /**
+   * Kept as they are here although Overleaf's download had them empty, cut
+   * to a fraction or missing, with no change in Overleaf's history to show
+   * for it.
+   */
+  refusedIncoming?: string[];
   readOnly?: boolean;
 };
 

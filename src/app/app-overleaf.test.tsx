@@ -302,6 +302,15 @@ describe("Overleaf sync", () => {
     await expectNotification(/已从 Overleaf 删除 1 个文件/);
   });
 
+  it("says which files a sync kept because Overleaf's download would have emptied them", async () => {
+    renderOverleafPaper({
+      overleaf_sync: () => overleafSyncResult({ refusedIncoming: ["notes.md", "figures/fig.png"] }),
+    });
+    await expectInvoked("overleaf_rt_connect", { projectRoot: "/tmp/lattice-overleaf-paper" });
+    fireEvent.click(await findOverleafSyncButton());
+    await expectNotification(/Kept your copy of notes\.md, figures\/fig\.png\. Overleaf sent these files empty/);
+  });
+
   it("silently removes legacy app-owned intermediates from Overleaf", async () => {
     let syncCount = 0;
     renderOverleafPaper({

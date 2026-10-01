@@ -12,6 +12,7 @@ use crate::util::url_encode;
 use reqwest::{Method, StatusCode};
 use serde::Serialize;
 use serde_json::{json, Value};
+use std::collections::BTreeSet;
 use std::path::Path;
 
 /// One message in the project chat or in a comment thread.
@@ -372,6 +373,58 @@ pub fn history_diff(
 /// at one version; entries with no operation existed unchanged at both.
 pub fn history_files(config_dir: &Path, root: &Path, from: i64, to: i64) -> Result<Value, String> {
     history_get(config_dir, root, &format!("/filetree/diff?from={from}&to={to}"))
+}
+
+/// Updates per history page, and how many pages one check may read before it
+/// gives up rather than walk a long history on every sync.
+const HISTORY_PAGE: u32 = 50;
+const HISTORY_PAGES: usize = 20;
+
+/// Every path Overleaf's history records a change to in an update that ended
+/// at or after `since_ms` (Unix milliseconds; `None` reads it all): documents
+/// edited, files uploaded or removed, and both ends of a rename, so a file
+/// renamed away counts as changed at its old path too. A folder operation
+/// names only the folder; callers match descendants themselves.
+///
+/// This is the evidence a destructive download must have before a sync acts
+/// on it (see `sync::settle_destructive`), so an unreadable history is an
+/// error, never an empty set the caller might read as "nothing changed".
+pub(super) fn paths_changed_since(
+    remote: &Remote, since_ms: Option<i64>,
+) -> Result<BTreeSet<String>, String> {
+    let mut paths = BTreeSet::new();
+    let mut before: Option<i64> = None;
+    for _ in 0..HISTORY_PAGES {
+        let page = before.map(|before| format!("&before={before}")).unwrap_or_default();
+        let response = remote.get(&format!("/updates?min_count={HISTORY_PAGE}{page}"), 30)?;
+        let body: Value =
+            expect_success(response, "for the project history")?.json().map_err(err)?;
+        let updates = body.get("updates").and_then(Value::as_array).cloned().unwrap_or_default();
+        let mut reached_since = false;
+        for update in &updates {
+            let end_ts = update.get("meta").and_then(|meta| meta.get("end_ts"));
+            // Newest first, so the first update older than the window means
+            // every later page is older still. One without a timestamp cannot
+            // be placed, and counts.
+            if since_ms.zip(end_ts.and_then(Value::as_i64)).is_some_and(|(since, end)| end < since)
+            {
+                reached_since = true;
+                continue;
+            }
+            paths.extend(update_paths(update));
+            for op in update.get("project_ops").and_then(Value::as_array).into_iter().flatten() {
+                if let Some(from) = op.get("rename").and_then(|body| json_str(body, &["pathname"]))
+                {
+                    paths.insert(from);
+                }
+            }
+        }
+        match body.get("nextBeforeTimestamp").and_then(Value::as_i64) {
+            Some(next) if !reached_since && !updates.is_empty() => before = Some(next),
+            _ => return Ok(paths),
+        }
+    }
+    Err("Overleaf's history since the last sync is longer than Lattice reads at once.".to_string())
 }
 
 /// Roll one file, or the whole project, back to a version.

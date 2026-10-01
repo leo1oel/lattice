@@ -421,6 +421,13 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
         const files = result.skippedLarge.join(", ");
         setWarning(t`Too large for Overleaf, so left on this machine: ${files}.`, "Overleaf");
       }
+      // A download that would have emptied or dropped files nobody changed
+      // on Overleaf. Say so: the files simply stay, and the reason is that
+      // Overleaf's own history does not back the change.
+      if (result.refusedIncoming?.length) {
+        const files = result.refusedIncoming.join(", ");
+        setWarning(t`Kept your copy of ${files}. Overleaf sent these files empty, much smaller or not at all, but its history shows no such change. If the change is real, delete the file here and sync again.`, "Overleaf");
+      }
       // Merged and conflicted files were rewritten on disk like pulled ones;
       // the editor must reload them or it would save over the incoming edits.
       const changedOnDisk = new Set([
@@ -493,6 +500,7 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
         ...externalChangesRef.current.keys(), ...(reloadBlockedPath ? [reloadBlockedPath] : []),
         ...result.conflicts.map((conflict) => conflict.path),
         ...result.deletedLocal, ...result.skippedRemoteDeletes, ...(result.skippedLarge ?? []),
+        ...(result.refusedIncoming ?? []),
       ]) reconciled.delete(path);
       if (!result.readOnly) resumeRealtimePathsRef.current([...reconciled]);
       if (result.pulled.length || result.pushed.length || result.merged.length) {

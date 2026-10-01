@@ -13,7 +13,7 @@ import { invoke } from "@tauri-apps/api/core";
 import type { MessageDescriptor } from "@lingui/core";
 import { msg } from "@lingui/core/macro";
 import { Trans, useLingui } from "@lingui/react/macro";
-import { ArrowDownToLine, ArrowUpFromLine, GitMerge, Trash2, TriangleAlert } from "lucide-react";
+import { ArrowDownToLine, ArrowUpFromLine, GitMerge, ShieldAlert, Trash2, TriangleAlert } from "lucide-react";
 import { MotionButton } from "../components/ui/motion";
 import { Button } from "../components/ui/button";
 import { InfinityLoader, ReloadButton } from "../components/ui/activity-icons";
@@ -33,6 +33,7 @@ import { InlineMessage } from "../components/ui/inline-message";
 
 const GROUPS: { kind: OverleafChangeKind; Icon: typeof Trash2; title: MessageDescriptor; blurb: MessageDescriptor }[] = [
   { kind: "conflict", Icon: TriangleAlert, title: msg`Needs your decision`, blurb: msg`Edited on both sides in the same place. Applying marks the spots in the file so you can choose` },
+  { kind: "refusedIncoming", Icon: ShieldAlert, title: msg`Kept here`, blurb: msg`Overleaf sent these empty, much smaller or not at all, but its history shows no such change, so your copy stays. If the change is real, delete the file here and sync again` },
   { kind: "incoming", Icon: ArrowDownToLine, title: msg`Coming from Overleaf`, blurb: msg`Changed there, untouched here` },
   { kind: "merge", Icon: GitMerge, title: msg`Combines automatically`, blurb: msg`Both sides edited different parts, so the two sets of edits join` },
   { kind: "outgoing", Icon: ArrowUpFromLine, title: msg`Going to Overleaf`, blurb: msg`Changed here, untouched there` },

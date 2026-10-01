@@ -14,6 +14,7 @@ use super::api::{
 };
 use super::files::*;
 use super::link::{load_state, now_iso, permits_writing, save_state, SyncState, PAUSED};
+use super::review::paths_changed_since;
 use crate::overleaf_rt::EntityEntry;
 use reqwest::header::COOKIE;
 use serde::{Deserialize, Serialize};
@@ -56,6 +57,11 @@ pub struct OverleafSyncResult {
     /// Reported rather than dropped quietly: to the writer they look synced.
     #[serde(default)]
     pub skipped_large: Vec<String>,
+    /// Files kept as they are here although Overleaf's download had them
+    /// empty, cut to a fraction or missing, because Overleaf's history shows
+    /// no change to them since the last sync (see [`settle_destructive`]).
+    #[serde(default)]
+    pub refused_incoming: Vec<String>,
     /// True when local work stayed here because this account cannot write to
     /// the project. Everything incoming still landed.
     #[serde(default)]
@@ -68,6 +74,7 @@ pub struct OverleafSyncResult {
 pub struct OverleafChange {
     pub path: String,
     /// "incoming" | "outgoing" | "merge" | "conflict" | "deleteLocal" | "skippedRemoteDelete"
+    /// | "refusedIncoming"
     pub kind: String,
     /// The file as it stands locally right now; None when absent locally.
     pub before: Option<String>,
@@ -124,6 +131,36 @@ impl ConflictPlan {
     }
 }
 
+/// An incoming change that would wipe out a file kept unchanged here since
+/// the last sync: Overleaf's copy is empty, a fraction of ours, or missing.
+///
+/// "Changed there, untouched here" is normally a plain pull or deletion. But
+/// on 2026-10-01 Overleaf's project download carried 0-byte entries for a
+/// hundred files nobody had touched, and taking it at its word emptied them
+/// all on disk. So a change like this waits for Overleaf's own history to
+/// confirm someone made it.
+pub(super) struct Destructive {
+    pub path: String,
+    /// Overleaf's bytes; `None` when the download no longer has the file.
+    pub remote: Option<Vec<u8>>,
+}
+
+/// Below this size a file shrinking is ordinary editing, not a sign of a
+/// hollow download.
+const SHRINK_FLOOR: usize = 1024;
+
+/// Whether replacing `local` with `remote` (`None`: deleting it) loses most
+/// of a non-empty file: emptied, dropped, or cut below a quarter of its size.
+pub(super) fn wipes_out(local: &[u8], remote: Option<&[u8]>) -> bool {
+    match remote {
+        _ if local.is_empty() => false,
+        None => true,
+        Some(remote) => {
+            remote.is_empty() || (local.len() >= SHRINK_FLOOR && remote.len() < local.len() / 4)
+        }
+    }
+}
+
 /// Everything a sync would do, decided but not yet done.
 #[derive(Default)]
 pub(super) struct SyncPlan {
@@ -136,8 +173,43 @@ pub(super) struct SyncPlan {
     pub conflict: Vec<ConflictPlan>,
     pub delete_local: Vec<String>,
     pub skipped_remote_deletes: Vec<String>,
+    /// Pulls and deletions held for confirmation; until then each keeps its
+    /// unchanged local hash in `files`.
+    pub destructive: Vec<Destructive>,
     /// Post-sync hashes for every surviving path.
     pub files: BTreeMap<String, String>,
+}
+
+impl SyncPlan {
+    /// Turn the destructive changes `confirmed` vouches for into ordinary
+    /// pulls and deletions; return the rest, which stay out.
+    ///
+    /// A path is confirmed by itself or by a folder above it, since Overleaf
+    /// records a folder rename or deletion only under the folder's name.
+    fn settle_destructive(&mut self, confirmed: &BTreeSet<String>) -> Vec<String> {
+        let vouched = |path: &str| {
+            confirmed.contains(path)
+                || path.match_indices('/').any(|(at, _)| confirmed.contains(&path[..at]))
+        };
+        let mut refused = Vec::new();
+        for Destructive { path, remote } in std::mem::take(&mut self.destructive) {
+            match remote {
+                _ if !vouched(&path) => refused.push(path),
+                Some(bytes) => {
+                    self.files.insert(path.clone(), sha256_hex(&bytes));
+                    self.pull.push((path, bytes));
+                }
+                None => {
+                    self.files.remove(&path);
+                    self.delete_local.push(path);
+                }
+            }
+        }
+        // Callers report every list in path order.
+        self.pull.sort_by(|a, b| a.0.cmp(&b.0));
+        self.delete_local.sort();
+        refused
+    }
 }
 
 /// Decide what a sync would do. Reads base copies from disk, writes nothing.
@@ -180,8 +252,14 @@ pub(super) fn plan_sync(
                 let remote_changed = base_hash != Some(&remote_hash);
                 let local_changed = base_hash != Some(&local_hash);
                 if remote_changed && !local_changed {
-                    plan.pull.push((path.clone(), rb.clone()));
-                    plan.files.insert(path.clone(), remote_hash);
+                    if wipes_out(lb, Some(rb)) {
+                        plan.destructive
+                            .push(Destructive { path: path.clone(), remote: Some(rb.clone()) });
+                        plan.files.insert(path.clone(), local_hash);
+                    } else {
+                        plan.pull.push((path.clone(), rb.clone()));
+                        plan.files.insert(path.clone(), remote_hash);
+                    }
                     continue;
                 }
                 if local_changed && !remote_changed {
@@ -237,8 +315,15 @@ pub(super) fn plan_sync(
             (None, Some(lb)) => {
                 let local_hash = sha256_hex(lb);
                 if base_hash == Some(&local_hash) {
-                    // Deleted on remote while local is unchanged: delete it.
-                    plan.delete_local.push(path.clone());
+                    // Deleted on remote while local is unchanged: delete it,
+                    // once history confirms the download is not just missing
+                    // it.
+                    if wipes_out(lb, None) {
+                        plan.destructive.push(Destructive { path: path.clone(), remote: None });
+                        plan.files.insert(path.clone(), local_hash);
+                    } else {
+                        plan.delete_local.push(path.clone());
+                    }
                 } else {
                     // New locally, or deleted remotely after local edits
                     // (upload restores it remotely): push it.
@@ -277,6 +362,53 @@ pub(super) fn fetch_remote_files(remote: &Remote) -> Result<RemoteFiles, String>
     automatic_remote_deletes.sort();
     let files = entries.into_iter().filter(|(path, _)| !is_excluded(path)).collect();
     Ok(RemoteFiles { files, automatic_remote_deletes })
+}
+
+/// How far before the last sync the history check also looks, so clock skew
+/// between this machine and Overleaf cannot hide a change made just before it.
+const HISTORY_SLACK_MS: i64 = 10 * 60 * 1000;
+
+/// Settle the plan's destructive changes against Overleaf's history: each one
+/// goes ahead when an update since the last sync (or since the sync before
+/// its first refusal) touched the path, and is refused otherwise, logged and
+/// returned with the time its refusal window opened.
+///
+/// An unreadable history refuses them all. Holding a file back costs one more
+/// sync; writing a hollow download over it costs the file.
+pub(super) fn settle_destructive(remote: &Remote, plan: &mut SyncPlan) -> BTreeMap<String, String> {
+    if plan.destructive.is_empty() {
+        return BTreeMap::new();
+    }
+    let state = &remote.state;
+    let opened = |path: &str| state.refused_since.get(path).or(state.last_sync.as_ref()).cloned();
+    let windows: Vec<Option<String>> =
+        plan.destructive.iter().map(|change| opened(&change.path)).collect();
+    // One read covers them all: from the earliest window, or the whole
+    // history when one has no sync to start from.
+    let since_ms = windows
+        .iter()
+        .map(|at| {
+            let at = chrono::DateTime::parse_from_rfc3339(at.as_deref()?).ok()?;
+            Some(at.timestamp_millis() - HISTORY_SLACK_MS)
+        })
+        .collect::<Option<Vec<i64>>>()
+        .and_then(|starts| starts.into_iter().min());
+    let confirmed = paths_changed_since(remote, since_ms).unwrap_or_else(|error| {
+        log::warn!(target: "lattice::overleaf", "Could not read Overleaf's history to confirm destructive changes: {error}");
+        BTreeSet::new()
+    });
+    let refused = plan.settle_destructive(&confirmed);
+    (refused.into_iter())
+        .map(|path| {
+            log::warn!(
+                target: "lattice::overleaf",
+                "Kept {path}: Overleaf's download has it empty, much smaller or missing, \
+                 and Overleaf's history records no change to it since the last sync"
+            );
+            let since = opened(&path).unwrap_or_else(now_iso);
+            (path, since)
+        })
+        .collect()
 }
 
 pub(super) fn sync_stamp() -> String {
@@ -334,9 +466,11 @@ pub fn sync(
         .or(linked.state.remote_version);
     let RemoteFiles { files: remote, automatic_remote_deletes } = fetch_remote_files(&linked)?;
     let LocalFiles { files: local, oversized } = read_local_files(root)?;
-    let plan = plan_sync(root, &linked.state, &remote, &local, live, &sync_stamp())?;
+    let mut plan = plan_sync(root, &linked.state, &remote, &local, live, &sync_stamp())?;
+    let refused_since = settle_destructive(&linked, &mut plan);
 
     let mut result = OverleafSyncResult {
+        refused_incoming: refused_since.keys().cloned().collect(),
         skipped_large: oversized,
         automatic_remote_deletes,
         skipped_remote_deletes: plan.skipped_remote_deletes,
@@ -423,6 +557,7 @@ pub fn sync(
     let mut state = linked.state;
     finalize_base_copies(root, &state.files, &new_files, &remote)?;
     state.files = new_files;
+    state.refused_since = refused_since;
     state.last_sync = Some(now_iso());
     // `remote_version_before` is the only history position known to precede
     // the downloaded snapshot. Never replace it with a newer value fetched at
@@ -479,7 +614,8 @@ pub fn preview(
     linked.state.files.retain(|path, _| !is_excluded(path));
     let remote = fetch_remote_files(&linked)?.files;
     let local = read_local_files(root)?.files;
-    let plan = plan_sync(root, &linked.state, &remote, &local, live, &sync_stamp())?;
+    let mut plan = plan_sync(root, &linked.state, &remote, &local, live, &sync_stamp())?;
+    let refused = settle_destructive(&linked, &mut plan);
 
     let local_bytes = |path: &str| local.get(path).map(Vec::as_slice);
     // Conflicts first — they are the only rows that need a decision — then
@@ -487,6 +623,10 @@ pub fn preview(
     let mut changes: Vec<OverleafChange> = (plan.conflict.iter())
         .map(|c| preview_change(&c.path, "conflict", Some(&c.local), Some(&c.resolved)))
         .collect();
+    for path in refused.keys() {
+        let after = remote.get(path).map(Vec::as_slice);
+        changes.push(preview_change(path, "refusedIncoming", local_bytes(path), after));
+    }
     let pulled = plan.pull.iter().map(|(path, bytes)| (path, "incoming", Some(bytes.as_slice())));
     let merged = plan.merge.iter().map(|(path, bytes)| (path, "merge", Some(bytes.as_slice())));
     for (path, kind, after) in pulled.chain(merged) {
@@ -509,7 +649,7 @@ pub fn preview(
     for path in &plan.skipped_remote_deletes {
         changes.push(preview_change(path, "skippedRemoteDelete", None, None));
     }
-    let rank = ["conflict", "incoming", "merge", "outgoing", "deleteLocal"];
+    let rank = ["conflict", "refusedIncoming", "incoming", "merge", "outgoing", "deleteLocal"];
     let rank = |kind: &str| rank.iter().position(|k| *k == kind).unwrap_or(rank.len());
     changes.sort_by(|a, b| rank(&a.kind).cmp(&rank(&b.kind)).then_with(|| a.path.cmp(&b.path)));
 

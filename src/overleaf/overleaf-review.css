@@ -74,6 +74,8 @@
 .overleaf-review-diff-kind[data-kind="conflict"] { color: var(--status-danger); }
 .overleaf-review-group h3[data-kind="incoming"],
 .overleaf-review-diff-kind[data-kind="incoming"] { color: var(--control-active); }
+.overleaf-review-group h3[data-kind="refusedIncoming"],
+.overleaf-review-diff-kind[data-kind="refusedIncoming"] { color: var(--status-warning); }
 .overleaf-review-group p { margin: 0 0 var(--space-4); color: var(--text-tertiary); font-size: var(--type-micro-size); line-height: var(--type-micro-line-height); }
 .overleaf-review-group ul { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-1); }
 .overleaf-review-group button {
