@@ -62,9 +62,13 @@ impl MockServer {
 pub(super) struct Mock {
     /// The project download.
     pub zip: Vec<u8>,
-    /// Served one per `/updates` request (the last value repeats). An empty
-    /// list answers 404, matching an instance without history.
+    /// Served one per version read, a `/updates?min_count=1` request (the
+    /// last value repeats). An empty list answers 404, matching an instance
+    /// without history.
     pub versions: Vec<i64>,
+    /// The project history, newest first, served whole to every other
+    /// `/updates` request: the page reads that confirm a destructive pull.
+    pub history: Vec<serde_json::Value>,
     /// The nth file upload (counting from 1) fails.
     pub fail_upload_at: Option<usize>,
     /// Move and rename requests fail.
@@ -105,6 +109,10 @@ impl Mock {
                 method.as_str(),
                 path,
             ) {
+                ("GET", p) if p.ends_with("/updates") && !url.ends_with("?min_count=1") => {
+                    let body = serde_json::json!({ "updates": self.history });
+                    (200, JSON, body.to_string().into_bytes())
+                }
                 ("GET", p) if p.ends_with("/updates") => match versions.front().copied() {
                     None => (404, None, Vec::new()),
                     Some(version) => {

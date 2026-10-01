@@ -10,8 +10,9 @@ use super::api::{err, expect_success, full_name, json_str, Remote};
 use crate::overleaf_rt::parse_comment_ranges;
 use crate::util::url_encode;
 use reqwest::{Method, StatusCode};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
+use std::collections::BTreeSet;
 use std::path::Path;
 
 /// One message in the project chat or in a comment thread.
@@ -372,6 +373,105 @@ pub fn history_diff(
 /// at one version; entries with no operation existed unchanged at both.
 pub fn history_files(config_dir: &Path, root: &Path, from: i64, to: i64) -> Result<Value, String> {
     history_get(config_dir, root, &format!("/filetree/diff?from={from}&to={to}"))
+}
+
+/// Updates per history page, and how many pages one check may read before it
+/// gives up rather than walk a long history on every sync.
+const HISTORY_PAGE: u32 = 50;
+const HISTORY_PAGES: usize = 20;
+
+/// Where in Overleaf's history a sync's agreed copy stands: changes from here
+/// on are not in it.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(super) enum HistoryFrom {
+    /// The project version the copy was downloaded at.
+    Version(i64),
+    /// When the copy was taken (Unix milliseconds), for a sync that could not
+    /// learn the version.
+    Time(i64),
+}
+
+/// How far before a sync's time a change still counts as after it, so clock
+/// skew between this machine and Overleaf cannot hide one made just before.
+const HISTORY_SLACK_MS: i64 = 10 * 60 * 1000;
+
+/// One entry of Overleaf's history, as far as confirming a download goes.
+pub(super) struct HistoryUpdate {
+    from_v: Option<i64>,
+    to_v: Option<i64>,
+    end_ts: Option<i64>,
+    /// Documents edited, files uploaded or removed, and both ends of a
+    /// rename, so a file renamed away counts as changed at its old path too.
+    /// A folder operation names only the folder.
+    pub paths: BTreeSet<String>,
+}
+
+impl HistoryUpdate {
+    /// Whether this update is missing from a copy taken at `from` (`None`:
+    /// no copy, so every update is). One that cannot be placed counts.
+    pub fn after(&self, from: Option<HistoryFrom>) -> bool {
+        match from {
+            None => true,
+            Some(HistoryFrom::Version(version)) => self.from_v.is_none_or(|v| v >= version),
+            Some(HistoryFrom::Time(ms)) => {
+                self.end_ts.is_none_or(|end| end >= ms - HISTORY_SLACK_MS)
+            }
+        }
+    }
+
+    /// Whether this update is already part of a write Lattice itself made at
+    /// `own`: one that cannot be placed is not.
+    pub fn within(&self, own: HistoryFrom) -> bool {
+        match own {
+            HistoryFrom::Version(version) => self.to_v.is_some_and(|v| v <= version),
+            HistoryFrom::Time(ms) => self.end_ts.is_some_and(|end| end <= ms + HISTORY_SLACK_MS),
+        }
+    }
+}
+
+/// Overleaf's history, newest first, up to the first update `wanted` turns
+/// down; everything older than that is turned down too.
+///
+/// This is the evidence a destructive download must have before a sync acts
+/// on it (see `sync::settle_destructive`), so an unreadable history is an
+/// error, never an empty list the caller might read as "nothing changed".
+pub(super) fn history_since(
+    remote: &Remote, wanted: impl Fn(&HistoryUpdate) -> bool,
+) -> Result<Vec<HistoryUpdate>, String> {
+    let mut history = Vec::new();
+    let mut before: Option<i64> = None;
+    for _ in 0..HISTORY_PAGES {
+        let page = before.map(|before| format!("&before={before}")).unwrap_or_default();
+        let response = remote.get(&format!("/updates?min_count={HISTORY_PAGE}{page}"), 30)?;
+        let body: Value =
+            expect_success(response, "for the project history")?.json().map_err(err)?;
+        let updates = body.get("updates").and_then(Value::as_array).cloned().unwrap_or_default();
+        for update in &updates {
+            let mut paths: BTreeSet<String> = update_paths(update).into_iter().collect();
+            for op in update.get("project_ops").and_then(Value::as_array).into_iter().flatten() {
+                if let Some(from) = op.get("rename").and_then(|body| json_str(body, &["pathname"]))
+                {
+                    paths.insert(from);
+                }
+            }
+            let update = HistoryUpdate {
+                from_v: update.get("fromV").and_then(Value::as_i64),
+                to_v: update.get("toV").and_then(Value::as_i64),
+                end_ts: update.get("meta").and_then(|meta| meta.get("end_ts")?.as_i64()),
+                paths,
+            };
+            if !wanted(&update) {
+                return Ok(history);
+            }
+            history.push(update);
+        }
+        match body.get("nextBeforeTimestamp").and_then(Value::as_i64) {
+            Some(next) if !updates.is_empty() => before = Some(next),
+            _ => return Ok(history),
+        }
+    }
+    Err("Overleaf's history since the last sync is longer than Lattice reads at once.".to_string())
 }
 
 /// Roll one file, or the whole project, back to a version.

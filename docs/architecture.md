@@ -313,7 +313,13 @@ the last sync under `.research/overleaf-base/` (`overleaf/files.rs`) — that is
 the common ancestor without which only "both sides changed" could be detected,
 never how to combine. Files with conflict markers are refused for upload
 (`CONFLICT_MARKER`). Files above 45 MB are reported rather than synced
-(`MAX_SYNC_FILE_BYTES`).
+(`MAX_SYNC_FILE_BYTES`). A download that would empty a local file or cut
+it below a quarter of its size is applied (or merged) only when Overleaf's
+history records a change to that path after the version the last sync
+downloaded, other than Lattice's own uploads, realtime edits and moves
+(`own_writes`); otherwise the local file is kept, a local edit to it goes up, and
+it is reported once per Overleaf copy (`settle_destructive`, `refused` in the
+state).
 
 ---
 

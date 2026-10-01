@@ -13,7 +13,8 @@ use super::api::{
     latest_update_version, read_zip_entries, send_as, sync_host, Remote,
 };
 use super::files::*;
-use super::link::{load_state, now_iso, permits_writing, save_state, SyncState, PAUSED};
+use super::link::{load_state, now_iso, permits_writing, save_state, Refusal, SyncState, PAUSED};
+use super::review::{history_since, HistoryFrom};
 use crate::overleaf_rt::EntityEntry;
 use reqwest::header::COOKIE;
 use serde::{Deserialize, Serialize};
@@ -56,6 +57,12 @@ pub struct OverleafSyncResult {
     /// Reported rather than dropped quietly: to the writer they look synced.
     #[serde(default)]
     pub skipped_large: Vec<String>,
+    /// Files kept as they are here although Overleaf's download had them
+    /// empty or cut to a fraction, because Overleaf's history does not confirm
+    /// a change to them since the last sync (see [`settle_destructive`]). Each
+    /// is reported once per Overleaf copy, not again while that copy stays.
+    #[serde(default)]
+    pub refused_incoming: Vec<String>,
     /// True when local work stayed here because this account cannot write to
     /// the project. Everything incoming still landed.
     #[serde(default)]
@@ -68,6 +75,7 @@ pub struct OverleafSyncResult {
 pub struct OverleafChange {
     pub path: String,
     /// "incoming" | "outgoing" | "merge" | "conflict" | "deleteLocal" | "skippedRemoteDelete"
+    /// | "refusedIncoming"
     pub kind: String,
     /// The file as it stands locally right now; None when absent locally.
     pub before: Option<String>,
@@ -124,6 +132,41 @@ impl ConflictPlan {
     }
 }
 
+/// An incoming change that would wipe out a file here: Overleaf's copy is
+/// empty or a fraction of ours.
+///
+/// "Changed there" is normally a pull, or a merge with what changed here. But
+/// on 2026-10-01 Overleaf's project download carried 0-byte entries for a
+/// hundred files nobody had touched, and taking it at its word emptied them
+/// all on disk. So a change like this waits for Overleaf's own history to
+/// confirm someone made it. Until then the local file stands, and an edit made
+/// here goes up as if Overleaf had not changed.
+pub(super) struct Destructive {
+    pub path: String,
+    /// Overleaf's bytes.
+    pub remote: Vec<u8>,
+    /// For a file edited here too, how it combines with Overleaf's copy once
+    /// confirmed; `None` for a plain pull.
+    pub merged: Option<Merged>,
+}
+
+/// A file both sides changed, combined.
+pub(super) enum Merged {
+    Clean(Vec<u8>),
+    Conflict(ConflictPlan),
+}
+
+/// Below this size a file shrinking is ordinary editing, not a sign of a
+/// hollow download.
+const SHRINK_FLOOR: usize = 1024;
+
+/// Whether replacing `local` with `remote` loses most of a non-empty file:
+/// emptied, or cut below a quarter of its size.
+pub(super) fn wipes_out(local: &[u8], remote: &[u8]) -> bool {
+    !local.is_empty()
+        && (remote.is_empty() || (local.len() >= SHRINK_FLOOR && remote.len() < local.len() / 4))
+}
+
 /// Everything a sync would do, decided but not yet done.
 #[derive(Default)]
 pub(super) struct SyncPlan {
@@ -136,8 +179,60 @@ pub(super) struct SyncPlan {
     pub conflict: Vec<ConflictPlan>,
     pub delete_local: Vec<String>,
     pub skipped_remote_deletes: Vec<String>,
+    /// Pulls and merges held for confirmation; until then each keeps its local
+    /// hash in `files`.
+    pub destructive: Vec<Destructive>,
     /// Post-sync hashes for every surviving path.
     pub files: BTreeMap<String, String>,
+}
+
+impl SyncPlan {
+    /// Carry out a merge of a file both sides changed.
+    fn take_merge(&mut self, path: String, merged: Merged, remote_hash: String) {
+        match merged {
+            Merged::Clean(merged) => {
+                self.files.insert(path.clone(), sha256_hex(&merged));
+                // Overleaf still holds only their half, so send the combined
+                // file back up to converge both sides.
+                self.merge.push((path, merged));
+            }
+            // Base is their version: once the markers are resolved the file
+            // counts as a local edit again and goes up on the next sync.
+            Merged::Conflict(conflict) => {
+                self.files.insert(path, remote_hash);
+                self.conflict.push(conflict);
+            }
+        }
+    }
+
+    /// Turn the destructive changes `confirmed` vouches for into ordinary
+    /// pulls and merges; return the rest, which stay out, a local edit among
+    /// them going up instead.
+    fn settle_destructive(&mut self, confirmed: impl Fn(&str) -> bool) -> Vec<Destructive> {
+        let mut refused = Vec::new();
+        for change in std::mem::take(&mut self.destructive) {
+            let Destructive { path, remote, merged } = change;
+            match merged {
+                _ if !confirmed(&path) => {
+                    if merged.is_some() {
+                        self.push.push(path.clone());
+                    }
+                    refused.push(Destructive { path, remote, merged: None });
+                }
+                Some(merged) => self.take_merge(path, merged, sha256_hex(&remote)),
+                None => {
+                    self.files.insert(path.clone(), sha256_hex(&remote));
+                    self.pull.push((path, remote));
+                }
+            }
+        }
+        // Callers report every list in path order.
+        self.pull.sort_by(|a, b| a.0.cmp(&b.0));
+        self.push.sort();
+        self.merge.sort_by(|a, b| a.0.cmp(&b.0));
+        self.conflict.sort_by(|a, b| a.path.cmp(&b.path));
+        refused
+    }
 }
 
 /// Decide what a sync would do. Reads base copies from disk, writes nothing.
@@ -179,46 +274,47 @@ pub(super) fn plan_sync(
                 let local_hash = sha256_hex(lb);
                 let remote_changed = base_hash != Some(&remote_hash);
                 let local_changed = base_hash != Some(&local_hash);
-                if remote_changed && !local_changed {
-                    plan.pull.push((path.clone(), rb.clone()));
-                    plan.files.insert(path.clone(), remote_hash);
-                    continue;
-                }
                 if local_changed && !remote_changed {
                     plan.push.push(path.clone());
                     plan.files.insert(path.clone(), local_hash);
                     continue;
                 }
-                // Both sides changed. Combine them line by line against the
-                // copy we kept at the last sync, so edits to different parts of
-                // a file simply merge — only genuinely overlapping edits need a
-                // human.
-                let (markers, resolved) = match merge_three_way(root, path, rb, lb) {
-                    MergeOutcome::Clean(merged) => {
-                        plan.files.insert(path.clone(), sha256_hex(&merged));
-                        // Overleaf still holds only their half, so send the
-                        // combined file back up to converge both sides.
-                        plan.merge.push((path.clone(), merged));
-                        continue;
-                    }
-                    // Markers land in the file itself so the disagreement is
-                    // visible exactly where it happened.
-                    MergeOutcome::Conflicted(conflicted) => (true, conflicted),
-                    // Binary, or no base copy to merge against: keep both,
-                    // remote on the real path.
-                    MergeOutcome::Unmergeable => (false, rb.clone()),
-                };
-                // The untouched local version is kept beside it. Base is their
-                // version: once the markers are resolved the file counts as a
-                // local edit again and goes up on the next sync.
-                plan.conflict.push(ConflictPlan {
-                    path: path.clone(),
-                    markers,
-                    resolved,
-                    local: lb.clone(),
-                    local_copy: conflict_copy_name(path, stamp),
+                // Changed there. When both sides changed, combine them line
+                // by line against the copy we kept at the last sync, so edits
+                // to different parts of a file simply merge — only genuinely
+                // overlapping edits need a human.
+                let merged = local_changed.then(|| {
+                    let (markers, resolved) = match merge_three_way(root, path, rb, lb) {
+                        MergeOutcome::Clean(merged) => return Merged::Clean(merged),
+                        // Markers land in the file itself so the disagreement
+                        // is visible exactly where it happened.
+                        MergeOutcome::Conflicted(conflicted) => (true, conflicted),
+                        // Binary, or no base copy to merge against: keep both,
+                        // remote on the real path.
+                        MergeOutcome::Unmergeable => (false, rb.clone()),
+                    };
+                    // The untouched local version is kept beside it.
+                    Merged::Conflict(ConflictPlan {
+                        path: path.clone(),
+                        markers,
+                        resolved,
+                        local: lb.clone(),
+                        local_copy: conflict_copy_name(path, stamp),
+                    })
                 });
-                plan.files.insert(path.clone(), remote_hash);
+                if wipes_out(lb, rb) {
+                    plan.files.insert(path.clone(), local_hash);
+                    let (path, remote) = (path.clone(), rb.clone());
+                    plan.destructive.push(Destructive { path, remote, merged });
+                    continue;
+                }
+                match merged {
+                    Some(merged) => plan.take_merge(path.clone(), merged, remote_hash),
+                    None => {
+                        plan.pull.push((path.clone(), rb.clone()));
+                        plan.files.insert(path.clone(), remote_hash);
+                    }
+                }
             }
             (Some(rb), None) => {
                 let remote_hash = sha256_hex(rb);
@@ -279,6 +375,65 @@ pub(super) fn fetch_remote_files(remote: &Remote) -> Result<RemoteFiles, String>
     Ok(RemoteFiles { files, automatic_remote_deletes })
 }
 
+/// Where the agreed copy from the last sync stands in Overleaf's history: the
+/// version it was downloaded at, or failing that the time of the sync.
+fn agreed_copy(state: &SyncState) -> Option<HistoryFrom> {
+    let version = state.agreed_version.or(state.remote_version);
+    version.map(HistoryFrom::Version).or_else(|| {
+        let at = chrono::DateTime::parse_from_rfc3339(state.last_sync.as_deref()?).ok()?;
+        Some(HistoryFrom::Time(at.timestamp_millis()))
+    })
+}
+
+/// Settle the plan's destructive changes against Overleaf's history: each one
+/// goes ahead when an update missing from the last agreed copy (or from the
+/// one before its first refusal), and not part of Lattice's own last write to
+/// the path, touched the path; it is refused otherwise,
+/// returned with where its refusal window opened and the copy it refused.
+///
+/// An unreadable history refuses them all. Holding a file back costs one more
+/// sync; writing a hollow download over it costs the file.
+pub(super) fn settle_destructive(
+    remote: &Remote, plan: &mut SyncPlan,
+) -> BTreeMap<String, Refusal> {
+    if plan.destructive.is_empty() {
+        return BTreeMap::new();
+    }
+    let state = &remote.state;
+    let windows: BTreeMap<String, Option<HistoryFrom>> = (plan.destructive.iter())
+        .map(|change| {
+            let since = state.refused.get(&change.path).map(|refusal| refusal.since);
+            (change.path.clone(), since.unwrap_or_else(|| agreed_copy(state)))
+        })
+        .collect();
+    // One read covers them all, back to the earliest window.
+    let history = history_since(remote, |update| windows.values().any(|from| update.after(*from)))
+        .unwrap_or_else(|error| {
+            log::warn!(target: "lattice::overleaf", "Could not read Overleaf's history to confirm destructive changes: {error}");
+            Vec::new()
+        });
+    // A path is confirmed by itself or by a folder above it, since Overleaf
+    // records a folder rename or deletion only under the folder's name.
+    let confirmed = |path: &str| {
+        let names = |changed: &String| {
+            (path.strip_prefix(changed.as_str()))
+                .is_some_and(|rest| rest.is_empty() || rest.starts_with('/'))
+        };
+        let own = state.own_writes.get(path).copied();
+        (history.iter()).any(|update| {
+            update.after(windows[path])
+                && !own.is_some_and(|own| update.within(own))
+                && update.paths.iter().any(names)
+        })
+    };
+    (plan.settle_destructive(confirmed).into_iter())
+        .map(|Destructive { path, remote, .. }| {
+            let since = windows[&path];
+            (path, Refusal { since, remote: sha256_hex(&remote) })
+        })
+        .collect()
+}
+
 pub(super) fn sync_stamp() -> String {
     chrono::Local::now().format("%Y%m%d-%H%M").to_string()
 }
@@ -334,9 +489,27 @@ pub fn sync(
         .or(linked.state.remote_version);
     let RemoteFiles { files: remote, automatic_remote_deletes } = fetch_remote_files(&linked)?;
     let LocalFiles { files: local, oversized } = read_local_files(root)?;
-    let plan = plan_sync(root, &linked.state, &remote, &local, live, &sync_stamp())?;
+    let mut plan = plan_sync(root, &linked.state, &remote, &local, live, &sync_stamp())?;
+    let refused = settle_destructive(&linked, &mut plan);
+    // Warn about a refused copy once; the same hollow download on every
+    // later sync is not news.
+    let refused_incoming: Vec<String> = (refused.iter())
+        .filter(|(path, refusal)| {
+            linked.state.refused.get(*path).map(|known| &known.remote) != Some(&refusal.remote)
+        })
+        .map(|(path, _)| path.clone())
+        .collect();
+    for path in &refused_incoming {
+        log::warn!(
+            target: "lattice::overleaf",
+            "Kept {path}: Overleaf's download has it empty or much smaller, and Overleaf's \
+             history does not confirm a change to it since the last sync. Delete it locally \
+             and sync again to take Overleaf's copy"
+        );
+    }
 
     let mut result = OverleafSyncResult {
+        refused_incoming,
         skipped_large: oversized,
         automatic_remote_deletes,
         skipped_remote_deletes: plan.skipped_remote_deletes,
@@ -406,6 +579,7 @@ pub fn sync(
             new_files.remove(&path);
         }
     }
+    let mut own_writes = linked.state.own_writes.clone();
     if !to_push.is_empty() {
         let uploader = linked.uploader(&client, &csrf)?;
         for path in &to_push {
@@ -414,6 +588,11 @@ pub fn sync(
                 .ok_or_else(|| format!("{path} disappeared during sync"))?;
             uploader.upload(path, bytes)?;
         }
+        let written = linked
+            .version(&client)
+            .map(HistoryFrom::Version)
+            .unwrap_or_else(|| HistoryFrom::Time(chrono::Utc::now().timestamp_millis()));
+        own_writes.extend(to_push.iter().map(|path| (path.clone(), written)));
     }
     result.pushed = to_push;
     result.read_only = !writable;
@@ -423,6 +602,9 @@ pub fn sync(
     let mut state = linked.state;
     finalize_base_copies(root, &state.files, &new_files, &remote)?;
     state.files = new_files;
+    own_writes.retain(|path, _| state.files.contains_key(path));
+    state.own_writes = own_writes;
+    state.refused = refused;
     state.last_sync = Some(now_iso());
     // `remote_version_before` is the only history position known to precede
     // the downloaded snapshot. Never replace it with a newer value fetched at
@@ -434,6 +616,7 @@ pub fn sync(
     // one verification sync instead of attributing an unverified latest
     // version to our upload.
     state.remote_version = if result.pushed.is_empty() { remote_version_before } else { None };
+    state.agreed_version = remote_version_before;
     save_state(root, &state)?;
     // Every list is already in path order: the plan walks paths sorted.
     Ok(result)
@@ -479,7 +662,8 @@ pub fn preview(
     linked.state.files.retain(|path, _| !is_excluded(path));
     let remote = fetch_remote_files(&linked)?.files;
     let local = read_local_files(root)?.files;
-    let plan = plan_sync(root, &linked.state, &remote, &local, live, &sync_stamp())?;
+    let mut plan = plan_sync(root, &linked.state, &remote, &local, live, &sync_stamp())?;
+    let refused = settle_destructive(&linked, &mut plan);
 
     let local_bytes = |path: &str| local.get(path).map(Vec::as_slice);
     // Conflicts first — they are the only rows that need a decision — then
@@ -487,6 +671,10 @@ pub fn preview(
     let mut changes: Vec<OverleafChange> = (plan.conflict.iter())
         .map(|c| preview_change(&c.path, "conflict", Some(&c.local), Some(&c.resolved)))
         .collect();
+    for path in refused.keys() {
+        let after = remote.get(path).map(Vec::as_slice);
+        changes.push(preview_change(path, "refusedIncoming", local_bytes(path), after));
+    }
     let pulled = plan.pull.iter().map(|(path, bytes)| (path, "incoming", Some(bytes.as_slice())));
     let merged = plan.merge.iter().map(|(path, bytes)| (path, "merge", Some(bytes.as_slice())));
     for (path, kind, after) in pulled.chain(merged) {
@@ -509,7 +697,7 @@ pub fn preview(
     for path in &plan.skipped_remote_deletes {
         changes.push(preview_change(path, "skippedRemoteDelete", None, None));
     }
-    let rank = ["conflict", "incoming", "merge", "outgoing", "deleteLocal"];
+    let rank = ["conflict", "refusedIncoming", "incoming", "merge", "outgoing", "deleteLocal"];
     let rank = |kind: &str| rank.iter().position(|k| *k == kind).unwrap_or(rank.len());
     changes.sort_by(|a, b| rank(&a.kind).cmp(&rank(&b.kind)).then_with(|| a.path.cmp(&b.path)));
 
@@ -689,12 +877,15 @@ pub fn sync_relocations(
                     .map(|next| (path.clone(), next, hash.clone()))
             })
             .collect();
+        let moved_at = HistoryFrom::Time(chrono::Utc::now().timestamp_millis());
         for (old, new, hash) in &remapped {
             if let Some(base) = read_base_copy(root, old) {
                 write_base_copy(root, new, base.as_bytes())?;
             }
             state.files.remove(old);
             state.files.insert(new.clone(), hash.clone());
+            state.own_writes.remove(old);
+            state.own_writes.insert(new.clone(), moved_at);
         }
         state.pending_relocations.remove(0);
         state.remote_version = None;
