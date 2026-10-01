@@ -321,12 +321,25 @@ export class OtDocument {
   }
 
   /**
-   * The operation in flight again, to resend after a reconnect. Only valid
-   * once a replay has brought `version` up to date, which also transformed
-   * the operation to match; null when there is no text to send.
+   * The operation in flight again, to resend after a reconnect, naming the
+   * connections it went out on so Overleaf can recognise a duplicate. Only
+   * valid once a replay has brought `version` up to date, which also
+   * transformed the operation to match.
+   *
+   * The replay can cancel it out entirely — a collaborator deleted the same
+   * words. It never landed (the replay would have answered it), so there is
+   * nothing left to wait for: it is settled here without moving the version,
+   * and anything typed meanwhile goes out in its place as a fresh operation.
    */
-  resend(): OtSend {
-    return this.inflight?.length ? { version: this.version, ops: this.inflight } : null;
+  resend(): (NonNullable<OtSend> & { dupIfSource: readonly string[] }) | null {
+    if (!this.inflight) return null;
+    if (this.inflight.length) return { version: this.version, ops: this.inflight, dupIfSource: [...this.submitted] };
+    this.inflight = null;
+    this.submitted = [];
+    if (!this.pending) return null;
+    this.inflight = this.pending;
+    this.pending = null;
+    return { version: this.version, ops: this.inflight, dupIfSource: [] };
   }
 
   /**

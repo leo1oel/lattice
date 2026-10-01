@@ -578,6 +578,21 @@ describe("an acknowledgement whose outcome is not known", () => {
     // Once answered on this connection it is never sent a third time.
     expect(sends()).toHaveLength(2);
   });
+
+  it("recognises the first copy landing late under the previous connection's id instead of applying it twice", async () => {
+    backend.lostSendMissing = true;
+    const seen: string[] = [];
+    const { result } = await loseSendAcrossReconnect((text) => { seen.push(text); });
+    await waitFor(() => expect(sends()).toHaveLength(2));
+    const [first] = invokeCalls("overleaf_rt_send_ops");
+
+    // The first copy commits after all and is broadcast under its old id.
+    emit({ type: "docUpdate", docId: DOC_A, version: 10, ops: first!.ops, source: "me" });
+    // Overleaf then answers the resend as a duplicate.
+    emit({ type: "docAck", docId: DOC_A, version: 10 });
+    await waitFor(() => expect(result.current.settledVersion()).toBe(11));
+    expect(seen.some((text) => text.includes("edited edited"))).toBe(false);
+  });
 });
 
 describe("the update hash", () => {

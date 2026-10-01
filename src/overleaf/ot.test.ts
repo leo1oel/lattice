@@ -337,6 +337,28 @@ describe("OtDocument", () => {
     expect(doc.local("hello X!").send).toEqual({ version: 12, ops: [{ p: 7, i: "!" }] });
   });
 
+  it("settles an in-flight edit that a reconnect replay cancelled, instead of waiting forever for its answer", () => {
+    const doc = new OtDocument("hello world", 10);
+    doc.local("hello ");
+    doc.noteSubmitted("p1");
+    // The connection dropped before it landed, and someone deleted the same word.
+    doc.remote([{ p: 6, d: "world" }], 10);
+    expect(doc.resend()).toBeNull();
+    expect([doc.text, doc.version, doc.settled, doc.submittedVia]).toEqual(["hello ", 11, true, []]);
+    expect(doc.local("hello !").send).toEqual({ version: 11, ops: [{ p: 6, i: "!" }] });
+  });
+
+  it("sends work typed behind a cancelled in-flight edit as a fresh operation on resend", () => {
+    const doc = new OtDocument("hello world", 10);
+    doc.local("hello ");
+    doc.noteSubmitted("p1");
+    doc.local("hello !");
+    doc.remote([{ p: 6, d: "world" }], 10);
+    expect(doc.resend()).toEqual({ version: 11, ops: [{ p: 6, i: "!" }], dupIfSource: [] });
+    expect(doc.acknowledge(11).send).toBeNull();
+    expect([doc.text, doc.version, doc.settled]).toEqual(["hello !", 12, true]);
+  });
+
   it("keeps what Overleaf will store, not the emoji it cannot, and says so", () => {
     const doc = new OtDocument("note: ", 3);
     const typed = doc.local("note: \u{1F535} done");

@@ -75,15 +75,18 @@ enum Attempt<'a> {
 /// do something twice, though: anything is retried when it provably never
 /// reached Overleaf (no connection, or 429, which refuses before doing
 /// anything); a request that may have been carried out only when doing it
-/// again is harmless, which for HTTP is what an idempotent method promises.
-fn retry_wait(attempt: Attempt, idempotent: bool, retries_done: u32) -> Option<Duration> {
+/// again changes nothing, which for HTTP is what a safe (read-only) method
+/// promises. An idempotent DELETE is not enough: its effect repeats harmlessly
+/// but its answer does not — the retry is told 404 for what the first attempt
+/// already deleted.
+fn retry_wait(attempt: Attempt, safe: bool, retries_done: u32) -> Option<Duration> {
     if retries_done >= TRANSIENT_RETRIES {
         return None;
     }
     let backoff = RETRY_BASE * 2u32.pow(retries_done);
     match attempt {
         Attempt::NotConnected => Some(backoff),
-        Attempt::NoAnswer if idempotent => Some(backoff),
+        Attempt::NoAnswer if safe => Some(backoff),
         Attempt::Answered(StatusCode::TOO_MANY_REQUESTS, retry_after) => {
             match retry_after.map(|value| value.trim().parse::<u64>()) {
                 Some(Ok(seconds)) if Duration::from_secs(seconds) > MAX_RETRY_WAIT => None,
@@ -94,7 +97,7 @@ fn retry_wait(attempt: Attempt, idempotent: bool, retries_done: u32) -> Option<D
         Attempt::Answered(
             StatusCode::BAD_GATEWAY | StatusCode::SERVICE_UNAVAILABLE | StatusCode::GATEWAY_TIMEOUT,
             _,
-        ) if idempotent => Some(backoff),
+        ) if safe => Some(backoff),
         _ => None,
     }
 }
@@ -102,8 +105,8 @@ fn retry_wait(attempt: Attempt, idempotent: bool, retries_done: u32) -> Option<D
 fn send_with_retries(mut request: RequestBuilder) -> reqwest::Result<Response> {
     // A streamed body (a multipart upload) cannot be cloned, and so is never
     // retried: `try_clone` answers `None` for it.
-    let idempotent = (request.try_clone().and_then(|copy| copy.build().ok()))
-        .is_some_and(|built| built.method().is_idempotent());
+    let safe = (request.try_clone().and_then(|copy| copy.build().ok()))
+        .is_some_and(|built| built.method().is_safe());
     let mut retries_done = 0;
     loop {
         let again = request.try_clone();
@@ -119,7 +122,7 @@ fn send_with_retries(mut request: RequestBuilder) -> reqwest::Result<Response> {
             Err(error) if error.is_timeout() => return outcome,
             Err(_) => Attempt::NoAnswer,
         };
-        let wait = retry_wait(attempt, idempotent, retries_done);
+        let wait = retry_wait(attempt, safe, retries_done);
         let (Some(wait), Some(again)) = (wait, again) else { return outcome };
         std::thread::sleep(wait);
         request = again;
@@ -445,7 +448,7 @@ mod tests {
         // Never reached Overleaf: safe for anything.
         assert_eq!(retry_wait(Attempt::NotConnected, false, 0), Some(RETRY_BASE));
         assert_eq!(retry_wait(answered(429), false, 1), second);
-        // May have been carried out: only an idempotent request goes again.
+        // May have been carried out: only a read goes again.
         for attempt in [Attempt::NoAnswer, answered(502), answered(503), answered(504)] {
             assert_eq!(retry_wait(attempt, true, 0), Some(RETRY_BASE), "{attempt:?}");
             assert_eq!(retry_wait(attempt, false, 0), None, "{attempt:?}");
@@ -481,7 +484,10 @@ mod tests {
         // A 503 to a POST may still have done its work: report it, never resend.
         let write = send(client.post(format!("{base}/project/p/thread")).body("{}")).unwrap();
         assert_eq!(write.status(), StatusCode::SERVICE_UNAVAILABLE);
-        assert_eq!(*hits.lock().unwrap(), ["GET", "GET", "POST"]);
+        // Nor a DELETE: a retry would be told 404 for what the first one did.
+        let delete = send(client.delete(format!("{base}/project/p/thread/t"))).unwrap();
+        assert_eq!(delete.status(), StatusCode::SERVICE_UNAVAILABLE);
+        assert_eq!(*hits.lock().unwrap(), ["GET", "GET", "POST", "DELETE"]);
     }
 
     #[test]

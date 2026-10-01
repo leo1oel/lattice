@@ -167,7 +167,7 @@ export function useOverleafRealtime(options: {
     const earlier = doc.submittedVia;
     if (!current || !doc.waiting || !earlier.length || earlier.includes(current)) return;
     const send = doc.resend();
-    if (send) void flushRef.current(id, send, [...earlier]);
+    if (send) void flushRef.current(id, send, send.dupIfSource);
   };
   const deliveryPending = (doc: OtDocument | null | undefined) => Boolean(doc && remoteDeliveries.current.get(doc)?.pending);
   const patchOpenDoc = useCallback((id: string, patch: (current: OpenDoc) => Partial<OpenDoc> | null) => {
@@ -484,13 +484,13 @@ export function useOverleafRealtime(options: {
         patchOpenDoc(id, (current) => ({ comments: joined.comments ?? current.comments, changes: joined.changes ?? current.changes }));
         deliverRemoteText(id, result.text, transformCaret(caret, result.applied), baseContent);
       }
+      if (result.send) void flushRef.current(id, result.send);
+      else resendAfterReplay(id, doc);
       if (sawOurUpdate || doc.settled) {
         uncertain.current.delete(id);
         publishLivePaths();
         if (docId.current === id) setDetail(null);
       }
-      if (result.send) void flushRef.current(id, result.send);
-      else resendAfterReplay(id, doc);
       releaseIfDone(id, doc);
     } catch {
       // Still unknown. Keeping the path in livePaths is the safety mechanism;
@@ -625,7 +625,7 @@ export function useOverleafRealtime(options: {
         }
         // Our own work coming back is already in this copy; only the separate
         // acknowledgement moves the state machine on.
-        if (isMine(payload.source)) return;
+        if (isMine(payload.source, doc)) return;
         try {
           const onScreen = payload.docId === docId.current;
           const caret = onScreen ? callbacks.current.readCaret() : 0;
@@ -867,9 +867,9 @@ export function useOverleafRealtime(options: {
         text = result.text;
         promoteShared(held, heldProof);
         caret = transformCaret(caret, result.applied);
-        if (held.settled || sawOurUpdate) uncertain.current.delete(id);
         if (result.send) void flush(id, result.send);
         else resendAfterReplay(id, held);
+        if (held.settled || sawOurUpdate) uncertain.current.delete(id);
       } else {
         // Either the first time here, or the server would not reach back far
         // enough. Its copy is the only thing both sides agree on.
