@@ -40,9 +40,6 @@ export default defineConfig({
     // import shadcn/ui components the same way the app does.
     alias: {
       "@": fileURLToPath(new URL("./src", import.meta.url)),
-      // The app bundles PDFSlick's ESM `module` build; its UMD `main`, which
-      // Node would otherwise load, carries a second PDF.js of its own.
-      "@pdfslick/core": "@pdfslick/core/dist/esm/index.js",
     },
   },
   test: {
@@ -56,7 +53,6 @@ export default defineConfig({
     exclude: ["**/node_modules/**", "literature-worker/**", ".tmp/**"],
     environment: "jsdom",
     setupFiles: ["./src/platform/test-setup.ts"],
-    server: { deps: { inline: ["@pdfslick/core"] } },
     // Several suites mount the complete app or visual Markdown editor. Running
     // those memory-heavy files beside each other on a high-core machine starves
     // their async UI assertions and makes unrelated tests fail nondeterministically.
