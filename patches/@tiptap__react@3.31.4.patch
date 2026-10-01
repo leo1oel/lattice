@@ -1,8 +1,8 @@
 diff --git a/dist/index.cjs b/dist/index.cjs
-index 598784fa2f5e8cdef8281c781a9b89177649be63..fe51bb3b689498d852949b287bfd12497e9267de 100644
+index 15c9728c6ad3eefa66306cfd3906c7c5311af06c..766c66a30b3d0073df34fa3950f589f7166e567e 100644
 --- a/dist/index.cjs
 +++ b/dist/index.cjs
-@@ -79,10 +79,21 @@ function createContentComponent() {
+@@ -111,10 +111,21 @@ function createContentComponent() {
  		* Adds a new NodeView Renderer to the editor.
  		*/
  		setRenderer(id, renderer) {
@@ -24,7 +24,7 @@ index 598784fa2f5e8cdef8281c781a9b89177649be63..fe51bb3b689498d852949b287bfd1249
  			notifySubscribers();
  		},
  		/**
-@@ -763,6 +774,13 @@ function ReactMarkViewRenderer(component, options = {}) {
+@@ -802,6 +813,13 @@ function ReactMarkViewRenderer(component, options = {}) {
  */
  function captureDOMSelection(element) {
  	var _element$ownerDocumen;
@@ -39,10 +39,10 @@ index 598784fa2f5e8cdef8281c781a9b89177649be63..fe51bb3b689498d852949b287bfd1249
  	const selection = typeof root.getSelection === "function" ? root.getSelection() : (_element$ownerDocumen = element.ownerDocument) === null || _element$ownerDocumen === void 0 || (_element$ownerDocumen = _element$ownerDocumen.defaultView) === null || _element$ownerDocumen === void 0 ? void 0 : _element$ownerDocumen.getSelection();
  	if (!selection || selection.rangeCount === 0) return null;
 diff --git a/dist/index.js b/dist/index.js
-index b6ab232ec8c3307a0c0cc2d0e7e77cb5eae63555..a42396ed601fef7b5385a0ce9b191955f1917dd5 100644
+index 54376b761251f4618b2a8c17585824c8d2c1d64c..05920bc508cf460d1440087912b747f14bdd9d6f 100644
 --- a/dist/index.js
 +++ b/dist/index.js
-@@ -55,10 +55,21 @@ function createContentComponent() {
+@@ -87,10 +87,21 @@ function createContentComponent() {
  		* Adds a new NodeView Renderer to the editor.
  		*/
  		setRenderer(id, renderer) {
@@ -64,7 +64,7 @@ index b6ab232ec8c3307a0c0cc2d0e7e77cb5eae63555..a42396ed601fef7b5385a0ce9b191955
  			notifySubscribers();
  		},
  		/**
-@@ -739,6 +750,13 @@ function ReactMarkViewRenderer(component, options = {}) {
+@@ -778,6 +789,13 @@ function ReactMarkViewRenderer(component, options = {}) {
  */
  function captureDOMSelection(element) {
  	var _element$ownerDocumen;
@@ -79,10 +79,10 @@ index b6ab232ec8c3307a0c0cc2d0e7e77cb5eae63555..a42396ed601fef7b5385a0ce9b191955
  	const selection = typeof root.getSelection === "function" ? root.getSelection() : (_element$ownerDocumen = element.ownerDocument) === null || _element$ownerDocumen === void 0 || (_element$ownerDocumen = _element$ownerDocumen.defaultView) === null || _element$ownerDocumen === void 0 ? void 0 : _element$ownerDocumen.getSelection();
  	if (!selection || selection.rangeCount === 0) return null;
 diff --git a/src/EditorContent.tsx b/src/EditorContent.tsx
-index 8ee8383030b14d7e4d1f980b50ff7a360d436f87..42173d28b4700cfea973c14605856f33003915a5 100644
+index cedf56dba1088d0370a03cbe27b4457612a7634d..dbde9af34a2fc57a402681233b547223ada82488 100644
 --- a/src/EditorContent.tsx
 +++ b/src/EditorContent.tsx
-@@ -79,11 +79,24 @@ export function createContentComponent(): ContentComponent {
+@@ -83,11 +83,24 @@ export function createContentComponent(): ContentComponent {
       * Adds a new NodeView Renderer to the editor.
       */
      setRenderer(id: string, renderer: ReactRenderer) {
