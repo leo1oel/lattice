@@ -267,8 +267,9 @@ Motion follows three rules:
 - **Moments, not loops.** Motion marks a state change (a build ending, the
   Overleaf channel coming up, a dialog arriving) or something appearing (an
   empty state, a skeleton). It plays once. The only ambient loops are the
-  welcome screen, which is never on screen while writing, and loading
-  placeholders such as the PDF skeleton, which last only until content arrives.
+  welcome screen, which is never on screen while writing, loading
+  placeholders such as the PDF skeleton, which last only until content arrives,
+  and the comments empty state's typing dots, which run only while hovered.
 - **Never in the writing surface.** Nothing animates in the editor, and nothing
   near it repeats while the writer works. A flourish that a remount could
   replay is guarded, as the Build button's `isFreshOutcome` is.
