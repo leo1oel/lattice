@@ -2989,10 +2989,6 @@ msgstr "Find in project"
 msgid "Find text to replace"
 msgstr "Find text to replace"
 
-#: src/project/todo-scavenger-panel.tsx
-msgid "Finds `% TODO`, `% FIXME`, `% XXX` and `\\todo`"
-msgstr "Finds `% TODO`, `% FIXME`, `% XXX` and `\\todo`"
-
 #: src/App.tsx
 msgid "Finish the current text composition, then switch projects again."
 msgstr "Finish the current text composition, then switch projects again."
@@ -4310,6 +4306,10 @@ msgstr "Long equation broken across lines"
 #: src/editor/latex/latex-command-completions.ts
 msgid "Long quotation"
 msgstr "Long quotation"
+
+#: src/project/todo-scavenger-panel.tsx
+msgid "Looks for <0>% TODO</0>, <1>% FIXME</1>, <2>% XXX</2> and <3>\\todo</3>"
+msgstr "Looks for <0>% TODO</0>, <1>% FIXME</1>, <2>% XXX</2> and <3>\\todo</3>"
 
 #: src/build/tex-doctor-messages.ts
 msgid "LuaLaTeX engine"

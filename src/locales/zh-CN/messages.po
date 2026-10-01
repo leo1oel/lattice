@@ -2989,10 +2989,6 @@ msgstr "在项目中查找"
 msgid "Find text to replace"
 msgstr "查找要替换的文本"
 
-#: src/project/todo-scavenger-panel.tsx
-msgid "Finds `% TODO`, `% FIXME`, `% XXX` and `\\todo`"
-msgstr "查找 `% TODO`、`% FIXME`、`% XXX` 和 `\\todo`"
-
 #: src/App.tsx
 msgid "Finish the current text composition, then switch projects again."
 msgstr "请先完成当前的输入法输入，然后再切换项目。"
@@ -4310,6 +4306,10 @@ msgstr "跨行断开的长公式"
 #: src/editor/latex/latex-command-completions.ts
 msgid "Long quotation"
 msgstr "长引文"
+
+#: src/project/todo-scavenger-panel.tsx
+msgid "Looks for <0>% TODO</0>, <1>% FIXME</1>, <2>% XXX</2> and <3>\\todo</3>"
+msgstr "查找 <0>% TODO</0>、<1>% FIXME</1>、<2>% XXX</2> 和 <3>\\todo</3>"
 
 #: src/build/tex-doctor-messages.ts
 msgid "LuaLaTeX engine"

@@ -1,5 +1,6 @@
 import { CircleDot, ListTodo } from "lucide-react";
 import { Trans, useLingui } from "@lingui/react/macro";
+import { EmptyState } from "../components/ui/empty-state";
 import { PanelHeader } from "../components/ui/panel-header";
 import type { TodoHit } from "./todo-scavenger";
 import { ResizableDrawer } from "../components/ui/resizable-drawer";
@@ -19,16 +20,18 @@ export function TodoScavengerPanel(props: {
           title={t`Manuscript TODOs`}
           onClose={props.onClose}
         />
-        <p className="drawer-copy">
-          <Trans>Finds `% TODO`, `% FIXME`, `% XXX` and `\todo`</Trans>
-        </p>
-        <div className="project-replace-preview-summary">
-          {count === 0
-            ? t`No TODO markers found`
-            : count === 1
-              ? t`${count} marker`
-              : t`${count} markers`}
-        </div>
+        {/* What counts as a marker matters only while there are none. */}
+        {count === 0 ? (
+          <EmptyState
+            className="todo-empty"
+            title={t`No TODO markers found`}
+            description={<Trans>Looks for <code>% TODO</code>, <code>% FIXME</code>, <code>% XXX</code> and <code>\todo</code></Trans>}
+          />
+        ) : (
+          <div className="project-replace-preview-summary">
+            {count === 1 ? t`${count} marker` : t`${count} markers`}
+          </div>
+        )}
         <ul className="project-replace-hits todo-hits">
           {props.hits.map((hit) => (
             <li key={`${hit.path}:${hit.line}:${hit.kind}:${hit.preview}`}>

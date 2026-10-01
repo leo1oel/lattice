@@ -162,7 +162,8 @@ body.resizing-panels .resizable-drawer { transition: none; }
 .literature-search {
   display: grid;
   grid-template-columns: 1fr auto;
-  gap: var(--drawer-section-gap);
+  align-items: center;
+  gap: var(--space-4) var(--drawer-section-gap);
   margin: var(--drawer-content-inset) 0 var(--drawer-section-gap);
 }
 .literature-search .ui-search-field {
