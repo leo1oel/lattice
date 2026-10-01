@@ -9,7 +9,7 @@
 //! returns it or closes. The listener lives exactly as long as Lattice runs.
 //!
 //! - `/__lattice_session` mints or resumes a session token for the fixed entry,
-//!   or hands out the one for the workspace a `?workspace=` entry names.
+//!   or hands out the one a single-use `?entry=` nonce was issued for.
 //! - `/__lattice_bridge` upgrades a host, browser, or desktop peer.
 //! - everything else serves the bundled frontend assets.
 
@@ -103,7 +103,7 @@ impl BrowserHost {
         let Some((config, origin)) = self.workspace_config(host_label)? else {
             return Ok(false);
         };
-        open_workspace(app, &config, &origin)?;
+        open_workspace(app, &self.sessions()?, &config, &origin)?;
         Ok(true)
     }
 
@@ -145,7 +145,7 @@ impl BrowserHost {
             let Some((config, origin)) = self.workspace_config(label)? else {
                 return Err("This Lattice workspace is no longer available.".to_string());
             };
-            return open_in_default_browser(app, &config, &origin);
+            return open_in_default_browser(app, &self.sessions()?, &config, &origin);
         }
         let project_root = state.root_for(label)?;
         // Closing the native window must not end the process while the tab
@@ -195,7 +195,7 @@ impl BrowserHost {
                 let Some((config, origin)) = self.workspace_config(host_label)? else {
                     return Err("This Lattice workspace is no longer available.".to_string());
                 };
-                open_workspace(app, &config, &origin)
+                open_workspace(app, &sessions, &config, &origin)
             }
             ReturnPlan::Native(token) => {
                 let root = state
@@ -298,13 +298,13 @@ impl BrowserHost {
         let Some(server) = self.server()? else {
             return Ok(false);
         };
-        let config = server.sessions.lock().ok().and_then(|sessions| {
-            session::reusable_entry_config(&sessions, server.port, None, None)
+        let config = server.sessions.lock().ok().and_then(|mut sessions| {
+            session::reusable_entry_config(&mut sessions, server.port, None, None)
         });
         let Some(config) = config else {
             return Ok(false);
         };
-        open_workspace(app, &config, &browser_origin(app, server.port))?;
+        open_workspace(app, &server.sessions, &config, &browser_origin(app, server.port))?;
         Ok(true)
     }
 
@@ -361,9 +361,9 @@ impl BrowserHost {
 
         let opened = build_host_window(app, &host_label, &token, server.port).and_then(|()| {
             let page = if in_browser {
-                open_in_default_browser(app, &config, &origin)
+                open_in_default_browser(app, &server.sessions, &config, &origin)
             } else {
-                open_workspace(app, &config, &origin)
+                open_workspace(app, &server.sessions, &config, &origin)
             };
             page.inspect_err(|_| destroy_window(app, &host_label))
         });
@@ -405,21 +405,23 @@ impl BrowserHost {
 }
 
 fn open_workspace(
-    app: &tauri::AppHandle, config: &BrowserSessionConfig, origin: &str,
+    app: &tauri::AppHandle, sessions: &Sessions, config: &BrowserSessionConfig, origin: &str,
 ) -> Result<(), String> {
     if app.state::<crate::chromium::ChromiumRuntime>().open_url(&config.url(origin))? {
         return Ok(());
     }
-    open_in_default_browser(app, config, origin)
+    open_in_default_browser(app, sessions, config, origin)
 }
 
-/// The default browser gets the tokenless entry address: `open` puts it in
-/// process arguments, and the browser keeps it in history and bookmarks.
+/// The default browser gets a tokenless entry address with a single-use
+/// nonce: `open` puts it in process arguments, and the browser keeps it in
+/// history and bookmarks.
 fn open_in_default_browser(
-    app: &tauri::AppHandle, config: &BrowserSessionConfig, origin: &str,
+    app: &tauri::AppHandle, sessions: &Sessions, config: &BrowserSessionConfig, origin: &str,
 ) -> Result<(), String> {
+    let nonce = session::issue_entry_nonce(sessions, &config.token)?;
     app.opener()
-        .open_url(config.entry_url(origin), None::<&str>)
+        .open_url(session::entry_url(origin, &nonce), None::<&str>)
         .map_err(|error| format!("Could not open the browser workspace: {error}"))
 }
 

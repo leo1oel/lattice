@@ -737,11 +737,11 @@ function readStoredBrowserConfig(): BrowserRuntimeConfig | null {
 async function requestBrowserSession(
   bridgePort: number,
   resumeToken?: string,
-  workspace?: string,
+  entry?: string,
 ): Promise<BrowserRuntimeConfig> {
   const endpoint = new URL(`http://127.0.0.1:${bridgePort}/__lattice_session`);
   if (resumeToken) endpoint.searchParams.set("token", resumeToken);
-  if (workspace) endpoint.searchParams.set("workspace", workspace);
+  if (entry) endpoint.searchParams.set("entry", entry);
   endpoint.searchParams.set("role", isChromiumPeer() ? "desktop" : "browser");
   const response = await fetch(endpoint, { cache: "no-store", mode: "cors" });
   if (!response.ok) {
@@ -769,22 +769,22 @@ async function initializeBrowserRuntime(): Promise<void> {
     && window.location.port === "18452";
   const search = new URLSearchParams(window.location.search);
   const developmentEntry = search.get("latticeBrowser") === "1";
-  // The app opens the default browser on `?workspace=<label>`, never on a
-  // token: the address lands in process arguments and browser history.
-  const workspace = search.get("workspace") ?? undefined;
-  if (!stored && !fixedEntry && !developmentEntry && !workspace) {
+  // The app opens the default browser on a single-use `?entry=<nonce>`, never
+  // on a token: the address lands in process arguments and browser history.
+  const entry = search.get("entry") ?? undefined;
+  if (!stored && !fixedEntry && !developmentEntry && !entry) {
     runtimeError = runtimeMessage("open-from-app");
     return;
   }
   const config = await requestBrowserSession(
     stored?.bridgePort ?? 18_452,
     stored?.token,
-    workspace,
+    entry,
   );
-  if (developmentEntry || workspace) {
+  if (developmentEntry || entry) {
     const url = new URL(window.location.href);
     url.searchParams.delete("latticeBrowser");
-    url.searchParams.delete("workspace");
+    url.searchParams.delete("entry");
     window.history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`);
   }
   await installBrowserRuntime(config);
