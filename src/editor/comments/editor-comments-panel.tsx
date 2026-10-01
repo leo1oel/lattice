@@ -58,6 +58,7 @@ export function EditorCommentsPanel(props: {
       // Comments on the open file first, then most recently updated.
       .sort((a, b) => isActive(b) - isActive(a) || b.updatedAt.localeCompare(a.updatedAt));
   }, [anonymousAuthor, filter, props.activePath, props.comments, showResolved]);
+  const hasComments = props.comments.length > 0;
   const closeReply = () => {
     setReplyingId(null);
     setReplyDraft("");
@@ -71,7 +72,8 @@ export function EditorCommentsPanel(props: {
         title={t`Editor comments`}
         onClose={props.onClose}
       />}
-      <div className="pdf-marks-toolbar">
+      {/* Nothing to filter until there is a comment. */}
+      {hasComments && <div className="pdf-marks-toolbar">
         <SearchField
           aria-label={t`Filter editor comments`}
           placeholder={t`Filter comments…`}
@@ -85,14 +87,16 @@ export function EditorCommentsPanel(props: {
           openLabel={t`Open comments`}
           resolvedLabel={t`Include resolved`}
         />
-      </div>
+      </div>}
       <div className="pdf-marks-list">
         {!visible.length && (
           <EmptyState
-            align="start"
-            density="compact"
-            icon={<EmptyIllustration kind="comments" size="compact" />}
-            description={t`No comments yet. Select text in the editor and click Comment`}
+            align={hasComments ? "start" : "center"}
+            density={hasComments ? "compact" : "default"}
+            icon={<EmptyIllustration kind={hasComments && filter.trim() ? "search" : "comments"} size={hasComments ? "compact" : "default"} />}
+            description={!hasComments
+              ? t`No comments yet. Select text in the editor and click Comment`
+              : filter.trim() ? t`No matches` : t`No open comments`}
           />
         )}
         {visible.map((comment) => {

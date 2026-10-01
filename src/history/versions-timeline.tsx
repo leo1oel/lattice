@@ -10,6 +10,8 @@ import type { GitFileDiff, GitLogEntry, GitLogFileKind, GitStatus } from "../app
 import { peerColorForName } from "../components/ui/collab-colors";
 import { confirmAction, relativeTime, toMessage } from "../app-utils";
 import { InlineMessage } from "../components/ui/inline-message";
+import { EmptyState } from "../components/ui/empty-state";
+import { EmptyIllustration } from "../components/ui/empty-illustration";
 import { logAction } from "../telemetry/app-notify";
 import { InfinityLoader, ReloadButton, ReloadIconButton } from "../components/ui/activity-icons";
 import { Input } from "../components/ui/input";
@@ -188,7 +190,12 @@ Nothing is lost: the restore is saved as a new version`;
     return <p className="versions-loading"><InfinityLoader size={13} /> {t`Loading versions…`}</p>;
   }
   if (phase === "unavailable") {
-    return <p className="versions-note">{t`Version history needs Git, which isn’t available on this Mac`}</p>;
+    return (
+      <EmptyState
+        icon={<EmptyIllustration kind="history" />}
+        description={t`Version history needs Git, which isn’t available on this Mac`}
+      />
+    );
   }
   if (phase === "error") {
     return (
@@ -204,14 +211,19 @@ Nothing is lost: the restore is saved as a new version`;
     return (
       <div className="versions-empty">
         {error && <InlineMessage level="error" className="versions-inline">{error}</InlineMessage>}
-        <button
-          type="button"
-          className="git-commit-button versions-enable"
-          disabled={busy}
-          onClick={() => void enableTracking()}
-        >
-          <GitBranch size={13} /> {t`Enable version tracking`}
-        </button>
+        <EmptyState
+          icon={<EmptyIllustration kind="history" />}
+          actions={(
+            <button
+              type="button"
+              className="git-commit-button versions-enable"
+              disabled={busy}
+              onClick={() => void enableTracking()}
+            >
+              <GitBranch size={13} /> {t`Enable version tracking`}
+            </button>
+          )}
+        />
       </div>
     );
   }
