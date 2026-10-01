@@ -7,6 +7,7 @@ import { useLingui } from "@lingui/react/macro";
 import { msg } from "@lingui/core/macro";
 import { i18n } from "./i18n";
 import { invoke } from "@tauri-apps/api/core";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import { open, save as saveDialog } from "@tauri-apps/plugin-dialog";
 import { openUrl, revealItemInDir } from "@tauri-apps/plugin-opener";
 import * as Y from "yjs";
@@ -31,7 +32,9 @@ import {
   loadAuthorNameSetting, loadEditorCommentAuthorId, persistAuthorNameSetting, resolveAuthorName,
 } from "./editor/comments/editor-comment-data";
 import { useAppearance } from "./settings/use-appearance";
-import { isBrowserHosted } from "./platform/browser-runtime";
+import {
+  browserRuntimeDetached, isBrowserHosted, isBundledChromium, setWorkspaceYieldHandler,
+} from "./platform/browser-runtime";
 import { configureInterfaceSounds } from "./telemetry/interface-sounds";
 import { useFileViewStates } from "./app/use-file-view-states";
 import { useProjectSearch } from "./app/use-project-search";
@@ -1126,6 +1129,57 @@ function App() {
       window.removeEventListener("pagehide", pageHide);
     };
   }, [browserHosted]);
+
+  // Before another surface takes this workspace (the default browser, or the
+  // Lattice window coming back), publish and save every edit. The bridge asks
+  // for this too when a bookmarked tab takes over unannounced.
+  const saveForHandoff = useCallback(async () => {
+    visualMarkdownFlushRef.current?.();
+    const saved = await saveBeforeProjectTransitionRef.current();
+    await Promise.race([
+      flushWholeFilesBeforeProjectTransitionRef.current(),
+      new Promise<void>((resolve) => window.setTimeout(resolve, PROJECT_SWITCH_SYNC_WAIT_MS)),
+    ]);
+    return saved;
+  }, []);
+  useEffect(() => {
+    if (!browserHosted) return;
+    setWorkspaceYieldHandler(saveForHandoff);
+    return () => setWorkspaceYieldHandler(null);
+  }, [browserHosted, saveForHandoff]);
+
+  /** A tab in the default browser, as opposed to a Lattice window. */
+  const inBrowserTab = browserHosted && !isBundledChromium();
+  /** "Open in browser" from a Lattice window, "Open in Lattice app" from a browser tab. */
+  const moveWorkspace = useCallback(async () => {
+    if (inBrowserTab) {
+      if (!await saveForHandoff()) return;
+      await invoke("return_to_desktop").catch((reason) => {
+        // Once the window has taken over, this page is detached and the
+        // reply never arrives: that is the success case.
+        if (!browserRuntimeDetached()) setError(toMessage(reason));
+      });
+      return;
+    }
+    if (browserHosted) {
+      // The Chromium window: the new tab asks it to yield, then it hides
+      // until the tab gives the workspace back or closes.
+      if (!await saveForHandoff()) return;
+      await invoke("open_in_browser").catch((reason) => setError(toMessage(reason)));
+      return;
+    }
+    // A native WebKit window closes, and the tab starts relaying only once it
+    // has, so the two never edit together. Claim the switch meanwhile.
+    if (!await startProjectTransition()) return;
+    try {
+      await invoke("open_in_browser");
+    } catch (reason) {
+      cancelProjectTransition();
+      setError(toMessage(reason));
+      return;
+    }
+    await getCurrentWindow().close();
+  }, [browserHosted, cancelProjectTransition, inBrowserTab, saveForHandoff, startProjectTransition]);
   useEffect(() => {
     if (!project || !activeFile || activeAsset || activePaper) return;
     let cancelled = false;
@@ -3477,6 +3531,12 @@ function App() {
       detail: t`Learn Lattice with the Understanding Attention sample project`,
     },
     { id: "doctor", label: t`Run TeX doctor`, group: t`Project`, run: () => openSettings("doctor") },
+    {
+      id: "browser", group: t`Project`, run: () => void moveWorkspace(),
+      ...(inBrowserTab
+        ? { label: t`Open in Lattice app` }
+        : { label: t`Open in browser`, detail: "http://127.0.0.1:18452" }),
+    },
     { id: "settings", label: t`Open settings`, detail: "⌘,", group: t`Project`, key: ",", run: () => openSettings() },
   ];
   const runCommand = useAppCommands(commands, cycleDiagnostic);
@@ -3870,6 +3930,8 @@ function App() {
           }}
           commentCount={editorComments.all.filter((comment) => !comment.resolved).length}
           onComments={openEditorComments}
+          inBrowserTab={inBrowserTab}
+          onMoveWorkspace={() => void moveWorkspace()}
           hiddenTools={appearance.hiddenTitlebarTools}
           overleafLinked={overleafLink !== null}
           overleafSyncing={overleafSyncing}

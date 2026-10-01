@@ -106,6 +106,7 @@ describe("Tauri security boundary", () => {
     expect(capability.permissions).toEqual([
       "core:default",
       "core:window:allow-set-focus",
+      "core:window:allow-close",
       "core:window:allow-destroy",
       "core:window:allow-start-dragging",
       "core:window:allow-set-fullscreen",

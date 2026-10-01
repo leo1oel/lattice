@@ -38,6 +38,7 @@ pub(crate) struct ChromiumRuntime {
 #[serde(tag = "type", rename_all = "kebab-case")]
 enum ShellMessage<'a> {
     OpenUrl { url: &'a str },
+    SetWindowVisibility { label: &'a str, visible: bool },
 }
 
 fn encode_message(message: &ShellMessage<'_>) -> Result<String, String> {
@@ -116,6 +117,12 @@ impl ChromiumRuntime {
     /// the request, so explicit browser-access mode may use the system browser.
     pub(crate) fn open_url(&self, url: &str) -> Result<bool, String> {
         self.send(&ShellMessage::OpenUrl { url })
+    }
+
+    /// Hide a workspace while a browser tab holds it, then show the same
+    /// Chromium window again when the tab gives it back or closes.
+    pub(crate) fn set_window_visibility(&self, label: &str, visible: bool) -> Result<bool, String> {
+        self.send(&ShellMessage::SetWindowVisibility { label, visible })
     }
 
     fn send(&self, message: &ShellMessage<'_>) -> Result<bool, String> {
@@ -243,10 +250,16 @@ mod tests {
     #[test]
     fn control_messages_keep_authenticated_urls_out_of_process_arguments() {
         let url = "http://127.0.0.1:18452/#token=secret&bridgePort=18452&label=browser-test";
-        assert_eq!(
-            encode_message(&ShellMessage::OpenUrl { url }).unwrap(),
-            format!("{{\"type\":\"open-url\",\"url\":\"{url}\"}}\n")
-        );
+        for (message, expected) in [
+            (ShellMessage::OpenUrl { url }, format!(r#"{{"type":"open-url","url":"{url}"}}"#)),
+            (
+                ShellMessage::SetWindowVisibility { label: "browser-test", visible: false },
+                r#"{"type":"set-window-visibility","label":"browser-test","visible":false}"#
+                    .to_string(),
+            ),
+        ] {
+            assert_eq!(encode_message(&message).unwrap(), format!("{expected}\n"));
+        }
     }
 
     #[test]

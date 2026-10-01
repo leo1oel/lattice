@@ -4,8 +4,12 @@
 
 use super::session::{
     self, BridgeQuery, BridgeRole, BrowserSession, BrowserSessionConfig, Detached, Sessions,
+    Settlement,
 };
-use super::{browser_origin, build_host_window, destroy_window, new_host_label, new_token};
+use super::{
+    apply_effect, browser_origin, build_host_window, destroy_window, new_host_label, new_token,
+    reopen_in_native_window,
+};
 use axum::{
     body::Body,
     extract::{
@@ -24,9 +28,14 @@ use tauri::Manager;
 use tokio::sync::mpsc;
 
 const MAX_BRIDGE_MESSAGE_SIZE: usize = 256 * 1024 * 1024;
-const SESSION_CONNECT_TIMEOUT: Duration = Duration::from_secs(30);
-/// How long a disconnected workspace waits for a reload.
+pub(super) const SESSION_CONNECT_TIMEOUT: Duration = Duration::from_secs(30);
+/// How long a disconnected workspace waits for a reload before the other
+/// surface takes it back or the session ends.
 const RECONNECT_GRACE: Duration = Duration::from_secs(5);
+/// The surface giving up the workspace has saved (answer to `yield`).
+const YIELDED: &str = r#"{"type":"yielded"}"#;
+/// The parked Chromium window asks for the workspace back.
+const RECLAIM: &str = r#"{"type":"reclaim"}"#;
 
 #[derive(Clone)]
 struct ServerState {
@@ -79,18 +88,29 @@ fn shutdown_synara_if_idle(app: &tauri::AppHandle, sessions: &Sessions) {
     }
 }
 
-/// After `delay`, retire a session whose visible peer never came back.
-fn settle_later(
+/// After `delay`, settle a session whose owner never came back: the other
+/// surface takes over, or the session ends. A workspace a native window had
+/// handed to the tab opens in a native window again rather than vanishing.
+pub(super) fn settle_later(
     app: &tauri::AppHandle, sessions: &Sessions, token: String, visible_epoch: u64, delay: Duration,
 ) {
     let (app, sessions) = (app.clone(), Arc::clone(sessions));
     tauri::async_runtime::spawn(async move {
         tokio::time::sleep(delay).await;
-        if let Some(host_label) =
-            session::expire_abandoned_session(&sessions, &token, visible_epoch)
-        {
-            destroy_window(&app, &host_label);
-            shutdown_synara_if_idle(&app, &sessions);
+        match session::settle_after_grace(&sessions, &token, visible_epoch) {
+            None => {}
+            Some(Settlement::Switched(effect)) => apply_effect(&app, &sessions, &token, effect),
+            Some(Settlement::Expired { host_label, native_return }) => {
+                let state = app.state::<crate::AppState>();
+                let root = native_return.then(|| state.root_for(&host_label).ok().flatten());
+                if let Some(root) = root.flatten() {
+                    if let Err(reason) = reopen_in_native_window(&app, &state, root) {
+                        log::error!(target: "lattice::browser", "could not reopen the workspace: {reason}");
+                    }
+                }
+                destroy_window(&app, &host_label);
+                shutdown_synara_if_idle(&app, &sessions);
+            }
         }
     });
 }
@@ -117,20 +137,16 @@ async fn open_browser_session(
 
     // Select or reserve the entry under one lock so simultaneous fixed-address
     // loads converge on one privileged host.
-    let bundled_chromium = query.role == BridgeRole::Desktop;
     let selected = state.sessions.lock().ok().map(|mut sessions| {
-        if let Some(config) = session::reusable_entry_config(
-            &sessions,
-            state.port,
-            query.token.as_deref(),
-            bundled_chromium,
-        ) {
+        if let Some(config) =
+            session::reusable_entry_config(&sessions, state.port, query.token.as_deref())
+        {
             return (config, None);
         }
         let token = new_token();
         let session = BrowserSession {
             entry_session: true,
-            bundled_chromium,
+            bundled_chromium: query.role == BridgeRole::Desktop,
             ..BrowserSession::new(new_host_label(), origin.clone())
         };
         let config = BrowserSessionConfig::new(&token, &session, state.port);
@@ -185,8 +201,11 @@ async fn bridge_socket(
     let peer_id = new_token();
     let (sender, mut outgoing) = mpsc::unbounded_channel();
     let (mut sink, mut incoming) = socket.split();
-    if session::register_peer(&sessions, &query, &peer_id, sender).is_none() {
+    let Some(effect) = session::register_peer(&sessions, &query, &peer_id, sender) else {
         return;
+    };
+    if let Some(effect) = effect {
+        apply_effect(&app, &sessions, &query.token, effect);
     }
 
     loop {
@@ -199,6 +218,19 @@ async fn bridge_socket(
             message = incoming.next() => {
                 let Some(Ok(message)) = message else { break };
                 match message {
+                    Message::Text(text)
+                        if query.role != BridgeRole::Host
+                            && matches!(text.as_str(), YIELDED | RECLAIM) =>
+                    {
+                        let effect = if text.as_str() == YIELDED {
+                            session::yielded(&sessions, &query, &peer_id)
+                        } else {
+                            session::reclaim(&sessions, &query, &peer_id)
+                        };
+                        if let Some(effect) = effect {
+                            apply_effect(&app, &sessions, &query.token, effect);
+                        }
+                    }
                     Message::Text(_) | Message::Binary(_) => {
                         if let Some(target) = session::other_peer(&sessions, &query, &peer_id) {
                             let _ = target.send(message);
@@ -218,7 +250,7 @@ async fn bridge_socket(
         None => {}
         Some(Detached::SessionRemoved) => shutdown_synara_if_idle(&app, &sessions),
         // A reload briefly replaces the browser socket. Preserve the host
-        // across that gap, but retire it when the tab is actually gone.
+        // across that gap, but settle the session when the tab is actually gone.
         Some(Detached::Grace(epoch)) => {
             settle_later(&app, &sessions, query.token, epoch, RECONNECT_GRACE);
         }

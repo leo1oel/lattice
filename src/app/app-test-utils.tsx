@@ -43,7 +43,7 @@ import type { OpenSlideMutation, OpenSlideSyncOperation } from "../editor/presen
 
 const windowApi = vi.hoisted(() => ({
   label: "main", setFocus: vi.fn(async () => {}), startDragging: vi.fn(), isFullscreen: vi.fn(), setFullscreen: vi.fn(),
-  setMinSize: vi.fn(), onResized: vi.fn(),
+  setMinSize: vi.fn(), onResized: vi.fn(), close: vi.fn(async () => {}),
 }));
 const webviewApi = vi.hoisted(() => ({
   dragDropHandler: null as null | ((event: {
@@ -62,7 +62,9 @@ const interfaceSounds = vi.hoisted(() => ({ configure: vi.fn(), play: vi.fn() })
 const openSlideWorkspaceApi = vi.hoisted(() => ({
   onMutation: null as null | ((mutation: OpenSlideMutation) => Promise<OpenSlideSyncOperation[]>),
 }));
-const browserRuntime = vi.hoisted(() => ({ hosted: false }));
+const browserRuntime = vi.hoisted(() => ({
+  hosted: false, bundled: false, yieldHandler: null as null | (() => Promise<unknown>),
+}));
 const pdfSlickTestApi = vi.hoisted(() => ({ sources: [] as Array<string | ArrayBuffer> }));
 const tauriCoreApi = vi.hoisted(() => ({ channel: null as { onmessage: ((message: unknown) => void) | null } | null }));
 vi.mock("@tauri-apps/api/core", () => ({
@@ -118,6 +120,9 @@ vi.mock("../telemetry/interface-sounds", () => ({
 }));
 vi.mock("../platform/browser-runtime", () => ({
   isBrowserHosted: () => browserRuntime.hosted,
+  isBundledChromium: () => browserRuntime.hosted && browserRuntime.bundled,
+  browserRuntimeDetached: () => false,
+  setWorkspaceYieldHandler: (handler: null | (() => Promise<unknown>)) => { browserRuntime.yieldHandler = handler; },
 }));
 vi.mock("pdfjs-dist", () => ({
   GlobalWorkerOptions: {},
@@ -506,7 +511,7 @@ Element.prototype.getBoundingClientRect = function (this: Element) {
 beforeEach(() => {
   localStorage.clear();
   localStorage.setItem("lattice.tutorial-seen.v1", "1");
-  Object.assign(browserRuntime, { hosted: false });
+  Object.assign(browserRuntime, { hosted: false, bundled: false, yieldHandler: null });
   pdfSlickTestApi.sources.length = 0;
   openSlideWorkspaceApi.onMutation = null;
   webviewApi.dragDropHandler = null;

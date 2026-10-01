@@ -1,4 +1,4 @@
-//! Windows and app-level chores (logs, restart).
+//! Windows, the browser handoff, and app-level chores (logs, restart).
 
 use super::run_blocking;
 use crate::app_state::AppState;
@@ -32,7 +32,7 @@ fn next_project_window_label(is_taken: impl Fn(&str) -> bool) -> String {
 
 /// Show `root` in a new desktop window. The window is bound before it is
 /// built: it asks for its project during startup, which must already resolve.
-fn open_desktop_window(
+pub(crate) fn open_desktop_window(
     app: &AppHandle, state: &AppState, root: PathBuf,
 ) -> Result<(String, WebviewWindow), String> {
     let label = next_project_window_label(|label| app.get_webview_window(label).is_some());
@@ -79,7 +79,10 @@ pub async fn open_project_window(
     }
 
     let label = if window.label().starts_with("browser-") {
-        browser.open_project(&app, &state, root)?
+        // A browser tab opens the project in a new tab, a Chromium window in
+        // a new window.
+        let in_browser = browser.shown_in_browser(window.label());
+        browser.open_project(&app, &state, root, in_browser)?
     } else {
         let (label, created) = open_desktop_window(&app, &state, root)
             .map_err(|error| format!("Could not open a new window: {error}"))?;
@@ -87,6 +90,28 @@ pub async fn open_project_window(
         label
     };
     Ok(OpenedProjectWindow { label, focused_existing: false })
+}
+
+/// Hand this workspace to the default browser at the local address. The
+/// frontend saves first; a native WebKit window closes itself afterwards.
+#[tauri::command]
+pub fn open_in_browser(
+    app: AppHandle, browser: State<'_, browser_host::BrowserHost>, state: State<'_, AppState>,
+    window: Window,
+) -> Result<(), String> {
+    browser.open_in_browser(&app, &state, window.label())
+}
+
+/// Give a browser tab's workspace back to a Lattice window on this Mac.
+#[tauri::command]
+pub fn return_to_desktop(
+    app: AppHandle, browser: State<'_, browser_host::BrowserHost>, state: State<'_, AppState>,
+    window: Window,
+) -> Result<(), String> {
+    if !window.label().starts_with("browser-") {
+        return Err("This workspace is already open in the Lattice app.".to_string());
+    }
+    browser.return_to_desktop(&app, &state, window.label())
 }
 
 fn app_log_dir(app: &AppHandle) -> Result<PathBuf, String> {

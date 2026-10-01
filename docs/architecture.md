@@ -47,7 +47,7 @@ A running Lattice is three OS-level participants, not one:
 
 ### 1.1 Webview ↔ Rust: Tauri `invoke` / `listen`
 
-The webview calls Rust with `invoke("command_name", args)` against **157
+The webview calls Rust with `invoke("command_name", args)` against **159
 registered commands** (see §2). Data flows the other way over Tauri events, of
 which there are only **four** emitted from the project and editor layers:
 
@@ -225,7 +225,7 @@ parts — `project/`, `overleaf/`, `overleaf_rt/`, `papers/`, `citation_audit/`,
 ### 2.1 `lib.rs` wires; `ipc/` handles; domain modules decide
 
 `lib.rs` (~500 lines) declares the modules, sets up plugins, the window
-lifecycle and the child runtimes, and registers **157** commands in
+lifecycle and the child runtimes, and registers **159** commands in
 `tauri::generate_handler!`. Every `#[tauri::command]` in the tree is
 registered, and every registered command has a caller in `src/`.
 
@@ -256,7 +256,7 @@ Practical consequence: to find what a button does, grep the command name in
 | `files` | 21 | `read_project_file`, `write_project_file`, `create_project_entry`, `move_project_entry` |
 | `build` | 17 | `build_project`, `abort_build`, `synctex_edit`, `texlab_diagnostics`, `start_tex_install`, `run_doctor` |
 | `search` | 11 | `search_project`, `replace_in_project`, `rename_label`, `list_todos` |
-| `windows` | 8 | `open_project_window`, `restart_after_update`, `set_window_background` |
+| `windows` | 10 | `open_project_window`, `open_in_browser`, `return_to_desktop`, `set_window_background` |
 | `bibliography` | 13 | `list_citation_keys`, `save_bib_entry`, `bibliography_audit_scan`, `agent_bibliography_mutation` |
 | `workspace` | 10 | `create_project`, `open_project`, `import_project_zip`, `update_project_manifest` |
 | `papers` | 10 | `search_literature`, `fetch_paper`, `import_reference`, `read_paper` |
@@ -271,7 +271,7 @@ surprising fact about this backend.
 
 Sizes by area (lines, tests included): `project` ~6.3k · `papers` ~4.8k ·
 `overleaf` ~4.2k · `citation_audit` ~3.3k · `overleaf_rt` ~3.0k · `ipc` ~2.5k ·
-`latex` ~1.5k · `browser_host` ~1.3k · `tex_setup` ~1.0k · everything else
+`browser_host` ~2.1k · `latex` ~1.5k · `tex_setup` ~1.0k · everything else
 under 1,000.
 
 **Hubs** (by number of modules that depend on them):
