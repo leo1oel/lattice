@@ -31,7 +31,7 @@
   /* Ambient loops rest on their invisible or finished frame. `html` lifts these
      past the components' own single-class rules, whatever order they load in. */
   html .lattice-mark-glint, html .welcome-lattice-trail, html .welcome-lattice-pulse,
-  html .welcome-lattice-ring, html .welcome-lattice-bloom, html .empty-illustration-typing circle,
+  html .welcome-lattice-ring, html .welcome-lattice-bloom, html .empty-illustration-typing > g,
   html .pdf-skeleton-page::after { animation: none; }
 }
 

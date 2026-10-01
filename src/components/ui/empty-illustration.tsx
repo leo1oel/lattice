@@ -53,9 +53,15 @@ function drawComments() {
       <path className="empty-illustration-paper" d="M27 20h28a4 4 0 0 1 4 4v12a4 4 0 0 1-4 4h-4v5l-6-5H27a4 4 0 0 1-4-4V24a4 4 0 0 1 4-4z" />
       <Line d="M27 20h28a4 4 0 0 1 4 4v12a4 4 0 0 1-4 4h-4v5l-6-5H27a4 4 0 0 1-4-4V24a4 4 0 0 1 4-4z" i={2} />
       <g className="empty-illustration-typing">
-        <circle className="empty-illustration-knot" data-thread="weft" cx="34" cy="30" r="2" style={order(3)} />
-        <circle className="empty-illustration-knot" data-thread="warp" cx="41" cy="30" r="2" style={order(4)} />
-        <circle className="empty-illustration-knot" data-thread="weft" cx="48" cy="30" r="2" style={order(5)} />
+        <g style={order(3)}>
+          <circle className="empty-illustration-knot" data-thread="weft" cx="34" cy="30" r="2" />
+        </g>
+        <g style={order(4)}>
+          <circle className="empty-illustration-knot" data-thread="warp" cx="41" cy="30" r="2" />
+        </g>
+        <g style={order(5)}>
+          <circle className="empty-illustration-knot" data-thread="weft" cx="48" cy="30" r="2" />
+        </g>
       </g>
     </>
   );
