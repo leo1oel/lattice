@@ -138,6 +138,9 @@ last accepted text, with their source bytes and gaps.
   unescaped. The result is re-parsed and compared with what the editor shows,
   ignoring style. If it would read back differently, the run is written in
   *safe* style instead, which escapes everything the grammar could misread.
+  The exception is a typed bare URL, `www.` host or email address: GFM reads it
+  back as a literal autolink of its own text, which the comparison treats as
+  that plain text, so it is written unescaped (never as `https\://`).
 - Every new join (next to a changed run, or between untouched blocks that a
   deletion or an emptied block made neighbors) is re-parsed as a two-block window. If the two
   blocks would read back merged (two lists becoming one, an indented code

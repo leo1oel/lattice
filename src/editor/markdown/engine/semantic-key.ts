@@ -12,7 +12,9 @@ import { STYLE_ATTRIBUTES } from "./engine-schema";
 /**
  * What a sequence of nodes means, ignoring how it was written: style
  * attributes, authored-source marks, text-node boundaries, and empty
- * paragraphs (which have no Markdown) are dropped.
+ * paragraphs (which have no Markdown) are dropped. A GFM literal autolink is
+ * its text: typed bare URLs, `www.` hosts and email addresses read back as
+ * autolinks, and no escape keeps them plain, so the two are one reading.
  */
 export function semanticKey(nodes: readonly PmNode[]): string {
   return JSON.stringify(nodes.map((node) => semanticJSON(node.toJSON() as JSONContent)).filter(Boolean));
@@ -26,7 +28,7 @@ function semanticJSON(node: JSONContent): unknown {
       .map(([name, value]) => [name, value === "" ? null : value]),
   );
   const marks = (node.marks ?? [])
-    .filter((mark) => mark.type !== "latticeSource")
+    .filter((mark) => mark.type !== "latticeSource" && !(node.type === "text" && literalAutolink(mark, node.text ?? "")))
     .map((mark) => [mark.type, Object.fromEntries(Object.entries(mark.attrs ?? {}).filter(([name]) => !STYLE_ATTRIBUTES.has(name)))]);
   if (node.type === "text") return { text: node.text, marks };
   const content: unknown[] = [];
@@ -52,3 +54,12 @@ function semanticJSON(node: JSONContent): unknown {
 }
 
 const TEXTBLOCKS = new Set(["paragraph", "heading"]);
+
+type MarkJSON = NonNullable<JSONContent["marks"]>[number];
+
+/** A link GFM makes of bare text: written as its own text, pointing where GFM points it. */
+function literalAutolink(mark: MarkJSON, text: string): boolean {
+  const attrs = (mark.attrs ?? {}) as Record<string, unknown>;
+  if (mark.type !== "link" || attrs.autolink !== "literal" || attrs.title) return false;
+  return attrs.href === text || attrs.href === `http://${text}` || attrs.href === `mailto:${text}`;
+}

@@ -80,5 +80,10 @@
   "converter frontmatter quoted": "---\ntitle: \"Attention Is All You Need\"\nsections: 28\n---\n\n## Contents\n",
   "prices": "It costs $5 and then $10 more.\n",
   "setext and thematic break are not tables": "Setext heading\n---\n\nProse\n\n---\n\nMore\n\nEscaped \\| pipe\n---\n",
-  "escaped period": "Use w\\.r.t. here.\n"
+  "escaped period": "Use w\\.r.t. here.\n",
+  "bare urls in prose": "Docs live at https://example.com and http://example.com/path.\n\nSearch https://example.com/search?q=a+b&lang=en#top, then www.example.com/x_y?\n\nSee (https://en.wikipedia.org/wiki/Set_(mathematics)) or https://example.com/a_b*c*~d~!\n",
+  "bare emails": "Write to someone@example.com or mailto:someone@example.com.\n\n*Escaped stars* beside xmpp:someone@example.com.\n",
+  "bare urls in a list": "- https://example.com\n- www.example.com.\n- mailto:someone@example.com\n",
+  "bare urls in a table": "| Site | Contact |\n| --- | --- |\n| https://example.com/a_b?x=1 | someone@example.com |\n",
+  "url-like text escaped by an older save": "Not a link: https\\://example.com and www\\.example.com.\n"
 }

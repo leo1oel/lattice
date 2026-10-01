@@ -1,5 +1,5 @@
 /** Clean implementation for Lattice; spec: docs/visual-editor-spec.md */
-import type { Node as PmNode } from "@tiptap/pm/model";
+import { Fragment, Slice, type Node as PmNode } from "@tiptap/pm/model";
 import { describe, expect, it } from "vitest";
 import { engineSchema } from "./engine-schema";
 import { openMarkdown, semanticKey, serializeMarkdown, type OpenedMarkdown } from "./markdown-document";
@@ -154,6 +154,182 @@ describe("Markdown round-trip core", () => {
     const once = serializeMarkdown(edited, first.baseline);
     expect(once.text).toBe("Alpha!\n\n\n\nBeta\n");
     expect(serializeMarkdown(edited, once.baseline).text).toBe(once.text);
+  });
+});
+
+describe("bare URLs typed into the visual editor", () => {
+  const urls = [
+    "https://example.com",
+    "http://example.com/path",
+    "https://example.com/search?q=a+b&lang=en#top",
+    "https://en.wikipedia.org/wiki/Set_(mathematics)",
+    "https://example.com/a_b*c*~d~",
+    "www.example.com",
+    "mailto:someone@example.com",
+    "someone@example.com",
+  ];
+  const surroundings = [
+    ["alone", (url: string) => url],
+    ["inside prose", (url: string) => `See ${url} for details`],
+    ["in parentheses", (url: string) => `(see ${url})`],
+    ["before a full stop", (url: string) => `Visit ${url}.`],
+    ["before a comma and a question mark", (url: string) => `Is it ${url}, or ${url}?`],
+  ] as const;
+
+  /** Type `typed` as plain text into block `index` of `text` (a textblock, or a list/table holding one) and save. */
+  function typeInto(text: string, typed: string) {
+    const { doc, baseline } = open(text);
+    let next = doc;
+    doc.descendants((node, position) => {
+      if (next !== doc || !node.isTextblock || node.textContent !== "x") return;
+      next = doc.replace(position + 1, position + node.nodeSize - 1, new Slice(Fragment.from(schema.text(typed)), 0, 0));
+    });
+    expect(next).not.toBe(doc);
+    return { edited: next, written: serializeMarkdown(next, baseline) };
+  }
+
+  describe.each(surroundings)("%s", (_name, around) => {
+    it.each(urls)("writes %s as typed and reopens it as normal text", (url) => {
+      const typed = around(url);
+      for (const [container, text, expected] of [
+        ["paragraph", "x\n", `${typed}\n`],
+        ["list item", "- x\n", `- ${typed}\n`],
+        ["table cell", "| a |\n| --- |\n| x |\n", `| a |\n| --- |\n| ${typed} |\n`],
+      ] as const) {
+        const { edited, written } = typeInto(text, typed);
+        expect(written.text, container).toBe(expected);
+        expect(written.verified, container).toBe(true);
+        const reopened = open(written.text);
+        expect(blockTypes(reopened.doc), container).toEqual(blockTypes(edited));
+        expect(reopened.doc.textContent, container).toBe(edited.textContent);
+        expect(semanticKey(reopened.doc.children), container).toBe(semanticKey(edited.children));
+        // Reopened, the URL is a GFM autolink; saving it again changes nothing.
+        expect(serializeMarkdown(reopened.doc, reopened.baseline).text, container).toBe(written.text);
+      }
+    });
+  });
+
+  it("keeps a reopened autolink's bytes when the paragraph around it is edited", () => {
+    const text = "See https://example.com/a_b and someone@example.com\n";
+    expect(editBlockText(text, 0, (content) => `${content}.`)).toBe("See https://example.com/a_b and someone@example.com.\n");
+    const { doc, baseline } = open(text);
+    const paragraph = doc.child(0);
+    const edited = paragraph.copy(paragraph.content.addToEnd(schema.text(" More.")));
+    expect(serializeMarkdown(doc.copy(doc.content.replaceChild(0, edited)), baseline).text).toBe("See https://example.com/a_b and someone@example.com More.\n");
+  });
+
+  it.each([
+    ["emphasis", "*star* https://example.com/a_b", "\\*star\\* https://example.com/a_b"],
+    ["a heading marker", "# https://example.com/a_b", "\\# https://example.com/a_b"],
+    ["a wiki link", "[[Page]] then www.example.com/x_y", "\\[\\[Page]] then www.example.com/x_y"],
+    ["an email", "*a* someone@example.com", "\\*a\\* someone@example.com"],
+  ])("escapes %s beside a URL without escaping the URL", (_name, typed, expected) => {
+    const { written } = typeInto("x\n", typed);
+    expect(written.text).toBe(`${expected}\n`);
+    expect(written.verified).toBe(true);
+    expect(open(written.text).doc.textContent).toBe(typed);
+  });
+
+  it.each([
+    ["a pipe in a table cell", "| a |\n| --- |\n| x |\n", "https://a.com/x|y"],
+    ["two URLs split by a pipe in a table cell", "| a |\n| --- |\n| x |\n", "https://a.com|https://b.com"],
+    ["a character reference", "x\n", "https://a.com/?a=1&copy;x"],
+    ["a backslash before punctuation", "x\n", "https://a.com/\\*x"],
+    ["a closing bracket in a paragraph", "x\n", "https://a.com/a]b"],
+  ])("escapes %s inside a URL so it reads back as shown", (_name, text, typed) => {
+    const { edited, written } = typeInto(text, typed);
+    expect(written.verified).toBe(true);
+    const reopened = open(written.text);
+    expect(blockTypes(reopened.doc)).toEqual(blockTypes(edited));
+    expect(reopened.doc.textContent).toBe(edited.textContent);
+  });
+
+  it.each([
+    ["*https://a.com/x*", "\\*https\\://a.com/x\\*"],
+    ["_https://a.com/x_", "\\_https\\://a.com/x\\_"],
+    ["~https://a.com/x~", "\\~https\\://a.com/x\\~"],
+    ["*https://a.com/x**", "\\*https\\://a.com/x\\*\\*"],
+    ["*https://a.com/x*_", "\\*https\\://a.com/x\\*\\_"],
+    ["https://a.com/x&copy;", "https\\://a.com/x\\&copy;"],
+    ["https://a.com/x<br>", "https\\://a.com/x\\<br>"],
+  ])("escapes %s, whose URL runs into an escape, like other text", (typed, expected) => {
+    const { written } = typeInto("x\n", typed);
+    expect(written.text).toBe(`${expected}\n`);
+    expect(written.verified).toBe(true);
+    expect(open(written.text).doc.textContent).toBe(typed);
+  });
+
+  it("escapes a closing bracket of a URL typed as link text", () => {
+    const { doc, baseline } = open("x\n");
+    const typed = "https://x.com/a]";
+    const link = schema.text(typed, [schema.marks.link!.create({ href: "https://example.org" })]);
+    const next = doc.copy(doc.content.replaceChild(0, schema.nodes.paragraph!.create(null, link)));
+    const written = serializeMarkdown(next, baseline);
+    expect(written.verified).toBe(true);
+    expect(open(written.text).doc.textContent).toBe(typed);
+  });
+
+  it.each([
+    ["a quote", '"https://example.com/*a*_b_"'],
+    ["a digit", "1https://example.com/*a*_b_"],
+    ["an opening bracket", "[https://example.com/*a*_b_"],
+    ["a closing bracket", "]https://example.com/*a*_b_"],
+    ["a colon", "x:https://example.com/*a*b"],
+    ["a slash", "a/https://example.com/*a*_b_"],
+    ["a period", "a.https://example.com/*a*_b_"],
+    ["an opening bracket before www", "[www.example.com/*a*_b_"],
+    ["a quote before an email", '"someone_x@example.com"'],
+  ])("reads back a URL typed after %s as shown", (_name, typed) => {
+    const { written } = typeInto("x\n", typed);
+    expect(written.verified).toBe(true);
+    expect(open(written.text).doc.textContent).toBe(typed);
+  });
+
+  it("still escapes text that only looks like a URL", () => {
+    // Not an autolink start: GFM starts a URL with a scheme only after a character that is not an ASCII letter.
+    expect(editBlockText("Plain\n", 0, () => "*x*https://example.com")).toBe("\\*x\\*https://example.com\n");
+    expect(editBlockText("Plain\n", 0, () => "snake_case https://example.com")).toBe("snake_case https://example.com\n");
+  });
+});
+
+describe("files saved with escaped bare URLs", () => {
+  const linkOf = (node: PmNode) => {
+    const links: { text: string; href: unknown }[] = [];
+    node.descendants((child) => {
+      const link = child.marks.find((mark) => mark.type.name === "link");
+      if (child.isText && link) links.push({ text: child.text!, href: link.attrs.href });
+    });
+    return links;
+  };
+
+  it.each([
+    ["a paragraph", "See https\\://example.com/a\\_b now\n", "paragraph", "See https://example.com/a_b now", "https://example.com/a_b"],
+    ["a heading", "# Go to https\\://example.com\n", "heading", "Go to https://example.com", "https://example.com"],
+    ["a list item", "- mail foo\\@example.com\n", "bulletList", "mail foo@example.com", "mailto:foo@example.com"],
+    ["a blockquote", "> *x* www\\.example.com.\n", "blockquote", "x www.example.com.", "http://www.example.com"],
+    ["a table cell", "| a |\n| --- |\n| https\\://example.com?q=1 |\n", "table", "ahttps://example.com?q=1", "https://example.com?q=1"],
+  ])("opens %s as visual text with a link and keeps it byte for byte", (_name, text, kind, shown, href) => {
+    const { doc, baseline } = open(text);
+    expect(blockTypes(doc)).toEqual([kind]);
+    expect(doc.textContent).toBe(shown);
+    expect(linkOf(doc).map((link) => link.href)).toEqual([href]);
+    expect(serializeMarkdown(doc, baseline).text).toBe(text);
+  });
+
+  it("writes an edited paragraph without the stray backslashes", () => {
+    const text = "Keep\n\nSee https\\://example.com and foo\\@example.com\n";
+    const written = editBlockText(text, 1, (content) => `${content} now`);
+    expect(written).toBe("Keep\n\nSee https://example.com and foo@example.com now\n");
+    const reopened = open(written);
+    expect(linkOf(reopened.doc).map((link) => link.href)).toEqual(["https://example.com", "mailto:foo@example.com"]);
+    expect(serializeMarkdown(reopened.doc, reopened.baseline).text).toBe(written);
+  });
+
+  it("keeps other authored escapes in the unchanged runs of that paragraph", () => {
+    const { doc, baseline } = open("snake\\_case https\\://example.com\n");
+    const paragraph = doc.child(0);
+    const edited = paragraph.copy(paragraph.content.addToEnd(schema.text(" More.")));
+    expect(serializeMarkdown(doc.copy(doc.content.replaceChild(0, edited)), baseline).text).toBe("snake\\_case https://example.com More.\n");
   });
 });
 
