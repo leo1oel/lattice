@@ -477,7 +477,7 @@ function showRuntimeStatus(status: RuntimeStatus): void {
   if (action) {
     const button = document.createElement("button");
     button.type = "button";
-    const buttonStyle = "margin-top:var(--space-6);padding:var(--space-3) var(--space-8);font:inherit;cursor:pointer";
+    const buttonStyle = "margin-top:var(--space-6);padding:var(--space-3) var(--space-8);border:0;border-radius:var(--radius-control);font:inherit;cursor:pointer";
     button.style.cssText = buttonStyle;
     button.textContent = action.label;
     button.addEventListener("click", () => {
