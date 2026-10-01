@@ -118,6 +118,31 @@ describe("documents and editors", () => {
     }, { timeout: 5_000 });
   });
 
+  it.each(["close button", "middle click"])("closes a background tab by its %s without opening it", async (gesture) => {
+    // Regression: the workspace's tab-click listener activated the clicked tab's document even when the click
+    // landed on its close button, so the deferred activation reopened the file the close had just removed.
+    const snapshot = projectSnapshot({ rootDocuments: [], files: fileNodes("a.txt", "b.txt", "c.txt") });
+    persistLayout(snapshot.root, { openTabs: ["a.txt", "b.txt", "c.txt"], activeFile: "a.txt", canvasMode: "source" });
+    renderApp({ ...projectCommands(snapshot), read_project_file: readPathContent });
+    await waitFor(() => expect(paneContent("primary")).toHaveTextContent("content:a.txt"));
+    const tab = await screen.findByRole("tab", { name: "b.txt" });
+    if (gesture === "close button") {
+      const close = tab.querySelector<HTMLElement>("[data-trellis-part=tab-close]")!;
+      fireEvent.pointerDown(close, { button: 0 });
+      fireEvent.click(close, { button: 0 });
+    } else {
+      fireEvent.pointerDown(tab, { button: 1 });
+      fireEvent(tab, new MouseEvent("auxclick", { bubbles: true, button: 1 }));
+    }
+    await waitFor(() => expect(screen.queryByRole("tab", { name: "b.txt" })).toBeNull());
+    await nextFrames(3);
+    await pause(50);
+    expect(screen.getAllByRole("tab", { name: /\.txt$/ }).map((item) => item.textContent)).toEqual(["a.txt", "c.txt"]);
+    await waitForSelectedTab("a.txt");
+    expect(paneContent("primary")).toHaveTextContent("content:a.txt");
+    expect(invokeCalls("read_project_file", (args) => argPath(args) === "b.txt")).toHaveLength(0);
+  });
+
   it("restores tab order and the editor while migrating the old three-column layout", async () => {
     const snapshot = projectSnapshot({ files: fileNodes("main.tex", "intro.tex", "method.tex") });
     persistLayout(snapshot.root, {

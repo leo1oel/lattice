@@ -629,12 +629,16 @@ const TrellisWorkspace = memo(function TrellisWorkspace({ controller, projectRoo
   }, [controller]);
   // Trellis reports focus only when it moves, and App switching documents
   // selects a tab without moving it: a click on the tab of a document that
-  // still holds Trellis's focus has to activate that document itself.
+  // still holds Trellis's focus has to activate that document itself. A click
+  // on the tab's close button is not one: Trellis closes that tab without
+  // selecting it, and activating it here would reopen the file the close just
+  // removed (this listener runs first, its activation lands after the close).
   useEffect(() => {
     const root = ws?.element;
     if (!root) return;
     const onPress = (event: MouseEvent) => {
       if (event.button !== 0) return;
+      if (event.target instanceof Element && event.target.closest("[data-trellis-part=tab-close]")) return;
       let node = event.target instanceof Element ? event.target : null;
       while (node && !(node instanceof HTMLElement && node.dataset.trellisPart === "tab")) node = node.parentElement;
       const viewId = node instanceof HTMLElement ? node.dataset.view : undefined;
