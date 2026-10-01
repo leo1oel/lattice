@@ -57,6 +57,8 @@ describe("document panel header tools", () => {
       // A Paper with only one of its texts: nothing to switch, the same room kept.
       { active: true, tools: { viewModes: null, paperView: "fulltext", paperViews: false } },
       { active: true, tools: { building: true } },
+      { active: true, tools: { lastBuild: { status: "succeeded", seconds: 3.2 } } },
+      { active: true, tools: { lastBuild: { status: "failed" } } },
     ];
     const footprints = states.map(({ active, tools }) => {
       const { container, unmount } = renderTools(document, { active }, tools);
@@ -76,5 +78,47 @@ describe("document panel header tools", () => {
     act(() => controller.docTools.set({ paperView: "blog", paperViews: true }));
     expect(container.querySelector(".trellis-tools-reserve")).toBeNull();
     expect(container.querySelector(".trellis-view-switcher")).toHaveAttribute("aria-label", "Paper content");
+  });
+});
+
+describe("the Build button's report of the last build", () => {
+  const tex = DOCUMENTS[0];
+  /** What the live button shows: its state class and the one visible label. */
+  const shown = (container: HTMLElement) => {
+    const button = container.querySelector(".trellis-build-button")!;
+    const label = [...button.querySelectorAll(".trellis-build-label > span")].find((span) => !span.classList.contains("trellis-build-label-off"));
+    return { state: [...button.classList].find((name) => name.startsWith("is-")) ?? "idle", label: label?.textContent, busy: button.getAttribute("aria-busy") };
+  };
+
+  it("reads Build before any build, spins while one runs, then shows a check and the time", () => {
+    const { container, controller } = renderTools(tex, { active: true }, {});
+    expect(shown(container)).toEqual({ state: "idle", label: "Build", busy: null });
+    act(() => controller.docTools.set({ building: true }));
+    expect(shown(container)).toEqual({ state: "is-building", label: "Build", busy: "true" });
+    act(() => controller.docTools.set({ building: false, lastBuild: { status: "succeeded", seconds: 3.24 } }));
+    expect(shown(container)).toEqual({ state: "is-succeeded", label: "3.2s", busy: null });
+    expect(container.querySelector(".trellis-build-status")).not.toBeNull();
+  });
+
+  it("shows a failed build, and returns to Build when the next one starts or it was stopped", () => {
+    const { container, controller } = renderTools(tex, { active: true }, { lastBuild: { status: "failed" } });
+    expect(shown(container)).toEqual({ state: "is-failed", label: "Failed", busy: null });
+    act(() => controller.docTools.set({ building: true, lastBuild: null }));
+    expect(shown(container)).toEqual({ state: "is-building", label: "Build", busy: "true" });
+    // A stopped build reports nothing.
+    act(() => controller.docTools.set({ building: false }));
+    expect(shown(container)).toEqual({ state: "idle", label: "Build", busy: null });
+  });
+
+  // One project build serves every .tex panel: the store is shared, so a
+  // panel that was hidden or unselected when the build ended shows its result
+  // the moment its document is the active one again.
+  it("shows the result in whichever .tex panel becomes active after the build ended", () => {
+    const { container, controller } = renderTools(tex, { active: false }, { building: true });
+    expect(container.querySelector(".trellis-tools-reserve .trellis-build-button")).not.toHaveClass("is-building");
+    act(() => controller.docTools.set({ building: false, lastBuild: { status: "succeeded", seconds: 12 } }));
+    act(() => controller.app.set({ activeKey: tex.key }));
+    expect(container.querySelector(".trellis-tools-reserve")).toBeNull();
+    expect(shown(container)).toEqual({ state: "is-succeeded", label: "12.0s", busy: null });
   });
 });

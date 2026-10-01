@@ -15,7 +15,7 @@
 import { useSyncExternalStore, type ReactNode } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { useView } from "@danfessler/trellis-react";
-import { Columns2, Eye, FileText, Newspaper, PenLine, Play } from "lucide-react";
+import { Check, Columns2, Eye, FileText, Newspaper, PenLine, Play, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Tip } from "../components/icon-tip";
 import { SegmentedControl } from "../components/ui/segmented-control";
@@ -35,28 +35,50 @@ export function FileHeaderTools({ controller }: { controller: TrellisController 
   const tools = useSyncExternalStore(controller.docTools.subscribe, controller.docTools.get);
   const which = documentTools(controller.bridge?.tabKind(key) ?? "file", key);
   if (which === "build") {
-    // The label always reads Build; a running build shows as a spinner in
-    // place of the play icon, and another press queues a fresh build.
-    const { building } = tools;
-    const button = (live: boolean) => (
-      <button
-        type="button"
-        className={cn("trellis-build-button", live && building && "is-building")}
-        aria-label={t`Build`}
-        aria-busy={(live && building) || undefined}
-        onClick={live ? (event) => controller.bridge?.build(key, { clean: event.shiftKey, beside: view.panelId }) : undefined}
-      >
-        {live && building ? <InfinityLoader size={13} /> : <Play size={11} fill="currentColor" />}
-        <span className="trellis-build-label">{t`Build`}</span>
-      </button>
-    );
+    // Gray and labelled Build while idle; a running build shows a spinner in
+    // place of the play icon, and another press queues a fresh build. Once it
+    // ends the button reports it: a green check and the build's time, or a red
+    // cross and "Failed", until the next build starts. The zh-CN label for
+    // Build (构建) also reads as "building", so an unchanged label after a
+    // build read as one that never finished.
+    const { building, lastBuild } = tools;
+    const seconds = lastBuild?.status === "succeeded" ? lastBuild.seconds.toFixed(1) : null;
+    const button = (live: boolean) => {
+      const state = !live ? "idle" : building ? "building" : lastBuild?.status ?? "idle";
+      const labels = { build: t`Build`, failed: t`Failed`, time: seconds ? `${seconds}s` : "" };
+      const shown = state === "succeeded" ? "time" : state === "failed" ? "failed" : "build";
+      return (
+        <button
+          type="button"
+          className={cn("trellis-build-button", state !== "idle" && `is-${state}`)}
+          aria-label={t`Build`}
+          aria-busy={state === "building" || undefined}
+          onClick={live ? (event) => controller.bridge?.build(key, { clean: event.shiftKey, beside: view.panelId }) : undefined}
+        >
+          {state === "building" ? <InfinityLoader size={13} />
+            : state === "succeeded" ? <Check size={13} strokeWidth={2.5} className="trellis-build-status" />
+              : state === "failed" ? <X size={13} strokeWidth={2.5} className="trellis-build-status" />
+                : <Play size={11} fill="currentColor" />}
+          {/* Every label is laid out in one cell, with a hidden widest time beside
+              them, so the button keeps the width of the widest whatever it shows,
+              and the header's measured tools with it. */}
+          <span className="trellis-build-label">
+            {(Object.keys(labels) as Array<keyof typeof labels>).map((name) => (
+              <span key={name} className={name === shown ? undefined : "trellis-build-label-off"}>{labels[name]}</span>
+            ))}
+            <span className="trellis-build-label-off">{"000.0"}s</span>
+          </span>
+        </button>
+      );
+    };
     if (!active) return <Reserve>{button(false)}</Reserve>;
-    const seconds = tools.builtIn?.toFixed(1);
     const label = building
       ? t`Building… · the PDF refreshes when it finishes`
       : seconds
-        ? t({ message: `Build the project and show the PDF · ⌘S · last build ${seconds}s · Shift-click for a clean rebuild` })
-        : t`Build the project and show the PDF · ⌘S · Shift-click for a clean rebuild`;
+        ? t({ message: `Built in ${seconds}s · Build the project and show the PDF · ⌘S · Shift-click for a clean rebuild` })
+        : lastBuild?.status === "failed"
+          ? t`The last build failed · Build the project and show the PDF · ⌘S · Shift-click for a clean rebuild`
+          : t`Build the project and show the PDF · ⌘S · Shift-click for a clean rebuild`;
     return <Tip label={label}>{button(true)}</Tip>;
   }
   if (which === "views") {

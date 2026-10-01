@@ -1137,10 +1137,6 @@ msgid "Build superseded"
 msgstr "Build superseded"
 
 #: src/trellis/trellis-header-tools.tsx
-msgid "Build the project and show the PDF · ⌘S · last build {seconds}s · Shift-click for a clean rebuild"
-msgstr "Build the project and show the PDF · ⌘S · last build {seconds}s · Shift-click for a clean rebuild"
-
-#: src/trellis/trellis-header-tools.tsx
 msgid "Build the project and show the PDF · ⌘S · Shift-click for a clean rebuild"
 msgstr "Build the project and show the PDF · ⌘S · Shift-click for a clean rebuild"
 
@@ -1159,6 +1155,10 @@ msgstr "Building… · the PDF refreshes when it finishes"
 #: src/settings/settings-dialog.tsx
 msgid "Builds"
 msgstr "Builds"
+
+#: src/trellis/trellis-header-tools.tsx
+msgid "Built in {seconds}s · Build the project and show the PDF · ⌘S · Shift-click for a clean rebuild"
+msgstr "Built in {seconds}s · Build the project and show the PDF · ⌘S · Shift-click for a clean rebuild"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Bullet"
@@ -2919,6 +2919,7 @@ msgid "Expression of concern"
 msgstr "Expression of concern"
 
 #: src/project/manuscript-checklist.tsx
+#: src/trellis/trellis-header-tools.tsx
 msgid "Failed"
 msgstr "Failed"
 
@@ -7785,6 +7786,10 @@ msgstr "The file changed while it was saving. Review the latest text and save ag
 #: src/App.tsx
 msgid "The first is at {path}:{line}."
 msgstr "The first is at {path}:{line}."
+
+#: src/trellis/trellis-header-tools.tsx
+msgid "The last build failed · Build the project and show the PDF · ⌘S · Shift-click for a clean rebuild"
+msgstr "The last build failed · Build the project and show the PDF · ⌘S · Shift-click for a clean rebuild"
 
 #: src/editor/latex/latex-command-completions.ts
 msgid "The LaTeX logo"

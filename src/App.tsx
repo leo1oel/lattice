@@ -730,7 +730,7 @@ function App() {
     openDiagnosticRef: openCompileDiagnosticRef,
     onMissingTex: texSetup.openForMissingTex,
   });
-  const { build, setBuild, building, cleaning, pdfUrl, runBuild, abortBuild, cleanProject, cleanAndRebuild, resetForProject } = buildPipeline;
+  const { build, setBuild, building, outcome: buildOutcome, cleaning, pdfUrl, runBuild, abortBuild, cleanProject, cleanAndRebuild, resetForProject } = buildPipeline;
   const { reset: resetAgentCheckpoints } = agentCheckpoints;
   const { resetQueue: resetBuildQueue, cycleDiagnostic, setDiagnosticsExpanded } = buildPipeline;
   const resetAgentCompileTracking = useCallback((cancelQueuedBuild = false) => {
@@ -3482,7 +3482,7 @@ function App() {
   useTrellisBridge({
     trellis, project, projectRef, projectAssetPaths, papers, activeFile, activeFileRef, activeTabKey, activePaper,
     activePaperDirty, activeAsset, source, sourceRef, savedSource, openTabs, tabsSettledRoot,
-    workspacePersistenceReadyRoot, canvasMode, paperView, paperMarkdown, paperBlog, build, building, buildPipeline,
+    workspacePersistenceReadyRoot, canvasMode, paperView, paperMarkdown, paperBlog, lastBuild: buildOutcome, building, buildPipeline,
     synara, editorComments, referenceImport, projectSearch, getFileViewState, openProjectFile, selectEditorTab,
     closeEditorTab, save, compile, compileAndShowPdf, revealSourceInPdf, openDocumentMode, changePaperView,
     openSettings, openLiterature, refreshTodos, setSearchDialog, setHistoryOpen, setGitOpen, setTodosOpen,

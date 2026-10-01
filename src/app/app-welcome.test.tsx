@@ -1,4 +1,4 @@
-import { windowApi, synaraHook, interfaceSounds, projectCommands, overleafSyncResult, ROOT, projectSnapshot, buildResult, deferred, chooseOption, buildButton, renderApp, renderOverleafPaper, openSettings, findElement, findFrame, postWindowMessage, expectInvoked, invokeCalls, nextFrames, findOverleafSyncButton, stubObjectUrls, chooseProjectMenuItem } from "./app-test-utils";
+import { windowApi, synaraHook, interfaceSounds, projectCommands, overleafSyncResult, ROOT, projectSnapshot, buildResult, failedBuild, deferred, setAutoBuildMode, chooseOption, buildButton, renderApp, renderOverleafPaper, openSettings, findElement, findFrame, postWindowMessage, expectInvoked, invokeCalls, nextFrames, findOverleafSyncButton, stubObjectUrls, chooseProjectMenuItem } from "./app-test-utils";
 import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
@@ -111,6 +111,28 @@ describe("welcome screen", () => {
     expect(invokeCalls("build_project")[1]?.[1]).toEqual(expect.objectContaining({ force: true }));
     // The queued build can finish before the lazy editor imports do. Let the
     // real canvas mount before teardown so those imports keep a live test host.
+    expect(await screen.findByLabelText("Editor status", {}, { timeout: 20_000 })).toBeInTheDocument();
+  });
+
+  // The Build button reports how the last build ended, whatever started it:
+  // opening the project, ⌘S, or the palette.
+  it("shows the last build's result on the Build button: a check and its time, or Failed", async () => {
+    setAutoBuildMode("manual");
+    let answer = buildResult({ durationMs: 3_200 })();
+    renderApp({ ...projectCommands(), build_project: () => answer });
+    const showing = () => buildButton().querySelector(".trellis-build-label > span:not(.trellis-build-label-off)")?.textContent;
+    await waitFor(() => expect(buildButton()).toHaveClass("is-succeeded"));
+    expect(showing()).toBe("3.2s");
+    answer = failedBuild("Undefined control sequence.")();
+    fireEvent.keyDown(window, { key: "s", metaKey: true });
+    await waitFor(() => expect(buildButton()).toHaveClass("is-failed"));
+    expect(showing()).toBe("Failed");
+    answer = buildResult({ durationMs: 1_500 })();
+    fireEvent.keyDown(window, { key: "p", ctrlKey: true, shiftKey: true });
+    fireEvent.click(await screen.findByRole("option", { name: /Build project/i }));
+    await waitFor(() => expect(buildButton()).toHaveClass("is-succeeded"));
+    expect(showing()).toBe("1.5s");
+    expect(buildButton()).not.toHaveAttribute("aria-busy");
     expect(await screen.findByLabelText("Editor status", {}, { timeout: 20_000 })).toBeInTheDocument();
   });
 

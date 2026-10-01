@@ -185,6 +185,13 @@
 .trellis-build-button:hover { background: color-mix(in srgb, var(--text-primary) 14%, var(--trellis-tab-active)); }
 .trellis-build-button:active { scale: 0.96; }
 .trellis-build-button.is-building { cursor: progress; }
+/* The last build's result: a green check and its time, or a red cross and "Failed". */
+.trellis-build-button.is-succeeded .trellis-build-status { color: var(--status-success); }
+.trellis-build-button.is-failed .trellis-build-status,
+.trellis-build-button.is-failed .trellis-build-label { color: var(--status-danger); }
+.trellis-build-label { display: inline-grid; font-variant-numeric: tabular-nums; }
+.trellis-build-label > span { grid-area: 1 / 1; }
+.trellis-build-label > .trellis-build-label-off { visibility: hidden; }
 /* On the darker strip the switch is a row of icons; the chosen one sits on the panel's own surface, like the selected tab. */
 .trellis-view-switcher.ui-segmented { background: transparent; }
 /* An unselected document's switch holds its place in the stacked action row. */
