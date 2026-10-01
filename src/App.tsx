@@ -211,7 +211,7 @@ const ConflictResolverDialog = lazy(() =>
 const Navigator = lazy(() =>
   import("./project/navigator").then((module) => ({ default: memo(module.Navigator) })),
 );
-const PaperLookupBridge = lazy(() => import("./papers/use-paper-lookup"));
+const PaperDropBridge = lazy(() => import("./papers/paper-drop-bridge"));
 const BibliographyAudit = lazy(() =>
   import("./papers/bibliography-audit").then((module) => ({ default: module.BibliographyAudit })),
 );
@@ -2205,7 +2205,6 @@ function App() {
     else if (paper.arxivId || paper.url) void fetchAndOpenPaper(paper);
     else setError(t`This paper has no local reading or downloadable source.`);
   };
-  const [paperLookupRequest, setPaperLookupRequest] = useState(0);
 
   useEffect(() => () => {
     Object.values(paperFetchTimers.current).forEach((timer) => window.clearTimeout(timer));
@@ -3824,9 +3823,8 @@ function App() {
       ref={shellRef}
     >
       <Suspense fallback={null}>
-        <PaperLookupBridge
-          state={{ projectRoot: project.root, papers, theme }}
-          request={paperLookupRequest}
+        <PaperDropBridge
+          library={{ projectRoot: project.root, papers }}
           onOpen={readDraggedPaper}
           onError={(reason) => setError(toMessage(reason))}
         />
@@ -3851,7 +3849,6 @@ function App() {
         panelControls={<TrellisTitlebar controller={trellis} />}
         canvasToolbar={(
         <CanvasToolbar
-          onPaperLookup={() => setPaperLookupRequest((request) => request + 1)}
           activePath={activePaper ? activePaper.title : activeTabKey}
           activeKind={activeAsset ? "asset" : activePaper ? "paper" : "document"}
           dirty={activePaper ? activePaperDirty : primarySourceDirty}

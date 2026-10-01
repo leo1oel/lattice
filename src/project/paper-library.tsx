@@ -70,7 +70,7 @@ export function PaperLibrary(props: PaperLibraryProps) {
   useEffect(() => {
     if (props.recentImport?.query === query && viewportRef.current) viewportRef.current.scrollTop = 0;
   }, [props.recentImport, query]);
-  const textHits = usePaperTextSearch(query, props.mode === "papers");
+  const { hits: textHits, searchNow } = usePaperTextSearch(query, props.mode === "papers");
   const filteredPapers = useMemo(
     () => rankPapers(props.papers, props.importInput, textHits, props.recentImport),
     [props.importInput, props.papers, props.recentImport, textHits],
@@ -81,7 +81,7 @@ export function PaperLibrary(props: PaperLibraryProps) {
     if (paper.hasFullText || paper.hasBlog) props.onPaper(paper);
     else if (paper.arxivId || paper.url) props.onFetchFullText(paper);
   };
-  const importOrOpenPaper = () => {
+  const addPaper = () => {
     const id = explicitArxivId(props.importInput);
     const existing = id ? props.papers.find(paper => baseArxivId(paper.arxivId).toLowerCase() === id) : undefined;
     if (existing?.hasFullText) props.onPaper(existing);
@@ -109,19 +109,19 @@ export function PaperLibrary(props: PaperLibraryProps) {
           onChange={(event) => props.setImportInput(event.target.value)}
           onClear={progressActive ? undefined : () => props.setImportInput("")}
           {...compositionProps}
+          // Enter only searches: the list already filters as you type, so it
+          // runs the full-text pass now. Adding is the + button's job alone.
           onKeyDown={(event) => {
-            if (event.key !== "Enter" || progressActive || isComposing(event)) return;
-            const localMatch = filteredPapers[0];
-            if (localMatch) activatePaper(localMatch);
-            else props.onImport();
+            if (event.key !== "Enter" || isComposing(event)) return;
+            event.preventDefault();
+            if (!progressActive) searchNow();
           }}
-          showIcon={false}
           trailing={(
             <button
-              onClick={props.importing ? props.onCancelImport : importOrOpenPaper}
+              onClick={props.importing ? props.onCancelImport : addPaper}
               disabled={!props.importing && (progressActive || !query)}
-              title={props.importing ? t`Cancel` : t`Import paper`}
-              aria-label={props.importing ? t`Cancel` : undefined}
+              title={props.importing ? t`Cancel` : t`Add paper`}
+              aria-label={props.importing ? t`Cancel` : t`Add paper`}
             >
               {props.importing ? <X size={14} /> : <Plus size={14} />}
             </button>
@@ -185,6 +185,7 @@ export function PaperLibrary(props: PaperLibraryProps) {
                 </span>
                 <span>
                   <strong>{paper.title}</strong>
+                  {paper.authors && <small className="paper-authors">{paper.authors}</small>}
                   <small>{paperSubtitle(paper, textHits.get(paperSearchIdentity(paper))?.snippet.trim())}</small>
                   {!readable && !downloadable && <small>{t`Citation only — no downloadable full text found`}</small>}
                   {healthLabel && <small className="paper-citation-health" role="status">{healthLabel}</small>}

@@ -1,18 +1,11 @@
-import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
-import { msg } from "@lingui/core/macro";
-import { invoke } from "@tauri-apps/api/core";
-import { emitTo, listen } from "@tauri-apps/api/event";
+import { useEffect, useLayoutEffect, useRef } from "react";
+import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import type { PaperSummary } from "../app-types";
-import { i18n } from "../i18n";
-import { isBrowserHosted } from "../platform/browser-runtime";
 import { hasPaperDrag, PAPER_DRAG_TYPE, PAPER_NATIVE_DRAG, resolvePaperDrag, type NativePaperDrag, type PaperDrag } from "./paper-drag";
 
-export type PaperLookupState = { projectRoot: string; papers: PaperSummary[]; theme: string };
-export const PAPER_LOOKUP_STATE = "paper-lookup-state";
-export const PAPER_LOOKUP_READY = "paper-lookup-ready";
-export const PAPER_LOOKUP_OPEN = "paper-lookup-open";
+export type PaperDropLibrary = { projectRoot: string; papers: PaperSummary[] };
 /**
  * Reading surfaces and tab chrome, where a dropped paper opens instead of
  * being cited: document and PDF panels (their content and their tabs) and
@@ -20,13 +13,15 @@ export const PAPER_LOOKUP_OPEN = "paper-lookup-open";
  */
 const READING_SURFACES = String.raw`.lattice-trellis :is([data-trellis-part="surface"], [data-trellis-part="tab"]):is([data-type="file"], [data-type="pdf"]), .titlebar-main`;
 
-export function usePaperLookup(state: PaperLookupState, onOpen: (paper: PaperSummary) => void, onError: (error: unknown) => void) {
-  const latest = useRef({ state, onOpen, onError });
-  const listenersReady = useRef<Promise<unknown>>(Promise.resolve());
-  useLayoutEffect(() => { latest.current = { state, onOpen, onError }; });
+/**
+ * Routes a paper dragged from the Papers panel to wherever it lands: an
+ * editor cites it, a reading surface opens it.
+ */
+export function usePaperDropRouting(library: PaperDropLibrary, onOpen: (paper: PaperSummary) => void, onError: (error: unknown) => void) {
+  const latest = useRef({ library, onOpen, onError });
+  useLayoutEffect(() => { latest.current = { library, onOpen, onError }; });
   useEffect(() => {
     const owner = getCurrentWindow().label;
-    const label = `paper-lookup-${owner}`;
     // eslint-disable-next-line lingui/no-unlocalized-strings -- Tauri event target kind
     const ownWindow = { target: { kind: "Window", label: owner } } as const;
     let disposed = false;
@@ -36,20 +31,7 @@ export function usePaperLookup(state: PaperLookupState, onOpen: (paper: PaperSum
     const cleanups: (() => void)[] = [];
     const register = (promise: Promise<() => void>) =>
       promise.then((cleanup) => disposed ? cleanup() : cleanups.push(cleanup));
-    listenersReady.current = Promise.all([register(listen(PAPER_LOOKUP_READY, () => {
-      void emitTo(label, PAPER_LOOKUP_STATE, latest.current.state).catch((error) => latest.current.onError(error));
-    }, ownWindow)),
-    register(listen<{ projectRoot: string; arxivId: string; citationKey?: string }>(PAPER_LOOKUP_OPEN, ({ payload }) => {
-      const { state: current } = latest.current;
-      if (payload.projectRoot !== current.projectRoot) return;
-      const paper = current.papers.find((item) => item.arxivId === payload.arxivId && item.citationKey === payload.citationKey);
-      if (paper) {
-        latest.current.onOpen(paper);
-        if (isBrowserHosted()) window.focus();
-        else void getCurrentWindow().setFocus().catch((error) => latest.current.onError(error));
-      }
-    }, ownWindow)),
-    register(listen<NativePaperDrag>(PAPER_NATIVE_DRAG, ({ payload }) => {
+    void Promise.all([register(listen<NativePaperDrag>(PAPER_NATIVE_DRAG, ({ payload }) => {
       if (payload.paper) {
         activeDrag = payload;
         if (insidePaperDrop) enteredPaper = payload.paper;
@@ -75,7 +57,7 @@ export function usePaperLookup(state: PaperLookupState, onOpen: (paper: PaperSum
         if (payload.paths.length || !paper) return;
         const dataTransfer = new DataTransfer();
         dataTransfer.setData(PAPER_DRAG_TYPE, JSON.stringify(paper));
-        const current = latest.current.state;
+        const current = latest.current.library;
         if (!resolvePaperDrag(dataTransfer, current.projectRoot, current.papers)) return;
         const scale = window.devicePixelRatio || 1;
         const clientX = payload.position.x / scale;
@@ -86,8 +68,7 @@ export function usePaperLookup(state: PaperLookupState, onOpen: (paper: PaperSum
           bubbles: true, cancelable: true, dataTransfer, clientX, clientY,
         }));
       }
-    }))]);
-    void listenersReady.current.catch((error) => latest.current.onError(error));
+    }))]).catch((error) => latest.current.onError(error));
 
     const onDragOver = (event: DragEvent) => {
       const data = event.dataTransfer;
@@ -101,11 +82,11 @@ export function usePaperLookup(state: PaperLookupState, onOpen: (paper: PaperSum
       if (!hasPaperDrag(event.dataTransfer) || !(event.target as Element).closest(READING_SURFACES)) return;
       event.preventDefault();
       const current = latest.current;
-      const paper = resolvePaperDrag(event.dataTransfer, current.state.projectRoot, current.state.papers);
+      const paper = resolvePaperDrag(event.dataTransfer, current.library.projectRoot, current.library.papers);
       if (paper) current.onOpen(paper);
     };
     // Editor handlers stop propagation after inserting. Only reading surfaces
-    // and tab chrome reach this listener, including native cross-window drops.
+    // and tab chrome reach this listener, including native drops.
     document.addEventListener("dragover", onDragOver);
     document.addEventListener("drop", onDrop);
     return () => {
@@ -113,32 +94,16 @@ export function usePaperLookup(state: PaperLookupState, onOpen: (paper: PaperSum
       cleanups.forEach((cleanup) => cleanup());
       document.removeEventListener("dragover", onDragOver);
       document.removeEventListener("drop", onDrop);
-      void emitTo(label, PAPER_LOOKUP_STATE, { projectRoot: "", papers: [], theme: latest.current.state.theme }).catch(() => {});
     };
-  }, []);
-  useEffect(() => {
-    void emitTo(`paper-lookup-${getCurrentWindow().label}`, PAPER_LOOKUP_STATE, state).catch(() => {
-      // The auxiliary window normally does not exist yet; its ready handshake
-      // sends the latest snapshot after its listener is installed.
-    });
-  }, [state.projectRoot, state.papers, state.theme]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  return useCallback(async () => {
-    try {
-      await listenersReady.current;
-      await invoke("open_paper_lookup", { title: i18n._(msg`Paper lookup`) });
-    } catch (error) { latest.current.onError(error); }
   }, []);
 }
 
 /** The native bridge stays outside the eager writing/startup graph. */
-export default function PaperLookupBridge(props: {
-  state: PaperLookupState;
-  request: number;
+export default function PaperDropBridge(props: {
+  library: PaperDropLibrary;
   onOpen: (paper: PaperSummary) => void;
   onError: (error: unknown) => void;
 }) {
-  const open = usePaperLookup(props.state, props.onOpen, props.onError);
-  useEffect(() => { if (props.request) void open(); }, [open, props.request]);
+  usePaperDropRouting(props.library, props.onOpen, props.onError);
   return null;
 }

@@ -212,7 +212,6 @@ function TitlebarToolsGroup(props: SettingsDialogProps) {
   const tools: Array<{ tool: TitlebarTool; label: string; description: string }> = [
     { tool: "comments", label: t`Editor comments`, description: t`Comments on the open document, for projects not linked to Overleaf` },
     { tool: "overleaf", label: t`Overleaf`, description: t`Sync, open and chat with the linked Overleaf project` },
-    { tool: "paper-lookup", label: t`Paper lookup`, description: t`Find a paper by title, DOI or arXiv ID` },
     { tool: "git", label: t`Git status and commit`, description: t`Review and commit changes` },
     { tool: "history", label: t`Project history`, description: t`Versions and changes of the whole project` },
   ];

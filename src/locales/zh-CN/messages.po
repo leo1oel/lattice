@@ -151,7 +151,6 @@ msgstr "{count} 个标记"
 msgid "{count} panels. Double-click to zoom in."
 msgstr "{count} 个面板。双击放大。"
 
-#: src/papers/paper-lookup.tsx
 #: src/project/paper-library.tsx
 #: src/project/project-find-dialog.tsx
 msgid "{count} papers"
@@ -380,7 +379,6 @@ msgstr "1 行"
 msgid "1 of {total} papers"
 msgstr "共 {total} 篇论文，显示 1 篇"
 
-#: src/papers/paper-lookup.tsx
 #: src/project/paper-library.tsx
 #: src/project/project-find-dialog.tsx
 msgid "1 paper"
@@ -516,9 +514,9 @@ msgstr "添加当前颜色"
 msgid "Add exactly one bibliography entry at a time."
 msgstr "每次只能添加一条参考文献。"
 
-#: src/papers/paper-lookup.tsx
-msgid "Add papers in the project’s Papers sidebar"
-msgstr "在项目的论文侧栏中添加论文"
+#: src/project/paper-library.tsx
+msgid "Add paper"
+msgstr "添加论文"
 
 #: src/settings/settings-dialog.tsx
 msgid "Add project term"
@@ -842,10 +840,6 @@ msgstr "自动更新"
 #: src/settings/settings-dialog.tsx
 msgid "Auxiliary files"
 msgstr "辅助文件"
-
-#: src/papers/paper-lookup.tsx
-msgid "Available offline"
-msgstr "可离线阅读"
 
 #: src/components/ui/apple-color-picker.tsx
 msgid "Azure"
@@ -1584,7 +1578,6 @@ msgstr "清除 PDF 搜索"
 
 #: src/components/ui/search-field.tsx
 #: src/overleaf/overleaf-connect.tsx
-#: src/papers/paper-lookup.tsx
 #: src/project/project-find-dialog.tsx
 msgid "Clear search"
 msgstr "清除搜索"
@@ -1847,10 +1840,6 @@ msgstr "正在连接实时编辑…"
 #: src/canvas/canvas-toolbar.tsx
 msgid "Connecting to Overleaf's live channel…"
 msgstr "正在连接 Overleaf 实时通道…"
-
-#: src/papers/paper-lookup.tsx
-msgid "Connecting to project…"
-msgstr "正在连接项目…"
 
 #: src/overleaf/overleaf-connect.tsx
 msgid "Connection"
@@ -2534,10 +2523,6 @@ msgstr "正在下载全文和图片…"
 msgid "Downloading update…"
 msgstr "正在下载更新…"
 
-#: src/papers/paper-lookup.tsx
-msgid "Drag to cite · Click to read"
-msgstr "拖入正文引用 · 点击阅读"
-
 #: src/App.tsx
 msgid "Drop image or PDF files onto a TeX/Markdown editor to insert them, onto an open document to import and open them, or into the Project pane to add them."
 msgstr "将图片或 PDF 文件拖放到 TeX/Markdown 编辑器中可插入，拖放到已打开的文档上可导入并打开，拖放到项目面板中可添加到项目。"
@@ -3021,10 +3006,6 @@ msgstr "查找"
 #: src/project/project-replace-dialog.tsx
 msgid "Find & replace in project"
 msgstr "在项目中查找和替换"
-
-#: src/settings/settings-dialog.tsx
-msgid "Find a paper by title, DOI or arXiv ID"
-msgstr "按标题、DOI 或 arXiv ID 查找论文"
 
 #: src/build/compile-diagnostics-panel.tsx
 msgid "Find and install the TeX Live package for {missingFile}"
@@ -3535,10 +3516,6 @@ msgstr "将图像导入此处"
 msgid "Import Overleaf ZIP"
 msgstr "导入 Overleaf ZIP"
 
-#: src/project/paper-library.tsx
-msgid "Import paper"
-msgstr "导入论文"
-
 #: src/project/project-dialogs.tsx
 msgid "Import ZIP"
 msgstr "导入 ZIP"
@@ -3919,10 +3896,6 @@ msgstr "保留引用"
 #: src/overleaf/overleaf-connect.tsx
 msgid "Keep it on Overleaf"
 msgstr "在 Overleaf 上保留"
-
-#: src/papers/paper-lookup.tsx
-msgid "Keep on top"
-msgstr "全局置顶"
 
 #: src/history/conflict-resolver.tsx
 msgid "Keep Overleaf's version"
@@ -4794,10 +4767,6 @@ msgstr "前往 PDF 下一位置"
 msgid "Next search result"
 msgstr "下一个搜索结果"
 
-#: src/papers/paper-lookup.tsx
-msgid "No bibliography key"
-msgstr "尚无参考文献键"
-
 #: src/history/history-drawer.tsx
 msgid "No changes match this filter"
 msgstr "没有符合此筛选条件的更改"
@@ -4896,7 +4865,6 @@ msgid "No matching pages"
 msgstr "没有匹配的页面"
 
 #: src/editor/markdown/engine/chrome/references.tsx
-#: src/papers/paper-lookup.tsx
 #: src/project/paper-library.tsx
 msgid "No matching papers"
 msgstr "没有匹配的论文"
@@ -5532,19 +5500,11 @@ msgstr "已取消论文导入，参考文献未修改；已下载的全文仍可
 msgid "Paper import cancelled before making changes."
 msgstr "已取消论文导入，未作任何修改。"
 
-#: src/canvas/canvas-toolbar.tsx
-#: src/papers/paper-lookup.tsx
-#: src/papers/use-paper-lookup.ts
-#: src/settings/settings-dialog.tsx
-msgid "Paper lookup"
-msgstr "论文速查"
-
 #: src/App.tsx
 msgid "Paper switch"
 msgstr "切换论文"
 
 #: src/canvas/use-paper-pdf.ts
-#: src/papers/paper-lookup.tsx
 #: src/project/paper-library.tsx
 #: src/project/project-find-dialog.tsx
 #: src/trellis/trellis-titles.ts
@@ -6978,14 +6938,6 @@ msgstr "搜索或导入论文"
 #: src/overleaf/overleaf-connect.tsx
 msgid "Search Overleaf projects"
 msgstr "搜索 Overleaf 项目"
-
-#: src/papers/paper-lookup.tsx
-msgid "Search papers"
-msgstr "搜索论文"
-
-#: src/papers/paper-lookup.tsx
-msgid "Search papers, authors, citation keys…"
-msgstr "搜索论文、作者、引用键…"
 
 #: src/pdf/pdf-viewer.tsx
 msgid "Search PDF"

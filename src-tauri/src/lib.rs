@@ -147,11 +147,6 @@ fn on_window_event(window: &tauri::Window, event: &tauri::WindowEvent) {
     // its LaTeX language server and Overleaf socket outlive the window
     // and a later window reusing the label inherits a stale binding.
     if matches!(event, tauri::WindowEvent::Destroyed) {
-        if let Some(lookup) =
-            window.app_handle().get_webview_window(&format!("paper-lookup-{}", window.label()))
-        {
-            let _ = lookup.destroy();
-        }
         macos_window::clear_pdf_copy_text(window.label());
         let state = window.state::<AppState>();
         state.release_window(window.label());
@@ -305,7 +300,6 @@ pub fn run() {
             ipc::workspace::update_project_manifest,
             ipc::workspace::set_project_spelling_words,
             ipc::workspace::watch_project,
-            ipc::windows::open_paper_lookup,
             ipc::windows::open_project_window,
             ipc::windows::get_app_log_dir,
             ipc::windows::open_app_log_dir,

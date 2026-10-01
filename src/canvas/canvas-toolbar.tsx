@@ -16,7 +16,6 @@ type CanvasToolbarProps = {
   activeKind: "document" | "paper" | "asset";
   dirty: boolean;
   onHistory: () => void;
-  onPaperLookup?: () => void;
   onGit: () => void;
   commentCount: number;
   onComments: () => void;
@@ -165,9 +164,6 @@ const CanvasToolbarView = memo(function CanvasToolbarView(props: CanvasToolbarPr
           </Tip>
         )}
         {props.overleafPresence}
-        {shows("paper-lookup") && props.onPaperLookup && (
-          <ToolbarButton label={t`Paper lookup`} className="history-button" onClick={props.onPaperLookup}><BookOpen size={15} /></ToolbarButton>
-        )}
         {shows("git") && (
           <ToolbarButton label={t`Git status and commit`} className="history-button" data-tour="git" onClick={props.onGit}>
             <AnimatedProductIcon kind="git-branch" size={15} />

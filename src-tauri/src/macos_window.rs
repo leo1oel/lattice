@@ -200,11 +200,7 @@ pub fn install_traffic_light_alignment(window: &tauri::WebviewWindow) {
 /// back when it leaves full screen or never makes it in. The toolbar is empty
 /// and the titlebar transparent: it draws nothing, and hit-testing still hands
 /// every click in the row to the web view.
-///
-/// On its own this puts the lights at the native compact position, which is
-/// all a window that never reports its titlebar center (the paper lookup,
-/// whose titlebar is never zoomed) needs.
-pub fn install_compact_toolbar(window: &tauri::WebviewWindow) {
+fn install_compact_toolbar(window: &tauri::WebviewWindow) {
     let Some(address) = ns_window_address(window) else {
         return;
     };
@@ -610,14 +606,11 @@ mod tests {
             include_str!("../Cargo.toml").contains("\"macos-private-api\""),
             "the macOS WebView must disable its opaque white backing surface"
         );
-        // The main and project windows (`workspace_window`) and the paper
-        // lookup window all take the activation click from `overlay_title_bar`.
+        // The main and project windows (`workspace_window`) take the
+        // activation click from `overlay_title_bar`.
         let lib = include_str!("lib.rs");
         assert_eq!(lib.matches(".accept_first_mouse(true)").count(), 1);
         assert!(lib.contains("let window = overlay_title_bar(builder).build()?;"));
-        assert!(
-            include_str!("ipc/windows.rs").contains("crate::overlay_title_bar(builder).build()")
-        );
     }
 
     #[test]

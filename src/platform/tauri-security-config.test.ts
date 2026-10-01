@@ -130,16 +130,6 @@ describe("Tauri security boundary", () => {
     }
   });
 
-  it("limits paper lookup permissions to events and its own window controls", () => {
-    const lookup = readJson<Capability>("src-tauri/capabilities/paper-lookup.json");
-    expect(lookup.windows).toEqual(["paper-lookup-*"]);
-    expect(lookup.permissions).toEqual([
-      "core:event:default",
-      "core:window:allow-start-dragging",
-      "core:window:allow-set-always-on-top",
-    ]);
-  });
-
   it("keeps the fixed browser entry local and authenticated, and bridge windows hidden", () => {
     // The window-state plugin shows new dynamic windows unless they are
     // filtered out, overriding the bridge builder's `visible(false)` setting.

@@ -417,7 +417,8 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
 .papers-section .paper-import-status {
   position: absolute;
   inset-block: 0;
-  inset-inline: var(--search-control-padding-inline) var(--space-16);
+  /* Starts after the search icon, which stays visible while importing. */
+  inset-inline: calc(var(--search-control-padding-inline) + var(--search-control-icon-size) + var(--search-control-gap)) var(--space-16);
   align-content: center;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -500,6 +501,7 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
 .paper-list strong, .paper-list small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .paper-list strong { color: inherit; font-size: var(--type-label-size); line-height: var(--type-label-line-height); font-weight: var(--weight-regular); }
 .paper-list small { margin-top: var(--space-1); color: var(--text-tertiary); font-size: var(--type-tree-size); line-height: var(--type-tree-line-height); }
+.paper-list .paper-authors { color: var(--text-secondary); }
 .paper-list .paper-citation-health { color: var(--status-warning); }
 .paper-row.citation-retracted .paper-citation-health { color: var(--status-danger); }
 .paper-list-end { margin: var(--space-6) 7px var(--space-2); color: var(--text-tertiary); font-size: var(--type-micro-size); text-align: center; }

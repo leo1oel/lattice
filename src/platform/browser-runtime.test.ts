@@ -22,7 +22,7 @@ describe("Chromium file drops", () => {
     const callback = vi.fn();
     const registry = new BrowserEventRegistry(callback);
     Object.assign(window, { latticeDesktop: { getPathForFile: () => "/tmp/notes.md" } });
-    // Paper lookup subscribes before App's importer, and ignores file paths.
+    // The paper drop bridge subscribes before App's importer, and ignores file paths.
     const paperId = registry.listen("tauri://drag-drop", 11)!;
     const projectId = registry.listen("tauri://drag-drop", 22)!;
     const target = document.createElement("div");

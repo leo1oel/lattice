@@ -147,7 +147,7 @@ describe("Navigator / papers", () => {
     ["A study of 1706.03762", false],
   ])("opens rather than reimports %s only when it is readable (%s)", (input, opens) => {
     const { props } = renderNavigator({ importInput: input });
-    fireEvent.click(screen.getByTitle("Import paper"));
+    fireEvent.click(screen.getByRole("button", { name: "Add paper" }));
     expect(vi.mocked(props.onPaper).mock.calls).toEqual(opens ? [[attention]] : []);
     expect(props.onImport).toHaveBeenCalledTimes(opens ? 0 : 1);
   });
@@ -262,7 +262,7 @@ describe("Navigator / papers", () => {
       importStage: "Downloading full text and figures…",
     });
     expectImportProgress(true);
-    expect(screen.getByTitle("Import paper")).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Add paper" })).toBeDisabled();
     fireEvent.keyDown(searchbox(), { key: "Enter" });
     expect(props.onImport).not.toHaveBeenCalled();
     expect(screen.queryByRole("button", { name: "Cancel" })).toBeNull();
@@ -274,7 +274,7 @@ describe("Navigator / papers", () => {
     expect(screen.queryByRole("status")).toBeNull();
     expectImportProgress(false);
     expect(searchbox()).toHaveValue("Adam");
-    expect(screen.getByTitle("Import paper")).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Add paper" })).toBeEnabled();
   });
 
   it("ranks a title prefix ahead of metadata and full-text matches", async () => {
@@ -321,50 +321,58 @@ describe("Navigator / papers", () => {
     expect(paperTitles()).toEqual([attention.title]);
   });
 
-  it.each(["open", "fetch", "import"])("does not %s a paper when Enter confirms an IME candidate", (action) => {
-    vi.useFakeTimers();
+  it.each(["open", "fetch", "import"])("never tries to %s a paper on Enter", (action) => {
     const paper = { ...attention, title: "中文论文", hasFullText: action === "open" };
     const { props } = renderNavigator({ importInput: "中文", papers: action === "import" ? [] : [paper] });
     const input = searchbox();
-    const expectNoAction = () => {
-      expect(props.onPaper).not.toHaveBeenCalled();
-      expect(props.onFetchFullText).not.toHaveBeenCalled();
-      expect(props.onImport).not.toHaveBeenCalled();
-    };
-
     fireEvent.keyDown(input, { key: "Enter", isComposing: true });
-    expectNoAction();
     fireEvent.keyDown(input, { key: "Enter", keyCode: 229 });
-    expectNoAction();
-    fireEvent.compositionStart(input);
-    fireEvent.keyDown(input, { key: "Enter", isComposing: false });
-    expectNoAction();
-    // WebKit can finish composition before dispatching the accepting Enter.
-    fireEvent.compositionEnd(input);
-    fireEvent.keyDown(input, { key: "Enter", keyCode: 13, isComposing: false });
-    expectNoAction();
-
-    act(() => vi.advanceTimersByTime(0));
     fireEvent.keyDown(input, { key: "Enter" });
-    const callback = action === "open" ? props.onPaper : action === "fetch" ? props.onFetchFullText : props.onImport;
-    expect(callback).toHaveBeenCalledOnce();
+    expect(props.onPaper).not.toHaveBeenCalled();
+    expect(props.onFetchFullText).not.toHaveBeenCalled();
+    expect(props.onImport).not.toHaveBeenCalled();
   });
 
-  it("opens the top match on Enter, and imports when there is none", () => {
+  it("searches the full text at once on Enter, but not while an IME candidate is confirmed", async () => {
+    vi.useFakeTimers();
+    vi.mocked(invoke).mockResolvedValue([
+      { arxivId: "1706.03762", title: "Attention Is All You Need", snippet: "scaled dot-product" },
+    ]);
+    const { search } = renderNavigator();
+    search("dot-product");
+    const input = searchbox();
+    fireEvent.compositionStart(input);
+    fireEvent.keyDown(input, { key: "Enter" });
+    expect(invoke).not.toHaveBeenCalled();
+    fireEvent.compositionEnd(input);
+    act(() => vi.advanceTimersByTime(0));
+    // No pause in typing needed: Enter is the request to search now.
+    await act(async () => { fireEvent.keyDown(input, { key: "Enter" }); });
+    expect(invoke).toHaveBeenCalledExactlyOnceWith("search_paper_library", { query: "dot-product" });
+    expect(paperTitles()).toEqual(["Attention Is All You Need"]);
+    // The debounced pass this replaced must not search a second time.
+    await settleTextSearch();
+    expect(invoke).toHaveBeenCalledOnce();
+  });
+
+  it("adds only through the labeled + button", () => {
     const { props, search } = renderNavigator();
-
-    search("attention");
-    fireEvent.keyDown(searchbox(), { key: "Enter" });
-    expect(props.onPaper).toHaveBeenCalledWith(attention);
-
-    // Cited-only: there is nothing local to open, so Enter fetches it.
-    search("image");
-    fireEvent.keyDown(searchbox(), { key: "Enter" });
-    expect(props.onFetchFullText).toHaveBeenCalledWith(vit);
-
+    expect(document.querySelector(".import-box .ui-search-field-icon")).not.toBeNull();
+    const add = screen.getByRole("button", { name: "Add paper" });
+    expect(add).toBeDisabled();
     search("something nobody has");
     fireEvent.keyDown(searchbox(), { key: "Enter" });
+    expect(props.onImport).not.toHaveBeenCalled();
+    fireEvent.click(add);
     expect(props.onImport).toHaveBeenCalledOnce();
+  });
+
+  it("shows each paper's authors under its title", () => {
+    renderNavigator({ papers: [attention, { ...vit, authors: undefined }] });
+    const [first, second] = screen.getAllByRole("button", { name: /Attention|Image/ })
+      .filter((button) => button.classList.contains("paper-open"));
+    expect(first.querySelector(".paper-authors")).toHaveTextContent("Vaswani and Shazeer");
+    expect(second.querySelector(".paper-authors")).toBeNull();
   });
 
   it("waits for a pause in typing, then adds papers whose text matched even when their metadata did not", async () => {

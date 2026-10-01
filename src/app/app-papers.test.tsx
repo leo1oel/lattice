@@ -134,7 +134,7 @@ describe("papers", () => {
       },
     });
     fireEvent.change(await screen.findByRole("searchbox", { name: "Search or import papers" }), { target: { value: title } });
-    fireEvent.click(screen.getByTitle("Import paper"));
+    fireEvent.click(screen.getByRole("button", { name: "Add paper" }));
     if (ambiguous) {
       await screen.findByRole("region", { name: "Citation candidates" });
       expect(invoke).not.toHaveBeenCalledWith("import_reference", expect.anything());
@@ -167,8 +167,8 @@ describe("papers", () => {
     expect(invoke).not.toHaveBeenCalledWith("fetch_web_reference", expect.anything());
     const box = screen.getByRole("searchbox", { name: "Search or import papers" });
     fireEvent.change(box, { target: { value: title } });
-    // Enter opens an existing local match; + explicitly resolves a new import.
-    fireEvent.click(screen.getByTitle("Import paper"));
+    // Enter only searches; + explicitly resolves a new import.
+    fireEvent.click(screen.getByRole("button", { name: "Add paper" }));
     await expectInvoked("resolve_citation_query", { query: title });
     if (cancelled) fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
     const alternative = { ...draft, year: "1987", journal: "Cognitive Neuropsychology", doi: "10.1080/02643298708252038" };
@@ -201,7 +201,7 @@ describe("papers", () => {
     });
     const box = await screen.findByPlaceholderText("Search or add by title, arXiv ID, DOI, or URL");
     fireEvent.change(box, { target: { value: "10.1109/CVPR.2016.90" } });
-    fireEvent.keyDown(box, { key: "Enter" });
+    fireEvent.click(screen.getByRole("button", { name: "Add paper" }));
 
     await expectInvoked("import_reference", { input: "10.1109/CVPR.2016.90", requestId: expect.any(String) });
     // The DOI must not be mistaken for an arXiv id, and the message has to
@@ -236,7 +236,7 @@ describe("papers", () => {
     fireEvent.click(await screen.findByRole("tab", { name: /^(Papers|论文)$/ }));
     const box = await screen.findByRole("searchbox", { name: /^(Search or import papers|搜索或导入论文)$/ });
     fireEvent.change(box, { target: { value: "10.1080/02643298708252038" } });
-    fireEvent.keyDown(box, { key: "Enter" });
+    fireEvent.click(screen.getByRole("button", { name: /^(Add paper|添加论文)$/ }));
     const cancel = await screen.findByRole("button", { name: /^(Cancel|取消)$/ });
     expect(requestId).toBeTruthy();
     fireEvent.click(cancel);
@@ -270,7 +270,7 @@ describe("papers", () => {
       read_paper_blog_local: "# Attention overview\n\nA concise explanation.", write_project_file: undefined,
     });
     const paper = await screen.findByRole("button", { name: /Attention Is All You Need.*1706\.03762/i });
-    expect(screen.getByRole("button", { name: "Paper lookup" })).toBeVisible();
+    expect(screen.queryByRole("button", { name: "Paper lookup" })).not.toBeInTheDocument();
     if (interaction === "click") fireEvent.click(paper);
     else {
       const values = new Map<string, string>();

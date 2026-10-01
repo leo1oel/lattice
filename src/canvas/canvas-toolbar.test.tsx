@@ -72,14 +72,13 @@ describe("CanvasToolbar project tools", () => {
   });
 
   it("hides the tools the writer turned off in Settings", () => {
-    const { rerender } = render(<CanvasToolbar {...baseProps} onPaperLookup={vi.fn()} />);
-    for (const name of ["Editor comments", "Paper lookup", "Git status and commit", "Project history"]) {
+    const { rerender } = render(<CanvasToolbar {...baseProps} />);
+    for (const name of ["Editor comments", "Git status and commit", "Project history"]) {
       expect(screen.getByRole("button", { name })).toBeInTheDocument();
     }
-    rerender(<CanvasToolbar {...baseProps} onPaperLookup={vi.fn()} hiddenTools={["comments", "history"]} />);
+    rerender(<CanvasToolbar {...baseProps} hiddenTools={["comments", "history"]} />);
     expect(screen.queryByRole("button", { name: "Editor comments" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Project history" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Git status and commit" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Paper lookup" })).toBeInTheDocument();
   });
 });
