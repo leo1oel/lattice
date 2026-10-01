@@ -656,8 +656,11 @@ impl RealtimeClient {
     /// `meta.tc` and disconnects an account without edit rights that sends a
     /// plain update — and someone with write access uses it when track changes
     /// is on.
+    ///
+    /// `dup_if_source` names the connections an earlier submission of these
+    /// same ops went out on; empty for a first submission.
     pub async fn send_ops(
-        &self, doc_id: &str, version: i64, ops: Vec<OtOp>, tracked: bool,
+        &self, doc_id: &str, version: i64, ops: Vec<OtOp>, tracked: bool, dup_if_source: &[String],
     ) -> Result<(), String> {
         if ops.is_empty() {
             return Ok(());
@@ -668,7 +671,7 @@ impl RealtimeClient {
         }
         let seed = tracked.then(change_id_seed);
         let meta = seed.as_deref().map(|tc| TrackedMeta { tc });
-        let update = Update { doc: doc_id, op: ops, v: version, meta };
+        let update = Update { doc: doc_id, op: ops, v: version, meta, dup_if_source };
         self.call("applyOtUpdate", (doc_id, update)).await.map(drop)
     }
 
@@ -699,7 +702,7 @@ impl RealtimeClient {
         // A reviewer may only ever write suggestions, so their rejection has
         // to travel as one too; the `u` flag works either way.
         let tracked = self.project.permission == Permission::Review;
-        self.send_ops(doc_id, version, ops, tracked).await
+        self.send_ops(doc_id, version, ops, tracked, &[]).await
     }
 
     /// Anchor a comment thread to a span of a document.
@@ -712,7 +715,7 @@ impl RealtimeClient {
         &self, doc_id: &str, version: i64, position: i64, quote: &str, thread_id: &str,
     ) -> Result<(), String> {
         let op = vec![CommentOp { p: position, c: quote, t: thread_id }];
-        let update = Update { doc: doc_id, op, v: version, meta: None };
+        let update = Update { doc: doc_id, op, v: version, meta: None, dup_if_source: &[] };
         self.call("applyOtUpdate", (doc_id, update)).await.map(drop)
     }
 

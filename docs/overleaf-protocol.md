@@ -158,6 +158,16 @@ purpose.
 - **A timeout is not proof of rejection.** A document whose send outcome is
   unknown stays owned by OT until a late ack or a rejoin/catch-up proves what
   happened. Ordinary file sync must not resend it blindly.
+- **Overleaf names every connection afresh.** The `publicId` it stamps on our
+  updates as `meta.source` changes on every reconnect, so a document remembers
+  every connection its in-flight operation went out on, and a replayed update
+  from any of them is our own acknowledgement. After a replay on a *new*
+  connection, the still-unanswered operation is resent with `dupIfSource`
+  naming those connections — Overleaf then acknowledges a copy that already
+  landed instead of applying it twice, which is what its own editor does. It is
+  never resent on the connection that already carried it.
+- An operation that transformed to nothing is dropped, never sent: an empty
+  `applyOtUpdate` is not answered, and every later edit would queue behind it.
 - A transient disconnect retries with bounded exponential backoff. Network
   recovery and window focus may request an immediate retry, but authentication,
   authorization and project-identity failures stop the loop and require user

@@ -100,6 +100,21 @@ fn frames_round_trip_every_field_and_keep_colons_in_the_payload() {
 }
 
 #[test]
+fn updates_name_earlier_submissions_only_when_resending() {
+    let ops = vec![insert(5, "hello")];
+    let first = Update { doc: "doc-1", op: ops.clone(), v: 42, meta: None, dup_if_source: &[] };
+    // Overleaf validates updates with a strict schema: a first submission
+    // must not carry an empty `dupIfSource` it never asked for.
+    assert_eq!(
+        serde_json::to_value(&first).expect("serializes"),
+        json!({"doc": "doc-1", "op": [{"p": 5, "i": "hello"}], "v": 42})
+    );
+    let earlier = ["P.old".to_string()];
+    let resend = Update { doc: "doc-1", op: ops, v: 42, meta: None, dup_if_source: &earlier };
+    assert_eq!(serde_json::to_value(&resend).expect("serializes")["dupIfSource"], json!(["P.old"]));
+}
+
+#[test]
 fn parse_frame_rejects_malformed_input_without_panicking() {
     for raw in ["", "5", "5:1", "::", ":::", "x::", "9::", "255::", "300::", "-1::", "5 ::", "🙂::"]
     {
@@ -755,7 +770,7 @@ fn talks_the_whole_protocol_to_a_mock_server() {
     let anchor = CommentRange { thread_id: "thread-1".into(), position: 4, quote: "one".into() };
     assert_eq!(joined.comments, vec![anchor]);
 
-    rt::block_on(client.send_ops("doc-1", 42, vec![insert(5, "hello")], false))
+    rt::block_on(client.send_ops("doc-1", 42, vec![insert(5, "hello")], false, &[]))
         .expect("applyOtUpdate");
     rt::block_on(client.leave_doc("doc-1")).expect("leaveDoc");
 
@@ -883,7 +898,8 @@ impl Live {
     }
 
     fn send(&self, doc_id: &str, version: i64, op: OtOp) {
-        rt::block_on(self.client.send_ops(doc_id, version, vec![op], false)).expect("send ops");
+        rt::block_on(self.client.send_ops(doc_id, version, vec![op], false, &[]))
+            .expect("send ops");
     }
 
     /// Whether Overleaf acknowledged our update on `doc_id` applied at `at`.
@@ -1159,7 +1175,7 @@ fn tracks_a_change_on_the_real_overleaf() {
     let before = live.join(&doc.id);
 
     let probe = "SUGGESTED café";
-    rt::block_on(live.client.send_ops(&doc.id, before.version, vec![insert(0, probe)], true))
+    rt::block_on(live.client.send_ops(&doc.id, before.version, vec![insert(0, probe)], true, &[]))
         .expect("suggest an edit");
     std::thread::sleep(Duration::from_secs(2));
 

@@ -66,8 +66,13 @@ export type OverleafRemoteTextContext = {
 export type OpenDoc = { id: string; comments: CommentRange[]; changes: TrackedChange[] };
 export type RealtimeStatus = "off" | "connecting" | "live" | "error";
 
-/** Whether an update came from the connection Overleaf named `publicId` — never before it has named one. */
-export const isOwnUpdate = (source: string | null, publicId: string | null) => Boolean(source) && source === publicId;
+/**
+ * Whether an update came from the connection Overleaf named `publicId` — never
+ * before it has named one — or from an earlier connection that `submittedVia`
+ * says carried the operation still waiting for its answer.
+ */
+export const isOwnUpdate = (source: string | null, publicId: string | null, submittedVia: readonly string[] = []) =>
+  Boolean(source) && (source === publicId || submittedVia.includes(source!));
 
 /** Authentication and project-identity failures need user action, not a retry loop. */
 export function shouldRetryConnection(reason: string): boolean {

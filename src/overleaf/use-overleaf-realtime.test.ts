@@ -29,6 +29,10 @@ const freshBackend = () => ({
   publicId: "me" as string | null,
   /** Simulate a server commit whose acknowledgement never reaches the command. */
   loseSendAck: false,
+  /** Joins fail, as they do while the socket that carried a send is going down. */
+  joinsFail: false,
+  /** The lost send never reached Overleaf at all, so a replay holds nothing of ours. */
+  lostSendMissing: false,
   /** Transient connection failures still to return before succeeding, and what they say. */
   connectFailures: 0,
   connectError: "network unavailable",
@@ -51,8 +55,16 @@ const expectLeft = (fields: Record<string, unknown>) =>
 
 function joinAnswer(docId: string, fromVersion: number | null = null) {
   const { anchors } = backend;
+  if (backend.joinsFail) throw new Error("the connection is closing");
+  if (docId === DOC_A && fromVersion === 10 && backend.lostSendMissing && sends().length) {
+    return { text: "alpha", version: 10, ...anchors, caughtUp: [], resumed: true };
+  }
   if (docId === DOC_A && fromVersion === 10 && backend.loseSendAck && sends().length) {
     return { text: "alpha edited", version: 11, ...anchors, caughtUp: [{ version: 10, ops: sends()[0]!.ops, source: "me" }], resumed: true };
+  }
+  // The lost send did land: that is the server's copy from now on.
+  if (docId === DOC_A && backend.loseSendAck && !backend.lostSendMissing && sends().length) {
+    return { text: "alpha edited", version: 11, ...anchors, caughtUp: [], resumed: fromVersion === 11 };
   }
   return { text: docId === DOC_A ? "alpha" : "beta", version: 10, ...anchors, caughtUp: [], resumed: false };
 }
@@ -517,6 +529,53 @@ describe("an acknowledgement whose outcome is not known", () => {
     expect(sends()).toHaveLength(1);
     expect(result.current.livePaths).toEqual(["a.tex"]);
     expect(result.current.detail).toMatch(/paused/i);
+  });
+
+  /** Send "alpha edited", lose its answer with the connection, and reconnect under a new id. */
+  async function loseSendAcrossReconnect(onRemoteText: Options["onRemoteText"]) {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    backend.loseSendAck = true;
+    const view = await mountLive({ onRemoteText });
+    backend.joinsFail = true;
+    await typeAndSend(view.result, "alpha edited");
+    await waitFor(() => expect(sends()).toHaveLength(1));
+    emit({ type: "disconnected", reason: "network changed" });
+    // Overleaf names every connection afresh, so the replay of what we sent
+    // before still says "me" while this connection is "me-2".
+    backend.publicId = "me-2";
+    backend.joinsFail = false;
+    await act(async () => { await vi.advanceTimersByTimeAsync(1_500); });
+    await waitFor(() => expect(joins()).toContainEqual({ docId: DOC_A, fromVersion: 10 }));
+    await act(async () => { await vi.advanceTimersByTimeAsync(500); });
+    return view;
+  }
+
+  it("recognises its own update replayed under the previous connection's id instead of applying it twice", async () => {
+    const seen: string[] = [];
+    const { result } = await loseSendAcrossReconnect((text) => { seen.push(text); });
+
+    expect(seen.some((text) => text.includes("edited edited"))).toBe(false);
+    await waitFor(() => expect(seen.at(-1)).toBe("alpha edited"));
+    // It landed; nothing is resent, and the file is no longer held back.
+    expect(sends()).toHaveLength(1);
+    expect(result.current.settledVersion()).toBe(11);
+  });
+
+  it("resends an update that never landed, naming the connection it first went out on", async () => {
+    backend.lostSendMissing = true;
+    const { result } = await loseSendAcrossReconnect(() => undefined);
+
+    await waitFor(() => expect(sends()).toHaveLength(2));
+    const [first, resend] = invokeCalls("overleaf_rt_send_ops");
+    expect(first).not.toHaveProperty("dupIfSource");
+    // Overleaf acknowledges rather than reapplies it if the first copy lands late.
+    expect(resend).toMatchObject({ docId: DOC_A, version: 10, ops: first!.ops, dupIfSource: ["me"] });
+    expect(result.current.livePaths).toEqual(["a.tex"]);
+
+    emit({ type: "docAck", docId: DOC_A, version: 10 });
+    await waitFor(() => expect(result.current.settledVersion()).toBe(11));
+    // Once answered on this connection it is never sent a third time.
+    expect(sends()).toHaveLength(2);
   });
 });
 

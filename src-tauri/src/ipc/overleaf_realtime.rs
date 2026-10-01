@@ -358,10 +358,10 @@ pub async fn overleaf_rt_update_position(
 #[tauri::command]
 pub async fn overleaf_rt_send_ops(
     state: State<'_, AppState>, window: Window, project_root: String, doc_id: String, version: i64,
-    ops: Vec<overleaf_rt::OtOp>,
+    ops: Vec<overleaf_rt::OtOp>, dup_if_source: Option<Vec<String>>,
 ) -> Result<(), String> {
     let (client, _lease) = live_client(&state, &window, &project_root).await?;
-    client.send_ops(&doc_id, version, ops, false).await
+    client.send_ops(&doc_id, version, ops, false, &dup_if_source.unwrap_or_default()).await
 }
 
 /// Anchor a comment thread to a span of the open document.

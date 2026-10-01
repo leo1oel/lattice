@@ -261,6 +261,14 @@ export class OtDocument {
   private inflight: OtOp[] | null = null;
   /** Typed while `inflight` was outstanding. */
   private pending: OtOp[] | null = null;
+  /**
+   * Every connection `inflight` has gone out on. Overleaf names a new
+   * connection id each time the socket reconnects and stamps it on the update
+   * as its source, so after a reconnect the replay of an operation we sent
+   * earlier carries an id that is no longer ours — and only this list can
+   * still recognise it as our own acknowledgement.
+   */
+  private submitted: string[] = [];
 
   /** `text` includes unsent work; `version` is the last server version seen. */
   constructor(public text: string, public version: number) {}
@@ -268,6 +276,25 @@ export class OtDocument {
   /** True while the server still owes us an acknowledgement. */
   get waiting(): boolean {
     return this.inflight !== null;
+  }
+
+  /** The connections the operation in flight has been sent on, oldest first. */
+  get submittedVia(): readonly string[] {
+    return this.submitted;
+  }
+
+  /** Record that the operation in flight went out on connection `publicId`. */
+  noteSubmitted(publicId: string) {
+    if (this.inflight && !this.submitted.includes(publicId)) this.submitted.push(publicId);
+  }
+
+  /**
+   * The operation in flight again, to resend after a reconnect. Only valid
+   * once a replay has brought `version` up to date, which also transformed
+   * the operation to match; null when there is no text to send.
+   */
+  resend(): OtSend {
+    return this.inflight?.length ? { version: this.version, ops: this.inflight } : null;
   }
 
   /** True when everything typed here has reached the server. */
@@ -313,6 +340,7 @@ export class OtDocument {
     }
     if (!this.inflight) return { send: null };
     this.inflight = null;
+    this.submitted = [];
     this.version += 1;
     if (!this.pending) return { send: null };
     // Work typed while waiting can cancel out entirely against someone else's
@@ -390,5 +418,6 @@ export class OtDocument {
     this.version = version;
     this.inflight = null;
     this.pending = null;
+    this.submitted = [];
   }
 }

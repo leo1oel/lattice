@@ -235,6 +235,12 @@ pub(super) struct Update<'a, Op: Serialize> {
     pub v: i64,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub meta: Option<TrackedMeta<'a>>,
+    /// The connections an earlier submission of this same update may have
+    /// gone out on. If one of them already landed it, Overleaf acknowledges
+    /// this one instead of applying it a second time — the only safe way to
+    /// resend an operation whose first answer was lost with its connection.
+    #[serde(rename = "dupIfSource", skip_serializing_if = "<[String]>::is_empty")]
+    pub dup_if_source: &'a [String],
 }
 
 /// What makes an update tracked. `tc` is not a flag but the seed Overleaf mints
