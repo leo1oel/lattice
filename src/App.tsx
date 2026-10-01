@@ -1414,12 +1414,6 @@ function App() {
     }
   }, [navIndex, navStack, openProjectFile]);
 
-  const reopenClosedTab = useCallback(async () => {
-    const path = closedTabsRef.current.shift();
-    if (!path) return;
-    await openProjectFile(path);
-  }, [openProjectFile]);
-
   const revealPdfSource = useCallback(async (page: number, x: number, y: number) => {
     await showingErrors(async () => {
       const target = await invoke<SyncTexTarget>("synctex_edit", { page, x, y });
@@ -3379,6 +3373,13 @@ function App() {
   }, [
     activePaper, closeEditorTab, openPaper, openProjectAsset, openProjectFile, papers, projectAssetPaths,
   ]);
+  // A closed Paper or PDF/image reopens through its own reader, as selecting
+  // its tab does: as a plain file it opened a Paper's raw Markdown, and an
+  // asset failed with "No such text file".
+  const reopenClosedTab = useCallback(() => {
+    const path = closedTabsRef.current.shift();
+    if (path) selectEditorTab(path);
+  }, [selectEditorTab]);
   // The tab that reads as active: the open paper in paper mode, else the open
   // asset or file.
   const activeTabKey = activePaper ? paperTabKey(activePaper.arxivId) : activeAsset?.path ?? activeFile;
@@ -3492,7 +3493,7 @@ function App() {
     { id: "back", key: "[", run: () => void navigateHistory(-1) },
     { id: "forward", key: "]", run: () => void navigateHistory(1) },
     { id: "palette", key: "p", shift: true, run: () => setCommandPaletteOpen(true) },
-    { id: "reopen-tab", key: "t", shift: true, run: () => void reopenClosedTab() },
+    { id: "reopen-tab", key: "t", shift: true, run: reopenClosedTab },
     // Reset the panel layout, and bring back any panel that was hidden or closed.
     { id: "layout-reset", label: t`Reset panel layout`, group: t`Layout`, run: () => void trellis.resetLayout() },
     ...SINGLETON_PANELS.map((kind) => {
