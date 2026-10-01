@@ -14,6 +14,7 @@ import {
 import { Tip } from "../components/icon-tip";
 import { TOOL_KINDS, type TrellisController, type TrellisPanelState, type TrellisSingleton } from "./trellis-controller";
 import { PANEL_TITLES, spaceMixedScript } from "./trellis-titles";
+import { PANEL_ICONS } from "./trellis-icons";
 
 const CORE_PANELS = [
   { kind: "project", icon: <FolderTree size={14} /> },
@@ -71,14 +72,15 @@ export const TrellisTitlebar = memo(function TrellisTitlebar({ controller }: { c
           <DropdownMenuSeparator />
           <DropdownMenuLabel>{t`Tools`}</DropdownMenuLabel>
           {TOOL_KINDS.map((kind) => (
-            <DropdownMenuItem key={kind} onSelect={() => controller.showPanel(kind)}>{title(kind)}</DropdownMenuItem>
+            <DropdownMenuItem key={kind} onSelect={() => controller.showPanel(kind)}>{PANEL_ICONS[kind]}{title(kind)}</DropdownMenuItem>
           ))}
           <DropdownMenuSeparator />
           <DropdownMenuItem onSelect={() => ws()?.navigation.toggle()}>
+            <Maximize2 size={14} />
             <span className="flex-1">{t`Maximize focused panel`}</span>
             <span className="trellis-menu-shortcut">⌘⇧↩</span>
           </DropdownMenuItem>
-          <DropdownMenuItem onSelect={() => void controller.resetLayout()}>{t`Reset layout`}</DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => void controller.resetLayout()}><RotateCcw size={14} />{t`Reset layout`}</DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
       <div className="trellis-titlebar-group" role="group" aria-label={t`Show or hide panels`}>

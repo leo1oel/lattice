@@ -26,8 +26,7 @@ import { EditorState } from "@codemirror/state";
 import { EditorView, lineNumbers } from "@codemirror/view";
 import { defaultHighlightStyle, syntaxHighlighting } from "@codemirror/language";
 import {
-  BookOpen, Bot, Check, ChevronRight, ClipboardCheck, FileImage, FileText, FolderTree, GitBranch, History,
-  Leaf, Library, ListTodo, MessageSquare, Moon, Presentation, Shapes, Table2,
+  Check, ChevronRight, FileImage, FileText, FolderTree, Moon, Presentation, Shapes, Table2,
   BookMarked, FileCode2, Search,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -43,6 +42,7 @@ import {
 import { defaultLayout, loadLayout, saveLayout, clearLayout, withDocumentPanel, VIEW_TYPES } from "./trellis-layout";
 import { installTrellisLabels } from "./trellis-labels";
 import { PANEL_TITLES, spaceMixedScript } from "./trellis-titles";
+import { PANEL_ICONS } from "./trellis-icons";
 import { FileHeaderTools } from "./trellis-header-tools";
 import { measurePdfToolbarMinWidth } from "../pdf/pdf-toolbar-min-width";
 import "./trellis.css";
@@ -81,19 +81,6 @@ function measuredMinSize(base: { width: number; height: number }, measured: () =
   };
 }
 
-const PANEL_ICONS: Record<TrellisSingleton, ReactNode> = {
-  project: <FolderTree size={14} />,
-  papers: <Library size={14} />,
-  agent: <Bot size={14} />,
-  pdf: <FileText size={14} />,
-  history: <History size={14} />,
-  git: <GitBranch size={14} />,
-  comments: <MessageSquare size={14} />,
-  overleaf: <Leaf size={14} />,
-  literature: <BookOpen size={14} />,
-  todos: <ListTodo size={14} />,
-  checklist: <ClipboardCheck size={14} />,
-};
 
 type FileParams = { key: string };
 
