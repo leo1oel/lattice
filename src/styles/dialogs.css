@@ -216,6 +216,7 @@ button.checklist-row:hover { border-color: var(--control-active-border); }
 .confirm-action-modal[data-has-alternative="true"] { width: min(520px, calc(100vw - 40px)); }
 .confirm-action-modal[data-has-alternative="true"] .modal-actions { flex-wrap: wrap; }
 .create-project-modal { width: min(440px, calc(100vw - 40px)); }
+.modal.create-project-modal h2 { margin-bottom: var(--space-8); }
 .venue-picker { margin: var(--space-8) 0 0; display: grid; gap: var(--space-3); }
 .venue-picker-label { color: var(--text-secondary); font-size: var(--type-micro-size); font-weight: 600; }
 .venue-picker-content { min-width: var(--radix-select-trigger-width); }

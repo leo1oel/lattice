@@ -164,7 +164,10 @@
 }
 .overleaf-picker-account::before { content: ""; width: var(--space-3); height: var(--space-3); flex: none; border-radius: var(--radius-pill); background: var(--status-success); }
 
-.overleaf-picker-body { display: flex; flex-direction: column; min-height: 0; overflow: auto; }
+/* The body fills the dialog, so a short state (signed out, empty) centers in
+   the frame instead of leaving a blank band under it. */
+.overleaf-picker-body { flex: 1 1 auto; display: flex; flex-direction: column; min-height: 0; overflow: auto; }
+.overleaf-picker-header + .overleaf-picker-body { margin-top: var(--space-8); }
 .overleaf-transfer-error { flex: none; margin-bottom: var(--space-6); }
 .overleaf-picker-controls { flex: none; display: flex; align-items: center; gap: var(--space-6); margin-bottom: var(--space-6); }
 .overleaf-search { flex: 1 1 auto; }
