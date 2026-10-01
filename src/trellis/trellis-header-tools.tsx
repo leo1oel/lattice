@@ -15,12 +15,76 @@
 import { useSyncExternalStore, type ReactNode } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { useView } from "@danfessler/trellis-react";
-import { Check, Columns2, Eye, FileText, Newspaper, PenLine, Play, X } from "lucide-react";
+import { Columns2, Eye, FileText, Newspaper, PenLine, Play } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Tip } from "../components/icon-tip";
 import { SegmentedControl } from "../components/ui/segmented-control";
 import { InfinityLoader } from "../components/ui/activity-icons";
 import { documentTools, useTrellisApp, type TrellisController, type TrellisViewMode } from "./trellis-controller";
+import type { BuildOutcome } from "../app/use-build-pipeline";
+
+/**
+ * When each build outcome was first shown. Its flourish belongs to the moment
+ * the build ends, so a panel that remounts later (switching tabs or panels)
+ * shows the finished check without celebrating it a second time. Every build
+ * produces a new outcome object, so a WeakMap keyed by it forgets on its own.
+ */
+const outcomeShownAt = new WeakMap<BuildOutcome, number>();
+const FLOURISH_WINDOW_MS = 900;
+function isFreshOutcome(outcome: BuildOutcome | null): boolean {
+  if (!outcome) return false;
+  const now = performance.now();
+  const shown = outcomeShownAt.get(outcome);
+  if (shown === undefined) {
+    outcomeShownAt.set(outcome, now);
+    return true;
+  }
+  return now - shown < FLOURISH_WINDOW_MS;
+}
+
+/** Six short rays in the mark's two threads, thrown off a check that has just drawn itself. */
+const BURST = Array.from({ length: 6 }, (_, index) => {
+  const angle = (index * 60 - 90) * (Math.PI / 180);
+  const at = (radius: number) => `${(12 + Math.cos(angle) * radius).toFixed(2)} ${(12 + Math.sin(angle) * radius).toFixed(2)}`;
+  // eslint-disable-next-line lingui/no-unlocalized-strings -- SVG path data
+  return { d: `M${at(14)}L${at(18)}`, thread: index % 2 ? "warp" : "weft" };
+});
+
+/**
+ * The build's result, drawn on the 24-unit icon grid of the lucide icons
+ * beside it. A fresh success draws its check and throws a small burst; a
+ * fresh failure draws its cross and shakes once. Afterwards both rest.
+ */
+function BuildStatusGlyph({ status, fresh }: { status: "succeeded" | "failed"; fresh: boolean }) {
+  return (
+    <svg
+      className="trellis-build-status"
+      data-status={status}
+      data-fresh={fresh || undefined}
+      width={13}
+      height={13}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2.5}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      {status === "succeeded"
+        ? <path className="trellis-build-stroke" pathLength={1} d="M20 6 9 17l-5-5" />
+        : <>
+          <path className="trellis-build-stroke" pathLength={1} d="M18 6 6 18" />
+          <path className="trellis-build-stroke" pathLength={1} d="m6 6 12 12" />
+        </>}
+      {fresh && status === "succeeded" && (
+        <g className="trellis-build-burst" strokeWidth={2}>
+          {BURST.map(({ d, thread }) => <path key={d} d={d} data-thread={thread} />)}
+        </g>
+      )}
+    </svg>
+  );
+}
 
 /** Tools that hold their place in the header without being seen or reached. */
 function Reserve({ children }: { children: ReactNode }) {
@@ -45,20 +109,20 @@ export function FileHeaderTools({ controller }: { controller: TrellisController 
     const seconds = lastBuild?.status === "succeeded" ? lastBuild.seconds.toFixed(1) : null;
     const button = (live: boolean) => {
       const state = !live ? "idle" : building ? "building" : lastBuild?.status ?? "idle";
+      const fresh = state !== "idle" && state !== "building" && isFreshOutcome(lastBuild);
       const labels = { build: t`Build`, failed: t`Failed`, time: seconds ? `${seconds}s` : "" };
       const shown = state === "succeeded" ? "time" : state === "failed" ? "failed" : "build";
       return (
         <button
           type="button"
-          className={cn("trellis-build-button", state !== "idle" && `is-${state}`)}
+          className={cn("trellis-build-button", state !== "idle" && `is-${state}`, fresh && "is-fresh")}
           aria-label={t`Build`}
           aria-busy={state === "building" || undefined}
           onClick={live ? (event) => controller.bridge?.build(key, { clean: event.shiftKey, beside: view.panelId }) : undefined}
         >
           {state === "building" ? <InfinityLoader size={13} />
-            : state === "succeeded" ? <Check size={13} strokeWidth={2.5} className="trellis-build-status" />
-              : state === "failed" ? <X size={13} strokeWidth={2.5} className="trellis-build-status" />
-                : <Play size={11} fill="currentColor" />}
+            : state === "succeeded" || state === "failed" ? <BuildStatusGlyph status={state} fresh={fresh} />
+              : <Play size={11} fill="currentColor" />}
           {/* Every label is laid out in one cell, with a hidden widest time beside
               them, so the button keeps the width of the widest whatever it shows,
               and the header's measured tools with it. */}

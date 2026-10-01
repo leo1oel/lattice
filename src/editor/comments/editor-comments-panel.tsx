@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { Check, MessageSquareText, Reply, RotateCcw } from "lucide-react";
 import { EmptyState } from "../../components/ui/empty-state";
+import { EmptyIllustration } from "../../components/ui/empty-illustration";
 import { DestructiveButton } from "../../components/ui/destructive-button";
 import { PanelHeader } from "../../components/ui/panel-header";
 import { SearchField } from "../../components/ui/search-field";
@@ -87,7 +88,12 @@ export function EditorCommentsPanel(props: {
       </div>
       <div className="pdf-marks-list">
         {!visible.length && (
-          <EmptyState align="start" density="compact" description={t`No comments yet. Select text in the editor and click Comment`} />
+          <EmptyState
+            align="start"
+            density="compact"
+            icon={<EmptyIllustration kind="comments" size="compact" />}
+            description={t`No comments yet. Select text in the editor and click Comment`}
+          />
         )}
         {visible.map((comment) => {
           const isAuthor = comment.authorId === props.currentAuthorId;

@@ -12,6 +12,8 @@ import type { ProjectVenue, RenameTarget } from "../app-types";
 import type { RecentProject } from "../settings/app-settings";
 import { beginWindowDrag, toggleWindowFullscreen } from "../app-utils";
 import { ModalDialog } from "../components/ui/modal-dialog";
+import { LatticeMark } from "../components/ui/lattice-mark";
+import { WelcomeLattice } from "./welcome-lattice";
 
 export function Welcome(props: {
   busyLabel: string | null;
@@ -38,8 +40,9 @@ export function Welcome(props: {
         <button className="icon-button" onClick={props.onSettings} title={t`Settings`}><Settings size={16} /></button>
       </div>
       <div className="welcome-glow" />
+      <WelcomeLattice />
       <div className="welcome-content">
-        <div className="brand-mark"><Sparkles size={24} /></div>
+        <div className="brand-mark"><LatticeMark size={34} motion="weave" /></div>
         <p className="eyebrow">LATTICE</p>
         <h1>{t`Research, written with evidence`}</h1>
         <p className="welcome-copy">

@@ -241,6 +241,43 @@ the primitive standardizes density without changing those semantics.
 - Embedded Settings routes delegate scrolling to the Lattice `ScrollArea`; the
   embedded document must not expose a second viewport scrollbar.
 
+## Identity and motion moments
+
+The app icon's woven lattice is Lattice's mark, and a small set of touches
+reuse its vocabulary so the product reads as one thing:
+
+- `LatticeMark` (`src/components/ui/lattice-mark.tsx`) draws the icon live from
+  its own geometry. Its two threads have their own roles, `--mark-weft` (blue)
+  and `--mark-warp` (teal), plus `--mark-glint`. They are identity, not
+  interaction: they color the mark and the one accent stroke of an
+  illustration, never a control, so the interaction accent stays neutral.
+- `EmptyIllustration` (`src/components/ui/empty-illustration.tsx`) holds the
+  empty-state drawings: neutral line work in the host's text color with one
+  weft or warp thread. Pass one to `EmptyState`'s `icon`.
+- The welcome screen's lattice field (`src/project/welcome-lattice.tsx`)
+  repeats the mark as a faint backdrop.
+
+Motion follows three rules:
+
+- **Moments, not loops.** Motion marks a state change (a build ending, the
+  Overleaf channel coming up, a dialog arriving) or something appearing (an
+  empty state, a skeleton). It plays once. The only ambient loops are the
+  welcome screen, which is never on screen while writing, and loading
+  placeholders such as the PDF skeleton, which last only until content arrives.
+- **Never in the writing surface.** Nothing animates in the editor, and nothing
+  near it repeats while the writer works. A flourish that a remount could
+  replay is guarded, as the Build button's `isFreshOutcome` is.
+- **Paint-cheap and layout-free.** Animate `transform`, `opacity`, and
+  `stroke-dashoffset`; never geometry. Times come from the `--duration-*`
+  scale (`--duration-draw` for a line drawing itself, `--duration-flourish`
+  for a one-time ripple or burst). Ambient loops longer than the scale may use
+  literal times.
+
+Reduced motion is owned by `src/styles/adaptive-feedback.css`. Its universal
+clamp finishes every one-shot animation at once, so a moment's resting style
+must be its finished frame. An ambient loop also needs an `animation: none`
+entry there, and its resting style must be invisible or still.
+
 ## Migration rule
 
 Migrate one component family at a time and preserve the rendered result before

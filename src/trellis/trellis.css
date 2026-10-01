@@ -193,6 +193,52 @@
 .trellis-build-button.is-succeeded .trellis-build-status { color: var(--status-success); }
 .trellis-build-button.is-failed .trellis-build-status,
 .trellis-build-button.is-failed .trellis-build-label { color: var(--status-danger); }
+/* The moment a build ends. A success draws its check, throws a burst of rays in
+   the mark's two threads and washes the button green once; a failure draws its
+   cross, shakes, and washes it red. `is-fresh` is set only for the outcome's
+   first showing (isFreshOutcome), and everything here is transform, opacity
+   and stroke: no geometry moves, so the header never shifts. */
+.trellis-build-button { position: relative; }
+.trellis-build-status { overflow: visible; }
+.trellis-build-button.is-fresh::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: currentColor;
+  opacity: 0;
+  pointer-events: none;
+  animation: trellis-build-wash var(--duration-flourish) var(--ease-out) both;
+}
+.trellis-build-button.is-fresh.is-succeeded::after { color: var(--status-success); }
+.trellis-build-button.is-fresh.is-failed::after { color: var(--status-danger); }
+@keyframes trellis-build-wash {
+  from { opacity: .22; }
+  to { opacity: 0; }
+}
+.trellis-build-status[data-fresh] .trellis-build-stroke {
+  stroke-dasharray: 1 1;
+  animation: trellis-build-draw var(--duration-reveal) var(--ease-entrance) both;
+}
+.trellis-build-status[data-fresh] .trellis-build-stroke + .trellis-build-stroke { animation-delay: 70ms; }
+@keyframes trellis-build-draw {
+  from { stroke-dashoffset: 1; }
+  to { stroke-dashoffset: 0; }
+}
+.trellis-build-burst path { stroke: var(--mark-weft); opacity: 0; animation: trellis-build-burst var(--duration-flourish) var(--ease-entrance) both; animation-delay: 120ms; transform-origin: 12px 12px; }
+.trellis-build-burst path[data-thread="warp"] { stroke: var(--mark-warp); }
+@keyframes trellis-build-burst {
+  from { opacity: 0; transform: scale(.55); }
+  25% { opacity: 1; }
+  to { opacity: 0; transform: scale(1.2); }
+}
+.trellis-build-status[data-status="failed"][data-fresh] { animation: trellis-build-shake var(--duration-slow) var(--ease-out) both; animation-delay: 140ms; }
+@keyframes trellis-build-shake {
+  20% { translate: -1.5px 0; }
+  45% { translate: 1.5px 0; }
+  70% { translate: -1px 0; }
+  85% { translate: .5px 0; }
+}
 .trellis-build-label { display: inline-grid; font-variant-numeric: tabular-nums; }
 .trellis-build-label > span { grid-area: 1 / 1; }
 .trellis-build-label > .trellis-build-label-off { visibility: hidden; }

@@ -4,6 +4,7 @@ import { Trans, useLingui } from "@lingui/react/macro";
 import { Search } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { EmptyState } from "../components/ui/empty-state";
+import { EmptyIllustration } from "../components/ui/empty-illustration";
 import { PanelHeader } from "../components/ui/panel-header";
 import { SearchField } from "../components/ui/search-field";
 import { ScrollArea } from "../components/ui/scroll-area";
@@ -201,6 +202,7 @@ export function ProjectFindDialog(props: {
           <EmptyState
             align="start"
             density="compact"
+            icon={<EmptyIllustration kind="search" size="compact" />}
             title={t`No results for “${trimmedQuery}”`}
             description={t`Try a shorter phrase or different terms`}
             actions={<Button size="compact" variant="secondary" onClick={clearSearch}><Trans>Clear search</Trans></Button>}

@@ -127,6 +127,8 @@
   --duration-reveal: 200ms; /* Something entering or leaving the screen. */
   --duration-disclosure: 220ms; /* Opening and closing menus, selects, and popovers. */
   --duration-slow: 300ms; /* Whole-surface changes, like a theme switch. */
+  --duration-draw: 560ms; /* A line drawing itself: the Lattice mark, illustrations, a finished build's check. */
+  --duration-flourish: 720ms; /* A one-time ripple or burst marking a moment, never a loop. */
   --ease-default: ease;
   --ease-out: ease-out;
   --ease-in-out: ease-in-out;
@@ -407,6 +409,12 @@
   --editor-selection-surface-active: color-mix(in srgb, var(--editor-selection-tint) 52%, transparent);
   --pdf-page-surface: #f9f9fa;
   --status-info: var(--info);
+  /* The two threads of the app icon's weave. Identity, not interaction: they
+     color the Lattice mark and the accent strokes of illustrations, never a
+     control, so the interaction accent stays neutral. */
+  --mark-weft: var(--brand-weft);
+  --mark-warp: var(--brand-warp);
+  --mark-glint: var(--brand-glint);
   --status-danger: var(--danger);
   --status-danger-soft: color-mix(in srgb, var(--danger) 12%, transparent);
 

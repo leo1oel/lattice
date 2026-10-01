@@ -1,0 +1,49 @@
+/* The Lattice mark (lattice-mark.tsx). Colors come from the two identity
+   threads in foundations.css; the far end of each thread is lifted toward the
+   glint, as the app icon's gradients are. */
+.lattice-mark { --weave-order: 0; display: block; flex: none; overflow: visible; }
+.lattice-mark-weft-from { stop-color: var(--mark-weft); }
+.lattice-mark-weft-to { stop-color: color-mix(in srgb, var(--mark-weft) 72%, var(--mark-glint)); }
+.lattice-mark-warp-from { stop-color: color-mix(in srgb, var(--mark-warp) 74%, var(--mark-glint)); }
+.lattice-mark-warp-to { stop-color: var(--mark-warp); }
+
+/* Weave: the weft draws across, the warp follows thread by thread, and the
+   nodes that pin the warp land last. The resting style is the finished mark,
+   so with motion reduced (adaptive-feedback.css) it simply appears. */
+.lattice-mark[data-motion="weave"] .lattice-mark-thread {
+  stroke-dasharray: 1 1;
+  animation: lattice-mark-draw var(--duration-draw) var(--ease-entrance) both;
+  animation-delay: calc(120ms + var(--weave-order) * 55ms);
+}
+.lattice-mark[data-motion="weave"] .lattice-mark-node {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: lattice-mark-pin var(--duration-reveal) var(--ease-entrance) both;
+  animation-delay: calc(640ms + var(--weave-order) * 30ms);
+}
+@keyframes lattice-mark-draw {
+  from { stroke-dashoffset: 1; opacity: 0; }
+  12% { opacity: 1; }
+  to { stroke-dashoffset: 0; opacity: 1; }
+}
+@keyframes lattice-mark-pin {
+  from { transform: scale(0); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+/* Every few seconds a short glint runs along each weft thread in turn,
+   slipping under the warp where the weave says it should. */
+.lattice-mark-glint {
+  stroke: var(--mark-glint);
+  stroke-dasharray: .1 2;
+  stroke-dashoffset: .1;
+  opacity: 0;
+  animation: lattice-mark-glint 7.2s var(--ease-in-out) infinite;
+  animation-delay: calc(1.6s + var(--weave-order) * 180ms);
+}
+@keyframes lattice-mark-glint {
+  0% { stroke-dashoffset: .1; opacity: 0; }
+  2% { opacity: 1; }
+  16% { opacity: 1; }
+  18%, 100% { stroke-dashoffset: -1; opacity: 0; }
+}

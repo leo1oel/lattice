@@ -5,6 +5,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { Clock3, History, RotateCcw } from "lucide-react";
 import { useLingui } from "@lingui/react/macro";
 import { EmptyState } from "../components/ui/empty-state";
+import { EmptyIllustration } from "../components/ui/empty-illustration";
 import { DestructiveButton } from "../components/ui/destructive-button";
 import { InfinityLoader } from "../components/ui/activity-icons";
 import { PanelHeader } from "../components/ui/panel-header";
@@ -366,7 +367,10 @@ export function HistoryDrawer(props: {
                 );
               })}
               {!visibleHistory.length && (
-                <EmptyState description={props.history.length ? t`No changes match this filter` : t`No changes recorded yet`} />
+                <EmptyState
+                  icon={<EmptyIllustration kind={props.history.length ? "search" : "history"} />}
+                  description={props.history.length ? t`No changes match this filter` : t`No changes recorded yet`}
+                />
               )}
             </div>
           </>

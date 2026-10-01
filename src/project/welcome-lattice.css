@@ -1,0 +1,103 @@
+/* The welcome screen's lattice field (welcome-lattice.tsx). */
+.welcome-lattice {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  animation: welcome-lattice-arrive 1.2s var(--ease-out) both;
+}
+@keyframes welcome-lattice-arrive {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.welcome-lattice-threads {
+  fill: none;
+  stroke: var(--border-subtle);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+.welcome-lattice-knots {
+  fill: none;
+  stroke: var(--border-strong);
+  stroke-width: 3;
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
+}
+
+/* A pulse: a short bright head runs the route and leaves a fading trail; at
+   the end its knot blooms and a ring spreads from it. Each route waits its
+   turn in a shared cycle, so only two or three are ever in motion. The resting style
+   is invisible, so with motion reduced (adaptive-feedback.css) the field is
+   still. */
+.welcome-lattice-route { --route-order: 0; --thread: var(--mark-weft); }
+.welcome-lattice-route[data-thread="warp"] { --thread: var(--mark-warp); }
+.welcome-lattice-trail,
+.welcome-lattice-pulse,
+.welcome-lattice-ring,
+.welcome-lattice-bloom {
+  opacity: 0;
+  animation-duration: 9.6s;
+  animation-iteration-count: infinite;
+  animation-timing-function: linear;
+  animation-fill-mode: both;
+  animation-delay: calc(1.4s + var(--route-order) * 1.6s);
+}
+.welcome-lattice-trail {
+  fill: none;
+  stroke: var(--thread);
+  stroke-width: 1.5;
+  stroke-dasharray: 1 1;
+  stroke-dashoffset: 1;
+  vector-effect: non-scaling-stroke;
+  animation-name: welcome-lattice-trail;
+}
+.welcome-lattice-pulse {
+  fill: none;
+  stroke: var(--thread);
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-dasharray: .07 2;
+  stroke-dashoffset: .07;
+  vector-effect: non-scaling-stroke;
+  animation-name: welcome-lattice-pulse;
+}
+.welcome-lattice-bloom {
+  fill: var(--thread);
+  transform-box: fill-box;
+  transform-origin: center;
+  animation-name: welcome-lattice-bloom;
+}
+.welcome-lattice-ring {
+  fill: none;
+  stroke: var(--thread);
+  stroke-width: 1.5;
+  vector-effect: non-scaling-stroke;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation-name: welcome-lattice-ring;
+}
+/* 0–22%: the head travels; 22–30%: the knot blooms; then everything fades
+   and the route rests for the rest of the cycle. */
+@keyframes welcome-lattice-pulse {
+  0% { stroke-dashoffset: .07; opacity: 0; }
+  2% { opacity: 1; }
+  21% { opacity: 1; }
+  23%, 100% { stroke-dashoffset: -1; opacity: 0; }
+}
+@keyframes welcome-lattice-trail {
+  0% { stroke-dashoffset: 1; opacity: .45; }
+  22% { stroke-dashoffset: 0; opacity: .45; }
+  40%, 100% { stroke-dashoffset: 0; opacity: 0; }
+}
+@keyframes welcome-lattice-bloom {
+  0%, 21% { transform: scale(0); opacity: 0; }
+  25% { transform: scale(1.5); opacity: 1; }
+  30% { transform: scale(1); opacity: .9; }
+  44%, 100% { transform: scale(1); opacity: 0; }
+}
+@keyframes welcome-lattice-ring {
+  0%, 22% { transform: scale(1); opacity: 0; }
+  24% { opacity: .55; }
+  38%, 100% { transform: scale(4.5); opacity: 0; }
+}

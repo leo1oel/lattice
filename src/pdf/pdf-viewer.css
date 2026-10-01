@@ -85,6 +85,29 @@
 .pdf-zoom-controls button { position: relative; }
 .pdf-synctex-highlight { position: absolute; z-index: 3; border: 2px solid var(--control-active); border-radius: 3px; background: color-mix(in srgb, var(--control-active) 16%, transparent); pointer-events: none; animation: synctex-highlight 2.4s var(--ease-out) forwards; }
 .pdf-loading { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); min-height: 28px; max-width: calc(100% - var(--space-8)); padding: var(--space-2) var(--space-5); border-radius: var(--radius-control); background: var(--surface-panel-raised); color: var(--text-secondary); display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: var(--space-3); font-size: var(--type-micro-size); z-index: 10; }
+/* The first load's page-shaped skeleton (pdf-loading.tsx), centered behind the
+   status. It is a raised card in each theme rather than paper-colored: a bright
+   page that is not the paper yet would glare in the dark theme. A sheen crosses
+   it as a transform, so it costs no repaint. */
+.pdf-skeleton { position: absolute; inset: 0; display: grid; place-items: center; pointer-events: none; animation: pdf-skeleton-in var(--duration-slow) var(--ease-out) both; animation-delay: 160ms; }
+.pdf-skeleton-page { position: relative; height: min(86%, 640px); max-width: 80%; aspect-ratio: 8.5 / 11; overflow: hidden; padding: 9% 8%; border-radius: var(--radius-compact); background: var(--surface-panel-raised); box-shadow: 0 0 0 1px var(--border-subtle); display: flex; flex-direction: column; align-items: center; gap: var(--space-2); }
+.pdf-skeleton-page span { display: block; height: 1.1%; min-height: 3px; border-radius: var(--radius-pill); background: var(--border-strong); }
+.pdf-skeleton-page .pdf-skeleton-title { width: 72%; height: 2.4%; }
+.pdf-skeleton-page .pdf-skeleton-title[data-short] { width: 48%; }
+.pdf-skeleton-byline { width: 36%; margin-block: 3% 5%; }
+.pdf-skeleton-abstract { width: 78%; display: flex; flex-direction: column; align-items: center; gap: var(--space-2); margin-bottom: 6%; }
+.pdf-skeleton-columns { width: 100%; display: grid; grid-template-columns: 1fr 1fr; gap: 7%; }
+.pdf-skeleton-columns > div { display: flex; flex-direction: column; gap: var(--space-2); }
+.pdf-skeleton-columns span[data-gap] { background: transparent; }
+.pdf-skeleton-page .pdf-skeleton-figure { width: 64%; height: 16%; margin-block: 5%; border-radius: var(--radius-compact); background: var(--border-subtle); }
+.pdf-skeleton-page::after { content: ""; position: absolute; inset: 0; background: linear-gradient(100deg, transparent 30%, color-mix(in srgb, var(--surface-panel-raised) 85%, transparent) 50%, transparent 70%); transform: translateX(-100%); animation: pdf-skeleton-sheen 1.6s var(--ease-in-out) infinite; }
+@keyframes pdf-skeleton-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes pdf-skeleton-sheen {
+  to { transform: translateX(100%); }
+}
 .pdf-loading-quiet { top: var(--space-6); transform: translateX(-50%); opacity: 0.85; }
 .pdf-load-progress { width: calc(var(--space-16) * 2); height: var(--space-2); overflow: hidden; border-radius: var(--radius-pill); background: var(--border-subtle); }
 .pdf-load-progress-fill { height: 100%; border-radius: inherit; background: var(--control-active); transition: width var(--duration-slow) var(--ease-out); }

@@ -110,6 +110,29 @@ describe("the Build button's report of the last build", () => {
     expect(shown(container)).toEqual({ state: "idle", label: "Build", busy: null });
   });
 
+  // The flourish belongs to the moment a build ends. A panel that remounts
+  // later (another tab, another panel) shows the result without replaying it.
+  it("celebrates a finished build once, not again when its panel remounts", () => {
+    const now = vi.spyOn(performance, "now").mockReturnValue(1_000);
+    const succeeded = { status: "succeeded", seconds: 2 } as const;
+    const first = renderTools(tex, { active: true }, { lastBuild: succeeded });
+    expect(first.container.querySelector(".trellis-build-button")).toHaveClass("is-fresh");
+    expect(first.container.querySelector(".trellis-build-status")).toHaveAttribute("data-fresh");
+    expect(first.container.querySelector(".trellis-build-burst")).not.toBeNull();
+    first.unmount();
+    now.mockReturnValue(5_000);
+    const later = renderTools(tex, { active: true }, { lastBuild: succeeded });
+    expect(later.container.querySelector(".trellis-build-button")).not.toHaveClass("is-fresh");
+    expect(later.container.querySelector(".trellis-build-status")).not.toHaveAttribute("data-fresh");
+    expect(later.container.querySelector(".trellis-build-burst")).toBeNull();
+    later.unmount();
+    // A failure shakes rather than bursts.
+    const failed = renderTools(tex, { active: true }, { lastBuild: { status: "failed" } });
+    expect(failed.container.querySelector(".trellis-build-status")).toHaveAttribute("data-fresh");
+    expect(failed.container.querySelector(".trellis-build-burst")).toBeNull();
+    now.mockRestore();
+  });
+
   // One project build serves every .tex panel: the store is shared, so a
   // panel that was hidden or unselected when the build ended shows its result
   // the moment its document is the active one again.

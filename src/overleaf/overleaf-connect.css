@@ -112,6 +112,12 @@
 .overleaf-channel { display: inline-flex; align-items: center; gap: var(--space-3); vertical-align: middle; }
 .overleaf-channel::before { content: ""; width: var(--space-3); height: var(--space-3); flex: none; border-radius: var(--radius-pill); background: currentColor; }
 .overleaf-channel-live { color: var(--status-success); }
+/* The channel just came up: one ripple from its dot (see .overleaf-status-dot). */
+.overleaf-channel-live::before { animation: overleaf-channel-ripple var(--duration-flourish) var(--ease-out) both; }
+@keyframes overleaf-channel-ripple {
+  from { box-shadow: 0 0 0 0 color-mix(in srgb, currentColor 55%, transparent); }
+  to { box-shadow: 0 0 0 var(--space-3) transparent; }
+}
 .overleaf-channel-connecting { color: var(--text-secondary); }
 .overleaf-channel-connecting::before { background: var(--status-warning); animation: overleaf-breathe 1.6s var(--ease-in-out) infinite; }
 .overleaf-channel-error { color: var(--status-danger); }
