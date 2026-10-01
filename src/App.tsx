@@ -475,7 +475,8 @@ function App() {
     () => collectAssetPaths(project?.files ?? []),
     [project],
   );
-  // Most-recently-active tab key first; drives LRU eviction over the max-tabs cap.
+  // Most-recently-active tab key first; persisted with the layout. Nothing caps
+  // or evicts open tabs.
   const tabRecency = useRef<string[]>([]);
   const noteTabActive = useCallback((key: string) => {
     tabRecency.current = [key, ...tabRecency.current.filter((existing) => existing !== key)];
@@ -3325,7 +3326,7 @@ function App() {
     activePaper, closeEditorTab, openPaper, openProjectAsset, openProjectFile, papers, projectAssetPaths,
   ]);
   // The tab that reads as active: the open paper in paper mode, else the open
-  // asset or file. Also the key eviction must never close.
+  // asset or file.
   const activeTabKey = activePaper ? paperTabKey(activePaper.arxivId) : activeAsset?.path ?? activeFile;
   // Whatever is on screen is the most-recently-used tab. Tracking recency here
   // covers every path that opens a tab.
