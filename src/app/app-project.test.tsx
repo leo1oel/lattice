@@ -297,7 +297,11 @@ describe("project tree and projects", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Find in project" }));
     fireEvent.change(await screen.findByRole("searchbox", { name: "Find in project" }), { target: { value: "chen" } });
     await expectInvoked("search_project", { query: "chen" });
-    expect(await screen.findByText(/@article\{chen2024single/, { selector: ".project-replace-hit-preview" })).toBeInTheDocument();
+    // The query term is marked inside the snippet, so match the whole preview.
+    expect(await screen.findByText(
+      (_, element) => element?.matches(".project-replace-hit-preview") === true && /@article\{chen2024single/.test(element.textContent ?? ""),
+    )).toHaveTextContent("chen2024single");
+    expect(document.querySelector(".project-replace-hit-preview mark")).toHaveTextContent(/^chen$/i);
     fireEvent.click(screen.getByText("references.bib:2"));
     await waitFor(() => {
       const view = editorViewAt();
