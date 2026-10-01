@@ -11,6 +11,19 @@ describe("todo scavenger", () => {
     expect(todoKindInLine("plain text TODO")).toBeNull();
   });
 
+  it("reads a marker only as a word of its own, in a LaTeX comment after text too", () => {
+    expect(todoKindInLine("% Mastodon and photodocumentation data")).toBeNull();
+    expect(todoKindInLine("% TODOs: tighten")).toBe("TODO");
+    expect(todoKindInLine("Results improve. % TODO cite the baseline")).toBe("TODO");
+    expect(todoKindInLine("A 50\\% TODO-free rate")).toBeNull();
+    expect(todoKindInLine("Last row \\\\% FIXME spacing")).toBe("FIXME");
+    // Outside LaTeX a `%` is text; only a line that starts with one counts.
+    expect(todoKindInLine("Done: 50% todo left", false)).toBeNull();
+    expect(todoKindInLine("% TODO in notes", false)).toBe("TODO");
+    expect(todosInText("notes.md", "50% todo\n% TODO real\n").map((hit) => hit.line)).toEqual([2]);
+    expect(todosInText("main.tex", "50% todo\n").map((hit) => hit.kind)).toEqual(["TODO"]);
+  });
+
   it("collects line hits from a buffer", () => {
     const hits = todosInText(
       "sections/method.tex",

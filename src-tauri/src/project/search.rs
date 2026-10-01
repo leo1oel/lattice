@@ -199,11 +199,12 @@ pub fn list_todos(root: &Path) -> Result<Vec<TodoHit>, String> {
             continue;
         }
         let content = fs::read_to_string(&absolute).unwrap_or_default();
+        let latex = extension(&relative).as_deref() == Some("tex");
         hits.extend(content.lines().enumerate().filter_map(|(index, line)| {
             Some(TodoHit {
                 path: relative.replace('\\', "/"),
                 line: (index + 1) as u32,
-                kind: todo_kind_in_line(line)?.to_string(),
+                kind: todo_kind_in_line(line, latex)?.to_string(),
                 preview: clip_line(line, 160),
             })
         }));
@@ -215,12 +216,16 @@ pub fn list_todos(root: &Path) -> Result<Vec<TodoHit>, String> {
     Ok(hits)
 }
 
-fn todo_kind_in_line(line: &str) -> Option<&'static str> {
+/// A marker in a `%` comment (first in priority order), else a `\todo`
+/// command. Outside LaTeX a `%` is text ("50% done"), so only a line that
+/// starts with one counts there. Kept in step with src/project/todo-scavenger.ts.
+fn todo_kind_in_line(line: &str, latex: bool) -> Option<&'static str> {
     let trimmed = line.trim_start();
-    if let Some(rest) = trimmed.strip_prefix('%') {
-        let upper = rest.to_ascii_uppercase();
+    let comment = if latex { comment_in_line(trimmed) } else { trimmed.strip_prefix('%') };
+    if let Some(comment) = comment {
+        // A marker is a word of its own: "% Mastodon dataset" is not a TODO.
         if let Some(marker) =
-            ["FIXME", "XXX", "TODO"].into_iter().find(|marker| upper.contains(marker))
+            ["FIXME", "XXX", "TODO"].into_iter().find(|marker| has_marker_word(comment, marker))
         {
             return Some(marker);
         }
@@ -228,6 +233,33 @@ fn todo_kind_in_line(line: &str) -> Option<&'static str> {
     // \todo{...} / \todo [...]{...} — common todonotes / inline markers
     let lower = trimmed.to_ascii_lowercase();
     ["\\todo{", "\\todo[", "\\todo*{"].iter().any(|marker| lower.contains(marker)).then_some("todo")
+}
+
+/// The `%` comment on a line, including one after text; `\%` is a percent
+/// sign, but `\\%` is a line break and then a comment.
+fn comment_in_line(line: &str) -> Option<&str> {
+    let mut backslashes = 0usize;
+    for (index, character) in line.char_indices() {
+        if character == '%' && backslashes % 2 == 0 {
+            return Some(&line[index + 1..]);
+        }
+        backslashes = if character == '\\' { backslashes + 1 } else { 0 };
+    }
+    None
+}
+
+/// `marker` (or its plural) in `text`, not inside a longer word.
+fn has_marker_word(text: &str, marker: &str) -> bool {
+    let upper = text.to_ascii_uppercase();
+    let is_word = |byte: u8| byte.is_ascii_alphanumeric();
+    upper.match_indices(marker).any(|(start, _)| {
+        let mut end = start + marker.len();
+        if upper.as_bytes().get(end) == Some(&b'S') {
+            end += 1;
+        }
+        !(start > 0 && is_word(upper.as_bytes()[start - 1]))
+            && !upper.as_bytes().get(end).copied().is_some_and(is_word)
+    })
 }
 
 pub fn preview_replace_in_project(
@@ -433,8 +465,17 @@ mod tests {
             "sections/method.tex",
             "Intro\n% TODO rewrite claim\n\\todo{add figure}\n% FIXME citation\n",
         );
-        fixture.write("notes.md", "# Notes\n% XXX temp\n");
+        fixture.write("notes.md", "# Notes\n% XXX temp\n50% todo is prose here\n");
+        fixture.write(
+            "sections/results.tex",
+            "% Mastodon dataset\nGains hold. % TODO cite\nA 50\\% rate, todo-free\n",
+        );
         let hits = list_todos(root).unwrap();
+        let lines_in = |path: &str| -> Vec<u32> {
+            hits.iter().filter(|hit| hit.path == path).map(|hit| hit.line).collect()
+        };
+        assert_eq!(lines_in("sections/results.tex"), [2]);
+        assert_eq!(lines_in("notes.md"), [2]);
         assert!(hits.iter().any(|hit| hit.kind == "TODO" && hit.path == "sections/method.tex"));
         assert!(hits.iter().any(|hit| hit.kind == "todo" && hit.preview.contains("\\todo")));
         assert!(hits.iter().any(|hit| hit.kind == "FIXME"));
