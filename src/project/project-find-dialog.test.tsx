@@ -225,6 +225,20 @@ describe("ProjectFindDialog", () => {
     expect(props.onSearch).toHaveBeenLastCalledWith("late result");
   });
 
+  // Selected so typing replaces the kept query instead of appending to it.
+  it("selects the kept query when reopened", () => {
+    const { input, search, rerenderWith } = renderFind();
+
+    search("attention");
+    rerenderWith({ open: false });
+    rerenderWith({ open: true });
+    act(() => vi.advanceTimersByTime(50));
+
+    const field = input() as HTMLInputElement;
+    expect(field).toHaveValue("attention");
+    expect([field.selectionStart, field.selectionEnd]).toEqual([0, "attention".length]);
+  });
+
   it.each([
     ["ArrowDown then Enter opens the second hit", ["ArrowDown", "Enter"], "b.tex"],
     ["ArrowDown stops at the last hit", ["ArrowDown", "ArrowDown", "Enter"], "b.tex"],

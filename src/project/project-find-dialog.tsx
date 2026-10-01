@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLatestRef } from "../hooks/use-latest-ref";
 import { Trans, useLingui } from "@lingui/react/macro";
 import { Search } from "lucide-react";
@@ -51,9 +51,12 @@ export function ProjectFindDialog(props: {
   }
 
   // The kept query comes back selected: Enter repeats it, typing replaces it.
-  useEffect(() => {
-    if (props.open) inputRef.current?.select();
-  }, [props.open]);
+  // Selected when the input mounts, not in an effect on `open`: the dialog's
+  // portal mounts its content a commit later, so the ref is still empty then.
+  const attachInput = useCallback((node: HTMLInputElement | null) => {
+    inputRef.current = node;
+    node?.select();
+  }, []);
 
   useEffect(() => {
     if (!props.open) return;
@@ -148,7 +151,7 @@ export function ProjectFindDialog(props: {
         onClose={close}
       />
       <SearchField
-        ref={inputRef}
+        ref={attachInput}
         autoFocus
         aria-label={t`Find in project`}
         value={query}
