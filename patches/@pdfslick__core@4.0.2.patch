@@ -1,0 +1,15 @@
+diff --git a/dist/esm/index.js b/dist/esm/index.js
+index 1d71e015ffa9bfa6c842e6feea03896d55066c4c..0105c08cab0cdde2f136b314185a67667c5bc86e 100644
+--- a/dist/esm/index.js
++++ b/dist/esm/index.js
+@@ -2469,7 +2469,9 @@ class PDFSlickPrintDialog {
+ }
+ 
+ var _PDFSlick_instances, _PDFSlick_renderingQueue, _PDFSlick_container, _PDFSlick_viewerContainer, _PDFSlick_thumbsContainer, _PDFSlick_printService, _PDFSlick_annotationMode, _PDFSlick_annotationEditorMode, _PDFSlick_onError, _PDFSlick_eventAbortController, _PDFSlick_initializePageLabels, _PDFSlick_parseDocumentInfo, _PDFSlick_parsePageSize, _PDFSlick_initInternalEventListeners, _PDFSlick_onDocumentReady, _PDFSlick_onRotationChanging, _PDFSlick_onSwitchSpreadMode, _PDFSlick_onSwitchScrollMode, _PDFSlick_onScaleChanging, _PDFSlick_onPageChanging, _PDFSlick_onPageRendered;
+-GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/build/pdf.worker.min.mjs', import.meta.url).toString();
++// Lattice: the worker is set by the app (src/pdf/pdfjs-runtime.ts) from the
++// pdfjs-dist it pins. This package's bundled worker is a different PDF.js
++// release, and assigning it here races the app's setup in production chunks.
+ const US_PAGE_NAMES = {
+     "8.5x11": "Letter",
+     "8.5x14": "Legal",

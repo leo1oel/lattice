@@ -179,7 +179,8 @@
       "@pierre/trees@1.0.0-beta.6": "patches/@pierre__trees@1.0.0-beta.6.patch",
       "pdfjs-dist@6.3.289": "patches/pdfjs-dist@6.3.289.patch",
       "@tiptap/react@3.31.4": "patches/@tiptap__react@3.31.4.patch",
-      "@danfessler/trellis@0.2.0": "patches/@danfessler__trellis@0.2.0.patch"
+      "@danfessler/trellis@0.2.0": "patches/@danfessler__trellis@0.2.0.patch",
+      "@pdfslick/core@4.0.2": "patches/@pdfslick__core@4.0.2.patch"
     }
   }
 }
