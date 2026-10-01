@@ -3506,7 +3506,7 @@ function App() {
     { id: "bib", label: t`Add bibliography entry`, group: t`Edit`, run: () => referenceImport.openBibEntry() },
     { id: "discover", label: t`Discover literature`, detail: t`OpenAlex search`, group: t`Research`, run: () => openLiterature(true) },
     { id: "find", label: t`Find in project`, detail: t`⌘⇧F · source files and papers`, group: t`Edit`, key: "f", shift: true, run: openProjectFind },
-    { id: "replace", label: t`Replace in project`, detail: t`⌘⇧H · all .tex files`, group: t`Edit`, key: "h", shift: true, run: openProjectReplace },
+    { id: "replace", label: t`Replace in project`, detail: t`⌘⇧H · all source files`, group: t`Edit`, key: "h", shift: true, run: openProjectReplace },
     {
       id: "todos", label: t`Manuscript TODOs`, detail: todoCount === 0 ? t`No markers` : todoCount === 1 ? t`${todoCount} marker` : t`${todoCount} markers`, group: t`Edit`,
       run: () => {
