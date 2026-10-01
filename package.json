@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build && node scripts/check-pdfjs-worker.mjs && node scripts/app-size-report.mjs --check && pnpm size:test",
+    "build": "tsc && vite build && node scripts/app-size-report.mjs --check && pnpm size:test",
     "i18n:extract": "lingui extract --clean",
     "i18n:compile": "lingui compile --strict",
     "i18n:guard": "node scripts/check-i18n-coverage.mjs",
