@@ -465,10 +465,6 @@ msgstr "提供商拒绝访问"
 msgid "Accordion"
 msgstr "折叠面板"
 
-#: src/telemetry/app-log.tsx
-msgid "Activity log"
-msgstr "活动日志"
-
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Acute accent example"
 msgstr "锐音符示例"
@@ -4803,6 +4799,7 @@ msgid "No markers"
 msgstr "没有标记"
 
 #: src/components/ui/search-picker-dialog.tsx
+#: src/editor/comments/editor-comments-panel.tsx
 #: src/editor/markdown/engine/chrome/find-replace.tsx
 msgid "No matches"
 msgstr "无匹配项"
@@ -4856,6 +4853,7 @@ msgstr "无出现位置"
 msgid "No occurrences found"
 msgstr "未找到出现位置"
 
+#: src/editor/comments/editor-comments-panel.tsx
 #: src/overleaf/overleaf-comments.tsx
 msgid "No open comments"
 msgstr "没有未解决的评论"
@@ -8006,10 +8004,6 @@ msgstr "待办"
 #: src/app/use-overleaf-workspace.ts
 msgid "Too large for Overleaf, so left on this machine: {files}."
 msgstr "以下文件对 Overleaf 来说过大，因此仅保留在本机：{files}。"
-
-#: src/settings/doctor-settings.tsx
-msgid "Toolchain status"
-msgstr "工具链状态"
 
 #: src/trellis/trellis-titlebar.tsx
 msgid "Tools"

@@ -33,7 +33,7 @@ export function DoctorSettings(props: DoctorSettingsProps) {
         title={t`TeX doctor`}
         actions={<ReloadIconButton label={t`Run TeX doctor`} busy={props.doctorBusy} disabled={props.doctorBusy} onClick={props.onRunDoctor} />}
       />
-      <SettingsGroup title={t`Toolchain status`}>
+      <SettingsGroup>
         {report && (
           <>
             <div className={`doctor-status ${report.ok ? "ok" : "bad"}`}>

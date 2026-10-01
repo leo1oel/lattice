@@ -465,10 +465,6 @@ msgstr "Access forbidden by provider"
 msgid "Accordion"
 msgstr "Accordion"
 
-#: src/telemetry/app-log.tsx
-msgid "Activity log"
-msgstr "Activity log"
-
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Acute accent example"
 msgstr "Acute accent example"
@@ -4803,6 +4799,7 @@ msgid "No markers"
 msgstr "No markers"
 
 #: src/components/ui/search-picker-dialog.tsx
+#: src/editor/comments/editor-comments-panel.tsx
 #: src/editor/markdown/engine/chrome/find-replace.tsx
 msgid "No matches"
 msgstr "No matches"
@@ -4856,6 +4853,7 @@ msgstr "No occurrences"
 msgid "No occurrences found"
 msgstr "No occurrences found"
 
+#: src/editor/comments/editor-comments-panel.tsx
 #: src/overleaf/overleaf-comments.tsx
 msgid "No open comments"
 msgstr "No open comments"
@@ -8006,10 +8004,6 @@ msgstr "TODOs"
 #: src/app/use-overleaf-workspace.ts
 msgid "Too large for Overleaf, so left on this machine: {files}."
 msgstr "Too large for Overleaf, so left on this machine: {files}."
-
-#: src/settings/doctor-settings.tsx
-msgid "Toolchain status"
-msgstr "Toolchain status"
 
 #: src/trellis/trellis-titlebar.tsx
 msgid "Tools"
