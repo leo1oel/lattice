@@ -302,8 +302,8 @@ fn overleaf_sync_never_uploads_excluded_files_or_unresolved_conflict_markers() {
 
 #[test]
 fn overleaf_sync_resolves_deletions_made_on_one_side_and_cleans_up_transient_files() {
-    // old.tex: deleted on Overleaf, untouched here, so it goes here too —
-    // Overleaf's history records the removal, which a deletion needs.
+    // old.tex: deleted on Overleaf, untouched here, so it goes here too,
+    // with no history to confirm it: a missing file is not a hollow one.
     // edited.tex: deleted on Overleaf after an edit here, so it goes back up.
     // dropped.tex: deleted here, untouched on Overleaf. We never delete
     // remote files, but it is not downloaded again either: dropping it from
@@ -333,10 +333,7 @@ fn overleaf_sync_resolves_deletions_made_on_one_side_and_cleans_up_transient_fil
         (save_error, failed),
         (page, preview),
     ];
-    let removal = json!({ "fromV": 9, "toV": 10, "meta": { "end_ts": 1_800_000_000_000i64 },
-        "pathnames": [], "project_ops": [{ "atV": 9, "remove": { "pathname": "old.tex" } }] });
-    let mock = Mock { history: vec![removal], ..Mock::project(remote) };
-    let (server, root, result) = run_sync(mock, local, base);
+    let (server, root, result) = run_sync(Mock::project(remote), local, base);
     assert_eq!(result.deleted_local, vec!["old.tex"]);
     assert!(result.refused_incoming.is_empty());
     assert_eq!(result.pushed, vec!["edited.tex"]);
@@ -387,10 +384,11 @@ fn incident_history() -> Vec<Value> {
 /// The 2026-10-01 "Native VLM" incident on the real sync path: Overleaf's
 /// project download carried 0-byte entries for files nobody had touched, and
 /// the sync wrote them over the intact local copies, because "changed there,
-/// untouched here" is an ordinary pull. A download that would empty, gut or
-/// drop a file is now applied only when Overleaf's own history records a
-/// change to that path since the last sync; otherwise it is refused and the
-/// local file is kept, while genuine edits beside it still land.
+/// untouched here" is an ordinary pull. A download that would empty or gut a
+/// file is now applied only when Overleaf's own history records a change to
+/// that path since the last sync; otherwise it is refused, reported once, and
+/// the local file is kept, while genuine edits and deletions beside it still
+/// land.
 #[test]
 fn overleaf_sync_never_lets_a_hollow_download_wipe_out_unchanged_local_files() {
     let style = "%% ICLR style\n".repeat(700);
@@ -404,18 +402,22 @@ fn overleaf_sync_never_lets_a_hollow_download_wipe_out_unchanged_local_files() {
         ("legacy/old.tex", b"\\section{Removed on Overleaf}\n"),
         ("main.tex", b"\\documentclass{article}\n\\usepackage{iclr}\n"),
         ("notes.md", notes.as_bytes()),
+        ("refs.bib", b"@article{gone}\n"),
         ("scripts/plot.py", script.as_bytes()),
     ];
     let stub = b"\\input{iclr2027/iclr.sty}\n".as_slice();
     let hollow: Files = &[
-        // Emptied in the download only; no history entry says anyone did it.
+        // Emptied or gutted in the download only; no history entry says
+        // anyone did it.
         ("fig.png", b""),
         ("notes.md", b""),
-        // scripts/plot.py is simply missing from it.
+        ("scripts/plot.py", b"import plotly\n"),
         // Genuine changes made on Overleaf since the last sync.
         ("figs/a.png", b"\x89PNG moved with its folder"),
         ("iclr.sty", stub),
         ("main.tex", b"\\documentclass{article}\n\\usepackage{iclr2027/iclr}\n"),
+        // refs.bib is missing with no history either: a deletion still
+        // propagates, since the incident only ever emptied files.
     ];
     let server = Mock { history: incident_history(), ..Mock::project(hollow) }.serve();
     let (config, root) = linked(&server, base, base);
@@ -436,12 +438,16 @@ fn overleaf_sync_never_lets_a_hollow_download_wipe_out_unchanged_local_files() {
             ("incoming", "main.tex"),
             ("deleteLocal", "figures/a.png"),
             ("deleteLocal", "legacy/old.tex"),
+            ("deleteLocal", "refs.bib"),
         ]
     );
 
+    let hollow_hash = |rel: &str| {
+        let (_, data) = hollow.iter().find(|(path, _)| *path == rel).unwrap();
+        sha256_hex(data)
+    };
     for round in ["first", "repeat of the same download"] {
         let result = sync(&config, &root, NO_LIVE, None).unwrap();
-        assert_eq!(result.refused_incoming, kept, "{round}");
         let files = state_files(&root);
         for (rel, data) in base.iter().filter(|(rel, _)| kept.contains(rel)) {
             assert_eq!(read_local(&root, rel).as_deref(), Some(*data), "{round}: {rel}");
@@ -451,20 +457,46 @@ fn overleaf_sync_never_lets_a_hollow_download_wipe_out_unchanged_local_files() {
         }
         // Held since the last sync before the first refusal, so a history
         // entry the first check could not see still counts later.
-        let since = load_state(&root).unwrap().refused_since;
-        assert_eq!(since.keys().collect::<Vec<_>>(), kept, "{round}");
-        assert!(since.values().all(|at| at == "2026-07-01T00:00:00Z"), "{round}: {since:?}");
+        let refused = load_state(&root).unwrap().refused;
+        assert_eq!(refused.keys().collect::<Vec<_>>(), kept, "{round}");
+        for (rel, refusal) in &refused {
+            assert_eq!(refusal.since, "2026-07-01T00:00:00Z", "{round}: {rel}");
+            assert_eq!(refusal.remote, hollow_hash(rel), "{round}: {rel}");
+        }
         if round == "first" {
+            assert_eq!(result.refused_incoming, kept);
             assert_eq!(result.pulled, ["figs/a.png", "iclr.sty", "main.tex"]);
-            assert_eq!(result.deleted_local, ["figures/a.png", "legacy/old.tex"]);
+            assert_eq!(result.deleted_local, ["figures/a.png", "legacy/old.tex", "refs.bib"]);
             assert_eq!(read_local(&root, "iclr.sty").as_deref(), Some(stub));
         } else {
+            // Still refused, but the same copy is not reported twice.
+            assert!(result.refused_incoming.is_empty());
             assert!(result.pulled.is_empty() && result.deleted_local.is_empty());
         }
         assert!(result.pushed.is_empty() && server.uploads().is_empty());
     }
 
-    // Overleaf serves the files whole again: nothing to do, nothing held.
+    // Overleaf sends notes.md hollow in a different way: that copy is news.
+    let mut changed: Vec<(&str, &[u8])> =
+        hollow.iter().filter(|(rel, _)| *rel != "notes.md").copied().collect();
+    changed.push(("notes.md", b"\n"));
+    let server = Mock::project(&changed).serve();
+    let config = signed_in(&server.base);
+    edit_state(&root, |state| state.host = server.base.clone());
+    let result = sync(&config, &root, NO_LIVE, None).unwrap();
+    assert_eq!(result.refused_incoming, ["notes.md"]);
+    assert_eq!(read_local(&root, "notes.md").as_deref(), Some(notes.as_bytes()));
+
+    // Deleting the file here is how to take Overleaf's copy anyway.
+    fs::remove_file(root.join("fig.png")).unwrap();
+    let result = sync(&config, &root, NO_LIVE, None).unwrap();
+    assert_eq!(result.pulled, ["fig.png"]);
+    assert!(result.refused_incoming.is_empty());
+    assert_eq!(read_local(&root, "fig.png").as_deref(), Some(b"".as_slice()));
+    let refused = load_state(&root).unwrap().refused;
+    assert_eq!(refused.keys().collect::<Vec<_>>(), ["notes.md", "scripts/plot.py"]);
+
+    // Overleaf serves the files whole again: nothing held any more.
     let mut whole: Vec<(&str, &[u8])> =
         hollow.iter().filter(|(rel, _)| !kept.contains(rel)).copied().collect();
     whole.extend(base.iter().filter(|(rel, _)| kept.contains(rel)).copied());
@@ -472,24 +504,24 @@ fn overleaf_sync_never_lets_a_hollow_download_wipe_out_unchanged_local_files() {
     let config = signed_in(&healed.base);
     edit_state(&root, |state| state.host = healed.base.clone());
     let result = sync(&config, &root, NO_LIVE, None).unwrap();
-    assert!(result.refused_incoming.is_empty() && result.pulled.is_empty());
-    assert!(load_state(&root).unwrap().refused_since.is_empty());
+    assert!(result.refused_incoming.is_empty());
+    assert_eq!(result.pulled, ["fig.png"]);
+    assert!(load_state(&root).unwrap().refused.is_empty());
 }
 
 #[test]
-fn only_emptying_gutting_or_dropping_a_file_needs_overleafs_history() {
+fn only_emptying_or_gutting_a_file_needs_overleafs_history() {
     // (local, remote) → whether the pull must be confirmed first.
     let kb = |n: usize| vec![b'x'; n * 1024];
     for (label, local, remote, destructive) in [
-        ("emptied", b"x".to_vec(), Some(Vec::new()), true),
-        ("missing", b"x".to_vec(), None, true),
-        ("cut to a fifth", kb(5), Some(kb(1)), true),
-        ("cut to a third", kb(3), Some(kb(1)), false),
-        ("small file shortened", vec![b'x'; 1000], Some(b"x".to_vec()), false),
-        ("empty here already", Vec::new(), None, false),
-        ("grown", b"x".to_vec(), Some(kb(1)), false),
+        ("emptied", b"x".to_vec(), Vec::new(), true),
+        ("cut to a fifth", kb(5), kb(1), true),
+        ("cut to a third", kb(3), kb(1), false),
+        ("small file shortened", vec![b'x'; 1000], b"x".to_vec(), false),
+        ("empty here already", Vec::new(), Vec::new(), false),
+        ("grown", b"x".to_vec(), kb(1), false),
     ] {
-        assert_eq!(wipes_out(&local, remote.as_deref()), destructive, "{label}");
+        assert_eq!(wipes_out(&local, &remote), destructive, "{label}");
     }
 }
 

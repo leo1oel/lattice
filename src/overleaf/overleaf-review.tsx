@@ -33,7 +33,7 @@ import { InlineMessage } from "../components/ui/inline-message";
 
 const GROUPS: { kind: OverleafChangeKind; Icon: typeof Trash2; title: MessageDescriptor; blurb: MessageDescriptor }[] = [
   { kind: "conflict", Icon: TriangleAlert, title: msg`Needs your decision`, blurb: msg`Edited on both sides in the same place. Applying marks the spots in the file so you can choose` },
-  { kind: "refusedIncoming", Icon: ShieldAlert, title: msg`Kept here`, blurb: msg`Overleaf sent these empty, much smaller or not at all, but its history shows no such change, so your copy stays. If the change is real, delete the file here and sync again` },
+  { kind: "refusedIncoming", Icon: ShieldAlert, title: msg`Kept here`, blurb: msg`Overleaf sent these empty or much smaller, but its history shows no such change, so your copy stays. To take Overleaf's version anyway, delete the file here and sync again` },
   { kind: "incoming", Icon: ArrowDownToLine, title: msg`Coming from Overleaf`, blurb: msg`Changed there, untouched here` },
   { kind: "merge", Icon: GitMerge, title: msg`Combines automatically`, blurb: msg`Both sides edited different parts, so the two sets of edits join` },
   { kind: "outgoing", Icon: ArrowUpFromLine, title: msg`Going to Overleaf`, blurb: msg`Changed here, untouched there` },

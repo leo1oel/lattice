@@ -313,10 +313,11 @@ the last sync under `.research/overleaf-base/` (`overleaf/files.rs`) — that is
 the common ancestor without which only "both sides changed" could be detected,
 never how to combine. Files with conflict markers are refused for upload
 (`CONFLICT_MARKER`). Files above 45 MB are reported rather than synced
-(`MAX_SYNC_FILE_BYTES`). A download that would empty a file unchanged here,
-cut it below a quarter of its size, or drop it is applied only when Overleaf's
-history records a change to that path since the last sync; otherwise the local
-file is kept and reported (`settle_destructive`, `refused_since` in the state).
+(`MAX_SYNC_FILE_BYTES`). A download that would empty a file unchanged here
+or cut it below a quarter of its size is applied only when Overleaf's history
+records a change to that path since the last sync; otherwise the local file is
+kept and reported once per Overleaf copy (`settle_destructive`, `refused` in the
+state).
 
 ---
 

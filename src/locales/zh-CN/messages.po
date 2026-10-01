@@ -3926,8 +3926,8 @@ msgid "Kept overlapping external edits in {path} with conflict markers."
 msgstr "已在 {path} 中用冲突标记保留重叠的外部编辑。"
 
 #: src/app/use-overleaf-workspace.ts
-msgid "Kept your copy of {files}. Overleaf sent these files empty, much smaller or not at all, but its history shows no such change. If the change is real, delete the file here and sync again."
-msgstr "已保留你在本机的 {files}。Overleaf 发来的这些文件是空的、明显变小或缺失，但它的历史记录中没有对应的修改。如果这个修改确实是有意的，请在本机删除该文件后再同步。"
+msgid "Kept your copy of {files}. Overleaf sent these files empty or much smaller, but its history shows no such change. To take Overleaf's version anyway, delete the file here and sync again."
+msgstr "已保留你在本机的 {files}。Overleaf 发来的这些文件是空的或明显变小，但它的历史记录中没有对应的修改。如果仍要采用 Overleaf 的版本，请在本机删除该文件后再同步。"
 
 #: src/settings/literature-settings.tsx
 msgid "Key saved in the system keychain."
@@ -5409,8 +5409,8 @@ msgid "Overleaf replayed updates before Lattice could identify this connection. 
 msgstr "Overleaf 在 Lattice 识别此连接之前就重放了更新。此文件的同步仍处于暂停状态。"
 
 #: src/overleaf/overleaf-review.tsx
-msgid "Overleaf sent these empty, much smaller or not at all, but its history shows no such change, so your copy stays. If the change is real, delete the file here and sync again"
-msgstr "Overleaf 发来的这些文件是空的、明显变小或缺失，但它的历史记录中没有对应的修改，因此保留你的副本。如果这个修改确实是有意的，请在本机删除该文件后再同步"
+msgid "Overleaf sent these empty or much smaller, but its history shows no such change, so your copy stays. To take Overleaf's version anyway, delete the file here and sync again"
+msgstr "Overleaf 发来的这些文件是空的或明显变小，但它的历史记录中没有对应的修改，因此保留你的副本。如果仍要采用 Overleaf 的版本，请在本机删除该文件后再同步"
 
 #: src/overleaf/ot.ts
 msgid "Overleaf sent version {version} while this document is at {current}."

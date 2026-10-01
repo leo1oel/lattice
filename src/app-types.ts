@@ -372,9 +372,9 @@ export type OverleafSyncResult = {
   /** Left behind for being bigger than Overleaf will take. */
   skippedLarge?: string[];
   /**
-   * Kept as they are here although Overleaf's download had them empty, cut
-   * to a fraction or missing, with no change in Overleaf's history to show
-   * for it.
+   * Kept as they are here although Overleaf's download had them empty or
+   * cut to a fraction, with no change in Overleaf's history to show for it.
+   * Each is listed once per Overleaf copy, not again on every sync.
    */
   refusedIncoming?: string[];
   readOnly?: boolean;
