@@ -1,7 +1,7 @@
 {
   "scenarios": {
     "startup": {
-      "commits": 26,
+      "commits": 27,
       "renders": 1978,
       "hooks": 12562,
       "mutations": 1744
