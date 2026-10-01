@@ -47,6 +47,8 @@ struct ServerState {
 #[derive(Default, Deserialize)]
 struct SessionQuery {
     token: Option<String>,
+    /// The workspace a tokenless entry address names.
+    workspace: Option<String>,
     /// Which surface asks: the bundled Chromium window or a browser tab.
     #[serde(default)]
     role: BridgeRole,
@@ -138,9 +140,12 @@ async fn open_browser_session(
     // Select or reserve the entry under one lock so simultaneous fixed-address
     // loads converge on one privileged host.
     let selected = state.sessions.lock().ok().map(|mut sessions| {
-        if let Some(config) =
-            session::reusable_entry_config(&sessions, state.port, query.token.as_deref())
-        {
+        if let Some(config) = session::reusable_entry_config(
+            &sessions,
+            state.port,
+            query.token.as_deref(),
+            query.workspace.as_deref(),
+        ) {
             return (config, None);
         }
         let token = new_token();

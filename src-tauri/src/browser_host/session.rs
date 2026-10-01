@@ -297,16 +297,28 @@ impl BrowserSessionConfig {
             self.token, self.bridge_port, self.label
         )
     }
+
+    /// The fixed entry naming this workspace, without its token: the page
+    /// asks `/__lattice_session` for it.
+    pub(super) fn entry_url(&self, origin: &str) -> String {
+        format!("{origin}/?workspace={}", self.label)
+    }
 }
 
-/// Reuse a live token on reload, and the newest fixed-entry workspace for a
-/// load without one. The latter is what makes the bookmarked address open the
+/// Reuse a live token on reload, the workspace an entry address names, and
+/// the newest fixed-entry workspace for a load with neither. The latter is what makes the bookmarked address open the
 /// workspace the Lattice window shows, and makes a second tab replace the
 /// first instead of opening the same project in two independent hosts.
 pub(super) fn reusable_entry_config(
     sessions: &HashMap<String, BrowserSession>, port: u16, resume_token: Option<&str>,
+    workspace: Option<&str>,
 ) -> Option<BrowserSessionConfig> {
     if let Some((token, session)) = resume_token.and_then(|token| sessions.get_key_value(token)) {
+        return Some(BrowserSessionConfig::new(token, session, port));
+    }
+    if let Some((token, session)) =
+        workspace.and_then(|label| sessions.iter().find(|(_, session)| session.host_label == label))
+    {
         return Some(BrowserSessionConfig::new(token, session, port));
     }
     sessions
@@ -899,17 +911,49 @@ mod tests {
         let sessions = sessions();
         let sessions = sessions.lock().unwrap();
         for token in [TOKEN, "expired"] {
-            let entry = reusable_entry_config(&sessions, 18452, Some(token)).unwrap();
+            let entry = reusable_entry_config(&sessions, 18452, Some(token), None).unwrap();
             let config = (entry.token.as_str(), entry.bridge_port, entry.label.as_str());
             assert_eq!(config, (TOKEN, 18452, "browser-test"), "{token}");
         }
     }
 
     #[test]
+    fn default_browser_entry_carries_no_token_and_selects_its_workspace() {
+        let sessions = sessions();
+        let mut sessions = sessions.lock().unwrap();
+        let newer = sessions[TOKEN].created_at + std::time::Duration::from_secs(1);
+        sessions.insert(
+            "newer-entry".into(),
+            BrowserSession {
+                entry_session: true,
+                created_at: newer,
+                ..BrowserSession::new("browser-newer".into(), "http://127.0.0.1:18452".into())
+            },
+        );
+        sessions.insert(
+            "project-tab".into(),
+            BrowserSession::new("browser-project".into(), "http://127.0.0.1:18452".into()),
+        );
+
+        for (token, label) in [(TOKEN, "browser-test"), ("project-tab", "browser-project")] {
+            let config = BrowserSessionConfig::new(token, &sessions[token], 18452);
+            let url = config.entry_url("http://127.0.0.1:18452");
+            assert_eq!(url, format!("http://127.0.0.1:18452/?workspace={label}"));
+            assert!(!url.contains(token), "{url}");
+
+            let selected = reusable_entry_config(&sessions, 18452, None, Some(label)).unwrap();
+            assert_eq!((selected.token.as_str(), selected.label.as_str()), (token, label));
+        }
+        let unknown = reusable_entry_config(&sessions, 18452, None, Some("browser-gone")).unwrap();
+        assert_eq!(unknown.token, "newer-entry");
+    }
+
+    #[test]
     fn expiry_atomically_removes_only_the_disconnected_generation() {
         let sessions = sessions();
-        let entry =
-            |sessions: &Sessions| reusable_entry_config(&sessions.lock().unwrap(), 18452, None);
+        let entry = |sessions: &Sessions| {
+            reusable_entry_config(&sessions.lock().unwrap(), 18452, None, None)
+        };
 
         assert!(settle_after_grace(&sessions, TOKEN, 1).is_none());
         assert!(entry(&sessions).is_some());
