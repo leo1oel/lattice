@@ -1,3 +1,4 @@
+import { fireEvent, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { FakeWebSocket, lastSocket, sockets } from "./fake-websocket";
 import {
@@ -5,6 +6,7 @@ import {
   BrowserEventRegistry,
   decodeBridgeValue,
   encodeBridgeValue,
+  setWorkspaceYieldHandler,
   type BrowserRuntimeConfig,
 } from "./browser-runtime";
 
@@ -100,13 +102,21 @@ describe("Chromium file drops", () => {
 
 const config: BrowserRuntimeConfig = { token: "secret", bridgePort: 18_452, label: "browser-test" };
 
-function connectedRelay(reload = vi.fn(), role: "browser" | "desktop" = "browser") {
-  const relay = new BrowserRelay(config, new Map(), reload, role);
+function connectedRelay(
+  reload = vi.fn(), role: "browser" | "desktop" = "browser", { closePage = vi.fn(), appRunning = true } = {},
+) {
+  const relay = new BrowserRelay(config, new Map(), reload, role, closePage, async () => appRunning);
   const socket = lastSocket();
   socket.message({ type: "ready", label: config.label });
   socket.message({ type: "storage", entries: [] });
-  return { relay, socket, reload };
+  return { relay, socket, reload, closePage };
 }
+
+/** The control messages a page sent the server (not relayed invokes). */
+const controls = (socket: FakeWebSocket) => socket.send.mock.calls
+  .map(([data]) => JSON.parse(data as string) as { type: string })
+  .filter((message) => ["yielded", "reclaim"].includes(message.type))
+  .map((message) => message.type);
 
 afterEach(() => {
   sockets.length = 0;
@@ -115,6 +125,8 @@ afterEach(() => {
   vi.restoreAllMocks();
   vi.stubGlobal("WebSocket", NativeWebSocket);
   localStorage.removeItem("lattice.appearance.v5");
+  sessionStorage.removeItem("lattice.desktop-browser-standby");
+  setWorkspaceYieldHandler(null);
   runtimeError()?.remove();
 });
 
@@ -153,9 +165,9 @@ describe("browser bridge recovery", () => {
 
   const message = (type: string) => (socket: FakeWebSocket) => socket.message({ type });
   const disconnect = (socket: FakeWebSocket) => socket.disconnect();
-  const disconnectedAfter = (ms: number) => (socket: FakeWebSocket) => {
+  const disconnectedAfter = (ms: number) => async (socket: FakeWebSocket) => {
     socket.disconnect();
-    vi.advanceTimersByTime(ms);
+    await vi.advanceTimersByTimeAsync(ms);
   };
   it.each([
     ["reloads a live page when its idle WebSocket is disconnected", [disconnect, (socket: FakeWebSocket) => {
@@ -172,18 +184,30 @@ describe("browser bridge recovery", () => {
       reloads: 0,
       error: "This Lattice workspace is open in another browser tab.",
     }],
-  ])("%s", (_, steps, expected: { reloads?: number; error?: string }) => {
+  ])("%s", async (_, steps, expected: { reloads?: number; error?: string }) => {
     const { socket, reload } = connectedRelay();
-    for (const step of steps) step(socket);
+    for (const step of steps) await step(socket);
+    await vi.advanceTimersByTimeAsync(0);
     if (expected.reloads !== undefined) expect(reload).toHaveBeenCalledTimes(expected.reloads);
     if (expected.error) expect(runtimeError()).toHaveTextContent(expected.error);
   });
 
-  it("uses only the primary system language for recovery messages", () => {
+  it("uses only the primary system language for recovery messages", async () => {
     vi.spyOn(window.navigator, "languages", "get").mockReturnValue(["en-US", "zh-CN"]);
     const { socket } = connectedRelay();
-    disconnectedAfter(1_000)(socket);
+    await disconnectedAfter(1_000)(socket);
     expect(runtimeError()).toHaveTextContent("The local Lattice app disconnected.");
+  });
+
+  it("offers a reload instead of reloading into a connection error once Lattice has quit", async () => {
+    const { socket, reload } = connectedRelay(vi.fn(), "browser", { appRunning: false });
+    socket.message({ type: "host-disconnected" });
+    socket.disconnect();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(reload).not.toHaveBeenCalled();
+    expect(runtimeError()).toHaveTextContent("Lattice quit. Open it again, then reload this tab.");
+    fireEvent.click(within(runtimeError()!).getByRole("button", { name: "Reload" }));
+    expect(reload).toHaveBeenCalledOnce();
   });
 
   it("tells embedded editors to stop accepting edits after another tab takes over", async () => {
@@ -203,3 +227,89 @@ describe("browser bridge recovery", () => {
   });
 });
 
+describe("moving a workspace between the Lattice window and the browser", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.stubGlobal("WebSocket", FakeWebSocket);
+  });
+
+  it("saves before yielding the workspace to the other surface", async () => {
+    const save = deferred();
+    const handler = vi.fn(() => save.promise);
+    setWorkspaceYieldHandler(handler);
+    const { socket } = connectedRelay(vi.fn(), "desktop");
+
+    socket.message({ type: "yield" });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(handler).toHaveBeenCalledOnce();
+    expect(controls(socket)).toEqual([]);
+    save.resolve();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(controls(socket)).toEqual(["yielded"]);
+  });
+
+  it("yields anyway when the save does not finish in time", async () => {
+    setWorkspaceYieldHandler(() => new Promise(() => {}));
+    const { socket } = connectedRelay(vi.fn(), "browser");
+    socket.message({ type: "yield" });
+    await vi.advanceTimersByTimeAsync(3_999);
+    expect(controls(socket)).toEqual([]);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(controls(socket)).toEqual(["yielded"]);
+  });
+
+  it("parks the Lattice window on a standby screen that can take the workspace back", () => {
+    const { socket, reload } = connectedRelay(vi.fn(), "desktop");
+    expect(new URL(socket.url).searchParams.get("role")).toBe("desktop");
+
+    socket.message({ type: "desktop-suspended" });
+    // One reload, so nothing of the workspace keeps running behind the screen.
+    expect(reload).toHaveBeenCalledOnce();
+    expect(runtimeError()).toHaveTextContent("This workspace is open in your browser");
+    expect(runtimeError()).toHaveTextContent("Close the tab to bring it back here.");
+    fireEvent.click(within(runtimeError()!).getByRole("button", { name: "Use here" }));
+    expect(controls(socket)).toEqual(["reclaim"]);
+    expect(within(runtimeError()!).getByRole("button", { name: "Switching…" })).toBeDisabled();
+
+    reload.mockClear();
+    socket.message({ type: "desktop-resumed" });
+    expect(reload).toHaveBeenCalledOnce();
+  });
+
+  it("shows the translated standby screen after its reload, without reloading again", () => {
+    localStorage.setItem("lattice.appearance.v5", JSON.stringify({ interfaceLanguage: "zh-CN" }));
+    sessionStorage.setItem("lattice.desktop-browser-standby", "1");
+    const reload = vi.fn();
+    new BrowserRelay(config, new Map(), reload, "desktop");
+
+    lastSocket().message({ type: "desktop-suspended" });
+
+    expect(reload).not.toHaveBeenCalled();
+    expect(runtimeError()).toHaveTextContent("此工作区正在浏览器中使用");
+    expect(within(runtimeError()!).getByRole("button", { name: "在这里使用" })).toBeEnabled();
+  });
+
+  it("reconnects a parked window if its standby socket is dropped", () => {
+    sessionStorage.setItem("lattice.desktop-browser-standby", "1");
+    const { socket, reload } = connectedRelay(vi.fn(), "desktop");
+    socket.message({ type: "desktop-suspended" });
+    socket.disconnect();
+    expect(reload).toHaveBeenCalledOnce();
+  });
+
+  it("closes the tab, or says it can be closed, once the Lattice app has the workspace back", async () => {
+    const { socket, reload, closePage } = connectedRelay();
+    socket.message({ type: "desktop-returned" });
+    socket.disconnect();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(closePage).toHaveBeenCalledOnce();
+    expect(reload).not.toHaveBeenCalled();
+    expect(runtimeError()).toHaveTextContent("Back in the Lattice app. You can close this tab.");
+  });
+});
+
+function deferred() {
+  let resolve!: () => void;
+  const promise = new Promise<void>((settle) => { resolve = settle; });
+  return { promise, resolve };
+}

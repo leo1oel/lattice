@@ -1,4 +1,4 @@
-import { BookOpen, ChevronDown, Cloud, ExternalLink, FileCode2, Image, MessagesSquare } from "lucide-react";
+import { AppWindow, BookOpen, ChevronDown, Cloud, ExternalLink, FileCode2, Globe, Image, MessagesSquare } from "lucide-react";
 import { memo, useMemo, type ButtonHTMLAttributes, type ReactNode } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { Tip } from "../components/icon-tip";
@@ -41,6 +41,10 @@ type CanvasToolbarProps = {
   onOverleafChat?: () => void;
   /** Slot for the Overleaf presence avatars. */
   overleafPresence?: ReactNode;
+  /** This page is a tab in the default browser rather than a Lattice window. */
+  inBrowserTab?: boolean;
+  /** Open in the browser, or (from a browser tab) back in the Lattice app. */
+  onMoveWorkspace?: () => void;
   /** Tool buttons the writer hid in Settings → Appearance. */
   hiddenTools?: readonly TitlebarTool[];
 };
@@ -174,6 +178,15 @@ const CanvasToolbarView = memo(function CanvasToolbarView(props: CanvasToolbarPr
             <AnimatedProductIcon kind="clock-back" size={15} />
           </ToolbarButton>
         )}
+        {shows("browser") && props.onMoveWorkspace && (
+          <ToolbarButton
+            label={props.inBrowserTab ? t`Open in Lattice app` : t`Open in browser`}
+            className="history-button"
+            onClick={props.onMoveWorkspace}
+          >
+            {props.inBrowserTab ? <AppWindow size={15} /> : <Globe size={15} />}
+          </ToolbarButton>
+        )}
       </div>
     </div>
   );
@@ -181,7 +194,7 @@ const CanvasToolbarView = memo(function CanvasToolbarView(props: CanvasToolbarPr
 
 const FORWARDED_HANDLERS = {
   onHistory: true, onGit: true, onComments: true, onOverleafSync: true, onOverleafOpenCurrent: true,
-  onOverleafOpen: true, onOverleafChat: true,
+  onOverleafOpen: true, onOverleafChat: true, onMoveWorkspace: true,
 } as const satisfies Partial<Record<keyof CanvasToolbarProps, true>>;
 type ForwardedHandlers = Pick<CanvasToolbarProps, keyof typeof FORWARDED_HANDLERS>;
 const HANDLER_NAMES = Object.keys(FORWARDED_HANDLERS) as (keyof ForwardedHandlers)[];

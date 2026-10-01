@@ -16,10 +16,16 @@ type BrowserMessage =
   | { type: "response"; id: number; ok: true; value: BridgeValue }
   | { type: "response"; id: number; ok: false; error: BridgeValue }
   | { type: "callback"; id: number; payload: BridgeValue }
+  | { type: "yield" | "desktop-suspended" | "desktop-resumed" | "desktop-returned" }
   | { type: "browser-replaced" | "host-disconnected" }
   | { type: "error"; message: string };
 
 type BrowserPeerRole = "browser" | "desktop";
+
+/** Set while the Chromium window shows its standby screen, across that page's reload. */
+const DESKTOP_STANDBY_KEY = "lattice.desktop-browser-standby";
+/** The server switches anyway this long after asking; keep the save inside it. */
+const YIELD_SAVE_LIMIT_MS = 4_000;
 
 interface BrowserInternals {
   invoke: (command: string, args?: unknown, options?: unknown) => Promise<unknown>;
@@ -56,8 +62,18 @@ let browserRuntime = false;
 let runtimeReady: Promise<void> = Promise.resolve();
 let runtimeDetached = false;
 const detachListeners = new Set<() => void>();
+let yieldHandler: (() => Promise<unknown>) | null = null;
 
-// The page stays alive under the failure overlay after another tab takes
+/**
+ * What this page does when another surface (the default browser, or the
+ * Lattice window) is about to take its workspace: save every edit. The bridge
+ * hands the workspace over only after this settles, or after a timeout.
+ */
+export function setWorkspaceYieldHandler(handler: (() => Promise<unknown>) | null): void {
+  yieldHandler = handler;
+}
+
+// The page stays alive under the status overlay after another surface takes
 // over, but its bridge no longer reaches the native host.
 // Anything embedded here that accepts edits must stop doing so: nothing on
 // this page can apply them to the project any more.
@@ -96,13 +112,16 @@ export class BrowserRelay {
   private pageLeaving = false;
   private terminal = false;
   private recovering = false;
+  private standby = false;
   readonly storageReady = this.storageGate.promise;
 
   constructor(
     config: BrowserRuntimeConfig,
     private readonly callbacks: Map<number, Callback>,
     private readonly reloadPage: () => void = () => window.location.reload(),
-    role: BrowserPeerRole = isChromiumPeer() ? "desktop" : "browser",
+    private readonly role: BrowserPeerRole = isChromiumPeer() ? "desktop" : "browser",
+    private readonly closePage: () => void = () => window.close(),
+    private readonly appReachable: () => Promise<boolean> = () => localAppReachable(config.bridgePort),
   ) {
     const socketUrl = new URL(`ws://127.0.0.1:${config.bridgePort}/__lattice_bridge`);
     socketUrl.searchParams.set("token", config.token);
@@ -126,7 +145,7 @@ export class BrowserRelay {
       }
     });
     window.setTimeout(() => {
-      if (!this.ready) this.fail(new Error(runtimeMessage("handoff-timeout")));
+      if (!this.ready && !this.standby) this.fail(new Error(runtimeMessage("handoff-timeout")));
     }, 20_000);
   }
 
@@ -153,6 +172,26 @@ export class BrowserRelay {
     this.socket.send(JSON.stringify({ type: "storage-update", entries: Object.entries(localStorage) }));
   }
 
+  /** A bridge control message the server handles itself; it is never relayed. */
+  private sendControl(type: "yielded" | "reclaim"): void {
+    if (this.socket.readyState === WebSocket.OPEN) this.socket.send(JSON.stringify({ type }));
+  }
+
+  /** Save, then let the waiting surface take over. */
+  private async yieldWorkspace(): Promise<void> {
+    try {
+      await Promise.race([
+        yieldHandler?.(),
+        new Promise((resolve) => window.setTimeout(resolve, YIELD_SAVE_LIMIT_MS)),
+      ]);
+    } catch {
+      // A failed save is reported where it happened; the switch goes ahead
+      // either way, as the server would after its timeout.
+    }
+    this.syncStorage();
+    this.sendControl("yielded");
+  }
+
   private receive(event: MessageEvent): void {
     if (typeof event.data !== "string") return;
     let message: BrowserMessage;
@@ -163,6 +202,7 @@ export class BrowserRelay {
     }
     switch (message.type) {
       case "ready":
+        if (this.role === "desktop") sessionStorage.removeItem(DESKTOP_STANDBY_KEY);
         if (!this.ready) {
           this.ready = true;
           this.readyGate.resolve();
@@ -188,6 +228,38 @@ export class BrowserRelay {
       case "host-disconnected":
         this.disconnect(new Error(runtimeMessage("app-disconnected")));
         break;
+      case "yield":
+        void this.yieldWorkspace();
+        break;
+      case "desktop-suspended":
+        // A browser tab holds the workspace: this window waits behind a
+        // standby screen, hidden, until the tab gives it back or closes.
+        this.standby = true;
+        detachRuntime();
+        this.rejectPending(new Error(runtimeMessage("standby")));
+        this.showStandby();
+        if (sessionStorage.getItem(DESKTOP_STANDBY_KEY) !== "1") {
+          sessionStorage.setItem(DESKTOP_STANDBY_KEY, "1");
+          // Reload once so nothing of the workspace keeps running behind the
+          // standby screen. If the reload is refused, the screen stays.
+          this.reloadToRecover();
+        }
+        break;
+      case "desktop-resumed":
+        sessionStorage.removeItem(DESKTOP_STANDBY_KEY);
+        this.reloadToRecover(() => this.fail(new Error(runtimeMessage("app-disconnected"))));
+        break;
+      case "desktop-returned":
+        this.terminal = true;
+        this.syncStorage();
+        try {
+          this.closePage();
+        } catch {
+          // Browsers may refuse to close a tab another app opened.
+        }
+        // If the close went through, this page is gone before this paints.
+        this.fail(new Error(runtimeMessage("desktop-returned")));
+        break;
       case "browser-replaced":
         this.terminal = true;
         this.fail(new Error(runtimeMessage("browser-replaced")));
@@ -199,13 +271,48 @@ export class BrowserRelay {
     }
   }
 
+  private showStandby(): void {
+    showRuntimeStatus({
+      title: runtimeMessage("standby"),
+      message: runtimeMessage("standby-detail"),
+      action: {
+        label: runtimeMessage("standby-action"),
+        busyLabel: runtimeMessage("standby-busy"),
+        run: () => this.sendControl("reclaim"),
+      },
+    });
+  }
+
   private disconnect(reason: Error): void {
     if (this.terminal || this.pageLeaving || this.recovering) return;
+    if (this.standby) {
+      this.reloadToRecover(() => this.fail(reason));
+      return;
+    }
     if (!this.ready) {
       this.fail(reason);
       return;
     }
     this.rejectPending(reason);
+    this.recovering = true;
+    void this.appReachable().then((reachable) => {
+      this.recovering = false;
+      if (this.terminal || this.pageLeaving) return;
+      if (reachable) {
+        this.recover(reason);
+        return;
+      }
+      // Lattice itself is gone. Reloading now would only replace this page
+      // with the browser's own connection error.
+      this.terminal = true;
+      this.fail(new Error(runtimeMessage("app-quit")), {
+        label: runtimeMessage("reload"),
+        run: () => this.reloadPage(),
+      });
+    });
+  }
+
+  private recover(reason: Error): void {
     // Browser memory savers and laptop sleep can tear down an idle WebSocket
     // while leaving the document alive. Reload through the fixed entry so it
     // can reuse the five-second session grace period or create a fresh host
@@ -224,13 +331,13 @@ export class BrowserRelay {
     });
   }
 
-  private reloadToRecover(onFailure: () => void): void {
+  private reloadToRecover(onFailure?: () => void): void {
     this.recovering = true;
     try {
       this.reloadPage();
     } catch {
       this.recovering = false;
-      onFailure();
+      onFailure?.();
     }
   }
 
@@ -239,12 +346,23 @@ export class BrowserRelay {
     this.pending.clear();
   }
 
-  private fail(reason: Error): void {
+  private fail(reason: Error, action?: RuntimeStatus["action"]): void {
     detachRuntime();
     if (!this.ready) this.readyGate.reject(reason);
-    else showRuntimeFailure(reason);
+    else showRuntimeStatus({ message: reason.message, action });
     this.storageGate.reject(reason);
     this.rejectPending(reason);
+  }
+}
+
+/** True when the local Lattice app still answers at its address. */
+async function localAppReachable(port: number): Promise<boolean> {
+  try {
+    // Any answer at all, even an opaque or error one, means it is running.
+    await fetch(`http://127.0.0.1:${port}/`, { mode: "no-cors", cache: "no-store", signal: AbortSignal.timeout(2_000) });
+    return true;
+  } catch {
+    return false;
   }
 }
 
@@ -283,6 +401,25 @@ const RUNTIME_MESSAGES = {
     "This Lattice workspace is open in another browser tab.",
     "此 Lattice 工作区已在另一个浏览器标签页中打开。",
   ],
+  standby: [
+    "This workspace is open in your browser",
+    "此工作区正在浏览器中使用",
+  ],
+  "standby-detail": [
+    "Close the tab to bring it back here.",
+    "关闭标签页即可回到这里。",
+  ],
+  "standby-action": ["Use here", "在这里使用"],
+  "standby-busy": ["Switching…", "正在切换…"],
+  "desktop-returned": [
+    "Back in the Lattice app. You can close this tab.",
+    "已回到 Lattice 应用，可以关闭此标签页。",
+  ],
+  "app-quit": [
+    "Lattice quit. Open it again, then reload this tab.",
+    "Lattice 已退出。重新打开后，刷新此标签页。",
+  ],
+  reload: ["Reload", "刷新"],
 } satisfies Record<string, [english: string, chinese: string]>;
 /* eslint-enable lingui/no-unlocalized-strings */
 
@@ -303,14 +440,56 @@ function runtimeMessage(message: keyof typeof RUNTIME_MESSAGES, values: Record<s
     .replace(/\{(\w+)\}/g, (placeholder, name: string) => values[name] ?? placeholder);
 }
 
-function showRuntimeFailure(reason: Error): void {
-  if (document.getElementById("lattice-browser-runtime-error")) return;
+interface RuntimeStatus {
+  title?: string;
+  message: string;
+  action?: { label: string; busyLabel?: string; run: () => void };
+}
+
+/**
+ * Cover the page with a short status, optionally with one button. The
+ * Chromium shell waits for this element to be gone before it shows a window
+ * that comes back from the browser.
+ */
+function showRuntimeStatus(status: RuntimeStatus): void {
+  document.getElementById("lattice-browser-runtime-error")?.remove();
   const overlay = document.createElement("div");
   overlay.id = "lattice-browser-runtime-error";
   overlay.setAttribute("role", "alert");
   const overlayStyle = "position:fixed;inset:0;z-index:2147483647;display:grid;place-items:center;padding:var(--space-16);font:var(--font-ui-body) system-ui;color:CanvasText;background:Canvas";
   overlay.style.cssText = overlayStyle;
-  overlay.textContent = reason.message;
+  const panel = document.createElement("div");
+  const panelStyle = "display:grid;justify-items:center;gap:var(--space-4);max-width:28rem;text-align:center";
+  panel.style.cssText = panelStyle;
+  if (status.title) {
+    const title = document.createElement("strong");
+    const titleStyle = "font-size:1.25em";
+    title.style.cssText = titleStyle;
+    title.textContent = status.title;
+    panel.append(title);
+  }
+  const message = document.createElement("p");
+  const messageStyle = "margin:0;opacity:0.72";
+  message.style.cssText = messageStyle;
+  message.textContent = status.message;
+  panel.append(message);
+  const action = status.action;
+  if (action) {
+    const button = document.createElement("button");
+    button.type = "button";
+    const buttonStyle = "margin-top:var(--space-6);padding:var(--space-3) var(--space-8);border:0;border-radius:var(--radius-control);font:inherit;cursor:pointer";
+    button.style.cssText = buttonStyle;
+    button.textContent = action.label;
+    button.addEventListener("click", () => {
+      if (action.busyLabel) {
+        button.disabled = true;
+        button.textContent = action.busyLabel;
+      }
+      action.run();
+    });
+    panel.append(button);
+  }
+  overlay.append(panel);
   document.body.append(overlay);
 }
 
@@ -558,10 +737,11 @@ function readStoredBrowserConfig(): BrowserRuntimeConfig | null {
 async function requestBrowserSession(
   bridgePort: number,
   resumeToken?: string,
+  entry?: string,
 ): Promise<BrowserRuntimeConfig> {
   const endpoint = new URL(`http://127.0.0.1:${bridgePort}/__lattice_session`);
   if (resumeToken) endpoint.searchParams.set("token", resumeToken);
-  // The entry keeps Chromium windows and browser tabs in separate workspaces.
+  if (entry) endpoint.searchParams.set("entry", entry);
   endpoint.searchParams.set("role", isChromiumPeer() ? "desktop" : "browser");
   const response = await fetch(endpoint, { cache: "no-store", mode: "cors" });
   if (!response.ok) {
@@ -587,15 +767,24 @@ async function initializeBrowserRuntime(): Promise<void> {
   const stored = readStoredBrowserConfig();
   const fixedEntry = window.location.hostname === "127.0.0.1"
     && window.location.port === "18452";
-  const developmentEntry = new URLSearchParams(window.location.search).get("latticeBrowser") === "1";
-  if (!stored && !fixedEntry && !developmentEntry) {
+  const search = new URLSearchParams(window.location.search);
+  const developmentEntry = search.get("latticeBrowser") === "1";
+  // The app opens the default browser on a single-use `?entry=<nonce>`, never
+  // on a token: the address lands in process arguments and browser history.
+  const entry = search.get("entry") ?? undefined;
+  if (!stored && !fixedEntry && !developmentEntry && !entry) {
     runtimeError = runtimeMessage("open-from-app");
     return;
   }
-  const config = await requestBrowserSession(stored?.bridgePort ?? 18_452, stored?.token);
-  if (developmentEntry) {
+  const config = await requestBrowserSession(
+    stored?.bridgePort ?? 18_452,
+    stored?.token,
+    entry,
+  );
+  if (developmentEntry || entry) {
     const url = new URL(window.location.href);
     url.searchParams.delete("latticeBrowser");
+    url.searchParams.delete("entry");
     window.history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`);
   }
   await installBrowserRuntime(config);
@@ -655,6 +844,11 @@ if (!runtimeWindow.__TAURI_INTERNALS__ && isLoopbackPage()) {
 
 export function isBrowserHosted(): boolean {
   return browserRuntime;
+}
+
+/** The bundled Chromium window, as opposed to a tab in the default browser. */
+export function isBundledChromium(): boolean {
+  return browserRuntime && isChromiumPeer();
 }
 
 export function browserRuntimeError(): string | null {

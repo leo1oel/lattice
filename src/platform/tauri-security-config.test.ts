@@ -106,6 +106,7 @@ describe("Tauri security boundary", () => {
     expect(capability.permissions).toEqual([
       "core:default",
       "core:window:allow-set-focus",
+      "core:window:allow-close",
       "core:window:allow-destroy",
       "core:window:allow-start-dragging",
       "core:window:allow-set-fullscreen",
@@ -155,7 +156,7 @@ describe("Tauri security boundary", () => {
       'debug ? "prepare:chromium:debug" : "prepare:chromium"');
     expect(config.bundle.resources).toContain("chromium-runtime/");
     expect(rustApp).toContain("chromium_packaged");
-    expect(browserHost).toContain(".open_url(url)?");
+    expect(browserHost).toContain(".open_url(&config.url(origin))?");
     expectContains(chromiumRuntime, ".stdin(Stdio::piped())", "self.send(&ShellMessage::OpenUrl { url })",
       "let message = encode_message(message)?");
     expect(chromiumRuntime).not.toContain(".arg(url)");

@@ -5132,6 +5132,17 @@ msgstr "从 Overleaf 打开"
 msgid "Open guided tutorial"
 msgstr "打开引导式教程"
 
+#: src/App.tsx
+#: src/canvas/canvas-toolbar.tsx
+#: src/settings/settings-dialog.tsx
+msgid "Open in browser"
+msgstr "在浏览器中打开"
+
+#: src/App.tsx
+#: src/canvas/canvas-toolbar.tsx
+msgid "Open in Lattice app"
+msgstr "在 Lattice 应用中打开"
+
 #: src/canvas/canvas-toolbar.tsx
 msgid "Open in Overleaf"
 msgstr "在 Overleaf 中打开"

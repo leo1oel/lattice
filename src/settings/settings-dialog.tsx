@@ -214,6 +214,7 @@ function TitlebarToolsGroup(props: SettingsDialogProps) {
     { tool: "overleaf", label: t`Overleaf` },
     { tool: "git", label: t`Git status and commit` },
     { tool: "history", label: t`Project history` },
+    { tool: "browser", label: t`Open in browser` },
   ];
   return (
     <SettingsGroup title={t`Title bar tools`}>

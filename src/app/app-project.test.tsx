@@ -1,4 +1,4 @@
-import { windowApi, synaraHook, openSlideWorkspaceApi, browserRuntime, fileNode, fileNodes, dirNode, projectCommands, refreshableProject, SINGLE_TRANSFORMER, attentionPaper, overleafLink, overleafStatus, overleafProbe, overleafSyncResult, overleafSession, overleafCommands, ROOT, projectSnapshot, rootDocument, notesSnapshot, markdownSnapshot, buildResult, readFiles, deferred, setAutoBuildMode, setInterfaceLanguage, selectPanelTab, projectTreeRoot, queryProjectTreeItem, findInProjectTree, findProjectTreeItem, findProjectTreeRenameInput, renderApp, renderOverleafPaper, openWithAutomaticBuilds, findElement, editorViewAt, findEditorView, expectEditorText, postWindowMessage, expectInvoked, invokeCalls, pause, stubElementFromPoint, storedFileViews, dropFinderPaths, persistLayout, visualEditorOf, argPath, waitForSelectedTab, openTreeFile, openAgentFrame, postedOfType, dragTreeItem, pdfDocumentStub, mockPdfDocument, chooseNewDocument, chooseProjectMenuItem } from "./app-test-utils";
+import { expectNotification, windowApi, synaraHook, openSlideWorkspaceApi, browserRuntime, fileNode, fileNodes, dirNode, projectCommands, refreshableProject, SINGLE_TRANSFORMER, attentionPaper, overleafLink, overleafStatus, overleafProbe, overleafSyncResult, overleafSession, overleafCommands, ROOT, projectSnapshot, rootDocument, notesSnapshot, markdownSnapshot, buildResult, readFiles, deferred, setAutoBuildMode, setInterfaceLanguage, selectPanelTab, projectTreeRoot, queryProjectTreeItem, findInProjectTree, findProjectTreeItem, findProjectTreeRenameInput, renderApp, renderOverleafPaper, openWithAutomaticBuilds, findElement, editorViewAt, findEditorView, expectEditorText, postWindowMessage, expectInvoked, invokeCalls, pause, stubElementFromPoint, storedFileViews, dropFinderPaths, persistLayout, visualEditorOf, argPath, waitForSelectedTab, openTreeFile, openAgentFrame, postedOfType, dragTreeItem, pdfDocumentStub, mockPdfDocument, chooseNewDocument, chooseProjectMenuItem } from "./app-test-utils";
 import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
@@ -71,6 +71,62 @@ describe("project tree and projects", () => {
       shell().toHaveClass("browser-hosted");
       expect(invoke).not.toHaveBeenCalledWith("align_traffic_lights", expect.anything());
     }
+  });
+
+  describe("open in browser", () => {
+    const openProject = (commands = {}) => renderApp({
+      ...projectCommands(projectSnapshot({ files: [] })), open_in_browser: null, return_to_desktop: null, ...commands,
+    });
+
+    it("hands a native window's workspace to the browser, then closes the window", async () => {
+      openProject();
+      fireEvent.click(await screen.findByRole("button", { name: "Open in browser" }));
+      await expectInvoked("open_in_browser");
+      // The tab starts relaying only once this window is gone.
+      await waitFor(() => expect(windowApi.close).toHaveBeenCalledOnce());
+    });
+
+    it("keeps the Lattice window open when it hands its workspace to the browser", async () => {
+      Object.assign(browserRuntime, { hosted: true, bundled: true });
+      openProject();
+      fireEvent.click(await screen.findByRole("button", { name: "Open in browser" }));
+      await expectInvoked("open_in_browser");
+      // The bridge hides it once the tab has taken over.
+      expect(windowApi.close).not.toHaveBeenCalled();
+    });
+
+    it("reports a failed handoff and keeps the window", async () => {
+      openProject({ open_in_browser: () => { throw new Error("Could not start local browser access"); } });
+      fireEvent.click(await screen.findByRole("button", { name: "Open in browser" }));
+      await expectNotification(/Could not start local browser access/);
+      expect(windowApi.close).not.toHaveBeenCalled();
+    });
+
+    it("gives a browser tab's workspace back to the Lattice app, from the title bar or the command palette", async () => {
+      browserRuntime.hosted = true;
+      openProject();
+      fireEvent.click(await screen.findByRole("button", { name: "Open in Lattice app" }));
+      await expectInvoked("return_to_desktop");
+      expect(screen.queryByRole("button", { name: "Open in browser" })).toBeNull();
+
+      vi.mocked(invoke).mockClear();
+      fireEvent.keyDown(window, { key: "p", metaKey: true, shiftKey: true });
+      fireEvent.change(await screen.findByPlaceholderText("Run a command…"), { target: { value: "Open in Lattice" } });
+      fireEvent.keyDown(screen.getByPlaceholderText("Run a command…"), { key: "Enter" });
+      await expectInvoked("return_to_desktop");
+    });
+
+    it("saves an unsaved edit before the bridge hands the workspace to another surface", async () => {
+      Object.assign(browserRuntime, { hosted: true, bundled: true });
+      openProject({ write_project_file: (args: unknown) => ({ content: (args as { content: string }).content, hadConflicts: false }) });
+      const view = await findEditorView(".source-editor[data-editor-pane='primary'] .cm-editor");
+      await waitFor(() => expect(browserRuntime.yieldHandler).not.toBeNull());
+      act(() => view.dispatch({ changes: { from: view.state.doc.length, insert: "\n% typed just before" } }));
+      await act(async () => { await browserRuntime.yieldHandler!(); });
+      expect(invoke).toHaveBeenCalledWith("write_project_file", expect.objectContaining({
+        path: "main.tex", content: expect.stringContaining("% typed just before"),
+      }));
+    });
   });
 
   it("toggles fullscreen when double-clicking the titlebar drag area", async () => {
