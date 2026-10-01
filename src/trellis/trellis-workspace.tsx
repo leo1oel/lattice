@@ -545,7 +545,7 @@ const TrellisWorkspace = memo(function TrellisWorkspace({ controller, projectRoo
   // Trellis reads its own strings (menus, drop labels, tooltips) from this table at use time.
   useEffect(() => installTrellisLabels(), [i18n.locale]);
 
-  // Views App closed (tab evicted, file deleted) or a reset replaced: their
+  // Views App closed (e.g. file deleted) or a reset replaced: their
   // close events must not close App tabs a second time.
   const quietCloses = useRef(new Set<string>());
   const resettingRef = useRef(false);
