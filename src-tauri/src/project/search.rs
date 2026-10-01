@@ -219,19 +219,27 @@ pub fn preview_replace_in_project(
     let mut files = 0u32;
     let mut replacements = 0u32;
     for (relative, before) in replace_sources(root)? {
+        // The preview walks the same whole-file matches the replace rewrites,
+        // so a pattern that spans or anchors to lines counts what it replaces.
         let mut file_hits = 0u32;
-        for (line_index, line) in before.lines().enumerate() {
-            for (column, _len) in matcher.find_in(line) {
-                if matches.len() < 200 {
-                    matches.push(ReplaceMatch {
-                        path: relative.clone(),
-                        line: (line_index + 1) as u32,
-                        column: (column + 1) as u32,
-                        preview: truncate_chars(line.trim(), 120),
-                    });
+        let (mut line_number, mut line_start, mut scanned) = (1u32, 0usize, 0usize);
+        for found in matcher.regex.find_iter(&before) {
+            if matches.len() < 200 {
+                for (offset, _) in before[scanned..found.start()].match_indices('\n') {
+                    line_number += 1;
+                    line_start = scanned + offset + 1;
                 }
-                file_hits += 1;
+                scanned = found.start();
+                let line_end =
+                    before[line_start..].find('\n').map_or(before.len(), |end| line_start + end);
+                matches.push(ReplaceMatch {
+                    path: relative.clone(),
+                    line: line_number,
+                    column: before[line_start..found.start()].chars().count() as u32 + 1,
+                    preview: truncate_chars(before[line_start..line_end].trim(), 120),
+                });
             }
+            file_hits += 1;
         }
         replacements += file_hits;
         files += u32::from(file_hits > 0);
@@ -274,10 +282,14 @@ fn replace_sources(root: &Path) -> Result<Vec<(String, String)>, String> {
     Ok(sources)
 }
 
+/// Find/replace across the project, matching the way the editor's own
+/// search does: `^` and `$` anchor to each line (CRLF included), and a
+/// literal is an escaped pattern so its offsets always index the original
+/// text. (Case-insensitive literals once matched against a lowercased copy;
+/// `Å` (U+212B) or `İ` lowercase to a different byte length, so the replace
+/// landed beside the match and silently corrupted the file.)
 struct ReplaceMatcher {
-    query: String,
-    match_case: bool,
-    regex: Option<Regex>,
+    regex: Regex,
 }
 
 impl ReplaceMatcher {
@@ -285,53 +297,23 @@ impl ReplaceMatcher {
         if query.is_empty() {
             return Err("Enter text to find.".to_string());
         }
-        let regex = use_regex
-            .then(|| {
-                regex::RegexBuilder::new(query)
-                    .case_insensitive(!match_case)
-                    .build()
-                    .map_err(|error| format!("Invalid regular expression: {error}"))
-            })
-            .transpose()?;
-        Ok(Self { query: query.to_string(), match_case, regex })
-    }
-
-    /// `(byte offset, byte length)` of each non-overlapping match. Literal
-    /// case-insensitive offsets index the lowercased text.
-    fn find_in(&self, line: &str) -> Vec<(usize, usize)> {
-        if let Some(regex) = &self.regex {
-            return regex
-                .find_iter(line)
-                .map(|item| (item.start(), item.end().saturating_sub(item.start()).max(1)))
-                .collect();
-        }
-        let (haystack, needle) = if self.match_case {
-            (line.to_string(), self.query.clone())
-        } else {
-            (line.to_lowercase(), self.query.to_lowercase())
-        };
-        haystack.match_indices(&needle).map(|(column, _)| (column, needle.len())).collect()
+        let pattern = if use_regex { query.to_string() } else { regex::escape(query) };
+        let regex = regex::RegexBuilder::new(&pattern)
+            .case_insensitive(!match_case)
+            .multi_line(true)
+            .crlf(true)
+            .build()
+            .map_err(|error| format!("Invalid regular expression: {error}"))?;
+        Ok(Self { regex })
     }
 
     fn replace_all(&self, source: &str, replacement: &str) -> (String, u32) {
-        if let Some(regex) = &self.regex {
-            // NoExpand: `$` is a capture reference to the regex crate, so
-            // replacing with `$n$` — ordinary maths — resolved `$n` to an
-            // empty group and left a stray `$` behind in every file it
-            // touched, reported as a success.
-            let count = regex.find_iter(source).count() as u32;
-            return (regex.replace_all(source, regex::NoExpand(replacement)).into_owned(), count);
-        }
-        let hits = self.find_in(source);
-        let mut out = String::with_capacity(source.len());
-        let mut cursor = 0usize;
-        for (start, len) in &hits {
-            out.push_str(&source[cursor..*start]);
-            out.push_str(replacement);
-            cursor = start + len;
-        }
-        out.push_str(&source[cursor..]);
-        (out, hits.len() as u32)
+        // NoExpand: `$` is a capture reference to the regex crate, so
+        // replacing with `$n$` — ordinary maths — resolved `$n` to an
+        // empty group and left a stray `$` behind in every file it
+        // touched, reported as a success.
+        let count = self.regex.find_iter(source).count() as u32;
+        (self.regex.replace_all(source, regex::NoExpand(replacement)).into_owned(), count)
     }
 }
 
@@ -389,6 +371,32 @@ mod tests {
         let regex = replace_in_project(root, r"[Tt]oken", "X", true, true).unwrap();
         assert_eq!(regex.replacements, 2);
         assert_eq!(fixture.read("main.tex"), "X TOKEN X\n");
+
+        // A case-insensitive literal replaces the match itself even when an
+        // earlier character lowercases to a different byte length (Å, U+212B).
+        fixture.write("main.tex", "Grain size 5 \u{212B} and Token here\n");
+        let result = replace_in_project(root, "token", "VALUE", false, false).unwrap();
+        assert_eq!(result.replacements, 1);
+        assert_eq!(fixture.read("main.tex"), "Grain size 5 \u{212B} and VALUE here\n");
+
+        // The preview counts what the replace rewrites: `^` anchors to every
+        // line (CRLF too), and a pattern may span lines.
+        fixture.write("sections/a.tex", "alpha\r\nbeta\r\n");
+        fixture.write("main.tex", "one\ntwo\n");
+        let anchored = preview_replace_in_project(root, "^(?:one|two)", true, true).unwrap();
+        let replaced = replace_in_project(root, "^(?:one|two)", "> $0", true, true).unwrap();
+        assert_eq!((anchored.replacements, replaced.replacements), (2, 2));
+        assert_eq!(fixture.read("main.tex"), "> $0\n> $0\n");
+        let line_ends = preview_replace_in_project(root, "(?:alpha|beta)$", true, true).unwrap();
+        let replaced = replace_in_project(root, "(?:alpha|beta)$", "x", true, true).unwrap();
+        assert_eq!((line_ends.replacements, replaced.replacements), (2, 2));
+        assert_eq!(fixture.read("sections/a.tex"), "x\r\nx\r\n");
+        fixture.write("main.tex", "first\nsecond\n");
+        let spanning = preview_replace_in_project(root, r"first\nsec", true, true).unwrap();
+        assert_eq!(spanning.replacements, 1);
+        assert_eq!((spanning.matches[0].line, spanning.matches[0].preview.as_str()), (1, "first"));
+        let second = preview_replace_in_project(root, "cond", true, false).unwrap();
+        assert_eq!((second.matches[0].line, second.matches[0].column), (2, 3));
 
         // TODO markers in comments and \todo macros.
         fixture.write(
