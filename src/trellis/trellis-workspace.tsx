@@ -54,7 +54,8 @@ installTrellisLabels();
 const HIBERNATE_AFTER_MS = 20_000;
 
 /** Content minima only. The Trellis patch separately reserves header actions
- * and all tabs at 80px each (capped at 480px, then the strip scrolls). A panel
+ * and all tabs at 80px each (capped at 480px; under it the tabs shrink and the
+ * actions give way before the strip scrolls, see trellis.css). A panel
  * is as wide as the widest of its views needs, so selecting another tab never
  * resizes it. The Agent and the PDF raise theirs to what their live content
  * measures (see `measuredMinSize`). */

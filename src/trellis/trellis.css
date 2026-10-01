@@ -61,7 +61,6 @@
   padding: 0 var(--space-2) 0 0;
   background: var(--lattice-tabstrip);
   box-shadow: none;
-  container-type: inline-size;
 }
 .lattice-trellis [data-trellis-part="tabs"] { gap: var(--space-1); }
 .lattice-trellis [data-trellis-part="tab"] {
@@ -104,11 +103,18 @@
 .lattice-trellis [data-trellis-part="panel-menu"][aria-expanded="true"] { background: var(--chrome-hover-surface); color: var(--text-primary); }
 .lattice-trellis [data-trellis-part="panel-menu"] { margin-left: var(--space-2); }
 
-/* Tabs use the space left after the action row, compress together to 80px,
-   then scroll. The Trellis patch uses the same minimum and a 480px panel cap.
-   Labels are never hidden just because a panel crossed a guessed breakpoint. */
+/* Tabs use the space left after the action row and compress together to 80px,
+   which the Trellis patch (planHeader) keeps free as the panel's minimum, up
+   to a 480px cap. A panel held under that (more tabs than the cap, or a window
+   too narrow for every panel's minimum) never lets its tabs run under the
+   action row: the patch sets --trellis-tab-min on the bar to shrink the file
+   tabs toward their icon and close button, then takes the row's text labels
+   off (data-tools="icon"), then the row itself (data-tools="hidden"; the panel
+   menu repeats it), and only then do the tabs scroll. Labels are never hidden
+   just because a panel crossed a guessed breakpoint. */
 .lattice-trellis [data-trellis-part="tabs"] { flex: 1 1 0; min-width: 0; }
-.lattice-trellis [data-trellis-part="tab"] { flex: 0 1 auto; min-width: 80px; }
+.lattice-trellis [data-trellis-part="tabbar"] { --trellis-tab-min: 80px; }
+.lattice-trellis [data-trellis-part="tab"] { flex: 0 1 auto; min-width: var(--trellis-tab-min); }
 .lattice-trellis [data-trellis-part="tab-title"] { min-width: 0; text-overflow: ellipsis; }
 /* Named panels (Project, Agent, PDF, tools) never ellipsize: the Trellis patch
    (fitHeader) shows each whole name or only its icon, disclosing names in tab
@@ -119,7 +125,7 @@
    give way for the moment rather than scroll under the actions. */
 /* The Trellis patch sets each file tab's share of the squeeze inline. */
 .lattice-trellis [data-trellis-part="panel"] { --trellis-squeeze-tab: 0px; }
-.lattice-trellis [data-trellis-part="panel"][data-squeezed] [data-trellis-part="tab"]:not([data-atomic]) { min-width: max(0px, calc(80px - var(--trellis-squeeze-tab))); }
+.lattice-trellis [data-trellis-part="panel"][data-squeezed] [data-trellis-part="tab"]:not([data-atomic]) { min-width: max(0px, calc(var(--trellis-tab-min) - var(--trellis-squeeze-tab))); }
 .lattice-trellis [data-trellis-part="panel"][data-squeezed="atomic"] [data-trellis-part="tab"] { flex-shrink: 1; min-width: 0; overflow: hidden; }
 .lattice-trellis [data-trellis-part="tab"][data-atomic][data-icon-only] > :is([data-trellis-part="tab-title"], [data-trellis-part="tab-close"]) { display: none; }
 /* A tab's trailing slot is the same width whatever it holds (close button,
@@ -160,9 +166,7 @@
 .trellis-accessory-host button:not([data-slot="select-trigger"]):hover:not(:disabled),
 .trellis-accessory-host button:not([data-slot="select-trigger"])[aria-pressed="true"] { background: var(--navigation-action-hover-surface); color: var(--text-primary); }
 .trellis-accessory-host button:not([data-slot="select-trigger"]):disabled { opacity: .4; }
-@container (max-width: 190px) {
-  .lattice-trellis [data-trellis-part="accessories"] { display: none; }
-}
+.lattice-trellis [data-trellis-part="tabbar"][data-tools="hidden"] [data-trellis-part="accessories"] { display: none; }
 
 /* ---------------------------------------------------------------- header tools
    A document's own actions ride at the right of its header: Build on a .tex
@@ -211,10 +215,9 @@
 .trellis-view-switcher .ui-segmented-tab:not(.active):hover { background: var(--chrome-hover-surface); color: var(--text-primary); }
 .trellis-view-switcher .ui-segmented-tab:not(.active):active { background: color-mix(in srgb, var(--text-primary) 14%, transparent); color: var(--text-primary); }
 .trellis-view-switcher .ui-segmented-tab.active { color: var(--text-primary); cursor: default; }
-@container (max-width: 300px) {
-  .trellis-build-label { display: none; }
-  .trellis-build-button { padding-inline: var(--space-4); }
-}
+/* Short of room for the tabs, Build keeps only its icon (see the tab sizes above). */
+.lattice-trellis [data-trellis-part="tabbar"][data-tools="icon"] .trellis-build-label { display: none; }
+.lattice-trellis [data-trellis-part="tabbar"][data-tools="icon"] .trellis-build-button { padding-inline: var(--space-4); }
 
 /* ---------------------------------------------------------------- dividers */
 .lattice-trellis [data-trellis-part="divider"]::after { background: color-mix(in srgb, var(--control-active) 55%, transparent); border-radius: var(--radius-pill); }
