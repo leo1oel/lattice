@@ -378,7 +378,8 @@ pub(super) fn fetch_remote_files(remote: &Remote) -> Result<RemoteFiles, String>
 /// Where the agreed copy from the last sync stands in Overleaf's history: the
 /// version it was downloaded at, or failing that the time of the sync.
 fn agreed_copy(state: &SyncState) -> Option<HistoryFrom> {
-    state.remote_version.map(HistoryFrom::Version).or_else(|| {
+    let version = state.agreed_version.or(state.remote_version);
+    version.map(HistoryFrom::Version).or_else(|| {
         let at = chrono::DateTime::parse_from_rfc3339(state.last_sync.as_deref()?).ok()?;
         Some(HistoryFrom::Time(at.timestamp_millis()))
     })
@@ -386,7 +387,8 @@ fn agreed_copy(state: &SyncState) -> Option<HistoryFrom> {
 
 /// Settle the plan's destructive changes against Overleaf's history: each one
 /// goes ahead when an update missing from the last agreed copy (or from the
-/// one before its first refusal) touched the path, and is refused otherwise,
+/// one before its first refusal), and not part of Lattice's own last write to
+/// the path, touched the path; it is refused otherwise,
 /// returned with where its refusal window opened and the copy it refused.
 ///
 /// An unreadable history refuses them all. Holding a file back costs one more
@@ -417,7 +419,12 @@ pub(super) fn settle_destructive(
             (path.strip_prefix(changed.as_str()))
                 .is_some_and(|rest| rest.is_empty() || rest.starts_with('/'))
         };
-        (history.iter()).any(|update| update.after(windows[path]) && update.paths.iter().any(names))
+        let own = state.own_writes.get(path).copied();
+        (history.iter()).any(|update| {
+            update.after(windows[path])
+                && !own.is_some_and(|own| update.within(own))
+                && update.paths.iter().any(names)
+        })
     };
     (plan.settle_destructive(confirmed).into_iter())
         .map(|Destructive { path, remote, .. }| {
@@ -572,6 +579,7 @@ pub fn sync(
             new_files.remove(&path);
         }
     }
+    let mut own_writes = linked.state.own_writes.clone();
     if !to_push.is_empty() {
         let uploader = linked.uploader(&client, &csrf)?;
         for path in &to_push {
@@ -580,6 +588,11 @@ pub fn sync(
                 .ok_or_else(|| format!("{path} disappeared during sync"))?;
             uploader.upload(path, bytes)?;
         }
+        let written = linked
+            .version(&client)
+            .map(HistoryFrom::Version)
+            .unwrap_or_else(|| HistoryFrom::Time(chrono::Utc::now().timestamp_millis()));
+        own_writes.extend(to_push.iter().map(|path| (path.clone(), written)));
     }
     result.pushed = to_push;
     result.read_only = !writable;
@@ -589,6 +602,8 @@ pub fn sync(
     let mut state = linked.state;
     finalize_base_copies(root, &state.files, &new_files, &remote)?;
     state.files = new_files;
+    own_writes.retain(|path, _| state.files.contains_key(path));
+    state.own_writes = own_writes;
     state.refused = refused;
     state.last_sync = Some(now_iso());
     // `remote_version_before` is the only history position known to precede
@@ -601,6 +616,7 @@ pub fn sync(
     // one verification sync instead of attributing an unverified latest
     // version to our upload.
     state.remote_version = if result.pushed.is_empty() { remote_version_before } else { None };
+    state.agreed_version = remote_version_before;
     save_state(root, &state)?;
     // Every list is already in path order: the plan walks paths sorted.
     Ok(result)
@@ -861,12 +877,15 @@ pub fn sync_relocations(
                     .map(|next| (path.clone(), next, hash.clone()))
             })
             .collect();
+        let moved_at = HistoryFrom::Time(chrono::Utc::now().timestamp_millis());
         for (old, new, hash) in &remapped {
             if let Some(base) = read_base_copy(root, old) {
                 write_base_copy(root, new, base.as_bytes())?;
             }
             state.files.remove(old);
             state.files.insert(new.clone(), hash.clone());
+            state.own_writes.remove(old);
+            state.own_writes.insert(new.clone(), moved_at);
         }
         state.pending_relocations.remove(0);
         state.remote_version = None;

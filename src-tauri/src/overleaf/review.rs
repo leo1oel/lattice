@@ -399,6 +399,7 @@ const HISTORY_SLACK_MS: i64 = 10 * 60 * 1000;
 /// One entry of Overleaf's history, as far as confirming a download goes.
 pub(super) struct HistoryUpdate {
     from_v: Option<i64>,
+    to_v: Option<i64>,
     end_ts: Option<i64>,
     /// Documents edited, files uploaded or removed, and both ends of a
     /// rename, so a file renamed away counts as changed at its old path too.
@@ -416,6 +417,15 @@ impl HistoryUpdate {
             Some(HistoryFrom::Time(ms)) => {
                 self.end_ts.is_none_or(|end| end >= ms - HISTORY_SLACK_MS)
             }
+        }
+    }
+
+    /// Whether this update is already part of a write Lattice itself made at
+    /// `own`: one that cannot be placed is not.
+    pub fn within(&self, own: HistoryFrom) -> bool {
+        match own {
+            HistoryFrom::Version(version) => self.to_v.is_some_and(|v| v <= version),
+            HistoryFrom::Time(ms) => self.end_ts.is_some_and(|end| end <= ms + HISTORY_SLACK_MS),
         }
     }
 }
@@ -447,6 +457,7 @@ pub(super) fn history_since(
             }
             let update = HistoryUpdate {
                 from_v: update.get("fromV").and_then(Value::as_i64),
+                to_v: update.get("toV").and_then(Value::as_i64),
                 end_ts: update.get("meta").and_then(|meta| meta.get("end_ts")?.as_i64()),
                 paths,
             };

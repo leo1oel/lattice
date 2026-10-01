@@ -55,6 +55,11 @@ pub(super) struct SyncState {
     /// without downloading the project each time.
     #[serde(default)]
     pub remote_version: Option<i64>,
+    /// The history version the last sync downloaded its copy at, kept even
+    /// when uploads leave `remote_version` unknown: changes from here on are
+    /// not in the agreed copy.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub agreed_version: Option<i64>,
     /// What this account may do to the project, as Overleaf last reported it.
     /// Absent on projects linked before this was recorded (see
     /// [`permits_writing`]).
@@ -79,6 +84,12 @@ pub(super) struct SyncState {
     /// without Overleaf's history confirming the change.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub refused: BTreeMap<String, Refusal>,
+    /// Paths Lattice itself last wrote to Overleaf (an upload, a realtime
+    /// checkpoint, a replayed move), with where in history that write ends.
+    /// Overleaf's history records those writes like anyone's, but they can
+    /// never confirm a download that would wipe the file out.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub own_writes: BTreeMap<String, HistoryFrom>,
 }
 
 /// One download kept out of a local file (see `SyncState::refused`).
