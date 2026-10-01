@@ -12,6 +12,7 @@ use super::files::{
     has_conflict_markers, is_excluded, is_latex_save_error_path, is_transient_pdf_render_path,
     read_local_files, sha256_hex, write_base_copy, write_local_file, LocalFiles,
 };
+use super::review::HistoryFrom;
 use crate::project_fs::ProjectDir;
 use reqwest::header::{ACCEPT, COOKIE};
 use serde::{Deserialize, Serialize};
@@ -74,8 +75,8 @@ pub(super) struct SyncState {
     /// from identical bytes (two different files may have the same content).
     #[serde(default)]
     pub pending_relocations: Vec<PendingRelocation>,
-    /// Paths whose download would have emptied or gutted the local file with
-    /// no change in Overleaf's history to show for it.
+    /// Paths whose download would have emptied or gutted the local file
+    /// without Overleaf's history confirming the change.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub refused: BTreeMap<String, Refusal>,
 }
@@ -83,9 +84,10 @@ pub(super) struct SyncState {
 /// One download kept out of a local file (see `SyncState::refused`).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub(super) struct Refusal {
-    /// The last sync before the first refusal. History from then on can still
-    /// confirm the change, even when one check could not read it.
-    pub since: String,
+    /// Where the agreed copy stood at the first refusal (`None`: there was
+    /// none). History from then on can still confirm the change, even when
+    /// one check could not read it.
+    pub since: Option<HistoryFrom>,
     /// sha256 hex of the Overleaf copy refused, so the same download is
     /// reported once rather than on every sync.
     pub remote: String,

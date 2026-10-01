@@ -1,5 +1,6 @@
 use super::*;
 use crate::overleaf::link::{load_state, record_relocation, set_permission, state_path};
+use crate::overleaf::review::HistoryFrom;
 use crate::overleaf::test_support::*;
 
 const NO_LIVE: &BTreeSet<String> = &BTreeSet::new();
@@ -167,6 +168,7 @@ fn a_resolved_bibliography_conflict_uploads_exactly_the_kept_side() {
     // Overleaf emptied references.bib while Papers had appended entries
     // locally. The merge leaves diff3 markers (with the base section the
     // resolver must drop) and records Overleaf's side as the new base.
+    // Overleaf's history confirms the emptying.
     let base = b"@misc{a,\n  title = {A},\n}\n".as_slice();
     let ours = b"@misc{a,\n  title = {A},\n}\n\n@misc{b,\n  title = {B},\n}\n".as_slice();
     let theirs = b"".as_slice();
@@ -175,7 +177,9 @@ fn a_resolved_bibliography_conflict_uploads_exactly_the_kept_side() {
     let remote = BTreeMap::from([("references.bib".to_string(), theirs.to_vec())]);
     let plan = |state: &SyncState, local: &[u8]| {
         let local = BTreeMap::from([("references.bib".to_string(), local.to_vec())]);
-        plan_sync(&root, state, &remote, &local, NO_LIVE, "test").unwrap()
+        let mut plan = plan_sync(&root, state, &remote, &local, NO_LIVE, "test").unwrap();
+        assert!(plan.settle_destructive(|_| true).is_empty());
+        plan
     };
     let conflicted = plan(&state, ours);
     assert_eq!(conflicted.conflict.len(), 1);
@@ -356,6 +360,11 @@ fn overleaf_sync_resolves_deletions_made_on_one_side_and_cleans_up_transient_fil
 
 // ---- downloads that would wipe out local work ---------------------------------
 
+/// When the seeded project last synced: 2026-07-01T00:00:00Z.
+fn last_sync_ms() -> i64 {
+    chrono::DateTime::parse_from_rfc3339("2026-07-01T00:00:00Z").unwrap().timestamp_millis()
+}
+
 /// Overleaf history entries as `/updates` lists them, newest first: one doc
 /// edit, one file removal and one folder rename, all after the project's last
 /// sync (2026-07-01), and an older edit from before it.
@@ -460,7 +469,7 @@ fn overleaf_sync_never_lets_a_hollow_download_wipe_out_unchanged_local_files() {
         let refused = load_state(&root).unwrap().refused;
         assert_eq!(refused.keys().collect::<Vec<_>>(), kept, "{round}");
         for (rel, refusal) in &refused {
-            assert_eq!(refusal.since, "2026-07-01T00:00:00Z", "{round}: {rel}");
+            assert_eq!(refusal.since, Some(HistoryFrom::Time(last_sync_ms())), "{round}: {rel}");
             assert_eq!(refusal.remote, hollow_hash(rel), "{round}: {rel}");
         }
         if round == "first" {
@@ -507,6 +516,54 @@ fn overleaf_sync_never_lets_a_hollow_download_wipe_out_unchanged_local_files() {
     assert!(result.refused_incoming.is_empty());
     assert_eq!(result.pulled, ["fig.png"]);
     assert!(load_state(&root).unwrap().refused.is_empty());
+}
+
+/// An Overleaf edit made just before the last sync is already in the copy
+/// both sides agreed on, so it cannot vouch for a hollow download now, however
+/// close in time: only an update after the version that sync downloaded can.
+/// A file edited here too is never merged with an unconfirmed hollow copy; the
+/// local edit goes up instead.
+#[test]
+fn overleaf_history_vouches_only_for_changes_after_the_agreed_copy() {
+    let notes = "Notes kept only in this project.\n".repeat(60);
+    let chapter = "A line of the chapter.\n".repeat(200);
+    let edited = format!("{chapter}A new closing line.\n");
+    let base: Files = &[("chapter.tex", chapter.as_bytes()), ("notes.md", notes.as_bytes())];
+    let local: Files = &[("chapter.tex", edited.as_bytes()), ("notes.md", notes.as_bytes())];
+    let hollow: Files = &[("chapter.tex", b""), ("notes.md", b"")];
+    // Both files edited on Overleaf five minutes before the last sync, which
+    // downloaded version 40 with those edits in it.
+    let synced_edit = json!({ "fromV": 39, "toV": 40,
+        "meta": { "end_ts": last_sync_ms() - 5 * 60_000 },
+        "pathnames": ["chapter.tex", "notes.md"] });
+    let run = |history: Vec<Value>| {
+        let server = Mock { versions: vec![41], history, ..Mock::project(hollow) }.serve();
+        let (config, root) = linked(&server, local, base);
+        edit_state(&root, |state| state.remote_version = Some(40));
+        let result = sync(&config, &root, NO_LIVE, None).unwrap();
+        (server, root, result)
+    };
+
+    let (server, root, result) = run(vec![synced_edit.clone()]);
+    assert_eq!(result.refused_incoming, ["chapter.tex", "notes.md"]);
+    assert_eq!(result.pushed, ["chapter.tex"]);
+    assert_eq!(server.uploads().len(), 1);
+    assert!(result.pulled.is_empty() && result.merged.is_empty() && result.conflicts.is_empty());
+    assert_eq!(read_local(&root, "chapter.tex").as_deref(), Some(edited.as_bytes()));
+    assert_eq!(read_local(&root, "notes.md").as_deref(), Some(notes.as_bytes()));
+    let refused = load_state(&root).unwrap().refused;
+    assert!(refused.values().all(|r| r.since == Some(HistoryFrom::Version(40))), "{refused:?}");
+
+    // Overleaf's history records chapter.tex emptied after version 40: the
+    // change is real, so it meets the local edit as any other would.
+    let emptied = json!({ "fromV": 40, "toV": 41, "meta": { "end_ts": last_sync_ms() + 60_000 },
+        "pathnames": ["chapter.tex"] });
+    let (_, root, result) = run(vec![emptied, synced_edit]);
+    assert_eq!(result.refused_incoming, ["notes.md"]);
+    let conflicts: Vec<_> = result.conflicts.iter().map(|c| c.path.as_str()).collect();
+    assert_eq!(conflicts, ["chapter.tex"]);
+    assert!(result.pushed.is_empty());
+    assert_eq!(read_local(&root, "notes.md").as_deref(), Some(notes.as_bytes()));
 }
 
 #[test]

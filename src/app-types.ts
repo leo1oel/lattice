@@ -373,7 +373,7 @@ export type OverleafSyncResult = {
   skippedLarge?: string[];
   /**
    * Kept as they are here although Overleaf's download had them empty or
-   * cut to a fraction, with no change in Overleaf's history to show for it.
+   * cut to a fraction, without Overleaf's history confirming the change.
    * Each is listed once per Overleaf copy, not again on every sync.
    */
   refusedIncoming?: string[];

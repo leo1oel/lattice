@@ -10,7 +10,7 @@ use super::api::{err, expect_success, full_name, json_str, Remote};
 use crate::overleaf_rt::parse_comment_ranges;
 use crate::util::url_encode;
 use reqwest::{Method, StatusCode};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::collections::BTreeSet;
 use std::path::Path;
@@ -380,19 +380,56 @@ pub fn history_files(config_dir: &Path, root: &Path, from: i64, to: i64) -> Resu
 const HISTORY_PAGE: u32 = 50;
 const HISTORY_PAGES: usize = 20;
 
-/// Every path Overleaf's history records a change to in an update that ended
-/// at or after `since_ms` (Unix milliseconds; `None` reads it all): documents
-/// edited, files uploaded or removed, and both ends of a rename, so a file
-/// renamed away counts as changed at its old path too. A folder operation
-/// names only the folder; callers match descendants themselves.
+/// Where in Overleaf's history a sync's agreed copy stands: changes from here
+/// on are not in it.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(super) enum HistoryFrom {
+    /// The project version the copy was downloaded at.
+    Version(i64),
+    /// When the copy was taken (Unix milliseconds), for a sync that could not
+    /// learn the version.
+    Time(i64),
+}
+
+/// How far before a sync's time a change still counts as after it, so clock
+/// skew between this machine and Overleaf cannot hide one made just before.
+const HISTORY_SLACK_MS: i64 = 10 * 60 * 1000;
+
+/// One entry of Overleaf's history, as far as confirming a download goes.
+pub(super) struct HistoryUpdate {
+    from_v: Option<i64>,
+    end_ts: Option<i64>,
+    /// Documents edited, files uploaded or removed, and both ends of a
+    /// rename, so a file renamed away counts as changed at its old path too.
+    /// A folder operation names only the folder.
+    pub paths: BTreeSet<String>,
+}
+
+impl HistoryUpdate {
+    /// Whether this update is missing from a copy taken at `from` (`None`:
+    /// no copy, so every update is). One that cannot be placed counts.
+    pub fn after(&self, from: Option<HistoryFrom>) -> bool {
+        match from {
+            None => true,
+            Some(HistoryFrom::Version(version)) => self.from_v.is_none_or(|v| v >= version),
+            Some(HistoryFrom::Time(ms)) => {
+                self.end_ts.is_none_or(|end| end >= ms - HISTORY_SLACK_MS)
+            }
+        }
+    }
+}
+
+/// Overleaf's history, newest first, up to the first update `wanted` turns
+/// down; everything older than that is turned down too.
 ///
 /// This is the evidence a destructive download must have before a sync acts
 /// on it (see `sync::settle_destructive`), so an unreadable history is an
-/// error, never an empty set the caller might read as "nothing changed".
-pub(super) fn paths_changed_since(
-    remote: &Remote, since_ms: Option<i64>,
-) -> Result<BTreeSet<String>, String> {
-    let mut paths = BTreeSet::new();
+/// error, never an empty list the caller might read as "nothing changed".
+pub(super) fn history_since(
+    remote: &Remote, wanted: impl Fn(&HistoryUpdate) -> bool,
+) -> Result<Vec<HistoryUpdate>, String> {
+    let mut history = Vec::new();
     let mut before: Option<i64> = None;
     for _ in 0..HISTORY_PAGES {
         let page = before.map(|before| format!("&before={before}")).unwrap_or_default();
@@ -400,28 +437,27 @@ pub(super) fn paths_changed_since(
         let body: Value =
             expect_success(response, "for the project history")?.json().map_err(err)?;
         let updates = body.get("updates").and_then(Value::as_array).cloned().unwrap_or_default();
-        let mut reached_since = false;
         for update in &updates {
-            let end_ts = update.get("meta").and_then(|meta| meta.get("end_ts"));
-            // Newest first, so the first update older than the window means
-            // every later page is older still. One without a timestamp cannot
-            // be placed, and counts.
-            if since_ms.zip(end_ts.and_then(Value::as_i64)).is_some_and(|(since, end)| end < since)
-            {
-                reached_since = true;
-                continue;
-            }
-            paths.extend(update_paths(update));
+            let mut paths: BTreeSet<String> = update_paths(update).into_iter().collect();
             for op in update.get("project_ops").and_then(Value::as_array).into_iter().flatten() {
                 if let Some(from) = op.get("rename").and_then(|body| json_str(body, &["pathname"]))
                 {
                     paths.insert(from);
                 }
             }
+            let update = HistoryUpdate {
+                from_v: update.get("fromV").and_then(Value::as_i64),
+                end_ts: update.get("meta").and_then(|meta| meta.get("end_ts")?.as_i64()),
+                paths,
+            };
+            if !wanted(&update) {
+                return Ok(history);
+            }
+            history.push(update);
         }
         match body.get("nextBeforeTimestamp").and_then(Value::as_i64) {
-            Some(next) if !reached_since && !updates.is_empty() => before = Some(next),
-            _ => return Ok(paths),
+            Some(next) if !updates.is_empty() => before = Some(next),
+            _ => return Ok(history),
         }
     }
     Err("Overleaf's history since the last sync is longer than Lattice reads at once.".to_string())

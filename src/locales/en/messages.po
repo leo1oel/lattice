@@ -3926,8 +3926,8 @@ msgid "Kept overlapping external edits in {path} with conflict markers."
 msgstr "Kept overlapping external edits in {path} with conflict markers."
 
 #: src/app/use-overleaf-workspace.ts
-msgid "Kept your copy of {files}. Overleaf sent these files empty or much smaller, but its history shows no such change. To take Overleaf's version anyway, delete the file here and sync again."
-msgstr "Kept your copy of {files}. Overleaf sent these files empty or much smaller, but its history shows no such change. To take Overleaf's version anyway, delete the file here and sync again."
+msgid "Kept your copy of {files}. Overleaf sent these files empty or much smaller, but its history does not confirm the change. To take Overleaf's version anyway, delete the file here and sync again."
+msgstr "Kept your copy of {files}. Overleaf sent these files empty or much smaller, but its history does not confirm the change. To take Overleaf's version anyway, delete the file here and sync again."
 
 #: src/settings/literature-settings.tsx
 msgid "Key saved in the system keychain."
@@ -5409,8 +5409,8 @@ msgid "Overleaf replayed updates before Lattice could identify this connection. 
 msgstr "Overleaf replayed updates before Lattice could identify this connection. Syncing remains paused for this file."
 
 #: src/overleaf/overleaf-review.tsx
-msgid "Overleaf sent these empty or much smaller, but its history shows no such change, so your copy stays. To take Overleaf's version anyway, delete the file here and sync again"
-msgstr "Overleaf sent these empty or much smaller, but its history shows no such change, so your copy stays. To take Overleaf's version anyway, delete the file here and sync again"
+msgid "Overleaf sent these empty or much smaller, but its history does not confirm the change, so your copy stays. To take Overleaf's version anyway, delete the file here and sync again"
+msgstr "Overleaf sent these empty or much smaller, but its history does not confirm the change, so your copy stays. To take Overleaf's version anyway, delete the file here and sync again"
 
 #: src/overleaf/ot.ts
 msgid "Overleaf sent version {version} while this document is at {current}."
