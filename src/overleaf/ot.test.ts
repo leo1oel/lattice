@@ -306,6 +306,20 @@ describe("OtDocument", () => {
     expect(() => new OtDocument("hello", 4).remote(ops, version)).toThrow(OtDesyncError);
   });
 
+  it("drops queued work that a collaborator's identical edit cancelled, instead of waiting forever on an empty send", () => {
+    const doc = new OtDocument("hello world", 10);
+    expect(doc.local("hello worldX").send).not.toBeNull();
+    // Typed while "X" is in flight: delete "world".
+    expect(doc.local("hello X").send).toBeNull();
+    // Someone else deleted the same word first, so our queued delete is moot.
+    doc.remote([{ p: 6, d: "world" }], 10);
+    expect(doc.acknowledge(11).send).toBeNull();
+    expect([doc.text, doc.version, doc.settled]).toEqual(["hello X", 12, true]);
+    // The next keystroke goes straight out rather than queueing behind an
+    // empty operation that nothing will ever acknowledge.
+    expect(doc.local("hello X!").send).toEqual({ version: 12, ops: [{ p: 7, i: "!" }] });
+  });
+
   it("drops unsent work when reset to the server's copy", () => {
     const doc = new OtDocument("a", 1);
     doc.local("ab");

@@ -315,6 +315,15 @@ export class OtDocument {
     this.inflight = null;
     this.version += 1;
     if (!this.pending) return { send: null };
+    // Work typed while waiting can cancel out entirely against someone else's
+    // edit — both deleted the same words. There is then nothing to send, and
+    // sending an empty operation anyway is worse than useless: nothing goes
+    // on the wire, so no acknowledgement ever comes, and every later edit
+    // queues behind it forever. Overleaf's own client drops it the same way.
+    if (this.pending.length === 0) {
+      this.pending = null;
+      return { send: null };
+    }
     this.inflight = this.pending;
     this.pending = null;
     return { send: { version: this.version, ops: this.inflight } };
@@ -342,7 +351,11 @@ export class OtDocument {
     // differently here and never converge.
     let incoming = ops;
     if (this.inflight) [incoming, this.inflight] = transformBoth(incoming, this.inflight);
-    if (this.pending) [incoming, this.pending] = transformBoth(incoming, this.pending);
+    if (this.pending) {
+      [incoming, this.pending] = transformBoth(incoming, this.pending);
+      // Cancelled out entirely (see `acknowledge`): nothing is left to send.
+      if (this.pending.length === 0) this.pending = null;
+    }
     const next = applyOps(this.text, incoming);
     if (next === null) throw new OtDesyncError(i18n._(msg`An update from Overleaf did not fit this document; it needs to be reloaded.`));
     this.text = next;
