@@ -317,10 +317,14 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
   position: absolute;
   inset: 0;
   z-index: 1;
+  /* Stacked like the other empty states, so a narrow panel does not squeeze
+     the message into a column of three-word lines beside Retry. */
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: var(--space-5);
+  text-align: center;
   padding: var(--space-10);
   background: var(--surface-sidebar);
   color: var(--text-secondary);
@@ -342,7 +346,7 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
 }
 .synara-loading-copy {
   min-width: 0;
-  max-width: 230px;
+  max-width: 260px;
   display: grid;
   gap: var(--space-1);
 }
