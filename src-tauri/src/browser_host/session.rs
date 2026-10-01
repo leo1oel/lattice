@@ -73,8 +73,9 @@ pub(super) struct BrowserSession {
     pub(super) owner: Option<Surface>,
     pub(super) handoff: Option<Handoff>,
     pub(super) handoff_serial: u64,
-    /// The browser asked to go back to a Chromium window that is still opening.
-    pub(super) return_requested: bool,
+    /// When the browser asked to go back to a Chromium window that is still
+    /// opening.
+    pub(super) return_requested: Option<Instant>,
     pub(super) visible_epoch: u64,
     /// The native window handing this workspace to a browser tab.
     pub(super) source_label: Option<String>,
@@ -100,7 +101,7 @@ impl BrowserSession {
             owner: None,
             handoff: None,
             handoff_serial: 0,
-            return_requested: false,
+            return_requested: None,
             visible_epoch: 0,
             source_label: None,
             project_root: None,
@@ -199,7 +200,9 @@ impl BrowserSession {
             previous.close();
         }
         let other = surface.other();
-        if self.owner != Some(other) || self.peer(other).is_none() {
+        let other_holds =
+            self.owner == Some(other) && (self.peer(other).is_some() || other == Surface::Browser);
+        if !other_holds {
             self.take_ownership(surface);
             // A reloaded owner page was not the one asked to yield.
             if self.handoff.as_ref().is_some_and(|handoff| handoff.to == other) {
@@ -207,10 +210,13 @@ impl BrowserSession {
             }
             return None;
         }
+        let return_requested = self
+            .return_requested
+            .take()
+            .is_some_and(|requested_at| requested_at.elapsed() < RETURN_REQUEST_TTL);
         match surface {
             Surface::Browser => Some(Effect::HandoffStarted(self.start_handoff(Surface::Browser))),
-            Surface::Desktop if self.return_requested => {
-                self.return_requested = false;
+            Surface::Desktop if return_requested => {
                 Some(Effect::HandoffStarted(self.start_handoff(Surface::Desktop)))
             }
             Surface::Desktop => {
@@ -302,6 +308,9 @@ impl BrowserSessionConfig {
     }
 }
 
+/// How long a "Return to desktop" waits for the Chromium window it opened.
+const RETURN_REQUEST_TTL: Duration = Duration::from_secs(30);
+
 /// How long a default-browser entry address can claim its workspace.
 const ENTRY_NONCE_TTL: Duration = Duration::from_secs(60);
 
@@ -320,6 +329,21 @@ pub(super) fn issue_entry_nonce(sessions: &Sessions, token: &str) -> Result<Stri
     let nonce = uuid::Uuid::new_v4().simple().to_string();
     session.entry_nonce = Some((nonce.clone(), Instant::now()));
     Ok(nonce)
+}
+
+/// A native window's handoff to `source_label` that has not activated yet.
+pub(super) fn handoff_pending(
+    sessions: &HashMap<String, BrowserSession>, source_label: &str,
+) -> bool {
+    sessions
+        .values()
+        .any(|session| !session.active && session.source_label.as_deref() == Some(source_label))
+}
+
+/// A browser tab holds a workspace a native window handed to it, so the app
+/// reappears when that workspace returns to a native window.
+pub(super) fn holds_native_handoff(sessions: &HashMap<String, BrowserSession>) -> bool {
+    sessions.values().any(|session| session.source_label.is_some())
 }
 
 /// Reuse a live token on reload, the workspace an unexpired entry nonce was
@@ -475,7 +499,7 @@ pub(super) fn request_return(
         return Ok(ReturnPlan::Handoff(token.clone(), id));
     }
     if chromium_running {
-        session.return_requested = true;
+        session.return_requested = Some(Instant::now());
         return Ok(ReturnPlan::OpenChromium);
     }
     Ok(ReturnPlan::Native(token.clone()))
@@ -970,6 +994,66 @@ mod tests {
             Some((stale.clone(), issued_at));
         assert_eq!(claim(&stale).as_deref(), Some(TOKEN), "an expired nonce selects nothing");
         assert!(issue_entry_nonce(&sessions, "gone").is_err());
+    }
+
+    #[test]
+    fn a_window_reconnecting_while_the_tab_is_away_stays_parked_until_the_grace_settles() {
+        let sessions = sessions();
+        let (_host, _desktop, _browser) = handed_to_browser(&sessions);
+        let epoch = detach_with_grace(&sessions, BridgeRole::Browser, "tab");
+        assert!(detach_peer(&sessions, &query(BridgeRole::Desktop), "window").is_none());
+
+        let (mut desktop, effect) = connect_with(&sessions, BridgeRole::Desktop, "window-2");
+        assert_eq!(effect, None);
+        assert_eq!(all(&mut desktop), vec![control("desktop-suspended")]);
+        assert!(!relays(&sessions, BridgeRole::Desktop, "window-2"));
+
+        assert!(matches!(
+            settle_after_grace(&sessions, TOKEN, epoch),
+            Some(Settlement::Switched(Effect::Resumed))
+        ));
+        assert_eq!(next(&mut desktop), control("desktop-resumed"));
+    }
+
+    #[test]
+    fn a_stale_return_request_does_not_take_the_workspace_from_the_tab() {
+        let sessions = sessions();
+        let (_host, _desktop, mut browser) = handed_to_browser(&sessions);
+        assert!(detach_peer(&sessions, &query(BridgeRole::Desktop), "window").is_none());
+        assert!(matches!(
+            request_return(&sessions, "browser-test", true),
+            Ok(ReturnPlan::OpenChromium)
+        ));
+        sessions.lock().unwrap().get_mut(TOKEN).unwrap().return_requested =
+            Instant::now().checked_sub(RETURN_REQUEST_TTL);
+
+        let (mut desktop, effect) = connect_with(&sessions, BridgeRole::Desktop, "window-2");
+        assert_eq!(effect, None);
+        assert_eq!(all(&mut desktop), vec![control("desktop-suspended")]);
+        assert_eq!(next(&mut browser), "none");
+        assert!(sessions.lock().unwrap()[TOKEN].return_requested.is_none());
+    }
+
+    #[test]
+    fn only_a_pending_native_handoff_blocks_its_window_label() {
+        let sessions = sessions();
+        let mut sessions = sessions.lock().unwrap();
+        assert!(!holds_native_handoff(&sessions), "a fixed-entry tab keeps the app visible");
+        sessions.insert(
+            "handoff".into(),
+            BrowserSession {
+                source_label: Some("project-1".into()),
+                active: false,
+                ..BrowserSession::new("browser-handoff".into(), "http://127.0.0.1:18452".into())
+            },
+        );
+        assert!(holds_native_handoff(&sessions));
+        assert!(handoff_pending(&sessions, "project-1"));
+        assert!(!handoff_pending(&sessions, "project-2"));
+
+        activate(sessions.get_mut("handoff").unwrap());
+        assert!(!handoff_pending(&sessions, "project-1"), "a reused label may hand off again");
+        assert!(holds_native_handoff(&sessions));
     }
 
     #[test]

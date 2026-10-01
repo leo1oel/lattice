@@ -259,7 +259,8 @@ impl BrowserHost {
             // from its window map. Let that lifecycle settle before deciding
             // whether any native workspace remains.
             tokio::time::sleep(Duration::from_millis(100)).await;
-            let has_session = sessions.lock().is_ok_and(|sessions| !sessions.is_empty());
+            let has_session =
+                sessions.lock().is_ok_and(|sessions| session::holds_native_handoff(&sessions));
             let windows = app.webview_windows();
             let browser_only =
                 !windows.is_empty() && windows.keys().all(|label| label.starts_with("browser-"));
@@ -351,8 +352,10 @@ impl BrowserHost {
         let origin = session.browser_origin.clone();
         {
             let mut sessions = session::lock(&server.sessions)?;
-            if session.source_label.is_some()
-                && sessions.values().any(|other| other.source_label == session.source_label)
+            if session
+                .source_label
+                .as_deref()
+                .is_some_and(|source_label| session::handoff_pending(&sessions, source_label))
             {
                 return Err("This Lattice window is already opening in your browser.".to_string());
             }
