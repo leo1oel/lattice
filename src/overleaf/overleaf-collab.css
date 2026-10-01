@@ -116,9 +116,9 @@
   padding-inline: var(--space-1);
   font-size: var(--type-micro-size);
   font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: .04em;
   color: var(--text-secondary);
+  /* Most groups are file paths, which must read exactly as written. */
+  overflow-wrap: anywhere;
 }
 
 .overleaf-thread-messages { display: flex; flex-direction: column; gap: var(--gap-inline); }
