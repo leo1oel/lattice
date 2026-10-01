@@ -1,8 +1,29 @@
 diff --git a/dist/index.d.ts b/dist/index.d.ts
-index 717aa3e9b59f30c9fcbd581a9db24a7e5aab7afc..c3905d0a8e561c63cffa3c8336d1979372c855d3 100644
+index 717aa3e9b59f30c9fcbd581a9db24a7e5aab7afc..e174420edaf47c84a360699486cad068284c61de 100644
 --- a/dist/index.d.ts
 +++ b/dist/index.d.ts
-@@ -440,6 +440,8 @@ interface WorkspaceSnapshot {
+@@ -199,6 +199,20 @@ interface LayoutMetrics {
+ /** World geometry of every node, as fractions of the whole layout. With metrics, each group keeps
+  * its children at their minimums (in its own layout space) and scales down when they can't fit. */
+ declare function layoutRects(node: LayoutNode | null, metrics?: LayoutMetrics): Map<string, Entry>;
++/** Lattice patch: a panel header's measured parts. `chrome` is the bar without its tabs with the
++ * whole action row, without the row's text labels, and without the row. */
++interface HeaderMeasure {
++    chrome: readonly [number, number, number];
++    gap: number;
++    items: ReadonlyArray<{ viewId: string; atomic: true; full: number; compact: number } | { viewId: string; atomic: false; min: number; floor: number }>;
++}
++/** Lattice patch: how a panel header fits `width` (see the comment in the patch). */
++declare function planHeader(header: HeaderMeasure, width: number, squeeze?: number): {
++    labelled: number;
++    tools: null | "icon" | "hidden";
++    tabMin: number | null;
++    min: number;
++};
+ 
+ type Cleanup = void | (() => void);
+ interface MenuItem {
+@@ -440,6 +454,8 @@ interface WorkspaceSnapshot {
      canGoForward: boolean;
      framings: Framing[];
      dragging: boolean;
@@ -11,8 +32,14 @@ index 717aa3e9b59f30c9fcbd581a9db24a7e5aab7afc..c3905d0a8e561c63cffa3c8336d19793
  }
  interface WorkspaceEvents {
      /** Committed layout changes only; never fires mid-drag or mid-animation. */
+@@ -533,4 +549,4 @@ declare function emptyDocument(): LayoutDocument;
+ /** Repair anything inconsistent in a document from storage or a caller. */
+ declare function sanitize(input: LayoutDocument, isKnownType?: (type: string) => boolean): LayoutDocument;
+ 
+-export { type Axis, type BuiltInMenuId, type Cleanup, type Command, DEFAULT_KEYMAP, type Edge, type FloatSpec, type FloatingLayer, type FloatingPanel, type Framing, type HiddenPanel, type IframeOptions, type Keymap, type LayoutDocument, type Entry as LayoutEntry, type LayoutMetrics, type LayoutNode, type LayoutSpec, type MenuEntry, type MenuItem, type MenuRequest, type OpenOptions, type PanelMenuContext, type PanelNode, type PanelSpec, type Params, type Placement, type Rect, type RestoreTarget, type SplitNode, type SplitSpec, type StageNode, type StageSpec, type Surface, type Theme, type ViewEvents, type ViewHandle, type ViewInfo, type ViewPlacement, type ViewRecord, type ViewRules, type ViewSpec, type ViewState, type ViewTypeDefinition, type ViewTypes, type WorkspaceEvents, type WorkspaceHandle, type WorkspaceOptions, type WorkspaceSlots, type WorkspaceSnapshot, createDocument, createWorkspace, emptyDocument, formatCombo, layout, layoutRects, sanitize };
++export { type Axis, type BuiltInMenuId, type Cleanup, type Command, DEFAULT_KEYMAP, type Edge, type FloatSpec, type FloatingLayer, type FloatingPanel, type Framing, type HiddenPanel, type IframeOptions, type Keymap, type LayoutDocument, type Entry as LayoutEntry, type LayoutMetrics, type LayoutNode, type LayoutSpec, type MenuEntry, type MenuItem, type MenuRequest, type OpenOptions, type PanelMenuContext, type PanelNode, type PanelSpec, type Params, type Placement, type Rect, type RestoreTarget, type SplitNode, type SplitSpec, type StageNode, type StageSpec, type Surface, type Theme, type ViewEvents, type ViewHandle, type ViewInfo, type ViewPlacement, type ViewRecord, type ViewRules, type ViewSpec, type ViewState, type ViewTypeDefinition, type ViewTypes, type WorkspaceEvents, type WorkspaceHandle, type WorkspaceOptions, type WorkspaceSlots, type WorkspaceSnapshot, type HeaderMeasure, createDocument, createWorkspace, emptyDocument, formatCombo, layout, layoutRects, planHeader, sanitize };
 diff --git a/dist/index.js b/dist/index.js
-index 101e9570f85e3c58ed50ba757cab4487578bbeff..3531bdb3c8b97d5c1151a1923a151bb2c68ec572 100644
+index 101e9570f85e3c58ed50ba757cab4487578bbeff..1b5597cb6e87818dc151151c43673413dc179ef0 100644
 --- a/dist/index.js
 +++ b/dist/index.js
 @@ -1389,7 +1389,7 @@ function createDragController(host) {
@@ -154,7 +181,53 @@ index 101e9570f85e3c58ed50ba757cab4487578bbeff..3531bdb3c8b97d5c1151a1923a151bb2
          h("span", {}, `No view type named \u201C${type}\u201D is registered.`)
        )
      );
-@@ -2762,7 +2823,7 @@ function createWorkspace(host, initialOptions) {
+@@ -2752,6 +2813,45 @@ var escapeHtml = (text) => text.replace(
+ var DEFAULT_FLOAT_SIZE = { w: 560, h: 400 };
+ var FRAME_ONLY = { w: 160, h: 64 };
+ var PANEL_MIN = { w: 80 };
++// Lattice patch: the states of a header's action row, roomiest first, as the
++// tab bar's data-tools: the whole row, its buttons without their text labels
++// (Lattice CSS), then none (every header tool is also in the panel menu).
++var HEADER_TOOLS = [null, "icon", "hidden"];
++// Lattice patch: how a panel's header fits `width`, so its tabs never run
++// under its actions. `header.chrome` is the bar's width without its tabs in
++// each HEADER_TOOLS state. Named tabs (atomic) show their whole label or only
++// their icon; the other tabs have a CSS minimum (`min`) and, under it, a
++// floor (`floor`: icon and close button, no title). When a header is short
++// of room, in order:
++//   1. named tabs' labels give way, last tab first;
++//   2. the other tabs shrink below their minimum toward their floor
++//      (`tabMin`, Lattice CSS --trellis-tab-min);
++//   3. the action row loses its text labels, then goes entirely;
++//   4. only then do the tabs scroll, in a strip that now reaches the menu.
++// A divider's rubber band (`squeeze`) shrinks the other tabs for the moment
++// (Lattice CSS takes it off --trellis-tab-min), so that room is theirs.
++// The panel's minimum header is its whole action row, every named tab as an
++// icon and the other tabs at their minimum, capped at 480px.
++function planHeader(header, width, squeeze = 0) {
++  const { chrome, gap, items } = header;
++  const loose = items.filter((item) => !item.atomic);
++  const atomic = items.filter((item) => item.atomic);
++  const gaps = gap * Math.max(0, items.length - 1);
++  const named = (k) => atomic.reduce((sum, item, i) => sum + (i < k ? item.full : item.compact), 0);
++  const looseMin = loose.reduce((sum, item) => sum + item.min, 0);
++  const looseFloor = loose.reduce((sum, item) => sum + Math.min(item.floor, item.min), 0);
++  // Room left for the other tabs with `k` named labels and the row in state `s`.
++  const room = (k, s, give = 0) => width + give - chrome[s] - gaps - named(k);
++  let labelled = atomic.length;
++  while (labelled > 0 && room(labelled, 0) < looseMin - 0.5) labelled--;
++  let state = 0;
++  while (state < HEADER_TOOLS.length - 1 && room(0, state, squeeze) < looseFloor - 0.5) state++;
++  const share = loose.length ? room(0, state, squeeze) / loose.length : 0;
++  const widest = Math.max(0, ...loose.map((item) => item.min));
++  const floor = Math.max(0, ...loose.map((item) => Math.min(item.floor, item.min)));
++  const tabMin = loose.length && share < widest ? Math.max(floor, Math.floor(share)) : null;
++  return { labelled, tools: HEADER_TOOLS[state], tabMin, min: Math.min(480, chrome[0] + gaps + named(0) + looseMin) };
++}
+ var DETAIL = { size: 48, outline: 2 };
+ function createWorkspace(host, initialOptions) {
+   let options = { ...initialOptions };
+@@ -2762,7 +2862,7 @@ function createWorkspace(host, initialOptions) {
      class: "trellis",
      "data-trellis-root": "",
      role: "region",
@@ -163,7 +236,7 @@ index 101e9570f85e3c58ed50ba757cab4487578bbeff..3531bdb3c8b97d5c1151a1923a151bb2
      tabindex: "-1"
    });
    const backdrop = h("div", { "data-trellis-part": "backdrop" });
-@@ -2853,7 +2914,7 @@ function createWorkspace(host, initialOptions) {
+@@ -2853,7 +2953,7 @@ function createWorkspace(host, initialOptions) {
      setAttr(root, "data-tab-bleed", tabs.inset === 0 ? "" : null);
      if (tabs.inset !== void 0) root.style.setProperty("--trellis-tab-inset", `${tabs.inset}px`);
      else if (!options.tokens?.["--trellis-tab-inset"]) root.style.removeProperty("--trellis-tab-inset");
@@ -172,7 +245,7 @@ index 101e9570f85e3c58ed50ba757cab4487578bbeff..3531bdb3c8b97d5c1151a1923a151bb2
      const tokens = options.tokens ?? {};
      for (const key of appliedTokens) if (!(key in tokens)) root.style.removeProperty(key);
      for (const [key, value] of Object.entries(tokens))
-@@ -3089,7 +3150,7 @@ function createWorkspace(host, initialOptions) {
+@@ -3089,7 +3189,7 @@ function createWorkspace(host, initialOptions) {
      const menuButton = h("button", {
        "data-trellis-part": "panel-menu",
        type: "button",
@@ -181,7 +254,7 @@ index 101e9570f85e3c58ed50ba757cab4487578bbeff..3531bdb3c8b97d5c1151a1923a151bb2
        "aria-haspopup": "menu",
        tabindex: "-1"
      });
-@@ -3118,6 +3179,20 @@ function createWorkspace(host, initialOptions) {
+@@ -3118,6 +3218,20 @@ function createWorkspace(host, initialOptions) {
        endInset: 0
      };
      panelDoms.set(panelId, dom);
@@ -202,7 +275,7 @@ index 101e9570f85e3c58ed50ba757cab4487578bbeff..3531bdb3c8b97d5c1151a1923a151bb2
      const d = dom;
      const onPointerDown = (e) => {
        const panel = findPanel(d.id);
-@@ -3182,6 +3257,7 @@ function createWorkspace(host, initialOptions) {
+@@ -3182,6 +3296,7 @@ function createWorkspace(host, initialOptions) {
    function destroyPanelDom(panelId) {
      const dom = panelDoms.get(panelId);
      if (!dom) return;
@@ -210,7 +283,7 @@ index 101e9570f85e3c58ed50ba757cab4487578bbeff..3531bdb3c8b97d5c1151a1923a151bb2
      dom.el.remove();
      dom.tabbar.remove();
      dom.handles?.remove();
-@@ -3211,6 +3287,7 @@ function createWorkspace(host, initialOptions) {
+@@ -3211,6 +3326,7 @@ function createWorkspace(host, initialOptions) {
        if (!wanted.has(viewId)) {
          tab.el.remove();
          dom.tabs.delete(viewId);
@@ -218,7 +291,7 @@ index 101e9570f85e3c58ed50ba757cab4487578bbeff..3531bdb3c8b97d5c1151a1923a151bb2
        }
      panel.views.forEach((viewId, index) => {
        let tab = dom.tabs.get(viewId);
-@@ -3241,6 +3318,7 @@ function createWorkspace(host, initialOptions) {
+@@ -3241,6 +3357,7 @@ function createWorkspace(host, initialOptions) {
          });
          tab = { el, title, badge, close: closeButton };
          dom.tabs.set(viewId, tab);
@@ -226,7 +299,7 @@ index 101e9570f85e3c58ed50ba757cab4487578bbeff..3531bdb3c8b97d5c1151a1923a151bb2
        } else if (tab.el.firstChild !== record.icon) tab.el.prepend(record.icon);
        if (dom.tablist.children[index] !== tab.el)
          dom.tablist.insertBefore(tab.el, dom.tablist.children[index] ?? null);
-@@ -3262,7 +3340,13 @@ function createWorkspace(host, initialOptions) {
+@@ -3262,7 +3379,13 @@ function createWorkspace(host, initialOptions) {
        for (const [viewId, tab] of dom.tabs) {
          const selected = panel.selected === viewId;
          const title = titleOf(viewId);
@@ -241,7 +314,7 @@ index 101e9570f85e3c58ed50ba757cab4487578bbeff..3531bdb3c8b97d5c1151a1923a151bb2
          const badge = badges.get(viewId);
          const dot = badge === true;
          const text = badge === null || badge === void 0 || badge === "" || typeof badge === "boolean" ? "" : String(badge);
-@@ -3278,11 +3362,14 @@ function createWorkspace(host, initialOptions) {
+@@ -3278,11 +3401,14 @@ function createWorkspace(host, initialOptions) {
          setAttr(tab.el, "data-focused", focusedView === viewId ? "" : null);
          const closable = typeOf(viewId).closable !== false;
          setAttr(tab.close, "hidden", closable ? null : "");
@@ -258,7 +331,7 @@ index 101e9570f85e3c58ed50ba757cab4487578bbeff..3531bdb3c8b97d5c1151a1923a151bb2
            if (record.controller.state.title !== title) record.controller.update({ title });
          }
        }
-@@ -3301,7 +3388,7 @@ function createWorkspace(host, initialOptions) {
+@@ -3301,7 +3427,7 @@ function createWorkspace(host, initialOptions) {
      invalidate();
    }
    function sync() {
@@ -267,7 +340,7 @@ index 101e9570f85e3c58ed50ba757cab4487578bbeff..3531bdb3c8b97d5c1151a1923a151bb2
      const live2 = new Set(viewIds(doc));
      for (const v of lifted()?.views ?? []) live2.add(v);
      for (const l of leaving.values()) for (const v of l.panel.views) live2.add(v);
-@@ -3360,7 +3447,7 @@ function createWorkspace(host, initialOptions) {
+@@ -3360,7 +3486,7 @@ function createWorkspace(host, initialOptions) {
              role: "separator",
              tabindex: "0",
              "aria-orientation": node.axis === "x" ? "vertical" : "horizontal",
@@ -276,7 +349,7 @@ index 101e9570f85e3c58ed50ba757cab4487578bbeff..3531bdb3c8b97d5c1151a1923a151bb2
            });
            el2.dataset.split = node.id;
            el2.dataset.index = String(i);
-@@ -3660,8 +3747,8 @@ function createWorkspace(host, initialOptions) {
+@@ -3660,8 +3786,8 @@ function createWorkspace(host, initialOptions) {
          el.dataset.lines = lines;
        }
        const count = leafIds(e.node).length;
@@ -287,23 +360,23 @@ index 101e9570f85e3c58ed50ba757cab4487578bbeff..3531bdb3c8b97d5c1151a1923a151bb2
        const r = inset(toScreen(e.rect), pad());
        const onscreen = r.x < viewport.w && r.y < viewport.h && r.x + r.w > 0 && r.y + r.h > 0;
        setStyle(el, "display", onscreen ? "" : "none");
-@@ -3740,6 +3827,15 @@ function createWorkspace(host, initialOptions) {
+@@ -3740,6 +3866,15 @@ function createWorkspace(host, initialOptions) {
        setStyle(dom.el, "zIndex", String(z));
        setAttr(dom.el, "data-lifted", lifted()?.id === panelId ? "" : null);
        place(dom.el, r, round);
-+      if (onscreen) fitHeader(dom, panel, r.w);
 +      // Squeezed under its minimum by a divider's rubber band: Lattice CSS
 +      // lets the tabs shrink for the moment instead of scrolling.
 +      // The squeeze is shared by the file tabs (down from their minimum), or
 +      // by the named tabs when there are no others.
 +      const squeeze = elastic?.leaves.has(panelId) ? elastic.amount : 0;
 +      const loose = panel.views.filter((v) => !typeOf(v).singleton).length;
++      if (onscreen) fitHeader(dom, panel, r.w, loose ? squeeze : 0);
 +      setAttr(dom.el, "data-squeezed", !squeeze ? null : loose ? "" : "atomic");
 +      setStyle(dom.el, "--trellis-squeeze-tab", squeeze && loose ? `${squeeze / loose}px` : "");
        const float2 = doc.floating.find((f) => f.panel.id === panelId);
        const clip = float2?.layer === "stage" && sScreen && lifted()?.id !== panelId ? clipInset(r, sScreen) : "";
        setStyle(dom.el, "clipPath", clip);
-@@ -3866,7 +3962,7 @@ function createWorkspace(host, initialOptions) {
+@@ -3866,7 +4001,7 @@ function createWorkspace(host, initialOptions) {
      const min = minSizeOf(controller.id);
      const scaleAt = (r) => Math.max(min ? Math.min(1, r.w / Math.max(1, min.width), r.h / Math.max(1, min.height)) : 1, 0.05);
      const safe = scaleAt(body);
@@ -312,7 +385,7 @@ index 101e9570f85e3c58ed50ba757cab4487578bbeff..3531bdb3c8b97d5c1151a1923a151bb2
      setStyle(shell, "zIndex", String(z));
      setStyle(shell, "visibility", selected && !concealed ? "" : "hidden");
      setStyle(shell, "opacity", opacity === 1 ? "" : String(opacity));
-@@ -3922,7 +4018,8 @@ function createWorkspace(host, initialOptions) {
+@@ -3922,7 +4057,8 @@ function createWorkspace(host, initialOptions) {
      for (const el of dividerEls.values()) {
        const split = effectiveSplit(el.dataset.split);
        const e = split && entries.get(split.id);
@@ -322,7 +395,7 @@ index 101e9570f85e3c58ed50ba757cab4487578bbeff..3531bdb3c8b97d5c1151a1923a151bb2
          setStyle(el, "display", "none");
          continue;
        }
-@@ -4383,16 +4480,16 @@ function createWorkspace(host, initialOptions) {
+@@ -4383,16 +4519,16 @@ function createWorkspace(host, initialOptions) {
      if (navigationMode() && region !== "floating")
        items.push({
          id: "maximize",
@@ -342,7 +415,7 @@ index 101e9570f85e3c58ed50ba757cab4487578bbeff..3531bdb3c8b97d5c1151a1923a151bb2
          run: () => dock(
            panelId,
            findStage(doc.root) && allowed(panel.views, "stage") ? "stage" : { beside: doc.root?.id ?? "", edge: "right", share: 0.3 }
-@@ -4401,7 +4498,7 @@ function createWorkspace(host, initialOptions) {
+@@ -4401,7 +4537,7 @@ function createWorkspace(host, initialOptions) {
      } else if (floatingLayer() && allowed(panel.views, "floating")) {
        items.push({
          id: "float",
@@ -351,7 +424,7 @@ index 101e9570f85e3c58ed50ba757cab4487578bbeff..3531bdb3c8b97d5c1151a1923a151bb2
          run: () => floatingLayer() === "stage" ? toggleDock(panelId) : float(panelId)
        });
      }
-@@ -4421,19 +4518,19 @@ function createWorkspace(host, initialOptions) {
+@@ -4421,19 +4557,19 @@ function createWorkspace(host, initialOptions) {
        moves.push(
          {
            id: "split-right",
@@ -375,7 +448,7 @@ index 101e9570f85e3c58ed50ba757cab4487578bbeff..3531bdb3c8b97d5c1151a1923a151bb2
        run: () => hide(panelId, { toward: options.hideToward?.(panelId) ?? void 0 })
      });
      const closable = panel.views.filter((v) => typeOf(v).closable !== false);
-@@ -4442,14 +4539,14 @@ function createWorkspace(host, initialOptions) {
+@@ -4442,14 +4578,14 @@ function createWorkspace(host, initialOptions) {
        if (typeOf(panel.selected).closable !== false)
          items.push({
            id: "close",
@@ -392,7 +465,7 @@ index 101e9570f85e3c58ed50ba757cab4487578bbeff..3531bdb3c8b97d5c1151a1923a151bb2
            run: () => panel.views.filter((v) => v !== panel.selected).forEach((v) => void close(v))
          });
      }
-@@ -4625,11 +4722,130 @@ function createWorkspace(host, initialOptions) {
+@@ -4625,11 +4761,138 @@ function createWorkspace(host, initialOptions) {
    function announce(text) {
      live.textContent = text;
    }
@@ -420,7 +493,9 @@ index 101e9570f85e3c58ed50ba757cab4487578bbeff..3531bdb3c8b97d5c1151a1923a151bb2
 +  }
 +  // Lattice patch: measure a panel's header from the live DOM. Named tabs
 +  // (data-atomic) are measured with and without their label; other tabs count
-+  // at their CSS minimum. Returns false when the header is not laid out.
++  // at their CSS minimum; the action row in each of its states (Lattice CSS:
++  // data-tools on the bar, see HEADER_TOOLS). Returns false when the header
++  // is not laid out.
 +  function measureHeader(dom, panel) {
 +    // Not while squeezed by a divider's rubber band either: its tabs are
 +    // shrunk below their real sizes for the moment.
@@ -428,6 +503,11 @@ index 101e9570f85e3c58ed50ba757cab4487578bbeff..3531bdb3c8b97d5c1151a1923a151bb2
 +    const tabs = panel.views.map((viewId) => ({ viewId, tab: dom.tabs.get(viewId) }));
 +    if (tabs.some(({ tab }) => !tab)) return false;
 +    const atomic = tabs.filter(({ tab }) => tab.el.hasAttribute("data-atomic"));
++    // The tabs and the action row are read in their roomiest state.
++    const state = dom.tabbar.getAttribute("data-tools");
++    const tabMin = dom.tabbar.__trellis?.["--trellis-tab-min"] ?? "";
++    setAttr(dom.tabbar, "data-tools", null);
++    setStyle(dom.tabbar, "--trellis-tab-min", "");
 +    const before = atomic.map(({ tab }) => tab.el.hasAttribute("data-icon-only"));
 +    atomic.forEach(({ tab }) => setAttr(tab.el, "data-icon-only", null));
 +    const full = atomic.map(({ tab }) => tab.el.getBoundingClientRect().width);
@@ -436,36 +516,37 @@ index 101e9570f85e3c58ed50ba757cab4487578bbeff..3531bdb3c8b97d5c1151a1923a151bb2
 +    atomic.forEach(({ tab }, i) => setAttr(tab.el, "data-icon-only", before[i] ? "" : null));
 +    const list = getComputedStyle(dom.tablist);
 +    const padding = (parseFloat(list.paddingLeft) || 0) + (parseFloat(list.paddingRight) || 0);
-+    dom.header = {
-+      views: panel.views.join("\n"),
-+      // Everything in the bar but the tabs: actions, menu, gaps, paddings.
-+      chrome: dom.tabbar.getBoundingClientRect().width - dom.tablist.getBoundingClientRect().width + padding,
-+      gap: parseFloat(list.columnGap) || 0,
-+      items: tabs.map(({ viewId, tab }) => {
-+        const i = atomic.findIndex((a) => a.viewId === viewId);
-+        return i >= 0 ? { viewId, atomic: true, full: full[i], compact: compact[i] } : { viewId, atomic: false, min: parseFloat(getComputedStyle(tab.el).minWidth) || 0 };
-+      })
-+    };
++    const items = tabs.map(({ viewId, tab }) => {
++      const i = atomic.findIndex((a) => a.viewId === viewId);
++      if (i >= 0) return { viewId, atomic: true, full: full[i], compact: compact[i] };
++      // A tab's floor is the tab without its title (and the gap before it).
++      const style = getComputedStyle(tab.el);
++      const floor = tab.el.getBoundingClientRect().width - tab.title.getBoundingClientRect().width - (parseFloat(style.columnGap) || 0);
++      return { viewId, atomic: false, min: parseFloat(style.minWidth) || 0, floor: Math.ceil(floor) };
++    });
++    // Everything in the bar but the tabs (actions, menu, gaps, paddings), in
++    // each state of the action row.
++    const chrome = HEADER_TOOLS.map((tools) => {
++      setAttr(dom.tabbar, "data-tools", tools);
++      return dom.tabbar.getBoundingClientRect().width - dom.tablist.getBoundingClientRect().width + padding;
++    });
++    setAttr(dom.tabbar, "data-tools", state);
++    setStyle(dom.tabbar, "--trellis-tab-min", tabMin);
++    dom.header = { views: panel.views.join("\n"), chrome, gap: parseFloat(list.columnGap) || 0, items };
 +    dom.headerDirty = false;
 +    return true;
 +  }
-+  // Lattice patch: named tabs show their whole label or only their icon.
-+  // Labels appear in tab order as the panel widens (none, the first, both...),
-+  // with the other tabs at their minimum; the panel's minimum header is every
-+  // named tab as an icon. Runs per frame on cached measurements only.
-+  function fitHeader(dom, panel, width) {
++  // Lattice patch: fit a panel's header to the panel. Runs per frame on
++  // cached measurements only (see planHeader).
++  function fitHeader(dom, panel, width, squeeze) {
 +    if ((dom.headerDirty || dom.header?.views !== panel.views.join("\n")) && !measureHeader(dom, panel)) return;
-+    const { chrome, gap, items } = dom.header;
-+    const fixed = gap * Math.max(0, items.length - 1) + items.reduce((sum, item) => sum + (item.atomic ? 0 : item.min), 0);
-+    const atomic = items.filter((item) => item.atomic);
-+    const need = (k) => chrome + fixed + atomic.reduce((sum, item, i) => sum + (i < k ? item.full : item.compact), 0);
-+    let labelled = atomic.length;
-+    while (labelled > 0 && need(labelled) > width + 0.5) labelled--;
-+    atomic.forEach((item, i) => {
++    const { labelled, tools, tabMin, min } = planHeader(dom.header, width, squeeze);
++    setAttr(dom.tabbar, "data-tools", tools);
++    setStyle(dom.tabbar, "--trellis-tab-min", tabMin === null ? "" : `${tabMin}px`);
++    dom.header.items.filter((item) => item.atomic).forEach((item, i) => {
 +      const tab = dom.tabs.get(item.viewId);
 +      if (tab) setAttr(tab.el, "data-icon-only", i < labelled ? null : "");
 +    });
-+    const min = Math.min(480, need(0));
 +    if (dom.headerMin === void 0 || Math.abs(min - dom.headerMin) > 0.5) {
 +      dom.headerMin = min;
 +      entries = layoutDoc();
@@ -524,7 +605,7 @@ index 101e9570f85e3c58ed50ba757cab4487578bbeff..3531bdb3c8b97d5c1151a1923a151bb2
      };
    }
    function minFraction(split, index) {
-@@ -4644,47 +4860,126 @@ function createWorkspace(host, initialOptions) {
+@@ -4644,47 +4907,126 @@ function createWorkspace(host, initialOptions) {
      const node = entries.get(id)?.node;
      return node?.kind === "split" ? node : null;
    }
@@ -660,7 +741,7 @@ index 101e9570f85e3c58ed50ba757cab4487578bbeff..3531bdb3c8b97d5c1151a1923a151bb2
    function equalize(splitId, index) {
      const split = findNode(doc.root, splitId);
      if (!split) return;
-@@ -4794,7 +5089,10 @@ function createWorkspace(host, initialOptions) {
+@@ -4794,7 +5136,10 @@ function createWorkspace(host, initialOptions) {
        canGoBack: nav.canGoBack,
        canGoForward: nav.canGoForward,
        framings: nav.framings.list(),
@@ -672,7 +753,7 @@ index 101e9570f85e3c58ed50ba757cab4487578bbeff..3531bdb3c8b97d5c1151a1923a151bb2
      };
      return snapshot;
    }
-@@ -4902,7 +5200,7 @@ function createWorkspace(host, initialOptions) {
+@@ -4902,7 +5247,7 @@ function createWorkspace(host, initialOptions) {
        if (!surface) return false;
        return typeOf(surface.dataset.view).gestures !== "workspace";
      },
@@ -681,3 +762,11 @@ index 101e9570f85e3c58ed50ba757cab4487578bbeff..3531bdb3c8b97d5c1151a1923a151bb2
      schedule,
      render: () => render(),
      changed() {
+@@ -5047,6 +5392,7 @@ export {
+   formatCombo,
+   layout,
+   layoutRects,
++  planHeader,
+   sanitize
+ };
+ //# sourceMappingURL=index.js.map
