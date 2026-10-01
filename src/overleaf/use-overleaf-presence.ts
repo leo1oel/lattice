@@ -41,6 +41,13 @@ const DEBOUNCE_ALONE_MS = 5 * 60 * 1000;
 /** Comfortably inside the server's 15-minute expiry, so one missed tick never drops us. */
 const KEEPALIVE_MS = 4 * 60 * 1000;
 
+/**
+ * How long the roster outlives a dropped connection. Most drops are a blip
+ * the reconnect recovers from in a second or two, and clearing everyone at
+ * once makes the toolbar flicker on every one of them.
+ */
+const DISCONNECT_GRACE_MS = 15_000;
+
 /** One empty roster, so "nobody else is here" keeps a stable identity. */
 const NO_PEERS: PresenceUser[] = [];
 
@@ -52,6 +59,11 @@ function sendPosition(projectRoot: string, docId: string, caret: { row: number; 
 export type OverleafPresence = {
   /** Everyone else in the project. Our own entry is never in here. */
   peers: PresenceUser[];
+  /**
+   * The connection dropped and `peers` is what it said last: kept through a
+   * short grace period instead of vanishing, but no longer confirmed.
+   */
+  reconnecting: boolean;
   /** Publish where our caret is; debounced, and a no-op with no document live. */
   publish: (row: number, column: number) => void;
 };
@@ -66,9 +78,15 @@ export function useOverleafPresence(options: {
   /** Where our caret is right now, for the keepalive to re-publish without a fresh move. */
   readCaret: () => { row: number; column: number };
 }): OverleafPresence {
-  const [roster, setRoster] = useState<{ projectRoot: string | null; users: Map<string, PresenceUser> }>(
+  const [roster, setRoster] = useState<{ projectRoot: string | null; users: Map<string, PresenceUser>; stale?: boolean }>(
     { projectRoot: null, users: new Map() },
   );
+  const graceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const endGrace = () => {
+    if (graceTimer.current) clearTimeout(graceTimer.current);
+    graceTimer.current = null;
+  };
+  useEffect(() => endGrace, []);
 
   // The persistent listener below is registered once and outlives every prop
   // change, so it reads through a ref rather than closing over stale values.
@@ -95,7 +113,10 @@ export function useOverleafPresence(options: {
       const selfId = latest.current.selfId;
       if (selfId && user.id === selfId) return;
       setRoster((current) => {
-        const next = current.projectRoot === projectRoot ? new Map(current.users) : new Map<string, PresenceUser>();
+        // A roster still marked stale belongs to the connection that dropped;
+        // the first live word from the new one starts afresh.
+        const keep = current.projectRoot === projectRoot && !current.stale;
+        const next = keep ? new Map(current.users) : new Map<string, PresenceUser>();
         next.set(user.id, user);
         return { projectRoot, users: next };
       });
@@ -108,9 +129,17 @@ export function useOverleafPresence(options: {
         return { ...current, users: next };
       });
     } else if (payload.type === "disconnected") {
-      // A dropped socket takes everyone with it at once; a roster left over
-      // from before it dropped would claim people are here who are not.
-      setRoster({ projectRoot: null, users: new Map() });
+      // A dropped socket takes everyone with it at once, but most drops are
+      // over before anyone could notice. Keep the roster, marked unconfirmed,
+      // until the reconnect reseeds it — or until the grace period says the
+      // drop is real and a roster from before it would claim people are here
+      // who are not.
+      setRoster((current) => (current.projectRoot === projectRoot ? { ...current, stale: true } : current));
+      endGrace();
+      graceTimer.current = setTimeout(() => {
+        graceTimer.current = null;
+        setRoster((current) => (current.stale ? { projectRoot: null, users: new Map() } : current));
+      }, DISCONNECT_GRACE_MS);
     }
   }), []);
 
@@ -125,6 +154,7 @@ export function useOverleafPresence(options: {
     void invoke<PresenceUser[]>("overleaf_rt_connected_users", { projectRoot })
       .then((users) => {
         if (cancelled) return;
+        endGrace();
         setRoster({
           projectRoot,
           users: new Map(
@@ -189,5 +219,6 @@ export function useOverleafPresence(options: {
     [options.projectRoot, roster],
   );
 
-  return { peers, publish };
+  const reconnecting = Boolean(options.projectRoot && roster.projectRoot === options.projectRoot && roster.stale);
+  return { peers, reconnecting, publish };
 }

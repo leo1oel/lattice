@@ -801,12 +801,15 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
   const overleafActiveCursors = useMemo<PresenceCursor[]>(() => {
     const docId = overleafRealtime.docId;
     if (!docId || activePaper || activeAsset || overleafDocPaths.get(docId) !== activeFile) return [];
+    // Carets from before a dropped connection point at text that may since
+    // have moved; the avatars stay through the grace period, the carets do not.
+    if (overleafPresence.reconnecting) return [];
     return overleafPresence.peers
       .filter((peer): peer is PresenceUser & { row: number; column: number } => (
         peer.docId === docId && peer.row !== null && peer.column !== null
       ))
       .map(({ name, hue, row, column }) => ({ name: name || t`Anonymous`, hue, row, column }));
-  }, [activeAsset, activeFile, activePaper, overleafDocPaths, overleafPresence.peers, overleafRealtime.docId, t]);
+  }, [activeAsset, activeFile, activePaper, overleafDocPaths, overleafPresence.peers, overleafPresence.reconnecting, overleafRealtime.docId, t]);
 
   // Chat, comment threads and suggestions ride the linked project's channel.
   const overleafChannel = { enabled: overleafLink !== null, projectRoot: project?.root ?? null };

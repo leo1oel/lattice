@@ -351,6 +351,10 @@ msgstr "{warnings} 个警告"
 msgid "{warnings} warnings"
 msgstr "{warnings} 个警告"
 
+#: src/overleaf/overleaf-presence.tsx
+msgid "{where} (reconnecting…)"
+msgstr "{where}（正在重新连接…）"
+
 #: src/canvas/editor-status-bar.tsx
 msgid "{words} words · {chars} chars"
 msgstr "{words} 词 · {chars} 字符"
@@ -6064,6 +6068,10 @@ msgstr "正在重新编译…"
 #: src/overleaf/overleaf-connect.tsx
 msgid "Reconnect to Overleaf"
 msgstr "重新连接 Overleaf"
+
+#: src/overleaf/overleaf-presence.tsx
+msgid "Reconnecting to Overleaf — people last seen in this project"
+msgstr "正在重新连接 Overleaf — 最近在此项目中的成员"
 
 #: src/papers/bibliography-audit.tsx
 msgid "Record identity"

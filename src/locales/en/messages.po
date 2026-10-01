@@ -351,6 +351,10 @@ msgstr "{warnings} warning"
 msgid "{warnings} warnings"
 msgstr "{warnings} warnings"
 
+#: src/overleaf/overleaf-presence.tsx
+msgid "{where} (reconnecting…)"
+msgstr "{where} (reconnecting…)"
+
 #: src/canvas/editor-status-bar.tsx
 msgid "{words} words · {chars} chars"
 msgstr "{words} words · {chars} chars"
@@ -6064,6 +6068,10 @@ msgstr "Recompiling…"
 #: src/overleaf/overleaf-connect.tsx
 msgid "Reconnect to Overleaf"
 msgstr "Reconnect to Overleaf"
+
+#: src/overleaf/overleaf-presence.tsx
+msgid "Reconnecting to Overleaf — people last seen in this project"
+msgstr "Reconnecting to Overleaf — people last seen in this project"
 
 #: src/papers/bibliography-audit.tsx
 msgid "Record identity"

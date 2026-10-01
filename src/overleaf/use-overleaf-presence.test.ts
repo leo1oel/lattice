@@ -46,17 +46,44 @@ function mountPresence(overrides: Partial<Options> = {}) {
 const inProject = (payload: Record<string, unknown>, projectRoot = "/tmp/project") => emit({ projectRoot, ...payload });
 
 describe("useOverleafPresence roster", () => {
-  it.each([
-    ["removes someone once they leave", { type: "presenceLeft", id: "conn-2" }],
-    ["clears the roster once the channel reports disconnected", { type: "disconnected", reason: "network" }],
-  ])("seeds from connected_users, drops our own entry, and %s", async (_label, event) => {
+  it("seeds from connected_users, drops our own entry, and removes someone once they leave", async () => {
     const { result } = mountPresence();
     await flush();
     expect(invoke).toHaveBeenCalledWith("overleaf_rt_connected_users", { projectRoot: "/tmp/project" });
     expect(result.current.peers.map((entry) => entry.id)).toEqual(["conn-2"]);
 
-    inProject(event);
+    inProject({ type: "presenceLeft", id: "conn-2" });
     expect(result.current.peers).toHaveLength(0);
+  });
+
+  it("keeps the roster, marked reconnecting, through a short drop, and clears it once the drop outlasts the grace period", async () => {
+    vi.useFakeTimers();
+    try {
+      const { result, rerender } = mountPresence();
+      await flush();
+      inProject({ type: "disconnected", reason: "network" });
+      expect(result.current.peers.map((entry) => entry.id)).toEqual(["conn-2"]);
+      expect(result.current.reconnecting).toBe(true);
+
+      // Back within the grace period: the new connection reseeds the roster.
+      connectedUsers = [peer({ id: "conn-3", name: "Grace Hopper" }), peer({ id: "self-2" })];
+      rerender({ selfId: "self-2" });
+      await flush();
+      expect(result.current.peers.map((entry) => entry.id)).toEqual(["conn-3"]);
+      expect(result.current.reconnecting).toBe(false);
+      await act(async () => { vi.advanceTimersByTime(20_000); });
+      expect(result.current.peers.map((entry) => entry.id)).toEqual(["conn-3"]);
+
+      // A drop that does not recover clears everyone once the grace period ends.
+      inProject({ type: "disconnected", reason: "network" });
+      await act(async () => { vi.advanceTimersByTime(14_000); });
+      expect(result.current.peers).toHaveLength(1);
+      await act(async () => { vi.advanceTimersByTime(2_000); });
+      expect(result.current.peers).toHaveLength(0);
+      expect(result.current.reconnecting).toBe(false);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it.each(["presenceUpdated", "presenceLeft", "disconnected"])(
@@ -95,6 +122,15 @@ describe("useOverleafPresence roster", () => {
     inProject({ type: "presenceUpdated", user: peer({ docId: "document-A" }) }, "/project-A");
     expect(view.getAllByRole("button")).toHaveLength(1);
     expect(view.getByRole("button")).toHaveAttribute("title", "Ada Lovelace · document-B — click to jump there");
+    view.unmount();
+  });
+
+  it("shows collaborators from before a dropped connection faded, and says it is reconnecting", () => {
+    const view = render(createElement(OverleafPresenceAvatars, {
+      peers: [peer()], reconnecting: true, pathForDoc: () => "main.tex", onJump: () => {},
+    }));
+    expect(view.container.querySelector(".overleaf-presence-avatars.reconnecting")).not.toBeNull();
+    expect(view.getByRole("button")).toHaveAttribute("title", "Ada Lovelace · main.tex — click to jump there (reconnecting…)");
     view.unmount();
   });
 
