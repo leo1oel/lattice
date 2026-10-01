@@ -3065,10 +3065,6 @@ msgstr "已折叠的代码"
 msgid "Folded lines"
 msgstr "已折叠行"
 
-#: src/settings/settings-dialog.tsx
-msgid "Follow system (default)"
-msgstr "跟随系统（默认）"
-
 #: src/editor/markdown/engine/chrome/slash-items.ts
 msgid "Footnote"
 msgstr "脚注"
@@ -4363,6 +4359,10 @@ msgstr "Markdown 源码"
 #: src/project/project-replace-dialog.tsx
 msgid "Match case"
 msgstr "区分大小写"
+
+#: src/settings/settings-dialog.tsx
+msgid "Match system"
+msgstr "跟随系统"
 
 #: src/editor/latex/math-region.ts
 msgid "math"

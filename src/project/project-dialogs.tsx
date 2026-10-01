@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useLingui } from "@lingui/react/macro";
-import { Cloud, FileArchive, FileText, Folder, FolderOpen, Pencil, Plus, Settings, Sparkles } from "lucide-react";
+import { Cloud, FileArchive, FileText, Folder, FolderOpen, Pencil, Plus, Settings, Sparkles, Wrench } from "lucide-react";
 import { MorphIcon, MotionButton } from "../components/ui/motion";
 import { InfinityLoader } from "../components/ui/activity-icons";
 import { Button } from "../components/ui/button";
@@ -77,10 +77,10 @@ export function Welcome(props: {
           <button className="welcome-more-action" onClick={props.onImportZip}>
             <FileArchive size={15} /> {t`Import ZIP`}
           </button>
+          <button className="welcome-more-action" onClick={props.onInstallTex}>
+            <Wrench size={15} /> {t`Install LaTeX tools`}
+          </button>
         </div>
-        <Button size="compact" variant="ghost" className="welcome-tex-setup" onClick={props.onInstallTex}>
-          {t`Install LaTeX tools`}
-        </Button>
         {props.busyLabel && <p className="busy-label"><InfinityLoader size={15} /> {props.busyLabel}</p>}
       </div>
       {props.createOpen && (

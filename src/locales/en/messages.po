@@ -3065,10 +3065,6 @@ msgstr "folded code"
 msgid "Folded lines"
 msgstr "Folded lines"
 
-#: src/settings/settings-dialog.tsx
-msgid "Follow system (default)"
-msgstr "Follow system (default)"
-
 #: src/editor/markdown/engine/chrome/slash-items.ts
 msgid "Footnote"
 msgstr "Footnote"
@@ -4363,6 +4359,10 @@ msgstr "Markdown source"
 #: src/project/project-replace-dialog.tsx
 msgid "Match case"
 msgstr "Match case"
+
+#: src/settings/settings-dialog.tsx
+msgid "Match system"
+msgstr "Match system"
 
 #: src/editor/latex/math-region.ts
 msgid "math"

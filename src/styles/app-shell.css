@@ -248,15 +248,18 @@ input[type="search"]:focus-visible {
 .project-replace-hits { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-2); overflow: auto; max-height: min(46vh, 360px); }
 .project-replace-hit { width: 100%; text-align: left; border: 1px solid var(--border-subtle); border-radius: var(--radius-control); background: var(--surface-app); padding: var(--space-4) var(--space-5); display: flex; flex-direction: column; gap: var(--gap-tight); }
 .project-replace-hit:hover { border-color: var(--border-strong); }
-.project-replace-hit.active { border-color: var(--control-active); background: var(--control-active-soft); }
+.project-replace-hit.active { border-color: var(--control-active-border); background: var(--control-active-soft); }
 .project-find-hit-heading { display: flex; align-items: baseline; gap: var(--space-3); min-width: 0; }
 .project-find-result-type { flex: 0 0 auto; color: var(--text-secondary); font-size: var(--type-nano-size); font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }
 .project-find-hit-heading .project-replace-hit-path { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .project-replace-hit-path { color: var(--text-secondary); font-size: var(--type-micro-size); font-weight: 600; }
 .project-replace-hit-preview { color: var(--text-primary); font-size: var(--type-caption-size); font-family: var(--editor-font); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.project-find-results { flex: 1; min-height: 0; }
+/* Files and papers each take the height they need, and share the dialog only
+   when together they overflow it, so a short list is not followed by a gap. */
+.project-find-results { flex: 0 1 auto; min-height: 0; }
+.project-replace-hit-preview mark { border-radius: 2px; background: var(--highlight-match-surface); color: inherit; }
 .project-find .project-replace-hits { max-height: none; overflow: visible; padding-right: var(--space-5); }
-.project-find-papers { flex: 1; min-height: 0; margin-top: var(--space-5); display: flex; flex-direction: column; gap: var(--space-3); }
+.project-find-papers { flex: 0 1 auto; min-height: 0; margin-top: var(--space-5); display: flex; flex-direction: column; gap: var(--space-3); }
 .history-restore-file { margin-top: var(--space-4); height: 28px; border: 1px solid var(--border-subtle); border-radius: var(--radius-chrome); padding: 0 var(--space-4); background: transparent; color: var(--text-secondary); display: inline-flex; align-items: center; gap: var(--space-3); font-size: var(--type-micro-size); font-weight: 600; }
 .history-restore-file:hover { border-color: var(--control-active-border); background: var(--control-active-soft); color: var(--control-active); }
 
