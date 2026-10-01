@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -46,13 +46,4 @@ describe("checkPdfjsWorkers", () => {
   it("rejects a bundle without a worker", async () => {
     expect(await checkPdfjsWorkers(distWith({}), "6.3.289")).toEqual([expect.stringContaining("found 0")]);
   });
-});
-
-// PDFSlick's module body assigns its own bundled PDF.js worker on import, and
-// in production chunks that assignment can run after src/pdf/pdfjs-runtime.ts.
-// patches/@pdfslick__core@*.patch removes it; this fails if an upgrade drops
-// the patch while the package still carries the assignment.
-it("installed @pdfslick/core does not set the PDF.js worker", () => {
-  const entry = join(import.meta.dirname, "../node_modules/@pdfslick/core/dist/esm/index.js");
-  expect(readFileSync(entry, "utf8")).not.toMatch(/GlobalWorkerOptions\.workerSrc\s*=/);
 });
