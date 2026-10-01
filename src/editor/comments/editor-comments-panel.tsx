@@ -136,7 +136,18 @@ export function EditorCommentsPanel(props: {
 
               {editingId === comment.id ? (
                 <div className="pdf-mark-edit">
-                  <Textarea value={draft} rows={3} onChange={(event) => setDraft(event.target.value)} placeholder={t`Update comment…`} />
+                  <Textarea
+                    value={draft}
+                    rows={3}
+                    // Edit lands in the text, at its end, like Reply does.
+                    autoFocus
+                    onFocus={(event) => event.currentTarget.setSelectionRange(draft.length, draft.length)}
+                    onChange={(event) => setDraft(event.target.value)}
+                    placeholder={t`Update comment…`}
+                    onKeyDown={(event) => {
+                      if (event.key === "Escape") setEditingId(null);
+                    }}
+                  />
                   <div className="pdf-mark-actions">
                     <button
                       type="button"
