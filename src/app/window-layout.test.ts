@@ -66,10 +66,34 @@ describe("narrow pane chrome", () => {
     expect(css).toMatch(/\.pdf-history-controls \{[^}]*grid-template-columns: 24px 24px;/);
     expect(css).toMatch(/\.pdf-find-controls \.pdf-search \{[^}]*width: 100%; min-width: 0;/);
     expect(css).not.toMatch(/\.pdf-find-controls \{[^}]*grid-row:/);
-    expect(css).toMatch(/@container pdf-toolbar \(max-width: 640px\)[\s\S]*?\.pdf-zoom-step[^}]*display: none;/);
+  });
+
+  it("queries the toolbar's own width, never the whole PDF preview's", () => {
+    const sheet = new CSSStyleSheet();
+    sheet.replaceSync(readFileSync("src/pdf/pdf-viewer.css", "utf8"));
+    const rules = (list: CSSRuleList): CSSRule[] => Array.from(list).flatMap((rule) => [
+      rule, ...(rule instanceof CSSGroupingRule ? rules(rule.cssRules) : []),
+    ]);
+    const styleRules = rules(sheet.cssRules).filter((rule): rule is CSSStyleRule => rule instanceof CSSStyleRule);
+    const targets = (rule: CSSStyleRule, className: string) => rule.selectorText.split(",")
+      .some((selector) => new RegExp(`\\.${className}(?![\\w-])`).test(selector.trim().split(/[\s>+~]+/).pop() ?? ""));
+    const containment = (rule: CSSStyleRule) => {
+      const [name, type] = rule.style.getPropertyValue("container").split("/").map((part) => part.trim());
+      return {
+        name: rule.style.getPropertyValue("container-name") || name || "",
+        type: rule.style.getPropertyValue("container-type") || type || "",
+      };
+    };
+
     // Only the toolbar's frame is a size container: a container's width
     // change restyles everything inside it in WebKit, every PDF page included.
-    expect(css).toMatch(/\.pdf-toolbar-frame \{[^}]*container: pdf-toolbar \/ inline-size;/);
-    expect(css).not.toMatch(/\.pdf-preview \{[^}]*container/);
+    expect(styleRules.filter((rule) => targets(rule, "pdf-toolbar-frame")).map(containment))
+      .toContainEqual({ name: "pdf-toolbar", type: "inline-size" });
+    expect(styleRules.filter((rule) => targets(rule, "pdf-preview")).map(containment)
+      .filter(({ type }) => type && type !== "normal")).toEqual([]);
+    const narrowToolbar = rules(sheet.cssRules).filter((rule): rule is CSSContainerRule => rule instanceof CSSContainerRule
+      && rule.containerName === "pdf-toolbar" && rule.containerQuery === "(max-width: 640px)");
+    expect(narrowToolbar.flatMap((rule) => rules(rule.cssRules))
+      .some((rule) => rule instanceof CSSStyleRule && targets(rule, "pdf-zoom-step") && rule.style.display === "none")).toBe(true);
   });
 });

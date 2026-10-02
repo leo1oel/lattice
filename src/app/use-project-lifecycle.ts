@@ -34,7 +34,10 @@ const settleWithin = (work: Promise<unknown>) => Promise.race([
 export type ProjectLifecycleDeps = {
   projectState: ProjectState;
   documents: Pick<OpenDocuments, "claim" | "flush" | "save" | "hasUnsavedEdits" | "enter" | "chooseMode">;
-  library: Pick<ReturnType<typeof useProjectLibrary>, "claimBibliographyRefresh" | "applyBibliographyIndex" | "setPapers" | "setReferences">;
+  library: Pick<
+    ReturnType<typeof useProjectLibrary>,
+    "claimBibliographyRefresh" | "resetBibliographyIndex" | "applyBibliographyIndex" | "applyReferences" | "setPapers"
+  >;
   build: Pick<ReturnType<typeof useBuildPipeline>, "runBuild" | "resetForProject">;
   /** Forget the outgoing project's agent compile associations (and, on a switch, its queued build). */
   resetCompileTracking: (cancelQueuedBuild: boolean) => void;
@@ -79,7 +82,7 @@ export function useProjectLifecycle(deps: ProjectLifecycleDeps) {
     captureProjectScope,
   } = projectState;
   const { claim, flush, save, hasUnsavedEdits, enter: enterDocuments, chooseMode } = documents;
-  const { claimBibliographyRefresh, applyBibliographyIndex, setPapers, setReferences } = library;
+  const { claimBibliographyRefresh, resetBibliographyIndex, applyBibliographyIndex, applyReferences, setPapers } = library;
   const { runBuild, resetForProject } = build;
   const [busyLabel, setBusyLabel] = useState<string | null>(null);
   const [projectMenuOpen, setProjectMenuOpen] = useState(false);
@@ -178,6 +181,7 @@ export function useProjectLifecycle(deps: ProjectLifecycleDeps) {
       void runBuild(false, { immediatePreview: true });
     }
     const isLatestBibliography = claimBibliographyRefresh();
+    resetBibliographyIndex();
     const bibliographyIndex = requestBibliographyIndex();
     const nextPapers = await bibliographyIndex[0];
     if (!ownsProject()) return;
@@ -192,7 +196,7 @@ export function useProjectLifecycle(deps: ProjectLifecycleDeps) {
     void Promise.all(bibliographyIndex).then((index) => {
       if (!ownsProject()) return;
       if (isLatestBibliography()) applyBibliographyIndex(index);
-      else setReferences(index[3] ?? []);
+      else applyReferences(index[3]);
     }, () => undefined);
     if (!(await entry.restore(nextPapers))) return;
     await depsRef.current.scanProject();
@@ -201,9 +205,9 @@ export function useProjectLifecycle(deps: ProjectLifecycleDeps) {
     // whole window blank white with the UI still "mounted".
     if (shellRef.current) shellRef.current.style.opacity = "1";
   }, [
-    applyBibliographyIndex, beginProjectTransition, captureProjectScope, claimBibliographyRefresh, depsRef,
-    enterDocuments, projectBeforeTransitionRef, projectRef, rememberProject, resetForProject, runBuild, setPapers,
-    setProject, setReferences, shellRef,
+    applyBibliographyIndex, applyReferences, beginProjectTransition, captureProjectScope, claimBibliographyRefresh,
+    depsRef, enterDocuments, projectBeforeTransitionRef, projectRef, rememberProject, resetBibliographyIndex,
+    resetForProject, runBuild, setPapers, setProject, shellRef,
   ]);
   const enterProjectRef = useLatest(enterProject);
 

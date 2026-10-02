@@ -19,7 +19,7 @@ import {
 import type { TrackedChange } from "../overleaf/use-overleaf-realtime";
 import type { MarkdownWorkspaceIndex } from "../editor/markdown/markdown-workspace-index";
 import { restoreViewportAround } from "./viewport-restore";
-import { latexEditorExtensions, textEditorExtensions } from "../editor/latex/latex-editor";
+import { latexEditorExtensions, latexIndexChanged, textEditorExtensions } from "../editor/latex/latex-editor";
 import { latex } from "../editor/latex/latex-language";
 import { wrapEnvironment, wrapRange } from "../editor/latex/latex-edits";
 import { renameEnvironmentAt } from "../editor/latex/latex-environments";
@@ -170,6 +170,8 @@ export function DocumentCanvas(props: {
   citationKeys: string[];
   citations: CitationInfo[];
   references: ReferenceInfo[];
+  /** The project's citation and label index has not landed yet. */
+  indexPending?: boolean;
   unusedLabels: string[];
   unusedCitations: string[];
   onLoadReferenceImage: (path: string) => Promise<string | null>;
@@ -259,7 +261,7 @@ export function DocumentCanvas(props: {
   canOpenCitation: (key: string) => boolean;
 }) {
   const {
-    activeFile, buildDiagnostics,
+    activeFile, buildDiagnostics, indexPending,
     texlabDiagnostics, editorKey, editorKeymap, editorSpellcheck,
     katexMacros, onFindReferences, onGotoDefinition, onTexlabGoto, onGotoLineRequest,
     onOutlineNavigate, onOutlineOpenChange, onPrepareFigure, onPasteImageFile,
@@ -421,6 +423,10 @@ export function DocumentCanvas(props: {
   useEffect(() => {
     if (primaryViewRef.current) refreshLint(primaryViewRef.current);
   }, [buildDiagnostics, texlabDiagnostics]);
+
+  useEffect(() => {
+    primaryViewRef.current?.dispatch({ effects: latexIndexChanged.of(null) });
+  }, [indexPending]);
 
   useEffect(() => {
     const view = primaryViewRef.current;
