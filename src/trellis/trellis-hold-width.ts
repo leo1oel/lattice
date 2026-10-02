@@ -13,12 +13,17 @@
 
 /** The attribute that asks to keep the width while a drag is resizing panels. */
 export const HOLDS_WIDTH_ATTRIBUTE = "data-holds-width";
+/** Present while the width is held, so content can tell its pane's size from its own. */
+export const WIDTH_HELD_ATTRIBUTE = "data-width-held";
 
 /** Hold opted-in widths under `root` while Trellis marks it `data-resizing`; returns the disposer. */
 export function holdWidthsWhileResizing(root: HTMLElement): () => void {
   let held: Array<{ element: HTMLElement; width: string }> = [];
   const release = () => {
-    for (const { element, width } of held) element.style.width = width;
+    for (const { element, width } of held) {
+      element.style.width = width;
+      element.removeAttribute(WIDTH_HELD_ATTRIBUTE);
+    }
     held = [];
   };
   const update = () => {
@@ -30,6 +35,7 @@ export function holdWidthsWhileResizing(root: HTMLElement): () => void {
       held = elements.map((element) => ({ element, width: element.style.width }));
       elements.forEach((element, index) => {
         element.style.width = widths[index]!;
+        element.setAttribute(WIDTH_HELD_ATTRIBUTE, "");
       });
     } else if (!resizing && held.length) {
       release();

@@ -451,6 +451,26 @@ describe("sections (R-BLK-13, R-BLK-14)", () => {
     await waitFor(() => expect(screen.queryByRole("navigation", { name: "Document sections" })).toBeNull());
   });
 
+  it("keeps the rail as it is while a panel drag holds the surface's width, and settles on release", async () => {
+    const view = render(
+      <div className="editor-doc-scroll">
+        <LatticeVisualMarkdownEditor
+          text={"# Example paper\n\n## Introduction\nOpening context.\n\n## Results\nThe result."}
+          activePath="notes.md" onChangeMarkdown={() => true} onUndo={() => true} onRedo={() => true}
+        />
+      </div>,
+    );
+    await screen.findByRole("navigation", { name: "Document sections" });
+    const scroller = view.container.querySelector<HTMLElement>(".editor-doc-scroll")!;
+    Object.defineProperty(scroller, "clientWidth", { configurable: true, value: 320 });
+    // A divider drag holds the surface's width (trellis-hold-width.ts) while the pane narrows past the rail's minimum.
+    act(() => surface().setAttribute("data-width-held", ""));
+    await act(() => new Promise((resolve) => setTimeout(resolve, 50)));
+    expect(screen.getByRole("navigation", { name: "Document sections" })).toBeInTheDocument();
+    act(() => surface().removeAttribute("data-width-held"));
+    await waitFor(() => expect(screen.queryByRole("navigation", { name: "Document sections" })).toBeNull());
+  });
+
   it("gives repeated headings distinct ids in document order", () => {
     renderEditor("## Repeat\n\n### Repeat\n\n<Callout>\n## Repeat\n</Callout>");
     expect([...surface().querySelectorAll("h2, h3")].map((heading) => heading.id)).toEqual(["repeat", "repeat-1", "repeat-2"]);

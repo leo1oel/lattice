@@ -95,6 +95,7 @@ export function DocumentHeadingRail({ items: rawItems, virtualized = false, onSe
     const scroller = root?.closest<HTMLElement>(".editor-doc-scroll");
     if (!nav || !root || !scroller || items.length < 2) return;
 
+    let proseMirror: HTMLElement | null = null;
     let frame: number | null = null;
     let offsets: Array<{ id: string; top: number }> = [];
     const updateActive = () => {
@@ -119,7 +120,13 @@ export function DocumentHeadingRail({ items: rawItems, virtualized = false, onSe
         const target = targets.get(item.id);
         return target ? [{ id: item.id, top: target.getBoundingClientRect().top - viewportRect.top + scroller.scrollTop }] : [];
       });
-      setFitsViewport(scroller.clientWidth === 0 || scroller.clientWidth >= MIN_RAIL_VIEWPORT_WIDTH);
+      // While a panel divider drags, the surface keeps its width
+      // (trellis-hold-width.ts) and the rail stays as it is: showing or
+      // hiding it changes the surface's padding, which lays out every block
+      // placeholder again in the middle of the drag. It settles on release.
+      if (!proseMirror?.hasAttribute("data-width-held")) {
+        setFitsViewport(scroller.clientWidth === 0 || scroller.clientWidth >= MIN_RAIL_VIEWPORT_WIDTH);
+      }
       updateActive();
     };
     const scheduleMeasure = () => {
@@ -129,17 +136,28 @@ export function DocumentHeadingRail({ items: rawItems, virtualized = false, onSe
     const resizeObserver = new ResizeObserver(scheduleMeasure);
     resizeObserver.observe(scroller);
     resizeObserver.observe(root);
-    const proseMirror = root.querySelector<HTMLElement>(".ProseMirror");
     const mutationObserver = new MutationObserver(scheduleMeasure);
-    if (proseMirror) {
-      mutationObserver.observe(proseMirror, { attributes: true, attributeFilter: ["id"], characterData: true, childList: true, subtree: true });
-    }
+    const watchSurface = () => {
+      proseMirror = root.querySelector<HTMLElement>(".ProseMirror");
+      if (proseMirror) {
+        mutationObserver.observe(proseMirror, { attributes: true, attributeFilter: ["id", "data-width-held"], characterData: true, childList: true, subtree: true });
+      }
+      return proseMirror !== null;
+    };
+    // The editor can mount its surface after the rail has mounted.
+    const surfaceWatcher = new MutationObserver(() => {
+      if (!watchSurface()) return;
+      surfaceWatcher.disconnect();
+      scheduleMeasure();
+    });
+    if (!watchSurface()) surfaceWatcher.observe(root, { childList: true, subtree: true });
     scroller.addEventListener("scroll", onScroll, { passive: true });
     measure();
     return () => {
       if (frame != null) window.cancelAnimationFrame(frame);
       resizeObserver.disconnect();
       mutationObserver.disconnect();
+      surfaceWatcher.disconnect();
       scroller.removeEventListener("scroll", onScroll);
     };
   }, [items, virtualized]);

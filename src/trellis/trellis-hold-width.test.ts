@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { HOLDS_WIDTH_ATTRIBUTE, holdWidthsWhileResizing } from "./trellis-hold-width";
+import { HOLDS_WIDTH_ATTRIBUTE, WIDTH_HELD_ATTRIBUTE, holdWidthsWhileResizing } from "./trellis-hold-width";
 
 const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
 
@@ -30,11 +30,13 @@ describe("holdWidthsWhileResizing", () => {
     root.setAttribute("data-resizing", "x");
     await settle();
     expect(held.style.width).toBe("412px");
+    expect(held.hasAttribute(WIDTH_HELD_ATTRIBUTE)).toBe(true);
     expect(free.style.width).toBe("");
 
     root.removeAttribute("data-resizing");
     await settle();
     expect(held.style.width).toBe("50%");
+    expect(held.hasAttribute(WIDTH_HELD_ATTRIBUTE)).toBe(false);
     stop();
   });
 
