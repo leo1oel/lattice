@@ -8,11 +8,11 @@ import type { TrellisBridge, TrellisController } from "../trellis/trellis-contro
 import type { SearchDialog } from "./app-search-dialogs";
 import { setNotice } from "./notify";
 import type { BuildOutcome, useBuildPipeline } from "./use-build-pipeline";
-import type { useEditorComments } from "./use-editor-comments";
 import { documentKind, type OpenDocuments } from "./use-open-documents";
 import type { useProjectSearch } from "./use-project-search";
 import type { useReferenceImport } from "./use-reference-import";
 import type { useSynaraHost } from "./use-synara-host";
+import type { ToolDrawers } from "./use-tool-drawers";
 
 /** What the Trellis workspace reads from App: the open documents, the project, and the actions its panels call. */
 export type TrellisBridgeApp = {
@@ -24,21 +24,15 @@ export type TrellisBridgeApp = {
   lastBuild: BuildOutcome | null;
   building: boolean;
   buildPipeline: Pick<ReturnType<typeof useBuildPipeline>, "cleanAndRebuild" | "abortBuild">;
-  synara: Pick<ReturnType<typeof useSynaraHost>, "requestRuntime" | "mountFrame" | "notifyPanelOpened">;
-  editorComments: Pick<ReturnType<typeof useEditorComments>, "openPanel">;
-  referenceImport: Pick<ReturnType<typeof useReferenceImport>, "setLiteratureOpen" | "openBibEntry">;
+  synara: Pick<ReturnType<typeof useSynaraHost>, "mountFrame" | "notifyPanelOpened">;
+  tools: Pick<ToolDrawers, "open">;
+  referenceImport: Pick<ReturnType<typeof useReferenceImport>, "openBibEntry">;
   projectSearch: Pick<ReturnType<typeof useProjectSearch>, "openFind">;
   compile: (force?: boolean, sound?: boolean) => Promise<void>;
   compileAndShowPdf: (force?: boolean, sound?: boolean) => Promise<void>;
   revealSourceInPdf: () => Promise<void>;
   openSettings: (tab?: SettingsTab) => void;
-  openLiterature: (open: SetStateAction<boolean>) => void;
-  refreshTodos: () => Promise<void>;
   setSearchDialog: Dispatch<SetStateAction<SearchDialog | null>>;
-  setHistoryOpen: Dispatch<SetStateAction<boolean>>;
-  setGitOpen: Dispatch<SetStateAction<boolean>>;
-  setTodosOpen: Dispatch<SetStateAction<boolean>>;
-  setChecklistOpen: Dispatch<SetStateAction<boolean>>;
   setProjectSearchOpen: Dispatch<SetStateAction<boolean>>;
   setBibliographyAuditRoot: Dispatch<SetStateAction<string | null>>;
   setBibliographyAuditOpen: Dispatch<SetStateAction<boolean>>;
@@ -55,9 +49,8 @@ export function useTrellisBridge(app: TrellisBridgeApp) {
   const { t } = useLingui();
   const {
     trellis, project, projectRef, papers, documents, lastBuild, building, buildPipeline,
-    synara, editorComments, referenceImport, projectSearch, compile, compileAndShowPdf, revealSourceInPdf,
-    openSettings, openLiterature, refreshTodos, setSearchDialog, setHistoryOpen, setGitOpen, setTodosOpen,
-    setChecklistOpen, setProjectSearchOpen, setBibliographyAuditRoot, setBibliographyAuditOpen,
+    synara, tools, referenceImport, projectSearch, compile, compileAndShowPdf, revealSourceInPdf,
+    openSettings, setSearchDialog, setProjectSearchOpen, setBibliographyAuditRoot, setBibliographyAuditOpen,
     setSpreadsheetCreateRequest, setBoardCreateRequest, setPresentationCreateRequest,
   } = app;
   const {
@@ -88,22 +81,7 @@ export function useTrellisBridge(app: TrellisBridgeApp) {
         }
       },
       textScrollTop: (path) => documents.viewStates.get(path)?.text?.scrollTop ?? null,
-      openTool: (kind) => {
-        if (trellis.openDrawers.get()[kind]) {
-          trellis.revealTool(kind);
-          return;
-        }
-        if (kind === "history") setHistoryOpen(true);
-        else if (kind === "git") {
-          synara.requestRuntime();
-          setGitOpen(true);
-        } else if (kind === "comments" || kind === "overleaf") editorComments.openPanel();
-        else if (kind === "literature") referenceImport.setLiteratureOpen(true);
-        else if (kind === "todos") {
-          void refreshTodos();
-          setTodosOpen(true);
-        } else setChecklistOpen(true);
-      },
+      openTool: (kind) => tools.open(kind),
       agentShown: () => {
         synara.mountFrame();
         synara.notifyPanelOpened();
@@ -120,7 +98,7 @@ export function useTrellisBridge(app: TrellisBridgeApp) {
         }
         if (kind === "papers") {
           return [
-            { id: "discover", label: t`Discover literature`, run: () => openLiterature(true) },
+            { id: "discover", label: t`Discover literature`, run: () => tools.open("literature") },
             { id: "bib-entry", label: t`Add bibliography entry`, run: () => referenceImport.openBibEntry() },
             {
               id: "check-references", label: t`Check references`, run: () => {

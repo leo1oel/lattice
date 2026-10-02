@@ -45,6 +45,7 @@ import {
 import { useLatest, useRefState } from "./app/effect-helpers";
 import { useOverleafWorkspace } from "./app/use-overleaf-workspace";
 import { useAppCommands, type AppCommand } from "./app/use-app-commands";
+import { useToolDrawers } from "./app/use-tool-drawers";
 import { useTrellisBridge } from "./app/use-trellis-bridge";
 import { writeOpenSlideMutation } from "./app/open-slide-writes";
 import { AppOverleafCollabDrawer } from "./app/app-overleaf-drawer";
@@ -54,7 +55,7 @@ import { AppProjectDialogs, TexSetupDialogs } from "./app/app-project-dialogs";
 import { AppProjectSearchDialogs, AppSearchDialogs, type SearchDialog } from "./app/app-search-dialogs";
 import { AppTitlebar } from "./app/app-titlebar";
 import { PanelActions } from "./trellis/trellis-panel-actions";
-import { TrellisController, TrellisControllerContext, useTrellisUi, type TrellisToolKind } from "./trellis/trellis-controller";
+import { TrellisController, TrellisControllerContext, useTrellisUi } from "./trellis/trellis-controller";
 import { TrellisTitlebar } from "./trellis/trellis-titlebar";
 import { PANEL_TITLES, spaceMixedScript } from "./trellis/trellis-titles";
 import { CanvasToolbar } from "./canvas/canvas-toolbar";
@@ -66,7 +67,7 @@ import type {
 import { InfinityLoader } from "./components/ui/activity-icons";
 import { OverleafPresenceAvatars } from "./overleaf/overleaf-presence";
 import { ReferencesPanel, type SymbolOccurrence } from "./project/references-panel";
-import { persistSynaraThread, type AgentTurnReview } from "./app/app-synara-embed";
+import { persistSynaraThread } from "./app/app-synara-embed";
 import {
   type BuildPreferences,
   BUILD_PREFERENCES_KEY,
@@ -113,9 +114,6 @@ import {
   resolveKnownWholeFileProjectPath,
   toMessage,
 } from "./app-utils";
-import {
-  type AgentGitWorkspaceView,
-} from "./agent/synara-runtime";
 import { logAction } from "./telemetry/app-notify";
 // setError / setWarning / setNotice are the ~170-call-site toast shims; they
 // live beside the hooks extracted out of this file so both can use them.
@@ -318,16 +316,8 @@ function App() {
   }, [updateCanvasRequest]);
   const [pdfPageCount, setPdfPageCount] = useState<number | null>(null);
   const [pdfPageNumber, setPdfPageNumber] = useState(1);
-  const [checklistOpen, setChecklistOpen] = useState(false);
   const [paperFetchStates, setPaperFetchStates] = useState<Record<string, "loading" | "success">>({});
   const paperFetchTimers = useRef<Record<string, number>>({});
-  const [historyOpen, setHistoryOpen] = useState(false);
-  const [gitOpen, setGitOpen] = useState(false);
-  const [gitWorkspaceView, setGitWorkspaceView] =
-    useState<AgentGitWorkspaceView>("changes");
-  // Pinned turn review: see HistoryDrawersState.
-  const [agentTurnReview, setAgentTurnReview] = useState<AgentTurnReview | null>(null);
-  const [todosOpen, setTodosOpen] = useState(false);
   const editorCommentAuthorId = useMemo(() => loadEditorCommentAuthorId(), []);
   const [authorNameSetting, setAuthorNameSetting] = useState(loadAuthorNameSetting);
   // The writer's name as Git and the Overleaf session know it, which sign
@@ -388,10 +378,7 @@ function App() {
       },
       openProjectPath: (path) => openMarkdownProjectPathRef.current(path),
       openReview: (turn) => {
-        if (turn) setAgentTurnReview({ ...turn, filePath: null });
-        else setGitWorkspaceView("changes");
-        setGitOpen(true);
-        trellis.revealOpenTool("git");
+        tools.open("git", turn ? { turnReview: { ...turn, filePath: null } } : { gitView: "changes" });
       },
       clearSelection: () => agentContext.dismissSelection(),
       flushVisualMarkdown: () => {
@@ -403,10 +390,7 @@ function App() {
       onMinimumWidth: (width) => trellis.ui.set({ agentMinWidth: width }),
     },
   });
-  const {
-    origin: synaraOrigin, sourceControlFrameRef: synaraSourceControlFrameRef, postMessage: postSynaraMessage,
-    requestRuntime: requestSynaraRuntime,
-  } = synara;
+  const { origin: synaraOrigin, postMessage: postSynaraMessage, requestRuntime: requestSynaraRuntime } = synara;
   const autoBuildModeRef = useLatest(buildPreferences.autoBuildMode);
   const agentCheckpoints = useAgentCheckpoints({
     project,
@@ -478,22 +462,6 @@ function App() {
     };
   }, [project?.root, settingsOpen]);
   const [settingsTab, setSettingsTab] = useState<SettingsTab>(loadSettingsTab);
-  useEffect(() => {
-    if (!synaraOrigin || !gitOpen) return;
-    const closeSourceControl = (event: MessageEvent) => {
-      if (
-        event.source !== synaraSourceControlFrameRef.current?.contentWindow ||
-        event.origin !== synaraOrigin ||
-        event.data?.type !== "lattice:close-source-control"
-      ) {
-        return;
-      }
-      setGitOpen(false);
-    };
-    window.addEventListener("message", closeSourceControl);
-    return () => window.removeEventListener("message", closeSourceControl);
-  }, [gitOpen, synaraOrigin, synaraSourceControlFrameRef]);
-
   const projectGit = useProjectTreeWatch(projectState, true);
   const { setGitStatus } = projectGit;
   const { theme, themePreference, setThemePreference, appearance, setAppearance } = useAppearance();
@@ -611,14 +579,6 @@ function App() {
     agentOptionsRef: agentCommentsOptionsRef,
   });
   const { reset: resetEditorComments, load: loadEditorComments } = editorComments;
-  // Under Trellis an open drawer is a panel: asking for it again brings that
-  // panel forward (un-hidden, its tab selected, zoomed to) instead of doing nothing.
-  const revealOpenTool = (kind: TrellisToolKind) => trellis.revealOpenTool(kind);
-  const commentsToolKind: TrellisToolKind = overleafLink ? "overleaf" : "comments";
-  const openEditorComments = () => {
-    editorComments.openPanel();
-    revealOpenTool(commentsToolKind);
-  };
 
   const openCompileDiagnostic = useCallback(async (diagnostic: CompileDiagnostic) => {
     if (!project) return;
@@ -682,11 +642,8 @@ function App() {
     resetProjectUi: () => {
       resetAgentSelection();
       resetEditorComments();
-      // A pinned turn review belongs to the outgoing project's thread; keeping
-      // it would bind the drawer to a foreign thread after the switch.
-      setAgentTurnReview(null);
+      tools.resetForProject();
       setDiskTodos([]);
-      setTodosOpen(false);
     },
     scanProject: async () => {
       await refreshUnusedSymbols();
@@ -695,7 +652,7 @@ function App() {
       await loadTodos();
       await loadWordCount();
       setPdfPageCount(null);
-      setChecklistOpen(false);
+      tools.close("checklist");
     },
     shellRef, browserHosted,
   });
@@ -742,11 +699,11 @@ function App() {
     },
     onCite: (key) => insertCitation(key, "cite"),
   });
-  const { setLiteratureOpen: setLiteratureDrawerOpen } = referenceImport;
-  const openLiterature = useCallback((open: SetStateAction<boolean>) => {
-    setLiteratureDrawerOpen(open);
-    if (open === true) trellis.revealOpenTool("literature");
-  }, [setLiteratureDrawerOpen, trellis]);
+  const tools = useToolDrawers({
+    trellis, synara, comments: editorComments, references: referenceImport,
+    commentsKind: overleafLink ? "overleaf" : "comments",
+    refreshTodos, refreshWordCount,
+  });
   const { clearStage: clearImportStage } = referenceImport;
 
   const fetchAndOpenPaper = useCallback(async (paper: PaperSummary) => {
@@ -1250,29 +1207,20 @@ function App() {
     { id: "cite", label: t`Insert citation`, detail: "⌘⇧K", group: t`Edit`, key: "k", shift: true, run: () => setSearchDialog("cite") },
     { id: "ref", label: t`Insert reference`, detail: "⌘⇧L", group: t`Edit`, key: "l", shift: true, run: () => setSearchDialog("ref") },
     { id: "bib", label: t`Add bibliography entry`, group: t`Edit`, run: () => referenceImport.openBibEntry() },
-    { id: "discover", label: t`Discover literature`, detail: t`OpenAlex search`, group: t`Research`, run: () => openLiterature(true) },
+    { id: "discover", label: t`Discover literature`, detail: t`OpenAlex search`, group: t`Research`, run: () => tools.open("literature") },
     { id: "find", label: t`Find in project`, detail: t`⌘⇧F · source files and papers`, group: t`Edit`, key: "f", shift: true, run: openProjectFind },
     { id: "replace", label: t`Replace in project`, detail: t`⌘⇧H · all source files`, group: t`Edit`, key: "h", shift: true, run: openProjectReplace },
     {
       id: "todos", label: t`Manuscript TODOs`, detail: todoCount === 0 ? t`No markers` : todoCount === 1 ? t`${todoCount} marker` : t`${todoCount} markers`, group: t`Edit`,
-      run: () => {
-        void refreshTodos();
-        setTodosOpen(true);
-        revealOpenTool("todos");
-      },
+      run: () => tools.open("todos"),
     },
     {
       id: "checklist", label: t`Submission checklist`, detail: t`Words / pages / TODOs`, group: t`Edit`,
-      run: () => {
-        void refreshTodos();
-        void refreshWordCount();
-        setChecklistOpen(true);
-        revealOpenTool("checklist");
-      },
+      run: () => tools.open("checklist"),
     },
     { id: "paste-image", label: t`Paste clipboard image as figure`, group: t`Edit`, run: () => void tree.pasteClipboardImage() },
     { id: "format", label: t`Format document`, detail: "latexindent", group: t`Edit`, run: formatFocusedDocument },
-    { id: "history", label: t`Open project history`, group: t`Project`, run: () => { setHistoryOpen(true); revealOpenTool("history"); } },
+    { id: "history", label: t`Open project history`, group: t`Project`, run: () => tools.open("history") },
     { id: "export-zip", label: t`Export project ZIP`, detail: t`Overleaf / arXiv source pack`, group: t`Project`, run: () => void exportProjectZip() },
     {
       id: "tutorial", label: t`Open guided tutorial`, group: t`Project`, run: () => void openTutorialProject(),
@@ -1293,9 +1241,8 @@ function App() {
   // workspace reads App through this bridge (at event time) and the store below.
   useTrellisBridge({
     trellis, project, projectRef, papers, documents, lastBuild: buildOutcome, building, buildPipeline,
-    synara, editorComments, referenceImport, projectSearch, compile, compileAndShowPdf, revealSourceInPdf,
-    openSettings, openLiterature, refreshTodos, setSearchDialog, setHistoryOpen, setGitOpen, setTodosOpen,
-    setChecklistOpen, setProjectSearchOpen, setBibliographyAuditRoot, setBibliographyAuditOpen,
+    synara, tools, referenceImport, projectSearch, compile, compileAndShowPdf, revealSourceInPdf,
+    openSettings, setSearchDialog, setProjectSearchOpen, setBibliographyAuditRoot, setBibliographyAuditOpen,
     setSpreadsheetCreateRequest, setBoardCreateRequest, setPresentationCreateRequest,
   });
   // Panel action rows (Trellis tab-bar accessories): memoized, because App
@@ -1313,7 +1260,7 @@ function App() {
           setBibliographyAuditRoot(root);
           setBibliographyAuditOpen(true);
         }}
-        setLiteratureOpen={openLiterature}
+        onDiscoverLiterature={() => tools.open("literature")}
         openProjectFind={projectSearch.openFind}
         setProjectSearchOpen={setProjectSearchOpen}
         setBoardCreateRequest={setBoardCreateRequest}
@@ -1325,7 +1272,7 @@ function App() {
     // `synara` is rebuilt each render; the row reads only the fields listed.
   }, [
     autoModeAvailable, changePermissionMode, permissionMode, projectRef, projectSearch.openFind,
-    openLiterature, referenceImport.openBibEntry, synaraOrigin,
+    referenceImport.openBibEntry, synaraOrigin, tools,
   ]);
   // The navigators' callbacks are mostly inline, so they change on every App
   // render. The memoized Navigator gets stable forwarders instead, which call
@@ -1578,22 +1525,15 @@ function App() {
       commentAuthorName={authorName.trim() || "Anonymous"}
       commentAuthorId={editorCommentAuthorId}
       onCreateEditorComment={editorComments.create}
-      onOpenEditorComments={openEditorComments}
+      onOpenEditorComments={() => tools.open("comments")}
       onResolveEditorComment={editorComments.toggleResolved}
-      onReplyEditorComment={(commentId) => {
-        editorComments.openReply(commentId);
-        revealOpenTool(commentsToolKind);
-      }}
+      onReplyEditorComment={(commentId) => tools.open("comments", { replyTo: commentId })}
       commentFocusRequest={editorComments.focusRequest}
       onCommentFocusHandled={(nonce) => {
         editorComments.setFocusRequest((current) => (current?.nonce === nonce ? null : current));
       }}
       todoCount={todoHits.length}
-      onOpenTodos={() => {
-        void refreshTodos();
-        setTodosOpen(true);
-        revealOpenTool("todos");
-      }}
+      onOpenTodos={() => tools.open("todos")}
       projectWordCount={projectWordCount}
       onPdfPageCount={setPdfPageCount}
       onPdfPageChange={setPdfPageNumber}
@@ -1653,17 +1593,10 @@ function App() {
           dirty={documents.dirty}
           // The tour points these controls out rather than opening them, so
           // their panels stay shut while it runs.
-          onHistory={() => {
-            setHistoryOpen(true);
-            revealOpenTool("history");
-          }}
-          onGit={() => {
-            synara.requestRuntime();
-            setGitOpen(true);
-            revealOpenTool("git");
-          }}
+          onHistory={() => tools.open("history")}
+          onGit={() => tools.open("git")}
           commentCount={editorComments.all.filter((comment) => !comment.resolved).length}
-          onComments={openEditorComments}
+          onComments={() => tools.open("comments")}
           inBrowserTab={inBrowserTab}
           onMoveWorkspace={() => void moveWorkspace()}
           hiddenTools={appearance.hiddenTitlebarTools}
@@ -1695,7 +1628,7 @@ function App() {
             + editorComments.comments.filter((comment) => !comment.resolved).length
           }
           onOverleafChat={() => {
-            openEditorComments();
+            tools.open("comments");
             void overleafChat.refresh();
           }}
         />
@@ -1755,10 +1688,7 @@ function App() {
 
 
       <AppHistoryDrawers
-        drawers={{
-          historyOpen, setHistoryOpen, gitOpen, setGitOpen, gitWorkspaceView, setGitWorkspaceView,
-          agentTurnReview, setAgentTurnReview,
-        }}
+        tools={tools}
         synara={synara}
         project={project}
         activeFile={activeFile}
@@ -1800,19 +1730,15 @@ function App() {
         activeFile={activeFile}
         activeFileRef={activeFileRef}
         build={build}
-        checklistOpen={checklistOpen}
         editorCommentAuthorId={editorCommentAuthorId}
         mainBodyPages={mainBodyPages}
         openProjectFile={openFile}
         pdfPageCount={pdfPageCount}
         project={project}
         projectWordCount={projectWordCount}
-        refreshTodos={refreshTodos}
-        setChecklistOpen={setChecklistOpen}
         setProject={setProject}
-        setTodosOpen={setTodosOpen}
+        tools={tools}
         todoHits={todoHits}
-        todosOpen={todosOpen}
         unusedSymbols={unusedSymbols}
       />
 

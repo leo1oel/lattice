@@ -11,7 +11,7 @@
  * alone: a `null` fallback shared with the Git drawer would unmount an open
  * Git workspace while the history chunk loads.
  */
-import { lazy, Suspense, type Dispatch, type SetStateAction } from "react";
+import { lazy, Suspense } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
@@ -21,14 +21,11 @@ import { SlidingTabs } from "../components/ui/motion";
 import { ResizableDrawer } from "../components/ui/resizable-drawer";
 import { SynaraLoadingSurface } from "../agent/synara-loading-surface";
 import { LATTICE_RESTORE_AGENT_CHECKPOINT, type AgentGitWorkspaceView } from "../agent/synara-runtime";
-import {
-  synaraSourceControlUrl,
-  synaraTurnReviewUrl,
-  type AgentTurnReview,
-} from "./app-synara-embed";
+import { synaraSourceControlUrl, synaraTurnReviewUrl } from "./app-synara-embed";
 import { setError } from "./notify";
 import { githubRepositoryUrl } from "./git-repository-url";
 import type { useSynaraHost } from "./use-synara-host";
+import type { ToolDrawers } from "./use-tool-drawers";
 import { confirmAction, toMessage } from "../app-utils";
 import { type AppLocale, type Theme } from "../settings/app-settings";
 import { type HistoryItem } from "../history/history-drawer";
@@ -48,28 +45,10 @@ async function afterConfirming(question: string, change: () => Promise<void>) {
   }
 }
 
-/** Which drawer is open, and which Git view (or pinned agent turn) it shows. */
-export type HistoryDrawersState = {
-  historyOpen: boolean;
-  setHistoryOpen: Dispatch<SetStateAction<boolean>>;
-  gitOpen: boolean;
-  setGitOpen: Dispatch<SetStateAction<boolean>>;
-  gitWorkspaceView: AgentGitWorkspaceView;
-  setGitWorkspaceView: Dispatch<SetStateAction<AgentGitWorkspaceView>>;
-  /**
-   * Non-null while the drawer is pinned to one agent turn's checkpoint diff.
-   * Kept separate from gitWorkspaceView: the review needs a thread + turn to
-   * mean anything, so the tab only exists while a request is present, and
-   * switching to Changes / Pull requests drops back to the working tree.
-   */
-  agentTurnReview: AgentTurnReview | null;
-  setAgentTurnReview: Dispatch<SetStateAction<AgentTurnReview | null>>;
-};
-
-export function AppHistoryDrawers({ drawers, synara: {
+export function AppHistoryDrawers({ tools, synara: {
   postMessage, sourceControlFrameRef, origin: synaraOrigin, runtime: synaraRuntime, retry: retrySynaraRuntime,
 }, project, activeFile, ...props }: {
-  drawers: HistoryDrawersState;
+  tools: Pick<ToolDrawers, "isOpen" | "close" | "gitView" | "turnReview" | "showGitView">;
   synara: Pick<ReturnType<typeof useSynaraHost>, "postMessage" | "sourceControlFrameRef" | "origin" | "runtime" | "retry">;
   project: ProjectSnapshot;
   activeFile: string;
@@ -86,7 +65,7 @@ export function AppHistoryDrawers({ drawers, synara: {
   runOverleafSync: (options?: { auto?: boolean; }) => Promise<void>;
 }) {
   const { t } = useLingui();
-  const { agentTurnReview, gitWorkspaceView, setGitOpen } = drawers;
+  const { turnReview: agentTurnReview, gitView: gitWorkspaceView } = tools;
   const repositoryUrl = githubRepositoryUrl(props.gitRemoteUrl);
   const frame = synaraOrigin ? {
     origin: synaraOrigin,
@@ -105,10 +84,10 @@ export function AppHistoryDrawers({ drawers, synara: {
   return (
     <>
       <Suspense fallback={null}>
-      {drawers.historyOpen && (
+      {tools.isOpen.history && (
         <HistoryDrawer
           history={props.projectHistory}
-          onClose={() => drawers.setHistoryOpen(false)}
+          onClose={() => tools.close("history")}
           onVersionsChanged={reloadAfterRestore}
           onRevert={(item) => {
             if (
@@ -152,19 +131,18 @@ export function AppHistoryDrawers({ drawers, synara: {
         />
       )}
       </Suspense>
-      {drawers.gitOpen && project ? (
+      {tools.isOpen.git && project ? (
         <ResizableDrawer
           className="git-drawer synara-source-control-drawer"
           dataTour="git-panel"
-          onClose={() => setGitOpen(false)}
+          onClose={() => tools.close("git")}
         >
           <div className="agent-git-workspace-header">
             <SlidingTabs
               value={agentTurnReview ? "agent-turn" : gitWorkspaceView}
               onChange={(value) => {
                 if (value === "agent-turn") return;
-                drawers.setAgentTurnReview(null);
-                drawers.setGitWorkspaceView(value as AgentGitWorkspaceView);
+                tools.showGitView(value as AgentGitWorkspaceView);
               }}
               ariaLabel={t`Git workspace`}
               variant="none"
@@ -195,7 +173,7 @@ export function AppHistoryDrawers({ drawers, synara: {
                 type="button"
                 className="agent-git-workspace-close"
                 aria-label={t`Close Git workspace`}
-                onClick={() => setGitOpen(false)}
+                onClick={() => tools.close("git")}
               >
                 <X size={14} />
               </button>

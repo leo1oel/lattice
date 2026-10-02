@@ -16,6 +16,7 @@ import { toMessage } from "../app-utils";
 import { setError } from "./notify";
 import { notifyInfo } from "../telemetry/app-notify";
 import type { EditorComments } from "./use-editor-comments";
+import type { ToolDrawers } from "./use-tool-drawers";
 import type {
   BuildResult,
   OpenProjectFile,
@@ -36,23 +37,19 @@ export function AppEditorPanels({ comments, renderCommentsSurface, ...props }: {
   activeFile: string;
   activeFileRef: RefObject<string>;
   build: BuildResult | null;
-  checklistOpen: boolean;
   editorCommentAuthorId: string;
   mainBodyPages: number | null;
   openProjectFile: OpenProjectFile;
   pdfPageCount: number | null;
   project: ProjectSnapshot;
   projectWordCount: WordCount | null;
-  refreshTodos: () => Promise<void>;
-  setChecklistOpen: Dispatch<SetStateAction<boolean>>;
   setProject: Dispatch<SetStateAction<ProjectSnapshot | null>>;
-  setTodosOpen: Dispatch<SetStateAction<boolean>>;
   todoHits: TodoHit[];
-  todosOpen: boolean;
+  tools: Pick<ToolDrawers, "isOpen" | "open" | "close">;
   unusedSymbols: UnusedSymbols;
 }) {
   const { t } = useLingui();
-  const { openProjectFile, project, setChecklistOpen, setTodosOpen, todoHits, unusedSymbols } = props;
+  const { openProjectFile, project, todoHits, tools, unusedSymbols } = props;
   const { openGenerationRef, setActiveId } = comments;
   const commentsPanel = (
     <EditorCommentsPanel
@@ -97,17 +94,17 @@ export function AppEditorPanels({ comments, renderCommentsSurface, ...props }: {
       <Suspense fallback={null}>
         {renderCommentsSurface ? renderCommentsSurface(commentsPanel) : comments.panelOpen && commentsPanel}
       </Suspense>
-      {props.todosOpen && (
+      {tools.isOpen.todos && (
         <TodoScavengerPanel
           hits={todoHits}
-          onClose={() => setTodosOpen(false)}
+          onClose={() => tools.close("todos")}
           onOpen={(path, line) => {
             void openProjectFile(path, { line });
-            setTodosOpen(false);
+            tools.close("todos");
           }}
         />
       )}
-      {props.checklistOpen && project && (
+      {tools.isOpen.checklist && project && (
         <ManuscriptChecklistPanel
           data={{
             words: props.projectWordCount?.total ?? 0,
@@ -122,11 +119,10 @@ export function AppEditorPanels({ comments, renderCommentsSurface, ...props }: {
             buildOk: props.build ? props.build.success : null,
             buildMessage: props.build?.log?.split("\n").slice(-1)[0] ?? "",
           }}
-          onClose={() => setChecklistOpen(false)}
+          onClose={() => tools.close("checklist")}
           onOpenTodos={() => {
-            setChecklistOpen(false);
-            void props.refreshTodos();
-            setTodosOpen(true);
+            tools.close("checklist");
+            tools.open("todos");
           }}
           onSaveBudgets={(wordBudget, pageBudget) => {
             void invoke<ProjectManifest>("update_project_manifest", {
