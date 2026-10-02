@@ -240,7 +240,7 @@ fn todo_kind_in_line(line: &str, latex: bool) -> Option<&'static str> {
 fn comment_in_line(line: &str) -> Option<&str> {
     let mut backslashes = 0usize;
     for (index, character) in line.char_indices() {
-        if character == '%' && backslashes % 2 == 0 {
+        if character == '%' && backslashes.is_multiple_of(2) {
             return Some(&line[index + 1..]);
         }
         backslashes = if character == '\\' { backslashes + 1 } else { 0 };
