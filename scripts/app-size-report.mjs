@@ -281,11 +281,8 @@ export function formatHuman(report) {
 async function main() {
   // pnpm forwards its conventional `--` separator to Node scripts.
   const args = process.argv.slice(2).filter((arg) => arg !== "--");
-  if (
-    args.some((arg) => arg !== "--json" && arg !== "--check")
-    || (args.includes("--json") && args.includes("--check"))
-  ) {
-    throw new Error("Usage: node scripts/app-size-report.mjs [--json | --check]");
+  if (args.some((arg) => arg !== "--check")) {
+    throw new Error("Usage: node scripts/app-size-report.mjs [--check]");
   }
   if (args.includes("--check")) {
     const result = await checkAppSizeBudgets();
@@ -297,7 +294,7 @@ async function main() {
     );
   } else {
     const report = await createAppSizeReport();
-    console.log(args.includes("--json") ? JSON.stringify(report, null, 2) : formatHuman(report));
+    console.log(formatHuman(report));
   }
 }
 

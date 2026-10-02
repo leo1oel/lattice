@@ -1,9 +1,9 @@
 //! What a project folder contains: the file tree each view shows, content
 //! classification, and reading text files.
 
-use super::err;
 use super::paths::{extension, safe_path};
 use crate::models::FileNode;
+use crate::util::err;
 use serde::Serialize;
 use std::collections::HashMap;
 use std::fs;

@@ -25,10 +25,9 @@ import { createHash } from "node:crypto";
 import { basename, delimiter, dirname, join, relative, resolve } from "node:path";
 import { pipeline } from "node:stream/promises";
 import { Readable } from "node:stream";
-import { fileURLToPath } from "node:url";
-import { codesign, findMachOBinaries, signingIdentity, verifySignature } from "./lib/codesign.mjs";
+import { signMachOTree, signingIdentity } from "./lib/codesign.mjs";
 import { capture, projectRoot, readJson, removePath, run, sha256, treeBytes, walkFiles, writeJson } from "./lib/util.mjs";
-import { pruneEsbuildPlatforms } from "./synara-runtime-platforms.mjs";
+import { SYNARA_RUNTIME_INPUTS } from "./synara-runtime-inputs.mjs";
 import { patchCodexHostProcess } from "./synara-codex-host.mjs";
 
 const runtimeConfig = readJson(join(projectRoot, "scripts/synara-runtime.json"));
@@ -401,7 +400,17 @@ function pruneServerRuntime(stageRoot) {
   }
 
   const platform = release.platform;
-  removedBytes += pruneEsbuildPlatforms(serverRoot, platform);
+  // Pi ships a nested installation containing esbuild's optional binaries for
+  // every platform. Preserve the host binary in both dependency trees.
+  for (const esbuild of [
+    join(serverRoot, "node_modules/@esbuild"),
+    join(serverRoot, "node_modules/@earendil-works/pi-coding-agent/node_modules/@esbuild"),
+  ]) {
+    if (!existsSync(esbuild)) continue;
+    for (const entry of readdirSync(esbuild)) {
+      if (entry !== platform) removedBytes += removePath(join(esbuild, entry));
+    }
+  }
   removeEntries(join(serverRoot, "node_modules/node-pty/prebuilds"), (entry) => entry !== platform);
   removeEntries(
     join(agentModules, "@mariozechner"),
@@ -426,12 +435,7 @@ function restoreHelperExecutableBits(stageRoot) {
 function signMacRuntime(stageRoot) {
   const identity = signingIdentity();
   if (!target.endsWith("-apple-darwin") || !identity) return;
-  const entitlements = join(projectRoot, "src-tauri/Entitlements.plist");
-  for (const path of findMachOBinaries(stageRoot)) {
-    chmodSync(path, 0o755);
-    codesign(path, { identity, entitlements });
-    verifySignature(path, "--strict");
-  }
+  signMachOTree(stageRoot, { identity, entitlements: join(projectRoot, "src-tauri/Entitlements.plist") });
 }
 
 /**
@@ -494,19 +498,14 @@ if (!allowDirty && head !== runtimeConfig.revision) {
 }
 
 // Everything that decides what gets staged: the pin, the host, the source
-// tree, and this script with every module it stages through.
+// tree, and the repository files listed in SYNARA_RUNTIME_INPUTS (this script
+// with every module it stages through).
 const buildKeyHash = createHash("sha256")
   .update(JSON.stringify(runtimeConfig))
   .update(target)
   .update(sourceFingerprint(head));
-for (const script of [
-  fileURLToPath(import.meta.url),
-  "scripts/synara-runtime-platforms.mjs",
-  "scripts/synara-codex-host.mjs",
-  "scripts/lib/util.mjs",
-  "scripts/lib/codesign.mjs",
-]) {
-  buildKeyHash.update(readFileSync(resolve(projectRoot, script)));
+for (const input of SYNARA_RUNTIME_INPUTS) {
+  buildKeyHash.update(readFileSync(resolve(projectRoot, input)));
 }
 const buildKey = buildKeyHash.digest("hex");
 const sourceDeviceHelperRoot = join(sourceRoot, "apps/server/native/device-helper");

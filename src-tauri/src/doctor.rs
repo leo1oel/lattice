@@ -3,8 +3,10 @@
 //! conference packages and fonts) are met.
 
 use crate::commands;
-use crate::models::{DoctorCheck, DoctorReport, ProjectManifest};
+use crate::models::{MessageParams, ProjectManifest};
 use crate::{latex, pdf_fonts, project};
+use serde::Serialize;
+use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
 /// Times and Helvetica metrics and Type1 outlines. NeurIPS / ICML templates set
@@ -254,6 +256,26 @@ fn format_summary(checks: &[DoctorCheck], required_ok: bool) -> String {
         lines.push(format!("{state} {} — {}", item.name, item.detail));
     }
     lines.join("\n")
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DoctorCheck {
+    pub name: String,
+    pub detail: String,
+    pub ok: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub code: Option<&'static str>,
+    #[serde(skip_serializing_if = "BTreeMap::is_empty")]
+    pub params: MessageParams,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DoctorReport {
+    pub ok: bool,
+    pub summary: String,
+    pub checks: Vec<DoctorCheck>,
 }
 
 #[cfg(test)]

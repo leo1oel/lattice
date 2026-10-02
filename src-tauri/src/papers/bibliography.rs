@@ -7,8 +7,9 @@
 //! or the citation transaction.
 
 use super::citation::validate_resolved_identity;
-use super::{ensure_success, err, uv_tool_spawn_error};
+use super::{ensure_success, uv_tool_spawn_error};
 use crate::models::SymbolOccurrence;
+use crate::util::err;
 use crate::{commands, project};
 use serde::Serialize;
 use serde_json::Value;

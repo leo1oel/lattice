@@ -24,7 +24,6 @@
  * Usage:
  *   node scripts/generate-notices.mjs                 rewrite the generated block
  *   node scripts/generate-notices.mjs --check         fail if the block is stale
- *   node scripts/generate-notices.mjs --stdout        print the block, write nothing
  *   node scripts/generate-notices.mjs --allow-unresolved
  *                                                     do not exit non-zero on gaps
  *
@@ -51,7 +50,7 @@ const END = "<!-- END GENERATED NOTICES -->";
 const args = new Set(process.argv.slice(2));
 if (args.has("--help") || args.has("-h")) {
   process.stdout.write(
-    "Usage: node scripts/generate-notices.mjs [--check] [--stdout] [--allow-unresolved]\n",
+    "Usage: node scripts/generate-notices.mjs [--check] [--allow-unresolved]\n",
   );
   process.exit(0);
 }
@@ -1020,9 +1019,7 @@ if (gapCount > 0) {
   }
 }
 
-if (args.has("--stdout")) {
-  process.stdout.write(block);
-} else if (args.has("--check")) {
+if (args.has("--check")) {
   if (nextContent !== existing) {
     log("");
     log("THIRD_PARTY_NOTICES.md is out of date. Run `pnpm notices` and commit the result.");

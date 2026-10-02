@@ -69,31 +69,6 @@ export const MotionButton = forwardRef<HTMLButtonElement, MotionButtonProps>(
   },
 );
 
-/**
- * Crossfade + spin-scale morph between two icon states, keyed by `swapKey`.
- * Used for copy→check and the light/dark sun↔moon toggle — the swap reads as a
- * deliberate transformation instead of an instant flip.
- */
-export function IconSwap({ swapKey, children }: { swapKey: string; children: ReactNode }) {
-  const reduceMotion = useReducedMotion();
-  return (
-    <span style={{ display: "inline-flex", position: "relative" }}>
-      <AnimatePresence mode="wait" initial={false}>
-        <motion.span
-          key={swapKey}
-          style={{ display: "inline-flex" }}
-          initial={reduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.5, rotate: -45 }}
-          animate={{ opacity: 1, scale: 1, rotate: 0 }}
-          exit={{ opacity: 0, ...(reduceMotion ? {} : { scale: 0.5, rotate: 45 }), transition: springExit.fast }}
-          transition={spring.fast}
-        >
-          {children}
-        </motion.span>
-      </AnimatePresence>
-    </span>
-  );
-}
-
 /** Replace status content immediately; never retain a stale label or action during exit. */
 export function StateSwap({ swapKey, children }: { swapKey: string; children: ReactNode }) {
   const reduceMotion = useReducedMotion();

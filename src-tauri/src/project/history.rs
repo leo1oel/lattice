@@ -4,13 +4,13 @@
 //! index is refreshed. Also here: restoring and deleting history entries, and
 //! pruning conversation checkpoints.
 
-use super::err;
 use super::manifest::write_pretty_json;
 use super::paths::{is_plain_segment, safe_path, validate_transaction_path};
-use crate::models::{FileChange, HistoryItem, TransactionRecord};
+use crate::models::FileChange;
 use crate::project_fs::ProjectDir;
+use crate::util::err;
 use chrono::Utc;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap};
 use std::fs;
 use std::io::ErrorKind;
@@ -640,6 +640,48 @@ pub(super) fn prune_conversation_checkpoints(
         }
     }
     Ok(())
+}
+
+fn default_history_schema_version() -> u32 {
+    1
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TransactionRecord {
+    #[serde(default = "default_history_schema_version")]
+    pub schema_version: u32,
+    pub id: String,
+    pub label: String,
+    pub timestamp: String,
+    #[serde(default)]
+    pub actor: Option<String>,
+    #[serde(default)]
+    pub kind: Option<String>,
+    #[serde(default)]
+    pub source: Option<String>,
+    #[serde(default)]
+    pub thread_id: Option<String>,
+    #[serde(default)]
+    pub checkpoint_ref: Option<String>,
+    #[serde(default)]
+    pub undo_of: Option<String>,
+    pub changes: Vec<FileChange>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct HistoryItem {
+    pub id: String,
+    pub label: String,
+    pub timestamp: String,
+    pub files: Vec<String>,
+    pub actor: String,
+    pub kind: String,
+    pub source: String,
+    pub thread_id: Option<String>,
+    pub checkpoint_ref: Option<String>,
+    pub undo_of: Option<String>,
 }
 
 #[cfg(test)]

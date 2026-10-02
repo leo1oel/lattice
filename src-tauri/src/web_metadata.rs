@@ -1,6 +1,6 @@
 //! Deterministic webpage citation metadata. Values come from the publisher;
 //! missing names and dates stay missing rather than being inferred from a URL.
-use crate::papers::collapse_whitespace as text;
+use crate::util::collapse_whitespace as text;
 use scraper::{ElementRef, Html, Selector};
 use serde_json::Value;
 use std::collections::BTreeMap;

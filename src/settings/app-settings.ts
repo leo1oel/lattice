@@ -17,10 +17,10 @@ export type BuildPreferences = { autoBuildMode: AutoBuildMode };
 
 /* eslint-disable lingui/no-unlocalized-strings -- CSS font stacks */
 export const FIXED_UI_FONT = '"Inter Variable", Inter, "Avenir Next", "Segoe UI", sans-serif';
-const FIXED_EDITOR_FONT = '"Ioskeley Mono", Menlo, "SF Mono", ui-monospace, monospace';
+export const FIXED_EDITOR_FONT = '"Ioskeley Mono", Menlo, "SF Mono", ui-monospace, monospace';
 /* eslint-enable lingui/no-unlocalized-strings */
 
-export const RECENT_PROJECTS_KEY = "lattice.recent-projects.v1";
+const RECENT_PROJECTS_KEY = "lattice.recent-projects.v1";
 export const THEME_PREFERENCE_KEY = "lattice.theme-preference.v1";
 export const BUILD_PREFERENCES_KEY = "lattice.build-preferences.v2";
 const SPLIT_RATIO_KEY = "lattice.split-ratio.v1";
@@ -316,9 +316,7 @@ export function persistFileViewStates(root: string, states: Record<string, FileV
 
 export type AppearanceSettings = {
   interfaceLanguage: InterfaceLanguage;
-  uiFont: string;
   interfaceScale: number;
-  editorFont: string;
   editorFontSize: number;
   editorKeymap: "default" | "vim" | "emacs";
   editorSpellcheck: boolean;
@@ -349,9 +347,7 @@ export function resolveAppLocale(preference: InterfaceLanguage, systemLanguages?
 export function loadAppearance(): AppearanceSettings {
   const defaults: AppearanceSettings = {
     interfaceLanguage: "system",
-    uiFont: FIXED_UI_FONT,
     interfaceScale: 1,
-    editorFont: FIXED_EDITOR_FONT,
     editorFontSize: 14,
     editorKeymap: "default",
     editorSpellcheck: true,
@@ -366,13 +362,9 @@ export function loadAppearance(): AppearanceSettings {
     return {
       // eslint-disable-next-line lingui/no-unlocalized-strings -- locale codes
       interfaceLanguage: oneOf(value?.interfaceLanguage, ["en", "zh-CN"], defaults.interfaceLanguage),
-      // Keep the field in the persisted shape for backwards compatibility, but
-      // normalize every old preference to the bundled application UI face.
-      uiFont: defaults.uiFont,
       // v4 shipped with 110% as its implicit default. Migrate that value once,
       // while preserving every other legacy choice and all future v5 choices.
       interfaceScale: current === null && storedInterfaceScale === 1.1 ? defaults.interfaceScale : storedInterfaceScale,
-      editorFont: defaults.editorFont,
       editorFontSize: clamp(Number(value?.editorFontSize) || defaults.editorFontSize, 10, 24),
       editorKeymap: oneOf(value?.editorKeymap, ["vim", "emacs"], defaults.editorKeymap),
       // Absent means "never chose", which now inherits the on-by-default

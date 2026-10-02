@@ -9,13 +9,14 @@
 
 use super::account::load_session;
 use super::api::{
-    csrf_token, download_project_zip, err, expect_success, http_client, json_str,
-    latest_update_version, read_zip_entries, send_as, sync_host, Remote,
+    csrf_token, download_project_zip, expect_success, http_client, json_str, latest_update_version,
+    read_zip_entries, send_as, sync_host, Remote,
 };
 use super::files::*;
 use super::link::{load_state, now_iso, permits_writing, save_state, Refusal, SyncState, PAUSED};
 use super::review::{history_since, HistoryFrom};
 use crate::overleaf_rt::EntityEntry;
+use crate::util::err;
 use reqwest::header::COOKIE;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};

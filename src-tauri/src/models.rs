@@ -45,56 +45,6 @@ pub struct ProjectManifest {
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct WordCount {
-    pub text: u32,
-    pub headers: u32,
-    pub captions: u32,
-    pub total: u32,
-    pub source: String,
-}
-
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct UnusedSymbols {
-    pub labels: Vec<String>,
-    pub citations: Vec<String>,
-}
-
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ReplaceResult {
-    pub files_changed: Vec<String>,
-    pub replacements: u32,
-}
-
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ReplaceMatch {
-    pub path: String,
-    pub line: u32,
-    pub column: u32,
-    pub preview: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "camelCase")]
-pub struct TodoHit {
-    pub path: String,
-    pub line: u32,
-    pub kind: String,
-    pub preview: String,
-}
-
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ReplacePreview {
-    pub matches: Vec<ReplaceMatch>,
-    pub files: u32,
-    pub replacements: u32,
-}
-
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
 pub struct ResolvedCitation {
     pub key: String,
     pub title: String,
@@ -111,26 +61,6 @@ pub struct ResolvedCitation {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub evidence: Option<serde_json::Value>,
     pub extra_fields: std::collections::BTreeMap<String, String>,
-}
-
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct DoctorCheck {
-    pub name: String,
-    pub detail: String,
-    pub ok: bool,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub code: Option<&'static str>,
-    #[serde(skip_serializing_if = "BTreeMap::is_empty")]
-    pub params: MessageParams,
-}
-
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct DoctorReport {
-    pub ok: bool,
-    pub summary: String,
-    pub checks: Vec<DoctorCheck>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -152,25 +82,6 @@ pub struct ProjectSnapshot {
     pub root: String,
     pub manifest: ProjectManifest,
     pub files: Vec<FileNode>,
-}
-
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct AssetPreview {
-    pub path: String,
-    pub mime_type: String,
-    #[serde(flatten)]
-    pub content: AssetContent,
-}
-
-/// How an asset's bytes reach the frontend: inline for figures and HTML, which
-/// become `data:` URLs, or for PDFs as the file's length and version, which
-/// PDF.js reads a range at a time through `read_project_asset_range`.
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub enum AssetContent {
-    Base64(String),
-    Ranges { length: u64, version: String },
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -224,108 +135,11 @@ pub struct LiteratureHit {
     pub landing_url: Option<String>,
 }
 
-/// One page of Discover results. `has_more` means another backend page can be
-/// fetched (OpenAlex has deeper pages); alphaXiv is exhausted after page 0.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct LiteraturePage {
-    pub hits: Vec<LiteratureHit>,
-    pub has_more: bool,
-}
-
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct TexlabCompletionItem {
-    pub label: String,
-    pub detail: Option<String>,
-    pub kind: Option<String>,
-    pub insert_text: Option<String>,
-    pub documentation: Option<String>,
-}
-
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct TexlabHover {
-    pub contents: String,
-}
-
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct TexlabLocation {
-    pub path: String,
-    pub line: u32,
-    pub column: u32,
-}
-
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct BuildResult {
-    pub success: bool,
-    pub has_pdf: bool,
-    pub log: String,
-    pub duration_ms: u128,
-    pub diagnostics: Vec<Diagnostic>,
-    /// Project-relative path of the document latexmk was pointed at. The build
-    /// may have re-targeted onto the open file (Overleaf's rule), and the
-    /// frontend needs to know without re-reading the manifest.
-    pub root_document: String,
-}
-
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SyncTexTarget {
     pub path: String,
     pub line: u32,
-}
-
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct PdfSyncTarget {
-    pub page: u32,
-    pub x: f64,
-    pub y: f64,
-    pub width: f64,
-    pub height: f64,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct EditorCommentReply {
-    pub id: String,
-    pub author_id: String,
-    pub author_name: String,
-    pub body: String,
-    pub created_at: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct EditorComment {
-    pub id: String,
-    pub path: String,
-    pub from: u32,
-    pub to: u32,
-    pub quote: String,
-    #[serde(default)]
-    pub prefix: String,
-    #[serde(default)]
-    pub suffix: String,
-    pub body: String,
-    pub author_id: String,
-    pub author_name: String,
-    #[serde(default)]
-    pub resolved: bool,
-    #[serde(default)]
-    pub replies: Vec<EditorCommentReply>,
-    pub created_at: String,
-    pub updated_at: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct EditorCommentsFile {
-    pub schema_version: u32,
-    pub comments: Vec<EditorComment>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -334,95 +148,6 @@ pub struct FileChange {
     pub path: String,
     pub before: Option<String>,
     pub after: Option<String>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct TransactionRecord {
-    #[serde(default = "default_history_schema_version")]
-    pub schema_version: u32,
-    pub id: String,
-    pub label: String,
-    pub timestamp: String,
-    #[serde(default)]
-    pub actor: Option<String>,
-    #[serde(default)]
-    pub kind: Option<String>,
-    #[serde(default)]
-    pub source: Option<String>,
-    #[serde(default)]
-    pub thread_id: Option<String>,
-    #[serde(default)]
-    pub checkpoint_ref: Option<String>,
-    #[serde(default)]
-    pub undo_of: Option<String>,
-    pub changes: Vec<FileChange>,
-}
-
-fn default_history_schema_version() -> u32 {
-    1
-}
-
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct HistoryItem {
-    pub id: String,
-    pub label: String,
-    pub timestamp: String,
-    pub files: Vec<String>,
-    pub actor: String,
-    pub kind: String,
-    pub source: String,
-    pub thread_id: Option<String>,
-    pub checkpoint_ref: Option<String>,
-    pub undo_of: Option<String>,
-}
-
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ImportResult {
-    pub arxiv_id: String,
-    pub title: String,
-    pub paper_path: String,
-    pub citation_key: Option<String>,
-    pub citation_output: String,
-    pub already_imported: bool,
-    /// Why the full text is absent although the work has an arXiv id. The
-    /// citation itself succeeded; readers (UI notice, agent) decide whether
-    /// to mention it.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub fetch_error: Option<String>,
-    /// The user stopped enrichment. A citation committed before cancellation
-    /// remains valid and is deliberately never rolled back.
-    #[serde(default)]
-    pub cancelled: bool,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct PaperSummary {
-    pub arxiv_id: String,
-    /// Normalized DOI from the authoritative bibliography entry.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub doi: Option<String>,
-    /// The cited page for webpage references — how the row offers a download
-    /// when there is no arXiv id to fetch by.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub url: Option<String>,
-    pub title: String,
-    pub authors: String,
-    pub citation_key: Option<String>,
-    /// False for works that are only cited — the reader has nothing to open.
-    pub has_full_text: bool,
-    /// True only when an overview is already present in the local paper cache.
-    pub has_blog: bool,
-    /// Converter-owned files needed to render figures in the paper reader.
-    #[serde(default)]
-    pub asset_paths: Vec<String>,
-    /// Crossref's DOI-exact update metadata. This is advisory: citations are
-    /// never removed or blocked based on it.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub citation_health: Option<crate::citation_health::CitationHealth>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -448,18 +173,6 @@ pub struct CitationInfo {
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct ReferenceInfo {
-    pub label: String,
-    pub kind: String,
-    pub title: String,
-    pub snippet: String,
-    pub path: String,
-    pub line: u32,
-    pub image_path: Option<String>,
-}
-
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
 pub struct SymbolOccurrence {
     pub kind: String,
     pub symbol: String,
@@ -467,14 +180,6 @@ pub struct SymbolOccurrence {
     pub path: String,
     pub line: u32,
     pub snippet: String,
-}
-
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct RenameSymbolResult {
-    pub changed_files: Vec<String>,
-    pub occurrence_count: u32,
-    pub transaction_id: String,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -487,55 +192,4 @@ pub struct ProjectSearchResult {
     pub line: Option<u32>,
     pub arxiv_id: Option<String>,
     pub file_kind: Option<String>,
-}
-
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct GitFileStatus {
-    pub path: String,
-    pub status: String,
-    pub staged: bool,
-    pub unstaged: bool,
-}
-
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct GitStatus {
-    pub available: bool,
-    pub repository: bool,
-    pub branch: Option<String>,
-    pub remote: Option<String>,
-    pub remote_url: Option<String>,
-    pub upstream: Option<String>,
-    pub ahead: u32,
-    pub behind: u32,
-    pub files: Vec<GitFileStatus>,
-}
-
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct GitLogFile {
-    pub path: String,
-    /// "added" | "modified" | "deleted" | "renamed"
-    pub kind: String,
-}
-
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct GitLogEntry {
-    pub hash: String,
-    pub short_hash: String,
-    pub author_name: String,
-    /// ISO-8601 author date.
-    pub timestamp: String,
-    pub message: String,
-    pub files: Vec<GitLogFile>,
-}
-
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct GitFileDiff {
-    pub before: Option<String>,
-    pub after: Option<String>,
-    pub binary: bool,
 }

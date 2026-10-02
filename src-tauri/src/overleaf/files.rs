@@ -7,10 +7,10 @@
 //! line-level merge needs, which is what lets edits to different parts of the
 //! same file land together instead of one side being pushed aside.
 
-use super::api::err;
 use super::link::{load_state, SyncState, STATE_DIR, STATE_FILE};
 use super::review::HistoryFrom;
 use crate::project_fs::ProjectDir;
+use crate::util::err;
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::path::{Path, PathBuf};

@@ -1,10 +1,10 @@
 //! ZIP source packs: exporting for Overleaf/arXiv and importing an Overleaf
 //! download as a new project.
 
-use super::err;
 use super::manifest::open;
 use super::paths::available_path;
 use crate::models::ProjectSnapshot;
+use crate::util::err;
 use chrono::{Datelike, Local, NaiveDate, TimeZone, Timelike};
 use std::fs::{self, File};
 use std::io::{self, Read};

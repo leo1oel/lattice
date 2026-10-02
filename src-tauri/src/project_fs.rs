@@ -5,7 +5,7 @@
 //! makes replacing a pathname with a symlink harmless: the operation remains
 //! attached to the directory that was opened.
 
-use crate::project::err;
+use crate::util::err;
 use rustix::fd::{AsFd, OwnedFd};
 use rustix::fs::{self, AtFlags, FileType, Mode, OFlags};
 use rustix::io::Errno;

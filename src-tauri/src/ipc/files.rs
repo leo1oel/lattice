@@ -1,33 +1,21 @@
 //! Reading and changing the files of the open project.
 
 use super::{
-    binary_save, current_root, in_project, lease_if_pinned, maybe_pinned_root, run_blocking,
-    scoped_root,
+    binary_save, current_root, in_project, lease_if_pinned, maybe_pinned_root, pinned_root,
+    run_blocking,
 };
 use crate::app_state::{AppState, Lease};
-use crate::models::{self, AssetPreview, EditorComment};
-use crate::{project, xlsx};
-use std::path::{Path, PathBuf};
+use crate::models;
+use crate::project::{AssetPreview, EditorComment};
+use crate::{export, project};
+use std::path::Path;
 use tauri::{State, Window};
-
-/// Pin a file operation to the project it named. Unlike `pinned_root`, every
-/// refusal, a window with nothing open included, reads "The project changed
-/// before {action}."
-fn file_root(
-    state: &AppState, window: &Window, project_root: &str, action: &str,
-) -> Result<PathBuf, String> {
-    scoped_root(state, window, project_root)
-        .map_err(|_| format!("The project changed before {action}."))
-}
 
 #[tauri::command]
 pub async fn list_project_tree_with_hidden(
     state: State<'_, AppState>, window: Window, project_root: String,
 ) -> Result<Vec<models::FileNode>, String> {
-    let root = current_root(&state, &window)?;
-    if root != Path::new(&project_root) {
-        return Err("Project changed while loading hidden files".to_string());
-    }
+    let root = pinned_root(&state, &window, &project_root, "loading hidden files")?;
     run_blocking("Project tree", move || {
         project::scan_tree(&root, project::TreeView::ProjectWithHidden)
     })
@@ -61,7 +49,7 @@ pub async fn write_project_file(
     project_root: String, base_content: Option<String>, expected_content: Option<String>,
 ) -> Result<project::EditorWriteResult, String> {
     let _lease = state.lease(&project_root, Lease::Shared).await;
-    let root = file_root(&state, &window, &project_root, "the file could be written")?;
+    let root = pinned_root(&state, &window, &project_root, "the file could be written")?;
     run_blocking("Project file write", move || {
         project::apply_editor_transaction(&root, path, content, base_content, expected_content)
     })
@@ -73,7 +61,7 @@ pub async fn create_project_entry(
     state: State<'_, AppState>, window: Window, path: String, kind: String, project_root: String,
 ) -> Result<String, String> {
     let _lease = state.structural_lease(&project_root, Lease::Shared).await;
-    let root = file_root(&state, &window, &project_root, "the file could be created")?;
+    let root = pinned_root(&state, &window, &project_root, "the file could be created")?;
     run_blocking("File creation", move || project::create_entry(&root, &path, &kind)).await
 }
 
@@ -82,7 +70,7 @@ pub async fn create_open_slide_deck(
     state: State<'_, AppState>, window: Window, deck_id: String, project_root: String,
 ) -> Result<String, String> {
     let _lease = state.structural_lease(&project_root, Lease::Shared).await;
-    let root = file_root(&state, &window, &project_root, "the slide deck could be created")?;
+    let root = pinned_root(&state, &window, &project_root, "the slide deck could be created")?;
     run_blocking("Slide deck creation", move || project::create_open_slide_deck(&root, &deck_id))
         .await
 }
@@ -92,7 +80,7 @@ pub async fn delete_project_entry(
     state: State<'_, AppState>, window: Window, path: String, project_root: String,
 ) -> Result<(), String> {
     let _lease = state.structural_lease(&project_root, Lease::Shared).await;
-    let root = file_root(&state, &window, &project_root, "the file could be deleted")?;
+    let root = pinned_root(&state, &window, &project_root, "the file could be deleted")?;
     run_blocking("File deletion", move || project::delete_entry(&root, &path)).await
 }
 
@@ -102,7 +90,7 @@ pub async fn rename_project_entry(
     project_root: String,
 ) -> Result<String, String> {
     let _lease = state.structural_lease(&project_root, Lease::Exclusive).await;
-    let root = file_root(&state, &window, &project_root, "the file could be renamed")?;
+    let root = pinned_root(&state, &window, &project_root, "the file could be renamed")?;
     run_blocking("File rename", move || project::rename_entry(&root, &path, &new_name)).await
 }
 
@@ -112,7 +100,7 @@ pub async fn move_project_entry(
     project_root: String,
 ) -> Result<String, String> {
     let _lease = state.structural_lease(&project_root, Lease::Exclusive).await;
-    let root = file_root(&state, &window, &project_root, "the file could be moved")?;
+    let root = pinned_root(&state, &window, &project_root, "the file could be moved")?;
     run_blocking("File move", move || project::move_entry(&root, &path, &target_directory)).await
 }
 
@@ -122,7 +110,7 @@ pub async fn import_project_assets(
     project_root: String,
 ) -> Result<Vec<String>, String> {
     let _lease = state.lease(&project_root, Lease::Shared).await;
-    let root = file_root(&state, &window, &project_root, "the assets could be imported")?;
+    let root = pinned_root(&state, &window, &project_root, "the assets could be imported")?;
     run_blocking("Asset import", move || project::import_assets(&root, &paths, &target_directory))
         .await
 }
@@ -140,7 +128,7 @@ pub async fn import_project_files(
     project_root: String, copy_existing: Option<bool>,
 ) -> Result<Vec<project::ImportedProjectFile>, String> {
     let _lease = state.structural_lease(&project_root, Lease::Shared).await;
-    let root = file_root(&state, &window, &project_root, "the files could be imported")?;
+    let root = pinned_root(&state, &window, &project_root, "the files could be imported")?;
     let copy_existing = copy_existing.unwrap_or(false);
     run_blocking("File import", move || {
         if copy_existing {
@@ -158,7 +146,7 @@ pub async fn import_project_sources(
     project_root: String,
 ) -> Result<Vec<String>, String> {
     let _lease = state.lease(&project_root, Lease::Shared).await;
-    let root = file_root(&state, &window, &project_root, "the sources could be imported")?;
+    let root = pinned_root(&state, &window, &project_root, "the sources could be imported")?;
     run_blocking("Source import", move || project::import_sources(&root, &paths, &target_directory))
         .await
 }
@@ -169,7 +157,7 @@ pub async fn import_clipboard_image(
     base64_data: String, project_root: String,
 ) -> Result<String, String> {
     let _lease = state.lease(&project_root, Lease::Shared).await;
-    let root = file_root(&state, &window, &project_root, "the image could be imported")?;
+    let root = pinned_root(&state, &window, &project_root, "the image could be imported")?;
     run_blocking("Image import", move || {
         project::import_image_bytes(&root, &target_directory, &file_name, &base64_data)
     })
@@ -219,7 +207,7 @@ pub async fn write_project_bytes(
     project_root: String,
 ) -> Result<(), String> {
     let _lease = state.lease(&project_root, Lease::Shared).await;
-    let root = file_root(&state, &window, &project_root, "the asset could be written")?;
+    let root = pinned_root(&state, &window, &project_root, "the asset could be written")?;
     run_blocking("Project asset write", move || project::write_bytes(&root, &path, &base64_data))
         .await
 }
@@ -229,7 +217,7 @@ pub async fn prepare_latex_figure(
     state: State<'_, AppState>, window: Window, path: String, project_root: String,
 ) -> Result<String, String> {
     let _lease = state.lease(&project_root, Lease::Shared).await;
-    let root = file_root(&state, &window, &project_root, "the figure could be prepared")?;
+    let root = pinned_root(&state, &window, &project_root, "the figure could be prepared")?;
     run_blocking("Figure preparation", move || project::prepare_latex_figure(&root, &path)).await
 }
 
@@ -242,7 +230,7 @@ pub async fn save_xlsx(request: tauri::ipc::Request<'_>) -> Result<String, Strin
         "Excel",
         "The Excel workbook was not sent as binary data.",
     )?;
-    run_blocking("Excel workbook save", move || xlsx::save_xlsx(&path, &bytes)).await
+    run_blocking("Excel workbook save", move || export::save(&path, &bytes, &export::XLSX)).await
 }
 
 #[tauri::command]

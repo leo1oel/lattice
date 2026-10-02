@@ -301,7 +301,7 @@ under 1,000.
 - `util` / `test_support` — shared text/hash helpers and the unit tests' temp
   directory fixture.
 
-**Leaves** include `firecrawl`, `harper`, `link_preview`, `pdf_fonts`, `xlsx`
+**Leaves** include `firecrawl`, `harper`, `link_preview`, `pdf_fonts`, `export`
 and `macos_window`.
 
 **Mutual dependencies:**

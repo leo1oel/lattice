@@ -5,7 +5,7 @@
 
 use super::ids::{arxiv_base_id, explicit_arxiv_id, parse_arxiv_id, same_arxiv_work};
 use super::web_citation::{fetch_web_html, supplied_citation_key};
-use super::{http_client, is_web_url, send_checked, LITERATURE_USER_AGENT};
+use super::{http_client, is_web_url, send_checked};
 use crate::citation_audit::{entry_fields, single_entry_key};
 use crate::models::CitationInfo;
 use crate::project;
@@ -66,8 +66,8 @@ pub(super) fn resolve_arxiv_title(title: &str) -> Result<Option<String>, String>
         "{ARXIV_TITLE_SEARCH_URL}?search_query={}&start=0&max_results=5",
         crate::openalex::urlencoding(&search)
     );
-    let client = http_client(LITERATURE_USER_AGENT, 20)
-        .map_err(|error| format!("Could not create arXiv client: {error}"))?;
+    let client =
+        http_client(20).map_err(|error| format!("Could not create arXiv client: {error}"))?;
     let response = send_checked(client.get(url), "arXiv title lookup failed", |status| {
         format!("arXiv title lookup returned HTTP {status}.")
     })?;

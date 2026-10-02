@@ -4,9 +4,10 @@
 // so a paper both indexes know appears once, on top, as an alphaXiv row.
 
 use crate::alphaxiv;
-use crate::models::{LiteratureHit, LiteraturePage, OpenAlexWork};
+use crate::models::{LiteratureHit, OpenAlexWork};
 use crate::openalex;
 use crate::papers::arxiv_base_id;
+use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 
 /// One page of merged results. `page` is 0-indexed. Page 0 carries alphaXiv's
@@ -78,6 +79,15 @@ fn from_openalex(work: OpenAlexWork) -> LiteratureHit {
         doi: work.doi,
         landing_url: work.landing_url,
     }
+}
+
+/// One page of Discover results. `has_more` means another backend page can be
+/// fetched (OpenAlex has deeper pages); alphaXiv is exhausted after page 0.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LiteraturePage {
+    pub hits: Vec<LiteratureHit>,
+    pub has_more: bool,
 }
 
 #[cfg(test)]

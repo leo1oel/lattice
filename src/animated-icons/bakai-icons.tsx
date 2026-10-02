@@ -1,4 +1,4 @@
-import type { CSSProperties, ComponentType } from "react";
+import type { ComponentType } from "react";
 import { FadersLive } from "./bakai/faders";
 import { ChatLive } from "./bakai/chat";
 import { CloudArrowUpLive } from "./bakai/cloud-upload";
@@ -42,10 +42,9 @@ const icons: Record<BakaiIconKind, { Icon: VendorIcon; sourceClass: string }> = 
   package: { Icon: PackageLive, sourceClass: "lg-deliver" },
 };
 
-export function BakaiAnimatedIcon({ kind, size = 20, playing, reducedMotion, speed = "normal", converted, className }: { kind: BakaiIconKind; size?: number; playing?: boolean; reducedMotion?: boolean; speed?: "normal" | "slow"; converted?: boolean; className?: string }) {
+export function BakaiAnimatedIcon({ kind, size = 20, playing, reducedMotion, converted }: { kind: BakaiIconKind; size?: number; playing?: boolean; reducedMotion?: boolean; converted?: boolean }) {
   const { Icon, sourceClass } = icons[kind];
-  const classes = ["bakai-icon", playing && "is-playing", reducedMotion && "is-reduced", className].filter(Boolean).join(" ");
-  const style = { "--bk-speed": speed === "slow" ? 1.9 : 1 } as CSSProperties;
+  const classes = ["bakai-icon", playing && "is-playing", reducedMotion && "is-reduced"].filter(Boolean).join(" ");
 
-  return <span className={classes} style={style}><Icon size={size} className={sourceClass} converted={converted} /></span>;
+  return <span className={classes}><Icon size={size} className={sourceClass} converted={converted} /></span>;
 }

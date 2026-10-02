@@ -3,10 +3,11 @@
 //! without a bundle is still listed, and a bundle nobody cites stays hidden.
 
 use super::bundle::{file_has_body, is_bundle_asset_path, read_asset_manifest, PaperMetadata};
-use super::err;
 use super::ids::{arxiv_base_id, same_arxiv_work, validate_paper_key};
 use super::markdown::markdown_has_body;
-use crate::models::{PaperSummary, ProjectSearchResult};
+use crate::models::ProjectSearchResult;
+use crate::papers::PaperSummary;
+use crate::util::err;
 use crate::util::truncate_chars;
 use crate::{alphaxiv, project};
 use serde::Serialize;

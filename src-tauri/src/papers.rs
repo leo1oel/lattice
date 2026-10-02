@@ -13,6 +13,7 @@
 //!   `bibliography` runs bibcite and removes or upgrades entries.
 
 use reqwest::blocking::{RequestBuilder, Response};
+use serde::{Deserialize, Serialize};
 use std::io::Read;
 use std::process::Output;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -53,12 +54,10 @@ pub(crate) const LITERATURE_USER_AGENT: &str =
 /// the variable's name.)
 const ARXIV2MD_CACHE_ENV: &str = "ARXIV2MD_CACHE_PATH";
 
-/// A blocking client for the literature services; callers differ only in the
-/// agent string and the deadline.
-pub(crate) fn http_client(
-    user_agent: &str, timeout_secs: u64,
-) -> reqwest::Result<reqwest::blocking::Client> {
-    crate::http::blocking_as(user_agent, Duration::from_secs(timeout_secs)).build()
+/// A blocking client for the literature services, identified as Lattice's
+/// literature agent; callers differ only in the deadline.
+pub(crate) fn http_client(timeout_secs: u64) -> reqwest::Result<reqwest::blocking::Client> {
+    crate::http::blocking_as(LITERATURE_USER_AGENT, Duration::from_secs(timeout_secs)).build()
 }
 
 /// Send `request`, reporting a transport failure as `"{failed}: {error}"` and
@@ -104,8 +103,6 @@ fn title_or_key(title: String, key: &str) -> String {
     }
 }
 
-pub(crate) use crate::util::collapse_whitespace;
-
 fn ensure_success(name: &str, output: &Output) -> Result<(), String> {
     if output.status.success() {
         return Ok(());
@@ -115,10 +112,6 @@ fn ensure_success(name: &str, output: &Output) -> Result<(), String> {
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     ))
-}
-
-fn err(error: impl std::fmt::Display) -> String {
-    error.to_string()
 }
 
 /// Importing arXiv papers shells out to `uvx` for the pinned literature tools.
@@ -132,4 +125,51 @@ Open Settings → TeX doctor → Install required tools, then try again."
     } else {
         format!("Could not start {tool}: {error}")
     }
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ImportResult {
+    pub arxiv_id: String,
+    pub title: String,
+    pub paper_path: String,
+    pub citation_key: Option<String>,
+    pub citation_output: String,
+    pub already_imported: bool,
+    /// Why the full text is absent although the work has an arXiv id. The
+    /// citation itself succeeded; readers (UI notice, agent) decide whether
+    /// to mention it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fetch_error: Option<String>,
+    /// The user stopped enrichment. A citation committed before cancellation
+    /// remains valid and is deliberately never rolled back.
+    #[serde(default)]
+    pub cancelled: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PaperSummary {
+    pub arxiv_id: String,
+    /// Normalized DOI from the authoritative bibliography entry.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub doi: Option<String>,
+    /// The cited page for webpage references — how the row offers a download
+    /// when there is no arXiv id to fetch by.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub url: Option<String>,
+    pub title: String,
+    pub authors: String,
+    pub citation_key: Option<String>,
+    /// False for works that are only cited — the reader has nothing to open.
+    pub has_full_text: bool,
+    /// True only when an overview is already present in the local paper cache.
+    pub has_blog: bool,
+    /// Converter-owned files needed to render figures in the paper reader.
+    #[serde(default)]
+    pub asset_paths: Vec<String>,
+    /// Crossref's DOI-exact update metadata. This is advisory: citations are
+    /// never removed or blocked based on it.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub citation_health: Option<crate::citation_health::CitationHealth>,
 }

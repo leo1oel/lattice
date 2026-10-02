@@ -2,7 +2,8 @@
 
 use super::{default_root_document, synctex_missing};
 use crate::commands;
-use crate::models::{PdfSyncTarget, SyncTexTarget};
+use crate::latex::PdfSyncTarget;
+use crate::models::SyncTexTarget;
 use crate::project;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;

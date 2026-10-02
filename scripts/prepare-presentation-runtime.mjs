@@ -1,7 +1,10 @@
 // Install the pinned Open Slide + Vite production closure from
-// tools/open-slide-runtime into src-tauri/presentation-runtime/ (a Tauri resource).
+// tools/open-slide-runtime into src-tauri/presentation-runtime/ (a Tauri resource),
+// and sign its Mach-O binaries with the Developer ID in APPLE_SIGNING_IDENTITY
+// (skipped without one).
 import { cpSync, existsSync, lstatSync, mkdirSync, readdirSync, realpathSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { signMachOTree, signingIdentity } from "./lib/codesign.mjs";
 import { isMain, projectRoot, readJson, run, walkFiles } from "./lib/util.mjs";
 
 export const removablePackageDirectories = [
@@ -96,6 +99,19 @@ function preparePresentationRuntime() {
   if (!existsSync(join(target, "node_modules/@open-slide/core/package.json"))) {
     throw new Error("Presentation runtime package materialization failed");
   }
+  signPresentationRuntime(target);
+}
+
+function signPresentationRuntime(runtimeRoot) {
+  const identity = signingIdentity();
+  if (!identity) {
+    console.log("Skipping presentation runtime signing without APPLE_SIGNING_IDENTITY");
+    return;
+  }
+  if (process.platform !== "darwin") throw new Error("The presentation runtime can only be signed on macOS.");
+  const signed = signMachOTree(runtimeRoot, { identity });
+  if (signed === 0) throw new Error(`No Mach-O binaries found in ${runtimeRoot}`);
+  console.log(`Signed ${signed} presentation runtime binaries`);
 }
 
 if (isMain(import.meta.url)) preparePresentationRuntime();

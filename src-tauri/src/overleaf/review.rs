@@ -6,8 +6,9 @@
 //! arrive on the realtime channel when a document is joined); the conversation
 //! lives here, behind the same session cookie as everything else.
 
-use super::api::{err, expect_success, full_name, json_str, Remote};
+use super::api::{expect_success, full_name, json_str, Remote};
 use crate::overleaf_rt::parse_comment_ranges;
+use crate::util::err;
 use crate::util::url_encode;
 use reqwest::{Method, StatusCode};
 use serde::{Deserialize, Serialize};

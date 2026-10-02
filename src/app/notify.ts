@@ -6,18 +6,17 @@ import { notifyError, notifySuccess, notifyWarning } from "../telemetry/app-noti
 /*
  * Ordinary toasts, so every message has one appearance and one log line. The
  * setter names survive from the old fixed banners because they read correctly
- * at ~170 call sites; `null` (the old "clear the banner") is a no-op, since a
- * toast owns its lifetime. Pass a `source` where the area is known, so the log
- * is searchable. Module scope, not `useCallback`, so no call site has to list
- * them as dependencies.
+ * at their many call sites; an empty message shows nothing. Pass a `source`
+ * where the area is known, so the log is searchable. Module scope, not
+ * `useCallback`, so no call site has to list them as dependencies.
  */
-export function setError(message: string | null, source?: string) {
+export function setError(message: string, source?: string) {
   if (message) notifyError(source ?? i18n._(msg`App`), message);
 }
-export function setWarning(message: string | null, source?: string) {
+export function setWarning(message: string, source?: string) {
   if (message) notifyWarning(source ?? i18n._(msg`App`), message);
 }
-export function setNotice(message: string | null, source?: string) {
+export function setNotice(message: string, source?: string) {
   if (message) notifySuccess(source ?? i18n._(msg`App`), message);
 }
 

@@ -5,8 +5,9 @@
 //! keeps a single document open, the one the editor last synced.
 
 use crate::commands;
-use crate::models::{Diagnostic, TexlabCompletionItem, TexlabHover, TexlabLocation};
+use crate::models::Diagnostic;
 use crate::project;
+use serde::Serialize;
 use serde_json::{json, Value};
 use std::io::{BufRead, BufReader, Write};
 use std::path::{Component, Path, PathBuf};
@@ -505,6 +506,30 @@ fn map_diagnostic(item: &Value, relative: &str) -> Option<Diagnostic> {
         code: None,
         params: Default::default(),
     })
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TexlabCompletionItem {
+    pub label: String,
+    pub detail: Option<String>,
+    pub kind: Option<String>,
+    pub insert_text: Option<String>,
+    pub documentation: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TexlabHover {
+    pub contents: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TexlabLocation {
+    pub path: String,
+    pub line: u32,
+    pub column: u32,
 }
 
 #[cfg(test)]

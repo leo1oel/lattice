@@ -1,8 +1,9 @@
 //! The signed-in session: the stored cookie, sign-in validation, the account's
 //! project list, and the cookie rules the sign-in window relies on.
 
-use super::api::{err, fetch_projects_page, full_name, http_client, json_str, meta_content};
+use super::api::{fetch_projects_page, full_name, http_client, json_str, meta_content};
 use crate::overleaf_rt::{NOT_CONNECTED, SESSION_EXPIRED};
+use crate::util::err;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::fs::{self, OpenOptions};

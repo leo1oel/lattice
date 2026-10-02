@@ -5,10 +5,11 @@
 
 use super::bibliography::{run_bibcite_input, ScratchBibliography};
 use super::citation::{normalized_paper_title, paper_titles_match, unused_key};
-use super::{err, http_client, is_web_url, read_capped, LITERATURE_USER_AGENT};
+use super::{http_client, is_web_url, read_capped};
 use crate::citation_audit::entry_fields;
 use crate::firecrawl::ScrapedPage;
 use crate::project;
+use crate::util::err;
 use crate::web_metadata::{self, bib_text, bib_url};
 use regex::Regex;
 use scraper::{Html, Selector};
@@ -70,7 +71,7 @@ fn webpage_bibtex(html: &str, url: &str) -> Option<String> {
 }
 
 pub(super) fn fetch_web_html(url: &str) -> Result<String, String> {
-    let response = http_client(LITERATURE_USER_AGENT, 15)
+    let response = http_client(15)
         .map_err(err)?
         .get(url)
         .send()

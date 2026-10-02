@@ -18,6 +18,7 @@ mod command_diagnostics;
 mod commands;
 mod diagnostic_logs;
 mod doctor;
+mod export;
 mod firecrawl;
 mod format_latex;
 mod fs_watch;
@@ -54,7 +55,6 @@ mod texcount;
 mod texlab;
 mod util;
 mod web_metadata;
-mod xlsx;
 
 use app_state::AppState;
 use tauri::{AppHandle, Manager, Runtime, WebviewWindow, WebviewWindowBuilder};

@@ -3,10 +3,11 @@
 
 use super::{current_root, in_project, run_blocking};
 use crate::app_state::AppState;
-use crate::models::{
-    ProjectSearchResult, ReferenceInfo, RenameSymbolResult, ReplacePreview, ReplaceResult,
-    SymbolOccurrence, TodoHit, UnusedSymbols, WordCount,
+use crate::models::{ProjectSearchResult, SymbolOccurrence};
+use crate::project::{
+    ReferenceInfo, RenameSymbolResult, ReplacePreview, ReplaceResult, TodoHit, UnusedSymbols,
 };
+use crate::texcount::WordCount;
 use crate::{papers, project, texcount};
 use tauri::{State, Window};
 

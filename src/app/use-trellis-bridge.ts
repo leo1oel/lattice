@@ -81,7 +81,12 @@ export function useTrellisBridge(app: TrellisBridgeApp) {
         }
       },
       textScrollTop: (path) => documents.viewStates.get(path)?.text?.scrollTop ?? null,
-      openTool: (kind) => tools.open(kind),
+      // A panel asking for a drawer that is already open only comes forward:
+      // reopening would reset it (a comment reply's focus, Overleaf's tab).
+      openTool: (kind) => {
+        if (trellis.openDrawers.get()[kind]) trellis.revealTool(kind);
+        else tools.open(kind);
+      },
       agentShown: () => {
         synara.mountFrame();
         synara.notifyPanelOpened();

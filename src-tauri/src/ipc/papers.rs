@@ -2,7 +2,9 @@
 
 use super::{current_root, in_project, run_blocking};
 use crate::app_state::AppState;
-use crate::models::{ImportResult, LiteraturePage, PaperSummary, ProjectSearchResult};
+use crate::literature::LiteraturePage;
+use crate::models::ProjectSearchResult;
+use crate::papers::{ImportResult, PaperSummary};
 use crate::{literature, paper_pdf_proxy, papers};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;

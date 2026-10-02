@@ -101,7 +101,6 @@ const EXTERNAL_PREFIXES = [
   "--trees-",
   "--total-scale-factor",
   "--scroll-area-thumb-",
-  "--bk-speed",
   // Shiki dual themes write the dark-variant tokens as inline styles on spans.
   "--shiki-",
 ]

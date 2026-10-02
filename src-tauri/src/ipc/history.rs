@@ -2,8 +2,8 @@
 
 use super::{current_root, in_project, maybe_pinned_root, run_blocking};
 use crate::app_state::AppState;
-use crate::models::{HistoryItem, TransactionRecord};
 use crate::project;
+use crate::project::{HistoryItem, TransactionRecord};
 use tauri::{State, Window};
 
 #[tauri::command]

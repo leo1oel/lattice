@@ -3,7 +3,7 @@
 
 use super::symbols::iter_tex_sources;
 use super::{line_number_at, skip_bytes};
-use crate::models::ReferenceInfo;
+use serde::Serialize;
 use std::path::Path;
 
 pub fn references(root: &Path) -> Result<Vec<ReferenceInfo>, String> {
@@ -236,6 +236,18 @@ fn environment_snippet(source: &str, kind: &str) -> String {
     } else {
         lines
     }
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ReferenceInfo {
+    pub label: String,
+    pub kind: String,
+    pub title: String,
+    pub snippet: String,
+    pub path: String,
+    pub line: u32,
+    pub image_path: Option<String>,
 }
 
 #[cfg(test)]

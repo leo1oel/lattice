@@ -305,7 +305,7 @@ export class BenchDriver {
   }
 }
 
-export const treeItem = (path) => `file-tree-container.lattice-file-tree >>> [data-item-path="${path}"]`;
+const treeItem = (path) => `file-tree-container.lattice-file-tree >>> [data-item-path="${path}"]`;
 
 const EDITOR = ".cm-editor .cm-content";
 const VISUAL = ".ProseMirror";
