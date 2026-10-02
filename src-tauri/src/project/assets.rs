@@ -142,6 +142,36 @@ pub fn read_asset_range(
     Ok(bytes)
 }
 
+/// Save the project PDF `relative`, at the `version` [`read_asset`] reported,
+/// to `destination` without its bytes passing through the webview.
+pub fn save_asset_copy(
+    root: &Path, relative: &str, version: &str, destination: &Path,
+) -> Result<String, String> {
+    let path = safe_path(root, relative)?;
+    if asset_mime_type(&path) != Some("application/pdf") {
+        return Err("Only project PDFs are saved as copies.".to_string());
+    }
+    let destination = crate::latex::pdf_destination(destination)?;
+    let mut file = match open_resolved(&path) {
+        Ok(file) => file,
+        Err(error) if error.kind() == io::ErrorKind::NotFound => return Err(NOT_FOUND.into()),
+        Err(error) => return Err(err(error)),
+    };
+    let metadata = file.metadata().map_err(err)?;
+    if !metadata.is_file() || file_version(&metadata) != version {
+        return Err(FILE_CHANGED.to_string());
+    }
+    // Creating the destination truncates it, so saving the file over itself
+    // would empty it before it is read; it already holds this version.
+    let same_file = fs::metadata(&destination)
+        .is_ok_and(|other| other.dev() == metadata.dev() && other.ino() == metadata.ino());
+    if !same_file {
+        let mut output = File::create(&destination).map_err(err)?;
+        io::copy(&mut file, &mut output).map_err(err)?;
+    }
+    Ok(destination.to_string_lossy().to_string())
+}
+
 /// A path LaTeX can `\includegraphics`: the figure itself, or a converted
 /// `<stem>-converted.pdf` (SVG) / `.png` (WebP) beside it.
 pub fn prepare_latex_figure(root: &Path, relative: &str) -> Result<String, String> {
@@ -346,5 +376,51 @@ mod tests {
         assert_eq!(read_asset(root, "paper.pdf").err().unwrap(), NOT_FOUND);
         assert_eq!(read("gone/paper.pdf", &replaced, 0, 4).err().unwrap(), NOT_FOUND);
         assert_eq!(read_asset(root, "gone/paper.pdf").err().unwrap(), NOT_FOUND);
+    }
+
+    #[test]
+    fn saves_a_copy_of_only_the_checked_version_of_a_project_pdf() {
+        let fixture = Fixture::project("pdf-save");
+        let root = &fixture.root;
+        let saved = &fixture.parent;
+        fixture.write("paper.pdf", b"%PDF-1.4 the checked version");
+        fixture.write("notes.md", b"# not a PDF");
+        let (_, version) = ranges(root, "paper.pdf");
+
+        let destination =
+            save_asset_copy(root, "paper.pdf", &version, &saved.join("copy")).unwrap();
+        assert_eq!(destination, saved.join("copy.pdf").to_string_lossy());
+        assert_eq!(fs::read(&destination).unwrap(), b"%PDF-1.4 the checked version");
+        assert!(save_asset_copy(root, "paper.pdf", &version, &saved.join("copy.txt")).is_err());
+
+        // Outside the project, through a link, or not a PDF.
+        let outside = saved.join("outside.pdf");
+        fs::write(&outside, b"%PDF-1.4 outside").unwrap();
+        std::os::unix::fs::symlink(&outside, fixture.path("linked.pdf")).unwrap();
+        for path in ["../outside.pdf", outside.to_str().unwrap(), "linked.pdf", "notes.md"] {
+            assert!(
+                save_asset_copy(root, path, &version, &saved.join("refused.pdf")).is_err(),
+                "{path} must be refused"
+            );
+        }
+        assert!(!saved.join("refused.pdf").exists());
+
+        // Rewritten since it was checked: nothing is written.
+        fixture.write("paper.pdf", b"%PDF-1.4 a later version, longer");
+        let stale = save_asset_copy(root, "paper.pdf", &version, &saved.join("stale.pdf"));
+        assert_eq!(stale.err().unwrap(), FILE_CHANGED);
+        assert!(!saved.join("stale.pdf").exists());
+
+        // Saved over itself, the file is left whole.
+        let (_, current) = ranges(root, "paper.pdf");
+        save_asset_copy(root, "paper.pdf", &current, &fixture.path("paper.pdf")).unwrap();
+        assert_eq!(
+            fs::read(fixture.path("paper.pdf")).unwrap(),
+            b"%PDF-1.4 a later version, longer"
+        );
+
+        fs::remove_file(fixture.path("paper.pdf")).unwrap();
+        let gone = save_asset_copy(root, "paper.pdf", &current, &saved.join("gone.pdf"));
+        assert_eq!(gone.err().unwrap(), NOT_FOUND);
     }
 }

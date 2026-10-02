@@ -895,7 +895,7 @@ describe("PDFSlick viewer integration", () => {
     expect(onDocumentData).toHaveBeenCalledWith(expect.any(ArrayBuffer));
   });
 
-  it("reads a project PDF a range at a time, and reads it whole only to save it", async () => {
+  it("reads a project PDF a range at a time, and saves it as a copy on disk", async () => {
     // A remote paper keeps PDF.js's background streaming.
     const remote = renderPdf();
     const paper = await viewerAt(0);
@@ -917,14 +917,14 @@ describe("PDFSlick viewer integration", () => {
       if (command === "read_project_asset") {
         return { path: "figures/scan.pdf", mimeType: "application/pdf", ranges: { length: 4, version: "v2" } };
       }
-      return command === "read_project_asset_range" ? new Uint8Array([37, 80, 68, 70]).buffer : "/tmp/scan copy.pdf";
+      return "/tmp/scan copy.pdf";
     });
     fireEvent.click(view.getByRole("button", { name: "Save PDF as…" }));
     await waitFor(() => expect(invoke).toHaveBeenCalledWith(
-      "save_compiled_pdf", new Uint8Array([37, 80, 68, 70]), expect.objectContaining({ headers: expect.any(Object) }),
+      "save_project_pdf", { path: "figures/scan.pdf", version: "v2", destination: "/tmp/scan copy.pdf" },
     ));
-    expect(invoke).toHaveBeenCalledWith("read_project_asset_range", { path: "figures/scan.pdf", version: "v2", start: 0, end: 4 });
-    expect(invoke).not.toHaveBeenCalledWith("read_project_asset_range", expect.objectContaining({ version: "v1" }));
+    expect(invoke).not.toHaveBeenCalledWith("read_project_asset_range", expect.anything());
+    expect(invoke).not.toHaveBeenCalledWith("save_compiled_pdf", expect.anything(), expect.anything());
   });
 
   it("asks for a project PDF's new version when a read finds it rewritten, then swaps it in at the same page", async () => {

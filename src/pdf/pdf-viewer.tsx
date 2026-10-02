@@ -48,7 +48,7 @@ import { usePdfSourceTargets, type PdfSourceQuote, type PdfSyncTarget } from "./
 import { usePdfSelectionReport } from "./pdf-text-layer-selection";
 import { PDF_MAX_SCALE, PDF_MIN_SCALE, parsePdfZoomPercent } from "./pdf-viewer-utils";
 import { clamp } from "../settings/app-settings";
-import { currentProjectPdf, readProjectPdf, type ProjectPdfFile } from "./project-pdf";
+import { currentProjectPdf, saveProjectPdf, type ProjectPdfFile } from "./project-pdf";
 import { pdfSource, usePdfDocument } from "./use-pdf-document";
 import { usePdfSearch } from "./use-pdf-search";
 import { useLatestRef } from "../hooks/use-latest-ref";
@@ -273,9 +273,9 @@ export function PdfPreview({
     );
   }
 
-  // A project file is read in full only when it is saved, as it is on disk
-  // then; a remote paper is saved from the bytes the reader captures once it
-  // has loaded.
+  // A project file is copied on disk as it is then, never read into the
+  // webview; a remote paper is saved from the bytes the reader captures once
+  // it has loaded.
   const canSave = Boolean(pdfBytes || projectFile);
   const download = () => {
     if (!canSave || savingPdf) return;
@@ -289,10 +289,11 @@ export function PdfPreview({
     })
       .then(async (destination) => {
         if (!destination) return;
-        const bytes = pdfBytes ?? await readProjectPdf(await currentProjectPdf(projectFile!.path));
-        const path = await invoke<string>("save_compiled_pdf", bytes, {
-          headers: { "x-pdf-destination": utf8ToBase64(destination) },
-        });
+        const path = pdfBytes
+          ? await invoke<string>("save_compiled_pdf", pdfBytes, {
+            headers: { "x-pdf-destination": utf8ToBase64(destination) },
+          })
+          : await saveProjectPdf(await currentProjectPdf(projectFile!.path), destination);
         trace.ok(t({ message: `Saved to ${path}` }));
       })
       .catch((reason: unknown) => trace.fail(reason))

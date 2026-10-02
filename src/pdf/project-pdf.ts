@@ -23,8 +23,8 @@ async function readPiece(file: ProjectPdfFile, start: number, end: number): Prom
   return new Uint8Array(bytes);
 }
 
-/** Bytes `[start, end)` of `file`, the whole file by default. */
-export async function readProjectPdf(file: ProjectPdfFile, start = 0, end = file.length): Promise<Uint8Array<ArrayBuffer>> {
+/** Bytes `[start, end)` of `file`. */
+async function readProjectPdf(file: ProjectPdfFile, start: number, end: number): Promise<Uint8Array<ArrayBuffer>> {
   const pieces: Promise<Uint8Array>[] = [];
   for (let offset = start; offset < end; offset += READ_BYTES) {
     pieces.push(readPiece(file, offset, Math.min(end, offset + READ_BYTES)));
@@ -43,6 +43,11 @@ export async function currentProjectPdf(path: string): Promise<ProjectPdfFile> {
   // `read_project_asset` reports every project PDF as ranges, never inline.
   const { ranges } = await invoke<{ ranges: Omit<ProjectPdfFile, "path"> }>("read_project_asset", { path });
   return { path, ...ranges };
+}
+
+/** Save a copy of `file`, at its version, to `destination`; resolves to the saved path. */
+export function saveProjectPdf(file: ProjectPdfFile, destination: string): Promise<string> {
+  return invoke<string>("save_project_pdf", { path: file.path, version: file.version, destination });
 }
 
 /**
