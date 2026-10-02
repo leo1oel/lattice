@@ -4,8 +4,10 @@
  */
 import type { ReactNode } from "react";
 import {
-  BookMarked, BookOpen, Bot, ClipboardCheck, FileCode2, FileImage, FileText, FolderTree, GitBranch, History, Leaf, Library,
-  ListTodo, MessageSquare, Presentation, Shapes, Table2,
+  ArrowRightLeft, BookMarked, BookOpen, BookPlus, Bot, ClipboardCheck, Columns2, Crosshair, EyeOff, FileCode2, FileImage,
+  FileText, FolderTree, GitBranch, Hammer, History, Leaf, Library, ListChecks, ListTodo, Maximize2, MessageSquare,
+  Minimize2, PictureInPicture2, Presentation, RefreshCw, Rows2, Search, Settings2, Shapes, Sparkles, Square, Table2,
+  X, XCircle,
 } from "lucide-react";
 import { isOpenSlideDeckPath } from "../app-utils";
 import { isSpreadsheetPath } from "../editor/spreadsheet/spreadsheet-types";
@@ -35,4 +37,32 @@ export const PANEL_ICONS: Record<TrellisSingleton, ReactNode> = {
   literature: <BookOpen size={14} />,
   todos: <ListTodo size={14} />,
   checklist: <ClipboardCheck size={14} />,
+};
+
+/**
+ * Icons for panel menu items, by item id: Trellis's built-in items and the
+ * ones Lattice adds. An id without one keeps a bare label.
+ */
+export const MENU_ICONS: Partial<Record<string, ReactNode>> = {
+  maximize: <Maximize2 />,
+  dock: <Minimize2 />,
+  float: <PictureInPicture2 />,
+  move: <ArrowRightLeft />,
+  "split-right": <Columns2 />,
+  "split-below": <Rows2 />,
+  hide: <EyeOff />,
+  close: <X />,
+  "close-others": <XCircle />,
+  build: <Hammer />,
+  "clean-build": <RefreshCw />,
+  "stop-build": <Square />,
+  reveal: <Crosshair />,
+  "new-spreadsheet": <Table2 />,
+  "new-board": <Shapes />,
+  "new-presentation": <Presentation />,
+  find: <Search />,
+  discover: <Sparkles />,
+  "bib-entry": <BookPlus />,
+  "check-references": <ListChecks />,
+  "agent-settings": <Settings2 />,
 };

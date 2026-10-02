@@ -39,7 +39,7 @@ import {
 import { defaultLayout, loadLayout, saveLayout, clearLayout, withDocumentPanel, VIEW_TYPES } from "./trellis-layout";
 import { installTrellisLabels } from "./trellis-labels";
 import { PANEL_TITLES, spaceMixedScript } from "./trellis-titles";
-import { PANEL_ICONS, fileIcon } from "./trellis-icons";
+import { MENU_ICONS, PANEL_ICONS, fileIcon } from "./trellis-icons";
 import { FileHeaderTools } from "./trellis-header-tools";
 import { measurePdfToolbarMinWidth } from "../pdf/pdf-toolbar-min-width";
 import "./trellis.css";
@@ -410,6 +410,7 @@ function MenuEntries({ entries, onRun }: { entries: readonly MenuEntry[]; onRun:
             <MenuPrimitive.Sub key={entry.id ?? entry.label}>
               <MenuPrimitive.SubTrigger className={cn(menuItemClassName, "data-[state=open]:bg-accent")} disabled={entry.disabled}>
                 {checks && <span className="trellis-menu-check" />}
+                {entry.id && MENU_ICONS[entry.id]}
                 <span className="flex-1 truncate">{entry.label}</span>
                 <ChevronRight className="ml-auto" />
               </MenuPrimitive.SubTrigger>
@@ -436,6 +437,7 @@ function MenuEntries({ entries, onRun }: { entries: readonly MenuEntry[]; onRun:
             }}
           >
             {checks && <span className="trellis-menu-check">{entry.checked && <Check />}</span>}
+            {entry.id && MENU_ICONS[entry.id]}
             <span className="flex-1 truncate">{entry.label}</span>
             {entry.shortcut && <span className="trellis-menu-shortcut">{entry.shortcut}</span>}
           </MenuPrimitive.Item>
