@@ -6,8 +6,6 @@ use std::sync::{Mutex, MutexGuard};
 use std::time::Duration;
 
 #[cfg(not(test))]
-const SERVICE: &str = "app.leo1oel.researchwriter.literature";
-#[cfg(not(test))]
 const ACCOUNT: &str = "credential-vault-v1";
 const MAX_SECRET: usize = 16 * 1024;
 const MAX_EMAIL: usize = 320;
@@ -107,7 +105,7 @@ fn vault_lock() -> Result<MutexGuard<'static, Option<CredentialVault>>, String> 
 
 #[cfg(not(test))]
 fn entry() -> Result<keyring::Entry, String> {
-    keyring::Entry::new(SERVICE, ACCOUNT)
+    keyring::Entry::new(&format!("{}.literature", crate::app_identity::identifier()), ACCOUNT)
         .map_err(|_| "secure credential store unavailable".to_string())
 }
 

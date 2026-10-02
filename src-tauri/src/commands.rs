@@ -75,7 +75,9 @@ pub(crate) fn stderr_or(output: &Output, fallback: &str) -> String {
 pub fn managed_tools_dir() -> Option<PathBuf> {
     env::var_os("HOME").map(|home| {
         PathBuf::from(home)
-            .join("Library/Application Support/app.leo1oel.researchwriter/bin")
+            .join("Library/Application Support")
+            .join(crate::app_identity::identifier())
+            .join("bin")
             .join(format!("uv-{MANAGED_UV_VERSION}"))
     })
 }

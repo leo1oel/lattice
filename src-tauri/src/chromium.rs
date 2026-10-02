@@ -68,7 +68,22 @@ impl ChromiumRuntime {
             ));
         }
 
-        let mut child = Command::new(&executable)
+        let mut command = Command::new(&executable);
+        // chromium-shell.mjs loads the perf lab module (synthetic input, PNG
+        // writes, extra Chromium switches) whenever LATTICE_PERF_PLAN is set,
+        // so only a perf-lab build may pass the lab variables through.
+        #[cfg(not(feature = "perf-lab"))]
+        for (name, _) in std::env::vars_os() {
+            let lab = name.to_str().is_some_and(|name| {
+                name == "LATTICE_PERF_PLAN"
+                    || name.starts_with("LATTICE_CR_")
+                    || name.starts_with("LATTICE_LAB_")
+            });
+            if lab {
+                command.env_remove(name);
+            }
+        }
+        let mut child = command
             .env("LATTICE_CHROMIUM_MANAGED", "1")
             .stdin(Stdio::piped())
             .stdout(Stdio::null())
@@ -80,6 +95,8 @@ impl ChromiumRuntime {
             .take()
             .ok_or_else(|| "Could not open the Chromium control pipe.".to_string())?;
         let pid = child.id();
+        #[cfg(feature = "perf-lab")]
+        crate::perf_lab::trace("rust:chromium-spawned");
         self.shutting_down.store(false, Ordering::Release);
         self.pid.store(pid, Ordering::Release);
         *self.input.lock().map_err(|_| PIPE_UNAVAILABLE.to_string())? = Some(input);
@@ -179,6 +196,12 @@ pub(crate) struct NodeRuntime {
 
 impl NodeRuntime {
     pub(crate) fn resolve(electron_resources: &Path, standalone_bin: &Path) -> Self {
+        // A WebKit lab bundle has no Chromium runtime; it borrows the Chromium
+        // bundle's Electron as Synara's Node.
+        #[cfg(feature = "perf-lab")]
+        if let Some(node) = std::env::var_os("LATTICE_LAB_NODE").filter(|v| !v.is_empty()) {
+            return Self { executable: PathBuf::from(node), electron: true };
+        }
         let electron = cfg!(not(debug_assertions));
         let executable = if electron {
             electron_resources.join(RUNTIME_EXECUTABLE)

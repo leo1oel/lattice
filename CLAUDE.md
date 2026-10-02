@@ -2,7 +2,8 @@
 
 Lattice — a local-first LaTeX writing app for macOS. Tauri 2 (Rust) shell +
 React 19 / TypeScript / Vite 8 frontend, with a bundled AI-agent sidecar
-(Synara) and Overleaf sync.
+(Synara) and Overleaf sync. The packaged workspace window is a bundled
+Chromium, not a WKWebView; see `docs/architecture.md` §1.
 
 ## Commands
 
@@ -15,6 +16,8 @@ node scripts/bump-version.mjs patch   # release: rewrites the version in package
                                       # the add/commit/tag/push commands. It runs none of them —
                                       # pushing the tag yourself is what triggers CI to publish.
 ```
+
+Screenshots, QA or measuring in the app: `docs/driving-the-app.md`.
 
 Only `pnpm tauri dev` / `pnpm tauri build` need the Synara source.
 Everything else — including `pnpm check`, `cargo test`, and `cargo clippy` — only needs resource stubs for the bundled runtimes:
@@ -36,19 +39,19 @@ skipping any whose declared `sources` have not changed. Needs
 [mise](https://mise.jdx.dev). It runs the *same commands* as
 `.github/workflows/ci.yml` (except CI's interaction benchmark,
 `pnpm perf:bench --check`, which locally is `mise run perf-bench`), not the same way: CI is a clean checkout with
-nothing skipped, on Node 22, Rust on macOS and everything else on Ubuntu, while
-mise pins Node 26.5.0 / pnpm 10.13.1 and caches stage freshness. A green local
+nothing skipped, Rust on macOS and everything else on Ubuntu, while mise
+caches stage freshness. A green local
 check with a red CI is usually the freshness cache — `mise run --force check`.
 Lint enforces a `--max-warnings` debt cap, owned by the `lint` script in
 `package.json`: lower it when you remove warnings; never raise it.
 
 ## Layout
 
-- `src/` — frontend, one directory per domain. Only 11 files sit at the root: `main.tsx`, `App.tsx`/`App.css`, `index.css`, `app-types.ts` (the shared domain model, 40 importers), `app-utils.ts` + its two tests, `i18n.ts` + test, `vite-env.d.ts`. There is deliberately **no `shared/`** — anything cross-domain enough to need one belongs at the root or in `components/ui/`. New work goes in the domain directory; place by who imports it, not by what it is called.
+- `src/` — frontend, one directory per domain. Only 11 files sit at the root: `main.tsx`, `App.tsx`/`App.css`, `index.css`, `app-types.ts` (the shared domain model), `app-utils.ts` + its two tests, `i18n.ts` + test, `vite-env.d.ts`. There is deliberately **no `shared/`** — anything cross-domain enough to need one belongs at the root or in `components/ui/`. New work goes in the domain directory; place by who imports it, not by what it is called.
 - `src/app/` — App orchestration: hooks extracted from `App.tsx` (`use-overleaf-workspace.ts`, `notify.ts`) plus window/panel geometry.
 - `src/canvas/` — the editing surface shell (`document-canvas.tsx`, toolbar, outline, `canvas-lazy-modules.ts`).
 - `src/editor/` — editor infrastructure shared by more than one editor kind (CodeMirror host, language resolution, spellcheck), with `editor/latex/`, `editor/markdown/`, `editor/spreadsheet/`, `editor/board/`, `editor/insert/`, `editor/comments/` beneath it.
-- `src/pdf/`, `src/build/`, `src/papers/`, `src/project/`, `src/history/`, `src/settings/`, `src/trellis/` (the panel workspace), `src/agent/` (Synara), `src/telemetry/` (logs, toasts, updater, error boundary, sounds), `src/platform/` (polyfills, perf probe, test setup, repo-level guard tests).
+- `src/pdf/`, `src/build/`, `src/papers/`, `src/project/`, `src/history/`, `src/settings/`, `src/trellis/` (the panel workspace), `src/agent/` (Synara), `src/telemetry/` (logs, toasts, updater, error boundary, sounds), `src/platform/` (polyfills, perf probe and perf-lab harness, test setup, repo-level guard tests).
 - `src/components/ui/` — the one UI-primitive home: shadcn-style controls plus the app-level shared presentation (`motion.tsx`, `resizable-drawer.tsx`, `avatar-group.tsx`, `confirm-action-dialog.tsx`, `search-picker-dialog.tsx`, `collab-colors.ts`).
 - `src/overleaf/` — Overleaf sync: the OT engine (`ot.ts`), the realtime/chat/comments/track-changes hooks (`use-overleaf-*`), and their panels and stylesheets.
 - Filenames keep their domain prefix after a move (`overleaf/overleaf-presence.tsx`, not `overleaf/presence.tsx`) so the split stays a reviewable pure-rename diff.

@@ -28,6 +28,9 @@ export function useTexSetup(rebuild: () => void) {
   // nothing needs its report during first paint. The timeout keeps the setup
   // wizard appearing within a few seconds on a missing toolchain.
   useEffect(() => {
+    // A perf-lab run measures the editor, not the toolchain probe and the
+    // setup wizard it may open over the window.
+    if (import.meta.env.VITE_PERF_LAB === "1" && window.__latticeLab) return;
     const cancel = whenIdle(() => {
       const generation = ++doctorGenerationRef.current;
       void invoke<DoctorReport>("run_doctor")

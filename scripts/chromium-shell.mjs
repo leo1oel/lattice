@@ -11,6 +11,11 @@ import {
   openSlidePresenterWindowOptions,
 } from "./chromium-window-policy.mjs";
 
+// The perf lab (scripts/perf-lab.mjs) launches with a run plan; only then does
+// the shell load its native-input bridge and rendering overrides. Release
+// builds strip the lab variables before spawning Electron (chromium.rs).
+const perfLab = process.env.LATTICE_PERF_PLAN ? await import("./chromium-perf-lab.mjs") : null;
+
 const DEFAULT_ENTRY_URL = "http://127.0.0.1:18452/";
 const entryUrl = new URL(process.env.LATTICE_CHROMIUM_URL ?? DEFAULT_ENTRY_URL);
 const shellMarker = "latticeChromium";
@@ -183,6 +188,7 @@ async function createWindow(rawUrl) {
       contextIsolation: true,
       nodeIntegration: false,
       webSecurity: true,
+      ...perfLab?.webPreferences,
     },
   });
 
@@ -217,6 +223,7 @@ async function createWindow(rawUrl) {
   });
 
   try {
+    perfLab?.watchLoad(window);
     await window.loadURL(url.href);
     const renderer = await inspectRenderer(window);
     const label = renderer.label ?? requestedLabel;
@@ -284,7 +291,7 @@ function installControlPipe() {
   });
 }
 
-app.setName("Lattice");
+app.setName(perfLab?.appName ?? "Lattice");
 
 // Closing the last macOS window is not an application quit. Keep the managed
 // shell alive so its Tauri owner can keep serving a browser tab, and so
@@ -320,7 +327,9 @@ if (!lockAcquired) {
     if (icon && app.dock) app.dock.setIcon(icon);
     installApplicationMenu();
     installControlPipe();
-    if (!await latticeBackendAvailable()) {
+    const backendAvailable = await latticeBackendAvailable();
+    perfLab?.trace("backend-available");
+    if (!backendAvailable) {
       const reason = `Lattice could not connect to its local service at ${entryUrl.href}.`;
       console.error(reason);
       dialog.showErrorBox("Could not start Lattice", reason);
@@ -328,6 +337,7 @@ if (!lockAcquired) {
       return;
     }
     const { window, renderer } = await createWindow(entryUrl.href);
+    perfLab?.trace("renderer-mounted");
     const chromiumVersion = process.versions.chrome;
     console.log(`Lattice Chromium shell ready — Chromium ${chromiumVersion}, Electron ${process.versions.electron}`);
     console.log("Renderer capabilities:", renderer);

@@ -3,14 +3,11 @@
 Where to start. If you want the *why* behind the structure, read
 [`architecture.md`](architecture.md) first; this document is the index.
 
-The directory counts in §1 were re-measured at `v0.1.341`; the other counts and
-line numbers in this file were measured against the **working tree** at
-`v0.1.229`, mid-refactor — file counts and line counts here are a snapshot of
-a tree that is moving, not a contract. `src/App.tsx` in particular is being
-actively split into `src/app/` hooks and its line numbers shift between commits.
-Re-measure before quoting anything from this page; every figure below is
-reproducible with the `rg` / `git ls-files` / `wc -l` command implied by its
-description.
+The directory counts in §1 were re-measured at `v0.1.341`. Per-file line counts
+are left out because they drift with every commit; the one this page argues
+from, `src/App.tsx`'s approximate size (§5, §6), is a rough figure. Re-measure
+before quoting any number here with the `rg` / `git ls-files` / `wc -l` command
+its description implies.
 
 ---
 
@@ -19,7 +16,7 @@ description.
 | Directory | Tracked files | What it is |
 | --- | --- | --- |
 | `src/` | 605 | The React 19 / TypeScript frontend. Split by domain: 11 files at the root, the rest under `app/`, `agent/`, `build/`, `canvas/`, `components/`, `editor/{,latex,markdown,spreadsheet,board,insert,comments,presentation}/`, `history/`, `hooks/`, `overleaf/`, `papers/`, `pdf/`, `platform/`, `project/`, `settings/`, `styles/`, `telemetry/`, `trellis/`, and `locales/`. See §3. |
-| `src-tauri/` | 186 | The Rust host: 118 `.rs` files (~40.7k lines) under `src-tauri/src/` — large areas are a short `x.rs` map beside an `x/` directory of parts, command handlers are in `ipc/` — plus `tauri.conf.json`, capabilities, icons, and LaTeX project templates. |
+| `src-tauri/` | 186 | The Rust host: the `.rs` sources under `src-tauri/src/` — large areas are a short `x.rs` map beside an `x/` directory of parts, command handlers are in `ipc/` — plus `tauri.conf.json`, capabilities, icons, and LaTeX project templates. |
 | `literature-worker/` | 8 | The public literature proxy Worker (`lattice-literature`, OpenAlex and Crossref). Own `package.json` and vitest config; see [`public-literature-service.md`](public-literature-service.md). |
 | `scripts/` | 50 | Build and maintenance tooling: version bump, size budget, i18n coverage, runtime staging and signing (Synara, Open Slide, Chromium), third-party notices, perf fixtures, dev bootstrap (`setup-dev.sh`), Overleaf live verification. Shared helpers are in `scripts/lib/` (`util.mjs`, `codesign.mjs`). |
 | `tools/` | 7 | Development-only code outside the app bundle. `tools/perf-bench/` is the interaction benchmark's page, and `tools/open-slide-runtime/` is the Open Slide presentation server staged into the app by `scripts/prepare-presentation-runtime.mjs`. Typechecked and linted with the app. |
@@ -35,21 +32,21 @@ description.
 
 | You want to change… | Start here |
 | --- | --- |
-| **The app shell, global state, IPC wiring** | `src/App.tsx` (the hub — see §5), `src/app/` (the hooks and surfaces extracted out of it: `use-project-state.ts`, `use-open-documents.ts`, `use-build-pipeline.ts`, `use-synara-host.ts`, `app-*.tsx` — see §6), `src/main.tsx` (root render, locale activation, error capture), `src/app-types.ts` (405 lines of shared shapes), `src/app-utils.ts`, `src/app/window-layout.ts`, `src/trellis/` (the panel workspace) |
-| **The LaTeX / CodeMirror source editor** | `src/editor/latex/latex-editor.ts` (390 — assembles the CM6 extension set from `latex-completions.ts`, `latex-diagnostics.ts`, `latex-hover-cards.ts`, `latex-environments.ts`, `latex-edits.ts`, `latex-symbols.ts`), `src/editor/codemirror-host.tsx` (the `@uiw/react-codemirror` wrapper), `src/canvas/document-canvas.tsx` (1,391 — the split source/preview shell that mounts it) and its modules in `src/canvas/` (`editor-extensions.ts`, `html-preview.tsx`, `paper-reader.tsx`, …), `src/editor/editor-languages.ts`, `src/editor/harper-spellcheck.ts`, `src/editor/latex/latex-outline.ts`, `src/editor/latex/latex-text.ts` |
+| **The app shell, global state, IPC wiring** | `src/App.tsx` (the hub — see §5), `src/app/` (the hooks and surfaces extracted out of it: `use-project-state.ts`, `use-open-documents.ts`, `use-build-pipeline.ts`, `use-synara-host.ts`, `app-*.tsx` — see §6), `src/main.tsx` (root render, locale activation, error capture), `src/app-types.ts` (the shared shapes), `src/app-utils.ts`, `src/app/window-layout.ts`, `src/trellis/` (the panel workspace) |
+| **The LaTeX / CodeMirror source editor** | `src/editor/latex/latex-editor.ts` (assembles the CM6 extension set from `latex-completions.ts`, `latex-diagnostics.ts`, `latex-hover-cards.ts`, `latex-environments.ts`, `latex-edits.ts`, `latex-symbols.ts`), `src/editor/codemirror-host.tsx` (the `@uiw/react-codemirror` wrapper), `src/canvas/document-canvas.tsx` (the split source/preview shell that mounts it) and its modules in `src/canvas/` (`editor-extensions.ts`, `html-preview.tsx`, `paper-reader.tsx`, …), `src/editor/editor-languages.ts`, `src/editor/harper-spellcheck.ts`, `src/editor/latex/latex-outline.ts`, `src/editor/latex/latex-text.ts` |
 | **The visual Markdown (TipTap) editor** | Lattice's own engine in `src/editor/markdown/engine/`: `lattice-visual-editor.tsx` (the host component: publication, path swaps, eligibility), `markdown-document.ts` (the byte-preserving Markdown round trip), `markdown-to-document.ts` / `document-to-markdown.ts`, `engine-schema.ts`, `source-map.ts` (Markdown offsets ↔ ProseMirror positions), `source-overlays.ts` (presence, tracked-change and comment overlays), `passive-view.tsx` (large read-only documents), and `chrome/` (slash menu, selection toolbar, links, find, block controls). The host contract is `src/editor/markdown/visual-editor-props.ts`; the frozen clean-room spec it was written from is [`visual-editor-spec.md`](visual-editor-spec.md). |
-| **The spreadsheet** | `src/editor/spreadsheet/spreadsheet-editor.tsx` (495, the React host), `src/editor/spreadsheet/spreadsheet-univer.ts` (Univer 0.25 setup, theme and menus), `src/editor/spreadsheet/spreadsheet-types.ts` (the `.lattice-sheet` format), `src/editor/spreadsheet/spreadsheet-operations.ts`, `src/editor/spreadsheet/spreadsheet-yjs.ts` (523 — the local Y.Doc model), `src/editor/spreadsheet/spreadsheet-xlsx.ts` + `src-tauri/src/xlsx.rs` (import/export) |
-| **The whiteboard** | `src/editor/board/board-editor.tsx` (tldraw 5), `src/editor/board/board-store.ts` (112 — the standalone tldraw store: load, serialize, replace), `src/editor/board/board-asset-urls.ts` (tldraw's fonts, icons and translations bundled from `@tldraw/assets` instead of its CDN), `src/agent/agent-canvas-tldraw-adapter.ts`. Loaded only via `loadBoardEditorModule()` — never import tldraw eagerly. |
-| **The PDF viewer** | `src/pdf/pdf-viewer.tsx` (415 — the toolbar and surface), which composes `src/pdf/use-pdf-document.ts` (building, swapping and tearing down PDFSlick viewers), `use-pdf-view.ts` (saved view state, link history), `use-pdf-zoom.ts`, `use-pdf-search.ts` and `pdf-source-targets.ts` (SyncTeX/quote highlights); `src/pdf/pdf-slick.ts` owns the PDF.js/PDFSlick plumbing, and `src/pdf/pdfjs-runtime.ts` is the one PDF.js runtime setup (worker URL, WKWebView polyfills) shared with reference previews. `src/pdf/project-pdf.ts` reads project PDFs a byte range at a time (`read_project_asset_range`, or the browser host's `/__lattice_asset`) instead of whole in one IPC reply. Also `src/pdf/pdf-viewer-utils.ts`, `src/pdf/pdf-bytes.ts`, `src-tauri/src/pdf_fonts.rs`, `public/pdfjs/` |
-| **Compiling LaTeX and surfacing errors** | `src-tauri/src/latex.rs` + `latex/` (1,510 — latexmk orchestration in `build.rs`, log parsing in `build_log.rs`, SyncTeX) → commands `build_project` / `abort_build` / `clean_project` in `src-tauri/src/ipc/build.rs`; `src/build/compile-diagnostics.ts` (log lines → CodeMirror lint diagnostics), `src/build/compile-diagnostics-panel.tsx`. Missing-package flow: `src-tauri/src/tex_setup.rs` + `tex_setup/` (1,254 incl. the privileged installer scripts) + `src/build/tex-setup-wizard.tsx`; environment health: `src-tauri/src/doctor.rs` |
-| **The file tree and project search** | `src/project/navigator.tsx` (the sidebar: file tree or paper library), `src/project/project-file-tree.tsx` (wraps `@pierre/trees`) and its `project-tree-*` modules (files and Git decorations, clipboard, context menu, inline create, pointer drag, motion, the shadow-DOM CSS), `src/project/paper-library.tsx`, `src/project/project-file-icons.ts`; search backend `src-tauri/src/fts.rs` (636, SQLite FTS; `project/search.rs` falls back to a linear scan); UI `src/editor/latex/search-panel.ts`, `src/project/project-find-dialog.tsx`, `src/project/project-replace-dialog.tsx`, `src/project/quick-open-dialog.tsx` |
-| **The paper library, literature search, bibliography** | `src-tauri/src/papers.rs` + `papers/` (4,779 — import, bundles, markdown conversion, citation), `citation_audit.rs` + `citation_audit/` (the bibliography audit), `openalex.rs`, `alphaxiv.rs`, `literature.rs`, `citation_health.rs`, `firecrawl.rs`; UI `src/papers/literature-discovery-panel.tsx`, `src/project/references-panel.tsx`, `src/papers/bib-entry.ts` + `src/papers/bib-entry-dialog.tsx`, `src/papers/arxiv-id.ts`, `src/papers/paper-link.ts`, `src/papers/venues.ts` (generated by `scripts/gen-venues.mjs`, one venue per line) |
-| **Version history and diffs** | Transactions: `src-tauri/src/project/history.rs` (`apply_transaction`, `.research/history/`) + commands `list_history` / `revert_transaction` in `ipc/history.rs`; git: `src-tauri/src/git.rs` + `git/parse.rs` (786). UI: `src/history/history-drawer.tsx`, `src/history/versions-timeline.tsx`, `src/history/file-diff-view.tsx` and `src/history/pierre-diff.ts` (`@pierre/diffs` + shiki). Design rationale: [`project-history-architecture.md`](project-history-architecture.md) |
-| **Overleaf sync** | `src/app/use-overleaf-workspace.ts` (934 — the React-side workspace state, extracted from `App.tsx`), `src-tauri/src/overleaf.rs` + `overleaf/` (4,196 — session, linking, REST, review, three-way merge) and `src-tauri/src/overleaf_rt.rs` + `overleaf_rt/` (3,028 — a hand-written Socket.IO 0.9 client; read the module header of `overleaf_rt.rs` first); handlers in `src-tauri/src/ipc/overleaf.rs` and `ipc/overleaf_realtime.rs`. Frontend: everything else is in `src/overleaf/` — `use-overleaf-realtime.ts` (1,013; its wire types and pure rules are `overleaf-realtime-model.ts`) and the other `use-overleaf-*` hooks, which all subscribe through the window-scoped `overleaf-realtime-listen.ts`; `overleaf-connect.tsx`; `ot.ts` (the OT transform). Live verification: `scripts/verify-overleaf.mjs` |
+| **The spreadsheet** | `src/editor/spreadsheet/spreadsheet-editor.tsx` (the React host), `src/editor/spreadsheet/spreadsheet-univer.ts` (Univer 0.25 setup, theme and menus), `src/editor/spreadsheet/spreadsheet-types.ts` (the `.lattice-sheet` format), `src/editor/spreadsheet/spreadsheet-operations.ts`, `src/editor/spreadsheet/spreadsheet-yjs.ts` (the local Y.Doc model), `src/editor/spreadsheet/spreadsheet-xlsx.ts` + `src-tauri/src/xlsx.rs` (import/export) |
+| **The whiteboard** | `src/editor/board/board-editor.tsx` (tldraw 5), `src/editor/board/board-store.ts` (the standalone tldraw store: load, serialize, replace), `src/editor/board/board-asset-urls.ts` (tldraw's fonts, icons and translations bundled from `@tldraw/assets` instead of its CDN), `src/agent/agent-canvas-tldraw-adapter.ts`. Loaded only via `loadBoardEditorModule()` — never import tldraw eagerly. |
+| **The PDF viewer** | `src/pdf/pdf-viewer.tsx` (the toolbar and surface), which composes `src/pdf/use-pdf-document.ts` (building, swapping and tearing down PDFSlick viewers), `use-pdf-view.ts` (saved view state, link history), `use-pdf-zoom.ts`, `use-pdf-search.ts` and `pdf-source-targets.ts` (SyncTeX/quote highlights); `src/pdf/pdf-slick.ts` owns the PDF.js/PDFSlick plumbing, and `src/pdf/pdfjs-runtime.ts` is the one PDF.js runtime setup (worker URL, WKWebView polyfills) shared with reference previews. `src/pdf/project-pdf.ts` reads project PDFs a byte range at a time (`read_project_asset_range`, or the browser host's `/__lattice_asset`) instead of whole in one IPC reply. Also `src/pdf/pdf-viewer-utils.ts`, `src/pdf/pdf-bytes.ts`, `src-tauri/src/pdf_fonts.rs`, `public/pdfjs/` |
+| **Compiling LaTeX and surfacing errors** | `src-tauri/src/latex.rs` + `latex/` (latexmk orchestration in `build.rs`, log parsing in `build_log.rs`, SyncTeX) → commands `build_project` / `abort_build` / `clean_project` in `src-tauri/src/ipc/build.rs`; `src/build/compile-diagnostics.ts` (log lines → CodeMirror lint diagnostics), `src/build/compile-diagnostics-panel.tsx`. Missing-package flow: `src-tauri/src/tex_setup.rs` + `tex_setup/` (incl. the privileged installer scripts) + `src/build/tex-setup-wizard.tsx`; environment health: `src-tauri/src/doctor.rs` |
+| **The file tree and project search** | `src/project/navigator.tsx` (the sidebar: file tree or paper library), `src/project/project-file-tree.tsx` (wraps `@pierre/trees`) and its `project-tree-*` modules (files and Git decorations, clipboard, context menu, inline create, pointer drag, motion, the shadow-DOM CSS), `src/project/paper-library.tsx`, `src/project/project-file-icons.ts`; search backend `src-tauri/src/fts.rs` (SQLite FTS; `project/search.rs` falls back to a linear scan); UI `src/editor/latex/search-panel.ts`, `src/project/project-find-dialog.tsx`, `src/project/project-replace-dialog.tsx`, `src/project/quick-open-dialog.tsx` |
+| **The paper library, literature search, bibliography** | `src-tauri/src/papers.rs` + `papers/` (import, bundles, markdown conversion, citation), `citation_audit.rs` + `citation_audit/` (the bibliography audit), `openalex.rs`, `alphaxiv.rs`, `literature.rs`, `citation_health.rs`, `firecrawl.rs`; UI `src/papers/literature-discovery-panel.tsx`, `src/project/references-panel.tsx`, `src/papers/bib-entry.ts` + `src/papers/bib-entry-dialog.tsx`, `src/papers/arxiv-id.ts`, `src/papers/paper-link.ts`, `src/papers/venues.ts` (generated by `scripts/gen-venues.mjs`, one venue per line) |
+| **Version history and diffs** | Transactions: `src-tauri/src/project/history.rs` (`apply_transaction`, `.research/history/`) + commands `list_history` / `revert_transaction` in `ipc/history.rs`; git: `src-tauri/src/git.rs` + `git/parse.rs`. UI: `src/history/history-drawer.tsx`, `src/history/versions-timeline.tsx`, `src/history/file-diff-view.tsx` and `src/history/pierre-diff.ts` (`@pierre/diffs` + shiki). Design rationale: [`project-history-architecture.md`](project-history-architecture.md) |
+| **Overleaf sync** | `src/app/use-overleaf-workspace.ts` (the React-side workspace state, extracted from `App.tsx`), `src-tauri/src/overleaf.rs` + `overleaf/` (session, linking, REST, review, three-way merge) and `src-tauri/src/overleaf_rt.rs` + `overleaf_rt/` (a hand-written Socket.IO 0.9 client; read the module header of `overleaf_rt.rs` first); handlers in `src-tauri/src/ipc/overleaf.rs` and `ipc/overleaf_realtime.rs`. Frontend: everything else is in `src/overleaf/` — `use-overleaf-realtime.ts` (its wire types and pure rules are `overleaf-realtime-model.ts`) and the other `use-overleaf-*` hooks, which all subscribe through the window-scoped `overleaf-realtime-listen.ts`; `overleaf-connect.tsx`; `ot.ts` (the OT transform). Live verification: `scripts/verify-overleaf.mjs` |
 | **The AI agent integration** | `src-tauri/src/synara.rs` (sidecar supervision), `src/agent/synara-runtime.ts` (iframe URL + inbound message parsers), `src/agent/agent-host-context.ts` (the context snapshot pushed to the agent), `useSynaraHost` in `src/app/use-synara-host.ts` (the `postMessage` bridge; the iframes mount in `src/trellis/trellis-agent-surface.tsx` and `src/app/app-history-drawers.tsx`), `src/agent/agent-*.ts` (canvas/spreadsheet/paper-library tool bridges), `run_cli()` in `src-tauri/src/agent_literature.rs` (the literature gateway the sidecar shells out to), `scripts/prepare-synara-sidecar.mjs` (staging + pruning). Runtime doc: [`synara-runtime.md`](synara-runtime.md) |
 | **Settings** | `src/settings/settings-dialog.tsx` (the dialog and its navigation), with panes in `doctor-settings.tsx`, `literature-settings.tsx` and `synara-settings-pane.tsx` and the shared rows in `settings-controls.tsx`; `src/settings/app-settings.ts` (localStorage-backed preferences and fixed font stacks), `src/settings/use-appearance.ts`, `src/telemetry/interface-sounds.ts`. Per-project settings go through `update_project_manifest` into `.research/project.json`. |
 | **i18n** | `src/i18n.ts`, `lingui.config.ts`, `src/locales/{en,zh-CN}/messages.po`, `scripts/check-i18n-coverage.mjs`. Use the `useLingui` macro. Run `pnpm i18n:check` — it extracts, fails on catalog drift (`git diff --exit-code -- src/locales`), compiles strictly, then runs the coverage guard, which fails when a zh-CN entry has no Chinese (unless listed in `scripts/i18n-unlocalized-baseline.txt`, reserved for product and format names) or when ESLint stops enforcing the rule below. `eslint.config.js` runs `lingui/no-unlocalized-strings` as an **error** over all shipping `src/` code; text that is not UI is exempted by that block's patterns or a commented `eslint-disable-next-line` at the site. |
-| **The design system** | `src/styles/foundations.css` (the token scale), `src/styles/theme.css` (the palette), `src/styles/tokens.test.ts` + `surfaces.test.ts` (the enforcement), `src/components/ui/` (52 shadcn-style primitives), `src/index.css` (Tailwind v4 without preflight). Decisions: [`design-system.md`](design-system.md) |
+| **The design system** | `src/styles/foundations.css` (the token scale), `src/styles/theme.css` (the palette), `src/styles/tokens.test.ts` + `surfaces.test.ts` (the enforcement), `src/components/ui/` (the shadcn-style primitives), `src/index.css` (Tailwind v4 without preflight). Decisions: [`design-system.md`](design-system.md) |
 | **Bundle size / startup** | `vite.config.ts` (`shikiTrimPlugin`, `manualChunkName`), `scripts/app-size-report.mjs` (the budgets), `src/canvas/canvas-lazy-modules.ts` (how to add a lazy chunk correctly). See [`architecture.md` §4](architecture.md#4-performance-and-bundle-constraints). |
 | **The release** | `node scripts/bump-version.mjs patch` — bumps `package.json`, `src-tauri/tauri.conf.json`, `src-tauri/Cargo.toml` and the `research-writer` entry in `src-tauri/Cargo.lock` in lockstep. It **only edits files**; it then prints the exact `git commit` / `git tag` / `git push` commands, and pushing the tag triggers `.github/workflows/release.yml`. Never edit the version numbers by hand. Full procedure: [`release-process.md`](release-process.md) |
 
@@ -175,24 +172,24 @@ engine (§2), and a repository guard test keeps that code from coming back.
 
 ## 5. The ~13 files that actually matter
 
-| File | LOC | Role |
-| --- | --- | --- |
-| `src/App.tsx` | ~1,900 | The hub. Composes the `src/app/` hooks and owns what still spans them: the wiring between them, the command table and the top-level layout. See §6. |
-| `src/app/use-open-documents.ts` | ~1,300 | The open documents: tabs, the file/Paper/asset in front and its buffers, every open and close, back/forward, autosave, disk sync and the layout restore. Read its tests for the guarantees. |
-| `src-tauri/src/project.rs` + `project/` | 6,262 | Project validation, path safety, the transaction/history model, file classification, tree building, zip import/export. `project.rs` maps the submodules; most Rust areas depend on it. |
-| `src-tauri/src/overleaf.rs` + `overleaf/` | 4,196 | Overleaf session, linking and clone, REST, review, and the three-way merge against `.research/overleaf-base/`. |
-| `src/canvas/document-canvas.tsx` | 1,391 | The editing surface: source pane, preview pane, the split layout, and the mount points for every lazy editor. |
-| `src-tauri/src/overleaf_rt.rs` + `overleaf_rt/` | 3,028 | A hand-written Socket.IO 0.9 client for Overleaf's realtime channel. The module header of `overleaf_rt.rs` is the protocol spec. |
-| `src-tauri/src/lib.rs` + `ipc/` | 486 + 2,512 | `lib.rs` wires plugins, the window lifecycle, the child runtimes and the command table; the thin handlers live in `ipc/`, one module per area. No domain logic in either. |
-| `src/editor/markdown/engine/lattice-visual-editor.tsx` | 737 | The Lattice visual Markdown engine (TipTap 3 / ProseMirror): canonical publication, path swaps, round-trip eligibility. Parsing, serialization, source mapping, overlays and the passive viewport live in sibling modules under `engine/`. |
-| `src-tauri/src/papers.rs` + `papers/` | 4,779 | Paper import, materialization into `.research/papers/`, citation insertion, bibliography upgrade. |
-| `src/editor/latex/latex-editor.ts` | 390 | The CodeMirror 6 extension set for LaTeX: keymaps, `autocompletion`, `linter`, and hover wiring over the `latex-*` modules beside it. (Vim/Emacs keymaps are loaded lazily one level up, `src/canvas/editor-extensions.ts:60-62`.) |
-| `src/editor/spreadsheet/spreadsheet-editor.tsx` | 495 | The Univer-backed `.lattice-sheet` editor (Univer setup is `spreadsheet-univer.ts`). |
-| `src/overleaf/use-overleaf-realtime.ts` | 1,013 | The frontend half of the Overleaf realtime bridge: op queue, versions, tracked changes. |
-| `src/app/use-overleaf-workspace.ts` | 934 | The Overleaf workspace state extracted from `App.tsx`. |
+| File | Role |
+| --- | --- |
+| `src/App.tsx` | The hub, at ~1,900 lines. Composes the `src/app/` hooks and owns what still spans them: the wiring between them, the command table and the top-level layout. See §6. |
+| `src/app/use-open-documents.ts` | The open documents: tabs, the file/Paper/asset in front and its buffers, every open and close, back/forward, autosave, disk sync and the layout restore. Read its tests for the guarantees. |
+| `src-tauri/src/project.rs` + `project/` | Project validation, path safety, the transaction/history model, file classification, tree building, zip import/export. `project.rs` maps the submodules; most Rust areas depend on it. |
+| `src-tauri/src/overleaf.rs` + `overleaf/` | Overleaf session, linking and clone, REST, review, and the three-way merge against `.research/overleaf-base/`. |
+| `src/canvas/document-canvas.tsx` | The editing surface: source pane, preview pane, the split layout, and the mount points for every lazy editor. |
+| `src-tauri/src/overleaf_rt.rs` + `overleaf_rt/` | A hand-written Socket.IO 0.9 client for Overleaf's realtime channel. The module header of `overleaf_rt.rs` is the protocol spec. |
+| `src-tauri/src/lib.rs` + `ipc/` | `lib.rs` wires plugins, the window lifecycle, the child runtimes and the command table; the thin handlers live in `ipc/`, one module per area. No domain logic in either. |
+| `src/editor/markdown/engine/lattice-visual-editor.tsx` | The Lattice visual Markdown engine (TipTap 3 / ProseMirror): canonical publication, path swaps, round-trip eligibility. Parsing, serialization, source mapping, overlays and the passive viewport live in sibling modules under `engine/`. |
+| `src-tauri/src/papers.rs` + `papers/` | Paper import, materialization into `.research/papers/`, citation insertion, bibliography upgrade. |
+| `src/editor/latex/latex-editor.ts` | The CodeMirror 6 extension set for LaTeX: keymaps, `autocompletion`, `linter`, and hover wiring over the `latex-*` modules beside it. (Vim/Emacs keymaps are loaded lazily one level up, `src/canvas/editor-extensions.ts:60-62`.) |
+| `src/editor/spreadsheet/spreadsheet-editor.tsx` | The Univer-backed `.lattice-sheet` editor (Univer setup is `spreadsheet-univer.ts`). |
+| `src/overleaf/use-overleaf-realtime.ts` | The frontend half of the Overleaf realtime bridge: op queue, versions, tracked changes. |
+| `src/app/use-overleaf-workspace.ts` | The Overleaf workspace state extracted from `App.tsx`. |
 
-Honourable mention: `src-tauri/src/git.rs` (786 with `git/parse.rs`). The PDF viewer, the project
-sidebar and the settings dialog, once 1,788, 1,736 and 861 lines, are now split
+Honourable mention: `src-tauri/src/git.rs` with `git/parse.rs`. The PDF viewer, the project
+sidebar and the settings dialog, once among the largest files, are now split
 into cohesive modules (see §2).
 
 ---
@@ -230,7 +227,7 @@ If you add a feature here, put its state in a hook under `src/app/` and keep
 `App.tsx` as the composition point. `src/platform/react-compiler-guard.test.ts`
 caps React Compiler bailouts per file, App.tsx and the extracted hooks included.
 
-### `document-canvas.tsx` is 1,391 lines
+### `document-canvas.tsx` is still large
 
 It was 5,319. The editor extension set, HTML preview, Paper reader, asset
 preview, Markdown split-scroll and mode handoff, split layout and zoom
@@ -273,13 +270,15 @@ they assert across several modules or on files rather than testing one export:
 intentional (a scenario suite, not a unit suite) — but you cannot infer what a
 test covers from its filename here. Open it.
 
-The four that assert on *files* rather than exercise a module —
+The guards that assert on *files* rather than exercise a module —
 `react-compiler-guard`, `tauri-security-config`, `polyfills`, `clean-room-guard` — live in
 `src/platform/` because what they pin is the build/runtime platform, not any
-feature.
+feature. A test may read repository files as text only if
+`src/platform/source-text-test-guard.test.ts` allowlists it with a reason;
+everywhere else, test the behaviour.
 
 ### Other things worth knowing
 
 - **`src/` has no `@types/node` by design** — it is browser-only by convention.
-- **`src/styles/editor-workspace.css` is 1,333 lines**, the largest stylesheet;
+- **`src/styles/editor-workspace.css` is the largest stylesheet**;
   `src/App.css` is a 10-line import manifest, so don't look for CSS there.

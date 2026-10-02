@@ -883,7 +883,8 @@ pub(crate) fn live_project() -> (PathBuf, PathBuf) {
     let root = std::env::var("OVERLEAF_E2E_PROJECT").expect("set OVERLEAF_E2E_PROJECT");
     let config = std::env::var("OVERLEAF_E2E_CONFIG").map(PathBuf::from).unwrap_or_else(|_| {
         PathBuf::from(std::env::var("HOME").expect("HOME"))
-            .join("Library/Application Support/app.leo1oel.researchwriter")
+            .join("Library/Application Support")
+            .join(crate::app_identity::identifier())
     });
     (config, PathBuf::from(root))
 }
