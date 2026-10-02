@@ -77,6 +77,13 @@ const composedPathHas = (event: { nativeEvent: Event }, match: (target: EventTar
   event.nativeEvent.composedPath().some(match)
 );
 
+/** The row under a press, unless the press is on an input or a row's options button. */
+function rowPathFromPointer(event: { nativeEvent: Event }): string | null {
+  const interactiveControl = composedPathHas(event, (target) => target instanceof HTMLInputElement
+    || (target instanceof HTMLElement && target.dataset.type === "context-menu-trigger"));
+  return interactiveControl ? null : findPierreItemPath(event);
+}
+
 export function ProjectFileTree(props: ProjectFileTreeProps) {
   const { t } = useLingui();
   const { showHidden, toggleHidden, tree } = useProjectTreeFiles(props.projectKey, props.files, props.onError);
@@ -352,10 +359,18 @@ export function ProjectFileTree(props: ProjectFileTreeProps) {
                 event.stopPropagation();
               }
             }}
+            onMouseDown={(event) => {
+              // A row button cut off by the viewport edge scrolls itself into
+              // view when the mousedown focuses it. That scroll makes the
+              // virtualized list recycle its row elements, so mouseup lands on
+              // a different button, the browser sends the click to their
+              // common ancestor, and the file never opens. Pierre's click
+              // handler moves focus itself (it already cancels this default
+              // while the search field is open), so the native focus can go.
+              if (event.button === 0 && rowPathFromPointer(event)) event.preventDefault();
+            }}
             onPointerDown={(event) => {
-              const interactiveControl = composedPathHas(event, (target) => target instanceof HTMLInputElement
-                || (target instanceof HTMLElement && target.dataset.type === "context-menu-trigger"));
-              const path = interactiveControl ? null : findPierreItemPath(event);
+              const path = rowPathFromPointer(event);
               if (!path) return;
               pointerDrag.begin(path, event);
               const node = tree.nodes.get(path);
