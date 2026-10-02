@@ -325,19 +325,29 @@ body.resizing-panels .resizable-drawer { transition: none; }
   font-size: var(--type-micro-size);
   font-weight: 600;
 }
-.pdf-mark-body strong {
+/* The author leads; the file and state after it are quieter. */
+.pdf-mark-meta span + span { color: var(--text-tertiary); font-weight: var(--weight-medium); }
+/* The commented span, quoted the way the Overleaf drawer quotes it, so the
+   comment itself reads as the card's text. */
+.pdf-mark-quote {
+  padding: var(--space-2) var(--space-4);
+  border-left: 2px solid var(--control-active);
+  border-radius: var(--radius-icon);
+  background: var(--control-active-soft);
   font-size: var(--type-caption-size);
-  font-weight: 600;
+  font-style: italic;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
   display: -webkit-box;
-  -webkit-line-clamp: 2;
+  -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
 .pdf-mark-body p {
   margin: 0;
-  color: var(--text-secondary);
-  font-size: var(--type-micro-size);
-  line-height: 1.4;
+  color: var(--text-primary);
+  font-size: var(--type-caption-size);
+  line-height: 1.45;
 }
 .pdf-mark-actions {
   display: flex;
