@@ -78,7 +78,7 @@ describe("documents and editors", () => {
     renderApp({
       ...projectCommands(snapshot), list_papers: () => [attentionPaper()],
       read_project_file: (args) => argPath(args) === "notes.md" ? notesRead.promise : readPathContent(args),
-      read_project_asset: (args) => ({ path: argPath(args), mimeType: "application/pdf", base64: "JVBERi0xLjQ=" }),
+      read_project_asset: (args) => ({ path: argPath(args), mimeType: "application/pdf", ranges: { length: 8, version: "v1" } }),
       read_paper: PAPER_ABSTRACT, read_paper_blog_local: null, count_project_words: () => wordCount.promise,
     });
     await waitFor(() => expect(invokeCalls("count_project_words")).toHaveLength(1));

@@ -1322,7 +1322,6 @@ export function DocumentCanvas(props: {
           <PdfPreview
             key={`project-pdf:${props.projectRoot}`}
             url={props.pdfUrl}
-            pdfBase64={null}
             pdfBytes={props.pdfBytes}
             citations={props.citations}
             canOpenCitation={props.canOpenCitation}

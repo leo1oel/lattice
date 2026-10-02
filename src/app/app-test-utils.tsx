@@ -122,11 +122,18 @@ vi.mock("../platform/browser-runtime", () => ({
   isBrowserHosted: () => browserRuntime.hosted,
   isBundledChromium: () => browserRuntime.hosted && browserRuntime.bundled,
   browserRuntimeDetached: () => false,
+  readBrowserHostAsset: vi.fn(),
   setWorkspaceYieldHandler: (handler: null | (() => Promise<unknown>)) => { browserRuntime.yieldHandler = handler; },
 }));
 vi.mock("pdfjs-dist", () => ({
   GlobalWorkerOptions: {},
   getDocument: vi.fn(),
+  PDFDataRangeTransport: class {
+    length: number;
+    constructor(length: number) { this.length = length; }
+    onDataRange() {}
+    abort() {}
+  },
   TextLayer: class {
     container: HTMLElement;
     constructor({ container }: { container: HTMLElement }) { this.container = container; }

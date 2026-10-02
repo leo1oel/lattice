@@ -686,7 +686,7 @@ describe("project tree and projects", () => {
       read_project_asset: (args) => {
         const path = argPath(args);
         return path.endsWith(".pdf")
-          ? { path, mimeType: "application/pdf", base64: "JVBERi0xLjQ=" }
+          ? { path, mimeType: "application/pdf", ranges: { length: 8, version: "v1" } }
           : { path, mimeType: "image/svg+xml", base64: "PHN2Zy8+" };
       },
       prepare_latex_figure: "figures/native-umm-converted.pdf", write_project_file: undefined,
@@ -715,7 +715,10 @@ describe("project tree and projects", () => {
     fireEvent.click(await findProjectTreeItem("figures/result.pdf"));
     expect(await screen.findByRole("tab", { name: /result\.pdf/ })).toHaveAttribute("aria-selected", "true");
     const figureReader = (await screen.findByLabelText("PDF page 1")).closest<HTMLElement>(".pdf-preview")!;
-    expect(vi.mocked(getDocument)).toHaveBeenCalledWith(expect.objectContaining({ disableFontFace: true, useSystemFonts: false }));
+    // Read a range at a time from the checked file version, not inlined as base64.
+    expect(vi.mocked(getDocument)).toHaveBeenCalledWith(expect.objectContaining({
+      range: expect.objectContaining({ length: 8 }), disableAutoFetch: true, disableFontFace: true, useSystemFonts: false,
+    }));
     expect(within(figureReader).queryByLabelText("Show document outline")).toBeNull();
     expect(screen.queryByRole("tablist", { name: "Document view" })).toBeNull();
     expect(vi.mocked(invoke)).not.toHaveBeenCalledWith("prepare_latex_figure", expect.anything());

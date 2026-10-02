@@ -4,6 +4,7 @@ import type { ComponentProps } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { activateAppLocale } from "../i18n";
 import { clearAppLogs, formatAppLogs } from "../telemetry/app-log-store";
+import { invoke } from "@tauri-apps/api/core";
 import { PdfPreview } from "./pdf-viewer";
 
 type Destination = { page: number; scrollTop: number; scrollLeft: number; scaleValue?: string };
@@ -182,13 +183,26 @@ const pdf = vi.hoisted(() => {
 });
 
 vi.mock("@tauri-apps/api/event", () => ({ listen: vi.fn(async () => () => undefined) }));
+vi.mock("@tauri-apps/api/core", async (importOriginal) => ({
+  ...await importOriginal<typeof import("@tauri-apps/api/core")>(),
+  invoke: vi.fn(async () => "/tmp/scan copy.pdf"),
+}));
+vi.mock("@tauri-apps/plugin-dialog", () => ({ save: vi.fn(async () => "/tmp/scan copy.pdf") }));
 vi.mock("../platform/browser-runtime", () => ({ isBrowserHosted: () => pdf.state.hosted }));
-vi.mock("pdfjs-dist", () => ({ GlobalWorkerOptions: pdf.state.workerOptions }));
+vi.mock("pdfjs-dist", () => ({
+  GlobalWorkerOptions: pdf.state.workerOptions,
+  PDFDataRangeTransport: class {
+    length: number;
+    constructor(length: number) { this.length = length; }
+    onDataRange() {}
+    abort() {}
+  },
+}));
 vi.mock("@pdfslick/core", () => ({ PDFSlick: pdf.PdfSlickMock }));
 
 const PAPER = "https://example.test/paper.pdf";
 type PreviewProps = Partial<ComponentProps<typeof PdfPreview>>;
-const preview = (props: PreviewProps = {}) => <PdfPreview url={PAPER} pdfBase64={null} {...props} />;
+const preview = (props: PreviewProps = {}) => <PdfPreview url={PAPER} {...props} />;
 const renderPdf = (props: PreviewProps = {}) => render(preview(props));
 
 /** Wait for the (index + 1)th viewer, i.e. a debounced replacement after a source change. */
@@ -876,5 +890,32 @@ describe("PDFSlick viewer integration", () => {
       });
     }
     expect(onDocumentData).toHaveBeenCalledWith(expect.any(ArrayBuffer));
+  });
+
+  it("reads a project PDF a range at a time, and reads it whole only to save it", async () => {
+    // A remote paper keeps PDF.js's background streaming.
+    const remote = renderPdf();
+    const paper = await viewerAt(0);
+    await waitFor(() => expect(paper.loadDocument).toHaveBeenCalledWith(PAPER, expect.anything()));
+    expect(paper.args.options.getDocumentParams).toMatchObject({ disableAutoFetch: false, disableStream: false });
+    remote.unmount();
+
+    const projectFile = { path: "figures/scan.pdf", length: 4, version: "v1" };
+    const view = renderPdf({ url: null, projectFile, fileName: "scan.pdf" });
+    const instance = await viewerAt(1);
+    await waitFor(() => expect(instance.loadDocument).toHaveBeenCalledWith("figures/scan.pdf", expect.anything()));
+    expect(instance.args.options.getDocumentParams).toMatchObject({
+      range: expect.objectContaining({ length: 4 }), disableAutoFetch: true, disableStream: true,
+    });
+    expect(instance.args.options.getDocumentParams).not.toHaveProperty("data");
+
+    vi.mocked(invoke).mockImplementation(async (command) => (
+      command === "read_project_asset_range" ? new Uint8Array([37, 80, 68, 70]).buffer : "/tmp/scan copy.pdf"
+    ));
+    fireEvent.click(view.getByRole("button", { name: "Save PDF as…" }));
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith(
+      "save_compiled_pdf", new Uint8Array([37, 80, 68, 70]), expect.objectContaining({ headers: expect.any(Object) }),
+    ));
+    expect(invoke).toHaveBeenCalledWith("read_project_asset_range", { path: "figures/scan.pdf", version: "v1", start: 0, end: 4 });
   });
 });

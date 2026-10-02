@@ -38,7 +38,7 @@ mod tree;
 
 pub(crate) use archive::safe_zip_entry_name;
 pub use archive::{export_project_zip, import_project_zip};
-pub use assets::{prepare_latex_figure, read_asset};
+pub use assets::{prepare_latex_figure, read_asset, read_asset_range};
 pub use bibliography::{
     bbl_target_for_bib, bib_target_for_bbl, citation_keys, citations, read_bib_entry,
     save_bib_entry,

@@ -34,8 +34,8 @@
     },
     "pdf-open": {
       "commits": 19,
-      "renders": 857,
-      "hooks": 4870,
+      "renders": 683,
+      "hooks": 4163,
       "mutations": 1358
     },
     "pdf-scroll": {

@@ -86,14 +86,6 @@ function snapshot(): ProjectSnapshot {
   };
 }
 
-function base64(bytes: Uint8Array): string {
-  let binary = "";
-  for (let offset = 0; offset < bytes.length; offset += 0x8000) {
-    binary += String.fromCharCode(...bytes.subarray(offset, offset + 0x8000));
-  }
-  return btoa(binary);
-}
-
 function copyBuffer(bytes: Uint8Array): ArrayBuffer {
   return bytes.slice().buffer;
 }
@@ -151,7 +143,12 @@ function answer(command: string, args: Args): unknown {
       const path = pathArg(args);
       const content = files.get(path);
       if (!(content instanceof Uint8Array)) throw new Error(`No such asset: ${path}`);
-      return { path, mimeType: "application/pdf", base64: base64(content) };
+      return { path, mimeType: "application/pdf", ranges: { length: content.byteLength, version: "bench" } };
+    }
+    case "read_project_asset_range": {
+      const content = files.get(pathArg(args));
+      if (!(content instanceof Uint8Array)) throw new Error(`No such asset: ${pathArg(args)}`);
+      return copyBuffer(content.subarray(Number(args?.start), Number(args?.end)));
     }
     case "build_project":
       return buildResult();

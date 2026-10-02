@@ -2,7 +2,8 @@ import { useEffect, useState, type Dispatch, type RefObject, type SetStateAction
 import { useLingui } from "@lingui/react/macro";
 import { toMessage } from "../app-utils";
 import { isBrowserHosted } from "../platform/browser-runtime";
-import { pdfBase64Fingerprint, pdfBase64ToBytes, pdfBytesFingerprint } from "./pdf-bytes";
+import { pdfBytesFingerprint } from "./pdf-bytes";
+import { projectPdfTransport, type ProjectPdfFile } from "./project-pdf";
 import { createViewerRecord, destroyViewerRecord, onPdfEvents, pdfPageView, pdfPointAt, viewerOptions } from "./pdf-slick";
 import { installPdfTextLayerSelection } from "./pdf-text-layer-selection";
 import { addListeners, pdfFitMode, pdfScaleValue, toAppScale } from "./pdf-viewer-utils";
@@ -13,16 +14,16 @@ import type { ActiveViewerRef, PdfViewerCallbacks, PdfLocationHistory, PdfViewSt
 
 const PDF_LOAD_TIMEOUT_MS = 45_000;
 
-export type PdfSource = { url: string | null; pdfBase64: string | null; bytes: ArrayBuffer | null; key: string };
+export type PdfSource = { url: string | null; bytes: ArrayBuffer | null; file: ProjectPdfFile | null; key: string };
 
 /** Fingerprint the document so identical rebuilds do not reload the viewer. */
-export function pdfSource(url: string | null, pdfBase64: string | null, pdfBytes: ArrayBuffer | null): PdfSource {
+export function pdfSource(url: string | null, pdfBytes: ArrayBuffer | null, file: ProjectPdfFile | null = null): PdfSource {
   // A blob URL made from the same bytes is only a handle for them.
   const bytes = pdfBytes && (!url || url.startsWith("blob:")) ? pdfBytes : null;
-  const key = bytes
-    ? `bytes:${pdfBytesFingerprint(bytes)}`
-    : pdfBase64 ? `b64:${pdfBase64Fingerprint(pdfBase64)}` : (url ? `url:${url}` : "");
-  return { url, pdfBase64, bytes, key };
+  const key = file
+    ? `file:${file.path}:${file.version}`
+    : bytes ? `bytes:${pdfBytesFingerprint(bytes)}` : (url ? `url:${url}` : "");
+  return { url, bytes, file, key };
 }
 
 export type PdfLoadFeedback = {
@@ -110,10 +111,21 @@ export function usePdfDocument({
     let timeout: number | null = null;
     let unsubscribeReady = () => {};
     const blocking = recordRef.current === null;
-    const { bytes, pdfBase64, url } = sourceRef.current;
-    const data = bytes ? copyPdfBuffer(bytes) : pdfBase64 ? pdfBase64ToBytes(pdfBase64).buffer : null;
+    const { bytes, url, file } = sourceRef.current;
+    const data = bytes ? copyPdfBuffer(bytes) : null;
+    // A failed range read: why the load failed, or why later pages stay blank.
+    let rangeFailure: unknown = null;
+    const range = file && projectPdfTransport(file, (reason) => {
+      if (rangeFailure !== null || cancelled) return;
+      rangeFailure = reason;
+      if (!promoted) return;
+      addAppLog({
+        level: "warning", source: "PDF", title: t`PDF could not be loaded`, detail: toMessage(reason), toast: true,
+      });
+    });
     const scaleValue = () => pdfScaleValue(viewRef.current.fitMode, viewRef.current.scale);
-    const record = createViewerRecord(key, host, !blocking, viewerOptions(browserHosted, scaleValue(), data), (reason) => {
+    const options = viewerOptions(browserHosted, scaleValue(), data, range);
+    const record = createViewerRecord(key, host, !blocking, options, (reason) => {
       loadFailure = reason;
     });
     const { slick, root } = record;
@@ -227,7 +239,7 @@ export function usePdfDocument({
           record.textLayers.delete(layer);
         }
         const current = sourceRef.current;
-        if (dataTimer !== null || current.bytes || current.pdfBase64 || !callbacks.current.onDocumentData) return;
+        if (dataTimer !== null || current.bytes || !callbacks.current.onDocumentData) return;
         dataTimer = window.setTimeout(() => {
           if (cancelled || !slick.document) return;
           void slick.document.getData()
@@ -272,9 +284,12 @@ export function usePdfDocument({
       if (loadSettled) disposeRecord();
     }, PDF_LOAD_TIMEOUT_MS);
 
-    void slick.loadDocument(data ?? url!, {
+    // With a range transport PDF.js ignores the URL; PDFSlick names the file from it.
+    void slick.loadDocument(data ?? (file ? file.path : url!), {
       onProgress: ({ loaded, total }) => {
-        if (promoted) return;
+        // A project file reads only the ranges its first pages need, so the
+        // share of bytes loaded is no measure of how close the page is.
+        if (promoted || file) return;
         const percent = total > 0 ? Math.round(clamp((loaded / total) * 100, 0, 100)) : null;
         updateLoadFeedback(percent === 100 ? "rendering" : "loading", percent === 100 ? null : percent);
       },
@@ -283,12 +298,12 @@ export function usePdfDocument({
         loadSettled = true;
         if (cancelled) disposeRecord();
         else if (slick.document) promote();
-        else fail(loadFailure);
+        else fail(rangeFailure ?? loadFailure);
       })
       .catch((reason) => {
         loadSettled = true;
         if (cancelled) disposeRecord();
-        else fail(reason);
+        else fail(rangeFailure ?? reason);
       });
 
     return () => {

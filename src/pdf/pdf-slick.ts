@@ -14,6 +14,7 @@ import {
   toViewerScale,
   type PdfFitMode,
 } from "./pdf-viewer-utils";
+import type { PDFDataRangeTransport } from "./pdfjs-runtime";
 import "./pdfjs-runtime";
 
 const PDF_RANGE_CHUNK_BYTES = 2 ** 20;
@@ -59,8 +60,12 @@ export function viewerOptions(
   browserHosted: boolean,
   scaleValue: string,
   documentData: ArrayBuffer | null,
+  range: PDFDataRangeTransport | null = null,
 ): PDFSlickOptions {
-  const completeSource = documentData !== null;
+  // Read pages on demand when the bytes are already here, or when a range is
+  // a local read: a 1 GB scan must not be pulled into memory just because it
+  // was opened.
+  const onDemand = documentData !== null || range !== null;
   return {
     scaleValue,
     // Lattice never edits annotations. PDFSlick's default (NONE) still builds
@@ -84,18 +89,21 @@ export function viewerOptions(
       // Supplying the same disposable copy as data keeps local documents on
       // PDF.js's direct worker-transfer path instead of fetching that blob.
       ...(documentData ? { data: documentData } : {}),
+      // A project file: PDF.js asks this transport for the ranges it needs.
+      ...(range ? { range } : {}),
       // arXiv's response startup latency makes PDF.js's 64 KiB default very
       // expensive for non-linearized papers: one first page can require many
       // sequential ranges. Favor fewer requests over conserving a small amount
       // of overlapping early data.
       rangeChunkSize: PDF_RANGE_CHUNK_BYTES,
       // PDFViewer eagerly initializes 250 pages after its first paint. Local
-      // byte sources are already complete, so keep page proxies lazy and let a
-      // far jump request its target directly. PDF.js requires streaming to be
-      // disabled as well for disableAutoFetch to take effect. URL sources keep
+      // byte sources are already complete, and a project file answers a range
+      // in a few milliseconds, so keep page proxies lazy and let a far jump
+      // request its target directly. PDF.js requires streaming to be disabled
+      // as well for disableAutoFetch to take effect. Remote URL sources keep
       // both features because their server may fulfill incremental range reads.
-      disableAutoFetch: completeSource,
-      disableStream: completeSource,
+      disableAutoFetch: onDemand,
+      disableStream: onDemand,
       // WKWebView can accept an embedded Type 1 font through FontFace but then
       // paint none of its glyphs. Drawing glyph outlines bypasses that path and
       // still leaves PDF.js's selectable text layer available. Chromium's font

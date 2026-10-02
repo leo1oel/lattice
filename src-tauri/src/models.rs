@@ -159,7 +159,18 @@ pub struct ProjectSnapshot {
 pub struct AssetPreview {
     pub path: String,
     pub mime_type: String,
-    pub base64: String,
+    #[serde(flatten)]
+    pub content: AssetContent,
+}
+
+/// How an asset's bytes reach the frontend: inline for figures and HTML, which
+/// become `data:` URLs, or for PDFs as the file's length and version, which
+/// PDF.js reads a range at a time through `read_project_asset_range`.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum AssetContent {
+    Base64(String),
+    Ranges { length: u64, version: String },
 }
 
 #[derive(Debug, Clone, Serialize)]
