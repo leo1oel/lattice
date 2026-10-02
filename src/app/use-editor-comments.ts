@@ -1,12 +1,13 @@
 import { useLingui } from "@lingui/react/macro";
 import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import type { ProjectSnapshot } from "../app-types";
+import type { OpenProjectFile, ProjectSnapshot } from "../app-types";
 import { toMessage } from "../app-utils";
 import type { BuildAgentCommentsOptions } from "../agent/agent-editor-comments";
 import { createEditorCommentReply, type EditorComment } from "../editor/comments/editor-comment-data";
 import { useLatest } from "./effect-helpers";
 import { setError } from "./notify";
+import { notifyInfo } from "../telemetry/app-notify";
 import { OVERLEAF_COMMENT_PREFIX, type useOverleafWorkspace } from "./use-overleaf-workspace";
 
 type Ref<T> = { readonly current: T };
@@ -23,10 +24,12 @@ export function overleafThreadOf(commentId: string): string | null {
  * them. Both kinds show together.
  */
 export function useEditorComments({
-  project, projectRootRef, overleaf, author, openSources, agentOptionsRef,
+  project, projectRootRef, activeFileRef, openProjectFile, overleaf, author, openSources, agentOptionsRef,
 }: {
   project: ProjectSnapshot | null;
   projectRootRef: Ref<string | null>;
+  activeFileRef: Ref<string>;
+  openProjectFile: OpenProjectFile;
   overleaf: ReturnType<typeof useOverleafWorkspace>;
   author: { id: string; name: string };
   /** The open buffers, which the agent's comment tools anchor against. */
@@ -58,23 +61,32 @@ export function useEditorComments({
   }, []);
 
   /**
-   * Delete a comment, its replies with it, and hand back what puts it back
-   * where it was. The undo reads the list as it is then, so anything changed
-   * in between survives, and it does nothing once another project is open.
+   * Delete a comment and its replies at once, with an Undo toast rather than a
+   * confirmation: the comment is local and can be put back where it was. The
+   * undo reads the list as it is then, so anything changed in between
+   * survives, and it does nothing once another project is open.
    */
-  const remove = useCallback((id: string): (() => void) | null => {
+  const deleteComment = useCallback((id: string) => {
     const before = commentsRef.current;
     const index = before.findIndex((comment) => comment.id === id);
-    if (index < 0) return null;
+    if (index < 0) return;
     const removed = before[index];
     const root = projectRootRef.current;
     void persist(before.filter((comment) => comment.id !== id));
-    return () => {
-      const current = commentsRef.current;
-      if (projectRootRef.current !== root || current.some((comment) => comment.id === id)) return;
-      void persist([...current.slice(0, index), removed, ...current.slice(index)]);
-    };
-  }, [commentsRef, persist, projectRootRef]);
+    setActiveId((current) => (current === id ? null : current));
+    notifyInfo(t`Comments`, t`Comment deleted`, {
+      dedupeKey: `editor-comment-deleted:${id}`,
+      primaryAction: {
+        label: t`Undo`,
+        onClick: () => {
+          const current = commentsRef.current;
+          if (projectRootRef.current !== root || current.some((comment) => comment.id === id)) return;
+          void persist([...current.slice(0, index), removed, ...current.slice(index)]);
+        },
+      },
+    });
+  }, [commentsRef, persist, projectRootRef, t]);
+
 
   const update = useCallback((id: string, change: (comment: EditorComment) => Partial<EditorComment>) => {
     void persist(comments.map((item) => (
@@ -138,6 +150,24 @@ export function useEditorComments({
     setPanelFocus(null);
   }, [setOverleafCollabOpen]);
 
+  /**
+   * Close the list and open the comment's file, then ask the editor to focus
+   * the comment, unless another comment was opened or the file changed meanwhile.
+   */
+  const openComment = useCallback((comment: EditorComment) => {
+    const generation = ++openGenerationRef.current;
+    setActiveId(comment.id);
+    closePanel();
+    void openProjectFile(comment.path).then(() => {
+      if (openGenerationRef.current !== generation || activeFileRef.current !== comment.path) return;
+      setFocusRequest({ id: comment.id, nonce: crypto.randomUUID() });
+    });
+  }, [activeFileRef, closePanel, openProjectFile]);
+  /** The editor focused the comment `nonce` asked for. */
+  const focusHandled = useCallback((nonce: string) => {
+    setFocusRequest((current) => (current?.nonce === nonce ? null : current));
+  }, []);
+
   /** Drop the outgoing project's comments; `load` reads the incoming one's. */
   const reset = useCallback(() => {
     setComments([]);
@@ -169,9 +199,9 @@ export function useEditorComments({
   }, [agentOptionsRef, commentsRef, openSources, overleafComments.anchors, overleafComments.threads, overleafDocPaths, overleafLink, project, projectRootRef]);
 
   return {
-    comments, all, persist, remove, update, create, toggleResolved, reply, reset, load,
+    comments, all, update, create, toggleResolved, reply, reset, load, openComment, deleteComment,
     panelOpen, openPanel, openReply, closePanel, panelFocus, panelFocusId, setPanelFocus,
-    activeId, setActiveId, focusRequest, setFocusRequest, openGenerationRef,
+    activeId, focusRequest, focusHandled,
   };
 }
 

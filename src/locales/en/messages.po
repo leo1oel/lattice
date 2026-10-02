@@ -1733,7 +1733,7 @@ msgstr "comment"
 msgid "Comment"
 msgstr "Comment"
 
-#: src/app/app-editor-panels.tsx
+#: src/app/use-editor-comments.ts
 msgid "Comment deleted"
 msgstr "Comment deleted"
 
@@ -1749,7 +1749,7 @@ msgstr "Comment source"
 msgid "Comment visibility"
 msgstr "Comment visibility"
 
-#: src/app/app-editor-panels.tsx
+#: src/app/use-editor-comments.ts
 #: src/canvas/editor-status-bar.tsx
 #: src/overleaf/overleaf-collab.tsx
 #: src/trellis/trellis-titles.ts
@@ -4831,7 +4831,7 @@ msgstr "No matches"
 msgid "No matches found"
 msgstr "No matches found"
 
-#: src/app/app-search-dialogs.tsx
+#: src/app/use-project-search.ts
 msgid "No matches found."
 msgstr "No matches found."
 
@@ -6353,15 +6353,15 @@ msgstr "Replace with"
 msgid "Replace with “{replacement}”"
 msgstr "Replace with “{replacement}”"
 
-#: src/app/app-search-dialogs.tsx
+#: src/app/use-project-search.ts
 msgid "Replaced {replacements} occurrence in {files} file."
 msgstr "Replaced {replacements} occurrence in {files} file."
 
-#: src/app/app-search-dialogs.tsx
+#: src/app/use-project-search.ts
 msgid "Replaced {replacements} occurrences in {files} file."
 msgstr "Replaced {replacements} occurrences in {files} file."
 
-#: src/app/app-search-dialogs.tsx
+#: src/app/use-project-search.ts
 msgid "Replaced {replacements} occurrences in {files} files."
 msgstr "Replaced {replacements} occurrences in {files} files."
 
@@ -8125,7 +8125,7 @@ msgstr "Unclosed inline math {open}."
 msgid "Underline"
 msgstr "Underline"
 
-#: src/app/app-editor-panels.tsx
+#: src/app/use-editor-comments.ts
 msgid "Undo"
 msgstr "Undo"
 

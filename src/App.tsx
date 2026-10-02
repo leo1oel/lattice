@@ -301,7 +301,15 @@ function App() {
     updateCanvasRequest("restore", update);
   }, [updateCanvasRequest]);
   const [tableGeneratorOpen, setTableGeneratorOpen] = useState(false);
-  const projectSearch = useProjectSearch();
+  const projectSearch = useProjectSearch({
+    projectRef, captureProjectScope, save,
+    unsavedEdits: () => sourceRef.current !== savedSourceRef.current,
+    afterReplace: async () => {
+      if (activeFileRef.current) await loadFile(activeFileRef.current);
+      await refreshProject();
+      await refreshHistory();
+    },
+  });
   const { openFind: openProjectFind, openReplace: openProjectReplace } = projectSearch;
   const [searchDialog, setSearchDialog] = useState<SearchDialog | null>(null);
   const openCompileDiagnosticRef = useRef<(diagnostic: CompileDiagnostic) => Promise<void>>(async () => undefined);
@@ -568,7 +576,7 @@ function App() {
     [activeFileRef.current, sourceRef.current],
   ]), [activeFileRef, sourceRef]);
   const editorComments = useEditorComments({
-    project, projectRootRef, overleaf,
+    project, projectRootRef, activeFileRef, openProjectFile: openFile, overleaf,
     author: { id: editorCommentAuthorId, name: authorName },
     openSources,
     agentOptionsRef: agentCommentsOptionsRef,
@@ -1485,9 +1493,7 @@ function App() {
       onResolveEditorComment={editorComments.toggleResolved}
       onReplyEditorComment={(commentId) => tools.open("comments", { replyTo: commentId })}
       commentFocusRequest={editorComments.focusRequest}
-      onCommentFocusHandled={(nonce) => {
-        editorComments.setFocusRequest((current) => (current?.nonce === nonce ? null : current));
-      }}
+      onCommentFocusHandled={editorComments.focusHandled}
       todoCount={todoHits.length}
       onOpenTodos={() => tools.open("todos")}
       projectWordCount={projectWordCount}
@@ -1721,7 +1727,6 @@ function App() {
         ) : undefined}
         key={project.root}
         activeFile={activeFile}
-        activeFileRef={activeFileRef}
         build={build}
         editorCommentAuthorId={editorCommentAuthorId}
         mainBodyPages={mainBodyPages}
@@ -1786,16 +1791,8 @@ function App() {
       </Suspense>}
       <AppProjectSearchDialogs
         search={projectSearch}
-        captureProjectScope={projectState.captureProjectScope}
-        projectRef={projectRef}
-        dirty={source !== savedSource}
-        activeFile={activeFile}
-        loadFile={loadFile}
         openMarkdownProjectPath={openMarkdownProjectPath}
         openProjectFile={openFile}
-        refreshHistory={refreshHistory}
-        refreshProject={refreshProject}
-        save={save}
       />
 
       <AppProjectDialogs
