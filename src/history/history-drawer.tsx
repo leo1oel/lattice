@@ -279,7 +279,7 @@ export function HistoryDrawer(props: {
         )}
         {tab === "changes" && (
           <>
-            <div className="history-filters" role="group" aria-label={t`Filter project changes`}>
+            <div className="ui-segmented ui-segmented--compact history-filters" role="group" aria-label={t`Filter project changes`}>
               {([
                 ["all", t`All`],
                 ["user", t`You`],
@@ -289,7 +289,7 @@ export function HistoryDrawer(props: {
                 <button
                   type="button"
                   key={value}
-                  className={`ui-compact-selectable${filter === value ? " active" : ""}`}
+                  className="ui-segmented-tab"
                   aria-pressed={filter === value}
                   onClick={() => setFilter(value)}
                 >

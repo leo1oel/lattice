@@ -158,12 +158,10 @@ describe("HistoryDrawer", () => {
 
     fireEvent.click(screen.getByRole("tab", { name: "Changes" }));
     const filters = within(screen.getByRole("group", { name: "Filter project changes" }));
-    expect(filters.getByRole("button", { name: "All" })).toHaveClass("ui-compact-selectable", "active");
+    expect(filters.getByRole("button", { name: "All" })).toHaveClass("ui-segmented-tab");
     expect(filters.getByRole("button", { name: "All" })).toHaveAttribute("aria-pressed", "true");
     fireEvent.click(filters.getByRole("button", { name: "Agent" }));
-    expect(filters.getByRole("button", { name: "Agent" })).toHaveClass("ui-compact-selectable", "active");
     expect(filters.getByRole("button", { name: "Agent" })).toHaveAttribute("aria-pressed", "true");
-    expect(filters.getByRole("button", { name: "All" })).not.toHaveClass("active");
     expect(filters.getByRole("button", { name: "All" })).toHaveAttribute("aria-pressed", "false");
     expect(screen.getByText("Agent: Revise the introduction")).toBeInTheDocument();
     expect(screen.queryByText("Edit methods.tex")).not.toBeInTheDocument();
