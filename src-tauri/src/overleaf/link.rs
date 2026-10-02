@@ -5,8 +5,8 @@
 
 use super::account::{ensure_user_id, load_session};
 use super::api::{
-    csrf_token, download_project_zip, err, fetch_remote_version, http_client, read_zip_entries,
-    send_as, sync_host, JSON,
+    csrf_token, download_project_zip, fetch_remote_version, http_client, read_zip_entries, send_as,
+    sync_host, JSON,
 };
 use super::files::{
     has_conflict_markers, is_excluded, is_latex_save_error_path, is_transient_pdf_render_path,
@@ -14,6 +14,7 @@ use super::files::{
 };
 use super::review::HistoryFrom;
 use crate::project_fs::ProjectDir;
+use crate::util::err;
 use reqwest::header::{ACCEPT, COOKIE};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;

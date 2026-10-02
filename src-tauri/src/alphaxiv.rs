@@ -5,7 +5,8 @@
 
 use crate::models::LiteratureHit;
 use crate::openalex::urlencoding;
-use crate::papers::{collapse_whitespace, http_client, send_checked, LITERATURE_USER_AGENT};
+use crate::papers::{http_client, send_checked, LITERATURE_USER_AGENT};
+use crate::util::collapse_whitespace;
 use crate::util::truncate_chars;
 use regex::Regex;
 use reqwest::blocking::RequestBuilder;

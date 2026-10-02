@@ -1,7 +1,7 @@
 //! Path guards shared by every project file operation, plus the small
 //! name/extension helpers built on them and the table of text source kinds.
 
-use super::err;
+use crate::util::err;
 use std::collections::BTreeSet;
 use std::fs;
 use std::io::ErrorKind;

@@ -305,7 +305,7 @@ fn sanitized(value: &str, max: usize) -> Option<String> {
         .filter(|c| !invisible(c))
         .map(|c| if c.is_control() { ' ' } else { c })
         .collect();
-    let collapsed = crate::papers::collapse_whitespace(&cleaned);
+    let collapsed = crate::util::collapse_whitespace(&cleaned);
     if collapsed.is_empty() {
         return None;
     }

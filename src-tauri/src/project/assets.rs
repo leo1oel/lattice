@@ -1,7 +1,6 @@
 //! Binary project files: byte previews for figures and embedded HTML, and
 //! converting figures into formats LaTeX can include.
 
-use super::err;
 use super::paths::{extension, safe_path, NOT_FOUND};
 use super::tree::{
     classify_file_bytes, is_html_path, is_supported_asset, ContentKind, MAX_CLASSIFIED_TEXT_BYTES,
@@ -9,6 +8,7 @@ use super::tree::{
 };
 use crate::commands;
 use crate::models::{AssetContent, AssetPreview};
+use crate::util::err;
 use base64::{engine::general_purpose::STANDARD, Engine};
 use std::fs::{self, File, Metadata, OpenOptions};
 use std::io::{self, Read};
@@ -162,7 +162,7 @@ pub fn save_asset_copy(
     if asset_mime_type(&path) != Some("application/pdf") {
         return Err("Only project PDFs are saved as copies.".to_string());
     }
-    let destination = crate::latex::pdf_destination(destination)?;
+    let destination = crate::export::destination(destination, &crate::export::PDF)?;
     let mut file = match open_resolved(&path) {
         Ok(file) => file,
         Err(error) if error.kind() == io::ErrorKind::NotFound => return Err(NOT_FOUND.into()),

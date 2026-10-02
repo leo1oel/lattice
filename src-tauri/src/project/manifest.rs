@@ -3,7 +3,6 @@
 //! Also the editor-comments sidecar.
 
 use super::create::{default_brief, default_manifest, Venue, RESEARCH_GITIGNORE};
-use super::err;
 use super::history::{
     prune_conversation_checkpoints, MAX_CHECKPOINTS_PER_SESSION, MAX_CHECKPOINT_BYTES,
 };
@@ -12,6 +11,7 @@ use super::tree::{build_artifact_ignore_lines, scan_tree, TreeView};
 use crate::models::{
     EditorComment, EditorCommentsFile, ProjectManifest, ProjectSnapshot, RootDocument,
 };
+use crate::util::err;
 use serde::Serialize;
 use std::fs;
 use std::path::Path;

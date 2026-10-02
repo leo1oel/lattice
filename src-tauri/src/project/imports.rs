@@ -3,7 +3,6 @@
 //! of dropped files.
 
 use super::assets::asset_mime_type;
-use super::err;
 use super::history::apply_transaction;
 use super::paths::{
     available_path, display_name, extension, file_name, relative_to, safe_path, source_kind,
@@ -11,6 +10,7 @@ use super::paths::{
 };
 use super::tree::{classify_regular_file, is_paper_library_path, is_supported_asset, ContentKind};
 use crate::project_fs::ProjectDir;
+use crate::util::err;
 use base64::{engine::general_purpose::STANDARD, Engine};
 use serde::Serialize;
 use std::collections::BTreeSet;

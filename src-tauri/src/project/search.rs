@@ -1,13 +1,14 @@
 //! Finding text in a project: search (indexed with a linear fallback), TODO
 //! markers, and find/replace across files.
 
+use super::clip_line;
 use super::history::apply_transaction;
 use super::paths::{extension, safe_path, source_kind};
 use super::tree::{scan_tree, tree_files, TreeView};
-use super::{clip_line, err};
 use crate::models::{
     FileNode, ProjectSearchResult, ReplaceMatch, ReplacePreview, ReplaceResult, TodoHit,
 };
+use crate::util::err;
 use crate::util::truncate_chars;
 use regex::Regex;
 use std::fs;

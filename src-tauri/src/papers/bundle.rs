@@ -8,8 +8,9 @@ use super::markdown::{
     localize_arxiv_fragment_links, markdown_has_body, normalize_imported_markdown, parse_title,
     prefixed_line,
 };
-use super::{check_cancelled, err, is_web_url};
+use super::{check_cancelled, is_web_url};
 use crate::firecrawl::ScrapedPage;
+use crate::util::err;
 use crate::util::{sha256_hex, swap_in_dir, DirSwapError};
 use crate::{alphaxiv, commands, project};
 use serde::{Deserialize, Serialize};

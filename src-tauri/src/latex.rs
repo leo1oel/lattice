@@ -67,39 +67,3 @@ pub fn read_compiled_pdf(root: &Path) -> Result<Vec<u8>, String> {
     }
     Ok(bytes)
 }
-
-/// Where a PDF saved to `path` is written: `path`, given `.pdf` if it has no extension.
-pub(crate) fn pdf_destination(path: &Path) -> Result<PathBuf, String> {
-    if path.as_os_str().is_empty() {
-        return Err("Choose where to save the PDF.".to_string());
-    }
-    match path.extension().and_then(|extension| extension.to_str()) {
-        None => Ok(path.with_extension("pdf")),
-        Some(extension) if extension.eq_ignore_ascii_case("pdf") => Ok(path.to_path_buf()),
-        Some(_) => Err("The exported paper must use the .pdf extension.".to_string()),
-    }
-}
-
-pub fn save_pdf(path: &Path, bytes: &[u8]) -> Result<String, String> {
-    let destination = pdf_destination(path)?;
-    if !bytes.starts_with(b"%PDF-") {
-        return Err("The compiled output is not a valid PDF.".to_string());
-    }
-    fs::write(&destination, bytes).map_err(|error| error.to_string())?;
-    Ok(destination.to_string_lossy().to_string())
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn saves_a_compiled_pdf_to_the_chosen_path() {
-        let directory = crate::test_support::TempDir::new("latex");
-        let bytes = b"%PDF-1.7\ntest";
-        let destination = save_pdf(&directory.join("paper"), bytes).unwrap();
-        assert_eq!(Path::new(&destination).extension().unwrap(), "pdf");
-        assert_eq!(fs::read(destination).unwrap(), b"%PDF-1.7\ntest");
-        assert!(save_pdf(&directory.join("paper.txt"), bytes).is_err());
-    }
-}

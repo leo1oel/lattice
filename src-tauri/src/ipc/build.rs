@@ -8,7 +8,7 @@ use crate::models::{
     BuildResult, DoctorReport, PdfSyncTarget, SyncTexTarget, TexlabCompletionItem, TexlabHover,
     TexlabLocation,
 };
-use crate::{doctor, format_latex, harper, latex, synara, tex_setup, texlab};
+use crate::{doctor, export, format_latex, harper, latex, synara, tex_setup, texlab};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tauri::{Emitter, Manager, State, Window};
@@ -90,7 +90,7 @@ pub async fn save_compiled_pdf(request: tauri::ipc::Request<'_>) -> Result<Strin
         "PDF",
         "The PDF contents were not sent as binary data.",
     )?;
-    run_blocking("Compiled PDF save", move || latex::save_pdf(&path, &bytes)).await
+    run_blocking("Compiled PDF save", move || export::save(&path, &bytes, &export::PDF)).await
 }
 
 #[tauri::command]
@@ -158,10 +158,7 @@ pub async fn texlab_diagnostics(
     state: State<'_, AppState>, window: Window, path: String, text: String, project_root: String,
     request_id: String,
 ) -> Result<(), String> {
-    let root = current_root(&state, &window)?;
-    if root != Path::new(&project_root) {
-        return Err("The TexLab project changed before synchronization.".to_string());
-    }
+    let root = pinned_root(&state, &window, &project_root, "TexLab synchronization")?;
     with_texlab(&state, root, move |pool, root| {
         pool.diagnostics(root, &path, &text, move |diagnostics| {
             let payload =

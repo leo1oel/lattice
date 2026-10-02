@@ -1,10 +1,10 @@
 //! New projects: conference templates and the disposable tutorial.
 
-use super::err;
 use super::manifest::write_manifest;
 use super::paths::is_plain_segment;
 use super::tree::build_artifact_ignore_lines;
 use crate::models::{ProjectManifest, RootDocument};
+use crate::util::err;
 use std::fs;
 use std::path::{Path, PathBuf};
 use uuid::Uuid;

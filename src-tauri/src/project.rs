@@ -81,10 +81,6 @@ pub use {
     manifest::write_manifest,
 };
 
-pub(crate) fn err(error: impl std::fmt::Display) -> String {
-    error.to_string()
-}
-
 /// 1-based line of byte `offset` (clamped to the text).
 fn line_number_at(source: &str, offset: usize) -> u32 {
     source[..offset.min(source.len())].bytes().filter(|byte| *byte == b'\n').count() as u32 + 1

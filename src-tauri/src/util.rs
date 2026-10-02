@@ -12,6 +12,11 @@ pub(crate) fn sha256_hex(bytes: impl AsRef<[u8]>) -> String {
     format!("{:x}", Sha256::digest(bytes))
 }
 
+/// A displayable error as the `String` the IPC layer returns.
+pub(crate) fn err(error: impl std::fmt::Display) -> String {
+    error.to_string()
+}
+
 /// `text` with every run of whitespace collapsed to one space and the ends
 /// trimmed.
 pub(crate) fn collapse_whitespace(text: &str) -> String {

@@ -104,8 +104,6 @@ fn title_or_key(title: String, key: &str) -> String {
     }
 }
 
-pub(crate) use crate::util::collapse_whitespace;
-
 fn ensure_success(name: &str, output: &Output) -> Result<(), String> {
     if output.status.success() {
         return Ok(());
@@ -115,10 +113,6 @@ fn ensure_success(name: &str, output: &Output) -> Result<(), String> {
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     ))
-}
-
-fn err(error: impl std::fmt::Display) -> String {
-    error.to_string()
 }
 
 /// Importing arXiv papers shells out to `uvx` for the pinned literature tools.

@@ -9,10 +9,11 @@
 use super::bundle::{reset_asset_manifest, ANYDOC_CONVERTER};
 use super::markdown::{clean_arxiv_source_markdown, markdown_has_body, parse_title};
 use super::{
-    check_cancelled, ensure_success, err, http_client, read_capped, send_checked,
-    ARXIV2MD_CACHE_ENV, LITERATURE_USER_AGENT,
+    check_cancelled, ensure_success, http_client, read_capped, send_checked, ARXIV2MD_CACHE_ENV,
+    LITERATURE_USER_AGENT,
 };
 use crate::commands;
+use crate::util::err;
 use flate2::read::GzDecoder;
 use std::fs;
 use std::io::Read;

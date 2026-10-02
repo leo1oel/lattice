@@ -7,6 +7,7 @@ use super::account::{load_session, normalize_host, SessionFile};
 use super::files::is_excluded;
 use super::link::{load_state, SyncState, PAUSED};
 use crate::overleaf_rt::{SESSION_EXPIRED, USER_AGENT};
+use crate::util::err;
 use reqwest::blocking::{Client, RequestBuilder, Response};
 use reqwest::header::{ACCEPT, CONTENT_LENGTH, CONTENT_TYPE, COOKIE, RETRY_AFTER};
 use reqwest::{Method, StatusCode};
@@ -17,10 +18,6 @@ use std::path::Path;
 use std::time::Duration;
 
 pub(super) const JSON: &str = "application/json";
-
-pub(super) fn err<E: std::fmt::Display>(e: E) -> String {
-    e.to_string()
-}
 
 pub(super) fn http_client(timeout_secs: u64) -> Result<Client, String> {
     crate::http::blocking_as(USER_AGENT, Duration::from_secs(timeout_secs))

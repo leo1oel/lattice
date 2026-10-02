@@ -5,10 +5,11 @@
 
 use super::bibliography::{run_bibcite_input, ScratchBibliography};
 use super::citation::{normalized_paper_title, paper_titles_match, unused_key};
-use super::{err, http_client, is_web_url, read_capped, LITERATURE_USER_AGENT};
+use super::{http_client, is_web_url, read_capped, LITERATURE_USER_AGENT};
 use crate::citation_audit::entry_fields;
 use crate::firecrawl::ScrapedPage;
 use crate::project;
+use crate::util::err;
 use crate::web_metadata::{self, bib_text, bib_url};
 use regex::Regex;
 use scraper::{Html, Selector};

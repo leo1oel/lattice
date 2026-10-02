@@ -4,11 +4,11 @@
 //! index is refreshed. Also here: restoring and deleting history entries, and
 //! pruning conversation checkpoints.
 
-use super::err;
 use super::manifest::write_pretty_json;
 use super::paths::{is_plain_segment, safe_path, validate_transaction_path};
 use crate::models::{FileChange, HistoryItem, TransactionRecord};
 use crate::project_fs::ProjectDir;
+use crate::util::err;
 use chrono::Utc;
 use serde::Serialize;
 use std::collections::{BTreeMap, HashMap};

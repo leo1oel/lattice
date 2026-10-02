@@ -19,11 +19,12 @@ use super::citation::{
 use super::ids::{
     arxiv_base_id, explicit_arxiv_id, parse_arxiv_id, same_arxiv_work, validate_arxiv_id,
 };
+use super::is_web_url;
 use super::web_citation::{
     alphaxiv_bibtex, merge_supplied_bibtex, pdf_citation_bibtex, resolve_web_citation, WebCitation,
 };
-use super::{err, is_web_url};
 use crate::models::{ImportResult, ProjectManifest};
+use crate::util::err;
 use crate::web_metadata::bib_url;
 use crate::{alphaxiv, project};
 use serde_json::{json, Value};

@@ -1,7 +1,6 @@
 //! Creating, renaming, moving, and deleting files and folders from the
 //! Project pane, keeping the manifest and search index in step.
 
-use super::err;
 use super::history::{
     apply_transaction, new_transaction, persist_transaction, refresh_search_index, HistoryContext,
 };
@@ -12,6 +11,7 @@ use super::paths::{
 use super::tree::tex_build_outputs;
 use crate::models::FileChange;
 use crate::project_fs::ProjectDir;
+use crate::util::err;
 use std::fs;
 use std::path::Path;
 
