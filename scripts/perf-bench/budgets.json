@@ -59,6 +59,12 @@
       "renders": 3066,
       "hooks": 38204,
       "mutations": 195
+    },
+    "dialog-open": {
+      "commits": 39,
+      "renders": 1671,
+      "hooks": 18509,
+      "mutations": 394
     }
   }
 }

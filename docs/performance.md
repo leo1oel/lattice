@@ -189,6 +189,7 @@ Scenarios (`scripts/perf-bench/scenarios.mjs`):
 | `code-highlight` | switch to a document of 150 highlighted code blocks, type 20 characters in one (each after the 200 ms publication idle, so each publishes) |
 | `pdf-open` | open a 200-page PDF from the navigator |
 | `pdf-scroll`, `source-scroll`, `markdown-preview-scroll` | 40 wheel notches each |
+| `dialog-open` | open the command palette over the 400 KB Markdown document in the visual editor and close it with Escape, 4 times |
 | `compile` | build, then expand the diagnostics and show the 4,000-line log |
 
 ### Running it
@@ -367,6 +368,16 @@ Still O(document) per keystroke:
 - With TexLab installed, completion sends the whole text with every
   keystroke in a word (`texlab_completion`). The benchmark's mock backend does
   not model that IPC.
+
+## WebKit frame rate and dialogs (October 2026)
+
+Two WebKit-only costs found while comparing the bundled Chromium with the
+system WKWebView:
+
+| Cause | Evidence | Fix |
+| --- | --- | --- |
+| WKWebView ships the WebKit feature `PreferPageRenderingUpdatesNear60FPSEnabled` on, so page rendering updates (rAF, scroll-driven work, main-thread animation) ran at 60 Hz on a 120 Hz display | The app's native WKWebView window (a lab build), rAF over 10 s: 60.0–60.2 fps (17 ms median frame) as shipped, 119.8–120.1 fps (8 ms) with the feature off | every workspace window turns it off through the `WKPreferences` feature SPI, after checking both selectors exist (`render_at_display_refresh_rate` in `src-tauri/src/macos_window.rs`) |
+| Radix's modal dialog mode restyles the whole document on open: `pointer-events: none` on `body`, an injected scroll-lock stylesheet and `aria-hidden` on every sibling | Command palette open → painted over the 2 MB `large.md` in the visual editor (45k elements), median of 18 opens: Playwright WebKit 26.6 1,984 ms, Chromium 261 ms | `ModalDialog` is non-modal with its own backdrop, a trapped `FocusScope` and `aria-modal` (`components/ui/modal-dialog.tsx`): WebKit 106 ms, Chromium 241 ms. The `dialog-open` benchmark scenario guards it. |
 
 ## React Compiler status
 
