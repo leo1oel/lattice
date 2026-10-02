@@ -51,6 +51,7 @@ import { useAgentContext } from "./app/use-agent-context";
 import { useProjectState, useProjectTreeWatch } from "./app/use-project-state";
 import { loadBibliographyIndex, useProjectLibrary } from "./app/use-project-library";
 import { loadDocumentCanvas, usePreviewPrewarm } from "./app/use-preview-prewarm";
+import { useSettledSource } from "./app/use-settled-source";
 import {
   useFullscreen,
   useTrafficLightAlignment,
@@ -3286,13 +3287,21 @@ function App() {
     () => [...(rootDocumentPath ? [rootDocumentPath] : []), primaryBibliography],
     [primaryBibliography, rootDocumentPath],
   );
+  // The document in the editor, and the same text as of the last pause in
+  // typing for the work that reads all of it (useSettledSource): counts,
+  // TODOs, outline, labels, macros. A long buffer pays for that once per pause
+  // rather than once per keystroke; a short one reads live.
+  const editorKey = activePaper ? `paper:${activePaperPath}` : `local:${activeFile}`;
+  const canvasSource = activePaper ? activePaperSource : source;
+  const settledCanvasSource = useSettledSource(`${project?.root ?? ""}\n${editorKey}`, canvasSource);
+  // With a Paper in front, the primary buffer is not being edited.
+  const settledSource = activePaper ? source : settledCanvasSource;
   // Live buffers participate in the project-wide TeX derivations below
   // (outline, macros, labels, appendix) only for .tex files. Deriving the
   // nullable scalars here keeps every downstream memo inert while typing
   // Markdown — `null` is Object.is-stable across keystrokes, so the maps and
-  // the parse chains behind them stop recomputing per character. For .tex the
-  // scalar tracks `source` exactly, preserving today's behavior.
-  const activeTexSource = activeFile.endsWith(".tex") ? source : null;
+  // the parse chains behind them stop recomputing per character.
+  const activeTexSource = activeFile.endsWith(".tex") ? settledSource : null;
   const liveOutlineSources = useMemo(() => ({
     ...outlineSources,
     ...(activeTexSource != null ? { [activeFile]: activeTexSource } : {}),
@@ -3425,11 +3434,12 @@ function App() {
   const katexMacros = useMemo(() => katexMacrosFromSources(liveMacroSources), [liveMacroSources]);
   // TODOs come from .md buffers too (todo_source_path on the Rust side), so
   // this cannot ride the .tex-only scalars above. The rescan only visits
-  // candidate lines, so it runs in the keystroke's own render: deferring it
-  // with useDeferredValue re-rendered all of App a second time per keystroke.
+  // candidate lines, so it runs in the render that changes the settled text:
+  // deferring it with useDeferredValue re-rendered all of App a second time
+  // per keystroke.
   const todoHits = useMemo(
-    () => mergeTodosWithBuffer(diskTodos, activeFile, source),
-    [activeFile, diskTodos, source],
+    () => mergeTodosWithBuffer(diskTodos, activeFile, settledSource),
+    [activeFile, diskTodos, settledSource],
   );
 
   // Where \appendix sits, as two scalars rather than the marker object. The
@@ -3723,7 +3733,8 @@ function App() {
       mode={canvasMode}
       workspaceIndex={workspaceIndex}
       papers={papers}
-      source={activePaper ? activePaperSource : source}
+      source={canvasSource}
+      settledSource={settledCanvasSource}
       markdownPreviewSource={activePaper ? activePaperPreviewSource : undefined}
       activeFile={activePaperPath ?? activeFile}
       setSource={activePaper ? setActivePaperSource : setPrimarySource}
@@ -3877,7 +3888,7 @@ function App() {
       // Papers live under .research/, which Overleaf deliberately
       // excludes from sync.
       editorEditable={editorEditableForPath(activeFile, activePaper !== null)}
-      editorKey={activePaper ? `paper:${activePaperPath}` : `local:${activeFile}`}
+      editorKey={editorKey}
       trellis={{
         editorHost: trellis.hosts.editor,
         pdfHost: pdfLive ? trellis.hosts.pdf : null,

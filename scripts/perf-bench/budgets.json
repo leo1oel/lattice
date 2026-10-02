@@ -54,6 +54,11 @@
       "renders": 1107,
       "hooks": 8579,
       "mutations": 129
+    },
+    "long-tex-typing": {
+      "renders": 3066,
+      "hooks": 38204,
+      "mutations": 195
     }
   }
 }

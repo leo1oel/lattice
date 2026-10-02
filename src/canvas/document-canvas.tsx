@@ -140,6 +140,8 @@ export function DocumentCanvas(props: {
   mode: CanvasMode;
   workspaceIndex?: MarkdownWorkspaceIndex | null;
   source: string;
+  /** `source` as of the last pause in typing, for document-wide counts and the breadcrumb (useSettledSource); defaults to `source`. */
+  settledSource?: string;
   markdownPreviewSource?: string;
   activeFile: string;
   setSource: (value: string) => void;
@@ -263,6 +265,7 @@ export function DocumentCanvas(props: {
     onOpenEditorComments, commentFocusRequest, onCommentFocusHandled, getFileViewState, onFileViewState,
     onRequestHandled,
   } = props;
+  const settledSource = props.settledSource ?? editorSource;
   const {
     navigation: editorNavigation, restore: viewRestore, rename: envRenameRequest, wrap: wrapEnvRequest,
     cite: citeInsertRequest, figure: figureDropRequest,
@@ -624,8 +627,8 @@ export function DocumentCanvas(props: {
     if (createComment(activeFile, editorSource, range.from, range.to, commentComposer.body)) closeCommentComposer();
   };
   const breadcrumb = useMemo(
-    () => activeFile.endsWith(".tex") ? sectionBreadcrumbNodes(editorSource, statusPosition.line, activeFile) : [],
-    [activeFile, editorSource, statusPosition.line],
+    () => activeFile.endsWith(".tex") ? sectionBreadcrumbNodes(settledSource, statusPosition.line, activeFile) : [],
+    [activeFile, settledSource, statusPosition.line],
   );
   const [primaryKeymapExtensions, primaryVimMode] = useOptionalKeymapExtensions(editorKeymap);
   const primaryTextLanguageExtensions = useTextLanguageExtensions(isLatexSourcePath(activeFile) ? "" : activeFile);
@@ -1273,7 +1276,7 @@ export function DocumentCanvas(props: {
           onOpenTodos={props.onOpenTodos}
           projectWordCount={props.projectWordCount}
           selectedText={selectedText}
-          source={editorSource}
+          source={settledSource}
         />
       </div>
       <TableGeneratorDialog open={tableGeneratorOpen} onClose={() => onTableGeneratorOpenChange(false)} onInsert={insertTextAtCursor} />

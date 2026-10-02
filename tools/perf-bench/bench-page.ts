@@ -22,7 +22,7 @@ const ROOT = "/bench/lattice-perf-fixture";
 
 const params = new URLSearchParams(location.search);
 const sizes: Partial<PerfFixtureSizes> = {};
-for (const key of ["largeMarkdownBytes", "chapterBytes", "chapters", "notes", "codeBlocks", "pdfPages", "logLines"] as const) {
+for (const key of ["largeMarkdownBytes", "chapterBytes", "chapters", "longTexBytes", "notes", "codeBlocks", "pdfPages", "logLines"] as const) {
   const value = Number(params.get(key));
   if (Number.isFinite(value) && value > 0) sizes[key] = value;
 }

@@ -14,6 +14,7 @@
  *                 syntax-highlighting case.
  *   main.tex      root document \include-ing chapters/chNN.tex
  *   chapters/     8 chapters, ~1 MB of TeX total
+ *   long.tex      ~3.3 MB, 18k lines of TeX in one file — the long-source case.
  *   notes/        200 small .md files — makes scan_files/poll cost visible.
  *   reference.pdf 200 text pages — the large-PDF case.
  *

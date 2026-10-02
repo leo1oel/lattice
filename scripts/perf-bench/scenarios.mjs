@@ -288,6 +288,22 @@ export const SCENARIOS = [
     run: (driver) => driver.type("lattice ".repeat(5)),
   },
   {
+    name: "long-tex-typing",
+    // A long buffer's document-wide work (counts, TODOs, outline, labels)
+    // catches up after a pause in typing or after five seconds of continuous
+    // typing (app/use-settled-source.ts). 24 keys stay clear of the five-second
+    // boundary even on a slow runner, so it catches up exactly once, at the end.
+    description: "Type 24 characters into a 3 MB, 18k-line LaTeX file in the source editor, PDF preview beside it.",
+    unit: "keystroke",
+    steps: 24,
+    async setup(driver) {
+      await driver.openFile("long.tex");
+      await driver.rect(EDITOR);
+      await caretInSourceLine(driver, 12);
+    },
+    run: (driver) => driver.type("lattice ".repeat(3)),
+  },
+  {
     name: "markdown-source-typing",
     description: "Type 40 characters into the long Markdown document in the source editor.",
     unit: "keystroke",
