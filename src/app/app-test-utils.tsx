@@ -27,12 +27,13 @@ import { openMarkdown } from "../editor/markdown/engine/markdown-document";
 import { saveLayout } from "../trellis/trellis-layout";
 // Keep the cold Vite transforms of these real lazy surfaces outside interaction-test deadlines; the tests
 // still mount them, not doubles: the Trellis workspace every open project renders into, the visual Markdown
-// editor, the file-tree navigator, the canvas and comment surfaces the comment-routing regression uses, and
+// editor, the file tree and paper library, the canvas and comment surfaces the comment-routing regression uses, and
 // the PDF viewer source navigation needs.
 import "../trellis/trellis-workspace";
 import "../trellis/trellis-agent-surface";
 import "../editor/markdown/engine/lattice-visual-editor";
-import "../project/navigator";
+import "../project/project-file-tree";
+import "../project/paper-library";
 import "../canvas/document-canvas";
 import "../overleaf/overleaf-collab";
 import "../editor/comments/editor-comments-panel";

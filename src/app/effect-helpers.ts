@@ -123,6 +123,21 @@ export function useLatest<T>(value: T) {
 }
 
 /**
+ * Stable forwarders over handlers whose identity changes every render: each
+ * returned function keeps its identity for the caller's lifetime and calls the
+ * latest committed handler, so a memoized child given them re-renders only
+ * when its data changes. The handler names are fixed at the first render.
+ */
+export function useStableHandlers<T extends Record<string, ((...args: never[]) => unknown) | undefined>>(handlers: T): T {
+  const latest = useLatest(handlers);
+  const [stable] = useState(() => Object.fromEntries(Object.keys(handlers).map((key) => [
+    key,
+    (...args: unknown[]) => (latest.current[key] as ((...values: unknown[]) => unknown) | undefined)?.(...args),
+  ])) as unknown as T);
+  return stable;
+}
+
+/**
  * State with a ref twin for async work: `[value, setValue, ref, setLive]`. The
  * live setter leads with the ref, so work later in the same turn sees the
  * value; every commit brings the ref level with state again.

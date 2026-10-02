@@ -1,6 +1,6 @@
 import {
   Suspense, lazy, memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState,
-  type ComponentProps, type SetStateAction,
+  type SetStateAction,
 } from "react";
 import { createPortal } from "react-dom";
 import { useLingui } from "@lingui/react/macro";
@@ -42,7 +42,7 @@ import {
   useTrafficLightAlignment,
   useWindowMinimumSize,
 } from "./app/use-native-window";
-import { useLatest, useRefState } from "./app/effect-helpers";
+import { useLatest, useRefState, useStableHandlers } from "./app/effect-helpers";
 import { useOverleafWorkspace } from "./app/use-overleaf-workspace";
 import { useAppCommands, type AppCommand } from "./app/use-app-commands";
 import { useToolDrawers } from "./app/use-tool-drawers";
@@ -147,12 +147,15 @@ const OverleafReviewDialog = lazy(() =>
 const ConflictResolverDialog = lazy(() =>
   import("./history/conflict-resolver").then((module) => ({ default: module.ConflictResolverDialog })),
 );
-// Lazy: the navigator pulls @pierre/trees (~270 KB) and never renders on the
-// Welcome screen, so it must not weigh down first paint.
-// Memoized: its callbacks come through stable forwarders (navigatorHandlers in
-// App), so an editor keystroke does not re-render the file tree and paper library.
-const Navigator = lazy(() =>
-  import("./project/navigator").then((module) => ({ default: memo(module.Navigator) })),
+// Lazy: the file tree pulls @pierre/trees (~270 KB), and neither sidebar
+// panel renders on the Welcome screen, so they must not weigh down first paint.
+// Memoized: their callbacks come through stable forwarders (useStableHandlers
+// in App), so an editor keystroke does not re-render the file tree or the paper library.
+const ProjectFileTree = lazy(() =>
+  import("./project/project-file-tree").then((module) => ({ default: memo(module.ProjectFileTree) })),
+);
+const PaperLibrary = lazy(() =>
+  import("./project/paper-library").then((module) => ({ default: memo(module.PaperLibrary) })),
 );
 const PaperDropBridge = lazy(() => import("./papers/paper-drop-bridge"));
 const BibliographyAudit = lazy(() =>
@@ -168,14 +171,6 @@ const DocumentCanvas = lazy(() =>
 const TrellisWorkspace = lazy(() => import("./trellis/trellis-workspace"));
 const TrellisAgentSurface = lazy(() => import("./trellis/trellis-agent-surface"));
 const SINGLETON_PANELS = ["project", "papers", "agent", "pdf", "history", "comments", "literature", "todos", "checklist", "git", "overleaf"] as const;
-const ignoreSearchOpenChange = () => {};
-
-const NAVIGATOR_HANDLER_KEYS = [
-  "onFile", "onLikelyFile", "onAsset", "onBeginFigureDrag", "onBeginFileDrag", "onCreateEntry", "onDeleteEntries",
-  "onRenameEntry", "onMoveEntries", "onCopyEntries", "onError", "onReveal", "onImportAssets", "onPasteImage", "onPaper",
-  "onLikelyPaper", "onFetchFullText", "onDeletePaper", "onEditBibEntry", "setImportInput", "onImport", "onCancelImport",
-] as const;
-type NavigatorHandlers = Pick<ComponentProps<typeof Navigator>, typeof NAVIGATOR_HANDLER_KEYS[number]>;
 
 /** Shared empty word list: `?? []` in JSX rebuilds the editor's lint pass. */
 const EMPTY_SPELLING_WORDS: string[] = [];
@@ -1274,40 +1269,35 @@ function App() {
     autoModeAvailable, changePermissionMode, permissionMode, projectRef, projectSearch.openFind,
     referenceImport.openBibEntry, synaraOrigin, tools,
   ]);
-  // The navigators' callbacks are mostly inline, so they change on every App
-  // render. The memoized Navigator gets stable forwarders instead, which call
-  // the latest handlers: refreshed after every commit, before any event.
-  const navigatorHandlersRef = useRef<NavigatorHandlers | null>(null);
-  useLayoutEffect(() => {
-    navigatorHandlersRef.current = {
-      onFile: openProjectFileFromClick,
-      onLikelyFile: prewarmLikelyProjectFile,
-      onAsset: openProjectAssetFromClick,
-      onBeginFigureDrag: tree.beginFigureDrag,
-      onBeginFileDrag: tree.beginFileDrag,
-      onCreateEntry: tree.createEntry,
-      onDeleteEntries: tree.deleteEntries,
-      onRenameEntry: tree.renameEntry,
-      onMoveEntries: tree.moveEntries,
-      onCopyEntries: tree.copyEntries,
-      onError: setError,
-      onReveal: tree.revealItem,
-      onImportAssets: tree.chooseAssets,
-      onPasteImage: (targetDirectory) => void tree.importSystemClipboardImage(targetDirectory),
-      onPaper: (paper) => void openPaper(paper),
-      onLikelyPaper: prewarmLikelyPaper,
-      onFetchFullText: (paper) => void fetchAndOpenPaper(paper),
-      onDeletePaper: deletePaper,
-      onEditBibEntry: (paper) => void referenceImport.editBibEntry(paper),
-      setImportInput: referenceImport.setInput,
-      onImport: referenceImport.importFromInput,
-      onCancelImport: referenceImport.cancelImport,
-    };
+  // The sidebar panels' callbacks are mostly inline, so they change on every
+  // App render; the memoized panels get stable forwarders instead.
+  const fileTreeHandlers = useStableHandlers({
+    onFile: openProjectFileFromClick,
+    onLikelyFile: prewarmLikelyProjectFile,
+    onAsset: openProjectAssetFromClick,
+    onBeginFigureDrag: tree.beginFigureDrag,
+    onBeginFileDrag: tree.beginFileDrag,
+    onCreateEntry: tree.createEntry,
+    onDeleteEntries: tree.deleteEntries,
+    onRenameEntry: tree.renameEntry,
+    onMoveEntries: tree.moveEntries,
+    onCopyEntries: tree.copyEntries,
+    onError: setError,
+    onReveal: tree.revealItem,
+    onImportAssets: tree.chooseAssets,
+    onPasteImage: (targetDirectory: string) => void tree.importSystemClipboardImage(targetDirectory),
   });
-  const [navigatorHandlers] = useState(() => Object.fromEntries(NAVIGATOR_HANDLER_KEYS.map((key) => [
-    key,
-    (...args: unknown[]) => (navigatorHandlersRef.current?.[key] as ((...values: unknown[]) => unknown) | undefined)?.(...args),
-  ])) as unknown as NavigatorHandlers);
+  const paperLibraryHandlers = useStableHandlers({
+    onReveal: tree.revealItem,
+    onPaper: (paper: PaperSummary) => void openPaper(paper),
+    onLikelyPaper: prewarmLikelyPaper,
+    onFetchFullText: (paper: PaperSummary) => void fetchAndOpenPaper(paper),
+    onDeletePaper: deletePaper,
+    onEditBibEntry: (paper: PaperSummary) => void referenceImport.editBibEntry(paper),
+    setImportInput: referenceImport.setInput,
+    onImport: referenceImport.importFromInput,
+    onCancelImport: referenceImport.cancelImport,
+  });
 
   if (!project) {
     return (
@@ -1357,40 +1347,6 @@ function App() {
   const citationUrl = (key: string) => citationSourceUrl(citations.find((item) => sameKey(item.key, key)));
 
 
-  const renderNavigator = (mode: "project" | "papers") => {
-    // With both navigators on screen (Trellis), only the project one answers
-    // search and new-document requests.
-    const owner = mode === "project";
-    return (
-      <Suspense fallback={null}>
-        <Navigator
-          mode={mode}
-          projectKey={project.root}
-          searchOpen={owner && projectSearchOpen}
-          boardCreateRequest={owner ? boardCreateRequest : 0}
-          spreadsheetCreateRequest={owner ? spreadsheetCreateRequest : 0}
-          presentationCreateRequest={owner ? presentationCreateRequest : 0}
-          onSearchOpenChange={owner ? setProjectSearchOpen : ignoreSearchOpenChange}
-          files={project.files}
-          gitStatus={projectGit.gitFiles}
-          activeFile={activeAsset || activePaper ? "" : activeFile}
-          activeAssetPath={activeAsset?.path ?? ""}
-          protectedPaths={protectedProjectPaths}
-          papers={papers}
-          activePaper={activePaper}
-          {...navigatorHandlers}
-          assetDropTarget={tree.assetDropTarget}
-          assetImporting={tree.assetImporting}
-          paperFetchStates={paperFetchStates}
-          importInput={referenceImport.input}
-          recentImport={referenceImport.recentImport?.projectRoot === project.root ? referenceImport.recentImport : null}
-          importStage={referenceImport.stage ? paperImportStageLabel(referenceImport.stage) : null}
-          importStageId={referenceImport.stage}
-          importing={referenceImport.importing}
-        />
-      </Suspense>
-    );
-  };
   const documentCanvas = (
     <DocumentCanvas
       projectRoot={project.root}
@@ -1654,8 +1610,45 @@ function App() {
         <Suspense fallback={<div className="document-canvas-loading" aria-label={t`Preparing workspace`} />}>
           <TrellisWorkspace key={project.root} controller={trellis} projectRoot={project.root} dark={theme === "dark"} />
         </Suspense>
-        {createPortal(renderNavigator("project"), trellis.hosts.project)}
-        {createPortal(renderNavigator("papers"), trellis.hosts.papers)}
+        {createPortal(
+          <Suspense fallback={null}>
+            <ProjectFileTree
+              key={project.root}
+              projectKey={project.root}
+              searchOpen={projectSearchOpen}
+              boardCreateRequest={boardCreateRequest}
+              spreadsheetCreateRequest={spreadsheetCreateRequest}
+              presentationCreateRequest={presentationCreateRequest}
+              onSearchOpenChange={setProjectSearchOpen}
+              files={project.files}
+              gitStatus={projectGit.gitFiles}
+              activeFile={activeAsset || activePaper ? "" : activeFile}
+              activeAssetPath={activeAsset?.path ?? ""}
+              protectedPaths={protectedProjectPaths}
+              assetDropTarget={tree.assetDropTarget}
+              assetImporting={tree.assetImporting}
+              {...fileTreeHandlers}
+            />
+          </Suspense>,
+          trellis.hosts.project,
+        )}
+        {createPortal(
+          <Suspense fallback={null}>
+            <PaperLibrary
+              projectKey={project.root}
+              papers={papers}
+              activePaper={activePaper}
+              paperFetchStates={paperFetchStates}
+              importInput={referenceImport.input}
+              recentImport={referenceImport.recentImport?.projectRoot === project.root ? referenceImport.recentImport : null}
+              importStage={referenceImport.stage ? paperImportStageLabel(referenceImport.stage) : null}
+              importStageId={referenceImport.stage}
+              importing={referenceImport.importing}
+              {...paperLibraryHandlers}
+            />
+          </Suspense>,
+          trellis.hosts.papers,
+        )}
         {createPortal(trellisActions.project, trellis.hosts.projectActions)}
         {createPortal(trellisActions.papers, trellis.hosts.papersActions)}
         {createPortal(trellisActions.agent, trellis.hosts.agentActions)}
