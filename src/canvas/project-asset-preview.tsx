@@ -18,8 +18,10 @@ function imageViewState(viewport: HTMLElement | null, scale: number): ImageFileV
 }
 
 /** A project image or PDF figure, with its zoom and scroll position kept as per-file view state. */
-export function ProjectAssetPreview({ asset, viewState, onViewState, onFileChanged }: {
+export function ProjectAssetPreview({ asset, missing = false, viewState, onViewState, onFileChanged }: {
   asset: AssetPreview;
+  /** The file was removed from the project while open. */
+  missing?: boolean;
   viewState?: FileViewState;
   onViewState?: (update: Partial<FileViewState>) => void;
   /** A project PDF was rewritten on disk since it was read. */
@@ -70,6 +72,7 @@ export function ProjectAssetPreview({ asset, viewState, onViewState, onFileChang
           initialViewState={viewState?.pdf}
           onViewState={(pdf) => onViewStateRef.current?.({ pdf })}
           onFileChanged={onFileChanged}
+          notice={missing ? t`This PDF was removed from the project.` : null}
         />
       </Suspense>
     );

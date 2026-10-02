@@ -11,6 +11,9 @@ const OUTSIDE_PROJECT: &str = "The requested path is outside the project.";
 
 /// Resolve `relative` beneath `root`, refusing traversal, absolute paths, and
 /// symbolic links on any component.
+/// A path that is not there, or whose folder is not.
+pub(crate) const NOT_FOUND: &str = "That file or folder no longer exists.";
+
 pub fn safe_path(root: &Path, relative: &str) -> Result<PathBuf, String> {
     resolve_project_path(root, relative, false)
 }
@@ -56,6 +59,7 @@ fn resolve_project_path(
             Err(error) if error.kind() == ErrorKind::NotFound && create_parents => {
                 fs::create_dir(&cursor).map_err(err)?
             }
+            Err(error) if error.kind() == ErrorKind::NotFound => return Err(NOT_FOUND.to_string()),
             Err(error) => return Err(error.to_string()),
         }
     }

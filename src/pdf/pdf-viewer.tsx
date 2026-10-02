@@ -141,6 +141,7 @@ export function PdfPreview({
   outline,
   toolbarStart,
   toolbarEnd,
+  notice = null,
   citations,
   canOpenCitation,
   onOpenCitation,
@@ -167,6 +168,8 @@ export function PdfPreview({
   toolbarStart?: ReactNode;
   /** Context-specific icon actions rendered before the save control. */
   toolbarEnd?: ReactNode;
+  /** A short status shown over the pages, such as the file having been removed. */
+  notice?: string | null;
 }) {
   const { t } = useLingui();
   const previewRef = useRef<HTMLDivElement | null>(null);
@@ -415,6 +418,7 @@ export function PdfPreview({
       <div className="pdf-scroll-area">
         <div ref={hostRef} className="pdf-viewer-host" />
         <OverlayScrollbars key={generation} getViewport={getScrollViewport} />
+        {notice ? <p className="pdf-notice" role="status">{notice}</p> : null}
         {pdfError && !hasActiveViewer
           ? (
             <div className="pdf-placeholder">

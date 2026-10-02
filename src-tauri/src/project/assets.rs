@@ -2,7 +2,7 @@
 //! converting figures into formats LaTeX can include.
 
 use super::err;
-use super::paths::{extension, safe_path};
+use super::paths::{extension, safe_path, NOT_FOUND};
 use super::tree::{
     classify_file_bytes, is_html_path, is_supported_asset, ContentKind, MAX_CLASSIFIED_TEXT_BYTES,
     MAX_LOCAL_HTML_BYTES,
@@ -64,6 +64,9 @@ pub fn read_asset(root: &Path, relative: &str) -> Result<AssetPreview, String> {
     // Return it through this byte-oriented command so the frontend can embed it
     // in the same opaque-origin sandbox instead of exposing a filesystem URL.
     let html = is_html_path(&path);
+    if !path.exists() {
+        return Err(NOT_FOUND.to_string());
+    }
     if !path.is_file() {
         return Err("Choose a binary project file or an HTML preview resource.".to_string());
     }
@@ -124,7 +127,7 @@ pub fn read_asset_range(
     }
     let file = match open_resolved(&path) {
         Ok(file) => file,
-        Err(error) if error.kind() == io::ErrorKind::NotFound => return Err(FILE_CHANGED.into()),
+        Err(error) if error.kind() == io::ErrorKind::NotFound => return Err(NOT_FOUND.into()),
         Err(error) => return Err(err(error)),
     };
     let metadata = file.metadata().map_err(err)?;
@@ -337,7 +340,11 @@ mod tests {
             read("paper.pdf", &replaced, 0, replaced_length).unwrap(),
             b"%PDF-1.4 a later version, longer"
         );
+        // Gone, and told apart from changed: the file, or the folder it was in.
         fs::remove_file(fixture.path("paper.pdf")).unwrap();
-        assert_eq!(read("paper.pdf", &replaced, 0, 4).err().unwrap(), FILE_CHANGED);
+        assert_eq!(read("paper.pdf", &replaced, 0, 4).err().unwrap(), NOT_FOUND);
+        assert_eq!(read_asset(root, "paper.pdf").err().unwrap(), NOT_FOUND);
+        assert_eq!(read("gone/paper.pdf", &replaced, 0, 4).err().unwrap(), NOT_FOUND);
+        assert_eq!(read_asset(root, "gone/paper.pdf").err().unwrap(), NOT_FOUND);
     }
 }

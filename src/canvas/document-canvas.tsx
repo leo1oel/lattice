@@ -165,6 +165,8 @@ export function DocumentCanvas(props: {
   activeAsset: AssetPreview | null;
   /** The active asset was rewritten on disk: read its new version. */
   onActiveAssetChanged?: () => void;
+  /** The active asset was removed from the project while open. */
+  activeAssetMissing?: boolean;
   citationKeys: string[];
   citations: CitationInfo[];
   references: ReferenceInfo[];
@@ -994,6 +996,7 @@ export function DocumentCanvas(props: {
     <ProjectAssetPreview
       key={asset.path}
       asset={asset}
+      missing={props.activeAssetMissing}
       viewState={props.getFileViewState?.(asset.path)}
       onViewState={(update) => props.onFileViewState?.(asset.path, update)}
       onFileChanged={props.onActiveAssetChanged}

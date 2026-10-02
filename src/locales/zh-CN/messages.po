@@ -7931,6 +7931,10 @@ msgstr "匹配信息对应检索到的原始记录；你已修改其中的字段
 msgid "This paper has no local reading or downloadable source."
 msgstr "这篇论文没有本地全文或可下载的来源。"
 
+#: src/canvas/project-asset-preview.tsx
+msgid "This PDF was removed from the project."
+msgstr "此 PDF 已从项目中移除。"
+
 #: src/app/use-build-pipeline.ts
 msgid "This project has no LaTeX document to build yet. Add a .tex file, or set one as the root document in project settings."
 msgstr "此项目还没有可构建的 LaTeX 文档。请添加一个 .tex 文件，或在项目设置中将某个文件设为主文档。"

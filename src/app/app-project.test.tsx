@@ -677,6 +677,8 @@ describe("project tree and projects", () => {
     });
     mockPdfDocument(() => pdf);
     let pdfRanges = { length: 8, version: "v1" };
+    let pdfRemoved = false;
+    const removed = () => new Error("That file or folder no longer exists.");
     renderApp({
       ...refreshableProject(projectSnapshot({
         files: [
@@ -686,11 +688,12 @@ describe("project tree and projects", () => {
       read_project_file: readFiles({ "method.md": "# Method" }, "\\documentclass{article}\n\\begin{document}\n\\end{document}"),
       read_project_asset: (args) => {
         const path = argPath(args);
+        if (path.endsWith(".pdf") && pdfRemoved) throw removed();
         return path.endsWith(".pdf")
           ? { path, mimeType: "application/pdf", ranges: pdfRanges }
           : { path, mimeType: "image/svg+xml", base64: "PHN2Zy8+" };
       },
-      read_project_asset_range: () => { throw new Error("This PDF changed on disk."); },
+      read_project_asset_range: () => { throw pdfRemoved ? removed() : new Error("This PDF changed on disk."); },
       prepare_latex_figure: "figures/native-umm-converted.pdf", write_project_file: undefined,
       build_project: buildResult(),
     });
@@ -747,7 +750,21 @@ describe("project tree and projects", () => {
       range: expect.objectContaining({ length: 16 }),
     })), { timeout: 4_000 });
     expect(formatAppLogs()).not.toContain("changed on disk");
-  });
+
+    // Removed outside the app: one notice in the reader, and no more checks.
+    pdfRemoved = true;
+    const { range: lastRange } = vi.mocked(getDocument).mock.calls.at(-1)![0] as unknown as {
+      range: { requestDataRange(begin: number, end: number): void };
+    };
+    lastRange.requestDataRange(0, 4);
+    expect(await screen.findByText("This PDF was removed from the project.")).toHaveAttribute("role", "status");
+    expect(screen.getAllByText("This PDF was removed from the project.")).toHaveLength(1);
+    const afterRemoval = assetReads();
+    await act(() => pause(3_000));
+    expect(assetReads()).toBe(afterRemoval);
+    expect(screen.getByRole("tab", { name: /result\.pdf/ })).toHaveAttribute("aria-selected", "true");
+    expect(formatAppLogs()).not.toContain("no longer exists");
+  }, 20_000);
 
   it("keeps the latest file active when an earlier read resolves afterward", async () => {
     setAutoBuildMode("manual");

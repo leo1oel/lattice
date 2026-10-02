@@ -3,7 +3,8 @@ import { useLingui } from "@lingui/react/macro";
 import { toMessage } from "../app-utils";
 import { isBrowserHosted } from "../platform/browser-runtime";
 import { pdfBytesFingerprint } from "./pdf-bytes";
-import { isProjectPdfChanged, projectPdfTransport, type ProjectPdfFile } from "./project-pdf";
+import { projectPdfTransport, type ProjectPdfFile } from "./project-pdf";
+import { isProjectPdfStale } from "./project-pdf-refusals";
 import { createViewerRecord, destroyViewerRecord, onPdfEvents, pdfPageView, pdfPointAt, viewerOptions } from "./pdf-slick";
 import { installPdfTextLayerSelection } from "./pdf-text-layer-selection";
 import { addListeners, pdfFitMode, pdfScaleValue, toAppScale } from "./pdf-viewer-utils";
@@ -118,8 +119,8 @@ export function usePdfDocument({
     const range = file && projectPdfTransport(file, (reason) => {
       if (rangeFailure !== null || cancelled) return;
       rangeFailure = reason;
-      // A rewritten file is reloaded at its new version, not reported.
-      const changed = isProjectPdfChanged(reason);
+      // A rewritten or removed file is checked again by the host, not reported here.
+      const changed = isProjectPdfStale(reason);
       if (changed) callbacks.current.onFileChanged?.();
       if (!promoted) {
         // The read is never answered, so end the load now instead of at the timeout.

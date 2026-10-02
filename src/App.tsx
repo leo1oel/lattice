@@ -123,6 +123,7 @@ import { Welcome } from "./project/project-dialogs";
 import { activeOutlineNode, includedPathsIn, parseProjectOutline } from "./editor/latex/latex-outline";
 import { baseArxivId } from "./papers/arxiv-id";
 import { type PdfSyncTarget } from "./pdf/pdf-viewer";
+import { isProjectFileMissing } from "./pdf/project-pdf-refusals";
 import { mergeTodosWithBuffer } from "./project/todo-scavenger";
 import type {
   ProjectManifest,
@@ -2292,10 +2293,13 @@ function App() {
   // so a rewrite on disk (a build, the agent, an Overleaf pull) must hand the
   // viewer the new version; it keeps its page and zoom across the swap. The
   // viewer asks at once when a read finds the file changed; the poll catches
-  // a rewrite before any read does.
+  // a rewrite before any read does. A file removed from the project stays
+  // open with a notice and is no longer checked until it is opened again.
+  const [missingAsset, setMissingAsset] = useState<AssetPreview | null>(null);
   const recheckActivePdf = useCallback(() => {
-    const path = activeAssetRef.current?.ranges ? activeAssetRef.current.path : null;
-    if (!path) return;
+    const opened = activeAssetRef.current;
+    if (!opened?.ranges) return;
+    const path = opened.path;
     const ownsProject = captureProjectScope();
     void invoke<AssetPreview>("read_project_asset", { path })
       .then((asset) => {
@@ -2303,10 +2307,13 @@ function App() {
         if (!ownsProject() || current?.path !== path || !asset.ranges) return;
         if (asset.ranges.version !== current.ranges?.version) showActiveAsset(asset);
       })
-      // A file caught mid-write is read again on the next tick.
-      .catch(() => undefined);
+      .catch((reason: unknown) => {
+        // A file caught mid-write is read again on the next tick.
+        if (ownsProject() && activeAssetRef.current === opened && isProjectFileMissing(reason)) setMissingAsset(opened);
+      });
   }, [activeAssetRef, captureProjectScope, showActiveAsset]);
-  const activePdfPath = activeAsset?.ranges ? activeAsset.path : null;
+  const activeAssetMissing = activeAsset !== null && activeAsset === missingAsset;
+  const activePdfPath = activeAsset?.ranges && !activeAssetMissing ? activeAsset.path : null;
   useEffect(() => {
     if (!project || !activePdfPath) return;
     const timer = window.setInterval(recheckActivePdf, 2500);
@@ -3814,6 +3821,7 @@ function App() {
       activePaper={activePaper}
       activeAsset={activeAsset}
       onActiveAssetChanged={recheckActivePdf}
+      activeAssetMissing={activeAssetMissing}
       canOpenCitation={(key) => Boolean(readablePaperCited(key) || citationUrl(key))}
       onOpenCitation={(key) => {
         const paper = readablePaperCited(key);

@@ -7931,6 +7931,10 @@ msgstr "This match information describes the retrieved record; you have edited i
 msgid "This paper has no local reading or downloadable source."
 msgstr "This paper has no local reading or downloadable source."
 
+#: src/canvas/project-asset-preview.tsx
+msgid "This PDF was removed from the project."
+msgstr "This PDF was removed from the project."
+
 #: src/app/use-build-pipeline.ts
 msgid "This project has no LaTeX document to build yet. Add a .tex file, or set one as the root document in project settings."
 msgstr "This project has no LaTeX document to build yet. Add a .tex file, or set one as the root document in project settings."
