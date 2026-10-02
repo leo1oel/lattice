@@ -22,7 +22,7 @@ patchedDependencies:
     hash: 97f81a6654cf556985810d29eb63a53ae97577569b186f5e28680ad6e83d1d29
     path: patches/@danfessler__trellis@0.2.0.patch
   '@pdfslick/core@4.0.2':
-    hash: e381d44cf8559bb1e5d7e88361d43bbaf19938e306fc951e4ff4f37385e7dc61
+    hash: 362953045eb196b2d365efc17e0099e62c39670b0e67ab6506040f2bf8cc2508
     path: patches/@pdfslick__core@4.0.2.patch
   '@pierre/trees@1.0.0-beta.6':
     hash: 0b3b5c9657cb6ba9fa84c150d134e22e7a6164310d2ed95d3c46d96092002e40
@@ -103,7 +103,7 @@ importers:
         version: 4.6.2
       '@pdfslick/core':
         specifier: 4.0.2
-        version: 4.0.2(patch_hash=e381d44cf8559bb1e5d7e88361d43bbaf19938e306fc951e4ff4f37385e7dc61)(@types/react@19.2.17)(react@19.2.7)(use-sync-external-store@1.6.0(react@19.2.7))
+        version: 4.0.2(patch_hash=362953045eb196b2d365efc17e0099e62c39670b0e67ab6506040f2bf8cc2508)(@types/react@19.2.17)(react@19.2.7)(use-sync-external-store@1.6.0(react@19.2.7))
       '@pierre/diffs':
         specifier: ^1.3.2
         version: 1.3.2(@shikijs/themes@4.4.3)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
@@ -6853,7 +6853,7 @@ snapshots:
 
   '@panzoom/panzoom@4.6.2': {}
 
-  '@pdfslick/core@4.0.2(patch_hash=e381d44cf8559bb1e5d7e88361d43bbaf19938e306fc951e4ff4f37385e7dc61)(@types/react@19.2.17)(react@19.2.7)(use-sync-external-store@1.6.0(react@19.2.7))':
+  '@pdfslick/core@4.0.2(patch_hash=362953045eb196b2d365efc17e0099e62c39670b0e67ab6506040f2bf8cc2508)(@types/react@19.2.17)(react@19.2.7)(use-sync-external-store@1.6.0(react@19.2.7))':
     dependencies:
       pdfjs-dist: 6.3.289(patch_hash=82fc7925e2e25b3439601b229a8e5f65c66534b747631bd2f3693a187508112d)
       zustand: 5.0.15(@types/react@19.2.17)(react@19.2.7)(use-sync-external-store@1.6.0(react@19.2.7))

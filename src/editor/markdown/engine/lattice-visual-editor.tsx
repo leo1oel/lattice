@@ -14,7 +14,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState, type JSX } from 
 import { useLingui } from "@lingui/react/macro";
 import { Extension, type AnyExtension, type EditorOptions, type JSONContent } from "@tiptap/core";
 import type { Node as PmNode } from "@tiptap/pm/model";
-import { NodeSelection } from "@tiptap/pm/state";
+import { NodeSelection, Selection } from "@tiptap/pm/state";
 import { EditorContent, useEditor, useEditorState, type Editor } from "@tiptap/react";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import { InlineMessage } from "../../../components/ui/inline-message";
@@ -27,6 +27,8 @@ import { isPaperLibraryPath } from "../../../papers/paper-link";
 import { ProjectImageHostProvider } from "../project-image-host";
 import { DocumentHeadingRail, type DocumentHeadingItem } from "../document-heading-rail";
 import type { VisualMarkdownEditorProps } from "../visual-editor-props";
+import { blockAnchors } from "./block-anchors";
+import { blockWindow, drawnTarget, mayDrawInWindow } from "./block-window";
 import { FrozenHeaders } from "./frozen-headers";
 import { HeadingAnchors, REFRESH_ANCHORS, plannedHeadings, type DocumentHeading } from "./heading-anchors";
 import { PassiveView, passiveModel, type PassiveModel } from "./passive-view";
@@ -57,6 +59,8 @@ type Host = {
   composing: boolean;
   /** The file shown; empty before the first load. */
   path: string;
+  /** Nothing has been loaded yet: the first document was deferred to a load (a long one). */
+  fresh: boolean;
   /** The last Markdown the host accepted (or supplied) for `path`. */
   accepted: string;
   /** Block baseline of `accepted`; null when the engine declined the file. */
@@ -178,7 +182,7 @@ function clearTimers(host: Host) {
  * publication. Only the blocks that differ are replaced, so formulas and
  * images elsewhere stay mounted when canonical text comes back.
  */
-function replaceDocument(editor: Editor, doc: PmNode) {
+function replaceDocument(editor: Editor, doc: PmNode, caretAtStart = false) {
   const current = editor.state.doc;
   let start = 0;
   let from = 0;
@@ -199,6 +203,8 @@ function replaceDocument(editor: Editor, doc: PmNode) {
   }
   if (start === current.childCount && start === doc.childCount) return;
   const transaction = editor.state.tr.replaceWith(from, to, doc.slice(from, newTo).content);
+  // A first document opens with the caret at its start, as one read at creation does.
+  if (caretAtStart) transaction.setSelection(Selection.atStart(transaction.doc));
   transaction.setMeta(CANONICAL, true).setMeta("addToHistory", false).setMeta("preventUpdate", true);
   editor.view.dispatch(transaction);
 }
@@ -249,6 +255,8 @@ function loadDocument(host: Host, text: string, draft?: string) {
   const { editor } = host;
   if (!editor || editor.isDestroyed) return;
   clearTimers(host);
+  const fresh = host.fresh;
+  host.fresh = false;
   host.accepted = text;
   host.dirty = false;
   host.rejected = null;
@@ -261,17 +269,17 @@ function loadDocument(host: Host, text: string, draft?: string) {
     // reads fine once normalized, but it must never be written back that way.
     const shown = openMarkdown(text.replace(/\r\n?/g, "\n"), editor.schema, options);
     if ("unavailable" in shown) editor.commands.clearContent(false);
-    else replaceDocument(editor, shown.doc);
+    else replaceDocument(editor, shown.doc, fresh);
     host.setReason(host.messages?.unavailable ?? "");
     return;
   }
   host.baseline = opened.baseline;
   const restored = draft == null ? null : openMarkdown(draft, editor.schema, options);
   if (restored && !("unavailable" in restored)) {
-    replaceDocument(editor, restored.doc);
+    replaceDocument(editor, restored.doc, fresh);
     schedulePublication(host);
   } else {
-    replaceDocument(editor, opened.doc);
+    replaceDocument(editor, opened.doc, fresh);
   }
   host.baseline = adoptNodes(opened.baseline, editor.state.doc);
   host.setReason(null);
@@ -473,15 +481,16 @@ function passiveFor(text: string, activePath: string, reading: boolean): Passive
   return "unavailable" in opened ? null : passiveModel(opened.doc, opened.baseline, text.length, reading);
 }
 
+/** The complete editor: a long document is drawn only near the viewport (R-PERF-3). */
 function editorExtensions(labels: Partial<Record<RawBlockKind, string>>, ime: ImeGuard, chrome: Chrome): AnyExtension[] {
-  return [
+  return blockWindow([
     ...readingExtensions(labels, ime),
     ...chromeExtensions(chrome),
     SourceOverlays,
     HeadingAnchors.configure({ paper: () => Boolean(chrome.host.props().optimizeForReading) }),
     FrozenHeaders.configure({ enabled: () => !openOptions(chrome.host.props()).paperSpans }),
     HostHistory,
-  ];
+  ], { anchors: blockAnchors });
 }
 
 /**
@@ -522,9 +531,13 @@ function useRawBlockLabels(): Partial<Record<RawBlockKind, string>> {
 /**
  * The first document, read while the editor is created: node views built
  * during editor creation mount on Tiptap's deferred path, outside React's
- * lifecycle (R-PUB-10). Later loads are scheduled the same way.
+ * lifecycle (R-PUB-10). Later loads are scheduled the same way. A long
+ * document is not read here: the editor is created before its plugins, and
+ * only they draw it in a window, so it loads as a file switch does
+ * (`deferred`).
  */
 function initialDocument(props: VisualMarkdownEditorProps) {
+  if (mayDrawInWindow(props.text)) return { content: null, baseline: null, unavailable: false, deferred: true };
   const schema = engineSchema();
   const options = openOptions(props);
   const opened = openMarkdown(props.text, schema, options);
@@ -563,7 +576,9 @@ export function LatticeVisualMarkdownEditor(props: VisualMarkdownEditorProps): J
     props,
     editor: null,
     composing: false,
-    path: activePath,
+    // A deferred first document loads through the swap the first effect schedules.
+    path: initial.deferred ? "" : activePath,
+    fresh: Boolean(initial.deferred),
     accepted: text,
     baseline: initial.baseline,
     publish: props.onChangeMarkdown,
@@ -722,7 +737,10 @@ export function LatticeVisualMarkdownEditor(props: VisualMarkdownEditorProps): J
             <>
               <DocumentHeadingRail
                 items={railItems}
-                onSelect={(item) => layer?.querySelector(`[id="${CSS.escape(item.id)}"]`)?.scrollIntoView({ block: "start" })}
+                onSelect={(item) => {
+                  const heading = layer?.querySelector<HTMLElement>(`[id="${CSS.escape(item.id)}"]`);
+                  if (heading) drawnTarget(heading).scrollIntoView({ block: "start" });
+                }}
               />
               {/* Before the article, so the sticky find bar stays in view over its whole length. */}
               {editor && <EngineFindBar editor={editor} chrome={chrome} />}

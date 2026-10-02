@@ -8,15 +8,15 @@
  */
 import { useLingui } from "@lingui/react/macro";
 import { NodeViewContent, NodeViewWrapper, type NodeViewProps } from "@tiptap/react";
-import { ANCHOR_SOURCE, type RawBlockKind } from "../engine-schema";
+import { rawAnchorId } from "../block-anchors";
+import type { RawBlockKind } from "../engine-schema";
 
 export function RawBlockView({ node }: NodeViewProps) {
   const { t } = useLingui();
   const kind = node.attrs.kind as RawBlockKind;
   if (kind === "anchor") {
-    const match = node.textContent.match(ANCHOR_SOURCE);
     return (
-      <NodeViewWrapper className="lx-md-anchor" id={match?.[1] ?? match?.[2]} aria-hidden="true">
+      <NodeViewWrapper className="lx-md-anchor" id={rawAnchorId(node)} aria-hidden="true">
         <NodeViewContent<"pre"> as="pre" hidden />
       </NodeViewWrapper>
     );
