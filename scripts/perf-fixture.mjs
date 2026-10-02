@@ -96,6 +96,22 @@ function chapter(number, bytes) {
   return lines.join("\n");
 }
 
+/**
+ * `long.tex`: one very long source file, chapters back to back until it
+ * reaches `bytes` — the case where per-keystroke work that scales with the
+ * document shows (a 3.2 MB thesis-in-one-file is 17k lines).
+ */
+function longTex(bytes) {
+  const parts = [];
+  let size = 0;
+  for (let number = 1; size < bytes; number += 1) {
+    const text = chapter(number, 125_000);
+    parts.push(text);
+    size += text.length + 1;
+  }
+  return parts.join("\n");
+}
+
 const CODE_SAMPLES = [
   ["ts", (n, word) => [
     `// ${word} — probe ${n}: “typed” results stay in one pass`,
@@ -216,6 +232,7 @@ export const PLAYBOOK_FIXTURE = Object.freeze({
   largeMarkdownBytes: 2_000_000,
   chapterBytes: 125_000,
   chapters: 8,
+  longTexBytes: 3_200_000,
   notes: 200,
   codeBlocks: 150,
   pdfPages: 200,
@@ -238,6 +255,7 @@ export function perfFixture(options = {}) {
     files.set(`${name}.tex`, chapter(number, sizes.chapterBytes));
     chapters.push(name);
   }
+  files.set("long.tex", longTex(sizes.longTexBytes));
   files.set("main.tex", [
     "\\documentclass{book}",
     "\\usepackage{amsmath}",

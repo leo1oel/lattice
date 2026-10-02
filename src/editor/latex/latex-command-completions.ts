@@ -17,7 +17,7 @@ import type { EditorView } from "@codemirror/view";
 import { i18n } from "../../i18n";
 import { beginEnvironmentClose } from "./latex-environments";
 import { shouldInsertCommandBraces } from "./latex-symbols";
-import { mathRegionAt } from "./math-region";
+import { mathRegionInDocument } from "./math-region";
 import { VOCABULARY_COMMANDS, VOCABULARY_ENVIRONMENTS, type VocabularyEntry } from "./latex-vocabulary";
 
 type Entry = VocabularyEntry;
@@ -219,7 +219,7 @@ export function latexCommandCompletions(context: CompletionContext): CompletionR
   }
   const word = context.matchBefore(/\\[A-Za-z@]*/);
   if (!word || (word.from === word.to && !context.explicit)) return null;
-  const inMath = mathRegionAt(context.state.doc.toString(), context.pos) !== null;
+  const inMath = mathRegionInDocument(context.state.doc, context.pos) !== null;
   return { from: word.from, options: inMath ? currentOptions().math : currentOptions().text, validFor: /^\\[A-Za-z@]*$/ };
 }
 

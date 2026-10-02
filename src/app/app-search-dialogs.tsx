@@ -136,7 +136,8 @@ export function AppSearchDialogs({ open, setOpen, activeFile, openProjectFile, o
       <GotoLineDialog
         open={open === "goto-line"}
         line={props.editorPosition?.line ?? 1}
-        maxLine={Math.max(1, props.source.split("\n").length)}
+        // Counted only while open: splitting a long document per keystroke is not free.
+        maxLine={open === "goto-line" ? Math.max(1, props.source.split("\n").length) : 1}
         onClose={close}
         onGoto={closeThen(props.goToLine)}
       />

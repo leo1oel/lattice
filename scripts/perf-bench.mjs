@@ -52,6 +52,7 @@ const PROBE = readFileSync(path.join(repo, "scripts/perf-bench/probe.js"), "utf8
 const BENCH_FIXTURE = {
   largeMarkdownBytes: 400_000,
   chapterBytes: 60_000,
+  longTexBytes: 3_200_000,
   notes: 40,
   codeBlocks: 150,
   pdfPages: 200,

@@ -154,7 +154,7 @@ Still open, and bounded rather than growing:
 fails a pull request that makes one of them do more React or DOM work. It builds
 `tools/perf-bench/` with the production config. That page is the real app, with
 an in-memory backend holding the fixture project from `scripts/perf-fixture.mjs`
-(the same content `gen-perf-fixture.mjs` writes to disk, at smaller sizes). The
+(the same content `gen-perf-fixture.mjs` writes to disk, at smaller sizes except `long.tex`). The
 benchmark drives it in headless Chrome over the DevTools protocol with real
 mouse, wheel and key events at a fixed cadence. Every step waits for the next
 frame and a fixed pause, as a person would, so debounced work fires the same
@@ -182,6 +182,7 @@ Scenarios (`scripts/perf-bench/scenarios.mjs`):
 | --- | --- |
 | `startup` | load the app and open the fixture project with its PDF preview |
 | `latex-typing` | 40 characters into a 60 KB chapter, PDF preview beside it |
+| `long-tex-typing` | 24 characters into a 3.3 MB, 18k-line `.tex` file, PDF preview beside it |
 | `markdown-source-typing` | 40 characters into the 400 KB Markdown document's source |
 | `markdown-visual-typing` | 24 characters into it in the visual editor (one publication) |
 | `file-switch` | tab switches between `main.tex`, `large.md`, a note and a chapter |
@@ -225,7 +226,7 @@ and printed, and `--json` keeps them, but no ceiling holds them
 | every scenario | | `recalcs`, `layouts` | Two DOM changes landing in one frame share a pass. One build measured 120–207 `pdf-scroll` recalculations across runs, more under load. |
 | `pdf-scroll`, `source-scroll` | `commits`, `renders`, `hooks` | `mutations` | A Lattice scrollbar fades out 180 ms after the last scroll event, and how many of 40 notches that falls between depends on the machine (`pdf-scroll`: 936–1,028). The fade is written to the DOM, not React state, so it adds no commits. |
 | `markdown-preview-scroll` | | `commits`, `renders`, `hooks`, `mutations` | The same scrollbar fade, and Base UI's scroll area (the visual editor's scroller) re-renders when a scroll burst starts and 500 ms after it ends, in React state. How many bursts 40 notches make depends on stalls (139–259 renders on one machine, 225 on the CI runner). |
-| `latex-typing` | `renders`, `hooks`, `mutations` | `commits` | A keystroke's updates commit together or apart depending on timing: 81–85 commits on one machine, 101 on the CI runner, with renders within 4%. |
+| `latex-typing`, `long-tex-typing` | `renders`, `hooks`, `mutations` | `commits` | A keystroke's updates commit together or apart depending on timing: 81–85 commits on one machine, 101 on the CI runner, with renders within 4%. |
 | `markdown-visual-typing` | `commits`, `mutations` | `renders`, `hooks` | The 24 keystrokes publish in one or two batches depending on timing, and each batch re-renders the editor chrome (634–1,243 renders). |
 | `code-highlight` | `commits`, `renders`, `hooks` | `mutations` | 2,510–2,957 across runs of one build. |
 | all others | `commits`, `renders`, `hooks`, `mutations` | | |
@@ -316,6 +317,56 @@ Still open: App itself is not compiled (17 bailouts, see below) and renders
 about 200 components per keystroke. A PDF page change re-renders App because
 the agent context reads the page number. Radix tooltips and popovers render
 twice as they mount, which a document full of node views multiplies.
+
+### Typing in a long LaTeX file (October 2026)
+
+A keystroke in a 3.3 MB, 18k-line `.tex` file took about 35 ms in Chromium
+and 50 ms in WebKit, against 10–14 ms in a 60 KB chapter. The cost was the same
+in both engines: work in the keystroke's own render that read the whole
+document. A CPU profile of `long-tex-typing` found it:
+
+| Cause | Per keystroke (Chromium) | Fix |
+| --- | --- | --- |
+| The status bar's raw word count matched every word of the document into an array | 9 ms | Reads the settled source (below); counts matches without collecting them (`editor/latex/latex-edits.ts`) |
+| The math preview paired every math delimiter from the start of the document, and kept scanning past the caret | 7 ms | Searches only the caret's paragraph, since TeX math cannot cross a blank line, and stops at the caret (`editor/latex/math-region.ts`). Command completion reads that paragraph from the CodeMirror document instead of joining the whole document into one string. |
+| The TODO rescan of the open buffer | 4 ms | Reads the settled source |
+| The appendix marker split every line of every source | 3 ms | Reads the settled source; skips sources without `\appendix` (`editor/latex/latex-text.ts`) |
+| Labels, `\newcommand`s, graphics paths, KaTeX macros, the project outline and the breadcrumb, each a parse of the whole buffer | about 7 ms | Read the settled source |
+| Go to line counted the document's lines on every App render | 0.4 ms | Counted only while the dialog is open (`app/app-search-dialogs.tsx`) |
+
+The settled source (`app/use-settled-source.ts`) is the editor's text as of
+the last pause in typing: after 500 ms without an edit, or at most every 5 s
+of continuous typing. Only buffers of 100,000 characters or more use it. The
+editor itself stays live; the counts, TODOs, outline, breadcrumb, labels and
+macros catch up once per pause instead of once per keystroke. Smaller buffers
+read live, as before.
+
+Keystroke latency (from `keydown`, captured, to the end of the next frame) on
+the benchmark page in Playwright 1.63's headless Chromium
+and WebKit, 60 keystrokes, median of three runs, p50 / p95 in ms:
+
+| Document | Chromium before | Chromium after | WebKit before | WebKit after |
+| --- | --- | --- | --- | --- |
+| `long.tex`, 3.3 MB | 35.7 / 39.9 | 14.5 / 22.3 | 51.0 / 59.0 | 9.0 / 12.0 |
+| `ch01.tex`, 60 KB | 14.3 / 22.0 | 13.7 / 20.8 | 10.0 / 12.0 | 8.0 / 10.0 |
+
+Headless Chromium does not go below about 13 ms here even for the small
+chapter. The catch-up after a pause is one frame of 34–41 ms in WebKit.
+
+In the benchmark, `long-tex-typing` spent 966 ms of main-thread tasks over 24
+keystrokes before and 367 ms after (best of two runs each). Renders rose from
+104 to 107 per keystroke: App renders once more when the long buffer's
+derivations catch up. Mutations fell from 7.7 to 6.8 per keystroke because the
+status bar no longer rewrites its counts on every key.
+
+Still O(document) per keystroke:
+
+- The source editor hands App the whole text as one string
+  (`doc.toString()`), about 0.1 ms and 3 MB of garbage per keystroke at this
+  size.
+- With TexLab installed, completion sends the whole text with every
+  keystroke in a word (`texlab_completion`). The benchmark's mock backend does
+  not model that IPC.
 
 ## React Compiler status
 

@@ -5,7 +5,13 @@ export type SelectionEdit = TextEdit & { cursorFrom: number; cursorTo: number };
 const WORD = /[A-Za-z0-9]+(?:['’-][A-Za-z0-9]+)*/g;
 
 export function countWords(text: string): number {
-  return text.match(WORD)?.length ?? 0;
+  // Counts matches without collecting them: a long document has hundreds of
+  // thousands of words, and `match` built a string for each (half the time in
+  // JavaScriptCore).
+  let count = 0;
+  WORD.lastIndex = 0;
+  while (WORD.test(text)) count += 1;
+  return count;
 }
 
 export type TextStats = { words: number; chars: number; lines: number };

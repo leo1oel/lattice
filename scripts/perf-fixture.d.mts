@@ -2,6 +2,7 @@ export interface PerfFixtureSizes {
   largeMarkdownBytes: number;
   chapterBytes: number;
   chapters: number;
+  longTexBytes: number;
   notes: number;
   codeBlocks: number;
   pdfPages: number;
