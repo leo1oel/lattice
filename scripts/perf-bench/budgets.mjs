@@ -26,6 +26,9 @@ export const COUNTS = ["commits", "renders", "hooks", "recalcs", "layouts", "mut
  * - `latex-typing` and `long-tex-typing` commits: a keystroke's updates
  *   commit together or apart depending on timing (81–85 across local runs,
  *   101 on the CI runner, with renders within 4%);
+ * - `pdf-zoom` hooks: each gesture's rescale re-renders the pages in view, and
+ *   their render and text-layer events reach the PDF preview in 4–7 commits
+ *   depending on timing, each about 76 hooks (457–687 across runs);
  * - `markdown-preview-scroll` commits, renders and hooks: Base UI's scroll
  *   area re-renders when a scroll burst starts and 500 ms after it ends, and
  *   how many bursts 40 notches make depends on stalls (139–259 renders).
@@ -37,6 +40,7 @@ const REPORT_ONLY_BY_SCENARIO = {
   "markdown-visual-typing": ["renders", "hooks"],
   "code-highlight": ["mutations"],
   "pdf-scroll": ["mutations"],
+  "pdf-zoom": ["hooks"],
   "source-scroll": ["mutations"],
   "markdown-preview-scroll": ["commits", "renders", "hooks", "mutations"],
 };

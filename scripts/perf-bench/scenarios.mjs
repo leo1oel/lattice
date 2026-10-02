@@ -20,6 +20,10 @@ const KEY_PAUSE_MS = 120;
  */
 const PUBLISH_PAUSE_MS = 400;
 const WHEEL_PAUSE_MS = 60;
+/** After a zoom gesture: past the PDF zoom's commit delay (use-pdf-zoom.ts) and its re-render. */
+const ZOOM_PAUSE_MS = 600;
+/** CDP's modifier bit for Control. */
+const CTRL = 2;
 
 const KEY_CODES = {
   " ": ["Space", 32],
@@ -184,6 +188,21 @@ export class BenchDriver {
       await this.nextFrame();
       await sleep(WHEEL_PAUSE_MS);
     }
+  }
+
+  /**
+   * A ctrl-wheel zoom gesture of `count` notches over the visible middle of the
+   * element, one per frame (the cadence of a trackpad pinch, which Chromium
+   * reports as ctrl-wheel), then a pause long enough for the zoom to apply.
+   */
+  async zoomWheel(selector, deltaY, count) {
+    const point = await this.waitFor(`window.__benchVisibleRect(${JSON.stringify(selector)})`, { what: selector });
+    await this.mouse("mouseMoved", point.x, point.y, { button: "none" });
+    for (let index = 0; index < count; index += 1) {
+      await this.mouse("mouseWheel", point.x, point.y, { button: "none", deltaX: 0, deltaY, modifiers: CTRL });
+      await this.nextFrame();
+    }
+    await sleep(ZOOM_PAUSE_MS);
   }
 
   /**
@@ -408,6 +427,18 @@ export const SCENARIOS = [
       await driver.waitFor(`document.querySelectorAll(".pdfViewer .page canvas").length > 0`, { what: "the PDF preview" });
     },
     run: (driver) => driver.wheel(".pdf-preview .pdf-scroll-area-viewport", 120, 40),
+  },
+  {
+    name: "pdf-zoom",
+    description: "Zoom the compiled 200-page PDF preview in, out and in again with three 10-notch ctrl-wheel gestures.",
+    unit: "notch",
+    steps: 30,
+    async setup(driver) {
+      await driver.waitFor(`document.querySelectorAll(".pdfViewer .page canvas").length > 0`, { what: "the PDF preview" });
+    },
+    async run(driver) {
+      for (const deltaY of [-8, 8, -8]) await driver.zoomWheel(".pdf-preview .pdf-scroll-area-viewport", deltaY, 10);
+    },
   },
   {
     name: "source-scroll",
