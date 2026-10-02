@@ -5,10 +5,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { useLatestRef } from "../hooks/use-latest-ref";
 import { invoke } from "@tauri-apps/api/core";
-import { listen } from "@tauri-apps/api/event";
 import type { GitStatusEntry } from "@pierre/trees";
 import type { FileNode, GitFileStatus } from "../app-types";
 import { fromPierrePath, toPierreDirectoryPath } from "./navigator-drag";
+import { onProjectFilesChanged } from "./project-files-changed";
 
 /**
  * The Rust scanner only emits "directory"; "folder" survives because the App
@@ -113,15 +113,10 @@ export function useProjectTreeFiles(projectKey: string, files: FileNode[], onErr
       }
     };
     void refresh();
-    let unlisten: (() => void) | undefined;
-    void listen<{ root: string }>("project-fs-changed", ({ payload }) => {
-      if (payload.root === projectKey) void refresh();
-    }).then((dispose) => {
-      if (disposed) dispose();
-      else unlisten = dispose;
-    }).catch(() => { /* The fallback poll also supports watcher-less hosts. */ });
+    const stopListening = onProjectFilesChanged(projectKey, () => void refresh());
+    // The fallback poll also supports watcher-less hosts.
     const timer = window.setInterval(() => void refresh(), 30_000);
-    return () => { disposed = true; unlisten?.(); window.clearInterval(timer); };
+    return () => { disposed = true; stopListening(); window.clearInterval(timer); };
   }, [showHidden, projectKey, files, onErrorRef]);
   const tree = useMemo(() => projectTreeEntries(showHidden
     ? (expandedTree?.root === projectKey ? expandedTree.files : files)

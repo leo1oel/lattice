@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import type { GitFileStatus, GitStatus, ProjectSnapshot } from "../app-types";
-import { subscribeTauriEvent } from "./effect-helpers";
+import { onProjectFilesChanged } from "../project/project-files-changed";
 
 /**
  * The open project's snapshot and its imperative identity. `projectRef`, what
@@ -134,9 +134,7 @@ export function useProjectTreeWatch(state: ProjectState, enabled: boolean) {
     void refresh();
     // Watcher-less operation degrades to the fallback poll below.
     void invoke("watch_project").catch(() => {});
-    const stopListening = subscribeTauriEvent<{ root: string }>("project-fs-changed", (payload) => {
-      if (payload.root === initialProject.root) void refresh();
-    });
+    const stopListening = onProjectFilesChanged(initialProject.root, () => void refresh());
     const timer = window.setInterval(() => { void refresh(); }, 30_000);
     return () => {
       stopped = true;

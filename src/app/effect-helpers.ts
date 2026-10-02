@@ -11,9 +11,11 @@ import { listen, type EventCallback, type UnlistenFn } from "@tauri-apps/api/eve
 export function disposeWhenSettled(pending: Promise<() => void>): () => void {
   let disposed = false;
   let stop: (() => void) | undefined;
-  void pending.then((unlisten) => {
+  pending.then((unlisten) => {
     if (disposed) unlisten();
     else stop = unlisten;
+  }, () => {
+    // Never subscribed (e.g. a browser preview has no native event bridge): nothing to release.
   });
   return () => {
     disposed = true;
