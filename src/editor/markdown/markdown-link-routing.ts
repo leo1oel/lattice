@@ -1,7 +1,7 @@
 /** Where a link clicked in the visual editor goes: an in-document anchor, a project file, or the web. */
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { baseArxivId } from "../../papers/arxiv-id";
-import { drawnTarget } from "./engine/block-window";
+import { scrollToTarget } from "./engine/block-window";
 
 const toSlashes = (path: string) => path.replace(/\\/g, "/");
 const directoryParts = (path: string) => toSlashes(path).split("/").slice(0, -1).filter(Boolean);
@@ -98,7 +98,7 @@ export function openMarkdownLink(
   const localFragment = localPaperFragment(activePath, href);
   if (localFragment) {
     const target = markdownAnchorTarget(editorElement, localFragment.id);
-    if (target) drawnTarget(target).scrollIntoView({ block: "start" });
+    if (target) scrollToTarget(target, { block: "start" });
     else if (localFragment.fallbackUrl) void openUrl(localFragment.fallbackUrl).catch(() => undefined);
     return;
   }

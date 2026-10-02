@@ -16,16 +16,12 @@ import { Decoration, DecorationSet } from "@tiptap/pm/view";
 import { NodeViewContent, NodeViewWrapper, type NodeViewProps } from "@tiptap/react";
 import { CornerLeftUp } from "lucide-react";
 import { footnoteId, footnoteReferenceId } from "../block-anchors";
-import { drawnTarget } from "../block-window";
+import { scrollToTarget } from "../block-window";
 import { changedBlockRanges, containsAny, replacedAny } from "../changed-ranges";
 
 function scrollToId(id: string, from: HTMLElement) {
   const found = from.ownerDocument.getElementById(id);
-  if (!found) return;
-  // A note far down a long document may not be drawn yet: draw it, then jump
-  // there at once, since a smooth scroll would end where the undrawn note was.
-  const target = drawnTarget(found);
-  target.scrollIntoView({ block: "center", behavior: target === found ? "smooth" : "auto" });
+  if (found) scrollToTarget(found, { block: "center", behavior: "smooth" });
 }
 
 export function FootnoteReferenceView(props: NodeViewProps) {

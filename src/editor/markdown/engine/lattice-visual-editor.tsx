@@ -28,7 +28,7 @@ import { ProjectImageHostProvider } from "../project-image-host";
 import { DocumentHeadingRail, type DocumentHeadingItem } from "../document-heading-rail";
 import type { VisualMarkdownEditorProps } from "../visual-editor-props";
 import { blockAnchors } from "./block-anchors";
-import { blockWindow, drawnTarget, mayDrawInWindow } from "./block-window";
+import { blockWindow, mayDrawInWindow, scrollToTarget } from "./block-window";
 import { FrozenHeaders } from "./frozen-headers";
 import { HeadingAnchors, REFRESH_ANCHORS, plannedHeadings, type DocumentHeading } from "./heading-anchors";
 import { PassiveView, passiveModel, type PassiveModel } from "./passive-view";
@@ -739,7 +739,7 @@ export function LatticeVisualMarkdownEditor(props: VisualMarkdownEditorProps): J
                 items={railItems}
                 onSelect={(item) => {
                   const heading = layer?.querySelector<HTMLElement>(`[id="${CSS.escape(item.id)}"]`);
-                  if (heading) drawnTarget(heading).scrollIntoView({ block: "start" });
+                  if (heading) scrollToTarget(heading, { block: "start" });
                 }}
               />
               {/* Before the article, so the sticky find bar stays in view over its whole length. */}

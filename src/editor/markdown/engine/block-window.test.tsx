@@ -232,19 +232,38 @@ describe("viewport rendering of a long document (R-PERF-3)", () => {
     expect(surface().children[399]?.textContent).toContain("needle");
   });
 
-  it("lands a jump on an anchor in a block that is not drawn yet", async () => {
-    const scrollIntoView = vi.spyOn(Element.prototype, "scrollIntoView").mockImplementation(() => undefined);
-    renderLong(["[To the appendix](#appendix) first.", ...paragraphs(398), '<a id="appendix"></a>', "Appendix text."].join("\n\n"));
+  it("lands a jump on an anchor in a block that is not drawn yet, and keeps it there as the blocks above fill in", async () => {
+    const observers: Array<() => void> = [];
+    vi.stubGlobal("ResizeObserver", class {
+      constructor(callback: () => void) {
+        observers.push(callback);
+      }
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    });
+    const { host } = renderLong(["[To the appendix](#appendix) first.", ...paragraphs(398), '<a id="appendix"></a>', "Appendix text."].join("\n\n"));
+    const scrollIntoView = vi.spyOn(Element.prototype, "scrollIntoView").mockImplementation(function (this: Element) {
+      host.scrollTop += this.getBoundingClientRect().top;
+    });
     await loaded();
     // The anchor is findable while its block is a placeholder.
     const placeholder = document.getElementById("appendix")!;
     expect(placeholder.closest("[data-lx-virtual]")).not.toBeNull();
     fireEvent.click(screen.getByRole("link", { name: "To the appendix" }));
-    // The jump draws the anchor's block first, then lands on it.
+    // The jump draws the anchor's block first, then lands on it at once.
     expect(scrollIntoView).toHaveBeenCalledTimes(1);
+    expect(scrollIntoView.mock.calls[0]![0]).toMatchObject({ block: "start", behavior: "auto" });
     const target = scrollIntoView.mock.contexts[0] as HTMLElement;
     expect(target.isConnected).toBe(true);
     expect(target.closest("[data-lx-virtual]")).toBeNull();
+    expect(target.getBoundingClientRect().top).toBeCloseTo(0);
+    // A block above grows as its view fills in: the target stays where it landed.
+    const above = surface().children[300] as HTMLElement;
+    expect(above).toHaveAttribute("data-lx-virtual");
+    above.style.height = `${Number.parseFloat(above.style.height) + 100}px`;
+    for (const observer of observers) observer();
+    expect(target.getBoundingClientRect().top).toBeCloseTo(0);
     await waitFor(() => expect(target.querySelector("#appendix") ?? (target.id === "appendix" ? target : null)).not.toBeNull());
     expect(opener.openUrl).not.toHaveBeenCalled();
   });

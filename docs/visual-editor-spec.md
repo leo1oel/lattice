@@ -451,8 +451,8 @@ here, with the requirement it rests on.
   the block on screen moved, with the browser's scroll anchoring off. A long
   first document loads after the editor exists, like a file switch, since
   only the plugins draw the window. Placeholders carry the ids from
-  `engine/block-anchors.ts`; `drawnTarget` draws a jump's block before it
-  scrolls.
+  `engine/block-anchors.ts`; `scrollToTarget` draws a jump's block before it
+  scrolls there, then holds it in place while the views around it fill in.
 - **Images (R-PERF-4, R-PERF-7).** In both views an image reads its asset
   only as it nears the viewport; formulas are drawn at once.
 - **Engine-agnostic host (phase 2 integration).** The canvas and the agent

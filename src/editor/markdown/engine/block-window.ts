@@ -20,7 +20,8 @@
  *   cover the viewport with room to spare, it measures the blocks about to be
  *   released, moves the window, and keeps the block the reader is looking at
  *   where it was on screen (the browser's own scroll anchoring is off, since
- *   WebKit and Chromium differ in it).
+ *   WebKit and Chromium differ in it). A jump (`scrollToTarget`) draws its
+ *   target's block first and holds it where it landed the same way.
  *
  * Small documents, and environments without layout (no IntersectionObserver,
  * as in tests), are drawn whole, exactly as before.
@@ -588,6 +589,11 @@ class BlockWindowView {
     } finally {
       this.moving = false;
     }
+    this.hold(anchor);
+  }
+
+  /** Keep `anchor` where it is on screen while the blocks just drawn fill in. */
+  private hold(anchor: Anchor | null) {
     this.anchor = anchor;
     this.holdAnchor();
     // Held through the next frame: a move run from a scroll event runs just
@@ -600,6 +606,12 @@ class BlockWindowView {
         this.anchor = null;
       });
     });
+  }
+
+  /** Keep the block at `pos` where it now is on screen, as a window move keeps the reader's. */
+  holdBlock(pos: number) {
+    const element = this.view.nodeDOM(pos);
+    if (element instanceof HTMLElement) this.hold({ pos, top: element.getBoundingClientRect().top });
   }
 
   /** Measure the drawn blocks the window is about to release, so their placeholders keep their size. */
@@ -670,25 +682,30 @@ class BlockWindowView {
 const windowViews = new WeakMap<HTMLElement, BlockWindowView>();
 
 /**
- * The element to scroll to for `element`: itself, or, when it stands in for
- * a block that is not drawn (a placeholder, or an anchor it carries), the
- * same anchor once that block has been drawn, so a jump lands exactly. A
- * block drawn by React fills in its ids a moment later; then the jump lands
- * on the block itself.
+ * Scroll `element` into view. When it stands in for a block that is not drawn
+ * (a placeholder, or an anchor it carries), that block is drawn first and the
+ * jump lands on the same anchor in it at once (a smooth scroll would end
+ * where the undrawn block was), or on the block itself while React still
+ * fills in its ids. The block is then held where it landed while the views
+ * drawn around it fill in and push it about.
  */
-export function drawnTarget(element: HTMLElement): HTMLElement {
+export function scrollToTarget(element: HTMLElement, options: ScrollIntoViewOptions) {
   const holder = element.closest<HTMLElement>(`[${VIRTUAL_ATTRIBUTE}]`);
   const surface = holder?.parentElement;
   const windowView = surface ? windowViews.get(surface) : undefined;
-  if (!holder || !surface || !windowView) return element;
-  const { view } = windowView;
-  const block = blockAround(view.state.doc, view.posAtDOM(holder, 0));
-  if (!block) return element;
+  const block = holder && windowView ? blockAround(windowView.view.state.doc, windowView.view.posAtDOM(holder, 0)) : null;
+  if (!surface || !windowView || !block) {
+    element.scrollIntoView(options);
+    return;
+  }
   windowView.reveal(block.from);
   const anchor = element.id ? surface.querySelector<HTMLElement>(`[id="${CSS.escape(element.id)}"]`) : null;
-  if (anchor && !anchor.closest(`[${VIRTUAL_ATTRIBUTE}]`)) return anchor;
-  const drawn = view.nodeDOM(block.from);
-  return drawn instanceof HTMLElement && !drawn.hasAttribute(VIRTUAL_ATTRIBUTE) ? drawn : element;
+  const drawn = windowView.view.nodeDOM(block.from);
+  const target = anchor && !anchor.closest(`[${VIRTUAL_ATTRIBUTE}]`)
+    ? anchor
+    : drawn instanceof HTMLElement && !drawn.hasAttribute(VIRTUAL_ATTRIBUTE) ? drawn : element;
+  target.scrollIntoView({ ...options, behavior: "auto" });
+  windowView.holdBlock(block.from);
 }
 
 /**
