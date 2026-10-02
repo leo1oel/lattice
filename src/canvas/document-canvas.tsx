@@ -25,7 +25,7 @@ import { wrapEnvironment, wrapRange } from "../editor/latex/latex-edits";
 import { renameEnvironmentAt } from "../editor/latex/latex-environments";
 import type { CitationInfo, DefinitionTarget, ReferenceInfo, SymbolTarget } from "../editor/latex/latex-text";
 import { harperDictionaryChanged } from "../editor/harper-spellcheck";
-import { LatexSelectionToolbar, type LatexSelectionAction, type LatexSelectionToolbarPosition } from "../editor/latex/latex-selection-toolbar";
+import { LatexSelectionToolbar, SELECTION_TOOLBAR_SURFACES, type LatexSelectionAction, type LatexSelectionToolbarPosition } from "../editor/latex/latex-selection-toolbar";
 import { ScrollArea } from "../components/ui/scroll-area";
 import { InlineMessage } from "../components/ui/inline-message";
 import { latexFigureInsertion, markdownAssetInsertion, type FigureInsertOptions } from "../editor/insert/figure-insertion";
@@ -449,7 +449,10 @@ export function DocumentCanvas(props: {
 
   const updateSelectionToolbar = useCallback((view: EditorView, path: string) => {
     const range = view.state.selection.main;
-    const wrappable = !range.empty && (path.endsWith(".tex") || path.toLocaleLowerCase().endsWith(".md"));
+    // A tab behind another one stays laid out (inert, hidden), so its
+    // coordinates look valid; the toolbar is portaled and would not hide.
+    const wrappable = !range.empty && (path.endsWith(".tex") || path.toLocaleLowerCase().endsWith(".md"))
+      && !view.dom.closest("[inert]");
     const visibleRange = wrappable
       ? view.visibleRanges.find(({ from, to }) => range.from <= to && range.to >= from)
       : undefined;
@@ -484,17 +487,27 @@ export function DocumentCanvas(props: {
   }, []);
   const onPrimaryChange = useCallback((value: string) => latestRef.current.setSource(value), []);
   /** Publish the editor's selection, caret and selection toolbar after an update of `path`. */
-  const reportEditorUpdate = useCallback(({ state, view }: ViewUpdate, path: string | null) => {
+  const reportEditorUpdate = useCallback((update: ViewUpdate, path: string | null) => {
+    const { state, view } = update;
     const range = state.selection.main;
     lastInsertionPositionRef.current = range.head;
     const nextSelection = range.empty ? "" : state.sliceDoc(range.from, range.to);
     latestRef.current.setSelection(nextSelection);
     setSelectedText(nextSelection);
     if (path) {
-      updateSelectionToolbar(view, path);
+      // Focus moving to another control (a tab, a panel, a command) hides
+      // the toolbar; its own menus and the link field keep it.
+      const focused = view.dom.ownerDocument.activeElement;
+      const focusLeft = update.focusChanged && focused && focused !== view.dom.ownerDocument.body
+        && !view.dom.contains(focused) && !focused.closest(SELECTION_TOOLBAR_SURFACES);
+      if (focusLeft) dismissSelectionToolbar();
+      // A dismissed toolbar stays dismissed until the selection changes. The
+      // blur that follows a click outside (which dismissed it) used to show
+      // it again, left floating over whatever panel replaced the editor.
+      else if (update.selectionSet || update.docChanged || selectionToolbarOwnerRef.current) updateSelectionToolbar(view, path);
       reportEditorPosition(view, path);
     }
-  }, [reportEditorPosition, updateSelectionToolbar]);
+  }, [dismissSelectionToolbar, reportEditorPosition, updateSelectionToolbar]);
   const onPrimaryUpdate = useCallback((viewUpdate: ViewUpdate) => {
     // "pending" keeps the last answer. In LaTeX every typed letter queries the
     // completion sources (pending) and usually finds nothing (null), and

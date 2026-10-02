@@ -41,6 +41,9 @@ function GotoLineDialogForm(props: GotoLineDialogProps) {
             autoFocus
             aria-label={t`Line number`}
             value={value}
+            // The current line starts selected, so typing a number replaces
+            // it: appended, "3" then "150" went to line 3150.
+            onFocus={(event) => event.currentTarget.select()}
             onChange={(event) => setValue(event.target.value)}
             onKeyDown={(event) => {
               if (event.key === "Enter") submit();

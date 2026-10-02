@@ -27,6 +27,7 @@ import {
 import { highlightSelectionMatches, searchKeymap } from "@codemirror/search";
 import { closeBrackets, closeBracketsKeymap } from "@codemirror/autocomplete";
 import { lintKeymap } from "@codemirror/lint";
+import { withoutAppShortcuts } from "./editor-app-shortcuts";
 import { i18n } from "../i18n";
 
 const hostExternalChange = Annotation.define<boolean>();
@@ -42,10 +43,10 @@ const baseSetup: Extension = [
   dropCursor(), EditorState.allowMultipleSelections.of(true), indentOnInput(),
   syntaxHighlighting(defaultHighlightStyle, { fallback: true }), bracketMatching(), closeBrackets(),
   rectangularSelection(), crosshairCursor(), highlightActiveLine(), highlightSelectionMatches(),
-  keymap.of([
+  keymap.of(withoutAppShortcuts([
     ...closeBracketsKeymap, ...defaultKeymap, ...searchKeymap, ...historyKeymap, ...foldKeymap, ...lintKeymap,
     indentWithTab,
-  ]),
+  ])),
 ];
 
 /**

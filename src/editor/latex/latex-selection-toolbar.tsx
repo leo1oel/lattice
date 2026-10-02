@@ -32,6 +32,9 @@ export type LatexSelectionAction =
   | "highlight"
   | "comment";
 
+/** The toolbar and the menus it opens: pointer or focus there keeps it open. */
+export const SELECTION_TOOLBAR_SURFACES = ".latex-selection-toolbar-anchor, .latex-tool-menu, .latex-highlight-picker";
+
 export type LatexSelectionToolbarPosition = {
   left: number;
   top: number;
@@ -90,7 +93,7 @@ export function LatexSelectionToolbar(props: {
     const dismissOnOutsidePointerDown = (event: PointerEvent) => {
       const target = event.target;
       if (!(target instanceof Element)) return;
-      if (target.closest(".latex-selection-toolbar-anchor, .latex-tool-menu, .latex-highlight-picker")) return;
+      if (target.closest(SELECTION_TOOLBAR_SURFACES)) return;
       onDismiss();
     };
     document.addEventListener("pointerdown", dismissOnOutsidePointerDown, true);

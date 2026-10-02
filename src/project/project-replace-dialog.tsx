@@ -41,11 +41,20 @@ export function ProjectReplaceDialog(props: {
   const [replacement, setReplacement] = useState("");
   const [matchCase, setMatchCase] = useState(true);
   const [useRegex, setUseRegex] = useState(false);
+  // What the shown preview was asked for. Editing the query or an option
+  // after previewing must not leave "Replace N" armed: it would replace the
+  // new query's matches, which nobody has seen.
+  const [previewedFor, setPreviewedFor] = useState<string | null>(null);
 
   if (!props.open) return null;
 
   const options: ReplaceOptions = { matchCase, useRegex };
-  const preview = props.preview;
+  const searchKey = JSON.stringify([query, matchCase, useRegex]);
+  const preview = previewedFor === searchKey ? props.preview : null;
+  const runPreview = () => {
+    setPreviewedFor(searchKey);
+    props.onPreview(query, options);
+  };
   const canReplace = Boolean(query.trim() && preview && preview.replacements > 0 && !props.busy);
   const replacementCount = preview?.replacements ?? 0;
   const fileCount = preview?.files ?? 0;
@@ -76,7 +85,7 @@ export function ProjectReplaceDialog(props: {
           onKeyDown={(event) => {
             if (event.key === "Enter" && query.trim() && !props.busy) {
               event.preventDefault();
-              props.onPreview(query, options);
+              runPreview();
             }
           }}
         />
@@ -125,7 +134,7 @@ export function ProjectReplaceDialog(props: {
         <Button variant="ghost" onClick={props.onClose}><Trans>Cancel</Trans></Button>
         <Button
           disabled={!query.trim() || props.busy}
-          onClick={() => props.onPreview(query, options)}
+          onClick={runPreview}
         >
           {props.busy && !preview ? t`Searching…` : t`Preview`}
         </Button>

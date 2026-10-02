@@ -143,6 +143,30 @@ describe("documents and editors", () => {
     expect(invokeCalls("read_project_file", (args) => argPath(args) === "b.txt")).toHaveLength(0);
   });
 
+  it("reopens a closed figure tab with Command-Shift-T through the asset reader", async () => {
+    // Regression: reopening went through the text-file loader, so a PDF or
+    // image tab came back as a "No such text file" error instead of the figure.
+    const snapshot = projectSnapshot({ rootDocuments: [], files: fileNodes("a.txt", "plot.png") });
+    persistLayout(snapshot.root, { openTabs: ["a.txt", "plot.png"], activeFile: "a.txt", canvasMode: "source" });
+    renderApp({
+      ...projectCommands(snapshot),
+      read_project_file: readPathContent,
+      read_project_asset: (args) => ({ path: argPath(args), mimeType: "image/png", base64: "iVBORw0KGgo=" }),
+    });
+    fireEvent.click(await screen.findByRole("tab", { name: "plot.png" }));
+    await waitForSelectedTab("plot.png");
+    const close = screen.getByRole("tab", { name: "plot.png" }).querySelector<HTMLElement>("[data-trellis-part=tab-close]")!;
+    fireEvent.pointerDown(close, { button: 0 });
+    fireEvent.click(close, { button: 0 });
+    await waitFor(() => expect(screen.queryByRole("tab", { name: "plot.png" })).toBeNull());
+    const assetReads = invokeCalls("read_project_asset").length;
+
+    fireEvent.keyDown(window, { key: "t", metaKey: true, shiftKey: true });
+    await waitForSelectedTab("plot.png");
+    await waitFor(() => expect(invokeCalls("read_project_asset").length).toBeGreaterThan(assetReads));
+    expect(invokeCalls("read_project_file", (args) => argPath(args) === "plot.png")).toHaveLength(0);
+  });
+
   it("restores tab order and the editor while migrating the old three-column layout", async () => {
     const snapshot = projectSnapshot({ files: fileNodes("main.tex", "intro.tex", "method.tex") });
     persistLayout(snapshot.root, {

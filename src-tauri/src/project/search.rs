@@ -18,7 +18,26 @@ use std::sync::LazyLock;
 const MAX_SEARCH_RESULTS: usize = 200;
 
 pub fn search_files(root: &Path, query: &str) -> Result<Vec<ProjectSearchResult>, String> {
+    // The index's unicode61 tokenizer keeps a run of Chinese or Japanese text
+    // between punctuation as one token, and the index matches token prefixes:
+    // "注意力" inside "我们提出了注意力机制" found nothing. Those queries read
+    // the files instead, which matches substrings.
+    if search_terms(query).iter().any(|term| term.chars().any(is_unspaced_script)) {
+        return search_files_linear(root, query);
+    }
     crate::fts::search(root, query).or_else(|_| search_files_linear(root, query))
+}
+
+/// A character from a script written without spaces between words.
+fn is_unspaced_script(character: char) -> bool {
+    matches!(character,
+        '\u{3040}'..='\u{30FF}' // Hiragana, Katakana
+        | '\u{3400}'..='\u{4DBF}' // CJK Extension A
+        | '\u{4E00}'..='\u{9FFF}' // CJK Unified Ideographs
+        | '\u{F900}'..='\u{FAFF}' // CJK Compatibility Ideographs
+        | '\u{0E00}'..='\u{0E7F}' // Thai
+        | '\u{20000}'..='\u{2FA1F}' // CJK Extensions B–F, compatibility supplement
+    )
 }
 
 /// A project-file search hit; line 1 with the path as snippet for path matches.
@@ -180,11 +199,12 @@ pub fn list_todos(root: &Path) -> Result<Vec<TodoHit>, String> {
             continue;
         }
         let content = fs::read_to_string(&absolute).unwrap_or_default();
+        let latex = extension(&relative).as_deref() == Some("tex");
         hits.extend(content.lines().enumerate().filter_map(|(index, line)| {
             Some(TodoHit {
                 path: relative.replace('\\', "/"),
                 line: (index + 1) as u32,
-                kind: todo_kind_in_line(line)?.to_string(),
+                kind: todo_kind_in_line(line, latex)?.to_string(),
                 preview: clip_line(line, 160),
             })
         }));
@@ -196,12 +216,16 @@ pub fn list_todos(root: &Path) -> Result<Vec<TodoHit>, String> {
     Ok(hits)
 }
 
-fn todo_kind_in_line(line: &str) -> Option<&'static str> {
+/// A marker in a `%` comment (first in priority order), else a `\todo`
+/// command. Outside LaTeX a `%` is text ("50% done"), so only a line that
+/// starts with one counts there. Kept in step with src/project/todo-scavenger.ts.
+fn todo_kind_in_line(line: &str, latex: bool) -> Option<&'static str> {
     let trimmed = line.trim_start();
-    if let Some(rest) = trimmed.strip_prefix('%') {
-        let upper = rest.to_ascii_uppercase();
+    let comment = if latex { comment_in_line(trimmed) } else { trimmed.strip_prefix('%') };
+    if let Some(comment) = comment {
+        // A marker is a word of its own: "% Mastodon dataset" is not a TODO.
         if let Some(marker) =
-            ["FIXME", "XXX", "TODO"].into_iter().find(|marker| upper.contains(marker))
+            ["FIXME", "XXX", "TODO"].into_iter().find(|marker| has_marker_word(comment, marker))
         {
             return Some(marker);
         }
@@ -209,6 +233,33 @@ fn todo_kind_in_line(line: &str) -> Option<&'static str> {
     // \todo{...} / \todo [...]{...} — common todonotes / inline markers
     let lower = trimmed.to_ascii_lowercase();
     ["\\todo{", "\\todo[", "\\todo*{"].iter().any(|marker| lower.contains(marker)).then_some("todo")
+}
+
+/// The `%` comment on a line, including one after text; `\%` is a percent
+/// sign, but `\\%` is a line break and then a comment.
+fn comment_in_line(line: &str) -> Option<&str> {
+    let mut backslashes = 0usize;
+    for (index, character) in line.char_indices() {
+        if character == '%' && backslashes.is_multiple_of(2) {
+            return Some(&line[index + 1..]);
+        }
+        backslashes = if character == '\\' { backslashes + 1 } else { 0 };
+    }
+    None
+}
+
+/// `marker` (or its plural) in `text`, not inside a longer word.
+fn has_marker_word(text: &str, marker: &str) -> bool {
+    let upper = text.to_ascii_uppercase();
+    let is_word = |byte: u8| byte.is_ascii_alphanumeric();
+    upper.match_indices(marker).any(|(start, _)| {
+        let mut end = start + marker.len();
+        if upper.as_bytes().get(end) == Some(&b'S') {
+            end += 1;
+        }
+        !(start > 0 && is_word(upper.as_bytes()[start - 1]))
+            && !upper.as_bytes().get(end).copied().is_some_and(is_word)
+    })
 }
 
 pub fn preview_replace_in_project(
@@ -219,19 +270,27 @@ pub fn preview_replace_in_project(
     let mut files = 0u32;
     let mut replacements = 0u32;
     for (relative, before) in replace_sources(root)? {
+        // The preview walks the same whole-file matches the replace rewrites,
+        // so a pattern that spans or anchors to lines counts what it replaces.
         let mut file_hits = 0u32;
-        for (line_index, line) in before.lines().enumerate() {
-            for (column, _len) in matcher.find_in(line) {
-                if matches.len() < 200 {
-                    matches.push(ReplaceMatch {
-                        path: relative.clone(),
-                        line: (line_index + 1) as u32,
-                        column: (column + 1) as u32,
-                        preview: truncate_chars(line.trim(), 120),
-                    });
+        let (mut line_number, mut line_start, mut scanned) = (1u32, 0usize, 0usize);
+        for found in matcher.regex.find_iter(&before) {
+            if matches.len() < 200 {
+                for (offset, _) in before[scanned..found.start()].match_indices('\n') {
+                    line_number += 1;
+                    line_start = scanned + offset + 1;
                 }
-                file_hits += 1;
+                scanned = found.start();
+                let line_end =
+                    before[line_start..].find('\n').map_or(before.len(), |end| line_start + end);
+                matches.push(ReplaceMatch {
+                    path: relative.clone(),
+                    line: line_number,
+                    column: before[line_start..found.start()].chars().count() as u32 + 1,
+                    preview: truncate_chars(before[line_start..line_end].trim(), 120),
+                });
             }
+            file_hits += 1;
         }
         replacements += file_hits;
         files += u32::from(file_hits > 0);
@@ -274,10 +333,14 @@ fn replace_sources(root: &Path) -> Result<Vec<(String, String)>, String> {
     Ok(sources)
 }
 
+/// Find/replace across the project, matching the way the editor's own
+/// search does: `^` and `$` anchor to each line (CRLF included), and a
+/// literal is an escaped pattern so its offsets always index the original
+/// text. (Case-insensitive literals once matched against a lowercased copy;
+/// `Å` (U+212B) or `İ` lowercase to a different byte length, so the replace
+/// landed beside the match and silently corrupted the file.)
 struct ReplaceMatcher {
-    query: String,
-    match_case: bool,
-    regex: Option<Regex>,
+    regex: Regex,
 }
 
 impl ReplaceMatcher {
@@ -285,53 +348,23 @@ impl ReplaceMatcher {
         if query.is_empty() {
             return Err("Enter text to find.".to_string());
         }
-        let regex = use_regex
-            .then(|| {
-                regex::RegexBuilder::new(query)
-                    .case_insensitive(!match_case)
-                    .build()
-                    .map_err(|error| format!("Invalid regular expression: {error}"))
-            })
-            .transpose()?;
-        Ok(Self { query: query.to_string(), match_case, regex })
-    }
-
-    /// `(byte offset, byte length)` of each non-overlapping match. Literal
-    /// case-insensitive offsets index the lowercased text.
-    fn find_in(&self, line: &str) -> Vec<(usize, usize)> {
-        if let Some(regex) = &self.regex {
-            return regex
-                .find_iter(line)
-                .map(|item| (item.start(), item.end().saturating_sub(item.start()).max(1)))
-                .collect();
-        }
-        let (haystack, needle) = if self.match_case {
-            (line.to_string(), self.query.clone())
-        } else {
-            (line.to_lowercase(), self.query.to_lowercase())
-        };
-        haystack.match_indices(&needle).map(|(column, _)| (column, needle.len())).collect()
+        let pattern = if use_regex { query.to_string() } else { regex::escape(query) };
+        let regex = regex::RegexBuilder::new(&pattern)
+            .case_insensitive(!match_case)
+            .multi_line(true)
+            .crlf(true)
+            .build()
+            .map_err(|error| format!("Invalid regular expression: {error}"))?;
+        Ok(Self { regex })
     }
 
     fn replace_all(&self, source: &str, replacement: &str) -> (String, u32) {
-        if let Some(regex) = &self.regex {
-            // NoExpand: `$` is a capture reference to the regex crate, so
-            // replacing with `$n$` — ordinary maths — resolved `$n` to an
-            // empty group and left a stray `$` behind in every file it
-            // touched, reported as a success.
-            let count = regex.find_iter(source).count() as u32;
-            return (regex.replace_all(source, regex::NoExpand(replacement)).into_owned(), count);
-        }
-        let hits = self.find_in(source);
-        let mut out = String::with_capacity(source.len());
-        let mut cursor = 0usize;
-        for (start, len) in &hits {
-            out.push_str(&source[cursor..*start]);
-            out.push_str(replacement);
-            cursor = start + len;
-        }
-        out.push_str(&source[cursor..]);
-        (out, hits.len() as u32)
+        // NoExpand: `$` is a capture reference to the regex crate, so
+        // replacing with `$n$` — ordinary maths — resolved `$n` to an
+        // empty group and left a stray `$` behind in every file it
+        // touched, reported as a success.
+        let count = self.regex.find_iter(source).count() as u32;
+        (self.regex.replace_all(source, regex::NoExpand(replacement)).into_owned(), count)
     }
 }
 
@@ -351,6 +384,17 @@ mod tests {
             assert_eq!(hit.path, "sections/method.tex", "{query}");
         }
         assert!(search_files(root, "latent alignment").unwrap()[0].snippet.contains("distinctive"));
+
+        // A Chinese word inside a sentence, which the index keeps as one token.
+        fixture.write("sections/intro.tex", "我们提出了注意力机制，效果很好。\n");
+        for query in ["注意力", "机制", "注意力 效果"] {
+            let hits = search_files(root, query).unwrap();
+            assert_eq!(
+                hits.iter().map(|hit| hit.path.as_str()).collect::<Vec<_>>(),
+                ["sections/intro.tex"],
+                "{query}"
+            );
+        }
 
         // The linear fallback also skips hidden paths and HTML outside the body.
         fixture.write(
@@ -390,13 +434,48 @@ mod tests {
         assert_eq!(regex.replacements, 2);
         assert_eq!(fixture.read("main.tex"), "X TOKEN X\n");
 
+        // A case-insensitive literal replaces the match itself even when an
+        // earlier character lowercases to a different byte length (Å, U+212B).
+        fixture.write("main.tex", "Grain size 5 \u{212B} and Token here\n");
+        let result = replace_in_project(root, "token", "VALUE", false, false).unwrap();
+        assert_eq!(result.replacements, 1);
+        assert_eq!(fixture.read("main.tex"), "Grain size 5 \u{212B} and VALUE here\n");
+
+        // The preview counts what the replace rewrites: `^` anchors to every
+        // line (CRLF too), and a pattern may span lines.
+        fixture.write("sections/a.tex", "alpha\r\nbeta\r\n");
+        fixture.write("main.tex", "one\ntwo\n");
+        let anchored = preview_replace_in_project(root, "^(?:one|two)", true, true).unwrap();
+        let replaced = replace_in_project(root, "^(?:one|two)", "> $0", true, true).unwrap();
+        assert_eq!((anchored.replacements, replaced.replacements), (2, 2));
+        assert_eq!(fixture.read("main.tex"), "> $0\n> $0\n");
+        let line_ends = preview_replace_in_project(root, "(?:alpha|beta)$", true, true).unwrap();
+        let replaced = replace_in_project(root, "(?:alpha|beta)$", "x", true, true).unwrap();
+        assert_eq!((line_ends.replacements, replaced.replacements), (2, 2));
+        assert_eq!(fixture.read("sections/a.tex"), "x\r\nx\r\n");
+        fixture.write("main.tex", "first\nsecond\n");
+        let spanning = preview_replace_in_project(root, r"first\nsec", true, true).unwrap();
+        assert_eq!(spanning.replacements, 1);
+        assert_eq!((spanning.matches[0].line, spanning.matches[0].preview.as_str()), (1, "first"));
+        let second = preview_replace_in_project(root, "cond", true, false).unwrap();
+        assert_eq!((second.matches[0].line, second.matches[0].column), (2, 3));
+
         // TODO markers in comments and \todo macros.
         fixture.write(
             "sections/method.tex",
             "Intro\n% TODO rewrite claim\n\\todo{add figure}\n% FIXME citation\n",
         );
-        fixture.write("notes.md", "# Notes\n% XXX temp\n");
+        fixture.write("notes.md", "# Notes\n% XXX temp\n50% todo is prose here\n");
+        fixture.write(
+            "sections/results.tex",
+            "% Mastodon dataset\nGains hold. % TODO cite\nA 50\\% rate, todo-free\n",
+        );
         let hits = list_todos(root).unwrap();
+        let lines_in = |path: &str| -> Vec<u32> {
+            hits.iter().filter(|hit| hit.path == path).map(|hit| hit.line).collect()
+        };
+        assert_eq!(lines_in("sections/results.tex"), [2]);
+        assert_eq!(lines_in("notes.md"), [2]);
         assert!(hits.iter().any(|hit| hit.kind == "TODO" && hit.path == "sections/method.tex"));
         assert!(hits.iter().any(|hit| hit.kind == "todo" && hit.preview.contains("\\todo")));
         assert!(hits.iter().any(|hit| hit.kind == "FIXME"));

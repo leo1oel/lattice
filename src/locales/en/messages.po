@@ -116,6 +116,10 @@ msgid "{conflicts} needs your decision"
 msgstr "{conflicts} needs your decision"
 
 #: src/canvas/editor-status-bar.tsx
+msgid "{count} comment"
+msgstr "{count} comment"
+
+#: src/canvas/editor-status-bar.tsx
 msgid "{count} comments"
 msgstr "{count} comments"
 
@@ -155,6 +159,10 @@ msgstr "{count} paths copied"
 #: src/canvas/editor-status-bar.tsx
 msgid "{count} TODO"
 msgstr "{count} TODO"
+
+#: src/canvas/editor-status-bar.tsx
+msgid "{count} TODOs"
+msgstr "{count} TODOs"
 
 #: src/editor/markdown/engine/chrome/find-replace.tsx
 msgid "{current} of {count}"
@@ -368,8 +376,8 @@ msgid "⌘⇧F · source files and papers"
 msgstr "⌘⇧F · source files and papers"
 
 #: src/App.tsx
-msgid "⌘⇧H · all .tex files"
-msgstr "⌘⇧H · all .tex files"
+msgid "⌘⇧H · all source files"
+msgstr "⌘⇧H · all source files"
 
 #: src/project/project-find-dialog.tsx
 msgid "1 hit"

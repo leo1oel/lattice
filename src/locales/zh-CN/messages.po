@@ -116,6 +116,10 @@ msgid "{conflicts} needs your decision"
 msgstr "{conflicts} 个需要你决定"
 
 #: src/canvas/editor-status-bar.tsx
+msgid "{count} comment"
+msgstr "{count} 条评论"
+
+#: src/canvas/editor-status-bar.tsx
 msgid "{count} comments"
 msgstr "{count} 条评论"
 
@@ -154,6 +158,10 @@ msgstr "已复制 {count} 个路径"
 
 #: src/canvas/editor-status-bar.tsx
 msgid "{count} TODO"
+msgstr "{count} 项待办"
+
+#: src/canvas/editor-status-bar.tsx
+msgid "{count} TODOs"
 msgstr "{count} 项待办"
 
 #: src/editor/markdown/engine/chrome/find-replace.tsx
@@ -368,8 +376,8 @@ msgid "⌘⇧F · source files and papers"
 msgstr "⌘⇧F · 源文件和论文"
 
 #: src/App.tsx
-msgid "⌘⇧H · all .tex files"
-msgstr "⌘⇧H · 所有 .tex 文件"
+msgid "⌘⇧H · all source files"
+msgstr "⌘⇧H · 所有源文件"
 
 #: src/project/project-find-dialog.tsx
 msgid "1 hit"
