@@ -1,7 +1,11 @@
 /* The toolbar stays on one row so resizing the source/PDF split never moves
    search away from page navigation. Narrow panes shed redundant zoom steps;
-   trackpad zoom and the two fit controls remain available. */
-.pdf-preview { container: pdf-preview / inline-size; }
+   trackpad zoom and the two fit controls remain available.
+   The size container is the toolbar's own frame, not the whole preview: when
+   a query container's width changes, WebKit restyles everything inside it, so
+   with the preview as the container every frame of a panel-divider drag
+   restyled each page box of the PDF (82 fps against 123 with this frame). */
+.pdf-toolbar-frame { flex: none; container: pdf-toolbar / inline-size; }
 .pdf-toolbar { min-height: var(--toolbar-height); flex: none; padding: var(--space-2) var(--space-4); border-bottom: 1px solid var(--border-subtle); background: var(--editor-bg); contain: layout paint; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: var(--space-2); align-items: center; }
 .pdf-toolbar button { width: var(--toolbar-icon-width); height: var(--toolbar-icon-height); border-radius: var(--toolbar-icon-radius); padding: 0; background: transparent; color: var(--text-secondary); display: grid; place-items: center; }
 .pdf-toolbar button:hover:not(:disabled) { background: var(--toolbar-hover-surface); color: var(--text-primary); }
@@ -114,7 +118,7 @@
 .pdf-load-progress-fill { height: 100%; border-radius: inherit; background: var(--control-active); transition: width var(--duration-slow) var(--ease-out); }
 .pdf-load-percent { min-width: 3ch; font-variant-numeric: tabular-nums; text-align: right; }
 .pdf-toolbar-empty > :first-child, .pdf-toolbar-empty > :last-child { min-width: 74px; }
-@container pdf-preview (max-width: 640px) {
+@container pdf-toolbar (max-width: 640px) {
   .pdf-toolbar { padding-inline: var(--space-2); gap: var(--space-1); }
   .pdf-zoom-controls { gap: var(--space-1); }
   .pdf-toolbar .pdf-zoom-step { display: none; }

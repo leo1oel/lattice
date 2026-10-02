@@ -66,6 +66,10 @@ describe("narrow pane chrome", () => {
     expect(css).toMatch(/\.pdf-history-controls \{[^}]*grid-template-columns: 24px 24px;/);
     expect(css).toMatch(/\.pdf-find-controls \.pdf-search \{[^}]*width: 100%; min-width: 0;/);
     expect(css).not.toMatch(/\.pdf-find-controls \{[^}]*grid-row:/);
-    expect(css).toMatch(/@container pdf-preview \(max-width: 640px\)[\s\S]*?\.pdf-zoom-step[^}]*display: none;/);
+    expect(css).toMatch(/@container pdf-toolbar \(max-width: 640px\)[\s\S]*?\.pdf-zoom-step[^}]*display: none;/);
+    // Only the toolbar's frame is a size container: a container's width
+    // change restyles everything inside it in WebKit, every PDF page included.
+    expect(css).toMatch(/\.pdf-toolbar-frame \{[^}]*container: pdf-toolbar \/ inline-size;/);
+    expect(css).not.toMatch(/\.pdf-preview \{[^}]*container/);
   });
 });

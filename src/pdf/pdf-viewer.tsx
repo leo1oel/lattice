@@ -250,20 +250,22 @@ export function PdfPreview({
   if (!loadKey) {
     return (
       <div className="pdf-preview">
-        <div className="pdf-toolbar pdf-toolbar-empty">
-          <div className="pdf-page-controls" />
-          <div className="pdf-find-controls">
-            {outline}
-            <SearchField
-              aria-label={t`Search PDF`}
-              containerClassName="pdf-search disabled"
-              controlSize="compact"
-              placeholder={t`Find in PDF`}
-              disabled
-              value=""
-            />
+        <div className="pdf-toolbar-frame">
+          <div className="pdf-toolbar pdf-toolbar-empty">
+            <div className="pdf-page-controls" />
+            <div className="pdf-find-controls">
+              {outline}
+              <SearchField
+                aria-label={t`Search PDF`}
+                containerClassName="pdf-search disabled"
+                controlSize="compact"
+                placeholder={t`Find in PDF`}
+                disabled
+                value=""
+              />
+            </div>
+            <div className="pdf-zoom-controls" />
           </div>
-          <div className="pdf-zoom-controls" />
         </div>
         <div className="pdf-placeholder">
           <EmptyIllustration kind="preview" />
@@ -311,109 +313,111 @@ export function PdfPreview({
     >
       <PdfCitationHover key={doc.stableLoadKey} hostRef={hostRef} citations={citations}
         canOpenCitation={canOpenCitation} onOpenCitation={onOpenCitation} />
-      <div className="pdf-toolbar">
-        <div className="pdf-navigation-controls">
-          {toolbarStart}
-          <div className="pdf-page-controls">
-            <ToolbarButton label={t`Previous page`} icon={<ChevronLeft size={14} />}
-              disabled={pageNumber <= 1} onClick={() => stepPage(-1)} />
-            <label className={`pdf-page-value${pageInput.editing ? " editing" : ""}`} title={t`Enter a page number`}>
-              <input
-                aria-label={t`PDF page number`}
-                inputMode="numeric"
-                style={{ width: pageInput.editing ? `${Math.max(1, pageInput.draft.length)}ch` : undefined }}
-                {...pageInput.inputProps}
-              />
-              {pageInput.editing
-                ? <span className="pdf-page-total">/ {pageCount}</span>
-                : <span className="pdf-page-display" aria-hidden="true">{pageNumber} / {pageCount}</span>}
+      <div className="pdf-toolbar-frame">
+        <div className="pdf-toolbar">
+          <div className="pdf-navigation-controls">
+            {toolbarStart}
+            <div className="pdf-page-controls">
+              <ToolbarButton label={t`Previous page`} icon={<ChevronLeft size={14} />}
+                disabled={pageNumber <= 1} onClick={() => stepPage(-1)} />
+              <label className={`pdf-page-value${pageInput.editing ? " editing" : ""}`} title={t`Enter a page number`}>
+                <input
+                  aria-label={t`PDF page number`}
+                  inputMode="numeric"
+                  style={{ width: pageInput.editing ? `${Math.max(1, pageInput.draft.length)}ch` : undefined }}
+                  {...pageInput.inputProps}
+                />
+                {pageInput.editing
+                  ? <span className="pdf-page-total">/ {pageCount}</span>
+                  : <span className="pdf-page-display" aria-hidden="true">{pageNumber} / {pageCount}</span>}
+              </label>
+              <ToolbarButton label={t`Next page`} icon={<ChevronRight size={14} />}
+                disabled={!numPages || pageNumber >= numPages} onClick={() => stepPage(1)} />
+            </div>
+            <div className="pdf-history-controls">
+              <ToolbarButton label={t`Previous PDF location`} icon={<CornerUpLeft size={14} />}
+                disabled={!availability.back} onClick={() => navigate("back")} />
+              <ToolbarButton label={t`Next PDF location`} icon={<CornerUpRight size={14} />}
+                disabled={!availability.forward} onClick={() => navigate("forward")} />
+            </div>
+          </div>
+          <div className="pdf-find-controls">
+            {outline}
+            <SearchField
+              ref={searchInputRef}
+              aria-label={t`Search PDF`}
+              containerClassName="pdf-search"
+              controlSize="compact"
+              showIcon={!query}
+              value={query}
+              placeholder={t`Find in PDF`}
+              onChange={(event) => search.setQuery(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" && query) {
+                  event.preventDefault();
+                  search.find(query, event.shiftKey, true);
+                } else if (event.key === "Escape" && query) {
+                  event.preventDefault();
+                  search.setQuery("");
+                }
+              }}
+              trailing={query ? (
+                <>
+                  <ToolbarButton label={t`Match case`} icon={<CaseSensitive size={12} />}
+                    className="pdf-search-option" aria-pressed={search.matchCase} onMouseDown={keepFocus}
+                    onClick={() => search.setMatchCase((enabled) => !enabled)} />
+                  <ToolbarButton label={t`Whole word`} icon={<WholeWord size={12} />}
+                    className="pdf-search-option" aria-pressed={search.wholeWord} onMouseDown={keepFocus}
+                    onClick={() => search.setWholeWord((enabled) => !enabled)} />
+                  <small className="pdf-search-position" aria-live="polite">
+                    {matches.total ? `${matches.current} / ${matches.total}` : "0 / 0"}
+                  </small>
+                  <ToolbarButton label={t`Previous search result`} icon={<ChevronUp size={12} />}
+                    disabled={!matches.total} onClick={() => search.find(query, true, true)} />
+                  <ToolbarButton label={t`Next search result`} icon={<ChevronDown size={12} />}
+                    disabled={!matches.total} onClick={() => search.find(query, false, true)} />
+                  <ToolbarButton label={t`Clear PDF search`} icon={<X size={12} />} onClick={() => search.setQuery("")} />
+                </>
+              ) : undefined}
+            />
+          </div>
+          <div className="pdf-zoom-controls">
+            <ToolbarButton label={t`Zoom out`} icon={<ZoomOut size={14} />} className="pdf-zoom-step"
+              disabled={scale <= PDF_MIN_SCALE} onClick={() => stepZoom(-1)} />
+            <label
+              ref={zoomLabelRef}
+              className="pdf-zoom-value pdf-zoom-step"
+              title={t`Enter a zoom percentage or scroll to zoom`}
+            >
+              <input aria-label={t`PDF zoom percentage`} inputMode="decimal" {...zoomInput.inputProps} />
+              <span>%</span>
             </label>
-            <ToolbarButton label={t`Next page`} icon={<ChevronRight size={14} />}
-              disabled={!numPages || pageNumber >= numPages} onClick={() => stepPage(1)} />
-          </div>
-          <div className="pdf-history-controls">
-            <ToolbarButton label={t`Previous PDF location`} icon={<CornerUpLeft size={14} />}
-              disabled={!availability.back} onClick={() => navigate("back")} />
-            <ToolbarButton label={t`Next PDF location`} icon={<CornerUpRight size={14} />}
-              disabled={!availability.forward} onClick={() => navigate("forward")} />
-          </div>
-        </div>
-        <div className="pdf-find-controls">
-          {outline}
-          <SearchField
-            ref={searchInputRef}
-            aria-label={t`Search PDF`}
-            containerClassName="pdf-search"
-            controlSize="compact"
-            showIcon={!query}
-            value={query}
-            placeholder={t`Find in PDF`}
-            onChange={(event) => search.setQuery(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === "Enter" && query) {
-                event.preventDefault();
-                search.find(query, event.shiftKey, true);
-              } else if (event.key === "Escape" && query) {
-                event.preventDefault();
-                search.setQuery("");
-              }
-            }}
-            trailing={query ? (
+            <ToolbarButton label={t`Zoom in`} icon={<ZoomIn size={14} />} className="pdf-zoom-step"
+              disabled={scale >= PDF_MAX_SCALE} onClick={() => stepZoom(1)} />
+            <i className="pdf-fit-divider pdf-zoom-step" aria-hidden="true" />
+            {onForwardSync && (
               <>
-                <ToolbarButton label={t`Match case`} icon={<CaseSensitive size={12} />}
-                  className="pdf-search-option" aria-pressed={search.matchCase} onMouseDown={keepFocus}
-                  onClick={() => search.setMatchCase((enabled) => !enabled)} />
-                <ToolbarButton label={t`Whole word`} icon={<WholeWord size={12} />}
-                  className="pdf-search-option" aria-pressed={search.wholeWord} onMouseDown={keepFocus}
-                  onClick={() => search.setWholeWord((enabled) => !enabled)} />
-                <small className="pdf-search-position" aria-live="polite">
-                  {matches.total ? `${matches.current} / ${matches.total}` : "0 / 0"}
-                </small>
-                <ToolbarButton label={t`Previous search result`} icon={<ChevronUp size={12} />}
-                  disabled={!matches.total} onClick={() => search.find(query, true, true)} />
-                <ToolbarButton label={t`Next search result`} icon={<ChevronDown size={12} />}
-                  disabled={!matches.total} onClick={() => search.find(query, false, true)} />
-                <ToolbarButton label={t`Clear PDF search`} icon={<X size={12} />} onClick={() => search.setQuery("")} />
+                <ToolbarButton label={t`Reveal cursor in PDF (⌘⇧J)`}
+                  icon={locatingPdf ? <InfinityLoader size={14} /> : <LocateFixed size={14} />}
+                  disabled={!canForwardSync || locatingPdf} onMouseDown={keepFocus} onClick={onForwardSync} />
+                <i className="pdf-fit-divider" aria-hidden="true" />
               </>
-            ) : undefined}
-          />
-        </div>
-        <div className="pdf-zoom-controls">
-          <ToolbarButton label={t`Zoom out`} icon={<ZoomOut size={14} />} className="pdf-zoom-step"
-            disabled={scale <= PDF_MIN_SCALE} onClick={() => stepZoom(-1)} />
-          <label
-            ref={zoomLabelRef}
-            className="pdf-zoom-value pdf-zoom-step"
-            title={t`Enter a zoom percentage or scroll to zoom`}
-          >
-            <input aria-label={t`PDF zoom percentage`} inputMode="decimal" {...zoomInput.inputProps} />
-            <span>%</span>
-          </label>
-          <ToolbarButton label={t`Zoom in`} icon={<ZoomIn size={14} />} className="pdf-zoom-step"
-            disabled={scale >= PDF_MAX_SCALE} onClick={() => stepZoom(1)} />
-          <i className="pdf-fit-divider pdf-zoom-step" aria-hidden="true" />
-          {onForwardSync && (
-            <>
-              <ToolbarButton label={t`Reveal cursor in PDF (⌘⇧J)`}
-                icon={locatingPdf ? <InfinityLoader size={14} /> : <LocateFixed size={14} />}
-                disabled={!canForwardSync || locatingPdf} onMouseDown={keepFocus} onClick={onForwardSync} />
-              <i className="pdf-fit-divider" aria-hidden="true" />
-            </>
-          )}
-          <ToolbarButton label={t`Fit page to width`} icon={<RectangleHorizontal size={14} />}
-            className={fitMode === "width" ? "active" : ""} aria-pressed={fitMode === "width"}
-            disabled={!hasActiveViewer} onClick={() => toggleFit("width")} />
-          <ToolbarButton label={t`Fit page to height`} icon={<RectangleVertical size={14} />}
-            className={fitMode === "height" ? "active" : ""} aria-pressed={fitMode === "height"}
-            disabled={!hasActiveViewer} onClick={() => toggleFit("height")} />
-          {toolbarEnd}
-          {showSave && (
-            <Tip label={saveLabel ?? t`Save PDF as…`}>
-              <MotionButton disabled={!canSave || savingPdf} onClick={download}>
-                {savingPdf ? <InfinityLoader size={14} /> : <Download size={14} />}
-              </MotionButton>
-            </Tip>
-          )}
+            )}
+            <ToolbarButton label={t`Fit page to width`} icon={<RectangleHorizontal size={14} />}
+              className={fitMode === "width" ? "active" : ""} aria-pressed={fitMode === "width"}
+              disabled={!hasActiveViewer} onClick={() => toggleFit("width")} />
+            <ToolbarButton label={t`Fit page to height`} icon={<RectangleVertical size={14} />}
+              className={fitMode === "height" ? "active" : ""} aria-pressed={fitMode === "height"}
+              disabled={!hasActiveViewer} onClick={() => toggleFit("height")} />
+            {toolbarEnd}
+            {showSave && (
+              <Tip label={saveLabel ?? t`Save PDF as…`}>
+                <MotionButton disabled={!canSave || savingPdf} onClick={download}>
+                  {savingPdf ? <InfinityLoader size={14} /> : <Download size={14} />}
+                </MotionButton>
+              </Tip>
+            )}
+          </div>
         </div>
       </div>
       <div className="pdf-scroll-area">
