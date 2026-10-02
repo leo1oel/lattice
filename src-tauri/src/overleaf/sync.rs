@@ -547,18 +547,36 @@ pub(super) fn finalize_base_copies(
     Ok(())
 }
 
-/// Whether `path` still holds on disk what this sync read there (`None`: it
-/// was absent), so writing over it or deleting it loses nothing.
-///
+/// What became of `path` on disk since this sync read it there.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum SinceRead {
+    /// It still holds what was read (`None`: it was absent), so writing over
+    /// it or deleting it loses nothing.
+    Unchanged,
+    /// It was edited or deleted: the next sync reads the change as the local
+    /// edit it is.
+    Edited,
+    /// It holds something no sync reads — a file too large or not a regular
+    /// file — or could not be read. It is left alone, but syncing again would
+    /// find exactly the same, so it is no edit to report.
+    Unread,
+}
+
 /// The editor's own saves wait for a sync to finish, but an agent or another
 /// program writes whenever it likes. Its edit is newer than anything the plan
-/// knows about, so a file changed since the read is left exactly as it is,
-/// and the next sync treats it as the local edit it is.
-fn unchanged_since_read(root: &Path, path: &str, read: Option<&Vec<u8>>) -> bool {
-    match fs::read(disk_path(root, path)) {
-        Ok(bytes) => read == Some(&bytes),
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => read.is_none(),
-        Err(_) => false,
+/// knows about, so a file changed since the read is left exactly as it is.
+fn since_read(root: &Path, path: &str, read: Option<&Vec<u8>>) -> SinceRead {
+    let disk = disk_path(root, path);
+    let readable = fs::symlink_metadata(&disk)
+        .is_ok_and(|meta| meta.is_file() && meta.len() <= MAX_SYNC_FILE_BYTES);
+    match fs::read(&disk) {
+        Ok(bytes) if read == Some(&bytes) => SinceRead::Unchanged,
+        Ok(_) if readable => SinceRead::Edited,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => match read {
+            None => SinceRead::Unchanged,
+            Some(_) => SinceRead::Edited,
+        },
+        _ => SinceRead::Unread,
     }
 }
 
@@ -640,7 +658,7 @@ pub fn sync(
     // it out keeps the history window it was confirmed in, as a refusal does,
     // or the next sync would find the change unconfirmed and send the edit
     // up over it.
-    let mut leave = |path: &String, new_files: &mut BTreeMap<String, String>| {
+    let mut leave = |path: &String, new_files: &mut BTreeMap<String, String>, since| {
         let hash = linked.state.files.get(path);
         match hash {
             Some(hash) => new_files.insert(path.clone(), hash.clone()),
@@ -653,15 +671,16 @@ pub fn sync(
                 refused.insert(path.clone(), Refusal { since, remote: sha256_hex(theirs) });
             }
         }
-        if !result.skipped_large.contains(path) {
+        if since == SinceRead::Edited {
             result.edited_during_sync.push(path.clone());
         }
     };
-    let unchanged = |path: &String| unchanged_since_read(root, path, local.get(path));
+    let since = |path: &String| since_read(root, path, local.get(path));
     let mut pulled = Vec::new();
     for (path, bytes) in &plan.pull {
-        if !unchanged(path) {
-            leave(path, &mut new_files);
+        let since = since(path);
+        if since != SinceRead::Unchanged {
+            leave(path, &mut new_files, since);
             continue;
         }
         write_local_file(root, path, bytes)?;
@@ -672,8 +691,9 @@ pub fn sync(
     let mut merged_content: BTreeMap<String, Vec<u8>> = BTreeMap::new();
     let mut merged = Vec::new();
     for (path, bytes) in plan.merge {
-        if !unchanged(&path) {
-            leave(&path, &mut new_files);
+        let since = since(&path);
+        if since != SinceRead::Unchanged {
+            leave(&path, &mut new_files, since);
             continue;
         }
         write_local_file(root, &path, &bytes)?;
@@ -682,8 +702,9 @@ pub fn sync(
     }
     let mut conflicts = Vec::new();
     for conflict in &plan.conflict {
-        if !unchanged(&conflict.path) {
-            leave(&conflict.path, &mut new_files);
+        let since = since(&conflict.path);
+        if since != SinceRead::Unchanged {
+            leave(&conflict.path, &mut new_files, since);
             continue;
         }
         write_local_file(root, &conflict.local_copy, &conflict.local)?;
@@ -692,8 +713,9 @@ pub fn sync(
     }
     let mut deleted_local = Vec::new();
     for path in &plan.delete_local {
-        if !unchanged(path) {
-            leave(path, &mut new_files);
+        let since = since(path);
+        if since != SinceRead::Unchanged {
+            leave(path, &mut new_files, since);
             continue;
         }
         fs::remove_file(disk_path(root, path))
@@ -758,7 +780,7 @@ pub fn sync(
         // What went up is the agreed copy even if the file changed again
         // meanwhile; that newer edit goes up next time.
         for path in &to_push {
-            if !unchanged_since_read(root, path, sent.get(path)) {
+            if since_read(root, path, sent.get(path)) == SinceRead::Edited {
                 result.edited_during_sync.push(path.clone());
             }
         }
