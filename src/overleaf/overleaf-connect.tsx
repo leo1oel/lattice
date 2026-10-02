@@ -742,7 +742,7 @@ Files that differ are kept side by side. Nothing is overwritten`,
           </div>
         )}
         {known && !known.connected && (
-          <div className="overleaf-stage">
+          <div className="overleaf-stage" data-plain="">
             <StageMessage glyph={reconnectRequired ? <CloudAlert size={20} /> : <Cloud size={20} />} tone={reconnectRequired ? "warning" : "accent"}>
               <p className="overleaf-stage-text">
                 {reconnectRequired
