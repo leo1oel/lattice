@@ -142,7 +142,8 @@ rather than a fact:
   file, and the placement rule is reference-based, so it sits in
   `editor/markdown/`. `use-non-passive-wheel.ts`, whose importers span the
   canvas and the PDF viewer, went to `src/hooks/`, as did `use-latest-ref.ts`
-  (the PDF viewer, the project tree, the updater and compile repair).
+  (App and its hooks, the canvas, the PDF viewer, the project tree, the updater
+  and compile repair).
 - **`interface-sounds.ts` in `telemetry/`** is the audio channel of the same
   notification layer as `app-notify.ts`, not instrumentation. The directory is
   "what the app says about itself", which also covers the updater banner.
