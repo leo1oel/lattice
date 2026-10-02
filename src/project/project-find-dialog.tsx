@@ -20,6 +20,14 @@ export type ProjectFindHit = {
   fileKind?: string | null;
 };
 
+/** The snippet with each query term marked, so the eye lands on why it matched. */
+function markTerms(text: string, query: string) {
+  const terms = [...new Set(query.toLocaleLowerCase().split(/\s+/).filter((term) => term.length > 1))];
+  if (!terms.length) return text;
+  const pattern = new RegExp(`(${terms.map((term) => term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|")})`, "gi");
+  return text.split(pattern).map((part, index) => (index % 2 ? <mark key={index}>{part}</mark> : part));
+}
+
 export function ProjectFindDialog(props: {
   open: boolean;
   busy: boolean;
@@ -133,7 +141,9 @@ export function ProjectFindDialog(props: {
                     {paper ? hit.title : <>{hit.path}{hit.line ? `:${hit.line}` : ""}</>}
                   </span>
                 </span>
-                <span className="project-replace-hit-preview">{hit.snippet || (paper ? hit.path : hit.title)}</span>
+                <span className="project-replace-hit-preview">
+                  {hit.snippet ? markTerms(hit.snippet, query) : paper ? hit.path : hit.title}
+                </span>
               </button>
             </li>
           );

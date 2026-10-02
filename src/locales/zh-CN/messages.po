@@ -465,10 +465,6 @@ msgstr "提供商拒绝访问"
 msgid "Accordion"
 msgstr "折叠面板"
 
-#: src/telemetry/app-log.tsx
-msgid "Activity log"
-msgstr "活动日志"
-
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Acute accent example"
 msgstr "锐音符示例"
@@ -2993,10 +2989,6 @@ msgstr "在项目中查找"
 msgid "Find text to replace"
 msgstr "查找要替换的文本"
 
-#: src/project/todo-scavenger-panel.tsx
-msgid "Finds `% TODO`, `% FIXME`, `% XXX` and `\\todo`"
-msgstr "查找 `% TODO`、`% FIXME`、`% XXX` 和 `\\todo`"
-
 #: src/App.tsx
 msgid "Finish the current text composition, then switch projects again."
 msgstr "请先完成当前的输入法输入，然后再切换项目。"
@@ -3064,10 +3056,6 @@ msgstr "已折叠的代码"
 #: src/editor/codemirror-host.tsx
 msgid "Folded lines"
 msgstr "已折叠行"
-
-#: src/settings/settings-dialog.tsx
-msgid "Follow system (default)"
-msgstr "跟随系统（默认）"
 
 #: src/editor/markdown/engine/chrome/slash-items.ts
 msgid "Footnote"
@@ -4319,6 +4307,10 @@ msgstr "跨行断开的长公式"
 msgid "Long quotation"
 msgstr "长引文"
 
+#: src/project/todo-scavenger-panel.tsx
+msgid "Looks for <0>% TODO</0>, <1>% FIXME</1>, <2>% XXX</2> and <3>\\todo</3>"
+msgstr "查找 <0>% TODO</0>、<1>% FIXME</1>、<2>% XXX</2> 和 <3>\\todo</3>"
+
 #: src/build/tex-doctor-messages.ts
 msgid "LuaLaTeX engine"
 msgstr "LuaLaTeX 引擎"
@@ -4363,6 +4355,10 @@ msgstr "Markdown 源码"
 #: src/project/project-replace-dialog.tsx
 msgid "Match case"
 msgstr "区分大小写"
+
+#: src/settings/settings-dialog.tsx
+msgid "Match system"
+msgstr "跟随系统"
 
 #: src/editor/latex/math-region.ts
 msgid "math"
@@ -4803,6 +4799,7 @@ msgid "No markers"
 msgstr "没有标记"
 
 #: src/components/ui/search-picker-dialog.tsx
+#: src/editor/comments/editor-comments-panel.tsx
 #: src/editor/markdown/engine/chrome/find-replace.tsx
 msgid "No matches"
 msgstr "无匹配项"
@@ -4856,6 +4853,7 @@ msgstr "无出现位置"
 msgid "No occurrences found"
 msgstr "未找到出现位置"
 
+#: src/editor/comments/editor-comments-panel.tsx
 #: src/overleaf/overleaf-comments.tsx
 msgid "No open comments"
 msgstr "没有未解决的评论"
@@ -8006,10 +8004,6 @@ msgstr "待办"
 #: src/app/use-overleaf-workspace.ts
 msgid "Too large for Overleaf, so left on this machine: {files}."
 msgstr "以下文件对 Overleaf 来说过大，因此仅保留在本机：{files}。"
-
-#: src/settings/doctor-settings.tsx
-msgid "Toolchain status"
-msgstr "工具链状态"
 
 #: src/trellis/trellis-titlebar.tsx
 msgid "Tools"

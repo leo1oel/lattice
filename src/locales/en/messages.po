@@ -465,10 +465,6 @@ msgstr "Access forbidden by provider"
 msgid "Accordion"
 msgstr "Accordion"
 
-#: src/telemetry/app-log.tsx
-msgid "Activity log"
-msgstr "Activity log"
-
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Acute accent example"
 msgstr "Acute accent example"
@@ -2993,10 +2989,6 @@ msgstr "Find in project"
 msgid "Find text to replace"
 msgstr "Find text to replace"
 
-#: src/project/todo-scavenger-panel.tsx
-msgid "Finds `% TODO`, `% FIXME`, `% XXX` and `\\todo`"
-msgstr "Finds `% TODO`, `% FIXME`, `% XXX` and `\\todo`"
-
 #: src/App.tsx
 msgid "Finish the current text composition, then switch projects again."
 msgstr "Finish the current text composition, then switch projects again."
@@ -3064,10 +3056,6 @@ msgstr "folded code"
 #: src/editor/codemirror-host.tsx
 msgid "Folded lines"
 msgstr "Folded lines"
-
-#: src/settings/settings-dialog.tsx
-msgid "Follow system (default)"
-msgstr "Follow system (default)"
 
 #: src/editor/markdown/engine/chrome/slash-items.ts
 msgid "Footnote"
@@ -4319,6 +4307,10 @@ msgstr "Long equation broken across lines"
 msgid "Long quotation"
 msgstr "Long quotation"
 
+#: src/project/todo-scavenger-panel.tsx
+msgid "Looks for <0>% TODO</0>, <1>% FIXME</1>, <2>% XXX</2> and <3>\\todo</3>"
+msgstr "Looks for <0>% TODO</0>, <1>% FIXME</1>, <2>% XXX</2> and <3>\\todo</3>"
+
 #: src/build/tex-doctor-messages.ts
 msgid "LuaLaTeX engine"
 msgstr "LuaLaTeX engine"
@@ -4363,6 +4355,10 @@ msgstr "Markdown source"
 #: src/project/project-replace-dialog.tsx
 msgid "Match case"
 msgstr "Match case"
+
+#: src/settings/settings-dialog.tsx
+msgid "Match system"
+msgstr "Match system"
 
 #: src/editor/latex/math-region.ts
 msgid "math"
@@ -4803,6 +4799,7 @@ msgid "No markers"
 msgstr "No markers"
 
 #: src/components/ui/search-picker-dialog.tsx
+#: src/editor/comments/editor-comments-panel.tsx
 #: src/editor/markdown/engine/chrome/find-replace.tsx
 msgid "No matches"
 msgstr "No matches"
@@ -4856,6 +4853,7 @@ msgstr "No occurrences"
 msgid "No occurrences found"
 msgstr "No occurrences found"
 
+#: src/editor/comments/editor-comments-panel.tsx
 #: src/overleaf/overleaf-comments.tsx
 msgid "No open comments"
 msgstr "No open comments"
@@ -8006,10 +8004,6 @@ msgstr "TODOs"
 #: src/app/use-overleaf-workspace.ts
 msgid "Too large for Overleaf, so left on this machine: {files}."
 msgstr "Too large for Overleaf, so left on this machine: {files}."
-
-#: src/settings/doctor-settings.tsx
-msgid "Toolchain status"
-msgstr "Toolchain status"
 
 #: src/trellis/trellis-titlebar.tsx
 msgid "Tools"

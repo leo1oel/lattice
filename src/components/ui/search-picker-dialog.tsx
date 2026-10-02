@@ -35,6 +35,8 @@ export function PickerDialog<T>(props: {
   placeholder: string;
   closeLabel: string;
   compactClose?: boolean;
+  /** Where an item's detail goes: under its label, or trailing it on one line. */
+  detailPlacement?: "below" | "end";
   emptyText: string;
   rank: (query: string) => T[];
   itemKey: (item: T) => string;
@@ -60,7 +62,7 @@ export function PickerDialog<T>(props: {
 
   return (
     <ModalDialog label={props.label} onClose={props.onClose}>
-      <div className="modal quick-open-modal">
+      <div className="modal quick-open-modal" data-detail={props.detailPlacement ?? "below"}>
         <div className="quick-open-header">
           <SearchField
             autoFocus
@@ -113,6 +115,7 @@ export function PickerDialog<T>(props: {
 type SearchPickerProps = {
   title: string;
   placeholder: string;
+  detailPlacement?: "below" | "end";
   items: SearchPickerItem[];
   onClose: () => void;
   onSelect: (item: SearchPickerItem) => void;

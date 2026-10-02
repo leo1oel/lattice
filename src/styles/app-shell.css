@@ -143,12 +143,25 @@ input[type="search"]:focus-visible {
 .editor-status-bar > * { flex: none; white-space: nowrap; }
 .editor-status-bar .status-goto { border: 0; background: transparent; color: inherit; font: inherit; padding: 0; cursor: pointer; }
 .editor-status-bar .status-goto:hover { color: var(--control-active); }
+/* Comments and TODOs travel together toward the counts at the end rather than
+   floating mid-bar whenever the hint and the breadcrumb are absent. */
+.editor-status-bar .status-comments { margin-left: auto; }
+.editor-status-bar .status-body-words { margin-left: var(--space-3); }
 .editor-status-bar .status-hint { min-width: 0; flex: 0 1 auto; overflow: hidden; text-overflow: ellipsis; color: var(--text-tertiary); opacity: .85; }
 .editor-status-bar .status-hint kbd { font: inherit; color: var(--text-secondary); }
 .editor-status-bar .editor-breadcrumb { min-width: 0; flex: 1 1 auto; overflow: hidden; color: var(--text-secondary); text-align: center; display: inline-flex; align-items: center; justify-content: center; gap: var(--space-2); flex-wrap: nowrap; }
-.quick-open-modal { width: min(520px, calc(100vw - 40px)); padding: 0; overflow: hidden; }
+/* `.modal` (dialogs.css) loads later with its own width and padding, so these
+   carry the base class too or they silently lose to it. */
+.modal.quick-open-modal { width: min(520px, calc(100vw - 40px)); padding: 0; overflow: hidden; }
 .quick-open-header { position: relative; padding: var(--space-4) var(--space-5); display: flex; align-items: center; }
 .quick-open-header::after { content: ""; position: absolute; inset-inline: var(--space-5); bottom: 0; height: 1px; background: var(--border-subtle); }
+/* The divider already frames the query, so the field drops its own box. */
+.quick-open-header .ui-search-field { height: var(--control-height-segmented-default); border-color: transparent; background: transparent; }
+/* Pickers whose details are short (the command palette's shortcuts) keep each
+   row to one line, with the detail trailing at the end. */
+.quick-open-modal[data-detail="end"] .quick-open-list button { flex-direction: row; align-items: center; justify-content: space-between; gap: var(--space-8); }
+.quick-open-modal[data-detail="end"] .picker-label { flex: 1 1 auto; }
+.quick-open-modal[data-detail="end"] .picker-detail { flex: 0 1 auto; max-width: 45%; }
 .quick-open-list { --surface-radius: var(--radius-dialog); --surface-inset: var(--space-3); max-height: min(360px, 50vh); overflow: auto; padding: var(--surface-inset); display: grid; gap: var(--space-1); }
 .quick-open-list button { min-height: var(--control-height-default); border: 0; border-radius: var(--nested-radius); padding: 7px var(--space-5); background: transparent; color: var(--text-secondary); text-align: left; font-size: var(--type-label-size); display: flex; flex-direction: column; align-items: stretch; justify-content: center; gap: var(--gap-tight); min-width: 0; overflow: hidden; }
 .quick-open-list button.active, .quick-open-list button:hover { background: var(--control-active-soft); color: var(--control-active); }
@@ -158,7 +171,7 @@ input[type="search"]:focus-visible {
 .editor-status-bar .editor-breadcrumb button { border: 0; background: transparent; color: inherit; padding: 0; font: inherit; max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .editor-status-bar .editor-breadcrumb button:hover { color: var(--control-active); }
 .editor-status-bar .editor-breadcrumb i { color: var(--text-tertiary); font-style: normal; }
-.goto-line-modal, .figure-insert-modal { width: min(420px, calc(100vw - 40px)); }
+.modal:is(.goto-line-modal, .figure-insert-modal) { width: min(420px, calc(100vw - 40px)); }
 .canvas-body { position: relative; flex: 1 1 0; min-width: 0; min-height: 0; width: 100%; max-width: 100%; display: flex; flex-direction: column; overflow: hidden; }
 .primary-opening-overlay { position: absolute; inset: 0; z-index: var(--z-editor-popover); display: flex; align-items: center; justify-content: center; gap: var(--space-3); background: color-mix(in srgb, var(--surface-app) 82%, transparent); color: var(--text-secondary); font: var(--type-caption-size)/1.4 var(--ui-font); cursor: progress; }
 /* The titlebar overrides this height to fill its single chrome row. Keeping the
@@ -235,15 +248,18 @@ input[type="search"]:focus-visible {
 .project-replace-hits { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-2); overflow: auto; max-height: min(46vh, 360px); }
 .project-replace-hit { width: 100%; text-align: left; border: 1px solid var(--border-subtle); border-radius: var(--radius-control); background: var(--surface-app); padding: var(--space-4) var(--space-5); display: flex; flex-direction: column; gap: var(--gap-tight); }
 .project-replace-hit:hover { border-color: var(--border-strong); }
-.project-replace-hit.active { border-color: var(--control-active); background: var(--control-active-soft); }
+.project-replace-hit.active { border-color: var(--control-active-border); background: var(--control-active-soft); }
 .project-find-hit-heading { display: flex; align-items: baseline; gap: var(--space-3); min-width: 0; }
 .project-find-result-type { flex: 0 0 auto; color: var(--text-secondary); font-size: var(--type-nano-size); font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }
 .project-find-hit-heading .project-replace-hit-path { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .project-replace-hit-path { color: var(--text-secondary); font-size: var(--type-micro-size); font-weight: 600; }
 .project-replace-hit-preview { color: var(--text-primary); font-size: var(--type-caption-size); font-family: var(--editor-font); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.project-find-results { flex: 1; min-height: 0; }
+/* Files and papers each take the height they need, and share the dialog only
+   when together they overflow it, so a short list is not followed by a gap. */
+.project-find-results { flex: 0 1 auto; min-height: 0; }
+.project-replace-hit-preview mark { border-radius: 2px; background: var(--highlight-match-surface); color: inherit; }
 .project-find .project-replace-hits { max-height: none; overflow: visible; padding-right: var(--space-5); }
-.project-find-papers { flex: 1; min-height: 0; margin-top: var(--space-5); display: flex; flex-direction: column; gap: var(--space-3); }
+.project-find-papers { flex: 0 1 auto; min-height: 0; margin-top: var(--space-5); display: flex; flex-direction: column; gap: var(--space-3); }
 .history-restore-file { margin-top: var(--space-4); height: 28px; border: 1px solid var(--border-subtle); border-radius: var(--radius-chrome); padding: 0 var(--space-4); background: transparent; color: var(--text-secondary); display: inline-flex; align-items: center; gap: var(--space-3); font-size: var(--type-micro-size); font-weight: 600; }
 .history-restore-file:hover { border-color: var(--control-active-border); background: var(--control-active-soft); color: var(--control-active); }
 
@@ -301,10 +317,14 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
   position: absolute;
   inset: 0;
   z-index: 1;
+  /* Stacked like the other empty states, so a narrow panel does not squeeze
+     the message into a column of three-word lines beside Retry. */
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: var(--space-5);
+  text-align: center;
   padding: var(--space-10);
   background: var(--surface-sidebar);
   color: var(--text-secondary);
@@ -326,7 +346,7 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
 }
 .synara-loading-copy {
   min-width: 0;
-  max-width: 230px;
+  max-width: 260px;
   display: grid;
   gap: var(--space-1);
 }
@@ -471,6 +491,7 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
 .file-tree-context-menu > button { width: 100%; height: 30px; padding: 0 var(--space-4); border-radius: var(--radius-compact); background: transparent; color: inherit; display: flex; align-items: center; gap: var(--space-4); font-size: var(--type-caption-size); text-align: left; }
 .file-tree-context-menu > button > svg { stroke-width: 1.5; }
 .file-tree-context-menu > button:hover:not(:disabled) { background: var(--border-subtle); color: var(--text-primary); }
+.file-tree-context-menu-separator { height: 1px; margin: var(--space-2) calc(-1 * var(--surface-inset)); background: var(--border-subtle); }
 .file-tree-context-menu > button.destructive { color: var(--status-danger); }
 .file-tree-context-menu > button.destructive:hover:not(:disabled) { background: color-mix(in srgb, var(--status-danger) 10%, transparent); color: var(--status-danger); }
 /* Visible face stays 22px; a ::after expands the hit area to the 32px row height

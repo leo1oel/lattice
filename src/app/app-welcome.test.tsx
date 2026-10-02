@@ -293,7 +293,7 @@ describe("welcome screen", () => {
   it("switches the app chrome and settings to Simplified Chinese and persists the choice", async () => {
     renderApp();
     await openSettings();
-    expect(screen.getByLabelText("Interface language")).toHaveTextContent("Follow system (default)");
+    expect(screen.getByLabelText("Interface language")).toHaveTextContent("Match system");
     await chooseOption("Interface language", "Simplified Chinese");
     await waitFor(() => expect(document.documentElement.lang).toBe("zh-CN"));
     expect(await screen.findByRole("dialog", { name: "设置" })).toBeInTheDocument();

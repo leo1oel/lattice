@@ -418,7 +418,6 @@ Linked projects stop syncing until you sign in again. Downloaded files stay on t
         )}
         {known && !known.connected ? (
           <div className="overleaf-connect-card">
-            <Glyph tone="accent"><Cloud size={15} /></Glyph>
             <div className="overleaf-connect-card-body">
               <LoginControls
                 login={login}

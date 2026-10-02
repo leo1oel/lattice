@@ -367,6 +367,16 @@
   font-weight: var(--type-caption-weight);
 }
 
+.ui-empty-state-description code {
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-compact);
+  background: var(--control-active-soft);
+  color: var(--text-secondary);
+  font-family: var(--editor-font);
+  font-size: .95em;
+  white-space: nowrap;
+}
+
 .ui-empty-state-actions {
   margin-top: var(--space-2);
   display: flex;

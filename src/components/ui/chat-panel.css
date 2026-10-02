@@ -21,7 +21,7 @@
   align-self: flex-end;
   border-radius: 12px 12px 4px 12px;
   background: var(--control-active-soft);
-  border-color: var(--control-active);
+  border-color: var(--control-active-border);
 }
 /* A run from the same person reads as one turn, so tighten the spacing. */
 .chat-message.grouped { margin-top: -4px; }

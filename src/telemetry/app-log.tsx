@@ -345,7 +345,7 @@ export function AppLogsSettings() {
   return (
     <div className="settings-section app-logs-settings">
       <SettingsSectionHeader title={t`Logs`} description={t`The last 300 entries`} />
-      <SettingsGroup title={t`Activity log`}>
+      <SettingsGroup>
         <div className="app-log-actions">
           <div className="app-log-query-row">
             <SearchField

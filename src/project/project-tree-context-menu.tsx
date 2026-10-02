@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef } from "react";
+import { Fragment, useLayoutEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import type { ContextMenuOpenContext } from "@pierre/trees";
 import type { LucideIcon } from "lucide-react";
@@ -7,7 +7,15 @@ import { DestructiveButton } from "../components/ui/destructive-button";
 import { FluidHoverSurface } from "../components/ui/fluid-hover-surface";
 
 /** One project-tree menu entry; `checked` makes it a checkbox item. */
-export type MenuAction = { icon: LucideIcon; label: string; run: () => void; checked?: boolean; disabled?: boolean };
+export type MenuAction = {
+  icon: LucideIcon;
+  label: string;
+  run: () => void;
+  checked?: boolean;
+  disabled?: boolean;
+  /** Starts a new group: a rule is drawn above it. */
+  group?: boolean;
+};
 
 const menuItemRole = (action: MenuAction) => action.checked === undefined
   ? { role: "menuitem" }
@@ -58,11 +66,15 @@ export function ProjectTreeItemMenu(props: {
       style={{ left: menuLeft, position: "fixed", top: menuTop, zIndex: "var(--z-radix-popper)" }}
     >
       <FluidHoverSurface />
-      {props.actions.map((action) => (
-        <button key={action.label} {...menuItemRole(action)} disabled={action.disabled} onClick={() => closeThen(action.run)}>
-          <action.icon size={14} />{action.label}
-        </button>
+      {props.actions.map((action, index) => (
+        <Fragment key={action.label}>
+          {action.group && index > 0 && <div role="separator" className="file-tree-context-menu-separator" />}
+          <button {...menuItemRole(action)} disabled={action.disabled} onClick={() => closeThen(action.run)}>
+            <action.icon size={14} />{action.label}
+          </button>
+        </Fragment>
       ))}
+      {destructive && <div role="separator" className="file-tree-context-menu-separator" />}
       {destructive && (
         <DestructiveButton className="destructive" role="menuitem" iconSize={14} onClick={() => closeThen(destructive.run)}>
           {destructive.label}

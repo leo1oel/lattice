@@ -238,17 +238,19 @@ function AppearanceSettingsPane(props: SettingsDialogProps) {
   return (
     <div className="settings-section">
       <SettingsSectionHeader title={t`Appearance`} />
-      <SettingsGroup title={t`General`}>
+      {/* The page title already names these; a "General" heading under it
+          would only repeat the sidebar. */}
+      <SettingsGroup>
         <SelectRow
           label={t`Interface language`}
           value={props.appearance.interfaceLanguage}
-          options={{ system: t`Follow system (default)`, en: t`English`, "zh-CN": t`Simplified Chinese` }}
+          options={{ system: t`Match system`, en: t`English`, "zh-CN": t`Simplified Chinese` }}
           onChange={(interfaceLanguage) => patchAppearance(props, { interfaceLanguage })}
         />
         <SelectRow
           label={t`Color theme`}
           value={props.themePreference}
-          options={{ system: t`Follow system (default)`, light: t`Light`, dark: t`Dark` }}
+          options={{ system: t`Match system`, light: t`Light`, dark: t`Dark` }}
           onChange={props.setThemePreference}
         />
         <SliderRow

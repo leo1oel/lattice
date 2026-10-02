@@ -4,7 +4,8 @@ import { rowClassName } from "./row";
 import "./chrome.css";
 
 export type SettingsGroupProps = Omit<ComponentPropsWithoutRef<"section">, "title"> & {
-  title: ReactNode;
+  /** Omitted for a page's leading group, which its page title already names. */
+  title?: ReactNode;
   children: ReactNode;
 };
 
@@ -21,7 +22,7 @@ export function SettingsGroup({ children, className, title, ...props }: Settings
       className={cn("ui-settings-group", className)}
       {...props}
     >
-      <h3 className="ui-settings-group-title">{title}</h3>
+      {title && <h3 className="ui-settings-group-title">{title}</h3>}
       {children}
     </section>
   );

@@ -20,6 +20,7 @@ function Line({ d, i, className }: { d: string; i: number; className?: string })
 }
 
 const PAGE_BACK = "M14 9.5a2.5 2.5 0 0 1 2.5-2.5h19a2.5 2.5 0 0 1 2.5 2.5v29a2.5 2.5 0 0 1-2.5 2.5h-19a2.5 2.5 0 0 1-2.5-2.5z";
+const SEARCH_PAGE = "M15 9.5a2.5 2.5 0 0 1 2.5-2.5h19a2.5 2.5 0 0 1 2.5 2.5v29a2.5 2.5 0 0 1-2.5 2.5h-19a2.5 2.5 0 0 1-2.5-2.5z";
 const PAGE_FRONT = "M24 11.5a2.5 2.5 0 0 1 2.5-2.5h19a2.5 2.5 0 0 1 2.5 2.5v29a2.5 2.5 0 0 1-2.5 2.5h-19a2.5 2.5 0 0 1-2.5-2.5z";
 
 function drawPapers() {
@@ -68,20 +69,18 @@ function drawComments() {
 }
 
 function drawSearch() {
-  // A patch of lattice with one knot missing, and the lens that looked for it.
-  const knots: Array<[number, number]> = [[10, 12], [22, 12], [34, 12], [10, 24], [22, 24], [10, 36], [22, 36], [34, 36]];
+  // A page the lens has passed over and found nothing on: its lines stop at
+  // the lens, which stays empty. The title line is the query, in the weft.
   return (
     <>
-      <Line d="M10 12h24M10 24h24M10 36h24M10 12v24M22 12v24M34 12v24" i={0} className="empty-illustration-faint" />
-      {knots.map(([x, y], index) => (
-        <circle key={`${x}-${y}`} className="empty-illustration-knot" cx={x} cy={y} r="2" style={order(1 + index * 0.25)} />
-      ))}
+      <path className="empty-illustration-paper" d={SEARCH_PAGE} />
+      <Line d={SEARCH_PAGE} i={0} />
+      <Line d="M18 14h14" i={1} className="empty-illustration-weft" />
+      <Line d="M18 20h16M18 25h11M18 30h13" i={2} className="empty-illustration-faint" />
       <g className="empty-illustration-lens">
-        <circle className="empty-illustration-paper" cx="38" cy="22" r="10" />
-        <Line d="M38 12a10 10 0 1 1 0 20a10 10 0 1 1 0-20z" i={2} />
-        <Line d="M45.5 29.5 54 38" i={3} className="empty-illustration-strong" />
-        <Line d="M32 18.5a7 7 0 0 1 5-3.5" i={4} className="empty-illustration-weft" />
-        <circle className="empty-illustration-missing" cx="34" cy="24" r="2.5" style={order(5)} />
+        <circle className="empty-illustration-paper" cx="39" cy="27" r="8.5" />
+        <Line d="M39 18.5a8.5 8.5 0 1 1 0 17a8.5 8.5 0 1 1 0-17z" i={3} />
+        <Line d="M45 33l6.5 6.5" i={4} className="empty-illustration-strong" />
       </g>
     </>
   );

@@ -278,20 +278,21 @@ export function ProjectFileTree(props: ProjectFileTreeProps) {
     const protectedEntry = deletionPaths.some((deletedPath) => props.protectedPaths.some(
       (protectedPath) => protectedPath === deletedPath || protectedPath.startsWith(`${deletedPath}/`),
     ));
+    // Grouped as make, change, locate, view; a folder's imports make things too.
     const actions: MenuAction[] = [
       ...creationActions(directory ? path : parentDirectory(path)),
-      { icon: Pencil, label: t`Rename`, run: () => model.startRenaming(item.path) },
+      ...(directory ? [
+        { icon: ImagePlus, label: t`Import images here`, disabled: props.assetImporting, run: () => props.onImportAssets(path) },
+        { icon: ClipboardPaste, label: t`Paste clipboard image as figure`, run: () => props.onPasteImage(path) },
+      ] : []),
+      { icon: Pencil, label: t`Rename`, group: true, run: () => model.startRenaming(item.path) },
       {
         icon: Copy,
         label: t`Copy path`,
         run: () => void writeText(absoluteProjectPath(props.projectKey, path)).then(() => notifyCopied(t`Path copied`)),
       },
       { icon: FolderOpen, label: t`Show in Finder`, run: () => props.onReveal(path) },
-      hiddenFilesAction,
-      ...(directory ? [
-        { icon: ImagePlus, label: t`Import images here`, disabled: props.assetImporting, run: () => props.onImportAssets(path) },
-        { icon: ClipboardPaste, label: t`Paste clipboard image as figure`, run: () => props.onPasteImage(path) },
-      ] : []),
+      { ...hiddenFilesAction, group: true },
     ];
     const destructive = protectedEntry ? null : {
       label: creation.isPending(path) && deletionPaths.length === 1 ? t`Cancel creation` : t`Delete`,

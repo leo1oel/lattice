@@ -580,9 +580,11 @@ body:has(.modal-backdrop, .drawer-backdrop) .latex-selection-toolbar-anchor { di
 .source-editor .cm-panel.cm-search input[type="checkbox"] { width: 13px; height: 13px; min-width: 0; margin: 0; accent-color: var(--control-active); }
 .source-editor .cm-searchMatch { background: var(--highlight-match-surface); border-radius: 2px; }
 .source-editor .cm-searchMatch-selected { background: var(--highlight-match-current-surface); }
+/* The marker sits on a wrapped line's first row, beside its line number,
+   not halfway down the paragraph. */
 .source-editor .cm-foldGutter .cm-gutterElement {
   display: grid;
-  place-items: center;
+  place-items: start center;
   width: 18px;
   min-width: 18px;
   line-height: inherit;
