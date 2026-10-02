@@ -1,6 +1,8 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { QuickOpenDialog } from "./quick-open-dialog";
+
+afterEach(cleanup);
 
 describe("QuickOpenDialog intent", () => {
   it("previews the highlighted result without opening it", async () => {
