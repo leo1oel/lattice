@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import type { PaperSummary, ProjectSnapshot, UnusedSymbols, WordCount } from "../app-types";
 import type { CitationInfo, ReferenceInfo } from "../editor/latex/latex-text";
@@ -20,7 +20,6 @@ export function loadBibliographyIndex() {
 export function requestBibliographyIndex() {
   return [
     invoke<PaperSummary[]>("list_papers"),
-    invoke<string[]>("list_citation_keys"),
     invoke<CitationInfo[]>("list_citations"),
     invoke<ReferenceInfo[]>("list_references"),
   ] as const;
@@ -33,8 +32,8 @@ export function requestBibliographyIndex() {
 export function useProjectLibrary(state: ProjectState) {
   const { project, setProject, projectRef, projectOperationGenerationRef, projectRefreshGenerationRef } = state;
   const [papers, setPapers] = useState<PaperSummary[]>([]);
-  const [citationKeys, setCitationKeys] = useState<string[]>([]);
   const [citations, setCitations] = useState<CitationInfo[]>([]);
+  const citationKeys = useMemo(() => citations.map((citation) => citation.key), [citations]);
   const [references, setReferences] = useState<ReferenceInfo[]>([]);
   const [bibliographyIndexPending, setBibliographyIndexPending] = useState(false);
   const [unusedSymbols, setUnusedSymbols] = useState<UnusedSymbols>(NO_UNUSED_SYMBOLS);
@@ -65,7 +64,6 @@ export function useProjectLibrary(state: ProjectState) {
 
   /** Forget the outgoing project's keys and labels until the incoming project's index lands. */
   const resetBibliographyIndex = useCallback(() => {
-    setCitationKeys([]);
     setCitations([]);
     setReferences([]);
     setBibliographyIndexPending(true);
@@ -77,10 +75,9 @@ export function useProjectLibrary(state: ProjectState) {
   }, []);
 
   const applyBibliographyIndex = useCallback((
-    [nextPapers, nextCitationKeys, nextCitations, nextReferences]: Awaited<ReturnType<typeof loadBibliographyIndex>>,
+    [nextPapers, nextCitations, nextReferences]: Awaited<ReturnType<typeof loadBibliographyIndex>>,
   ) => {
     setPapers(nextPapers);
-    setCitationKeys(nextCitationKeys);
     setCitations(nextCitations);
     applyReferences(nextReferences);
   }, [applyReferences]);
@@ -98,12 +95,10 @@ export function useProjectLibrary(state: ProjectState) {
     if (wroteBib) {
       const isLatestBibliography = claimBibliographyRefresh();
       void Promise.allSettled([
-        invoke<string[]>("list_citation_keys"),
         invoke<CitationInfo[]>("list_citations"),
         invoke<PaperSummary[]>("list_papers"),
-      ]).then(([keys, nextCitations, nextPapers]) => {
+      ]).then(([nextCitations, nextPapers]) => {
         if (projectRef.current?.root !== projectRoot || !isLatestBibliography()) return;
-        if (keys.status === "fulfilled") setCitationKeys(keys.value);
         if (nextCitations.status === "fulfilled") setCitations(nextCitations.value);
         if (nextPapers.status === "fulfilled") setPapers(nextPapers.value);
       });

@@ -196,7 +196,7 @@ export function useProjectLifecycle(deps: ProjectLifecycleDeps) {
     void Promise.all(bibliographyIndex).then((index) => {
       if (!ownsProject()) return;
       if (isLatestBibliography()) applyBibliographyIndex(index);
-      else applyReferences(index[3]);
+      else applyReferences(index[2]);
     }, () => undefined);
     if (!(await entry.restore(nextPapers))) return;
     await depsRef.current.scanProject();

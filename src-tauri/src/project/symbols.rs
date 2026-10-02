@@ -1,13 +1,14 @@
 //! `\label` and `\cite` keys across the manuscript: finding, renaming,
 //! removing, and spotting unused ones.
 
-use super::bibliography::{citation_keys, citations, iter_bibliography_sources};
+use super::bibliography::{citations, iter_bibliography_sources};
 use super::history::apply_transaction;
 use super::paths::relative_to;
 use super::references::{command_argument_at, references};
 use super::tree::read_file;
 use super::{clip_line, err, line_number_at, skip_bytes};
 use crate::models::{RenameSymbolResult, SymbolOccurrence, UnusedSymbols};
+use serde::Deserialize;
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::path::Path;
@@ -310,8 +311,10 @@ fn bibliography_key_offset(source: &str, key: &str) -> Option<usize> {
     None
 }
 
-/// The two kinds of cross-reference symbols a writer can find and rename.
-#[derive(Clone, Copy)]
+/// The two kinds of cross-reference symbols a writer can find and rename;
+/// the frontend names them `"label"` and `"citation"`.
+#[derive(Clone, Copy, Deserialize)]
+#[serde(rename_all = "lowercase")]
 pub enum Symbol {
     Label,
     Citation,
@@ -344,7 +347,7 @@ impl Symbol {
     fn is_defined(self, root: &Path, value: &str) -> Result<bool, String> {
         Ok(match self {
             Self::Label => references(root)?.iter().any(|item| item.label == value),
-            Self::Citation => citation_keys(root)?.iter().any(|key| key == value),
+            Self::Citation => citations(root)?.iter().any(|citation| citation.key == value),
         })
     }
 
@@ -523,5 +526,13 @@ mod tests {
             "See \\ref{fig:architecture} and \\cref{fig:architecture, eq:loss}.\n\\label{fig:architecture}\n\\label{fig:dead}\n\\citep{vaswani2017}\n"
         );
         assert!(fixture.read("references.bib").contains("@article{vaswani2017,"));
+    }
+
+    #[test]
+    fn symbol_kinds_arrive_as_the_frontend_names_them() {
+        let kinds: Vec<Symbol> = serde_json::from_str(r#"["label", "citation"]"#).unwrap();
+        let names = kinds.iter().map(|kind| kind.name()).collect::<Vec<_>>();
+        assert_eq!(names, ["label", "citation key"]);
+        assert!(serde_json::from_str::<Symbol>(r#""environment""#).is_err());
     }
 }

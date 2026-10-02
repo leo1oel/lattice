@@ -12,6 +12,7 @@
  * as if they were its own; `listenInThisWindow` explains why.
  */
 import type { EventCallback, UnlistenFn } from "@tauri-apps/api/event";
+import { subscribeTauriEvent } from "../app/effect-helpers";
 import { listenInThisWindow } from "../app/window-events";
 
 const OVERLEAF_REALTIME_EVENT = "overleaf-realtime";
@@ -25,16 +26,5 @@ export function listenOverleafRealtime<T>(handler: EventCallback<T>): Promise<Un
  * including when the subscription itself only resolves after that.
  */
 export function onOverleafEvent<T extends { type: string }>(handler: (event: T) => void): () => void {
-  let disposed = false;
-  let unlisten: (() => void) | undefined;
-  void listenOverleafRealtime<T>((event) => {
-    if (!disposed) handler(event.payload);
-  }).then((dispose) => {
-    if (disposed) dispose();
-    else unlisten = dispose;
-  });
-  return () => {
-    disposed = true;
-    unlisten?.();
-  };
+  return subscribeTauriEvent<T>(listenOverleafRealtime, handler);
 }

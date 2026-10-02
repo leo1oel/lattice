@@ -2,7 +2,8 @@ import { useCallback, useEffect, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import type { AssetPreview } from "../app-types";
 import { referenceAssetPreviewDataUrl } from "../project/reference-preview";
-import { subscribeTauriEvent, useRefState } from "./effect-helpers";
+import { onProjectFilesChanged } from "../project/project-files-changed";
+import { useRefState } from "./effect-helpers";
 
 type CacheEntry = { promise: Promise<string | null>; characters: number };
 
@@ -56,10 +57,9 @@ export function useReferenceImages(projectRoot: string | undefined, references: 
 
   useEffect(() => {
     if (!projectRoot) return;
-    return subscribeTauriEvent<{ root: string; paths?: string[] | null }>("project-fs-changed", (payload) => {
-      if (payload.root !== projectRoot) return;
+    return onProjectFilesChanged(projectRoot, (paths) => {
       const loaded = loadedRef.current;
-      const touchesLoadedImage = !payload.paths?.length || payload.paths.some((rawPath) => {
+      const touchesLoadedImage = !paths || paths.some((rawPath) => {
         const changedPath = normalizeProjectRelativePath(rawPath);
         return !changedPath || (loaded.root === projectRoot && [...loaded.paths].some((loadedPath) => (
           loadedPath === changedPath || loadedPath.startsWith(`${changedPath}/`)

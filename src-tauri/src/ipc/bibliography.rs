@@ -12,13 +12,6 @@ use std::path::PathBuf;
 use tauri::{AppHandle, Manager, State, Window};
 
 #[tauri::command]
-pub async fn list_citation_keys(
-    state: State<'_, AppState>, window: Window,
-) -> Result<Vec<String>, String> {
-    in_project(&state, &window, "Citation scan", project::citation_keys).await
-}
-
-#[tauri::command]
 pub async fn list_citations(
     state: State<'_, AppState>, window: Window,
 ) -> Result<Vec<CitationInfo>, String> {

@@ -40,8 +40,7 @@ pub(crate) use archive::safe_zip_entry_name;
 pub use archive::{export_project_zip, import_project_zip};
 pub use assets::{prepare_latex_figure, read_asset, read_asset_range, save_asset_copy};
 pub use bibliography::{
-    bbl_target_for_bib, bib_target_for_bbl, citation_keys, citations, read_bib_entry,
-    save_bib_entry,
+    bbl_target_for_bib, bib_target_for_bbl, citations, read_bib_entry, save_bib_entry,
 };
 pub(crate) use bibliography::{
     bibliography_arxiv_id, bibliography_entry_spans, iter_bibliography_sources, normalize_doi,

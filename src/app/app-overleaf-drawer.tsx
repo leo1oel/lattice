@@ -40,18 +40,12 @@ export function AppOverleafCollabDrawer({ overleaf, onClose, setViewRestore, act
         tab={overleaf.overleafCollabTab}
         onTab={overleaf.setOverleafCollabTab}
         onClose={onClose}
-        threads={overleafComments.threads}
-        anchors={overleafComments.anchors}
-        activeDocId={overleafRealtime.docId}
+        comments={overleafComments}
+        chat={overleafChat}
+        trackChanges={overleafTrackChanges}
+        realtime={overleafRealtime}
         pathForDoc={(id) => overleaf.overleafDocPaths.get(id) ?? null}
-        documentOpen={overleafRealtime.docId !== null}
-        commentsLoading={overleafComments.loading}
-        commentsError={overleafComments.error}
-        onReply={overleafComments.reply}
-        onResolve={overleafComments.setResolved}
-        onDeleteThread={overleafComments.remove}
-        onEditMessage={overleafComments.editMessage}
-        onDeleteMessage={overleafComments.deleteMessage}
+        source={source}
         // The comment may be on a file that is not open, so open it first and
         // place the caret after.
         onRevealComment={(path, position) => {
@@ -61,19 +55,6 @@ export function AppOverleafCollabDrawer({ overleaf, onClose, setViewRestore, act
           const path = activeFileRef.current;
           if (path) revealAt(path, position);
         }}
-        messages={overleafChat.messages}
-        chatLoading={overleafChat.loading}
-        chatError={overleafChat.error}
-        onSend={overleafChat.send}
-        unreadChat={overleafChat.unread}
-        changes={overleafRealtime.changes}
-        source={source}
-        changeAuthorName={overleafTrackChanges.authorName}
-        canActOnChanges={overleafRealtime.canWrite}
-        changesBusy={overleafTrackChanges.busy}
-        changesError={overleafTrackChanges.error}
-        onAcceptChanges={overleafTrackChanges.accept}
-        onRejectChanges={overleafTrackChanges.reject}
       />
     </Suspense>
   );

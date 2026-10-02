@@ -3,7 +3,6 @@
  */
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { listen } from "@tauri-apps/api/event";
 import { GitBranch, RotateCcw, Save, X } from "lucide-react";
 import { useLingui } from "@lingui/react/macro";
 import type { GitFileDiff, GitLogEntry, GitLogFileKind, GitStatus } from "../app-types";
@@ -16,6 +15,7 @@ import { logAction } from "../telemetry/app-notify";
 import { InfinityLoader, ReloadButton, ReloadIconButton } from "../components/ui/activity-icons";
 import { Input } from "../components/ui/input";
 import { FileKindIcon, HistoryDiff } from "./file-diff-view";
+import { onProjectFilesChanged } from "../project/project-files-changed";
 import { useLatestLoad } from "./use-latest-load";
 import { AUTO_COMMIT_MESSAGES, versionMessageLabel } from "./version-messages";
 
@@ -90,24 +90,15 @@ export function VersionsTimeline(props: {
   useEffect(() => {
     const cancelLoad = () => { ++loadSeq.current; };
     void load();
-    let disposed = false;
-    let unlisten: (() => void) | undefined;
     const refresh = () => { void load(); };
-    void listen<{ root: string }>("project-fs-changed", (event) => {
-      if (disposed || (props.projectRoot && event.payload.root !== props.projectRoot)) return;
-      refresh();
-    }).then((dispose) => {
-      if (disposed) dispose();
-      else unlisten = dispose;
-    }).catch(() => { /* Browser previews have no native event bridge. */ });
+    const stopListening = props.projectRoot ? onProjectFilesChanged(props.projectRoot, refresh) : () => undefined;
     // Git commits can also arrive while the app is unfocused or its watcher
     // is unavailable. Only poll while this timeline is mounted.
     const timer = window.setInterval(refresh, 30_000);
     window.addEventListener("focus", refresh);
     return () => {
-      disposed = true;
       cancelLoad();
-      unlisten?.();
+      stopListening();
       window.clearInterval(timer);
       window.removeEventListener("focus", refresh);
     };

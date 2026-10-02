@@ -294,7 +294,7 @@ vi.mock("@pdfslick/core", () => {
 
 /** Answers the commands every window issues at startup; rejects any other command a test did not declare. */
 export function mockAppCommand(command: string) {
-  if (["list_citation_keys", "list_citations", "list_references"].includes(command)) return [];
+  if (["list_citations", "list_references"].includes(command)) return [];
   throw new Error(`Unexpected command: ${command}`);
 }
 

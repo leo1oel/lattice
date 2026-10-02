@@ -389,7 +389,7 @@ describe("project tree and projects", () => {
     const notes = await findProjectTreeItem("notes/");
     const target = await findProjectTreeItem("sections/");
     const backgroundScans = () => vi.mocked(invoke).mock.calls.filter(([command]) => [
-      "refresh_project", "list_papers", "list_citation_keys", "list_citations", "list_references", "list_unused_symbols", "list_history",
+      "refresh_project", "list_papers", "list_citations", "list_references", "list_unused_symbols", "list_history",
     ].includes(command));
     const backgroundCallsBeforeMove = backgroundScans().length;
     const dropTarget = (path: string) => queryProjectTreeItem(path);
@@ -988,11 +988,11 @@ describe("project tree and projects", () => {
   });
 
   it("opens the document before its label index lands, and checks it only against that index", async () => {
-    const citationKeys = deferred<string[]>();
+    const citations = deferred<unknown[]>();
     const references = deferred<unknown[]>();
     renderApp({
       ...projectCommands(projectSnapshot(), "See \\cite{known}, \\ref{fig:model} and \\ref{fig:gone}."),
-      list_citation_keys: () => citationKeys.promise,
+      list_citations: () => citations.promise,
       list_references: () => references.promise,
     });
     const view = await expectEditorText("See \\cite{known}, \\ref{fig:model} and \\ref{fig:gone}.");
@@ -1005,7 +1005,7 @@ describe("project tree and projects", () => {
     await pause(600);
     expect(diagnostics()).toEqual([]);
 
-    citationKeys.resolve(["known"]);
+    citations.resolve([{ key: "known", title: "", authors: "", year: "", venue: "" }]);
     references.resolve([{ label: "fig:model", kind: "figure", title: "", snippet: "", path: "sections/a.tex", line: 1 }]);
     await waitFor(() => expect(diagnostics()).toEqual(["Unknown label “fig:gone”."]));
   });

@@ -2,7 +2,6 @@ import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactN
 import { msg } from "@lingui/core/macro";
 import { useLingui } from "@lingui/react/macro";
 import { invoke } from "@tauri-apps/api/core";
-import { listen } from "@tauri-apps/api/event";
 import { deckIdFromOpenSlidePath, toMessage } from "../../app-utils";
 import { i18n } from "../../i18n";
 import type { OpenSlideFileViewState } from "../../app-types";
@@ -19,6 +18,7 @@ import {
   type OpenSlideMutation,
   type OpenSlideSyncOperation,
 } from "./open-slide-bridge";
+import { onProjectFilesChanged } from "../../project/project-files-changed";
 import "./open-slide-workspace.css";
 
 /** The parts of the `presentation_ensure_ready` payload this view reads. */
@@ -193,7 +193,6 @@ export function OpenSlideWorkspace({
     let refreshing = false;
     let refreshQueued = false;
     let refreshTimer: number | null = null;
-    let unlisten: (() => void) | null = null;
     const scheduleRefresh = () => {
       if (controller.signal.aborted) return;
       if (refreshTimer !== null) window.clearTimeout(refreshTimer);
@@ -236,16 +235,11 @@ export function OpenSlideWorkspace({
     // two-second poll previously rehashed every slide and asset forever,
     // contending with the WebView and Vite while a deck was open.
     void invoke("watch_project").catch(() => undefined);
-    void listen<{ root: string }>("project-fs-changed", (event) => {
-      if (event.payload.root === projectRoot) scheduleRefresh();
-    }).then((dispose) => {
-      if (controller.signal.aborted) dispose();
-      else unlisten = dispose;
-    });
+    const stopListening = onProjectFilesChanged(projectRoot, scheduleRefresh);
     void refresh();
     return () => {
       controller.abort();
-      unlisten?.();
+      stopListening();
       if (refreshTimer !== null) window.clearTimeout(refreshTimer);
       requestNativeRefreshRef.current = () => undefined;
     };

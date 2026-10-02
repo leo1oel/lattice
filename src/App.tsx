@@ -861,9 +861,7 @@ function App() {
 
   /** List every occurrence of a label or citation key in the references panel. */
   const showSymbolReferences = useCallback(async (kind: "label" | "citation", symbol: string) => {
-    const occurrences = kind === "label"
-      ? await invoke<SymbolOccurrence[]>("find_label_occurrences", { label: symbol })
-      : await invoke<SymbolOccurrence[]>("find_citation_occurrences", { key: symbol });
+    const occurrences = await invoke<SymbolOccurrence[]>("find_symbol_occurrences", { kind, name: symbol });
     setReferenceHits({ kind, symbol, occurrences });
   }, []);
 
@@ -871,9 +869,11 @@ function App() {
     if (!renameTarget) return;
     try {
       if (renameTarget.kind === "label" || renameTarget.kind === "citation") {
-        const result = renameTarget.kind === "label"
-          ? await invoke<RenameSymbolResult>("rename_label", { oldLabel: renameTarget.label, newLabel: name })
-          : await invoke<RenameSymbolResult>("rename_citation_key", { oldKey: renameTarget.key, newKey: name });
+        const result = await invoke<RenameSymbolResult>("rename_symbol", {
+          kind: renameTarget.kind,
+          oldName: renameTarget.kind === "label" ? renameTarget.label : renameTarget.key,
+          newName: name,
+        });
         applyBibliographyIndex(await loadBibliographyIndex());
         await refreshUnusedSymbols();
         await refreshHistory();

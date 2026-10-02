@@ -49,42 +49,28 @@ pub async fn replace_in_project(
 }
 
 #[tauri::command]
-pub async fn find_label_occurrences(
-    state: State<'_, AppState>, window: Window, label: String,
+pub async fn find_symbol_occurrences(
+    state: State<'_, AppState>, window: Window, kind: project::Symbol, name: String,
 ) -> Result<Vec<SymbolOccurrence>, String> {
     let root = current_root(&state, &window)?;
-    run_blocking("Label search", move || project::Symbol::Label.occurrences(&root, &label)).await
+    let label = match kind {
+        project::Symbol::Label => "Label search",
+        project::Symbol::Citation => "Citation search",
+    };
+    run_blocking(label, move || kind.occurrences(&root, &name)).await
 }
 
 #[tauri::command]
-pub async fn find_citation_occurrences(
-    state: State<'_, AppState>, window: Window, key: String,
-) -> Result<Vec<SymbolOccurrence>, String> {
-    let root = current_root(&state, &window)?;
-    run_blocking("Citation search", move || project::Symbol::Citation.occurrences(&root, &key))
-        .await
-}
-
-#[tauri::command]
-pub async fn rename_label(
-    state: State<'_, AppState>, window: Window, old_label: String, new_label: String,
+pub async fn rename_symbol(
+    state: State<'_, AppState>, window: Window, kind: project::Symbol, old_name: String,
+    new_name: String,
 ) -> Result<RenameSymbolResult, String> {
     let root = current_root(&state, &window)?;
-    run_blocking("Label rename", move || {
-        project::Symbol::Label.rename(&root, &old_label, &new_label)
-    })
-    .await
-}
-
-#[tauri::command]
-pub async fn rename_citation_key(
-    state: State<'_, AppState>, window: Window, old_key: String, new_key: String,
-) -> Result<RenameSymbolResult, String> {
-    let root = current_root(&state, &window)?;
-    run_blocking("Citation rename", move || {
-        project::Symbol::Citation.rename(&root, &old_key, &new_key)
-    })
-    .await
+    let label = match kind {
+        project::Symbol::Label => "Label rename",
+        project::Symbol::Citation => "Citation rename",
+    };
+    run_blocking(label, move || kind.rename(&root, &old_name, &new_name)).await
 }
 
 #[tauri::command]
