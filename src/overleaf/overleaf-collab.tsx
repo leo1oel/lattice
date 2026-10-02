@@ -12,14 +12,15 @@ import { MessagesSquare } from "lucide-react";
 import { PanelHeader } from "../components/ui/panel-header";
 import { SegmentedControl } from "../components/ui/segmented-control";
 import { ResizableDrawer } from "../components/ui/resizable-drawer";
-import type { OverleafMessage, OverleafThread } from "../app-types";
 import { ChatPanel } from "../components/ui/chat-panel";
 import { InlineMessage } from "../components/ui/inline-message";
 import { CommentVisibilityFilter } from "../editor/comments/comment-visibility-filter";
 import { OverleafCommentsPanel } from "./overleaf-comments";
 import { OverleafChangesPanel } from "./overleaf-changes";
-import type { OverleafCommentAnchor } from "./use-overleaf-comments";
-import type { TrackedChange } from "./use-overleaf-realtime";
+import type { useOverleafChat } from "./use-overleaf-chat";
+import type { OverleafComments } from "./use-overleaf-comments";
+import type { useOverleafRealtime } from "./use-overleaf-realtime";
+import type { useOverleafTrackChanges } from "./use-overleaf-track-changes";
 import "./overleaf-collab.css";
 
 export type OverleafCollabTab = "comments" | "chat" | "changes";
@@ -33,57 +34,35 @@ export function OverleafCollabDrawer(props: {
   tab: OverleafCollabTab;
   onTab: (tab: OverleafCollabTab) => void;
   onClose: () => void;
-
-  threads: OverleafThread[];
-  /** Every comment in the project, not only the open document's. */
-  anchors: Map<string, OverleafCommentAnchor>;
-  activeDocId: string | null;
+  comments: Pick<OverleafComments, "threads" | "anchors" | "loading" | "error" | "reply" | "setResolved" | "remove" | "editMessage" | "deleteMessage">;
+  chat: Pick<ReturnType<typeof useOverleafChat>, "messages" | "loading" | "error" | "send" | "unread">;
+  trackChanges: Pick<ReturnType<typeof useOverleafTrackChanges>, "authorName" | "busy" | "error" | "accept" | "reject">;
+  /** The open document on the live channel: Overleaf's id for it (null when none), its suggestions, and whether you may act on them. */
+  realtime: Pick<ReturnType<typeof useOverleafRealtime>, "docId" | "changes" | "canWrite">;
   pathForDoc: (docId: string) => string | null;
-  documentOpen: boolean;
-  commentsLoading: boolean;
-  commentsError: string | null;
-  onReply: (threadId: string, content: string) => Promise<void>;
-  onResolve: (threadId: string, resolved: boolean) => Promise<void>;
-  onDeleteThread: (threadId: string) => Promise<void>;
-  onEditMessage: (threadId: string, messageId: string, content: string) => Promise<void>;
-  onDeleteMessage: (threadId: string, messageId: string) => Promise<void>;
+  source: string;
   /** Jump to a comment, which may be in a file that is not open. */
   onRevealComment: (path: string, position: number) => void;
   /** Jump to a suggestion, which is always in the open document. */
   onReveal: (position: number) => void;
-
-  messages: OverleafMessage[];
-  chatLoading: boolean;
-  chatError: string | null;
-  onSend: (content: string) => Promise<void>;
-  unreadChat: number;
-
-  /** Suggestions in the open document, and what can be done about them. */
-  changes: TrackedChange[];
-  source: string;
-  changeAuthorName: (userId: string | null) => string;
-  canActOnChanges: boolean;
-  changesBusy: string | null;
-  changesError: string | null;
-  onAcceptChanges: (changeIds: string[]) => Promise<void>;
-  onRejectChanges: (changes: TrackedChange[]) => Promise<void>;
 }) {
   const { t } = useLingui();
   const [commentSource, setCommentSource] = useState(props.focusLocalComments ? "local" : "overleaf");
   const [showResolved, setShowResolved] = useState(!!props.focusThreadId);
-  const chatMessages = useMemo(() => props.messages.map((message) => ({
+  const { comments, chat, trackChanges, realtime } = props;
+  const chatMessages = useMemo(() => chat.messages.map((message) => ({
     id: message.id,
     authorKey: `${message.mine}:${message.authorName}`,
     authorName: message.authorName,
     body: message.content,
     at: message.timestamp,
     mine: message.mine,
-  })), [props.messages]);
-  const openThreads = props.threads.filter((thread) => !thread.resolved).length + (props.localCommentCount ?? 0);
+  })), [chat.messages]);
+  const openThreads = comments.threads.filter((thread) => !thread.resolved).length + (props.localCommentCount ?? 0);
   const badge = (count: number) => (count > 0 ? <em>{count}</em> : null);
   const showLocal = commentSource === "local" && !!props.hasLocalComments;
-  const hasResolved = props.threads.some((thread) => thread.resolved);
-  const threadCount = props.threads.length;
+  const hasResolved = comments.threads.some((thread) => thread.resolved);
+  const threadCount = comments.threads.length;
 
   return (
     <ResizableDrawer className="overleaf-collab-drawer editor-comments-content" onClose={props.onClose}>
@@ -101,22 +80,22 @@ export function OverleafCollabDrawer(props: {
           className="overleaf-collab-tabs"
           items={[
             { value: "comments", label: <>{t`Comments`}{badge(openThreads)}</> },
-            { value: "changes", label: <>{t`Changes`}{badge(props.changes.length)}</> },
-            { value: "chat", label: <>{t`Chat`}{badge(props.unreadChat)}</> },
+            { value: "changes", label: <>{t`Changes`}{badge(realtime.changes.length)}</> },
+            { value: "chat", label: <>{t`Chat`}{badge(chat.unread)}</> },
           ]}
         />
 
         {props.tab === "changes" ? (
           <OverleafChangesPanel
-            changes={props.changes}
+            changes={realtime.changes}
             source={props.source}
-            authorName={props.changeAuthorName}
-            documentOpen={props.documentOpen}
-            canAct={props.canActOnChanges}
-            busy={props.changesBusy}
-            error={props.changesError}
-            onAccept={props.onAcceptChanges}
-            onReject={props.onRejectChanges}
+            authorName={trackChanges.authorName}
+            documentOpen={realtime.docId !== null}
+            canAct={realtime.canWrite}
+            busy={trackChanges.busy}
+            error={trackChanges.error}
+            onAccept={trackChanges.accept}
+            onReject={trackChanges.reject}
             onReveal={props.onReveal}
           />
         ) : props.tab === "comments" ? (
@@ -155,17 +134,17 @@ export function OverleafCollabDrawer(props: {
             ) : (
               <OverleafCommentsPanel
                 focusThreadId={props.focusThreadId}
-                threads={props.threads}
-                anchors={props.anchors}
-                activeDocId={props.activeDocId}
+                threads={comments.threads}
+                anchors={comments.anchors}
+                activeDocId={realtime.docId}
                 pathForDoc={props.pathForDoc}
-                loading={props.commentsLoading}
-                error={props.commentsError}
-                onReply={props.onReply}
-                onResolve={props.onResolve}
-                onDelete={props.onDeleteThread}
-                onEditMessage={props.onEditMessage}
-                onDeleteMessage={props.onDeleteMessage}
+                loading={comments.loading}
+                error={comments.error}
+                onReply={comments.reply}
+                onResolve={comments.setResolved}
+                onDelete={comments.remove}
+                onEditMessage={comments.editMessage}
+                onDeleteMessage={comments.deleteMessage}
                 onReveal={props.onRevealComment}
                 showResolved={showResolved}
               />
@@ -175,17 +154,17 @@ export function OverleafCollabDrawer(props: {
           <ChatPanel
             header={(
               <>
-                {props.chatError && <InlineMessage level="error" className="overleaf-chat-inline">{props.chatError}</InlineMessage>}
+                {chat.error && <InlineMessage level="error" className="overleaf-chat-inline">{chat.error}</InlineMessage>}
               </>
             )}
             messages={chatMessages}
             listClassName="overleaf-chat-list"
             listLabel={t`Overleaf chat messages`}
-            loading={props.chatLoading}
+            loading={chat.loading}
             loadingText={t`Loading the conversation…`}
-            emptyText={props.chatError ? undefined : t`No messages yet. Say something and everyone in the project sees it`}
+            emptyText={chat.error ? undefined : t`No messages yet. Say something and everyone in the project sees it`}
             placeholder={t`Message your collaborators…`}
-            onSend={props.onSend}
+            onSend={chat.send}
           />
         )}
     </ResizableDrawer>

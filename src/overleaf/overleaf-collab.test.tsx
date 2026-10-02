@@ -4,15 +4,21 @@ import { activateAppLocale } from "../i18n";
 import { OverleafCollabDrawer, type OverleafCollabTab } from "./overleaf-collab";
 
 const resolves = () => vi.fn().mockResolvedValue(undefined);
-const drawer = (tab: OverleafCollabTab, overrides: Partial<Parameters<typeof OverleafCollabDrawer>[0]> = {}) => (
+type DrawerProps = Parameters<typeof OverleafCollabDrawer>[0];
+const drawer = (
+  tab: OverleafCollabTab,
+  { comments, ...overrides }: Partial<Omit<DrawerProps, "comments">> & { comments?: Partial<DrawerProps["comments"]> } = {},
+) => (
   <OverleafCollabDrawer
     tab={tab} onTab={vi.fn()} onClose={vi.fn()}
-    threads={[]} anchors={new Map()} activeDocId={null} pathForDoc={() => null} documentOpen
-    commentsLoading={false} commentsError={null} onReply={resolves()} onResolve={resolves()} onDeleteThread={resolves()}
-    onEditMessage={resolves()} onDeleteMessage={resolves()} onRevealComment={vi.fn()} onReveal={vi.fn()}
-    messages={[]} chatLoading={false} chatError={null} onSend={resolves()} unreadChat={0}
-    changes={[]} source="" changeAuthorName={() => "未知"} canActOnChanges changesBusy={null} changesError={null}
-    onAcceptChanges={resolves()} onRejectChanges={resolves()} {...overrides}
+    comments={{
+      threads: [], anchors: new Map(), loading: false, error: null, reply: resolves(), setResolved: resolves(),
+      remove: resolves(), editMessage: resolves(), deleteMessage: resolves(), ...comments,
+    }}
+    chat={{ messages: [], loading: false, error: null, send: resolves(), unread: 0 }}
+    trackChanges={{ authorName: () => "未知", busy: null, error: null, accept: resolves(), reject: resolves() }}
+    realtime={{ docId: "doc", changes: [], canWrite: true }}
+    pathForDoc={() => null} source="" onRevealComment={vi.fn()} onReveal={vi.fn()} {...overrides}
   />
 );
 
@@ -23,7 +29,7 @@ describe("Overleaf collaboration drawer localization", () => {
 
   it("counts both sources and keeps local history accessible even without open local comments", () => {
     const props = {
-      threads: [{ id: "remote", messages: [], resolved: false, resolvedBy: null, resolvedAt: null }],
+      comments: { threads: [{ id: "remote", messages: [], resolved: false, resolvedBy: null, resolvedAt: null }] },
       hasLocalComments: true, localCommentCount: 2, localComments: <div>Unsynced file discussion</div>,
     };
     const { rerender } = render(drawer("comments", props));
@@ -49,7 +55,7 @@ describe("Overleaf collaboration drawer localization", () => {
 
   it("lists resolved Overleaf threads only when the filter asks for all", () => {
     render(drawer("comments", {
-      threads: [{ id: "t1", messages: [{ id: "c1", content: "Settled point", authorName: "Ada", authorEmail: "", timestamp: 0, mine: false }], resolved: true, resolvedBy: "Robin", resolvedAt: null }],
+      comments: { threads: [{ id: "t1", messages: [{ id: "c1", content: "Settled point", authorName: "Ada", authorEmail: "", timestamp: 0, mine: false }], resolved: true, resolvedBy: "Robin", resolvedAt: null }] },
     }));
     expect(screen.queryByText("Settled point")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "All (1)" }));
