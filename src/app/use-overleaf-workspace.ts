@@ -396,6 +396,13 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
         merged: result.merged.length, conflicts: result.conflicts.length, deleted_local: result.deletedLocal.length,
         read_only: result.readOnly === true,
       });
+      // Edited here while the sync ran: left as they were, so they still need
+      // to go up. Queue them like any other disk edit, which also keeps them
+      // out of the realtime rejoin below until that next sync settles them.
+      if (result.editedDuringSync?.length) {
+        for (const path of result.editedDuringSync) externalChangesRef.current.set(path, Symbol());
+        setExternalChangeGeneration((generation) => generation + 1);
+      }
       // Pending whole-file paths omitted from `livePaths` went up with this
       // sync; forget them so a later blur does not download the project again.
       for (const path of deferredWholeFilePathsRef.current) {

@@ -6,15 +6,17 @@
 //! arrive on the realtime channel when a document is joined); the conversation
 //! lives here, behind the same session cookie as everything else.
 
-use super::api::{expect_success, full_name, json_str, Remote};
+use super::api::{expect_success, full_name, json_str, send, Remote};
 use crate::overleaf_rt::parse_comment_ranges;
 use crate::util::err;
 use crate::util::url_encode;
+use reqwest::blocking::Client;
 use reqwest::{Method, StatusCode};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::collections::BTreeSet;
 use std::path::Path;
+use std::time::Duration;
 
 /// One message in the project chat or in a comment thread.
 #[derive(Debug, Clone, Serialize)]
@@ -406,6 +408,9 @@ pub(super) struct HistoryUpdate {
     /// rename, so a file renamed away counts as changed at its old path too.
     /// A folder operation names only the folder.
     pub paths: BTreeSet<String>,
+    /// Whether it changed the project tree — added, removed or renamed
+    /// anything — rather than only editing documents.
+    pub tree: bool,
 }
 
 impl HistoryUpdate {
@@ -419,6 +424,18 @@ impl HistoryUpdate {
                 self.end_ts.is_none_or(|end| end >= ms - HISTORY_SLACK_MS)
             }
         }
+    }
+
+    /// Whether this update ends after version `version`: it carries at least
+    /// some change a copy taken there does not have. One that cannot be
+    /// placed counts.
+    pub fn ends_after(&self, version: i64) -> bool {
+        self.to_v.is_none_or(|v| v > version)
+    }
+
+    /// The version this update brought the project to, if Overleaf said.
+    pub fn to_version(&self) -> Option<i64> {
+        self.to_v
     }
 
     /// Whether this update is already part of a write Lattice itself made at
@@ -438,19 +455,22 @@ impl HistoryUpdate {
 /// on it (see `sync::settle_destructive`), so an unreadable history is an
 /// error, never an empty list the caller might read as "nothing changed".
 pub(super) fn history_since(
-    remote: &Remote, wanted: impl Fn(&HistoryUpdate) -> bool,
+    remote: &Remote, client: &Client, wanted: impl Fn(&HistoryUpdate) -> bool,
 ) -> Result<Vec<HistoryUpdate>, String> {
     let mut history = Vec::new();
     let mut before: Option<i64> = None;
     for _ in 0..HISTORY_PAGES {
         let page = before.map(|before| format!("&before={before}")).unwrap_or_default();
-        let response = remote.get(&format!("/updates?min_count={HISTORY_PAGE}{page}"), 30)?;
+        let path = format!("/updates?min_count={HISTORY_PAGE}{page}");
+        let request = remote.request(client, Method::GET, &path, None);
+        let response = send(request.timeout(Duration::from_secs(30)))?;
         let body: Value =
             expect_success(response, "for the project history")?.json().map_err(err)?;
         let updates = body.get("updates").and_then(Value::as_array).cloned().unwrap_or_default();
         for update in &updates {
             let mut paths: BTreeSet<String> = update_paths(update).into_iter().collect();
-            for op in update.get("project_ops").and_then(Value::as_array).into_iter().flatten() {
+            let ops = update.get("project_ops").and_then(Value::as_array);
+            for op in ops.into_iter().flatten() {
                 if let Some(from) = op.get("rename").and_then(|body| json_str(body, &["pathname"]))
                 {
                     paths.insert(from);
@@ -461,6 +481,7 @@ pub(super) fn history_since(
                 to_v: update.get("toV").and_then(Value::as_i64),
                 end_ts: update.get("meta").and_then(|meta| meta.get("end_ts")?.as_i64()),
                 paths,
+                tree: ops.is_some_and(|ops| !ops.is_empty()),
             };
             if !wanted(&update) {
                 return Ok(history);

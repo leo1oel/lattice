@@ -18,7 +18,7 @@ use crate::util::err;
 use reqwest::header::{ACCEPT, COOKIE};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -61,6 +61,15 @@ pub(super) struct SyncState {
     /// not in the agreed copy.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub agreed_version: Option<i64>,
+    /// Whether `files` says exactly what Overleaf's copy at `remote_version`
+    /// holds, so a sync may stand it in for a download (see
+    /// `sync::agreed_remote_files`): `Some` lists the documents that differ,
+    /// every one of them held by the realtime channel at the time and kept on
+    /// its earlier merge base. `None` when anything else differs — a local
+    /// edit held back, an edit that landed mid-sync, a deletion left standing
+    /// — until a download settles it again.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub unsettled: Option<BTreeSet<String>>,
     /// What this account may do to the project, as Overleaf last reported it.
     /// Absent on projects linked before this was recorded (see
     /// [`permits_writing`]).

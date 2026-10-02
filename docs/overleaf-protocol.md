@@ -170,6 +170,15 @@ purpose.
   project creation.
 - A project ZIP is one downloaded snapshot. A later history version must never
   be recorded as the version that ZIP represents.
+- A sync skips the ZIP only when Overleaf's history proves the copy the last
+  sync agreed on still stands: the version has not moved, or every update since
+  only edited documents the realtime channel holds. That copy is then rebuilt
+  from local files and base copies whose hashes match it; anything that cannot
+  be, any tree change, and any held hollow download mean downloading
+  (`agreed_remote_files` in `src-tauri/src/overleaf/sync.rs`).
+- Uploads run a few at a time, except that a file into a folder Overleaf may
+  not have yet goes first and alone, so two uploads never race to create the
+  same folder.
 - Per-file upload requires the real root folder id returned by `joinProject`.
   The realtime connect command persists it before announcing that the channel is live, and the first automatic sync waits for that result.
   Upload paths are project-relative and must never contain `..`; Overleaf Cloud rejects traversal even when an older server happened to normalize it.
@@ -232,6 +241,11 @@ purpose.
   observed later.
 - Conflict markers are never uploaded. Conflict copies stay local and stay
   excluded from synchronization.
+- A sync never writes over or deletes a file that changed on disk since it read
+  it. Editor saves wait out a sync behind the project lease, but agents and
+  other programs do not; their edit is left as it is, keeps the previous agreed
+  hash, and is reported (`editedDuringSync`) so the next sync merges or sends
+  it. A file edited during its own upload keeps what went up as its merge base.
 - Active, draining and outcome-unknown OT documents stay excluded from ordinary
   ZIP/file synchronization until the realtime owner releases them.
 - Every delayed project-specific Overleaf read or mutation carries the project

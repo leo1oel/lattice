@@ -9,14 +9,15 @@
 
 use super::account::load_session;
 use super::api::{
-    csrf_token, download_project_zip, expect_success, http_client, json_str, latest_update_version,
-    read_zip_entries, send_as, sync_host, Remote,
+    csrf_token, download_project_zip, expect_success, folders_above, http_client, json_str,
+    latest_update_version, read_zip_entries, send_as, sync_host, Remote,
 };
 use super::files::*;
 use super::link::{load_state, now_iso, permits_writing, save_state, Refusal, SyncState, PAUSED};
 use super::review::{history_since, HistoryFrom};
 use crate::overleaf_rt::EntityEntry;
 use crate::util::err;
+use reqwest::blocking::Client;
 use reqwest::header::COOKIE;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
@@ -68,6 +69,12 @@ pub struct OverleafSyncResult {
     /// the project. Everything incoming still landed.
     #[serde(default)]
     pub read_only: bool,
+    /// Files changed here while this sync ran, by something other than the
+    /// editor (whose saves wait for a sync to finish): an agent, another
+    /// editor. The sync wrote nothing over them and recorded none of it, so
+    /// they count as local edits and need one more sync to go up.
+    #[serde(default)]
+    pub edited_during_sync: Vec<String>,
 }
 
 /// What a pending sync would do to one file, computed without touching disk.
@@ -355,12 +362,14 @@ pub(super) fn plan_sync(
 pub(super) struct RemoteFiles {
     pub files: BTreeMap<String, Vec<u8>>,
     pub automatic_remote_deletes: Vec<String>,
+    /// Live documents whose copy in `files` Overleaf has since moved past
+    /// (see `SyncState::unsettled`); a download has none.
+    pub unsettled: BTreeSet<String>,
 }
 
-pub(super) fn fetch_remote_files(remote: &Remote) -> Result<RemoteFiles, String> {
+pub(super) fn fetch_remote_files(remote: &Remote, client: &Client) -> Result<RemoteFiles, String> {
     let Remote { host, session, state } = remote;
-    let zip_bytes =
-        download_project_zip(&http_client(120)?, host, &session.cookie, &state.project_id)?;
+    let zip_bytes = download_project_zip(client, host, &session.cookie, &state.project_id)?;
     let entries = read_zip_entries(&zip_bytes)?;
     // The realtime tree owns entity ids, so the sync cannot delete these
     // itself. Return app-owned leftovers for the frontend to remove; collapse
@@ -373,7 +382,68 @@ pub(super) fn fetch_remote_files(remote: &Remote) -> Result<RemoteFiles, String>
     }
     automatic_remote_deletes.sort();
     let files = entries.into_iter().filter(|(path, _)| !is_excluded(path)).collect();
-    Ok(RemoteFiles { files, automatic_remote_deletes })
+    Ok(RemoteFiles { files, automatic_remote_deletes, unsettled: BTreeSet::new() })
+}
+
+/// Overleaf's copy of the project without downloading it, when its history
+/// proves the copy the last sync agreed on is still Overleaf's copy of every
+/// file this sync may touch.
+///
+/// The download is most of what a sync costs: Overleaf zips the whole project
+/// on every request, figures and all, and most syncs then find nothing new in
+/// it. They run because an upload or typing in a live document moved the
+/// project's version, not because anyone changed a file. So when the version
+/// has not moved since the agreed copy, or every update since then only edited
+/// documents the realtime channel holds (which a sync leaves alone anyway),
+/// the agreed copy stands — and it is already on disk, each file either
+/// unchanged here or kept as its merge base. It must have been exact when it
+/// was recorded (see `SyncState::unsettled`), with every document it was not
+/// exact for still live. Any file that cannot be rebuilt from disk byte for
+/// byte, any change to the project tree, any update the history cannot place,
+/// and a held hollow copy (re-checked against every download) all mean
+/// downloading after all.
+pub(super) fn agreed_remote_files(
+    remote: &Remote, client: &Client, root: &Path, version: Option<i64>,
+    local: &BTreeMap<String, Vec<u8>>, live: &BTreeSet<String>,
+) -> Option<RemoteFiles> {
+    let state = &remote.state;
+    let (Some(agreed), Some(version)) = (state.remote_version, version) else { return None };
+    // A live document the sync leaves alone: present on both sides, so no
+    // pull, push or deletion can come of it either.
+    let held_live = |path: &String| {
+        live.contains(path) && local.contains_key(path) && state.files.contains_key(path)
+    };
+    let mut unsettled = state.unsettled.clone()?;
+    if version < agreed || !state.refused.is_empty() || !unsettled.iter().all(held_live) {
+        return None;
+    }
+    if version > agreed {
+        // Only live documents can excuse a move, so with none there is
+        // nothing to ask the history.
+        if live.is_empty() {
+            return None;
+        }
+        let history = history_since(remote, client, |update| update.ends_after(agreed)).ok()?;
+        // The history must reach the version just read, or it is missing
+        // updates rather than proving there were none.
+        let reaches = history.first().and_then(|update| update.to_version()) == Some(version);
+        let only_live = (history.iter()).all(|update| {
+            !update.tree && !update.paths.is_empty() && update.paths.iter().all(held_live)
+        });
+        if !reaches || !only_live {
+            return None;
+        }
+        unsettled.extend(history.into_iter().flat_map(|update| update.paths));
+    }
+    let files = (state.files.iter())
+        .map(|(path, hash)| {
+            let agreed = |bytes: &Vec<u8>| sha256_hex(bytes) == *hash;
+            let bytes = (local.get(path).filter(|bytes| agreed(bytes)).cloned())
+                .or_else(|| read_base_copy(root, path).map(String::into_bytes).filter(agreed))?;
+            Some((path.clone(), bytes))
+        })
+        .collect::<Option<_>>()?;
+    Some(RemoteFiles { files, automatic_remote_deletes: Vec::new(), unsettled })
 }
 
 /// Where the agreed copy from the last sync stands in Overleaf's history: the
@@ -395,7 +465,7 @@ fn agreed_copy(state: &SyncState) -> Option<HistoryFrom> {
 /// An unreadable history refuses them all. Holding a file back costs one more
 /// sync; writing a hollow download over it costs the file.
 pub(super) fn settle_destructive(
-    remote: &Remote, plan: &mut SyncPlan,
+    remote: &Remote, client: &Client, plan: &mut SyncPlan,
 ) -> BTreeMap<String, Refusal> {
     if plan.destructive.is_empty() {
         return BTreeMap::new();
@@ -408,7 +478,7 @@ pub(super) fn settle_destructive(
         })
         .collect();
     // One read covers them all, back to the earliest window.
-    let history = history_since(remote, |update| windows.values().any(|from| update.after(*from)))
+    let history = (history_since(remote, client, |update| windows.values().any(|from| update.after(*from))))
         .unwrap_or_else(|error| {
             log::warn!(target: "lattice::overleaf", "Could not read Overleaf's history to confirm destructive changes: {error}");
             Vec::new()
@@ -445,17 +515,21 @@ pub(super) fn sync_stamp() -> String {
 ///
 /// Most successful paths now match the bytes on disk. A conflicted path is
 /// the exception: the disk copy has markers while its recorded common
-/// ancestor is Overleaf's snapshot. Live-held paths may match neither and
-/// deliberately keep their previous base.
+/// ancestor is Overleaf's snapshot. So is a file edited again while its upload
+/// was under way: the ancestor is what went up, which only `known` still
+/// holds. Live-held paths may match neither and deliberately keep their
+/// previous base. `known` is every other copy of a file this sync had in hand
+/// — Overleaf's, and what it uploaded.
 pub(super) fn finalize_base_copies(
     root: &Path, previous_files: &BTreeMap<String, String>, next_files: &BTreeMap<String, String>,
-    remote: &BTreeMap<String, Vec<u8>>,
+    known: &[&BTreeMap<String, Vec<u8>>],
 ) -> Result<(), String> {
     for (path, expected_hash) in next_files {
+        let agreed = |bytes: &&Vec<u8>| sha256_hex(bytes) == *expected_hash;
         let disk = fs::read(disk_path(root, path)).ok();
-        let agreed = (disk.as_ref().filter(|bytes| sha256_hex(bytes) == *expected_hash))
-            .or_else(|| remote.get(path).filter(|bytes| sha256_hex(bytes) == *expected_hash));
-        if let Some(bytes) = agreed {
+        let bytes = (disk.as_ref().filter(agreed))
+            .or_else(|| known.iter().find_map(|copies| copies.get(path).filter(agreed)));
+        if let Some(bytes) = bytes {
             write_base_copy(root, path, bytes)?;
         }
     }
@@ -465,7 +539,7 @@ pub(super) fn finalize_base_copies(
     for path in previous_files.keys() {
         if !next_files.contains_key(path)
             && !disk_path(root, path).exists()
-            && !remote.contains_key(path)
+            && !known.iter().any(|copies| copies.contains_key(path))
         {
             remove_base_copy(root, path);
         }
@@ -473,25 +547,80 @@ pub(super) fn finalize_base_copies(
     Ok(())
 }
 
+/// What became of `path` on disk since this sync read it there.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum SinceRead {
+    /// It still holds what was read (`None`: it was absent), so writing over
+    /// it or deleting it loses nothing.
+    Unchanged,
+    /// The file this sync read was edited or deleted: the next sync reads the
+    /// change as the local edit it is.
+    Edited,
+    /// Something this sync never read sits there — a file too large, not a
+    /// regular file, under a symlinked folder, or unreadable. It is left
+    /// alone, but syncing again would find exactly the same, so it is no edit
+    /// to report.
+    Unread,
+}
+
+/// The editor's own saves wait for a sync to finish, but an agent or another
+/// program writes whenever it likes. Its edit is newer than anything the plan
+/// knows about, so a file changed since the read is left exactly as it is.
+/// Only a file within the size limit is ever read, here as in the sync's own
+/// read of the project.
+fn since_read(root: &Path, path: &str, read: Option<&Vec<u8>>) -> SinceRead {
+    let disk = disk_path(root, path);
+    let meta = fs::symlink_metadata(&disk);
+    let Some(read) = read else {
+        return match meta {
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => SinceRead::Unchanged,
+            _ => SinceRead::Unread,
+        };
+    };
+    match meta {
+        Ok(meta) if meta.is_file() && meta.len() <= MAX_SYNC_FILE_BYTES => match fs::read(&disk) {
+            Ok(bytes) if bytes == *read => SinceRead::Unchanged,
+            _ => SinceRead::Edited,
+        },
+        _ => SinceRead::Edited,
+    }
+}
+
+/// One sync's HTTP client. Every request of the sync goes through it, so they
+/// share one connection instead of each paying for its own TLS handshake —
+/// several round trips apiece over a slow or proxied link. The deadline is the
+/// project download's; quicker reads set their own.
+fn sync_client() -> Result<Client, String> {
+    http_client(120)
+}
+
 pub fn sync(
     config_dir: &Path, root: &Path, live: &BTreeSet<String>, observed_remote_version: Option<i64>,
 ) -> Result<OverleafSyncResult, String> {
     let linked = Remote::open_for_sync(config_dir, root)?;
-    let (client, csrf) = linked.csrf_client(30)?;
+    let client = sync_client()?;
 
     // Where Overleaf's history stood when we took our copy. Comparing it again
     // just before uploading tells us whether anyone edited in the meantime.
-    let remote_version_before = linked
-        .version(&client)
-        // The cheap probe that requested this sync is an observed lower
-        // bound for the snapshot. Preserve it when the best-effort repeat
-        // is rate-limited instead of erasing a usable baseline.
-        .or(observed_remote_version)
-        .or(linked.state.remote_version);
-    let RemoteFiles { files: remote, automatic_remote_deletes } = fetch_remote_files(&linked)?;
-    let LocalFiles { files: local, oversized } = read_local_files(root)?;
+    // The cheap probe that requested this sync is an observed lower bound for
+    // the snapshot: preserve it when the best-effort repeat is rate-limited.
+    let version = linked.version(&client).or(observed_remote_version);
+    let remote_version_before = version.or(linked.state.remote_version);
+    let mut read = read_local_files(root)?;
+    let agreed = agreed_remote_files(&linked, &client, root, version, &read.files, live);
+    let RemoteFiles { files: remote, automatic_remote_deletes, unsettled } = match agreed {
+        Some(agreed) => agreed,
+        None => {
+            let downloaded = fetch_remote_files(&linked, &client)?;
+            // Read again after the download, so whatever changed here while it
+            // ran is part of this sync rather than left for the next.
+            read = read_local_files(root)?;
+            downloaded
+        }
+    };
+    let LocalFiles { files: local, oversized } = read;
     let mut plan = plan_sync(root, &linked.state, &remote, &local, live, &sync_stamp())?;
-    let refused = settle_destructive(&linked, &mut plan);
+    let mut refused = settle_destructive(&linked, &client, &mut plan);
     // Warn about a refused copy once; the same hollow download on every
     // later sync is not news.
     let refused_incoming: Vec<String> = (refused.iter())
@@ -509,6 +638,18 @@ pub fn sync(
         );
     }
 
+    // A reviewer or a viewer may read the project and not change it. Trying
+    // anyway would be rejected file by file and reported as a sync failure,
+    // when in fact everything that could be done has been: incoming work is
+    // landing below, and the local edits simply stay here.
+    let writable = permits_writing(linked.state.permission.as_deref());
+    // Uploads need the dashboard's CSRF token, which is a whole page of the
+    // account's projects; fetch it only for a sync with something to send,
+    // and before writing anything, so a dead session fails the sync whole.
+    let csrf = (writable && !(plan.push.is_empty() && plan.merge.is_empty()))
+        .then(|| csrf_token(&client, &linked.host, &linked.session.cookie))
+        .transpose()?;
+
     let mut result = OverleafSyncResult {
         refused_incoming,
         skipped_large: oversized,
@@ -517,28 +658,78 @@ pub fn sync(
         ..Default::default()
     };
     let mut new_files = plan.files;
+    // A file changed here since it was read keeps the hash it had before this
+    // sync: an edit on top of the old agreed copy, merged or sent next time.
+    // The agreed version moves on regardless, so a download that would wipe
+    // it out keeps the history window it was confirmed in, as a refusal does,
+    // or the next sync would find the change unconfirmed and send the edit
+    // up over it.
+    let mut leave = |path: &String, new_files: &mut BTreeMap<String, String>, since| {
+        let hash = linked.state.files.get(path);
+        match hash {
+            Some(hash) => new_files.insert(path.clone(), hash.clone()),
+            None => new_files.remove(path),
+        };
+        if let (Some(read), Some(theirs)) = (local.get(path), remote.get(path)) {
+            if wipes_out(read, theirs) {
+                let since = (linked.state.refused.get(path))
+                    .map_or_else(|| agreed_copy(&linked.state), |refusal| refusal.since);
+                refused.insert(path.clone(), Refusal { since, remote: sha256_hex(theirs) });
+            }
+        }
+        if since == SinceRead::Edited {
+            result.edited_during_sync.push(path.clone());
+        }
+    };
+    let since = |path: &String| since_read(root, path, local.get(path));
+    let mut pulled = Vec::new();
     for (path, bytes) in &plan.pull {
+        let since = since(path);
+        if since != SinceRead::Unchanged {
+            leave(path, &mut new_files, since);
+            continue;
+        }
         write_local_file(root, path, bytes)?;
-        result.pulled.push(path.clone());
+        pulled.push(path.clone());
     }
     // Merged bytes exist on disk but not in the `local` snapshot taken at the
     // start of this sync; uploads read from here first.
     let mut merged_content: BTreeMap<String, Vec<u8>> = BTreeMap::new();
+    let mut merged = Vec::new();
     for (path, bytes) in plan.merge {
+        let since = since(&path);
+        if since != SinceRead::Unchanged {
+            leave(&path, &mut new_files, since);
+            continue;
+        }
         write_local_file(root, &path, &bytes)?;
-        result.merged.push(path.clone());
+        merged.push(path.clone());
         merged_content.insert(path, bytes);
     }
+    let mut conflicts = Vec::new();
     for conflict in &plan.conflict {
+        let since = since(&conflict.path);
+        if since != SinceRead::Unchanged {
+            leave(&conflict.path, &mut new_files, since);
+            continue;
+        }
         write_local_file(root, &conflict.local_copy, &conflict.local)?;
         write_local_file(root, &conflict.path, &conflict.resolved)?;
-        result.conflicts.push(conflict.reported());
+        conflicts.push(conflict.reported());
     }
+    let mut deleted_local = Vec::new();
     for path in &plan.delete_local {
+        let since = since(path);
+        if since != SinceRead::Unchanged {
+            leave(path, &mut new_files, since);
+            continue;
+        }
         fs::remove_file(disk_path(root, path))
             .map_err(|e| format!("Could not delete {path}: {e}"))?;
-        result.deleted_local.push(path.clone());
+        deleted_local.push(path.clone());
     }
+    (result.pulled, result.merged, result.conflicts, result.deleted_local) =
+        (pulled, merged, conflicts, deleted_local);
 
     // Plain pushes and merged files both go up.
     let mut to_push: Vec<String> = plan.push;
@@ -546,11 +737,6 @@ pub fn sync(
     to_push.sort();
     let upload_bytes = |path: &String| merged_content.get(path).or_else(|| local.get(path));
 
-    // A reviewer or a viewer may read the project and not change it. Trying
-    // anyway would be rejected file by file and reported as a sync failure,
-    // when in fact everything that could be done has been: incoming work is
-    // already on disk above, and the local edits simply stay here.
-    let writable = permits_writing(linked.state.permission.as_deref());
     // Never hand Overleaf a file whose conflict markers are still unresolved —
     // that would publish the markers to everyone else in the project.
     let (mut to_push, held_back): (Vec<String>, Vec<String>) = if writable {
@@ -581,27 +767,50 @@ pub fn sync(
         }
     }
     let mut own_writes = linked.state.own_writes.clone();
+    let mut sent: BTreeMap<String, Vec<u8>> = BTreeMap::new();
     if !to_push.is_empty() {
-        let uploader = linked.uploader(&client, &csrf)?;
+        let csrf = csrf.as_deref().ok_or("Overleaf's upload token was not fetched.")?;
         for path in &to_push {
-            let bytes = upload_bytes(path)
-                .cloned()
-                .ok_or_else(|| format!("{path} disappeared during sync"))?;
-            uploader.upload(path, bytes)?;
+            let bytes =
+                upload_bytes(path).ok_or_else(|| format!("{path} disappeared during sync"))?;
+            sent.insert(path.clone(), bytes.clone());
         }
+        // Overleaf has every folder that holds a file of its copy.
+        let folders = (remote.keys()).flat_map(|path| folders_above(path)).map(str::to_string);
+        linked.uploader(&client, csrf)?.upload_all(&sent, &folders.collect())?;
         let written = linked
             .version(&client)
             .map(HistoryFrom::Version)
             .unwrap_or_else(|| HistoryFrom::Time(chrono::Utc::now().timestamp_millis()));
         own_writes.extend(to_push.iter().map(|path| (path.clone(), written)));
+        // What went up is the agreed copy even if the file changed again
+        // meanwhile; that newer edit goes up next time.
+        for path in &to_push {
+            if since_read(root, path, sent.get(path)) == SinceRead::Edited {
+                result.edited_during_sync.push(path.clone());
+            }
+        }
     }
     result.pushed = to_push;
     result.read_only = !writable;
+    result.edited_during_sync.sort();
+    result.edited_during_sync.dedup();
 
     // Record what both sides now agree on: this is the common ancestor the
     // next sync merges against.
     let mut state = linked.state;
-    finalize_base_copies(root, &state.files, &new_files, &remote)?;
+    finalize_base_copies(root, &state.files, &new_files, &[&remote, &sent])?;
+    // Where the table now differs from Overleaf's copy, besides what Overleaf
+    // has moved past already. Only live documents may: anything else, a later
+    // sync must download to see.
+    let mut differs = unsettled;
+    let paths: BTreeSet<&String> = remote.keys().chain(new_files.keys()).collect();
+    differs.extend(
+        (paths.into_iter())
+            .filter(|path| new_files.get(*path) != remote.get(*path).map(sha256_hex).as_ref())
+            .cloned(),
+    );
+    state.unsettled = differs.iter().all(|path| live.contains(path)).then_some(differs);
     state.files = new_files;
     own_writes.retain(|path, _| state.files.contains_key(path));
     state.own_writes = own_writes;
@@ -661,10 +870,11 @@ pub fn preview(
 ) -> Result<OverleafPreview, String> {
     let mut linked = Remote::open(config_dir, root)?;
     linked.state.files.retain(|path, _| !is_excluded(path));
-    let remote = fetch_remote_files(&linked)?.files;
+    let client = sync_client()?;
+    let remote = fetch_remote_files(&linked, &client)?.files;
     let local = read_local_files(root)?.files;
     let mut plan = plan_sync(root, &linked.state, &remote, &local, live, &sync_stamp())?;
-    let refused = settle_destructive(&linked, &mut plan);
+    let refused = settle_destructive(&linked, &client, &mut plan);
 
     let local_bytes = |path: &str| local.get(path).map(Vec::as_slice);
     // Conflicts first — they are the only rows that need a decision — then
@@ -702,7 +912,7 @@ pub fn preview(
     let rank = |kind: &str| rank.iter().position(|k| *k == kind).unwrap_or(rank.len());
     changes.sort_by(|a, b| rank(&a.kind).cmp(&rank(&b.kind)).then_with(|| a.path.cmp(&b.path)));
 
-    Ok(OverleafPreview { changes, remote_version: linked.version(&http_client(30)?) })
+    Ok(OverleafPreview { changes, remote_version: linked.version(&client) })
 }
 
 // ---- Probe ---------------------------------------------------------------------

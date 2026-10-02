@@ -56,6 +56,9 @@ impl MockServer {
     }
 }
 
+/// Called with each request's method and URL as it arrives.
+pub(super) type OnRequest = Box<dyn FnMut(&str, &str) + Send>;
+
 /// How the mock Overleaf behaves. Its dashboard is always
 /// [`projects_page_html`].
 #[derive(Default)]
@@ -73,6 +76,9 @@ pub(super) struct Mock {
     pub fail_upload_at: Option<usize>,
     /// Move and rename requests fail.
     pub fail_relocation: bool,
+    /// Runs as each request arrives, before it is answered, with its method
+    /// and URL: the moment to change something while a sync waits on Overleaf.
+    pub on_request: Option<OnRequest>,
 }
 
 impl Mock {
@@ -80,7 +86,7 @@ impl Mock {
         Mock { zip: build_zip(files), ..Default::default() }
     }
 
-    pub fn serve(self) -> MockServer {
+    pub fn serve(mut self) -> MockServer {
         let requests = Arc::new(Mutex::new(Vec::new()));
         let recorded = Arc::clone(&requests);
         let mut versions: VecDeque<i64> = self.versions.iter().copied().collect();
@@ -103,6 +109,9 @@ impl Mock {
                 cookie_header: header("Cookie"),
                 body,
             });
+            if let Some(hook) = self.on_request.as_mut() {
+                hook(&method, &url);
+            }
             let path = url.split('?').next().unwrap_or("");
             const JSON: Option<&str> = Some("application/json");
             let (status, content_type, body): (u16, Option<&str>, Vec<u8>) = match (
