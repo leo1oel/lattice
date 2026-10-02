@@ -5,22 +5,9 @@ import {
 import { createPortal } from "react-dom";
 import { useLingui } from "@lingui/react/macro";
 import { invoke } from "@tauri-apps/api/core";
-import { getCurrentWindow } from "@tauri-apps/api/window";
-import { open, save as saveDialog } from "@tauri-apps/plugin-dialog";
-import { openUrl, revealItemInDir } from "@tauri-apps/plugin-opener";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import * as Y from "yjs";
-import {
-  bibliographyEntryLine,
-  findAppendixMarker,
-  katexMacrosFromSources,
-  mergeReferences,
-  parseGraphicsPaths,
-  parseLocalLabels,
-  parseLocalMacros,
-  type DefinitionTarget,
-  type SymbolTarget,
-} from "./editor/latex/latex-text";
-import { clipboardImageFileName, fileToBase64, rgbaImageToPngBase64 } from "./editor/insert/clipboard-image";
+import { bibliographyEntryLine, type DefinitionTarget, type SymbolTarget } from "./editor/latex/latex-text";
 import { SearchPickerDialog } from "./components/ui/search-picker-dialog";
 import { parsePaperLinkPath } from "./papers/paper-link";
 import { canDownloadPaper, citationSourceUrl } from "./papers/paper-source";
@@ -29,9 +16,7 @@ import {
   loadAuthorNameSetting, loadEditorCommentAuthorId, persistAuthorNameSetting, resolveAuthorName,
 } from "./editor/comments/editor-comment-data";
 import { useAppearance } from "./settings/use-appearance";
-import {
-  browserRuntimeDetached, isBrowserHosted, isBundledChromium, setWorkspaceYieldHandler,
-} from "./platform/browser-runtime";
+import { isBrowserHosted } from "./platform/browser-runtime";
 import { configureInterfaceSounds } from "./telemetry/interface-sounds";
 import { useProjectSearch } from "./app/use-project-search";
 import { useReferenceImages } from "./app/use-reference-images";
@@ -42,6 +27,10 @@ import { useBuildPipeline } from "./app/use-build-pipeline";
 import { useTexSetup } from "./app/use-tex-setup";
 import { useCanvasRequests } from "./app/use-canvas-requests";
 import { useOpenDocuments } from "./app/use-open-documents";
+import { useProjectLifecycle } from "./app/use-project-lifecycle";
+import { useProjectTree } from "./app/use-project-tree";
+import { useLatexStructure } from "./app/use-latex-structure";
+import { useSyncTexNavigation } from "./app/use-synctex-navigation";
 import { useSynaraHost } from "./app/use-synara-host";
 import { useAgentContext } from "./app/use-agent-context";
 import { useProjectState, useProjectTreeWatch } from "./app/use-project-state";
@@ -53,7 +42,7 @@ import {
   useTrafficLightAlignment,
   useWindowMinimumSize,
 } from "./app/use-native-window";
-import { disposeWhenSettled, useLatest } from "./app/effect-helpers";
+import { useLatest, useRefState } from "./app/effect-helpers";
 import { useOverleafWorkspace } from "./app/use-overleaf-workspace";
 import { useAppCommands, type AppCommand } from "./app/use-app-commands";
 import { useTrellisBridge } from "./app/use-trellis-bridge";
@@ -61,7 +50,7 @@ import { writeOpenSlideMutation } from "./app/open-slide-writes";
 import { AppOverleafCollabDrawer } from "./app/app-overleaf-drawer";
 import { AppEditorPanels } from "./app/app-editor-panels";
 import { AppHistoryDrawers } from "./app/app-history-drawers";
-import { AppProjectDialogs, TexSetupDialogs, type CreateProjectForm } from "./app/app-project-dialogs";
+import { AppProjectDialogs, TexSetupDialogs } from "./app/app-project-dialogs";
 import { AppProjectSearchDialogs, AppSearchDialogs, type SearchDialog } from "./app/app-search-dialogs";
 import { AppTitlebar } from "./app/app-titlebar";
 import { PanelActions } from "./trellis/trellis-panel-actions";
@@ -79,30 +68,19 @@ import { OverleafPresenceAvatars } from "./overleaf/overleaf-presence";
 import { ReferencesPanel, type SymbolOccurrence } from "./project/references-panel";
 import { persistSynaraThread, type AgentTurnReview } from "./app/app-synara-embed";
 import {
-  type RecentProject,
   type BuildPreferences,
   BUILD_PREFERENCES_KEY,
-  loadRecentProjects,
-  forgetRecentProject,
-  rememberRecentProject,
   loadBuildPreferences,
   persistOverleafRemoteDelete,
   persistOverleafSyncMode,
-  hasSeenTutorial,
-  markTutorialSeen,
   resolveAppLocale,
   loadSettingsTab,
   persistSettingsTab,
 } from "./settings/app-settings";
-import { waitForAgentCanvasAdapter } from "./agent/agent-canvas-tools";
 import type { AgentProjectDocumentToolRequest } from "./agent/agent-project-document-tools";
 import type { BuildAgentCommentsOptions } from "./agent/agent-editor-comments";
-import {
-  registerAgentSpreadsheetDocumentResolver,
-  waitForAgentSpreadsheetDocument,
-} from "./agent/agent-spreadsheet-tools";
+import { registerAgentSpreadsheetDocumentResolver } from "./agent/agent-spreadsheet-tools";
 import { seedSpreadsheetDoc, spreadsheetDocContent } from "./editor/spreadsheet/spreadsheet-yjs";
-import { rewriteMovedDocumentAssetPaths } from "./editor/insert/figure-insertion";
 import {
   EMPTY_DIAGNOSTICS,
   flattenProjectPaths,
@@ -112,16 +90,10 @@ import {
 import { useTexlabDiagnostics } from "./build/use-texlab-diagnostics";
 import { useCompileRepair } from "./build/use-compile-repair";
 import { Welcome } from "./project/project-dialogs";
-import { activeOutlineNode, includedPathsIn, parseProjectOutline } from "./editor/latex/latex-outline";
 import { baseArxivId } from "./papers/arxiv-id";
-import { type PdfSyncTarget } from "./pdf/pdf-viewer";
-import { mergeTodosWithBuffer } from "./project/todo-scavenger";
 import type {
   ProjectManifest,
-  ProjectSnapshot,
-  SyncTexTarget,
   EditorPosition,
-  PdfSyncResponse,
   PaperSummary,
   RenameTarget,
   RenameSymbolResult,
@@ -131,37 +103,23 @@ import type {
   OverleafStatus,
 } from "./app-types";
 import {
-  absoluteProjectPath,
-  applyProjectPathChanges,
   chooseAction,
   confirmAction,
-  classifyExternalProjectDrop,
-  dropAgentPanelAt,
-  dropCanvasAt,
-  dropDirectoryAt,
-  dropEditorAt,
   isOpenSlideDeckPath,
   isProjectAssetFilePath,
   isProjectSourceFilePath,
   isWholeFileEditorPath,
   paperKey,
-  projectItemPath,
-  remapProjectPath,
   resolveKnownWholeFileProjectPath,
   toMessage,
-  type ProjectPathChange,
 } from "./app-utils";
 import {
   type AgentGitWorkspaceView,
 } from "./agent/synara-runtime";
-import {
-  buildAgentComposerFilesMessage,
-  type AgentComposerFilePayload,
-} from "./agent/agent-composer-files";
 import { logAction } from "./telemetry/app-notify";
 // setError / setWarning / setNotice are the ~170-call-site toast shims; they
 // live beside the hooks extracted out of this file so both can use them.
-import { setError, setNotice, setWarning } from "./app/notify";
+import { setError, setWarning, showingErrors } from "./app/notify";
 import "./App.css";
 
 type RemoveReferenceResult = {
@@ -178,6 +136,7 @@ type RemoveReferenceResult = {
   }>;
 };
 
+const loadTexlabLanguage = () => import("./build/texlab-language");
 const SettingsDialog = lazy(() =>
   import("./settings/settings-dialog").then((module) => ({ default: module.SettingsDialog })),
 );
@@ -223,79 +182,8 @@ type NavigatorHandlers = Pick<ComponentProps<typeof Navigator>, typeof NAVIGATOR
 /** Shared empty word list: `?? []` in JSX rebuilds the editor's lint pass. */
 const EMPTY_SPELLING_WORDS: string[] = [];
 
-/** How long a project switch waits for an in-flight Overleaf sync before giving up on it. */
-const PROJECT_SWITCH_SYNC_WAIT_MS = 15_000;
-
-// Must match the prefix `open_project_window` puts on a window-creation
-// failure. Everything else it can fail with is the project itself.
-// eslint-disable-next-line lingui/no-unlocalized-strings -- matched against the backend's error text
-const NEW_WINDOW_FAILURE_PREFIX = "Could not open a new window";
-
 function isSynaraSettingsTab(tab: SettingsTab): boolean {
   return tab === "agent" || tab === "mcp" || tab === "api";
-}
-
-/** Run `action`: success clears the error banner, a failure shows its message there. */
-async function showingErrors(action: () => Promise<unknown>) {
-  try {
-    await action();
-    setError(null);
-  } catch (reason) {
-    setError(toMessage(reason));
-  }
-}
-
-/**
- * Follow a pointer drag of a project-tree row. Past a 5px threshold,
- * `handOff` gets each pointer position until it takes the drag over (the
- * Trellis workspace, once the pointer leaves the Project panel); the click
- * that ends a handed-off drag is swallowed through `suppressClick`. A drag
- * that never leaves the panel belongs to the tree, which moves files.
- */
-function trackProjectItemDrag(
-  path: string,
-  event: React.PointerEvent,
-  suppressClick: { current: string | null },
-  handOff: (pointer: PointerEvent) => boolean,
-) {
-  if (event.button !== 0) return;
-  const { clientX: startX, clientY: startY, pointerId } = event;
-  let dragging = false;
-  const listening = new AbortController();
-  const end = () => {
-    listening.abort();
-    document.body.classList.remove("dragging-project-item");
-  };
-  const onMove = (pointer: PointerEvent) => {
-    if (pointer.pointerId !== pointerId) return;
-    if (!dragging && Math.hypot(pointer.clientX - startX, pointer.clientY - startY) < 5) return;
-    if (!dragging) document.body.classList.add("dragging-project-item");
-    dragging = true;
-    if (!handOff(pointer)) return;
-    end();
-    suppressClick.current = path;
-    window.setTimeout(() => {
-      if (suppressClick.current === path) suppressClick.current = null;
-    }, 400);
-  };
-  window.addEventListener("pointermove", onMove, { passive: false, signal: listening.signal });
-  window.addEventListener("pointerup", end, { signal: listening.signal });
-  window.addEventListener("pointercancel", end, { signal: listening.signal });
-  window.addEventListener("blur", end, { signal: listening.signal });
-}
-
-/**
- * Once a tree drag leaves the Project panel, cancel the tree's own drag (it
- * moves files between folders) and let Trellis drag the file as a panel.
- */
-function trellisTakesProjectDrag(trellis: TrellisController, path: string, pointer: PointerEvent) {
-  const panel = trellis.panelRect("project");
-  if (!panel) return false;
-  const inside = pointer.clientX >= panel.left && pointer.clientX <= panel.right
-    && pointer.clientY >= panel.top && pointer.clientY <= panel.bottom;
-  if (inside) return false;
-  window.dispatchEvent(new PointerEvent("pointercancel", { pointerId: pointer.pointerId, pointerType: pointer.pointerType }));
-  return trellis.beginFileDrag(path, pointer);
 }
 
 function App() {
@@ -312,14 +200,14 @@ function App() {
   const browserHosted = isBrowserHosted();
   const projectState = useProjectState();
   const {
-    project, setProject, projectRef, projectBeforeTransitionRef,
+    project, setProject, projectRef,
     projectOperationGenerationRef,
-    cancelProjectTransition, captureProjectScope, reconcileProjectTree, withTreeMutation,
+    cancelProjectTransition, captureProjectScope,
   } = projectState;
   const library = useProjectLibrary(projectState);
   const {
-    claimBibliographyRefresh, applyBibliographyIndex,
-    papers, citationKeys, citations, references, setReferences,
+    applyBibliographyIndex,
+    papers, citationKeys, citations, references,
     unusedSymbols, history, diskTodos, setDiskTodos, projectWordCount,
     loadHistory, loadTodos, loadWordCount, refreshUnusedSymbols, refreshHistory, refreshTodos, refreshWordCount,
     refreshAfterSave, refreshProject,
@@ -361,18 +249,16 @@ function App() {
   });
   const {
     file: activeFile, text: source, savedText: savedSource, paper: activePaper, paperView, asset: activeAsset,
-    mode: canvasMode, assetPaths: projectAssetPaths,
+    mode: canvasMode,
   } = documents;
   const {
-    openFile, openAsset, openPaper, flush, save, load: loadFile, accept, reveal, chooseMode, claim, scope,
-    hasUnsavedEdits, markDiskVersion, leavePaper, edit: editFile, clear: clearEditor, enter: enterDocuments,
-    remove: removeDocuments, move: moveDocuments,
+    openFile, openAsset, openPaper, flush, save, load: loadFile, accept, reveal, chooseMode, claim,
+    markDiskVersion, leavePaper, edit: editFile, clear: clearEditor,
   } = documents;
   const { file: activeFileRef, text: sourceRef, saved: savedSourceRef, asset: activeAssetRef } = documents.live;
   const {
-    get: getFileViewState, remember: rememberFileViewState, allow: allowViewState, statesRef: viewStateRef,
+    get: getFileViewState, remember: rememberFileViewState, statesRef: viewStateRef,
   } = documents.viewStates;
-  const autoTutorialAttemptedRef = useRef(false);
   const [postStartupInteraction, setPostStartupInteraction] = useState(false);
   const {
     workspaceIndex,
@@ -397,14 +283,8 @@ function App() {
     window.addEventListener("keydown", enableInteractivePreviews, { capture: true, signal: listening.signal });
     return () => listening.abort();
   }, []);
-  const [editorPosition, setEditorPosition] = useState<EditorPosition | null>(null);
-  // Read by the presence hook, which must not re-subscribe on every keystroke.
-  const editorPositionRef = useRef<EditorPosition | null>(null);
-  editorPositionRef.current = editorPosition;
-  const forwardSyncGenerationRef = useRef(0);
-  const outlineSyncGenerationRef = useRef(0);
-  const [pdfSyncTarget, setPdfSyncTarget] = useState<PdfSyncTarget | null>(null);
-  const [locatingPdf, setLocatingPdf] = useState(false);
+  // The ref is read by the presence hook, which must not re-subscribe on every keystroke.
+  const [editorPosition, setEditorPosition, editorPositionRef] = useRefState<EditorPosition | null>(null);
   const addProjectSpellingWord = useCallback(async (word: string) => {
     const current = projectRef.current;
     const normalized = word.trim();
@@ -418,7 +298,6 @@ function App() {
       if (projectRef.current?.root === current.root) {
         setProject((snapshot) => snapshot ? { ...snapshot, manifest } : snapshot);
       }
-      setError(null);
       return true;
     } catch (reason) {
       setError(toMessage(reason));
@@ -433,24 +312,15 @@ function App() {
   const { openFind: openProjectFind, openReplace: openProjectReplace } = projectSearch;
   const [searchDialog, setSearchDialog] = useState<SearchDialog | null>(null);
   const openCompileDiagnosticRef = useRef<(diagnostic: CompileDiagnostic) => Promise<void>>(async () => undefined);
-  const [nativeEditorDropActive, setNativeEditorDropActive] = useState(false);
-  const [fileDropTargetActive, setFileDropTargetActive] = useState(false);
-  const [agentPanelDropActive, setAgentPanelDropActive] = useState(false);
-  const nativeDragPathsRef = useRef<string[]>([]);
-  const suppressedFigureClick = useRef<string | null>(null);
-  const suppressedProjectFileClick = useRef<string | null>(null);
   const openMarkdownProjectPathRef = useRef<(path: string) => void>(() => undefined);
   const requestEditorLine = useCallback((path: string, line: number) => {
     updateCanvasRequest("navigation", { path, line, id: crypto.randomUUID() });
   }, [updateCanvasRequest]);
   const [pdfPageCount, setPdfPageCount] = useState<number | null>(null);
   const [pdfPageNumber, setPdfPageNumber] = useState(1);
-  const [mainBodyPages, setMainBodyPages] = useState<number | null>(null);
   const [checklistOpen, setChecklistOpen] = useState(false);
   const [paperFetchStates, setPaperFetchStates] = useState<Record<string, "loading" | "success">>({});
   const paperFetchTimers = useRef<Record<string, number>>({});
-  const [assetImporting, setAssetImporting] = useState(false);
-  const [assetDropTarget, setAssetDropTarget] = useState<string | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [gitOpen, setGitOpen] = useState(false);
   const [gitWorkspaceView, setGitWorkspaceView] =
@@ -467,15 +337,10 @@ function App() {
   });
   const authorName = resolveAuthorName({ ...knownAuthorNames, setting: authorNameSetting });
   const [outlineOpen, setOutlineOpen] = useState(false);
-  const projectRootRef = useRef<string | null>(null);
+  const projectRootRef = useLatest(project?.root ?? null);
   const agentProjectDocumentCreatorRef = useRef<((
     request: AgentProjectDocumentToolRequest,
   ) => Promise<string>) | null>(null);
-  const enterProjectRef = useRef<((
-    snapshot: ProjectSnapshot,
-    options?: { deferInitialBuild?: boolean },
-  ) => Promise<void>) | null>(null);
-  projectRootRef.current = project?.root ?? null;
   useEffect(() => registerAgentSpreadsheetDocumentResolver(async (path) => {
     const projectRoot = projectRootRef.current;
     if (!projectRoot) return null;
@@ -493,7 +358,7 @@ function App() {
       },
       dispose: () => doc.destroy(),
     };
-  }), [recordSavedPaths]);
+  }), [projectRootRef, recordSavedPaths]);
   /** Insert `\cite{key}`/`\ref{key}` at the caret, bringing an editor on screen first. */
   const insertCitation = useCallback((key: string, command: InsertSymbolCommand) => {
     updateCanvasRequest("cite", { key, command, id: crypto.randomUUID() });
@@ -502,7 +367,6 @@ function App() {
   const [bibliographyAuditRoot, setBibliographyAuditRoot] = useState<string | null>(null);
   const [bibliographyAuditOpen, setBibliographyAuditOpen] = useState(false);
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
-  const [outlineSources, setOutlineSources] = useState<Record<string, string>>({});
   const [referenceHits, setReferenceHits] = useState<{
     kind: "label" | "citation";
     symbol: string;
@@ -565,7 +429,7 @@ function App() {
     openDiagnosticRef: openCompileDiagnosticRef,
     onMissingTex: texSetup.openForMissingTex,
   });
-  const { build, setBuild, building, outcome: buildOutcome, cleaning, pdfUrl, runBuild, abortBuild, cleanProject, cleanAndRebuild, resetForProject } = buildPipeline;
+  const { build, setBuild, building, outcome: buildOutcome, cleaning, pdfUrl, runBuild, abortBuild, cleanProject, cleanAndRebuild } = buildPipeline;
   const { reset: resetAgentCheckpoints } = agentCheckpoints;
   const { resetQueue: resetBuildQueue, cycleDiagnostic, setDiagnosticsExpanded } = buildPipeline;
   const resetAgentCompileTracking = useCallback((cancelQueuedBuild = false) => {
@@ -577,21 +441,10 @@ function App() {
     return () => resetAgentCompileTracking();
   }, [project?.root, resetAgentCompileTracking]);
   useEffect(() => () => resetAgentCompileTracking(true), [resetAgentCompileTracking]);
-  const beginProjectTransition = useCallback((force = false) => {
-    // Let sync finish its disk refresh before attempting a switch. Cancelling
-    // only its UI phase after a failed switch could leave newly pulled bytes
-    // hidden behind an old editor buffer that later overwrites them.
-    if (overleafSyncingRef.current && !force) return false;
-    projectState.beginTransition();
-    claim();
-    resetAgentCompileTracking(true);
-    cancelPreviewPrewarm();
-    return true;
-  }, [cancelPreviewPrewarm, claim, projectState, resetAgentCompileTracking]);
-  // Forward SyncTeX starts from a .tex caret in the editor, not a preview or an asset.
-  const forwardSyncPosition = editorPosition && pdfUrl && editorPosition.path.toLocaleLowerCase().endsWith(".tex")
-    && (canvasMode === "split" || canvasMode === "pdf") && !activeAsset && editorPosition.path === activeFile
-    ? editorPosition : null;
+  const syncTex = useSyncTexNavigation({
+    documents, captureProjectScope, editorPosition, editorPositionRef, build: buildPipeline, trellis,
+  });
+  const { revealSourceInPdf } = syncTex;
   const agentContext = useAgentContext({
     synara, project, papers, agentVisible,
     workspace: {
@@ -649,171 +502,14 @@ function App() {
     configureInterfaceSounds(appearance.interfaceSounds);
   }, [appearance.interfaceSounds]);
   useWindowMinimumSize(appearance.interfaceScale, trellis.layoutMinWidth);
-  /**
-   * Claim the right to switch projects, waiting out an Overleaf sync rather
-   * than refusing.
-   *
-   * A sync must finish its disk refresh before a switch — cancelling only its
-   * UI phase could leave newly pulled bytes hidden behind an old editor buffer
-   * that later overwrites them. But a linked project auto-syncs on open and
-   * live mode re-syncs every few seconds, so simply rejecting the click meant
-   * "open that project" often did nothing at all and had to be clicked again
-   * with no way to tell when. Queueing behind the sync honors the same
-   * constraint while making one click enough. The timeout is the escape hatch
-   * for a sync that never settles: fall back to the old refusal rather than
-   * leaving the window wedged.
-   */
-  const startProjectTransition = useCallback(async () => {
-    if (overleafSyncingRef.current) {
-      const settled = overleafSyncSettledRef.current;
-      if (settled) {
-        setNotice(t`Finishing Overleaf sync, then switching…`, "Overleaf");
-        await Promise.race([
-          settled,
-          new Promise<void>((resolve) => window.setTimeout(resolve, PROJECT_SWITCH_SYNC_WAIT_MS)),
-        ]);
-      }
-    }
-    // The editor stayed live while Overleaf settled, so publish and durably
-    // save any edit (including a just-finished IME composition) made during
-    // that wait before invalidating the outgoing project's ownership.
-    if (!flush()) {
-      setNotice(t`Finish the current text composition, then switch projects again.`);
-      return false;
-    }
-    if (!(await save())) return false;
-    await Promise.race([
-      flushWholeFilesBeforeProjectTransitionRef.current(),
-      new Promise<void>((resolve) => window.setTimeout(resolve, PROJECT_SWITCH_SYNC_WAIT_MS)),
-    ]);
-    if (hasUnsavedEdits()) {
-      setNotice(t`The document changed while saving. Save it, then switch projects again.`);
-      return false;
-    }
-    if (beginProjectTransition()) return true;
-    setNotice(t`Overleaf sync is finishing. Try switching projects again in a moment.`, "Overleaf");
-    return false;
-  }, [beginProjectTransition, flush, hasUnsavedEdits, save, t]);
-
-  // `name: null` is the untouched default, resolved per render so it follows the interface language.
-  const [createFormState, setCreateForm] = useState<Omit<CreateProjectForm, "name"> & { name: string | null }>({
-    open: false, error: null, name: null, venue: "neurips",
-  });
-  const defaultProjectName = t`Untitled research`;
-  const createForm = useMemo<CreateProjectForm>(
-    () => ({ ...createFormState, name: createFormState.name ?? defaultProjectName }),
-    [createFormState, defaultProjectName],
-  );
-  const updateCreateForm = useCallback((update: Partial<CreateProjectForm>) => {
-    setCreateForm((form) => ({ ...form, error: null, ...update }));
-  }, []);
-  const [projectMenuOpen, setProjectMenuOpen] = useState(false);
-  const [recentProjects, setRecentProjects] = useState<RecentProject[]>(loadRecentProjects);
   const [renameTarget, setRenameTarget] = useState<RenameTarget | null>(null);
   const [renameError, setRenameError] = useState<string | null>(null);
-  const [busyLabel, setBusyLabel] = useState<string | null>(null);
   const isFullscreen = useFullscreen();
   const shellRef = useRef<HTMLDivElement | null>(null);
-
-  const rememberProject = useCallback((snapshot: ProjectSnapshot) => {
-    setRecentProjects(rememberRecentProject({ name: snapshot.manifest.name, path: snapshot.root }));
-  }, []);
 
   const projectHistory = useMemo(() => [...history, ...agentCheckpoints.historyItems].sort((left, right) => (
     right.timestamp.localeCompare(left.timestamp)
   )), [agentCheckpoints.historyItems, history]);
-
-  useEffect(() => {
-    if (!browserHosted) return;
-    const saveBrowserPage = (event?: BeforeUnloadEvent) => {
-      flush();
-      if (!hasUnsavedEdits()) return;
-      // Sending the invoke begins synchronously before the tab is discarded.
-      // The confirmation keeps a just-typed buffer alive long enough for the
-      // loopback write to finish instead of losing the last autosave interval.
-      void save();
-      if (event) {
-        event.preventDefault();
-        event.returnValue = "";
-      }
-    };
-    const pageHide = () => saveBrowserPage();
-    window.addEventListener("beforeunload", saveBrowserPage);
-    window.addEventListener("pagehide", pageHide);
-    return () => {
-      window.removeEventListener("beforeunload", saveBrowserPage);
-      window.removeEventListener("pagehide", pageHide);
-    };
-  }, [browserHosted, flush, hasUnsavedEdits, save]);
-
-  // Before another surface takes this workspace (the default browser, or the
-  // Lattice window coming back), publish and save every edit. The bridge asks
-  // for this too when a bookmarked tab takes over unannounced.
-  const saveForHandoff = useCallback(async () => {
-    flush();
-    const saved = await save();
-    await Promise.race([
-      flushWholeFilesBeforeProjectTransitionRef.current(),
-      new Promise<void>((resolve) => window.setTimeout(resolve, PROJECT_SWITCH_SYNC_WAIT_MS)),
-    ]);
-    return saved;
-  }, [flush, save]);
-  useEffect(() => {
-    if (!browserHosted) return;
-    setWorkspaceYieldHandler(saveForHandoff);
-    return () => setWorkspaceYieldHandler(null);
-  }, [browserHosted, saveForHandoff]);
-
-  /** A tab in the default browser, as opposed to a Lattice window. */
-  const inBrowserTab = browserHosted && !isBundledChromium();
-  /** "Open in browser" from a Lattice window, "Open in Lattice app" from a browser tab. */
-  const moveWorkspace = useCallback(async () => {
-    if (inBrowserTab) {
-      if (!await saveForHandoff()) return;
-      await invoke("return_to_desktop").catch((reason) => {
-        // Once the window has taken over, this page is detached and the
-        // reply never arrives: that is the success case.
-        if (!browserRuntimeDetached()) setError(toMessage(reason));
-      });
-      return;
-    }
-    if (browserHosted) {
-      // The Chromium window: the new tab asks it to yield, then it hides
-      // until the tab gives the workspace back or closes.
-      if (!await saveForHandoff()) return;
-      await invoke("open_in_browser").catch((reason) => setError(toMessage(reason)));
-      return;
-    }
-    // A native WebKit window closes, and the tab starts relaying only once it
-    // has, so the two never edit together. Claim the switch meanwhile.
-    if (!await startProjectTransition()) return;
-    try {
-      await invoke("open_in_browser");
-    } catch (reason) {
-      cancelProjectTransition();
-      setError(toMessage(reason));
-      return;
-    }
-    await getCurrentWindow().close();
-  }, [browserHosted, cancelProjectTransition, inBrowserTab, saveForHandoff, startProjectTransition]);
-  const openProjectFileFromClick = useCallback((path: string, line?: number) => {
-    if (suppressedProjectFileClick.current === path) {
-      suppressedProjectFileClick.current = null;
-      return;
-    }
-    void openFile(path, { line });
-  }, [openFile]);
-
-  const revealPdfSource = useCallback(async (page: number, x: number, y: number) => {
-    await showingErrors(async () => {
-      const target = await invoke<SyncTexTarget>("synctex_edit", { page, x, y });
-      // A citation resolves into the bibliography, a macro into a .sty. Those
-      // files own the whole editor area when opened deliberately, but a jump
-      // out of the PDF must keep the preview it was made from on screen.
-      await openFile(target.path, { line: target.line, revealSource: false });
-      reveal("editor");
-    });
-  }, [openFile, reveal]);
 
   const compile = useCallback(async (
     force = false,
@@ -828,7 +524,7 @@ function App() {
       consumeAgentAssociations: options?.consumeAgentAssociations,
     });
   }, [project, runBuild]);
-  compileRef.current = compile;
+  useLayoutEffect(() => { compileRef.current = compile; }, [compile]);
   /** An explicit build (button, palette) also brings a closed or hidden PDF panel back under Trellis. */
   const compileAndShowPdf = useCallback<typeof compile>((...args) => {
     trellis.showPanel("pdf", { focus: false });
@@ -924,89 +620,6 @@ function App() {
     revealOpenTool(commentsToolKind);
   };
 
-  const revealSourceInPdf = useCallback(async () => {
-    if (!forwardSyncPosition || locatingPdf) return;
-    const position = forwardSyncPosition;
-    const requestGeneration = forwardSyncGenerationRef.current + 1;
-    forwardSyncGenerationRef.current = requestGeneration;
-    const ownsDocuments = scope();
-    const isCurrentRequest = () => (
-      forwardSyncGenerationRef.current === requestGeneration
-      && ownsDocuments()
-      && editorPositionRef.current?.path === position.path
-      && editorPositionRef.current?.line === position.line
-      && editorPositionRef.current?.column === position.column
-    );
-    /** A jump SyncTeX cannot make is a warning, replacing any error or notice. */
-    const warnOnly = (message: string) => {
-      setError(null);
-      setNotice(null);
-      setWarning(message);
-    };
-    setWarning(null);
-    setLocatingPdf(true);
-    try {
-      if (!(await save())) return;
-      if (!isCurrentRequest()) return;
-      if (source !== savedSource || !pdfUrl) await runBuild();
-      if (!isCurrentRequest()) return;
-      const target = await invoke<PdfSyncResponse | null>("synctex_view", {
-        path: position.path,
-        line: position.line,
-        column: position.column,
-      });
-      if (!isCurrentRequest()) return;
-      if (!target) {
-        warnOnly(t`This source line has no matching position in the PDF.`);
-        return;
-      }
-      setWarning(null);
-      setPdfSyncTarget({ ...target, id: crypto.randomUUID() });
-      reveal("pdf");
-      setError(null);
-    } catch (reason) {
-      if (!isCurrentRequest()) return;
-      const message = toMessage(reason);
-      if (message === "This bibliography entry is not included in the compiled PDF.") {
-        warnOnly(message);
-      } else {
-        setWarning(null);
-        setError(message);
-      }
-    } finally {
-      if (forwardSyncGenerationRef.current === requestGeneration) setLocatingPdf(false);
-    }
-  }, [
-    forwardSyncPosition, locatingPdf, pdfUrl, reveal, runBuild, save, savedSource, scope, source, t,
-  ]);
-
-  const navigateOutline = useCallback(async (path: string, line: number) => {
-    const requestGeneration = outlineSyncGenerationRef.current + 1;
-    outlineSyncGenerationRef.current = requestGeneration;
-    const ownsProject = captureProjectScope();
-    const isCurrentRequest = (checkPosition = true) => (
-      outlineSyncGenerationRef.current === requestGeneration
-      && ownsProject()
-      && activeFileRef.current === path
-      && (!checkPosition || (
-        editorPositionRef.current?.path === path
-        && editorPositionRef.current?.line === line
-      ))
-    );
-    setOutlineOpen(false);
-    await openFile(path, { line });
-    if (!isCurrentRequest(false)) return;
-    try {
-      const target = await invoke<PdfSyncResponse | null>("synctex_view", { path, line, column: 0 });
-      if (!isCurrentRequest()) return;
-      if (target) setPdfSyncTarget({ ...target, id: crypto.randomUUID() });
-      reveal("pdf");
-      setError(null);
-    } catch {
-      // The source jump is still useful when this PDF has no SyncTeX map.
-    }
-  }, [activeFileRef, openFile, captureProjectScope, reveal]);
-
   const openCompileDiagnostic = useCallback(async (diagnostic: CompileDiagnostic) => {
     if (!project) return;
     const path = resolveDiagnosticPath(
@@ -1055,22 +668,18 @@ function App() {
     },
   });
 
-  const enterProject = useCallback(
-    async (
-      snapshot: ProjectSnapshot,
-      options?: { deferInitialBuild?: boolean },
-    ) => {
-      void loadDocumentCanvas();
-      beginProjectTransition(true);
-      // The backend already owns the incoming root. The outgoing documents go
-      // before that root is exposed to effects (see enter).
-      const entry = enterDocuments(snapshot);
-      projectRef.current = snapshot;
-      projectBeforeTransitionRef.current = null;
-      setProject(snapshot);
-      const ownsProject = captureProjectScope();
-      rememberProject(snapshot);
-      setProjectMenuOpen(false);
+  const {
+    busyLabel, recentProjects, projectMenuOpen, setProjectMenuOpen, createForm, updateCreateForm,
+    startProjectTransition, revealNewProject, chooseExisting, createProject, chooseRecentProject,
+    openTutorialProject, importOverleafZip, exportProjectZip, inBrowserTab, moveWorkspace,
+  } = useProjectLifecycle({
+    projectState, documents, library, build: buildPipeline, cancelPrewarm: cancelPreviewPrewarm,
+    resetCompileTracking: resetAgentCompileTracking,
+    overleafSync: {
+      syncingRef: overleafSyncingRef, settledRef: overleafSyncSettledRef,
+      flushWholeFilesRef: flushWholeFilesBeforeProjectTransitionRef,
+    },
+    resetProjectUi: () => {
       resetAgentSelection();
       resetEditorComments();
       // A pinned turn review belongs to the outgoing project's thread; keeping
@@ -1078,22 +687,8 @@ function App() {
       setAgentTurnReview(null);
       setDiskTodos([]);
       setTodosOpen(false);
-      resetForProject(snapshot.root);
-      // The startup reopen defers this build and starts its own once the
-      // project is fully entered (see the recent-project auto-reopen below).
-      if (!options?.deferInitialBuild) {
-        void runBuild(false, { immediatePreview: true });
-      }
-      const isLatestBibliography = claimBibliographyRefresh();
-      const bibliographyIndex = await loadBibliographyIndex();
-      const [nextPapers, , , nextReferences] = bibliographyIndex;
-      if (!ownsProject()) return;
-      // Opening a file cancels workspace restoration, not the project's paper
-      // scan. Apply metadata before the restore's own guards, but do not
-      // overwrite a newer bibliography refresh triggered by a save.
-      if (isLatestBibliography()) applyBibliographyIndex(bibliographyIndex);
-      else setReferences(nextReferences ?? []);
-      if (!(await entry.restore(nextPapers))) return;
+    },
+    scanProject: async () => {
       await refreshUnusedSymbols();
       await loadHistory();
       await loadEditorComments();
@@ -1101,257 +696,9 @@ function App() {
       await loadWordCount();
       setPdfPageCount(null);
       setChecklistOpen(false);
-      entry.finish();
-      // Never animate shell opacity from 0 — a cancelled/interrupted tween leaves the
-      // whole window blank white with the UI still "mounted".
-      if (shellRef.current) shellRef.current.style.opacity = "1";
     },
-    [
-      applyBibliographyIndex, beginProjectTransition, captureProjectScope, claimBibliographyRefresh, enterDocuments,
-      loadEditorComments, loadHistory, loadTodos, loadWordCount, projectBeforeTransitionRef, projectRef,
-      refreshUnusedSymbols, rememberProject, resetAgentSelection, resetEditorComments, resetForProject, runBuild,
-      setDiskTodos, setProject, setReferences,
-    ],
-  );
-  enterProjectRef.current = enterProject;
-
-  // On launch, honor a project explicitly assigned to this window, otherwise
-  // reopen the project the writer used last. A genuinely empty first launch
-  // enters the tutorial directly; the welcome screen remains the fallback for
-  // returning writers whose last folder was moved or deleted.
-  //
-  // Resolved by the boot effect below with whether the backend designated an
-  // initial project. The auto-reopen must wait for that answer: both flows
-  // funnel through enterProject, and whichever claims a project generation
-  // last wins — since startProjectTransition became async, the recent-project
-  // reopen could land after the backend's choice and silently clobber it.
-  const [initialProjectProbe] = useState(() => {
-    let resolve!: (result: "project" | "empty" | "failed") => void;
-    const promise = new Promise<"project" | "empty" | "failed">((r) => { resolve = r; });
-    return { promise, resolve };
+    shellRef, browserHosted,
   });
-  const didRouteStartupRef = useRef(false);
-
-  /// Hand a project to a window of its own, or raise the window already
-  /// showing it. Returns the failure message so a caller that keeps a list of
-  /// projects can decide whether the project is worth forgetting.
-  const openProjectWindow = useCallback(async (path: string): Promise<string | null> => {
-    setBusyLabel(t`Opening window…`);
-    try {
-      await invoke("open_project_window", { path });
-      return null;
-    } catch (reason) {
-      const message = toMessage(reason);
-      setError(message);
-      return message;
-    } finally {
-      setBusyLabel(null);
-    }
-  }, [t]);
-
-  /// Show a project that was just created, imported or cloned. A window in use
-  /// keeps what it has and the project gets one of its own; an empty window
-  /// takes it in place, claiming the switch first. The backend deliberately
-  /// does not bind these on creation, so this is the only thing that decides
-  /// where they land. `create` resolves the new project's root.
-  const revealNewProject = useCallback(async (
-    busyLabel: string,
-    create: () => Promise<string>,
-    onError = (reason: unknown) => setError(toMessage(reason)),
-  ) => {
-    setBusyLabel(busyLabel);
-    const openHere = !project?.root;
-    try {
-      if (openHere && !await startProjectTransition()) return;
-      const root = await create();
-      if (openHere) await enterProject(await invoke<ProjectSnapshot>("open_project", { path: root }));
-      else await openProjectWindow(root);
-      return true;
-    } catch (reason) {
-      if (openHere) cancelProjectTransition();
-      onError(reason);
-    } finally {
-      setBusyLabel(null);
-    }
-  }, [cancelProjectTransition, enterProject, openProjectWindow, project?.root, startProjectTransition]);
-
-  /// Replace this window's project with the one at `path`: save, claim the
-  /// switch, enter; roll the claim back on failure.
-  const switchProject = useCallback(async (busyLabel: string, path: string, onError?: () => void) => {
-    setBusyLabel(busyLabel);
-    try {
-      if (!(await save()) || !await startProjectTransition()) return;
-      await enterProject(await invoke<ProjectSnapshot>("open_project", { path }));
-    } catch (reason) {
-      cancelProjectTransition();
-      onError?.();
-      setError(toMessage(reason));
-    } finally {
-      setBusyLabel(null);
-    }
-  }, [cancelProjectTransition, enterProject, save, startProjectTransition]);
-
-
-  const chooseExisting = useCallback(async () => {
-    const selected = await open({ directory: true, multiple: false, title: t`Open a LaTeX project` });
-    if (!selected) return;
-    // Same rule as the recent-projects list: a window in use keeps the project
-    // it has, and the chosen one gets a window of its own.
-    if (project?.root) await openProjectWindow(String(selected));
-    else await switchProject(t`Opening project…`, String(selected));
-  }, [openProjectWindow, project?.root, switchProject, t]);
-
-  const createProject = useCallback(async () => {
-    if (!createForm.name.trim()) {
-      updateCreateForm({ error: t`Enter a project name.` });
-      return;
-    }
-    const parent = await open({ directory: true, multiple: false, title: t`Choose where to create the project` });
-    if (!parent) return;
-    await revealNewProject(t`Creating project…`, async () => {
-      const snapshot = await invoke<ProjectSnapshot>("create_project", {
-        parent, name: createForm.name, venue: createForm.venue,
-      });
-      updateCreateForm({ open: false });
-      return snapshot.root;
-    }, (reason) => updateCreateForm({ error: toMessage(reason) }));
-  }, [createForm.name, createForm.venue, revealNewProject, updateCreateForm, t]);
-
-  const openTutorialProject = useCallback(async () => {
-    autoTutorialAttemptedRef.current = true;
-    setBusyLabel(t`Preparing tutorial…`);
-    try {
-      if (!(await save()) || !await startProjectTransition()) {
-        autoTutorialAttemptedRef.current = false;
-        return false;
-      }
-      const snapshot = await invoke<ProjectSnapshot>("open_tutorial_project");
-      await enterProject(snapshot);
-      chooseMode("source");
-      markTutorialSeen();
-      return true;
-    } catch (reason) {
-      autoTutorialAttemptedRef.current = false;
-      cancelProjectTransition();
-      setError(toMessage(reason));
-      return false;
-    } finally {
-      setBusyLabel(null);
-    }
-  }, [cancelProjectTransition, chooseMode, enterProject, save, startProjectTransition, t]);
-  useEffect(() => {
-    if (didRouteStartupRef.current) return;
-    didRouteStartupRef.current = true;
-    void (async () => {
-      const initialProject = await initialProjectProbe.promise;
-      if (initialProject !== "empty") return;
-      const mostRecent = loadRecentProjects()[0]?.path;
-      if (!mostRecent) {
-        if (!hasSeenTutorial() && !autoTutorialAttemptedRef.current) {
-          void openTutorialProject();
-        }
-        return;
-      }
-      try {
-        if (!await startProjectTransition()) return;
-        const snapshot = await invoke<ProjectSnapshot>("open_project", { path: mostRecent });
-        // Defer enterProject's own initial build (it races cold-start init and
-        // the PDF never appears), then kick one explicitly once the project is
-        // fully entered.
-        await enterProject(snapshot, { deferInitialBuild: true });
-        void runBuild(false, { immediatePreview: true });
-      } catch {
-        cancelProjectTransition();
-        // Folder gone — stay on the welcome screen.
-      }
-    })();
-  }, [
-    cancelProjectTransition, enterProject, initialProjectProbe, openTutorialProject, runBuild,
-    startProjectTransition,
-  ]);
-
-  const importOverleafZip = useCallback(async () => {
-    const zipPath = await open({
-      multiple: false,
-      title: t`Import Overleaf ZIP`,
-      filters: [{ name: t`ZIP archive`, extensions: ["zip"] }],
-    });
-    if (!zipPath) return;
-    const parent = await open({
-      directory: true,
-      multiple: false,
-      title: t`Choose where to extract the project`,
-    });
-    if (!parent) return;
-    await revealNewProject(t`Importing ZIP…`, async () => (
-      (await invoke<ProjectSnapshot>("import_project_zip", { zipPath, parent })).root
-    ));
-  }, [revealNewProject, t]);
-
-  const exportProjectZip = useCallback(async () => {
-    if (!project) return;
-    const zipPath = await saveDialog({
-      title: t`Export project ZIP`,
-      defaultPath: `${project.manifest.name.replace(/[\\/:*?"<>|]+/g, "-") || t`project`}.zip`,
-      filters: [{ name: t`ZIP archive`, extensions: ["zip"] }],
-    });
-    if (!zipPath) return;
-    setBusyLabel(t`Exporting ZIP…`);
-    try {
-      if (!(await save())) return;
-      await invoke("export_project_zip", { zipPath });
-      setError(null);
-    } catch (reason) {
-      setError(toMessage(reason));
-    } finally {
-      setBusyLabel(null);
-    }
-  }, [project, save, t]);
-
-  const chooseRecentProject = useCallback(async (path: string) => {
-    if (path === project?.root) {
-      setProjectMenuOpen(false);
-      return;
-    }
-    // Another project gets its own window once this one is in use. Replacing
-    // the project in place would close editors, cancel a build and reset the
-    // agent for work the writer never asked to put away. With nothing open yet
-    // the window is empty, so it takes the project itself rather than leaving
-    // a blank window behind.
-    if (project?.root) {
-      setProjectMenuOpen(false);
-      const failure = await openProjectWindow(path);
-      // Only the project itself failing means the entry is worth dropping; a
-      // window that could not be created says nothing about the project.
-      if (failure && !failure.startsWith(NEW_WINDOW_FAILURE_PREFIX)) {
-        setRecentProjects(forgetRecentProject(path));
-      }
-      return;
-    }
-    await switchProject(t`Switching project…`, path, () => setRecentProjects(forgetRecentProject(path)));
-  }, [openProjectWindow, project?.root, switchProject, t]);
-
-  useEffect(() => {
-    let active = true;
-    // Boot once. Depending on `enterProject` re-ran this whenever that callback
-    // identity churned (after every build/load), which cleared the PDF and
-    // restarted compile → endless “Rendering PDF…”.
-    void invoke<ProjectSnapshot | null>("initial_project")
-      .then(async (snapshot) => {
-        initialProjectProbe.resolve(snapshot ? "project" : "empty");
-        if (!active || !snapshot) return;
-        await enterProjectRef.current?.(snapshot);
-      })
-      .catch((reason) => {
-        initialProjectProbe.resolve("failed");
-        if (active) setError(toMessage(reason));
-      });
-    return () => {
-      active = false;
-    };
-    // initialProjectProbe is a stable useState value — listed to satisfy the
-    // lint without changing the boot-once behavior.
-  }, [initialProjectProbe]);
 
   useEffect(() => {
     try {
@@ -1404,9 +751,7 @@ function App() {
 
   const fetchAndOpenPaper = useCallback(async (paper: PaperSummary) => {
     if (!canDownloadPaper(paper)) {
-      if (paper.url) {
-        try { await openUrl(paper.url); } catch (reason) { setError(toMessage(reason)); }
-      }
+      if (paper.url) await openUrl(paper.url).catch((reason: unknown) => setError(toMessage(reason)));
       return;
     }
     // Reserve the navigation when the user asks, not after a potentially slow
@@ -1417,7 +762,7 @@ function App() {
       Object.fromEntries(Object.entries(current).filter(([fetching]) => fetching !== key))
     ));
     setPaperFetchStates((current) => ({ ...current, [key]: "loading" }));
-    try {
+    const fetchAndOpen = async () => {
       // Two fetchable shapes: an arXiv id (HTML or PDF route) and a cited
       // webpage (Firecrawl capture). Both return the same bundle contract, so
       // everything after this line treats them identically.
@@ -1437,12 +782,11 @@ function App() {
       }, 1100);
       if (!opening.isCurrent()) return;
       await openPaper(fetched, { claim: opening });
-    } catch (reason) {
+    };
+    await fetchAndOpen().catch((reason: unknown) => {
       clearFetchState();
       if (opening.isCurrent()) setError(toMessage(reason));
-    } finally {
-      clearImportStage();
-    }
+    }).finally(clearImportStage);
   }, [claim, clearImportStage, openPaper, refreshProject]);
 
   const readDraggedPaper = (paper: PaperSummary) => {
@@ -1457,13 +801,41 @@ function App() {
 
   const referenceImages = useReferenceImages(project?.root, references);
 
-  const openProjectAssetFromClick = useCallback((path: string) => {
-    if (suppressedFigureClick.current === path) {
-      suppressedFigureClick.current = null;
-      return;
-    }
-    void openAsset(path);
-  }, [openAsset]);
+  // The document in the editor, and the same text as of the last pause in
+  // typing for the work that reads all of it (useSettledSource): counts,
+  // TODOs, outline, labels, macros. A long buffer pays for that once per pause
+  // rather than once per keystroke; a short one reads live.
+  const { key: editorKey, text: canvasSource } = documents.canvas;
+  const settledCanvasSource = useSettledSource(`${project?.root ?? ""}\n${editorKey}`, canvasSource);
+  const latex = useLatexStructure({
+    project, activeFile, references, diskTodos, editorPosition,
+    // With a Paper in front, the primary buffer is not being edited.
+    settledSource: activePaper ? source : settledCanvasSource,
+    // Go to symbol lists the same outline, so it reads the included files too.
+    outlineWanted: outlineOpen || searchDialog === "goto-symbol",
+    compiledPdf: Boolean(build?.success && pdfUrl),
+  });
+  const {
+    projectPaths, rootDocumentPath, outlineNodes, liveReferences, todoHits, mainBodyPages, forgetIncludedSources,
+  } = latex;
+  const tree = useProjectTree({
+    projectState, documents, library: { refreshProject, refreshHistory }, setGitStatus,
+    overleaf: { link: overleafLink, syncMode: overleafSyncMode, syncRef: overleafSyncRef, settleRemoteDeletes },
+    remapDerivedPaths: (remapPath) => {
+      latex.remapIncludedSources(remapPath);
+      // TexLab resynchronizes the renamed active file rather than retaining
+      // diagnostics for its old URI. Build diagnostics still need remapping.
+      setBuild((current) => current ? {
+        ...current,
+        diagnostics: current.diagnostics.map((diagnostic) => diagnostic.file
+          ? { ...diagnostic, file: remapPath(diagnostic.file) }
+          : diagnostic),
+      } : current);
+    },
+    updateCanvasRequest, postAgentMessage: postSynaraMessage, agentDocumentCreatorRef: agentProjectDocumentCreatorRef,
+    trellis,
+  });
+  const { openFileFromClick: openProjectFileFromClick, openAssetFromClick: openProjectAssetFromClick } = tree;
 
   const openMarkdownProjectPath = useCallback((path: string) => {
     const resolvedPath = resolveKnownWholeFileProjectPath(
@@ -1491,254 +863,12 @@ function App() {
     openMarkdownProjectPathRef.current = openMarkdownProjectPath;
   }, [openMarkdownProjectPath]);
 
-  // A file dragged out of the Project panel becomes a panel wherever it is
-  // dropped: once the pointer leaves the panel, Trellis's own drag takes over.
-  const beginProjectFigureDrag = useCallback((path: string, _label: string, event: React.PointerEvent) => {
-    trackProjectItemDrag(path, event, suppressedFigureClick, (pointer) => trellisTakesProjectDrag(trellis, path, pointer));
-  }, [trellis]);
-  const beginProjectFileDrag = useCallback((path: string, _label: string, event: React.PointerEvent) => {
-    trackProjectItemDrag(path, event, suppressedProjectFileClick, (pointer) => trellisTakesProjectDrag(trellis, path, pointer));
-  }, [trellis]);
-
-  const createProjectEntry = useCallback(async (
-    path: string,
-    kind: "file" | "folder" | "presentation",
-  ) => {
-    try {
-      const createdPath = kind === "presentation"
-        ? await invoke<string>("create_open_slide_deck", { deckId: path, projectRoot: project?.root })
-        : await invoke<string>("create_project_entry", { path, kind, projectRoot: project?.root });
-      allowViewState(createdPath);
-      await refreshProject();
-      await refreshHistory();
-      if (kind !== "folder") {
-        // A local-only file has no Overleaf document id and therefore cannot
-        // join realtime editing. Upload it before opening the editor so the
-        // first keystroke does not have to wait for a later full-sync timer.
-        if (overleafLink && overleafSyncMode === "live") {
-          await overleafSyncRef.current({ auto: true });
-        }
-        await openFile(createdPath);
-      }
-      return createdPath;
-    } catch (reason) {
-      setError(toMessage(reason));
-      throw reason;
-    }
-  }, [
-    allowViewState, openFile, overleafLink, overleafSyncMode, overleafSyncRef, project?.root, refreshHistory,
-    refreshProject,
-  ]);
-  useLayoutEffect(() => {
-    const createAgentProjectDocument = async (request: AgentProjectDocumentToolRequest) => {
-      if (!project?.root) {
-        // eslint-disable-next-line lingui/no-unlocalized-strings -- tool error returned to the agent
-        throw Object.assign(new Error("Open a Lattice project before creating a document."), {
-          code: "project_document_project_unavailable",
-        });
-      }
-      const createdPath = await createProjectEntry(request.args.path, "file");
-      const remainingMs = request.expiresAt - Date.now();
-      const documentReady = request.args.documentType === "board" ? waitForAgentCanvasAdapter : waitForAgentSpreadsheetDocument;
-      await documentReady(createdPath, remainingMs);
-      return createdPath;
-    };
-    agentProjectDocumentCreatorRef.current = createAgentProjectDocument;
-    return () => {
-      if (agentProjectDocumentCreatorRef.current === createAgentProjectDocument) {
-        agentProjectDocumentCreatorRef.current = null;
-      }
-    };
-  }, [createProjectEntry, project?.root]);
-
-  const importProjectAssets = useCallback(async (paths: string[], targetDirectory = "figures"): Promise<string[]> => {
-    if (!paths.length || assetImporting) return [];
-    setAssetImporting(true);
-    const trace = logAction(t`Figures`, t`Import figures`, paths.join(", "));
-    try {
-      const imported = await invoke<string[]>("import_project_assets", {
-        paths,
-        targetDirectory,
-        projectRoot: project?.root,
-      });
-      for (const importedPath of imported) allowViewState(importedPath);
-      await refreshProject();
-      const count = imported.length;
-      trace.ok(targetDirectory
-        ? count === 1 ? t`Imported ${count} figure into ${targetDirectory}.` : t`Imported ${count} figures into ${targetDirectory}.`
-        : count === 1 ? t`Imported ${count} figure into the project root.` : t`Imported ${count} figures into the project root.`);
-      return imported;
-    } catch (reason) {
-      trace.fail(reason);
-      return [];
-    } finally {
-      setAssetImporting(false);
-      setAssetDropTarget(null);
-    }
-  }, [allowViewState, assetImporting, project?.root, refreshProject, t]);
-
-  /**
-   * Run an import into the project tree and settle what it added: re-admit
-   * the paths to view-state memory, then refresh the tree and history.
-   */
-  const importIntoProject = useCallback(async (run: () => Promise<string[]>): Promise<string[]> => {
-    if (assetImporting) return [];
-    setAssetImporting(true);
-    try {
-      const imported = await run();
-      for (const path of imported) allowViewState(path);
-      await reconcileProjectTree();
-      await refreshHistory();
-      setError(null);
-      return imported;
-    } catch (reason) {
-      setError(toMessage(reason));
-      return [];
-    } finally {
-      setAssetImporting(false);
-      setAssetDropTarget(null);
-    }
-  }, [allowViewState, assetImporting, reconcileProjectTree, refreshHistory]);
-
-  const importProjectSources = useCallback(async (paths: string[], targetDirectory = "") => (
-    paths.length ? importIntoProject(() => (
-      invoke<string[]>("import_project_sources", { paths, targetDirectory, projectRoot: project?.root })
-    )) : []
-  ), [importIntoProject, project?.root]);
-
-  /**
-   * Finder-style tree drops: any mix of files and folders, routed by the
-   * backend on content (UTF-8 text through the transaction log, the rest
-   * copied).
-   */
-  const importProjectFiles = useCallback(async (
-    paths: string[],
-    targetDirectory = "",
-    copyExisting = false,
-  ) => (paths.length ? importIntoProject(async () => {
-    const imported = await invoke<{ path: string }[]>("import_project_files", {
-      paths, targetDirectory, projectRoot: project?.root,
-      ...(copyExisting ? { copyExisting: true } : {}),
-    });
-    return imported.map((file) => file.path);
-  }) : []), [importIntoProject, project?.root]);
-
-  const chooseProjectAssets = useCallback(async (targetDirectory = "figures") => {
-    const selected = await open({
-      multiple: true,
-      title: t`Import figures into ${targetDirectory}`,
-      filters: [{ name: t`Figures`, extensions: ["png", "jpg", "jpeg", "pdf", "svg", "eps", "webp"] }],
-    });
-    if (!selected) return;
-    await importProjectAssets(Array.isArray(selected) ? selected : [selected], targetDirectory);
-  }, [importProjectAssets, t]);
-
-  useEffect(() => {
-    if (!project) return;
-    let active = true;
-    const clearDropHighlights = () => {
-      nativeDragPathsRef.current = [];
-      setAssetDropTarget(null);
-      setNativeEditorDropActive(false);
-      setFileDropTargetActive(false);
-      setAgentPanelDropActive(false);
-    };
-    const dispose = disposeWhenSettled(import("@tauri-apps/api/webview")
-      .then(({ getCurrentWebview }) => getCurrentWebview().onDragDropEvent((event) => {
-        if (!active) return;
-        if (event.payload.type === "leave") {
-          clearDropHighlights();
-          return;
-        }
-        if (event.payload.type === "enter") nativeDragPathsRef.current = event.payload.paths;
-        const dragPaths = event.payload.type === "over" ? nativeDragPathsRef.current : event.payload.paths;
-        const editorPosition = dropEditorAt(event.payload.position);
-        const canvasTarget = dropCanvasAt(event.payload.position);
-        const targetDirectory = dropDirectoryAt(event.payload.position);
-        const agentPanelTarget = dropAgentPanelAt(event.payload.position);
-        const dropKind = classifyExternalProjectDrop(dragPaths);
-        const editorPath = activeFileRef.current;
-        const insertsIntoEditor = Boolean(editorPosition && dropKind === "asset" && /\.(?:tex|md)$/i.test(editorPath ?? ""));
-        // The tree accepts every drop kind, so the highlight only tracks
-        // geometry (null when the pointer is not over the Project tree).
-        setAssetDropTarget(targetDirectory);
-        setNativeEditorDropActive(insertsIntoEditor);
-        setAgentPanelDropActive(agentPanelTarget && dropKind !== "unsupported");
-        // Sources open in the editor under the pointer; figures do too unless they insert into its text.
-        const opensInEditor = dropKind === "source" || (dropKind === "asset" && !insertsIntoEditor);
-        setFileDropTargetActive(Boolean(editorPosition && opensInEditor));
-        if (event.payload.type === "drop") {
-          clearDropHighlights();
-          if (!event.payload.paths.length) return;
-          if (agentPanelTarget && dropKind !== "unsupported") {
-            // The agent iframe never sees native drops (Tauri intercepts
-            // them), so read the bytes here and relay them over the embed
-            // bridge into the composer, same as its "+" attachment menu.
-            // Checked ahead of the source/mixed branches: any file the agent
-            // can read (figures and text sources alike) becomes an attachment.
-            void invoke<AgentComposerFilePayload[]>("read_agent_composer_files", { paths: event.payload.paths })
-              .then((files) => postSynaraMessage(buildAgentComposerFilesMessage(files)))
-              .catch((error) => setError(toMessage(error)));
-          } else if (dropKind === "source" && (editorPosition || canvasTarget)) {
-            void importProjectSources(event.payload.paths).then(async (paths) => {
-              for (const path of paths) await openFile(path);
-            });
-          } else if (targetDirectory !== null) {
-            // The Project tree takes any mix, Finder-style, into the folder
-            // under the pointer ("" is the project root). Imported files land
-            // without opening; editor/canvas drops import and open instead.
-            void importProjectFiles(event.payload.paths, targetDirectory);
-          } else if (dropKind === "source") {
-            setError(t`Drop source files onto an editor or the Project pane`);
-          } else if (dropKind === "mixed") {
-            setError(t`Drop source files and figures separately`);
-          } else if (dropKind === "unsupported") {
-            setError(t`This file type can’t be opened in an editor`);
-          } else if (editorPosition && insertsIntoEditor) {
-            void importProjectAssets(event.payload.paths, "figures").then((paths) => {
-              if (!paths.length) return;
-              updateCanvasRequest("figure", {
-                id: crypto.randomUUID(), paths, clientX: editorPosition.x, clientY: editorPosition.y,
-              });
-            });
-          } else if (canvasTarget) {
-            void importProjectAssets(event.payload.paths, "figures").then(async (paths) => {
-              for (const path of paths) await openAsset(path);
-            });
-          } else {
-            setError(t`Drop figures onto a TeX or Markdown editor, or the Project pane`);
-          }
-        }
-      }))
-      // Browser-based tests and previews do not expose native file paths.
-      .catch(() => () => undefined));
-    return () => {
-      active = false;
-      dispose();
-    };
-  }, [
-    activeFileRef, importProjectAssets, importProjectFiles, importProjectSources, openAsset, openFile,
-    postSynaraMessage, project, updateCanvasRequest, t,
-  ]);
-
-  const prepareLatexFigure = useCallback(async (path: string): Promise<string | null> => {
-    try {
-      const prepared = await invoke<string>("prepare_latex_figure", { path, projectRoot: project?.root });
-      if (prepared !== path) await refreshProject();
-      setError(null);
-      return prepared;
-    } catch (reason) {
-      setError(toMessage(reason));
-      return null;
-    }
-  }, [project?.root, refreshProject]);
-
   const handleEditorPosition = useCallback((position: EditorPosition) => {
     editorPositionRef.current = position;
     setEditorPosition((current) => (
       current?.path === position.path && current.line === position.line && current.column === position.column ? current : position
     ));
-  }, []);
+  }, [editorPositionRef, setEditorPosition]);
 
   const gotoDefinition = useCallback(async (target: DefinitionTarget) => {
     if (!project) return;
@@ -1768,164 +898,6 @@ function App() {
     });
   }, [activeFile, openAsset, openFile, project, source, t]);
 
-  const deleteProjectEntries = useCallback(async (requestedPaths: string[]) => {
-    const paths = [...new Set(requestedPaths.map((path) => path.replace(/[\\/]+$/, "")))]
-      .filter((path, _index, candidates) => !candidates.some(
-        (candidate) => candidate !== path && path.startsWith(`${candidate}/`),
-      ));
-    if (!paths.length) return;
-    const path = paths[0];
-    const confirmation = paths.length === 1
-      ? t({ message: `Delete “${{ path }}” from this project?` })
-      : t({ message: `Delete ${{ count: paths.length }} selected items from this project?` });
-    if (!await confirmAction({
-      title: confirmation,
-      message: t`This action cannot be undone.`,
-      confirmLabel: t`Delete`,
-      destructive: true,
-    })) return;
-    try {
-      for (const path of paths) await invoke("delete_project_entry", { path, projectRoot: project?.root });
-      // A successful disk deletion authoritatively retires every UI reference
-      // to that path, including files removed through a deleted directory.
-      await removeDocuments(paths);
-      if (overleafLink && project) {
-        // Structural deletes do not pass through `save()`, so handle the
-        // remote side now instead of waiting for an unrelated later sync.
-        await settleRemoteDeletes(
-          paths,
-          project.root,
-          projectOperationGenerationRef.current,
-        );
-      }
-      await refreshHistory();
-    } catch (reason) {
-      setError(toMessage(reason));
-    }
-  }, [overleafLink, project, projectOperationGenerationRef, refreshHistory, removeDocuments, settleRemoteDeletes, t]);
-
-  const applyProjectEntryPathChanges = useCallback((changes: readonly ProjectPathChange[]) => {
-    if (changes.length === 0) return;
-    const remapPath = (path: string) => remapProjectPath(path, changes);
-
-    moveDocuments(changes);
-    setProject((current) => current ? applyProjectPathChanges(current, changes) : current);
-    setGitStatus((current) => ({
-      ...current,
-      files: current.files.map((file) => ({ ...file, path: remapPath(file.path) })),
-    }));
-    setOutlineSources((current) => Object.fromEntries(
-      Object.entries(current).map(([path, content]) => [remapPath(path), content]),
-    ));
-    // TexLab resynchronizes the renamed active file rather than retaining
-    // diagnostics for its old URI. Build diagnostics still need remapping.
-    setBuild((current) => current ? {
-      ...current,
-      diagnostics: current.diagnostics.map((diagnostic) => diagnostic.file
-        ? { ...diagnostic, file: remapPath(diagnostic.file) }
-        : diagnostic),
-    } : current);
-  }, [moveDocuments, setBuild, setGitStatus, setProject]);
-
-  const renameProjectEntry = useCallback((path: string, name: string) => withTreeMutation(async () => {
-    try {
-      const renamedPath = await invoke<string>("rename_project_entry", { path, newName: name, projectRoot: project?.root });
-      const changes = [{ previousPath: path, nextPath: renamedPath }];
-      applyProjectEntryPathChanges(changes);
-      void markDiskVersion();
-      setError(null);
-      return renamedPath;
-    } catch (reason) {
-      setError(toMessage(reason));
-      await reconcileProjectTree().catch(() => undefined);
-      throw reason;
-    }
-  }), [applyProjectEntryPathChanges, markDiskVersion, project?.root, reconcileProjectTree, withTreeMutation]);
-
-  const moveProjectEntries = useCallback(async (
-    paths: string[],
-    targetDirectory: string,
-  ): Promise<string[]> => {
-    const normalizedTarget = targetDirectory.trim().replace(/[\\/]+$/, "");
-    const plannedChanges = paths.map((path): ProjectPathChange => ({
-      previousPath: path,
-      nextPath: normalizedTarget
-        ? `${normalizedTarget}/${path.split("/").at(-1) ?? path}`
-        : (path.split("/").at(-1) ?? path),
-    }));
-    const completedChanges: ProjectPathChange[] = [];
-    const originalPrimaryPath = activeFileRef.current;
-    let optimisticChangesApplied = false;
-    return withTreeMutation(async () => {
-      try {
-        if (plannedChanges.some((change) => (
-          /\.(?:tex|md)$/i.test(change.previousPath) && change.previousPath === originalPrimaryPath
-        ))) {
-          if (!flush()) {
-            setError(t`Try again`);
-            return [];
-          }
-          if (!(await save())) {
-            // save() already reports the path and underlying write failure.
-            return [];
-          }
-        }
-        applyProjectEntryPathChanges(plannedChanges);
-        optimisticChangesApplied = true;
-        for (const planned of plannedChanges) {
-          const movedPath = await invoke<string>("move_project_entry", {
-            path: planned.previousPath,
-            targetDirectory: normalizedTarget,
-            projectRoot: project?.root,
-          });
-          const completed = { previousPath: planned.previousPath, nextPath: movedPath };
-          completedChanges.push(completed);
-          if (planned.nextPath !== movedPath) {
-            applyProjectEntryPathChanges([{
-              previousPath: planned.nextPath,
-              nextPath: movedPath,
-            }]);
-          }
-          if (/\.(?:tex|md)$/i.test(planned.previousPath)) {
-            const content = planned.previousPath === originalPrimaryPath ? sourceRef.current
-              : await invoke<string>("read_project_file", { path: movedPath, projectRoot: project?.root });
-            const rewritten = rewriteMovedDocumentAssetPaths(
-              content,
-              planned.previousPath,
-              movedPath,
-              projectAssetPaths,
-            );
-            if (rewritten !== content) {
-              // The open buffer takes the rewrite at once, so typing during
-              // the write builds on it; it is clean again once the write lands.
-              if (planned.previousPath === originalPrimaryPath) editFile(rewritten);
-              await invoke("write_project_file", { path: movedPath, content: rewritten, projectRoot: project?.root });
-              if (planned.previousPath === originalPrimaryPath) accept(movedPath, rewritten, { text: rewritten });
-            }
-          }
-        }
-        void markDiskVersion();
-        setError(null);
-        return completedChanges.map((change) => change.nextPath);
-      } catch (reason) {
-        const completedPaths = new Set(completedChanges.map((change) => change.previousPath));
-        const rollbackChanges = optimisticChangesApplied
-          ? plannedChanges
-            .filter((change) => !completedPaths.has(change.previousPath))
-            .reverse()
-            .map((change) => ({ previousPath: change.nextPath, nextPath: change.previousPath }))
-          : [];
-        applyProjectEntryPathChanges(rollbackChanges);
-        setError(toMessage(reason));
-        await reconcileProjectTree().catch(() => undefined);
-        throw reason;
-      }
-    });
-  }, [
-    accept, activeFileRef, applyProjectEntryPathChanges, editFile, flush, markDiskVersion, project?.root,
-    projectAssetPaths, reconcileProjectTree, save, sourceRef, t, withTreeMutation,
-  ]);
-
   /** List every occurrence of a label or citation key in the references panel. */
   const showSymbolReferences = useCallback(async (kind: "label" | "citation", symbol: string) => {
     const occurrences = kind === "label"
@@ -1945,7 +917,7 @@ function App() {
         await refreshUnusedSymbols();
         await refreshHistory();
         if (result.changedFiles.includes(activeFile)) await loadFile(activeFile);
-        setOutlineSources({});
+        forgetIncludedSources();
         setReferenceHits((current) => current && { kind: renameTarget.kind, symbol: name, occurrences: [] });
         await showSymbolReferences(renameTarget.kind, name);
       } else if (renameTarget.kind === "environment") {
@@ -1959,7 +931,7 @@ function App() {
       setRenameError(toMessage(reason));
     }
   }, [
-    activeFile, loadFile, refreshHistory, refreshUnusedSymbols, renameTarget, showSymbolReferences,
+    activeFile, forgetIncludedSources, loadFile, refreshHistory, refreshUnusedSymbols, renameTarget, showSymbolReferences,
     updateCanvasRequest, applyBibliographyIndex,
   ]);
 
@@ -1978,65 +950,6 @@ function App() {
   const openSymbolOccurrence = useCallback((occurrence: SymbolOccurrence) => showingErrors(
     () => openFile(occurrence.path, { line: occurrence.line }),
   ), [openFile]);
-
-  /** Save pasted image bytes into the project; resolves the new path. */
-  const importImageBytes = useCallback(async (
-    readPng: () => Promise<{ base64: string; type: string }>,
-    targetDirectory: string,
-    emptyMessage = "",
-  ): Promise<string | null> => {
-    try {
-      const { base64, type } = await readPng();
-      const path = await invoke<string>("import_clipboard_image", {
-        targetDirectory, fileName: clipboardImageFileName(type), base64Data: base64, projectRoot: project?.root,
-      });
-      await refreshProject();
-      setError(null);
-      return path;
-    } catch (reason) {
-      setError(toMessage(reason) || emptyMessage);
-      return null;
-    }
-  }, [project?.root, refreshProject]);
-  const importClipboardImageFile = useCallback((file: File) => importImageBytes(
-    async () => ({ base64: await fileToBase64(file), type: file.type || "image/png" }),
-    "figures",
-  ), [importImageBytes]);
-  const importSystemClipboardImage = useCallback(async (targetDirectory: string) => project ? importImageBytes(async () => {
-    const { readImage } = await import("@tauri-apps/plugin-clipboard-manager");
-    const image = await readImage();
-    const size = await image.size();
-    return { base64: await rgbaImageToPngBase64(await image.rgba(), size.width, size.height), type: "image/png" };
-  }, targetDirectory, t`No image found on the clipboard.`) : null, [importImageBytes, project, t]);
-  /** Insert an imported figure at the editor caret. */
-  const insertFigureAtCaret = useCallback((path: string | null) => {
-    if (path) updateCanvasRequest("figure", { id: crypto.randomUUID(), paths: [path], clientX: -1, clientY: -1 });
-  }, [updateCanvasRequest]);
-  const handlePasteImageFile = useCallback((file: File) => {
-    void importClipboardImageFile(file).then(insertFigureAtCaret);
-    return true;
-  }, [importClipboardImageFile, insertFigureAtCaret]);
-  const pasteClipboardImage = useCallback(async () => {
-    if (!project || !activeFile?.endsWith(".tex")) {
-      setError(t`Open a .tex file before pasting a figure.`);
-      return;
-    }
-    const path = await importSystemClipboardImage("figures");
-    if (!path) return;
-    reveal("editor");
-    insertFigureAtCaret(path);
-  }, [activeFile, importSystemClipboardImage, insertFigureAtCaret, project, reveal, t]);
-
-  const revealProjectItem = useCallback(async (relativePath: string) => {
-    if (!project) return;
-    try {
-      await revealItemInDir(projectItemPath(project.root, relativePath));
-      setError(null);
-    } catch (reason) {
-      const message = toMessage(reason);
-      setError(t`Could not show that item in Finder. ${message}`);
-    }
-  }, [project, t]);
 
   const deletePaper = useCallback(async (paper: PaperSummary) => {
     if (!paper.citationKey) {
@@ -2145,7 +1058,6 @@ function App() {
         if (path === activeFile && accept(path, content)) await markDiskVersion();
       }
       if (activePaper && paperKey(activePaper) === paperKey(paper)) leavePaper();
-      setError(null);
       await refreshProject();
       await refreshHistory();
     } catch (reason) {
@@ -2232,9 +1144,7 @@ function App() {
         onCloneCancelled={cancelProjectTransition}
         onCloned={(root) => {
           setOverleafPickerOpen(false);
-          void revealNewProject(t`Opening the Overleaf project…`, async () => root).then((opened) => {
-            if (opened) setError(null);
-          });
+          void revealNewProject(t`Opening the Overleaf project…`, async () => root);
         }}
         currentProject={!overleafProjectLinked && project ? { name: project.manifest.name } : null}
         onPublish={publishProjectToOverleaf}
@@ -2268,7 +1178,6 @@ function App() {
             externalOverleafEditsRef.current([path]);
             await refreshProject();
             if (activeFile === path) await loadFile(path);
-            setError(null);
             await compile();
           }}
         />
@@ -2276,141 +1185,17 @@ function App() {
     </Suspense>
   ) : null;
 
-  const projectPaths = useMemo(
-    () => (project ? flattenProjectPaths(project.files) : []),
-    [project],
-  );
-  const rootDocumentPath = project?.manifest.rootDocuments.find((document) => document.isDefault)?.path
-    ?? project?.manifest.rootDocuments[0]?.path
-    ?? "";
   const primaryBibliography = project?.manifest.primaryBibliography ?? "";
   const protectedProjectPaths = useMemo(
     () => [...(rootDocumentPath ? [rootDocumentPath] : []), primaryBibliography],
     [primaryBibliography, rootDocumentPath],
   );
-  // The document in the editor, and the same text as of the last pause in
-  // typing for the work that reads all of it (useSettledSource): counts,
-  // TODOs, outline, labels, macros. A long buffer pays for that once per pause
-  // rather than once per keystroke; a short one reads live.
-  const { key: editorKey, text: canvasSource } = documents.canvas;
-  const settledCanvasSource = useSettledSource(`${project?.root ?? ""}\n${editorKey}`, canvasSource);
-  // With a Paper in front, the primary buffer is not being edited.
-  const settledSource = activePaper ? source : settledCanvasSource;
-  // Live buffers participate in the project-wide TeX derivations below
-  // (outline, macros, labels, appendix) only for .tex files. Deriving the
-  // nullable scalars here keeps every downstream memo inert while typing
-  // Markdown — `null` is Object.is-stable across keystrokes, so the maps and
-  // the parse chains behind them stop recomputing per character.
-  const activeTexSource = activeFile.endsWith(".tex") ? settledSource : null;
-  const liveOutlineSources = useMemo(() => ({
-    ...outlineSources,
-    ...(activeTexSource != null ? { [activeFile]: activeTexSource } : {}),
-  }), [activeFile, activeTexSource, outlineSources]);
-  // Go to symbol lists the same outline, so it reads the included files too:
-  // with only the open buffer it found nothing in a project whose sections
-  // live in \input/\include files, or whenever the root was not open.
-  const outlineWanted = outlineOpen || searchDialog === "goto-symbol";
-  useEffect(() => {
-    if (!project || !outlineWanted || !rootDocumentPath) return;
-    let cancelled = false;
-    const missing: string[] = [];
-    const seen = new Set<string>();
-    const visit = (path: string, depth: number) => {
-      if (depth > 8 || seen.has(path)) return;
-      seen.add(path);
-      const text = liveOutlineSources[path];
-      if (text == null) {
-        missing.push(path);
-        return;
-      }
-      for (const included of includedPathsIn(text, projectPaths)) visit(included, depth + 1);
-    };
-    visit(rootDocumentPath, 0);
-    if (!missing.length) return;
-    void Promise.all(missing.map(async (path) => {
-      try {
-        return [path, await invoke<string>("read_project_file", { path })] as const;
-      } catch {
-        return [path, ""] as const;
-      }
-    })).then((entries) => {
-      if (cancelled) return;
-      setOutlineSources((current) => {
-        const next = { ...current };
-        let changed = false;
-        for (const [path, content] of entries) {
-          if (current[path] === content) continue;
-          next[path] = content;
-          changed = true;
-        }
-        return changed ? next : current;
-      });
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [liveOutlineSources, outlineWanted, project, projectPaths, rootDocumentPath]);
-  const outlineNodes = useMemo(() => {
-    if (!rootDocumentPath) return [];
-    return parseProjectOutline(rootDocumentPath, liveOutlineSources, projectPaths);
-  }, [liveOutlineSources, projectPaths, rootDocumentPath]);
-  const liveReferences = useMemo(() => {
-    let merged = references;
-    if (activeTexSource != null) {
-      merged = mergeReferences(merged, activeFile, parseLocalLabels(activeFile, activeTexSource));
-    }
-    return merged;
-  }, [activeFile, activeTexSource, references]);
-  const activeOutlineId = useMemo(() => {
-    if (!activeFile.endsWith(".tex") || !editorPosition) return null;
-    return activeOutlineNode(outlineNodes, activeFile, editorPosition.line)?.id ?? null;
-  }, [activeFile, editorPosition, outlineNodes]);
   // Versionless arXiv ids whose full text is already in the library — the
   // Discover panel shows these hits as done instead of importable.
   const importedArxivIds = useMemo(
     () => new Set(papers.filter((paper) => paper.hasFullText && paper.arxivId).map((paper) => baseArxivId(paper.arxivId))),
     [papers],
   );
-  const liveSourceMap = useMemo(() => ({
-    ...outlineSources,
-    ...(activeTexSource != null ? { [activeFile]: activeTexSource } : {}),
-  }), [activeFile, activeTexSource, outlineSources]);
-  const liveMacroSources = useMemo(() => Object.values(liveSourceMap), [liveSourceMap]);
-  const liveMacros = useMemo(() => parseLocalMacros(liveMacroSources), [liveMacroSources]);
-  const graphicsRoots = useMemo(() => parseGraphicsPaths(liveMacroSources), [liveMacroSources]);
-  const katexMacros = useMemo(() => katexMacrosFromSources(liveMacroSources), [liveMacroSources]);
-  // TODOs come from .md buffers too (todo_source_path on the Rust side), so
-  // this cannot ride the .tex-only scalars above. The rescan only visits
-  // candidate lines, so it runs in the render that changes the settled text:
-  // deferring it with useDeferredValue re-rendered all of App a second time
-  // per keystroke.
-  const todoHits = useMemo(
-    () => mergeTodosWithBuffer(diskTodos, activeFile, settledSource),
-    [activeFile, diskTodos, settledSource],
-  );
-
-  // Where \appendix sits, as two scalars rather than the marker object. The
-  // source map behind it is rebuilt on every keystroke, so keying the SyncTeX
-  // lookup on the map spent an IPC round trip per character typed while a
-  // build was on screen. The appendix only moves when someone edits around it.
-  const appendixMarker = useMemo(() => findAppendixMarker(liveSourceMap), [liveSourceMap]);
-  const appendixMarkerPath = appendixMarker?.path ?? "";
-  const appendixMarkerLine = appendixMarker?.line ?? 0;
-  useEffect(() => {
-    if (!build?.success || !pdfUrl || !appendixMarkerPath) {
-      setMainBodyPages(null);
-      return;
-    }
-    let cancelled = false;
-    void invoke<{ page: number } | null>("synctex_view", { path: appendixMarkerPath, line: appendixMarkerLine, column: 0 })
-      .then((target) => (target ? Math.max(0, target.page - 1) : null), () => null)
-      .then((pages) => {
-        if (!cancelled) setMainBodyPages(pages);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [appendixMarkerLine, appendixMarkerPath, build?.success, pdfUrl]);
 
   const texlabDiagnostics = useTexlabDiagnostics(project?.root, activeFile, source, build);
 
@@ -2428,7 +1213,7 @@ function App() {
       return;
     }
     const trace = logAction(t`Format`, t`Format document`, path);
-    void import("./build/texlab-language")
+    void loadTexlabLanguage()
       .then(({ formatLatexDocument }) => formatLatexDocument(path, text))
       .then((formatted) => {
         if (formatted === text) {
@@ -2485,7 +1270,7 @@ function App() {
         revealOpenTool("checklist");
       },
     },
-    { id: "paste-image", label: t`Paste clipboard image as figure`, group: t`Edit`, run: () => void pasteClipboardImage() },
+    { id: "paste-image", label: t`Paste clipboard image as figure`, group: t`Edit`, run: () => void tree.pasteClipboardImage() },
     { id: "format", label: t`Format document`, detail: "latexindent", group: t`Edit`, run: formatFocusedDocument },
     { id: "history", label: t`Open project history`, group: t`Project`, run: () => { setHistoryOpen(true); revealOpenTool("history"); } },
     { id: "export-zip", label: t`Export project ZIP`, detail: t`Overleaf / arXiv source pack`, group: t`Project`, run: () => void exportProjectZip() },
@@ -2542,14 +1327,6 @@ function App() {
     autoModeAvailable, changePermissionMode, permissionMode, projectRef, projectSearch.openFind,
     openLiterature, referenceImport.openBibEntry, synaraOrigin,
   ]);
-  // A forward search needs the PDF panel on screen: reopen or reveal it.
-  useEffect(() => {
-    const ws = trellis.ws;
-    if (!ws || !pdfSyncTarget) return;
-    const pdf = ws.view("pdf");
-    if (!pdf || !pdf.visible) trellis.showPanel("pdf", { focus: false });
-  }, [pdfSyncTarget, trellis]);
-
   // The navigators' callbacks are mostly inline, so they change on every App
   // render. The memoized Navigator gets stable forwarders instead, which call
   // the latest handlers: refreshed after every commit, before any event.
@@ -2559,19 +1336,17 @@ function App() {
       onFile: openProjectFileFromClick,
       onLikelyFile: prewarmLikelyProjectFile,
       onAsset: openProjectAssetFromClick,
-      onBeginFigureDrag: beginProjectFigureDrag,
-      onBeginFileDrag: beginProjectFileDrag,
-      onCreateEntry: createProjectEntry,
-      onDeleteEntries: deleteProjectEntries,
-      onRenameEntry: renameProjectEntry,
-      onMoveEntries: moveProjectEntries,
-      onCopyEntries: (paths, targetDirectory) => project
-        ? importProjectFiles(paths.map((path) => absoluteProjectPath(project.root, path)), targetDirectory, true)
-        : Promise.resolve([]),
+      onBeginFigureDrag: tree.beginFigureDrag,
+      onBeginFileDrag: tree.beginFileDrag,
+      onCreateEntry: tree.createEntry,
+      onDeleteEntries: tree.deleteEntries,
+      onRenameEntry: tree.renameEntry,
+      onMoveEntries: tree.moveEntries,
+      onCopyEntries: tree.copyEntries,
       onError: setError,
-      onReveal: revealProjectItem,
-      onImportAssets: chooseProjectAssets,
-      onPasteImage: (targetDirectory) => void importSystemClipboardImage(targetDirectory),
+      onReveal: tree.revealItem,
+      onImportAssets: tree.chooseAssets,
+      onPasteImage: (targetDirectory) => void tree.importSystemClipboardImage(targetDirectory),
       onPaper: (paper) => void openPaper(paper),
       onLikelyPaper: prewarmLikelyPaper,
       onFetchFullText: (paper) => void fetchAndOpenPaper(paper),
@@ -2657,8 +1432,8 @@ function App() {
           papers={papers}
           activePaper={activePaper}
           {...navigatorHandlers}
-          assetDropTarget={assetDropTarget}
-          assetImporting={assetImporting}
+          assetDropTarget={tree.assetDropTarget}
+          assetImporting={tree.assetImporting}
           paperFetchStates={paperFetchStates}
           importInput={referenceImport.input}
           recentImport={referenceImport.recentImport?.projectRoot === project.root ? referenceImport.recentImport : null}
@@ -2688,7 +1463,7 @@ function App() {
       setSelection={(value) => agentContext.reportSelection(activePaper ? "paper" : "editor", value)}
       onPdfTextSelect={(value) => agentContext.reportSelection("pdf", value)}
       onPaperTextSelect={(value) => agentContext.reportSelection("paper", value)}
-      onImportAsset={importClipboardImageFile}
+      onImportAsset={tree.importClipboardImageFile}
       onContextSurfaceActivate={agentContext.activateSurface}
       onViewMarkdownSource={() => chooseMode("split")}
       onOpenSlideMutation={applyOpenSlideMutation}
@@ -2716,12 +1491,7 @@ function App() {
               persistSynaraThread(project.root, threadId);
               synara.mountFrame();
               trellis.showPanel("agent");
-              const frame = synara.frameRef.current;
-              if (frame && synara.origin) {
-                const url = new URL(frame.src);
-                url.pathname = `/${encodeURIComponent(threadId)}`;
-                frame.src = url.toString();
-              }
+              synara.showThread(threadId);
             }}
             onDismiss={() => buildPipeline.dismissDiagnostics(build.diagnostics)}
           />
@@ -2746,10 +1516,10 @@ function App() {
       onLoadReferenceImage={referenceImages.load}
       referenceImageGeneration={referenceImages.generation}
       onEditorLeave={documents.canvas.onLeave}
-      onPrepareFigure={prepareLatexFigure}
-      onPasteImageFile={handlePasteImageFile}
-      nativeFigureDropActive={nativeEditorDropActive}
-      fileDropTargetActive={fileDropTargetActive}
+      onPrepareFigure={tree.prepareLatexFigure}
+      onPasteImageFile={tree.pasteImageFile}
+      nativeFigureDropActive={tree.drops.editor}
+      fileDropTargetActive={tree.drops.fileTarget}
       requests={canvasRequests.requests}
       onRequestHandled={canvasRequests.settle}
       onEditorPosition={handleEditorPosition}
@@ -2763,14 +1533,17 @@ function App() {
       onRenameSymbol={beginSymbolRename}
       onRenameEnvironment={(name) => beginRename({ kind: "environment", name })}
       onWrapEnvironment={() => beginRename({ kind: "wrap-environment" })}
-      localMacros={liveMacros}
-      katexMacros={katexMacros}
+      localMacros={latex.macros}
+      katexMacros={latex.katexMacros}
       onGotoLineRequest={() => setSearchDialog("goto-line")}
       outlineOpen={outlineOpen}
       onOutlineOpenChange={setOutlineOpen}
       outlineNodes={outlineNodes}
-      activeOutlineId={activeOutlineId}
-      onOutlineNavigate={(path, line) => { void navigateOutline(path, line); }}
+      activeOutlineId={latex.activeOutlineId}
+      onOutlineNavigate={(path, line) => {
+        setOutlineOpen(false);
+        void syncTex.navigateOutline(path, line);
+      }}
       tableGeneratorOpen={tableGeneratorOpen}
       onTableGeneratorOpenChange={setTableGeneratorOpen}
       editorKeymap={appearance.editorKeymap}
@@ -2778,18 +1551,18 @@ function App() {
       spellingWords={project.manifest.spellingWords ?? EMPTY_SPELLING_WORDS}
       onAddSpellingWord={addProjectSpellingWord}
       projectPaths={projectPaths}
-      graphicsRoots={graphicsRoots}
+      graphicsRoots={latex.graphicsRoots}
       buildDiagnostics={
         buildPipeline.compiledSources.get(activeFile) === source
           ? build?.diagnostics ?? EMPTY_DIAGNOSTICS
           : EMPTY_DIAGNOSTICS
       }
       texlabDiagnostics={texlabDiagnostics}
-      pdfSyncTarget={pdfSyncTarget}
-      canForwardSync={Boolean(forwardSyncPosition)}
-      locatingPdf={locatingPdf}
+      pdfSyncTarget={syncTex.pdfSyncTarget}
+      canForwardSync={syncTex.canForwardSync}
+      locatingPdf={syncTex.locatingPdf}
       onForwardSync={() => void revealSourceInPdf()}
-      onPdfSource={revealPdfSource}
+      onPdfSource={syncTex.revealPdfSource}
       editorComments={editorComments.all}
       overleafPresenceCursors={overleafActiveCursors}
       overleafChanges={overleafRealtime.changes}
@@ -2824,7 +1597,7 @@ function App() {
       onPdfPageCount={setPdfPageCount}
       onPdfPageChange={setPdfPageNumber}
       onCreateMissingFile={(path) => {
-        void createProjectEntry(path, "file");
+        void tree.createEntry(path, "file");
       }}
       onOpenMarkdownPath={openMarkdownProjectPath}
       interactivePreviewsEnabled={postStartupInteraction}
@@ -2959,7 +1732,7 @@ function App() {
               projectRoot={project.root}
               theme={theme}
               appLocale={appLocale}
-              dropActive={agentPanelDropActive}
+              dropActive={tree.drops.agentPanel}
             />
           </Suspense>,
           trellis.hosts.agent,

@@ -25,9 +25,12 @@ import { describe, expect, it } from "vitest";
 const CEILINGS: Record<string, number> = {
   // 22 after the build pipeline, reference import, editor comments and TeX
   // setup moved into src/app hooks, which carry the rest below; 17 once the
-  // Lattice Shares branches went; 13 once the open documents moved into
-  // use-open-documents.ts.
-  "src/App.tsx": 13,
+  // Lattice Shares branches went. The open documents, the project lifecycle,
+  // the project tree, SyncTeX navigation and the LaTeX structure then moved
+  // into the hooks below, taking every try/finally and inline import() with
+  // them, so the compiler now gets as far as App's manual memoization: the 16
+  // left are dependency lists it cannot preserve, one report per callback.
+  "src/App.tsx": 16,
   // Extracted out of App.tsx. They inherit its try/finally bailouts rather than
   // adding new ones, but they need their own ceilings or those bailouts leave
   // the guard's field of view entirely.
@@ -36,9 +39,14 @@ const CEILINGS: Record<string, number> = {
   "src/app/use-reference-import.ts": 2,
   "src/app/use-editor-comments.ts": 0,
   "src/app/use-tex-setup.ts": 1,
-  // The store behind every editor surface compiles fully, so App's typing
-  // renders run one memo cache for it rather than a hook per command.
+  // The store behind every editor surface, and the project lifecycle around
+  // it: both compile fully, so App's typing renders run one memo cache for
+  // them rather than a hook per command.
   "src/app/use-open-documents.ts": 0,
+  "src/app/use-project-lifecycle.ts": 0,
+  "src/app/use-project-tree.ts": 0,
+  "src/app/use-synctex-navigation.ts": 0,
+  "src/app/use-latex-structure.ts": 0,
   "src/app/use-canvas-requests.ts": 0,
   "src/app/app-overleaf-drawer.tsx": 0,
   "src/app/app-editor-panels.tsx": 0,

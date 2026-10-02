@@ -1,5 +1,6 @@
 import { msg } from "@lingui/core/macro";
 import { i18n } from "../i18n";
+import { toMessage } from "../app-utils";
 import { notifyError, notifySuccess, notifyWarning } from "../telemetry/app-notify";
 
 /*
@@ -18,4 +19,9 @@ export function setWarning(message: string | null, source?: string) {
 }
 export function setNotice(message: string | null, source?: string) {
   if (message) notifySuccess(source ?? i18n._(msg`App`), message);
+}
+
+/** Run `action`; a failure shows its message as an error. */
+export async function showingErrors(action: () => Promise<unknown>) {
+  await action().catch((reason: unknown) => setError(toMessage(reason)));
 }

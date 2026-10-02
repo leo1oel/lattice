@@ -1479,11 +1479,11 @@ msgstr "选择文档类"
 msgid "Choose the matching record before saving"
 msgstr "请先选择匹配的记录，再保存"
 
-#: src/App.tsx
+#: src/app/use-project-lifecycle.ts
 msgid "Choose where to create the project"
 msgstr "选择创建项目的位置"
 
-#: src/App.tsx
+#: src/app/use-project-lifecycle.ts
 msgid "Choose where to extract the project"
 msgstr "选择项目解压到的位置"
 
@@ -2058,7 +2058,7 @@ msgstr "无法保存项目"
 msgid "Could not save the report on this device. Keep this window open to retain the results."
 msgstr "无法在此设备上保存检查报告，请保持此窗口打开以保留结果。"
 
-#: src/App.tsx
+#: src/app/use-project-tree.ts
 msgid "Could not show that item in Finder. {message}"
 msgstr "无法在访达中显示该项。{message}"
 
@@ -2118,7 +2118,7 @@ msgstr "创建文件"
 msgid "created"
 msgstr "已创建"
 
-#: src/App.tsx
+#: src/app/use-project-lifecycle.ts
 msgid "Creating project…"
 msgstr "正在创建项目…"
 
@@ -2224,7 +2224,7 @@ msgstr "定义"
 msgid "Definition"
 msgstr "定义"
 
-#: src/App.tsx
+#: src/app/use-project-tree.ts
 #: src/components/ui/confirm-action-dialog.tsx
 #: src/editor/comments/editor-comments-panel.tsx
 #: src/editor/spreadsheet/spreadsheet-univer.ts
@@ -2233,11 +2233,11 @@ msgstr "定义"
 msgid "Delete"
 msgstr "删除"
 
-#: src/App.tsx
+#: src/app/use-project-tree.ts
 msgid "Delete “{path}” from this project?"
 msgstr "要从此项目中删除“{path}”吗？"
 
-#: src/App.tsx
+#: src/app/use-project-tree.ts
 msgid "Delete {count} selected items from this project?"
 msgstr "要从此项目中删除选中的 {count} 个项目吗？"
 
@@ -2515,7 +2515,7 @@ msgstr "正在下载全文和图片…"
 msgid "Downloading update…"
 msgstr "正在下载更新…"
 
-#: src/App.tsx
+#: src/app/use-project-tree.ts
 msgid "Drop figures onto a TeX or Markdown editor, or the Project pane"
 msgstr "请将图片拖到 TeX 或 Markdown 编辑器，或项目面板中"
 
@@ -2523,11 +2523,11 @@ msgstr "请将图片拖到 TeX 或 Markdown 编辑器，或项目面板中"
 msgid "Drop project files here to open them, or drag this into a TeX or Markdown editor to insert it"
 msgstr "将项目文件拖到此处打开，或将此文件拖入 TeX 或 Markdown 编辑器以插入"
 
-#: src/App.tsx
+#: src/app/use-project-tree.ts
 msgid "Drop source files and figures separately"
 msgstr "请分别拖入源文件和图片"
 
-#: src/App.tsx
+#: src/app/use-project-tree.ts
 msgid "Drop source files onto an editor or the Project pane"
 msgstr "请将源文件拖到编辑器或项目面板中"
 
@@ -2748,7 +2748,7 @@ msgstr "请输入 1 到 {maxLine} 之间的行号"
 msgid "Enter a page number"
 msgstr "输入页码"
 
-#: src/App.tsx
+#: src/app/use-project-lifecycle.ts
 msgid "Enter a project name."
 msgstr "请输入项目名称。"
 
@@ -2876,6 +2876,7 @@ msgid "Export preview"
 msgstr "导出预览"
 
 #: src/App.tsx
+#: src/app/use-project-lifecycle.ts
 msgid "Export project ZIP"
 msgstr "导出项目 ZIP"
 
@@ -2887,7 +2888,7 @@ msgstr "导出 ZIP"
 msgid "Export…"
 msgstr "导出…"
 
-#: src/App.tsx
+#: src/app/use-project-lifecycle.ts
 msgid "Exporting ZIP…"
 msgstr "正在导出 ZIP…"
 
@@ -2928,7 +2929,7 @@ msgstr "图"
 msgid "Figure preview could not be loaded."
 msgstr "无法加载图预览。"
 
-#: src/App.tsx
+#: src/app/use-project-tree.ts
 msgid "Figures"
 msgstr "图片"
 
@@ -3014,11 +3015,11 @@ msgstr "在项目中查找"
 msgid "Find text to replace"
 msgstr "查找要替换的文本"
 
-#: src/App.tsx
+#: src/app/use-project-lifecycle.ts
 msgid "Finish the current text composition, then switch projects again."
 msgstr "请先完成当前的输入法输入，然后再切换项目。"
 
-#: src/App.tsx
+#: src/app/use-project-lifecycle.ts
 msgid "Finishing Overleaf sync, then switching…"
 msgstr "正在完成 Overleaf 同步，随后切换…"
 
@@ -3484,11 +3485,11 @@ msgstr "蕴含"
 msgid "Import cancelled. “{0}” remains in the bibliography — cite it with {citationCommand}; full-text enrichment stopped."
 msgstr "已取消导入。《{0}》仍保留在参考文献中，可使用 {citationCommand} 引用；已停止获取全文。"
 
-#: src/App.tsx
+#: src/app/use-project-tree.ts
 msgid "Import figures"
 msgstr "导入图片"
 
-#: src/App.tsx
+#: src/app/use-project-tree.ts
 msgid "Import figures into {targetDirectory}"
 msgstr "将图片导入到 {targetDirectory}"
 
@@ -3496,7 +3497,7 @@ msgstr "将图片导入到 {targetDirectory}"
 msgid "Import images here"
 msgstr "将图像导入此处"
 
-#: src/App.tsx
+#: src/app/use-project-lifecycle.ts
 msgid "Import Overleaf ZIP"
 msgstr "导入 Overleaf ZIP"
 
@@ -3520,19 +3521,19 @@ msgstr "已导入“{title}”——可使用 {citationCommand} 引用。"
 msgid "Imported “{title}”."
 msgstr "已导入“{title}”。"
 
-#: src/App.tsx
+#: src/app/use-project-tree.ts
 msgid "Imported {count} figure into {targetDirectory}."
 msgstr "已将 {count} 张图片导入到 {targetDirectory}。"
 
-#: src/App.tsx
+#: src/app/use-project-tree.ts
 msgid "Imported {count} figure into the project root."
 msgstr "已将 {count} 张图片导入到项目根目录。"
 
-#: src/App.tsx
+#: src/app/use-project-tree.ts
 msgid "Imported {count} figures into {targetDirectory}."
 msgstr "已将 {count} 张图片导入到 {targetDirectory}。"
 
-#: src/App.tsx
+#: src/app/use-project-tree.ts
 msgid "Imported {count} figures into the project root."
 msgstr "已将 {count} 张图片导入到项目根目录。"
 
@@ -3541,7 +3542,7 @@ msgstr "已将 {count} 张图片导入到项目根目录。"
 msgid "Imported arXiv:{0}"
 msgstr "已导入 arXiv:{0}"
 
-#: src/App.tsx
+#: src/app/use-project-lifecycle.ts
 msgid "Importing ZIP…"
 msgstr "正在导入 ZIP…"
 
@@ -4792,7 +4793,7 @@ msgstr "暂无历史记录"
 msgid "No hits. Try broader terms or turn off precise mode."
 msgstr "没有结果。试试更宽泛的关键词，或关闭精确模式。"
 
-#: src/App.tsx
+#: src/app/use-project-tree.ts
 msgid "No image found on the clipboard."
 msgstr "剪贴板中没有图片。"
 
@@ -5095,11 +5096,11 @@ msgstr "打开{title}"
 msgid "Open a .tex file before formatting."
 msgstr "请先打开一个 .tex 文件再进行格式化。"
 
-#: src/App.tsx
+#: src/app/use-project-tree.ts
 msgid "Open a .tex file before pasting a figure."
 msgstr "请先打开一个 .tex 文件再粘贴图片。"
 
-#: src/App.tsx
+#: src/app/use-project-lifecycle.ts
 msgid "Open a LaTeX project"
 msgstr "打开 LaTeX 项目"
 
@@ -5279,7 +5280,7 @@ msgstr "OpenAlex 搜索"
 msgid "Opening {0}…"
 msgstr "正在打开{0}…"
 
-#: src/App.tsx
+#: src/app/use-project-lifecycle.ts
 msgid "Opening project…"
 msgstr "正在打开项目…"
 
@@ -5287,7 +5288,7 @@ msgstr "正在打开项目…"
 msgid "Opening the Overleaf project…"
 msgstr "正在打开 Overleaf 项目…"
 
-#: src/App.tsx
+#: src/app/use-project-lifecycle.ts
 msgid "Opening window…"
 msgstr "正在打开窗口…"
 
@@ -5426,7 +5427,7 @@ msgstr "Overleaf 同步"
 msgid "Overleaf sync cancelled"
 msgstr "Overleaf 同步已取消"
 
-#: src/App.tsx
+#: src/app/use-project-lifecycle.ts
 msgid "Overleaf sync is finishing. Try switching projects again in a moment."
 msgstr "Overleaf 同步即将完成，请稍后再尝试切换项目。"
 
@@ -5765,7 +5766,7 @@ msgstr "正在准备电子表格编辑器"
 msgid "Preparing this workspace"
 msgstr "正在准备此工作区"
 
-#: src/App.tsx
+#: src/app/use-project-lifecycle.ts
 msgid "Preparing tutorial…"
 msgstr "正在准备教程…"
 
@@ -5841,7 +5842,7 @@ msgstr "撇号"
 msgid "Product"
 msgstr "连乘"
 
-#: src/App.tsx
+#: src/app/use-project-lifecycle.ts
 msgid "project"
 msgstr "项目"
 
@@ -7506,7 +7507,7 @@ msgstr "曲面 / 面积积分"
 msgid "Switch project"
 msgstr "切换项目"
 
-#: src/App.tsx
+#: src/app/use-project-lifecycle.ts
 msgid "Switching project…"
 msgstr "正在切换项目…"
 
@@ -7697,7 +7698,7 @@ msgstr "Overleaf 上的副本"
 msgid "The document body"
 msgstr "文档正文"
 
-#: src/App.tsx
+#: src/app/use-project-lifecycle.ts
 msgid "The document changed while saving. Save it, then switch projects again."
 msgstr "保存期间文档发生了更改。请先保存，然后再切换项目。"
 
@@ -7846,7 +7847,7 @@ msgstr "此账户无法在这里接受或拒绝修订建议"
 msgid "This account cannot accept or reject suggestions here."
 msgstr "此账户无法在这里接受或拒绝修订建议。"
 
-#: src/App.tsx
+#: src/app/use-project-tree.ts
 #: src/components/ui/confirm-action-dialog.tsx
 msgid "This action cannot be undone."
 msgstr "此操作无法撤销。"
@@ -7907,7 +7908,7 @@ msgstr "此文件在实时编辑之外发生了变化。已保留本地修改，
 msgid "This file is not live with Overleaf right now. Reconnect before commenting."
 msgstr "此文件当前未与 Overleaf 实时连接。请重新连接后再评论。"
 
-#: src/App.tsx
+#: src/app/use-project-tree.ts
 msgid "This file type can’t be opened in an editor"
 msgstr "此类文件无法在编辑器中打开"
 
@@ -7957,7 +7958,7 @@ msgstr "此项目使用 {linkedHost}。请退出登录并连接到它以恢复"
 msgid "This reference cannot be updated."
 msgstr "无法更新此引用。"
 
-#: src/App.tsx
+#: src/app/use-synctex-navigation.ts
 msgid "This source line has no matching position in the PDF."
 msgstr "此源码行在 PDF 中没有对应的位置。"
 
@@ -8066,7 +8067,7 @@ msgstr "右三角形"
 msgid "Try a shorter phrase or different terms"
 msgstr "试试更短的短语或换个关键词"
 
-#: src/App.tsx
+#: src/app/use-project-tree.ts
 #: src/build/tex-dependency-installer.tsx
 #: src/history/versions-timeline.tsx
 #: src/overleaf/overleaf-connect.tsx
@@ -8232,7 +8233,7 @@ msgstr "不支持的电子表格协作格式：{version}"
 msgid "Untitled"
 msgstr "无标题"
 
-#: src/App.tsx
+#: src/app/use-project-lifecycle.ts
 msgid "Untitled research"
 msgstr "未命名研究"
 
@@ -8667,7 +8668,7 @@ msgstr "我的项目"
 msgid "Zeta"
 msgstr "泽塔"
 
-#: src/App.tsx
+#: src/app/use-project-lifecycle.ts
 msgid "ZIP archive"
 msgstr "ZIP 压缩包"
 

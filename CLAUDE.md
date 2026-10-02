@@ -90,7 +90,7 @@ Lint enforces a `--max-warnings` debt cap, owned by the `lint` script in
   mocks, per-test setup and helpers), which each suite must import first so
   its `vi.mock` calls land before any mocked module loads. Startup ordering
   matters (the backend's `initial_project` must beat the recent-project
-  auto-reopen — see `initialProjectProbe` in App.tsx).
+  auto-reopen — see `initialProjectProbe` in `app/use-project-lifecycle.ts`).
 - CI runners are slow: avoid tests that depend on nothing re-rendering between
   two events; async highlight/render passes can land in between.
 

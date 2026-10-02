@@ -20,7 +20,7 @@
     "prepare:runtime:dev": "pnpm prepare:synara:dev && pnpm prepare:presentation",
     "prepare:build": "node scripts/prepare-build.mjs",
     "check": "mise run check",
-    "lint": "eslint src tools --max-warnings 40",
+    "lint": "eslint src tools --max-warnings 34",
     "knip": "knip",
     "test": "vitest run",
     "tauri": "tauri",
