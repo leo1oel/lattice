@@ -564,7 +564,7 @@ Testing environment: Vitest + jsdom, 20 s test timeout
 sharing the mocks and helpers in `src/app/app-test-utils.tsx`) render the real
 `App` with a mocked `invoke`, and startup ordering matters: the
 backend's `initial_project` (`ipc/workspace.rs`; see `initialProjectProbe` in
-`src/App.tsx`) must beat the recent-project auto-reopen.
+`src/app/use-project-lifecycle.ts`) must beat the recent-project auto-reopen.
 
 CI runners are slow. Avoid tests that assume nothing re-renders between two
 events; async highlight and render passes can land in between.

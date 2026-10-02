@@ -473,9 +473,11 @@ Run the report before planning any of this — a bailout's *cause* decides the
 recipe, and guessing from the file name has been wrong before. Remaining,
 in order of value:
 
-1. `App.tsx` — ~32 `try/finally` callback bodies plus a handful of throws
-   inside try. Recipe: hoist each body to a module-level function taking a
-   deps object, leave the `useCallback` as a thin arrow; per-file commits so
+1. `App.tsx` — its `try/finally` bodies and inline `import()`s left with the
+   hooks extracted into `src/app/`; what remains is one preserve-manual-memo
+   report per `useCallback`/`useMemo` whose dependency list the compiler
+   cannot preserve. Recipe: let the compiler own the memoization (drop the
+   manual wrapper or narrow its dependencies); per-file commits so
    regressions bisect. This is the single biggest render-cost win left.
 2. Render-phase ref access, each the *sole* bailout of its function:
    `project/project-find-dialog.tsx`,
