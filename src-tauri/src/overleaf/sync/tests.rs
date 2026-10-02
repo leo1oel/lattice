@@ -800,6 +800,29 @@ fn an_edit_landing_during_an_upload_is_kept_and_goes_up_next() {
     assert!(next.uploads()[0].body_text().contains(&both));
 }
 
+/// A file too large to sync is never read, so it cannot have changed during
+/// the sync either: Overleaf's newer copy leaves it alone without reporting it
+/// as edited, which would start another sync that does exactly the same.
+#[test]
+fn a_file_too_large_to_sync_is_not_reported_as_edited_during_the_sync() {
+    let root = TempDir::new("overleaf-project");
+    let server = Mock::project(&[("fig/big.png", b"replaced on Overleaf")]).serve();
+    let config =
+        link_to(&server, &root, &[("fig/big.png", b"agreed")], &[("fig/big.png", b"agreed")]);
+    let big = fs::OpenOptions::new().write(true).open(disk_path(&root, "fig/big.png")).unwrap();
+    big.set_len(MAX_SYNC_FILE_BYTES + 1).unwrap();
+
+    let result = sync(&config, &root, NO_LIVE, None).unwrap();
+    assert_eq!(result.skipped_large, ["fig/big.png"]);
+    assert!(result.edited_during_sync.is_empty());
+    assert!(result.pulled.is_empty());
+    assert_eq!(
+        fs::metadata(disk_path(&root, "fig/big.png")).unwrap().len(),
+        MAX_SYNC_FILE_BYTES + 1
+    );
+    assert_eq!(state_files(&root)["fig/big.png"], sha256_hex(b"agreed"));
+}
+
 /// A sync that leaves a file's recorded copy behind Overleaf's — here an edit
 /// that landed while it waited on Overleaf's history — must not let the next
 /// sync stand that stale record in for Overleaf's copy: the local edit would

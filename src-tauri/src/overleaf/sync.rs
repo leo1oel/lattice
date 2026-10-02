@@ -653,7 +653,9 @@ pub fn sync(
                 refused.insert(path.clone(), Refusal { since, remote: sha256_hex(theirs) });
             }
         }
-        result.edited_during_sync.push(path.clone());
+        if !result.skipped_large.contains(path) {
+            result.edited_during_sync.push(path.clone());
+        }
     };
     let unchanged = |path: &String| unchanged_since_read(root, path, local.get(path));
     let mut pulled = Vec::new();
