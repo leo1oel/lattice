@@ -486,6 +486,26 @@ in brackets, which gained from some of them too):
 | 1,930-page PDF jump to 70 % → painted (ms) | 82 (65) | 64 (58) |
 | 1,930-page PDF fast scroll (fps) | 119 (106) | 120 (106) |
 
+Second round, from the gate's remaining rows:
+
+- **The section rail toggled in the middle of a divider drag.** Its visibility
+  follows the pane's width (480 px), and showing or hiding it changes the
+  surface's padding, so each crossing laid out every placeholder again: two
+  30–40 ms frames per drag. While the surface's width is held
+  (`data-width-held`), the rail stays as it is and settles on release. Divider
+  drag beside the 2 MB document in WebKit: 116 → 129 fps (median of 18 drags),
+  the same scenario as the gate's 98 → 132 fps.
+- Measured and not changed: moving the resize cursor and `user-select` off the
+  workspace root (it restyles the whole workspace when a drag starts) saved
+  about 3 ms of the drag's first frame, within noise; smaller block-window steps
+  (move once a whole viewport is left drawn ahead, not half) did not shorten a
+  fling's longest frame, because that frame is the first window move after the
+  document opens (73 ms in WebKit, 25 ms in Chromium); the second fling's
+  longest frame is 18 ms, against Chromium's 25. And the gate's rise in WebKit
+  typing p95 since round one is not #109/#110: the same three typing scenarios
+  on the build before #109 and on main are equal (LaTeX p95 10–14 ms against
+  10–12 ms, Markdown source 11–18 ms against 10–14 ms).
+
 ## React Compiler status
 
 `scripts/react-compiler-report.mjs` prints every compiler bailout in the hot
