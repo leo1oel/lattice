@@ -158,6 +158,12 @@ export default defineConfig(() => ({
     },
   },
 
+  // The PDF.js worker (src/pdf/pdfjs-runtime.ts) is the only worker. PDF.js
+  // starts it as a module, and its wasm loaders read `import.meta.url`.
+  worker: {
+    format: "es",
+  },
+
   // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`
   //
   // 1. prevent Vite from obscuring rust errors

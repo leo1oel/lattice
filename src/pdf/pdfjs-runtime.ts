@@ -4,7 +4,11 @@
  * so a reference preview gets the same runtime as the main viewer.
  */
 import { GlobalWorkerOptions } from "pdfjs-dist";
-import pdfWorker from "pdfjs-dist/build/pdf.worker.min.mjs?url";
+// The readable worker build, because patches/pdfjs-dist@*.patch edits it;
+// bundling it as a worker minifies it like the rest of the app. The bundle
+// drops the module's exports, which only PDF.js's main-thread fallback for a
+// worker that cannot start would read; the CSP's worker-src allows this one.
+import pdfWorker from "pdfjs-dist/build/pdf.worker.mjs?worker&url";
 
 export { getDocument } from "pdfjs-dist";
 

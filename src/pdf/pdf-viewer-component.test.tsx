@@ -298,7 +298,8 @@ describe("PDFSlick viewer integration", () => {
     });
     expect((instance.args.options.getDocumentParams as { data: ArrayBuffer }).data.byteLength)
       .toBe(bytes.byteLength);
-    expect(pdf.state.workerOptions.workerSrc).toContain("pdf.worker.min.mjs");
+    // The readable build: patches/pdfjs-dist@*.patch edits it, not the minified one.
+    expect(pdf.state.workerOptions.workerSrc).toMatch(/\/pdf\.worker\.mjs\b/);
     expect(await view.findByLabelText("PDF page 3")).toBeInTheDocument();
     expect(onNumPages).toHaveBeenLastCalledWith(3);
   });

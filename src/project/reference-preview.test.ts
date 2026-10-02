@@ -1,6 +1,6 @@
 import { expect, it, vi } from "vitest";
 import { GlobalWorkerOptions, getDocument } from "pdfjs-dist";
-import workerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
+import workerUrl from "pdfjs-dist/build/pdf.worker.mjs?worker&url";
 import { referenceAssetPreviewDataUrl } from "./reference-preview";
 
 vi.mock("pdfjs-dist", () => ({
