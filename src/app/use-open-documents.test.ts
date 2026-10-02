@@ -99,7 +99,9 @@ function renderDocuments(disk: Record<string, string>, {
   });
   const current = () => view.result.current.documents;
   /** Enter the project the way App does: restore its layout, run the (here instant) scans, finish. */
-  const enter = async ({ beforeFinish }: { beforeFinish?: () => Promise<void> } = {}) => {
+  const enter = async ({ beforeFinish, restorePapers = papers }: {
+    beforeFinish?: () => Promise<void>; restorePapers?: PaperSummary[];
+  } = {}) => {
     const { projectState, documents } = view.result.current;
     let restored = false;
     await act(async () => {
@@ -108,7 +110,7 @@ function renderDocuments(disk: Record<string, string>, {
       const entry = documents.enter(snapshot);
       projectState.projectRef.current = snapshot;
       projectState.setProject(snapshot);
-      restored = await entry.restore(papers);
+      restored = await entry.restore(restorePapers);
       if (!restored) return;
       await beforeFinish?.();
       entry.finish();
@@ -220,6 +222,15 @@ describe("entering a project", () => {
       layout: layout({ openTabs: ["main.tex", PAPER_TAB], activeFile: "main.tex", activeTab: PAPER_TAB, paperView: "fulltext" }),
     });
     await docs.enter();
+    await waitFor(() => expect(docs.current()).toMatchObject({ paper: PAPER, paperView: "fulltext", file: "main.tex" }));
+    await waitFor(() => expect(loadWorkspaceLayout(ROOT)?.activeTab).toBe(PAPER_TAB));
+  });
+
+  it("opens a restored Paper the plan found even when the rendered papers have not caught up", async () => {
+    const docs = renderDocuments({ "main.tex": "Main" }, {
+      layout: layout({ openTabs: ["main.tex", PAPER_TAB], activeFile: "main.tex", activeTab: PAPER_TAB, paperView: "fulltext" }),
+    });
+    await docs.enter({ restorePapers: [PAPER] });
     await waitFor(() => expect(docs.current()).toMatchObject({ paper: PAPER, paperView: "fulltext", file: "main.tex" }));
     await waitFor(() => expect(loadWorkspaceLayout(ROOT)?.activeTab).toBe(PAPER_TAB));
   });

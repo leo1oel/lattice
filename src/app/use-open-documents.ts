@@ -1077,8 +1077,10 @@ export function useOpenDocuments(deps: OpenDocumentsDeps) {
       return false;
     };
     let plan: ReturnType<typeof planWorkspaceRestore> | null = null;
+    let plannedPapers: PaperSummary[] = [];
     return {
       restore: async (papers) => {
+        plannedPapers = papers;
         plan = planWorkspaceRestore(snapshot, papers, loadWorkspaceLayout(snapshot.root), loadLastFile(snapshot.root));
         const { primaryFile, activeTab: restoredTab, mode: restoredMode } = plan;
         documentModeRef.current = plan.documentMode;
@@ -1112,7 +1114,8 @@ export function useOpenDocuments(deps: OpenDocumentsDeps) {
         void (async () => {
           if (isPaperTabKey(restoredTab)) {
             const arxivId = arxivIdFromTabKey(restoredTab);
-            const target = depsRef.current.papers.find((item) => item.arxivId === arxivId);
+            const target = depsRef.current.papers.find((item) => item.arxivId === arxivId)
+              ?? plannedPapers.find((item) => item.arxivId === arxivId);
             if (target) {
               if (!(await openPaper(target))) return;
               if (projectRef.current?.root === snapshot.root) {
