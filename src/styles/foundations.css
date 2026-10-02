@@ -337,6 +337,12 @@
    * toast. And the app updater and the toast stack sit one apart at the top of
    * a four-digit cliff.
    *
+   * Dialogs do not block pointer events on `body` (components/ui/modal-dialog.tsx),
+   * so the backdrop only covers what sits below it. An interactive app-layer
+   * surface above --z-modal-backdrop must hide itself while one is present:
+   * `body:has(.modal-backdrop, .drawer-backdrop) .its-class { display: none; }`.
+   * The app updater and toasts deliberately stay clickable.
+   *
    * Surfaces that only compete with their own siblings inside a local stacking
    * context are deliberately absent: the PDF viewer's internal layers, the
    * scroll-area thumb, resizers, and the collab caret label. Those numbers are
