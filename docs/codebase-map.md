@@ -208,7 +208,7 @@ them:
 - **LaTeX:** `use-latex-structure.ts` (outline across included files, labels, macros, `\graphicspath`, TODOs, main-body pages), `use-synctex-navigation.ts` (source ↔ PDF jumps).
 - **Build and agent:** `use-build-pipeline.ts`, `use-tex-setup.ts`, `use-agent-checkpoints.ts`, `use-agent-context.ts`, `use-synara-host.ts`.
 - **Overleaf and Open Slide:** `use-overleaf-workspace.ts` and `open-slide-writes.ts` (Open Slide writes).
-- **Workspace and commands:** `use-trellis-bridge.ts` (the Trellis bridge, panel menus and doc tools), `use-app-commands.ts` (the palette's `runCommand` and the global ⌘/Ctrl-shortcut and F8 keydown listener).
+- **Workspace and commands:** `use-trellis-bridge.ts` (the Trellis bridge, panel menus and doc tools), `use-tool-drawers.ts` (the one owner for opening and closing the tool drawers — history, Git, TODOs, checklist, comments, literature — and their per-kind side effects), `use-app-commands.ts` (the palette's `runCommand` and the global ⌘/Ctrl-shortcut and F8 keydown listener).
 - **Surfaces:** `app-titlebar.tsx`, `app-history-drawers.tsx`, `app-search-dialogs.tsx`, `app-project-dialogs.tsx`, `app-overleaf-drawer.tsx`, `app-editor-panels.tsx`, each handed the hook object it renders rather than dozens of loose props. The workspace itself is the Trellis panel layout in `src/trellis/`.
 - **Shared plumbing:** `effect-helpers.ts` (`disposeWhenSettled`, `subscribeTauriEvent`, `whenIdle`, `frameCoalescer`, `onLayoutChange`, timers, `useRefState`, `useStableHandlers`).
 
