@@ -20,7 +20,7 @@ function Line({ d, i, className }: { d: string; i: number; className?: string })
 }
 
 const PAGE_BACK = "M14 9.5a2.5 2.5 0 0 1 2.5-2.5h19a2.5 2.5 0 0 1 2.5 2.5v29a2.5 2.5 0 0 1-2.5 2.5h-19a2.5 2.5 0 0 1-2.5-2.5z";
-const SEARCH_PAGE = "M15 9.5a2.5 2.5 0 0 1 2.5-2.5h19a2.5 2.5 0 0 1 2.5 2.5v29a2.5 2.5 0 0 1-2.5 2.5h-19a2.5 2.5 0 0 1-2.5-2.5z";
+const SEARCH_PAGE = "M14 9.5a2.5 2.5 0 0 1 2.5-2.5h17a2.5 2.5 0 0 1 2.5 2.5v29a2.5 2.5 0 0 1-2.5 2.5h-17a2.5 2.5 0 0 1-2.5-2.5z";
 const PAGE_FRONT = "M24 11.5a2.5 2.5 0 0 1 2.5-2.5h19a2.5 2.5 0 0 1 2.5 2.5v29a2.5 2.5 0 0 1-2.5 2.5h-19a2.5 2.5 0 0 1-2.5-2.5z";
 
 function drawPapers() {
@@ -69,18 +69,19 @@ function drawComments() {
 }
 
 function drawSearch() {
-  // A page the lens has passed over and found nothing on: its lines stop at
-  // the lens, which stays empty. The title line is the query, in the weft.
+  // A page the lens has passed over and found nothing on. The page's lines
+  // stop short of the lens, so its glass stays clear rather than cutting
+  // through them; the lens ring carries the drawing's one thread.
   return (
     <>
       <path className="empty-illustration-paper" d={SEARCH_PAGE} />
       <Line d={SEARCH_PAGE} i={0} />
-      <Line d="M18 14h14" i={1} className="empty-illustration-weft" />
-      <Line d="M18 20h16M18 25h11M18 30h13" i={2} className="empty-illustration-faint" />
+      <Line d="M18 14h12" i={1} className="empty-illustration-strong" />
+      <Line d="M18 20h9M18 25h7M18 30h8M18 35h11" i={2} className="empty-illustration-faint" />
       <g className="empty-illustration-lens">
-        <circle className="empty-illustration-paper" cx="39" cy="27" r="8.5" />
-        <Line d="M39 18.5a8.5 8.5 0 1 1 0 17a8.5 8.5 0 1 1 0-17z" i={3} />
-        <Line d="M45 33l6.5 6.5" i={4} className="empty-illustration-strong" />
+        <circle className="empty-illustration-paper" cx="38" cy="28" r="8" />
+        <Line d="M38 20a8 8 0 1 1 0 16a8 8 0 1 1 0-16z" i={3} className="empty-illustration-weft" />
+        <Line d="M43.75 33.75l6.75 6.75" i={4} className="empty-illustration-strong" />
       </g>
     </>
   );

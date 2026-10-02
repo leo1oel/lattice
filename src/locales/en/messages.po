@@ -616,6 +616,10 @@ msgstr "Alignment"
 msgid "All"
 msgstr "All"
 
+#: src/overleaf/overleaf-comments.tsx
+msgid "All ({threadCount})"
+msgstr "All ({threadCount})"
+
 #: src/editor/spreadsheet/spreadsheet-univer.ts
 msgid "All Functions…"
 msgstr "All Functions…"
@@ -3556,10 +3560,6 @@ msgstr "Include raw diagnostic text"
 msgid "Include resolved"
 msgstr "Include resolved"
 
-#: src/overleaf/overleaf-comments.tsx
-msgid "Include resolved ({resolvedCount})"
-msgstr "Include resolved ({resolvedCount})"
-
 #: src/telemetry/app-log.tsx
 msgid "Incomplete history"
 msgstr "Incomplete history"
@@ -4267,8 +4267,9 @@ msgid "Loading…"
 msgstr "Loading…"
 
 #: src/overleaf/overleaf-collab.tsx
-msgid "Local comments"
-msgstr "Local comments"
+msgctxt "comment source"
+msgid "Local"
+msgstr "Local"
 
 #: src/project/manuscript-checklist.tsx
 msgid "local estimate"

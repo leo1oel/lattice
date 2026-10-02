@@ -616,6 +616,10 @@ msgstr "对齐"
 msgid "All"
 msgstr "全部"
 
+#: src/overleaf/overleaf-comments.tsx
+msgid "All ({threadCount})"
+msgstr "全部（{threadCount}）"
+
 #: src/editor/spreadsheet/spreadsheet-univer.ts
 msgid "All Functions…"
 msgstr "所有函数…"
@@ -3556,10 +3560,6 @@ msgstr "包含原始诊断文本"
 msgid "Include resolved"
 msgstr "包括已解决"
 
-#: src/overleaf/overleaf-comments.tsx
-msgid "Include resolved ({resolvedCount})"
-msgstr "包括已解决（{resolvedCount}）"
-
 #: src/telemetry/app-log.tsx
 msgid "Incomplete history"
 msgstr "历史记录不完整"
@@ -4267,8 +4267,9 @@ msgid "Loading…"
 msgstr "正在加载…"
 
 #: src/overleaf/overleaf-collab.tsx
-msgid "Local comments"
-msgstr "本地评论"
+msgctxt "comment source"
+msgid "Local"
+msgstr "本地"
 
 #: src/project/manuscript-checklist.tsx
 msgid "local estimate"

@@ -144,7 +144,8 @@ body.resizing-panels .resizable-drawer { transition: none; }
   gap: var(--drawer-section-gap);
   margin-bottom: var(--drawer-section-gap);
 }
-.pdf-marks-kind-filter { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+/* The filter keeps its own width under the full-width search field. */
+.pdf-marks-toolbar .comment-visibility-filter { justify-self: start; }
 .pdf-mark-edit { display: grid; gap: var(--space-3); padding: 0 var(--space-2) var(--space-2); }
 .pdf-mark-edit textarea {
   width: 100%;

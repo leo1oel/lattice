@@ -115,7 +115,7 @@ describe("Overleaf comments panel", () => {
       anchors: anchorsByThreadId([anchor({ threadId: "t2", docId: "doc-open" })]),
     }));
     expect(screen.queryByText("This claim needs a citation")).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: /Include resolved/ }));
+    fireEvent.click(screen.getByRole("button", { name: "All (1)" }));
     expect(screen.getByText("This claim needs a citation")).toBeInTheDocument();
     expect(screen.getByText(/Resolved by Robin/)).toBeInTheDocument();
   });

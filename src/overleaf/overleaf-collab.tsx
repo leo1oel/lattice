@@ -79,6 +79,20 @@ export function OverleafCollabDrawer(props: {
   })), [props.messages]);
   const openThreads = props.threads.filter((thread) => !thread.resolved).length + (props.localCommentCount ?? 0);
   const badge = (count: number) => (count > 0 ? <em>{count}</em> : null);
+  // Which comments to list shares one row with the resolved filter, rather
+  // than stacking a second full-width switcher under the tabs.
+  const sourceSwitch = props.hasLocalComments ? (
+    <SegmentedControl
+      value={commentSource}
+      onChange={setCommentSource}
+      ariaLabel={t`Comment source`}
+      className="overleaf-comment-source"
+      items={[
+        { value: "overleaf", label: "Overleaf" },
+        { value: "local", label: <>{t({ message: "Local", context: "comment source" })}{badge(props.localCommentCount ?? 0)}</> },
+      ]}
+    />
+  ) : null;
 
   return (
     <ResizableDrawer className="overleaf-collab-drawer editor-comments-content" onClose={props.onClose}>
@@ -116,18 +130,9 @@ export function OverleafCollabDrawer(props: {
           />
         ) : props.tab === "comments" ? (
           <>
-            {props.hasLocalComments && <SegmentedControl
-              value={commentSource}
-              onChange={setCommentSource}
-              ariaLabel={t`Comment source`}
-              className="overleaf-collab-tabs"
-              items={[
-                { value: "overleaf", label: "Overleaf" },
-                { value: "local", label: <>{t`Local comments`}{badge(props.localCommentCount ?? 0)}</> },
-              ]}
-            />}
             {commentSource === "local" && props.hasLocalComments ? (
               <>
+                <div className="overleaf-comments-toolbar">{sourceSwitch}</div>
                 <p className="overleaf-local-comments-note">{t`These comments stay in Lattice and are not sent to Overleaf.`}</p>
                 {props.localComments}
               </>
@@ -146,6 +151,7 @@ export function OverleafCollabDrawer(props: {
                 onEditMessage={props.onEditMessage}
                 onDeleteMessage={props.onDeleteMessage}
                 onReveal={props.onRevealComment}
+                toolbar={sourceSwitch}
               />
             )}
           </>

@@ -236,16 +236,16 @@ export function PaperLibrary(props: PaperLibraryProps) {
         })}
         {emptyState && (
           <div className="papers-empty-state">
-            {/* Beside the title, not above it: the card sits in a short panel
+            {/* Beside the text, not above it: the card sits in a short panel
                 at startup, and a taller card would overflow it. */}
-            <div className="papers-empty-heading">
-              <EmptyIllustration kind={total ? "search" : "papers"} size="compact" />
+            <EmptyIllustration kind={total ? "search" : "papers"} size="compact" />
+            <div className="papers-empty-text">
               <strong>{emptyState[0]}</strong>
+              <p>{emptyState[1]}</p>
             </div>
-            <p>{emptyState[1]}</p>
           </div>
         )}
-        {!!total && (
+        {!!filteredPapers.length && (
           <p className="paper-list-end">
             {filteredPapers.length !== total
               ? filteredPapers.length === 1

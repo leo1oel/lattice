@@ -184,7 +184,7 @@ describe("Overleaf sync", () => {
     expect(await screen.findByText("Remote review")).toBeInTheDocument();
     expect(document.querySelectorAll(".overleaf-collab-drawer")).toHaveLength(1);
     expect(document.querySelector(".editor-comments-drawer")).toBeNull();
-    fireEvent.click(screen.getByRole("tab", { name: /Local comments/ }));
+    fireEvent.click(screen.getByRole("tab", { name: /^Local/ }));
     expect(await screen.findByText("Local review")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Include resolved" }));
     expect(screen.getByText("Local history")).toBeInTheDocument();
@@ -196,7 +196,7 @@ describe("Overleaf sync", () => {
     expect(screen.getByRole("tab", { name: /Comments2/ })).toHaveAttribute("aria-selected", "true");
     expect(document.querySelector(".editor-comments-drawer")).toBeNull();
     expect(invoke).not.toHaveBeenCalledWith("save_editor_comments", expect.anything());
-    fireEvent.click(screen.getByRole("tab", { name: /Local comments/ }));
+    fireEvent.click(screen.getByRole("tab", { name: /^Local/ }));
     fireEvent.click(await screen.findByRole("button", { name: "Reply" }));
     fireEvent.change(screen.getByPlaceholderText("Reply to Reviewer"), { target: { value: "Local-only reply" } });
     fireEvent.click(screen.getByRole("button", { name: "Reply" }));

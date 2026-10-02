@@ -14,7 +14,7 @@
  * there is no document to act on; those can still be replied to here, just
  * not resolved or deleted.
  */
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { Check, Pencil, RotateCcw } from "lucide-react";
 import type { OverleafComment, OverleafThread } from "../app-types";
@@ -90,6 +90,8 @@ export function OverleafCommentsPanel(props: {
   onDeleteMessage: (threadId: string, messageId: string) => Promise<void>;
   /** Put the caret on the commented span, opening its file first if that is not the one on screen. */
   onReveal: (path: string, position: number) => void;
+  /** Controls that lead the filter's row (the drawer's comment-source switch). */
+  toolbar?: ReactNode;
 }) {
   const { i18n, t } = useLingui();
   const [showResolved, setShowResolved] = useState(!!props.focusThreadId);
@@ -112,6 +114,7 @@ export function OverleafCommentsPanel(props: {
     orphaned: t`No longer in the document`,
   });
   const resolvedCount = props.threads.filter((thread) => thread.resolved).length;
+  const threadCount = props.threads.length;
 
   /** Mark the thread busy while `action` runs, after `confirmation` if one is asked. */
   const run = async (threadId: string, action: () => Promise<void>, confirmation?: string) => {
@@ -279,14 +282,18 @@ export function OverleafCommentsPanel(props: {
     <>
       {props.error && <InlineMessage level="error" className="overleaf-chat-inline">{props.error}</InlineMessage>}
 
-      {resolvedCount > 0 && (
-        <CommentVisibilityFilter
-          className="overleaf-thread-filter"
-          showResolved={showResolved}
-          onChange={setShowResolved}
-          openLabel={t`Unresolved`}
-          resolvedLabel={t({ message: `Include resolved (${resolvedCount})` })}
-        />
+      {(props.toolbar || resolvedCount > 0) && (
+        <div className="overleaf-comments-toolbar">
+          {props.toolbar}
+          {resolvedCount > 0 && (
+            <CommentVisibilityFilter
+              showResolved={showResolved}
+              onChange={setShowResolved}
+              openLabel={t`Unresolved`}
+              resolvedLabel={t({ message: `All (${threadCount})` })}
+            />
+          )}
+        </div>
       )}
 
       <div className="overleaf-thread-list">
