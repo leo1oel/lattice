@@ -130,15 +130,26 @@ pub fn read_asset_range(
         Err(error) if error.kind() == io::ErrorKind::NotFound => return Err(NOT_FOUND.into()),
         Err(error) => return Err(err(error)),
     };
-    let metadata = file.metadata().map_err(err)?;
-    if !metadata.is_file() || file_version(&metadata) != version {
-        return Err(FILE_CHANGED.to_string());
-    }
-    if end > metadata.len() {
+    let checked = || -> Result<u64, String> {
+        let metadata = file.metadata().map_err(err)?;
+        if !metadata.is_file() || file_version(&metadata) != version {
+            return Err(FILE_CHANGED.to_string());
+        }
+        Ok(metadata.len())
+    };
+    if end > checked()? {
         return Err("This byte range is outside the file.".to_string());
     }
     let mut bytes = vec![0; (end - start) as usize];
-    file.read_exact_at(&mut bytes, start).map_err(err)?;
+    match file.read_exact_at(&mut bytes, start) {
+        Ok(()) => {}
+        Err(error) if error.kind() == io::ErrorKind::UnexpectedEof => {
+            return Err(FILE_CHANGED.to_string())
+        }
+        Err(error) => return Err(err(error)),
+    }
+    // A writer that truncated and rewrote the file during the read changed its version.
+    checked()?;
     Ok(bytes)
 }
 
@@ -376,6 +387,53 @@ mod tests {
         assert_eq!(read_asset(root, "paper.pdf").err().unwrap(), NOT_FOUND);
         assert_eq!(read("gone/paper.pdf", &replaced, 0, 4).err().unwrap(), NOT_FOUND);
         assert_eq!(read_asset(root, "gone/paper.pdf").err().unwrap(), NOT_FOUND);
+    }
+
+    #[test]
+    fn a_range_read_while_the_file_is_rewritten_is_refused_not_spliced() {
+        use std::io::Write;
+        use std::sync::atomic::{AtomicBool, Ordering};
+        let fixture = Fixture::project("pdf-range-race");
+        let root = &fixture.root;
+        let contents = |fill: u8| {
+            let mut pdf = b"%PDF-1.4\n".to_vec();
+            pdf.resize(256 * 1024, fill);
+            pdf
+        };
+        let length = contents(b'a').len() as u64;
+        fixture.write("paper.pdf", contents(b'a'));
+        let path = fixture.path("paper.pdf");
+        let done = AtomicBool::new(false);
+        std::thread::scope(|scope| {
+            scope.spawn(|| {
+                // Truncate and rewrite the same file, as pdfTeX does.
+                for fill in (0..400).map(|round| if round % 2 == 0 { b'b' } else { b'a' }) {
+                    let mut file =
+                        OpenOptions::new().write(true).truncate(true).open(&path).unwrap();
+                    file.write_all(&contents(fill)).unwrap();
+                }
+                done.store(true, Ordering::SeqCst);
+            });
+            while !done.load(Ordering::SeqCst) {
+                let Ok(AssetPreview {
+                    content: AssetContent::Ranges { length: seen, version },
+                    ..
+                }) = read_asset(root, "paper.pdf")
+                else {
+                    continue;
+                };
+                if seen != length {
+                    continue;
+                }
+                match read_asset_range(root, "paper.pdf", &version, 9, length) {
+                    Ok(bytes) => assert!(
+                        bytes.iter().all(|&byte| byte == bytes[0]) && bytes[0] != 0,
+                        "bytes from more than one version"
+                    ),
+                    Err(error) => assert_eq!(error, FILE_CHANGED),
+                }
+            }
+        });
     }
 
     #[test]

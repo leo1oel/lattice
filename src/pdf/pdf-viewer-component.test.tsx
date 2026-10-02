@@ -997,4 +997,23 @@ describe("PDFSlick viewer integration", () => {
     // The load PDF.js is still waiting on is ended, not left holding the file's buffer.
     await waitFor(() => expect(instance.loadingTask!.destroy).toHaveBeenCalledOnce());
   });
+
+  it("ends a replaced project PDF load whose pending range read is then refused", async () => {
+    clearAppLogs();
+    pdf.state.deferLoad = true;
+    let refuse: (reason: Error) => void = () => {};
+    vi.mocked(invoke).mockImplementation((command) => command === "read_project_asset_range"
+      ? new Promise((_, reject) => { refuse = reject; })
+      : new Promise(() => {}));
+    const view = renderPdf({ url: null, projectFile: { path: "figures/scan.pdf", length: 4, version: "v1" } });
+    const first = await viewerAt(0);
+    const { range } = first.args.options.getDocumentParams as { range: { requestDataRange(begin: number, end: number): void } };
+    range.requestDataRange(0, 4);
+    view.rerender(preview({ url: null, projectFile: { path: "figures/scan.pdf", length: 6, version: "v2" } }));
+    await viewerAt(1);
+    expect(first.loadingTask!.destroy).not.toHaveBeenCalled();
+    refuse(new Error("This PDF changed on disk."));
+    await waitFor(() => expect(first.loadingTask!.destroy).toHaveBeenCalledOnce());
+    expect(formatAppLogs()).not.toContain("changed on disk");
+  });
 });

@@ -117,7 +117,11 @@ export function usePdfDocument({
     // A failed range read: why the load failed, or why later pages stay blank.
     let rangeFailure: unknown = null;
     const range = file && projectPdfTransport(file, (reason) => {
-      if (rangeFailure !== null || cancelled) return;
+      if (rangeFailure !== null) return;
+      if (cancelled) {
+        if (!loadSettled) disposeRecord();
+        return;
+      }
       rangeFailure = reason;
       // A rewritten or removed file is checked again by the host, not reported
       // here. Only a shown viewer asks: a replacement refused while its file is
