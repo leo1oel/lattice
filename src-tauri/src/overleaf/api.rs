@@ -12,9 +12,11 @@ use reqwest::blocking::{Client, RequestBuilder, Response};
 use reqwest::header::{ACCEPT, CONTENT_LENGTH, CONTENT_TYPE, COOKIE, RETRY_AFTER};
 use reqwest::{Method, StatusCode};
 use serde_json::Value;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::io::Read;
 use std::path::Path;
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::{Mutex, PoisonError};
 use std::time::Duration;
 
 pub(super) const JSON: &str = "application/json";
@@ -247,6 +249,9 @@ pub(super) fn fetch_remote_version(
         .get(format!("{host}/project/{project_id}/updates?min_count=1"))
         .header(COOKIE, cookie)
         .header(ACCEPT, JSON)
+        // A sync shares one long-deadline client so every request reuses the
+        // connection; this small read still gives up as early as it used to.
+        .timeout(Duration::from_secs(30))
         .send()
         .ok()?;
     if !response.status().is_success() {
@@ -272,8 +277,18 @@ pub(super) fn latest_update_version(body: &Value) -> Option<i64> {
     updates.iter().filter_map(version).max().or_else(|| updates.iter().filter_map(end_ts).max())
 }
 
-/// Uploads files one by one into a linked project (see the module header of
-/// `overleaf` for the endpoint and why the root folder id is required).
+/// Uploads in flight at once. Over a slow link each upload costs a round trip
+/// or two far more than its bytes, so a few in flight hide most of that, while
+/// staying well short of anything Overleaf's rate limits would notice.
+const PARALLEL_UPLOADS: usize = 4;
+
+/// Every folder above `path`, outermost first: `a/b/c.tex` → `a`, `a/b`.
+pub(super) fn folders_above(path: &str) -> impl Iterator<Item = &str> {
+    path.match_indices('/').map(move |(index, _)| &path[..index])
+}
+
+/// Uploads files into a linked project (see the module header of `overleaf`
+/// for the endpoint and why the root folder id is required).
 pub(super) struct Uploader<'a> {
     remote: &'a Remote,
     client: &'a Client,
@@ -285,6 +300,50 @@ impl Uploader<'_> {
     pub fn upload(&self, rel: &str, bytes: Vec<u8>) -> Result<(), String> {
         self.try_upload(rel, bytes)
             .map_err(|e| format!("Failed to upload \"{rel}\" to Overleaf: {e}"))
+    }
+
+    /// Upload every file, a few at a time; the first failure, in path order,
+    /// is the error, and nothing new starts once one has failed.
+    ///
+    /// Overleaf creates the folders a relative path names, and two uploads
+    /// creating the same folder at once can leave two folders of that name. So
+    /// a file whose folder `existing` does not list goes up first and alone,
+    /// which creates its folders before anything else can race to.
+    pub fn upload_all(
+        &self, files: &BTreeMap<String, Vec<u8>>, existing: &BTreeSet<String>,
+    ) -> Result<(), String> {
+        let mut folders: BTreeSet<&str> = existing.iter().map(String::as_str).collect();
+        let mut together = Vec::new();
+        for (rel, bytes) in files {
+            let parent = folders_above(rel).last();
+            if parent.is_none_or(|parent| folders.contains(parent)) {
+                together.push((rel, bytes));
+                continue;
+            }
+            self.upload(rel, bytes.clone())?;
+            folders.extend(folders_above(rel));
+        }
+        let next = AtomicUsize::new(0);
+        let failures = Mutex::new(BTreeMap::new());
+        std::thread::scope(|scope| {
+            for _ in 0..PARALLEL_UPLOADS.min(together.len()) {
+                scope.spawn(|| loop {
+                    let index = next.fetch_add(1, Ordering::Relaxed);
+                    let Some((rel, bytes)) = together.get(index) else { break };
+                    if !failures.lock().unwrap_or_else(PoisonError::into_inner).is_empty() {
+                        break;
+                    }
+                    if let Err(error) = self.upload(rel, (*bytes).clone()) {
+                        failures
+                            .lock()
+                            .unwrap_or_else(PoisonError::into_inner)
+                            .insert(index, error);
+                    }
+                });
+            }
+        });
+        let failures = failures.into_inner().unwrap_or_else(PoisonError::into_inner);
+        failures.into_values().next().map_or(Ok(()), Err)
     }
 
     fn try_upload(&self, rel: &str, bytes: Vec<u8>) -> Result<(), String> {

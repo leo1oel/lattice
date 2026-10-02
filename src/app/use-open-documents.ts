@@ -437,14 +437,21 @@ export function useOpenDocuments(deps: OpenDocumentsDeps) {
           path: primaryPath, content, baseContent: primarySavedSource, projectRoot: current.root,
         });
         const writtenSource = writeResult?.content ?? content;
-        if (writtenSource !== content && fileRef.current === primaryPath && textRef.current === content) {
-          setTextLive(writtenSource);
-        }
+        const sameFile = fileRef.current === primaryPath;
+        if (writtenSource !== content && sameFile && textRef.current === content) setTextLive(writtenSource);
         if (writeResult?.hadConflicts) {
           const path = primaryPath;
           setWarning(t({ message: `Kept overlapping external edits in ${path} with conflict markers.` }));
         }
-        setSavedLive(writtenSource);
+        // The saved text is the base the next save merges against, so it must
+        // be what the buffer grew from. When this save merged in an outside
+        // edit (an Overleaf pull that landed while the save waited for the
+        // sync) and typing went on meanwhile, the buffer grew from `content`,
+        // not from the merged file: recording the merge would make the next
+        // save write the buffer straight over it, losing the outside edit.
+        // Keeping `content` lets that save merge again instead.
+        const typedOn = sameFile && textRef.current !== content;
+        setSavedLive(writtenSource !== content && typedOn ? content : writtenSource);
         // Force the detector to inspect the next filesystem version. An Agent
         // may finish another atomic write after the backend response but before
         // a post-save stat; recording that newer mtime without reading it would

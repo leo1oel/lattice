@@ -114,6 +114,7 @@ function syncFixture() {
   let conflict = false;
   let failSync = false;
   let deleted = false;
+  const editedDuringSync: string[] = [];
   const project = {
     root: "/project", files: [],
     manifest: { schemaVersion: 1, projectId: "paper", name: "Paper", rootDocuments: [], primaryBibliography: "references.bib", trusted: false },
@@ -151,6 +152,7 @@ function syncFixture() {
         pushed: conflict || deleted ? [] : ["section.tex"], pulled: [], merged: [],
         conflicts: conflict ? [{ path: "section.tex", localCopy: "section.local.tex", markers: true }] : [],
         deletedLocal: [], skippedRemoteDeletes: deleted ? ["section.tex"] : [], readOnly: false,
+        editedDuringSync: editedDuringSync.splice(0),
       };
     }
     return [];
@@ -165,6 +167,8 @@ function syncFixture() {
     },
     failOnce: () => { failSync = true; },
     deleteFile: () => { deleted = true; },
+    /** The next sync reports `path` changed on disk while it ran. */
+    editDuringSync: (path: string) => { editedDuringSync.push(path); },
     finish: () => { holdSync = false; finishSync?.(); },
     server: () => server,
   };
@@ -267,6 +271,22 @@ describe("external edit Overleaf handoff", () => {
       await waitFor(() => expect(realtime().liveFile).toBe(true));
       expect(fixture.server()).toBe("second agent edit");
     }
+  });
+
+  it("syncs again a file the last sync found edited on disk while it ran", async () => {
+    const { fixture, view, realtime, advance } = mountWorkspace("live");
+    await waitFor(() => expect(realtime().liveFile).toBe(true));
+    const syncs = () => vi.mocked(invoke).mock.calls.filter(([command]) => command === "overleaf_sync").length;
+    await advance(31_000);
+    const before = syncs();
+    fixture.editDuringSync("chapters/intro.tex");
+    await act(async () => { await view.result.current.runOverleafSync(); });
+    // Nothing else signals that edit: the sync's own report has to bring
+    // the next one, and only the one.
+    await advance(31_000);
+    await waitFor(() => expect(syncs()).toBe(before + 2));
+    await advance(31_000);
+    expect(syncs()).toBe(before + 2);
   });
 
   it("cancels a pending disk-edit upload when switching projects", async () => {

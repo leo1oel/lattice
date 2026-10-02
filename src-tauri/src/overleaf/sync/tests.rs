@@ -138,7 +138,14 @@ fn overleaf_preview_reports_exactly_what_sync_then_does() {
     assert!(server.with_method("DELETE").is_empty());
     let uploads = server.uploads();
     assert_eq!(uploads.len(), 3);
-    for (upload, rel) in uploads.iter().zip(&result.pushed) {
+    // A file into a folder Overleaf does not have yet goes up first and
+    // alone, so no two uploads race to create the same folder.
+    assert!(uploads[0].body_text().contains("\r\n\r\nnested/new-chapter.tex\r\n"));
+    // The rest run a few at a time, so they arrive in no particular order.
+    for rel in &result.pushed {
+        let upload = (uploads.iter())
+            .find(|upload| upload.body_text().contains(&format!("\r\n\r\n{rel}\r\n")))
+            .unwrap_or_else(|| panic!("no upload of {rel}"));
         assert!(upload.url.starts_with("/project/proj-1/upload"));
         // Root-level and nested files alike use the root id learned from
         // joinProject. Sending a temporary folder plus `../` is rejected by
@@ -651,6 +658,298 @@ fn only_emptying_or_gutting_a_file_needs_overleafs_history() {
     }
 }
 
+// ---- edits made while a sync runs -------------------------------------------------
+
+/// Numbered lines, so edits to different lines of a file merge cleanly.
+fn lines(edits: &[(usize, &str)]) -> String {
+    (1..=7)
+        .map(|n| {
+            edits.iter().find(|(line, _)| *line == n).map_or(n.to_string(), |(_, t)| t.to_string())
+        })
+        .map(|line| line + "\n")
+        .collect()
+}
+
+/// What happens to a file someone changes while the sync spinner shows. The
+/// editor's own saves wait for a sync to finish, but an agent or another
+/// program writes whenever it likes. Here that write lands while the sync is
+/// waiting on Overleaf for its upload token — after it read the project and
+/// planned, before it wrote anything — onto a file it was about to pull,
+/// merge, mark as a conflict and delete. Each used to be written over (or
+/// deleted) with the newer edit gone; each is now left exactly as edited,
+/// reported, and synced on the next pass.
+#[test]
+fn an_edit_landing_while_a_sync_waits_on_overleaf_is_never_overwritten() {
+    let base = lines(&[]);
+    let ours = lines(&[(3, "three here")]);
+    let theirs = lines(&[(1, "one on Overleaf")]);
+    let typed = |line| lines(&[(line, "typed during the sync")]);
+    let one_here = lines(&[(1, "one here")]);
+    let remote: Files = &[
+        ("conflict.tex", theirs.as_bytes()),
+        ("merged.tex", theirs.as_bytes()),
+        ("pulled.tex", theirs.as_bytes()),
+        ("push.tex", base.as_bytes()),
+    ];
+    let local: Files = &[
+        ("conflict.tex", one_here.as_bytes()),
+        ("gone.tex", base.as_bytes()),
+        ("merged.tex", ours.as_bytes()),
+        ("pulled.tex", base.as_bytes()),
+        ("push.tex", ours.as_bytes()),
+    ];
+    let base_files: Vec<(&str, &[u8])> =
+        local.iter().map(|(path, _)| (*path, base.as_bytes())).collect();
+    let edits = [
+        ("conflict.tex", lines(&[(1, "one again here")])),
+        ("gone.tex", typed(5)),
+        ("merged.tex", lines(&[(3, "three here"), (5, "typed during the sync")])),
+        ("pulled.tex", typed(5)),
+    ];
+    let root = TempDir::new("overleaf-project");
+    let (hook_root, hook_edits) = (root.to_path_buf(), edits.clone());
+    let mut landed = false;
+    let mock = Mock {
+        on_request: Some(Box::new(move |method, url| {
+            if method == "GET" && url == "/project" && !landed {
+                landed = true;
+                for (rel, text) in &hook_edits {
+                    fs::write(disk_path(&hook_root, rel), text).unwrap();
+                }
+            }
+        })),
+        ..Mock::project(remote)
+    };
+    let server = mock.serve();
+    let config = link_to(&server, &root, local, &base_files);
+
+    let result = sync(&config, &root, NO_LIVE, None).unwrap();
+
+    for (rel, edited) in &edits {
+        assert_eq!(read_local(&root, rel).as_deref(), Some(edited.as_bytes()), "{rel}");
+        // Still on the agreed copy from before: an edit here, to merge or send.
+        assert_eq!(state_files(&root).get(*rel), Some(&sha256_hex(base.as_bytes())), "{rel}");
+    }
+    let edited: Vec<&str> = edits.iter().map(|(rel, _)| *rel).collect();
+    assert_eq!(result.edited_during_sync, edited);
+    assert!(result.pulled.is_empty() && result.merged.is_empty());
+    assert!(result.conflicts.is_empty() && result.deleted_local.is_empty());
+    assert_eq!(result.pushed, ["push.tex"]);
+    assert!(!fs::read_dir(&*root)
+        .unwrap()
+        .any(|entry| { is_conflict_copy(&entry.unwrap().file_name().to_string_lossy()) }));
+
+    // The next pass takes Overleaf's side and the edit together.
+    let result = sync(&config, &root, NO_LIVE, None).unwrap();
+    assert_eq!(result.merged, ["merged.tex", "pulled.tex"]);
+    assert_eq!(
+        text(&root, "pulled.tex"),
+        lines(&[(1, "one on Overleaf"), (5, "typed during the sync")])
+    );
+    assert_eq!(
+        text(&root, "merged.tex"),
+        lines(&[(1, "one on Overleaf"), (3, "three here"), (5, "typed during the sync")])
+    );
+    // Deleted on Overleaf, edited here: it goes back up rather than away.
+    assert!(result.pushed.contains(&"gone.tex".to_string()));
+    assert_eq!(text(&root, "gone.tex"), typed(5));
+    // Both sides rewrote line 1: a conflict, with the edit kept beside it.
+    let [conflict] = &result.conflicts[..] else { panic!("{:?}", result.conflicts) };
+    assert_eq!(text(&root, &conflict.local_copy), edits[0].1);
+    assert!(result.edited_during_sync.is_empty());
+}
+
+/// The other window: an edit landing while the file it changes is being
+/// uploaded. What went up is the agreed copy, and the merge base must be
+/// exactly that — not the copy before it, which the file on disk no longer
+/// matches — while the newer edit stays here and goes up next time.
+#[test]
+fn an_edit_landing_during_an_upload_is_kept_and_goes_up_next() {
+    let (base, sent) = (lines(&[]), lines(&[(3, "three here")]));
+    let typed = lines(&[(3, "three here"), (5, "typed during the upload")]);
+    let root = TempDir::new("overleaf-project");
+    let (hook_root, hook_text) = (root.to_path_buf(), typed.clone());
+    let mock = Mock {
+        on_request: Some(Box::new(move |method, url| {
+            if method == "POST" && url.contains("/upload") {
+                fs::write(disk_path(&hook_root, "main.tex"), &hook_text).unwrap();
+            }
+        })),
+        ..Mock::project(&[("main.tex", base.as_bytes())])
+    };
+    let server = mock.serve();
+    let config =
+        link_to(&server, &root, &[("main.tex", sent.as_bytes())], &[("main.tex", base.as_bytes())]);
+
+    let result = sync(&config, &root, NO_LIVE, None).unwrap();
+    assert_eq!(text(&root, "main.tex"), typed);
+    assert_eq!(state_files(&root)["main.tex"], sha256_hex(sent.as_bytes()));
+    assert_eq!(read_base_copy(&root, "main.tex").unwrap(), sent);
+    assert_eq!(result.pushed, ["main.tex"]);
+    assert_eq!(result.edited_during_sync, ["main.tex"]);
+
+    // Overleaf now has what went up, plus a collaborator's edit to line 1.
+    let theirs = lines(&[(1, "one on Overleaf"), (3, "three here")]);
+    let next = Mock::project(&[("main.tex", theirs.as_bytes())]).serve();
+    edit_state(&root, |state| state.host = next.base.clone());
+    let result = sync(&signed_in(&next.base), &root, NO_LIVE, None).unwrap();
+    assert_eq!(result.merged, ["main.tex"]);
+    assert_eq!(result.pushed, ["main.tex"]);
+    let both = lines(&[(1, "one on Overleaf"), (3, "three here"), (5, "typed during the upload")]);
+    assert_eq!(text(&root, "main.tex"), both);
+    assert!(next.uploads()[0].body_text().contains(&both));
+}
+
+/// A sync that leaves a file's recorded copy behind Overleaf's — here an edit
+/// that landed while it waited on Overleaf's history — must not let the next
+/// sync stand that stale record in for Overleaf's copy: the local edit would
+/// then go up as if Overleaf had not changed, over what it had.
+#[test]
+fn a_file_left_behind_mid_sync_is_downloaded_again_before_anything_goes_up() {
+    let notes = "Notes kept only in this project.\n".repeat(60);
+    let typed = format!("{notes}Typed while the sync waited.\n");
+    let base: Files = &[("notes.md", notes.as_bytes())];
+    let emptied = json!({ "fromV": 40, "toV": 41, "meta": { "end_ts": last_sync_ms() + 60_000 },
+        "pathnames": ["notes.md"] });
+    let root = TempDir::new("overleaf-project");
+    let (hook_root, hook_text) = (root.to_path_buf(), typed.clone());
+    let mut landed = false;
+    let mock = Mock {
+        versions: vec![41],
+        history: vec![emptied],
+        // Confirming the emptied download reads the history: the edit lands then.
+        on_request: Some(Box::new(move |_, url| {
+            if url.contains("/updates?min_count=50") && !landed {
+                landed = true;
+                fs::write(disk_path(&hook_root, "notes.md"), &hook_text).unwrap();
+            }
+        })),
+        ..Mock::project(&[("notes.md", b"")])
+    };
+    let server = mock.serve();
+    let config = link_to(&server, &root, base, base);
+    edit_state(&root, |state| {
+        state.remote_version = Some(40);
+        state.unsettled = Some(BTreeSet::new());
+    });
+
+    let result = sync(&config, &root, NO_LIVE, None).unwrap();
+    assert_eq!(result.edited_during_sync, ["notes.md"]);
+    assert_eq!(text(&root, "notes.md"), typed);
+    let state = load_state(&root).unwrap();
+    assert_eq!((state.remote_version, state.unsettled), (Some(41), None));
+
+    // Same version next time, but the record cannot stand in for Overleaf's
+    // emptied copy: download it, and meet the edit as the change it is.
+    let result = sync(&config, &root, NO_LIVE, None).unwrap();
+    assert_eq!(downloads(&server), 2);
+    assert!(result.pushed.is_empty() && server.uploads().is_empty());
+    assert_eq!(result.conflicts.len(), 1);
+}
+
+// ---- syncing without the download ---------------------------------------------------
+
+/// Requests for the project download, and for the dashboard page the upload
+/// token comes from.
+fn downloads(server: &MockServer) -> usize {
+    server.recorded().iter().filter(|r| r.url.ends_with("/download/zip")).count()
+}
+
+fn dashboards(server: &MockServer) -> usize {
+    server.recorded().iter().filter(|r| r.url == "/project").count()
+}
+
+/// The download is most of a sync's time, and most syncs run because the
+/// project's version moved without any file a sync handles changing. When
+/// Overleaf's history proves that, the copy already agreed on stands in for
+/// the download; anything it cannot prove means downloading after all.
+#[test]
+fn a_sync_downloads_the_project_only_when_overleafs_history_cannot_rule_out_a_change() {
+    let base: Files = &[
+        ("fig.png", b"\x89PNG agreed"),
+        ("live.tex", b"live body"),
+        ("main.tex", b"main body"),
+        ("notes.tex", b"notes body"),
+    ];
+    let edit =
+        |from: i64, paths: &[&str]| json!({ "fromV": from, "toV": from + 1, "pathnames": paths });
+    let moved_live = edit(40, &["live.tex"]);
+    let renamed = json!({ "fromV": 40, "toV": 41, "pathnames": [],
+        "project_ops": [{ "rename": { "pathname": "live.tex", "newPathname": "live2.tex" } }] });
+    let live: BTreeSet<String> = ["live.tex".to_string()].into();
+    let exact = || Some(BTreeSet::new());
+    let left_on_base = || Some(BTreeSet::from(["notes.tex".to_string()]));
+    let main: (&str, &[u8]) = ("main.tex", b"main edited");
+    let figure: (&str, &[u8]) = ("fig.png", b"\x89PNG new");
+    // (case, versions, history, a local edit, how exactly the last sync's
+    // table matched Overleaf, downloaded)
+    type Case<'a> = (
+        &'a str,
+        Vec<i64>,
+        Vec<Value>,
+        Option<(&'a str, &'a [u8])>,
+        Option<BTreeSet<String>>,
+        bool,
+    );
+    let cases: &[Case] = &[
+        ("unchanged, nothing to do", vec![40], vec![], None, exact(), false),
+        ("unchanged, an edit to send", vec![40], vec![], Some(main), exact(), false),
+        ("only a live document edited", vec![41], vec![moved_live.clone()], None, exact(), false),
+        (
+            "a file edited on Overleaf",
+            vec![41],
+            vec![edit(40, &["notes.tex"])],
+            None,
+            exact(),
+            true,
+        ),
+        ("the tree changed", vec![41], vec![renamed], None, exact(), true),
+        ("history short of the version", vec![42], vec![moved_live], None, exact(), true),
+        ("no version to compare", vec![], vec![], None, exact(), true),
+        ("an edited figure has no base copy", vec![40], vec![], Some(figure), exact(), true),
+        ("the last sync's table was not exact", vec![40], vec![], None, None, true),
+        (
+            "a document left on its base is no longer live",
+            vec![40],
+            vec![],
+            None,
+            left_on_base(),
+            true,
+        ),
+    ];
+    for (case, versions, history, edited, unsettled, downloaded) in cases {
+        let mock =
+            Mock { versions: versions.clone(), history: history.clone(), ..Mock::project(base) };
+        let server = mock.serve();
+        let (config, root) = linked(&server, base, base);
+        edit_state(&root, |state| {
+            state.remote_version = Some(40);
+            state.unsettled = unsettled.clone();
+        });
+        if let Some((rel, data)) = edited {
+            fs::write(disk_path(&root, rel), data).unwrap();
+        }
+        let result = sync(&config, &root, &live, None).unwrap();
+        assert_eq!(downloads(&server) == 1, *downloaded, "{case}");
+        // The upload token is a page of every project; only an upload needs it.
+        assert_eq!(dashboards(&server), usize::from(edited.is_some()), "{case}");
+        let pushed: Vec<&str> = edited.iter().map(|(rel, _)| *rel).collect();
+        assert_eq!(result.pushed, pushed, "{case}");
+        assert!(result.pulled.is_empty() && result.merged.is_empty(), "{case}");
+        // The same agreed copy is recorded either way.
+        let files = state_files(&root);
+        for (rel, data) in base.iter().filter(|(rel, _)| !pushed.contains(rel)) {
+            assert_eq!(files.get(*rel), Some(&sha256_hex(data)), "{case}: {rel}");
+        }
+        if let Some((rel, data)) = edited {
+            assert_eq!(files.get(*rel), Some(&sha256_hex(data)), "{case}: {rel}");
+            assert!(server.uploads()[0]
+                .body_text()
+                .contains(&String::from_utf8_lossy(data).into_owned()));
+        }
+    }
+}
+
 // ---- permissions ----------------------------------------------------------------
 
 #[test]
@@ -744,7 +1043,7 @@ fn base_copy_finalization_uses_the_hash_agreement_and_retains_held_ancestors() {
     let next = hashes(&[("pulled.tex", "new remote"), ("conflict.tex", "remote side")]);
     let remote = files.iter().map(|(rel, _, _, copy)| (rel.to_string(), copy.as_bytes().to_vec()));
 
-    finalize_base_copies(&root, &previous, &next, &remote.collect()).unwrap();
+    finalize_base_copies(&root, &previous, &next, &[&remote.collect()]).unwrap();
 
     for (rel, _, _, copy) in files {
         assert_eq!(read_base_copy(&root, rel).as_deref(), Some(copy), "{rel}");

@@ -41,6 +41,12 @@ function deferred<T>() {
   return { promise, resolve, reject };
 }
 
+/** Each line from whichever side changed it; the tests keep both sides' edits on separate lines. */
+function mergeLines(base: string, ours: string, theirs: string) {
+  const [baseLines, ourLines, theirLines] = [base, ours, theirs].map((text) => text.split("\n"));
+  return theirLines.map((line, index) => (ourLines[index] !== baseLines[index] ? ourLines[index] : line)).join("\n");
+}
+
 /**
  * The open documents of one project over an in-memory disk. `hold(command, path)` parks the next such call
  * until the test settles the returned deferred; everything else answers at once.
@@ -54,7 +60,7 @@ function renderDocuments(disk: Record<string, string>, {
   const held = new Map<string, ReturnType<typeof deferred<unknown>>>();
   let snapshot = snapshotOf(paths);
   vi.mocked(invoke).mockImplementation(async (command, args) => {
-    const { path, content } = (args ?? {}) as { path?: string; content?: string };
+    const { path, content, baseContent } = (args ?? {}) as { path?: string; content?: string; baseContent?: string };
     const parked = held.get(`${command}:${path ?? ""}`);
     if (parked) {
       held.delete(`${command}:${path ?? ""}`);
@@ -65,10 +71,17 @@ function renderDocuments(disk: Record<string, string>, {
       case "read_project_file":
         if (!files.has(path!)) throw new Error(`No such file: ${path}`);
         return files.get(path!);
-      case "write_project_file":
-        files.set(path!, content!);
+      case "write_project_file": {
+        // Like the backend, merge with a disk that moved on since `baseContent`
+        // (line by line here: the tests only edit separate lines).
+        const disk = files.get(path!);
+        const written = baseContent === undefined || disk === undefined || disk === baseContent
+          ? content!
+          : mergeLines(baseContent, content!, disk);
+        files.set(path!, written);
         mtimes.set(path!, (mtimes.get(path!) ?? 1) + 1);
-        return { content, hadConflicts: false };
+        return { content: written, hadConflicts: false };
+      }
       case "stat_project_file":
         return { exists: files.has(path!), mtimeMs: mtimes.get(path!) ?? 1 };
       case "read_project_asset":
@@ -316,6 +329,26 @@ describe("durable text and disk", () => {
     docs.touch("main.tex", "Agent again");
     await act(() => vi.advanceTimersByTimeAsync(1_000));
     expect(docs.current().text).toBe("Mine");
+  });
+
+  it("keeps an outside edit a save merged in while typing went on behind it", async () => {
+    // During an Overleaf sync a save waits until the sync is done; the sync
+    // pulls a collaborator's line 1 meanwhile, and the writer keeps typing.
+    const docs = renderDocuments({ "main.tex": "a\nb\nc" });
+    await docs.enter();
+    docs.type("a\nb\nC");
+    const write = docs.hold("write_project_file", "main.tex");
+    let first!: Promise<boolean>;
+    act(() => { first = docs.current().save(); });
+    docs.files.set("main.tex", "A\nb\nc");
+    docs.type("a\nB\nC");
+    await act(async () => { write.resolve(undefined); await first; });
+    expect(docs.files.get("main.tex")).toBe("A\nb\nC");
+    // The buffer has not seen line 1 yet, so the next save merges again
+    // rather than writing the buffer over the collaborator's line.
+    expect(docs.current().text).toBe("a\nB\nC");
+    await act(async () => { await docs.current().save(); });
+    expect(docs.files.get("main.tex")).toBe("A\nB\nC");
   });
 
   it("saves after a pause in typing, and builds after the save when builds are automatic", async () => {

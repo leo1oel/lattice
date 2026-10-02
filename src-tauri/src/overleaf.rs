@@ -37,6 +37,8 @@
 
 mod account;
 mod api;
+#[cfg(test)]
+mod bench;
 mod files;
 mod link;
 mod review;
