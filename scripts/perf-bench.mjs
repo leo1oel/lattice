@@ -45,7 +45,7 @@
  * The page accepts `theme=system|light|dark` and `lang=en|zh-CN|system`
  * (tools/perf-bench/bench-page.ts); --serve prints a URL with both.
  */
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { createServer as createNetServer } from "node:net";
 import os from "node:os";
 import path from "node:path";
@@ -389,7 +389,7 @@ async function main() {
   const mode = options.update ? "update" : options.ratchet ? "ratchet" : "check";
   const budgetsFile = BUDGETS[options.engine];
   const { budgets, failures, slack, changed } = applyBudgets(
-    existsSync(budgetsFile) ? JSON.parse(readFileSync(budgetsFile, "utf8")) : { scenarios: {} },
+    JSON.parse(readFileSync(budgetsFile, "utf8")),
     results.map(({ scenario, result }) => ({ name: scenario.name, result })),
     mode,
   );

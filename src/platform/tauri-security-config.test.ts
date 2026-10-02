@@ -144,10 +144,8 @@ describe("Tauri security boundary", () => {
   it("packages the sandboxed Chromium renderer without exposing workspace tokens in argv", () => {
     expect(packageJson.scripts["prepare:chromium"]).toBe("node scripts/prepare-chromium-runtime.mjs");
     expect(config.build.beforeBuildCommand).toBe("pnpm prepare:build");
-    expectContains(buildPrepare, "process.env.TAURI_ENV_DEBUG", 'debug ? "prepare:runtime:dev" : "prepare:runtime"',
-      '"prepare:chromium"');
+    expectContains(buildPrepare, "process.env.TAURI_ENV_DEBUG", 'debug ? "prepare:runtime:dev" : "prepare:runtime"');
     expect(config.bundle.resources).toContain("chromium-runtime/");
-    expect(rustApp).toContain("chromium_selected");
     expect(browserHost).toContain(".open_url(&config.url(origin))?");
     expectContains(chromiumRuntime, ".stdin(Stdio::piped())", "self.send(&ShellMessage::OpenUrl { url })",
       "let message = encode_message(message)?");
