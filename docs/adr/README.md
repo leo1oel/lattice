@@ -20,6 +20,7 @@ So: **dated reasoning goes here, present-tense reference goes in `docs/`.**
 | 0001 | [Project History is a merged semantic timeline](../project-history-architecture.md) | Accepted |
 | 0002 | [Structured-Markdown CRDT evaluation](../markdown-structured-crdt-evaluation.md) | Rejected (NO-GO) |
 | 0003 | [Overleaf integration stage baseline](0003-overleaf-stage-baseline.md) | Superseded — stage complete |
+| 0004 | [The open documents are one hook-owned store](0004-open-documents-store.md) | Accepted |
 
 0001 and 0002 predate this directory and still live in `docs/` under their
 original filenames. They are numbered here rather than moved so that existing
