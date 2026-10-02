@@ -1,9 +1,8 @@
-import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { GlobalWorkerOptions } from "pdfjs-dist";
-import { expect, it } from "vitest";
+import { expect, it, vi } from "vitest";
 
 // PDFSlick's module body assigned its own bundled PDF.js worker on import, and
 // in production chunks that assignment can run after src/pdf/pdfjs-runtime.ts.
@@ -23,9 +22,38 @@ it("importing @pdfslick/core leaves the app's PDF.js worker in place", async () 
 // that turned Cmd/Ctrl+P (and Cmd/Ctrl+Shift+P in Chromium) into a print and
 // stopped the event, so Quick open and the command palette never opened while
 // a PDF was showing. The same patch removes it.
-it("leaves Cmd/Ctrl+P to the app instead of PDFSlick's print shortcut", () => {
+it("leaves Cmd/Ctrl+P to the app instead of PDFSlick's print shortcut", async () => {
   const packageJson = createRequire(import.meta.url).resolve("@pdfslick/core/package.json");
-  const source = readFileSync(join(dirname(packageJson), "dist/esm/index.js"), "utf8");
-  expect(source).toContain("class PDFSlickPrintService");
-  expect(source).not.toMatch(/keyCode === \/\* P= \*\/ 80/);
+  const esmEntry = pathToFileURL(join(dirname(packageJson), "dist/esm/index.js")).href;
+  const { PDFSlick } = (await import(/* @vite-ignore */ esmEntry)) as typeof import("@pdfslick/core");
+  const container = document.createElement("div");
+  container.style.position = "absolute";
+  const viewer = document.createElement("div");
+  container.append(viewer);
+  document.body.append(container);
+  const slick = new PDFSlick({ container, viewer });
+  vi.stubGlobal("chrome", {});
+  const received: KeyboardEvent[] = [];
+  const onKeyDown = (event: KeyboardEvent) => received.push(event);
+  window.addEventListener("keydown", onKeyDown);
+  try {
+    for (const shiftKey of [false, true]) {
+      const event = new KeyboardEvent("keydown", {
+        key: "p",
+        keyCode: 80,
+        metaKey: true,
+        shiftKey,
+        bubbles: true,
+        cancelable: true,
+      });
+      window.dispatchEvent(event);
+      expect(event.defaultPrevented).toBe(false);
+    }
+    expect(received.map((event) => event.shiftKey)).toEqual([false, true]);
+  } finally {
+    window.removeEventListener("keydown", onKeyDown);
+    vi.unstubAllGlobals();
+    slick.unbindEvents();
+    container.remove();
+  }
 });
