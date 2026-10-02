@@ -1,5 +1,24 @@
+diff --git a/dist/esm/PDFSlick.d.ts b/dist/esm/PDFSlick.d.ts
+index 6cc3ef7e2eb39e774e775e146a5abb0ded853bdc..0b2515b719151de522a20c757aa2168358a27e1b 100644
+--- a/dist/esm/PDFSlick.d.ts
++++ b/dist/esm/PDFSlick.d.ts
+@@ -1,4 +1,4 @@
+-import { type OnProgressParameters, PDFDocumentProxy, AbortException, ResponseException, InvalidPDFException, RenderingCancelledException } from "pdfjs-dist";
++import { type OnProgressParameters, type PDFDocumentLoadingTask, PDFDocumentProxy, AbortException, ResponseException, InvalidPDFException, RenderingCancelledException } from "pdfjs-dist";
+ import type { DocumentInitParameters } from "pdfjs-dist/types/src/display/api";
+ import { EventBus, PDFViewer, PDFLinkService, DownloadManager, PDFFindController, PDFPageView } from "pdfjs-dist/web/pdf_viewer.mjs";
+ import { L10n } from "pdfjs-dist/types/web/pdf_viewer";
+@@ -17,6 +17,8 @@ export declare class PDFSlick {
+     viewer: PDFViewer;
+     thumbnailViewer?: PDFThumbnailViewer;
+     document: PDFDocumentProxy | null;
++    /** Lattice: the latest `getDocument()` load, from before its document resolves. */
++    loadingTask?: PDFDocumentLoadingTask;
+     store: StoreApi<PDFSlickState>;
+     filename: string;
+     l10n: L10n;
 diff --git a/dist/esm/index.js b/dist/esm/index.js
-index 1d71e015ffa9bfa6c842e6feea03896d55066c4c..ede77963533ed97ceb3d7100ba3260ce19be9d59 100644
+index 1d71e015ffa9bfa6c842e6feea03896d55066c4c..89df0c45ab1b94c0ad75c3181cb8e3586feec33f 100644
 --- a/dist/esm/index.js
 +++ b/dist/esm/index.js
 @@ -2249,18 +2249,9 @@ class PDFSlickPrintService {
@@ -35,3 +54,13 @@ index 1d71e015ffa9bfa6c842e6feea03896d55066c4c..ede77963533ed97ceb3d7100ba3260ce
  const US_PAGE_NAMES = {
      "8.5x11": "Letter",
      "8.5x14": "Legal",
+@@ -2616,6 +2609,9 @@ class PDFSlick {
+                 const filename = (_c = options === null || options === void 0 ? void 0 : options.filename) !== null && _c !== void 0 ? _c : getPdfFilenameFromUrl((_d = this.url) === null || _d === void 0 ? void 0 : _d.toString());
+                 this.filename = filename;
+                 const pdfDocumentLoader = getDocument(Object.assign(Object.assign({}, this.getDocumentParams), { url: this.url, enableHWA: this.enableHWA }));
++                // Lattice: keep the pending load reachable, so a viewer torn down
++                // before its document resolves can still end it.
++                this.loadingTask = pdfDocumentLoader;
+                 if (!!(options === null || options === void 0 ? void 0 : options.onProgress)) {
+                     pdfDocumentLoader.onProgress = options.onProgress;
+                 }

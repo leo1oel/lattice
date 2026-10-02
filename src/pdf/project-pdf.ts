@@ -12,6 +12,14 @@ import { PDFDataRangeTransport } from "./pdfjs-runtime";
 
 export type ProjectPdfFile = { path: string; length: number; version: string };
 
+// eslint-disable-next-line lingui/no-unlocalized-strings -- the backend's refusal text, matched and never shown
+const FILE_CHANGED = "This PDF changed on disk.";
+
+/** Whether a range read was refused because the file has a newer version. */
+export function isProjectPdfChanged(reason: unknown): boolean {
+  return (reason instanceof Error ? reason.message : reason) === FILE_CHANGED;
+}
+
 /** The backend reads at most 16 MiB per request; ask in halves of that. */
 const READ_BYTES = 8 * 1024 * 1024;
 

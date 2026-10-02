@@ -165,7 +165,7 @@ export async function destroyViewerRecord(record: ViewerRecord): Promise<void> {
   const { slick } = record;
   slick.unbindEvents();
   const objectUrl = typeof slick.url === "string" && slick.url.startsWith("blob:") ? slick.url : null;
-  const loadingTask = slick.document?.loadingTask;
+  const loadingTask = slick.loadingTask;
   // Release canvas backing stores now instead of whenever the detached
   // pages are collected; with enableHWA each one can hold GPU memory.
   // (Before setDocument(null), which empties the viewer element.)

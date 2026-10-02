@@ -2290,26 +2290,28 @@ function App() {
 
   // An open project PDF is read a range at a time from one version of the file,
   // so a rewrite on disk (a build, the agent, an Overleaf pull) must hand the
-  // viewer the new version; it keeps its page and zoom across the swap.
+  // viewer the new version; it keeps its page and zoom across the swap. The
+  // viewer asks at once when a read finds the file changed; the poll catches
+  // a rewrite before any read does.
+  const recheckActivePdf = useCallback(() => {
+    const path = activeAssetRef.current?.ranges ? activeAssetRef.current.path : null;
+    if (!path) return;
+    const ownsProject = captureProjectScope();
+    void invoke<AssetPreview>("read_project_asset", { path })
+      .then((asset) => {
+        const current = activeAssetRef.current;
+        if (!ownsProject() || current?.path !== path || !asset.ranges) return;
+        if (asset.ranges.version !== current.ranges?.version) showActiveAsset(asset);
+      })
+      // A file caught mid-write is read again on the next tick.
+      .catch(() => undefined);
+  }, [activeAssetRef, captureProjectScope, showActiveAsset]);
   const activePdfPath = activeAsset?.ranges ? activeAsset.path : null;
   useEffect(() => {
     if (!project || !activePdfPath) return;
-    let cancelled = false;
-    const timer = window.setInterval(() => {
-      void invoke<AssetPreview>("read_project_asset", { path: activePdfPath })
-        .then((asset) => {
-          const current = activeAssetRef.current;
-          if (cancelled || current?.path !== activePdfPath || !asset.ranges) return;
-          if (asset.ranges.version !== current.ranges?.version) showActiveAsset(asset);
-        })
-        // A file caught mid-write is read again on the next tick.
-        .catch(() => undefined);
-    }, 2500);
-    return () => {
-      cancelled = true;
-      window.clearInterval(timer);
-    };
-  }, [activeAssetRef, activePdfPath, project, showActiveAsset]);
+    const timer = window.setInterval(recheckActivePdf, 2500);
+    return () => window.clearInterval(timer);
+  }, [activePdfPath, project, recheckActivePdf]);
 
   const closeEditorTab = useCallback(async (path: string) => {
     // The writer already closed the document's panel: the last document does
@@ -3811,6 +3813,7 @@ function App() {
       ) : null}
       activePaper={activePaper}
       activeAsset={activeAsset}
+      onActiveAssetChanged={recheckActivePdf}
       canOpenCitation={(key) => Boolean(readablePaperCited(key) || citationUrl(key))}
       onOpenCitation={(key) => {
         const paper = readablePaperCited(key);

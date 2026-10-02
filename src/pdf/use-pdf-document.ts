@@ -3,7 +3,7 @@ import { useLingui } from "@lingui/react/macro";
 import { toMessage } from "../app-utils";
 import { isBrowserHosted } from "../platform/browser-runtime";
 import { pdfBytesFingerprint } from "./pdf-bytes";
-import { projectPdfTransport, type ProjectPdfFile } from "./project-pdf";
+import { isProjectPdfChanged, projectPdfTransport, type ProjectPdfFile } from "./project-pdf";
 import { createViewerRecord, destroyViewerRecord, onPdfEvents, pdfPageView, pdfPointAt, viewerOptions } from "./pdf-slick";
 import { installPdfTextLayerSelection } from "./pdf-text-layer-selection";
 import { addListeners, pdfFitMode, pdfScaleValue, toAppScale } from "./pdf-viewer-utils";
@@ -118,6 +118,9 @@ export function usePdfDocument({
     const range = file && projectPdfTransport(file, (reason) => {
       if (rangeFailure !== null || cancelled) return;
       rangeFailure = reason;
+      // A rewritten file is reloaded at its new version, not reported.
+      const changed = isProjectPdfChanged(reason);
+      if (changed) callbacks.current.onFileChanged?.();
       if (!promoted) {
         // The read is never answered, so end the load now instead of at the timeout.
         cancelled = true;
@@ -126,7 +129,7 @@ export function usePdfDocument({
         return;
       }
       // A viewer whose file has a new version on its way is being replaced.
-      if (sourceRef.current.key !== key) return;
+      if (changed || sourceRef.current.key !== key) return;
       addAppLog({
         level: "warning", source: "PDF", title: t`PDF could not be loaded`, detail: toMessage(reason), toast: true,
       });

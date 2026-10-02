@@ -18,10 +18,12 @@ function imageViewState(viewport: HTMLElement | null, scale: number): ImageFileV
 }
 
 /** A project image or PDF figure, with its zoom and scroll position kept as per-file view state. */
-export function ProjectAssetPreview({ asset, viewState, onViewState }: {
+export function ProjectAssetPreview({ asset, viewState, onViewState, onFileChanged }: {
   asset: AssetPreview;
   viewState?: FileViewState;
   onViewState?: (update: Partial<FileViewState>) => void;
+  /** A project PDF was rewritten on disk since it was read. */
+  onFileChanged?: () => void;
 }) {
   const { t } = useLingui();
   const url = assetDataUrl(asset);
@@ -67,6 +69,7 @@ export function ProjectAssetPreview({ asset, viewState, onViewState }: {
           fileName={asset.path.split("/").pop() ?? "figure.pdf"}
           initialViewState={viewState?.pdf}
           onViewState={(pdf) => onViewStateRef.current?.({ pdf })}
+          onFileChanged={onFileChanged}
         />
       </Suspense>
     );

@@ -163,6 +163,8 @@ export function DocumentCanvas(props: {
   /** Downloaded paper library backing the visual editor's `@` citation typeahead. */
   papers?: PaperSummary[];
   activeAsset: AssetPreview | null;
+  /** The active asset was rewritten on disk: read its new version. */
+  onActiveAssetChanged?: () => void;
   citationKeys: string[];
   citations: CitationInfo[];
   references: ReferenceInfo[];
@@ -994,6 +996,7 @@ export function DocumentCanvas(props: {
       asset={asset}
       viewState={props.getFileViewState?.(asset.path)}
       onViewState={(update) => props.onFileViewState?.(asset.path, update)}
+      onFileChanged={props.onActiveAssetChanged}
     />
   );
   const htmlPreview = (path: string, source: string, sourceEditorView?: EditorView | null) => (

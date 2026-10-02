@@ -166,6 +166,7 @@ vi.mock("@pdfslick/core", () => {
   return { PDFSlick: class PDFSlickMock {
     args: PdfSlickMockArgs;
     document: PdfSlickMockDocument | null = null;
+    loadingTask: { destroy: () => unknown } | null = null;
     eventHandlers = new Map<string, Array<(event: object) => void>>();
     pageViews: PdfSlickMockPageView[] = [];
     findIndex = 0;
@@ -251,6 +252,7 @@ vi.mock("@pdfslick/core", () => {
         ...(typeof source === "string" ? { url: source } : { data: new Uint8Array(source) }),
         ...this.args.options?.getDocumentParams,
       });
+      this.loadingTask = loadingTask;
       const loaded = await loadingTask.promise as unknown as PdfSlickMockDocument;
       loaded.loadingTask = loadingTask;
       this.document = loaded;

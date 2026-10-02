@@ -33,6 +33,7 @@ const pdf = vi.hoisted(() => {
       getData: () => Promise<Uint8Array>;
       loadingTask: { destroy: ReturnType<typeof vi.fn> };
     } | null = null;
+    loadingTask: { destroy: ReturnType<typeof vi.fn> } | null = null;
     pageViews: PageView[] = [];
     handlers = new Map<string, Array<(event: object) => void>>();
     readyListeners = new Set<() => void>();
@@ -131,6 +132,8 @@ const pdf = vi.hoisted(() => {
     });
 
     loadDocument = vi.fn(async (_source: string | ArrayBuffer, options?: { onProgress?: (progress: LoadProgress) => void }) => {
+      const loadingTask = { destroy: vi.fn(async () => undefined) };
+      this.loadingTask = loadingTask;
       if (state.deferLoad) {
         await new Promise<void>((resolve) => {
           state.pendingLoad = { onProgress: options?.onProgress, resolve };
@@ -140,7 +143,7 @@ const pdf = vi.hoisted(() => {
       this.document = {
         numPages: state.numPages,
         getData: async () => new Uint8Array([1, 2, 3]),
-        loadingTask: { destroy: vi.fn(async () => undefined) },
+        loadingTask,
       };
       for (let pageNumber = 1; pageNumber <= state.numPages; pageNumber += 1) {
         const page = document.createElement("div");
@@ -924,22 +927,28 @@ describe("PDFSlick viewer integration", () => {
     expect(invoke).not.toHaveBeenCalledWith("read_project_asset_range", expect.objectContaining({ version: "v1" }));
   });
 
-  it("swaps in a project PDF rewritten while open at the same page, never feeding the old viewer bytes it did not read", async () => {
+  it("asks for a project PDF's new version when a read finds it rewritten, then swaps it in at the same page", async () => {
     clearAppLogs();
     type Range = { requestDataRange(begin: number, end: number): void; onDataRange(begin: number, bytes: Uint8Array): void };
     const rangeOf = (instance: (typeof pdf.state.instances)[number]) => instance.args.options.getDocumentParams as { range: Range };
     const file = { path: "figures/scan.pdf", length: 4, version: "v1" };
-    const view = renderPdf({ url: null, projectFile: file, fileName: "scan.pdf" });
+    const onFileChanged = vi.fn();
+    const view = renderPdf({ url: null, projectFile: file, fileName: "scan.pdf", onFileChanged });
     await view.findByLabelText("PDF page 3");
     const old = pdf.state.instances[0]!;
     act(() => old.gotoPage(3));
 
-    // The rewrite: reads of the old version are refused from now on.
-    vi.mocked(invoke).mockRejectedValue(new Error("This PDF changed on disk."));
+    // The rewrite lands before the host has noticed it: the old version's read is refused.
+    vi.mocked(invoke).mockRejectedValue("This PDF changed on disk.");
     const { range } = rangeOf(old);
     const delivered = vi.spyOn(range, "onDataRange");
-    view.rerender(preview({ url: null, projectFile: { ...file, version: "v2" }, fileName: "scan.pdf" }));
     range.requestDataRange(0, 4);
+    await waitFor(() => expect(onFileChanged).toHaveBeenCalledOnce());
+    expect(delivered).not.toHaveBeenCalled();
+    expect(formatAppLogs()).not.toContain("changed on disk");
+
+    // The host reads the new version and hands it to the same viewer.
+    view.rerender(preview({ url: null, projectFile: { ...file, version: "v2" }, fileName: "scan.pdf", onFileChanged }));
     const replacement = await viewerAt(1);
     expect(rangeOf(replacement).range).not.toBe(range);
     await waitFor(() => expect(old.args.container.isConnected).toBe(false));
@@ -962,5 +971,7 @@ describe("PDFSlick viewer integration", () => {
     expect(await view.findByText("PDF could not be loaded")).toBeInTheDocument();
     expect(view.container.querySelector(".pdf-placeholder-detail")).toHaveTextContent("This PDF changed on disk.");
     expect(delivered).not.toHaveBeenCalled();
+    // The load PDF.js is still waiting on is ended, not left holding the file's buffer.
+    await waitFor(() => expect(instance.loadingTask!.destroy).toHaveBeenCalledOnce());
   });
 });
