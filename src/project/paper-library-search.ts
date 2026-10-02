@@ -76,14 +76,14 @@ export function rankPapers(
  * identity (first hit wins). Hits for an older query are never returned.
  * `searchNow` skips the debounce for the current query (Enter in the box).
  */
-export function usePaperTextSearch(query: string, enabled: boolean): {
+export function usePaperTextSearch(query: string): {
   hits: ReadonlyMap<string, PaperLibrarySearchHit>;
   searchNow: () => void;
 } {
   const [search, setSearch] = useState<{ query: string; hits: PaperLibrarySearchHit[] }>({ query: "", hits: [] });
   const runNow = useRef<(() => void) | null>(null);
   useEffect(() => {
-    if (!enabled || !query) return;
+    if (!query) return;
     let disposed = false;
     let started = false;
     const run = () => {
@@ -106,7 +106,7 @@ export function usePaperTextSearch(query: string, enabled: boolean): {
       runNow.current = null;
       window.clearTimeout(timer);
     };
-  }, [enabled, query]);
+  }, [query]);
   const searchNow = useCallback(() => runNow.current?.(), []);
   const hits = useMemo(() => {
     const firstHit = new Map<string, PaperLibrarySearchHit>();

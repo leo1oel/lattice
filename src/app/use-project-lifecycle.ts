@@ -16,7 +16,7 @@ import type { OpenDocuments } from "./use-open-documents";
 import { requestBibliographyIndex, type useProjectLibrary } from "./use-project-library";
 import { loadDocumentCanvas } from "./use-preview-prewarm";
 import type { ProjectState } from "./use-project-state";
-import { useLatest } from "./effect-helpers";
+import { useLatestRef } from "../hooks/use-latest-ref";
 
 /** How long a project switch waits for an in-flight Overleaf sync before giving up on it. */
 const PROJECT_SWITCH_SYNC_WAIT_MS = 15_000;
@@ -74,7 +74,7 @@ export type ProjectLifecycleDeps = {
 export function useProjectLifecycle(deps: ProjectLifecycleDeps) {
   const { t } = useLingui();
   // The per-project resets and scans are App's closures; read the latest at entry time.
-  const depsRef = useLatest(deps);
+  const depsRef = useLatestRef(deps);
   const { projectState, documents, library, build, resetCompileTracking, cancelPrewarm, shellRef, browserHosted } = deps;
   const { syncingRef, settledRef, flushWholeFilesRef } = deps.overleafSync;
   const {
@@ -209,7 +209,7 @@ export function useProjectLifecycle(deps: ProjectLifecycleDeps) {
     depsRef, enterDocuments, projectBeforeTransitionRef, projectRef, rememberProject, resetBibliographyIndex,
     resetForProject, runBuild, setPapers, setProject, shellRef,
   ]);
-  const enterProjectRef = useLatest(enterProject);
+  const enterProjectRef = useLatestRef(enterProject);
 
   /// Hand a project to a window of its own, or raise the window already
   /// showing it. Returns the failure message so a caller that keeps a list of

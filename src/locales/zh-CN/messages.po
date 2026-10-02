@@ -1733,7 +1733,7 @@ msgstr "评论"
 msgid "Comment"
 msgstr "评论"
 
-#: src/app/app-editor-panels.tsx
+#: src/app/use-editor-comments.ts
 msgid "Comment deleted"
 msgstr "评论已删除"
 
@@ -1749,7 +1749,7 @@ msgstr "评论来源"
 msgid "Comment visibility"
 msgstr "评论显示范围"
 
-#: src/app/app-editor-panels.tsx
+#: src/app/use-editor-comments.ts
 #: src/canvas/editor-status-bar.tsx
 #: src/overleaf/overleaf-collab.tsx
 #: src/trellis/trellis-titles.ts
@@ -4831,7 +4831,7 @@ msgstr "无匹配项"
 msgid "No matches found"
 msgstr "未找到匹配项"
 
-#: src/app/app-search-dialogs.tsx
+#: src/app/use-project-search.ts
 msgid "No matches found."
 msgstr "未找到匹配项。"
 
@@ -6353,15 +6353,15 @@ msgstr "替换为"
 msgid "Replace with “{replacement}”"
 msgstr "替换为“{replacement}”"
 
-#: src/app/app-search-dialogs.tsx
+#: src/app/use-project-search.ts
 msgid "Replaced {replacements} occurrence in {files} file."
 msgstr "已在 {files} 个文件中替换 {replacements} 处。"
 
-#: src/app/app-search-dialogs.tsx
+#: src/app/use-project-search.ts
 msgid "Replaced {replacements} occurrences in {files} file."
 msgstr "已在 {files} 个文件中替换 {replacements} 处。"
 
-#: src/app/app-search-dialogs.tsx
+#: src/app/use-project-search.ts
 msgid "Replaced {replacements} occurrences in {files} files."
 msgstr "已在 {files} 个文件中替换 {replacements} 处。"
 
@@ -8125,7 +8125,7 @@ msgstr "行内公式 {open} 未闭合。"
 msgid "Underline"
 msgstr "下划线"
 
-#: src/app/app-editor-panels.tsx
+#: src/app/use-editor-comments.ts
 msgid "Undo"
 msgstr "撤销"
 

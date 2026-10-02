@@ -6,7 +6,8 @@ import { toMessage } from "../app-utils";
 import type { TexDependencyInstallStatus } from "../build/tex-dependency-installer";
 import { isRequiredSetupMissing, type TexDependencyInstallProgress } from "../build/tex-setup";
 import { logAction } from "../telemetry/app-notify";
-import { useLatest, useRefState, whenIdle } from "./effect-helpers";
+import { useRefState, whenIdle } from "./effect-helpers";
+import { useLatestRef } from "../hooks/use-latest-ref";
 
 /**
  * The TeX toolchain check ("doctor"), the setup wizard it opens when a
@@ -22,7 +23,7 @@ export function useTexSetup(rebuild: () => void) {
   const [wizardOpen, setWizardOpen] = useState(false);
   const [install, , installRef, publishInstall] = useRefState<TexDependencyInstallStatus | null>(null);
   const installAttemptRef = useRef(0);
-  const rebuildRef = useLatest(rebuild);
+  const rebuildRef = useLatestRef(rebuild);
 
   // Idle-deferred: run_doctor shells out to probe the TeX toolchain, and
   // nothing needs its report during first paint. The timeout keeps the setup

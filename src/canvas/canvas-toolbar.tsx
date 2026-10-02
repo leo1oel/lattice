@@ -2,7 +2,7 @@ import { AppWindow, BookOpen, ChevronDown, Cloud, ExternalLink, FileCode2, Globe
 import { memo, useMemo, type ButtonHTMLAttributes, type ReactNode } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { Tip } from "../components/icon-tip";
-import { useLatest } from "../app/effect-helpers";
+import { useLatestRef } from "../hooks/use-latest-ref";
 import { AnimatedProductIcon } from "../animated-icons/product-animated-icon";
 import { InfinityLoader } from "../components/ui/activity-icons";
 import { StateSwap } from "../components/ui/motion";
@@ -205,7 +205,7 @@ const HANDLER_NAMES = Object.keys(FORWARDED_HANDLERS) as (keyof ForwardedHandler
  * draws. Optional handlers stay optional: their presence decides what renders.
  */
 export function CanvasToolbar(props: CanvasToolbarProps) {
-  const latest = useLatest(props);
+  const latest = useLatestRef(props);
   const stable = useMemo(() => Object.fromEntries(HANDLER_NAMES.map((name) => [
     name,
     (...args: unknown[]) => (latest.current[name] as ((...args: unknown[]) => void) | undefined)?.(...args),

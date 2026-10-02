@@ -345,49 +345,53 @@ export function ProjectFileTree(props: ProjectFileTreeProps) {
   };
 
   return (
-    <ContextMenu>
-      <ContextMenuTrigger asChild>
-        <div className="project-file-tree-surface" aria-label={t`Project files`} onKeyDownCapture={onKeyDownCapture}>
-          <FileTree
-            className="lattice-file-tree"
-            model={model}
-            renderContextMenu={renderContextMenu}
-            onPointerOverCapture={reportLikelyFile}
-            onFocusCapture={reportLikelyFile}
-            onContextMenu={(event) => {
-              if (findPierreItemPath(event) || composedPathHas(event, (target) => target instanceof HTMLInputElement)) {
-                event.stopPropagation();
-              }
-            }}
-            onMouseDown={(event) => {
-              // A row button cut off by the viewport edge scrolls itself into
-              // view when the mousedown focuses it. That scroll makes the
-              // virtualized list recycle its row elements, so mouseup lands on
-              // a different button, the browser sends the click to their
-              // common ancestor, and the file never opens. Pierre's click
-              // handler moves focus itself (it already cancels this default
-              // while the search field is open), so the native focus can go.
-              if (event.button === 0 && rowPathFromPointer(event)) event.preventDefault();
-            }}
-            onPointerDown={(event) => {
-              const path = rowPathFromPointer(event);
-              if (!path) return;
-              pointerDrag.begin(path, event);
-              const node = tree.nodes.get(path);
-              if (node?.kind === "figure" || node?.contentKind === "binary") {
-                props.onBeginFigureDrag(node.path, node.name, event);
-              } else if (node && !isDirectoryNode(node)) {
-                props.onBeginFileDrag(node.path, node.name, event);
-              }
-            }}
-            onDragStartCapture={pointerDrag.onDragStartCapture}
-            onClickCapture={pointerDrag.onClickCapture}
-          />
-          <ExternalScrollbar getViewport={getTreeScrollViewport} />
-          <ProjectTreeHover getViewport={getTreeScrollViewport} />
-        </div>
-      </ContextMenuTrigger>
-      <ProjectTreeBackgroundMenu actions={[...creationActions(""), hiddenFilesAction]} />
-    </ContextMenu>
+    <aside className="navigator">
+      <div className="navigator-section project-section">
+        <ContextMenu>
+          <ContextMenuTrigger asChild>
+            <div className="project-file-tree-surface" aria-label={t`Project files`} onKeyDownCapture={onKeyDownCapture}>
+              <FileTree
+                className="lattice-file-tree"
+                model={model}
+                renderContextMenu={renderContextMenu}
+                onPointerOverCapture={reportLikelyFile}
+                onFocusCapture={reportLikelyFile}
+                onContextMenu={(event) => {
+                  if (findPierreItemPath(event) || composedPathHas(event, (target) => target instanceof HTMLInputElement)) {
+                    event.stopPropagation();
+                  }
+                }}
+                onMouseDown={(event) => {
+                  // A row button cut off by the viewport edge scrolls itself into
+                  // view when the mousedown focuses it. That scroll makes the
+                  // virtualized list recycle its row elements, so mouseup lands on
+                  // a different button, the browser sends the click to their
+                  // common ancestor, and the file never opens. Pierre's click
+                  // handler moves focus itself (it already cancels this default
+                  // while the search field is open), so the native focus can go.
+                  if (event.button === 0 && rowPathFromPointer(event)) event.preventDefault();
+                }}
+                onPointerDown={(event) => {
+                  const path = rowPathFromPointer(event);
+                  if (!path) return;
+                  pointerDrag.begin(path, event);
+                  const node = tree.nodes.get(path);
+                  if (node?.kind === "figure" || node?.contentKind === "binary") {
+                    props.onBeginFigureDrag(node.path, node.name, event);
+                  } else if (node && !isDirectoryNode(node)) {
+                    props.onBeginFileDrag(node.path, node.name, event);
+                  }
+                }}
+                onDragStartCapture={pointerDrag.onDragStartCapture}
+                onClickCapture={pointerDrag.onClickCapture}
+              />
+              <ExternalScrollbar getViewport={getTreeScrollViewport} />
+              <ProjectTreeHover getViewport={getTreeScrollViewport} />
+            </div>
+          </ContextMenuTrigger>
+          <ProjectTreeBackgroundMenu actions={[...creationActions(""), hiddenFilesAction]} />
+        </ContextMenu>
+      </div>
+    </aside>
   );
 }

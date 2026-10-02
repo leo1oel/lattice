@@ -21,7 +21,6 @@ import { EmptyIllustration } from "../components/ui/empty-illustration";
 type PaperFetchState = "loading" | "success";
 
 export type PaperLibraryProps = {
-  mode: "project" | "papers";
   projectKey: string;
   papers: PaperSummary[];
   activePaper: PaperSummary | null;
@@ -56,11 +55,7 @@ function paperStateIcon(
   return paper.url ? <ExternalLink size={14} /> : <BookMarked size={14} />;
 }
 
-/**
- * The Papers sidebar: one box that searches the library and imports what it
- * does not hold. It stays mounted in every sidebar mode (rendering nothing
- * outside Papers) so an import's progress clock survives switching away.
- */
+/** The Papers panel: one box that searches the library and imports what it does not hold. */
 export function PaperLibrary(props: PaperLibraryProps) {
   const { t } = useLingui();
   const progressActive = props.importing || Object.values(props.paperFetchStates).some((state) => state === "loading");
@@ -71,12 +66,11 @@ export function PaperLibrary(props: PaperLibraryProps) {
   useEffect(() => {
     if (props.recentImport?.query === query && viewportRef.current) viewportRef.current.scrollTop = 0;
   }, [props.recentImport, query]);
-  const { hits: textHits, searchNow } = usePaperTextSearch(query, props.mode === "papers");
+  const { hits: textHits, searchNow } = usePaperTextSearch(query);
   const filteredPapers = useMemo(
     () => rankPapers(props.papers, props.importInput, textHits, props.recentImport),
     [props.importInput, props.papers, props.recentImport, textHits],
   );
-  if (props.mode !== "papers") return null;
 
   const activatePaper = (paper: PaperSummary) => {
     if (paper.hasFullText || paper.hasBlog) props.onPaper(paper);
@@ -95,168 +89,170 @@ export function PaperLibrary(props: PaperLibraryProps) {
       : [t`No matching papers`, t`Press + to import it`];
 
   return (
-    <div className="navigator-section papers-section">
-      <div className="paper-import-control" data-importing={progressActive || undefined}>
-        <SearchField
-          aria-label={t`Search or import papers`}
-          aria-busy={progressActive}
-          readOnly={progressActive}
-          title={progressActive ? props.importStage ?? t`Working…` : undefined}
-          aria-describedby={progressActive ? "paper-import-status" : undefined}
-          containerClassName="import-box"
-          controlSize="compact"
-          placeholder={t`Search or add by title, arXiv ID, DOI, or URL`}
-          value={props.importInput}
-          onChange={(event) => props.setImportInput(event.target.value)}
-          onClear={progressActive ? undefined : () => props.setImportInput("")}
-          {...compositionProps}
-          // Enter only searches: the list already filters as you type, so it
-          // runs the full-text pass now. Adding is the + button's job alone.
-          onKeyDown={(event) => {
-            if (event.key !== "Enter" || isComposing(event)) return;
-            event.preventDefault();
-            if (!progressActive) searchNow();
-          }}
-          trailing={(
-            <button
-              onClick={props.importing ? props.onCancelImport : addPaper}
-              disabled={!props.importing && (progressActive || !query)}
-              title={props.importing ? t`Cancel` : t`Add paper`}
-              aria-label={props.importing ? t`Cancel` : t`Add paper`}
-            >
-              {props.importing ? <X size={14} /> : <Plus size={14} />}
-            </button>
-          )}
-        />
-        {progressActive && (
-          <>
-            <div className="paper-import-track" aria-hidden="true">
-              <span ref={importFillRef} style={{ width: "0%" }} />
-            </div>
-            <span id="paper-import-status" className="paper-import-status" role="status" aria-atomic="true">
-              {props.importStage ?? t`Working…`}
-            </span>
-          </>
-        )}
-      </div>
-      <ScrollArea
-        className="paper-list"
-        viewportRef={viewportRef}
-        orientation="both"
-        contentClassName="paper-list-content"
-        viewportProps={{ role: "list", "aria-label": t`Papers` }}
-      >
-        {filteredPapers.map((paper) => {
-          const fetchState = props.paperFetchStates[paperKey(paper)];
-          const readable = paper.hasFullText || paper.hasBlog;
-          const downloadable = canDownloadPaper(paper);
-          const healthLabel = citationHealthLabel(paper.citationHealth);
-          const healthTitle = citationHealthTitle(paper.citationHealth);
-          const reportIntent = () => {
-            if (readable) props.onLikelyPaper?.(paper);
-          };
-          const row = (
-            <div
-              className={`paper-row ${paper.hasFullText ? "" : "cited-only "}${healthLabel ? `citation-${paper.citationHealth?.kind} ` : ""}${props.activePaper && paperKey(props.activePaper) === paperKey(paper) ? "active" : ""}`}
-              data-citation-health={paper.citationHealth?.kind}
-              draggable
-              onDragStart={(event) => beginPaperDrag(event.dataTransfer, props.projectKey, paper)}
-            >
+    <aside className="navigator">
+      <div className="navigator-section papers-section">
+        <div className="paper-import-control" data-importing={progressActive || undefined}>
+          <SearchField
+            aria-label={t`Search or import papers`}
+            aria-busy={progressActive}
+            readOnly={progressActive}
+            title={progressActive ? props.importStage ?? t`Working…` : undefined}
+            aria-describedby={progressActive ? "paper-import-status" : undefined}
+            containerClassName="import-box"
+            controlSize="compact"
+            placeholder={t`Search or add by title, arXiv ID, DOI, or URL`}
+            value={props.importInput}
+            onChange={(event) => props.setImportInput(event.target.value)}
+            onClear={progressActive ? undefined : () => props.setImportInput("")}
+            {...compositionProps}
+            // Enter only searches: the list already filters as you type, so it
+            // runs the full-text pass now. Adding is the + button's job alone.
+            onKeyDown={(event) => {
+              if (event.key !== "Enter" || isComposing(event)) return;
+              event.preventDefault();
+              if (!progressActive) searchNow();
+            }}
+            trailing={(
               <button
-                data-tour={paper.arxivId === "2010.11929" ? "tutorial-vit-paper" : undefined}
-                title={readable
-                  ? paper.title
-                  : !downloadable && paper.url
-                    ? t`Open source page — no downloadable full text found`
-                    : paper.arxivId
-                      ? t({ message: `Download arXiv ${{ id: paper.arxivId }}` })
-                      : paper.url
-                        ? t({ message: `Download ${{ url: paper.url }}` })
-                        : t({ message: `${{ title: paper.title }} — no local reading available` })}
-                className="paper-open"
-                // Knowing the preprint is as good as having it: clicking
-                // fetches. A cited webpage is fetchable the same way.
-                disabled={fetchState === "loading" || (!readable && !paper.arxivId && !paper.url)}
-                onPointerEnter={reportIntent}
-                onFocus={reportIntent}
-                onClick={() => activatePaper(paper)}
+                onClick={props.importing ? props.onCancelImport : addPaper}
+                disabled={!props.importing && (progressActive || !query)}
+                title={props.importing ? t`Cancel` : t`Add paper`}
+                aria-label={props.importing ? t`Cancel` : t`Add paper`}
               >
-                <span className={`paper-state-icon ${fetchState ?? (readable ? "available" : "idle")}`}>
-                  {paperStateIcon(paper, fetchState, readable, downloadable)}
-                </span>
-                <span>
-                  <strong>{paper.title}</strong>
-                  {paper.authors && <small className="paper-authors">{paper.authors}</small>}
-                  <small>{paperSubtitle(paper, textHits.get(paperSearchIdentity(paper))?.snippet.trim())}</small>
-                  {!readable && !downloadable && <small>{t`Citation only — no downloadable full text found`}</small>}
-                  {healthLabel && <small className="paper-citation-health" role="status">{healthLabel}</small>}
-                </span>
+                {props.importing ? <X size={14} /> : <Plus size={14} />}
               </button>
-              <div className="paper-row-actions">
-                {healthLabel && paper.citationHealth?.link && (
-                  <button
-                    className="row-citation-health"
-                    title={t({ message: `${{ notice: healthTitle }}. Open notice` })}
-                    aria-label={t({ message: `${{ notice: healthLabel }}. Open notice` })}
-                    onClick={() => void openUrl(paper.citationHealth!.link!).catch(() => undefined)}
-                  >
-                    <TriangleAlert size={12} />
-                  </button>
-                )}
-                {paper.citationKey && (
-                  <button className="row-edit-bib" title={t`Edit bibliography entry`} onClick={() => props.onEditBibEntry(paper)}><Pencil size={12} /></button>
-                )}
-                <DestructiveButton
-                  className="row-delete"
-                  title={t({ message: `Remove ${{ title: paper.title }}` })}
-                  iconSize={12}
-                  onClick={() => props.onDeletePaper(paper)}
-                />
+            )}
+          />
+          {progressActive && (
+            <>
+              <div className="paper-import-track" aria-hidden="true">
+                <span ref={importFillRef} style={{ width: "0%" }} />
               </div>
-              {!healthLabel && healthTitle && <span className="sr-only">{healthTitle}</span>}
+              <span id="paper-import-status" className="paper-import-status" role="status" aria-atomic="true">
+                {props.importStage ?? t`Working…`}
+              </span>
+            </>
+          )}
+        </div>
+        <ScrollArea
+          className="paper-list"
+          viewportRef={viewportRef}
+          orientation="both"
+          contentClassName="paper-list-content"
+          viewportProps={{ role: "list", "aria-label": t`Papers` }}
+        >
+          {filteredPapers.map((paper) => {
+            const fetchState = props.paperFetchStates[paperKey(paper)];
+            const readable = paper.hasFullText || paper.hasBlog;
+            const downloadable = canDownloadPaper(paper);
+            const healthLabel = citationHealthLabel(paper.citationHealth);
+            const healthTitle = citationHealthTitle(paper.citationHealth);
+            const reportIntent = () => {
+              if (readable) props.onLikelyPaper?.(paper);
+            };
+            const row = (
+              <div
+                className={`paper-row ${paper.hasFullText ? "" : "cited-only "}${healthLabel ? `citation-${paper.citationHealth?.kind} ` : ""}${props.activePaper && paperKey(props.activePaper) === paperKey(paper) ? "active" : ""}`}
+                data-citation-health={paper.citationHealth?.kind}
+                draggable
+                onDragStart={(event) => beginPaperDrag(event.dataTransfer, props.projectKey, paper)}
+              >
+                <button
+                  data-tour={paper.arxivId === "2010.11929" ? "tutorial-vit-paper" : undefined}
+                  title={readable
+                    ? paper.title
+                    : !downloadable && paper.url
+                      ? t`Open source page — no downloadable full text found`
+                      : paper.arxivId
+                        ? t({ message: `Download arXiv ${{ id: paper.arxivId }}` })
+                        : paper.url
+                          ? t({ message: `Download ${{ url: paper.url }}` })
+                          : t({ message: `${{ title: paper.title }} — no local reading available` })}
+                  className="paper-open"
+                  // Knowing the preprint is as good as having it: clicking
+                  // fetches. A cited webpage is fetchable the same way.
+                  disabled={fetchState === "loading" || (!readable && !paper.arxivId && !paper.url)}
+                  onPointerEnter={reportIntent}
+                  onFocus={reportIntent}
+                  onClick={() => activatePaper(paper)}
+                >
+                  <span className={`paper-state-icon ${fetchState ?? (readable ? "available" : "idle")}`}>
+                    {paperStateIcon(paper, fetchState, readable, downloadable)}
+                  </span>
+                  <span>
+                    <strong>{paper.title}</strong>
+                    {paper.authors && <small className="paper-authors">{paper.authors}</small>}
+                    <small>{paperSubtitle(paper, textHits.get(paperSearchIdentity(paper))?.snippet.trim())}</small>
+                    {!readable && !downloadable && <small>{t`Citation only — no downloadable full text found`}</small>}
+                    {healthLabel && <small className="paper-citation-health" role="status">{healthLabel}</small>}
+                  </span>
+                </button>
+                <div className="paper-row-actions">
+                  {healthLabel && paper.citationHealth?.link && (
+                    <button
+                      className="row-citation-health"
+                      title={t({ message: `${{ notice: healthTitle }}. Open notice` })}
+                      aria-label={t({ message: `${{ notice: healthLabel }}. Open notice` })}
+                      onClick={() => void openUrl(paper.citationHealth!.link!).catch(() => undefined)}
+                    >
+                      <TriangleAlert size={12} />
+                    </button>
+                  )}
+                  {paper.citationKey && (
+                    <button className="row-edit-bib" title={t`Edit bibliography entry`} onClick={() => props.onEditBibEntry(paper)}><Pencil size={12} /></button>
+                  )}
+                  <DestructiveButton
+                    className="row-delete"
+                    title={t({ message: `Remove ${{ title: paper.title }}` })}
+                    iconSize={12}
+                    onClick={() => props.onDeletePaper(paper)}
+                  />
+                </div>
+                {!healthLabel && healthTitle && <span className="sr-only">{healthTitle}</span>}
+              </div>
+            );
+            // A cited-only paper has no local file to act on, so it stays bare;
+            // one with full text gets the same right-click menu as a tree file.
+            const revealPath = `.research/papers/${paper.arxivId}/${paper.hasFullText ? "paper.md" : "blog.md"}`;
+            return (
+              <Fragment key={paperKey(paper)}>
+                {readable ? (
+                  <ContextMenu>
+                    <ContextMenuTrigger asChild>{row}</ContextMenuTrigger>
+                    <ContextMenuContent onCloseAutoFocus={(event) => event.preventDefault()}>
+                      <ContextMenuItem onSelect={() => props.onReveal(revealPath)}>
+                        <FolderOpen size={14} />{t`Show in Finder`}
+                      </ContextMenuItem>
+                    </ContextMenuContent>
+                  </ContextMenu>
+                ) : row}
+              </Fragment>
+            );
+          })}
+          {emptyState && (
+            <div className="papers-empty-state">
+              {/* Beside the text, not above it: the card sits in a short panel
+                  at startup, and a taller card would overflow it. */}
+              <EmptyIllustration kind={total ? "search" : "papers"} size="compact" />
+              <div className="papers-empty-text">
+                <strong>{emptyState[0]}</strong>
+                <p>{emptyState[1]}</p>
+              </div>
             </div>
-          );
-          // A cited-only paper has no local file to act on, so it stays bare;
-          // one with full text gets the same right-click menu as a tree file.
-          const revealPath = `.research/papers/${paper.arxivId}/${paper.hasFullText ? "paper.md" : "blog.md"}`;
-          return (
-            <Fragment key={paperKey(paper)}>
-              {readable ? (
-                <ContextMenu>
-                  <ContextMenuTrigger asChild>{row}</ContextMenuTrigger>
-                  <ContextMenuContent onCloseAutoFocus={(event) => event.preventDefault()}>
-                    <ContextMenuItem onSelect={() => props.onReveal(revealPath)}>
-                      <FolderOpen size={14} />{t`Show in Finder`}
-                    </ContextMenuItem>
-                  </ContextMenuContent>
-                </ContextMenu>
-              ) : row}
-            </Fragment>
-          );
-        })}
-        {emptyState && (
-          <div className="papers-empty-state">
-            {/* Beside the text, not above it: the card sits in a short panel
-                at startup, and a taller card would overflow it. */}
-            <EmptyIllustration kind={total ? "search" : "papers"} size="compact" />
-            <div className="papers-empty-text">
-              <strong>{emptyState[0]}</strong>
-              <p>{emptyState[1]}</p>
-            </div>
-          </div>
-        )}
-        {!!filteredPapers.length && (
-          <p className="paper-list-end">
-            {filteredPapers.length !== total
-              ? filteredPapers.length === 1
-                ? t({ message: `1 of ${{ total }} papers` })
-                : t({ message: `${{ filtered: filteredPapers.length }} of ${{ total }} papers` })
-              : total === 1
-                ? t`1 paper`
-                : t({ message: `${{ count: total }} papers` })}
-          </p>
-        )}
-      </ScrollArea>
-    </div>
+          )}
+          {!!filteredPapers.length && (
+            <p className="paper-list-end">
+              {filteredPapers.length !== total
+                ? filteredPapers.length === 1
+                  ? t({ message: `1 of ${{ total }} papers` })
+                  : t({ message: `${{ filtered: filteredPapers.length }} of ${{ total }} papers` })
+                : total === 1
+                  ? t`1 paper`
+                  : t({ message: `${{ count: total }} papers` })}
+            </p>
+          )}
+        </ScrollArea>
+      </div>
+    </aside>
   );
 }

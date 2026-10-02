@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { useLatest } from "./effect-helpers";
+import { useLatestRef } from "../hooks/use-latest-ref";
 
 /**
  * One app-level action, as the command palette lists it (entries with a
@@ -27,7 +27,7 @@ export function useAppCommands(commands: AppCommand[], cycleDiagnostic: (directi
     if (command && command.when !== false) command.run();
   };
   // Read at keypress, so a shortcut always runs the current render's closures.
-  const commandsRef = useLatest(commands);
+  const commandsRef = useLatestRef(commands);
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "F8") {

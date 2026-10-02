@@ -3,28 +3,22 @@
  *
  * `AppSearchDialogs` holds the ones that resolve to a place in the open
  * document set — quick open, go to symbol, go to line, and the two insert
- * pickers. `AppProjectSearchDialogs` holds the two that run a query across the
- * whole project on the Rust side, find and replace, which need the project
- * generation refs to discard results from a project that has moved on.
+ * pickers. `AppProjectSearchDialogs` renders the two that run a query across
+ * the whole project, find and replace, whose queries useProjectSearch runs.
  */
-import type { RefObject } from "react";
 import { useLingui } from "@lingui/react/macro";
-import { invoke } from "@tauri-apps/api/core";
 import { GotoLineDialog } from "../editor/goto-line-dialog";
 import { QuickOpenDialog } from "../project/quick-open-dialog";
 import { SearchPickerDialog, type SearchPickerItem } from "../components/ui/search-picker-dialog";
 import { parsePaperLinkPath } from "../papers/paper-link";
 import { flattenOutline, type OutlineNode } from "../editor/latex/latex-outline";
-import { ProjectFindDialog, type ProjectFindHit } from "../project/project-find-dialog";
+import { ProjectFindDialog } from "../project/project-find-dialog";
 import type { ProjectSearch } from "./use-project-search";
-import { ProjectReplaceDialog, type ReplacePreviewResult } from "../project/project-replace-dialog";
+import { ProjectReplaceDialog } from "../project/project-replace-dialog";
 import { referenceKindLabel, type CitationInfo, type ReferenceInfo } from "../editor/latex/latex-text";
-import { isProjectAssetFilePath, toMessage } from "../app-utils";
-import { setNotice } from "./notify";
+import { isProjectAssetFilePath } from "../app-utils";
 import { collectFilePaths } from "./workspace-restore";
-import type {
-  EditorPosition, FileNode, OpenProjectFile, ProjectSnapshot, RefreshProject, ReplaceResult,
-} from "../app-types";
+import type { EditorPosition, FileNode, OpenProjectFile } from "../app-types";
 
 /** The navigation dialogs; at most one is open at a time. */
 export type SearchDialog = "quick-open" | "goto-symbol" | "goto-line" | "cite" | "ref";
@@ -145,35 +139,12 @@ export function AppSearchDialogs({ open, setOpen, activeFile, openProjectFile, o
   );
 }
 
-export function AppProjectSearchDialogs({ search, captureProjectScope, projectRef, dirty, ...props }: {
+export function AppProjectSearchDialogs({ search, ...props }: {
   search: ProjectSearch;
-  captureProjectScope: () => () => boolean;
-  projectRef: RefObject<ProjectSnapshot | null>;
-  /** Whether the open editor holds unsaved edits a replace must write first. */
-  dirty: boolean;
-  activeFile: string;
-  loadFile: (path: string) => Promise<boolean>;
   openMarkdownProjectPath: (path: string) => void;
   openProjectFile: OpenProjectFile;
-  refreshHistory: () => Promise<void>;
-  refreshProject: RefreshProject;
-  save: () => Promise<boolean>;
 }) {
-  const { t } = useLingui();
-  const { find, setFind, replace, setReplace, searchGenerationRef } = search;
-  /** Save a dirty buffer, then run one replace step with the dialog's busy/error state. */
-  const runReplaceStep = async (step: () => Promise<void>, onError?: () => void) => {
-    setReplace({ busy: true, error: null });
-    try {
-      if (dirty && !(await props.save())) return;
-      await step();
-    } catch (reason) {
-      onError?.();
-      setReplace({ error: toMessage(reason) });
-    } finally {
-      setReplace({ busy: false });
-    }
-  };
+  const { find, replace } = search;
   return (
     <>
       <ProjectFindDialog
@@ -181,31 +152,8 @@ export function AppProjectSearchDialogs({ search, captureProjectScope, projectRe
         busy={find.busy}
         error={find.error}
         hits={find.hits}
-        onClose={() => {
-          searchGenerationRef.current += 1;
-          setFind({ open: false, busy: false, error: null, hits: [] });
-        }}
-        onSearch={async (query) => {
-          const generation = ++searchGenerationRef.current;
-          const projectRoot = projectRef.current?.root;
-          if (!query.trim() || !projectRoot) {
-            setFind({ hits: [], busy: false, error: null });
-            return;
-          }
-          setFind({ busy: true, error: null });
-          const ownsProject = captureProjectScope();
-          const superseded = () => generation !== searchGenerationRef.current || !ownsProject();
-          try {
-            const hits = await invoke<ProjectFindHit[]>("search_project", { query });
-            if (superseded()) return;
-            setFind({ hits });
-          } catch (reason) {
-            if (superseded()) return;
-            setFind({ hits: [], error: toMessage(reason) });
-          } finally {
-            if (generation === searchGenerationRef.current) setFind({ busy: false });
-          }
-        }}
+        onClose={search.closeFind}
+        onSearch={search.search}
         onOpenHit={(path, line) => {
           if (parsePaperLinkPath(path)) props.openMarkdownProjectPath(path);
           else void props.openProjectFile(path, { line });
@@ -216,29 +164,12 @@ export function AppProjectSearchDialogs({ search, captureProjectScope, projectRe
         busy={replace.busy}
         error={replace.error}
         preview={replace.preview}
-        onClose={() => setReplace({ open: false, preview: null })}
+        onClose={search.closeReplace}
         onOpenMatch={(path, line) => {
           void props.openProjectFile(path, { line });
         }}
-        onPreview={(query, options) => void runReplaceStep(async () => {
-          setReplace({ preview: await invoke<ReplacePreviewResult>("preview_replace_in_project", { query, paths: null, ...options }) });
-        }, () => setReplace({ preview: null }))}
-        onReplace={(query, replacement, options) => void runReplaceStep(async () => {
-          const result = await invoke<ReplaceResult>("replace_in_project", { query, replacement, paths: null, ...options });
-          if (props.activeFile) await props.loadFile(props.activeFile);
-          await props.refreshProject();
-          await props.refreshHistory();
-          setReplace({ open: false, preview: null });
-          const replacements = result.replacements;
-          const files = result.filesChanged.length;
-          setNotice(!replacements
-            ? t`No matches found.`
-            : replacements === 1
-              ? t`Replaced ${replacements} occurrence in ${files} file.`
-              : files === 1
-                ? t`Replaced ${replacements} occurrences in ${files} file.`
-                : t`Replaced ${replacements} occurrences in ${files} files.`);
-        })}
+        onPreview={(query, options) => void search.previewReplace(query, options)}
+        onReplace={(query, replacement, options) => void search.applyReplace(query, replacement, options)}
       />
     </>
   );

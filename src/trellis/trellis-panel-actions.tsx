@@ -18,7 +18,7 @@ export type PanelActionsProps = {
   synara: Pick<SynaraHost, "origin" | "permissionMode" | "autoModeAvailable" | "changePermissionMode">;
   openBibEntryDialog: (resolveSeed?: string) => void;
   onCheckReferences: () => void;
-  setLiteratureOpen: Dispatch<SetStateAction<boolean>>;
+  onDiscoverLiterature: () => void;
   openProjectFind: () => void;
   setProjectSearchOpen: Dispatch<SetStateAction<boolean>>;
   setBoardCreateRequest: Dispatch<SetStateAction<number>>;
@@ -35,7 +35,7 @@ export function PanelActions({ mode, synara, ...props }: PanelActionsProps) {
   ];
   // Icon-only buttons: Tip names each one after its label.
   const paperActions = [
-    { icon: <BookOpen size={14} />, label: t`Discover literature`, run: () => props.setLiteratureOpen(true) },
+    { icon: <BookOpen size={14} />, label: t`Discover literature`, run: props.onDiscoverLiterature },
     { icon: <BookMarked size={14} />, label: t`Add bibliography entry`, run: () => props.openBibEntryDialog() },
     { icon: <ClipboardCheck size={14} aria-hidden="true" />, label: t`Check references`, run: props.onCheckReferences },
   ];

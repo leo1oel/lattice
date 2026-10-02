@@ -6,7 +6,8 @@ import { loadOverleafRemoteDelete, loadOverleafSyncMode, type OverleafRemoteDele
 import { logAction } from "../telemetry/app-notify";
 import { diagnosticInvoke } from "../telemetry/diagnostic-request";
 import { setError, setNotice, setWarning } from "./notify";
-import { clearTimer, restartTimer, subscribeTauriEvent, useLatest, type TimerRef } from "./effect-helpers";
+import { clearTimer, restartTimer, subscribeTauriEvent, type TimerRef } from "./effect-helpers";
+import { useLatestRef } from "../hooks/use-latest-ref";
 import { confirmAction, isWholeFileEditorPath, overleafLinkMatchesSession, toMessage } from "../app-utils";
 import { listenOverleafRealtime } from "../overleaf/overleaf-realtime-listen";
 import { useOverleafRealtime, type OverleafRemoteTextContext } from "../overleaf/use-overleaf-realtime";
@@ -203,7 +204,7 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
   const [overleafSyncing, setOverleafSyncing] = useState(false);
   const [overleafSyncMode, setOverleafSyncMode] = useState<OverleafSyncMode>(loadOverleafSyncMode);
   const [overleafRemoteDelete, setOverleafRemoteDelete] = useState<OverleafRemoteDelete>(loadOverleafRemoteDelete);
-  const overleafRemoteDeleteRef = useLatest(overleafRemoteDelete);
+  const overleafRemoteDeleteRef = useLatestRef(overleafRemoteDelete);
   const [overleafRemoteChanges, setOverleafRemoteChanges] = useState(false);
   const [overleafReviewOpen, setOverleafReviewOpen] = useState(false);
   const [overleafCollabOpen, setOverleafCollabOpen] = useState(false);
@@ -219,8 +220,8 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
   const resumeRealtimePathsRef = useRef<(paths: readonly string[]) => void>(() => {});
   /** Files the realtime channel owns; syncing must not touch them. */
   const overleafLivePathsRef = useRef<string[]>([]);
-  const wholeFileEditingPathsRef = useLatest(wholeFileEditingPaths);
-  const wholeFileDraftPathsRef = useLatest(wholeFileDraftPaths);
+  const wholeFileEditingPathsRef = useLatestRef(wholeFileEditingPaths);
+  const wholeFileDraftPathsRef = useLatestRef(wholeFileDraftPaths);
   const deferredWholeFilePathsRef = useRef(new Set<string>());
   const wholeFileIdleTimerRef = useRef<number | null>(null);
   const wholeFileBoundaryTimerRef = useRef<number | null>(null);
@@ -848,7 +849,7 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
     reload: overleafRealtime.reload,
   });
   // App's comment handlers are declared before this hook runs; they read the newest actions here.
-  const overleafCommentsRef = useLatest(overleafComments);
+  const overleafCommentsRef = useLatestRef(overleafComments);
 
   // Keep the badge quiet while someone is reading the conversation.
   const { messages: overleafChatMessages, markRead: markOverleafChatRead } = overleafChat;

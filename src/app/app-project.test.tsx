@@ -1012,7 +1012,7 @@ describe("project tree and projects", () => {
 
   it("localizes the project-file deletion confirmation", async () => {
     await setInterfaceLanguage("zh-CN");
-    await import("../project/navigator");
+    await import("../project/project-file-tree");
     const snapshot = projectSnapshot({ files: [fileNode("main.tex"), fileNode("notes.tex", "text", { contentKind: "text" })] });
     renderApp(refreshableProject(snapshot), { confirmations: true });
     fireEvent.contextMenu(await findProjectTreeItem("notes.tex", 5_000));
@@ -1068,7 +1068,7 @@ describe("project tree and projects", () => {
       files: fileNodes("main.tex", "notes.tex"),
     });
 
-    await import("../project/navigator");
+    await import("../project/project-file-tree");
     renderApp({
       ...refreshableProject(snapshot, "\\section{Notes}"),
       list_papers: () => [attentionPaper({ citationKey: "vaswani2017attention" })],
@@ -1140,7 +1140,7 @@ describe("project tree and projects", () => {
   });
 
   it("creates and opens a native Open Slide presentation", { timeout: 30000 }, async () => {
-    await import("../project/navigator");
+    await import("../project/project-file-tree");
     renderApp({
       ...refreshableProject(projectSnapshot(), "export default [];\n"),
       create_open_slide_deck: (args) => `slides/${(args as { deckId: string }).deckId}/index.tsx`,

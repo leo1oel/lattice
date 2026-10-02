@@ -55,7 +55,8 @@ import {
   PROJECT_FIGURE_DRAG_TYPE,
 } from "../app-utils";
 import type { AgentHostSurface } from "../agent/agent-host-context";
-import { frameCoalescer, onLayoutChange, useLatest } from "../app/effect-helpers";
+import { frameCoalescer, onLayoutChange } from "../app/effect-helpers";
+import { useLatestRef } from "../hooks/use-latest-ref";
 import { isSpreadsheetPath } from "../editor/spreadsheet/spreadsheet-types";
 import {
   BoardEditor, DeferredVisualMarkdownEditor, HtmlPreviewLoading, MarkdownPreviewLoading, OpenSlideWorkspace, PdfPreview,
@@ -281,7 +282,7 @@ export function DocumentCanvas(props: {
     locale: i18n.locale, anonymous: t`Anonymous`, noCommentText: t`(no comment text)`,
     reopen: t`Reopen`, resolve: t`Resolve comment`, reply: t`Reply`,
   }), [i18n.locale, t]);
-  const editorCommentLocalizationRef = useLatest(editorCommentLocalization);
+  const editorCommentLocalizationRef = useLatestRef(editorCommentLocalization);
   // The newest props for CodeMirror extensions and window listeners, so those
   // never rebuild for them; also the LaTeX editors' live data (citations, macros).
   const latestRef = useRef(props);
@@ -377,7 +378,7 @@ export function DocumentCanvas(props: {
   const [figureInsertPending, setFigureInsertPending] = useState<{ paths: string[]; position: number } | null>(null);
   const [commentComposer, setCommentComposer] = useState<CommentDraft | null>(null);
   const commentComposerViewRef = useRef<EditorView | null>(null);
-  const commentComposerRef = useLatest(commentComposer);
+  const commentComposerRef = useLatestRef(commentComposer);
   // Saved-view ownership for the preview column. Files without a preview of
   // their own (.bib, .sty) keep using the last previewable file's saved state.
   // This is separate from the mounted viewer's identity: all TeX source files
