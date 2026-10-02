@@ -250,7 +250,6 @@ export function useProjectTree(deps: ProjectTreeDeps) {
       for (const path of imported) allowViewState(path);
       await reconcileProjectTree();
       await depsRef.current.library.refreshHistory();
-      setError(null);
       return imported;
     };
     return settle().catch((reason: unknown) => {
@@ -392,7 +391,6 @@ export function useProjectTree(deps: ProjectTreeDeps) {
     const prepare = async () => {
       const prepared = await invoke<string>("prepare_latex_figure", { path, projectRoot });
       if (prepared !== path) await depsRef.current.library.refreshProject();
-      setError(null);
       return prepared;
     };
     return prepare().catch((reason: unknown) => {
@@ -451,7 +449,6 @@ export function useProjectTree(deps: ProjectTreeDeps) {
       const renamedPath = await invoke<string>("rename_project_entry", { path, newName: name, projectRoot });
       applyPathChanges([{ previousPath: path, nextPath: renamedPath }]);
       void markDiskVersion();
-      setError(null);
       return renamedPath;
     };
     return rename().catch(async (reason: unknown) => {
@@ -505,7 +502,6 @@ export function useProjectTree(deps: ProjectTreeDeps) {
         if (isOpen) accept(movedPath, rewritten, { text: rewritten });
       }
       void markDiskVersion();
-      setError(null);
       return completedChanges.map((change) => change.nextPath);
     };
     return withTreeMutation(() => move().catch(async (reason: unknown) => {
@@ -538,7 +534,6 @@ export function useProjectTree(deps: ProjectTreeDeps) {
         targetDirectory, fileName: clipboardImageFileName(type), base64Data: base64, projectRoot,
       });
       await depsRef.current.library.refreshProject();
-      setError(null);
       return path;
     };
     return store().catch((reason: unknown) => {
@@ -576,13 +571,10 @@ export function useProjectTree(deps: ProjectTreeDeps) {
 
   const revealItem = useCallback(async (relativePath: string) => {
     if (!project) return;
-    await revealItemInDir(projectItemPath(project.root, relativePath)).then(
-      () => setError(null),
-      (reason: unknown) => {
-        const message = toMessage(reason);
-        setError(t`Could not show that item in Finder. ${message}`);
-      },
-    );
+    await revealItemInDir(projectItemPath(project.root, relativePath)).catch((reason: unknown) => {
+      const message = toMessage(reason);
+      setError(t`Could not show that item in Finder. ${message}`);
+    });
   }, [project, t]);
 
   return {

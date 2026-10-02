@@ -225,17 +225,15 @@ export function useProjectLifecycle(deps: ProjectLifecycleDeps) {
   ) => {
     setBusyLabel(label);
     const openHere = !project?.root;
-    return (async () => {
-      if (openHere && !await startProjectTransition()) return undefined;
+    await (async () => {
+      if (openHere && !await startProjectTransition()) return;
       const root = await create();
       if (openHere) await enterProject(await invoke<ProjectSnapshot>("open_project", { path: root }));
       else await openProjectWindow(root);
-      return true;
     })().catch((reason: unknown) => {
       if (openHere) cancelProjectTransition();
       if (onError) onError(reason);
       else setError(toMessage(reason));
-      return undefined;
     }).finally(() => setBusyLabel(null));
   }, [cancelProjectTransition, enterProject, openProjectWindow, project?.root, startProjectTransition]);
 
@@ -398,7 +396,6 @@ export function useProjectLifecycle(deps: ProjectLifecycleDeps) {
     await (async () => {
       if (!(await save())) return;
       await invoke("export_project_zip", { zipPath });
-      setError(null);
     })().catch((reason: unknown) => setError(toMessage(reason))).finally(() => setBusyLabel(null));
   }, [project, save, t]);
 

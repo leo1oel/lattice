@@ -298,7 +298,6 @@ function App() {
       if (projectRef.current?.root === current.root) {
         setProject((snapshot) => snapshot ? { ...snapshot, manifest } : snapshot);
       }
-      setError(null);
       return true;
     } catch (reason) {
       setError(toMessage(reason));
@@ -1059,7 +1058,6 @@ function App() {
         if (path === activeFile && accept(path, content)) await markDiskVersion();
       }
       if (activePaper && paperKey(activePaper) === paperKey(paper)) leavePaper();
-      setError(null);
       await refreshProject();
       await refreshHistory();
     } catch (reason) {
@@ -1146,9 +1144,7 @@ function App() {
         onCloneCancelled={cancelProjectTransition}
         onCloned={(root) => {
           setOverleafPickerOpen(false);
-          void revealNewProject(t`Opening the Overleaf project…`, async () => root).then((opened) => {
-            if (opened) setError(null);
-          });
+          void revealNewProject(t`Opening the Overleaf project…`, async () => root);
         }}
         currentProject={!overleafProjectLinked && project ? { name: project.manifest.name } : null}
         onPublish={publishProjectToOverleaf}
@@ -1182,7 +1178,6 @@ function App() {
             externalOverleafEditsRef.current([path]);
             await refreshProject();
             if (activeFile === path) await loadFile(path);
-            setError(null);
             await compile();
           }}
         />
