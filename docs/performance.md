@@ -83,6 +83,14 @@ Scenarios (`scripts/perf-bench/scenarios.mjs`):
 - `--profile DIR` saves a CPU profile of each scenario to open in DevTools.
 - `--url URL` measures an already running app (for example the browser-hosted
   real app) with the same probe, without ceilings.
+- `--engine webkit` runs the scenarios in Playwright's WebKit (install it once
+  with `pnpm exec playwright-core install webkit`) against
+  `scripts/perf-bench/budgets-webkit.json`; CI runs it too (the
+  `perf-bench-webkit` job, on macOS). Release builds render in WKWebView, and
+  WebKit's cost per element styled or laid out is several times Chromium's, so
+  a change that grows the DOM is caught in the engine users run. WebKit has no
+  style or layout counters: its `recalcs` and `layouts` are blank and CPU
+  profiles are Chromium-only.
 
 #### Ceilings and the ratchet
 

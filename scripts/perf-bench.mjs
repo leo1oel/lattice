@@ -15,6 +15,11 @@
  * plus long tasks, layout shifts and main-thread durations, which are
  * wall-clock facts: reported, never gated.
  *
+ * `--engine webkit` runs the same scenarios in Playwright's WebKit
+ * (perf-bench/webkit.mjs), the engine release builds render in, against its
+ * own ceilings in scripts/perf-bench/budgets-webkit.json. WebKit has no style
+ * or layout counters, so its recalcs and layouts are blank.
+ *
  * Usage (pnpm perf:bench …):
  *   (no flag)   measure and print; scenarios without a ceiling get one
  *   --check     also exit 1 when a gated count exceeds its ceiling (CI); the
@@ -29,6 +34,7 @@
  *                   profiles, and counts equal to production's (not gated)
  *   --profile DIR   save a CPU profile of each scenario's first run
  *   --url URL       measure an already running app instead (no ceilings)
+ *   --engine NAME   chromium (default) or webkit
  *   --headful, --keep-open   watch it run
  *
  * Serving the page for UI work, screenshots and QA (no benchmark, no browser):
@@ -39,17 +45,21 @@
  * The page accepts `theme=system|light|dark` and `lang=en|zh-CN|system`
  * (tools/perf-bench/bench-page.ts); --serve prints a URL with both.
  */
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { createServer as createNetServer } from "node:net";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath, URLSearchParams } from "node:url";
 import { applyBudgets, bestOf, COUNTS } from "./perf-bench/budgets.mjs";
 import { CdpPage, launchChrome } from "./perf-bench/cdp.mjs";
+import { launchWebKit } from "./perf-bench/webkit.mjs";
 import { BenchDriver, SCENARIOS } from "./perf-bench/scenarios.mjs";
 
 const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const BUDGETS = path.join(repo, "scripts/perf-bench/budgets.json");
+const BUDGETS = {
+  chromium: path.join(repo, "scripts/perf-bench/budgets.json"),
+  webkit: path.join(repo, "scripts/perf-bench/budgets-webkit.json"),
+};
 const PROBE = readFileSync(path.join(repo, "scripts/perf-bench/probe.js"), "utf8");
 /**
  * Clear of the app's dev ports (1420, 1437) and of the ports the real and
@@ -73,7 +83,7 @@ const BENCH_FIXTURE = {
 };
 
 function parseArgs(argv) {
-  const options = { runs: 2, only: null, json: null, profile: null, check: false, ratchet: false, update: false, headful: false, keepOpen: false, url: null, dev: false, serve: false, port: SERVE_PORT };
+  const options = { runs: 2, only: null, json: null, profile: null, check: false, ratchet: false, update: false, headful: false, keepOpen: false, url: null, dev: false, serve: false, port: SERVE_PORT, engine: "chromium" };
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
     if (arg === "--check") options.check = true;
@@ -89,10 +99,13 @@ function parseArgs(argv) {
     else if (arg === "--profile") options.profile = argv[++index];
     else if (arg === "--serve") options.serve = true;
     else if (arg === "--port") options.port = Number(argv[++index]);
+    else if (arg === "--engine") options.engine = argv[++index];
     else throw new Error(`Unknown option ${arg}`);
   }
   if (!Number.isInteger(options.port) || options.port < 0 || options.port > 65_535) throw new Error("--port takes a port number");
   if (options.serve && options.url) throw new Error("--serve starts its own page; it cannot take --url");
+  if (!(options.engine in BUDGETS)) throw new Error(`Unknown engine ${options.engine}: use chromium or webkit`);
+  if (options.profile && options.engine !== "chromium") throw new Error("--profile records Chromium CPU profiles only");
   return options;
 }
 
@@ -250,7 +263,9 @@ async function measure(page, driver, scenario, profileTo) {
     console.error(`CPU profile: ${profileTo}\n${profileSummary(profile).join("\n")}`);
   }
   const probe = await driver.evaluate("window.__latticeProbe.snapshot(400)");
-  const delta = (name) => after[name] - before[name];
+  // Absent in WebKit, which has no such counters.
+  const delta = (name) => (name in after ? after[name] - before[name] : null);
+  const milliseconds = (name) => (name in after ? Math.round(delta(name) * 1000) : null);
   return {
     commits: probe.commits,
     renders: probe.renders + probe.mounts,
@@ -268,10 +283,10 @@ async function measure(page, driver, scenario, profileTo) {
       longTaskMs: probe.longTaskMs,
       layoutShift: probe.layoutShift,
       shiftRegions: probe.shiftRegions,
-      recalcMs: Math.round(delta("RecalcStyleDuration") * 1000),
-      layoutMs: Math.round(delta("LayoutDuration") * 1000),
-      scriptMs: Math.round(delta("ScriptDuration") * 1000),
-      taskMs: Math.round(delta("TaskDuration") * 1000),
+      recalcMs: milliseconds("RecalcStyleDuration"),
+      layoutMs: milliseconds("LayoutDuration"),
+      scriptMs: milliseconds("ScriptDuration"),
+      taskMs: milliseconds("TaskDuration"),
       wallMs: Date.now() - started,
       domNodes: after.Nodes,
       updateOrigins: probe.origins,
@@ -286,9 +301,9 @@ function formatTable(results) {
     rows.push([
       scenario.name,
       `${scenario.steps} ${scenario.unit}`,
-      ...COUNTS.map((key) => (result[key] / scenario.steps).toFixed(1)),
+      ...COUNTS.map((key) => (result[key] === null ? "–" : (result[key] / scenario.steps).toFixed(1))),
       String(result.info.longTasks),
-      String(result.info.taskMs),
+      String(result.info.taskMs ?? "–"),
     ]);
   }
   const widths = rows[0].map((_, column) => Math.max(...rows.map((row) => row[column].length)));
@@ -301,14 +316,19 @@ async function main() {
   const scenarios = options.only ? SCENARIOS.filter((scenario) => options.only.includes(scenario.name)) : SCENARIOS;
   if (!scenarios.length) throw new Error(`No scenario matches ${options.only}`);
   const vite = options.url ? null : await startVite(!options.dev);
-  const chrome = await launchChrome({ headless: !options.headful });
+  const browser = options.engine === "webkit"
+    ? await launchWebKit({ headless: !options.headful })
+    : await launchChrome({ headless: !options.headful }).then((chrome) => ({
+      open: () => CdpPage.open(chrome.connection),
+      close: () => chrome.close(),
+    }));
   const results = [];
   try {
     const url = options.url ?? benchUrl(vite.origin);
     // The first load pays for Vite's dependency optimisation, which may reload
     // the page once; measuring starts on the next, warm load.
     {
-      const warm = await CdpPage.open(chrome.connection);
+      const warm = await browser.open();
       await warm.send("Page.addScriptToEvaluateOnNewDocument", { source: PROBE });
       await loadApp(warm, url).catch((error) => {
         console.error(warm.console.slice(-30).join("\n"));
@@ -319,7 +339,7 @@ async function main() {
     for (const scenario of scenarios) {
       const runs = [];
       for (let run = 0; run < options.runs; run += 1) {
-        const page = await CdpPage.open(chrome.connection);
+        const page = await browser.open();
         await page.send("Page.addScriptToEvaluateOnNewDocument", { source: PROBE });
         try {
           let driver;
@@ -348,11 +368,12 @@ async function main() {
       }
       const result = bestOf(scenario.name, runs);
       results.push({ scenario, result, runs });
-      console.error(`${scenario.name}: ${COUNTS.map((key) => `${key} ${result[key]}`).join(", ")} (${runs.map((run) => run.recalcs).join("/")} recalcs across runs)`);
+      const recalcs = options.engine === "chromium" ? ` (${runs.map((run) => run.recalcs).join("/")} recalcs across runs)` : "";
+      console.error(`${scenario.name}: ${COUNTS.map((key) => `${key} ${result[key] ?? "–"}`).join(", ")}${recalcs}`);
     }
   } finally {
     if (!options.keepOpen) {
-      await chrome.close();
+      await browser.close();
       await vite?.server.close();
     }
   }
@@ -366,14 +387,15 @@ async function main() {
   if (options.url) return;
 
   const mode = options.update ? "update" : options.ratchet ? "ratchet" : "check";
+  const budgetsFile = BUDGETS[options.engine];
   const { budgets, failures, slack, changed } = applyBudgets(
-    JSON.parse(readFileSync(BUDGETS, "utf8")),
+    existsSync(budgetsFile) ? JSON.parse(readFileSync(budgetsFile, "utf8")) : { scenarios: {} },
     results.map(({ scenario, result }) => ({ name: scenario.name, result })),
     mode,
   );
   if (changed && !options.dev && !options.only) {
-    writeFileSync(BUDGETS, `${JSON.stringify(budgets, null, 2)}\n`);
-    console.log(`\nWrote ${path.relative(repo, BUDGETS)}.`);
+    writeFileSync(budgetsFile, `${JSON.stringify(budgets, null, 2)}\n`);
+    console.log(`\nWrote ${path.relative(repo, budgetsFile)}.`);
   } else if (changed) {
     console.log("\nCeilings are only written from a full production run (no --dev or --only).");
   }
@@ -386,7 +408,7 @@ async function main() {
     for (const { scenario, key, value, ceiling } of failures) console.log(`  ${scenario} ${key}: ${value} exceeds ceiling ${ceiling}`);
     console.log("\nFind the cause with `pnpm perf:bench --dev --only <scenario> --json out.json`: each run lists the");
     console.log("components that rendered and the state hooks that started each update. Fix it, or, if the extra");
-    console.log("work is intended, raise the ceiling in scripts/perf-bench/budgets.json and say why in the pull request.");
+    console.log(`work is intended, raise the ceiling in ${path.relative(repo, budgetsFile)} and say why in the pull request.`);
     if (options.check) process.exitCode = 1;
   }
 }
