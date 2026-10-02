@@ -4,7 +4,7 @@
       "commits": 27,
       "renders": 1978,
       "hooks": 12562,
-      "mutations": 1744
+      "mutations": 2546
     },
     "latex-typing": {
       "renders": 4858,
@@ -36,7 +36,7 @@
       "commits": 19,
       "renders": 683,
       "hooks": 4163,
-      "mutations": 1358
+      "mutations": 1931
     },
     "pdf-scroll": {
       "commits": 34,
@@ -69,7 +69,7 @@
     "pdf-zoom": {
       "commits": 14,
       "renders": 30,
-      "mutations": 1240
+      "mutations": 2667
     }
   }
 }

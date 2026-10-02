@@ -59,6 +59,12 @@
 .pdf-scroll-area-viewport.pdf-viewer-staging { visibility: hidden; pointer-events: none; }
 .pdf-preview .pdfViewer { min-width: 100%; min-height: 100%; }
 .pdf-preview .pdfViewer.removePageBorders .page { margin: 0 auto var(--space-5); background: var(--pdf-page-surface); box-shadow: var(--shadow-soft); }
+/* A page is a containing block only while it holds layers (canvas, text,
+   links) or shows its loading spinner; PDF.js marks the first (our patch,
+   `latticeLayered`). Each positioned page is a render layer in WebKit, and a
+   long PDF's thousands of them made every zoom and fling frame update all of
+   them. */
+.pdf-preview .pdfViewer .page:not(.latticeLayered, .loadingIcon) { position: static; }
 /* The viewport's border already ends the column, and a trailing gap inside the
    scroll extent would make a height-fitted page scrollable by that gap. */
 .pdf-preview .pdfViewer.removePageBorders .page:last-child { margin-bottom: 0; }
