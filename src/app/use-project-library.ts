@@ -10,12 +10,20 @@ const NO_UNUSED_SYMBOLS: UnusedSymbols = { labels: [], citations: [] };
 
 /** The bibliography-derived indexes, read in one round. */
 export function loadBibliographyIndex() {
-  return Promise.all([
+  return Promise.all(requestBibliographyIndex());
+}
+
+/**
+ * The reads of `loadBibliographyIndex`, each on its own: the paper list comes
+ * back at once, while the label scan of a long .tex takes seconds.
+ */
+export function requestBibliographyIndex() {
+  return [
     invoke<PaperSummary[]>("list_papers"),
     invoke<string[]>("list_citation_keys"),
     invoke<CitationInfo[]>("list_citations"),
     invoke<ReferenceInfo[]>("list_references"),
-  ]);
+  ] as const;
 }
 
 /**
@@ -123,7 +131,7 @@ export function useProjectLibrary(state: ProjectState) {
   }, [applyBibliographyIndex, projectOperationGenerationRef, projectRef, projectRefreshGenerationRef, refreshUnusedSymbols, setProject]);
 
   return {
-    papers, citationKeys, citations, references, setReferences,
+    papers, setPapers, citationKeys, citations, references, setReferences,
     unusedSymbols, history, diskTodos, setDiskTodos, projectWordCount,
     loadHistory, loadTodos, loadWordCount, refreshUnusedSymbols, refreshHistory, refreshTodos, refreshWordCount,
     applyBibliographyIndex, claimBibliographyRefresh, refreshAfterSave, refreshProject,
