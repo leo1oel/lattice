@@ -11,7 +11,9 @@
 # the same `cargo` would only be a way to drift.
 
 [tools]
-node = "26.5.0"
+# The same major as CI (.github/actions/setup-pnpm/action.yml, release.yml):
+# a test that passes on a newer local Node can still fail there.
+node = "22"
 pnpm = "10.13.1"
 
 # Vitest, tsc, and cargo each saturate several cores on their own, so the four
@@ -107,6 +109,8 @@ outputs = ["dist"]
 [tasks.literature-worker]
 description = "Typecheck and test the literature Worker (its own pnpm project)"
 run = [
+  # Its own lockfile, so a fresh worktree has none of its packages yet.
+  "pnpm --dir literature-worker install --frozen-lockfile",
   "pnpm --dir literature-worker typecheck",
   "pnpm --dir literature-worker test",
 ]
