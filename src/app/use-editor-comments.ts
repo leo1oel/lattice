@@ -5,7 +5,7 @@ import type { OpenProjectFile, ProjectSnapshot } from "../app-types";
 import { toMessage } from "../app-utils";
 import type { BuildAgentCommentsOptions } from "../agent/agent-editor-comments";
 import { createEditorCommentReply, type EditorComment } from "../editor/comments/editor-comment-data";
-import { useLatest } from "./effect-helpers";
+import { useLatestRef } from "../hooks/use-latest-ref";
 import { setError } from "./notify";
 import { notifyInfo } from "../telemetry/app-notify";
 import { OVERLEAF_COMMENT_PREFIX, type useOverleafWorkspace } from "./use-overleaf-workspace";
@@ -39,7 +39,7 @@ export function useEditorComments({
   const { t } = useLingui();
   const [comments, setComments] = useState<EditorComment[]>([]);
   /** Read when the agent asks, where the state captured at render time may already be stale. */
-  const commentsRef = useLatest(comments);
+  const commentsRef = useLatestRef(comments);
   const [panelOpen, setPanelOpen] = useState(false);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [panelFocus, setPanelFocus] = useState<{ id: string; projectRoot: string; nonce: string } | null>(null);

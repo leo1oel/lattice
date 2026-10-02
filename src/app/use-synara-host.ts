@@ -18,7 +18,7 @@ import { useSynaraNotificationBridge } from "../agent/synara-notifications";
 import { parseAgentProjectHistorySnapshot, synaraProjectRelativeFilePath } from "../agent/synara-runtime";
 import { useSynaraRuntime } from "../agent/use-synara-runtime";
 import { isSynaraPermissionMode, type SynaraPermissionMode } from "./app-synara-embed";
-import { useLatest } from "./effect-helpers";
+import { useLatestRef } from "../hooks/use-latest-ref";
 
 const LATTICE_AGENT_PERMISSION_MODE_REQUEST = "lattice:request-agent-permission-mode";
 const LATTICE_AGENT_PERMISSION_MODE_SET = "lattice:set-agent-permission-mode";
@@ -107,7 +107,7 @@ export function useSynaraHost({ project, projectRef, agentVisible, bridge }: {
   const [autoModeAvailable, setAutoModeAvailable] = useState(true);
   const frameKey = origin && project ? `${origin}\0${project.root}` : null;
   const frameReady = frameKey !== null && readyFrameKey === frameKey;
-  const projectRootRef = useLatest(project?.root ?? null);
+  const projectRootRef = useLatestRef(project?.root ?? null);
   const latest = useRef({
     bridge,
     agentVisible,

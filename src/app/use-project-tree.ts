@@ -17,7 +17,8 @@ import { rewriteMovedDocumentAssetPaths } from "../editor/insert/figure-insertio
 import type { OverleafSyncMode } from "../settings/app-settings";
 import { logAction } from "../telemetry/app-notify";
 import type { TrellisController } from "../trellis/trellis-controller";
-import { disposeWhenSettled, useLatest } from "./effect-helpers";
+import { disposeWhenSettled } from "./effect-helpers";
+import { useLatestRef } from "../hooks/use-latest-ref";
 import { setError } from "./notify";
 import type { UpdateCanvasRequest } from "./use-canvas-requests";
 import type { OpenDocuments } from "./use-open-documents";
@@ -126,7 +127,7 @@ export type ProjectTreeDeps = {
  */
 export function useProjectTree(deps: ProjectTreeDeps) {
   const { t } = useLingui();
-  const depsRef = useLatest(deps);
+  const depsRef = useLatestRef(deps);
   const { projectState, documents, trellis } = deps;
   const { project, setProject, projectOperationGenerationRef, withTreeMutation, reconcileProjectTree } = projectState;
   const {
@@ -137,7 +138,7 @@ export function useProjectTree(deps: ProjectTreeDeps) {
   const { allow: allowViewState } = documents.viewStates;
   const projectRoot = project?.root;
   const [assetImporting, setAssetImporting] = useState(false);
-  const assetImportingRef = useLatest(assetImporting);
+  const assetImportingRef = useLatestRef(assetImporting);
   const [assetDropTarget, setAssetDropTarget] = useState<string | null>(null);
   const [editorDropActive, setEditorDropActive] = useState(false);
   const [fileDropTargetActive, setFileDropTargetActive] = useState(false);

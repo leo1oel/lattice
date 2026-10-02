@@ -1,5 +1,6 @@
-import { useCallback, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useState } from "react";
 import { listen, type EventCallback, type UnlistenFn } from "@tauri-apps/api/event";
+import { useLatestRef } from "../hooks/use-latest-ref";
 
 /** Cancellable subscriptions for `useEffect` bodies: each returns a synchronous disposer. */
 
@@ -110,30 +111,20 @@ export function restartTimer(timer: TimerRef, delay: number, run: () => void) {
 }
 
 /**
- * A ref that follows `value` after every commit, for handlers and timers that
- * outlive the render. Written in a layout effect, never during render: a
- * render-phase ref write makes the React Compiler skip the calling hook.
- */
-export function useLatest<T>(value: T) {
-  const ref = useRef(value);
-  useLayoutEffect(() => {
-    ref.current = value;
-  });
-  return ref;
-}
-
-/**
  * Stable forwarders over handlers whose identity changes every render: each
  * returned function keeps its identity for the caller's lifetime and calls the
  * latest committed handler, so a memoized child given them re-renders only
  * when its data changes. The handler names are fixed at the first render.
  */
 export function useStableHandlers<T extends Record<string, ((...args: never[]) => unknown) | undefined>>(handlers: T): T {
-  const latest = useLatest(handlers);
-  const [stable] = useState(() => Object.fromEntries(Object.keys(handlers).map((key) => [
-    key,
-    (...args: unknown[]) => (latest.current[key] as ((...values: unknown[]) => unknown) | undefined)?.(...args),
-  ])) as unknown as T);
+  const handlersRef = useLatestRef(handlers);
+  const [stable] = useState(() => {
+    const forwarders: Record<string, (...args: unknown[]) => unknown> = {};
+    for (const key of Object.keys(handlers)) {
+      forwarders[key] = (...args) => (handlersRef.current[key] as ((...values: unknown[]) => unknown) | undefined)?.(...args);
+    }
+    return forwarders as unknown as T;
+  });
   return stable;
 }
 
@@ -144,7 +135,7 @@ export function useStableHandlers<T extends Record<string, ((...args: never[]) =
  */
 export function useRefState<T>(initial: T) {
   const [value, setValue] = useState(initial);
-  const ref = useLatest(value);
+  const ref = useLatestRef(value);
   const setLive = useCallback((next: T) => {
     ref.current = next;
     setValue(next);

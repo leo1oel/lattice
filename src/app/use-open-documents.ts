@@ -17,7 +17,8 @@ import { isProjectFileMissing } from "../pdf/project-pdf-refusals";
 import { loadLastFile, loadWorkspaceLayout, persistLastFile, persistWorkspaceLayout } from "../settings/app-settings";
 import { addAppLog } from "../telemetry/app-log-store";
 import { notifyError } from "../telemetry/app-notify";
-import { afterNextPaintOpportunity, useLatest, useRefState } from "./effect-helpers";
+import { afterNextPaintOpportunity, useRefState } from "./effect-helpers";
+import { useLatestRef } from "../hooks/use-latest-ref";
 import { setError, setNotice, setWarning } from "./notify";
 import type { EditorWriteResult } from "./open-slide-writes";
 import type { UpdateCanvasRequest } from "./use-canvas-requests";
@@ -221,7 +222,7 @@ export type ProjectEntry = {
  */
 export function useOpenDocuments(deps: OpenDocumentsDeps) {
   const { t } = useLingui();
-  const depsRef = useLatest(deps);
+  const depsRef = useLatestRef(deps);
   const { project, projectRef, projectBeforeTransitionRef, projectOperationGenerationRef, captureProjectScope } = deps.projectState;
   const projectRoot = project?.root ?? null;
 
@@ -301,7 +302,7 @@ export function useOpenDocuments(deps: OpenDocumentsDeps) {
   const activeTab = paper ? paperTabKey(paper.arxivId) : asset?.path ?? file;
 
   /** The render values commands compare against, as of the last commit (what their closures used to hold). */
-  const renderedRef = useLatest({ project, file, paper, asset, paperView, paperDirty, navIndex, navStack, assetPaths });
+  const renderedRef = useLatestRef({ project, file, paper, asset, paperView, paperDirty, navIndex, navStack, assetPaths });
 
   // ---- Buffer primitives -----------------------------------------------------------------------------------------
   /** Replace the primary buffer with durable content (live and saved agree). */
@@ -979,8 +980,8 @@ export function useOpenDocuments(deps: OpenDocumentsDeps) {
     };
     await step().finally(settle);
   }, [depsRef, projectOperationGenerationRef, save, savedRef, textRef]);
-  const saveRef = useLatest(save);
-  const saveAndBuildRef = useLatest(saveAndBuild);
+  const saveRef = useLatestRef(save);
+  const saveAndBuildRef = useLatestRef(saveAndBuild);
   const saveTimer = useRef<number | null>(null);
   useEffect(() => {
     const documentDirty = Boolean(!paper && !asset && file && text !== savedText);

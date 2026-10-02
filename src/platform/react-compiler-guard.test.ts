@@ -28,9 +28,9 @@ const CEILINGS: Record<string, number> = {
   // Lattice Shares branches went. The open documents, the project lifecycle,
   // the project tree, SyncTeX navigation and the LaTeX structure then moved
   // into the hooks below, taking every try/finally and inline import() with
-  // them, so the compiler now gets as far as App's manual memoization: the 16
+  // them, so the compiler now gets as far as App's manual memoization: the 15
   // left are dependency lists it cannot preserve, one report per callback.
-  "src/App.tsx": 16,
+  "src/App.tsx": 15,
   // Extracted out of App.tsx. They inherit its try/finally bailouts rather than
   // adding new ones, but they need their own ceilings or those bailouts leave
   // the guard's field of view entirely.
@@ -48,11 +48,13 @@ const CEILINGS: Record<string, number> = {
   "src/app/use-synctex-navigation.ts": 0,
   "src/app/use-latex-structure.ts": 0,
   "src/app/use-canvas-requests.ts": 0,
+  "src/app/use-project-search.ts": 0,
+  "src/app/use-tool-drawers.ts": 0,
   "src/app/app-overleaf-drawer.tsx": 0,
   "src/app/app-editor-panels.tsx": 0,
   "src/app/app-history-drawers.tsx": 0,
   "src/app/app-project-dialogs.tsx": 0,
-  "src/app/app-search-dialogs.tsx": 2,
+  "src/app/app-search-dialogs.tsx": 0,
   "src/app/app-titlebar.tsx": 0,
   "src/trellis/trellis-panel-actions.tsx": 0,
   "src/canvas/document-canvas.tsx": 1,

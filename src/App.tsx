@@ -42,7 +42,8 @@ import {
   useTrafficLightAlignment,
   useWindowMinimumSize,
 } from "./app/use-native-window";
-import { useLatest, useRefState, useStableHandlers } from "./app/effect-helpers";
+import { useRefState, useStableHandlers } from "./app/effect-helpers";
+import { useLatestRef } from "./hooks/use-latest-ref";
 import { useOverleafWorkspace } from "./app/use-overleaf-workspace";
 import { useAppCommands, type AppCommand } from "./app/use-app-commands";
 import { useToolDrawers } from "./app/use-tool-drawers";
@@ -330,7 +331,7 @@ function App() {
   });
   const authorName = resolveAuthorName({ ...knownAuthorNames, setting: authorNameSetting });
   const [outlineOpen, setOutlineOpen] = useState(false);
-  const projectRootRef = useLatest(project?.root ?? null);
+  const projectRootRef = useLatestRef(project?.root ?? null);
   const agentProjectDocumentCreatorRef = useRef<((
     request: AgentProjectDocumentToolRequest,
   ) => Promise<string>) | null>(null);
@@ -394,7 +395,7 @@ function App() {
     },
   });
   const { origin: synaraOrigin, postMessage: postSynaraMessage, requestRuntime: requestSynaraRuntime } = synara;
-  const autoBuildModeRef = useLatest(buildPreferences.autoBuildMode);
+  const autoBuildModeRef = useLatestRef(buildPreferences.autoBuildMode);
   const agentCheckpoints = useAgentCheckpoints({
     project,
     projectRef,
@@ -1251,20 +1252,23 @@ function App() {
   // Panel action rows (Trellis tab-bar accessories): memoized, because App
   // re-renders on every keystroke and each row is a set of tooltip buttons.
   const { permissionMode, autoModeAvailable, changePermissionMode } = synara;
+  const panelActionHandlers = useStableHandlers({
+    onCheckReferences: () => {
+      const root = projectRef.current?.root;
+      if (!root) return;
+      setBibliographyAuditRoot(root);
+      setBibliographyAuditOpen(true);
+    },
+    onDiscoverLiterature: () => tools.open("literature"),
+  });
   const trellisActions = useMemo(() => {
     const actions = (mode: "project" | "papers" | "agent") => (
       <PanelActions
         mode={mode}
         synara={{ origin: synaraOrigin, permissionMode, autoModeAvailable, changePermissionMode }}
         openBibEntryDialog={referenceImport.openBibEntry}
-        onCheckReferences={() => {
-          const root = projectRef.current?.root;
-          if (!root) return;
-          setBibliographyAuditRoot(root);
-          setBibliographyAuditOpen(true);
-        }}
-        onDiscoverLiterature={() => tools.open("literature")}
-        openProjectFind={projectSearch.openFind}
+        {...panelActionHandlers}
+        openProjectFind={openProjectFind}
         setProjectSearchOpen={setProjectSearchOpen}
         setBoardCreateRequest={setBoardCreateRequest}
         setPresentationCreateRequest={setPresentationCreateRequest}
@@ -1274,8 +1278,9 @@ function App() {
     return { project: actions("project"), papers: actions("papers"), agent: actions("agent") };
     // `synara` is rebuilt each render; the row reads only the fields listed.
   }, [
-    autoModeAvailable, changePermissionMode, permissionMode, projectRef, projectSearch.openFind,
-    referenceImport.openBibEntry, synaraOrigin, tools,
+    autoModeAvailable, changePermissionMode, openProjectFind, panelActionHandlers, permissionMode,
+    referenceImport.openBibEntry, setBoardCreateRequest, setPresentationCreateRequest, setProjectSearchOpen,
+    setSpreadsheetCreateRequest, synaraOrigin,
   ]);
   // The sidebar panels' callbacks are mostly inline, so they change on every
   // App render; the memoized panels get stable forwarders instead.

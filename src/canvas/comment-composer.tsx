@@ -4,7 +4,8 @@ import type { EditorView } from "@codemirror/view";
 import { Textarea } from "../components/ui/textarea";
 import { resolveCommentAnchor } from "../editor/comments/editor-comment-data";
 import { clamp } from "../settings/app-settings";
-import { onLayoutChange, useLatest } from "../app/effect-helpers";
+import { onLayoutChange } from "../app/effect-helpers";
+import { useLatestRef } from "../hooks/use-latest-ref";
 
 export type CommentDraft = {
   path: string;
@@ -31,7 +32,7 @@ export function CommentComposer({ draft, view, anchorKey, onBodyChange, onCancel
 }) {
   const { t } = useLingui();
   const popupRef = useRef<HTMLDivElement | null>(null);
-  const draftRef = useLatest(draft);
+  const draftRef = useLatestRef(draft);
   useLayoutEffect(() => {
     const popup = popupRef.current;
     const host = view?.dom.closest(".source-editor");

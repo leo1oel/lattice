@@ -5,7 +5,7 @@ import type { ProjectSnapshot, ReplaceResult } from "../app-types";
 import { toMessage } from "../app-utils";
 import type { ProjectFindHit } from "../project/project-find-dialog";
 import type { ReplaceOptions, ReplacePreviewResult } from "../project/project-replace-dialog";
-import { useLatest } from "./effect-helpers";
+import { useLatestRef } from "../hooks/use-latest-ref";
 import { setNotice } from "./notify";
 
 type FindState = { open: boolean; busy: boolean; error: string | null; hits: ProjectFindHit[] };
@@ -32,7 +32,7 @@ export function useProjectSearch(deps: {
   afterReplace: () => Promise<void>;
 }) {
   const { t } = useLingui();
-  const latest = useLatest(deps);
+  const depsRef = useLatestRef(deps);
   const [find, setFindState] = useState<FindState>(CLOSED_FIND);
   const [replace, setReplaceState] = useState<ReplaceState>(CLOSED_REPLACE);
   /** Bumped per query (and on close) so a slow search cannot land after a newer one. */
@@ -50,47 +50,46 @@ export function useProjectSearch(deps: {
   }, []);
   const search = useCallback(async (query: string) => {
     const generation = ++searchGenerationRef.current;
-    const projectRoot = latest.current.projectRef.current?.root;
+    const projectRoot = depsRef.current.projectRef.current?.root;
     if (!query.trim() || !projectRoot) {
       setFind({ hits: [], busy: false, error: null });
       return;
     }
     setFind({ busy: true, error: null });
-    const ownsProject = latest.current.captureProjectScope();
+    const ownsProject = depsRef.current.captureProjectScope();
     const superseded = () => generation !== searchGenerationRef.current || !ownsProject();
-    try {
-      const hits = await invoke<ProjectFindHit[]>("search_project", { query });
-      if (superseded()) return;
-      setFind({ hits });
-    } catch (reason) {
-      if (superseded()) return;
-      setFind({ hits: [], error: toMessage(reason) });
-    } finally {
-      if (generation === searchGenerationRef.current) setFind({ busy: false });
-    }
-  }, [latest, setFind]);
+    await invoke<ProjectFindHit[]>("search_project", { query }).then(
+      (hits) => {
+        if (!superseded()) setFind({ hits });
+      },
+      (reason) => {
+        if (!superseded()) setFind({ hits: [], error: toMessage(reason) });
+      },
+    );
+    if (generation === searchGenerationRef.current) setFind({ busy: false });
+  }, [depsRef, setFind]);
 
   const openReplace = useCallback(() => setReplace({ open: true, error: null, preview: null }), [setReplace]);
   const closeReplace = useCallback(() => setReplace({ open: false, preview: null }), [setReplace]);
   /** Save a dirty buffer, then run one replace step with the dialog's busy/error state. */
   const runReplaceStep = useCallback(async (step: () => Promise<void>, onError?: () => void) => {
     setReplace({ busy: true, error: null });
-    try {
-      if (latest.current.unsavedEdits() && !(await latest.current.save())) return;
+    const { unsavedEdits, save } = depsRef.current;
+    await (async () => {
+      if (unsavedEdits() && !(await save())) return;
       await step();
-    } catch (reason) {
+    })().catch((reason: unknown) => {
       onError?.();
       setReplace({ error: toMessage(reason) });
-    } finally {
-      setReplace({ busy: false });
-    }
-  }, [latest, setReplace]);
+    });
+    setReplace({ busy: false });
+  }, [depsRef, setReplace]);
   const previewReplace = useCallback((query: string, options: ReplaceOptions) => runReplaceStep(async () => {
     setReplace({ preview: await invoke<ReplacePreviewResult>("preview_replace_in_project", { query, paths: null, ...options }) });
   }, () => setReplace({ preview: null })), [runReplaceStep, setReplace]);
   const applyReplace = useCallback((query: string, replacement: string, options: ReplaceOptions) => runReplaceStep(async () => {
     const result = await invoke<ReplaceResult>("replace_in_project", { query, replacement, paths: null, ...options });
-    await latest.current.afterReplace();
+    await depsRef.current.afterReplace();
     setReplace({ open: false, preview: null });
     const replacements = result.replacements;
     const files = result.filesChanged.length;
@@ -101,7 +100,7 @@ export function useProjectSearch(deps: {
         : files === 1
           ? t`Replaced ${replacements} occurrences in ${files} file.`
           : t`Replaced ${replacements} occurrences in ${files} files.`);
-  }), [latest, runReplaceStep, setReplace, t]);
+  }), [depsRef, runReplaceStep, setReplace, t]);
 
   return { find, replace, openFind, closeFind, search, openReplace, closeReplace, previewReplace, applyReplace };
 }
