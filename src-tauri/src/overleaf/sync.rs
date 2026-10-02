@@ -567,14 +567,15 @@ enum SinceRead {
 /// knows about, so a file changed since the read is left exactly as it is.
 fn since_read(root: &Path, path: &str, read: Option<&Vec<u8>>) -> SinceRead {
     let disk = disk_path(root, path);
-    let readable = fs::symlink_metadata(&disk)
-        .is_ok_and(|meta| meta.is_file() && meta.len() <= MAX_SYNC_FILE_BYTES);
-    match fs::read(&disk) {
-        Ok(bytes) if read == Some(&bytes) => SinceRead::Unchanged,
-        Ok(_) if readable => SinceRead::Edited,
+    match fs::symlink_metadata(&disk) {
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => match read {
             None => SinceRead::Unchanged,
             Some(_) => SinceRead::Edited,
+        },
+        Ok(meta) if meta.is_file() && meta.len() <= MAX_SYNC_FILE_BYTES => match fs::read(&disk) {
+            Ok(bytes) if read == Some(&bytes) => SinceRead::Unchanged,
+            Ok(_) => SinceRead::Edited,
+            Err(_) => SinceRead::Unread,
         },
         _ => SinceRead::Unread,
     }
