@@ -17,6 +17,8 @@ import {
 import "./pdfjs-runtime";
 
 const PDF_RANGE_CHUNK_BYTES = 2 ** 20;
+/** PDF.js's `AnnotationEditorType.DISABLE`. */
+const ANNOTATION_EDITOR_DISABLED = -1;
 
 export type ViewerRecord = {
   key: string;
@@ -61,6 +63,11 @@ export function viewerOptions(
   const completeSource = documentData !== null;
   return {
     scaleValue,
+    // Lattice never edits annotations. PDFSlick's default (NONE) still builds
+    // PDF.js's editor manager, whose document-wide dragover/drop listeners
+    // throw "#editorTypes is not iterable" on every drag, so a paper, file or
+    // Finder drop anywhere in the window logged an unexpected error.
+    annotationEditorMode: ANNOTATION_EDITOR_DISABLED,
     removePageBorders: true,
     enableDetailCanvas: true,
     // PDF.js otherwise keeps a new canvas hidden for up to 500 ms before its

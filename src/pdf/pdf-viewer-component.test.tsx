@@ -275,6 +275,9 @@ describe("PDFSlick viewer integration", () => {
     expect(instance.viewer).toHaveProperty("enableSelectionRendering", false);
     expect(instance.loadDocument.mock.calls[0]?.[0]).toBeInstanceOf(ArrayBuffer);
     expect(instance.args.options).toMatchObject({
+      // AnnotationEditorType.DISABLE: any other mode builds PDF.js's editor
+      // manager, whose document-wide drag listeners throw on every drag.
+      annotationEditorMode: -1,
       enableHWA: true,
       enableDetailCanvas: true,
       maxCanvasPixels: 2 ** 25,
