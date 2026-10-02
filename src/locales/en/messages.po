@@ -116,6 +116,14 @@ msgid "{conflicts} needs your decision"
 msgstr "{conflicts} needs your decision"
 
 #: src/canvas/editor-status-bar.tsx
+msgid "{count} char"
+msgstr "{count} char"
+
+#: src/canvas/editor-status-bar.tsx
+msgid "{count} chars"
+msgstr "{count} chars"
+
+#: src/canvas/editor-status-bar.tsx
 msgid "{count} comment"
 msgstr "{count} comment"
 
@@ -131,6 +139,11 @@ msgstr "{count} figures"
 msgid "{count} hits"
 msgstr "{count} hits"
 
+#: src/canvas/editor-status-bar.tsx
+msgid "{count} line"
+msgstr "{count} line"
+
+#: src/canvas/editor-status-bar.tsx
 #: src/history/conflict-resolver.tsx
 msgid "{count} lines"
 msgstr "{count} lines"
@@ -163,6 +176,14 @@ msgstr "{count} TODO"
 #: src/canvas/editor-status-bar.tsx
 msgid "{count} TODOs"
 msgstr "{count} TODOs"
+
+#: src/canvas/editor-status-bar.tsx
+msgid "{count} word"
+msgstr "{count} word"
+
+#: src/canvas/editor-status-bar.tsx
+msgid "{count} words"
+msgstr "{count} words"
 
 #: src/editor/markdown/engine/chrome/find-replace.tsx
 msgid "{current} of {count}"
@@ -364,8 +385,8 @@ msgid "{wholeFiles} changed on both sides. Overleaf’s version is in the projec
 msgstr "{wholeFiles} changed on both sides. Overleaf’s version is in the project; yours is in the “(local conflict …)” file beside it."
 
 #: src/canvas/editor-status-bar.tsx
-msgid "{words} words · {chars} chars"
-msgstr "{words} words · {chars} chars"
+msgid "{words} · {chars}"
+msgstr "{words} · {chars}"
 
 #: src/overleaf/overleaf-connect.tsx
 msgid "↑↓ to navigate · Enter to open"
@@ -1004,8 +1025,8 @@ msgid "Blue value"
 msgstr "Blue value"
 
 #: src/canvas/editor-status-bar.tsx
-msgid "Body {body} · raw {raw} · {chars} chars"
-msgstr "Body {body} · raw {raw} · {chars} chars"
+msgid "Body {body} · raw {raw} · {chars}"
+msgstr "Body {body} · raw {raw} · {chars}"
 
 #: src/canvas/editor-status-bar.tsx
 msgid "Body word count unavailable"
@@ -6939,8 +6960,8 @@ msgid "Section sign"
 msgstr "Section sign"
 
 #: src/canvas/editor-status-bar.tsx
-msgid "Sel {words} words · {chars} chars · {lines} lines"
-msgstr "Sel {words} words · {chars} chars · {lines} lines"
+msgid "Sel {words} · {chars} · {lines}"
+msgstr "Sel {words} · {chars} · {lines}"
 
 #. placeholder {0}: entry.key
 #: src/papers/bibliography-audit.tsx

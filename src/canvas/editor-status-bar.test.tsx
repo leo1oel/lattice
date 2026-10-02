@@ -35,4 +35,14 @@ describe("EditorStatusBar", () => {
     expect(screen.getByTitle("Editor comments")).toHaveTextContent(new RegExp(`^${commentLabel}$`));
     expect(screen.getByTitle("Manuscript TODOs")).toHaveTextContent(new RegExp(`^${todoLabel}$`));
   });
+
+  it.each([
+    ["Hello", "", "Sel 1 word · 5 chars · 1 line"],
+    ["Hello big\nworld", "", "Sel 3 words · 15 chars · 2 lines"],
+    ["", "A", "1 word · 1 char"],
+    ["", "Two words", "2 words · 9 chars"],
+  ])("counts the selection and the file in words that agree with the number", (selectedText, source, label) => {
+    const { container } = renderStatus({ selectedText, source });
+    expect(container.querySelector(".status-body-words")).toHaveTextContent(new RegExp(`^${label}$`));
+  });
 });
