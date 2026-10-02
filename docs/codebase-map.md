@@ -16,7 +16,7 @@ its description implies.
 | Directory | Tracked files | What it is |
 | --- | --- | --- |
 | `src/` | 605 | The React 19 / TypeScript frontend. Split by domain: 11 files at the root, the rest under `app/`, `agent/`, `build/`, `canvas/`, `components/`, `editor/{,latex,markdown,spreadsheet,board,insert,comments,presentation}/`, `history/`, `hooks/`, `overleaf/`, `papers/`, `pdf/`, `platform/`, `project/`, `settings/`, `styles/`, `telemetry/`, `trellis/`, and `locales/`. See §3. |
-| `src-tauri/` | 186 | The Rust host: 118 `.rs` files (~40.7k lines) under `src-tauri/src/` — large areas are a short `x.rs` map beside an `x/` directory of parts, command handlers are in `ipc/` — plus `tauri.conf.json`, capabilities, icons, and LaTeX project templates. |
+| `src-tauri/` | 186 | The Rust host: the `.rs` sources under `src-tauri/src/` — large areas are a short `x.rs` map beside an `x/` directory of parts, command handlers are in `ipc/` — plus `tauri.conf.json`, capabilities, icons, and LaTeX project templates. |
 | `literature-worker/` | 8 | The public literature proxy Worker (`lattice-literature`, OpenAlex and Crossref). Own `package.json` and vitest config; see [`public-literature-service.md`](public-literature-service.md). |
 | `scripts/` | 50 | Build and maintenance tooling: version bump, size budget, i18n coverage, runtime staging and signing (Synara, Open Slide, Chromium), third-party notices, perf fixtures, dev bootstrap (`setup-dev.sh`), Overleaf live verification. Shared helpers are in `scripts/lib/` (`util.mjs`, `codesign.mjs`). |
 | `tools/` | 7 | Development-only code outside the app bundle. `tools/perf-bench/` is the interaction benchmark's page, and `tools/open-slide-runtime/` is the Open Slide presentation server staged into the app by `scripts/prepare-presentation-runtime.mjs`. Typechecked and linted with the app. |
@@ -189,7 +189,7 @@ engine (§2), and a repository guard test keeps that code from coming back.
 | `src/app/use-overleaf-workspace.ts` | The Overleaf workspace state extracted from `App.tsx`. |
 
 Honourable mention: `src-tauri/src/git.rs` with `git/parse.rs`. The PDF viewer, the project
-sidebar and the settings dialog, once 1,788, 1,736 and 861 lines, are now split
+sidebar and the settings dialog, once among the largest files, are now split
 into cohesive modules (see §2).
 
 ---
