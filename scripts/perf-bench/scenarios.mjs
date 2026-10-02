@@ -152,6 +152,20 @@ export class BenchDriver {
     await this.page.send("Input.dispatchKeyEvent", { type: "keyUp", key, code, windowsVirtualKeyCode: keyCode });
   }
 
+  /** A key without text, such as Escape. */
+  async press(key, code, keyCode) {
+    await this.page.send("Input.dispatchKeyEvent", { type: "rawKeyDown", key, code, windowsVirtualKeyCode: keyCode });
+    await this.page.send("Input.dispatchKeyEvent", { type: "keyUp", key, code, windowsVirtualKeyCode: keyCode });
+  }
+
+  /**
+   * An app shortcut such as Cmd-Shift-P, as a synthetic keydown: headless
+   * Chrome never answers a CDP key event that carries Ctrl or Cmd.
+   */
+  async shortcut(key, { shift = false } = {}) {
+    await this.evaluate(`document.body.dispatchEvent(new KeyboardEvent("keydown", { key: ${JSON.stringify(key)}, metaKey: true, shiftKey: ${shift}, bubbles: true, cancelable: true }))`);
+  }
+
   /** Types `text` one key at a time at a fixed cadence. */
   async type(text, { pauseMs = KEY_PAUSE_MS } = {}) {
     for (const character of text) {
@@ -417,6 +431,33 @@ export const SCENARIOS = [
       await driver.rect(VISUAL);
     },
     run: (driver) => driver.wheel(".markdown-preview .editor-doc-scroll", 120, 40),
+  },
+  {
+    name: "dialog-open",
+    // A dialog must not restyle the whole document on open: with the long
+    // document's visual editor on screen, Radix's modal mode (pointer-events
+    // on body, a scroll-lock stylesheet, aria-hidden on every sibling) cost
+    // WebKit 1.2-1.5 s per open (components/ui/modal-dialog.tsx).
+    description: "Open the command palette over the long Markdown document in the visual editor, then close it with Escape, 4 times.",
+    unit: "open",
+    steps: 4,
+    async setup(driver) {
+      await driver.openFile("large.md");
+      await driver.selectView("Preview");
+      await driver.rect(VISUAL);
+    },
+    async run(driver) {
+      for (let index = 0; index < 4; index += 1) {
+        await driver.shortcut("P", { shift: true });
+        await driver.waitFor(`document.querySelector(".modal-dialog-content")`, { what: "the command palette" });
+        await driver.nextFrame();
+        await driver.settle({ quietMs: 300 });
+        await driver.press("Escape", "Escape", 27);
+        await driver.waitFor(`!document.querySelector(".modal-dialog-content")`, { what: "the palette to close" });
+        await driver.nextFrame();
+        await driver.settle({ quietMs: 300 });
+      }
+    },
   },
   {
     name: "compile",

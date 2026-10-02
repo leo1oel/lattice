@@ -507,6 +507,7 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
 .file-tree-context-menu > button { width: 100%; height: 30px; padding: 0 var(--space-4); border-radius: var(--radius-compact); background: transparent; color: inherit; display: flex; align-items: center; gap: var(--space-4); font-size: var(--type-caption-size); text-align: left; }
 .file-tree-context-menu > button > svg { stroke-width: 1.5; }
 .file-tree-context-menu > button:hover:not(:disabled) { background: var(--border-subtle); color: var(--text-primary); }
+body:has(.modal-backdrop, .drawer-backdrop) .file-tree-context-menu { display: none; }
 .file-tree-context-menu-separator { height: 1px; margin: var(--space-2) calc(-1 * var(--surface-inset)); background: var(--border-subtle); }
 .file-tree-context-menu > button.destructive { color: var(--status-danger); }
 .file-tree-context-menu > button.destructive:hover:not(:disabled) { background: color-mix(in srgb, var(--status-danger) 10%, transparent); color: var(--status-danger); }

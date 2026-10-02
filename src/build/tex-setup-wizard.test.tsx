@@ -1,5 +1,5 @@
-import { act, fireEvent, render, screen } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   isConferenceFontsMissing,
   isMissingTexBuildError,
@@ -31,6 +31,8 @@ const report = (...checks: DoctorReportLike["checks"]): DoctorReportLike => ({
 });
 const TEX_TOOLS = ["latexmk", "pdflatex", "synctex", "bibtex"].map((name) => check(name));
 const READY = [...TEX_TOOLS, check("conference-fonts"), check("uv"), check("uvx")];
+
+afterEach(cleanup);
 
 function renderWizard(initial: DoctorReportLike, onRecheck = vi.fn(async (): Promise<DoctorReportLike | null> => null)) {
   const onClose = vi.fn();
