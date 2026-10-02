@@ -1,8 +1,30 @@
 diff --git a/dist/esm/index.js b/dist/esm/index.js
-index 1d71e015ffa9bfa6c842e6feea03896d55066c4c..0105c08cab0cdde2f136b314185a67667c5bc86e 100644
+index 1d71e015ffa9bfa6c842e6feea03896d55066c4c..ede77963533ed97ceb3d7100ba3260ce19be9d59 100644
 --- a/dist/esm/index.js
 +++ b/dist/esm/index.js
-@@ -2469,7 +2469,9 @@ class PDFSlickPrintDialog {
+@@ -2249,18 +2249,9 @@ class PDFSlickPrintService {
+         this.eventBus.on("afterprint", __classPrivateFieldGet(this, _PDFSlickPrintService_instances, "m", _PDFSlickPrintService_afterPrint).bind(this), opts);
+         window.addEventListener("beforeprint", () => this.eventBus.dispatch("beforeprint", { source: window }), opts);
+         window.addEventListener("afterprint", () => this.eventBus.dispatch("afterprint", { source: window }), opts);
+-        window.addEventListener("keydown", (event) => {
+-            // Intercept Cmd/Ctrl + P in all browsers.
+-            // Also intercept Cmd/Ctrl + Shift + P in Chrome and Opera
+-            if (event.keyCode === /* P= */ 80 &&
+-                (event.ctrlKey || event.metaKey) &&
+-                !event.altKey &&
+-                (!event.shiftKey || window.chrome || window.opera)) {
+-                this.print();
+-                event.preventDefault();
+-                event.stopImmediatePropagation();
+-            }
+-        }, { signal, capture: true });
++        // Lattice: no Cmd/Ctrl + P interception. It swallowed the app's Quick
++        // open (Cmd+P) and, in Chromium, its command palette (Cmd+Shift+P) for
++        // as long as a PDF was open, raising a print warning instead.
+     }
+     unbindEvents() {
+         var _a;
+@@ -2469,7 +2460,9 @@ class PDFSlickPrintDialog {
  }
  
  var _PDFSlick_instances, _PDFSlick_renderingQueue, _PDFSlick_container, _PDFSlick_viewerContainer, _PDFSlick_thumbsContainer, _PDFSlick_printService, _PDFSlick_annotationMode, _PDFSlick_annotationEditorMode, _PDFSlick_onError, _PDFSlick_eventAbortController, _PDFSlick_initializePageLabels, _PDFSlick_parseDocumentInfo, _PDFSlick_parsePageSize, _PDFSlick_initInternalEventListeners, _PDFSlick_onDocumentReady, _PDFSlick_onRotationChanging, _PDFSlick_onSwitchSpreadMode, _PDFSlick_onSwitchScrollMode, _PDFSlick_onScaleChanging, _PDFSlick_onPageChanging, _PDFSlick_onPageRendered;

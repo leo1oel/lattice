@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -16,4 +17,15 @@ it("importing @pdfslick/core leaves the app's PDF.js worker in place", async () 
   GlobalWorkerOptions.workerSrc = sentinel;
   await import(/* @vite-ignore */ esmEntry);
   expect(GlobalWorkerOptions.workerSrc).toBe(sentinel);
+});
+
+// PDFSlick's print service also bound a capture-phase window keydown listener
+// that turned Cmd/Ctrl+P (and Cmd/Ctrl+Shift+P in Chromium) into a print and
+// stopped the event, so Quick open and the command palette never opened while
+// a PDF was showing. The same patch removes it.
+it("leaves Cmd/Ctrl+P to the app instead of PDFSlick's print shortcut", () => {
+  const packageJson = createRequire(import.meta.url).resolve("@pdfslick/core/package.json");
+  const source = readFileSync(join(dirname(packageJson), "dist/esm/index.js"), "utf8");
+  expect(source).toContain("class PDFSlickPrintService");
+  expect(source).not.toMatch(/keyCode === \/\* P= \*\/ 80/);
 });
