@@ -269,7 +269,7 @@ Practical consequence: to find what a button does, grep the command name in
 | `ipc` module | Commands | Examples |
 | --- | --- | --- |
 | `overleaf` + `overleaf_realtime` | 42 | `overleaf_status`, `overleaf_clone_project`, `overleaf_sync`, `overleaf_rt_connect`, `overleaf_rt_send_ops` |
-| `files` | 21 | `read_project_file`, `write_project_file`, `create_project_entry`, `move_project_entry` |
+| `files` | 22 | `read_project_file`, `write_project_file`, `create_project_entry`, `move_project_entry` |
 | `build` | 17 | `build_project`, `abort_build`, `synctex_edit`, `texlab_diagnostics`, `start_tex_install`, `run_doctor` |
 | `search` | 9 | `search_project`, `replace_in_project`, `rename_symbol`, `list_todos` |
 | `windows` | 10 | `open_project_window`, `open_in_browser`, `return_to_desktop`, `set_window_background` |
