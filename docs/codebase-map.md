@@ -153,7 +153,8 @@ rather than a fact:
   is its local Y.Doc model, not collaboration plumbing.
 - **`reference-preview.ts` is in `project/`, not `pdf/`.** It renders a project
   *asset* (image or first PDF page) read through `read_project_asset`; it
-  imports `pdf/pdf-viewer-utils.ts` but is not part of the viewer.
+  imports `pdf/pdf-viewer-utils.ts` and the range transport in
+  `pdf/project-pdf.ts` but is not part of the viewer.
 | `src/locales/` | 2 | Lingui catalogs: `en` and `zh-CN` `.po` sources (the compiled `.js` are generated, not tracked) |
 | `src/hooks/` | 2 | `use-latest-ref.ts`, `use-non-passive-wheel.ts` |
 | `src/lib/` | 1 | `utils.ts` (the shadcn `cn` helper) |
