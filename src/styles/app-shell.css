@@ -166,7 +166,15 @@ input[type="search"]:focus-visible {
 .quick-open-list button { min-height: var(--control-height-default); border: 0; border-radius: var(--nested-radius); padding: 7px var(--space-5); background: transparent; color: var(--text-secondary); text-align: left; font-size: var(--type-label-size); display: flex; flex-direction: column; align-items: stretch; justify-content: center; gap: var(--gap-tight); min-width: 0; overflow: hidden; }
 .quick-open-list button.active, .quick-open-list button:hover { background: var(--control-active-soft); color: var(--control-active); }
 .quick-open-list .picker-label { min-width: 0; display: inline-flex; align-items: baseline; gap: var(--space-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.quick-open-list .picker-group { color: var(--text-tertiary); font-size: var(--type-nano-size); font-weight: var(--weight-bold); text-transform: uppercase; letter-spacing: .04em; }
+/* One heading per section, quiet enough that the rows stay the thing to read. */
+.quick-open-list .picker-section { padding: var(--space-4) var(--space-5) var(--space-1); color: var(--text-tertiary); font-size: var(--type-micro-size); font-weight: var(--weight-semibold); }
+.quick-open-list .picker-section:first-of-type { padding-top: var(--space-2); }
+.quick-open-list .picker-file { min-width: 0; display: flex; align-items: center; gap: var(--space-4); }
+.quick-open-list .picker-file-icon { flex: none; display: inline-flex; color: var(--text-tertiary); }
+.quick-open-list button.active .picker-file-icon { color: inherit; }
+.quick-open-list .picker-file-name { flex: none; max-width: 70%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-primary); }
+.quick-open-list button.active .picker-file-name { color: inherit; }
+.quick-open-list .picker-file-folder { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-tertiary); font-size: var(--type-micro-size); }
 .quick-open-list .picker-detail { color: var(--text-tertiary); font-size: var(--type-micro-size); font-style: normal; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .editor-status-bar .editor-breadcrumb button { border: 0; background: transparent; color: inherit; padding: 0; font: inherit; max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .editor-status-bar .editor-breadcrumb button:hover { color: var(--control-active); }
@@ -249,9 +257,19 @@ input[type="search"]:focus-visible {
 .project-replace-hit { width: 100%; text-align: left; border: 1px solid var(--border-subtle); border-radius: var(--radius-control); background: var(--surface-app); padding: var(--space-4) var(--space-5); display: flex; flex-direction: column; gap: var(--gap-tight); }
 .project-replace-hit:hover { border-color: var(--border-strong); }
 .project-replace-hit.active { border-color: var(--control-active-border); background: var(--control-active-soft); }
+/* Find results are a list, not a stack of cards: rows that light up under the
+   pointer and the keyboard, an icon column, then name, folder and line above
+   the matched text. */
+.project-find .project-replace-hits { gap: var(--space-1); }
+.project-find .project-replace-hit { border-color: transparent; background: transparent; display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: var(--space-4); row-gap: var(--space-1); padding: var(--space-4) var(--space-5); }
+.project-find .project-replace-hit:hover { border-color: transparent; background: var(--control-hover-surface); }
+.project-find .project-replace-hit.active { border-color: transparent; background: var(--control-active-soft); }
+.project-find-hit-icon { grid-row: 1; display: inline-flex; align-items: center; color: var(--text-tertiary); }
+.project-find .project-replace-hit-preview { grid-column: 2; }
 .project-find-hit-heading { display: flex; align-items: baseline; gap: var(--space-3); min-width: 0; }
-.project-find-result-type { flex: 0 0 auto; color: var(--text-secondary); font-size: var(--type-nano-size); font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }
-.project-find-hit-heading .project-replace-hit-path { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.project-find-hit-name { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-primary); font-size: var(--type-caption-size); font-weight: var(--weight-semibold); }
+.project-find-hit-folder { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-tertiary); font-size: var(--type-micro-size); }
+.project-find-hit-line { flex: none; margin-left: auto; color: var(--text-tertiary); font-size: var(--type-micro-size); font-variant-numeric: tabular-nums; }
 .project-replace-hit-path { color: var(--text-secondary); font-size: var(--type-micro-size); font-weight: 600; }
 .project-replace-hit-preview { color: var(--text-primary); font-size: var(--type-caption-size); font-family: var(--editor-font); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* Files and papers each take the height they need, and share the dialog only

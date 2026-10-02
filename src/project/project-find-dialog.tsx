@@ -9,6 +9,7 @@ import { PanelHeader } from "../components/ui/panel-header";
 import { SearchField } from "../components/ui/search-field";
 import { ScrollArea } from "../components/ui/scroll-area";
 import { SheetDialog } from "../components/ui/sheet-dialog";
+import { fileIcon } from "../trellis/trellis-icons";
 import { useCompositionGuard } from "./use-composition-guard";
 
 export type ProjectFindHit = {
@@ -19,6 +20,9 @@ export type ProjectFindHit = {
   line?: number | null;
   fileKind?: string | null;
 };
+
+const fileName = (path: string) => path.slice(path.lastIndexOf("/") + 1);
+const folderOf = (path: string) => path.slice(0, Math.max(0, path.lastIndexOf("/")));
 
 /** The snippet with each query term marked, so the eye lands on why it matched. */
 function markTerms(text: string, query: string) {
@@ -112,12 +116,6 @@ export function ProjectFindDialog(props: {
     setQuery("");
     inputRef.current?.focus();
   };
-  const resultType = (hit: ProjectFindHit): string => {
-    if (hit.kind === "paper") return t`Paper`;
-    if (!hit.fileKind) return t`File`;
-    const format = hit.fileKind.toLocaleUpperCase();
-    return t`${format} file`;
-  };
   const renderHits = (hits: ProjectFindHit[], offset: number) => (
     <ScrollArea className="project-find-results">
       <ul className="project-replace-hits">
@@ -130,16 +128,25 @@ export function ProjectFindDialog(props: {
                 type="button"
                 className={`project-replace-hit ${offset + index === activeIndex ? "active" : ""}`}
                 aria-label={paper ? t`Open paper result: ${paperTitle}` : undefined}
+                title={paper ? undefined : `${hit.path}${hit.line ? `:${hit.line}` : ""}`}
                 onClick={() => {
                   setActiveIndex(offset + index);
                   props.onOpenHit(hit.path, hit.line ?? undefined);
                 }}
               >
+                {/* The icon says what kind of result it is; the name leads, its
+                    folder and line follow it, quieter. */}
+                <span className="project-find-hit-icon" aria-hidden="true">{fileIcon(hit.path, paper ? "paper" : "file")}</span>
                 <span className="project-find-hit-heading">
-                  <span className="project-find-result-type">{resultType(hit)}</span>
-                  <span className="project-replace-hit-path">
-                    {paper ? hit.title : <>{hit.path}{hit.line ? `:${hit.line}` : ""}</>}
-                  </span>
+                  {paper ? (
+                    <span className="project-find-hit-name">{hit.title}</span>
+                  ) : (
+                    <>
+                      <span className="project-find-hit-name">{fileName(hit.path)}</span>
+                      {folderOf(hit.path) && <span className="project-find-hit-folder">{folderOf(hit.path)}</span>}
+                      {hit.line ? <span className="project-find-hit-line">{hit.line}</span> : null}
+                    </>
+                  )}
                 </span>
                 <span className="project-replace-hit-preview">
                   {hit.snippet ? markTerms(hit.snippet, query) : paper ? hit.path : hit.title}
