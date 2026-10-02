@@ -104,10 +104,8 @@ input[type="search"]:focus-visible {
 .compile-repair-footer { display: flex; align-items: center; justify-content: flex-end; gap: var(--space-4); padding: var(--space-2) var(--space-4); border-top: 1px solid var(--border-subtle); font-size: var(--type-caption-size); }
 .compile-repair-footer > span { margin-right: auto; }
 .compile-diagnostics-body { padding: 0 var(--space-4) var(--space-4); display: grid; gap: var(--space-3); }
-.compile-diagnostics-tabs { display: flex; gap: var(--space-2); }
-.compile-diagnostics-tabs button { height: var(--control-size-icon-compact); border: 1px solid var(--tone-chip-border); border-radius: var(--radius-icon); padding: 0 var(--space-4); background: transparent; color: inherit; display: inline-flex; align-items: center; gap: var(--space-2); font-size: var(--type-micro-size); font-weight: var(--weight-semibold); }
-.compile-diagnostics-tabs button:hover { background: var(--tone-surface); }
-.compile-diagnostics-tabs .sliding-tab-pill { background: var(--tone-surface); border-color: transparent; }
+.compile-diagnostics-tabs { justify-self: start; }
+.compile-diagnostics-tabs .ui-segmented-tab { gap: var(--space-2); }
 .compile-diagnostics-list { list-style: none; margin: 0; padding: 0; max-height: 168px; overflow: auto; display: grid; gap: var(--space-2); }
 .compile-diagnostics-list li { min-width: 0; display: flex; align-items: center; gap: var(--gap-tight); }
 .compile-diagnostic-item { min-width: 0; flex: 1; min-height: 30px; border: 0; border-radius: var(--radius-chrome); padding: var(--space-3) var(--space-4); background: transparent; color: inherit; display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: var(--gap-inline); row-gap: var(--space-2); align-items: start; text-align: left; font-size: var(--type-caption-size); }
