@@ -9,6 +9,7 @@ import { InlineMessage } from "../components/ui/inline-message";
 import { notifySuccess } from "../telemetry/app-notify";
 import { InfinityLoader } from "../components/ui/activity-icons";
 import { EmptyState } from "../components/ui/empty-state";
+import { EmptyIllustration } from "../components/ui/empty-illustration";
 import { PanelHeader } from "../components/ui/panel-header";
 import { SearchField } from "../components/ui/search-field";
 import { ResizableDrawer } from "../components/ui/resizable-drawer";
@@ -275,7 +276,7 @@ export function LiteratureDiscoveryPanel(props: {
           </button>
         )}
         {!loading && !results.length && !error && !notice && (
-          <EmptyState description={t`Search alphaXiv and OpenAlex for related work`} />
+          <EmptyState icon={<EmptyIllustration kind="papers" />} description={t`Search alphaXiv and OpenAlex for related work`} />
         )}
       </div>
     </ResizableDrawer>

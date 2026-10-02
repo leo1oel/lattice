@@ -116,7 +116,7 @@ export function EditorCommentsPanel(props: {
                   <span>{comment.path}</span>
                   {comment.resolved && <span>{t`Resolved`}</span>}
                 </div>
-                <strong>{comment.quote.trim() || t`(empty span)`}</strong>
+                <span className="pdf-mark-quote">{comment.quote.trim() || t`(empty span)`}</span>
                 <p>{comment.body}</p>
               </button>
 

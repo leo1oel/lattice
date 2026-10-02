@@ -520,6 +520,20 @@ label.ui-checkbox-field[data-slot="checkbox-field"] {
   box-shadow: var(--segmented-selected-shadow);
 }
 
+/* A track of pressed buttons (filters rather than tabs) has no sliding pill:
+   the pressed one carries the pill's surface itself. */
+.ui-segmented-tab[aria-pressed] {
+  border: 0;
+  background: transparent;
+  transition: color var(--duration-quick) var(--ease-default), background-color var(--duration-quick) var(--ease-default);
+}
+.ui-segmented-tab[aria-pressed="false"]:hover { color: var(--text-secondary); }
+.ui-segmented-tab[aria-pressed="true"] {
+  background: var(--segmented-selected-surface);
+  box-shadow: var(--segmented-selected-shadow);
+  color: var(--text-primary);
+}
+
 .ui-segmented--accent .sliding-tab.active {
   color: var(--control-active);
 }

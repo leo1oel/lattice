@@ -104,10 +104,8 @@ input[type="search"]:focus-visible {
 .compile-repair-footer { display: flex; align-items: center; justify-content: flex-end; gap: var(--space-4); padding: var(--space-2) var(--space-4); border-top: 1px solid var(--border-subtle); font-size: var(--type-caption-size); }
 .compile-repair-footer > span { margin-right: auto; }
 .compile-diagnostics-body { padding: 0 var(--space-4) var(--space-4); display: grid; gap: var(--space-3); }
-.compile-diagnostics-tabs { display: flex; gap: var(--space-2); }
-.compile-diagnostics-tabs button { height: var(--control-size-icon-compact); border: 1px solid var(--tone-chip-border); border-radius: var(--radius-icon); padding: 0 var(--space-4); background: transparent; color: inherit; display: inline-flex; align-items: center; gap: var(--space-2); font-size: var(--type-micro-size); font-weight: var(--weight-semibold); }
-.compile-diagnostics-tabs button:hover { background: var(--tone-surface); }
-.compile-diagnostics-tabs .sliding-tab-pill { background: var(--tone-surface); border-color: transparent; }
+.compile-diagnostics-tabs { justify-self: start; }
+.compile-diagnostics-tabs .ui-segmented-tab { gap: var(--space-2); }
 .compile-diagnostics-list { list-style: none; margin: 0; padding: 0; max-height: 168px; overflow: auto; display: grid; gap: var(--space-2); }
 .compile-diagnostics-list li { min-width: 0; display: flex; align-items: center; gap: var(--gap-tight); }
 .compile-diagnostic-item { min-width: 0; flex: 1; min-height: 30px; border: 0; border-radius: var(--radius-chrome); padding: var(--space-3) var(--space-4); background: transparent; color: inherit; display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: var(--gap-inline); row-gap: var(--space-2); align-items: start; text-align: left; font-size: var(--type-caption-size); }
@@ -166,7 +164,15 @@ input[type="search"]:focus-visible {
 .quick-open-list button { min-height: var(--control-height-default); border: 0; border-radius: var(--nested-radius); padding: 7px var(--space-5); background: transparent; color: var(--text-secondary); text-align: left; font-size: var(--type-label-size); display: flex; flex-direction: column; align-items: stretch; justify-content: center; gap: var(--gap-tight); min-width: 0; overflow: hidden; }
 .quick-open-list button.active, .quick-open-list button:hover { background: var(--control-active-soft); color: var(--control-active); }
 .quick-open-list .picker-label { min-width: 0; display: inline-flex; align-items: baseline; gap: var(--space-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.quick-open-list .picker-group { color: var(--text-tertiary); font-size: var(--type-nano-size); font-weight: var(--weight-bold); text-transform: uppercase; letter-spacing: .04em; }
+/* One heading per section, quiet enough that the rows stay the thing to read. */
+.quick-open-list .picker-section { padding: var(--space-4) var(--space-5) var(--space-1); color: var(--text-tertiary); font-size: var(--type-micro-size); font-weight: var(--weight-semibold); }
+.quick-open-list .picker-section:first-of-type { padding-top: var(--space-2); }
+.quick-open-list .picker-file { min-width: 0; display: flex; align-items: center; gap: var(--space-4); }
+.quick-open-list .picker-file-icon { flex: none; display: inline-flex; color: var(--text-tertiary); }
+.quick-open-list button.active .picker-file-icon { color: inherit; }
+.quick-open-list .picker-file-name { flex: none; max-width: 70%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-primary); }
+.quick-open-list button.active .picker-file-name { color: inherit; }
+.quick-open-list .picker-file-folder { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-tertiary); font-size: var(--type-micro-size); }
 .quick-open-list .picker-detail { color: var(--text-tertiary); font-size: var(--type-micro-size); font-style: normal; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .editor-status-bar .editor-breadcrumb button { border: 0; background: transparent; color: inherit; padding: 0; font: inherit; max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .editor-status-bar .editor-breadcrumb button:hover { color: var(--control-active); }
@@ -249,9 +255,19 @@ input[type="search"]:focus-visible {
 .project-replace-hit { width: 100%; text-align: left; border: 1px solid var(--border-subtle); border-radius: var(--radius-control); background: var(--surface-app); padding: var(--space-4) var(--space-5); display: flex; flex-direction: column; gap: var(--gap-tight); }
 .project-replace-hit:hover { border-color: var(--border-strong); }
 .project-replace-hit.active { border-color: var(--control-active-border); background: var(--control-active-soft); }
+/* Find results are a list, not a stack of cards: rows that light up under the
+   pointer and the keyboard, an icon column, then name, folder and line above
+   the matched text. */
+:is(.project-find, .todo-drawer) .project-replace-hits { gap: var(--space-1); }
+:is(.project-find, .todo-drawer) .project-replace-hit { border-color: transparent; background: transparent; display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: var(--space-4); row-gap: var(--space-1); padding: var(--space-4) var(--space-5); }
+:is(.project-find, .todo-drawer) .project-replace-hit:hover { border-color: transparent; background: var(--control-hover-surface); }
+:is(.project-find, .todo-drawer) .project-replace-hit.active { border-color: transparent; background: var(--control-active-soft); }
+.project-find-hit-icon { grid-row: 1; display: inline-flex; align-items: center; color: var(--text-tertiary); }
+:is(.project-find, .todo-drawer) .project-replace-hit-preview { grid-column: 2; }
 .project-find-hit-heading { display: flex; align-items: baseline; gap: var(--space-3); min-width: 0; }
-.project-find-result-type { flex: 0 0 auto; color: var(--text-secondary); font-size: var(--type-nano-size); font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }
-.project-find-hit-heading .project-replace-hit-path { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.project-find-hit-name { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-primary); font-size: var(--type-caption-size); font-weight: var(--weight-semibold); }
+.project-find-hit-folder { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-tertiary); font-size: var(--type-micro-size); }
+.project-find-hit-line { flex: none; margin-left: auto; color: var(--text-tertiary); font-size: var(--type-micro-size); font-variant-numeric: tabular-nums; }
 .project-replace-hit-path { color: var(--text-secondary); font-size: var(--type-micro-size); font-weight: 600; }
 .project-replace-hit-preview { color: var(--text-primary); font-size: var(--type-caption-size); font-family: var(--editor-font); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* Files and papers each take the height they need, and share the dialog only
@@ -525,15 +541,12 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
 .paper-list .paper-citation-health { color: var(--status-warning); }
 .paper-row.citation-retracted .paper-citation-health { color: var(--status-danger); }
 .paper-list-end { margin: var(--space-6) 7px var(--space-2); color: var(--text-tertiary); font-size: var(--type-micro-size); text-align: center; }
-.papers-empty-state { margin: 14px 7px; padding: 14px var(--space-6); border: 1px dashed var(--border-strong); border-radius: var(--radius-panel); background: color-mix(in srgb, var(--editor-bg) 55%, transparent); text-align: center; }
-.papers-empty-heading { display: flex; align-items: center; justify-content: center; gap: var(--space-3); }
-/* Drawn a little smaller than compact and let into the card's padding, so the
-   heading grows by only a few pixels. */
-.papers-empty-heading .empty-illustration { width: 40px; height: 30px; margin-block: calc(-1 * var(--space-2)); }
-.papers-empty-state strong { display: block; color: var(--text-primary); font-size: var(--type-label-size); font-weight: 600; }
-.papers-empty-state p { margin: 5px 0 11px; color: var(--text-tertiary); font-size: var(--type-caption-size); line-height: 1.5; }
-.papers-empty-state button { height: 28px; padding: 0 var(--pad-inline-control); border: 1px solid var(--border-strong); border-radius: var(--radius-chrome); background: var(--editor-bg); color: var(--text-secondary); font-size: var(--type-micro-size); font-weight: 600; }
-.papers-empty-state button:hover { color: var(--text-primary); border-color: var(--control-active-border); }
+/* Drawing beside the text, both on a quiet plate that reads as part of the
+   list rather than a drop zone. */
+.papers-empty-state { margin: var(--space-6) 7px; padding: var(--space-6) var(--space-8) var(--space-6) var(--space-6); border-radius: var(--radius-panel); background: color-mix(in srgb, var(--editor-bg) 55%, transparent); display: flex; align-items: center; gap: var(--space-6); color: var(--text-tertiary); }
+.papers-empty-text { min-width: 0; display: grid; gap: var(--space-1); }
+.papers-empty-state strong { color: var(--text-primary); font-size: var(--type-label-size); font-weight: 600; }
+.papers-empty-state p { margin: 0; color: var(--text-tertiary); font-size: var(--type-caption-size); line-height: 1.45; }
 .import-box { overflow: hidden; }
 .import-box button { width: 24px; height: 24px; border-radius: var(--radius-icon); display: grid; place-items: center; background: transparent; color: var(--control-active); }
 .import-box button:hover:not(:disabled) { background: var(--control-active-soft); }

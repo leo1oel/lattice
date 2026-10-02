@@ -82,7 +82,7 @@ describe("ProjectFindDialog", () => {
     expect(screen.getAllByRole("button", { name: "清除搜索" })).toHaveLength(2);
   });
 
-  it("lists and announces file and paper hits by type, and opens the selected file line", () => {
+  it("lists file hits by name, folder and line beside paper hits, and opens the selected file line", () => {
     const { props, search } = renderFind({
       hits: [
         fileHit("sections/method.tex", 2),
@@ -92,9 +92,9 @@ describe("ProjectFindDialog", () => {
 
     search("alignment");
     expect(screen.getByRole("status")).toHaveTextContent("1 hit · 1 paper");
-    expect(screen.getByText("TEX file")).toBeInTheDocument();
-    expect(screen.getByText("Paper")).toBeInTheDocument();
-    fireEvent.click(screen.getByText("sections/method.tex:2"));
+    expect(screen.getByTitle("sections/method.tex:2")).toHaveTextContent("method.texsections2");
+    expect(screen.getByRole("button", { name: "Open paper result: Latent alignment" })).toBeInTheDocument();
+    fireEvent.click(screen.getByText("method.tex"));
     expect(props.onOpenHit).toHaveBeenCalledWith("sections/method.tex", 2);
   });
 

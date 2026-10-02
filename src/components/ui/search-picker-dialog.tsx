@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { Fragment, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { CloseButton } from "./icon-button";
 import { EmptyState } from "./empty-state";
@@ -24,6 +24,19 @@ function scoreItem(item: SearchPickerItem, query: string): number {
   return subsequenceScore(hay, needle);
 }
 
+/** Gather ranked results by section, keeping each section where its best match ranked. */
+function sectionResults<T>(ranked: T[], groupOf?: (item: T) => string | undefined) {
+  if (!groupOf) return { results: ranked, sectioned: false };
+  const sections = new Map<string | undefined, T[]>();
+  for (const item of ranked) {
+    const group = groupOf(item);
+    const section = sections.get(group);
+    if (section) section.push(item);
+    else sections.set(group, [item]);
+  }
+  return { results: [...sections.values()].flat(), sectioned: sections.size > 1 };
+}
+
 /**
  * The keyboard-driven modal list behind quick open and the command pickers:
  * a search field that owns Up/Down/Enter over a ranked, hover-highlighted
@@ -41,15 +54,23 @@ export function PickerDialog<T>(props: {
   rank: (query: string) => T[];
   itemKey: (item: T) => string;
   renderItem: (item: T) => ReactNode;
+  /** The accessible name, when the rendered item is more than its text. */
+  itemLabel?: (item: T) => string;
+  /**
+   * The section an item belongs to. With more than one section among the
+   * results, they gather under one heading each instead of repeating it on
+   * every row, in the order their best match ranks.
+   */
+  groupOf?: (item: T) => string | undefined;
   onClose: () => void;
   onSelect: (item: T) => void;
   /** The highlighted item, whenever it changes (for prefetching). */
   onIntent?: (item: T) => void;
 }) {
-  const { rank, onIntent } = props;
+  const { rank, onIntent, groupOf } = props;
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);
-  const results = useMemo(() => rank(query.trim()), [rank, query]);
+  const { results, sectioned } = useMemo(() => sectionResults(rank(query.trim()), groupOf), [rank, query, groupOf]);
   const lastIndex = Math.max(0, results.length - 1);
   const selected = results[Math.min(lastIndex, Math.max(0, active))] ?? null;
   useEffect(() => {
@@ -92,19 +113,27 @@ export function PickerDialog<T>(props: {
         </div>
         <div className="quick-open-list fluid-hover-surface" role="listbox">
           <FluidHoverSurface />
-          {results.map((item, index) => (
-            <button
-              key={props.itemKey(item)}
-              type="button"
-              role="option"
-              aria-selected={index === active}
-              className={index === active ? "active" : ""}
-              onMouseEnter={() => setActive(index)}
-              onClick={() => props.onSelect(item)}
-            >
-              {props.renderItem(item)}
-            </button>
-          ))}
+          {results.map((item, index) => {
+            const group = sectioned ? groupOf?.(item) : undefined;
+            return (
+              <Fragment key={props.itemKey(item)}>
+                {group && (index === 0 || group !== groupOf?.(results[index - 1])) && (
+                  <div className="picker-section" data-slot="picker-section-label" aria-hidden="true">{group}</div>
+                )}
+                <button
+                  type="button"
+                  role="option"
+                  aria-label={props.itemLabel?.(item)}
+                  aria-selected={index === active}
+                  className={index === active ? "active" : ""}
+                  onMouseEnter={() => setActive(index)}
+                  onClick={() => props.onSelect(item)}
+                >
+                  {props.renderItem(item)}
+                </button>
+              </Fragment>
+            );
+          })}
           {!results.length && <EmptyState density="compact" description={props.emptyText} />}
         </div>
       </div>
@@ -143,11 +172,9 @@ function SearchPickerDialogForm({ title, items, ...props }: SearchPickerProps) {
       emptyText={t`No matches`}
       rank={rank}
       itemKey={(item) => item.id}
+      groupOf={(item) => item.group}
       renderItem={(item) => <>
-        <span className="picker-label">
-          {item.group && <small className="picker-group">{item.group}</small>}
-          {item.label}
-        </span>
+        <span className="picker-label">{item.label}</span>
         {item.detail && <em className="picker-detail">{item.detail}</em>}
       </>}
     />

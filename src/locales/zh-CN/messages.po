@@ -216,10 +216,6 @@ msgstr "{fileCount} 个文件"
 msgid "{filtered} of {total} papers"
 msgstr "显示 {filtered} / {total} 篇论文"
 
-#: src/project/project-find-dialog.tsx
-msgid "{format} file"
-msgstr "{format} 文件"
-
 #: src/app-utils.ts
 msgid "{hours}h ago"
 msgstr "{hours} 小时前"
@@ -615,6 +611,10 @@ msgstr "对齐"
 #: src/history/history-drawer.tsx
 msgid "All"
 msgstr "全部"
+
+#: src/overleaf/overleaf-collab.tsx
+msgid "All ({threadCount})"
+msgstr "全部（{threadCount}）"
 
 #: src/editor/spreadsheet/spreadsheet-univer.ts
 msgid "All Functions…"
@@ -2911,10 +2911,6 @@ msgstr "无法加载图预览。"
 msgid "Figures"
 msgstr "图片"
 
-#: src/project/project-find-dialog.tsx
-msgid "File"
-msgstr "文件"
-
 #: src/app/native-locale.ts
 msgctxt "macOS menu bar"
 msgid "File"
@@ -3555,10 +3551,6 @@ msgstr "包含原始诊断文本"
 #: src/editor/comments/editor-comments-panel.tsx
 msgid "Include resolved"
 msgstr "包括已解决"
-
-#: src/overleaf/overleaf-comments.tsx
-msgid "Include resolved ({resolvedCount})"
-msgstr "包括已解决（{resolvedCount}）"
 
 #: src/telemetry/app-log.tsx
 msgid "Incomplete history"
@@ -4267,8 +4259,9 @@ msgid "Loading…"
 msgstr "正在加载…"
 
 #: src/overleaf/overleaf-collab.tsx
-msgid "Local comments"
-msgstr "本地评论"
+msgctxt "comment source"
+msgid "Local"
+msgstr "本地"
 
 #: src/project/manuscript-checklist.tsx
 msgid "local estimate"
@@ -5470,7 +5463,6 @@ msgstr "面板"
 
 #: src/app/use-trellis-bridge.ts
 #: src/canvas/paper-reader.tsx
-#: src/project/project-find-dialog.tsx
 #: src/trellis/trellis-header-tools.tsx
 #: src/trellis/trellis-workspace.tsx
 msgid "Paper"
@@ -8199,7 +8191,7 @@ msgstr "无序项目列表。"
 msgid "Unpaywall"
 msgstr "Unpaywall"
 
-#: src/overleaf/overleaf-comments.tsx
+#: src/overleaf/overleaf-collab.tsx
 msgid "Unresolved"
 msgstr "未解决"
 

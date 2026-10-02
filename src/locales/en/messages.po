@@ -216,10 +216,6 @@ msgstr "{fileCount} files"
 msgid "{filtered} of {total} papers"
 msgstr "{filtered} of {total} papers"
 
-#: src/project/project-find-dialog.tsx
-msgid "{format} file"
-msgstr "{format} file"
-
 #: src/app-utils.ts
 msgid "{hours}h ago"
 msgstr "{hours}h ago"
@@ -615,6 +611,10 @@ msgstr "Alignment"
 #: src/history/history-drawer.tsx
 msgid "All"
 msgstr "All"
+
+#: src/overleaf/overleaf-collab.tsx
+msgid "All ({threadCount})"
+msgstr "All ({threadCount})"
 
 #: src/editor/spreadsheet/spreadsheet-univer.ts
 msgid "All Functions…"
@@ -2911,10 +2911,6 @@ msgstr "Figure preview could not be loaded."
 msgid "Figures"
 msgstr "Figures"
 
-#: src/project/project-find-dialog.tsx
-msgid "File"
-msgstr "File"
-
 #: src/app/native-locale.ts
 msgctxt "macOS menu bar"
 msgid "File"
@@ -3555,10 +3551,6 @@ msgstr "Include raw diagnostic text"
 #: src/editor/comments/editor-comments-panel.tsx
 msgid "Include resolved"
 msgstr "Include resolved"
-
-#: src/overleaf/overleaf-comments.tsx
-msgid "Include resolved ({resolvedCount})"
-msgstr "Include resolved ({resolvedCount})"
 
 #: src/telemetry/app-log.tsx
 msgid "Incomplete history"
@@ -4267,8 +4259,9 @@ msgid "Loading…"
 msgstr "Loading…"
 
 #: src/overleaf/overleaf-collab.tsx
-msgid "Local comments"
-msgstr "Local comments"
+msgctxt "comment source"
+msgid "Local"
+msgstr "Local"
 
 #: src/project/manuscript-checklist.tsx
 msgid "local estimate"
@@ -5470,7 +5463,6 @@ msgstr "Panels"
 
 #: src/app/use-trellis-bridge.ts
 #: src/canvas/paper-reader.tsx
-#: src/project/project-find-dialog.tsx
 #: src/trellis/trellis-header-tools.tsx
 #: src/trellis/trellis-workspace.tsx
 msgid "Paper"
@@ -8199,7 +8191,7 @@ msgstr "Unordered list of items."
 msgid "Unpaywall"
 msgstr "Unpaywall"
 
-#: src/overleaf/overleaf-comments.tsx
+#: src/overleaf/overleaf-collab.tsx
 msgid "Unresolved"
 msgstr "Unresolved"
 

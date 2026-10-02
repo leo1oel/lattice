@@ -29,17 +29,36 @@ describe("Overleaf collaboration drawer localization", () => {
     const { rerender } = render(drawer("comments", props));
     expect(screen.getByRole("tab", { name: "Comments3" })).toBeInTheDocument();
     expect(screen.queryByText("Unsynced file discussion")).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("tab", { name: "Local comments2" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Local2" }));
     expect(screen.getByText("Unsynced file discussion")).toBeInTheDocument();
     expect(screen.getByText("These comments stay in Lattice and are not sent to Overleaf.")).toBeInTheDocument();
     rerender(drawer("comments", { ...props, localCommentCount: 0 }));
-    expect(screen.getByRole("tab", { name: "Local comments" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Local" })).toBeInTheDocument();
     expect(screen.getByText("Unsynced file discussion")).toBeInTheDocument();
+  });
+
+  it("keeps the comment-source switch, and its focus, across sources", () => {
+    render(drawer("comments", { hasLocalComments: true, localComments: <div>Unsynced file discussion</div> }));
+    const overleaf = screen.getByRole("tab", { name: "Overleaf" });
+    overleaf.focus();
+    fireEvent.keyDown(overleaf, { key: "ArrowRight" });
+    expect(screen.getByText("Unsynced file discussion")).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Local" })).toHaveFocus();
+    expect(screen.getByRole("tab", { name: "Overleaf" })).toBe(overleaf);
+  });
+
+  it("lists resolved Overleaf threads only when the filter asks for all", () => {
+    render(drawer("comments", {
+      threads: [{ id: "t1", messages: [{ id: "c1", content: "Settled point", authorName: "Ada", authorEmail: "", timestamp: 0, mine: false }], resolved: true, resolvedBy: "Robin", resolvedAt: null }],
+    }));
+    expect(screen.queryByText("Settled point")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "All (1)" }));
+    expect(screen.getByText("Settled point")).toBeInTheDocument();
   });
 
   it("opens local inline replies in the local view", () => {
     render(drawer("comments", { hasLocalComments: true, focusLocalComments: true, localComments: <div>Local reply editor</div> }));
-    expect(screen.getByRole("tab", { name: "Local comments" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("tab", { name: "Local" })).toHaveAttribute("aria-selected", "true");
     expect(screen.getByText("Local reply editor")).toBeInTheDocument();
   });
 

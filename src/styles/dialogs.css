@@ -69,7 +69,7 @@
 
 .todo-drawer { width: min(460px, 100%); }
 .todo-hits { max-height: min(60vh, 480px); margin-top: var(--drawer-section-gap); }
-.todo-kind { color: var(--control-active); margin-right: var(--space-2); }
+.todo-kind { color: var(--control-active); }
 .todo-kind.fixme, .todo-kind.xxx { color: var(--status-danger); }
 .status-todos {
   display: inline-flex;
@@ -93,27 +93,36 @@
   color: var(--text-secondary);
 }
 .checklist-drawer { width: min(420px, 100%); }
-.checklist-rows { display: grid; gap: var(--space-3); margin-bottom: var(--space-8); }
+/* One grouped list, divided by hairlines, rather than a stack of outlined
+   cards; a result's colour lives on its value alone. */
+.checklist-rows {
+  margin-bottom: var(--space-8);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-panel);
+  background: var(--surface-app);
+  overflow: hidden;
+  display: grid;
+}
 .checklist-row {
   display: grid;
   grid-template-columns: 1fr auto;
+  align-items: baseline;
   gap: var(--space-1) var(--space-5);
   padding: var(--space-5) var(--space-6);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-control);
-  background: var(--surface-app);
+  border: 0;
+  background: transparent;
   color: inherit;
   text-align: left;
   font: inherit;
 }
-button.checklist-row { cursor: pointer; }
-button.checklist-row:hover { border-color: var(--control-active-border); }
+.checklist-row + .checklist-row { border-top: 1px solid var(--border-subtle); }
+button.checklist-row { cursor: pointer; transition: background-color var(--duration-quick) var(--ease-default); }
+button.checklist-row:hover { background: var(--control-hover-surface); }
 .checklist-row strong { font-size: var(--type-caption-size); font-weight: 600; }
-.checklist-row span { font-size: var(--type-caption-size); font-weight: 650; justify-self: end; }
+.checklist-row span { display: inline-flex; align-items: center; gap: var(--space-2); justify-self: end; font-size: var(--type-caption-size); font-weight: 650; font-variant-numeric: tabular-nums; }
+.checklist-row span svg { color: var(--text-tertiary); }
 .checklist-row small { grid-column: 1 / -1; color: var(--text-tertiary); font-size: var(--type-nano-size); }
-.checklist-row.ok { border-color: color-mix(in srgb, var(--status-success) 35%, var(--border-subtle)); }
 .checklist-row.ok span { color: var(--status-success); }
-.checklist-row.warn { border-color: color-mix(in srgb, var(--status-danger) 30%, var(--border-subtle)); }
 .checklist-row.warn span { color: var(--status-danger); }
 .checklist-budgets {
   display: grid;

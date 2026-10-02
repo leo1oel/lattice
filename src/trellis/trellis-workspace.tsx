@@ -25,10 +25,7 @@ import { DropdownMenu as MenuPrimitive } from "radix-ui";
 import { EditorState } from "@codemirror/state";
 import { EditorView, lineNumbers } from "@codemirror/view";
 import { defaultHighlightStyle, syntaxHighlighting } from "@codemirror/language";
-import {
-  Check, ChevronRight, FileImage, FileText, FolderTree, Moon, Presentation, Shapes, Table2,
-  BookMarked, FileCode2, Search,
-} from "lucide-react";
+import { Check, ChevronRight, FileText, FolderTree, Moon, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { floatingSurfaceClassName, menuItemClassName, menuViewportClassName } from "@/components/ui/menu-surface";
 import { popupMotionClassName } from "@/components/ui/popup-motion";
@@ -42,7 +39,7 @@ import {
 import { defaultLayout, loadLayout, saveLayout, clearLayout, withDocumentPanel, VIEW_TYPES } from "./trellis-layout";
 import { installTrellisLabels } from "./trellis-labels";
 import { PANEL_TITLES, spaceMixedScript } from "./trellis-titles";
-import { PANEL_ICONS } from "./trellis-icons";
+import { MENU_ICONS, PANEL_ICONS, fileIcon } from "./trellis-icons";
 import { FileHeaderTools } from "./trellis-header-tools";
 import { measurePdfToolbarMinWidth } from "../pdf/pdf-toolbar-min-width";
 import "./trellis.css";
@@ -87,17 +84,6 @@ type FileParams = { key: string };
 /** Boards, sheets and decks: expensive enough to unmount when their panel is off screen. */
 function isHeavyDocument(key: string) {
   return key.toLocaleLowerCase().endsWith(".tldr") || isSpreadsheetPath(key) || isOpenSlideDeckPath(key);
-}
-
-function fileIcon(key: string, kind: "file" | "asset" | "paper", size = 14) {
-  if (kind === "paper") return <BookMarked size={size} />;
-  if (kind === "asset") return <FileImage size={size} />;
-  const lower = key.toLocaleLowerCase();
-  if (lower.endsWith(".tldr")) return <Shapes size={size} />;
-  if (isSpreadsheetPath(key)) return <Table2 size={size} />;
-  if (isOpenSlideDeckPath(key)) return <Presentation size={size} />;
-  if (/\.(?:tex|sty|cls|bib)$/.test(lower)) return <FileCode2 size={size} />;
-  return <FileText size={size} />;
 }
 
 /**
@@ -424,6 +410,7 @@ function MenuEntries({ entries, onRun }: { entries: readonly MenuEntry[]; onRun:
             <MenuPrimitive.Sub key={entry.id ?? entry.label}>
               <MenuPrimitive.SubTrigger className={cn(menuItemClassName, "data-[state=open]:bg-accent")} disabled={entry.disabled}>
                 {checks && <span className="trellis-menu-check" />}
+                {entry.id && MENU_ICONS[entry.id]}
                 <span className="flex-1 truncate">{entry.label}</span>
                 <ChevronRight className="ml-auto" />
               </MenuPrimitive.SubTrigger>
@@ -450,6 +437,7 @@ function MenuEntries({ entries, onRun }: { entries: readonly MenuEntry[]; onRun:
             }}
           >
             {checks && <span className="trellis-menu-check">{entry.checked && <Check />}</span>}
+            {entry.id && MENU_ICONS[entry.id]}
             <span className="flex-1 truncate">{entry.label}</span>
             {entry.shortcut && <span className="trellis-menu-shortcut">{entry.shortcut}</span>}
           </MenuPrimitive.Item>

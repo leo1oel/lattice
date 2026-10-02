@@ -187,6 +187,9 @@
   animation: overleaf-settle var(--duration-reveal) var(--ease-entrance);
 }
 .overleaf-stage[data-list] { background: transparent; }
+/* Signed out there is no list to frame yet: the same geometry, without the
+   empty box around a sign-in prompt. */
+.overleaf-stage[data-plain] { border-color: transparent; background: transparent; }
 .overleaf-stage-caption {
   flex: none;
   display: flex;

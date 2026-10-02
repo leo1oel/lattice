@@ -13,7 +13,7 @@ import {
   summarizeDiagnostics,
   type CompileDiagnostic,
 } from "./compile-diagnostics";
-import { SlidingTabs } from "../components/ui/motion";
+import { SegmentedControl } from "../components/ui/segmented-control";
 import type { CompileRepairState } from "./use-compile-repair";
 import { compileDiagnosticText } from "./build-log-messages";
 import { compileRepairMessage } from "./compile-repair-messages";
@@ -88,9 +88,9 @@ export function CompileDiagnosticsPanel(props: {
       {props.expanded && (
         <div className="compile-diagnostics-body">
           {(diagnostics.length > 0 && hasLog) && (
-            <SlidingTabs
+            <SegmentedControl
               value={tab}
-              onChange={(next) => setTab(next as "diagnostics" | "log")}
+              onChange={setTab}
               ariaLabel={t`Build output`}
               className="compile-diagnostics-tabs"
               items={[

@@ -14,11 +14,10 @@
 /* The switcher keeps a section's breathing room below it too, so whatever
    the tab leads with (a filter, the bulk actions, the chat) never touches it. */
 .overleaf-collab-tabs { flex: none; margin-block: var(--drawer-section-gap); }
-.overleaf-collab-tabs + .overleaf-collab-tabs { margin-top: 0; }
 /* The tabs share the track rather than bunching at its start. */
 .overleaf-collab-tabs .ui-segmented-tab { flex: 1 1 0; }
 /* Counts are quiet on the tabs you are not on, and solid on the one you are. */
-.overleaf-collab-tabs em {
+.overleaf-collab-drawer .ui-segmented em {
   min-width: 16px;
   margin-left: var(--space-1);
   padding: var(--space-1) var(--space-2);
@@ -33,13 +32,13 @@
   text-align: center;
   transition: background-color var(--duration-quick) var(--ease-default), color var(--duration-quick) var(--ease-default);
 }
-.overleaf-collab-tabs .active em {
+.overleaf-collab-drawer .ui-segmented .active em {
   background: var(--control-active);
   color: var(--control-active-contrast);
 }
 .overleaf-local-comments-note {
   flex: none;
-  margin: var(--drawer-section-gap) 0;
+  margin: 0 var(--space-1) var(--drawer-section-gap);
   color: var(--text-secondary);
   font-size: var(--type-caption-size);
 }
@@ -198,8 +197,18 @@
 }
 .overleaf-thread-reply textarea:focus { outline: none; border-color: var(--field-control-interactive-border-color); box-shadow: none; }
 
-/* Inset like the cards below, which keep room for their focus rings. */
-.overleaf-thread-filter { flex: none; margin: 0 var(--space-1) var(--space-6); }
+/* One row under the tabs: which comments (when there are local ones too) on
+   the left, the resolved filter on the right. Inset like the cards below,
+   which keep room for their focus rings. */
+.overleaf-comments-toolbar {
+  flex: none;
+  margin: 0 var(--space-1) var(--space-6);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-4);
+}
+.overleaf-comments-toolbar > * + * { margin-left: auto; }
 
 /* Error lines above the lists. Appearance is owned by `.ui-inline-message`;
    the comments and chat line add a tinted plate. */

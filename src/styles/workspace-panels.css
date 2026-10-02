@@ -35,7 +35,7 @@ body.resizing-panels .resizable-drawer { transition: none; }
 }
 .drawer-view-tab:hover:not(:disabled) { color: var(--text-primary); background: var(--border-subtle); }
 .drawer-view-tab.active { color: var(--text-primary); background: transparent; }
-.history-filters { display: flex; gap: var(--space-2); margin: var(--space-6) 0; }
+.history-filters { width: fit-content; margin: var(--space-6) 0; }
 .history-item { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--space-4); padding: var(--space-5) 0; border-top: 1px solid var(--border-subtle); }
 .history-item.expanded { align-items: start; }
 .history-body { min-width: 0; }
@@ -144,7 +144,8 @@ body.resizing-panels .resizable-drawer { transition: none; }
   gap: var(--drawer-section-gap);
   margin-bottom: var(--drawer-section-gap);
 }
-.pdf-marks-kind-filter { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+/* The filter keeps its own width under the full-width search field. */
+.pdf-marks-toolbar .comment-visibility-filter { justify-self: start; }
 .pdf-mark-edit { display: grid; gap: var(--space-3); padding: 0 var(--space-2) var(--space-2); }
 .pdf-mark-edit textarea {
   width: 100%;
@@ -324,19 +325,29 @@ body.resizing-panels .resizable-drawer { transition: none; }
   font-size: var(--type-micro-size);
   font-weight: 600;
 }
-.pdf-mark-body strong {
+/* The author leads; the file and state after it are quieter. */
+.pdf-mark-meta span + span { color: var(--text-tertiary); font-weight: var(--weight-medium); }
+/* The commented span, quoted the way the Overleaf drawer quotes it, so the
+   comment itself reads as the card's text. */
+.pdf-mark-quote {
+  padding: var(--space-2) var(--space-4);
+  border-left: 2px solid var(--control-active);
+  border-radius: var(--radius-icon);
+  background: var(--control-active-soft);
   font-size: var(--type-caption-size);
-  font-weight: 600;
+  font-style: italic;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
   display: -webkit-box;
-  -webkit-line-clamp: 2;
+  -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
 .pdf-mark-body p {
   margin: 0;
-  color: var(--text-secondary);
-  font-size: var(--type-micro-size);
-  line-height: 1.4;
+  color: var(--text-primary);
+  font-size: var(--type-caption-size);
+  line-height: 1.45;
 }
 .pdf-mark-actions {
   display: flex;

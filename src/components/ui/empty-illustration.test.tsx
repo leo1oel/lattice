@@ -5,7 +5,7 @@ import { EmptyState } from "./empty-state";
 
 afterEach(cleanup);
 
-const KINDS: EmptyIllustrationKind[] = ["papers", "comments", "search", "history", "preview"];
+const KINDS: EmptyIllustrationKind[] = ["papers", "comments", "search", "history", "preview", "done"];
 
 it.each(KINDS)("draws the %s illustration as decoration that draws itself in", (kind) => {
   const { container } = render(<EmptyIllustration kind={kind} />);

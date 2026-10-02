@@ -1,6 +1,7 @@
 import { CircleDot, ListTodo } from "lucide-react";
 import { Trans, useLingui } from "@lingui/react/macro";
 import { EmptyState } from "../components/ui/empty-state";
+import { EmptyIllustration } from "../components/ui/empty-illustration";
 import { PanelHeader } from "../components/ui/panel-header";
 import type { TodoHit } from "./todo-scavenger";
 import { ResizableDrawer } from "../components/ui/resizable-drawer";
@@ -24,6 +25,7 @@ export function TodoScavengerPanel(props: {
         {count === 0 ? (
           <EmptyState
             className="todo-empty"
+            icon={<EmptyIllustration kind="done" />}
             title={t`No TODO markers found`}
             description={<Trans>Looks for <code>% TODO</code>, <code>% FIXME</code>, <code>% XXX</code> and <code>\todo</code></Trans>}
           />
@@ -40,9 +42,13 @@ export function TodoScavengerPanel(props: {
                 className="project-replace-hit"
                 onClick={() => props.onOpen(hit.path, hit.line)}
               >
-                <span className="project-replace-hit-path">
-                  <CircleDot size={10} className={`todo-kind ${hit.kind.toLowerCase()}`} />
-                  {hit.kind} · {hit.path}:{hit.line}
+                <span className="project-find-hit-icon" aria-hidden="true">
+                  <CircleDot size={12} className={`todo-kind ${hit.kind.toLowerCase()}`} />
+                </span>
+                <span className="project-find-hit-heading">
+                  <span className="project-find-hit-name">{hit.kind}</span>
+                  <span className="project-find-hit-folder">{hit.path}</span>
+                  <span className="project-find-hit-line">{hit.line}</span>
                 </span>
                 <span className="project-replace-hit-preview">{hit.preview}</span>
               </button>

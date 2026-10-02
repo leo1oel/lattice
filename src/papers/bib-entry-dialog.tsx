@@ -195,6 +195,7 @@ export function BibEntryDialog(props: {
             {t`Resolve from DOI / arXiv / title`}
             <div className="bib-resolve-row">
               <SearchField
+                autoFocus
                 aria-label={t`Citation resolve query`}
                 value={resolveQuery}
                 onChange={(event) => changeResolveQuery(event.target.value)}
