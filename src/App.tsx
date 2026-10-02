@@ -2288,6 +2288,29 @@ function App() {
     addOpenTab, closePaper, flushAndCheckPrimaryDirty, save, showActiveAsset, captureProjectScope,
   ]);
 
+  // An open project PDF is read a range at a time from one version of the file,
+  // so a rewrite on disk (a build, the agent, an Overleaf pull) must hand the
+  // viewer the new version; it keeps its page and zoom across the swap.
+  const activePdfPath = activeAsset?.ranges ? activeAsset.path : null;
+  useEffect(() => {
+    if (!project || !activePdfPath) return;
+    let cancelled = false;
+    const timer = window.setInterval(() => {
+      void invoke<AssetPreview>("read_project_asset", { path: activePdfPath })
+        .then((asset) => {
+          const current = activeAssetRef.current;
+          if (cancelled || current?.path !== activePdfPath || !asset.ranges) return;
+          if (asset.ranges.version !== current.ranges?.version) showActiveAsset(asset);
+        })
+        // A file caught mid-write is read again on the next tick.
+        .catch(() => undefined);
+    }, 2500);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [activeAssetRef, activePdfPath, project, showActiveAsset]);
+
   const closeEditorTab = useCallback(async (path: string) => {
     // The writer already closed the document's panel: the last document does
     // not hold it open (its panel closes and the neighbours fill in).

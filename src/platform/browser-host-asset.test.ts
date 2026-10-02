@@ -25,7 +25,7 @@ it("reads project PDF ranges from the browser host with the session token in a h
   expect(init).toMatchObject({ cache: "no-store", headers: { "x-lattice-session": "session-secret" } });
 
   // The host's refusal is the reader's error.
-  fetchRange.mockResolvedValueOnce(new Response("This PDF changed on disk. Open it again.", { status: 422 }));
+  fetchRange.mockResolvedValueOnce(new Response("This PDF changed on disk.", { status: 422 }));
   await expect(runtime.readBrowserHostAsset({ path: "figures/scan.pdf", version: "v1", start: 0, end: 2 }))
-    .rejects.toThrow("This PDF changed on disk. Open it again.");
+    .rejects.toThrow("This PDF changed on disk.");
 });

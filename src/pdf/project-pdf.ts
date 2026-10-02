@@ -38,24 +38,32 @@ export async function readProjectPdf(file: ProjectPdfFile, start = 0, end = file
   return bytes;
 }
 
+/** The project PDF at `path` as it is on disk now. */
+export async function currentProjectPdf(path: string): Promise<ProjectPdfFile> {
+  // `read_project_asset` reports every project PDF as ranges, never inline.
+  const { ranges } = await invoke<{ ranges: Omit<ProjectPdfFile, "path"> }>("read_project_asset", { path });
+  return { path, ...ranges };
+}
+
 /**
  * A PDF.js range transport over `file`. PDF.js's transport has no error
- * channel, so a failed read is reported to `onError` and then answered with
- * zeros: the document or page fails to parse instead of waiting forever.
+ * channel, so a failed read is reported to `onError` and left unanswered:
+ * bytes that are not the file's must never reach the document. The owner
+ * ends the load, or replaces the document once the file has a new version.
  */
 export function projectPdfTransport(file: ProjectPdfFile, onError: (reason: unknown) => void): PDFDataRangeTransport {
   class ProjectPdfTransport extends PDFDataRangeTransport {
     private aborted = false;
 
     requestDataRange(begin: number, end: number) {
-      void readProjectPdf(file, begin, end)
-        .catch((reason: unknown) => {
-          if (!this.aborted) onError(reason);
-          return new Uint8Array(end - begin);
-        })
-        .then((bytes) => {
+      readProjectPdf(file, begin, end).then(
+        (bytes) => {
           if (!this.aborted) this.onDataRange(begin, bytes);
-        });
+        },
+        (reason: unknown) => {
+          if (!this.aborted) onError(reason);
+        },
+      );
     }
 
     abort() {

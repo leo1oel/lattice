@@ -118,7 +118,15 @@ export function usePdfDocument({
     const range = file && projectPdfTransport(file, (reason) => {
       if (rangeFailure !== null || cancelled) return;
       rangeFailure = reason;
-      if (!promoted) return;
+      if (!promoted) {
+        // The read is never answered, so end the load now instead of at the timeout.
+        cancelled = true;
+        unsubscribeReady();
+        fail(reason);
+        return;
+      }
+      // A viewer whose file has a new version on its way is being replaced.
+      if (sourceRef.current.key !== key) return;
       addAppLog({
         level: "warning", source: "PDF", title: t`PDF could not be loaded`, detail: toMessage(reason), toast: true,
       });

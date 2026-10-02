@@ -35,7 +35,7 @@ const MAX_INLINE_ASSET_BYTES: u64 = 50 * 1024 * 1024;
 const PDF_HEADER_WINDOW: u64 = 1024;
 /// The most one range read returns; the frontend asks in smaller pieces.
 const MAX_ASSET_RANGE_BYTES: u64 = 16 * 1024 * 1024;
-const FILE_CHANGED: &str = "This PDF changed on disk. Open it again.";
+const FILE_CHANGED: &str = "This PDF changed on disk.";
 
 /// One version of one file: device, inode, length and modification time.
 /// Range reads are served only from the exact file `read_asset` checked, so a
@@ -330,7 +330,13 @@ mod tests {
         assert_eq!(read("paper.pdf", "0-0-0-0", 0, 4).err().unwrap(), FILE_CHANGED);
         fixture.write("paper.pdf", b"%PDF-1.4 a later version, longer");
         assert_eq!(read("paper.pdf", &version, 0, 4).err().unwrap(), FILE_CHANGED);
-        let (_, replaced) = ranges(root, "paper.pdf");
+        // Checking the rewritten file again serves its new version.
+        let (replaced_length, replaced) = ranges(root, "paper.pdf");
+        assert_ne!(replaced, version);
+        assert_eq!(
+            read("paper.pdf", &replaced, 0, replaced_length).unwrap(),
+            b"%PDF-1.4 a later version, longer"
+        );
         fs::remove_file(fixture.path("paper.pdf")).unwrap();
         assert_eq!(read("paper.pdf", &replaced, 0, 4).err().unwrap(), FILE_CHANGED);
     }

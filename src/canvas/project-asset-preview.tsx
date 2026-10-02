@@ -61,7 +61,7 @@ export function ProjectAssetPreview({ asset, viewState, onViewState }: {
     return (
       <Suspense fallback={<PdfPreviewLoading />}>
         <PdfPreview
-          key={`${pdfFile.path}:${pdfFile.version}`}
+          key={pdfFile.path}
           url={null}
           projectFile={pdfFile}
           fileName={asset.path.split("/").pop() ?? "figure.pdf"}

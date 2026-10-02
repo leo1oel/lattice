@@ -909,13 +909,58 @@ describe("PDFSlick viewer integration", () => {
     });
     expect(instance.args.options.getDocumentParams).not.toHaveProperty("data");
 
-    vi.mocked(invoke).mockImplementation(async (command) => (
-      command === "read_project_asset_range" ? new Uint8Array([37, 80, 68, 70]).buffer : "/tmp/scan copy.pdf"
-    ));
+    // The file was rewritten since the viewer opened it: save what is on disk now.
+    vi.mocked(invoke).mockImplementation(async (command) => {
+      if (command === "read_project_asset") {
+        return { path: "figures/scan.pdf", mimeType: "application/pdf", ranges: { length: 4, version: "v2" } };
+      }
+      return command === "read_project_asset_range" ? new Uint8Array([37, 80, 68, 70]).buffer : "/tmp/scan copy.pdf";
+    });
     fireEvent.click(view.getByRole("button", { name: "Save PDF as…" }));
     await waitFor(() => expect(invoke).toHaveBeenCalledWith(
       "save_compiled_pdf", new Uint8Array([37, 80, 68, 70]), expect.objectContaining({ headers: expect.any(Object) }),
     ));
-    expect(invoke).toHaveBeenCalledWith("read_project_asset_range", { path: "figures/scan.pdf", version: "v1", start: 0, end: 4 });
+    expect(invoke).toHaveBeenCalledWith("read_project_asset_range", { path: "figures/scan.pdf", version: "v2", start: 0, end: 4 });
+    expect(invoke).not.toHaveBeenCalledWith("read_project_asset_range", expect.objectContaining({ version: "v1" }));
+  });
+
+  it("swaps in a project PDF rewritten while open at the same page, never feeding the old viewer bytes it did not read", async () => {
+    clearAppLogs();
+    type Range = { requestDataRange(begin: number, end: number): void; onDataRange(begin: number, bytes: Uint8Array): void };
+    const rangeOf = (instance: (typeof pdf.state.instances)[number]) => instance.args.options.getDocumentParams as { range: Range };
+    const file = { path: "figures/scan.pdf", length: 4, version: "v1" };
+    const view = renderPdf({ url: null, projectFile: file, fileName: "scan.pdf" });
+    await view.findByLabelText("PDF page 3");
+    const old = pdf.state.instances[0]!;
+    act(() => old.gotoPage(3));
+
+    // The rewrite: reads of the old version are refused from now on.
+    vi.mocked(invoke).mockRejectedValue(new Error("This PDF changed on disk."));
+    const { range } = rangeOf(old);
+    const delivered = vi.spyOn(range, "onDataRange");
+    view.rerender(preview({ url: null, projectFile: { ...file, version: "v2" }, fileName: "scan.pdf" }));
+    range.requestDataRange(0, 4);
+    const replacement = await viewerAt(1);
+    expect(rangeOf(replacement).range).not.toBe(range);
+    await waitFor(() => expect(old.args.container.isConnected).toBe(false));
+    expect(replacement.gotoPage).toHaveBeenCalledWith(3);
+    expect(delivered).not.toHaveBeenCalled();
+    expect(formatAppLogs()).not.toContain("changed on disk");
+  });
+
+  it("fails a project PDF's first load at once when a range cannot be read, without feeding it zeros", async () => {
+    clearAppLogs();
+    pdf.state.deferLoad = true;
+    vi.mocked(invoke).mockRejectedValue(new Error("This PDF changed on disk."));
+    const view = renderPdf({ url: null, projectFile: { path: "figures/scan.pdf", length: 4, version: "v1" } });
+    const instance = await viewerAt(0);
+    const { range } = instance.args.options.getDocumentParams as {
+      range: { requestDataRange(begin: number, end: number): void; onDataRange(begin: number, bytes: Uint8Array): void };
+    };
+    const delivered = vi.spyOn(range, "onDataRange");
+    range.requestDataRange(0, 4);
+    expect(await view.findByText("PDF could not be loaded")).toBeInTheDocument();
+    expect(view.container.querySelector(".pdf-placeholder-detail")).toHaveTextContent("This PDF changed on disk.");
+    expect(delivered).not.toHaveBeenCalled();
   });
 });

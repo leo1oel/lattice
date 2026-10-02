@@ -676,6 +676,7 @@ describe("project tree and projects", () => {
       render: () => ({ promise: Promise.resolve(), cancel: vi.fn() }), getTextContent: async () => ({ items: [] }),
     });
     mockPdfDocument(() => pdf);
+    let pdfRanges = { length: 8, version: "v1" };
     renderApp({
       ...refreshableProject(projectSnapshot({
         files: [
@@ -686,7 +687,7 @@ describe("project tree and projects", () => {
       read_project_asset: (args) => {
         const path = argPath(args);
         return path.endsWith(".pdf")
-          ? { path, mimeType: "application/pdf", ranges: { length: 8, version: "v1" } }
+          ? { path, mimeType: "application/pdf", ranges: pdfRanges }
           : { path, mimeType: "image/svg+xml", base64: "PHN2Zy8+" };
       },
       prepare_latex_figure: "figures/native-umm-converted.pdf", write_project_file: undefined,
@@ -722,6 +723,13 @@ describe("project tree and projects", () => {
     expect(within(figureReader).queryByLabelText("Show document outline")).toBeNull();
     expect(screen.queryByRole("tablist", { name: "Document view" })).toBeNull();
     expect(vi.mocked(invoke)).not.toHaveBeenCalledWith("prepare_latex_figure", expect.anything());
+
+    // Rewritten on disk while open: the reader moves to the new version by itself.
+    pdfRanges = { length: 12, version: "v2" };
+    await waitFor(() => expect(vi.mocked(getDocument)).toHaveBeenCalledWith(expect.objectContaining({
+      range: expect.objectContaining({ length: 12 }),
+    })), { timeout: 6_000 });
+    expect(screen.getByRole("tab", { name: /result\.pdf/ })).toHaveAttribute("aria-selected", "true");
   });
 
   it("keeps the latest file active when an earlier read resolves afterward", async () => {

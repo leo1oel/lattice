@@ -71,7 +71,9 @@ it("reads a hovered PDF's ranges over raw IPC and ends the load when a read fail
   await vi.waitFor(() => expect(params!.range.received).toEqual([[0, new Uint8Array([37, 80, 68, 70])]]));
   expect(invoke).toHaveBeenCalledWith("read_project_asset_range", { path: "figures/probe.pdf", version: "v1", start: 0, end: 4 });
 
-  vi.mocked(invoke).mockRejectedValueOnce(new Error("This PDF changed on disk. Open it again."));
+  vi.mocked(invoke).mockRejectedValueOnce(new Error("This PDF changed on disk."));
   params!.range.requestDataRange(4, 8);
   await vi.waitFor(() => expect(destroy).toHaveBeenCalled());
+  // The failed range is never answered with bytes that are not the file's.
+  expect(params!.range.received).toHaveLength(1);
 });
