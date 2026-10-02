@@ -751,7 +751,7 @@ describe("project tree and projects", () => {
     })), { timeout: 4_000 });
     expect(formatAppLogs()).not.toContain("changed on disk");
 
-    // Removed outside the app: one notice in the reader, and no more checks.
+    // Removed outside the app: one notice in the reader, and checks slow down.
     pdfRemoved = true;
     const { range: lastRange } = vi.mocked(getDocument).mock.calls.at(-1)![0] as unknown as {
       range: { requestDataRange(begin: number, end: number): void };
@@ -764,7 +764,16 @@ describe("project tree and projects", () => {
     expect(assetReads()).toBe(afterRemoval);
     expect(screen.getByRole("tab", { name: /result\.pdf/ })).toHaveAttribute("aria-selected", "true");
     expect(formatAppLogs()).not.toContain("no longer exists");
-  }, 20_000);
+
+    // A rebuild writes it again: the notice clears and the new version opens in the same reader.
+    pdfRanges = { length: 20, version: "v4" };
+    pdfRemoved = false;
+    await waitFor(() => expect(vi.mocked(getDocument)).toHaveBeenCalledWith(expect.objectContaining({
+      range: expect.objectContaining({ length: 20 }),
+    })), { timeout: 8_000 });
+    expect(screen.queryByText("This PDF was removed from the project.")).toBeNull();
+    expect(screen.getByRole("tab", { name: /result\.pdf/ })).toHaveAttribute("aria-selected", "true");
+  }, 30_000);
 
   it("keeps the latest file active when an earlier read resolves afterward", async () => {
     setAutoBuildMode("manual");

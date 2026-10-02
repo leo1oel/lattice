@@ -2294,7 +2294,8 @@ function App() {
   // viewer the new version; it keeps its page and zoom across the swap. The
   // viewer asks at once when a read finds the file changed; the poll catches
   // a rewrite before any read does. A file removed from the project stays
-  // open with a notice and is no longer checked until it is opened again.
+  // open with a notice and is checked less often; a rebuild that deletes and
+  // then rewrites it brings the new version back in at the same page.
   const [missingAsset, setMissingAsset] = useState<AssetPreview | null>(null);
   const recheckActivePdf = useCallback(() => {
     const opened = activeAssetRef.current;
@@ -2306,6 +2307,7 @@ function App() {
         const current = activeAssetRef.current;
         if (!ownsProject() || current?.path !== path || !asset.ranges) return;
         if (asset.ranges.version !== current.ranges?.version) showActiveAsset(asset);
+        else setMissingAsset((missing) => (missing === current ? null : missing));
       })
       .catch((reason: unknown) => {
         // A file caught mid-write is read again on the next tick.
@@ -2313,12 +2315,12 @@ function App() {
       });
   }, [activeAssetRef, captureProjectScope, showActiveAsset]);
   const activeAssetMissing = activeAsset !== null && activeAsset === missingAsset;
-  const activePdfPath = activeAsset?.ranges && !activeAssetMissing ? activeAsset.path : null;
+  const activePdfPath = activeAsset?.ranges ? activeAsset.path : null;
   useEffect(() => {
     if (!project || !activePdfPath) return;
-    const timer = window.setInterval(recheckActivePdf, 2500);
+    const timer = window.setInterval(recheckActivePdf, activeAssetMissing ? 5000 : 2500);
     return () => window.clearInterval(timer);
-  }, [activePdfPath, project, recheckActivePdf]);
+  }, [activeAssetMissing, activePdfPath, project, recheckActivePdf]);
 
   const closeEditorTab = useCallback(async (path: string) => {
     // The writer already closed the document's panel: the last document does
