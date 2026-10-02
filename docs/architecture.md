@@ -20,46 +20,46 @@ for the named symbol. Where a claim could not be verified from code it is marked
 
 ## 1. Processes and windows
 
-A running packaged Lattice is a Tauri host, a bundled Chromium (Electron) that
-draws the workspace window, and the Synara sidecar:
+A running packaged Lattice is a Tauri host that draws the workspace in a
+WKWebView window, and the Synara sidecar:
 
 ```
-┌───────────────────────────────────────────────┐   ┌──────────────────────────────┐
-│ Tauri host process (Rust)                     │   │ Lattice Chromium (Electron)  │
-│   src-tauri/src/main.rs → lib.rs::run()       │   │   scripts/chromium-shell.mjs │
-│   owns: filesystem, git, LaTeX build,         │   │   the visible workspace      │
-│         Overleaf HTTP/socket.io, SQLite FTS,  │   │   window: React 19 + Vite    │
-│         TexLab, keychain, sidecar lifetimes   │   │   (src/main.tsx → App.tsx)   │
-│                                               │   │                              │
-│   browser_host: 127.0.0.1:18452 serves the    │◄──┼── WebSocket bridge relays    │
-│   frontend and bridges each workspace to a    │   │   invoke/listen              │
-│   hidden host WKWebView that owns its project │   │   (platform/browser-         │
-│                                               │   │    runtime.ts)               │
-│   chromium.rs: spawns Electron, opens URLs    │──►│   control pipe (stdin)       │
-│   over a control pipe                         │   │                              │
-└───────────────────────────────────────────────┘   │   ┌────────────────────────┐ │
-        │ spawn + loopback HTTP                     │   │ cross-origin <iframe>  │ │
-        ▼                                           │   │ = the agent UI         │◄┼─┐
-┌───────────────────────────────────────────────┐   │   └────────────────────────┘ │ │
-│ Synara sidecar: Node (the same Electron       │   └──────────────────────────────┘ │
-│ binary, ELECTRON_RUN_AS_NODE) on              │────────────────────────────────────┘
-│ 127.0.0.1:<dynamic>, serving its own web UI   │
-└───────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────┐
+│ Tauri host process (Rust)                                        │
+│   src-tauri/src/main.rs → lib.rs::run()                          │
+│   owns: filesystem, git, LaTeX build, Overleaf HTTP/socket.io,    │
+│         SQLite FTS, TexLab, keychain, sidecar lifetimes           │
+│                                                                  │
+│   ┌────────────────────────────────┐   ┌───────────────────────┐ │
+│   │ WKWebView workspace window     │   │ Synara sidecar: the   │ │
+│   │   src/main.tsx → src/App.tsx   │   │ standalone Node in    │ │
+│   │   (lib.rs::workspace_window)   │   │ synara-runtime/bin,   │ │
+│   │   ┌──────────────────────────┐ │   │ own process, own port │ │
+│   │   │ cross-origin <iframe>    │◄┼───┼── 127.0.0.1:<dynamic> │ │
+│   │   │ = the agent UI           │ │   │   serves its web UI   │ │
+│   │   └──────────────────────────┘ │   │                       │ │
+│   └────────────────────────────────┘   └───────────────────────┘ │
+│                                                                  │
+│   browser_host: 127.0.0.1:18452 serves the frontend to a browser │
+│   for "Open in browser", bridging the tab to a hidden host       │
+│   WKWebView that owns its project                                │
+└──────────────────────────────────────────────────────────────────┘
         │ subprocess: $LATTICE_BIN literature '<json>'
         ▼
  same executable, headless run_cli() path
 ```
 
-The workspace window is a WKWebView instead (`lib.rs::workspace_window`,
-direct Tauri IPC, no bridge) in `pnpm tauri dev`, in a build without the
-Chromium runtime, and when the 18452 listener cannot bind. `lib.rs::setup`
-makes that choice; `src-tauri/src/chromium.rs` and `browser_host.rs` open with
-the rest of the design. Only this section describes the window engine: point
-here rather than restating it, because the engine is expected to change.
+Release builds render in this WKWebView window; for one release, launching with `LATTICE_RENDERER=chromium` (`open --env LATTICE_RENDERER=chromium -a Lattice`) shows the packaged Chromium window instead (`src-tauri/src/chromium.rs`).
+In that mode a bundled Electron draws the workspace and reaches the host the way
+a browser tab does: `browser_host` bridges it to a hidden host WKWebView, and
+`chromium.rs` opens its windows over a control pipe. `lib.rs::setup` makes the
+choice; `chromium.rs` and `browser_host.rs` open with the rest of the design.
+Only this section describes the window engine: point here rather than
+restating it.
 
 ### 1.1 Webview ↔ Rust: Tauri `invoke` / `listen`
 
-The frontend calls the same API in either window: in Chromium,
+The frontend calls the same API in either window: in Chromium (and a browser tab),
 `browser-runtime.ts` installs a `__TAURI_INTERNALS__` that relays each call over
 the bridge. The webview calls Rust with `invoke("command_name", args)` against **159
 registered commands** (see §2). Data flows the other way over Tauri events, of
@@ -163,8 +163,8 @@ it emits **no** Tauri events, only two commands (`synara_ensure_ready`,
 `synara_open_skills_folder`).
 
 - Launch: `SynaraRuntime::spawn` runs the sidecar's Node — the standalone
-  `synara-runtime/bin/node` in development, the bundled Chromium's Electron
-  binary as Node in release builds (`chromium::NodeRuntime`) — against
+  `synara-runtime/bin/node`, in development and release builds alike
+  (`sidecar::NodeRuntime`) — against
   `synara-runtime/server/dist/index.mjs`, on the previous port when it is still
   free and otherwise with `--dynamic-port`, and `SYNARA_HOST=127.0.0.1`. On
   macOS the whole process tree runs inside `BIBLIOGRAPHY_SANDBOX_PROFILE`.
@@ -179,7 +179,7 @@ it emits **no** Tauri events, only two commands (`synara_ensure_ready`,
 - Credentials: `SYNARA_AUTH_TOKEN` and `SYNARA_DESKTOP_SHUTDOWN_TOKEN` are each
   two concatenated UUIDv4s minted per spawn.
 - Shutdown: the child leads its own process group, so
-  `chromium::terminate_process_group` takes the whole tree with SIGTERM, a 2 s
+  `sidecar::terminate_process_group` takes the whole tree with SIGTERM, a 2 s
   grace period, then SIGKILL. Two independent paths call it — `impl Drop for
   SynaraRuntime` and the `RunEvent::Exit` hook in `lib.rs`
   (`shutdown_child_runtimes`).

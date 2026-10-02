@@ -1,31 +1,35 @@
-//! Production Chromium renderer supervision.
+//! The packaged Chromium renderer, kept for one release as a fallback.
 //!
-//! Lattice keeps Tauri as the installed application and privileged backend so
-//! its updater, native commands, and bundled Synara runtime retain one owner.
-//! The visible workspace runs in the fixed Electron/Chromium build staged in
-//! the app resources. A newline-delimited control pipe lets the backend open
+//! Release builds render in the system WKWebView. Launched with
+//! `LATTICE_RENDERER=chromium`, a release build shows its workspaces in the
+//! fixed Electron/Chromium build staged in the app resources instead, as
+//! Lattice did before; Tauri stays the installed application and privileged
+//! backend either way. A newline-delimited control pipe lets the backend open
 //! authenticated workspace URLs without putting bridge tokens in argv or
 //! handing them to the user's default browser.
-//!
-//! The same Electron executable doubles as the Node runtime of the Synara and
-//! Open Slide sidecars in release builds; see [`NodeRuntime`].
 
-use crate::commands::{in_new_process_group, signal_process_group};
 use serde::Serialize;
 use std::{
+    ffi::OsStr,
     io::Write,
-    path::{Path, PathBuf},
-    process::{Child, ChildStdin, Command, Stdio},
+    path::PathBuf,
+    process::{ChildStdin, Command, Stdio},
     sync::{
         atomic::{AtomicBool, AtomicU32, Ordering},
         Mutex,
     },
-    time::{Duration, Instant},
 };
 use tauri::Manager;
 
 const RUNTIME_EXECUTABLE: &str = "chromium-runtime/Lattice Chromium.app/Contents/MacOS/Electron";
 const PIPE_UNAVAILABLE: &str = "The Chromium control pipe is unavailable.";
+/// `LATTICE_RENDERER=chromium` brings back the packaged Chromium window.
+const RENDERER_ENV: &str = "LATTICE_RENDERER";
+
+/// Whether a launch asked for the Chromium renderer.
+fn chromium_requested(renderer: Option<&OsStr>) -> bool {
+    renderer.is_some_and(|value| value.eq_ignore_ascii_case("chromium"))
+}
 
 #[derive(Default)]
 pub(crate) struct ChromiumRuntime {
@@ -48,8 +52,14 @@ fn encode_message(message: &ShellMessage<'_>) -> Result<String, String> {
 }
 
 impl ChromiumRuntime {
-    pub(crate) fn is_packaged(&self, app: &tauri::AppHandle) -> bool {
+    fn is_packaged(&self, app: &tauri::AppHandle) -> bool {
         !cfg!(debug_assertions) && executable(app).is_ok_and(|path| path.is_file())
+    }
+
+    /// The Chromium window renders this launch only when it was asked for and
+    /// the runtime is packaged; otherwise the workspace is a WKWebView window.
+    pub(crate) fn is_selected(&self, app: &tauri::AppHandle) -> bool {
+        chromium_requested(std::env::var_os(RENDERER_ENV).as_deref()) && self.is_packaged(app)
     }
 
     pub(crate) fn is_running(&self) -> bool {
@@ -181,93 +191,22 @@ fn executable(app: &tauri::AppHandle) -> Result<PathBuf, String> {
         .map_err(|error| format!("Could not locate the Chromium runtime: {error}"))
 }
 
-/// The JavaScript runtime of the Synara and Open Slide sidecars.
-///
-/// Production macOS already ships Electron for the fixed Chromium renderer.
-/// Its executable can run ordinary Node entry points without launching a
-/// browser, so sharing it avoids bundling a second 120 MB Node binary.
-/// Development keeps the independently prepared runtime so `pnpm tauri dev`
-/// never has to materialize Chromium first.
-#[derive(Clone, Default)]
-pub(crate) struct NodeRuntime {
-    pub(crate) executable: PathBuf,
-    electron: bool,
-}
-
-impl NodeRuntime {
-    pub(crate) fn resolve(electron_resources: &Path, standalone_bin: &Path) -> Self {
-        // A WebKit lab bundle has no Chromium runtime; it borrows the Chromium
-        // bundle's Electron as Synara's Node.
-        #[cfg(feature = "perf-lab")]
-        if let Some(node) = std::env::var_os("LATTICE_LAB_NODE").filter(|v| !v.is_empty()) {
-            return Self { executable: PathBuf::from(node), electron: true };
-        }
-        let electron = cfg!(not(debug_assertions));
-        let executable = if electron {
-            electron_resources.join(RUNTIME_EXECUTABLE)
-        } else {
-            standalone_bin.join("node")
-        };
-        Self { executable, electron }
-    }
-
-    /// Run the entry point as plain Node in a fresh process group, so
-    /// [`terminate_process_group`] also reaches every descendant.
-    pub(crate) fn configure(&self, command: &mut Command) {
-        if self.electron {
-            command.env("ELECTRON_RUN_AS_NODE", "1");
-        }
-        in_new_process_group(command);
-    }
-}
-
-/// SIGTERM a sidecar's process group, allow a two-second grace period, then
-/// SIGKILL whatever is left.
-pub(crate) fn terminate_process_group(child: &mut Child) {
-    signal_process_group(child.id(), libc::SIGTERM);
-    let deadline = Instant::now() + Duration::from_secs(2);
-    while Instant::now() < deadline {
-        if matches!(child.try_wait(), Ok(Some(_))) {
-            return;
-        }
-        std::thread::sleep(Duration::from_millis(25));
-    }
-    signal_process_group(child.id(), libc::SIGKILL);
-    let _ = child.kill();
-    let _ = child.wait();
-}
-
 #[cfg(test)]
 mod tests {
-    use super::{encode_message, NodeRuntime, ShellMessage, RUNTIME_EXECUTABLE};
+    use super::{chromium_requested, encode_message, ShellMessage};
     use std::ffi::OsStr;
-    use std::path::Path;
-    use std::process::Command;
-
-    fn electron_env(runtime: &NodeRuntime) -> Option<Option<String>> {
-        let mut command = Command::new(&runtime.executable);
-        runtime.configure(&mut command);
-        command
-            .get_envs()
-            .find(|(key, _)| *key == OsStr::new("ELECTRON_RUN_AS_NODE"))
-            .map(|(_, value)| value.map(|value| value.to_string_lossy().into_owned()))
-    }
 
     #[test]
-    fn sidecar_node_is_electron_as_node_in_release_and_standalone_in_development() {
-        let resources = Path::new("/resources");
-        let bin = Path::new("/runtime/bin");
-        let runtime = NodeRuntime::resolve(resources, bin);
-        if cfg!(debug_assertions) {
-            assert_eq!(runtime.executable, bin.join("node"));
-            assert_eq!(electron_env(&runtime), None);
-        } else {
-            assert_eq!(runtime.executable, resources.join(RUNTIME_EXECUTABLE));
-            assert_eq!(electron_env(&runtime), Some(Some("1".into())));
+    fn only_an_explicit_request_selects_the_chromium_renderer() {
+        for (value, selected) in [
+            (None, false),
+            (Some(""), false),
+            (Some("webkit"), false),
+            (Some("chromium"), true),
+            (Some("Chromium"), true),
+        ] {
+            assert_eq!(chromium_requested(value.map(OsStr::new)), selected, "{value:?}");
         }
-        let electron =
-            NodeRuntime { executable: resources.join(RUNTIME_EXECUTABLE), electron: true };
-        assert_eq!(electron_env(&electron), Some(Some("1".into())));
     }
 
     #[test]

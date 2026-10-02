@@ -47,6 +47,7 @@ mod presentation;
 mod process_inspector;
 mod project;
 mod project_fs;
+mod sidecar;
 mod synara;
 #[cfg(test)]
 mod test_support;
@@ -176,11 +177,13 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     app.manage(synara::SynaraRuntime::new(app)?);
     app.manage(presentation::PresentationRuntime::new(app)?);
     let background = browser_host_launch();
-    let chromium_packaged =
-        !background && app.state::<chromium::ChromiumRuntime>().is_packaged(app.handle());
+    // Release builds render in a WKWebView window; `LATTICE_RENDERER=chromium`
+    // brings back the packaged Chromium window for this release.
+    let chromium_selected =
+        !background && app.state::<chromium::ChromiumRuntime>().is_selected(app.handle());
     let browser_start =
-        app.state::<browser_host::BrowserHost>().start(app.handle(), chromium_packaged);
-    let chromium_ready = chromium_packaged && browser_start.is_ok();
+        app.state::<browser_host::BrowserHost>().start(app.handle(), chromium_selected);
+    let chromium_ready = chromium_selected && browser_start.is_ok();
     if let Err(reason) = &browser_start {
         if background {
             return Err(std::io::Error::other(reason.clone()).into());

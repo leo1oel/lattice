@@ -9,7 +9,7 @@
 mod preferences;
 mod proxy;
 
-use crate::chromium::{terminate_process_group, NodeRuntime};
+use crate::sidecar::{terminate_process_group, NodeRuntime};
 use reqwest::blocking::Client;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::fs::{self, File, OpenOptions};
@@ -110,7 +110,7 @@ impl SynaraRuntime {
         let (version, revision) = manifest
             .map_or((None, None), |manifest| (manifest.synara_version, manifest.synara_revision));
         Ok(Self {
-            node: NodeRuntime::resolve(&resource_dir, &runtime_root.join("bin")),
+            node: NodeRuntime::resolve(&runtime_root.join("bin")),
             server_entry: runtime_root.join("server/dist/index.mjs"),
             bundled_skills_dir: resources.join("src").join("embedded_skills"),
             home_dir,

@@ -5,7 +5,7 @@ describe("Tauri package preparation profiles", () => {
   it("stages standalone Node before Chromium for debug packages", () => {
     expect(buildPreparationPlan("true")).toEqual({
       profile: "debug",
-      scripts: ["prepare:runtime:dev", "prepare:chromium:debug", "build"],
+      scripts: ["prepare:runtime:dev", "prepare:chromium", "build"],
     });
   });
 

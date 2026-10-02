@@ -230,9 +230,13 @@ export async function checkAppSizeBudgets(
       `Bundled Claude executable is ${executable.bytes} bytes; PATH launcher budget is ${CLAUDE_PATH_LAUNCHER_BUDGET_BYTES}`,
     );
   }
-  const sharedElectronNode = measuredReport.synaraNodeRuntime === "electron";
-  if (sharedElectronNode && measuredReport.bundledNodeBytes !== null) {
-    throw new Error("Electron-backed Synara runtime must not bundle a standalone Node binary");
+  // The Synara and Open Slide sidecars run on the standalone Node staged with
+  // Synara, in release builds as in development.
+  if (measuredReport.synaraNodeRuntime === "electron") {
+    throw new Error("The staged Synara runtime was prepared to run on Electron's Node; run `pnpm prepare:synara` again");
+  }
+  if (measuredReport.synaraNodeRuntime !== null && measuredReport.bundledNodeBytes === null) {
+    throw new Error("The staged Synara runtime must bundle its standalone Node binary");
   }
   if (measuredReport.presentationRuntimeBytes > PRESENTATION_RUNTIME_BUDGET_BYTES) {
     throw new Error(

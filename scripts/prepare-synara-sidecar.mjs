@@ -207,9 +207,7 @@ function resolveServerDependencies() {
   return { serverPackage, dependencies };
 }
 
-// Development uses the standalone Node next to this launcher. A release
-// removes that 120 MB duplicate and shares Electron's Node runtime instead;
-// the launcher resolves either layout from its own packaged location.
+// Runs the tool on the standalone Node next to this launcher.
 const BIBTEX_TIDY_LAUNCHER = `#!/bin/sh
 set -eu
 bin_dir="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
@@ -217,11 +215,6 @@ runtime_dir="$(dirname -- "$bin_dir")"
 tool="$runtime_dir/tools/bibtex-tidy.mjs"
 if [ -x "$bin_dir/node" ]; then
   exec "$bin_dir/node" "$tool" "$@"
-fi
-electron="$runtime_dir/../chromium-runtime/Lattice Chromium.app/Contents/MacOS/Electron"
-if [ -x "$electron" ]; then
-  export ELECTRON_RUN_AS_NODE=1
-  exec "$electron" "$tool" "$@"
 fi
 echo "Lattice's bundled JavaScript runtime is unavailable." >&2
 exit 127
