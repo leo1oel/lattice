@@ -3822,7 +3822,7 @@ function App() {
       projectPaths={projectPaths}
       graphicsRoots={graphicsRoots}
       buildDiagnostics={
-        source === buildPipeline.compiledSource
+        buildPipeline.compiledSources.get(activeFile) === source
           ? build?.diagnostics ?? EMPTY_DIAGNOSTICS
           : EMPTY_DIAGNOSTICS
       }

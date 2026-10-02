@@ -2,6 +2,7 @@ import { act, cleanup, renderHook } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { invoke } from "@tauri-apps/api/core";
 import type { BuildResult, ProjectSnapshot } from "../app-types";
+import type { CompileDiagnostic } from "../build/compile-diagnostics";
 import { useBuildPipeline } from "./use-build-pipeline";
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
@@ -13,16 +14,32 @@ afterEach(() => {
 const PROJECT = {
   root: "/project",
   manifest: { rootDocuments: [{ path: "main.tex", name: "main", isDefault: true }] },
+  files: [
+    { name: "main.tex", path: "main.tex", kind: "tex", children: [] },
+    { name: "chapters", path: "chapters", kind: "directory", children: [
+      { name: "intro.tex", path: "chapters/intro.tex", kind: "tex", children: [] },
+    ] },
+  ],
 } as unknown as ProjectSnapshot;
+
+/** What the project's files hold on disk. */
+const DISK: Record<string, string> = { "main.tex": "\\documentclass{article}", "chapters/intro.tex": "Intro\n\\foo" };
 
 function result(overrides: Partial<BuildResult> = {}): BuildResult {
   return { success: true, hasPdf: false, log: "", durationMs: 3_200, diagnostics: [], rootDocument: "main.tex", ...overrides };
 }
 
 /** The pipeline over one project, with `build_project` answered by `answer`. */
-function renderPipeline(answer: () => Promise<BuildResult>) {
-  vi.mocked(invoke).mockImplementation(async (command) => {
+function renderPipeline(
+  answer: () => Promise<BuildResult>,
+  { openDiagnostic = async () => {}, activeFile = "main.tex" }: {
+    openDiagnostic?: (diagnostic: CompileDiagnostic) => Promise<void>;
+    activeFile?: string;
+  } = {},
+) {
+  vi.mocked(invoke).mockImplementation(async (command, args) => {
     if (command === "build_project") return answer();
+    if (command === "read_project_file") return DISK[(args as { path: string }).path];
     if (command === "abort_build") return true;
     if (command === "clean_project") return undefined;
     throw new Error(`unexpected ${command}`);
@@ -30,9 +47,9 @@ function renderPipeline(answer: () => Promise<BuildResult>) {
   const ref = <T,>(current: T) => ({ current });
   return renderHook(() => useBuildPipeline({
     project: PROJECT, projectRef: ref(PROJECT), setProject: vi.fn(), projectGenerationRef: ref(1),
-    activeFileRef: ref("main.tex"), sourceRef: ref("\\documentclass{article}"), savedSourceRef: ref("\\documentclass{article}"),
+    activeFileRef: ref(activeFile), sourceRef: ref("\\documentclass{article}"), savedSourceRef: ref("\\documentclass{article}"),
     agent: { takePendingCompiles: () => [], reportCompiles: vi.fn() },
-    openDiagnosticRef: ref(async () => {}), onMissingTex: vi.fn(),
+    openDiagnosticRef: ref(openDiagnostic), onMissingTex: vi.fn(),
   }));
 }
 
@@ -105,5 +122,44 @@ describe("cleaning build files", () => {
     await act(() => view.result.current.cleanProject());
     expect(invoke).toHaveBeenCalledWith("clean_project");
     expect(view.result.current.cleaning).toBe(false);
+  });
+});
+
+describe("the diagnostics a build hands the editor", () => {
+  const diagnostics: CompileDiagnostic[] = [
+    { level: "error", message: "Undefined control sequence.", file: "/project/./chapters/intro.tex", line: 2 },
+    { level: "warning", message: "There were undefined references.", file: "main.tex", line: 1 },
+    { level: "warning", message: "Font shape undefined.", file: "/usr/local/texlive/article.cls", line: 9 },
+  ];
+
+  it("keeps the text of every project file they name, not only the open one", async () => {
+    const view = renderPipeline(async () => result({ success: false, diagnostics }));
+    await act(() => view.result.current.runBuild(false));
+    expect(Object.fromEntries(view.result.current.compiledSources)).toEqual({
+      "main.tex": "\\documentclass{article}",
+      "chapters/intro.tex": "Intro\n\\foo",
+    });
+    expect(invoke).not.toHaveBeenCalledWith("read_project_file", expect.objectContaining({ path: "main.tex" }));
+  });
+
+  it("reads the open file from disk too when the build started before any file was open", async () => {
+    const view = renderPipeline(async () => result({ success: false, diagnostics }), { activeFile: "" });
+    await act(() => view.result.current.runBuild(false));
+    expect(view.result.current.compiledSources.get("main.tex")).toBe(DISK["main.tex"]);
+  });
+
+  it("starts F8 at the first diagnostic the panel lists, and Shift-F8 at the last", async () => {
+    const opened: CompileDiagnostic[] = [];
+    const openDiagnostic = async (diagnostic: CompileDiagnostic) => { opened.push(diagnostic); };
+    const view = renderPipeline(async () => result({ success: false, diagnostics }), { openDiagnostic });
+    await act(() => view.result.current.runBuild(false));
+    act(() => view.result.current.cycleDiagnostic(1));
+    act(() => view.result.current.cycleDiagnostic(1));
+    expect(opened.map((item) => item.message)).toEqual(["Undefined control sequence.", "Font shape undefined."]);
+
+    await act(() => view.result.current.runBuild(false));
+    opened.length = 0;
+    act(() => view.result.current.cycleDiagnostic(-1));
+    expect(opened.map((item) => item.message)).toEqual(["There were undefined references."]);
   });
 });
