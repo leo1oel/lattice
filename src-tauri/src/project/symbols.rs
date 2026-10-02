@@ -8,6 +8,7 @@ use super::references::{command_argument_at, references};
 use super::tree::read_file;
 use super::{clip_line, err, line_number_at, skip_bytes};
 use crate::models::{RenameSymbolResult, SymbolOccurrence, UnusedSymbols};
+use serde::Deserialize;
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::path::Path;
@@ -310,8 +311,10 @@ fn bibliography_key_offset(source: &str, key: &str) -> Option<usize> {
     None
 }
 
-/// The two kinds of cross-reference symbols a writer can find and rename.
-#[derive(Clone, Copy)]
+/// The two kinds of cross-reference symbols a writer can find and rename;
+/// the frontend names them `"label"` and `"citation"`.
+#[derive(Clone, Copy, Deserialize)]
+#[serde(rename_all = "lowercase")]
 pub enum Symbol {
     Label,
     Citation,
@@ -523,5 +526,13 @@ mod tests {
             "See \\ref{fig:architecture} and \\cref{fig:architecture, eq:loss}.\n\\label{fig:architecture}\n\\label{fig:dead}\n\\citep{vaswani2017}\n"
         );
         assert!(fixture.read("references.bib").contains("@article{vaswani2017,"));
+    }
+
+    #[test]
+    fn symbol_kinds_arrive_as_the_frontend_names_them() {
+        let kinds: Vec<Symbol> = serde_json::from_str(r#"["label", "citation"]"#).unwrap();
+        let names = kinds.iter().map(|kind| kind.name()).collect::<Vec<_>>();
+        assert_eq!(names, ["label", "citation key"]);
+        assert!(serde_json::from_str::<Symbol>(r#""environment""#).is_err());
     }
 }
