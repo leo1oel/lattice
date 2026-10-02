@@ -122,8 +122,10 @@ type SearchPickerProps = {
 };
 
 export function SearchPickerDialog({ open, ...props }: SearchPickerProps & { open: boolean }) {
-  // Re-keyed so a new title or item set starts from an empty query.
-  return open ? <SearchPickerDialogForm key={`${props.title}-${props.items.length}`} {...props} /> : null;
+  // Re-keyed so another picker starts from an empty query. Items that arrive
+  // while it is open (Go to symbol reads the included files) only re-rank, so
+  // what the writer already typed stays.
+  return open ? <SearchPickerDialogForm key={props.title} {...props} /> : null;
 }
 
 function SearchPickerDialogForm({ title, items, ...props }: SearchPickerProps) {
