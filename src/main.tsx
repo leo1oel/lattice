@@ -34,9 +34,20 @@ async function startApp() {
     void import("./platform/perf-probe").then((probe) => probe.installPerfProbe());
   }
 
+  // The real-app measurement lab (docs/driving-the-app.md). VITE_PERF_LAB is
+  // set only by scripts/perf-lab.mjs, so every other build drops this branch
+  // and never emits the harness chunk. It must prepare (seed settings, start
+  // its startup marks) before the first render.
+  const lab = import.meta.env.VITE_PERF_LAB === "1"
+    ? await import("./platform/perf-lab-harness")
+      .then(async (harness) => (await harness.labPrepare()) ? harness : null)
+      .catch(() => null)
+    : null;
+
   await activateAppLocale(resolveAppLocale(loadAppearance().interfaceLanguage));
   const root = ReactDOM.createRoot(document.getElementById("root") as HTMLElement);
   installNativeLocaleSync();
+  if (lab) void lab.startLabHarness();
   root.render(
     <MotionConfig reducedMotion="user">
       <I18nProvider i18n={i18n}>

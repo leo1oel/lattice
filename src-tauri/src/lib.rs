@@ -7,6 +7,7 @@
 
 mod agent_literature;
 mod alphaxiv;
+mod app_identity;
 mod app_state;
 mod browser_host;
 mod chromium;
@@ -39,6 +40,8 @@ mod overleaf_rt;
 mod paper_pdf_proxy;
 mod papers;
 mod pdf_fonts;
+#[cfg(feature = "perf-lab")]
+mod perf_lab;
 mod presentation;
 mod process_inspector;
 mod project;
@@ -116,6 +119,8 @@ fn workspace_window(app: &AppHandle, label: &str, center: bool) -> tauri::Result
     macos_window::install_traffic_light_alignment(&window);
     macos_window::apply_window_background(&window, false);
     macos_window::render_at_display_refresh_rate(&window);
+    #[cfg(feature = "perf-lab")]
+    perf_lab::tune_wkwebview(&window);
     Ok(window)
 }
 
@@ -160,6 +165,11 @@ fn on_window_event(window: &tauri::Window, event: &tauri::WindowEvent) {
 
 fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     log::info!(target: "lattice::app", "Lattice {} starting", app.package_info().version);
+    #[cfg(feature = "perf-lab")]
+    {
+        perf_lab::trace("rust:setup-start");
+        perf_lab::disable_app_nap();
+    }
     app.manage(AppState::from_environment());
     app.manage(browser_host::BrowserHost::default());
     app.manage(chromium::ChromiumRuntime::default());
@@ -243,6 +253,8 @@ fn reopen(app: &AppHandle) {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    let context = tauri::generate_context!();
+    app_identity::init(&context.config().identifier);
     process_inspector::run_if_requested();
     if agent_literature::run_cli() {
         return;
@@ -295,6 +307,28 @@ pub fn run() {
         .on_window_event(on_window_event)
         .setup(setup)
         .invoke_handler(tauri::generate_handler![
+            #[cfg(feature = "perf-lab")]
+            perf_lab::perf_config,
+            #[cfg(feature = "perf-lab")]
+            perf_lab::perf_now,
+            #[cfg(feature = "perf-lab")]
+            perf_lab::perf_echo,
+            #[cfg(feature = "perf-lab")]
+            perf_lab::perf_bytes,
+            #[cfg(feature = "perf-lab")]
+            perf_lab::perf_write,
+            #[cfg(feature = "perf-lab")]
+            perf_lab::perf_emit,
+            #[cfg(feature = "perf-lab")]
+            perf_lab::perf_magnify,
+            #[cfg(feature = "perf-lab")]
+            perf_lab::perf_focus,
+            #[cfg(feature = "perf-lab")]
+            perf_lab::perf_key,
+            #[cfg(feature = "perf-lab")]
+            perf_lab::perf_wheel,
+            #[cfg(feature = "perf-lab")]
+            perf_lab::perf_mouse,
             ipc::workspace::create_project,
             ipc::workspace::open_tutorial_project,
             ipc::workspace::initial_project,
@@ -458,7 +492,7 @@ pub fn run() {
             presentation::presentation_release,
             presentation::presentation_refresh_native_workspace,
         ])
-        .build(tauri::generate_context!())
+        .build(context)
         .expect("error while running tauri application");
     app.run(|app_handle, event| match event {
         tauri::RunEvent::Exit => shutdown_child_runtimes(app_handle),

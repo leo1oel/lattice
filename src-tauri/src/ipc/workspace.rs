@@ -59,6 +59,15 @@ pub async fn initial_project(
     // window opened for a specific project (bound before it loads) find their
     // project here, so the frontend startup path is the same for either.
     let root = state.root_for(window.label())?;
+    // A lab run opens its fixture project in whichever window loads first.
+    #[cfg(feature = "perf-lab")]
+    let root = match (root, crate::perf_lab::project()) {
+        (None, Some(project)) => {
+            state.set_root(window.label(), project.clone()).await?;
+            Some(project)
+        }
+        (root, _) => root,
+    };
     run_blocking("Initial project load", move || root.map(|path| project::open(&path)).transpose())
         .await
 }

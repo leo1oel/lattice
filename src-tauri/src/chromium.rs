@@ -80,6 +80,8 @@ impl ChromiumRuntime {
             .take()
             .ok_or_else(|| "Could not open the Chromium control pipe.".to_string())?;
         let pid = child.id();
+        #[cfg(feature = "perf-lab")]
+        crate::perf_lab::trace("rust:chromium-spawned");
         self.shutting_down.store(false, Ordering::Release);
         self.pid.store(pid, Ordering::Release);
         *self.input.lock().map_err(|_| PIPE_UNAVAILABLE.to_string())? = Some(input);
@@ -179,6 +181,12 @@ pub(crate) struct NodeRuntime {
 
 impl NodeRuntime {
     pub(crate) fn resolve(electron_resources: &Path, standalone_bin: &Path) -> Self {
+        // A WebKit lab bundle has no Chromium runtime; it borrows the Chromium
+        // bundle's Electron as Synara's Node.
+        #[cfg(feature = "perf-lab")]
+        if let Some(node) = std::env::var_os("LATTICE_LAB_NODE").filter(|v| !v.is_empty()) {
+            return Self { executable: PathBuf::from(node), electron: true };
+        }
         let electron = cfg!(not(debug_assertions));
         let executable = if electron {
             electron_resources.join(RUNTIME_EXECUTABLE)

@@ -7,6 +7,8 @@ declare module "*.po" {
 
 interface ImportMetaEnv {
   readonly VITE_SYNARA_EMBED_URL?: string;
+  /** "1" only in perf-lab builds (scripts/perf-lab.mjs). */
+  readonly VITE_PERF_LAB?: string;
 }
 
 interface ImportMeta {
@@ -14,6 +16,8 @@ interface ImportMeta {
 }
 
 interface Window {
+  /** Set by the perf-lab harness while it drives a measurement run. */
+  __latticeLab?: boolean;
   __LATTICE_BROWSER_HOST_CONFIG__?: {
     token: string;
     port: number;

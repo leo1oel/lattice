@@ -767,8 +767,11 @@ async function initializeBrowserRuntime(): Promise<void> {
     return;
   }
   const stored = readStoredBrowserConfig();
+  // A perf-lab build serves its window from the lab's own port so it never
+  // meets a real Lattice on 18452.
+  const entryPort = import.meta.env.VITE_PERF_LAB === "1" ? window.location.port : "18452";
   const fixedEntry = window.location.hostname === "127.0.0.1"
-    && window.location.port === "18452";
+    && window.location.port === entryPort;
   const search = new URLSearchParams(window.location.search);
   const developmentEntry = search.get("latticeBrowser") === "1";
   // The app opens the default browser on a single-use `?entry=<nonce>`, never
@@ -779,7 +782,7 @@ async function initializeBrowserRuntime(): Promise<void> {
     return;
   }
   const config = await requestBrowserSession(
-    stored?.bridgePort ?? 18_452,
+    stored?.bridgePort ?? Number(entryPort),
     stored?.token,
     entry,
   );
