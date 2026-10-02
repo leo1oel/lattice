@@ -957,6 +957,29 @@ describe("PDFSlick viewer integration", () => {
     expect(formatAppLogs()).not.toContain("changed on disk");
   });
 
+  it("leaves a replacement refused while its file is still being written to the host's next check", async () => {
+    clearAppLogs();
+    type Range = { requestDataRange(begin: number, end: number): void };
+    const file = { path: "main.pdf", length: 4, version: "v1" };
+    const onFileChanged = vi.fn();
+    const view = renderPdf({ url: null, projectFile: file, fileName: "main.pdf", onFileChanged });
+    await view.findByLabelText("PDF page 3");
+    const old = pdf.state.instances[0]!;
+
+    // The host picked up a partial version; the build grows the file again before it loads.
+    pdf.state.deferReady = true;
+    view.rerender(preview({ url: null, projectFile: { ...file, version: "v2" }, fileName: "main.pdf", onFileChanged }));
+    const replacement = await viewerAt(1);
+    vi.mocked(invoke).mockRejectedValue("This PDF changed on disk.");
+    (replacement.args.options.getDocumentParams as { range: Range }).range.requestDataRange(0, 4);
+    await waitFor(() => expect(replacement.args.container.isConnected).toBe(false));
+
+    expect(onFileChanged).not.toHaveBeenCalled();
+    expect(old.args.container.isConnected).toBe(true);
+    expect(view.queryByText("PDF could not be loaded")).toBeNull();
+    expect(formatAppLogs()).not.toContain("changed on disk");
+  });
+
   it("fails a project PDF's first load at once when a range cannot be read, without feeding it zeros", async () => {
     clearAppLogs();
     pdf.state.deferLoad = true;

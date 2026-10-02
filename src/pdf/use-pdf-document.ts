@@ -119,9 +119,12 @@ export function usePdfDocument({
     const range = file && projectPdfTransport(file, (reason) => {
       if (rangeFailure !== null || cancelled) return;
       rangeFailure = reason;
-      // A rewritten or removed file is checked again by the host, not reported here.
+      // A rewritten or removed file is checked again by the host, not reported
+      // here. Only a shown viewer asks: a replacement refused while its file is
+      // still being written waits for the host's next check, or every partial
+      // version would start another load.
       const changed = isProjectPdfStale(reason);
-      if (changed) callbacks.current.onFileChanged?.();
+      if (changed && promoted) callbacks.current.onFileChanged?.();
       if (!promoted) {
         // The read is never answered, so end the load now instead of at the timeout.
         cancelled = true;
@@ -156,7 +159,11 @@ export function usePdfDocument({
       clearLoadFeedback();
       const title = t`PDF could not be loaded`;
       const detail = reason ? toMessage(reason) : "";
-      addAppLog({ level: "warning", source: "PDF", title, detail: detail || undefined, toast: false });
+      // A replacement for a file still being written is not a failure while the
+      // previous version stays on screen.
+      if (!(recordRef.current && isProjectPdfStale(reason))) {
+        addAppLog({ level: "warning", source: "PDF", title, detail: detail || undefined, toast: false });
+      }
       if (!recordRef.current) {
         setPdfError(title);
         setPdfErrorDetail(detail);

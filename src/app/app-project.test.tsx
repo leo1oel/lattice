@@ -757,7 +757,9 @@ describe("project tree and projects", () => {
       range: { requestDataRange(begin: number, end: number): void };
     };
     lastRange.requestDataRange(0, 4);
-    expect(await screen.findByText("This PDF was removed from the project.")).toHaveAttribute("role", "status");
+    // The reader asked moments ago, so this one waits for the next check.
+    expect(await screen.findByText("This PDF was removed from the project.", undefined, { timeout: 4_000 }))
+      .toHaveAttribute("role", "status");
     expect(screen.getAllByText("This PDF was removed from the project.")).toHaveLength(1);
     const afterRemoval = assetReads();
     await act(() => pause(3_000));
