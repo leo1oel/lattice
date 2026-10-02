@@ -18,36 +18,50 @@ for the named symbol. Where a claim could not be verified from code it is marked
 
 ---
 
-## 1. Three processes
+## 1. Processes and windows
 
-A running Lattice is three OS-level participants, not one:
+A running packaged Lattice is a Tauri host, a bundled Chromium (Electron) that
+draws the workspace window, and the Synara sidecar:
 
 ```
-┌──────────────────────────────────────────────────────────────────┐
-│ Tauri host process (Rust)                                        │
-│   src-tauri/src/main.rs → lib.rs::run()                          │
-│   owns: filesystem, git, LaTeX build, Overleaf HTTP/socket.io,    │
-│         SQLite FTS, TexLab, keychain, the sidecar's lifetime      │
-│                                                                  │
-│   ┌────────────────────────────────┐   ┌───────────────────────┐ │
-│   │ WKWebView (React 19 + Vite)    │   │ Node sidecar (Synara) │ │
-│   │   src/main.tsx → src/App.tsx   │   │ own process, own port │ │
-│   │                                │   │ 127.0.0.1:<dynamic>   │ │
-│   │   ┌──────────────────────────┐ │   │                       │ │
-│   │   │ cross-origin <iframe>    │◄┼───┼── serves its own web  │ │
-│   │   │ = the agent UI           │ │   │   UI over local HTTP  │ │
-│   │   └──────────────────────────┘ │   │                       │ │
-│   └────────────────────────────────┘   └───────────────────────┘ │
-└──────────────────────────────────────────────────────────────────┘
-                                              │
-                     subprocess: $LATTICE_BIN literature '<json>'
-                                              ▼
-                              same executable, headless run_cli() path
+┌───────────────────────────────────────────────┐   ┌──────────────────────────────┐
+│ Tauri host process (Rust)                     │   │ Lattice Chromium (Electron)  │
+│   src-tauri/src/main.rs → lib.rs::run()       │   │   scripts/chromium-shell.mjs │
+│   owns: filesystem, git, LaTeX build,         │   │   the visible workspace      │
+│         Overleaf HTTP/socket.io, SQLite FTS,  │   │   window: React 19 + Vite    │
+│         TexLab, keychain, sidecar lifetimes   │   │   (src/main.tsx → App.tsx)   │
+│                                               │   │                              │
+│   browser_host: 127.0.0.1:18452 serves the    │◄──┼── WebSocket bridge relays    │
+│   frontend and bridges each workspace to a    │   │   invoke/listen              │
+│   hidden host WKWebView that owns its project │   │   (platform/browser-         │
+│                                               │   │    runtime.ts)               │
+│   chromium.rs: spawns Electron, opens URLs    │──►│   control pipe (stdin)       │
+│   over a control pipe                         │   │                              │
+└───────────────────────────────────────────────┘   │   ┌────────────────────────┐ │
+        │ spawn + loopback HTTP                     │   │ cross-origin <iframe>  │ │
+        ▼                                           │   │ = the agent UI         │◄┼─┐
+┌───────────────────────────────────────────────┐   │   └────────────────────────┘ │ │
+│ Synara sidecar: Node (the same Electron       │   └──────────────────────────────┘ │
+│ binary, ELECTRON_RUN_AS_NODE) on              │────────────────────────────────────┘
+│ 127.0.0.1:<dynamic>, serving its own web UI   │
+└───────────────────────────────────────────────┘
+        │ subprocess: $LATTICE_BIN literature '<json>'
+        ▼
+ same executable, headless run_cli() path
 ```
+
+The workspace window is a WKWebView instead (`lib.rs::workspace_window`,
+direct Tauri IPC, no bridge) in `pnpm tauri dev`, in a build without the
+Chromium runtime, and when the 18452 listener cannot bind. `lib.rs::setup`
+makes that choice; `src-tauri/src/chromium.rs` and `browser_host.rs` open with
+the rest of the design. Only this section describes the window engine: point
+here rather than restating it, because the engine is expected to change.
 
 ### 1.1 Webview ↔ Rust: Tauri `invoke` / `listen`
 
-The webview calls Rust with `invoke("command_name", args)` against **159
+The frontend calls the same API in either window: in Chromium,
+`browser-runtime.ts` installs a `__TAURI_INTERNALS__` that relays each call over
+the bridge. The webview calls Rust with `invoke("command_name", args)` against **159
 registered commands** (see §2). Data flows the other way over Tauri events, of
 which there are only **four** emitted from the project and editor layers:
 
