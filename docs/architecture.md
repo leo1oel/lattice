@@ -564,8 +564,9 @@ CI (`.github/workflows/ci.yml`) covers the same ground across five jobs:
 `lint-and-build` (`pnpm lint`, `pnpm knip`, `pnpm build`, `pnpm i18n:check`,
 `pnpm notices:check`) and `rust`
 (`cargo fmt --check`, `cargo test`, `cargo clippy -D warnings`). A sixth job,
-`perf-bench`, runs the interaction benchmark (`pnpm perf:bench --check`,
-`mise run perf-bench` locally), which `check` leaves out; see
+`perf-bench`, runs the interaction benchmark (`pnpm perf:bench --check`), and a
+seventh, `perf-bench-webkit`, runs it in WebKit (`--engine webkit`); both are
+`mise run perf-bench` locally, which `check` leaves out; see
 [`performance.md`](performance.md).
 
 `pnpm lint` runs ESLint with the `--max-warnings` cap set in the `lint` script

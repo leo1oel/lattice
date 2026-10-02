@@ -176,8 +176,8 @@ table in step.
 
 The commands are the same ones CI runs, except its interaction benchmark
 (`pnpm perf:bench --check`, or `mise run perf-bench`; see
-[`docs/performance.md`](docs/performance.md)), which needs a local Chrome and a
-few quiet minutes. The environments are not interchangeable either: CI runs everything from a clean checkout with nothing skipped
+[`docs/performance.md`](docs/performance.md)), which needs a local Chrome,
+Playwright's WebKit and a few quiet minutes. The environments are not interchangeable either: CI runs everything from a clean checkout with nothing skipped
 (Rust on macOS, the rest on Ubuntu), while `pnpm check` skips stages it considers fresh. If
 a stage passes locally and fails in CI, suspect the freshness cache first —
 `mise run --force check` re-runs everything.
