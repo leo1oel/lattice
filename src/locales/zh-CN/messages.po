@@ -612,7 +612,7 @@ msgstr "对齐"
 msgid "All"
 msgstr "全部"
 
-#: src/overleaf/overleaf-comments.tsx
+#: src/overleaf/overleaf-collab.tsx
 msgid "All ({threadCount})"
 msgstr "全部（{threadCount}）"
 
@@ -8191,7 +8191,7 @@ msgstr "无序项目列表。"
 msgid "Unpaywall"
 msgstr "Unpaywall"
 
-#: src/overleaf/overleaf-comments.tsx
+#: src/overleaf/overleaf-collab.tsx
 msgid "Unresolved"
 msgstr "未解决"
 

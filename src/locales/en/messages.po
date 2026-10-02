@@ -612,7 +612,7 @@ msgstr "Alignment"
 msgid "All"
 msgstr "All"
 
-#: src/overleaf/overleaf-comments.tsx
+#: src/overleaf/overleaf-collab.tsx
 msgid "All ({threadCount})"
 msgstr "All ({threadCount})"
 
@@ -8191,7 +8191,7 @@ msgstr "Unordered list of items."
 msgid "Unpaywall"
 msgstr "Unpaywall"
 
-#: src/overleaf/overleaf-comments.tsx
+#: src/overleaf/overleaf-collab.tsx
 msgid "Unresolved"
 msgstr "Unresolved"
 

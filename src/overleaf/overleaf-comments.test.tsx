@@ -25,7 +25,7 @@ const panel = (overrides: Partial<Parameters<typeof OverleafCommentsPanel>[0]> =
   <OverleafCommentsPanel
     threads={[thread()]} anchors={anchorsByThreadId([anchor()])} activeDocId="doc-open" pathForDoc={() => null}
     loading={false} error={null} onReply={resolves()} onResolve={resolves()} onDelete={resolves()}
-    onEditMessage={resolves()} onDeleteMessage={resolves()} onReveal={vi.fn()} {...overrides}
+    onEditMessage={resolves()} onDeleteMessage={resolves()} onReveal={vi.fn()} showResolved={false} {...overrides}
   />
 );
 
@@ -58,7 +58,7 @@ describe("Overleaf comments panel", () => {
   });
 
   it("reveals a resolved inline-reply target and opens its reply composer", () => {
-    render(panel({ threads: [thread({ resolved: true })], focusThreadId: "t1" }));
+    render(panel({ threads: [thread({ resolved: true })], focusThreadId: "t1", showResolved: true }));
     expect(screen.getByText("This claim needs a citation")).toBeInTheDocument();
     expect(screen.getByLabelText("Reply")).toHaveFocus();
   });
@@ -110,12 +110,13 @@ describe("Overleaf comments panel", () => {
   });
 
   it("hides resolved threads until asked to include them", () => {
-    render(panel({
+    const props = {
       threads: [thread({ id: "t2", resolved: true, resolvedBy: "Robin" })],
       anchors: anchorsByThreadId([anchor({ threadId: "t2", docId: "doc-open" })]),
-    }));
+    };
+    const { rerender } = render(panel(props));
     expect(screen.queryByText("This claim needs a citation")).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "All (1)" }));
+    rerender(panel({ ...props, showResolved: true }));
     expect(screen.getByText("This claim needs a citation")).toBeInTheDocument();
     expect(screen.getByText(/Resolved by Robin/)).toBeInTheDocument();
   });

@@ -24,11 +24,6 @@ function scoreItem(item: SearchPickerItem, query: string): number {
   return subsequenceScore(hay, needle);
 }
 
-/**
- * The keyboard-driven modal list behind quick open and the command pickers:
- * a search field that owns Up/Down/Enter over a ranked, hover-highlighted
- * list. Mount it only while open, so each opening starts from an empty query.
- */
 /** Gather ranked results by section, keeping each section where its best match ranked. */
 function sectionResults<T>(ranked: T[], groupOf?: (item: T) => string | undefined) {
   if (!groupOf) return { results: ranked, sectioned: false };
@@ -42,6 +37,11 @@ function sectionResults<T>(ranked: T[], groupOf?: (item: T) => string | undefine
   return { results: [...sections.values()].flat(), sectioned: sections.size > 1 };
 }
 
+/**
+ * The keyboard-driven modal list behind quick open and the command pickers:
+ * a search field that owns Up/Down/Enter over a ranked, hover-highlighted
+ * list. Mount it only while open, so each opening starts from an empty query.
+ */
 export function PickerDialog<T>(props: {
   label: string;
   searchLabel: string;
