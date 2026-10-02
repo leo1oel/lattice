@@ -210,6 +210,7 @@ function estimate(node: PmNode, { fontSize, lineHeight, width }: Metrics): Size 
       return { height: node.childCount * (lineHeight + fontSize * 0.9), marginTop: 0, marginBottom: flow };
     default: {
       // Prose, lists, quotes and the rest: a wrapped line run per textblock.
+      if (node.isTextblock) return { height: lines(node.textContent.length) * lineHeight, marginTop: 0, marginBottom: flow };
       let height = 0;
       let runs = 0;
       node.descendants((child) => {
@@ -589,10 +590,15 @@ class BlockWindowView {
     }
     this.anchor = anchor;
     this.holdAnchor();
+    // Held through the next frame: a move run from a scroll event runs just
+    // before this frame's animation callbacks, so one frame would release the
+    // anchor before the drawn blocks were laid out and observed.
     if (this.anchorFrame != null) cancelAnimationFrame(this.anchorFrame);
     this.anchorFrame = requestAnimationFrame(() => {
-      this.anchorFrame = null;
-      this.anchor = null;
+      this.anchorFrame = requestAnimationFrame(() => {
+        this.anchorFrame = null;
+        this.anchor = null;
+      });
     });
   }
 

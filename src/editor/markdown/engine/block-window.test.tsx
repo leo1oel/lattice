@@ -116,6 +116,14 @@ describe("viewport rendering of a long document (R-PERF-3)", () => {
     expect(Number.parseFloat((placeholders()[0] as HTMLElement).style.height)).toBeGreaterThan(0);
   });
 
+  it("estimates a long paragraph that is not drawn at its wrapped lines, not one line", async () => {
+    renderLong([...paragraphs(399), "A long paragraph. ".repeat(100)].join("\n\n"));
+    await loaded();
+    const heightOf = (element: Element) => Number.parseFloat((element as HTMLElement).style.height);
+    const short = heightOf(placeholders()[0]!);
+    expect(heightOf(surface().children[399]!)).toBeGreaterThan(5 * short);
+  });
+
   it("draws a small document whole", async () => {
     renderLong(paragraphs(120).join("\n\n"));
     await waitFor(() => expect(surface().children).toHaveLength(120));
