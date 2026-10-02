@@ -156,6 +156,14 @@ export function useSynaraHost({ project, projectRef, agentVisible, bridge }: {
   const changePermissionMode = useCallback((mode: SynaraPermissionMode) => {
     void postMessage({ type: LATTICE_AGENT_PERMISSION_MODE_SET, mode });
   }, [postMessage]);
+  /** Point a mounted agent frame at `threadId`; an unmounted one opens on the persisted thread instead. */
+  const showThread = useCallback((threadId: string) => {
+    const frame = frameRef.current;
+    if (!frame || !origin) return;
+    const url = new URL(frame.src);
+    url.pathname = `/${encodeURIComponent(threadId)}`;
+    frame.src = url.toString();
+  }, [origin]);
 
   // WebKit drops pointerleave when the cursor leaves the agent iframe, so hover
   // states inside it stick. Any pointerover here means the pointer is not over
@@ -295,7 +303,7 @@ export function useSynaraHost({ project, projectRef, agentVisible, bridge }: {
     runtime, retry, origin, requestRuntime, mountFrame,
     frameRef, sourceControlFrameRef, frameMounted, frameReady,
     permissionMode, autoModeAvailable, changePermissionMode,
-    postMessage, notifyPanelOpened,
+    postMessage, notifyPanelOpened, showThread,
     /** Delivery state for the snapshots useAgentContext posts; not for rendering. */
     latest,
     deliverable: Boolean(origin && frameMounted && frameReady && agentVisible),

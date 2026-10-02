@@ -177,7 +177,7 @@ engine (§2), and a repository guard test keeps that code from coming back.
 
 | File | LOC | Role |
 | --- | --- | --- |
-| `src/App.tsx` | ~3,100 | The hub. Composes the `src/app/` hooks and owns what still spans them: the project lifecycle, tree mutations, the command table and the top-level layout. See §6. |
+| `src/App.tsx` | ~1,900 | The hub. Composes the `src/app/` hooks and owns what still spans them: the wiring between them, the command table and the top-level layout. See §6. |
 | `src/app/use-open-documents.ts` | ~1,300 | The open documents: tabs, the file/Paper/asset in front and its buffers, every open and close, back/forward, autosave, disk sync and the layout restore. Read its tests for the guarantees. |
 | `src-tauri/src/project.rs` + `project/` | 6,262 | Project validation, path safety, the transaction/history model, file classification, tree building, zip import/export. `project.rs` maps the submodules; most Rust areas depend on it. |
 | `src-tauri/src/overleaf.rs` + `overleaf/` | 4,196 | Overleaf session, linking and clone, REST, review, and the three-way merge against `.research/overleaf-base/`. |
@@ -201,23 +201,25 @@ into cohesive modules (see §2).
 
 Stated plainly so you are not surprised.
 
-### `App.tsx` is still the hub, at ~3,100 lines
+### `App.tsx` is still the hub, at ~1,900 lines
 
 It was 10,891 lines before the simplification pass that split it up. Most
 self-contained state now lives in hooks under `src/app/`, and App composes
 them:
 
-- **Project and documents:** `use-project-state.ts` (project identity, transitions, `captureProjectScope`), `use-project-library.ts` (papers, citations, history, TODOs), `use-open-documents.ts` (the open documents: tabs, the file, Paper or asset in front, every buffer, opening and closing, back/forward, autosave, disk sync, and the layout restore it drives through `use-file-view-states.ts` and the pure plan in `workspace-restore.ts`), `use-canvas-requests.ts`.
+- **Project and documents:** `use-project-state.ts` (project identity, transitions, `captureProjectScope`), `use-project-lifecycle.ts` (which project the window shows: startup routing, switching, new/open/recent/tutorial/ZIP, the browser handoff), `use-project-library.ts` (papers, citations, history, TODOs), `use-open-documents.ts` (the open documents: tabs, the file, Paper or asset in front, every buffer, opening and closing, back/forward, autosave, disk sync, and the layout restore it drives through `use-file-view-states.ts` and the pure plan in `workspace-restore.ts`), `use-project-tree.ts` (creating, deleting, renaming, moving and importing entries, Finder drops, clipboard figures), `use-canvas-requests.ts`.
+- **LaTeX:** `use-latex-structure.ts` (outline across included files, labels, macros, `\graphicspath`, TODOs, main-body pages), `use-synctex-navigation.ts` (source ↔ PDF jumps).
 - **Build and agent:** `use-build-pipeline.ts`, `use-tex-setup.ts`, `use-agent-checkpoints.ts`, `use-agent-context.ts`, `use-synara-host.ts`.
 - **Overleaf and Open Slide:** `use-overleaf-workspace.ts` and `open-slide-writes.ts` (Open Slide writes).
 - **Workspace and commands:** `use-trellis-bridge.ts` (the Trellis bridge, panel menus and doc tools), `use-app-commands.ts` (the palette's `runCommand` and the global ⌘/Ctrl-shortcut and F8 keydown listener).
 - **Surfaces:** `app-titlebar.tsx`, `app-history-drawers.tsx`, `app-search-dialogs.tsx`, `app-project-dialogs.tsx`, `app-overleaf-drawer.tsx`, `app-editor-panels.tsx`, each handed the hook object it renders rather than dozens of loose props. The workspace itself is the Trellis panel layout in `src/trellis/`.
 - **Shared plumbing:** `effect-helpers.ts` (`disposeWhenSettled`, `subscribeTauriEvent`, `whenIdle`, `frameCoalescer`, `onLayoutChange`, timers, `useLatest`, `useRefState`).
 
-What remains in App is the logic that genuinely spans those hooks: the
-project lifecycle around `useOpenDocuments`' `enter`, tree mutations, the one
-command table that drives both the palette and the global shortcuts, and the
-top-level layout. Every way of changing what is open goes through the store's
+What remains in App is the wiring between those hooks (what a project entry
+resets and scans, which build follows a save), the Paper actions (fetching,
+removing a cited entry), symbol navigation and rename, the one command table
+that drives both the palette and the global shortcuts, and the top-level
+layout. Every way of changing what is open goes through the documents store's
 commands (`openFile`, `openPaper`, `openAsset`, `open`, `close`, `save`, …);
 its test file is the place to read what they guarantee.
 One-shot requests to the canvas (jump to a line, restore a view, insert a
@@ -247,7 +249,7 @@ The warnings are almost entirely `react-hooks/*` diagnostics that
 `eslint.config.js:45-55` deliberately downgrades to warnings
 (`exhaustive-deps`, `refs`, `set-state-in-effect`, `immutability`), and
 `react-refresh/only-export-components`. At the time of writing
-`document-canvas.tsx` (9) and `App.tsx` (7) carry 16 of the 40; measure
+`document-canvas.tsx` (9) and `use-overleaf-workspace.ts` (7) carry 16 of the 34; `App.tsx` carries none; measure
 before quoting a number.
 
 ### Test files that do not name what they test

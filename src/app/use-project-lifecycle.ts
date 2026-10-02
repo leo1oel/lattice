@@ -1,0 +1,505 @@
+import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
+import { useLingui } from "@lingui/react/macro";
+import { invoke } from "@tauri-apps/api/core";
+import { getCurrentWindow } from "@tauri-apps/api/window";
+import { open, save as saveDialog } from "@tauri-apps/plugin-dialog";
+import type { ProjectSnapshot } from "../app-types";
+import { toMessage } from "../app-utils";
+import { browserRuntimeDetached, isBundledChromium, setWorkspaceYieldHandler } from "../platform/browser-runtime";
+import {
+  forgetRecentProject, hasSeenTutorial, loadRecentProjects, markTutorialSeen, rememberRecentProject, type RecentProject,
+} from "../settings/app-settings";
+import type { CreateProjectForm } from "./app-project-dialogs";
+import { setError, setNotice } from "./notify";
+import type { useBuildPipeline } from "./use-build-pipeline";
+import type { OpenDocuments } from "./use-open-documents";
+import { loadBibliographyIndex, type useProjectLibrary } from "./use-project-library";
+import { loadDocumentCanvas } from "./use-preview-prewarm";
+import type { ProjectState } from "./use-project-state";
+import { useLatest } from "./effect-helpers";
+
+/** How long a project switch waits for an in-flight Overleaf sync before giving up on it. */
+const PROJECT_SWITCH_SYNC_WAIT_MS = 15_000;
+
+// Must match the prefix `open_project_window` puts on a window-creation
+// failure. Everything else it can fail with is the project itself.
+// eslint-disable-next-line lingui/no-unlocalized-strings -- matched against the backend's error text
+const NEW_WINDOW_FAILURE_PREFIX = "Could not open a new window";
+
+const settleWithin = (work: Promise<unknown>) => Promise.race([
+  work,
+  new Promise<void>((resolve) => window.setTimeout(resolve, PROJECT_SWITCH_SYNC_WAIT_MS)),
+]);
+
+export type ProjectLifecycleDeps = {
+  projectState: ProjectState;
+  documents: Pick<OpenDocuments, "claim" | "flush" | "save" | "hasUnsavedEdits" | "enter" | "chooseMode">;
+  library: Pick<ReturnType<typeof useProjectLibrary>, "claimBibliographyRefresh" | "applyBibliographyIndex" | "setReferences">;
+  build: Pick<ReturnType<typeof useBuildPipeline>, "runBuild" | "resetForProject">;
+  /** Forget the outgoing project's agent compile associations (and, on a switch, its queued build). */
+  resetCompileTracking: (cancelQueuedBuild: boolean) => void;
+  cancelPrewarm: () => void;
+  /**
+   * The Overleaf sync gate: a sync must finish its disk refresh before a
+   * switch, and the whole-file documents it deferred must reach Overleaf.
+   */
+  overleafSync: {
+    syncingRef: RefObject<boolean>;
+    settledRef: RefObject<Promise<void> | null>;
+    flushWholeFilesRef: RefObject<() => Promise<void>>;
+  };
+  /** Put per-project panels back to their defaults, synchronously, as the new project is published. */
+  resetProjectUi: () => void;
+  /** The project's own scans, which run after its tabs are restored and before its Paper or asset surface opens. */
+  scanProject: () => Promise<void>;
+  shellRef: RefObject<HTMLDivElement | null>;
+  browserHosted: boolean;
+};
+
+/**
+ * Which project this window shows, and every way of changing it: the startup
+ * routing (the backend's project, else the most recent one, else the
+ * tutorial on a first launch), opening, creating, importing and cloning
+ * projects, the recent-projects list, and handing the workspace to a
+ * browser tab and back.
+ *
+ * A switch is a transition with an order that matters: wait out an Overleaf
+ * sync, publish and save every edit, flush deferred whole-file syncs, refuse
+ * if anything changed meanwhile, then claim the backend root (which
+ * invalidates work scoped to the old project) and enter the new one.
+ */
+export function useProjectLifecycle(deps: ProjectLifecycleDeps) {
+  const { t } = useLingui();
+  // The per-project resets and scans are App's closures; read the latest at entry time.
+  const depsRef = useLatest(deps);
+  const { projectState, documents, library, build, resetCompileTracking, cancelPrewarm, shellRef, browserHosted } = deps;
+  const { syncingRef, settledRef, flushWholeFilesRef } = deps.overleafSync;
+  const {
+    project, setProject, projectRef, projectBeforeTransitionRef, beginTransition, cancelProjectTransition,
+    captureProjectScope,
+  } = projectState;
+  const { claim, flush, save, hasUnsavedEdits, enter: enterDocuments, chooseMode } = documents;
+  const { claimBibliographyRefresh, applyBibliographyIndex, setReferences } = library;
+  const { runBuild, resetForProject } = build;
+  const [busyLabel, setBusyLabel] = useState<string | null>(null);
+  const [projectMenuOpen, setProjectMenuOpen] = useState(false);
+  const [recentProjects, setRecentProjects] = useState<RecentProject[]>(loadRecentProjects);
+  const autoTutorialAttemptedRef = useRef(false);
+
+  // `name: null` is the untouched default, resolved per render so it follows the interface language.
+  const [createFormState, setCreateForm] = useState<Omit<CreateProjectForm, "name"> & { name: string | null }>({
+    open: false, error: null, name: null, venue: "neurips",
+  });
+  const defaultProjectName = t`Untitled research`;
+  const createForm = useMemo<CreateProjectForm>(
+    () => ({ ...createFormState, name: createFormState.name ?? defaultProjectName }),
+    [createFormState, defaultProjectName],
+  );
+  const updateCreateForm = useCallback((update: Partial<CreateProjectForm>) => {
+    setCreateForm((form) => ({ ...form, error: null, ...update }));
+  }, []);
+
+  const beginProjectTransition = useCallback((force = false) => {
+    // Let sync finish its disk refresh before attempting a switch. Cancelling
+    // only its UI phase after a failed switch could leave newly pulled bytes
+    // hidden behind an old editor buffer that later overwrites them.
+    if (syncingRef.current && !force) return false;
+    beginTransition();
+    claim();
+    resetCompileTracking(true);
+    cancelPrewarm();
+    return true;
+  }, [beginTransition, cancelPrewarm, claim, resetCompileTracking, syncingRef]);
+
+  /**
+   * Claim the right to switch projects, waiting out an Overleaf sync rather
+   * than refusing.
+   *
+   * A sync must finish its disk refresh before a switch — cancelling only its
+   * UI phase could leave newly pulled bytes hidden behind an old editor buffer
+   * that later overwrites them. But a linked project auto-syncs on open and
+   * live mode re-syncs every few seconds, so simply rejecting the click meant
+   * "open that project" often did nothing at all and had to be clicked again
+   * with no way to tell when. Queueing behind the sync honors the same
+   * constraint while making one click enough. The timeout is the escape hatch
+   * for a sync that never settles: fall back to the old refusal rather than
+   * leaving the window wedged.
+   */
+  const startProjectTransition = useCallback(async () => {
+    if (syncingRef.current) {
+      const settled = settledRef.current;
+      if (settled) {
+        setNotice(t`Finishing Overleaf sync, then switching…`, "Overleaf");
+        await settleWithin(settled);
+      }
+    }
+    // The editor stayed live while Overleaf settled, so publish and durably
+    // save any edit (including a just-finished IME composition) made during
+    // that wait before invalidating the outgoing project's ownership.
+    if (!flush()) {
+      setNotice(t`Finish the current text composition, then switch projects again.`);
+      return false;
+    }
+    if (!(await save())) return false;
+    await settleWithin(flushWholeFilesRef.current());
+    if (hasUnsavedEdits()) {
+      setNotice(t`The document changed while saving. Save it, then switch projects again.`);
+      return false;
+    }
+    if (beginProjectTransition()) return true;
+    setNotice(t`Overleaf sync is finishing. Try switching projects again in a moment.`, "Overleaf");
+    return false;
+  }, [beginProjectTransition, flush, flushWholeFilesRef, hasUnsavedEdits, save, settledRef, syncingRef, t]);
+
+  const rememberProject = useCallback((snapshot: ProjectSnapshot) => {
+    setRecentProjects(rememberRecentProject({ name: snapshot.manifest.name, path: snapshot.root }));
+  }, []);
+
+  const enterProject = useCallback(async (
+    snapshot: ProjectSnapshot,
+    options?: { deferInitialBuild?: boolean },
+  ) => {
+    void loadDocumentCanvas();
+    beginProjectTransition(true);
+    // The backend already owns the incoming root. The outgoing documents go
+    // before that root is exposed to effects (see the documents' enter).
+    const entry = enterDocuments(snapshot);
+    projectRef.current = snapshot;
+    projectBeforeTransitionRef.current = null;
+    setProject(snapshot);
+    const ownsProject = captureProjectScope();
+    rememberProject(snapshot);
+    setProjectMenuOpen(false);
+    depsRef.current.resetProjectUi();
+    resetForProject(snapshot.root);
+    // The startup reopen defers this build and starts its own once the
+    // project is fully entered (see the recent-project auto-reopen below).
+    if (!options?.deferInitialBuild) {
+      void runBuild(false, { immediatePreview: true });
+    }
+    const isLatestBibliography = claimBibliographyRefresh();
+    const bibliographyIndex = await loadBibliographyIndex();
+    const [nextPapers, , , nextReferences] = bibliographyIndex;
+    if (!ownsProject()) return;
+    // Opening a file cancels workspace restoration, not the project's paper
+    // scan. Apply metadata before the restore's own guards, but do not
+    // overwrite a newer bibliography refresh triggered by a save.
+    if (isLatestBibliography()) applyBibliographyIndex(bibliographyIndex);
+    else setReferences(nextReferences ?? []);
+    if (!(await entry.restore(nextPapers))) return;
+    await depsRef.current.scanProject();
+    entry.finish();
+    // Never animate shell opacity from 0 — a cancelled/interrupted tween leaves the
+    // whole window blank white with the UI still "mounted".
+    if (shellRef.current) shellRef.current.style.opacity = "1";
+  }, [
+    applyBibliographyIndex, beginProjectTransition, captureProjectScope, claimBibliographyRefresh, depsRef,
+    enterDocuments, projectBeforeTransitionRef, projectRef, rememberProject, resetForProject, runBuild, setProject,
+    setReferences, shellRef,
+  ]);
+  const enterProjectRef = useLatest(enterProject);
+
+  /// Hand a project to a window of its own, or raise the window already
+  /// showing it. Returns the failure message so a caller that keeps a list of
+  /// projects can decide whether the project is worth forgetting.
+  const openProjectWindow = useCallback(async (path: string): Promise<string | null> => {
+    setBusyLabel(t`Opening window…`);
+    return invoke("open_project_window", { path })
+      .then(() => null, (reason: unknown) => {
+        const message = toMessage(reason);
+        setError(message);
+        return message;
+      })
+      .finally(() => setBusyLabel(null));
+  }, [t]);
+
+  /// Show a project that was just created, imported or cloned. A window in use
+  /// keeps what it has and the project gets one of its own; an empty window
+  /// takes it in place, claiming the switch first. The backend deliberately
+  /// does not bind these on creation, so this is the only thing that decides
+  /// where they land. `create` resolves the new project's root.
+  const revealNewProject = useCallback(async (
+    label: string,
+    create: () => Promise<string>,
+    onError?: (reason: unknown) => void,
+  ) => {
+    setBusyLabel(label);
+    const openHere = !project?.root;
+    return (async () => {
+      if (openHere && !await startProjectTransition()) return undefined;
+      const root = await create();
+      if (openHere) await enterProject(await invoke<ProjectSnapshot>("open_project", { path: root }));
+      else await openProjectWindow(root);
+      return true;
+    })().catch((reason: unknown) => {
+      if (openHere) cancelProjectTransition();
+      if (onError) onError(reason);
+      else setError(toMessage(reason));
+      return undefined;
+    }).finally(() => setBusyLabel(null));
+  }, [cancelProjectTransition, enterProject, openProjectWindow, project?.root, startProjectTransition]);
+
+  /// Replace this window's project with the one at `path`: save, claim the
+  /// switch, enter; roll the claim back on failure.
+  const switchProject = useCallback(async (label: string, path: string, onError?: () => void) => {
+    setBusyLabel(label);
+    await (async () => {
+      if (!(await save()) || !await startProjectTransition()) return;
+      await enterProject(await invoke<ProjectSnapshot>("open_project", { path }));
+    })().catch((reason: unknown) => {
+      cancelProjectTransition();
+      onError?.();
+      setError(toMessage(reason));
+    }).finally(() => setBusyLabel(null));
+  }, [cancelProjectTransition, enterProject, save, startProjectTransition]);
+
+  const chooseExisting = useCallback(async () => {
+    const selected = await open({ directory: true, multiple: false, title: t`Open a LaTeX project` });
+    if (!selected) return;
+    // Same rule as the recent-projects list: a window in use keeps the project
+    // it has, and the chosen one gets a window of its own.
+    if (project?.root) await openProjectWindow(String(selected));
+    else await switchProject(t`Opening project…`, String(selected));
+  }, [openProjectWindow, project?.root, switchProject, t]);
+
+  const createProject = useCallback(async () => {
+    if (!createForm.name.trim()) {
+      updateCreateForm({ error: t`Enter a project name.` });
+      return;
+    }
+    const parent = await open({ directory: true, multiple: false, title: t`Choose where to create the project` });
+    if (!parent) return;
+    await revealNewProject(t`Creating project…`, async () => {
+      const snapshot = await invoke<ProjectSnapshot>("create_project", {
+        parent, name: createForm.name, venue: createForm.venue,
+      });
+      updateCreateForm({ open: false });
+      return snapshot.root;
+    }, (reason) => updateCreateForm({ error: toMessage(reason) }));
+  }, [createForm.name, createForm.venue, revealNewProject, updateCreateForm, t]);
+
+  const openTutorialProject = useCallback(async () => {
+    autoTutorialAttemptedRef.current = true;
+    setBusyLabel(t`Preparing tutorial…`);
+    const failed = () => {
+      autoTutorialAttemptedRef.current = false;
+      return false;
+    };
+    return (async () => {
+      if (!(await save()) || !await startProjectTransition()) return failed();
+      const snapshot = await invoke<ProjectSnapshot>("open_tutorial_project");
+      await enterProject(snapshot);
+      chooseMode("source");
+      markTutorialSeen();
+      return true;
+    })().catch((reason: unknown) => {
+      cancelProjectTransition();
+      setError(toMessage(reason));
+      return failed();
+    }).finally(() => setBusyLabel(null));
+  }, [cancelProjectTransition, chooseMode, enterProject, save, startProjectTransition, t]);
+
+  // On launch, honor a project explicitly assigned to this window, otherwise
+  // reopen the project the writer used last. A genuinely empty first launch
+  // enters the tutorial directly; the welcome screen remains the fallback for
+  // returning writers whose last folder was moved or deleted.
+  //
+  // Resolved by the boot effect below with whether the backend designated an
+  // initial project. The auto-reopen must wait for that answer: both flows
+  // funnel through enterProject, and whichever claims a project generation
+  // last wins — since startProjectTransition became async, the recent-project
+  // reopen could land after the backend's choice and silently clobber it.
+  const [initialProjectProbe] = useState(() => {
+    let resolve!: (result: "project" | "empty" | "failed") => void;
+    const promise = new Promise<"project" | "empty" | "failed">((r) => { resolve = r; });
+    return { promise, resolve };
+  });
+  const didRouteStartupRef = useRef(false);
+  useEffect(() => {
+    if (didRouteStartupRef.current) return;
+    didRouteStartupRef.current = true;
+    void (async () => {
+      const initialProject = await initialProjectProbe.promise;
+      if (initialProject !== "empty") return;
+      const mostRecent = loadRecentProjects()[0]?.path;
+      if (!mostRecent) {
+        if (!hasSeenTutorial() && !autoTutorialAttemptedRef.current) {
+          void openTutorialProject();
+        }
+        return;
+      }
+      try {
+        if (!await startProjectTransition()) return;
+        const snapshot = await invoke<ProjectSnapshot>("open_project", { path: mostRecent });
+        // Defer enterProject's own initial build (it races cold-start init and
+        // the PDF never appears), then kick one explicitly once the project is
+        // fully entered.
+        await enterProject(snapshot, { deferInitialBuild: true });
+        void runBuild(false, { immediatePreview: true });
+      } catch {
+        cancelProjectTransition();
+        // Folder gone — stay on the welcome screen.
+      }
+    })();
+  }, [
+    cancelProjectTransition, enterProject, initialProjectProbe, openTutorialProject, runBuild,
+    startProjectTransition,
+  ]);
+
+  useEffect(() => {
+    let active = true;
+    // Boot once. Depending on `enterProject` re-ran this whenever that callback
+    // identity churned (after every build/load), which cleared the PDF and
+    // restarted compile → endless “Rendering PDF…”.
+    void invoke<ProjectSnapshot | null>("initial_project")
+      .then(async (snapshot) => {
+        initialProjectProbe.resolve(snapshot ? "project" : "empty");
+        if (!active || !snapshot) return;
+        await enterProjectRef.current(snapshot);
+      })
+      .catch((reason) => {
+        initialProjectProbe.resolve("failed");
+        if (active) setError(toMessage(reason));
+      });
+    return () => {
+      active = false;
+    };
+    // Both are stable (a useState value and a ref) — listed to satisfy the
+    // lint without changing the boot-once behavior.
+  }, [enterProjectRef, initialProjectProbe]);
+
+  const importOverleafZip = useCallback(async () => {
+    const zipPath = await open({
+      multiple: false,
+      title: t`Import Overleaf ZIP`,
+      filters: [{ name: t`ZIP archive`, extensions: ["zip"] }],
+    });
+    if (!zipPath) return;
+    const parent = await open({
+      directory: true,
+      multiple: false,
+      title: t`Choose where to extract the project`,
+    });
+    if (!parent) return;
+    await revealNewProject(t`Importing ZIP…`, async () => (
+      (await invoke<ProjectSnapshot>("import_project_zip", { zipPath, parent })).root
+    ));
+  }, [revealNewProject, t]);
+
+  const exportProjectZip = useCallback(async () => {
+    if (!project) return;
+    const zipPath = await saveDialog({
+      title: t`Export project ZIP`,
+      defaultPath: `${project.manifest.name.replace(/[\\/:*?"<>|]+/g, "-") || t`project`}.zip`,
+      filters: [{ name: t`ZIP archive`, extensions: ["zip"] }],
+    });
+    if (!zipPath) return;
+    setBusyLabel(t`Exporting ZIP…`);
+    await (async () => {
+      if (!(await save())) return;
+      await invoke("export_project_zip", { zipPath });
+      setError(null);
+    })().catch((reason: unknown) => setError(toMessage(reason))).finally(() => setBusyLabel(null));
+  }, [project, save, t]);
+
+  const chooseRecentProject = useCallback(async (path: string) => {
+    if (path === project?.root) {
+      setProjectMenuOpen(false);
+      return;
+    }
+    // Another project gets its own window once this one is in use. Replacing
+    // the project in place would close editors, cancel a build and reset the
+    // agent for work the writer never asked to put away. With nothing open yet
+    // the window is empty, so it takes the project itself rather than leaving
+    // a blank window behind.
+    if (project?.root) {
+      setProjectMenuOpen(false);
+      const failure = await openProjectWindow(path);
+      // Only the project itself failing means the entry is worth dropping; a
+      // window that could not be created says nothing about the project.
+      if (failure && !failure.startsWith(NEW_WINDOW_FAILURE_PREFIX)) {
+        setRecentProjects(forgetRecentProject(path));
+      }
+      return;
+    }
+    await switchProject(t`Switching project…`, path, () => setRecentProjects(forgetRecentProject(path)));
+  }, [openProjectWindow, project?.root, switchProject, t]);
+
+  // ---- Handing the workspace to a browser tab and back ------------------------------------------------------------
+  useEffect(() => {
+    if (!browserHosted) return;
+    const saveBrowserPage = (event?: BeforeUnloadEvent) => {
+      flush();
+      if (!hasUnsavedEdits()) return;
+      // Sending the invoke begins synchronously before the tab is discarded.
+      // The confirmation keeps a just-typed buffer alive long enough for the
+      // loopback write to finish instead of losing the last autosave interval.
+      void save();
+      if (event) {
+        event.preventDefault();
+        event.returnValue = "";
+      }
+    };
+    const pageHide = () => saveBrowserPage();
+    window.addEventListener("beforeunload", saveBrowserPage);
+    window.addEventListener("pagehide", pageHide);
+    return () => {
+      window.removeEventListener("beforeunload", saveBrowserPage);
+      window.removeEventListener("pagehide", pageHide);
+    };
+  }, [browserHosted, flush, hasUnsavedEdits, save]);
+
+  // Before another surface takes this workspace (the default browser, or the
+  // Lattice window coming back), publish and save every edit. The bridge asks
+  // for this too when a bookmarked tab takes over unannounced.
+  const saveForHandoff = useCallback(async () => {
+    flush();
+    const saved = await save();
+    await settleWithin(flushWholeFilesRef.current());
+    return saved;
+  }, [flush, flushWholeFilesRef, save]);
+  useEffect(() => {
+    if (!browserHosted) return;
+    setWorkspaceYieldHandler(saveForHandoff);
+    return () => setWorkspaceYieldHandler(null);
+  }, [browserHosted, saveForHandoff]);
+
+  /** A tab in the default browser, as opposed to a Lattice window. */
+  const inBrowserTab = browserHosted && !isBundledChromium();
+  /** "Open in browser" from a Lattice window, "Open in Lattice app" from a browser tab. */
+  const moveWorkspace = useCallback(async () => {
+    if (inBrowserTab) {
+      if (!await saveForHandoff()) return;
+      await invoke("return_to_desktop").catch((reason) => {
+        // Once the window has taken over, this page is detached and the
+        // reply never arrives: that is the success case.
+        if (!browserRuntimeDetached()) setError(toMessage(reason));
+      });
+      return;
+    }
+    if (browserHosted) {
+      // The Chromium window: the new tab asks it to yield, then it hides
+      // until the tab gives the workspace back or closes.
+      if (!await saveForHandoff()) return;
+      await invoke("open_in_browser").catch((reason) => setError(toMessage(reason)));
+      return;
+    }
+    // A native WebKit window closes, and the tab starts relaying only once it
+    // has, so the two never edit together. Claim the switch meanwhile.
+    if (!await startProjectTransition()) return;
+    try {
+      await invoke("open_in_browser");
+    } catch (reason) {
+      cancelProjectTransition();
+      setError(toMessage(reason));
+      return;
+    }
+    await getCurrentWindow().close();
+  }, [browserHosted, cancelProjectTransition, inBrowserTab, saveForHandoff, startProjectTransition]);
+
+  return {
+    busyLabel, recentProjects, projectMenuOpen, setProjectMenuOpen, createForm, updateCreateForm,
+    startProjectTransition, cancelProjectTransition, revealNewProject, chooseExisting, createProject,
+    chooseRecentProject, openTutorialProject, importOverleafZip, exportProjectZip, inBrowserTab, moveWorkspace,
+  };
+}

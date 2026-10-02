@@ -1479,11 +1479,11 @@ msgstr "Choose the document class"
 msgid "Choose the matching record before saving"
 msgstr "Choose the matching record before saving"
 
-#: src/App.tsx
+#: src/app/use-project-lifecycle.ts
 msgid "Choose where to create the project"
 msgstr "Choose where to create the project"
 
-#: src/App.tsx
+#: src/app/use-project-lifecycle.ts
 msgid "Choose where to extract the project"
 msgstr "Choose where to extract the project"
 
@@ -2058,7 +2058,7 @@ msgstr "Could not save the project"
 msgid "Could not save the report on this device. Keep this window open to retain the results."
 msgstr "Could not save the report on this device. Keep this window open to retain the results."
 
-#: src/App.tsx
+#: src/app/use-project-tree.ts
 msgid "Could not show that item in Finder. {message}"
 msgstr "Could not show that item in Finder. {message}"
 
@@ -2118,7 +2118,7 @@ msgstr "Create file"
 msgid "created"
 msgstr "created"
 
-#: src/App.tsx
+#: src/app/use-project-lifecycle.ts
 msgid "Creating project…"
 msgstr "Creating project…"
 
@@ -2224,7 +2224,7 @@ msgstr "definition"
 msgid "Definition"
 msgstr "Definition"
 
-#: src/App.tsx
+#: src/app/use-project-tree.ts
 #: src/components/ui/confirm-action-dialog.tsx
 #: src/editor/comments/editor-comments-panel.tsx
 #: src/editor/spreadsheet/spreadsheet-univer.ts
@@ -2233,11 +2233,11 @@ msgstr "Definition"
 msgid "Delete"
 msgstr "Delete"
 
-#: src/App.tsx
+#: src/app/use-project-tree.ts
 msgid "Delete “{path}” from this project?"
 msgstr "Delete “{path}” from this project?"
 
-#: src/App.tsx
+#: src/app/use-project-tree.ts
 msgid "Delete {count} selected items from this project?"
 msgstr "Delete {count} selected items from this project?"
 
@@ -2515,7 +2515,7 @@ msgstr "Downloading full text and figures…"
 msgid "Downloading update…"
 msgstr "Downloading update…"
 
-#: src/App.tsx
+#: src/app/use-project-tree.ts
 msgid "Drop figures onto a TeX or Markdown editor, or the Project pane"
 msgstr "Drop figures onto a TeX or Markdown editor, or the Project pane"
 
@@ -2523,11 +2523,11 @@ msgstr "Drop figures onto a TeX or Markdown editor, or the Project pane"
 msgid "Drop project files here to open them, or drag this into a TeX or Markdown editor to insert it"
 msgstr "Drop project files here to open them, or drag this into a TeX or Markdown editor to insert it"
 
-#: src/App.tsx
+#: src/app/use-project-tree.ts
 msgid "Drop source files and figures separately"
 msgstr "Drop source files and figures separately"
 
-#: src/App.tsx
+#: src/app/use-project-tree.ts
 msgid "Drop source files onto an editor or the Project pane"
 msgstr "Drop source files onto an editor or the Project pane"
 
@@ -2748,7 +2748,7 @@ msgstr "Enter a line between 1 and {maxLine}"
 msgid "Enter a page number"
 msgstr "Enter a page number"
 
-#: src/App.tsx
+#: src/app/use-project-lifecycle.ts
 msgid "Enter a project name."
 msgstr "Enter a project name."
 
@@ -2876,6 +2876,7 @@ msgid "Export preview"
 msgstr "Export preview"
 
 #: src/App.tsx
+#: src/app/use-project-lifecycle.ts
 msgid "Export project ZIP"
 msgstr "Export project ZIP"
 
@@ -2887,7 +2888,7 @@ msgstr "Export ZIP"
 msgid "Export…"
 msgstr "Export…"
 
-#: src/App.tsx
+#: src/app/use-project-lifecycle.ts
 msgid "Exporting ZIP…"
 msgstr "Exporting ZIP…"
 
@@ -2928,7 +2929,7 @@ msgstr "figure"
 msgid "Figure preview could not be loaded."
 msgstr "Figure preview could not be loaded."
 
-#: src/App.tsx
+#: src/app/use-project-tree.ts
 msgid "Figures"
 msgstr "Figures"
 
@@ -3014,11 +3015,11 @@ msgstr "Find in project"
 msgid "Find text to replace"
 msgstr "Find text to replace"
 
-#: src/App.tsx
+#: src/app/use-project-lifecycle.ts
 msgid "Finish the current text composition, then switch projects again."
 msgstr "Finish the current text composition, then switch projects again."
 
-#: src/App.tsx
+#: src/app/use-project-lifecycle.ts
 msgid "Finishing Overleaf sync, then switching…"
 msgstr "Finishing Overleaf sync, then switching…"
 
@@ -3484,11 +3485,11 @@ msgstr "Implies"
 msgid "Import cancelled. “{0}” remains in the bibliography — cite it with {citationCommand}; full-text enrichment stopped."
 msgstr "Import cancelled. “{0}” remains in the bibliography — cite it with {citationCommand}; full-text enrichment stopped."
 
-#: src/App.tsx
+#: src/app/use-project-tree.ts
 msgid "Import figures"
 msgstr "Import figures"
 
-#: src/App.tsx
+#: src/app/use-project-tree.ts
 msgid "Import figures into {targetDirectory}"
 msgstr "Import figures into {targetDirectory}"
 
@@ -3496,7 +3497,7 @@ msgstr "Import figures into {targetDirectory}"
 msgid "Import images here"
 msgstr "Import images here"
 
-#: src/App.tsx
+#: src/app/use-project-lifecycle.ts
 msgid "Import Overleaf ZIP"
 msgstr "Import Overleaf ZIP"
 
@@ -3520,19 +3521,19 @@ msgstr "Imported “{title}” — cite it with {citationCommand}."
 msgid "Imported “{title}”."
 msgstr "Imported “{title}”."
 
-#: src/App.tsx
+#: src/app/use-project-tree.ts
 msgid "Imported {count} figure into {targetDirectory}."
 msgstr "Imported {count} figure into {targetDirectory}."
 
-#: src/App.tsx
+#: src/app/use-project-tree.ts
 msgid "Imported {count} figure into the project root."
 msgstr "Imported {count} figure into the project root."
 
-#: src/App.tsx
+#: src/app/use-project-tree.ts
 msgid "Imported {count} figures into {targetDirectory}."
 msgstr "Imported {count} figures into {targetDirectory}."
 
-#: src/App.tsx
+#: src/app/use-project-tree.ts
 msgid "Imported {count} figures into the project root."
 msgstr "Imported {count} figures into the project root."
 
@@ -3541,7 +3542,7 @@ msgstr "Imported {count} figures into the project root."
 msgid "Imported arXiv:{0}"
 msgstr "Imported arXiv:{0}"
 
-#: src/App.tsx
+#: src/app/use-project-lifecycle.ts
 msgid "Importing ZIP…"
 msgstr "Importing ZIP…"
 
@@ -4792,7 +4793,7 @@ msgstr "No history yet"
 msgid "No hits. Try broader terms or turn off precise mode."
 msgstr "No hits. Try broader terms or turn off precise mode."
 
-#: src/App.tsx
+#: src/app/use-project-tree.ts
 msgid "No image found on the clipboard."
 msgstr "No image found on the clipboard."
 
@@ -5095,11 +5096,11 @@ msgstr "Open {title}"
 msgid "Open a .tex file before formatting."
 msgstr "Open a .tex file before formatting."
 
-#: src/App.tsx
+#: src/app/use-project-tree.ts
 msgid "Open a .tex file before pasting a figure."
 msgstr "Open a .tex file before pasting a figure."
 
-#: src/App.tsx
+#: src/app/use-project-lifecycle.ts
 msgid "Open a LaTeX project"
 msgstr "Open a LaTeX project"
 
@@ -5279,7 +5280,7 @@ msgstr "OpenAlex search"
 msgid "Opening {0}…"
 msgstr "Opening {0}…"
 
-#: src/App.tsx
+#: src/app/use-project-lifecycle.ts
 msgid "Opening project…"
 msgstr "Opening project…"
 
@@ -5287,7 +5288,7 @@ msgstr "Opening project…"
 msgid "Opening the Overleaf project…"
 msgstr "Opening the Overleaf project…"
 
-#: src/App.tsx
+#: src/app/use-project-lifecycle.ts
 msgid "Opening window…"
 msgstr "Opening window…"
 
@@ -5426,7 +5427,7 @@ msgstr "Overleaf sync"
 msgid "Overleaf sync cancelled"
 msgstr "Overleaf sync cancelled"
 
-#: src/App.tsx
+#: src/app/use-project-lifecycle.ts
 msgid "Overleaf sync is finishing. Try switching projects again in a moment."
 msgstr "Overleaf sync is finishing. Try switching projects again in a moment."
 
@@ -5765,7 +5766,7 @@ msgstr "Preparing spreadsheet editor"
 msgid "Preparing this workspace"
 msgstr "Preparing this workspace"
 
-#: src/App.tsx
+#: src/app/use-project-lifecycle.ts
 msgid "Preparing tutorial…"
 msgstr "Preparing tutorial…"
 
@@ -5841,7 +5842,7 @@ msgstr "Prime"
 msgid "Product"
 msgstr "Product"
 
-#: src/App.tsx
+#: src/app/use-project-lifecycle.ts
 msgid "project"
 msgstr "project"
 
@@ -7506,7 +7507,7 @@ msgstr "Surface / area integral"
 msgid "Switch project"
 msgstr "Switch project"
 
-#: src/App.tsx
+#: src/app/use-project-lifecycle.ts
 msgid "Switching project…"
 msgstr "Switching project…"
 
@@ -7697,7 +7698,7 @@ msgstr "The copy on Overleaf"
 msgid "The document body"
 msgstr "The document body"
 
-#: src/App.tsx
+#: src/app/use-project-lifecycle.ts
 msgid "The document changed while saving. Save it, then switch projects again."
 msgstr "The document changed while saving. Save it, then switch projects again."
 
@@ -7846,7 +7847,7 @@ msgstr "This account cannot accept or reject suggestions here"
 msgid "This account cannot accept or reject suggestions here."
 msgstr "This account cannot accept or reject suggestions here."
 
-#: src/App.tsx
+#: src/app/use-project-tree.ts
 #: src/components/ui/confirm-action-dialog.tsx
 msgid "This action cannot be undone."
 msgstr "This action cannot be undone."
@@ -7907,7 +7908,7 @@ msgstr "This file changed outside live editing. Local work was kept; regular Ove
 msgid "This file is not live with Overleaf right now. Reconnect before commenting."
 msgstr "This file is not live with Overleaf right now. Reconnect before commenting."
 
-#: src/App.tsx
+#: src/app/use-project-tree.ts
 msgid "This file type can’t be opened in an editor"
 msgstr "This file type can’t be opened in an editor"
 
@@ -7957,7 +7958,7 @@ msgstr "This project uses {linkedHost}. Sign out and connect to it to resume"
 msgid "This reference cannot be updated."
 msgstr "This reference cannot be updated."
 
-#: src/App.tsx
+#: src/app/use-synctex-navigation.ts
 msgid "This source line has no matching position in the PDF."
 msgstr "This source line has no matching position in the PDF."
 
@@ -8066,7 +8067,7 @@ msgstr "Triangle right"
 msgid "Try a shorter phrase or different terms"
 msgstr "Try a shorter phrase or different terms"
 
-#: src/App.tsx
+#: src/app/use-project-tree.ts
 #: src/build/tex-dependency-installer.tsx
 #: src/history/versions-timeline.tsx
 #: src/overleaf/overleaf-connect.tsx
@@ -8232,7 +8233,7 @@ msgstr "Unsupported spreadsheet collaboration format: {version}"
 msgid "Untitled"
 msgstr "Untitled"
 
-#: src/App.tsx
+#: src/app/use-project-lifecycle.ts
 msgid "Untitled research"
 msgstr "Untitled research"
 
@@ -8667,7 +8668,7 @@ msgstr "Your projects"
 msgid "Zeta"
 msgstr "Zeta"
 
-#: src/App.tsx
+#: src/app/use-project-lifecycle.ts
 msgid "ZIP archive"
 msgstr "ZIP archive"
 
