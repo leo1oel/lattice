@@ -49,10 +49,12 @@ function navigableHeadingItems(items: DocumentHeadingItem[]): DocumentHeadingIte
  * 150 sections ran 150 queries of 150 headings, and the rail re-measures after
  * every edit.
  */
-function headingTargets(root: HTMLElement): Map<string, HTMLElement> {
+function headingTargets(root: HTMLElement, ids: ReadonlySet<string>): Map<string, HTMLElement> {
   const targets = new Map<string, HTMLElement>();
-  for (const heading of root.querySelectorAll<HTMLElement>("h1[id], h2[id], h3[id], h4[id], h5[id], h6[id]")) {
-    if (!targets.has(heading.id)) targets.set(heading.id, heading);
+  // By id rather than by tag: a heading of a long document that is not drawn
+  // yet is a placeholder carrying the heading's id (block-window.ts).
+  for (const heading of root.querySelectorAll<HTMLElement>("[id]")) {
+    if (ids.has(heading.id) && !targets.has(heading.id)) targets.set(heading.id, heading);
   }
   return targets;
 }
@@ -112,7 +114,7 @@ export function DocumentHeadingRail({ items: rawItems, virtualized = false, onSe
     const measure = () => {
       frame = null;
       const viewportRect = scroller.getBoundingClientRect();
-      const targets = headingTargets(root);
+      const targets = headingTargets(root, new Set(items.map((item) => item.id)));
       offsets = items.flatMap((item) => {
         const target = targets.get(item.id);
         return target ? [{ id: item.id, top: target.getBoundingClientRect().top - viewportRect.top + scroller.scrollTop }] : [];

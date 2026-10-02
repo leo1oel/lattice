@@ -51,6 +51,8 @@
 }
 
 .lx-md-editor .lx-md-surface > :first-child { margin-top: 0; }
+/* A long document drawn in a window holds the reader's place itself (block-window.ts). */
+.lx-md-editor .lx-md-surface[data-lx-windowed] { overflow-anchor: none; }
 .lx-md-editor .lx-md-surface ::selection { background: var(--editor-selection-surface); }
 
 /* Prose */

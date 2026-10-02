@@ -15,6 +15,7 @@
 import { Extension } from "@tiptap/core";
 import { Plugin, PluginKey } from "@tiptap/pm/state";
 import type { EditorView } from "@tiptap/pm/view";
+import { blockWindowMoved, scrollerOf } from "./block-window";
 
 type ScrollTimelineConstructor = new (options: { source: Element; axis: "block" }) => AnimationTimeline;
 
@@ -24,14 +25,6 @@ type Pinned = { cells: HTMLElement[]; animations: Animation[]; start: number; sh
 const DURATION = 1000;
 /** How long after the last edit the tables are measured again. */
 const SETTLE_MS = 150;
-
-function scrollerOf(element: HTMLElement): HTMLElement | null {
-  for (let parent = element.parentElement; parent; parent = parent.parentElement) {
-    const { overflowY } = getComputedStyle(parent);
-    if (overflowY === "auto" || overflowY === "scroll" || parent.classList.contains("editor-doc-scroll")) return parent;
-  }
-  return null;
-}
 
 class FrozenHeadersView {
   private scroller: HTMLElement | null = null;
@@ -50,6 +43,8 @@ class FrozenHeadersView {
     // A table the document dropped stops at once; while typing, tables only
     // move a little, so they are measured again once typing pauses.
     else if (this.pinned.some((entry) => !entry.cells[0]?.isConnected)) this.schedule();
+    // A long document drew or released tables as it scrolled (block-window.ts).
+    else if (blockWindowMoved(view.state, previous)) this.schedule();
     else if (!view.state.doc.eq(previous.doc)) this.settle();
   }
 

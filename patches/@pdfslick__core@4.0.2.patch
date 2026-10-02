@@ -64,3 +64,20 @@ index 1d71e015ffa9bfa6c842e6feea03896d55066c4c..89df0c45ab1b94c0ad75c3181cb8e358
                  if (!!(options === null || options === void 0 ? void 0 : options.onProgress)) {
                      pdfDocumentLoader.onProgress = options.onProgress;
                  }
+diff --git a/dist/pdf_viewer.css b/dist/pdf_viewer.css
+index ff0588b8375b565cfa6aef54d5878662e4d0974a..e2576f432591bb1bca3f238f6f419e5110f32779 100644
+--- a/dist/pdf_viewer.css
++++ b/dist/pdf_viewer.css
+@@ -3345,7 +3345,11 @@
+ .sidebarCommentText .richText{
+   margin-block:0;
+ 
+-  p:first-of-type{
++  /* Lattice: :first-child, not :first-of-type. A positional pseudo-class on a
++     bare "p" is tried on every paragraph in the page, and marks each parent as
++     affected by positional rules, so every insertion restyles all following
++     siblings; in a long visual document that is thousands of blocks. */
++  p:first-child{
+     margin-block:0;
+   }
+ 
