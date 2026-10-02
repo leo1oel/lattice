@@ -10,7 +10,6 @@ use super::bundle::{reset_asset_manifest, ANYDOC_CONVERTER};
 use super::markdown::{clean_arxiv_source_markdown, markdown_has_body, parse_title};
 use super::{
     check_cancelled, ensure_success, http_client, read_capped, send_checked, ARXIV2MD_CACHE_ENV,
-    LITERATURE_USER_AGENT,
 };
 use crate::commands;
 use crate::util::err;
@@ -148,7 +147,7 @@ fn arxiv_source_markdown(
 }
 
 fn download_arxiv_source(requested: &str) -> Result<Vec<u8>, String> {
-    let client = http_client(LITERATURE_USER_AGENT, 120)
+    let client = http_client(120)
         .map_err(|error| format!("Could not create the source download client: {error}"))?;
     let request = client.get(format!("https://arxiv.org/e-print/{requested}"));
     let response = send_checked(request, "Source download failed", |status| {
@@ -241,8 +240,12 @@ fn download_pdf_bytes(url: &str) -> Result<Vec<u8>, String> {
     if !reqwest::Url::parse(url).is_ok_and(|url| matches!(url.scheme(), "http" | "https")) {
         return Err("Enter an http(s) PDF URL.".to_string());
     }
-    let client = http_client("Lattice research writer (paper import)", 120)
-        .map_err(|error| format!("Could not create the PDF download client: {error}"))?;
+    let client = crate::http::blocking_as(
+        "Lattice research writer (paper import)",
+        Duration::from_secs(120),
+    )
+    .build()
+    .map_err(|error| format!("Could not create the PDF download client: {error}"))?;
     let response = send_checked(client.get(url), "PDF download failed", |status| {
         format!("The server returned HTTP {status} for the PDF.")
     })?;

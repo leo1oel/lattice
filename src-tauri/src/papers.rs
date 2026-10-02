@@ -54,12 +54,10 @@ pub(crate) const LITERATURE_USER_AGENT: &str =
 /// the variable's name.)
 const ARXIV2MD_CACHE_ENV: &str = "ARXIV2MD_CACHE_PATH";
 
-/// A blocking client for the literature services; callers differ only in the
-/// agent string and the deadline.
-pub(crate) fn http_client(
-    user_agent: &str, timeout_secs: u64,
-) -> reqwest::Result<reqwest::blocking::Client> {
-    crate::http::blocking_as(user_agent, Duration::from_secs(timeout_secs)).build()
+/// A blocking client for the literature services, identified as Lattice's
+/// literature agent; callers differ only in the deadline.
+pub(crate) fn http_client(timeout_secs: u64) -> reqwest::Result<reqwest::blocking::Client> {
+    crate::http::blocking_as(LITERATURE_USER_AGENT, Duration::from_secs(timeout_secs)).build()
 }
 
 /// Send `request`, reporting a transport failure as `"{failed}: {error}"` and

@@ -5,7 +5,7 @@
 
 use crate::models::LiteratureHit;
 use crate::openalex::urlencoding;
-use crate::papers::{http_client, send_checked, LITERATURE_USER_AGENT};
+use crate::papers::{http_client, send_checked};
 use crate::util::collapse_whitespace;
 use crate::util::truncate_chars;
 use regex::Regex;
@@ -38,8 +38,7 @@ struct Snippet {
 }
 
 fn client() -> Result<reqwest::blocking::Client, String> {
-    http_client(LITERATURE_USER_AGENT, 20)
-        .map_err(|error| format!("Could not create alphaXiv client: {error}"))
+    http_client(20).map_err(|error| format!("Could not create alphaXiv client: {error}"))
 }
 
 /// A JSON response, or `None` for a 404.
