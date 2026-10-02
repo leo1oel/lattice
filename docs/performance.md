@@ -190,6 +190,7 @@ Scenarios (`scripts/perf-bench/scenarios.mjs`):
 | `pdf-open` | open a 200-page PDF from the navigator |
 | `pdf-scroll`, `source-scroll`, `markdown-preview-scroll` | 40 wheel notches each |
 | `dialog-open` | open the command palette over the 400 KB Markdown document in the visual editor and close it with Escape, 4 times |
+| `pdf-zoom` | three 10-notch ctrl-wheel zoom gestures over the PDF preview, one notch per frame |
 | `compile` | build, then expand the diagnostics and show the 4,000-line log |
 
 ### Running it
@@ -227,6 +228,7 @@ and printed, and `--json` keeps them, but no ceiling holds them
 | every scenario | | `recalcs`, `layouts` | Two DOM changes landing in one frame share a pass. One build measured 120–207 `pdf-scroll` recalculations across runs, more under load. |
 | `pdf-scroll`, `source-scroll` | `commits`, `renders`, `hooks` | `mutations` | A Lattice scrollbar fades out 180 ms after the last scroll event, and how many of 40 notches that falls between depends on the machine (`pdf-scroll`: 936–1,028). The fade is written to the DOM, not React state, so it adds no commits. |
 | `markdown-preview-scroll` | | `commits`, `renders`, `hooks`, `mutations` | The same scrollbar fade, and Base UI's scroll area (the visual editor's scroller) re-renders when a scroll burst starts and 500 ms after it ends, in React state. How many bursts 40 notches make depends on stalls (139–259 renders on one machine, 225 on the CI runner). |
+| `pdf-zoom` | `commits`, `renders`, `mutations` | `hooks` | Each gesture's rescale re-renders the pages in view, and their render and text-layer events reach the PDF preview in 4–7 commits depending on timing, each about 76 hooks: 457–687 across runs. |
 | `latex-typing`, `long-tex-typing` | `renders`, `hooks`, `mutations` | `commits` | A keystroke's updates commit together or apart depending on timing: 81–85 commits on one machine, 101 on the CI runner, with renders within 4%. |
 | `markdown-visual-typing` | `commits`, `mutations` | `renders`, `hooks` | The 24 keystrokes publish in one or two batches depending on timing, and each batch re-renders the editor chrome (634–1,243 renders). |
 | `code-highlight` | `commits`, `renders`, `hooks` | `mutations` | 2,510–2,957 across runs of one build. |

@@ -20,6 +20,10 @@ const KEY_PAUSE_MS = 120;
  */
 const PUBLISH_PAUSE_MS = 400;
 const WHEEL_PAUSE_MS = 60;
+/** After a zoom gesture: past the PDF zoom's commit delay (use-pdf-zoom.ts) and its re-render. */
+const ZOOM_PAUSE_MS = 600;
+/** Between a zoom gesture's notches: one 60 Hz frame, well inside the PDF zoom's commit delay. */
+const ZOOM_NOTCH_MS = 16;
 
 const KEY_CODES = {
   " ": ["Space", 32],
@@ -71,6 +75,18 @@ window.__benchVisibleRect = (selector) => {
   return right > left && bottom > top ? { x: (left + right) / 2, y: (top + bottom) / 2 } : null;
 };
 window.__benchNextFrame = () => new Promise((resolve) => requestAnimationFrame(() => setTimeout(resolve, 0)));
+// count ctrl-wheel notches at (x, y), one every intervalMs, timed in the
+// page: see BenchDriver.zoomWheel.
+window.__benchZoomWheel = (x, y, deltaY, count, intervalMs) => new Promise((resolve) => {
+  let sent = 0;
+  const notch = () => {
+    document.elementFromPoint(x, y)?.dispatchEvent(new WheelEvent("wheel", { bubbles: true, cancelable: true, composed: true, ctrlKey: true, clientX: x, clientY: y, deltaY }));
+    sent += 1;
+    if (sent < count) setTimeout(notch, intervalMs);
+    else resolve();
+  };
+  notch();
+});
 `;
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -184,6 +200,25 @@ export class BenchDriver {
       await this.nextFrame();
       await sleep(WHEEL_PAUSE_MS);
     }
+  }
+
+  /**
+   * A ctrl-wheel zoom gesture of `count` notches over the visible middle of the
+   * element, one per frame (the cadence of a trackpad pinch, which Chromium
+   * reports as ctrl-wheel), then a pause long enough for the zoom to apply.
+   *
+   * Unlike the other inputs, the notches are dispatched from a timer in the
+   * page rather than through CDP: each CDP wheel waits for the renderer to
+   * acknowledge it, which under a transformed 200-page preview took 100–350 ms
+   * a notch, past the zoom's commit delay, so how many rescales a gesture
+   * made depended on the machine. The counts are only comparable when a
+   * gesture stays one gesture.
+   */
+  async zoomWheel(selector, deltaY, count) {
+    const point = await this.waitFor(`window.__benchVisibleRect(${JSON.stringify(selector)})`, { what: selector });
+    await this.mouse("mouseMoved", point.x, point.y, { button: "none" });
+    await this.page.evaluate(`window.__benchZoomWheel(${point.x}, ${point.y}, ${deltaY}, ${count}, ${ZOOM_NOTCH_MS})`);
+    await sleep(ZOOM_PAUSE_MS);
   }
 
   /**
@@ -408,6 +443,18 @@ export const SCENARIOS = [
       await driver.waitFor(`document.querySelectorAll(".pdfViewer .page canvas").length > 0`, { what: "the PDF preview" });
     },
     run: (driver) => driver.wheel(".pdf-preview .pdf-scroll-area-viewport", 120, 40),
+  },
+  {
+    name: "pdf-zoom",
+    description: "Zoom the compiled 200-page PDF preview in, out and in again with three 10-notch ctrl-wheel gestures.",
+    unit: "notch",
+    steps: 30,
+    async setup(driver) {
+      await driver.waitFor(`document.querySelectorAll(".pdfViewer .page canvas").length > 0`, { what: "the PDF preview" });
+    },
+    async run(driver) {
+      for (const deltaY of [-8, 8, -8]) await driver.zoomWheel(".pdf-preview .pdf-scroll-area-viewport", deltaY, 10);
+    },
   },
   {
     name: "source-scroll",

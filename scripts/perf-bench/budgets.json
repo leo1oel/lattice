@@ -65,6 +65,11 @@
       "renders": 1671,
       "hooks": 18509,
       "mutations": 394
+    },
+    "pdf-zoom": {
+      "commits": 14,
+      "renders": 30,
+      "mutations": 1240
     }
   }
 }

@@ -74,7 +74,9 @@ which scope the listener to the current window — a bare `listen()` leaks one
 window's Overleaf project into every other open window.
 
 A fourth event, `trackpad-magnify`, is emitted from the macOS window layer
-(`src-tauri/src/macos_window.rs`) and consumed at `src/pdf/use-pdf-zoom.ts:97`.
+(`src-tauri/src/macos_window.rs`) to the focused window and consumed in
+`src/pdf/use-pdf-zoom.ts` through `listenInThisWindow` (`src/app/window-events.ts`),
+the same window scoping.
 
 Every `listen()` call site follows the same cleanup shape (disposed flag +
 unlisten race). Follow the existing pattern; the async `listen()` promise can

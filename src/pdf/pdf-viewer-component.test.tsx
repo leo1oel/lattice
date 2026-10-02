@@ -1,4 +1,5 @@
 import { act, cleanup, fireEvent, render, waitFor } from "@testing-library/react";
+import { listen } from "@tauri-apps/api/event";
 import type { ComponentProps } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { activateAppLocale } from "../i18n";
@@ -297,7 +298,8 @@ describe("PDFSlick viewer integration", () => {
     });
     expect((instance.args.options.getDocumentParams as { data: ArrayBuffer }).data.byteLength)
       .toBe(bytes.byteLength);
-    expect(pdf.state.workerOptions.workerSrc).toContain("pdf.worker.min.mjs");
+    // The readable build: patches/pdfjs-dist@*.patch edits it, not the minified one.
+    expect(pdf.state.workerOptions.workerSrc).toMatch(/\/pdf\.worker\.mjs\b/);
     expect(await view.findByLabelText("PDF page 3")).toBeInTheDocument();
     expect(onNumPages).toHaveBeenLastCalledWith(3);
   });
@@ -582,6 +584,96 @@ describe("PDFSlick viewer integration", () => {
     fireEvent.click(previous);
     await waitFor(() => expect(onPageChange).toHaveBeenLastCalledWith(2));
     expect(instance.gotoPage).toHaveBeenLastCalledWith(2);
+  });
+
+  it("previews ctrl-wheel, pinch and button zoom as a transform and rescales PDF.js once per gesture", async () => {
+    const view = renderPdf({ initialViewState: { page: 1, scale: 1, fitMode: "width", scrollTop: 0, scrollLeft: 0 } });
+    await view.findByLabelText("PDF page 3");
+    const slick = pdf.state.instances[0]!;
+    const { container, viewer } = slick.args;
+    const page = slick.viewer.getPageView(1).div;
+    const rescale = vi.spyOn(slick.viewer, "currentScale", "set");
+    const zoomInput = view.getByLabelText("PDF zoom percentage") as HTMLInputElement;
+    const fitWidth = view.getByRole("button", { name: "Fit page to width" });
+    await waitFor(() => expect(fitWidth).toBeEnabled());
+    vi.spyOn(container, "getBoundingClientRect").mockReturnValue(box(0, 0, 600, 800));
+    vi.spyOn(viewer, "getBoundingClientRect").mockReturnValue(box(0, -700, 600, 3_000));
+    vi.spyOn(slick.viewer.getPageView(0).div, "getBoundingClientRect").mockReturnValue(box(40, -650, 540, 700));
+    vi.spyOn(slick.viewer.getPageView(2).div, "getBoundingClientRect").mockReturnValue(box(40, 850, 540, 700));
+    Object.defineProperty(document, "elementFromPoint", { configurable: true, value: () => page.querySelector(".textLayer span") });
+    try {
+      // Page 2 before the zoom, as the preview shows it, then where PDF.js lays it out once rescaled.
+      vi.spyOn(page, "getBoundingClientRect")
+        .mockReturnValueOnce(box(40, 100, 540, 700))
+        .mockReturnValueOnce(box(40, 100, 540, 700))
+        .mockReturnValueOnce(box(40, 900, 540, 700));
+      container.scrollTop = 1_000;
+      for (let tick = 0; tick < 3; tick += 1) {
+        fireEvent.wheel(container, { ctrlKey: true, deltaY: -10, clientX: 300, clientY: 450 });
+      }
+      expect(viewer.style.transform).toBe("scale(1.349)");
+      expect(viewer.style.transformOrigin).toBe("300px 1150px");
+      // Clipped to the pages the preview can reach: all three here.
+      expect(viewer.style.clipPath).toBe("inset(50px 0 750px 0)");
+      expect(zoomInput).toHaveValue("135");
+      expect(fitWidth).toHaveAttribute("aria-pressed", "false");
+      expect(rescale).not.toHaveBeenCalled();
+      await waitFor(() => expect(rescale).toHaveBeenCalledOnce());
+      expect(rescale.mock.lastCall?.[0]).toBeCloseTo(1.349 * 0.75);
+      expect(viewer.style.transform).toBe("");
+      expect(viewer.style.clipPath).toBe("");
+      // The point under the pointer stays on the same spot of page 2.
+      expect(container.scrollTop).toBe(1_800);
+      expect(container.scrollLeft).toBe(0);
+
+      const magnify = vi.mocked(listen).mock.calls.filter(([name]) => name === "trackpad-magnify").at(-1)![1];
+      act(() => {
+        magnify({ event: "trackpad-magnify", id: 1, payload: { magnification: 0.1, x: 300, y: 400 } });
+        magnify({ event: "trackpad-magnify", id: 2, payload: { magnification: 0.1, x: 300, y: 400 } });
+        // Outside the PDF: not this viewer's pinch.
+        magnify({ event: "trackpad-magnify", id: 3, payload: { magnification: 0.1, x: 900, y: 400 } });
+      });
+      expect(Number(/scale\((.+)\)/.exec(viewer.style.transform)?.[1])).toBeCloseTo(1.632 / 1.349);
+      await waitFor(() => expect(rescale).toHaveBeenCalledTimes(2));
+      expect(rescale.mock.lastCall?.[0]).toBeCloseTo(1.632 * 0.75);
+
+      fireEvent.click(view.getByRole("button", { name: "Zoom out" }));
+      fireEvent.click(view.getByRole("button", { name: "Zoom out" }));
+      expect(zoomInput).toHaveValue("140");
+      // Fitting before the zoom applies cancels it.
+      fireEvent.click(fitWidth);
+      expect(viewer.style.transform).toBe("");
+      await act(() => new Promise((resolve) => setTimeout(resolve, 150)));
+      expect(rescale).toHaveBeenCalledTimes(2);
+      expect(fitWidth).toHaveAttribute("aria-pressed", "true");
+    } finally {
+      Reflect.deleteProperty(document, "elementFromPoint");
+    }
+  });
+
+  it("starts a zoom right after a commit from the committed scale", async () => {
+    const view = renderPdf({ initialViewState: { page: 1, scale: 1, fitMode: null, scrollTop: 0, scrollLeft: 0 } });
+    await view.findByLabelText("PDF page 3");
+    const slick = pdf.state.instances[0]!;
+    const { container } = slick.args;
+    await waitFor(() => expect(view.getByRole("button", { name: "Fit page to width" })).toBeEnabled());
+    const scaleProperty = Object.getOwnPropertyDescriptor(slick.viewer, "currentScale")!;
+    const rescales: number[] = [];
+    // The next pinch tick lands while PDF.js rescales, before React re-renders.
+    Object.defineProperty(slick.viewer, "currentScale", {
+      ...scaleProperty,
+      set(value: number) {
+        scaleProperty.set!.call(slick.viewer, value);
+        rescales.push(value);
+        if (rescales.length === 1) {
+          container.dispatchEvent(new WheelEvent("wheel", { ctrlKey: true, deltaY: -10, cancelable: true }));
+        }
+      },
+    });
+    for (let tick = 0; tick < 3; tick += 1) fireEvent.wheel(container, { ctrlKey: true, deltaY: -10 });
+    await waitFor(() => expect(rescales).toHaveLength(2));
+    expect(rescales[0]).toBeCloseTo(1.349 * 0.75);
+    expect(rescales[1]).toBeCloseTo(1.349 * Math.exp(0.1) * 0.75, 2);
   });
 
   it("preserves forward and reverse SyncTeX point coordinates", async () => {

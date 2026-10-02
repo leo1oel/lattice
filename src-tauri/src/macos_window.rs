@@ -63,15 +63,27 @@ fn add_local_monitor(mask: NSEventMask, handler: impl Fn(&NSEvent) -> bool + 'st
 /// a browser, not embedded. AppKit still sees the raw `NSEventTypeMagnify`
 /// though, so we watch for it below WebKit and hand the delta to the page,
 /// which is what makes pinch-to-zoom work on the PDF.
+///
+/// Every workspace window gets it: the pinch goes to the focused window, and
+/// only when it happened in the key window, so a pinch over a background
+/// window is not replayed at the same coordinates in another one.
 pub fn install_magnify_monitor(app: tauri::AppHandle) {
     use tauri::{Emitter, Manager};
 
     add_local_monitor(NSEventMask::Magnify, move |event| {
         let magnification = event.magnification();
-        if magnification == 0.0 {
+        // AppKit runs local monitors on the main thread.
+        let in_key_window = objc2::MainThreadMarker::new()
+            .and_then(|mtm| event.window(mtm))
+            .is_some_and(|window| window.isKeyWindow());
+        if magnification == 0.0 || !in_key_window {
             return true;
         }
-        let Some(window) = app.get_webview_window("main") else {
+        // Read like the copy monitor: window focus events keep the label.
+        let Some(label) = FOCUSED_WINDOW_LABEL.lock().unwrap().clone() else {
+            return true;
+        };
+        let Some(window) = app.get_webview_window(&label) else {
             return true;
         };
         // NSEvent reports window coordinates with a bottom-left origin; the
@@ -83,7 +95,12 @@ pub fn install_magnify_monitor(app: tauri::AppHandle) {
             .zip(window.scale_factor().ok())
             .map(|(size, scale)| (location.x, size.height as f64 / scale - location.y))
             .unwrap_or((location.x, location.y));
-        let _ = window.emit("trackpad-magnify", MagnifyEvent { magnification, x, y });
+        // `emit` would reach every window, with this window's coordinates.
+        let _ = window.emit_to(
+            label.as_str(),
+            "trackpad-magnify",
+            MagnifyEvent { magnification, x, y },
+        );
         true
     });
 }

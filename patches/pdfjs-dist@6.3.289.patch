@@ -1,3 +1,36 @@
+diff --git a/build/pdf.worker.mjs b/build/pdf.worker.mjs
+index ab24e0df4fe5a9b2b98f0a270982eb9c23197d82..10164cdca98a418d99bbc1851124d72dc6759fe1 100644
+--- a/build/pdf.worker.mjs
++++ b/build/pdf.worker.mjs
+@@ -5369,7 +5369,11 @@ class JpegStream extends DecodeStream {
+     return this.stream.isAsync;
+   }
+   async getTransferableImage(width, height) {
+-    if (!(await JpegStream.canUseImageDecoder)) {
++    // Lattice: WebKit has no ImageDecoder, which left every JPEG to the
++    // JavaScript decoder in decodeImage and photo-heavy pages blank for a
++    // moment while scrolling. createImageBitmap decodes natively there.
++    const canUseImageDecoder = await JpegStream.canUseImageDecoder;
++    if (!canUseImageDecoder && typeof createImageBitmap !== "function") {
+       return null;
+     }
+     const jpegOptions = this.jpegOptions;
+@@ -5406,6 +5410,15 @@ class JpegStream extends DecodeStream {
+         init.desiredWidth = Math.ceil(frameWidth / factor);
+         init.desiredHeight = Math.ceil(frameHeight / factor);
+       }
++      if (!canUseImageDecoder) {
++        const blob = new Blob([data], {
++          type: "image/jpeg"
++        });
++        return await createImageBitmap(blob, reducePower ? {
++          resizeWidth: init.desiredWidth,
++          resizeHeight: init.desiredHeight
++        } : undefined);
++      }
+       decoder = new ImageDecoder(init);
+       return (await decoder.decode()).image;
+     } catch (reason) {
 diff --git a/web/pdf_viewer.mjs b/web/pdf_viewer.mjs
 index 29b3492cd9cb0869a906785739c34fc364ec1c17..752cf57a111c221b8b357a454ab4be21d08400f3 100644
 --- a/web/pdf_viewer.mjs
