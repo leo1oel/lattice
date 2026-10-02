@@ -154,7 +154,7 @@ Still open, and bounded rather than growing:
 fails a pull request that makes one of them do more React or DOM work. It builds
 `tools/perf-bench/` with the production config. That page is the real app, with
 an in-memory backend holding the fixture project from `scripts/perf-fixture.mjs`
-(the same content `gen-perf-fixture.mjs` writes to disk, at smaller sizes). The
+(the same content `gen-perf-fixture.mjs` writes to disk, at smaller sizes except `long.tex`). The
 benchmark drives it in headless Chrome over the DevTools protocol with real
 mouse, wheel and key events at a fixed cadence. Every step waits for the next
 frame and a fixed pause, as a person would, so debounced work fires the same
