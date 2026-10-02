@@ -110,6 +110,7 @@
   gap: var(--gap-hairline);
   padding: var(--space-1);
 }
+body:has(.modal-backdrop, .drawer-backdrop) :is(.lx-md-toolbar, .lx-md-emoji-picker) { display: none; }
 .lx-md-toolbar-divider { width: 1px; height: var(--space-8); margin: 0 var(--space-1); background: var(--border-subtle); }
 .lx-md-toolbar-button,
 .lx-md-toolbar-block {

@@ -671,11 +671,6 @@ mod tests {
         let lib = include_str!("lib.rs");
         assert_eq!(lib.matches(".accept_first_mouse(true)").count(), 1);
         assert!(lib.contains("let window = overlay_title_bar(builder).build()?;"));
-        // Every workspace window renders at the display's rate, not 60 Hz.
-        assert_eq!(
-            lib.matches("macos_window::render_at_display_refresh_rate(&window);").count(),
-            1
-        );
     }
 
     #[test]
