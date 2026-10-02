@@ -293,10 +293,6 @@ pub fn citations(root: &Path) -> Result<Vec<CitationInfo>, String> {
     Ok(citations)
 }
 
-pub fn citation_keys(root: &Path) -> Result<Vec<String>, String> {
-    Ok(citations(root)?.into_iter().map(|citation| citation.key).collect())
-}
-
 /// The primary bibliography's path and contents (`None` when the file is missing).
 fn primary_bibliography(root: &Path) -> Result<(String, Option<String>), String> {
     let relative = read_manifest(root)?.primary_bibliography;
@@ -495,9 +491,10 @@ mod tests {
             "extra.bib",
             "@article{attention,\n  title={Attention {Is} All You Need},\n  author={Vaswani, Ashish and Shazeer, Noam},\n  year={2017},\n  journal={NeurIPS}\n}\n@inproceedings{dosovitskiy2021image,\n}\n",
         );
-        let keys = citation_keys(root).unwrap();
+        let found = citations(root).unwrap();
+        let keys = found.iter().map(|citation| citation.key.as_str()).collect::<Vec<_>>();
         assert_eq!(keys, ["attention", "dosovitskiy2021image", "keep", "vaswani2017"]);
-        let attention = &citations(root).unwrap()[0];
+        let attention = &found[0];
         assert_eq!(
             [&attention.title, &attention.authors, &attention.year, &attention.venue],
             ["Attention Is All You Need", "Vaswani, Ashish and Shazeer, Noam", "2017", "NeurIPS"]

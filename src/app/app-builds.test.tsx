@@ -26,7 +26,8 @@ describe("builds and the PDF reader", () => {
 
   it.each(["completion selection", "PDF pointer down", "PDF wheel"])("resumes autosave after citation completion on %s", async (trigger) => {
     await openWithAutomaticBuilds({
-      list_citation_keys: () => ["dosovitskiy2021image", "vaswani2017attention"], write_project_file: undefined,
+      list_citations: () => ["dosovitskiy2021image", "vaswani2017attention"].map((key) => ({ key, title: "", authors: "", year: "", venue: "" })),
+      write_project_file: undefined,
     }, projectSnapshot());
     const view = await waitFor(() => editorViewAt(), { timeout: 60_000 });
 

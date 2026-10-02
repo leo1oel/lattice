@@ -382,7 +382,6 @@ pub fn run() {
             ipc::search::list_unused_symbols,
             ipc::search::list_todos,
             ipc::search::count_project_words,
-            ipc::bibliography::list_citation_keys,
             ipc::bibliography::list_citations,
             ipc::bibliography::read_bib_entry,
             ipc::bibliography::save_bib_entry,

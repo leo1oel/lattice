@@ -273,7 +273,7 @@ Practical consequence: to find what a button does, grep the command name in
 | `build` | 17 | `build_project`, `abort_build`, `synctex_edit`, `texlab_diagnostics`, `start_tex_install`, `run_doctor` |
 | `search` | 11 | `search_project`, `replace_in_project`, `rename_label`, `list_todos` |
 | `windows` | 10 | `open_project_window`, `open_in_browser`, `return_to_desktop`, `set_window_background` |
-| `bibliography` | 13 | `list_citation_keys`, `save_bib_entry`, `bibliography_audit_scan`, `agent_bibliography_mutation` |
+| `bibliography` | 12 | `list_citations`, `save_bib_entry`, `bibliography_audit_scan`, `agent_bibliography_mutation` |
 | `workspace` | 10 | `create_project`, `open_project`, `import_project_zip`, `update_project_manifest` |
 | `papers` | 10 | `search_literature`, `fetch_paper`, `import_reference`, `read_paper` |
 | `git` | 8 | `git_status`, `git_user_name`, `git_log`, `git_show_diff`, `git_restore_project`, `git_auto_commit` |

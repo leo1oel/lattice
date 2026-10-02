@@ -1,7 +1,7 @@
 //! `\label` and `\cite` keys across the manuscript: finding, renaming,
 //! removing, and spotting unused ones.
 
-use super::bibliography::{citation_keys, citations, iter_bibliography_sources};
+use super::bibliography::{citations, iter_bibliography_sources};
 use super::history::apply_transaction;
 use super::paths::relative_to;
 use super::references::{command_argument_at, references};
@@ -344,7 +344,7 @@ impl Symbol {
     fn is_defined(self, root: &Path, value: &str) -> Result<bool, String> {
         Ok(match self {
             Self::Label => references(root)?.iter().any(|item| item.label == value),
-            Self::Citation => citation_keys(root)?.iter().any(|key| key == value),
+            Self::Citation => citations(root)?.iter().any(|citation| citation.key == value),
         })
     }
 
