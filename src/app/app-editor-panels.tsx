@@ -102,7 +102,7 @@ export function AppEditorPanels({ comments, renderCommentsSurface, ...props }: {
           hits={todoHits}
           onClose={() => setTodosOpen(false)}
           onOpen={(path, line) => {
-            void openProjectFile(path, line);
+            void openProjectFile(path, { line });
             setTodosOpen(false);
           }}
         />

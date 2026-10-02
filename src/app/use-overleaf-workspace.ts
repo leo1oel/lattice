@@ -20,7 +20,7 @@ import type { EditorComment } from "../editor/comments/editor-comment-data";
 import { hasConflictMarkers } from "../history/conflict-markers";
 import { AUTO_COMMIT_MESSAGES } from "../history/version-messages";
 import type {
-  AssetPreview, BuildResult, EditorPosition, FileViewState, OverleafLink, OverleafProbe, OverleafStatus,
+  AssetPreview, BuildResult, EditorPosition, FileViewState, OpenProjectFile, OverleafLink, OverleafProbe, OverleafStatus,
   OverleafSyncResult, PaperSummary, ProjectSnapshot, RefreshProject, ViewRestoreRequest,
 } from "../app-types";
 import { SYNC_OPERATION } from "../telemetry/app-log-export";
@@ -120,8 +120,8 @@ export type OverleafWorkspaceDeps = {
   source: string;
   sourceRef: RefObject<string>;
   savedSourceRef: RefObject<string>;
-  setSource: (value: string) => void;
-  setSavedSource: (value: string) => void;
+  /** Show durable text for the open file, only while its buffer still holds `expect` (a compare-and-swap). */
+  accept: (path: string, content: string, expect: { text: string; saved: string }) => boolean;
   setViewRestore: (request: ViewRestoreRequest) => void;
   viewStateRef: RefObject<Map<string, FileViewState>>;
   editorPosition: EditorPosition | null;
@@ -139,7 +139,7 @@ export type OverleafWorkspaceDeps = {
   compile: () => Promise<void>;
   loadFile: (path: string, options?: { expectedProjectRoot?: string; projectGeneration?: number; canCommit?: () => boolean }) => Promise<boolean>;
   refreshProject: RefreshProject;
-  openProjectFile: (path: string, line?: number) => Promise<void>;
+  openProjectFile: OpenProjectFile;
   /** True while a sync owns the project; a switch has to wait it out. */
   overleafSyncingRef: RefObject<boolean>;
   /** Resolves when the in-flight Overleaf sync has finished its disk refresh. */
@@ -151,7 +151,7 @@ export type OverleafWorkspaceDeps = {
 export async function applyOverleafRemoteText(
   deps: Pick<OverleafWorkspaceDeps,
     "projectRef" | "projectOperationGenerationRef" | "activeFileRef" | "sourceRef" | "savedSourceRef"
-    | "setSource" | "setSavedSource" | "setViewRestore" | "compile">,
+    | "accept" | "setViewRestore" | "compile">,
   text: string,
   caret: number,
   context: OverleafRemoteTextContext,
@@ -171,11 +171,7 @@ export async function applyOverleafRemoteText(
   await invoke("write_project_file", { path, projectRoot, content: text, expectedContent: saved });
   // Typing during IPC stays dirty against its original saved base; the
   // ordinary editor save can merge it with the remote bytes now on disk.
-  if (!isCurrent() || deps.sourceRef.current !== baseContent || deps.savedSourceRef.current !== saved) return false;
-  deps.sourceRef.current = text;
-  deps.savedSourceRef.current = text;
-  deps.setSource(text);
-  deps.setSavedSource(text);
+  if (!isCurrent() || !deps.accept(path, text, { text: baseContent, saved })) return false;
   deps.setViewRestore({ path, cursor: caret, scrollTop: 0, id: crypto.randomUUID() });
   if (text !== saved) void deps.compile();
   return true;
@@ -798,7 +794,7 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
 
   const jumpToOverleafPeer = useCallback((peer: PresenceUser) => {
     const path = peer.docId ? overleafDocPaths.get(peer.docId) : null;
-    if (path) void openProjectFile(path, (peer.row ?? 0) + 1);
+    if (path) void openProjectFile(path, { line: (peer.row ?? 0) + 1 });
     else if (peer.name) {
       const name = peer.name;
       setNotice(t`${name} is not in a file right now.`);

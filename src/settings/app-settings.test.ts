@@ -26,13 +26,11 @@ beforeEach(() => localStorage.clear());
 
 const layout: WorkspaceLayout = {
   openTabs: ["main.tex", "sections/method.tex", "figures/model.png"],
-  pinnedTabs: ["main.tex"],
   activeFile: "main.tex",
   activeTab: "sections/method.tex",
   canvasMode: "source",
   documentMode: "source",
   paperView: "fulltext",
-  tabRecency: ["sections/method.tex", "main.tex", "figures/model.png"],
 };
 
 describe("interface language persistence", () => {
@@ -88,11 +86,12 @@ describe("workspace layout persistence", () => {
     expect(loadWorkspaceLayout("/papers/beta")).toBeNull();
   });
 
-  it("keeps only unique open pinned paths from malformed saved data", () => {
+  // Layouts saved by older builds also carry pinned tabs and tab recency, which nothing reads.
+  it("drops the fields older builds saved and nothing reads", () => {
     localStorage.setItem(WORKSPACE_LAYOUT_KEY, JSON.stringify({
-      "/papers/alpha": { ...layout, pinnedTabs: ["main.tex", "main.tex", "gone.tex", 42, null, ""] },
+      "/papers/alpha": { ...layout, pinnedTabs: ["main.tex"], tabRecency: ["main.tex", "sections/method.tex"] },
     }));
-    expect(loadWorkspaceLayout("/papers/alpha")?.pinnedTabs).toEqual(["main.tex"]);
+    expect(loadWorkspaceLayout("/papers/alpha")).toEqual(layout);
   });
 
   it("deduplicates tabs and safely normalizes malformed fields", () => {
@@ -105,19 +104,16 @@ describe("workspace layout persistence", () => {
         focusedPane: "somewhere",
         canvasMode: "impossible",
         paperView: "unknown",
-        tabRecency: ["main.tex", "main.tex"],
       },
     }));
 
     expect(loadWorkspaceLayout("/papers/alpha")).toEqual({
       openTabs: ["main.tex"],
-      pinnedTabs: [],
       activeFile: "main.tex",
       activeTab: "main.tex",
       canvasMode: "split",
       documentMode: "split",
       paperView: "blog",
-      tabRecency: ["main.tex"],
     });
   });
 

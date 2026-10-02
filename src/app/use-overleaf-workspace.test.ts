@@ -31,7 +31,14 @@ function remoteFixture() {
     activeFileRef: { current: "section.tex" },
     sourceRef: { current: "old caption" },
     savedSourceRef: { current: "old caption" },
-    setSource: vi.fn(), setSavedSource: vi.fn(), setViewRestore: vi.fn(), compile: vi.fn(async () => {}),
+    // The open documents' compare-and-swap: only a buffer still holding `expect` takes the text.
+    accept: vi.fn((path: string, content: string, expect: { text: string; saved: string }) => {
+      if (deps.activeFileRef.current !== path || deps.sourceRef.current !== expect.text
+        || deps.savedSourceRef.current !== expect.saved) return false;
+      deps.sourceRef.current = deps.savedSourceRef.current = content;
+      return true;
+    }),
+    setViewRestore: vi.fn(), compile: vi.fn(async () => {}),
   };
   const context = { projectRoot: "/project", path: "section.tex", baseContent: "old caption", isCurrent: () => true };
   return { deps, context };
@@ -66,7 +73,7 @@ describe("safe Overleaf remote text delivery", () => {
       path: "section.tex", projectRoot: "/project", content: "remote caption", expectedContent: "old caption",
     });
     expect(deps.sourceRef.current).toBe("old caption");
-    expect(deps.setSource).not.toHaveBeenCalled();
+    expect(deps.accept).not.toHaveBeenCalled();
     expect(deps.compile).not.toHaveBeenCalled();
   });
 
@@ -74,9 +81,10 @@ describe("safe Overleaf remote text delivery", () => {
     const { deps, context } = remoteFixture();
     vi.mocked(invoke).mockResolvedValue(undefined);
     expect(await applyOverleafRemoteText(deps, "remote caption", 3, context)).toBe(true);
+    expect(deps.accept).toHaveBeenCalledWith("section.tex", "remote caption", { text: "old caption", saved: "old caption" });
     expect(deps.sourceRef.current).toBe("remote caption");
     expect(deps.savedSourceRef.current).toBe("remote caption");
-    expect(deps.setSource).toHaveBeenCalledWith("remote caption");
+    expect(deps.setViewRestore).toHaveBeenCalledWith(expect.objectContaining({ path: "section.tex", cursor: 3 }));
     expect(deps.compile).toHaveBeenCalledOnce();
   });
 
@@ -90,8 +98,9 @@ describe("safe Overleaf remote text delivery", () => {
     if (change === "project generation") deps.projectOperationGenerationRef.current += 1;
     await act(async () => { resolve(); });
     expect(await pending).toBe(false);
-    expect(deps.setSource).not.toHaveBeenCalled();
+    expect(deps.sourceRef.current).toBe(change === "typing" ? "my unfinished edit" : "old caption");
     expect(deps.savedSourceRef.current).toBe("old caption");
+    expect(deps.setViewRestore).not.toHaveBeenCalled();
     expect(deps.compile).not.toHaveBeenCalled();
   });
 });
@@ -111,15 +120,13 @@ function syncFixture() {
   };
   const deps: OverleafWorkspaceDeps = {
     ...remote, project, activeFile: "section.tex", source: "old caption",
-    setSource: vi.fn((value) => { deps.source = value; }),
     activePaper: null, activeAsset: null, viewStateRef: { current: new Map() },
     editorPosition: null, editorPositionRef: { current: null }, build: null,
     saveGeneration: 0, savedPathsRef: { current: new Set() },
     wholeFileEditingPaths: [], wholeFileDraftPaths: [], save: vi.fn(async () => true),
     loadFile: vi.fn(async (_path, options) => {
       if (options?.canCommit?.() === false) return false;
-      remote.sourceRef.current = remote.savedSourceRef.current = disk;
-      deps.setSource(disk);
+      remote.sourceRef.current = remote.savedSourceRef.current = deps.source = disk;
       return true;
     }),
     refreshProject: vi.fn(async () => project), openProjectFile: vi.fn(),

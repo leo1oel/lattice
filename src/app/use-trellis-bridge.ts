@@ -2,44 +2,25 @@ import type { Dispatch, RefObject, SetStateAction } from "react";
 import { useEffect, useLayoutEffect, useRef } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { invoke } from "@tauri-apps/api/core";
-import type {
-  CanvasMode, DocumentViewMode, FileViewState, PaperSummary, ProjectSnapshot, SettingsTab,
-} from "../app-types";
+import type { PaperSummary, ProjectSnapshot, SettingsTab } from "../app-types";
 import { arxivIdFromTabKey, isHtmlFilePath, isPaperTabKey } from "../app-utils";
-import type { ReferenceAssetPreview } from "../project/reference-preview";
 import type { TrellisBridge, TrellisController } from "../trellis/trellis-controller";
 import type { SearchDialog } from "./app-search-dialogs";
 import { setNotice } from "./notify";
 import type { BuildOutcome, useBuildPipeline } from "./use-build-pipeline";
-import type { PaperView } from "./use-document-buffers";
 import type { useEditorComments } from "./use-editor-comments";
+import { documentKind, type OpenDocuments } from "./use-open-documents";
 import type { useProjectSearch } from "./use-project-search";
 import type { useReferenceImport } from "./use-reference-import";
 import type { useSynaraHost } from "./use-synara-host";
 
-/** What the Trellis workspace reads from App: the open document, the project, and the actions its panels call. */
+/** What the Trellis workspace reads from App: the open documents, the project, and the actions its panels call. */
 export type TrellisBridgeApp = {
   trellis: TrellisController;
   project: ProjectSnapshot | null;
   projectRef: RefObject<ProjectSnapshot | null>;
-  projectAssetPaths: Set<string>;
   papers: PaperSummary[];
-  activeFile: string;
-  activeFileRef: RefObject<string>;
-  activeTabKey: string;
-  activePaper: PaperSummary | null;
-  activePaperDirty: boolean;
-  activeAsset: ReferenceAssetPreview | null;
-  source: string;
-  sourceRef: RefObject<string>;
-  savedSource: string;
-  openTabs: string[];
-  tabsSettledRoot: string | null;
-  workspacePersistenceReadyRoot: string | null;
-  canvasMode: CanvasMode;
-  paperView: PaperView | null;
-  paperMarkdown: string;
-  paperBlog: string | null;
+  documents: OpenDocuments;
   lastBuild: BuildOutcome | null;
   building: boolean;
   buildPipeline: Pick<ReturnType<typeof useBuildPipeline>, "cleanAndRebuild" | "abortBuild">;
@@ -47,16 +28,9 @@ export type TrellisBridgeApp = {
   editorComments: Pick<ReturnType<typeof useEditorComments>, "openPanel">;
   referenceImport: Pick<ReturnType<typeof useReferenceImport>, "setLiteratureOpen" | "openBibEntry">;
   projectSearch: Pick<ReturnType<typeof useProjectSearch>, "openFind">;
-  getFileViewState: (path: string) => FileViewState | undefined;
-  openProjectFile: (path: string, line?: number) => Promise<void>;
-  selectEditorTab: (path: string) => void;
-  closeEditorTab: (path: string) => Promise<void>;
-  save: () => Promise<boolean>;
   compile: (force?: boolean, sound?: boolean) => Promise<void>;
   compileAndShowPdf: (force?: boolean, sound?: boolean) => Promise<void>;
   revealSourceInPdf: () => Promise<void>;
-  openDocumentMode: (mode: DocumentViewMode) => void;
-  changePaperView: (view: "blog" | "fulltext") => void;
   openSettings: (tab?: SettingsTab) => void;
   openLiterature: (open: SetStateAction<boolean>) => void;
   refreshTodos: () => Promise<void>;
@@ -80,34 +54,31 @@ export type TrellisBridgeApp = {
 export function useTrellisBridge(app: TrellisBridgeApp) {
   const { t } = useLingui();
   const {
-    trellis, project, projectRef, projectAssetPaths, papers, activeFile, activeFileRef, activeTabKey, activePaper,
-    activePaperDirty, activeAsset, source, sourceRef, savedSource, openTabs, tabsSettledRoot,
-    workspacePersistenceReadyRoot, canvasMode, paperView, paperMarkdown, paperBlog, lastBuild, building, buildPipeline,
-    synara, editorComments, referenceImport, projectSearch, getFileViewState, openProjectFile, selectEditorTab,
-    closeEditorTab, save, compile, compileAndShowPdf, revealSourceInPdf, openDocumentMode, changePaperView,
+    trellis, project, projectRef, papers, documents, lastBuild, building, buildPipeline,
+    synara, editorComments, referenceImport, projectSearch, compile, compileAndShowPdf, revealSourceInPdf,
     openSettings, openLiterature, refreshTodos, setSearchDialog, setHistoryOpen, setGitOpen, setTodosOpen,
     setChecklistOpen, setProjectSearchOpen, setBibliographyAuditRoot, setBibliographyAuditOpen,
     setSpreadsheetCreateRequest, setBoardCreateRequest, setPresentationCreateRequest,
   } = app;
-  const trellisDirty = activePaper ? activePaperDirty : source !== savedSource;
+  const {
+    file: activeFile, text: source, paper: activePaper, asset: activeAsset, mode: canvasMode, paperView, activeTab,
+    tabs: openTabs, tabsReady, dirty, paperViews, assetPaths,
+  } = documents;
   const trellisFilesRevisionRef = useRef<{ files: unknown; revision: number }>({ files: null, revision: 0 });
   useLayoutEffect(() => {
     const bridge: TrellisBridge = {
-      activate: (key, line) => {
-        if (line !== undefined && !isPaperTabKey(key) && !projectAssetPaths.has(key)) void openProjectFile(key, line);
-        else selectEditorTab(key);
-      },
+      activate: (key, line) => void documents.open(key, { line }),
       closeTab: async (key) => {
-        await closeEditorTab(key);
+        await documents.close(key);
         return true;
       },
-      save,
-      tabKind: (key) => (isPaperTabKey(key) ? "paper" : projectAssetPaths.has(key) ? "asset" : "file"),
+      save: documents.save,
+      tabKind: (key) => documentKind(key, assetPaths),
       tabLabel: (key) => (isPaperTabKey(key)
         ? papers.find((paper) => paper.arxivId === arxivIdFromTabKey(key))?.title ?? t`Paper`
         : key.split("/").at(-1) || key),
       readText: async (path) => {
-        if (path === activeFileRef.current) return sourceRef.current;
+        if (path === documents.live.file.current) return documents.live.text.current;
         const root = projectRef.current?.root;
         if (!root) return null;
         try {
@@ -116,7 +87,7 @@ export function useTrellisBridge(app: TrellisBridgeApp) {
           return null;
         }
       },
-      textScrollTop: (path) => getFileViewState(path)?.text?.scrollTop ?? null,
+      textScrollTop: (path) => documents.viewStates.get(path)?.text?.scrollTop ?? null,
       openTool: (kind) => {
         if (trellis.openDrawers.get()[kind]) {
           trellis.revealTool(kind);
@@ -171,15 +142,15 @@ export function useTrellisBridge(app: TrellisBridgeApp) {
       build: (key, options) => {
         void (async () => {
           // The build follows the active document (it may be a root of its own), so the panel's file goes first.
-          if (activeFileRef.current !== key && !isPaperTabKey(key) && !projectAssetPaths.has(key)) await openProjectFile(key);
+          if (documents.live.file.current !== key && documentKind(key, assetPaths) === "file") await documents.openFile(key);
           trellis.showPdfFor(options?.beside);
           if (options?.clean) await buildPipeline.cleanAndRebuild();
           else await compile(false, true);
         })();
       },
       stopBuild: () => void buildPipeline.abortBuild(),
-      setViewMode: (mode) => openDocumentMode(mode),
-      setPaperView: (view) => changePaperView(view),
+      setViewMode: (mode) => documents.chooseMode(mode),
+      setPaperView: (view) => documents.choosePaperView(view),
     };
     trellis.setBridge(bridge);
   });
@@ -192,13 +163,13 @@ export function useTrellisBridge(app: TrellisBridgeApp) {
     }
     trellis.app.set({
       projectRoot: project.root,
-      activeKey: activeTabKey,
-      activeDirty: trellisDirty,
+      activeKey: activeTab,
+      activeDirty: dirty,
       openTabs,
-      tabsReady: tabsSettledRoot === project.root || workspacePersistenceReadyRoot === project.root,
+      tabsReady,
       filesRevision: revision.revision,
     });
-  }, [activeTabKey, openTabs, project, tabsSettledRoot, trellis, trellisDirty, workspacePersistenceReadyRoot]);
+  }, [activeTab, dirty, openTabs, project, tabsReady, trellis]);
   // Inactive panels paint the last text they showed while loading a fresh copy.
   useEffect(() => {
     if (activeFile && !activePaper) trellis.texts.set(activeFile, source);
@@ -208,7 +179,6 @@ export function useTrellisBridge(app: TrellisBridgeApp) {
     : activeFile.toLocaleLowerCase().endsWith(".md") ? "markdown"
       : isHtmlFilePath(activeFile) ? "html" : null;
   const trellisViewMode = canvasMode === "pdf" ? "pdf" : canvasMode === "split" ? "split" : "source";
-  const trellisPaperViews = Boolean(activePaper && paperBlog !== null && paperMarkdown);
   useLayoutEffect(() => {
     trellis.docTools.set({
       building,
@@ -216,7 +186,7 @@ export function useTrellisBridge(app: TrellisBridgeApp) {
       viewMode: trellisViewMode,
       viewModes: trellisViewModes,
       paperView: activePaper ? paperView : null,
-      paperViews: trellisPaperViews,
+      paperViews,
     });
-  }, [activePaper, building, lastBuild, paperView, trellis, trellisPaperViews, trellisViewMode, trellisViewModes]);
+  }, [activePaper, building, lastBuild, paperView, paperViews, trellis, trellisViewMode, trellisViewModes]);
 }

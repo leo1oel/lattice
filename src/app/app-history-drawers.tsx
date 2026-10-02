@@ -139,7 +139,7 @@ export function AppHistoryDrawers({ drawers, synara: {
             await invoke("delete_history_entry", { transactionId: id });
             await props.refreshHistory();
           })}
-          onOpenFile={(path, line) => { void props.openProjectFile(path, line); }}
+          onOpenFile={(path, line) => { void props.openProjectFile(path, { line }); }}
           overleafLinked={props.overleafLink !== null}
           overleafProjectRoot={project.root}
           onOverleafRestored={async () => {

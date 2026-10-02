@@ -4,7 +4,7 @@ import type { PaperSummary, ProjectSnapshot } from "../app-types";
 import { flattenProjectPaths } from "../build/compile-diagnostics";
 import { MarkdownWorkspaceIndex } from "../editor/markdown/markdown-workspace-index";
 import { whenIdle } from "./effect-helpers";
-import { paperDocumentPath, type PaperView } from "./use-document-buffers";
+import { paperDocumentPath, type PaperView } from "./use-open-documents";
 
 export const loadDocumentCanvas = () => import("../canvas/document-canvas");
 const loadCanvasPrewarm = () => import("../canvas/canvas-prewarm");

@@ -2046,11 +2046,11 @@ msgstr "无法显示此文件：{0}"
 msgid "Could not safely preserve this entry's BibTeX expressions."
 msgstr "无法安全保留此条目中的 BibTeX 表达式。"
 
-#: src/App.tsx
+#: src/app/use-open-documents.ts
 msgid "Could not save {activeFile}"
 msgstr "无法保存 {activeFile}"
 
-#: src/App.tsx
+#: src/app/use-open-documents.ts
 msgid "Could not save the project"
 msgstr "无法保存项目"
 
@@ -2941,7 +2941,7 @@ msgstr "文件"
 msgid "file restore"
 msgstr "文件恢复"
 
-#: src/App.tsx
+#: src/app/use-open-documents.ts
 msgid "File switch"
 msgstr "切换文件"
 
@@ -3147,7 +3147,7 @@ msgstr "下弧关系"
 msgid "Full access"
 msgstr "完全访问"
 
-#: src/App.tsx
+#: src/app/use-open-documents.ts
 msgid "Full paper text is unavailable; showing the overview instead."
 msgstr "无法获取论文全文，改为显示概览。"
 
@@ -3891,7 +3891,7 @@ msgstr "pubstate 明确标记为 preprint，因此保留为预印本。"
 msgid "Kept here"
 msgstr "保留本地副本"
 
-#: src/App.tsx
+#: src/app/use-open-documents.ts
 msgid "Kept overlapping external edits in {path} with conflict markers."
 msgstr "已在 {path} 中用冲突标记保留重叠的外部编辑。"
 
@@ -4624,7 +4624,7 @@ msgstr "自然连接 / 蝶形"
 msgid "Navigate"
 msgstr "导航"
 
-#: src/App.tsx
+#: src/app/use-open-documents.ts
 msgid "Navigation performance"
 msgstr "导航性能"
 
@@ -4904,7 +4904,7 @@ msgstr "未找到发表版本"
 msgid "No published version was found."
 msgstr "未找到发表版本。"
 
-#: src/App.tsx
+#: src/app/use-open-documents.ts
 msgid "No readable paper content is available."
 msgstr "没有可读取的论文内容。"
 
@@ -5274,7 +5274,7 @@ msgstr "OpenAlex"
 msgid "OpenAlex search"
 msgstr "OpenAlex 搜索"
 
-#. placeholder {0}: primaryOpening.label
+#. placeholder {0}: documents.opening
 #: src/App.tsx
 msgid "Opening {0}…"
 msgstr "正在打开{0}…"
@@ -5509,7 +5509,7 @@ msgstr "已取消论文导入，参考文献未修改；已下载的全文仍可
 msgid "Paper import cancelled before making changes."
 msgstr "已取消论文导入，未作任何修改。"
 
-#: src/App.tsx
+#: src/app/use-open-documents.ts
 msgid "Paper switch"
 msgstr "切换论文"
 
@@ -6791,7 +6791,7 @@ msgstr "Lattice 固定版本文献工具所用的运行器"
 msgid "Sans-serif text"
 msgstr "无衬线文本"
 
-#: src/App.tsx
+#: src/app/use-open-documents.ts
 #: src/editor/comments/editor-comments-panel.tsx
 #: src/history/versions-timeline.tsx
 #: src/overleaf/overleaf-comments.tsx

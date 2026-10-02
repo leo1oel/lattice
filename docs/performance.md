@@ -54,7 +54,7 @@ Slow file switching:
 | --- | --- |
 | 2-second poll re-read the full bytes of every project file (`scan_files` → `classify_regular_file`) and spawned ~6 git subprocesses per tick | `project.rs`, `git.rs` |
 | Every save parsed up to 100 history records (each embedding full before/after contents) to find the newest; dirty switches await the save | `project.rs` `latest_history_record` |
-| Cursor/scroll restore was gated behind an unrelated `stat` round trip; save and read ran serially | `App.tsx` `loadFile` |
+| Cursor/scroll restore was gated behind an unrelated `stat` round trip; save and read ran serially | `use-open-documents.ts` `loadFile` (then in `App.tsx`) |
 | `read_file` read every file twice (classification pass + content pass) | `project.rs` |
 
 Ruled out: agent streaming (cross-origin iframe + postMessage, zero React
