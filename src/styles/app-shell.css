@@ -260,12 +260,12 @@ input[type="search"]:focus-visible {
 /* Find results are a list, not a stack of cards: rows that light up under the
    pointer and the keyboard, an icon column, then name, folder and line above
    the matched text. */
-.project-find .project-replace-hits { gap: var(--space-1); }
-.project-find .project-replace-hit { border-color: transparent; background: transparent; display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: var(--space-4); row-gap: var(--space-1); padding: var(--space-4) var(--space-5); }
-.project-find .project-replace-hit:hover { border-color: transparent; background: var(--control-hover-surface); }
-.project-find .project-replace-hit.active { border-color: transparent; background: var(--control-active-soft); }
+:is(.project-find, .todo-drawer) .project-replace-hits { gap: var(--space-1); }
+:is(.project-find, .todo-drawer) .project-replace-hit { border-color: transparent; background: transparent; display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: var(--space-4); row-gap: var(--space-1); padding: var(--space-4) var(--space-5); }
+:is(.project-find, .todo-drawer) .project-replace-hit:hover { border-color: transparent; background: var(--control-hover-surface); }
+:is(.project-find, .todo-drawer) .project-replace-hit.active { border-color: transparent; background: var(--control-active-soft); }
 .project-find-hit-icon { grid-row: 1; display: inline-flex; align-items: center; color: var(--text-tertiary); }
-.project-find .project-replace-hit-preview { grid-column: 2; }
+:is(.project-find, .todo-drawer) .project-replace-hit-preview { grid-column: 2; }
 .project-find-hit-heading { display: flex; align-items: baseline; gap: var(--space-3); min-width: 0; }
 .project-find-hit-name { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-primary); font-size: var(--type-caption-size); font-weight: var(--weight-semibold); }
 .project-find-hit-folder { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-tertiary); font-size: var(--type-micro-size); }

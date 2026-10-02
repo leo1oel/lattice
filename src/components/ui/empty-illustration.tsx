@@ -10,7 +10,7 @@ import "./empty-illustration.css";
  * its empty state is hovered; nothing loops. Decorative only: the empty
  * state's text says what it means.
  */
-export type EmptyIllustrationKind = "papers" | "comments" | "search" | "history" | "preview";
+export type EmptyIllustrationKind = "papers" | "comments" | "search" | "history" | "preview" | "done";
 
 const order = (index: number) => ({ "--draw-order": index }) as CSSProperties;
 
@@ -87,6 +87,24 @@ function drawSearch() {
   );
 }
 
+function drawDone() {
+  // A page with nothing left to fix: the same page as the search, with a
+  // check in the warp where the lens would be.
+  return (
+    <>
+      <path className="empty-illustration-paper" d={SEARCH_PAGE} />
+      <Line d={SEARCH_PAGE} i={0} />
+      <Line d="M18 14h12" i={1} className="empty-illustration-strong" />
+      <Line d="M18 20h13M18 25h10M18 30h8M18 35h9" i={2} className="empty-illustration-faint" />
+      <g className="empty-illustration-badge">
+        <circle className="empty-illustration-paper" cx="40" cy="32" r="8" />
+        <Line d="M40 24a8 8 0 1 1 0 16a8 8 0 1 1 0-16z" i={3} />
+        <Line d="M36.5 32.25l2.5 2.5l4.75-5" i={4} className="empty-illustration-warp" />
+      </g>
+    </>
+  );
+}
+
 function drawHistory() {
   return (
     <>
@@ -123,6 +141,7 @@ const DRAWINGS: Record<EmptyIllustrationKind, () => ReactNode> = {
   search: drawSearch,
   history: drawHistory,
   preview: drawPreview,
+  done: drawDone,
 };
 
 export function EmptyIllustration({ kind, size = "default", className }: {

@@ -51,7 +51,7 @@
 }
 
 /* While its empty state is hovered, each drawing does one small thing: the
-   papers fan, the lens leans in, the timeline's newest knot swells, the page's
+   papers fan, the lens leans in, the check swells, the timeline's newest knot swells, the page's
    text lines darken. The typing dots are the only sequence, and only on hover. */
 .empty-illustration-sheet,
 .empty-illustration-lens,
@@ -59,12 +59,14 @@
 .empty-illustration-sheet[data-part="back"] { transform-origin: 26px 40px; }
 .empty-illustration-sheet[data-part="front"] { transform-origin: 36px 42px; }
 .empty-illustration-lens { transform-origin: 38px 28px; }
+.empty-illustration-badge { transform-box: view-box; transform-origin: 40px 32px; transition: scale var(--duration-base) var(--ease-emphasized); }
 .empty-illustration-now { transition: scale var(--duration-base) var(--ease-emphasized); }
 
 :is(.ui-empty-state:hover, :hover > .empty-illustration) .empty-illustration-sheet[data-part="back"] { rotate: -5deg; }
 :is(.ui-empty-state:hover, :hover > .empty-illustration) .empty-illustration-sheet[data-part="front"] { rotate: 4deg; translate: 1px 0; }
 :is(.ui-empty-state:hover, :hover > .empty-illustration) .empty-illustration-lens { rotate: -8deg; translate: -2px 1px; }
 :is(.ui-empty-state:hover, :hover > .empty-illustration) .empty-illustration-now { scale: 1.25; }
+:is(.ui-empty-state:hover, :hover > .empty-illustration) .empty-illustration-badge { scale: 1.1; }
 :is(.ui-empty-state:hover, :hover > .empty-illustration) .empty-illustration-text .empty-illustration-faint { opacity: .95; }
 :is(.ui-empty-state:hover, :hover > .empty-illustration) .empty-illustration-typing > g {
   animation: empty-illustration-typing 1.1s var(--ease-in-out) infinite;

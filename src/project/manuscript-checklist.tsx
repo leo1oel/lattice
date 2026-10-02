@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Trans, useLingui } from "@lingui/react/macro";
-import { ClipboardCheck } from "lucide-react";
+import { ChevronRight, ClipboardCheck } from "lucide-react";
 import { PanelHeader } from "../components/ui/panel-header";
 import { Input } from "../components/ui/input";
 import { ResizableDrawer } from "../components/ui/resizable-drawer";
@@ -42,7 +42,7 @@ function BudgetRow(props: {
       onClick={props.onClick}
     >
       <strong>{props.label}</strong>
-      <span>{props.value}</span>
+      <span>{props.value}{props.onClick ? <ChevronRight size={13} aria-hidden="true" /> : null}</span>
       {props.detail ? <small>{props.detail}</small> : null}
     </Tag>
   );
