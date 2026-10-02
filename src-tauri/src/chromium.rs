@@ -68,7 +68,19 @@ impl ChromiumRuntime {
             ));
         }
 
-        let mut child = Command::new(&executable)
+        let mut command = Command::new(&executable);
+        #[cfg(not(feature = "perf-lab"))]
+        for (name, _) in std::env::vars_os() {
+            let lab = name.to_str().is_some_and(|name| {
+                name == "LATTICE_PERF_PLAN"
+                    || name.starts_with("LATTICE_CR_")
+                    || name.starts_with("LATTICE_LAB_")
+            });
+            if lab {
+                command.env_remove(name);
+            }
+        }
+        let mut child = command
             .env("LATTICE_CHROMIUM_MANAGED", "1")
             .stdin(Stdio::piped())
             .stdout(Stdio::null())

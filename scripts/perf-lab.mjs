@@ -193,7 +193,7 @@ const labProcesses = (root) => quiet("pgrep", ["-U", LAB_USER, "-f", `${root}/.*
 const labUserPids = () => new Set(quiet("ps", ["-U", LAB_USER, "-o", "pid="]).split("\n").map((pid) => pid.trim()).filter(Boolean));
 
 export function runPlan(options, runId, label) {
-  if (options.plan) return JSON.parse(options.plan);
+  if (options.plan) return { ...JSON.parse(options.plan), run: runId, label };
   if (options.startup) return { scenarios: [], run: runId, label, startupOnly: true };
   const scenarios = (options.scenarios ?? "").split(",").filter(Boolean);
   if (!scenarios.length) throw new Error("run needs --startup, --scenarios a,b or --plan JSON");
