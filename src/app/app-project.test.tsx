@@ -1,4 +1,5 @@
 import { expectNotification, windowApi, synaraHook, openSlideWorkspaceApi, browserRuntime, fileNode, fileNodes, dirNode, projectCommands, refreshableProject, SINGLE_TRANSFORMER, attentionPaper, overleafLink, overleafStatus, overleafProbe, overleafSyncResult, overleafSession, overleafCommands, ROOT, projectSnapshot, rootDocument, notesSnapshot, markdownSnapshot, buildResult, readFiles, deferred, setAutoBuildMode, setInterfaceLanguage, selectPanelTab, projectTreeRoot, queryProjectTreeItem, findInProjectTree, findProjectTreeItem, findProjectTreeRenameInput, renderApp, renderOverleafPaper, openWithAutomaticBuilds, findElement, editorViewAt, findEditorView, expectEditorText, postWindowMessage, expectInvoked, invokeCalls, pause, stubElementFromPoint, storedFileViews, dropFinderPaths, persistLayout, visualEditorOf, argPath, waitForSelectedTab, openTreeFile, openAgentFrame, postedOfType, dragTreeItem, pdfDocumentStub, mockPdfDocument, chooseNewDocument, chooseProjectMenuItem } from "./app-test-utils";
+import { forEachDiagnostic } from "@codemirror/lint";
 import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
@@ -984,6 +985,29 @@ describe("project tree and projects", () => {
     const idsBeforeLatestResponse = randomUUID.mock.calls.length;
     syncResolvers[1]({ page: 2, x: 72, y: 96, width: 120, height: 14 });
     await waitFor(() => expect(randomUUID).toHaveBeenCalledTimes(idsBeforeLatestResponse + 1));
+  });
+
+  it("opens the document before its label index lands, and checks it only against that index", async () => {
+    const citationKeys = deferred<string[]>();
+    const references = deferred<unknown[]>();
+    renderApp({
+      ...projectCommands(projectSnapshot(), "See \\cite{known}, \\ref{fig:model} and \\ref{fig:gone}."),
+      list_citation_keys: () => citationKeys.promise,
+      list_references: () => references.promise,
+    });
+    const view = await expectEditorText("See \\cite{known}, \\ref{fig:model} and \\ref{fig:gone}.");
+    const diagnostics = () => {
+      const found: string[] = [];
+      forEachDiagnostic(view.state, (diagnostic) => found.push(diagnostic.message));
+      return found;
+    };
+    // Past the linter's delay: an index that is not this project's yet reports nothing.
+    await pause(600);
+    expect(diagnostics()).toEqual([]);
+
+    citationKeys.resolve(["known"]);
+    references.resolve([{ label: "fig:model", kind: "figure", title: "", snippet: "", path: "sections/a.tex", line: 1 }]);
+    await waitFor(() => expect(diagnostics()).toEqual(["Unknown label “fig:gone”."]));
   });
 
   it("localizes the project-file deletion confirmation", async () => {

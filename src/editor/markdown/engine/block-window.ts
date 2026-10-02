@@ -726,7 +726,9 @@ export function blockWindow(extensions: readonly AnyExtension[], options: BlockW
       props: {
         decorations: (state) => blockWindowKey.getState(state)?.decorations,
         // The block window holds the reader's place itself, the same way in every engine.
-        attributes: (state): Record<string, string> => (blockWindowKey.getState(state)?.window ? { "data-lx-windowed": "" } : {}),
+        // And it keeps its width while a panel divider drags (trellis-hold-width.ts):
+        // every resized frame would lay out each placeholder and repaint the pane.
+        attributes: (state): Record<string, string> => (blockWindowKey.getState(state)?.window ? { "data-lx-windowed": "", "data-holds-width": "" } : {}),
         // A placeholder holds no caret, so the browser cannot move one past it to an edge of the document.
         handleKeyDown: (view, event) => {
           const edge = windowOf(view) ? documentEdge(event) : 0;

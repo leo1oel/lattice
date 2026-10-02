@@ -10,12 +10,20 @@ const NO_UNUSED_SYMBOLS: UnusedSymbols = { labels: [], citations: [] };
 
 /** The bibliography-derived indexes, read in one round. */
 export function loadBibliographyIndex() {
-  return Promise.all([
+  return Promise.all(requestBibliographyIndex());
+}
+
+/**
+ * The reads of `loadBibliographyIndex`, each on its own: the paper list comes
+ * back at once, while the label scan of a long .tex takes seconds.
+ */
+export function requestBibliographyIndex() {
+  return [
     invoke<PaperSummary[]>("list_papers"),
     invoke<string[]>("list_citation_keys"),
     invoke<CitationInfo[]>("list_citations"),
     invoke<ReferenceInfo[]>("list_references"),
-  ]);
+  ] as const;
 }
 
 /**
@@ -28,6 +36,7 @@ export function useProjectLibrary(state: ProjectState) {
   const [citationKeys, setCitationKeys] = useState<string[]>([]);
   const [citations, setCitations] = useState<CitationInfo[]>([]);
   const [references, setReferences] = useState<ReferenceInfo[]>([]);
+  const [bibliographyIndexPending, setBibliographyIndexPending] = useState(false);
   const [unusedSymbols, setUnusedSymbols] = useState<UnusedSymbols>(NO_UNUSED_SYMBOLS);
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [diskTodos, setDiskTodos] = useState<TodoHit[]>([]);
@@ -54,14 +63,27 @@ export function useProjectLibrary(state: ProjectState) {
     else setProjectWordCount(null);
   }, [loadWordCount, project]);
 
+  /** Forget the outgoing project's keys and labels until the incoming project's index lands. */
+  const resetBibliographyIndex = useCallback(() => {
+    setCitationKeys([]);
+    setCitations([]);
+    setReferences([]);
+    setBibliographyIndexPending(true);
+  }, []);
+
+  const applyReferences = useCallback((nextReferences: ReferenceInfo[] | null | undefined) => {
+    setReferences(nextReferences ?? []);
+    setBibliographyIndexPending(false);
+  }, []);
+
   const applyBibliographyIndex = useCallback((
     [nextPapers, nextCitationKeys, nextCitations, nextReferences]: Awaited<ReturnType<typeof loadBibliographyIndex>>,
   ) => {
     setPapers(nextPapers);
     setCitationKeys(nextCitationKeys);
     setCitations(nextCitations);
-    setReferences(nextReferences ?? []);
-  }, []);
+    applyReferences(nextReferences);
+  }, [applyReferences]);
 
   /** A newer bibliography refresh supersedes this one; see refreshAfterSave. */
   const claimBibliographyRefresh = useCallback(() => {
@@ -123,9 +145,10 @@ export function useProjectLibrary(state: ProjectState) {
   }, [applyBibliographyIndex, projectOperationGenerationRef, projectRef, projectRefreshGenerationRef, refreshUnusedSymbols, setProject]);
 
   return {
-    papers, citationKeys, citations, references, setReferences,
+    papers, setPapers, citationKeys, citations, references, bibliographyIndexPending,
     unusedSymbols, history, diskTodos, setDiskTodos, projectWordCount,
     loadHistory, loadTodos, loadWordCount, refreshUnusedSymbols, refreshHistory, refreshTodos, refreshWordCount,
-    applyBibliographyIndex, claimBibliographyRefresh, refreshAfterSave, refreshProject,
+    resetBibliographyIndex, applyReferences, applyBibliographyIndex, claimBibliographyRefresh, refreshAfterSave,
+    refreshProject,
   };
 }

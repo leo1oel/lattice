@@ -112,6 +112,9 @@ export function usePdfSourceTargets(recordRef: ActiveViewerRef, {
         width: `${Math.max(18, target.width * viewportScale)}px`,
         height: `${Math.max(12, target.height * viewportScale)}px`,
       });
+      // A page not drawn yet is not a positioned box (the PDF.js patch marks
+      // only pages with layers): position this one for the highlight.
+      pageView.div.classList.add("latticeLayered");
       pageView.div.append(highlight);
       if (firstTime(syncScrollRef, target.id)) {
         highlight.scrollIntoView({ block: "center", inline: "nearest" });

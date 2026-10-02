@@ -32,7 +32,7 @@ index ab24e0df4fe5a9b2b98f0a270982eb9c23197d82..10164cdca98a418d99bbc1851124d72d
        return (await decoder.decode()).image;
      } catch (reason) {
 diff --git a/web/pdf_viewer.mjs b/web/pdf_viewer.mjs
-index 29b3492cd9cb0869a906785739c34fc364ec1c17..752cf57a111c221b8b357a454ab4be21d08400f3 100644
+index 29b3492cd9cb0869a906785739c34fc364ec1c17..7061d643764a1f5f4a09c435f8333bacf445d726 100644
 --- a/web/pdf_viewer.mjs
 +++ b/web/pdf_viewer.mjs
 @@ -1576,7 +1576,8 @@ class PDFLinkService {
@@ -72,3 +72,89 @@ index 29b3492cd9cb0869a906785739c34fc364ec1c17..752cf57a111c221b8b357a454ab4be21
      };
      let isPointerDown = false;
      document.addEventListener("pointerdown", () => {
+@@ -6491,7 +6503,6 @@ class PDFPageView extends BasePDFPageView {
+   #layerProperties = null;
+   #needsRestrictedScaling = false;
+   #originalViewport = null;
+-  #previousRotation = null;
+   #scaleRoundX = 1;
+   #scaleRoundY = 1;
+   #textLayerMode = TextLayerMode.ENABLE;
+@@ -6600,6 +6611,10 @@ class PDFPageView extends BasePDFPageView {
+     return clone;
+   }
+   #addLayer(div, name) {
++    // Lattice: only a page with layers is a positioned box; see reset().
++    if (!this.div.classList.contains("latticeLayered")) {
++      this.div.classList.add("latticeLayered");
++    }
+     const pos = LAYERS_ORDER.get(name);
+     const oldDiv = this.#layers[pos];
+     this.#layers[pos] = div;
+@@ -6629,13 +6644,20 @@ class PDFPageView extends BasePDFPageView {
+       }
+       this.#userUnit = viewport.userUnit;
+     }
+-    if (this.pdfPage) {
+-      if (this.#previousRotation === viewport.rotation) {
+-        return;
+-      }
+-      this.#previousRotation = viewport.rotation;
++    // Lattice: the page box in px, set again on every scale change, instead
++    // of setLayerDimensions' round(var(--total-scale-factor) * ...) style.
++    // A var() in each page's own style cannot share WebKit's matched-style
++    // cache, so every zoom restyled each of a long PDF's thousands of pages
++    // the slow way (a 1,930-page PDF: 36 ms per zoom step, 7 ms in Chromium).
++    // Same value: what the canvas code below sizes the page to.
++    const width = `${floorToDivide(calcRound(viewport.width), this.#scaleRoundX)}px`;
++    const height = `${floorToDivide(calcRound(viewport.height), this.#scaleRoundY)}px`;
++    if (div.style.width !== width) {
++      div.style.width = width;
++    }
++    if (div.style.height !== height) {
++      div.style.height = height;
+     }
+-    setLayerDimensions(div, viewport, true, false);
+   }
+   updatePageNumber(newPageNumber) {
+     const oldPageNumber = this.id;
+@@ -6898,6 +6920,14 @@ class PDFPageView extends BasePDFPageView {
+         this.detailView = null;
+       }
+     }
++    // Lattice: a page box without layers needs no containing block, and in
++    // WebKit every positioned page is a render layer of its own: thousands of
++    // them made each frame of a zoom or fling of a long PDF update thousands
++    // of layers (a 1,930-page PDF zoomed at 53 fps, 87 with static pages).
++    // The viewer CSS positions only the pages marked here.
++    if (!div.firstElementChild && div.classList.contains("latticeLayered")) {
++      div.classList.remove("latticeLayered");
++    }
+   }
+   toggleEditingMode(isEditing) {
+     this.#isEditing = isEditing;
+@@ -7239,13 +7269,17 @@ class PDFPageView extends BasePDFPageView {
+     const pageHeight = floorToDivide(calcRound(height), sfy[1]);
+     outputScale.sx = canvasWidth / pageWidth;
+     outputScale.sy = canvasHeight / pageHeight;
+-    if (this.#scaleRoundX !== sfx[1]) {
+-      div.style.setProperty("--scale-round-x", `${sfx[1]}px`);
+-      this.#scaleRoundX = sfx[1];
+-    }
+-    if (this.#scaleRoundY !== sfy[1]) {
+-      div.style.setProperty("--scale-round-y", `${sfy[1]}px`);
+-      this.#scaleRoundY = sfy[1];
++    if (this.#scaleRoundX !== sfx[1] || this.#scaleRoundY !== sfy[1]) {
++      if (this.#scaleRoundX !== sfx[1]) {
++        div.style.setProperty("--scale-round-x", `${sfx[1]}px`);
++        this.#scaleRoundX = sfx[1];
++      }
++      if (this.#scaleRoundY !== sfy[1]) {
++        div.style.setProperty("--scale-round-y", `${sfy[1]}px`);
++        this.#scaleRoundY = sfy[1];
++      }
++      // Lattice: the px page box rounds to these steps too.
++      this.#setDimensions();
+     }
+     const recordBBoxes = this.enableOptimizedPartialRendering && this.#hasRestrictedScaling && !this.recordedBBoxes;
+     const recordImages = this.imagesRightClickMinSize !== -1 && !this.imageCoordinates;

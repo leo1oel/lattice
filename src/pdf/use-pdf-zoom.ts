@@ -89,6 +89,7 @@ export function usePdfZoom(recordRef: ActiveViewerRef, generation: number, view:
     viewer.style.transform = "";
     viewer.style.transformOrigin = "";
     viewer.style.clipPath = "";
+    viewer.style.willChange = "";
     previewRef.current = null;
   }, []);
 
@@ -140,6 +141,10 @@ export function usePdfZoom(recordRef: ActiveViewerRef, generation: number, view:
       // eslint-disable-next-line lingui/no-unlocalized-strings -- CSS value
       record.viewer.style.transformOrigin = `${x - viewer.left}px ${y - viewer.top}px`;
       record.viewer.style.clipPath = clip;
+      // Its own compositing layer for the gesture: WebKit otherwise repaints
+      // the transformed pages into the scroll area's tiles on every step
+      // (a 1,930-page PDF previewed at 74 fps, 91 with the layer).
+      record.viewer.style.willChange = "transform";
       preview = { record, base, target, x, y, timer: 0 };
       if (viewRef.current.fitMode) setFitMode(null);
     }

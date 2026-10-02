@@ -37,7 +37,9 @@ export function PdfPreviewLoading({ toolbar, children }: { toolbar?: ReactNode; 
   const { t } = useLingui();
   return (
     <div className="pdf-preview">
-      <div className="pdf-toolbar">{toolbar}</div>
+      <div className="pdf-toolbar-frame">
+        <div className="pdf-toolbar">{toolbar}</div>
+      </div>
       <div className="pdf-scroll-area">
         {children ?? <PdfLoading label={t`Loading PDF…`} />}
       </div>

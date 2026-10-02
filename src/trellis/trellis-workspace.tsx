@@ -42,6 +42,7 @@ import { PANEL_TITLES, spaceMixedScript } from "./trellis-titles";
 import { MENU_ICONS, PANEL_ICONS, fileIcon } from "./trellis-icons";
 import { FileHeaderTools } from "./trellis-header-tools";
 import { measurePdfToolbarMinWidth } from "../pdf/pdf-toolbar-min-width";
+import { holdWidthsWhileResizing } from "./trellis-hold-width";
 import "./trellis.css";
 
 // Before any workspace exists: Trellis writes some labels once, at creation.
@@ -556,10 +557,12 @@ const TrellisWorkspace = memo(function TrellisWorkspace({ controller, projectRoo
       ws.update({});
     });
     const stopPdf = observePdfToolbarMinimum(controller);
+    const stopHolding = holdWidthsWhileResizing(ws.element);
     return () => {
       unsubscribe();
       offMeasured();
       stopPdf();
+      stopHolding();
       controller.ui.set({ minWidth: 0 });
     };
   }, [controller, ws]);

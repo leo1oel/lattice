@@ -4,7 +4,7 @@ import { insertNewlineKeepIndent } from "@codemirror/commands";
 import { HighlightStyle, syntaxHighlighting } from "@codemirror/language";
 import { linter } from "@codemirror/lint";
 import { highlightSelectionMatches, openSearchPanel, replaceAll, search, searchKeymap } from "@codemirror/search";
-import { Prec, Transaction, type Extension } from "@codemirror/state";
+import { Prec, StateEffect, Transaction, type Extension } from "@codemirror/state";
 import { EditorView, keymap, tooltips, type Command } from "@codemirror/view";
 import { tags } from "@lezer/highlight";
 import { resolveTexlabDefinition, texlabCompletionSource, texlabHoverTooltip } from "../../build/texlab-language";
@@ -55,11 +55,15 @@ export const luxLatexHighlightStyle = HighlightStyle.define([
   { tag: tags.invalid, color: "inherit", textDecoration: "none" },
 ]);
 
+/** The project's citation and label index changed: lint the document against it again. */
+export const latexIndexChanged = StateEffect.define<null>();
+
 /** Project data the editor reads at use time, so extensions need not be rebuilt as it changes. */
 export type LatexEditorLiveData = {
   citationKeys: string[];
   citations: CitationInfo[];
   references: ReferenceInfo[];
+  indexPending?: boolean;
   unusedLabels: string[];
   unusedCitations: string[];
   localMacros: LocalMacro[];
@@ -268,6 +272,8 @@ export function latexEditorExtensions(options: LatexEditorOptions): Extension[] 
     texlabHoverTooltip(texlabPath, latexCommandHover, options.texlab),
     linter((view) => indexDiagnostics(view.state.doc.toString(), live(), currentPath, options.onCreateMissingFile), {
       delay: 400,
+      needsRefresh: (update) => update.transactions.some((transaction) => (
+        transaction.effects.some((effect) => effect.is(latexIndexChanged)))),
     }),
     autocompletion({
       override: [

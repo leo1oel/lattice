@@ -207,7 +207,7 @@ function App() {
   const library = useProjectLibrary(projectState);
   const {
     applyBibliographyIndex,
-    papers, citationKeys, citations, references,
+    papers, citationKeys, citations, references, bibliographyIndexPending,
     unusedSymbols, history, diskTodos, setDiskTodos, projectWordCount,
     loadHistory, loadTodos, loadWordCount, refreshUnusedSymbols, refreshHistory, refreshTodos, refreshWordCount,
     refreshAfterSave, refreshProject,
@@ -1511,6 +1511,7 @@ function App() {
       citationKeys={citationKeys}
       citations={citations}
       references={liveReferences}
+      indexPending={bibliographyIndexPending}
       unusedLabels={texlabActive ? [] : unusedSymbols.labels}
       unusedCitations={texlabActive ? [] : unusedSymbols.citations}
       onLoadReferenceImage={referenceImages.load}

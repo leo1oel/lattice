@@ -43,6 +43,14 @@ describe("LaTeX diagnostics", () => {
     expect(messages(diagnostics).some((message) => message.includes("also defined in sections/a.tex"))).toBe(true);
   });
 
+  it("reports no label or citation diagnostics until the project's index has landed", () => {
+    expect(messages(indexDiagnostics(
+      "\\label{fig:shared} \\citep{missing} \\ref{fig:gone} \\input{gone} $x",
+      { citationKeys: [], references: [figure("fig:shared", "sections/a.tex")], projectPaths: ["main.tex"], indexPending: true },
+      "main.tex",
+    ))).toEqual(["Unclosed inline math $.", "Missing file “gone”."]);
+  });
+
   it("flags missing include and graphics paths and offers to create a missing file", () => {
     const created: string[] = [];
     const diagnostics = pathDiagnostics(

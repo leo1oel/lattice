@@ -131,6 +131,8 @@ export function structureDiagnostics(text: string): Diagnostic[] {
 export type LatexIndex = {
   citationKeys: string[];
   references: ReferenceInfo[];
+  /** The keys and labels are not this project's yet: report nothing that depends on them. */
+  indexPending?: boolean;
   unusedLabels?: string[];
   unusedCitations?: string[];
   projectPaths?: string[];
@@ -143,6 +145,11 @@ export function indexDiagnostics(
   currentPath = "",
   onCreateMissingFile?: (path: string) => void,
 ): Diagnostic[] {
+  const fileDiagnostics = [
+    ...structureDiagnostics(text),
+    ...pathDiagnostics(text, index.projectPaths ?? [], index.graphicsRoots, onCreateMissingFile),
+  ];
+  if (index.indexPending) return fileDiagnostics;
   const citationKeys = new Set(index.citationKeys);
   const labels = new Set(index.references.map((reference) => reference.label));
   const unusedLabels = new Set(index.unusedLabels);
@@ -165,8 +172,7 @@ export function indexDiagnostics(
     return message ? [warning(from, to, "labels", message)] : [];
   });
   return [
-    ...structureDiagnostics(text),
-    ...pathDiagnostics(text, index.projectPaths ?? [], index.graphicsRoots, onCreateMissingFile),
+    ...fileDiagnostics,
     ...unknown(CITATION, citationKeys, "bibliography", (key) => i18n._(msg`Unknown citation key “${key}”.`)),
     ...unknown(REFERENCE, labels, "labels", (key) => i18n._(msg`Unknown label “${key}”.`)),
     ...labelDiagnostics,
