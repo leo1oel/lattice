@@ -4,11 +4,12 @@
  * Ranks `hay` against a lowercase `needle` that is not a prefix or substring
  * match: every needle character in order, each step scoring higher the closer
  * it follows the previous one. Zero when the characters do not all appear.
+ * Spaces only separate the parts, so "note 12" finds notes/note-012.md.
  */
 export function subsequenceScore(hay: string, needle: string): number {
   let score = 0;
   let index = 0;
-  for (const character of needle) {
+  for (const character of needle.replace(/\s+/g, "")) {
     const next = hay.indexOf(character, index);
     if (next < 0) return 0;
     score += 10 - Math.min(9, next - index);

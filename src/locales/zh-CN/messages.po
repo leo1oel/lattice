@@ -116,6 +116,14 @@ msgid "{conflicts} needs your decision"
 msgstr "{conflicts} 个需要你决定"
 
 #: src/canvas/editor-status-bar.tsx
+msgid "{count} char"
+msgstr "{count} 字符"
+
+#: src/canvas/editor-status-bar.tsx
+msgid "{count} chars"
+msgstr "{count} 字符"
+
+#: src/canvas/editor-status-bar.tsx
 msgid "{count} comment"
 msgstr "{count} 条评论"
 
@@ -131,6 +139,11 @@ msgstr "{count} 张图"
 msgid "{count} hits"
 msgstr "{count} 个结果"
 
+#: src/canvas/editor-status-bar.tsx
+msgid "{count} line"
+msgstr "{count} 行"
+
+#: src/canvas/editor-status-bar.tsx
 #: src/history/conflict-resolver.tsx
 msgid "{count} lines"
 msgstr "{count} 行"
@@ -163,6 +176,14 @@ msgstr "{count} 项待办"
 #: src/canvas/editor-status-bar.tsx
 msgid "{count} TODOs"
 msgstr "{count} 项待办"
+
+#: src/canvas/editor-status-bar.tsx
+msgid "{count} word"
+msgstr "{count} 词"
+
+#: src/canvas/editor-status-bar.tsx
+msgid "{count} words"
+msgstr "{count} 词"
 
 #: src/editor/markdown/engine/chrome/find-replace.tsx
 msgid "{current} of {count}"
@@ -360,8 +381,8 @@ msgid "{wholeFiles} changed on both sides. Overleaf’s version is in the projec
 msgstr "{wholeFiles} 两边都有改动。项目中现在是 Overleaf 的版本，你的版本保存在旁边的“(local conflict …)”文件中。"
 
 #: src/canvas/editor-status-bar.tsx
-msgid "{words} words · {chars} chars"
-msgstr "{words} 词 · {chars} 字符"
+msgid "{words} · {chars}"
+msgstr "{words} · {chars}"
 
 #: src/overleaf/overleaf-connect.tsx
 msgid "↑↓ to navigate · Enter to open"
@@ -1004,8 +1025,8 @@ msgid "Blue value"
 msgstr "蓝色值"
 
 #: src/canvas/editor-status-bar.tsx
-msgid "Body {body} · raw {raw} · {chars} chars"
-msgstr "正文 {body} · 原始 {raw} · {chars} 字符"
+msgid "Body {body} · raw {raw} · {chars}"
+msgstr "正文 {body} · 原始 {raw} · {chars}"
 
 #: src/canvas/editor-status-bar.tsx
 msgid "Body word count unavailable"
@@ -6931,8 +6952,8 @@ msgid "Section sign"
 msgstr "节标记"
 
 #: src/canvas/editor-status-bar.tsx
-msgid "Sel {words} words · {chars} chars · {lines} lines"
-msgstr "选区 {words} 词 · {chars} 字符 · {lines} 行"
+msgid "Sel {words} · {chars} · {lines}"
+msgstr "选区 {words} · {chars} · {lines}"
 
 #. placeholder {0}: entry.key
 #: src/papers/bibliography-audit.tsx

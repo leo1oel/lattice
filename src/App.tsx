@@ -3297,8 +3297,12 @@ function App() {
     ...outlineSources,
     ...(activeTexSource != null ? { [activeFile]: activeTexSource } : {}),
   }), [activeFile, activeTexSource, outlineSources]);
+  // Go to symbol lists the same outline, so it reads the included files too:
+  // with only the open buffer it found nothing in a project whose sections
+  // live in \input/\include files, or whenever the root was not open.
+  const outlineWanted = outlineOpen || searchDialog === "goto-symbol";
   useEffect(() => {
-    if (!project || !outlineOpen || !rootDocumentPath) return;
+    if (!project || !outlineWanted || !rootDocumentPath) return;
     let cancelled = false;
     const missing: string[] = [];
     const seen = new Set<string>();
@@ -3336,7 +3340,7 @@ function App() {
     return () => {
       cancelled = true;
     };
-  }, [liveOutlineSources, outlineOpen, project, projectPaths, rootDocumentPath]);
+  }, [liveOutlineSources, outlineWanted, project, projectPaths, rootDocumentPath]);
   const outlineNodes = useMemo(() => {
     if (!rootDocumentPath) return [];
     return parseProjectOutline(rootDocumentPath, liveOutlineSources, projectPaths);
@@ -3822,7 +3826,7 @@ function App() {
       projectPaths={projectPaths}
       graphicsRoots={graphicsRoots}
       buildDiagnostics={
-        source === buildPipeline.compiledSource
+        buildPipeline.compiledSources.get(activeFile) === source
           ? build?.diagnostics ?? EMPTY_DIAGNOSTICS
           : EMPTY_DIAGNOSTICS
       }

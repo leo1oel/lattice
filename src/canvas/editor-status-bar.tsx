@@ -30,6 +30,15 @@ export function EditorStatusBar(props: {
   const wordCount = useMemo(() => countWords(source), [source]);
   const selectionStats = useMemo(() => textStats(selectedText), [selectedText]);
   const openComments = props.comments.filter((comment) => !comment.resolved).length;
+  const words = (count: number) => (count === 1
+    ? t({ message: `${{ count: count.toLocaleString() }} word` })
+    : t({ message: `${{ count: count.toLocaleString() }} words` }));
+  const chars = (count: number) => (count === 1
+    ? t({ message: `${{ count: count.toLocaleString() }} char` })
+    : t({ message: `${{ count: count.toLocaleString() }} chars` }));
+  const lines = (count: number) => (count === 1
+    ? t({ message: `${{ count: count.toLocaleString() }} line` })
+    : t({ message: `${{ count: count.toLocaleString() }} lines` }));
   return (
     <div className="editor-status-bar" aria-label={t`Editor status`}>
       <button type="button" className="status-goto" title={t`Go to line (⌘G)`} onClick={props.onGotoLine}>
@@ -95,10 +104,10 @@ export function EditorStatusBar(props: {
           : t`Body word count unavailable`}
       >
         {selectedText
-          ? t({ message: `Sel ${{ words: selectionStats.words.toLocaleString() }} words · ${{ chars: selectionStats.chars.toLocaleString() }} chars · ${{ lines: selectionStats.lines.toLocaleString() }} lines` })
+          ? t({ message: `Sel ${{ words: words(selectionStats.words) }} · ${{ chars: chars(selectionStats.chars) }} · ${{ lines: lines(selectionStats.lines) }}` })
           : projectWordCount
-            ? t({ message: `Body ${{ body: projectWordCount.total.toLocaleString() }} · raw ${{ raw: wordCount.toLocaleString() }} · ${{ chars: source.length.toLocaleString() }} chars` })
-            : t({ message: `${{ words: wordCount.toLocaleString() }} words · ${{ chars: source.length.toLocaleString() }} chars` })}
+            ? t({ message: `Body ${{ body: projectWordCount.total.toLocaleString() }} · raw ${{ raw: wordCount.toLocaleString() }} · ${{ chars: chars(source.length) }}` })
+            : t({ message: `${{ words: words(wordCount) }} · ${{ chars: chars(source.length) }}` })}
       </span>
     </div>
   );

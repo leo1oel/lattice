@@ -3,7 +3,10 @@ import { useLingui } from "@lingui/react/macro";
 import { invoke } from "@tauri-apps/api/core";
 import type { BuildResult, ProjectSnapshot } from "../app-types";
 import { toMessage } from "../app-utils";
-import { diagnosticsFingerprint, missingTexDependencyFile, type CompileDiagnostic } from "../build/compile-diagnostics";
+import {
+  diagnosticsFingerprint, flattenProjectPaths, missingTexDependencyFile, resolveDiagnosticPath, sortDiagnostics,
+  type CompileDiagnostic,
+} from "../build/compile-diagnostics";
 import { isMissingTexBuildError } from "../build/tex-setup";
 import { pdfBytesFingerprint, pdfBytesToObjectUrl } from "../pdf/pdf-bytes";
 import { logAction } from "../telemetry/app-notify";
@@ -33,6 +36,37 @@ type QueuedBuild = { force: boolean | null; sound: boolean; consumeAgentAssociat
 const IDLE_QUEUE: QueuedBuild = { force: null, sound: false, consumeAgentAssociations: false };
 
 type Ref<T> = { readonly current: T };
+
+/** The text each file had when the build compiled it, keyed by project path. */
+export type CompiledSources = ReadonlyMap<string, string>;
+const NO_COMPILED_SOURCES: CompiledSources = new Map();
+
+/**
+ * The text a build's diagnostics describe, for every project file they name:
+ * the open buffer for the file the writer was in, and the file on disk for the
+ * rest (the build compiled those as saved). Without the other files, an error
+ * in an included chapter, or any diagnostic of the build a project opens with,
+ * never showed in the editor or answered F8 there.
+ */
+async function readCompiledSources(
+  project: ProjectSnapshot,
+  diagnostics: CompileDiagnostic[],
+  activeFile: string,
+  activeSource: string,
+): Promise<CompiledSources> {
+  const sources = new Map<string, string>();
+  if (activeFile) sources.set(activeFile, activeSource);
+  const projectPaths = flattenProjectPaths(project.files ?? []);
+  const known = new Set(projectPaths);
+  const paths = new Set(diagnostics
+    .map((diagnostic) => resolveDiagnosticPath(diagnostic.file, projectPaths))
+    .filter((path) => known.has(path) && !sources.has(path)));
+  await Promise.all([...paths].map((path) => invoke<string>("read_project_file", { path, projectRoot: project.root })
+    .then((text) => { sources.set(path, text); })
+    // A file the writer cannot open shows no diagnostics in an editor either.
+    .catch(() => undefined)));
+  return sources;
+}
 
 /**
  * Adopt the root document the backend built. It may have promoted the open
@@ -97,8 +131,8 @@ export function useBuildPipeline({
   const [building, , buildingRef, setBuilding] = useRefState(false);
   const queueRef = useRef<QueuedBuild>({ ...IDLE_QUEUE });
   const [cleaning, setCleaning] = useState(false);
-  /** The buffer each build compiled, so diagnostics only show against the text they describe. */
-  const [compiledSource, setCompiledSource] = useState("");
+  /** The text each build compiled, so diagnostics only show against the text they describe. */
+  const [compiledSources, setCompiledSources] = useState<CompiledSources>(NO_COMPILED_SOURCES);
   const [diagnosticsExpanded, setDiagnosticsExpanded] = useState(false);
   const [diagnosticsDismissed, setDiagnosticsDismissed] = useState(false);
   /** Fingerprint of the diagnostics the reader last dismissed, so an unchanged
@@ -259,6 +293,7 @@ export function useBuildPipeline({
         if (!projectRoot) continue;
         buildScope = { operationGeneration: projectGenerationRef.current, previewGeneration, projectRoot };
         const sourceAtBuild = sourceRef.current;
+        const fileAtBuild = activeFileRef.current;
         // The open file rides along so the backend can re-target the build on
         // it when it is a compilable root — recomputed each pass because a
         // queued rebuild may run after the editor moved to another document.
@@ -279,10 +314,14 @@ export function useBuildPipeline({
           diagnostics: result.diagnostics.length,
           has_pdf: result.hasPdf,
         });
-        const pdfBytes = result.hasPdf ? await invoke<ArrayBuffer>("read_compiled_pdf", { projectRoot }).catch((reason) => {
-          if (scopeIsCurrent()) throw reason;
-          return null;
-        }) : null;
+        const project = projectRef.current;
+        const [pdfBytes, sources] = await Promise.all([
+          result.hasPdf ? invoke<ArrayBuffer>("read_compiled_pdf", { projectRoot }).catch((reason) => {
+            if (scopeIsCurrent()) throw reason;
+            return null;
+          }) : null,
+          project ? readCompiledSources(project, result.diagnostics, fileAtBuild, sourceAtBuild) : NO_COMPILED_SOURCES,
+        ]);
         if (!scopeIsCurrent()) continue;
         setBuild(result);
         // A stopped build comes back as a failed result carrying the
@@ -293,7 +332,7 @@ export function useBuildPipeline({
         if (rootDocument) {
           setProject((current) => current?.root === projectRoot ? adoptRootDocument(current, rootDocument) : current);
         }
-        setCompiledSource(sourceAtBuild);
+        setCompiledSources(sources);
         // Reopening the panel is for news. Autosave rebuilds after every pause
         // in typing, and reopening unconditionally meant a warning the writer
         // had chosen to live with returned seconds after they dismissed it, for
@@ -390,12 +429,18 @@ export function useBuildPipeline({
     setDiagnosticsDismissed(true);
   }, []);
 
-  /** Step to the next or previous diagnostic of the current build, wrapping; a new build restarts the walk. */
+  /**
+   * Step to the next or previous diagnostic of the current build in the order
+   * the panel lists them, wrapping. A new build restarts the walk at its first
+   * diagnostic (or its last, stepping back).
+   */
   const cycleDiagnostic = useCallback((direction: 1 | -1) => {
-    const diagnostics = build?.diagnostics ?? [];
+    const diagnostics = sortDiagnostics(build?.diagnostics ?? []);
     if (!diagnostics.length) return;
-    const cursor = diagnosticCursorRef.current.build === build ? diagnosticCursorRef.current.index : 0;
-    const next = (cursor + direction + diagnostics.length * 10) % diagnostics.length;
+    const walking = diagnosticCursorRef.current.build === build;
+    const next = walking
+      ? (diagnosticCursorRef.current.index + direction + diagnostics.length) % diagnostics.length
+      : direction === 1 ? 0 : diagnostics.length - 1;
     diagnosticCursorRef.current = { build, index: next };
     void openDiagnosticRef.current(diagnostics[next]);
   }, [build, openDiagnosticRef]);
@@ -409,7 +454,7 @@ export function useBuildPipeline({
     building,
     outcome,
     cleaning,
-    compiledSource,
+    compiledSources,
     diagnosticsExpanded,
     setDiagnosticsExpanded,
     diagnosticsDismissed,
@@ -424,7 +469,7 @@ export function useBuildPipeline({
     cleanProject,
     cleanAndRebuild,
   }), [
-    abortBuild, build, building, outcome, cleanAndRebuild, cleanProject, cleaning, compiledSource, cycleDiagnostic,
+    abortBuild, build, building, outcome, cleanAndRebuild, cleanProject, cleaning, compiledSources, cycleDiagnostic,
     diagnosticsDismissed, diagnosticsExpanded, dismissDiagnostics, pdfUrl, resetForProject, resetQueue, runBuild,
   ]);
 }

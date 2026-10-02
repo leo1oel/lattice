@@ -167,6 +167,30 @@ describe("documents and editors", () => {
     expect(invokeCalls("read_project_file", (args) => argPath(args) === "plot.png")).toHaveLength(0);
   });
 
+  it("lists sections from included chapters in Go to symbol without the outline open", async () => {
+    // Regression: the included files were only read while the Outline panel
+    // was open, so ⌘⇧O found nothing in a book whose sections live in chapters.
+    const snapshot = projectSnapshot({ files: [fileNode("main.tex"), dirNode("chapters", fileNodes("chapters/intro.tex"))] });
+    const chapter = deferred<string>();
+    renderApp({
+      ...projectCommands(snapshot),
+      read_project_file: (args) => argPath(args) === "chapters/intro.tex"
+        ? chapter.promise
+        : "\\documentclass{book}\n\\begin{document}\n\\include{chapters/intro}\n\\end{document}",
+    });
+    await waitForSelectedTab("main.tex");
+    fireEvent.keyDown(window, { key: "o", metaKey: true, shiftKey: true });
+    const search = await screen.findByRole("searchbox", { name: "Go to symbol" });
+    // What the writer types before the chapters arrive survives their arrival.
+    fireEvent.change(search, { target: { value: "moti" } });
+    await act(async () => chapter.resolve("\\chapter{Introduction}\n\\section{Motivation}"));
+    const dialog = screen.getByRole("dialog", { name: "Go to symbol" });
+    expect(await within(dialog).findByText("Motivation")).toBeInTheDocument();
+    expect(within(dialog).getByText("chapters/intro.tex:2")).toBeInTheDocument();
+    expect(within(dialog).queryByText("Introduction")).toBeNull();
+    expect(screen.getByRole("searchbox", { name: "Go to symbol" })).toHaveValue("moti");
+  });
+
   it("restores tab order and the editor while migrating the old three-column layout", async () => {
     const snapshot = projectSnapshot({ files: fileNodes("main.tex", "intro.tex", "method.tex") });
     persistLayout(snapshot.root, {

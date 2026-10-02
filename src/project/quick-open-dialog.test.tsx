@@ -27,4 +27,18 @@ describe("QuickOpenDialog intent", () => {
     await waitFor(() => expect(onIntent).toHaveBeenLastCalledWith("notes/alpha.md"));
     expect(onOpen).not.toHaveBeenCalled();
   });
+
+  it("matches the parts of a spaced query in order", () => {
+    render(
+      <QuickOpenDialog open paths={["notes/note-012.md", "chapters/intro.tex", "notes/note-120.md"]} onClose={vi.fn()} onOpen={vi.fn()} />,
+    );
+    const search = screen.getByRole("searchbox", { name: "Quick open search" });
+    fireEvent.change(search, { target: { value: "note 12" } });
+    expect(screen.getAllByRole("option")).toHaveLength(2);
+    screen.getByRole("option", { name: "notes/note-012.md" });
+    screen.getByRole("option", { name: "notes/note-120.md" });
+    fireEvent.change(search, { target: { value: "ch intro" } });
+    expect(screen.getAllByRole("option")).toHaveLength(1);
+    screen.getByRole("option", { name: "chapters/intro.tex" });
+  });
 });

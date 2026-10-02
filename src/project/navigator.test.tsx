@@ -519,6 +519,18 @@ describe("Navigator / project tree", () => {
     await waitFor(() => expect(view.props.onDeleteEntries).toHaveBeenCalledWith(["main.tex", "sections/intro.tex"]));
   });
 
+  it("keeps a pressed row from scrolling itself into view, so a row cut off at the edge still opens", async () => {
+    expandSections();
+    const view = renderNavigator({ mode: "project" });
+    const intro = await findTreeItem("sections/intro.tex");
+    // The native focus scroll would recycle the virtualized rows between
+    // mousedown and mouseup and send the click to the list instead.
+    expect(fireEvent.mouseDown(intro, { button: 0 })).toBe(false);
+    expect(fireEvent.mouseDown(intro, { button: 2 })).toBe(true);
+    fireEvent.click(intro);
+    await waitFor(() => expect(view.props.onFile).toHaveBeenCalledWith("sections/intro.tex"));
+  });
+
   it("copies a project file with Command-C/V instead of reading an image", async () => {
     const { props } = renderNavigator({ mode: "project" });
     const main = await findTreeItem("main.tex");
