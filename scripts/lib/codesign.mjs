@@ -1,6 +1,6 @@
 // Mach-O detection and codesign invocations shared by the runtime staging
 // scripts (Synara, Open Slide, and the bundled Chromium).
-import { closeSync, openSync, readSync } from "node:fs";
+import { chmodSync, closeSync, openSync, readSync } from "node:fs";
 import { run, walkFiles } from "./util.mjs";
 
 const MACH_O_MAGICS = new Set([
@@ -58,4 +58,18 @@ export function codesign(path, { identity, entitlements, deep = false }) {
 
 export function verifySignature(path, ...flags) {
   run("/usr/bin/codesign", ["--verify", ...flags, path]);
+}
+
+/**
+ * Sign and strictly verify every Mach-O file below `root`, making each one
+ * executable first (package installs can drop the bit). Returns how many it signed.
+ */
+export function signMachOTree(root, { identity, entitlements }) {
+  const binaries = findMachOBinaries(root);
+  for (const path of binaries) {
+    chmodSync(path, 0o755);
+    codesign(path, { identity, entitlements });
+    verifySignature(path, "--strict");
+  }
+  return binaries.length;
 }
