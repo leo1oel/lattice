@@ -170,13 +170,11 @@ export function persistLastFile(root: string, path: string) {
 
 export type WorkspaceLayout = {
   openTabs: string[];
-  pinnedTabs?: string[];
   activeFile: string;
   activeTab: string;
   canvasMode: CanvasMode;
   documentMode: DocumentViewMode;
   paperView: "blog" | "fulltext";
-  tabRecency: string[];
 };
 
 const CANVAS_MODES: readonly CanvasMode[] = ["source", "pdf", "split", "asset"];
@@ -208,13 +206,11 @@ function normalizeWorkspaceLayout(value: unknown): WorkspaceLayout | null {
     ?? oneOf(candidate.documentMode, DOCUMENT_MODES, canvasMode === "asset" ? "split" : canvasMode);
   return {
     openTabs,
-    pinnedTabs: stringList(candidate.pinnedTabs).filter((path) => openTabs.includes(path)),
     activeFile,
     activeTab: typeof candidate.activeTab === "string" && candidate.activeTab ? candidate.activeTab : activeFile,
     canvasMode,
     documentMode,
     paperView: oneOf(candidate.paperView, ["fulltext"], "blog"),
-    tabRecency: stringList(candidate.tabRecency),
   };
 }
 

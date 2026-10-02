@@ -35,7 +35,7 @@ description.
 
 | You want to change… | Start here |
 | --- | --- |
-| **The app shell, global state, IPC wiring** | `src/App.tsx` (the hub — see §5), `src/app/` (the hooks and surfaces extracted out of it: `use-project-state.ts`, `use-document-buffers.ts`, `use-build-pipeline.ts`, `use-synara-host.ts`, `app-*.tsx` — see §6), `src/main.tsx` (root render, locale activation, error capture), `src/app-types.ts` (405 lines of shared shapes), `src/app-utils.ts`, `src/app/window-layout.ts`, `src/trellis/` (the panel workspace) |
+| **The app shell, global state, IPC wiring** | `src/App.tsx` (the hub — see §5), `src/app/` (the hooks and surfaces extracted out of it: `use-project-state.ts`, `use-open-documents.ts`, `use-build-pipeline.ts`, `use-synara-host.ts`, `app-*.tsx` — see §6), `src/main.tsx` (root render, locale activation, error capture), `src/app-types.ts` (405 lines of shared shapes), `src/app-utils.ts`, `src/app/window-layout.ts`, `src/trellis/` (the panel workspace) |
 | **The LaTeX / CodeMirror source editor** | `src/editor/latex/latex-editor.ts` (390 — assembles the CM6 extension set from `latex-completions.ts`, `latex-diagnostics.ts`, `latex-hover-cards.ts`, `latex-environments.ts`, `latex-edits.ts`, `latex-symbols.ts`), `src/editor/codemirror-host.tsx` (the `@uiw/react-codemirror` wrapper), `src/canvas/document-canvas.tsx` (1,391 — the split source/preview shell that mounts it) and its modules in `src/canvas/` (`editor-extensions.ts`, `html-preview.tsx`, `paper-reader.tsx`, …), `src/editor/editor-languages.ts`, `src/editor/harper-spellcheck.ts`, `src/editor/latex/latex-outline.ts`, `src/editor/latex/latex-text.ts` |
 | **The visual Markdown (TipTap) editor** | Lattice's own engine in `src/editor/markdown/engine/`: `lattice-visual-editor.tsx` (the host component: publication, path swaps, eligibility), `markdown-document.ts` (the byte-preserving Markdown round trip), `markdown-to-document.ts` / `document-to-markdown.ts`, `engine-schema.ts`, `source-map.ts` (Markdown offsets ↔ ProseMirror positions), `source-overlays.ts` (presence, tracked-change and comment overlays), `passive-view.tsx` (large read-only documents), and `chrome/` (slash menu, selection toolbar, links, find, block controls). The host contract is `src/editor/markdown/visual-editor-props.ts`; the frozen clean-room spec it was written from is [`visual-editor-spec.md`](visual-editor-spec.md). |
 | **The spreadsheet** | `src/editor/spreadsheet/spreadsheet-editor.tsx` (495, the React host), `src/editor/spreadsheet/spreadsheet-univer.ts` (Univer 0.25 setup, theme and menus), `src/editor/spreadsheet/spreadsheet-types.ts` (the `.lattice-sheet` format), `src/editor/spreadsheet/spreadsheet-operations.ts`, `src/editor/spreadsheet/spreadsheet-yjs.ts` (523 — the local Y.Doc model), `src/editor/spreadsheet/spreadsheet-xlsx.ts` + `src-tauri/src/xlsx.rs` (import/export) |
@@ -177,7 +177,8 @@ engine (§2), and a repository guard test keeps that code from coming back.
 
 | File | LOC | Role |
 | --- | --- | --- |
-| `src/App.tsx` | ~4,100 | The hub. Composes the `src/app/` hooks and owns what still spans them: file/Paper/asset opening, pane arrangement, tree mutations, the command table and the top-level layout. See §6. |
+| `src/App.tsx` | ~3,100 | The hub. Composes the `src/app/` hooks and owns what still spans them: the project lifecycle, tree mutations, the command table and the top-level layout. See §6. |
+| `src/app/use-open-documents.ts` | ~1,300 | The open documents: tabs, the file/Paper/asset in front and its buffers, every open and close, back/forward, autosave, disk sync and the layout restore. Read its tests for the guarantees. |
 | `src-tauri/src/project.rs` + `project/` | 6,262 | Project validation, path safety, the transaction/history model, file classification, tree building, zip import/export. `project.rs` maps the submodules; most Rust areas depend on it. |
 | `src-tauri/src/overleaf.rs` + `overleaf/` | 4,196 | Overleaf session, linking and clone, REST, review, and the three-way merge against `.research/overleaf-base/`. |
 | `src/canvas/document-canvas.tsx` | 1,391 | The editing surface: source pane, preview pane, the split layout, and the mount points for every lazy editor. |
@@ -200,23 +201,25 @@ into cohesive modules (see §2).
 
 Stated plainly so you are not surprised.
 
-### `App.tsx` is still the hub, at ~4,100 lines
+### `App.tsx` is still the hub, at ~3,100 lines
 
 It was 10,891 lines before the simplification pass that split it up. Most
 self-contained state now lives in hooks under `src/app/`, and App composes
 them:
 
-- **Project and documents:** `use-project-state.ts` (project identity, transitions, `captureProjectScope`), `use-project-library.ts` (papers, citations, history, TODOs), `use-document-buffers.ts` (every editor buffer and its ref twin), `use-file-view-states.ts`, `workspace-restore.ts` (a pure restore plan).
+- **Project and documents:** `use-project-state.ts` (project identity, transitions, `captureProjectScope`), `use-project-library.ts` (papers, citations, history, TODOs), `use-open-documents.ts` (the open documents: tabs, the file, Paper or asset in front, every buffer, opening and closing, back/forward, autosave, disk sync, and the layout restore it drives through `use-file-view-states.ts` and the pure plan in `workspace-restore.ts`), `use-canvas-requests.ts`.
 - **Build and agent:** `use-build-pipeline.ts`, `use-tex-setup.ts`, `use-agent-checkpoints.ts`, `use-agent-context.ts`, `use-synara-host.ts`.
 - **Overleaf and Open Slide:** `use-overleaf-workspace.ts` and `open-slide-writes.ts` (Open Slide writes).
 - **Workspace and commands:** `use-trellis-bridge.ts` (the Trellis bridge, panel menus and doc tools), `use-app-commands.ts` (the palette's `runCommand` and the global ⌘/Ctrl-shortcut and F8 keydown listener).
 - **Surfaces:** `app-titlebar.tsx`, `app-history-drawers.tsx`, `app-search-dialogs.tsx`, `app-project-dialogs.tsx`, `app-overleaf-drawer.tsx`, `app-editor-panels.tsx`, each handed the hook object it renders rather than dozens of loose props. The workspace itself is the Trellis panel layout in `src/trellis/`.
 - **Shared plumbing:** `effect-helpers.ts` (`disposeWhenSettled`, `subscribeTauriEvent`, `whenIdle`, `frameCoalescer`, `onLayoutChange`, timers, `useLatest`, `useRefState`).
 
-What remains in App is the logic that genuinely spans those hooks: opening
-files, Papers and assets (`loadFile`, `openProjectFile`,
-`openPaper`, `dropProjectPath`), tree mutations, the one command table that
-drives both the palette and the global shortcuts, and the top-level layout.
+What remains in App is the logic that genuinely spans those hooks: the
+project lifecycle around `useOpenDocuments`' `enter`, tree mutations, the one
+command table that drives both the palette and the global shortcuts, and the
+top-level layout. Every way of changing what is open goes through the store's
+commands (`openFile`, `openPaper`, `openAsset`, `open`, `close`, `save`, …);
+its test file is the place to read what they guarantee.
 One-shot requests to the canvas (jump to a line, restore a view, insert a
 citation or figure, rename or wrap an environment) travel as a single
 `CanvasRequests` bundle and are settled by id.
@@ -244,7 +247,7 @@ The warnings are almost entirely `react-hooks/*` diagnostics that
 `eslint.config.js:45-55` deliberately downgrades to warnings
 (`exhaustive-deps`, `refs`, `set-state-in-effect`, `immutability`), and
 `react-refresh/only-export-components`. At the time of writing
-`document-canvas.tsx` (9) and `App.tsx` (9) carry 18 of the 42; measure
+`document-canvas.tsx` (9) and `App.tsx` (7) carry 16 of the 40; measure
 before quoting a number.
 
 ### Test files that do not name what they test

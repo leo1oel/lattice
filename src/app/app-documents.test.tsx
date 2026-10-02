@@ -198,7 +198,6 @@ describe("documents and editors", () => {
       // The retired three-column mode, as an older build saved it.
       canvasMode: "columns" as WorkspaceLayout["canvasMode"],
       ...{ secondaryFile: "method.tex", focusedPane: "secondary" } as unknown as Partial<WorkspaceLayout>,
-      tabRecency: ["method.tex", "main.tex", "intro.tex"],
     });
     renderApp({ ...projectCommands(snapshot), read_project_file: readPathContent });
     // There is no second editor any more: the old layout's primary file opens as the editor, and the file its
@@ -252,7 +251,6 @@ describe("documents and editors", () => {
     let saved = false;
     persistLayout(snapshot.root, {
       openTabs: ["main.tex", path], activeFile: path, canvasMode: "source", documentMode: "source", paperView: "fulltext",
-      tabRecency: [path, "main.tex"],
     });
     renderApp({
       initial_project: snapshot, refresh_project: snapshot, read_project_file: readFiles({ [path]: original }, "Main"),

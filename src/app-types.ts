@@ -223,11 +223,19 @@ export type EditorKeymap = "default" | "vim" | "emacs";
 
 // ---- Callbacks App hands to the modules split out of it -------------------
 
-export type OpenProjectFile = (
-  path: string,
-  line?: number,
-  options?: { revealSource?: boolean },
-) => Promise<void>;
+export type OpenFileOptions = {
+  /** Land on this 1-based line (and record it in back/forward history). */
+  line?: number;
+  /**
+   * Whether a file with no preview of its own (.bib, .sty, .cls) may take
+   * the whole editor area. True (the default) for an ordinary open — that
+   * file has nothing to show beside itself. False for a reverse SyncTeX jump,
+   * which would otherwise close the very PDF the double-click came from.
+   */
+  revealSource?: boolean;
+};
+/** Open a project file in the text editor. */
+export type OpenProjectFile = (path: string, options?: OpenFileOptions) => Promise<void>;
 export type RefreshProject = (scope?: { expectedRoot: string; generation: number }) => Promise<ProjectSnapshot>;
 export type CompileProject = (force?: boolean, sound?: boolean, options?: { consumeAgentAssociations?: boolean }) => Promise<void>;
 /** Put the caret (a character offset) and scroll position back in a file. */

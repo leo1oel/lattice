@@ -51,8 +51,8 @@ export function useReferenceImport({
     source: string;
     dirty: boolean;
     save: () => Promise<boolean>;
-    /** Replace the open file's buffer with what is now on disk. */
-    commit: (content: string) => void;
+    /** Durable text for `path` reached disk: show it if `path` is the open file. */
+    accept: (path: string, content: string) => void;
   };
   /** Insert `\cite{key}` at the editor caret. */
   onCite: (key: string) => void;
@@ -205,7 +205,7 @@ export function useReferenceImport({
     return resolved;
   }, [setBibEntry]);
 
-  const { activeFile, source, dirty, save, commit } = editor;
+  const { activeFile, source, dirty, save, accept } = editor;
   const saveBibEntry = useCallback(async (draft: BibEntryDraft, insertCite: boolean) => {
     const { importRoot, mode } = bibEntry;
     if (!project || (importRoot !== null && importRoot !== project.root)) return;
@@ -243,7 +243,7 @@ export function useReferenceImport({
       }
       onExternalEdits.current([bibliography]);
       // Re-sync the editor buffer with what's now on disk.
-      if (bibliography === activeFile) commit(await invoke<string>("read_project_file", { path: bibliography }));
+      if (bibliography === activeFile) accept(bibliography, await invoke<string>("read_project_file", { path: bibliography }));
       await refreshProject();
       setBibEntry({ open: false });
       if (insertCite) onCite(draft.key);
@@ -253,7 +253,7 @@ export function useReferenceImport({
       setBibEntry({ busy: false });
     }
   }, [
-    activeFile, bibEntry, commit, dirty, importReference, onCite, project, projectRootRef,
+    accept, activeFile, bibEntry, dirty, importReference, onCite, project, projectRootRef,
     refreshProject, save, setBibEntry, source, onExternalEdits, t,
   ]);
 

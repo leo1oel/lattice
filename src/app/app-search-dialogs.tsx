@@ -115,11 +115,11 @@ export function AppSearchDialogs({ open, setOpen, activeFile, openProjectFile, o
         onSelect={closeThen((item) => {
           if (item.id.startsWith("section:")) {
             const node = flattenOutline(outlineNodes).find((entry) => `section:${entry.id}` === item.id);
-            if (node) void openProjectFile(node.path || activeFile, node.line);
+            if (node) void openProjectFile(node.path || activeFile, { line: node.line });
             return;
           }
           const reference = liveReferences.find((entry) => `label:${entry.path}:${entry.label}` === item.id);
-          if (reference) void openProjectFile(reference.path, reference.line);
+          if (reference) void openProjectFile(reference.path, { line: reference.line });
         })}
       />
       {insertPickers.map((picker) => (
@@ -208,7 +208,7 @@ export function AppProjectSearchDialogs({ search, captureProjectScope, projectRe
         }}
         onOpenHit={(path, line) => {
           if (parsePaperLinkPath(path)) props.openMarkdownProjectPath(path);
-          else void props.openProjectFile(path, line);
+          else void props.openProjectFile(path, { line });
         }}
       />
       <ProjectReplaceDialog
@@ -218,7 +218,7 @@ export function AppProjectSearchDialogs({ search, captureProjectScope, projectRe
         preview={replace.preview}
         onClose={() => setReplace({ open: false, preview: null })}
         onOpenMatch={(path, line) => {
-          void props.openProjectFile(path, line);
+          void props.openProjectFile(path, { line });
         }}
         onPreview={(query, options) => void runReplaceStep(async () => {
           setReplace({ preview: await invoke<ReplacePreviewResult>("preview_replace_in_project", { query, paths: null, ...options }) });

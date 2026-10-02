@@ -78,12 +78,9 @@ export function planWorkspaceRestore(
   if (activeTab && !tabs.includes(activeTab)) tabs.push(activeTab);
   const activeKind = paperKeys.has(activeTab) ? "paper" : assetPaths.has(activeTab) ? "asset" : "document";
   const mode = restoredCanvasMode(activeTab, activeKind, layout);
-  // The saved recency order first, then any open tab it does not know yet.
-  const tabRecency = [...new Set([...(layout?.tabRecency ?? []).filter((path) => tabs.includes(path)), ...tabs])];
   return {
     primaryFile,
     tabs,
-    tabRecency,
     activeTab,
     /** A Paper or asset tab must be opened through its own reader once the project is in. */
     activeKind,

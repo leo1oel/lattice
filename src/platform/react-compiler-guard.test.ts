@@ -25,8 +25,9 @@ import { describe, expect, it } from "vitest";
 const CEILINGS: Record<string, number> = {
   // 22 after the build pipeline, reference import, editor comments and TeX
   // setup moved into src/app hooks, which carry the rest below; 17 once the
-  // Lattice Shares branches went.
-  "src/App.tsx": 17,
+  // Lattice Shares branches went; 13 once the open documents moved into
+  // use-open-documents.ts.
+  "src/App.tsx": 13,
   // Extracted out of App.tsx. They inherit its try/finally bailouts rather than
   // adding new ones, but they need their own ceilings or those bailouts leave
   // the guard's field of view entirely.
@@ -35,6 +36,10 @@ const CEILINGS: Record<string, number> = {
   "src/app/use-reference-import.ts": 2,
   "src/app/use-editor-comments.ts": 0,
   "src/app/use-tex-setup.ts": 1,
+  // The store behind every editor surface compiles fully, so App's typing
+  // renders run one memo cache for it rather than a hook per command.
+  "src/app/use-open-documents.ts": 0,
+  "src/app/use-canvas-requests.ts": 0,
   "src/app/app-overleaf-drawer.tsx": 0,
   "src/app/app-editor-panels.tsx": 0,
   "src/app/app-history-drawers.tsx": 0,

@@ -2046,11 +2046,11 @@ msgstr "Could not render this file: {0}"
 msgid "Could not safely preserve this entry's BibTeX expressions."
 msgstr "Could not safely preserve this entry's BibTeX expressions."
 
-#: src/App.tsx
+#: src/app/use-open-documents.ts
 msgid "Could not save {activeFile}"
 msgstr "Could not save {activeFile}"
 
-#: src/App.tsx
+#: src/app/use-open-documents.ts
 msgid "Could not save the project"
 msgstr "Could not save the project"
 
@@ -2941,7 +2941,7 @@ msgstr "File"
 msgid "file restore"
 msgstr "file restore"
 
-#: src/App.tsx
+#: src/app/use-open-documents.ts
 msgid "File switch"
 msgstr "File switch"
 
@@ -3147,7 +3147,7 @@ msgstr "Frown relation"
 msgid "Full access"
 msgstr "Full access"
 
-#: src/App.tsx
+#: src/app/use-open-documents.ts
 msgid "Full paper text is unavailable; showing the overview instead."
 msgstr "Full paper text is unavailable; showing the overview instead."
 
@@ -3891,7 +3891,7 @@ msgstr "Kept as a preprint because pubstate is explicitly preprint."
 msgid "Kept here"
 msgstr "Kept here"
 
-#: src/App.tsx
+#: src/app/use-open-documents.ts
 msgid "Kept overlapping external edits in {path} with conflict markers."
 msgstr "Kept overlapping external edits in {path} with conflict markers."
 
@@ -4624,7 +4624,7 @@ msgstr "Natural join / bowtie"
 msgid "Navigate"
 msgstr "Navigate"
 
-#: src/App.tsx
+#: src/app/use-open-documents.ts
 msgid "Navigation performance"
 msgstr "Navigation performance"
 
@@ -4904,7 +4904,7 @@ msgstr "No published version found"
 msgid "No published version was found."
 msgstr "No published version was found."
 
-#: src/App.tsx
+#: src/app/use-open-documents.ts
 msgid "No readable paper content is available."
 msgstr "No readable paper content is available."
 
@@ -5274,7 +5274,7 @@ msgstr "OpenAlex"
 msgid "OpenAlex search"
 msgstr "OpenAlex search"
 
-#. placeholder {0}: primaryOpening.label
+#. placeholder {0}: documents.opening
 #: src/App.tsx
 msgid "Opening {0}…"
 msgstr "Opening {0}…"
@@ -5509,7 +5509,7 @@ msgstr "Paper import cancelled before changing the bibliography; the downloaded 
 msgid "Paper import cancelled before making changes."
 msgstr "Paper import cancelled before making changes."
 
-#: src/App.tsx
+#: src/app/use-open-documents.ts
 msgid "Paper switch"
 msgstr "Paper switch"
 
@@ -6791,7 +6791,7 @@ msgstr "Runner used for Lattice's pinned literature tools"
 msgid "Sans-serif text"
 msgstr "Sans-serif text"
 
-#: src/App.tsx
+#: src/app/use-open-documents.ts
 #: src/editor/comments/editor-comments-panel.tsx
 #: src/history/versions-timeline.tsx
 #: src/overleaf/overleaf-comments.tsx
