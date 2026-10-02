@@ -65,7 +65,7 @@ The macOS host sets `LATTICE_BIBLIOGRAPHY_SANDBOX=1` only when launching the ser
 The standalone Lattice-profile Codex guard remains in place when the marker is absent.
 The same staging patch records classified Codex stderr and process exit even after stdout EOF has begun teardown; it does not relax process-tree exit verification or unblock failed threads automatically.
 After staging, run `node scripts/check-codex-host.mjs /absolute/path/to/codex` on macOS to check a real initialize/thread/start/command/exec cycle, inherited `.bib` denial, permitted `.tex` writes, and clean exit in a disposable home, without sending model requests.
-For the packaged JavaScript engine, run the same script using `ELECTRON_RUN_AS_NODE=1` and the staged `Lattice Chromium.app/Contents/MacOS/Electron` executable instead of `node`.
+For the packaged JavaScript engine, run the same script with the staged `src-tauri/synara-runtime/bin/node`.
 Settings → Logs → Export can collect bounded tails of `lattice.log`, `sidecar.log`, `sidecar-error.log`, and `server.log` after explicit consent, with known credential redaction and a preview before copying or downloading.
 
 Host context snapshots remain `version: 1` and include a `capturedAt` timestamp
@@ -291,9 +291,7 @@ went stale before.
   from the pin.
 - The preparation script builds the production web/server artifacts, downloads and verifies the official target-specific Node fallback, installs production dependencies, and stages the result under `src-tauri/synara-runtime`.
 - Tauri's documented `TAURI_ENV_DEBUG` hook signal selects the package staging profile through `scripts/prepare-build.mjs`.
-- Release packaging verifies Electron's embedded Node major version, records its exact version in the runtime manifest, and removes the standalone Node binary before Tauri copies resources.
-- Debug packaging restores and marks standalone Node before preparing Chromium, so switching profiles cannot reuse the release manifest or missing `bin` tree.
-- Release builds run Synara and Open Slide with `ELECTRON_RUN_AS_NODE=1`; debug packages and `pnpm tauri dev` use standalone Node.
+- Synara and Open Slide run on that standalone Node in every build (`src-tauri/src/sidecar.rs`); the packaged Chromium runtime is not their Node.
 - Claude sessions use the external `claude` executable selected in Provider settings (or found on
   the login-shell PATH). The SDK's otherwise bundled platform executable is replaced by a tiny PATH
   launcher so account probing follows the same installation without shipping a redundant copy.
@@ -304,8 +302,8 @@ went stale before.
 Run `pnpm size:report` after preparing the runtimes and building the frontend to record exact file-byte totals for the web bundle, eager assets, Synara server and dependencies, presentation runtime, Chromium runtime, and provider executables.
 
 The staged runtimes are **enforced**, not merely observed.
-`scripts/app-size-report.mjs` applies separate uncompressed budgets to development Synara, release Synara after it shares Electron's Node, Open Slide, and Chromium.
-It also fails if an Electron-backed Synara runtime still contains a standalone Node binary, or if the bundled Claude Agent SDK executable exceeds the 4 KiB PATH-launcher budget.
+`scripts/app-size-report.mjs` applies separate uncompressed budgets to Open Slide and Chromium.
+It also fails if a staged Synara runtime lacks its standalone Node binary, or if the bundled Claude Agent SDK executable exceeds the 4 KiB PATH-launcher budget.
 Read the current constants from that file rather than trusting a number quoted here; the recorded totals belong in the release notes for the version that measured them.
 
 Provider-specific lazy packaging is the next place to optimize if installer size becomes a

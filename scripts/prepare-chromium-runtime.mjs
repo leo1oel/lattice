@@ -1,9 +1,9 @@
 #!/usr/bin/env node
-// Stage Electron as "Lattice Chromium.app" in src-tauri/chromium-runtime/, then
-// point the staged Synara runtime at Electron's Node (release) or keep its
-// standalone Node (debug):
+// Stage Electron as "Lattice Chromium.app" in src-tauri/chromium-runtime/: the
+// renderer a release build shows only when launched with
+// LATTICE_RENDERER=chromium (src-tauri/src/chromium.rs), kept for one release.
 //
-//   node scripts/prepare-chromium-runtime.mjs --synara-node-runtime=electron|standalone
+//   node scripts/prepare-chromium-runtime.mjs
 
 import { cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, renameSync, rmSync } from "node:fs";
 import { createRequire } from "node:module";
@@ -11,21 +11,11 @@ import { dirname, join } from "node:path";
 import { CHROMIUM_BUNDLE_LOCALIZATIONS, pruneChromiumLocales } from "./chromium-runtime-locales.mjs";
 import { codesign, signingIdentity, verifySignature } from "./lib/codesign.mjs";
 import { capture, projectRoot, readJson, run, writeJson } from "./lib/util.mjs";
-import { configureSynaraNodeRuntime } from "./synara-node-runtime.mjs";
 
 if (process.platform !== "darwin") {
   throw new Error("The bundled Chromium runtime is currently packaged only for macOS.");
 }
 
-const arguments_ = process.argv.slice(2);
-const runtimeArgument = arguments_.find((argument) => argument.startsWith("--synara-node-runtime="));
-if (arguments_.length !== 1 || !runtimeArgument) {
-  throw new Error("Usage: prepare-chromium-runtime.mjs --synara-node-runtime=electron|standalone");
-}
-const synaraNodeRuntime = runtimeArgument.slice(runtimeArgument.indexOf("=") + 1);
-if (synaraNodeRuntime !== "electron" && synaraNodeRuntime !== "standalone") {
-  throw new Error(`Unsupported Synara Node runtime: ${synaraNodeRuntime}`);
-}
 const require = createRequire(import.meta.url);
 const electronRoot = dirname(require.resolve("electron/package.json"));
 const electronDist = join(electronRoot, "dist");
@@ -41,7 +31,6 @@ const stageRoot = mkdtempSync(join(projectRoot, "src-tauri", ".chromium-runtime-
 const stagedApp = join(stageRoot, "Lattice Chromium.app");
 const appVersion = String(readJson(join(projectRoot, "package.json")).version);
 const electronVersion = String(readJson(join(electronRoot, "package.json")).version);
-const standaloneNodeVersion = String(readJson(join(projectRoot, "scripts", "synara-runtime.json")).nodeVersion);
 const identity = signingIdentity() ?? "-";
 const entitlements = join(projectRoot, "src-tauri", "Entitlements.plist");
 const copyTree = (source, destination) =>
@@ -49,17 +38,6 @@ const copyTree = (source, destination) =>
 
 function plist(file, ...commands) {
   capture("/usr/libexec/PlistBuddy", [...commands.flatMap((command) => ["-c", command]), file]);
-}
-
-function readElectronNodeVersion(app) {
-  const version = capture(join(app, "Contents", "MacOS", "Electron"), ["-p", "process.versions.node"], {
-    env: { ...process.env, ELECTRON_RUN_AS_NODE: "1" },
-    stdio: ["ignore", "pipe", "inherit"],
-  }).trim();
-  if (!/^\d+\.\d+\.\d+$/.test(version)) {
-    throw new Error(`The bundled Electron Node runtime reported an invalid version: ${version}`);
-  }
-  return version;
 }
 
 // Tauri's resource copier deliberately dereferences symlinks. A conventional
@@ -153,23 +131,11 @@ try {
   codesign(join(frameworks, "Squirrel.framework", "Resources", "ShipIt"), { identity });
   codesign(stagedApp, { identity, entitlements, deep: true });
   verifySignature(stagedApp, "--deep", "--strict", "--verbose=2");
-  const electronNodeVersion = readElectronNodeVersion(stagedApp);
 
   rmSync(runtimeRoot, { recursive: true, force: true });
   renameSync(stageRoot, runtimeRoot);
-  const configuredSynara = configureSynaraNodeRuntime({
-    synaraRoot: join(projectRoot, "src-tauri", "synara-runtime"),
-    nodeRuntime: synaraNodeRuntime,
-    electronNodeVersion,
-    standaloneNodeVersion,
-  });
-  const synaraDescription = !configuredSynara
-    ? ""
-    : synaraNodeRuntime === "electron"
-      ? ", shared Node with Synara"
-      : ", retained standalone Synara Node";
   console.log(
-    `Prepared Lattice Chromium runtime (Electron ${electronVersion}, Node ${electronNodeVersion}, removed ${removedLocales} locale directories${synaraDescription}) at ${runtimeRoot}`,
+    `Prepared Lattice Chromium runtime (Electron ${electronVersion}, removed ${removedLocales} locale directories) at ${runtimeRoot}`,
   );
 } catch (error) {
   rmSync(stageRoot, { recursive: true, force: true });

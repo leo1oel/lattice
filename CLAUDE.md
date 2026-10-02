@@ -2,8 +2,9 @@
 
 Lattice — a local-first LaTeX writing app for macOS. Tauri 2 (Rust) shell +
 React 19 / TypeScript / Vite 8 frontend, with a bundled AI-agent sidecar
-(Synara) and Overleaf sync. The packaged workspace window is a bundled
-Chromium, not a WKWebView; see `docs/architecture.md` §1.
+(Synara) and Overleaf sync. Release builds render in the native WKWebView
+window; the packaged Chromium is kept for one release behind
+`LATTICE_RENDERER=chromium`; see `docs/architecture.md` §1.
 
 ## Commands
 

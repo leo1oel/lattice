@@ -194,11 +194,12 @@ sources = [
 ]
 
 # The interaction benchmark CI gates on (docs/performance.md). Not part of
-# `check`: it drives a local Chrome for a few minutes, and its counts are
-# meant to be read on an otherwise idle machine.
+# `check`: it drives a local Chrome, then Playwright's WebKit
+# (`pnpm exec playwright-core install webkit` once), for a few minutes each,
+# and its counts are meant to be read on an otherwise idle machine.
 [tasks.perf-bench]
-description = "Interaction benchmark: fail when a gated count exceeds its ceiling in scripts/perf-bench/budgets.json"
-run = "pnpm perf:bench --check"
+description = "Interaction benchmark: fail when a gated count exceeds its ceiling in scripts/perf-bench/budgets.json (Chromium) or budgets-webkit.json (WebKit)"
+run = ["pnpm perf:bench --check", "pnpm perf:bench --check --engine webkit"]
 
 # The Open Slide presentation server is another nested pnpm project, staged
 # into the app by scripts/prepare-presentation-runtime.mjs. Its tests run on

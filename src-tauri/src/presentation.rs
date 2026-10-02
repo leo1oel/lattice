@@ -5,7 +5,7 @@
 //! running project; the service stops `IDLE_TIMEOUT` after the last lease is
 //! released, and only one project can hold leases at a time.
 
-use crate::chromium::{terminate_process_group, NodeRuntime};
+use crate::sidecar::{terminate_process_group, NodeRuntime};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, BTreeSet};
@@ -120,7 +120,7 @@ impl PresentationRuntime {
             }
         }
         Ok(Self {
-            node: NodeRuntime::resolve(&resources, &resources.join("synara-runtime/bin")),
+            node: NodeRuntime::resolve(&resources.join("synara-runtime/bin")),
             entry_path: resources.join("presentation-runtime/server.mjs"),
             shadow_parent,
             running: Arc::default(),

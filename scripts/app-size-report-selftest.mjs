@@ -113,9 +113,10 @@ await assert.rejects(
 const MiB = 1024 * 1024;
 for (const [overrides, error] of [
   [{ synaraRuntimeBytes: 250 * MiB + 1 }, null],
-  [{ synaraNodeRuntime: "electron" }, /must not bundle a standalone Node binary/],
-  [{ synaraNodeRuntime: "electron", bundledNodeBytes: null, synaraRuntimeBytes: 200 * MiB }, null],
-  [{ synaraNodeRuntime: "electron", bundledNodeBytes: null, synaraRuntimeBytes: 500 * MiB }, null],
+  [{ synaraNodeRuntime: "standalone", bundledNodeBytes: 120 * MiB }, null],
+  [{ synaraNodeRuntime: "standalone", bundledNodeBytes: null }, /must bundle its standalone Node binary/],
+  [{ synaraNodeRuntime: null, bundledNodeBytes: null }, null],
+  [{ synaraNodeRuntime: "electron", bundledNodeBytes: null }, /prepare:synara/],
   [{ presentationRuntimeBytes: 125 * MiB + 1 }, /Presentation runtime.*budget/],
   [{ chromiumRuntimeBytes: 275 * MiB + 1 }, /Chromium runtime.*budget/],
 ]) {

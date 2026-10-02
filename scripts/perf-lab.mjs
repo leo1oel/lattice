@@ -13,9 +13,10 @@
  *
  * Usage (node scripts/perf-lab.mjs …):
  *   build <task> [--reuse-runtimes] [--as SUFFIX]
- *       Build one bundle and stage it as LatticeLabCR<SUFFIX>.app (packaged
- *       Chromium window) and LatticeLabWK<SUFFIX>.app (no Chromium runtime, so
- *       it falls back to the WKWebView window). --reuse-runtimes skips
+ *       Build one bundle and stage it as LatticeLabCR<SUFFIX>.app (run with
+ *       LATTICE_RENDERER=chromium: the packaged Chromium window) and
+ *       LatticeLabWK<SUFFIX>.app (the WKWebView window, without the unused
+ *       Chromium runtime). --reuse-runtimes skips
  *       `pnpm prepare:build`'s runtime staging (no Synara checkout needed when
  *       src-tauri/{synara,chromium,presentation}-runtime are already staged).
  *       --as stages a second build beside the first, e.g. main for a baseline.
@@ -134,7 +135,7 @@ function build(lab, { reuseRuntimes, suffix = "" }) {
     // Per-engine WebKit data and caches, so the two variants never share them.
     run("/usr/libexec/PlistBuddy", ["-c", `Set :CFBundleIdentifier ${lab.identifier}.${engine}`, join(app, "Contents/Info.plist")]);
     if (engine === "wk") {
-      // Without a Chromium runtime the app opens its WKWebView window.
+      // The WKWebView window, without the unused Chromium runtime.
       const runtime = join(app, "Contents/Resources/chromium-runtime");
       run("rm", ["-rf", runtime]);
       mkdirSync(runtime);
@@ -219,7 +220,6 @@ function prepareLaunch(lab, variantName, options) {
   restoreState(lab, engine);
   const project = join(lab.dir, "work", engine);
   asLabUser("/usr/bin/rsync", ["-a", "--delete", `${fixtureSource}/`, `${project}/`]);
-  const electron = join(bundlePath(lab, "cr", suffix), "Contents/Resources/chromium-runtime/Lattice Chromium.app/Contents/MacOS/Electron");
   const environment = {
     HOME: LAB_HOME, USER: LAB_USER, LOGNAME: LAB_USER, LANG: "en_US.UTF-8",
     PATH: "/Library/TeX/texbin:/usr/bin:/bin:/usr/sbin:/sbin:/opt/homebrew/bin",
@@ -227,8 +227,8 @@ function prepareLaunch(lab, variantName, options) {
     LATTICE_PERF_PROJECT: project,
     LATTICE_PERF_PORT: String(port),
     LATTICE_CHROMIUM_URL: `http://127.0.0.1:${port}/`,
-    // The WebKit bundle has no Electron of its own to run Synara with.
-    LATTICE_LAB_NODE: electron,
+    // Release builds render in WKWebView unless asked for the packaged Chromium.
+    ...(engine === "cr" ? { LATTICE_RENDERER: "chromium" } : {}),
   };
   return { variant, binary, port, environment };
 }
