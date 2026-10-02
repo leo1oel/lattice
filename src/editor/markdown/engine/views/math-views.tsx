@@ -35,7 +35,7 @@ export const MathMacrosContext = createContext<Record<string, string>>({});
  */
 const COMPATIBILITY_MACROS: Record<string, string> = { "\\sc": "\\rm", "\\sl": "\\it" };
 
-export function Formula({ tex, display }: { tex: string; display: boolean }) {
+function Formula({ tex, display }: { tex: string; display: boolean }) {
   const macros = useContext(MathMacrosContext);
   const target = useRef<HTMLSpanElement>(null);
   useLayoutEffect(() => {

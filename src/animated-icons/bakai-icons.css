@@ -63,15 +63,15 @@
   100% { d: path("M200,200L200,216"); }
 }
 
-.bakai-icon.is-playing:not(.is-reduced) .lg-faders .fd-l-knob { animation: lg-fd-l-knob calc(0.89s * var(--bk-speed)) 0s both; }
-.bakai-icon.is-playing:not(.is-reduced) .lg-faders .fd-l-up   { animation: lg-fd-l-up   calc(0.89s * var(--bk-speed)) 0s both; }
-.bakai-icon.is-playing:not(.is-reduced) .lg-faders .fd-l-lo   { animation: lg-fd-l-lo   calc(0.89s * var(--bk-speed)) 0s both; }
-.bakai-icon.is-playing:not(.is-reduced) .lg-faders .fd-m-knob { animation: lg-fd-m-knob calc(0.89s * var(--bk-speed)) 0s both; }
-.bakai-icon.is-playing:not(.is-reduced) .lg-faders .fd-m-up   { animation: lg-fd-m-up   calc(0.89s * var(--bk-speed)) 0s both; }
-.bakai-icon.is-playing:not(.is-reduced) .lg-faders .fd-m-lo   { animation: lg-fd-m-lo   calc(0.89s * var(--bk-speed)) 0s both; }
-.bakai-icon.is-playing:not(.is-reduced) .lg-faders .fd-r-knob { animation: lg-fd-r-knob calc(0.89s * var(--bk-speed)) 0s both; }
-.bakai-icon.is-playing:not(.is-reduced) .lg-faders .fd-r-up   { animation: lg-fd-r-up   calc(0.89s * var(--bk-speed)) 0s both; }
-.bakai-icon.is-playing:not(.is-reduced) .lg-faders .fd-r-lo   { animation: lg-fd-r-lo   calc(0.89s * var(--bk-speed)) 0s both; }
+.bakai-icon.is-playing:not(.is-reduced) .lg-faders .fd-l-knob { animation: lg-fd-l-knob 0.89s 0s both; }
+.bakai-icon.is-playing:not(.is-reduced) .lg-faders .fd-l-up   { animation: lg-fd-l-up   0.89s 0s both; }
+.bakai-icon.is-playing:not(.is-reduced) .lg-faders .fd-l-lo   { animation: lg-fd-l-lo   0.89s 0s both; }
+.bakai-icon.is-playing:not(.is-reduced) .lg-faders .fd-m-knob { animation: lg-fd-m-knob 0.89s 0s both; }
+.bakai-icon.is-playing:not(.is-reduced) .lg-faders .fd-m-up   { animation: lg-fd-m-up   0.89s 0s both; }
+.bakai-icon.is-playing:not(.is-reduced) .lg-faders .fd-m-lo   { animation: lg-fd-m-lo   0.89s 0s both; }
+.bakai-icon.is-playing:not(.is-reduced) .lg-faders .fd-r-knob { animation: lg-fd-r-knob 0.89s 0s both; }
+.bakai-icon.is-playing:not(.is-reduced) .lg-faders .fd-r-up   { animation: lg-fd-r-up   0.89s 0s both; }
+.bakai-icon.is-playing:not(.is-reduced) .lg-faders .fd-r-lo   { animation: lg-fd-r-lo   0.89s 0s both; }
 
 /* Chat: exact author CSS and adapted copy trigger. */
 
@@ -111,10 +111,10 @@
   98%, 100% { transform: scale(1); }
 }
 
-.bakai-icon.is-playing:not(.is-reduced) .lg-chat .ct-pop { animation: lg-chat-pop calc(1s * var(--bk-speed)) 0s both; }
-.bakai-icon.is-playing:not(.is-reduced) .lg-chat .ct-d1  { animation: lg-chat-d1 calc(1s * var(--bk-speed)) 0s both; }
-.bakai-icon.is-playing:not(.is-reduced) .lg-chat .ct-d2  { animation: lg-chat-d2 calc(1s * var(--bk-speed)) 0s both; }
-.bakai-icon.is-playing:not(.is-reduced) .lg-chat .ct-d3  { animation: lg-chat-d3 calc(1s * var(--bk-speed)) 0s both; }
+.bakai-icon.is-playing:not(.is-reduced) .lg-chat .ct-pop { animation: lg-chat-pop 1s 0s both; }
+.bakai-icon.is-playing:not(.is-reduced) .lg-chat .ct-d1  { animation: lg-chat-d1 1s 0s both; }
+.bakai-icon.is-playing:not(.is-reduced) .lg-chat .ct-d2  { animation: lg-chat-d2 1s 0s both; }
+.bakai-icon.is-playing:not(.is-reduced) .lg-chat .ct-d3  { animation: lg-chat-d3 1s 0s both; }
 
 /* Cloud Upload: exact author CSS and adapted copy trigger. */
 
@@ -125,7 +125,7 @@
   78%, 100% { transform: translateY(0); }
 }
 
-.bakai-icon.is-playing:not(.is-reduced) .lg-cloudup .cu-arrow { animation: lg-cloudup-arrow calc(0.95s * var(--bk-speed)) 0s both; }
+.bakai-icon.is-playing:not(.is-reduced) .lg-cloudup .cu-arrow { animation: lg-cloudup-arrow 0.95s 0s both; }
 
 /* API Key: exact author CSS and adapted copy trigger. */
 
@@ -190,9 +190,9 @@
   100% { transform: rotateX(1080deg) scaleY(1); }
 }
 
-.bakai-icon.is-playing:not(.is-reduced) .lg-toss { animation: lg-toss-arc calc(0.72s * var(--bk-speed)) 0s both; }
-.bakai-icon.is-playing:not(.is-reduced) .lg-toss .lgk-spin { animation: lg-toss-spin calc(0.72s * var(--bk-speed)) 0s both; }
-.bakai-icon.is-playing:not(.is-reduced) .lg-toss .lgk-tilt { animation: lg-toss-tilt calc(0.72s * var(--bk-speed)) 0s both; }
+.bakai-icon.is-playing:not(.is-reduced) .lg-toss { animation: lg-toss-arc 0.72s 0s both; }
+.bakai-icon.is-playing:not(.is-reduced) .lg-toss .lgk-spin { animation: lg-toss-spin 0.72s 0s both; }
+.bakai-icon.is-playing:not(.is-reduced) .lg-toss .lgk-tilt { animation: lg-toss-tilt 0.72s 0s both; }
 
 /* Git Branch: exact author CSS and adapted copy trigger. */
 
@@ -264,12 +264,12 @@
   46.01%, 100% { transform: scale(1); }
 }
 
-.bakai-icon.is-playing:not(.is-reduced) .lg-branch .gbra { animation: lg-gb-ringa calc(0.84s * var(--bk-speed)) 0s both; }
-.bakai-icon.is-playing:not(.is-reduced) .lg-branch .gbt  { animation: lg-gb-trunk calc(0.84s * var(--bk-speed)) 0s both; }
-.bakai-icon.is-playing:not(.is-reduced) .lg-branch .gbrb { animation: lg-gb-ringb calc(0.84s * var(--bk-speed)) 0s both; }
-.bakai-icon.is-playing:not(.is-reduced) .lg-branch .gbe  { animation: lg-gb-elbow calc(0.84s * var(--bk-speed)) 0s both; }
-.bakai-icon.is-playing:not(.is-reduced) .lg-branch .gbn  { animation: lg-gb-node calc(0.84s * var(--bk-speed)) 0s both; }
-.bakai-icon.is-playing:not(.is-reduced) .lg-branch .gbp  { animation: lg-gb-plug calc(0.84s * var(--bk-speed)) 0s both; }
+.bakai-icon.is-playing:not(.is-reduced) .lg-branch .gbra { animation: lg-gb-ringa 0.84s 0s both; }
+.bakai-icon.is-playing:not(.is-reduced) .lg-branch .gbt  { animation: lg-gb-trunk 0.84s 0s both; }
+.bakai-icon.is-playing:not(.is-reduced) .lg-branch .gbrb { animation: lg-gb-ringb 0.84s 0s both; }
+.bakai-icon.is-playing:not(.is-reduced) .lg-branch .gbe  { animation: lg-gb-elbow 0.84s 0s both; }
+.bakai-icon.is-playing:not(.is-reduced) .lg-branch .gbn  { animation: lg-gb-node 0.84s 0s both; }
+.bakai-icon.is-playing:not(.is-reduced) .lg-branch .gbp  { animation: lg-gb-plug 0.84s 0s both; }
 
 /* Plugs: exact author CSS and adapted copy trigger. */
 
@@ -306,9 +306,9 @@
   82%, 100% { opacity: 1; transform: scale(1); }
 }
 
-.bakai-icon.is-playing:not(.is-reduced) .lg-plug .lgp-a { animation: lg-plug-a calc(0.72s * var(--bk-speed)) 0s both; }
-.bakai-icon.is-playing:not(.is-reduced) .lg-plug .lgp-b { animation: lg-plug-b calc(0.72s * var(--bk-speed)) 0s both; }
-.bakai-icon.is-playing:not(.is-reduced) .lg-plug .lgp-spark { animation: lg-plug-spark calc(0.72s * var(--bk-speed)) 0s both; }
+.bakai-icon.is-playing:not(.is-reduced) .lg-plug .lgp-a { animation: lg-plug-a 0.72s 0s both; }
+.bakai-icon.is-playing:not(.is-reduced) .lg-plug .lgp-b { animation: lg-plug-b 0.72s 0s both; }
+.bakai-icon.is-playing:not(.is-reduced) .lg-plug .lgp-spark { animation: lg-plug-spark 0.72s 0s both; }
 
 /* Logs: exact author CSS and adapted copy trigger. */
 
@@ -322,7 +322,7 @@
   92%, 100% { transform: translateY(-96px); }
 }
 
-.bakai-icon.is-playing:not(.is-reduced) .lg-tail .lgg-roll { animation: lg-tail calc(1.02s * var(--bk-speed)) 0s both; }
+.bakai-icon.is-playing:not(.is-reduced) .lg-tail .lgg-roll { animation: lg-tail 1.02s 0s both; }
 
 /* Robot: exact author CSS and adapted copy trigger. */
 
@@ -340,7 +340,7 @@
 }
 
 .bakai-icon.is-playing:not(.is-reduced) .lg-robot .rb-e1,
-.bakai-icon.is-playing:not(.is-reduced) .lg-robot .rb-e2 { animation: lg-robot-eyes calc(1.15s * var(--bk-speed)) 0s both; }
+.bakai-icon.is-playing:not(.is-reduced) .lg-robot .rb-e2 { animation: lg-robot-eyes 1.15s 0s both; }
 
 /* Sparkle: exact author CSS and adapted copy trigger. */
 
@@ -385,12 +385,12 @@
   90%, 100% { opacity: 1; transform: scale(1); }
 }
 
-.bakai-icon.is-playing:not(.is-reduced) .lg-bloom .lgs-star { animation: lg-sp-bloom calc(0.56s * var(--bk-speed)) 0s both; }
-.bakai-icon.is-playing:not(.is-reduced) .lg-bloom .lgs-ring { animation: lg-sp-ripple calc(0.38s * var(--bk-speed)) both; }
-.bakai-icon.is-playing:not(.is-reduced) .lg-bloom .lgs-r1 { animation-delay: calc(0.25s * var(--bk-speed)); }
-.bakai-icon.is-playing:not(.is-reduced) .lg-bloom .lgs-r2 { animation-delay: calc(0.33s * var(--bk-speed)); }
-.bakai-icon.is-playing:not(.is-reduced) .lg-bloom .lgs-mark { animation: lg-sp-mark calc(0.6s * var(--bk-speed)) 0s both; }
-.bakai-icon.is-playing:not(.is-reduced) .lg-bloom .lgs-m2 { animation-delay: calc(0.06s * var(--bk-speed)); }
+.bakai-icon.is-playing:not(.is-reduced) .lg-bloom .lgs-star { animation: lg-sp-bloom 0.56s 0s both; }
+.bakai-icon.is-playing:not(.is-reduced) .lg-bloom .lgs-ring { animation: lg-sp-ripple 0.38s both; }
+.bakai-icon.is-playing:not(.is-reduced) .lg-bloom .lgs-r1 { animation-delay: 0.25s; }
+.bakai-icon.is-playing:not(.is-reduced) .lg-bloom .lgs-r2 { animation-delay: 0.33s; }
+.bakai-icon.is-playing:not(.is-reduced) .lg-bloom .lgs-mark { animation: lg-sp-mark 0.6s 0s both; }
+.bakai-icon.is-playing:not(.is-reduced) .lg-bloom .lgs-m2 { animation-delay: 0.06s; }
 
 /* Clock Back: exact author animation, with the lab's replay speed adapter. */
 .lg-clockback .ck-arrow, .lg-clockback .ck-hour, .lg-clockback .ck-min { transform-box: view-box; transform-origin: 128px 128px; }
@@ -408,12 +408,12 @@
   65.28%, 70.83% { transform: rotate(-30deg); animation-timing-function: cubic-bezier(.45,0,.55,1); }
   100% { transform: rotate(0deg); }
 }
-.bakai-icon.is-playing:not(.is-reduced) .lg-clockback .ck-arrow { animation: lg-clockback-arrow calc(1.44s * var(--bk-speed)) both; }
-.bakai-icon.is-playing:not(.is-reduced) .lg-clockback .ck-min { animation: lg-clockback-min calc(1.44s * var(--bk-speed)) both; }
-.bakai-icon.is-playing:not(.is-reduced) .lg-clockback .ck-hour { animation: lg-clockback-hour calc(1.44s * var(--bk-speed)) both; }
+.bakai-icon.is-playing:not(.is-reduced) .lg-clockback .ck-arrow { animation: lg-clockback-arrow 1.44s both; }
+.bakai-icon.is-playing:not(.is-reduced) .lg-clockback .ck-min { animation: lg-clockback-min 1.44s both; }
+.bakai-icon.is-playing:not(.is-reduced) .lg-clockback .ck-hour { animation: lg-clockback-hour 1.44s both; }
 
 .bakai-icon { --converted-ink: currentColor; display: block; overflow: visible; }
-.bakai-icon.is-playing.is-reduced { animation: bakai-reduced-feedback calc(.7s * var(--bk-speed)) ease both; }
+.bakai-icon.is-playing.is-reduced { animation: bakai-reduced-feedback .7s ease both; }
 .bakai-icon.is-playing.is-reduced * { animation: none !important; }
 @keyframes bakai-reduced-feedback { 0%, 100% { opacity: 1; } 45% { opacity: .35; } }
 
@@ -459,12 +459,12 @@
   0%, 46% { transform: translateY(-128.94px); animation-timing-function: cubic-bezier(0.25,0.4,0.3,1); }
   100% { transform: translateY(0px); }
 }
-.bakai-icon.is-playing:not(.is-reduced) .lg-receipt .rc-fall { animation: lg-receipt-fall calc(1.3s * var(--bk-speed)) both; }
-.bakai-icon.is-playing:not(.is-reduced) .lg-receipt .rc-rip { animation: lg-receipt-rip calc(1.3s * var(--bk-speed)) both; }
+.bakai-icon.is-playing:not(.is-reduced) .lg-receipt .rc-fall { animation: lg-receipt-fall 1.3s both; }
+.bakai-icon.is-playing:not(.is-reduced) .lg-receipt .rc-rip { animation: lg-receipt-rip 1.3s both; }
 .bakai-icon.is-playing:not(.is-reduced) .lg-receipt .rc-cut,
-.bakai-icon.is-playing:not(.is-reduced) .lg-receipt .rc-slot { animation: lg-receipt-reveal calc(1.3s * var(--bk-speed)) both; }
-.bakai-icon.is-playing:not(.is-reduced) .lg-receipt .rc-tense { animation: lg-receipt-tense calc(1.3s * var(--bk-speed)) both; }
-.bakai-icon.is-playing:not(.is-reduced) .lg-receipt .rc-feed { animation: lg-receipt-feed calc(1.3s * var(--bk-speed)) both; }
+.bakai-icon.is-playing:not(.is-reduced) .lg-receipt .rc-slot { animation: lg-receipt-reveal 1.3s both; }
+.bakai-icon.is-playing:not(.is-reduced) .lg-receipt .rc-tense { animation: lg-receipt-tense 1.3s both; }
+.bakai-icon.is-playing:not(.is-reduced) .lg-receipt .rc-feed { animation: lg-receipt-feed 1.3s both; }
 
 /* Package: reposition while invisible, then fall and squash against its base. */
 .lg-deliver .lgk-box { transform-box: view-box; transform-origin: 128px 238px; }
@@ -479,4 +479,4 @@
   85% { transform: translateY(0) scale(1.01, 0.98); }
   100% { opacity: 1; transform: translateY(0) scale(1, 1); }
 }
-.bakai-icon.is-playing:not(.is-reduced) .lg-deliver .lgk-box { animation: lg-drop calc(0.9s * var(--bk-speed)) both; }
+.bakai-icon.is-playing:not(.is-reduced) .lg-deliver .lgk-box { animation: lg-drop 0.9s both; }

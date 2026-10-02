@@ -116,7 +116,7 @@ import {
   toMessage,
 } from "./app-utils";
 import { logAction } from "./telemetry/app-notify";
-// setError / setWarning / setNotice are the ~170-call-site toast shims; they
+// setError / setWarning / setNotice are the toast shims; they
 // live beside the hooks extracted out of this file so both can use them.
 import { setError, setWarning, showingErrors } from "./app/notify";
 import "./App.css";

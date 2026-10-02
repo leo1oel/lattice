@@ -42,7 +42,7 @@ export function AnimatedProductIcon({
   return (
     <span ref={hostRef} className={`animated-product-icon animated-product-icon--${kind}`} aria-hidden="true" style={{ pointerEvents: "none" }}>
       {source === "provided"
-        ? <ProvidedAnimatedIcon key={playId} kind={kind as ProvidedIconKind} size={size} playing={playing} playId={playId} reducedMotion={reducedMotion} />
+        ? <ProvidedAnimatedIcon key={playId} size={size} playing={playing} playId={playId} reducedMotion={reducedMotion} />
         : <BakaiAnimatedIcon key={playId} kind={kind as BakaiIconKind} size={size} playing={playing} reducedMotion={reducedMotion} converted={converted} />}
     </span>
   );
