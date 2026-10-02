@@ -115,6 +115,7 @@ fn workspace_window(app: &AppHandle, label: &str, center: bool) -> tauri::Result
     let window = overlay_title_bar(builder).build()?;
     macos_window::install_traffic_light_alignment(&window);
     macos_window::apply_window_background(&window, false);
+    macos_window::render_at_display_refresh_rate(&window);
     Ok(window)
 }
 

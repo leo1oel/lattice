@@ -500,6 +500,66 @@ pub fn apply_window_background(window: &tauri::WebviewWindow, dark: bool) {
     });
 }
 
+/// The WebKit feature that holds page rendering updates (requestAnimationFrame,
+/// scroll-driven work, main-thread animation) near 60 Hz even on a 120 Hz
+/// ProMotion or XDR display. WKWebView turns it on by default; Safari and
+/// Chromium render at the display's rate.
+const NEAR_60FPS_FEATURE: &str = "PreferPageRenderingUpdatesNear60FPSEnabled";
+
+/// Let the web view render at the display's refresh rate. With the cap on,
+/// every scroll, panel animation and dialog entrance runs at half the frame
+/// rate of a 120 Hz display (idle 59 → 119 fps, PDF scroll 60 → 120 fps when
+/// lifted). Applied after the view is built, it takes effect for the page that
+/// is already loading.
+///
+/// `+[WKPreferences _features]` and `-[WKPreferences _setEnabled:forFeature:]`
+/// are WebKit SPI, which a Developer ID build may call. A WebKit without either
+/// selector, or one that no longer lists the feature, keeps its own rate and
+/// the log says why.
+pub fn render_at_display_refresh_rate(window: &tauri::WebviewWindow) {
+    let label = window.label().to_string();
+    let _ = window.with_webview(move |webview| unsafe {
+        use objc2::rc::Retained;
+        use objc2::runtime::{AnyObject, Bool};
+        use objc2::{msg_send, sel, ClassType};
+        use objc2_foundation::{NSArray, NSObjectProtocol, NSString};
+        use objc2_web_kit::{WKPreferences, WKWebView};
+
+        let view = &*webview.inner().cast::<WKWebView>();
+        let preferences = view.configuration().preferences();
+        let class = WKPreferences::class();
+        if !class.metaclass().responds_to(sel!(_features))
+            || !preferences.respondsToSelector(sel!(_setEnabled:forFeature:))
+        {
+            log::warn!(
+                target: "lattice::window",
+                "{label}: this WebKit cannot lift its 60 Hz rendering cap; staying at 60 Hz"
+            );
+            return;
+        }
+        let features: Option<Retained<NSArray<AnyObject>>> = msg_send![class, _features];
+        let cap = features.map(|features| features.to_vec()).unwrap_or_default().into_iter().find(
+            |feature| {
+                let has_key: bool = msg_send![&**feature, respondsToSelector: sel!(key)];
+                has_key && {
+                    let key: Option<Retained<NSString>> = msg_send![&**feature, key];
+                    key.is_some_and(|key| key.to_string() == NEAR_60FPS_FEATURE)
+                }
+            },
+        );
+        match cap {
+            Some(feature) => {
+                let _: () = msg_send![&*preferences, _setEnabled: Bool::NO, forFeature: &*feature];
+                log::info!(target: "lattice::window", "{label}: rendering at the display's refresh rate");
+            }
+            None => log::info!(
+                target: "lattice::window",
+                "{label}: this WebKit has no {NEAR_60FPS_FEATURE}; keeping its own rate"
+            ),
+        }
+    });
+}
+
 fn rgb_hex(red: f64, green: f64, blue: f64) -> String {
     let channel = |value: f64| (value.clamp(0.0, 1.0) * 255.0).round() as u8;
     format!("#{:02X}{:02X}{:02X}", channel(red), channel(green), channel(blue))
@@ -611,6 +671,11 @@ mod tests {
         let lib = include_str!("lib.rs");
         assert_eq!(lib.matches(".accept_first_mouse(true)").count(), 1);
         assert!(lib.contains("let window = overlay_title_bar(builder).build()?;"));
+        // Every workspace window renders at the display's rate, not 60 Hz.
+        assert_eq!(
+            lib.matches("macos_window::render_at_display_refresh_rate(&window);").count(),
+            1
+        );
     }
 
     #[test]
