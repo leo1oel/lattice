@@ -202,7 +202,7 @@ rule in `eslint.config.js` keep Open Knowledge code from coming back.
 | Inline (R-INL) | Marks including highlight and underline, links (opened on a click, R-INL-3; typed `[text](url)`), inline math with its formula field and `$…$` input rule (R-INL-2), images, footnote references, hard and soft breaks, raw inline source; wiki links and citation chips with their suggestions, drops and editors (R-INL-6, 7) | — |
 | Chrome (R-CHR) | Accessible textbox surface; slash menu (R-CHR-1, §12); selection toolbar with Comment and View in source, and Comment alone when read-only (R-CHR-2); find and replace (R-CHR-3); link editor and hover (R-CHR-4); block controls and drag, with the host holding the view around an added block (R-CHR-5); native selection hidden only for a node selection (R-CHR-6); emoji (R-CHR-7); frozen table headers outside paper reading mode (R-CHR-9) | — |
 | Source mapping (R-SRC) | The caret in Markdown coordinates (R-SRC-1); collaborators' carets, omitted where they have no exact place, and table coordinates (R-SRC-2–4); comments anchored in Markdown offsets, their composer, highlights and thread cards, also read-only (R-SRC-5–7, 9); tracked changes with Accept and Reject (R-SRC-8); frontmatter offsets stay the host's (R-SRC-10); block source labels and View in source (R-SRC-11); the selection as Markdown (R-SRC-12); mapping scoped to one block (R-SRC-13) | — |
-| Performance (R-PERF) | Per-keystroke plugin work limited to the blocks an edit touched; the passive view of a large read-only document, with links, paper fragments, immediate formulas and deferred images (R-PERF-1–6); images read near the viewport through the project image host (R-PERF-7); formulas drawn at once in the complete editor (R-PERF-8); no remounts (R-PERF-9); publication within the sync policy (R-PERF-10) | — |
+| Performance (R-PERF) | Per-keystroke plugin work limited to the blocks an edit touched; the passive view of a large read-only document, with links, paper fragments, immediate formulas and deferred images (R-PERF-1–6); a long document drawn only near the viewport, with selection, IME, find and jumps working on the whole document (R-PERF-3); images read near the viewport through the project image host (R-PERF-7); formulas drawn at once in the complete editor (R-PERF-8); no remounts (R-PERF-9); publication within the sync policy (R-PERF-10) | — |
 
 **Tests.**
 
@@ -441,6 +441,18 @@ here, with the requirement it rests on.
   measured height while away. Heading ids and the hidden Contents are planned
   over the whole document. A link into the paper switches to the complete
   editor before it is followed, since its target may not be drawn yet.
+- **Block window (R-PERF-3).** The complete editor wraps every block node
+  view (`engine/block-window.ts`). A plugin keeps the drawn window as
+  document positions mapped through edits and marks its blocks, and the
+  selection's, with a decoration; any other top-level block's view gives way
+  to an empty placeholder sized from its last measurement, else an estimate
+  from its text. The plugin view moves the window from the scroller's
+  geometry, measures the blocks it releases, and scrolls back by however far
+  the block on screen moved, with the browser's scroll anchoring off. A long
+  first document loads after the editor exists, like a file switch, since
+  only the plugins draw the window. Placeholders carry the ids from
+  `engine/block-anchors.ts`; `scrollToTarget` draws a jump's block before it
+  scrolls there, then holds it in place while the views around it fill in.
 - **Images (R-PERF-4, R-PERF-7).** In both views an image reads its asset
   only as it nears the viewport; formulas are drawn at once.
 - **Engine-agnostic host (phase 2 integration).** The canvas and the agent
@@ -1798,9 +1810,23 @@ activates the complete surface and then scrolls to its target. A fragment with n
 arXiv.
 Derived from: `src/editor/markdown/visual-markdown-editor.test.tsx:447 "resolves paper fragments after activating a virtualized paper"`, `:465 "opens arXiv when a virtualized paper has no converted fragment target"`.
 
-**R-PERF-3: Editable documents are never virtualized.** A large *editable* document keeps one
-scroll geometry.
-Derived from: `src/editor/markdown/visual-markdown-editor.test.tsx:476 "keeps one scroll geometry when a large editable document is clicked"`.
+**R-PERF-3: Long documents are drawn near the viewport.** In the complete editor, editable or
+not, a document of at least 250 top-level blocks draws only the blocks within one and a half
+viewport heights of the view, plus the blocks the selection is in and the blocks either side of
+its head. Every other top-level block is an empty placeholder of its measured height (an estimate
+until it has been drawn once), so the scroll geometry is the document's and the DOM stays the size
+of the viewport.
+- Editing, selection, IME, find, copy and publication work on the whole document, never on what is
+  drawn. A composition never changes what is drawn; the window moves once it ends.
+- Scrolling moves the window before the edge of what is drawn reaches the view, and keeps the
+  block on screen (the selection's, else the one in the middle) where it was.
+- A placeholder carries its block's heading id and the ids its views draw (footnotes, converter
+  anchors, paper figures), so links, the section rail and footnotes find their target; a jump
+  draws the target's block before it scrolls.
+- Without layout (tests in jsdom), and below 250 blocks, a document is drawn whole.
+
+Derived from: `src/editor/markdown/engine/block-window.test.tsx`; the passive-view test
+`lattice-visual-passive.test.tsx "never makes an editable document passive"` still holds.
 
 **R-PERF-4: Passive math and media.** The passive view renders formulas immediately, with no
 placeholder flash, and defers off-screen images (no asset read).

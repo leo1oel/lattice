@@ -7,40 +7,40 @@
       "mutations": 1744
     },
     "latex-typing": {
-      "renders": 8520,
-      "hooks": 74913,
+      "renders": 4858,
+      "hooks": 60124,
       "mutations": 350
     },
     "markdown-source-typing": {
       "commits": 54,
-      "renders": 5651,
-      "hooks": 59016,
+      "renders": 4055,
+      "hooks": 52803,
       "mutations": 357
     },
     "markdown-visual-typing": {
       "commits": 34,
-      "mutations": 125
+      "mutations": 70
     },
     "file-switch": {
-      "commits": 65,
-      "renders": 11351,
-      "hooks": 57690,
-      "mutations": 14048
+      "commits": 44,
+      "renders": 3286,
+      "hooks": 30519,
+      "mutations": 6786
     },
     "code-highlight": {
-      "commits": 110,
-      "renders": 21810,
-      "hooks": 145592
+      "commits": 74,
+      "renders": 9194,
+      "hooks": 109108
     },
     "pdf-open": {
       "commits": 19,
-      "renders": 857,
-      "hooks": 4870,
+      "renders": 684,
+      "hooks": 4242,
       "mutations": 1358
     },
     "pdf-scroll": {
       "commits": 34,
-      "renders": 1204,
+      "renders": 914,
       "hooks": 11553
     },
     "source-scroll": {
@@ -51,8 +51,8 @@
     "markdown-preview-scroll": {},
     "compile": {
       "commits": 13,
-      "renders": 1107,
-      "hooks": 8579,
+      "renders": 708,
+      "hooks": 6999,
       "mutations": 129
     },
     "long-tex-typing": {

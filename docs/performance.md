@@ -39,7 +39,7 @@ Editing long Markdown:
 
 | Cause | Where |
 | --- | --- |
-| Visual editor renders the whole document into the DOM; the upstream `content-visibility` chunking plugin was never vendored (CSS was) | `editor-globals.css` `.ok-chunk-wrapper`, upstream `chunk-wrapper-decoration.ts` (the vendored editor, removed in phase 3 of the visual editor rebuild) |
+| Visual editor renders the whole document into the DOM; the upstream `content-visibility` chunking plugin was never vendored (CSS was). A long document is now drawn only near the viewport (see "Viewport rendering for long documents") | `editor-globals.css` `.ok-chunk-wrapper`, upstream `chunk-wrapper-decoration.ts` (the vendored editor, removed in phase 3 of the visual editor rebuild) |
 | `HeadingAnchors` rebuilt a whole-document DecorationSet on every view update, including caret-only moves | `open-knowledge-app/editor/extensions/heading-anchors.ts` (the vendored editor, since removed) |
 | Every keystroke rebuilt `liveSourceMap` and re-ran four whole-project parses (macros, graphics roots, katex macros, appendix) even for `.md` buffers | `App.tsx` around `liveSourceMap` |
 | React Compiler silently bailed out of `App`, `DocumentCanvas`, `VisualMarkdownEditor`, `EditorTabs`, `ContinuousPdfPage` (try/finally, `x++` in lambdas, inline `import()`), so none of the hot tree was auto-memoized (`VisualMarkdownEditor` and `EditorTabs` have since been removed) | `scripts/react-compiler-report.mjs` finds these |
@@ -61,12 +61,14 @@ Ruled out: agent streaming (cross-origin iframe + postMessage, zero React
 cost), Tauri `listen()` handlers (9 non-test call sites today, all cleaned
 up), file tree (already virtualized).
 
-A constraint to respect: **editable surfaces deliberately do not use
+A constraint to respect: **editable surfaces do not use
 `content-visibility: auto`** — deferred materialization destabilizes WebKit
-selection anchoring. Large read-only documents render through the engine's
-passive view (`editor/markdown/engine/passive-view.tsx`) instead; deferring
-rendering in editable docs is a separate experiment behind a flag, measured
-before adoption.
+selection anchoring, and it measured worse in both engines (fast scrolling a
+2 MB document: 8 fps in WebKit, 5 fps in Chromium). A long document is drawn
+only near the viewport by the engine's block window instead
+(`editor/markdown/engine/block-window.ts`, see "Viewport rendering for long
+documents" below), and a large read-only document opens in the passive view
+(`editor/markdown/engine/passive-view.tsx`).
 
 ## Measurement playbook
 
@@ -381,6 +383,82 @@ system WKWebView:
 | WKWebView ships the WebKit feature `PreferPageRenderingUpdatesNear60FPSEnabled` on, so page rendering updates (rAF, scroll-driven work, main-thread animation) ran at 60 Hz on a 120 Hz display | The app's native WKWebView window (a lab build), rAF over 10 s: 60.0–60.2 fps (17 ms median frame) as shipped, 119.8–120.1 fps (8 ms) with the feature off | every workspace window turns it off through the `WKPreferences` feature SPI, after checking both selectors exist (`render_at_display_refresh_rate` in `src-tauri/src/macos_window.rs`) |
 | Radix's modal dialog mode restyles the whole document on open: `pointer-events: none` on `body`, an injected scroll-lock stylesheet and `aria-hidden` on every sibling | Command palette open → painted over a 2 MB `large.md` in the visual editor (45k elements; the perf-bench page with `largeMarkdownBytes=2000000`, not the 400 KB benchmark fixture), median of 18 opens: Playwright WebKit 26.6 1,984 ms, Chromium 261 ms | `ModalDialog` is non-modal with its own backdrop, a trapped `FocusScope` and `aria-modal` (`components/ui/modal-dialog.tsx`): WebKit 106 ms, Chromium 241 ms. The `dialog-open` benchmark scenario guards it. |
 
+## Viewport rendering for long documents (October 2026)
+
+The WebKit-versus-Chromium measurement found long visual Markdown documents
+slow in both engines, and far slower in WebKit, for one reason: the visual
+editor drew every block. The playbook's 2 MB `large.md` was 43,983 elements,
+and everything that touched style or layout while it was open paid for them:
+opening it, scrolling it, typing in it, a dialog over it.
+
+What changed:
+
+- **The block window** (`editor/markdown/engine/block-window.ts`, spec
+  R-PERF-3). A document of at least 250 top-level blocks draws only the blocks
+  within one and a half viewport heights of the view, plus the selection's
+  blocks and the ones either side of its head. Every other top-level block is
+  an empty placeholder sized from its last measurement, or estimated from its
+  text until it has been drawn. The window moves before the edge of what is
+  drawn reaches the view, and the block on screen is held where it was while
+  the blocks around it change size. The document is never windowed: editing,
+  selection, IME, find, copy and publication work on all of it.
+- **Two global selectors that made each insertion restyle every block after
+  it.** A positional pseudo-class on a subject the whole page has is tried on
+  every element of that kind, and marks each one's parent as affected by
+  positional rules, so inserting a child restyles all its following siblings.
+  The culprits were `p:first-of-type` in the PDF.js viewer stylesheet that
+  `@pdfslick/core` bundles (patched to `:first-child`) and
+  `.split-canvas > :nth-child(…)` in `editor-workspace.css` (now
+  `:first-child` and `:last-child`). Drawing one block into a document of 5,000
+  placeholders cost 35 ms of style in WebKit, in Preview and in Split, and
+  14 ms in Chromium; it now costs 1–2 ms in WebKit and 1 ms in Chromium. Keep
+  `:nth-*`, `:*-of-type` and `~` off any subject that can match editor
+  content.
+
+Tried and not kept: `content-visibility: auto` (see the constraint above),
+and one spacer per run of placeholders, as CodeMirror draws its gaps. Spacers
+cut WebKit's layout per window move only from about 68 ms to 50 ms, since the
+selectors above were the cost, not the boxes; with the selectors fixed,
+placeholders cost nothing measurable, and they keep the geometry the split
+view's scroll sync, the section rail and the block controls read. Rich
+rendering as CodeMirror decorations (Obsidian, Overleaf) was not needed.
+
+How it was measured: the perf-bench page (the real app over the in-memory
+backend) at the playbook size (`largeMarkdownBytes=2000000`: about 5,000
+blocks), in headless Chromium and WebKit from Playwright 1.63, at 1440×900 and
+2×, with the WebKit-versus-Chromium report's metrics: frame cadence from
+`requestAnimationFrame` while 240 px wheel notches arrive every 16 ms for
+3 s, keydown to the next frame (rAF plus a macrotask) over 32 keys, and
+quiet in DOM mutations for "settled". Medians of three runs. Headless
+rendering runs at 60 Hz, so 60 fps is the ceiling here. Playwright's WebKit is
+not the system WKWebView: it lacks `margin-trim`, so Tailwind's
+`@layer properties` fallback (every custom property set on every element)
+applies to it and not to the app on macOS; its numbers are pessimistic.
+
+| 2 MB `large.md`, visual editor | Chromium before | after | WebKit before | after |
+| --- | --- | --- | --- | --- |
+| Visual editor elements | 43,983 | 4,743 | 43,983 | 4,743 |
+| Open → first content painted (ms) | 1,409 | 509 | 3,619 | 867 |
+| Open → settled (ms) | 1,833 | 860 | 4,677 | 1,098 |
+| Fast scroll: fps; frames over 50 ms; longest (ms) | 27.1; 10; 57 | 59.7; 0; 31 | 21.6; 22; 95 | 59.1; 0; 35 |
+| Distance scrolled in those 3 s (px) | 6,960 | 12,480 | 5,280 | 21,120 |
+| Frames with a blank (undrawn) block on screen | 0 | 0 | 0 | 0 |
+| Typing, keydown → next frame p50 / p95 (ms) | 25.8 / 39.9 | 14.4 / 17.6 | 63 / 83 | 19 / 21 |
+| Command palette over the document (ms) | 229 | 47 | 2,027 | 185 |
+
+The 4,743 elements are the drawn window and one empty box per block. What
+remains of opening is mostly reading the file (see Future directions).
+
+`pnpm perf:bench` (400 KB `large.md`), per unit, before → after: a file switch
+renders 1,670 → 685 components with 8,692 → 6,358 hooks and 1,733 → 1,414
+mutations, in 729 → 431 ms of tasks; the code-block document renders 782 → 365
+with 5,257 → 4,330 hooks, in 825 → 591 ms. No other count moved, and the
+ceilings were ratcheted. One wall-clock change: Chromium spell-checks an
+editable root in idle time ("cold mode"), which it did not do while the
+visual editor held a whole long document. It now checks the drawn window, as
+it always has a short document, in idle slices of up to 50 ms after the drawn
+text changes; `markdown-visual-typing` reports them as long tasks (0 → 4–7).
+
 ## React Compiler status
 
 `scripts/react-compiler-report.mjs` prints every compiler bailout in the hot
@@ -460,8 +538,10 @@ library — see Future directions).
 
 ## Future directions (not yet scheduled)
 
-- Editable-doc `content-visibility` experiment behind a dev flag, with
-  selection/scroll behavior measured on WKWebView before any default flip.
+- Opening a long Markdown document is now mostly reading it: the engine
+  parses the whole file with micromark on the main thread on every open
+  (about 370 ms in Chromium and 430 ms in WebKit for 2 MB). Caching the read
+  by text, or reading in a worker, is what remains.
 - `App.tsx` state extraction — in progress rather than unscheduled; its current
   size and extraction status live in `docs/codebase-map.md` §6. Still open: `DocumentCanvas` memoization
   — 126 props and 26 inline lambdas at the call site in `App.tsx`, up from 109

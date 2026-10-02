@@ -19,6 +19,7 @@ import { IconButton } from "../../../../components/ui/icon-button";
 import { Input } from "../../../../components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "../../../../components/ui/popover";
 import { Switch } from "../../../../components/ui/switch";
+import { componentAnchorId } from "../block-anchors";
 import { propValue, withProp, type ComponentProp } from "../mdx-components";
 import { deleteNode, Field, setNodeAttrs, useCommitKeys } from "./view-chrome";
 
@@ -295,9 +296,8 @@ function BlockActions({ name, editable, onDelete, onClose, properties }: {
 }
 
 function PaperFigureView(props: NodeViewProps) {
-  const id = propValue(propsOf(props), "id");
   return (
-    <NodeViewWrapper as="figure" className="lx-md-paper-figure" id={typeof id === "string" ? id : undefined}>
+    <NodeViewWrapper as="figure" className="lx-md-paper-figure" id={componentAnchorId(props.node)}>
       <NodeViewContent className="lx-md-paper-figure-content" />
     </NodeViewWrapper>
   );
@@ -319,9 +319,8 @@ function PaperFigureRowView(props: NodeViewProps) {
 }
 
 function PaperFigurePanelView(props: NodeViewProps) {
-  const id = propValue(propsOf(props), "id");
   return (
-    <NodeViewWrapper className="lx-md-paper-figure-panel" id={typeof id === "string" ? id : undefined} data-empty={props.node.childCount === 0 || undefined}>
+    <NodeViewWrapper className="lx-md-paper-figure-panel" id={componentAnchorId(props.node)} data-empty={props.node.childCount === 0 || undefined}>
       <NodeViewContent className="lx-md-paper-figure-panel-content" />
     </NodeViewWrapper>
   );

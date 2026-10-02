@@ -15,15 +15,13 @@ import { Plugin, PluginKey, type Transaction } from "@tiptap/pm/state";
 import { Decoration, DecorationSet } from "@tiptap/pm/view";
 import { NodeViewContent, NodeViewWrapper, type NodeViewProps } from "@tiptap/react";
 import { CornerLeftUp } from "lucide-react";
+import { footnoteId, footnoteReferenceId } from "../block-anchors";
+import { scrollToTarget } from "../block-window";
 import { changedBlockRanges, containsAny, replacedAny } from "../changed-ranges";
 
-const slug = (label: string) => label.toLowerCase().replace(/\s+/g, "-");
-const footnoteId = (label: string) => `fn-${slug(label)}`;
-const footnoteReferenceId = (label: string) => `fnref-${slug(label)}`;
-
 function scrollToId(id: string, from: HTMLElement) {
-  const target = from.ownerDocument.getElementById(id);
-  target?.scrollIntoView({ block: "center", behavior: "smooth" });
+  const found = from.ownerDocument.getElementById(id);
+  if (found) scrollToTarget(found, { block: "center", behavior: "smooth" });
 }
 
 export function FootnoteReferenceView(props: NodeViewProps) {

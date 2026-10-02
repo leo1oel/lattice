@@ -97,7 +97,8 @@ function anchors(doc: PmNode, marks: readonly AnchorMark[]): DecorationSet {
     if (!node || (!mark.id && !mark.hidden)) continue;
     const attributes: Record<string, string> = mark.id ? { id: mark.id } : {};
     if (mark.hidden) Object.assign(attributes, { class: "lx-md-generated-contents", "aria-hidden": "true" });
-    decorations.push(Decoration.node(mark.pos, mark.pos + node.nodeSize, attributes));
+    // `anchorId`: a block of a long document that is not drawn still carries a heading inside it (block-window.ts).
+    decorations.push(Decoration.node(mark.pos, mark.pos + node.nodeSize, attributes, mark.id ? { anchorId: mark.id } : undefined));
   }
   return DecorationSet.create(doc, decorations);
 }
