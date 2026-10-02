@@ -75,11 +75,13 @@ export function usePdfZoom(recordRef: ActiveViewerRef, generation: number, view:
 
   const applyScale = useCallback((value: number) => {
     const next = clampPdfScale(value);
+    viewRef.current.fitMode = null;
+    viewRef.current.scale = next;
     setFitMode(null);
     setScale(next);
     const slick = recordRef.current?.slick;
     if (slick) applyPdfZoom(slick, null, next);
-  }, [recordRef, setFitMode, setScale]);
+  }, [recordRef, setFitMode, setScale, viewRef]);
 
   const endPreview = useCallback((preview: ZoomPreview) => {
     window.clearTimeout(preview.timer);

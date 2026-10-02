@@ -651,6 +651,31 @@ describe("PDFSlick viewer integration", () => {
     }
   });
 
+  it("starts a zoom right after a commit from the committed scale", async () => {
+    const view = renderPdf({ initialViewState: { page: 1, scale: 1, fitMode: null, scrollTop: 0, scrollLeft: 0 } });
+    await view.findByLabelText("PDF page 3");
+    const slick = pdf.state.instances[0]!;
+    const { container } = slick.args;
+    await waitFor(() => expect(view.getByRole("button", { name: "Fit page to width" })).toBeEnabled());
+    const scaleProperty = Object.getOwnPropertyDescriptor(slick.viewer, "currentScale")!;
+    const rescales: number[] = [];
+    // The next pinch tick lands while PDF.js rescales, before React re-renders.
+    Object.defineProperty(slick.viewer, "currentScale", {
+      ...scaleProperty,
+      set(value: number) {
+        scaleProperty.set!.call(slick.viewer, value);
+        rescales.push(value);
+        if (rescales.length === 1) {
+          container.dispatchEvent(new WheelEvent("wheel", { ctrlKey: true, deltaY: -10, cancelable: true }));
+        }
+      },
+    });
+    for (let tick = 0; tick < 3; tick += 1) fireEvent.wheel(container, { ctrlKey: true, deltaY: -10 });
+    await waitFor(() => expect(rescales).toHaveLength(2));
+    expect(rescales[0]).toBeCloseTo(1.349 * 0.75);
+    expect(rescales[1]).toBeCloseTo(1.349 * Math.exp(0.1) * 0.75, 2);
+  });
+
   it("preserves forward and reverse SyncTeX point coordinates", async () => {
     pdf.state.viewportScale = 2;
     const onSource = vi.fn();
