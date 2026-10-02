@@ -27,9 +27,9 @@
  *
  * Clean implementation for Lattice; spec: docs/visual-editor-spec.md.
  */
-import { Extension, callOrReturn, getExtensionField, type AnyExtension, type NodeViewRenderer, type NodeViewRendererProps } from "@tiptap/core";
+import { Extension, callOrReturn, getExtensionField, isMacOS, type AnyExtension, type NodeViewRenderer, type NodeViewRendererProps } from "@tiptap/core";
 import type { Node as PmNode } from "@tiptap/pm/model";
-import { NodeSelection, Plugin, PluginKey, type EditorState, type Transaction } from "@tiptap/pm/state";
+import { NodeSelection, Plugin, PluginKey, Selection, TextSelection, type EditorState, type Transaction } from "@tiptap/pm/state";
 import { Decoration, DecorationSet, type DecorationSource, type EditorView, type NodeView } from "@tiptap/pm/view";
 
 /** A document of fewer top-level blocks is drawn whole. */
@@ -63,6 +63,17 @@ const LIVE = { latticeLiveBlock: true };
 const VIRTUAL_ATTRIBUTE = "data-lx-virtual";
 
 const HEADING_EM = [1.8, 1.4, 1.17, 1, 0.92, 0.92];
+
+/**
+ * The document edge a key goes to (Cmd-Up/Down on macOS, Ctrl-Home/End
+ * elsewhere): -1 for the start, 1 for the end, 0 for any other key.
+ */
+function documentEdge(event: KeyboardEvent): -1 | 0 | 1 {
+  const mac = isMacOS();
+  if (!(mac ? event.metaKey && !event.ctrlKey : event.ctrlKey && !event.metaKey) || event.altKey) return 0;
+  if (mac ? event.key === "ArrowUp" : event.key === "Home") return -1;
+  return (mac ? event.key === "ArrowDown" : event.key === "End") ? 1 : 0;
+}
 
 /** Where the editor scrolls: the document pane, or the nearest scrolling ancestor. */
 export function scrollerOf(element: HTMLElement): HTMLElement | null {
@@ -402,11 +413,25 @@ function liveDecorations(doc: PmNode, window: Window, pins: readonly number[]): 
   return DecorationSet.create(doc, decorations);
 }
 
+/**
+ * Every block marked live: a document that leaves its window is drawn whole
+ * again, and a block view is only asked to redraw when its decorations change.
+ */
+function allLive(doc: PmNode): DecorationSet {
+  const decorations: Decoration[] = [];
+  doc.forEach((node, pos) => decorations.push(Decoration.node(pos, pos + node.nodeSize, {}, LIVE)));
+  return DecorationSet.create(doc, decorations);
+}
+
 const samePins = (a: readonly number[], b: readonly number[]) => a.length === b.length && a.every((pos, index) => pos === b[index]);
 
 function nextState(transaction: Transaction, value: WindowState, state: EditorState, sizes: Sizes): WindowState {
   const { doc } = state;
-  if (!layoutAvailable() || doc.childCount < MIN_BLOCKS) return value.window ? INACTIVE : value;
+  if (!layoutAvailable() || doc.childCount < MIN_BLOCKS) {
+    if (value.window) return { window: null, pins: [], decorations: allLive(doc) };
+    if (!transaction.docChanged || value.decorations === DecorationSet.empty) return value;
+    return { ...value, decorations: value.decorations.map(transaction.mapping, doc) };
+  }
   const requested = transaction.getMeta(blockWindowKey) as Window | undefined;
   let window = requested ?? value.window;
   if (!requested && window && transaction.docChanged) {
@@ -679,6 +704,16 @@ export function blockWindow(extensions: readonly AnyExtension[], options: BlockW
         decorations: (state) => blockWindowKey.getState(state)?.decorations,
         // The block window holds the reader's place itself, the same way in every engine.
         attributes: (state): Record<string, string> => (blockWindowKey.getState(state)?.window ? { "data-lx-windowed": "" } : {}),
+        // A placeholder holds no caret, so the browser cannot move one past it to an edge of the document.
+        handleKeyDown: (view, event) => {
+          const edge = windowOf(view) ? documentEdge(event) : 0;
+          if (!edge) return false;
+          const { doc, selection } = view.state;
+          const target = edge < 0 ? Selection.atStart(doc) : Selection.atEnd(doc);
+          const next = event.shiftKey ? TextSelection.between(selection.$anchor, target.$head) : target;
+          view.dispatch(view.state.tr.setSelection(next).scrollIntoView());
+          return true;
+        },
       },
       view: (view) => {
         const windowView = new BlockWindowView(view, sizes);

@@ -175,6 +175,33 @@ describe("viewport rendering of a long document (R-PERF-3)", () => {
     expect(blocks[398]?.textContent).toContain("typed ");
   });
 
+  it("draws every block again when the document becomes short", async () => {
+    renderLong(paragraphs(400).join("\n\n"));
+    await loaded();
+    const { editor } = surface();
+    let cut = 0;
+    editor.state.doc.forEach((_node, offset, index) => {
+      if (index === 200) cut = offset;
+    });
+    editor.view.dispatch(editor.state.tr.delete(cut, editor.state.doc.content.size));
+    expect(surface().children).toHaveLength(200);
+    expect(placeholders()).toHaveLength(0);
+    expect(drawnText()).toContain("Paragraph 199 of");
+  });
+
+  it("moves the caret to the end of the document past the blocks not drawn, and draws it", async () => {
+    renderLong(paragraphs(400).join("\n\n"));
+    await loaded();
+    const { editor } = surface();
+    fireEvent.keyDown(surface(), { key: "End", ctrlKey: true });
+    expect(editor.state.selection.head).toBe(editor.state.doc.content.size - 1);
+    expect(surface().children[399]).not.toHaveAttribute("data-lx-virtual");
+    expect(surface().children[399]?.textContent).toContain("Paragraph 399 of");
+    fireEvent.keyDown(surface(), { key: "Home", ctrlKey: true, shiftKey: true });
+    expect(editor.state.selection.from).toBe(1);
+    expect(editor.state.selection.anchor).toBe(editor.state.doc.content.size - 1);
+  });
+
   it("leaves the drawn blocks alone during an IME composition", async () => {
     const { geometry } = renderLong(paragraphs(400).join("\n\n"));
     await loaded();
