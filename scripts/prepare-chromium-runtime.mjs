@@ -86,6 +86,7 @@ try {
   cpSync(join(projectRoot, "scripts", "chromium-shell.mjs"), join(appSource, "chromium-shell.mjs"));
   cpSync(join(projectRoot, "scripts", "chromium-preload.cjs"), join(appSource, "chromium-preload.cjs"));
   cpSync(join(projectRoot, "scripts", "chromium-window-policy.mjs"), join(appSource, "chromium-window-policy.mjs"));
+  cpSync(join(projectRoot, "scripts", "chromium-perf-lab.mjs"), join(appSource, "chromium-perf-lab.mjs"));
   cpSync(join(projectRoot, "src-tauri", "icons", "icon.icns"), join(resources, "lattice.icns"));
   cpSync(join(projectRoot, "src-tauri", "icons", "icon.png"), join(resources, "lattice.png"));
   cpSync(join(electronDist, "LICENSE"), join(resources, "LICENSE.electron.txt"));

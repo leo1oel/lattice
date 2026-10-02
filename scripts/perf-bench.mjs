@@ -30,12 +30,20 @@
  *   --profile DIR   save a CPU profile of each scenario's first run
  *   --url URL       measure an already running app instead (no ceilings)
  *   --headful, --keep-open   watch it run
+ *
+ * Serving the page for UI work, screenshots and QA (no benchmark, no browser):
+ *   --serve         build the page, print its URL and stay up until interrupted;
+ *                   with --dev, serve it from the dev server with file watching
+ *                   and HMR on, so edits show without a restart
+ *   --port N        the port to serve on (default 18480; 0 picks a free one)
+ * The page accepts `theme=system|light|dark` and `lang=en|zh-CN|system`
+ * (tools/perf-bench/bench-page.ts); --serve prints a URL with both.
  */
-import { readFileSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { createServer as createNetServer } from "node:net";
 import os from "node:os";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, URLSearchParams } from "node:url";
 import { applyBudgets, bestOf, COUNTS } from "./perf-bench/budgets.mjs";
 import { CdpPage, launchChrome } from "./perf-bench/cdp.mjs";
 import { BenchDriver, SCENARIOS } from "./perf-bench/scenarios.mjs";
@@ -43,6 +51,11 @@ import { BenchDriver, SCENARIOS } from "./perf-bench/scenarios.mjs";
 const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const BUDGETS = path.join(repo, "scripts/perf-bench/budgets.json");
 const PROBE = readFileSync(path.join(repo, "scripts/perf-bench/probe.js"), "utf8");
+/**
+ * Clear of the app's dev ports (1420, 1437) and of the ports the real and
+ * test Lattice builds listen on (18452, 18462, 18472).
+ */
+const SERVE_PORT = 18480;
 
 /**
  * Smaller than the playbook fixture so a CI run stays short, but large enough
@@ -60,7 +73,7 @@ const BENCH_FIXTURE = {
 };
 
 function parseArgs(argv) {
-  const options = { runs: 2, only: null, json: null, profile: null, check: false, ratchet: false, update: false, headful: false, keepOpen: false, url: null, dev: false };
+  const options = { runs: 2, only: null, json: null, profile: null, check: false, ratchet: false, update: false, headful: false, keepOpen: false, url: null, dev: false, serve: false, port: SERVE_PORT };
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
     if (arg === "--check") options.check = true;
@@ -74,8 +87,12 @@ function parseArgs(argv) {
     else if (arg === "--json") options.json = argv[++index];
     else if (arg === "--url") options.url = argv[++index];
     else if (arg === "--profile") options.profile = argv[++index];
+    else if (arg === "--serve") options.serve = true;
+    else if (arg === "--port") options.port = Number(argv[++index]);
     else throw new Error(`Unknown option ${arg}`);
   }
+  if (!Number.isInteger(options.port) || options.port < 0 || options.port > 65_535) throw new Error("--port takes a port number");
+  if (options.serve && options.url) throw new Error("--serve starts its own page; it cannot take --url");
   return options;
 }
 
@@ -91,43 +108,96 @@ function freePort() {
 }
 
 /**
+ * Build output directories this process made. Each run builds into its own,
+ * so two runs on one machine (parallel agents, CI lanes) never serve or
+ * measure each other's build. Closing the server removes its directory; the
+ * exit hook catches the paths that skip that (a thrown error, --keep-open,
+ * Ctrl-C), since a production build is tens of megabytes.
+ */
+const buildDirs = new Set();
+function removeBuildDir(dir) {
+  rmSync(dir, { recursive: true, force: true });
+  buildDirs.delete(dir);
+}
+process.on("exit", () => {
+  for (const dir of buildDirs) removeBuildDir(dir);
+});
+// A signal's default action skips the exit hook; exiting runs it.
+for (const signal of ["SIGINT", "SIGTERM", "SIGHUP"]) {
+  process.once(signal, () => process.exit(128 + os.constants.signals[signal]));
+}
+
+/**
  * A production build by default: it is what ships, its durations are
  * realistic, and its pages load in a fraction of the dev server's time. The
  * dev server (`--dev`) keeps component names readable for finding causes.
+ * `live` (a dev server for --serve) turns file watching and HMR back on: a
+ * benchmark must not reload under a measurement, but someone editing the UI
+ * wants to see the edit.
  */
-async function startVite(production) {
+async function startVite(production, { port = 0, live = false } = {}) {
   const { build, createServer, preview } = await import("vite");
-  const port = await freePort();
+  if (!port) port = await freePort();
   const shared = { root: repo, configFile: path.join(repo, "vite.config.ts"), logLevel: "warn", clearScreen: false };
   if (production) {
-    const outDir = path.join(os.tmpdir(), "lattice-perf-bench-dist");
-    await build({
-      ...shared,
-      build: {
-        outDir,
-        emptyOutDir: true,
-        rolldownOptions: {
-          input: { bench: path.join(repo, "tools/perf-bench/index.html") },
-          // The bench page must install its mock backend before the app's
-          // modules run; the app config merges them into one chunk.
-          output: { strictExecutionOrder: true },
+    const outDir = mkdtempSync(path.join(os.tmpdir(), "lattice-perf-bench-dist-"));
+    buildDirs.add(outDir);
+    try {
+      await build({
+        ...shared,
+        build: {
+          outDir,
+          emptyOutDir: true,
+          rolldownOptions: {
+            input: { bench: path.join(repo, "tools/perf-bench/index.html") },
+            // The bench page must install its mock backend before the app's
+            // modules run; the app config merges them into one chunk.
+            output: { strictExecutionOrder: true },
+          },
         },
-      },
-    });
-    const server = await preview({ ...shared, build: { outDir }, preview: { port, strictPort: true, host: "127.0.0.1" } });
-    return { server: { close: () => server.close() }, origin: `http://127.0.0.1:${port}` };
+      });
+      const server = await preview({ ...shared, build: { outDir }, preview: { port, strictPort: true, host: "127.0.0.1" } });
+      return {
+        server: {
+          async close() {
+            await server.close();
+            removeBuildDir(outDir);
+          },
+        },
+        origin: `http://127.0.0.1:${port}`,
+        outDir,
+      };
+    } catch (error) {
+      removeBuildDir(outDir);
+      throw error;
+    }
   }
   const server = await createServer({
     ...shared,
-    server: { port, strictPort: true, host: "127.0.0.1", hmr: false, watch: null },
+    server: { port, strictPort: true, host: "127.0.0.1", ...(live ? {} : { hmr: false, watch: null }) },
   });
   await server.listen();
-  return { server, origin: `http://127.0.0.1:${port}` };
+  return { server, origin: `http://127.0.0.1:${port}`, outDir: null };
 }
 
-function benchUrl(origin) {
-  const query = new URLSearchParams(Object.entries(BENCH_FIXTURE).map(([key, value]) => [key, String(value)]));
+function benchUrl(origin, extra = {}) {
+  const query = new URLSearchParams(Object.entries({ ...BENCH_FIXTURE, ...extra }).map(([key, value]) => [key, String(value)]));
   return `${origin}/tools/perf-bench/index.html?${query}`;
+}
+
+/**
+ * `--serve`: the benchmark's page without the benchmark, for driving the real
+ * app (over the mock backend) from a browser of one's own. Stays up until a
+ * signal, whose exit hook removes the build.
+ */
+async function serve(options) {
+  const vite = await startVite(!options.dev, { port: options.port, live: options.dev });
+  console.log(`Lattice bench page (${options.dev ? "dev server, live reload" : `production build in ${vite.outDir}`}):`);
+  console.log(`  ${benchUrl(vite.origin, { theme: "system", lang: "en" })}`);
+  console.log("Query parameters: theme=system|light|dark, lang=en|zh-CN|system, papers=1|fulltext, keepStorage=1,");
+  console.log(`  and the fixture sizes (${Object.keys(BENCH_FIXTURE).join(", ")}, chapters).`);
+  console.log("Press Ctrl-C to stop.");
+  await new Promise(() => {});
 }
 
 /** Loads the page and waits for the root document in the editor with its first build settled. */
@@ -227,6 +297,7 @@ function formatTable(results) {
 
 async function main() {
   const options = parseArgs(process.argv.slice(2));
+  if (options.serve) return serve(options);
   const scenarios = options.only ? SCENARIOS.filter((scenario) => options.only.includes(scenario.name)) : SCENARIOS;
   if (!scenarios.length) throw new Error(`No scenario matches ${options.only}`);
   const vite = options.url ? null : await startVite(!options.dev);
@@ -270,7 +341,7 @@ async function main() {
             console.error(`Screenshot of the failure: ${file}`);
           }
           console.error(page.console.slice(-30).join("\n"));
-          throw new Error(`${scenario.name}: ${error.message}`);
+          throw new Error(`${scenario.name}: ${error.message}`, { cause: error });
         } finally {
           if (!options.keepOpen) await page.close();
         }

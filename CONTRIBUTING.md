@@ -68,14 +68,10 @@ change, so the compatibility question gets answered before the code exists.
 
 You will need:
 
-- Node.js and pnpm — [`mise.toml`](mise.toml) is the single source of truth for
-  the exact versions (today: Node 26.5.0, pnpm 10.13.1). Installing
+- Node.js and pnpm — [`mise.toml`](mise.toml) pins the versions (Node 22, the
+  major CI runs, and pnpm 10.13.1). Installing
   [mise](https://mise.jdx.dev) and running `mise install` in the repository root
   gets you both at the right versions, and `pnpm check` needs mise anyway.
-  Known gap: CI still runs Node 22 (pinned in
-  `.github/actions/setup-pnpm/action.yml` and `release.yml`), so CI and local
-  development are not on the same major version. Nothing currently depends on
-  the difference, but if you hit a Node-version-specific failure, that is why.
 - stable Rust with `rustfmt` and `clippy`;
 - the [desktop build prerequisites](https://v2.tauri.app/start/prerequisites/);
 - Git and a TeX distribution that provides `latexmk`.
@@ -181,9 +177,8 @@ table in step.
 The commands are the same ones CI runs, except its interaction benchmark
 (`pnpm perf:bench --check`, or `mise run perf-bench`; see
 [`docs/performance.md`](docs/performance.md)), which needs a local Chrome and a
-few quiet minutes. The environments are not interchangeable either: CI runs everything from a clean checkout with nothing skipped,
-on Node 22 (Rust on macOS, the rest on Ubuntu), while `pnpm check` runs on the
-Node and pnpm versions `mise.toml` pins and skips stages it considers fresh. If
+few quiet minutes. The environments are not interchangeable either: CI runs everything from a clean checkout with nothing skipped
+(Rust on macOS, the rest on Ubuntu), while `pnpm check` skips stages it considers fresh. If
 a stage passes locally and fails in CI, suspect the freshness cache first —
 `mise run --force check` re-runs everything.
 

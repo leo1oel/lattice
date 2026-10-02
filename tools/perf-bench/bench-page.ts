@@ -14,6 +14,11 @@
  */
 import { perfFixture, type PerfFixtureSizes } from "../../scripts/perf-fixture.mjs";
 import type { FileNode, ProjectSnapshot } from "../../src/app-types";
+// app-settings has no side effects (its imports are type-only), so importing
+// its keys here runs no app code before the mock backend below is installed.
+import {
+  APPEARANCE_KEY, BUILD_PREFERENCES_KEY, THEME_PREFERENCE_KEY, TUTORIAL_SEEN_KEY, type InterfaceLanguage, type ThemePreference,
+} from "../../src/settings/app-settings";
 
 type Callback = (payload: unknown) => void;
 type Args = Record<string, unknown> | undefined;
@@ -265,14 +270,41 @@ Object.assign(window, {
   __latticeBench: { root: ROOT, emit, unhandled, counts, fixtureSizes: sizes },
 });
 
+/** A query parameter restricted to `allowed`; anything else is reported and ignored. */
+function choiceParam<T extends string>(name: string, allowed: readonly T[]): T | null {
+  const value = params.get(name);
+  if (value === null) return null;
+  if ((allowed as readonly string[]).includes(value)) return value as T;
+  console.warn(`perf bench: ignoring ${name}=${value}; expected one of ${allowed.join(", ")}`);
+  return null;
+}
+
+// `?theme=` and `?lang=` are for screenshots and QA (pnpm perf:bench --serve).
+// The benchmark passes neither: it runs in the browser's own appearance
+// ("system", light in headless Chrome) and in English, because scenarios find
+// controls by their English names whatever the machine's locale.
+const theme = choiceParam<ThemePreference>("theme", ["system", "light", "dark"]);
+const lang = choiceParam<InterfaceLanguage>("lang", ["en", "zh-CN", "system"]);
+
 // A first run lands on the onboarding tour and would auto-build; the bench
 // measures a returning writer with manual builds instead.
 if (!params.has("keepStorage")) {
   localStorage.clear();
-  localStorage.setItem("lattice.tutorial-seen.v1", "1");
-  localStorage.setItem("lattice.build-preferences.v2", JSON.stringify({ autoBuildMode: "manual" }));
-  // Scenarios find controls by their English names, whatever the machine's locale.
-  localStorage.setItem("lattice.appearance.v5", JSON.stringify({ interfaceLanguage: "en" }));
+  localStorage.setItem(TUTORIAL_SEEN_KEY, "1");
+  localStorage.setItem(BUILD_PREFERENCES_KEY, JSON.stringify({ autoBuildMode: "manual" }));
+  localStorage.setItem(APPEARANCE_KEY, JSON.stringify({ interfaceLanguage: lang ?? "en" }));
+} else if (lang) {
+  // Over kept storage, change the language and keep the rest of the appearance.
+  let stored: unknown = null;
+  try {
+    stored = JSON.parse(localStorage.getItem(APPEARANCE_KEY) ?? "null");
+  } catch {
+    // A corrupt entry is replaced, as the app itself would treat it as absent.
+  }
+  const appearance = stored && typeof stored === "object" ? stored : {};
+  localStorage.setItem(APPEARANCE_KEY, JSON.stringify({ ...appearance, interfaceLanguage: lang }));
 }
+// Stored raw, not as JSON (loadThemePreference).
+if (theme) localStorage.setItem(THEME_PREFERENCE_KEY, theme);
 
 await import("../../src/main.tsx");

@@ -16,6 +16,11 @@ license = "Apache-2.0"
 name = "research_writer_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
+[features]
+# The real-app measurement lab (src/perf_lab.rs and the frontend harness it
+# drives). Only scripts/perf-lab.mjs turns it on; release builds never do.
+perf-lab = []
+
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
 cc = "1"

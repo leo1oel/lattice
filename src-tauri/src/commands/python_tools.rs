@@ -290,9 +290,10 @@ pub fn arxiv2md_cache_dir() -> PathBuf {
 
 fn app_cache_dir(name: &str, without_home: &str) -> PathBuf {
     match env::var_os("HOME") {
-        Some(home) => {
-            PathBuf::from(home).join("Library/Caches/app.leo1oel.researchwriter").join(name)
-        }
+        Some(home) => PathBuf::from(home)
+            .join("Library/Caches")
+            .join(crate::app_identity::identifier())
+            .join(name),
         None => PathBuf::from(without_home),
     }
 }

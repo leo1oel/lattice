@@ -57,6 +57,11 @@ struct HostBridgeConfig<'a> {
 }
 
 fn bind_browser_listener(take_over_background_host: bool) -> io::Result<TcpListener> {
+    #[cfg(feature = "perf-lab")]
+    if let Some(port) = crate::perf_lab::port() {
+        // A lab run has its own port and never takes over anyone's listener.
+        return TcpListener::bind(SocketAddrV4::new(Ipv4Addr::LOCALHOST, port));
+    }
     let address = SocketAddrV4::new(Ipv4Addr::LOCALHOST, PREFERRED_PORT);
     match TcpListener::bind(address) {
         Ok(listener) => Ok(listener),

@@ -45,7 +45,14 @@ const stripComments = (text: string) => text.replace(/\/\*[\s\S]*?\*\//g, "")
  */
 const VENDOR_ICON_CSS = "src/animated-icons/bakai-icons.css"
 
-const sources = collectSources("src").map((file) => {
+/**
+ * The perf-lab harness never ships (only VITE_PERF_LAB builds include it). Its
+ * CSS strings are measurement switches that knock app styles out on purpose,
+ * so `!important` and raw values there are the point, not a contract breach.
+ */
+const PERF_LAB_HARNESS = "src/platform/perf-lab-harness.ts"
+
+const sources = collectSources("src").filter((file) => file !== PERF_LAB_HARNESS).map((file) => {
   const text = read(file)
   return { file, text, rules: stripComments(text) }
 })
