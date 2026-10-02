@@ -3,8 +3,8 @@ import { useLingui } from "@lingui/react/macro";
 import { FileText, Image } from "lucide-react";
 import { ScrollArea } from "../components/ui/scroll-area";
 import { useNonPassiveWheel } from "../hooks/use-non-passive-wheel";
-import { pdfBase64ToBytes } from "../pdf/pdf-bytes";
 import type { AssetPreview, FileViewState, ImageFileViewState } from "../app-types";
+import { assetDataUrl, assetPdfFile } from "../project/reference-preview";
 import { useLatest } from "../app/effect-helpers";
 import { PdfPreview, PdfPreviewLoading } from "./canvas-lazy-editors";
 import { useZoomScale } from "./use-zoom-scale";
@@ -18,14 +18,18 @@ function imageViewState(viewport: HTMLElement | null, scale: number): ImageFileV
 }
 
 /** A project image or PDF figure, with its zoom and scroll position kept as per-file view state. */
-export function ProjectAssetPreview({ asset, viewState, onViewState }: {
+export function ProjectAssetPreview({ asset, missing = false, viewState, onViewState, onFileChanged }: {
   asset: AssetPreview;
+  /** The file was removed from the project while open. */
+  missing?: boolean;
   viewState?: FileViewState;
   onViewState?: (update: Partial<FileViewState>) => void;
+  /** A project PDF was rewritten on disk since it was read. */
+  onFileChanged?: () => void;
 }) {
   const { t } = useLingui();
-  // eslint-disable-next-line lingui/no-unlocalized-strings -- data URL
-  const url = `data:${asset.mimeType};base64,${asset.base64}`;
+  const url = assetDataUrl(asset);
+  const pdfFile = assetPdfFile(asset);
   const [initialImageViewState] = useState(viewState?.image);
   const [scale, updateScale] = useZoomScale(initialImageViewState?.scale ?? 1, IMAGE_MIN_SCALE, IMAGE_MAX_SCALE);
   const scaleRef = useLatest(scale);
@@ -57,17 +61,18 @@ export function ProjectAssetPreview({ asset, viewState, onViewState }: {
     event.preventDefault();
     updateScale((current) => Number((current * Math.exp(-event.deltaY * 0.01)).toFixed(3)));
   });
-  if (isPdf) {
+  if (pdfFile) {
     return (
       <Suspense fallback={<PdfPreviewLoading />}>
         <PdfPreview
-          key={url}
-          url={url}
-          pdfBase64={asset.base64}
-          pdfBytes={pdfBase64ToBytes(asset.base64).buffer}
+          key={pdfFile.path}
+          url={null}
+          projectFile={pdfFile}
           fileName={asset.path.split("/").pop() ?? "figure.pdf"}
           initialViewState={viewState?.pdf}
           onViewState={(pdf) => onViewStateRef.current?.({ pdf })}
+          onFileChanged={onFileChanged}
+          notice={missing ? t`This PDF was removed from the project.` : null}
         />
       </Suspense>
     );
@@ -99,7 +104,7 @@ export function ProjectAssetPreview({ asset, viewState, onViewState }: {
           onScroll: (event) => reportImageView(event.currentTarget, scaleRef.current),
         }}
       >
-        {image
+        {image && url
           ? <img src={url} alt={t({ message: `Preview of ${{ path: asset.path }}` })} style={{ zoom: scale }} />
           : <div className="asset-preview-unsupported"><FileText size={28} /><p>{t`This format cannot be rendered in the preview`}</p></div>}
       </ScrollArea>

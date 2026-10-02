@@ -68,15 +68,20 @@ pub fn read_compiled_pdf(root: &Path) -> Result<Vec<u8>, String> {
     Ok(bytes)
 }
 
-pub fn save_pdf(path: &Path, bytes: &[u8]) -> Result<String, String> {
+/// Where a PDF saved to `path` is written: `path`, given `.pdf` if it has no extension.
+pub(crate) fn pdf_destination(path: &Path) -> Result<PathBuf, String> {
     if path.as_os_str().is_empty() {
         return Err("Choose where to save the PDF.".to_string());
     }
-    let destination = match path.extension().and_then(|extension| extension.to_str()) {
-        None => path.with_extension("pdf"),
-        Some(extension) if extension.eq_ignore_ascii_case("pdf") => path.to_path_buf(),
-        Some(_) => return Err("The exported paper must use the .pdf extension.".to_string()),
-    };
+    match path.extension().and_then(|extension| extension.to_str()) {
+        None => Ok(path.with_extension("pdf")),
+        Some(extension) if extension.eq_ignore_ascii_case("pdf") => Ok(path.to_path_buf()),
+        Some(_) => Err("The exported paper must use the .pdf extension.".to_string()),
+    }
+}
+
+pub fn save_pdf(path: &Path, bytes: &[u8]) -> Result<String, String> {
+    let destination = pdf_destination(path)?;
     if !bytes.starts_with(b"%PDF-") {
         return Err("The compiled output is not a valid PDF.".to_string());
     }

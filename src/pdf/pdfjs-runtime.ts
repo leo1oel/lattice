@@ -10,7 +10,7 @@ import { GlobalWorkerOptions } from "pdfjs-dist";
 // worker that cannot start would read; the CSP's worker-src allows this one.
 import pdfWorker from "pdfjs-dist/build/pdf.worker.mjs?worker&url";
 
-export { getDocument } from "pdfjs-dist";
+export { getDocument, PDFDataRangeTransport } from "pdfjs-dist";
 
 GlobalWorkerOptions.workerSrc = pdfWorker;
 

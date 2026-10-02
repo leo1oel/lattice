@@ -163,6 +163,10 @@ export function DocumentCanvas(props: {
   /** Downloaded paper library backing the visual editor's `@` citation typeahead. */
   papers?: PaperSummary[];
   activeAsset: AssetPreview | null;
+  /** The active asset was rewritten on disk: read its new version. */
+  onActiveAssetChanged?: () => void;
+  /** The active asset was removed from the project while open. */
+  activeAssetMissing?: boolean;
   citationKeys: string[];
   citations: CitationInfo[];
   references: ReferenceInfo[];
@@ -992,8 +996,10 @@ export function DocumentCanvas(props: {
     <ProjectAssetPreview
       key={asset.path}
       asset={asset}
+      missing={props.activeAssetMissing}
       viewState={props.getFileViewState?.(asset.path)}
       onViewState={(update) => props.onFileViewState?.(asset.path, update)}
+      onFileChanged={props.onActiveAssetChanged}
     />
   );
   const htmlPreview = (path: string, source: string, sourceEditorView?: EditorView | null) => (
@@ -1322,7 +1328,6 @@ export function DocumentCanvas(props: {
           <PdfPreview
             key={`project-pdf:${props.projectRoot}`}
             url={props.pdfUrl}
-            pdfBase64={null}
             pdfBytes={props.pdfBytes}
             citations={props.citations}
             canOpenCitation={props.canOpenCitation}

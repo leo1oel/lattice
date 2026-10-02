@@ -186,6 +186,33 @@ pub async fn read_project_asset(
     run_blocking("Project asset read", move || project::read_asset(&root, &path)).await
 }
 
+/// Bytes `[start, end)` of a project PDF `read_project_asset` reported, as a
+/// raw IPC reply: PDF.js asks for the ranges its pages need.
+#[tauri::command]
+pub async fn read_project_asset_range(
+    state: State<'_, AppState>, window: Window, path: String, version: String, start: u64, end: u64,
+) -> Result<tauri::ipc::Response, String> {
+    let root = current_root(&state, &window)?;
+    let bytes = run_blocking("Project PDF range read", move || {
+        project::read_asset_range(&root, &path, &version, start, end)
+    })
+    .await?;
+    Ok(tauri::ipc::Response::new(bytes))
+}
+
+/// Save a copy of a project PDF, at the version `read_project_asset` reported,
+/// to `destination`: the file is copied on disk, not sent to the webview.
+#[tauri::command]
+pub async fn save_project_pdf(
+    state: State<'_, AppState>, window: Window, path: String, version: String, destination: String,
+) -> Result<String, String> {
+    let root = current_root(&state, &window)?;
+    run_blocking("Project PDF save", move || {
+        project::save_asset_copy(&root, &path, &version, Path::new(&destination))
+    })
+    .await
+}
+
 #[tauri::command]
 pub async fn write_project_bytes(
     state: State<'_, AppState>, window: Window, path: String, base64_data: String,

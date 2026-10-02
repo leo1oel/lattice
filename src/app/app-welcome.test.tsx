@@ -17,7 +17,7 @@ describe("welcome screen", () => {
     const image = "data:image/png;base64,preview";
     vi.spyOn(HTMLCanvasElement.prototype, "toDataURL").mockReturnValue(image);
     await expect(referenceAssetPreviewDataUrl({
-      path: "figures/result.pdf", mimeType: "application/pdf", base64: "JVBERi0xLjQ=",
+      path: "figures/result.pdf", mimeType: "application/pdf", ranges: { length: 8, version: "v1" },
     })).resolves.toBe(image);
     expect(vi.mocked(getDocument)).toHaveBeenCalledWith(expect.objectContaining({ disableFontFace: true, useSystemFonts: false }));
     expect(render).toHaveBeenCalledWith(expect.objectContaining({ background: "#F9F9FA" }));

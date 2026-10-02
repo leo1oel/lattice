@@ -23,7 +23,7 @@ use axum::{
 };
 use futures_util::{SinkExt, StreamExt};
 use serde::Deserialize;
-use std::{net::TcpListener, sync::Arc, time::Duration};
+use std::{collections::HashMap, net::TcpListener, sync::Arc, time::Duration};
 use tauri::Manager;
 use tokio::sync::mpsc;
 
@@ -36,6 +36,9 @@ const RECONNECT_GRACE: Duration = Duration::from_secs(5);
 const YIELDED: &str = r#"{"type":"yielded"}"#;
 /// The parked Chromium window asks for the workspace back.
 const RECLAIM: &str = r#"{"type":"reclaim"}"#;
+/// Carries the session token on project PDF range reads, so it never lands in
+/// a URL, the browser's history or a request log.
+const SESSION_HEADER: &str = "x-lattice-session";
 
 #[derive(Clone)]
 struct ServerState {
@@ -69,6 +72,7 @@ pub(super) fn spawn(app: tauri::AppHandle, port: u16, sessions: Sessions, listen
         let router = Router::new()
             .route("/__lattice_bridge", get(upgrade_bridge))
             .route("/__lattice_session", get(open_browser_session))
+            .route("/__lattice_asset", get(read_asset_range).options(asset_preflight))
             .fallback(serve_asset)
             .with_state(state);
         if let Err(error) = axum::serve(listener, router).await {
@@ -262,6 +266,96 @@ async fn bridge_socket(
     }
 }
 
+/// One range of a project PDF, as `read_project_asset_range` reads it for a
+/// native window.
+#[derive(Deserialize)]
+struct AssetRangeQuery {
+    path: String,
+    version: String,
+    start: u64,
+    end: u64,
+}
+
+/// The hidden host window whose project a range read is for, and the page
+/// origin to answer. The request must reach the exact loopback host, come from
+/// the session's own page (same origin, or its development origin), and carry
+/// a live session token in [`SESSION_HEADER`].
+fn asset_session(
+    headers: &HeaderMap, port: u16, sessions: &HashMap<String, BrowserSession>,
+) -> Option<(String, String)> {
+    let header = |name: &str| headers.get(name).and_then(|value| value.to_str().ok());
+    let session = sessions.get(header(SESSION_HEADER)?)?;
+    let from_page = header("origin") == Some(session.browser_origin.as_str())
+        || header("sec-fetch-site") == Some("same-origin");
+    (valid_loopback_host(headers, port) && from_page)
+        .then(|| (session.host_label.clone(), session.browser_origin.clone()))
+}
+
+/// Project PDF bytes for the browser page. The page could ask the hidden host
+/// over the bridge, but binary replies cross it as base64 twice; this reads
+/// the same checked range directly.
+async fn read_asset_range(
+    State(state): State<ServerState>, Query(query): Query<AssetRangeQuery>, headers: HeaderMap,
+) -> Response {
+    let session = session::lock(&state.sessions)
+        .ok()
+        .and_then(|sessions| asset_session(&headers, state.port, &sessions));
+    let Some((host_label, browser_origin)) = session else {
+        return StatusCode::FORBIDDEN.into_response();
+    };
+    let Ok(Some(root)) = state.app.state::<crate::AppState>().root_for(&host_label) else {
+        return StatusCode::NOT_FOUND.into_response();
+    };
+    let read = tauri::async_runtime::spawn_blocking(move || {
+        crate::project::read_asset_range(&root, &query.path, &query.version, query.start, query.end)
+    })
+    .await;
+    let mut response = match read {
+        Ok(Ok(bytes)) => {
+            let mut response = Response::new(Body::from(bytes));
+            response
+                .headers_mut()
+                .insert(header::CONTENT_TYPE, HeaderValue::from_static("application/octet-stream"));
+            response
+        }
+        Ok(Err(reason)) => (StatusCode::UNPROCESSABLE_ENTITY, reason).into_response(),
+        Err(_) => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+    };
+    let headers_out = response.headers_mut();
+    headers_out.insert(header::CACHE_CONTROL, HeaderValue::from_static("no-store"));
+    headers_out.insert(header::X_CONTENT_TYPE_OPTIONS, HeaderValue::from_static("nosniff"));
+    // Same-origin pages need no CORS; only a development page served from the
+    // dev server is let read the reply.
+    if headers.get(header::ORIGIN).and_then(|origin| origin.to_str().ok())
+        == Some(browser_origin.as_str())
+    {
+        if let Ok(origin) = HeaderValue::from_str(&browser_origin) {
+            headers_out.insert(header::ACCESS_CONTROL_ALLOW_ORIGIN, origin);
+            headers_out.insert(header::VARY, HeaderValue::from_static("Origin"));
+        }
+    }
+    response
+}
+
+/// The CORS preflight a development page sends before its first range read;
+/// a same-origin page never needs one.
+async fn asset_preflight(State(state): State<ServerState>, headers: HeaderMap) -> Response {
+    let origin = browser_origin(&state.app, state.port);
+    if !valid_session_request(&headers, &origin, state.port) {
+        return StatusCode::FORBIDDEN.into_response();
+    }
+    let mut response = StatusCode::NO_CONTENT.into_response();
+    let headers_out = response.headers_mut();
+    if let Ok(origin) = HeaderValue::from_str(&origin) {
+        headers_out.insert(header::ACCESS_CONTROL_ALLOW_ORIGIN, origin);
+    }
+    headers_out.insert(header::ACCESS_CONTROL_ALLOW_METHODS, HeaderValue::from_static("GET"));
+    headers_out
+        .insert(header::ACCESS_CONTROL_ALLOW_HEADERS, HeaderValue::from_static(SESSION_HEADER));
+    headers_out.insert(header::VARY, HeaderValue::from_static("Origin"));
+    response
+}
+
 async fn serve_asset(State(state): State<ServerState>, request: Request<Body>) -> Response {
     if !valid_loopback_host(request.headers(), state.port) {
         return StatusCode::MISDIRECTED_REQUEST.into_response();
@@ -317,5 +411,43 @@ mod tests {
                 "{host} {request_origin}"
             );
         }
+    }
+
+    #[test]
+    fn project_pdf_reads_need_the_session_token_in_a_header_from_the_sessions_own_page() {
+        let port = crate::browser_host::PREFERRED_PORT;
+        let origin = "http://127.0.0.1:18452";
+        let sessions = HashMap::from([(
+            "session-secret".to_string(),
+            BrowserSession::new("browser-host-1".to_string(), origin.to_string()),
+        )]);
+        let request = |host: &str, token: Option<&str>, page: &[(&'static str, &str)]| {
+            let mut headers = HeaderMap::new();
+            headers.insert(header::HOST, host.parse().unwrap());
+            if let Some(token) = token {
+                headers.insert(SESSION_HEADER, token.parse().unwrap());
+            }
+            for (name, value) in page {
+                headers.insert(*name, value.parse().unwrap());
+            }
+            asset_session(&headers, port, &sessions).map(|(label, _)| label)
+        };
+        let same_origin = [("sec-fetch-site", "same-origin")];
+        let host = "127.0.0.1:18452";
+        let allowed = Some("browser-host-1".to_string());
+        assert_eq!(request(host, Some("session-secret"), &same_origin), allowed);
+        assert_eq!(request(host, Some("session-secret"), &[("origin", origin)]), allowed);
+        // No token, a guessed one, or a token on another host or from another site.
+        assert_eq!(request(host, None, &same_origin), None);
+        assert_eq!(request(host, Some("session-guess"), &same_origin), None);
+        assert_eq!(request("localhost:18452", Some("session-secret"), &same_origin), None);
+        assert_eq!(
+            request(
+                host,
+                Some("session-secret"),
+                &[("origin", "https://attacker.example"), ("sec-fetch-site", "cross-site")]
+            ),
+            None
+        );
     }
 }

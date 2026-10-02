@@ -91,7 +91,6 @@ export function PaperReader({ paper, activeFile, pdf, markdown, ...props }: {
             <PdfPreview
               key={`paper-pdf:${view.key}`}
               url={view.previewUrl}
-              pdfBase64={null}
               pdfBytes={view.bytes}
               fileName={view.fileName}
               initialPage={view.initialPage}

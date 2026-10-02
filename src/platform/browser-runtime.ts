@@ -63,6 +63,7 @@ let runtimeReady: Promise<void> = Promise.resolve();
 let runtimeDetached = false;
 const detachListeners = new Set<() => void>();
 let yieldHandler: (() => Promise<unknown>) | null = null;
+let browserSession: BrowserRuntimeConfig | null = null;
 
 /**
  * What this page does when another surface (the default browser, or the
@@ -642,6 +643,7 @@ function installBrowserRuntime(config: BrowserRuntimeConfig): Promise<void> {
   runtimeWindow.__LATTICE_BROWSER_RUNTIME__ = true;
   runtimeWindow.isTauri = true;
   browserRuntime = true;
+  browserSession = config;
   return relay.storageReady;
 }
 
@@ -844,6 +846,31 @@ if (!runtimeWindow.__TAURI_INTERNALS__ && isLoopbackPage()) {
 
 export function isBrowserHosted(): boolean {
   return browserRuntime;
+}
+
+/**
+ * Bytes `[start, end)` of a project PDF, read from the browser host directly:
+ * over the bridge, binary replies travel as base64 twice. The host checks the
+ * session token, sent in a header so it never lands in a URL, and serves only
+ * the checked version of a PDF inside this session's project.
+ */
+export async function readBrowserHostAsset(range: {
+  path: string;
+  version: string;
+  start: number;
+  end: number;
+}): Promise<ArrayBuffer> {
+  if (!browserSession) throw new Error(runtimeMessage("app-disconnected"));
+  const endpoint = new URL(`http://127.0.0.1:${browserSession.bridgePort}/__lattice_asset`);
+  for (const [name, value] of Object.entries(range)) endpoint.searchParams.set(name, String(value));
+  const response = await fetch(endpoint, {
+    cache: "no-store",
+    headers: { "x-lattice-session": browserSession.token },
+  });
+  if (!response.ok) {
+    throw new Error(await response.text() || runtimeMessage("entry-status", { status: String(response.status) }));
+  }
+  return response.arrayBuffer();
 }
 
 /** The bundled Chromium window, as opposed to a tab in the default browser. */

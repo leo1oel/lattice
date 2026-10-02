@@ -676,6 +676,9 @@ describe("project tree and projects", () => {
       render: () => ({ promise: Promise.resolve(), cancel: vi.fn() }), getTextContent: async () => ({ items: [] }),
     });
     mockPdfDocument(() => pdf);
+    let pdfRanges = { length: 8, version: "v1" };
+    let pdfRemoved = false;
+    const removed = () => new Error("That file or folder no longer exists.");
     renderApp({
       ...refreshableProject(projectSnapshot({
         files: [
@@ -685,10 +688,12 @@ describe("project tree and projects", () => {
       read_project_file: readFiles({ "method.md": "# Method" }, "\\documentclass{article}\n\\begin{document}\n\\end{document}"),
       read_project_asset: (args) => {
         const path = argPath(args);
+        if (path.endsWith(".pdf") && pdfRemoved) throw removed();
         return path.endsWith(".pdf")
-          ? { path, mimeType: "application/pdf", base64: "JVBERi0xLjQ=" }
+          ? { path, mimeType: "application/pdf", ranges: pdfRanges }
           : { path, mimeType: "image/svg+xml", base64: "PHN2Zy8+" };
       },
+      read_project_asset_range: () => { throw pdfRemoved ? removed() : new Error("This PDF changed on disk."); },
       prepare_latex_figure: "figures/native-umm-converted.pdf", write_project_file: undefined,
       build_project: buildResult(),
     });
@@ -715,11 +720,62 @@ describe("project tree and projects", () => {
     fireEvent.click(await findProjectTreeItem("figures/result.pdf"));
     expect(await screen.findByRole("tab", { name: /result\.pdf/ })).toHaveAttribute("aria-selected", "true");
     const figureReader = (await screen.findByLabelText("PDF page 1")).closest<HTMLElement>(".pdf-preview")!;
-    expect(vi.mocked(getDocument)).toHaveBeenCalledWith(expect.objectContaining({ disableFontFace: true, useSystemFonts: false }));
+    // Read a range at a time from the checked file version, not inlined as base64.
+    expect(vi.mocked(getDocument)).toHaveBeenCalledWith(expect.objectContaining({
+      range: expect.objectContaining({ length: 8 }), disableAutoFetch: true, disableFontFace: true, useSystemFonts: false,
+    }));
     expect(within(figureReader).queryByLabelText("Show document outline")).toBeNull();
     expect(screen.queryByRole("tablist", { name: "Document view" })).toBeNull();
     expect(vi.mocked(invoke)).not.toHaveBeenCalledWith("prepare_latex_figure", expect.anything());
-  });
+
+    // Rewritten on disk while open: the reader moves to the new version by itself.
+    pdfRanges = { length: 12, version: "v2" };
+    await waitFor(() => expect(vi.mocked(getDocument)).toHaveBeenCalledWith(expect.objectContaining({
+      range: expect.objectContaining({ length: 12 }),
+    })), { timeout: 6_000 });
+    expect(screen.getByRole("tab", { name: /result\.pdf/ })).toHaveAttribute("aria-selected", "true");
+
+    // Rewritten again, and a read finds out first: the new version is read at once, not at the next poll.
+    const assetReads = () => vi.mocked(invoke).mock.calls.filter(([command]) => command === "read_project_asset").length;
+    const afterPoll = assetReads();
+    await waitFor(() => expect(assetReads()).toBeGreaterThan(afterPoll), { timeout: 4_000 });
+    const polled = assetReads();
+    pdfRanges = { length: 16, version: "v3" };
+    const { range } = vi.mocked(getDocument).mock.calls.at(-1)![0] as unknown as {
+      range: { requestDataRange(begin: number, end: number): void };
+    };
+    range.requestDataRange(0, 4);
+    await waitFor(() => expect(assetReads()).toBeGreaterThan(polled), { timeout: 1_000 });
+    await waitFor(() => expect(vi.mocked(getDocument)).toHaveBeenCalledWith(expect.objectContaining({
+      range: expect.objectContaining({ length: 16 }),
+    })), { timeout: 4_000 });
+    expect(formatAppLogs()).not.toContain("changed on disk");
+
+    // Removed outside the app: one notice in the reader, and checks slow down.
+    pdfRemoved = true;
+    const { range: lastRange } = vi.mocked(getDocument).mock.calls.at(-1)![0] as unknown as {
+      range: { requestDataRange(begin: number, end: number): void };
+    };
+    lastRange.requestDataRange(0, 4);
+    // The reader asked moments ago, so this one waits for the next check.
+    expect(await screen.findByText("This PDF was removed from the project.", undefined, { timeout: 4_000 }))
+      .toHaveAttribute("role", "status");
+    expect(screen.getAllByText("This PDF was removed from the project.")).toHaveLength(1);
+    const afterRemoval = assetReads();
+    await act(() => pause(3_000));
+    expect(assetReads()).toBe(afterRemoval);
+    expect(screen.getByRole("tab", { name: /result\.pdf/ })).toHaveAttribute("aria-selected", "true");
+    expect(formatAppLogs()).not.toContain("no longer exists");
+
+    // A rebuild writes it again: the notice clears and the new version opens in the same reader.
+    pdfRanges = { length: 20, version: "v4" };
+    pdfRemoved = false;
+    await waitFor(() => expect(vi.mocked(getDocument)).toHaveBeenCalledWith(expect.objectContaining({
+      range: expect.objectContaining({ length: 20 }),
+    })), { timeout: 8_000 });
+    expect(screen.queryByText("This PDF was removed from the project.")).toBeNull();
+    expect(screen.getByRole("tab", { name: /result\.pdf/ })).toHaveAttribute("aria-selected", "true");
+  }, 30_000);
 
   it("keeps the latest file active when an earlier read resolves afterward", async () => {
     setAutoBuildMode("manual");

@@ -123,6 +123,7 @@ import { Welcome } from "./project/project-dialogs";
 import { activeOutlineNode, includedPathsIn, parseProjectOutline } from "./editor/latex/latex-outline";
 import { baseArxivId } from "./papers/arxiv-id";
 import { type PdfSyncTarget } from "./pdf/pdf-viewer";
+import { isProjectFileMissing } from "./pdf/project-pdf-refusals";
 import { mergeTodosWithBuffer } from "./project/todo-scavenger";
 import type {
   ProjectManifest,
@@ -245,6 +246,8 @@ const EMPTY_SPELLING_WORDS: string[] = [];
 
 /** How long a project switch waits for an in-flight Overleaf sync before giving up on it. */
 const PROJECT_SWITCH_SYNC_WAIT_MS = 15_000;
+/** How often an open project PDF is checked for a new version on disk. */
+const PDF_RECHECK_MS = 2500;
 
 // Must match the prefix `open_project_window` puts on a window-creation
 // failure. Everything else it can fail with is the project itself.
@@ -2288,6 +2291,47 @@ function App() {
     addOpenTab, closePaper, flushAndCheckPrimaryDirty, save, showActiveAsset, captureProjectScope,
   ]);
 
+  // An open project PDF is read a range at a time from one version of the file,
+  // so a rewrite on disk (a build, the agent, an Overleaf pull) must hand the
+  // viewer the new version; it keeps its page and zoom across the swap. The
+  // viewer asks at once when a read finds the file changed; the poll catches
+  // a rewrite before any read does. A file removed from the project stays
+  // open with a notice and is checked less often; a rebuild that deletes and
+  // then rewrites it brings the new version back in at the same page.
+  const [missingAsset, setMissingAsset] = useState<AssetPreview | null>(null);
+  const recheckActivePdf = useCallback(() => {
+    const opened = activeAssetRef.current;
+    if (!opened?.ranges) return;
+    const path = opened.path;
+    const ownsProject = captureProjectScope();
+    void invoke<AssetPreview>("read_project_asset", { path })
+      .then((asset) => {
+        const current = activeAssetRef.current;
+        if (!ownsProject() || current?.path !== path || !asset.ranges) return;
+        if (asset.ranges.version !== current.ranges?.version) showActiveAsset(asset);
+        else setMissingAsset((missing) => (missing === current ? null : missing));
+      })
+      .catch((reason: unknown) => {
+        // A file caught mid-write is read again on the next tick.
+        if (ownsProject() && activeAssetRef.current === opened && isProjectFileMissing(reason)) setMissingAsset(opened);
+      });
+  }, [activeAssetRef, captureProjectScope, showActiveAsset]);
+  // A viewer's own request is answered at most once per poll interval.
+  const viewerRecheckAtRef = useRef(0);
+  const recheckChangedPdf = useCallback(() => {
+    const now = Date.now();
+    if (now - viewerRecheckAtRef.current < PDF_RECHECK_MS) return;
+    viewerRecheckAtRef.current = now;
+    recheckActivePdf();
+  }, [recheckActivePdf]);
+  const activeAssetMissing = activeAsset !== null && activeAsset === missingAsset;
+  const activePdfPath = activeAsset?.ranges ? activeAsset.path : null;
+  useEffect(() => {
+    if (!project || !activePdfPath) return;
+    const timer = window.setInterval(recheckActivePdf, activeAssetMissing ? 2 * PDF_RECHECK_MS : PDF_RECHECK_MS);
+    return () => window.clearInterval(timer);
+  }, [activeAssetMissing, activePdfPath, project, recheckActivePdf]);
+
   const closeEditorTab = useCallback(async (path: string) => {
     // The writer already closed the document's panel: the last document does
     // not hold it open (its panel closes and the neighbours fill in).
@@ -3788,6 +3832,8 @@ function App() {
       ) : null}
       activePaper={activePaper}
       activeAsset={activeAsset}
+      onActiveAssetChanged={recheckChangedPdf}
+      activeAssetMissing={activeAssetMissing}
       canOpenCitation={(key) => Boolean(readablePaperCited(key) || citationUrl(key))}
       onOpenCitation={(key) => {
         const paper = readablePaperCited(key);

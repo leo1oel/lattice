@@ -330,6 +330,8 @@ pub fn run() {
             ipc::files::import_project_sources,
             ipc::files::import_clipboard_image,
             ipc::files::read_project_asset,
+            ipc::files::read_project_asset_range,
+            ipc::files::save_project_pdf,
             ipc::files::write_project_bytes,
             ipc::files::prepare_latex_figure,
             ipc::files::save_xlsx,

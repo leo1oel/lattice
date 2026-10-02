@@ -122,11 +122,18 @@ vi.mock("../platform/browser-runtime", () => ({
   isBrowserHosted: () => browserRuntime.hosted,
   isBundledChromium: () => browserRuntime.hosted && browserRuntime.bundled,
   browserRuntimeDetached: () => false,
+  readBrowserHostAsset: vi.fn(),
   setWorkspaceYieldHandler: (handler: null | (() => Promise<unknown>)) => { browserRuntime.yieldHandler = handler; },
 }));
 vi.mock("pdfjs-dist", () => ({
   GlobalWorkerOptions: {},
   getDocument: vi.fn(),
+  PDFDataRangeTransport: class {
+    length: number;
+    constructor(length: number) { this.length = length; }
+    onDataRange() {}
+    abort() {}
+  },
   TextLayer: class {
     container: HTMLElement;
     constructor({ container }: { container: HTMLElement }) { this.container = container; }
@@ -159,6 +166,7 @@ vi.mock("@pdfslick/core", () => {
   return { PDFSlick: class PDFSlickMock {
     args: PdfSlickMockArgs;
     document: PdfSlickMockDocument | null = null;
+    loadingTask: { destroy: () => unknown } | null = null;
     eventHandlers = new Map<string, Array<(event: object) => void>>();
     pageViews: PdfSlickMockPageView[] = [];
     findIndex = 0;
@@ -244,6 +252,7 @@ vi.mock("@pdfslick/core", () => {
         ...(typeof source === "string" ? { url: source } : { data: new Uint8Array(source) }),
         ...this.args.options?.getDocumentParams,
       });
+      this.loadingTask = loadingTask;
       const loaded = await loadingTask.promise as unknown as PdfSlickMockDocument;
       loaded.loadingTask = loadingTask;
       this.document = loaded;

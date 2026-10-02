@@ -48,6 +48,7 @@ import { usePdfSourceTargets, type PdfSourceQuote, type PdfSyncTarget } from "./
 import { usePdfSelectionReport } from "./pdf-text-layer-selection";
 import { PDF_MAX_SCALE, PDF_MIN_SCALE, parsePdfZoomPercent } from "./pdf-viewer-utils";
 import { clamp } from "../settings/app-settings";
+import { currentProjectPdf, saveProjectPdf, type ProjectPdfFile } from "./project-pdf";
 import { pdfSource, usePdfDocument } from "./use-pdf-document";
 import { usePdfSearch } from "./use-pdf-search";
 import { useLatestRef } from "../hooks/use-latest-ref";
@@ -123,7 +124,7 @@ function useDraftInput(
 
 export function PdfPreview({
   url,
-  pdfBase64,
+  projectFile = null,
   pdfBytes = null,
   fileName = "paper.pdf",
   syncTarget = null,
@@ -140,13 +141,15 @@ export function PdfPreview({
   outline,
   toolbarStart,
   toolbarEnd,
+  notice = null,
   citations,
   canOpenCitation,
   onOpenCitation,
   ...callbackProps
 }: PdfCitationProps & PdfViewerCallbacks & {
   url: string | null;
-  pdfBase64: string | null;
+  /** A project PDF, read a range at a time instead of from `url` or `pdfBytes`. */
+  projectFile?: ProjectPdfFile | null;
   pdfBytes?: ArrayBuffer | null;
   fileName?: string;
   syncTarget?: PdfSyncTarget | null;
@@ -165,6 +168,8 @@ export function PdfPreview({
   toolbarStart?: ReactNode;
   /** Context-specific icon actions rendered before the save control. */
   toolbarEnd?: ReactNode;
+  /** A short status shown over the pages, such as the file having been removed. */
+  notice?: string | null;
 }) {
   const { t } = useLingui();
   const previewRef = useRef<HTMLDivElement | null>(null);
@@ -178,7 +183,7 @@ export function PdfPreview({
   // active record; the generation keys them to re-attach.
   const getScrollViewport = useCallback(() => recordRef.current?.root ?? null, []);
   const callbacks = useLatestRef<PdfViewerCallbacks>(callbackProps);
-  const source = pdfSource(url, pdfBase64, pdfBytes);
+  const source = pdfSource(url, pdfBytes, projectFile);
   const loadKey = source.key;
   const [savingPdf, setSavingPdf] = useState(false);
 
@@ -233,7 +238,7 @@ export function PdfPreview({
   const loadFeedback = doc.loadFeedback?.key === loadKey ? doc.loadFeedback : null;
   const showBlockingLoader = (loading && !hasActiveViewer) || loadFeedback?.blocking === true;
   const showQuietLoader = !showBlockingLoader && hasActiveViewer && (loading || loadFeedback !== null);
-  const remoteSource = !source.bytes && !pdfBase64;
+  const remoteSource = !source.bytes && !source.file;
   const loadPhase = loadFeedback?.phase ?? (remoteSource ? "loading" : "rendering");
   const loadPercent = loadPhase === "loading" ? loadFeedback?.percent ?? null : null;
   const loadLabel = showBlockingLoader
@@ -268,8 +273,12 @@ export function PdfPreview({
     );
   }
 
+  // A project file is copied on disk as it is then, never read into the
+  // webview; a remote paper is saved from the bytes the reader captures once
+  // it has loaded.
+  const canSave = Boolean(pdfBytes || projectFile);
   const download = () => {
-    if (!pdfBytes || savingPdf) return;
+    if (!canSave || savingPdf) return;
     setSavingPdf(true);
     const trace = logAction(PDF_SOURCE, t`Save PDF`, fileName);
     // A promise chain, not try/finally: that statement makes the React Compiler bail out.
@@ -280,9 +289,11 @@ export function PdfPreview({
     })
       .then(async (destination) => {
         if (!destination) return;
-        const path = await invoke<string>("save_compiled_pdf", pdfBytes, {
-          headers: { "x-pdf-destination": utf8ToBase64(destination) },
-        });
+        const path = pdfBytes
+          ? await invoke<string>("save_compiled_pdf", pdfBytes, {
+            headers: { "x-pdf-destination": utf8ToBase64(destination) },
+          })
+          : await saveProjectPdf(await currentProjectPdf(projectFile!.path), destination);
         trace.ok(t({ message: `Saved to ${path}` }));
       })
       .catch((reason: unknown) => trace.fail(reason))
@@ -398,7 +409,7 @@ export function PdfPreview({
           {toolbarEnd}
           {showSave && (
             <Tip label={saveLabel ?? t`Save PDF as…`}>
-              <MotionButton disabled={!pdfBytes || savingPdf} onClick={download}>
+              <MotionButton disabled={!canSave || savingPdf} onClick={download}>
                 {savingPdf ? <InfinityLoader size={14} /> : <Download size={14} />}
               </MotionButton>
             </Tip>
@@ -408,6 +419,7 @@ export function PdfPreview({
       <div className="pdf-scroll-area">
         <div ref={hostRef} className="pdf-viewer-host" />
         <OverlayScrollbars key={generation} getViewport={getScrollViewport} />
+        {notice ? <p className="pdf-notice" role="status">{notice}</p> : null}
         {pdfError && !hasActiveViewer
           ? (
             <div className="pdf-placeholder">

@@ -12,6 +12,8 @@ export type PdfViewerCallbacks = {
   /** Complete bytes assembled by PDF.js after a URL load, for host actions such as download. */
   onDocumentData?: (bytes: ArrayBuffer) => void;
   onViewState?: (state: PdfFileViewState) => void;
+  /** The project file was rewritten or removed since this viewer opened it. */
+  onFileChanged?: () => void;
   onSource?: (page: number, x: number, y: number) => void;
 };
 

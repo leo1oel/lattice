@@ -4,6 +4,7 @@ import type { ComponentProps } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { activateAppLocale } from "../i18n";
 import { clearAppLogs, formatAppLogs } from "../telemetry/app-log-store";
+import { invoke } from "@tauri-apps/api/core";
 import { PdfPreview } from "./pdf-viewer";
 
 type Destination = { page: number; scrollTop: number; scrollLeft: number; scaleValue?: string };
@@ -32,6 +33,7 @@ const pdf = vi.hoisted(() => {
       getData: () => Promise<Uint8Array>;
       loadingTask: { destroy: ReturnType<typeof vi.fn> };
     } | null = null;
+    loadingTask: { destroy: ReturnType<typeof vi.fn> } | null = null;
     pageViews: PageView[] = [];
     handlers = new Map<string, Array<(event: object) => void>>();
     readyListeners = new Set<() => void>();
@@ -130,6 +132,8 @@ const pdf = vi.hoisted(() => {
     });
 
     loadDocument = vi.fn(async (_source: string | ArrayBuffer, options?: { onProgress?: (progress: LoadProgress) => void }) => {
+      const loadingTask = { destroy: vi.fn(async () => undefined) };
+      this.loadingTask = loadingTask;
       if (state.deferLoad) {
         await new Promise<void>((resolve) => {
           state.pendingLoad = { onProgress: options?.onProgress, resolve };
@@ -139,7 +143,7 @@ const pdf = vi.hoisted(() => {
       this.document = {
         numPages: state.numPages,
         getData: async () => new Uint8Array([1, 2, 3]),
-        loadingTask: { destroy: vi.fn(async () => undefined) },
+        loadingTask,
       };
       for (let pageNumber = 1; pageNumber <= state.numPages; pageNumber += 1) {
         const page = document.createElement("div");
@@ -182,13 +186,26 @@ const pdf = vi.hoisted(() => {
 });
 
 vi.mock("@tauri-apps/api/event", () => ({ listen: vi.fn(async () => () => undefined) }));
+vi.mock("@tauri-apps/api/core", async (importOriginal) => ({
+  ...await importOriginal<typeof import("@tauri-apps/api/core")>(),
+  invoke: vi.fn(async () => "/tmp/scan copy.pdf"),
+}));
+vi.mock("@tauri-apps/plugin-dialog", () => ({ save: vi.fn(async () => "/tmp/scan copy.pdf") }));
 vi.mock("../platform/browser-runtime", () => ({ isBrowserHosted: () => pdf.state.hosted }));
-vi.mock("pdfjs-dist", () => ({ GlobalWorkerOptions: pdf.state.workerOptions }));
+vi.mock("pdfjs-dist", () => ({
+  GlobalWorkerOptions: pdf.state.workerOptions,
+  PDFDataRangeTransport: class {
+    length: number;
+    constructor(length: number) { this.length = length; }
+    onDataRange() {}
+    abort() {}
+  },
+}));
 vi.mock("@pdfslick/core", () => ({ PDFSlick: pdf.PdfSlickMock }));
 
 const PAPER = "https://example.test/paper.pdf";
 type PreviewProps = Partial<ComponentProps<typeof PdfPreview>>;
-const preview = (props: PreviewProps = {}) => <PdfPreview url={PAPER} pdfBase64={null} {...props} />;
+const preview = (props: PreviewProps = {}) => <PdfPreview url={PAPER} {...props} />;
 const renderPdf = (props: PreviewProps = {}) => render(preview(props));
 
 /** Wait for the (index + 1)th viewer, i.e. a debounced replacement after a source change. */
@@ -876,5 +893,127 @@ describe("PDFSlick viewer integration", () => {
       });
     }
     expect(onDocumentData).toHaveBeenCalledWith(expect.any(ArrayBuffer));
+  });
+
+  it("reads a project PDF a range at a time, and saves it as a copy on disk", async () => {
+    // A remote paper keeps PDF.js's background streaming.
+    const remote = renderPdf();
+    const paper = await viewerAt(0);
+    await waitFor(() => expect(paper.loadDocument).toHaveBeenCalledWith(PAPER, expect.anything()));
+    expect(paper.args.options.getDocumentParams).toMatchObject({ disableAutoFetch: false, disableStream: false });
+    remote.unmount();
+
+    const projectFile = { path: "figures/scan.pdf", length: 4, version: "v1" };
+    const view = renderPdf({ url: null, projectFile, fileName: "scan.pdf" });
+    const instance = await viewerAt(1);
+    await waitFor(() => expect(instance.loadDocument).toHaveBeenCalledWith("figures/scan.pdf", expect.anything()));
+    expect(instance.args.options.getDocumentParams).toMatchObject({
+      range: expect.objectContaining({ length: 4 }), disableAutoFetch: true, disableStream: true,
+    });
+    expect(instance.args.options.getDocumentParams).not.toHaveProperty("data");
+
+    // The file was rewritten since the viewer opened it: save what is on disk now.
+    vi.mocked(invoke).mockImplementation(async (command) => {
+      if (command === "read_project_asset") {
+        return { path: "figures/scan.pdf", mimeType: "application/pdf", ranges: { length: 4, version: "v2" } };
+      }
+      return "/tmp/scan copy.pdf";
+    });
+    fireEvent.click(view.getByRole("button", { name: "Save PDF as…" }));
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith(
+      "save_project_pdf", { path: "figures/scan.pdf", version: "v2", destination: "/tmp/scan copy.pdf" },
+    ));
+    expect(invoke).not.toHaveBeenCalledWith("read_project_asset_range", expect.anything());
+    expect(invoke).not.toHaveBeenCalledWith("save_compiled_pdf", expect.anything(), expect.anything());
+  });
+
+  it("asks for a project PDF's new version when a read finds it rewritten, then swaps it in at the same page", async () => {
+    clearAppLogs();
+    type Range = { requestDataRange(begin: number, end: number): void; onDataRange(begin: number, bytes: Uint8Array): void };
+    const rangeOf = (instance: (typeof pdf.state.instances)[number]) => instance.args.options.getDocumentParams as { range: Range };
+    const file = { path: "figures/scan.pdf", length: 4, version: "v1" };
+    const onFileChanged = vi.fn();
+    const view = renderPdf({ url: null, projectFile: file, fileName: "scan.pdf", onFileChanged });
+    await view.findByLabelText("PDF page 3");
+    const old = pdf.state.instances[0]!;
+    act(() => old.gotoPage(3));
+
+    // The rewrite lands before the host has noticed it: the old version's read is refused.
+    vi.mocked(invoke).mockRejectedValue("This PDF changed on disk.");
+    const { range } = rangeOf(old);
+    const delivered = vi.spyOn(range, "onDataRange");
+    range.requestDataRange(0, 4);
+    await waitFor(() => expect(onFileChanged).toHaveBeenCalledOnce());
+    expect(delivered).not.toHaveBeenCalled();
+    expect(formatAppLogs()).not.toContain("changed on disk");
+
+    // The host reads the new version and hands it to the same viewer.
+    view.rerender(preview({ url: null, projectFile: { ...file, version: "v2" }, fileName: "scan.pdf", onFileChanged }));
+    const replacement = await viewerAt(1);
+    expect(rangeOf(replacement).range).not.toBe(range);
+    await waitFor(() => expect(old.args.container.isConnected).toBe(false));
+    expect(replacement.gotoPage).toHaveBeenCalledWith(3);
+    expect(delivered).not.toHaveBeenCalled();
+    expect(formatAppLogs()).not.toContain("changed on disk");
+  });
+
+  it("leaves a replacement refused while its file is still being written to the host's next check", async () => {
+    clearAppLogs();
+    type Range = { requestDataRange(begin: number, end: number): void };
+    const file = { path: "main.pdf", length: 4, version: "v1" };
+    const onFileChanged = vi.fn();
+    const view = renderPdf({ url: null, projectFile: file, fileName: "main.pdf", onFileChanged });
+    await view.findByLabelText("PDF page 3");
+    const old = pdf.state.instances[0]!;
+
+    // The host picked up a partial version; the build grows the file again before it loads.
+    pdf.state.deferReady = true;
+    view.rerender(preview({ url: null, projectFile: { ...file, version: "v2" }, fileName: "main.pdf", onFileChanged }));
+    const replacement = await viewerAt(1);
+    vi.mocked(invoke).mockRejectedValue("This PDF changed on disk.");
+    (replacement.args.options.getDocumentParams as { range: Range }).range.requestDataRange(0, 4);
+    await waitFor(() => expect(replacement.args.container.isConnected).toBe(false));
+
+    expect(onFileChanged).not.toHaveBeenCalled();
+    expect(old.args.container.isConnected).toBe(true);
+    expect(view.queryByText("PDF could not be loaded")).toBeNull();
+    expect(formatAppLogs()).not.toContain("changed on disk");
+  });
+
+  it("fails a project PDF's first load at once when a range cannot be read, without feeding it zeros", async () => {
+    clearAppLogs();
+    pdf.state.deferLoad = true;
+    vi.mocked(invoke).mockRejectedValue(new Error("This PDF changed on disk."));
+    const view = renderPdf({ url: null, projectFile: { path: "figures/scan.pdf", length: 4, version: "v1" } });
+    const instance = await viewerAt(0);
+    const { range } = instance.args.options.getDocumentParams as {
+      range: { requestDataRange(begin: number, end: number): void; onDataRange(begin: number, bytes: Uint8Array): void };
+    };
+    const delivered = vi.spyOn(range, "onDataRange");
+    range.requestDataRange(0, 4);
+    expect(await view.findByText("PDF could not be loaded")).toBeInTheDocument();
+    expect(view.container.querySelector(".pdf-placeholder-detail")).toHaveTextContent("This PDF changed on disk.");
+    expect(delivered).not.toHaveBeenCalled();
+    // The load PDF.js is still waiting on is ended, not left holding the file's buffer.
+    await waitFor(() => expect(instance.loadingTask!.destroy).toHaveBeenCalledOnce());
+  });
+
+  it("ends a replaced project PDF load whose pending range read is then refused", async () => {
+    clearAppLogs();
+    pdf.state.deferLoad = true;
+    let refuse: (reason: Error) => void = () => {};
+    vi.mocked(invoke).mockImplementation((command) => command === "read_project_asset_range"
+      ? new Promise((_, reject) => { refuse = reject; })
+      : new Promise(() => {}));
+    const view = renderPdf({ url: null, projectFile: { path: "figures/scan.pdf", length: 4, version: "v1" } });
+    const first = await viewerAt(0);
+    const { range } = first.args.options.getDocumentParams as { range: { requestDataRange(begin: number, end: number): void } };
+    range.requestDataRange(0, 4);
+    view.rerender(preview({ url: null, projectFile: { path: "figures/scan.pdf", length: 6, version: "v2" } }));
+    await viewerAt(1);
+    expect(first.loadingTask!.destroy).not.toHaveBeenCalled();
+    refuse(new Error("This PDF changed on disk."));
+    await waitFor(() => expect(first.loadingTask!.destroy).toHaveBeenCalledOnce());
+    expect(formatAppLogs()).not.toContain("changed on disk");
   });
 });
