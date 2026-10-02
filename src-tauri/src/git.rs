@@ -5,8 +5,8 @@
 //! their SSH agent or credential helper applies and nothing can block.
 
 use crate::commands;
-use crate::models::{GitFileDiff, GitLogEntry, GitStatus};
 use crate::project;
+use serde::Serialize;
 use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::{Component, Path, PathBuf};
@@ -381,6 +381,57 @@ fn git_run(root: &Path, args: &[&str]) -> Result<(), String> {
     let fallback =
         if stdout.is_empty() { format!("git {} failed.", args.join(" ")) } else { stdout };
     Err(commands::stderr_or(&output, &fallback))
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GitFileStatus {
+    pub path: String,
+    pub status: String,
+    pub staged: bool,
+    pub unstaged: bool,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GitStatus {
+    pub available: bool,
+    pub repository: bool,
+    pub branch: Option<String>,
+    pub remote: Option<String>,
+    pub remote_url: Option<String>,
+    pub upstream: Option<String>,
+    pub ahead: u32,
+    pub behind: u32,
+    pub files: Vec<GitFileStatus>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GitLogFile {
+    pub path: String,
+    /// "added" | "modified" | "deleted" | "renamed"
+    pub kind: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GitLogEntry {
+    pub hash: String,
+    pub short_hash: String,
+    pub author_name: String,
+    /// ISO-8601 author date.
+    pub timestamp: String,
+    pub message: String,
+    pub files: Vec<GitLogFile>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GitFileDiff {
+    pub before: Option<String>,
+    pub after: Option<String>,
+    pub binary: bool,
 }
 
 #[cfg(test)]

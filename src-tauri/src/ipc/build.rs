@@ -4,10 +4,10 @@
 use super::{binary_save, current_root, in_project, pinned_root, run_blocking};
 use crate::app_state::AppState;
 use crate::command_diagnostics;
-use crate::models::{
-    BuildResult, DoctorReport, PdfSyncTarget, SyncTexTarget, TexlabCompletionItem, TexlabHover,
-    TexlabLocation,
-};
+use crate::doctor::DoctorReport;
+use crate::latex::{BuildResult, PdfSyncTarget};
+use crate::models::SyncTexTarget;
+use crate::texlab::{TexlabCompletionItem, TexlabHover, TexlabLocation};
 use crate::{doctor, export, format_latex, harper, latex, synara, tex_setup, texlab};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;

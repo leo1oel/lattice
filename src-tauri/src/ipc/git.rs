@@ -5,7 +5,7 @@ use super::{
 };
 use crate::app_state::AppState;
 use crate::git;
-use crate::models::{self, GitStatus};
+use crate::git::GitStatus;
 use tauri::{State, Window};
 
 #[tauri::command]
@@ -32,7 +32,7 @@ pub async fn git_init(state: State<'_, AppState>, window: Window) -> Result<GitS
 #[tauri::command]
 pub async fn git_log(
     state: State<'_, AppState>, window: Window, limit: Option<u32>,
-) -> Result<Vec<models::GitLogEntry>, String> {
+) -> Result<Vec<crate::git::GitLogEntry>, String> {
     let limit = limit.unwrap_or(200) as usize;
     in_project(&state, &window, "Git history", move |root| git::log(root, limit)).await
 }
@@ -40,7 +40,7 @@ pub async fn git_log(
 #[tauri::command]
 pub async fn git_show_diff(
     state: State<'_, AppState>, window: Window, rev: String, path: String,
-) -> Result<models::GitFileDiff, String> {
+) -> Result<crate::git::GitFileDiff, String> {
     in_project(&state, &window, "Git revision diff", move |root| git::show_diff(root, &rev, &path))
         .await
 }

@@ -13,6 +13,7 @@
 //!   `bibliography` runs bibcite and removes or upgrades entries.
 
 use reqwest::blocking::{RequestBuilder, Response};
+use serde::{Deserialize, Serialize};
 use std::io::Read;
 use std::process::Output;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -126,4 +127,51 @@ Open Settings → TeX doctor → Install required tools, then try again."
     } else {
         format!("Could not start {tool}: {error}")
     }
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ImportResult {
+    pub arxiv_id: String,
+    pub title: String,
+    pub paper_path: String,
+    pub citation_key: Option<String>,
+    pub citation_output: String,
+    pub already_imported: bool,
+    /// Why the full text is absent although the work has an arXiv id. The
+    /// citation itself succeeded; readers (UI notice, agent) decide whether
+    /// to mention it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fetch_error: Option<String>,
+    /// The user stopped enrichment. A citation committed before cancellation
+    /// remains valid and is deliberately never rolled back.
+    #[serde(default)]
+    pub cancelled: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PaperSummary {
+    pub arxiv_id: String,
+    /// Normalized DOI from the authoritative bibliography entry.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub doi: Option<String>,
+    /// The cited page for webpage references — how the row offers a download
+    /// when there is no arXiv id to fetch by.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub url: Option<String>,
+    pub title: String,
+    pub authors: String,
+    pub citation_key: Option<String>,
+    /// False for works that are only cited — the reader has nothing to open.
+    pub has_full_text: bool,
+    /// True only when an overview is already present in the local paper cache.
+    pub has_blog: bool,
+    /// Converter-owned files needed to render figures in the paper reader.
+    #[serde(default)]
+    pub asset_paths: Vec<String>,
+    /// Crossref's DOI-exact update metadata. This is advisory: citations are
+    /// never removed or blocked based on it.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub citation_health: Option<crate::citation_health::CitationHealth>,
 }

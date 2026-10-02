@@ -8,7 +8,8 @@
 use super::build::{cancelled_build, run_tracked, ActiveBuild};
 use super::default_root_document;
 use crate::commands;
-use crate::models::{BuildResult, ProjectManifest};
+use crate::latex::BuildResult;
+use crate::models::ProjectManifest;
 use crate::project;
 use std::fs;
 use std::path::Path;

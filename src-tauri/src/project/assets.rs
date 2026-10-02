@@ -7,9 +7,9 @@ use super::tree::{
     MAX_LOCAL_HTML_BYTES,
 };
 use crate::commands;
-use crate::models::{AssetContent, AssetPreview};
 use crate::util::err;
 use base64::{engine::general_purpose::STANDARD, Engine};
+use serde::Serialize;
 use std::fs::{self, File, Metadata, OpenOptions};
 use std::io::{self, Read};
 use std::os::unix::fs::{FileExt, MetadataExt, OpenOptionsExt};
@@ -240,6 +240,25 @@ fn convert_figure(
         }
     }
     Ok(converted_relative.to_string_lossy().replace('\\', "/"))
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AssetPreview {
+    pub path: String,
+    pub mime_type: String,
+    #[serde(flatten)]
+    pub content: AssetContent,
+}
+
+/// How an asset's bytes reach the frontend: inline for figures and HTML, which
+/// become `data:` URLs, or for PDFs as the file's length and version, which
+/// PDF.js reads a range at a time through `read_project_asset_range`.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum AssetContent {
+    Base64(String),
+    Ranges { length: u64, version: String },
 }
 
 #[cfg(test)]

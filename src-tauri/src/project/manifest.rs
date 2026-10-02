@@ -8,11 +8,9 @@ use super::history::{
 };
 use super::paths::safe_path;
 use super::tree::{build_artifact_ignore_lines, scan_tree, TreeView};
-use crate::models::{
-    EditorComment, EditorCommentsFile, ProjectManifest, ProjectSnapshot, RootDocument,
-};
+use crate::models::{ProjectManifest, ProjectSnapshot, RootDocument};
 use crate::util::err;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::Path;
 use walkdir::WalkDir;
@@ -423,6 +421,46 @@ pub fn set_spelling_words(root: &Path, words: Vec<String>) -> Result<ProjectMani
     manifest.spelling_words = normalized;
     write_manifest(root, &manifest)?;
     Ok(manifest)
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct EditorCommentReply {
+    pub id: String,
+    pub author_id: String,
+    pub author_name: String,
+    pub body: String,
+    pub created_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct EditorComment {
+    pub id: String,
+    pub path: String,
+    pub from: u32,
+    pub to: u32,
+    pub quote: String,
+    #[serde(default)]
+    pub prefix: String,
+    #[serde(default)]
+    pub suffix: String,
+    pub body: String,
+    pub author_id: String,
+    pub author_name: String,
+    #[serde(default)]
+    pub resolved: bool,
+    #[serde(default)]
+    pub replies: Vec<EditorCommentReply>,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct EditorCommentsFile {
+    pub schema_version: u32,
+    pub comments: Vec<EditorComment>,
 }
 
 #[cfg(test)]

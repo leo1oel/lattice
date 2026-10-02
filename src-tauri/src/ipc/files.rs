@@ -5,7 +5,8 @@ use super::{
     run_blocking,
 };
 use crate::app_state::{AppState, Lease};
-use crate::models::{self, AssetPreview, EditorComment};
+use crate::models;
+use crate::project::{AssetPreview, EditorComment};
 use crate::{export, project};
 use std::path::Path;
 use tauri::{State, Window};

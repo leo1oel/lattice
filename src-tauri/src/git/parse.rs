@@ -1,7 +1,7 @@
 //! Parsing what git prints for the status panel and the version timeline.
 
 use super::is_internal_path;
-use crate::models::{GitFileStatus, GitLogEntry, GitLogFile, GitStatus};
+use crate::git::{GitFileStatus, GitLogEntry, GitLogFile, GitStatus};
 
 /// Parse `git status --porcelain=v2 -z` output into the status of a readable
 /// repository, remotes left for the caller (so `""` parses to one with nothing

@@ -5,12 +5,11 @@ use super::clip_line;
 use super::history::apply_transaction;
 use super::paths::{extension, safe_path, source_kind};
 use super::tree::{scan_tree, tree_files, TreeView};
-use crate::models::{
-    FileNode, ProjectSearchResult, ReplaceMatch, ReplacePreview, ReplaceResult, TodoHit,
-};
+use crate::models::{FileNode, ProjectSearchResult};
 use crate::util::err;
 use crate::util::truncate_chars;
 use regex::Regex;
+use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::Path;
 use std::sync::LazyLock;
@@ -367,6 +366,39 @@ impl ReplaceMatcher {
         let count = self.regex.find_iter(source).count() as u32;
         (self.regex.replace_all(source, regex::NoExpand(replacement)).into_owned(), count)
     }
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ReplaceResult {
+    pub files_changed: Vec<String>,
+    pub replacements: u32,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ReplaceMatch {
+    pub path: String,
+    pub line: u32,
+    pub column: u32,
+    pub preview: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct TodoHit {
+    pub path: String,
+    pub line: u32,
+    pub kind: String,
+    pub preview: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ReplacePreview {
+    pub matches: Vec<ReplaceMatch>,
+    pub files: u32,
+    pub replacements: u32,
 }
 
 #[cfg(test)]

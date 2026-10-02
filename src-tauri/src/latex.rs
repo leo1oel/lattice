@@ -8,8 +8,9 @@
 //!
 //! This file holds what they share: which document is built, and the PDF.
 
-use crate::models::{ProjectManifest, RootDocument};
+use crate::models::{Diagnostic, ProjectManifest, RootDocument};
 use crate::project;
+use serde::Serialize;
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -66,4 +67,28 @@ pub fn read_compiled_pdf(root: &Path) -> Result<Vec<u8>, String> {
         return Err("The compiled output is not a valid PDF.".to_string());
     }
     Ok(bytes)
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BuildResult {
+    pub success: bool,
+    pub has_pdf: bool,
+    pub log: String,
+    pub duration_ms: u128,
+    pub diagnostics: Vec<Diagnostic>,
+    /// Project-relative path of the document latexmk was pointed at. The build
+    /// may have re-targeted onto the open file (Overleaf's rule), and the
+    /// frontend needs to know without re-reading the manifest.
+    pub root_document: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PdfSyncTarget {
+    pub page: u32,
+    pub x: f64,
+    pub y: f64,
+    pub width: f64,
+    pub height: f64,
 }

@@ -1,5 +1,5 @@
-use crate::models::WordCount;
 use crate::{commands, latex, project};
+use serde::Serialize;
 use std::path::Path;
 
 pub fn count_project(root: &Path) -> Result<WordCount, String> {
@@ -83,6 +83,16 @@ fn estimate_from_latex(source: &str) -> WordCount {
         .filter(|token| !token.is_empty())
         .count() as u32;
     WordCount { text: words, headers: 0, captions: 0, total: words, source: "estimate".to_string() }
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WordCount {
+    pub text: u32,
+    pub headers: u32,
+    pub captions: u32,
+    pub total: u32,
+    pub source: String,
 }
 
 #[cfg(test)]

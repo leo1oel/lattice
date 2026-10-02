@@ -7,9 +7,9 @@ use super::paths::relative_to;
 use super::references::{command_argument_at, references};
 use super::tree::read_file;
 use super::{clip_line, line_number_at, skip_bytes};
-use crate::models::{RenameSymbolResult, SymbolOccurrence, UnusedSymbols};
+use crate::models::SymbolOccurrence;
 use crate::util::err;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::path::Path;
@@ -490,6 +490,21 @@ pub fn unused_symbols(root: &Path) -> Result<UnusedSymbols, String> {
         citations(root)?.into_iter().map(|citation| citation.key).collect::<BTreeSet<_>>();
     let citations = bibliography_keys.difference(&cited_keys).cloned().collect();
     Ok(UnusedSymbols { labels, citations })
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UnusedSymbols {
+    pub labels: Vec<String>,
+    pub citations: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RenameSymbolResult {
+    pub changed_files: Vec<String>,
+    pub occurrence_count: u32,
+    pub transaction_id: String,
 }
 
 #[cfg(test)]

@@ -6,7 +6,8 @@ use super::build_log::{
 };
 use super::{default_root_document, prewarm, synctex_missing};
 use crate::commands;
-use crate::models::{BuildResult, Diagnostic};
+use crate::latex::BuildResult;
+use crate::models::Diagnostic;
 use crate::{pdf_fonts, project};
 use std::fs;
 use std::path::Path;

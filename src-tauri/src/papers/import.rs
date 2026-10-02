@@ -23,7 +23,8 @@ use super::is_web_url;
 use super::web_citation::{
     alphaxiv_bibtex, merge_supplied_bibtex, pdf_citation_bibtex, resolve_web_citation, WebCitation,
 };
-use crate::models::{ImportResult, ProjectManifest};
+use crate::models::ProjectManifest;
+use crate::papers::ImportResult;
 use crate::util::err;
 use crate::web_metadata::bib_url;
 use crate::{alphaxiv, project};
