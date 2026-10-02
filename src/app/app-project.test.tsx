@@ -302,7 +302,7 @@ describe("project tree and projects", () => {
       (_, element) => element?.matches(".project-replace-hit-preview") === true && /@article\{chen2024single/.test(element.textContent ?? ""),
     )).toHaveTextContent("chen2024single");
     expect(document.querySelector(".project-replace-hit-preview mark")).toHaveTextContent(/^chen$/i);
-    fireEvent.click(screen.getByText("references.bib:2"));
+    fireEvent.click(screen.getByTitle("references.bib:2"));
     await waitFor(() => {
       const view = editorViewAt();
       expect(view.state.doc.lineAt(view.state.selection.main.head).number).toBe(2);
@@ -330,13 +330,13 @@ describe("project tree and projects", () => {
       newer.resolve([fileHit("newer.tex", 2, "The current result.")]);
       await newer.promise;
     });
-    expect(await screen.findByText("newer.tex:2")).toBeInTheDocument();
+    expect(await screen.findByTitle("newer.tex:2")).toBeInTheDocument();
     await act(async () => {
       older.resolve([fileHit("older.tex", 7, "A stale result.")]);
       await older.promise;
     });
-    expect(screen.queryByText("older.tex:7")).not.toBeInTheDocument();
-    expect(screen.getByText("newer.tex:2")).toBeInTheDocument();
+    expect(screen.queryByTitle("older.tex:7")).not.toBeInTheDocument();
+    expect(screen.getByTitle("newer.tex:2")).toBeInTheDocument();
   });
 
   it("renames project items but keeps bibliography titles authoritative for papers", async () => {
