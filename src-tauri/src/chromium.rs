@@ -69,6 +69,9 @@ impl ChromiumRuntime {
         }
 
         let mut command = Command::new(&executable);
+        // chromium-shell.mjs loads the perf lab module (synthetic input, PNG
+        // writes, extra Chromium switches) whenever LATTICE_PERF_PLAN is set,
+        // so only a perf-lab build may pass the lab variables through.
         #[cfg(not(feature = "perf-lab"))]
         for (name, _) in std::env::vars_os() {
             let lab = name.to_str().is_some_and(|name| {

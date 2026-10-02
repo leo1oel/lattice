@@ -12,7 +12,8 @@ import {
 } from "./chromium-window-policy.mjs";
 
 // The perf lab (scripts/perf-lab.mjs) launches with a run plan; only then does
-// the shell load its native-input bridge and rendering overrides.
+// the shell load its native-input bridge and rendering overrides. Release
+// builds strip the lab variables before spawning Electron (chromium.rs).
 const perfLab = process.env.LATTICE_PERF_PLAN ? await import("./chromium-perf-lab.mjs") : null;
 
 const DEFAULT_ENTRY_URL = "http://127.0.0.1:18452/";
