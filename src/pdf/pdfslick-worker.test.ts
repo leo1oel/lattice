@@ -3,6 +3,9 @@ import { dirname, join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { GlobalWorkerOptions } from "pdfjs-dist";
 import { expect, it, vi } from "vitest";
+// index.html runs this before any module; PDF.js 6 calls Map#getOrInsertComputed,
+// which Node 22 (CI) lacks just as older WKWebView does.
+import "../../public/polyfills.js";
 
 // PDFSlick's module body assigned its own bundled PDF.js worker on import, and
 // in production chunks that assignment can run after src/pdf/pdfjs-runtime.ts.

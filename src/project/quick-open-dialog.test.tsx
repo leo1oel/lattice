@@ -34,8 +34,11 @@ describe("QuickOpenDialog intent", () => {
     );
     const search = screen.getByRole("searchbox", { name: "Quick open search" });
     fireEvent.change(search, { target: { value: "note 12" } });
-    expect(screen.getAllByRole("option").map((option) => option.textContent).sort()).toEqual(["notes/note-012.md", "notes/note-120.md"]);
+    expect(screen.getAllByRole("option")).toHaveLength(2);
+    screen.getByRole("option", { name: "notes/note-012.md" });
+    screen.getByRole("option", { name: "notes/note-120.md" });
     fireEvent.change(search, { target: { value: "ch intro" } });
-    expect(screen.getAllByRole("option").map((option) => option.textContent)).toEqual(["chapters/intro.tex"]);
+    expect(screen.getAllByRole("option")).toHaveLength(1);
+    screen.getByRole("option", { name: "chapters/intro.tex" });
   });
 });
