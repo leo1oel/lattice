@@ -513,6 +513,39 @@ describe("papers", () => {
     expect(document.querySelector(".trellis-file-live .pdf-preview")).toBeInTheDocument();
   });
 
+  it.each([["Enter"], [" "]])("opens the PDF beside the notes from its tab with %j after a field in it was used", async (key) => {
+    mockPdfDocument(() => pdfDocumentStub(3, {
+      render: () => ({ promise: Promise.resolve(), cancel: vi.fn() }), getTextContent: async () => ({ items: [] }),
+    }));
+    renderApp({
+      ...projectCommands(projectSnapshot({ files: fileNodes("main.tex", "notes.md", "reference.pdf") }), "\\documentclass{main}"),
+      read_project_asset: (args) => ({ path: argPath(args), mimeType: "application/pdf", ranges: { length: 8, version: "v1" } }),
+    });
+    await openTreeFile("notes.md");
+    fireEvent.click(await findProjectTreeItem("reference.pdf"));
+    await waitForSelectedTab("reference.pdf");
+    fireEvent.click(within(document.querySelector(".trellis-presets")!).getByRole("tab", { name: "Reading" }));
+    fireEvent.pointerDown(await findElement(".trellis-snapshot"), { button: 0 });
+    await waitForSelectedTab("notes.md");
+    const snapshot = await findElement(".trellis-pdf-snapshot");
+    // A field in the PDF used beside the notes: Trellis's focus is now on the
+    // PDF while the notes stay App's active document.
+    const page = await within(snapshot).findByLabelText("PDF page number");
+    fireEvent.pointerDown(page, { button: 0 });
+    page.focus();
+    await new Promise((resolve) => window.setTimeout(resolve, 20));
+    expect(document.querySelector(".trellis-pdf-snapshot")).toBe(snapshot);
+    // Tabbing on to the PDF's tab and pressing it, as the keyboard does.
+    // Trellis consumes the key, so no click follows, and reports no focus
+    // change, since it already counts the PDF as focused.
+    const tab = within(document.querySelector<HTMLElement>('[data-trellis-part="panel"][data-panel="panel-reading"]')!)
+      .getByRole("tab", { name: /reference\.pdf/ });
+    tab.focus();
+    fireEvent.keyDown(tab, { key });
+    await waitFor(() => expect(document.querySelector(".trellis-file-live .pdf-preview")).toBeInTheDocument());
+    expect(document.querySelector(".trellis-pdf-snapshot")).not.toBeInTheDocument();
+  });
+
   it("moves a project PDF beside the notes to its new version and notes its removal", async () => {
     mockPdfDocument(() => pdfDocumentStub(1, {
       render: () => ({ promise: Promise.resolve(), cancel: vi.fn() }), getTextContent: async () => ({ items: [] }),
