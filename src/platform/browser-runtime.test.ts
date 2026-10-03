@@ -1,5 +1,6 @@
-import { fireEvent, within } from "@testing-library/react";
+import { fireEvent, renderHook, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
+import { useAppCommands } from "../app/use-app-commands";
 import { FakeWebSocket, lastSocket, sockets } from "./fake-websocket";
 import {
   BrowserRelay,
@@ -148,6 +149,72 @@ describe("browser bridge recovery", () => {
     socket.message({ type: "browser-replaced" });
     expect(document.activeElement).toBe(runtimeError());
     expect(document.activeElement).not.toBe(editor);
+  });
+
+  it("keeps the app's shortcuts and key handlers from running behind the screen", async () => {
+    const openSettings = vi.fn();
+    const save = vi.fn();
+    // The app's real shortcut dispatcher, and a dialog's capture-phase Escape.
+    renderHook(() => useAppCommands([
+      { id: "settings", key: ",", run: openSettings },
+      { id: "save", key: "s", run: save },
+    ], vi.fn()));
+    const closeDialog = vi.fn();
+    document.addEventListener("keydown", closeDialog, { capture: true });
+    onTestFinished(() => document.removeEventListener("keydown", closeDialog, { capture: true }));
+
+    // Before a failure, a shortcut runs as usual.
+    focusedApp();
+    fireEvent.keyDown(document.activeElement!, { key: ",", metaKey: true });
+    expect(openSettings).toHaveBeenCalledOnce();
+
+    const { socket, reload } = connectedRelay(vi.fn(), { appRunning: false });
+    socket.message({ type: "host-disconnected" });
+    socket.disconnect();
+    await vi.advanceTimersByTimeAsync(0);
+    const reloadButton = within(runtimeError()!).getByRole("button", { name: "Reload" });
+    expect(document.activeElement).toBe(reloadButton);
+    closeDialog.mockClear();
+    for (const key of [",", "s", "p"]) {
+      fireEvent.keyDown(reloadButton, { key, metaKey: true });
+      fireEvent.keyDown(reloadButton, { key, ctrlKey: true });
+    }
+    fireEvent.keyDown(reloadButton, { key: "Escape" });
+    expect(openSettings).toHaveBeenCalledOnce();
+    expect(save).not.toHaveBeenCalled();
+    expect(closeDialog).not.toHaveBeenCalled();
+    // Keys still do the button's own default work: Enter is not cancelled.
+    expect(fireEvent.keyDown(reloadButton, { key: "Enter" })).toBe(true);
+    fireEvent.click(reloadButton);
+    expect(reload).toHaveBeenCalledOnce();
+
+    // Once the screen is gone, the app has its keys back.
+    runtimeError()!.remove();
+    await Promise.resolve();
+    fireEvent.keyDown(document.body, { key: ",", metaKey: true });
+    expect(openSettings).toHaveBeenCalledTimes(2);
+  });
+
+  it.each([
+    ["with an action", (socket: FakeWebSocket) => {
+      socket.message({ type: "host-disconnected" });
+      socket.disconnect();
+    }, () => within(runtimeError()!).getByRole("button", { name: "Reload" })],
+    ["without an action", (socket: FakeWebSocket) => socket.message({ type: "browser-replaced" }), runtimeError],
+  ])("keeps Tab and Shift+Tab on a screen %s", async (_, fail, focusStop) => {
+    const { editor } = focusedApp();
+    const { socket } = connectedRelay(vi.fn(), { appRunning: false });
+    fail(socket);
+    await vi.advanceTimersByTimeAsync(0);
+    const stop = focusStop()!;
+    for (const shiftKey of [false, true]) {
+      // Wherever focus has got to, Tab brings it back to the screen.
+      editor.focus();
+      expect(fireEvent.keyDown(editor, { key: "Tab", shiftKey })).toBe(false);
+      expect(document.activeElement).toBe(stop);
+      expect(fireEvent.keyDown(stop, { key: "Tab", shiftKey })).toBe(false);
+      expect(document.activeElement).toBe(stop);
+    }
   });
 
   it.each([
