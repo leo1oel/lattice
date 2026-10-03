@@ -1,8 +1,8 @@
 diff --git a/build/pdf.worker.mjs b/build/pdf.worker.mjs
-index ab24e0df4fe5a9b2b98f0a270982eb9c23197d82..10164cdca98a418d99bbc1851124d72dc6759fe1 100644
+index 94ed69bae5e58847c697d336920cf9643896fcbc..2c199ab71fe83fc61ed9eac3219bf25591928661 100644
 --- a/build/pdf.worker.mjs
 +++ b/build/pdf.worker.mjs
-@@ -5369,7 +5369,11 @@ class JpegStream extends DecodeStream {
+@@ -5337,7 +5337,11 @@ class JpegStream extends DecodeStream {
      return this.stream.isAsync;
    }
    async getTransferableImage(width, height) {
@@ -15,7 +15,7 @@ index ab24e0df4fe5a9b2b98f0a270982eb9c23197d82..10164cdca98a418d99bbc1851124d72d
        return null;
      }
      const jpegOptions = this.jpegOptions;
-@@ -5406,6 +5410,15 @@ class JpegStream extends DecodeStream {
+@@ -5374,6 +5378,15 @@ class JpegStream extends DecodeStream {
          init.desiredWidth = Math.ceil(frameWidth / factor);
          init.desiredHeight = Math.ceil(frameHeight / factor);
        }
@@ -32,10 +32,10 @@ index ab24e0df4fe5a9b2b98f0a270982eb9c23197d82..10164cdca98a418d99bbc1851124d72d
        return (await decoder.decode()).image;
      } catch (reason) {
 diff --git a/web/pdf_viewer.mjs b/web/pdf_viewer.mjs
-index 29b3492cd9cb0869a906785739c34fc364ec1c17..7061d643764a1f5f4a09c435f8333bacf445d726 100644
+index e4a6b24652d1ed233dc3de1b746188a246e5fb9e..16fe3508da9345e0218cdba9d892a30f3a05122d 100644
 --- a/web/pdf_viewer.mjs
 +++ b/web/pdf_viewer.mjs
-@@ -1576,7 +1576,8 @@ class PDFLinkService {
+@@ -1569,7 +1569,8 @@ class PDFLinkService {
      const ac = new AbortController();
      this.eventBus.on("textlayerrendered", evt => {
        if (evt.pageNumber === pageNumber) {
@@ -45,7 +45,7 @@ index 29b3492cd9cb0869a906785739c34fc364ec1c17..7061d643764a1f5f4a09c435f8333bac
          ac.abort();
        }
      }, {
-@@ -6296,11 +6297,22 @@ class TextLayerBuilder {
+@@ -6274,11 +6275,22 @@ class TextLayerBuilder {
      }
      this.#selectionChangeAC = new AbortController();
      const signal = globalAbortSignal ? AbortSignal.any([this.#selectionChangeAC.signal, globalAbortSignal]) : this.#selectionChangeAC.signal;
@@ -72,7 +72,7 @@ index 29b3492cd9cb0869a906785739c34fc364ec1c17..7061d643764a1f5f4a09c435f8333bac
      };
      let isPointerDown = false;
      document.addEventListener("pointerdown", () => {
-@@ -6491,7 +6503,6 @@ class PDFPageView extends BasePDFPageView {
+@@ -6469,7 +6481,6 @@ class PDFPageView extends BasePDFPageView {
    #layerProperties = null;
    #needsRestrictedScaling = false;
    #originalViewport = null;
@@ -80,7 +80,7 @@ index 29b3492cd9cb0869a906785739c34fc364ec1c17..7061d643764a1f5f4a09c435f8333bac
    #scaleRoundX = 1;
    #scaleRoundY = 1;
    #textLayerMode = TextLayerMode.ENABLE;
-@@ -6600,6 +6611,10 @@ class PDFPageView extends BasePDFPageView {
+@@ -6578,6 +6589,10 @@ class PDFPageView extends BasePDFPageView {
      return clone;
    }
    #addLayer(div, name) {
@@ -91,7 +91,7 @@ index 29b3492cd9cb0869a906785739c34fc364ec1c17..7061d643764a1f5f4a09c435f8333bac
      const pos = LAYERS_ORDER.get(name);
      const oldDiv = this.#layers[pos];
      this.#layers[pos] = div;
-@@ -6629,13 +6644,20 @@ class PDFPageView extends BasePDFPageView {
+@@ -6607,13 +6622,20 @@ class PDFPageView extends BasePDFPageView {
        }
        this.#userUnit = viewport.userUnit;
      }
@@ -118,7 +118,7 @@ index 29b3492cd9cb0869a906785739c34fc364ec1c17..7061d643764a1f5f4a09c435f8333bac
    }
    updatePageNumber(newPageNumber) {
      const oldPageNumber = this.id;
-@@ -6898,6 +6920,14 @@ class PDFPageView extends BasePDFPageView {
+@@ -6876,6 +6898,14 @@ class PDFPageView extends BasePDFPageView {
          this.detailView = null;
        }
      }
@@ -133,7 +133,7 @@ index 29b3492cd9cb0869a906785739c34fc364ec1c17..7061d643764a1f5f4a09c435f8333bac
    }
    toggleEditingMode(isEditing) {
      this.#isEditing = isEditing;
-@@ -7239,13 +7269,17 @@ class PDFPageView extends BasePDFPageView {
+@@ -7217,13 +7247,17 @@ class PDFPageView extends BasePDFPageView {
      const pageHeight = floorToDivide(calcRound(height), sfy[1]);
      outputScale.sx = canvasWidth / pageWidth;
      outputScale.sy = canvasHeight / pageHeight;

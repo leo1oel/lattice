@@ -7,10 +7,10 @@
  */
 import { PDFSlick, type PDFSlickOptions } from "@pdfslick/core";
 import {
+  adaptPdfSlickL10n,
   PDF_CMAP_URL,
   PDF_STANDARD_FONT_DATA_URL,
   pdfScaleValue,
-  pdfSlickTranslationId,
   toViewerScale,
   type PdfFitMode,
 } from "./pdf-viewer-utils";
@@ -138,11 +138,8 @@ export function createViewerRecord(
   // also paint the range (including page-sized sentinel boxes). PDFSlick
   // doesn't forward this option, so set it before loadDocument creates pages.
   slick.viewer.enableSelectionRendering = false;
-  // Preserve PDF.js's Fluent catalog and methods, translating only the stale
-  // IDs used by PDFSlick's metadata parser before it loads the document.
-  const getTranslation = slick.l10n.get.bind(slick.l10n);
-  slick.l10n.get = (ids: string | string[], args, fallback) =>
-    getTranslation(Array.isArray(ids) ? ids.map(pdfSlickTranslationId) : pdfSlickTranslationId(ids), args, fallback);
+  // Before loadDocument, whose metadata parser asks for these strings.
+  adaptPdfSlickL10n(slick.l10n);
   return { key, slick, root, viewer, textLayers: new Map(), cleanup: [], destroyed: false };
 }
 
