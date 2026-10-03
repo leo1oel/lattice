@@ -6,6 +6,7 @@ import {
   diagnosticsFingerprint,
   editorDiagnosticsForFile,
   flattenProjectPaths,
+  groupDiagnosticsByFile,
   missingTexDependencyFile,
   normalizeDiagnosticPath,
   resolveDiagnosticPath,
@@ -14,6 +15,20 @@ import {
 } from "./compile-diagnostics";
 
 describe("compile diagnostics helpers", () => {
+  it("groups sorted diagnostics by normalized file, worst file first, unplaced ones together", () => {
+    const groups = groupDiagnosticsByFile(sortDiagnostics([
+      { level: "warning", message: "Overfull", file: "./main.tex", line: 9 },
+      { level: "warning", message: "Font shape" },
+      { level: "error", message: "Undefined", file: "chapters/ch01.tex", line: 3 },
+      { level: "warning", message: "Citation", file: "/Users/me/paper/main.tex", line: 2 },
+    ]));
+    expect(groups.map((group) => [group.file, group.diagnostics.map((item) => item.message)])).toEqual([
+      ["chapters/ch01.tex", ["Undefined"]],
+      [undefined, ["Font shape"]],
+      ["main.tex", ["Citation", "Overfull"]],
+    ]);
+  });
+
   it("normalizes absolute and dotted LaTeX log paths and matches them to the open project file", () => {
     expect(normalizeDiagnosticPath("./chapters/intro.tex")).toBe("chapters/intro.tex");
     expect(normalizeDiagnosticPath("/Users/me/paper/src/main.tex")).toBe("src/main.tex");

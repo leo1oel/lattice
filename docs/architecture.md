@@ -165,8 +165,8 @@ Two properties of this boundary are worth internalising before you touch it:
 ### 1.3 Rust ↔ sidecar: spawn + loopback HTTP
 
 `src-tauri/src/synara.rs` supervises the sidecar. It is a pull-based supervisor;
-it emits **no** Tauri events, only two commands (`synara_ensure_ready`,
-`synara_open_skills_folder`).
+it emits **no** Tauri events, only three commands (`synara_ensure_ready`,
+`synara_open_skills_folder`, `synara_open_log_folder`).
 
 - Launch: `SynaraRuntime::spawn` runs the sidecar's Node — the standalone
   `synara-runtime/bin/node`, in development and release builds alike
@@ -284,7 +284,7 @@ Practical consequence: to find what a button does, grep the command name in
 | `papers` | 10 | `search_literature`, `fetch_paper`, `import_reference`, `read_paper` |
 | `git` | 8 | `git_status`, `git_user_name`, `git_log`, `git_show_diff`, `git_restore_project`, `git_auto_commit` |
 | `history` | 5 | `list_history`, `get_history_entry`, `revert_transaction` |
-| service modules | 14 | `synara_ensure_ready`, `presentation_ensure_ready`, `set_literature_credential`, `link_preview`, `collect_diagnostic_logs` |
+| service modules | 15 | `synara_ensure_ready`, `presentation_ensure_ready`, `set_literature_credential`, `link_preview`, `collect_diagnostic_logs` |
 
 Overleaf alone is a quarter of the IPC surface — still the single most
 surprising fact about this backend.

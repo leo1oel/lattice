@@ -110,20 +110,38 @@ input[type="search"]:focus-visible {
 .compile-diagnostics-body { padding: 0 var(--space-4) var(--space-4); display: grid; gap: var(--space-3); }
 .compile-diagnostics-tabs { justify-self: start; }
 .compile-diagnostics-tabs .ui-segmented-tab { gap: var(--space-2); }
-.compile-diagnostics-list { list-style: none; margin: 0; padding: 0; max-height: 168px; overflow: auto; display: grid; gap: var(--space-2); }
-.compile-diagnostics-list li { min-width: 0; display: flex; align-items: center; gap: var(--gap-tight); }
-.compile-diagnostic-item { min-width: 0; flex: 1; min-height: 30px; border: 0; border-radius: var(--radius-chrome); padding: var(--space-3) var(--space-4); background: transparent; color: inherit; display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: var(--gap-inline); row-gap: var(--space-2); align-items: start; text-align: left; font-size: var(--type-caption-size); }
+.compile-diagnostics-list { list-style: none; margin: 0; padding: 0; max-height: 168px; overflow: auto; display: grid; align-content: start; gap: var(--space-4); }
+.compile-diagnostics-group { min-width: 0; display: grid; gap: var(--space-1); }
+.compile-diagnostics-group > ul { list-style: none; margin: 0; padding: 0; display: grid; }
+.compile-diagnostics-group > ul > li { min-width: 0; display: flex; align-items: center; gap: var(--gap-tight); }
+/* A path wraps rather than truncates: its last segment is the part that matters. */
+.compile-diagnostics-file { min-width: 0; padding: 0 var(--space-4); display: flex; align-items: baseline; gap: var(--space-3); color: var(--text-tertiary); font-size: var(--type-micro-size); font-weight: var(--weight-medium); overflow-wrap: anywhere; }
+.compile-diagnostics-count { flex: none; font-weight: var(--weight-regular); font-variant-numeric: tabular-nums; opacity: .8; }
+.compile-diagnostic-item { min-width: 0; flex: 1; min-height: 30px; border: 0; border-radius: var(--radius-chrome); padding: var(--space-3) var(--space-4); background: transparent; color: inherit; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; column-gap: var(--gap-inline); align-items: start; text-align: left; font-size: var(--type-caption-size); }
 .compile-diagnostic-item:hover:not(:disabled) { background: var(--tone-hover-surface); }
 .compile-diagnostic-item:disabled { opacity: 0.88; cursor: default; }
 .compile-diagnostic-item.error > svg { color: var(--status-danger); }
 .compile-diagnostic-item.warning > svg { color: var(--status-warning); }
-.compile-diagnostic-location { color: inherit; font-weight: var(--weight-medium); overflow-wrap: anywhere; }
-.compile-diagnostic-message { grid-column: 2; min-width: 0; color: var(--text-primary); overflow-wrap: anywhere; line-height: 1.45; }
+.compile-diagnostic-message { min-width: 0; color: var(--text-primary); overflow-wrap: anywhere; line-height: 1.45; }
+.compile-diagnostic-line { color: var(--text-tertiary); font-size: var(--type-micro-size); line-height: 1.6; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .compile-diagnostic-copy { width: 26px; height: 26px; flex: none; border: 0; border-radius: var(--radius-icon); padding: 0; background: transparent; color: inherit; display: grid; place-items: center; opacity: .72; }
 .compile-diagnostic-copy:hover { background: var(--tone-hover-surface); opacity: 1; }
 .compile-log { display: block; box-sizing: border-box; width: 100%; field-sizing: content; min-height: 0; max-height: 220px; margin: 0; overflow: auto; resize: none; border: 1px solid var(--tone-border); border-radius: var(--radius-chrome); padding: var(--space-4) var(--space-5); background: color-mix(in srgb, var(--surface-panel-raised) 90%, transparent); color: var(--text-primary); font-family: var(--editor-font); font-size: var(--type-micro-size); line-height: 1.45; white-space: pre-wrap; overflow-wrap: anywhere; }
 /* Without field-sizing a textarea is two rows tall; give it the old cap. */
 @supports not (field-sizing: content) { .compile-log { height: 220px; } }
+/* Docked, the output takes a strip under the page instead of covering its
+   top. The strip's height is fixed while it is open, so switching tabs or a
+   new build's messages never resize the PDF; only opening and closing do,
+   and the viewer settles its refit after those. */
+.compile-diagnostics.docked { order: 1; position: relative; z-index: auto; top: auto; right: auto; width: auto; border-top: 1px solid var(--border-subtle); border-radius: 0; background: var(--editor-bg); box-shadow: none; }
+.compile-diagnostics.docked.expanded { height: min(240px, 40%); display: flex; flex-direction: column; }
+.compile-diagnostics.docked.expanded > * { flex: none; }
+.compile-diagnostics.docked.expanded > .compile-repair-detail { flex: 0 1 auto; min-height: 0; overflow-y: auto; }
+.compile-diagnostics.docked.expanded > .compile-diagnostics-body { flex: 1 1 0; min-height: 80px; display: flex; flex-direction: column; }
+.compile-diagnostics.docked .compile-diagnostics-tabs { align-self: flex-start; flex: none; }
+.compile-diagnostics.docked .compile-diagnostics-list,
+.compile-diagnostics.docked .compile-log { flex: 1 1 0; min-height: 0; max-height: none; }
+.compile-diagnostics.docked .compile-log { field-sizing: fixed; }
 .editor-status-bar {
   container-type: inline-size;
   flex: none;
@@ -310,6 +328,7 @@ input[type="search"]:focus-visible {
 .history-restore-file { margin-top: var(--space-4); height: 28px; border: 1px solid var(--border-subtle); border-radius: var(--radius-chrome); padding: 0 var(--space-4); background: transparent; color: var(--text-secondary); display: inline-flex; align-items: center; gap: var(--space-3); font-size: var(--type-micro-size); font-weight: 600; }
 .history-restore-file:hover { border-color: var(--control-active-border); background: var(--control-active-soft); color: var(--control-active); }
 
+
 /* Expansion is monotonic. Only closing and releasing an elastic boundary use
    the spring; the clipping column and its content always share one curve. */
 .workspace { flex: 1; min-width: 0; min-height: 0; overflow: hidden; background: var(--surface-sidebar); }
@@ -369,13 +388,18 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
   gap: var(--space-5);
+  overflow-y: auto;
   text-align: center;
   padding: var(--space-10);
   background: var(--surface-sidebar);
   color: var(--text-secondary);
 }
+/* Centred by auto margins rather than justify-content, so open Details taller
+   than a short panel overflow downward into scroll reach instead of pushing
+   the title above the panel's top edge. */
+.synara-loading-surface > :first-child { margin-top: auto; }
+.synara-loading-surface > :last-child { margin-bottom: auto; }
 .synara-loading-mark {
   width: 30px;
   height: 30px;
@@ -409,16 +433,75 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
   line-height: 1.35;
   text-overflow: ellipsis;
 }
-.synara-loading-surface > button {
-  height: 26px;
-  padding: 0 var(--pad-inline-control);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-icon);
-  color: var(--text-primary);
-  background: var(--surface-panel);
-  font-size: var(--type-caption-size);
+/* Side by side when they fit; stacked at one shared width when they don't. */
+.synara-failure-actions {
+  width: max-content;
+  max-width: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--space-3);
 }
-.synara-loading-surface > button:hover { background: var(--border-subtle); }
+.synara-failure-actions > * { flex: 1 0 auto; }
+.synara-failure-note {
+  margin: calc(var(--space-3) * -1) 0 0;
+  color: var(--text-tertiary);
+  font-size: var(--type-micro-size);
+}
+/* The exact runtime message, folded: a writer who needs it is one keypress
+   away, and everyone else sees a calm headline instead of a log excerpt. */
+.synara-failure-details {
+  width: min(100%, 320px);
+  color: var(--text-tertiary);
+  font-size: var(--type-micro-size);
+}
+.synara-failure-details > summary {
+  width: max-content;
+  margin: 0 auto;
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-compact);
+  display: flex;
+  align-items: center;
+  gap: var(--gap-tight);
+  list-style: none;
+  cursor: pointer;
+}
+.synara-failure-details > summary::-webkit-details-marker { display: none; }
+.synara-failure-details > summary:hover { color: var(--text-secondary); background: var(--tone-hover-surface); }
+.synara-failure-details > summary > svg { transition: transform var(--duration-quick) ease; }
+.synara-failure-details[open] > summary > svg { transform: rotate(90deg); }
+.synara-failure-detail { position: relative; margin-top: var(--space-3); text-align: left; }
+.synara-failure-detail > pre {
+  max-height: 132px;
+  margin: 0;
+  padding: var(--space-4) var(--space-16) var(--space-4) var(--space-5);
+  overflow: auto;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-chrome);
+  background: var(--surface-panel);
+  color: var(--text-secondary);
+  font-family: var(--editor-font);
+  font-size: var(--type-micro-size);
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  user-select: text;
+}
+.synara-failure-copy {
+  position: absolute;
+  top: var(--space-2);
+  right: var(--space-2);
+  width: var(--control-size-icon-compact);
+  height: var(--control-size-icon-compact);
+  border: 0;
+  border-radius: var(--radius-icon);
+  padding: 0;
+  background: transparent;
+  color: var(--text-tertiary);
+  display: grid;
+  place-items: center;
+}
+.synara-failure-copy:hover { color: var(--text-primary); background: var(--tone-hover-surface); }
 .agent-permission-trigger:focus { box-shadow: none; }
 .agent-permission-menu { --surface-radius: var(--radius-surface); --surface-inset: 5px; width: 292px; padding: var(--surface-inset); border-radius: var(--surface-radius); background: var(--editor-bg); }
 .agent-permission-option { position: relative; }

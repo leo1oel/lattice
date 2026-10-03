@@ -1,4 +1,4 @@
-import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { invoke } from "@tauri-apps/api/core";
 import { activateAppLocale } from "../i18n";
@@ -121,3 +121,43 @@ describe("raw build log", () => {
     }
   });
 });
+
+describe("build output layout", () => {
+  afterEach(() => {
+    cleanup();
+    localStorage.clear();
+  });
+
+  it("groups messages under their file and keeps each location in the button's name", () => {
+    const onSelect = vi.fn();
+    render(<CompileDiagnosticsPanel {...props} expanded onSelect={onSelect} diagnostics={[
+      { level: "warning", message: "Overfull hbox", file: "chapters/ch01.tex", line: 12 },
+      { level: "error", message: "Undefined control sequence", file: "chapters/ch01.tex", line: 40 },
+      { level: "warning", message: "There were undefined references.", file: "main.tex", line: 4 },
+    ]} />);
+    const groups = document.querySelectorAll(".compile-diagnostics-group");
+    expect([...groups].map((group) => group.querySelector(".compile-diagnostics-file")?.textContent))
+      .toEqual(["chapters/ch01.tex2", "main.tex"]);
+    expect(within(groups[0] as HTMLElement).getAllByRole("button", { name: /^chapters\/ch01\.tex:/ }).map((button) => button.getAttribute("aria-label")))
+      .toEqual(["chapters/ch01.tex:40 Undefined control sequence", "chapters/ch01.tex:12 Overfull hbox"]);
+    fireEvent.click(screen.getByRole("button", { name: "main.tex:4 There were undefined references." }));
+    expect(onSelect).toHaveBeenCalledWith(expect.objectContaining({ file: "main.tex", line: 4 }));
+  });
+
+  it("docks below the page and remembers the choice for the next build", () => {
+    const { unmount } = render(<CompileDiagnosticsPanel {...props} expanded />);
+    const section = screen.getByRole("region", { name: "Compile diagnostics" });
+    expect(section).not.toHaveClass("docked");
+    fireEvent.click(screen.getByRole("button", { name: "Dock below the page" }));
+    expect(section).toHaveClass("docked");
+    unmount();
+
+    render(<CompileDiagnosticsPanel {...props} />);
+    expect(screen.getByRole("region", { name: "Compile diagnostics" })).toHaveClass("docked");
+    fireEvent.click(screen.getByRole("button", { name: "Float over the page" }));
+    expect(screen.getByRole("region", { name: "Compile diagnostics" })).not.toHaveClass("docked");
+    // Dismissal stays available in either placement.
+    expect(screen.getByRole("button", { name: "Dismiss diagnostics" })).toBeEnabled();
+  });
+});
+

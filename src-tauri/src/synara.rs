@@ -27,6 +27,9 @@ const STARTUP_TIMEOUT: Duration = Duration::from_secs(20);
 const HEALTH_POLL_INTERVAL: Duration = Duration::from_millis(50);
 const RUNTIME_STATE_RELATIVE_PATH: &str = "userdata/server-runtime.json";
 const UNAVAILABLE: &str = "The built-in agent service is unavailable.";
+/// Under the agent home: the sidecar's stdout and stderr, which startup
+/// failures quote from and the support bundle collects.
+const SIDECAR_LOG_DIR: &str = "lattice-logs";
 pub(crate) const BIBLIOGRAPHY_SANDBOX_PROFILE: &str = concat!(
     "(version 1)\n",
     "(allow default)\n",
@@ -174,7 +177,7 @@ impl SynaraRuntime {
             .map_err(|error| format!("Could not create the agent data directory: {error}"))?;
         preferences::initialize_research_writing_preference(&self.home_dir)?;
         let _ = fs::remove_file(self.home_dir.join(RUNTIME_STATE_RELATIVE_PATH));
-        let log_dir = self.home_dir.join("lattice-logs");
+        let log_dir = self.home_dir.join(SIDECAR_LOG_DIR);
         fs::create_dir_all(&log_dir)
             .map_err(|error| format!("Could not create the agent log directory: {error}"))?;
         let startup_logs = ["sidecar.log", "sidecar-error.log"].map(|name| {
@@ -279,6 +282,23 @@ pub fn synara_open_skills_folder(app: tauri::AppHandle) -> Result<(), String> {
     app.opener()
         .open_path(skills_dir.to_string_lossy().into_owned(), None::<String>)
         .map_err(|error| error.to_string())
+}
+
+/// Reveal the sidecar logs a startup failure quotes from. Nothing is created:
+/// a runtime that failed before writing any has no folder to show, which is
+/// `Ok(false)` so the surface can tell it apart from a failed open.
+#[tauri::command]
+pub fn synara_open_log_folder(
+    app: tauri::AppHandle, state: tauri::State<'_, SynaraRuntime>,
+) -> Result<bool, String> {
+    let log_dir = state.home_dir.join(SIDECAR_LOG_DIR);
+    if !log_dir.is_dir() {
+        return Ok(false);
+    }
+    app.opener()
+        .open_path(log_dir.to_string_lossy().into_owned(), None::<String>)
+        .map_err(|error| error.to_string())?;
+    Ok(true)
 }
 
 /// Keep the desktop token and loopback transport out of the renderer's CORS path.

@@ -461,6 +461,7 @@ pub fn run() {
             macos_window::set_pdf_copy_text,
             synara::synara_ensure_ready,
             synara::synara_open_skills_folder,
+            synara::synara_open_log_folder,
             presentation::presentation_ensure_ready,
             presentation::presentation_release,
             presentation::presentation_refresh_native_workspace,

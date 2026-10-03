@@ -72,7 +72,7 @@ const dedupeKeyByEntryId = new Map<string, string>();
 // Defense in depth for diagnostic strings, not a guarantee that arbitrary
 // document output is safe to share. Preserve local paths/compiler diagnostics;
 // remove common credential forms before persistence, forwarding, and export.
-function redactLogText(value: string): string {
+export function redactLogText(value: string): string {
   /* eslint-disable lingui/no-unlocalized-strings -- redaction marker, part of the log format */
   return value
     .replace(/\b(Bearer\s+)\S+/gi, "$1[redacted]")
