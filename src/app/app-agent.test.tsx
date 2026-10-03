@@ -166,6 +166,22 @@ describe("Agent panel", () => {
     expect(minimumWidth()).toBe(before);
   });
 
+  it("keeps the Agent's frame, and its running turn, through the Writing and Reading layouts", async () => {
+    renderApp(projectCommands());
+    await screen.findByRole("button", { name: "Switch project" });
+    const { frame } = await openAgentFrame({ ready: true });
+    const layoutTab = (name: string) => within(document.querySelector(".trellis-presets")!).getByRole("tab", { name });
+    for (const name of ["Writing", "Reading", "Workspace"]) {
+      fireEvent.click(layoutTab(name));
+      await waitFor(() => expect(layoutTab(name)).toHaveAttribute("aria-selected", "true"));
+      expect(frame.isConnected).toBe(true);
+      expect(await findFrame()).toBe(frame);
+      // The panels a layout parks wait for the writer's own layout, not behind a chip each.
+      expect(document.querySelector(".trellis-titlebar-hidden")).toBeNull();
+    }
+    expect(document.querySelector('[data-trellis-part="panel"][data-panel="panel-project"]')).not.toBeNull();
+  });
+
   it.each(["undo", "undo in manual mode", "same-count edit"])("rebuilds after an Agent %s", async (change) => {
     if (change === "undo in manual mode") setAutoBuildMode("manual");
     renderApp({

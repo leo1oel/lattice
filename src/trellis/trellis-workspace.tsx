@@ -9,7 +9,7 @@
  * (text) or a sleeping card (boards, sheets, decks, assets, papers) until it is
  * clicked. A panel that is not on screen renders nothing at all.
  */
-import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
+import { Suspense, memo, useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useLingui } from "@lingui/react/macro";
 import {
@@ -17,6 +17,7 @@ import {
   type LayoutDocument, type MenuEntry, type MenuItem, type MenuRequest, type ViewHandle, type ViewInfo,
   type WorkspaceHandle,
 } from "@danfessler/trellis-react";
+import type { LayoutNode, PanelNode } from "@danfessler/trellis";
 import "@danfessler/trellis/style.css";
 // Panel menus open at the pointer, with submenus and without the fluid hover
 // surface of the shared DropdownMenuContent, so they build on the primitive.
@@ -25,7 +26,7 @@ import { DropdownMenu as MenuPrimitive } from "radix-ui";
 import { EditorState } from "@codemirror/state";
 import { EditorView, lineNumbers } from "@codemirror/view";
 import { defaultHighlightStyle, syntaxHighlighting } from "@codemirror/language";
-import { Check, ChevronRight, FileText, FolderTree, Moon, Search } from "lucide-react";
+import { BookOpen, Check, ChevronRight, FileText, FolderTree, Moon, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { floatingSurfaceClassName, menuItemClassName, menuViewportClassName } from "@/components/ui/menu-surface";
 import { popupMotionClassName } from "@/components/ui/popup-motion";
@@ -33,10 +34,14 @@ import { confirmAction, isOpenSlideDeckPath } from "../app-utils";
 import { isSpreadsheetPath } from "../editor/spreadsheet/spreadsheet-types";
 import { luxLatexHighlightStyle } from "../editor/latex/latex-editor";
 import { useTextLanguageExtensions } from "../canvas/editor-extensions";
+import { DeferredVisualMarkdownEditor } from "../canvas/canvas-lazy-editors";
 import {
   TOOL_KINDS, documentTools, useTrellisApp, type TrellisController, type TrellisSingleton, type TrellisToolKind,
 } from "./trellis-controller";
-import { defaultLayout, loadLayout, saveLayout, clearLayout, withDocumentPanel, VIEW_TYPES } from "./trellis-layout";
+import {
+  defaultLayout, loadLayout, saveLayout, clearLayout, enterPreset, returnLayout, withDocumentPanel, VIEW_TYPES,
+  type ActivePreset,
+} from "./trellis-layout";
 import { installTrellisLabels } from "./trellis-labels";
 import { PANEL_TITLES, spaceMixedScript } from "./trellis-titles";
 import { MENU_ICONS, PANEL_ICONS, fileIcon } from "./trellis-icons";
@@ -81,6 +86,16 @@ function measuredMinSize(base: { width: number; height: number }, measured: () =
 
 
 type FileParams = { key: string };
+
+function findPanel(node: LayoutNode, id: string): PanelNode | null {
+  if (node.kind === "panel") return node.id === id ? node : null;
+  if (node.kind === "stage") return node.child ? findPanel(node.child, id) : null;
+  for (const child of node.children) {
+    const found = findPanel(child, id);
+    if (found) return found;
+  }
+  return null;
+}
 
 /** Boards, sheets and decks: expensive enough to unmount when their panel is off screen. */
 function isHeavyDocument(key: string) {
@@ -313,6 +328,81 @@ function SleepingDocument({ controller, fileKey, detail }: { controller: Trellis
   );
 }
 
+const refuse = () => false;
+
+/**
+ * A Paper that is not the active document, drawn read-only where it was being
+ * read, so the Reading layout keeps it legible beside the notes being
+ * written. It scrolls in place; a click (or its header's button) brings the
+ * full reader back.
+ */
+function PaperSnapshot({ controller, fileKey }: { controller: TrellisController; fileKey: string }) {
+  const { t } = useLingui();
+  // Only beside the document being worked on: with that off screen, this tab
+  // is merely selected on the way to becoming active (a restore, a switch).
+  const besideActive = useSyncExternalStore(controller.ui.subscribe, () => controller.ui.get().editorVisible);
+  if (!besideActive) return <SleepingDocument controller={controller} fileKey={fileKey} detail={t`Sleeping · click to open`} />;
+  return <PaperSnapshotContent controller={controller} fileKey={fileKey} />;
+}
+
+function PaperSnapshotContent({ controller, fileKey }: { controller: TrellisController; fileKey: string }) {
+  const { t } = useLingui();
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [paper, setPaper] = useState<{ path: string; text: string; scrollTop: number } | null | undefined>(undefined);
+  useEffect(() => {
+    let disposed = false;
+    void controller.bridge?.readPaper(fileKey).then((value) => {
+      if (!disposed) setPaper(value);
+    }, () => {
+      if (!disposed) setPaper(null);
+    });
+    return () => { disposed = true; };
+  }, [controller, fileKey]);
+  // Back to where the reader left off once the document is tall enough to hold it.
+  useEffect(() => {
+    const scroller = scrollRef.current;
+    const target = paper?.scrollTop ?? 0;
+    if (!scroller || target <= 0) return;
+    let frames = 0;
+    let frame = requestAnimationFrame(function settle() {
+      scroller.scrollTop = target;
+      if (scroller.scrollTop < target - 1 && ++frames < 60) frame = requestAnimationFrame(settle);
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [paper]);
+  if (paper === null) return <SleepingDocument controller={controller} fileKey={fileKey} detail={t`Sleeping · click to open`} />;
+  return (
+    <div className="trellis-paper-snapshot">
+      {/* The reader's own header, so the text holds its place when the reader comes back. */}
+      <header className="paper-reader-header">
+        <div className="paper-local-actions">
+          <button type="button" className="paper-local-action" onClick={() => controller.activate(fileKey)}>
+            <BookOpen size={14} aria-hidden="true" />
+            <span>{t`Open the reader`}</span>
+          </button>
+        </div>
+      </header>
+      <div ref={scrollRef} className="markdown-preview trellis-paper-snapshot-scroll">
+        <div className="markdown-preview-content">
+          {paper && (
+            <Suspense fallback={null}>
+              <DeferredVisualMarkdownEditor
+                text={paper.text}
+                activePath={paper.path}
+                editable={false}
+                optimizeForReading
+                onChangeMarkdown={refuse}
+                onUndo={refuse}
+                onRedo={refuse}
+              />
+            </Suspense>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function FileView({ controller }: { controller: TrellisController }) {
   const { t } = useLingui();
   const view = useView<FileParams>();
@@ -355,7 +445,9 @@ function FileView({ controller }: { controller: TrellisController }) {
       {surfaceIcon}
       {kind === "file" && !isHeavyDocument(key)
         ? <TextSnapshot controller={controller} fileKey={key} />
-        : <SleepingDocument controller={controller} fileKey={key} detail={t`Sleeping · click to open`} />}
+        : kind === "paper"
+          ? <PaperSnapshot controller={controller} fileKey={key} />
+          : <SleepingDocument controller={controller} fileKey={key} detail={t`Sleeping · click to open`} />}
     </>
   );
 }
@@ -503,10 +595,12 @@ type WorkspaceProps = { controller: TrellisController; projectRoot: string; dark
 /** Memoized: App re-renders on every keystroke, and nothing here needs to follow it. */
 const TrellisWorkspace = memo(function TrellisWorkspace({ controller, projectRoot, dark }: WorkspaceProps) {
   const { t, i18n } = useLingui();
-  const [{ initial, agentMinSize, pdfMinSize }] = useState(() => {
+  const [{ initial, initialPreset, agentMinSize, pdfMinSize }] = useState(() => {
     installTrellisLabels();
+    const saved = loadLayout(projectRoot);
     return {
-      initial: loadLayout(projectRoot),
+      initial: saved.document,
+      initialPreset: saved.preset,
       agentMinSize: measuredMinSize(MIN_SIZE.agent, () => controller.ui.get().agentMinWidth),
       pdfMinSize: measuredMinSize(MIN_SIZE.pdf, () => controller.ui.get().pdfMinWidth),
     };
@@ -525,6 +619,8 @@ const TrellisWorkspace = memo(function TrellisWorkspace({ controller, projectRoo
   // close events must not close App tabs a second time.
   const quietCloses = useRef(new Set<string>());
   const resettingRef = useRef(false);
+  /** The preset the layout is in, with the writer's own layout to return to. */
+  const presetRef = useRef<ActivePreset | null>(initialPreset);
 
   useTabSync(controller, ws, quietCloses);
   useHibernation(controller);
@@ -572,7 +668,7 @@ const TrellisWorkspace = memo(function TrellisWorkspace({ controller, projectRoo
   const pendingSave = useRef<(() => void) | null>(null);
   const onDocumentChange = useCallback((document: LayoutDocument) => {
     if (saveTimer.current !== null) window.clearTimeout(saveTimer.current);
-    pendingSave.current = () => saveLayout(projectRoot, document);
+    pendingSave.current = () => saveLayout(projectRoot, document, presetRef.current);
     saveTimer.current = window.setTimeout(() => {
       saveTimer.current = null;
       pendingSave.current?.();
@@ -580,7 +676,11 @@ const TrellisWorkspace = memo(function TrellisWorkspace({ controller, projectRoo
     }, 400);
     const snapshot = controller.ws?.getSnapshot();
     if (snapshot) {
-      const hidden = snapshot.hidden.map((entry) => ({ panelId: entry.panelId, title: entry.views.map((item) => item.title).join(", ") }));
+      // In a preset, the panels it parked come back with the writer's own
+      // layout (or their toggles), not with a chip each.
+      const hidden = snapshot.hidden
+        .filter((entry) => !presetRef.current || entry.views.some((item) => item.type === "file"))
+        .map((entry) => ({ panelId: entry.panelId, title: entry.views.map((item) => item.title).join(", ") }));
       const previous = controller.ui.get().hidden;
       // Every layout change reports the hidden list; keep the old array when
       // nothing in it changed, so its subscribers (the titlebar) do not
@@ -654,16 +754,64 @@ const TrellisWorkspace = memo(function TrellisWorkspace({ controller, projectRoo
         return;
       }
       resettingRef.current = true;
+      presetRef.current = null;
       try {
         clearLayout(projectRoot);
         handle.setDocument(defaultLayout());
       } finally {
         resettingRef.current = false;
       }
+      controller.ui.set({ preset: null });
       controller.app.set({ filesRevision: controller.app.get().filesRevision + 1 });
       controller.resync();
     },
+    // A preset regroups the open documents' own views, so no document closes
+    // and nothing needs saving first; navigators, the Agent and tools wait
+    // hidden, still mounted, for the writer's own layout to bring them back.
+    preset: (preset) => {
+      const handle = controller.ws;
+      const current = presetRef.current;
+      if (!handle || (current?.preset ?? null) === preset) return;
+      const { activeKey, openTabs } = controller.app.get();
+      const document = handle.getDocument();
+      let next: LayoutDocument;
+      if (preset) {
+        const entered = enterPreset(preset, document, current, { activeKey, openTabs, isReading: (key) => controller.isReading(key) });
+        next = entered.document;
+        presetRef.current = entered.active;
+      } else if (current) {
+        next = returnLayout(current.previous, document, { activeKey, openTabs }, current.supplied);
+        presetRef.current = null;
+      } else {
+        return;
+      }
+      resettingRef.current = true;
+      try {
+        handle.setDocument(next);
+      } finally {
+        resettingRef.current = false;
+      }
+      controller.ui.set({ preset });
+      controller.resync();
+      // The document the layout is for becomes the active one: the source to
+      // write, the paper to read. Keyboard focus stays on the layout switch,
+      // so its arrow keys keep moving between layouts.
+      const root = handle.getDocument().root;
+      const lead = root && preset ? findPanel(root, preset === "writing" ? "panel-writing" : "panel-reading")?.selected : null;
+      const key = lead ? handle.view(lead)?.params.key : null;
+      if (typeof key === "string" && key !== activeKey) controller.activate(key);
+    },
+    // A panel the writer asks for is theirs to keep, even one a preset brought in.
+    shown: (kind) => {
+      const current = presetRef.current;
+      if (current?.supplied.includes(kind)) presetRef.current = { ...current, supplied: current.supplied.filter((id) => id !== kind) };
+    },
   }), [controller, projectRoot, resetFailed]);
+  // The titlebar follows this workspace's preset; another project's starts in its own.
+  useEffect(() => {
+    controller.ui.set({ preset: presetRef.current?.preset ?? null });
+    return () => controller.ui.set({ preset: null });
+  }, [controller]);
 
   const title = (kind: TrellisSingleton) => i18n._(PANEL_TITLES[kind]);
   const actions = (kind: "project" | "papers" | "agent" | "pdf") => () => controller.bridge?.panelMenu(kind) ?? [];
@@ -790,13 +938,24 @@ function useTabSync(controller: TrellisController, ws: WorkspaceHandle | null, q
       // A new document joins the active document's panel, else any document
       // panel on screen; with none left, it gets a panel of its own between
       // the navigators and the rest of the layout.
-      const anchorPanel = () => {
+      //
+      // In the Reading layout a document keeps to its side instead: papers
+      // join the paper being read (with the library), everything else the
+      // notes, and a first note gets a panel of its own beside the paper.
+      const anchorPanel = (key: string) => {
+        if (controller.ui.get().preset === "reading") {
+          const reading = controller.isReading(key);
+          const library = ws.view("papers");
+          if (reading && library && library.placement !== "hidden") return library.panelId;
+          const side = fileViews().find((view) => view.placement !== "hidden" && controller.isReading(String(view.params.key ?? "")) === reading);
+          if (side || !reading) return side?.panelId ?? null;
+        }
         const current = byKey.get(activeKey);
         if (current && current.placement !== "hidden") return current.panelId;
         return fileViews().find((view) => view.placement !== "hidden")?.panelId ?? null;
       };
       const open = (key: string) => {
-        const panelId = anchorPanel();
+        const panelId = anchorPanel(key);
         let info: ViewInfo | undefined;
         if (panelId) {
           info = ws.open("file", {

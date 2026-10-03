@@ -8,7 +8,7 @@ import type { TrellisBridge, TrellisController } from "../trellis/trellis-contro
 import type { SearchDialog } from "./app-search-dialogs";
 import { setNotice } from "./notify";
 import type { BuildOutcome, useBuildPipeline } from "./use-build-pipeline";
-import { documentKind, type OpenDocuments } from "./use-open-documents";
+import { documentKind, paperDocumentPath, readPaperDocuments, type OpenDocuments } from "./use-open-documents";
 import type { useProjectSearch } from "./use-project-search";
 import type { useReferenceImport } from "./use-reference-import";
 import type { useSynaraHost } from "./use-synara-host";
@@ -79,6 +79,15 @@ export function useTrellisBridge(app: TrellisBridgeApp) {
         } catch {
           return null;
         }
+      },
+      readPaper: async (key) => {
+        if (!isPaperTabKey(key)) return null;
+        const arxivId = arxivIdFromTabKey(key);
+        const { markdown, blog } = await readPaperDocuments(arxivId);
+        const view = (paperView === "blog" ? blog : markdown) ? paperView : paperView === "blog" ? "fulltext" : "blog";
+        const path = paperDocumentPath(arxivId, view);
+        const text = view === "blog" ? blog : markdown;
+        return text ? { path, text, scrollTop: documents.viewStates.get(path)?.visualMarkdown?.scrollTop ?? 0 } : null;
       },
       textScrollTop: (path) => documents.viewStates.get(path)?.text?.scrollTop ?? null,
       // A panel asking for a drawer that is already open only comes forward:

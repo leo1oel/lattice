@@ -1,4 +1,4 @@
-import { synaraHook, fileNode, fileNodes, dirNode, type Commands, mockCommands, projectCommands, refreshableProject, SINGLE_TRANSFORMER, attentionPaper, ROOT, projectSnapshot, MAIN_DOCUMENT, markdownSnapshot, PAPER_ABSTRACT, readPathContent, deferred, setAutoBuildMode, setInterfaceLanguage, papersList, openPaper, findProjectTreeItem, renderApp, expectNotification, findElement, findEditorView, expectEditorText, postWindowMessage, expectInvoked, invokeCalls, persistLayout, paneContent, visualEditorOf, argPath, openAgentFrame, postedOfType, pdfDocumentStub, mockPdfDocument } from "./app-test-utils";
+import { synaraHook, openTreeFile, waitForSelectedTab, fileNode, fileNodes, dirNode, type Commands, mockCommands, projectCommands, refreshableProject, SINGLE_TRANSFORMER, attentionPaper, ROOT, projectSnapshot, MAIN_DOCUMENT, markdownSnapshot, PAPER_ABSTRACT, readPathContent, deferred, setAutoBuildMode, setInterfaceLanguage, papersList, openPaper, findProjectTreeItem, renderApp, expectNotification, findElement, findEditorView, expectEditorText, postWindowMessage, expectInvoked, invokeCalls, persistLayout, paneContent, visualEditorOf, argPath, openAgentFrame, postedOfType, pdfDocumentStub, mockPdfDocument } from "./app-test-utils";
 import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { NodeSelection } from "@tiptap/pm/state";
@@ -324,6 +324,59 @@ describe("papers", () => {
     expect(paper.closest(".paper-row")).toHaveClass("active");
     fireEvent.click(await findProjectTreeItem("main.tex"));
     await waitFor(() => expect(paper.closest(".paper-row")).not.toHaveClass("active"));
+  });
+
+  it("reads a paper beside the notes in the Reading layout, then returns to the writer's own", async () => {
+    renderApp({
+      ...projectCommands(projectSnapshot({ files: fileNodes("main.tex", "notes.md", "draft.md") }), "\\documentclass{main}"),
+      list_papers: () => [attentionPaper({ hasBlog: true })],
+      read_paper: "# Attention\n\nPaper content.",
+      read_paper_blog_local: "# Attention overview\n\nBlog content.",
+    });
+    await openTreeFile("notes.md");
+    await openPaper("Attention Is All You Need");
+    await waitFor(() => expect(screen.getByRole("tab", { name: /Attention Is All You Need/ })).toHaveAttribute("aria-selected", "true"));
+    // Read in the Paper's full text rather than its Blog.
+    fireEvent.click(await screen.findByRole("tab", { name: "Paper" }));
+    await screen.findByRole("heading", { name: "Attention" });
+    const panel = (id: string) => document.querySelector(`[data-trellis-part="panel"][data-panel="${id}"]`);
+    const layoutTab = (name: string) => within(document.querySelector(".trellis-presets")!).getByRole("tab", { name });
+    expect(layoutTab("Workspace")).toHaveAttribute("aria-selected", "true");
+
+    fireEvent.click(layoutTab("Reading"));
+    await waitFor(() => expect(panel("panel-reading")).toBeInTheDocument());
+    expect(layoutTab("Reading")).toHaveAttribute("aria-selected", "true");
+    // The paper is read with the library beside it; the notes have a panel of their own; the PDF has gone.
+    expect(within(panel("panel-reading") as HTMLElement).getByRole("tab", { name: /Attention Is All You Need/ })).toBeInTheDocument();
+    expect(within(panel("panel-notes") as HTMLElement).getByRole("tab", { name: /notes\.md/ })).toBeInTheDocument();
+    expect(panel("panel-pdf")).not.toBeInTheDocument();
+
+    // Writing the notes keeps the paper legible where it was.
+    fireEvent.pointerDown(await findElement(".trellis-snapshot"), { button: 0 });
+    await waitForSelectedTab("notes.md");
+    const snapshot = await findElement(".trellis-paper-snapshot");
+    await waitFor(() => expect(snapshot).toHaveTextContent("Paper content."));
+    expect(snapshot).not.toHaveTextContent("Blog content.");
+    expect(within(snapshot).getByRole("button", { name: "Open the reader" })).toBeInTheDocument();
+
+    // A file opened while reading joins the notes; one closed stays closed.
+    fireEvent.click(screen.getByRole("button", { name: "Show Project" }));
+    await openTreeFile("draft.md");
+    expect(within(panel("panel-notes") as HTMLElement).getByRole("tab", { name: /draft\.md/ })).toBeInTheDocument();
+    const close = screen.getByRole("tab", { name: /main\.tex/ }).querySelector<HTMLElement>("[data-trellis-part=tab-close]")!;
+    fireEvent.pointerDown(close, { button: 0 });
+    fireEvent.click(close, { button: 0 });
+    await waitFor(() => expect(screen.queryByRole("tab", { name: /main\.tex/ })).not.toBeInTheDocument());
+
+    fireEvent.click(layoutTab("Workspace"));
+    await waitFor(() => expect(panel("panel-reading")).not.toBeInTheDocument());
+    expect(panel("panel-project")).toBeInTheDocument();
+    expect(panel("panel-pdf")).toBeInTheDocument();
+    for (const name of [/notes\.md/, /draft\.md/, /Attention Is All You Need/]) expect(screen.getByRole("tab", { name })).toBeInTheDocument();
+    expect(screen.queryByRole("tab", { name: /main\.tex/ })).not.toBeInTheDocument();
+    expect(layoutTab("Workspace")).toHaveAttribute("aria-selected", "true");
+    // The document being written is the one in front.
+    await waitForSelectedTab("draft.md");
   });
 
   it("opens a captured webpage without offering it as an arXiv PDF", async () => {

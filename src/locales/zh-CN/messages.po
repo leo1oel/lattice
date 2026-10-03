@@ -433,6 +433,10 @@ msgstr "有一处本地编辑尚未在 Overleaf 上生效，因此无法安全�
 msgid "a over b"
 msgstr "分子 a，分母 b"
 
+#: src/trellis/trellis-titlebar.tsx
+msgid "A paper beside your notes"
+msgstr "论文与笔记并排"
+
 #: src/settings/settings-dialog.tsx
 msgid "A project latexmkrc overrides this"
 msgstr "项目中的 latexmkrc 优先"
@@ -4052,6 +4056,7 @@ msgid "Lattice workspace"
 msgstr "Lattice 工作区"
 
 #: src/App.tsx
+#: src/trellis/trellis-titlebar.tsx
 msgid "Layout"
 msgstr "布局"
 
@@ -5261,6 +5266,10 @@ msgstr "请先打开已关联的 Overleaf 项目。"
 msgid "Open the paper overview"
 msgstr "打开论文概览"
 
+#: src/trellis/trellis-workspace.tsx
+msgid "Open the reader"
+msgstr "打开阅读器"
+
 #: src/build/compile-diagnostics-panel.tsx
 msgid "Open the repair task to continue."
 msgstr "打开修正任务以继续。"
@@ -6024,6 +6033,10 @@ msgstr "原始构建日志"
 msgid "Read-only preview · click to edit"
 msgstr "只读预览 · 点击编辑"
 
+#: src/trellis/trellis-titlebar.tsx
+msgid "Reading"
+msgstr "阅读"
+
 #: src/history/conflict-resolver.tsx
 msgid "Reading the file…"
 msgstr "正在读取文件…"
@@ -6683,6 +6696,10 @@ msgstr "检索记录信息"
 msgid "Retry"
 msgstr "重试"
 
+#: src/trellis/trellis-titlebar.tsx
+msgid "Return to your own layout"
+msgstr "回到你自己的布局"
+
 #: src/app/use-trellis-bridge.ts
 msgid "Reveal cursor in PDF"
 msgstr "在 PDF 中定位光标"
@@ -7251,6 +7268,10 @@ msgstr "某位协作者"
 #: src/editor/markdown/engine/views/image-view.tsx
 msgid "Source"
 msgstr "源码"
+
+#: src/trellis/trellis-titlebar.tsx
+msgid "Source beside the compiled PDF"
+msgstr "源码与编译后的 PDF 并排"
 
 #: src/papers/bibliography-audit.tsx
 msgid "Source candidate (not applied)"
@@ -8586,6 +8607,7 @@ msgid "Working…"
 msgstr "正在处理…"
 
 #: src/trellis/trellis-labels.ts
+#: src/trellis/trellis-titlebar.tsx
 msgid "Workspace"
 msgstr "工作区"
 
@@ -8604,6 +8626,10 @@ msgstr "用 \\begin…\\end 包裹所选内容"
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Wreath product"
 msgstr "圈积"
+
+#: src/trellis/trellis-titlebar.tsx
+msgid "Writing"
+msgstr "写作"
 
 #: src/build/tex-doctor-messages.ts
 msgid "XeLaTeX engine"
@@ -8663,6 +8689,10 @@ msgstr "你的 Overleaf 账户"
 #: src/overleaf/overleaf-connect.tsx
 msgid "Your Overleaf session expired. Sign in again"
 msgstr "Overleaf 会话已过期，请重新登录"
+
+#: src/trellis/trellis-titlebar.tsx
+msgid "Your own layout"
+msgstr "你自己的布局"
 
 #: src/telemetry/root-error-boundary.tsx
 msgid "Your project files are safe"
