@@ -545,6 +545,22 @@ describe("jumps (TODOs, outline, find results, SyncTeX, comments)", () => {
     }
   });
 
+  it("takes focus once its surface is shown when the jump lands while it is still hidden", async () => {
+    const onRevealHandled = vi.fn();
+    const view = renderEditor({ text: TEXT, onRevealHandled });
+    // A visibility-hidden surface (a tab switch without a transition) refuses focus.
+    const { dom } = view.editor.view;
+    const focusShown = dom.focus.bind(dom);
+    let hidden = true;
+    dom.focus = (options?: FocusOptions) => { if (!hidden) focusShown(options); };
+    view.rerender({ revealRequest: { id: "jump", target: { line: 7 } } });
+    await waitFor(() => expect(onRevealHandled).toHaveBeenCalledWith("jump"));
+    expect(view.editor.view.hasFocus()).toBe(false);
+    hidden = false;
+    await waitFor(() => expect(view.editor.view.hasFocus()).toBe(true));
+    expect(selectedText(view.editor)).toBe("Target paragraph here.");
+  });
+
   it("lands a jump to a blank line on the next block shown", async () => {
     const onRevealHandled = vi.fn();
     const view = renderEditor({ text: TEXT, onRevealHandled });
