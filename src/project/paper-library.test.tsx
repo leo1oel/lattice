@@ -324,12 +324,24 @@ describe("PaperLibrary", () => {
     expect(props.onImport).toHaveBeenCalledOnce();
   });
 
-  it("shows each paper's authors under its title", () => {
-    renderLibrary({ papers: [attention, { ...vit, authors: undefined }] });
-    const [first, second] = screen.getAllByRole("button", { name: /Attention|Image/ })
+  it("shows each paper's authors and source under its title, and its exact citation key apart", () => {
+    const web: PaperSummary = {
+      arxivId: "web-0123456789abcdef", url: "https://www.example.org/notes", title: "Notes",
+      authors: "Vaswani, Ashish and Shazeer, Noam and Parmar, Niki", hasFullText: true, hasBlog: false,
+    };
+    renderLibrary({ papers: [attention, { ...vit, authors: undefined }, web] });
+    const [first, second, third] = screen.getAllByRole("button", { name: /Attention|Image|Notes/ })
       .filter((button) => button.classList.contains("paper-open"));
+    const byline = (row: HTMLElement) => [...row.querySelector(".paper-byline")!.children].map((part) => part.textContent);
     expect(first.querySelector(".paper-authors")).toHaveTextContent("Vaswani and Shazeer");
+    expect(byline(first)).toEqual(["Vaswani and Shazeer", "arXiv 1706.03762"]);
+    expect(first.querySelector(".paper-cite-key")).toHaveTextContent("vaswani2017");
     expect(second.querySelector(".paper-authors")).toBeNull();
+    expect(byline(second)).toEqual(["arXiv 2010.11929"]);
+    // A captured page's bundle key is never presented as an arXiv id, and a
+    // paper without a citation key has no empty chip.
+    expect(byline(third)).toEqual(["Vaswani et al.", "example.org"]);
+    expect(third.querySelector(".paper-cite-key")).toBeNull();
   });
 
   it("waits for a pause in typing, then adds papers whose text matched even when their metadata did not", async () => {

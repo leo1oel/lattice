@@ -1,4 +1,4 @@
-import { synaraHook, fileNode, fileNodes, dirNode, type Commands, mockCommands, projectCommands, refreshableProject, SINGLE_TRANSFORMER, attentionPaper, ROOT, projectSnapshot, MAIN_DOCUMENT, markdownSnapshot, PAPER_ABSTRACT, readPathContent, deferred, setAutoBuildMode, setInterfaceLanguage, papersList, openPaper, findProjectTreeItem, renderApp, expectNotification, findElement, findEditorView, expectEditorText, postWindowMessage, expectInvoked, invokeCalls, persistLayout, paneContent, visualEditorOf, argPath, openAgentFrame, postedOfType, pdfDocumentStub, mockPdfDocument } from "./app-test-utils";
+import { synaraHook, openTreeFile, waitForSelectedTab, fileNode, fileNodes, dirNode, type Commands, mockCommands, projectCommands, refreshableProject, SINGLE_TRANSFORMER, attentionPaper, ROOT, projectSnapshot, MAIN_DOCUMENT, markdownSnapshot, PAPER_ABSTRACT, readPathContent, deferred, setAutoBuildMode, setInterfaceLanguage, papersList, openPaper, findProjectTreeItem, renderApp, expectNotification, findElement, findEditorView, expectEditorText, postWindowMessage, expectInvoked, invokeCalls, persistLayout, paneContent, visualEditorOf, argPath, openAgentFrame, postedOfType, pdfDocumentStub, mockPdfDocument } from "./app-test-utils";
 import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { NodeSelection } from "@tiptap/pm/state";
@@ -291,7 +291,12 @@ describe("papers", () => {
     expect(await screen.findByRole("heading", { name: "Attention overview" })).toBeInTheDocument();
     expect(document.querySelector(".markdown-preview")).not.toBeNull();
     expect(screen.getByRole("button", { name: "View original PDF" })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Open PDF in browser" }));
+    // The Blog has no masthead of its own, so the strip names the whole Paper;
+    // its source is the way to the original.
+    const identity = document.querySelector<HTMLElement>(".paper-identity")!;
+    expect(within(identity).getByText("Attention Is All You Need")).toHaveClass("paper-identity-title");
+    expect(within(identity).getByText("Vaswani and Shazeer")).toBeInTheDocument();
+    fireEvent.click(within(identity).getByRole("button", { name: "arXiv 1706.03762, Open PDF in browser" }));
     await waitFor(() => expect(openUrl).toHaveBeenCalledWith("https://arxiv.org/pdf/1706.03762"));
 
     // A Paper's panel switches between its Blog and the Paper itself; there is no Edit/Split/Preview for it.
@@ -321,6 +326,59 @@ describe("papers", () => {
     await waitFor(() => expect(paper.closest(".paper-row")).not.toHaveClass("active"));
   });
 
+  it("reads a paper beside the notes in the Reading layout, then returns to the writer's own", async () => {
+    renderApp({
+      ...projectCommands(projectSnapshot({ files: fileNodes("main.tex", "notes.md", "draft.md") }), "\\documentclass{main}"),
+      list_papers: () => [attentionPaper({ hasBlog: true })],
+      read_paper: "# Attention\n\nPaper content.",
+      read_paper_blog_local: "# Attention overview\n\nBlog content.",
+    });
+    await openTreeFile("notes.md");
+    await openPaper("Attention Is All You Need");
+    await waitFor(() => expect(screen.getByRole("tab", { name: /Attention Is All You Need/ })).toHaveAttribute("aria-selected", "true"));
+    // Read in the Paper's full text rather than its Blog.
+    fireEvent.click(await screen.findByRole("tab", { name: "Paper" }));
+    await screen.findByRole("heading", { name: "Attention" });
+    const panel = (id: string) => document.querySelector(`[data-trellis-part="panel"][data-panel="${id}"]`);
+    const layoutTab = (name: string) => within(document.querySelector(".trellis-presets")!).getByRole("tab", { name });
+    expect(layoutTab("Workspace")).toHaveAttribute("aria-selected", "true");
+
+    fireEvent.click(layoutTab("Reading"));
+    await waitFor(() => expect(panel("panel-reading")).toBeInTheDocument());
+    expect(layoutTab("Reading")).toHaveAttribute("aria-selected", "true");
+    // The paper is read with the library beside it; the notes have a panel of their own; the PDF has gone.
+    expect(within(panel("panel-reading") as HTMLElement).getByRole("tab", { name: /Attention Is All You Need/ })).toBeInTheDocument();
+    expect(within(panel("panel-notes") as HTMLElement).getByRole("tab", { name: /notes\.md/ })).toBeInTheDocument();
+    expect(panel("panel-pdf")).not.toBeInTheDocument();
+
+    // Writing the notes keeps the paper legible where it was.
+    fireEvent.pointerDown(await findElement(".trellis-snapshot"), { button: 0 });
+    await waitForSelectedTab("notes.md");
+    const snapshot = await findElement(".trellis-paper-snapshot");
+    await waitFor(() => expect(snapshot).toHaveTextContent("Paper content."));
+    expect(snapshot).not.toHaveTextContent("Blog content.");
+    expect(within(snapshot).getByRole("button", { name: "Open the reader" })).toBeInTheDocument();
+
+    // A file opened while reading joins the notes; one closed stays closed.
+    fireEvent.click(screen.getByRole("button", { name: "Show Project" }));
+    await openTreeFile("draft.md");
+    expect(within(panel("panel-notes") as HTMLElement).getByRole("tab", { name: /draft\.md/ })).toBeInTheDocument();
+    const close = screen.getByRole("tab", { name: /main\.tex/ }).querySelector<HTMLElement>("[data-trellis-part=tab-close]")!;
+    fireEvent.pointerDown(close, { button: 0 });
+    fireEvent.click(close, { button: 0 });
+    await waitFor(() => expect(screen.queryByRole("tab", { name: /main\.tex/ })).not.toBeInTheDocument());
+
+    fireEvent.click(layoutTab("Workspace"));
+    await waitFor(() => expect(panel("panel-reading")).not.toBeInTheDocument());
+    expect(panel("panel-project")).toBeInTheDocument();
+    expect(panel("panel-pdf")).toBeInTheDocument();
+    for (const name of [/notes\.md/, /draft\.md/, /Attention Is All You Need/]) expect(screen.getByRole("tab", { name })).toBeInTheDocument();
+    expect(screen.queryByRole("tab", { name: /main\.tex/ })).not.toBeInTheDocument();
+    expect(layoutTab("Workspace")).toHaveAttribute("aria-selected", "true");
+    // The document being written is the one in front.
+    await waitForSelectedTab("draft.md");
+  });
+
   it("opens a captured webpage without offering it as an arXiv PDF", async () => {
     renderApp({
       ...projectCommands(projectSnapshot(), "\\documentclass{main}"),
@@ -334,7 +392,8 @@ describe("papers", () => {
     const paperHeader = await findElement(".paper-visual-header");
     expect(within(paperHeader).getByRole("heading", { name: "A captured research article" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "View original PDF" })).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Open article in browser" }));
+    // A captured page's bundle key is not an arXiv id: the strip names its site.
+    fireEvent.click(screen.getByRole("button", { name: "example.com, Open article in browser" }));
     await waitFor(() => expect(openUrl).toHaveBeenCalledWith("https://example.com/research/article"));
   });
 
@@ -373,7 +432,7 @@ describe("papers", () => {
     expect(screen.getByRole("status")).toHaveTextContent("Loading PDF…");
     expect(screen.getByRole("status")).toHaveClass("pdf-loading");
     expect(getDocument).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByRole("button", { name: "Open PDF in browser" }));
+    fireEvent.click(screen.getByRole("button", { name: "mirros.ai, Open PDF in browser" }));
     await waitFor(() => expect(openUrl).toHaveBeenCalledWith(firstUrl));
 
     fireEvent.click(screen.getByTitle("Second PDF"));
@@ -418,20 +477,28 @@ describe("papers", () => {
 
     await waitFor(() => expect(getDocument).toHaveBeenCalledWith(expect.objectContaining({ url: "https://arxiv.org/pdf/1706.03762v7" })));
     const backToPaper = await screen.findByRole("button", { name: "Back to Paper" });
-    const openInBrowser = screen.getByRole("button", { name: "Open PDF in browser" });
+    const openInBrowser = screen.getByRole("button", { name: "arXiv 1706.03762v7, Open PDF in browser" });
     const downloadPdf = screen.getByRole("button", { name: "Download PDF" });
     const paperPdfToolbar = backToPaper.closest(".pdf-toolbar");
-    expect(paperPdfToolbar).toContainElement(openInBrowser);
     expect(paperPdfToolbar).toContainElement(downloadPdf);
     expect(backToPaper.querySelector("svg")).toHaveClass("lucide-arrow-left");
     expect(backToPaper.querySelector("svg")).toHaveAttribute("stroke-width", "2");
-    expect(document.querySelector(".paper-reader-header")).toBeNull();
+    // The identity strip stays over the original PDF: its title, and its source
+    // as the one browser action; the PDF button shows it is the view open.
+    const strip = document.querySelector<HTMLElement>(".paper-reader-header")!;
+    expect(within(strip).getByText("Attention Is All You Need")).toBeInTheDocument();
+    expect(strip).toContainElement(openInBrowser);
+    expect(paperPdfToolbar).not.toContainElement(openInBrowser);
+    expect(within(strip).getByRole("button", { name: "View original PDF" })).toHaveAttribute("aria-pressed", "true");
     await waitFor(() => expect(downloadPdf).toBeEnabled());
     fireEvent.click(openInBrowser);
     await waitFor(() => expect(openUrl).toHaveBeenCalledWith("https://arxiv.org/pdf/1706.03762v7"));
 
-    fireEvent.click(backToPaper);
-    fireEvent.click(await screen.findByRole("button", { name: "View original PDF" }));
+    // Pressing the PDF button again returns to the Paper, as Back does.
+    fireEvent.click(within(strip).getByRole("button", { name: "View original PDF" }));
+    await waitFor(() => expect(screen.queryByRole("button", { name: "Back to Paper" })).toBeNull());
+    expect(screen.getByRole("button", { name: "View original PDF" })).toHaveAttribute("aria-pressed", "false");
+    fireEvent.click(screen.getByRole("button", { name: "View original PDF" }));
 
     await waitFor(() => {
       const remoteLoads = vi.mocked(getDocument).mock.calls

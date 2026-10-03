@@ -207,7 +207,7 @@ async function serve(options) {
   const vite = await startVite(!options.dev, { port: options.port, live: options.dev });
   console.log(`Lattice bench page (${options.dev ? "dev server, live reload" : `production build in ${vite.outDir}`}):`);
   console.log(`  ${benchUrl(vite.origin, { theme: "system", lang: "en" })}`);
-  console.log("Query parameters: theme=system|light|dark, lang=en|zh-CN|system, papers=1|fulltext, keepStorage=1,");
+  console.log("Query parameters: theme=system|light|dark, lang=en|zh-CN|system, papers=1|fulltext|library, keepStorage=1,");
   console.log(`  and the fixture sizes (${Object.keys(BENCH_FIXTURE).join(", ")}, chapters).`);
   console.log("Press Ctrl-C to stop.");
   await new Promise(() => {});

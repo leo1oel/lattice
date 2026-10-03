@@ -24,8 +24,12 @@ export type LatexStructureDeps = {
   editorPosition: EditorPosition | null;
   /** Something lists the outline (its panel, Go to symbol), so the included files are read for it. */
   outlineWanted: boolean;
-  /** The last build produced a PDF: the appendix's page there marks where the main body ends. */
-  compiledPdf: boolean;
+  /**
+   * The PDF the last successful build shows (its preview URL), or null: the
+   * appendix's page there marks where the main body ends. A new URL is a new
+   * PDF, whose pagination may differ though the appendix stayed on its line.
+   */
+  compiledPdf: string | null;
 };
 
 /**

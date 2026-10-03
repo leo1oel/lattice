@@ -635,7 +635,7 @@ function App() {
   const {
     busyLabel, recentProjects, projectMenuOpen, setProjectMenuOpen, createForm, updateCreateForm,
     startProjectTransition, revealNewProject, chooseExisting, createProject, chooseRecentProject,
-    openTutorialProject, importOverleafZip, exportProjectZip, moveWorkspace,
+    openTutorialProject, importOverleafZip, exportProjectZip, moveWorkspace, movingWorkspace,
   } = useProjectLifecycle({
     projectState, documents, library, build: buildPipeline, cancelPrewarm: cancelPreviewPrewarm,
     resetCompileTracking: resetAgentCompileTracking,
@@ -774,7 +774,7 @@ function App() {
     settledSource: activePaper ? source : settledCanvasSource,
     // Go to symbol lists the same outline, so it reads the included files too.
     outlineWanted: outlineOpen || searchDialog === "goto-symbol",
-    compiledPdf: Boolean(build?.success && pdfUrl),
+    compiledPdf: build?.success ? pdfUrl : null,
   });
   const {
     projectPaths, rootDocumentPath, outlineNodes, liveReferences, todoHits, mainBodyPages, forgetIncludedSources,
@@ -1343,6 +1343,7 @@ function App() {
 
   const editorEditableForPath = (path: string, ignoreOverleaf = false) => (
     !compileRepair.busy
+    && !movingWorkspace
     && (
       ignoreOverleaf
       || overleafLink === null

@@ -123,7 +123,7 @@ export class BrowserRelay {
       }
     });
     window.setTimeout(() => {
-      if (!this.ready) this.fail(new Error(runtimeMessage("handoff-timeout")));
+      if (!this.ready && !this.terminal) this.fail(new Error(runtimeMessage("handoff-timeout")));
     }, 20_000);
   }
 
@@ -304,6 +304,10 @@ const RUNTIME_MESSAGES = {
   "entry-status": [
     "The local Lattice entry returned {status}.",
     "本地 Lattice 入口返回了 {status}。",
+  ],
+  "entry-expired": [
+    "This Lattice link has expired or was already used. Open the workspace in your browser again from the Lattice app.",
+    "此 Lattice 链接已过期或已被使用。请从 Lattice 应用中再次在浏览器中打开工作区。",
   ],
   "entry-invalid-session": [
     "The local Lattice entry returned an invalid session.",
@@ -587,6 +591,9 @@ async function requestBrowserSession(
   if (resumeToken) endpoint.searchParams.set("token", resumeToken);
   if (entry) endpoint.searchParams.set("entry", entry);
   const response = await fetch(endpoint, { cache: "no-store", mode: "cors" });
+  // 410: the explicit entry was used, expired or never issued. It selects no
+  // workspace rather than another one.
+  if (response.status === 410) throw new Error(runtimeMessage("entry-expired"));
   if (!response.ok) {
     throw new Error(runtimeMessage("entry-status", { status: String(response.status) }));
   }
@@ -617,9 +624,12 @@ async function initializeBrowserRuntime(): Promise<void> {
     runtimeError = runtimeMessage("open-from-app");
     return;
   }
+  // An explicit entry is the only selector: the session this tab stored for
+  // another workspace must not override it. Both are kept until the
+  // exchange succeeds, so a stale entry leaves the tab's session intact.
   const config = await requestBrowserSession(
     stored?.bridgePort ?? Number(entryPort),
-    stored?.token,
+    entry ? undefined : stored?.token,
     entry,
   );
   if (developmentEntry || entry) {

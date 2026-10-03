@@ -31,6 +31,28 @@ const settleWithin = (work: Promise<unknown>) => Promise.race([
   new Promise<void>((resolve) => window.setTimeout(resolve, PROJECT_SWITCH_SYNC_WAIT_MS)),
 ]);
 
+/** Why {@link saveEveryEdit} stopped, or "saved" once every open edit is on disk. */
+export type SaveEveryEditOutcome = "saved" | "composing" | "failed" | "changed";
+
+/**
+ * Publish and durably save every open edit before this surface lets go of its
+ * project: a project switch, or another surface taking the workspace. Only
+ * "saved" means letting go loses nothing. An unfinished IME composition
+ * cannot be published yet, a failed save is reported where it happened, and
+ * an edit typed while the save ran is still only in this page's memory.
+ */
+export async function saveEveryEdit({ flush, save, flushWholeFiles, hasUnsavedEdits }: {
+  flush: () => boolean;
+  save: () => Promise<boolean>;
+  flushWholeFiles: () => Promise<void>;
+  hasUnsavedEdits: () => boolean;
+}): Promise<SaveEveryEditOutcome> {
+  if (!flush()) return "composing";
+  if (!(await save())) return "failed";
+  await settleWithin(flushWholeFiles());
+  return hasUnsavedEdits() ? "changed" : "saved";
+}
+
 export type ProjectLifecycleDeps = {
   projectState: ProjectState;
   documents: Pick<OpenDocuments, "claim" | "flush" | "save" | "hasUnsavedEdits" | "enter" | "chooseMode">;
@@ -85,6 +107,8 @@ export function useProjectLifecycle(deps: ProjectLifecycleDeps) {
   const { claimBibliographyRefresh, resetBibliographyIndex, applyBibliographyIndex, applyReferences, setPapers } = library;
   const { runBuild, resetForProject } = build;
   const [busyLabel, setBusyLabel] = useState<string | null>(null);
+  /** The workspace is being handed to another surface: its editors stay read-only meanwhile. */
+  const [movingWorkspace, setMovingWorkspace] = useState(false);
   const [projectMenuOpen, setProjectMenuOpen] = useState(false);
   const [recentProjects, setRecentProjects] = useState<RecentProject[]>(loadRecentProjects);
   const autoTutorialAttemptedRef = useRef(false);
@@ -139,16 +163,10 @@ export function useProjectLifecycle(deps: ProjectLifecycleDeps) {
     // The editor stayed live while Overleaf settled, so publish and durably
     // save any edit (including a just-finished IME composition) made during
     // that wait before invalidating the outgoing project's ownership.
-    if (!flush()) {
-      setNotice(t`Finish the current text composition, then switch projects again.`);
-      return false;
-    }
-    if (!(await save())) return false;
-    await settleWithin(flushWholeFilesRef.current());
-    if (hasUnsavedEdits()) {
-      setNotice(t`The document changed while saving. Save it, then switch projects again.`);
-      return false;
-    }
+    const saved = await saveEveryEdit({ flush, save, flushWholeFiles: flushWholeFilesRef.current, hasUnsavedEdits });
+    if (saved === "composing") setNotice(t`Finish the current text composition, then switch projects again.`);
+    if (saved === "changed") setNotice(t`The document changed while saving. Save it, then switch projects again.`);
+    if (saved !== "saved") return false;
     if (beginProjectTransition()) return true;
     setNotice(t`Overleaf sync is finishing. Try switching projects again in a moment.`, "Overleaf");
     return false;
@@ -458,42 +476,40 @@ export function useProjectLifecycle(deps: ProjectLifecycleDeps) {
     };
   }, [browserHosted, flush, hasUnsavedEdits, save]);
 
-  // Before the Lattice app takes this browser tab's workspace back, publish
-  // and save every edit.
-  const saveForHandoff = useCallback(async () => {
-    flush();
-    const saved = await save();
-    await settleWithin(flushWholeFilesRef.current());
-    return saved;
-  }, [flush, flushWholeFilesRef, save]);
-
   /** "Open in browser" from a Lattice window, "Open in Lattice app" from a browser tab. */
   const moveWorkspace = useCallback(async () => {
     if (browserHosted) {
-      if (!await saveForHandoff()) return;
-      await invoke("return_to_desktop").catch((reason) => {
-        // Once the window has taken over, this page is detached and the
-        // reply never arrives: that is the success case.
-        if (!browserRuntimeDetached()) setError(toMessage(reason));
-      });
+      if (!await startProjectTransition()) return;
+      setMovingWorkspace(true);
+      const failure = await invoke("return_to_desktop").then(() => null, (reason: unknown) => reason);
+      // Once the window has taken over, this page is detached and the
+      // reply never arrives: that is the success case. A reply means the
+      // workspace stayed in this tab.
+      if (browserRuntimeDetached()) return;
+      cancelProjectTransition();
+      setMovingWorkspace(false);
+      if (failure !== null) setError(toMessage(failure));
       return;
     }
     // A native window closes, and the tab starts relaying only once it
     // has, so the two never edit together. Claim the switch meanwhile.
     if (!await startProjectTransition()) return;
+    setMovingWorkspace(true);
     try {
       await invoke("open_in_browser");
     } catch (reason) {
       cancelProjectTransition();
+      setMovingWorkspace(false);
       setError(toMessage(reason));
       return;
     }
     await getCurrentWindow().close();
-  }, [browserHosted, cancelProjectTransition, saveForHandoff, startProjectTransition]);
+  }, [browserHosted, cancelProjectTransition, startProjectTransition]);
 
   return {
     busyLabel, recentProjects, projectMenuOpen, setProjectMenuOpen, createForm, updateCreateForm,
     startProjectTransition, cancelProjectTransition, revealNewProject, chooseExisting, createProject,
     chooseRecentProject, openTutorialProject, importOverleafZip, exportProjectZip, moveWorkspace,
+    movingWorkspace,
   };
 }

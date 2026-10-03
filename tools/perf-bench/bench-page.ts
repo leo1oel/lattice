@@ -103,10 +103,36 @@ function pathArg(args: Args): string {
 
 /** A library Paper with both a full text and a blog, so its panel carries the Blog / Paper switch. */
 const BENCH_PAPERS = [
-  { arxivId: "1706.03762v7", title: "Attention Is All You Need", citationKey: "vaswani2017attention", hasFullText: true, hasBlog: true },
+  {
+    arxivId: "1706.03762v7", title: "Attention Is All You Need", citationKey: "vaswani2017attention", hasFullText: true, hasBlog: true,
+    authors: "Vaswani, Ashish and Shazeer, Noam and Parmar, Niki and Uszkoreit, Jakob and Jones, Llion and Gomez, Aidan N. and Kaiser, Lukasz and Polosukhin, Illia",
+  },
+];
+
+/**
+ * `?papers=library`: the rows a real library mixes — a long title, a captured
+ * webpage, a citation with only a DOI, and an advisory citation-health notice.
+ * Everything but the first paper is fictional.
+ */
+const LIBRARY_PAPERS = [
+  ...BENCH_PAPERS,
+  {
+    arxivId: "2409.01234", title: "Grounded Visual Reasoning in Long Contexts with Sparse Multimodal Supervision", citationKey: "example2024grounded",
+    authors: "Example, Ada and Sample, Grace", hasFullText: true, hasBlog: false,
+    citationHealth: { kind: "expressionOfConcern", source: "publisher", date: "2025-03-14", checkedAt: "2026-10-01T00:00:00Z" },
+  },
+  {
+    arxivId: "web-0123456789abcdef", url: "https://www.example.org/research/notes-on-sparse-retrieval", title: "Notes on sparse retrieval",
+    citationKey: "notes2025sparse", hasFullText: true, hasBlog: false,
+  },
+  {
+    arxivId: "", doi: "10.5555/example.2021.42", url: "https://doi.org/10.5555/example.2021.42", title: "A citation that only names its DOI",
+    citationKey: "doe2021citation", authors: "Doe, Jane", hasFullText: false, hasBlog: false,
+  },
 ];
 
 const fullTextOnly = params.get("papers") === "fulltext";
+const libraryPapers = params.get("papers") === "library";
 
 const unhandled = new Set<string>();
 const counts = new Map<string, number>();
@@ -186,8 +212,9 @@ function answer(command: string, args: Args): unknown {
     case "plugin:window|is_maximized":
       return false;
     // Papers only with `?papers=1` (or `?papers=fulltext`, a Paper without a
-    // blog): the budgeted scenarios run with an empty library.
+    // blog, or `?papers=library`): the budgeted scenarios run with an empty library.
     case "list_papers":
+      if (libraryPapers) return LIBRARY_PAPERS;
       return params.has("papers") ? BENCH_PAPERS.map((paper) => ({ ...paper, hasBlog: !fullTextOnly })) : [];
     case "read_paper":
       return `## Abstract\n\n${"Paper content. ".repeat(40)}`;

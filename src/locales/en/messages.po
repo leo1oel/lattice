@@ -237,6 +237,14 @@ msgstr "{fileCount} files"
 msgid "{filtered} of {total} papers"
 msgstr "{filtered} of {total} papers"
 
+#: src/papers/paper-identity.ts
+msgid "{first} and {second}"
+msgstr "{first} and {second}"
+
+#: src/papers/paper-identity.ts
+msgid "{first} et al."
+msgstr "{first} et al."
+
 #: src/app-utils.ts
 msgid "{hours}h ago"
 msgstr "{hours}h ago"
@@ -424,6 +432,10 @@ msgstr "A local edit has not settled on Overleaf yet, so this document cannot be
 #: src/editor/latex/latex-vocabulary.ts
 msgid "a over b"
 msgstr "a over b"
+
+#: src/trellis/trellis-titlebar.tsx
+msgid "A paper beside your notes"
+msgstr "A paper beside your notes"
 
 #: src/settings/settings-dialog.tsx
 msgid "A project latexmkrc overrides this"
@@ -4044,6 +4056,7 @@ msgid "Lattice workspace"
 msgstr "Lattice workspace"
 
 #: src/App.tsx
+#: src/trellis/trellis-titlebar.tsx
 msgid "Layout"
 msgstr "Layout"
 
@@ -5253,6 +5266,10 @@ msgstr "Open the linked Overleaf project first."
 msgid "Open the paper overview"
 msgstr "Open the paper overview"
 
+#: src/trellis/trellis-workspace.tsx
+msgid "Open the reader"
+msgstr "Open the reader"
+
 #: src/build/compile-diagnostics-panel.tsx
 msgid "Open the repair task to continue."
 msgstr "Open the repair task to continue."
@@ -6016,6 +6033,10 @@ msgstr "Raw build log"
 msgid "Read-only preview · click to edit"
 msgstr "Read-only preview · click to edit"
 
+#: src/trellis/trellis-titlebar.tsx
+msgid "Reading"
+msgstr "Reading"
+
 #: src/history/conflict-resolver.tsx
 msgid "Reading the file…"
 msgstr "Reading the file…"
@@ -6675,6 +6696,10 @@ msgstr "Retrieved record information"
 msgid "Retry"
 msgstr "Retry"
 
+#: src/trellis/trellis-titlebar.tsx
+msgid "Return to your own layout"
+msgstr "Return to your own layout"
+
 #: src/app/use-trellis-bridge.ts
 msgid "Reveal cursor in PDF"
 msgstr "Reveal cursor in PDF"
@@ -7243,6 +7268,10 @@ msgstr "Someone"
 #: src/editor/markdown/engine/views/image-view.tsx
 msgid "Source"
 msgstr "Source"
+
+#: src/trellis/trellis-titlebar.tsx
+msgid "Source beside the compiled PDF"
+msgstr "Source beside the compiled PDF"
 
 #: src/papers/bibliography-audit.tsx
 msgid "Source candidate (not applied)"
@@ -8578,6 +8607,7 @@ msgid "Working…"
 msgstr "Working…"
 
 #: src/trellis/trellis-labels.ts
+#: src/trellis/trellis-titlebar.tsx
 msgid "Workspace"
 msgstr "Workspace"
 
@@ -8596,6 +8626,10 @@ msgstr "Wraps the selection in \\begin…\\end"
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Wreath product"
 msgstr "Wreath product"
+
+#: src/trellis/trellis-titlebar.tsx
+msgid "Writing"
+msgstr "Writing"
 
 #: src/build/tex-doctor-messages.ts
 msgid "XeLaTeX engine"
@@ -8655,6 +8689,10 @@ msgstr "your Overleaf account"
 #: src/overleaf/overleaf-connect.tsx
 msgid "Your Overleaf session expired. Sign in again"
 msgstr "Your Overleaf session expired. Sign in again"
+
+#: src/trellis/trellis-titlebar.tsx
+msgid "Your own layout"
+msgstr "Your own layout"
 
 #: src/telemetry/root-error-boundary.tsx
 msgid "Your project files are safe"

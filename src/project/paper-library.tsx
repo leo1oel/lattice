@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useRef } from "react";
+import { Fragment, useEffect, useMemo, useRef, type CSSProperties } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { BookMarked, BookOpen, Check, Download, ExternalLink, FolderOpen, Pencil, Plus, TriangleAlert, X } from "lucide-react";
@@ -7,9 +7,10 @@ import { ScrollArea } from "../components/ui/scroll-area";
 import { DestructiveButton } from "../components/ui/destructive-button";
 import { InfinityLoader } from "../components/ui/activity-icons";
 import { SearchField } from "../components/ui/search-field";
-import { paperKey, paperSubtitle } from "../app-utils";
+import { paperKey } from "../app-utils";
 import type { PaperSummary } from "../app-types";
 import { baseArxivId, explicitArxivId } from "../papers/arxiv-id";
+import { paperShortAuthors, paperSourceLabel } from "../papers/paper-identity";
 import { canDownloadPaper } from "../papers/paper-source";
 import { usePaperImportProgressFill } from "../papers/paper-import-progress";
 import { beginPaperDrag } from "../papers/paper-drag";
@@ -147,6 +148,9 @@ export function PaperLibrary(props: PaperLibraryProps) {
             const downloadable = canDownloadPaper(paper);
             const healthLabel = citationHealthLabel(paper.citationHealth);
             const healthTitle = citationHealthTitle(paper.citationHealth);
+            const authors = paperShortAuthors(paper);
+            const source = paperSourceLabel(paper);
+            const snippet = textHits.get(paperSearchIdentity(paper))?.snippet.trim();
             const reportIntent = () => {
               if (readable) props.onLikelyPaper?.(paper);
             };
@@ -154,6 +158,8 @@ export function PaperLibrary(props: PaperLibraryProps) {
               <div
                 className={`paper-row ${paper.hasFullText ? "" : "cited-only "}${healthLabel ? `citation-${paper.citationHealth?.kind} ` : ""}${props.activePaper && paperKey(props.activePaper) === paperKey(paper) ? "active" : ""}`}
                 data-citation-health={paper.citationHealth?.kind}
+                // How many 22px actions sit beside the title (see .paper-row-actions).
+                style={{ "--paper-row-actions": 1 + Number(Boolean(paper.citationKey)) + Number(Boolean(healthLabel && paper.citationHealth?.link)) } as CSSProperties}
                 draggable
                 onDragStart={(event) => beginPaperDrag(event.dataTransfer, props.projectKey, paper)}
               >
@@ -179,10 +185,17 @@ export function PaperLibrary(props: PaperLibraryProps) {
                   <span className={`paper-state-icon ${fetchState ?? (readable ? "available" : "idle")}`}>
                     {paperStateIcon(paper, fetchState, readable, downloadable)}
                   </span>
-                  <span>
+                  <span className="paper-row-text">
                     <strong>{paper.title}</strong>
-                    {paper.authors && <small className="paper-authors">{paper.authors}</small>}
-                    <small>{paperSubtitle(paper, textHits.get(paperSearchIdentity(paper))?.snippet.trim())}</small>
+                    {(authors || source) && (
+                      <small className="paper-byline">
+                        {authors && <span className="paper-authors">{authors}</span>}
+                        {source && <span>{source}</span>}
+                      </small>
+                    )}
+                    {snippet
+                      ? <small className="paper-snippet">{snippet}</small>
+                      : paper.citationKey && <code className="paper-cite-key">{paper.citationKey}</code>}
                     {!readable && !downloadable && <small>{t`Citation only — no downloadable full text found`}</small>}
                     {healthLabel && <small className="paper-citation-health" role="status">{healthLabel}</small>}
                   </span>

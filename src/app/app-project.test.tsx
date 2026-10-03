@@ -1,5 +1,6 @@
 import { expectNotification, windowApi, synaraHook, openSlideWorkspaceApi, browserRuntime, fileNode, fileNodes, dirNode, projectCommands, refreshableProject, SINGLE_TRANSFORMER, attentionPaper, overleafLink, overleafStatus, overleafProbe, overleafSyncResult, overleafSession, overleafCommands, ROOT, projectSnapshot, rootDocument, notesSnapshot, markdownSnapshot, buildResult, readFiles, deferred, setAutoBuildMode, setInterfaceLanguage, selectPanelTab, projectTreeRoot, queryProjectTreeItem, findInProjectTree, findProjectTreeItem, findProjectTreeRenameInput, renderApp, renderOverleafPaper, openWithAutomaticBuilds, findElement, editorViewAt, findEditorView, expectEditorText, postWindowMessage, expectInvoked, invokeCalls, pause, stubElementFromPoint, storedFileViews, dropFinderPaths, persistLayout, visualEditorOf, argPath, waitForSelectedTab, openTreeFile, openAgentFrame, postedOfType, dragTreeItem, pdfDocumentStub, mockPdfDocument, chooseNewDocument, chooseProjectMenuItem } from "./app-test-utils";
 import { forEachDiagnostic } from "@codemirror/lint";
+import { EditorView } from "@codemirror/view";
 import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
@@ -108,18 +109,47 @@ describe("project tree and projects", () => {
       await expectInvoked("return_to_desktop");
     });
 
-    it("saves an unsaved edit before giving a browser tab's workspace back to the Lattice app", async () => {
+    it("saves and freezes a browser tab's editor while it returns the workspace, and releases it unless the tab detaches", async () => {
       browserRuntime.hosted = true;
-      openProject({ write_project_file: (args: unknown) => ({ content: (args as { content: string }).content, hadConflicts: false }) });
+      const returns = [deferred(), deferred()];
+      openProject({
+        return_to_desktop: () => returns.shift()!.promise,
+        write_project_file: (args: unknown) => ({ content: (args as { content: string }).content, hadConflicts: false }),
+      });
       const view = await findEditorView(".source-editor[data-editor-pane='primary'] .cm-editor");
-      act(() => view.dispatch({ changes: { from: view.state.doc.length, insert: "\n% typed just before" } }));
+      act(() => view.dispatch({ changes: { from: view.state.doc.length, insert: "\n% typed before the switch" } }));
+      const [failed, answered] = returns;
       fireEvent.click(await screen.findByRole("button", { name: "Open in Lattice app" }));
       await expectInvoked("return_to_desktop");
-      const commands = vi.mocked(invoke).mock.calls.map(([command]) => command);
-      expect(commands.lastIndexOf("write_project_file")).toBeLessThan(commands.indexOf("return_to_desktop"));
       expect(invoke).toHaveBeenCalledWith("write_project_file", expect.objectContaining({
-        path: "main.tex", content: expect.stringContaining("% typed just before"),
+        path: "main.tex", content: expect.stringContaining("% typed before the switch"),
       }));
+      await waitFor(() => expect(view.state.facet(EditorView.editable)).toBe(false));
+      expect(view.contentDOM).toHaveAttribute("contenteditable", "false");
+
+      await act(async () => { failed.reject(new Error("Lattice could not open its window")); });
+      await expectNotification(/Lattice could not open its window/);
+      await waitFor(() => expect(view.state.facet(EditorView.editable)).toBe(true));
+
+      // A reply that leaves the tab attached means the workspace stayed here.
+      vi.mocked(invoke).mockClear();
+      fireEvent.click(screen.getByRole("button", { name: "Open in Lattice app" }));
+      await expectInvoked("return_to_desktop");
+      await waitFor(() => expect(view.state.facet(EditorView.editable)).toBe(false));
+      await act(async () => { answered.resolve(); });
+      await waitFor(() => expect(view.state.facet(EditorView.editable)).toBe(true));
+    });
+
+    it("keeps a browser tab's workspace when its save fails", async () => {
+      browserRuntime.hosted = true;
+      openProject({ write_project_file: () => { throw new Error("disk full"); } });
+      const view = await findEditorView(".source-editor[data-editor-pane='primary'] .cm-editor");
+      act(() => view.dispatch({ changes: { from: view.state.doc.length, insert: "\n% unsaved" } }));
+      fireEvent.click(await screen.findByRole("button", { name: "Open in Lattice app" }));
+      await waitFor(() => expect(invokeCalls("write_project_file")).not.toHaveLength(0));
+      await pause(50);
+      expect(invokeCalls("return_to_desktop")).toHaveLength(0);
+      expect(view.state.doc.toString()).toContain("% unsaved");
     });
   });
 

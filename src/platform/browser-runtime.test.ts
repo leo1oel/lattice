@@ -151,3 +151,46 @@ describe("returning a workspace to the Lattice app", () => {
     expect(runtimeError()).toHaveTextContent("Back in the Lattice app. You can close this tab.");
   });
 });
+
+describe("opening a workspace from an entry address", () => {
+  const entryUrl = "/?entry=nonce-b";
+  let requests: URL[];
+
+  beforeEach(() => {
+    requests = [];
+    // A tab that already holds project A.
+    sessionStorage.setItem("lattice.browser-token", "token-a");
+    sessionStorage.setItem("lattice.browser-port", "18452");
+    sessionStorage.setItem("lattice.browser-label", "browser-a");
+    window.history.replaceState(null, "", entryUrl);
+    vi.stubGlobal("fetch", vi.fn(async (input: string | URL) => {
+      requests.push(new URL(String(input)));
+      return new Response("", { status: 410 });
+    }));
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    sessionStorage.clear();
+    window.history.replaceState(null, "", "/");
+  });
+
+  async function loadPage() {
+    vi.resetModules();
+    const runtime = await import("./browser-runtime");
+    return runtime.browserRuntimeReady();
+  }
+
+  it("asks for the entry's workspace rather than the one the tab stored", async () => {
+    await loadPage().catch(() => undefined);
+    expect(requests).toHaveLength(1);
+    expect(requests[0].searchParams.get("entry")).toBe("nonce-b");
+    expect(requests[0].searchParams.has("token")).toBe(false);
+  });
+
+  it("explains a used or expired entry and keeps the tab's own session and address", async () => {
+    await expect(loadPage()).rejects.toThrow("This Lattice link has expired or was already used.");
+    expect(sessionStorage.getItem("lattice.browser-token")).toBe("token-a");
+    expect(window.location.search).toBe("?entry=nonce-b");
+  });
+});
