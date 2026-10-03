@@ -83,7 +83,7 @@ export function AppEditorPanels({ comments, renderCommentsSurface, ...props }: {
       {tools.isOpen.checklist && project && (
         <ManuscriptChecklistPanel
           data={{
-            words: props.projectWordCount?.total ?? 0,
+            words: props.projectWordCount?.total ?? null,
             wordSource: props.projectWordCount?.source ?? "estimate",
             wordBudget: project.manifest.wordBudget ?? null,
             pages: props.pdfPageCount,

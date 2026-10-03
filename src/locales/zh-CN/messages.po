@@ -91,6 +91,14 @@ msgstr "{action}失败"
 msgid "{action} success"
 msgstr "{action}成功"
 
+#: src/project/manuscript-checklist.tsx
+msgid "{amount} words over"
+msgstr "超出 {amount} 词"
+
+#: src/project/manuscript-checklist.tsx
+msgid "{amount} words remaining"
+msgstr "还剩 {amount} 词"
+
 #: src/overleaf/overleaf-review.tsx
 msgid "{changeSummary} · {conflictSummary}"
 msgstr "{changeSummary} · {conflictSummary}"
@@ -116,12 +124,12 @@ msgid "{conflicts} needs your decision"
 msgstr "{conflicts} 个需要你决定"
 
 #: src/canvas/editor-status-bar.tsx
-msgid "{count} char"
-msgstr "{count} 字符"
+msgid "{count} character"
+msgstr "{count} 个字符"
 
 #: src/canvas/editor-status-bar.tsx
-msgid "{count} chars"
-msgstr "{count} 字符"
+msgid "{count} characters"
+msgstr "{count} 个字符"
 
 #: src/canvas/editor-status-bar.tsx
 msgid "{count} comment"
@@ -233,6 +241,10 @@ msgstr "{fileCount} 个文件"
 msgid "{fileCount} files"
 msgstr "{fileCount} 个文件"
 
+#: src/canvas/editor-status-bar.tsx
+msgid "{fileName}, markup included · {characters}"
+msgstr "{fileName}，含标记 · {characters}"
+
 #: src/project/paper-library.tsx
 msgid "{filtered} of {total} papers"
 msgstr "显示 {filtered} / {total} 篇论文"
@@ -244,6 +256,14 @@ msgstr "{first} 和 {second}"
 #: src/papers/paper-identity.ts
 msgid "{first} et al."
 msgstr "{first} 等"
+
+#: src/project/manuscript-checklist.tsx
+msgid "{gap} pages over"
+msgstr "超出 {gap} 页"
+
+#: src/project/manuscript-checklist.tsx
+msgid "{gap} pages remaining"
+msgstr "还剩 {gap} 页"
 
 #: src/app-utils.ts
 msgid "{hours}h ago"
@@ -388,10 +408,6 @@ msgstr "{where}（正在重新连接…）"
 msgid "{wholeFiles} changed on both sides. Overleaf’s version is in the project; yours is in the “(local conflict …)” file beside it."
 msgstr "{wholeFiles} 两边都有改动。项目中现在是 Overleaf 的版本，你的版本保存在旁边的“(local conflict …)”文件中。"
 
-#: src/canvas/editor-status-bar.tsx
-msgid "{words} · {chars}"
-msgstr "{words} · {chars}"
-
 #: src/overleaf/overleaf-connect.tsx
 msgid "↑↓ to navigate · Enter to open"
 msgstr "↑↓ 选择项目 · Enter 打开"
@@ -420,10 +436,26 @@ msgstr "1 行"
 msgid "1 of {total} papers"
 msgstr "共 {total} 篇论文，显示 1 篇"
 
+#: src/project/manuscript-checklist.tsx
+msgid "1 page over"
+msgstr "超出 1 页"
+
+#: src/project/manuscript-checklist.tsx
+msgid "1 page remaining"
+msgstr "还剩 1 页"
+
 #: src/project/paper-library.tsx
 #: src/project/project-find-dialog.tsx
 msgid "1 paper"
 msgstr "1 篇论文"
+
+#: src/project/manuscript-checklist.tsx
+msgid "1 word over"
+msgstr "超出 1 词"
+
+#: src/project/manuscript-checklist.tsx
+msgid "1 word remaining"
+msgstr "还剩 1 词"
 
 #: src/papers/bib-entry-dialog.tsx
 msgid "10.1038/… or arXiv:1706.03762 or paper title"
@@ -829,6 +861,10 @@ msgstr "仅对可能不安全的操作请求批准"
 msgid "Asterisk operator"
 msgstr "星号运算符"
 
+#: src/project/manuscript-checklist.tsx
+msgid "At the limit"
+msgstr "恰好达到上限"
+
 #: src/papers/literature-discovery-panel.tsx
 msgid "Attention Is All You Need, diffusion, …"
 msgstr "Attention Is All You Need、扩散模型…"
@@ -1040,21 +1076,9 @@ msgstr "蓝色"
 msgid "Blue value"
 msgstr "蓝色值"
 
-#: src/canvas/editor-status-bar.tsx
-msgid "Body {body} · raw {raw} · {chars}"
-msgstr "正文 {body} · 原始 {raw} · {chars}"
-
-#: src/canvas/editor-status-bar.tsx
-msgid "Body word count unavailable"
-msgstr "正文词数不可用"
-
 #: src/project/manuscript-checklist.tsx
 msgid "Body words"
 msgstr "正文词数"
-
-#: src/canvas/editor-status-bar.tsx
-msgid "Body words ({source}): text {text}, headers {headers}, captions {captions}"
-msgstr "正文词数（{source}）：文本 {text}，标题 {headers}，图注 {captions}"
 
 #: src/editor/latex/latex-selection-toolbar.tsx
 #: src/editor/markdown/engine/chrome/selection-toolbar.tsx
@@ -2839,10 +2863,6 @@ msgstr "错误"
 msgid "Error details copied"
 msgstr "已复制错误详情"
 
-#: src/canvas/editor-status-bar.tsx
-msgid "estimate"
-msgstr "估算"
-
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Estimator / unit vector mark"
 msgstr "估计量 / 单位向量记号"
@@ -4157,6 +4177,14 @@ msgstr "黄绿色"
 msgid "Limit"
 msgstr "极限"
 
+#: src/project/manuscript-checklist.tsx
+msgid "Limit {pageLimit} pages"
+msgstr "上限 {pageLimit} 页"
+
+#: src/project/manuscript-checklist.tsx
+msgid "Limit 1 page"
+msgstr "上限 1 页"
+
 #: src/editor/goto-line-dialog.tsx
 msgid "Line"
 msgstr "行"
@@ -4379,6 +4407,10 @@ msgstr "手动"
 #: src/settings/settings-dialog.tsx
 msgid "Manual only"
 msgstr "仅手动"
+
+#: src/canvas/editor-status-bar.tsx
+msgid "Manuscript"
+msgstr "正文"
 
 #: src/App.tsx
 #: src/canvas/editor-status-bar.tsx
@@ -4666,6 +4698,11 @@ msgstr "添加论文和管理参考文献需要它 · 约 45 MB"
 #: src/history/conflict-resolver.tsx
 msgid "Needs a decision"
 msgstr "待决定"
+
+#: src/canvas/editor-status-bar.tsx
+#: src/project/manuscript-checklist.tsx
+msgid "Needs a root document to count from"
+msgstr "需要主文档才能统计"
 
 #: src/build/compile-diagnostics-panel.tsx
 msgid "Needs approval"
@@ -6812,6 +6849,14 @@ msgstr "罗马体文本"
 msgid "Root document"
 msgstr "主文档"
 
+#: src/canvas/editor-status-bar.tsx
+msgid "Root document and its includes, via texcount"
+msgstr "主文档及其引入的文件，由 texcount 统计"
+
+#: src/canvas/editor-status-bar.tsx
+msgid "Root document only, estimated without texcount"
+msgstr "仅主文档，未用 texcount，为估算值"
+
 #: src/editor/markdown/engine/views/table-controls.tsx
 msgid "Row options"
 msgstr "行选项"
@@ -7005,10 +7050,6 @@ msgstr "节"
 msgid "Section sign"
 msgstr "节标记"
 
-#: src/canvas/editor-status-bar.tsx
-msgid "Sel {words} · {chars} · {lines}"
-msgstr "选区 {words} · {chars} · {lines}"
-
 #. placeholder {0}: entry.key
 #: src/papers/bibliography-audit.tsx
 msgid "Select {0}"
@@ -7058,6 +7099,10 @@ msgstr "选择任务列表"
 #: src/papers/bib-entry-dialog.tsx
 msgid "Select this record"
 msgstr "选择此记录"
+
+#: src/canvas/editor-status-bar.tsx
+msgid "Selection"
+msgstr "选区"
 
 #: src/editor/codemirror-host.tsx
 msgid "Selection deleted"
@@ -7695,6 +7740,10 @@ msgstr "TexLab 语言服务器（可选，用于编辑器诊断）"
 msgid "Text"
 msgstr "正文"
 
+#: src/canvas/editor-status-bar.tsx
+msgid "Text {text} · headings {headers} · captions {captions}"
+msgstr "文本 {text} · 标题 {headers} · 图注 {captions}"
+
 #: src/project/project-replace-dialog.tsx
 msgid "Text to find"
 msgstr "要查找的文本"
@@ -7957,6 +8006,10 @@ msgstr "此条目在 {count} 处被引用。"
 msgid "This entry is cited in 1 place."
 msgstr "此条目在 1 处被引用。"
 
+#: src/canvas/editor-status-bar.tsx
+msgid "This file"
+msgstr "本文件"
+
 #: src/overleaf/use-overleaf-realtime.ts
 msgid "This file changed outside live editing. Local work was kept; regular Overleaf sync will reconcile it."
 msgstr "此文件在实时编辑之外发生了变化。已保留本地修改，常规 Overleaf 同步将协调这些变化。"
@@ -8156,6 +8209,8 @@ msgstr "排版标题区"
 msgid "UI"
 msgstr "界面"
 
+#: src/canvas/editor-status-bar.tsx
+#: src/project/manuscript-checklist.tsx
 #: src/settings/doctor-settings.tsx
 #: src/trellis/trellis-labels.ts
 msgid "Unavailable"
@@ -8620,6 +8675,14 @@ msgstr "窗口"
 #: src/project/manuscript-checklist.tsx
 msgid "Word budget"
 msgstr "词数上限"
+
+#: src/canvas/editor-status-bar.tsx
+msgid "Word count"
+msgstr "字数统计"
+
+#: src/canvas/editor-status-bar.tsx
+msgid "Word count: {scope}, {count}"
+msgstr "字数统计：{scope}，{count}"
 
 #: src/App.tsx
 msgid "Words / pages / TODOs"

@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { ListTodo, MessageSquareText } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "../components/ui/popover";
 import { countWords, textStats } from "../editor/latex/latex-edits";
 import type { OutlineNode } from "../editor/latex/latex-outline";
 import type { EditorComment } from "../editor/comments/editor-comment-data";
@@ -13,8 +14,8 @@ export function EditorStatusBar(props: {
   keymap: EditorKeymap;
   vimMode: string;
   breadcrumb: OutlineNode[];
-  /** File a breadcrumb entry without a path of its own belongs to. */
-  breadcrumbPath: string;
+  /** The open file; a breadcrumb entry without a path of its own belongs to it. */
+  path: string;
   onNavigate: (path: string, line: number) => void;
   hasDiagnostics: boolean;
   comments: EditorComment[];
@@ -25,20 +26,9 @@ export function EditorStatusBar(props: {
   selectedText: string;
   source: string;
 }) {
-  const { position, breadcrumb, todoCount, projectWordCount, selectedText, source } = props;
+  const { position, breadcrumb, todoCount } = props;
   const { t } = useLingui();
-  const wordCount = useMemo(() => countWords(source), [source]);
-  const selectionStats = useMemo(() => textStats(selectedText), [selectedText]);
   const openComments = props.comments.filter((comment) => !comment.resolved).length;
-  const words = (count: number) => (count === 1
-    ? t({ message: `${{ count: count.toLocaleString() }} word` })
-    : t({ message: `${{ count: count.toLocaleString() }} words` }));
-  const chars = (count: number) => (count === 1
-    ? t({ message: `${{ count: count.toLocaleString() }} char` })
-    : t({ message: `${{ count: count.toLocaleString() }} chars` }));
-  const lines = (count: number) => (count === 1
-    ? t({ message: `${{ count: count.toLocaleString() }} line` })
-    : t({ message: `${{ count: count.toLocaleString() }} lines` }));
   return (
     <div className="editor-status-bar" aria-label={t`Editor status`}>
       <button type="button" className="status-goto" title={t`Go to line (⌘G)`} onClick={props.onGotoLine}>
@@ -57,7 +47,7 @@ export function EditorStatusBar(props: {
               <button
                 type="button"
                 title={t({ message: `Go to ${{ title: node.title }}` })}
-                onClick={() => props.onNavigate(node.path || props.breadcrumbPath, node.line)}
+                onClick={() => props.onNavigate(node.path || props.path, node.line)}
               >
                 {node.title}
               </button>
@@ -97,18 +87,91 @@ export function EditorStatusBar(props: {
             ? t({ message: `${{ count: todoCount }} TODO` })
             : t({ message: `${{ count: todoCount }} TODOs` })}
       </button>
-      <span
-        className="status-body-words"
-        title={projectWordCount
-          ? t({ message: `Body words (${{ source: projectWordCount.source === "texcount" ? "texcount" : t`estimate` }}): text ${{ text: projectWordCount.text }}, headers ${{ headers: projectWordCount.headers }}, captions ${{ captions: projectWordCount.captions }}` })
-          : t`Body word count unavailable`}
-      >
-        {selectedText
-          ? t({ message: `Sel ${{ words: words(selectionStats.words) }} · ${{ chars: chars(selectionStats.chars) }} · ${{ lines: lines(selectionStats.lines) }}` })
-          : projectWordCount
-            ? t({ message: `Body ${{ body: projectWordCount.total.toLocaleString() }} · raw ${{ raw: wordCount.toLocaleString() }} · ${{ chars: chars(source.length) }}` })
-            : t({ message: `${{ words: words(wordCount) }} · ${{ chars: chars(source.length) }}` })}
-      </span>
+      <StatusWordCount
+        projectWordCount={props.projectWordCount}
+        path={props.path}
+        selectedText={props.selectedText}
+        source={props.source}
+      />
     </div>
+  );
+}
+
+/**
+ * The footer names the scope of the one count it shows: the selection while
+ * there is one, else the manuscript, else this file. The popover lays every
+ * count out by scope. The manuscript count is the backend's, refreshed on
+ * save; only the cheap local counts follow the settled buffer.
+ */
+function StatusWordCount(props: {
+  projectWordCount: WordCount | null;
+  path: string;
+  selectedText: string;
+  source: string;
+}) {
+  const { projectWordCount, selectedText, source } = props;
+  const { t } = useLingui();
+  const fileWords = useMemo(() => countWords(source), [source]);
+  const selection = useMemo(() => textStats(selectedText), [selectedText]);
+  const estimated = projectWordCount != null && projectWordCount.source !== "texcount";
+  const words = (count: number) => (count === 1
+    ? t({ message: `${{ count: count.toLocaleString() }} word` })
+    : t({ message: `${{ count: count.toLocaleString() }} words` }));
+  // An estimate reads as one in the footer too, not only in the details.
+  const manuscriptWords = (count: number) => (estimated ? `≈${words(count)}` : words(count));
+  const characters = (count: number) => (count === 1
+    ? t({ message: `${{ count: count.toLocaleString() }} character` })
+    : t({ message: `${{ count: count.toLocaleString() }} characters` }));
+  const lines = (count: number) => (count === 1
+    ? t({ message: `${{ count: count.toLocaleString() }} line` })
+    : t({ message: `${{ count: count.toLocaleString() }} lines` }));
+  const [scope, count] = selectedText
+    ? [t`Selection`, words(selection.words)]
+    : projectWordCount
+      ? [t`Manuscript`, manuscriptWords(projectWordCount.total)]
+      : [t`This file`, words(fileWords)];
+  const fileName = props.path.slice(props.path.lastIndexOf("/") + 1);
+
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button type="button" className="status-body-words" aria-label={t`Word count: ${scope}, ${count}`}>
+          <span className="status-word-scope">{scope}</span>
+          <span>{count}</span>
+        </button>
+      </PopoverTrigger>
+      <PopoverContent side="top" align="end" sideOffset={6} className="word-count-popover" aria-label={t`Word count`}>
+        <dl>
+          <div>
+            <dt>{t`Manuscript`}</dt>
+            <dd>{projectWordCount ? manuscriptWords(projectWordCount.total) : t`Unavailable`}</dd>
+            <dd className="word-count-note">
+              {!projectWordCount
+                ? t`Needs a root document to count from`
+                : estimated
+                  ? t`Root document only, estimated without texcount`
+                  : t`Root document and its includes, via texcount`}
+            </dd>
+            {projectWordCount && !estimated && (
+              <dd className="word-count-note">
+                {t({ message: `Text ${{ text: projectWordCount.text.toLocaleString() }} · headings ${{ headers: projectWordCount.headers.toLocaleString() }} · captions ${{ captions: projectWordCount.captions.toLocaleString() }}` })}
+              </dd>
+            )}
+          </div>
+          <div>
+            <dt>{t`This file`}</dt>
+            <dd>{words(fileWords)}</dd>
+            <dd className="word-count-note">{t({ message: `${{ fileName }}, markup included · ${{ characters: characters(source.length) }}` })}</dd>
+          </div>
+          {selectedText && (
+            <div>
+              <dt>{t`Selection`}</dt>
+              <dd>{words(selection.words)}</dd>
+              <dd className="word-count-note">{`${characters(selection.chars)} · ${lines(selection.lines)}`}</dd>
+            </div>
+          )}
+        </dl>
+      </PopoverContent>
+    </Popover>
   );
 }

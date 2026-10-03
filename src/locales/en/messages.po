@@ -91,6 +91,14 @@ msgstr "{action} failed"
 msgid "{action} success"
 msgstr "{action} success"
 
+#: src/project/manuscript-checklist.tsx
+msgid "{amount} words over"
+msgstr "{amount} words over"
+
+#: src/project/manuscript-checklist.tsx
+msgid "{amount} words remaining"
+msgstr "{amount} words remaining"
+
 #: src/overleaf/overleaf-review.tsx
 msgid "{changeSummary} · {conflictSummary}"
 msgstr "{changeSummary} · {conflictSummary}"
@@ -116,12 +124,12 @@ msgid "{conflicts} needs your decision"
 msgstr "{conflicts} needs your decision"
 
 #: src/canvas/editor-status-bar.tsx
-msgid "{count} char"
-msgstr "{count} char"
+msgid "{count} character"
+msgstr "{count} character"
 
 #: src/canvas/editor-status-bar.tsx
-msgid "{count} chars"
-msgstr "{count} chars"
+msgid "{count} characters"
+msgstr "{count} characters"
 
 #: src/canvas/editor-status-bar.tsx
 msgid "{count} comment"
@@ -233,6 +241,10 @@ msgstr "{fileCount} file"
 msgid "{fileCount} files"
 msgstr "{fileCount} files"
 
+#: src/canvas/editor-status-bar.tsx
+msgid "{fileName}, markup included · {characters}"
+msgstr "{fileName}, markup included · {characters}"
+
 #: src/project/paper-library.tsx
 msgid "{filtered} of {total} papers"
 msgstr "{filtered} of {total} papers"
@@ -244,6 +256,14 @@ msgstr "{first} and {second}"
 #: src/papers/paper-identity.ts
 msgid "{first} et al."
 msgstr "{first} et al."
+
+#: src/project/manuscript-checklist.tsx
+msgid "{gap} pages over"
+msgstr "{gap} pages over"
+
+#: src/project/manuscript-checklist.tsx
+msgid "{gap} pages remaining"
+msgstr "{gap} pages remaining"
 
 #: src/app-utils.ts
 msgid "{hours}h ago"
@@ -388,10 +408,6 @@ msgstr "{where} (reconnecting…)"
 msgid "{wholeFiles} changed on both sides. Overleaf’s version is in the project; yours is in the “(local conflict …)” file beside it."
 msgstr "{wholeFiles} changed on both sides. Overleaf’s version is in the project; yours is in the “(local conflict …)” file beside it."
 
-#: src/canvas/editor-status-bar.tsx
-msgid "{words} · {chars}"
-msgstr "{words} · {chars}"
-
 #: src/overleaf/overleaf-connect.tsx
 msgid "↑↓ to navigate · Enter to open"
 msgstr "↑↓ to navigate · Enter to open"
@@ -420,10 +436,26 @@ msgstr "1 line"
 msgid "1 of {total} papers"
 msgstr "1 of {total} papers"
 
+#: src/project/manuscript-checklist.tsx
+msgid "1 page over"
+msgstr "1 page over"
+
+#: src/project/manuscript-checklist.tsx
+msgid "1 page remaining"
+msgstr "1 page remaining"
+
 #: src/project/paper-library.tsx
 #: src/project/project-find-dialog.tsx
 msgid "1 paper"
 msgstr "1 paper"
+
+#: src/project/manuscript-checklist.tsx
+msgid "1 word over"
+msgstr "1 word over"
+
+#: src/project/manuscript-checklist.tsx
+msgid "1 word remaining"
+msgstr "1 word remaining"
 
 #: src/papers/bib-entry-dialog.tsx
 msgid "10.1038/… or arXiv:1706.03762 or paper title"
@@ -829,6 +861,10 @@ msgstr "Ask only for potentially unsafe actions"
 msgid "Asterisk operator"
 msgstr "Asterisk operator"
 
+#: src/project/manuscript-checklist.tsx
+msgid "At the limit"
+msgstr "At the limit"
+
 #: src/papers/literature-discovery-panel.tsx
 msgid "Attention Is All You Need, diffusion, …"
 msgstr "Attention Is All You Need, diffusion, …"
@@ -1040,21 +1076,9 @@ msgstr "Blue"
 msgid "Blue value"
 msgstr "Blue value"
 
-#: src/canvas/editor-status-bar.tsx
-msgid "Body {body} · raw {raw} · {chars}"
-msgstr "Body {body} · raw {raw} · {chars}"
-
-#: src/canvas/editor-status-bar.tsx
-msgid "Body word count unavailable"
-msgstr "Body word count unavailable"
-
 #: src/project/manuscript-checklist.tsx
 msgid "Body words"
 msgstr "Body words"
-
-#: src/canvas/editor-status-bar.tsx
-msgid "Body words ({source}): text {text}, headers {headers}, captions {captions}"
-msgstr "Body words ({source}): text {text}, headers {headers}, captions {captions}"
 
 #: src/editor/latex/latex-selection-toolbar.tsx
 #: src/editor/markdown/engine/chrome/selection-toolbar.tsx
@@ -2839,10 +2863,6 @@ msgstr "ERROR"
 msgid "Error details copied"
 msgstr "Error details copied"
 
-#: src/canvas/editor-status-bar.tsx
-msgid "estimate"
-msgstr "estimate"
-
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Estimator / unit vector mark"
 msgstr "Estimator / unit vector mark"
@@ -4157,6 +4177,14 @@ msgstr "Lime"
 msgid "Limit"
 msgstr "Limit"
 
+#: src/project/manuscript-checklist.tsx
+msgid "Limit {pageLimit} pages"
+msgstr "Limit {pageLimit} pages"
+
+#: src/project/manuscript-checklist.tsx
+msgid "Limit 1 page"
+msgstr "Limit 1 page"
+
 #: src/editor/goto-line-dialog.tsx
 msgid "Line"
 msgstr "Line"
@@ -4379,6 +4407,10 @@ msgstr "Manual"
 #: src/settings/settings-dialog.tsx
 msgid "Manual only"
 msgstr "Manual only"
+
+#: src/canvas/editor-status-bar.tsx
+msgid "Manuscript"
+msgstr "Manuscript"
 
 #: src/App.tsx
 #: src/canvas/editor-status-bar.tsx
@@ -4666,6 +4698,11 @@ msgstr "Needed to add papers and manage bibliographies · about 45 MB"
 #: src/history/conflict-resolver.tsx
 msgid "Needs a decision"
 msgstr "Needs a decision"
+
+#: src/canvas/editor-status-bar.tsx
+#: src/project/manuscript-checklist.tsx
+msgid "Needs a root document to count from"
+msgstr "Needs a root document to count from"
 
 #: src/build/compile-diagnostics-panel.tsx
 msgid "Needs approval"
@@ -6812,6 +6849,14 @@ msgstr "Roman text"
 msgid "Root document"
 msgstr "Root document"
 
+#: src/canvas/editor-status-bar.tsx
+msgid "Root document and its includes, via texcount"
+msgstr "Root document and its includes, via texcount"
+
+#: src/canvas/editor-status-bar.tsx
+msgid "Root document only, estimated without texcount"
+msgstr "Root document only, estimated without texcount"
+
 #: src/editor/markdown/engine/views/table-controls.tsx
 msgid "Row options"
 msgstr "Row options"
@@ -7005,10 +7050,6 @@ msgstr "Section"
 msgid "Section sign"
 msgstr "Section sign"
 
-#: src/canvas/editor-status-bar.tsx
-msgid "Sel {words} · {chars} · {lines}"
-msgstr "Sel {words} · {chars} · {lines}"
-
 #. placeholder {0}: entry.key
 #: src/papers/bibliography-audit.tsx
 msgid "Select {0}"
@@ -7058,6 +7099,10 @@ msgstr "Select task list"
 #: src/papers/bib-entry-dialog.tsx
 msgid "Select this record"
 msgstr "Select this record"
+
+#: src/canvas/editor-status-bar.tsx
+msgid "Selection"
+msgstr "Selection"
 
 #: src/editor/codemirror-host.tsx
 msgid "Selection deleted"
@@ -7695,6 +7740,10 @@ msgstr "TexLab language server (optional editor diagnostics)"
 msgid "Text"
 msgstr "Text"
 
+#: src/canvas/editor-status-bar.tsx
+msgid "Text {text} · headings {headers} · captions {captions}"
+msgstr "Text {text} · headings {headers} · captions {captions}"
+
 #: src/project/project-replace-dialog.tsx
 msgid "Text to find"
 msgstr "Text to find"
@@ -7957,6 +8006,10 @@ msgstr "This entry is cited in {count} places."
 msgid "This entry is cited in 1 place."
 msgstr "This entry is cited in 1 place."
 
+#: src/canvas/editor-status-bar.tsx
+msgid "This file"
+msgstr "This file"
+
 #: src/overleaf/use-overleaf-realtime.ts
 msgid "This file changed outside live editing. Local work was kept; regular Overleaf sync will reconcile it."
 msgstr "This file changed outside live editing. Local work was kept; regular Overleaf sync will reconcile it."
@@ -8156,6 +8209,8 @@ msgstr "Typeset the title block"
 msgid "UI"
 msgstr "UI"
 
+#: src/canvas/editor-status-bar.tsx
+#: src/project/manuscript-checklist.tsx
 #: src/settings/doctor-settings.tsx
 #: src/trellis/trellis-labels.ts
 msgid "Unavailable"
@@ -8620,6 +8675,14 @@ msgstr "Window"
 #: src/project/manuscript-checklist.tsx
 msgid "Word budget"
 msgstr "Word budget"
+
+#: src/canvas/editor-status-bar.tsx
+msgid "Word count"
+msgstr "Word count"
+
+#: src/canvas/editor-status-bar.tsx
+msgid "Word count: {scope}, {count}"
+msgstr "Word count: {scope}, {count}"
 
 #: src/App.tsx
 msgid "Words / pages / TODOs"

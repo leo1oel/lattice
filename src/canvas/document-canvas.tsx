@@ -1335,7 +1335,7 @@ export function DocumentCanvas(props: {
           keymap={editorKeymap}
           vimMode={primaryVimMode}
           breadcrumb={breadcrumb}
-          breadcrumbPath={activeFile}
+          path={activeFile}
           onNavigate={onOutlineNavigate}
           hasDiagnostics={buildDiagnostics.length > 0}
           comments={commentsForActiveFile}
