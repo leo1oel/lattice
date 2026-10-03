@@ -1,6 +1,7 @@
 import { act, renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { invoke } from "@tauri-apps/api/core";
+import { onOverleafEvent, type OverleafEvent } from "./overleaf-realtime-listen";
 import { useOverleafChat } from "./use-overleaf-chat";
 import { useOverleafPresence, type PresenceUser } from "./use-overleaf-presence";
 
@@ -144,5 +145,86 @@ describe("Overleaf live events across two windows", () => {
     expect(windowB.result.current.messages).toEqual([]);
     expect(windowB.result.current.unread).toBe(0);
     expect(bus.delivered.filter((hop) => hop.from !== hop.to)).toEqual([]);
+  });
+});
+
+describe("Overleaf live events across a project switch in one window", () => {
+  beforeEach(() => {
+    bus.currentWindow = "main";
+    bus.listeners.length = 0;
+    bus.delivered.length = 0;
+    vi.mocked(invoke).mockReset();
+    vi.mocked(invoke).mockImplementation(async (command) => {
+      if (command === "overleaf_status") return { email: "me@example.edu" };
+      throw new Error(`Unexpected command: ${command}`);
+    });
+  });
+
+  const chatMessage = (projectRoot: string, id: string, content: string) => ({
+    projectRoot,
+    type: "chatMessage",
+    id,
+    content,
+    authorName: "Ada Lovelace",
+    authorEmail: "ada@example.edu",
+    timestamp: 1_700_000_000_000,
+  });
+
+  it("keeps a chat message project A queued before the switch out of project B", async () => {
+    const chat = renderHook(
+      ({ projectRoot }) => useOverleafChat({ enabled: true, projectRoot }),
+      { initialProps: { projectRoot: ROOT_A } },
+    );
+    await settle();
+    chat.rerender({ projectRoot: ROOT_B });
+    await settle();
+
+    await act(async () => {
+      bus.emitTo("main", "overleaf-realtime", chatMessage(ROOT_A, "msg-a", "project-A text"));
+    });
+    expect(chat.result.current.messages).toEqual([]);
+    expect(chat.result.current.unread).toBe(0);
+
+    await act(async () => {
+      bus.emitTo("main", "overleaf-realtime", chatMessage(ROOT_B, "msg-b", "project-B text"));
+    });
+    expect(chat.result.current.messages.map((message) => message.content)).toEqual(["project-B text"]);
+    expect(chat.result.current.unread).toBe(1);
+  });
+
+  it("delivers only events stamped with the subscriber's current project, read per event", async () => {
+    let currentRoot: string | null = ROOT_A;
+    const heard: OverleafEvent[] = [];
+    const stop = onOverleafEvent(() => currentRoot, (event) => heard.push(event));
+    await settle();
+    const send = (projectRoot: string, event: Record<string, unknown>) =>
+      bus.emitTo("main", "overleaf-realtime", { projectRoot, ...event });
+
+    send(ROOT_B, { type: "treeChanged", docs: [], entities: [] });
+    send(ROOT_A, { type: "threadsChanged" });
+    currentRoot = ROOT_B;
+    send(ROOT_A, { type: "disconnected", reason: "project A closed" });
+    send(ROOT_A, { type: "commentAnchored", docId: "doc-a", range: { threadId: "t-1", position: 0, quote: "x" } });
+    send(ROOT_B, { type: "disconnected", reason: "network changed" });
+    currentRoot = null;
+    send(ROOT_B, { type: "threadsChanged" });
+
+    expect(heard).toEqual([
+      { projectRoot: ROOT_A, type: "threadsChanged" },
+      { projectRoot: ROOT_B, type: "disconnected", reason: "network changed" },
+    ]);
+    stop();
+    expect(bus.listeners).toEqual([]);
+  });
+
+  it("releases a subscription that only resolves after its cleanup ran", async () => {
+    const heard: OverleafEvent[] = [];
+    const stop = onOverleafEvent(() => ROOT_A, (event) => heard.push(event));
+    stop();
+    await settle();
+
+    bus.emitTo("main", "overleaf-realtime", { projectRoot: ROOT_A, type: "threadsChanged" });
+    expect(heard).toEqual([]);
+    expect(bus.listeners).toEqual([]);
   });
 });

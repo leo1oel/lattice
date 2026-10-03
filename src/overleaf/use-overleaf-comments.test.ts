@@ -7,7 +7,7 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { invoke } from "@tauri-apps/api/core";
-import { mockInvoke } from "../platform/tauri-test-mocks";
+import { invokeCalls, mockInvoke, mockListen } from "../platform/tauri-test-mocks";
 import { useOverleafComments } from "./use-overleaf-comments";
 import type { OverleafThread } from "../app-types";
 
@@ -107,5 +107,76 @@ describe("useOverleafComments", () => {
     expect(String(raised)).toMatch(/no longer attached/);
     expect(invoke).not.toHaveBeenCalledWith("overleaf_resolve_thread", expect.anything());
     expect(result.current.error).toMatch(/no longer attached/);
+  });
+
+  it("keeps the current project's threads when the previous project's read answers late", async () => {
+    const pending = new Map<string, (threads: OverleafThread[]) => void>();
+    mockInvoke({
+      overleaf_threads: ({ projectRoot }: { projectRoot: string }) =>
+        new Promise<OverleafThread[]>((resolve) => { pending.set(projectRoot, resolve); }),
+      overleaf_comment_anchors: [],
+    });
+    const { result, rerender } = renderHook(
+      ({ projectRoot }) => useOverleafComments({ enabled: true, projectRoot, anchor: async () => undefined }),
+      { initialProps: { projectRoot: "/tmp/project-a" } },
+    );
+    await waitFor(() => expect(pending.has("/tmp/project-a")).toBe(true));
+
+    rerender({ projectRoot: "/tmp/project-b" });
+    await waitFor(() => expect(pending.has("/tmp/project-b")).toBe(true));
+    await act(async () => pending.get("/tmp/project-b")!([thread("thread-b")]));
+    await waitFor(() => expect(result.current.threads.map((item) => item.id)).toEqual(["thread-b"]));
+
+    await act(async () => pending.get("/tmp/project-a")!([thread("thread-a")]));
+    expect(result.current.threads.map((item) => item.id)).toEqual(["thread-b"]);
+    expect(result.current.loading).toBe(false);
+  });
+
+  it("lets only the newest read settle loading and errors", async () => {
+    const replies: { resolve: (threads: OverleafThread[]) => void; reject: (reason: Error) => void }[] = [];
+    mockInvoke({
+      overleaf_threads: () => new Promise<OverleafThread[]>((resolve, reject) => { replies.push({ resolve, reject }); }),
+      overleaf_comment_anchors: [],
+      overleaf_reply_to_thread: undefined,
+    });
+    const { result } = mount();
+    await waitFor(() => expect(replies).toHaveLength(1));
+    // Replying re-reads the threads while the first read is still out.
+    let newer!: Promise<unknown>;
+    act(() => { newer = result.current.reply("t-here", "agreed"); });
+    await waitFor(() => expect(replies).toHaveLength(2));
+
+    // The superseded read fails after the newer one began: nothing it says applies.
+    await act(async () => replies[0]!.reject(new Error("stale failure")));
+    expect(result.current.loading).toBe(true);
+    expect(result.current.error).toBeNull();
+
+    await act(async () => {
+      replies[1]!.resolve([thread("t-here")]);
+      await newer;
+    });
+    expect(result.current.loading).toBe(false);
+    expect(result.current.threads.map((item) => item.id)).toEqual(["t-here"]);
+  });
+
+  it("re-reads only for thread changes in its own project", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      const emit = mockListen();
+      mockProject();
+      const { result } = mount();
+      await waitFor(() => expect(result.current.threads).toHaveLength(2));
+      const reads = invokeCalls("overleaf_threads").length;
+
+      emit({ projectRoot: "/tmp/other-project", type: "threadsChanged" });
+      await act(async () => { await vi.advanceTimersByTimeAsync(1_000); });
+      expect(invokeCalls("overleaf_threads")).toHaveLength(reads);
+
+      emit({ projectRoot: "/tmp/project", type: "threadsChanged" });
+      await act(async () => { await vi.advanceTimersByTimeAsync(1_000); });
+      expect(invokeCalls("overleaf_threads")).toHaveLength(reads + 1);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

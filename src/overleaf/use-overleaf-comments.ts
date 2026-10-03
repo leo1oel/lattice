@@ -10,12 +10,13 @@
  * thread state across six socket events, and a panel that rebuilds state from
  * partial events is a panel that eventually disagrees with the browser.
  */
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { invoke } from "@tauri-apps/api/core";
 import type { OverleafThread } from "../app-types";
 import { onOverleafEvent } from "./overleaf-realtime-listen";
 import type { OverleafCommentTarget } from "./use-overleaf-realtime";
+import { useOverleafProjectSnapshot } from "./use-overleaf-project-snapshot";
 
 /** How long to wait before re-reading, so a burst costs one request. */
 const REFRESH_DEBOUNCE_MS = 400;
@@ -51,6 +52,16 @@ function newThreadId(): string {
     + hex(Math.random() * 0x10000, 4) + hex(Math.random() * 0x1000000, 6);
 }
 
+type CommentsSnapshot = {
+  threads: OverleafThread[];
+  /** Every thread's anchor, keyed by thread id, across the whole project. */
+  anchors: Map<string, OverleafCommentAnchor>;
+  loading: boolean;
+  error: string | null;
+};
+
+const NO_COMMENTS: CommentsSnapshot = { threads: [], anchors: new Map(), loading: false, error: null };
+
 export function useOverleafComments(options: {
   enabled: boolean;
   projectRoot: string | null;
@@ -58,32 +69,36 @@ export function useOverleafComments(options: {
   anchor: (target: OverleafCommentTarget, threadId: string, position: number, quote: string) => Promise<void>;
 }) {
   const { t } = useLingui();
-  const [threads, setThreads] = useState<OverleafThread[]>([]);
-  /** Every thread's anchor, keyed by thread id, across the whole project. */
-  const [anchors, setAnchors] = useState<Map<string, OverleafCommentAnchor>>(new Map());
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const { enabled, projectRoot } = options;
+  const [{ threads, anchors, loading, error }, session] = useOverleafProjectSnapshot(
+    enabled ? projectRoot : null,
+    NO_COMMENTS,
+  );
 
   const refresh = useCallback(async () => {
-    if (!enabled || !projectRoot) return;
-    setLoading(true);
+    const current = session();
+    if (!current) return;
+    const publishRead = current.read();
+    const publish = (update: Partial<CommentsSnapshot>) => publishRead((snapshot) => ({ ...snapshot, ...update }));
+    publish({ loading: true });
     try {
       // The conversations and the spans they hang on come from two different
       // endpoints, and a thread is only usable with both: the messages say
       // what was said, the anchor says which file it was said about.
       const [found, anchored] = await Promise.all([
-        invoke<OverleafThread[]>("overleaf_threads", { projectRoot }),
-        invoke<OverleafCommentAnchor[]>("overleaf_comment_anchors", { projectRoot }),
+        invoke<OverleafThread[]>("overleaf_threads", { projectRoot: current.projectRoot }),
+        invoke<OverleafCommentAnchor[]>("overleaf_comment_anchors", { projectRoot: current.projectRoot }),
       ]);
-      setThreads(found);
-      setAnchors(new Map(anchored.map((item) => [item.threadId, item])));
-      setError(null);
+      publish({
+        threads: found,
+        anchors: new Map(anchored.map((item) => [item.threadId, item])),
+        loading: false,
+        error: null,
+      });
     } catch (reason) {
-      setError(String(reason));
+      publish({ loading: false, error: String(reason) });
     }
-    setLoading(false);
-  }, [enabled, projectRoot]);
+  }, [session]);
 
   // Kept current before any effect or handler reads them.
   const latest = useRef({ anchor: options.anchor, anchors, refresh });
@@ -92,15 +107,10 @@ export function useOverleafComments(options: {
   });
 
   useEffect(() => {
-    if (!enabled) {
-      setThreads([]);
-      setAnchors(new Map());
-      setError(null);
-      return;
-    }
+    if (!enabled || !projectRoot) return;
     void latest.current.refresh();
     let timer: ReturnType<typeof setTimeout> | null = null;
-    const stop = onOverleafEvent((event) => {
+    const stop = onOverleafEvent(() => projectRoot, (event) => {
       // A conversation changing and a span being commented are separate
       // events on separate channels, and either can move a thread's anchor.
       if (event.type !== "threadsChanged" && event.type !== "commentAnchored") return;
@@ -116,11 +126,15 @@ export function useOverleafComments(options: {
     };
   }, [enabled, projectRoot]);
 
-  /** Surface a failed action's reason and pass the failure on to the caller. */
+  /**
+   * Surface a failed action's reason in the project it was taken in, and pass
+   * the failure on to the caller.
+   */
   const guard = <T,>(run: () => Promise<T>) => {
-    setError(null);
+    const current = session();
+    current?.publish((snapshot) => ({ ...snapshot, error: null }));
     return run().catch((reason: unknown) => {
-      setError(String(reason));
+      current?.publish((snapshot) => ({ ...snapshot, error: String(reason) }));
       throw reason;
     });
   };

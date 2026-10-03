@@ -43,8 +43,8 @@ const freshBackend = () => ({
   anchors: { comments: [] as unknown[], changes: [] as unknown[] },
 });
 let backend: ReturnType<typeof freshBackend>;
-/** Feeds the hook the events the Rust side would emit. */
-let emit: (payload: unknown) => void;
+/** Feeds the hook the events the Rust side would emit, stamped with the project they came from. */
+let emit: (payload: Record<string, unknown>, projectRoot?: string) => void;
 
 /** Every join, reduced to the version it resumed from. */
 const joins = () => invokeCalls("overleaf_rt_join_doc").map(({ docId, fromVersion }) => ({ docId, fromVersion: fromVersion ?? null }));
@@ -72,7 +72,8 @@ function joinAnswer(docId: string, fromVersion: number | null = null) {
 
 beforeEach(() => {
   backend = freshBackend();
-  emit = mockListen();
+  const deliver = mockListen();
+  emit = (payload, projectRoot = "/tmp/project") => deliver({ projectRoot, ...payload });
   mockInvoke({
     overleaf_rt_connect: () => {
       if (backend.connectFailures > 0) {
@@ -363,6 +364,28 @@ describe("connection ownership", () => {
     rerender({ projectRoot: "/tmp/project-b" });
     await waitFor(() => scoped("overleaf_rt_leave_doc", "/tmp/project-a"));
     await waitFor(() => scoped("overleaf_rt_join_doc", "/tmp/project-b"));
+  });
+
+  it("ignores the previous project's late tree change and disconnect after a switch", async () => {
+    const { result, rerender } = mount({ projectRoot: "/tmp/project-a" });
+    await waitFor(() => expect(result.current.liveFile).toBe(true));
+    rerender({ projectRoot: "/tmp/project-b" });
+    await waitFor(() => expect(invokeCalls("overleaf_rt_join_doc"))
+      .toContainEqual(expect.objectContaining({ projectRoot: "/tmp/project-b", docId: DOC_A })));
+    await waitFor(() => expect(result.current.liveFile).toBe(true));
+    const connects = invokeCalls("overleaf_rt_connect").length;
+
+    // Cancelling A's connection cannot retract what it had already queued.
+    emit({ type: "treeChanged", docs: [], entities: [] }, "/tmp/project-a");
+    emit({ type: "disconnected", reason: "project A closed" }, "/tmp/project-a");
+    expect(result.current.status).toBe("live");
+    expect(result.current.liveFile).toBe(true);
+    expect(result.current.detail).toBeNull();
+    expect(invokeCalls("overleaf_rt_connect")).toHaveLength(connects);
+
+    // B's own disconnect is still heard.
+    emit({ type: "disconnected", reason: "network changed" }, "/tmp/project-b");
+    await waitFor(() => expect(result.current.status).toBe("connecting"));
   });
 
   it("reconnects with backoff after the live channel closes", async () => {

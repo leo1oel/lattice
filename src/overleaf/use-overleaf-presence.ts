@@ -28,13 +28,6 @@ export type PresenceUser = {
   hue: number;
 };
 
-type PresenceEvent = {
-  projectRoot: string;
-  type: string;
-  user?: PresenceUser;
-  id?: string;
-};
-
 /** Overleaf's own client: quiet while someone is watching, patient once alone. */
 const DEBOUNCE_WITH_OTHERS_MS = 500;
 const DEBOUNCE_ALONE_MS = 5 * 60 * 1000;
@@ -101,12 +94,9 @@ export function useOverleafPresence(options: {
   // One listener for the life of the hook: presence events can arrive at any
   // time, including while the seed call below is still in flight, and a
   // listener that came and went with `selfId` could miss one in that window.
-  useEffect(() => onOverleafEvent<PresenceEvent>((payload) => {
-    // Backend cancellation cannot retract an event already queued for this
-    // window. Never relabel an old project's event with the current root.
-    const projectRoot = latest.current.projectRoot;
-    if (!projectRoot || payload.projectRoot !== projectRoot) return;
-    if (payload.type === "presenceUpdated" && payload.user) {
+  useEffect(() => onOverleafEvent(() => latest.current.projectRoot, (payload) => {
+    const projectRoot = payload.projectRoot;
+    if (payload.type === "presenceUpdated") {
       const user = payload.user;
       // Our own move is echoed back like anyone else's; showing it would
       // make the roster claim we are our own collaborator.
@@ -120,7 +110,7 @@ export function useOverleafPresence(options: {
         next.set(user.id, user);
         return { projectRoot, users: next };
       });
-    } else if (payload.type === "presenceLeft" && payload.id) {
+    } else if (payload.type === "presenceLeft") {
       const id = payload.id;
       setRoster((current) => {
         if (current.projectRoot !== latest.current.projectRoot || !current.users.has(id)) return current;

@@ -95,11 +95,11 @@ impl OverleafRealtimeState {
 }
 
 /// A channel event as the UI receives it. Cancellation cannot retract events
-/// already queued for the UI, so each carries its source root and consumers
-/// reject late delivery after the window has switched projects. `emit_to` alone
-/// does not keep this out of other windows: Tauri also delivers it to every
-/// untargeted listener, so the web UI must listen through
-/// `listenOverleafRealtime`, which names its own window.
+/// already queued for the UI, so each carries its source root and the web UI's
+/// `onOverleafEvent` rejects late delivery after the window has switched
+/// projects. `emit_to` alone does not keep this out of other windows: Tauri
+/// also delivers it to every untargeted listener, so that same subscriber
+/// names its own window.
 #[derive(Clone, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 struct ScopedEvent<'a> {

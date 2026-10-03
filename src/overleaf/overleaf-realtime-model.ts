@@ -45,16 +45,6 @@ export type JoinedDoc = {
 };
 
 export type DocUpdateEvent = { type: "docUpdate"; docId: string } & ReplayedUpdate;
-export type RealtimeEvent =
-  | { type: "connected"; publicId: string }
-  | { type: "projectJoined" | "treeChanged"; docs: DocEntry[]; entities: EntityEntry[] }
-  | DocUpdateEvent
-  | { type: "docAck"; docId: string; version: number }
-  | { type: "commentAnchored"; docId: string; range: CommentRange }
-  | { type: "changesAccepted"; docId: string; changeIds: string[] }
-  | { type: "otError"; docId: string; message: string }
-  | { type: "disconnected"; reason: string };
-
 export type OverleafRemoteTextContext = {
   projectRoot: string;
   path: string;

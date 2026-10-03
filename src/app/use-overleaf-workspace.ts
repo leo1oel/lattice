@@ -6,10 +6,10 @@ import { loadOverleafRemoteDelete, loadOverleafSyncMode, type OverleafRemoteDele
 import { logAction } from "../telemetry/app-notify";
 import { diagnosticInvoke } from "../telemetry/diagnostic-request";
 import { setError, setNotice, setWarning } from "./notify";
-import { clearTimer, restartTimer, subscribeTauriEvent, type TimerRef } from "./effect-helpers";
+import { clearTimer, restartTimer, type TimerRef } from "./effect-helpers";
 import { useLatestRef } from "../hooks/use-latest-ref";
 import { confirmAction, isWholeFileEditorPath, overleafLinkMatchesSession, toMessage } from "../app-utils";
-import { listenOverleafRealtime } from "../overleaf/overleaf-realtime-listen";
+import { onOverleafEvent } from "../overleaf/overleaf-realtime-listen";
 import { useOverleafRealtime, type OverleafRemoteTextContext } from "../overleaf/use-overleaf-realtime";
 import { useOverleafChat } from "../overleaf/use-overleaf-chat";
 import { useOverleafPresence, type PresenceUser } from "../overleaf/use-overleaf-presence";
@@ -766,20 +766,15 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
       return;
     }
     const projectRoot = project.root;
-    // Scoped to this window: a bare listen() also hears every other window's Overleaf project.
-    return subscribeTauriEvent<{ projectRoot: string; type: string; publicId?: string; docs?: { id: string; path: string }[] }>(
-      listenOverleafRealtime,
-      (payload) => {
-        if (payload.projectRoot !== projectRoot) return;
-        if (payload.type === "connected" && payload.publicId) {
-          setOverleafSelfId(payload.publicId);
-        } else if ((payload.type === "projectJoined" || payload.type === "treeChanged") && payload.docs) {
-          setOverleafDocPaths(new Map(payload.docs.map((doc) => [doc.id, doc.path])));
-        } else if (payload.type === "disconnected") {
-          setOverleafSelfId(null);
-        }
-      },
-    );
+    return onOverleafEvent(() => projectRoot, (event) => {
+      if (event.type === "connected" && event.publicId) {
+        setOverleafSelfId(event.publicId);
+      } else if (event.type === "projectJoined" || event.type === "treeChanged") {
+        setOverleafDocPaths(new Map(event.docs.map((doc) => [doc.id, doc.path])));
+      } else if (event.type === "disconnected") {
+        setOverleafSelfId(null);
+      }
+    });
   }, [overleafLink, project?.root]);
 
   const overleafPresence = useOverleafPresence({

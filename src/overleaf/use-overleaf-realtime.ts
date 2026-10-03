@@ -23,7 +23,7 @@ import {
   anchorsAfter, isOwnUpdate, overleafDocHash, promoteShared, shouldRetryConnection,
   type CommentRange, type DocEntry, type DocumentProof, type DocUpdateEvent, type EntityEntry, type JoinedDoc,
   type JoinedProject, type OpenDoc, type OverleafCommentTarget, type OverleafPermission, type OverleafRemoteTextContext,
-  type RealtimeEvent, type RealtimeStatus, type ReplayedUpdate, type ReservedOperation, type TrackedChange,
+  type RealtimeStatus, type ReplayedUpdate, type ReservedOperation, type TrackedChange,
 } from "./overleaf-realtime-model";
 
 export type { OverleafCommentTarget, OverleafRemoteTextContext, ReservedOperation, TrackedChange };
@@ -547,9 +547,11 @@ export function useOverleafRealtime(options: {
 
   // ---- events -------------------------------------------------------------
   // Registered before anything connects, so nothing the backend emits during
-  // the join can be missed.
+  // the join can be missed. Only the project this hook is connecting is heard:
+  // a disconnect queued by the previous project must not tear down, or
+  // reconnect, the next one's channel.
 
-  useEffect(() => onOverleafEvent<RealtimeEvent>((payload) => {
+  useEffect(() => onOverleafEvent(() => (callbacks.current.enabled ? callbacks.current.projectRoot : null), (payload) => {
     switch (payload.type) {
       case "connected":
         publicId.current = payload.publicId;
@@ -559,10 +561,9 @@ export function useOverleafRealtime(options: {
       case "treeChanged":
         // Somebody created, renamed, moved or deleted something; a file that
         // appeared this way is joinable straight away. A permission is never
-        // taken from these unscoped events — one emitted late by project A
-        // could arrive after the UI switched to project B — only from the
-        // scoped connect result.
-        noteDocumentTree(payload.docs, payload.entities);
+        // taken from these events, only from the connect result: each
+        // handshake must name the role for the connection it set up.
+        noteDocumentTree(payload.docs, payload.type === "treeChanged" ? payload.entities : undefined);
         return;
       case "disconnected": {
         const reason = payload.reason || i18n._(msg`The realtime connection closed.`);

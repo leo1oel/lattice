@@ -7,44 +7,36 @@
  * they send it. The unread count is what makes that visible when the panel is
  * closed — a chat you have to open to discover is a chat nobody reads.
  */
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { invoke } from "@tauri-apps/api/core";
 import type { OverleafMessage, OverleafStatus } from "../app-types";
 import { onOverleafEvent } from "./overleaf-realtime-listen";
+import { useOverleafProjectSnapshot } from "./use-overleaf-project-snapshot";
 
 const HISTORY_LIMIT = 100;
 
-type ChatEvent = {
-  type: string;
-  id?: string;
-  content?: string;
-  authorName?: string;
-  authorEmail?: string | null;
-  timestamp?: number;
+type ChatSnapshot = {
+  messages: OverleafMessage[];
+  /** Messages that arrived while the panel was closed. */
+  unread: number;
+  loading: boolean;
+  error: string | null;
 };
+
+const NO_CHAT: ChatSnapshot = { messages: [], unread: 0, loading: false, error: null };
 
 export function useOverleafChat(options: { enabled: boolean; projectRoot: string | null }) {
   const { t } = useLingui();
-  const [messages, setMessages] = useState<OverleafMessage[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  /** Messages that arrived while the panel was closed. */
-  const [unread, setUnread] = useState(0);
-  const myEmail = useRef<string | null>(null);
-  // Ids already shown. Overleaf replays recent messages after a reconnect, and
-  // a replay is neither a new message nor something to badge as unread.
-  const seen = useRef<Set<string>>(new Set());
   const { enabled, projectRoot } = options;
+  const [{ messages, unread, loading, error }, session] = useOverleafProjectSnapshot(
+    enabled ? projectRoot : null,
+    NO_CHAT,
+  );
+  const myEmail = useRef<string | null>(null);
 
   useEffect(() => {
-    if (!enabled) {
-      setMessages([]);
-      setUnread(0);
-      setError(null);
-      seen.current = new Set();
-      return;
-    }
+    if (!enabled || !projectRoot) return;
     // Which messages are ours decides which side of the panel they sit on, and
     // realtime arrivals carry only an address to compare against.
     void invoke<OverleafStatus>("overleaf_status")
@@ -52,61 +44,68 @@ export function useOverleafChat(options: { enabled: boolean; projectRoot: string
         myEmail.current = status.email;
       })
       .catch(() => {});
-    return onOverleafEvent<ChatEvent>((payload) => {
-      if (payload.type !== "chatMessage" || !payload.id || seen.current.has(payload.id)) return;
-      seen.current.add(payload.id);
-      const email = payload.authorEmail ?? null;
-      const mine = Boolean(myEmail.current && email && myEmail.current.toLowerCase() === email.toLowerCase());
-      setMessages((current) => [...current, {
-        id: payload.id!,
-        content: payload.content ?? "",
-        authorName: payload.authorName ?? t`Someone`,
-        authorEmail: email,
-        timestamp: payload.timestamp ?? 0,
-        mine,
-      }]);
-      if (!mine) setUnread((count) => count + 1);
+    return onOverleafEvent(() => projectRoot, (event) => {
+      if (event.type !== "chatMessage") return;
+      const { id, content, authorName, authorEmail, timestamp } = event;
+      const mine = Boolean(myEmail.current && authorEmail && myEmail.current.toLowerCase() === authorEmail.toLowerCase());
+      const message = { id, content, authorName, authorEmail, timestamp, mine };
+      session()?.publish((current) => {
+        // Overleaf replays recent messages after a reconnect, and a replay is
+        // neither a new message nor something to badge as unread.
+        if (current.messages.some((item) => item.id === id)) return current;
+        return {
+          ...current,
+          messages: [...current.messages, message],
+          unread: mine ? current.unread : current.unread + 1,
+        };
+      });
     });
-  }, [enabled, projectRoot, t]);
+  }, [enabled, projectRoot, session]);
 
   /** Load history; safe to call repeatedly. */
   const refresh = useCallback(async () => {
-    if (!enabled || !projectRoot) return;
-    setLoading(true);
-    setError(null);
+    const current = session();
+    if (!current) return;
+    const publishRead = current.read();
+    const publish = (update: (snapshot: ChatSnapshot) => Partial<ChatSnapshot>) =>
+      publishRead((snapshot) => ({ ...snapshot, ...update(snapshot) }));
+    publish(() => ({ loading: true, error: null }));
     try {
-      const history = await invoke<OverleafMessage[]>("overleaf_chat_messages", { projectRoot, limit: HISTORY_LIMIT });
+      const history = await invoke<OverleafMessage[]>("overleaf_chat_messages", {
+        projectRoot: current.projectRoot, limit: HISTORY_LIMIT,
+      });
       // Merge rather than replace: a message can land on the channel while
       // this request is in flight, and overwriting the list would drop it.
-      setMessages((current) => {
+      publish((snapshot) => {
         const byId = new Map(history.map((item) => [item.id, item]));
-        for (const item of current) if (!byId.has(item.id)) byId.set(item.id, item);
-        return [...byId.values()].sort((a, b) => a.timestamp - b.timestamp);
+        for (const item of snapshot.messages) if (!byId.has(item.id)) byId.set(item.id, item);
+        return { messages: [...byId.values()].sort((a, b) => a.timestamp - b.timestamp), loading: false };
       });
-      for (const item of history) seen.current.add(item.id);
     } catch (reason) {
-      setError(String(reason));
+      publish(() => ({ loading: false, error: String(reason) }));
     }
-    setLoading(false);
-  }, [enabled, projectRoot]);
+  }, [session]);
 
   const send = useCallback(async (content: string) => {
     const trimmed = content.trim();
     if (!trimmed) return;
     if (!projectRoot) throw new Error(t`Open the linked Overleaf project first.`);
-    setError(null);
+    const current = session();
+    current?.publish((snapshot) => ({ ...snapshot, error: null }));
     try {
       // Overleaf echoes the message back over the channel, so there is nothing
       // to append here — doing both would show it twice.
       await invoke("overleaf_send_chat_message", { projectRoot, content: trimmed });
     } catch (reason) {
-      setError(String(reason));
+      current?.publish((snapshot) => ({ ...snapshot, error: String(reason) }));
       throw reason;
     }
-  }, [projectRoot, t]);
+  }, [projectRoot, session, t]);
 
   /** Call when the panel opens, so the badge clears. */
-  const markRead = useCallback(() => setUnread(0), []);
+  const markRead = useCallback(() => {
+    session()?.publish((snapshot) => (snapshot.unread === 0 ? snapshot : { ...snapshot, unread: 0 }));
+  }, [session]);
 
   return { messages, loading, error, unread, refresh, send, markRead };
 }
