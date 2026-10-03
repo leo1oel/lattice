@@ -25,7 +25,13 @@
 .lattice-trellis [data-trellis-part="panel"]:has([data-trellis-part="tab"][data-selected]:is([data-type="history"], [data-type="git"], [data-type="comments"], [data-type="overleaf"], [data-type="literature"], [data-type="todos"], [data-type="checklist"])) {
   --lattice-panel-surface: var(--surface-input);
 }
-.lattice-trellis [data-trellis-part="panel"] { background: var(--lattice-panel-surface); box-shadow: 0 0 0 1px var(--border-subtle); }
+/* An unfocused panel's edge is half a hairline: the surfaces already separate
+   panels from the workspace, and a full outline on every one competed with
+   the document inside. The focused panel's ring (below) stays whole. */
+.lattice-trellis [data-trellis-part="panel"] { background: var(--lattice-panel-surface); box-shadow: 0 0 0 1px color-mix(in srgb, var(--border-subtle) 50%, transparent); }
+@media (prefers-contrast: more) {
+  .lattice-trellis [data-trellis-part="panel"] { box-shadow: 0 0 0 1px var(--border-strong); }
+}
 .lattice-trellis [data-trellis-part="surface"] { background: var(--surface-app); }
 .lattice-trellis [data-trellis-part="surface"]:is([data-type="file"], [data-type="pdf"]) { background: var(--editor-bg); }
 .lattice-trellis [data-trellis-part="surface"]:is([data-type="project"], [data-type="papers"], [data-type="agent"]) { background: var(--surface-sidebar); }
@@ -53,7 +59,7 @@
   --lattice-tabstrip-shade: 5%;
   --lattice-tabstrip: color-mix(in srgb, var(--surface-sidebar), black var(--lattice-tabstrip-shade));
 }
-:root[data-theme="dark"] .lattice-trellis .trellis { --lattice-tabstrip-shade: 30%; }
+:root[data-theme="dark"] .lattice-trellis .trellis { --lattice-tabstrip-shade: 12%; }
 /* Declared on the panel so it resolves against the panel's own surface. */
 .lattice-trellis [data-trellis-part="panel"] { --trellis-tab-active: var(--lattice-panel-surface); }
 .lattice-trellis [data-trellis-part="tabbar"] {

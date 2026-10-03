@@ -1,6 +1,8 @@
 /* The toolbar stays on one row so resizing the source/PDF split never moves
-   search away from page navigation. Narrow panes shed redundant zoom steps;
-   trackpad zoom and the two fit controls remain available.
+   search away from page navigation. A narrow one keeps what a reader reaches
+   for while reading (pages, search, SyncTeX and the fit in use) and moves the
+   rest — zoom steps, the other fit, location history, saving — into one
+   overflow menu (the `.pdf-overflow` controls); trackpad zoom always works.
    The size container is the toolbar's own frame, not the whole preview: when
    a query container's width changes, WebKit restyles everything inside it, so
    with the preview as the container every frame of a panel-divider drag
@@ -124,14 +126,26 @@
 .pdf-load-progress-fill { height: 100%; border-radius: inherit; background: var(--control-active); transition: width var(--duration-slow) var(--ease-out); }
 .pdf-load-percent { min-width: 3ch; font-variant-numeric: tabular-nums; text-align: right; }
 .pdf-toolbar-empty > :first-child, .pdf-toolbar-empty > :last-child { min-width: 74px; }
+.pdf-toolbar .pdf-overflow-trigger { display: none; }
+.pdf-toolbar .pdf-overflow-trigger[data-state="open"] { background: var(--toolbar-hover-surface); color: var(--text-primary); }
 @container pdf-toolbar (max-width: 640px) {
-  .pdf-toolbar { padding-inline: var(--space-2); gap: var(--space-1); }
+  .pdf-toolbar { padding-inline: var(--space-3); gap: var(--space-2); }
   .pdf-zoom-controls { gap: var(--space-1); }
-  .pdf-toolbar .pdf-zoom-step { display: none; }
+  .pdf-toolbar .pdf-overflow { display: none; }
+  .pdf-toolbar .pdf-overflow-trigger { display: grid; }
+  /* "Zoom percentage" in the menu brings the field back until it is left. */
+  .pdf-toolbar[data-zoom-entry] .pdf-zoom-value { display: inline-flex; }
 }
 /* The same narrow layout, for the one synchronous read that measures the PDF
    panel's minimum width (pdf-toolbar-min-width.ts); keep the two in step. */
-.pdf-toolbar[data-measure-narrow] { padding-inline: var(--space-2); gap: var(--space-1); }
+.pdf-toolbar[data-measure-narrow] { padding-inline: var(--space-3); gap: var(--space-2); }
 .pdf-toolbar[data-measure-narrow] .pdf-zoom-controls { gap: var(--space-1); }
-.pdf-toolbar[data-measure-narrow] .pdf-zoom-step { display: none; }
+.pdf-toolbar[data-measure-narrow] .pdf-overflow { display: none; }
+.pdf-toolbar[data-measure-narrow] .pdf-overflow-trigger { display: grid; }
+/* The overflow menu opens on a zoom row: steps around the percentage, which
+   hands off to the toolbar's own field for typing. */
+.pdf-overflow-zoom { display: flex; align-items: center; gap: var(--gap-hairline); padding: var(--gap-hairline) 0 var(--gap-hairline) var(--space-5); }
+.pdf-overflow-zoom-label { flex: 1; color: var(--text-secondary); font-size: var(--type-body-size); }
+.pdf-overflow-zoom [data-slot="dropdown-menu-item"] { justify-content: center; min-width: var(--space-16); height: 28px; padding: 0 var(--space-3); }
+.pdf-overflow-zoom .pdf-overflow-zoom-value { min-width: 52px; font-variant-numeric: tabular-nums; }
 @keyframes synctex-highlight { 0%, 70% { opacity: 1; } 100% { opacity: 0; } }

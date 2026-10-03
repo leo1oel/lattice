@@ -1,12 +1,12 @@
 /**
- * The narrowest a PDF toolbar can be with every control on its row and the
- * search field's whole "Find in PDF" placeholder showing, measured from the
- * live toolbar. The PDF panel's minimum width follows it, so it holds in every
+ * The narrowest a PDF toolbar can be with every control it keeps on its row
+ * and the search field's whole "Find in PDF" placeholder showing, measured
+ * from the live toolbar. The PDF panel's minimum width follows it, so it holds in every
  * locale and at every interface zoom (all CSS px).
  *
- * A narrow panel sheds the zoom steps and some spacing (the container query
- * in pdf-viewer.css), and the minimum is by definition narrow, so the toolbar
- * is read in that state: `data-measure-narrow` applies the same rules for the
+ * A narrow panel moves its secondary controls into the overflow menu (the
+ * container query in pdf-viewer.css), and the minimum is by definition
+ * narrow, so the toolbar is read in that state: `data-measure-narrow` applies the same rules for the
  * duration of one synchronous read, whatever the panel's width right now.
  */
 
@@ -57,7 +57,7 @@ export function measurePdfToolbarMinWidth(toolbar: HTMLElement): number | null {
         const outline = rowWidth(column, (child) => child.contains(field));
         width += outline + (outline > 0 ? px(getComputedStyle(column).columnGap) : 0) + fieldWidth;
       } else {
-        const own = rowWidth(column, (child) => child.classList.contains("pdf-zoom-step"));
+        const own = rowWidth(column, (child) => child.classList.contains("pdf-overflow"));
         width += Math.max(own, px(getComputedStyle(column).minWidth)) + horizontal(getComputedStyle(column));
       }
     }

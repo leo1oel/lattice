@@ -2756,6 +2756,10 @@ msgstr "请输入项目名称。"
 msgid "Enter a replacement key"
 msgstr "输入新密钥以替换"
 
+#: src/pdf/pdf-viewer.tsx
+msgid "Enter a zoom percentage"
+msgstr "输入缩放百分比"
+
 #: src/canvas/zoom-controls.tsx
 #: src/pdf/pdf-viewer.tsx
 msgid "Enter a zoom percentage or scroll to zoom"
@@ -4560,6 +4564,10 @@ msgstr "已修改"
 #: src/editor/latex/latex-command-completions.ts
 msgid "Monospaced text"
 msgstr "等宽文本"
+
+#: src/pdf/pdf-viewer.tsx
+msgid "More PDF actions"
+msgstr "更多 PDF 操作"
 
 #: src/trellis/trellis-labels.ts
 msgid "Move {title} to"
@@ -8671,6 +8679,10 @@ msgstr "泽塔"
 #: src/app/use-project-lifecycle.ts
 msgid "ZIP archive"
 msgstr "ZIP 压缩包"
+
+#: src/pdf/pdf-viewer.tsx
+msgid "Zoom"
+msgstr "缩放"
 
 #: src/app/native-locale.ts
 msgctxt "macOS menu bar"

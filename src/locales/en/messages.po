@@ -2756,6 +2756,10 @@ msgstr "Enter a project name."
 msgid "Enter a replacement key"
 msgstr "Enter a replacement key"
 
+#: src/pdf/pdf-viewer.tsx
+msgid "Enter a zoom percentage"
+msgstr "Enter a zoom percentage"
+
 #: src/canvas/zoom-controls.tsx
 #: src/pdf/pdf-viewer.tsx
 msgid "Enter a zoom percentage or scroll to zoom"
@@ -4560,6 +4564,10 @@ msgstr "modified"
 #: src/editor/latex/latex-command-completions.ts
 msgid "Monospaced text"
 msgstr "Monospaced text"
+
+#: src/pdf/pdf-viewer.tsx
+msgid "More PDF actions"
+msgstr "More PDF actions"
 
 #: src/trellis/trellis-labels.ts
 msgid "Move {title} to"
@@ -8671,6 +8679,10 @@ msgstr "Zeta"
 #: src/app/use-project-lifecycle.ts
 msgid "ZIP archive"
 msgstr "ZIP archive"
+
+#: src/pdf/pdf-viewer.tsx
+msgid "Zoom"
+msgstr "Zoom"
 
 #: src/app/native-locale.ts
 msgctxt "macOS menu bar"
