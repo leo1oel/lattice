@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { SearchField } from "../components/ui/search-field";
+import { useCompositionGuard } from "../project/use-composition-guard";
 import { searchSettings, settingsEntryKey, type SettingsSearchEntry } from "./settings-search-index";
 
 /**
@@ -18,6 +19,7 @@ export function SettingsSearch(props: {
 }) {
   const { t } = useLingui();
   const [active, setActive] = useState(0);
+  const { compositionProps, isComposing } = useCompositionGuard();
   const results = searchSettings(props.entries, props.query);
   const activeIndex = Math.min(active, Math.max(0, results.length - 1));
   const searching = props.query.trim().length > 0;
@@ -38,8 +40,9 @@ export function SettingsSearch(props: {
           props.onQueryChange(event.target.value);
         }}
         onClear={() => props.onQueryChange("")}
+        {...compositionProps}
         onKeyDown={(event) => {
-          if (event.nativeEvent.isComposing || !results.length) return;
+          if (isComposing(event) || !results.length) return;
           if (event.key === "ArrowDown") setActive(Math.min(activeIndex + 1, results.length - 1));
           else if (event.key === "ArrowUp") setActive(Math.max(activeIndex - 1, 0));
           else if (event.key === "Enter") props.onOpen(results[activeIndex]);
