@@ -789,7 +789,10 @@ button.paper-identity-source:is(:hover, :focus-visible) { color: var(--text-prim
 button.paper-identity-source:is(:hover, :focus-visible) > svg { opacity: 1; }
 button.paper-identity-source:focus-visible { outline: var(--focus-ring-width) solid var(--focus-ring); outline-offset: var(--focus-ring-offset); }
 @keyframes paper-identity-in { from { opacity: 0; translate: 0 var(--space-2); } }
-.paper-local-actions { min-width: 0; display: flex; align-items: center; justify-content: flex-end; gap: var(--space-2); }
+/* The actions never shrink: squeezed, the group's buttons would overflow it
+   leftwards over the source, and a click on its arrow would hit the PDF. The
+   identity beside it is what yields. */
+.paper-local-actions { flex: none; display: flex; align-items: center; justify-content: flex-end; gap: var(--space-2); }
 .paper-local-action { min-width: var(--control-size-icon); height: var(--control-size-icon); padding: 0 var(--space-4); border: 0; border-radius: var(--radius-icon); background: transparent; color: var(--text-secondary); display: inline-flex; align-items: center; justify-content: center; gap: var(--gap-inline-tight); font-size: var(--type-micro-size); font-weight: var(--weight-semibold); white-space: nowrap; }
 .paper-local-action-icon { width: var(--control-size-icon); padding: 0; }
 .paper-local-action:hover { background: var(--control-hover-surface); color: var(--text-primary); }

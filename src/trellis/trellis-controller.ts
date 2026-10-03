@@ -116,6 +116,8 @@ export type TrellisAppState = {
   openTabs: readonly string[];
   /** False until App restored this project's tabs; file panels are reconciled only after. */
   tabsReady: boolean;
+  /** Counts App's explicit opens: each one shows the active document, even one that was already active. */
+  revealRequest: number;
   /** Latest revision of the project file list, so snapshots can re-read. */
   filesRevision: number;
   /**
@@ -200,7 +202,7 @@ export class TrellisController {
   };
   readonly toolHosts = new Map<TrellisToolKind, HTMLDivElement>();
   readonly app = new SmallStore<TrellisAppState>({
-    projectRoot: "", activeKey: "", activeDirty: false, openTabs: [], tabsReady: false, filesRevision: 0,
+    projectRoot: "", activeKey: "", activeDirty: false, openTabs: [], tabsReady: false, revealRequest: 0, filesRevision: 0,
     loadAsset: null, assetRevision: 0,
   });
   readonly ui = new SmallStore<TrellisUiState>({
