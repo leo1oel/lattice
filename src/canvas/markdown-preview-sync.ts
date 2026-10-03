@@ -3,7 +3,7 @@ import type { EditorView } from "@codemirror/view";
 import { markdownPreviewSyncPolicy } from "../editor/markdown/markdown-preview-sync-policy";
 import { clamp } from "../settings/app-settings";
 import { clearTimer } from "../app/effect-helpers";
-import type { CanvasMode } from "../app-types";
+import type { CanvasMode, VisualMarkdownViewState } from "../app-types";
 
 /**
  * Trailing edge of the source → preview handoff.
@@ -123,13 +123,21 @@ export function interpolateScrollAnchors(
 
 export type ViewportSnapshot = { scrollTop: number; scrollRange: number };
 
-type PreviewViewportSnapshot = ViewportSnapshot & {
-  blockIndex?: number;
-  blockViewportTop?: number;
-  blockSourceOffset?: number;
-  chunkId?: string;
-  chunkBlockIndex?: number;
-};
+/**
+ * The top-level block at the top of a visual Markdown viewport, by its index
+ * in the document, how far its top sits from the viewport's, and its height
+ * (so a block rewrapped to another height keeps the same share above).
+ *
+ * A pixel offset does not survive a change of layout. The same Paper is drawn
+ * by its full reader (with a masthead, figures loaded as they were scrolled
+ * past) and by Trellis's read-only snapshot beside the notes (without either,
+ * often at another width), so one offset lands sections apart in the other. A
+ * long read-only document is drawn as passive chunks, of which only those near
+ * the viewport hold blocks; each chunk carries the index of its first block.
+ */
+export type PreviewAnchor = NonNullable<VisualMarkdownViewState["anchor"]>;
+
+export type PreviewViewportSnapshot = ViewportSnapshot & { anchor?: PreviewAnchor };
 
 export type MarkdownModeViewportHandoff = {
   path: string;
@@ -166,32 +174,45 @@ export function captureViewport(viewport: HTMLElement, range = scrollRange(viewp
   return { scrollTop: viewport.scrollTop, scrollRange: range };
 }
 
-function previewViewportBlocks(viewport: HTMLElement): HTMLElement[] {
-  return Array.from(viewport.querySelectorAll<HTMLElement>(".ProseMirror")).flatMap((proseMirror) => (
-    Array.from(proseMirror.children).filter((child): child is HTMLElement => child instanceof HTMLElement)
-  ));
+const CHUNK = "[data-visual-chunk-first]";
+
+const chunkFirst = (chunk: HTMLElement) => Number(chunk.dataset.visualChunkFirst);
+
+/** A drawn chunk's (or the whole editor's) top-level blocks: the outermost ProseMirror's children. */
+const blocksIn = (root: ParentNode) => root.querySelector(".ProseMirror")?.children;
+
+/** The first of `elements` (in vertical order) whose bottom is below `top`; their length when none is. */
+function firstReaching(elements: ArrayLike<Element>, top: number) {
+  let low = 0;
+  let high = elements.length;
+  while (low < high) {
+    const middle = (low + high) >> 1;
+    if (elements[middle]!.getBoundingClientRect().bottom > top) high = middle;
+    else low = middle + 1;
+  }
+  return low;
+}
+
+/**
+ * The block at the top of `viewport`; past a drawn chunk's last block (in its
+ * padding), that last block. Over a passive chunk not drawn yet, its first
+ * block at the chunk's offset: the place held only roughly, not lost.
+ */
+function capturePreviewAnchor(viewport: HTMLElement): PreviewAnchor | undefined {
+  const top = viewport.getBoundingClientRect().top;
+  const chunks = viewport.querySelectorAll<HTMLElement>(CHUNK);
+  const chunk = chunks.length ? chunks[firstReaching(chunks, top)] : null;
+  if (chunks.length && !chunk) return undefined;
+  const blocks = blocksIn(chunk ?? viewport);
+  const index = blocks?.length ? Math.min(firstReaching(blocks, top), blocks.length - 1) : 0;
+  const block = blocks?.[index];
+  if (!block) return chunk ? { block: chunkFirst(chunk), top: chunk.getBoundingClientRect().top - top } : undefined;
+  const rect = block.getBoundingClientRect();
+  return { block: (chunk ? chunkFirst(chunk) : 0) + index, top: rect.top - top, height: rect.height };
 }
 
 export function capturePreviewViewport(viewport: HTMLElement): PreviewViewportSnapshot {
-  const snapshot: PreviewViewportSnapshot = captureViewport(viewport);
-  const blocks = previewViewportBlocks(viewport);
-  const viewportRect = viewport.getBoundingClientRect();
-  const blockIndex = blocks.findIndex((block) => block.getBoundingClientRect().bottom > viewportRect.top);
-  const block = blocks[blockIndex];
-  if (!block) return snapshot;
-  const sourceOffset = Number(block.dataset.sourceOffset);
-  const chunk = block.closest<HTMLElement>("[data-visual-chunk-id]");
-  const chunkBlocks = chunk ? Array.from(chunk.querySelector<HTMLElement>(".ProseMirror")?.children ?? []) : [];
-  return {
-    ...snapshot,
-    blockIndex,
-    blockViewportTop: block.getBoundingClientRect().top - viewportRect.top,
-    ...(Number.isFinite(sourceOffset) ? { blockSourceOffset: sourceOffset } : {}),
-    ...(chunk?.dataset.visualChunkId ? {
-      chunkId: chunk.dataset.visualChunkId,
-      chunkBlockIndex: chunkBlocks.indexOf(block),
-    } : {}),
-  };
+  return { ...captureViewport(viewport), anchor: capturePreviewAnchor(viewport) };
 }
 
 export function restoreViewport(viewport: HTMLElement, snapshot: ViewportSnapshot, targetRange = scrollRange(viewport)): boolean {
@@ -201,23 +222,45 @@ export function restoreViewport(viewport: HTMLElement, snapshot: ViewportSnapsho
   return snapshot.scrollTop <= 0 || snapshot.scrollRange <= 0 || targetRange > 0;
 }
 
-export function restorePreviewViewport(viewport: HTMLElement, snapshot: PreviewViewportSnapshot): boolean {
-  const viewportReady = restoreViewport(viewport, snapshot);
-  if (snapshot.blockIndex == null || snapshot.blockViewportTop == null) return viewportReady;
-  const blocks = previewViewportBlocks(viewport);
-  let block = snapshot.blockSourceOffset == null
-    ? null
-    : blocks.find((candidate) => Number(candidate.dataset.sourceOffset) === snapshot.blockSourceOffset) ?? null;
-  if (!block && snapshot.chunkId != null && snapshot.chunkBlockIndex != null) {
-    const chunk = Array.from(viewport.querySelectorAll<HTMLElement>("[data-visual-chunk-id]"))
-      .find((candidate) => candidate.dataset.visualChunkId === snapshot.chunkId);
-    const candidate = chunk?.querySelector<HTMLElement>(".ProseMirror")?.children[snapshot.chunkBlockIndex];
-    if (candidate instanceof HTMLElement) block = candidate;
+/**
+ * Scroll `viewport` so `anchor`'s block sits where it was. False until that
+ * block is drawn and in place: a passive chunk draws only once it is near the
+ * viewport, so the caller tries again on a later frame.
+ */
+export function restorePreviewAnchor(viewport: HTMLElement, anchor: PreviewAnchor): boolean {
+  const top = viewport.getBoundingClientRect().top;
+  const chunks = viewport.querySelectorAll<HTMLElement>(CHUNK);
+  let block: Element | undefined;
+  if (chunks.length) {
+    let chunk: HTMLElement | undefined;
+    for (const candidate of chunks) {
+      if (chunkFirst(candidate) > anchor.block) break;
+      chunk = candidate;
+    }
+    if (!chunk) return false;
+    block = blocksIn(chunk)?.[anchor.block - chunkFirst(chunk)];
+    if (!block) {
+      // Bring the chunk to the viewport, which draws it.
+      viewport.scrollTop += chunk.getBoundingClientRect().top - top;
+      return false;
+    }
+  } else {
+    block = blocksIn(viewport)?.[anchor.block];
+    if (!block) return false;
   }
-  if (!block && snapshot.chunkId != null) return false;
-  block ??= blocks[snapshot.blockIndex] ?? null;
-  if (!block) return false;
-  const blockViewportTop = block.getBoundingClientRect().top - viewport.getBoundingClientRect().top;
-  if (Number.isFinite(blockViewportTop)) viewport.scrollTop += blockViewportTop - snapshot.blockViewportTop;
-  return viewportReady;
+  // The block straddling the top may have rewrapped (another width): the
+  // same share of it stays above the viewport, so the line read stays put.
+  const rect = block.getBoundingClientRect();
+  const share = anchor.top < 0 && anchor.height && rect.height ? rect.height / anchor.height : 1;
+  const offset = rect.top - top - anchor.top * share;
+  if (Math.abs(offset) < 1) return true;
+  const before = viewport.scrollTop;
+  viewport.scrollTop = before + offset;
+  // At either end of the range the block cannot move any further.
+  return viewport.scrollTop === before;
+}
+
+/** The saved block back in place when there is one, else the saved share of the scroll range. */
+export function restorePreviewViewport(viewport: HTMLElement, snapshot: PreviewViewportSnapshot): boolean {
+  return snapshot.anchor ? restorePreviewAnchor(viewport, snapshot.anchor) : restoreViewport(viewport, snapshot);
 }

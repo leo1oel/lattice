@@ -12,6 +12,7 @@
  */
 import { createContext, useContext, useSyncExternalStore } from "react";
 import type { MenuEntry, Placement, WorkspaceHandle } from "@danfessler/trellis";
+import type { AssetPreview, FileViewState } from "../app-types";
 import { isHtmlFilePath } from "../app-utils";
 import type { BuildOutcome } from "../app/use-build-pipeline";
 import type { LayoutPreset } from "./trellis-layout";
@@ -70,9 +71,12 @@ export type TrellisBridge = {
   /** The last known text of a project file, for an inactive panel's snapshot. */
   readText: (path: string) => Promise<string | null>;
   /** A Paper's reading text (the view it was read in, else the other), for an inactive Paper panel. */
-  readPaper: (key: string) => Promise<{ path: string; text: string; scrollTop: number } | null>;
-  /** The remembered scroll offset of a text file's editor. */
-  textScrollTop: (path: string) => number | null;
+  readPaper: (key: string) => Promise<{ path: string; text: string } | null>;
+  /** A project asset (a PDF) as its preview reads it, for an inactive panel beside the active document; rejects with the backend's refusal. */
+  readAsset: (path: string) => Promise<AssetPreview>;
+  /** Where the reader was in a file (its scroll, a PDF's page), shared by its live view and its snapshot. */
+  viewState: (path: string) => FileViewState | undefined;
+  rememberViewState: (path: string, update: Partial<FileViewState>) => void;
   /** Open (or re-open) the drawer behind a tool panel restored from a saved layout. */
   openTool: (kind: TrellisToolKind) => void;
   agentShown: () => void;
@@ -114,6 +118,14 @@ export type TrellisAppState = {
   tabsReady: boolean;
   /** Latest revision of the project file list, so snapshots can re-read. */
   filesRevision: number;
+  /**
+   * App's project-scoped, cached image loader, for snapshots that show a
+   * document's relative images (a Paper's figures). Its identity changes with
+   * the project, which fences a switch; `assetRevision` bumps when a loaded
+   * image changes on disk.
+   */
+  loadAsset: ((path: string) => Promise<string | null>) | null;
+  assetRevision: number;
 };
 
 /** Workspace state App and the titlebar react to. */
@@ -189,6 +201,7 @@ export class TrellisController {
   readonly toolHosts = new Map<TrellisToolKind, HTMLDivElement>();
   readonly app = new SmallStore<TrellisAppState>({
     projectRoot: "", activeKey: "", activeDirty: false, openTabs: [], tabsReady: false, filesRevision: 0,
+    loadAsset: null, assetRevision: 0,
   });
   readonly ui = new SmallStore<TrellisUiState>({
     ready: false, present: {}, visible: {}, pdfLive: false, editorHibernated: false, editorVisible: false,
@@ -392,10 +405,16 @@ export class TrellisController {
     return () => { this.wsListeners.delete(listener); };
   };
 
-  /** A drawer opened in App: show (or reveal) its tool panel. */
+  /**
+   * A drawer opened in App: show (or reveal) its tool panel. A panel that is
+   * already in the layout was restored with it (a drawer's panel closes with
+   * the drawer) and asked for the drawer itself, so it stays where the layout
+   * put it, even parked hidden by a Writing or Reading layout, rather than
+   * moving into the document panel.
+   */
   openDrawer(kind: TrellisToolKind, close: () => void) {
     this.openDrawers.set({ [kind]: close });
-    this.revealTool(kind);
+    if (!this.ws?.view(kind)) this.revealTool(kind);
   }
 
   /** The drawer closed in App: its panel goes too, unless it was already closed there. */

@@ -398,6 +398,91 @@ describe("papers", () => {
     await waitForSelectedTab("draft.md");
   });
 
+  it("shows a paper's figures and names its reader action while the notes are written beside it", async () => {
+    const figure = "data:image/svg+xml;base64,PHN2Zy8+";
+    renderApp({
+      ...projectCommands(projectSnapshot({ files: fileNodes("main.tex", "notes.md") }), "\\documentclass{main}"),
+      list_papers: () => [attentionPaper()],
+      read_paper: "# Attention\n\n![Figure 1](figure.svg)\n\nPaper content.",
+      read_project_asset: (args) => ({ path: argPath(args), mimeType: "image/svg+xml", base64: "PHN2Zy8+" }),
+    });
+    await openTreeFile("notes.md");
+    await openPaper("Attention Is All You Need");
+    await screen.findByRole("heading", { name: "Attention" });
+    fireEvent.click(within(document.querySelector(".trellis-presets")!).getByRole("tab", { name: "Reading" }));
+    fireEvent.pointerDown(await findElement(".trellis-snapshot"), { button: 0 });
+    await waitForSelectedTab("notes.md");
+    const snapshot = await findElement(".trellis-paper-snapshot");
+    await waitFor(() => expect(snapshot).toHaveTextContent("Paper content."));
+    // The figure is a project file beside the paper's Markdown, read the way
+    // the full reader reads it rather than requested from the webview by its
+    // relative path.
+    await waitFor(() => expect(within(snapshot).getByRole("img", { name: "Figure 1" })).toHaveAttribute("src", figure));
+    expect(invoke).toHaveBeenCalledWith("read_project_asset", { path: ".research/papers/1706.03762/figure.svg", projectRoot: ROOT });
+    // A narrow paper header hides the action's text, so its name cannot come from that text.
+    expect(within(snapshot).getByRole("button", { name: "Open the reader" })).toHaveAttribute("aria-label", "Open the reader");
+  });
+
+  it("keeps a project PDF open beside the notes in the Reading layout", async () => {
+    renderApp({
+      ...projectCommands(projectSnapshot({ files: fileNodes("main.tex", "notes.md", "reference.pdf") }), "\\documentclass{main}"),
+      read_project_asset: (args) => ({ path: argPath(args), mimeType: "application/pdf", ranges: { length: 8, version: "v1" } }),
+    });
+    await openTreeFile("notes.md");
+    fireEvent.click(await findProjectTreeItem("reference.pdf"));
+    await waitForSelectedTab("reference.pdf");
+    fireEvent.click(within(document.querySelector(".trellis-presets")!).getByRole("tab", { name: "Reading" }));
+    const reading = () => document.querySelector<HTMLElement>('[data-trellis-part="panel"][data-panel="panel-reading"]')!;
+    await waitFor(() => expect(reading()).toBeInTheDocument());
+    // Writing the notes: the PDF stays open where it was read rather than going to sleep.
+    fireEvent.pointerDown(await findElement(".trellis-snapshot"), { button: 0 });
+    await waitForSelectedTab("notes.md");
+    expect(within(reading()).getByRole("tab", { name: /reference\.pdf/ })).toHaveAttribute("aria-selected", "true");
+    await findElement(".trellis-pdf-snapshot");
+    expect(screen.queryByText("Sleeping · click to open")).not.toBeInTheDocument();
+    expect(invoke).toHaveBeenCalledWith("read_project_asset", { path: "reference.pdf" });
+  });
+
+  it("moves a project PDF beside the notes to its new version and notes its removal", async () => {
+    mockPdfDocument(() => pdfDocumentStub(1, {
+      render: () => ({ promise: Promise.resolve(), cancel: vi.fn() }), getTextContent: async () => ({ items: [] }),
+    }));
+    let ranges = { length: 8, version: "v1" };
+    let removed = false;
+    const missing = () => new Error("That file or folder no longer exists.");
+    renderApp({
+      ...projectCommands(projectSnapshot({ files: fileNodes("main.tex", "notes.md", "reference.pdf") }), "\\documentclass{main}"),
+      read_project_asset: (args) => {
+        if (removed) throw missing();
+        return { path: argPath(args), mimeType: "application/pdf", ranges };
+      },
+      read_project_asset_range: () => { throw removed ? missing() : new Error("This PDF changed on disk."); },
+    });
+    await openTreeFile("notes.md");
+    fireEvent.click(await findProjectTreeItem("reference.pdf"));
+    await waitForSelectedTab("reference.pdf");
+    fireEvent.click(within(document.querySelector(".trellis-presets")!).getByRole("tab", { name: "Reading" }));
+    fireEvent.pointerDown(await findElement(".trellis-snapshot"), { button: 0 });
+    await waitForSelectedTab("notes.md");
+    const snapshot = await findElement(".trellis-pdf-snapshot");
+    await within(snapshot).findByLabelText("PDF page 1");
+    const lastRange = () => (vi.mocked(getDocument).mock.calls.at(-1)![0] as unknown as {
+      range: { requestDataRange(begin: number, end: number): void };
+    }).range;
+    // Rewritten on disk while the notes are typed: the PDF beside them reads the new version.
+    ranges = { length: 12, version: "v2" };
+    lastRange().requestDataRange(0, 4);
+    await waitFor(() => expect(vi.mocked(getDocument)).toHaveBeenCalledWith(expect.objectContaining({
+      range: expect.objectContaining({ length: 12 }),
+    })));
+    // Removed: it stays open beside the notes with a notice.
+    removed = true;
+    await within(snapshot).findByLabelText("PDF page 1");
+    lastRange().requestDataRange(0, 4);
+    expect(await within(snapshot).findByText("This PDF was removed from the project.")).toHaveAttribute("role", "status");
+    expect(screen.getByRole("tab", { name: /notes\.md/ })).toHaveAttribute("aria-selected", "true");
+  });
+
   it("opens a captured webpage without offering it as an arXiv PDF", async () => {
     renderApp({
       ...projectCommands(projectSnapshot(), "\\documentclass{main}"),

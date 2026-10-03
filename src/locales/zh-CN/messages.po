@@ -5277,6 +5277,10 @@ msgstr "请先打开此修订建议所在的文件"
 msgid "Open the full paper Markdown"
 msgstr "打开论文全文 Markdown"
 
+#: src/trellis/trellis-workspace.tsx
+msgid "Open the full reader · your notes stay beside it"
+msgstr "打开完整阅读器 · 笔记仍在一旁"
+
 #: src/overleaf/overleaf-connect.tsx
 msgid "Open the linked Overleaf project before changing its sync setting."
 msgstr "请先打开已关联的 Overleaf 项目，再更改它的同步设置。"

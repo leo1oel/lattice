@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
-import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { TrellisController } from "./trellis-controller";
 import { TrellisTitlebar } from "./trellis-titlebar";
 
@@ -92,5 +92,88 @@ describe("titlebar panel controls in a narrow window", () => {
     ]);
     fireEvent.click(menu.getByRole("menuitemradio", { name: "Reading" }));
     expect(presets).toEqual(["reading"]);
+  });
+});
+
+/** The titlebar's controls with the presets labelled and without, and the room the window leaves it. */
+const LABELLED = 860;
+const COMPACT = 640;
+const layout = { room: 1200, chipsOverflow: 0, chipTruncated: 0 };
+const observers = new Set<() => void>();
+
+const bar = () => document.querySelector<HTMLElement>(".trellis-titlebar")!;
+const resize = (room: number) => act(() => {
+  layout.room = room;
+  for (const notify of observers) notify();
+});
+
+describe("titlebar layout presets", () => {
+  beforeEach(() => {
+    layout.room = 1200;
+    layout.chipsOverflow = 0;
+    layout.chipTruncated = 0;
+    vi.stubGlobal("ResizeObserver", class {
+      private readonly notify: () => void;
+      constructor(callback: () => void) { this.notify = () => callback(); }
+      // Like a browser's, it reports a target once when it starts observing it.
+      observe() {
+        observers.add(this.notify);
+        this.notify();
+      }
+      unobserve() {}
+      disconnect() { observers.delete(this.notify); }
+    });
+    vi.spyOn(HTMLElement.prototype, "clientWidth", "get").mockImplementation(function (this: HTMLElement) {
+      if (this.classList.contains("trellis-titlebar")) return layout.room;
+      return this.classList.contains("trellis-titlebar-hidden") ? 100 : 0;
+    });
+    vi.spyOn(HTMLElement.prototype, "scrollWidth", "get").mockImplementation(function (this: HTMLElement) {
+      // Content wider than the room overflows it; narrower, the bar is as wide as the room.
+      if (this.classList.contains("trellis-titlebar")) return Math.max(layout.room, this.hasAttribute("data-compact") ? COMPACT : LABELLED);
+      if (this.classList.contains("trellis-hidden-chip")) return layout.chipTruncated;
+      return this.classList.contains("trellis-titlebar-hidden") ? 100 + layout.chipsOverflow : 0;
+    });
+  });
+
+  afterEach(() => {
+    observers.clear();
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  });
+
+  it("keeps their labels while they fit the titlebar's room, whatever the window's width", () => {
+    // 857px of room with an 860px need drops them; the labels are not tied to a viewport breakpoint.
+    render(<TrellisTitlebar controller={new TrellisController()} />);
+    expect(bar()).not.toHaveAttribute("data-compact");
+    resize(LABELLED);
+    expect(bar()).not.toHaveAttribute("data-compact");
+    resize(LABELLED - 3);
+    expect(bar()).toHaveAttribute("data-compact");
+    // Compact, the room is held to the labelled need, so nothing flips back and forth.
+    resize(LABELLED - 1);
+    expect(bar()).toHaveAttribute("data-compact");
+    resize(LABELLED);
+    expect(bar()).not.toHaveAttribute("data-compact");
+  });
+
+  it("drops the labels before a hidden panel's restore chip is squeezed out", () => {
+    const controller = new TrellisController();
+    render(<TrellisTitlebar controller={controller} />);
+    layout.chipsOverflow = 40;
+    act(() => controller.ui.set({ hidden: [{ panelId: "panel-papers", title: "Papers" }] }));
+    expect(bar()).toHaveAttribute("data-compact");
+    // The chip shown in full again, there is room to label the presets.
+    layout.chipsOverflow = 0;
+    act(() => controller.ui.set({ hidden: [] }));
+    expect(bar()).not.toHaveAttribute("data-compact");
+  });
+
+  it("drops the labels before a restore chip's title is cut to an ellipsis", () => {
+    // The chips shrink one by one inside their row, so the row itself need not overflow.
+    const controller = new TrellisController();
+    render(<TrellisTitlebar controller={controller} />);
+    layout.chipTruncated = 30;
+    act(() => controller.ui.set({ hidden: [{ panelId: "panel-agent", title: "Agent" }] }));
+    expect(bar()).toHaveAttribute("data-compact");
   });
 });

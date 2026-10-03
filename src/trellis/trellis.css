@@ -370,6 +370,7 @@
 }
 .trellis-snapshot:hover .trellis-snapshot-badge { opacity: 1; }
 .trellis-paper-snapshot { position: absolute; inset: 0; display: flex; flex-direction: column; background: var(--editor-bg); }
+.trellis-pdf-snapshot { position: absolute; inset: 0; display: flex; flex-direction: column; background: var(--editor-bg); }
 .trellis-paper-snapshot-scroll { flex: 1 1 0; height: auto; min-height: 0; overflow-y: auto; overflow-x: hidden; }
 
 /* ---------------------------------------------------------------- panel menus */
@@ -398,14 +399,18 @@
   background: transparent;
   color: var(--text-secondary);
   font-size: var(--type-label-size);
+  /* One line, so a control short of room overflows the bar (which the preset
+     fit measures) instead of wrapping a CJK label character by character. */
+  white-space: nowrap;
   transition: background-color var(--duration-quick) var(--ease-out), color var(--duration-quick) var(--ease-out);
 }
 .trellis-titlebar .trellis-titlebar-toggle { width: var(--control-height-compact); justify-content: center; padding: 0; }
 .trellis-titlebar button:hover { background: var(--chrome-hover-surface); color: var(--text-primary); }
 .trellis-titlebar .trellis-titlebar-toggle[aria-pressed="true"] { background: color-mix(in srgb, var(--text-primary) 8%, transparent); color: var(--text-primary); }
 /* Layout presets: a quiet track beside the panel controls, the chosen layout
-   a raised plate that slides between them. Short of room, only icons stay
-   (their names remain for tooltips and assistive tech). */
+   a raised plate that slides between them. Short of room (measured by the
+   titlebar, which marks itself data-compact), only icons stay (their names
+   remain for tooltips and assistive tech). */
 .trellis-titlebar .trellis-presets.ui-segmented {
   height: var(--control-height-compact);
   background: color-mix(in srgb, var(--text-primary) 5%, transparent);
@@ -422,10 +427,8 @@
 .trellis-titlebar .trellis-presets .trellis-preset.active { color: var(--text-primary); cursor: default; }
 .trellis-presets .sliding-tab-pill { background: var(--segmented-selected-surface); box-shadow: 0 0 0 1px var(--border-strong), var(--segmented-selected-shadow); }
 .trellis-presets .sliding-tab-label { gap: var(--space-3); }
-@container trellis-titlebar (max-width: 580px) {
-  .trellis-titlebar .trellis-presets .trellis-preset { padding-inline: var(--space-4); }
-  .trellis-preset-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
-}
+.trellis-titlebar[data-compact] .trellis-presets .trellis-preset { padding-inline: var(--space-4); }
+.trellis-titlebar[data-compact] .trellis-preset-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 /* Maximize and Reset layout close the Panels menu. */
 @container trellis-titlebar (max-width: 400px) { .trellis-titlebar-layout-actions { display: none; } }
 /* The Panels menu reopens each of these panels; their own headers hide them. */

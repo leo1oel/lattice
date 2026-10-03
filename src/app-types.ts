@@ -94,6 +94,18 @@ export type ImageFileViewState = ScrollFileViewState & {
 export type HtmlFileViewState = ImageFileViewState;
 
 /**
+ * Where a visual Markdown document was read: its scroll, and the block at the
+ * top of the viewport (its index among the document's top-level blocks, its
+ * top relative to the viewport's, and its height). A Paper is drawn by its
+ * full reader and, beside the notes, by a read-only snapshot laid out
+ * differently (no masthead, figures not yet loaded above, another width), so
+ * only the block finds the same text in both.
+ */
+export type VisualMarkdownViewState = ScrollFileViewState & {
+  anchor?: { block: number; top: number; height?: number };
+};
+
+/**
  * Per-user view state only. These values are stored in Lattice's local app
  * settings and must never be serialized into project files or shared Y.Docs.
  */
@@ -105,7 +117,7 @@ export type FileViewState = {
   image?: ImageFileViewState;
   html?: HtmlFileViewState;
   openSlide?: OpenSlideFileViewState;
-  visualMarkdown?: ScrollFileViewState;
+  visualMarkdown?: VisualMarkdownViewState;
 };
 
 export type FileNode = {

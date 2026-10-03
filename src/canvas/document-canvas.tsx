@@ -71,7 +71,8 @@ import { EditorStatusBar } from "./editor-status-bar";
 import { isLatexSourcePath, useOptionalKeymapExtensions, useTextLanguageExtensions } from "./editor-extensions";
 import { HtmlPreview } from "./html-preview";
 import {
-  captureViewport, minimalTextChange, rangesWithinPreview, restoreViewport, spliceMarkdownBody, useSettledPreviewText,
+  capturePreviewViewport, minimalTextChange, rangesWithinPreview, restorePreviewAnchor, restorePreviewViewport, restoreViewport,
+  spliceMarkdownBody, useSettledPreviewText,
 } from "./markdown-preview-sync";
 import { PaperReader } from "./paper-reader";
 import { ProjectAssetPreview } from "./project-asset-preview";
@@ -933,29 +934,63 @@ export function DocumentCanvas(props: {
     const saved = quoteFallback?.path === path ? undefined
       : returnViewport?.path === path ? returnViewport : getFileViewState?.(path)?.visualMarkdown;
     if (!quoteFallback && returnViewport?.path === path) paperReturnViewportRef.current = null;
+    const anchor = saved?.anchor;
+    const snapshot = saved && { ...saved, scrollRange: saved.scrollRange ?? 0 };
     let restoring = Boolean(saved);
     let attempts = 0;
     // A jump into this file owns its viewport: the remembered place would land
     // first and the jump second, two moves where one was asked for.
     const jumping = () => latestRef.current.requests.navigation?.path === path || visualRevealRef.current !== null;
-    // Retried each frame until the preview is tall enough to hold the saved place.
+    // Retried each frame until the preview is tall enough to hold the saved
+    // place, then (with a block saved) until that block is back where it was:
+    // the offset alone drifts wherever the layout changed above it.
     const [scheduleRestore, cancelRestore] = frameCoalescer(() => {
       attempts += 1;
       if (jumping()) {
         restoring = false;
         return;
       }
-      const ready = saved && restoreViewport(viewport, { scrollTop: saved.scrollTop, scrollRange: saved.scrollRange ?? 0 });
+      const ready = snapshot && (attempts > 1 ? restorePreviewViewport(viewport, snapshot) : restoreViewport(viewport, snapshot) && !anchor);
       if (!ready && attempts < 30) scheduleRestore();
       else restoring = false;
     });
+    let lastAnchor = anchor;
+    let width = viewport.clientWidth;
     const report = () => {
-      if (!restoring) onFileViewState?.(path, { visualMarkdown: captureViewport(viewport) });
+      // A preview being torn down has no layout left to read a place from;
+      // one rewrapped at a width the observer below has yet to see scrolled
+      // only by that reflow (native anchoring), not by the reader.
+      if (restoring || !viewport.isConnected || (viewport.clientWidth && viewport.clientWidth !== width)) return;
+      const place = capturePreviewViewport(viewport);
+      lastAnchor = place.anchor;
+      onFileViewState?.(path, { visualMarkdown: place });
     };
+    // The block last read at the top stays there through a change of width
+    // (a panel resized, a Writing or Reading layout taking over), as the text
+    // above it rewraps; WebKit has no native scroll anchoring to do it. The
+    // observer runs after that layout and before it paints.
+    let resizeFrames = 0;
+    const [scheduleKeep, cancelKeep] = frameCoalescer(() => {
+      resizeFrames += 1;
+      if (lastAnchor && !restorePreviewAnchor(viewport, lastAnchor) && resizeFrames < 10) scheduleKeep();
+    });
+    const resizeObserver = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(() => {
+      // Hidden (no width) is no new width: the place waits for it to show again.
+      if (viewport.clientWidth === width || !viewport.clientWidth) return;
+      width = viewport.clientWidth;
+      // Split mode's scroll sync and its insertion lock own this scroll, and
+      // both turn native anchoring off while they do.
+      if (restoring || !lastAnchor || viewport.style.overflowAnchor === "none") return;
+      resizeFrames = 0;
+      if (!restorePreviewAnchor(viewport, lastAnchor)) scheduleKeep();
+    });
+    resizeObserver?.observe(viewport);
     viewport.addEventListener("scroll", report, { passive: true });
     if (saved) scheduleRestore();
     markdownPreviewPersistenceCleanupRef.current = () => {
       cancelRestore();
+      cancelKeep();
+      resizeObserver?.disconnect();
       restoring = false;
       report();
       viewport.removeEventListener("scroll", report);

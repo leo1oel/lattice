@@ -47,6 +47,24 @@ describe("TrellisController", () => {
     expect(calls).toEqual(["focus history"]);
   });
 
+  it("leaves a tool panel restored from a saved layout where it was when its drawer reopens", () => {
+    // Reloaded in the Reading layout, the Source control panel parked hidden
+    // asked for its drawer, which then docked it into the notes.
+    const controller = new TrellisController();
+    const { ws, calls } = fakeWorkspace([
+      { id: "file", type: "file", params: { key: "notes.md" }, placement: "docked", visible: true, panelId: "panel-notes" },
+      { id: "git", type: "git", placement: "hidden", visible: false, panelId: "parked-git" },
+    ]);
+    controller.attachWorkspace(ws);
+    controller.app.set({ activeKey: "notes.md" });
+    controller.openDrawer("git", () => {});
+    expect(ws.dock).not.toHaveBeenCalled();
+    expect(calls).toEqual([]);
+    // A drawer opened with no panel of its own still brings one up beside the document.
+    controller.openDrawer("comments", () => {});
+    expect(ws.open).toHaveBeenCalledWith("comments", { id: "comments", placement: { into: "panel-notes" } });
+  });
+
   it("opens tools in the last panel under the pointer and moves existing tools there", () => {
     const controller = new TrellisController();
     const { ws } = fakeWorkspace([
