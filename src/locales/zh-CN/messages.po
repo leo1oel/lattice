@@ -499,6 +499,7 @@ msgid "A spreadsheet must contain between 1 and 200 sheets"
 msgstr "电子表格必须包含 1 到 200 个工作表"
 
 #: src/overleaf/overleaf-connect.tsx
+#: src/settings/settings-search-index.ts
 msgid "A sync asks first"
 msgstr "同步时先询问"
 
@@ -1225,6 +1226,7 @@ msgid "Build to count"
 msgstr "构建后统计"
 
 #: src/settings/settings-dialog.tsx
+#: src/settings/settings-search-index.ts
 msgid "Build with ⌘S. Edits still save on their own"
 msgstr "用 ⌘S 构建，编辑内容仍会自动保存"
 
@@ -1238,6 +1240,7 @@ msgid "Builds"
 msgstr "构建"
 
 #: src/settings/settings-dialog.tsx
+#: src/settings/settings-search-index.ts
 msgid "Builds 1.2 s after you stop typing"
 msgstr "停止输入 1.2 秒后构建"
 
@@ -1828,8 +1831,10 @@ msgstr "评论显示范围"
 msgid "Comments"
 msgstr "评论"
 
+#. placeholder {0}: knownAuthorName ?? ""
 #. placeholder {0}: props.knownAuthorName
 #: src/settings/settings-dialog.tsx
+#: src/settings/settings-search-index.ts
 msgid "Comments are signed {0}, from Git or Overleaf"
 msgstr "评论署名为 {0}（来自 Git 或 Overleaf）"
 
@@ -2770,6 +2775,7 @@ msgid "Edits on both sides merge when you resume"
 msgstr "恢复后会合并两边的编辑"
 
 #: src/overleaf/overleaf-connect.tsx
+#: src/settings/settings-search-index.ts
 msgid "Edits sync live with Overleaf"
 msgstr "编辑内容会与 Overleaf 实时同步"
 
@@ -5303,6 +5309,7 @@ msgid "Open a project from Overleaf"
 msgstr "从 Overleaf 打开项目"
 
 #: src/settings/settings-dialog.tsx
+#: src/settings/settings-search-index.ts
 msgid "Open a project to add terms"
 msgstr "打开项目后即可添加术语"
 
@@ -5576,10 +5583,12 @@ msgid "Overleaf history"
 msgstr "Overleaf 历史"
 
 #: src/overleaf/overleaf-connect.tsx
+#: src/settings/settings-search-index.ts
 msgid "Overleaf history keeps a copy"
 msgstr "Overleaf 历史记录会保留副本"
 
 #: src/overleaf/overleaf-connect.tsx
+#: src/settings/settings-search-index.ts
 msgid "Overleaf keeps its copy"
 msgstr "Overleaf 保留其副本"
 
@@ -7815,6 +7824,7 @@ msgid "Sync mode"
 msgstr "同步模式"
 
 #: src/overleaf/overleaf-connect.tsx
+#: src/settings/settings-search-index.ts
 msgid "Sync only when you click the sync button"
 msgstr "仅在点击同步按钮时同步"
 

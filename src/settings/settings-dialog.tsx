@@ -99,7 +99,7 @@ export function SettingsDialog(props: SettingsDialogProps) {
   const settingsViewportRef = useRef<HTMLDivElement>(null);
   const [projectWordDraft, setProjectWordDraft] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
-  const searchEntries = useSettingsSearchIndex(Boolean(props.project));
+  const searchEntries = useSettingsSearchIndex(Boolean(props.project), props.knownAuthorName);
   /** The row a search result asked for, revealed once its page has rendered. */
   // A fresh object per opening, so opening the same row again reveals it again.
   const [reveal, setReveal] = useState<{ entry: SettingsSearchEntry } | null>(null);

@@ -499,6 +499,7 @@ msgid "A spreadsheet must contain between 1 and 200 sheets"
 msgstr "A spreadsheet must contain between 1 and 200 sheets"
 
 #: src/overleaf/overleaf-connect.tsx
+#: src/settings/settings-search-index.ts
 msgid "A sync asks first"
 msgstr "A sync asks first"
 
@@ -1225,6 +1226,7 @@ msgid "Build to count"
 msgstr "Build to count"
 
 #: src/settings/settings-dialog.tsx
+#: src/settings/settings-search-index.ts
 msgid "Build with ⌘S. Edits still save on their own"
 msgstr "Build with ⌘S. Edits still save on their own"
 
@@ -1238,6 +1240,7 @@ msgid "Builds"
 msgstr "Builds"
 
 #: src/settings/settings-dialog.tsx
+#: src/settings/settings-search-index.ts
 msgid "Builds 1.2 s after you stop typing"
 msgstr "Builds 1.2 s after you stop typing"
 
@@ -1828,8 +1831,10 @@ msgstr "Comment visibility"
 msgid "Comments"
 msgstr "Comments"
 
+#. placeholder {0}: knownAuthorName ?? ""
 #. placeholder {0}: props.knownAuthorName
 #: src/settings/settings-dialog.tsx
+#: src/settings/settings-search-index.ts
 msgid "Comments are signed {0}, from Git or Overleaf"
 msgstr "Comments are signed {0}, from Git or Overleaf"
 
@@ -2770,6 +2775,7 @@ msgid "Edits on both sides merge when you resume"
 msgstr "Edits on both sides merge when you resume"
 
 #: src/overleaf/overleaf-connect.tsx
+#: src/settings/settings-search-index.ts
 msgid "Edits sync live with Overleaf"
 msgstr "Edits sync live with Overleaf"
 
@@ -5303,6 +5309,7 @@ msgid "Open a project from Overleaf"
 msgstr "Open a project from Overleaf"
 
 #: src/settings/settings-dialog.tsx
+#: src/settings/settings-search-index.ts
 msgid "Open a project to add terms"
 msgstr "Open a project to add terms"
 
@@ -5576,10 +5583,12 @@ msgid "Overleaf history"
 msgstr "Overleaf history"
 
 #: src/overleaf/overleaf-connect.tsx
+#: src/settings/settings-search-index.ts
 msgid "Overleaf history keeps a copy"
 msgstr "Overleaf history keeps a copy"
 
 #: src/overleaf/overleaf-connect.tsx
+#: src/settings/settings-search-index.ts
 msgid "Overleaf keeps its copy"
 msgstr "Overleaf keeps its copy"
 
@@ -7815,6 +7824,7 @@ msgid "Sync mode"
 msgstr "Sync mode"
 
 #: src/overleaf/overleaf-connect.tsx
+#: src/settings/settings-search-index.ts
 msgid "Sync only when you click the sync button"
 msgstr "Sync only when you click the sync button"
 

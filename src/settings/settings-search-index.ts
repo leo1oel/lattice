@@ -6,7 +6,8 @@ import type { SettingsTab } from "../app-types";
  * a page-level entry has none and only opens its page. `terms` are the few
  * extra words people search for that the label does not say (its option
  * names, the tool it drives), localized like the label. `description` is
- * the row's own description, when it does not depend on state.
+ * every description the row can show, one per state it switches between, so
+ * a search for either wording finds it; the updater's live status is left out.
  */
 export type SettingsSearchEntry = {
   tab: SettingsTab;
@@ -23,7 +24,7 @@ export type SettingsSearchEntry = {
  * Synara's embedded settings, which the host neither reads nor restyles, so
  * they are found by their page name alone and open as they always do.
  */
-export function useSettingsSearchIndex(hasProject: boolean): SettingsSearchEntry[] {
+export function useSettingsSearchIndex(hasProject: boolean, knownAuthorName: string | null): SettingsSearchEntry[] {
   const { t } = useLingui();
   const appearance = t`Appearance`;
   const editor = t`Editor & builds`;
@@ -41,10 +42,10 @@ export function useSettingsSearchIndex(hasProject: boolean): SettingsSearchEntry
     { tab: "appearance", place: appearance, id: "titlebar-tools", label: t`Title bar tools` },
     { tab: "editor", label: editor, place: t`General` },
     { tab: "editor", place: editor, id: "editor-keymap", label: t`Editor keymap`, terms: `Vim Emacs ${t({ message: "shortcuts", comment: "Search words for the Editor keymap setting, space-separated" })}` },
-    { tab: "editor", place: editor, id: "author-name", label: t`Your name`, terms: t`Comments`, description: t`Signs your comments when Git and Overleaf have no name` },
+    { tab: "editor", place: editor, id: "author-name", label: t`Your name`, terms: t`Comments`, description: `${t`Signs your comments when Git and Overleaf have no name`} ${t`Comments are signed ${knownAuthorName ?? ""}, from Git or Overleaf`}` },
     { tab: "editor", place: editor, id: "spellcheck", label: t`Check spelling in prose`, description: t`English, with Harper` },
-    { tab: "editor", place: editor, id: "project-dictionary", label: t`Project dictionary`, description: t`Terms Harper should accept in this project` },
-    { tab: "editor", place: editor, id: "auto-build", label: t`Automatic build` },
+    { tab: "editor", place: editor, id: "project-dictionary", label: t`Project dictionary`, description: `${t`Terms Harper should accept in this project`} ${t`Open a project to add terms`}` },
+    { tab: "editor", place: editor, id: "auto-build", label: t`Automatic build`, description: `${t`Builds 1.2 s after you stop typing`} ${t`Build with ⌘S. Edits still save on their own`}` },
     { tab: "editor", place: editor, id: "aux-files", label: t`Auxiliary files`, terms: `${builds} ${t`Clean`}`, description: t`Removes .aux, .log and other build files` },
     ...(hasProject ? [
       { tab: "editor", place: editor, id: "compile-engine", label: t`Compile engine`, terms: `${builds} pdfLaTeX XeLaTeX LuaLaTeX latexmk`, description: t`A project latexmkrc overrides this` },
@@ -57,8 +58,8 @@ export function useSettingsSearchIndex(hasProject: boolean): SettingsSearchEntry
     { tab: "api", label: t`Skills`, place: t`Agent` },
     { tab: "overleaf", label: overleaf, place: t`Integrations` },
     { tab: "overleaf", place: overleaf, id: "overleaf-connection", label: t`Connection` },
-    { tab: "overleaf", place: overleaf, id: "overleaf-sync-mode", label: t`Sync mode` },
-    { tab: "overleaf", place: overleaf, id: "overleaf-remote-delete", label: t`When you delete a file here` },
+    { tab: "overleaf", place: overleaf, id: "overleaf-sync-mode", label: t`Sync mode`, description: `${t`Edits sync live with Overleaf`} ${t`Sync only when you click the sync button`}` },
+    { tab: "overleaf", place: overleaf, id: "overleaf-remote-delete", label: t`When you delete a file here`, description: `${t`A sync asks first`} ${t`Overleaf history keeps a copy`} ${t`Overleaf keeps its copy`}` },
     { tab: "literature", label: literature, place: t`Integrations` },
     ...[["openalex", "OpenAlex"], ["semanticscholar", "Semantic Scholar"], ["firecrawl", "Firecrawl"]].map(([id, name]) => (
       { tab: "literature", place: literature, id: `literature-${id}`, label: name, terms: t`API key` } satisfies SettingsSearchEntry
