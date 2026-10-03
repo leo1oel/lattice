@@ -133,8 +133,11 @@
   .pdf-zoom-controls { gap: var(--space-1); }
   .pdf-toolbar .pdf-overflow { display: none; }
   .pdf-toolbar .pdf-overflow-trigger { display: grid; }
-  /* "Zoom percentage" in the menu brings the field back until it is left. */
-  .pdf-toolbar[data-zoom-entry] .pdf-zoom-value { display: inline-flex; }
+  /* "Zoom percentage" in the menu brings the field back until it is left. It
+     floats over the end of Find rather than taking a slot in the row, so the
+     measured minimum holds and Find keeps its width. */
+  .pdf-toolbar[data-zoom-entry] .pdf-zoom-controls { position: relative; }
+  .pdf-toolbar[data-zoom-entry] .pdf-zoom-value { position: absolute; inset-block: 0; right: calc(100% + var(--space-2)); z-index: 1; margin-block: auto; display: inline-flex; }
 }
 /* The same narrow layout, for the one synchronous read that measures the PDF
    panel's minimum width (pdf-toolbar-min-width.ts); keep the two in step. */
