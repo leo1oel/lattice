@@ -931,14 +931,17 @@ const TrellisWorkspace = memo(function TrellisWorkspace({ controller, projectRoo
   // The reset waiting on its save: a second request joins it rather than
   // resetting the default again, whose Undo would only bring the default back.
   const pendingReset = useRef<Promise<void> | null>(null);
+  // Bumped by entering a workspace, which cancels a reset still waiting on its save.
+  const resetGeneration = useRef(0);
   useEffect(() => {
     const resetAfterSave = async (handle: WorkspaceHandle) => {
+      const generation = resetGeneration.current;
       const saved = !controller.bridge || await controller.bridge.save();
       // The save can outlast this workspace: a project switch (or the window
       // closing) unmounts it and attaches the next project's. Its reset, or
       // its failure, is no longer anything to clear, rearrange or announce
       // there: the Undo it would offer could restore nothing.
-      if (controller.ws !== handle) return;
+      if (controller.ws !== handle || resetGeneration.current !== generation) return;
       if (!saved) {
         controller.bridge?.notify(resetFailed);
         return;
@@ -987,6 +990,10 @@ const TrellisWorkspace = memo(function TrellisWorkspace({ controller, projectRoo
           if (resetUndo.current === undo) resetUndo.current = null;
         },
       });
+    };
+    const cancelReset = () => {
+      resetGeneration.current += 1;
+      pendingReset.current = null;
     };
     return controller.installHandlers({
       reset: () => {
@@ -1048,6 +1055,7 @@ const TrellisWorkspace = memo(function TrellisWorkspace({ controller, projectRoo
         const target = library.get(id);
         if (!handle || !target || id === from) return;
         withdrawUndo();
+        cancelReset();
         flushSave();
         const current = handle.getDocument();
         // Before App restored its tabs, the documents are the layout's own.
@@ -1078,6 +1086,7 @@ const TrellisWorkspace = memo(function TrellisWorkspace({ controller, projectRoo
         const handle = controller.ws;
         if (!handle) return null;
         withdrawUndo();
+        cancelReset();
         flushSave();
         const document = handle.getDocument();
         const id = controller.workspaces.add(name, arrangementOf(document), workspaceRef.current);

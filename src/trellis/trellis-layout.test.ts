@@ -307,6 +307,26 @@ describe("named workspaces", () => {
     expect(layoutShape(liveArrangement(stored, resized))).toBe(layoutShape(arrangementOf(resized)));
   });
 
+  it("records a slot the writer merged away, so entering the workspace elsewhere leaves it closed", () => {
+    const open = ["main.tex", "notes.md"];
+    const split = workspaceWith(open);
+    findPanel(split.root, "panel-doc-0")!.views = ["doc-0"];
+    const root = split.root as { children: LayoutNode[]; weights: number[] };
+    root.children.splice(2, 0, { kind: "panel", id: "panel-doc-1", views: ["doc-1"], selected: "doc-1" });
+    root.weights = [0.25, 0.3, 0.2, 0.25];
+    const stored = arrangementOf(split);
+    // The notes dragged back beside the source: their split closes up.
+    const merged = arrangeDocuments(stored, split, { activeKey: "main.tex", openTabs: open }, {
+      "main.tex": { panel: "panel-doc-0", selected: true }, "notes.md": { panel: "panel-doc-0" },
+    });
+    expect(panels(merged).map((panel) => panel.id)).not.toContain("panel-doc-1");
+    const recorded = liveArrangement(stored, merged);
+    expect(layoutShape(recorded)).toBe(layoutShape(arrangementOf(merged)));
+    const entered = arrangeDocuments(recorded, workspaceWith(open), { activeKey: "main.tex", openTabs: open }, {});
+    const documentPanels = panels(entered).filter((panel) => panel.views.some((view) => entered.views[view].type === "file"));
+    expect(documentPanels.map((panel) => panel.views.map((view) => entered.views[view].params?.key))).toEqual([["main.tex", "notes.md"]]);
+  });
+
   it("leaves documents to App's tab sync when the workspace has no place for them", () => {
     const arranged = arrangeDocuments(null, workspaceWith(keys), { activeKey: "main.tex", openTabs: keys }, {});
     expect(panels(arranged)).toEqual(panels(defaultLayout()));
