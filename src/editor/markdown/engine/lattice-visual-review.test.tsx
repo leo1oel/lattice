@@ -527,6 +527,24 @@ describe("jumps (TODOs, outline, find results, SyncTeX, comments)", () => {
     }
   });
 
+  it("still unmarks the landed block when the writer types right after the jump", async () => {
+    const onRevealHandled = vi.fn();
+    const view = renderEditor({ text: TEXT, onRevealHandled });
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    try {
+      view.rerender({ revealRequest: { id: "jump", target: { line: 7 } } });
+      await vi.waitFor(() => expect(onRevealHandled).toHaveBeenCalledWith("jump"));
+      expect(marked()).toEqual(["Target paragraph here."]);
+      act(() => { view.editor.commands.insertContent("!"); });
+      act(() => { vi.advanceTimersByTime(500); });
+      expect(view.onChange).toHaveBeenCalled();
+      act(() => { vi.advanceTimersByTime(2000); });
+      expect(marked()).toEqual([]);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("lands a jump to a blank line on the next block shown", async () => {
     const onRevealHandled = vi.fn();
     const view = renderEditor({ text: TEXT, onRevealHandled });

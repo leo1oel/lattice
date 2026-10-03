@@ -177,10 +177,8 @@ type HostMessages = { unavailable: string; source: string; title: string; detail
 function clearTimers(host: Host) {
   if (host.idleTimer) clearTimeout(host.idleTimer);
   if (host.maxTimer) clearTimeout(host.maxTimer);
-  if (host.revealTimer) clearTimeout(host.revealTimer);
   host.idleTimer = null;
   host.maxTimer = null;
-  host.revealTimer = null;
 }
 
 /** How long a jump waits for the document it names to be the one shown before giving up. */
@@ -840,6 +838,7 @@ export function LatticeVisualMarkdownEditor(props: VisualMarkdownEditorProps): J
   useLayoutEffect(() => () => {
     publishPending(host.current, true);
     clearTimers(host.current);
+    if (host.current.revealTimer) clearTimeout(host.current.revealTimer);
   }, []);
 
   return (
