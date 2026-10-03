@@ -365,6 +365,33 @@ const RUNTIME_STATUS_MESSAGE_ID = "lattice-browser-runtime-message";
 /** What {@link blockApp} made inert, so it never lifts an inert it did not set. */
 const madeInert = new Set<Element>();
 let appObserver: MutationObserver | null = null;
+/** Where focus belongs while the runtime status covers the app. */
+let statusFocus: HTMLElement | null = null;
+
+/**
+ * Keep keys pressed on the runtime status away from the app. `inert` disables
+ * the app's own elements, not its window and document listeners: a key on the
+ * status's Reload button still reaches the global shortcut dispatcher (⌘, opens
+ * settings, ⌘S saves and builds) and the capture-phase Escape handlers of the
+ * app's dialogs. This module loads before the app, so this is the first capture
+ * listener on `window` and stopping the event here keeps it from every later
+ * listener on the page. Default actions still run: Enter and Space press
+ * Reload, and the browser's own ⌘R reloads.
+ *
+ * The status is a modal with at most one focus stop, so Tab and Shift+Tab stay
+ * on it instead of leaving for the browser's chrome or the document.
+ */
+function guardStatusKeys(event: KeyboardEvent): void {
+  if (!statusFocus?.isConnected) return;
+  event.stopImmediatePropagation();
+  if (event.type === "keydown" && event.key === "Tab") {
+    event.preventDefault();
+    statusFocus.focus({ preventScroll: true });
+  }
+}
+for (const type of ["keydown", "keypress", "keyup"] as const) {
+  window.addEventListener(type, guardStatusKeys, { capture: true });
+}
 
 /**
  * Make everything on the page but the runtime status inert: no focus, no
@@ -393,6 +420,7 @@ function inertApp(): void {
 }
 
 function unblockApp(): void {
+  statusFocus = null;
   appObserver?.disconnect();
   appObserver = null;
   for (const element of madeInert) element.removeAttribute("inert");
@@ -415,7 +443,8 @@ export function applyStoredTheme(): "light" | "dark" {
 
 /**
  * Cover the page with a short status, optionally with one button. It is a
- * modal alert: the app behind it is inert and focus moves to its action.
+ * modal alert: the app behind it is inert, focus moves to its action and stays
+ * there, and no key reaches the app (see {@link guardStatusKeys}).
  */
 function showRuntimeStatus(status: RuntimeStatus): void {
   document.getElementById(RUNTIME_STATUS_ID)?.remove();
@@ -452,7 +481,8 @@ function showRuntimeStatus(status: RuntimeStatus): void {
   overlay.append(panel);
   document.body.append(overlay);
   blockApp();
-  (button ?? overlay).focus({ preventScroll: true });
+  statusFocus = button ?? overlay;
+  statusFocus.focus({ preventScroll: true });
 }
 
 function physicalWindowSize() {
