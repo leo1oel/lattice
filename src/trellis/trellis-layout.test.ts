@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { LayoutDocument, LayoutNode, PanelNode } from "@danfessler/trellis";
-import { defaultLayout, loadLayout, presetLayout, returnLayout, saveLayout, withDocumentPanel } from "./trellis-layout";
+import { defaultLayout, enterPreset, loadLayout, presetLayout, returnLayout, saveLayout, withDocumentPanel } from "./trellis-layout";
 
 const PAPER = "paper:1706.03762:";
 const isReading = (key: string) => key.startsWith("paper:") || key.endsWith(".pdf");
@@ -139,13 +139,45 @@ describe("layout presets", () => {
     expect(panels(back).map((panel) => panel.id)).toEqual(["panel-project", "panel-papers", "panel-pdf"]);
   });
 
+  it("returns without the panels a preset brought in, through Writing and then Reading", () => {
+    // The writer's own layout: Project and the documents, no PDF and no Papers.
+    const previous = workspaceWith(keys);
+    delete previous.views.pdf;
+    delete previous.views.papers;
+    const column = (previous.root as { children: LayoutNode[] }).children[0] as { children: LayoutNode[]; weights: number[] };
+    column.children = [column.children[0]];
+    column.weights = [1];
+    (previous.root as { children: LayoutNode[] }).children.pop();
+    (previous.root as { weights: number[] }).weights.pop();
+    const writing = enterPreset("writing", previous, null, documents);
+    expect(writing.active.supplied).toEqual(["pdf"]);
+    const reading = enterPreset("reading", writing.document, writing.active, documents);
+    expect(reading.active).toEqual({ preset: "reading", previous, supplied: ["pdf", "papers"] });
+    const back = returnLayout(previous, reading.document, documents, reading.active.supplied);
+    expect(back.views.pdf).toBeUndefined();
+    expect(back.views.papers).toBeUndefined();
+    expect(panels(back)).toEqual(panels(returnLayout(previous, previous, documents)));
+    // One the writer asked for while reading stays.
+    const kept = returnLayout(previous, reading.document, documents, ["papers"]);
+    expect(kept.views.pdf).toEqual({ type: "pdf" });
+    expect(kept.views.papers).toBeUndefined();
+  });
+
   it("persists the preset with the layout, per project", () => {
     const previous = workspaceWith(keys);
-    const reading = presetLayout("reading", previous, documents);
-    saveLayout("/a", reading, { preset: "reading", previous });
+    const { document: reading, active } = enterPreset("reading", previous, null, documents);
+    saveLayout("/a", reading, active);
     saveLayout("/b", previous);
     expect(loadLayout("/a").preset?.preset).toBe("reading");
     expect(panels(loadLayout("/a").preset!.previous)).toEqual(panels(previous));
     expect(loadLayout("/b").preset).toBeNull();
+  });
+
+  it("reads a preset saved before it recorded what it supplied", () => {
+    const previous = workspaceWith(keys);
+    localStorage.setItem("lattice.trellis-layout.v1:/old", JSON.stringify({
+      version: 2, savedAt: 0, document: presetLayout("writing", previous, documents), preset: { preset: "writing", previous },
+    }));
+    expect(loadLayout("/old").preset).toEqual(expect.objectContaining({ preset: "writing", supplied: [] }));
   });
 });

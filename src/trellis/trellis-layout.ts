@@ -17,10 +17,12 @@ const LAYOUT_VERSION = 2;
 /**
  * Writing puts the source beside the compiled PDF; Reading puts a paper beside
  * your notes. Either is a temporary arrangement over the writer's own layout,
- * which is kept as `previous` until they return to it.
+ * which is kept as `previous` until they return to it. `supplied` holds the
+ * views a preset brought in that `previous` lacked and the writer has not
+ * asked for since: they leave again on the return.
  */
 export type LayoutPreset = "writing" | "reading";
-export type ActivePreset = { preset: LayoutPreset; previous: LayoutDocument };
+export type ActivePreset = { preset: LayoutPreset; previous: LayoutDocument; supplied: string[] };
 
 type SavedLayout = { version: number; savedAt: number; document: LayoutDocument; preset?: ActivePreset };
 
@@ -183,14 +185,35 @@ export function presetLayout(preset: LayoutPreset, doc: LayoutDocument, document
 }
 
 /**
+ * `doc` (the writer's own layout, or that of the `active` preset) rearranged as
+ * `preset`, with the preset to return from: switching between presets keeps
+ * the layout from before the first, and what each preset supplied.
+ */
+export function enterPreset(
+  preset: LayoutPreset,
+  doc: LayoutDocument,
+  active: ActivePreset | null,
+  documents: PresetDocuments,
+): { document: LayoutDocument; active: ActivePreset } {
+  const document = presetLayout(preset, doc, documents);
+  const supplied = Object.keys(document.views).filter((id) => document.views[id].type !== "file" && !doc.views[id]);
+  return { document, active: { preset, previous: active?.previous ?? doc, supplied: [...active?.supplied ?? [], ...supplied] } };
+}
+
+/**
  * The writer's own layout to return to from a preset, brought up to date with
  * what is open now: documents and panels closed meanwhile stay closed, and
- * those opened meanwhile join the panel holding the active document (else the
+ * those opened meanwhile (not those the preset `supplied`) join the panel holding the active document (else the
  * first document panel), keeping the views they have now. The active document
  * is selected in its panel. With no document panel left to join, App's tab
  * sync gives new documents one, while other new views join the first panel.
  */
-export function returnLayout(previous: LayoutDocument, current: LayoutDocument, documents: Pick<PresetDocuments, "activeKey" | "openTabs">): LayoutDocument {
+export function returnLayout(
+  previous: LayoutDocument,
+  current: LayoutDocument,
+  documents: Pick<PresetDocuments, "activeKey" | "openTabs">,
+  supplied: readonly string[] = [],
+): LayoutDocument {
   const open = new Set([...documents.openTabs, documents.activeKey].filter(Boolean));
   const views = { ...previous.views };
   const kept = new Set<string>();
@@ -205,7 +228,7 @@ export function returnLayout(previous: LayoutDocument, current: LayoutDocument, 
   const group = panels.find((target) => holdsDocument(target, documents.activeKey)) ?? panels.find((target) => holdsDocument(target));
   const target = group ?? panels[0];
   const joining = Object.entries(current.views).filter(([id, record]) => (
-    record.type === "file" ? Boolean(group) && open.has(fileKey(record)) && !kept.has(fileKey(record)) : !views[id]
+    record.type === "file" ? Boolean(group) && open.has(fileKey(record)) && !kept.has(fileKey(record)) : !views[id] && !supplied.includes(id)
   ));
   for (const [id, record] of joining) views[id] = record;
   const joined = joining.map(([id]) => id);
@@ -255,7 +278,11 @@ export function loadLayout(projectRoot: string): { document: LayoutDocument; pre
       const document = migrateLayout(saved);
       if (document) {
         const preset = saved.preset?.previous && (saved.preset.preset === "writing" || saved.preset.preset === "reading")
-          ? { preset: saved.preset.preset, previous: sanitize(saved.preset.previous, knownType) }
+          ? {
+            preset: saved.preset.preset,
+            previous: sanitize(saved.preset.previous, knownType),
+            supplied: Array.isArray(saved.preset.supplied) ? saved.preset.supplied.filter((id) => typeof id === "string") : [],
+          }
           : null;
         return { document: sanitize(document, knownType), preset };
       }

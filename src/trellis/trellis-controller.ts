@@ -209,6 +209,7 @@ export class TrellisController {
   private resetHandler: (() => Promise<void>) | null = null;
   private resyncHandler: (() => void) | null = null;
   private presetHandler: ((preset: LayoutPreset | null) => void) | null = null;
+  private shownHandler: ((kind: TrellisSingleton) => void) | null = null;
 
   setBridge(bridge: TrellisBridge) {
     this.bridge = bridge;
@@ -229,14 +230,21 @@ export class TrellisController {
     this.presetHandler?.(preset);
   }
 
-  installHandlers(handlers: { reset?: () => Promise<void>; resync?: () => void; preset?: (preset: LayoutPreset | null) => void }) {
+  installHandlers(handlers: {
+    reset?: () => Promise<void>;
+    resync?: () => void;
+    preset?: (preset: LayoutPreset | null) => void;
+    shown?: (kind: TrellisSingleton) => void;
+  }) {
     if (handlers.reset) this.resetHandler = handlers.reset;
     if (handlers.resync) this.resyncHandler = handlers.resync;
     if (handlers.preset) this.presetHandler = handlers.preset;
+    if (handlers.shown) this.shownHandler = handlers.shown;
     return () => {
       if (handlers.reset && this.resetHandler === handlers.reset) this.resetHandler = null;
       if (handlers.resync && this.resyncHandler === handlers.resync) this.resyncHandler = null;
       if (handlers.preset && this.presetHandler === handlers.preset) this.presetHandler = null;
+      if (handlers.shown && this.shownHandler === handlers.shown) this.shownHandler = null;
     };
   }
 
@@ -284,6 +292,7 @@ export class TrellisController {
   showPanel(kind: TrellisSingleton, { focus = true }: { focus?: boolean } = {}) {
     const ws = this.ws;
     if (!ws) return;
+    this.shownHandler?.(kind);
     if ((TOOL_KINDS as readonly string[]).includes(kind)) {
       this.bridge?.openTool(kind as TrellisToolKind);
       return;
@@ -321,6 +330,7 @@ export class TrellisController {
       this.showPanel("pdf", { focus: false });
       return;
     }
+    this.shownHandler?.("pdf");
     ws.open("pdf", { id: "pdf", focus: false, placement: { beside: panelId, edge: "right", share: 0.42 } });
   }
 

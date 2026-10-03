@@ -39,7 +39,7 @@ import {
   TOOL_KINDS, documentTools, useTrellisApp, type TrellisController, type TrellisSingleton, type TrellisToolKind,
 } from "./trellis-controller";
 import {
-  defaultLayout, loadLayout, saveLayout, clearLayout, presetLayout, returnLayout, withDocumentPanel, VIEW_TYPES,
+  defaultLayout, loadLayout, saveLayout, clearLayout, enterPreset, returnLayout, withDocumentPanel, VIEW_TYPES,
   type ActivePreset,
 } from "./trellis-layout";
 import { installTrellisLabels } from "./trellis-labels";
@@ -776,11 +776,11 @@ const TrellisWorkspace = memo(function TrellisWorkspace({ controller, projectRoo
       const document = handle.getDocument();
       let next: LayoutDocument;
       if (preset) {
-        next = presetLayout(preset, document, { activeKey, openTabs, isReading: (key) => controller.isReading(key) });
-        // Switching between presets keeps the layout from before the first.
-        presetRef.current = { preset, previous: current?.previous ?? document };
+        const entered = enterPreset(preset, document, current, { activeKey, openTabs, isReading: (key) => controller.isReading(key) });
+        next = entered.document;
+        presetRef.current = entered.active;
       } else if (current) {
-        next = returnLayout(current.previous, document, { activeKey, openTabs });
+        next = returnLayout(current.previous, document, { activeKey, openTabs }, current.supplied);
         presetRef.current = null;
       } else {
         return;
@@ -800,6 +800,11 @@ const TrellisWorkspace = memo(function TrellisWorkspace({ controller, projectRoo
       const lead = root && preset ? findPanel(root, preset === "writing" ? "panel-writing" : "panel-reading")?.selected : null;
       const key = lead ? handle.view(lead)?.params.key : null;
       if (typeof key === "string" && key !== activeKey) controller.activate(key);
+    },
+    // A panel the writer asks for is theirs to keep, even one a preset brought in.
+    shown: (kind) => {
+      const current = presetRef.current;
+      if (current?.supplied.includes(kind)) presetRef.current = { ...current, supplied: current.supplied.filter((id) => id !== kind) };
     },
   }), [controller, projectRoot, resetFailed]);
   // The titlebar follows this workspace's preset; another project's starts in its own.
