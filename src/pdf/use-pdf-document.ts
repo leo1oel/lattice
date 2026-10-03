@@ -14,6 +14,8 @@ import { addAppLog } from "../telemetry/app-log-store";
 import type { ActiveViewerRef, PdfViewerCallbacks, PdfLocationHistory, PdfViewState } from "./use-pdf-view";
 
 const PDF_LOAD_TIMEOUT_MS = 45_000;
+/** `FindState.PENDING` in pdfjs-dist/web/pdf_viewer (pinned by pdf-find-events.test.ts). */
+const PDF_FIND_PENDING = 3;
 
 export type PdfSource = { url: string | null; bytes: ArrayBuffer | null; file: ProjectPdfFile | null; key: string };
 
@@ -149,6 +151,11 @@ export function usePdfDocument({
     });
     const { slick, root } = record;
     const isActive = () => recordRef.current === record;
+    const forwardFindMatches = ({ matchesCount, state }: { matchesCount?: Partial<PdfFindMatches>; state?: number }) => {
+      // A pending search still reports the previous query's selection.
+      if (!isActive() || state === PDF_FIND_PENDING) return;
+      onFindMatches({ current: matchesCount?.current ?? 0, total: matchesCount?.total ?? 0 });
+    };
 
     const updateLoadFeedback = (phase: PdfLoadFeedback["phase"], percent: number | null) => {
       if (cancelled || firstPageRendered) return;
@@ -286,9 +293,11 @@ export function usePdfDocument({
         setScale(toAppScale(scale));
         setFitMode(pdfFitMode(presetValue));
       },
-      updatefindmatchescount: ({ matchesCount }: { matchesCount?: Partial<PdfFindMatches> }) => {
-        if (isActive()) onFindMatches({ current: matchesCount?.current ?? 0, total: matchesCount?.total ?? 0 });
-      },
+      // PDF.js reports a search's running total through `updatefindmatchescount`
+      // but the selected match moving (Next/Previous, wraparound) only through
+      // `updatefindcontrolstate`; both carry the same `matchesCount` shape.
+      updatefindmatchescount: forwardFindMatches,
+      updatefindcontrolstate: forwardFindMatches,
     });
     // pagesinit precedes PDFSlick's async getOutline + initial scale assignment;
     // loadDocument's promise is not a readiness barrier either. pagesReady is.

@@ -348,7 +348,7 @@ export function PdfPreview({
     view,
     history,
     callbacks,
-    onFindMatches: search.setMatches,
+    onFindMatches: search.onFindMatches,
     timeoutMessage: timeoutMessage ?? t`PDF preview timed out. Click Build again, or open the PDF in Preview.`,
   });
   const { numPages, pdfError, pdfErrorDetail } = doc;
