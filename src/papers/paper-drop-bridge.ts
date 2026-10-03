@@ -62,7 +62,7 @@ export function usePaperDropRouting(library: PaperDropLibrary, onOpen: (paper: P
         const scale = window.devicePixelRatio || 1;
         const clientX = payload.position.x / scale;
         const clientY = payload.position.y / scale;
-        // Route through the same DOM drop handlers as Chromium. CodeMirror
+        // Route through the same DOM drop handlers as a browser tab. CodeMirror
         // retains citation merging, selection, read-only and undo semantics.
         document.elementFromPoint(clientX, clientY)?.dispatchEvent(new DragEvent("drop", {
           bubbles: true, cancelable: true, dataTransfer, clientX, clientY,

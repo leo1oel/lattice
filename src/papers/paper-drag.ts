@@ -16,7 +16,7 @@ export function beginPaperDrag(data: DataTransfer, projectRoot: string, paper: P
   data.setData(PAPER_DRAG_TYPE, payload);
   const uri = PAPER_DRAG_URI + encodeURIComponent(payload);
   data.setData("text/uri-list", uri);
-  // Native WebKit → Chromium transfers may preserve only plain text. Keep
+  // WKWebView → browser-tab transfers may preserve only plain text. Keep
   // the identity there too: the receiving editor, not the source window,
   // chooses TeX or Markdown syntax. A bare @key silently becomes TeX prose.
   data.setData("text/plain", uri);

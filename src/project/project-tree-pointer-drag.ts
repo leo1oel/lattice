@@ -68,8 +68,8 @@ function createDragPreview(
   preview.setAttribute("aria-hidden", "true");
   // Keep the clone in Pierre's shadow root so it retains the row styles, but
   // promote it out of the sidebar's stacking context while crossing editors.
-  // The bundled Chromium supports manual popovers; the guard keeps jsdom and
-  // older webviews on the previous (stacking-context-bound) fallback.
+  // WKWebView and current browsers support manual popovers; the guard keeps
+  // jsdom and older webviews on the previous (stacking-context-bound) fallback.
   preview.setAttribute("popover", "manual");
   preview.tabIndex = -1;
   preview.style.width = `${rect.width}px`;

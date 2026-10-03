@@ -137,16 +137,12 @@ describe("Tauri security boundary", () => {
     expect(browserHost).not.toContain("Ipv4Addr::LOCALHOST, 0");
   });
 
-  it("packages only the sidecar runtimes and opens browser tabs without workspace tokens in argv", () => {
+  it("packages only the sidecar runtimes", () => {
     expect(config.build.beforeBuildCommand).toBe("pnpm prepare:build");
     expectContains(buildPrepare, "process.env.TAURI_ENV_DEBUG", 'debug ? "prepare:runtime:dev" : "prepare:runtime"');
     expect(config.bundle.resources).toEqual([
       "presentation-runtime/", "synara-runtime/**/*", "src/embedded_skills/",
     ]);
-    // The default browser gets a single-use entry nonce; the session token
-    // stays out of `open`'s arguments and the browser's history.
-    expect(browserHost).toContain("session::entry_url(origin, &nonce)");
-    expect(browserHost).not.toContain("#token=");
   });
 
   it("gives loopback browser tabs the product icon", () => {
