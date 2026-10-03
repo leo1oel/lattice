@@ -1,6 +1,6 @@
 /**
  * The narrowest a PDF toolbar can be with every control it keeps on its row
- * and the search field's whole "Find in PDF" placeholder showing, measured
+ * and the search field usable whether or not a query is typed, measured
  * from the live toolbar. The PDF panel's minimum width follows it, so it holds in every
  * locale and at every interface zoom (all CSS px).
  *
@@ -9,6 +9,13 @@
  * narrow, so the toolbar is read in that state: `data-measure-narrow` applies the same rules for the
  * duration of one synchronous read, whatever the panel's width right now.
  */
+
+/**
+ * How much of a typed query stays visible beside the match controls, as a
+ * run of digits in the field's own font, so it scales with the locale's font
+ * and the interface zoom like everything else measured here.
+ */
+const VISIBLE_QUERY_SAMPLE = "00000000";
 
 let canvas: HTMLCanvasElement | null = null;
 
@@ -49,11 +56,21 @@ export function measurePdfToolbarMinWidth(toolbar: HTMLElement): number | null {
     let width = horizontal(toolbarStyle) + px(toolbarStyle.columnGap) * Math.max(0, columns.length - 1);
     for (const column of columns) {
       if (column.classList.contains("pdf-find-controls")) {
-        // The outline button, if any, then a field just wide enough for its icon and placeholder.
+        // The outline button, if any, then a field wide enough for both of its
+        // states: empty, its icon and whole placeholder; with a query, some of
+        // the query beside the match controls, which nothing may squeeze (they
+        // are mounted, hidden, while the field is empty so they can be read).
         const fieldStyle = getComputedStyle(field);
+        const inputStyle = getComputedStyle(input);
+        const gap = px(fieldStyle.columnGap);
         const icon = field.querySelector(".ui-search-field-icon");
-        const iconWidth = icon ? icon.getBoundingClientRect().width + px(fieldStyle.columnGap) : 0;
-        const fieldWidth = horizontal(fieldStyle) + iconWidth + Math.ceil(textWidth(input.placeholder, getComputedStyle(input)));
+        const iconWidth = icon ? icon.getBoundingClientRect().width + gap : 0;
+        const idle = iconWidth + textWidth(input.placeholder, inputStyle);
+        const trailing = field.querySelector(".ui-search-field-trailing");
+        const typing = trailing
+          ? textWidth(VISIBLE_QUERY_SAMPLE, inputStyle) + gap + trailing.getBoundingClientRect().width
+          : 0;
+        const fieldWidth = horizontal(fieldStyle) + Math.ceil(Math.max(idle, typing));
         const outline = rowWidth(column, (child) => child.contains(field));
         width += outline + (outline > 0 ? px(getComputedStyle(column).columnGap) : 0) + fieldWidth;
       } else {

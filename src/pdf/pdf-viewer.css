@@ -36,6 +36,9 @@
 .pdf-zoom-controls button.active { color: var(--control-active); background: var(--toolbar-active-surface); border-radius: var(--toolbar-icon-radius); }
 .pdf-search { min-width: 0; padding-right: var(--space-2); }
 .pdf-search.disabled { opacity: .52; }
+/* The match controls stay mounted while the field is empty so the panel's
+   minimum width can reserve their room before the first keystroke. */
+.pdf-search-idle .ui-search-field-trailing { display: none; }
 .pdf-search .pdf-search-position { flex: none; min-width: 31px; color: var(--text-secondary); font-size: var(--type-nano-size); font-variant-numeric: tabular-nums; text-align: center; white-space: nowrap; }
 .pdf-search button { flex: none; width: var(--search-clear-width); height: var(--search-clear-height); }
 .pdf-search .pdf-search-option[aria-pressed="true"] { color: var(--control-active); background: var(--toolbar-active-surface); }
@@ -145,6 +148,7 @@
 .pdf-toolbar[data-measure-narrow] .pdf-zoom-controls { gap: var(--space-1); }
 .pdf-toolbar[data-measure-narrow] .pdf-overflow { display: none; }
 .pdf-toolbar[data-measure-narrow] .pdf-overflow-trigger { display: grid; }
+.pdf-toolbar[data-measure-narrow] .pdf-search-idle .ui-search-field-trailing { display: inline-flex; }
 /* The overflow menu opens on a zoom row: steps around the percentage, which
    hands off to the toolbar's own field for typing. */
 .pdf-overflow-zoom { display: flex; align-items: center; gap: var(--gap-hairline); padding: var(--gap-hairline) 0 var(--gap-hairline) var(--space-5); }

@@ -717,6 +717,59 @@ describe("PDFSlick viewer integration", () => {
     expect(view.container.querySelector(".pdf-toolbar")).not.toHaveAttribute("data-zoom-entry");
   });
 
+  it("closes the overflow menu when widening hides its trigger, handing focus to a visible control", async () => {
+    // A ResizeObserver this test fires by hand, for the toolbar frame only.
+    const observed = new Map<Element, () => void>();
+    const OriginalResizeObserver = globalThis.ResizeObserver;
+    globalThis.ResizeObserver = class {
+      targets = new Set<Element>();
+      constructor(private callback: ResizeObserverCallback) {}
+      observe(target: Element) {
+        this.targets.add(target);
+        observed.set(target, () => this.callback([], this as unknown as ResizeObserver));
+      }
+      unobserve(target: Element) { observed.delete(target); }
+      disconnect() { for (const target of this.targets) observed.delete(target); }
+    } as unknown as typeof ResizeObserver;
+    try {
+      const view = renderPdf({ pdfBytes: new ArrayBuffer(4), initialViewState: { page: 1, scale: 1, fitMode: "width", scrollTop: 0, scrollLeft: 0 } });
+      await view.findByLabelText("PDF page 3");
+      const frame = view.container.querySelector(".pdf-toolbar-frame")!;
+      const trigger = view.getByRole("button", { name: "More PDF actions" });
+      const zoomOut = view.getByRole("button", { name: "Zoom out" });
+      // jsdom lays nothing out: the trigger shows while the toolbar is narrow, and
+      // a wide toolbar shows the zoom steps instead.
+      let wide = false;
+      vi.spyOn(trigger, "getClientRects").mockImplementation(() => (wide ? [] : [box(0, 0, 24, 24)]) as unknown as DOMRectList);
+      vi.spyOn(zoomOut, "getClientRects").mockImplementation(() => (wide ? [box(0, 0, 24, 24)] : []) as unknown as DOMRectList);
+      const resizeFrame = () => act(() => observed.get(frame)?.());
+
+      expect(observed.has(frame)).toBe(false);
+      fireEvent.keyDown(trigger, { key: "Enter" });
+      const menu = await view.findByRole("menu");
+      await waitFor(() => expect(menu.contains(document.activeElement)).toBe(true));
+      // Resizing within the narrow layout leaves the menu where it is.
+      resizeFrame();
+      expect(view.getByRole("menu")).toBe(menu);
+
+      wide = true;
+      resizeFrame();
+      await waitFor(() => expect(view.queryByRole("menu")).toBeNull());
+      expect(zoomOut).toHaveFocus();
+      expect(observed.has(frame)).toBe(false);
+
+      // Back to narrow, the menu opens from its trigger as before.
+      wide = false;
+      fireEvent.keyDown(trigger, { key: "Enter" });
+      expect(await view.findByRole("menu")).toBeInTheDocument();
+      fireEvent.keyDown(view.getByRole("menu"), { key: "Escape" });
+      await waitFor(() => expect(view.queryByRole("menu")).toBeNull());
+      expect(trigger).toHaveFocus();
+    } finally {
+      globalThis.ResizeObserver = OriginalResizeObserver;
+    }
+  });
+
   it("starts a zoom right after a commit from the committed scale", async () => {
     const view = renderPdf({ initialViewState: { page: 1, scale: 1, fitMode: null, scrollTop: 0, scrollLeft: 0 } });
     await view.findByLabelText("PDF page 3");
