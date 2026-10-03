@@ -3905,6 +3905,10 @@ msgstr "Keep citations"
 msgid "Keep it on Overleaf"
 msgstr "Keep it on Overleaf"
 
+#: src/papers/bib-entry-dialog.tsx
+msgid "Keep my fields"
+msgstr "Keep my fields"
+
 #: src/history/conflict-resolver.tsx
 msgid "Keep Overleaf's version"
 msgstr "Keep Overleaf's version"

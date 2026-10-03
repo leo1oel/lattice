@@ -37,16 +37,17 @@ function fieldsOf(draft?: ResolvedCitationDraft): Record<TextField, string> {
 }
 
 /**
- * What a lookup that found nothing already says about the work: a DOI, a link,
- * or (anything else that is not an arXiv ID) its title. An arXiv ID has no
- * field of its own, so it carries nothing over.
+ * What a lookup query already says about the work. Only a query that is
+ * wholly a DOI, a link or an arXiv ID fills that field; anything else is
+ * taken as the title.
  */
 function fieldsFromQuery(query: string): Partial<Record<TextField, string>> {
   const value = query.trim();
   const doi = /^(?:https?:\/\/(?:dx\.)?doi\.org\/|doi:\s*)?(10\.\d{4,9}\/\S+)$/i.exec(value)?.[1];
   if (doi) return { doi };
-  if (/^https?:\/\//i.test(value)) return { url: value };
-  if (/^(?:arxiv:\s*)?(?:\d{4}\.\d{4,5}|[a-z-]+(?:\.[a-z]{2})?\/\d{7})(?:v\d+)?$/i.test(value)) return {};
+  if (/^https?:\/\/\S+$/i.test(value)) return { url: value };
+  const arxiv = /^(?:arxiv:\s*)?(\d{4}\.\d{4,5}(?:v\d+)?|[a-z-]+(?:\.[a-z]{2})?\/\d{7}(?:v\d+)?)$/i.exec(value)?.[1];
+  if (arxiv) return { url: `https://arxiv.org/abs/${arxiv}` };
   return value ? { title: value } : {};
 }
 
@@ -192,10 +193,14 @@ export function BibEntryDialog(props: {
     setResolveQuery(value);
   };
   // Entering by hand declines every candidate and any lookup still running;
-  // whatever the query already says about the work starts the form.
+  // whatever the query already says about the work fills the fields still empty.
   const enterManually = () => {
     abandonLookup();
-    setFields((current) => ({ ...current, ...fieldsFromQuery(resolveQuery) }));
+    const fromQuery = Object.entries(fieldsFromQuery(resolveQuery)) as [TextField, string][];
+    setFields((current) => ({
+      ...current,
+      ...Object.fromEntries(fromQuery.filter(([name]) => !current[name].trim())),
+    }));
     setShowFields(true);
     setFocusFields(true);
   };
@@ -273,6 +278,7 @@ export function BibEntryDialog(props: {
                 <Button onClick={() => applyResolved(candidate, true)}>{t`Select this record`}</Button>
               </article>
             ))}
+            {showFields && <Button variant="ghost" size="compact" onClick={abandonLookup}>{t`Keep my fields`}</Button>}
           </section>
         )}
         {evidence && (

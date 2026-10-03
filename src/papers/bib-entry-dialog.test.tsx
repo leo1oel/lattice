@@ -155,7 +155,10 @@ describe("BibEntryDialog entry paths", () => {
       ["https://doi.org/10.1038/nphys1170", "DOI", "10.1038/nphys1170"],
       ["https://example.test/paper", "URL", "https://example.test/paper"],
       ["A Paper Worth Citing", "Title", "A Paper Worth Citing"],
-      ["arXiv:1706.03762", "Title", ""],
+      ["arXiv:1706.03762", "URL", "https://arxiv.org/abs/1706.03762"],
+      ["10.1038/nphys1170 extra words", "Title", "10.1038/nphys1170 extra words"],
+      ["10.1038/nphys1170 extra words", "DOI", ""],
+      ["https://example.test/paper and more", "URL", ""],
     ] as const) {
       renderDialog({ onResolve: vi.fn() });
       fireEvent.change(screen.getByLabelText("Citation resolve query"), { target: { value: query } });
@@ -163,6 +166,33 @@ describe("BibEntryDialog entry paths", () => {
       expect(screen.getByLabelText(field)).toHaveValue(value);
       cleanup();
     }
+  });
+
+  it("never carries the query over a field that already holds a value", () => {
+    renderDialog({
+      onResolve: vi.fn(),
+      initialResolveQuery: "A Different Title",
+      initialDraft: resolved({ title: "Seeded Title", candidates: [resolved(), resolved({ year: "1999" })] }),
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Enter manually" }));
+    expect(screen.getByLabelText("Title")).toHaveValue("Seeded Title");
+  });
+
+  it("declines candidates found after manual entry and keeps the typed fields", async () => {
+    const onResolve = vi.fn(async () => resolved({ candidates: [resolved(), resolved({ year: "1999" })] }));
+    const onSave = renderDialog({ onResolve });
+    fireEvent.click(screen.getByRole("button", { name: "Enter manually" }));
+    fireEvent.change(screen.getByLabelText("Title"), { target: { value: "Own Title" } });
+    fireEvent.change(screen.getByLabelText("Author"), { target: { value: "Doe, Jane" } });
+    fireEvent.change(screen.getByLabelText("Year"), { target: { value: "2025" } });
+    resolveQuery("ambiguous title");
+    await screen.findAllByRole("button", { name: "Select this record" });
+    expect(screen.getByRole("button", { name: "Save entry" })).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "Keep my fields" }));
+    expect(screen.queryByRole("button", { name: "Select this record" })).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Title")).toHaveValue("Own Title");
+    fireEvent.click(screen.getByRole("button", { name: "Save entry" }));
+    expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ title: "Own Title", author: "Doe, Jane", year: "2025" }), true);
   });
 
   it("enters manually past ambiguous candidates without saving any of them", () => {

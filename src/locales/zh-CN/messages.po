@@ -3905,6 +3905,10 @@ msgstr "保留引用"
 msgid "Keep it on Overleaf"
 msgstr "在 Overleaf 上保留"
 
+#: src/papers/bib-entry-dialog.tsx
+msgid "Keep my fields"
+msgstr "保留我填写的内容"
+
 #: src/history/conflict-resolver.tsx
 msgid "Keep Overleaf's version"
 msgstr "保留 Overleaf 的版本"
