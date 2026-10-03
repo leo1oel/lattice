@@ -53,7 +53,7 @@ function renderRail() {
       <div className="editor-doc-scroll">
         <div className="lx-md-editor">
           <DocumentHeadingRail items={items} onSelect={onSelect} />
-          <div className="ProseMirror">
+          <div className="ProseMirror" contentEditable suppressContentEditableWarning>
             {SECTIONS.map(({ id, label }) => <h2 key={id} id={id}>{label}</h2>)}
           </div>
         </div>
@@ -122,7 +122,7 @@ describe("DocumentHeadingRail's current section", () => {
 
   it.each([
     { input: "the wheel", start: (scroller: HTMLElement) => fireEvent.wheel(scroller, { deltaY: 250 }) },
-    { input: "a touch", start: (scroller: HTMLElement) => fireEvent.touchStart(scroller) },
+    { input: "a touch", start: (scroller: HTMLElement) => fireEvent.touchMove(scroller) },
     { input: "the keyboard", start: (scroller: HTMLElement) => fireEvent.keyDown(scroller, { key: "PageDown" }) },
     { input: "the scrollbar", start: (_scroller: HTMLElement, scrollbar: HTMLElement) => fireEvent.pointerDown(scrollbar) },
   ])("hands back to reading once the writer scrolls with $input, even within the section reading settled in", async ({ start }) => {
@@ -137,6 +137,21 @@ describe("DocumentHeadingRail's current section", () => {
     start(scroller, scrollbar);
     scroll(250);
     expect(current()).toEqual({ location: ["Method"], tabStop: ["Method"] });
+  });
+
+  it.each([
+    { input: "a click in its text", act: (heading: HTMLElement) => fireEvent.pointerDown(heading) },
+    { input: "typing in its text", act: (heading: HTMLElement) => fireEvent.keyDown(heading, { key: "a" }) },
+    { input: "a caret move in its text", act: (heading: HTMLElement) => fireEvent.keyDown(heading, { key: "ArrowDown" }) },
+    { input: "a tap in its text", act: (heading: HTMLElement) => fireEvent.touchStart(heading) },
+  ])("keeps the jump's section through $input, which does not scroll", async ({ act: input }) => {
+    const { scroll, scroller } = renderRail();
+    scroll(2000);
+    await nextFrame();
+    fireEvent.click(section("Introduction"));
+    await nextFrame();
+    input(scroller.querySelector<HTMLElement>("#introduction")!);
+    expect(current()).toEqual({ location: ["Introduction"], tabStop: ["Introduction"] });
   });
 
   it("follows a jump activated from the keyboard", async () => {
