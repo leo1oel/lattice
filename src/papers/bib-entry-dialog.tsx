@@ -4,6 +4,7 @@ import { useLingui } from "@lingui/react/macro";
 import { Button } from "../components/ui/button";
 import { CheckboxField } from "../components/ui/checkbox-field";
 import { Input, type InputProps } from "../components/ui/input";
+import { toMessage } from "../app-utils";
 import { BIB_ENTRY_TYPES, formatBibEntry, slugifyCitationKey, type BibEntryDraft, type BibEntryType } from "./bib-entry";
 import { VENUES, type Venue } from "./venues";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
@@ -64,14 +65,18 @@ function inferType(draft?: ResolvedCitationDraft): BibEntryType {
 export function BibEntryDialog(props: {
   open: boolean;
   busy: boolean;
-  resolving?: boolean;
   error: string | null;
   mode?: "add" | "edit";
   initialResolveQuery?: string;
   initialDraft?: ResolvedCitationDraft;
   onClose: () => void;
   onSave: (draft: BibEntryDraft, insertCite: boolean) => void;
-  onResolve?: (query: string) => Promise<ResolvedCitationDraft | null>;
+  /**
+   * Looks a citation up; a rejection is the lookup's error. The dialog owns
+   * the lookup from here on: it alone decides whether the answer (or the
+   * error) still applies, so a lookup the writer abandoned changes nothing.
+   */
+  onResolve?: (query: string) => Promise<ResolvedCitationDraft>;
 }) {
   const { t } = useLingui();
   const editing = props.mode === "edit";
@@ -88,6 +93,7 @@ export function BibEntryDialog(props: {
   const [extraFields, setExtraFields] = useState<Record<string, string> | undefined>(seed?.extraFields);
   const [retrievedEdited, setRetrievedEdited] = useState(false);
   const [resolveInFlight, setResolveInFlight] = useState(false);
+  const [lookupError, setLookupError] = useState<string | null>(null);
   // A new entry starts at the lookup; the fields appear once a record is
   // chosen or the writer enters it by hand. Editing, a record handed over
   // whole, or a dialog without a resolver open on the fields.
@@ -159,18 +165,21 @@ export function BibEntryDialog(props: {
 
   const resolveCitation = async () => {
     const query = resolveQuery.trim();
-    if (!query || requestInFlight.current || props.busy || props.resolving || !props.onResolve) return;
+    if (!query || requestInFlight.current || props.busy || !props.onResolve) return;
     requestInFlight.current = true;
     setResolveInFlight(true);
+    setLookupError(null);
     const generation = ++requestGeneration.current;
     try {
       const resolved = await props.onResolve(query);
       if (generation !== requestGeneration.current) return;
-      if (resolved?.candidates?.length) {
+      if (resolved.candidates?.length) {
         setCandidates(resolved.candidates);
-      } else if (resolved) {
+      } else {
         applyResolved(resolved);
       }
+    } catch (reason) {
+      if (generation === requestGeneration.current) setLookupError(toMessage(reason));
     } finally {
       if (generation === requestGeneration.current) {
         requestInFlight.current = false;
@@ -179,11 +188,13 @@ export function BibEntryDialog(props: {
     }
   };
 
-  // A new query abandons the lookup in flight and the candidates it offered.
+  // A new query abandons the lookup in flight, the candidates it offered and
+  // the error it reported; whatever it later answers is ignored.
   const abandonLookup = () => {
     requestGeneration.current += 1;
     requestInFlight.current = false;
     setResolveInFlight(false);
+    setLookupError(null);
     setCandidates([]);
   };
   const changeResolveQuery = (value: string) => {
@@ -211,6 +222,8 @@ export function BibEntryDialog(props: {
   );
 
   const heading = editing ? t`Edit bibliography entry` : t`Add bibliography entry`;
+  // The lookup's own failure, else the last save's; saving clears the lookup's.
+  const error = lookupError ?? props.error;
   // Anything typed or picked since the dialog opened; a click outside must not throw it away.
   const dirty = type !== initialType || TEXT_FIELDS.some((name) => fields[name] !== initialFields[name])
     || resolveQuery !== (props.initialResolveQuery ?? "") || insertCite !== !editing;
@@ -238,7 +251,7 @@ export function BibEntryDialog(props: {
                 onClear={() => changeResolveQuery("")}
                 placeholder={t`10.1038/… or arXiv:1706.03762 or paper title`}
                 onKeyDown={(event) => {
-                  if (event.key === "Enter" && resolveQuery.trim() && !props.resolving && !props.busy) {
+                  if (event.key === "Enter" && resolveQuery.trim() && !props.busy) {
                     event.preventDefault();
                     void resolveCitation();
                   }
@@ -247,10 +260,10 @@ export function BibEntryDialog(props: {
               />
               <Button
                 variant={showFields ? "secondary" : "primary"}
-                disabled={!resolveQuery.trim() || props.resolving || resolveInFlight || props.busy}
+                disabled={!resolveQuery.trim() || resolveInFlight || props.busy}
                 onClick={() => void resolveCitation()}
               >
-                {props.resolving || resolveInFlight ? t`Resolving…` : t`Resolve`}
+                {resolveInFlight ? t`Resolving…` : t`Resolve`}
               </Button>
             </div>
           </label>
@@ -263,7 +276,7 @@ export function BibEntryDialog(props: {
             </Button>
           </div>
         )}
-        {!showFields && props.error && <p className="dialog-error bib-entry-lookup-error" role="alert">{props.error}</p>}
+        {!showFields && error && <p className="dialog-error bib-entry-lookup-error" role="alert">{error}</p>}
         {candidates.length > 0 && (
           <section className="bib-citation-records" aria-label={t`Citation candidates`}>
             <p>{t`Choose the matching record before saving`}</p>
@@ -358,15 +371,18 @@ export function BibEntryDialog(props: {
           <pre className="bib-entry-preview" aria-label={t`BibTeX preview`}>{formatBibEntry(draft)}</pre>
         </details>
       )}
-      {showFields && props.error && <p className="dialog-error" role="alert">{props.error}</p>}
+      {showFields && error && <p className="dialog-error" role="alert">{error}</p>}
       <div className="table-generator-actions">
         <Button variant="ghost" onClick={props.onClose}>{t`Cancel`}</Button>
         {showFields && (
           <Button
             variant="primary"
-            disabled={props.busy || props.resolving || resolveInFlight || candidates.length > 0
+            disabled={props.busy || resolveInFlight || candidates.length > 0
               || !fields.title.trim() || !fields.author.trim() || !fields.year.trim()}
-            onClick={() => props.onSave(draft, insertCite)}
+            onClick={() => {
+              setLookupError(null);
+              props.onSave(draft, insertCite);
+            }}
           >
             {props.busy ? t`Saving…` : editing ? t`Save changes` : t`Save entry`}
           </Button>

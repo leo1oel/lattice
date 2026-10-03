@@ -167,6 +167,24 @@ describe("documents and editors", () => {
     expect(invokeCalls("read_project_file", (args) => argPath(args) === "plot.png")).toHaveLength(0);
   });
 
+  it("offers the file picker from empty Comments once the last writing tab is closed", async () => {
+    // Regression: closing the last tab keeps the file's buffer active, so the
+    // empty state still offered “Return to main.tex” and the click went nowhere.
+    renderApp(refreshableProject());
+    await waitForSelectedTab("main.tex");
+    fireEvent.click(await screen.findByTitle("Editor comments"));
+    expect(await screen.findByRole("button", { name: "Return to main.tex" })).toBeInTheDocument();
+
+    const close = screen.getByRole("tab", { name: "main.tex" }).querySelector<HTMLElement>("[data-trellis-part=tab-close]")!;
+    fireEvent.pointerDown(close, { button: 0 });
+    fireEvent.click(close, { button: 0 });
+    await waitFor(() => expect(screen.queryByRole("tab", { name: "main.tex" })).toBeNull());
+
+    fireEvent.click(await screen.findByRole("button", { name: "Open a file" }));
+    expect(await screen.findByPlaceholderText("Open file…")).toHaveFocus();
+    expect(screen.queryByRole("button", { name: "Return to main.tex" })).toBeNull();
+  });
+
   it("lists sections from included chapters in Go to symbol without the outline open", async () => {
     // Regression: the included files were only read while the Outline panel
     // was open, so ⌘⇧O found nothing in a book whose sections live in chapters.

@@ -1716,6 +1716,7 @@ function App() {
         ) : undefined}
         key={project.root}
         activeFile={activeFile}
+        openTabs={documents.tabs}
         build={build}
         editorCommentAuthorId={editorCommentAuthorId}
         appendixBoundary={appendixBoundary}

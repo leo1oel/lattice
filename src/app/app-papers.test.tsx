@@ -185,6 +185,54 @@ describe("papers", () => {
     expect(invoke).not.toHaveBeenCalledWith("write_project_file", expect.anything());
   });
 
+  it.each(["save", "dismiss"] as const)("lets a manual entry %s while its abandoned lookup is still running", async (finish) => {
+    // Regression: Enter manually abandoned the lookup only inside the dialog;
+    // App still held it as resolving, so Save and Cancel did nothing until the
+    // backend answered, and a late failure was reported into the next dialog.
+    const lookup = deferred<unknown>();
+    renderApp({
+      ...refreshableProject(projectSnapshot({ trusted: true, files: fileNodes("main.tex", "references.bib") })),
+      resolve_citation_query: () => lookup.promise,
+      write_project_file: (args) => ({ content: (args as { content: string }).content, hadConflicts: false }),
+    });
+    const openDialog = async () => {
+      fireEvent.keyDown(window, { key: "p", metaKey: true, shiftKey: true });
+      const palette = await screen.findByPlaceholderText("Run a command…");
+      fireEvent.change(palette, { target: { value: "Add bibliography entry" } });
+      fireEvent.keyDown(palette, { key: "Enter" });
+      return screen.findByLabelText("Citation resolve query");
+    };
+    fireEvent.change(await openDialog(), { target: { value: "10.1/slow" } });
+    fireEvent.click(screen.getByRole("button", { name: "Resolve" }));
+    await expectInvoked("resolve_citation_query", { query: "10.1/slow" });
+
+    fireEvent.click(screen.getByRole("button", { name: "Enter manually" }));
+    fireEvent.change(screen.getByLabelText("Title"), { target: { value: "Typed by hand" } });
+    fireEvent.change(screen.getByLabelText("Author"), { target: { value: "Doe, Jane" } });
+    fireEvent.change(screen.getByLabelText("Year"), { target: { value: "2025" } });
+    fireEvent.click(screen.getByLabelText("Insert cite at cursor after saving"));
+    if (finish === "save") {
+      fireEvent.click(screen.getByRole("button", { name: "Save entry" }));
+      await expectInvoked("write_project_file", {
+        path: "references.bib", content: expect.stringContaining("title = {Typed by hand}"), projectRoot: ROOT,
+      });
+    } else {
+      fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    }
+    await waitFor(() => expect(screen.queryByLabelText("Title")).not.toBeInTheDocument());
+
+    // The next entry starts clean, and the old lookup's failure stays out of it.
+    await openDialog();
+    await act(async () => {
+      lookup.reject(new Error("bibcite timed out"));
+      await lookup.promise.catch(() => undefined);
+    });
+    expect(screen.queryByText(/bibcite timed out/)).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Resolve" })).toBeDisabled();
+    fireEvent.change(screen.getByLabelText("Citation resolve query"), { target: { value: "10.1/next" } });
+    expect(screen.getByRole("button", { name: "Resolve" })).toBeEnabled();
+  });
+
   it("adds a work with no preprint through the same box, and says there is nothing to open", async () => {
     const snapshot = projectSnapshot({ rootDocuments: MAIN_DOCUMENT, trusted: true, files: [fileNode("main.tex", "file")] });
     const title = "Deep Residual Learning for Image Recognition";

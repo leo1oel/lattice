@@ -23,7 +23,6 @@ type ImportResult = {
 type BibEntryDialog = {
   open: boolean;
   busy: boolean;
-  resolving: boolean;
   error: string | null;
   /** Remounts the dialog per opening, so it starts from `initial`. */
   key: number;
@@ -74,7 +73,7 @@ export function useReferenceImport({
   useEffect(() => subscribeTauriEvent<string>(PAPER_IMPORT_PROGRESS_EVENT, setStage), []);
   const [literatureOpen, setLiteratureOpen] = useState(false);
   const [bibEntry, setBibEntryState] = useState<BibEntryDialog>({
-    open: false, busy: false, resolving: false, error: null, key: 0, mode: "add", initial: undefined,
+    open: false, busy: false, error: null, key: 0, mode: "add", initial: undefined,
     resolveSeed: "", importRoot: null,
   });
   const setBibEntry = useCallback(
@@ -195,14 +194,12 @@ export function useReferenceImport({
     }
   }, [showBibEntry, t]);
 
-  const resolveBibQuery = useCallback(async (query: string): Promise<ResolvedCitationDraft | null> => {
-    setBibEntry({ resolving: true, error: null });
-    const resolved = await invoke<ResolvedCitationDraft>("resolve_citation_query", { query }).catch((reason) => {
-      setBibEntry({ error: toMessage(reason) });
-      return null;
-    });
-    setBibEntry({ resolving: false });
-    return resolved;
+  // The dialog owns the lookup, its in-flight state and its error, so one it
+  // abandoned (Enter manually, a new query, closing) cannot block saving or
+  // closing, or report into a later draft. A new lookup supersedes the last save's error.
+  const resolveBibQuery = useCallback((query: string) => {
+    setBibEntry({ error: null });
+    return invoke<ResolvedCitationDraft>("resolve_citation_query", { query });
   }, [setBibEntry]);
 
   const { activeFile, source, dirty, save, accept } = editor;
