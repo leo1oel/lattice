@@ -213,6 +213,84 @@ describe("project tree and projects", () => {
       await expectNotification(/Save failed, so the layout was not reset/);
       expect(resetToast()).toBeUndefined();
     });
+
+    it("resets once, keeping the arrangement to undo to, when asked again while saving first", async () => {
+      persistLayoutWithoutAgent();
+      const written = deferred();
+      renderApp({ ...projectCommands(), write_project_file: () => written.promise });
+      const view = await findEditorView(".source-editor[data-editor-pane='primary'] .cm-editor");
+      fireEvent.click(layoutTab("Writing"));
+      await waitFor(() => expect(layoutTab("Writing")).toHaveAttribute("aria-selected", "true"));
+      act(() => view.dispatch({ changes: { from: view.state.doc.length, insert: "\n% unsaved" } }));
+      resetLayout();
+      await waitFor(() => expect(invokeCalls("write_project_file")).toHaveLength(1));
+      // A second press while the first reset still waits on its save.
+      resetLayout();
+      await act(async () => { written.resolve(); });
+      await waitFor(() => expect(getAppToastOptions(resetToast()!.id)?.primaryAction?.label).toBe("Undo"));
+      expect(layoutTab("Workspace")).toHaveAttribute("aria-selected", "true");
+      await pause(300);
+      // Undo brings back what the writer had, not the default the first reset left.
+      await undo();
+      await waitFor(() => expect(layoutTab("Writing")).toHaveAttribute("aria-selected", "true"));
+      expect(invokeCalls("write_project_file")).toHaveLength(1);
+    });
+
+    describe("when the project changes while its save is pending", () => {
+      const NEXT_ROOT = "/tmp/next-project";
+      const storedLayout = () => localStorage.getItem(`lattice.trellis-layout.v1:${ROOT}`);
+      // Reset in the first project with an edit to save first, holding that
+      // save's answer, then switch to the next project in this window (the
+      // tutorial still does so) and put it in the Writing layout.
+      async function resetThenSwitch(written: Promise<void>) {
+        persistLayoutWithoutAgent();
+        let first = true;
+        renderApp({
+          ...projectCommands(),
+          open_tutorial_project: () => projectSnapshot({ root: NEXT_ROOT, name: "Next project" }),
+          write_project_file: () => {
+            if (!first) return undefined;
+            first = false;
+            return written;
+          },
+        });
+        const view = await findEditorView(".source-editor[data-editor-pane='primary'] .cm-editor");
+        act(() => view.dispatch({ changes: { from: view.state.doc.length, insert: "\n% unsaved" } }));
+        resetLayout();
+        await waitFor(() => expect(invokeCalls("write_project_file")).toHaveLength(1));
+        await chooseProjectMenuItem("Guided tutorial");
+        await expectInvoked("open_tutorial_project");
+        await waitFor(() => expect(screen.getByRole("button", { name: "Switch project" })).toHaveTextContent("Next project"));
+        await findEditorView();
+        fireEvent.click(layoutTab("Writing"));
+        await waitFor(() => expect(layoutTab("Writing")).toHaveAttribute("aria-selected", "true"));
+        // What the first project left saved, which its late reset must not clear.
+        const outgoing = storedLayout();
+        expect(outgoing).not.toBeNull();
+        return outgoing;
+      }
+
+      it("does not reset either project or offer Undo once the save lands", async () => {
+        const written = deferred();
+        const outgoing = await resetThenSwitch(written.promise);
+        await act(async () => { written.resolve(); });
+        await pause(100);
+        expect(resetToast()).toBeUndefined();
+        expect(layoutTab("Writing")).toHaveAttribute("aria-selected", "true");
+        expect(storedLayout()).toBe(outgoing);
+      });
+
+      it("does not report the reset as failed in the next project when the save fails", async () => {
+        const written = deferred();
+        const outgoing = await resetThenSwitch(written.promise);
+        await act(async () => { written.reject(new Error("disk full")); });
+        await pause(100);
+        expect(formatAppLogs()).not.toMatch(/the layout was not reset/);
+        expect(resetToast()).toBeUndefined();
+        expect(layoutTab("Writing")).toHaveAttribute("aria-selected", "true");
+        expect(storedLayout()).toBe(outgoing);
+      });
+    });
   });
 
   it("toggles fullscreen when double-clicking the titlebar drag area", async () => {
