@@ -13,14 +13,6 @@ import type {
 } from "./app-types";
 import { i18n } from "./i18n";
 
-/** What the second line of a paper row says: where it came from, and its state. */
-export function paperSubtitle(paper: PaperSummary, snippet?: string): string {
-  if (snippet) return snippet;
-  // Just the key: the \cite{} wrapper is noise in a list that is entirely
-  // citations, and it crowds out the arXiv id in a narrow panel.
-  return [paper.citationKey, paper.arxivId && `arXiv ${paper.arxivId}`].filter(Boolean).join(" · ");
-}
-
 /** A cited-only work may have no arXiv id, so identity falls back to its key. */
 export function paperKey(paper: PaperSummary): string {
   return paper.arxivId || `cite:${paper.citationKey ?? paper.title}`;

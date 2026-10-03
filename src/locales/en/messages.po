@@ -237,6 +237,14 @@ msgstr "{fileCount} files"
 msgid "{filtered} of {total} papers"
 msgstr "{filtered} of {total} papers"
 
+#: src/papers/paper-identity.ts
+msgid "{first} and {second}"
+msgstr "{first} and {second}"
+
+#: src/papers/paper-identity.ts
+msgid "{first} et al."
+msgstr "{first} et al."
+
 #: src/app-utils.ts
 msgid "{hours}h ago"
 msgstr "{hours}h ago"

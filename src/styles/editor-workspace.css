@@ -759,7 +759,23 @@ body:has(.modal-backdrop, .drawer-backdrop) :is(.latex-selection-toolbar-anchor,
 /* The size container is the header, the only thing its query restyles: a
    container's width change restyles all of its contents in WebKit, and the
    shell holds the whole paper. */
-.paper-reader-header { container: paper-reader / inline-size; min-height: var(--toolbar-height); flex: none; padding-inline: var(--space-5); border-bottom: 1px solid var(--border-subtle); display: flex; align-items: center; justify-content: flex-end; }
+.paper-reader-header { container: paper-reader / inline-size; min-height: var(--toolbar-height); flex: none; padding-inline: var(--space-8) var(--space-5); border-bottom: 1px solid var(--border-subtle); display: flex; align-items: center; justify-content: flex-end; gap: var(--space-8); }
+/* The Paper's identity on one line: the title leads, and the quieter authors
+   and source give way to it first as the panel narrows. */
+.paper-identity { min-width: 0; flex: 1 1 auto; margin: 0; display: flex; align-items: baseline; color: var(--text-tertiary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); white-space: nowrap; }
+.paper-identity > * { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.paper-identity-title { flex: 0 1 auto; color: var(--text-primary); font-size: var(--type-label-size); font-weight: var(--weight-medium); animation: paper-identity-in var(--duration-base) var(--ease-out); }
+.paper-identity-authors { flex: 0 1000 auto; color: var(--text-secondary); }
+.paper-identity-source { flex: 0 100 auto; }
+.paper-identity > * + *::before { content: "·"; margin-inline: var(--space-3); color: var(--text-tertiary); }
+/* The source opens the original, so it reads as text until pointed at. */
+button.paper-identity-source { height: auto; padding: 0; border: 0; border-radius: var(--radius-compact); background: transparent; color: inherit; display: inline-flex; align-items: baseline; font: inherit; cursor: pointer; transition: color var(--duration-quick) var(--ease-default); }
+.paper-identity-source > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.paper-identity-source > svg { flex: none; align-self: center; margin-inline-start: var(--space-2); opacity: 0; transition: opacity var(--duration-quick) var(--ease-default); }
+button.paper-identity-source:is(:hover, :focus-visible) { color: var(--text-primary); }
+button.paper-identity-source:is(:hover, :focus-visible) > svg { opacity: 1; }
+button.paper-identity-source:focus-visible { outline: var(--focus-ring-width) solid var(--focus-ring); outline-offset: var(--focus-ring-offset); }
+@keyframes paper-identity-in { from { opacity: 0; translate: 0 var(--space-2); } }
 .paper-local-actions { min-width: 0; display: flex; align-items: center; justify-content: flex-end; gap: var(--space-2); }
 .paper-local-action { min-width: var(--control-size-icon); height: var(--control-size-icon); padding: 0 var(--space-4); border: 0; border-radius: var(--radius-icon); background: transparent; color: var(--text-secondary); display: inline-flex; align-items: center; justify-content: center; gap: var(--gap-inline-tight); font-size: var(--type-micro-size); font-weight: var(--weight-semibold); white-space: nowrap; }
 .paper-local-action-icon { width: var(--control-size-icon); padding: 0; }
@@ -771,6 +787,9 @@ body:has(.modal-backdrop, .drawer-backdrop) :is(.latex-selection-toolbar-anchor,
 @container paper-reader (max-width: 520px) {
   .paper-local-action { width: var(--control-size-icon); padding-inline: 0; }
   .paper-local-action span { display: none; }
+}
+@container paper-reader (max-width: 380px) {
+  .paper-identity-authors { display: none; }
 }
 .visual-heading-rail { position: sticky; z-index: var(--z-editor-overlay); top: 50%; width: 0; height: 0; margin-inline-start: var(--space-6); overflow: visible; pointer-events: none; }
 .visual-heading-rail-nav { position: relative; display: grid; grid-auto-rows: var(--control-size-icon-compact); width: calc(var(--space-12) + var(--space-12)); color: var(--text-tertiary); translate: 0 -50%; pointer-events: auto; user-select: none; }

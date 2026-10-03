@@ -11,6 +11,7 @@ import { redo as redoCodeMirror, undo as undoCodeMirror } from "@codemirror/comm
 import { forceLinting as refreshLint, linter } from "@codemirror/lint";
 import type { Extension, TransactionSpec } from "@codemirror/state";
 import { EditorView, type ViewUpdate } from "@codemirror/view";
+import { paperAuthorNames } from "../papers/paper-identity";
 import { paperSourceCitation } from "../papers/paper-source";
 import {
   overleafCursorsExtension, overleafTrackChangesExtension, setOverleafCursorsEffect,
@@ -313,6 +314,7 @@ export function DocumentCanvas(props: {
     activeFile,
   );
   const paperFullTextActive = Boolean(props.activePaper) && activeFile.replace(/\\/g, "/").toLocaleLowerCase().endsWith("/paper.md");
+  const paperAuthors = props.activePaper ? paperAuthorNames(props.activePaper).join(" · ") : "";
   const [paperVisualEligibility, setPaperVisualEligibility] = useState<{ path: string; text: string; reason: string | null } | null>(null);
   const reportPaperVisualEligibility = useCallback((reason: string | null) => {
     setPaperVisualEligibility((current) => {
@@ -1160,9 +1162,7 @@ export function DocumentCanvas(props: {
               </InlineMessage>
             )}
             <h1>{props.activePaper.title}</h1>
-            {props.activePaper.authors?.trim() && (
-              <p>{props.activePaper.authors.trim().replace(/\s+and\s+/gi, " · ")}</p>
-            )}
+            {paperAuthors && <p>{paperAuthors}</p>}
           </div>
         </header>
       )}

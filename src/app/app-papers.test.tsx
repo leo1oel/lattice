@@ -291,7 +291,12 @@ describe("papers", () => {
     expect(await screen.findByRole("heading", { name: "Attention overview" })).toBeInTheDocument();
     expect(document.querySelector(".markdown-preview")).not.toBeNull();
     expect(screen.getByRole("button", { name: "View original PDF" })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Open PDF in browser" }));
+    // The Blog has no masthead of its own, so the strip names the whole Paper;
+    // its source is the way to the original.
+    const identity = document.querySelector<HTMLElement>(".paper-identity")!;
+    expect(within(identity).getByText("Attention Is All You Need")).toHaveClass("paper-identity-title");
+    expect(within(identity).getByText("Vaswani and Shazeer")).toBeInTheDocument();
+    fireEvent.click(within(identity).getByRole("button", { name: "arXiv 1706.03762, Open PDF in browser" }));
     await waitFor(() => expect(openUrl).toHaveBeenCalledWith("https://arxiv.org/pdf/1706.03762"));
 
     // A Paper's panel switches between its Blog and the Paper itself; there is no Edit/Split/Preview for it.
@@ -334,7 +339,8 @@ describe("papers", () => {
     const paperHeader = await findElement(".paper-visual-header");
     expect(within(paperHeader).getByRole("heading", { name: "A captured research article" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "View original PDF" })).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Open article in browser" }));
+    // A captured page's bundle key is not an arXiv id: the strip names its site.
+    fireEvent.click(screen.getByRole("button", { name: "example.com, Open article in browser" }));
     await waitFor(() => expect(openUrl).toHaveBeenCalledWith("https://example.com/research/article"));
   });
 
@@ -373,7 +379,7 @@ describe("papers", () => {
     expect(screen.getByRole("status")).toHaveTextContent("Loading PDF…");
     expect(screen.getByRole("status")).toHaveClass("pdf-loading");
     expect(getDocument).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByRole("button", { name: "Open PDF in browser" }));
+    fireEvent.click(screen.getByRole("button", { name: "mirros.ai, Open PDF in browser" }));
     await waitFor(() => expect(openUrl).toHaveBeenCalledWith(firstUrl));
 
     fireEvent.click(screen.getByTitle("Second PDF"));
@@ -418,20 +424,28 @@ describe("papers", () => {
 
     await waitFor(() => expect(getDocument).toHaveBeenCalledWith(expect.objectContaining({ url: "https://arxiv.org/pdf/1706.03762v7" })));
     const backToPaper = await screen.findByRole("button", { name: "Back to Paper" });
-    const openInBrowser = screen.getByRole("button", { name: "Open PDF in browser" });
+    const openInBrowser = screen.getByRole("button", { name: "arXiv 1706.03762v7, Open PDF in browser" });
     const downloadPdf = screen.getByRole("button", { name: "Download PDF" });
     const paperPdfToolbar = backToPaper.closest(".pdf-toolbar");
-    expect(paperPdfToolbar).toContainElement(openInBrowser);
     expect(paperPdfToolbar).toContainElement(downloadPdf);
     expect(backToPaper.querySelector("svg")).toHaveClass("lucide-arrow-left");
     expect(backToPaper.querySelector("svg")).toHaveAttribute("stroke-width", "2");
-    expect(document.querySelector(".paper-reader-header")).toBeNull();
+    // The identity strip stays over the original PDF: its title, and its source
+    // as the one browser action; the PDF button shows it is the view open.
+    const strip = document.querySelector<HTMLElement>(".paper-reader-header")!;
+    expect(within(strip).getByText("Attention Is All You Need")).toBeInTheDocument();
+    expect(strip).toContainElement(openInBrowser);
+    expect(paperPdfToolbar).not.toContainElement(openInBrowser);
+    expect(within(strip).getByRole("button", { name: "View original PDF" })).toHaveAttribute("aria-pressed", "true");
     await waitFor(() => expect(downloadPdf).toBeEnabled());
     fireEvent.click(openInBrowser);
     await waitFor(() => expect(openUrl).toHaveBeenCalledWith("https://arxiv.org/pdf/1706.03762v7"));
 
-    fireEvent.click(backToPaper);
-    fireEvent.click(await screen.findByRole("button", { name: "View original PDF" }));
+    // Pressing the PDF button again returns to the Paper, as Back does.
+    fireEvent.click(within(strip).getByRole("button", { name: "View original PDF" }));
+    await waitFor(() => expect(screen.queryByRole("button", { name: "Back to Paper" })).toBeNull());
+    expect(screen.getByRole("button", { name: "View original PDF" })).toHaveAttribute("aria-pressed", "false");
+    fireEvent.click(screen.getByRole("button", { name: "View original PDF" }));
 
     await waitFor(() => {
       const remoteLoads = vi.mocked(getDocument).mock.calls
