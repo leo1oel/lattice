@@ -38,6 +38,13 @@ function findChrome() {
   return found;
 }
 
+/**
+ * How long close() lets Chrome exit on SIGTERM before SIGKILL. With the
+ * profile removal's retries (up to ~5 s) it stays inside shutdown.mjs's 15 s
+ * grace.
+ */
+const KILL_AFTER_MS = 5_000;
+
 export async function launchChrome({ executable = findChrome(), headless = true, width = 1440, height = 900 } = {}) {
   const profile = mkdtempSync(path.join(os.tmpdir(), "lattice-perf-bench-"));
   const args = [
@@ -60,35 +67,58 @@ export async function launchChrome({ executable = findChrome(), headless = true,
     "about:blank",
   ];
   const child = spawn(executable, args, { stdio: ["ignore", "ignore", "pipe"] });
-  // A signal awaits close() (shutdown.mjs), which also removes the profile;
-  // the exit hook is the last resort for an exit that does not (a thrown
-  // error, a second signal, a close that overran its grace), so the browser
-  // never outlives perf-bench.
-  const killOnExit = () => child.kill("SIGTERM");
+  // Settles once the browser is gone: reaped, or never started at all. A
+  // failed spawn (a stale CHROME_PATH: ENOENT, EACCES) emits "error" and never
+  // "exit", so waiting on "exit" alone would hang close() for it.
+  let spawnError = null;
+  const gone = new Promise((resolve) => {
+    child.once("exit", resolve);
+    child.once("error", (error) => {
+      spawnError = error;
+      resolve();
+    });
+  });
+  const running = () => child.pid !== undefined && child.exitCode === null && child.signalCode === null;
+  // The last resort for an exit that skips close() or outruns it (a thrown
+  // error, a second signal, a close that overran shutdown's grace): SIGKILL,
+  // since exit hooks are synchronous and a browser that ignored SIGTERM
+  // would otherwise outlive perf-bench. Installed until the browser is reaped.
+  const killOnExit = () => {
+    if (running()) child.kill("SIGKILL");
+  };
   process.on("exit", killOnExit);
   let connection = null;
   const close = once(async () => {
-    unregister();
-    process.off("exit", killOnExit);
     connection?.close();
-    child.kill("SIGTERM");
-    await new Promise((resolve) => {
-      if (child.exitCode !== null || child.signalCode !== null) resolve();
-      else child.once("exit", resolve);
-    });
+    if (running()) {
+      child.kill("SIGTERM");
+      // Escalate well inside shutdown.mjs's grace, so a browser that cannot
+      // shut down is still reaped and its profile still removed before the
+      // signal handler gives up and exits.
+      let timer;
+      await Promise.race([gone, new Promise((resolve) => (timer = setTimeout(resolve, KILL_AFTER_MS)))]);
+      clearTimeout(timer);
+      if (running()) child.kill("SIGKILL");
+    }
+    await gone;
+    process.off("exit", killOnExit);
     // Chrome's helper processes can outlive the browser process for a moment
     // and keep writing into the profile, so a single rmdir races them
     // (ENOTEMPTY). rmSync's own maxRetries only re-attempts the final rmdir
     // without deleting files written since its first pass, so retry the
     // whole removal instead.
-    for (let attempt = 1; ; attempt++) {
-      try {
-        rmSync(profile, { recursive: true, force: true });
-        break;
-      } catch (error) {
-        if (error.code !== "ENOTEMPTY" || attempt === 20) throw error;
-        await new Promise((resolve) => setTimeout(resolve, 250));
+    try {
+      for (let attempt = 1; ; attempt++) {
+        try {
+          rmSync(profile, { recursive: true, force: true });
+          break;
+        } catch (error) {
+          if (error.code !== "ENOTEMPTY" || attempt === 20) throw error;
+          await new Promise((resolve) => setTimeout(resolve, 250));
+        }
       }
+    } finally {
+      unregister();
     }
   });
   // Registered before DevTools answers: a signal during startup must remove
@@ -107,9 +137,11 @@ export async function launchChrome({ executable = findChrome(), headless = true,
           resolve(match[1]);
         }
       });
-      child.once("exit", (code) => {
+      gone.then(() => {
         clearTimeout(timer);
-        reject(new Error(`Chrome exited (${code}) before DevTools was ready:\n${output}`));
+        reject(spawnError
+          ? new Error(`Could not start Chrome at ${executable}: ${spawnError.message}`)
+          : new Error(`Chrome exited (${child.exitCode ?? child.signalCode}) before DevTools was ready:\n${output}`));
       });
     });
     connection = await CdpConnection.connect(endpoint);
