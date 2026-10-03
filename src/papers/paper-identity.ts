@@ -14,14 +14,28 @@ type Author = { name: string; surname: string };
 /** BibTeX braces protect case and grouping; neither belongs on screen. */
 const unbrace = (value: string) => value.replace(/[{}]/g, "").replace(/\s+/g, " ").trim();
 
+/** "{Gemini Team}": one outer brace group protects the whole name as a unit. */
+function isOneBraceGroup(value: string): boolean {
+  if (!value.startsWith("{")) return false;
+  let depth = 0;
+  for (let index = 0; index < value.length; index += 1) {
+    if (value[index] === "{") depth += 1;
+    else if (value[index] === "}") depth -= 1;
+    if (depth === 0) return index === value.length - 1;
+  }
+  return false;
+}
+
 /**
  * A BibTeX author list as people: "Vaswani, Ashish and Shazeer, Noam" reads
  * "Ashish Vaswani", "Noam Shazeer". A trailing "and others" is kept as a flag.
  */
 function parseAuthors(authors: string | undefined): { people: Author[]; others: boolean } {
-  const parts = (authors ?? "").split(/\s+and\s+/i).map(unbrace).filter(Boolean);
-  const others = parts.at(-1)?.toLocaleLowerCase() === "others";
-  const people = (others ? parts.slice(0, -1) : parts).map((part) => {
+  const parts = (authors ?? "").split(/\s+and\s+/i).map((part) => part.trim()).filter((part) => unbrace(part));
+  const others = unbrace(parts.at(-1) ?? "").toLocaleLowerCase() === "others";
+  const people = (others ? parts.slice(0, -1) : parts).map((raw) => {
+    const part = unbrace(raw);
+    if (isOneBraceGroup(raw)) return { name: part, surname: part };
     // "von Last, Jr, First" and "Last, First": the surname leads; a plain
     // "First Last" (or a single CJK name) ends with it.
     const [last, ...rest] = part.split(",").map((piece) => piece.trim()).filter(Boolean);

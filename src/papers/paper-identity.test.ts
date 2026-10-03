@@ -17,6 +17,9 @@ describe("paper identity", () => {
     expect(paperShortAuthors({ authors: "Ashish Vaswani and Noam Shazeer" })).toBe("Vaswani and Shazeer");
     expect(paperShortAuthors({ authors: "Vaswani, Ashish and Shazeer, Noam and Parmar, Niki" })).toBe("Vaswani et al.");
     expect(paperShortAuthors({ authors: "Vaswani, Ashish and others" })).toBe("Vaswani et al.");
+    expect(paperShortAuthors({ authors: "{Gemini Team} and others" })).toBe("Gemini Team et al.");
+    expect(paperShortAuthors({ authors: "{Google Brain}" })).toBe("Google Brain");
+    expect(paperShortAuthors({ authors: "{Barnes, Noble} and {van} Rossum, Guido" })).toBe("Barnes, Noble and van Rossum");
     expect(paperShortAuthors({ authors: undefined })).toBeNull();
   });
 
