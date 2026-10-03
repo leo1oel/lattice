@@ -116,12 +116,21 @@ function mount(overrides: Partial<Options> = {}) {
 
 type Hook = ReturnType<typeof mount>["result"];
 
-/** Type `text` and let the send debounce fire, so an operation goes out. Needs fake timers. */
-async function typeAndSend(result: Hook, text: string) {
+/**
+ * Type `text`, let the send debounce fire, and wait until the operation has
+ * actually gone out. Needs fake timers. The first send from a document carries
+ * a hash computed by WebCrypto, which settles on a worker thread rather than
+ * as a microtask, so `act` alone can return before `overleaf_rt_send_ops` is
+ * invoked and an answer emitted next would arrive before its own send.
+ * Pass `sent: false` where the hook must not send at all.
+ */
+async function typeAndSend(result: Hook, text: string, { sent = true } = {}) {
+  const before = sends().length;
   await act(async () => {
     result.current.pushLocal(text);
     vi.advanceTimersByTime(300);
   });
+  if (sent) await waitFor(() => expect(sends()).toHaveLength(before + 1));
 }
 
 const advance = (ms: number) => act(async () => { vi.advanceTimersByTime(ms); });
@@ -421,7 +430,7 @@ describe("switching files with work in flight", () => {
 
     // Type, and let the send debounce fire so an operation is outstanding.
     await typeAndSend(result, "alpha edited");
-    await waitFor(() => expect(sends()).toHaveLength(1));
+    expect(sends()).toHaveLength(1);
     expect(sends()[0].docId).toBe(DOC_A);
 
     // Move to the other file before the answer arrives; well past the old
@@ -470,7 +479,7 @@ describe("switching files with work in flight", () => {
     const { result, rerender } = await mountLive({ onRemoteText });
 
     await typeAndSend(result, "alpha local");
-    await waitFor(() => expect(sends()).toHaveLength(1));
+    expect(sends()).toHaveLength(1);
     rerender({ activeFile: "b.tex" });
     await waitFor(() => expect(result.current).toMatchObject({ docId: DOC_B, liveFile: true }));
     // Back to the first file while it is still held.
@@ -500,7 +509,7 @@ describe("an acknowledgement whose outcome is not known", () => {
     const { result, rerender } = await mountLive();
 
     await typeAndSend(result, "alpha edited");
-    await waitFor(() => expect(sends()).toHaveLength(1));
+    expect(sends()).toHaveLength(1);
     await waitFor(() => expect(joins()).toContainEqual({ docId: DOC_A, fromVersion: 10 }));
     expect(sends()).toHaveLength(1);
 
@@ -539,7 +548,7 @@ describe("an acknowledgement whose outcome is not known", () => {
     const view = await mountLive({ onRemoteText });
     backend.joinsFail = true;
     await typeAndSend(view.result, "alpha edited");
-    await waitFor(() => expect(sends()).toHaveLength(1));
+    expect(sends()).toHaveLength(1);
     emit({ type: "disconnected", reason: "network changed" });
     // Overleaf names every connection afresh, so the replay of what we sent
     // before still says "me" while this connection is "me-2".
@@ -605,13 +614,13 @@ describe("the update hash", () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     const { result } = await mountLive();
     await typeAndSend(result, "alpha edited");
-    await waitFor(() => expect(sends()).toHaveLength(1));
+    expect(sends()).toHaveLength(1);
     // `printf 'alpha edited' | git hash-object --stdin`
     expect(sends()[0]).toMatchObject({ version: 10, hash: "4d07786ac58e50541ba6ca85027b45ba5e038dba" });
 
     emit({ type: "docAck", docId: DOC_A, version: 10 });
     await typeAndSend(result, "alpha edited!");
-    await waitFor(() => expect(sends()).toHaveLength(2));
+    expect(sends()).toHaveLength(2);
     // Within five seconds of the last one: no hash, the same as Overleaf's editor.
     expect(sends()[1]).not.toHaveProperty("hash");
   });
@@ -625,7 +634,7 @@ describe("characters Overleaf cannot store", () => {
     const { result } = await mountLive({ onRemoteText, onNotice });
 
     await typeAndSend(result, "alpha \u{1F535}");
-    await waitFor(() => expect(sends()).toHaveLength(1));
+    expect(sends()).toHaveLength(1);
     expect(sends()[0]!.ops).toEqual([{ p: 5, i: " \uFFFD\uFFFD" }]);
     // The editor is swapped to the stored text, guarded on still holding what was typed.
     await waitFor(() => expect(onRemoteText).toHaveBeenLastCalledWith(
@@ -636,7 +645,7 @@ describe("characters Overleaf cannot store", () => {
 
     emit({ type: "docAck", docId: DOC_A, version: 10 });
     await typeAndSend(result, "alpha \uFFFD\uFFFD \u{1D538}");
-    await waitFor(() => expect(sends()).toHaveLength(2));
+    expect(sends()).toHaveLength(2);
     expect(onNotice).toHaveBeenCalledTimes(1);
   });
 });
@@ -699,8 +708,8 @@ describe("what typing goes out as", () => {
     backend.permission = role;
     const { result } = await mountLive();
     expect(result.current.canWrite).toBe(canWrite);
-    await typeAndSend(result, "alpha edited");
-    await waitFor(() => expect(sends()).toHaveLength(sent));
+    await typeAndSend(result, "alpha edited", { sent: sent > 0 });
+    expect(sends()).toHaveLength(sent);
     // An unknown permission is never written into SyncState.
     expect(invokeCalls("overleaf_set_permission")).not.toContainEqual(expect.objectContaining({ permission: "unknown" }));
   });
