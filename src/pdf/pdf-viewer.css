@@ -149,6 +149,16 @@
 .pdf-toolbar[data-measure-narrow] .pdf-overflow { display: none; }
 .pdf-toolbar[data-measure-narrow] .pdf-overflow-trigger { display: grid; }
 .pdf-toolbar[data-measure-narrow] .pdf-search-idle .ui-search-field-trailing { display: inline-flex; }
+/* A query the row has no room for folds the toolbar (measurePdfSearchFold in
+   pdf-toolbar-min-width.ts): first SyncTeX and the fit in use join the rest in
+   the overflow menu; then, narrower still, the search takes the whole row
+   until it is cleared, the match counter standing in for the page. Nothing is
+   ever drawn over another control, and the query is never hidden. */
+.pdf-toolbar[data-search-fold] .pdf-search-fold { display: none; }
+.pdf-toolbar[data-search-fold] .pdf-overflow-trigger { display: grid; }
+.pdf-toolbar[data-search-fold="2"] :is(.pdf-navigation-controls, .pdf-zoom-controls, .pdf-outline-trigger) { display: none; }
+.pdf-toolbar[data-search-fold="2"] .pdf-find-controls { grid-column: 1 / -1; grid-template-columns: minmax(0, 1fr); }
+.pdf-overflow-check { color: var(--text-tertiary); }
 /* The overflow menu opens on a zoom row: steps around the percentage, which
    hands off to the toolbar's own field for typing. */
 .pdf-overflow-zoom { display: flex; align-items: center; gap: var(--gap-hairline); padding: var(--gap-hairline) 0 var(--gap-hairline) var(--space-5); }

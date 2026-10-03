@@ -17,6 +17,37 @@ const placeOf = (driver, selector) => driver.waitFor(`(() => {
   return rect && rect.width && rect.height ? { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2, top: rect.top, bottom: rect.bottom } : null;
 })()`, { what: selector });
 
+const WRITING_TOOLBAR = ".trellis-pdf .pdf-toolbar";
+
+/**
+ * The PDF toolbar's visible controls that overlap, or sit outside the
+ * toolbar, and how wide the search field's text box is beside the room a
+ * short query needs (pdf-toolbar-min-width.ts's sample, in the field's font).
+ */
+const findToolbarGeometry = (driver) => driver.evaluate(`(() => {
+  const toolbar = document.querySelector(${JSON.stringify(WRITING_TOOLBAR)});
+  const input = toolbar.querySelector('input[aria-label="Search PDF"]');
+  const style = getComputedStyle(input);
+  const context = document.createElement("canvas").getContext("2d");
+  context.font = style.fontStyle + " " + style.fontWeight + " " + style.fontSize + " " + style.fontFamily;
+  const bounds = toolbar.getBoundingClientRect();
+  const controls = [...toolbar.querySelectorAll("button, input, .pdf-search-position")]
+    .filter((element) => element.getClientRects().length && element.getAttribute("aria-hidden") !== "true")
+    .map((element) => ({ name: element.getAttribute("aria-label") || element.className, rect: element.getBoundingClientRect() }));
+  const overlaps = (a, b) => a.left < b.right - 0.5 && b.left < a.right - 0.5 && a.top < b.bottom - 0.5 && b.top < a.bottom - 0.5;
+  const problems = [];
+  controls.forEach((a, index) => {
+    if (a.rect.left < bounds.left - 0.5 || a.rect.right > bounds.right + 0.5) problems.push(a.name + " is outside the toolbar");
+    for (const b of controls.slice(index + 1)) if (overlaps(a.rect, b.rect)) problems.push(a.name + " overlaps " + b.name);
+  });
+  return {
+    problems,
+    input: Math.round(input.getBoundingClientRect().width),
+    usable: Math.ceil(context.measureText("00000000").width),
+    names: controls.map((control) => control.name),
+  };
+})()`);
+
 export const LAYOUT_CHECKS = [
   {
     name: "paper-header-long-doi",
@@ -89,6 +120,41 @@ export const LAYOUT_CHECKS = [
       if (tabAfter !== tabTop || fieldAfter !== field.top) {
         throw new Error(`the PDF's tab moved from ${tabTop}px to ${tabAfter}px and its search field from ${field.top}px to ${fieldAfter}px`);
       }
+    },
+  },
+  {
+    name: "writing-pdf-find-narrow",
+    description: "Writing, a query in the PDF's Find, the window at its 640px minimum and narrower: the query keeps a readable box and no control is drawn over another.",
+    query: {},
+    width: 1280,
+    height: 800,
+    async run(driver) {
+      await driver.click(".trellis-presets [role=tab]:nth-child(2)");
+      await driver.waitFor(`document.querySelector('[data-panel="panel-writing"]')`, { what: "the Writing layout" });
+      const search = `${WRITING_TOOLBAR} input[aria-label="Search PDF"]`;
+      await placeOf(driver, search);
+      await driver.click(search);
+      await driver.type("Page");
+      await driver.waitFor(`document.querySelector(".trellis-pdf .pdfViewer .highlight")`, { what: "a search match" });
+      // 640px is the native window's minimum; narrower stands in for a PDF
+      // panel the layout cannot give its own minimum (a wide source beside it).
+      for (const width of [640, 560, 480]) {
+        await driver.page.resize(width, 800);
+        await driver.nextFrame();
+        await driver.nextFrame();
+        const geometry = await findToolbarGeometry(driver);
+        if (geometry.problems.length) throw new Error(`at ${width}px: ${geometry.problems.join("; ")}`);
+        if (geometry.input < geometry.usable) {
+          throw new Error(`at ${width}px the query's box is ${geometry.input}px wide, under the ${geometry.usable}px a short query needs`);
+        }
+      }
+      // Cleared, the toolbar comes back whole.
+      await driver.click(`${WRITING_TOOLBAR} [aria-label="Clear PDF search"]`);
+      await driver.waitFor(`document.querySelector(${JSON.stringify(`${WRITING_TOOLBAR} [aria-label="Previous page"]`)})?.getClientRects().length > 0`, {
+        timeout: 5_000, what: "the page controls back once the search is cleared",
+      });
+      const idle = await findToolbarGeometry(driver);
+      if (idle.problems.length) throw new Error(`with the search cleared: ${idle.problems.join("; ")}`);
     },
   },
 ];
