@@ -535,8 +535,9 @@ Still O(document) per keystroke:
   (`doc.toString()`), about 0.1 ms and 3 MB of garbage per keystroke at this
   size.
 - With TexLab installed, completion sends the whole text with every
-  keystroke in a word (`texlab_completion`). The benchmark's mock backend does
-  not model that IPC.
+  keystroke in a command name or an open argument (`texlab_completion`); prose
+  no longer asks (see "First opens and TexLab traffic" below). The
+  benchmark's mock backend does not model that IPC.
 
 ### WebKit frame rate and dialogs (October 2026)
 
@@ -650,3 +651,58 @@ in brackets, which gained from some of them too):
 | 44 MB image PDF zoom (fps) | 100 (119) | 114 (120) |
 | 1,930-page PDF jump to 70 % → painted (ms) | 82 (65) | 64 (58) |
 | 1,930-page PDF fast scroll (fps) | 119 (106) | 120 (106) |
+
+### First opens and TexLab traffic (October 2026)
+
+Two measure-first proposals, run in the real-window lab with the scenarios
+`coldSettings`, `coldHistory`, `coldComments` and `texlabTraffic`. Each run
+launches the app once; the first open of a tool is that launch's only cold
+sample. Numbers are from two sessions where the 1-minute load average was
+below 10 before each run, 20 launches per tool and build. Two sessions under
+load (20–65) agreed in direction.
+
+**Opening Settings, History or Comments the first time waited for React,
+not for its chunk.** Each loads lazily behind a `Suspense` boundary with no
+fallback. The first open took up to 350 ms; later opens took about 15 ms.
+Loading the chunk ahead (lab flag `prewarm`) did not help: the chunks take
+about 70 ms (Settings, History) and 2 ms (Comments). The rest was React's
+Suspense reveal throttle. An urgent update that suspends commits the empty
+fallback, and React then holds the content back until 300 ms after that
+commit unless another update happens to render it sooner. Opening a tool is now a transition into an
+always-mounted boundary (`useToolDrawers`, `openSettings` in `App.tsx`), so
+React keeps the current screen until the chunk is in.
+
+| First open (ms, p50 / p95) | Before | After |
+| --- | --- | --- |
+| Settings | 80 / 318 | 63 / 85 |
+| Project history | 145 / 345 | 119 / 128 |
+| Editor comments | 70 / 341 | 55 / 60 |
+
+The proposal was a loading shell shown from 150 ms. It no longer applies:
+first opens now finish before it would appear, and a shell over the few that
+run past 150 ms would only flash.
+
+**TexLab never answers in prose, yet every request sent it the whole
+document.** Completion asked on every keystroke in a word, hover on every
+pause over one. Each request carried the full text and made TexLab reparse
+it. Typing one 41-character sentence into `long.tex` (3.3 MB) sent 33
+requests and 110 MB. A completion there took 50–54 ms (p50): 8 ms of IPC for
+the text, 37–39 ms of TexLab reparsing it, 0.5 ms for the answer itself
+(`perf_texlab_probe` times TexLab's share inside the app). A revisioned
+protocol sending only edits and positions, the proposal, would remove the IPC
+and about 3 ms of passing the text to TexLab as JSON: 21% and 23% of the path,
+just over the proposal's 20% gate. It keeps the reparse, and after the change
+below it would apply to 3 requests a sentence instead of 33. Saving about 11 ms
+on each is not worth its risk of stale or misplaced completions, so it is not
+built.
+
+The editor now asks TexLab only in a command name or inside an open
+`{…}` or `[…]` argument (`texlabCanAnswer` in `build/texlab-language.ts`).
+Across 33,000 prose positions in the fixture's chapters and 40 TeX Live
+documents, TexLab answered none of the requests this skips.
+
+| Typing a sentence into `long.tex` | Before | After |
+| --- | --- | --- |
+| TexLab requests | 33 | 3 |
+| Text sent to TexLab | 110 MB | 10 MB |
+| Keystroke to next paint, p50 / p95 (ms) | 12 / 16 | 9 / 15 |

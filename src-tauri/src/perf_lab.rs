@@ -148,6 +148,31 @@ pub fn perf_echo(payload: String) -> String {
     payload
 }
 
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TexlabProbe {
+    sync_ms: f64,
+    total_ms: f64,
+}
+
+/// TexLab's share of a completion, without the IPC that carries the text
+/// (`TexlabPool::lab_probe`).
+#[tauri::command]
+pub async fn perf_texlab_probe(
+    state: tauri::State<'_, crate::app_state::AppState>, window: tauri::Window, path: String,
+    line: u32, character: u32, mode: String,
+) -> Result<TexlabProbe, String> {
+    let root = crate::ipc::current_root(&state, &window)?;
+    let pool = std::sync::Arc::clone(&state.project(&root).texlab);
+    tauri::async_runtime::spawn_blocking(move || {
+        let mut pool = pool.lock().map_err(|_| "TexLab state is unavailable.".to_string())?;
+        let (sync_ms, total_ms) = pool.lab_probe(&root, &path, line, character, &mode)?;
+        Ok(TexlabProbe { sync_ms, total_ms })
+    })
+    .await
+    .map_err(|error| error.to_string())?
+}
+
 #[tauri::command]
 pub fn perf_bytes(len: usize) -> tauri::ipc::Response {
     tauri::ipc::Response::new(vec![7u8; len])

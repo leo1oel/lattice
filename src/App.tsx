@@ -1,5 +1,5 @@
 import {
-  Suspense, lazy, memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState,
+  Suspense, lazy, memo, startTransition, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState,
   type SetStateAction,
 } from "react";
 import { createPortal } from "react-dom";
@@ -384,10 +384,10 @@ function App() {
     projectRef,
     agentVisible,
     bridge: {
-      openProviderSettings: () => {
+      openProviderSettings: () => startTransition(() => {
         setSettingsTab("agent");
         setSettingsOpen(true);
-      },
+      }),
       openProjectPath: (path) => openMarkdownProjectPathRef.current(path),
       openReview: (turn) => {
         tools.open("git", turn ? { turnReview: { ...turn, filePath: null } } : { gitView: "changes" });
@@ -1017,18 +1017,24 @@ function App() {
     refreshHistory, refreshProject, save, sourceRef, t, captureProjectScope,
   ]);
 
-  /** Opens on `tab`, or without one on the page Settings was last left on. */
+  /**
+   * Opens on `tab`, or without one on the page Settings was last left on. A
+   * transition into an always-mounted boundary, like the tool drawers
+   * (`useToolDrawers`), so the first open waits for its chunk alone.
+   */
   const openSettings = useCallback((requested?: SettingsTab) => {
     const tab = requested ?? loadSettingsTab();
     if (isSynaraSettingsTab(tab)) requestSynaraRuntime();
-    setSettingsTab(tab);
     persistSettingsTab(tab);
-    setSettingsOpen(true);
+    startTransition(() => {
+      setSettingsTab(tab);
+      setSettingsOpen(true);
+    });
   }, [requestSynaraRuntime]);
 
-  const settingsDialog = settingsOpen ? (
+  const settingsDialog = (
     <Suspense fallback={null}>
-      <SettingsDialog
+      {settingsOpen && <SettingsDialog
         synaraRuntime={synara.runtime}
         synaraWorkspaceRoot={project?.root}
         onRetrySynaraRuntime={synara.retry}
@@ -1080,9 +1086,9 @@ function App() {
           setProject((current) => current ? { ...current, manifest } : current);
         })}
         onClose={() => setSettingsOpen(false)}
-      />
+      />}
     </Suspense>
-  ) : null;
+  );
 
   const overleafPicker = overleafPickerOpen ? (
     <Suspense fallback={null}>

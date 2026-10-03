@@ -180,6 +180,52 @@ fn classify_start_error(error: &str) -> Failure {
     }
 }
 
+/// The lab's TexLab probe (`perf_texlab_probe`, scripts/perf-lab.mjs): one
+/// completion at the 1-based `line`/`character` of the open document, after
+/// `mode` tells TexLab about its text on disk. `full` resends the text whole,
+/// as every editor request does; `incremental` sends one empty range edit, a
+/// new revision TexLab still reparses; `position` sends nothing. Returns the
+/// sync's and the whole request's milliseconds.
+#[cfg(feature = "perf-lab")]
+impl TexlabPool {
+    pub(crate) fn lab_probe(
+        &mut self, root: &Path, relative_path: &str, line: u32, character: u32, mode: &str,
+    ) -> Result<(f64, f64), String> {
+        let relative = tex_path(relative_path).ok_or("TexLab features require a .tex file.")?;
+        let absolute = project::safe_path(root, &relative)?;
+        let text = std::fs::read_to_string(&absolute).map_err(|error| error.to_string())?;
+        let live = self.live_for(root, "start")?;
+        if mode != "full" && live.open_relative != relative {
+            return Err(format!("{relative} is not the open TexLab document"));
+        }
+        let position =
+            json!({ "line": line.saturating_sub(1), "character": character.saturating_sub(1) });
+        let started = Instant::now();
+        let uri = match mode {
+            "full" => live.sync_document(&absolute, &relative, &text)?,
+            "incremental" => {
+                live.version += 1;
+                let uri = path_to_uri(&absolute);
+                let document = json!({ "uri": uri, "version": live.version });
+                let range = json!({ "start": position, "end": position });
+                let change = json!({ "range": range, "text": "" });
+                live.notify(
+                    "textDocument/didChange",
+                    json!({ "textDocument": document, "contentChanges": [change] }),
+                )?;
+                uri
+            }
+            _ => path_to_uri(&absolute),
+        };
+        let synced = started.elapsed();
+        let params = json!({ "textDocument": { "uri": uri }, "position": position });
+        let id = live.request("textDocument/completion", params)?;
+        live.wait_for_response(id, FEATURE_TIMEOUT)?;
+        let ms = |duration: Duration| duration.as_secs_f64() * 1000.0;
+        Ok((ms(synced), ms(started.elapsed())))
+    }
+}
+
 fn canonical(root: &Path) -> PathBuf {
     root.canonicalize().unwrap_or_else(|_| root.to_path_buf())
 }

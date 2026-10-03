@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { startTransition, useCallback, useEffect, useMemo, useState } from "react";
 import type { AgentGitWorkspaceView } from "../agent/synara-runtime";
 import type { TrellisController, TrellisToolKind } from "../trellis/trellis-controller";
 import type { AgentTurnReview } from "./app-synara-embed";
@@ -30,6 +30,14 @@ const CLOSED: Record<AppToolDrawer, boolean> = { history: false, git: false, tod
  * Trellis an open drawer is a panel, asking for it again brings that panel
  * forward (un-hidden, its tab selected, zoomed to) instead of doing nothing; a
  * drawer that is only now opening reveals itself as it docks.
+ *
+ * Opening is a transition. The first open of a lazily loaded drawer (history,
+ * comments) suspends its always-mounted boundary. An urgent update would
+ * commit the boundary's empty fallback, and React would then hold the drawer
+ * back until 300 ms after that commit (its Suspense reveal throttle) unless
+ * another update rendered it sooner, however fast the chunk arrived. As a
+ * transition, React keeps the current screen until the chunk is in, and the
+ * drawer appears as soon as it is (docs/performance.md).
  */
 export function useToolDrawers({ trellis, synara, comments, references, commentsKind, refreshTodos, refreshWordCount }: {
   trellis: TrellisController;
@@ -59,7 +67,7 @@ export function useToolDrawers({ trellis, synara, comments, references, comments
   }, []);
   const close = useCallback((kind: AppToolDrawer) => setOpen(kind, false), [setOpen]);
 
-  const open = useCallback((kind: TrellisToolKind, options: OpenToolOptions = {}) => {
+  const open = useCallback((kind: TrellisToolKind, options: OpenToolOptions = {}) => startTransition(() => {
     let panel = kind;
     if (kind === "comments" || kind === "overleaf") {
       panel = commentsKind;
@@ -81,7 +89,7 @@ export function useToolDrawers({ trellis, synara, comments, references, comments
       setOpen(kind, true);
     }
     trellis.revealOpenTool(panel);
-  }, [commentsKind, openCommentsPanel, openReply, refreshTodos, refreshWordCount, requestRuntime, setLiteratureOpen, setOpen, trellis]);
+  }), [commentsKind, openCommentsPanel, openReply, refreshTodos, refreshWordCount, requestRuntime, setLiteratureOpen, setOpen, trellis]);
 
   /** Switch the Git drawer to a working-tree view, unpinning any turn review. */
   const showGitView = useCallback((view: AgentGitWorkspaceView) => {

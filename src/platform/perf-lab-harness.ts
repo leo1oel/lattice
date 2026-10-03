@@ -70,6 +70,7 @@ export async function labPrepare() {
     // ignore
   }
   window.__latticeLab = true;
+  performance.setResourceTimingBufferSize?.(5000);
 
   const flags = (config.flags ?? "").split(",").filter(Boolean);
   window.__latticeLabFlags = flags;
@@ -1284,7 +1285,215 @@ async function longMarkdownTwice() {
   return { first: first.fling.timeline.slice(0, 4), firstLongest: first.fling.frames.longestMs, second: second.timeline.slice(0, 4), secondLongest: second.frames.longestMs };
 }
 
+// Cold versus warm first open of a lazily loaded tool (Settings, History,
+// Comments), whose Suspense boundary falls back to nothing (P21). `contentMs` runs
+// from the input event to the first animation frame the tool's own element is
+// in the page, so it is the time the reader sees no answer to the click.
+const COLD_TOOLS = {
+  settings: {
+    load: () => import("../settings/settings-dialog"),
+    open: () => window.dispatchEvent(new KeyboardEvent("keydown", { key: ",", metaKey: true, bubbles: true, cancelable: true })),
+    content: ".settings-modal",
+    close: () => syntheticKey("Escape"),
+  },
+  history: {
+    load: () => import("../history/history-drawer"),
+    button: 'button[aria-label="Project history"]',
+    content: "aside.project-history-drawer",
+    close: () => document.querySelector('aside.project-history-drawer [data-slot="panel-header-actions"] button:last-child')?.click(),
+  },
+  comments: {
+    load: () => import("../editor/comments/editor-comments-panel"),
+    button: 'button[aria-label="Editor comments"]',
+    content: ".editor-comments-drawer",
+    close: () => document.querySelector('.editor-comments-drawer [data-slot="panel-header-actions"] button:last-child')?.click(),
+  },
+};
+
+async function openToolOnce(tool) {
+  let inputAt = null;
+  const onClick = (event) => { inputAt ??= event.timeStamp; };
+  window.addEventListener("click", onClick, { capture: true });
+  let contentAt = null;
+  let watching = true;
+  const watch = () => {
+    if (!watching) return;
+    const element = document.querySelector(tool.content);
+    if (element && element.getBoundingClientRect().width > 0) contentAt = performance.now();
+    else requestAnimationFrame(watch);
+  };
+  requestAnimationFrame(watch);
+  const meter = frameMeter();
+  try {
+    if (tool.button) {
+      await input.click(await waitFor(() => document.querySelector(tool.button), tool.button, 5000));
+    } else {
+      inputAt = performance.now();
+      tool.open();
+    }
+    await waitFor(() => contentAt !== null, tool.content, 10_000);
+  } finally {
+    watching = false;
+    window.removeEventListener("click", onClick, { capture: true });
+  }
+  const frames = meter.stop();
+  // The chunks the open fetched, as start-end milliseconds after the input.
+  const chunks = performance.getEntriesByType("resource")
+    .filter((entry) => entry.startTime >= inputAt - 1 && /\.(js|css)$/.test(entry.name))
+    .map((entry) => `${entry.name.split("/").pop()} ${Math.round(entry.startTime - inputAt)}-${Math.round(entry.responseEnd - inputAt)}`);
+  return { ms: Number((contentAt - inputAt).toFixed(1)), longestFrameMs: frames.longestMs, chunks };
+}
+
+async function coldTool(name) {
+  const tool = COLD_TOOLS[name];
+  const closeTool = async () => {
+    tool.close();
+    await waitFor(() => !document.querySelector(tool.content), `${name} closed`, 5000);
+    await settle(500, 10_000);
+  };
+  await settle(800, 20_000);
+  // Lab flag `late`: open once startup's background work (idle chunk
+  // prewarming, indexing, the first TexLab sync) has long finished.
+  const flags = window.__latticeLabFlags ?? [];
+  if (flags.includes("late")) {
+    await sleep(12_000);
+    await settle(1500, 20_000);
+  }
+  // Lab flag `prewarm`: load the tool's chunk first, so the cold open is
+  // first render alone and the difference is the chunk.
+  let loadMs = null;
+  if (flags.includes("prewarm")) {
+    const started = performance.now();
+    await tool.load();
+    loadMs = Math.round(performance.now() - started);
+    await settle(500, 10_000);
+  }
+  const cold = await openToolOnce(tool);
+  await settle(500, 10_000);
+  await closeTool();
+  const warm = [];
+  for (let index = 0; index < 5; index += 1) {
+    warm.push((await openToolOnce(tool)).ms);
+    await settle(400, 10_000);
+    await closeTool();
+  }
+  return { loadMs, coldMs: cold.ms, coldLongestFrameMs: cold.longestFrameMs, coldChunks: cold.chunks, warmMs: warm, warm: stats(warm) };
+}
+
+// TexLab traffic on the long source (P22). Every request carries the whole
+// document: this splits a completion into the editor's `toString`, the IPC
+// that carries the text (a non-.tex path stops in Rust before TexLab), and
+// TexLab's own share, measured inside the app by `perf_texlab_probe` with a
+// full-text sync, a one-range incremental sync and no sync at all.
+async function texlabRequestCosts(path, text, line, character, rounds) {
+  const toString = [];
+  const completion = { sync: [], total: [], items: 0 };
+  const ipcOnly = { sync: [], total: [] };
+  const probe = { full: [], incremental: [], position: [], fullWrite: [] };
+  const timed = async (into, command, args) => {
+    const started = performance.now();
+    const pending = invoke(command, args);
+    into.sync.push(performance.now() - started);
+    const answer = await pending.catch(() => null);
+    into.total.push(performance.now() - started);
+    return answer;
+  };
+  for (let round = 0; round < rounds; round += 1) {
+    const started = performance.now();
+    const fresh = typeof text === "function" ? text() : text;
+    toString.push(performance.now() - started);
+    const items = await timed(completion, "texlab_completion", { path, text: fresh, line, character });
+    completion.items = Math.max(completion.items, items?.length ?? 0);
+    await timed(ipcOnly, "texlab_completion", { path: `${path}.not-tex`, text: fresh, line, character });
+    for (const mode of ["full", "incremental", "position"]) {
+      const result = await invoke("perf_texlab_probe", { path, line, character, mode });
+      probe[mode].push(result.totalMs);
+      if (mode === "full") probe.fullWrite.push(result.syncMs);
+    }
+    await sleep(60);
+  }
+  return {
+    chars: (typeof text === "function" ? text() : text).length,
+    toString: stats(toString),
+    completion: { sync: stats(completion.sync), total: stats(completion.total), items: completion.items },
+    ipcOnly: { sync: stats(ipcOnly.sync), total: stats(ipcOnly.total) },
+    rust: Object.fromEntries(Object.entries(probe).map(([mode, values]) => [mode, stats(values)])),
+  };
+}
+
+// Records every TexLab request the editor makes while typing: its size, the
+// main-thread time the IPC `fetch` took to start, and when its answer came
+// back relative to the keystroke that asked. Tauri's `invoke` is read-only,
+// so this wraps the `ipc://` fetch underneath it.
+function recordTexlabTraffic() {
+  const native = window.fetch;
+  const requests = [];
+  let lastKeydown = 0;
+  const onKeydown = (event) => { if (event.key.length === 1) lastKeydown = performance.now(); };
+  window.addEventListener("keydown", onKeydown, { capture: true });
+  window.fetch = function (resource, init) {
+    const command = /^ipc:\/\/localhost\/(texlab_completion|texlab_hover)$/.exec(String(resource))?.[1];
+    if (!command) return native.call(this, resource, init);
+    const started = performance.now();
+    const entry = { command, chars: typeof init?.body === "string" ? init.body.length : 0, sinceKeydownMs: Number((started - lastKeydown).toFixed(1)) };
+    requests.push(entry);
+    const pending = native.call(this, resource, init);
+    entry.fetchMs = Number((performance.now() - started).toFixed(2));
+    const keydown = lastKeydown;
+    return pending.finally(() => {
+      entry.totalMs = Number((performance.now() - started).toFixed(1));
+      entry.keyToResultMs = Number((performance.now() - keydown).toFixed(1));
+    });
+  };
+  return () => {
+    window.fetch = native;
+    window.removeEventListener("keydown", onKeydown, { capture: true });
+    const completions = requests.filter((entry) => entry.command === "texlab_completion");
+    const measured = (key) => stats(completions.filter((entry) => entry[key] !== undefined).map((entry) => entry[key]));
+    return {
+      requests: completions.length,
+      megabytes: Number((completions.reduce((sum, entry) => sum + entry.chars, 0) / 1e6).toFixed(1)),
+      fetchMs: measured("fetchMs"),
+      totalMs: measured("totalMs"),
+      keyToResultMs: measured("keyToResultMs"),
+      hovers: requests.length - completions.length,
+    };
+  };
+}
+
+async function texlabTraffic() {
+  await openFile("long.tex");
+  const editor = await waitFor(() => [...document.querySelectorAll(".cm-editor")].map((element) => EditorView.findFromDOM(element)).find((view) => view && view.state.doc.length > 1e6 && view.dom.getBoundingClientRect().width > 50), "long.tex editor", 30_000);
+  await settle(1500, 20_000);
+  // A prose word about 60% of the way in, where a writer types most.
+  const doc = editor.state.doc;
+  let lineNumber = Math.floor(doc.lines * 0.6);
+  while (!/[a-z]{5}/.test(doc.line(lineNumber).text)) lineNumber += 1;
+  const character = doc.line(lineNumber).text.search(/[a-z]{5}/) + 4;
+  const long = await texlabRequestCosts("long.tex", () => editor.state.doc.toString(), lineNumber, character, 30);
+  const chapterText = await invoke("read_project_file", { path: "chapters/ch01.tex" });
+  const small = await texlabRequestCosts("chapters/ch01.tex", chapterText, 20, 4, 30);
+  await settle(800, 20_000);
+  const rect = editor.scrollDOM.getBoundingClientRect();
+  const line = [...editor.contentDOM.querySelectorAll(".cm-line")].find((candidate) => {
+    const box = candidate.getBoundingClientRect();
+    return box.top > rect.top + 60 && box.bottom < rect.bottom - 60 && (candidate.textContent ?? "").length > 20;
+  });
+  if (line) await input.click(line, 0.05, 0.5);
+  await sleep(300);
+  const stop = recordTexlabTraffic();
+  const typing = await typeAndMeasure("the quick brown fox jumps over lazy dogs ", 110);
+  await sleep(1500);
+  const traffic = stop();
+  await settle(1200);
+  return { long, small, typing: { keydownToNextPaint: typing.keydownToNextPaint, sendToPaint: typing.sendToPaint, frames: typing.frames }, traffic };
+}
+
 const SCENARIOS = {
+  coldSettings: () => coldTool("settings"),
+  coldHistory: () => coldTool("history"),
+  coldComments: () => coldTool("comments"),
+  texlabTraffic,
   longMarkdownTwice,
   pdfGeometry,
   longTexBreakdown,
