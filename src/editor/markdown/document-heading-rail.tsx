@@ -11,6 +11,8 @@ const ACTIVE_RESTING_SCALE = 0.66;
 const RESTING_SCALES = [0.4, 0.27, 0.18];
 const next = (index: number, length: number) => (index + 1) % length;
 const previous = (index: number, length: number) => (index - 1 + length) % length;
+/** What the writer does to scroll the document; a jump's section stops being current once they do. */
+const WRITER_INPUT = ["wheel", "touchstart", "pointerdown", "keydown"] as const;
 const KEYBOARD_STEPS: Record<string, (index: number, length: number) => number> = {
   ArrowDown: next,
   ArrowRight: next,
@@ -84,7 +86,8 @@ export function DocumentHeadingRail({ items: rawItems, virtualized = false, onSe
    * Reading alone cannot always name it: at either end of the document the
    * scroller cannot center the heading, so the middle of the viewport is in
    * another section. `reading` is the section the middle settled in after the
-   * jump; once scrolling reaches another one, reading takes over again.
+   * jump; once scrolling reaches another one, or the writer scrolls
+   * themselves, reading takes over again.
    */
   const jumpRef = useRef<{ id: string; reading: string | null } | null>(null);
   const remeasureRef = useRef<(() => void) | null>(null);
@@ -151,6 +154,16 @@ export function DocumentHeadingRail({ items: rawItems, virtualized = false, onSe
     };
     remeasureRef.current = scheduleMeasure;
     const onScroll = () => updateActive();
+    // Scrolling within the section reading settled in would keep the jump's
+    // section current long after it left the viewport, so the writer's own
+    // input lets it go — anywhere on the scroll area, its scrollbar included,
+    // except on the rail, whose clicks and keys make the jumps.
+    const surface = scroller.closest<HTMLElement>("[data-slot='scroll-area']") ?? scroller;
+    const onWriterInput = (event: Event) => {
+      if (!jumpRef.current || (event.target instanceof Node && nav.contains(event.target))) return;
+      jumpRef.current = null;
+      updateActive();
+    };
     const resizeObserver = new ResizeObserver(scheduleMeasure);
     resizeObserver.observe(scroller);
     resizeObserver.observe(root);
@@ -170,6 +183,7 @@ export function DocumentHeadingRail({ items: rawItems, virtualized = false, onSe
     });
     if (!watchSurface()) surfaceWatcher.observe(root, { childList: true, subtree: true });
     scroller.addEventListener("scroll", onScroll, { passive: true });
+    for (const type of WRITER_INPUT) surface.addEventListener(type, onWriterInput, { capture: true, passive: true });
     measure();
     return () => {
       if (frame != null) window.cancelAnimationFrame(frame);
@@ -178,6 +192,7 @@ export function DocumentHeadingRail({ items: rawItems, virtualized = false, onSe
       mutationObserver.disconnect();
       surfaceWatcher.disconnect();
       scroller.removeEventListener("scroll", onScroll);
+      for (const type of WRITER_INPUT) surface.removeEventListener(type, onWriterInput, true);
     };
   }, [items, virtualized]);
 

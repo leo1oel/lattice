@@ -47,19 +47,25 @@ function renderRail() {
   vi.spyOn(HTMLElement.prototype, "scrollHeight", "get").mockImplementation(function (this: HTMLElement) {
     return isScroller(this) ? DOCUMENT : 0;
   });
+  // The scroll area's scrollbar sits beside its viewport, not inside it.
   const view = render(
-    <div className="editor-doc-scroll">
-      <div className="lx-md-editor">
-        <DocumentHeadingRail items={items} onSelect={onSelect} />
-        <div className="ProseMirror">
-          {SECTIONS.map(({ id, label }) => <h2 key={id} id={id}>{label}</h2>)}
+    <div data-slot="scroll-area">
+      <div className="editor-doc-scroll">
+        <div className="lx-md-editor">
+          <DocumentHeadingRail items={items} onSelect={onSelect} />
+          <div className="ProseMirror">
+            {SECTIONS.map(({ id, label }) => <h2 key={id} id={id}>{label}</h2>)}
+          </div>
         </div>
       </div>
+      <div data-slot="scroll-area-scrollbar" />
     </div>,
   );
   const scroller = view.container.querySelector<HTMLElement>(".editor-doc-scroll")!;
   return {
     onSelect,
+    scroller,
+    scrollbar: view.container.querySelector<HTMLElement>("[data-slot='scroll-area-scrollbar']")!,
     /** The writer scrolls the document to `top`. */
     scroll: (top: number) => {
       scrollTo(top);
@@ -112,6 +118,25 @@ describe("DocumentHeadingRail's current section", () => {
     // Scrolling to another section hands the rail back to reading.
     scroll(back.to);
     expect(current()).toEqual({ location: [back.current], tabStop: [back.current] });
+  });
+
+  it.each([
+    { input: "the wheel", start: (scroller: HTMLElement) => fireEvent.wheel(scroller, { deltaY: 250 }) },
+    { input: "a touch", start: (scroller: HTMLElement) => fireEvent.touchStart(scroller) },
+    { input: "the keyboard", start: (scroller: HTMLElement) => fireEvent.keyDown(scroller, { key: "PageDown" }) },
+    { input: "the scrollbar", start: (_scroller: HTMLElement, scrollbar: HTMLElement) => fireEvent.pointerDown(scrollbar) },
+  ])("hands back to reading once the writer scrolls with $input, even within the section reading settled in", async ({ start }) => {
+    const { scroll, scroller, scrollbar } = renderRail();
+    scroll(2000);
+    await nextFrame();
+    // Introduction cannot be centered: the jump settles at the top, reading in Method.
+    fireEvent.click(section("Introduction"));
+    await nextFrame();
+    expect(current()).toEqual({ location: ["Introduction"], tabStop: ["Introduction"] });
+    // The writer scrolls Introduction out of view, still reading in Method.
+    start(scroller, scrollbar);
+    scroll(250);
+    expect(current()).toEqual({ location: ["Method"], tabStop: ["Method"] });
   });
 
   it("follows a jump activated from the keyboard", async () => {

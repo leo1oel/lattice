@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { EditorView } from "@codemirror/view";
 import { frameCoalescer } from "../app/effect-helpers";
+import { releaseReveal } from "../editor/editor-reveal";
 
 function thumbGeometry(scroller: HTMLElement) {
   const trackHeight = Math.max(0, scroller.clientHeight - 8);
@@ -93,6 +94,9 @@ export function CodeMirrorScrollbar({ view }: { view: EditorView | null }) {
       onPointerDown={(event) => {
         const scroller = scrollerBeside(event.currentTarget);
         if (!scroller || !hasOverflow) return;
+        // The bar sits outside the view's DOM, so a jump settling its target
+        // would not see this gesture and pull the document back.
+        if (view) releaseReveal(view);
         event.preventDefault();
         event.stopPropagation();
         event.currentTarget.setPointerCapture(event.pointerId);
