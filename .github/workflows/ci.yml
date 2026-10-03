@@ -21,7 +21,23 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/setup-pnpm
+      # vitest.config.ts turns on Vitest's fs module cache. A checkout starts
+      # with it empty, so each shard restores the transforms its files last
+      # produced on main. Entries are keyed by content, so a stale one is never
+      # used, only left unread; the lockfile in the key drops the lot whenever
+      # dependencies move, which is also when Vitest would discard it.
+      - uses: actions/cache/restore@v5
+        with:
+          path: node_modules/.experimental-vitest-cache
+          key: vitest-fs-${{ matrix.shard }}-${{ hashFiles('pnpm-lock.yaml') }}-${{ github.sha }}
+          restore-keys: vitest-fs-${{ matrix.shard }}-${{ hashFiles('pnpm-lock.yaml') }}-
       - run: pnpm vitest run --shard=${{ matrix.shard }}/3
+      # Like the Rust cache below: only main writes, pull requests read.
+      - if: github.ref == 'refs/heads/main'
+        uses: actions/cache/save@v5
+        with:
+          path: node_modules/.experimental-vitest-cache
+          key: vitest-fs-${{ matrix.shard }}-${{ hashFiles('pnpm-lock.yaml') }}-${{ github.sha }}
 
   # The literature Worker is its own pnpm project with its own lockfile and is
   # not part of the root install, so nothing above sees it. Its tests run on

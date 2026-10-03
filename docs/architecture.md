@@ -574,8 +574,8 @@ in `package.json`. That cap is a debt ratchet:
 lower it when you remove warnings, never raise it.
 
 Testing environment: Vitest + jsdom, 20 s test timeout
-(`vitest.config.ts:70`), `literature-worker/**` and `.tmp/**` excluded
-(`vitest.config.ts:61`). The App integration suites (`src/app/app-*.test.tsx`,
+(`vitest.config.ts:83`), `literature-worker/**` and `.tmp/**` excluded
+(`vitest.config.ts:74`). The App integration suites (`src/app/app-*.test.tsx`,
 sharing the mocks and helpers in `src/app/app-test-utils.tsx`) render the real
 `App` with a mocked `invoke`, and startup ordering matters: the
 backend's `initial_project` (`ipc/workspace.rs`; see `initialProjectProbe` in
