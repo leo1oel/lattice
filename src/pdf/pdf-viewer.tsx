@@ -134,10 +134,11 @@ type MenuAction = { label: string; icon: ReactNode; disabled?: boolean; run: () 
  * steps and value, the fit mode not in use, location history and saving. It
  * is only reachable while the toolbar is narrow; a wide one shows each control.
  */
-function PdfOverflowMenu({ scale, canZoomOut, canZoomIn, stepZoom, onEnterZoom, groups }: {
+function PdfOverflowMenu({ open, onOpenChange, scale, stepZoom, onEnterZoom, groups }: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  /** Only read while open; pass a constant otherwise, so zooming never re-renders the closed menu. */
   scale: number;
-  canZoomOut: boolean;
-  canZoomIn: boolean;
   stepZoom: (direction: 1 | -1) => void;
   /** Close the menu and type a percentage into the toolbar's own zoom field. */
   onEnterZoom: () => void;
@@ -151,7 +152,7 @@ function PdfOverflowMenu({ scale, canZoomOut, canZoomIn, stepZoom, onEnterZoom, 
     stepZoom(direction);
   };
   return (
-    <DropdownMenu modal={false}>
+    <DropdownMenu modal={false} open={open} onOpenChange={onOpenChange}>
       <Tip label={t`More PDF actions`}>
         <DropdownMenuTrigger asChild>
           <button type="button" className="pdf-overflow-trigger"><Ellipsis size={14} /></button>
@@ -170,7 +171,7 @@ function PdfOverflowMenu({ scale, canZoomOut, canZoomIn, stepZoom, onEnterZoom, 
       >
         <div className="pdf-overflow-zoom" role="group" aria-label={t`Zoom`}>
           <span className="pdf-overflow-zoom-label" aria-hidden="true">{t`Zoom`}</span>
-          <DropdownMenuItem aria-label={t`Zoom out`} disabled={!canZoomOut} onSelect={step(-1)}>
+          <DropdownMenuItem aria-label={t`Zoom out`} disabled={scale <= PDF_MIN_SCALE} onSelect={step(-1)}>
             <ZoomOut />
           </DropdownMenuItem>
           <DropdownMenuItem
@@ -180,7 +181,7 @@ function PdfOverflowMenu({ scale, canZoomOut, canZoomIn, stepZoom, onEnterZoom, 
           >
             {Math.round(scale * 100)}%
           </DropdownMenuItem>
-          <DropdownMenuItem aria-label={t`Zoom in`} disabled={!canZoomIn} onSelect={step(1)}>
+          <DropdownMenuItem aria-label={t`Zoom in`} disabled={scale >= PDF_MAX_SCALE} onSelect={step(1)}>
             <ZoomIn />
           </DropdownMenuItem>
         </div>
@@ -307,6 +308,7 @@ export function PdfPreview({
     const requested = Number.parseInt(draft, 10);
     if (Number.isFinite(requested)) goToPage(requested);
   }, { accept: /^\d*$/, cancelOnEscape: true });
+  const [overflowOpen, setOverflowOpen] = useState(false);
   // A narrow toolbar shows its zoom field only while a percentage is typed into it.
   const [zoomEntry, setZoomEntry] = useState(false);
   useEffect(() => {
@@ -388,10 +390,9 @@ export function PdfPreview({
   // A narrow toolbar keeps one fit control: the mode in use, or width when
   // neither is (a manual zoom); the other waits in the overflow menu.
   const shownFit = fitMode ?? "width";
-  const fitControls = [
-    { mode: "width" as const, label: t`Fit page to width`, icon: <RectangleHorizontal size={14} /> },
-    { mode: "height" as const, label: t`Fit page to height`, icon: <RectangleVertical size={14} /> },
-  ];
+  const fitWidth = { mode: "width" as const, label: t`Fit page to width`, icon: <RectangleHorizontal size={14} /> };
+  const fitHeight = { mode: "height" as const, label: t`Fit page to height`, icon: <RectangleVertical size={14} /> };
+  const otherFit = shownFit === "width" ? fitHeight : fitWidth;
   const pageCount = numPages ?? "–";
   const { query, matches } = search;
 
@@ -502,11 +503,13 @@ export function PdfPreview({
                 <i className="pdf-fit-divider" aria-hidden="true" />
               </>
             )}
-            {fitControls.map(({ mode, label, icon }) => (
-              <ToolbarButton key={mode} label={label} icon={icon}
-                className={`${fitMode === mode ? "active" : ""}${mode === shownFit ? "" : " pdf-overflow"}`}
-                aria-pressed={fitMode === mode} disabled={!hasActiveViewer} onClick={() => toggleFit(mode)} />
-            ))}
+            {/* Written out, not mapped: each button then re-renders only when its own state changes. */}
+            <ToolbarButton label={fitWidth.label} icon={fitWidth.icon}
+              className={`${fitMode === "width" ? "active" : ""}${shownFit === "width" ? "" : " pdf-overflow"}`}
+              aria-pressed={fitMode === "width"} disabled={!hasActiveViewer} onClick={() => toggleFit("width")} />
+            <ToolbarButton label={fitHeight.label} icon={fitHeight.icon}
+              className={`${fitMode === "height" ? "active" : ""}${shownFit === "height" ? "" : " pdf-overflow"}`}
+              aria-pressed={fitMode === "height"} disabled={!hasActiveViewer} onClick={() => toggleFit("height")} />
             {toolbarEnd}
             {showSave && (
               <Tip label={saveName}>
@@ -516,15 +519,13 @@ export function PdfPreview({
               </Tip>
             )}
             <PdfOverflowMenu
-              scale={scale}
-              canZoomOut={scale > PDF_MIN_SCALE}
-              canZoomIn={scale < PDF_MAX_SCALE}
+              open={overflowOpen}
+              onOpenChange={setOverflowOpen}
+              scale={overflowOpen ? scale : 1}
               stepZoom={stepZoom}
               onEnterZoom={() => setZoomEntry(true)}
               groups={[
-                fitControls.filter(({ mode }) => mode !== shownFit).map(({ mode, label, icon }) => ({
-                  label, icon, disabled: !hasActiveViewer, run: () => toggleFit(mode),
-                })),
+                [{ label: otherFit.label, icon: otherFit.icon, disabled: !hasActiveViewer, run: () => toggleFit(otherFit.mode) }],
                 [
                   { label: t`Previous PDF location`, icon: <CornerUpLeft />, disabled: !availability.back, run: () => navigate("back") },
                   { label: t`Next PDF location`, icon: <CornerUpRight />, disabled: !availability.forward, run: () => navigate("forward") },
