@@ -132,4 +132,44 @@ describe("TrellisController", () => {
     expect(activate.mock.calls).toEqual([["main.tex"], ["reference.pdf"], ["paper.pdf"]]);
     vi.useRealTimers();
   });
+
+  it("returns to a document once it is active, and keeps its editor focused through Trellis's own focus", () => {
+    vi.useFakeTimers();
+    const controller = new TrellisController();
+    const { ws, calls } = fakeWorkspace([
+      { id: "comments", type: "comments", placement: "docked", visible: true, panelId: "docs" },
+      { id: "doc-main", type: "file", params: { key: "main.tex" }, placement: "docked", visible: false, panelId: "docs" },
+    ]);
+    controller.attachWorkspace(ws);
+    controller.app.set({ activeKey: "reference.pdf" });
+    const surface = document.createElement("div");
+    surface.className = "cm-content";
+    surface.tabIndex = 0;
+    surface.getClientRects = () => [new DOMRect(0, 0, 10, 10)] as unknown as DOMRectList;
+    controller.hosts.editor.append(surface);
+    document.body.append(controller.hosts.editor);
+    const elsewhere = document.createElement("button");
+    document.body.append(elsewhere);
+
+    controller.focusDocument("main.tex");
+    vi.advanceTimersToNextFrame();
+    // Still opening: nothing is shown or focused for another document.
+    expect(calls).toEqual([]);
+    controller.app.set({ activeKey: "main.tex" });
+    vi.advanceTimersToNextFrame();
+    expect(calls).toEqual(["focus doc-main"]);
+    // A just-shown editor is still landing its caret; focus waits for it to settle.
+    expect(document.activeElement).not.toBe(surface);
+    for (let frame = 0; frame < 6; frame++) vi.advanceTimersToNextFrame();
+    expect(document.activeElement).toBe(surface);
+    // Trellis settles focus on the panel a frame later; the editor takes it back.
+    elsewhere.focus();
+    vi.advanceTimersToNextFrame();
+    expect(document.activeElement).toBe(surface);
+    expect(calls).toEqual(["focus doc-main"]);
+
+    controller.hosts.editor.remove();
+    elsewhere.remove();
+    vi.useRealTimers();
+  });
 });

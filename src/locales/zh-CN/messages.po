@@ -2818,6 +2818,10 @@ msgctxt "macOS menu bar"
 msgid "Enter Full Screen"
 msgstr "进入全屏幕"
 
+#: src/papers/bib-entry-dialog.tsx
+msgid "Enter manually"
+msgstr "手动填写"
+
 #: src/papers/bibliography-audit.tsx
 msgid "Entry changed"
 msgstr "条目已变更"
@@ -3921,6 +3925,10 @@ msgstr "保留引用"
 msgid "Keep it on Overleaf"
 msgstr "在 Overleaf 上保留"
 
+#: src/papers/bib-entry-dialog.tsx
+msgid "Keep my fields"
+msgstr "保留我填写的内容"
+
 #: src/history/conflict-resolver.tsx
 msgid "Keep Overleaf's version"
 msgstr "保留 Overleaf 的版本"
@@ -4844,6 +4852,10 @@ msgid "No comments yet"
 msgstr "还没有评论"
 
 #: src/editor/comments/editor-comments-panel.tsx
+msgid "No comments yet. Open a file, select text and click Comment"
+msgstr "还没有评论。打开一个文件，选择文本，然后点击“评论”"
+
+#: src/editor/comments/editor-comments-panel.tsx
 msgid "No comments yet. Select text in the editor and click Comment"
 msgstr "还没有评论。在编辑器中选择文本，然后点击“评论”"
 
@@ -5177,6 +5189,10 @@ msgstr "请先打开一个 .tex 文件再进行格式化。"
 #: src/app/use-project-tree.ts
 msgid "Open a .tex file before pasting a figure."
 msgstr "请先打开一个 .tex 文件再粘贴图片。"
+
+#: src/editor/comments/editor-comments-panel.tsx
+msgid "Open a file"
+msgstr "打开文件"
 
 #: src/app/use-project-lifecycle.ts
 msgid "Open a LaTeX project"
@@ -6765,6 +6781,10 @@ msgstr "检索记录信息"
 #: src/telemetry/app-log.tsx
 msgid "Retry"
 msgstr "重试"
+
+#: src/editor/comments/editor-comments-panel.tsx
+msgid "Return to {writingName}"
+msgstr "返回 {writingName}"
 
 #: src/trellis/trellis-titlebar.tsx
 msgid "Return to your own layout"
