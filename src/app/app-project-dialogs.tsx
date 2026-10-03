@@ -43,13 +43,12 @@ export function AppProjectDialogs({ references, importedArxivIds, createForm, up
           key={bibEntry.key}
           open={bibEntry.open}
           busy={bibEntry.busy}
-          resolving={bibEntry.resolving}
           error={bibEntry.error}
           mode={bibEntry.mode}
           initialResolveQuery={bibEntry.resolveSeed}
           initialDraft={bibEntry.initial}
           onClose={() => {
-            if (!bibEntry.busy && !bibEntry.resolving) references.setBibEntry({ open: false });
+            if (!bibEntry.busy) references.setBibEntry({ open: false });
           }}
           onResolve={references.resolveBibQuery}
           onSave={(draft, insertCite) => { void references.saveBibEntry(draft, insertCite); }}

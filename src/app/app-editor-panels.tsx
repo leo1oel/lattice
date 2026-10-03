@@ -35,6 +35,8 @@ export function AppEditorPanels({ comments, renderCommentsSurface, ...props }: {
   /** Wraps the comment list in the Overleaf drawer when the project is linked. */
   renderCommentsSurface?: (localComments: ReactNode) => ReactNode;
   activeFile: string;
+  /** The document tabs still open; closing the last one leaves `activeFile` set but nothing to return to. */
+  openTabs: readonly string[];
   build: BuildResult | null;
   editorCommentAuthorId: string;
   appendixBoundary: AppendixBoundary;
@@ -51,7 +53,11 @@ export function AppEditorPanels({ comments, renderCommentsSurface, ...props }: {
   const trellis = useTrellisController();
   // Where the writer was writing: the active file, still active while a Paper
   // or PDF covers it. A Board, Sheet or Deck has no text to comment on.
-  const writingFile = props.activeFile && !isWholeFileEditorPath(props.activeFile) ? props.activeFile : null;
+  // Closing the last tab keeps the file's buffer (and so `activeFile`) but
+  // removes its panel, so only a file still in the tabs is somewhere to return
+  // to; without one the action becomes the file picker.
+  const writingFile = props.activeFile && props.openTabs.includes(props.activeFile)
+    && !isWholeFileEditorPath(props.activeFile) ? props.activeFile : null;
   const returnToEditor = async () => {
     if (!writingFile) {
       trellis?.bridge?.quickOpen();

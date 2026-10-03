@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { useState, type ComponentProps } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { BibEntryDialog, type ResolvedCitationDraft } from "./bib-entry-dialog";
@@ -24,8 +24,9 @@ function resolved(overrides: Partial<ResolvedCitationDraft> = {}): ResolvedCitat
 
 function deferred<T>() {
   let resolve!: (value: T) => void;
-  const promise = new Promise<T>((done) => { resolve = done; });
-  return { promise, resolve };
+  let reject!: (reason: Error) => void;
+  const promise = new Promise<T>((done, fail) => { resolve = done; reject = fail; });
+  return { promise, resolve, reject };
 }
 
 function renderDialog(props: Partial<ComponentProps<typeof BibEntryDialog>> = {}) {
@@ -112,7 +113,7 @@ describe("BibEntryDialog citation resolution", () => {
   });
 
   it("ignores a resolution result after the query changes", async () => {
-    const pending = deferred<ResolvedCitationDraft | null>();
+    const pending = deferred<ResolvedCitationDraft>();
     renderDialog({ onResolve: vi.fn(() => pending.promise) });
     resolveQuery("old query");
     fireEvent.change(screen.getByLabelText("Citation resolve query"), { target: { value: "new query" } });
@@ -123,7 +124,7 @@ describe("BibEntryDialog citation resolution", () => {
   });
 
   it("deduplicates in-flight clicks and marks retrieved fields as edited", async () => {
-    const pending = deferred<ResolvedCitationDraft | null>();
+    const pending = deferred<ResolvedCitationDraft>();
     const onResolve = vi.fn(() => pending.promise);
     renderDialog({ onResolve });
     const button = screen.getByRole("button", { name: "Resolve" });
@@ -229,7 +230,7 @@ describe("BibEntryDialog entry paths", () => {
   });
 
   it("drops a lookup still running once the writer enters the entry by hand", async () => {
-    const pending = deferred<ResolvedCitationDraft | null>();
+    const pending = deferred<ResolvedCitationDraft>();
     renderDialog({ onResolve: vi.fn(() => pending.promise) });
     resolveQuery("10.1/late");
     fireEvent.click(screen.getByRole("button", { name: "Enter manually" }));
@@ -239,10 +240,33 @@ describe("BibEntryDialog entry paths", () => {
     expect(screen.getByLabelText("Title")).toHaveValue("Typed by hand");
   });
 
-  it("shows a failed lookup beside the lookup, with the manual path still there", () => {
-    renderDialog({ onResolve: vi.fn(), error: "bibcite could not resolve that query." });
-    expect(screen.getByRole("alert")).toHaveTextContent("could not resolve");
+  it("saves a manual entry while the abandoned lookup runs, and ignores its late failure", async () => {
+    const pending = deferred<ResolvedCitationDraft>();
+    const onSave = renderDialog({ onResolve: vi.fn(() => pending.promise) });
+    resolveQuery("10.1/slow");
+    fireEvent.click(screen.getByRole("button", { name: "Enter manually" }));
+    expect(screen.getByRole("button", { name: "Resolve" })).toBeEnabled();
+    fireEvent.change(screen.getByLabelText("Title"), { target: { value: "Typed by hand" } });
+    fireEvent.change(screen.getByLabelText("Author"), { target: { value: "Doe, Jane" } });
+    fireEvent.change(screen.getByLabelText("Year"), { target: { value: "2025" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save entry" }));
+    expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ title: "Typed by hand" }), true);
+    await act(async () => {
+      pending.reject(new Error("bibcite timed out"));
+      await pending.promise.catch(() => undefined);
+    });
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("shows a failed lookup beside the lookup, with the manual path still there", async () => {
+    const onResolve = vi.fn(async () => { throw new Error("bibcite could not resolve that query."); });
+    renderDialog({ onResolve, error: "An earlier save failed." });
+    resolveQuery("no such paper");
+    expect(await screen.findByRole("alert")).toHaveTextContent("could not resolve");
     expect(screen.getByRole("button", { name: "Enter manually" })).toBeInTheDocument();
+    // A new query is a new lookup: the old one's failure no longer describes it.
+    fireEvent.change(screen.getByLabelText("Citation resolve query"), { target: { value: "another paper" } });
+    expect(screen.getByRole("alert")).toHaveTextContent("An earlier save failed.");
   });
 
   it("keeps the BibTeX preview behind a disclosure that still reads the draft", () => {
