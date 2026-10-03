@@ -53,11 +53,11 @@ export function PanelActions({ mode, synara, ...props }: PanelActionsProps) {
       {mode === "project" && (
         <>
           <DropdownMenu modal={false}>
-            <DropdownMenuTrigger asChild>
-              <button aria-label={t`New…`} title={t`New…`}>
-                <Plus size={14} />
-              </button>
-            </DropdownMenuTrigger>
+            <Tip label={t`New…`}>
+              <DropdownMenuTrigger asChild>
+                <button type="button"><Plus size={14} /></button>
+              </DropdownMenuTrigger>
+            </Tip>
             {/* The new entry's name field takes focus, so the draft starts only once the
                 menu has let focus go: started on select, a keyboard-chosen draft lost its
                 field to the closing menu and was canceled. */}

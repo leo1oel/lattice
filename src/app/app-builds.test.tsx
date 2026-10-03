@@ -432,7 +432,7 @@ describe("builds and the PDF reader", () => {
     expect(visibleToasts("Build")).toEqual([]);
     expect(diagnosticsPanel.closest(".pdf-column")).toBeInTheDocument();
     expect(diagnosticsPanel.parentElement).not.toHaveClass("workspace");
-    expect(screen.getByText("Built with 1 warning")).toBeInTheDocument();
+    expect(within(diagnosticsPanel).getByText("Built with 1 warning")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /1 warning/i }));
     fireEvent.click(screen.getByRole("button", { name: "Copy error message" }));
     await waitFor(() => expect(writeText).toHaveBeenCalledWith("chapters/intro.tex:4 Overfull hbox."));
