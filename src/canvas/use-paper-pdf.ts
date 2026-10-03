@@ -6,10 +6,11 @@ import { paperPdfUrl } from "../papers/paper-source";
 import { sourceQuoteDomRange } from "../papers/source-quote";
 import type { PdfSourceQuote } from "../pdf/pdf-viewer";
 import { notifyError } from "../telemetry/app-notify";
-import type { CanvasMode, PaperSummary } from "../app-types";
+import type { CanvasMode, PaperSummary, VisualMarkdownViewState } from "../app-types";
 import { toMessage } from "../app-utils";
 import { loadPdfPreviewModule } from "./canvas-lazy-modules";
-import { captureViewport, type ViewportSnapshot } from "./markdown-preview-sync";
+import { captureViewport } from "./markdown-preview-sync";
+import { captureReadingAnchor } from "../editor/markdown/reading-anchor";
 
 /** An original PDF a Paper links to; `generic` sources are fetched through the backend rather than opened directly. */
 type PaperPdfSource = { key: string; url: string; fileName: string; generic: boolean };
@@ -82,7 +83,7 @@ export function usePaperPdf({
   }, [activePaperId, activePaperUrl]);
   const [pdfView, setPdfView] = useState<PaperPdfView | null>(null);
   const [quoteFallback, setQuoteFallback] = useState<PaperQuoteFallback | null>(null);
-  const returnViewportRef = useRef<ViewportSnapshot & { path: string } | null>(null);
+  const returnViewportRef = useRef<VisualMarkdownViewState & { path: string } | null>(null);
   const pagesRef = useRef(new Map<string, number>());
   // Retain only the last complete PDF, not an unbounded library of buffers.
   // PdfPreview copies bytes before transferring them to its worker.
@@ -142,7 +143,7 @@ export function usePaperPdf({
     if (!pdfSource) return;
     if (flushVisualMarkdown() === false) return;
     const viewport = previewViewportRef.current;
-    if (viewport) returnViewportRef.current = { path: activeFile, ...captureViewport(viewport) };
+    if (viewport) returnViewportRef.current = { path: activeFile, ...captureViewport(viewport), anchor: captureReadingAnchor(viewport) };
     const request = ++requestRef.current;
     const cached = bytesRef.current;
     const bytes = cached?.key === pdfSource.key ? cached.bytes : null;

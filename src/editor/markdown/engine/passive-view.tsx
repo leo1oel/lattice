@@ -43,6 +43,8 @@ type Label = { pos: number; line: number; from: number; to: number };
 
 type PassiveChunk = {
   id: string;
+  /** The index of its first block among the document's. */
+  first: number;
   nodes: PmNode[];
   /** Heading ids and hidden Contents, at positions in this chunk. */
   marks: AnchorMark[];
@@ -72,6 +74,7 @@ export function passiveModel(doc: PmNode, baseline: MarkdownBaseline, textLength
     const nodes = entries.slice(first, last).map((_entry, index) => doc.child(first + index));
     chunks.push({
       id: `chunk-${first}`,
+      first,
       nodes,
       marks: marks.filter((mark) => mark.pos >= from && mark.pos < to).map((mark) => ({ ...mark, pos: mark.pos - from })),
       labels: nodes.map((_node, index) => {
@@ -193,6 +196,7 @@ function PassiveChunkView({ chunk, labels, reading, onLink, onPage }: {
       ref={sectionRef}
       className="lx-md-passive-chunk"
       data-visual-chunk-id={chunk.id}
+      data-visual-chunk-first={chunk.first}
       style={nearViewport ? undefined : { minHeight: `${height}px` }}
     >
       {nearViewport && <ChunkEditor chunk={chunk} labels={labels} reading={reading} onLink={onLink} onPage={onPage} />}

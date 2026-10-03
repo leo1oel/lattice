@@ -12,6 +12,7 @@
  */
 import { createContext, useContext, useSyncExternalStore } from "react";
 import type { MenuEntry, Placement, WorkspaceHandle } from "@danfessler/trellis";
+import type { AssetPreview, FileViewState } from "../app-types";
 import { isHtmlFilePath } from "../app-utils";
 import type { BuildOutcome } from "../app/use-build-pipeline";
 import type { LayoutPreset } from "./trellis-layout";
@@ -70,9 +71,12 @@ export type TrellisBridge = {
   /** The last known text of a project file, for an inactive panel's snapshot. */
   readText: (path: string) => Promise<string | null>;
   /** A Paper's reading text (the view it was read in, else the other), for an inactive Paper panel. */
-  readPaper: (key: string) => Promise<{ path: string; text: string; scrollTop: number } | null>;
-  /** The remembered scroll offset of a text file's editor. */
-  textScrollTop: (path: string) => number | null;
+  readPaper: (key: string) => Promise<{ path: string; text: string } | null>;
+  /** A project asset (a PDF) as its preview reads it, for an inactive panel beside the active document. */
+  readAsset: (path: string) => Promise<AssetPreview | null>;
+  /** Where the reader was in a file (its scroll, a PDF's page), shared by its live view and its snapshot. */
+  viewState: (path: string) => FileViewState | undefined;
+  rememberViewState: (path: string, update: Partial<FileViewState>) => void;
   /** Open (or re-open) the drawer behind a tool panel restored from a saved layout. */
   openTool: (kind: TrellisToolKind) => void;
   agentShown: () => void;

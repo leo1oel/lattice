@@ -2,7 +2,7 @@ import type { Dispatch, RefObject, SetStateAction } from "react";
 import { useEffect, useLayoutEffect, useRef } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { invoke } from "@tauri-apps/api/core";
-import type { PaperSummary, ProjectSnapshot, SettingsTab } from "../app-types";
+import type { AssetPreview, PaperSummary, ProjectSnapshot, SettingsTab } from "../app-types";
 import { arxivIdFromTabKey, isHtmlFilePath, isPaperTabKey } from "../app-utils";
 import type { MenuEntry } from "@danfessler/trellis";
 import { NEW_ENTRIES, type NewEntryType } from "../project/project-new-entries";
@@ -89,9 +89,17 @@ export function useTrellisBridge(app: TrellisBridgeApp) {
         const view = (paperView === "blog" ? blog : markdown) ? paperView : paperView === "blog" ? "fulltext" : "blog";
         const path = paperDocumentPath(arxivId, view);
         const text = view === "blog" ? blog : markdown;
-        return text ? { path, text, scrollTop: documents.viewStates.get(path)?.visualMarkdown?.scrollTop ?? 0 } : null;
+        return text ? { path, text } : null;
       },
-      textScrollTop: (path) => documents.viewStates.get(path)?.text?.scrollTop ?? null,
+      readAsset: async (path) => {
+        try {
+          return await invoke<AssetPreview>("read_project_asset", { path });
+        } catch {
+          return null;
+        }
+      },
+      viewState: (path) => documents.viewStates.get(path),
+      rememberViewState: (path, update) => documents.viewStates.remember(path, update),
       // A panel asking for a drawer that is already open only comes forward:
       // reopening would reset it (a comment reply's focus, Overleaf's tab).
       openTool: (kind) => {

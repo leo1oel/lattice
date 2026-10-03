@@ -423,6 +423,26 @@ describe("papers", () => {
     expect(within(snapshot).getByRole("button", { name: "Open the reader" })).toHaveAttribute("aria-label", "Open the reader");
   });
 
+  it("keeps a project PDF open beside the notes in the Reading layout", async () => {
+    renderApp({
+      ...projectCommands(projectSnapshot({ files: fileNodes("main.tex", "notes.md", "reference.pdf") }), "\\documentclass{main}"),
+      read_project_asset: (args) => ({ path: argPath(args), mimeType: "application/pdf", ranges: { length: 8, version: "v1" } }),
+    });
+    await openTreeFile("notes.md");
+    fireEvent.click(await findProjectTreeItem("reference.pdf"));
+    await waitForSelectedTab("reference.pdf");
+    fireEvent.click(within(document.querySelector(".trellis-presets")!).getByRole("tab", { name: "Reading" }));
+    const reading = () => document.querySelector<HTMLElement>('[data-trellis-part="panel"][data-panel="panel-reading"]')!;
+    await waitFor(() => expect(reading()).toBeInTheDocument());
+    // Writing the notes: the PDF stays open where it was read rather than going to sleep.
+    fireEvent.pointerDown(await findElement(".trellis-snapshot"), { button: 0 });
+    await waitForSelectedTab("notes.md");
+    expect(within(reading()).getByRole("tab", { name: /reference\.pdf/ })).toHaveAttribute("aria-selected", "true");
+    await findElement(".trellis-pdf-snapshot");
+    expect(screen.queryByText("Sleeping · click to open")).not.toBeInTheDocument();
+    expect(invoke).toHaveBeenCalledWith("read_project_asset", { path: "reference.pdf" });
+  });
+
   it("opens a captured webpage without offering it as an arXiv PDF", async () => {
     renderApp({
       ...projectCommands(projectSnapshot(), "\\documentclass{main}"),

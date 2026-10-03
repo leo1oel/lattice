@@ -370,6 +370,7 @@
 }
 .trellis-snapshot:hover .trellis-snapshot-badge { opacity: 1; }
 .trellis-paper-snapshot { position: absolute; inset: 0; display: flex; flex-direction: column; background: var(--editor-bg); }
+.trellis-pdf-snapshot { position: absolute; inset: 0; display: flex; flex-direction: column; background: var(--editor-bg); }
 .trellis-paper-snapshot-scroll { flex: 1 1 0; height: auto; min-height: 0; overflow-y: auto; overflow-x: hidden; }
 
 /* ---------------------------------------------------------------- panel menus */

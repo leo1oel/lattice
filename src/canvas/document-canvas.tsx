@@ -74,6 +74,7 @@ import {
   captureViewport, minimalTextChange, rangesWithinPreview, restoreViewport, spliceMarkdownBody, useSettledPreviewText,
 } from "./markdown-preview-sync";
 import { PaperReader } from "./paper-reader";
+import { captureReadingAnchor, restoreReadingAnchor } from "../editor/markdown/reading-anchor";
 import { ProjectAssetPreview } from "./project-asset-preview";
 import { useMarkdownModeHandoff } from "./use-markdown-mode-handoff";
 import { useMarkdownSplitScroll } from "./use-markdown-split-scroll";
@@ -933,24 +934,31 @@ export function DocumentCanvas(props: {
     const saved = quoteFallback?.path === path ? undefined
       : returnViewport?.path === path ? returnViewport : getFileViewState?.(path)?.visualMarkdown;
     if (!quoteFallback && returnViewport?.path === path) paperReturnViewportRef.current = null;
+    const anchor = saved?.anchor;
     let restoring = Boolean(saved);
     let attempts = 0;
     // A jump into this file owns its viewport: the remembered place would land
     // first and the jump second, two moves where one was asked for.
     const jumping = () => latestRef.current.requests.navigation?.path === path || visualRevealRef.current !== null;
-    // Retried each frame until the preview is tall enough to hold the saved place.
+    // Retried each frame until the preview is tall enough to hold the saved
+    // place, then (with a block saved) until that block is back where it was:
+    // the offset alone drifts wherever the layout changed above it.
     const [scheduleRestore, cancelRestore] = frameCoalescer(() => {
       attempts += 1;
       if (jumping()) {
         restoring = false;
         return;
       }
-      const ready = saved && restoreViewport(viewport, { scrollTop: saved.scrollTop, scrollRange: saved.scrollRange ?? 0 });
+      const ready = saved && (attempts > 1 && anchor
+        ? restoreReadingAnchor(viewport, anchor)
+        : restoreViewport(viewport, { scrollTop: saved.scrollTop, scrollRange: saved.scrollRange ?? 0 }) && !anchor);
       if (!ready && attempts < 30) scheduleRestore();
       else restoring = false;
     });
     const report = () => {
-      if (!restoring) onFileViewState?.(path, { visualMarkdown: captureViewport(viewport) });
+      // A preview being torn down has no layout left to read a place from.
+      if (restoring || !viewport.isConnected) return;
+      onFileViewState?.(path, { visualMarkdown: { ...captureViewport(viewport), anchor: captureReadingAnchor(viewport) } });
     };
     viewport.addEventListener("scroll", report, { passive: true });
     if (saved) scheduleRestore();

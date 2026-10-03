@@ -67,15 +67,17 @@ export function usePdfViewState(
     callbacks.current.onPageChange?.(pageNumber);
   }, [callbacks, pageNumber]);
 
+  const scrollRef = useRef({ scrollTop: initialViewState?.scrollTop ?? 0, scrollLeft: initialViewState?.scrollLeft ?? 0 });
   const report = useCallback(() => {
     frameRef.current = null;
     if (!readyRef.current) return;
     const area = recordRef.current?.root;
-    callbacks.current.onViewState?.({
-      ...viewRef.current,
-      scrollTop: area?.scrollTop ?? 0,
-      scrollLeft: area?.scrollLeft ?? 0,
-    });
+    // The final report runs as the viewer goes away, possibly after its
+    // scroller has left the document (a panel handing the document to
+    // another): that reads 0, so the place last read in the document stands.
+    if (area?.isConnected) scrollRef.current = { scrollTop: area.scrollTop, scrollLeft: area.scrollLeft };
+    else if (!area) scrollRef.current = { scrollTop: 0, scrollLeft: 0 };
+    callbacks.current.onViewState?.({ ...viewRef.current, ...scrollRef.current });
   }, [callbacks, recordRef]);
 
   const schedule = useCallback(() => {
