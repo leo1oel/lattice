@@ -8,7 +8,7 @@ function laidOut(element: Element, width: number) {
 }
 
 /** The narrow live toolbar: pages, Find (with its match controls `trailingWidth` wide), then SyncTeX and the fit. */
-function toolbar(trailingWidth: number | null) {
+function toolbar(trailingWidth: number | null, counterWidth = 54) {
   const root = document.createElement("div");
   root.className = "pdf-toolbar";
   root.style.cssText = "padding: 0 8px; column-gap: 6px;";
@@ -18,7 +18,7 @@ function toolbar(trailingWidth: number | null) {
       <span data-slot="search-field" style="padding: 0 6px; column-gap: 4px;">
         <svg class="ui-search-field-icon"></svg>
         <input placeholder="Find in PDF" />
-        ${trailingWidth === null ? "" : `<span class="ui-search-field-trailing"></span>`}
+        ${trailingWidth === null ? "" : `<span class="ui-search-field-trailing"><small class="pdf-search-position">0 / 0</small></span>`}
       </span>
     </div>
     <div class="pdf-zoom-controls" style="column-gap: 2px;">
@@ -33,7 +33,10 @@ function toolbar(trailingWidth: number | null) {
   laidOut(root.querySelector(".pdf-find-controls")!, 300);
   laidOut(root.querySelector(".ui-search-field-icon")!, 12);
   const trailing = root.querySelector(".ui-search-field-trailing");
-  if (trailing) laidOut(trailing, trailingWidth!);
+  if (trailing) {
+    laidOut(trailing, trailingWidth!);
+    laidOut(trailing.querySelector(".pdf-search-position")!, counterWidth);
+  }
   const [overflow, ...kept] = root.querySelectorAll(".pdf-zoom-controls button");
   laidOut(root.querySelector(".pdf-zoom-controls")!, 200);
   laidOut(overflow!, 24);
@@ -60,6 +63,11 @@ describe("measurePdfToolbarMinWidth", () => {
   it("reserves room for a typed query beside its match controls before the first keystroke", () => {
     // Idle: icon 12 + gap 4 + placeholder 66 = 82. Typing: eight characters 48 + gap 4 + controls 141.
     expect(measurePdfToolbarMinWidth(toolbar(141))).toBe(fixed + 193);
+  });
+
+  it("reserves room for a three-digit match count beyond the idle counter", () => {
+    // "000 / 000" is 54px; the counter reads "0 / 0" at its 31px minimum, so the controls grow by 23.
+    expect(measurePdfToolbarMinWidth(toolbar(141, 31))).toBe(fixed + 193 + 23);
   });
 
   it("keeps the whole placeholder when that is the wider state", () => {

@@ -17,6 +17,9 @@
  */
 const VISIBLE_QUERY_SAMPLE = "00000000";
 
+/** The widest match counter budgeted for, in the counter's own font. */
+const MATCH_COUNTER_SAMPLE = "000 / 000";
+
 let canvas: HTMLCanvasElement | null = null;
 
 function textWidth(text: string, style: CSSStyleDeclaration): number {
@@ -67,8 +70,13 @@ export function measurePdfToolbarMinWidth(toolbar: HTMLElement): number | null {
         const iconWidth = icon ? icon.getBoundingClientRect().width + gap : 0;
         const idle = iconWidth + textWidth(input.placeholder, inputStyle);
         const trailing = field.querySelector(".ui-search-field-trailing");
+        // The counter is read while it says "0 / 0"; it grows with the match count.
+        const counter = trailing?.querySelector(".pdf-search-position");
+        const counterGrowth = counter
+          ? Math.max(0, textWidth(MATCH_COUNTER_SAMPLE, getComputedStyle(counter)) + horizontal(getComputedStyle(counter)) - counter.getBoundingClientRect().width)
+          : 0;
         const typing = trailing
-          ? textWidth(VISIBLE_QUERY_SAMPLE, inputStyle) + gap + trailing.getBoundingClientRect().width
+          ? textWidth(VISIBLE_QUERY_SAMPLE, inputStyle) + gap + trailing.getBoundingClientRect().width + counterGrowth
           : 0;
         const fieldWidth = horizontal(fieldStyle) + Math.ceil(Math.max(idle, typing));
         const outline = rowWidth(column, (child) => child.contains(field));
