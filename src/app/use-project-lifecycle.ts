@@ -500,14 +500,14 @@ export function useProjectLifecycle(deps: ProjectLifecycleDeps) {
     if (inBrowserTab) {
       if (!await startProjectTransition()) return;
       setMovingWorkspace(true);
-      await invoke("return_to_desktop").catch((reason) => {
-        // Once the window has taken over, this page is detached and the
-        // reply never arrives: that is the success case.
-        if (browserRuntimeDetached()) return;
-        cancelProjectTransition();
-        setMovingWorkspace(false);
-        setError(toMessage(reason));
-      });
+      const failure = await invoke("return_to_desktop").then(() => null, (reason: unknown) => reason);
+      // Once the window has taken over, this page is detached and the
+      // reply never arrives: that is the success case. A reply means the
+      // workspace leaves later, through a yield that saves again first.
+      if (browserRuntimeDetached()) return;
+      cancelProjectTransition();
+      setMovingWorkspace(false);
+      if (failure !== null) setError(toMessage(failure));
       return;
     }
     if (browserHosted) {

@@ -118,15 +118,16 @@ describe("project tree and projects", () => {
       await expectInvoked("return_to_desktop");
     });
 
-    it("saves and freezes a browser tab's editor while it returns the workspace, and releases it when the return fails", async () => {
+    it("saves and freezes a browser tab's editor while it returns the workspace, and releases it unless the tab detaches", async () => {
       browserRuntime.hosted = true;
-      const returned = deferred();
+      const returns = [deferred(), deferred()];
       openProject({
-        return_to_desktop: () => returned.promise,
+        return_to_desktop: () => returns.shift()!.promise,
         write_project_file: (args: unknown) => ({ content: (args as { content: string }).content, hadConflicts: false }),
       });
       const view = await findEditorView(".source-editor[data-editor-pane='primary'] .cm-editor");
       act(() => view.dispatch({ changes: { from: view.state.doc.length, insert: "\n% typed before the switch" } }));
+      const [failed, answered] = returns;
       fireEvent.click(await screen.findByRole("button", { name: "Open in Lattice app" }));
       await expectInvoked("return_to_desktop");
       expect(invoke).toHaveBeenCalledWith("write_project_file", expect.objectContaining({
@@ -135,8 +136,17 @@ describe("project tree and projects", () => {
       await waitFor(() => expect(view.state.facet(EditorView.editable)).toBe(false));
       expect(view.contentDOM).toHaveAttribute("contenteditable", "false");
 
-      await act(async () => { returned.reject(new Error("Lattice could not open its window")); });
+      await act(async () => { failed.reject(new Error("Lattice could not open its window")); });
       await expectNotification(/Lattice could not open its window/);
+      await waitFor(() => expect(view.state.facet(EditorView.editable)).toBe(true));
+
+      // A parked Lattice window answers at once and takes the workspace later,
+      // through a yield that saves again; if that never happens, the tab keeps it.
+      vi.mocked(invoke).mockClear();
+      fireEvent.click(screen.getByRole("button", { name: "Open in Lattice app" }));
+      await expectInvoked("return_to_desktop");
+      await waitFor(() => expect(view.state.facet(EditorView.editable)).toBe(false));
+      await act(async () => { answered.resolve(); });
       await waitFor(() => expect(view.state.facet(EditorView.editable)).toBe(true));
     });
 
