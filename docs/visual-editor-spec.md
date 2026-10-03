@@ -441,6 +441,9 @@ here, with the requirement it rests on.
   measured height while away. Heading ids and the hidden Contents are planned
   over the whole document. A link into the paper switches to the complete
   editor before it is followed, since its target may not be drawn yet.
+  A host jump to a source line stays passive: the passive model names the
+  chunk holding the line, which is scrolled into view so it draws, and its
+  labeled block is then centered.
 - **Block window (R-PERF-3).** The complete editor wraps every block node
   view (`engine/block-window.ts`). A plugin keeps the drawn window as
   document positions mapped through edits and marks its blocks, and the
