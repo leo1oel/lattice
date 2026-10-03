@@ -35,7 +35,7 @@ export function thenUnlessDisposed<T>(pending: Promise<T>, commit: (value: T) =>
 
 /**
  * Listen to a Tauri event until the returned disposer runs. `event` is an event
- * name, or a scoped subscribe function such as `listenOverleafRealtime`.
+ * name, or a scoped subscribe function such as one built on `listenInThisWindow`.
  */
 export function subscribeTauriEvent<T>(
   event: string | ((handler: EventCallback<T>) => Promise<UnlistenFn>),

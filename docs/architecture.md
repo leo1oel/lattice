@@ -78,15 +78,20 @@ which there are only **four** emitted from the project and editor layers:
 `src-tauri/src/overleaf_rt/events.rs` (`Connected`, `ProjectJoined`,
 `DocUpdate`, `OtError`, `DocAck`, `CommentAnchored`, `TreeChanged`,
 `PresenceUpdated`, `PresenceLeft`, `ChangesAccepted`, `TrackChangesToggled`,
-`ThreadsChanged`, `ChatMessage`, `Disconnected`). Four
-different frontend hooks subscribe to it and filter by `type`
-(`src/overleaf/use-overleaf-realtime.ts:552`, `src/overleaf/use-overleaf-presence.ts:104`,
-`src/overleaf/use-overleaf-chat.ts:57`, `src/overleaf/use-overleaf-comments.ts:103`).
-Rust addresses each window's events with `emit_to`, but Tauri still delivers
-them to every untargeted listener, so subscribe only through
-`onOverleafEvent` / `listenOverleafRealtime` (`src/overleaf/overleaf-realtime-listen.ts`),
-which scope the listener to the current window — a bare `listen()` leaks one
-window's Overleaf project into every other open window.
+`ThreadsChanged`, `ChatMessage`, `Disconnected`), each stamped with the
+`projectRoot` whose connection produced it. Five frontend modules subscribe to
+it and switch on `type` (`src/overleaf/use-overleaf-realtime.ts`,
+`src/overleaf/use-overleaf-presence.ts`, `src/overleaf/use-overleaf-chat.ts`,
+`src/overleaf/use-overleaf-comments.ts`, `src/app/use-overleaf-workspace.ts`).
+Subscribe only through `onOverleafEvent(readCurrentRoot, handler)`
+(`src/overleaf/overleaf-realtime-listen.ts`), which owns both scopes. Rust
+addresses each window's events with `emit_to`, but Tauri still delivers them
+to every untargeted listener, so it listens for the current window only — a
+bare `listen()` leaks one window's Overleaf project into every other open
+window. And cancelling a connection cannot retract events already queued, so
+it drops every event not stamped with the subscriber's current project — or a
+late chat message, tree or disconnect from the previous project lands in the
+next one.
 
 A fourth event, `trackpad-magnify`, is emitted from the macOS window layer
 (`src-tauri/src/macos_window.rs`) to the focused window and consumed in

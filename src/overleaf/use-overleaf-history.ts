@@ -11,10 +11,11 @@
  * browser while Lattice was closed. Restoring rewrites files on Overleaf's
  * server, not the local project; callers are expected to sync afterward.
  */
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { toMessage } from "../app-utils";
 import type { DiffFileChange } from "../history/pierre-diff";
+import { useOverleafProjectSnapshot } from "./use-overleaf-project-snapshot";
 
 /** One entry in the paginated `overleaf_history_updates` feed, newest first. */
 export type OverleafUpdate = {
@@ -83,29 +84,48 @@ export function textFromDiffChunks(path: string, chunks: OverleafDiffChunk[]): D
 /** Updates per page. Overleaf's own history view uses a similar batch size. */
 const PAGE_SIZE = 20;
 
-export function useOverleafHistory(projectRoot: string) {
-  const [updates, setUpdates] = useState<OverleafUpdate[]>([]);
-  const [nextBefore, setNextBefore] = useState<number | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
+type HistorySnapshot = {
+  updates: OverleafUpdate[];
+  nextBefore: number | null;
+  loading: boolean;
+  loadingMore: boolean;
+  error: string | null;
+  busy: boolean;
+};
 
-  const fetchPage = useCallback((before: number | null) => {
-    setError(null);
+/** Mounting reads the first page straight away. */
+const FIRST_LOAD: HistorySnapshot = { updates: [], nextBefore: null, loading: true, loadingMore: false, error: null, busy: false };
+
+export function useOverleafHistory(projectRoot: string) {
+  const [{ updates, nextBefore, loading, loadingMore, error, busy }, session] = useOverleafProjectSnapshot(projectRoot, FIRST_LOAD);
+
+  /**
+   * Read the page before `before`, or the first page, and publish it with
+   * `merge`. A newer read, a project change or unmounting discards it.
+   */
+  const fetchPage = useCallback(async (
+    before: number | null,
+    flag: "loading" | "loadingMore",
+    merge: (current: OverleafUpdate[], page: OverleafUpdate[]) => OverleafUpdate[],
+  ) => {
+    const current = session();
+    if (!current) return;
+    const publish = current.read();
+    // A first-page read replaces the list a page still in flight would extend.
+    publish((snapshot) => ({ ...snapshot, loading: flag === "loading", loadingMore: flag === "loadingMore", error: null }));
     const page = before === null ? { count: PAGE_SIZE } : { before, count: PAGE_SIZE };
-    return invoke<OverleafUpdatesPage>("overleaf_history_updates", { projectRoot, ...page }).then((result) => {
-      setUpdates((current) => (before === null ? result.updates : [...current, ...result.updates]));
-      setNextBefore(result.nextBefore);
-    }, (reason: unknown) => setError(toMessage(reason)));
-  }, [projectRoot]);
+    try {
+      const result = await invoke<OverleafUpdatesPage>("overleaf_history_updates", { projectRoot: current.projectRoot, ...page });
+      publish((snapshot) => ({
+        ...snapshot, updates: merge(snapshot.updates, result.updates), nextBefore: result.nextBefore, [flag]: false,
+      }));
+    } catch (reason) {
+      publish((snapshot) => ({ ...snapshot, error: toMessage(reason), [flag]: false }));
+    }
+  }, [session]);
 
   /** Reload from the top, as if the drawer had just been opened. */
-  const refresh = useCallback(async () => {
-    setLoading(true);
-    await fetchPage(null);
-    setLoading(false);
-  }, [fetchPage]);
+  const refresh = useCallback(() => fetchPage(null, "loading", (_current, page) => page), [fetchPage]);
 
   // Mount fires `refresh` through a ref so the effect body never contains a
   // traceable synchronous setState call.
@@ -118,23 +138,22 @@ export function useOverleafHistory(projectRoot: string) {
   }, [projectRoot]);
 
   const loadMore = async () => {
-    if (nextBefore == null || loadingMore) return;
-    setLoadingMore(true);
-    await fetchPage(nextBefore);
-    setLoadingMore(false);
+    // The cursor belongs to the list on screen, which a first-page read in flight is about to replace.
+    if (nextBefore == null || loading || loadingMore) return;
+    await fetchPage(nextBefore, "loadingMore", (current, page) => [...current, ...page]);
   };
 
   /** Run a mutation, then re-read: Overleaf's server is the only authority on the result. */
   const mutate = (command: string, args: Record<string, unknown>) => {
-    setBusy(true);
-    setError(null);
+    const current = session();
+    current?.publish((snapshot) => ({ ...snapshot, busy: true, error: null }));
     return invoke(command, { projectRoot, ...args })
       .then(() => refreshRef.current())
       .catch((reason: unknown) => {
-        setError(toMessage(reason));
+        current?.publish((snapshot) => ({ ...snapshot, error: toMessage(reason) }));
         throw reason;
       })
-      .finally(() => setBusy(false));
+      .finally(() => current?.publish((snapshot) => ({ ...snapshot, busy: false })));
   };
 
   return {

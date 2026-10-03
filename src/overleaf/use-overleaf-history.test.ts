@@ -86,4 +86,54 @@ describe("useOverleafHistory", () => {
     });
     expect(result.current.error).toMatch(/network blip/);
   });
+
+  it("shows only the current project's timeline when the previous project's read answers late", async () => {
+    const pending = new Map<string, (page: { updates: OverleafUpdate[]; nextBefore: number | null }) => void>();
+    mockInvoke({
+      overleaf_history_updates: ({ projectRoot }: { projectRoot: string }) =>
+        new Promise((resolve) => { pending.set(projectRoot, resolve); }),
+    });
+    const { result, rerender } = renderHook(({ projectRoot }) => useOverleafHistory(projectRoot), {
+      initialProps: { projectRoot: "/tmp/project-a" },
+    });
+    await waitFor(() => expect(pending.has("/tmp/project-a")).toBe(true));
+
+    rerender({ projectRoot: "/tmp/project-b" });
+    await waitFor(() => expect(pending.has("/tmp/project-b")).toBe(true));
+    await act(async () => pending.get("/tmp/project-b")!({ updates: [update({ toVersion: 20 })], nextBefore: null }));
+    await act(async () => pending.get("/tmp/project-a")!({ updates: [update({ toVersion: 10 })], nextBefore: 9 }));
+
+    expect(result.current.updates.map((item) => item.toVersion)).toEqual([20]);
+    expect(result.current.hasMore).toBe(false);
+    expect(result.current.loading).toBe(false);
+  });
+
+  it("drops a page still in flight when the timeline reloads from the top", async () => {
+    const olderPages: ((page: { updates: OverleafUpdate[]; nextBefore: number | null }) => void)[] = [];
+    let firstPage = 0;
+    const result = await mountWith({
+      overleaf_history_updates: ({ before }: { before?: number }) => {
+        if (before === undefined) {
+          firstPage += 1;
+          return { updates: [update({ toVersion: firstPage === 1 ? 3 : 4 })], nextBefore: 2 };
+        }
+        return new Promise((resolve) => { olderPages.push(resolve); });
+      },
+      overleaf_history_add_label: undefined,
+    });
+
+    let loadingMore!: Promise<void>;
+    act(() => { loadingMore = result.current.loadMore(); });
+    expect(result.current.loadingMore).toBe(true);
+    // A restore or label mints a new update at the top, so the list is re-read.
+    await act(() => result.current.addLabel(3, "Submitted draft"));
+    expect(result.current.loadingMore).toBe(false);
+
+    await act(async () => {
+      olderPages[0]!({ updates: [update({ toVersion: 1 })], nextBefore: null });
+      await loadingMore;
+    });
+    expect(result.current.updates.map((item) => item.toVersion)).toEqual([4]);
+    expect(result.current.hasMore).toBe(true);
+  });
 });
