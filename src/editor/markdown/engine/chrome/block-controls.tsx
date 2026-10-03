@@ -150,8 +150,16 @@ export function BlockControls({ editor, layer, host }: { editor: Editor; layer: 
     if (!layer) return;
     const onMove = (event: MouseEvent) => {
       if (drag.current || !editor.isEditable) return;
-      if ((event.target as Element | null)?.closest?.(".lx-md-block-controls")) return;
+      const over = event.target as Element | null;
+      if (over?.closest?.(".lx-md-block-controls")) return;
       clearTimeout(hideTimer.current);
+      // The section rail (document-heading-rail.tsx) floats over the gutter:
+      // controls drawn there would take the press or release meant for a
+      // section, and a click split between the two lands on neither.
+      if (over?.closest?.(".visual-heading-rail")) {
+        setTarget(null);
+        return;
+      }
       setTarget((current) => {
         if (besideItem(current, event.clientX, event.clientY)) return current;
         const next = targetAt(editor, event.clientX, event.clientY);

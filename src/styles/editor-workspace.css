@@ -807,7 +807,8 @@ button.paper-identity-source:focus-visible { outline: var(--focus-ring-width) so
 @container paper-reader (max-width: 440px) {
   .paper-identity-authors { display: none; }
 }
-.visual-heading-rail { position: sticky; z-index: var(--z-editor-overlay); top: 50%; width: 0; height: 0; margin-inline-start: var(--space-6); overflow: visible; pointer-events: none; }
+/* Above the block gutter's controls (block-controls.tsx), which can reach under it in a narrow pane. */
+.visual-heading-rail { position: sticky; z-index: var(--z-editor-popover); top: 50%; width: 0; height: 0; margin-inline-start: var(--space-6); overflow: visible; pointer-events: none; }
 .visual-heading-rail-nav { position: relative; display: grid; grid-auto-rows: var(--control-size-icon-compact); width: calc(var(--space-12) + var(--space-12)); color: var(--text-tertiary); translate: 0 -50%; pointer-events: auto; user-select: none; }
 .visual-heading-rail-item { display: flex; width: calc(var(--space-12) + var(--space-12)); height: var(--control-size-icon-compact); align-items: center; justify-content: flex-start; padding: 0; border: 0; outline: none; background: transparent; color: color-mix(in srgb, var(--text-tertiary) 62%, transparent); }
 .visual-heading-rail-item[data-depth="1"] { padding-inline-start: var(--space-2); }

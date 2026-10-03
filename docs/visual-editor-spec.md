@@ -1477,9 +1477,13 @@ Derived from: `src/editor/markdown/visual-markdown-editor.test.tsx:2486`.
   suffixes.
 - A "Document sections" navigation lists the section headings, indented by relative depth. The
   top-level title heading is not listed.
-- The current section is marked (`aria-current="location"`), and arrow keys move a roving focus.
+- The current section is marked (`aria-current="location"`) and holds the roving tab stop; arrow
+  keys move a roving focus. It is the section in the middle of the viewport, where every jump
+  centers its target, so a jump makes its section current.
 - Hovering the rail previews a section, and clicking lands on its heading like any jump: centered,
-  the caret in it, the heading briefly marked.
+  the caret in it, the heading briefly marked. A section near either end of the document, which
+  cannot be centered, is still current after the jump until scrolling reaches another section.
+  Block controls never draw under the rail, so one click there jumps.
 - The rail is hidden when there is only one section.
 - An authored "Contents" section is listed normally.
 

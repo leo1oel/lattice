@@ -27,6 +27,7 @@ import { renameEnvironmentAt } from "../editor/latex/latex-environments";
 import type { CitationInfo, DefinitionTarget, ReferenceInfo, SymbolTarget } from "../editor/latex/latex-text";
 import { harperDictionaryChanged } from "../editor/harper-spellcheck";
 import { lineTarget, revealInEditor } from "../editor/editor-reveal";
+import { surfaceShown } from "../editor/focus-when-shown";
 import type { VisualRevealTarget } from "../editor/markdown/visual-editor-props";
 import { LatexSelectionToolbar, SELECTION_TOOLBAR_SURFACES, type LatexSelectionAction, type LatexSelectionToolbarPosition } from "../editor/latex/latex-selection-toolbar";
 import { ScrollArea } from "../components/ui/scroll-area";
@@ -130,6 +131,34 @@ function positionAtPoint(view: EditorView, point: { x: number; y: number }): num
 function editAndFocus(view: EditorView, spec: TransactionSpec) {
   view.dispatch({ ...spec, scrollIntoView: true });
   view.focus();
+}
+
+/** How long a jump waits for its source view to be ready before landing as best it can. */
+const LANDING_WAIT_MS = 1000;
+
+/**
+ * Run `land` in the source view once a jump can land there, a frame at a time
+ * until then; the returned function cancels it. Ready means two things:
+ * - the view holds `source`: codemirror-host holds an external value back
+ *   while someone is typing, so the view can still carry the previous file's
+ *   text when a jump arrives;
+ * - its surface is shown (focus-when-shown.ts): opening a comment from the
+ *   panel over the document moves the canvas into a Trellis tab that shows a
+ *   frame or more later. Landed before then, the browser refused the editor
+ *   focus and the writer's typing after the jump went nowhere.
+ * Neither waits forever: a best-effort landing beats a request nobody answers.
+ */
+function landWhenReady(targetView: () => EditorView | null, source: string, land: (view: EditorView) => void): () => void {
+  const deadline = performance.now() + LANDING_WAIT_MS;
+  const [schedule, cancel] = frameCoalescer(() => {
+    const view = targetView();
+    if (!view) return;
+    const ready = view.state.doc.toString() === source && surfaceShown(view.dom);
+    if (!ready && performance.now() < deadline) schedule();
+    else land(view);
+  });
+  schedule();
+  return cancel;
 }
 
 /** Hand App `value` through `register` while this canvas is mounted with both. */
@@ -595,12 +624,13 @@ export function DocumentCanvas(props: {
     const comment = editorComments.find((item) => item.id === commentFocusRequest.id);
     // The visual editor answers it in Markdown's Preview (visualReveal).
     if (!comment || comment.path !== activeFile || (markdownDocument && props.mode === "pdf")) return;
-    const view = primaryViewRef.current;
-    if (!view) return;
-    const range = resolveCommentAnchor(view.state.doc.toString(), comment);
-    if (range) revealInEditor(view, range);
-    onCommentFocusHandled(commentFocusRequest.nonce);
-  }, [activeFile, commentFocusRequest, editorComments, markdownDocument, onCommentFocusHandled, props.mode]);
+    if (!primaryViewRef.current) return;
+    return landWhenReady(() => primaryViewRef.current, editorSource, (view) => {
+      const range = resolveCommentAnchor(view.state.doc.toString(), comment);
+      if (range) revealInEditor(view, range);
+      onCommentFocusHandled(commentFocusRequest.nonce);
+    });
+  }, [activeFile, commentFocusRequest, editorComments, editorSource, markdownDocument, onCommentFocusHandled, props.mode]);
   /** The visual editor landed on (or gave up on) the reveal it was asked for. */
   const visualRevealHandled = useCallback((id: string) => {
     const current = visualRevealRef.current;
@@ -797,24 +827,11 @@ export function DocumentCanvas(props: {
     // view as ready, since the later attachment does not rerun this effect.
     const targetView = () => primaryViewRef.current ?? editorViewRef.current;
     if (!targetView()) return;
-    // codemirror-host holds an external value back while someone is typing, so
-    // the view can still carry the previous file's text when a jump arrives.
-    // Wait for the text to catch up — but not forever: a best-effort jump is
-    // better than a request nobody answers.
-    const staleDocumentDeadline = performance.now() + 600;
-    const [scheduleNavigation, cancelNavigation] = frameCoalescer(() => {
-      const currentView = targetView();
-      if (!currentView) return;
-      if (currentView.state.doc.toString() !== editorSource && performance.now() < staleDocumentDeadline) {
-        scheduleNavigation();
-        return;
-      }
-      revealInEditor(currentView, lineTarget(currentView, request.line));
-      editorViewRef.current = currentView;
+    return landWhenReady(targetView, editorSource, (view) => {
+      revealInEditor(view, lineTarget(view, request.line));
+      editorViewRef.current = view;
       onRequestHandled(request.id);
     });
-    scheduleNavigation();
-    return cancelNavigation;
   }, [activeFile, editorNavigation, editorSource, onRequestHandled, props.mode]);
   useEffect(() => {
     const request = figureDropRequest;

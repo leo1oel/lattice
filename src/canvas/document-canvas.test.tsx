@@ -265,6 +265,39 @@ describe("DocumentCanvas / mode", () => {
     }
   });
 
+  it.each([
+    { kind: "comment", settled: "onCommentFocusHandled" },
+    { kind: "navigation", settled: "onRequestHandled" },
+  ] as const)("lands a $kind jump once its tab is shown, so it centers there and takes the writer's typing", async ({ kind, settled }) => {
+    const source = "first\nsecond\nquoted passage\nlast\n";
+    const comment = createEditorComment({ path: "main.tex", source, from: 13, to: 19, body: "Why?", authorId: "ada", authorName: "Ada" })!;
+    const { props, rerenderWith } = renderCanvas({ source, editorComments: [comment] });
+    const view = await primarySourceView();
+    // Opened from the comments panel over the document, the canvas moves into
+    // a Trellis tab that is still hidden and inert, and shows a frame or more later.
+    documentHost.style.visibility = "hidden";
+    documentHost.setAttribute("inert", "");
+    const frames = (count: number) => act(async () => {
+      for (let frame = 0; frame < count; frame += 1) await new Promise((resolve) => requestAnimationFrame(resolve));
+    });
+    try {
+      rerenderWith(kind === "comment"
+        ? { commentFocusRequest: { id: comment.id, nonce: "jump" } }
+        : { requests: pending({ navigation: { path: "main.tex", line: 3, id: "jump" } }) });
+      await frames(3);
+      expect(props[settled]).not.toHaveBeenCalled();
+      expect(view.state.selection.main.head).toBe(0);
+      documentHost.style.visibility = "";
+      documentHost.removeAttribute("inert");
+      await waitFor(() => expect(props[settled]).toHaveBeenCalledWith("jump"));
+      expect(view.state.selection.main).toMatchObject(kind === "comment" ? { from: 13, to: 19 } : { from: 13, to: 13 });
+      expect(view.hasFocus).toBe(true);
+    } finally {
+      documentHost.style.visibility = "";
+      documentHost.removeAttribute("inert");
+    }
+  });
+
   it("hands a jump in Markdown's Preview to the visual editor, which settles it once it lands", async () => {
     const { props, rerenderWith } = renderCanvas({
       mode: "pdf", activeFile: "notes.md", source: "---\ntitle: x\n---\nfirst\ntarget\n",
@@ -427,8 +460,8 @@ describe("DocumentCanvas / mode", () => {
     const marks = () => [...sourceEditor()?.querySelectorAll(".cm-editor-comment") ?? []].map((mark) => mark.getAttribute("data-comment-id"));
     await waitFor(() => expect(marks()).toEqual([local.id, remote.id]));
     rerenderWith({ commentFocusRequest: { id: remote.id, nonce: "focus-remote" } });
+    await waitFor(() => expect(props.onCommentFocusHandled).toHaveBeenCalledWith("focus-remote"));
     expect(EditorView.findFromDOM(sourceEditor() as HTMLElement)?.state.selection.main).toMatchObject({ from: 15, to: 21 });
-    expect(props.onCommentFocusHandled).toHaveBeenCalledWith("focus-remote");
     rerenderWith({ editorComments: [{ ...local, resolved: true }, remote, unrelated] });
     await waitFor(() => expect(marks()).toEqual([remote.id]));
     rerenderWith({ editorComments: [] });

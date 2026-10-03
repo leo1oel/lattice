@@ -51,6 +51,66 @@ describe("revealInEditor", () => {
     expect(marked(view)).toEqual([]);
   });
 
+  it("takes focus once its surface is shown when it lands while still hidden", async () => {
+    const view = editor("one\ntwo");
+    // A Trellis tab about to show is hidden and inert, and the browser refuses focus there.
+    let hidden = true;
+    const focusShown = view.contentDOM.focus.bind(view.contentDOM);
+    view.contentDOM.focus = (options?: FocusOptions) => { if (!hidden) focusShown(options); };
+    revealInEditor(view, lineTarget(view, 2));
+    expect(view.hasFocus).toBe(false);
+    hidden = false;
+    await vi.waitFor(() => expect(view.hasFocus).toBe(true));
+  });
+
+  it("centers the target again as its scroll draws it, if the lines above it were taller than estimated", () => {
+    const view = editor("one\ntwo\nthree");
+    const center = vi.spyOn(EditorView, "scrollIntoView");
+    vi.spyOn(view.scrollDOM, "getBoundingClientRect").mockReturnValue(new DOMRect(0, 0, 600, 800));
+    vi.spyOn(view.scrollDOM, "clientHeight", "get").mockReturnValue(800);
+    // Drawn, the target sits near the bottom edge rather than the middle.
+    let targetTop = 760;
+    vi.spyOn(view, "coordsAtPos").mockImplementation(() => ({ left: 0, right: 10, top: targetTop, bottom: targetTop + 20 }));
+    revealInEditor(view, { from: 8 });
+    view.scrollDOM.dispatchEvent(new Event("scroll"));
+    expect(center).toHaveBeenCalledTimes(2);
+    expect(center).toHaveBeenLastCalledWith(8, { y: "center" });
+    // A centered target is left alone…
+    targetTop = 390;
+    view.scrollDOM.dispatchEvent(new Event("scroll"));
+    expect(center).toHaveBeenCalledTimes(2);
+    // …until a later redraw corrects the heights above it again and clamps the scroll.
+    targetTop = 760;
+    view.scrollDOM.dispatchEvent(new Event("scroll"));
+    expect(center).toHaveBeenCalledTimes(3);
+    // Where the jump did land in the middle, it is left alone.
+    center.mockClear();
+    targetTop = 390;
+    revealInEditor(view, { from: 4 });
+    view.scrollDOM.dispatchEvent(new Event("scroll"));
+    expect(center).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not pull the view back once the writer has moved on", () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    const view = editor("one\ntwo\nthree");
+    const center = vi.spyOn(EditorView, "scrollIntoView");
+    vi.spyOn(view.scrollDOM, "getBoundingClientRect").mockReturnValue(new DOMRect(0, 0, 600, 800));
+    vi.spyOn(view, "coordsAtPos").mockReturnValue({ left: 0, right: 10, top: 760, bottom: 780 });
+    revealInEditor(view, { from: 8 });
+    view.dispatch({ selection: { anchor: 1 } });
+    view.scrollDOM.dispatchEvent(new Event("scroll"));
+    // Nor does the writer's own scrolling, while the jump is still settling…
+    revealInEditor(view, { from: 8 });
+    view.dom.dispatchEvent(new Event("wheel"));
+    view.scrollDOM.dispatchEvent(new Event("scroll"));
+    // …or once it has.
+    revealInEditor(view, { from: 8 });
+    vi.advanceTimersByTime(3000);
+    view.scrollDOM.dispatchEvent(new Event("scroll"));
+    expect(center).toHaveBeenCalledTimes(3);
+  });
+
   it("turns a line number into its start, clamped to the document", () => {
     const view = editor("one\ntwo");
     expect(lineTarget(view, 2)).toEqual({ from: 4 });

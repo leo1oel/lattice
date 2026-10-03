@@ -143,11 +143,12 @@ export function PassiveView({ model, props, reading, onActivate }: ViewProps) {
         items={model.headings}
         virtualized
         onSelect={(item) => {
+          // Centered like every jump, which is where the rail reads the current section from.
           const heading = root.current?.querySelector(`[id="${CSS.escape(item.id)}"]`);
-          if (heading) heading.scrollIntoView({ block: "start" });
+          if (heading) heading.scrollIntoView({ block: "center" });
           else {
             const index = model.chunks.findIndex((chunk) => chunk.marks.some((mark) => mark.id === item.id));
-            root.current?.querySelector(`[data-visual-chunk-id="${model.chunks[index]?.id ?? ""}"]`)?.scrollIntoView({ block: "start" });
+            root.current?.querySelector(`[data-visual-chunk-id="${model.chunks[index]?.id ?? ""}"]`)?.scrollIntoView({ block: "center" });
           }
         }}
       />
