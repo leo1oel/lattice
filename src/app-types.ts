@@ -237,6 +237,13 @@ export type OpenFileOptions = {
    * which would otherwise close the very PDF the double-click came from.
    */
   revealSource?: boolean;
+  /**
+   * Whether the file's remembered cursor and scroll come back. True (the
+   * default) unless `line` is given; false when the caller sends the editor
+   * somewhere itself once the file is open (a comment), or the remembered
+   * place would land after that jump and undo it.
+   */
+  restoreView?: boolean;
 };
 /** Open a project file in the text editor. */
 export type OpenProjectFile = (path: string, options?: OpenFileOptions) => Promise<void>;

@@ -441,6 +441,9 @@ here, with the requirement it rests on.
   measured height while away. Heading ids and the hidden Contents are planned
   over the whole document. A link into the paper switches to the complete
   editor before it is followed, since its target may not be drawn yet.
+  A host jump to a source line stays passive: the passive model names the
+  chunk holding the line, which is scrolled into view so it draws, and its
+  labeled block is then centered.
 - **Block window (R-PERF-3).** The complete editor wraps every block node
   view (`engine/block-window.ts`). A plugin keeps the drawn window as
   document positions mapped through edits and marks its blocks, and the
@@ -453,6 +456,9 @@ here, with the requirement it rests on.
   only the plugins draw the window. Placeholders carry the ids from
   `engine/block-anchors.ts`; `scrollToTarget` draws a jump's block before it
   scrolls there, then holds it in place while the views around it fill in.
+  `revealPosition` does the same for a document position, centering its line:
+  the host's jumps (`revealRequest`: a source line, or a comment), the rail
+  and find results land through it, and `reveal-flash.ts` marks the block.
 - **Images (R-PERF-4, R-PERF-7).** In both views an image reads its asset
   only as it nears the viewport; formulas are drawn at once.
 - **Engine-agnostic host (phase 2 integration).** The canvas and the agent
@@ -1472,7 +1478,8 @@ Derived from: `src/editor/markdown/visual-markdown-editor.test.tsx:2486`.
 - A "Document sections" navigation lists the section headings, indented by relative depth. The
   top-level title heading is not listed.
 - The current section is marked (`aria-current="location"`), and arrow keys move a roving focus.
-- Hovering the rail previews a section, and clicking scrolls to its heading.
+- Hovering the rail previews a section, and clicking lands on its heading like any jump: centered,
+  the caret in it, the heading briefly marked.
 - The rail is hidden when there is only one section.
 - An authored "Contents" section is listed normally.
 
@@ -1822,7 +1829,8 @@ of the viewport.
   block on screen (the selection's, else the one in the middle) where it was.
 - A placeholder carries its block's heading id and the ids its views draw (footnotes, converter
   anchors, paper figures), so links, the section rail and footnotes find their target; a jump
-  draws the target's block before it scrolls.
+  draws the target's block before it scrolls, and holds it where it landed as the blocks around it
+  fill in, so it is one move.
 - Without layout (tests in jsdom), and below 250 blocks, a document is drawn whole.
 
 Derived from: `src/editor/markdown/engine/block-window.test.tsx`; the passive-view test

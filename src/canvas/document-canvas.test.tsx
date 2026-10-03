@@ -34,6 +34,8 @@ vi.mock("./canvas-lazy-modules", () => {
     editorComments?: Array<{ id: string; from: number; to: number }>; activeEditorCommentId?: string | null;
     onEligibilityChange?: (reason: string | null) => void; onEditorCommentClick?: (id: string) => void;
     onCreateComment?: (from: number, to: number, body: string) => void; theme?: string;
+    revealRequest?: { id: string; target: unknown } | null; onRevealHandled?: (id: string) => void;
+    synchronizeSourceScroll?: boolean;
   }) => (
     <div
       data-testid={testId}
@@ -43,7 +45,12 @@ vi.mock("./canvas-lazy-modules", () => {
       data-restored-camera={String(props.initialViewState?.camera?.x ?? "")}
       data-comments={JSON.stringify(props.editorComments ?? [])}
       data-active-comment={props.activeEditorCommentId ?? ""}
+      data-reveal={JSON.stringify(props.revealRequest ?? null)}
+      data-source-labels={String(Boolean(props.synchronizeSourceScroll))}
     >
+      {props.revealRequest && (
+        <button data-testid={`${testId}-landed`} onClick={() => props.onRevealHandled?.(props.revealRequest!.id)} />
+      )}
       {props.editorComments?.map((comment) => (
         <button key={comment.id} data-testid={`thread-${comment.id}`} onClick={() => props.onEditorCommentClick?.(comment.id)} />
       ))}
@@ -236,6 +243,62 @@ describe("DocumentCanvas / mode", () => {
     await waitFor(() => expect(props.onRequestHandled).toHaveBeenCalledWith("saved"));
     expect(view.state.selection.main.head).toBe(8);
     expect(view.scrollDOM.scrollTop).toBe(120);
+  });
+
+  it("lands a jump on its line: the caret there, the line centered and marked for a moment", async () => {
+    const center = vi.spyOn(EditorView, "scrollIntoView");
+    const { props, rerenderWith } = renderCanvas({ source: "first\nsecond\ntarget\nlast\n" });
+    const view = await primarySourceView();
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    try {
+      rerenderWith({ requests: pending({ navigation: { path: "main.tex", line: 3, id: "jump" } }) });
+      await vi.waitFor(() => expect(props.onRequestHandled).toHaveBeenCalledWith("jump"));
+      expect(view.state.selection.main.head).toBe(13);
+      expect(center).toHaveBeenCalledWith(13, { y: "center" });
+      const marked = () => [...view.contentDOM.querySelectorAll(".cm-reveal-flash")].map((line) => line.textContent);
+      expect(marked()).toEqual(["target"]);
+      act(() => { vi.advanceTimersByTime(2000); });
+      expect(marked()).toEqual([]);
+    } finally {
+      vi.useRealTimers();
+      center.mockRestore();
+    }
+  });
+
+  it("hands a jump in Markdown's Preview to the visual editor, which settles it once it lands", async () => {
+    const { props, rerenderWith } = renderCanvas({
+      mode: "pdf", activeFile: "notes.md", source: "---\ntitle: x\n---\nfirst\ntarget\n",
+    });
+    const visual = await screen.findByTestId("visual-markdown-editor");
+    rerenderWith({ requests: pending({ navigation: { path: "notes.md", line: 5, id: "jump" } }) });
+    // Line 5 of the file is line 2 of the body the visual editor shows, after the front matter.
+    await waitFor(() => expect(JSON.parse(visual.dataset.reveal!)).toEqual({ id: "jump", kind: "navigation", target: { line: 2 } }));
+    expect(sourceEditor()).toBeNull();
+    expect(props.onRequestHandled).not.toHaveBeenCalledWith("jump");
+    fireEvent.click(within(visual).getByTestId("visual-markdown-editor-landed"));
+    expect(props.onRequestHandled).toHaveBeenCalledWith("jump");
+  });
+
+  it("labels Preview's blocks with their source lines while a jump is landing there", async () => {
+    const { rerenderWith } = renderCanvas({ mode: "pdf", activeFile: "notes.md", source: "first\n\ntarget\n" });
+    const visual = await screen.findByTestId("visual-markdown-editor");
+    expect(visual).toHaveAttribute("data-source-labels", "false");
+    rerenderWith({ requests: pending({ navigation: { path: "notes.md", line: 3, id: "jump" } }) });
+    await waitFor(() => expect(visual).toHaveAttribute("data-source-labels", "true"));
+    rerenderWith({ requests: pending({ navigation: null }) });
+    await waitFor(() => expect(visual).toHaveAttribute("data-source-labels", "false"));
+  });
+
+  it("focuses a comment in Markdown's Preview through the visual editor", async () => {
+    const source = "Local passage. Remote passage.";
+    const comment = createEditorComment({ path: "notes.md", source, from: 15, to: 21, body: "Remote", authorId: "ada", authorName: "Ada" })!;
+    const { props, rerenderWith } = renderCanvas({ mode: "pdf", activeFile: "notes.md", source, editorComments: [comment] });
+    const visual = await screen.findByTestId("visual-markdown-editor");
+    rerenderWith({ commentFocusRequest: { id: comment.id, nonce: "focus" } });
+    await waitFor(() => expect(JSON.parse(visual.dataset.reveal!)).toMatchObject({ id: "focus", target: { commentId: comment.id } }));
+    fireEvent.click(within(visual).getByTestId("visual-markdown-editor-landed"));
+    expect(props.onCommentFocusHandled).toHaveBeenCalledWith("focus");
+    expect(props.onRequestHandled).not.toHaveBeenCalledWith("focus");
   });
 
   it.each([null, { path: "other.tex", line: 3, id: "other-jump" }])(

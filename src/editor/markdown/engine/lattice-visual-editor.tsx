@@ -14,7 +14,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState, type JSX } from 
 import { useLingui } from "@lingui/react/macro";
 import { Extension, type AnyExtension, type EditorOptions, type JSONContent } from "@tiptap/core";
 import type { Node as PmNode } from "@tiptap/pm/model";
-import { NodeSelection, Selection } from "@tiptap/pm/state";
+import { NodeSelection, Selection, TextSelection } from "@tiptap/pm/state";
 import { EditorContent, useEditor, useEditorState, type Editor } from "@tiptap/react";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import { InlineMessage } from "../../../components/ui/inline-message";
@@ -26,9 +26,10 @@ import { markdownPreviewSyncPolicy } from "../markdown-preview-sync-policy";
 import { isPaperLibraryPath } from "../../../papers/paper-link";
 import { ProjectImageHostProvider } from "../project-image-host";
 import { DocumentHeadingRail, type DocumentHeadingItem } from "../document-heading-rail";
-import type { VisualMarkdownEditorProps } from "../visual-editor-props";
+import type { VisualMarkdownEditorProps, VisualRevealTarget } from "../visual-editor-props";
+import { resolveCommentAnchor } from "../../comments/editor-comment-data";
 import { blockAnchors } from "./block-anchors";
-import { blockWindow, mayDrawInWindow, scrollToTarget } from "./block-window";
+import { blockWindow, mayDrawInWindow, revealPosition, scrollToTarget } from "./block-window";
 import { FrozenHeaders } from "./frozen-headers";
 import { HeadingAnchors, REFRESH_ANCHORS, plannedHeadings, type DocumentHeading } from "./heading-anchors";
 import { PassiveView, passiveModel, type PassiveModel } from "./passive-view";
@@ -38,6 +39,7 @@ import { engineSchema, engineSchemaExtensions, type RawBlockKind } from "./engin
 import { adoptNodes, openMarkdown, serializeMarkdown, type MarkdownBaseline, type OpenOptions } from "./markdown-document";
 import { SourceMap } from "./source-map";
 import { SourceOverlays, buildOverlays, setOverlays } from "./source-overlays";
+import { REVEAL_FLASH_MS, RevealFlash, setRevealFlash } from "./reveal-flash";
 import { TableControls } from "./views/table-controls";
 import { EngineChrome, EngineFindBar, chromeExtensions, createChrome, type Chrome } from "./chrome/engine-chrome";
 import "./lattice-visual-editor.css";
@@ -87,6 +89,8 @@ type Host = {
   map: SourceMap | null;
   /** What the host was last told of the caret and the selection, so it hears only changes. */
   reported: { caret: string | null; selection: string | null };
+  /** Clears the mark the last jump left. */
+  revealTimer: ReturnType<typeof setTimeout> | null;
 };
 
 /**
@@ -175,6 +179,101 @@ function clearTimers(host: Host) {
   if (host.maxTimer) clearTimeout(host.maxTimer);
   host.idleTimer = null;
   host.maxTimer = null;
+}
+
+/** How long a jump waits for the document it names to be the one shown before giving up. */
+const REVEAL_WAIT_MS = 3000;
+
+/** The text offset where 1-based `line` of `text` starts, clamped to the text. */
+function lineOffset(text: string, line: number): number {
+  let offset = 0;
+  for (let row = 1; row < line; row += 1) {
+    const next = text.indexOf("\n", offset);
+    if (next < 0) return offset;
+    offset = next + 1;
+  }
+  return offset;
+}
+
+/**
+ * The document range a jump lands on: the comment's anchor, or the start of
+ * the line — or, for a line nothing shown sits on (a blank line, hidden
+ * markup), the start of the next block that is shown.
+ */
+function targetRange(host: Host, map: SourceMap, target: VisualRevealTarget): { from: number; to: number } | null {
+  if ("commentId" in target) {
+    const comment = host.props.editorComments?.find((item) => item.id === target.commentId);
+    const anchor = comment && resolveCommentAnchor(map.text, comment);
+    if (!anchor) return null;
+    const from = map.offsetToPosition(anchor.from, "forward");
+    const to = map.offsetToPosition(anchor.to, "backward");
+    return from == null ? null : { from, to: to != null && to > from ? to : from };
+  }
+  const offset = lineOffset(map.text, target.line);
+  const exact = map.offsetToPosition(offset, "forward");
+  if (exact != null) return { from: exact, to: exact };
+  const labels = map.labels();
+  const label = labels.find((entry) => entry.to >= offset) ?? labels.at(-1);
+  if (!label) return null;
+  const from = map.offsetToPosition(label.from, "forward") ?? label.pos + 1;
+  return { from, to: from };
+}
+
+/** Land on `target`: select it, center it, mark its block for a moment. False when it is not in the shown document. */
+function revealTarget(host: Host, target: VisualRevealTarget): boolean {
+  const map = sourceMapOf(host);
+  const range = map && targetRange(host, map, target);
+  return Boolean(range) && landOn(host, range!);
+}
+
+/** How long a jump keeps asking for focus the browser refused. */
+const FOCUS_WAIT_MS = 1000;
+
+/**
+ * Focus `editor`, and keep asking for a moment if the browser refuses: a jump
+ * from another tab can land before its surface stops being visibility-hidden
+ * (with reduced motion there is no transition to outlast that). It stops once
+ * the writer moves focus anywhere but where it was when the jump landed.
+ */
+function focusWhenShown(editor: Editor) {
+  const { view } = editor;
+  const page = view.dom.ownerDocument;
+  view.focus();
+  if (view.hasFocus()) return;
+  const left = page.activeElement;
+  const deadline = performance.now() + FOCUS_WAIT_MS;
+  const attempt = () => {
+    if (editor.isDestroyed || performance.now() > deadline) return;
+    const active = page.activeElement;
+    if (active !== left && active !== page.body) return;
+    view.focus();
+    if (!view.hasFocus()) requestAnimationFrame(attempt);
+  };
+  requestAnimationFrame(attempt);
+}
+
+/** Select `range`, center its start and mark its top-level block for a moment. */
+function landOn(host: Host, range: { from: number; to: number }): boolean {
+  const { editor } = host;
+  if (!editor || editor.isDestroyed) return false;
+  const { view } = editor;
+  const { doc } = view.state;
+  const from = Math.min(range.from, doc.content.size);
+  const $from = doc.resolve(from);
+  const blockFrom = $from.depth ? $from.before(1) : from;
+  const blockNode = doc.nodeAt(blockFrom);
+  const selection = range.to > from ? TextSelection.create(doc, from, Math.min(range.to, doc.content.size)) : Selection.near($from);
+  // Selecting first pins (and so draws) the target's block in a windowed document.
+  const transaction = view.state.tr.setSelection(selection);
+  view.dispatch(blockNode ? setRevealFlash(transaction, { from: blockFrom, to: blockFrom + blockNode.nodeSize }) : transaction);
+  focusWhenShown(editor);
+  revealPosition(view, selection.from);
+  if (host.revealTimer) clearTimeout(host.revealTimer);
+  host.revealTimer = setTimeout(() => {
+    host.revealTimer = null;
+    if (!editor.isDestroyed) editor.view.dispatch(setRevealFlash(editor.view.state.tr, null));
+  }, REVEAL_FLASH_MS);
+  return true;
 }
 
 /**
@@ -487,6 +586,7 @@ function editorExtensions(labels: Partial<Record<RawBlockKind, string>>, ime: Im
     ...readingExtensions(labels, ime),
     ...chromeExtensions(chrome),
     SourceOverlays,
+    RevealFlash,
     HeadingAnchors.configure({ paper: () => Boolean(chrome.host.props().optimizeForReading) }),
     FrozenHeaders.configure({ enabled: () => !openOptions(chrome.host.props()).paperSpans }),
     HostHistory,
@@ -562,6 +662,23 @@ function rebindBaseline(baseline: MarkdownBaseline, editor: Editor): MarkdownBas
   return { ...baseline, entries };
 }
 
+/**
+ * The passive view's jump: center the last block starting at or before `line`.
+ * Its chunk may not be drawn yet; then the chunk is brought into view, which
+ * draws it, and the jump is not landed until the block itself is centered.
+ */
+function revealPassiveLine(layer: HTMLElement | null, model: PassiveModel, line: number): boolean {
+  const chunk = model.chunks.filter((candidate) => candidate.labels[0]!.line <= line).at(-1) ?? model.chunks[0]!;
+  const label = chunk.labels.filter((candidate) => candidate.line <= line).at(-1) ?? chunk.labels[0]!;
+  const block = layer?.querySelector<HTMLElement>(`[data-source-line="${label.line}"]`);
+  if (block) {
+    block.scrollIntoView({ block: "center" });
+    return true;
+  }
+  layer?.querySelector<HTMLElement>(`[data-visual-chunk-id="${chunk.id}"]`)?.scrollIntoView({ block: "center" });
+  return false;
+}
+
 export function LatticeVisualMarkdownEditor(props: VisualMarkdownEditorProps): JSX.Element {
   const { text, activePath, editable = true, optimizeForReading, onEligibilityChange, onFlushPendingChange } = props;
   const { t } = useLingui();
@@ -594,6 +711,7 @@ export function LatticeVisualMarkdownEditor(props: VisualMarkdownEditorProps): J
     pending: null,
     map: null,
     reported: { caret: "", selection: "" },
+    revealTimer: null,
   });
   const [chrome] = useState(() => createChrome(props));
   // Extensions are read once, when the editor is created; labels are fixed then.
@@ -685,6 +803,30 @@ export function LatticeVisualMarkdownEditor(props: VisualMarkdownEditorProps): J
     return () => cancelAnimationFrame(frame);
   }, [activated, editor, passive]);
 
+  // A jump lands once the document it names is the one shown: after a file
+  // swap's load, and on text the host has accepted (so its lines are the
+  // host's). It is answered either way, landed or given up on.
+  const { revealRequest } = props;
+  useEffect(() => {
+    if (!revealRequest) return;
+    const deadline = performance.now() + REVEAL_WAIT_MS;
+    let frame = 0;
+    const attempt = () => {
+      const current = host.current;
+      const shown = current.path === activePath && current.pending == null && current.accepted === current.props.text;
+      const landed = passive && "line" in revealRequest.target
+        ? revealPassiveLine(layer, passive, revealRequest.target.line)
+        : shown && revealTarget(current, revealRequest.target);
+      if (!landed && performance.now() < deadline) {
+        frame = requestAnimationFrame(attempt);
+        return;
+      }
+      current.props.onRevealHandled?.(revealRequest.id);
+    };
+    frame = requestAnimationFrame(attempt);
+    return () => cancelAnimationFrame(frame);
+  }, [activePath, editor, layer, passive, revealRequest]);
+
   // The chrome reads the source map through the host; a settled read publishes a pending edit first.
   useEffect(() => {
     chrome.host.setSourceMap((settle) => {
@@ -722,6 +864,7 @@ export function LatticeVisualMarkdownEditor(props: VisualMarkdownEditorProps): J
   useLayoutEffect(() => () => {
     publishPending(host.current, true);
     clearTimers(host.current);
+    if (host.current.revealTimer) clearTimeout(host.current.revealTimer);
   }, []);
 
   return (
@@ -738,8 +881,16 @@ export function LatticeVisualMarkdownEditor(props: VisualMarkdownEditorProps): J
               <DocumentHeadingRail
                 items={railItems}
                 onSelect={(item) => {
-                  const heading = layer?.querySelector<HTMLElement>(`[id="${CSS.escape(item.id)}"]`);
-                  if (heading) scrollToTarget(heading, { block: "start" });
+                  const find = () => layer?.querySelector<HTMLElement>(`[id="${CSS.escape(item.id)}"]`);
+                  const heading = find();
+                  if (!heading || !editor || editor.isDestroyed) return;
+                  // A heading still standing in as a placeholder is drawn first,
+                  // then landed on like any jump, in the heading now drawn.
+                  scrollToTarget(heading, { block: "center" });
+                  const drawn = find() ?? heading;
+                  if (!drawn.isConnected) return;
+                  const pos = editor.view.posAtDOM(drawn, 0);
+                  landOn(host.current, { from: pos, to: pos });
                 }}
               />
               {/* Before the article, so the sticky find bar stays in view over its whole length. */}

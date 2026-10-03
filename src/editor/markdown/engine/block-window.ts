@@ -709,6 +709,32 @@ export function scrollToTarget(element: HTMLElement, options: ScrollIntoViewOpti
 }
 
 /**
+ * Center document position `pos` in the editor's scroller: its block is drawn
+ * first when it is not (pinning the selection there draws it too), the caret
+ * line is put in the middle of the viewport, and the block is held where it
+ * landed while the blocks drawn around it fill in, so a jump is one move.
+ * False when there is no layout to scroll in (tests, a hidden editor).
+ */
+export function revealPosition(view: EditorView, pos: number): boolean {
+  const block = blockAround(view.state.doc, pos);
+  const scroller = scrollerOf(view.dom);
+  if (!block || !scroller || !layoutAvailable()) return false;
+  const windowView = windowViews.get(view.dom);
+  windowView?.reveal(block.from);
+  let caret: { top: number; bottom: number };
+  try {
+    caret = view.coordsAtPos(pos);
+  } catch {
+    return false;
+  }
+  const box = scroller.getBoundingClientRect();
+  if (box.height <= 0) return false;
+  scroller.scrollTop += (caret.top + caret.bottom) / 2 - (box.top + scroller.clientHeight / 2);
+  windowView?.holdBlock(block.from);
+  return true;
+}
+
+/**
  * The editor's extensions with long documents drawn in a window: every block
  * node view (kits included) is wrapped, and the plugin that moves the window
  * is added.

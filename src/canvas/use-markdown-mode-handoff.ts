@@ -4,7 +4,7 @@ import { clamp } from "../settings/app-settings";
 import type { CanvasMode } from "../app-types";
 import {
   captureViewport, capturePreviewViewport, restorePreviewViewport, restoreViewport, scrollRange, sourceAnchorCenter,
-  sourceAnchors, type MarkdownModeViewportHandoff,
+  sourceAnchors, sourceScrollRange, type MarkdownModeViewportHandoff,
 } from "./markdown-preview-sync";
 
 const isMarkdownMode = (mode: CanvasMode) => mode === "source" || mode === "split" || mode === "pdf";
@@ -57,7 +57,7 @@ export function useMarkdownModeHandoff({
     handoffRef.current = {
       path: activeFile,
       mode,
-      ...(sourceView ? { source: captureViewport(sourceView.scrollDOM) } : {}),
+      ...(sourceView ? { source: captureViewport(sourceView.scrollDOM, sourceScrollRange(sourceView)) } : {}),
       ...(preview ? { preview: capturePreviewViewport(preview) } : {}),
     };
   }, [activeFile, livePrimaryView, markdownDocument, mode, previewViewportRef]);
@@ -87,7 +87,7 @@ export function useMarkdownModeHandoff({
         const preview = previewViewportRef.current;
         const sourceSnapshot = handoff.source ?? handoff.preview;
         const sourceReady = mode === "pdf"
-          || Boolean(sourceView && sourceSnapshot && restoreViewport(sourceView.scrollDOM, sourceSnapshot));
+          || Boolean(sourceView && sourceSnapshot && restoreViewport(sourceView.scrollDOM, sourceSnapshot, sourceScrollRange(sourceView)));
         const previewReady = mode === "source" || Boolean(preview && (handoff.preview
           ? restorePreviewViewport(preview, handoff.preview)
           : handoff.source && restoreViewport(preview, handoff.source)));

@@ -2,7 +2,7 @@ import { useEffect, type RefObject } from "react";
 import type { EditorView } from "@codemirror/view";
 import { clamp } from "../settings/app-settings";
 import { clearTimer, restartTimer, whenIdle, type TimerRef } from "../app/effect-helpers";
-import { interpolateScrollAnchors, scrollRange, sourceAnchorCenter, sourceAnchors, type SourceAnchor } from "./markdown-preview-sync";
+import { interpolateScrollAnchors, scrollRange, sourceAnchorCenter, sourceAnchors, sourceScrollRange, type SourceAnchor } from "./markdown-preview-sync";
 
 type Side = "editor" | "preview";
 const otherSide = (side: Side): Side => side === "editor" ? "preview" : "editor";
@@ -38,8 +38,8 @@ export function useMarkdownSplitScroll({
     if (!view || !preview || !active) return;
 
     const panes = {
-      editor: { scroller: view.scrollDOM, ignore: false, frame: null as number | null, frameMeasure: false },
-      preview: { scroller: preview as HTMLElement, ignore: false, frame: null as number | null, frameMeasure: false },
+      editor: { scroller: view.scrollDOM, range: () => sourceScrollRange(view), ignore: false, frame: null as number | null, frameMeasure: false },
+      preview: { scroller: preview as HTMLElement, range: () => scrollRange(preview), ignore: false, frame: null as number | null, frameMeasure: false },
     };
     const settledSyncTimer: TimerRef = { current: null };
     let activeScrollOwner: Side | null = null;
@@ -92,7 +92,7 @@ export function useMarkdownSplitScroll({
       const toHalf = to.scroller.clientHeight / 2;
       const targetCenter = interpolateScrollAnchors(
         from.scroller.scrollTop + fromHalf, anchorMaps[source],
-        fromHalf, scrollRange(from.scroller) + fromHalf, toHalf, scrollRange(to.scroller) + toHalf,
+        fromHalf, from.range() + fromHalf, toHalf, to.range() + toHalf,
       );
       const nextTop = targetCenter - toHalf;
       if (Math.abs(to.scroller.scrollTop - nextTop) <= 1) return;

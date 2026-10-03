@@ -26,6 +26,8 @@ import { wrapEnvironment, wrapRange } from "../editor/latex/latex-edits";
 import { renameEnvironmentAt } from "../editor/latex/latex-environments";
 import type { CitationInfo, DefinitionTarget, ReferenceInfo, SymbolTarget } from "../editor/latex/latex-text";
 import { harperDictionaryChanged } from "../editor/harper-spellcheck";
+import { lineTarget, revealInEditor } from "../editor/editor-reveal";
+import type { VisualRevealTarget } from "../editor/markdown/visual-editor-props";
 import { LatexSelectionToolbar, SELECTION_TOOLBAR_SURFACES, type LatexSelectionAction, type LatexSelectionToolbarPosition } from "../editor/latex/latex-selection-toolbar";
 import { ScrollArea } from "../components/ui/scroll-area";
 import { InlineMessage } from "../components/ui/inline-message";
@@ -104,6 +106,9 @@ const SELECTION_WRAPS: Record<Exclude<LatexSelectionAction, "comment">, (value?:
 };
 
 type StructuredDocumentKind = "board" | "spreadsheet" | "presentation";
+
+/** A navigation or comment focus for the visual Markdown editor, answered by `kind`'s handler. */
+type VisualReveal = { id: string; kind: "navigation" | "comment"; target: VisualRevealTarget };
 
 function structuredDocumentKind(path: string): StructuredDocumentKind | null {
   if (path.toLocaleLowerCase().endsWith(".tldr")) return "board";
@@ -410,6 +415,20 @@ export function DocumentCanvas(props: {
   });
   useRegistration(props.onMarkdownModeViewportCaptureChange, captureMarkdownModeViewport);
 
+  // Markdown's Preview is its visual editor: a jump or comment focus for the
+  // file in front lands there, instead of opening a source view for it.
+  const commentFocusPath = commentFocusRequest ? editorComments.find((item) => item.id === commentFocusRequest.id)?.path : undefined;
+  const visualReveal = useMemo<VisualReveal | null>(() => {
+    if (!markdownDocument || props.mode !== "pdf") return null;
+    if (editorNavigation?.path === activeFile) {
+      return { id: editorNavigation.id, kind: "navigation", target: { line: Math.max(1, editorNavigation.line - markdownPreviewLineOffset) } };
+    }
+    if (commentFocusRequest && commentFocusPath === activeFile) {
+      return { id: commentFocusRequest.nonce, kind: "comment", target: { commentId: commentFocusRequest.id } };
+    }
+    return null;
+  }, [activeFile, commentFocusPath, commentFocusRequest, editorNavigation, markdownDocument, markdownPreviewLineOffset, props.mode]);
+  const visualRevealRef = useLatestRef(visualReveal);
   const [selectedText, setSelectedText] = useState("");
   const [selectionToolbar, setSelectionToolbar] = useState<{ position: LatexSelectionToolbarPosition } | null>(null);
   const commentsForActiveFile = useMemo(() => editorComments.filter((comment) => comment.path === activeFile), [activeFile, editorComments]);
@@ -573,16 +592,21 @@ export function DocumentCanvas(props: {
   useEffect(() => {
     if (!commentFocusRequest) return;
     const comment = editorComments.find((item) => item.id === commentFocusRequest.id);
-    if (!comment) return;
-    const view = comment.path === activeFile ? primaryViewRef.current : null;
+    // The visual editor answers it in Markdown's Preview (visualReveal).
+    if (!comment || comment.path !== activeFile || (markdownDocument && props.mode === "pdf")) return;
+    const view = primaryViewRef.current;
     if (!view) return;
     const range = resolveCommentAnchor(view.state.doc.toString(), comment);
-    if (range) {
-      view.dispatch({ selection: { anchor: range.from, head: range.to }, effects: EditorView.scrollIntoView(range.from, { y: "center" }) });
-      view.focus();
-    }
+    if (range) revealInEditor(view, range);
     onCommentFocusHandled(commentFocusRequest.nonce);
-  }, [activeFile, commentFocusRequest, editorComments, onCommentFocusHandled]);
+  }, [activeFile, commentFocusRequest, editorComments, markdownDocument, onCommentFocusHandled, props.mode]);
+  /** The visual editor landed on (or gave up on) the reveal it was asked for. */
+  const visualRevealHandled = useCallback((id: string) => {
+    const current = visualRevealRef.current;
+    if (current?.id !== id) return;
+    if (current.kind === "comment") onCommentFocusHandled(id);
+    else onRequestHandled(id);
+  }, [onCommentFocusHandled, onRequestHandled, visualRevealRef]);
 
   const applySelectionAction = useCallback((action: LatexSelectionAction, value?: string) => {
     const owner = selectionToolbarOwnerRef.current;
@@ -765,16 +789,13 @@ export function DocumentCanvas(props: {
   }, [editorSource]);
   useEffect(() => {
     const request = editorNavigation;
-    if (!request) return;
-    const editorVisible = props.mode !== "pdf" && props.mode !== "asset";
+    if (!request || request.path !== activeFile) return;
+    // No source view to land in; in Markdown's Preview the visual editor answers it (visualReveal).
+    if (props.mode === "pdf" || props.mode === "asset") return;
     // A ref can be assigned before CodeMirror's DOM reports connected; treat the
     // view as ready, since the later attachment does not rerun this effect.
-    const targetView = () => !editorVisible ? null
-      : request.path === activeFile ? primaryViewRef.current ?? editorViewRef.current : null;
-    const view = targetView();
-    const preview = request.path === activeFile && markdownDocument ? markdownPreviewViewport?.deref() ?? null : null;
-    if (!view && !preview) return;
-    let observer: MutationObserver | null = null;
+    const targetView = () => primaryViewRef.current ?? editorViewRef.current;
+    if (!targetView()) return;
     // codemirror-host holds an external value back while someone is typing, so
     // the view can still carry the previous file's text when a jump arrives.
     // Wait for the text to catch up — but not forever: a best-effort jump is
@@ -782,45 +803,18 @@ export function DocumentCanvas(props: {
     const staleDocumentDeadline = performance.now() + 600;
     const [scheduleNavigation, cancelNavigation] = frameCoalescer(() => {
       const currentView = targetView();
-      if (currentView) {
-        if (currentView.state.doc.toString() !== editorSource && performance.now() < staleDocumentDeadline) {
-          scheduleNavigation();
-          return;
-        }
-        const line = currentView.state.doc.line(clamp(request.line, 1, currentView.state.doc.lines));
-        // Center the target line so a jump lands in the middle of the viewport,
-        // not pinned to the top (jumping down) or bottom (jumping up).
-        currentView.dispatch({ selection: { anchor: line.from }, effects: EditorView.scrollIntoView(line.from, { y: "center" }) });
-        editorViewRef.current = currentView;
-        currentView.focus();
-      } else if (preview) {
-        const targetLine = Math.max(1, request.line - markdownPreviewLineOffset);
-        const anchors = Array.from(preview.querySelectorAll<HTMLElement>("[data-source-line]"));
-        if (!anchors.length) return;
-        const target = anchors.reduce<HTMLElement | null>((closest, anchor) => {
-          const line = Number(anchor.dataset.sourceLine);
-          if (!Number.isFinite(line) || line > targetLine) return closest;
-          return line > Number(closest?.dataset.sourceLine ?? 0) ? anchor : closest;
-        }, null) ?? anchors[0];
-        const targetRect = target.getBoundingClientRect();
-        preview.scrollTop += targetRect.top - preview.getBoundingClientRect().top - (preview.clientHeight - targetRect.height) / 2;
+      if (!currentView) return;
+      if (currentView.state.doc.toString() !== editorSource && performance.now() < staleDocumentDeadline) {
+        scheduleNavigation();
+        return;
       }
-      observer?.disconnect();
+      revealInEditor(currentView, lineTarget(currentView, request.line));
+      editorViewRef.current = currentView;
       onRequestHandled(request.id);
     });
-    if (!view && preview) {
-      observer = new MutationObserver(scheduleNavigation);
-      observer.observe(preview, { attributes: true, attributeFilter: ["data-source-line"], childList: true, subtree: true });
-    }
     scheduleNavigation();
-    return () => {
-      cancelNavigation();
-      observer?.disconnect();
-    };
-  }, [
-    activeFile, editorNavigation, editorSource, markdownDocument, markdownPreviewLineOffset, markdownPreviewViewport,
-    onRequestHandled, props.mode,
-  ]);
+    return cancelNavigation;
+  }, [activeFile, editorNavigation, editorSource, onRequestHandled, props.mode]);
   useEffect(() => {
     const request = figureDropRequest;
     if (!request) return;
@@ -941,9 +935,16 @@ export function DocumentCanvas(props: {
     if (!quoteFallback && returnViewport?.path === path) paperReturnViewportRef.current = null;
     let restoring = Boolean(saved);
     let attempts = 0;
+    // A jump into this file owns its viewport: the remembered place would land
+    // first and the jump second, two moves where one was asked for.
+    const jumping = () => latestRef.current.requests.navigation?.path === path || visualRevealRef.current !== null;
     // Retried each frame until the preview is tall enough to hold the saved place.
     const [scheduleRestore, cancelRestore] = frameCoalescer(() => {
       attempts += 1;
+      if (jumping()) {
+        restoring = false;
+        return;
+      }
       const ready = saved && restoreViewport(viewport, { scrollTop: saved.scrollTop, scrollRange: saved.scrollRange ?? 0 });
       if (!ready && attempts < 30) scheduleRestore();
       else restoring = false;
@@ -959,7 +960,7 @@ export function DocumentCanvas(props: {
       report();
       viewport.removeEventListener("scroll", report);
     };
-  }, [activeFile, getFileViewState, onFileViewState, paperReturnViewportRef, quoteFallback]);
+  }, [activeFile, getFileViewState, onFileViewState, paperReturnViewportRef, quoteFallback, visualRevealRef]);
 
   /** Visual-editor undo/redo: through CodeMirror when mounted, else the local history. */
   const stepVisualHistory = useCallback((direction: "undo" | "redo") => {
@@ -1174,9 +1175,11 @@ export function DocumentCanvas(props: {
           projectRoot={props.activePaper ? undefined : props.projectRoot}
           optimizeForReading={Boolean(props.activePaper)}
           onEligibilityChange={paperFullTextActive ? reportPaperVisualEligibility : undefined}
-          // Split previews keep source labels for scroll sync; pure preview only
-          // for a pending navigation, sparing the labeling cost while typing.
-          synchronizeSourceScroll={props.mode === "split" || editorNavigation?.path === activeFile}
+          // Split previews keep source labels for scroll sync; pure preview
+          // spares the labeling cost while typing.
+          synchronizeSourceScroll={props.mode === "split" || visualReveal !== null}
+          revealRequest={visualReveal}
+          onRevealHandled={visualRevealHandled}
           onRequestViewportLock={lockMarkdownPreviewViewport}
           onChangeMarkdown={replaceVisualMarkdown}
           onFlushPendingChange={registerPrimaryVisualMarkdownFlush}

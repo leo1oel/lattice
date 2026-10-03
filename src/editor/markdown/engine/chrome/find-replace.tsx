@@ -17,6 +17,7 @@ import { Plugin, PluginKey, TextSelection, type EditorState, type Transaction } 
 import { Decoration, DecorationSet } from "@tiptap/pm/view";
 import { ChevronDown, ChevronUp, Replace, ReplaceAll, X } from "lucide-react";
 import { IconButton } from "../../../../components/ui/icon-button";
+import { revealPosition } from "../block-window";
 import type { ChromeHost } from "./chrome-host";
 
 type Match = { from: number; to: number };
@@ -96,8 +97,10 @@ function select(editor: Editor, index: number) {
   const state = findState(editor.state);
   const match = state.matches[index];
   const transaction = editor.state.tr.setMeta(findKey, { current: index });
-  if (match) transaction.setSelection(TextSelection.create(editor.state.doc, match.from, match.to)).scrollIntoView();
+  if (match) transaction.setSelection(TextSelection.create(editor.state.doc, match.from, match.to));
   editor.view.dispatch(transaction);
+  // Centered, like every other jump; without layout the plain reveal stands in.
+  if (match && !revealPosition(editor.view, match.from)) editor.view.dispatch(editor.state.tr.scrollIntoView());
 }
 
 /**

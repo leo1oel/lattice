@@ -158,7 +158,8 @@ export function useEditorComments({
     const generation = ++openGenerationRef.current;
     setActiveId(comment.id);
     closePanel();
-    void openProjectFile(comment.path).then(() => {
+    // The focus below places the editor; a remembered position must not land after it.
+    void openProjectFile(comment.path, { restoreView: false }).then(() => {
       if (openGenerationRef.current !== generation || activeFileRef.current !== comment.path) return;
       setFocusRequest({ id: comment.id, nonce: crypto.randomUUID() });
     });

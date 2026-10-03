@@ -48,6 +48,10 @@ const NAVIGATION_HISTORY_LIMIT = 80;
 
 /** A canvas mode that brings an editor on screen, widening a preview-only or asset surface to split. */
 const withEditor = (mode: CanvasMode): CanvasMode => (mode === "pdf" || mode === "asset" ? "split" : mode);
+/** The canvas mode a jump into `path` needs: Markdown's Preview is its visual editor, which takes the jump itself. */
+const withEditorFor = (path: string) => (mode: CanvasMode): CanvasMode => (
+  mode === "pdf" && /\.md$/i.test(path) ? mode : withEditor(mode)
+);
 /** A canvas mode that brings the PDF on screen beside an editor-only view. */
 const withPdf = (mode: CanvasMode): CanvasMode => (mode === "source" ? "split" : mode);
 
@@ -557,7 +561,7 @@ export function useOpenDocuments(deps: OpenDocumentsDeps) {
       addTab(path);
       if (line) {
         requestLine(path, line);
-        setMode(withEditor);
+        setMode(withEditorFor(path));
         pushNavigation(path, line);
       }
       // Bring the on-screen copy level with disk: save it, or take an edit made behind it.
@@ -629,7 +633,7 @@ export function useOpenDocuments(deps: OpenDocumentsDeps) {
       }
     }
     const applied = await loadFile(path, {
-      restoreView: !line,
+      restoreView: options?.restoreView ?? !line,
       revealSource: options?.revealSource ?? true,
       gate,
       loadGeneration,
@@ -644,7 +648,7 @@ export function useOpenDocuments(deps: OpenDocumentsDeps) {
     if (line) {
       // The jump itself rode the load's commit; this only widens a
       // preview-only surface so the editor it lands in is on screen.
-      setMode(withEditor);
+      setMode(withEditorFor(path));
       pushNavigation(path, line);
     } else {
       pushNavigation(path, 1);

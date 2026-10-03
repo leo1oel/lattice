@@ -213,6 +213,19 @@ describe("opening documents", () => {
     expect(docs.current().file).toBe("intro.tex");
     expect(docs.view.result.current.canvas.requests.navigation).toMatchObject({ path: "intro.tex", line: 12 });
   });
+
+  it("brings a file's remembered place back on open, unless the caller moves the view itself", async () => {
+    const docs = renderDocuments({ "main.tex": "Main", "intro.tex": "Intro" });
+    await docs.enter();
+    act(() => docs.current().viewStates.remember("intro.tex", { text: { cursor: 3, scrollTop: 90 } }));
+    await act(() => docs.current().openFile("intro.tex"));
+    expect(docs.view.result.current.canvas.requests.restore).toMatchObject({ path: "intro.tex", cursor: 3, scrollTop: 90 });
+    act(() => docs.view.result.current.canvas.update("restore", null));
+    await act(() => docs.current().openFile("main.tex"));
+    act(() => docs.view.result.current.canvas.update("restore", null));
+    await act(() => docs.current().openFile("intro.tex", { restoreView: false }));
+    expect(docs.view.result.current.canvas.requests.restore).toBeNull();
+  });
 });
 
 describe("entering a project", () => {

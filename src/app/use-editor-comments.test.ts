@@ -87,7 +87,8 @@ it("does nothing on undo once another project is open, or for a comment that is 
 it("opens a comment's file and asks the editor to focus it, unless a newer comment was opened first", async () => {
   const { view, openProjectFile } = await renderComments([comment("a"), { ...comment("b"), path: "intro.tex" }]);
   await act(async () => view.result.current.openComment(view.result.current.comments[0]));
-  expect(openProjectFile).toHaveBeenCalledWith("main.tex");
+  // The focus places the editor, so the file's remembered position must not land after it.
+  expect(openProjectFile).toHaveBeenCalledWith("main.tex", { restoreView: false });
   expect(view.result.current.activeId).toBe("a");
   const request = view.result.current.focusRequest;
   expect(request?.id).toBe("a");
