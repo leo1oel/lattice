@@ -96,6 +96,42 @@ describe("the project's LaTeX structure", () => {
     await waitFor(() => expect(view.result.current.appendixBoundary).toEqual({ kind: "resolved", mainPages: 10 }));
     expect(vi.mocked(invoke).mock.calls.filter(([command]) => command === "synctex_view")).toHaveLength(2);
   });
+
+  it("never shows a placement from another project or an earlier marker", async () => {
+    let answer: (page: number) => void = () => {};
+    const view = renderStructure({ compiledPdf: "blob:a-build" });
+    await waitFor(() => expect(view.result.current.appendixBoundary).toEqual({ kind: "resolved", mainPages: 6 }));
+
+    // Project B opens; its first build is on screen before SyncTeX answers for it.
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command === "read_project_file") return DISK[(args as { path: string }).path] ?? "";
+      if (command === "synctex_view") return new Promise((resolve) => {
+        answer = (page) => resolve({ page });
+      });
+      throw new Error(`unexpected ${command}`);
+    });
+    const other = { ...PROJECT, root: "/other" } as ProjectSnapshot;
+    view.rerender(renderArgs({ project: other, compiledPdf: null }));
+    expect(view.result.current.appendixBoundary).toEqual({ kind: "unresolved" });
+    view.rerender(renderArgs({ project: other, compiledPdf: "blob:b-build" }));
+    expect(view.result.current.appendixBoundary).toEqual({ kind: "unresolved" });
+    answer(3);
+    await waitFor(() => expect(view.result.current.appendixBoundary).toEqual({ kind: "resolved", mainPages: 2 }));
+
+    // The appendix is deleted, then added back on another line: the old page no longer applies.
+    const moved = MAIN.replace("\\appendix\n", "").replace("\\end{document}", "\\appendix\n\\end{document}");
+    view.rerender(renderArgs({ project: other, compiledPdf: "blob:b-build", settledSource: MAIN.replace("\\appendix\n", "") }));
+    expect(view.result.current.appendixBoundary).toEqual({ kind: "none" });
+    view.rerender(renderArgs({ project: other, compiledPdf: "blob:b-build", settledSource: moved }));
+    expect(view.result.current.appendixBoundary).toEqual({ kind: "unresolved" });
+    answer(9);
+    await waitFor(() => expect(view.result.current.appendixBoundary).toEqual({ kind: "resolved", mainPages: 8 }));
+
+    // A build that leaves no PDF drops the placement, so the next build waits for its own answer.
+    view.rerender(renderArgs({ project: other, compiledPdf: null, settledSource: moved }));
+    view.rerender(renderArgs({ project: other, compiledPdf: "blob:b-rebuild", settledSource: moved }));
+    expect(view.result.current.appendixBoundary).toEqual({ kind: "unresolved" });
+  });
 });
 
 function renderArgs(overrides: Partial<LatexStructureDeps> = {}): LatexStructureDeps {

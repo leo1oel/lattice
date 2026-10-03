@@ -140,25 +140,32 @@ export function useLatexStructure({
   const appendixMarkerLine = appendixMarker?.line ?? 0;
   // SyncTeX's last answer: the main body's page count, or null when it could
   // not place the marker (no target, or the lookup failed). A rebuild keeps
-  // the last answer until the next one arrives, so the count does not flicker.
-  const [appendixPlacement, setAppendixPlacement] = useState<{ mainPages: number | null } | null>(null);
+  // the last answer until the next one arrives, so the count does not flicker;
+  // the answer belongs to one project and marker, and is dropped once the PDF
+  // goes away or either of them changes.
+  const placementOwner = `${project?.root ?? ""}\n${appendixMarkerPath}\n${appendixMarkerLine}`;
+  const [appendixPlacement, setAppendixPlacement] = useState<{ owner: string; mainPages: number | null } | null>(null);
+  if (appendixPlacement && (!compiledPdf || appendixPlacement.owner !== placementOwner)) setAppendixPlacement(null);
   useEffect(() => {
     if (!compiledPdf || !appendixMarkerPath) return;
     let cancelled = false;
     void invoke<{ page: number } | null>("synctex_view", { path: appendixMarkerPath, line: appendixMarkerLine, column: 0 })
       .then((target) => (target ? Math.max(0, target.page - 1) : null), () => null)
       .then((mainPages) => {
-        if (!cancelled) setAppendixPlacement((current) => (current?.mainPages === mainPages ? current : { mainPages }));
+        if (cancelled) return;
+        setAppendixPlacement((current) => (
+          current?.owner === placementOwner && current.mainPages === mainPages ? current : { owner: placementOwner, mainPages }
+        ));
       });
     return () => {
       cancelled = true;
     };
-  }, [appendixMarkerLine, appendixMarkerPath, compiledPdf]);
+  }, [appendixMarkerLine, appendixMarkerPath, compiledPdf, placementOwner]);
   const appendixBoundary = useMemo((): AppendixBoundary => {
     if (!appendixMarkerPath) return NO_APPENDIX;
-    const mainPages = compiledPdf ? appendixPlacement?.mainPages : null;
+    const mainPages = compiledPdf && appendixPlacement?.owner === placementOwner ? appendixPlacement.mainPages : null;
     return mainPages == null ? UNRESOLVED_APPENDIX : { kind: "resolved", mainPages };
-  }, [appendixMarkerPath, appendixPlacement, compiledPdf]);
+  }, [appendixMarkerPath, appendixPlacement, compiledPdf, placementOwner]);
 
   /** Included files follow a rename or move. */
   const remapIncludedSources = useCallback((remap: (path: string) => string) => {
