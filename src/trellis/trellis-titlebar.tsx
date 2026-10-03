@@ -1,20 +1,25 @@
 /**
  * Titlebar controls for the Trellis workspace: a Panels menu that reopens any
- * panel or tool and resets the layout, one toggle each for Project, Papers and
- * the Agent, maximize/restore and reset, and a chip per hidden panel. The PDF
+ * panel or tool and resets the layout, the Workspace / Writing / Reading
+ * layout switch, one toggle each for Project, Papers and the Agent,
+ * maximize/restore and reset, and a chip per hidden panel. The PDF
  * comes up from each .tex panel's Build button (and the Panels menu).
  * Eager but light: it drives the workspace only through the controller.
  */
 import { memo, useCallback, useMemo, useSyncExternalStore } from "react";
 import { useLingui } from "@lingui/react/macro";
-import { Bot, FileText, FolderTree, LayoutPanelLeft, Library, Maximize2, Minimize2, RotateCcw } from "lucide-react";
+import {
+  BookOpen, Bot, FileText, FolderTree, LayoutDashboard, LayoutPanelLeft, Library, Maximize2, Minimize2, PenLine, RotateCcw,
+} from "lucide-react";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
 } from "../components/ui/dropdown-menu";
 import { Tip } from "../components/icon-tip";
+import { SegmentedControl } from "../components/ui/segmented-control";
 import { TOOL_KINDS, type TrellisController, type TrellisPanelState, type TrellisSingleton } from "./trellis-controller";
 import { PANEL_TITLES, spaceMixedScript } from "./trellis-titles";
 import { PANEL_ICONS } from "./trellis-icons";
+import type { LayoutPreset } from "./trellis-layout";
 
 const CORE_PANELS = [
   { kind: "project", icon: <FolderTree size={14} /> },
@@ -48,6 +53,7 @@ export const TrellisTitlebar = memo(function TrellisTitlebar({ controller }: { c
   const { t, i18n } = useLingui();
   const hidden = useSyncExternalStore(controller.ui.subscribe, () => controller.ui.get().hidden);
   const framed = useSyncExternalStore(controller.ui.subscribe, () => controller.ui.get().framed);
+  const preset = useSyncExternalStore(controller.ui.subscribe, () => controller.ui.get().preset);
   const panelState = usePanelStates(controller);
   const ws = () => controller.ws;
   const title = (kind: TrellisSingleton) => i18n._(PANEL_TITLES[kind]);
@@ -83,6 +89,32 @@ export const TrellisTitlebar = memo(function TrellisTitlebar({ controller }: { c
           <DropdownMenuItem onSelect={() => void controller.resetLayout()}><RotateCcw size={14} />{t`Reset layout`}</DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
+      <div className="trellis-titlebar-group">
+        <SegmentedControl<LayoutPreset | "own">
+          value={preset ?? "own"}
+          onChange={(next) => controller.setPreset(next === "own" ? null : next)}
+          ariaLabel={t`Layout`}
+          className="trellis-presets"
+          tabClassName="trellis-preset"
+          items={[
+            {
+              value: "own",
+              label: <><LayoutDashboard size={13} aria-hidden="true" /><span className="trellis-preset-label">{t`Workspace`}</span></>,
+              title: preset ? t`Return to your own layout` : t`Your own layout`,
+            },
+            {
+              value: "writing",
+              label: <><PenLine size={13} aria-hidden="true" /><span className="trellis-preset-label">{t`Writing`}</span></>,
+              title: t`Source beside the compiled PDF`,
+            },
+            {
+              value: "reading",
+              label: <><BookOpen size={13} aria-hidden="true" /><span className="trellis-preset-label">{t`Reading`}</span></>,
+              title: t`A paper beside your notes`,
+            },
+          ]}
+        />
+      </div>
       <div className="trellis-titlebar-group" role="group" aria-label={t`Show or hide panels`}>
         {TOGGLED_PANELS.map(({ kind, icon }) => {
           const shown = panelState(kind) === "shown";

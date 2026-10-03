@@ -1,0 +1,106 @@
+import { describe, expect, it } from "vitest";
+import type { LayoutDocument, LayoutNode, PanelNode } from "@danfessler/trellis";
+import { defaultLayout, loadLayout, presetLayout, returnLayout, saveLayout, withDocumentPanel } from "./trellis-layout";
+
+const PAPER = "paper:1706.03762:";
+const isReading = (key: string) => key.startsWith("paper:") || key.endsWith(".pdf");
+
+/** The default layout with these documents in one panel, as App's tab sync leaves them. */
+function workspaceWith(keys: string[]): LayoutDocument {
+  let doc = defaultLayout();
+  const [first, ...rest] = keys;
+  doc = withDocumentPanel(doc, { id: "doc-0", key: first }, { after: ["panel-project"] });
+  const panel = findPanel(doc.root, "panel-doc-0")!;
+  rest.forEach((key, index) => {
+    doc.views[`doc-${index + 1}`] = { type: "file", params: { key } };
+    panel.views.push(`doc-${index + 1}`);
+  });
+  return doc;
+}
+
+function findPanel(node: LayoutNode | null | undefined, id: string): PanelNode | null {
+  if (!node) return null;
+  if (node.kind === "panel") return node.id === id ? node : null;
+  if (node.kind === "stage") return findPanel(node.child, id);
+  for (const child of node.children) {
+    const found = findPanel(child, id);
+    if (found) return found;
+  }
+  return null;
+}
+
+function panels(doc: LayoutDocument): Array<{ id: string; views: string[]; selected: string }> {
+  const out: PanelNode[] = [];
+  const walk = (node: LayoutNode | null | undefined) => {
+    if (!node) return;
+    if (node.kind === "panel") out.push(node);
+    else if (node.kind === "stage") walk(node.child);
+    else node.children.forEach(walk);
+  };
+  walk(doc.root);
+  return out.map(({ id, views, selected }) => ({ id, views, selected }));
+}
+
+describe("layout presets", () => {
+  const keys = ["main.tex", "notes.md", PAPER];
+  const documents = { activeKey: "notes.md", openTabs: keys, isReading };
+
+  it("Writing keeps every open document beside the PDF, with the LaTeX source in front", () => {
+    const doc = presetLayout("writing", workspaceWith(keys), documents);
+    expect(panels(doc)).toEqual([
+      { id: "panel-writing", views: ["doc-0", "doc-1", "doc-2"], selected: "doc-0" },
+      { id: "panel-pdf", views: ["pdf"], selected: "pdf" },
+    ]);
+    expect(Object.keys(doc.views).sort()).toEqual(["doc-0", "doc-1", "doc-2", "pdf"]);
+  });
+
+  it("Reading puts the paper with the library beside the notes", () => {
+    const doc = presetLayout("reading", workspaceWith(keys), documents);
+    expect(panels(doc)).toEqual([
+      { id: "panel-reading", views: ["papers", "doc-2"], selected: "doc-2" },
+      { id: "panel-notes", views: ["doc-0", "doc-1"], selected: "doc-1" },
+    ]);
+  });
+
+  it("Reading with no paper open offers the library to pick one", () => {
+    const doc = presetLayout("reading", workspaceWith(["main.tex"]), { activeKey: "main.tex", openTabs: ["main.tex"], isReading });
+    expect(panels(doc)[0]).toEqual({ id: "panel-reading", views: ["papers"], selected: "papers" });
+  });
+
+  it("Writing with nothing open shows the Project panel beside the PDF", () => {
+    const doc = presetLayout("writing", defaultLayout(), { activeKey: "", openTabs: [], isReading });
+    expect(panels(doc).map((panel) => panel.views)).toEqual([["project"], ["pdf"]]);
+  });
+
+  it("returns to the writer's layout with surviving documents, new ones joined, and closed ones gone", () => {
+    const previous = workspaceWith(keys);
+    const preset = presetLayout("reading", previous, documents);
+    // While reading: notes.md closed, draft.md opened (App's tab sync gave it a view).
+    preset.views["doc-9"] = { type: "file", params: { key: "draft.md" } };
+    const now = { activeKey: "draft.md", openTabs: ["main.tex", PAPER, "draft.md"] };
+    const back = returnLayout(previous, preset, now);
+    expect(panels(back)).toEqual([
+      { id: "panel-project", views: ["project", "agent"], selected: "project" },
+      { id: "panel-papers", views: ["papers"], selected: "papers" },
+      { id: "panel-doc-0", views: ["doc-0", "doc-2", "doc-9"], selected: "doc-0" },
+      { id: "panel-pdf", views: ["pdf"], selected: "pdf" },
+    ]);
+    expect(back.views["doc-1"]).toBeUndefined();
+  });
+
+  it("closes up a panel whose documents all closed while away", () => {
+    const previous = workspaceWith(["notes.md"]);
+    const back = returnLayout(previous, presetLayout("writing", previous, { ...documents, openTabs: ["notes.md"] }), { activeKey: "", openTabs: [] });
+    expect(panels(back).map((panel) => panel.id)).toEqual(["panel-project", "panel-papers", "panel-pdf"]);
+  });
+
+  it("persists the preset with the layout, per project", () => {
+    const previous = workspaceWith(keys);
+    const reading = presetLayout("reading", previous, documents);
+    saveLayout("/a", reading, { preset: "reading", previous });
+    saveLayout("/b", previous);
+    expect(loadLayout("/a").preset?.preset).toBe("reading");
+    expect(panels(loadLayout("/a").preset!.previous)).toEqual(panels(previous));
+    expect(loadLayout("/b").preset).toBeNull();
+  });
+});

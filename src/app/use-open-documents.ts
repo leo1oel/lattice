@@ -58,7 +58,7 @@ const withPdf = (mode: CanvasMode): CanvasMode => (mode === "source" ? "split" :
  * rejection discard the other. Library rows stay local on open — refreshing
  * alphaXiv in the foreground made a cached Paper switch wait on the network.
  */
-async function readPaperDocuments(arxivId: string) {
+export async function readPaperDocuments(arxivId: string) {
   const [fullText, blog] = await Promise.allSettled([
     invoke<string>("read_paper", { arxivId }),
     invoke<string | null>("read_paper_blog_local", { arxivId }),

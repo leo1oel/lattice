@@ -14,6 +14,7 @@ import { createContext, useContext, useSyncExternalStore } from "react";
 import type { MenuItem, Placement, WorkspaceHandle } from "@danfessler/trellis";
 import { isHtmlFilePath } from "../app-utils";
 import type { BuildOutcome } from "../app/use-build-pipeline";
+import type { LayoutPreset } from "./trellis-layout";
 
 /** Drawers that become dockable tool panels, keyed by their Trellis view type. */
 export const TOOL_KINDS = ["history", "git", "comments", "overleaf", "literature", "todos", "checklist"] as const;
@@ -68,6 +69,8 @@ export type TrellisBridge = {
   tabLabel: (key: string) => string;
   /** The last known text of a project file, for an inactive panel's snapshot. */
   readText: (path: string) => Promise<string | null>;
+  /** A Paper's reading text (its overview, else its full text), for an inactive Paper panel. */
+  readPaper: (key: string) => Promise<{ path: string; text: string; scrollTop: number } | null>;
   /** The remembered scroll offset of a text file's editor. */
   textScrollTop: (path: string) => number | null;
   /** Open (or re-open) the drawer behind a tool panel restored from a saved layout. */
@@ -126,6 +129,8 @@ export type TrellisUiState = {
   editorVisible: boolean;
   hidden: Array<{ panelId: string; title: string }>;
   framed: string | null;
+  /** The layout preset the workspace is in, or null in the writer's own layout. */
+  preset: LayoutPreset | null;
   /** The narrowest window content, in CSS px, at which the docked layout still fits at full size (0 without a workspace). */
   minWidth: number;
   /** Content minimums measured from the live panels, in CSS px (0 until measured): the Agent's from its composer, the PDF's from its toolbar. */
@@ -187,7 +192,7 @@ export class TrellisController {
   });
   readonly ui = new SmallStore<TrellisUiState>({
     ready: false, present: {}, visible: {}, pdfLive: false, editorHibernated: false, editorVisible: false,
-    hidden: [], framed: null, minWidth: 0, agentMinWidth: 0, pdfMinWidth: 0,
+    hidden: [], framed: null, preset: null, minWidth: 0, agentMinWidth: 0, pdfMinWidth: 0,
   });
   /** The layout's minimum width as a live value the native window minimum follows. */
   readonly layoutMinWidth = { subscribe: this.ui.subscribe, get: () => this.ui.get().minWidth };
@@ -203,6 +208,7 @@ export class TrellisController {
   private pointerPanel: string | null = null;
   private resetHandler: (() => Promise<void>) | null = null;
   private resyncHandler: (() => void) | null = null;
+  private presetHandler: ((preset: LayoutPreset | null) => void) | null = null;
 
   setBridge(bridge: TrellisBridge) {
     this.bridge = bridge;
@@ -218,13 +224,26 @@ export class TrellisController {
     this.resyncHandler?.();
   }
 
-  installHandlers(handlers: { reset?: () => Promise<void>; resync?: () => void }) {
+  /** Enter a layout preset, or (null) return to the writer's own layout (installed by the mounted workspace). */
+  setPreset(preset: LayoutPreset | null) {
+    this.presetHandler?.(preset);
+  }
+
+  installHandlers(handlers: { reset?: () => Promise<void>; resync?: () => void; preset?: (preset: LayoutPreset | null) => void }) {
     if (handlers.reset) this.resetHandler = handlers.reset;
     if (handlers.resync) this.resyncHandler = handlers.resync;
+    if (handlers.preset) this.presetHandler = handlers.preset;
     return () => {
       if (handlers.reset && this.resetHandler === handlers.reset) this.resetHandler = null;
       if (handlers.resync && this.resyncHandler === handlers.resync) this.resyncHandler = null;
+      if (handlers.preset && this.presetHandler === handlers.preset) this.presetHandler = null;
     };
+  }
+
+  /** Papers, and PDFs opened as documents, are what the Reading layout reads. */
+  isReading(key: string) {
+    const kind = this.bridge?.tabKind(key) ?? "file";
+    return kind === "paper" || (kind === "asset" && key.toLocaleLowerCase().endsWith(".pdf"));
   }
   private wsListeners = new Set<Listener>();
 
