@@ -91,13 +91,7 @@ export function useTrellisBridge(app: TrellisBridgeApp) {
         const text = view === "blog" ? blog : markdown;
         return text ? { path, text } : null;
       },
-      readAsset: async (path) => {
-        try {
-          return await invoke<AssetPreview>("read_project_asset", { path });
-        } catch {
-          return null;
-        }
-      },
+      readAsset: (path) => invoke<AssetPreview>("read_project_asset", { path }),
       viewState: (path) => documents.viewStates.get(path),
       rememberViewState: (path, update) => documents.viewStates.remember(path, update),
       // A panel asking for a drawer that is already open only comes forward:

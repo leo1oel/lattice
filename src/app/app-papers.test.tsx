@@ -443,6 +443,46 @@ describe("papers", () => {
     expect(invoke).toHaveBeenCalledWith("read_project_asset", { path: "reference.pdf" });
   });
 
+  it("moves a project PDF beside the notes to its new version and notes its removal", async () => {
+    mockPdfDocument(() => pdfDocumentStub(1, {
+      render: () => ({ promise: Promise.resolve(), cancel: vi.fn() }), getTextContent: async () => ({ items: [] }),
+    }));
+    let ranges = { length: 8, version: "v1" };
+    let removed = false;
+    const missing = () => new Error("That file or folder no longer exists.");
+    renderApp({
+      ...projectCommands(projectSnapshot({ files: fileNodes("main.tex", "notes.md", "reference.pdf") }), "\\documentclass{main}"),
+      read_project_asset: (args) => {
+        if (removed) throw missing();
+        return { path: argPath(args), mimeType: "application/pdf", ranges };
+      },
+      read_project_asset_range: () => { throw removed ? missing() : new Error("This PDF changed on disk."); },
+    });
+    await openTreeFile("notes.md");
+    fireEvent.click(await findProjectTreeItem("reference.pdf"));
+    await waitForSelectedTab("reference.pdf");
+    fireEvent.click(within(document.querySelector(".trellis-presets")!).getByRole("tab", { name: "Reading" }));
+    fireEvent.pointerDown(await findElement(".trellis-snapshot"), { button: 0 });
+    await waitForSelectedTab("notes.md");
+    const snapshot = await findElement(".trellis-pdf-snapshot");
+    await within(snapshot).findByLabelText("PDF page 1");
+    const lastRange = () => (vi.mocked(getDocument).mock.calls.at(-1)![0] as unknown as {
+      range: { requestDataRange(begin: number, end: number): void };
+    }).range;
+    // Rewritten on disk while the notes are typed: the PDF beside them reads the new version.
+    ranges = { length: 12, version: "v2" };
+    lastRange().requestDataRange(0, 4);
+    await waitFor(() => expect(vi.mocked(getDocument)).toHaveBeenCalledWith(expect.objectContaining({
+      range: expect.objectContaining({ length: 12 }),
+    })));
+    // Removed: it stays open beside the notes with a notice.
+    removed = true;
+    await within(snapshot).findByLabelText("PDF page 1");
+    lastRange().requestDataRange(0, 4);
+    expect(await within(snapshot).findByText("This PDF was removed from the project.")).toHaveAttribute("role", "status");
+    expect(screen.getByRole("tab", { name: /notes\.md/ })).toHaveAttribute("aria-selected", "true");
+  });
+
   it("opens a captured webpage without offering it as an arXiv PDF", async () => {
     renderApp({
       ...projectCommands(projectSnapshot(), "\\documentclass{main}"),

@@ -54,6 +54,7 @@ import { MENU_ICONS, PANEL_ICONS, fileIcon } from "./trellis-icons";
 import { FileHeaderTools } from "./trellis-header-tools";
 import { measurePdfToolbarMinWidth } from "../pdf/pdf-toolbar-min-width";
 import { holdWidthsWhileResizing } from "./trellis-hold-width";
+import { isProjectFileMissing } from "../pdf/project-pdf-refusals";
 import "./trellis.css";
 
 // The live source editor parses LaTeX with Lattice's own `latex()`, not the
@@ -458,14 +459,25 @@ function PdfSnapshot({ controller, fileKey }: { controller: TrellisController; f
   const { t } = useLingui();
   const besideActive = useBesideActive(controller);
   const [asset, setAsset] = useState<AssetPreview | null | undefined>(undefined);
+  const [missing, setMissing] = useState(false);
+  // A rewrite on disk hands the viewer the new version, as the live document
+  // host does; a removed file stays open with a notice until it is back.
+  const [recheck, setRecheck] = useState(0);
+  const filesRevision = useTrellisApp(controller, (state) => state.filesRevision);
   useEffect(() => {
     if (!besideActive) return;
     let disposed = false;
     void controller.bridge?.readAsset(fileKey).then((value) => {
-      if (!disposed) setAsset(value);
+      if (disposed) return;
+      setMissing(false);
+      setAsset((current) => (current && current.ranges?.version === value.ranges?.version ? current : value));
+    }, (reason: unknown) => {
+      if (disposed) return;
+      setAsset((current) => current ?? null);
+      if (isProjectFileMissing(reason)) setMissing(true);
     });
     return () => { disposed = true; };
-  }, [besideActive, controller, fileKey]);
+  }, [besideActive, controller, fileKey, filesRevision, recheck]);
   if (!besideActive || asset === null) return <SleepingDocument controller={controller} fileKey={fileKey} detail={t`Sleeping · click to open`} />;
   if (!asset) return null;
   return (
@@ -474,8 +486,10 @@ function PdfSnapshot({ controller, fileKey }: { controller: TrellisController; f
       <div className="canvas-body">
         <ProjectAssetPreview
           asset={asset}
+          missing={missing}
           viewState={controller.bridge?.viewState(fileKey)}
           onViewState={(update) => controller.bridge?.rememberViewState(fileKey, update)}
+          onFileChanged={() => setRecheck((count) => count + 1)}
         />
       </div>
     </div>
