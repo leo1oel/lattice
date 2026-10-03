@@ -1,9 +1,9 @@
-import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { defineConfig } from "vitest/config";
 import babel from "@rolldown/plugin-babel";
 import { reactCompilerPreset } from "@vitejs/plugin-react";
 import { lingui, linguiTransformerBabelPreset } from "@lingui/vite-plugin";
+import { fsModuleCacheKey } from "./scripts/vitest-fs-cache-key.ts";
 
 export default defineConfig({
   // The suite runs the compiled output, the same as the app: vite.config.ts
@@ -35,20 +35,7 @@ export default defineConfig({
         linguiTransformerBabelPreset(),
       ],
     }),
-    {
-      // The fs module cache (below) keys each transform on the file, this
-      // config's source, the lockfile and the plugin names. The Lingui plugin
-      // and macro also read lingui.config.ts, which none of those cover, so a
-      // catalog or locale change there would otherwise replay stale output.
-      name: "lattice:lingui-config-cache-key",
-      configureVitest({ experimental_defineCacheKeyGenerator }) {
-        const linguiConfig = readFileSync(
-          new URL("./lingui.config.ts", import.meta.url),
-          "utf8",
-        );
-        experimental_defineCacheKeyGenerator(() => linguiConfig);
-      },
-    },
+    fsModuleCacheKey(fileURLToPath(new URL(".", import.meta.url))),
   ],
   resolve: {
     // Keep the `@/…` alias in sync with vite.config.ts / tsconfig so tests can
@@ -61,7 +48,8 @@ export default defineConfig({
     // Persist transformed modules in node_modules/.experimental-vitest-cache
     // between runs. The React Compiler and Lingui transforms above dominate a
     // focused run's startup (app-welcome: 21–35 s uncached, 7–9 s warm); the cache is
-    // cold in a fresh worktree and is cleared whenever pnpm-lock.yaml changes.
+    // cold in a fresh worktree, and fsModuleCacheKey (above) keys every entry on
+    // the installed dependencies and Lingui config and keeps catalogs out of it.
     // `pnpm vitest --clearCache` drops it by hand.
     experimental: { fsModuleCache: true },
     // literature-worker has its own vitest config using the Cloudflare Workers
