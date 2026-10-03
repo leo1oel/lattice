@@ -153,6 +153,8 @@ pnpm vitest run src/path/to/file.test.ts
 pnpm check
 ```
 
+Vitest caches transformed modules in `node_modules/.experimental-vitest-cache`, so a repeat focused run skips most of its startup; `pnpm vitest --clearCache` empties it.
+
 `pnpm check` is `mise run check` and needs [mise](https://mise.jdx.dev). It runs
 ten stages in parallel, skipping any whose declared `sources` have not
 changed since the last successful run:
