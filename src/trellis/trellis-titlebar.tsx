@@ -120,6 +120,20 @@ export const TrellisTitlebar = memo(function TrellisTitlebar({ controller }: { c
   const barRef = useRef<HTMLDivElement>(null);
   const chipsRef = useRef<HTMLDivElement>(null);
   const compact = useCompactPresets(barRef, chipsRef, `${i18n.locale}\n${hidden.map((entry) => entry.title).join("\n")}`);
+  // One command in two places: the inline button and, once that is shed, the
+  // Panels menu, so the menu never offers Maximize while it would restore.
+  const frameAction = framed
+    ? { label: t`Restore the layout`, tip: t`Restore the layout · ⌘⇧↩`, Icon: Minimize2, run: () => ws()?.navigation.frame("all") }
+    : { label: t`Maximize focused panel`, tip: t`Maximize panel · ⌘⇧↩`, Icon: Maximize2, run: () => ws()?.navigation.toggle() };
+  // Showing a panel or tool moves keyboard focus into it (Trellis focuses the
+  // panel a frame later, a drawer its own field), so the closing menu must not
+  // pull focus back to its trigger. Every other close - Escape, a layout
+  // command - returns focus to Panels, where the keyboard left off.
+  const handsOffFocusRef = useRef(false);
+  const showPanel = (kind: TrellisSingleton) => {
+    handsOffFocusRef.current = true;
+    controller.showPanel(kind);
+  };
   return (
     <div ref={barRef} className="trellis-titlebar" data-compact={compact || undefined}>
       <DropdownMenu modal={false}>
@@ -129,10 +143,19 @@ export const TrellisTitlebar = memo(function TrellisTitlebar({ controller }: { c
             <span>{t`Panels`}</span>
           </button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" sideOffset={6} className="min-w-[14rem]" onCloseAutoFocus={(event) => event.preventDefault()}>
+        <DropdownMenuContent
+          align="start"
+          sideOffset={6}
+          className="min-w-[14rem]"
+          onCloseAutoFocus={(event) => {
+            if (!handsOffFocusRef.current) return;
+            handsOffFocusRef.current = false;
+            event.preventDefault();
+          }}
+        >
           <DropdownMenuLabel>{t`Panels`}</DropdownMenuLabel>
           {CORE_PANELS.map(({ kind, icon }) => (
-            <DropdownMenuItem key={kind} onSelect={() => controller.showPanel(kind)}>
+            <DropdownMenuItem key={kind} onSelect={() => showPanel(kind)}>
               {icon}
               <span className="flex-1">{title(kind)}</span>
               {panelState(kind) !== "shown" && <span className="trellis-menu-state">{panelState(kind) === "hidden" ? t`Hidden` : t`Closed`}</span>}
@@ -141,7 +164,7 @@ export const TrellisTitlebar = memo(function TrellisTitlebar({ controller }: { c
           <DropdownMenuSeparator />
           <DropdownMenuLabel>{t`Tools`}</DropdownMenuLabel>
           {TOOL_KINDS.map((kind) => (
-            <DropdownMenuItem key={kind} onSelect={() => controller.showPanel(kind)}>{PANEL_ICONS[kind]}{title(kind)}</DropdownMenuItem>
+            <DropdownMenuItem key={kind} onSelect={() => showPanel(kind)}>{PANEL_ICONS[kind]}{title(kind)}</DropdownMenuItem>
           ))}
           <DropdownMenuSeparator />
           <DropdownMenuLabel>{t`Layout`}</DropdownMenuLabel>
@@ -153,9 +176,9 @@ export const TrellisTitlebar = memo(function TrellisTitlebar({ controller }: { c
             </DropdownMenuItem>
           ))}
           <DropdownMenuSeparator />
-          <DropdownMenuItem onSelect={() => ws()?.navigation.toggle()}>
-            <Maximize2 size={14} />
-            <span className="flex-1">{t`Maximize focused panel`}</span>
+          <DropdownMenuItem onSelect={frameAction.run}>
+            <frameAction.Icon size={14} />
+            <span className="flex-1">{frameAction.label}</span>
             <span className="trellis-menu-shortcut">⌘⇧↩</span>
           </DropdownMenuItem>
           <DropdownMenuItem onSelect={() => void controller.resetLayout()}><RotateCcw size={14} />{t`Reset layout`}</DropdownMenuItem>
@@ -196,15 +219,9 @@ export const TrellisTitlebar = memo(function TrellisTitlebar({ controller }: { c
         })}
       </div>
       <div className="trellis-titlebar-group trellis-titlebar-layout-actions">
-        <Tip label={framed ? t`Restore the layout · ⌘⇧↩` : t`Maximize panel · ⌘⇧↩`}>
-          <button
-            type="button"
-            className="trellis-titlebar-toggle"
-            aria-label={framed ? t`Restore the layout` : t`Maximize focused panel`}
-            aria-pressed={Boolean(framed)}
-            onClick={() => (framed ? ws()?.navigation.frame("all") : ws()?.navigation.toggle())}
-          >
-            {framed ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
+        <Tip label={frameAction.tip}>
+          <button type="button" className="trellis-titlebar-toggle" aria-label={frameAction.label} aria-pressed={Boolean(framed)} onClick={frameAction.run}>
+            <frameAction.Icon size={14} />
           </button>
         </Tip>
         <Tip label={t`Reset layout`}>

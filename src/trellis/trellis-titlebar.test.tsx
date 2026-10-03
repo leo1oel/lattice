@@ -1,6 +1,8 @@
 import { readFileSync } from "node:fs";
-import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { WorkspaceHandle } from "@danfessler/trellis";
+import { activateAppLocale } from "../i18n";
 import { TrellisController } from "./trellis-controller";
 import { TrellisTitlebar } from "./trellis-titlebar";
 
@@ -175,5 +177,100 @@ describe("titlebar layout presets", () => {
     layout.chipTruncated = 30;
     act(() => controller.ui.set({ hidden: [{ panelId: "panel-agent", title: "Agent" }] }));
     expect(bar()).toHaveAttribute("data-compact");
+  });
+});
+
+describe("the Panels menu", () => {
+  /** Open the menu from the keyboard, as a writer tabbing to Panels does. */
+  async function openFromKeyboard() {
+    const panels = screen.getByRole("button", { name: "Panels" });
+    act(() => panels.focus());
+    fireEvent.keyDown(panels, { key: "Enter" });
+    const menu = await screen.findByRole("menu");
+    return { panels, menu: within(menu) };
+  }
+  /** The menu is gone and Radix's close-time focus pass (a macrotask after unmount) has run. */
+  async function closed() {
+    await waitFor(() => expect(screen.queryByRole("menu")).toBeNull());
+    await act(() => new Promise((resolve) => setTimeout(resolve, 0)));
+  }
+
+  // Narrow windows reach the layout presets only through this menu, so closing
+  // it must leave the keyboard where it was: focus used to fall to <body>, and
+  // the next Tab started over at the PDF's page controls.
+  it("returns focus to Panels after Escape and after a layout command", async () => {
+    const controller = new TrellisController();
+    controller.installHandlers({ preset: () => {}, reset: async () => {} });
+    render(<TrellisTitlebar controller={controller} />);
+
+    const escaped = await openFromKeyboard();
+    fireEvent.keyDown(escaped.menu.getAllByRole("menuitem")[0], { key: "Escape" });
+    await closed();
+    expect(document.activeElement).toBe(escaped.panels);
+
+    for (const [role, name] of [["menuitemradio", /^Reading/], ["menuitem", /^Reset layout/]] as const) {
+      const chosen = await openFromKeyboard();
+      const item = chosen.menu.getByRole(role, { name });
+      act(() => item.focus());
+      fireEvent.keyDown(item, { key: "Enter" });
+      await closed();
+      expect(document.activeElement).toBe(chosen.panels);
+    }
+  });
+
+  it("leaves focus with a panel it brings forward", async () => {
+    const controller = new TrellisController();
+    const target = document.body.appendChild(document.createElement("button"));
+    // Trellis moves DOM focus into the panel on the next frame, before the menu's close settles.
+    const focus = vi.fn(() => requestAnimationFrame(() => target.focus()));
+    controller.attachWorkspace({ view: () => ({ placement: "docked", visible: true }), focus } as unknown as WorkspaceHandle);
+    render(<TrellisTitlebar controller={controller} />);
+
+    const { menu } = await openFromKeyboard();
+    const project = menu.getByRole("menuitem", { name: /^Project/ });
+    act(() => project.focus());
+    fireEvent.keyDown(project, { key: "Enter" });
+    await closed();
+    await act(() => new Promise((resolve) => requestAnimationFrame(resolve)));
+    expect(focus).toHaveBeenCalledWith("project");
+    expect(document.activeElement).toBe(target);
+    target.remove();
+
+    // The handoff is for that one close: the next Escape returns to Panels again.
+    const again = await openFromKeyboard();
+    fireEvent.keyDown(again.menu.getAllByRole("menuitem")[0], { key: "Escape" });
+    await closed();
+    expect(document.activeElement).toBe(again.panels);
+  });
+
+  // Once the inline Maximize/Restore button is shed, this command is the only
+  // way back from a maximized panel, so it must say what it will do.
+  it.each([
+    ["en", "Panels", "Maximize focused panel", "Restore the layout"],
+    ["zh-CN", "面板", "最大化当前面板", "恢复布局"],
+  ] as const)("names and runs Maximize or Restore by the framing (%s)", async (locale, panelsName, maximize, restore) => {
+    await activateAppLocale(locale);
+    const controller = new TrellisController();
+    const navigation = { toggle: vi.fn(), frame: vi.fn() };
+    controller.attachWorkspace({ navigation, view: () => null } as unknown as WorkspaceHandle);
+    render(<TrellisTitlebar controller={controller} />);
+    const panels = screen.getByRole("button", { name: panelsName });
+    const choose = async (name: string) => {
+      fireEvent.pointerDown(panels, { button: 0, ctrlKey: false, pointerType: "mouse" });
+      const item = within(await screen.findByRole("menu")).getByRole("menuitem", { name: new RegExp(`^${name}`) });
+      fireEvent.click(item);
+      await closed();
+    };
+
+    await choose(maximize);
+    expect(navigation.toggle).toHaveBeenCalledTimes(1);
+    expect(navigation.frame).not.toHaveBeenCalled();
+
+    act(() => controller.ui.set({ framed: "panel-writing" }));
+    // The shed inline button and the menu agree.
+    expect(screen.getByRole("button", { name: restore, pressed: true })).toBeInTheDocument();
+    await choose(restore);
+    expect(navigation.frame).toHaveBeenCalledWith("all");
+    expect(navigation.toggle).toHaveBeenCalledTimes(1);
   });
 });
