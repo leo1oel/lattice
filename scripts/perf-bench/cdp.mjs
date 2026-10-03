@@ -11,7 +11,7 @@ import path from "node:path";
 import { onShutdown, once } from "./shutdown.mjs";
 
 /** The first Chrome/Chromium the machine has, unless `CHROME_PATH` names one. */
-export function findChrome() {
+function findChrome() {
   if (process.env.CHROME_PATH) return process.env.CHROME_PATH;
   const candidates = [
     "/usr/bin/google-chrome",

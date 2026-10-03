@@ -7,27 +7,18 @@ import { fileURLToPath } from "node:url";
 
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
-import { findChrome } from "./cdp.mjs";
-
 const PERF_BENCH = fileURLToPath(new URL("../perf-bench.mjs", import.meta.url));
-
-function hasChrome() {
-  try {
-    findChrome();
-    return true;
-  } catch {
-    return false;
-  }
-}
 
 /**
  * The real `pnpm perf:bench` end to end: a production build served with
  * --serve --smoke --chrome, smoke checks of that page in each interface
  * language, and the SIGTERM that docs/driving-the-app.md stops it with. TMPDIR
  * is a directory of the test's own, so what the run leaves behind there is
- * this run's alone.
+ * this run's alone. A production build and three Chrome sessions are too slow
+ * for the default suite, so it runs only with LATTICE_E2E=1
+ * (`pnpm test:e2e-harness`).
  */
-describe.skipIf(!hasChrome())("perf-bench --serve --smoke --chrome", () => {
+describe.skipIf(process.env.LATTICE_E2E !== "1")("perf-bench --serve --smoke --chrome", () => {
   let tmp;
   let server;
   let exited;
