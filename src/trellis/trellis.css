@@ -9,6 +9,12 @@
    and a will-change transform on surfaces would each make them relative to the
    panel instead (the Trellis patch also places surfaces with left/top). */
 .lattice-trellis .trellis { contain: size style; }
+/* The root is a window onto the panels, never a scroller: a surface off
+   screen can keep the height it had before the window shrank, and with
+   Trellis's overflow:hidden that made the root scrollable, so a focused field
+   or a PDF search match brought into view scrolled every panel's tabs and
+   toolbar up under the titlebar. Panels scroll their own content. */
+.lattice-trellis .trellis { overflow: clip; }
 .lattice-trellis .trellis [data-trellis-part="surface"] { will-change: auto; }
 .lattice-trellis .trellis [data-trellis-part="content"] { overflow: hidden; }
 

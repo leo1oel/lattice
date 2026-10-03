@@ -827,30 +827,48 @@ const TrellisWorkspace = memo(function TrellisWorkspace({ controller, projectRoo
   useEffect(() => {
     const root = ws?.element;
     if (!root) return;
+    // The inactive document whose tab the event landed on, if any.
+    const tabKey = (target: EventTarget | null) => {
+      if (!(target instanceof Element) || target.closest("[data-trellis-part=tab-close]")) return null;
+      const tab = target.closest<HTMLElement>("[data-trellis-part=tab]");
+      const view = tab?.dataset.view ? ws.view(tab.dataset.view) : null;
+      if (view?.type !== "file") return null;
+      const key = String(view.params.key ?? "");
+      return key && key !== controller.app.get().activeKey ? key : null;
+    };
     const onPress = (event: MouseEvent) => {
       if (event.button !== 0) return;
-      if (event.target instanceof Element && event.target.closest("[data-trellis-part=tab-close]")) return;
-      let node = event.target instanceof Element ? event.target : null;
-      while (node && !(node instanceof HTMLElement && node.dataset.trellisPart === "tab")) node = node.parentElement;
-      const viewId = node instanceof HTMLElement ? node.dataset.view : undefined;
-      const view = viewId ? ws.view(viewId) : null;
-      if (view?.type !== "file") return;
-      const key = String(view.params.key ?? "");
-      if (!key || key === controller.app.get().activeKey) return;
-      // A tab pressed from the keyboard sends no pointerdown to release a
-      // PDF snapshot's hold; its tab is the way to open that PDF.
+      const key = tabKey(event.target);
+      if (!key) return;
+      // A click with no press before it (assistive technology's activation)
+      // never released a PDF snapshot's hold; its tab is the way to open it.
       controller.holdReading(null);
       controller.activateFromFocus(key);
+    };
+    // Enter or Space on a focused tab is the keyboard's press of it, but
+    // Trellis consumes the key (no click follows) and moves focus into the
+    // view a frame later, which for a PDF beside the notes lands in its
+    // snapshot and sets the hold a deferred activation would honour. So the
+    // keyboard opens the document now, explicitly, ahead of that focus.
+    const onKeyDown = (event: KeyboardEvent) => {
+      if ((event.key !== "Enter" && event.key !== " ") || event.repeat || event.isComposing) return;
+      if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
+      const key = tabKey(event.target);
+      if (!key) return;
+      controller.holdReading(null);
+      controller.activate(key);
     };
     const onPointerOver = (event: PointerEvent) => controller.rememberPointerPanel(event.target);
     // Ahead of Trellis's own listeners and of a PDF snapshot's (see PdfSnapshot).
     const releaseReading = () => controller.holdReading(null);
     root.addEventListener("click", onPress, true);
+    root.addEventListener("keydown", onKeyDown, true);
     root.addEventListener("pointerover", onPointerOver, true);
     root.addEventListener("pointerdown", releaseReading, true);
     root.addEventListener("focusin", releaseReading, true);
     return () => {
       root.removeEventListener("click", onPress, true);
+      root.removeEventListener("keydown", onKeyDown, true);
       root.removeEventListener("pointerover", onPointerOver, true);
       root.removeEventListener("pointerdown", releaseReading, true);
       root.removeEventListener("focusin", releaseReading, true);

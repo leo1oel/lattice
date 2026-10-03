@@ -108,6 +108,9 @@ Scenarios (`scripts/perf-bench/scenarios.mjs`):
   it in both engines after `--check`. `paper-header-long-doi` opens a Paper
   with a very long DOI in a ~500px reader header and fails when the PDF action
   overlaps the source link or takes a click on its arrow.
+  `reading-field-focus-after-shrink` shrinks the window under the Reading
+  layout and fails when clicking and searching in the PDF beside the notes
+  scrolls the workspace root.
 
 #### Ceilings and the ratchet
 
