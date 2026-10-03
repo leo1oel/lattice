@@ -480,10 +480,26 @@ function PdfSnapshot({ controller, fileKey }: { controller: TrellisController; f
     });
     return () => { disposed = true; };
   }, [besideActive, controller, fileKey, recheck]);
+  // Paging, zooming or searching the PDF beside the notes keeps the notes
+  // active: the focus Trellis reports for it would otherwise activate the PDF
+  // and replace this viewer, and the field just clicked, with the live host.
+  // Native capture listeners, so they run after the workspace root's release
+  // and before the deferred activation (React's would run ahead of the root's).
+  // Its tab stays the way to open the PDF itself.
+  const holdReading = useCallback((element: HTMLDivElement | null) => {
+    if (!element) return;
+    const hold = () => controller.holdReading(fileKey);
+    element.addEventListener("pointerdown", hold, true);
+    element.addEventListener("focusin", hold, true);
+    return () => {
+      element.removeEventListener("pointerdown", hold, true);
+      element.removeEventListener("focusin", hold, true);
+    };
+  }, [controller, fileKey]);
   if (!besideActive || asset === null) return <SleepingDocument controller={controller} fileKey={fileKey} detail={t`Sleeping · click to open`} />;
   if (!asset) return null;
   return (
-    <div className="trellis-pdf-snapshot">
+    <div ref={holdReading} className="trellis-pdf-snapshot">
       {/* Laid out as the live document host lays out the preview. */}
       <div className="canvas-body">
         <ProjectAssetPreview
@@ -820,14 +836,24 @@ const TrellisWorkspace = memo(function TrellisWorkspace({ controller, projectRoo
       const view = viewId ? ws.view(viewId) : null;
       if (view?.type !== "file") return;
       const key = String(view.params.key ?? "");
-      if (key && key !== controller.app.get().activeKey) controller.activateFromFocus(key);
+      if (!key || key === controller.app.get().activeKey) return;
+      // A tab pressed from the keyboard sends no pointerdown to release a
+      // PDF snapshot's hold; its tab is the way to open that PDF.
+      controller.holdReading(null);
+      controller.activateFromFocus(key);
     };
     const onPointerOver = (event: PointerEvent) => controller.rememberPointerPanel(event.target);
+    // Ahead of Trellis's own listeners and of a PDF snapshot's (see PdfSnapshot).
+    const releaseReading = () => controller.holdReading(null);
     root.addEventListener("click", onPress, true);
     root.addEventListener("pointerover", onPointerOver, true);
+    root.addEventListener("pointerdown", releaseReading, true);
+    root.addEventListener("focusin", releaseReading, true);
     return () => {
       root.removeEventListener("click", onPress, true);
       root.removeEventListener("pointerover", onPointerOver, true);
+      root.removeEventListener("pointerdown", releaseReading, true);
+      root.removeEventListener("focusin", releaseReading, true);
     };
   }, [controller, ws]);
 

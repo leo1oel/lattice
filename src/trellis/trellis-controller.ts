@@ -284,12 +284,29 @@ export class TrellisController {
     this.bridge?.activate(key, line);
   }
 
+  /**
+   * The inactive PDF whose Reading snapshot the current press or focus landed
+   * in. That snapshot is the working viewer beside the notes: activating the
+   * PDF would swap it for the live host mid-click, destroying the page, zoom
+   * or search field the reader just focused. The workspace clears this on
+   * every press and focus before the snapshot (deeper in the tree) sets it.
+   */
+  private readingHold = { key: "", at: 0 };
+
+  holdReading(key: string | null) {
+    this.readingHold = { key: key ?? "", at: performance.now() };
+  }
+
   activateFromFocus(key: string) {
     // A file dragged in from the Project panel is activated once it lands.
     if (this.pendingDrops.has(key)) return;
     window.setTimeout(() => {
       const recent = this.lastExplicitActivation;
       if (recent.key === key && performance.now() - recent.at < 500) return;
+      // Bounded in time too: a later focus Trellis reports without a DOM
+      // event (a keyboard shortcut) must not be held by an old press.
+      const hold = this.readingHold;
+      if (hold.key === key && performance.now() - hold.at < 500) return;
       if (key !== this.app.get().activeKey) this.bridge?.activate(key);
     }, 0);
   }
