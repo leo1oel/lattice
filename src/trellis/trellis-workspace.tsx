@@ -912,12 +912,19 @@ const TrellisWorkspace = memo(function TrellisWorkspace({ controller, projectRoo
   // arrangement: documents keep the tabs they have now.
   const resetFailed = t`Save failed, so the layout was not reset.`;
   const resetToast = { source: t`Layout`, title: t`Layout reset`, undo: t`Undo` };
-  useEffect(() => controller.installHandlers({
-    reset: async () => {
-      const handle = controller.ws;
-      if (!handle) return;
-      if (controller.bridge && !(await controller.bridge.save())) {
-        controller.bridge.notify(resetFailed);
+  // The reset waiting on its save: a second request joins it rather than
+  // resetting the default again, whose Undo would only bring the default back.
+  const pendingReset = useRef<Promise<void> | null>(null);
+  useEffect(() => {
+    const resetAfterSave = async (handle: WorkspaceHandle) => {
+      const saved = !controller.bridge || await controller.bridge.save();
+      // The save can outlast this workspace: a project switch (or the window
+      // closing) unmounts it and attaches the next project's. Its reset, or
+      // its failure, is no longer anything to clear, rearrange or announce
+      // there: the Undo it would offer could restore nothing.
+      if (controller.ws !== handle) return;
+      if (!saved) {
+        controller.bridge?.notify(resetFailed);
         return;
       }
       // Read after the save: the arrangement and the focus as they are now.
@@ -965,50 +972,62 @@ const TrellisWorkspace = memo(function TrellisWorkspace({ controller, projectRoo
           if (resetUndo.current === undo) resetUndo.current = null;
         },
       });
-    },
-    // A preset regroups the open documents' own views, so no document closes
-    // and nothing needs saving first; navigators, the Agent and tools wait
-    // hidden, still mounted, for the writer's own layout to bring them back.
-    preset: (preset) => {
-      const handle = controller.ws;
-      const current = presetRef.current;
-      if (!handle || (current?.preset ?? null) === preset) return;
-      withdrawUndo();
-      const { activeKey, openTabs } = controller.app.get();
-      const document = handle.getDocument();
-      let next: LayoutDocument;
-      if (preset) {
-        const entered = enterPreset(preset, document, current, { activeKey, openTabs, isReading: (key) => controller.isReading(key) });
-        next = entered.document;
-        presetRef.current = entered.active;
-      } else if (current) {
-        next = returnLayout(current.previous, document, { activeKey, openTabs }, current.supplied);
-        presetRef.current = null;
-      } else {
-        return;
-      }
-      resettingRef.current = true;
-      try {
-        handle.setDocument(next);
-      } finally {
-        resettingRef.current = false;
-      }
-      controller.ui.set({ preset });
-      controller.resync();
-      // The document the layout is for becomes the active one: the source to
-      // write, the paper to read. Keyboard focus stays on the layout switch,
-      // so its arrow keys keep moving between layouts.
-      const root = handle.getDocument().root;
-      const lead = root && preset ? findPanel(root, preset === "writing" ? "panel-writing" : "panel-reading")?.selected : null;
-      const key = lead ? handle.view(lead)?.params.key : null;
-      if (typeof key === "string" && key !== activeKey) controller.activate(key);
-    },
-    // A panel the writer asks for is theirs to keep, even one a preset brought in.
-    shown: (kind) => {
-      const current = presetRef.current;
-      if (current?.supplied.includes(kind)) presetRef.current = { ...current, supplied: current.supplied.filter((id) => id !== kind) };
-    },
-  }), [controller, projectRoot, resetFailed, resetToast.source, resetToast.title, resetToast.undo, withdrawUndo]);
+    };
+    return controller.installHandlers({
+      reset: () => {
+        const handle = controller.ws;
+        if (!handle) return Promise.resolve();
+        if (pendingReset.current) return pendingReset.current;
+        const pending = resetAfterSave(handle).finally(() => {
+          if (pendingReset.current === pending) pendingReset.current = null;
+        });
+        pendingReset.current = pending;
+        return pending;
+      },
+      // A preset regroups the open documents' own views, so no document closes
+      // and nothing needs saving first; navigators, the Agent and tools wait
+      // hidden, still mounted, for the writer's own layout to bring them back.
+      preset: (preset) => {
+        const handle = controller.ws;
+        const current = presetRef.current;
+        if (!handle || (current?.preset ?? null) === preset) return;
+        withdrawUndo();
+        const { activeKey, openTabs } = controller.app.get();
+        const document = handle.getDocument();
+        let next: LayoutDocument;
+        if (preset) {
+          const entered = enterPreset(preset, document, current, { activeKey, openTabs, isReading: (key) => controller.isReading(key) });
+          next = entered.document;
+          presetRef.current = entered.active;
+        } else if (current) {
+          next = returnLayout(current.previous, document, { activeKey, openTabs }, current.supplied);
+          presetRef.current = null;
+        } else {
+          return;
+        }
+        resettingRef.current = true;
+        try {
+          handle.setDocument(next);
+        } finally {
+          resettingRef.current = false;
+        }
+        controller.ui.set({ preset });
+        controller.resync();
+        // The document the layout is for becomes the active one: the source to
+        // write, the paper to read. Keyboard focus stays on the layout switch,
+        // so its arrow keys keep moving between layouts.
+        const root = handle.getDocument().root;
+        const lead = root && preset ? findPanel(root, preset === "writing" ? "panel-writing" : "panel-reading")?.selected : null;
+        const key = lead ? handle.view(lead)?.params.key : null;
+        if (typeof key === "string" && key !== activeKey) controller.activate(key);
+      },
+      // A panel the writer asks for is theirs to keep, even one a preset brought in.
+      shown: (kind) => {
+        const current = presetRef.current;
+        if (current?.supplied.includes(kind)) presetRef.current = { ...current, supplied: current.supplied.filter((id) => id !== kind) };
+      },
+    });
+  }, [controller, projectRoot, resetFailed, resetToast.source, resetToast.title, resetToast.undo, withdrawUndo]);
   // The titlebar follows this workspace's preset; another project's starts in its own.
   useEffect(() => {
     controller.ui.set({ preset: presetRef.current?.preset ?? null });
