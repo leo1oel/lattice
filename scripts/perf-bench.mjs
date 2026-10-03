@@ -346,9 +346,19 @@ async function smokeCheck(chrome, url) {
   page.send("Page.navigate", { url }).then(({ errorText }) => {
     unreachable = errorText ?? null;
   }, () => {});
+  // Every in-page read races a timer: a blocked main thread never answers
+  // Runtime.evaluate, and the verdict must still arrive at the deadline.
+  const BLOCKED = Symbol("blocked");
+  const bounded = (promise, ms) => Promise.race([promise, sleep(Math.max(0, ms), BLOCKED, { ref: false })]);
+  let blocked = false;
   const mounted = await step("waiting for the app to open the fixture project", async () => {
     while (!unreachable && Date.now() - started < APP_READY_TIMEOUT) {
-      if (await page.evaluate(`Boolean(${APP_READY})`).catch(() => false)) return true;
+      const ready = await bounded(page.evaluate(`Boolean(${APP_READY})`).catch(() => false), APP_READY_TIMEOUT - (Date.now() - started));
+      if (ready === BLOCKED) {
+        blocked = true;
+        return false;
+      }
+      if (ready) return true;
       await sleep(100);
     }
     return false;
@@ -360,8 +370,10 @@ async function smokeCheck(chrome, url) {
     console.log(`Smoke check passed: the app opened the fixture project in ${seconds} s.`);
     if (errors.length) console.log(`  The page reported errors on the way:\n${list(errors)}`);
   } else {
-    const text = await page.evaluate("document.body ? document.body.innerText : ''").catch((error) => `(could not read: ${error.message})`);
-    const shot = await page.send("Page.captureScreenshot", { format: "png" }).catch(() => null);
+    const read = await bounded(page.evaluate("document.body ? document.body.innerText : ''").catch((error) => `(could not read: ${error.message})`), 5_000);
+    const text = read === BLOCKED ? "(could not read: the main thread did not answer)" : read;
+    const captured = await bounded(page.send("Page.captureScreenshot", { format: "png" }).catch(() => null), 5_000);
+    const shot = captured === BLOCKED ? null : captured;
     const file = path.join(os.tmpdir(), `lattice-perf-bench-smoke-${process.pid}.png`);
     if (shot) writeFileSync(file, Buffer.from(shot.data, "base64"));
     const pending = [...requests.pending.values()];
@@ -369,6 +381,7 @@ async function smokeCheck(chrome, url) {
       ? `Smoke check FAILED: the page could not be opened (${unreachable}).`
       : `Smoke check FAILED: the app did not open the fixture project within ${seconds} s.`);
     console.log(`  Page: ${url}`);
+    if (blocked) console.log("  The page's main thread was blocked: it stopped answering in-page reads (a busy loop or a hung synchronous module evaluation).");
     console.log(`  Uncaught and console errors:\n${list(errors)}`);
     console.log(`  Failed requests:\n${list([...requests.failed.values()].slice(0, 20))}`);
     console.log(`  Requests still unanswered (${pending.length}; any means the server stalled or is still compiling):\n${list(pending.slice(0, 20))}`);
