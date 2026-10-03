@@ -1,10 +1,16 @@
-import { Children, cloneElement, isValidElement, type ReactElement, type ReactNode } from "react";
+import { Children, cloneElement, isValidElement, useEffect, useRef, useState, type ReactElement, type ReactNode } from "react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 /** True when the element already has visible text among its direct children. */
 function hasTextChild(node: ReactNode): boolean {
   return Children.toArray(node).some((child) => typeof child === "string" || typeof child === "number");
 }
+
+type TipProps = {
+  label: ReactNode;
+  side?: "top" | "bottom" | "left" | "right";
+  children: ReactElement;
+};
 
 /**
  * Wrap a single interactive element with a styled, animated tooltip.
@@ -17,12 +23,29 @@ function hasTextChild(node: ReactNode): boolean {
  *
  * Pass a falsy `label` to render the child untouched.
  */
-export function Tip({ label, side = "bottom", children }: {
-  label: ReactNode;
-  side?: "top" | "bottom" | "left" | "right";
-  children: ReactElement;
-}) {
+export function Tip({ label, side = "bottom", children }: TipProps) {
   if (!label) return children;
+  return <LabeledTip label={label} side={side}>{children}</LabeledTip>;
+}
+
+function LabeledTip({ label, side, children }: TipProps) {
+  // A menu or popover trigger reports its open popup through aria-expanded.
+  // The tooltip sits on a higher layer than menus, so it stays shut while the
+  // popup is open — hovering back onto the trigger would otherwise lay it over
+  // the popup's first items — and gives way when the popup opens under it
+  // without taking focus or a click (a shortcut, a programmatic open).
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const [open, setOpen] = useState(false);
+  const popupOpen = () => triggerRef.current?.getAttribute("aria-expanded") === "true";
+  useEffect(() => {
+    const trigger = triggerRef.current;
+    if (!open || !trigger) return;
+    const observer = new MutationObserver(() => {
+      if (trigger.getAttribute("aria-expanded") === "true") setOpen(false);
+    });
+    observer.observe(trigger, { attributes: true, attributeFilter: ["aria-expanded"] });
+    return () => observer.disconnect();
+  }, [open]);
 
   // Only name icon-only triggers: a button with visible text already has an
   // accessible name, and overriding it with the (verbose) tooltip would make
@@ -40,8 +63,8 @@ export function Tip({ label, side = "bottom", children }: {
   // component tests — without depending on a provider being mounted upstream.
   return (
     <TooltipProvider delayDuration={280} skipDelayDuration={400}>
-      <Tooltip>
-        <TooltipTrigger asChild>{trigger}</TooltipTrigger>
+      <Tooltip open={open} onOpenChange={(next) => setOpen(next && !popupOpen())}>
+        <TooltipTrigger ref={triggerRef} asChild>{trigger}</TooltipTrigger>
         <TooltipContent side={side} sideOffset={6} className="font-medium">
           {label}
         </TooltipContent>

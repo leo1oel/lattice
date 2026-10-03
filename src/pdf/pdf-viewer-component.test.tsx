@@ -39,6 +39,8 @@ const pdf = vi.hoisted(() => {
     readyListeners = new Set<() => void>();
     pagesReady = false;
     findIndex = 0;
+    findMatches = { current: 0, total: 0 };
+    findTimer: number | undefined;
     store = {
       getState: () => ({ pagesReady: this.pagesReady }),
       subscribe: (listener: () => void) => {
@@ -110,25 +112,47 @@ const pdf = vi.hoisted(() => {
       state.instances.push(this);
     }
 
+    // Find events follow PDF.js's contract (pinned in pdf-find-events.test.ts):
+    // the running total arrives through updatefindmatchescount, a moved
+    // selection only through updatefindcontrolstate, every search first
+    // reports the previous selection as pending (state 3) and a fresh one
+    // runs after a delay, and closing the find bar re-reports the closed
+    // query's count (state 0) after a tick.
     dispatch = vi.fn((name: string, event: Record<string, unknown>) => {
       if (name !== "find" && name !== "findbarclose") return;
-      const query = String(event.query ?? "").toLocaleLowerCase();
-      const matches = name === "find"
-        ? this.pageViews.filter((page) => (page.div.textContent ?? "").toLocaleLowerCase().includes(query))
-        : [];
-      this.findIndex = event.type === "again" && matches.length
-        ? (this.findIndex + (event.findPrevious ? -1 : 1) + matches.length) % matches.length
-        : 0;
-      for (const page of this.pageViews) page.div.querySelectorAll(".highlight").forEach((node) => node.remove());
-      for (const [index, page] of matches.entries()) {
-        const highlight = document.createElement("span");
-        highlight.className = `highlight${index === this.findIndex ? " selected" : ""}`;
-        highlight.textContent = query;
-        page.div.querySelector(".textLayer")?.append(highlight);
+      window.clearTimeout(this.findTimer);
+      if (name === "findbarclose") {
+        const stale = this.findMatches;
+        void Promise.resolve().then(() => this.emit("updatefindcontrolstate", { state: 0, matchesCount: stale }));
+        for (const page of this.pageViews) page.div.querySelectorAll(".highlight").forEach((node) => node.remove());
+        return;
       }
-      this.emit("updatefindmatchescount", {
-        matchesCount: { current: matches.length ? this.findIndex + 1 : 0, total: matches.length },
-      });
+      this.emit("updatefindcontrolstate", { state: 3, matchesCount: this.findMatches });
+      const again = event.type === "again";
+      const search = () => {
+        const query = String(event.query ?? "").toLocaleLowerCase();
+        const matches = this.pageViews.filter((page) => (page.div.textContent ?? "").toLocaleLowerCase().includes(query));
+        this.findIndex = again && matches.length
+          ? (this.findIndex + (event.findPrevious ? -1 : 1) + matches.length) % matches.length
+          : 0;
+        for (const page of this.pageViews) page.div.querySelectorAll(".highlight").forEach((node) => node.remove());
+        for (const [index, page] of matches.entries()) {
+          const highlight = document.createElement("span");
+          highlight.className = `highlight${index === this.findIndex ? " selected" : ""}`;
+          highlight.textContent = query;
+          page.div.querySelector(".textLayer")?.append(highlight);
+        }
+        this.findMatches = { current: matches.length ? this.findIndex + 1 : 0, total: matches.length };
+        if (again) {
+          this.emit("updatefindcontrolstate", { state: 0, matchesCount: this.findMatches });
+          return;
+        }
+        // A fresh search reports finding its first match before counting pages.
+        this.emit("updatefindcontrolstate", { state: 0, matchesCount: { current: 0, total: 0 } });
+        this.emit("updatefindmatchescount", { matchesCount: this.findMatches });
+      };
+      if (again) search();
+      else this.findTimer = window.setTimeout(search, 0);
     });
 
     loadDocument = vi.fn(async (_source: string | ArrayBuffer, options?: { onProgress?: (progress: LoadProgress) => void }) => {
@@ -319,6 +343,72 @@ describe("PDFSlick viewer integration", () => {
     expect(pdf.state.workerOptions.workerSrc).toMatch(/\/pdf\.worker\.mjs\b/);
     expect(await view.findByLabelText("PDF page 3")).toBeInTheDocument();
     expect(onNumPages).toHaveBeenLastCalledWith(3);
+  });
+
+  it("numbers the selected match as Next and Previous move it, and resets on clear and document switches", async () => {
+    const view = renderPdf();
+    await view.findByLabelText("PDF page 3");
+    const first = await viewerAt(0);
+    const searchInput = view.getByLabelText("Search PDF");
+    fireEvent.change(searchInput, { target: { value: "attention" } });
+    const position = await waitFor(() => {
+      const node = view.container.querySelector(".pdf-search-position");
+      expect(node).toHaveTextContent("1 / 3");
+      return node!;
+    });
+    // The polite live region is the readout itself, so it must follow the selection.
+    expect(position).toHaveAttribute("aria-live", "polite");
+    const next = view.getByRole("button", { name: "Next search result" });
+    const previous = view.getByRole("button", { name: "Previous search result" });
+    const selectedPage = () => view.container.querySelector(".highlight.selected")?.closest<HTMLElement>(".page")?.dataset.pageNumber;
+
+    fireEvent.click(next);
+    await waitFor(() => expect(position).toHaveTextContent("2 / 3"));
+    expect(selectedPage()).toBe("2");
+    fireEvent.click(previous);
+    await waitFor(() => expect(position).toHaveTextContent("1 / 3"));
+    fireEvent.click(previous);
+    await waitFor(() => expect(position).toHaveTextContent("3 / 3"));
+    expect(selectedPage()).toBe("3");
+    fireEvent.click(next);
+    await waitFor(() => expect(position).toHaveTextContent("1 / 3"));
+    fireEvent.click(next);
+    await waitFor(() => expect(position).toHaveTextContent("2 / 3"));
+
+    // Clearing closes PDF.js's find bar, which re-reports the closed query's
+    // count a tick later, and the next search first reports that selection as
+    // pending: neither may show the old position against the new query.
+    fireEvent.click(view.getByRole("button", { name: "Clear PDF search" }));
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+    const readouts = new Set<string>();
+    const observer = new MutationObserver((records) => {
+      for (const record of records) {
+        if (record.oldValue) readouts.add(record.oldValue);
+        const node = record.target.parentElement?.closest(".pdf-search-position") ?? view.container.querySelector(".pdf-search-position");
+        if (node?.textContent) readouts.add(node.textContent);
+      }
+    });
+    observer.observe(view.container, { childList: true, subtree: true, characterData: true, characterDataOldValue: true });
+    fireEvent.change(searchInput, { target: { value: "no such text" } });
+    await waitFor(() => expect(view.container.querySelector(".pdf-search-position")).toHaveTextContent("0 / 0"));
+    observer.disconnect();
+    expect([...readouts].filter((text) => /\d+ \/ \d+/.test(text))).toEqual(["0 / 0"]);
+
+    fireEvent.change(searchInput, { target: { value: "attention" } });
+    await waitFor(() => expect(view.container.querySelector(".pdf-search-position")).toHaveTextContent("1 / 3"));
+    fireEvent.click(view.getByRole("button", { name: "Next search result" }));
+    await waitFor(() => expect(view.container.querySelector(".pdf-search-position")).toHaveTextContent("2 / 3"));
+
+    // A replacement document searches the same query afresh; the old viewer's
+    // late find events no longer reach the toolbar.
+    pdf.state.numPages = 2;
+    view.rerender(preview({ url: "https://example.test/second.pdf" }));
+    await viewerAt(1);
+    await waitFor(() => expect(view.container.querySelector(".pdf-search-position")).toHaveTextContent("1 / 2"));
+    act(() => first.emit("updatefindcontrolstate", { matchesCount: { current: 3, total: 3 } }));
+    expect(view.container.querySelector(".pdf-search-position")).toHaveTextContent("1 / 2");
+    fireEvent.click(view.getByRole("button", { name: "Next search result" }));
+    await waitFor(() => expect(view.container.querySelector(".pdf-search-position")).toHaveTextContent("2 / 2"));
   });
 
   it("draws the pane's scrollbars as hover-reveal overlay bars on the PDF.js viewport", async () => {

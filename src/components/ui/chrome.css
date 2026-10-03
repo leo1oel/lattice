@@ -637,4 +637,9 @@ label.ui-checkbox-field[data-slot="checkbox-field"] {
   .ui-tooltip-content[data-side="top"] { --ui-tooltip-enter-y: 0.5rem; }
   .ui-tooltip-content[data-side="left"] { --ui-tooltip-enter-x: 0.5rem; }
   .ui-tooltip-content[data-side="right"] { --ui-tooltip-enter-x: -0.5rem; }
+  /* A tooltip only describes its trigger and floats above every other layer,
+     menus included, so neither it nor Radix's positioning wrapper may take
+     pointer input from a control it happens to cover. */
+  [data-radix-popper-content-wrapper]:has(> .ui-tooltip-content),
+  .ui-tooltip-content { pointer-events: none; }
 }

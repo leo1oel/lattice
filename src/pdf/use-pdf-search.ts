@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type RefObject } from "react";
+import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
 import { isPdfCopyField, pdfSelectedOrCachedPlainText } from "./pdf-text-layer-selection";
 import { addListeners, normalizePdfSelection } from "./pdf-viewer-utils";
 import type { PdfFindMatches } from "./use-pdf-document";
@@ -22,11 +22,19 @@ export function usePdfSearch(
   const [matchCase, setMatchCase] = useState(false);
   const [wholeWord, setWholeWord] = useState(false);
   const [matches, setMatches] = useState(NO_MATCHES);
+  // PDF.js answers `findbarclose` with one last control-state event carrying
+  // the closed query's count, after the toolbar has already reset to 0 / 0;
+  // only results of a search still in progress may reach the toolbar.
+  const searchingRef = useRef(false);
+  const onFindMatches = useCallback((next: PdfFindMatches) => {
+    if (searchingRef.current) setMatches(next);
+  }, []);
 
   const find = useCallback((text: string, findPrevious = false, again = false) => {
     const slick = recordRef.current?.slick;
     if (!slick) return;
-    if (!text.trim()) {
+    searchingRef.current = Boolean(text.trim());
+    if (!searchingRef.current) {
       slick.dispatch("findbarclose", { source: slick });
       setMatches(NO_MATCHES);
       return;
@@ -84,9 +92,9 @@ export function usePdfSearch(
   }, [inputRef, loadKey, previewRef, recordRef]);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- synchronize PDFSlick's imperative find controller after promotion or query changes.
+    // Synchronize PDFSlick's imperative find controller after promotion or query changes.
     if (generation > 0) find(query);
   }, [find, generation, query]);
 
-  return { query, setQuery, matchCase, setMatchCase, wholeWord, setWholeWord, matches, setMatches, find };
+  return { query, setQuery, matchCase, setMatchCase, wholeWord, setWholeWord, matches, onFindMatches, find };
 }
