@@ -20,9 +20,7 @@ mod takeover;
 
 use super::AppState;
 use serde::Serialize;
-use session::{
-    BrowserSession, BrowserSessionConfig, Effect, HandoffTimeout, ReturnPlan, Sessions,
-};
+use session::{BrowserSession, BrowserSessionConfig, Effect, HandoffTimeout, ReturnPlan, Sessions};
 use std::{
     collections::HashMap,
     io,
@@ -309,9 +307,11 @@ impl BrowserHost {
         let Some(server) = self.server()? else {
             return Ok(false);
         };
-        let config = server.sessions.lock().ok().and_then(|mut sessions| {
-            session::reusable_entry_config(&mut sessions, server.port, None, None)
-        });
+        let config = server
+            .sessions
+            .lock()
+            .ok()
+            .and_then(|sessions| session::reusable_entry_config(&sessions, server.port, None));
         let Some(config) = config else {
             return Ok(false);
         };

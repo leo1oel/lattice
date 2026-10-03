@@ -358,26 +358,47 @@ pub(super) fn holds_native_handoff(sessions: &HashMap<String, BrowserSession>) -
     sessions.values().any(|session| session.source_label.is_some())
 }
 
-/// Reuse a live token on reload, the workspace an unexpired entry nonce was
-/// issued for (consuming it), and the newest fixed-entry workspace otherwise. The latter is what makes the bookmarked address open the
-/// workspace the Lattice window shows, and makes a second tab replace the
-/// first instead of opening the same project in two independent hosts.
-pub(super) fn reusable_entry_config(
+/// An explicit entry address selects no workspace: it is unknown, used or
+/// expired.
+#[derive(Debug, PartialEq, Eq)]
+pub(super) struct StaleEntry;
+
+/// The workspace `/__lattice_session` serves a page; `Ok(None)` asks for a new
+/// fixed-entry workspace. An explicit entry is the only selector its page
+/// asked for, so it decides alone: the tab's stored session must not override
+/// it, and one that selects nothing reaches the page as an error rather than
+/// open whichever workspace is newest, which may be another project.
+pub(super) fn select_entry(
     sessions: &mut HashMap<String, BrowserSession>, port: u16, resume_token: Option<&str>,
     entry_nonce: Option<&str>,
+) -> Result<Option<BrowserSessionConfig>, StaleEntry> {
+    match entry_nonce {
+        Some(nonce) => claim_entry(sessions, port, nonce).map(Some).ok_or(StaleEntry),
+        None => Ok(reusable_entry_config(sessions, port, resume_token)),
+    }
+}
+
+/// The workspace an unexpired entry nonce was issued for, consuming the nonce.
+fn claim_entry(
+    sessions: &mut HashMap<String, BrowserSession>, port: u16, entry_nonce: &str,
+) -> Option<BrowserSessionConfig> {
+    let (token, session) = sessions.iter_mut().find(|(_, session)| {
+        session.entry_nonce.as_ref().is_some_and(|(issued, _)| issued == entry_nonce)
+    })?;
+    let (_, issued_at) = session.entry_nonce.take()?;
+    (issued_at.elapsed() < ENTRY_NONCE_TTL).then(|| BrowserSessionConfig::new(token, session, port))
+}
+
+/// Without an explicit entry: reuse a live token on reload, and the newest
+/// fixed-entry workspace otherwise. The latter is what makes the bookmarked
+/// address open the workspace the Lattice window shows, and makes a second
+/// tab replace the first instead of opening the same project in two
+/// independent hosts.
+pub(super) fn reusable_entry_config(
+    sessions: &HashMap<String, BrowserSession>, port: u16, resume_token: Option<&str>,
 ) -> Option<BrowserSessionConfig> {
     if let Some((token, session)) = resume_token.and_then(|token| sessions.get_key_value(token)) {
         return Some(BrowserSessionConfig::new(token, session, port));
-    }
-    if let Some((token, session)) = entry_nonce.and_then(|nonce| {
-        sessions.iter_mut().find(|(_, session)| {
-            session.entry_nonce.as_ref().is_some_and(|(issued, _)| issued == nonce)
-        })
-    }) {
-        let (_, issued_at) = session.entry_nonce.take()?;
-        if issued_at.elapsed() < ENTRY_NONCE_TTL {
-            return Some(BrowserSessionConfig::new(token, session, port));
-        }
     }
     sessions
         .iter()
@@ -474,7 +495,8 @@ pub(super) fn yield_failed(sessions: &Sessions, query: &BridgeQuery, peer_id: &s
         return;
     };
     let owner_answered = query.role.surface().is_some_and(|surface| {
-        session.owner == Some(surface) && session.peer(surface).is_some_and(|peer| peer.id == peer_id)
+        session.owner == Some(surface)
+            && session.peer(surface).is_some_and(|peer| peer.id == peer_id)
     });
     if owner_answered {
         session.refuse_handoff();
@@ -1086,9 +1108,9 @@ mod tests {
     #[test]
     fn fixed_entry_resumes_a_live_token_and_replaces_a_stale_one() {
         let sessions = sessions();
-        let mut sessions = sessions.lock().unwrap();
+        let sessions = sessions.lock().unwrap();
         for token in [TOKEN, "expired"] {
-            let entry = reusable_entry_config(&mut sessions, 18452, Some(token), None).unwrap();
+            let entry = reusable_entry_config(&sessions, 18452, Some(token)).unwrap();
             let config = (entry.token.as_str(), entry.bridge_port, entry.label.as_str());
             assert_eq!(config, (TOKEN, 18452, "browser-test"), "{token}");
         }
@@ -1102,8 +1124,8 @@ mod tests {
             BrowserSession::new("browser-project".into(), "http://127.0.0.1:18452".into()),
         );
         let claim = |entry: &str| {
-            reusable_entry_config(&mut sessions.lock().unwrap(), 18452, None, Some(entry))
-                .map(|config| config.token)
+            select_entry(&mut sessions.lock().unwrap(), 18452, None, Some(entry))
+                .map(|config| config.map(|config| config.token))
         };
 
         let nonce = issue_entry_nonce(&sessions, "project-tab").unwrap();
@@ -1111,20 +1133,53 @@ mod tests {
         assert_eq!(url, format!("http://127.0.0.1:18452/?entry={nonce}"));
         assert!(!url.contains("project-tab") && !url.contains("browser-project"), "{url}");
 
-        assert_eq!(claim("browser-project").as_deref(), Some(TOKEN), "a label is no selector");
-        assert_eq!(claim(&nonce).as_deref(), Some("project-tab"));
-        assert_eq!(claim(&nonce).as_deref(), Some(TOKEN), "a nonce claims only once");
+        // An entry that selects nothing never falls back to the newest
+        // fixed-entry workspace (TOKEN here), which may be another project.
+        assert_eq!(claim("browser-project"), Err(StaleEntry), "a label is no selector");
+        assert_eq!(claim(&nonce), Ok(Some("project-tab".into())));
+        assert_eq!(claim(&nonce), Err(StaleEntry), "a nonce claims only once");
 
         let reissued = issue_entry_nonce(&sessions, "project-tab").unwrap();
         assert_ne!(reissued, nonce);
-        assert_eq!(claim(&nonce).as_deref(), Some(TOKEN), "a used nonce is not revived");
+        assert_eq!(claim(&nonce), Err(StaleEntry), "a used nonce is not revived");
 
         let stale = issue_entry_nonce(&sessions, "project-tab").unwrap();
         let issued_at = Instant::now().checked_sub(ENTRY_NONCE_TTL).unwrap();
         sessions.lock().unwrap().get_mut("project-tab").unwrap().entry_nonce =
             Some((stale.clone(), issued_at));
-        assert_eq!(claim(&stale).as_deref(), Some(TOKEN), "an expired nonce selects nothing");
+        assert_eq!(claim(&stale), Err(StaleEntry), "an expired nonce selects nothing");
         assert!(issue_entry_nonce(&sessions, "gone").is_err());
+
+        // Without an entry, the bookmark still opens the newest workspace.
+        let bookmark = select_entry(&mut sessions.lock().unwrap(), 18452, None, None);
+        assert_eq!(
+            bookmark.map(|config| config.map(|config| config.token)),
+            Ok(Some(TOKEN.into()))
+        );
+    }
+
+    #[test]
+    fn a_fresh_entry_selects_its_workspace_over_the_tabs_stored_session() {
+        // A tab holding project A (TOKEN) navigates to a fresh entry for B.
+        let sessions = sessions();
+        sessions.lock().unwrap().insert(
+            "project-b".into(),
+            BrowserSession::new("browser-b".into(), "http://127.0.0.1:18452".into()),
+        );
+        let nonce = issue_entry_nonce(&sessions, "project-b").unwrap();
+        let mut table = sessions.lock().unwrap();
+
+        let selected = select_entry(&mut table, 18452, Some(TOKEN), Some(&nonce)).unwrap().unwrap();
+        assert_eq!(selected.label, "browser-b");
+        assert!(table["project-b"].entry_nonce.is_none(), "the entry is consumed");
+        // Replayed, the entry is refused rather than resuming A.
+        assert_eq!(
+            select_entry(&mut table, 18452, Some(TOKEN), Some(&nonce)).map(|_| ()),
+            Err(StaleEntry)
+        );
+        // An ordinary reload, without the entry, resumes the stored session.
+        let reload = select_entry(&mut table, 18452, Some(TOKEN), None).unwrap().unwrap();
+        assert_eq!(reload.label, "browser-test");
     }
 
     #[test]
@@ -1190,9 +1245,8 @@ mod tests {
     #[test]
     fn expiry_atomically_removes_only_the_disconnected_generation() {
         let sessions = sessions();
-        let entry = |sessions: &Sessions| {
-            reusable_entry_config(&mut sessions.lock().unwrap(), 18452, None, None)
-        };
+        let entry =
+            |sessions: &Sessions| reusable_entry_config(&sessions.lock().unwrap(), 18452, None);
 
         assert!(settle_after_grace(&sessions, TOKEN, 1).is_none());
         assert!(entry(&sessions).is_some());
