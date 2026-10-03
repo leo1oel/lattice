@@ -25,14 +25,11 @@ type BuildOptions = {
 };
 
 /**
- * How the last build ended, for the .tex panels' Build button: a success with
- * its time, a failure, or null when there is nothing to report (no build yet,
- * a new project, or a build the writer stopped).
- */
-/**
- * How the last build ended, as the Build button reports it: its time when it
- * succeeded, what its diagnostics counted, the document it compiled (when the
- * backend said) and when it finished.
+ * How the last build ended, as the .tex panels' Build button reports it: its
+ * time when it succeeded, what its diagnostics counted, the document it
+ * compiled (when the backend said) and when it finished. The pipeline holds
+ * null when there is nothing to report (no build yet, a new project, or a
+ * build the writer stopped).
  */
 export type BuildOutcome = ({ status: "succeeded"; seconds: number } | { status: "failed" }) & {
   counts: DiagnosticCounts;
