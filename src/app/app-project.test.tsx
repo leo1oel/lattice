@@ -1,5 +1,6 @@
 import { expectNotification, windowApi, synaraHook, openSlideWorkspaceApi, browserRuntime, fileNode, fileNodes, dirNode, projectCommands, refreshableProject, SINGLE_TRANSFORMER, attentionPaper, overleafLink, overleafStatus, overleafProbe, overleafSyncResult, overleafSession, overleafCommands, ROOT, projectSnapshot, rootDocument, notesSnapshot, markdownSnapshot, buildResult, readFiles, deferred, setAutoBuildMode, setInterfaceLanguage, selectPanelTab, projectTreeRoot, queryProjectTreeItem, findInProjectTree, findProjectTreeItem, findProjectTreeRenameInput, renderApp, renderOverleafPaper, openWithAutomaticBuilds, findElement, editorViewAt, findEditorView, expectEditorText, postWindowMessage, expectInvoked, invokeCalls, pause, stubElementFromPoint, storedFileViews, dropFinderPaths, persistLayout, visualEditorOf, argPath, waitForSelectedTab, openTreeFile, openAgentFrame, postedOfType, dragTreeItem, pdfDocumentStub, mockPdfDocument, chooseNewDocument, chooseProjectMenuItem } from "./app-test-utils";
 import { forEachDiagnostic } from "@codemirror/lint";
+import { EditorView } from "@codemirror/view";
 import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
@@ -115,6 +116,28 @@ describe("project tree and projects", () => {
       fireEvent.change(await screen.findByPlaceholderText("Run a command…"), { target: { value: "Open in Lattice" } });
       fireEvent.keyDown(screen.getByPlaceholderText("Run a command…"), { key: "Enter" });
       await expectInvoked("return_to_desktop");
+    });
+
+    it("saves and freezes a browser tab's editor while it returns the workspace, and releases it when the return fails", async () => {
+      browserRuntime.hosted = true;
+      const returned = deferred();
+      openProject({
+        return_to_desktop: () => returned.promise,
+        write_project_file: (args: unknown) => ({ content: (args as { content: string }).content, hadConflicts: false }),
+      });
+      const view = await findEditorView(".source-editor[data-editor-pane='primary'] .cm-editor");
+      act(() => view.dispatch({ changes: { from: view.state.doc.length, insert: "\n% typed before the switch" } }));
+      fireEvent.click(await screen.findByRole("button", { name: "Open in Lattice app" }));
+      await expectInvoked("return_to_desktop");
+      expect(invoke).toHaveBeenCalledWith("write_project_file", expect.objectContaining({
+        path: "main.tex", content: expect.stringContaining("% typed before the switch"),
+      }));
+      await waitFor(() => expect(view.state.facet(EditorView.editable)).toBe(false));
+      expect(view.contentDOM).toHaveAttribute("contenteditable", "false");
+
+      await act(async () => { returned.reject(new Error("Lattice could not open its window")); });
+      await expectNotification(/Lattice could not open its window/);
+      await waitFor(() => expect(view.state.facet(EditorView.editable)).toBe(true));
     });
 
     it("saves an unsaved edit before the bridge hands the workspace to another surface", async () => {

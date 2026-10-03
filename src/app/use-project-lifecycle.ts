@@ -107,6 +107,8 @@ export function useProjectLifecycle(deps: ProjectLifecycleDeps) {
   const { claimBibliographyRefresh, resetBibliographyIndex, applyBibliographyIndex, applyReferences, setPapers } = library;
   const { runBuild, resetForProject } = build;
   const [busyLabel, setBusyLabel] = useState<string | null>(null);
+  /** The workspace is being handed to another surface: its editors stay read-only meanwhile. */
+  const [movingWorkspace, setMovingWorkspace] = useState(false);
   const [projectMenuOpen, setProjectMenuOpen] = useState(false);
   const [recentProjects, setRecentProjects] = useState<RecentProject[]>(loadRecentProjects);
   const autoTutorialAttemptedRef = useRef(false);
@@ -496,11 +498,15 @@ export function useProjectLifecycle(deps: ProjectLifecycleDeps) {
   /** "Open in browser" from a Lattice window, "Open in Lattice app" from a browser tab. */
   const moveWorkspace = useCallback(async () => {
     if (inBrowserTab) {
-      if (!await saveForHandoff()) return;
+      if (!await startProjectTransition()) return;
+      setMovingWorkspace(true);
       await invoke("return_to_desktop").catch((reason) => {
         // Once the window has taken over, this page is detached and the
         // reply never arrives: that is the success case.
-        if (!browserRuntimeDetached()) setError(toMessage(reason));
+        if (browserRuntimeDetached()) return;
+        cancelProjectTransition();
+        setMovingWorkspace(false);
+        setError(toMessage(reason));
       });
       return;
     }
@@ -514,10 +520,12 @@ export function useProjectLifecycle(deps: ProjectLifecycleDeps) {
     // A native WebKit window closes, and the tab starts relaying only once it
     // has, so the two never edit together. Claim the switch meanwhile.
     if (!await startProjectTransition()) return;
+    setMovingWorkspace(true);
     try {
       await invoke("open_in_browser");
     } catch (reason) {
       cancelProjectTransition();
+      setMovingWorkspace(false);
       setError(toMessage(reason));
       return;
     }
@@ -528,5 +536,6 @@ export function useProjectLifecycle(deps: ProjectLifecycleDeps) {
     busyLabel, recentProjects, projectMenuOpen, setProjectMenuOpen, createForm, updateCreateForm,
     startProjectTransition, cancelProjectTransition, revealNewProject, chooseExisting, createProject,
     chooseRecentProject, openTutorialProject, importOverleafZip, exportProjectZip, inBrowserTab, moveWorkspace,
+    movingWorkspace,
   };
 }

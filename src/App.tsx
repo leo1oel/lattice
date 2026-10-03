@@ -635,7 +635,7 @@ function App() {
   const {
     busyLabel, recentProjects, projectMenuOpen, setProjectMenuOpen, createForm, updateCreateForm,
     startProjectTransition, revealNewProject, chooseExisting, createProject, chooseRecentProject,
-    openTutorialProject, importOverleafZip, exportProjectZip, inBrowserTab, moveWorkspace,
+    openTutorialProject, importOverleafZip, exportProjectZip, inBrowserTab, moveWorkspace, movingWorkspace,
   } = useProjectLifecycle({
     projectState, documents, library, build: buildPipeline, cancelPrewarm: cancelPreviewPrewarm,
     resetCompileTracking: resetAgentCompileTracking,
@@ -1343,6 +1343,7 @@ function App() {
 
   const editorEditableForPath = (path: string, ignoreOverleaf = false) => (
     !compileRepair.busy
+    && !movingWorkspace
     && (
       ignoreOverleaf
       || overleafLink === null
