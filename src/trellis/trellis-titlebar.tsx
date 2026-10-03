@@ -62,7 +62,7 @@ function usePanelStates(controller: TrellisController) {
  * the language's label lengths rather than a fixed window width. The hidden
  * panels' chips count as content to fit, since they shrink before anything
  * else would overflow and a restore chip clipped to nothing is lost: both
- * the row's own overflow and each chip's text cut to an ellipsis.
+ * the row's own overflow and each chip squeezed below its own width cap.
  *
  * Labelled, the controls are measured against the room; compact, the room is
  * compared with what they needed labelled, so the labels come back only where
@@ -78,12 +78,9 @@ function useCompactPresets(barRef: RefObject<HTMLDivElement | null>, chipsRef: R
     const bar = barRef.current;
     if (!bar || typeof ResizeObserver === "undefined") return;
     const measure = () => {
-      const chips = chipsRef.current;
-      let chipsOverflow = chips ? Math.max(0, chips.scrollWidth - chips.clientWidth) : 0;
-      for (const chip of chips?.children ?? []) chipsOverflow += Math.max(0, chip.scrollWidth - chip.clientWidth);
       const room = bar.clientWidth;
       if (!compact) {
-        const need = bar.scrollWidth + chipsOverflow;
+        const need = controlsDemand(bar, chipsRef.current);
         if (need > room + 0.5) setFit({ content, labelledNeed: need });
       } else if (room >= fit.labelledNeed) {
         setFit({ content, labelledNeed: 0 });
@@ -98,6 +95,36 @@ function useCompactPresets(barRef: RefObject<HTMLDivElement | null>, chipsRef: R
     return () => observer.disconnect();
   }, [barRef, chipsRef, compact, content, fit.labelledNeed]);
   return compact;
+}
+
+/**
+ * How wide the titlebar's controls ask to be, as laid out now. The bar is a
+ * flex row as wide as its room, so its scrollWidth never reads less than that
+ * room however empty the row is: the controls use up to where the last of
+ * them ends, or past the room when they overflow it. A restore chip ends in
+ * an ellipsis at its own width cap whatever the room, so only what the row
+ * squeezed it below that cap (or the chips' row clipped) is room missing.
+ */
+function controlsDemand(bar: HTMLElement, chips: HTMLElement | null): number {
+  const box = bar.getBoundingClientRect();
+  let end = box.left;
+  for (const control of bar.children) {
+    const rect = control.getBoundingClientRect();
+    if (rect.width > 0) end = Math.max(end, rect.right);
+  }
+  const contentEnd = box.right - bar.clientLeft - (Number.parseFloat(getComputedStyle(bar).paddingRight) || 0);
+  let need = bar.scrollWidth - Math.max(0, contentEnd - end);
+  if (!chips) return need;
+  need += Math.max(0, chips.scrollWidth - chips.clientWidth);
+  for (const chip of chips.children) {
+    if (!(chip instanceof HTMLElement)) continue;
+    const full = chip.scrollWidth + chip.offsetWidth - chip.clientWidth;
+    const cap = Number.parseFloat(getComputedStyle(chip).maxWidth);
+    const squeezed = Math.min(full, Number.isNaN(cap) ? full : cap) - chip.getBoundingClientRect().width;
+    // scrollWidth is whole pixels: a fraction short is rounding, not a cut title.
+    if (squeezed >= 1) need += squeezed;
+  }
+  return need;
 }
 
 /** Memoized: App re-renders per keystroke and these controls only follow the workspace. */

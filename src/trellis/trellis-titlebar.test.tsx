@@ -100,7 +100,10 @@ describe("titlebar panel controls in a narrow window", () => {
 /** The titlebar's controls with the presets labelled and without, and the room the window leaves it. */
 const LABELLED = 860;
 const COMPACT = 640;
-const layout = { room: 1200, chipsOverflow: 0, chipTruncated: 0 };
+/** A restore chip's width cap (`.trellis-hidden-chip`'s max-width). */
+const CHIP_CAP = 140;
+/** `chipText` is a chip's title at full width; `chipWidth` what the row gives it. */
+const layout = { room: 1200, chipsOverflow: 0, chipText: 0, chipWidth: 0 };
 const observers = new Set<() => void>();
 
 const bar = () => document.querySelector<HTMLElement>(".trellis-titlebar")!;
@@ -108,12 +111,11 @@ const resize = (room: number) => act(() => {
   layout.room = room;
   for (const notify of observers) notify();
 });
+const rect = (left: number, width: number) => ({ left, right: left + width, width, top: 0, bottom: 0, height: 0, x: left, y: 0 }) as DOMRect;
 
 describe("titlebar layout presets", () => {
   beforeEach(() => {
-    layout.room = 1200;
-    layout.chipsOverflow = 0;
-    layout.chipTruncated = 0;
+    Object.assign(layout, { room: 1200, chipsOverflow: 0, chipText: 0, chipWidth: 0 });
     vi.stubGlobal("ResizeObserver", class {
       private readonly notify: () => void;
       constructor(callback: () => void) { this.notify = () => callback(); }
@@ -125,15 +127,29 @@ describe("titlebar layout presets", () => {
       unobserve() {}
       disconnect() { observers.delete(this.notify); }
     });
+    // A browser's geometry: the bar is a flex row as wide as its room, so its
+    // scrollWidth never reads less than the room, and its controls end where
+    // their need does (clipped at the room).
+    const need = () => (bar().hasAttribute("data-compact") ? COMPACT : LABELLED);
     vi.spyOn(HTMLElement.prototype, "clientWidth", "get").mockImplementation(function (this: HTMLElement) {
       if (this.classList.contains("trellis-titlebar")) return layout.room;
+      if (this.classList.contains("trellis-hidden-chip")) return layout.chipWidth;
       return this.classList.contains("trellis-titlebar-hidden") ? 100 : 0;
     });
+    vi.spyOn(HTMLElement.prototype, "offsetWidth", "get").mockImplementation(function (this: HTMLElement) {
+      return this.classList.contains("trellis-hidden-chip") ? layout.chipWidth : 0;
+    });
     vi.spyOn(HTMLElement.prototype, "scrollWidth", "get").mockImplementation(function (this: HTMLElement) {
-      // Content wider than the room overflows it; narrower, the bar is as wide as the room.
-      if (this.classList.contains("trellis-titlebar")) return Math.max(layout.room, this.hasAttribute("data-compact") ? COMPACT : LABELLED);
-      if (this.classList.contains("trellis-hidden-chip")) return layout.chipTruncated;
+      if (this.classList.contains("trellis-titlebar")) return Math.max(layout.room, need());
+      if (this.classList.contains("trellis-hidden-chip")) return layout.chipText;
       return this.classList.contains("trellis-titlebar-hidden") ? 100 + layout.chipsOverflow : 0;
+    });
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function (this: HTMLElement) {
+      if (this.classList.contains("trellis-titlebar")) return rect(0, layout.room);
+      if (this.classList.contains("trellis-hidden-chip")) return rect(0, layout.chipWidth);
+      // The row's controls end where the need does.
+      if (this.parentElement?.classList.contains("trellis-titlebar")) return rect(0, Math.min(need(), layout.room));
+      return rect(0, 0);
     });
   });
 
@@ -161,6 +177,8 @@ describe("titlebar layout presets", () => {
   it("drops the labels before a hidden panel's restore chip is squeezed out", () => {
     const controller = new TrellisController();
     render(<TrellisTitlebar controller={controller} />);
+    // A row squeezed for room fills it.
+    resize(LABELLED);
     layout.chipsOverflow = 40;
     act(() => controller.ui.set({ hidden: [{ panelId: "panel-papers", title: "Papers" }] }));
     expect(bar()).toHaveAttribute("data-compact");
@@ -170,13 +188,38 @@ describe("titlebar layout presets", () => {
     expect(bar()).not.toHaveAttribute("data-compact");
   });
 
-  it("drops the labels before a restore chip's title is cut to an ellipsis", () => {
+  it("drops the labels before the room squeezes a restore chip below its own cap", () => {
     // The chips shrink one by one inside their row, so the row itself need not overflow.
     const controller = new TrellisController();
     render(<TrellisTitlebar controller={controller} />);
-    layout.chipTruncated = 30;
+    resize(LABELLED);
+    Object.assign(layout, { chipText: 90, chipWidth: 60 });
     act(() => controller.ui.set({ hidden: [{ panelId: "panel-agent", title: "Agent" }] }));
     expect(bar()).toHaveAttribute("data-compact");
+  });
+
+  it("keeps the labels beside a long restore chip that ends in an ellipsis at its cap", () => {
+    // A hidden document's tab titles run far past the chip's cap, which cuts
+    // them whatever the window: that cut is no shortage of room.
+    const controller = new TrellisController();
+    render(<TrellisTitlebar controller={controller} />);
+    resize(2007);
+    Object.assign(layout, { chipText: 533, chipWidth: CHIP_CAP });
+    act(() => controller.ui.set({
+      hidden: [{ panelId: "panel-doc", title: "main.tex, Grounded Visual Reasoning in Long Contexts with Sparse Multimodal Supervision" }],
+    }));
+    expect(bar()).not.toHaveAttribute("data-compact");
+    resize(1407);
+    expect(bar()).not.toHaveAttribute("data-compact");
+    // Short of room, the same chip squeezed below its cap drops them after all.
+    layout.chipWidth = CHIP_CAP - 50;
+    resize(LABELLED - 20);
+    expect(bar()).toHaveAttribute("data-compact");
+  });
+
+  it("reads the chip's cap from the stylesheet the measurement relies on", () => {
+    const chip = styleRules(trellisRules).find((rule) => rule.selectorText === ".trellis-titlebar .trellis-hidden-chip");
+    expect(chip?.style.maxWidth).toBe(`${CHIP_CAP}px`);
   });
 });
 

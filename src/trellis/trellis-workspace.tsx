@@ -55,6 +55,7 @@ import { FileHeaderTools } from "./trellis-header-tools";
 import { measurePdfToolbarMinWidth } from "../pdf/pdf-toolbar-min-width";
 import { holdWidthsWhileResizing } from "./trellis-hold-width";
 import { isProjectFileMissing } from "../pdf/project-pdf-refusals";
+import { useProjectPdfWatch } from "../pdf/use-project-pdf-watch";
 import "./trellis.css";
 
 // The live source editor parses LaTeX with Lattice's own `latex()`, not the
@@ -463,7 +464,8 @@ function PdfSnapshot({ controller, fileKey }: { controller: TrellisController; f
   // A rewrite on disk hands the viewer the new version, as the live document
   // host does; a removed file stays open with a notice until it is back.
   const [recheck, setRecheck] = useState(0);
-  const filesRevision = useTrellisApp(controller, (state) => state.filesRevision);
+  const projectRoot = useTrellisApp(controller, (state) => state.projectRoot);
+  useProjectPdfWatch(besideActive && (asset === null || asset?.ranges) ? projectRoot : null, fileKey, missing, () => setRecheck((count) => count + 1));
   useEffect(() => {
     if (!besideActive) return;
     let disposed = false;
@@ -477,7 +479,7 @@ function PdfSnapshot({ controller, fileKey }: { controller: TrellisController; f
       if (isProjectFileMissing(reason)) setMissing(true);
     });
     return () => { disposed = true; };
-  }, [besideActive, controller, fileKey, filesRevision, recheck]);
+  }, [besideActive, controller, fileKey, recheck]);
   if (!besideActive || asset === null) return <SleepingDocument controller={controller} fileKey={fileKey} detail={t`Sleeping · click to open`} />;
   if (!asset) return null;
   return (

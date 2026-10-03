@@ -1,6 +1,6 @@
 import { afterEach, expect, it, vi } from "vitest";
 import { listen, type EventCallback } from "@tauri-apps/api/event";
-import { onProjectFilesChanged } from "./project-files-changed";
+import { changesReach, onProjectFilesChanged } from "./project-files-changed";
 
 vi.mock("@tauri-apps/api/event", () => ({ listen: vi.fn() }));
 afterEach(() => vi.mocked(listen).mockReset());
@@ -56,4 +56,13 @@ it("does nothing where there is no native event bridge to listen on", async () =
   const stop = onProjectFilesChanged("/project", vi.fn());
   await Promise.resolve();
   expect(() => stop()).not.toThrow();
+});
+
+it("reaches a file through its own path, a folder holding it, or an unknown set", () => {
+  expect(changesReach(null, "figures/plot.pdf")).toBe(true);
+  expect(changesReach(["./figures/plot.pdf"], "figures/plot.pdf")).toBe(true);
+  expect(changesReach(["figures"], "figures/plot.pdf")).toBe(true);
+  // A path that cannot be placed in the project may be anything.
+  expect(changesReach(["../elsewhere"], "figures/plot.pdf")).toBe(true);
+  expect(changesReach(["figures/plot.pdf.tmp", "figures-old", "notes.md"], "figures/plot.pdf")).toBe(false);
 });
