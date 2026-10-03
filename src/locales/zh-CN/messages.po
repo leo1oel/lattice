@@ -4070,8 +4070,13 @@ msgstr "Lattice 工作区"
 
 #: src/App.tsx
 #: src/trellis/trellis-titlebar.tsx
+#: src/trellis/trellis-workspace.tsx
 msgid "Layout"
 msgstr "布局"
+
+#: src/trellis/trellis-workspace.tsx
+msgid "Layout reset"
+msgstr "布局已重置"
 
 #: src/App.tsx
 msgid "Learn Lattice with the Understanding Attention sample project"
@@ -8183,6 +8188,7 @@ msgid "Underline"
 msgstr "下划线"
 
 #: src/app/use-editor-comments.ts
+#: src/trellis/trellis-workspace.tsx
 msgid "Undo"
 msgstr "撤销"
 

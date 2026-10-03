@@ -253,6 +253,47 @@ export function returnLayout(
   return sanitize(doc, knownType);
 }
 
+/**
+ * The writer's layout from before a reset (`previous`), to undo it: brought up
+ * to date like a return from a preset, so documents closed since stay closed
+ * and the panels only the reset brought in leave again. A tool panel the reset
+ * put away comes back while its tool is still open in App (`toolOpen`).
+ */
+export function undoReset(
+  previous: LayoutDocument,
+  current: LayoutDocument,
+  documents: Pick<PresetDocuments, "activeKey" | "openTabs">,
+  toolOpen: (type: string) => boolean,
+): LayoutDocument {
+  const views = { ...current.views };
+  for (const [id, record] of Object.entries(previous.views)) {
+    if (record.type !== "file" && !views[id] && toolOpen(record.type)) views[id] = record;
+  }
+  const supplied = Object.keys(current.views).filter((id) => current.views[id].type !== "file" && !previous.views[id]);
+  return returnLayout(previous, { ...current, views }, documents, supplied);
+}
+
+/**
+ * A layout's arrangement as a string that changes only when the arrangement
+ * does: its splits and their weights, panels with their views (documents by
+ * file, since re-placing a document gives its view a new id), floating
+ * windows and hidden panels. Panel ids and selected tabs are left out.
+ */
+export function layoutShape(doc: LayoutDocument): string {
+  const view = (id: string) => (doc.views[id]?.type === "file" ? `file:${fileKey(doc.views[id])}` : id);
+  const panel = (target: PanelNode) => target.views.map(view);
+  const node = (target: LayoutNode): unknown => {
+    if (target.kind === "panel") return panel(target);
+    if (target.kind === "stage") return { stage: target.child ? node(target.child) : null };
+    return { [target.axis]: target.children.map(node), weights: target.weights.map((weight) => Math.round(weight * 1000)) };
+  };
+  return JSON.stringify({
+    root: doc.root ? node(doc.root) : null,
+    floating: doc.floating.map(({ panel: target, ...entry }) => ({ ...entry, views: panel(target) })),
+    hidden: doc.hidden.map(({ panel: target, ...entry }) => ({ ...entry, views: panel(target) })),
+  });
+}
+
 function storageKey(projectRoot: string) {
   return `${STORAGE_PREFIX}${projectRoot}`;
 }

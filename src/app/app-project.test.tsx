@@ -1,4 +1,4 @@
-import { expectNotification, windowApi, synaraHook, openSlideWorkspaceApi, browserRuntime, fileNode, fileNodes, dirNode, projectCommands, refreshableProject, SINGLE_TRANSFORMER, attentionPaper, overleafLink, overleafStatus, overleafProbe, overleafSyncResult, overleafSession, overleafCommands, ROOT, projectSnapshot, rootDocument, notesSnapshot, markdownSnapshot, buildResult, readFiles, deferred, setAutoBuildMode, setInterfaceLanguage, selectPanelTab, projectTreeRoot, queryProjectTreeItem, findInProjectTree, findProjectTreeItem, findProjectTreeRenameInput, renderApp, renderOverleafPaper, openWithAutomaticBuilds, findElement, editorViewAt, findEditorView, expectEditorText, postWindowMessage, expectInvoked, invokeCalls, pause, stubElementFromPoint, storedFileViews, dropFinderPaths, persistLayout, visualEditorOf, argPath, waitForSelectedTab, openTreeFile, openAgentFrame, postedOfType, dragTreeItem, pdfDocumentStub, mockPdfDocument, chooseNewDocument, chooseProjectMenuItem, nextFrames } from "./app-test-utils";
+import { expectNotification, windowApi, synaraHook, openSlideWorkspaceApi, browserRuntime, fileNode, fileNodes, dirNode, projectCommands, refreshableProject, SINGLE_TRANSFORMER, attentionPaper, overleafLink, overleafStatus, overleafProbe, overleafSyncResult, overleafSession, overleafCommands, ROOT, projectSnapshot, rootDocument, notesSnapshot, markdownSnapshot, buildResult, readFiles, deferred, setAutoBuildMode, setInterfaceLanguage, selectPanelTab, projectTreeRoot, queryProjectTreeItem, findInProjectTree, findProjectTreeItem, findProjectTreeRenameInput, renderApp, renderOverleafPaper, openWithAutomaticBuilds, findElement, editorViewAt, findEditorView, expectEditorText, postWindowMessage, expectInvoked, invokeCalls, pause, stubElementFromPoint, storedFileViews, dropFinderPaths, persistLayout, persistLayoutWithoutAgent, visibleToasts, visualEditorOf, argPath, waitForSelectedTab, openTreeFile, openAgentFrame, postedOfType, dragTreeItem, pdfDocumentStub, mockPdfDocument, chooseNewDocument, chooseProjectMenuItem, nextFrames } from "./app-test-utils";
 import { forEachDiagnostic } from "@codemirror/lint";
 import { EditorView } from "@codemirror/view";
 import { invoke } from "@tauri-apps/api/core";
@@ -11,9 +11,10 @@ import * as Y from "yjs";
 import { describe, expect, it, vi } from "vitest";
 import { registerAgentCanvasAdapter } from "../agent/agent-canvas-tools";
 import { registerAgentSpreadsheetDocument } from "../agent/agent-spreadsheet-tools";
-import { formatAppLogs } from "../telemetry/app-log-store";
+import { formatAppLogs, getAppToastOptions } from "../telemetry/app-log-store";
 import { loadVisualMarkdownEditorModule } from "../canvas/canvas-lazy-modules";
 import type { OpenSlideSyncOperation } from "../editor/presentation/open-slide-bridge";
+import type { LayoutDocument } from "@danfessler/trellis";
 
 describe("project tree and projects", () => {
   it("opens a project switcher with recent and folder actions", async () => {
@@ -150,6 +151,67 @@ describe("project tree and projects", () => {
       await pause(50);
       expect(invokeCalls("return_to_desktop")).toHaveLength(0);
       expect(view.state.doc.toString()).toContain("% unsaved");
+    });
+  });
+
+  describe("resetting the layout", () => {
+    const agentTab = () => document.querySelector('[data-trellis-part="tab"][data-type="agent"]');
+    const layoutTab = (name: string) => within(document.querySelector(".trellis-presets")!).getByRole("tab", { name });
+    const resetLayout = () => fireEvent.click(within(document.querySelector<HTMLElement>(".trellis-titlebar")!).getByRole("button", { name: "Reset layout" }));
+    // The toast stack is not rendered here (see expectNotification): read the offer from the store.
+    const resetToast = () => visibleToasts("Layout").find((entry) => entry?.title === "Layout reset");
+    const undo = () => act(async () => { await getAppToastOptions(resetToast()!.id)?.primaryAction?.onClick(); });
+
+    it("offers Undo, which brings back the arrangement and the layout it was in", async () => {
+      // The writer closed the Agent; the default layout has it behind Project.
+      persistLayoutWithoutAgent();
+      renderApp(projectCommands());
+      // The workspace is up once the open document has its editor.
+      await findEditorView();
+      expect(agentTab()).toBeNull();
+      fireEvent.click(layoutTab("Writing"));
+      await waitFor(() => expect(layoutTab("Writing")).toHaveAttribute("aria-selected", "true"));
+
+      resetLayout();
+      await waitFor(() => expect(agentTab()).not.toBeNull());
+      expect(layoutTab("Workspace")).toHaveAttribute("aria-selected", "true");
+      await waitFor(() => expect(getAppToastOptions(resetToast()!.id)?.primaryAction?.label).toBe("Undo"));
+      // Placing the open documents back is the reset's own doing: the offer stands.
+      await pause(300);
+      await undo();
+      await waitFor(() => expect(layoutTab("Writing")).toHaveAttribute("aria-selected", "true"));
+      // Writing returns to the writer's own layout, still without the Agent.
+      fireEvent.click(layoutTab("Workspace"));
+      await waitFor(() => expect(layoutTab("Workspace")).toHaveAttribute("aria-selected", "true"));
+      expect(agentTab()).toBeNull();
+      // The offer is spent: a second Undo changes nothing.
+      await undo();
+      expect(layoutTab("Workspace")).toHaveAttribute("aria-selected", "true");
+      // Saved without it, too (saves are debounced).
+      const saved = () => JSON.parse(localStorage.getItem(`lattice.trellis-layout.v1:${ROOT}`) ?? "null") as { document: LayoutDocument } | null;
+      await waitFor(() => {
+        expect(saved()).not.toBeNull();
+        expect(saved()!.document.views.agent).toBeUndefined();
+      });
+    });
+
+    it("takes the offer back once the layout changes again", async () => {
+      persistLayoutWithoutAgent();
+      renderApp(projectCommands());
+      await findEditorView();
+      resetLayout();
+      await waitFor(() => expect(resetToast()).toBeDefined());
+      fireEvent.click(layoutTab("Reading"));
+      await waitFor(() => expect(resetToast()).toBeUndefined());
+    });
+
+    it("neither resets nor offers Undo when saving first fails", async () => {
+      renderApp({ ...projectCommands(), write_project_file: () => { throw new Error("disk full"); } });
+      const view = await findEditorView(".source-editor[data-editor-pane='primary'] .cm-editor");
+      act(() => view.dispatch({ changes: { from: view.state.doc.length, insert: "\n% unsaved" } }));
+      resetLayout();
+      await expectNotification(/Save failed, so the layout was not reset/);
+      expect(resetToast()).toBeUndefined();
     });
   });
 
