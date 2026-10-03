@@ -143,6 +143,59 @@ describe("browser bridge recovery", () => {
     later.remove();
   });
 
+  it("closes the app's modal dialogs, which the browser would draw above the screen", async () => {
+    // jsdom has no top layer; model the part the screen relies on. close()
+    // fires the `close` event the owner listens for, as in a browser.
+    const prototype = HTMLDialogElement.prototype;
+    const native = Object.getOwnPropertyDescriptors(prototype);
+    prototype.showModal = function () { this.setAttribute("open", ""); };
+    prototype.close = function () {
+      if (!this.open) return;
+      this.removeAttribute("open");
+      this.dispatchEvent(new Event("close"));
+    };
+    onTestFinished(() => {
+      for (const name of ["showModal", "close"] as const) {
+        if (native[name]) Object.defineProperty(prototype, name, native[name]);
+        else delete (prototype as Partial<HTMLDialogElement>)[name];
+      }
+    });
+    // The expanded image in Markdown preview: a modal in a portal under body,
+    // which unzooms on its `close` event.
+    const modalDialog = () => {
+      const portal = document.createElement("div");
+      const dialog = document.createElement("dialog");
+      const unzoom = vi.fn();
+      dialog.addEventListener("close", unzoom);
+      portal.append(dialog);
+      document.body.append(portal);
+      onTestFinished(() => portal.remove());
+      dialog.showModal();
+      return { dialog, unzoom };
+    };
+    const zoomed = modalDialog();
+    // An app <details> is not a dialog and keeps its state.
+    const details = document.createElement("details");
+    details.open = true;
+    zoomed.dialog.append(details);
+
+    const { socket } = connectedRelay(vi.fn(), { appRunning: false });
+    socket.message({ type: "host-disconnected" });
+    socket.disconnect();
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(zoomed.dialog.open).toBe(false);
+    expect(zoomed.unzoom).toHaveBeenCalledOnce();
+    expect(details.open).toBe(true);
+    expect(document.activeElement).toBe(within(runtimeError()!).getByRole("button", { name: "Reload" }));
+
+    // A modal the app shows while the screen is up closes as well.
+    const later = modalDialog();
+    await Promise.resolve();
+    expect(later.dialog.open).toBe(false);
+    expect(later.unzoom).toHaveBeenCalledOnce();
+  });
+
   it("focuses a screen without an action itself", () => {
     const { editor } = focusedApp();
     const { socket } = connectedRelay();

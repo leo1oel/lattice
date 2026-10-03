@@ -401,7 +401,8 @@ for (const type of ["keydown", "keypress", "keyup"] as const) {
 function blockApp(): void {
   if (!appObserver) {
     appObserver = new MutationObserver(inertApp);
-    appObserver.observe(document.body, { childList: true });
+    // `open` across the page, for a dialog the app shows while the status is up.
+    appObserver.observe(document.body, { childList: true, subtree: true, attributeFilter: ["open"] });
   }
   inertApp();
 }
@@ -416,6 +417,24 @@ function inertApp(): void {
     if (element.id === RUNTIME_STATUS_ID || element.hasAttribute("inert")) continue;
     element.setAttribute("inert", "");
     madeInert.add(element);
+  }
+  closeAppDialogs();
+}
+
+/**
+ * Close the app's open native dialogs. A `showModal()` dialog (the expanded
+ * image in Markdown preview) sits in the browser's top layer, above any
+ * z-index, and an active modal escapes its ancestor's `inert` and makes the
+ * rest of the page inert instead: it would hide the status and keep focus.
+ * Its owner cannot close it either, since {@link guardStatusKeys} keeps Escape
+ * from its key handler. `close()` fires the dialog's `close` event, the same
+ * path a dismissal takes, so its owner's state follows. A non-modal open
+ * dialog only lies under the status, but the app behind it is done, so it
+ * closes too rather than telling the two apart.
+ */
+function closeAppDialogs(): void {
+  for (const dialog of document.body.querySelectorAll("dialog[open]")) {
+    if (dialog instanceof HTMLDialogElement) dialog.close();
   }
 }
 
