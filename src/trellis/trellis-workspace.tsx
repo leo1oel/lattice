@@ -465,7 +465,7 @@ function PdfSnapshot({ controller, fileKey }: { controller: TrellisController; f
   // host does; a removed file stays open with a notice until it is back.
   const [recheck, setRecheck] = useState(0);
   const projectRoot = useTrellisApp(controller, (state) => state.projectRoot);
-  useProjectPdfWatch(besideActive && asset?.ranges ? projectRoot : null, fileKey, missing, () => setRecheck((count) => count + 1));
+  useProjectPdfWatch(besideActive && (asset === null || asset?.ranges) ? projectRoot : null, fileKey, missing, () => setRecheck((count) => count + 1));
   useEffect(() => {
     if (!besideActive) return;
     let disposed = false;

@@ -582,6 +582,35 @@ describe("papers", () => {
     await waitFor(() => expect(loads()).toBe(loaded + 2));
   });
 
+  it("brings back a PDF beside the notes whose first read failed once the watcher reports it", async () => {
+    mockPdfDocument(() => pdfDocumentStub(1, {
+      render: () => ({ promise: Promise.resolve(), cancel: vi.fn() }), getTextContent: async () => ({ items: [] }),
+    }));
+    let removed = false;
+    renderApp({
+      ...projectCommands(projectSnapshot({ files: fileNodes("main.tex", "notes.md", "reference.pdf") }), "\\documentclass{main}"),
+      read_project_asset: (args) => {
+        if (removed) throw new Error("That file or folder no longer exists.");
+        return { path: argPath(args), mimeType: "application/pdf", ranges: { length: 8, version: "v1" } };
+      },
+    });
+    await openTreeFile("notes.md");
+    fireEvent.click(await findProjectTreeItem("reference.pdf"));
+    await waitForSelectedTab("reference.pdf");
+    fireEvent.click(within(document.querySelector(".trellis-presets")!).getByRole("tab", { name: "Reading" }));
+    // A clean build removed the PDF just as the notes are written beside it.
+    removed = true;
+    fireEvent.pointerDown(await findElement(".trellis-snapshot"), { button: 0 });
+    await waitForSelectedTab("notes.md");
+    await screen.findByText("Sleeping · click to open");
+    expect(document.querySelector(".trellis-pdf-snapshot")).not.toBeInTheDocument();
+    removed = false;
+    emitTauriEvent("project-fs-changed", { root: ROOT, paths: ["reference.pdf"] });
+    const snapshot = await findElement(".trellis-pdf-snapshot");
+    await within(snapshot).findByLabelText("PDF page 1");
+    expect(screen.getByRole("tab", { name: /notes\.md/ })).toHaveAttribute("aria-selected", "true");
+  });
+
   it("opens a captured webpage without offering it as an arXiv PDF", async () => {
     renderApp({
       ...projectCommands(projectSnapshot(), "\\documentclass{main}"),
