@@ -374,13 +374,18 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
   gap: var(--space-5);
+  overflow-y: auto;
   text-align: center;
   padding: var(--space-10);
   background: var(--surface-sidebar);
   color: var(--text-secondary);
 }
+/* Centred by auto margins rather than justify-content, so open Details taller
+   than a short panel overflow downward into scroll reach instead of pushing
+   the title above the panel's top edge. */
+.synara-loading-surface > :first-child { margin-top: auto; }
+.synara-loading-surface > :last-child { margin-bottom: auto; }
 .synara-loading-mark {
   width: 30px;
   height: 30px;
