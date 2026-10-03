@@ -57,6 +57,10 @@
  *                   BRIDGE_NOT_READY; this Chrome falls back to Playwright's
  *                   Chrome for Testing (perf-bench/cdp.mjs).
  *   --port N        the port to serve on (default 18480; 0 picks a free one)
+ *   --lang L        the interface language of the page --serve and --smoke
+ *                   open: en (default), zh-CN or system
+ *   --locale L      with --smoke: the browser language the checked page sees
+ *                   (a BCP 47 tag, e.g. zh-CN), which lang=system resolves from
  * Layout checks (no benchmark):
  *   --layout        build the page and check the geometry in
  *                   scripts/perf-bench/layout-checks.mjs in the chosen engine;
@@ -106,7 +110,7 @@ const BENCH_FIXTURE = {
 };
 
 function parseArgs(argv) {
-  const options = { runs: 2, only: null, json: null, profile: null, check: false, ratchet: false, update: false, headful: false, keepOpen: false, url: null, dev: false, serve: false, smoke: false, chrome: false, layout: false, port: SERVE_PORT, engine: "chromium" };
+  const options = { runs: 2, only: null, json: null, profile: null, check: false, ratchet: false, update: false, headful: false, keepOpen: false, url: null, dev: false, serve: false, smoke: false, chrome: false, layout: false, port: SERVE_PORT, engine: "chromium", lang: "en", locale: null };
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
     if (arg === "--check") options.check = true;
@@ -126,6 +130,8 @@ function parseArgs(argv) {
     else if (arg === "--layout") options.layout = true;
     else if (arg === "--port") options.port = Number(argv[++index]);
     else if (arg === "--engine") options.engine = argv[++index];
+    else if (arg === "--lang") options.lang = argv[++index];
+    else if (arg === "--locale") options.locale = argv[++index];
     else throw new Error(`Unknown option ${arg}`);
   }
   if (!Number.isInteger(options.port) || options.port < 0 || options.port > 65_535) throw new Error("--port takes a port number");
@@ -133,6 +139,9 @@ function parseArgs(argv) {
   if (options.chrome && !options.serve) throw new Error("--chrome keeps a browser up beside --serve; add --serve");
   if (options.layout && (options.serve || options.smoke || options.url)) throw new Error("--layout serves its own page per check; it cannot take --serve, --smoke or --url");
   if (options.smoke && options.engine !== "chromium") throw new Error("--smoke loads the page in Chrome only");
+  if (!["en", "zh-CN", "system"].includes(options.lang)) throw new Error("--lang takes en, zh-CN or system");
+  if (options.url && argv.includes("--lang")) throw new Error("--url names its own page; put lang= in it instead of --lang");
+  if (options.locale && !options.smoke) throw new Error("--locale sets the browser language of --smoke's page; add --smoke");
   if (!(options.engine in BUDGETS)) throw new Error(`Unknown engine ${options.engine}: use chromium or webkit`);
   if (options.profile && options.engine !== "chromium") throw new Error("--profile records Chromium CPU profiles only");
   return options;
@@ -271,10 +280,10 @@ function benchUrl(origin, extra = {}) {
  */
 async function serve(options) {
   const vite = await startPage(options, { port: options.port, live: options.dev });
-  const url = benchUrl(vite.origin, { theme: "system", lang: "en" });
+  const url = benchUrl(vite.origin, { theme: "system", lang: options.lang });
   await step("checking that the page answers", () => assertAnswers(url));
   const chrome = options.chrome || options.smoke ? await step("starting headless Chrome", () => launchChrome({ headless: !options.headful })) : null;
-  if (options.smoke && !(await smokeCheck(chrome, url))) {
+  if (options.smoke && !(await smokeCheck(chrome, url, options.locale))) {
     await chrome.close();
     await vite.server.close();
     process.exit(1);
@@ -344,10 +353,12 @@ async function trackRequests(page) {
  * open the fixture project. Prints the verdict and, on a failure, everything
  * the page can say about why, then returns whether the app mounted. Requests
  * still unanswered matter as much as errors: a dev server that stalls leaves
- * the page blank without a single error.
+ * the page blank without a single error. `locale`, when given, is the browser
+ * language the page sees.
  */
-async function smokeCheck(chrome, url) {
+async function smokeCheck(chrome, url, locale) {
   const page = await CdpPage.open(chrome.connection);
+  if (locale) await page.send("Emulation.setLocaleOverride", { locale });
   const requests = await trackRequests(page);
   const started = Date.now();
   // Not awaited, and not page.navigate(): a server that never answers holds
@@ -379,7 +390,8 @@ async function smokeCheck(chrome, url) {
   const errors = page.console.filter((line) => /^\[(error|exception|assert)\]/.test(line));
   const list = (lines) => (lines.length ? lines.map((line) => `    ${line.slice(0, 1_000).replaceAll("\n", "\n      ")}`).join("\n") : "    (none)");
   if (mounted) {
-    console.log(`Smoke check passed: the app opened the fixture project in ${seconds} s.`);
+    const lang = await bounded(page.evaluate("document.documentElement.lang").catch(() => null), 5_000);
+    console.log(`Smoke check passed: the app opened the fixture project in ${seconds} s (interface language: ${typeof lang === "string" && lang ? lang : "unknown"}).`);
     if (errors.length) console.log(`  The page reported errors on the way:\n${list(errors)}`);
   } else {
     const read = await bounded(page.evaluate("document.body ? document.body.innerText : ''").catch((error) => `(could not read: ${error.message})`), 5_000);
@@ -409,7 +421,7 @@ async function smoke(options) {
   const vite = options.url ? null : await startPage(options);
   const chrome = await step("starting headless Chrome", () => launchChrome({ headless: !options.headful }));
   try {
-    if (!(await smokeCheck(chrome, options.url ?? benchUrl(vite.origin, { theme: "system", lang: "en" })))) process.exitCode = 1;
+    if (!(await smokeCheck(chrome, options.url ?? benchUrl(vite.origin, { theme: "system", lang: options.lang }), options.locale))) process.exitCode = 1;
   } finally {
     await chrome.close();
     await vite?.server.close();
