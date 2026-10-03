@@ -285,18 +285,20 @@ pub fn synara_open_skills_folder(app: tauri::AppHandle) -> Result<(), String> {
 }
 
 /// Reveal the sidecar logs a startup failure quotes from. Nothing is created:
-/// a runtime that failed before writing any has no folder to show.
+/// a runtime that failed before writing any has no folder to show, which is
+/// `Ok(false)` so the surface can tell it apart from a failed open.
 #[tauri::command]
 pub fn synara_open_log_folder(
     app: tauri::AppHandle, state: tauri::State<'_, SynaraRuntime>,
-) -> Result<(), String> {
+) -> Result<bool, String> {
     let log_dir = state.home_dir.join(SIDECAR_LOG_DIR);
     if !log_dir.is_dir() {
-        return Err("The agent has not written any logs yet.".to_string());
+        return Ok(false);
     }
     app.opener()
         .open_path(log_dir.to_string_lossy().into_owned(), None::<String>)
-        .map_err(|error| error.to_string())
+        .map_err(|error| error.to_string())?;
+    Ok(true)
 }
 
 /// Keep the desktop token and loopback transport out of the renderer's CORS path.

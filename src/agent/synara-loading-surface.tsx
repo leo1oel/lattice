@@ -51,11 +51,14 @@ export function SynaraLoadingSurface(props: {
 
 function SynaraFailureActions(props: { runtime: SynaraRuntimeInfo; onRetry: () => void }) {
   const { t } = useLingui();
-  const [logsMissing, setLogsMissing] = useState(false);
+  const [logsNote, setLogsNote] = useState<"missing" | "failed" | null>(null);
   const message = props.runtime.message?.trim();
   const openLogs = () => {
     // The backend resolves the folder itself; the WebView never names a path.
-    invoke("synara_open_log_folder").then(() => setLogsMissing(false), () => setLogsMissing(true));
+    invoke<boolean>("synara_open_log_folder").then(
+      (opened) => setLogsNote(opened ? null : "missing"),
+      () => setLogsNote("failed"),
+    );
   };
   const build = [props.runtime.version, props.runtime.revision?.slice(0, 12)].filter(Boolean).join(" · ");
   // What a writer pastes into a report. The startup excerpt is arbitrary
@@ -72,7 +75,11 @@ function SynaraFailureActions(props: { runtime: SynaraRuntimeInfo; onRetry: () =
           {t`Open logs`}
         </Button>
       </div>
-      {logsMissing && <p className="synara-failure-note" role="status">{t`No Agent logs yet`}</p>}
+      {logsNote && (
+        <p className="synara-failure-note" role="status">
+          {logsNote === "missing" ? t`No Agent logs yet` : t`Couldn’t open the logs`}
+        </p>
+      )}
       {message && (
         <details className="synara-failure-details">
           <summary>

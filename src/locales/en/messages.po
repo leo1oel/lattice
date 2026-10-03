@@ -2151,6 +2151,10 @@ msgstr "Couldn’t install the update"
 msgid "Couldn’t merge {markedFiles}. Both versions are kept; resolve each spot to finish. Nothing uploads until then."
 msgstr "Couldn’t merge {markedFiles}. Both versions are kept; resolve each spot to finish. Nothing uploads until then."
 
+#: src/agent/synara-loading-surface.tsx
+msgid "Couldn’t open the logs"
+msgstr "Couldn’t open the logs"
+
 #: src/editor/spreadsheet/spreadsheet-editor.tsx
 msgid "Couldn’t open this spreadsheet"
 msgstr "Couldn’t open this spreadsheet"

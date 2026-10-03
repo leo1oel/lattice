@@ -2151,6 +2151,10 @@ msgstr "无法安装更新"
 msgid "Couldn’t merge {markedFiles}. Both versions are kept; resolve each spot to finish. Nothing uploads until then."
 msgstr "无法合并 {markedFiles}。两个版本都已保留，逐处解决后即可完成；在此之前不会上传。"
 
+#: src/agent/synara-loading-surface.tsx
+msgid "Couldn’t open the logs"
+msgstr "无法打开日志"
+
 #: src/editor/spreadsheet/spreadsheet-editor.tsx
 msgid "Couldn’t open this spreadsheet"
 msgstr "无法打开此电子表格"

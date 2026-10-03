@@ -41,7 +41,7 @@ describe("SynaraLoadingSurface", () => {
   });
 
   it("opens the sidecar logs through the backend and says so when there are none", async () => {
-    vi.mocked(invoke).mockRejectedValueOnce("The agent has not written any logs yet.").mockResolvedValueOnce(undefined);
+    vi.mocked(invoke).mockResolvedValueOnce(false).mockResolvedValueOnce(true);
     render(<SynaraLoadingSurface runtime={stopped("Synara did not start.")} onRetry={vi.fn()} />);
 
     await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Open logs" })); });
@@ -49,6 +49,15 @@ describe("SynaraLoadingSurface", () => {
     expect(screen.getByRole("status")).toHaveTextContent("No Agent logs yet");
 
     await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Open logs" })); });
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+  });
+
+  it("does not claim the logs are missing when opening them fails", async () => {
+    vi.mocked(invoke).mockRejectedValueOnce("Failed to open path");
+    render(<SynaraLoadingSurface runtime={stopped("Synara did not start.")} onRetry={vi.fn()} />);
+
+    await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Open logs" })); });
+    expect(screen.getByRole("status")).toHaveTextContent("Couldn’t open the logs");
     expect(screen.queryByText("No Agent logs yet")).not.toBeInTheDocument();
   });
 

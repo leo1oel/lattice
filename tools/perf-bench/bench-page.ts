@@ -234,8 +234,9 @@ function answer(command: string, args: Args): unknown {
       return `## Abstract\n\n${"Paper content. ".repeat(40)}`;
     case "read_paper_blog_local":
       return fullTextOnly ? null : `## Overview\n\n${"Blog content. ".repeat(40)}`;
-    case "synara_ensure_ready":
     case "synara_open_log_folder":
+      return false;
+    case "synara_ensure_ready":
     case "run_doctor":
       // The agent runtime and the TeX toolchain check are outside the bench;
       // the app treats a failure as an environment that does not expose them.
