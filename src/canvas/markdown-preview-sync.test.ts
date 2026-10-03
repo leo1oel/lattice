@@ -85,9 +85,22 @@ describe("preview viewport anchor", () => {
     expect(captureAnchor(snapshot)).toEqual({ block: 60, top: -10, height: 50 });
   });
 
-  it("has no anchor while nothing at the top is drawn", () => {
-    const snapshot = scroller(Array(48).fill(50), { chunks: 24, drawn: new Set([0]) });
-    snapshot.scrollTop = 30 * 50;
-    expect(captureAnchor(snapshot)).toBeUndefined();
+  it("holds the place over a passive chunk not drawn yet", () => {
+    // A jump to a later heading lands in chunk 24 before it draws.
+    const heights = Array(48).fill(50);
+    const reader = scroller(heights, { chunks: 24, drawn: new Set([0]) });
+    reader.scrollTop = 30 * 50;
+    const anchor = captureAnchor(reader)!;
+    expect(anchor).toEqual({ block: 24, top: -6 * 50 });
+    // Reopened, the chunk draws and its first block comes back to the same offset.
+    const drawn = new Set([0]);
+    let snapshot = scroller(heights, { chunks: 24, drawn });
+    expect(restorePreviewAnchor(snapshot, anchor)).toBe(false);
+    drawn.add(24);
+    const scrollTop = snapshot.scrollTop;
+    snapshot = scroller(heights, { chunks: 24, drawn });
+    snapshot.scrollTop = scrollTop;
+    while (!restorePreviewAnchor(snapshot, anchor));
+    expect(snapshot.scrollTop).toBe(30 * 50);
   });
 });

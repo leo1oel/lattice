@@ -193,17 +193,19 @@ function firstReaching(elements: ArrayLike<Element>, top: number) {
   return low;
 }
 
-/** The block at the top of `viewport`, or undefined while none is drawn there. */
+/**
+ * The block at the top of `viewport`. Over a passive chunk not drawn yet, its
+ * first block at the chunk's offset: the place held only roughly, not lost.
+ */
 function capturePreviewAnchor(viewport: HTMLElement): PreviewAnchor | undefined {
   const top = viewport.getBoundingClientRect().top;
   const chunks = viewport.querySelectorAll<HTMLElement>(CHUNK);
   const chunk = chunks.length ? chunks[firstReaching(chunks, top)] : null;
   if (chunks.length && !chunk) return undefined;
   const blocks = blocksIn(chunk ?? viewport);
-  if (!blocks?.length) return undefined;
-  const index = firstReaching(blocks, top);
-  const block = blocks[index];
-  if (!block) return undefined;
+  const index = blocks ? firstReaching(blocks, top) : 0;
+  const block = blocks?.[index];
+  if (!block) return chunk ? { block: chunkFirst(chunk), top: chunk.getBoundingClientRect().top - top } : undefined;
   const rect = block.getBoundingClientRect();
   return { block: (chunk ? chunkFirst(chunk) : 0) + index, top: rect.top - top, height: rect.height };
 }
