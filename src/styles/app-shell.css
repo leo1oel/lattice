@@ -148,7 +148,20 @@ input[type="search"]:focus-visible {
 /* Comments and TODOs travel together toward the counts at the end rather than
    floating mid-bar whenever the hint and the breadcrumb are absent. */
 .editor-status-bar .status-comments { margin-left: auto; }
-.editor-status-bar .status-body-words { margin-left: var(--space-3); }
+/* The count names its scope in a quieter tone than the number, and opens the
+   per-scope details; it reads as status text, like its neighbours. */
+.editor-status-bar .status-body-words { margin-left: var(--space-3); min-width: 0; border: 0; padding: 0; background: transparent; color: var(--text-secondary); font: inherit; display: inline-flex; align-items: baseline; gap: var(--space-2); cursor: pointer; transition: color var(--duration-quick) var(--ease-default); }
+.editor-status-bar .status-body-words .status-word-scope { color: var(--text-tertiary); transition: inherit; }
+.editor-status-bar .status-body-words .status-word-scope::after { content: "·"; margin-left: var(--space-2); }
+.editor-status-bar .status-body-words:is(:hover, [data-state="open"]),
+.editor-status-bar .status-body-words:is(:hover, [data-state="open"]) .status-word-scope { color: var(--text-primary); }
+.word-count-popover { width: 284px; padding: var(--space-2); }
+.word-count-popover dl { margin: 0; display: grid; }
+.word-count-popover dl > div { display: grid; grid-template-columns: 1fr auto; align-items: baseline; gap: var(--space-1) var(--space-6); padding: var(--space-5) var(--space-6); }
+.word-count-popover dl > div + div { border-top: 1px solid var(--border-subtle); }
+.word-count-popover dt { color: var(--text-primary); font-size: var(--type-label-size); font-weight: var(--weight-semibold); }
+.word-count-popover dd { margin: 0; color: var(--text-primary); font-size: var(--type-label-size); font-weight: var(--weight-semibold); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.word-count-popover dd.word-count-note { grid-column: 1 / -1; color: var(--text-tertiary); font-size: var(--type-micro-size); font-weight: var(--weight-regular); line-height: var(--type-micro-line-height); white-space: normal; text-wrap: pretty; }
 .editor-status-bar .status-hint { min-width: 0; flex: 0 1 auto; overflow: hidden; text-overflow: ellipsis; color: var(--text-tertiary); opacity: .85; }
 .editor-status-bar .status-hint kbd { font: inherit; color: var(--text-secondary); }
 .editor-status-bar .editor-breadcrumb { min-width: 0; flex: 1 1 auto; overflow: hidden; color: var(--text-secondary); text-align: center; display: inline-flex; align-items: center; justify-content: center; gap: var(--space-2); flex-wrap: nowrap; }
@@ -200,7 +213,7 @@ input[type="search"]:focus-visible {
    source (SPLIT_SOURCE_MIN_WIDTH), leaves the bar 216px, so both counters
    survive it. */
 @container (max-width: 730px) { .editor-status-bar .status-hint { display: none; } }
-@container (max-width: 570px) { .editor-status-bar .status-body-words { display: none; } }
+@container (max-width: 510px) { .editor-status-bar .status-body-words { display: none; } }
 @container (max-width: 200px) { .editor-status-bar .status-manuscript-todos { display: none; } }
 @container (max-width: 160px) { .editor-status-bar .status-comments { display: none; } }
 .bib-entry-form { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-5); }

@@ -6,7 +6,8 @@ import { Input } from "../components/ui/input";
 import { ResizableDrawer } from "../components/ui/resizable-drawer";
 
 export type ManuscriptChecklistData = {
-  words: number;
+  /** Null when the project has no countable root document. */
+  words: number | null;
   wordSource: string;
   wordBudget: number | null;
   pages: number | null;
@@ -26,10 +27,29 @@ function parseBudget(value: string): number | null {
   return Number.isFinite(budget) ? Math.max(0, Math.floor(budget)) : null;
 }
 
+/**
+ * How far a count sits from its limit. The track spans the larger of the two,
+ * so an overshoot keeps its proportion: the part past the limit mark is drawn
+ * as its own segment instead of pinning the bar at full. The sentence beside
+ * it carries the meaning, so the bar itself is hidden from assistive tech.
+ */
+function BudgetMeter(props: { value: number; limit: number }) {
+  const span = Math.max(props.value, props.limit) || 1;
+  const percent = (amount: number) => `${(amount / span) * 100}%`;
+  const over = props.value > props.limit;
+  return (
+    <span className={`checklist-meter${over ? " over" : ""}`} aria-hidden="true">
+      {props.limit > 0 && <span className="checklist-meter-fill" style={{ width: percent(Math.min(props.value, props.limit)) }} />}
+      {over && <span className="checklist-meter-over" style={{ left: percent(props.limit), width: percent(props.value - props.limit) }} />}
+    </span>
+  );
+}
+
 function BudgetRow(props: {
   label: string;
   value: string;
   ok: boolean | null;
+  meter?: { value: number; limit: number; distance: string };
   detail?: string;
   onClick?: () => void;
 }) {
@@ -43,7 +63,16 @@ function BudgetRow(props: {
     >
       <strong>{props.label}</strong>
       <span>{props.value}{props.onClick ? <ChevronRight size={13} aria-hidden="true" /> : null}</span>
-      {props.detail ? <small>{props.detail}</small> : null}
+      {props.meter ? <BudgetMeter value={props.meter.value} limit={props.meter.limit} /> : null}
+      {props.meter || props.detail
+        ? (
+          <small>
+            {props.meter ? <b>{props.meter.distance}</b> : null}
+            {props.meter && props.detail ? " · " : null}
+            {props.detail}
+          </small>
+        )
+        : null}
     </Tag>
   );
 }
@@ -57,20 +86,35 @@ export function ManuscriptChecklistPanel(props: {
   const { t } = useLingui();
   const [wordBudget, setWordBudget] = useState(props.data.wordBudget?.toString() ?? "");
   const [pageBudget, setPageBudget] = useState(props.data.pageBudget?.toString() ?? "");
-  const wordsOk = props.data.wordBudget == null ? null : props.data.words <= props.data.wordBudget;
+  const { words, wordBudget: wordLimit, pageBudget: pageLimit } = props.data;
+  // A missing count is never a pass: no meter, no colour, only the gap named.
+  const wordsOk = wordLimit == null || words == null ? null : words <= wordLimit;
   const countedPages = props.data.mainPages ?? props.data.pages;
-  const pagesOk = props.data.pageBudget == null || countedPages == null
+  const pagesOk = pageLimit == null || countedPages == null
     ? null
-    : countedPages <= props.data.pageBudget;
+    : countedPages <= pageLimit;
   const totalPages = props.data.pages;
   const mainPages = props.data.mainPages;
   const pageDetail = totalPages == null
-    ? undefined
+    ? pageLimit == null ? undefined : pageLimit === 1 ? t`Limit 1 page` : t`Limit ${pageLimit} pages`
     : mainPages != null && mainPages !== totalPages
       ? t`${totalPages} total · appendix after p.${mainPages}`
       : mainPages == null
         ? t`venue limit usually excludes appendix`
         : undefined;
+  const wordDistance = (count: number, limit: number) => {
+    const gap = Math.abs(limit - count);
+    const amount = gap.toLocaleString();
+    if (gap === 0) return t`At the limit`;
+    if (count < limit) return gap === 1 ? t`1 word remaining` : t`${amount} words remaining`;
+    return gap === 1 ? t`1 word over` : t`${amount} words over`;
+  };
+  const pageDistance = (count: number, limit: number) => {
+    const gap = Math.abs(limit - count);
+    if (gap === 0) return t`At the limit`;
+    if (count < limit) return gap === 1 ? t`1 page remaining` : t`${gap} pages remaining`;
+    return gap === 1 ? t`1 page over` : t`${gap} pages over`;
+  };
 
   return (
     <ResizableDrawer className="checklist-drawer" onClose={props.onClose}>
@@ -83,16 +127,26 @@ export function ManuscriptChecklistPanel(props: {
         <div className="checklist-rows">
           <BudgetRow
             label={t`Body words`}
-            value={`${props.data.words.toLocaleString()}${props.data.wordBudget != null ? ` / ${props.data.wordBudget.toLocaleString()}` : ""}`}
+            value={words == null
+              ? t`Unavailable`
+              : `${words.toLocaleString()}${wordLimit != null ? ` / ${wordLimit.toLocaleString()}` : ""}`}
             ok={wordsOk}
-            detail={props.data.wordSource === "texcount" ? t`via texcount -inc` : t`local estimate`}
+            meter={words != null && wordLimit != null
+              ? { value: words, limit: wordLimit, distance: wordDistance(words, wordLimit) }
+              : undefined}
+            detail={words == null
+              ? t`Needs a root document to count from`
+              : props.data.wordSource === "texcount" ? t`via texcount -inc` : t`local estimate`}
           />
           <BudgetRow
             label={props.data.mainPages != null ? t`Main pages` : t`PDF pages`}
             value={countedPages == null
               ? t`Build to count`
-              : `${countedPages}${props.data.pageBudget != null ? ` / ${props.data.pageBudget}` : ""}`}
+              : `${countedPages}${pageLimit != null ? ` / ${pageLimit}` : ""}`}
             ok={pagesOk}
+            meter={countedPages != null && pageLimit != null
+              ? { value: countedPages, limit: pageLimit, distance: pageDistance(countedPages, pageLimit) }
+              : undefined}
             detail={pageDetail}
           />
           <BudgetRow
