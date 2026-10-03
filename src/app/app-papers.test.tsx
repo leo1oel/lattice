@@ -649,6 +649,9 @@ describe("papers", () => {
     notesTab.focus();
     act(() => paperRead.resolve("# Attention\n\nPaper content."));
     await waitFor(() => expect(paperTab()).toHaveAttribute("aria-selected", "true"));
+    for (let frame = 0; frame < 2; frame += 1) {
+      await act(() => new Promise<void>((resolve) => requestAnimationFrame(() => resolve())));
+    }
     expect(document.activeElement).toBe(notesTab);
   });
 
