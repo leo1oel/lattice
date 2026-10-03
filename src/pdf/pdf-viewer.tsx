@@ -67,9 +67,14 @@ export type { PdfSourceQuote, PdfSyncTarget };
 /** Notification source label for the PDF preview. */
 const PDF_SOURCE = "PDF";
 
-/** Focus the PDF surface on pointer down so keyboard shortcuts belong to it. */
+/**
+ * Focus the PDF surface on pointer down so keyboard shortcuts belong to it.
+ * Portaled content (the toolbar's More menu) bubbles here through the React
+ * tree; taking focus from it would dismiss the menu, so only DOM descendants count.
+ */
 function focusPdfSurface(event: ReactPointerEvent<HTMLDivElement>) {
   const target = event.target instanceof Element ? event.target : null;
+  if (!target || !event.currentTarget.contains(target)) return;
   const interactiveSelector = ["a", "button", "input", "select", "textarea", `[${"contenteditable"}]`]
     .join(", ");
   if (target?.closest(interactiveSelector)) return;

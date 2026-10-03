@@ -693,8 +693,12 @@ describe("PDFSlick viewer integration", () => {
     ]);
     expect(within(menu).getByRole("menuitem", { name: "Previous PDF location" })).toHaveAttribute("aria-disabled", "true");
 
-    // Stepping keeps the menu open.
-    fireEvent.click(within(menu).getByRole("menuitem", { name: "Zoom in" }));
+    // Stepping keeps the menu open, including the pointerdown a mouse click
+    // sends first: it bubbles through the portal to the preview's focus handler.
+    const zoomIn = within(menu).getByRole("menuitem", { name: "Zoom in" });
+    fireEvent.pointerDown(zoomIn);
+    fireEvent.click(zoomIn);
+    expect(view.container.querySelector(".pdf-preview")).not.toHaveFocus();
     expect(view.getByRole("menu")).toBe(menu);
     fireEvent.click(within(menu).getByRole("menuitem", { name: "Fit page to height" }));
     await waitFor(() => expect(view.queryByRole("menu")).toBeNull());
