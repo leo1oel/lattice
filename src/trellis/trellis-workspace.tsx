@@ -1094,7 +1094,17 @@ function useTabSync(controller: TrellisController, ws: WorkspaceHandle | null, q
       const info = byKey.get(activeKey) ?? (tabsReady ? open(activeKey) : null);
       if (!info) return;
       if (info.placement === "hidden") ws.focus(info.id);
-      else if (!info.selected) ws.select(info.id);
+      else if (!info.selected) {
+        // Selecting alone leaves DOM focus on the view it covers, which then
+        // hides and drops focus to the body: an Enter on the paper's own
+        // library button would strand the keyboard. When focus is still in
+        // that covered view, take it along; focus anywhere else (the notes,
+        // reached while a paper read was pending) stays where the writer put it.
+        const covered = ws.views().find((view) => view.panelId === info.panelId && view.selected);
+        const focusedView = document.activeElement?.closest("[data-view]")?.getAttribute("data-view");
+        if (covered && focusedView === covered.id) ws.focus(info.id);
+        else ws.select(info.id);
+      }
       // A camera framing elsewhere hides it: widen the framing to show it,
       // unless the writer has moved on to another document meanwhile.
       requestAnimationFrame(() => {
