@@ -466,6 +466,53 @@ describe("papers", () => {
     expect(invoke).toHaveBeenCalledWith("read_project_asset", { path: "reference.pdf" });
   });
 
+  it("keeps the notes active while the PDF beside them is paged, zoomed and searched", async () => {
+    mockPdfDocument(() => pdfDocumentStub(12, {
+      render: () => ({ promise: Promise.resolve(), cancel: vi.fn() }), getTextContent: async () => ({ items: [] }),
+    }));
+    renderApp({
+      ...projectCommands(projectSnapshot({ files: fileNodes("main.tex", "notes.md", "reference.pdf") }), "\\documentclass{main}"),
+      read_project_asset: (args) => ({ path: argPath(args), mimeType: "application/pdf", ranges: { length: 8, version: "v1" } }),
+    });
+    await openTreeFile("notes.md");
+    fireEvent.click(await findProjectTreeItem("reference.pdf"));
+    await waitForSelectedTab("reference.pdf");
+    fireEvent.click(within(document.querySelector(".trellis-presets")!).getByRole("tab", { name: "Reading" }));
+    fireEvent.pointerDown(await findElement(".trellis-snapshot"), { button: 0 });
+    await waitForSelectedTab("notes.md");
+    const snapshot = await findElement(".trellis-pdf-snapshot");
+    await within(snapshot).findByLabelText("PDF page 1");
+    // One press on a field, as the browser delivers it: the press, then focus.
+    const press = (field: HTMLElement) => {
+      fireEvent.pointerDown(field, { button: 0 });
+      field.focus();
+    };
+    // Activating the PDF from that focus swapped the snapshot for the live
+    // host, taking the field just clicked with it.
+    const settled = async (field: HTMLElement) => {
+      await new Promise((resolve) => window.setTimeout(resolve, 20));
+      expect(document.querySelector(".trellis-pdf-snapshot")).toBe(snapshot);
+      expect(field).toHaveFocus();
+      expect(screen.getByRole("tab", { name: /notes\.md/ })).toHaveAttribute("aria-selected", "true");
+    };
+    const page = within(snapshot).getByLabelText("PDF page number");
+    press(page);
+    await settled(page);
+    fireEvent.change(page, { target: { value: "7" } });
+    fireEvent.keyDown(page, { key: "Enter" });
+    expect(page).toHaveValue("7");
+    for (const name of ["PDF zoom percentage", "Search PDF"]) {
+      const field = within(snapshot).getByLabelText(name);
+      press(field);
+      await settled(field);
+    }
+    // The PDF's own tab still opens it.
+    fireEvent.click(within(document.querySelector<HTMLElement>('[data-trellis-part="panel"][data-panel="panel-reading"]')!)
+      .getByRole("tab", { name: /reference\.pdf/ }));
+    await waitFor(() => expect(document.querySelector(".trellis-pdf-snapshot")).not.toBeInTheDocument());
+    expect(document.querySelector(".trellis-file-live .pdf-preview")).toBeInTheDocument();
+  });
+
   it("moves a project PDF beside the notes to its new version and notes its removal", async () => {
     mockPdfDocument(() => pdfDocumentStub(1, {
       render: () => ({ promise: Promise.resolve(), cancel: vi.fn() }), getTextContent: async () => ({ items: [] }),

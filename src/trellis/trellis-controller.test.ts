@@ -110,4 +110,26 @@ describe("TrellisController", () => {
     expect(activate.mock.calls).toEqual([["main.tex"]]);
     vi.useRealTimers();
   });
+
+  it("does not activate a PDF from focus while its Reading snapshot is being used", () => {
+    vi.useFakeTimers();
+    const controller = new TrellisController();
+    const activate = vi.fn();
+    controller.setBridge({ activate } as unknown as Parameters<TrellisController["setBridge"]>[0]);
+    controller.holdReading("reference.pdf");
+    controller.activateFromFocus("reference.pdf");
+    controller.activateFromFocus("main.tex");
+    vi.runAllTimers();
+    expect(activate.mock.calls).toEqual([["main.tex"]]);
+    // Released by the next press elsewhere, and stale once it is old.
+    controller.holdReading(null);
+    controller.activateFromFocus("reference.pdf");
+    vi.runAllTimers();
+    controller.holdReading("paper.pdf");
+    vi.advanceTimersByTime(600);
+    controller.activateFromFocus("paper.pdf");
+    vi.runAllTimers();
+    expect(activate.mock.calls).toEqual([["main.tex"], ["reference.pdf"], ["paper.pdf"]]);
+    vi.useRealTimers();
+  });
 });
