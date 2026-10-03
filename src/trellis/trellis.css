@@ -378,8 +378,18 @@
 
 /* ---------------------------------------------------------------- titlebar
    Panel controls replace the editor tab strip. */
-.trellis-titlebar { display: flex; align-items: center; gap: var(--space-4); min-width: 0; flex: 1 1 auto; padding-inline: var(--space-3); }
-.trellis-titlebar-group { display: flex; align-items: center; gap: var(--space-1); padding-left: var(--space-4); border-left: 1px solid var(--border-subtle); }
+/* The controls take only the room the canvas actions leave: inline-size
+   containment zeroes their content-based width, so the canvas toolbar keeps
+   its max-content width and these grow into what is left. Their contents are
+   clipped rather than painted over the toolbar, where a click on a visible
+   control would land on a different command (the bar spans the full title-bar
+   height so focus rings survive the clip). The container queries below shed
+   groups whose actions the Panels menu also offers, in order, as room runs
+   out. They measure this bar rather than the viewport, so interface zoom, the
+   native traffic lights and a long project name all count. */
+.trellis-titlebar { container: trellis-titlebar / inline-size; display: flex; align-items: center; gap: var(--space-4); min-width: 0; flex: 1 1 auto; align-self: stretch; padding-inline: var(--space-3); overflow: clip; }
+.trellis-titlebar .trellis-titlebar-menu { flex: none; white-space: nowrap; }
+.trellis-titlebar-group { flex: none; display: flex; align-items: center; gap: var(--space-1); padding-left: var(--space-4); border-left: 1px solid var(--border-subtle); }
 .trellis-titlebar button {
   height: var(--control-height-compact);
   display: inline-flex; align-items: center; gap: var(--space-3);
@@ -412,12 +422,22 @@
 .trellis-titlebar .trellis-presets .trellis-preset.active { color: var(--text-primary); cursor: default; }
 .trellis-presets .sliding-tab-pill { background: var(--segmented-selected-surface); box-shadow: 0 0 0 1px var(--border-strong), var(--segmented-selected-shadow); }
 .trellis-presets .sliding-tab-label { gap: var(--space-3); }
-@media (max-width: 1180px) {
+@container trellis-titlebar (max-width: 580px) {
   .trellis-titlebar .trellis-presets .trellis-preset { padding-inline: var(--space-4); }
   .trellis-preset-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 }
-.trellis-titlebar-hidden { display: flex; align-items: center; gap: var(--space-2); min-width: 0; overflow: hidden; }
-.trellis-titlebar .trellis-hidden-chip { max-width: 140px; height: var(--control-height-compact); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; border: 1px dashed var(--border-strong); }
+/* Maximize and Reset layout close the Panels menu. */
+@container trellis-titlebar (max-width: 400px) { .trellis-titlebar-layout-actions { display: none; } }
+/* The Panels menu reopens each of these panels; their own headers hide them. */
+@container trellis-titlebar (max-width: 330px) { .trellis-titlebar-panel-toggles { display: none; } }
+/* The Panels menu switches the layout too. */
+@container trellis-titlebar (max-width: 220px) { .trellis-titlebar-presets { display: none; } }
+/* The menu keeps its accessible name when only its icon is left. */
+@container trellis-titlebar (max-width: 115px) { .trellis-titlebar-menu > span { display: none; } }
+.trellis-titlebar-hidden { display: flex; align-items: center; gap: var(--space-2); min-width: 0; overflow: clip; }
+/* Chips shrink to an ellipsis each rather than clip, so every visible chip
+   keeps its own pointer target. */
+.trellis-titlebar .trellis-hidden-chip { flex: 0 1 auto; min-width: 0; max-width: 140px; height: var(--control-height-compact); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; border: 1px dashed var(--border-strong); }
 
 /* A panel narrower than a split's tracks must not be scrolled sideways by an
    editor's scrollIntoView (overflow: hidden still scrolls programmatically). */

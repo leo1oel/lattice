@@ -268,6 +268,8 @@
   --titlebar-trailing-gap: calc(var(--titlebar-switcher-gap) - var(--space-4) - var(--space-3) - var(--space-4) - var(--titlebar-glyph-bearing));
   --titlebar-action-size: var(--control-size-icon-large);
   --titlebar-project-title-max-width: 260px;
+  /* A narrow window gives that room to the panel controls instead. */
+  --titlebar-project-title-max-width-compact: 200px;
 
   /* Editor tab strip contract. The strip has two variants that share every
      state role: the standalone strip below a toolbar, and the compact chrome
