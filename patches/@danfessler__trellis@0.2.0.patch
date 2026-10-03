@@ -1,29 +1,30 @@
 diff --git a/dist/index.d.ts b/dist/index.d.ts
-index 717aa3e9b59f30c9fcbd581a9db24a7e5aab7afc..e174420edaf47c84a360699486cad068284c61de 100644
+index 717aa3e9b59f30c9fcbd581a9db24a7e5aab7afc..71df9020b4f90006c87a2189726a2893692292a3 100644
 --- a/dist/index.d.ts
 +++ b/dist/index.d.ts
-@@ -199,6 +199,20 @@ interface LayoutMetrics {
+@@ -199,6 +199,21 @@ interface LayoutMetrics {
  /** World geometry of every node, as fractions of the whole layout. With metrics, each group keeps
   * its children at their minimums (in its own layout space) and scales down when they can't fit. */
  declare function layoutRects(node: LayoutNode | null, metrics?: LayoutMetrics): Map<string, Entry>;
 +/** Lattice patch: a panel header's measured parts. `chrome` is the bar without its tabs with the
-+ * whole action row, without the row's text labels, and without the row. */
++ * whole action row and its modes named, the whole row, without the row's text labels, and
++ * without the row. */
 +interface HeaderMeasure {
-+    chrome: readonly [number, number, number];
++    chrome: readonly [number, number, number, number];
 +    gap: number;
-+    items: ReadonlyArray<{ viewId: string; atomic: true; full: number; compact: number } | { viewId: string; atomic: false; min: number; floor: number }>;
++    items: ReadonlyArray<{ viewId: string; atomic: true; full: number; compact: number } | { viewId: string; atomic: false; min: number; floor: number; natural: number }>;
 +}
 +/** Lattice patch: how a panel header fits `width` (see the comment in the patch). */
 +declare function planHeader(header: HeaderMeasure, width: number, squeeze?: number): {
 +    labelled: number;
-+    tools: null | "icon" | "hidden";
++    tools: "named" | null | "icon" | "hidden";
 +    tabMin: number | null;
 +    min: number;
 +};
  
  type Cleanup = void | (() => void);
  interface MenuItem {
-@@ -440,6 +454,8 @@ interface WorkspaceSnapshot {
+@@ -440,6 +455,8 @@ interface WorkspaceSnapshot {
      canGoForward: boolean;
      framings: Framing[];
      dragging: boolean;
@@ -32,14 +33,14 @@ index 717aa3e9b59f30c9fcbd581a9db24a7e5aab7afc..e174420edaf47c84a360699486cad068
  }
  interface WorkspaceEvents {
      /** Committed layout changes only; never fires mid-drag or mid-animation. */
-@@ -533,4 +549,4 @@ declare function emptyDocument(): LayoutDocument;
+@@ -533,4 +550,4 @@ declare function emptyDocument(): LayoutDocument;
  /** Repair anything inconsistent in a document from storage or a caller. */
  declare function sanitize(input: LayoutDocument, isKnownType?: (type: string) => boolean): LayoutDocument;
  
 -export { type Axis, type BuiltInMenuId, type Cleanup, type Command, DEFAULT_KEYMAP, type Edge, type FloatSpec, type FloatingLayer, type FloatingPanel, type Framing, type HiddenPanel, type IframeOptions, type Keymap, type LayoutDocument, type Entry as LayoutEntry, type LayoutMetrics, type LayoutNode, type LayoutSpec, type MenuEntry, type MenuItem, type MenuRequest, type OpenOptions, type PanelMenuContext, type PanelNode, type PanelSpec, type Params, type Placement, type Rect, type RestoreTarget, type SplitNode, type SplitSpec, type StageNode, type StageSpec, type Surface, type Theme, type ViewEvents, type ViewHandle, type ViewInfo, type ViewPlacement, type ViewRecord, type ViewRules, type ViewSpec, type ViewState, type ViewTypeDefinition, type ViewTypes, type WorkspaceEvents, type WorkspaceHandle, type WorkspaceOptions, type WorkspaceSlots, type WorkspaceSnapshot, createDocument, createWorkspace, emptyDocument, formatCombo, layout, layoutRects, sanitize };
 +export { type Axis, type BuiltInMenuId, type Cleanup, type Command, DEFAULT_KEYMAP, type Edge, type FloatSpec, type FloatingLayer, type FloatingPanel, type Framing, type HiddenPanel, type IframeOptions, type Keymap, type LayoutDocument, type Entry as LayoutEntry, type LayoutMetrics, type LayoutNode, type LayoutSpec, type MenuEntry, type MenuItem, type MenuRequest, type OpenOptions, type PanelMenuContext, type PanelNode, type PanelSpec, type Params, type Placement, type Rect, type RestoreTarget, type SplitNode, type SplitSpec, type StageNode, type StageSpec, type Surface, type Theme, type ViewEvents, type ViewHandle, type ViewInfo, type ViewPlacement, type ViewRecord, type ViewRules, type ViewSpec, type ViewState, type ViewTypeDefinition, type ViewTypes, type WorkspaceEvents, type WorkspaceHandle, type WorkspaceOptions, type WorkspaceSlots, type WorkspaceSnapshot, type HeaderMeasure, createDocument, createWorkspace, emptyDocument, formatCombo, layout, layoutRects, planHeader, sanitize };
 diff --git a/dist/index.js b/dist/index.js
-index 101e9570f85e3c58ed50ba757cab4487578bbeff..1b5597cb6e87818dc151151c43673413dc179ef0 100644
+index 101e9570f85e3c58ed50ba757cab4487578bbeff..fd4a170ad7b94c95157b11fdb8ff363376020ee9 100644
 --- a/dist/index.js
 +++ b/dist/index.js
 @@ -1389,7 +1389,7 @@ function createDragController(host) {
@@ -181,14 +182,15 @@ index 101e9570f85e3c58ed50ba757cab4487578bbeff..1b5597cb6e87818dc151151c43673413
          h("span", {}, `No view type named \u201C${type}\u201D is registered.`)
        )
      );
-@@ -2752,6 +2813,45 @@ var escapeHtml = (text) => text.replace(
+@@ -2752,6 +2813,50 @@ var escapeHtml = (text) => text.replace(
  var DEFAULT_FLOAT_SIZE = { w: 560, h: 400 };
  var FRAME_ONLY = { w: 160, h: 64 };
  var PANEL_MIN = { w: 80 };
 +// Lattice patch: the states of a header's action row, roomiest first, as the
-+// tab bar's data-tools: the whole row, its buttons without their text labels
-+// (Lattice CSS), then none (every header tool is also in the panel menu).
-+var HEADER_TOOLS = [null, "icon", "hidden"];
++// tab bar's data-tools: the whole row with its document modes named beside
++// their icons, the whole row, its buttons without their text labels (Lattice
++// CSS), then none (every header tool is also in the panel menu).
++var HEADER_TOOLS = ["named", null, "icon", "hidden"];
 +// Lattice patch: how a panel's header fits `width`, so its tabs never run
 +// under its actions. `header.chrome` is the bar's width without its tabs in
 +// each HEADER_TOOLS state. Named tabs (atomic) show their whole label or only
@@ -200,6 +202,9 @@ index 101e9570f85e3c58ed50ba757cab4487578bbeff..1b5597cb6e87818dc151151c43673413
 +//      (`tabMin`, Lattice CSS --trellis-tab-min);
 +//   3. the action row loses its text labels, then goes entirely;
 +//   4. only then do the tabs scroll, in a strip that now reaches the menu.
++// The modes are named only in room to spare: with every named tab's label
++// shown and every other tab at its natural width (`natural`), so no tab is
++// ever narrower for a name, and the panel's minimum never counts them.
 +// A divider's rubber band (`squeeze`) shrinks the other tabs for the moment
 +// (Lattice CSS takes it off --trellis-tab-min), so that room is theirs.
 +// The panel's minimum header is its whole action row, every named tab as an
@@ -212,22 +217,23 @@ index 101e9570f85e3c58ed50ba757cab4487578bbeff..1b5597cb6e87818dc151151c43673413
 +  const named = (k) => atomic.reduce((sum, item, i) => sum + (i < k ? item.full : item.compact), 0);
 +  const looseMin = loose.reduce((sum, item) => sum + item.min, 0);
 +  const looseFloor = loose.reduce((sum, item) => sum + Math.min(item.floor, item.min), 0);
++  const looseNatural = loose.reduce((sum, item) => sum + Math.max(item.natural, item.min), 0);
 +  // Room left for the other tabs with `k` named labels and the row in state `s`.
 +  const room = (k, s, give = 0) => width + give - chrome[s] - gaps - named(k);
 +  let labelled = atomic.length;
-+  while (labelled > 0 && room(labelled, 0) < looseMin - 0.5) labelled--;
-+  let state = 0;
++  while (labelled > 0 && room(labelled, 1) < looseMin - 0.5) labelled--;
++  let state = labelled === atomic.length && room(labelled, 0) >= looseNatural - 0.5 ? 0 : 1;
 +  while (state < HEADER_TOOLS.length - 1 && room(0, state, squeeze) < looseFloor - 0.5) state++;
 +  const share = loose.length ? room(0, state, squeeze) / loose.length : 0;
 +  const widest = Math.max(0, ...loose.map((item) => item.min));
 +  const floor = Math.max(0, ...loose.map((item) => Math.min(item.floor, item.min)));
 +  const tabMin = loose.length && share < widest ? Math.max(floor, Math.floor(share)) : null;
-+  return { labelled, tools: HEADER_TOOLS[state], tabMin, min: Math.min(480, chrome[0] + gaps + named(0) + looseMin) };
++  return { labelled, tools: HEADER_TOOLS[state], tabMin, min: Math.min(480, chrome[1] + gaps + named(0) + looseMin) };
 +}
  var DETAIL = { size: 48, outline: 2 };
  function createWorkspace(host, initialOptions) {
    let options = { ...initialOptions };
-@@ -2762,7 +2862,7 @@ function createWorkspace(host, initialOptions) {
+@@ -2762,7 +2867,7 @@ function createWorkspace(host, initialOptions) {
      class: "trellis",
      "data-trellis-root": "",
      role: "region",
@@ -236,7 +242,7 @@ index 101e9570f85e3c58ed50ba757cab4487578bbeff..1b5597cb6e87818dc151151c43673413
      tabindex: "-1"
    });
    const backdrop = h("div", { "data-trellis-part": "backdrop" });
-@@ -2853,7 +2953,7 @@ function createWorkspace(host, initialOptions) {
+@@ -2853,7 +2958,7 @@ function createWorkspace(host, initialOptions) {
      setAttr(root, "data-tab-bleed", tabs.inset === 0 ? "" : null);
      if (tabs.inset !== void 0) root.style.setProperty("--trellis-tab-inset", `${tabs.inset}px`);
      else if (!options.tokens?.["--trellis-tab-inset"]) root.style.removeProperty("--trellis-tab-inset");
@@ -245,7 +251,7 @@ index 101e9570f85e3c58ed50ba757cab4487578bbeff..1b5597cb6e87818dc151151c43673413
      const tokens = options.tokens ?? {};
      for (const key of appliedTokens) if (!(key in tokens)) root.style.removeProperty(key);
      for (const [key, value] of Object.entries(tokens))
-@@ -3089,7 +3189,7 @@ function createWorkspace(host, initialOptions) {
+@@ -3089,7 +3194,7 @@ function createWorkspace(host, initialOptions) {
      const menuButton = h("button", {
        "data-trellis-part": "panel-menu",
        type: "button",
@@ -254,7 +260,7 @@ index 101e9570f85e3c58ed50ba757cab4487578bbeff..1b5597cb6e87818dc151151c43673413
        "aria-haspopup": "menu",
        tabindex: "-1"
      });
-@@ -3118,6 +3218,20 @@ function createWorkspace(host, initialOptions) {
+@@ -3118,6 +3223,20 @@ function createWorkspace(host, initialOptions) {
        endInset: 0
      };
      panelDoms.set(panelId, dom);
@@ -275,7 +281,7 @@ index 101e9570f85e3c58ed50ba757cab4487578bbeff..1b5597cb6e87818dc151151c43673413
      const d = dom;
      const onPointerDown = (e) => {
        const panel = findPanel(d.id);
-@@ -3182,6 +3296,7 @@ function createWorkspace(host, initialOptions) {
+@@ -3182,6 +3301,7 @@ function createWorkspace(host, initialOptions) {
    function destroyPanelDom(panelId) {
      const dom = panelDoms.get(panelId);
      if (!dom) return;
@@ -283,7 +289,7 @@ index 101e9570f85e3c58ed50ba757cab4487578bbeff..1b5597cb6e87818dc151151c43673413
      dom.el.remove();
      dom.tabbar.remove();
      dom.handles?.remove();
-@@ -3211,6 +3326,7 @@ function createWorkspace(host, initialOptions) {
+@@ -3211,6 +3331,7 @@ function createWorkspace(host, initialOptions) {
        if (!wanted.has(viewId)) {
          tab.el.remove();
          dom.tabs.delete(viewId);
@@ -291,7 +297,7 @@ index 101e9570f85e3c58ed50ba757cab4487578bbeff..1b5597cb6e87818dc151151c43673413
        }
      panel.views.forEach((viewId, index) => {
        let tab = dom.tabs.get(viewId);
-@@ -3241,6 +3357,7 @@ function createWorkspace(host, initialOptions) {
+@@ -3241,6 +3362,7 @@ function createWorkspace(host, initialOptions) {
          });
          tab = { el, title, badge, close: closeButton };
          dom.tabs.set(viewId, tab);
@@ -299,7 +305,7 @@ index 101e9570f85e3c58ed50ba757cab4487578bbeff..1b5597cb6e87818dc151151c43673413
        } else if (tab.el.firstChild !== record.icon) tab.el.prepend(record.icon);
        if (dom.tablist.children[index] !== tab.el)
          dom.tablist.insertBefore(tab.el, dom.tablist.children[index] ?? null);
-@@ -3262,7 +3379,13 @@ function createWorkspace(host, initialOptions) {
+@@ -3262,7 +3384,13 @@ function createWorkspace(host, initialOptions) {
        for (const [viewId, tab] of dom.tabs) {
          const selected = panel.selected === viewId;
          const title = titleOf(viewId);
@@ -314,7 +320,7 @@ index 101e9570f85e3c58ed50ba757cab4487578bbeff..1b5597cb6e87818dc151151c43673413
          const badge = badges.get(viewId);
          const dot = badge === true;
          const text = badge === null || badge === void 0 || badge === "" || typeof badge === "boolean" ? "" : String(badge);
-@@ -3278,11 +3401,14 @@ function createWorkspace(host, initialOptions) {
+@@ -3278,11 +3406,14 @@ function createWorkspace(host, initialOptions) {
          setAttr(tab.el, "data-focused", focusedView === viewId ? "" : null);
          const closable = typeOf(viewId).closable !== false;
          setAttr(tab.close, "hidden", closable ? null : "");
@@ -331,7 +337,7 @@ index 101e9570f85e3c58ed50ba757cab4487578bbeff..1b5597cb6e87818dc151151c43673413
            if (record.controller.state.title !== title) record.controller.update({ title });
          }
        }
-@@ -3301,7 +3427,7 @@ function createWorkspace(host, initialOptions) {
+@@ -3301,7 +3432,7 @@ function createWorkspace(host, initialOptions) {
      invalidate();
    }
    function sync() {
@@ -340,7 +346,7 @@ index 101e9570f85e3c58ed50ba757cab4487578bbeff..1b5597cb6e87818dc151151c43673413
      const live2 = new Set(viewIds(doc));
      for (const v of lifted()?.views ?? []) live2.add(v);
      for (const l of leaving.values()) for (const v of l.panel.views) live2.add(v);
-@@ -3360,7 +3486,7 @@ function createWorkspace(host, initialOptions) {
+@@ -3360,7 +3491,7 @@ function createWorkspace(host, initialOptions) {
              role: "separator",
              tabindex: "0",
              "aria-orientation": node.axis === "x" ? "vertical" : "horizontal",
@@ -349,7 +355,7 @@ index 101e9570f85e3c58ed50ba757cab4487578bbeff..1b5597cb6e87818dc151151c43673413
            });
            el2.dataset.split = node.id;
            el2.dataset.index = String(i);
-@@ -3660,8 +3786,8 @@ function createWorkspace(host, initialOptions) {
+@@ -3660,8 +3791,8 @@ function createWorkspace(host, initialOptions) {
          el.dataset.lines = lines;
        }
        const count = leafIds(e.node).length;
@@ -360,7 +366,7 @@ index 101e9570f85e3c58ed50ba757cab4487578bbeff..1b5597cb6e87818dc151151c43673413
        const r = inset(toScreen(e.rect), pad());
        const onscreen = r.x < viewport.w && r.y < viewport.h && r.x + r.w > 0 && r.y + r.h > 0;
        setStyle(el, "display", onscreen ? "" : "none");
-@@ -3740,6 +3866,15 @@ function createWorkspace(host, initialOptions) {
+@@ -3740,6 +3871,15 @@ function createWorkspace(host, initialOptions) {
        setStyle(dom.el, "zIndex", String(z));
        setAttr(dom.el, "data-lifted", lifted()?.id === panelId ? "" : null);
        place(dom.el, r, round);
@@ -376,7 +382,7 @@ index 101e9570f85e3c58ed50ba757cab4487578bbeff..1b5597cb6e87818dc151151c43673413
        const float2 = doc.floating.find((f) => f.panel.id === panelId);
        const clip = float2?.layer === "stage" && sScreen && lifted()?.id !== panelId ? clipInset(r, sScreen) : "";
        setStyle(dom.el, "clipPath", clip);
-@@ -3866,7 +4001,7 @@ function createWorkspace(host, initialOptions) {
+@@ -3866,7 +4006,7 @@ function createWorkspace(host, initialOptions) {
      const min = minSizeOf(controller.id);
      const scaleAt = (r) => Math.max(min ? Math.min(1, r.w / Math.max(1, min.width), r.h / Math.max(1, min.height)) : 1, 0.05);
      const safe = scaleAt(body);
@@ -385,7 +391,7 @@ index 101e9570f85e3c58ed50ba757cab4487578bbeff..1b5597cb6e87818dc151151c43673413
      setStyle(shell, "zIndex", String(z));
      setStyle(shell, "visibility", selected && !concealed ? "" : "hidden");
      setStyle(shell, "opacity", opacity === 1 ? "" : String(opacity));
-@@ -3922,7 +4057,8 @@ function createWorkspace(host, initialOptions) {
+@@ -3922,7 +4062,8 @@ function createWorkspace(host, initialOptions) {
      for (const el of dividerEls.values()) {
        const split = effectiveSplit(el.dataset.split);
        const e = split && entries.get(split.id);
@@ -395,7 +401,7 @@ index 101e9570f85e3c58ed50ba757cab4487578bbeff..1b5597cb6e87818dc151151c43673413
          setStyle(el, "display", "none");
          continue;
        }
-@@ -4383,16 +4519,16 @@ function createWorkspace(host, initialOptions) {
+@@ -4383,16 +4524,16 @@ function createWorkspace(host, initialOptions) {
      if (navigationMode() && region !== "floating")
        items.push({
          id: "maximize",
@@ -415,7 +421,7 @@ index 101e9570f85e3c58ed50ba757cab4487578bbeff..1b5597cb6e87818dc151151c43673413
          run: () => dock(
            panelId,
            findStage(doc.root) && allowed(panel.views, "stage") ? "stage" : { beside: doc.root?.id ?? "", edge: "right", share: 0.3 }
-@@ -4401,7 +4537,7 @@ function createWorkspace(host, initialOptions) {
+@@ -4401,7 +4542,7 @@ function createWorkspace(host, initialOptions) {
      } else if (floatingLayer() && allowed(panel.views, "floating")) {
        items.push({
          id: "float",
@@ -424,7 +430,7 @@ index 101e9570f85e3c58ed50ba757cab4487578bbeff..1b5597cb6e87818dc151151c43673413
          run: () => floatingLayer() === "stage" ? toggleDock(panelId) : float(panelId)
        });
      }
-@@ -4421,19 +4557,19 @@ function createWorkspace(host, initialOptions) {
+@@ -4421,19 +4562,19 @@ function createWorkspace(host, initialOptions) {
        moves.push(
          {
            id: "split-right",
@@ -448,7 +454,7 @@ index 101e9570f85e3c58ed50ba757cab4487578bbeff..1b5597cb6e87818dc151151c43673413
        run: () => hide(panelId, { toward: options.hideToward?.(panelId) ?? void 0 })
      });
      const closable = panel.views.filter((v) => typeOf(v).closable !== false);
-@@ -4442,14 +4578,14 @@ function createWorkspace(host, initialOptions) {
+@@ -4442,14 +4583,14 @@ function createWorkspace(host, initialOptions) {
        if (typeOf(panel.selected).closable !== false)
          items.push({
            id: "close",
@@ -465,7 +471,7 @@ index 101e9570f85e3c58ed50ba757cab4487578bbeff..1b5597cb6e87818dc151151c43673413
            run: () => panel.views.filter((v) => v !== panel.selected).forEach((v) => void close(v))
          });
      }
-@@ -4625,11 +4761,138 @@ function createWorkspace(host, initialOptions) {
+@@ -4625,11 +4766,143 @@ function createWorkspace(host, initialOptions) {
    function announce(text) {
      live.textContent = text;
    }
@@ -493,7 +499,7 @@ index 101e9570f85e3c58ed50ba757cab4487578bbeff..1b5597cb6e87818dc151151c43673413
 +  }
 +  // Lattice patch: measure a panel's header from the live DOM. Named tabs
 +  // (data-atomic) are measured with and without their label; other tabs count
-+  // at their CSS minimum; the action row in each of its states (Lattice CSS:
++  // at their CSS minimum and their natural width; the action row in each of its states (Lattice CSS:
 +  // data-tools on the bar, see HEADER_TOOLS). Returns false when the header
 +  // is not laid out.
 +  function measureHeader(dom, panel) {
@@ -514,6 +520,11 @@ index 101e9570f85e3c58ed50ba757cab4487578bbeff..1b5597cb6e87818dc151151c43673413
 +    atomic.forEach(({ tab }) => setAttr(tab.el, "data-icon-only", ""));
 +    const compact = atomic.map(({ tab }) => tab.el.getBoundingClientRect().width);
 +    atomic.forEach(({ tab }, i) => setAttr(tab.el, "data-icon-only", before[i] ? "" : null));
++    // The other tabs' natural widths: unshrunk, each up to its CSS maximum.
++    const loose = tabs.filter(({ tab }) => !tab.el.hasAttribute("data-atomic"));
++    loose.forEach(({ tab }) => { tab.el.style.flexShrink = "0"; });
++    const natural = new Map(loose.map(({ viewId, tab }) => [viewId, tab.el.getBoundingClientRect().width]));
++    loose.forEach(({ tab }) => { tab.el.style.flexShrink = ""; });
 +    const list = getComputedStyle(dom.tablist);
 +    const padding = (parseFloat(list.paddingLeft) || 0) + (parseFloat(list.paddingRight) || 0);
 +    const items = tabs.map(({ viewId, tab }) => {
@@ -522,7 +533,7 @@ index 101e9570f85e3c58ed50ba757cab4487578bbeff..1b5597cb6e87818dc151151c43673413
 +      // A tab's floor is the tab without its title (and the gap before it).
 +      const style = getComputedStyle(tab.el);
 +      const floor = tab.el.getBoundingClientRect().width - tab.title.getBoundingClientRect().width - (parseFloat(style.columnGap) || 0);
-+      return { viewId, atomic: false, min: parseFloat(style.minWidth) || 0, floor: Math.ceil(floor) };
++      return { viewId, atomic: false, min: parseFloat(style.minWidth) || 0, floor: Math.ceil(floor), natural: Math.ceil(natural.get(viewId)) };
 +    });
 +    // Everything in the bar but the tabs (actions, menu, gaps, paddings), in
 +    // each state of the action row.
@@ -605,7 +616,7 @@ index 101e9570f85e3c58ed50ba757cab4487578bbeff..1b5597cb6e87818dc151151c43673413
      };
    }
    function minFraction(split, index) {
-@@ -4644,47 +4907,126 @@ function createWorkspace(host, initialOptions) {
+@@ -4644,47 +4917,126 @@ function createWorkspace(host, initialOptions) {
      const node = entries.get(id)?.node;
      return node?.kind === "split" ? node : null;
    }
@@ -741,7 +752,7 @@ index 101e9570f85e3c58ed50ba757cab4487578bbeff..1b5597cb6e87818dc151151c43673413
    function equalize(splitId, index) {
      const split = findNode(doc.root, splitId);
      if (!split) return;
-@@ -4794,7 +5136,10 @@ function createWorkspace(host, initialOptions) {
+@@ -4794,7 +5146,10 @@ function createWorkspace(host, initialOptions) {
        canGoBack: nav.canGoBack,
        canGoForward: nav.canGoForward,
        framings: nav.framings.list(),
@@ -753,7 +764,7 @@ index 101e9570f85e3c58ed50ba757cab4487578bbeff..1b5597cb6e87818dc151151c43673413
      };
      return snapshot;
    }
-@@ -4902,7 +5247,7 @@ function createWorkspace(host, initialOptions) {
+@@ -4902,7 +5257,7 @@ function createWorkspace(host, initialOptions) {
        if (!surface) return false;
        return typeOf(surface.dataset.view).gestures !== "workspace";
      },
@@ -762,7 +773,7 @@ index 101e9570f85e3c58ed50ba757cab4487578bbeff..1b5597cb6e87818dc151151c43673413
      schedule,
      render: () => render(),
      changed() {
-@@ -5047,6 +5392,7 @@ export {
+@@ -5047,6 +5402,7 @@ export {
    formatCombo,
    layout,
    layoutRects,

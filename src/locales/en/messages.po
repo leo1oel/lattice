@@ -4090,8 +4090,13 @@ msgstr "Lattice workspace"
 
 #: src/App.tsx
 #: src/trellis/trellis-titlebar.tsx
+#: src/trellis/trellis-workspace.tsx
 msgid "Layout"
 msgstr "Layout"
+
+#: src/trellis/trellis-workspace.tsx
+msgid "Layout reset"
+msgstr "Layout reset"
 
 #: src/App.tsx
 msgid "Learn Lattice with the Understanding Attention sample project"
@@ -8234,6 +8239,7 @@ msgid "Underline"
 msgstr "Underline"
 
 #: src/app/use-editor-comments.ts
+#: src/trellis/trellis-workspace.tsx
 msgid "Undo"
 msgstr "Undo"
 

@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
-import type { LayoutDocument, LayoutNode, PanelNode } from "@danfessler/trellis";
-import { defaultLayout, enterPreset, loadLayout, presetLayout, returnLayout, saveLayout, withDocumentPanel } from "./trellis-layout";
+import { sanitize, type LayoutDocument, type LayoutNode, type PanelNode } from "@danfessler/trellis";
+import {
+  defaultLayout, enterPreset, layoutShape, loadLayout, presetLayout, returnLayout, saveLayout, undoReset, withDocumentPanel,
+} from "./trellis-layout";
 
 const PAPER = "paper:1706.03762:";
 const isReading = (key: string) => key.startsWith("paper:") || key.endsWith(".pdf");
@@ -179,5 +181,64 @@ describe("layout presets", () => {
       version: 2, savedAt: 0, document: presetLayout("writing", previous, documents), preset: { preset: "writing", previous },
     }));
     expect(loadLayout("/old").preset).toEqual(expect.objectContaining({ preset: "writing", supplied: [] }));
+  });
+});
+
+describe("undoing a reset", () => {
+  const keys = ["main.tex", "notes.md", PAPER];
+
+  /** The writer's own layout: Papers closed (its column closes up), History docked with the documents. */
+  function arranged(): LayoutDocument {
+    const doc = workspaceWith(keys);
+    delete doc.views.papers;
+    const column = (doc.root as { children: LayoutNode[] }).children[0] as { children: LayoutNode[]; weights: number[] };
+    column.children = [column.children[0]];
+    column.weights = [1];
+    doc.views.history = { type: "history" };
+    findPanel(doc.root, "panel-doc-0")!.views.push("history");
+    return sanitize(doc);
+  }
+
+  /** The default layout as a reset leaves it: App's tab sync re-placed the documents under new views. */
+  function reset(open: string[]): LayoutDocument {
+    let doc = withDocumentPanel(defaultLayout(), { id: "file-new0", key: open[0] }, { after: ["panel-project"] });
+    open.slice(1).forEach((key, index) => {
+      doc = { ...doc, views: { ...doc.views, [`file-new${index + 1}`]: { type: "file", params: { key } } } };
+      findPanel(doc.root, "panel-file-new0")!.views.push(`file-new${index + 1}`);
+    });
+    return doc;
+  }
+
+  it("brings back the writer's arrangement, without the panels only the reset brought in", () => {
+    const previous = arranged();
+    const back = undoReset(previous, reset(keys), { activeKey: "main.tex", openTabs: keys }, (type) => type === "history");
+    expect(panels(back)).toEqual([
+      { id: "panel-project", views: ["project", "agent"], selected: "project" },
+      { id: "panel-doc-0", views: ["doc-0", "doc-1", "doc-2", "history"], selected: "doc-0" },
+      { id: "panel-pdf", views: ["pdf"], selected: "pdf" },
+    ]);
+    expect(back.views.papers).toBeUndefined();
+    expect(layoutShape(back)).toBe(layoutShape(previous));
+  });
+
+  it("never brings back a document closed since, or a tool no longer open", () => {
+    const open = ["main.tex", PAPER];
+    const back = undoReset(arranged(), reset(open), { activeKey: PAPER, openTabs: open }, () => false);
+    expect(findPanel(back.root, "panel-doc-0")).toEqual(expect.objectContaining({ views: ["doc-0", "doc-2"], selected: "doc-2" }));
+    expect(back.views["doc-1"]).toBeUndefined();
+    expect(back.views.history).toBeUndefined();
+  });
+
+  it("tells a change of arrangement from documents re-placed or another tab selected", () => {
+    const previous = arranged();
+    const same = undoReset(previous, reset(keys), { activeKey: PAPER, openTabs: keys }, () => true);
+    expect(layoutShape(same)).toBe(layoutShape(previous));
+    const resized = structuredClone(previous);
+    (resized.root as { weights: number[] }).weights = [0.3, 0.3, 0.4];
+    expect(layoutShape(resized)).not.toBe(layoutShape(previous));
+    const moved = structuredClone(previous);
+    findPanel(moved.root, "panel-doc-0")!.views.pop();
+    findPanel(moved.root, "panel-pdf")!.views.push("history");
+    expect(layoutShape(moved)).not.toBe(layoutShape(previous));
   });
 });

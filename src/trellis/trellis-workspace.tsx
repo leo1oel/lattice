@@ -45,9 +45,11 @@ import {
   TOOL_KINDS, documentTools, useTrellisApp, type TrellisController, type TrellisSingleton, type TrellisToolKind,
 } from "./trellis-controller";
 import {
-  defaultLayout, loadLayout, saveLayout, clearLayout, enterPreset, returnLayout, withDocumentPanel, VIEW_TYPES,
-  type ActivePreset,
+  defaultLayout, loadLayout, saveLayout, clearLayout, enterPreset, returnLayout, undoReset, layoutShape, withDocumentPanel,
+  VIEW_TYPES, type ActivePreset,
 } from "./trellis-layout";
+import { notifyInfo } from "../telemetry/app-notify";
+import { dismissAppToastByDedupeKey } from "../telemetry/app-log-store";
 import { installTrellisLabels } from "./trellis-labels";
 import { PANEL_TITLES, spaceMixedScript } from "./trellis-titles";
 import { MENU_ICONS, PANEL_ICONS, fileIcon } from "./trellis-icons";
@@ -700,6 +702,16 @@ const TOKENS: Record<string, string> = {
   "--trellis-focus-ring": "0 0 0 var(--focus-ring-width) var(--focus-ring)",
 };
 
+/** The toast that offers to undo a reset; a later reset's replaces it. */
+const RESET_UNDO_TOAST = "trellis-layout-reset";
+
+/**
+ * A reset that can still be undone: the layout, the preset and the focused
+ * view from before it, and the arrangement the reset left (`left`, see
+ * layoutShape), which any change of the writer's own supersedes.
+ */
+type ResetUndo = { document: LayoutDocument; preset: ActivePreset | null; focused: string | null; left: string };
+
 /** Trellis's own shortcuts, less the whole-workspace overview (⌘⌥↑), which Lattice does not offer. */
 const KEYMAP = { "navigation.overview": null };
 
@@ -734,6 +746,13 @@ const TrellisWorkspace = memo(function TrellisWorkspace({ controller, projectRoo
   const resettingRef = useRef(false);
   /** The preset the layout is in, with the writer's own layout to return to. */
   const presetRef = useRef<ActivePreset | null>(initialPreset);
+  const resetUndo = useRef<ResetUndo | null>(null);
+  /** Take back the offer to undo the last reset, and its toast. */
+  const withdrawUndo = useCallback(() => {
+    if (!resetUndo.current) return;
+    resetUndo.current = null;
+    dismissAppToastByDedupeKey(RESET_UNDO_TOAST);
+  }, []);
 
   useTabSync(controller, ws, quietCloses);
   useHibernation(controller);
@@ -780,6 +799,8 @@ const TrellisWorkspace = memo(function TrellisWorkspace({ controller, projectRoo
   const saveTimer = useRef<number | null>(null);
   const pendingSave = useRef<(() => void) | null>(null);
   const onDocumentChange = useCallback((document: LayoutDocument) => {
+    // Any arrangement but the one a reset left supersedes undoing it.
+    if (resetUndo.current && layoutShape(document) !== resetUndo.current.left) withdrawUndo();
     if (saveTimer.current !== null) window.clearTimeout(saveTimer.current);
     pendingSave.current = () => saveLayout(projectRoot, document, presetRef.current);
     saveTimer.current = window.setTimeout(() => {
@@ -802,14 +823,16 @@ const TrellisWorkspace = memo(function TrellisWorkspace({ controller, projectRoo
         && previous.every((entry, index) => entry.panelId === hidden[index].panelId && entry.title === hidden[index].title);
       controller.ui.set({ framed: snapshot.framed, hidden: same ? previous : hidden });
     }
-  }, [controller, projectRoot]);
-  // Unmounting (a project switch, the window closing) writes the last change now.
+  }, [controller, projectRoot, withdrawUndo]);
+  // Unmounting (a project switch, the window closing) writes the last change
+  // now, and a reset can no longer be undone into another project.
   useEffect(() => () => {
     if (saveTimer.current !== null) window.clearTimeout(saveTimer.current);
     saveTimer.current = null;
     pendingSave.current?.();
     pendingSave.current = null;
-  }, []);
+    withdrawUndo();
+  }, [withdrawUndo]);
 
   // Focusing a document panel makes its document App's active one.
   const onFocus = useCallback((viewId: string | null) => {
@@ -884,8 +907,11 @@ const TrellisWorkspace = memo(function TrellisWorkspace({ controller, projectRoo
     }
   }, [controller]);
 
-  // Reset: save first (Trellis skips close guards), then animate to the default.
+  // Reset: save first (Trellis skips close guards), then animate to the
+  // default, with a toast offering to undo it. The undo restores only the
+  // arrangement: documents keep the tabs they have now.
   const resetFailed = t`Save failed, so the layout was not reset.`;
+  const resetToast = { source: t`Layout`, title: t`Layout reset`, undo: t`Undo` };
   useEffect(() => controller.installHandlers({
     reset: async () => {
       const handle = controller.ws;
@@ -894,6 +920,9 @@ const TrellisWorkspace = memo(function TrellisWorkspace({ controller, projectRoo
         controller.bridge.notify(resetFailed);
         return;
       }
+      // Read after the save: the arrangement and the focus as they are now.
+      const snapshot = handle.getSnapshot();
+      const before = { document: snapshot.document, preset: presetRef.current, focused: snapshot.focusedView };
       resettingRef.current = true;
       presetRef.current = null;
       try {
@@ -905,6 +934,37 @@ const TrellisWorkspace = memo(function TrellisWorkspace({ controller, projectRoo
       controller.ui.set({ preset: null });
       controller.app.set({ filesRevision: controller.app.get().filesRevision + 1 });
       controller.resync();
+      // The open documents are back in panels now; that arrangement is the reset's own.
+      const undo: ResetUndo = { ...before, left: layoutShape(handle.getDocument()) };
+      resetUndo.current = undo;
+      // Undo: the layout from before, reconciled with what is open now
+      // (undoReset), back in the preset it was in, with the writer's view
+      // focused again if it is still on screen.
+      const restore = () => {
+        if (resetUndo.current !== undo || controller.ws !== handle) return;
+        resetUndo.current = null;
+        const { activeKey, openTabs } = controller.app.get();
+        const drawers = controller.openDrawers.get();
+        const next = undoReset(undo.document, handle.getDocument(), { activeKey, openTabs }, (type) => Boolean(drawers[type as TrellisToolKind]));
+        resettingRef.current = true;
+        presetRef.current = undo.preset;
+        try {
+          handle.setDocument(next);
+        } finally {
+          resettingRef.current = false;
+        }
+        controller.ui.set({ preset: undo.preset?.preset ?? null });
+        controller.resync();
+        const focused = undo.focused ? handle.view(undo.focused) : null;
+        if (focused && focused.placement !== "hidden") handle.focus(focused.id);
+      };
+      notifyInfo(resetToast.source, resetToast.title, {
+        dedupeKey: RESET_UNDO_TOAST,
+        primaryAction: { label: resetToast.undo, onClick: restore },
+        onDismiss: () => {
+          if (resetUndo.current === undo) resetUndo.current = null;
+        },
+      });
     },
     // A preset regroups the open documents' own views, so no document closes
     // and nothing needs saving first; navigators, the Agent and tools wait
@@ -913,6 +973,7 @@ const TrellisWorkspace = memo(function TrellisWorkspace({ controller, projectRoo
       const handle = controller.ws;
       const current = presetRef.current;
       if (!handle || (current?.preset ?? null) === preset) return;
+      withdrawUndo();
       const { activeKey, openTabs } = controller.app.get();
       const document = handle.getDocument();
       let next: LayoutDocument;
@@ -947,7 +1008,7 @@ const TrellisWorkspace = memo(function TrellisWorkspace({ controller, projectRoo
       const current = presetRef.current;
       if (current?.supplied.includes(kind)) presetRef.current = { ...current, supplied: current.supplied.filter((id) => id !== kind) };
     },
-  }), [controller, projectRoot, resetFailed]);
+  }), [controller, projectRoot, resetFailed, resetToast.source, resetToast.title, resetToast.undo, withdrawUndo]);
   // The titlebar follows this workspace's preset; another project's starts in its own.
   useEffect(() => {
     controller.ui.set({ preset: presetRef.current?.preset ?? null });
