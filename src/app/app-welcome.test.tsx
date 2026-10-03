@@ -338,6 +338,20 @@ describe("welcome screen", () => {
     if (setting === "interfaceSounds") expect(interfaceSounds.configure).toHaveBeenLastCalledWith(false);
   });
 
+  it("leaves project commands' shortcuts idle on the welcome screen, so none waits for the next project", async () => {
+    localStorage.setItem("lattice.recent-commands.v1", JSON.stringify(["cite", "find"]));
+    vi.mocked(open).mockResolvedValue(ROOT);
+    renderApp({ ...projectCommands(null), open_project: projectSnapshot() });
+    await screen.findByRole("heading", { name: "Research, written with evidence" });
+    for (const key of ["p", "f", "k", "l", "o"]) fireEvent.keyDown(window, { key, metaKey: true, shiftKey: true });
+    for (const key of ["p", "g", "s"]) fireEvent.keyDown(window, { key, metaKey: true });
+
+    fireEvent.click(screen.getByRole("button", { name: /open folder/i }));
+    expect(await screen.findByLabelText("Editor status", {}, { timeout: 20_000 })).toBeInTheDocument();
+    expect(screen.queryByPlaceholderText("Run a command…")).not.toBeInTheDocument();
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
   it("finds a setting by name and opens its row with focus, keeping drafts and Synara's pages as they are", async () => {
     renderApp(projectCommands());
     await chooseProjectMenuItem("Settings");

@@ -197,7 +197,7 @@ export function ProjectFindDialog(props: {
           setQuery(event.target.value);
         }}
         onClear={clearSearch}
-        placeholder={scope === "file" ? t`Search files` : scope === "paper" ? t`Search saved papers` : t`Search files and papers`}
+        placeholder={t`Search…`}
         {...compositionProps}
         onKeyDown={(event) => {
           if (isComposing(event)) return;
@@ -229,16 +229,19 @@ export function ProjectFindDialog(props: {
       />
       {props.error && <p className="dialog-error" role="alert">{props.error}</p>}
       <div className="project-find-scope">
-        <SegmentedControl
-          value={scope}
-          onChange={changeScope}
-          ariaLabel={t`Show results from`}
-          items={[
-            { value: "all", label: <>{t`All`}{showResults && <em>{fileHits.length + paperCount}</em>}</> },
-            { value: "file", label: <>{t`Files`}{showResults && <em>{fileHits.length}</em>}</> },
-            { value: "paper", label: <>{t`Papers`}{showResults && <em>{paperCount}</em>}</> },
-          ]}
-        />
+        <div className="project-find-filter">
+          <span aria-hidden="true">{t`Show:`}</span>
+          <SegmentedControl
+            value={scope}
+            onChange={changeScope}
+            ariaLabel={t`Show results from`}
+            items={[
+              { value: "all", label: <>{t`All`}{showResults && <em>{fileHits.length + paperCount}</em>}</> },
+              { value: "file", label: <>{t`Files`}{showResults && <em>{fileHits.length}</em>}</> },
+              { value: "paper", label: <>{t`Papers`}{showResults && <em>{paperCount}</em>}</> },
+            ]}
+          />
+        </div>
         {/* The tabs carry the counts; this line speaks them, and shows only
             what they cannot: that a search is running or failed. */}
         <div
@@ -256,8 +259,7 @@ export function ProjectFindDialog(props: {
             align="start"
             density="compact"
             icon={<EmptyIllustration kind="search" size="compact" />}
-            // The placeholder and tabs already say where it looks; this says how.
-            description={t`Every word must match, in any order.`}
+            description={t`Search your files and saved papers.`}
           />
         )}
         {showResults && !selectableHits.length && (

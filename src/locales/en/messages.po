@@ -2932,10 +2932,6 @@ msgstr "Every panel is closed"
 msgid "Every spot decided"
 msgstr "Every spot decided"
 
-#: src/project/project-find-dialog.tsx
-msgid "Every word must match, in any order."
-msgstr "Every word must match, in any order."
-
 #: src/overleaf/overleaf-review.tsx
 msgid "Everything already matches Overleaf"
 msgstr "Everything already matches Overleaf"
@@ -7133,14 +7129,6 @@ msgstr "Search emoji"
 msgid "Search failed."
 msgstr "Search failed."
 
-#: src/project/project-find-dialog.tsx
-msgid "Search files"
-msgstr "Search files"
-
-#: src/project/project-find-dialog.tsx
-msgid "Search files and papers"
-msgstr "Search files and papers"
-
 #: src/papers/literature-discovery-panel.tsx
 msgid "Search literature"
 msgstr "Search literature"
@@ -7169,13 +7157,17 @@ msgstr "Search Overleaf projects"
 msgid "Search PDF"
 msgstr "Search PDF"
 
-#: src/project/project-find-dialog.tsx
-msgid "Search saved papers"
-msgstr "Search saved papers"
-
 #: src/settings/settings-search.tsx
 msgid "Search settings"
 msgstr "Search settings"
+
+#: src/project/project-find-dialog.tsx
+msgid "Search your files and saved papers."
+msgstr "Search your files and saved papers."
+
+#: src/project/project-find-dialog.tsx
+msgid "Search…"
+msgstr "Search…"
 
 #: src/project/project-find-dialog.tsx
 #: src/project/project-replace-dialog.tsx
@@ -7387,6 +7379,10 @@ msgstr "Show results from"
 #: src/overleaf/overleaf-comments.tsx
 msgid "Show this in the editor"
 msgstr "Show this in the editor"
+
+#: src/project/project-find-dialog.tsx
+msgid "Show:"
+msgstr "Show:"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Side-by-side column block"

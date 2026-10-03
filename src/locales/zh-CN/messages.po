@@ -2932,10 +2932,6 @@ msgstr "所有面板都已关闭"
 msgid "Every spot decided"
 msgstr "所有位置均已决定"
 
-#: src/project/project-find-dialog.tsx
-msgid "Every word must match, in any order."
-msgstr "每个词都须匹配，顺序不限。"
-
 #: src/overleaf/overleaf-review.tsx
 msgid "Everything already matches Overleaf"
 msgstr "所有内容已与 Overleaf 一致"
@@ -7133,14 +7129,6 @@ msgstr "搜索表情符号"
 msgid "Search failed."
 msgstr "搜索失败。"
 
-#: src/project/project-find-dialog.tsx
-msgid "Search files"
-msgstr "搜索文件"
-
-#: src/project/project-find-dialog.tsx
-msgid "Search files and papers"
-msgstr "搜索文件和论文"
-
 #: src/papers/literature-discovery-panel.tsx
 msgid "Search literature"
 msgstr "搜索文献"
@@ -7169,13 +7157,17 @@ msgstr "搜索 Overleaf 项目"
 msgid "Search PDF"
 msgstr "搜索 PDF"
 
-#: src/project/project-find-dialog.tsx
-msgid "Search saved papers"
-msgstr "搜索已保存的论文"
-
 #: src/settings/settings-search.tsx
 msgid "Search settings"
 msgstr "搜索设置"
+
+#: src/project/project-find-dialog.tsx
+msgid "Search your files and saved papers."
+msgstr "搜索你的文件和已保存的论文。"
+
+#: src/project/project-find-dialog.tsx
+msgid "Search…"
+msgstr "搜索…"
 
 #: src/project/project-find-dialog.tsx
 #: src/project/project-replace-dialog.tsx
@@ -7387,6 +7379,10 @@ msgstr "结果范围"
 #: src/overleaf/overleaf-comments.tsx
 msgid "Show this in the editor"
 msgstr "在编辑器中显示"
+
+#: src/project/project-find-dialog.tsx
+msgid "Show:"
+msgstr "显示："
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Side-by-side column block"

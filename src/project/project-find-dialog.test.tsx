@@ -71,7 +71,9 @@ describe("ProjectFindDialog", () => {
     const { search, rerenderWith } = renderFind({
       hits: [fileHit("main.tex", 3), fileHit("intro.tex", 8), { kind: "paper", path: "p", title: "Attention", snippet: "", line: null }],
     });
-    expect(screen.getByPlaceholderText("搜索文件和论文")).toBeInTheDocument();
+    expect(screen.getByPlaceholderText("搜索…")).toBeInTheDocument();
+    expect(screen.getByText("搜索你的文件和已保存的论文。")).toBeInTheDocument();
+    expect(screen.getByText("显示：")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "关闭 在项目中查找" })).toBeInTheDocument();
     search("image");
     expect(screen.getByText("2 个结果 · 1 篇论文")).toBeInTheDocument();
@@ -267,14 +269,14 @@ describe("ProjectFindDialog", () => {
     ];
     const tab = (name: RegExp) => screen.getByRole("tab", { name });
 
-    it("says what an empty search covers, and follows the scope", () => {
+    it("says what an empty search covers, and labels the scope a filter of what it shows", () => {
       renderFind();
-      expect(screen.getByText("Every word must match, in any order.")).toBeInTheDocument();
-      expect(screen.getByRole("searchbox")).toHaveAttribute("placeholder", "Search files and papers");
+      expect(screen.getByText("Search your files and saved papers.")).toBeInTheDocument();
+      expect(screen.getByText("Show:")).toBeInTheDocument();
+      expect(screen.getByRole("tablist", { name: "Show results from" })).toBeInTheDocument();
       fireEvent.click(tab(/^Papers/));
-      expect(screen.getByRole("searchbox")).toHaveAttribute("placeholder", "Search saved papers");
-      fireEvent.click(tab(/^Files/));
-      expect(screen.getByRole("searchbox")).toHaveAttribute("placeholder", "Search files");
+      expect(screen.getByRole("searchbox")).toHaveAttribute("placeholder", "Search…");
+      expect(screen.getByText("Search your files and saved papers.")).toBeInTheDocument();
     });
 
     it("counts every scope on its tab and filters without searching again", () => {

@@ -1,4 +1,4 @@
-import { expectNotification, windowApi, synaraHook, openSlideWorkspaceApi, browserRuntime, fileNode, fileNodes, dirNode, projectCommands, refreshableProject, SINGLE_TRANSFORMER, attentionPaper, overleafLink, overleafStatus, overleafProbe, overleafSyncResult, overleafSession, overleafCommands, ROOT, projectSnapshot, rootDocument, notesSnapshot, markdownSnapshot, buildResult, readFiles, deferred, setAutoBuildMode, setInterfaceLanguage, selectPanelTab, projectTreeRoot, queryProjectTreeItem, findInProjectTree, findProjectTreeItem, findProjectTreeRenameInput, renderApp, renderOverleafPaper, openWithAutomaticBuilds, findElement, editorViewAt, findEditorView, expectEditorText, postWindowMessage, expectInvoked, invokeCalls, pause, stubElementFromPoint, storedFileViews, dropFinderPaths, persistLayout, persistLayoutWithoutAgent, visibleToasts, visualEditorOf, argPath, waitForSelectedTab, openTreeFile, openAgentFrame, postedOfType, dragTreeItem, pdfDocumentStub, mockPdfDocument, chooseNewDocument, chooseProjectMenuItem, nextFrames } from "./app-test-utils";
+import { expectNotification, windowApi, synaraHook, openSlideWorkspaceApi, browserRuntime, fileNode, fileNodes, dirNode, projectCommands, refreshableProject, SINGLE_TRANSFORMER, attentionPaper, overleafLink, overleafStatus, overleafProbe, overleafSyncResult, overleafSession, overleafCommands, ROOT, projectSnapshot, rootDocument, notesSnapshot, markdownSnapshot, buildResult, readFiles, deferred, setAutoBuildMode, setInterfaceLanguage, selectPanelTab, projectTreeRoot, queryProjectTreeItem, findInProjectTree, findProjectTreeItem, findProjectTreeRenameInput, renderApp, renderOverleafPaper, openWithAutomaticBuilds, findElement, editorViewAt, findEditorView, expectEditorText, postWindowMessage, expectInvoked, invokeCalls, pause, stubElementFromPoint, storedFileViews, dropFinderPaths, persistLayout, persistLayoutWithoutAgent, visibleToasts, visualEditorOf, argPath, waitForSelectedTab, openTreeFile, openAgentFrame, postedOfType, dragTreeItem, pdfDocumentStub, mockPdfDocument, chooseNewDocument, openPaper, chooseProjectMenuItem, nextFrames } from "./app-test-utils";
 import { forEachDiagnostic } from "@codemirror/lint";
 import { EditorView } from "@codemirror/view";
 import { invoke } from "@tauri-apps/api/core";
@@ -51,6 +51,29 @@ describe("project tree and projects", () => {
     expect(options().slice(0, 4)).toEqual(["Insert citation⌘⇧K", "Build project⌘S", "Jump to PDF⌘⇧J", "Insert reference⌘⇧L"]);
     expect(options().filter((option) => option.startsWith("Insert citation"))).toHaveLength(1);
     expect(options().filter((option) => option.startsWith("Clean aux files"))).toHaveLength(1);
+  });
+
+  it("lists in a saved paper's palette only the commands it can run, whatever was recent", async () => {
+    localStorage.setItem("lattice.recent-commands.v1", JSON.stringify(["cite", "goto-line", "sync-pdf", "find"]));
+    renderApp({ ...projectCommands(), list_papers: () => [attentionPaper()], read_paper: "# Attention\n\nPaper content." });
+    await findEditorView(".source-editor[data-editor-pane='primary'] .cm-editor");
+    await openPaper("Attention Is All You Need");
+    await waitFor(() => expect(screen.getByRole("tab", { name: /Attention Is All You Need/ })).toHaveAttribute("aria-selected", "true"));
+
+    fireEvent.keyDown(window, { key: "p", metaKey: true, shiftKey: true });
+    const input = await screen.findByPlaceholderText("Run a command…");
+    const options = () => screen.getAllByRole("option").map((option) => option.textContent ?? "");
+    expect([...document.querySelectorAll(".quick-open-modal [data-slot='picker-section-label']")].map((label) => label.textContent).slice(0, 2))
+      .toEqual(["Recent", "In this paper"]);
+    expect(options()[0]).toMatch(/^Find in project/);
+    for (const label of ["Insert citation", "Insert reference", "Insert table", "Go to line", "Go to symbol", "Jump to PDF", "Format document"]) {
+      expect(options().filter((option) => option.startsWith(label))).toEqual([]);
+    }
+    fireEvent.keyDown(input, { key: "Escape" });
+    await waitFor(() => expect(screen.queryByPlaceholderText("Run a command…")).not.toBeInTheDocument());
+    fireEvent.keyDown(window, { key: "k", metaKey: true, shiftKey: true });
+    fireEvent.keyDown(window, { key: "g", metaKey: true });
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
   it("opens a project switcher with recent and folder actions", async () => {
@@ -520,6 +543,7 @@ describe("project tree and projects", () => {
       ...refreshableProject(),
       search_project: (args) => ((args as { query?: string } | undefined)?.query === "older" ? older : newer).promise,
     });
+    await screen.findByRole("button", { name: "Switch project" });
     fireEvent.keyDown(window, { key: "f", metaKey: true, shiftKey: true });
     const input = await screen.findByRole("searchbox", { name: "Find in project" });
     fireEvent.change(input, { target: { value: "older" } });

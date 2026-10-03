@@ -328,6 +328,7 @@ input[type="search"]:focus-visible {
 /* Scope tabs lead the results, the live status trailing them on one line. A
    tab's count is a quiet numeral beside its name, solid on the tab you are on. */
 .project-find-scope { display: flex; align-items: center; justify-content: space-between; gap: var(--space-5); min-height: var(--control-height-segmented-compact); }
+.project-find-filter { display: flex; align-items: center; gap: var(--space-3); color: var(--text-secondary); font-size: var(--type-caption-size); }
 .project-find-status { min-width: 0; color: var(--text-secondary); font-size: var(--type-caption-size); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .project-find-scope .ui-segmented-tab { min-width: 52px; }
 .project-find-scope .ui-segmented-tab em { margin-left: var(--space-1); color: var(--text-tertiary); font-style: normal; font-variant-numeric: tabular-nums; transition: color var(--duration-quick) var(--ease-default); }
