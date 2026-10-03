@@ -1,3 +1,5 @@
+import { useLayoutEffect } from "react";
+import { listen } from "@tauri-apps/api/event";
 import { act, renderHook } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import type { OverleafMessage } from "../app-types";
@@ -64,6 +66,34 @@ describe("useOverleafChat", () => {
     });
     expect(result.current.messages.map((message) => message.content)).toEqual(["project-B text"]);
     expect(result.current.unread).toBe(1);
+  });
+
+  it("keeps a message out of the next project while the previous project's listener is still attached", async () => {
+    const handlers = new Set<(event: { payload: unknown }) => void>();
+    vi.mocked(listen).mockImplementation(async (_name, handler) => {
+      const typed = handler as (event: { payload: unknown }) => void;
+      handlers.add(typed);
+      return () => { handlers.delete(typed); };
+    });
+    mockInvoke({ overleaf_status: { connected: true, email: "researcher@example.edu", name: "Robin", host: "https://www.overleaf.com" } });
+    const { result, rerender } = renderHook(({ projectRoot }) => {
+      const chat = useOverleafChat({ enabled: true, projectRoot });
+      // Runs in the commit that switches to B: B's session is current, but A's
+      // listener is only removed by the passive cleanup that follows.
+      useLayoutEffect(() => {
+        if (projectRoot !== "/tmp/project-b") return;
+        const payload = {
+          projectRoot: "/tmp/project-a", type: "chatMessage", id: "a-1", content: "project-A text",
+          authorName: "Ada", authorEmail: "ada@example.edu", timestamp: 1_700_000_100_000,
+        };
+        for (const handler of [...handlers]) handler({ payload });
+      }, [projectRoot]);
+      return chat;
+    }, { initialProps: { projectRoot: "/tmp/project-a" } });
+    await act(async () => {});
+    rerender({ projectRoot: "/tmp/project-b" });
+    expect(result.current.messages).toEqual([]);
+    expect(result.current.unread).toBe(0);
   });
 
   it("shows only the current project's history when an older read answers late", async () => {

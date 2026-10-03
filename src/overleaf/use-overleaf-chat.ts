@@ -36,7 +36,8 @@ export function useOverleafChat(options: { enabled: boolean; projectRoot: string
   const myEmail = useRef<string | null>(null);
 
   useEffect(() => {
-    if (!enabled || !projectRoot) return;
+    const current = session();
+    if (!enabled || !projectRoot || !current) return;
     // Which messages are ours decides which side of the panel they sit on, and
     // realtime arrivals carry only an address to compare against.
     void invoke<OverleafStatus>("overleaf_status")
@@ -49,14 +50,14 @@ export function useOverleafChat(options: { enabled: boolean; projectRoot: string
       const { id, content, authorName, authorEmail, timestamp } = event;
       const mine = Boolean(myEmail.current && authorEmail && myEmail.current.toLowerCase() === authorEmail.toLowerCase());
       const message = { id, content, authorName, authorEmail, timestamp, mine };
-      session()?.publish((current) => {
+      current.publish((snapshot) => {
         // Overleaf replays recent messages after a reconnect, and a replay is
         // neither a new message nor something to badge as unread.
-        if (current.messages.some((item) => item.id === id)) return current;
+        if (snapshot.messages.some((item) => item.id === id)) return snapshot;
         return {
-          ...current,
-          messages: [...current.messages, message],
-          unread: mine ? current.unread : current.unread + 1,
+          ...snapshot,
+          messages: [...snapshot.messages, message],
+          unread: mine ? snapshot.unread : snapshot.unread + 1,
         };
       });
     });
