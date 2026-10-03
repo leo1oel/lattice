@@ -74,7 +74,7 @@ export function PaperReader({ paper, activeFile, pdf, markdown, ...props }: {
           {!mastheadInView && <span className="paper-identity-title" title={paper.title}>{paper.title}</span>}
           {!mastheadInView && authors && <span className="paper-identity-authors">{authors}</span>}
           {source && (pdf.browserUrl ? (
-            <Tip label={browserActionLabel}>
+            <Tip label={`${source} · ${browserActionLabel}`}>
               <button type="button" className="paper-identity-source" aria-label={`${source}, ${browserActionLabel}`} onClick={pdf.openInBrowser}>
                 <span>{source}</span>
                 <ExternalLink size={11} aria-hidden="true" />
