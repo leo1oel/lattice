@@ -45,7 +45,7 @@ describe("titlebar panel controls in a narrow window", () => {
     const { container } = render(<div className="titlebar"><button className="project-title" /><TrellisTitlebar controller={new TrellisController()} /></div>);
     const bar = container.querySelector(".trellis-titlebar")!;
     expect(containerOf(bar)).toEqual({ name: "trellis-titlebar", type: "inline-size" });
-    expect(getComputedStyle(bar).overflow).toBe("hidden");
+    expect(getComputedStyle(bar).overflow).toBe("clip");
     expect(getComputedStyle(bar).minWidth).toBe("0px");
     // A viewport query cannot know how much of the bar the project name, the
     // traffic lights or interface zoom take, so none may size these controls.
