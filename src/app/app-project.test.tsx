@@ -87,15 +87,6 @@ describe("project tree and projects", () => {
       await waitFor(() => expect(windowApi.close).toHaveBeenCalledOnce());
     });
 
-    it("keeps the Lattice window open when it hands its workspace to the browser", async () => {
-      Object.assign(browserRuntime, { hosted: true, bundled: true });
-      openProject();
-      fireEvent.click(await screen.findByRole("button", { name: "Open in browser" }));
-      await expectInvoked("open_in_browser");
-      // The bridge hides it once the tab has taken over.
-      expect(windowApi.close).not.toHaveBeenCalled();
-    });
-
     it("reports a failed handoff and keeps the window", async () => {
       openProject({ open_in_browser: () => { throw new Error("Could not start local browser access"); } });
       fireEvent.click(await screen.findByRole("button", { name: "Open in browser" }));
@@ -117,13 +108,15 @@ describe("project tree and projects", () => {
       await expectInvoked("return_to_desktop");
     });
 
-    it("saves an unsaved edit before the bridge hands the workspace to another surface", async () => {
-      Object.assign(browserRuntime, { hosted: true, bundled: true });
+    it("saves an unsaved edit before giving a browser tab's workspace back to the Lattice app", async () => {
+      browserRuntime.hosted = true;
       openProject({ write_project_file: (args: unknown) => ({ content: (args as { content: string }).content, hadConflicts: false }) });
       const view = await findEditorView(".source-editor[data-editor-pane='primary'] .cm-editor");
-      await waitFor(() => expect(browserRuntime.yieldHandler).not.toBeNull());
       act(() => view.dispatch({ changes: { from: view.state.doc.length, insert: "\n% typed just before" } }));
-      await act(async () => { await browserRuntime.yieldHandler!(); });
+      fireEvent.click(await screen.findByRole("button", { name: "Open in Lattice app" }));
+      await expectInvoked("return_to_desktop");
+      const commands = vi.mocked(invoke).mock.calls.map(([command]) => command);
+      expect(commands.lastIndexOf("write_project_file")).toBeLessThan(commands.indexOf("return_to_desktop"));
       expect(invoke).toHaveBeenCalledWith("write_project_file", expect.objectContaining({
         path: "main.tex", content: expect.stringContaining("% typed just before"),
       }));

@@ -16,9 +16,9 @@ Three tools, cheapest first:
   times typing, switching and scrolling in the dev app by hand.
 - **The real-window lab** (`scripts/perf-lab.mjs`, described in
   [`driving-the-app.md`](driving-the-app.md)) measures frame rates, input
-  latency and memory in the real WKWebView or packaged Chromium window with
-  native input, and compares the two engines. Use it for numbers a pull request
-  quotes about the real app, so they stay comparable across pull requests.
+  latency and memory in the real WKWebView window with native input, and
+  compares two builds. Use it for numbers a pull request quotes about the real
+  app, so they stay comparable across pull requests.
 
 ### Interaction benchmark and CI gate
 

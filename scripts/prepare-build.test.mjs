@@ -2,17 +2,17 @@ import { describe, expect, it } from "vitest";
 import { buildPreparationPlan } from "./prepare-build.mjs";
 
 describe("Tauri package preparation profiles", () => {
-  it("stages standalone Node before Chromium for debug packages", () => {
+  it("stages the development runtimes for debug packages", () => {
     expect(buildPreparationPlan("true")).toEqual({
       profile: "debug",
-      scripts: ["prepare:runtime:dev", "prepare:chromium", "build"],
+      scripts: ["prepare:runtime:dev", "build"],
     });
   });
 
-  it("stages release resources before sharing Electron's Node", () => {
+  it("stages the pinned runtimes for release packages", () => {
     const expected = {
       profile: "release",
-      scripts: ["prepare:runtime", "prepare:chromium", "build"],
+      scripts: ["prepare:runtime", "build"],
     };
     expect(buildPreparationPlan("false")).toEqual(expected);
     // Tauri CLI 2.11 currently omits the documented false value in release

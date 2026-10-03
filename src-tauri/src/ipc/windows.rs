@@ -79,10 +79,8 @@ pub async fn open_project_window(
     }
 
     let label = if window.label().starts_with("browser-") {
-        // A browser tab opens the project in a new tab, a Chromium window in
-        // a new window.
-        let in_browser = browser.shown_in_browser(window.label());
-        browser.open_project(&app, &state, root, in_browser)?
+        // A browser tab opens the project in a new tab.
+        browser.open_project(&app, &state, root)?
     } else {
         let (label, created) = open_desktop_window(&app, &state, root)
             .map_err(|error| format!("Could not open a new window: {error}"))?;

@@ -5,7 +5,7 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { open, save as saveDialog } from "@tauri-apps/plugin-dialog";
 import type { ProjectSnapshot } from "../app-types";
 import { toMessage } from "../app-utils";
-import { browserRuntimeDetached, isBundledChromium, setWorkspaceYieldHandler } from "../platform/browser-runtime";
+import { browserRuntimeDetached } from "../platform/browser-runtime";
 import {
   forgetRecentProject, hasSeenTutorial, loadRecentProjects, markTutorialSeen, rememberRecentProject, type RecentProject,
 } from "../settings/app-settings";
@@ -458,26 +458,18 @@ export function useProjectLifecycle(deps: ProjectLifecycleDeps) {
     };
   }, [browserHosted, flush, hasUnsavedEdits, save]);
 
-  // Before another surface takes this workspace (the default browser, or the
-  // Lattice window coming back), publish and save every edit. The bridge asks
-  // for this too when a bookmarked tab takes over unannounced.
+  // Before the Lattice app takes this browser tab's workspace back, publish
+  // and save every edit.
   const saveForHandoff = useCallback(async () => {
     flush();
     const saved = await save();
     await settleWithin(flushWholeFilesRef.current());
     return saved;
   }, [flush, flushWholeFilesRef, save]);
-  useEffect(() => {
-    if (!browserHosted) return;
-    setWorkspaceYieldHandler(saveForHandoff);
-    return () => setWorkspaceYieldHandler(null);
-  }, [browserHosted, saveForHandoff]);
 
-  /** A tab in the default browser, as opposed to a Lattice window. */
-  const inBrowserTab = browserHosted && !isBundledChromium();
   /** "Open in browser" from a Lattice window, "Open in Lattice app" from a browser tab. */
   const moveWorkspace = useCallback(async () => {
-    if (inBrowserTab) {
+    if (browserHosted) {
       if (!await saveForHandoff()) return;
       await invoke("return_to_desktop").catch((reason) => {
         // Once the window has taken over, this page is detached and the
@@ -486,14 +478,7 @@ export function useProjectLifecycle(deps: ProjectLifecycleDeps) {
       });
       return;
     }
-    if (browserHosted) {
-      // The Chromium window: the new tab asks it to yield, then it hides
-      // until the tab gives the workspace back or closes.
-      if (!await saveForHandoff()) return;
-      await invoke("open_in_browser").catch((reason) => setError(toMessage(reason)));
-      return;
-    }
-    // A native WebKit window closes, and the tab starts relaying only once it
+    // A native window closes, and the tab starts relaying only once it
     // has, so the two never edit together. Claim the switch meanwhile.
     if (!await startProjectTransition()) return;
     try {
@@ -504,11 +489,11 @@ export function useProjectLifecycle(deps: ProjectLifecycleDeps) {
       return;
     }
     await getCurrentWindow().close();
-  }, [browserHosted, cancelProjectTransition, inBrowserTab, saveForHandoff, startProjectTransition]);
+  }, [browserHosted, cancelProjectTransition, saveForHandoff, startProjectTransition]);
 
   return {
     busyLabel, recentProjects, projectMenuOpen, setProjectMenuOpen, createForm, updateCreateForm,
     startProjectTransition, cancelProjectTransition, revealNewProject, chooseExisting, createProject,
-    chooseRecentProject, openTutorialProject, importOverleafZip, exportProjectZip, inBrowserTab, moveWorkspace,
+    chooseRecentProject, openTutorialProject, importOverleafZip, exportProjectZip, moveWorkspace,
   };
 }

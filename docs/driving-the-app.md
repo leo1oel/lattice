@@ -7,14 +7,15 @@ Three ways to see Lattice run, cheapest first. Pick the first one that can show 
   Drive it with `playwright-core` (a devDependency; `import { chromium, webkit } from "playwright-core"`). Playwright's WebKit lacks some CSS the system WKWebView has, so treat its WebKit timings as pessimistic.
   Tree rows live in a shadow root: click them with `page.locator('[data-item-path="…"]')`, which pierces it.
 - **The browser-hosted real app**, when the Rust backend matters (builds, Overleaf, the file system). `node scripts/perf-lab.mjs host <task>` serves a lab build (below) with its fixture open; drive the printed URL with `playwright-core`.
-- **The real-window lab**, for frame rates, input latency and memory in the real WKWebView or packaged Chromium window. `scripts/perf-lab.mjs` builds Lattice with the `perf-lab` Cargo feature, stages a WebKit and a Chromium bundle, runs scenarios from `src/platform/perf-lab-harness.ts` through native input, and compares medians. A typical session:
+- **The real-window lab**, for frame rates, input latency and memory in the real WKWebView window. `scripts/perf-lab.mjs` builds Lattice with the `perf-lab` Cargo feature, runs scenarios from `src/platform/perf-lab-harness.ts` through native input, and compares medians of two builds (`--as` stages a second one, such as `main` for a baseline). A typical session:
 
   ```bash
   node scripts/gen-perf-fixture.mjs /tmp/fixture && (cd /tmp/fixture && latexmk -pdf main.tex)
-  node scripts/perf-lab.mjs build my-task --reuse-runtimes
+  node scripts/perf-lab.mjs build my-task --reuse-runtimes            # in this branch's checkout
+  node scripts/perf-lab.mjs build my-task --reuse-runtimes --as main  # in a checkout of main
   node scripts/perf-lab.mjs fixture my-task /tmp/fixture
-  for r in 1 2 3 4 5; do for v in wk cr; do node scripts/perf-lab.mjs run my-task $v f$r --scenarios idle,latexTyping,pdfScroll; done; done
-  node scripts/perf-lab.mjs compare my-task wk cr --runs f
+  for r in 1 2 3 4 5; do for v in wk wkmain; do node scripts/perf-lab.mjs run my-task $v f$r --scenarios idle,latexTyping,pdfScroll; done; done
+  node scripts/perf-lab.mjs compare my-task wk wkmain --runs f
   ```
 
   The script's header lists every command and flag. The `hugePdf` and `imagePdf` scenarios need `huge.pdf` and `images.pdf` in the fixture, which no script generates; the WebKit-vs-Chromium lab's copies are in `/Users/Shared/lattice-tests/webkit-vs-chromium/genfiles/`.

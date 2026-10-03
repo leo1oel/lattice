@@ -72,12 +72,11 @@ jobs:
           shared-key: aarch64-apple-darwin-release-macos${{ steps.macos-version.outputs.value }}
 
       # tauri-build compiles the resource list from tauri.conf.json, which names
-      # both bundled runtimes. Nothing here launches them.
+      # the bundled Synara runtime. Nothing here launches it.
       - name: Stub bundled runtime resources for compilation
         run: |
-          mkdir -p src-tauri/synara-runtime src-tauri/chromium-runtime
+          mkdir -p src-tauri/synara-runtime
           echo stub > src-tauri/synara-runtime/placeholder.txt
-          echo stub > src-tauri/chromium-runtime/placeholder.txt
 
       # LATTICE_FIRECRAWL_KEY is deliberately absent. rust-cache prunes
       # workspace crates from the target dir before saving (cache-workspace-

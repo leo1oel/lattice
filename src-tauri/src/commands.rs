@@ -148,7 +148,7 @@ fn child_path() -> OsString {
 ///
 /// `bibcite` finds its formatter through PATH. During development that launcher
 /// uses the adjacent standalone Node; the packaged macOS app resolves the same
-/// directory under Resources and the launcher shares Chromium's Node runtime.
+/// directory under Resources, beside the same standalone Node.
 fn bundled_tools_dir() -> Option<PathBuf> {
     if tauri::is_dev() {
         return Some(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("synara-runtime/bin"));

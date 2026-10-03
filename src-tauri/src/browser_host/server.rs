@@ -3,11 +3,10 @@
 //! frontend assets.
 
 use super::session::{
-    self, BridgeQuery, BridgeRole, BrowserSession, BrowserSessionConfig, Detached, Sessions,
-    Settlement,
+    self, BridgeQuery, BrowserSession, BrowserSessionConfig, Detached, Expired, Sessions,
 };
 use super::{
-    apply_effect, browser_origin, build_host_window, destroy_window, new_host_label, new_token,
+    browser_origin, build_host_window, destroy_window, new_host_label, new_token,
     reopen_in_native_window,
 };
 use axum::{
@@ -29,13 +28,9 @@ use tokio::sync::mpsc;
 
 const MAX_BRIDGE_MESSAGE_SIZE: usize = 256 * 1024 * 1024;
 pub(super) const SESSION_CONNECT_TIMEOUT: Duration = Duration::from_secs(30);
-/// How long a disconnected workspace waits for a reload before the other
-/// surface takes it back or the session ends.
+/// How long a disconnected workspace waits for a reload before the session
+/// ends.
 const RECONNECT_GRACE: Duration = Duration::from_secs(5);
-/// The surface giving up the workspace has saved (answer to `yield`).
-const YIELDED: &str = r#"{"type":"yielded"}"#;
-/// The parked Chromium window asks for the workspace back.
-const RECLAIM: &str = r#"{"type":"reclaim"}"#;
 /// Carries the session token on project PDF range reads, so it never lands in
 /// a URL, the browser's history or a request log.
 const SESSION_HEADER: &str = "x-lattice-session";
@@ -52,9 +47,6 @@ struct SessionQuery {
     token: Option<String>,
     /// The single-use nonce of a tokenless entry address.
     entry: Option<String>,
-    /// Which surface asks: the bundled Chromium window or a browser tab.
-    #[serde(default)]
-    role: BridgeRole,
 }
 
 /// Serve the routes on `listener` (already bound and non-blocking) until the
@@ -94,30 +86,29 @@ fn shutdown_synara_if_idle(app: &tauri::AppHandle, sessions: &Sessions) {
     }
 }
 
-/// After `delay`, settle a session whose owner never came back: the other
-/// surface takes over, or the session ends. A workspace a native window had
-/// handed to the tab opens in a native window again rather than vanishing.
+/// After `delay`, end a session whose tab never came back. A workspace a
+/// native window had handed to the tab opens in a native window again rather
+/// than vanishing.
 pub(super) fn settle_later(
     app: &tauri::AppHandle, sessions: &Sessions, token: String, visible_epoch: u64, delay: Duration,
 ) {
     let (app, sessions) = (app.clone(), Arc::clone(sessions));
     tauri::async_runtime::spawn(async move {
         tokio::time::sleep(delay).await;
-        match session::settle_after_grace(&sessions, &token, visible_epoch) {
-            None => {}
-            Some(Settlement::Switched(effect)) => apply_effect(&app, &sessions, &token, effect),
-            Some(Settlement::Expired { host_label, native_return }) => {
-                let state = app.state::<crate::AppState>();
-                let root = native_return.then(|| state.root_for(&host_label).ok().flatten());
-                if let Some(root) = root.flatten() {
-                    if let Err(reason) = reopen_in_native_window(&app, &state, root) {
-                        log::error!(target: "lattice::browser", "could not reopen the workspace: {reason}");
-                    }
-                }
-                destroy_window(&app, &host_label);
-                shutdown_synara_if_idle(&app, &sessions);
+        let Some(Expired { host_label, native_return }) =
+            session::settle_after_grace(&sessions, &token, visible_epoch)
+        else {
+            return;
+        };
+        let state = app.state::<crate::AppState>();
+        let root = native_return.then(|| state.root_for(&host_label).ok().flatten());
+        if let Some(root) = root.flatten() {
+            if let Err(reason) = reopen_in_native_window(&app, &state, root) {
+                log::error!(target: "lattice::browser", "could not reopen the workspace: {reason}");
             }
         }
+        destroy_window(&app, &host_label);
+        shutdown_synara_if_idle(&app, &sessions);
     });
 }
 
@@ -155,7 +146,6 @@ async fn open_browser_session(
         let token = new_token();
         let session = BrowserSession {
             entry_session: true,
-            bundled_chromium: query.role == BridgeRole::Desktop,
             ..BrowserSession::new(new_host_label(), origin.clone())
         };
         let config = BrowserSessionConfig::new(&token, &session, state.port);
@@ -190,7 +180,7 @@ async fn upgrade_bridge(
     let allowed = valid_loopback_host(&headers, state.port)
         && state.sessions.lock().ok().is_some_and(|sessions| {
             sessions.get(&query.token).is_some_and(|session| {
-                query.role == BridgeRole::Host
+                query.role == session::BridgeRole::Host
                     || headers.get(header::ORIGIN).and_then(|origin| origin.to_str().ok())
                         == Some(session.browser_origin.as_str())
             })
@@ -210,11 +200,8 @@ async fn bridge_socket(
     let peer_id = new_token();
     let (sender, mut outgoing) = mpsc::unbounded_channel();
     let (mut sink, mut incoming) = socket.split();
-    let Some(effect) = session::register_peer(&sessions, &query, &peer_id, sender) else {
+    if !session::register_peer(&sessions, &query, &peer_id, sender) {
         return;
-    };
-    if let Some(effect) = effect {
-        apply_effect(&app, &sessions, &query.token, effect);
     }
 
     loop {
@@ -227,19 +214,6 @@ async fn bridge_socket(
             message = incoming.next() => {
                 let Some(Ok(message)) = message else { break };
                 match message {
-                    Message::Text(text)
-                        if query.role != BridgeRole::Host
-                            && matches!(text.as_str(), YIELDED | RECLAIM) =>
-                    {
-                        let effect = if text.as_str() == YIELDED {
-                            session::yielded(&sessions, &query, &peer_id)
-                        } else {
-                            session::reclaim(&sessions, &query, &peer_id)
-                        };
-                        if let Some(effect) = effect {
-                            apply_effect(&app, &sessions, &query.token, effect);
-                        }
-                    }
                     Message::Text(_) | Message::Binary(_) => {
                         if let Some(target) = session::other_peer(&sessions, &query, &peer_id) {
                             let _ = target.send(message);

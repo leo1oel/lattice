@@ -1,5 +1,5 @@
 // Mach-O detection and codesign invocations shared by the runtime staging
-// scripts (Synara, Open Slide, and the bundled Chromium).
+// scripts (Synara and Open Slide).
 import { chmodSync, closeSync, openSync, readSync } from "node:fs";
 import { run, walkFiles } from "./util.mjs";
 
@@ -42,10 +42,9 @@ export function signingIdentity() {
 }
 
 /** Sign with the hardened runtime. An ad-hoc ("-") signature cannot carry a timestamp. */
-export function codesign(path, { identity, entitlements, deep = false }) {
+export function codesign(path, { identity, entitlements }) {
   run("/usr/bin/codesign", [
     "--force",
-    ...(deep ? ["--deep"] : []),
     "--options",
     "runtime",
     ...(identity === "-" ? [] : ["--timestamp"]),

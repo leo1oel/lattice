@@ -27,7 +27,6 @@ assert.equal(report.bundledNodeBytes, null);
 assert.equal(report.synaraTarget, null);
 assert.equal(report.synaraNodeRuntime, null);
 assert.equal(report.presentationRuntimeBytes, null);
-assert.equal(report.chromiumRuntimeBytes, null);
 assert.deepEqual(report.claudeAgentSdkExecutables, []);
 
 const runtime = path.join(workspace, "src-tauri/synara-runtime");
@@ -116,9 +115,7 @@ for (const [overrides, error] of [
   [{ synaraNodeRuntime: "standalone", bundledNodeBytes: 120 * MiB }, null],
   [{ synaraNodeRuntime: "standalone", bundledNodeBytes: null }, /must bundle its standalone Node binary/],
   [{ synaraNodeRuntime: null, bundledNodeBytes: null }, null],
-  [{ synaraNodeRuntime: "electron", bundledNodeBytes: null }, /prepare:synara/],
   [{ presentationRuntimeBytes: 125 * MiB + 1 }, /Presentation runtime.*budget/],
-  [{ chromiumRuntimeBytes: 275 * MiB + 1 }, /Chromium runtime.*budget/],
 ]) {
   const check = checkAppSizeBudgets(workspace, { ...report, claudeAgentSdkExecutables: [], ...overrides });
   await (error ? assert.rejects(check, error) : assert.doesNotReject(check));

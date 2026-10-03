@@ -14,7 +14,6 @@ public/pdfjs
 *.local
 src/locales/**/*.js
 src/locales/**/*.js.map
-src-tauri/chromium-runtime/
 src-tauri/synara-runtime/
 src-tauri/presentation-runtime/*
 !src-tauri/presentation-runtime/placeholder.txt

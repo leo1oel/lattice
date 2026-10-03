@@ -2,9 +2,8 @@
 
 Lattice — a local-first LaTeX writing app for macOS. Tauri 2 (Rust) shell +
 React 19 / TypeScript / Vite 8 frontend, with a bundled AI-agent sidecar
-(Synara) and Overleaf sync. Release builds render in the native WKWebView
-window; the packaged Chromium is kept for one release behind
-`LATTICE_RENDERER=chromium`; see `docs/architecture.md` §1.
+(Synara) and Overleaf sync. Every build renders in the native WKWebView
+window; see `docs/architecture.md` §1.
 
 ## Commands
 
@@ -21,11 +20,11 @@ node scripts/bump-version.mjs patch   # release: rewrites the version in package
 Screenshots, QA or measuring in the app: `docs/driving-the-app.md`.
 
 Only `pnpm tauri dev` / `pnpm tauri build` need the Synara source.
-Everything else — including `pnpm check`, `cargo test`, and `cargo clippy` — only needs resource stubs for the bundled runtimes:
+Everything else — including `pnpm check`, `cargo test`, and `cargo clippy` — only needs a resource stub for the bundled Synara runtime:
 
 ```bash
-mkdir -p src-tauri/{synara-runtime,chromium-runtime}
-touch src-tauri/{synara-runtime,chromium-runtime}/placeholder.txt
+mkdir -p src-tauri/synara-runtime
+touch src-tauri/synara-runtime/placeholder.txt
 ```
 
 For the real sidecar, clone `repository` from `scripts/synara-runtime.json` at

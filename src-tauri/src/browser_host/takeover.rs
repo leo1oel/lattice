@@ -1,9 +1,9 @@
 //! Taking the fixed browser port back from a stale Lattice browser host.
 //!
-//! An older installed build (or, when explicitly requested, this build's own
-//! background login item) may still own the fixed port. It is terminated only
-//! when every authorization input identifies it as this user's
-//! `<this executable> --browser-host` process.
+//! An older installed build's background login item may still own the fixed
+//! port. It is terminated only when every authorization input identifies it as
+//! this user's `<this executable> --browser-host` process from a different
+//! build.
 
 use std::net::{SocketAddrV4, TcpListener};
 use std::path::Path;
@@ -24,16 +24,14 @@ struct ProcessIdentity {
     start_microseconds: u64,
 }
 
-pub(super) fn replace_stale_browser_host(
-    address: SocketAddrV4, take_over_background_host: bool,
-) -> Option<TcpListener> {
+pub(super) fn replace_stale_browser_host(address: SocketAddrV4) -> Option<TcpListener> {
     let current_exe = std::env::current_exe().ok()?;
-    let candidate = stale_browser_host(&current_exe, take_over_background_host)?;
+    let candidate = stale_browser_host(&current_exe)?;
     // Re-read every authorization input immediately before signaling. A PID
     // can be recycled and the fixed port can change owners between `lsof` and
     // this point; either change must fail closed instead of killing the new
     // listener.
-    if stale_browser_host(&current_exe, take_over_background_host)? != candidate {
+    if stale_browser_host(&current_exe)? != candidate {
         return None;
     }
     if unsafe { libc::kill(candidate.pid, libc::SIGTERM) } != 0 {
@@ -56,9 +54,7 @@ pub(super) fn replace_stale_browser_host(
     None
 }
 
-fn stale_browser_host(
-    current_exe: &Path, take_over_background_host: bool,
-) -> Option<ProcessIdentity> {
+fn stale_browser_host(current_exe: &Path) -> Option<ProcessIdentity> {
     let pid = browser_listener_pid()?;
     let identity = process_identity(pid)?;
     let arguments = process_arguments(pid)?;
@@ -71,7 +67,7 @@ fn stale_browser_host(
     }
     let running_hash = process_code_hash(pid)?;
     let current_hash = process_code_hash(own_pid)?;
-    (take_over_background_host || running_hash != current_hash).then_some(identity)
+    (running_hash != current_hash).then_some(identity)
 }
 
 fn browser_host_arguments_match(arguments: &[impl AsRef<[u8]>], current_exe: &Path) -> bool {

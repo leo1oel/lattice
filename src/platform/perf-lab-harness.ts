@@ -4,16 +4,13 @@
    synchronous layout on purpose. */
 // @ts-nocheck
 // The real-app measurement lab's in-page half: it drives scenarios through
-// native input (src-tauri/src/perf_lab.rs for WKWebView, the Electron shell's
-// `latticeLab` bridge for Chromium) and writes JSON results through
-// `perf_write`. Scenario logic matches the webkit-vs-chromium report's harness,
+// native AppKit input (src-tauri/src/perf_lab.rs) and writes JSON results
+// through `perf_write`. Scenario logic matches the webkit-vs-chromium report's harness,
 // so keep changes to a scenario deliberate: they move every number it reports.
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { EditorView } from "@codemirror/view";
 
-const isChromium = /Chrome\//.test(navigator.userAgent);
-const lab = window.latticeLab;
 const epoch = () => performance.timeOrigin + performance.now();
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const nextPaint = () => new Promise((resolve) => requestAnimationFrame(() => setTimeout(() => resolve(performance.now()), 0)));
@@ -173,34 +170,26 @@ async function settle(quietMs = 600, timeout = 20_000, root = document) {
 
 const input = {
   async focus() {
-    return isChromium ? lab.focus() : invoke("perf_focus");
+    return invoke("perf_focus");
   },
   async keys(text) {
-    return isChromium ? lab.keys(text) : invoke("perf_key", { text });
+    return invoke("perf_key", { text });
   },
   wheelDirect: false,
   wheelDebug: null,
   async wheel(x, y, dy) {
-    if (isChromium) return lab.wheel(x, y, -dy);
     const result = await invoke("perf_wheel", { x, y, dy: -Math.round(dy), phase: 0, direct: input.wheelDirect });
     input.wheelDebug = result;
     return result.sent;
   },
   async mouse(points, intervalMs = 8) {
-    return isChromium ? lab.mouse(points, intervalMs) : invoke("perf_mouse", { points, intervalMs });
+    return invoke("perf_mouse", { points, intervalMs });
   },
   async click(element, fx = 0.5, fy = 0.5) {
     const rect = element.getBoundingClientRect();
     await input.mouse([[rect.left + rect.width * fx, rect.top + rect.height * fy]]);
   },
 };
-
-async function snapshot(name) {
-  const path = `${config?.out}/${config?.label}-${name}.png`;
-  // WKWebView snapshots are not implemented; only the Chromium shell can capture.
-  if (!isChromium) return "snapshots need the Chromium window";
-  return lab.snapshot(path).catch((error) => String(error));
-}
 
 function layout() {
   return {
@@ -380,7 +369,7 @@ async function typeAndMeasure(text, gapMs) {
     const sent = await input.keys(character);
     sends.push(sent);
     await waitFor(() => keydowns.length > before, "keydown", 2000).catch(() => null);
-    if (keydowns.length > before) sendToKeydown.push(keydowns[keydowns.length - 1].epoch - (isChromium ? 0 : clockOffset) - sent);
+    if (keydowns.length > before) sendToKeydown.push(keydowns[keydowns.length - 1].epoch - clockOffset - sent);
     await sleep(gapMs);
   }
   await nextPaint();
@@ -474,7 +463,7 @@ async function pdfScroll() {
   const { x, y } = center(viewport);
   let sign = 1;
   const attempts = [];
-  calibrate: for (const direct of isChromium ? [false] : [true, false]) {
+  calibrate: for (const direct of [true, false]) {
     input.wheelDirect = direct;
     for (const candidate of [1, -1]) {
       await input.wheel(x, y, 40 * candidate);
@@ -542,8 +531,7 @@ async function pdfZoom(kind) {
     const inputStart = performance.now();
     for (let step = 0; step < 20; step += 1) {
       if (kind === "native-pinch") {
-        if (isChromium) lab.pinch(x, y, direction === "in" ? 3 : -3);
-        else invoke("perf_magnify", { steps: 1, magnification: direction === "in" ? 0.03 : -0.0291, x, y, intervalMs: 0 });
+        invoke("perf_magnify", { steps: 1, magnification: direction === "in" ? 0.03 : -0.0291, x, y, intervalMs: 0 });
       } else {
         viewport.dispatchEvent(new WheelEvent("wheel", { ctrlKey: true, deltaY: direction === "in" ? -3 : 3, clientX: x, clientY: y, bubbles: true, cancelable: true }));
       }
@@ -568,7 +556,7 @@ async function pdfZoom(kind) {
 
 async function fling(scroller, count, delta, gapMs, trackBlank) {
   const { x, y } = center(scroller);
-  input.wheelDirect = !isChromium;
+  input.wheelDirect = true;
   const samples = [];
   let sampling = true;
   const sample = () => {
@@ -1341,7 +1329,7 @@ export async function startLabHarness() {
   const report = {
     label: plan.label,
     run: plan.run,
-    engine: isChromium ? "chromium" : "webkit",
+    engine: "webkit",
     userAgent: navigator.userAgent,
     devicePixelRatio: window.devicePixelRatio,
     viewport: [innerWidth, innerHeight],
@@ -1371,7 +1359,6 @@ export async function startLabHarness() {
     report.clock = await calibrateClock().catch((error) => String(error));
     await settle(1500, 60_000);
     report.layout = layout();
-    if (plan.shots) report.shotStartup = await snapshot(`run${plan.run}-startup`);
     await write(`${plan.label}-run${plan.run}.json`);
     if (plan.startupOnly) {
       await write(`${plan.label}-run${plan.run}.done`);
@@ -1388,7 +1375,6 @@ export async function startLabHarness() {
       }
       (report.scenarios[name] ?? {}).wallMs = Math.round(performance.now() - started);
       (report.scenarios[name] ?? {}).domAfter = domSize();
-      if (plan.shots) await snapshot(`run${plan.run}-${name}`);
       await write(`${plan.label}-run${plan.run}.json`);
     }
   } catch (error) {

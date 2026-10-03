@@ -2,9 +2,9 @@
 /**
  * The real-app measurement lab (docs/driving-the-app.md): builds Lattice with
  * the `perf-lab` Cargo feature and VITE_PERF_LAB=1, then runs it in the real
- * WKWebView or packaged Chromium window, driven by native input, and collects
- * JSON results. src-tauri/src/perf_lab.rs and src/platform/perf-lab-harness.ts
- * are its two halves; scripts/chromium-perf-lab.mjs is the Chromium window's.
+ * WKWebView window, driven by native input, and collects JSON results.
+ * src-tauri/src/perf_lab.rs and src/platform/perf-lab-harness.ts are its two
+ * halves.
  *
  * Every lab lives in /Users/Shared/lattice-tests/<task>/ under its own bundle
  * identifier, app.latticetest.<task>, and only ever runs as the `latticetest`
@@ -13,22 +13,20 @@
  *
  * Usage (node scripts/perf-lab.mjs …):
  *   build <task> [--reuse-runtimes] [--as SUFFIX]
- *       Build one bundle and stage it as LatticeLabCR<SUFFIX>.app (run with
- *       LATTICE_RENDERER=chromium: the packaged Chromium window) and
- *       LatticeLabWK<SUFFIX>.app (the WKWebView window, without the unused
- *       Chromium runtime). --reuse-runtimes skips
- *       `pnpm prepare:build`'s runtime staging (no Synara checkout needed when
- *       src-tauri/{synara,chromium,presentation}-runtime are already staged).
- *       --as stages a second build beside the first, e.g. main for a baseline.
+ *       Build one bundle and stage it as LatticeLabWK<SUFFIX>.app.
+ *       --reuse-runtimes skips `pnpm prepare:build`'s runtime staging (no
+ *       Synara checkout needed when src-tauri/{synara,presentation}-runtime
+ *       are already staged). --as stages a second build beside the first,
+ *       e.g. main for a baseline.
  *   fixture <task> <project-dir> [--name NAME]
  *       Copy a project in as fixture NAME (default "base"). Every run starts
  *       from a fresh copy of it.
- *   state save <task> <wk|cr>
- *       Snapshot the variant's app state (settings, WebKit/Electron profile,
- *       caches) after a warm-up run; every later run restores it first.
+ *   state save <task>
+ *       Snapshot the app state (settings, WebKit data, caches) after a
+ *       warm-up run; every later run restores it first.
  *   run <task> <variant> <run-id> [--startup | --scenarios a,b | --plan JSON]
- *       [--fixture NAME] [--shots] [--flags a,b] [--timeout S] [--port N]
- *       Launch the variant (wk, cr, or wk<SUFFIX>/cr<SUFFIX>), run the plan,
+ *       [--fixture NAME] [--flags a,b] [--timeout S] [--port N]
+ *       Launch the variant (wk, or wk<SUFFIX> for an --as build), run the plan,
  *       write results/<variant>-run<run-id>.json and .mem.txt, and quit it.
  *   host <task> [--variant V] [--fixture NAME] [--port N]
  *       Serve the real app (no window, fixture open) to a browser at
@@ -48,7 +46,6 @@ const LAB_HOME = `/Users/${LAB_USER}`;
 const LAB_NAME = "LatticeLab";
 // The shipped app's fixed browser-host port; a lab must never take it.
 const REAL_APP_PORT = 18452;
-const ENGINES = { wk: "WK", cr: "CR" };
 
 export function labFor(task) {
   if (!/^[a-z0-9][a-z0-9-]*$/.test(task ?? "")) {
@@ -68,22 +65,21 @@ export function defaultPort(task) {
 }
 
 export function parseVariant(variant) {
-  const match = /^(wk|cr)([a-z0-9]*)$/.exec(variant ?? "");
-  if (!match) throw new Error(`variant must be wk or cr plus an optional --as suffix, got ${JSON.stringify(variant)}`);
-  return { variant, engine: match[1], suffix: match[2] };
+  const match = /^wk([a-z0-9]*)$/.exec(variant ?? "");
+  if (!match) throw new Error(`variant must be wk plus an optional --as suffix, got ${JSON.stringify(variant)}`);
+  return { variant, suffix: match[1] };
 }
 
-const bundlePath = (lab, engine, suffix = "") => join(lab.dir, `${LAB_NAME}${ENGINES[engine]}${suffix}.app`);
+const bundlePath = (lab, suffix = "") => join(lab.dir, `${LAB_NAME}WK${suffix}.app`);
 
-/** The directories a variant's app state lives in, as the lab account sees them. */
-export function statePaths(lab, engine) {
+/** The directories the lab app's state lives in, as the lab account sees them. */
+export function statePaths(lab) {
   const library = `${LAB_HOME}/Library`;
   return [
     `${library}/Application Support/${lab.identifier}`,
-    `${library}/Application Support/${lab.identifier}.chromium`,
-    `${library}/WebKit/${lab.identifier}.${engine}`,
+    `${library}/WebKit/${lab.identifier}.wk`,
     `${library}/Caches/${lab.identifier}`,
-    `${library}/Caches/${lab.identifier}.${engine}`,
+    `${library}/Caches/${lab.identifier}.wk`,
   ];
 }
 
@@ -128,23 +124,15 @@ function build(lab, { reuseRuntimes, suffix = "" }) {
   });
   const built = join(projectRoot, `src-tauri/target/release/bundle/macos/${LAB_NAME}.app`);
   for (const path of [lab.dir, join(lab.dir, "results"), join(lab.dir, "logs"), join(lab.dir, "work")]) labDirectory(path);
-  for (const engine of Object.keys(ENGINES)) {
-    const app = bundlePath(lab, engine, suffix);
-    run("rm", ["-rf", app]);
-    run("ditto", [built, app]);
-    // Per-engine WebKit data and caches, so the two variants never share them.
-    run("/usr/libexec/PlistBuddy", ["-c", `Set :CFBundleIdentifier ${lab.identifier}.${engine}`, join(app, "Contents/Info.plist")]);
-    if (engine === "wk") {
-      // The WKWebView window, without the unused Chromium runtime.
-      const runtime = join(app, "Contents/Resources/chromium-runtime");
-      run("rm", ["-rf", runtime]);
-      mkdirSync(runtime);
-      writeFileSync(join(runtime, "placeholder.txt"), "");
-    }
-    run("codesign", ["--force", "--sign", "-", app]);
-    run("chmod", ["-R", "a+rX", app]);
-    console.log(`staged ${app}`);
-  }
+  const app = bundlePath(lab, suffix);
+  run("rm", ["-rf", app]);
+  run("ditto", [built, app]);
+  // The WebKit data and caches keep the `.wk` suffix earlier labs used, so
+  // a saved state still restores.
+  run("/usr/libexec/PlistBuddy", ["-c", `Set :CFBundleIdentifier ${lab.identifier}.wk`, join(app, "Contents/Info.plist")]);
+  run("codesign", ["--force", "--sign", "-", app]);
+  run("chmod", ["-R", "a+rX", app]);
+  console.log(`staged ${app}`);
 }
 
 function fixture(lab, source, name) {
@@ -158,18 +146,18 @@ function fixture(lab, source, name) {
   console.log(`fixture ${name}: ${target}`);
 }
 
-function saveState(lab, engine) {
-  statePaths(lab, engine).forEach((path, index) => {
-    const snapshot = join(lab.dir, "state", engine, String(index));
+function saveState(lab) {
+  statePaths(lab).forEach((path, index) => {
+    const snapshot = join(lab.dir, "state", "wk", String(index));
     asLabUser("mkdir", ["-p", snapshot]);
     if (existsForLabUser(path)) asLabUser("/usr/bin/rsync", ["-a", "--delete", `${path}/`, `${snapshot}/`]);
   });
-  console.log(`saved ${engine} state under ${join(lab.dir, "state", engine)}`);
+  console.log(`saved state under ${join(lab.dir, "state", "wk")}`);
 }
 
-function restoreState(lab, engine) {
-  statePaths(lab, engine).forEach((path, index) => {
-    const snapshot = join(lab.dir, "state", engine, String(index));
+function restoreState(lab) {
+  statePaths(lab).forEach((path, index) => {
+    const snapshot = join(lab.dir, "state", "wk", String(index));
     if (!existsSync(snapshot)) return;
     asLabUser("mkdir", ["-p", path]);
     asLabUser("/usr/bin/rsync", ["-a", "--delete", `${snapshot}/`, `${path}/`]);
@@ -198,16 +186,16 @@ export function runPlan(options, runId, label) {
   if (options.startup) return { scenarios: [], run: runId, label, startupOnly: true };
   const scenarios = (options.scenarios ?? "").split(",").filter(Boolean);
   if (!scenarios.length) throw new Error("run needs --startup, --scenarios a,b or --plan JSON");
-  return { scenarios, run: runId, label, shots: Boolean(options.shots) };
+  return { scenarios, run: runId, label };
 }
 
 // Checks shared by `run` and `host`, then a fresh working copy of the fixture
 // and the variant's saved state. Returns what the launch needs.
 function prepareLaunch(lab, variantName, options) {
-  const { variant, engine, suffix } = parseVariant(variantName);
+  const { variant, suffix } = parseVariant(variantName);
   const port = Number(options.port ?? lab.port);
   if (port === REAL_APP_PORT) throw new Error(`port ${REAL_APP_PORT} belongs to the real Lattice`);
-  const app = bundlePath(lab, engine, suffix);
+  const app = bundlePath(lab, suffix);
   const binary = join(app, "Contents/MacOS/research-writer");
   if (!existsSync(binary)) throw new Error(`${app} is missing; run build first`);
   const fixtureName = options.fixture ?? "base";
@@ -217,8 +205,8 @@ function prepareLaunch(lab, variantName, options) {
   // Two labs at once would measure each other, whichever task they belong to.
   if (labProcesses(LAB_ROOT)) throw new Error(`a lab app is already running as ${LAB_USER}`);
 
-  restoreState(lab, engine);
-  const project = join(lab.dir, "work", engine);
+  restoreState(lab);
+  const project = join(lab.dir, "work", "wk");
   asLabUser("/usr/bin/rsync", ["-a", "--delete", `${fixtureSource}/`, `${project}/`]);
   const environment = {
     HOME: LAB_HOME, USER: LAB_USER, LOGNAME: LAB_USER, LANG: "en_US.UTF-8",
@@ -226,9 +214,6 @@ function prepareLaunch(lab, variantName, options) {
     LATTICE_LAB_ID: lab.identifier,
     LATTICE_PERF_PROJECT: project,
     LATTICE_PERF_PORT: String(port),
-    LATTICE_CHROMIUM_URL: `http://127.0.0.1:${port}/`,
-    // Release builds render in WKWebView unless asked for the packaged Chromium.
-    ...(engine === "cr" ? { LATTICE_RENDERER: "chromium" } : {}),
   };
   return { variant, binary, port, environment };
 }
@@ -248,8 +233,7 @@ async function runOnce(lab, variantName, runId, options) {
   const { variant, binary, environment } = prepareLaunch(lab, variantName, options);
   const results = join(lab.dir, "results");
   const stem = `${variant}-run${runId}`;
-  const trace = join(lab.dir, "logs", `${stem}.trace`);
-  run("rm", ["-f", join(results, `${stem}.done`), join(results, `${stem}.json`), trace]);
+  run("rm", ["-f", join(results, `${stem}.done`), join(results, `${stem}.json`)]);
   const plan = runPlan(options, runId, variant);
   const before = labUserPids();
   const log = join(lab.dir, "logs", `${stem}.log`);
@@ -259,12 +243,9 @@ async function runOnce(lab, variantName, runId, options) {
     LATTICE_PERF_LABEL: variant,
     LATTICE_PERF_OUT: results,
     // The lab account's windows are never composited on the console user's
-    // screen; without these both engines throttle as if hidden.
+    // screen; without these WebKit throttles as if hidden.
     LATTICE_WK_NOOCC: "1",
-    LATTICE_CR_NOOCC: "1",
     LATTICE_WK_FEATURES_OFF: "PageVisibilityBasedProcessSuppressionEnabled,BackgroundWebContentRunningBoardThrottlingEnabled",
-    LATTICE_CR_TRACE: trace,
-    LATTICE_CR_SWITCHES: options.switches ?? "",
     ...(options.flags ? { LATTICE_LAB_FLAGS: options.flags } : {}),
   }, [], log);
 
@@ -396,10 +377,6 @@ const ROWS = [
   ["Ctrl-wheel zoom the PDF, long Markdown open (fps)", "pdfZoomCtrlWheelHeavy", ["in", "frames", "fps"], "fps"],
 ];
 const FRAME_MS = 1000 / 120;
-// Stock Electron's start→ready as the console user. The lab account's
-// Electron starts slower than a GUI launch, so a Chromium startup mark has its
-// measured start→ready swapped for this (from the webkit-vs-chromium report).
-const ELECTRON_READY_GUI_MS = 40;
 
 const dig = (value, path) => path.reduce((current, key) => (current && typeof current === "object" ? current[key] : undefined), value);
 const median = (values) => {
@@ -417,26 +394,12 @@ function loadRuns(lab, variant, prefix) {
     const runId = pattern.exec(name)?.[1];
     if (!runId || !existsSync(join(results, `${variant}-run${runId}.done`))) return [];
     const result = JSON.parse(readFileSync(join(results, name), "utf8"));
-    const tracePath = join(lab.dir, "logs", `${variant}-run${runId}.trace`);
-    const trace = {};
-    if (existsSync(tracePath)) {
-      for (const line of readFileSync(tracePath, "utf8").split("\n")) {
-        const [time, what] = line.split(" ");
-        if (what && !(what in trace)) trace[what] = Number(time);
-      }
-    }
-    return [{ ...result, runId, trace }];
+    return [{ ...result, runId }];
   });
 }
 
-export function metric(result, engine, [, scenario, path]) {
-  if (scenario.startsWith("@")) {
-    const mark = result.marks?.[scenario.slice(1)];
-    if (typeof mark !== "number" || engine !== "cr") return mark ?? null;
-    const { trace } = result;
-    if (!("shell-start" in trace && "app-ready" in trace)) return null;
-    return mark - (trace["app-ready"] - trace["shell-start"] - ELECTRON_READY_GUI_MS);
-  }
+export function metric(result, [, scenario, path]) {
+  if (scenario.startsWith("@")) return result.marks?.[scenario.slice(1)] ?? null;
   const data = result.scenarios?.[scenario];
   // A drag that did not move the divider measured nothing.
   if (path[0] === "resize" && (data?.resizeMaxShiftPx ?? 0) < 200) return null;
@@ -457,12 +420,12 @@ export function verdict(kind, a, b, frames) {
 
 function compare(lab, variantA, variantB, { runs: prefix = "", json }) {
   const sides = [variantA, variantB].map((variant) => ({
-    variant, engine: parseVariant(variant).engine, runs: loadRuns(lab, variant, prefix),
+    variant, runs: loadRuns(lab, parseVariant(variant).variant, prefix),
   }));
   const rows = ROWS.map((row) => {
     const [label, scenario, , kind] = row;
     const [a, b] = sides.map((side) => {
-      const values = side.runs.map((result) => metric(result, side.engine, row));
+      const values = side.runs.map((result) => metric(result, row));
       return { median: median(values), n: values.filter((value) => value !== null).length };
     });
     const frames = kind === "share"
@@ -492,7 +455,7 @@ function parseArguments(argv) {
     }
     const name = argument.slice(2).replace(/-(\w)/g, (_, letter) => letter.toUpperCase());
     const next = argv[index + 1];
-    if (["reuseRuntimes", "startup", "shots"].includes(name) || next === undefined || next.startsWith("--")) options[name] = true;
+    if (["reuseRuntimes", "startup"].includes(name) || next === undefined || next.startsWith("--")) options[name] = true;
     else options[name] = argv[(index += 1)];
   }
   return { positional, options };
@@ -506,7 +469,7 @@ async function main() {
   };
   if (command === "build") build(labFor(rest[0]), { reuseRuntimes: options.reuseRuntimes, suffix: options.as ?? "" });
   else if (command === "fixture" && rest[1]) fixture(labFor(rest[0]), rest[1], options.name ?? "base");
-  else if (command === "state" && rest[0] === "save") saveState(labFor(rest[1]), parseVariant(rest[2]).engine);
+  else if (command === "state" && rest[0] === "save") saveState(labFor(rest[1]));
   else if (command === "run" && rest[2]) {
     const status = await runOnce(labFor(rest[0]), rest[1], rest[2], options);
     process.exitCode = status === "done" ? 0 : 1;

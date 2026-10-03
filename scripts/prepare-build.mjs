@@ -13,7 +13,6 @@ export function buildPreparationPlan(debugValue) {
     profile: debug ? "debug" : "release",
     scripts: [
       debug ? "prepare:runtime:dev" : "prepare:runtime",
-      "prepare:chromium",
       "build",
     ],
   };

@@ -10,7 +10,6 @@ mod alphaxiv;
 mod app_identity;
 mod app_state;
 mod browser_host;
-mod chromium;
 mod citation_audit;
 mod citation_batch;
 mod citation_health;
@@ -141,7 +140,6 @@ fn show_desktop_window(app: &AppHandle) -> Result<(), String> {
 }
 
 fn shutdown_child_runtimes(app: &AppHandle) {
-    app.state::<chromium::ChromiumRuntime>().shutdown();
     app.state::<synara::SynaraRuntime>().shutdown();
     app.state::<presentation::PresentationRuntime>().shutdown();
 }
@@ -167,31 +165,18 @@ fn on_window_event(window: &tauri::Window, event: &tauri::WindowEvent) {
 fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     log::info!(target: "lattice::app", "Lattice {} starting", app.package_info().version);
     #[cfg(feature = "perf-lab")]
-    {
-        perf_lab::trace("rust:setup-start");
-        perf_lab::disable_app_nap();
-    }
+    perf_lab::disable_app_nap();
     app.manage(AppState::from_environment());
     app.manage(browser_host::BrowserHost::default());
-    app.manage(chromium::ChromiumRuntime::default());
     app.manage(synara::SynaraRuntime::new(app)?);
     app.manage(presentation::PresentationRuntime::new(app)?);
     let background = browser_host_launch();
-    // Release builds render in a WKWebView window; `LATTICE_RENDERER=chromium`
-    // brings back the packaged Chromium window for this release.
-    let chromium_selected =
-        !background && app.state::<chromium::ChromiumRuntime>().is_selected(app.handle());
-    let browser_start =
-        app.state::<browser_host::BrowserHost>().start(app.handle(), chromium_selected);
-    let chromium_ready = chromium_selected && browser_start.is_ok();
-    if let Err(reason) = &browser_start {
+    if let Err(reason) = app.state::<browser_host::BrowserHost>().start(app.handle()) {
         if background {
-            return Err(std::io::Error::other(reason.clone()).into());
+            return Err(std::io::Error::other(reason).into());
         }
-        // WK can operate without the optional loopback service. Do
-        // not launch Chromium after a bind failure: it could attach to
-        // whichever process owns the fixed port instead of this native
-        // owner, so this exceptional launch falls back to WK instead.
+        // A desktop launch works without the optional loopback service; only
+        // Open in browser needs it, and that reports the failure again.
         log::warn!(target: "lattice::browser", "{reason}");
     }
     // Browser access after login was removed: the local address now lives
@@ -204,7 +189,7 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
             log::warn!(target: "lattice::browser", "could not remove the browser login item: {error}");
         }
     }
-    if background || chromium_ready {
+    if background {
         app.state::<browser_host::BrowserHost>()
             .keep_resident(app.handle())
             .map_err(std::io::Error::other)?;
@@ -217,13 +202,8 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     macos_window::install_copy_shortcut_monitor(app.handle().clone());
     // The main window is `create: false` in tauri.conf.json, so no window
     // exists yet: a desktop launch builds it through `workspace_window`.
-    if background || chromium_ready {
+    if background {
         app.handle().set_activation_policy(tauri::ActivationPolicy::Accessory)?;
-        if chromium_ready {
-            app.state::<chromium::ChromiumRuntime>()
-                .launch(app.handle())
-                .map_err(std::io::Error::other)?;
-        }
     } else {
         show_desktop_window(app.handle()).map_err(std::io::Error::other)?;
     }
@@ -231,21 +211,14 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
 }
 
 /// Dock click with no window showing: bring back whichever surface this
-/// launch uses — the browser entry, packaged Chromium, or the desktop window.
+/// launch uses — the browser entry or the desktop window.
 fn reopen(app: &AppHandle) {
     let browser = app.state::<browser_host::BrowserHost>();
     match browser.reopen_entry(app) {
         Ok(true) => {}
         Ok(false) => {
-            let chromium = app.state::<chromium::ChromiumRuntime>();
-            let opened = chromium.open_url("http://127.0.0.1:18452/").unwrap_or_else(|reason| {
-                log::error!(target: "lattice::chromium", "could not reopen Lattice: {reason}");
-                false
-            });
-            if !opened {
-                if let Err(reason) = show_desktop_window(app) {
-                    log::error!(target: "lattice::app", "could not reopen Lattice: {reason}");
-                }
+            if let Err(reason) = show_desktop_window(app) {
+                log::error!(target: "lattice::app", "could not reopen Lattice: {reason}");
             }
         }
         Err(reason) => {

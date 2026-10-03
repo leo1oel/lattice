@@ -27,16 +27,12 @@ function readJson<T>(path: string): T {
 
 const config = readJson<TauriConfig>("src-tauri/tauri.conf.json");
 const capability = readJson<Capability>("src-tauri/capabilities/default.json");
-const packageJson = readJson<{ scripts: Record<string, string> }>("package.json");
 const rustApp = readFileSync("src-tauri/src/lib.rs", "utf8");
 // The browser host module: its listener and windows, plus the HTTP server and
 // dialog commands split out beside it.
 const browserHost = ["browser_host.rs", "browser_host/server.rs", "browser_host/dialogs.rs"]
   .map((file) => readFileSync(`src-tauri/src/${file}`, "utf8"))
   .join("\n");
-const chromiumRuntime = readFileSync("src-tauri/src/chromium.rs", "utf8");
-const chromiumShell = readFileSync("scripts/chromium-shell.mjs", "utf8");
-const chromiumPrepare = readFileSync("scripts/prepare-chromium-runtime.mjs", "utf8");
 const buildPrepare = readFileSync("scripts/prepare-build.mjs", "utf8");
 const indexHtml = readFileSync("index.html", "utf8");
 
@@ -141,18 +137,16 @@ describe("Tauri security boundary", () => {
     expect(browserHost).not.toContain("Ipv4Addr::LOCALHOST, 0");
   });
 
-  it("packages the sandboxed Chromium renderer without exposing workspace tokens in argv", () => {
-    expect(packageJson.scripts["prepare:chromium"]).toBe("node scripts/prepare-chromium-runtime.mjs");
+  it("packages only the sidecar runtimes and opens browser tabs without workspace tokens in argv", () => {
     expect(config.build.beforeBuildCommand).toBe("pnpm prepare:build");
     expectContains(buildPrepare, "process.env.TAURI_ENV_DEBUG", 'debug ? "prepare:runtime:dev" : "prepare:runtime"');
-    expect(config.bundle.resources).toContain("chromium-runtime/");
-    expect(browserHost).toContain(".open_url(&config.url(origin))?");
-    expectContains(chromiumRuntime, ".stdin(Stdio::piped())", "self.send(&ShellMessage::OpenUrl { url })",
-      "let message = encode_message(message)?");
-    expect(chromiumRuntime).not.toContain(".arg(url)");
-    expectContains(chromiumShell, "sandbox: true", "contextIsolation: true", "nodeIntegration: false",
-      'from "./chromium-window-policy.mjs"', "if (presenterOptions) return presenterOptions");
-    expectContains(chromiumPrepare, 'join(appSource, "chromium-window-policy.mjs")');
+    expect(config.bundle.resources).toEqual([
+      "presentation-runtime/", "synara-runtime/**/*", "src/embedded_skills/",
+    ]);
+    // The default browser gets a single-use entry nonce; the session token
+    // stays out of `open`'s arguments and the browser's history.
+    expect(browserHost).toContain("session::entry_url(origin, &nonce)");
+    expect(browserHost).not.toContain("#token=");
   });
 
   it("gives loopback browser tabs the product icon", () => {
