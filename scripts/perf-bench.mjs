@@ -57,6 +57,10 @@
  *                   BRIDGE_NOT_READY; this Chrome falls back to Playwright's
  *                   Chrome for Testing (perf-bench/cdp.mjs).
  *   --port N        the port to serve on (default 18480; 0 picks a free one)
+ *   --lang L        the interface language of the page --serve and --smoke
+ *                   open: en (default), zh-CN or system
+ *   --locale L      with --smoke: the browser language the checked page sees
+ *                   (a BCP 47 tag, e.g. zh-CN), which lang=system resolves from
  * Layout checks (no benchmark):
  *   --layout        build the page and check the geometry in
  *                   scripts/perf-bench/layout-checks.mjs in the chosen engine;
@@ -75,6 +79,8 @@ import { CdpPage, launchChrome } from "./perf-bench/cdp.mjs";
 import { launchWebKit } from "./perf-bench/webkit.mjs";
 import { LAYOUT_CHECKS } from "./perf-bench/layout-checks.mjs";
 import { BenchDriver, SCENARIOS } from "./perf-bench/scenarios.mjs";
+import { APP_READY } from "./perf-bench/selectors.mjs";
+import { exitOnSignals, once, onShutdown, shuttingDown, withoutSigtermExit } from "./perf-bench/shutdown.mjs";
 
 const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const BUDGETS = {
@@ -104,7 +110,7 @@ const BENCH_FIXTURE = {
 };
 
 function parseArgs(argv) {
-  const options = { runs: 2, only: null, json: null, profile: null, check: false, ratchet: false, update: false, headful: false, keepOpen: false, url: null, dev: false, serve: false, smoke: false, chrome: false, layout: false, port: SERVE_PORT, engine: "chromium" };
+  const options = { runs: 2, only: null, json: null, profile: null, check: false, ratchet: false, update: false, headful: false, keepOpen: false, url: null, dev: false, serve: false, smoke: false, chrome: false, layout: false, port: SERVE_PORT, engine: "chromium", lang: "en", locale: null };
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
     if (arg === "--check") options.check = true;
@@ -124,6 +130,8 @@ function parseArgs(argv) {
     else if (arg === "--layout") options.layout = true;
     else if (arg === "--port") options.port = Number(argv[++index]);
     else if (arg === "--engine") options.engine = argv[++index];
+    else if (arg === "--lang") options.lang = argv[++index];
+    else if (arg === "--locale") options.locale = argv[++index];
     else throw new Error(`Unknown option ${arg}`);
   }
   if (!Number.isInteger(options.port) || options.port < 0 || options.port > 65_535) throw new Error("--port takes a port number");
@@ -131,6 +139,9 @@ function parseArgs(argv) {
   if (options.chrome && !options.serve) throw new Error("--chrome keeps a browser up beside --serve; add --serve");
   if (options.layout && (options.serve || options.smoke || options.url)) throw new Error("--layout serves its own page per check; it cannot take --serve, --smoke or --url");
   if (options.smoke && options.engine !== "chromium") throw new Error("--smoke loads the page in Chrome only");
+  if (!["en", "zh-CN", "system"].includes(options.lang)) throw new Error("--lang takes en, zh-CN or system");
+  if (options.url && argv.includes("--lang")) throw new Error("--url names its own page; put lang= in it instead of --lang");
+  if (options.locale && !options.smoke) throw new Error("--locale sets the browser language of --smoke's page; add --smoke");
   if (!(options.engine in BUDGETS)) throw new Error(`Unknown engine ${options.engine}: use chromium or webkit`);
   if (options.profile && options.engine !== "chromium") throw new Error("--profile records Chromium CPU profiles only");
   return options;
@@ -151,8 +162,8 @@ function freePort() {
  * Build output directories this process made. Each run builds into its own,
  * so two runs on one machine (parallel agents, CI lanes) never serve or
  * measure each other's build. Closing the server removes its directory; the
- * exit hook catches the paths that skip that (a thrown error, --keep-open,
- * Ctrl-C), since a production build is tens of megabytes.
+ * exit hook catches the paths that skip that (a thrown error, --keep-open),
+ * since a production build is tens of megabytes.
  */
 const buildDirs = new Set();
 function removeBuildDir(dir) {
@@ -186,12 +197,18 @@ async function step(label, work) {
   }
 }
 
-// A signal's default action skips the exit hook; exiting runs it.
-for (const signal of ["SIGINT", "SIGTERM", "SIGHUP"]) {
-  process.once(signal, () => {
-    if (currentStep) console.error(`perf-bench: ${signal} while ${currentStep}`);
-    process.exit(128 + os.constants.signals[signal]);
+// A signal closes the servers and browsers first (each registers with
+// onShutdown), then exits with its status.
+exitOnSignals({ describe: (signal) => currentStep && `perf-bench: ${signal} while ${currentStep}` });
+
+/** A server whose close() runs once, whether its owner or a signal calls it first. */
+function closedOnShutdown(close) {
+  const closeOnce = once(async () => {
+    unregister();
+    await close();
   });
+  const unregister = onShutdown(closeOnce);
+  return { close: closeOnce };
 }
 
 function startPage(options, settings) {
@@ -227,14 +244,12 @@ async function startVite(production, { port = 0, live = false } = {}) {
           },
         },
       });
-      const server = await preview({ ...shared, build: { outDir }, preview: { port, strictPort: true, host: "127.0.0.1" } });
+      const server = await withoutSigtermExit(() => preview({ ...shared, build: { outDir }, preview: { port, strictPort: true, host: "127.0.0.1" } }));
       return {
-        server: {
-          async close() {
-            await server.close();
-            removeBuildDir(outDir);
-          },
-        },
+        server: closedOnShutdown(async () => {
+          await server.close();
+          removeBuildDir(outDir);
+        }),
         origin: `http://127.0.0.1:${port}`,
         outDir,
       };
@@ -243,12 +258,12 @@ async function startVite(production, { port = 0, live = false } = {}) {
       throw error;
     }
   }
-  const server = await createServer({
+  const server = await withoutSigtermExit(() => createServer({
     ...shared,
     server: { port, strictPort: true, host: "127.0.0.1", ...(live ? {} : { hmr: false, watch: null }) },
-  });
+  }));
   await server.listen();
-  return { server, origin: `http://127.0.0.1:${port}`, outDir: null };
+  return { server: closedOnShutdown(() => server.close()), origin: `http://127.0.0.1:${port}`, outDir: null };
 }
 
 function benchUrl(origin, extra = {}) {
@@ -259,15 +274,16 @@ function benchUrl(origin, extra = {}) {
 /**
  * `--serve`: the benchmark's page without the benchmark, for driving the real
  * app (over the mock backend) from a browser of one's own. Stays up until a
- * signal, whose exit hook removes the build. The URL is printed only once the
- * page answers (and, with --smoke, once the app mounted in it).
+ * signal, which closes the server and browser and removes the build and the
+ * browser's profile. The URL is printed only once the page answers (and,
+ * with --smoke, once the app mounted in it).
  */
 async function serve(options) {
   const vite = await startPage(options, { port: options.port, live: options.dev });
-  const url = benchUrl(vite.origin, { theme: "system", lang: "en" });
+  const url = benchUrl(vite.origin, { theme: "system", lang: options.lang });
   await step("checking that the page answers", () => assertAnswers(url));
   const chrome = options.chrome || options.smoke ? await step("starting headless Chrome", () => launchChrome({ headless: !options.headful })) : null;
-  if (options.smoke && !(await smokeCheck(chrome, url))) {
+  if (options.smoke && !(await smokeCheck(chrome, url, options.locale))) {
     await chrome.close();
     await vite.server.close();
     process.exit(1);
@@ -297,8 +313,6 @@ async function assertAnswers(url) {
   if (!response.ok) throw new Error(`${url} answered ${response.status} ${response.statusText}`);
 }
 
-/** The fixture's root document open in the editor, with the toolbar up. */
-const APP_READY = `document.querySelector(".cm-editor .cm-content") && document.querySelector('button[aria-label="Build"]')`;
 const APP_READY_TIMEOUT = 120_000;
 
 /** Loads the page and waits for the root document in the editor with its first build settled. */
@@ -339,10 +353,16 @@ async function trackRequests(page) {
  * open the fixture project. Prints the verdict and, on a failure, everything
  * the page can say about why, then returns whether the app mounted. Requests
  * still unanswered matter as much as errors: a dev server that stalls leaves
- * the page blank without a single error.
+ * the page blank without a single error. `locale`, when given, is the browser
+ * language the page sees.
  */
-async function smokeCheck(chrome, url) {
+async function smokeCheck(chrome, url, locale) {
   const page = await CdpPage.open(chrome.connection);
+  if (locale) {
+    await page.send("Emulation.setLocaleOverride", { locale });
+    const { userAgent } = await page.send("Browser.getVersion");
+    await page.send("Emulation.setUserAgentOverride", { userAgent, acceptLanguage: locale });
+  }
   const requests = await trackRequests(page);
   const started = Date.now();
   // Not awaited, and not page.navigate(): a server that never answers holds
@@ -360,7 +380,7 @@ async function smokeCheck(chrome, url) {
   let blocked = false;
   const mounted = await step("waiting for the app to open the fixture project", async () => {
     while (!unreachable && Date.now() - started < APP_READY_TIMEOUT) {
-      const ready = await bounded(page.evaluate(`Boolean(${APP_READY})`).catch(() => false), APP_READY_TIMEOUT - (Date.now() - started));
+      const ready = await bounded(page.evaluate(APP_READY).catch(() => false), APP_READY_TIMEOUT - (Date.now() - started));
       if (ready === BLOCKED) {
         blocked = true;
         return false;
@@ -374,7 +394,8 @@ async function smokeCheck(chrome, url) {
   const errors = page.console.filter((line) => /^\[(error|exception|assert)\]/.test(line));
   const list = (lines) => (lines.length ? lines.map((line) => `    ${line.slice(0, 1_000).replaceAll("\n", "\n      ")}`).join("\n") : "    (none)");
   if (mounted) {
-    console.log(`Smoke check passed: the app opened the fixture project in ${seconds} s.`);
+    const lang = await bounded(page.evaluate("document.documentElement.lang").catch(() => null), 5_000);
+    console.log(`Smoke check passed: the app opened the fixture project in ${seconds} s (interface language: ${typeof lang === "string" && lang ? lang : "unknown"}).`);
     if (errors.length) console.log(`  The page reported errors on the way:\n${list(errors)}`);
   } else {
     const read = await bounded(page.evaluate("document.body ? document.body.innerText : ''").catch((error) => `(could not read: ${error.message})`), 5_000);
@@ -404,7 +425,7 @@ async function smoke(options) {
   const vite = options.url ? null : await startPage(options);
   const chrome = await step("starting headless Chrome", () => launchChrome({ headless: !options.headful }));
   try {
-    if (!(await smokeCheck(chrome, options.url ?? benchUrl(vite.origin, { theme: "system", lang: "en" })))) process.exitCode = 1;
+    if (!(await smokeCheck(chrome, options.url ?? benchUrl(vite.origin, { theme: "system", lang: options.lang }), options.locale))) process.exitCode = 1;
   } finally {
     await chrome.close();
     await vite?.server.close();
@@ -638,6 +659,9 @@ async function main() {
 }
 
 await main().catch((error) => {
+  // A signal tore the page or server out from under the run; its own exit
+  // (with the signal's status) follows once the cleanup is done.
+  if (shuttingDown()) return;
   console.error(`perf-bench: ${error.message}`);
   console.error(error.cause?.stack ?? error.stack);
   process.exit(1);

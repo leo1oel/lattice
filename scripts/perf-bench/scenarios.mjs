@@ -9,6 +9,7 @@
  * Debounced work therefore fires the same number of times on a fast laptop
  * and a slow CI runner, which is what makes the counts comparable.
  */
+import { BUILD_BUTTON } from "./selectors.mjs";
 
 /** Pause after each keystroke: a quick typist, and longer than any per-keystroke debounce. */
 const KEY_PAUSE_MS = 120;
@@ -512,12 +513,12 @@ export const SCENARIOS = [
     unit: "build",
     steps: 1,
     async setup(driver) {
-      await driver.waitFor(`document.querySelector('button[aria-label="Build"]')`, { what: "the Build button" });
+      await driver.waitFor(`document.querySelector(${JSON.stringify(BUILD_BUTTON)})`, { what: "the Build button" });
     },
     async run(driver) {
       const builds = await driver.evaluate(`window.__latticeBench?.counts.get("build_project") ?? 0`);
-      await driver.click('button[aria-label="Build"]');
-      await driver.waitFor(`(window.__latticeBench?.counts.get("build_project") ?? 0) > ${builds} && document.querySelector('button[aria-label="Build"]')`, { what: "the build to finish" });
+      await driver.click(BUILD_BUTTON);
+      await driver.waitFor(`(window.__latticeBench?.counts.get("build_project") ?? 0) > ${builds} && document.querySelector(${JSON.stringify(BUILD_BUTTON)})`, { what: "the build to finish" });
       await driver.settle({ quietMs: 300 });
       await driver.click(".compile-diagnostics-toggle");
       await driver.markByText('.compile-diagnostics-tabs [role="tab"]', "Log", "log");

@@ -8,6 +8,7 @@ import { spawn } from "node:child_process";
 import { existsSync, mkdtempSync, readdirSync, rmSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { onShutdown, once } from "./shutdown.mjs";
 
 /** The first Chrome/Chromium the machine has, unless `CHROME_PATH` names one. */
 function findChrome() {
@@ -59,54 +60,70 @@ export async function launchChrome({ executable = findChrome(), headless = true,
     "about:blank",
   ];
   const child = spawn(executable, args, { stdio: ["ignore", "ignore", "pipe"] });
-  // process.exit() skips close(), and perf-bench exits that way on a signal
-  // (--serve --chrome is only ever stopped by one); the browser would outlive it.
+  // A signal awaits close() (shutdown.mjs), which also removes the profile;
+  // the exit hook is the last resort for an exit that does not (a thrown
+  // error, a second signal, a close that overran its grace), so the browser
+  // never outlives perf-bench.
   const killOnExit = () => child.kill("SIGTERM");
   process.on("exit", killOnExit);
-  const endpoint = await new Promise((resolve, reject) => {
-    let output = "";
-    const timer = setTimeout(() => reject(new Error(`Chrome did not start:\n${output}`)), 30_000);
-    child.stderr.on("data", (chunk) => {
-      output += chunk;
-      const match = output.match(/DevTools listening on (ws:\/\/\S+)/);
-      if (match) {
-        clearTimeout(timer);
-        resolve(match[1]);
+  let connection = null;
+  const close = once(async () => {
+    unregister();
+    process.off("exit", killOnExit);
+    connection?.close();
+    child.kill("SIGTERM");
+    await new Promise((resolve) => {
+      if (child.exitCode !== null || child.signalCode !== null) resolve();
+      else child.once("exit", resolve);
+    });
+    // Chrome's helper processes can outlive the browser process for a moment
+    // and keep writing into the profile, so a single rmdir races them
+    // (ENOTEMPTY). rmSync's own maxRetries only re-attempts the final rmdir
+    // without deleting files written since its first pass, so retry the
+    // whole removal instead.
+    for (let attempt = 1; ; attempt++) {
+      try {
+        rmSync(profile, { recursive: true, force: true });
+        break;
+      } catch (error) {
+        if (error.code !== "ENOTEMPTY" || attempt === 20) throw error;
+        await new Promise((resolve) => setTimeout(resolve, 250));
       }
-    });
-    child.once("exit", (code) => {
-      clearTimeout(timer);
-      reject(new Error(`Chrome exited (${code}) before DevTools was ready:\n${output}`));
-    });
+    }
   });
-  const connection = await CdpConnection.connect(endpoint);
+  // Registered before DevTools answers: a signal during startup must remove
+  // the profile too.
+  const unregister = onShutdown(close);
+  let endpoint;
+  try {
+    endpoint = await new Promise((resolve, reject) => {
+      let output = "";
+      const timer = setTimeout(() => reject(new Error(`Chrome did not start:\n${output}`)), 30_000);
+      child.stderr.on("data", (chunk) => {
+        output += chunk;
+        const match = output.match(/DevTools listening on (ws:\/\/\S+)/);
+        if (match) {
+          clearTimeout(timer);
+          resolve(match[1]);
+        }
+      });
+      child.once("exit", (code) => {
+        clearTimeout(timer);
+        reject(new Error(`Chrome exited (${code}) before DevTools was ready:\n${output}`));
+      });
+    });
+    connection = await CdpConnection.connect(endpoint);
+  } catch (error) {
+    // A browser that never came up still made its profile.
+    await close().catch(() => {});
+    throw error;
+  }
   return {
     connection,
     /** The browser's DevTools WebSocket, for another client (chrome-devtools-axi) to attach to. */
     endpoint,
-    async close() {
-      process.off("exit", killOnExit);
-      connection.close();
-      child.kill("SIGTERM");
-      await new Promise((resolve) => {
-        if (child.exitCode !== null) resolve();
-        else child.once("exit", resolve);
-      });
-      // Chrome's helper processes can outlive the browser process for a moment
-      // and keep writing into the profile, so a single rmdir races them
-      // (ENOTEMPTY). rmSync's own maxRetries only re-attempts the final rmdir
-      // without deleting files written since its first pass, so retry the
-      // whole removal instead.
-      for (let attempt = 1; ; attempt++) {
-        try {
-          rmSync(profile, { recursive: true, force: true });
-          break;
-        } catch (error) {
-          if (error.code !== "ENOTEMPTY" || attempt === 20) throw error;
-          await new Promise((resolve) => setTimeout(resolve, 250));
-        }
-      }
-    },
+    /** Stops the browser and removes its profile; safe to call more than once. */
+    close,
   };
 }
 
