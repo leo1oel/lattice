@@ -483,6 +483,37 @@ describe("papers", () => {
     expect(screen.getByRole("tab", { name: /notes\.md/ })).toHaveAttribute("aria-selected", "true");
   });
 
+  it("shows the paper being read again when it is reopened from the library tabbed over it", async () => {
+    renderApp({
+      ...projectCommands(projectSnapshot({ files: fileNodes("main.tex", "notes.md") }), "\\documentclass{main}"),
+      list_papers: () => [attentionPaper()],
+      read_paper: "# Attention\n\nPaper content.",
+    });
+    await openTreeFile("notes.md");
+    await openPaper("Attention Is All You Need");
+    await waitForSelectedTab("Attention Is All You Need");
+    fireEvent.click(within(document.querySelector(".trellis-presets")!).getByRole("tab", { name: "Reading" }));
+    const reading = await findElement<HTMLElement>('[data-trellis-part="panel"][data-panel="panel-reading"]');
+    const paperTab = () => within(reading).getByRole("tab", { name: /Attention Is All You Need/ });
+    const libraryTab = () => within(reading).getByRole("tab", { name: "Papers" });
+    await waitFor(() => expect(paperTab()).toHaveAttribute("aria-selected", "true"));
+
+    // The library covers the paper in their shared panel; the paper stays App's active document.
+    fireEvent.click(libraryTab());
+    await waitFor(() => expect(libraryTab()).toHaveAttribute("aria-selected", "true"));
+    const reads = invokeCalls("read_paper").length;
+
+    // Opening the same paper from the library used to re-read it and leave the library in front.
+    await openPaper("Attention Is All You Need");
+    await waitFor(() => expect(invokeCalls("read_paper").length).toBeGreaterThan(reads));
+    await waitFor(() => expect(paperTab()).toHaveAttribute("aria-selected", "true"));
+    expect(libraryTab()).toHaveAttribute("aria-selected", "false");
+    expect(await screen.findByRole("heading", { name: "Attention" })).toBeVisible();
+    // The notes keep their own panel's selection.
+    expect(within(await findElement<HTMLElement>('[data-trellis-part="panel"][data-panel="panel-notes"]'))
+      .getByRole("tab", { name: /notes\.md/ })).toHaveAttribute("aria-selected", "true");
+  });
+
   it("opens a captured webpage without offering it as an arXiv PDF", async () => {
     renderApp({
       ...projectCommands(projectSnapshot(), "\\documentclass{main}"),

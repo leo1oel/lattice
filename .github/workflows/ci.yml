@@ -104,12 +104,14 @@ jobs:
   # scripts/perf-bench/budgets.json. Which counts are gated and which are
   # report-only (frame-timing-dependent) is documented there. No Tauri host is
   # involved; the page answers the app's IPC from an in-memory fixture project.
+  # `--layout` then checks geometry jsdom cannot (scripts/perf-bench/layout-checks.mjs).
   perf-bench:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/setup-pnpm
       - run: pnpm perf:bench --check
+      - run: pnpm perf:bench --layout
 
   # The same scenarios in WebKit, the engine release builds render in, against
   # scripts/perf-bench/budgets-webkit.json. WebKit pays several times
@@ -124,6 +126,7 @@ jobs:
       - uses: ./.github/actions/setup-pnpm
       - run: pnpm exec playwright-core install webkit
       - run: pnpm perf:bench --check --engine webkit
+      - run: pnpm perf:bench --layout --engine webkit
 
   rust:
     runs-on: macos-latest

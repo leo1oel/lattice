@@ -57,7 +57,7 @@ export function useTrellisBridge(app: TrellisBridgeApp) {
   } = app;
   const {
     file: activeFile, text: source, paper: activePaper, asset: activeAsset, mode: canvasMode, paperView, activeTab,
-    tabs: openTabs, tabsReady, dirty, paperViews, assetPaths,
+    tabs: openTabs, tabsReady, revealRequest, dirty, paperViews, assetPaths,
   } = documents;
   const trellisFilesRevisionRef = useRef<{ files: unknown; revision: number }>({ files: null, revision: 0 });
   useLayoutEffect(() => {
@@ -166,11 +166,12 @@ export function useTrellisBridge(app: TrellisBridgeApp) {
       activeDirty: dirty,
       openTabs,
       tabsReady,
+      revealRequest,
       filesRevision: revision.revision,
       loadAsset: referenceImages.load,
       assetRevision: referenceImages.generation,
     });
-  }, [activeTab, dirty, openTabs, project, referenceImages.generation, referenceImages.load, tabsReady, trellis]);
+  }, [activeTab, dirty, openTabs, project, referenceImages.generation, referenceImages.load, revealRequest, tabsReady, trellis]);
   // Inactive panels paint the last text they showed while loading a fresh copy.
   useEffect(() => {
     if (activeFile && !activePaper) trellis.texts.set(activeFile, source);

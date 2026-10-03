@@ -217,6 +217,11 @@ export class CdpPage {
     await loaded;
   }
 
+  /** Lays the page out at this viewport, whatever the window's size. */
+  async resize(width, height) {
+    await this.send("Emulation.setDeviceMetricsOverride", { width, height, deviceScaleFactor: 1, mobile: false });
+  }
+
   /** Chromium's own counters: RecalcStyleCount, LayoutCount and their durations. */
   async metrics() {
     const { metrics } = await this.send("Performance.getMetrics");

@@ -339,6 +339,15 @@ export function useOpenDocuments(deps: OpenDocumentsDeps) {
   const addTab = useCallback((path: string) => {
     setTabs((current) => (current.includes(path) ? current : [...current, path]));
   }, []);
+  // Each explicit open counts up, so Trellis shows the opened document even
+  // when it was already the active one and only a navigator (Papers, say)
+  // covered it in its panel. Routine reloads keep the panels' selection.
+  const [revealRequest, setRevealRequest] = useState(0);
+  /** An explicit open: the document gets its tab, and its panel shows it. */
+  const showTab = useCallback((path: string) => {
+    addTab(path);
+    setRevealRequest((request) => request + 1);
+  }, [addTab]);
 
   /** Publish deferred visual edits; false while a text composition is still open. */
   const flush = useCallback(() => flushRef.current?.() !== false, []);
@@ -558,7 +567,7 @@ export function useOpenDocuments(deps: OpenDocumentsDeps) {
       setOpening(null);
       // The active document may have lost its tab (its panel was closed):
       // asking for it again brings the tab, and so its panel, back.
-      addTab(path);
+      showTab(path);
       if (line) {
         requestLine(path, line);
         setMode(withEditorFor(path));
@@ -654,8 +663,8 @@ export function useOpenDocuments(deps: OpenDocumentsDeps) {
       pushNavigation(path, 1);
     }
   }, [
-    accept, addTab, depsRef, fileRef, flushAndCheckDirty, loadFile, markDiskMtime, paperBuffersDirty,
-    projectRef, pushNavigation, renderedRef, requestLine, save, savedRef, textRef, viewStateRef,
+    accept, depsRef, fileRef, flushAndCheckDirty, loadFile, markDiskMtime, paperBuffersDirty,
+    projectRef, pushNavigation, renderedRef, requestLine, save, savedRef, showTab, textRef, viewStateRef,
   ]);
 
   /** Show the Paper's overview or its full text: two distinct editable documents. */
@@ -718,7 +727,7 @@ export function useOpenDocuments(deps: OpenDocumentsDeps) {
       setPaper(target);
       setAssetLive(null);
       setMode("pdf");
-      addTab(paperTabKey(target.arxivId));
+      showTab(paperTabKey(target.arxivId));
       recordNavigationTiming("paper", target.title, switchStartedAt, {
         openingPaintMs, flushMs, saveAndReadMs: performance.now() - contentLoadStartedAt,
       });
@@ -734,8 +743,8 @@ export function useOpenDocuments(deps: OpenDocumentsDeps) {
     else if (options?.view === "blog" && opened.hasBlog) choosePaperView("blog");
     return true;
   }, [
-    addTab, captureProjectScope, choosePaperView, depsRef, flushAndCheckDirty, paperBuffersDirty, renderedRef, save, savedRef,
-    setAssetLive, setPaperBuffers, t, textRef,
+    captureProjectScope, choosePaperView, depsRef, flushAndCheckDirty, paperBuffersDirty, renderedRef, save, savedRef,
+    setAssetLive, setPaperBuffers, showTab, t, textRef,
   ]);
 
   const openAsset = useCallback(async (path: string) => {
@@ -751,7 +760,7 @@ export function useOpenDocuments(deps: OpenDocumentsDeps) {
       if (!isLatestLoad()) return false;
       const preview = await invoke<AssetPreview>("read_project_asset", { path });
       if (!isLatestLoad() || flushAndCheckDirty(owner)) return false;
-      addTab(path);
+      showTab(path);
       setAssetLive(preview);
       closePaper();
       setMode("asset");
@@ -761,7 +770,7 @@ export function useOpenDocuments(deps: OpenDocumentsDeps) {
       if (isLatestLoad()) setError(toMessage(reason));
       return false;
     });
-  }, [addTab, captureProjectScope, closePaper, flushAndCheckDirty, renderedRef, save, setAssetLive]);
+  }, [captureProjectScope, closePaper, flushAndCheckDirty, renderedRef, save, setAssetLive, showTab]);
 
   const close = useCallback(async (key: string) => {
     const { file: activeFile, paper: openPaperNow, asset: openAsset, assetPaths: assets } = renderedRef.current;
@@ -1251,6 +1260,8 @@ export function useOpenDocuments(deps: OpenDocumentsDeps) {
     paperViews: Boolean(paper && paperBlog !== null && paperMarkdown),
     asset, assetMissing, assetPaths,
     activeTab, tabs, tabsReady, mode,
+    /** Counts explicit opens; see showTab. */
+    revealRequest,
     /** Unsaved edits in the document in front. */
     dirty: paper ? paperDirty : text !== savedText,
     opening: opening?.label ?? null,

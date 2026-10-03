@@ -1025,9 +1025,10 @@ function useTabSync(controller: TrellisController, ws: WorkspaceHandle | null, q
     if (!ws) return;
     let lastActive = "";
     let lastTabsReady = false;
+    let lastReveal = controller.app.get().revealRequest;
     const fileViews = () => ws.views({ type: "file" });
     const reconcile = () => {
-      const { activeKey, openTabs, tabsReady } = controller.app.get();
+      const { activeKey, openTabs, tabsReady, revealRequest } = controller.app.get();
       const views = fileViews();
       const byKey = new Map(views.map((view) => [String(view.params.key ?? ""), view]));
       // A new document joins the active document's panel, else any document
@@ -1080,9 +1081,13 @@ function useTabSync(controller: TrellisController, ws: WorkspaceHandle | null, q
         }
         for (const key of openTabs) if (!byKey.has(key)) open(key);
       }
-      const activeChanged = activeKey !== lastActive || (tabsReady && !lastTabsReady);
+      // Selection follows only a change of active document, or an explicit
+      // open (which may reopen the active one from a navigator tabbed over
+      // it): any other reconcile must leave the panels' own selection alone.
+      const activeChanged = activeKey !== lastActive || (tabsReady && !lastTabsReady) || revealRequest !== lastReveal;
       lastActive = activeKey;
       lastTabsReady = tabsReady;
+      lastReveal = revealRequest;
       if (!activeKey || !activeChanged) return;
       const info = byKey.get(activeKey) ?? (tabsReady ? open(activeKey) : null);
       if (!info) return;
