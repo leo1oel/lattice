@@ -774,7 +774,7 @@ function App() {
     settledSource: activePaper ? source : settledCanvasSource,
     // Go to symbol lists the same outline, so it reads the included files too.
     outlineWanted: outlineOpen || searchDialog === "goto-symbol",
-    compiledPdf: Boolean(build?.success && pdfUrl),
+    compiledPdf: build?.success ? pdfUrl : null,
   });
   const {
     projectPaths, rootDocumentPath, outlineNodes, liveReferences, todoHits, mainBodyPages, forgetIncludedSources,
