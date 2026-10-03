@@ -324,12 +324,16 @@ describe("papers", () => {
   it("reads a paper beside the notes in the Reading layout, then returns to the writer's own", async () => {
     renderApp({
       ...projectCommands(projectSnapshot({ files: fileNodes("main.tex", "notes.md", "draft.md") }), "\\documentclass{main}"),
-      list_papers: () => [attentionPaper()],
+      list_papers: () => [attentionPaper({ hasBlog: true })],
       read_paper: "# Attention\n\nPaper content.",
+      read_paper_blog_local: "# Attention overview\n\nBlog content.",
     });
     await openTreeFile("notes.md");
     await openPaper("Attention Is All You Need");
     await waitFor(() => expect(screen.getByRole("tab", { name: /Attention Is All You Need/ })).toHaveAttribute("aria-selected", "true"));
+    // Read in the Paper's full text rather than its Blog.
+    fireEvent.click(await screen.findByRole("tab", { name: "Paper" }));
+    await screen.findByRole("heading", { name: "Attention" });
     const panel = (id: string) => document.querySelector(`[data-trellis-part="panel"][data-panel="${id}"]`);
     const layoutTab = (name: string) => within(document.querySelector(".trellis-presets")!).getByRole("tab", { name });
     expect(layoutTab("Workspace")).toHaveAttribute("aria-selected", "true");
@@ -347,6 +351,7 @@ describe("papers", () => {
     await waitForSelectedTab("notes.md");
     const snapshot = await findElement(".trellis-paper-snapshot");
     await waitFor(() => expect(snapshot).toHaveTextContent("Paper content."));
+    expect(snapshot).not.toHaveTextContent("Blog content.");
     expect(within(snapshot).getByRole("button", { name: "Open the reader" })).toBeInTheDocument();
 
     // A file opened while reading joins the notes; one closed stays closed.
@@ -365,6 +370,8 @@ describe("papers", () => {
     for (const name of [/notes\.md/, /draft\.md/, /Attention Is All You Need/]) expect(screen.getByRole("tab", { name })).toBeInTheDocument();
     expect(screen.queryByRole("tab", { name: /main\.tex/ })).not.toBeInTheDocument();
     expect(layoutTab("Workspace")).toHaveAttribute("aria-selected", "true");
+    // The document being written is the one in front.
+    await waitForSelectedTab("draft.md");
   });
 
   it("opens a captured webpage without offering it as an arXiv PDF", async () => {

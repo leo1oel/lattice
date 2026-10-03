@@ -69,7 +69,7 @@ export type TrellisBridge = {
   tabLabel: (key: string) => string;
   /** The last known text of a project file, for an inactive panel's snapshot. */
   readText: (path: string) => Promise<string | null>;
-  /** A Paper's reading text (its overview, else its full text), for an inactive Paper panel. */
+  /** A Paper's reading text (the view it was read in, else the other), for an inactive Paper panel. */
   readPaper: (key: string) => Promise<{ path: string; text: string; scrollTop: number } | null>;
   /** The remembered scroll offset of a text file's editor. */
   textScrollTop: (path: string) => number | null;

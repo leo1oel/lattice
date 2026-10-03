@@ -184,10 +184,11 @@ export function presetLayout(preset: LayoutPreset, doc: LayoutDocument, document
 
 /**
  * The writer's own layout to return to from a preset, brought up to date with
- * the documents: those closed meanwhile stay closed, and those opened meanwhile
- * join the panel holding the active document (else the first document panel),
- * keeping the views they have now. With no document panel left to join,
- * App's tab sync gives them one.
+ * what is open now: documents and panels closed meanwhile stay closed, and
+ * those opened meanwhile join the panel holding the active document (else the
+ * first document panel), keeping the views they have now. The active document
+ * is selected in its panel. With no document panel left to join, App's tab
+ * sync gives new documents one, while other new views join the first panel.
  */
 export function returnLayout(previous: LayoutDocument, current: LayoutDocument, documents: Pick<PresetDocuments, "activeKey" | "openTabs">): LayoutDocument {
   const open = new Set([...documents.openTabs, documents.activeKey].filter(Boolean));
@@ -195,32 +196,36 @@ export function returnLayout(previous: LayoutDocument, current: LayoutDocument, 
   const kept = new Set<string>();
   for (const [id, record] of Object.entries(views)) {
     const key = fileKey(record);
-    if (!key) continue;
-    if (open.has(key) && !kept.has(key)) kept.add(key);
-    else delete views[id];
+    const survives = record.type === "file" ? open.has(key) && !kept.has(key) : Boolean(current.views[id]);
+    if (!survives) delete views[id];
+    else if (key) kept.add(key);
   }
-  const added = Object.entries(current.views).filter(([, record]) => {
-    const key = fileKey(record);
-    return key && open.has(key) && !kept.has(key);
-  });
   const panels = panelsOf(previous);
   const holdsDocument = (target: PanelNode, key?: string) => target.views.some((id) => views[id] && fileKey(views[id]) && (!key || fileKey(views[id]) === key));
   const group = panels.find((target) => holdsDocument(target, documents.activeKey)) ?? panels.find((target) => holdsDocument(target));
-  let doc: LayoutDocument = { ...previous, views };
-  if (group && added.length) {
-    const replace = (target: PanelNode): PanelNode => (target.id === group.id ? { ...target, views: [...target.views, ...added.map(([id]) => id)] } : target);
-    const mapNode = (node: LayoutNode): LayoutNode => {
-      if (node.kind === "panel") return replace(node);
-      if (node.kind === "stage") return node.child ? { ...node, child: mapNode(node.child) as typeof node.child } : node;
-      return { ...node, children: node.children.map(mapNode) };
-    };
-    for (const [id, record] of added) views[id] = record;
-    doc = {
-      ...doc,
-      root: doc.root && mapNode(doc.root),
-      floating: doc.floating.map((entry) => ({ ...entry, panel: replace(entry.panel) })),
-    };
-  }
+  const target = group ?? panels[0];
+  const joining = Object.entries(current.views).filter(([id, record]) => (
+    record.type === "file" ? Boolean(group) && open.has(fileKey(record)) && !kept.has(fileKey(record)) : !views[id]
+  ));
+  for (const [id, record] of joining) views[id] = record;
+  const joined = joining.map(([id]) => id);
+  const active = documents.activeKey ? Object.keys(views).find((id) => fileKey(views[id]) === documents.activeKey) : undefined;
+  const replace = (panel: PanelNode): PanelNode => {
+    const members = panel.id === target?.id ? [...panel.views, ...joined] : panel.views;
+    return { ...panel, views: members, selected: active && members.includes(active) ? active : panel.selected };
+  };
+  const mapNode = (node: LayoutNode): LayoutNode => {
+    if (node.kind === "panel") return replace(node);
+    if (node.kind === "stage") return node.child ? { ...node, child: mapNode(node.child) as typeof node.child } : node;
+    return { ...node, children: node.children.map(mapNode) };
+  };
+  const doc: LayoutDocument = {
+    ...previous,
+    views,
+    root: previous.root ? mapNode(previous.root) : joined.length ? { kind: "panel", id: `panel-${joined[0]}`, views: joined, selected: joined[0] } : null,
+    floating: previous.floating.map((entry) => ({ ...entry, panel: replace(entry.panel) })),
+    hidden: previous.hidden.map((entry) => ({ ...entry, panel: replace(entry.panel) })),
+  };
   // Panels left without a view go, and their splits close up around them.
   return sanitize(doc, knownType);
 }

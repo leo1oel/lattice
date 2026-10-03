@@ -109,10 +109,28 @@ describe("layout presets", () => {
     expect(panels(back)).toEqual([
       { id: "panel-project", views: ["project", "agent"], selected: "project" },
       { id: "panel-papers", views: ["papers"], selected: "papers" },
-      { id: "panel-doc-0", views: ["doc-0", "doc-2", "doc-9"], selected: "doc-0" },
+      { id: "panel-doc-0", views: ["doc-0", "doc-2", "doc-9"], selected: "doc-9" },
       { id: "panel-pdf", views: ["pdf"], selected: "pdf" },
     ]);
     expect(back.views["doc-1"]).toBeUndefined();
+  });
+
+  it("returns with the panels opened while away and without those closed", () => {
+    const previous = workspaceWith(keys);
+    previous.views.history = { type: "history" };
+    delete previous.views.agent;
+    findPanel(previous.root, "panel-project")!.views = ["project"];
+    findPanel(previous.root, "panel-doc-0")!.views.push("history");
+    const preset = presetLayout("writing", previous, documents);
+    // While writing: the Agent opened (docked beside the PDF), History's drawer closed.
+    preset.views.agent = { type: "agent" };
+    findPanel(preset.root, "panel-pdf")!.views.push("agent");
+    delete preset.views.history;
+    preset.hidden = preset.hidden.filter(({ panel }) => !panel.views.includes("history"));
+    const back = returnLayout(previous, preset, documents);
+    expect(findPanel(back.root, "panel-doc-0")).toEqual(expect.objectContaining({ views: ["doc-0", "doc-1", "doc-2", "agent"], selected: "doc-1" }));
+    expect(back.views.agent).toEqual({ type: "agent" });
+    expect(back.views.history).toBeUndefined();
   });
 
   it("closes up a panel whose documents all closed while away", () => {
