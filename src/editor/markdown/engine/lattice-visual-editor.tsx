@@ -28,6 +28,7 @@ import { ProjectImageHostProvider } from "../project-image-host";
 import { DocumentHeadingRail, type DocumentHeadingItem } from "../document-heading-rail";
 import type { VisualMarkdownEditorProps, VisualRevealTarget } from "../visual-editor-props";
 import { resolveCommentAnchor } from "../../comments/editor-comment-data";
+import { focusWhenShown } from "../../focus-when-shown";
 import { blockAnchors } from "./block-anchors";
 import { blockWindow, mayDrawInWindow, revealPosition, scrollToTarget } from "./block-window";
 import { FrozenHeaders } from "./frozen-headers";
@@ -226,32 +227,6 @@ function revealTarget(host: Host, target: VisualRevealTarget): boolean {
   return Boolean(range) && landOn(host, range!);
 }
 
-/** How long a jump keeps asking for focus the browser refused. */
-const FOCUS_WAIT_MS = 1000;
-
-/**
- * Focus `editor`, and keep asking for a moment if the browser refuses: a jump
- * from another tab can land before its surface stops being visibility-hidden
- * (with reduced motion there is no transition to outlast that). It stops once
- * the writer moves focus anywhere but where it was when the jump landed.
- */
-function focusWhenShown(editor: Editor) {
-  const { view } = editor;
-  const page = view.dom.ownerDocument;
-  view.focus();
-  if (view.hasFocus()) return;
-  const left = page.activeElement;
-  const deadline = performance.now() + FOCUS_WAIT_MS;
-  const attempt = () => {
-    if (editor.isDestroyed || performance.now() > deadline) return;
-    const active = page.activeElement;
-    if (active !== left && active !== page.body) return;
-    view.focus();
-    if (!view.hasFocus()) requestAnimationFrame(attempt);
-  };
-  requestAnimationFrame(attempt);
-}
-
 /** Select `range`, center its start and mark its top-level block for a moment. */
 function landOn(host: Host, range: { from: number; to: number }): boolean {
   const { editor } = host;
@@ -266,7 +241,7 @@ function landOn(host: Host, range: { from: number; to: number }): boolean {
   // Selecting first pins (and so draws) the target's block in a windowed document.
   const transaction = view.state.tr.setSelection(selection);
   view.dispatch(blockNode ? setRevealFlash(transaction, { from: blockFrom, to: blockFrom + blockNode.nodeSize }) : transaction);
-  focusWhenShown(editor);
+  focusWhenShown({ dom: view.dom, focus: () => view.focus(), hasFocus: () => view.hasFocus(), alive: () => !editor.isDestroyed });
   revealPosition(view, selection.from);
   if (host.revealTimer) clearTimeout(host.revealTimer);
   host.revealTimer = setTimeout(() => {

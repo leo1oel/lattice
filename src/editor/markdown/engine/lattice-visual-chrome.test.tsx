@@ -521,6 +521,20 @@ describe("block controls (R-CHR-5)", () => {
     expect(await screen.findByRole("listbox", { name: "Slash commands" })).toBeInTheDocument();
   });
 
+  it("leaves the section rail to its sections, so one click there jumps", async () => {
+    renderEditor("## First\n\nIntro.\n\n## Second\n\nBody.");
+    const blocks = [...surface().children];
+    blocks.forEach((block, index) => setRect(block, new DOMRect(100, 100 + index * 40, 400, 28)));
+    fireEvent.mouseMove(blocks[3]!, { clientX: 150, clientY: 230 });
+    expect(await screen.findByRole("button", { name: "Add block below" })).toBeInTheDocument();
+    // The rail floats over the gutter: at a block's height the pointer used to
+    // draw that block's controls over the section it pressed, the release
+    // landed on Add block below, and the click jumped nowhere.
+    const second = within(screen.getByRole("navigation", { name: "Document sections" })).getByRole("button", { name: "Second" });
+    fireEvent.mouseMove(second, { clientX: 40, clientY: 230 });
+    await waitFor(() => expect(screen.queryByRole("button", { name: "Add block below" })).toBeNull());
+  });
+
   it.each(["ltr", "rtl"])("keeps a list item's grip reachable across its marker gutter (%s)", async (direction) => {
     const { editor } = renderEditor("Before\n\n98. Alpha\n99. Bravo\n100. Charlie\n\nAfter");
     surface().style.direction = direction;

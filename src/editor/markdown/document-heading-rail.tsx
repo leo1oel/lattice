@@ -79,6 +79,15 @@ export function DocumentHeadingRail({ items: rawItems, virtualized = false, onSe
   const [pointerPosition, setPointerPosition] = useState<number | null>(null);
   const [focusedId, setFocusedId] = useState<string | null>(null);
   const [fitsViewport, setFitsViewport] = useState(true);
+  /**
+   * The section the writer just jumped to, current until reading moves on.
+   * Reading alone cannot always name it: at either end of the document the
+   * scroller cannot center the heading, so the middle of the viewport is in
+   * another section. `reading` is the section the middle settled in after the
+   * jump; once scrolling reaches another one, reading takes over again.
+   */
+  const jumpRef = useRef<{ id: string; reading: string | null } | null>(null);
+  const remeasureRef = useRef<(() => void) | null>(null);
 
   const selectedId = items.some((item) => item.id === activeId) ? activeId : (items[0]?.id ?? "");
   const hoveredId = pointerPosition == null
@@ -98,17 +107,25 @@ export function DocumentHeadingRail({ items: rawItems, virtualized = false, onSe
     let proseMirror: HTMLElement | null = null;
     let frame: number | null = null;
     let offsets: Array<{ id: string; top: number }> = [];
-    const updateActive = () => {
-      const readingLine = scroller.scrollTop + Math.min(scroller.clientHeight * 0.22, 160);
+    /** `fresh` when the heading offsets were just taken, so they hold the jump's layout. */
+    const updateActive = (fresh = false) => {
+      // The reader is where every jump puts its target: the middle of the
+      // viewport (editor-reveal.ts, block-window.ts). A heading landed on
+      // there is current, and a TODO or comment landed in its section too.
+      const readingLine = scroller.scrollTop + scroller.clientHeight / 2;
       // Without every heading mounted, estimate from scroll progress instead.
       const measured = !virtualized && offsets.length >= items.length;
-      const reached = measured
-        ? readingLine
-        : Math.min(1, Math.max(0, readingLine / Math.max(1, scroller.scrollHeight - scroller.clientHeight)));
+      const reached = measured ? readingLine : Math.min(1, Math.max(0, readingLine / Math.max(1, scroller.scrollHeight)));
       let nextId = items[0]?.id ?? "";
       for (const mark of measured ? offsets : items.map(({ id, position }) => ({ id, top: position }))) {
         if (mark.top > reached) break;
         nextId = mark.id;
+      }
+      const jump = jumpRef.current;
+      if (jump) {
+        if (fresh) jump.reading ??= nextId;
+        if (jump.reading === null || nextId === jump.reading) nextId = jump.id;
+        else jumpRef.current = null;
       }
       setActiveId((current) => current === nextId ? current : nextId);
     };
@@ -127,11 +144,12 @@ export function DocumentHeadingRail({ items: rawItems, virtualized = false, onSe
       if (!proseMirror?.hasAttribute("data-width-held")) {
         setFitsViewport(scroller.clientWidth === 0 || scroller.clientWidth >= MIN_RAIL_VIEWPORT_WIDTH);
       }
-      updateActive();
+      updateActive(true);
     };
     const scheduleMeasure = () => {
       frame ??= window.requestAnimationFrame(measure);
     };
+    remeasureRef.current = scheduleMeasure;
     const onScroll = () => updateActive();
     const resizeObserver = new ResizeObserver(scheduleMeasure);
     resizeObserver.observe(scroller);
@@ -155,6 +173,7 @@ export function DocumentHeadingRail({ items: rawItems, virtualized = false, onSe
     measure();
     return () => {
       if (frame != null) window.cancelAnimationFrame(frame);
+      remeasureRef.current = null;
       resizeObserver.disconnect();
       mutationObserver.disconnect();
       surfaceWatcher.disconnect();
@@ -220,7 +239,13 @@ export function DocumentHeadingRail({ items: rawItems, virtualized = false, onSe
                 setFocusedId(target.id);
                 buttonRefs.current.get(target.id)?.focus();
               }}
-              onClick={() => onSelect(item)}
+              onClick={() => {
+                onSelect(item);
+                jumpRef.current = { id: item.id, reading: null };
+                setActiveId(item.id);
+                // Note where reading settled after the jump, even when it did not scroll.
+                remeasureRef.current?.();
+              }}
             >
               <motion.span
                 aria-hidden="true"
