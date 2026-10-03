@@ -760,16 +760,19 @@ body:has(.modal-backdrop, .drawer-backdrop) :is(.latex-selection-toolbar-anchor,
    container's width change restyles all of its contents in WebKit, and the
    shell holds the whole paper. */
 .paper-reader-header { container: paper-reader / inline-size; min-height: var(--toolbar-height); flex: none; padding-inline: var(--space-8) var(--space-5); border-bottom: 1px solid var(--border-subtle); display: flex; align-items: center; justify-content: flex-end; gap: var(--space-8); }
-/* The Paper's identity on one line: the quieter authors give way first as
-   the panel narrows, then the title ellipsizes. The source is the way to the
-   original, so it never shrinks away: it keeps its natural width while the
-   title yields, and only as a last resort its label truncates down to a
-   floor that still holds the separator, some label and the icon. */
+/* The Paper's identity on one line: the title ellipsizes as the panel
+   narrows, while the authors keep their natural width (capped so a long
+   corporate author cannot crowd the title out) until the strip is too narrow
+   for both, when they go entirely rather than dwindle to an initial. The
+   source is the way to the original, so it never shrinks away: it keeps its
+   natural width while the title yields, up to a cap that leaves the title
+   room however long a DOI runs, and only then its label truncates, never
+   below a floor that still holds the separator, some label and the icon. */
 .paper-identity { min-width: 0; flex: 1 1 auto; margin: 0; display: flex; align-items: baseline; color: var(--text-tertiary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); white-space: nowrap; }
 .paper-identity > * { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .paper-identity-title { flex: 0 1 auto; color: var(--text-primary); font-size: var(--type-label-size); font-weight: var(--weight-medium); animation: paper-identity-in var(--duration-base) var(--ease-out); }
-.paper-identity-authors { flex: 0 1000 auto; color: var(--text-secondary); }
-.paper-identity-source { flex: none; min-width: 5em; max-width: 100%; }
+.paper-identity-authors { flex: none; max-width: 30%; color: var(--text-secondary); }
+.paper-identity-source { flex: none; min-width: 5em; max-width: 40%; }
 .paper-identity > * + *::before { content: "·"; margin-inline: var(--space-3); color: var(--text-tertiary); }
 /* The source opens the original, so it reads as text until pointed at. */
 button.paper-identity-source { height: auto; padding: 0; border: 0; border-radius: var(--radius-compact); background: transparent; color: inherit; display: inline-flex; align-items: baseline; font: inherit; cursor: pointer; transition: color var(--duration-quick) var(--ease-default); }
@@ -791,7 +794,7 @@ button.paper-identity-source:focus-visible { outline: var(--focus-ring-width) so
   .paper-local-action { width: var(--control-size-icon); padding-inline: 0; }
   .paper-local-action span { display: none; }
 }
-@container paper-reader (max-width: 380px) {
+@container paper-reader (max-width: 440px) {
   .paper-identity-authors { display: none; }
 }
 .visual-heading-rail { position: sticky; z-index: var(--z-editor-overlay); top: 50%; width: 0; height: 0; margin-inline-start: var(--space-6); overflow: visible; pointer-events: none; }

@@ -326,6 +326,25 @@ describe("papers", () => {
     await waitFor(() => expect(paper.closest(".paper-row")).not.toHaveClass("active"));
   });
 
+  it("paints an unfocused LaTeX snapshot in the live editor's syntax palette", async () => {
+    renderApp({
+      ...projectCommands(projectSnapshot({ files: fileNodes("main.tex") }), "\\documentclass{article}\n\\usepackage{url}"),
+      list_papers: () => [attentionPaper()],
+      read_paper: "# Attention\n\nPaper content.",
+    });
+    // Each token's highlight classes, so a different parser shows as different classes.
+    const tokens = (root: Element) => [...root.querySelectorAll(".cm-line span")]
+      .map((span) => `${span.textContent}:${span.className}`);
+    const live = await findElement(".source-editor:not(.trellis-snapshot) .cm-content");
+    await waitFor(() => expect(tokens(live).length).toBeGreaterThan(0));
+    const liveTokens = tokens(live);
+
+    await openPaper("Attention Is All You Need");
+    fireEvent.click(within(document.querySelector(".trellis-presets")!).getByRole("tab", { name: "Reading" }));
+    const snapshot = await findElement(".trellis-snapshot .cm-content");
+    await waitFor(() => expect(tokens(snapshot)).toEqual(liveTokens));
+  });
+
   it("reads a paper beside the notes in the Reading layout, then returns to the writer's own", async () => {
     renderApp({
       ...projectCommands(projectSnapshot({ files: fileNodes("main.tex", "notes.md", "draft.md") }), "\\documentclass{main}"),
