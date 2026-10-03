@@ -358,7 +358,11 @@ async function trackRequests(page) {
  */
 async function smokeCheck(chrome, url, locale) {
   const page = await CdpPage.open(chrome.connection);
-  if (locale) await page.send("Emulation.setLocaleOverride", { locale });
+  if (locale) {
+    await page.send("Emulation.setLocaleOverride", { locale });
+    const { userAgent } = await page.send("Browser.getVersion");
+    await page.send("Emulation.setUserAgentOverride", { userAgent, acceptLanguage: locale });
+  }
   const requests = await trackRequests(page);
   const started = Date.now();
   // Not awaited, and not page.navigate(): a server that never answers holds

@@ -23,7 +23,10 @@ describe.skipIf(process.env.LATTICE_E2E !== "1")("perf-bench --serve --smoke --c
   let server;
   let exited;
   let output = "";
-  const env = () => ({ ...process.env, TMPDIR: tmp });
+  const env = () => ({
+    ...Object.fromEntries(Object.entries(process.env).filter(([name]) => !["NODE_ENV", "VITEST", "TEST"].includes(name))),
+    TMPDIR: tmp,
+  });
   const leftovers = () => readdirSync(tmp).filter((name) => name.startsWith("lattice-perf-bench-"));
 
   function perfBench(args) {
