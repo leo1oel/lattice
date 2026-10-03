@@ -292,6 +292,19 @@
 .trellis-view-switcher .ui-segmented-tab:not(.active):hover { background: var(--chrome-hover-surface); color: var(--text-primary); }
 .trellis-view-switcher .ui-segmented-tab:not(.active):active { background: color-mix(in srgb, var(--text-primary) 14%, transparent); color: var(--text-primary); }
 .trellis-view-switcher .ui-segmented-tab.active { color: var(--text-primary); cursor: default; }
+/* A mode's name (Edit, Split, Preview; Blog, Paper) is its tooltip and its
+   accessible name, and is shown beside its icon only in room to spare: the
+   Trellis patch marks the bar data-tools="named" when every tab already has
+   its natural width beside the named modes, so no tab is narrowed for them
+   and the panel's minimum stays the icon row's. */
+.trellis-mode-name { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.lattice-trellis [data-trellis-part="tabbar"][data-tools="named"] .trellis-view-switcher .ui-segmented-tab { padding-inline: var(--space-4) var(--space-5); }
+.lattice-trellis [data-trellis-part="tabbar"][data-tools="named"] .trellis-view-switcher .sliding-tab-label { gap: var(--space-3); }
+.lattice-trellis [data-trellis-part="tabbar"][data-tools="named"] .trellis-mode-name {
+  position: static; width: auto; height: auto; overflow: visible; clip-path: none;
+  font-size: var(--type-caption-size);
+  font-weight: var(--weight-medium);
+}
 /* Short of room for the tabs, Build keeps only its icon (see the tab sizes above). */
 .lattice-trellis [data-trellis-part="tabbar"][data-tools="icon"] .trellis-build-label { display: none; }
 .lattice-trellis [data-trellis-part="tabbar"][data-tools="icon"] .trellis-build-button { padding-inline: var(--space-4); }

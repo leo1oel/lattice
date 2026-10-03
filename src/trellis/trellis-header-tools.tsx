@@ -3,6 +3,10 @@
  * project and brings the PDF up), Edit / Split / Preview on the active
  * Markdown or HTML file, and Blog / Paper on the active Paper.
  *
+ * The modes are icons, each named in its tooltip and to assistive technology;
+ * a header with room to spare names them beside their icons too (see the
+ * header's data-tools="named" in trellis.css).
+ *
  * Every document view's tools share one grid cell in its panel's header (see
  * trellis.css), and the Trellis patch measures that cell for the panel's
  * minimum. So a view whose tools are not live right now — an unselected tab,
@@ -187,9 +191,9 @@ export function FileHeaderTools({ controller }: { controller: TrellisController 
   }
   if (which === "views") {
     const items = [
-      { value: "source" as const, label: <><PenLine size={13} /><span className="sr-only">{t`Edit`}</span></> },
-      { value: "split" as const, label: <><Columns2 size={13} /><span className="sr-only">{t`Split`}</span></> },
-      { value: "pdf" as const, label: <><Eye size={13} /><span className="sr-only">{t`Preview`}</span></> },
+      { value: "source" as const, label: <><PenLine size={13} /><span className="trellis-mode-name">{t`Edit`}</span></> },
+      { value: "split" as const, label: <><Columns2 size={13} /><span className="trellis-mode-name">{t`Split`}</span></> },
+      { value: "pdf" as const, label: <><Eye size={13} /><span className="trellis-mode-name">{t`Preview`}</span></> },
     ];
     if (!active || !tools.viewModes) {
       return <Reserve><SegmentedControl<TrellisViewMode> value="source" onChange={() => {}} ariaLabel="" className="trellis-view-switcher" items={items} /></Reserve>;
@@ -209,8 +213,8 @@ export function FileHeaderTools({ controller }: { controller: TrellisController 
   }
   if (which === "paper") {
     const items = [
-      { value: "blog" as const, label: <><Newspaper size={13} /><span className="sr-only">{t`Blog`}</span></>, title: t`Open the paper overview` },
-      { value: "fulltext" as const, label: <><FileText size={13} /><span className="sr-only">{t`Paper`}</span></>, title: t`Open the full paper Markdown` },
+      { value: "blog" as const, label: <><Newspaper size={13} /><span className="trellis-mode-name">{t`Blog`}</span></>, title: t`Open the paper overview` },
+      { value: "fulltext" as const, label: <><FileText size={13} /><span className="trellis-mode-name">{t`Paper`}</span></>, title: t`Open the full paper Markdown` },
     ];
     // A Paper with only its full text or only its blog has nothing to switch
     // between, but keeps the switch's room like any other Paper.
