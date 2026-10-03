@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { indexDiagnostics, pathDiagnostics, structureDiagnostics } from "./latex-diagnostics";
+import { uncommented } from "./latex-language";
 import { parseGraphicsPaths, type ReferenceInfo } from "./latex-text";
 
 const figure = (label: string, path = "main.tex"): ReferenceInfo =>
@@ -15,6 +16,25 @@ describe("LaTeX diagnostics", () => {
       "Unclosed \\begin{equation}.",
       "Duplicate label “fig:a”.",
     ]);
+  });
+
+  // Folding and auto-close read comments through `uncommented`; lint must
+  // agree with them, or it reports an environment the comment hides.
+  it.each([
+    ["an escaped percent is text", String.raw`50\% \begin{equation}`, true],
+    ["a line break before a percent leaves a comment", String.raw`\\%\begin{equation}`, false],
+    ["three backslashes escape the percent", String.raw`\\\%\begin{equation}`, true],
+    ["four backslashes leave a comment", String.raw`\\\\% \begin{equation}`, false],
+    ["a percent inside inline math is a comment", "$x % \\begin{equation}\n$", false],
+  ])("%s", (_name, source, unclosed) => {
+    expect(messages(structureDiagnostics(source))).toEqual(unclosed ? ["Unclosed \\begin{equation}."] : []);
+    expect(uncommented(source.split("\n")[0]).includes("\\begin{equation}")).toBe(unclosed);
+  });
+
+  it("keeps offsets after a comment", () => {
+    const source = "% \\end{x}\n$a$ % note\n\\begin{equation}";
+    expect(structureDiagnostics(source).map(({ from, to }) => [from, to]))
+      .toEqual([[source.indexOf("\\begin"), source.length]]);
   });
 
   it.each([

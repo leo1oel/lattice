@@ -3,6 +3,7 @@ import { msg } from "@lingui/core/macro";
 import type { MessageDescriptor } from "@lingui/core";
 import { i18n } from "../../i18n";
 import { environmentEvents, type EnvironmentEvent } from "./latex-environments";
+import { uncommented } from "./latex-language";
 import {
   CITATION, GRAPHICS, INCLUDE, REFERENCE, argumentsOf, keySpans, resolveProjectPath, unwrapLatexPath, type KeySpan,
 } from "./latex-symbols";
@@ -83,17 +84,14 @@ export function pathDiagnostics(
   return diagnostics;
 }
 
-/** Blank out `%` comments (outside inline math) so they cannot open or close anything. */
+/**
+ * Blank out `%` comments so they cannot open or close anything. Folding and
+ * auto-close read comments through the same `uncommented` rule, so lint agrees
+ * with them on `\\%` (a line break, then a comment) and on a `%` inside `$…$`,
+ * which TeX also reads as a comment. Blanking keeps every offset in place.
+ */
 function stripLineComments(text: string): string {
-  return text.split("\n").map((line) => {
-    let inMath = false;
-    for (let index = 0; index < line.length; index += 1) {
-      if (line[index - 1] === "\\") continue;
-      if (line[index] === "$") inMath = !inMath;
-      else if (!inMath && line[index] === "%") return line.slice(0, index).padEnd(line.length);
-    }
-    return line;
-  }).join("\n");
+  return text.split("\n").map((line) => uncommented(line).padEnd(line.length)).join("\n");
 }
 
 export function structureDiagnostics(text: string): Diagnostic[] {
