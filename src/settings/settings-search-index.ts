@@ -7,7 +7,8 @@ import type { SettingsTab } from "../app-types";
  * extra words people search for that the label does not say (its option
  * names, the tool it drives), localized like the label. `description` is
  * every description the row can show, one per state it switches between, so
- * a search for either wording finds it; the updater's live status is left out.
+ * a search for either wording finds it. Live statuses (the updater's and the
+ * Overleaf live-editing connection's) are left out.
  */
 export type SettingsSearchEntry = {
   tab: SettingsTab;
