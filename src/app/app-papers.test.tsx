@@ -527,10 +527,17 @@ describe("papers", () => {
     const reads = invokeCalls("read_paper").length;
 
     // Opening the same paper from the library used to re-read it and leave the library in front.
+    // A keyboard open starts with focus on the library's own button.
+    const libraryButton = await (await papersList()).findByTitle("Attention Is All You Need");
+    libraryButton.focus();
     await openPaper("Attention Is All You Need");
     await waitFor(() => expect(invokeCalls("read_paper").length).toBeGreaterThan(reads));
     await waitFor(() => expect(paperTab()).toHaveAttribute("aria-selected", "true"));
     expect(libraryTab()).toHaveAttribute("aria-selected", "false");
+    // Focus follows the paper instead of dropping to the body with the hidden library.
+    await waitFor(() => expect(document.activeElement).not.toBe(document.body));
+    expect(document.activeElement?.closest("[data-view]")?.getAttribute("data-view"))
+      .toBe(paperTab().getAttribute("data-view"));
     expect(await screen.findByRole("heading", { name: "Attention" })).toBeVisible();
     // The notes keep their own panel's selection.
     expect(within(await findElement<HTMLElement>('[data-trellis-part="panel"][data-panel="panel-notes"]'))
@@ -609,6 +616,43 @@ describe("papers", () => {
     const snapshot = await findElement(".trellis-pdf-snapshot");
     await within(snapshot).findByLabelText("PDF page 1");
     expect(screen.getByRole("tab", { name: /notes\.md/ })).toHaveAttribute("aria-selected", "true");
+  });
+
+  it("leaves focus in the notes when the writer moves there while a reopened paper is read", async () => {
+    let paperRead = deferred<string>();
+    renderApp({
+      ...projectCommands(projectSnapshot({ files: fileNodes("main.tex", "notes.md") }), "\\documentclass{main}"),
+      list_papers: () => [attentionPaper()],
+      read_paper: () => paperRead.promise,
+    });
+    await openTreeFile("notes.md");
+    await openPaper("Attention Is All You Need");
+    act(() => paperRead.resolve("# Attention\n\nPaper content."));
+    await waitForSelectedTab("Attention Is All You Need");
+    fireEvent.click(within(document.querySelector(".trellis-presets")!).getByRole("tab", { name: "Reading" }));
+    const reading = await findElement<HTMLElement>('[data-trellis-part="panel"][data-panel="panel-reading"]');
+    const paperTab = () => within(reading).getByRole("tab", { name: /Attention Is All You Need/ });
+    const libraryTab = () => within(reading).getByRole("tab", { name: "Papers" });
+    await waitFor(() => expect(paperTab()).toHaveAttribute("aria-selected", "true"));
+    fireEvent.click(libraryTab());
+    await waitFor(() => expect(libraryTab()).toHaveAttribute("aria-selected", "true"));
+
+    paperRead = deferred<string>();
+    const reads = invokeCalls("read_paper").length;
+    const libraryButton = await (await papersList()).findByTitle("Attention Is All You Need");
+    libraryButton.focus();
+    await openPaper("Attention Is All You Need");
+    await waitFor(() => expect(invokeCalls("read_paper").length).toBeGreaterThan(reads));
+    // The writer tabs over to the notes before the read lands.
+    const notesTab = within(await findElement<HTMLElement>('[data-trellis-part="panel"][data-panel="panel-notes"]'))
+      .getByRole("tab", { name: /notes\.md/ });
+    notesTab.focus();
+    act(() => paperRead.resolve("# Attention\n\nPaper content."));
+    await waitFor(() => expect(paperTab()).toHaveAttribute("aria-selected", "true"));
+    for (let frame = 0; frame < 2; frame += 1) {
+      await act(() => new Promise<void>((resolve) => requestAnimationFrame(() => resolve())));
+    }
+    expect(document.activeElement).toBe(notesTab);
   });
 
   it("opens a captured webpage without offering it as an arXiv PDF", async () => {
