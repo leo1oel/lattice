@@ -450,6 +450,35 @@
 .trellis-presets .sliding-tab-label { gap: var(--space-3); }
 .trellis-titlebar[data-compact] .trellis-presets .trellis-preset { padding-inline: var(--space-4); }
 .trellis-titlebar[data-compact] .trellis-preset-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+/* Named workspaces lead the track, then "+", a hairline, and the presets.
+   The workspace a preset lies over keeps the primary text colour. */
+.trellis-workspace-tabs, .trellis-preset-tabs { display: flex; align-items: stretch; }
+.trellis-titlebar .trellis-presets .trellis-workspace-tab { padding-inline: var(--space-5); touch-action: none; }
+.trellis-titlebar .trellis-presets .trellis-preset[data-underlying] { color: var(--text-primary); }
+.trellis-titlebar .trellis-presets .trellis-workspace-tab[data-dragging] { cursor: grabbing; opacity: .7; }
+.trellis-titlebar .trellis-presets .trellis-workspace-add {
+  width: var(--control-height-compact); height: 100%;
+  justify-content: center; padding: 0;
+  border-radius: var(--nested-radius);
+  color: var(--text-tertiary);
+}
+.trellis-titlebar .trellis-presets .trellis-workspace-add:hover { background: transparent; color: var(--text-primary); }
+.trellis-presets-divider { flex: none; align-self: center; width: 1px; height: 55%; margin-inline: var(--space-1); background: var(--border-subtle); }
+/* Where a workspace's context menu opens: the pointer, placed in the page (the titlebar contains its layout). */
+.trellis-workspace-menu-anchor { position: fixed; width: 0; height: 0; pointer-events: none; }
+.trellis-workspace-menu-name { max-width: 9em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* The workspace's name, edited in place of its tab. */
+.trellis-workspace-name {
+  min-width: 0; height: 100%;
+  padding: 0 var(--space-4);
+  border: 0; border-radius: var(--nested-radius);
+  background: var(--segmented-selected-surface);
+  box-shadow: 0 0 0 var(--focus-ring-width) var(--focus-ring);
+  color: var(--text-primary);
+  font: inherit; font-size: var(--type-label-size);
+  outline: none;
+}
+.trellis-workspace-name[aria-invalid="true"] { box-shadow: 0 0 0 var(--focus-ring-width) var(--control-invalid-border); }
 /* Maximize and Reset layout close the Panels menu. */
 @container trellis-titlebar (max-width: 400px) { .trellis-titlebar-layout-actions { display: none; } }
 /* The Panels menu reopens each of these panels; their own headers hide them. */

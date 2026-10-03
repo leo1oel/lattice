@@ -45,12 +45,14 @@ import {
   TOOL_KINDS, documentTools, useTrellisApp, type TrellisController, type TrellisSingleton, type TrellisToolKind,
 } from "./trellis-controller";
 import {
-  defaultLayout, loadLayout, saveLayout, clearLayout, enterPreset, returnLayout, undoReset, layoutShape, withDocumentPanel,
-  VIEW_TYPES, type ActivePreset,
+  arrangeDocuments, defaultLayout, enterPreset, liveArrangement, openProjectLayout, placesOf, returnLayout, saveLayout, undoReset,
+  withDocumentPanel,
+  VIEW_TYPES, type ActivePreset, type DocumentPlaces,
 } from "./trellis-layout";
 import { notifyInfo } from "../telemetry/app-notify";
 import { dismissAppToastByDedupeKey } from "../telemetry/app-log-store";
 import { installTrellisLabels } from "./trellis-labels";
+import { arrangementOf, layoutShape } from "./trellis-workspaces";
 import { PANEL_TITLES, spaceMixedScript } from "./trellis-titles";
 import { MENU_ICONS, PANEL_ICONS, fileIcon } from "./trellis-icons";
 import { FileHeaderTools } from "./trellis-header-tools";
@@ -720,12 +722,14 @@ type WorkspaceProps = { controller: TrellisController; projectRoot: string; dark
 /** Memoized: App re-renders on every keystroke, and nothing here needs to follow it. */
 const TrellisWorkspace = memo(function TrellisWorkspace({ controller, projectRoot, dark }: WorkspaceProps) {
   const { t, i18n } = useLingui();
-  const [{ initial, initialPreset, agentMinSize, pdfMinSize }] = useState(() => {
+  const [{ initial, initialPreset, initialWorkspace, initialPlaces, agentMinSize, pdfMinSize }] = useState(() => {
     installTrellisLabels();
-    const saved = loadLayout(projectRoot);
+    const saved = openProjectLayout(projectRoot, controller.workspaces);
     return {
       initial: saved.document,
       initialPreset: saved.preset,
+      initialWorkspace: saved.workspace,
+      initialPlaces: saved.places,
       agentMinSize: measuredMinSize(MIN_SIZE.agent, () => controller.ui.get().agentMinWidth),
       pdfMinSize: measuredMinSize(MIN_SIZE.pdf, () => controller.ui.get().pdfMinWidth),
     };
@@ -746,6 +750,9 @@ const TrellisWorkspace = memo(function TrellisWorkspace({ controller, projectRoo
   const resettingRef = useRef(false);
   /** The preset the layout is in, with the writer's own layout to return to. */
   const presetRef = useRef<ActivePreset | null>(initialPreset);
+  /** The named workspace the project is in, and where its documents sat in each workspace it visited. */
+  const workspaceRef = useRef(initialWorkspace);
+  const placesRef = useRef<Record<string, DocumentPlaces>>(initialPlaces);
   const resetUndo = useRef<ResetUndo | null>(null);
   /** Take back the offer to undo the last reset, and its toast. */
   const withdrawUndo = useCallback(() => {
@@ -795,19 +802,31 @@ const TrellisWorkspace = memo(function TrellisWorkspace({ controller, projectRoo
     };
   }, [controller, ws]);
 
-  // Persist the layout per project, debounced.
+  // Persist the layout per project, and the workspace's arrangement, debounced.
   const saveTimer = useRef<number | null>(null);
   const pendingSave = useRef<(() => void) | null>(null);
+  const flushSave = useCallback(() => {
+    if (saveTimer.current !== null) window.clearTimeout(saveTimer.current);
+    saveTimer.current = null;
+    pendingSave.current?.();
+    pendingSave.current = null;
+  }, []);
   const onDocumentChange = useCallback((document: LayoutDocument) => {
     // Any arrangement but the one a reset left supersedes undoing it.
     if (resetUndo.current && layoutShape(document) !== resetUndo.current.left) withdrawUndo();
     if (saveTimer.current !== null) window.clearTimeout(saveTimer.current);
-    pendingSave.current = () => saveLayout(projectRoot, document, presetRef.current);
-    saveTimer.current = window.setTimeout(() => {
-      saveTimer.current = null;
-      pendingSave.current?.();
-      pendingSave.current = null;
-    }, 400);
+    // The workspace this change was made in, even if the save lands after a switch.
+    const workspace = workspaceRef.current;
+    pendingSave.current = () => {
+      const library = controller.workspaces;
+      const preset = presetRef.current;
+      // A workspace is live: what the writer arranges in it is its
+      // arrangement from now on. A preset's arrangement is not its own.
+      if (!preset) library.setArrangement(workspace, liveArrangement(library.get(workspace)?.arrangement ?? null, document));
+      placesRef.current = { ...placesRef.current, [workspace]: placesOf(preset?.previous ?? document) };
+      saveLayout(projectRoot, { document, preset, workspace, places: placesRef.current });
+    };
+    saveTimer.current = window.setTimeout(flushSave, 400);
     const snapshot = controller.ws?.getSnapshot();
     if (snapshot) {
       // In a preset, the panels it parked come back with the writer's own
@@ -823,16 +842,13 @@ const TrellisWorkspace = memo(function TrellisWorkspace({ controller, projectRoo
         && previous.every((entry, index) => entry.panelId === hidden[index].panelId && entry.title === hidden[index].title);
       controller.ui.set({ framed: snapshot.framed, hidden: same ? previous : hidden });
     }
-  }, [controller, projectRoot, withdrawUndo]);
+  }, [controller, flushSave, projectRoot, withdrawUndo]);
   // Unmounting (a project switch, the window closing) writes the last change
   // now, and a reset can no longer be undone into another project.
   useEffect(() => () => {
-    if (saveTimer.current !== null) window.clearTimeout(saveTimer.current);
-    saveTimer.current = null;
-    pendingSave.current?.();
-    pendingSave.current = null;
+    flushSave();
     withdrawUndo();
-  }, [withdrawUndo]);
+  }, [flushSave, withdrawUndo]);
 
   // Focusing a document panel makes its document App's active one.
   const onFocus = useCallback((viewId: string | null) => {
@@ -933,7 +949,6 @@ const TrellisWorkspace = memo(function TrellisWorkspace({ controller, projectRoo
       resettingRef.current = true;
       presetRef.current = null;
       try {
-        clearLayout(projectRoot);
         handle.setDocument(defaultLayout());
       } finally {
         resettingRef.current = false;
@@ -1021,16 +1036,69 @@ const TrellisWorkspace = memo(function TrellisWorkspace({ controller, projectRoo
         const key = lead ? handle.view(lead)?.params.key : null;
         if (typeof key === "string" && key !== activeKey) controller.activate(key);
       },
+      // Entering another workspace re-places the open documents (so none
+      // closes, and nothing needs saving first) in its arrangement, where each
+      // sat when the project was last in it. The workspace being left keeps
+      // where its documents sit now, and tools follow the arrangement: one it
+      // does not show closes, one it shows opens (see ToolView).
+      workspace: (id) => {
+        const handle = controller.ws;
+        const library = controller.workspaces;
+        const from = workspaceRef.current;
+        const target = library.get(id);
+        if (!handle || !target || id === from) return;
+        withdrawUndo();
+        flushSave();
+        const current = handle.getDocument();
+        // Before App restored its tabs, the documents are the layout's own.
+        const { activeKey, openTabs: tabs, tabsReady } = controller.app.get();
+        const openTabs = tabsReady ? tabs : Object.keys(placesOf(current));
+        const active = presetRef.current;
+        const own = active ? returnLayout(active.previous, current, { activeKey, openTabs }, active.supplied) : current;
+        library.setArrangement(from, liveArrangement(library.get(from)?.arrangement ?? null, own));
+        placesRef.current = { ...placesRef.current, [from]: placesOf(own) };
+        const next = arrangeDocuments(target.arrangement, own, { activeKey, openTabs }, placesRef.current[id] ?? {});
+        presetRef.current = null;
+        workspaceRef.current = id;
+        library.use(id);
+        resettingRef.current = true;
+        try {
+          handle.setDocument(next);
+        } finally {
+          resettingRef.current = false;
+        }
+        const drawers = controller.openDrawers.get();
+        for (const kind of TOOL_KINDS) if (!handle.views({ type: kind }).length) drawers[kind]?.();
+        controller.ui.set({ workspace: id, preset: null });
+        controller.resync();
+      },
+      // A new workspace starts as the arrangement on screen, a preset's
+      // included, and the project moves into it without anything moving.
+      newWorkspace: (name) => {
+        const handle = controller.ws;
+        if (!handle) return null;
+        withdrawUndo();
+        flushSave();
+        const document = handle.getDocument();
+        const id = controller.workspaces.add(name, arrangementOf(document), workspaceRef.current);
+        presetRef.current = null;
+        workspaceRef.current = id;
+        controller.workspaces.use(id);
+        controller.ui.set({ workspace: id, preset: null });
+        // Saves it, and shows the panels a preset had parked as hidden ones.
+        onDocumentChange(document);
+        return id;
+      },
       // A panel the writer asks for is theirs to keep, even one a preset brought in.
       shown: (kind) => {
         const current = presetRef.current;
         if (current?.supplied.includes(kind)) presetRef.current = { ...current, supplied: current.supplied.filter((id) => id !== kind) };
       },
     });
-  }, [controller, projectRoot, resetFailed, resetToast.source, resetToast.title, resetToast.undo, withdrawUndo]);
-  // The titlebar follows this workspace's preset; another project's starts in its own.
+  }, [controller, flushSave, onDocumentChange, resetFailed, resetToast.source, resetToast.title, resetToast.undo, withdrawUndo]);
+  // The titlebar follows this workspace's preset and named workspace; another project's starts in its own.
   useEffect(() => {
-    controller.ui.set({ preset: presetRef.current?.preset ?? null });
+    controller.ui.set({ preset: presetRef.current?.preset ?? null, workspace: workspaceRef.current });
     return () => controller.ui.set({ preset: null });
   }, [controller]);
 

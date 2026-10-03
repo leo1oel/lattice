@@ -1,5 +1,7 @@
 /**
- * The workspace's default layout and its per-project persistence.
+ * The workspace's default layout, its presets, its named workspaces'
+ * documents (see trellis-workspaces for the workspaces themselves), and its
+ * per-project persistence.
  *
  * Layouts are saved per project under a Lattice-owned, versioned envelope
  * instead of Trellis's `storageKey`: Trellis discards a saved layout whose
@@ -9,10 +11,9 @@
 import {
   createDocument, layout as L, sanitize, type HiddenPanel, type LayoutDocument, type LayoutNode, type PanelNode, type ViewRecord,
 } from "@danfessler/trellis";
-
-const STORAGE_PREFIX = "lattice.trellis-layout.v1:";
-/** v2: no stage, and Project shares a panel with the Agent. */
-const LAYOUT_VERSION = 2;
+import {
+  arrangementOf, isDocumentSlot, layoutShape, LAYOUT_STORAGE_PREFIX, LAYOUT_VERSION, type WorkspaceLibrary,
+} from "./trellis-workspaces";
 
 /**
  * Writing puts the source beside the compiled PDF; Reading puts a paper beside
@@ -24,7 +25,25 @@ const LAYOUT_VERSION = 2;
 export type LayoutPreset = "writing" | "reading";
 export type ActivePreset = { preset: LayoutPreset; previous: LayoutDocument; supplied: string[] };
 
-type SavedLayout = { version: number; savedAt: number; document: LayoutDocument; preset?: ActivePreset };
+/**
+ * Where each open document sat in a workspace (its panel, and whether it was
+ * that panel's tab in front), so entering the workspace again puts it back.
+ */
+export type DocumentPlaces = Record<string, { panel: string; selected?: true }>;
+
+/**
+ * A project's saved layout. v2 had no `workspace`: the workspace library's
+ * migration names one (trellis-workspaces). v3 names the workspace the
+ * project was in, and where its documents sat in each workspace it visited.
+ */
+type SavedLayout = {
+  version: number;
+  savedAt: number;
+  document: LayoutDocument;
+  preset?: ActivePreset;
+  workspace?: string;
+  places?: Record<string, DocumentPlaces>;
+};
 
 export const VIEW_TYPES = [
   "project", "papers", "agent", "pdf", "file",
@@ -273,45 +292,135 @@ export function undoReset(
   return returnLayout(previous, { ...current, views }, documents, supplied);
 }
 
+/** Where each document of `doc` sits: its panel, and whether it is in front there. */
+export function placesOf(doc: LayoutDocument): DocumentPlaces {
+  const places: DocumentPlaces = {};
+  for (const panel of panelsOf(doc, { hidden: true })) {
+    for (const id of panel.views) {
+      const key = fileKey(doc.views[id]);
+      if (key && !places[key]) places[key] = { panel: panel.id, ...(panel.selected === id ? { selected: true as const } : {}) };
+    }
+  }
+  return places;
+}
+
 /**
- * A layout's arrangement as a string that changes only when the arrangement
- * does: its splits and their weights, panels with their views (documents by
- * file, since re-placing a document gives its view a new id), floating
- * windows and hidden panels. Panel ids and selected tabs are left out.
+ * A workspace's arrangement (see trellis-workspaces; null for the default)
+ * holding the open documents. Each goes back to the panel it sat in when this
+ * workspace last had it (`places`). The others fill the slots nothing went
+ * back to, one each in tab order (the active document into the active
+ * panel: its place, else the first slot), and the rest join the active
+ * panel. Each keeps its view from `current` (so its tab survives), and a
+ * panel shows the active document, else the one it last showed. A slot no
+ * document fills closes up; with no slot at all, App's tab sync gives the
+ * documents a panel of their own.
  */
-export function layoutShape(doc: LayoutDocument): string {
-  const view = (id: string) => (doc.views[id]?.type === "file" ? `file:${fileKey(doc.views[id])}` : id);
-  const panel = (target: PanelNode) => target.views.map(view);
-  const node = (target: LayoutNode): unknown => {
-    if (target.kind === "panel") return panel(target);
-    if (target.kind === "stage") return { stage: target.child ? node(target.child) : null };
-    return { [target.axis]: target.children.map(node), weights: target.weights.map((weight) => Math.round(weight * 1000)) };
+export function arrangeDocuments(
+  arrangement: LayoutDocument | null,
+  current: LayoutDocument,
+  documents: Pick<PresetDocuments, "activeKey" | "openTabs">,
+  places: DocumentPlaces,
+): LayoutDocument {
+  const doc = arrangement ?? defaultLayout();
+  const views: Record<string, ViewRecord> = {};
+  for (const [id, record] of Object.entries(doc.views)) if (!isDocumentSlot(record)) views[id] = record;
+  // A slot's panel, by the panel's id; docked panels first.
+  const slotOf = new Map<string, string>();
+  for (const panel of panelsOf(doc, { hidden: true })) {
+    const slot = panel.views.find((id) => isDocumentSlot(doc.views[id]));
+    if (slot) slotOf.set(panel.id, slot);
+  }
+  const byKey = new Map<string, string>();
+  for (const [id, record] of Object.entries(current.views)) {
+    const key = fileKey(record);
+    if (key && !byKey.has(key)) byKey.set(key, id);
+  }
+  const placed = (key: string | undefined) => (key && places[key] && slotOf.has(places[key].panel) ? places[key].panel : null);
+  const slots = [...slotOf.keys()];
+  const lead = placed(documents.activeKey) ?? slots[0];
+  const members = new Map<string, string[]>();
+  const join = (panel: string, key: string) => {
+    const id = byKey.get(key) ?? `file-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
+    views[id] = byKey.has(key) ? current.views[id] : { type: "file", params: { key } };
+    members.set(panel, [...members.get(panel) ?? [], id]);
   };
-  return JSON.stringify({
+  const keys = [...documents.openTabs, documents.activeKey].filter((key, index, all) => key && all.indexOf(key) === index);
+  if (lead) {
+    const loose: string[] = [];
+    for (const key of keys) {
+      const panel = placed(key);
+      if (panel) join(panel, key);
+      else if (key === documents.activeKey) join(lead, key);
+      else loose.push(key);
+    }
+    for (const panel of slots) if (!members.has(panel) && loose.length) join(panel, loose.shift()!);
+    for (const key of loose) join(lead, key);
+  }
+  const active = documents.activeKey ? byKey.get(documents.activeKey) ?? Object.keys(views).find((id) => fileKey(views[id]) === documents.activeKey) : undefined;
+  const fill = (panel: PanelNode): PanelNode => {
+    const slot = slotOf.get(panel.id);
+    if (!slot) return panel;
+    const filled = members.get(panel.id) ?? [];
+    const ids = panel.views.flatMap((id) => (id === slot ? filled : [id]));
+    const front = filled.find((id) => id === active) ?? filled.find((id) => places[fileKey(views[id])]?.selected) ?? filled[0];
+    const selected = panel.selected === slot || (active && filled.includes(active)) ? front : panel.selected;
+    return { ...panel, views: ids, selected: selected && ids.includes(selected) ? selected : ids[0] ?? panel.selected };
+  };
+  const node = (target: LayoutNode): LayoutNode => {
+    if (target.kind === "panel") return fill(target);
+    if (target.kind === "stage") return target.child ? { ...target, child: node(target.child) as typeof target.child } : target;
+    return { ...target, children: target.children.map(node) };
+  };
+  return sanitize({
+    ...doc,
     root: doc.root ? node(doc.root) : null,
-    floating: doc.floating.map(({ panel: target, ...entry }) => ({ ...entry, views: panel(target) })),
-    hidden: doc.hidden.map(({ panel: target, ...entry }) => ({ ...entry, views: panel(target) })),
-  });
+    floating: doc.floating.map((entry) => ({ ...entry, panel: fill(entry.panel) })),
+    hidden: doc.hidden.map((entry) => ({ ...entry, panel: fill(entry.panel) })),
+    views,
+  }, knownType);
+}
+
+/**
+ * What a workspace's arrangement becomes for `doc`, the layout in it now:
+ * unchanged while `doc` is just `stored` holding the documents open (a slot
+ * no document filled closed up, which is no change of the writer's), else
+ * `doc`'s own arrangement.
+ */
+export function liveArrangement(stored: LayoutDocument | null, doc: LayoutDocument): LayoutDocument {
+  const arrangement = arrangementOf(doc);
+  if (!stored) return arrangement;
+  const openTabs = Object.values(doc.views).map(fileKey).filter(Boolean);
+  const held = arrangeDocuments(stored, doc, { activeKey: "", openTabs }, placesOf(doc));
+  return layoutShape(arrangementOf(held)) === layoutShape(arrangement) ? stored : arrangement;
 }
 
 function storageKey(projectRoot: string) {
-  return `${STORAGE_PREFIX}${projectRoot}`;
+  return `${LAYOUT_STORAGE_PREFIX}${projectRoot}`;
 }
 
 function migrateLayout(saved: SavedLayout): LayoutDocument | null {
   // v1 layouts had a stage and the Agent below the PDF: they start again from
-  // the default (open documents are re-placed as App restores its tabs).
-  if (saved.version !== LAYOUT_VERSION) return null;
+  // the default (open documents are re-placed as App restores its tabs). v2
+  // documents are v3's; only the envelope gained the workspace.
+  if (saved.version !== LAYOUT_VERSION && saved.version !== 2) return null;
   return saved.document;
 }
 
 const knownType = (type: string) => (VIEW_TYPES as readonly string[]).includes(type);
 
+export type ProjectLayout = {
+  document: LayoutDocument;
+  preset: ActivePreset | null;
+  /** The workspace the project was last in, if it recorded one. */
+  workspace: string | null;
+  places: Record<string, DocumentPlaces>;
+};
+
 /**
  * The saved layout for `projectRoot`, or the default, with the preset it was
- * left in. File panels are reconciled with App's tabs later.
+ * left in and its workspace. File panels are reconciled with App's tabs later.
  */
-export function loadLayout(projectRoot: string): { document: LayoutDocument; preset: ActivePreset | null } {
+export function loadLayout(projectRoot: string): ProjectLayout {
   try {
     const raw = localStorage.getItem(storageKey(projectRoot));
     if (raw) {
@@ -325,28 +434,54 @@ export function loadLayout(projectRoot: string): { document: LayoutDocument; pre
             supplied: Array.isArray(saved.preset.supplied) ? saved.preset.supplied.filter((id) => typeof id === "string") : [],
           }
           : null;
-        return { document: sanitize(document, knownType), preset };
+        const places = saved.places && typeof saved.places === "object" ? saved.places : {};
+        return { document: sanitize(document, knownType), preset, workspace: typeof saved.workspace === "string" ? saved.workspace : null, places };
       }
     }
   } catch {
     // A corrupt or unreadable layout falls back to the default.
   }
-  return { document: defaultLayout(), preset: null };
+  return { document: defaultLayout(), preset: null, workspace: null, places: {} };
 }
 
-export function saveLayout(projectRoot: string, document: LayoutDocument, preset: ActivePreset | null = null) {
+export function saveLayout(projectRoot: string, { document, preset = null, workspace = null, places = {} }: Partial<ProjectLayout> & { document: LayoutDocument }) {
   try {
-    const saved: SavedLayout = { version: LAYOUT_VERSION, savedAt: Date.now(), document, ...(preset ? { preset } : {}) };
+    const saved: SavedLayout = {
+      version: LAYOUT_VERSION, savedAt: Date.now(), document,
+      ...(preset ? { preset } : {}), ...(workspace ? { workspace } : {}), ...(Object.keys(places).length ? { places } : {}),
+    };
     localStorage.setItem(storageKey(projectRoot), JSON.stringify(saved));
   } catch {
     // Session-only without storage.
   }
 }
 
-export function clearLayout(projectRoot: string) {
-  try {
-    localStorage.removeItem(storageKey(projectRoot));
-  } catch {
-    // Nothing persisted.
+/**
+ * `projectRoot`'s saved layout in the workspace it was last in (else the one
+ * last entered anywhere), brought up to date with that workspace: one
+ * rearranged since in another project is rebuilt from its arrangement here,
+ * with this project's documents where they sat. A workspace never used yet
+ * takes the project's layout as its arrangement.
+ */
+export function openProjectLayout(projectRoot: string, library: WorkspaceLibrary): ProjectLayout & { workspace: string } {
+  // The first library is migrated from the projects' saved layouts, this one's included.
+  library.list();
+  const loaded = loadLayout(projectRoot);
+  // Places in workspaces deleted since are forgotten.
+  const places = Object.fromEntries(Object.entries(loaded.places).filter(([id]) => library.get(id)));
+  const saved = { ...loaded, places };
+  const workspace = saved.workspace && library.get(saved.workspace) ? saved.workspace : library.recent();
+  library.use(workspace);
+  const own = saved.preset?.previous ?? saved.document;
+  const arrangement = library.get(workspace)?.arrangement ?? null;
+  let current = own;
+  if (!arrangement) {
+    library.setArrangement(workspace, arrangementOf(own));
+  } else if (liveArrangement(arrangement, own) !== arrangement) {
+    const openTabs = Object.values(own.views).map(fileKey).filter(Boolean);
+    current = arrangeDocuments(arrangement, own, { activeKey: "", openTabs }, saved.places[workspace] ?? placesOf(own));
   }
+  return saved.preset
+    ? { ...saved, workspace, preset: { ...saved.preset, previous: current } }
+    : { ...saved, workspace, document: current };
 }

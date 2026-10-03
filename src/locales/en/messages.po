@@ -296,6 +296,10 @@ msgstr "{matchSummary} in {fileSummary} (showing first 200)"
 msgid "{minutes}m ago"
 msgstr "{minutes}m ago"
 
+#: src/trellis/trellis-workspace-switch.tsx
+msgid "{name} copy"
+msgstr "{name} copy"
+
 #: src/trellis/trellis-workspace.tsx
 msgid "{name} could not be saved. Close it and discard the unsaved changes?"
 msgstr "{name} could not be saved. Close it and discard the unsaved changes?"
@@ -473,7 +477,7 @@ msgstr "A local edit has not settled on Overleaf yet, so this document cannot be
 msgid "a over b"
 msgstr "a over b"
 
-#: src/trellis/trellis-titlebar.tsx
+#: src/trellis/trellis-workspace-switch.tsx
 msgid "A paper beside your notes"
 msgstr "A paper beside your notes"
 
@@ -2295,6 +2299,7 @@ msgstr "Definition"
 #: src/editor/spreadsheet/spreadsheet-univer.ts
 #: src/overleaf/overleaf-comments.tsx
 #: src/project/project-file-tree.tsx
+#: src/trellis/trellis-workspace-switch.tsx
 msgid "Delete"
 msgstr "Delete"
 
@@ -2375,6 +2380,10 @@ msgstr "Delete worksheet?"
 #: src/history/versions-timeline.tsx
 msgid "deleted"
 msgstr "deleted"
+
+#: src/trellis/trellis-workspace-switch.tsx
+msgid "Deleted “{name}”"
+msgstr "Deleted “{name}”"
 
 #: src/overleaf/overleaf-review.tsx
 msgid "Deleted here but still on Overleaf. Lattice never deletes remote files; remove them on Overleaf if you meant to"
@@ -2604,6 +2613,10 @@ msgstr "Drop source files and figures separately"
 #: src/app/use-project-tree.ts
 msgid "Drop source files onto an editor or the Project pane"
 msgstr "Drop source files onto an editor or the Project pane"
+
+#: src/trellis/trellis-workspace-switch.tsx
+msgid "Duplicate"
+msgstr "Duplicate"
 
 #: src/editor/latex/latex-diagnostics.ts
 msgid "Duplicate bibliography key “{key}”."
@@ -4128,6 +4141,7 @@ msgstr "Lattice workspace"
 
 #: src/App.tsx
 #: src/trellis/trellis-titlebar.tsx
+#: src/trellis/trellis-workspace-switch.tsx
 #: src/trellis/trellis-workspace.tsx
 msgid "Layout"
 msgstr "Layout"
@@ -4703,6 +4717,10 @@ msgstr "Nabla / del"
 msgid "Name"
 msgstr "Name"
 
+#: src/trellis/trellis-workspace-switch.tsx
+msgid "Name already used"
+msgstr "Name already used"
+
 #: src/overleaf/overleaf-history.tsx
 msgid "Name this version"
 msgstr "Name this version"
@@ -4844,6 +4862,11 @@ msgstr "New spreadsheet"
 #: src/telemetry/app-updater.tsx
 msgid "New version {version}"
 msgstr "New version {version}"
+
+#: src/App.tsx
+#: src/trellis/trellis-workspace-switch.tsx
+msgid "New workspace"
+msgstr "New workspace"
 
 #: src/trellis/trellis-panel-actions.tsx
 msgid "New…"
@@ -5928,6 +5951,10 @@ msgstr "Preprint check incomplete: {error}"
 msgid "Preprint check returned an incomplete or ambiguous result."
 msgstr "Preprint check returned an incomplete or ambiguous result."
 
+#: src/trellis/trellis-workspace-switch.tsx
+msgid "Presets"
+msgstr "Presets"
+
 #: src/project/paper-library.tsx
 msgid "Press + to import it"
 msgstr "Press + to import it"
@@ -6163,6 +6190,7 @@ msgid "Read-only preview · click to edit"
 msgstr "Read-only preview · click to edit"
 
 #: src/trellis/trellis-titlebar.tsx
+#: src/trellis/trellis-workspace-switch.tsx
 msgid "Reading"
 msgstr "Reading"
 
@@ -6372,6 +6400,7 @@ msgstr "Removes .aux, .log and other build files"
 #: src/project/project-dialogs.tsx
 #: src/project/project-file-tree.tsx
 #: src/project/references-panel.tsx
+#: src/trellis/trellis-workspace-switch.tsx
 msgid "Rename"
 msgstr "Rename"
 
@@ -6825,13 +6854,13 @@ msgstr "Retrieved record information"
 msgid "Retry"
 msgstr "Retry"
 
+#: src/trellis/trellis-workspace-switch.tsx
+msgid "Return to {name}"
+msgstr "Return to {name}"
+
 #: src/editor/comments/editor-comments-panel.tsx
 msgid "Return to {writingName}"
 msgstr "Return to {writingName}"
-
-#: src/trellis/trellis-titlebar.tsx
-msgid "Return to your own layout"
-msgstr "Return to your own layout"
 
 #: src/app/use-trellis-bridge.ts
 msgid "Reveal cursor in PDF"
@@ -7407,7 +7436,7 @@ msgstr "Some sources unavailable"
 msgid "Source"
 msgstr "Source"
 
-#: src/trellis/trellis-titlebar.tsx
+#: src/trellis/trellis-workspace-switch.tsx
 msgid "Source beside the compiled PDF"
 msgstr "Source beside the compiled PDF"
 
@@ -7673,6 +7702,10 @@ msgstr "Surface / area integral"
 #: src/app/app-titlebar.tsx
 msgid "Switch project"
 msgstr "Switch project"
+
+#: src/App.tsx
+msgid "Switch to {name}"
+msgstr "Switch to {name}"
 
 #: src/app/use-project-lifecycle.ts
 msgid "Switching project…"
@@ -8303,6 +8336,7 @@ msgid "Underline"
 msgstr "Underline"
 
 #: src/app/use-editor-comments.ts
+#: src/trellis/trellis-workspace-switch.tsx
 #: src/trellis/trellis-workspace.tsx
 msgid "Undo"
 msgstr "Undo"
@@ -8759,10 +8793,24 @@ msgstr "Words inside math mode"
 msgid "Working…"
 msgstr "Working…"
 
+#: src/App.tsx
 #: src/trellis/trellis-labels.ts
-#: src/trellis/trellis-titlebar.tsx
+#: src/trellis/trellis-workspace-switch.tsx
+#: src/trellis/trellis-workspaces.ts
 msgid "Workspace"
 msgstr "Workspace"
+
+#: src/trellis/trellis-workspace-switch.tsx
+msgid "Workspace name"
+msgstr "Workspace name"
+
+#: src/trellis/trellis-workspace-switch.tsx
+msgid "Workspace: {currentName}"
+msgstr "Workspace: {currentName}"
+
+#: src/trellis/trellis-workspace-switch.tsx
+msgid "Workspaces"
+msgstr "Workspaces"
 
 #: src/project/project-dialogs.tsx
 msgid "Wrap in environment"
@@ -8781,6 +8829,7 @@ msgid "Wreath product"
 msgstr "Wreath product"
 
 #: src/trellis/trellis-titlebar.tsx
+#: src/trellis/trellis-workspace-switch.tsx
 msgid "Writing"
 msgstr "Writing"
 
@@ -8842,10 +8891,6 @@ msgstr "your Overleaf account"
 #: src/overleaf/overleaf-connect.tsx
 msgid "Your Overleaf session expired. Sign in again"
 msgstr "Your Overleaf session expired. Sign in again"
-
-#: src/trellis/trellis-titlebar.tsx
-msgid "Your own layout"
-msgstr "Your own layout"
 
 #: src/telemetry/root-error-boundary.tsx
 msgid "Your project files are safe"

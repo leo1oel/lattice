@@ -296,6 +296,10 @@ msgstr "{fileSummary}中共 {matchSummary}（仅显示前 200 处）"
 msgid "{minutes}m ago"
 msgstr "{minutes} 分钟前"
 
+#: src/trellis/trellis-workspace-switch.tsx
+msgid "{name} copy"
+msgstr "{name} 副本"
+
 #: src/trellis/trellis-workspace.tsx
 msgid "{name} could not be saved. Close it and discard the unsaved changes?"
 msgstr "{name} 无法保存。要关闭并放弃未保存的更改吗？"
@@ -473,7 +477,7 @@ msgstr "有一处本地编辑尚未在 Overleaf 上生效，因此无法安全�
 msgid "a over b"
 msgstr "分子 a，分母 b"
 
-#: src/trellis/trellis-titlebar.tsx
+#: src/trellis/trellis-workspace-switch.tsx
 msgid "A paper beside your notes"
 msgstr "论文与笔记并排"
 
@@ -2295,6 +2299,7 @@ msgstr "定义"
 #: src/editor/spreadsheet/spreadsheet-univer.ts
 #: src/overleaf/overleaf-comments.tsx
 #: src/project/project-file-tree.tsx
+#: src/trellis/trellis-workspace-switch.tsx
 msgid "Delete"
 msgstr "删除"
 
@@ -2375,6 +2380,10 @@ msgstr "要删除工作表吗？"
 #: src/history/versions-timeline.tsx
 msgid "deleted"
 msgstr "已删除"
+
+#: src/trellis/trellis-workspace-switch.tsx
+msgid "Deleted “{name}”"
+msgstr "已删除“{name}”"
 
 #: src/overleaf/overleaf-review.tsx
 msgid "Deleted here but still on Overleaf. Lattice never deletes remote files; remove them on Overleaf if you meant to"
@@ -2604,6 +2613,10 @@ msgstr "请分别拖入源文件和图片"
 #: src/app/use-project-tree.ts
 msgid "Drop source files onto an editor or the Project pane"
 msgstr "请将源文件拖到编辑器或项目面板中"
+
+#: src/trellis/trellis-workspace-switch.tsx
+msgid "Duplicate"
+msgstr "创建副本"
 
 #: src/editor/latex/latex-diagnostics.ts
 msgid "Duplicate bibliography key “{key}”."
@@ -4128,6 +4141,7 @@ msgstr "Lattice 工作区"
 
 #: src/App.tsx
 #: src/trellis/trellis-titlebar.tsx
+#: src/trellis/trellis-workspace-switch.tsx
 #: src/trellis/trellis-workspace.tsx
 msgid "Layout"
 msgstr "布局"
@@ -4703,6 +4717,10 @@ msgstr "纳布拉 / 梯度算子"
 msgid "Name"
 msgstr "名称"
 
+#: src/trellis/trellis-workspace-switch.tsx
+msgid "Name already used"
+msgstr "名称已被使用"
+
 #: src/overleaf/overleaf-history.tsx
 msgid "Name this version"
 msgstr "为这个版本命名"
@@ -4844,6 +4862,11 @@ msgstr "新建电子表格"
 #: src/telemetry/app-updater.tsx
 msgid "New version {version}"
 msgstr "新版本 {version}"
+
+#: src/App.tsx
+#: src/trellis/trellis-workspace-switch.tsx
+msgid "New workspace"
+msgstr "新建工作区"
 
 #: src/trellis/trellis-panel-actions.tsx
 msgid "New…"
@@ -5928,6 +5951,10 @@ msgstr "预印本检查未完成：{error}"
 msgid "Preprint check returned an incomplete or ambiguous result."
 msgstr "预印本检查返回的结果不完整或不明确。"
 
+#: src/trellis/trellis-workspace-switch.tsx
+msgid "Presets"
+msgstr "预设"
+
 #: src/project/paper-library.tsx
 msgid "Press + to import it"
 msgstr "按 + 导入"
@@ -6163,6 +6190,7 @@ msgid "Read-only preview · click to edit"
 msgstr "只读预览 · 点击编辑"
 
 #: src/trellis/trellis-titlebar.tsx
+#: src/trellis/trellis-workspace-switch.tsx
 msgid "Reading"
 msgstr "阅读"
 
@@ -6372,6 +6400,7 @@ msgstr "删除 .aux、.log 等构建文件"
 #: src/project/project-dialogs.tsx
 #: src/project/project-file-tree.tsx
 #: src/project/references-panel.tsx
+#: src/trellis/trellis-workspace-switch.tsx
 msgid "Rename"
 msgstr "重命名"
 
@@ -6825,13 +6854,13 @@ msgstr "检索记录信息"
 msgid "Retry"
 msgstr "重试"
 
+#: src/trellis/trellis-workspace-switch.tsx
+msgid "Return to {name}"
+msgstr "返回 {name}"
+
 #: src/editor/comments/editor-comments-panel.tsx
 msgid "Return to {writingName}"
 msgstr "返回 {writingName}"
-
-#: src/trellis/trellis-titlebar.tsx
-msgid "Return to your own layout"
-msgstr "回到你自己的布局"
 
 #: src/app/use-trellis-bridge.ts
 msgid "Reveal cursor in PDF"
@@ -7407,7 +7436,7 @@ msgstr "部分来源不可用"
 msgid "Source"
 msgstr "源码"
 
-#: src/trellis/trellis-titlebar.tsx
+#: src/trellis/trellis-workspace-switch.tsx
 msgid "Source beside the compiled PDF"
 msgstr "源码与编译后的 PDF 并排"
 
@@ -7673,6 +7702,10 @@ msgstr "曲面 / 面积积分"
 #: src/app/app-titlebar.tsx
 msgid "Switch project"
 msgstr "切换项目"
+
+#: src/App.tsx
+msgid "Switch to {name}"
+msgstr "切换到 {name}"
 
 #: src/app/use-project-lifecycle.ts
 msgid "Switching project…"
@@ -8303,6 +8336,7 @@ msgid "Underline"
 msgstr "下划线"
 
 #: src/app/use-editor-comments.ts
+#: src/trellis/trellis-workspace-switch.tsx
 #: src/trellis/trellis-workspace.tsx
 msgid "Undo"
 msgstr "撤销"
@@ -8759,9 +8793,23 @@ msgstr "数学模式中的词语"
 msgid "Working…"
 msgstr "正在处理…"
 
+#: src/App.tsx
 #: src/trellis/trellis-labels.ts
-#: src/trellis/trellis-titlebar.tsx
+#: src/trellis/trellis-workspace-switch.tsx
+#: src/trellis/trellis-workspaces.ts
 msgid "Workspace"
+msgstr "工作区"
+
+#: src/trellis/trellis-workspace-switch.tsx
+msgid "Workspace name"
+msgstr "工作区名称"
+
+#: src/trellis/trellis-workspace-switch.tsx
+msgid "Workspace: {currentName}"
+msgstr "工作区：{currentName}"
+
+#: src/trellis/trellis-workspace-switch.tsx
+msgid "Workspaces"
 msgstr "工作区"
 
 #: src/project/project-dialogs.tsx
@@ -8781,6 +8829,7 @@ msgid "Wreath product"
 msgstr "圈积"
 
 #: src/trellis/trellis-titlebar.tsx
+#: src/trellis/trellis-workspace-switch.tsx
 msgid "Writing"
 msgstr "写作"
 
@@ -8842,10 +8891,6 @@ msgstr "你的 Overleaf 账户"
 #: src/overleaf/overleaf-connect.tsx
 msgid "Your Overleaf session expired. Sign in again"
 msgstr "Overleaf 会话已过期，请重新登录"
-
-#: src/trellis/trellis-titlebar.tsx
-msgid "Your own layout"
-msgstr "你自己的布局"
 
 #: src/telemetry/root-error-boundary.tsx
 msgid "Your project files are safe"

@@ -702,13 +702,13 @@ export function persistLayout(root: string, layout: Pick<WorkspaceLayout, "openT
  * layout keeps the Agent as a tab behind Project, and a present Agent panel starts Synara as soon as it mounts.
  */
 export function persistLayoutWithoutAgent(root = ROOT) {
-  saveLayout(root, createDocument(panels.row([
+  saveLayout(root, { document: createDocument(panels.row([
     panels.column([
       panels.panel({ id: "panel-project" }, panels.view("project", { id: "project" })),
       panels.panel({ id: "panel-papers" }, panels.view("papers", { id: "papers" })),
     ], [0.62, 0.38]),
     panels.panel({ id: "panel-pdf" }, panels.view("pdf", { id: "pdf" })),
-  ], [0.36, 0.64]), { version: 2 }));
+  ], [0.36, 0.64]), { version: 3 }) });
 }
 
 export const paneContent = (pane: "primary" | "secondary") => (

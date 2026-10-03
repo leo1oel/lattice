@@ -144,6 +144,27 @@ export function MorphIcon(props: { idle: ReactNode; hover: ReactNode; size?: num
 export type SlidingTab = { value: string; label: ReactNode; title?: string; dataTour?: string };
 
 /**
+ * The selected tab's plate, which slides to whichever tab of the same strip
+ * (`stripId`, from useId) renders it next. A plain function rather than a
+ * component, so a strip renders nothing more for it.
+ */
+function slidingPill(stripId: string, reduceMotion: boolean | null) {
+  return (
+    <motion.span
+      aria-hidden
+      className="sliding-tab-pill"
+      layoutId={reduceMotion ? undefined : `${stripId}-pill`}
+      transition={reduceMotion ? { duration: 0 } : { type: "spring", stiffness: 260, damping: 26, mass: 1 }}
+    />
+  );
+}
+
+/** SlidingTabs' plate, for strips it cannot render: tabs that are also renamed, reordered or opened as a menu. */
+export function SlidingTabPill({ stripId }: { stripId: string }) {
+  return slidingPill(stripId, useReducedMotion());
+}
+
+/**
  * A tab strip where the selected background slides from the old tab to the new
  * one instead of blinking across.
  *
@@ -204,14 +225,7 @@ export function SlidingTabs(props: {
               tabs?.[nextIndex]?.focus();
             }}
           >
-            {selected && props.variant !== "none" && (
-              <motion.span
-                aria-hidden
-                className="sliding-tab-pill"
-                layoutId={reduceMotion ? undefined : `${pillId}-pill`}
-                transition={reduceMotion ? { duration: 0 } : { type: "spring", stiffness: 260, damping: 26, mass: 1 }}
-              />
-            )}
+            {selected && props.variant !== "none" && slidingPill(pillId, reduceMotion)}
             <span className="sliding-tab-label">{item.label}</span>
           </button>
         );

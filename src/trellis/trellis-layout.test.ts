@@ -1,8 +1,10 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import { sanitize, type LayoutDocument, type LayoutNode, type PanelNode } from "@danfessler/trellis";
 import {
-  defaultLayout, enterPreset, layoutShape, loadLayout, presetLayout, returnLayout, saveLayout, undoReset, withDocumentPanel,
+  arrangeDocuments, defaultLayout, enterPreset, liveArrangement, loadLayout, openProjectLayout, placesOf, presetLayout, returnLayout, saveLayout, undoReset,
+  withDocumentPanel,
 } from "./trellis-layout";
+import { arrangementOf, layoutShape, WorkspaceLibrary } from "./trellis-workspaces";
 
 const PAPER = "paper:1706.03762:";
 const isReading = (key: string) => key.startsWith("paper:") || key.endsWith(".pdf");
@@ -168,8 +170,8 @@ describe("layout presets", () => {
   it("persists the preset with the layout, per project", () => {
     const previous = workspaceWith(keys);
     const { document: reading, active } = enterPreset("reading", previous, null, documents);
-    saveLayout("/a", reading, active);
-    saveLayout("/b", previous);
+    saveLayout("/a", { document: reading, preset: active });
+    saveLayout("/b", { document: previous });
     expect(loadLayout("/a").preset?.preset).toBe("reading");
     expect(panels(loadLayout("/a").preset!.previous)).toEqual(panels(previous));
     expect(loadLayout("/b").preset).toBeNull();
@@ -240,5 +242,130 @@ describe("undoing a reset", () => {
     findPanel(moved.root, "panel-doc-0")!.views.pop();
     findPanel(moved.root, "panel-pdf")!.views.push("history");
     expect(layoutShape(moved)).not.toBe(layoutShape(previous));
+  });
+});
+
+describe("named workspaces", () => {
+  beforeEach(() => localStorage.clear());
+  const keys = ["main.tex", "notes.md", PAPER];
+
+  /** Two document panels side by side: the LaTeX source and the notes left of the paper. */
+  function sideBySide(): LayoutDocument {
+    const doc = workspaceWith(keys);
+    const first = findPanel(doc.root, "panel-doc-0")!;
+    first.views = ["doc-0", "doc-1"];
+    first.selected = "doc-1";
+    const root = doc.root as { children: LayoutNode[]; weights: number[] };
+    root.children.splice(2, 0, { kind: "panel", id: "panel-doc-2", views: ["doc-2"], selected: "doc-2" });
+    root.weights = [0.25, 0.3, 0.2, 0.25];
+    return doc;
+  }
+
+  it("puts each open document back where it sat in the workspace", () => {
+    const own = sideBySide();
+    const arranged = arrangeDocuments(arrangementOf(own), workspaceWith(keys), { activeKey: "main.tex", openTabs: keys }, placesOf(own));
+    expect(panels(arranged)).toEqual([
+      { id: "panel-project", views: ["project", "agent"], selected: "project" },
+      { id: "panel-papers", views: ["papers"], selected: "papers" },
+      { id: "panel-doc-0", views: ["doc-0", "doc-1"], selected: "doc-0" },
+      { id: "panel-doc-2", views: ["doc-2"], selected: "doc-2" },
+      { id: "panel-pdf", views: ["pdf"], selected: "pdf" },
+    ]);
+    expect(layoutShape(arranged)).toBe(layoutShape(own));
+  });
+
+  it("brings documents new to the workspace into the active one's panel, and closes up an unfilled slot", () => {
+    const own = sideBySide();
+    const open = ["main.tex", "refs.bib"];
+    const current = workspaceWith(open);
+    const arranged = arrangeDocuments(arrangementOf(own), current, { activeKey: "refs.bib", openTabs: open }, placesOf(own));
+    expect(panels(arranged).map(({ id, views }) => [id, views.map((view) => arranged.views[view].params?.key ?? view)])).toEqual([
+      ["panel-project", ["project", "agent"]],
+      ["panel-papers", ["papers"]],
+      ["panel-doc-0", ["main.tex", "refs.bib"]],
+      ["panel-pdf", ["pdf"]],
+    ]);
+    // The documents keep their views, so their tabs survive the switch.
+    expect(findPanel(arranged.root, "panel-doc-0")).toMatchObject({ views: ["doc-0", "doc-1"], selected: "doc-1" });
+  });
+
+  it("fills a slot nothing returns to with a document that has no place there yet", () => {
+    const stored = arrangementOf(sideBySide());
+    const open = ["intro.tex", "refs.bib", "notes.md"];
+    const arranged = arrangeDocuments(stored, workspaceWith(open), { activeKey: "notes.md", openTabs: open }, {});
+    const keysIn = (id: string) => findPanel(arranged.root, id)!.views.map((view) => arranged.views[view].params?.key);
+    expect([keysIn("panel-doc-0"), keysIn("panel-doc-2")]).toEqual([["notes.md", "refs.bib"], ["intro.tex"]]);
+  });
+
+  it("keeps a workspace's slots while too few documents are open to fill them, but not past a change of the writer's", () => {
+    const stored = arrangementOf(sideBySide());
+    const one = arrangeDocuments(stored, workspaceWith(["main.tex"]), { activeKey: "main.tex", openTabs: ["main.tex"] }, placesOf(sideBySide()));
+    expect(panels(one).map((panel) => panel.id)).not.toContain("panel-doc-2");
+    expect(liveArrangement(stored, one)).toBe(stored);
+    const resized = structuredClone(one);
+    (resized.root as { weights: number[] }).weights = [0.2, 0.5, 0.3];
+    expect(layoutShape(liveArrangement(stored, resized))).toBe(layoutShape(arrangementOf(resized)));
+  });
+
+  it("leaves documents to App's tab sync when the workspace has no place for them", () => {
+    const arranged = arrangeDocuments(null, workspaceWith(keys), { activeKey: "main.tex", openTabs: keys }, {});
+    expect(panels(arranged)).toEqual(panels(defaultLayout()));
+    expect(Object.values(arranged.views).some((record) => record.type === "file")).toBe(false);
+  });
+
+  it("migrates each project's saved layout into a workspace, keeping every arrangement", () => {
+    // Saved before workspaces (v2): two projects share an arrangement, a third has its own.
+    const custom = sideBySide();
+    const save = (root: string, document: LayoutDocument, savedAt: number, extra = {}) => localStorage.setItem(
+      `lattice.trellis-layout.v1:${root}`, JSON.stringify({ version: 2, savedAt, document, ...extra }),
+    );
+    save("/a", workspaceWith(keys), 300);
+    save("/b", workspaceWith(["main.tex"]), 100);
+    // Left in Writing: the writer's own layout is the one underneath.
+    const { document: writing, active } = enterPreset("writing", custom, null, { activeKey: "main.tex", openTabs: keys, isReading });
+    save("/c", writing, 200, { preset: active });
+
+    const library = new WorkspaceLibrary();
+    expect(library.list().map((entry) => entry.name)).toEqual(["Workspace", "Workspace 2"]);
+    const [first, second] = library.list();
+    expect(layoutShape(library.get(first.id)!.arrangement!)).toBe(layoutShape(arrangementOf(workspaceWith(keys))));
+    expect(layoutShape(library.get(second.id)!.arrangement!)).toBe(layoutShape(arrangementOf(custom)));
+
+    // Each project opens as it was left, in the workspace made from its layout.
+    const a = openProjectLayout("/a", library);
+    expect(a.workspace).toBe(first.id);
+    expect(panels(a.document)).toEqual(panels(workspaceWith(keys)));
+    expect(openProjectLayout("/b", library).workspace).toBe(first.id);
+    const c = openProjectLayout("/c", library);
+    expect(c.workspace).toBe(second.id);
+    expect(c.preset?.preset).toBe("writing");
+    expect(panels(c.preset!.previous)).toEqual(panels(custom));
+    expect(JSON.parse(localStorage.getItem("lattice.trellis-layout.v1:/c")!)).toMatchObject({ version: 3, workspace: second.id });
+    // Migrated once: a later library reads the same workspaces.
+    expect(new WorkspaceLibrary().list()).toEqual(library.list());
+  });
+
+  it("opens a project in its workspace as rearranged since in another project", () => {
+    const library = new WorkspaceLibrary();
+    const id = library.recent();
+    // The project's own document panel, which the workspace (made elsewhere) never had.
+    const own = workspaceWith(keys);
+    const root = own.root as { children: LayoutNode[] };
+    root.children[1] = { ...findPanel(own.root, "panel-doc-0")!, id: "panel-mine" };
+    saveLayout("/a", { document: own, workspace: id });
+    library.setArrangement(id, arrangementOf(sideBySide()));
+    const opened = openProjectLayout("/a", library);
+    expect(layoutShape(arrangementOf(opened.document))).toBe(layoutShape(arrangementOf(sideBySide())));
+    // Its documents are all still open, in the workspace's document panel.
+    expect(Object.values(opened.document.views).flatMap((record) => (record.type === "file" ? [record.params?.key] : [])).sort()).toEqual([...keys].sort());
+  });
+
+  it("opens a project whose workspace was deleted in the one last entered", () => {
+    const library = new WorkspaceLibrary();
+    const kept = library.recent();
+    const gone = library.add("Review", null);
+    saveLayout("/a", { document: workspaceWith(keys), workspace: gone });
+    library.remove(gone);
+    expect(openProjectLayout("/a", library).workspace).toBe(kept);
   });
 });
