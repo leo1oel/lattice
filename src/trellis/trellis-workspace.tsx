@@ -33,7 +33,8 @@ import { popupMotionClassName } from "@/components/ui/popup-motion";
 import { confirmAction, isOpenSlideDeckPath } from "../app-utils";
 import { isSpreadsheetPath } from "../editor/spreadsheet/spreadsheet-types";
 import { luxLatexHighlightStyle } from "../editor/latex/latex-editor";
-import { useTextLanguageExtensions } from "../canvas/editor-extensions";
+import { isLatexSourcePath, useTextLanguageExtensions } from "../canvas/editor-extensions";
+import { latex } from "../editor/latex/latex-language";
 import { DeferredVisualMarkdownEditor } from "../canvas/canvas-lazy-editors";
 import {
   TOOL_KINDS, documentTools, useTrellisApp, type TrellisController, type TrellisSingleton, type TrellisToolKind,
@@ -49,6 +50,12 @@ import { FileHeaderTools } from "./trellis-header-tools";
 import { measurePdfToolbarMinWidth } from "../pdf/pdf-toolbar-min-width";
 import { holdWidthsWhileResizing } from "./trellis-hold-width";
 import "./trellis.css";
+
+// The live source editor parses LaTeX with Lattice's own `latex()`, not the
+// `@codemirror/language-data` stex mode `useTextLanguageExtensions` would find:
+// the two tag tokens differently, so the same highlight style painted a
+// snapshot in another palette until it was clicked into.
+const LATEX_SNAPSHOT_LANGUAGE = [latex()];
 
 // Before any workspace exists: Trellis writes some labels once, at creation.
 installTrellisLabels();
@@ -260,7 +267,9 @@ function TextSnapshot({ controller, fileKey }: { controller: TrellisController; 
   const viewRef = useRef<EditorView | null>(null);
   const [text, setText] = useState<string | null>(() => controller.texts.get(fileKey) ?? null);
   const filesRevision = useTrellisApp(controller, (state) => state.filesRevision);
-  const language = useTextLanguageExtensions(fileKey);
+  const isLatex = isLatexSourcePath(fileKey);
+  const textLanguage = useTextLanguageExtensions(isLatex ? "" : fileKey);
+  const language = isLatex ? LATEX_SNAPSHOT_LANGUAGE : textLanguage;
   useEffect(() => {
     let disposed = false;
     void controller.bridge?.readText(fileKey).then((value) => {

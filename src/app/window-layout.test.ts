@@ -68,6 +68,33 @@ describe("narrow pane chrome", () => {
     expect(css).not.toMatch(/\.pdf-find-controls \{[^}]*grid-row:/);
   });
 
+  it("ellipsizes a Paper's title before its authors and source, and drops the authors rather than squeezing them", () => {
+    const sheet = new CSSStyleSheet();
+    sheet.replaceSync(readFileSync("src/styles/editor-workspace.css", "utf8"));
+    const styleOf = (list: CSSRuleList, selector: string) => Array.from(list)
+      .find((rule): rule is CSSStyleRule => rule instanceof CSSStyleRule && rule.selectorText === selector)?.style;
+    const title = styleOf(sheet.cssRules, ".paper-identity-title");
+    const authors = styleOf(sheet.cssRules, ".paper-identity-authors");
+    const source = styleOf(sheet.cssRules, ".paper-identity-source");
+
+    // A long title used to keep its width while the authors shrank to "D…".
+    expect(Number(title?.flexShrink)).toBeGreaterThan(0);
+    expect(authors?.flexShrink).toBe("0");
+    // Capped below half the strip, so a long corporate author cannot crowd out the title.
+    expect(Number.parseFloat(authors?.maxWidth ?? "")).toBeLessThan(50);
+    expect(authors?.maxWidth).toMatch(/%$/);
+    // The source keeps its natural width too, but a long DOI used to take the
+    // whole strip and leave the title 0px wide. Together the two caps leave
+    // the title at least a quarter of the strip.
+    expect(source?.flexShrink).toBe("0");
+    expect(source?.maxWidth).toMatch(/%$/);
+    expect(Number.parseFloat(authors?.maxWidth ?? "") + Number.parseFloat(source?.maxWidth ?? "")).toBeLessThanOrEqual(75);
+    // Too narrow for both: the authors go whole, never as an initial.
+    const hidden = Array.from(sheet.cssRules).filter((rule): rule is CSSContainerRule => rule instanceof CSSContainerRule
+      && rule.containerName === "paper-reader" && styleOf(rule.cssRules, ".paper-identity-authors")?.display === "none");
+    expect(hidden.map((rule) => Number(/max-width: (\d+)px/.exec(rule.containerQuery)?.[1]))).toEqual([440]);
+  });
+
   it("queries the toolbar's own width, never the whole PDF preview's", () => {
     const sheet = new CSSStyleSheet();
     sheet.replaceSync(readFileSync("src/pdf/pdf-viewer.css", "utf8"));
