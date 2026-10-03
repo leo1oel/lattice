@@ -29,6 +29,7 @@ const ALLOWED = new Set([
   "src/components/ui/activity-icons.test.tsx", // busy reload buttons share one surface
   "src/components/ui/chrome-primitives.test.tsx", // primitive press and menu geometry in chrome.css
   "src/components/ui/popup-motion.test.ts", // every popup wrapper uses the one popup-motion owner
+  "src/trellis/trellis-header-tools.test.tsx", // build-result motion under the reduced-motion stylesheet
   "src/editor/board/board-store.test.ts", // the bundled tutorial board loads
   "src/editor/board/board-asset-urls.test.ts", // the bundled fonts ship their OFL text
   "src/editor/spreadsheet/spreadsheet-yjs.test.ts", // the bundled tutorial workbook loads
