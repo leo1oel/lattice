@@ -203,7 +203,7 @@ function capturePreviewAnchor(viewport: HTMLElement): PreviewAnchor | undefined 
   const chunk = chunks.length ? chunks[firstReaching(chunks, top)] : null;
   if (chunks.length && !chunk) return undefined;
   const blocks = blocksIn(chunk ?? viewport);
-  const index = blocks ? firstReaching(blocks, top) : 0;
+  const index = blocks?.length ? Math.min(firstReaching(blocks, top), blocks.length - 1) : 0;
   const block = blocks?.[index];
   if (!block) return chunk ? { block: chunkFirst(chunk), top: chunk.getBoundingClientRect().top - top } : undefined;
   const rect = block.getBoundingClientRect();

@@ -85,6 +85,17 @@ describe("preview viewport anchor", () => {
     expect(captureAnchor(snapshot)).toEqual({ block: 60, top: -10, height: 50 });
   });
 
+  it("holds the last block when the top falls in the gap below it", () => {
+    // Chunk 0's blocks end 40px above where chunk 1 begins.
+    const viewport = scroller([100, 100, 100, 100]);
+    const chunk = viewport.appendChild(document.createElement("section"));
+    chunk.dataset.visualChunkFirst = "0";
+    chunk.appendChild(viewport.querySelector(".ProseMirror")!);
+    chunk.getBoundingClientRect = () => ({ top: 100 - viewport.scrollTop, bottom: 540 - viewport.scrollTop, height: 440 }) as DOMRect;
+    viewport.scrollTop = 420;
+    expect(captureAnchor(viewport)).toEqual({ block: 3, top: -120, height: 100 });
+  });
+
   it("holds the place over a passive chunk not drawn yet", () => {
     // A jump to a later heading lands in chunk 24 before it draws.
     const heights = Array(48).fill(50);
