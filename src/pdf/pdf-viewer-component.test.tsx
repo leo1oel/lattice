@@ -860,6 +860,71 @@ describe("PDFSlick viewer integration", () => {
     }
   });
 
+  it("folds SyncTeX and the fit into the menu when a typed query has no room, and unfolds once cleared", async () => {
+    // A ResizeObserver this test fires by hand. The open menu watches the same
+    // frame, so each target keeps every observer watching it.
+    const observed = new Map<Element, Set<() => void>>();
+    const OriginalResizeObserver = globalThis.ResizeObserver;
+    globalThis.ResizeObserver = class {
+      targets = new Map<Element, () => void>();
+      constructor(private callback: ResizeObserverCallback) {}
+      observe(target: Element) {
+        const notify = () => this.callback([], this as unknown as ResizeObserver);
+        this.targets.set(target, notify);
+        observed.set(target, (observed.get(target) ?? new Set()).add(notify));
+      }
+      unobserve(target: Element) { observed.get(target)?.delete(this.targets.get(target)!); }
+      disconnect() { for (const [target, notify] of this.targets) observed.get(target)?.delete(notify); }
+    } as unknown as typeof ResizeObserver;
+    // Every character is 6px wide, so the sample query needs 48px.
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(
+      { font: "", measureText: (text: string) => ({ width: text.length * 6 }) } as unknown as CanvasRenderingContext2D,
+    );
+    try {
+      const onForwardSync = vi.fn();
+      const view = renderPdf({
+        pdfBytes: new ArrayBuffer(4), canForwardSync: true, onForwardSync,
+        initialViewState: { page: 1, scale: 1, fitMode: "width", scrollTop: 0, scrollLeft: 0 },
+      });
+      await view.findByLabelText("PDF page 3");
+      const toolbar = view.container.querySelector<HTMLElement>(".pdf-toolbar")!;
+      const frame = view.container.querySelector(".pdf-toolbar-frame")!;
+      const searchInput = view.getByLabelText("Search PDF");
+      // jsdom lays nothing out: the query's box is 10px in place and 80px once
+      // SyncTeX and the fit have left the row.
+      vi.spyOn(toolbar, "getClientRects").mockReturnValue([box(0, 0, 320, 32)] as unknown as DOMRectList);
+      vi.spyOn(searchInput, "getBoundingClientRect").mockImplementation(() => box(0, 0, toolbar.dataset.searchFold ? 80 : 10, 20));
+
+      expect(observed.get(frame)?.size ?? 0).toBe(0);
+      fireEvent.change(searchInput, { target: { value: "attention" } });
+      await waitFor(() => expect(observed.get(frame)?.size).toBe(1));
+      act(() => observed.get(frame)?.forEach((notify) => notify()));
+      expect(toolbar).toHaveAttribute("data-search-fold", "1");
+      for (const name of ["Reveal cursor in PDF (⌘⇧J)", "Fit page to width"]) {
+        expect(view.getByRole("button", { name })).toHaveClass("pdf-search-fold");
+      }
+
+      fireEvent.keyDown(view.getByRole("button", { name: "More PDF actions" }), { key: "Enter" });
+      const menu = await view.findByRole("menu");
+      expect(within(menu).getByRole("menuitemcheckbox", { name: "Fit page to width" })).toHaveAttribute("aria-checked", "true");
+      expect(within(menu).getByRole("menuitemcheckbox", { name: "Fit page to height" })).toHaveAttribute("aria-checked", "false");
+      fireEvent.click(within(menu).getByRole("menuitem", { name: "Reveal cursor in PDF (⌘⇧J)" }));
+      expect(onForwardSync).toHaveBeenCalledOnce();
+      await waitFor(() => expect(view.queryByRole("menu")).toBeNull());
+
+      // Narrower still, the search takes the row.
+      vi.spyOn(searchInput, "getBoundingClientRect").mockImplementation(() => box(0, 0, toolbar.dataset.searchFold === "2" ? 120 : 30, 20));
+      act(() => observed.get(frame)?.forEach((notify) => notify()));
+      expect(toolbar).toHaveAttribute("data-search-fold", "2");
+
+      fireEvent.click(view.getByRole("button", { name: "Clear PDF search" }));
+      await waitFor(() => expect(toolbar).not.toHaveAttribute("data-search-fold"));
+      expect(observed.get(frame)?.size ?? 0).toBe(0);
+    } finally {
+      globalThis.ResizeObserver = OriginalResizeObserver;
+    }
+  });
+
   it("starts a zoom right after a commit from the committed scale", async () => {
     const view = renderPdf({ initialViewState: { page: 1, scale: 1, fitMode: null, scrollTop: 0, scrollLeft: 0 } });
     await view.findByLabelText("PDF page 3");

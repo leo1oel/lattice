@@ -110,7 +110,10 @@ Scenarios (`scripts/perf-bench/scenarios.mjs`):
   overlaps the source link or takes a click on its arrow.
   `reading-field-focus-after-shrink` shrinks the window under the Reading
   layout and fails when clicking and searching in the PDF beside the notes
-  scrolls the workspace root.
+  scrolls the workspace root. `writing-pdf-find-narrow` types a query into the
+  PDF's Find under the Writing layout, shrinks the window to 640, 560 and
+  480px, and fails when a toolbar control overlaps another or leaves the
+  toolbar, or the query's box is narrower than a short query needs.
 
 #### Ceilings and the ratchet
 

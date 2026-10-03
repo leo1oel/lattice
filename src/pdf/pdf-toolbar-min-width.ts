@@ -91,3 +91,38 @@ export function measurePdfToolbarMinWidth(toolbar: HTMLElement): number | null {
     toolbar.removeAttribute("data-measure-narrow");
   }
 }
+
+/**
+ * How far a toolbar with a query typed folds so the query stays readable: 0,
+ * every control in its place; 1, SyncTeX and the fit in use move into the
+ * overflow menu; 2, the search takes the whole row until it is cleared.
+ *
+ * The panel's minimum (above) reserves room for a query, but a layout cannot
+ * always grant a panel its minimum: in Writing at the window's own minimum
+ * the PDF is narrower than its toolbar's reserve, and the field used to shrink
+ * to nothing with its match controls drawn over SyncTeX, the fit and the menu.
+ *
+ * Each fold is tried in place (`data-search-fold`, restored before
+ * returning) and the first that leaves the field room for the sample query
+ * wins, so the answer depends on the width alone and a fold can never make
+ * room that unfolds it again.
+ */
+export type PdfSearchFold = 0 | 1 | 2;
+
+export function measurePdfSearchFold(toolbar: HTMLElement): PdfSearchFold {
+  const input = toolbar.querySelector<HTMLInputElement>(".pdf-find-controls [data-slot='search-field'] input");
+  if (!input?.value || !toolbar.getClientRects().length) return 0;
+  const usable = textWidth(VISIBLE_QUERY_SAMPLE, getComputedStyle(input));
+  const rendered = toolbar.getAttribute("data-search-fold");
+  try {
+    for (const fold of [0, 1] as const) {
+      if (fold) toolbar.setAttribute("data-search-fold", String(fold));
+      else toolbar.removeAttribute("data-search-fold");
+      if (input.getBoundingClientRect().width >= usable) return fold;
+    }
+    return 2;
+  } finally {
+    if (rendered === null) toolbar.removeAttribute("data-search-fold");
+    else toolbar.setAttribute("data-search-fold", rendered);
+  }
+}

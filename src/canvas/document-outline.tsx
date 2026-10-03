@@ -1,3 +1,4 @@
+import { useRef } from "react";
 import { ListTree } from "lucide-react";
 import { useLingui } from "@lingui/react/macro";
 import { Popover, PopoverContent, PopoverTrigger } from "../components/ui/popover";
@@ -41,7 +42,17 @@ export function DocumentOutline(props: {
   available: boolean;
 }) {
   const { t } = useLingui();
+  // Choosing an entry closes the popover and sends the editor to the entry,
+  // which focuses it. Radix's close hands focus back to the trigger once the
+  // popover's exit ends, and when the jump's file was slower to open than that
+  // exit (the first jump into a file after a load), the trigger took focus
+  // from the editor the jump had just focused. A jump owns focus instead.
+  const choseRef = useRef(false);
   if (!props.available) return null;
+  const select = (path: string, line: number) => {
+    choseRef.current = true;
+    props.onSelect(path, line);
+  };
   return (
     <Popover open={props.open} onOpenChange={(open) => props.onOpenChange(open)}>
       <Tip label={t`Show outline`}>
@@ -51,11 +62,17 @@ export function DocumentOutline(props: {
           </button>
         </PopoverTrigger>
       </Tip>
-      <PopoverContent align="start" sideOffset={7} className="document-outline-popover fluid-hover-surface" aria-label={t`Document outline`}>
+      <PopoverContent align="start" sideOffset={7} className="document-outline-popover fluid-hover-surface" aria-label={t`Document outline`}
+        onCloseAutoFocus={(event) => {
+          if (!choseRef.current) return;
+          choseRef.current = false;
+          event.preventDefault();
+        }}
+      >
         <FluidHoverSurface selector=".document-outline-list button" preserveSelection />
         <div className="document-outline-header"><ListTree size={13} /><span>{t`Outline`}</span></div>
         {props.nodes.length
-          ? <OutlineBranch nodes={props.nodes} activeId={props.activeId ?? null} onSelect={props.onSelect} />
+          ? <OutlineBranch nodes={props.nodes} activeId={props.activeId ?? null} onSelect={select} />
           : <p className="document-outline-empty">{t`No sections yet. Add a \\section{…} to start the outline`}</p>}
       </PopoverContent>
     </Popover>

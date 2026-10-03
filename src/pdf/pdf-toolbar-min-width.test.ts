@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { measurePdfToolbarMinWidth } from "./pdf-toolbar-min-width";
+import { measurePdfSearchFold, measurePdfToolbarMinWidth } from "./pdf-toolbar-min-width";
 
 /** A laid-out box of `width` CSS px, as jsdom lays nothing out itself. */
 function laidOut(element: Element, width: number) {
@@ -80,5 +80,43 @@ describe("measurePdfToolbarMinWidth", () => {
     const root = toolbar(141);
     root.querySelector("input")!.value = "lattice";
     expect(measurePdfToolbarMinWidth(root)).toBeNull();
+  });
+});
+
+describe("measurePdfSearchFold", () => {
+  beforeEach(() => {
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(
+      { font: "", measureText: (text: string) => ({ width: text.length * 6 }) } as unknown as CanvasRenderingContext2D,
+    );
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+    document.body.replaceChildren();
+  });
+
+  /** A toolbar whose query box is as wide as `widths` says for each fold (none, 1, 2). */
+  function folding(widths: [number, number, number], query = "lattice") {
+    const root = toolbar(141);
+    const input = root.querySelector("input")!;
+    input.value = query;
+    input.getBoundingClientRect = () => {
+      const width = widths[Number(root.getAttribute("data-search-fold") ?? 0)]!;
+      return { x: 0, y: 0, top: 0, left: 0, right: width, bottom: 20, width, height: 20, toJSON: () => ({}) };
+    };
+    return root;
+  }
+
+  it("folds no further than the query needs: eight characters, 48px", () => {
+    expect(measurePdfSearchFold(folding([48, 90, 200]))).toBe(0);
+    expect(measurePdfSearchFold(folding([0, 48, 200]))).toBe(1);
+    expect(measurePdfSearchFold(folding([0, 20, 200]))).toBe(2);
+  });
+
+  it("stays unfolded with no query, and leaves the rendered fold in place", () => {
+    expect(measurePdfSearchFold(folding([0, 0, 0], ""))).toBe(0);
+    const root = folding([0, 48, 200]);
+    root.setAttribute("data-search-fold", "2");
+    expect(measurePdfSearchFold(root)).toBe(1);
+    expect(root.getAttribute("data-search-fold")).toBe("2");
   });
 });

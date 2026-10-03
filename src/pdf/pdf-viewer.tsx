@@ -11,12 +11,14 @@ import {
   type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
+  type RefObject,
 } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { invoke } from "@tauri-apps/api/core";
 import { save as saveDialog } from "@tauri-apps/plugin-dialog";
 import {
   CaseSensitive,
+  Check,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
@@ -59,6 +61,7 @@ import { usePdfSearch } from "./use-pdf-search";
 import { useLatestRef } from "../hooks/use-latest-ref";
 import { usePdfLocationHistory, usePdfViewState, type PdfViewerCallbacks } from "./use-pdf-view";
 import { usePdfZoom } from "./use-pdf-zoom";
+import { measurePdfSearchFold, type PdfSearchFold } from "./pdf-toolbar-min-width";
 import "@pdfslick/core/dist/pdf_viewer.css";
 import "./pdf-viewer.css";
 
@@ -163,7 +166,30 @@ const IDLE_SEARCH_CONTROLS = (
   </>
 );
 
-type MenuAction = { label: string; icon: ReactNode; disabled?: boolean; run: () => void };
+type MenuAction = { label: string; icon: ReactNode; disabled?: boolean; checked?: boolean; run: () => void };
+
+/**
+ * How far the toolbar folds while a query is typed (measurePdfSearchFold):
+ * read again whenever the toolbar's frame changes width (a divider drag, a
+ * window resize) or the match counter changes length, and only while there is
+ * a query, so an idle toolbar costs no observer.
+ */
+function usePdfSearchFold(previewRef: RefObject<HTMLDivElement | null>, searching: boolean, counter: string): PdfSearchFold {
+  const [fold, setFold] = useState<PdfSearchFold>(0);
+  useEffect(() => {
+    const toolbar = previewRef.current?.querySelector<HTMLElement>(".pdf-toolbar");
+    const frame = toolbar?.parentElement;
+    if (!searching || !toolbar || !frame) {
+      setFold(0);
+      return;
+    }
+    // The frame's width is the pane's, whatever the fold, so a fold never re-triggers this.
+    const observer = new ResizeObserver(() => setFold(measurePdfSearchFold(toolbar)));
+    observer.observe(frame);
+    return () => observer.disconnect();
+  }, [previewRef, searching, counter]);
+  return fold;
+}
 
 /**
  * A narrow toolbar's home for what it sets aside (pdf-viewer.css): the zoom
@@ -258,9 +284,15 @@ function PdfOverflowMenu({ open, onOpenChange, scale, stepZoom, onEnterZoom, gro
           <Fragment key={index}>
             <DropdownMenuSeparator />
             {group.map((action) => (
-              <DropdownMenuItem key={action.label} disabled={action.disabled} onSelect={action.run}>
+              <DropdownMenuItem
+                key={action.label}
+                disabled={action.disabled}
+                onSelect={action.run}
+                {...(action.checked === undefined ? {} : { role: "menuitemcheckbox", "aria-checked": action.checked })}
+              >
                 {action.icon}
-                {action.label}
+                <span className="flex-1">{action.label}</span>
+                {action.checked && <Check size={14} className="pdf-overflow-check" />}
               </DropdownMenuItem>
             ))}
           </Fragment>
@@ -383,6 +415,8 @@ export function PdfPreview({
   useEffect(() => {
     if (zoomEntry) zoomLabelRef.current?.querySelector("input")?.focus();
   }, [zoomEntry, zoomLabelRef]);
+  const matchPosition = search.matches.total ? `${search.matches.current} / ${search.matches.total}` : "0 / 0";
+  const searchFold = usePdfSearchFold(previewRef, Boolean(search.query), matchPosition);
   const zoomInput = useDraftInput(String(Math.round(scale * 100)), (draft) => {
     const next = parsePdfZoomPercent(draft);
     if (next !== null) applyManualScale(next);
@@ -464,6 +498,12 @@ export function PdfPreview({
   const otherFit = shownFit === "width" ? fitHeight : fitWidth;
   const pageCount = numPages ?? "–";
   const { query, matches } = search;
+  const revealLabel = t`Reveal cursor in PDF (⌘⇧J)`;
+  // What the menu shows for a fold, read only while folded: zooming leaves a
+  // fit and each edit makes a new SyncTeX callback, and an unfolded menu must
+  // not re-render for either.
+  const foldedFit = searchFold ? fitMode : null;
+  const foldedReveal = searchFold ? onForwardSync : undefined;
 
   return (
     <div
@@ -475,7 +515,7 @@ export function PdfPreview({
       <PdfCitationHover key={doc.stableLoadKey} hostRef={hostRef} citations={citations}
         canOpenCitation={canOpenCitation} onOpenCitation={onOpenCitation} />
       <div className="pdf-toolbar-frame">
-        <div className="pdf-toolbar" data-zoom-entry={zoomEntry || undefined}>
+        <div className="pdf-toolbar" data-zoom-entry={zoomEntry || undefined} data-search-fold={searchFold || undefined}>
           <div className="pdf-navigation-controls">
             {toolbarStart}
             <div className="pdf-page-controls">
@@ -533,7 +573,7 @@ export function PdfPreview({
                     className="pdf-search-option" aria-pressed={search.wholeWord} onMouseDown={keepFocus}
                     onClick={() => search.setWholeWord((enabled) => !enabled)} />
                   <small className="pdf-search-position" aria-live="polite">
-                    {matches.total ? `${matches.current} / ${matches.total}` : "0 / 0"}
+                    {matchPosition}
                   </small>
                   <ToolbarButton label={t`Previous search result`} icon={<ChevronUp size={12} />}
                     disabled={!matches.total} onClick={() => search.find(query, true, true)} />
@@ -568,18 +608,18 @@ export function PdfPreview({
             <i className="pdf-fit-divider pdf-overflow" aria-hidden="true" />
             {onForwardSync && (
               <>
-                <ToolbarButton label={t`Reveal cursor in PDF (⌘⇧J)`}
+                <ToolbarButton label={revealLabel} className="pdf-search-fold"
                   icon={locatingPdf ? <InfinityLoader size={14} /> : <LocateFixed size={14} />}
                   disabled={!canForwardSync || locatingPdf} onMouseDown={keepFocus} onClick={onForwardSync} />
-                <i className="pdf-fit-divider" aria-hidden="true" />
+                <i className="pdf-fit-divider pdf-search-fold" aria-hidden="true" />
               </>
             )}
             {/* Written out, not mapped: each button then re-renders only when its own state changes. */}
             <ToolbarButton label={fitWidth.label} icon={fitWidth.icon}
-              className={`${fitMode === "width" ? "active" : ""}${shownFit === "width" ? "" : " pdf-overflow"}`}
+              className={`pdf-search-fold${fitMode === "width" ? " active" : ""}${shownFit === "width" ? "" : " pdf-overflow"}`}
               aria-pressed={fitMode === "width"} disabled={!hasActiveViewer} onClick={() => toggleFit("width")} />
             <ToolbarButton label={fitHeight.label} icon={fitHeight.icon}
-              className={`${fitMode === "height" ? "active" : ""}${shownFit === "height" ? "" : " pdf-overflow"}`}
+              className={`pdf-search-fold${fitMode === "height" ? " active" : ""}${shownFit === "height" ? "" : " pdf-overflow"}`}
               aria-pressed={fitMode === "height"} disabled={!hasActiveViewer} onClick={() => toggleFit("height")} />
             {toolbarEnd}
             {showSave && (
@@ -596,7 +636,15 @@ export function PdfPreview({
               stepZoom={stepZoom}
               onEnterZoom={() => setZoomEntry(true)}
               groups={[
-                [{ label: otherFit.label, icon: otherFit.icon, disabled: !hasActiveViewer, run: () => toggleFit(otherFit.mode) }],
+                // Folded for a query, SyncTeX and both fits wait here, each fit marked when in use.
+                foldedReveal
+                  ? [{ label: revealLabel, icon: <LocateFixed />, disabled: !canForwardSync || locatingPdf, run: foldedReveal }]
+                  : [],
+                searchFold
+                  ? [fitWidth, fitHeight].map((fit) => ({
+                    label: fit.label, icon: fit.icon, checked: foldedFit === fit.mode, disabled: !hasActiveViewer, run: () => toggleFit(fit.mode),
+                  }))
+                  : [{ label: otherFit.label, icon: otherFit.icon, disabled: !hasActiveViewer, run: () => toggleFit(otherFit.mode) }],
                 [
                   { label: t`Previous PDF location`, icon: <CornerUpLeft />, disabled: !availability.back, run: () => navigate("back") },
                   { label: t`Next PDF location`, icon: <CornerUpRight />, disabled: !availability.forward, run: () => navigate("forward") },
