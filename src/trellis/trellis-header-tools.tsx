@@ -91,13 +91,11 @@ function BuildStatusGlyph({ status, warned, fresh }: { status: "succeeded" | "fa
   );
 }
 
-/** "just now", "3 minutes ago": read when the tip opens, so it is never older than the hover. */
-function BuildAge({ finishedAt }: { finishedAt: number }) {
-  const { t, i18n } = useLingui();
-  const [openedAt] = useState(Date.now);
-  const seconds = Math.max(0, (openedAt - finishedAt) / 1000);
-  if (seconds < 45) return t`just now`;
-  const format = new Intl.RelativeTimeFormat(i18n.locale, { numeric: "auto" });
+/** "just now", "3 minutes ago": how long before `now` a build finished. */
+function buildAge(finishedAt: number, now: number, justNow: string, locale: string): string {
+  const seconds = Math.max(0, (now - finishedAt) / 1000);
+  if (seconds < 45) return justNow;
+  const format = new Intl.RelativeTimeFormat(locale, { numeric: "auto" });
   if (seconds < 3600) return format.format(-Math.round(seconds / 60), "minute");
   if (seconds < 86_400) return format.format(-Math.round(seconds / 3600), "hour");
   return format.format(-Math.round(seconds / 86_400), "day");
@@ -109,13 +107,16 @@ function Reserve({ children }: { children: ReactNode }) {
 }
 
 export function FileHeaderTools({ controller }: { controller: TrellisController }) {
-  const { t } = useLingui();
+  const { t, i18n } = useLingui();
   const view = useView<{ key: string }>();
   const key = view.params.key;
   const active = useTrellisApp(controller, (state) => state.activeKey === key);
   const tools = useSyncExternalStore(controller.docTools.subscribe, controller.docTools.get);
   const which = documentTools(controller.bridge?.tabKind(key) ?? "file", key);
   const resultId = useId();
+  // The build's age is read when the writer reaches the button, by pointer or
+  // by focus, so neither the tip nor the description is older than that.
+  const [reachedAt, setReachedAt] = useState(Date.now);
   if (which === "build") {
     // Gray and labelled Build while idle; a running build shows a spinner in
     // place of the play icon, and another press queues a fresh build. Once it
@@ -130,6 +131,13 @@ export function FileHeaderTools({ controller }: { controller: TrellisController 
     const headline = building
       ? t`Building…`
       : lastBuild ? buildHeadline(lastBuild.status === "succeeded", lastBuild.counts) : t`Build and show the PDF`;
+    // What happened is followed by which document, how long the compile took
+    // and how long ago it ended.
+    const facts = !building && lastBuild
+      ? [lastBuild.rootDocument, seconds && `${seconds}s`, buildAge(lastBuild.finishedAt, reachedAt, t`just now`, i18n.locale)]
+        .filter((fact): fact is string => Boolean(fact))
+      : [];
+    const reach = () => setReachedAt(Date.now());
     const button = (live: boolean) => {
       const state = !live ? "idle" : building ? "building" : lastBuild?.status ?? "idle";
       const fresh = state !== "idle" && state !== "building" && isFreshOutcome(lastBuild);
@@ -142,6 +150,8 @@ export function FileHeaderTools({ controller }: { controller: TrellisController 
           aria-label={t`Build`}
           aria-describedby={live ? resultId : undefined}
           aria-busy={state === "building" || undefined}
+          onPointerEnter={live ? reach : undefined}
+          onFocus={live ? reach : undefined}
           onClick={live ? (event) => controller.bridge?.build(key, { clean: event.shiftKey, beside: view.panelId }) : undefined}
         >
           {state === "building" ? <InfinityLoader size={13} />
@@ -156,21 +166,18 @@ export function FileHeaderTools({ controller }: { controller: TrellisController 
             ))}
             <span className="trellis-build-label-off">{"000.0"}s</span>
           </span>
-          {live && <span id={resultId} className="sr-only">{headline}</span>}
+          {live && <span id={resultId} className="sr-only">{[headline, ...facts].join(" · ")}</span>}
         </button>
       );
     };
     if (!active) return <Reserve>{button(false)}</Reserve>;
-    // The tip gives the whole result: what happened, to which document, how
-    // long the compile took and how long ago, then how to build again.
-    const facts = !building && lastBuild ? [lastBuild.rootDocument, seconds && `${seconds}s`].filter(Boolean) : [];
+    // The tip gives the same result as the description, then how to build again.
     const label = (
       <span className="trellis-build-tip">
         <span className="trellis-build-tip-headline">{headline}</span>
-        {!building && lastBuild && (
+        {facts.length > 0 && (
           <span className="trellis-build-tip-facts">
-            {facts.map((fact) => <span key={fact}>{fact}</span>)}
-            <span><BuildAge finishedAt={lastBuild.finishedAt} /></span>
+            {facts.map((fact, index) => <span key={index}>{fact}</span>)}
           </span>
         )}
         <span className="trellis-build-tip-hint">{t`⌘S · ⇧-click for a clean rebuild`}</span>

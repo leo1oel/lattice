@@ -1,5 +1,5 @@
 import { readFileSync } from "node:fs";
-import { act, cleanup, render } from "@testing-library/react";
+import { act, cleanup, fireEvent, render } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { TrellisController, documentTools, type TrellisDocToolsState, type TrellisTabKind } from "./trellis-controller";
 import { FileHeaderTools } from "./trellis-header-tools";
@@ -152,14 +152,14 @@ describe("the Build button's report of the last build", () => {
     expect(container.querySelector(".trellis-build-pip")).not.toBeNull();
     expect(container.querySelector(".trellis-build-burst")).toBeNull();
     expect(button).toHaveAccessibleName("Build");
-    expect(button).toHaveAccessibleDescription("Built with 2 warnings");
+    expect(button).toHaveAccessibleDescription("Built with 2 warnings · main.tex · 1.2s · just now");
     cleanup();
     const clean = renderTools(tex, { active: true }, { lastBuild: succeeded(1.2) });
     expect(clean.container.querySelector(".trellis-build-pip")).toBeNull();
-    expect(clean.container.querySelector(".trellis-build-button")).toHaveAccessibleDescription("Built");
+    expect(clean.container.querySelector(".trellis-build-button")).toHaveAccessibleDescription("Built · main.tex · 1.2s · just now");
     cleanup();
     const failure = renderTools(tex, { active: true }, { lastBuild: failed() });
-    expect(failure.container.querySelector(".trellis-build-button")).toHaveAccessibleDescription("Build failed · 1 error");
+    expect(failure.container.querySelector(".trellis-build-button")).toHaveAccessibleDescription("Build failed · 1 error · main.tex · just now");
   });
 
   // Vitest empties CSS imports, so the button's stylesheet and the app's
@@ -196,6 +196,22 @@ describe("the Build button's report of the last build", () => {
     expect(animated.pip).not.toBe("0s");
     expect(animated.cross).toBe("70ms");
     expect(delays(true)).toEqual({ pip: "0s", cross: "0s" });
+  });
+
+  // The description carries what the tip shows, and the build's age is read
+  // when the writer reaches the button, not when the panel first rendered.
+  it("describes the build's age as of the moment the button is reached", () => {
+    const finishedAt = Date.now();
+    const { container } = renderTools(tex, { active: true }, { lastBuild: { ...succeeded(1.2), finishedAt } });
+    const button = container.querySelector<HTMLButtonElement>(".trellis-build-button")!;
+    expect(button).toHaveAccessibleDescription("Built · main.tex · 1.2s · just now");
+    const now = vi.spyOn(Date, "now").mockReturnValue(finishedAt + 3 * 60_000);
+    act(() => button.focus());
+    expect(button).toHaveAccessibleDescription(/^Built · main\.tex · 1\.2s · 3 minutes ago/);
+    now.mockReturnValue(finishedAt + 2 * 3_600_000);
+    fireEvent.pointerEnter(button);
+    expect(button).toHaveAccessibleDescription(/^Built · main\.tex · 1\.2s · 2 hours ago/);
+    now.mockRestore();
   });
 
   // One project build serves every .tex panel: the store is shared, so a

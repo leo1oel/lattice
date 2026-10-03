@@ -1194,7 +1194,7 @@ describe("project tree and projects", () => {
     await screen.findByLabelText("Project files");
     await chooseNewDocument(`New ${kind}`);
     const nameInput = await findProjectTreeRenameInput();
-    expect(nameInput).toHaveValue(`untitled.${path.split(".").pop()}`);
+    expect(nameInput).toHaveValue("untitled");
     fireEvent.input(nameInput, { target: { value: name } });
     fireEvent.keyDown(nameInput, { key: "Enter" });
     await expectInvoked("create_project_entry", { path, kind: "file", projectRoot: ROOT });

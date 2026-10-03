@@ -138,17 +138,17 @@ export function useInlineCreation(
     };
   }, [clear, model, persist]);
 
-  const begin = (targetDirectory: string, kind: EntryKind, extension?: string) => {
+  const begin = (targetDirectory: string, kind: EntryKind, extension?: string, showExtension = false) => {
     // A context-menu click blurs any previous draft. Remove that draft before
     // choosing a placeholder so a canceled creation never leaks into the next
     // name as "untitled-2".
     for (const path of [...pendingRef.current.keys()]) clear(path);
     const directory = fromPierrePath(targetDirectory);
     const directoryDraft = isDirectoryDraft(kind);
-    // A draft with a pinned extension shows it, so the row already wears the
-    // new file's name and icon while it is being named.
+    // A draft that shows its pinned extension already wears the new file's
+    // name and icon while it is being named; the others stay extension-free.
     const placeholder = (suffix: number) => {
-      const basename = `${suffix > 1 ? `untitled-${suffix}` : "untitled"}${extension ? `.${extension}` : ""}`;
+      const basename = `${suffix > 1 ? `untitled-${suffix}` : "untitled"}${extension && showExtension ? `.${extension}` : ""}`;
       return directory ? `${directory}/${basename}` : basename;
     };
     let suffix = 1;

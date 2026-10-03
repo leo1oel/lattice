@@ -261,15 +261,16 @@ export function ProjectFileTree(props: ProjectFileTreeProps) {
     return model.subscribe(markNativeDropTarget);
   }, [model, props.assetDropTarget]);
 
-  // A menu's new entry lands beside the selection, as a context-menu one lands
-  // beside the row it was opened on. Decks always live under slides/.
+  // A writing file or folder lands beside the selection, as a context-menu one
+  // lands beside the row it was opened on. Spreadsheets and boards start at
+  // the project root, and decks always live under slides/.
   useNewEntryRequest(props.newEntryRequest, (type) => {
-    const directory = selectionDirectory(model.getSelectedPaths().at(-1) ?? "", treeRef.current.nodes);
-    if (type === "latex") creation.begin(directory, "file", "tex");
-    else if (type === "markdown") creation.begin(directory, "file", "md");
-    else if (type === "folder") creation.begin(directory, "folder");
-    else if (type === "spreadsheet") creation.begin(directory, "file", "lattice-sheet");
-    else if (type === "board") creation.begin(directory, "file", "tldr");
+    const directory = () => selectionDirectory(model.getSelectedPaths().at(-1) ?? "", treeRef.current.nodes);
+    if (type === "latex") creation.begin(directory(), "file", "tex", true);
+    else if (type === "markdown") creation.begin(directory(), "file", "md", true);
+    else if (type === "folder") creation.begin(directory(), "folder");
+    else if (type === "spreadsheet") creation.begin("", "file", "lattice-sheet");
+    else if (type === "board") creation.begin("", "file", "tldr");
     else creation.begin("slides", "presentation");
   });
 
