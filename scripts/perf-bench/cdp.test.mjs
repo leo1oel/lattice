@@ -27,9 +27,16 @@ function alive(pid) {
  * A "browser" that cannot shut down: it ignores SIGTERM, and its startup
  * line points DevTools at a port nothing listens on (or it prints nothing,
  * so startup waits until a signal arrives). It records its pid.
+ *
+ * The `.cjs` extension pins the stub to CommonJS: an extensionless script
+ * takes its module format from the nearest package.json, so under a
+ * `"type": "module"` package (this repo, when TMPDIR points into it) its
+ * `require` throws before the stub records its pid or ignores SIGTERM. The
+ * dir gets such a package.json so every run proves the stub is immune.
  */
 function stubbornBrowser(dir, { announce }) {
-  const executable = path.join(dir, "stubborn-chrome");
+  writeFileSync(path.join(dir, "package.json"), '{ "type": "module" }\n');
+  const executable = path.join(dir, "stubborn-chrome.cjs");
   writeFileSync(executable, `#!${process.execPath}
 require("node:fs").writeFileSync(${JSON.stringify(path.join(dir, "browser.pid"))}, String(process.pid));
 process.on("SIGTERM", () => {});
