@@ -140,6 +140,8 @@ export type MarkdownModeViewportHandoff = {
 
 /** How far `scroller` (or a report of its metrics) can scroll vertically. */
 export const scrollRange = (scroller: { scrollHeight: number; clientHeight: number }) => Math.max(0, scroller.scrollHeight - scroller.clientHeight);
+/** How far a source editor scrolls before its text ends: its range without the scroll-past-end padding. */
+export const sourceScrollRange = (view: EditorView) => Math.max(0, scrollRange(view.scrollDOM) - view.documentPadding.bottom);
 
 /** A preview block labelled with the `[from, to)` preview-text range it renders. */
 export type SourceAnchor = { from: number; to: number; element: HTMLElement };
@@ -160,8 +162,8 @@ export function sourceAnchorCenter(view: EditorView, previewStart: number, ancho
   return (view.lineBlockAt(from).top + view.lineBlockAt(to).bottom) / 2;
 }
 
-export function captureViewport(viewport: HTMLElement): ViewportSnapshot {
-  return { scrollTop: viewport.scrollTop, scrollRange: scrollRange(viewport) };
+export function captureViewport(viewport: HTMLElement, range = scrollRange(viewport)): ViewportSnapshot {
+  return { scrollTop: viewport.scrollTop, scrollRange: range };
 }
 
 function previewViewportBlocks(viewport: HTMLElement): HTMLElement[] {
@@ -192,8 +194,7 @@ export function capturePreviewViewport(viewport: HTMLElement): PreviewViewportSn
   };
 }
 
-export function restoreViewport(viewport: HTMLElement, snapshot: ViewportSnapshot): boolean {
-  const targetRange = scrollRange(viewport);
+export function restoreViewport(viewport: HTMLElement, snapshot: ViewportSnapshot, targetRange = scrollRange(viewport)): boolean {
   viewport.scrollTop = snapshot.scrollRange > 0 && targetRange > 0
     ? (snapshot.scrollTop / snapshot.scrollRange) * targetRange
     : snapshot.scrollTop;

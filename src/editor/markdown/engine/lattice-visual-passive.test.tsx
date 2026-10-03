@@ -81,6 +81,21 @@ describe("the passive view (R-PERF-1–4)", () => {
     await waitFor(() => expect(opener.openUrl).toHaveBeenCalledWith("https://arxiv.org/html/2606.11033#A0.T8"));
   });
 
+  it("centers a line jump on the block that holds the line", async () => {
+    const scrollIntoView = vi.spyOn(Element.prototype, "scrollIntoView").mockImplementation(() => undefined);
+    const onRevealHandled = vi.fn();
+    const text = blocks(180).join("\n\n");
+    const props = { text, synchronizeSourceScroll: true, onRevealHandled };
+    const view = render(<LatticeVisualMarkdownEditor activePath="large.md" onChangeMarkdown={() => true} onUndo={() => true} onRedo={() => true} editable={false} {...props} />);
+    await waitFor(() => expect(passive()).toHaveTextContent("Block 1:"));
+    view.rerender(<LatticeVisualMarkdownEditor activePath="large.md" onChangeMarkdown={() => true} onUndo={() => true} onRedo={() => true} editable={false} {...props} revealRequest={{ id: "jump", target: { line: 4 } }} />);
+    await waitFor(() => expect(onRevealHandled).toHaveBeenCalledWith("jump"));
+    const centered = scrollIntoView.mock.contexts.at(-1) as HTMLElement;
+    expect(scrollIntoView).toHaveBeenLastCalledWith({ block: "center" });
+    expect(centered).toHaveAttribute("data-source-line", "3");
+    expect(centered).toHaveTextContent("Block 1:");
+  });
+
   it("never makes an editable document passive", () => {
     renderEditor({ text: blocks(180).join("\n\n"), editable: true });
     expect(passive()).toBeNull();

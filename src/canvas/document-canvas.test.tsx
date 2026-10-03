@@ -35,6 +35,7 @@ vi.mock("./canvas-lazy-modules", () => {
     onEligibilityChange?: (reason: string | null) => void; onEditorCommentClick?: (id: string) => void;
     onCreateComment?: (from: number, to: number, body: string) => void; theme?: string;
     revealRequest?: { id: string; target: unknown } | null; onRevealHandled?: (id: string) => void;
+    synchronizeSourceScroll?: boolean;
   }) => (
     <div
       data-testid={testId}
@@ -45,6 +46,7 @@ vi.mock("./canvas-lazy-modules", () => {
       data-comments={JSON.stringify(props.editorComments ?? [])}
       data-active-comment={props.activeEditorCommentId ?? ""}
       data-reveal={JSON.stringify(props.revealRequest ?? null)}
+      data-source-labels={String(Boolean(props.synchronizeSourceScroll))}
     >
       {props.revealRequest && (
         <button data-testid={`${testId}-landed`} onClick={() => props.onRevealHandled?.(props.revealRequest!.id)} />
@@ -275,6 +277,16 @@ describe("DocumentCanvas / mode", () => {
     expect(props.onRequestHandled).not.toHaveBeenCalledWith("jump");
     fireEvent.click(within(visual).getByTestId("visual-markdown-editor-landed"));
     expect(props.onRequestHandled).toHaveBeenCalledWith("jump");
+  });
+
+  it("labels Preview's blocks with their source lines while a jump is landing there", async () => {
+    const { rerenderWith } = renderCanvas({ mode: "pdf", activeFile: "notes.md", source: "first\n\ntarget\n" });
+    const visual = await screen.findByTestId("visual-markdown-editor");
+    expect(visual).toHaveAttribute("data-source-labels", "false");
+    rerenderWith({ requests: pending({ navigation: { path: "notes.md", line: 3, id: "jump" } }) });
+    await waitFor(() => expect(visual).toHaveAttribute("data-source-labels", "true"));
+    rerenderWith({ requests: pending({ navigation: null }) });
+    await waitFor(() => expect(visual).toHaveAttribute("data-source-labels", "false"));
   });
 
   it("focuses a comment in Markdown's Preview through the visual editor", async () => {

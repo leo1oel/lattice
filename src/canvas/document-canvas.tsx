@@ -1177,7 +1177,7 @@ export function DocumentCanvas(props: {
           onEligibilityChange={paperFullTextActive ? reportPaperVisualEligibility : undefined}
           // Split previews keep source labels for scroll sync; pure preview
           // spares the labeling cost while typing.
-          synchronizeSourceScroll={props.mode === "split"}
+          synchronizeSourceScroll={props.mode === "split" || visualReveal !== null}
           revealRequest={visualReveal}
           onRevealHandled={visualRevealHandled}
           onRequestViewportLock={lockMarkdownPreviewViewport}
