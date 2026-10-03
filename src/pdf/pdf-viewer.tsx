@@ -132,12 +132,49 @@ function useDraftInput(
   };
 }
 
+/**
+ * The control that takes focus from a menu whose trigger a wide toolbar hid:
+ * the first enabled one the menu stood in for, in its zoom-first order (the
+ * zoom steps lead the menu), or the preview itself when all are disabled.
+ */
+function nextVisibleControl(trigger: HTMLElement): HTMLElement | null {
+  const toolbar = trigger.closest(".pdf-toolbar");
+  const candidates = [".pdf-zoom-controls button.pdf-overflow", ".pdf-history-controls button"]
+    .flatMap((selector) => [...toolbar?.querySelectorAll<HTMLElement>(selector) ?? []]);
+  const control = candidates.find((candidate) => !candidate.matches(":disabled") && candidate.getClientRects().length > 0);
+  return control ?? trigger.closest<HTMLElement>(".pdf-preview");
+}
+
+/**
+ * The match controls' footprint while the search field is empty, shown only
+ * for a minimum-width measurement: the buttons have a fixed width and the
+ * counter reads as an idle one does. Plain inert elements rather than the
+ * tooltip-wrapped buttons, which would add their render cost to every toolbar
+ * update for controls nobody can see. Keep in step with the controls it stands in for.
+ */
+const IDLE_SEARCH_CONTROLS = (
+  <>
+    <button type="button" tabIndex={-1} aria-hidden="true" />
+    <button type="button" tabIndex={-1} aria-hidden="true" />
+    <small className="pdf-search-position" aria-hidden="true">0 / 0</small>
+    <button type="button" tabIndex={-1} aria-hidden="true" />
+    <button type="button" tabIndex={-1} aria-hidden="true" />
+    <button type="button" tabIndex={-1} aria-hidden="true" />
+  </>
+);
+
 type MenuAction = { label: string; icon: ReactNode; disabled?: boolean; run: () => void };
 
 /**
  * A narrow toolbar's home for what it sets aside (pdf-viewer.css): the zoom
  * steps and value, the fit mode not in use, location history and saving. It
  * is only reachable while the toolbar is narrow; a wide one shows each control.
+ *
+ * Widening the panel or window past the breakpoint with the menu open hides
+ * its trigger, and the portaled menu would follow that empty box to the
+ * window's corner. So while open, the toolbar's frame (its size container,
+ * which a divider drag already resizes) is watched, and the menu closes once
+ * the trigger is gone, handing focus to a control it stood in for.
  */
 function PdfOverflowMenu({ open, onOpenChange, scale, stepZoom, onEnterZoom, groups }: {
   open: boolean;
@@ -151,6 +188,24 @@ function PdfOverflowMenu({ open, onOpenChange, scale, stepZoom, onEnterZoom, gro
 }) {
   const { t } = useLingui();
   const zoomEntryRef = useRef(false);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
+  // Where focus goes when the menu closes because its trigger was hidden: null
+  // to leave it be (it was not in the menu), else the toolbar control to take it.
+  const strandedFocusRef = useRef<HTMLElement | null | undefined>(undefined);
+  useEffect(() => {
+    const trigger = triggerRef.current;
+    const frame = trigger?.closest(".pdf-toolbar-frame");
+    if (!open || !trigger || !frame) return;
+    const observer = new ResizeObserver(() => {
+      if (trigger.getClientRects().length) return;
+      const hadFocus = Boolean(contentRef.current?.contains(document.activeElement));
+      strandedFocusRef.current = hadFocus ? nextVisibleControl(trigger) : null;
+      onOpenChange(false);
+    });
+    observer.observe(frame);
+    return () => observer.disconnect();
+  }, [open, onOpenChange]);
   // Stepping keeps the menu open, so a reader can click until the page is right.
   const step = (direction: 1 | -1) => (event: Event) => {
     event.preventDefault();
@@ -160,14 +215,23 @@ function PdfOverflowMenu({ open, onOpenChange, scale, stepZoom, onEnterZoom, gro
     <DropdownMenu modal={false} open={open} onOpenChange={onOpenChange}>
       <Tip label={t`More PDF actions`}>
         <DropdownMenuTrigger asChild>
-          <button type="button" className="pdf-overflow-trigger"><Ellipsis size={14} /></button>
+          <button ref={triggerRef} type="button" className="pdf-overflow-trigger"><Ellipsis size={14} /></button>
         </DropdownMenuTrigger>
       </Tip>
       <DropdownMenuContent
+        ref={contentRef}
         align="end"
         sideOffset={6}
         className="pdf-overflow-menu min-w-[13.5rem]"
         onCloseAutoFocus={(event) => {
+          const stranded = strandedFocusRef.current;
+          if (stranded !== undefined) {
+            strandedFocusRef.current = undefined;
+            zoomEntryRef.current = false;
+            event.preventDefault();
+            stranded?.focus();
+            return;
+          }
           if (!zoomEntryRef.current) return;
           zoomEntryRef.current = false;
           event.preventDefault();
@@ -443,7 +507,7 @@ export function PdfPreview({
             <SearchField
               ref={searchInputRef}
               aria-label={t`Search PDF`}
-              containerClassName="pdf-search"
+              containerClassName={query ? "pdf-search" : "pdf-search pdf-search-idle"}
               controlSize="compact"
               showIcon={!query}
               value={query}
@@ -458,6 +522,8 @@ export function PdfPreview({
                   search.setQuery("");
                 }
               }}
+              // A stand-in is mounted (and hidden) before the first character, so the
+              // panel's minimum width can reserve the controls' room (pdf-toolbar-min-width.ts).
               trailing={query ? (
                 <>
                   <ToolbarButton label={t`Match case`} icon={<CaseSensitive size={12} />}
@@ -475,7 +541,7 @@ export function PdfPreview({
                     disabled={!matches.total} onClick={() => search.find(query, false, true)} />
                   <ToolbarButton label={t`Clear PDF search`} icon={<X size={12} />} onClick={() => search.setQuery("")} />
                 </>
-              ) : undefined}
+              ) : IDLE_SEARCH_CONTROLS}
             />
           </div>
           <div className="pdf-zoom-controls">

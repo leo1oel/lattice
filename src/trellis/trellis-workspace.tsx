@@ -178,7 +178,7 @@ function EmptyState({ icon, title, detail, children, onActivate }: {
 
 /**
  * Keep the PDF panel's minimum at what its toolbar needs (every control, and
- * the whole "Find in PDF" placeholder). Re-measured when the toolbar itself
+ * a search field that fits its placeholder and, with a query, its match controls). Re-measured when the toolbar itself
  * changes (a build loads, the locale changes a label), when fonts arrive, and
  * once the panel is first laid out; never per resize or per rendered page.
  */
