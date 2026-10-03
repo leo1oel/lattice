@@ -12,6 +12,7 @@ import { setNotice } from "./notify";
 import type { BuildOutcome, useBuildPipeline } from "./use-build-pipeline";
 import { documentKind, paperDocumentPath, readPaperDocuments, type OpenDocuments } from "./use-open-documents";
 import type { useProjectSearch } from "./use-project-search";
+import type { useReferenceImages } from "./use-reference-images";
 import type { useReferenceImport } from "./use-reference-import";
 import type { useSynaraHost } from "./use-synara-host";
 import type { ToolDrawers } from "./use-tool-drawers";
@@ -29,6 +30,7 @@ export type TrellisBridgeApp = {
   synara: Pick<ReturnType<typeof useSynaraHost>, "mountFrame" | "notifyPanelOpened">;
   tools: Pick<ToolDrawers, "open">;
   referenceImport: Pick<ReturnType<typeof useReferenceImport>, "openBibEntry">;
+  referenceImages: ReturnType<typeof useReferenceImages>;
   projectSearch: Pick<ReturnType<typeof useProjectSearch>, "openFind">;
   compile: (force?: boolean, sound?: boolean) => Promise<void>;
   compileAndShowPdf: (force?: boolean, sound?: boolean) => Promise<void>;
@@ -49,7 +51,7 @@ export function useTrellisBridge(app: TrellisBridgeApp) {
   const { t, i18n } = useLingui();
   const {
     trellis, project, projectRef, papers, documents, lastBuild, building, buildPipeline,
-    synara, tools, referenceImport, projectSearch, compile, compileAndShowPdf, revealSourceInPdf,
+    synara, tools, referenceImport, referenceImages, projectSearch, compile, compileAndShowPdf, revealSourceInPdf,
     openSettings, setSearchDialog, setProjectSearchOpen, setBibliographyAuditRoot, setBibliographyAuditOpen,
     requestNewEntry,
   } = app;
@@ -163,8 +165,10 @@ export function useTrellisBridge(app: TrellisBridgeApp) {
       openTabs,
       tabsReady,
       filesRevision: revision.revision,
+      loadAsset: referenceImages.load,
+      assetRevision: referenceImages.generation,
     });
-  }, [activeTab, dirty, openTabs, project, tabsReady, trellis]);
+  }, [activeTab, dirty, openTabs, project, referenceImages.generation, referenceImages.load, tabsReady, trellis]);
   // Inactive panels paint the last text they showed while loading a fresh copy.
   useEffect(() => {
     if (activeFile && !activePaper) trellis.texts.set(activeFile, source);

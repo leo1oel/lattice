@@ -398,6 +398,31 @@ describe("papers", () => {
     await waitForSelectedTab("draft.md");
   });
 
+  it("shows a paper's figures and names its reader action while the notes are written beside it", async () => {
+    const figure = "data:image/svg+xml;base64,PHN2Zy8+";
+    renderApp({
+      ...projectCommands(projectSnapshot({ files: fileNodes("main.tex", "notes.md") }), "\\documentclass{main}"),
+      list_papers: () => [attentionPaper()],
+      read_paper: "# Attention\n\n![Figure 1](figure.svg)\n\nPaper content.",
+      read_project_asset: (args) => ({ path: argPath(args), mimeType: "image/svg+xml", base64: "PHN2Zy8+" }),
+    });
+    await openTreeFile("notes.md");
+    await openPaper("Attention Is All You Need");
+    await screen.findByRole("heading", { name: "Attention" });
+    fireEvent.click(within(document.querySelector(".trellis-presets")!).getByRole("tab", { name: "Reading" }));
+    fireEvent.pointerDown(await findElement(".trellis-snapshot"), { button: 0 });
+    await waitForSelectedTab("notes.md");
+    const snapshot = await findElement(".trellis-paper-snapshot");
+    await waitFor(() => expect(snapshot).toHaveTextContent("Paper content."));
+    // The figure is a project file beside the paper's Markdown, read the way
+    // the full reader reads it rather than requested from the webview by its
+    // relative path.
+    await waitFor(() => expect(within(snapshot).getByRole("img", { name: "Figure 1" })).toHaveAttribute("src", figure));
+    expect(invoke).toHaveBeenCalledWith("read_project_asset", { path: ".research/papers/1706.03762/figure.svg", projectRoot: ROOT });
+    // A narrow paper header hides the action's text, so its name cannot come from that text.
+    expect(within(snapshot).getByRole("button", { name: "Open the reader" })).toHaveAttribute("aria-label", "Open the reader");
+  });
+
   it("opens a captured webpage without offering it as an arXiv PDF", async () => {
     renderApp({
       ...projectCommands(projectSnapshot(), "\\documentclass{main}"),

@@ -5277,6 +5277,10 @@ msgstr "Open the file this suggestion is in first"
 msgid "Open the full paper Markdown"
 msgstr "Open the full paper Markdown"
 
+#: src/trellis/trellis-workspace.tsx
+msgid "Open the full reader · your notes stay beside it"
+msgstr "Open the full reader · your notes stay beside it"
+
 #: src/overleaf/overleaf-connect.tsx
 msgid "Open the linked Overleaf project before changing its sync setting."
 msgstr "Open the linked Overleaf project before changing its sync setting."

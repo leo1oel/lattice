@@ -114,6 +114,14 @@ export type TrellisAppState = {
   tabsReady: boolean;
   /** Latest revision of the project file list, so snapshots can re-read. */
   filesRevision: number;
+  /**
+   * App's project-scoped, cached image loader, for snapshots that show a
+   * document's relative images (a Paper's figures). Its identity changes with
+   * the project, which fences a switch; `assetRevision` bumps when a loaded
+   * image changes on disk.
+   */
+  loadAsset: ((path: string) => Promise<string | null>) | null;
+  assetRevision: number;
 };
 
 /** Workspace state App and the titlebar react to. */
@@ -189,6 +197,7 @@ export class TrellisController {
   readonly toolHosts = new Map<TrellisToolKind, HTMLDivElement>();
   readonly app = new SmallStore<TrellisAppState>({
     projectRoot: "", activeKey: "", activeDirty: false, openTabs: [], tabsReady: false, filesRevision: 0,
+    loadAsset: null, assetRevision: 0,
   });
   readonly ui = new SmallStore<TrellisUiState>({
     ready: false, present: {}, visible: {}, pdfLive: false, editorHibernated: false, editorVisible: false,

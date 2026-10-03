@@ -36,6 +36,7 @@ import { luxLatexHighlightStyle } from "../editor/latex/latex-editor";
 import { isLatexSourcePath, useTextLanguageExtensions } from "../canvas/editor-extensions";
 import { latex } from "../editor/latex/latex-language";
 import { DeferredVisualMarkdownEditor } from "../canvas/canvas-lazy-editors";
+import { Tip } from "../components/icon-tip";
 import {
   TOOL_KINDS, documentTools, useTrellisApp, type TrellisController, type TrellisSingleton, type TrellisToolKind,
 } from "./trellis-controller";
@@ -358,6 +359,10 @@ function PaperSnapshotContent({ controller, fileKey }: { controller: TrellisCont
   const { t } = useLingui();
   const scrollRef = useRef<HTMLDivElement>(null);
   const [paper, setPaper] = useState<{ path: string; text: string; scrollTop: number } | null | undefined>(undefined);
+  // The reader's own image loader: a Paper's figures are project files
+  // relative to its Markdown, which the webview cannot fetch by that path.
+  const loadAsset = useTrellisApp(controller, (state) => state.loadAsset);
+  const assetRevision = useTrellisApp(controller, (state) => state.assetRevision);
   useEffect(() => {
     let disposed = false;
     void controller.bridge?.readPaper(fileKey).then((value) => {
@@ -385,10 +390,14 @@ function PaperSnapshotContent({ controller, fileKey }: { controller: TrellisCont
       {/* The reader's own header, so the text holds its place when the reader comes back. */}
       <header className="paper-reader-header">
         <div className="paper-local-actions">
-          <button type="button" className="paper-local-action" onClick={() => controller.activate(fileKey)}>
-            <BookOpen size={14} aria-hidden="true" />
-            <span>{t`Open the reader`}</span>
-          </button>
+          {/* Named apart from its text, which a narrow header hides; the tip
+              then says what the bare icon does. */}
+          <Tip label={t`Open the full reader · your notes stay beside it`}>
+            <button type="button" className="paper-local-action" aria-label={t`Open the reader`} onClick={() => controller.activate(fileKey)}>
+              <BookOpen size={14} aria-hidden="true" />
+              <span>{t`Open the reader`}</span>
+            </button>
+          </Tip>
         </div>
       </header>
       <div ref={scrollRef} className="markdown-preview trellis-paper-snapshot-scroll">
@@ -400,6 +409,8 @@ function PaperSnapshotContent({ controller, fileKey }: { controller: TrellisCont
                 activePath={paper.path}
                 editable={false}
                 optimizeForReading
+                onLoadAsset={loadAsset ?? undefined}
+                assetRevision={assetRevision}
                 onChangeMarkdown={refuse}
                 onUndo={refuse}
                 onRedo={refuse}

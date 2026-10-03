@@ -1233,7 +1233,7 @@ function App() {
   // workspace reads App through this bridge (at event time) and the store below.
   useTrellisBridge({
     trellis, project, projectRef, papers, documents, lastBuild: buildOutcome, building, buildPipeline,
-    synara, tools, referenceImport, projectSearch, compile, compileAndShowPdf, revealSourceInPdf,
+    synara, tools, referenceImport, referenceImages, projectSearch, compile, compileAndShowPdf, revealSourceInPdf,
     openSettings, setSearchDialog, setProjectSearchOpen, setBibliographyAuditRoot, setBibliographyAuditOpen,
     requestNewEntry,
   });

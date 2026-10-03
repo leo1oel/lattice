@@ -6,7 +6,7 @@
  * comes up from each .tex panel's Build button (and the Panels menu).
  * Eager but light: it drives the workspace only through the controller.
  */
-import { memo, useCallback, useMemo, useSyncExternalStore } from "react";
+import { memo, useCallback, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type RefObject } from "react";
 import { useLingui } from "@lingui/react/macro";
 import {
   BookOpen, Bot, Check, FileText, FolderTree, LayoutDashboard, LayoutPanelLeft, Library, Maximize2, Minimize2, PenLine, RotateCcw,
@@ -55,6 +55,51 @@ function usePanelStates(controller: TrellisController) {
   }, [snapshot]);
 }
 
+/**
+ * Whether the layout presets must drop their labels: only when the controls,
+ * labelled, would not fit the room the titlebar has (what the window leaves
+ * beside the canvas tools), so the answer follows the window, those tools and
+ * the language's label lengths rather than a fixed window width. The hidden
+ * panels' chips count as content to fit, since they shrink before anything
+ * else would overflow and a restore chip clipped to nothing is lost: both
+ * the row's own overflow and each chip's text cut to an ellipsis.
+ *
+ * Labelled, the controls are measured against the room; compact, the room is
+ * compared with what they needed labelled, so the labels come back only where
+ * they fit and the switch cannot oscillate. `content` names what changes that
+ * need (the language, the chips), which re-measures it labelled.
+ */
+function useCompactPresets(barRef: RefObject<HTMLDivElement | null>, chipsRef: RefObject<HTMLDivElement | null>, content: string) {
+  // A fit belongs to the content it was measured with: new content starts
+  // labelled, and is measured that way before it paints (a layout effect).
+  const [fit, setFit] = useState({ content, labelledNeed: 0 });
+  const compact = fit.content === content && fit.labelledNeed > 0;
+  useLayoutEffect(() => {
+    const bar = barRef.current;
+    if (!bar || typeof ResizeObserver === "undefined") return;
+    const measure = () => {
+      const chips = chipsRef.current;
+      let chipsOverflow = chips ? Math.max(0, chips.scrollWidth - chips.clientWidth) : 0;
+      for (const chip of chips?.children ?? []) chipsOverflow += Math.max(0, chip.scrollWidth - chip.clientWidth);
+      const room = bar.clientWidth;
+      if (!compact) {
+        const need = bar.scrollWidth + chipsOverflow;
+        if (need > room + 0.5) setFit({ content, labelledNeed: need });
+      } else if (room >= fit.labelledNeed) {
+        setFit({ content, labelledNeed: 0 });
+      }
+    };
+    // The bar's own size is the room; its controls' sizes change with what
+    // they hold (a web font arriving, a chip's title) without changing it.
+    // An observer reports each target once on observe, which measures now.
+    const observer = new ResizeObserver(measure);
+    observer.observe(bar);
+    for (const control of bar.children) observer.observe(control);
+    return () => observer.disconnect();
+  }, [barRef, chipsRef, compact, content, fit.labelledNeed]);
+  return compact;
+}
+
 /** Memoized: App re-renders per keystroke and these controls only follow the workspace. */
 export const TrellisTitlebar = memo(function TrellisTitlebar({ controller }: { controller: TrellisController }) {
   const { t, i18n } = useLingui();
@@ -72,8 +117,11 @@ export const TrellisTitlebar = memo(function TrellisTitlebar({ controller }: { c
     writing: t`Source beside the compiled PDF`,
     reading: t`A paper beside your notes`,
   };
+  const barRef = useRef<HTMLDivElement>(null);
+  const chipsRef = useRef<HTMLDivElement>(null);
+  const compact = useCompactPresets(barRef, chipsRef, `${i18n.locale}\n${hidden.map((entry) => entry.title).join("\n")}`);
   return (
-    <div className="trellis-titlebar">
+    <div ref={barRef} className="trellis-titlebar" data-compact={compact || undefined}>
       <DropdownMenu modal={false}>
         <DropdownMenuTrigger asChild>
           <button type="button" className="trellis-titlebar-menu" aria-label={t`Panels`} data-trellis-panels-menu="">
@@ -166,7 +214,7 @@ export const TrellisTitlebar = memo(function TrellisTitlebar({ controller }: { c
         </Tip>
       </div>
       {hidden.length > 0 && (
-        <div className="trellis-titlebar-hidden" aria-label={t`Hidden panels`}>
+        <div ref={chipsRef} className="trellis-titlebar-hidden" aria-label={t`Hidden panels`}>
           {hidden.map((entry) => (
             <Tip key={entry.panelId} label={spaceMixedScript(t`Restore ${entry.title}`)}>
               <button type="button" className="trellis-hidden-chip" onClick={() => ws()?.restore(entry.panelId)}>
