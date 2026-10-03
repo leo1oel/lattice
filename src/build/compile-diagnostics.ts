@@ -115,7 +115,10 @@ export function diagnosticsFingerprint(diagnostics: CompileDiagnostic[]): string
     .join("\u0001");
 }
 
-export function summarizeDiagnostics(diagnostics: CompileDiagnostic[]) {
+/** How many diagnostics a build reported at each severity. */
+export type DiagnosticCounts = Record<DiagnosticSeverity, number>;
+
+export function summarizeDiagnostics(diagnostics: readonly CompileDiagnostic[]): DiagnosticCounts {
   const summary = { error: 0, warning: 0, info: 0 };
   for (const diagnostic of diagnostics) summary[diagnosticSeverity(diagnostic.level)] += 1;
   return summary;

@@ -7,6 +7,7 @@
 import { useCallback, useEffect, useRef } from "react";
 import { useLatestRef } from "../hooks/use-latest-ref";
 import { fromPierrePath } from "./navigator-drag";
+import type { NewEntryRequest, NewEntryType } from "./project-new-entries";
 import { treePath } from "./project-tree-files";
 import type { ProjectTreeModel } from "./project-tree-pointer-drag";
 
@@ -66,8 +67,8 @@ export function useInlineCreation(
     const pending = pendingRef.current.get(source);
     if (!pending) return false;
     pendingRef.current.delete(source);
-    // Creation modes may pin an extension (e.g. boards → .tldr) so the inline
-    // name stays extension-free; an explicit user-typed extension wins.
+    // Creation modes may pin an extension (e.g. boards → .tldr): a name typed
+    // without one gets it, and an explicit user-typed extension wins.
     let destination = fromPierrePath(destinationPath);
     if (pending.extension && !/\.[^./\\]+$/.test(destination.split("/").at(-1) ?? "")) {
       destination = `${destination}.${pending.extension}`;
@@ -113,6 +114,12 @@ export function useInlineCreation(
           }
           if (input.dataset.latticePendingCreationBound === "true") return;
           input.dataset.latticePendingCreationBound = "true";
+          // Pierre selects the whole name; select only the part before the
+          // pinned extension, as Finder does, so typing keeps the ".tex".
+          const extension = pendingRef.current.get(path)?.extension;
+          if (extension && input.value.endsWith(`.${extension}`)) {
+            input.setSelectionRange(0, input.value.length - extension.length - 1);
+          }
           input.addEventListener("keydown", (event) => {
             if (event.key !== "Enter" || input.value.trim() !== (path.split("/").at(-1) ?? "")) return;
             // Pierre treats an unchanged rename as a no-op and therefore
@@ -131,15 +138,17 @@ export function useInlineCreation(
     };
   }, [clear, model, persist]);
 
-  const begin = (targetDirectory: string, kind: EntryKind, extension?: string) => {
+  const begin = (targetDirectory: string, kind: EntryKind, extension?: string, showExtension = false) => {
     // A context-menu click blurs any previous draft. Remove that draft before
     // choosing a placeholder so a canceled creation never leaks into the next
     // name as "untitled-2".
     for (const path of [...pendingRef.current.keys()]) clear(path);
     const directory = fromPierrePath(targetDirectory);
     const directoryDraft = isDirectoryDraft(kind);
+    // A draft that shows its pinned extension already wears the new file's
+    // name and icon while it is being named; the others stay extension-free.
     const placeholder = (suffix: number) => {
-      const basename = suffix > 1 ? `untitled-${suffix}` : "untitled";
+      const basename = `${suffix > 1 ? `untitled-${suffix}` : "untitled"}${extension && showExtension ? `.${extension}` : ""}`;
       return directory ? `${directory}/${basename}` : basename;
     };
     let suffix = 1;
@@ -158,15 +167,15 @@ export function useInlineCreation(
 }
 
 /**
- * Header actions (e.g. "New board") request an inline creation through a
- * monotonically increasing signal; each new value starts one draft.
+ * The panel's + and ⋯ menus ask the tree for a new entry through a request
+ * whose `serial` changes each time; each new serial starts one draft.
  */
-export function useCreateRequest(request: number | undefined, start: () => void) {
-  const handledRef = useRef(request ?? 0);
+export function useNewEntryRequest(request: NewEntryRequest | null, start: (type: NewEntryType) => void) {
+  const handledRef = useRef(request?.serial ?? 0);
   const startRef = useLatestRef(start);
   useEffect(() => {
-    if ((request ?? 0) === handledRef.current) return;
-    handledRef.current = request ?? 0;
-    startRef.current();
+    if (!request || request.serial === handledRef.current) return;
+    handledRef.current = request.serial;
+    startRef.current(request.type);
   }, [request, startRef]);
 }

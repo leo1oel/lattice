@@ -4,6 +4,8 @@ import { useLingui } from "@lingui/react/macro";
 import { invoke } from "@tauri-apps/api/core";
 import type { PaperSummary, ProjectSnapshot, SettingsTab } from "../app-types";
 import { arxivIdFromTabKey, isHtmlFilePath, isPaperTabKey } from "../app-utils";
+import type { MenuEntry } from "@danfessler/trellis";
+import { NEW_ENTRIES, type NewEntryType } from "../project/project-new-entries";
 import type { TrellisBridge, TrellisController } from "../trellis/trellis-controller";
 import type { SearchDialog } from "./app-search-dialogs";
 import { setNotice } from "./notify";
@@ -36,9 +38,7 @@ export type TrellisBridgeApp = {
   setProjectSearchOpen: Dispatch<SetStateAction<boolean>>;
   setBibliographyAuditRoot: Dispatch<SetStateAction<string | null>>;
   setBibliographyAuditOpen: Dispatch<SetStateAction<boolean>>;
-  setSpreadsheetCreateRequest: Dispatch<SetStateAction<number>>;
-  setBoardCreateRequest: Dispatch<SetStateAction<number>>;
-  setPresentationCreateRequest: Dispatch<SetStateAction<number>>;
+  requestNewEntry: (type: NewEntryType) => void;
 };
 
 /**
@@ -46,12 +46,12 @@ export type TrellisBridgeApp = {
  * (`app`, `texts`, `docTools`) its panels read.
  */
 export function useTrellisBridge(app: TrellisBridgeApp) {
-  const { t } = useLingui();
+  const { t, i18n } = useLingui();
   const {
     trellis, project, projectRef, papers, documents, lastBuild, building, buildPipeline,
     synara, tools, referenceImport, projectSearch, compile, compileAndShowPdf, revealSourceInPdf,
     openSettings, setSearchDialog, setProjectSearchOpen, setBibliographyAuditRoot, setBibliographyAuditOpen,
-    setSpreadsheetCreateRequest, setBoardCreateRequest, setPresentationCreateRequest,
+    requestNewEntry,
   } = app;
   const {
     file: activeFile, text: source, paper: activePaper, asset: activeAsset, mode: canvasMode, paperView, activeTab,
@@ -103,10 +103,13 @@ export function useTrellisBridge(app: TrellisBridgeApp) {
       notify: (message) => setNotice(message),
       panelMenu: (kind) => {
         if (kind === "project") {
+          // The + menu's entries, then the header's other action.
           return [
-            { id: "new-spreadsheet", label: t`New spreadsheet`, run: () => setSpreadsheetCreateRequest((request) => request + 1) },
-            { id: "new-board", label: t`New board`, run: () => setBoardCreateRequest((request) => request + 1) },
-            { id: "new-presentation", label: t`New presentation`, run: () => setPresentationCreateRequest((request) => request + 1) },
+            ...NEW_ENTRIES.flatMap((entry): MenuEntry[] => [
+              ...(entry.separated ? ["separator" as const] : []),
+              { id: `new-${entry.type}`, label: i18n._(entry.label), run: () => requestNewEntry(entry.type) },
+            ]),
+            "separator",
             { id: "find", label: t`Find in project`, run: () => { setProjectSearchOpen(false); projectSearch.openFind(); } },
           ];
         }

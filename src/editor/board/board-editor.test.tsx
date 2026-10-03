@@ -1,6 +1,6 @@
 import { act, render } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { TldrawProps } from "tldraw";
+import type { TLUiActionsContextType, TLUiOverrides, TldrawProps } from "tldraw";
 import { BoardEditor } from "./board-editor";
 import { boardAssetUrls } from "./board-asset-urls";
 
@@ -38,6 +38,22 @@ describe("BoardEditor", () => {
   it("serves tldraw's assets locally instead of from its CDN", () => {
     render(<BoardEditor path="board.tldr" source="" onChange={() => {}} theme="light" />);
     expect(tldraw.props?.assetUrls).toBe(boardAssetUrls);
+  });
+
+  // ⌘/Ctrl+P is Quick open. tldraw's print took the key on a focused board and
+  // prevented it, so the app's dispatcher left it alone.
+  it("leaves ⌘/Ctrl+P to the app's Quick open and keeps print in the menu", () => {
+    render(<BoardEditor path="board.tldr" source="" onChange={() => {}} theme="light" />);
+    const print = vi.fn();
+    const defaults = {
+      print: { id: "print", label: "action.print", kbd: "cmd+p,ctrl+p", onSelect: print },
+      undo: { id: "undo", label: "action.undo", kbd: "cmd+z,ctrl+z", onSelect: vi.fn() },
+    } as unknown as TLUiActionsContextType;
+    const actions = (tldraw.props!.overrides as TLUiOverrides).actions!({} as never, defaults, {} as never) as TLUiActionsContextType;
+    expect(actions.print.kbd).toBeUndefined();
+    actions.print.onSelect("menu");
+    expect(print).toHaveBeenCalledWith("menu");
+    expect(actions.undo).toBe(defaults.undo);
   });
 
   it("follows the Lattice theme on mount and when it changes", () => {

@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useLingui } from "@lingui/react";
-import { Tldraw, type Editor, type TLPageId } from "tldraw";
+import { Tldraw, type Editor, type TLPageId, type TLUiOverrides } from "tldraw";
 import "tldraw/tldraw.css";
 import { createTldrawAgentCanvasAdapter } from "../../agent/agent-canvas-tldraw-adapter";
 import { registerAgentCanvasAdapter } from "../../agent/agent-canvas-tools";
@@ -14,6 +14,15 @@ import { createBoardStore, mergeExternalBoardSource, serializeBoard } from "./bo
 const LICENSE_KEY = import.meta.env.VITE_TLDRAW_LICENSE_KEY as string | undefined;
 
 const SERIALIZE_DEBOUNCE_MS = 300;
+
+/**
+ * ⌘/Ctrl+P is the app's Quick open. tldraw binds it to print on the focused
+ * board and prevents the key, which the app's shortcut dispatcher respects, so
+ * a board would hold Quick open out of reach. Print stays in the board's menu.
+ */
+const BOARD_OVERRIDES: TLUiOverrides = {
+  actions: (_editor, actions) => ({ ...actions, print: { ...actions.print, kbd: undefined } }),
+};
 
 export type BoardEditorProps = {
   /** Workspace-relative path used to route Agent shape tools to this board. */
@@ -128,6 +137,7 @@ export function BoardEditor({
         store={store}
         licenseKey={LICENSE_KEY}
         assetUrls={boardAssetUrls}
+        overrides={BOARD_OVERRIDES}
         locale={tldrawLocale}
         onMount={(editor) => {
           editorRef.current = editor;

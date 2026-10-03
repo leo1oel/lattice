@@ -1,4 +1,5 @@
-import { act, cleanup, render } from "@testing-library/react";
+import { readFileSync } from "node:fs";
+import { act, cleanup, fireEvent, render } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { TrellisController, documentTools, type TrellisDocToolsState, type TrellisTabKind } from "./trellis-controller";
 import { FileHeaderTools } from "./trellis-header-tools";
@@ -7,6 +8,13 @@ const viewKey = vi.hoisted(() => ({ current: "" }));
 vi.mock("@danfessler/trellis-react", () => ({ useView: () => ({ params: { key: viewKey.current }, panelId: "panel-1" }) }));
 
 afterEach(cleanup);
+
+const NO_DIAGNOSTICS = { error: 0, warning: 0, info: 0 };
+/** A finished build as the pipeline reports it. */
+const succeeded = (seconds: number, counts = NO_DIAGNOSTICS) => (
+  { status: "succeeded", seconds, counts, rootDocument: "main.tex", finishedAt: Date.now() } as const
+);
+const failed = () => ({ status: "failed", counts: { ...NO_DIAGNOSTICS, error: 1 }, rootDocument: "main.tex", finishedAt: Date.now() } as const);
 
 /** Every kind of document a document panel can hold, with the tools its header carries. */
 const DOCUMENTS: Array<{ name: string; key: string; kind: TrellisTabKind; tools: ReturnType<typeof documentTools> }> = [
@@ -57,8 +65,9 @@ describe("document panel header tools", () => {
       // A Paper with only one of its texts: nothing to switch, the same room kept.
       { active: true, tools: { viewModes: null, paperView: "fulltext", paperViews: false } },
       { active: true, tools: { building: true } },
-      { active: true, tools: { lastBuild: { status: "succeeded", seconds: 3.2 } } },
-      { active: true, tools: { lastBuild: { status: "failed" } } },
+      { active: true, tools: { lastBuild: succeeded(3.2) } },
+      { active: true, tools: { lastBuild: succeeded(3.2, { ...NO_DIAGNOSTICS, warning: 2 }) } },
+      { active: true, tools: { lastBuild: failed() } },
     ];
     const footprints = states.map(({ active, tools }) => {
       const { container, unmount } = renderTools(document, { active }, tools);
@@ -95,13 +104,13 @@ describe("the Build button's report of the last build", () => {
     expect(shown(container)).toEqual({ state: "idle", label: "Build", busy: null });
     act(() => controller.docTools.set({ building: true }));
     expect(shown(container)).toEqual({ state: "is-building", label: "Build", busy: "true" });
-    act(() => controller.docTools.set({ building: false, lastBuild: { status: "succeeded", seconds: 3.24 } }));
+    act(() => controller.docTools.set({ building: false, lastBuild: succeeded(3.24) }));
     expect(shown(container)).toEqual({ state: "is-succeeded", label: "3.2s", busy: null });
     expect(container.querySelector(".trellis-build-status")).not.toBeNull();
   });
 
   it("shows a failed build, and returns to Build when the next one starts or it was stopped", () => {
-    const { container, controller } = renderTools(tex, { active: true }, { lastBuild: { status: "failed" } });
+    const { container, controller } = renderTools(tex, { active: true }, { lastBuild: failed() });
     expect(shown(container)).toEqual({ state: "is-failed", label: "Failed", busy: null });
     act(() => controller.docTools.set({ building: true, lastBuild: null }));
     expect(shown(container)).toEqual({ state: "is-building", label: "Build", busy: "true" });
@@ -114,22 +123,94 @@ describe("the Build button's report of the last build", () => {
   // later (another tab, another panel) shows the result without replaying it.
   it("celebrates a finished build once, not again when its panel remounts", () => {
     const now = vi.spyOn(performance, "now").mockReturnValue(1_000);
-    const succeeded = { status: "succeeded", seconds: 2 } as const;
-    const first = renderTools(tex, { active: true }, { lastBuild: succeeded });
+    const built = succeeded(2);
+    const first = renderTools(tex, { active: true }, { lastBuild: built });
     expect(first.container.querySelector(".trellis-build-button")).toHaveClass("is-fresh");
     expect(first.container.querySelector(".trellis-build-status")).toHaveAttribute("data-fresh");
     expect(first.container.querySelector(".trellis-build-burst")).not.toBeNull();
     first.unmount();
     now.mockReturnValue(5_000);
-    const later = renderTools(tex, { active: true }, { lastBuild: succeeded });
+    const later = renderTools(tex, { active: true }, { lastBuild: built });
     expect(later.container.querySelector(".trellis-build-button")).not.toHaveClass("is-fresh");
     expect(later.container.querySelector(".trellis-build-status")).not.toHaveAttribute("data-fresh");
     expect(later.container.querySelector(".trellis-build-burst")).toBeNull();
     later.unmount();
     // A failure shakes rather than bursts.
-    const failed = renderTools(tex, { active: true }, { lastBuild: { status: "failed" } });
-    expect(failed.container.querySelector(".trellis-build-status")).toHaveAttribute("data-fresh");
-    expect(failed.container.querySelector(".trellis-build-burst")).toBeNull();
+    const failure = renderTools(tex, { active: true }, { lastBuild: failed() });
+    expect(failure.container.querySelector(".trellis-build-status")).toHaveAttribute("data-fresh");
+    expect(failure.container.querySelector(".trellis-build-burst")).toBeNull();
+    now.mockRestore();
+  });
+
+  // Warnings do not make a build a failure: the check and the time stay, a
+  // warning dot joins the check, and the burst is kept for a clean build.
+  it("keeps a build with warnings a success, marked and described rather than celebrated", () => {
+    const { container } = renderTools(tex, { active: true }, { lastBuild: succeeded(1.2, { ...NO_DIAGNOSTICS, warning: 2 }) });
+    const button = container.querySelector(".trellis-build-button")!;
+    expect(shown(container)).toEqual({ state: "is-succeeded", label: "1.2s", busy: null });
+    expect(button).toHaveClass("has-warnings", "is-fresh");
+    expect(container.querySelector(".trellis-build-pip")).not.toBeNull();
+    expect(container.querySelector(".trellis-build-burst")).toBeNull();
+    expect(button).toHaveAccessibleName("Build");
+    expect(button).toHaveAccessibleDescription("Built with 2 warnings · main.tex · 1.2s · just now");
+    cleanup();
+    const clean = renderTools(tex, { active: true }, { lastBuild: succeeded(1.2) });
+    expect(clean.container.querySelector(".trellis-build-pip")).toBeNull();
+    expect(clean.container.querySelector(".trellis-build-button")).toHaveAccessibleDescription("Built · main.tex · 1.2s · just now");
+    cleanup();
+    const failure = renderTools(tex, { active: true }, { lastBuild: failed() });
+    expect(failure.container.querySelector(".trellis-build-button")).toHaveAccessibleDescription("Build failed · 1 error · main.tex · just now");
+  });
+
+  // Vitest empties CSS imports, so the button's stylesheet and the app's
+  // reduced-motion policy are read off disk and cascaded by the document; the
+  // writer's preference is stood in for by letting the policy's media rule apply.
+  function applyStyles({ reducedMotion }: { reducedMotion: boolean }) {
+    const styles = ["src/trellis/trellis.css", "src/styles/adaptive-feedback.css"].map((path) => {
+      const style = document.createElement("style");
+      style.textContent = readFileSync(path, "utf8");
+      document.head.append(style);
+      return style;
+    });
+    for (const rule of styles.flatMap((style) => [...style.sheet!.cssRules])) {
+      if (reducedMotion && rule instanceof CSSMediaRule && rule.conditionText.includes("prefers-reduced-motion")) rule.media.mediaText = "all";
+    }
+    return () => { for (const style of styles) style.remove(); };
+  }
+
+  it("lands a fresh result's warning dot and cross at once under reduced motion", () => {
+    const delays = (reducedMotion: boolean) => {
+      const removeStyles = applyStyles({ reducedMotion });
+      const warned = renderTools(tex, { active: true }, { lastBuild: succeeded(1.2, { ...NO_DIAGNOSTICS, warning: 2 }) });
+      expect(warned.container.querySelector(".trellis-build-status")).toHaveAttribute("data-fresh");
+      const pip = getComputedStyle(warned.container.querySelector(".trellis-build-pip")!).animationDelay;
+      warned.unmount();
+      const failure = renderTools(tex, { active: true }, { lastBuild: failed() });
+      expect(failure.container.querySelector(".trellis-build-status")).toHaveAttribute("data-fresh");
+      const cross = getComputedStyle(failure.container.querySelectorAll(".trellis-build-stroke")[1]).animationDelay;
+      failure.unmount();
+      removeStyles();
+      return { pip, cross };
+    };
+    const animated = delays(false);
+    expect(animated.pip).not.toBe("0s");
+    expect(animated.cross).toBe("70ms");
+    expect(delays(true)).toEqual({ pip: "0s", cross: "0s" });
+  });
+
+  // The description carries what the tip shows, and the build's age is read
+  // when the writer reaches the button, not when the panel first rendered.
+  it("describes the build's age as of the moment the button is reached", () => {
+    const finishedAt = Date.now();
+    const { container } = renderTools(tex, { active: true }, { lastBuild: { ...succeeded(1.2), finishedAt } });
+    const button = container.querySelector<HTMLButtonElement>(".trellis-build-button")!;
+    expect(button).toHaveAccessibleDescription("Built · main.tex · 1.2s · just now");
+    const now = vi.spyOn(Date, "now").mockReturnValue(finishedAt + 3 * 60_000);
+    act(() => button.focus());
+    expect(button).toHaveAccessibleDescription(/^Built · main\.tex · 1\.2s · 3 minutes ago/);
+    now.mockReturnValue(finishedAt + 2 * 3_600_000);
+    fireEvent.pointerEnter(button);
+    expect(button).toHaveAccessibleDescription(/^Built · main\.tex · 1\.2s · 2 hours ago/);
     now.mockRestore();
   });
 
@@ -139,7 +220,7 @@ describe("the Build button's report of the last build", () => {
   it("shows the result in whichever .tex panel becomes active after the build ended", () => {
     const { container, controller } = renderTools(tex, { active: false }, { building: true });
     expect(container.querySelector(".trellis-tools-reserve .trellis-build-button")).not.toHaveClass("is-building");
-    act(() => controller.docTools.set({ building: false, lastBuild: { status: "succeeded", seconds: 12 } }));
+    act(() => controller.docTools.set({ building: false, lastBuild: succeeded(12) }));
     act(() => controller.app.set({ activeKey: tex.key }));
     expect(container.querySelector(".trellis-tools-reserve")).toBeNull();
     expect(shown(container)).toEqual({ state: "is-succeeded", label: "12.0s", busy: null });

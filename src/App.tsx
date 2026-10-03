@@ -92,6 +92,7 @@ import {
 import { useTexlabDiagnostics } from "./build/use-texlab-diagnostics";
 import { useCompileRepair } from "./build/use-compile-repair";
 import { Welcome } from "./project/project-dialogs";
+import type { NewEntryRequest, NewEntryType } from "./project/project-new-entries";
 import { baseArxivId } from "./papers/arxiv-id";
 import type {
   ProjectManifest,
@@ -367,9 +368,10 @@ function App() {
     occurrences: SymbolOccurrence[];
   } | null>(null);
   const [projectSearchOpen, setProjectSearchOpen] = useState(false);
-  const [boardCreateRequest, setBoardCreateRequest] = useState(0);
-  const [spreadsheetCreateRequest, setSpreadsheetCreateRequest] = useState(0);
-  const [presentationCreateRequest, setPresentationCreateRequest] = useState(0);
+  const [newEntryRequest, setNewEntryRequest] = useState<NewEntryRequest | null>(null);
+  const requestNewEntry = useCallback((type: NewEntryType) => {
+    setNewEntryRequest((previous) => ({ type, serial: (previous?.serial ?? 0) + 1 }));
+  }, []);
   const [openSlideContext, setOpenSlideContext] = useState<OpenSlideContext | null>(null);
   const synara = useSynaraHost({
     project,
@@ -670,27 +672,6 @@ function App() {
   }, [buildPreferences]);
 
   useTrafficLightAlignment(shellRef, !browserHosted && !isFullscreen, appearance.interfaceScale, project?.manifest.name);
-
-  useEffect(() => {
-    const handleKey = (event: KeyboardEvent) => {
-      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "s") {
-        event.preventDefault();
-        void save().then((saved) => {
-          if (!saved) return;
-          void flushDeferredWholeFileSync();
-          if (activePaper) return;
-          // An explicit build brings a closed or hidden PDF panel back (Trellis layout).
-          trellis.showPanel("pdf", { focus: false });
-          void compile();
-        });
-      } else if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "o") {
-        event.preventDefault();
-        void chooseExisting();
-      }
-    };
-    window.addEventListener("keydown", handleKey);
-    return () => window.removeEventListener("keydown", handleKey);
-  }, [activePaper, chooseExisting, compile, flushDeferredWholeFileSync, save, trellis]);
 
   const referenceImport = useReferenceImport({
     project, projectRootRef, refreshProject, refreshHistory, onExternalEdits: externalOverleafEditsRef,
@@ -1190,6 +1171,12 @@ function App() {
   /** Every app-level action: the palette entries and the global shortcuts (see AppCommand). */
   const commands: AppCommand[] = [
     { id: "build", label: t`Build project`, detail: "⌘S", group: t`Build`, run: () => void compileAndShowPdf(false, true) },
+    // ⌘S saves, then builds what it saved; on a Paper there is nothing to build.
+    { id: "save", key: "s", run: () => void save().then((saved) => {
+      if (!saved) return;
+      void flushDeferredWholeFileSync();
+      if (!activePaper) void compileAndShowPdf();
+    }) },
     { id: "rebuild", label: t`Clean rebuild`, detail: t`latexmk -c then -g`, group: t`Build`, run: () => void cleanAndRebuild() },
     { id: "clean", label: t`Clean aux files`, group: t`Build`, run: () => void cleanProject() },
     { id: "stop-build", label: t`Stop build`, group: t`Build`, run: () => void abortBuild() },
@@ -1237,6 +1224,7 @@ function App() {
         ? { label: t`Open in Lattice app` }
         : { label: t`Open in browser`, detail: "http://127.0.0.1:18452" }),
     },
+    { id: "open-folder", label: t`Open another folder`, detail: "⌘O", group: t`Project`, key: "o", run: () => void chooseExisting() },
     { id: "settings", label: t`Open settings`, detail: "⌘,", group: t`Project`, key: ",", run: () => openSettings() },
   ];
   const runCommand = useAppCommands(commands, cycleDiagnostic);
@@ -1247,7 +1235,7 @@ function App() {
     trellis, project, projectRef, papers, documents, lastBuild: buildOutcome, building, buildPipeline,
     synara, tools, referenceImport, projectSearch, compile, compileAndShowPdf, revealSourceInPdf,
     openSettings, setSearchDialog, setProjectSearchOpen, setBibliographyAuditRoot, setBibliographyAuditOpen,
-    setSpreadsheetCreateRequest, setBoardCreateRequest, setPresentationCreateRequest,
+    requestNewEntry,
   });
   // Panel action rows (Trellis tab-bar accessories): memoized, because App
   // re-renders on every keystroke and each row is a set of tooltip buttons.
@@ -1270,17 +1258,14 @@ function App() {
         {...panelActionHandlers}
         openProjectFind={openProjectFind}
         setProjectSearchOpen={setProjectSearchOpen}
-        setBoardCreateRequest={setBoardCreateRequest}
-        setPresentationCreateRequest={setPresentationCreateRequest}
-        setSpreadsheetCreateRequest={setSpreadsheetCreateRequest}
+        requestNewEntry={requestNewEntry}
       />
     );
     return { project: actions("project"), papers: actions("papers"), agent: actions("agent") };
     // `synara` is rebuilt each render; the row reads only the fields listed.
   }, [
     autoModeAvailable, changePermissionMode, openProjectFind, panelActionHandlers, permissionMode,
-    referenceImport.openBibEntry, setBoardCreateRequest, setPresentationCreateRequest, setProjectSearchOpen,
-    setSpreadsheetCreateRequest, synaraOrigin,
+    referenceImport.openBibEntry, requestNewEntry, setProjectSearchOpen, synaraOrigin,
   ]);
   // The sidebar panels' callbacks are mostly inline, so they change on every
   // App render; the memoized panels get stable forwarders instead.
@@ -1628,9 +1613,7 @@ function App() {
               key={project.root}
               projectKey={project.root}
               searchOpen={projectSearchOpen}
-              boardCreateRequest={boardCreateRequest}
-              spreadsheetCreateRequest={spreadsheetCreateRequest}
-              presentationCreateRequest={presentationCreateRequest}
+              newEntryRequest={newEntryRequest}
               onSearchOpenChange={setProjectSearchOpen}
               files={project.files}
               gitStatus={projectGit.gitFiles}

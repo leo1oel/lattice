@@ -12,7 +12,7 @@
  * whichever tab is selected and whatever kind of document it holds, so tabs
  * never change width and never run under the header's actions.
  */
-import { useSyncExternalStore, type ReactNode } from "react";
+import { useId, useState, useSyncExternalStore, type ReactNode } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { useView } from "@danfessler/trellis-react";
 import { Columns2, Eye, FileText, Newspaper, PenLine, Play } from "lucide-react";
@@ -22,6 +22,7 @@ import { SegmentedControl } from "../components/ui/segmented-control";
 import { InfinityLoader } from "../components/ui/activity-icons";
 import { documentTools, useTrellisApp, type TrellisController, type TrellisViewMode } from "./trellis-controller";
 import type { BuildOutcome } from "../app/use-build-pipeline";
+import { buildHeadline } from "../build/build-result-text";
 
 /**
  * When each build outcome was first shown. Its flourish belongs to the moment
@@ -52,10 +53,13 @@ const BURST = Array.from({ length: 6 }, (_, index) => {
 
 /**
  * The build's result, drawn on the 24-unit icon grid of the lucide icons
- * beside it. A fresh success draws its check and throws a small burst; a
- * fresh failure draws its cross and shakes once. Afterwards both rest.
+ * beside it. A fresh clean success draws its check and throws a small burst;
+ * a fresh failure draws its cross and shakes once. A success with warnings is
+ * still a check, with a warning-colored dot set beside it like a footnote
+ * mark: it draws its check and the dot settles in, without the burst a clean
+ * build earns. Afterwards all of them rest.
  */
-function BuildStatusGlyph({ status, fresh }: { status: "succeeded" | "failed"; fresh: boolean }) {
+function BuildStatusGlyph({ status, warned, fresh }: { status: "succeeded" | "failed"; warned: boolean; fresh: boolean }) {
   return (
     <svg
       className="trellis-build-status"
@@ -77,7 +81,8 @@ function BuildStatusGlyph({ status, fresh }: { status: "succeeded" | "failed"; f
           <path className="trellis-build-stroke" pathLength={1} d="M18 6 6 18" />
           <path className="trellis-build-stroke" pathLength={1} d="m6 6 12 12" />
         </>}
-      {fresh && status === "succeeded" && (
+      {warned && <circle className="trellis-build-pip" cx={20.5} cy={18} r={3.5} stroke="none" />}
+      {fresh && status === "succeeded" && !warned && (
         <g className="trellis-build-burst" strokeWidth={2}>
           {BURST.map(({ d, thread }) => <path key={d} d={d} data-thread={thread} />)}
         </g>
@@ -86,18 +91,32 @@ function BuildStatusGlyph({ status, fresh }: { status: "succeeded" | "failed"; f
   );
 }
 
+/** "just now", "3 minutes ago": how long before `now` a build finished. */
+function buildAge(finishedAt: number, now: number, justNow: string, locale: string): string {
+  const seconds = Math.max(0, (now - finishedAt) / 1000);
+  if (seconds < 45) return justNow;
+  const format = new Intl.RelativeTimeFormat(locale, { numeric: "auto" });
+  if (seconds < 3600) return format.format(-Math.round(seconds / 60), "minute");
+  if (seconds < 86_400) return format.format(-Math.round(seconds / 3600), "hour");
+  return format.format(-Math.round(seconds / 86_400), "day");
+}
+
 /** Tools that hold their place in the header without being seen or reached. */
 function Reserve({ children }: { children: ReactNode }) {
   return <span className="trellis-tools-reserve" inert aria-hidden="true">{children}</span>;
 }
 
 export function FileHeaderTools({ controller }: { controller: TrellisController }) {
-  const { t } = useLingui();
+  const { t, i18n } = useLingui();
   const view = useView<{ key: string }>();
   const key = view.params.key;
   const active = useTrellisApp(controller, (state) => state.activeKey === key);
   const tools = useSyncExternalStore(controller.docTools.subscribe, controller.docTools.get);
   const which = documentTools(controller.bridge?.tabKind(key) ?? "file", key);
+  const resultId = useId();
+  // The build's age is read when the writer reaches the button, by pointer or
+  // by focus, so neither the tip nor the description is older than that.
+  const [reachedAt, setReachedAt] = useState(Date.now);
   if (which === "build") {
     // Gray and labelled Build while idle; a running build shows a spinner in
     // place of the play icon, and another press queues a fresh build. Once it
@@ -107,6 +126,18 @@ export function FileHeaderTools({ controller }: { controller: TrellisController 
     // build read as one that never finished.
     const { building, lastBuild } = tools;
     const seconds = lastBuild?.status === "succeeded" ? lastBuild.seconds.toFixed(1) : null;
+    // Warnings never turn a build into a failure; they only mark its check.
+    const warned = lastBuild?.status === "succeeded" && lastBuild.counts.error + lastBuild.counts.warning > 0;
+    const headline = building
+      ? t`Building…`
+      : lastBuild ? buildHeadline(lastBuild.status === "succeeded", lastBuild.counts) : t`Build and show the PDF`;
+    // What happened is followed by which document, how long the compile took
+    // and how long ago it ended.
+    const facts = !building && lastBuild
+      ? [lastBuild.rootDocument, seconds && `${seconds}s`, buildAge(lastBuild.finishedAt, reachedAt, t`just now`, i18n.locale)]
+        .filter((fact): fact is string => Boolean(fact))
+      : [];
+    const reach = () => setReachedAt(Date.now());
     const button = (live: boolean) => {
       const state = !live ? "idle" : building ? "building" : lastBuild?.status ?? "idle";
       const fresh = state !== "idle" && state !== "building" && isFreshOutcome(lastBuild);
@@ -115,13 +146,16 @@ export function FileHeaderTools({ controller }: { controller: TrellisController 
       return (
         <button
           type="button"
-          className={cn("trellis-build-button", state !== "idle" && `is-${state}`, fresh && "is-fresh")}
+          className={cn("trellis-build-button", state !== "idle" && `is-${state}`, live && warned && "has-warnings", fresh && "is-fresh")}
           aria-label={t`Build`}
+          aria-describedby={live ? resultId : undefined}
           aria-busy={state === "building" || undefined}
+          onPointerEnter={live ? reach : undefined}
+          onFocus={live ? reach : undefined}
           onClick={live ? (event) => controller.bridge?.build(key, { clean: event.shiftKey, beside: view.panelId }) : undefined}
         >
           {state === "building" ? <InfinityLoader size={13} />
-            : state === "succeeded" || state === "failed" ? <BuildStatusGlyph status={state} fresh={fresh} />
+            : state === "succeeded" || state === "failed" ? <BuildStatusGlyph status={state} warned={warned} fresh={fresh} />
               : <Play size={11} fill="currentColor" />}
           {/* Every label is laid out in one cell, with a hidden widest time beside
               them, so the button keeps the width of the widest whatever it shows,
@@ -132,17 +166,23 @@ export function FileHeaderTools({ controller }: { controller: TrellisController 
             ))}
             <span className="trellis-build-label-off">{"000.0"}s</span>
           </span>
+          {live && <span id={resultId} className="sr-only">{[headline, ...facts].join(" · ")}</span>}
         </button>
       );
     };
     if (!active) return <Reserve>{button(false)}</Reserve>;
-    const label = building
-      ? t`Building…`
-      : seconds
-        ? t({ message: `Built in ${seconds}s · ⌘S · ⇧-click for a clean rebuild` })
-        : lastBuild?.status === "failed"
-          ? t`Last build failed · ⌘S · ⇧-click for a clean rebuild`
-          : t`Build and show the PDF · ⌘S · ⇧-click for a clean rebuild`;
+    // The tip gives the same result as the description, then how to build again.
+    const label = (
+      <span className="trellis-build-tip">
+        <span className="trellis-build-tip-headline">{headline}</span>
+        {facts.length > 0 && (
+          <span className="trellis-build-tip-facts">
+            {facts.map((fact, index) => <span key={index}>{fact}</span>)}
+          </span>
+        )}
+        <span className="trellis-build-tip-hint">{t`⌘S · ⇧-click for a clean rebuild`}</span>
+      </span>
+    );
     return <Tip label={label}>{button(true)}</Tip>;
   }
   if (which === "views") {

@@ -3,6 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { save } from "@tauri-apps/plugin-dialog";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import { completionStatus, insertBracket, selectedCompletionIndex } from "@codemirror/autocomplete";
+import { forEachDiagnostic } from "@codemirror/lint";
 import { StateEffect, Transaction } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
@@ -432,7 +433,7 @@ describe("builds and the PDF reader", () => {
     expect(visibleToasts("Build")).toEqual([]);
     expect(diagnosticsPanel.closest(".pdf-column")).toBeInTheDocument();
     expect(diagnosticsPanel.parentElement).not.toHaveClass("workspace");
-    expect(screen.getByText("1 warning")).toBeInTheDocument();
+    expect(within(diagnosticsPanel).getByText("Built with 1 warning")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /1 warning/i }));
     fireEvent.click(screen.getByRole("button", { name: "Copy error message" }));
     await waitFor(() => expect(writeText).toHaveBeenCalledWith("chapters/intro.tex:4 Overfull hbox."));
@@ -445,6 +446,36 @@ describe("builds and the PDF reader", () => {
       const view = editorViewAt();
       expect(view.state.doc.toString()).toContain("\\section{Intro}");
       expect(view.state.doc.lineAt(view.state.selection.main.head).number).toBe(4);
+    });
+  });
+
+  // The editor's lint keymap also binds F8. It used to take the key whenever
+  // the open file had an inline flag, so F8 stepped through that file while
+  // Shift-F8 walked the build's list.
+  it("walks the build's diagnostics on F8 even when the open file has an inline flag", async () => {
+    renderApp({
+      ...projectCommands(projectSnapshot({ files: [fileNode("main.tex"), dirNode("chapters", [fileNode("chapters/intro.tex")])] })),
+      read_project_file: readFiles({
+        "main.tex": "\\documentclass{article}\nSee \\ref{fig:gone}.\n",
+        "chapters/intro.tex": "\\section{Intro}\none\ntwo\nthree\nfour\n",
+      }, ""),
+      build_project: buildResult({
+        diagnostics: [{ file: "/tmp/lattice-paper/./chapters/intro.tex", line: 4, level: "warning", message: "Overfull hbox." }],
+      }),
+    });
+    await screen.findByLabelText("Compile diagnostics");
+    const view = await expectEditorText("\\documentclass{article}\nSee \\ref{fig:gone}.\n");
+    await waitFor(() => {
+      const flags: string[] = [];
+      forEachDiagnostic(view.state, (diagnostic) => flags.push(diagnostic.message));
+      expect(flags).toEqual(["Unknown label “fig:gone”."]);
+    }, { timeout: 3_000 });
+
+    fireEvent.keyDown(view.contentDOM, { key: "F8" });
+    await waitFor(() => {
+      const opened = editorViewAt();
+      expect(opened.state.doc.toString()).toContain("\\section{Intro}");
+      expect(opened.state.doc.lineAt(opened.state.selection.main.head).number).toBe(4);
     });
   });
 
@@ -506,7 +537,7 @@ describe("builds and the PDF reader", () => {
       expect(formatAppLogs()).toContain("[ERROR] [Build] Build failed");
     });
     const diagnostics = await screen.findByLabelText("Compile diagnostics", {}, { timeout: 40_000 });
-    expect(within(diagnostics).getByText("1 error")).toBeInTheDocument();
+    expect(within(diagnostics).getByText("Build failed · 1 error")).toBeInTheDocument();
     expect(within(diagnostics).getByText(/Sync or copy it back from another copy/)).toBeInTheDocument();
     fireEvent.click(within(diagnostics).getByRole("button", { name: "Dismiss diagnostics" }));
     expect(screen.queryByLabelText("Compile diagnostics")).not.toBeInTheDocument();

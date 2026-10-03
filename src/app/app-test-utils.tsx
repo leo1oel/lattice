@@ -823,7 +823,7 @@ function pdfPageStub(overrides: object = {}) {
 }
 
 export async function chooseNewDocument(name: string) {
-  fireEvent.pointerDown(screen.getByRole("button", { name: "New document" }), { button: 0, pointerType: "mouse" });
+  fireEvent.pointerDown(screen.getByRole("button", { name: "New…" }), { button: 0, pointerType: "mouse" });
   fireEvent.click(await screen.findByRole("menuitem", { name }));
 }
 

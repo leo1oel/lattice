@@ -28,6 +28,7 @@ function baseProps(): ProjectFileTreeProps {
   return {
     projectKey: "/tmp/paper",
     searchOpen: false,
+    newEntryRequest: null,
     onSearchOpenChange: vi.fn(),
     files,
     gitStatus: [],

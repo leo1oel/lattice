@@ -5,7 +5,7 @@ import type { BuildResult, ProjectSnapshot } from "../app-types";
 import { toMessage } from "../app-utils";
 import {
   diagnosticsFingerprint, flattenProjectPaths, missingTexDependencyFile, resolveDiagnosticPath, sortDiagnostics,
-  type CompileDiagnostic,
+  summarizeDiagnostics, type CompileDiagnostic, type DiagnosticCounts,
 } from "../build/compile-diagnostics";
 import { isMissingTexBuildError } from "../build/tex-setup";
 import { pdfBytesFingerprint, pdfBytesToObjectUrl } from "../pdf/pdf-bytes";
@@ -25,11 +25,17 @@ type BuildOptions = {
 };
 
 /**
- * How the last build ended, for the .tex panels' Build button: a success with
- * its time, a failure, or null when there is nothing to report (no build yet,
- * a new project, or a build the writer stopped).
+ * How the last build ended, as the .tex panels' Build button reports it: its
+ * time when it succeeded, what its diagnostics counted, the document it
+ * compiled (when the backend said) and when it finished. The pipeline holds
+ * null when there is nothing to report (no build yet, a new project, or a
+ * build the writer stopped).
  */
-export type BuildOutcome = { status: "succeeded"; seconds: number } | { status: "failed" };
+export type BuildOutcome = ({ status: "succeeded"; seconds: number } | { status: "failed" }) & {
+  counts: DiagnosticCounts;
+  rootDocument: string | null;
+  finishedAt: number;
+};
 
 /** A build asked for while another runs; `force: null` means nothing is queued. */
 type QueuedBuild = { force: boolean | null; sound: boolean; consumeAgentAssociations: boolean };
@@ -327,7 +333,10 @@ export function useBuildPipeline({
         // A stopped build comes back as a failed result carrying the
         // build-cancelled advice. The writer asked for that; it is not an error.
         const cancelled = result.diagnostics.some((item) => item.code === "build-cancelled");
-        setOutcome(result.success ? { status: "succeeded", seconds: result.durationMs / 1000 } : cancelled ? null : { status: "failed" });
+        const report = { counts: summarizeDiagnostics(result.diagnostics), rootDocument: result.rootDocument || null, finishedAt: Date.now() };
+        setOutcome(result.success
+          ? { status: "succeeded", seconds: result.durationMs / 1000, ...report }
+          : cancelled ? null : { status: "failed", ...report });
         const { rootDocument } = result;
         if (rootDocument) {
           setProject((current) => current?.root === projectRoot ? adoptRootDocument(current, rootDocument) : current);
@@ -383,7 +392,7 @@ export function useBuildPipeline({
     } catch (reason) {
       if (scopeIsCurrent()) {
         trace.fail(reason, { timeoutMs: shouldPlayCompletionSound ? 0 : undefined });
-        setOutcome({ status: "failed" });
+        setOutcome({ status: "failed", counts: { error: 0, warning: 0, info: 0 }, rootDocument: null, finishedAt: Date.now() });
         completionSound = "build-failed";
         if (isMissingTexBuildError(toMessage(reason))) onMissingTex();
       }

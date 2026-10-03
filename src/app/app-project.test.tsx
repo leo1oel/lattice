@@ -1,4 +1,4 @@
-import { expectNotification, windowApi, synaraHook, openSlideWorkspaceApi, browserRuntime, fileNode, fileNodes, dirNode, projectCommands, refreshableProject, SINGLE_TRANSFORMER, attentionPaper, overleafLink, overleafStatus, overleafProbe, overleafSyncResult, overleafSession, overleafCommands, ROOT, projectSnapshot, rootDocument, notesSnapshot, markdownSnapshot, buildResult, readFiles, deferred, setAutoBuildMode, setInterfaceLanguage, selectPanelTab, projectTreeRoot, queryProjectTreeItem, findInProjectTree, findProjectTreeItem, findProjectTreeRenameInput, renderApp, renderOverleafPaper, openWithAutomaticBuilds, findElement, editorViewAt, findEditorView, expectEditorText, postWindowMessage, expectInvoked, invokeCalls, pause, stubElementFromPoint, storedFileViews, dropFinderPaths, persistLayout, visualEditorOf, argPath, waitForSelectedTab, openTreeFile, openAgentFrame, postedOfType, dragTreeItem, pdfDocumentStub, mockPdfDocument, chooseNewDocument, chooseProjectMenuItem } from "./app-test-utils";
+import { expectNotification, windowApi, synaraHook, openSlideWorkspaceApi, browserRuntime, fileNode, fileNodes, dirNode, projectCommands, refreshableProject, SINGLE_TRANSFORMER, attentionPaper, overleafLink, overleafStatus, overleafProbe, overleafSyncResult, overleafSession, overleafCommands, ROOT, projectSnapshot, rootDocument, notesSnapshot, markdownSnapshot, buildResult, readFiles, deferred, setAutoBuildMode, setInterfaceLanguage, selectPanelTab, projectTreeRoot, queryProjectTreeItem, findInProjectTree, findProjectTreeItem, findProjectTreeRenameInput, renderApp, renderOverleafPaper, openWithAutomaticBuilds, findElement, editorViewAt, findEditorView, expectEditorText, postWindowMessage, expectInvoked, invokeCalls, pause, stubElementFromPoint, storedFileViews, dropFinderPaths, persistLayout, visualEditorOf, argPath, waitForSelectedTab, openTreeFile, openAgentFrame, postedOfType, dragTreeItem, pdfDocumentStub, mockPdfDocument, chooseNewDocument, chooseProjectMenuItem, nextFrames } from "./app-test-utils";
 import { forEachDiagnostic } from "@codemirror/lint";
 import { EditorView } from "@codemirror/view";
 import { invoke } from "@tauri-apps/api/core";
@@ -1160,6 +1160,65 @@ describe("project tree and projects", () => {
     fireEvent.keyDown(nameInput, { key: "Enter" });
     await expectInvoked("create_project_entry", { path, kind: "file", projectRoot: ROOT });
     expect(await screen.findByTestId(editor)).toBeInTheDocument();
+  });
+
+  it("creates writing files beside the selection from the + menu", async () => {
+    const created: string[] = [];
+    const snapshot = () => projectSnapshot({
+      files: [dirNode("chapters", fileNodes("chapters/intro.tex", ...created)), fileNode("main.tex")],
+    });
+    renderApp({
+      ...refreshableProject(snapshot(), ""),
+      refresh_project: () => snapshot(),
+      create_project_entry: (args) => {
+        created.push(argPath(args));
+        return argPath(args);
+      },
+    });
+    await waitForSelectedTab("main.tex");
+    fireEvent.click(await findProjectTreeItem("chapters/"));
+    await nextFrames(2);
+
+    await chooseNewDocument("New LaTeX file");
+    const texName = await findProjectTreeRenameInput();
+    // The draft wears its extension; only the name before it is selected.
+    expect(texName.closest("[data-item-path]")).toHaveAttribute("data-item-path", "chapters/untitled.tex");
+    expect(texName).toHaveValue("untitled.tex");
+    await waitFor(() => expect([texName.selectionStart, texName.selectionEnd]).toEqual([0, "untitled".length]));
+    fireEvent.input(texName, { target: { value: "methods" } });
+    fireEvent.keyDown(texName, { key: "Enter" });
+    await expectInvoked("create_project_entry", { path: "chapters/methods.tex", kind: "file", projectRoot: ROOT });
+    await waitForSelectedTab("chapters/methods.tex");
+
+    // Beside a selected file, in its folder; a canceled name writes nothing.
+    await chooseNewDocument("New Markdown file");
+    const markdownName = await findProjectTreeRenameInput();
+    expect(markdownName.closest("[data-item-path]")).toHaveAttribute("data-item-path", "chapters/untitled.md");
+    fireEvent.keyDown(markdownName, { key: "Escape" });
+    await waitFor(() => expect(projectTreeRoot()?.querySelector("[data-item-rename-input]")).toBeFalsy());
+    expect(invokeCalls("create_project_entry")).toHaveLength(1);
+  });
+
+  // The draft's name carries its extension, so it steps past a file that
+  // already holds it rather than creating that file a second time.
+  it("names a + menu draft past an existing untitled file", async () => {
+    renderApp({
+      ...refreshableProject(projectSnapshot({
+        files: [dirNode("chapters", fileNodes("chapters/untitled.tex")), fileNode("main.tex")],
+      }), ""),
+      create_project_entry: (args) => argPath(args),
+    });
+    await waitForSelectedTab("main.tex");
+    fireEvent.click(await findProjectTreeItem("chapters/"));
+    await nextFrames(2);
+
+    await chooseNewDocument("New LaTeX file");
+    const name = await findProjectTreeRenameInput();
+    expect(name.closest("[data-item-path]")).toHaveAttribute("data-item-path", "chapters/untitled-2.tex");
+    expect(name).toHaveValue("untitled-2.tex");
+    await waitFor(() => expect([name.selectionStart, name.selectionEnd]).toEqual([0, "untitled-2".length]));
+    fireEvent.keyDown(name, { key: "Enter" });
+    await expectInvoked("create_project_entry", { path: "chapters/untitled-2.tex", kind: "file", projectRoot: ROOT });
   });
 
   it("creates and opens a native Open Slide presentation", { timeout: 30000 }, async () => {

@@ -195,8 +195,11 @@
 .trellis-build-button:hover { background: color-mix(in srgb, var(--text-primary) 14%, var(--trellis-tab-active)); }
 .trellis-build-button:active { scale: 0.96; }
 .trellis-build-button.is-building { cursor: progress; }
-/* The last build's result: a green check and its time, or a red cross and "Failed". */
+/* The last build's result: a green check and its time, or a red cross and
+   "Failed". Warnings keep the check green and set a dot in the warning color
+   beside it; the count is in the tip and the diagnostics bar. */
 .trellis-build-button.is-succeeded .trellis-build-status { color: var(--status-success); }
+.trellis-build-pip { fill: var(--status-warning); transform-origin: 20.5px 18px; }
 .trellis-build-button.is-failed .trellis-build-status,
 .trellis-build-button.is-failed .trellis-build-label { color: var(--status-danger); }
 /* The moment a build ends. A success draws its check, throws a burst of rays in
@@ -217,6 +220,16 @@
   animation: trellis-build-wash var(--duration-flourish) var(--ease-out) both;
 }
 .trellis-build-button.is-fresh.is-succeeded::after { color: var(--status-success); }
+/* A build with warnings gets no wash: its dot arrives as the check finishes. */
+.trellis-build-button.is-fresh.has-warnings::after { content: none; }
+.trellis-build-status[data-fresh] .trellis-build-pip {
+  animation: trellis-build-pip var(--duration-reveal) var(--ease-entrance) both;
+  animation-delay: calc(var(--duration-reveal) * .8);
+}
+@keyframes trellis-build-pip {
+  from { opacity: 0; scale: .2; }
+  to { opacity: 1; scale: 1; }
+}
 .trellis-build-button.is-fresh.is-failed::after { color: var(--status-danger); }
 @keyframes trellis-build-wash {
   from { opacity: .22; }
@@ -246,6 +259,12 @@
   85% { translate: .5px 0; }
 }
 .trellis-build-label { display: inline-grid; font-variant-numeric: tabular-nums; }
+/* The tip: the result's sentence, its facts in a quieter line, then the keys. */
+.trellis-build-tip { display: grid; gap: var(--space-1); text-align: start; }
+.trellis-build-tip-headline { font-weight: var(--weight-semibold); }
+.trellis-build-tip-facts, .trellis-build-tip-hint { color: color-mix(in srgb, currentColor 66%, transparent); font-weight: var(--weight-regular); }
+.trellis-build-tip-facts > span + span::before { content: " · "; }
+.trellis-build-tip-facts { font-variant-numeric: tabular-nums; }
 .trellis-build-label > span { grid-area: 1 / 1; }
 .trellis-build-label > .trellis-build-label-off { visibility: hidden; }
 /* On the darker strip the switch is a row of icons; the chosen one sits on the panel's own surface, like the selected tab. */
