@@ -20,6 +20,7 @@ const DOCUMENT = 5000;
  */
 function renderRail() {
   let scrollTop = 0;
+  let width = 900;
   const items: DocumentHeadingItem[] = SECTIONS.map(({ id, label, top }) => ({ id, label, level: 2, position: top / DOCUMENT }));
   const scrollTo = (top: number) => {
     scrollTop = Math.max(0, Math.min(DOCUMENT - VIEWPORT, top));
@@ -42,7 +43,7 @@ function renderRail() {
     return isScroller(this) ? VIEWPORT : 0;
   });
   vi.spyOn(HTMLElement.prototype, "clientWidth", "get").mockImplementation(function (this: HTMLElement) {
-    return isScroller(this) ? 900 : 0;
+    return isScroller(this) ? width : 0;
   });
   vi.spyOn(HTMLElement.prototype, "scrollHeight", "get").mockImplementation(function (this: HTMLElement) {
     return isScroller(this) ? DOCUMENT : 0;
@@ -66,6 +67,12 @@ function renderRail() {
     onSelect,
     scroller,
     scrollbar: view.container.querySelector<HTMLElement>("[data-slot='scroll-area-scrollbar']")!,
+    /** The preview lays out at `next` pixels wide, and the rail measures it. */
+    resize: async (next: number) => {
+      width = next;
+      act(() => scroller.querySelector(".ProseMirror")!.append(""));
+      await nextFrame();
+    },
     /** The writer scrolls the document to `top`. */
     scroll: (top: number) => {
       scrollTo(top);
@@ -137,6 +144,41 @@ describe("DocumentHeadingRail's current section", () => {
     start(scroller, scrollbar);
     scroll(250);
     expect(current()).toEqual({ location: ["Method"], tabStop: ["Method"] });
+  });
+
+  it.each([
+    { input: "the wheel", start: (button: HTMLElement) => fireEvent.wheel(button, { deltaY: 250 }) },
+    { input: "a touch", start: (button: HTMLElement) => fireEvent.touchMove(button) },
+    { input: "Page Down", start: (button: HTMLElement) => fireEvent.keyDown(button, { key: "PageDown" }) },
+  ])("hands back to reading once the writer scrolls with $input over the rail", async ({ start }) => {
+    const { scroll } = renderRail();
+    scroll(2000);
+    await nextFrame();
+    fireEvent.click(section("Introduction"));
+    await nextFrame();
+    start(section("Introduction"));
+    scroll(250);
+    expect(current()).toEqual({ location: ["Method"], tabStop: ["Method"] });
+  });
+
+  it.each([
+    { key: "ArrowDown", focused: "Method" },
+    { key: "End", focused: "Appendix" },
+    { key: " ", focused: "Introduction" },
+  ])("keeps the jump's section while $key moves through the rail, also after it hides and returns", async ({ key, focused }) => {
+    const { scroll, resize } = renderRail();
+    scroll(2000);
+    await nextFrame();
+    // The viewport narrows past the rail and widens again.
+    await resize(300);
+    expect(screen.queryByRole("navigation")).toBeNull();
+    await resize(900);
+    fireEvent.click(section("Introduction"));
+    await nextFrame();
+    act(() => section("Introduction").focus());
+    fireEvent.keyDown(section("Introduction"), { key });
+    expect(section(focused)).toHaveFocus();
+    expect(current()).toEqual({ location: ["Introduction"], tabStop: ["Introduction"] });
   });
 
   it.each([

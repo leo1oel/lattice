@@ -31,9 +31,14 @@ const WRITER_SCROLL: Record<string, (event: Event, target: Element) => boolean> 
   wheel: () => true,
   touchmove: () => true,
   pointerdown: (_event, target) => target.closest("[data-slot='scroll-area-scrollbar']") !== null,
-  keydown: (event, target) =>
-    SCROLL_KEYS[(event as KeyboardEvent).key] === true &&
-    target.closest("[contenteditable]:not([contenteditable='false']), input, textarea, select") === null,
+  keydown: (event, target) => {
+    const key = (event as KeyboardEvent).key;
+    if (SCROLL_KEYS[key] !== true) return false;
+    // The rail's own keys move focus between its sections (KEYBOARD_STEPS)
+    // or press one; only the keys it leaves alone scroll the document.
+    if (target.closest(".visual-heading-rail-nav")) return !KEYBOARD_STEPS[key] && key !== " ";
+    return target.closest("[contenteditable]:not([contenteditable='false']), input, textarea, select") === null;
+  },
 };
 const KEYBOARD_STEPS: Record<string, (index: number, length: number) => number> = {
   ArrowDown: next,
@@ -178,12 +183,14 @@ export function DocumentHeadingRail({ items: rawItems, virtualized = false, onSe
     const onScroll = () => updateActive();
     // Scrolling within the section reading settled in would keep the jump's
     // section current long after it left the viewport, so the writer's own
-    // scrolling lets it go — anywhere on the scroll area, its scrollbar
-    // included, except on the rail, whose clicks and keys make the jumps.
+    // scrolling lets it go — anywhere on the scroll area, its scrollbar and
+    // the rail included, short of the rail's clicks and keys that make jumps.
+    // WRITER_SCROLL finds the rail from the target: the rail mounted now may
+    // not be `nav`, which narrowing the viewport unmounts.
     const surface = scroller.closest<HTMLElement>("[data-slot='scroll-area']") ?? scroller;
     const onWriterInput = (event: Event) => {
       const target = event.target;
-      if (!jumpRef.current || !(target instanceof Element) || nav.contains(target)) return;
+      if (!jumpRef.current || !(target instanceof Element)) return;
       if (!WRITER_SCROLL[event.type]?.(event, target)) return;
       jumpRef.current = null;
       updateActive();
