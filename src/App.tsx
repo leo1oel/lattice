@@ -92,6 +92,7 @@ import {
 import { useTexlabDiagnostics } from "./build/use-texlab-diagnostics";
 import { useCompileRepair } from "./build/use-compile-repair";
 import { Welcome } from "./project/project-dialogs";
+import type { NewEntryRequest, NewEntryType } from "./project/project-new-entries";
 import { baseArxivId } from "./papers/arxiv-id";
 import type {
   ProjectManifest,
@@ -367,9 +368,10 @@ function App() {
     occurrences: SymbolOccurrence[];
   } | null>(null);
   const [projectSearchOpen, setProjectSearchOpen] = useState(false);
-  const [boardCreateRequest, setBoardCreateRequest] = useState(0);
-  const [spreadsheetCreateRequest, setSpreadsheetCreateRequest] = useState(0);
-  const [presentationCreateRequest, setPresentationCreateRequest] = useState(0);
+  const [newEntryRequest, setNewEntryRequest] = useState<NewEntryRequest | null>(null);
+  const requestNewEntry = useCallback((type: NewEntryType) => {
+    setNewEntryRequest((previous) => ({ type, serial: (previous?.serial ?? 0) + 1 }));
+  }, []);
   const [openSlideContext, setOpenSlideContext] = useState<OpenSlideContext | null>(null);
   const synara = useSynaraHost({
     project,
@@ -1233,7 +1235,7 @@ function App() {
     trellis, project, projectRef, papers, documents, lastBuild: buildOutcome, building, buildPipeline,
     synara, tools, referenceImport, projectSearch, compile, compileAndShowPdf, revealSourceInPdf,
     openSettings, setSearchDialog, setProjectSearchOpen, setBibliographyAuditRoot, setBibliographyAuditOpen,
-    setSpreadsheetCreateRequest, setBoardCreateRequest, setPresentationCreateRequest,
+    requestNewEntry,
   });
   // Panel action rows (Trellis tab-bar accessories): memoized, because App
   // re-renders on every keystroke and each row is a set of tooltip buttons.
@@ -1256,17 +1258,14 @@ function App() {
         {...panelActionHandlers}
         openProjectFind={openProjectFind}
         setProjectSearchOpen={setProjectSearchOpen}
-        setBoardCreateRequest={setBoardCreateRequest}
-        setPresentationCreateRequest={setPresentationCreateRequest}
-        setSpreadsheetCreateRequest={setSpreadsheetCreateRequest}
+        requestNewEntry={requestNewEntry}
       />
     );
     return { project: actions("project"), papers: actions("papers"), agent: actions("agent") };
     // `synara` is rebuilt each render; the row reads only the fields listed.
   }, [
     autoModeAvailable, changePermissionMode, openProjectFind, panelActionHandlers, permissionMode,
-    referenceImport.openBibEntry, setBoardCreateRequest, setPresentationCreateRequest, setProjectSearchOpen,
-    setSpreadsheetCreateRequest, synaraOrigin,
+    referenceImport.openBibEntry, requestNewEntry, setProjectSearchOpen, synaraOrigin,
   ]);
   // The sidebar panels' callbacks are mostly inline, so they change on every
   // App render; the memoized panels get stable forwarders instead.
@@ -1614,9 +1613,7 @@ function App() {
               key={project.root}
               projectKey={project.root}
               searchOpen={projectSearchOpen}
-              boardCreateRequest={boardCreateRequest}
-              spreadsheetCreateRequest={spreadsheetCreateRequest}
-              presentationCreateRequest={presentationCreateRequest}
+              newEntryRequest={newEntryRequest}
               onSearchOpenChange={setProjectSearchOpen}
               files={project.files}
               gitStatus={projectGit.gitFiles}

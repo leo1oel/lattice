@@ -16,6 +16,7 @@ import {
 import { SegmentedControl } from "../components/ui/segmented-control";
 import type { CompileRepairState } from "./use-compile-repair";
 import { compileDiagnosticText } from "./build-log-messages";
+import { buildHeadline } from "./build-result-text";
 import { compileRepairMessage } from "./compile-repair-messages";
 
 function SeverityIcon({ level }: { level: string }) {
@@ -42,18 +43,11 @@ export function CompileDiagnosticsPanel(props: {
   const diagnostics = sortDiagnostics(props.diagnostics);
   const summary = summarizeDiagnostics(diagnostics);
   const tone = summary.error > 0 || !props.success ? "error" : summary.warning > 0 ? "warning" : "info";
-  const errors = summary.error;
-  const warnings = summary.warning;
-  const notes = summary.info;
-  const parts = [
-    errors ? errors === 1 ? t`${errors} error` : t`${errors} errors` : "",
-    warnings ? warnings === 1 ? t`${warnings} warning` : t`${warnings} warnings` : "",
-    notes ? notes === 1 ? t`${notes} note` : t`${notes} notes` : "",
-  ].filter(Boolean);
   const hasLog = Boolean(props.log.trim());
   const [tab, setTab] = useState<"diagnostics" | "log">(diagnostics.length ? "diagnostics" : "log");
   if (props.success && !diagnostics.length && !props.repair) return null;
-  const title = parts.join(" · ") || (props.success ? t`Build notes` : t`Build failed`);
+  // The same sentence the Build button's tip gives for this build.
+  const title = diagnostics.length || !props.success ? buildHeadline(props.success, summary) : t`Build notes`;
   const busy = props.repair && !["completed", "failed"].includes(props.repair.status);
   const progress = props.repair?.status === "compiling" ? t`Recompiling…`
     : props.repair?.status === "awaiting-approval" ? t`Needs approval` : t`Repairing…`;

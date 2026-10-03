@@ -6,7 +6,7 @@ import { i18n } from "../i18n";
 import { notifyCopied } from "../telemetry/app-notify";
 import type { FileNode } from "../app-types";
 import { fromPierrePath, normalizePointerDraggedPaths } from "./navigator-drag";
-import { isDirectoryNode, parentDirectory } from "./project-tree-files";
+import { selectionDirectory } from "./project-tree-files";
 import type { ProjectTreeModel } from "./project-tree-pointer-drag";
 
 type ClipboardContext = {
@@ -41,11 +41,7 @@ export function useProjectTreeClipboard(model: ProjectTreeModel, current: () => 
     );
   };
   const paste = async () => {
-    const selectedPath = model.getSelectedPaths().at(-1) ?? "";
-    const selectedNode = current().nodes.get(selectedPath);
-    const targetDirectory = selectedNode && isDirectoryNode(selectedNode)
-      ? fromPierrePath(selectedPath)
-      : parentDirectory(fromPierrePath(selectedPath));
+    const targetDirectory = selectionDirectory(model.getSelectedPaths().at(-1) ?? "", current().nodes);
     const { projectKey } = current();
     const copied = await copiedEntriesRef.current?.catch(() => null);
     if (copied?.projectKey === projectKey) {

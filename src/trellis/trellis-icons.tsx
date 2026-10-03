@@ -5,7 +5,7 @@
 import type { ReactNode } from "react";
 import {
   ArrowRightLeft, BookMarked, BookOpen, BookPlus, Bot, ClipboardCheck, Columns2, Crosshair, EyeOff, FileCode2, FileImage,
-  FileText, FolderTree, GitBranch, Hammer, History, Leaf, Library, ListChecks, ListTodo, Maximize2, MessageSquare,
+  FileText, FolderPlus, FolderTree, GitBranch, Hammer, History, Leaf, Library, ListChecks, ListTodo, Maximize2, MessageSquare,
   Minimize2, PictureInPicture2, Presentation, RefreshCw, Rows2, Search, Settings2, Shapes, Sparkles, Square, Table2,
   X, XCircle,
 } from "lucide-react";
@@ -57,6 +57,9 @@ export const MENU_ICONS: Partial<Record<string, ReactNode>> = {
   "clean-build": <RefreshCw />,
   "stop-build": <Square />,
   reveal: <Crosshair />,
+  "new-latex": <FileCode2 />,
+  "new-markdown": <FileText />,
+  "new-folder": <FolderPlus />,
   "new-spreadsheet": <Table2 />,
   "new-board": <Shapes />,
   "new-presentation": <Presentation />,

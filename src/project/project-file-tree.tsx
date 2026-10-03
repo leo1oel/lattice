@@ -18,12 +18,14 @@ import {
   isDirectoryNode,
   parentDirectory,
   readExpandedDirectories,
+  selectionDirectory,
   toPierreGitStatus,
   treePath,
   useProjectTreeFiles,
 } from "./project-tree-files";
 import { ProjectTreeHover } from "./project-tree-hover";
-import { settleTreePath, useCreateRequest, useInlineCreation, type EntryKind } from "./project-tree-inline-create";
+import { settleTreePath, useInlineCreation, useNewEntryRequest, type EntryKind } from "./project-tree-inline-create";
+import type { NewEntryRequest } from "./project-new-entries";
 import { useProjectTreeMotion } from "./project-tree-motion";
 import { afterNextPaint, selectionIncluding, useProjectTreePointerDrag } from "./project-tree-pointer-drag";
 import { notifyCopied } from "../telemetry/app-notify";
@@ -35,12 +37,8 @@ const PROJECT_TREE_ITEM_HEIGHT = 32;
 export type ProjectFileTreeProps = {
   projectKey: string;
   searchOpen: boolean;
-  /** Incrementing signal from the header "New board" button. */
-  boardCreateRequest?: number;
-  /** Incrementing signal from the header "New spreadsheet" button. */
-  spreadsheetCreateRequest?: number;
-  /** Incrementing signal from the header "New presentation" button. */
-  presentationCreateRequest?: number;
+  /** The latest creation the panel's + or ⋯ menu asked for. */
+  newEntryRequest: NewEntryRequest | null;
   onSearchOpenChange: (open: boolean) => void;
   files: FileNode[];
   gitStatus: GitFileStatus[];
@@ -263,9 +261,17 @@ export function ProjectFileTree(props: ProjectFileTreeProps) {
     return model.subscribe(markNativeDropTarget);
   }, [model, props.assetDropTarget]);
 
-  useCreateRequest(props.boardCreateRequest, () => creation.begin("", "file", "tldr"));
-  useCreateRequest(props.spreadsheetCreateRequest, () => creation.begin("", "file", "lattice-sheet"));
-  useCreateRequest(props.presentationCreateRequest, () => creation.begin("slides", "presentation"));
+  // A menu's new entry lands beside the selection, as a context-menu one lands
+  // beside the row it was opened on. Decks always live under slides/.
+  useNewEntryRequest(props.newEntryRequest, (type) => {
+    const directory = selectionDirectory(model.getSelectedPaths().at(-1) ?? "", treeRef.current.nodes);
+    if (type === "latex") creation.begin(directory, "file", "tex");
+    else if (type === "markdown") creation.begin(directory, "file", "md");
+    else if (type === "folder") creation.begin(directory, "folder");
+    else if (type === "spreadsheet") creation.begin(directory, "file", "lattice-sheet");
+    else if (type === "board") creation.begin(directory, "file", "tldr");
+    else creation.begin("slides", "presentation");
+  });
 
   const creationActions = (directory: string): MenuAction[] => [
     { icon: FilePlus, label: t`New file`, run: () => creation.begin(directory, "file") },

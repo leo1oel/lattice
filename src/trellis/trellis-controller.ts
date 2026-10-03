@@ -11,7 +11,7 @@
  * This module is eager and must stay tiny: it imports nothing from Trellis.
  */
 import { createContext, useContext, useSyncExternalStore } from "react";
-import type { MenuItem, Placement, WorkspaceHandle } from "@danfessler/trellis";
+import type { MenuEntry, Placement, WorkspaceHandle } from "@danfessler/trellis";
 import { isHtmlFilePath } from "../app-utils";
 import type { BuildOutcome } from "../app/use-build-pipeline";
 import type { LayoutPreset } from "./trellis-layout";
@@ -78,7 +78,7 @@ export type TrellisBridge = {
   agentShown: () => void;
   notify: (message: string) => void;
   /** Actions a panel offers in its menu (and, when there is room, as tab-bar icons). */
-  panelMenu: (kind: "project" | "papers" | "agent" | "pdf") => MenuItem[];
+  panelMenu: (kind: "project" | "papers" | "agent" | "pdf") => MenuEntry[];
   quickOpen: () => void;
   /** Build the project for `key` (made the active document first), and bring the PDF panel up. */
   build: (key: string, options?: { clean?: boolean; beside?: string }) => void;

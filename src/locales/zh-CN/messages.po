@@ -217,11 +217,11 @@ msgstr "{description}：无法运行 {path}：{error}"
 msgid "{description}: not found on PATH"
 msgstr "{description}：在 PATH 中未找到"
 
-#: src/build/compile-diagnostics-panel.tsx
+#: src/build/build-result-text.ts
 msgid "{errors} error"
 msgstr "{errors} 个错误"
 
-#: src/build/compile-diagnostics-panel.tsx
+#: src/build/build-result-text.ts
 msgid "{errors} errors"
 msgstr "{errors} 个错误"
 
@@ -296,11 +296,11 @@ msgstr "{names} 已从本地项目删除，但仍保留在 Overleaf 上。即使
 msgid "{names} were deleted from the local project, but are still on Overleaf. Even if you remove them now, Overleaf's history will keep them."
 msgstr "{names} 已从本地项目删除，但仍保留在 Overleaf 上。即使现在删除，Overleaf 的历史记录仍会保留这些文件。"
 
-#: src/build/compile-diagnostics-panel.tsx
+#: src/build/build-result-text.ts
 msgid "{notes} note"
 msgstr "{notes} 条提示"
 
-#: src/build/compile-diagnostics-panel.tsx
+#: src/build/build-result-text.ts
 msgid "{notes} notes"
 msgstr "{notes} 条提示"
 
@@ -372,11 +372,11 @@ msgstr "共 {totalPages} 页 · 附录从第 {mainPages} 页之后开始"
 msgid "{warning}. Crossref type: {updateType}"
 msgstr "{warning}。Crossref 类型：{updateType}"
 
-#: src/build/compile-diagnostics-panel.tsx
+#: src/build/build-result-text.ts
 msgid "{warnings} warning"
 msgstr "{warnings} 个警告"
 
-#: src/build/compile-diagnostics-panel.tsx
+#: src/build/build-result-text.ts
 msgid "{warnings} warnings"
 msgstr "{warnings} 个警告"
 
@@ -403,6 +403,10 @@ msgstr "⌘⇧F · 源文件和论文"
 #: src/App.tsx
 msgid "⌘⇧H · all source files"
 msgstr "⌘⇧H · 所有源文件"
+
+#: src/trellis/trellis-header-tools.tsx
+msgid "⌘S · ⇧-click for a clean rebuild"
+msgstr "⌘S · ⇧ 点击可全新重建"
 
 #: src/project/project-find-dialog.tsx
 msgid "1 hit"
@@ -1122,12 +1126,16 @@ msgid "Build"
 msgstr "构建"
 
 #: src/trellis/trellis-header-tools.tsx
-msgid "Build and show the PDF · ⌘S · ⇧-click for a clean rebuild"
-msgstr "构建并显示 PDF · ⌘S · ⇧ 点击可全新重建"
+msgid "Build and show the PDF"
+msgstr "构建并显示 PDF"
 
-#: src/build/compile-diagnostics-panel.tsx
+#: src/build/build-result-text.ts
 msgid "Build failed"
 msgstr "构建失败"
+
+#: src/build/build-result-text.ts
+msgid "Build failed · {issues}"
+msgstr "构建失败 · {issues}"
 
 #: src/build/compile-diagnostics-panel.tsx
 msgid "Build failed without a captured log"
@@ -1190,9 +1198,13 @@ msgstr "构建"
 msgid "Builds 1.2 s after you stop typing"
 msgstr "停止输入 1.2 秒后构建"
 
-#: src/trellis/trellis-header-tools.tsx
-msgid "Built in {seconds}s · ⌘S · ⇧-click for a clean rebuild"
-msgstr "构建用时 {seconds} 秒 · ⌘S · ⇧ 点击可全新重建"
+#: src/build/build-result-text.ts
+msgid "Built"
+msgstr "构建成功"
+
+#: src/build/build-result-text.ts
+msgid "Built with {issues}"
+msgstr "构建成功，{issues}"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Bullet"
@@ -3869,6 +3881,7 @@ msgid "Jump to this location"
 msgstr "跳转到此位置"
 
 #: src/app-utils.ts
+#: src/trellis/trellis-header-tools.tsx
 msgid "just now"
 msgstr "刚刚"
 
@@ -3969,10 +3982,6 @@ msgstr "更大的分式"
 #: src/project/manuscript-checklist.tsx
 msgid "Last build"
 msgstr "上次构建"
-
-#: src/trellis/trellis-header-tools.tsx
-msgid "Last build failed · ⌘S · ⇧-click for a clean rebuild"
-msgstr "上次构建失败 · ⌘S · ⇧ 点击可全新重建"
 
 #: src/papers/bibliography-audit.tsx
 msgid "Last checked"
@@ -4682,8 +4691,7 @@ msgstr "NeurIPS 会议论文集"
 msgid "NeurIPS, CVPR, Nature, …"
 msgstr "NeurIPS、CVPR、Nature 等"
 
-#: src/app/use-trellis-bridge.ts
-#: src/trellis/trellis-panel-actions.tsx
+#: src/project/project-new-entries.ts
 msgid "New board"
 msgstr "新建白板"
 
@@ -4691,17 +4699,22 @@ msgstr "新建白板"
 msgid "New changes on Overleaf · click to pull"
 msgstr "Overleaf 上有新更改 · 点击拉取"
 
-#: src/trellis/trellis-panel-actions.tsx
-msgid "New document"
-msgstr "新建文档"
-
 #: src/project/project-file-tree.tsx
 msgid "New file"
 msgstr "新建文件"
 
 #: src/project/project-file-tree.tsx
+#: src/project/project-new-entries.ts
 msgid "New folder"
 msgstr "新建文件夹"
+
+#: src/project/project-new-entries.ts
+msgid "New LaTeX file"
+msgstr "新建 LaTeX 文件"
+
+#: src/project/project-new-entries.ts
+msgid "New Markdown file"
+msgstr "新建 Markdown 文件"
 
 #: src/components/ui/chat-panel.tsx
 msgid "New messages · Jump to latest"
@@ -4719,8 +4732,7 @@ msgstr "新名称"
 msgid "New Overleaf project name"
 msgstr "新 Overleaf 项目名称"
 
-#: src/app/use-trellis-bridge.ts
-#: src/trellis/trellis-panel-actions.tsx
+#: src/project/project-new-entries.ts
 msgid "New presentation"
 msgstr "新建演示文稿"
 
@@ -4736,14 +4748,17 @@ msgstr "在下方拆分"
 msgid "New split right"
 msgstr "在右侧拆分"
 
-#: src/app/use-trellis-bridge.ts
-#: src/trellis/trellis-panel-actions.tsx
+#: src/project/project-new-entries.ts
 msgid "New spreadsheet"
 msgstr "新建电子表格"
 
 #: src/telemetry/app-updater.tsx
 msgid "New version {version}"
 msgstr "新版本 {version}"
+
+#: src/trellis/trellis-panel-actions.tsx
+msgid "New…"
+msgstr "新建…"
 
 #: src/canvas/editor-status-bar.tsx
 msgid "next"
@@ -5133,6 +5148,7 @@ msgstr "打开项目后即可添加术语"
 msgid "Open a project to manage Agent settings"
 msgstr "打开项目以管理智能助手设置"
 
+#: src/App.tsx
 #: src/project/project-dialogs.tsx
 msgid "Open another folder"
 msgstr "打开其他文件夹"

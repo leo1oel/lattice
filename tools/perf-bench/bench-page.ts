@@ -137,17 +137,25 @@ const libraryPapers = params.get("papers") === "library";
 const unhandled = new Set<string>();
 const counts = new Map<string, number>();
 
-/** A successful build with a handful of warnings, the fixture's log and PDF. */
+/**
+ * A successful build with a handful of warnings, the fixture's log and PDF.
+ * `?build=clean` drops the warnings and `?build=failed` fails it, for looking
+ * at the other results.
+ */
 function buildResult() {
+  const outcome = params.get("build");
+  const warnings = [
+    { level: "warning", message: "There were undefined references.", file: "main.tex", line: 4 },
+    { level: "warning", message: "Overfull \\hbox (4.2pt too wide) in paragraph", file: "chapters/ch01.tex", line: 12 },
+  ];
   return {
-    success: true,
+    success: outcome !== "failed",
     hasPdf: true,
     log: fixture.buildLog,
     durationMs: 1_234,
-    diagnostics: [
-      { level: "warning", message: "There were undefined references.", file: "main.tex", line: 4 },
-      { level: "warning", message: "Overfull \\hbox (4.2pt too wide) in paragraph", file: "chapters/ch01.tex", line: 12 },
-    ],
+    diagnostics: outcome === "clean" ? []
+      : outcome === "failed" ? [{ level: "error", message: "Undefined control sequence.", file: "main.tex", line: 6 }]
+        : warnings,
     rootDocument: "main.tex",
   };
 }

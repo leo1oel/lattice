@@ -59,7 +59,24 @@ describe("the build outcome the Build button reports", () => {
     expect(view.result.current.outcome).toBeNull();
     await act(() => view.result.current.runBuild(false, { requested: true }));
     expect(view.result.current.building).toBe(false);
-    expect(view.result.current.outcome).toEqual({ status: "succeeded", seconds: 3.2 });
+    expect(view.result.current.outcome).toMatchObject({ status: "succeeded", seconds: 3.2, counts: { error: 0, warning: 0, info: 0 } });
+  });
+
+  it("reports a success with warnings as a success that counts them", async () => {
+    const view = renderPipeline(async () => result({
+      rootDocument: "thesis.tex",
+      diagnostics: [
+        { level: "warning", message: "There were undefined references." },
+        { level: "warning", message: "Overfull \\hbox" },
+        { level: "info", message: "Output written." },
+      ],
+    }));
+    const before = Date.now();
+    await act(() => view.result.current.runBuild(false, { requested: true }));
+    expect(view.result.current.outcome).toMatchObject({
+      status: "succeeded", counts: { error: 0, warning: 2, info: 1 }, rootDocument: "thesis.tex",
+    });
+    expect(view.result.current.outcome?.finishedAt).toBeGreaterThanOrEqual(before);
   });
 
   it("reports a failed build, and forgets it as soon as the next build starts", async () => {
@@ -68,7 +85,7 @@ describe("the build outcome the Build button reports", () => {
     let gate: Promise<void> = Promise.resolve();
     const view = renderPipeline(async () => { await gate; return answer; });
     await act(() => view.result.current.runBuild(false, { requested: true }));
-    expect(view.result.current.outcome).toEqual({ status: "failed" });
+    expect(view.result.current.outcome).toMatchObject({ status: "failed", counts: { error: 1, warning: 0, info: 0 } });
 
     answer = result({ durationMs: 1_000 });
     gate = new Promise((resolve) => { release = resolve; });
@@ -77,14 +94,14 @@ describe("the build outcome the Build button reports", () => {
     expect(view.result.current.building).toBe(true);
     expect(view.result.current.outcome).toBeNull();
     await act(async () => { release(); await second; });
-    expect(view.result.current.outcome).toEqual({ status: "succeeded", seconds: 1 });
+    expect(view.result.current.outcome).toMatchObject({ status: "succeeded", seconds: 1 });
   });
 
   it("reports a build the backend rejected as failed", async () => {
     const view = renderPipeline(async () => { throw new Error("latexmk could not start"); });
     await act(() => view.result.current.runBuild(false, { requested: true }));
     expect(view.result.current.building).toBe(false);
-    expect(view.result.current.outcome).toEqual({ status: "failed" });
+    expect(view.result.current.outcome).toMatchObject({ status: "failed", rootDocument: null });
   });
 
   it("reports nothing for a build the writer stopped, so the button reads Build again", async () => {

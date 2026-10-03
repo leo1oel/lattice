@@ -217,11 +217,11 @@ msgstr "{description}: {path} could not run: {error}"
 msgid "{description}: not found on PATH"
 msgstr "{description}: not found on PATH"
 
-#: src/build/compile-diagnostics-panel.tsx
+#: src/build/build-result-text.ts
 msgid "{errors} error"
 msgstr "{errors} error"
 
-#: src/build/compile-diagnostics-panel.tsx
+#: src/build/build-result-text.ts
 msgid "{errors} errors"
 msgstr "{errors} errors"
 
@@ -296,11 +296,11 @@ msgstr "{names} was deleted from the local project, but is still on Overleaf. Ev
 msgid "{names} were deleted from the local project, but are still on Overleaf. Even if you remove them now, Overleaf's history will keep them."
 msgstr "{names} were deleted from the local project, but are still on Overleaf. Even if you remove them now, Overleaf's history will keep them."
 
-#: src/build/compile-diagnostics-panel.tsx
+#: src/build/build-result-text.ts
 msgid "{notes} note"
 msgstr "{notes} note"
 
-#: src/build/compile-diagnostics-panel.tsx
+#: src/build/build-result-text.ts
 msgid "{notes} notes"
 msgstr "{notes} notes"
 
@@ -372,11 +372,11 @@ msgstr "{totalPages} total · appendix after p.{mainPages}"
 msgid "{warning}. Crossref type: {updateType}"
 msgstr "{warning}. Crossref type: {updateType}"
 
-#: src/build/compile-diagnostics-panel.tsx
+#: src/build/build-result-text.ts
 msgid "{warnings} warning"
 msgstr "{warnings} warning"
 
-#: src/build/compile-diagnostics-panel.tsx
+#: src/build/build-result-text.ts
 msgid "{warnings} warnings"
 msgstr "{warnings} warnings"
 
@@ -403,6 +403,10 @@ msgstr "⌘⇧F · source files and papers"
 #: src/App.tsx
 msgid "⌘⇧H · all source files"
 msgstr "⌘⇧H · all source files"
+
+#: src/trellis/trellis-header-tools.tsx
+msgid "⌘S · ⇧-click for a clean rebuild"
+msgstr "⌘S · ⇧-click for a clean rebuild"
 
 #: src/project/project-find-dialog.tsx
 msgid "1 hit"
@@ -1122,12 +1126,16 @@ msgid "Build"
 msgstr "Build"
 
 #: src/trellis/trellis-header-tools.tsx
-msgid "Build and show the PDF · ⌘S · ⇧-click for a clean rebuild"
-msgstr "Build and show the PDF · ⌘S · ⇧-click for a clean rebuild"
+msgid "Build and show the PDF"
+msgstr "Build and show the PDF"
 
-#: src/build/compile-diagnostics-panel.tsx
+#: src/build/build-result-text.ts
 msgid "Build failed"
 msgstr "Build failed"
+
+#: src/build/build-result-text.ts
+msgid "Build failed · {issues}"
+msgstr "Build failed · {issues}"
 
 #: src/build/compile-diagnostics-panel.tsx
 msgid "Build failed without a captured log"
@@ -1190,9 +1198,13 @@ msgstr "Builds"
 msgid "Builds 1.2 s after you stop typing"
 msgstr "Builds 1.2 s after you stop typing"
 
-#: src/trellis/trellis-header-tools.tsx
-msgid "Built in {seconds}s · ⌘S · ⇧-click for a clean rebuild"
-msgstr "Built in {seconds}s · ⌘S · ⇧-click for a clean rebuild"
+#: src/build/build-result-text.ts
+msgid "Built"
+msgstr "Built"
+
+#: src/build/build-result-text.ts
+msgid "Built with {issues}"
+msgstr "Built with {issues}"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Bullet"
@@ -3869,6 +3881,7 @@ msgid "Jump to this location"
 msgstr "Jump to this location"
 
 #: src/app-utils.ts
+#: src/trellis/trellis-header-tools.tsx
 msgid "just now"
 msgstr "just now"
 
@@ -3969,10 +3982,6 @@ msgstr "Larger fraction"
 #: src/project/manuscript-checklist.tsx
 msgid "Last build"
 msgstr "Last build"
-
-#: src/trellis/trellis-header-tools.tsx
-msgid "Last build failed · ⌘S · ⇧-click for a clean rebuild"
-msgstr "Last build failed · ⌘S · ⇧-click for a clean rebuild"
 
 #: src/papers/bibliography-audit.tsx
 msgid "Last checked"
@@ -4682,8 +4691,7 @@ msgstr "NeurIPS Proceedings"
 msgid "NeurIPS, CVPR, Nature, …"
 msgstr "NeurIPS, CVPR, Nature, …"
 
-#: src/app/use-trellis-bridge.ts
-#: src/trellis/trellis-panel-actions.tsx
+#: src/project/project-new-entries.ts
 msgid "New board"
 msgstr "New board"
 
@@ -4691,17 +4699,22 @@ msgstr "New board"
 msgid "New changes on Overleaf · click to pull"
 msgstr "New changes on Overleaf · click to pull"
 
-#: src/trellis/trellis-panel-actions.tsx
-msgid "New document"
-msgstr "New document"
-
 #: src/project/project-file-tree.tsx
 msgid "New file"
 msgstr "New file"
 
 #: src/project/project-file-tree.tsx
+#: src/project/project-new-entries.ts
 msgid "New folder"
 msgstr "New folder"
+
+#: src/project/project-new-entries.ts
+msgid "New LaTeX file"
+msgstr "New LaTeX file"
+
+#: src/project/project-new-entries.ts
+msgid "New Markdown file"
+msgstr "New Markdown file"
 
 #: src/components/ui/chat-panel.tsx
 msgid "New messages · Jump to latest"
@@ -4719,8 +4732,7 @@ msgstr "New name"
 msgid "New Overleaf project name"
 msgstr "New Overleaf project name"
 
-#: src/app/use-trellis-bridge.ts
-#: src/trellis/trellis-panel-actions.tsx
+#: src/project/project-new-entries.ts
 msgid "New presentation"
 msgstr "New presentation"
 
@@ -4736,14 +4748,17 @@ msgstr "New split below"
 msgid "New split right"
 msgstr "New split right"
 
-#: src/app/use-trellis-bridge.ts
-#: src/trellis/trellis-panel-actions.tsx
+#: src/project/project-new-entries.ts
 msgid "New spreadsheet"
 msgstr "New spreadsheet"
 
 #: src/telemetry/app-updater.tsx
 msgid "New version {version}"
 msgstr "New version {version}"
+
+#: src/trellis/trellis-panel-actions.tsx
+msgid "New…"
+msgstr "New…"
 
 #: src/canvas/editor-status-bar.tsx
 msgid "next"
@@ -5133,6 +5148,7 @@ msgstr "Open a project to add terms"
 msgid "Open a project to manage Agent settings"
 msgstr "Open a project to manage Agent settings"
 
+#: src/App.tsx
 #: src/project/project-dialogs.tsx
 msgid "Open another folder"
 msgstr "Open another folder"

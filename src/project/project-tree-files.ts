@@ -25,6 +25,16 @@ export function parentDirectory(path: string): string {
   return path.includes("/") ? path.slice(0, path.lastIndexOf("/")) : "";
 }
 
+/**
+ * The directory a paste or a new entry lands in: the selected folder, or the
+ * selected file's folder; the project root when nothing is selected.
+ */
+export function selectionDirectory(selectedPierrePath: string, nodes: ReadonlyMap<string, FileNode>): string {
+  const node = nodes.get(selectedPierrePath);
+  const path = fromPierrePath(selectedPierrePath);
+  return node && isDirectoryNode(node) ? path : parentDirectory(path);
+}
+
 type ProjectTreeEntries = {
   directoryPaths: string[];
   /** Keyed by Pierre path. */
