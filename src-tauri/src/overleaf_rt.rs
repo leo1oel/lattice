@@ -57,7 +57,9 @@ mod tree;
 pub use client::{RealtimeClient, RealtimeConfig};
 pub use codec::Submission;
 pub(crate) use events::parse_comment_ranges;
-pub use events::{EntityEntry, JoinedDoc, OtOp, PresenceUser, RealtimeEvent, TrackedChange};
+pub use events::{
+    EntityEntry, JoinedDoc, OtOp, Permission, PresenceUser, RealtimeEvent, TrackedChange,
+};
 
 /// Both halves of the bridge present themselves as the same desktop browser.
 pub(crate) const USER_AGENT: &str = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) \
