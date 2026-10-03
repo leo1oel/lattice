@@ -8,7 +8,7 @@ const groups = { recent: "Recent", surface: "Here" };
 describe("paletteSurface", () => {
   it.each([
     [{ file: "main.tex", paper: false, asset: false }, "source"],
-    [{ file: "refs.bib", paper: false, asset: false }, "source"],
+    [{ file: "refs.bib", paper: false, asset: false }, null],
     [{ file: "notes/idea.md", paper: false, asset: false }, "markdown"],
     [{ file: "main.tex", paper: true, asset: false }, "paper"],
     [{ file: "figure.png", paper: false, asset: true }, null],

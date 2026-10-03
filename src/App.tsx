@@ -1193,7 +1193,7 @@ function App() {
     { id: "clean", when: inProject, label: t`Clean aux files`, group: t`Build`, recent: false, run: () => void cleanProject() },
     // Only ever wanted while a build runs, so never worth remembering.
     { id: "stop-build", when: building, label: t`Stop build`, group: t`Build`, recent: false, run: () => void abortBuild() },
-    { id: "sync-pdf", when: latexSource, label: t`Jump to PDF`, detail: "⌘⇧J", group: t`Navigate`, key: "j", shift: true, run: () => void revealSourceInPdf() },
+    { id: "sync-pdf", when: latexSource && syncTex.canForwardSync, label: t`Jump to PDF`, detail: "⌘⇧J", group: t`Navigate`, key: "j", shift: true, run: () => void revealSourceInPdf() },
     { id: "quick-open", when: inProject, label: t`Quick open file`, detail: "⌘P", group: t`Navigate`, key: "p", run: () => setSearchDialog("quick-open") },
     { id: "goto-line", when: textEditor, label: t`Go to line`, detail: "⌘G", group: t`Navigate`, key: "g", run: () => setSearchDialog("goto-line") },
     { id: "goto-symbol", when: textEditor, label: t`Go to symbol`, detail: "⌘⇧O", group: t`Navigate`, key: "o", shift: true, run: () => setSearchDialog("goto-symbol") },

@@ -35,7 +35,9 @@ describe("project tree and projects", () => {
 
     await openPalette();
     expect(sections()[0]).toBe("In this document");
-    expect(options().slice(0, 4)).toEqual(["Build project⌘S", "Jump to PDF⌘⇧J", "Insert citation⌘⇧K", "Insert reference⌘⇧L"]);
+    // No PDF yet, so nothing to jump to.
+    expect(options().slice(0, 3)).toEqual(["Build project⌘S", "Insert citation⌘⇧K", "Insert reference⌘⇧L"]);
+    expect(options().filter((option) => option.startsWith("Jump to PDF"))).toEqual([]);
     fireEvent.keyDown(screen.getByPlaceholderText("Run a command…"), { key: "Escape" });
     await waitFor(() => expect(screen.queryByPlaceholderText("Run a command…")).not.toBeInTheDocument());
 
@@ -48,7 +50,7 @@ describe("project tree and projects", () => {
 
     await openPalette();
     expect(sections().slice(0, 2)).toEqual(["Recent", "In this document"]);
-    expect(options().slice(0, 4)).toEqual(["Insert citation⌘⇧K", "Build project⌘S", "Jump to PDF⌘⇧J", "Insert reference⌘⇧L"]);
+    expect(options().slice(0, 3)).toEqual(["Insert citation⌘⇧K", "Build project⌘S", "Insert reference⌘⇧L"]);
     expect(options().filter((option) => option.startsWith("Insert citation"))).toHaveLength(1);
     expect(options().filter((option) => option.startsWith("Clean aux files"))).toHaveLength(1);
   });

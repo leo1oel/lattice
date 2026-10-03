@@ -20,7 +20,7 @@ const SURFACE_COMMANDS: Record<Exclude<PaletteSurface, null>, readonly string[]>
 export function paletteSurface(open: { file: string; paper: boolean; asset: boolean }): PaletteSurface {
   if (open.paper) return "paper";
   if (open.asset || !open.file) return null;
-  if (/\.(?:tex|ltx|sty|cls|bib)$/i.test(open.file)) return "source";
+  if (/\.tex$/i.test(open.file)) return "source";
   if (/\.(?:md|markdown)$/i.test(open.file)) return "markdown";
   return null;
 }
