@@ -177,7 +177,11 @@ export type PaperSummary = {
   /** The cited page for webpage references; how the row fetches when there is no arXiv id. */
   url?: string;
   title: string;
-  /** BibTeX author field, used by the local Papers filter. */
+  /**
+   * The BibTeX author field as written, braces included: they mark a
+   * corporate author ("{Google Brain}") as one name. Parse it with
+   * `papers/paper-identity.ts`; never show it raw.
+   */
   authors?: string;
   citationKey?: string;
   /** False for works that are only cited — there is nothing to open. */

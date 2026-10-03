@@ -88,7 +88,12 @@ pub(crate) fn parse_bibliography(bibliography: &str) -> Vec<CitationInfo> {
     scan_entries(bibliography)
         .into_iter()
         .map(|record| {
-            let fields = parse_bibliography_fields_raw(record.body)
+            let raw = parse_bibliography_fields_raw(record.body);
+            let bibtex_authors = raw
+                .get("author")
+                .map(|value| normalize_bibliography_value(value))
+                .unwrap_or_default();
+            let fields = raw
                 .into_iter()
                 .map(|(name, value)| (name, clean_bibliography_value(&value)))
                 .collect::<BTreeMap<_, _>>();
@@ -96,6 +101,7 @@ pub(crate) fn parse_bibliography(bibliography: &str) -> Vec<CitationInfo> {
             CitationInfo {
                 title: field("title"),
                 authors: field("author"),
+                bibtex_authors,
                 year: field("year"),
                 venue: fields
                     .get("journal")
@@ -251,13 +257,14 @@ fn delimited_value(body: &str, position: &mut usize, braced: bool) -> String {
     body[start..].to_string()
 }
 
+/// A field value as it reads: braces only protect case and grouping.
 fn clean_bibliography_value(value: &str) -> String {
-    value
-        .replace(['{', '}'], "")
-        .replace("\\&", "&")
-        .split_whitespace()
-        .collect::<Vec<_>>()
-        .join(" ")
+    normalize_bibliography_value(&value.replace(['{', '}'], ""))
+}
+
+/// A field value with its spacing and `\&` normalized but its braces kept.
+fn normalize_bibliography_value(value: &str) -> String {
+    value.replace("\\&", "&").split_whitespace().collect::<Vec<_>>().join(" ")
 }
 
 /// The project's `.bib` files as `(relative path, contents)`: the manifest's

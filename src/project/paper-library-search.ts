@@ -31,7 +31,8 @@ function filterPapers(papers: readonly PaperSummary[], query: string): PaperSumm
   });
   if (!tokens.length) return [...papers];
   return papers.filter((paper) => {
-    const haystack = [paper.title, paper.authors, paper.citationKey, paper.arxivId, paper.doi, paper.url]
+    // Author braces only group names ("{V}aswani"); a query never types them.
+    const haystack = [paper.title, paper.authors?.replace(/[{}]/g, ""), paper.citationKey, paper.arxivId, paper.doi, paper.url]
       .filter(Boolean).join(" ").toLocaleLowerCase();
     return tokens.every((token) => haystack.includes(token));
   });

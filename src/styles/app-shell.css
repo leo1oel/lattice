@@ -511,13 +511,14 @@ body:has(.modal-backdrop, .drawer-backdrop) .file-tree-context-menu { display: n
 .file-tree-context-menu-separator { height: 1px; margin: var(--space-2) calc(-1 * var(--surface-inset)); background: var(--border-subtle); }
 .file-tree-context-menu > button.destructive { color: var(--status-danger); }
 .file-tree-context-menu > button.destructive:hover:not(:disabled) { background: color-mix(in srgb, var(--status-danger) 10%, transparent); color: var(--status-danger); }
-/* Visible face stays 22px; a ::after expands the hit area to the 32px row height
-   without colliding with neighbouring rows (40px would overlap). */
 /* Beside the title's first line, which alone keeps room for them: the lines
-   beneath it run the row's full width. */
-.paper-row-actions { position: absolute; inset-block-start: var(--space-2); inset-inline-end: var(--space-2); display: flex; align-items: center; }
+   beneath it run the row's full width. The actions fill that line's lane —
+   the row's top down to where the byline starts — and end on its floor, and
+   so do their hit areas: a ::after widens each 22px face sideways and up to
+   the row's top, never down over the byline a click there should open. */
+.paper-row-actions { position: absolute; inset-block-start: 0; inset-inline-end: var(--space-2); height: var(--paper-row-lane); display: flex; align-items: flex-end; }
 .row-delete, .row-edit-bib { position: relative; width: 22px !important; height: 22px !important; flex: none; padding: 0 !important; border-radius: var(--radius-compact) !important; background: transparent !important; color: var(--text-tertiary) !important; display: grid !important; place-items: center; opacity: 0; transition: opacity var(--duration-exit) var(--ease-out); }
-.row-delete::after, .row-edit-bib::after, .row-citation-health::after { content: ""; position: absolute; inset: -5px; }
+.row-delete::after, .row-edit-bib::after, .row-citation-health::after { content: ""; position: absolute; inset: calc(22px - var(--paper-row-lane)) -5px 0; }
 .row-delete svg, .row-edit-bib svg, .row-citation-health svg { stroke-width: 1.5; }
 .paper-row:is(:hover, :focus-within, .active) :is(.row-delete, .row-edit-bib) { opacity: 1; transition-duration: var(--duration-quick); }
 .row-edit-bib:hover { background: var(--control-active-soft) !important; color: var(--control-active) !important; }
@@ -527,11 +528,14 @@ body:has(.modal-backdrop, .drawer-backdrop) .file-tree-context-menu { display: n
 .paper-row.citation-retracted .row-citation-health { color: var(--status-danger); }
 .paper-list { min-height: 0; flex: 1; }
 .paper-list-content { min-width: 100%; padding-block: 7px 0; padding-inline: 0 var(--space-6); }
-.paper-row { --paper-row-actions: 1; --paper-row-action-room: calc(var(--paper-row-actions) * 22px); position: relative; width: 100%; border-radius: var(--radius-icon); display: flex; align-items: center; color: var(--text-secondary); }
+/* The lane is the title's first line with the row's padding above it and the
+   gap below it; the title keeps the actions' room plus their hit areas'
+   reach past the text's edge (5px, less the 3px the actions sit outside it). */
+.paper-row { --paper-row-actions: 1; --paper-row-action-room: calc(var(--paper-row-actions) * 22px + var(--space-1)); --paper-row-padding: 7px; --paper-row-lane: calc(var(--paper-row-padding) + var(--type-label-line-height) + var(--space-1)); position: relative; width: 100%; border-radius: var(--radius-icon); display: flex; align-items: center; color: var(--text-secondary); }
 .paper-row:hover, .paper-row.active { color: var(--text-primary); background: var(--border-subtle); }
 /* Cited but never fetched: nothing to open, so the row reads as a reference. */
 .paper-row.cited-only .paper-open { cursor: default; opacity: .72; }
-.paper-open { width: 0; flex: 1; min-width: 0; padding: 7px; border-radius: var(--radius-icon); background: transparent; display: flex; align-items: flex-start; gap: var(--gap-inline); color: inherit; font-size: var(--type-tree-size); line-height: var(--type-tree-line-height); text-align: left; }
+.paper-open { width: 0; flex: 1; min-width: 0; padding: var(--paper-row-padding); border-radius: var(--radius-icon); background: transparent; display: flex; align-items: flex-start; gap: var(--gap-inline); color: inherit; font-size: var(--type-tree-size); line-height: var(--type-tree-line-height); text-align: left; }
 .paper-open > svg { margin-top: var(--space-1); flex: none; stroke-width: 1.5; }
 .paper-state-icon { width: 14px; height: 14px; margin-top: var(--space-1); flex: none; display: grid; place-items: center; transition: color var(--duration-base) var(--ease-default), opacity var(--duration-base) var(--ease-default); }
 .paper-state-icon > svg { stroke-width: 1.5; }

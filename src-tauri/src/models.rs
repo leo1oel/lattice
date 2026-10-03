@@ -156,6 +156,11 @@ pub struct CitationInfo {
     pub key: String,
     pub title: String,
     pub authors: String,
+    /// The author list as BibTeX writes it, braces kept: `{Google Brain}` is
+    /// one corporate name, which the brace-free `authors` cannot tell apart
+    /// from a person whose surname is "Brain".
+    #[serde(skip)]
+    pub bibtex_authors: String,
     pub year: String,
     pub venue: String,
     /// Present when the entry names an arXiv preprint, so its full text can be

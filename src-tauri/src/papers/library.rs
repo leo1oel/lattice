@@ -76,7 +76,7 @@ pub fn list_papers(root: &Path) -> Result<Vec<PaperSummary>, String> {
             doi: citation.doi,
             url: citation.url,
             title: super::title_or_key(citation.title, &citation.key),
-            authors: citation.authors,
+            authors: citation.bibtex_authors,
             citation_key: Some(citation.key),
             has_full_text: matched.as_ref().is_some_and(|bundle| bundle.has_full_text),
             has_blog: matched.as_ref().is_some_and(|bundle| bundle.has_blog),
@@ -545,6 +545,35 @@ mod tests {
         assert_eq!(uncached.doi.as_deref(), Some("10.1234/example"));
         let link = uncached.citation_health.as_ref().and_then(|health| health.link.as_deref());
         assert_eq!(link, Some("https://doi.org/10.5555/notice"));
+    }
+
+    /// The reader names a paper by its authors' surnames, and only the braces
+    /// say a name is one organisation: without them "{Google Brain}" reads as
+    /// a person called Brain. The frontend's `paper-identity.test.ts` formats
+    /// these exact listed values.
+    #[test]
+    fn lists_authors_with_the_braces_that_group_a_corporate_name() {
+        let project = TestProject::new(
+            "@misc{gemini, title={Gemini}, author={{Gemini Team} and others}}\n\
+             @misc{brain, title={Brain}, author = \"{Google  Brain}\"}\n\
+             @misc{institute, title={Institute}, author={{Research and Development Institute} and Doe, Jane}}\n\
+             @misc{att, title={AT}, author={{AT\\&T} and Borel, Émile}}\n",
+        );
+        let papers = list_papers(&project.root).unwrap();
+        let listed =
+            ["gemini", "brain", "institute", "att"].map(|key| find(&papers, key).authors.as_str());
+        assert_eq!(
+            listed,
+            [
+                "{Gemini Team} and others",
+                "{Google Brain}",
+                "{Research and Development Institute} and Doe, Jane",
+                "{AT&T} and Borel, Émile",
+            ]
+        );
+        // Everywhere else a citation is shown as text, the braces are gone.
+        let citations = project::parse_bibliography(&project.bibliography());
+        assert_eq!(citations[1].authors, "Google Brain");
     }
 
     /// `search_library` reads the cached text itself so the agent gets line
