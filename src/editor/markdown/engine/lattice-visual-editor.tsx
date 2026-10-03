@@ -638,11 +638,21 @@ function rebindBaseline(baseline: MarkdownBaseline, editor: Editor): MarkdownBas
   return { ...baseline, entries };
 }
 
-/** The passive view's jump: center the last labeled block starting at or before `line`. */
-function revealPassiveLine(layer: HTMLElement | null, line: number) {
-  const labeled = layer ? [...layer.querySelectorAll<HTMLElement>("[data-source-line]")] : [];
-  const target = labeled.filter((element) => Number(element.dataset.sourceLine) <= line).at(-1) ?? labeled[0];
-  target?.scrollIntoView({ block: "center" });
+/**
+ * The passive view's jump: center the last block starting at or before `line`.
+ * Its chunk may not be drawn yet; then the chunk is brought into view, which
+ * draws it, and the jump is not landed until the block itself is centered.
+ */
+function revealPassiveLine(layer: HTMLElement | null, model: PassiveModel, line: number): boolean {
+  const chunk = model.chunks.filter((candidate) => candidate.labels[0]!.line <= line).at(-1) ?? model.chunks[0]!;
+  const label = chunk.labels.filter((candidate) => candidate.line <= line).at(-1) ?? chunk.labels[0]!;
+  const block = layer?.querySelector<HTMLElement>(`[data-source-line="${label.line}"]`);
+  if (block) {
+    block.scrollIntoView({ block: "center" });
+    return true;
+  }
+  layer?.querySelector<HTMLElement>(`[data-visual-chunk-id="${chunk.id}"]`)?.scrollIntoView({ block: "center" });
+  return false;
 }
 
 export function LatticeVisualMarkdownEditor(props: VisualMarkdownEditorProps): JSX.Element {
@@ -780,9 +790,10 @@ export function LatticeVisualMarkdownEditor(props: VisualMarkdownEditorProps): J
     const attempt = () => {
       const current = host.current;
       const shown = current.path === activePath && current.pending == null && current.accepted === current.props.text;
-      if (passive && "line" in revealRequest.target) {
-        revealPassiveLine(layer, revealRequest.target.line);
-      } else if (!(shown && revealTarget(current, revealRequest.target)) && performance.now() < deadline) {
+      const landed = passive && "line" in revealRequest.target
+        ? revealPassiveLine(layer, passive, revealRequest.target.line)
+        : shown && revealTarget(current, revealRequest.target);
+      if (!landed && performance.now() < deadline) {
         frame = requestAnimationFrame(attempt);
         return;
       }

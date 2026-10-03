@@ -96,6 +96,38 @@ describe("the passive view (R-PERF-1–4)", () => {
     expect(centered).toHaveTextContent("Block 1:");
   });
 
+  it("draws a far chunk a line jump lands in, then centers the line's block there", async () => {
+    const observers: Array<{ target: Element; callback: IntersectionObserverCallback; observer: IntersectionObserver }> = [];
+    vi.stubGlobal("IntersectionObserver", class {
+      constructor(private readonly callback: IntersectionObserverCallback) {}
+      observe(target: Element) {
+        observers.push({ target, callback: this.callback, observer: this as unknown as IntersectionObserver });
+        if (target.getAttribute("data-visual-chunk-id") !== "chunk-0") return;
+        queueMicrotask(() => this.callback([{ target, isIntersecting: true, intersectionRatio: 1 } as IntersectionObserverEntry], this as unknown as IntersectionObserver));
+      }
+      unobserve() {}
+      disconnect() {}
+      takeRecords() { return []; }
+    });
+    const scrollIntoView = vi.spyOn(Element.prototype, "scrollIntoView").mockImplementation(function (this: Element) {
+      for (const { target, callback, observer } of observers) {
+        if (target === this) callback([{ target, isIntersecting: true, intersectionRatio: 1 } as IntersectionObserverEntry], observer);
+      }
+    });
+    const onRevealHandled = vi.fn();
+    const props = { text: blocks(180).join("\n\n"), synchronizeSourceScroll: true, onRevealHandled };
+    const view = render(<LatticeVisualMarkdownEditor activePath="large.md" onChangeMarkdown={() => true} onUndo={() => true} onRedo={() => true} editable={false} {...props} />);
+    await waitFor(() => expect(passive()).toHaveTextContent("Block 1:"));
+    expect(passive()).not.toHaveTextContent("Block 150:");
+    // Block 150 starts on line 301.
+    view.rerender(<LatticeVisualMarkdownEditor activePath="large.md" onChangeMarkdown={() => true} onUndo={() => true} onRedo={() => true} editable={false} {...props} revealRequest={{ id: "far", target: { line: 302 } }} />);
+    await waitFor(() => expect(onRevealHandled).toHaveBeenCalledWith("far"));
+    const centered = scrollIntoView.mock.contexts.at(-1) as HTMLElement;
+    expect(scrollIntoView).toHaveBeenLastCalledWith({ block: "center" });
+    expect(centered).toHaveAttribute("data-source-line", "301");
+    expect(centered).toHaveTextContent("Block 150:");
+  });
+
   it("never makes an editable document passive", () => {
     renderEditor({ text: blocks(180).join("\n\n"), editable: true });
     expect(passive()).toBeNull();
