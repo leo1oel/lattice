@@ -302,7 +302,7 @@ export class BenchDriver {
   }
 
   activity() {
-    return this.evaluate(`(() => { const s = window.__latticeProbe.snapshot(0); return s.commits + ":" + s.mutations; })()`);
+    return this.evaluate(`(() => { const s = window.__latticeProbe.snapshot(0); return s.commits + ":" + s.idleCommits + ":" + s.mutations; })()`);
   }
 }
 

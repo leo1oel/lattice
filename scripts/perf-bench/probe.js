@@ -8,7 +8,13 @@
  *    `onCommitFiberRoot` after every commit; the walk below finds the
  *    components that actually rendered in it (the `PerformedWork` flag, only
  *    descending where a subtree's children changed, as React DevTools does)
- *    and how many hooks each of those renders ran.
+ *    and how many hooks each of those renders ran. A commit in which no
+ *    component rendered or mounted is counted apart, as idle: React only
+ *    drops a same-value state update before rendering when the component has
+ *    no update left over from its last one, so whether such an update costs
+ *    an empty commit depends on how it interleaves with the component's real
+ *    updates, which is timing (at startup, the PDF preview between PDF.js
+ *    page-render events and the source editor's scrollbar).
  *  - DOM mutations: MutationObserver records over the whole document, split
  *    into child-list, attribute and text changes.
  *  - Long tasks and layout shifts (by the app region they happened in), from
@@ -24,6 +30,7 @@
 
   const blank = () => ({
     commits: 0,
+    idleCommits: 0,
     renders: 0,
     mounts: 0,
     hooks: 0,
@@ -130,12 +137,14 @@
     onCommitFiberUnmount() {},
     onPostCommitFiberRoot() {},
     onCommitFiberRoot(_id, root) {
-      state.commits += 1;
+      const before = state.renders + state.mounts;
       try {
         walk(root.current, root.current.alternate);
       } catch {
         // Counting must never break the page.
       }
+      if (state.renders + state.mounts > before) state.commits += 1;
+      else state.idleCommits += 1;
     },
   };
 
@@ -202,6 +211,7 @@
         .slice(0, top);
       return {
         commits: state.commits,
+        idleCommits: state.idleCommits,
         renders: state.renders,
         mounts: state.mounts,
         hooks: state.hooks,

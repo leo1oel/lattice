@@ -73,12 +73,23 @@ describe("perf bench budgets", () => {
   it("keeps the run with the fewest gated counts, whatever its report-only counts", () => {
     const noisy = { ...counts(1), commits: 12, recalcs: 120 };
     const quiet = { ...counts(1), commits: 9, recalcs: 200 };
-    expect(bestOf("pdf-scroll", [noisy, quiet])).toBe(quiet);
-    expect(bestOf("pdf-scroll", [quiet, noisy])).toBe(quiet);
+    expect(bestOf("pdf-scroll", [noisy, quiet])).toEqual(quiet);
+    expect(bestOf("pdf-scroll", [quiet, noisy])).toEqual(quiet);
     const scrollNoise = { ...counts(1), mutations: 500 };
     const fewerHooks = { ...counts(1), hooks: 0, mutations: 900 };
-    expect(bestOf("pdf-scroll", [scrollNoise, fewerHooks])).toBe(fewerHooks);
-    expect(bestOf("typing", [scrollNoise, fewerHooks])).toBe(scrollNoise);
+    expect(bestOf("pdf-scroll", [scrollNoise, fewerHooks])).toEqual(fewerHooks);
+    expect(bestOf("typing", [scrollNoise, fewerHooks])).toEqual({ ...scrollNoise, hooks: 0 });
+  });
+
+  it("gates each count at its fewest across runs, not the kept run's", () => {
+    // Hooks and mutations move by tens between runs and commits by one, so the
+    // run with the smallest total need not be the one with the fewest commits.
+    const fewerCommits = { ...counts(1), commits: 27, hooks: 12_227, mutations: 2_134, recalcs: 180 };
+    const fewerHooks = { ...counts(1), commits: 28, hooks: 12_211, mutations: 2_114, recalcs: 170 };
+    const result = bestOf("startup", [fewerCommits, fewerHooks]);
+    expect(result).toMatchObject({ commits: 27, hooks: 12_211, mutations: 2_114 });
+    // Report-only counts and details stay the kept run's.
+    expect(result.recalcs).toBe(170);
   });
 
   it("drops ceilings left on counts that are now report-only", () => {

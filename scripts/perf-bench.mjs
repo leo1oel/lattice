@@ -7,7 +7,7 @@
  * the fixture project) with the production config, opens it in headless
  * Chrome, and runs each scenario in scripts/perf-bench/scenarios.mjs on a
  * fresh page. For every scenario it reports, per interaction:
- *   commits   React commits
+ *   commits   React commits that rendered a component (idle ones are reported apart)
  *   renders   component renders (React DevTools' definition) and the hooks they ran
  *   recalcs   style recalculations, as Chromium counts them
  *   layouts   layouts, as Chromium counts them
@@ -28,7 +28,7 @@
  *   --update    set every ceiling from this run, up or down (review the diff)
  * Options:
  *   --only a,b      run only these scenarios
- *   --runs N        runs per scenario; the run with the fewest gated counts is kept (default 2)
+ *   --runs N        runs per scenario; each gated count is its lowest across them (default 2)
  *   --json FILE     write every run, with the components that rendered and why
  *   --dev           use the Vite dev server: readable component names and
  *                   profiles, and counts equal to production's (not gated)
@@ -522,6 +522,7 @@ async function measure(page, driver, scenario, profileTo) {
     layouts: delta("LayoutCount"),
     mutations: probe.mutations,
     info: {
+      idleCommits: probe.idleCommits,
       mounts: probe.mounts,
       addedNodes: probe.addedNodes,
       removedNodes: probe.removedNodes,
@@ -613,8 +614,9 @@ async function main() {
       }
       const result = bestOf(scenario.name, runs);
       results.push({ scenario, result, runs });
-      const recalcs = options.engine === "chromium" ? ` (${runs.map((run) => run.recalcs).join("/")} recalcs across runs)` : "";
-      console.error(`${scenario.name}: ${COUNTS.map((key) => `${key} ${result[key] ?? "–"}`).join(", ")}${recalcs}`);
+      const across = [["commits", (run) => run.commits], ["idle commits", (run) => run.info.idleCommits]];
+      if (options.engine === "chromium") across.push(["recalcs", (run) => run.recalcs]);
+      console.error(`${scenario.name}: ${COUNTS.map((key) => `${key} ${result[key] ?? "–"}`).join(", ")} (across runs: ${across.map(([name, of]) => `${name} ${runs.map(of).join("/")}`).join(", ")})`);
     }
   } finally {
     if (!options.keepOpen) {
