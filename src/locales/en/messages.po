@@ -2794,6 +2794,10 @@ msgctxt "macOS menu bar"
 msgid "Enter Full Screen"
 msgstr "Enter Full Screen"
 
+#: src/papers/bib-entry-dialog.tsx
+msgid "Enter manually"
+msgstr "Enter manually"
+
 #: src/papers/bibliography-audit.tsx
 msgid "Entry changed"
 msgstr "Entry changed"
@@ -4802,6 +4806,10 @@ msgid "No comments yet"
 msgstr "No comments yet"
 
 #: src/editor/comments/editor-comments-panel.tsx
+msgid "No comments yet. Open a file, select text and click Comment"
+msgstr "No comments yet. Open a file, select text and click Comment"
+
+#: src/editor/comments/editor-comments-panel.tsx
 msgid "No comments yet. Select text in the editor and click Comment"
 msgstr "No comments yet. Select text in the editor and click Comment"
 
@@ -5135,6 +5143,10 @@ msgstr "Open a .tex file before formatting."
 #: src/app/use-project-tree.ts
 msgid "Open a .tex file before pasting a figure."
 msgstr "Open a .tex file before pasting a figure."
+
+#: src/editor/comments/editor-comments-panel.tsx
+msgid "Open a file"
+msgstr "Open a file"
 
 #: src/app/use-project-lifecycle.ts
 msgid "Open a LaTeX project"
@@ -6723,6 +6735,10 @@ msgstr "Retrieved record information"
 #: src/telemetry/app-log.tsx
 msgid "Retry"
 msgstr "Retry"
+
+#: src/editor/comments/editor-comments-panel.tsx
+msgid "Return to {writingName}"
+msgstr "Return to {writingName}"
 
 #: src/trellis/trellis-titlebar.tsx
 msgid "Return to your own layout"

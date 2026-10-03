@@ -11,7 +11,8 @@ import { invoke } from "@tauri-apps/api/core";
 import { ManuscriptChecklistPanel } from "../project/manuscript-checklist";
 import { type TodoHit } from "../project/todo-scavenger";
 import { TodoScavengerPanel } from "../project/todo-scavenger-panel";
-import { toMessage } from "../app-utils";
+import { isWholeFileEditorPath, toMessage } from "../app-utils";
+import { useTrellisController } from "../trellis/trellis-controller";
 import { setError } from "./notify";
 import type { EditorComments } from "./use-editor-comments";
 import type { ToolDrawers } from "./use-tool-drawers";
@@ -46,12 +47,27 @@ export function AppEditorPanels({ comments, renderCommentsSurface, ...props }: {
   unusedSymbols: UnusedSymbols;
 }) {
   const { openProjectFile, project, todoHits, tools, unusedSymbols } = props;
+  const trellis = useTrellisController();
+  // Where the writer was writing: the active file, still active while a Paper
+  // or PDF covers it. A Board, Sheet or Deck has no text to comment on.
+  const writingFile = props.activeFile && !isWholeFileEditorPath(props.activeFile) ? props.activeFile : null;
+  const returnToEditor = async () => {
+    if (!writingFile) {
+      trellis?.bridge?.quickOpen();
+      return;
+    }
+    // A Paper or PDF in front gives way to the file, at its remembered caret and scroll.
+    if (trellis?.app.get().activeKey !== writingFile) await openProjectFile(writingFile);
+    trellis?.focusDocument(writingFile);
+  };
   const commentsPanel = (
     <EditorCommentsPanel
       key={comments.panelFocusId ? comments.panelFocus?.nonce : undefined}
       embedded={!!renderCommentsSurface}
       comments={comments.comments}
       activePath={props.activeFile}
+      writingFile={writingFile}
+      onReturnToEditor={() => void returnToEditor()}
       currentAuthorId={props.editorCommentAuthorId}
       focusCommentId={comments.panelFocusId}
       onClose={comments.closePanel}

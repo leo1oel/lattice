@@ -212,7 +212,19 @@ input[type="search"]:focus-visible {
 .bib-citation-records article { display: grid; gap: var(--space-3); border: 1px solid var(--border-subtle); border-radius: var(--radius-control); padding: var(--space-5); }
 .bib-citation-records article > button { justify-self: start; }
 .bib-citation-evidence { display: flex; flex-wrap: wrap; gap: var(--space-3); color: var(--text-secondary); }
-.bib-entry-preview { margin: 0; flex: 1; min-height: 140px; overflow: auto; border: 1px solid var(--border-subtle); border-radius: var(--radius-control); padding: var(--space-5); background: var(--surface-app); color: var(--text-secondary); font: var(--type-caption-size)/1.45 var(--editor-font); white-space: pre-wrap; }
+/* The lookup is one field and a way past it: the sheet fits it, and grows to the form when that appears. */
+.modal.sheet-dialog.bib-entry-lookup { height: auto; max-height: var(--dialog-large-height); }
+.bib-entry-manual { grid-column: 1 / -1; display: flex; margin-top: calc(-1 * var(--space-3)); }
+.bib-entry-manual > button { margin-left: calc(-1 * var(--space-4)); color: var(--text-secondary); }
+.bib-entry-form > .bib-entry-lookup-error { grid-column: 1 / -1; margin: 0; }
+/* The BibTeX the form will write, a click away rather than a block of empty braces under it. */
+.bib-entry-preview-disclosure { flex: none; }
+.bib-entry-preview-disclosure > summary { display: inline-flex; align-items: center; gap: var(--space-2); list-style: none; cursor: pointer; border-radius: var(--radius-compact); color: var(--text-secondary); font: 600 var(--type-micro-size)/var(--type-micro-line-height) var(--ui-font); }
+.bib-entry-preview-disclosure > summary::-webkit-details-marker { display: none; }
+.bib-entry-preview-disclosure > summary:hover { color: var(--text-primary); }
+.bib-entry-preview-disclosure > summary > svg { transition: transform var(--duration-quick) var(--ease-out); }
+.bib-entry-preview-disclosure[open] > summary > svg { transform: rotate(90deg); }
+.bib-entry-preview { margin: var(--space-4) 0 0; min-height: 96px; overflow: auto; border: 1px solid var(--border-subtle); border-radius: var(--radius-control); padding: var(--space-5); background: var(--surface-app); color: var(--text-secondary); font: var(--type-caption-size)/1.45 var(--editor-font); white-space: pre-wrap; }
 .venue-combobox { position: relative; }
 .venue-combobox input { width: 100%; }
 /* Motion comes from the shared `.popup-motion` class, applied in

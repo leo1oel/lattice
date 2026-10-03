@@ -177,7 +177,9 @@ describe("papers", () => {
       expect(screen.queryByRole("region", { name: "Citation candidates" })).not.toBeInTheDocument();
     } else {
       expect(await screen.findByRole("region", { name: "Citation candidates" })).toHaveTextContent("Cognitive Neuropsychology");
-      expect(screen.getByRole("button", { name: "Save entry" })).toBeDisabled();
+      // Nothing can be saved until a candidate is chosen or the entry is typed by hand.
+      expect(screen.queryByRole("button", { name: "Save entry" })).not.toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Enter manually" })).toBeInTheDocument();
     }
     expect(invoke).not.toHaveBeenCalledWith("import_reference", expect.anything());
     expect(invoke).not.toHaveBeenCalledWith("write_project_file", expect.anything());

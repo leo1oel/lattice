@@ -33,6 +33,9 @@ const DRAWER_TOOL_CLASSES: Array<[string, TrellisToolKind]> = [
   ["checklist-drawer", "checklist"],
 ];
 
+/** Frames an editor stays on screen before focus may land in it (see `focusDocument`). */
+const FOCUS_SETTLE_FRAMES = 6;
+
 export function toolKindForDrawer(className: string | undefined): TrellisToolKind | null {
   if (!className) return null;
   const classes = className.split(/\s+/);
@@ -335,6 +338,47 @@ export class TrellisController {
       return;
     }
     ws.open(kind, { id: kind, focus, placement: this.homeOf(kind) });
+  }
+
+  /**
+   * Bring the document panel for `key` forward and hand its editor the
+   * keyboard. Focus alone restores the caret and selection the editor kept
+   * while it was covered, so nothing is selected or moved. The document may
+   * still be becoming active (a Paper was in front) and its editor mounting,
+   * so both are waited for a frame at a time, for about a second.
+   *
+   * An editor that has just appeared is still landing its remembered caret
+   * and measuring its lines, and focus taken then puts the caret at the
+   * start; so it is focused only once it has been on screen for a few frames.
+   * Trellis settles its own focus on the panel a frame or so after showing
+   * it, so the editor's focus counts only once it has held for a frame.
+   */
+  focusDocument(key: string) {
+    let frames = 0;
+    let shown = false;
+    let settled = 0;
+    let held = false;
+    let last: HTMLElement | null = null;
+    const land = () => {
+      const ws = this.ws;
+      const view = ws?.views({ type: "file" }).find((item) => item.params.key === key);
+      if (!ws || !view || this.app.get().activeKey !== key) {
+        if (++frames < 90) requestAnimationFrame(land);
+        return;
+      }
+      if (!shown) ws.focus(view.id);
+      shown = true;
+      const surface = this.hosts.editor.querySelector<HTMLElement>(".cm-content, .ProseMirror");
+      settled = surface && surface === last && surface.getClientRects().length ? settled + 1 : 0;
+      last = surface;
+      if (surface && settled >= FOCUS_SETTLE_FRAMES) {
+        if (document.activeElement === surface && held) return;
+        held = document.activeElement === surface;
+        if (!held) surface.focus({ preventScroll: true });
+      }
+      if (++frames < 90) requestAnimationFrame(land);
+    };
+    land();
   }
 
   /**

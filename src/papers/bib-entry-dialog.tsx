@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { BookMarked, ChevronDown, ChevronUp } from "lucide-react";
+import { BookMarked, ChevronDown, ChevronRight, ChevronUp, PenLine } from "lucide-react";
 import { useLingui } from "@lingui/react/macro";
 import { Button } from "../components/ui/button";
 import { CheckboxField } from "../components/ui/checkbox-field";
@@ -34,6 +34,20 @@ export type ResolvedCitationDraft = Record<TextField, string> & {
 
 function fieldsOf(draft?: ResolvedCitationDraft): Record<TextField, string> {
   return Object.fromEntries(TEXT_FIELDS.map((name) => [name, draft?.[name] ?? ""])) as Record<TextField, string>;
+}
+
+/**
+ * What a lookup that found nothing already says about the work: a DOI, a link,
+ * or (anything else that is not an arXiv ID) its title. An arXiv ID has no
+ * field of its own, so it carries nothing over.
+ */
+function fieldsFromQuery(query: string): Partial<Record<TextField, string>> {
+  const value = query.trim();
+  const doi = /^(?:https?:\/\/(?:dx\.)?doi\.org\/|doi:\s*)?(10\.\d{4,9}\/\S+)$/i.exec(value)?.[1];
+  if (doi) return { doi };
+  if (/^https?:\/\//i.test(value)) return { url: value };
+  if (/^(?:arxiv:\s*)?(?:\d{4}\.\d{4,5}|[a-z-]+(?:\.[a-z]{2})?\/\d{7})(?:v\d+)?$/i.test(value)) return {};
+  return value ? { title: value } : {};
 }
 
 function inferType(draft?: ResolvedCitationDraft): BibEntryType {
@@ -73,6 +87,12 @@ export function BibEntryDialog(props: {
   const [extraFields, setExtraFields] = useState<Record<string, string> | undefined>(seed?.extraFields);
   const [retrievedEdited, setRetrievedEdited] = useState(false);
   const [resolveInFlight, setResolveInFlight] = useState(false);
+  // A new entry starts at the lookup; the fields appear once a record is
+  // chosen or the writer enters it by hand. Editing, a record handed over
+  // whole, or a dialog without a resolver open on the fields.
+  const [showFields, setShowFields] = useState(() => editing || !props.onResolve || Boolean(seed && !seed.candidates?.length));
+  // Set when the writer moved to the fields, so the title takes the keyboard as they appear.
+  const [focusFields, setFocusFields] = useState(false);
   const requestGeneration = useRef(0);
   const requestInFlight = useRef(false);
 
@@ -125,7 +145,9 @@ export function BibEntryDialog(props: {
 
   if (!props.open) return null;
 
-  const applyResolved = (resolved: ResolvedCitationDraft) => {
+  const applyResolved = (resolved: ResolvedCitationDraft, chosen = false) => {
+    setShowFields(true);
+    if (chosen) setFocusFields(true);
     setType(inferType(resolved));
     setFields(fieldsOf(resolved));
     setEvidence(resolved.evidence);
@@ -159,12 +181,23 @@ export function BibEntryDialog(props: {
   };
 
   // A new query abandons the lookup in flight and the candidates it offered.
-  const changeResolveQuery = (value: string) => {
+  const abandonLookup = () => {
     requestGeneration.current += 1;
     requestInFlight.current = false;
     setResolveInFlight(false);
     setCandidates([]);
+  };
+  const changeResolveQuery = (value: string) => {
+    abandonLookup();
     setResolveQuery(value);
+  };
+  // Entering by hand declines every candidate and any lookup still running;
+  // whatever the query already says about the work starts the form.
+  const enterManually = () => {
+    abandonLookup();
+    setFields((current) => ({ ...current, ...fieldsFromQuery(resolveQuery) }));
+    setShowFields(true);
+    setFocusFields(true);
   };
 
   const textField = (name: TextField, label: string, extra?: InputProps) => (
@@ -187,7 +220,7 @@ export function BibEntryDialog(props: {
   };
 
   return (
-    <SheetDialog className="bib-entry-dialog" label={heading} dirty={dirty} onClose={props.onClose}>
+    <SheetDialog className={showFields ? "bib-entry-dialog" : "bib-entry-dialog bib-entry-lookup"} label={heading} dirty={dirty} onClose={props.onClose}>
       <PanelHeader className="drawer-header" icon={<BookMarked size={16} />} title={heading} onClose={props.onClose} />
       <div className="bib-entry-form">
         {!editing && props.onResolve && (
@@ -210,6 +243,7 @@ export function BibEntryDialog(props: {
                 showIcon={false}
               />
               <Button
+                variant={showFields ? "secondary" : "primary"}
                 disabled={!resolveQuery.trim() || props.resolving || resolveInFlight || props.busy}
                 onClick={() => void resolveCitation()}
               >
@@ -218,6 +252,15 @@ export function BibEntryDialog(props: {
             </div>
           </label>
         )}
+        {!showFields && (
+          <div className="bib-entry-manual">
+            <Button variant="ghost" size="compact" onClick={enterManually}>
+              <PenLine size={13} />
+              {t`Enter manually`}
+            </Button>
+          </div>
+        )}
+        {!showFields && props.error && <p className="dialog-error bib-entry-lookup-error" role="alert">{props.error}</p>}
         {candidates.length > 0 && (
           <section className="bib-citation-records" aria-label={t`Citation candidates`}>
             <p>{t`Choose the matching record before saving`}</p>
@@ -227,7 +270,7 @@ export function BibEntryDialog(props: {
                 <p>{candidate.author || t`Authors unavailable`} · {candidate.year || t`Year unavailable`}</p>
                 <p>{candidate.journal || candidate.booktitle || candidate.publisher || t`Venue unavailable`}</p>
                 <CitationEvidence evidence={candidate.evidence} authorsPresent={Boolean(candidate.author)} />
-                <Button onClick={() => applyResolved(candidate)}>{t`Select this record`}</Button>
+                <Button onClick={() => applyResolved(candidate, true)}>{t`Select this record`}</Button>
               </article>
             ))}
           </section>
@@ -238,83 +281,92 @@ export function BibEntryDialog(props: {
             {retrievedEdited && <p>{t`This match information describes the retrieved record; you have edited its fields.`}</p>}
           </section>
         )}
-        <label>
-          {t`Type`}
-          <Select value={type} onValueChange={(value) => { setType(value as BibEntryType); markEdited(); }}>
-            <SelectTrigger aria-label={t`Entry type`}><SelectValue /></SelectTrigger>
-            <SelectContent position="popper" align="start">
-              {BIB_ENTRY_TYPES.map((value) => <SelectItem key={value} value={value}>{entryTypeLabel[value]}</SelectItem>)}
-            </SelectContent>
-          </Select>
-        </label>
-        {textField("key", t`Citation key`, { readOnly: editing, placeholder: draft.key || "author2024title" })}
-        {textField("title", t`Title`)}
-        {textField("author", t`Author`, { placeholder: t`Last, First and Last, First` })}
-        <label>
-          {t`Year`}
-          <div className="year-stepper">
-            <Input aria-label={t`Year`} value={fields.year} onChange={(event) => setField("year", event.target.value)} inputMode="numeric" />
-            <div className="year-stepper-buttons">
-              <button type="button" aria-label={t`Increment year`} onClick={() => stepYear(1)}><ChevronUp size={12} /></button>
-              <button type="button" aria-label={t`Decrement year`} onClick={() => stepYear(-1)}><ChevronDown size={12} /></button>
-            </div>
-          </div>
-        </label>
-        {type === "book" ? textField("publisher", t`Publisher`) : (
+        {showFields && <>
           <label>
-            {t`Venue`}
-            <div className="venue-combobox">
-              <SearchField
-                aria-label={t`Venue`}
-                value={venue}
-                placeholder={t`NeurIPS, CVPR, Nature, …`}
-                onChange={(event) => { setField(venueField, event.target.value); setVenueOpen(true); }}
-                onClear={() => { setField(venueField, ""); setVenueOpen(true); }}
-                onFocus={() => setVenueOpen(true)}
-                onBlur={() => setVenueOpen(false)}
-              />
-              {venueOpen && venueMatches.length > 0 && (
-                <div className={`venue-menu fluid-hover-surface ${popupMotionClassName}`} role="listbox">
-                  <FluidHoverSurface />
-                  {venueMatches.map((item) => (
-                    <button
-                      key={item.name}
-                      type="button"
-                      role="option"
-                      aria-selected={item.name === venue}
-                      onMouseDown={(event) => { event.preventDefault(); chooseVenue(item); }}
-                    >
-                      <span>{item.name}</span>
-                      <em>{item.entryType === "article" ? t`journal` : t`conference`}</em>
-                    </button>
-                  ))}
-                </div>
-              )}
+            {t`Type`}
+            <Select value={type} onValueChange={(value) => { setType(value as BibEntryType); markEdited(); }}>
+              <SelectTrigger aria-label={t`Entry type`}><SelectValue /></SelectTrigger>
+              <SelectContent position="popper" align="start">
+                {BIB_ENTRY_TYPES.map((value) => <SelectItem key={value} value={value}>{entryTypeLabel[value]}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </label>
+          {textField("key", t`Citation key`, { readOnly: editing, placeholder: draft.key || "author2024title" })}
+          {textField("title", t`Title`, { autoFocus: focusFields })}
+          {textField("author", t`Author`, { placeholder: t`Last, First and Last, First` })}
+          <label>
+            {t`Year`}
+            <div className="year-stepper">
+              <Input aria-label={t`Year`} value={fields.year} onChange={(event) => setField("year", event.target.value)} inputMode="numeric" />
+              <div className="year-stepper-buttons">
+                <button type="button" aria-label={t`Increment year`} onClick={() => stepYear(1)}><ChevronUp size={12} /></button>
+                <button type="button" aria-label={t`Decrement year`} onClick={() => stepYear(-1)}><ChevronDown size={12} /></button>
+              </div>
             </div>
           </label>
-        )}
-        {textField("doi", "DOI", { placeholder: "10.…" })}
-        {textField("url", "URL")}
-        {!editing && (
-          <CheckboxField
-            checked={insertCite}
-            label={t`Insert cite at cursor after saving`}
-            onChange={(event) => setInsertCite(event.target.checked)}
-          />
-        )}
+          {type === "book" ? textField("publisher", t`Publisher`) : (
+            <label>
+              {t`Venue`}
+              <div className="venue-combobox">
+                <SearchField
+                  aria-label={t`Venue`}
+                  value={venue}
+                  placeholder={t`NeurIPS, CVPR, Nature, …`}
+                  onChange={(event) => { setField(venueField, event.target.value); setVenueOpen(true); }}
+                  onClear={() => { setField(venueField, ""); setVenueOpen(true); }}
+                  onFocus={() => setVenueOpen(true)}
+                  onBlur={() => setVenueOpen(false)}
+                />
+                {venueOpen && venueMatches.length > 0 && (
+                  <div className={`venue-menu fluid-hover-surface ${popupMotionClassName}`} role="listbox">
+                    <FluidHoverSurface />
+                    {venueMatches.map((item) => (
+                      <button
+                        key={item.name}
+                        type="button"
+                        role="option"
+                        aria-selected={item.name === venue}
+                        onMouseDown={(event) => { event.preventDefault(); chooseVenue(item); }}
+                      >
+                        <span>{item.name}</span>
+                        <em>{item.entryType === "article" ? t`journal` : t`conference`}</em>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </label>
+          )}
+          {textField("doi", "DOI", { placeholder: "10.…" })}
+          {textField("url", "URL")}
+          {!editing && (
+            <CheckboxField
+              checked={insertCite}
+              label={t`Insert cite at cursor after saving`}
+              onChange={(event) => setInsertCite(event.target.checked)}
+            />
+          )}
+        </>}
       </div>
-      <pre className="bib-entry-preview" aria-label={t`BibTeX preview`}>{formatBibEntry(draft)}</pre>
-      {props.error && <p className="dialog-error" role="alert">{props.error}</p>}
+      {showFields && (
+        <details className="bib-entry-preview-disclosure">
+          <summary><ChevronRight size={13} aria-hidden="true" />{t`BibTeX preview`}</summary>
+          <pre className="bib-entry-preview" aria-label={t`BibTeX preview`}>{formatBibEntry(draft)}</pre>
+        </details>
+      )}
+      {showFields && props.error && <p className="dialog-error" role="alert">{props.error}</p>}
       <div className="table-generator-actions">
         <Button variant="ghost" onClick={props.onClose}>{t`Cancel`}</Button>
-        <Button
-          variant="primary"
-          disabled={props.busy || props.resolving || resolveInFlight || candidates.length > 0
-            || !fields.title.trim() || !fields.author.trim() || !fields.year.trim()}
-          onClick={() => props.onSave(draft, insertCite)}
-        >
-          {props.busy ? t`Saving…` : editing ? t`Save changes` : t`Save entry`}
-        </Button>
+        {showFields && (
+          <Button
+            variant="primary"
+            disabled={props.busy || props.resolving || resolveInFlight || candidates.length > 0
+              || !fields.title.trim() || !fields.author.trim() || !fields.year.trim()}
+            onClick={() => props.onSave(draft, insertCite)}
+          >
+            {props.busy ? t`Saving…` : editing ? t`Save changes` : t`Save entry`}
+          </Button>
+        )}
       </div>
     </SheetDialog>
   );

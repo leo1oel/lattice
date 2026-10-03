@@ -99,7 +99,8 @@ describe("BibEntryDialog citation resolution", () => {
     expect(await screen.findByText("The Paper")).toBeInTheDocument();
     expect(screen.getByText(/Source:/)).toHaveTextContent("Crossref");
     expect(screen.getByText("Authors unchecked")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Save entry" })).toBeDisabled();
+    // Nothing to save until a record is chosen.
+    expect(screen.queryByRole("button", { name: "Save entry" })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Select this record" }));
     expect(screen.getByLabelText("Title")).toHaveValue("The Paper");
     fireEvent.click(screen.getByRole("button", { name: "Save entry" }));
@@ -116,7 +117,8 @@ describe("BibEntryDialog citation resolution", () => {
     resolveQuery("old query");
     fireEvent.change(screen.getByLabelText("Citation resolve query"), { target: { value: "new query" } });
     pending.resolve(resolved({ title: "Stale result" }));
-    await waitFor(() => expect(screen.getByLabelText("Title")).toHaveValue(""));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Resolve" })).toBeEnabled());
+    expect(screen.queryByLabelText("Title")).not.toBeInTheDocument();
     expect(screen.queryByDisplayValue("Stale result")).not.toBeInTheDocument();
   });
 
@@ -128,11 +130,82 @@ describe("BibEntryDialog citation resolution", () => {
     resolveQuery("paper");
     fireEvent.click(button);
     expect(onResolve).toHaveBeenCalledTimes(1);
-    expect(screen.getByRole("button", { name: "Save entry" })).toBeDisabled();
+    expect(screen.queryByRole("button", { name: "Save entry" })).not.toBeInTheDocument();
     pending.resolve(resolved({ evidence: { source: "crossref", author_match: "matched" } }));
     await screen.findByText("Compatible author names");
     fireEvent.change(screen.getByLabelText("Title"), { target: { value: "Edited title" } });
     expect(screen.getByText(/you have edited its fields/)).toBeInTheDocument();
     expect(onResolve).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("BibEntryDialog entry paths", () => {
+  it("leads a new entry with the lookup and keeps the fields one step away", () => {
+    renderDialog({ onResolve: vi.fn() });
+    expect(screen.getByLabelText("Citation resolve query")).toHaveFocus();
+    expect(screen.queryByLabelText("Title")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Save entry" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Enter manually" }));
+    expect(screen.getByLabelText("Title")).toHaveFocus();
+    expect(screen.getByRole("button", { name: "Save entry" })).toBeDisabled();
+  });
+
+  it("carries what the lookup query says into the manual form", () => {
+    for (const [query, field, value] of [
+      ["https://doi.org/10.1038/nphys1170", "DOI", "10.1038/nphys1170"],
+      ["https://example.test/paper", "URL", "https://example.test/paper"],
+      ["A Paper Worth Citing", "Title", "A Paper Worth Citing"],
+      ["arXiv:1706.03762", "Title", ""],
+    ] as const) {
+      renderDialog({ onResolve: vi.fn() });
+      fireEvent.change(screen.getByLabelText("Citation resolve query"), { target: { value: query } });
+      fireEvent.click(screen.getByRole("button", { name: "Enter manually" }));
+      expect(screen.getByLabelText(field)).toHaveValue(value);
+      cleanup();
+    }
+  });
+
+  it("enters manually past ambiguous candidates without saving any of them", () => {
+    const onSave = renderDialog({
+      onResolve: vi.fn(),
+      initialDraft: resolved({ key: "", title: "", author: "", year: "", journal: "", doi: "", url: "", candidates: [resolved(), resolved({ year: "1999" })] }),
+    });
+    expect(screen.getAllByRole("button", { name: "Select this record" })).toHaveLength(2);
+    fireEvent.click(screen.getByRole("button", { name: "Enter manually" }));
+    expect(screen.queryByRole("button", { name: "Select this record" })).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Title")).toHaveValue("");
+    const save = screen.getByRole("button", { name: "Save entry" });
+    expect(save).toBeDisabled();
+    fireEvent.change(screen.getByLabelText("Title"), { target: { value: "Own Title" } });
+    fireEvent.change(screen.getByLabelText("Author"), { target: { value: "Doe, Jane" } });
+    fireEvent.change(screen.getByLabelText("Year"), { target: { value: "2025" } });
+    fireEvent.click(save);
+    expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ title: "Own Title", doi: undefined }), true);
+  });
+
+  it("drops a lookup still running once the writer enters the entry by hand", async () => {
+    const pending = deferred<ResolvedCitationDraft | null>();
+    renderDialog({ onResolve: vi.fn(() => pending.promise) });
+    resolveQuery("10.1/late");
+    fireEvent.click(screen.getByRole("button", { name: "Enter manually" }));
+    fireEvent.change(screen.getByLabelText("Title"), { target: { value: "Typed by hand" } });
+    pending.resolve(resolved({ title: "Late record" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Resolve" })).toBeEnabled());
+    expect(screen.getByLabelText("Title")).toHaveValue("Typed by hand");
+  });
+
+  it("shows a failed lookup beside the lookup, with the manual path still there", () => {
+    renderDialog({ onResolve: vi.fn(), error: "bibcite could not resolve that query." });
+    expect(screen.getByRole("alert")).toHaveTextContent("could not resolve");
+    expect(screen.getByRole("button", { name: "Enter manually" })).toBeInTheDocument();
+  });
+
+  it("keeps the BibTeX preview behind a disclosure that still reads the draft", () => {
+    renderDialog({ mode: "edit", initialDraft: resolved() });
+    const preview = screen.getByLabelText("BibTeX preview", { selector: "pre" });
+    expect(preview.closest("details")).not.toHaveAttribute("open");
+    expect(preview).toHaveTextContent("title = {The Paper}");
+    fireEvent.click(screen.getByText("BibTeX preview", { selector: "summary" }));
+    expect(preview.closest("details")).toHaveAttribute("open");
   });
 });

@@ -385,6 +385,9 @@ body.resizing-panels .resizable-drawer { transition: none; }
   min-width: 0;
   padding: 0 var(--space-4);
 }
+/* A long file name shortens instead of widening the empty state. */
+.editor-comments-return { max-width: 100%; }
+.editor-comments-return span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .source-editor .cm-selectionLayer .cm-selectionBackground,
 .source-editor .cm-selectionBackground {
   background: var(--editor-selection-surface) !important;

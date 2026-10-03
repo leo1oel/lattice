@@ -27,4 +27,38 @@ describe("EditorCommentsPanel", () => {
     expect(screen.queryByPlaceholderText("Update comment…")).toBeNull();
     expect(onUpdateBody).not.toHaveBeenCalled();
   });
+
+  it("offers the way back to the writing file from an empty list, and a file picker with none open", () => {
+    const onReturnToEditor = vi.fn();
+    const panel = (writingFile: string | null) => (
+      <EditorCommentsPanel
+        embedded comments={[]} activePath={writingFile} writingFile={writingFile} onReturnToEditor={onReturnToEditor}
+        currentAuthorId="ada" onClose={vi.fn()} onOpen={vi.fn()} onDelete={vi.fn()} onToggleResolved={vi.fn()}
+        onUpdateBody={vi.fn()} onReply={vi.fn()}
+      />
+    );
+    const { rerender } = render(panel("chapters/intro.tex"));
+    expect(screen.getByText("No comments yet. Select text in the editor and click Comment")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Return to intro.tex" }));
+    expect(onReturnToEditor).toHaveBeenCalledTimes(1);
+    rerender(panel(null));
+    expect(screen.getByText("No comments yet. Open a file, select text and click Comment")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Open a file" }));
+    expect(onReturnToEditor).toHaveBeenCalledTimes(2);
+  });
+
+  it("keeps the way back out of a list that has comments", () => {
+    const comment = createEditorComment({
+      path: "main.tex", source: "Hello bold world", from: 6, to: 10, body: "Tighten this", authorId: "ada", authorName: "Ada",
+    })!;
+    render(
+      <EditorCommentsPanel
+        embedded comments={[{ ...comment, resolved: true }]} activePath="main.tex" writingFile="main.tex" onReturnToEditor={vi.fn()}
+        currentAuthorId="ada" onClose={vi.fn()} onOpen={vi.fn()} onDelete={vi.fn()} onToggleResolved={vi.fn()}
+        onUpdateBody={vi.fn()} onReply={vi.fn()}
+      />,
+    );
+    expect(screen.getByText("No open comments")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Return to/ })).not.toBeInTheDocument();
+  });
 });

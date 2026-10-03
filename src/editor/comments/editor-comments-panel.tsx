@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useLingui } from "@lingui/react/macro";
-import { Check, MessageSquareText, Reply, RotateCcw } from "lucide-react";
+import { Check, CornerDownLeft, FileSearch, MessageSquareText, Reply, RotateCcw } from "lucide-react";
+import { Button } from "../../components/ui/button";
 import { EmptyState } from "../../components/ui/empty-state";
 import { EmptyIllustration } from "../../components/ui/empty-illustration";
 import { DestructiveButton } from "../../components/ui/destructive-button";
@@ -16,6 +17,10 @@ export function EditorCommentsPanel(props: {
   embedded?: boolean;
   comments: EditorComment[];
   activePath: string | null;
+  /** The file the writer comments in, or null with none open. */
+  writingFile?: string | null;
+  /** Back to `writingFile`'s editor, caret where it was; with no file, a file picker. */
+  onReturnToEditor?: () => void;
   currentAuthorId: string;
   focusCommentId?: string | null;
   onClose: () => void;
@@ -59,6 +64,7 @@ export function EditorCommentsPanel(props: {
       .sort((a, b) => isActive(b) - isActive(a) || b.updatedAt.localeCompare(a.updatedAt));
   }, [anonymousAuthor, filter, props.activePath, props.comments, showResolved]);
   const hasComments = props.comments.length > 0;
+  const writingName = props.writingFile ? props.writingFile.split("/").at(-1) || props.writingFile : null;
   const closeReply = () => {
     setReplyingId(null);
     setReplyDraft("");
@@ -95,8 +101,16 @@ export function EditorCommentsPanel(props: {
             density={hasComments ? "compact" : "default"}
             icon={<EmptyIllustration kind={hasComments && filter.trim() ? "search" : "comments"} size={hasComments ? "compact" : "default"} />}
             description={!hasComments
-              ? t`No comments yet. Select text in the editor and click Comment`
+              ? props.onReturnToEditor && !props.writingFile
+                ? t`No comments yet. Open a file, select text and click Comment`
+                : t`No comments yet. Select text in the editor and click Comment`
               : filter.trim() ? t`No matches` : t`No open comments`}
+            actions={!hasComments && props.onReturnToEditor && (
+              <Button size="compact" className="editor-comments-return" onClick={props.onReturnToEditor}>
+                {writingName ? <CornerDownLeft size={13} /> : <FileSearch size={13} />}
+                <span>{writingName ? t`Return to ${writingName}` : t`Open a file`}</span>
+              </Button>
+            )}
           />
         )}
         {visible.map((comment) => {
