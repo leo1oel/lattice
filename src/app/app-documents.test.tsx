@@ -191,6 +191,30 @@ describe("documents and editors", () => {
     expect(screen.getByRole("searchbox", { name: "Go to symbol" })).toHaveValue("moti");
   });
 
+  it.each(["metaKey", "ctrlKey"] as const)("runs each ⌘/Ctrl+O shortcut once (%s)", async (modifier) => {
+    // Regression: a second window listener matched O whatever the Shift key,
+    // so Go to symbol (⌘⇧O) also opened the project picker.
+    const { open } = await import("@tauri-apps/plugin-dialog");
+    renderApp(projectCommands(projectSnapshot({ files: fileNodes("main.tex") })));
+    await waitForSelectedTab("main.tex");
+    fireEvent.keyDown(window, { key: "O", [modifier]: true, shiftKey: true });
+    expect(await screen.findByRole("dialog", { name: "Go to symbol" })).toBeInTheDocument();
+    expect(screen.getAllByRole("dialog")).toHaveLength(1);
+    expect(open).not.toHaveBeenCalled();
+
+    fireEvent.keyDown(window, { key: "o", [modifier]: true });
+    await waitFor(() => expect(open).toHaveBeenCalledTimes(1));
+    expect(open).toHaveBeenCalledWith(expect.objectContaining({ directory: true }));
+
+    // A key the focused surface already handled, or one an IME is composing, is not the app's.
+    const handled = new KeyboardEvent("keydown", { key: "o", [modifier]: true, cancelable: true });
+    handled.preventDefault();
+    window.dispatchEvent(handled);
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "o", [modifier]: true, isComposing: true }));
+    await pause(0);
+    expect(open).toHaveBeenCalledTimes(1);
+  });
+
   it("restores tab order and the editor while migrating the old three-column layout", async () => {
     const snapshot = projectSnapshot({ files: fileNodes("main.tex", "intro.tex", "method.tex") });
     persistLayout(snapshot.root, {

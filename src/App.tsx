@@ -671,27 +671,6 @@ function App() {
 
   useTrafficLightAlignment(shellRef, !browserHosted && !isFullscreen, appearance.interfaceScale, project?.manifest.name);
 
-  useEffect(() => {
-    const handleKey = (event: KeyboardEvent) => {
-      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "s") {
-        event.preventDefault();
-        void save().then((saved) => {
-          if (!saved) return;
-          void flushDeferredWholeFileSync();
-          if (activePaper) return;
-          // An explicit build brings a closed or hidden PDF panel back (Trellis layout).
-          trellis.showPanel("pdf", { focus: false });
-          void compile();
-        });
-      } else if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "o") {
-        event.preventDefault();
-        void chooseExisting();
-      }
-    };
-    window.addEventListener("keydown", handleKey);
-    return () => window.removeEventListener("keydown", handleKey);
-  }, [activePaper, chooseExisting, compile, flushDeferredWholeFileSync, save, trellis]);
-
   const referenceImport = useReferenceImport({
     project, projectRootRef, refreshProject, refreshHistory, onExternalEdits: externalOverleafEditsRef,
     editor: {
@@ -1190,6 +1169,12 @@ function App() {
   /** Every app-level action: the palette entries and the global shortcuts (see AppCommand). */
   const commands: AppCommand[] = [
     { id: "build", label: t`Build project`, detail: "⌘S", group: t`Build`, run: () => void compileAndShowPdf(false, true) },
+    // ⌘S saves, then builds what it saved; on a Paper there is nothing to build.
+    { id: "save", key: "s", run: () => void save().then((saved) => {
+      if (!saved) return;
+      void flushDeferredWholeFileSync();
+      if (!activePaper) void compileAndShowPdf();
+    }) },
     { id: "rebuild", label: t`Clean rebuild`, detail: t`latexmk -c then -g`, group: t`Build`, run: () => void cleanAndRebuild() },
     { id: "clean", label: t`Clean aux files`, group: t`Build`, run: () => void cleanProject() },
     { id: "stop-build", label: t`Stop build`, group: t`Build`, run: () => void abortBuild() },
@@ -1237,6 +1222,7 @@ function App() {
         ? { label: t`Open in Lattice app` }
         : { label: t`Open in browser`, detail: "http://127.0.0.1:18452" }),
     },
+    { id: "open-folder", label: t`Open another folder`, detail: "⌘O", group: t`Project`, key: "o", run: () => void chooseExisting() },
     { id: "settings", label: t`Open settings`, detail: "⌘,", group: t`Project`, key: ",", run: () => openSettings() },
   ];
   const runCommand = useAppCommands(commands, cycleDiagnostic);
