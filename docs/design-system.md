@@ -281,7 +281,9 @@ Motion follows three rules:
 
 Reduced motion is owned by `src/styles/adaptive-feedback.css`. Its universal
 clamp finishes every one-shot animation at once, so a moment's resting style
-must be its finished frame. An ambient loop also needs an `animation: none`
+must be its finished frame. The clamp shortens durations, not delays, so a
+staggered moment needs an `animation-delay: 0s` entry there, as the Build
+button's warning pip has. An ambient loop also needs an `animation: none`
 entry there, and its resting style must be invisible or still.
 
 ## Migration rule
