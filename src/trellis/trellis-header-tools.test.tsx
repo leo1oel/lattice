@@ -1,6 +1,8 @@
 import { readFileSync } from "node:fs";
 import { act, cleanup, fireEvent, render } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { BUILD_BUTTON } from "../../scripts/perf-bench/selectors.mjs";
+import { activateAppLocale } from "../i18n";
 import { TrellisController, documentTools, type TrellisDocToolsState, type TrellisTabKind } from "./trellis-controller";
 import { FileHeaderTools } from "./trellis-header-tools";
 
@@ -224,5 +226,25 @@ describe("the Build button's report of the last build", () => {
     act(() => controller.app.set({ activeKey: tex.key }));
     expect(container.querySelector(".trellis-tools-reserve")).toBeNull();
     expect(shown(container)).toEqual({ state: "is-succeeded", label: "12.0s", busy: null });
+  });
+});
+
+// The benchmark and `pnpm perf:bench --smoke` wait for, and click, the Build
+// button by this selector, on pages served with `lang=en|zh-CN|system`. Its
+// accessible name is translated (构建), so a selector on it failed a healthy
+// app in Chinese after a two-minute wait.
+describe("the bench's Build button selector", () => {
+  afterEach(() => activateAppLocale("en"));
+
+  it.each(["en", "zh-CN"] as const)("finds the live button in %s and never its inert reserve", async (locale) => {
+    await activateAppLocale(locale);
+    const tex = DOCUMENTS[0];
+    const { container, controller } = renderTools(tex, { active: false }, {});
+    expect(container.querySelector(".trellis-tools-reserve .trellis-build-button")).not.toBeNull();
+    expect(container.querySelector(BUILD_BUTTON)).toBeNull();
+    act(() => controller.app.set({ activeKey: tex.key }));
+    const button = container.querySelector(BUILD_BUTTON);
+    expect(button).toHaveAccessibleName(locale === "en" ? "Build" : "构建");
+    expect(button?.closest("[inert]")).toBeNull();
   });
 });

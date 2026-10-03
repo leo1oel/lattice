@@ -75,6 +75,8 @@ import { CdpPage, launchChrome } from "./perf-bench/cdp.mjs";
 import { launchWebKit } from "./perf-bench/webkit.mjs";
 import { LAYOUT_CHECKS } from "./perf-bench/layout-checks.mjs";
 import { BenchDriver, SCENARIOS } from "./perf-bench/scenarios.mjs";
+import { APP_READY } from "./perf-bench/selectors.mjs";
+import { exitOnSignals, once, onShutdown, shuttingDown, withoutSigtermExit } from "./perf-bench/shutdown.mjs";
 
 const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const BUDGETS = {
@@ -151,8 +153,8 @@ function freePort() {
  * Build output directories this process made. Each run builds into its own,
  * so two runs on one machine (parallel agents, CI lanes) never serve or
  * measure each other's build. Closing the server removes its directory; the
- * exit hook catches the paths that skip that (a thrown error, --keep-open,
- * Ctrl-C), since a production build is tens of megabytes.
+ * exit hook catches the paths that skip that (a thrown error, --keep-open),
+ * since a production build is tens of megabytes.
  */
 const buildDirs = new Set();
 function removeBuildDir(dir) {
@@ -186,12 +188,18 @@ async function step(label, work) {
   }
 }
 
-// A signal's default action skips the exit hook; exiting runs it.
-for (const signal of ["SIGINT", "SIGTERM", "SIGHUP"]) {
-  process.once(signal, () => {
-    if (currentStep) console.error(`perf-bench: ${signal} while ${currentStep}`);
-    process.exit(128 + os.constants.signals[signal]);
+// A signal closes the servers and browsers first (each registers with
+// onShutdown), then exits with its status.
+exitOnSignals({ describe: (signal) => currentStep && `perf-bench: ${signal} while ${currentStep}` });
+
+/** A server whose close() runs once, whether its owner or a signal calls it first. */
+function closedOnShutdown(close) {
+  const closeOnce = once(async () => {
+    unregister();
+    await close();
   });
+  const unregister = onShutdown(closeOnce);
+  return { close: closeOnce };
 }
 
 function startPage(options, settings) {
@@ -227,14 +235,12 @@ async function startVite(production, { port = 0, live = false } = {}) {
           },
         },
       });
-      const server = await preview({ ...shared, build: { outDir }, preview: { port, strictPort: true, host: "127.0.0.1" } });
+      const server = await withoutSigtermExit(() => preview({ ...shared, build: { outDir }, preview: { port, strictPort: true, host: "127.0.0.1" } }));
       return {
-        server: {
-          async close() {
-            await server.close();
-            removeBuildDir(outDir);
-          },
-        },
+        server: closedOnShutdown(async () => {
+          await server.close();
+          removeBuildDir(outDir);
+        }),
         origin: `http://127.0.0.1:${port}`,
         outDir,
       };
@@ -243,12 +249,12 @@ async function startVite(production, { port = 0, live = false } = {}) {
       throw error;
     }
   }
-  const server = await createServer({
+  const server = await withoutSigtermExit(() => createServer({
     ...shared,
     server: { port, strictPort: true, host: "127.0.0.1", ...(live ? {} : { hmr: false, watch: null }) },
-  });
+  }));
   await server.listen();
-  return { server, origin: `http://127.0.0.1:${port}`, outDir: null };
+  return { server: closedOnShutdown(() => server.close()), origin: `http://127.0.0.1:${port}`, outDir: null };
 }
 
 function benchUrl(origin, extra = {}) {
@@ -259,8 +265,9 @@ function benchUrl(origin, extra = {}) {
 /**
  * `--serve`: the benchmark's page without the benchmark, for driving the real
  * app (over the mock backend) from a browser of one's own. Stays up until a
- * signal, whose exit hook removes the build. The URL is printed only once the
- * page answers (and, with --smoke, once the app mounted in it).
+ * signal, which closes the server and browser and removes the build and the
+ * browser's profile. The URL is printed only once the page answers (and,
+ * with --smoke, once the app mounted in it).
  */
 async function serve(options) {
   const vite = await startPage(options, { port: options.port, live: options.dev });
@@ -297,8 +304,6 @@ async function assertAnswers(url) {
   if (!response.ok) throw new Error(`${url} answered ${response.status} ${response.statusText}`);
 }
 
-/** The fixture's root document open in the editor, with the toolbar up. */
-const APP_READY = `document.querySelector(".cm-editor .cm-content") && document.querySelector('button[aria-label="Build"]')`;
 const APP_READY_TIMEOUT = 120_000;
 
 /** Loads the page and waits for the root document in the editor with its first build settled. */
@@ -360,7 +365,7 @@ async function smokeCheck(chrome, url) {
   let blocked = false;
   const mounted = await step("waiting for the app to open the fixture project", async () => {
     while (!unreachable && Date.now() - started < APP_READY_TIMEOUT) {
-      const ready = await bounded(page.evaluate(`Boolean(${APP_READY})`).catch(() => false), APP_READY_TIMEOUT - (Date.now() - started));
+      const ready = await bounded(page.evaluate(APP_READY).catch(() => false), APP_READY_TIMEOUT - (Date.now() - started));
       if (ready === BLOCKED) {
         blocked = true;
         return false;
@@ -638,6 +643,9 @@ async function main() {
 }
 
 await main().catch((error) => {
+  // A signal tore the page or server out from under the run; its own exit
+  // (with the signal's status) follows once the cleanup is done.
+  if (shuttingDown()) return;
   console.error(`perf-bench: ${error.message}`);
   console.error(error.cause?.stack ?? error.stack);
   process.exit(1);
