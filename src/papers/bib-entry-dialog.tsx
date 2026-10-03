@@ -168,8 +168,6 @@ export function BibEntryDialog(props: {
       if (generation !== requestGeneration.current) return;
       if (resolved?.candidates?.length) {
         setCandidates(resolved.candidates);
-        setEvidence(undefined);
-        setExtraFields(undefined);
       } else if (resolved) {
         applyResolved(resolved);
       }

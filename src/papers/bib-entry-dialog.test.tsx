@@ -195,6 +195,21 @@ describe("BibEntryDialog entry paths", () => {
     expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ title: "Own Title", author: "Doe, Jane", year: "2025" }), true);
   });
 
+  it("keeps a retrieved record whole when its fields are kept over later candidates", async () => {
+    const onResolve = vi.fn()
+      .mockResolvedValueOnce(resolved({ evidence: { source: "crossref", author_match: "matched" }, extraFields: { pages: "1--10" } }))
+      .mockResolvedValueOnce(resolved({ candidates: [resolved({ title: "Other" }), resolved({ year: "1999" })] }));
+    const onSave = renderDialog({ onResolve });
+    resolveQuery("10.1/test");
+    await screen.findByText("Compatible author names");
+    resolveQuery("ambiguous title");
+    await screen.findAllByRole("button", { name: "Select this record" });
+    fireEvent.click(screen.getByRole("button", { name: "Keep my fields" }));
+    expect(screen.getByText("Compatible author names")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Save entry" }));
+    expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ title: "The Paper", extraFields: { pages: "1--10" } }), true);
+  });
+
   it("enters manually past ambiguous candidates without saving any of them", () => {
     const onSave = renderDialog({
       onResolve: vi.fn(),
