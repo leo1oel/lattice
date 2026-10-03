@@ -16,7 +16,7 @@ type BrowserMessage =
   | { type: "response"; id: number; ok: true; value: BridgeValue }
   | { type: "response"; id: number; ok: false; error: BridgeValue }
   | { type: "callback"; id: number; payload: BridgeValue }
-  | { type: "yield" | "desktop-suspended" | "desktop-resumed" | "desktop-returned" }
+  | { type: "yield" | "handoff-refused" | "desktop-suspended" | "desktop-resumed" | "desktop-returned" }
   | { type: "browser-replaced" | "host-disconnected" }
   | { type: "error"; message: string };
 
@@ -24,8 +24,6 @@ type BrowserPeerRole = "browser" | "desktop";
 
 /** Set while the Chromium window shows its standby screen, across that page's reload. */
 const DESKTOP_STANDBY_KEY = "lattice.desktop-browser-standby";
-/** The server switches anyway this long after asking; keep the save inside it. */
-const YIELD_SAVE_LIMIT_MS = 4_000;
 
 interface BrowserInternals {
   invoke: (command: string, args?: unknown, options?: unknown) => Promise<unknown>;
@@ -62,15 +60,17 @@ let browserRuntime = false;
 let runtimeReady: Promise<void> = Promise.resolve();
 let runtimeDetached = false;
 const detachListeners = new Set<() => void>();
-let yieldHandler: (() => Promise<unknown>) | null = null;
+let yieldHandler: (() => Promise<boolean>) | null = null;
 let browserSession: BrowserRuntimeConfig | null = null;
 
 /**
  * What this page does when another surface (the default browser, or the
  * Lattice window) is about to take its workspace: save every edit. The bridge
- * hands the workspace over only after this settles, or after a timeout.
+ * hands the workspace over only when this resolves true; false, a rejection
+ * or a save that outlasts the server's wait keeps it, and its editable
+ * buffer, on this page.
  */
-export function setWorkspaceYieldHandler(handler: (() => Promise<unknown>) | null): void {
+export function setWorkspaceYieldHandler(handler: (() => Promise<boolean>) | null): void {
   yieldHandler = handler;
 }
 
@@ -146,7 +146,7 @@ export class BrowserRelay {
       }
     });
     window.setTimeout(() => {
-      if (!this.ready && !this.standby) this.fail(new Error(runtimeMessage("handoff-timeout")));
+      if (!this.ready && !this.standby && !this.terminal) this.fail(new Error(runtimeMessage("handoff-timeout")));
     }, 20_000);
   }
 
@@ -174,23 +174,26 @@ export class BrowserRelay {
   }
 
   /** A bridge control message the server handles itself; it is never relayed. */
-  private sendControl(type: "yielded" | "reclaim"): void {
+  private sendControl(type: "yielded" | "yield-failed" | "reclaim"): void {
     if (this.socket.readyState === WebSocket.OPEN) this.socket.send(JSON.stringify({ type }));
   }
 
-  /** Save, then let the waiting surface take over. */
+  /**
+   * Save, then let the waiting surface take over, or keep the workspace when
+   * any edit is still unsaved. There is no deadline here: a slow save keeps
+   * the workspace until it finishes, and the server, which gives up on the
+   * handoff instead of switching while this page is connected, ignores an
+   * answer that comes too late.
+   */
   private async yieldWorkspace(): Promise<void> {
+    let saved = false;
     try {
-      await Promise.race([
-        yieldHandler?.(),
-        new Promise((resolve) => window.setTimeout(resolve, YIELD_SAVE_LIMIT_MS)),
-      ]);
+      saved = yieldHandler ? await yieldHandler() : true;
     } catch {
-      // A failed save is reported where it happened; the switch goes ahead
-      // either way, as the server would after its timeout.
+      // A failed save is reported where it happened.
     }
     this.syncStorage();
-    this.sendControl("yielded");
+    this.sendControl(saved ? "yielded" : "yield-failed");
   }
 
   private receive(event: MessageEvent): void {
@@ -232,19 +235,24 @@ export class BrowserRelay {
       case "yield":
         void this.yieldWorkspace();
         break;
-      case "desktop-suspended":
-        // A browser tab holds the workspace: this window waits behind a
-        // standby screen, hidden, until the tab gives it back or closes.
-        this.standby = true;
-        detachRuntime();
-        this.rejectPending(new Error(runtimeMessage("standby")));
-        this.showStandby();
-        if (sessionStorage.getItem(DESKTOP_STANDBY_KEY) !== "1") {
-          sessionStorage.setItem(DESKTOP_STANDBY_KEY, "1");
-          // Reload once so nothing of the workspace keeps running behind the
-          // standby screen. If the reload is refused, the screen stays.
-          this.reloadToRecover();
+      case "handoff-refused":
+        // The surface holding the workspace could not save every edit, so it
+        // kept the workspace. The Lattice window waits on its standby screen,
+        // whose button asks again; a tab offers to try again by reloading.
+        if (this.role === "desktop") {
+          this.suspend(runtimeMessage("refused-by-browser"));
+        } else {
+          this.terminal = true;
+          showRuntimeStatus({
+            title: runtimeMessage("refused-by-desktop"),
+            message: runtimeMessage("refused-by-desktop-detail"),
+            action: { label: runtimeMessage("try-again"), run: () => this.reloadPage() },
+          });
+          this.socket.close();
         }
+        break;
+      case "desktop-suspended":
+        this.suspend();
         break;
       case "desktop-resumed":
         sessionStorage.removeItem(DESKTOP_STANDBY_KEY);
@@ -272,16 +280,29 @@ export class BrowserRelay {
     }
   }
 
-  private showStandby(): void {
+  /**
+   * A browser tab holds the workspace: this window waits behind a standby
+   * screen, hidden, until the tab gives it back or closes.
+   */
+  private suspend(detail = runtimeMessage("standby-detail")): void {
+    this.standby = true;
+    detachRuntime();
+    this.rejectPending(new Error(runtimeMessage("standby")));
     showRuntimeStatus({
       title: runtimeMessage("standby"),
-      message: runtimeMessage("standby-detail"),
+      message: detail,
       action: {
         label: runtimeMessage("standby-action"),
         busyLabel: runtimeMessage("standby-busy"),
         run: () => this.sendControl("reclaim"),
       },
     });
+    if (sessionStorage.getItem(DESKTOP_STANDBY_KEY) !== "1") {
+      sessionStorage.setItem(DESKTOP_STANDBY_KEY, "1");
+      // Reload once so nothing of the workspace keeps running behind the
+      // standby screen. If the reload is refused, the screen stays.
+      this.reloadToRecover();
+    }
   }
 
   private disconnect(reason: Error): void {
@@ -386,6 +407,10 @@ const RUNTIME_MESSAGES = {
     "The local Lattice entry returned {status}.",
     "本地 Lattice 入口返回了 {status}。",
   ],
+  "entry-expired": [
+    "This Lattice link has expired or was already used. Open the workspace in your browser again from the Lattice app.",
+    "此 Lattice 链接已过期或已被使用。请从 Lattice 应用中再次在浏览器中打开工作区。",
+  ],
   "entry-invalid-session": [
     "The local Lattice entry returned an invalid session.",
     "本地 Lattice 入口返回了无效的会话。",
@@ -411,6 +436,19 @@ const RUNTIME_MESSAGES = {
     "关闭标签页即可回到这里。",
   ],
   "standby-action": ["Use here", "在这里使用"],
+  "refused-by-browser": [
+    "The browser tab could not save every edit, so it kept the workspace. Save there, then try again.",
+    "浏览器标签页未能保存全部编辑，因此保留了此工作区。请先在那里保存，然后重试。",
+  ],
+  "refused-by-desktop": [
+    "The Lattice window kept this workspace",
+    "Lattice 窗口保留了此工作区",
+  ],
+  "refused-by-desktop-detail": [
+    "It could not save every edit. Save there, then try again.",
+    "它未能保存全部编辑。请先在那里保存，然后重试。",
+  ],
+  "try-again": ["Try again", "重试"],
   "standby-busy": ["Switching…", "正在切换…"],
   "desktop-returned": [
     "Back in the Lattice app. You can close this tab.",
@@ -746,6 +784,9 @@ async function requestBrowserSession(
   if (entry) endpoint.searchParams.set("entry", entry);
   endpoint.searchParams.set("role", isChromiumPeer() ? "desktop" : "browser");
   const response = await fetch(endpoint, { cache: "no-store", mode: "cors" });
+  // 410: the explicit entry was used, expired or never issued. It selects no
+  // workspace rather than another one.
+  if (response.status === 410) throw new Error(runtimeMessage("entry-expired"));
   if (!response.ok) {
     throw new Error(runtimeMessage("entry-status", { status: String(response.status) }));
   }
@@ -781,9 +822,12 @@ async function initializeBrowserRuntime(): Promise<void> {
     runtimeError = runtimeMessage("open-from-app");
     return;
   }
+  // An explicit entry is the only selector: the session this tab stored for
+  // another workspace must not override it. Both are kept until the
+  // exchange succeeds, so a stale entry leaves the tab's session intact.
   const config = await requestBrowserSession(
     stored?.bridgePort ?? Number(entryPort),
-    stored?.token,
+    entry ? undefined : stored?.token,
     entry,
   );
   if (developmentEntry || entry) {

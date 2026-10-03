@@ -20,7 +20,7 @@ mod takeover;
 
 use super::AppState;
 use serde::Serialize;
-use session::{BrowserSession, BrowserSessionConfig, Effect, ReturnPlan, Sessions};
+use session::{BrowserSession, BrowserSessionConfig, Effect, HandoffTimeout, ReturnPlan, Sessions};
 use std::{
     collections::HashMap,
     io,
@@ -33,8 +33,11 @@ use tauri::{Manager, WebviewUrl};
 use tauri_plugin_opener::OpenerExt;
 
 const PREFERRED_PORT: u16 = 18452;
-/// How long a handoff waits for the surface giving up the workspace to save.
-const HANDOFF_TIMEOUT: Duration = Duration::from_secs(5);
+/// How long a handoff waits for the surface giving up the workspace to save
+/// before giving up on the handoff. That save may wait up to 15 seconds for
+/// deferred Overleaf whole-file syncs, and a waiting tab gives up on its own
+/// after 20 (`handoff-timeout` in browser-runtime.ts).
+const HANDOFF_TIMEOUT: Duration = Duration::from_secs(17);
 const SERVER_UNAVAILABLE: &str = "Browser server state is unavailable.";
 pub(crate) const SERVICE_WINDOW_LABEL: &str = "browser-service";
 
@@ -304,9 +307,11 @@ impl BrowserHost {
         let Some(server) = self.server()? else {
             return Ok(false);
         };
-        let config = server.sessions.lock().ok().and_then(|mut sessions| {
-            session::reusable_entry_config(&mut sessions, server.port, None, None)
-        });
+        let config = server
+            .sessions
+            .lock()
+            .ok()
+            .and_then(|sessions| session::reusable_entry_config(&sessions, server.port, None));
         let Some(config) = config else {
             return Ok(false);
         };
@@ -512,12 +517,15 @@ fn apply_effect(app: &tauri::AppHandle, sessions: &Sessions, token: &str, effect
             let (app, sessions, token) = (app.clone(), Arc::clone(sessions), token.to_string());
             tauri::async_runtime::spawn(async move {
                 tokio::time::sleep(HANDOFF_TIMEOUT).await;
-                if let Some(effect) = session::finish_handoff(&sessions, &token, id) {
-                    log::warn!(
+                match session::finish_handoff(&sessions, &token, id) {
+                    None => {}
+                    Some(HandoffTimeout::Kept) => log::warn!(
                         target: "lattice::browser",
-                        "the workspace did not confirm its save in time; switching anyway"
-                    );
-                    apply_effect(&app, &sessions, &token, effect);
+                        "the workspace did not confirm its save in time; it stays where it is"
+                    ),
+                    Some(HandoffTimeout::Switched(effect)) => {
+                        apply_effect(&app, &sessions, &token, effect);
+                    }
                 }
             });
         }

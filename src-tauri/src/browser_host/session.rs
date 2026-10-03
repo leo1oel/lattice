@@ -7,9 +7,13 @@
 //! window hidden behind a standby page) or waiting to take over.
 //!
 //! Ownership moves by a handoff: the owner is asked to `yield`, saves, and
-//! answers `yielded` (or a timeout passes); only then does the other surface
-//! take over. Two surfaces therefore never edit the project at once, and an
-//! edit typed just before the switch is saved rather than dropped.
+//! answers `yielded`; only then does the other surface take over. Two
+//! surfaces therefore never edit the project at once, and an edit typed just
+//! before the switch is saved rather than dropped. An owner that cannot save
+//! answers `yield-failed`, or stays silent past the timeout, and keeps the
+//! workspace with its unsaved buffer: the waiting surface is told
+//! `handoff-refused` and can ask again. Only an owner that is gone, whose
+//! edits no surface can save any more, loses the workspace without a yes.
 //! `visible_epoch` counts ownership generations so a delayed grace timer can
 //! tell whether anything reconnected in the meantime.
 //!
@@ -150,6 +154,14 @@ impl BrowserSession {
         id
     }
 
+    /// Give up the pending handoff: the owner keeps the workspace, and the
+    /// surface that waited for it is told so it can ask again.
+    fn refuse_handoff(&mut self) {
+        if let Some(handoff) = self.handoff.take() {
+            notify(self.peer(handoff.to), "handoff-refused");
+        }
+    }
+
     /// Hand the workspace to the surface handoff `id` is for, if it is still
     /// pending and that surface is still connected.
     fn complete_handoff(&mut self, id: u64) -> Option<Effect> {
@@ -278,8 +290,8 @@ impl BridgeRole {
 /// What the caller must do after a session change.
 #[derive(Debug, PartialEq, Eq)]
 pub(super) enum Effect {
-    /// The owner was asked to yield: finish handoff `id` after a timeout even
-    /// if it never answers.
+    /// The owner was asked to yield: settle handoff `id` after a timeout if
+    /// it never answers (see [`finish_handoff`]).
     HandoffStarted(u64),
     /// A browser tab took over: hide the Chromium window.
     Parked,
@@ -346,26 +358,47 @@ pub(super) fn holds_native_handoff(sessions: &HashMap<String, BrowserSession>) -
     sessions.values().any(|session| session.source_label.is_some())
 }
 
-/// Reuse a live token on reload, the workspace an unexpired entry nonce was
-/// issued for (consuming it), and the newest fixed-entry workspace otherwise. The latter is what makes the bookmarked address open the
-/// workspace the Lattice window shows, and makes a second tab replace the
-/// first instead of opening the same project in two independent hosts.
-pub(super) fn reusable_entry_config(
+/// An explicit entry address selects no workspace: it is unknown, used or
+/// expired.
+#[derive(Debug, PartialEq, Eq)]
+pub(super) struct StaleEntry;
+
+/// The workspace `/__lattice_session` serves a page; `Ok(None)` asks for a new
+/// fixed-entry workspace. An explicit entry is the only selector its page
+/// asked for, so it decides alone: the tab's stored session must not override
+/// it, and one that selects nothing reaches the page as an error rather than
+/// open whichever workspace is newest, which may be another project.
+pub(super) fn select_entry(
     sessions: &mut HashMap<String, BrowserSession>, port: u16, resume_token: Option<&str>,
     entry_nonce: Option<&str>,
+) -> Result<Option<BrowserSessionConfig>, StaleEntry> {
+    match entry_nonce {
+        Some(nonce) => claim_entry(sessions, port, nonce).map(Some).ok_or(StaleEntry),
+        None => Ok(reusable_entry_config(sessions, port, resume_token)),
+    }
+}
+
+/// The workspace an unexpired entry nonce was issued for, consuming the nonce.
+fn claim_entry(
+    sessions: &mut HashMap<String, BrowserSession>, port: u16, entry_nonce: &str,
+) -> Option<BrowserSessionConfig> {
+    let (token, session) = sessions.iter_mut().find(|(_, session)| {
+        session.entry_nonce.as_ref().is_some_and(|(issued, _)| issued == entry_nonce)
+    })?;
+    let (_, issued_at) = session.entry_nonce.take()?;
+    (issued_at.elapsed() < ENTRY_NONCE_TTL).then(|| BrowserSessionConfig::new(token, session, port))
+}
+
+/// Without an explicit entry: reuse a live token on reload, and the newest
+/// fixed-entry workspace otherwise. The latter is what makes the bookmarked
+/// address open the workspace the Lattice window shows, and makes a second
+/// tab replace the first instead of opening the same project in two
+/// independent hosts.
+pub(super) fn reusable_entry_config(
+    sessions: &HashMap<String, BrowserSession>, port: u16, resume_token: Option<&str>,
 ) -> Option<BrowserSessionConfig> {
     if let Some((token, session)) = resume_token.and_then(|token| sessions.get_key_value(token)) {
         return Some(BrowserSessionConfig::new(token, session, port));
-    }
-    if let Some((token, session)) = entry_nonce.and_then(|nonce| {
-        sessions.iter_mut().find(|(_, session)| {
-            session.entry_nonce.as_ref().is_some_and(|(issued, _)| issued == nonce)
-        })
-    }) {
-        let (_, issued_at) = session.entry_nonce.take()?;
-        if issued_at.elapsed() < ENTRY_NONCE_TTL {
-            return Some(BrowserSessionConfig::new(token, session, port));
-        }
     }
     sessions
         .iter()
@@ -452,9 +485,48 @@ pub(super) fn yielded(sessions: &Sessions, query: &BridgeQuery, peer_id: &str) -
     session.complete_handoff(id)
 }
 
-/// The yield timeout passed: switch even though the owner never answered.
-pub(super) fn finish_handoff(sessions: &Sessions, token: &str, id: u64) -> Option<Effect> {
-    sessions.lock().ok()?.get_mut(token)?.complete_handoff(id)
+/// The owner answered `yield` with `yield-failed`: some edit is still unsaved,
+/// so it keeps the workspace.
+pub(super) fn yield_failed(sessions: &Sessions, query: &BridgeQuery, peer_id: &str) {
+    let Ok(mut sessions) = sessions.lock() else {
+        return;
+    };
+    let Some(session) = sessions.get_mut(&query.token) else {
+        return;
+    };
+    let owner_answered = query.role.surface().is_some_and(|surface| {
+        session.owner == Some(surface)
+            && session.peer(surface).is_some_and(|peer| peer.id == peer_id)
+    });
+    if owner_answered {
+        session.refuse_handoff();
+    }
+}
+
+/// How a handoff the owner never answered ends.
+#[derive(Debug, PartialEq, Eq)]
+pub(super) enum HandoffTimeout {
+    /// The owner is still connected, so its edits may still be unsaved: it
+    /// keeps the workspace and the waiting surface is told.
+    Kept,
+    /// The owner is gone, and its edits with it: the waiting surface takes over.
+    Switched(Effect),
+}
+
+/// The yield timeout passed for handoff `id`; None when it is no longer pending.
+pub(super) fn finish_handoff(sessions: &Sessions, token: &str, id: u64) -> Option<HandoffTimeout> {
+    let mut sessions = sessions.lock().ok()?;
+    let session = sessions.get_mut(token)?;
+    if session.handoff.as_ref()?.id != id {
+        return None;
+    }
+    // A slow or wedged save is not a lost one: switching now would close or
+    // reload a page that may hold the only copy of an edit.
+    if session.owner_peer().is_some() {
+        session.refuse_handoff();
+        return Some(HandoffTimeout::Kept);
+    }
+    session.complete_handoff(id).map(HandoffTimeout::Switched)
 }
 
 /// The parked Chromium window asked to show the workspace again.
@@ -786,16 +858,97 @@ mod tests {
     }
 
     #[test]
-    fn a_window_that_never_answers_is_switched_after_the_timeout() {
+    fn a_connected_window_that_never_answers_keeps_the_workspace() {
         let sessions = sessions();
         let (_host, mut desktop) = chromium_workspace(&sessions);
-        let (_browser, effect) = connect_with(&sessions, BridgeRole::Browser, "tab");
+        let (mut browser, effect) = connect_with(&sessions, BridgeRole::Browser, "tab");
         let Some(Effect::HandoffStarted(id)) = effect else { panic!("handoff expected") };
         drain(&mut [&mut desktop]);
 
         assert!(finish_handoff(&sessions, TOKEN, id + 1).is_none());
-        assert_eq!(finish_handoff(&sessions, TOKEN, id), Some(Effect::Parked));
-        assert_eq!(all(&mut desktop), [control("desktop-suspended")]);
+        // Its save may still be running: closing it now could drop an edit.
+        assert_eq!(finish_handoff(&sessions, TOKEN, id), Some(HandoffTimeout::Kept));
+        assert_eq!(next(&mut desktop), "none");
+        assert_eq!(all(&mut browser), [control("handoff-refused")]);
+        assert!(relays(&sessions, BridgeRole::Desktop, "window"));
+        assert!(!relays(&sessions, BridgeRole::Browser, "tab"));
+
+        // A save that finishes after the timeout no longer switches anything.
+        assert!(yielded(&sessions, &query(BridgeRole::Desktop), "window").is_none());
+        assert!(relays(&sessions, BridgeRole::Desktop, "window"));
+    }
+
+    #[test]
+    fn a_window_gone_before_the_timeout_is_switched() {
+        let sessions = sessions();
+        let (_host, _desktop) = chromium_workspace(&sessions);
+        let (_browser, effect) = connect_with(&sessions, BridgeRole::Browser, "tab");
+        let Some(Effect::HandoffStarted(id)) = effect else { panic!("handoff expected") };
+
+        detach_with_grace(&sessions, BridgeRole::Desktop, "window");
+        assert_eq!(
+            finish_handoff(&sessions, TOKEN, id),
+            Some(HandoffTimeout::Switched(Effect::Parked))
+        );
+        assert!(relays(&sessions, BridgeRole::Browser, "tab"));
+    }
+
+    #[test]
+    fn a_window_that_cannot_save_keeps_the_workspace_and_the_tab_may_ask_again() {
+        let sessions = sessions();
+        let (_host, mut desktop) = chromium_workspace(&sessions);
+        let (mut browser, effect) = connect_with(&sessions, BridgeRole::Browser, "tab");
+        let Some(Effect::HandoffStarted(id)) = effect else { panic!("handoff expected") };
+        drain(&mut [&mut desktop]);
+
+        // Only the owner's current page can refuse.
+        yield_failed(&sessions, &query(BridgeRole::Browser), "tab");
+        yield_failed(&sessions, &query(BridgeRole::Desktop), "stale");
+        assert_eq!(next(&mut browser), "none");
+
+        yield_failed(&sessions, &query(BridgeRole::Desktop), "window");
+        assert_eq!(all(&mut browser), [control("handoff-refused")]);
+        assert_eq!(next(&mut desktop), "none");
+        assert!(relays(&sessions, BridgeRole::Desktop, "window"));
+        assert!(!relays(&sessions, BridgeRole::Browser, "tab"));
+        assert!(finish_handoff(&sessions, TOKEN, id).is_none(), "the timeout is stale now");
+        assert!(yielded(&sessions, &query(BridgeRole::Desktop), "window").is_none());
+
+        // Trying again (the tab reloads) starts a new handoff.
+        let (mut retry, effect) = connect_with(&sessions, BridgeRole::Browser, "tab-2");
+        assert!(matches!(effect, Some(Effect::HandoffStarted(next_id)) if next_id != id));
+        assert_eq!(all(&mut desktop), [control("yield")]);
+        assert_eq!(yielded(&sessions, &query(BridgeRole::Desktop), "window"), Some(Effect::Parked));
+        assert_eq!(all(&mut retry), [READY]);
+    }
+
+    #[test]
+    fn a_tab_that_cannot_save_keeps_the_workspace_from_the_window() {
+        let sessions = sessions();
+        let (_host, mut desktop, mut browser) = handed_to_browser(&sessions);
+
+        let Ok(ReturnPlan::Handoff(_, id)) = request_return(&sessions, "browser-test", true) else {
+            panic!("a parked window takes the workspace back by a handoff");
+        };
+        assert_eq!(next(&mut browser), control("yield"));
+        yield_failed(&sessions, &query(BridgeRole::Browser), "tab");
+        assert_eq!(all(&mut desktop), [control("handoff-refused")]);
+        assert_eq!(next(&mut browser), "none");
+        assert!(relays(&sessions, BridgeRole::Browser, "tab"));
+        assert!(finish_handoff(&sessions, TOKEN, id).is_none());
+
+        // The same holds when the tab stays silent past the timeout.
+        assert!(matches!(
+            reclaim(&sessions, &query(BridgeRole::Desktop), "window"),
+            Some(Effect::HandoffStarted(_))
+        ));
+        let Some(id) = sessions.lock().unwrap()[TOKEN].handoff.as_ref().map(|handoff| handoff.id)
+        else {
+            panic!("reclaim starts a handoff");
+        };
+        assert_eq!(next(&mut browser), control("yield"));
+        assert_eq!(finish_handoff(&sessions, TOKEN, id), Some(HandoffTimeout::Kept));
+        assert_eq!(all(&mut desktop), [control("handoff-refused")]);
         assert!(relays(&sessions, BridgeRole::Browser, "tab"));
     }
 
@@ -955,9 +1108,9 @@ mod tests {
     #[test]
     fn fixed_entry_resumes_a_live_token_and_replaces_a_stale_one() {
         let sessions = sessions();
-        let mut sessions = sessions.lock().unwrap();
+        let sessions = sessions.lock().unwrap();
         for token in [TOKEN, "expired"] {
-            let entry = reusable_entry_config(&mut sessions, 18452, Some(token), None).unwrap();
+            let entry = reusable_entry_config(&sessions, 18452, Some(token)).unwrap();
             let config = (entry.token.as_str(), entry.bridge_port, entry.label.as_str());
             assert_eq!(config, (TOKEN, 18452, "browser-test"), "{token}");
         }
@@ -971,8 +1124,8 @@ mod tests {
             BrowserSession::new("browser-project".into(), "http://127.0.0.1:18452".into()),
         );
         let claim = |entry: &str| {
-            reusable_entry_config(&mut sessions.lock().unwrap(), 18452, None, Some(entry))
-                .map(|config| config.token)
+            select_entry(&mut sessions.lock().unwrap(), 18452, None, Some(entry))
+                .map(|config| config.map(|config| config.token))
         };
 
         let nonce = issue_entry_nonce(&sessions, "project-tab").unwrap();
@@ -980,20 +1133,53 @@ mod tests {
         assert_eq!(url, format!("http://127.0.0.1:18452/?entry={nonce}"));
         assert!(!url.contains("project-tab") && !url.contains("browser-project"), "{url}");
 
-        assert_eq!(claim("browser-project").as_deref(), Some(TOKEN), "a label is no selector");
-        assert_eq!(claim(&nonce).as_deref(), Some("project-tab"));
-        assert_eq!(claim(&nonce).as_deref(), Some(TOKEN), "a nonce claims only once");
+        // An entry that selects nothing never falls back to the newest
+        // fixed-entry workspace (TOKEN here), which may be another project.
+        assert_eq!(claim("browser-project"), Err(StaleEntry), "a label is no selector");
+        assert_eq!(claim(&nonce), Ok(Some("project-tab".into())));
+        assert_eq!(claim(&nonce), Err(StaleEntry), "a nonce claims only once");
 
         let reissued = issue_entry_nonce(&sessions, "project-tab").unwrap();
         assert_ne!(reissued, nonce);
-        assert_eq!(claim(&nonce).as_deref(), Some(TOKEN), "a used nonce is not revived");
+        assert_eq!(claim(&nonce), Err(StaleEntry), "a used nonce is not revived");
 
         let stale = issue_entry_nonce(&sessions, "project-tab").unwrap();
         let issued_at = Instant::now().checked_sub(ENTRY_NONCE_TTL).unwrap();
         sessions.lock().unwrap().get_mut("project-tab").unwrap().entry_nonce =
             Some((stale.clone(), issued_at));
-        assert_eq!(claim(&stale).as_deref(), Some(TOKEN), "an expired nonce selects nothing");
+        assert_eq!(claim(&stale), Err(StaleEntry), "an expired nonce selects nothing");
         assert!(issue_entry_nonce(&sessions, "gone").is_err());
+
+        // Without an entry, the bookmark still opens the newest workspace.
+        let bookmark = select_entry(&mut sessions.lock().unwrap(), 18452, None, None);
+        assert_eq!(
+            bookmark.map(|config| config.map(|config| config.token)),
+            Ok(Some(TOKEN.into()))
+        );
+    }
+
+    #[test]
+    fn a_fresh_entry_selects_its_workspace_over_the_tabs_stored_session() {
+        // A tab holding project A (TOKEN) navigates to a fresh entry for B.
+        let sessions = sessions();
+        sessions.lock().unwrap().insert(
+            "project-b".into(),
+            BrowserSession::new("browser-b".into(), "http://127.0.0.1:18452".into()),
+        );
+        let nonce = issue_entry_nonce(&sessions, "project-b").unwrap();
+        let mut table = sessions.lock().unwrap();
+
+        let selected = select_entry(&mut table, 18452, Some(TOKEN), Some(&nonce)).unwrap().unwrap();
+        assert_eq!(selected.label, "browser-b");
+        assert!(table["project-b"].entry_nonce.is_none(), "the entry is consumed");
+        // Replayed, the entry is refused rather than resuming A.
+        assert_eq!(
+            select_entry(&mut table, 18452, Some(TOKEN), Some(&nonce)).map(|_| ()),
+            Err(StaleEntry)
+        );
+        // An ordinary reload, without the entry, resumes the stored session.
+        let reload = select_entry(&mut table, 18452, Some(TOKEN), None).unwrap().unwrap();
+        assert_eq!(reload.label, "browser-test");
     }
 
     #[test]
@@ -1059,9 +1245,8 @@ mod tests {
     #[test]
     fn expiry_atomically_removes_only_the_disconnected_generation() {
         let sessions = sessions();
-        let entry = |sessions: &Sessions| {
-            reusable_entry_config(&mut sessions.lock().unwrap(), 18452, None, None)
-        };
+        let entry =
+            |sessions: &Sessions| reusable_entry_config(&sessions.lock().unwrap(), 18452, None);
 
         assert!(settle_after_grace(&sessions, TOKEN, 1).is_none());
         assert!(entry(&sessions).is_some());

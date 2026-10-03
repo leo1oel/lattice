@@ -115,7 +115,7 @@ function connectedRelay(
 /** The control messages a page sent the server (not relayed invokes). */
 const controls = (socket: FakeWebSocket) => socket.send.mock.calls
   .map(([data]) => JSON.parse(data as string) as { type: string })
-  .filter((message) => ["yielded", "reclaim"].includes(message.type))
+  .filter((message) => ["yielded", "yield-failed", "reclaim"].includes(message.type))
   .map((message) => message.type);
 
 afterEach(() => {
@@ -243,19 +243,65 @@ describe("moving a workspace between the Lattice window and the browser", () => 
     await vi.advanceTimersByTimeAsync(0);
     expect(handler).toHaveBeenCalledOnce();
     expect(controls(socket)).toEqual([]);
-    save.resolve();
+    save.resolve(true);
     await vi.advanceTimersByTimeAsync(0);
     expect(controls(socket)).toEqual(["yielded"]);
   });
 
-  it("yields anyway when the save does not finish in time", async () => {
-    setWorkspaceYieldHandler(() => new Promise(() => {}));
-    const { socket } = connectedRelay(vi.fn(), "browser");
-    socket.message({ type: "yield" });
-    await vi.advanceTimersByTimeAsync(3_999);
-    expect(controls(socket)).toEqual([]);
-    await vi.advanceTimersByTimeAsync(1);
-    expect(controls(socket)).toEqual(["yielded"]);
+  // The handler is false for a failed save, an unfinished IME composition and
+  // an edit typed while the save ran (see saveEveryEdit); none may hand over.
+  describe.each(["desktop", "browser"] as const)("a %s page asked to yield", (role) => {
+    it.each([
+      ["could not save", () => Promise.resolve(false)],
+      ["failed with an error", () => Promise.reject(new Error("disk full"))],
+    ])("keeps the workspace when its save %s", async (_, handler) => {
+      setWorkspaceYieldHandler(handler);
+      const { socket, reload, closePage } = connectedRelay(vi.fn(), role);
+      socket.message({ type: "yield" });
+      await vi.advanceTimersByTimeAsync(0);
+      expect(controls(socket)).toEqual(["yield-failed"]);
+      expect(reload).not.toHaveBeenCalled();
+      expect(closePage).not.toHaveBeenCalled();
+      expect(runtimeError()).toBeNull();
+    });
+
+    it("answers only once a slow save has finished", async () => {
+      const save = deferred();
+      setWorkspaceYieldHandler(() => save.promise);
+      const { socket } = connectedRelay(vi.fn(), role);
+      socket.message({ type: "yield" });
+      await vi.advanceTimersByTimeAsync(60_000);
+      expect(controls(socket)).toEqual([]);
+      save.resolve(false);
+      await vi.advanceTimersByTimeAsync(0);
+      expect(controls(socket)).toEqual(["yield-failed"]);
+    });
+  });
+
+  it("offers a waiting tab to try again when the Lattice window kept the workspace", async () => {
+    const reload = vi.fn();
+    new BrowserRelay(config, new Map(), reload, "browser");
+    const socket = lastSocket();
+    socket.message({ type: "handoff-refused" });
+    expect(runtimeError()).toHaveTextContent("The Lattice window kept this workspace");
+    expect(runtimeError()).toHaveTextContent("It could not save every edit. Save there, then try again.");
+    expect(socket.close).toHaveBeenCalled();
+    // The tab's own handoff deadline must not replace that choice.
+    await vi.advanceTimersByTimeAsync(20_000);
+    fireEvent.click(within(runtimeError()!).getByRole("button", { name: "Try again" }));
+    expect(reload).toHaveBeenCalledOnce();
+  });
+
+  it("lets a waiting Lattice window ask again when the tab kept the workspace", () => {
+    sessionStorage.setItem("lattice.desktop-browser-standby", "1");
+    const { socket } = connectedRelay(vi.fn(), "desktop");
+    socket.message({ type: "desktop-suspended" });
+    fireEvent.click(within(runtimeError()!).getByRole("button", { name: "Use here" }));
+
+    socket.message({ type: "handoff-refused" });
+    expect(runtimeError()).toHaveTextContent("The browser tab could not save every edit, so it kept the workspace.");
+    fireEvent.click(within(runtimeError()!).getByRole("button", { name: "Use here" }));
+    expect(controls(socket)).toEqual(["reclaim", "reclaim"]);
   });
 
   it("parks the Lattice window on a standby screen that can take the workspace back", () => {
@@ -309,7 +355,50 @@ describe("moving a workspace between the Lattice window and the browser", () => 
 });
 
 function deferred() {
-  let resolve!: () => void;
-  const promise = new Promise<void>((settle) => { resolve = settle; });
+  let resolve!: (saved: boolean) => void;
+  const promise = new Promise<boolean>((settle) => { resolve = settle; });
   return { promise, resolve };
 }
+
+describe("opening a workspace from an entry address", () => {
+  const entryUrl = "/?entry=nonce-b";
+  let requests: URL[];
+
+  beforeEach(() => {
+    requests = [];
+    // A tab that already holds project A.
+    sessionStorage.setItem("lattice.browser-token", "token-a");
+    sessionStorage.setItem("lattice.browser-port", "18452");
+    sessionStorage.setItem("lattice.browser-label", "browser-a");
+    window.history.replaceState(null, "", entryUrl);
+    vi.stubGlobal("fetch", vi.fn(async (input: string | URL) => {
+      requests.push(new URL(String(input)));
+      return new Response("", { status: 410 });
+    }));
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    sessionStorage.clear();
+    window.history.replaceState(null, "", "/");
+  });
+
+  async function loadPage() {
+    vi.resetModules();
+    const runtime = await import("./browser-runtime");
+    return runtime.browserRuntimeReady();
+  }
+
+  it("asks for the entry's workspace rather than the one the tab stored", async () => {
+    await loadPage().catch(() => undefined);
+    expect(requests).toHaveLength(1);
+    expect(requests[0].searchParams.get("entry")).toBe("nonce-b");
+    expect(requests[0].searchParams.has("token")).toBe(false);
+  });
+
+  it("explains a used or expired entry and keeps the tab's own session and address", async () => {
+    await expect(loadPage()).rejects.toThrow("This Lattice link has expired or was already used.");
+    expect(sessionStorage.getItem("lattice.browser-token")).toBe("token-a");
+    expect(window.location.search).toBe("?entry=nonce-b");
+  });
+});

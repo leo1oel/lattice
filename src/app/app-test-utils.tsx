@@ -64,7 +64,7 @@ const openSlideWorkspaceApi = vi.hoisted(() => ({
   onMutation: null as null | ((mutation: OpenSlideMutation) => Promise<OpenSlideSyncOperation[]>),
 }));
 const browserRuntime = vi.hoisted(() => ({
-  hosted: false, bundled: false, yieldHandler: null as null | (() => Promise<unknown>),
+  hosted: false, bundled: false, yieldHandler: null as null | (() => Promise<boolean>),
 }));
 const pdfSlickTestApi = vi.hoisted(() => ({ sources: [] as Array<string | ArrayBuffer> }));
 const tauriCoreApi = vi.hoisted(() => ({ channel: null as { onmessage: ((message: unknown) => void) | null } | null }));
@@ -124,7 +124,7 @@ vi.mock("../platform/browser-runtime", () => ({
   isBundledChromium: () => browserRuntime.hosted && browserRuntime.bundled,
   browserRuntimeDetached: () => false,
   readBrowserHostAsset: vi.fn(),
-  setWorkspaceYieldHandler: (handler: null | (() => Promise<unknown>)) => { browserRuntime.yieldHandler = handler; },
+  setWorkspaceYieldHandler: (handler: null | (() => Promise<boolean>)) => { browserRuntime.yieldHandler = handler; },
 }));
 vi.mock("pdfjs-dist", () => ({
   GlobalWorkerOptions: {},

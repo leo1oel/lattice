@@ -34,6 +34,8 @@ pub(super) const SESSION_CONNECT_TIMEOUT: Duration = Duration::from_secs(30);
 const RECONNECT_GRACE: Duration = Duration::from_secs(5);
 /// The surface giving up the workspace has saved (answer to `yield`).
 const YIELDED: &str = r#"{"type":"yielded"}"#;
+/// The surface asked to yield could not save every edit and keeps the workspace.
+const YIELD_FAILED: &str = r#"{"type":"yield-failed"}"#;
 /// The parked Chromium window asks for the workspace back.
 const RECLAIM: &str = r#"{"type":"reclaim"}"#;
 /// Carries the session token on project PDF range reads, so it never lands in
@@ -144,13 +146,14 @@ async fn open_browser_session(
     // Select or reserve the entry under one lock so simultaneous fixed-address
     // loads converge on one privileged host.
     let selected = state.sessions.lock().ok().map(|mut sessions| {
-        if let Some(config) = session::reusable_entry_config(
+        let selection = session::select_entry(
             &mut sessions,
             state.port,
             query.token.as_deref(),
             query.entry.as_deref(),
-        ) {
-            return (config, None);
+        )?;
+        if let Some(config) = selection {
+            return Ok((config, None));
         }
         let token = new_token();
         let session = BrowserSession {
@@ -160,10 +163,16 @@ async fn open_browser_session(
         };
         let config = BrowserSessionConfig::new(&token, &session, state.port);
         sessions.insert(token.clone(), session);
-        (config, Some(token))
+        Ok::<_, session::StaleEntry>((config, Some(token)))
     });
-    let Some((config, new_token)) = selected else {
+    let Some(selected) = selected else {
         return StatusCode::SERVICE_UNAVAILABLE.into_response();
+    };
+    let Ok((config, new_token)) = selected else {
+        // The page reads this status to explain the stale entry address.
+        let mut response = StatusCode::GONE.into_response();
+        allow_origin(&mut response, &origin);
+        return response;
     };
     if let Some(token) = new_token {
         if let Err(reason) = build_host_window(&state.app, &config.label, &token, state.port) {
@@ -177,10 +186,14 @@ async fn open_browser_session(
 
     let mut response = Json(config).into_response();
     response.headers_mut().insert(header::CACHE_CONTROL, HeaderValue::from_static("no-store"));
-    if let Ok(origin) = HeaderValue::from_str(&origin) {
+    allow_origin(&mut response, &origin);
+    response
+}
+
+fn allow_origin(response: &mut Response, origin: &str) {
+    if let Ok(origin) = HeaderValue::from_str(origin) {
         response.headers_mut().insert(header::ACCESS_CONTROL_ALLOW_ORIGIN, origin);
     }
-    response
 }
 
 async fn upgrade_bridge(
@@ -229,12 +242,15 @@ async fn bridge_socket(
                 match message {
                     Message::Text(text)
                         if query.role != BridgeRole::Host
-                            && matches!(text.as_str(), YIELDED | RECLAIM) =>
+                            && matches!(text.as_str(), YIELDED | YIELD_FAILED | RECLAIM) =>
                     {
-                        let effect = if text.as_str() == YIELDED {
-                            session::yielded(&sessions, &query, &peer_id)
-                        } else {
-                            session::reclaim(&sessions, &query, &peer_id)
+                        let effect = match text.as_str() {
+                            YIELDED => session::yielded(&sessions, &query, &peer_id),
+                            YIELD_FAILED => {
+                                session::yield_failed(&sessions, &query, &peer_id);
+                                None
+                            }
+                            _ => session::reclaim(&sessions, &query, &peer_id),
                         };
                         if let Some(effect) = effect {
                             apply_effect(&app, &sessions, &query.token, effect);

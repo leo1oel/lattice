@@ -1,5 +1,6 @@
 import { expectNotification, windowApi, synaraHook, openSlideWorkspaceApi, browserRuntime, fileNode, fileNodes, dirNode, projectCommands, refreshableProject, SINGLE_TRANSFORMER, attentionPaper, overleafLink, overleafStatus, overleafProbe, overleafSyncResult, overleafSession, overleafCommands, ROOT, projectSnapshot, rootDocument, notesSnapshot, markdownSnapshot, buildResult, readFiles, deferred, setAutoBuildMode, setInterfaceLanguage, selectPanelTab, projectTreeRoot, queryProjectTreeItem, findInProjectTree, findProjectTreeItem, findProjectTreeRenameInput, renderApp, renderOverleafPaper, openWithAutomaticBuilds, findElement, editorViewAt, findEditorView, expectEditorText, postWindowMessage, expectInvoked, invokeCalls, pause, stubElementFromPoint, storedFileViews, dropFinderPaths, persistLayout, visualEditorOf, argPath, waitForSelectedTab, openTreeFile, openAgentFrame, postedOfType, dragTreeItem, pdfDocumentStub, mockPdfDocument, chooseNewDocument, chooseProjectMenuItem } from "./app-test-utils";
 import { forEachDiagnostic } from "@codemirror/lint";
+import { EditorView } from "@codemirror/view";
 import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
@@ -117,6 +118,38 @@ describe("project tree and projects", () => {
       await expectInvoked("return_to_desktop");
     });
 
+    it("saves and freezes a browser tab's editor while it returns the workspace, and releases it unless the tab detaches", async () => {
+      browserRuntime.hosted = true;
+      const returns = [deferred(), deferred()];
+      openProject({
+        return_to_desktop: () => returns.shift()!.promise,
+        write_project_file: (args: unknown) => ({ content: (args as { content: string }).content, hadConflicts: false }),
+      });
+      const view = await findEditorView(".source-editor[data-editor-pane='primary'] .cm-editor");
+      act(() => view.dispatch({ changes: { from: view.state.doc.length, insert: "\n% typed before the switch" } }));
+      const [failed, answered] = returns;
+      fireEvent.click(await screen.findByRole("button", { name: "Open in Lattice app" }));
+      await expectInvoked("return_to_desktop");
+      expect(invoke).toHaveBeenCalledWith("write_project_file", expect.objectContaining({
+        path: "main.tex", content: expect.stringContaining("% typed before the switch"),
+      }));
+      await waitFor(() => expect(view.state.facet(EditorView.editable)).toBe(false));
+      expect(view.contentDOM).toHaveAttribute("contenteditable", "false");
+
+      await act(async () => { failed.reject(new Error("Lattice could not open its window")); });
+      await expectNotification(/Lattice could not open its window/);
+      await waitFor(() => expect(view.state.facet(EditorView.editable)).toBe(true));
+
+      // A parked Lattice window answers at once and takes the workspace later,
+      // through a yield that saves again; if that never happens, the tab keeps it.
+      vi.mocked(invoke).mockClear();
+      fireEvent.click(screen.getByRole("button", { name: "Open in Lattice app" }));
+      await expectInvoked("return_to_desktop");
+      await waitFor(() => expect(view.state.facet(EditorView.editable)).toBe(false));
+      await act(async () => { answered.resolve(); });
+      await waitFor(() => expect(view.state.facet(EditorView.editable)).toBe(true));
+    });
+
     it("saves an unsaved edit before the bridge hands the workspace to another surface", async () => {
       Object.assign(browserRuntime, { hosted: true, bundled: true });
       openProject({ write_project_file: (args: unknown) => ({ content: (args as { content: string }).content, hadConflicts: false }) });
@@ -127,6 +160,35 @@ describe("project tree and projects", () => {
       expect(invoke).toHaveBeenCalledWith("write_project_file", expect.objectContaining({
         path: "main.tex", content: expect.stringContaining("% typed just before"),
       }));
+    });
+
+    it("keeps the workspace when its save fails or an edit lands while it runs", async () => {
+      Object.assign(browserRuntime, { hosted: true, bundled: true });
+      let failWrites = true;
+      let finishWrite: (() => void) | null = null;
+      openProject({
+        write_project_file: async (args: unknown) => {
+          if (failWrites) throw new Error("disk full");
+          await new Promise<void>((resolve) => { finishWrite = resolve; });
+          return { content: (args as { content: string }).content, hadConflicts: false };
+        },
+      });
+      const view = await findEditorView(".source-editor[data-editor-pane='primary'] .cm-editor");
+      await waitFor(() => expect(browserRuntime.yieldHandler).not.toBeNull());
+      act(() => view.dispatch({ changes: { from: view.state.doc.length, insert: "\n% unsaved" } }));
+      await act(async () => { await expect(browserRuntime.yieldHandler!()).resolves.toBe(false); });
+
+      failWrites = false;
+      let yielded!: Promise<boolean>;
+      act(() => { yielded = browserRuntime.yieldHandler!(); });
+      await waitFor(() => expect(finishWrite).not.toBeNull());
+      act(() => view.dispatch({ changes: { from: view.state.doc.length, insert: "\n% typed while saving" } }));
+      await act(async () => {
+        finishWrite!();
+        await expect(yielded).resolves.toBe(false);
+      });
+      expect(view.state.doc.toString()).toContain("% typed while saving");
+      await expectNotification(/The document changed while saving/);
     });
   });
 
