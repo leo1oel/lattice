@@ -13,6 +13,7 @@ use super::files::{
     read_local_files, sha256_hex, write_base_copy, write_local_file, LocalFiles,
 };
 use super::review::HistoryFrom;
+use crate::overleaf_rt::Permission;
 use crate::project_fs::ProjectDir;
 use crate::util::err;
 use reqwest::header::{ACCEPT, COOKIE};
@@ -72,7 +73,7 @@ pub(super) struct SyncState {
     pub unsettled: Option<BTreeSet<String>>,
     /// What this account may do to the project, as Overleaf last reported it.
     /// Absent on projects linked before this was recorded (see
-    /// [`permits_writing`]).
+    /// [`SyncState::access`]).
     #[serde(default)]
     pub permission: Option<String>,
     /// Relative path (forward slashes) → sha256 hex of the content at the
@@ -135,6 +136,18 @@ impl SyncState {
         }
     }
 
+    /// What this account may do, read with the realtime channel's own rule.
+    ///
+    /// Older links did not persist a permission. Treating that unknown state as
+    /// writable lets an automatic sync attempt mutations before the realtime
+    /// channel has refreshed the account's current role, so it reads as
+    /// [`Permission::Unknown`] and fails closed. Incoming work may still be
+    /// pulled; outgoing work stays local until a fresh owner/editor permission
+    /// is recorded.
+    pub(super) fn access(&self) -> Permission {
+        Permission::parse(self.permission.as_deref())
+    }
+
     fn link(self) -> OverleafLink {
         let SyncState { project_id, project_name, host, last_sync, paused, .. } = self;
         OverleafLink { project_id, project_name, host, last_sync, paused }
@@ -146,18 +159,6 @@ impl SyncState {
             "Overleaf is still preparing file uploads. Try syncing again in a moment.".to_string()
         })
     }
-}
-
-/// True only when Overleaf explicitly said this account may change project
-/// contents.
-///
-/// Older links did not persist a permission. Treating that unknown state as
-/// writable lets an automatic sync attempt mutations before the realtime
-/// channel has refreshed the account's current role. Incoming work may still
-/// be pulled; outgoing work stays local until a fresh owner/editor permission
-/// is recorded.
-pub(super) fn permits_writing(permission: Option<&str>) -> bool {
-    matches!(permission, Some("owner") | Some("readAndWrite"))
 }
 
 pub(super) fn now_iso() -> String {

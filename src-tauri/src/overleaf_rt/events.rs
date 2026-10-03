@@ -247,7 +247,7 @@ pub enum Permission {
 }
 
 impl Permission {
-    pub(super) fn parse(value: Option<&str>) -> Self {
+    pub(crate) fn parse(value: Option<&str>) -> Self {
         match value {
             Some("owner") => Permission::Owner,
             Some("readAndWrite") => Permission::ReadAndWrite,

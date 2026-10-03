@@ -7,10 +7,7 @@ import {
   loadAuthorNameSetting,
   persistAuthorNameSetting,
   resolveAuthorName,
-  mergeEditorComments,
   resolveCommentAnchor,
-  serializeEditorComments,
-  tryParseEditorComments,
   type EditorComment,
 } from "./editor-comment-data";
 import {
@@ -83,25 +80,6 @@ describe("editor comment data", () => {
   it("trims reply bodies and rejects empty replies", () => {
     expect(createEditorCommentReply({ body: "  sure  ", authorId: "b", authorName: "Bo" })?.body).toBe("sure");
     expect(createEditorCommentReply({ body: "   ", authorId: "b", authorName: "Bo" })).toBeNull();
-  });
-
-  it("merges independently created comments and replies by stable id", () => {
-    const first = comment({ source: "first second", from: 0, to: 5 });
-    const second = comment({ source: "first second", from: 6, to: 12 });
-    const reply = createEditorCommentReply({ body: "reply", authorId: "b", authorName: "B" })!;
-
-    const merged = mergeEditorComments([first], [second, { ...first, replies: [reply] }]);
-    expect(merged.map((item) => item.id).sort()).toEqual([first.id, second.id].sort());
-    expect(merged.find((item) => item.id === first.id)?.replies).toEqual([reply]);
-  });
-
-  it("round-trips JSON and distinguishes a corrupt payload from an empty list", () => {
-    const item = comment();
-    expect(tryParseEditorComments(serializeEditorComments([item]))).toEqual([item]);
-    expect(tryParseEditorComments('{"schemaVersion":1,"comments":[]}')).toEqual([]);
-    // Two concurrent whole-file rewrites merged by the CRDT into invalid JSON.
-    expect(tryParseEditorComments('{"comments":[]}{"comments":[]}')).toBeNull();
-    expect(tryParseEditorComments("not json at all")).toBeNull();
   });
 
   it.each([

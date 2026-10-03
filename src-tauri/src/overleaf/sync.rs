@@ -13,7 +13,7 @@ use super::api::{
     latest_update_version, read_zip_entries, send_as, sync_host, Remote,
 };
 use super::files::*;
-use super::link::{load_state, now_iso, permits_writing, save_state, Refusal, SyncState, PAUSED};
+use super::link::{load_state, now_iso, save_state, Refusal, SyncState, PAUSED};
 use super::review::{history_since, HistoryFrom};
 use crate::overleaf_rt::EntityEntry;
 use crate::util::err;
@@ -642,7 +642,7 @@ pub fn sync(
     // anyway would be rejected file by file and reported as a sync failure,
     // when in fact everything that could be done has been: incoming work is
     // landing below, and the local edits simply stay here.
-    let writable = permits_writing(linked.state.permission.as_deref());
+    let writable = linked.state.access().can_write();
     // Uploads need the dashboard's CSRF token, which is a whole page of the
     // account's projects; fetch it only for a sync with something to send,
     // and before writing anything, so a dead session fails the sync whole.
@@ -976,7 +976,7 @@ pub fn sync_relocations(
     if state.paused {
         return Err(PAUSED.to_string());
     }
-    if !permits_writing(state.permission.as_deref()) {
+    if !state.access().can_write() {
         return Err(
             "Overleaf write access is required to sync moved files. Local moves have been kept."
                 .to_string(),

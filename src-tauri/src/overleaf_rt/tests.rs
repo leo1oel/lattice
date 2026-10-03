@@ -57,18 +57,30 @@ fn connect(config: RealtimeConfig) -> (RealtimeClient, Events) {
     (client, events)
 }
 
+/// Every role a link or `joinProject` can carry, with what it allows:
+/// (recorded role, may change the text, may suggest). Sync and the realtime
+/// channel are both checked against this one table so the two cannot drift.
+pub(crate) const ROLE_CASES: [(Option<&str>, bool, bool); 7] = [
+    (Some("owner"), true, true),
+    (Some("readAndWrite"), true, true),
+    (Some("review"), false, true),
+    (Some("readOnly"), false, false),
+    // What an unknown role is persisted as.
+    (Some("unknown"), false, false),
+    // A role this app has never seen.
+    (Some("admin"), false, false),
+    // A link recorded before permissions were.
+    (None, false, false),
+];
+
 #[test]
 fn unknown_permission_fails_closed_for_direct_edits() {
-    use Permission::*;
-    for (permission, write, suggest) in [
-        (Owner, true, true),
-        (ReadAndWrite, true, true),
-        (Review, false, true),
-        (ReadOnly, false, false),
-        (Unknown, false, false),
-    ] {
-        assert_eq!(permission.can_write(), write, "{permission:?}");
-        assert_eq!(permission.can_suggest(), suggest, "{permission:?}");
+    for (role, write, suggest) in ROLE_CASES {
+        let permission = Permission::parse(role);
+        assert_eq!(permission.can_write(), write, "{role:?}");
+        assert_eq!(permission.can_suggest(), suggest, "{role:?}");
+        // The persisted string reads back as the same role.
+        assert_eq!(Permission::parse(Some(permission.as_str())), permission, "{role:?}");
     }
 }
 

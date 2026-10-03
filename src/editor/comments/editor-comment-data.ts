@@ -25,64 +25,6 @@ export type EditorComment = {
   updatedAt: string;
 };
 
-type FieldTypes = Record<string, "string" | "number" | "boolean">;
-const REPLY_FIELDS: FieldTypes = { id: "string", authorId: "string", authorName: "string", body: "string", createdAt: "string" };
-const COMMENT_FIELDS: FieldTypes = {
-  ...REPLY_FIELDS,
-  path: "string",
-  from: "number",
-  to: "number",
-  quote: "string",
-  resolved: "boolean",
-  updatedAt: "string",
-};
-
-function hasFields<T>(fields: FieldTypes) {
-  return (value: unknown): value is T => Boolean(value) && typeof value === "object"
-    && Object.entries(fields).every(([key, type]) => typeof (value as Record<string, unknown>)[key] === type);
-}
-const isEditorComment = hasFields<EditorComment>(COMMENT_FIELDS);
-const isEditorCommentReply = hasFields<EditorCommentReply>(REPLY_FIELDS);
-
-const byCreation = (a: { createdAt: string; id: string }, b: { createdAt: string; id: string }) =>
-  a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id);
-
-export function serializeEditorComments(comments: EditorComment[]): string {
-  return `${JSON.stringify({ schemaVersion: 1, comments }, null, 2)}\n`;
-}
-
-/** Merge independently saved comment files without dropping either author. */
-export function mergeEditorComments(first: EditorComment[], second: EditorComment[]): EditorComment[] {
-  const merged = new Map<string, EditorComment>();
-  for (const comment of [...first, ...second]) {
-    const previous = merged.get(comment.id);
-    if (!previous) {
-      merged.set(comment.id, comment);
-      continue;
-    }
-    const latest = comment.updatedAt >= previous.updatedAt ? comment : previous;
-    const replies = new Map(previous.replies.map((reply) => [reply.id, reply]));
-    for (const reply of comment.replies) replies.set(reply.id, reply);
-    merged.set(comment.id, { ...latest, replies: [...replies.values()].sort(byCreation) });
-  }
-  return [...merged.values()].sort(byCreation);
-}
-
-/** Null distinguishes a corrupt payload from a legitimately empty list. */
-export function tryParseEditorComments(raw: string): EditorComment[] | null {
-  let comments: unknown;
-  try {
-    comments = (JSON.parse(raw) as { comments?: unknown } | null)?.comments;
-  } catch {
-    return null;
-  }
-  if (!Array.isArray(comments)) return null;
-  return comments.filter(isEditorComment).map((comment) => {
-    const replies = Array.isArray(comment.replies) ? comment.replies.filter(isEditorCommentReply) : [];
-    return replies === comment.replies ? comment : { ...comment, replies };
-  });
-}
-
 export function loadEditorCommentAuthorId(): string {
   try {
     const existing = localStorage.getItem(AUTHOR_ID_KEY);

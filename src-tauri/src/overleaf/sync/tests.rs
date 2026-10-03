@@ -1,5 +1,5 @@
 use super::*;
-use crate::overleaf::link::{load_state, record_relocation, set_permission, state_path};
+use crate::overleaf::link::{load_state, record_relocation, state_path};
 use crate::overleaf::review::HistoryFrom;
 use crate::overleaf::test_support::*;
 
@@ -1007,10 +1007,11 @@ fn a_sync_downloads_the_project_only_when_overleafs_history_cannot_rule_out_a_ch
 #[test]
 fn overleaf_sync_never_uploads_without_a_writable_role() {
     // Incoming work still lands; only the upload half stands down. Trying
-    // anyway would be rejected file by file and read as a broken sync. A role
-    // nobody recorded fails closed the same way.
+    // anyway would be rejected file by file and read as a broken sync. A
+    // reviewer may comment but not change the text, and a role nobody recorded
+    // fails closed, both exactly as the realtime channel reads them.
     let base = b"shared body".as_slice();
-    for permission in [Some("readOnly"), None] {
+    for (permission, writable, _) in crate::overleaf_rt::tests::ROLE_CASES {
         // Untouched over there, so the local edit is a pure upload candidate
         // rather than something to merge.
         let server =
@@ -1023,18 +1024,16 @@ fn overleaf_sync_never_uploads_without_a_writable_role() {
         edit_state(&root, |state| state.permission = permission.map(str::to_string));
 
         let result = sync(&config, &root, NO_LIVE, None).unwrap();
-        assert!(result.read_only && result.pushed.is_empty(), "{permission:?}");
-        assert!(server.uploads().is_empty());
-        assert_eq!(result.pulled, vec!["notes.tex"]);
-        // The local edit is still here, and still counts as unsent.
-        assert_eq!(read_local(&root, "main.tex").unwrap(), b"local body");
-        assert!(!state_files(&root).contains_key("main.tex"));
-
-        // A reviewer may comment but not change the text, so the same
-        // applies; an account that can write is unaffected.
-        for (permission, read_only) in [("review", true), ("readAndWrite", false)] {
-            set_permission(&root, permission).unwrap();
-            assert_eq!(sync(&config, &root, NO_LIVE, None).unwrap().read_only, read_only);
+        assert_eq!(result.read_only, !writable, "{permission:?}");
+        assert_eq!(result.pulled, vec!["notes.tex"], "{permission:?}");
+        if writable {
+            assert_eq!(result.pushed, vec!["main.tex"], "{permission:?}");
+            assert_eq!(server.uploads().len(), 1, "{permission:?}");
+        } else {
+            assert!(result.pushed.is_empty() && server.uploads().is_empty(), "{permission:?}");
+            // The local edit is still here, and still counts as unsent.
+            assert_eq!(read_local(&root, "main.tex").unwrap(), b"local body");
+            assert!(!state_files(&root).contains_key("main.tex"));
         }
     }
 }
@@ -1226,10 +1225,14 @@ fn relocation_never_overwrites_a_destination_or_writes_without_permission() {
     let taken =
         vec![entity("main-id", "main.tex", "doc"), entity("other-id", "renamed.tex", "doc")];
     assert!(sync_relocations(&config, &root, Some(taken)).is_err());
-    edit_state(&root, |state| state.permission = Some("readOnly".into()));
-    let main = vec![entity("main-id", "main.tex", "doc")];
-    assert!(sync_relocations(&config, &root, Some(main)).is_err());
-    assert_eq!(load_state(&root).unwrap().pending_relocations.len(), 1);
+    for (permission, _, _) in
+        crate::overleaf_rt::tests::ROLE_CASES.into_iter().filter(|(_, writable, _)| !writable)
+    {
+        edit_state(&root, |state| state.permission = permission.map(str::to_string));
+        let main = vec![entity("main-id", "main.tex", "doc")];
+        assert!(sync_relocations(&config, &root, Some(main)).is_err(), "{permission:?}");
+        assert_eq!(load_state(&root).unwrap().pending_relocations.len(), 1);
+    }
     assert!(server.recorded().iter().all(|r| r.method == "GET"));
 }
 
