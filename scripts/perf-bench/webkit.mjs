@@ -78,6 +78,10 @@ class WebKitPage {
     await this.page.goto(url, { waitUntil: "load" });
   }
 
+  async resize(width, height) {
+    await this.page.setViewportSize({ width, height });
+  }
+
   /** WebKit exposes no style or layout counters. */
   async metrics() {
     return {};

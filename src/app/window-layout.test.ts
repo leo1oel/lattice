@@ -95,23 +95,6 @@ describe("narrow pane chrome", () => {
     expect(hidden.map((rule) => Number(/max-width: (\d+)px/.exec(rule.containerQuery)?.[1]))).toEqual([440]);
   });
 
-  it("keeps a Paper's actions whole beside its identity, so they never cover the source", () => {
-    const sheet = new CSSStyleSheet();
-    sheet.replaceSync(readFileSync("src/styles/editor-workspace.css", "utf8"));
-    const styleOf = (selector: string) => Array.from(sheet.cssRules)
-      .find((rule): rule is CSSStyleRule => rule instanceof CSSStyleRule && rule.selectorText === selector)?.style;
-    const identity = styleOf(".paper-identity");
-    const actions = styleOf(".paper-local-actions");
-
-    // A long DOI used to squeeze the action group below its buttons' width;
-    // they overflowed it leftwards, over the source's link arrow, and a click
-    // on the arrow opened the PDF instead of the browser.
-    expect(actions?.flexShrink).toBe("0");
-    // The identity is what yields instead.
-    expect(Number(identity?.flexShrink)).toBeGreaterThan(0);
-    expect(Number.parseFloat(identity?.minWidth ?? "")).toBe(0);
-  });
-
   it("queries the toolbar's own width, never the whole PDF preview's", () => {
     const sheet = new CSSStyleSheet();
     sheet.replaceSync(readFileSync("src/pdf/pdf-viewer.css", "utf8"));

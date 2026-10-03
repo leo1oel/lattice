@@ -111,7 +111,8 @@ const BENCH_PAPERS = [
 
 /**
  * `?papers=library`: the rows a real library mixes — a long title, a captured
- * webpage, a citation with only a DOI, and an advisory citation-health notice.
+ * webpage, a citation with only a DOI, an advisory citation-health notice, and
+ * a Paper with a very long DOI and corporate author (perf-bench/layout-checks.mjs).
  * Everything but the first paper is fictional.
  */
 const LIBRARY_PAPERS = [
@@ -128,6 +129,11 @@ const LIBRARY_PAPERS = [
   {
     arxivId: "", doi: "10.5555/example.2021.42", url: "https://doi.org/10.5555/example.2021.42", title: "A citation that only names its DOI",
     citationKey: "doe2021citation", authors: "Doe, Jane", hasFullText: false, hasBlog: false,
+  },
+  {
+    arxivId: "doi-10.5555-proceedings.2023.long-form", doi: "10.5555/proceedings.international-symposium-on-scholarly-communication.2023.volume-12.issue-4.part-b.supplementary-material.long-form-chapter-identifier.version-of-record",
+    url: "https://publisher.example.org/content/proceedings-2023/long-form-chapter.pdf", title: "Reading the original of a paper with a very long DOI",
+    citationKey: "consortium2023reading", authors: "{International Consortium for Long-Form Persistent Identifiers in Scholarly Communication and Research Infrastructure}", hasFullText: true, hasBlog: false,
   },
 ];
 

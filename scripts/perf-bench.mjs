@@ -57,6 +57,10 @@
  *                   BRIDGE_NOT_READY; this Chrome falls back to Playwright's
  *                   Chrome for Testing (perf-bench/cdp.mjs).
  *   --port N        the port to serve on (default 18480; 0 picks a free one)
+ * Layout checks (no benchmark):
+ *   --layout        build the page and check the geometry in
+ *                   scripts/perf-bench/layout-checks.mjs in the chosen engine;
+ *                   exit 1 when one fails, with a screenshot of it
  * The page accepts `theme=system|light|dark` and `lang=en|zh-CN|system`
  * (tools/perf-bench/bench-page.ts); --serve prints a URL with both.
  */
@@ -69,6 +73,7 @@ import { fileURLToPath, URLSearchParams } from "node:url";
 import { applyBudgets, bestOf, COUNTS } from "./perf-bench/budgets.mjs";
 import { CdpPage, launchChrome } from "./perf-bench/cdp.mjs";
 import { launchWebKit } from "./perf-bench/webkit.mjs";
+import { LAYOUT_CHECKS } from "./perf-bench/layout-checks.mjs";
 import { BenchDriver, SCENARIOS } from "./perf-bench/scenarios.mjs";
 
 const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -99,7 +104,7 @@ const BENCH_FIXTURE = {
 };
 
 function parseArgs(argv) {
-  const options = { runs: 2, only: null, json: null, profile: null, check: false, ratchet: false, update: false, headful: false, keepOpen: false, url: null, dev: false, serve: false, smoke: false, chrome: false, port: SERVE_PORT, engine: "chromium" };
+  const options = { runs: 2, only: null, json: null, profile: null, check: false, ratchet: false, update: false, headful: false, keepOpen: false, url: null, dev: false, serve: false, smoke: false, chrome: false, layout: false, port: SERVE_PORT, engine: "chromium" };
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
     if (arg === "--check") options.check = true;
@@ -116,6 +121,7 @@ function parseArgs(argv) {
     else if (arg === "--serve") options.serve = true;
     else if (arg === "--smoke") options.smoke = true;
     else if (arg === "--chrome") options.chrome = true;
+    else if (arg === "--layout") options.layout = true;
     else if (arg === "--port") options.port = Number(argv[++index]);
     else if (arg === "--engine") options.engine = argv[++index];
     else throw new Error(`Unknown option ${arg}`);
@@ -123,6 +129,7 @@ function parseArgs(argv) {
   if (!Number.isInteger(options.port) || options.port < 0 || options.port > 65_535) throw new Error("--port takes a port number");
   if (options.serve && options.url) throw new Error("--serve starts its own page; it cannot take --url");
   if (options.chrome && !options.serve) throw new Error("--chrome keeps a browser up beside --serve; add --serve");
+  if (options.layout && (options.serve || options.smoke || options.url)) throw new Error("--layout serves its own page per check; it cannot take --serve, --smoke or --url");
   if (options.smoke && options.engine !== "chromium") throw new Error("--smoke loads the page in Chrome only");
   if (!(options.engine in BUDGETS)) throw new Error(`Unknown engine ${options.engine}: use chromium or webkit`);
   if (options.profile && options.engine !== "chromium") throw new Error("--profile records Chromium CPU profiles only");
@@ -404,6 +411,48 @@ async function smoke(options) {
   }
 }
 
+function launchBrowser(options) {
+  return options.engine === "webkit"
+    ? launchWebKit({ headless: !options.headful })
+    : launchChrome({ headless: !options.headful }).then((chrome) => ({
+      open: () => CdpPage.open(chrome.connection),
+      close: () => chrome.close(),
+    }));
+}
+
+/** `--layout`: runs every layout check on a fresh page and exits 1 when one fails. */
+async function layout(options) {
+  const vite = await startPage(options);
+  const browser = await step(`starting ${options.engine}`, () => launchBrowser(options));
+  try {
+    for (const check of LAYOUT_CHECKS) {
+      const page = await browser.open();
+      try {
+        await page.send("Page.addScriptToEvaluateOnNewDocument", { source: PROBE });
+        await page.resize(check.width, check.height);
+        await check.run(await loadApp(page, benchUrl(vite.origin, { theme: "light", lang: "en", ...check.query })));
+        console.log(`${check.name}: ok`);
+      } catch (error) {
+        process.exitCode = 1;
+        console.log(`${check.name}: FAILED, ${error.message}\n  ${check.description}`);
+        const shot = await page.send("Page.captureScreenshot", { format: "png" }).catch(() => null);
+        if (shot) {
+          const file = path.join(os.tmpdir(), `lattice-perf-bench-layout-${check.name}.png`);
+          writeFileSync(file, Buffer.from(shot.data, "base64"));
+          console.log(`  Screenshot: ${file}`);
+        }
+      } finally {
+        if (!options.keepOpen) await page.close();
+      }
+    }
+  } finally {
+    if (!options.keepOpen) {
+      await browser.close();
+      await vite.server.close();
+    }
+  }
+}
+
 /** Self time per function, heaviest first, from a CDP CPU profile. */
 function profileSummary(profile, top = 25) {
   const self = new Map();
@@ -492,15 +541,11 @@ async function main() {
   const options = parseArgs(process.argv.slice(2));
   if (options.serve) return serve(options);
   if (options.smoke) return smoke(options);
+  if (options.layout) return layout(options);
   const scenarios = options.only ? SCENARIOS.filter((scenario) => options.only.includes(scenario.name)) : SCENARIOS;
   if (!scenarios.length) throw new Error(`No scenario matches ${options.only}`);
   const vite = options.url ? null : await startPage(options);
-  const browser = options.engine === "webkit"
-    ? await launchWebKit({ headless: !options.headful })
-    : await launchChrome({ headless: !options.headful }).then((chrome) => ({
-      open: () => CdpPage.open(chrome.connection),
-      close: () => chrome.close(),
-    }));
+  const browser = await launchBrowser(options);
   const results = [];
   try {
     const url = options.url ?? benchUrl(vite.origin);
