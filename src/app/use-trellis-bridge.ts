@@ -3,7 +3,7 @@ import { useEffect, useLayoutEffect, useRef } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { invoke } from "@tauri-apps/api/core";
 import type { AssetPreview, PaperSummary, ProjectSnapshot, SettingsTab } from "../app-types";
-import { arxivIdFromTabKey, isHtmlFilePath, isPaperTabKey } from "../app-utils";
+import { arxivIdFromTabKey, isHtmlFilePath, isPaperTabKey, stripFrontmatter } from "../app-utils";
 import type { MenuEntry } from "@danfessler/trellis";
 import { NEW_ENTRIES, type NewEntryType } from "../project/project-new-entries";
 import type { TrellisBridge, TrellisController } from "../trellis/trellis-controller";
@@ -88,7 +88,9 @@ export function useTrellisBridge(app: TrellisBridgeApp) {
         const { markdown, blog } = await readPaperDocuments(arxivId);
         const view = (paperView === "blog" ? blog : markdown) ? paperView : paperView === "blog" ? "fulltext" : "blog";
         const path = paperDocumentPath(arxivId, view);
-        const text = view === "blog" ? blog : markdown;
+        // Shown as the reader shows it: a full text's converter frontmatter
+        // would be a block the reader lacks, shifting the shared reading anchor.
+        const text = view === "blog" ? blog : markdown && stripFrontmatter(markdown);
         return text ? { path, text } : null;
       },
       readAsset: (path) => invoke<AssetPreview>("read_project_asset", { path }),

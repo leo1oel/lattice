@@ -14,6 +14,7 @@ import {
 import { flattenProjectPaths } from "../build/compile-diagnostics";
 import { formatBibDocument } from "../papers/bib-format";
 import { isProjectFileMissing } from "../pdf/project-pdf-refusals";
+import { PDF_RECHECK_MS, useProjectPdfWatch } from "../pdf/use-project-pdf-watch";
 import { loadLastFile, loadWorkspaceLayout, persistLastFile, persistWorkspaceLayout } from "../settings/app-settings";
 import { addAppLog } from "../telemetry/app-log-store";
 import { notifyError } from "../telemetry/app-notify";
@@ -39,8 +40,6 @@ export function documentKind(key: string, assetPaths: ReadonlySet<string>): "pap
   return isPaperTabKey(key) ? "paper" : assetPaths.has(key) ? "asset" : "file";
 }
 
-/** How often an open project PDF is checked for a new version on disk. */
-const PDF_RECHECK_MS = 2500;
 /** How often the open file is checked for an edit made behind the editor. */
 const DISK_POLL_MS = 2500;
 const RECENTLY_CLOSED_LIMIT = 20;
@@ -941,13 +940,11 @@ export function useOpenDocuments(deps: OpenDocumentsDeps) {
     };
   }, [accept, asset, autoBuildEnabled, depsRef, file, paper, project, savedRef, textRef]);
 
-  // An open project PDF is read a range at a time from one version of the file,
-  // so a rewrite on disk (a build, the agent, an Overleaf pull) must hand the
-  // viewer the new version; it keeps its page and zoom across the swap. The
-  // viewer asks at once when a read finds the file changed; the poll catches
-  // a rewrite before any read does. A file removed from the project stays
-  // open with a notice and is checked less often; a rebuild that deletes and
-  // then rewrites it brings the new version back in at the same page.
+  // A rewrite on disk hands the open project PDF the new version, keeping its
+  // page and zoom across the swap (see useProjectPdfWatch). The viewer also
+  // asks at once when a read finds the file changed. A file removed from the
+  // project stays open with a notice; a rebuild that deletes and then
+  // rewrites it brings the new version back in at the same page.
   const recheckAsset = useCallback(() => {
     const shown = assetRef.current;
     if (!shown?.ranges) return;
@@ -974,11 +971,7 @@ export function useOpenDocuments(deps: OpenDocumentsDeps) {
   }, [recheckAsset]);
   const assetMissing = asset !== null && asset === missingAsset;
   const pdfPath = asset?.ranges ? asset.path : null;
-  useEffect(() => {
-    if (!project || !pdfPath) return;
-    const timer = window.setInterval(recheckAsset, assetMissing ? 2 * PDF_RECHECK_MS : PDF_RECHECK_MS);
-    return () => window.clearInterval(timer);
-  }, [assetMissing, pdfPath, project, recheckAsset]);
+  useProjectPdfWatch(project?.root, pdfPath, assetMissing, recheckAsset);
 
   // ---- Autosave ----------------------------------------------------------------------------------------------------
   const automaticBuildPending = useRef(false);

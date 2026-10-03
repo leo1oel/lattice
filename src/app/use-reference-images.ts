@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import type { AssetPreview } from "../app-types";
 import { referenceAssetPreviewDataUrl } from "../project/reference-preview";
-import { onProjectFilesChanged } from "../project/project-files-changed";
+import { normalizeProjectRelativePath, onProjectFilesChanged } from "../project/project-files-changed";
 import { useRefState } from "./effect-helpers";
 
 type CacheEntry = { promise: Promise<string | null>; characters: number };
@@ -24,20 +24,6 @@ function trimCache(cache: Map<string, CacheEntry>) {
     cache.delete(key);
     characters -= entry.characters;
   }
-}
-
-function normalizeProjectRelativePath(path: string): string | null {
-  const parts: string[] = [];
-  for (const part of path.replace(/\\/g, "/").split("/")) {
-    if (!part || part === ".") continue;
-    if (part === "..") {
-      if (!parts.length) return null;
-      parts.pop();
-    } else {
-      parts.push(part);
-    }
-  }
-  return parts.join("/") || null;
 }
 
 /**

@@ -1,4 +1,4 @@
-import { synaraHook, openTreeFile, waitForSelectedTab, fileNode, fileNodes, dirNode, type Commands, mockCommands, projectCommands, refreshableProject, SINGLE_TRANSFORMER, attentionPaper, ROOT, projectSnapshot, MAIN_DOCUMENT, markdownSnapshot, PAPER_ABSTRACT, readPathContent, deferred, setAutoBuildMode, setInterfaceLanguage, papersList, openPaper, findProjectTreeItem, renderApp, expectNotification, findElement, findEditorView, expectEditorText, postWindowMessage, expectInvoked, invokeCalls, persistLayout, paneContent, visualEditorOf, argPath, openAgentFrame, postedOfType, pdfDocumentStub, mockPdfDocument } from "./app-test-utils";
+import { synaraHook, openTreeFile, waitForSelectedTab, fileNode, fileNodes, dirNode, type Commands, mockCommands, projectCommands, refreshableProject, SINGLE_TRANSFORMER, attentionPaper, ROOT, projectSnapshot, MAIN_DOCUMENT, markdownSnapshot, PAPER_ABSTRACT, readPathContent, deferred, setAutoBuildMode, setInterfaceLanguage, papersList, openPaper, findProjectTreeItem, renderApp, expectNotification, findElement, findEditorView, expectEditorText, postWindowMessage, expectInvoked, invokeCalls, persistLayout, paneContent, visualEditorOf, argPath, openAgentFrame, postedOfType, pdfDocumentStub, mockPdfDocument, emitTauriEvent } from "./app-test-utils";
 import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { NodeSelection } from "@tiptap/pm/state";
@@ -423,6 +423,29 @@ describe("papers", () => {
     expect(within(snapshot).getByRole("button", { name: "Open the reader" })).toHaveAttribute("aria-label", "Open the reader");
   });
 
+  it("shows an imported full text beside the notes block for block as the reader shows it", async () => {
+    // The converter writes its metadata as YAML frontmatter. The reader drops
+    // it, so the snapshot must too: the shared reading place is a top-level
+    // block's index, and an extra block would move it in both directions.
+    renderApp({
+      ...projectCommands(projectSnapshot({ files: fileNodes("main.tex", "notes.md") }), "\\documentclass{main}"),
+      list_papers: () => [attentionPaper()],
+      read_paper: "---\ntitle: Attention\narxiv_id: 1706.03762\n---\n\n# Attention\n\nPaper content.\n\n## Section 2\n\nMore content.",
+    });
+    await openTreeFile("notes.md");
+    await openPaper("Attention Is All You Need");
+    const heading = await screen.findByRole("heading", { name: "Section 2" });
+    const blocks = (root: ParentNode) => [...root.querySelector(".ProseMirror")!.children].map((block) => block.textContent);
+    const reader = blocks(heading.closest(".ProseMirror")!.parentElement!);
+    expect(reader).toEqual(["Attention", "Paper content.", "Section 2", "More content."]);
+    fireEvent.click(within(document.querySelector(".trellis-presets")!).getByRole("tab", { name: "Reading" }));
+    fireEvent.pointerDown(await findElement(".trellis-snapshot"), { button: 0 });
+    await waitForSelectedTab("notes.md");
+    const snapshot = await findElement(".trellis-paper-snapshot");
+    await waitFor(() => expect(snapshot).toHaveTextContent("More content."));
+    expect(blocks(snapshot)).toEqual(reader);
+  });
+
   it("keeps a project PDF open beside the notes in the Reading layout", async () => {
     renderApp({
       ...projectCommands(projectSnapshot({ files: fileNodes("main.tex", "notes.md", "reference.pdf") }), "\\documentclass{main}"),
@@ -512,6 +535,51 @@ describe("papers", () => {
     // The notes keep their own panel's selection.
     expect(within(await findElement<HTMLElement>('[data-trellis-part="panel"][data-panel="panel-notes"]'))
       .getByRole("tab", { name: /notes\.md/ })).toHaveAttribute("aria-selected", "true");
+  });
+
+  it("moves a fully read PDF beside the notes to a same-size rewrite the watcher reports", async () => {
+    // Every page already read makes no further range read for a refusal to
+    // surface, and a same-size rewrite leaves the project tree as it was:
+    // only the watcher's report (or the poll) can say the file changed.
+    mockPdfDocument(() => pdfDocumentStub(1, {
+      render: () => ({ promise: Promise.resolve(), cancel: vi.fn() }), getTextContent: async () => ({ items: [] }),
+    }));
+    let ranges = { length: 8, version: "v1" };
+    let removed = false;
+    renderApp({
+      ...projectCommands(projectSnapshot({ files: fileNodes("main.tex", "notes.md", "reference.pdf") }), "\\documentclass{main}"),
+      read_project_asset: (args) => {
+        if (removed) throw new Error("That file or folder no longer exists.");
+        return { path: argPath(args), mimeType: "application/pdf", ranges };
+      },
+    });
+    await openTreeFile("notes.md");
+    fireEvent.click(await findProjectTreeItem("reference.pdf"));
+    await waitForSelectedTab("reference.pdf");
+    fireEvent.click(within(document.querySelector(".trellis-presets")!).getByRole("tab", { name: "Reading" }));
+    fireEvent.pointerDown(await findElement(".trellis-snapshot"), { button: 0 });
+    await waitForSelectedTab("notes.md");
+    const snapshot = await findElement(".trellis-pdf-snapshot");
+    await within(snapshot).findByLabelText("PDF page 1");
+    const loads = () => vi.mocked(getDocument).mock.calls.length;
+    const loaded = loads();
+    const fileChanged = (paths: string[]) => emitTauriEvent("project-fs-changed", { root: ROOT, paths });
+
+    ranges = { length: 8, version: "v2" };
+    fileChanged(["reference.pdf"]);
+    await waitFor(() => expect(loads()).toBe(loaded + 1));
+    expect(invokeCalls("read_project_asset_range")).toHaveLength(0);
+    expect(screen.getByRole("tab", { name: /notes\.md/ })).toHaveAttribute("aria-selected", "true");
+    // Removed, it stays open beside the notes with a notice; restored, the
+    // same lifecycle brings the new version in.
+    removed = true;
+    fileChanged(["reference.pdf"]);
+    expect(await within(snapshot).findByText("This PDF was removed from the project.")).toHaveAttribute("role", "status");
+    removed = false;
+    ranges = { length: 8, version: "v3" };
+    fileChanged(["reference.pdf"]);
+    await waitFor(() => expect(within(snapshot).queryByText("This PDF was removed from the project.")).not.toBeInTheDocument());
+    await waitFor(() => expect(loads()).toBe(loaded + 2));
   });
 
   it("opens a captured webpage without offering it as an arXiv PDF", async () => {
