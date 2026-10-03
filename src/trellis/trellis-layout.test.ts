@@ -51,7 +51,7 @@ describe("layout presets", () => {
       { id: "panel-writing", views: ["doc-0", "doc-1", "doc-2"], selected: "doc-0" },
       { id: "panel-pdf", views: ["pdf"], selected: "pdf" },
     ]);
-    expect(Object.keys(doc.views).sort()).toEqual(["doc-0", "doc-1", "doc-2", "pdf"]);
+    expect(Object.keys(doc.views).sort()).toEqual(["agent", "doc-0", "doc-1", "doc-2", "papers", "pdf", "project"]);
   });
 
   it("Reading puts the paper with the library beside the notes", () => {
@@ -59,6 +59,33 @@ describe("layout presets", () => {
     expect(panels(doc)).toEqual([
       { id: "panel-reading", views: ["papers", "doc-2"], selected: "doc-2" },
       { id: "panel-notes", views: ["doc-0", "doc-1"], selected: "doc-1" },
+    ]);
+  });
+
+  it("parks the navigators, the Agent and tools hidden, so their content stays mounted", () => {
+    const previous = workspaceWith(keys);
+    previous.views.history = { type: "history" };
+    previous.floating.push({ panel: { kind: "panel", id: "panel-history", views: ["history"], selected: "history" }, rect: { x: 0.1, y: 0.1, w: 0.3, h: 0.3 }, z: 1, layer: "overlay" });
+    const parked = (doc: LayoutDocument) => doc.hidden.map(({ panel }) => ({ id: panel.id, views: panel.views, selected: panel.selected }));
+    const writing = presetLayout("writing", previous, documents);
+    expect(parked(writing)).toEqual([
+      { id: "panel-project", views: ["project", "agent"], selected: "project" },
+      { id: "panel-papers", views: ["papers"], selected: "papers" },
+      { id: "panel-history", views: ["history"], selected: "history" },
+    ]);
+    expect(writing.floating).toEqual([]);
+    // From one preset to the other, a view the next one shows leaves the parked panels.
+    const reading = presetLayout("reading", writing, documents);
+    expect(parked(reading)).toEqual([
+      { id: "panel-pdf", views: ["pdf"], selected: "pdf" },
+      { id: "panel-project", views: ["project", "agent"], selected: "project" },
+      { id: "panel-history", views: ["history"], selected: "history" },
+    ]);
+    // A parked panel whose id the preset uses takes another.
+    const empty = presetLayout("writing", defaultLayout(), { activeKey: "", openTabs: [], isReading });
+    expect(parked(empty)).toEqual([
+      { id: "panel-project-parked", views: ["agent"], selected: "agent" },
+      { id: "panel-papers", views: ["papers"], selected: "papers" },
     ]);
   });
 

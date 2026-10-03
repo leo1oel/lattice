@@ -7,7 +7,7 @@
  * change. `migrateLayout` decides what an older saved layout becomes.
  */
 import {
-  createDocument, layout as L, sanitize, type LayoutDocument, type LayoutNode, type PanelNode, type ViewRecord,
+  createDocument, layout as L, sanitize, type HiddenPanel, type LayoutDocument, type LayoutNode, type PanelNode, type ViewRecord,
 } from "@danfessler/trellis";
 
 const STORAGE_PREFIX = "lattice.trellis-layout.v1:";
@@ -97,12 +97,29 @@ export type PresetDocuments = {
 
 const fileKey = (record: ViewRecord | undefined) => (record?.type === "file" ? String(record.params?.key ?? "") : "");
 
+/** Every panel of `doc`: docked, then floating, then (with `hidden`) hidden. */
+function panelsOf(doc: LayoutDocument, { hidden = false } = {}): PanelNode[] {
+  const panels: PanelNode[] = [];
+  const collect = (node: LayoutNode | null | undefined) => {
+    if (!node) return;
+    if (node.kind === "panel") panels.push(node);
+    else if (node.kind === "stage") collect(node.child);
+    else node.children.forEach(collect);
+  };
+  collect(doc.root);
+  doc.floating.forEach((entry) => panels.push(entry.panel));
+  if (hidden) doc.hidden.forEach((entry) => panels.push(entry.panel));
+  return panels;
+}
+
 /**
  * `doc` rearranged as `preset`. Every open document keeps its view (and so its
  * tab), only regrouped: Writing gathers them into one panel before the PDF,
  * selecting the source being written; Reading gathers papers with the Papers
  * library before a panel of everything else, selecting the paper and the
- * notes. Navigators, tools, floating and hidden panels are not part of it.
+ * notes. Every other view (navigators, the Agent, tools) is parked hidden in
+ * its own panel rather than dropped, so its content stays mounted: the Agent's
+ * frame must not reload a running turn.
  */
 export function presetLayout(preset: LayoutPreset, doc: LayoutDocument, documents: PresetDocuments): LayoutDocument {
   const { activeKey, openTabs, isReading } = documents;
@@ -152,7 +169,17 @@ export function presetLayout(preset: LayoutPreset, doc: LayoutDocument, document
     }
     root = row("split-reading", children, [0.5, 0.5]);
   }
-  return { schema: 1, version: doc.version, root, floating: [], hidden: [], views };
+  const placed = new Set(panelsOf({ ...doc, root, floating: [] }).map((target) => target.id));
+  const restore = { kind: "docked", beside: root.id, edge: "left", share: 0.3 } as const;
+  const hidden: HiddenPanel[] = [];
+  for (const source of panelsOf(doc, { hidden: true })) {
+    const members = source.views.filter((id) => doc.views[id] && doc.views[id].type !== "file" && !views[id]);
+    if (!members.length) continue;
+    for (const id of members) views[id] = doc.views[id];
+    const id = placed.has(source.id) ? `${source.id}-parked` : source.id;
+    hidden.push({ panel: { ...source, id, views: members, selected: members.includes(source.selected) ? source.selected : members[0] }, restore });
+  }
+  return { schema: 1, version: doc.version, root, floating: [], hidden, views };
 }
 
 /**
@@ -176,15 +203,7 @@ export function returnLayout(previous: LayoutDocument, current: LayoutDocument, 
     const key = fileKey(record);
     return key && open.has(key) && !kept.has(key);
   });
-  const panels: PanelNode[] = [];
-  const collect = (node: LayoutNode | null | undefined) => {
-    if (!node) return;
-    if (node.kind === "panel") panels.push(node);
-    else if (node.kind === "stage") collect(node.child);
-    else node.children.forEach(collect);
-  };
-  collect(previous.root);
-  previous.floating.forEach((entry) => panels.push(entry.panel));
+  const panels = panelsOf(previous);
   const holdsDocument = (target: PanelNode, key?: string) => target.views.some((id) => views[id] && fileKey(views[id]) && (!key || fileKey(views[id]) === key));
   const group = panels.find((target) => holdsDocument(target, documents.activeKey)) ?? panels.find((target) => holdsDocument(target));
   let doc: LayoutDocument = { ...previous, views };

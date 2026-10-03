@@ -676,7 +676,11 @@ const TrellisWorkspace = memo(function TrellisWorkspace({ controller, projectRoo
     }, 400);
     const snapshot = controller.ws?.getSnapshot();
     if (snapshot) {
-      const hidden = snapshot.hidden.map((entry) => ({ panelId: entry.panelId, title: entry.views.map((item) => item.title).join(", ") }));
+      // In a preset, the panels it parked come back with the writer's own
+      // layout (or their toggles), not with a chip each.
+      const hidden = snapshot.hidden
+        .filter((entry) => !presetRef.current || entry.views.some((item) => item.type === "file"))
+        .map((entry) => ({ panelId: entry.panelId, title: entry.views.map((item) => item.title).join(", ") }));
       const previous = controller.ui.get().hidden;
       // Every layout change reports the hidden list; keep the old array when
       // nothing in it changed, so its subscribers (the titlebar) do not
@@ -762,8 +766,8 @@ const TrellisWorkspace = memo(function TrellisWorkspace({ controller, projectRoo
       controller.resync();
     },
     // A preset regroups the open documents' own views, so no document closes
-    // and nothing needs saving first; navigators and tools leave quietly (an
-    // open tool's drawer stays open, for its panel to come back to).
+    // and nothing needs saving first; navigators, the Agent and tools wait
+    // hidden, still mounted, for the writer's own layout to bring them back.
     preset: (preset) => {
       const handle = controller.ws;
       const current = presetRef.current;
