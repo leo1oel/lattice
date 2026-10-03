@@ -95,6 +95,24 @@ export function sortDiagnostics(diagnostics: CompileDiagnostic[]): CompileDiagno
   });
 }
 
+export type DiagnosticFileGroup = { file: string | undefined; diagnostics: CompileDiagnostic[] };
+
+/**
+ * Sorted diagnostics gathered under their file, so twenty warnings from one
+ * chapter read as one place to visit. Groups and their messages keep the
+ * sorted order, so a file with an error still comes first and leads with it.
+ */
+export function groupDiagnosticsByFile(sorted: readonly CompileDiagnostic[]): DiagnosticFileGroup[] {
+  const groups = new Map<string, DiagnosticFileGroup>();
+  for (const diagnostic of sorted) {
+    const file = normalizeDiagnosticPath(diagnostic.file);
+    const group = groups.get(file ?? "");
+    if (group) group.diagnostics.push(diagnostic);
+    else groups.set(file ?? "", { file, diagnostics: [diagnostic] });
+  }
+  return [...groups.values()];
+}
+
 /**
  * Identity of a set of diagnostics, for "has this changed since you dismissed
  * it?": autosave recompiles on every pause in typing, and a warning the writer

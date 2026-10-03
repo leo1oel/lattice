@@ -652,6 +652,10 @@ msgstr "助手轮次审查"
 msgid "Agent unavailable"
 msgstr "智能助手不可用"
 
+#: src/agent/synara-loading-surface.tsx
+msgid "Agent version {build}"
+msgstr "智能助手版本 {build}"
+
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Aleph"
 msgstr "阿列夫"
@@ -1169,6 +1173,7 @@ msgstr "构建失败，未捕获到日志"
 msgid "Build files cleaned"
 msgstr "已清理构建文件"
 
+#: src/build/compile-diagnostics-panel.tsx
 #: src/build/compile-diagnostics.ts
 msgid "Build log"
 msgstr "构建日志"
@@ -1966,6 +1971,10 @@ msgstr "拷贝"
 msgid "Copy code"
 msgstr "复制代码"
 
+#: src/agent/synara-loading-surface.tsx
+msgid "Copy details"
+msgstr "复制详细信息"
+
 #: src/editor/markdown/engine/lattice-visual-editor.tsx
 msgid "Copy draft"
 msgstr "复制草稿"
@@ -2379,6 +2388,11 @@ msgstr "描述列表"
 msgid "Details"
 msgstr "检查详情"
 
+#: src/agent/synara-loading-surface.tsx
+msgctxt "error disclosure"
+msgid "Details"
+msgstr "详细信息"
+
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Determinant-style matrix"
 msgstr "行列式样式的矩阵"
@@ -2444,6 +2458,10 @@ msgstr "除号"
 #: src/trellis/trellis-labels.ts
 msgid "Dock"
 msgstr "停靠"
+
+#: src/build/compile-diagnostics-panel.tsx
+msgid "Dock below the page"
+msgstr "停靠在页面下方"
 
 #: src/trellis/trellis-labels.ts
 msgid "Dock beside documents"
@@ -3106,6 +3124,10 @@ msgstr "降号"
 #: src/trellis/trellis-labels.ts
 msgid "Float"
 msgstr "浮动"
+
+#: src/build/compile-diagnostics-panel.tsx
+msgid "Float over the page"
+msgstr "浮于页面上方"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Floating figure with image, caption, and label (requires graphicx)"
@@ -4189,6 +4211,7 @@ msgstr "上限 1 页"
 msgid "Line"
 msgstr "行"
 
+#: src/build/compile-diagnostics-panel.tsx
 #: src/build/compile-diagnostics.ts
 msgid "line {line}"
 msgstr "第 {line} 行"
@@ -4822,6 +4845,10 @@ msgstr "前往 PDF 下一位置"
 msgid "Next search result"
 msgstr "下一个搜索结果"
 
+#: src/agent/synara-loading-surface.tsx
+msgid "No Agent logs yet"
+msgstr "暂无智能助手日志"
+
 #: src/history/history-drawer.tsx
 msgid "No changes match this filter"
 msgstr "没有符合此筛选条件的更改"
@@ -5249,6 +5276,10 @@ msgstr "打开论文主页"
 #: src/telemetry/app-log.tsx
 msgid "Open log folder"
 msgstr "打开日志文件夹"
+
+#: src/agent/synara-loading-surface.tsx
+msgid "Open logs"
+msgstr "打开日志"
 
 #: src/papers/bibliography-audit.tsx
 msgid "Open notice"

@@ -652,6 +652,10 @@ msgstr "Agent turn review"
 msgid "Agent unavailable"
 msgstr "Agent unavailable"
 
+#: src/agent/synara-loading-surface.tsx
+msgid "Agent version {build}"
+msgstr "Agent version {build}"
+
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Aleph"
 msgstr "Aleph"
@@ -1169,6 +1173,7 @@ msgstr "Build failed without a captured log"
 msgid "Build files cleaned"
 msgstr "Build files cleaned"
 
+#: src/build/compile-diagnostics-panel.tsx
 #: src/build/compile-diagnostics.ts
 msgid "Build log"
 msgstr "Build log"
@@ -1966,6 +1971,10 @@ msgstr "Copy"
 msgid "Copy code"
 msgstr "Copy code"
 
+#: src/agent/synara-loading-surface.tsx
+msgid "Copy details"
+msgstr "Copy details"
+
 #: src/editor/markdown/engine/lattice-visual-editor.tsx
 msgid "Copy draft"
 msgstr "Copy draft"
@@ -2379,6 +2388,11 @@ msgstr "Description"
 msgid "Details"
 msgstr "Details"
 
+#: src/agent/synara-loading-surface.tsx
+msgctxt "error disclosure"
+msgid "Details"
+msgstr "Details"
+
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Determinant-style matrix"
 msgstr "Determinant-style matrix"
@@ -2444,6 +2458,10 @@ msgstr "Division"
 #: src/trellis/trellis-labels.ts
 msgid "Dock"
 msgstr "Dock"
+
+#: src/build/compile-diagnostics-panel.tsx
+msgid "Dock below the page"
+msgstr "Dock below the page"
 
 #: src/trellis/trellis-labels.ts
 msgid "Dock beside documents"
@@ -3106,6 +3124,10 @@ msgstr "Flat"
 #: src/trellis/trellis-labels.ts
 msgid "Float"
 msgstr "Float"
+
+#: src/build/compile-diagnostics-panel.tsx
+msgid "Float over the page"
+msgstr "Float over the page"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Floating figure with image, caption, and label (requires graphicx)"
@@ -4189,6 +4211,7 @@ msgstr "Limit 1 page"
 msgid "Line"
 msgstr "Line"
 
+#: src/build/compile-diagnostics-panel.tsx
 #: src/build/compile-diagnostics.ts
 msgid "line {line}"
 msgstr "line {line}"
@@ -4822,6 +4845,10 @@ msgstr "Next PDF location"
 msgid "Next search result"
 msgstr "Next search result"
 
+#: src/agent/synara-loading-surface.tsx
+msgid "No Agent logs yet"
+msgstr "No Agent logs yet"
+
 #: src/history/history-drawer.tsx
 msgid "No changes match this filter"
 msgstr "No changes match this filter"
@@ -5249,6 +5276,10 @@ msgstr "Open landing page"
 #: src/telemetry/app-log.tsx
 msgid "Open log folder"
 msgstr "Open log folder"
+
+#: src/agent/synara-loading-surface.tsx
+msgid "Open logs"
+msgstr "Open logs"
 
 #: src/papers/bibliography-audit.tsx
 msgid "Open notice"
