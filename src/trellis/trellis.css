@@ -430,8 +430,10 @@
 @container trellis-titlebar (max-width: 380px) { .trellis-titlebar-layout-actions { display: none; } }
 /* The Panels menu reopens each of these panels; their own headers hide them. */
 @container trellis-titlebar (max-width: 300px) { .trellis-titlebar-panel-toggles { display: none; } }
+/* The Panels menu switches the layout too. */
+@container trellis-titlebar (max-width: 200px) { .trellis-titlebar-presets { display: none; } }
 /* The menu keeps its accessible name when only its icon is left. */
-@container trellis-titlebar (max-width: 190px) { .trellis-titlebar-menu > span { display: none; } }
+@container trellis-titlebar (max-width: 100px) { .trellis-titlebar-menu > span { display: none; } }
 .trellis-titlebar-hidden { display: flex; align-items: center; gap: var(--space-2); min-width: 0; overflow: hidden; }
 /* Chips shrink to an ellipsis each rather than clip, so every visible chip
    keeps its own pointer target. */

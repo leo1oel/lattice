@@ -1,6 +1,6 @@
 /**
  * Titlebar controls for the Trellis workspace: a Panels menu that reopens any
- * panel or tool and resets the layout, the Workspace / Writing / Reading
+ * panel or tool, switches the layout preset and resets the layout, the Workspace / Writing / Reading
  * layout switch, one toggle each for Project, Papers and the Agent,
  * maximize/restore and reset, and a chip per hidden panel. The PDF
  * comes up from each .tex panel's Build button (and the Panels menu).
@@ -9,7 +9,7 @@
 import { memo, useCallback, useMemo, useSyncExternalStore } from "react";
 import { useLingui } from "@lingui/react/macro";
 import {
-  BookOpen, Bot, FileText, FolderTree, LayoutDashboard, LayoutPanelLeft, Library, Maximize2, Minimize2, PenLine, RotateCcw,
+  BookOpen, Bot, Check, FileText, FolderTree, LayoutDashboard, LayoutPanelLeft, Library, Maximize2, Minimize2, PenLine, RotateCcw,
 } from "lucide-react";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
@@ -20,6 +20,13 @@ import { TOOL_KINDS, type TrellisController, type TrellisPanelState, type Trelli
 import { PANEL_TITLES, spaceMixedScript } from "./trellis-titles";
 import { PANEL_ICONS } from "./trellis-icons";
 import type { LayoutPreset } from "./trellis-layout";
+
+/** The layout presets, in the titlebar switch and, once that is shed, the Panels menu. */
+const PRESETS = [
+  { value: "own", icon: LayoutDashboard },
+  { value: "writing", icon: PenLine },
+  { value: "reading", icon: BookOpen },
+] as const satisfies ReadonlyArray<{ value: LayoutPreset | "own"; icon: unknown }>;
 
 const CORE_PANELS = [
   { kind: "project", icon: <FolderTree size={14} /> },
@@ -57,6 +64,14 @@ export const TrellisTitlebar = memo(function TrellisTitlebar({ controller }: { c
   const panelState = usePanelStates(controller);
   const ws = () => controller.ws;
   const title = (kind: TrellisSingleton) => i18n._(PANEL_TITLES[kind]);
+  const current = preset ?? "own";
+  const choosePreset = (next: LayoutPreset | "own") => controller.setPreset(next === "own" ? null : next);
+  const presetLabels = { own: t`Workspace`, writing: t`Writing`, reading: t`Reading` };
+  const presetTitles = {
+    own: preset ? t`Return to your own layout` : t`Your own layout`,
+    writing: t`Source beside the compiled PDF`,
+    reading: t`A paper beside your notes`,
+  };
   return (
     <div className="trellis-titlebar">
       <DropdownMenu modal={false}>
@@ -81,6 +96,15 @@ export const TrellisTitlebar = memo(function TrellisTitlebar({ controller }: { c
             <DropdownMenuItem key={kind} onSelect={() => controller.showPanel(kind)}>{PANEL_ICONS[kind]}{title(kind)}</DropdownMenuItem>
           ))}
           <DropdownMenuSeparator />
+          <DropdownMenuLabel>{t`Layout`}</DropdownMenuLabel>
+          {PRESETS.map(({ value, icon: Icon }) => (
+            <DropdownMenuItem key={value} role="menuitemradio" aria-checked={current === value} onSelect={() => choosePreset(value)}>
+              <Icon size={14} />
+              <span className="flex-1">{presetLabels[value]}</span>
+              {current === value && <Check size={14} className="trellis-menu-state" />}
+            </DropdownMenuItem>
+          ))}
+          <DropdownMenuSeparator />
           <DropdownMenuItem onSelect={() => ws()?.navigation.toggle()}>
             <Maximize2 size={14} />
             <span className="flex-1">{t`Maximize focused panel`}</span>
@@ -89,30 +113,18 @@ export const TrellisTitlebar = memo(function TrellisTitlebar({ controller }: { c
           <DropdownMenuItem onSelect={() => void controller.resetLayout()}><RotateCcw size={14} />{t`Reset layout`}</DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
-      <div className="trellis-titlebar-group">
+      <div className="trellis-titlebar-group trellis-titlebar-presets">
         <SegmentedControl<LayoutPreset | "own">
-          value={preset ?? "own"}
-          onChange={(next) => controller.setPreset(next === "own" ? null : next)}
+          value={current}
+          onChange={choosePreset}
           ariaLabel={t`Layout`}
           className="trellis-presets"
           tabClassName="trellis-preset"
-          items={[
-            {
-              value: "own",
-              label: <><LayoutDashboard size={13} aria-hidden="true" /><span className="trellis-preset-label">{t`Workspace`}</span></>,
-              title: preset ? t`Return to your own layout` : t`Your own layout`,
-            },
-            {
-              value: "writing",
-              label: <><PenLine size={13} aria-hidden="true" /><span className="trellis-preset-label">{t`Writing`}</span></>,
-              title: t`Source beside the compiled PDF`,
-            },
-            {
-              value: "reading",
-              label: <><BookOpen size={13} aria-hidden="true" /><span className="trellis-preset-label">{t`Reading`}</span></>,
-              title: t`A paper beside your notes`,
-            },
-          ]}
+          items={PRESETS.map(({ value, icon: Icon }) => ({
+            value,
+            label: <><Icon size={13} aria-hidden="true" /><span className="trellis-preset-label">{presetLabels[value]}</span></>,
+            title: presetTitles[value],
+          }))}
         />
       </div>
       <div className="trellis-titlebar-group trellis-titlebar-panel-toggles" role="group" aria-label={t`Show or hide panels`}>

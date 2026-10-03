@@ -59,19 +59,25 @@ describe("titlebar panel controls in a narrow window", () => {
     expect(clamps.map((rule) => rule.style.maxWidth)).toEqual(["var(--titlebar-project-title-max-width-compact)"]);
   });
 
-  it("sheds the layout actions first, then the panel toggles, then the Panels label", () => {
+  it("sheds the layout actions first, then the panel toggles, then the presets, then the Panels label", () => {
     const layoutActions = hiddenBelow(".trellis-titlebar-layout-actions");
     const panelToggles = hiddenBelow(".trellis-titlebar-panel-toggles");
+    const presets = hiddenBelow(".trellis-titlebar-presets");
     const panelsLabel = hiddenBelow(".trellis-titlebar-menu > span");
     expect(layoutActions).toBeGreaterThan(panelToggles);
-    expect(panelToggles).toBeGreaterThan(panelsLabel);
+    expect(panelToggles).toBeGreaterThan(presets);
+    expect(presets).toBeGreaterThan(panelsLabel);
   });
 
   it("keeps every shed control's action in the Panels menu", () => {
-    const { container } = render(<TrellisTitlebar controller={new TrellisController()} />);
+    const controller = new TrellisController();
+    const presets: Array<string | null> = [];
+    controller.installHandlers({ preset: (preset) => presets.push(preset) });
+    const { container } = render(<TrellisTitlebar controller={controller} />);
     const shed = (selector: string) => [...container.querySelectorAll(`${selector} button`)].map((button) => button.getAttribute("aria-label"));
     expect(shed(".trellis-titlebar-layout-actions")).toEqual(["Maximize focused panel", "Reset layout"]);
     expect(shed(".trellis-titlebar-panel-toggles")).toEqual(["Show Project", "Show Papers", "Show Agent"]);
+    expect([...container.querySelectorAll(".trellis-titlebar-presets button")].map((button) => button.textContent)).toEqual(["Workspace", "Writing", "Reading"]);
 
     const panels = screen.getByRole("button", { name: "Panels" });
     // The trigger keeps its name once only the icon is left.
@@ -81,5 +87,10 @@ describe("titlebar panel controls in a narrow window", () => {
     for (const name of ["Project", "Papers", "Agent", "Maximize focused panel", "Reset layout"]) {
       expect(menu.getByRole("menuitem", { name: new RegExp(`^${name}`) })).toBeVisible();
     }
+    expect(menu.getAllByRole("menuitemradio").map((item) => [item.textContent, item.getAttribute("aria-checked")])).toEqual([
+      ["Workspace", "true"], ["Writing", "false"], ["Reading", "false"],
+    ]);
+    fireEvent.click(menu.getByRole("menuitemradio", { name: "Reading" }));
+    expect(presets).toEqual(["reading"]);
   });
 });
