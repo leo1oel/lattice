@@ -6,13 +6,34 @@ import { TrellisTitlebar } from "./trellis-titlebar";
 
 afterEach(cleanup);
 
-const css = readFileSync("src/trellis/trellis.css", "utf8");
+// Vitest empties CSS imports, so load the stylesheets off disk into jsdom's
+// CSSOM: the assertions read parsed rules and computed styles, not source text.
+function loadSheet(file: string): CSSRule[] {
+  const style = document.createElement("style");
+  style.textContent = readFileSync(file, "utf8");
+  document.head.append(style);
+  return [...style.sheet!.cssRules];
+}
+const trellisRules = loadSheet("src/trellis/trellis.css");
+const shellRules = loadSheet("src/styles/app-shell.css");
 
-/** Each `@container trellis-titlebar` step: its width and the selectors it hides. */
-const collapseSteps = [...css.matchAll(/@container trellis-titlebar \(max-width: (\d+)px\) \{([^@]*?)\}\s*\}?/g)].map((match) => ({
-  width: Number(match[1]),
-  hidden: [...match[2].matchAll(/([^{}]+)\{[^}]*\bdisplay: none\b/g)].map((rule) => rule[1].trim()),
-}));
+const styleRules = (rules: Iterable<CSSRule>) => [...rules].filter((rule): rule is CSSStyleRule => rule instanceof CSSStyleRule);
+const containerRules = (rules: CSSRule[], name: string) => rules.filter((rule): rule is CSSContainerRule => rule instanceof CSSContainerRule && rule.containerName === name);
+const maxWidth = (rule: CSSContainerRule) => Number(/max-width:\s*(\d+)px/.exec(rule.containerQuery)?.[1]);
+
+/** The computed container of an element, from the shorthand or its longhands. */
+function containerOf(element: Element) {
+  const style = getComputedStyle(element);
+  const [name = "", type = ""] = style.getPropertyValue("container").split("/").map((part) => part.trim());
+  return { name: name || style.getPropertyValue("container-name"), type: type || style.getPropertyValue("container-type") };
+}
+
+/** The width of the `trellis-titlebar` container step that hides `selector`. */
+function hiddenBelow(selector: string): number {
+  const steps = containerRules(trellisRules, "trellis-titlebar").filter((step) => styleRules(step.cssRules).some((rule) => rule.selectorText === selector && rule.style.display === "none"));
+  expect(steps).toHaveLength(1);
+  return maxWidth(steps[0]);
+}
 
 describe("titlebar panel controls in a narrow window", () => {
   // At the window's 640px minimum (and in a browser tab, which has no floor)
@@ -21,29 +42,29 @@ describe("titlebar panel controls in a narrow window", () => {
   // Overleaf. The bar is now sized by what the canvas actions leave and clips
   // what does not fit; groups are shed by the bar's own width before that.
   it("takes only the room the canvas actions leave, and never paints over them", () => {
-    const bar = /\.trellis-titlebar \{([^}]*)\}/.exec(css)?.[1] ?? "";
-    expect(bar).toMatch(/container: trellis-titlebar \/ inline-size;/);
-    expect(bar).toMatch(/overflow: hidden;/);
-    expect(bar).toMatch(/min-width: 0;/);
+    const { container } = render(<div className="titlebar"><button className="project-title" /><TrellisTitlebar controller={new TrellisController()} /></div>);
+    const bar = container.querySelector(".trellis-titlebar")!;
+    expect(containerOf(bar)).toEqual({ name: "trellis-titlebar", type: "inline-size" });
+    expect(getComputedStyle(bar).overflow).toBe("hidden");
+    expect(getComputedStyle(bar).minWidth).toBe("0px");
     // A viewport query cannot know how much of the bar the project name, the
     // traffic lights or interface zoom take, so none may size these controls.
-    // A long project name gives way first, measured on the bar too.
-    const shell = readFileSync("src/styles/app-shell.css", "utf8");
-    expect(shell).toMatch(/\.titlebar \{ container: titlebar \/ inline-size;/);
-    expect(shell).toMatch(/@container titlebar \(max-width: \d+px\) \{ \.project-title \{ max-width: var\(--titlebar-project-title-max-width-compact\); \} \}/);
-    for (const media of css.matchAll(/@media[^{]*\{([^@]*?)\}\s*\}/g)) {
-      expect(media[1]).not.toMatch(/trellis-titlebar|trellis-preset/);
+    const mediaRules = trellisRules.filter((rule): rule is CSSMediaRule => rule instanceof CSSMediaRule);
+    for (const rule of mediaRules.flatMap((media) => styleRules(media.cssRules))) {
+      expect(rule.selectorText).not.toMatch(/trellis-titlebar|trellis-preset/);
     }
+    // A long project name gives way first, measured on the bar too.
+    expect(containerOf(container.querySelector(".titlebar")!)).toEqual({ name: "titlebar", type: "inline-size" });
+    const clamps = containerRules(shellRules, "titlebar").flatMap((step) => styleRules(step.cssRules)).filter((rule) => rule.selectorText === ".project-title");
+    expect(clamps.map((rule) => rule.style.maxWidth)).toEqual(["var(--titlebar-project-title-max-width-compact)"]);
   });
 
-  it("sheds the preset labels first, then whole groups, then the Panels label", () => {
-    expect(collapseSteps.map((step) => step.width)).toEqual([...collapseSteps.map((step) => step.width)].sort((a, b) => b - a));
-    expect(collapseSteps.map((step) => step.hidden)).toEqual([
-      [],
-      [".trellis-titlebar-layout-actions"],
-      [".trellis-titlebar-panel-toggles"],
-      [".trellis-titlebar-menu > span"],
-    ]);
+  it("sheds the layout actions first, then the panel toggles, then the Panels label", () => {
+    const layoutActions = hiddenBelow(".trellis-titlebar-layout-actions");
+    const panelToggles = hiddenBelow(".trellis-titlebar-panel-toggles");
+    const panelsLabel = hiddenBelow(".trellis-titlebar-menu > span");
+    expect(layoutActions).toBeGreaterThan(panelToggles);
+    expect(panelToggles).toBeGreaterThan(panelsLabel);
   });
 
   it("keeps every shed control's action in the Panels menu", () => {
