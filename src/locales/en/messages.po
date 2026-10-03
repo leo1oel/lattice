@@ -478,6 +478,7 @@ msgid "A paper beside your notes"
 msgstr "A paper beside your notes"
 
 #: src/settings/settings-dialog.tsx
+#: src/settings/settings-search-index.ts
 msgid "A project latexmkrc overrides this"
 msgstr "A project latexmkrc overrides this"
 
@@ -498,6 +499,7 @@ msgid "A spreadsheet must contain between 1 and 200 sheets"
 msgstr "A spreadsheet must contain between 1 and 200 sheets"
 
 #: src/overleaf/overleaf-connect.tsx
+#: src/settings/settings-search-index.ts
 msgid "A sync asks first"
 msgstr "A sync asks first"
 
@@ -626,6 +628,7 @@ msgstr "Added “{title}” to the bibliography. The full text could not be down
 
 #: src/history/history-drawer.tsx
 #: src/settings/settings-dialog.tsx
+#: src/settings/settings-search-index.ts
 #: src/trellis/trellis-agent-surface.tsx
 #: src/trellis/trellis-titles.ts
 msgid "Agent"
@@ -686,6 +689,7 @@ msgstr "Alignment"
 
 #: src/editor/latex/search-panel.ts
 #: src/history/history-drawer.tsx
+#: src/project/project-find-dialog.tsx
 msgid "All"
 msgstr "All"
 
@@ -706,6 +710,7 @@ msgid "All your projects are archived or trashed"
 msgstr "All your projects are archived or trashed"
 
 #: src/settings/settings-dialog.tsx
+#: src/settings/settings-search-index.ts
 msgid "Allow external commands"
 msgstr "Allow external commands"
 
@@ -772,6 +777,7 @@ msgid "Another file in this project"
 msgstr "Another file in this project"
 
 #: src/settings/literature-settings.tsx
+#: src/settings/settings-search-index.ts
 msgid "API key"
 msgstr "API key"
 
@@ -790,6 +796,7 @@ msgid "App updates"
 msgstr "App updates"
 
 #: src/settings/settings-dialog.tsx
+#: src/settings/settings-search-index.ts
 msgid "Appearance"
 msgstr "Appearance"
 
@@ -914,14 +921,17 @@ msgid "Automatic"
 msgstr "Automatic"
 
 #: src/settings/settings-dialog.tsx
+#: src/settings/settings-search-index.ts
 msgid "Automatic build"
 msgstr "Automatic build"
 
 #: src/settings/settings-dialog.tsx
+#: src/settings/settings-search-index.ts
 msgid "Automatic updates"
 msgstr "Automatic updates"
 
 #: src/settings/settings-dialog.tsx
+#: src/settings/settings-search-index.ts
 msgid "Auxiliary files"
 msgstr "Auxiliary files"
 
@@ -1216,6 +1226,7 @@ msgid "Build to count"
 msgstr "Build to count"
 
 #: src/settings/settings-dialog.tsx
+#: src/settings/settings-search-index.ts
 msgid "Build with ⌘S. Edits still save on their own"
 msgstr "Build with ⌘S. Edits still save on their own"
 
@@ -1224,10 +1235,12 @@ msgid "Building…"
 msgstr "Building…"
 
 #: src/settings/settings-dialog.tsx
+#: src/settings/settings-search-index.ts
 msgid "Builds"
 msgstr "Builds"
 
 #: src/settings/settings-dialog.tsx
+#: src/settings/settings-search-index.ts
 msgid "Builds 1.2 s after you stop typing"
 msgstr "Builds 1.2 s after you stop typing"
 
@@ -1466,6 +1479,7 @@ msgid "Check all"
 msgstr "Check all"
 
 #: src/settings/settings-dialog.tsx
+#: src/settings/settings-search-index.ts
 msgid "Check for updates"
 msgstr "Check for updates"
 
@@ -1488,6 +1502,7 @@ msgid "Check selected"
 msgstr "Check selected"
 
 #: src/settings/settings-dialog.tsx
+#: src/settings/settings-search-index.ts
 msgid "Check spelling in prose"
 msgstr "Check spelling in prose"
 
@@ -1609,6 +1624,7 @@ msgid "Cite bibliography entries"
 msgstr "Cite bibliography entries"
 
 #: src/settings/settings-dialog.tsx
+#: src/settings/settings-search-index.ts
 msgid "Clean"
 msgstr "Clean"
 
@@ -1753,6 +1769,7 @@ msgid "Color spectrum"
 msgstr "Color spectrum"
 
 #: src/settings/settings-dialog.tsx
+#: src/settings/settings-search-index.ts
 msgid "Color theme"
 msgstr "Color theme"
 
@@ -1809,12 +1826,15 @@ msgstr "Comment visibility"
 #: src/app/use-editor-comments.ts
 #: src/canvas/editor-status-bar.tsx
 #: src/overleaf/overleaf-collab.tsx
+#: src/settings/settings-search-index.ts
 #: src/trellis/trellis-titles.ts
 msgid "Comments"
 msgstr "Comments"
 
+#. placeholder {0}: knownAuthorName ?? ""
 #. placeholder {0}: props.knownAuthorName
 #: src/settings/settings-dialog.tsx
+#: src/settings/settings-search-index.ts
 msgid "Comments are signed {0}, from Git or Overleaf"
 msgstr "Comments are signed {0}, from Git or Overleaf"
 
@@ -1831,6 +1851,7 @@ msgid "Compile diagnostics"
 msgstr "Compile diagnostics"
 
 #: src/settings/settings-dialog.tsx
+#: src/settings/settings-search-index.ts
 msgid "Compile engine"
 msgstr "Compile engine"
 
@@ -1916,6 +1937,7 @@ msgid "Connecting to Overleaf's live channel…"
 msgstr "Connecting to Overleaf's live channel…"
 
 #: src/overleaf/overleaf-connect.tsx
+#: src/settings/settings-search-index.ts
 msgid "Connection"
 msgstr "Connection"
 
@@ -1924,6 +1946,7 @@ msgid "Connection failed"
 msgstr "Connection failed"
 
 #: src/settings/literature-settings.tsx
+#: src/settings/settings-search-index.ts
 msgid "Contact email"
 msgstr "Contact email"
 
@@ -2241,6 +2264,7 @@ msgid "Daleth"
 msgstr "Daleth"
 
 #: src/settings/settings-dialog.tsx
+#: src/settings/settings-search-index.ts
 msgid "Dark"
 msgstr "Dark"
 
@@ -2407,6 +2431,7 @@ msgstr "Determinant-style matrix"
 
 #: src/editor/codemirror-host.tsx
 #: src/settings/settings-dialog.tsx
+#: src/settings/settings-search-index.ts
 #: src/telemetry/diagnostic-request.ts
 msgid "Diagnostics"
 msgstr "Diagnostics"
@@ -2716,6 +2741,7 @@ msgid "Editor"
 msgstr "Editor"
 
 #: src/settings/settings-dialog.tsx
+#: src/settings/settings-search-index.ts
 msgid "Editor & builds"
 msgstr "Editor & builds"
 
@@ -2727,10 +2753,12 @@ msgid "Editor comments"
 msgstr "Editor comments"
 
 #: src/settings/settings-dialog.tsx
+#: src/settings/settings-search-index.ts
 msgid "Editor font size"
 msgstr "Editor font size"
 
 #: src/settings/settings-dialog.tsx
+#: src/settings/settings-search-index.ts
 msgid "Editor keymap"
 msgstr "Editor keymap"
 
@@ -2747,6 +2775,7 @@ msgid "Edits on both sides merge when you resume"
 msgstr "Edits on both sides merge when you resume"
 
 #: src/overleaf/overleaf-connect.tsx
+#: src/settings/settings-search-index.ts
 msgid "Edits sync live with Overleaf"
 msgstr "Edits sync live with Overleaf"
 
@@ -2807,10 +2836,12 @@ msgid "End an environment"
 msgstr "End an environment"
 
 #: src/settings/settings-dialog.tsx
+#: src/settings/settings-search-index.ts
 msgid "English"
 msgstr "English"
 
 #: src/settings/settings-dialog.tsx
+#: src/settings/settings-search-index.ts
 msgid "English, with Harper"
 msgstr "English, with Harper"
 
@@ -3027,6 +3058,10 @@ msgstr "File switch"
 #: src/overleaf/overleaf-history.tsx
 msgid "file upload"
 msgstr "file upload"
+
+#: src/project/project-find-dialog.tsx
+msgid "Files"
+msgstr "Files"
 
 #: src/history/history-drawer.tsx
 msgid "Files in this change"
@@ -3247,6 +3282,7 @@ msgid "Gamma"
 msgstr "Gamma"
 
 #: src/settings/settings-dialog.tsx
+#: src/settings/settings-search-index.ts
 msgid "General"
 msgstr "General"
 
@@ -3636,9 +3672,17 @@ msgstr "In proceedings"
 msgid "In progress"
 msgstr "In progress"
 
+#: src/App.tsx
+msgid "In this document"
+msgstr "In this document"
+
 #: src/overleaf/overleaf-comments.tsx
 msgid "In this file"
 msgstr "In this file"
+
+#: src/App.tsx
+msgid "In this paper"
+msgstr "In this paper"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Include another TeX file"
@@ -3861,14 +3905,17 @@ msgid "Integral"
 msgstr "Integral"
 
 #: src/settings/settings-dialog.tsx
+#: src/settings/settings-search-index.ts
 msgid "Integrations"
 msgstr "Integrations"
 
 #: src/settings/settings-dialog.tsx
+#: src/settings/settings-search-index.ts
 msgid "Interface language"
 msgstr "Interface language"
 
 #: src/settings/settings-dialog.tsx
+#: src/settings/settings-search-index.ts
 msgid "Interface sounds"
 msgstr "Interface sounds"
 
@@ -4205,6 +4252,7 @@ msgid "Less than or equal"
 msgstr "Less than or equal"
 
 #: src/settings/settings-dialog.tsx
+#: src/settings/settings-search-index.ts
 msgid "Light"
 msgstr "Light"
 
@@ -4289,6 +4337,7 @@ msgstr "Literature"
 
 #: src/settings/literature-settings.tsx
 #: src/settings/settings-dialog.tsx
+#: src/settings/settings-search-index.ts
 msgid "Literature services"
 msgstr "Literature services"
 
@@ -4420,6 +4469,7 @@ msgid "Logical or"
 msgstr "Logical or"
 
 #: src/settings/settings-dialog.tsx
+#: src/settings/settings-search-index.ts
 #: src/telemetry/app-log.tsx
 msgid "Logs"
 msgstr "Logs"
@@ -4489,6 +4539,10 @@ msgstr "Match case"
 msgid "Match system"
 msgstr "Match system"
 
+#: src/settings/settings-search.tsx
+msgid "Matching settings"
+msgstr "Matching settings"
+
 #: src/editor/latex/math-region.ts
 msgid "math"
 msgstr "math"
@@ -4530,6 +4584,7 @@ msgid "May include document text and file paths"
 msgstr "May include document text and file paths"
 
 #: src/settings/settings-dialog.tsx
+#: src/settings/settings-search-index.ts
 msgid "MCP"
 msgstr "MCP"
 
@@ -4914,6 +4969,10 @@ msgstr "No differences. You can close this window"
 msgid "No file changes recorded for this update"
 msgstr "No file changes recorded for this update"
 
+#: src/project/project-find-dialog.tsx
+msgid "No files match “{trimmedQuery}”"
+msgstr "No files match “{trimmedQuery}”"
+
 #: src/overleaf/overleaf-history.tsx
 msgid "No history yet"
 msgstr "No history yet"
@@ -4993,6 +5052,10 @@ msgstr "No matching publication found"
 msgid "No matching publication was found in the sources checked."
 msgstr "No matching publication was found in the sources checked."
 
+#: src/settings/settings-search.tsx
+msgid "No matching settings"
+msgstr "No matching settings"
+
 #: src/overleaf/overleaf-collab.tsx
 msgid "No messages yet. Say something and everyone in the project sees it"
 msgstr "No messages yet. Say something and everyone in the project sees it"
@@ -5013,6 +5076,10 @@ msgstr "No open comments"
 #: src/project/project-dialogs.tsx
 msgid "No other recent projects yet"
 msgstr "No other recent projects yet"
+
+#: src/project/project-find-dialog.tsx
+msgid "No papers match “{trimmedQuery}”"
+msgstr "No papers match “{trimmedQuery}”"
 
 #: src/settings/settings-dialog.tsx
 msgid "No project terms added"
@@ -5242,6 +5309,7 @@ msgid "Open a project from Overleaf"
 msgstr "Open a project from Overleaf"
 
 #: src/settings/settings-dialog.tsx
+#: src/settings/settings-search-index.ts
 msgid "Open a project to add terms"
 msgstr "Open a project to add terms"
 
@@ -5461,6 +5529,7 @@ msgstr "Outline"
 
 #: src/history/conflict-resolver.tsx
 #: src/settings/settings-dialog.tsx
+#: src/settings/settings-search-index.ts
 #: src/trellis/trellis-titles.ts
 msgid "Overleaf"
 msgstr "Overleaf"
@@ -5514,10 +5583,12 @@ msgid "Overleaf history"
 msgstr "Overleaf history"
 
 #: src/overleaf/overleaf-connect.tsx
+#: src/settings/settings-search-index.ts
 msgid "Overleaf history keeps a copy"
 msgstr "Overleaf history keeps a copy"
 
 #: src/overleaf/overleaf-connect.tsx
+#: src/settings/settings-search-index.ts
 msgid "Overleaf keeps its copy"
 msgstr "Overleaf keeps its copy"
 
@@ -5831,10 +5902,6 @@ msgstr "Personal key saved"
 msgid "Phi"
 msgstr "Phi"
 
-#: src/project/project-find-dialog.tsx
-msgid "Phrase or tokens"
-msgstr "Phrase or tokens"
-
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Pi"
 msgstr "Pi"
@@ -6006,6 +6073,7 @@ msgid "project command"
 msgstr "project command"
 
 #: src/settings/settings-dialog.tsx
+#: src/settings/settings-search-index.ts
 msgid "Project dictionary"
 msgstr "Project dictionary"
 
@@ -6069,6 +6137,7 @@ msgid "Proves / turnstile"
 msgstr "Proves / turnstile"
 
 #: src/settings/settings-dialog.tsx
+#: src/settings/settings-search-index.ts
 msgid "Providers"
 msgstr "Providers"
 
@@ -6182,6 +6251,7 @@ msgstr "Ready to install"
 msgid "Real part"
 msgstr "Real part"
 
+#: src/App.tsx
 #: src/components/ui/apple-color-picker.tsx
 msgid "Recent"
 msgstr "Recent"
@@ -6366,6 +6436,7 @@ msgid "Removed one file from Overleaf"
 msgstr "Removed one file from Overleaf"
 
 #: src/settings/settings-dialog.tsx
+#: src/settings/settings-search-index.ts
 msgid "Removes .aux, .log and other build files"
 msgstr "Removes .aux, .log and other build files"
 
@@ -7050,6 +7121,7 @@ msgid "scroll area"
 msgstr "scroll area"
 
 #: src/papers/literature-discovery-panel.tsx
+#: src/settings/settings-search.tsx
 msgid "Search"
 msgstr "Search"
 
@@ -7096,6 +7168,18 @@ msgstr "Search Overleaf projects"
 #: src/pdf/pdf-viewer.tsx
 msgid "Search PDF"
 msgstr "Search PDF"
+
+#: src/settings/settings-search.tsx
+msgid "Search settings"
+msgstr "Search settings"
+
+#: src/project/project-find-dialog.tsx
+msgid "Search your files and saved papers."
+msgstr "Search your files and saved papers."
+
+#: src/project/project-find-dialog.tsx
+msgid "Search…"
+msgstr "Search…"
 
 #: src/project/project-find-dialog.tsx
 #: src/project/project-replace-dialog.tsx
@@ -7211,6 +7295,7 @@ msgid "Send message"
 msgstr "Send message"
 
 #: src/settings/literature-settings.tsx
+#: src/settings/settings-search-index.ts
 msgid "Sent to Crossref for faster lookups. No key needed"
 msgstr "Sent to Crossref for faster lookups. No key needed"
 
@@ -7241,8 +7326,14 @@ msgid "Sharp"
 msgstr "Sharp"
 
 #: src/settings/settings-dialog.tsx
+#: src/settings/settings-search-index.ts
 msgid "Shell escape during builds"
 msgstr "Shell escape during builds"
+
+#. Search words for the Editor keymap setting, space-separated
+#: src/settings/settings-search-index.ts
+msgid "shortcuts"
+msgstr "shortcuts"
 
 #: src/trellis/trellis-titlebar.tsx
 msgid "Show {name}"
@@ -7256,6 +7347,10 @@ msgstr "Show {name} panel"
 msgctxt "macOS menu bar"
 msgid "Show All"
 msgstr "Show All"
+
+#: src/project/project-find-dialog.tsx
+msgid "Show all results"
+msgstr "Show all results"
 
 #: src/overleaf/overleaf-connect.tsx
 msgid "Show archived"
@@ -7290,10 +7385,18 @@ msgstr "Show outline"
 msgid "Show replace"
 msgstr "Show replace"
 
+#: src/project/project-find-dialog.tsx
+msgid "Show results from"
+msgstr "Show results from"
+
 #: src/overleaf/overleaf-changes.tsx
 #: src/overleaf/overleaf-comments.tsx
 msgid "Show this in the editor"
 msgstr "Show this in the editor"
+
+#: src/project/project-find-dialog.tsx
+msgid "Show:"
+msgstr "Show:"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Side-by-side column block"
@@ -7332,6 +7435,7 @@ msgid "Sign-in was cancelled. You can try again whenever you’re ready."
 msgstr "Sign-in was cancelled. You can try again whenever you’re ready."
 
 #: src/settings/settings-dialog.tsx
+#: src/settings/settings-search-index.ts
 msgid "Signs your comments when Git and Overleaf have no name"
 msgstr "Signs your comments when Git and Overleaf have no name"
 
@@ -7348,6 +7452,7 @@ msgid "Similar to"
 msgstr "Similar to"
 
 #: src/settings/settings-dialog.tsx
+#: src/settings/settings-search-index.ts
 msgid "Simplified Chinese"
 msgstr "Simplified Chinese"
 
@@ -7364,6 +7469,7 @@ msgid "Sized opening delimiter"
 msgstr "Sized opening delimiter"
 
 #: src/settings/settings-dialog.tsx
+#: src/settings/settings-search-index.ts
 msgid "Skills"
 msgstr "Skills"
 
@@ -7403,6 +7509,11 @@ msgstr "Some sources could not complete the lookup. This does not mean the refer
 msgid "Some sources unavailable"
 msgstr "Some sources unavailable"
 
+#. Search words for the Interface sounds setting, space-separated
+#: src/settings/settings-search-index.ts
+msgid "sound"
+msgstr "sound"
+
 #: src/editor/markdown/engine/views/image-view.tsx
 msgid "Source"
 msgstr "Source"
@@ -7420,6 +7531,7 @@ msgid "Source control"
 msgstr "Source control"
 
 #: src/settings/settings-dialog.tsx
+#: src/settings/settings-search-index.ts
 msgid "Source editor only"
 msgstr "Source editor only"
 
@@ -7707,10 +7819,12 @@ msgid "Sync behavior"
 msgstr "Sync behavior"
 
 #: src/overleaf/overleaf-connect.tsx
+#: src/settings/settings-search-index.ts
 msgid "Sync mode"
 msgstr "Sync mode"
 
 #: src/overleaf/overleaf-connect.tsx
+#: src/settings/settings-search-index.ts
 msgid "Sync only when you click the sync button"
 msgstr "Sync only when you click the sync button"
 
@@ -7781,6 +7895,7 @@ msgid "Technical details"
 msgstr "Technical details"
 
 #: src/settings/settings-dialog.tsx
+#: src/settings/settings-search-index.ts
 msgid "Terms Harper should accept in this project"
 msgstr "Terms Harper should accept in this project"
 
@@ -7790,6 +7905,7 @@ msgstr "Test connection"
 
 #: src/settings/doctor-settings.tsx
 #: src/settings/settings-dialog.tsx
+#: src/settings/settings-search-index.ts
 msgid "TeX doctor"
 msgstr "TeX doctor"
 
@@ -8169,6 +8285,7 @@ msgid "Title"
 msgstr "Title"
 
 #: src/settings/settings-dialog.tsx
+#: src/settings/settings-search-index.ts
 msgid "Title bar tools"
 msgstr "Title bar tools"
 
@@ -8579,6 +8696,7 @@ msgid "Verifying installation…"
 msgstr "Verifying installation…"
 
 #: src/settings/settings-dialog.tsx
+#: src/settings/settings-search-index.ts
 msgid "Version"
 msgstr "Version"
 
@@ -8697,10 +8815,12 @@ msgid "Weierstrass p"
 msgstr "Weierstrass p"
 
 #: src/settings/settings-dialog.tsx
+#: src/settings/settings-search-index.ts
 msgid "When a build or Overleaf setup finishes"
 msgstr "When a build or Overleaf setup finishes"
 
 #: src/overleaf/overleaf-connect.tsx
+#: src/settings/settings-search-index.ts
 msgid "When you delete a file here"
 msgstr "When you delete a file here"
 
@@ -8832,6 +8952,7 @@ msgid "Your Lattice copy"
 msgstr "Your Lattice copy"
 
 #: src/settings/settings-dialog.tsx
+#: src/settings/settings-search-index.ts
 msgid "Your name"
 msgstr "Your name"
 

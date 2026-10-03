@@ -15,6 +15,12 @@ export type AppCommand = {
   key?: string;
   shift?: boolean;
   when?: boolean;
+  /**
+   * False keeps a command out of the palette's Recent group: one that
+   * discards work (cleaning, a layout reset) should be asked for by name,
+   * never sit one Enter away.
+   */
+  recent?: false;
 };
 
 /**

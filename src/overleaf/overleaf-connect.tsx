@@ -240,11 +240,13 @@ function StatusRow(props: { dot: "connected" | "paused"; icon: ReactNode; title:
 }
 
 /** A settings row whose control is a dropdown over `options`, in their listed order. */
-function SelectRow<T extends string>({ label, description, value, onChange, options }: {
+function SelectRow<T extends string>({ label, description, value, onChange, options, setting }: {
   label: string; description: ReactNode; value: T; onChange: (value: T) => void; options: Record<T, string>;
+  /** What Settings search reveals this row by. */
+  setting: string;
 }) {
   return (
-    <SettingsRow label={label} description={description}>
+    <SettingsRow label={label} description={description} data-setting={setting}>
       <Select value={value} onValueChange={(next) => onChange(next as T)}>
         <SelectTrigger size="form" aria-label={label}><SelectValue /></SelectTrigger>
         <SelectContent data-settings-control="true" position="popper" align="end">
@@ -398,7 +400,7 @@ Linked projects stop syncing until you sign in again. Downloaded files stay on t
     <div className="settings-section">
       {/* eslint-disable-next-line no-restricted-syntax -- product name */}
       <SettingsSectionHeader title="Overleaf" />
-      <SettingsGroup title={t`Connection`}>
+      <SettingsGroup title={t`Connection`} data-setting="overleaf-connection">
         {loading && !loadError && (
           <EmptyState
             align="start"
@@ -448,6 +450,7 @@ Linked projects stop syncing until you sign in again. Downloaded files stay on t
       </SettingsGroup>
       <SettingsGroup title={t`Sync behavior`}>
         <SelectRow
+          setting="overleaf-sync-mode"
           label={t`Sync mode`}
           description={props.syncMode === "live" && props.channel !== "off" ? (
             <span className={`overleaf-channel overleaf-channel-${props.channel}`} title={props.channelDetail ?? undefined}>
@@ -459,6 +462,7 @@ Linked projects stop syncing until you sign in again. Downloaded files stay on t
           options={{ live: t`Live sync`, manual: t`Manual` }}
         />
         <SelectRow
+          setting="overleaf-remote-delete"
           label={t`When you delete a file here`}
           description={deleteDescriptions[props.remoteDelete]}
           value={props.remoteDelete}

@@ -30,6 +30,8 @@ import { LiteratureSettings } from "./literature-settings";
 import { DoctorSettings, type DoctorSettingsProps } from "./doctor-settings";
 import { SynaraSettingsPane } from "./synara-settings-pane";
 import { SelectRow, SliderRow } from "./settings-controls";
+import { SettingsSearch } from "./settings-search";
+import { settingsEntryKey, useSettingsSearchIndex, type SettingsSearchEntry } from "./settings-search-index";
 import { AnimatedProductIcon } from "../animated-icons/product-animated-icon";
 import { AppLogsSettings } from "../telemetry/app-log";
 import { synaraFrameUrl, type SynaraRuntimeInfo } from "../agent/synara-runtime";
@@ -96,6 +98,11 @@ export function SettingsDialog(props: SettingsDialogProps) {
     .flatMap((group): ReadonlyArray<{ tab: SettingsTab; label: string }> => group.items);
   const settingsViewportRef = useRef<HTMLDivElement>(null);
   const [projectWordDraft, setProjectWordDraft] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const searchEntries = useSettingsSearchIndex(Boolean(props.project), props.knownAuthorName);
+  /** The row a search result asked for, revealed once its page has rendered. */
+  // A fresh object per opening, so opening the same row again reveals it again.
+  const [reveal, setReveal] = useState<{ entry: SettingsSearchEntry } | null>(null);
   const synaraSettingsSection = SYNARA_SETTINGS_SECTIONS[props.tab];
   const synaraEmbedUrl = props.synaraRuntime.state === "ready" ? props.synaraRuntime.origin : null;
   const synaraSettingsUrl = synaraEmbedUrl && props.synaraWorkspaceRoot && synaraSettingsSection
@@ -127,6 +134,31 @@ export function SettingsDialog(props: SettingsDialogProps) {
     return () => window.cancelAnimationFrame(frame);
   }, [props.tab, synaraSettingsUrl]);
 
+  useLayoutEffect(() => {
+    if (!reveal?.entry.id) return;
+    // A frame later, so it lands after the page-change scroll reset above;
+    // the reset's frame is queued first.
+    const frame = window.requestAnimationFrame(() => {
+      const row = settingsViewportRef.current?.querySelector<HTMLElement>(`[data-setting="${reveal.entry.id}"]`);
+      if (!row) return;
+      const reducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches === true;
+      row.scrollIntoView({ block: "center", behavior: reducedMotion ? "auto" : "smooth" });
+      // Focus the row's own control, so the next key changes the setting.
+      row.querySelector<HTMLElement>(
+        'input:not([disabled]), button:not([disabled]), [role="switch"]:not([aria-disabled="true"]), [tabindex="0"]',
+      )?.focus({ preventScroll: true });
+      // Restarted on every reveal, even of the same row twice.
+      row.removeAttribute("data-setting-revealed");
+      void row.offsetWidth;
+      row.setAttribute("data-setting-revealed", "");
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [reveal]);
+  const openSearchResult = (entry: SettingsSearchEntry) => {
+    props.setTab(entry.tab);
+    setReveal({ entry });
+  };
+
   const panes: Partial<Record<SettingsTab, ReactNode>> = {
     appearance: <AppearanceSettingsPane {...props} />,
     editor: <EditorSettingsPane {...props} projectWordDraft={projectWordDraft} setProjectWordDraft={setProjectWordDraft} />,
@@ -149,7 +181,6 @@ export function SettingsDialog(props: SettingsDialogProps) {
   return (
     <ModalDialog
       label={t`Settings`}
-      focusDialogOnOpen
       onClose={props.onClose}
       windowDragTop={{ onMouseDown: beginWindowDrag, onDoubleClick: toggleWindowFullscreen }}
     >
@@ -166,7 +197,14 @@ export function SettingsDialog(props: SettingsDialogProps) {
         <div className="settings-body">
           <nav className="settings-nav fluid-hover-surface" aria-label={t`Settings sections`}>
             <FluidHoverSurface selector=".settings-nav-group > button" preserveSelection transition={spring.moderate} />
-            {settingsNavGroups.map((group, groupIndex) => (
+            <SettingsSearch
+              entries={searchEntries}
+              query={searchQuery}
+              onQueryChange={setSearchQuery}
+              current={reveal && reveal.entry.tab === props.tab ? settingsEntryKey(reveal.entry) : null}
+              onOpen={openSearchResult}
+            />
+            {!searchQuery.trim() && settingsNavGroups.map((group, groupIndex) => (
               <div key={group.label} className="settings-nav-group" role="group" aria-labelledby={`settings-nav-${groupIndex}`}>
                 <div className="settings-nav-group-label" id={`settings-nav-${groupIndex}`}>{group.label}</div>
                 {group.items.map((item) => (
@@ -217,7 +255,7 @@ function TitlebarToolsGroup(props: SettingsDialogProps) {
     { tool: "browser", label: t`Open in browser` },
   ];
   return (
-    <SettingsGroup title={t`Title bar tools`}>
+    <SettingsGroup title={t`Title bar tools`} data-setting="titlebar-tools">
       {tools.map(({ tool, label }) => (
         <SwitchField
           key={tool}
@@ -242,12 +280,14 @@ function AppearanceSettingsPane(props: SettingsDialogProps) {
           would only repeat the sidebar. */}
       <SettingsGroup>
         <SelectRow
+          data-setting="interface-language"
           label={t`Interface language`}
           value={props.appearance.interfaceLanguage}
           options={{ system: t`Match system`, en: t`English`, "zh-CN": t`Simplified Chinese` }}
           onChange={(interfaceLanguage) => patchAppearance(props, { interfaceLanguage })}
         />
         <SelectRow
+          data-setting="color-theme"
           label={t`Color theme`}
           value={props.themePreference}
           options={{ system: t`Match system`, light: t`Light`, dark: t`Dark` }}
@@ -255,6 +295,7 @@ function AppearanceSettingsPane(props: SettingsDialogProps) {
         />
         <SliderRow
           id="editor-font-size"
+          data-setting="editor-font-size"
           label={t`Editor font size`}
           description={t`Source editor only`}
           min={10}
@@ -264,6 +305,7 @@ function AppearanceSettingsPane(props: SettingsDialogProps) {
           onChange={(editorFontSize) => patchAppearance(props, { editorFontSize })}
         />
         <SwitchField
+          data-setting="interface-sounds"
           label={t`Interface sounds`}
           description={t`When a build or Overleaf setup finishes`}
           checked={props.appearance.interfaceSounds}
@@ -319,12 +361,14 @@ function EditorSettingsPane({ projectWordDraft, setProjectWordDraft, ...props }:
       <SettingsSectionHeader title={t`Editor & builds`} />
       <SettingsGroup title={t`Editor`}>
         <SelectRow
+          data-setting="editor-keymap"
           label={t`Editor keymap`}
           value={props.appearance.editorKeymap}
           options={{ default: t`Default`, vim: "Vim", emacs: "Emacs" }}
           onChange={(editorKeymap) => patchAppearance(props, { editorKeymap })}
         />
         <SettingsRow
+          data-setting="author-name"
           label={t`Your name`}
           description={props.knownAuthorName
             ? t`Comments are signed ${props.knownAuthorName}, from Git or Overleaf`
@@ -339,6 +383,7 @@ function EditorSettingsPane({ projectWordDraft, setProjectWordDraft, ...props }:
           />
         </SettingsRow>
         <SwitchField
+          data-setting="spellcheck"
           label={t`Check spelling in prose`}
           description={t`English, with Harper`}
           checked={props.appearance.editorSpellcheck}
@@ -346,6 +391,7 @@ function EditorSettingsPane({ projectWordDraft, setProjectWordDraft, ...props }:
         />
         <SettingsRow
           className="settings-project-dictionary-row"
+          data-setting="project-dictionary"
           label={t`Project dictionary`}
           description={props.project
             ? t`Terms Harper should accept in this project`
@@ -389,6 +435,7 @@ function EditorSettingsPane({ projectWordDraft, setProjectWordDraft, ...props }:
       </SettingsGroup>
       <SettingsGroup title={t`Builds`}>
         <SelectRow
+          data-setting="auto-build"
           label={t`Automatic build`}
           description={props.buildPreferences.autoBuildMode === "automatic"
             ? t`Builds 1.2 s after you stop typing`
@@ -397,7 +444,7 @@ function EditorSettingsPane({ projectWordDraft, setProjectWordDraft, ...props }:
           options={{ manual: t`Manual only`, automatic: t`Automatic` }}
           onChange={(autoBuildMode) => props.setBuildPreferences({ autoBuildMode })}
         />
-        <SettingsRow label={t`Auxiliary files`} description={t`Removes .aux, .log and other build files`}>
+        <SettingsRow data-setting="aux-files" label={t`Auxiliary files`} description={t`Removes .aux, .log and other build files`}>
           <Button size="compact" disabled={!props.hasProject || props.cleaning || props.building} onClick={props.onCleanProject}>
             {props.cleaning ? t`Cleaning…` : t`Clean`}
           </Button>
@@ -405,6 +452,7 @@ function EditorSettingsPane({ projectWordDraft, setProjectWordDraft, ...props }:
         {props.project && (
           <>
             <SelectRow
+              data-setting="compile-engine"
               label={t`Compile engine`}
               description={t`A project latexmkrc overrides this`}
               value={props.project.manifest.engine ?? "pdf"}
@@ -412,6 +460,7 @@ function EditorSettingsPane({ projectWordDraft, setProjectWordDraft, ...props }:
               onChange={(engine) => props.onUpdateManifest({ engine })}
             />
             <SwitchField
+              data-setting="shell-escape"
               label={t`Allow external commands`}
               description={t`Shell escape during builds`}
               checked={props.project.manifest.trusted}
@@ -422,13 +471,14 @@ function EditorSettingsPane({ projectWordDraft, setProjectWordDraft, ...props }:
       </SettingsGroup>
       <SettingsGroup title={t`App updates`}>
         <SelectRow
+          data-setting="auto-updates"
           label={t`Automatic updates`}
           description={updateStatus.detail}
           value={updater.mode}
           options={{ manual: t`Notify me (manual)`, auto: t`Install automatically` }}
           onChange={updater.setMode}
         />
-        <SettingsRow label={t`Version`} description={updateStatus.title}>
+        <SettingsRow data-setting="version" label={t`Version`} description={updateStatus.title}>
           <ReloadButton size="compact" busy={updateBusy} disabled={updateBusy} onClick={() => void updater.check(false)}>
             {updater.phase === "checking" ? t`Checking…` : t`Check for updates`}
           </ReloadButton>

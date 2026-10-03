@@ -338,6 +338,55 @@ describe("welcome screen", () => {
     if (setting === "interfaceSounds") expect(interfaceSounds.configure).toHaveBeenLastCalledWith(false);
   });
 
+  it("leaves project commands' shortcuts idle on the welcome screen, so none waits for the next project", async () => {
+    localStorage.setItem("lattice.recent-commands.v1", JSON.stringify(["cite", "find"]));
+    vi.mocked(open).mockResolvedValue(ROOT);
+    renderApp({ ...projectCommands(null), open_project: projectSnapshot() });
+    await screen.findByRole("heading", { name: "Research, written with evidence" });
+    for (const key of ["p", "f", "k", "l", "o"]) fireEvent.keyDown(window, { key, metaKey: true, shiftKey: true });
+    for (const key of ["p", "g", "s"]) fireEvent.keyDown(window, { key, metaKey: true });
+
+    fireEvent.click(screen.getByRole("button", { name: /open folder/i }));
+    expect(await screen.findByLabelText("Editor status", {}, { timeout: 20_000 })).toBeInTheDocument();
+    expect(screen.queryByPlaceholderText("Run a command…")).not.toBeInTheDocument();
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("finds a setting by name and opens its row with focus, keeping drafts and Synara's pages as they are", async () => {
+    renderApp(projectCommands());
+    await chooseProjectMenuItem("Settings");
+    const search = await screen.findByRole("searchbox", { name: "Search settings" });
+    expect(search).toHaveFocus();
+    const results = () => within(screen.getByRole("listbox", { name: "Matching settings" }));
+
+    fireEvent.change(search, { target: { value: "dictionary" } });
+    expect(screen.queryByRole("navigation", { name: "Settings sections" })?.querySelector(".settings-nav-group")).toBeFalsy();
+    expect(results().getByRole("option", { name: /Project dictionary/ })).toHaveTextContent("Editor & builds");
+    fireEvent.keyDown(search, { key: "Enter" });
+    expect(await screen.findByRole("heading", { name: "Editor & builds" })).toBeInTheDocument();
+    const term = screen.getByRole("textbox", { name: "Add project term" });
+    await waitFor(() => expect(term).toHaveFocus());
+    expect(term.closest("[data-setting='project-dictionary']")).toHaveAttribute("data-setting-revealed");
+    fireEvent.change(term, { target: { value: "Lattice" } });
+
+    fireEvent.change(search, { target: { value: "build" } });
+    // Labels holding the words lead, in page order; then rows only their terms match, then descriptions.
+    expect(results().getAllByRole("option").map((option) => option.firstChild?.textContent))
+      .toEqual(["Editor & builds", "Automatic build", "Auxiliary files", "Compile engine", "Allow external commands", "Interface sounds"]);
+    fireEvent.change(search, { target: { value: "vim" } });
+    fireEvent.keyDown(search, { key: "Enter" });
+    await waitFor(() => expect(screen.getByRole("combobox", { name: "Editor keymap" })).toHaveFocus());
+    expect(screen.getByRole("textbox", { name: "Add project term" })).toHaveValue("Lattice");
+
+    fireEvent.change(search, { target: { value: "zzq" } });
+    expect(screen.getByText("No matching settings")).toBeInTheDocument();
+    fireEvent.change(search, { target: { value: "skills" } });
+    fireEvent.click(results().getByRole("option", { name: /Skills/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Clear search" }));
+    const navigation = screen.getByRole("navigation", { name: "Settings sections" });
+    expect(within(navigation).getByRole("button", { name: "Skills" })).toHaveAttribute("aria-current", "page");
+  });
+
   it("shows the Git name that signs comments and keeps Your name as the fallback", async () => {
     renderApp({ ...projectCommands(projectSnapshot({ files: [] })), git_user_name: "Ada Lovelace" });
     await expectInvoked("git_user_name");

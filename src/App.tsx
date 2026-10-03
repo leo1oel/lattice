@@ -46,6 +46,7 @@ import { useRefState, useStableHandlers } from "./app/effect-helpers";
 import { useLatestRef } from "./hooks/use-latest-ref";
 import { useOverleafWorkspace } from "./app/use-overleaf-workspace";
 import { useAppCommands, type AppCommand } from "./app/use-app-commands";
+import { paletteLeading, paletteSurface } from "./app/command-palette-leading";
 import { useToolDrawers } from "./app/use-tool-drawers";
 import { useTrellisBridge } from "./app/use-trellis-bridge";
 import { writeOpenSlideMutation } from "./app/open-slide-writes";
@@ -78,6 +79,8 @@ import {
   resolveAppLocale,
   loadSettingsTab,
   persistSettingsTab,
+  loadRecentCommands,
+  rememberRecentCommand,
 } from "./settings/app-settings";
 import type { AgentProjectDocumentToolRequest } from "./agent/agent-project-document-tools";
 import type { BuildAgentCommentsOptions } from "./agent/agent-editor-comments";
@@ -362,6 +365,8 @@ function App() {
   const [bibliographyAuditRoot, setBibliographyAuditRoot] = useState<string | null>(null);
   const [bibliographyAuditOpen, setBibliographyAuditOpen] = useState(false);
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
+  // Read again at each opening: another window may have run commands since.
+  const [recentCommandIds, setRecentCommandIds] = useState<string[]>([]);
   const [referenceHits, setReferenceHits] = useState<{
     kind: "label" | "citation";
     symbol: string;
@@ -1168,51 +1173,62 @@ function App() {
       .catch((reason) => trace.fail(reason));
   };
   const todoCount = todoHits.length;
+  const commandSurface = paletteSurface({ file: activeFile, paper: activePaper !== null, asset: Boolean(activeAsset) });
+  // The welcome screen keeps the shortcuts listening, so a command that needs
+  // a project, a text editor or LaTeX source says so and is neither listed
+  // nor run without one.
+  const inProject = project !== null;
+  const textEditor = inProject && !activePaper && !activeAsset && Boolean(activeFile);
+  const latexSource = inProject && commandSurface === "source";
   /** Every app-level action: the palette entries and the global shortcuts (see AppCommand). */
   const commands: AppCommand[] = [
-    { id: "build", label: t`Build project`, detail: "⌘S", group: t`Build`, run: () => void compileAndShowPdf(false, true) },
+    { id: "build", when: inProject, label: t`Build project`, detail: "⌘S", group: t`Build`, run: () => void compileAndShowPdf(false, true) },
     // ⌘S saves, then builds what it saved; on a Paper there is nothing to build.
-    { id: "save", key: "s", run: () => void save().then((saved) => {
+    { id: "save", when: inProject, key: "s", run: () => void save().then((saved) => {
       if (!saved) return;
       void flushDeferredWholeFileSync();
       if (!activePaper) void compileAndShowPdf();
     }) },
-    { id: "rebuild", label: t`Clean rebuild`, detail: t`latexmk -c then -g`, group: t`Build`, run: () => void cleanAndRebuild() },
-    { id: "clean", label: t`Clean aux files`, group: t`Build`, run: () => void cleanProject() },
-    { id: "stop-build", label: t`Stop build`, group: t`Build`, run: () => void abortBuild() },
-    { id: "sync-pdf", label: t`Jump to PDF`, detail: "⌘⇧J", group: t`Navigate`, key: "j", shift: true, run: () => void revealSourceInPdf() },
-    { id: "quick-open", label: t`Quick open file`, detail: "⌘P", group: t`Navigate`, key: "p", run: () => setSearchDialog("quick-open") },
-    { id: "goto-line", label: t`Go to line`, detail: "⌘G", group: t`Navigate`, key: "g", run: () => setSearchDialog("goto-line") },
-    { id: "goto-symbol", label: t`Go to symbol`, detail: "⌘⇧O", group: t`Navigate`, key: "o", shift: true, run: () => setSearchDialog("goto-symbol") },
-    { id: "back", key: "[", run: () => void documents.go(-1) },
-    { id: "forward", key: "]", run: () => void documents.go(1) },
-    { id: "palette", key: "p", shift: true, run: () => setCommandPaletteOpen(true) },
-    { id: "reopen-tab", key: "t", shift: true, run: documents.reopenClosed },
+    { id: "rebuild", when: inProject, label: t`Clean rebuild`, detail: t`latexmk -c then -g`, group: t`Build`, recent: false, run: () => void cleanAndRebuild() },
+    { id: "clean", when: inProject, label: t`Clean aux files`, group: t`Build`, recent: false, run: () => void cleanProject() },
+    // Only ever wanted while a build runs, so never worth remembering.
+    { id: "stop-build", when: building, label: t`Stop build`, group: t`Build`, recent: false, run: () => void abortBuild() },
+    { id: "sync-pdf", when: latexSource && syncTex.canForwardSync, label: t`Jump to PDF`, detail: "⌘⇧J", group: t`Navigate`, key: "j", shift: true, run: () => void revealSourceInPdf() },
+    { id: "quick-open", when: inProject, label: t`Quick open file`, detail: "⌘P", group: t`Navigate`, key: "p", run: () => setSearchDialog("quick-open") },
+    { id: "goto-line", when: textEditor, label: t`Go to line`, detail: "⌘G", group: t`Navigate`, key: "g", run: () => setSearchDialog("goto-line") },
+    { id: "goto-symbol", when: textEditor, label: t`Go to symbol`, detail: "⌘⇧O", group: t`Navigate`, key: "o", shift: true, run: () => setSearchDialog("goto-symbol") },
+    { id: "back", when: inProject, key: "[", run: () => void documents.go(-1) },
+    { id: "forward", when: inProject, key: "]", run: () => void documents.go(1) },
+    { id: "palette", when: inProject, key: "p", shift: true, run: () => {
+      setRecentCommandIds(loadRecentCommands());
+      setCommandPaletteOpen(true);
+    } },
+    { id: "reopen-tab", when: inProject, key: "t", shift: true, run: documents.reopenClosed },
     // Reset the panel layout, and bring back any panel that was hidden or closed.
-    { id: "layout-reset", label: t`Reset panel layout`, group: t`Layout`, run: () => void trellis.resetLayout() },
+    { id: "layout-reset", when: inProject, label: t`Reset panel layout`, group: t`Layout`, recent: false, run: () => void trellis.resetLayout() },
     ...SINGLETON_PANELS.map((kind) => {
       const name = i18n._(PANEL_TITLES[kind]);
-      return { id: `panel-${kind}`, label: spaceMixedScript(t({ message: `Show ${name} panel` })), group: t`Layout`, run: () => trellis.showPanel(kind) };
+      return { id: `panel-${kind}`, when: inProject, label: spaceMixedScript(t({ message: `Show ${name} panel` })), group: t`Layout`, run: () => trellis.showPanel(kind) };
     }),
-    { id: "table", label: t`Insert table`, detail: t`Grid generator`, group: t`Edit`, run: () => setTableGeneratorOpen(true) },
-    { id: "cite", label: t`Insert citation`, detail: "⌘⇧K", group: t`Edit`, key: "k", shift: true, run: () => setSearchDialog("cite") },
-    { id: "ref", label: t`Insert reference`, detail: "⌘⇧L", group: t`Edit`, key: "l", shift: true, run: () => setSearchDialog("ref") },
-    { id: "bib", label: t`Add bibliography entry`, group: t`Edit`, run: () => referenceImport.openBibEntry() },
-    { id: "discover", label: t`Discover literature`, detail: t`OpenAlex search`, group: t`Research`, run: () => tools.open("literature") },
-    { id: "find", label: t`Find in project`, detail: t`⌘⇧F · source files and papers`, group: t`Edit`, key: "f", shift: true, run: openProjectFind },
-    { id: "replace", label: t`Replace in project`, detail: t`⌘⇧H · all source files`, group: t`Edit`, key: "h", shift: true, run: openProjectReplace },
+    { id: "table", when: latexSource, label: t`Insert table`, detail: t`Grid generator`, group: t`Edit`, run: () => setTableGeneratorOpen(true) },
+    { id: "cite", when: latexSource, label: t`Insert citation`, detail: "⌘⇧K", group: t`Edit`, key: "k", shift: true, run: () => setSearchDialog("cite") },
+    { id: "ref", when: latexSource, label: t`Insert reference`, detail: "⌘⇧L", group: t`Edit`, key: "l", shift: true, run: () => setSearchDialog("ref") },
+    { id: "bib", when: inProject, label: t`Add bibliography entry`, group: t`Edit`, run: () => referenceImport.openBibEntry() },
+    { id: "discover", when: inProject, label: t`Discover literature`, detail: t`OpenAlex search`, group: t`Research`, run: () => tools.open("literature") },
+    { id: "find", when: inProject, label: t`Find in project`, detail: t`⌘⇧F · source files and papers`, group: t`Edit`, key: "f", shift: true, run: openProjectFind },
+    { id: "replace", when: inProject, label: t`Replace in project`, detail: t`⌘⇧H · all source files`, group: t`Edit`, key: "h", shift: true, run: openProjectReplace },
     {
-      id: "todos", label: t`Manuscript TODOs`, detail: todoCount === 0 ? t`No markers` : todoCount === 1 ? t`${todoCount} marker` : t`${todoCount} markers`, group: t`Edit`,
+      id: "todos", when: inProject, label: t`Manuscript TODOs`, detail: todoCount === 0 ? t`No markers` : todoCount === 1 ? t`${todoCount} marker` : t`${todoCount} markers`, group: t`Edit`,
       run: () => tools.open("todos"),
     },
     {
-      id: "checklist", label: t`Submission checklist`, detail: t`Words / pages / TODOs`, group: t`Edit`,
+      id: "checklist", when: inProject, label: t`Submission checklist`, detail: t`Words / pages / TODOs`, group: t`Edit`,
       run: () => tools.open("checklist"),
     },
-    { id: "paste-image", label: t`Paste clipboard image as figure`, group: t`Edit`, run: () => void tree.pasteClipboardImage() },
-    { id: "format", label: t`Format document`, detail: "latexindent", group: t`Edit`, run: formatFocusedDocument },
-    { id: "history", label: t`Open project history`, group: t`Project`, run: () => tools.open("history") },
-    { id: "export-zip", label: t`Export project ZIP`, detail: t`Overleaf / arXiv source pack`, group: t`Project`, run: () => void exportProjectZip() },
+    { id: "paste-image", when: inProject, label: t`Paste clipboard image as figure`, group: t`Edit`, run: () => void tree.pasteClipboardImage() },
+    { id: "format", when: latexSource, label: t`Format document`, detail: "latexindent", group: t`Edit`, run: formatFocusedDocument },
+    { id: "history", when: inProject, label: t`Open project history`, group: t`Project`, run: () => tools.open("history") },
+    { id: "export-zip", when: inProject, label: t`Export project ZIP`, detail: t`Overleaf / arXiv source pack`, group: t`Project`, run: () => void exportProjectZip() },
     {
       id: "tutorial", label: t`Open guided tutorial`, group: t`Project`, run: () => void openTutorialProject(),
       detail: t`Learn Lattice with the Understanding Attention sample project`,
@@ -1228,6 +1244,7 @@ function App() {
     { id: "settings", label: t`Open settings`, detail: "⌘,", group: t`Project`, key: ",", run: () => openSettings() },
   ];
   const runCommand = useAppCommands(commands, cycleDiagnostic);
+  const paletteCommands = commandPaletteOpen ? commands.filter((command) => command.label && command.when !== false) : [];
 
   // Trellis workspace: App stays the owner of every document; the
   // workspace reads App through this bridge (at event time) and the store below.
@@ -1807,12 +1824,15 @@ function App() {
         title={t`Command palette`}
         placeholder={t`Run a command…`}
         detailPlacement="end"
-        items={commands.flatMap(({ id, label, detail, group, when }) => (
-          label && when !== false ? [{ id, label, detail, group }] : []
-        ))}
+        items={paletteCommands.map(({ id, label = id, detail, group }) => ({ id, label, detail, group }))}
+        leading={paletteLeading(paletteCommands, recentCommandIds, commandSurface, {
+          recent: t`Recent`,
+          surface: commandSurface === "paper" ? t`In this paper` : t`In this document`,
+        })}
         onClose={() => setCommandPaletteOpen(false)}
         onSelect={(item) => {
           setCommandPaletteOpen(false);
+          setRecentCommandIds(rememberRecentCommand(item.id));
           runCommand(item.id);
         }}
       />

@@ -146,6 +146,13 @@ type SearchPickerProps = {
   placeholder: string;
   detailPlacement?: "below" | "end";
   items: SearchPickerItem[];
+  /**
+   * What an empty query lists first, in this order and under their own
+   * groups (recent commands, the ones for the open document). Each also in
+   * `items` is listed only here; a typed query ranks `items` alone, so these
+   * never displace a match.
+   */
+  leading?: SearchPickerItem[];
   onClose: () => void;
   onSelect: (item: SearchPickerItem) => void;
 };
@@ -157,14 +164,18 @@ export function SearchPickerDialog({ open, ...props }: SearchPickerProps & { ope
   return open ? <SearchPickerDialogForm key={props.title} {...props} /> : null;
 }
 
-function SearchPickerDialogForm({ title, items, ...props }: SearchPickerProps) {
+function SearchPickerDialogForm({ title, items, leading, ...props }: SearchPickerProps) {
   const { t } = useLingui();
-  const rank = useMemo(() => (query: string) => rankMatches(
-    items,
-    (item) => scoreItem(item, query),
-    (left, right) => (left.group ?? "").localeCompare(right.group ?? "") || left.label.localeCompare(right.label),
-    60,
-  ), [items]);
+  const rank = useMemo(() => (query: string) => {
+    const lead = query ? [] : leading ?? [];
+    const leadIds = new Set(lead.map((item) => item.id));
+    return [...lead, ...rankMatches(
+      leadIds.size ? items.filter((item) => !leadIds.has(item.id)) : items,
+      (item) => scoreItem(item, query),
+      (left, right) => (left.group ?? "").localeCompare(right.group ?? "") || left.label.localeCompare(right.label),
+      60,
+    )];
+  }, [items, leading]);
   return (
     <PickerDialog
       {...props}
