@@ -52,14 +52,18 @@ export const gatedCounts = (scenario) => {
 };
 
 /**
- * The run with the fewest gated counts: noise only ever adds work. Report-only
- * counts vary the most, so they must not decide which run the gate checks; the
- * kept run's report-only counts are still the ones reported.
+ * The run with the fewest gated counts, each gated count lowered to its
+ * fewest across runs: noise only ever adds work, and each count's noise is its
+ * own. Kept whole, the run with the smallest total is the one whose hooks and
+ * mutations (thousands, moving by tens) happen to be low, so the commit count
+ * gated was any run's, not the fewest. Report-only counts vary the most, so
+ * they must not decide which run is kept; the kept run's are the ones reported.
  */
 export function bestOf(scenario, runs) {
   const gated = gatedCounts(scenario);
   const total = (run) => gated.reduce((sum, key) => sum + run[key], 0);
-  return runs.reduce((best, run) => (total(run) < total(best) ? run : best));
+  const kept = runs.reduce((best, run) => (total(run) < total(best) ? run : best));
+  return { ...kept, ...Object.fromEntries(gated.map((key) => [key, Math.min(...runs.map((run) => run[key]))])) };
 }
 
 /**

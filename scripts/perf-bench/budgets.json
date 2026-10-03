@@ -22,7 +22,7 @@
       "mutations": 70
     },
     "file-switch": {
-      "commits": 44,
+      "commits": 35,
       "renders": 3286,
       "hooks": 30519,
       "mutations": 6786
@@ -61,7 +61,7 @@
       "mutations": 195
     },
     "dialog-open": {
-      "commits": 39,
+      "commits": 25,
       "renders": 1671,
       "hooks": 18509,
       "mutations": 394

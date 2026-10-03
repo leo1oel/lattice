@@ -38,11 +38,21 @@ any page script):
 
 | Count | Source |
 | --- | --- |
-| `commits` | React commits, through a minimal React DevTools global hook |
+| `commits` | React commits in which a component rendered or mounted, through a minimal React DevTools global hook |
 | `renders` | components that rendered in those commits (the `PerformedWork` walk React DevTools uses) |
 | `hooks` | hooks those renders ran |
 | `recalcs`, `layouts` | Chromium's own `RecalcStyleCount` / `LayoutCount` (`Performance.getMetrics`) |
 | `mutations` | `MutationObserver` records over the whole document |
+
+A commit in which no component rendered is counted apart, as `idleCommits` in
+`--json` and in the per-run line, never gated. It is a same-value state update
+that React could not drop before rendering: React drops one only when the
+component has no update left over from its last one, so whether it costs an
+empty commit depends on how it interleaves with the component's real updates.
+At startup, such commits in the PDF preview (between PDF.js page-render events)
+and the source editor's scrollbar came or went from run to run: 24–26 commits
+on one machine and 27–28 on the CI runner, with renders, hooks and update
+origins identical in every run.
 
 It also reports long tasks, layout shift by app region (titlebar, sidebar,
 source editor, visual editor, PDF, diagnostics), and script, style, layout and
@@ -70,9 +80,10 @@ Scenarios (`scripts/perf-bench/scenarios.mjs`):
 - `pnpm perf:bench` measures and prints a table. `--check` also exits 1 when a
   gated count exceeds its ceiling; that is what CI runs (the `perf-bench` job, and
   `mise run perf-bench` locally).
-- `--only a,b` limits scenarios. `--runs N` repeats each scenario and keeps the
-  run with the fewest gated counts, because noise only ever adds work; the
-  report-only counts shown are that same run's and do not affect the choice.
+- `--only a,b` limits scenarios. `--runs N` repeats each scenario and gates
+  each count at its fewest across the runs, because noise only ever adds work
+  and each count's noise is its own. The report-only counts shown are those of
+  the run with the fewest gated counts in total, and do not affect the choice.
   The default is 2.
 - `--dev` uses the Vite dev server so component names stay readable. Its counts
   match production's, but only production runs are gated or written.
