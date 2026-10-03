@@ -1,4 +1,4 @@
-import { browserRuntimeError, browserRuntimeReady } from "./platform/browser-runtime";
+import { applyStoredTheme, browserRuntimeError, browserRuntimeReady } from "./platform/browser-runtime";
 // The visual editor's image view (engine/views/image-view.tsx) zooms with
 // react-medium-image-zoom, whose structural stylesheet is imported once at the
 // app root. Without it, the native dialog expands as an unstyled white page,
@@ -68,7 +68,7 @@ async function startApp() {
 function showUnavailable(reason: unknown) {
   const root = document.getElementById("root");
   if (!root) return;
-  const unavailableStyle = "min-height:100vh;display:grid;place-items:center;padding:var(--space-16);font:var(--font-ui-body) system-ui;color:CanvasText;background:Canvas";
+  const unavailableStyle = `min-height:100vh;display:grid;place-items:center;padding:var(--space-16);font:var(--font-ui-body) system-ui;color-scheme:${applyStoredTheme()};color:var(--text-primary, CanvasText);background:var(--surface-app, Canvas)`;
   root.style.cssText = unavailableStyle;
   root.textContent = reason instanceof Error ? reason.message : String(reason);
 }
