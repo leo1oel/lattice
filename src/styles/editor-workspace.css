@@ -776,7 +776,6 @@ button.paper-identity-source:is(:hover, :focus-visible) { color: var(--text-prim
 button.paper-identity-source:is(:hover, :focus-visible) > svg { opacity: 1; }
 button.paper-identity-source:focus-visible { outline: var(--focus-ring-width) solid var(--focus-ring); outline-offset: var(--focus-ring-offset); }
 @keyframes paper-identity-in { from { opacity: 0; translate: 0 var(--space-2); } }
-@media (prefers-reduced-motion: reduce) { .paper-identity-title { animation: none; } }
 .paper-local-actions { min-width: 0; display: flex; align-items: center; justify-content: flex-end; gap: var(--space-2); }
 .paper-local-action { min-width: var(--control-size-icon); height: var(--control-size-icon); padding: 0 var(--space-4); border: 0; border-radius: var(--radius-icon); background: transparent; color: var(--text-secondary); display: inline-flex; align-items: center; justify-content: center; gap: var(--gap-inline-tight); font-size: var(--type-micro-size); font-weight: var(--weight-semibold); white-space: nowrap; }
 .paper-local-action-icon { width: var(--control-size-icon); padding: 0; }

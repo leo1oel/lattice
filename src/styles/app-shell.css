@@ -527,7 +527,7 @@ body:has(.modal-backdrop, .drawer-backdrop) .file-tree-context-menu { display: n
 .paper-row.citation-retracted .row-citation-health { color: var(--status-danger); }
 .paper-list { min-height: 0; flex: 1; }
 .paper-list-content { min-width: 100%; padding-block: 7px 0; padding-inline: 0 var(--space-6); }
-.paper-row { --paper-row-action-room: calc(var(--paper-row-actions, 1) * 22px); position: relative; width: 100%; border-radius: var(--radius-icon); display: flex; align-items: center; color: var(--text-secondary); }
+.paper-row { --paper-row-actions: 1; --paper-row-action-room: calc(var(--paper-row-actions) * 22px); position: relative; width: 100%; border-radius: var(--radius-icon); display: flex; align-items: center; color: var(--text-secondary); }
 .paper-row:hover, .paper-row.active { color: var(--text-primary); background: var(--border-subtle); }
 /* Cited but never fetched: nothing to open, so the row reads as a reference. */
 .paper-row.cited-only .paper-open { cursor: default; opacity: .72; }
