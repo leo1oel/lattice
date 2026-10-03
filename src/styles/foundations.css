@@ -237,6 +237,9 @@
   --navigation-tree-hover-surface: color-mix(in srgb, var(--text-primary) 5%, transparent);
   --navigation-tree-selected-surface: color-mix(in srgb, var(--text-primary) 8%, transparent);
   --navigation-focus-ring: var(--focus-ring);
+  /* The navigator's strongest text (the selected row, typed filters) sits a
+     step below the document's, so the open file outranks its listing. */
+  --navigation-text-strong: color-mix(in srgb, var(--text-primary) 86%, var(--surface-sidebar));
 
   /* Window chrome contract. The titlebar carries the traffic lights, the
      project switcher, and the tab strip in one row, so its geometry is shared
@@ -409,10 +412,11 @@
 
   /* A rendered page stays paper-colored in both themes. */
   /* Text selection in the editor reads as a system selection rather than as
-     app chrome, so it keeps its own blue in both themes. */
+     app chrome, so it keeps its own blue in both themes, at the strength each
+     theme's syntax tokens still read on (theme.css). */
   --editor-selection-tint: #3d7af2;
-  --editor-selection-surface: color-mix(in srgb, var(--editor-selection-tint) 42%, transparent);
-  --editor-selection-surface-active: color-mix(in srgb, var(--editor-selection-tint) 52%, transparent);
+  --editor-selection-surface: color-mix(in srgb, var(--editor-selection-tint) var(--selection-mix), transparent);
+  --editor-selection-surface-active: color-mix(in srgb, var(--editor-selection-tint) var(--selection-mix-focused), transparent);
   --pdf-page-surface: #f9f9fa;
   --status-info: var(--info);
   /* The two threads of the app icon's weave. Identity, not interaction: they
@@ -435,6 +439,9 @@
   --tone-hover-surface: color-mix(in srgb, currentColor 8%, transparent);
   --tone-border: color-mix(in srgb, currentColor 14%, transparent);
   --tone-chip-border: color-mix(in srgb, currentColor 18%, transparent);
+}
+@media (prefers-contrast: more) {
+  :root { --navigation-text-strong: var(--text-primary); }
 }
 
 /* Settings is read, not scanned: the dialog is a page of prose and controls, so

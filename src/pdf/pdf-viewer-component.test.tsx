@@ -1,4 +1,4 @@
-import { act, cleanup, fireEvent, render, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, waitFor, within } from "@testing-library/react";
 import { listen } from "@tauri-apps/api/event";
 import type { ComponentProps } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -668,6 +668,55 @@ describe("PDFSlick viewer integration", () => {
     }
   });
 
+  it("offers a narrow toolbar's set-aside controls in one menu: zoom, the other fit, history and saving", async () => {
+    const view = renderPdf({ pdfBytes: new ArrayBuffer(4), initialViewState: { page: 1, scale: 1, fitMode: "width", scrollTop: 0, scrollLeft: 0 } });
+    await view.findByLabelText("PDF page 3");
+    const fitWidth = view.getByRole("button", { name: "Fit page to width" });
+    const fitHeight = view.getByRole("button", { name: "Fit page to height" });
+    await waitFor(() => expect(fitWidth).toBeEnabled());
+    // The toolbar keeps the fit in use; the other one waits in the menu.
+    expect(fitWidth).not.toHaveClass("pdf-overflow");
+    expect(fitHeight).toHaveClass("pdf-overflow");
+    for (const name of ["Previous PDF location", "Zoom in", "Save PDF as…"]) {
+      expect(view.getByRole("button", { name }).closest(".pdf-overflow")).not.toBeNull();
+    }
+
+    const openMenu = async () => {
+      fireEvent.keyDown(view.getByRole("button", { name: "More PDF actions" }), { key: "Enter" });
+      return view.findByRole("menu");
+    };
+    let menu = await openMenu();
+    const items = () => Array.from(menu.querySelectorAll("[role=menuitem]"), (item) => item.getAttribute("aria-label") ?? item.textContent);
+    expect(items()).toEqual([
+      "Zoom out", "Enter a zoom percentage", "Zoom in",
+      "Fit page to height", "Previous PDF location", "Next PDF location", "Save PDF as…",
+    ]);
+    expect(within(menu).getByRole("menuitem", { name: "Previous PDF location" })).toHaveAttribute("aria-disabled", "true");
+
+    // Stepping keeps the menu open, including the pointerdown a mouse click
+    // sends first: it bubbles through the portal to the preview's focus handler.
+    const zoomIn = within(menu).getByRole("menuitem", { name: "Zoom in" });
+    fireEvent.pointerDown(zoomIn);
+    fireEvent.click(zoomIn);
+    expect(view.container.querySelector(".pdf-preview")).not.toHaveFocus();
+    expect(view.getByRole("menu")).toBe(menu);
+    fireEvent.click(within(menu).getByRole("menuitem", { name: "Fit page to height" }));
+    await waitFor(() => expect(view.queryByRole("menu")).toBeNull());
+    expect(fitHeight).toHaveAttribute("aria-pressed", "true");
+    expect(fitHeight).not.toHaveClass("pdf-overflow");
+    expect(fitWidth).toHaveClass("pdf-overflow");
+
+    // The percentage hands off to the toolbar's own field until it is left.
+    menu = await openMenu();
+    expect(items()).toContain("Fit page to width");
+    fireEvent.click(within(menu).getByRole("menuitem", { name: "Enter a zoom percentage" }));
+    const zoomInput = view.getByLabelText("PDF zoom percentage");
+    await waitFor(() => expect(zoomInput).toHaveFocus());
+    expect(view.container.querySelector(".pdf-toolbar")).toHaveAttribute("data-zoom-entry");
+    act(() => zoomInput.blur());
+    expect(view.container.querySelector(".pdf-toolbar")).not.toHaveAttribute("data-zoom-entry");
+  });
+
   it("starts a zoom right after a commit from the committed scale", async () => {
     const view = renderPdf({ initialViewState: { page: 1, scale: 1, fitMode: null, scrollTop: 0, scrollLeft: 0 } });
     await view.findByLabelText("PDF page 3");
@@ -737,7 +786,9 @@ describe("PDFSlick viewer integration", () => {
     await view.findByLabelText("PDF page 2");
     const instance = pdf.state.instances[0]!;
     const layer = instance.viewer.getPageView(1).textLayer.div;
-    layer.append(layer.firstChild!.cloneNode(true));
+    // A second occurrence, written fresh: a clone of the first span would copy
+    // the highlight it may already carry, which that highlight's cleanup never sees.
+    layer.append(Object.assign(document.createElement("span"), { textContent: layer.textContent }));
     act(() => instance.emit("textlayerrendered", { pageNumber: 2 }));
 
     await waitFor(() => expect(instance.gotoPage).toHaveBeenCalledWith(2));

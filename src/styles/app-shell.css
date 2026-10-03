@@ -475,7 +475,7 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
   width: 100%;
   flex: 1 1 auto;
   overflow: hidden;
-  --trees-accent-override: var(--text-primary);
+  --trees-accent-override: var(--navigation-text-strong);
   --trees-bg-override: var(--surface-sidebar);
   --trees-bg-muted-override: var(--navigation-tree-hover-surface);
   --trees-border-color-override: var(--border-subtle);
@@ -483,13 +483,13 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
   --trees-fg-override: var(--text-chrome);
   --trees-fg-muted-override: var(--text-tertiary);
   --trees-selected-bg-override: var(--navigation-tree-selected-surface);
-  --trees-selected-fg-override: var(--text-primary);
+  --trees-selected-fg-override: var(--navigation-text-strong);
   --trees-focus-ring-color-override: var(--navigation-focus-ring);
   --trees-selected-focused-border-color-override: transparent;
   --trees-focus-ring-width-override: 1px;
   --trees-input-bg-override: color-mix(in srgb, var(--text-primary) 5%, transparent);
   --trees-search-bg-override: color-mix(in srgb, var(--text-primary) 5%, transparent);
-  --trees-search-fg-override: var(--text-primary);
+  --trees-search-fg-override: var(--navigation-text-strong);
   --trees-font-family-override: var(--ui-font);
   --trees-font-size-override: var(--type-project-tree-size);
   --trees-font-weight-regular-override: var(--type-project-tree-weight);

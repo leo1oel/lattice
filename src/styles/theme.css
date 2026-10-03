@@ -57,20 +57,26 @@ textarea {
   --editor-bg: #f9f9fa;
   --editor-gutter: #f9f9fa;
   --pdf-bg: #efeff0;
-  --syntax-keyword: #f2636a;
-  --syntax-operator: #fa8b01;
-  --syntax-function: #2d82bd;
-  --syntax-type: #97b201;
-  --syntax-variable: #229e99;
-  --syntax-variable-special: #cc3399;
-  --syntax-property: #1965a0;
-  --syntax-attribute: #ffc545;
-  --syntax-string: #529302;
-  --syntax-comment: #9b9c9b;
-  --syntax-comment-doc: #9b744a;
-  --syntax-number: #fa8b01;
-  --syntax-constant: #d08c60;
-  --syntax-bracket: #77777d;
+  /* Every token reads at 4.5:1 or more on the editor, its active line and a
+     focused selection: each keeps its hue and gives up only lightness (in
+     OKLCH). Pairs that met at the same lightness are told apart by stepping
+     one darker. The selection strength is the most the tokens allow. */
+  --selection-mix: 16%;
+  --selection-mix-focused: 20%;
+  --syntax-keyword: #b82c3c;
+  --syntax-operator: #955103;
+  --syntax-function: #0167a1;
+  --syntax-type: #596903;
+  --syntax-variable: #066e6b;
+  --syntax-variable-special: #b61686;
+  --syntax-property: #03568f;
+  --syntax-attribute: #7e5d06;
+  --syntax-string: #386603;
+  --syntax-comment: #616261;
+  --syntax-comment-doc: #755026;
+  --syntax-number: #955103;
+  --syntax-constant: #8d472f;
+  --syntax-bracket: #55555b;
 }
 
 :root[data-theme="dark"] {
@@ -100,6 +106,9 @@ textarea {
   --editor-bg: var(--panel);
   --editor-gutter: var(--panel);
   --pdf-bg: color-mix(in srgb, var(--bg) 84%, #888 16%);
+  /* As strong as the dimmest token (comment) allows at 4.5:1. */
+  --selection-mix: 19%;
+  --selection-mix-focused: 24%;
   --syntax-keyword: #ff7b82;
   --syntax-operator: #f7a63c;
   --syntax-function: #6cb6e8;
@@ -109,7 +118,7 @@ textarea {
   --syntax-property: #71b2dc;
   --syntax-attribute: #ffd36d;
   --syntax-string: #82bd59;
-  --syntax-comment: #82858a;
+  --syntax-comment: #979a9f;
   --syntax-comment-doc: #c19a70;
   --syntax-number: #f7a63c;
   --syntax-constant: #dfa27d;

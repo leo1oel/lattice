@@ -94,6 +94,6 @@ describe("narrow pane chrome", () => {
     const narrowToolbar = rules(sheet.cssRules).filter((rule): rule is CSSContainerRule => rule instanceof CSSContainerRule
       && rule.containerName === "pdf-toolbar" && rule.containerQuery === "(max-width: 640px)");
     expect(narrowToolbar.flatMap((rule) => rules(rule.cssRules))
-      .some((rule) => rule instanceof CSSStyleRule && targets(rule, "pdf-zoom-step") && rule.style.display === "none")).toBe(true);
+      .some((rule) => rule instanceof CSSStyleRule && targets(rule, "pdf-overflow") && rule.style.display === "none")).toBe(true);
   });
 });
