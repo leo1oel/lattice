@@ -91,7 +91,6 @@ Scenarios (`scripts/perf-bench/scenarios.mjs`):
   a change that grows the DOM is caught in the engine users run. WebKit has no
   style or layout counters: its `recalcs` and `layouts` are blank and CPU
   profiles are Chromium-only.
-
 - `--layout` runs no benchmark: it checks geometry jsdom cannot lay out
   (`scripts/perf-bench/layout-checks.mjs`), each check on a fresh page at its
   own viewport and query, and exits 1 with a screenshot when one fails. CI runs
