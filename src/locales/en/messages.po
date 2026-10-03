@@ -388,6 +388,10 @@ msgstr "{total} files would change"
 msgid "{totalPages} total · appendix after p.{mainPages}"
 msgstr "{totalPages} total · appendix after p.{mainPages}"
 
+#: src/project/manuscript-checklist.tsx
+msgid "{totalPages} total · appendix not located in the PDF"
+msgstr "{totalPages} total · appendix not located in the PDF"
+
 #: src/project/citation-health.ts
 msgid "{warning}. Crossref type: {updateType}"
 msgstr "{warning}. Crossref type: {updateType}"
@@ -4187,8 +4191,16 @@ msgid "Limit {pageLimit} pages"
 msgstr "Limit {pageLimit} pages"
 
 #: src/project/manuscript-checklist.tsx
+msgid "Limit {wordLimit} words"
+msgstr "Limit {wordLimit} words"
+
+#: src/project/manuscript-checklist.tsx
 msgid "Limit 1 page"
 msgstr "Limit 1 page"
+
+#: src/project/manuscript-checklist.tsx
+msgid "Limit 1 word"
+msgstr "Limit 1 word"
 
 #: src/editor/goto-line-dialog.tsx
 msgid "Line"
@@ -4343,10 +4355,6 @@ msgstr "Loading…"
 msgctxt "comment source"
 msgid "Local"
 msgstr "Local"
-
-#: src/project/manuscript-checklist.tsx
-msgid "local estimate"
-msgstr "local estimate"
 
 #: src/papers/bibliography-audit.tsx
 msgid "Local issues"
@@ -6859,6 +6867,7 @@ msgid "Root document and its includes, via texcount"
 msgstr "Root document and its includes, via texcount"
 
 #: src/canvas/editor-status-bar.tsx
+#: src/project/manuscript-checklist.tsx
 msgid "Root document only, estimated without texcount"
 msgstr "Root document only, estimated without texcount"
 
@@ -8493,10 +8502,6 @@ msgstr "Vector arrow over a symbol"
 #: src/papers/bibliography-audit.tsx
 msgid "Venue"
 msgstr "Venue"
-
-#: src/project/manuscript-checklist.tsx
-msgid "venue limit usually excludes appendix"
-msgstr "venue limit usually excludes appendix"
 
 #: src/project/project-dialogs.tsx
 msgid "Venue template"

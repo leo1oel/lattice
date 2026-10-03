@@ -16,6 +16,7 @@ import { setError } from "./notify";
 import type { EditorComments } from "./use-editor-comments";
 import type { ToolDrawers } from "./use-tool-drawers";
 import type {
+  AppendixBoundary,
   BuildResult,
   OpenProjectFile,
   ProjectManifest,
@@ -35,7 +36,7 @@ export function AppEditorPanels({ comments, renderCommentsSurface, ...props }: {
   activeFile: string;
   build: BuildResult | null;
   editorCommentAuthorId: string;
-  mainBodyPages: number | null;
+  appendixBoundary: AppendixBoundary;
   openProjectFile: OpenProjectFile;
   pdfPageCount: number | null;
   project: ProjectSnapshot;
@@ -87,7 +88,7 @@ export function AppEditorPanels({ comments, renderCommentsSurface, ...props }: {
             wordSource: props.projectWordCount?.source ?? "estimate",
             wordBudget: project.manifest.wordBudget ?? null,
             pages: props.pdfPageCount,
-            mainPages: props.mainBodyPages,
+            appendix: props.appendixBoundary,
             pageBudget: project.manifest.pageBudget ?? null,
             todos: todoHits.length,
             unusedLabels: unusedSymbols.labels.length,

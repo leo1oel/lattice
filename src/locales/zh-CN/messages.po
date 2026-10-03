@@ -388,6 +388,10 @@ msgstr "将有 {total} 个文件发生变化"
 msgid "{totalPages} total · appendix after p.{mainPages}"
 msgstr "共 {totalPages} 页 · 附录从第 {mainPages} 页之后开始"
 
+#: src/project/manuscript-checklist.tsx
+msgid "{totalPages} total · appendix not located in the PDF"
+msgstr "共 {totalPages} 页 · 未能在 PDF 中定位附录"
+
 #: src/project/citation-health.ts
 msgid "{warning}. Crossref type: {updateType}"
 msgstr "{warning}。Crossref 类型：{updateType}"
@@ -4187,8 +4191,16 @@ msgid "Limit {pageLimit} pages"
 msgstr "上限 {pageLimit} 页"
 
 #: src/project/manuscript-checklist.tsx
+msgid "Limit {wordLimit} words"
+msgstr "上限 {wordLimit} 词"
+
+#: src/project/manuscript-checklist.tsx
 msgid "Limit 1 page"
 msgstr "上限 1 页"
+
+#: src/project/manuscript-checklist.tsx
+msgid "Limit 1 word"
+msgstr "上限 1 词"
 
 #: src/editor/goto-line-dialog.tsx
 msgid "Line"
@@ -4343,10 +4355,6 @@ msgstr "正在加载…"
 msgctxt "comment source"
 msgid "Local"
 msgstr "本地"
-
-#: src/project/manuscript-checklist.tsx
-msgid "local estimate"
-msgstr "本地估算"
 
 #: src/papers/bibliography-audit.tsx
 msgid "Local issues"
@@ -6859,6 +6867,7 @@ msgid "Root document and its includes, via texcount"
 msgstr "主文档及其引入的文件，由 texcount 统计"
 
 #: src/canvas/editor-status-bar.tsx
+#: src/project/manuscript-checklist.tsx
 msgid "Root document only, estimated without texcount"
 msgstr "仅主文档，未用 texcount，为估算值"
 
@@ -8493,10 +8502,6 @@ msgstr "在符号上方加向量箭头"
 #: src/papers/bibliography-audit.tsx
 msgid "Venue"
 msgstr "发表处"
-
-#: src/project/manuscript-checklist.tsx
-msgid "venue limit usually excludes appendix"
-msgstr "投稿限制通常不含附录"
 
 #: src/project/project-dialogs.tsx
 msgid "Venue template"

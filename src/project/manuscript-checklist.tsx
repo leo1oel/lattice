@@ -4,15 +4,21 @@ import { ChevronRight, ClipboardCheck } from "lucide-react";
 import { PanelHeader } from "../components/ui/panel-header";
 import { Input } from "../components/ui/input";
 import { ResizableDrawer } from "../components/ui/resizable-drawer";
+import type { AppendixBoundary } from "../app-types";
 
 export type ManuscriptChecklistData = {
   /** Null when the project has no countable root document. */
   words: number | null;
+  /**
+   * "texcount" counts the root document and its includes; anything else is the
+   * backend's estimate of the root document alone, which says nothing about
+   * how the whole manuscript sits against its budget.
+   */
   wordSource: string;
   wordBudget: number | null;
   pages: number | null;
-  /** Main-body pages before `\appendix` when SyncTeX can locate it. */
-  mainPages: number | null;
+  /** Where `\appendix` splits the PDF; the page budget counts what precedes it. */
+  appendix: AppendixBoundary;
   pageBudget: number | null;
   todos: number;
   unusedLabels: number;
@@ -86,21 +92,34 @@ export function ManuscriptChecklistPanel(props: {
   const { t } = useLingui();
   const [wordBudget, setWordBudget] = useState(props.data.wordBudget?.toString() ?? "");
   const [pageBudget, setPageBudget] = useState(props.data.pageBudget?.toString() ?? "");
-  const { words, wordBudget: wordLimit, pageBudget: pageLimit } = props.data;
-  // A missing count is never a pass: no meter, no colour, only the gap named.
-  const wordsOk = wordLimit == null || words == null ? null : words <= wordLimit;
-  const countedPages = props.data.mainPages ?? props.data.pages;
-  const pagesOk = pageLimit == null || countedPages == null
+  const { words, wordBudget: wordLimit, pageBudget: pageLimit, pages: totalPages, appendix } = props.data;
+  // A missing or partial count is never a pass: no meter, no colour, only
+  // what was counted and why it cannot settle the limit.
+  const wordsEstimated = props.data.wordSource !== "texcount";
+  const countedWords = wordsEstimated ? null : words;
+  const wordsOk = wordLimit == null || countedWords == null ? null : countedWords <= wordLimit;
+  // Without an appendix the whole PDF is the main body; with one SyncTeX has
+  // not placed, the total would measure a different scope than the budget.
+  const countedPages = totalPages == null
     ? null
-    : countedPages <= pageLimit;
-  const totalPages = props.data.pages;
-  const mainPages = props.data.mainPages;
+    : appendix.kind === "none" ? totalPages : appendix.kind === "resolved" ? appendix.mainPages : null;
+  const pagesOk = pageLimit == null || countedPages == null ? null : countedPages <= pageLimit;
+  const wordLimitNote = wordLimit == null
+    ? null
+    : wordLimit === 1 ? t`Limit 1 word` : t({ message: `Limit ${{ wordLimit: wordLimit.toLocaleString() }} words` });
+  const pageLimitNote = pageLimit == null ? null : pageLimit === 1 ? t`Limit 1 page` : t`Limit ${pageLimit} pages`;
+  const notes = (...parts: (string | null)[]) => parts.filter(Boolean).join(" · ") || undefined;
+  const wordDetail = words == null
+    ? notes(t`Needs a root document to count from`, wordLimitNote)
+    : wordsEstimated
+      ? notes(t`Root document only, estimated without texcount`, wordLimitNote)
+      : t`via texcount -inc`;
   const pageDetail = totalPages == null
-    ? pageLimit == null ? undefined : pageLimit === 1 ? t`Limit 1 page` : t`Limit ${pageLimit} pages`
-    : mainPages != null && mainPages !== totalPages
-      ? t`${totalPages} total · appendix after p.${mainPages}`
-      : mainPages == null
-        ? t`venue limit usually excludes appendix`
+    ? notes(pageLimitNote)
+    : appendix.kind === "unresolved"
+      ? notes(t`${totalPages} total · appendix not located in the PDF`, pageLimitNote)
+      : appendix.kind === "resolved" && appendix.mainPages !== totalPages
+        ? t({ message: `${{ totalPages }} total · appendix after p.${{ mainPages: appendix.mainPages }}` })
         : undefined;
   const wordDistance = (count: number, limit: number) => {
     const gap = Math.abs(limit - count);
@@ -129,20 +148,22 @@ export function ManuscriptChecklistPanel(props: {
             label={t`Body words`}
             value={words == null
               ? t`Unavailable`
-              : `${words.toLocaleString()}${wordLimit != null ? ` / ${wordLimit.toLocaleString()}` : ""}`}
+              : wordsEstimated
+                ? `≈${words.toLocaleString()}`
+                : `${words.toLocaleString()}${wordLimit != null ? ` / ${wordLimit.toLocaleString()}` : ""}`}
             ok={wordsOk}
-            meter={words != null && wordLimit != null
-              ? { value: words, limit: wordLimit, distance: wordDistance(words, wordLimit) }
+            meter={countedWords != null && wordLimit != null
+              ? { value: countedWords, limit: wordLimit, distance: wordDistance(countedWords, wordLimit) }
               : undefined}
-            detail={words == null
-              ? t`Needs a root document to count from`
-              : props.data.wordSource === "texcount" ? t`via texcount -inc` : t`local estimate`}
+            detail={wordDetail}
           />
           <BudgetRow
-            label={props.data.mainPages != null ? t`Main pages` : t`PDF pages`}
-            value={countedPages == null
+            label={totalPages != null && appendix.kind !== "none" ? t`Main pages` : t`PDF pages`}
+            value={totalPages == null
               ? t`Build to count`
-              : `${countedPages}${pageLimit != null ? ` / ${pageLimit}` : ""}`}
+              : countedPages == null
+                ? t`Unavailable`
+                : `${countedPages}${pageLimit != null ? ` / ${pageLimit}` : ""}`}
             ok={pagesOk}
             meter={countedPages != null && pageLimit != null
               ? { value: countedPages, limit: pageLimit, distance: pageDistance(countedPages, pageLimit) }

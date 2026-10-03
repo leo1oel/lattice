@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import type { EditorPosition, ProjectSnapshot } from "../app-types";
+import type { AppendixBoundary, EditorPosition, ProjectSnapshot } from "../app-types";
 import { flattenProjectPaths } from "../build/compile-diagnostics";
 import { activeOutlineNode, includedPathsIn, parseProjectOutline } from "../editor/latex/latex-outline";
 import {
@@ -11,6 +11,8 @@ import { mergeTodosWithBuffer, type TodoHit } from "../project/todo-scavenger";
 
 /** How deep `\input`/`\include` chains are followed from the root document. */
 const MAX_INCLUDE_DEPTH = 8;
+const NO_APPENDIX: AppendixBoundary = { kind: "none" };
+const UNRESOLVED_APPENDIX: AppendixBoundary = { kind: "unresolved" };
 
 export type LatexStructureDeps = {
   project: ProjectSnapshot | null;
@@ -46,7 +48,6 @@ export function useLatexStructure({
 }: LatexStructureDeps) {
   // Included files the outline needed, as last read from disk.
   const [includedSources, setIncludedSources] = useState<Record<string, string>>({});
-  const [mainBodyPages, setMainBodyPages] = useState<number | null>(null);
   const projectPaths = useMemo(
     () => (project ? flattenProjectPaths(project.files) : []),
     [project],
@@ -137,21 +138,27 @@ export function useLatexStructure({
   const appendixMarker = useMemo(() => findAppendixMarker(liveSources), [liveSources]);
   const appendixMarkerPath = appendixMarker?.path ?? "";
   const appendixMarkerLine = appendixMarker?.line ?? 0;
+  // SyncTeX's last answer: the main body's page count, or null when it could
+  // not place the marker (no target, or the lookup failed). A rebuild keeps
+  // the last answer until the next one arrives, so the count does not flicker.
+  const [appendixPlacement, setAppendixPlacement] = useState<{ mainPages: number | null } | null>(null);
   useEffect(() => {
-    if (!compiledPdf || !appendixMarkerPath) {
-      setMainBodyPages(null);
-      return;
-    }
+    if (!compiledPdf || !appendixMarkerPath) return;
     let cancelled = false;
     void invoke<{ page: number } | null>("synctex_view", { path: appendixMarkerPath, line: appendixMarkerLine, column: 0 })
       .then((target) => (target ? Math.max(0, target.page - 1) : null), () => null)
-      .then((pages) => {
-        if (!cancelled) setMainBodyPages(pages);
+      .then((mainPages) => {
+        if (!cancelled) setAppendixPlacement((current) => (current?.mainPages === mainPages ? current : { mainPages }));
       });
     return () => {
       cancelled = true;
     };
   }, [appendixMarkerLine, appendixMarkerPath, compiledPdf]);
+  const appendixBoundary = useMemo((): AppendixBoundary => {
+    if (!appendixMarkerPath) return NO_APPENDIX;
+    const mainPages = compiledPdf ? appendixPlacement?.mainPages : null;
+    return mainPages == null ? UNRESOLVED_APPENDIX : { kind: "resolved", mainPages };
+  }, [appendixMarkerPath, appendixPlacement, compiledPdf]);
 
   /** Included files follow a rename or move. */
   const remapIncludedSources = useCallback((remap: (path: string) => string) => {
@@ -164,6 +171,6 @@ export function useLatexStructure({
 
   return {
     projectPaths, rootDocumentPath, outlineNodes, activeOutlineId, liveReferences, macros, graphicsRoots, katexMacros,
-    todoHits, mainBodyPages, remapIncludedSources, forgetIncludedSources,
+    todoHits, appendixBoundary, remapIncludedSources, forgetIncludedSources,
   };
 }
