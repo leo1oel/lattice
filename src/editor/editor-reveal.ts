@@ -85,6 +85,17 @@ export function revealInEditor(view: EditorView, target: { from: number; to?: nu
 const SETTLE_MS = REVEAL_FLASH_MS + 400;
 /** What the writer does to take the view elsewhere; a jump stops holding the target once they do. */
 const WRITER_INPUT = ["wheel", "touchstart", "pointerdown", "keydown"] as const;
+/** Each view's jump still holding its target, by how to let it go. */
+const holds = new WeakMap<EditorView, () => void>();
+
+/**
+ * The writer scrolled `view` with a control outside its own DOM (the overlay
+ * scrollbar beside it), so input on the view itself never said so: stop
+ * holding a jump's target, or the hold scrolls it straight back.
+ */
+export function releaseReveal(view: EditorView) {
+  holds.get(view)?.();
+}
 
 /**
  * CodeMirror scrolls to a target it has not drawn by the heights it estimated
@@ -95,9 +106,11 @@ const WRITER_INPUT = ["wheel", "touchstart", "pointerdown", "keydown"] as const;
  * that height in steps that clamped it to the end of the file. So until the
  * drawing settles, every scroll the jump did not ask for and every change in
  * the content's height re-checks the target, and centers it again if it
- * moved — unless the writer has moved the selection or the view since.
+ * moved — unless the writer has moved the selection or the view since, or
+ * sent it somewhere else.
  */
 function centerAgainOnceDrawn(view: EditorView, from: number) {
+  releaseReveal(view);
   const landed = view.state.selection;
   const { scrollDOM, contentDOM } = view;
   const check = () => {
@@ -115,7 +128,9 @@ function centerAgainOnceDrawn(view: EditorView, from: number) {
     resized.disconnect();
     scrollDOM.removeEventListener("scroll", check);
     for (const type of WRITER_INPUT) view.dom.removeEventListener(type, stop, true);
+    if (holds.get(view) === stop) holds.delete(view);
   }
+  holds.set(view, stop);
   scrollDOM.addEventListener("scroll", check);
   resized.observe(contentDOM);
   for (const type of WRITER_INPUT) view.dom.addEventListener(type, stop, true);

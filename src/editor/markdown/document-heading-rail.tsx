@@ -11,6 +11,30 @@ const ACTIVE_RESTING_SCALE = 0.66;
 const RESTING_SCALES = [0.4, 0.27, 0.18];
 const next = (index: number, length: number) => (index + 1) % length;
 const previous = (index: number, length: number) => (index - 1 + length) % length;
+const SCROLL_KEYS: Record<string, true> = {
+  ArrowDown: true,
+  ArrowUp: true,
+  ArrowLeft: true,
+  ArrowRight: true,
+  PageDown: true,
+  PageUp: true,
+  Home: true,
+  End: true,
+  " ": true,
+};
+/**
+ * Whether `event` is the writer scrolling the document; a jump's section
+ * stops being current once they do. A click or keystroke in the text is not:
+ * the caret can stay in the jump's section while reading sits in another.
+ */
+const WRITER_SCROLL: Record<string, (event: Event, target: Element) => boolean> = {
+  wheel: () => true,
+  touchmove: () => true,
+  pointerdown: (_event, target) => target.closest("[data-slot='scroll-area-scrollbar']") !== null,
+  keydown: (event, target) =>
+    SCROLL_KEYS[(event as KeyboardEvent).key] === true &&
+    target.closest("[contenteditable]:not([contenteditable='false']), input, textarea, select") === null,
+};
 const KEYBOARD_STEPS: Record<string, (index: number, length: number) => number> = {
   ArrowDown: next,
   ArrowRight: next,
@@ -84,7 +108,8 @@ export function DocumentHeadingRail({ items: rawItems, virtualized = false, onSe
    * Reading alone cannot always name it: at either end of the document the
    * scroller cannot center the heading, so the middle of the viewport is in
    * another section. `reading` is the section the middle settled in after the
-   * jump; once scrolling reaches another one, reading takes over again.
+   * jump; once scrolling reaches another one, or the writer scrolls
+   * themselves, reading takes over again.
    */
   const jumpRef = useRef<{ id: string; reading: string | null } | null>(null);
   const remeasureRef = useRef<(() => void) | null>(null);
@@ -151,6 +176,18 @@ export function DocumentHeadingRail({ items: rawItems, virtualized = false, onSe
     };
     remeasureRef.current = scheduleMeasure;
     const onScroll = () => updateActive();
+    // Scrolling within the section reading settled in would keep the jump's
+    // section current long after it left the viewport, so the writer's own
+    // scrolling lets it go — anywhere on the scroll area, its scrollbar
+    // included, except on the rail, whose clicks and keys make the jumps.
+    const surface = scroller.closest<HTMLElement>("[data-slot='scroll-area']") ?? scroller;
+    const onWriterInput = (event: Event) => {
+      const target = event.target;
+      if (!jumpRef.current || !(target instanceof Element) || nav.contains(target)) return;
+      if (!WRITER_SCROLL[event.type]?.(event, target)) return;
+      jumpRef.current = null;
+      updateActive();
+    };
     const resizeObserver = new ResizeObserver(scheduleMeasure);
     resizeObserver.observe(scroller);
     resizeObserver.observe(root);
@@ -170,6 +207,7 @@ export function DocumentHeadingRail({ items: rawItems, virtualized = false, onSe
     });
     if (!watchSurface()) surfaceWatcher.observe(root, { childList: true, subtree: true });
     scroller.addEventListener("scroll", onScroll, { passive: true });
+    for (const type of Object.keys(WRITER_SCROLL)) surface.addEventListener(type, onWriterInput, { capture: true, passive: true });
     measure();
     return () => {
       if (frame != null) window.cancelAnimationFrame(frame);
@@ -178,6 +216,7 @@ export function DocumentHeadingRail({ items: rawItems, virtualized = false, onSe
       mutationObserver.disconnect();
       surfaceWatcher.disconnect();
       scroller.removeEventListener("scroll", onScroll);
+      for (const type of Object.keys(WRITER_SCROLL)) surface.removeEventListener(type, onWriterInput, true);
     };
   }, [items, virtualized]);
 
