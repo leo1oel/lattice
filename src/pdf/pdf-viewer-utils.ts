@@ -24,6 +24,20 @@ export function pdfSlickTranslationId(id: string): string {
   /* eslint-enable lingui/no-unlocalized-strings */
 }
 
+/**
+ * Preserve PDF.js's Fluent catalog and methods, translating only the stale IDs
+ * PDFSlick's metadata parser asks for. PDFSlick also still passes the third
+ * `fallback` argument that PDF.js 6.4 dropped from L10n.get (its print warning
+ * has no message in the catalog at all); answer with it when nothing matches.
+ */
+export function adaptPdfSlickL10n(l10n: { get(ids: string | string[], args?: null): Promise<unknown> }) {
+  const getTranslation = l10n.get.bind(l10n);
+  l10n.get = async (ids: string | string[], args?: null, fallback?: string) => {
+    const translated = Array.isArray(ids) ? ids.map(pdfSlickTranslationId) : pdfSlickTranslationId(ids);
+    return (await getTranslation(translated, args)) || fallback;
+  };
+}
+
 /** Normalize a browser text selection from the PDF text layer for agent context. */
 export function normalizePdfSelection(raw: string): string {
   return raw.replace(/\u00a0/g, " ").replace(/\s+/g, " ").trim();
