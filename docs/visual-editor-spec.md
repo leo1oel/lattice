@@ -1482,7 +1482,9 @@ Derived from: `src/editor/markdown/visual-markdown-editor.test.tsx:2486`.
   centers its target, so a jump makes its section current.
 - Hovering the rail previews a section, and clicking lands on its heading like any jump: centered,
   the caret in it, the heading briefly marked. A section near either end of the document, which
-  cannot be centered, is still current after the jump until scrolling reaches another section.
+  cannot be centered, is still current after the jump until scrolling reaches another section or
+  the writer scrolls (wheel, touch, the scrollbar or a scroll key outside the text); a click or
+  typing in the text keeps it.
   Block controls never draw under the rail, so one click there jumps.
 - The rail is hidden when there is only one section.
 - An authored "Contents" section is listed normally.
