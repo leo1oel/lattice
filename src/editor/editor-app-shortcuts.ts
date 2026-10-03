@@ -9,9 +9,11 @@ import type { KeyBinding } from "@codemirror/view";
  * ⌘[ / ⌘] (Back / Forward) re-indented it, ⌘G (Go to line) opened the find
  * bar, and ⌘⇧L (Insert reference) selected every match. The app's command
  * wins, so the editor keymaps drop these. Find next/previous stay on Enter,
- * Shift-Enter and F3 in the find bar.
+ * Shift-Enter and F3 in the find bar. F8 walks the build's diagnostics across
+ * files; the lint keymap's F8 handled it first and stepped through the open
+ * file's inline flags instead, leaving Shift-F8 on the other list.
  */
-const APP_KEYS = new Set(["Mod-Shift-k", "Mod-[", "Mod-]", "Mod-g", "Mod-Shift-l"]);
+const APP_KEYS = new Set(["Mod-Shift-k", "Mod-[", "Mod-]", "Mod-g", "Mod-Shift-l", "F8"]);
 
 /** `Shift-Mod-k`, `Mod-Shift-k` and (on macOS) `Cmd-Shift-k` name the same key. */
 function normalizedKey(key: string): string {

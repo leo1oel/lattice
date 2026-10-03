@@ -3,27 +3,16 @@
  * ⋯ menus carry the same actions). Eager but light: rendered by App into the
  * panels' accessory hosts.
  */
-import { Fragment, lazy, Suspense, useRef, type Dispatch, type ReactNode, type SetStateAction } from "react";
+import { Fragment, lazy, Suspense, useRef, type Dispatch, type SetStateAction } from "react";
 import { useLingui } from "@lingui/react/macro";
-import {
-  BookMarked, BookOpen, ClipboardCheck, FileCode2, FileText, FolderPlus, Plus, Presentation, Search, Shapes, Table2,
-} from "lucide-react";
+import { BookMarked, BookOpen, ClipboardCheck, Plus, Search } from "lucide-react";
 import { Tip } from "../components/icon-tip";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
 } from "../components/ui/dropdown-menu";
 import { NEW_ENTRIES, type NewEntryType } from "../project/project-new-entries";
 import type { SynaraHost } from "../app/use-synara-host";
-
-/** The icon each new entry wears on its tab once it opens (see trellis-icons' fileIcon). */
-const NEW_ENTRY_ICONS: Record<NewEntryType, ReactNode> = {
-  latex: <FileCode2 />,
-  markdown: <FileText />,
-  folder: <FolderPlus />,
-  spreadsheet: <Table2 />,
-  board: <Shapes />,
-  presentation: <Presentation />,
-};
+import { MENU_ICONS } from "./trellis-icons";
 
 // The installed RadioGroup's Base UI dependency stays outside startup chunks.
 const SynaraPermissionPicker = lazy(() => import("../agent/synara-permission-picker"));
@@ -75,7 +64,7 @@ export function PanelActions({ mode, synara, ...props }: PanelActionsProps) {
                 <Fragment key={entry.type}>
                   {entry.separated && <DropdownMenuSeparator />}
                   <DropdownMenuItem onSelect={() => { chosenRef.current = entry.type; }}>
-                    {NEW_ENTRY_ICONS[entry.type]}
+                    {MENU_ICONS[`new-${entry.type}`]}
                     {i18n._(entry.label)}
                   </DropdownMenuItem>
                 </Fragment>
