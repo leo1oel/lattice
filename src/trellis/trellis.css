@@ -385,7 +385,6 @@
 }
 .trellis-titlebar .trellis-presets .trellis-preset:not(.active):hover { background: transparent; color: var(--text-primary); }
 .trellis-titlebar .trellis-presets .trellis-preset.active { color: var(--text-primary); cursor: default; }
-.trellis-titlebar .trellis-presets .trellis-preset:focus-visible { outline: none; box-shadow: 0 0 0 var(--focus-ring-width) var(--focus-ring); }
 .trellis-presets .sliding-tab-pill { background: var(--segmented-selected-surface); box-shadow: 0 0 0 1px var(--border-strong), var(--segmented-selected-shadow); }
 .trellis-presets .sliding-tab-label { gap: var(--space-3); }
 @media (max-width: 1180px) {

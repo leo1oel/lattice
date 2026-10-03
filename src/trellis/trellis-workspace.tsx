@@ -338,6 +338,15 @@ const refuse = () => false;
  */
 function PaperSnapshot({ controller, fileKey }: { controller: TrellisController; fileKey: string }) {
   const { t } = useLingui();
+  // Only beside the document being worked on: with that off screen, this tab
+  // is merely selected on the way to becoming active (a restore, a switch).
+  const besideActive = useSyncExternalStore(controller.ui.subscribe, () => controller.ui.get().editorVisible);
+  if (!besideActive) return <SleepingDocument controller={controller} fileKey={fileKey} detail={t`Sleeping · click to open`} />;
+  return <PaperSnapshotContent controller={controller} fileKey={fileKey} />;
+}
+
+function PaperSnapshotContent({ controller, fileKey }: { controller: TrellisController; fileKey: string }) {
+  const { t } = useLingui();
   const scrollRef = useRef<HTMLDivElement>(null);
   const [paper, setPaper] = useState<{ path: string; text: string; scrollTop: number } | null | undefined>(undefined);
   useEffect(() => {
@@ -780,15 +789,13 @@ const TrellisWorkspace = memo(function TrellisWorkspace({ controller, projectRoo
       }
       controller.ui.set({ preset });
       controller.resync();
-      // The document the layout is for comes forward: the source to write,
-      // the paper to read (else the library to pick one), or on return the
-      // active document wherever it now is.
+      // The document the layout is for becomes the active one: the source to
+      // write, the paper to read. Keyboard focus stays on the layout switch,
+      // so its arrow keys keep moving between layouts.
       const root = handle.getDocument().root;
-      const panel = (id: string) => (root ? findPanel(root, id) : null);
-      const target = preset === "writing" ? panel("panel-writing")?.selected
-        : preset === "reading" ? panel("panel-reading")?.selected
-          : handle.views({ type: "file" }).find((view) => view.params.key === controller.app.get().activeKey)?.id;
-      if (target && handle.view(target)) handle.focus(target);
+      const lead = root && preset ? findPanel(root, preset === "writing" ? "panel-writing" : "panel-reading")?.selected : null;
+      const key = lead ? handle.view(lead)?.params.key : null;
+      if (typeof key === "string" && key !== activeKey) controller.activate(key);
     },
   }), [controller, projectRoot, resetFailed]);
   // The titlebar follows this workspace's preset; another project's starts in its own.
