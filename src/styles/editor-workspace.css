@@ -769,7 +769,7 @@ body:has(.modal-backdrop, .drawer-backdrop) :is(.latex-selection-toolbar-anchor,
 .paper-identity > * { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .paper-identity-title { flex: 0 1 auto; color: var(--text-primary); font-size: var(--type-label-size); font-weight: var(--weight-medium); animation: paper-identity-in var(--duration-base) var(--ease-out); }
 .paper-identity-authors { flex: 0 1000 auto; color: var(--text-secondary); }
-.paper-identity-source { flex: 0 0.001 auto; min-width: 5em; }
+.paper-identity-source { flex: none; min-width: 5em; max-width: 100%; }
 .paper-identity > * + *::before { content: "·"; margin-inline: var(--space-3); color: var(--text-tertiary); }
 /* The source opens the original, so it reads as text until pointed at. */
 button.paper-identity-source { height: auto; padding: 0; border: 0; border-radius: var(--radius-compact); background: transparent; color: inherit; display: inline-flex; align-items: baseline; font: inherit; cursor: pointer; transition: color var(--duration-quick) var(--ease-default); }
