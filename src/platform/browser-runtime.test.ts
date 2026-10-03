@@ -1,5 +1,5 @@
 import { fireEvent, within } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
 import { FakeWebSocket, lastSocket, sockets } from "./fake-websocket";
 import {
   BrowserRelay,
@@ -118,6 +118,60 @@ describe("browser bridge recovery", () => {
     expect(reload).toHaveBeenCalledOnce();
   });
 
+  it("covers the app as a modal: the app is inert and focus moves to the screen's action", async () => {
+    const { app, editor } = focusedApp();
+    const { socket } = connectedRelay(vi.fn(), { appRunning: false });
+    socket.message({ type: "host-disconnected" });
+    socket.disconnect();
+    await vi.advanceTimersByTimeAsync(0);
+
+    const screen = within(document.body).getByRole("alertdialog", {
+      name: "Lattice quit. Open it again, then reload this tab.",
+    });
+    expect(screen).toHaveAttribute("aria-modal", "true");
+    expect(app).toHaveAttribute("inert");
+    expect(screen).not.toHaveAttribute("inert");
+    expect(document.activeElement).toBe(within(screen).getByRole("button", { name: "Reload" }));
+    expect(document.activeElement).not.toBe(editor);
+
+    // Whatever the app adds to the page later stays behind the screen too.
+    const later = document.createElement("div");
+    document.body.append(later);
+    await Promise.resolve();
+    expect(later).toHaveAttribute("inert");
+    later.remove();
+  });
+
+  it("focuses a screen without an action itself", () => {
+    const { editor } = focusedApp();
+    const { socket } = connectedRelay();
+    socket.message({ type: "browser-replaced" });
+    expect(document.activeElement).toBe(runtimeError());
+    expect(document.activeElement).not.toBe(editor);
+  });
+
+  it.each([
+    ["dark", "light", "dark"],
+    ["light", "dark", "light"],
+  ])("draws a status in the app's %s theme on a %s system", (preference, system, expected) => {
+    // Before React has applied the saved preference, as for a bootstrap failure.
+    delete document.documentElement.dataset.theme;
+    vi.spyOn(window, "matchMedia").mockImplementation((query) => ({
+      matches: system === "dark" && query === "(prefers-color-scheme: dark)",
+    }) as MediaQueryList);
+    const { socket } = connectedRelay();
+    // The host mirrors the app's storage into the page on connect.
+    localStorage.setItem("lattice.theme-preference.v1", preference);
+    socket.message({ type: "browser-replaced" });
+    expect(document.documentElement.dataset.theme).toBe(expected);
+    const style = runtimeError()!.style;
+    expect(style.getPropertyValue("color-scheme")).toBe(expected);
+    expect(style.background).toContain("var(--surface-app");
+    expect(style.color).toContain("var(--text-primary");
+    delete document.documentElement.dataset.theme;
+    localStorage.removeItem("lattice.theme-preference.v1");
+  });
+
   it("tells embedded editors to stop accepting edits after another tab takes over", async () => {
     // Detachment is page-lifetime state, so each case needs a fresh module.
     vi.resetModules();
@@ -134,6 +188,17 @@ describe("browser bridge recovery", () => {
     expect(detached).toHaveBeenCalledOnce();
   });
 });
+
+/** An app root with a focused editor in it, removed after the test. */
+function focusedApp() {
+  const app = document.createElement("div");
+  const editor = document.createElement("textarea");
+  app.append(editor);
+  document.body.append(app);
+  editor.focus();
+  onTestFinished(() => app.remove());
+  return { app, editor };
+}
 
 describe("returning a workspace to the Lattice app", () => {
   beforeEach(() => {
@@ -186,6 +251,16 @@ describe("opening a workspace from an entry address", () => {
     expect(requests).toHaveLength(1);
     expect(requests[0].searchParams.get("entry")).toBe("nonce-b");
     expect(requests[0].searchParams.has("token")).toBe(false);
+  });
+
+  it("treats an empty entry as a stale link rather than resuming the tab's stored workspace", async () => {
+    window.history.replaceState(null, "", "/?entry=");
+    await expect(loadPage()).rejects.toThrow("This Lattice link has expired or was already used.");
+    expect(requests).toHaveLength(1);
+    expect(requests[0].searchParams.get("entry")).toBe("");
+    expect(requests[0].searchParams.has("token")).toBe(false);
+    expect(sessionStorage.getItem("lattice.browser-token")).toBe("token-a");
+    expect(window.location.search).toBe("?entry=");
   });
 
   it("explains a used or expired entry and keeps the tab's own session and address", async () => {

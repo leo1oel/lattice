@@ -1,4 +1,4 @@
-import { APPEARANCE_KEY } from "../settings/app-settings";
+import { APPEARANCE_KEY, loadThemePreference, systemTheme } from "../settings/app-settings";
 
 /* eslint-disable lingui/no-unlocalized-strings -- bridge protocol keys shared with Tauri and the native host */
 const IPC_SERIALIZE_KEY = "__TAURI_TO_IPC_KEY__";
@@ -359,27 +359,91 @@ interface RuntimeStatus {
   action?: { label: string; run: () => void };
 }
 
-/** Cover the page with a short status, optionally with one button. */
+const RUNTIME_STATUS_ID = "lattice-browser-runtime-error";
+const RUNTIME_STATUS_MESSAGE_ID = "lattice-browser-runtime-message";
+
+/** What {@link blockApp} made inert, so it never lifts an inert it did not set. */
+const madeInert = new Set<Element>();
+let appObserver: MutationObserver | null = null;
+
+/**
+ * Make everything on the page but the runtime status inert: no focus, no
+ * keyboard or pointer input, even for a dialog the app opens meanwhile. An
+ * editor hidden behind the status would otherwise keep taking keystrokes.
+ */
+function blockApp(): void {
+  if (!appObserver) {
+    appObserver = new MutationObserver(inertApp);
+    appObserver.observe(document.body, { childList: true });
+  }
+  inertApp();
+}
+
+function inertApp(): void {
+  // The status blocks the app only while it covers it.
+  if (!document.getElementById(RUNTIME_STATUS_ID)) {
+    unblockApp();
+    return;
+  }
+  for (const element of document.body.children) {
+    if (element.id === RUNTIME_STATUS_ID || element.hasAttribute("inert")) continue;
+    element.setAttribute("inert", "");
+    madeInert.add(element);
+  }
+}
+
+function unblockApp(): void {
+  appObserver?.disconnect();
+  appObserver = null;
+  for (const element of madeInert) element.removeAttribute("inert");
+  madeInert.clear();
+}
+
+/**
+ * The theme the page shows. A runtime status can cover it before React has
+ * applied the saved preference, and the dark palette follows `data-theme`
+ * alone, so apply that preference first.
+ */
+export function applyStoredTheme(): "light" | "dark" {
+  const root = document.documentElement;
+  if (root.dataset.theme !== "dark" && root.dataset.theme !== "light") {
+    const preference = loadThemePreference();
+    root.dataset.theme = preference === "system" ? systemTheme() : preference;
+  }
+  return root.dataset.theme === "dark" ? "dark" : "light";
+}
+
+/**
+ * Cover the page with a short status, optionally with one button. It is a
+ * modal alert: the app behind it is inert and focus moves to its action.
+ */
 function showRuntimeStatus(status: RuntimeStatus): void {
-  document.getElementById("lattice-browser-runtime-error")?.remove();
+  document.getElementById(RUNTIME_STATUS_ID)?.remove();
   const overlay = document.createElement("div");
-  overlay.id = "lattice-browser-runtime-error";
-  overlay.setAttribute("role", "alert");
-  const overlayStyle = "position:fixed;inset:0;z-index:2147483647;display:grid;place-items:center;padding:var(--space-16);font:var(--font-ui-body) system-ui;color:CanvasText;background:Canvas";
+  overlay.id = RUNTIME_STATUS_ID;
+  overlay.setAttribute("role", "alertdialog");
+  overlay.setAttribute("aria-modal", "true");
+  overlay.setAttribute("aria-labelledby", RUNTIME_STATUS_MESSAGE_ID);
+  overlay.tabIndex = -1;
+  // The app's own surface and text roles, so a dark workspace fails into a
+  // dark screen; system colors only where the theme has not loaded.
+  const overlayStyle = `position:fixed;inset:0;z-index:2147483647;display:grid;place-items:center;padding:var(--space-16);font:var(--font-ui-body) system-ui;color-scheme:${applyStoredTheme()};color:var(--text-primary, CanvasText);background:var(--surface-app, Canvas);outline:none`;
   overlay.style.cssText = overlayStyle;
   const panel = document.createElement("div");
   const panelStyle = "display:grid;justify-items:center;gap:var(--space-4);max-width:28rem;text-align:center";
   panel.style.cssText = panelStyle;
   const message = document.createElement("p");
-  const messageStyle = "margin:0;opacity:0.72";
+  message.id = RUNTIME_STATUS_MESSAGE_ID;
+  const messageStyle = "margin:0;color:var(--text-secondary, inherit)";
   message.style.cssText = messageStyle;
   message.textContent = status.message;
   panel.append(message);
   const action = status.action;
+  let button: HTMLButtonElement | null = null;
   if (action) {
-    const button = document.createElement("button");
+    button = document.createElement("button");
     button.type = "button";
-    const buttonStyle = "margin-top:var(--space-6);padding:var(--space-3) var(--space-8);border:0;border-radius:var(--radius-control);font:inherit;cursor:pointer";
+    const buttonStyle = "margin-top:var(--space-6);padding:var(--space-3) var(--space-8);border:0;border-radius:var(--radius-control);font:inherit;cursor:pointer;color:var(--control-active-contrast, ButtonText);background:var(--control-active, ButtonFace)";
     button.style.cssText = buttonStyle;
     button.textContent = action.label;
     button.addEventListener("click", () => action.run());
@@ -387,6 +451,8 @@ function showRuntimeStatus(status: RuntimeStatus): void {
   }
   overlay.append(panel);
   document.body.append(overlay);
+  blockApp();
+  (button ?? overlay).focus({ preventScroll: true });
 }
 
 function physicalWindowSize() {
@@ -589,7 +655,7 @@ async function requestBrowserSession(
 ): Promise<BrowserRuntimeConfig> {
   const endpoint = new URL(`http://127.0.0.1:${bridgePort}/__lattice_session`);
   if (resumeToken) endpoint.searchParams.set("token", resumeToken);
-  if (entry) endpoint.searchParams.set("entry", entry);
+  if (entry !== undefined) endpoint.searchParams.set("entry", entry);
   const response = await fetch(endpoint, { cache: "no-store", mode: "cors" });
   // 410: the explicit entry was used, expired or never issued. It selects no
   // workspace rather than another one.
@@ -619,8 +685,10 @@ async function initializeBrowserRuntime(): Promise<void> {
   const developmentEntry = search.get("latticeBrowser") === "1";
   // The app opens the default browser on a single-use `?entry=<nonce>`, never
   // on a token: the address lands in process arguments and browser history.
+  // Its presence selects, not its value: an empty `?entry=` is a stale link
+  // too, not a plain reload of the tab's stored workspace.
   const entry = search.get("entry") ?? undefined;
-  if (!stored && !fixedEntry && !developmentEntry && !entry) {
+  if (!stored && !fixedEntry && !developmentEntry && entry === undefined) {
     runtimeError = runtimeMessage("open-from-app");
     return;
   }
@@ -629,10 +697,10 @@ async function initializeBrowserRuntime(): Promise<void> {
   // exchange succeeds, so a stale entry leaves the tab's session intact.
   const config = await requestBrowserSession(
     stored?.bridgePort ?? Number(entryPort),
-    entry ? undefined : stored?.token,
+    entry === undefined ? stored?.token : undefined,
     entry,
   );
-  if (developmentEntry || entry) {
+  if (developmentEntry || entry !== undefined) {
     const url = new URL(window.location.href);
     url.searchParams.delete("latticeBrowser");
     url.searchParams.delete("entry");

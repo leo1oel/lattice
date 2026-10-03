@@ -604,6 +604,11 @@ mod tests {
             select_entry(&mut table, 18452, Some(TOKEN), Some(&nonce)).map(|_| ()),
             Err(StaleEntry)
         );
+        // So is an entry address whose nonce is empty.
+        assert_eq!(
+            select_entry(&mut table, 18452, Some(TOKEN), Some("")).map(|_| ()),
+            Err(StaleEntry)
+        );
         // An ordinary reload, without the entry, resumes the stored session.
         let reload = select_entry(&mut table, 18452, Some(TOKEN), None).unwrap().unwrap();
         assert_eq!(reload.label, "browser-test");
