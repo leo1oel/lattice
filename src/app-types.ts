@@ -36,6 +36,17 @@ export type WordCount = {
   source: string;
 };
 
+/**
+ * Where `\appendix` splits the compiled PDF. Without an appendix the whole PDF
+ * is the main body; with one SyncTeX has not placed (still looking, the lookup
+ * failed, or it found no target) the main-body page count is unknown, which
+ * is not the same as the PDF's total.
+ */
+export type AppendixBoundary =
+  | { kind: "none" }
+  | { kind: "unresolved" }
+  | { kind: "resolved"; mainPages: number };
+
 export type UnusedSymbols = {
   labels: string[];
   citations: string[];

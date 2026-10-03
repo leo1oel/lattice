@@ -18,7 +18,7 @@
     "prepare:runtime:dev": "pnpm prepare:synara:dev && pnpm prepare:presentation",
     "prepare:build": "node scripts/prepare-build.mjs",
     "check": "mise run check",
-    "lint": "eslint src tools --max-warnings 32",
+    "lint": "eslint src tools --max-warnings 31",
     "knip": "knip",
     "test": "vitest run",
     "test:e2e-harness": "LATTICE_E2E=1 vitest run scripts/perf-bench/smoke.test.mjs",

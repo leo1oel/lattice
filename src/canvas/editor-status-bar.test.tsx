@@ -1,9 +1,16 @@
+import { readFileSync } from "node:fs";
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ComponentProps } from "react";
 import { EditorStatusBar } from "./editor-status-bar";
 import { createEditorComment } from "../editor/comments/editor-comment-data";
 import { activateAppLocale } from "../i18n";
+
+// Vitest empties CSS imports, so the popover's stylesheet is loaded off disk
+// into jsdom's CSSOM: the assertions read computed styles, not source text.
+const shellSheet = document.createElement("style");
+shellSheet.textContent = readFileSync("src/styles/app-shell.css", "utf8");
+document.head.append(shellSheet);
 
 type StatusProps = ComponentProps<typeof EditorStatusBar>;
 
@@ -75,5 +82,15 @@ describe("EditorStatusBar", () => {
     details = openDetails();
     expect(details).toHaveTextContent("ManuscriptUnavailableNeeds a root document to count from");
     expect(details).toHaveTextContent("This file1 word");
+  });
+
+  it("wraps a long unbroken filename inside the details instead of running past them", () => {
+    const fileName = "chapter_03_mechanistic_evidence_for_visual_grounding_and_reproducibility_in_native_vision_language_models.tex";
+    renderStatus({ path: `chapters/${fileName}`, source: "Two words" });
+    const note = within(openDetails()).getByText(new RegExp(`^${fileName}`));
+    // jsdom does no layout, so this pins the two rules that let the token
+    // break: a shrinkable label column, and a note that breaks anywhere.
+    expect(getComputedStyle(note.parentElement!).gridTemplateColumns).toBe("minmax(0, 1fr) auto");
+    expect(getComputedStyle(note)).toMatchObject({ minWidth: "0px", overflowWrap: "anywhere" });
   });
 });

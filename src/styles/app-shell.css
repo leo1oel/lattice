@@ -156,12 +156,14 @@ input[type="search"]:focus-visible {
 .editor-status-bar .status-body-words:is(:hover, [data-state="open"]),
 .editor-status-bar .status-body-words:is(:hover, [data-state="open"]) .status-word-scope { color: var(--text-primary); }
 .word-count-popover { width: 284px; padding: var(--space-2); }
+/* A filename is one unbroken token; the notes break it anywhere rather than
+   run out of the popover, and the label column may shrink below its text. */
 .word-count-popover dl { margin: 0; display: grid; }
-.word-count-popover dl > div { display: grid; grid-template-columns: 1fr auto; align-items: baseline; gap: var(--space-1) var(--space-6); padding: var(--space-5) var(--space-6); }
+.word-count-popover dl > div { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: baseline; gap: var(--space-1) var(--space-6); padding: var(--space-5) var(--space-6); }
 .word-count-popover dl > div + div { border-top: 1px solid var(--border-subtle); }
 .word-count-popover dt { color: var(--text-primary); font-size: var(--type-label-size); font-weight: var(--weight-semibold); }
 .word-count-popover dd { margin: 0; color: var(--text-primary); font-size: var(--type-label-size); font-weight: var(--weight-semibold); font-variant-numeric: tabular-nums; white-space: nowrap; }
-.word-count-popover dd.word-count-note { grid-column: 1 / -1; color: var(--text-tertiary); font-size: var(--type-micro-size); font-weight: var(--weight-regular); line-height: var(--type-micro-line-height); white-space: normal; text-wrap: pretty; }
+.word-count-popover dd.word-count-note { grid-column: 1 / -1; color: var(--text-tertiary); font-size: var(--type-micro-size); font-weight: var(--weight-regular); line-height: var(--type-micro-line-height); white-space: normal; text-wrap: pretty; min-width: 0; overflow-wrap: anywhere; }
 .editor-status-bar .status-hint { min-width: 0; flex: 0 1 auto; overflow: hidden; text-overflow: ellipsis; color: var(--text-tertiary); opacity: .85; }
 .editor-status-bar .status-hint kbd { font: inherit; color: var(--text-secondary); }
 .editor-status-bar .editor-breadcrumb { min-width: 0; flex: 1 1 auto; overflow: hidden; color: var(--text-secondary); text-align: center; display: inline-flex; align-items: center; justify-content: center; gap: var(--space-2); flex-wrap: nowrap; }
