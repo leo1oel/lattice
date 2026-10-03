@@ -20,6 +20,11 @@ describe("settings search", () => {
     ["emacs", ["editor-keymap"]],
     ["xelatex", ["compile-engine"]],
     ["api key", ["literature-openalex", "literature-semanticscholar", "literature-firecrawl"]],
+    ["latexmkrc", ["compile-engine"]],
+    ["Source editor only", ["editor-font-size"]],
+    ["harper", ["spellcheck", "project-dictionary"]],
+    // A label match leads one only a description holds.
+    ["build", ["page:editor", "auto-build", "aux-files", "compile-engine", "shell-escape", "interface-sounds"]],
     ["  ", []],
   ])("finds %j in English", (query, ids) => {
     expect(search(query)).toEqual(ids);
@@ -31,6 +36,8 @@ describe("settings search", () => {
     ["拼写", ["spellcheck"]],
     ["快捷键", ["editor-keymap"]],
     ["词典", ["project-dictionary"]],
+    ["latexmkrc", ["compile-engine"]],
+    ["仅源码编辑器", ["editor-font-size"]],
   ])("finds %j in Chinese", async (query, ids) => {
     await act(() => activateAppLocale("zh-CN"));
     expect(search(query)).toEqual(ids);

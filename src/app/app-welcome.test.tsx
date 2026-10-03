@@ -370,9 +370,9 @@ describe("welcome screen", () => {
     fireEvent.change(term, { target: { value: "Lattice" } });
 
     fireEvent.change(search, { target: { value: "build" } });
-    // Labels holding the words lead, in page order; then rows only their terms match.
+    // Labels holding the words lead, in page order; then rows only their terms match, then descriptions.
     expect(results().getAllByRole("option").map((option) => option.firstChild?.textContent))
-      .toEqual(["Editor & builds", "Automatic build", "Auxiliary files", "Compile engine", "Allow external commands"]);
+      .toEqual(["Editor & builds", "Automatic build", "Auxiliary files", "Compile engine", "Allow external commands", "Interface sounds"]);
     fireEvent.change(search, { target: { value: "vim" } });
     fireEvent.keyDown(search, { key: "Enter" });
     await waitFor(() => expect(screen.getByRole("combobox", { name: "Editor keymap" })).toHaveFocus());

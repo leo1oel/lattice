@@ -478,6 +478,7 @@ msgid "A paper beside your notes"
 msgstr "论文与笔记并排"
 
 #: src/settings/settings-dialog.tsx
+#: src/settings/settings-search-index.ts
 msgid "A project latexmkrc overrides this"
 msgstr "项目中的 latexmkrc 优先"
 
@@ -2834,6 +2835,7 @@ msgid "English"
 msgstr "英文"
 
 #: src/settings/settings-dialog.tsx
+#: src/settings/settings-search-index.ts
 msgid "English, with Harper"
 msgstr "英文，由 Harper 检查"
 
@@ -6425,6 +6427,7 @@ msgid "Removed one file from Overleaf"
 msgstr "已从 Overleaf 删除 1 个文件"
 
 #: src/settings/settings-dialog.tsx
+#: src/settings/settings-search-index.ts
 msgid "Removes .aux, .log and other build files"
 msgstr "删除 .aux、.log 等构建文件"
 
@@ -7283,6 +7286,7 @@ msgid "Send message"
 msgstr "发送消息"
 
 #: src/settings/literature-settings.tsx
+#: src/settings/settings-search-index.ts
 msgid "Sent to Crossref for faster lookups. No key needed"
 msgstr "发送给 Crossref 以加快查询，无需密钥"
 
@@ -7313,6 +7317,7 @@ msgid "Sharp"
 msgstr "升号"
 
 #: src/settings/settings-dialog.tsx
+#: src/settings/settings-search-index.ts
 msgid "Shell escape during builds"
 msgstr "构建时允许 shell escape"
 
@@ -7421,6 +7426,7 @@ msgid "Sign-in was cancelled. You can try again whenever you’re ready."
 msgstr "登录已取消。你可以随时重新尝试。"
 
 #: src/settings/settings-dialog.tsx
+#: src/settings/settings-search-index.ts
 msgid "Signs your comments when Git and Overleaf have no name"
 msgstr "Git 和 Overleaf 都没有名字时用于评论署名"
 
@@ -7516,6 +7522,7 @@ msgid "Source control"
 msgstr "版本控制"
 
 #: src/settings/settings-dialog.tsx
+#: src/settings/settings-search-index.ts
 msgid "Source editor only"
 msgstr "仅源码编辑器"
 
@@ -7878,6 +7885,7 @@ msgid "Technical details"
 msgstr "技术详情"
 
 #: src/settings/settings-dialog.tsx
+#: src/settings/settings-search-index.ts
 msgid "Terms Harper should accept in this project"
 msgstr "Harper 在此项目中应接受的术语"
 
@@ -8797,6 +8805,7 @@ msgid "Weierstrass p"
 msgstr "魏尔斯特拉斯 p"
 
 #: src/settings/settings-dialog.tsx
+#: src/settings/settings-search-index.ts
 msgid "When a build or Overleaf setup finishes"
 msgstr "构建或 Overleaf 设置完成时"
 

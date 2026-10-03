@@ -5,7 +5,8 @@ import type { SettingsTab } from "../app-types";
  * One searchable setting. `id` is the `data-setting` of the row it reveals;
  * a page-level entry has none and only opens its page. `terms` are the few
  * extra words people search for that the label does not say (its option
- * names, the tool it drives), localized like the label.
+ * names, the tool it drives), localized like the label. `description` is
+ * the row's own description, when it does not depend on state.
  */
 export type SettingsSearchEntry = {
   tab: SettingsTab;
@@ -14,6 +15,7 @@ export type SettingsSearchEntry = {
   place: string;
   id?: string;
   terms?: string;
+  description?: string;
 };
 
 /**
@@ -34,19 +36,19 @@ export function useSettingsSearchIndex(hasProject: boolean): SettingsSearchEntry
     { tab: "appearance", label: appearance, place: t`General` },
     { tab: "appearance", place: appearance, id: "interface-language", label: t`Interface language`, terms: `${t`English`} ${t`Simplified Chinese`}` },
     { tab: "appearance", place: appearance, id: "color-theme", label: t`Color theme`, terms: `${t`Light`} ${t`Dark`}` },
-    { tab: "appearance", place: appearance, id: "editor-font-size", label: t`Editor font size` },
-    { tab: "appearance", place: appearance, id: "interface-sounds", label: t`Interface sounds`, terms: t({ message: "sound", comment: "Search words for the Interface sounds setting, space-separated" }) },
+    { tab: "appearance", place: appearance, id: "editor-font-size", label: t`Editor font size`, description: t`Source editor only` },
+    { tab: "appearance", place: appearance, id: "interface-sounds", label: t`Interface sounds`, terms: t({ message: "sound", comment: "Search words for the Interface sounds setting, space-separated" }), description: t`When a build or Overleaf setup finishes` },
     { tab: "appearance", place: appearance, id: "titlebar-tools", label: t`Title bar tools` },
     { tab: "editor", label: editor, place: t`General` },
     { tab: "editor", place: editor, id: "editor-keymap", label: t`Editor keymap`, terms: `Vim Emacs ${t({ message: "shortcuts", comment: "Search words for the Editor keymap setting, space-separated" })}` },
-    { tab: "editor", place: editor, id: "author-name", label: t`Your name`, terms: t`Comments` },
-    { tab: "editor", place: editor, id: "spellcheck", label: t`Check spelling in prose`, terms: "Harper" },
-    { tab: "editor", place: editor, id: "project-dictionary", label: t`Project dictionary`, terms: "Harper" },
+    { tab: "editor", place: editor, id: "author-name", label: t`Your name`, terms: t`Comments`, description: t`Signs your comments when Git and Overleaf have no name` },
+    { tab: "editor", place: editor, id: "spellcheck", label: t`Check spelling in prose`, description: t`English, with Harper` },
+    { tab: "editor", place: editor, id: "project-dictionary", label: t`Project dictionary`, description: t`Terms Harper should accept in this project` },
     { tab: "editor", place: editor, id: "auto-build", label: t`Automatic build` },
-    { tab: "editor", place: editor, id: "aux-files", label: t`Auxiliary files`, terms: `${builds} ${t`Clean`} .aux .log` },
+    { tab: "editor", place: editor, id: "aux-files", label: t`Auxiliary files`, terms: `${builds} ${t`Clean`}`, description: t`Removes .aux, .log and other build files` },
     ...(hasProject ? [
-      { tab: "editor", place: editor, id: "compile-engine", label: t`Compile engine`, terms: `${builds} pdfLaTeX XeLaTeX LuaLaTeX latexmk` },
-      { tab: "editor", place: editor, id: "shell-escape", label: t`Allow external commands`, terms: `${builds} shell-escape` },
+      { tab: "editor", place: editor, id: "compile-engine", label: t`Compile engine`, terms: `${builds} pdfLaTeX XeLaTeX LuaLaTeX latexmk`, description: t`A project latexmkrc overrides this` },
+      { tab: "editor", place: editor, id: "shell-escape", label: t`Allow external commands`, terms: `${builds} shell-escape`, description: t`Shell escape during builds` },
     ] satisfies SettingsSearchEntry[] : []),
     { tab: "editor", place: editor, id: "auto-updates", label: t`Automatic updates` },
     { tab: "editor", place: editor, id: "version", label: t`Version`, terms: t`Check for updates` },
@@ -61,21 +63,21 @@ export function useSettingsSearchIndex(hasProject: boolean): SettingsSearchEntry
     ...[["openalex", "OpenAlex"], ["semanticscholar", "Semantic Scholar"], ["firecrawl", "Firecrawl"]].map(([id, name]) => (
       { tab: "literature", place: literature, id: `literature-${id}`, label: name, terms: t`API key` } satisfies SettingsSearchEntry
     )),
-    { tab: "literature", place: literature, id: "literature-email", label: t`Contact email`, terms: "Crossref" },
+    { tab: "literature", place: literature, id: "literature-email", label: t`Contact email`, description: t`Sent to Crossref for faster lookups. No key needed` },
     { tab: "doctor", label: t`TeX doctor`, place: t`Diagnostics` },
     { tab: "logs", label: t`Logs`, place: t`Diagnostics` },
   ];
   /* eslint-enable lingui/no-unlocalized-strings */
 }
 
-/**
- * The entries holding every word of `query`, labels that start with it first,
- * then labels that contain it, then the ones only their terms match; page
- * order breaks ties.
- */
 /** Stable across renders, which rebuild the entries. */
 export const settingsEntryKey = (entry: SettingsSearchEntry) => `${entry.tab}:${entry.id ?? ""}`;
 
+/**
+ * The entries holding every word of `query`, labels that start with it first,
+ * then labels that contain it, then the ones only their terms match, then the
+ * ones that need their description; page order breaks ties.
+ */
 export function searchSettings(entries: readonly SettingsSearchEntry[], query: string): SettingsSearchEntry[] {
   const needle = query.trim().toLocaleLowerCase();
   const words = needle.split(/\s+/).filter(Boolean);
@@ -83,9 +85,12 @@ export function searchSettings(entries: readonly SettingsSearchEntry[], query: s
   return entries
     .map((entry, index) => {
       const label = entry.label.toLocaleLowerCase();
-      const hay = `${label} ${entry.terms?.toLocaleLowerCase() ?? ""}`;
-      if (!words.every((word) => hay.includes(word))) return null;
-      return { entry, index, rank: label.startsWith(needle) ? 0 : label.includes(needle) ? 1 : 2 };
+      const named = `${label} ${entry.terms?.toLocaleLowerCase() ?? ""}`;
+      if (words.every((word) => named.includes(word))) {
+        return { entry, index, rank: label.startsWith(needle) ? 0 : label.includes(needle) ? 1 : 2 };
+      }
+      const described = `${named} ${entry.description?.toLocaleLowerCase() ?? ""}`;
+      return words.every((word) => described.includes(word)) ? { entry, index, rank: 3 } : null;
     })
     .filter((match) => match !== null)
     .sort((left, right) => left.rank - right.rank || left.index - right.index)
