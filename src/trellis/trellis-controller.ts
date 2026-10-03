@@ -405,10 +405,16 @@ export class TrellisController {
     return () => { this.wsListeners.delete(listener); };
   };
 
-  /** A drawer opened in App: show (or reveal) its tool panel. */
+  /**
+   * A drawer opened in App: show (or reveal) its tool panel. A panel that is
+   * already in the layout was restored with it (a drawer's panel closes with
+   * the drawer) and asked for the drawer itself, so it stays where the layout
+   * put it, even parked hidden by a Writing or Reading layout, rather than
+   * moving into the document panel.
+   */
   openDrawer(kind: TrellisToolKind, close: () => void) {
     this.openDrawers.set({ [kind]: close });
-    this.revealTool(kind);
+    if (!this.ws?.view(kind)) this.revealTool(kind);
   }
 
   /** The drawer closed in App: its panel goes too, unless it was already closed there. */
