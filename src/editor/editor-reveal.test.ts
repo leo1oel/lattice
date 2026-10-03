@@ -75,9 +75,14 @@ describe("revealInEditor", () => {
     view.scrollDOM.dispatchEvent(new Event("scroll"));
     expect(center).toHaveBeenCalledTimes(2);
     expect(center).toHaveBeenLastCalledWith(8, { y: "center" });
-    // Once is enough: the correction's own scroll is not checked again.
+    // A centered target is left alone…
+    targetTop = 390;
     view.scrollDOM.dispatchEvent(new Event("scroll"));
     expect(center).toHaveBeenCalledTimes(2);
+    // …until a later redraw corrects the heights above it again and clamps the scroll.
+    targetTop = 760;
+    view.scrollDOM.dispatchEvent(new Event("scroll"));
+    expect(center).toHaveBeenCalledTimes(3);
     // Where the jump did land in the middle, it is left alone.
     center.mockClear();
     targetTop = 390;
@@ -95,11 +100,15 @@ describe("revealInEditor", () => {
     revealInEditor(view, { from: 8 });
     view.dispatch({ selection: { anchor: 1 } });
     view.scrollDOM.dispatchEvent(new Event("scroll"));
-    // Nor does the writer's own scrolling, a moment after the jump settled.
+    // Nor does the writer's own scrolling, while the jump is still settling…
     revealInEditor(view, { from: 8 });
-    vi.advanceTimersByTime(1000);
+    view.dom.dispatchEvent(new Event("wheel"));
     view.scrollDOM.dispatchEvent(new Event("scroll"));
-    expect(center).toHaveBeenCalledTimes(2);
+    // …or once it has.
+    revealInEditor(view, { from: 8 });
+    vi.advanceTimersByTime(3000);
+    view.scrollDOM.dispatchEvent(new Event("scroll"));
+    expect(center).toHaveBeenCalledTimes(3);
   });
 
   it("turns a line number into its start, clamped to the document", () => {

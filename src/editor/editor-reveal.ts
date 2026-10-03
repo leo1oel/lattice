@@ -78,37 +78,47 @@ export function revealInEditor(view: EditorView, target: { from: number; to?: nu
   }, REVEAL_FLASH_MS));
 }
 
-/** How long after a jump its own scroll is checked for a target that moved. */
-const SETTLE_MS = 400;
+/**
+ * How long after a jump the target is kept centered while its document is
+ * drawn: past the flash's removal, whose redraw is the last that can move it.
+ */
+const SETTLE_MS = REVEAL_FLASH_MS + 400;
+/** What the writer does to take the view elsewhere; a jump stops holding the target once they do. */
+const WRITER_INPUT = ["wheel", "touchstart", "pointerdown", "keydown"] as const;
 
 /**
  * CodeMirror scrolls to a target it has not drawn by the heights it estimated
- * for the lines above it, and drawing them there can move the target. A
- * document swapped into a hidden tab just before a jump (a comment opened in
- * another file with reduced motion) settled its quote at the bottom edge,
- * 400 px below the middle. So the jump's scroll is checked as it happens —
- * CodeMirror has measured the drawn lines by then, and a correction lands
- * before that frame paints — and the target is centered again if it moved,
- * unless the writer has moved the selection since.
+ * for the lines above it, and drawing them corrects the estimate — more than
+ * once, the last time well after the jump. A document swapped into a hidden
+ * tab just before a jump (a comment opened in another file with reduced
+ * motion) first scrolled tens of thousands of pixels past its quote, then lost
+ * that height in steps that clamped it to the end of the file. So until the
+ * drawing settles, every scroll the jump did not ask for and every change in
+ * the content's height re-checks the target, and centers it again if it
+ * moved — unless the writer has moved the selection or the view since.
  */
 function centerAgainOnceDrawn(view: EditorView, from: number) {
   const landed = view.state.selection;
-  const { scrollDOM } = view;
+  const { scrollDOM, contentDOM } = view;
   const check = () => {
-    stop();
-    if (!view.dom.isConnected || !view.state.selection.eq(landed)) return;
+    if (!view.dom.isConnected || !view.state.selection.eq(landed)) return stop();
     const box = scrollDOM.getBoundingClientRect();
     const target = view.coordsAtPos(from);
     if (!target || box.height <= 0) return;
     const offset = (target.top + target.bottom) / 2 - (box.top + scrollDOM.clientHeight / 2);
     if (Math.abs(offset) > view.defaultLineHeight) view.dispatch({ effects: EditorView.scrollIntoView(from, { y: "center" }) });
   };
+  const resized = new ResizeObserver(check);
   const timer = window.setTimeout(() => stop(), SETTLE_MS);
   function stop() {
     window.clearTimeout(timer);
+    resized.disconnect();
     scrollDOM.removeEventListener("scroll", check);
+    for (const type of WRITER_INPUT) view.dom.removeEventListener(type, stop, true);
   }
   scrollDOM.addEventListener("scroll", check);
+  resized.observe(contentDOM);
+  for (const type of WRITER_INPUT) view.dom.addEventListener(type, stop, true);
 }
 
 /** The 1-based `line` of `view`'s document as a caret target, clamped to the lines it has. */
