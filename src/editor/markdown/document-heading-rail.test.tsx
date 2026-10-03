@@ -70,7 +70,9 @@ function renderRail() {
     /** The preview lays out at `next` pixels wide, and the rail measures it. */
     resize: async (next: number) => {
       width = next;
-      act(() => scroller.querySelector(".ProseMirror")!.append(""));
+      // The async act lets the rail's mutation observer schedule its measuring
+      // frame before the wait below asks for one, so the measure lands first.
+      await act(async () => scroller.querySelector(".ProseMirror")!.append(""));
       await nextFrame();
     },
     /** The writer scrolls the document to `top`. */

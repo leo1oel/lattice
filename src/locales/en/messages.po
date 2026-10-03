@@ -7289,10 +7289,6 @@ msgstr "Some sources could not complete the lookup. This does not mean the refer
 msgid "Some sources unavailable"
 msgstr "Some sources unavailable"
 
-#: src/overleaf/use-overleaf-chat.ts
-msgid "Someone"
-msgstr "Someone"
-
 #: src/editor/markdown/engine/views/image-view.tsx
 msgid "Source"
 msgstr "Source"

@@ -7289,10 +7289,6 @@ msgstr "部分来源未能完成查询，并不表示这条引用有误。"
 msgid "Some sources unavailable"
 msgstr "部分来源不可用"
 
-#: src/overleaf/use-overleaf-chat.ts
-msgid "Someone"
-msgstr "某位协作者"
-
 #: src/editor/markdown/engine/views/image-view.tsx
 msgid "Source"
 msgstr "源码"
