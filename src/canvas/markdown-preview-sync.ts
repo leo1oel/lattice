@@ -194,8 +194,9 @@ function firstReaching(elements: ArrayLike<Element>, top: number) {
 }
 
 /**
- * The block at the top of `viewport`. Over a passive chunk not drawn yet, its
- * first block at the chunk's offset: the place held only roughly, not lost.
+ * The block at the top of `viewport`; past a drawn chunk's last block (in its
+ * padding), that last block. Over a passive chunk not drawn yet, its first
+ * block at the chunk's offset: the place held only roughly, not lost.
  */
 function capturePreviewAnchor(viewport: HTMLElement): PreviewAnchor | undefined {
   const top = viewport.getBoundingClientRect().top;
