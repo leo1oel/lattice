@@ -513,7 +513,9 @@ body:has(.modal-backdrop, .drawer-backdrop) .file-tree-context-menu { display: n
 .file-tree-context-menu > button.destructive:hover:not(:disabled) { background: color-mix(in srgb, var(--status-danger) 10%, transparent); color: var(--status-danger); }
 /* Visible face stays 22px; a ::after expands the hit area to the 32px row height
    without colliding with neighbouring rows (40px would overlap). */
-.paper-row-actions { align-self: stretch; flex: none; padding-inline-end: var(--space-2); display: flex; align-items: center; }
+/* Beside the title's first line, which alone keeps room for them: the lines
+   beneath it run the row's full width. */
+.paper-row-actions { position: absolute; inset-block-start: var(--space-2); inset-inline-end: var(--space-2); display: flex; align-items: center; }
 .row-delete, .row-edit-bib { position: relative; width: 22px !important; height: 22px !important; flex: none; padding: 0 !important; border-radius: var(--radius-compact) !important; background: transparent !important; color: var(--text-tertiary) !important; display: grid !important; place-items: center; opacity: 0; transition: opacity var(--duration-exit) var(--ease-out); }
 .row-delete::after, .row-edit-bib::after, .row-citation-health::after { content: ""; position: absolute; inset: -5px; }
 .row-delete svg, .row-edit-bib svg, .row-citation-health svg { stroke-width: 1.5; }
@@ -525,7 +527,7 @@ body:has(.modal-backdrop, .drawer-backdrop) .file-tree-context-menu { display: n
 .paper-row.citation-retracted .row-citation-health { color: var(--status-danger); }
 .paper-list { min-height: 0; flex: 1; }
 .paper-list-content { min-width: 100%; padding-block: 7px 0; padding-inline: 0 var(--space-6); }
-.paper-row { width: 100%; border-radius: var(--radius-icon); display: flex; align-items: center; color: var(--text-secondary); }
+.paper-row { --paper-row-action-room: calc(var(--paper-row-actions, 1) * 22px); position: relative; width: 100%; border-radius: var(--radius-icon); display: flex; align-items: center; color: var(--text-secondary); }
 .paper-row:hover, .paper-row.active { color: var(--text-primary); background: var(--border-subtle); }
 /* Cited but never fetched: nothing to open, so the row reads as a reference. */
 .paper-row.cited-only .paper-open { cursor: default; opacity: .72; }
@@ -535,10 +537,23 @@ body:has(.modal-backdrop, .drawer-backdrop) .file-tree-context-menu { display: n
 .paper-state-icon > svg { stroke-width: 1.5; }
 .paper-state-icon.success { color: var(--status-success); }
 .paper-open > span { min-width: 0; }
-.paper-list strong, .paper-list small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.paper-list strong { color: inherit; font-size: var(--type-label-size); line-height: var(--type-label-line-height); font-weight: var(--weight-regular); }
+/* Clips the byline's pulled-in line starts (below). */
+.paper-row-text { overflow: hidden; }
+.paper-list small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* A title may take a second line before it gives way to an ellipsis. */
+.paper-list strong { padding-inline-end: var(--paper-row-action-room); display: -webkit-box; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; color: inherit; font-size: var(--type-label-size); line-height: var(--type-label-line-height); font-weight: var(--weight-regular); overflow-wrap: anywhere; text-wrap: pretty; }
 .paper-list small { margin-top: var(--space-1); color: var(--text-tertiary); font-size: var(--type-tree-size); line-height: var(--type-tree-line-height); }
+/* Authors and source share a line while they fit, and the source wraps whole
+   rather than losing its id to an ellipsis. Every part leads with its
+   separator, and the line's start is pulled into the clipped margin, so a
+   part that begins a line never shows one. */
+.paper-list .paper-byline { margin-inline-start: calc(-1 * var(--space-6)); display: flex; flex-wrap: wrap; }
+.paper-byline > span { min-width: 0; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+.paper-byline > span::before { content: "·"; width: var(--space-6); display: inline-block; text-align: center; }
 .paper-list .paper-authors { color: var(--text-secondary); }
+/* The exact key a \cite{} needs, set apart as code rather than prose. */
+.paper-cite-key { max-width: 100%; margin-top: var(--space-2); padding-inline: var(--space-2); border-radius: var(--radius-compact); background: color-mix(in srgb, var(--text-primary) 5%, transparent); color: var(--text-secondary); display: block; width: fit-content; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: var(--type-micro-size)/var(--type-caption-line-height) var(--editor-font); }
+.paper-row:is(:hover, .active) .paper-cite-key { background: color-mix(in srgb, var(--text-primary) 7%, transparent); }
 .paper-list .paper-citation-health { color: var(--status-warning); }
 .paper-row.citation-retracted .paper-citation-health { color: var(--status-danger); }
 .paper-list-end { margin: var(--space-6) 7px var(--space-2); color: var(--text-tertiary); font-size: var(--type-micro-size); text-align: center; }

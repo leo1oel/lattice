@@ -237,6 +237,14 @@ msgstr "{fileCount} 个文件"
 msgid "{filtered} of {total} papers"
 msgstr "显示 {filtered} / {total} 篇论文"
 
+#: src/papers/paper-identity.ts
+msgid "{first} and {second}"
+msgstr "{first} 和 {second}"
+
+#: src/papers/paper-identity.ts
+msgid "{first} et al."
+msgstr "{first} 等"
+
 #: src/app-utils.ts
 msgid "{hours}h ago"
 msgstr "{hours} 小时前"
