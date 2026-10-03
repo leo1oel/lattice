@@ -2932,6 +2932,10 @@ msgstr "Every panel is closed"
 msgid "Every spot decided"
 msgstr "Every spot decided"
 
+#: src/project/project-find-dialog.tsx
+msgid "Every word must match, in any order."
+msgstr "Every word must match, in any order."
+
 #: src/overleaf/overleaf-review.tsx
 msgid "Everything already matches Overleaf"
 msgstr "Everything already matches Overleaf"
@@ -7172,18 +7176,6 @@ msgstr "Search saved papers"
 #: src/settings/settings-search.tsx
 msgid "Search settings"
 msgstr "Search settings"
-
-#: src/project/project-find-dialog.tsx
-msgid "Search the papers saved in this project."
-msgstr "Search the papers saved in this project."
-
-#: src/project/project-find-dialog.tsx
-msgid "Search the text and names of your project files."
-msgstr "Search the text and names of your project files."
-
-#: src/project/project-find-dialog.tsx
-msgid "Search your files and saved papers."
-msgstr "Search your files and saved papers."
 
 #: src/project/project-find-dialog.tsx
 #: src/project/project-replace-dialog.tsx

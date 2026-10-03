@@ -269,11 +269,12 @@ describe("ProjectFindDialog", () => {
 
     it("says what an empty search covers, and follows the scope", () => {
       renderFind();
-      expect(screen.getByText("Search your files and saved papers.")).toBeInTheDocument();
+      expect(screen.getByText("Every word must match, in any order.")).toBeInTheDocument();
       expect(screen.getByRole("searchbox")).toHaveAttribute("placeholder", "Search files and papers");
       fireEvent.click(tab(/^Papers/));
-      expect(screen.getByText("Search the papers saved in this project.")).toBeInTheDocument();
       expect(screen.getByRole("searchbox")).toHaveAttribute("placeholder", "Search saved papers");
+      fireEvent.click(tab(/^Files/));
+      expect(screen.getByRole("searchbox")).toHaveAttribute("placeholder", "Search files");
     });
 
     it("counts every scope on its tab and filters without searching again", () => {

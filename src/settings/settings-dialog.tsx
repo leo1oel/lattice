@@ -101,7 +101,8 @@ export function SettingsDialog(props: SettingsDialogProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const searchEntries = useSettingsSearchIndex(Boolean(props.project));
   /** The row a search result asked for, revealed once its page has rendered. */
-  const [reveal, setReveal] = useState<{ entry: SettingsSearchEntry; serial: number } | null>(null);
+  // A fresh object per opening, so opening the same row again reveals it again.
+  const [reveal, setReveal] = useState<{ entry: SettingsSearchEntry } | null>(null);
   const synaraSettingsSection = SYNARA_SETTINGS_SECTIONS[props.tab];
   const synaraEmbedUrl = props.synaraRuntime.state === "ready" ? props.synaraRuntime.origin : null;
   const synaraSettingsUrl = synaraEmbedUrl && props.synaraWorkspaceRoot && synaraSettingsSection
@@ -140,7 +141,8 @@ export function SettingsDialog(props: SettingsDialogProps) {
     const frame = window.requestAnimationFrame(() => {
       const row = settingsViewportRef.current?.querySelector<HTMLElement>(`[data-setting="${reveal.entry.id}"]`);
       if (!row) return;
-      row.scrollIntoView({ block: "center", behavior: "smooth" });
+      const reducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches === true;
+      row.scrollIntoView({ block: "center", behavior: reducedMotion ? "auto" : "smooth" });
       // Focus the row's own control, so the next key changes the setting.
       row.querySelector<HTMLElement>(
         'input:not([disabled]), button:not([disabled]), [role="switch"]:not([aria-disabled="true"]), [tabindex="0"]',
@@ -154,7 +156,7 @@ export function SettingsDialog(props: SettingsDialogProps) {
   }, [reveal]);
   const openSearchResult = (entry: SettingsSearchEntry) => {
     props.setTab(entry.tab);
-    setReveal((current) => ({ entry, serial: (current?.serial ?? 0) + 1 }));
+    setReveal({ entry });
   };
 
   const panes: Partial<Record<SettingsTab, ReactNode>> = {

@@ -332,7 +332,6 @@ input[type="search"]:focus-visible {
 .project-find-scope .ui-segmented-tab { min-width: 52px; }
 .project-find-scope .ui-segmented-tab em { margin-left: var(--space-1); color: var(--text-tertiary); font-style: normal; font-variant-numeric: tabular-nums; transition: color var(--duration-quick) var(--ease-default); }
 .project-find-scope .ui-segmented-tab.active em { color: var(--text-secondary); }
-.project-find-hint { padding-inline: var(--space-5); }
 .history-restore-file { margin-top: var(--space-4); height: 28px; border: 1px solid var(--border-subtle); border-radius: var(--radius-chrome); padding: 0 var(--space-4); background: transparent; color: var(--text-secondary); display: inline-flex; align-items: center; gap: var(--space-3); font-size: var(--type-micro-size); font-weight: 600; }
 .history-restore-file:hover { border-color: var(--control-active-border); background: var(--control-active-soft); color: var(--control-active); }
 

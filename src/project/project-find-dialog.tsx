@@ -253,14 +253,11 @@ export function ProjectFindDialog(props: {
       <div className="project-replace-preview">
         {!trimmedQuery && (
           <EmptyState
-            className="project-find-hint"
             align="start"
             density="compact"
-            description={scope === "file"
-              ? t`Search the text and names of your project files.`
-              : scope === "paper"
-                ? t`Search the papers saved in this project.`
-                : t`Search your files and saved papers.`}
+            icon={<EmptyIllustration kind="search" size="compact" />}
+            // The placeholder and tabs already say where it looks; this says how.
+            description={t`Every word must match, in any order.`}
           />
         )}
         {showResults && !selectableHits.length && (

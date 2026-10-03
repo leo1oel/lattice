@@ -303,12 +303,24 @@ button.checklist-row:hover { background: var(--control-hover-surface); }
 .settings-search-results > button[aria-current] .settings-search-result-label { color: var(--control-active); font-weight: 600; }
 .settings-search-result-place { color: var(--text-tertiary); font-size: var(--type-micro-size); line-height: var(--type-micro-line-height); }
 .settings-search-empty { margin: 0; padding: var(--space-3) var(--space-5); color: var(--text-tertiary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); }
-/* The row a search opened glows once, its halo reaching past the row's own
-   edges so the copy and control both sit inside it. */
-[data-setting-revealed] { border-radius: var(--radius-control); animation: settings-row-reveal 1.6s var(--ease-default); }
+/* The row a search opened glows once. The glow reaches past the row's sides,
+   so the copy and control both sit well inside it, but stays within its own
+   height, never over a neighbour's text. */
+[data-setting-revealed] { position: relative; isolation: isolate; }
+[data-setting-revealed]::before {
+  content: "";
+  position: absolute;
+  inset: 0 calc(-1 * var(--space-6));
+  z-index: -1;
+  border-radius: var(--radius-control);
+  background: var(--control-active-soft);
+  opacity: 0;
+  animation: settings-row-reveal 1.6s var(--ease-default);
+  pointer-events: none;
+}
 @keyframes settings-row-reveal {
-  0%, 40% { background: var(--control-active-soft); box-shadow: 0 0 0 var(--space-4) var(--control-active-soft); }
-  100% { background: transparent; box-shadow: 0 0 0 var(--space-4) transparent; }
+  0%, 40% { opacity: 1; }
+  100% { opacity: 0; }
 }
 .synara-settings-embed { position: relative; width: 100%; min-width: 0; }
 .synara-settings-frame { position: absolute; inset: 0 auto auto 0; display: block; width: 100%; min-height: var(--settings-embed-min-height); overflow: hidden; border: 0; background: var(--surface-panel-raised); opacity: 1; transition: opacity var(--duration-quick) var(--ease-default); }
