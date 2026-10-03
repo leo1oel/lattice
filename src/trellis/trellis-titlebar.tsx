@@ -115,7 +115,7 @@ export const TrellisTitlebar = memo(function TrellisTitlebar({ controller }: { c
           ]}
         />
       </div>
-      <div className="trellis-titlebar-group" role="group" aria-label={t`Show or hide panels`}>
+      <div className="trellis-titlebar-group trellis-titlebar-panel-toggles" role="group" aria-label={t`Show or hide panels`}>
         {TOGGLED_PANELS.map(({ kind, icon }) => {
           const shown = panelState(kind) === "shown";
           const name = title(kind);
@@ -135,7 +135,7 @@ export const TrellisTitlebar = memo(function TrellisTitlebar({ controller }: { c
           );
         })}
       </div>
-      <div className="trellis-titlebar-group">
+      <div className="trellis-titlebar-group trellis-titlebar-layout-actions">
         <Tip label={framed ? t`Restore the layout · ⌘⇧↩` : t`Maximize panel · ⌘⇧↩`}>
           <button
             type="button"

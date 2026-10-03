@@ -58,7 +58,7 @@ input[type="search"]:focus-visible {
 }
 
 .app-shell { height: 100%; background: var(--surface-app); display: flex; flex-direction: column; }
-.titlebar { position: relative; z-index: var(--z-chrome); height: var(--titlebar-height); flex: none; display: flex; align-items: center; background: var(--surface-sidebar); user-select: none; }
+.titlebar { container: titlebar / inline-size; position: relative; z-index: var(--z-chrome); height: var(--titlebar-height); flex: none; display: flex; align-items: center; background: var(--surface-sidebar); user-select: none; }
 .titlebar-sidebar { width: var(--titlebar-sidebar-width); min-width: 0; height: 100%; flex: none; display: flex; align-items: center; }
 .titlebar-navigator { width: var(--titlebar-navigator-width); height: 100%; flex: none; display: flex; align-items: center; padding-right: var(--titlebar-leading-gap); }
 .traffic-space { width: var(--titlebar-traffic-space-width); height: 100%; flex: none; }
@@ -79,6 +79,10 @@ input[type="search"]:focus-visible {
    carry is cyclic inside the content-sized switcher, so the unclamped name set
    the switcher's width and pushed Panels away. The gap after it is fixed, so
    the switcher stays centered between the lights and Panels. */
+/* Near the window's minimum width a full-length name would starve the panel
+   controls beside it; measured on the bar itself so interface zoom and the
+   browser tab's missing traffic lights are already accounted for. */
+@container titlebar (max-width: 800px) { .project-title { max-width: var(--titlebar-project-title-max-width-compact); } }
 .titlebar-drag-area { width: var(--titlebar-trailing-gap); height: 100%; flex: none; }
 .titlebar-main { min-width: 0; height: 100%; flex: 1; background: var(--surface-sidebar); display: flex; align-items: center; overflow: hidden; }
 .titlebar-main > .canvas-toolbar { min-width: max-content; width: auto; height: 100%; flex: none; padding: 0 var(--space-3); border: 0; background: transparent; display: flex; align-items: center; gap: var(--space-4); overflow: visible; container-type: normal; container-name: none; }
