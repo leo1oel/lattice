@@ -145,6 +145,24 @@ function nextVisibleControl(trigger: HTMLElement): HTMLElement | null {
   return control ?? trigger.closest<HTMLElement>(".pdf-preview");
 }
 
+/**
+ * The match controls' footprint while the search field is empty, shown only
+ * for a minimum-width measurement: the buttons have a fixed width and the
+ * counter reads as an idle one does. Plain inert elements rather than the
+ * tooltip-wrapped buttons, which would add their render cost to every toolbar
+ * update for controls nobody can see. Keep in step with the controls it stands in for.
+ */
+const IDLE_SEARCH_CONTROLS = (
+  <>
+    <button type="button" tabIndex={-1} aria-hidden="true" />
+    <button type="button" tabIndex={-1} aria-hidden="true" />
+    <small className="pdf-search-position" aria-hidden="true">0 / 0</small>
+    <button type="button" tabIndex={-1} aria-hidden="true" />
+    <button type="button" tabIndex={-1} aria-hidden="true" />
+    <button type="button" tabIndex={-1} aria-hidden="true" />
+  </>
+);
+
 type MenuAction = { label: string; icon: ReactNode; disabled?: boolean; run: () => void };
 
 /**
@@ -504,9 +522,9 @@ export function PdfPreview({
                   search.setQuery("");
                 }
               }}
-              // Mounted (and hidden) before the first character too, so the
-              // panel's minimum width can reserve room for them (pdf-toolbar-min-width.ts).
-              trailing={(
+              // A stand-in is mounted (and hidden) before the first character, so the
+              // panel's minimum width can reserve the controls' room (pdf-toolbar-min-width.ts).
+              trailing={query ? (
                 <>
                   <ToolbarButton label={t`Match case`} icon={<CaseSensitive size={12} />}
                     className="pdf-search-option" aria-pressed={search.matchCase} onMouseDown={keepFocus}
@@ -523,7 +541,7 @@ export function PdfPreview({
                     disabled={!matches.total} onClick={() => search.find(query, false, true)} />
                   <ToolbarButton label={t`Clear PDF search`} icon={<X size={12} />} onClick={() => search.setQuery("")} />
                 </>
-              )}
+              ) : IDLE_SEARCH_CONTROLS}
             />
           </div>
           <div className="pdf-zoom-controls">

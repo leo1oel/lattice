@@ -36,7 +36,7 @@
 .pdf-zoom-controls button.active { color: var(--control-active); background: var(--toolbar-active-surface); border-radius: var(--toolbar-icon-radius); }
 .pdf-search { min-width: 0; padding-right: var(--space-2); }
 .pdf-search.disabled { opacity: .52; }
-/* The match controls stay mounted while the field is empty so the panel's
+/* A stand-in for the match controls stays mounted while the field is empty so the panel's
    minimum width can reserve their room before the first keystroke. */
 .pdf-search-idle .ui-search-field-trailing { display: none; }
 .pdf-search .pdf-search-position { flex: none; min-width: 31px; color: var(--text-secondary); font-size: var(--type-nano-size); font-variant-numeric: tabular-nums; text-align: center; white-space: nowrap; }
