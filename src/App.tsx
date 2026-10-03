@@ -227,11 +227,8 @@ function App() {
   // Speculative preview work skips the open document, so it is set up after
   // the store; every open cancels it through this forwarder.
   const cancelPrewarmRef = useRef(() => {});
-  // The ref is read by the presence hook, which must not re-subscribe on every keystroke.
-  const [editorPosition, setEditorPosition, editorPositionRef] = useRefState<EditorPosition | null>(null);
   const documents = useOpenDocuments({
     projectState, papers, updateCanvasRequest, refreshProject,
-    caret: () => editorPositionRef.current,
     cancelPrewarm: () => cancelPrewarmRef.current(),
     onSaved: (root, paths) => {
       recordSavedPaths(paths);
@@ -281,6 +278,8 @@ function App() {
     window.addEventListener("keydown", enableInteractivePreviews, { capture: true, signal: listening.signal });
     return () => listening.abort();
   }, []);
+  // The ref is read by the presence hook, which must not re-subscribe on every keystroke.
+  const [editorPosition, setEditorPosition, editorPositionRef] = useRefState<EditorPosition | null>(null);
   const addProjectSpellingWord = useCallback(async (word: string) => {
     const current = projectRef.current;
     const normalized = word.trim();

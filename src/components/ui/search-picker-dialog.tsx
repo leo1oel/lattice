@@ -63,8 +63,7 @@ export function PickerDialog<T>(props: {
    */
   groupOf?: (item: T) => string | undefined;
   onClose: () => void;
-  /** The chosen item, with the query it was chosen from (quick open reads a `:line` off it). */
-  onSelect: (item: T, query: string) => void;
+  onSelect: (item: T) => void;
   /** The highlighted item, whenever it changes (for prefetching). */
   onIntent?: (item: T) => void;
 }) {
@@ -104,7 +103,7 @@ export function PickerDialog<T>(props: {
               }
               if (event.key === "Enter" && selected !== null) {
                 event.preventDefault();
-                props.onSelect(selected, query.trim());
+                props.onSelect(selected);
               }
             }}
             trailing={props.compactClose
@@ -128,7 +127,7 @@ export function PickerDialog<T>(props: {
                   aria-selected={index === active}
                   className={index === active ? "active" : ""}
                   onMouseEnter={() => setActive(index)}
-                  onClick={() => props.onSelect(item, query.trim())}
+                  onClick={() => props.onSelect(item)}
                 >
                   {props.renderItem(item)}
                 </button>

@@ -4,7 +4,6 @@ import { rankMatches, subsequenceScore } from "../components/ui/picker-ranking";
 import { PickerDialog } from "../components/ui/search-picker-dialog";
 import { isProjectAssetFilePath } from "../app-utils";
 import { fileIcon } from "../trellis/trellis-icons";
-import { splitQuickOpenQuery } from "./quick-open-query";
 
 /** The file's name first, where the eye looks, and its folder after it, quieter. */
 function PathRow({ path }: { path: string }) {
@@ -31,7 +30,7 @@ function scorePath(path: string, query: string): number {
 type QuickOpenProps = {
   paths: string[];
   onClose: () => void;
-  onOpen: (path: string, line?: number) => void;
+  onOpen: (path: string) => void;
   onIntent?: (path: string) => void;
 };
 
@@ -44,7 +43,7 @@ function QuickOpenDialogForm({ paths, onOpen, ...props }: QuickOpenProps) {
   const { t } = useLingui();
   const rank = useMemo(() => (query: string) => rankMatches(
     paths,
-    (path) => scorePath(path, splitQuickOpenQuery(query).file),
+    (path) => scorePath(path, query),
     (left, right) => left.localeCompare(right),
     40,
   ), [paths]);
@@ -61,7 +60,7 @@ function QuickOpenDialogForm({ paths, onOpen, ...props }: QuickOpenProps) {
       itemKey={(path) => path}
       itemLabel={(path) => path}
       renderItem={(path) => <PathRow path={path} />}
-      onSelect={(path, query) => onOpen(path, splitQuickOpenQuery(query).line)}
+      onSelect={onOpen}
     />
   );
 }
