@@ -33,6 +33,9 @@
   html .lattice-mark-glint, html .welcome-lattice-trail, html .welcome-lattice-pulse,
   html .welcome-lattice-ring, html .welcome-lattice-bloom, html .empty-illustration-typing > g,
   html .pdf-skeleton-page::after { animation: none; }
+  /* The build result lands whole: its cross and its warning dot do not wait their turn. */
+  html .trellis-build-status[data-fresh] .trellis-build-pip,
+  html .trellis-build-status[data-fresh] .trellis-build-stroke + .trellis-build-stroke { animation-delay: 0s; }
 }
 
 .app-toast-stack { position: fixed; z-index: var(--z-toast); top: 52px; right: 16px; width: 320px; max-width: calc(100vw - 32px); display: flex; flex-direction: column; gap: var(--space-4); pointer-events: none; }

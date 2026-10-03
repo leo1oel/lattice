@@ -1238,6 +1238,28 @@ describe("project tree and projects", () => {
     expect(invokeCalls("create_project_entry")).toHaveLength(1);
   });
 
+  // The draft's name carries its extension, so it steps past a file that
+  // already holds it rather than creating that file a second time.
+  it("names a + menu draft past an existing untitled file", async () => {
+    renderApp({
+      ...refreshableProject(projectSnapshot({
+        files: [dirNode("chapters", fileNodes("chapters/untitled.tex")), fileNode("main.tex")],
+      }), ""),
+      create_project_entry: (args) => argPath(args),
+    });
+    await waitForSelectedTab("main.tex");
+    fireEvent.click(await findProjectTreeItem("chapters/"));
+    await nextFrames(2);
+
+    await chooseNewDocument("New LaTeX file");
+    const name = await findProjectTreeRenameInput();
+    expect(name.closest("[data-item-path]")).toHaveAttribute("data-item-path", "chapters/untitled-2.tex");
+    expect(name).toHaveValue("untitled-2.tex");
+    await waitFor(() => expect([name.selectionStart, name.selectionEnd]).toEqual([0, "untitled-2".length]));
+    fireEvent.keyDown(name, { key: "Enter" });
+    await expectInvoked("create_project_entry", { path: "chapters/untitled-2.tex", kind: "file", projectRoot: ROOT });
+  });
+
   it("creates and opens a native Open Slide presentation", { timeout: 30000 }, async () => {
     await import("../project/project-file-tree");
     renderApp({

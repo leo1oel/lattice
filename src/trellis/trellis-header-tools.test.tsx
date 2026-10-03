@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { act, cleanup, render } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { TrellisController, documentTools, type TrellisDocToolsState, type TrellisTabKind } from "./trellis-controller";
@@ -159,6 +160,42 @@ describe("the Build button's report of the last build", () => {
     cleanup();
     const failure = renderTools(tex, { active: true }, { lastBuild: failed() });
     expect(failure.container.querySelector(".trellis-build-button")).toHaveAccessibleDescription("Build failed · 1 error");
+  });
+
+  // Vitest empties CSS imports, so the button's stylesheet and the app's
+  // reduced-motion policy are read off disk and cascaded by the document; the
+  // writer's preference is stood in for by letting the policy's media rule apply.
+  function applyStyles({ reducedMotion }: { reducedMotion: boolean }) {
+    const styles = ["src/trellis/trellis.css", "src/styles/adaptive-feedback.css"].map((path) => {
+      const style = document.createElement("style");
+      style.textContent = readFileSync(path, "utf8");
+      document.head.append(style);
+      return style;
+    });
+    for (const rule of styles.flatMap((style) => [...style.sheet!.cssRules])) {
+      if (reducedMotion && rule instanceof CSSMediaRule && rule.conditionText.includes("prefers-reduced-motion")) rule.media.mediaText = "all";
+    }
+    return () => { for (const style of styles) style.remove(); };
+  }
+
+  it("lands a fresh result's warning dot and cross at once under reduced motion", () => {
+    const delays = (reducedMotion: boolean) => {
+      const removeStyles = applyStyles({ reducedMotion });
+      const warned = renderTools(tex, { active: true }, { lastBuild: succeeded(1.2, { ...NO_DIAGNOSTICS, warning: 2 }) });
+      expect(warned.container.querySelector(".trellis-build-status")).toHaveAttribute("data-fresh");
+      const pip = getComputedStyle(warned.container.querySelector(".trellis-build-pip")!).animationDelay;
+      warned.unmount();
+      const failure = renderTools(tex, { active: true }, { lastBuild: failed() });
+      expect(failure.container.querySelector(".trellis-build-status")).toHaveAttribute("data-fresh");
+      const cross = getComputedStyle(failure.container.querySelectorAll(".trellis-build-stroke")[1]).animationDelay;
+      failure.unmount();
+      removeStyles();
+      return { pip, cross };
+    };
+    const animated = delays(false);
+    expect(animated.pip).not.toBe("0s");
+    expect(animated.cross).toBe("70ms");
+    expect(delays(true)).toEqual({ pip: "0s", cross: "0s" });
   });
 
   // One project build serves every .tex panel: the store is shared, so a

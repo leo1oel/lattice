@@ -97,6 +97,28 @@ describe("the build outcome the Build button reports", () => {
     expect(view.result.current.outcome).toMatchObject({ status: "succeeded", seconds: 1 });
   });
 
+  // A press while a build runs queues another pass. The button keeps
+  // spinning through it and then reports the pass that ran last, not the one
+  // it replaced.
+  it("reports the queued rebuild's result once it ends, not the pass before it", async () => {
+    const passes: Array<(value: BuildResult) => void> = [];
+    const view = renderPipeline(() => new Promise((resolve) => { passes.push(resolve); }));
+    let running!: Promise<void>;
+    act(() => { running = view.result.current.runBuild(false, { requested: true }); });
+    await act(() => view.result.current.runBuild(false, { requested: true }));
+    expect(passes).toHaveLength(1);
+
+    await act(async () => { passes[0](result({ success: false, diagnostics: [{ level: "error", message: "Undefined control sequence." }] })); });
+    await vi.waitFor(() => expect(passes).toHaveLength(2));
+    expect(view.result.current.building).toBe(true);
+    await act(async () => {
+      passes[1](result({ durationMs: 1_500, diagnostics: [{ level: "warning", message: "Overfull \\hbox" }] }));
+      await running;
+    });
+    expect(view.result.current.building).toBe(false);
+    expect(view.result.current.outcome).toMatchObject({ status: "succeeded", seconds: 1.5, counts: { error: 0, warning: 1 } });
+  });
+
   it("reports a build the backend rejected as failed", async () => {
     const view = renderPipeline(async () => { throw new Error("latexmk could not start"); });
     await act(() => view.result.current.runBuild(false, { requested: true }));
