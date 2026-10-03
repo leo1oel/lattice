@@ -71,7 +71,7 @@ describe("ProjectFindDialog", () => {
     const { search, rerenderWith } = renderFind({
       hits: [fileHit("main.tex", 3), fileHit("intro.tex", 8), { kind: "paper", path: "p", title: "Attention", snippet: "", line: null }],
     });
-    expect(screen.getByPlaceholderText("短语或关键词")).toBeInTheDocument();
+    expect(screen.getByPlaceholderText("搜索文件和论文")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "关闭 在项目中查找" })).toBeInTheDocument();
     search("image");
     expect(screen.getByText("2 个结果 · 1 篇论文")).toBeInTheDocument();
@@ -253,5 +253,77 @@ describe("ProjectFindDialog", () => {
       fireEvent.keyDown(input(), key === "Shift+F3" ? { key: "F3", shiftKey: true } : { key });
     }
     expect(props.onOpenHit).toHaveBeenLastCalledWith(expected, expected === "a.tex" ? 1 : 2);
+  });
+
+  describe("result scope", () => {
+    const paperHit = (key: string, title: string, line: number | null = null): ProjectFindHit => ({
+      kind: "paper", path: `.research/papers/${key}/paper.md`, title, snippet: `${title} alignment`, line,
+    });
+    const hits = [
+      fileHit("a.tex", 1),
+      paperHit("2010.11929", "Vision Transformer", 4),
+      paperHit("2010.11929", "Vision Transformer", 9),
+      paperHit("1706.03762", "Attention"),
+    ];
+    const tab = (name: RegExp) => screen.getByRole("tab", { name });
+
+    it("says what an empty search covers, and follows the scope", () => {
+      renderFind();
+      expect(screen.getByText("Search your files and saved papers.")).toBeInTheDocument();
+      expect(screen.getByRole("searchbox")).toHaveAttribute("placeholder", "Search files and papers");
+      fireEvent.click(tab(/^Papers/));
+      expect(screen.getByText("Search the papers saved in this project.")).toBeInTheDocument();
+      expect(screen.getByRole("searchbox")).toHaveAttribute("placeholder", "Search saved papers");
+    });
+
+    it("counts every scope on its tab and filters without searching again", () => {
+      const { props, search } = renderFind({ hits });
+      search("alignment");
+      const searches = vi.mocked(props.onSearch).mock.calls.length;
+      // Two papers, though one matched twice.
+      expect(tab(/^All/)).toHaveTextContent("All3");
+      expect(tab(/^Files/)).toHaveTextContent("Files1");
+      expect(tab(/^Papers/)).toHaveTextContent("Papers2");
+
+      fireEvent.click(tab(/^Papers/));
+      expect(props.onSearch).toHaveBeenCalledTimes(searches);
+      expect(screen.queryByTitle("a.tex:1")).not.toBeInTheDocument();
+      expect(screen.getAllByRole("button", { name: /^Open paper result/ })).toHaveLength(3);
+      expect(screen.getByRole("status")).toHaveTextContent("2 papers");
+
+      fireEvent.click(tab(/^Files/));
+      expect(screen.getByTitle("a.tex:1")).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /^Open paper result/ })).not.toBeInTheDocument();
+      expect(screen.getByRole("status")).toHaveTextContent("1 hit");
+    });
+
+    it("steps F3 and Enter through the shown scope only, from its first hit", () => {
+      const { props, input, search } = renderFind({ hits });
+      search("alignment");
+      fireEvent.keyDown(input(), { key: "ArrowDown" });
+      fireEvent.click(tab(/^Papers/));
+      fireEvent.keyDown(input(), { key: "Enter" });
+      expect(props.onOpenHit).toHaveBeenLastCalledWith(".research/papers/2010.11929/paper.md", 4);
+      fireEvent.keyDown(input(), { key: "F3", shiftKey: true });
+      expect(props.onOpenHit).toHaveBeenLastCalledWith(".research/papers/1706.03762/paper.md", undefined);
+    });
+
+    it("offers the other scope's results when the shown one has none", () => {
+      const { search } = renderFind({ hits: [fileHit("a.tex", 1)] });
+      search("alignment");
+      fireEvent.click(tab(/^Papers/));
+      expect(screen.getByText("No papers match “alignment”")).toBeInTheDocument();
+      fireEvent.click(screen.getByRole("button", { name: "Show all results" }));
+      expect(tab(/^All/)).toHaveAttribute("aria-selected", "true");
+      expect(screen.getByTitle("a.tex:1")).toBeInTheDocument();
+    });
+
+    it("keeps the scope across reopening", () => {
+      const { rerenderWith } = renderFind();
+      fireEvent.click(tab(/^Files/));
+      rerenderWith({ open: false });
+      rerenderWith({ open: true });
+      expect(tab(/^Files/)).toHaveAttribute("aria-selected", "true");
+    });
   });
 });

@@ -9,6 +9,7 @@ import {
   hasSeenTutorial,
   loadAppearance,
   loadFileViewStates,
+  loadRecentCommands,
   loadRecentProjects,
   loadSettingsTab,
   loadWorkspaceLayout,
@@ -16,6 +17,7 @@ import {
   persistFileViewStates,
   persistSettingsTab,
   persistWorkspaceLayout,
+  rememberRecentCommand,
   rememberRecentProject,
   resolveAppLocale,
   type WorkspaceLayout,
@@ -250,5 +252,18 @@ describe("recent projects across windows", () => {
 
     expect(loadRecentProjects()).toHaveLength(8);
     expect(loadRecentProjects()[0].path).toBe("/tmp/p11");
+  });
+});
+
+describe("recent commands", () => {
+  it("keeps command ids newest first, once each, and at most eight", () => {
+    for (const id of ["a", "b", "c", "d", "e", "f", "g", "h", "i", "b"]) rememberRecentCommand(id);
+    expect(loadRecentCommands()).toEqual(["b", "i", "h", "g", "f", "e", "d", "c"]);
+    expect(JSON.parse(localStorage.getItem("lattice.recent-commands.v1")!)).toEqual(loadRecentCommands());
+  });
+
+  it.each(["{", "{}", "[1, null, \"find\"]"])("reads only the ids out of %s", (stored) => {
+    localStorage.setItem("lattice.recent-commands.v1", stored);
+    expect(loadRecentCommands()).toEqual(stored.includes("find") ? ["find"] : []);
   });
 });

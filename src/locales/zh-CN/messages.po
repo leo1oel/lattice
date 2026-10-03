@@ -626,6 +626,7 @@ msgstr "已将“{title}”添加到参考文献。无法下载全文：{fetchNo
 
 #: src/history/history-drawer.tsx
 #: src/settings/settings-dialog.tsx
+#: src/settings/settings-search-index.ts
 #: src/trellis/trellis-agent-surface.tsx
 #: src/trellis/trellis-titles.ts
 msgid "Agent"
@@ -686,6 +687,7 @@ msgstr "对齐"
 
 #: src/editor/latex/search-panel.ts
 #: src/history/history-drawer.tsx
+#: src/project/project-find-dialog.tsx
 msgid "All"
 msgstr "全部"
 
@@ -706,6 +708,7 @@ msgid "All your projects are archived or trashed"
 msgstr "你的项目都已归档或移入回收站"
 
 #: src/settings/settings-dialog.tsx
+#: src/settings/settings-search-index.ts
 msgid "Allow external commands"
 msgstr "允许外部命令"
 
@@ -772,6 +775,7 @@ msgid "Another file in this project"
 msgstr "此项目中的另一个文件"
 
 #: src/settings/literature-settings.tsx
+#: src/settings/settings-search-index.ts
 msgid "API key"
 msgstr "API 密钥"
 
@@ -790,6 +794,7 @@ msgid "App updates"
 msgstr "应用更新"
 
 #: src/settings/settings-dialog.tsx
+#: src/settings/settings-search-index.ts
 msgid "Appearance"
 msgstr "外观"
 
@@ -914,14 +919,17 @@ msgid "Automatic"
 msgstr "自动"
 
 #: src/settings/settings-dialog.tsx
+#: src/settings/settings-search-index.ts
 msgid "Automatic build"
 msgstr "自动构建"
 
 #: src/settings/settings-dialog.tsx
+#: src/settings/settings-search-index.ts
 msgid "Automatic updates"
 msgstr "自动更新"
 
 #: src/settings/settings-dialog.tsx
+#: src/settings/settings-search-index.ts
 msgid "Auxiliary files"
 msgstr "辅助文件"
 
@@ -1224,6 +1232,7 @@ msgid "Building…"
 msgstr "正在构建…"
 
 #: src/settings/settings-dialog.tsx
+#: src/settings/settings-search-index.ts
 msgid "Builds"
 msgstr "构建"
 
@@ -1466,6 +1475,7 @@ msgid "Check all"
 msgstr "检查全部"
 
 #: src/settings/settings-dialog.tsx
+#: src/settings/settings-search-index.ts
 msgid "Check for updates"
 msgstr "检查更新"
 
@@ -1488,6 +1498,7 @@ msgid "Check selected"
 msgstr "检查所选"
 
 #: src/settings/settings-dialog.tsx
+#: src/settings/settings-search-index.ts
 msgid "Check spelling in prose"
 msgstr "检查正文拼写"
 
@@ -1609,6 +1620,7 @@ msgid "Cite bibliography entries"
 msgstr "引用参考文献条目"
 
 #: src/settings/settings-dialog.tsx
+#: src/settings/settings-search-index.ts
 msgid "Clean"
 msgstr "清理"
 
@@ -1753,6 +1765,7 @@ msgid "Color spectrum"
 msgstr "色谱"
 
 #: src/settings/settings-dialog.tsx
+#: src/settings/settings-search-index.ts
 msgid "Color theme"
 msgstr "颜色主题"
 
@@ -1809,6 +1822,7 @@ msgstr "评论显示范围"
 #: src/app/use-editor-comments.ts
 #: src/canvas/editor-status-bar.tsx
 #: src/overleaf/overleaf-collab.tsx
+#: src/settings/settings-search-index.ts
 #: src/trellis/trellis-titles.ts
 msgid "Comments"
 msgstr "评论"
@@ -1831,6 +1845,7 @@ msgid "Compile diagnostics"
 msgstr "编译诊断"
 
 #: src/settings/settings-dialog.tsx
+#: src/settings/settings-search-index.ts
 msgid "Compile engine"
 msgstr "编译引擎"
 
@@ -1916,6 +1931,7 @@ msgid "Connecting to Overleaf's live channel…"
 msgstr "正在连接 Overleaf 实时通道…"
 
 #: src/overleaf/overleaf-connect.tsx
+#: src/settings/settings-search-index.ts
 msgid "Connection"
 msgstr "连接"
 
@@ -1924,6 +1940,7 @@ msgid "Connection failed"
 msgstr "连接失败"
 
 #: src/settings/literature-settings.tsx
+#: src/settings/settings-search-index.ts
 msgid "Contact email"
 msgstr "联系邮箱"
 
@@ -2241,6 +2258,7 @@ msgid "Daleth"
 msgstr "达列特"
 
 #: src/settings/settings-dialog.tsx
+#: src/settings/settings-search-index.ts
 msgid "Dark"
 msgstr "深色"
 
@@ -2407,6 +2425,7 @@ msgstr "行列式样式的矩阵"
 
 #: src/editor/codemirror-host.tsx
 #: src/settings/settings-dialog.tsx
+#: src/settings/settings-search-index.ts
 #: src/telemetry/diagnostic-request.ts
 msgid "Diagnostics"
 msgstr "诊断"
@@ -2716,6 +2735,7 @@ msgid "Editor"
 msgstr "编辑器"
 
 #: src/settings/settings-dialog.tsx
+#: src/settings/settings-search-index.ts
 msgid "Editor & builds"
 msgstr "编辑器与构建"
 
@@ -2727,10 +2747,12 @@ msgid "Editor comments"
 msgstr "编辑器评论"
 
 #: src/settings/settings-dialog.tsx
+#: src/settings/settings-search-index.ts
 msgid "Editor font size"
 msgstr "编辑器字号"
 
 #: src/settings/settings-dialog.tsx
+#: src/settings/settings-search-index.ts
 msgid "Editor keymap"
 msgstr "编辑器键位"
 
@@ -2807,6 +2829,7 @@ msgid "End an environment"
 msgstr "结束环境"
 
 #: src/settings/settings-dialog.tsx
+#: src/settings/settings-search-index.ts
 msgid "English"
 msgstr "英文"
 
@@ -3028,6 +3051,10 @@ msgstr "切换文件"
 msgid "file upload"
 msgstr "文件上传"
 
+#: src/project/project-find-dialog.tsx
+msgid "Files"
+msgstr "文件"
+
 #: src/history/history-drawer.tsx
 msgid "Files in this change"
 msgstr "本次更改涉及的文件"
@@ -3247,6 +3274,7 @@ msgid "Gamma"
 msgstr "伽马"
 
 #: src/settings/settings-dialog.tsx
+#: src/settings/settings-search-index.ts
 msgid "General"
 msgstr "通用"
 
@@ -3636,9 +3664,17 @@ msgstr "会议论文"
 msgid "In progress"
 msgstr "进行中"
 
+#: src/App.tsx
+msgid "In this document"
+msgstr "当前文档"
+
 #: src/overleaf/overleaf-comments.tsx
 msgid "In this file"
 msgstr "当前文件"
+
+#: src/App.tsx
+msgid "In this paper"
+msgstr "当前论文"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Include another TeX file"
@@ -3861,14 +3897,17 @@ msgid "Integral"
 msgstr "积分"
 
 #: src/settings/settings-dialog.tsx
+#: src/settings/settings-search-index.ts
 msgid "Integrations"
 msgstr "集成"
 
 #: src/settings/settings-dialog.tsx
+#: src/settings/settings-search-index.ts
 msgid "Interface language"
 msgstr "界面语言"
 
 #: src/settings/settings-dialog.tsx
+#: src/settings/settings-search-index.ts
 msgid "Interface sounds"
 msgstr "界面音效"
 
@@ -4205,6 +4244,7 @@ msgid "Less than or equal"
 msgstr "小于或等于"
 
 #: src/settings/settings-dialog.tsx
+#: src/settings/settings-search-index.ts
 msgid "Light"
 msgstr "浅色"
 
@@ -4289,6 +4329,7 @@ msgstr "文献"
 
 #: src/settings/literature-settings.tsx
 #: src/settings/settings-dialog.tsx
+#: src/settings/settings-search-index.ts
 msgid "Literature services"
 msgstr "文献服务"
 
@@ -4420,6 +4461,7 @@ msgid "Logical or"
 msgstr "逻辑或"
 
 #: src/settings/settings-dialog.tsx
+#: src/settings/settings-search-index.ts
 #: src/telemetry/app-log.tsx
 msgid "Logs"
 msgstr "日志"
@@ -4489,6 +4531,10 @@ msgstr "区分大小写"
 msgid "Match system"
 msgstr "跟随系统"
 
+#: src/settings/settings-search.tsx
+msgid "Matching settings"
+msgstr "匹配的设置"
+
 #: src/editor/latex/math-region.ts
 msgid "math"
 msgstr "公式"
@@ -4530,6 +4576,7 @@ msgid "May include document text and file paths"
 msgstr "可能包含文档内容和文件路径"
 
 #: src/settings/settings-dialog.tsx
+#: src/settings/settings-search-index.ts
 msgid "MCP"
 msgstr "MCP"
 
@@ -4914,6 +4961,10 @@ msgstr "没有差异，可以关闭此窗口"
 msgid "No file changes recorded for this update"
 msgstr "这次更新没有记录任何文件更改"
 
+#: src/project/project-find-dialog.tsx
+msgid "No files match “{trimmedQuery}”"
+msgstr "没有文件匹配“{trimmedQuery}”"
+
 #: src/overleaf/overleaf-history.tsx
 msgid "No history yet"
 msgstr "暂无历史记录"
@@ -4993,6 +5044,10 @@ msgstr "未找到匹配的出版物"
 msgid "No matching publication was found in the sources checked."
 msgstr "在已检查的来源中未找到匹配的出版物。"
 
+#: src/settings/settings-search.tsx
+msgid "No matching settings"
+msgstr "没有匹配的设置"
+
 #: src/overleaf/overleaf-collab.tsx
 msgid "No messages yet. Say something and everyone in the project sees it"
 msgstr "还没有消息。发送一条消息，项目中的所有人都能看到"
@@ -5013,6 +5068,10 @@ msgstr "没有未解决的评论"
 #: src/project/project-dialogs.tsx
 msgid "No other recent projects yet"
 msgstr "尚无其他最近使用的项目"
+
+#: src/project/project-find-dialog.tsx
+msgid "No papers match “{trimmedQuery}”"
+msgstr "没有论文匹配“{trimmedQuery}”"
 
 #: src/settings/settings-dialog.tsx
 msgid "No project terms added"
@@ -5461,6 +5520,7 @@ msgstr "大纲"
 
 #: src/history/conflict-resolver.tsx
 #: src/settings/settings-dialog.tsx
+#: src/settings/settings-search-index.ts
 #: src/trellis/trellis-titles.ts
 msgid "Overleaf"
 msgstr "Overleaf"
@@ -5831,10 +5891,6 @@ msgstr "已配置个人密钥"
 msgid "Phi"
 msgstr "斐"
 
-#: src/project/project-find-dialog.tsx
-msgid "Phrase or tokens"
-msgstr "短语或关键词"
-
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Pi"
 msgstr "派"
@@ -6006,6 +6062,7 @@ msgid "project command"
 msgstr "项目命令"
 
 #: src/settings/settings-dialog.tsx
+#: src/settings/settings-search-index.ts
 msgid "Project dictionary"
 msgstr "项目词典"
 
@@ -6069,6 +6126,7 @@ msgid "Proves / turnstile"
 msgstr "推出 / 断言符"
 
 #: src/settings/settings-dialog.tsx
+#: src/settings/settings-search-index.ts
 msgid "Providers"
 msgstr "模型"
 
@@ -6182,6 +6240,7 @@ msgstr "可以安装"
 msgid "Real part"
 msgstr "实部"
 
+#: src/App.tsx
 #: src/components/ui/apple-color-picker.tsx
 msgid "Recent"
 msgstr "最近使用"
@@ -7050,6 +7109,7 @@ msgid "scroll area"
 msgstr "滚动区域"
 
 #: src/papers/literature-discovery-panel.tsx
+#: src/settings/settings-search.tsx
 msgid "Search"
 msgstr "搜索"
 
@@ -7068,6 +7128,14 @@ msgstr "搜索表情符号"
 #: src/project/project-find-dialog.tsx
 msgid "Search failed."
 msgstr "搜索失败。"
+
+#: src/project/project-find-dialog.tsx
+msgid "Search files"
+msgstr "搜索文件"
+
+#: src/project/project-find-dialog.tsx
+msgid "Search files and papers"
+msgstr "搜索文件和论文"
 
 #: src/papers/literature-discovery-panel.tsx
 msgid "Search literature"
@@ -7096,6 +7164,26 @@ msgstr "搜索 Overleaf 项目"
 #: src/pdf/pdf-viewer.tsx
 msgid "Search PDF"
 msgstr "搜索 PDF"
+
+#: src/project/project-find-dialog.tsx
+msgid "Search saved papers"
+msgstr "搜索已保存的论文"
+
+#: src/settings/settings-search.tsx
+msgid "Search settings"
+msgstr "搜索设置"
+
+#: src/project/project-find-dialog.tsx
+msgid "Search the papers saved in this project."
+msgstr "搜索此项目中保存的论文。"
+
+#: src/project/project-find-dialog.tsx
+msgid "Search the text and names of your project files."
+msgstr "搜索项目文件的内容和文件名。"
+
+#: src/project/project-find-dialog.tsx
+msgid "Search your files and saved papers."
+msgstr "搜索你的文件和已保存的论文。"
 
 #: src/project/project-find-dialog.tsx
 #: src/project/project-replace-dialog.tsx
@@ -7244,6 +7332,11 @@ msgstr "升号"
 msgid "Shell escape during builds"
 msgstr "构建时允许 shell escape"
 
+#. Search words for the Editor keymap setting, space-separated
+#: src/settings/settings-search-index.ts
+msgid "shortcuts"
+msgstr "快捷键"
+
 #: src/trellis/trellis-titlebar.tsx
 msgid "Show {name}"
 msgstr "显示{name}"
@@ -7256,6 +7349,10 @@ msgstr "显示{name}面板"
 msgctxt "macOS menu bar"
 msgid "Show All"
 msgstr "全部显示"
+
+#: src/project/project-find-dialog.tsx
+msgid "Show all results"
+msgstr "显示全部结果"
 
 #: src/overleaf/overleaf-connect.tsx
 msgid "Show archived"
@@ -7289,6 +7386,10 @@ msgstr "显示大纲"
 #: src/editor/markdown/engine/chrome/find-replace.tsx
 msgid "Show replace"
 msgstr "显示替换"
+
+#: src/project/project-find-dialog.tsx
+msgid "Show results from"
+msgstr "结果范围"
 
 #: src/overleaf/overleaf-changes.tsx
 #: src/overleaf/overleaf-comments.tsx
@@ -7348,6 +7449,7 @@ msgid "Similar to"
 msgstr "相似"
 
 #: src/settings/settings-dialog.tsx
+#: src/settings/settings-search-index.ts
 msgid "Simplified Chinese"
 msgstr "简体中文"
 
@@ -7364,6 +7466,7 @@ msgid "Sized opening delimiter"
 msgstr "可伸缩左定界符"
 
 #: src/settings/settings-dialog.tsx
+#: src/settings/settings-search-index.ts
 msgid "Skills"
 msgstr "Skills"
 
@@ -7402,6 +7505,11 @@ msgstr "部分来源未能完成查询，并不表示这条引用有误。"
 #: src/papers/bibliography-audit.tsx
 msgid "Some sources unavailable"
 msgstr "部分来源不可用"
+
+#. Search words for the Interface sounds setting, space-separated
+#: src/settings/settings-search-index.ts
+msgid "sound"
+msgstr "声音 提示音"
 
 #: src/editor/markdown/engine/views/image-view.tsx
 msgid "Source"
@@ -7707,6 +7815,7 @@ msgid "Sync behavior"
 msgstr "同步行为"
 
 #: src/overleaf/overleaf-connect.tsx
+#: src/settings/settings-search-index.ts
 msgid "Sync mode"
 msgstr "同步模式"
 
@@ -7790,6 +7899,7 @@ msgstr "测试连接"
 
 #: src/settings/doctor-settings.tsx
 #: src/settings/settings-dialog.tsx
+#: src/settings/settings-search-index.ts
 msgid "TeX doctor"
 msgstr "TeX 诊断"
 
@@ -8169,6 +8279,7 @@ msgid "Title"
 msgstr "标题"
 
 #: src/settings/settings-dialog.tsx
+#: src/settings/settings-search-index.ts
 msgid "Title bar tools"
 msgstr "标题栏工具"
 
@@ -8579,6 +8690,7 @@ msgid "Verifying installation…"
 msgstr "正在验证安装…"
 
 #: src/settings/settings-dialog.tsx
+#: src/settings/settings-search-index.ts
 msgid "Version"
 msgstr "版本"
 
@@ -8701,6 +8813,7 @@ msgid "When a build or Overleaf setup finishes"
 msgstr "构建或 Overleaf 设置完成时"
 
 #: src/overleaf/overleaf-connect.tsx
+#: src/settings/settings-search-index.ts
 msgid "When you delete a file here"
 msgstr "当你在这里删除文件时"
 
@@ -8832,6 +8945,7 @@ msgid "Your Lattice copy"
 msgstr "你的 Lattice 副本"
 
 #: src/settings/settings-dialog.tsx
+#: src/settings/settings-search-index.ts
 msgid "Your name"
 msgstr "你的名字"
 

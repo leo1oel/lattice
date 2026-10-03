@@ -17,6 +17,42 @@ import type { OpenSlideSyncOperation } from "../editor/presentation/open-slide-b
 import type { LayoutDocument } from "@danfessler/trellis";
 
 describe("project tree and projects", () => {
+  it("leads an empty command palette with recent commands and the open document's, never a destructive one", async () => {
+    renderApp(projectCommands());
+    await findEditorView(".source-editor[data-editor-pane='primary'] .cm-editor");
+    const openPalette = async () => {
+      fireEvent.keyDown(window, { key: "p", metaKey: true, shiftKey: true });
+      return screen.findByPlaceholderText("Run a command…");
+    };
+    const sections = () => [...document.querySelectorAll(".quick-open-modal [data-slot='picker-section-label']")].map((label) => label.textContent);
+    const options = () => screen.getAllByRole("option").map((option) => option.textContent ?? "");
+    const run = async (label: string) => {
+      const input = await openPalette();
+      fireEvent.change(input, { target: { value: label } });
+      fireEvent.keyDown(input, { key: "Enter" });
+      await waitFor(() => expect(screen.queryByPlaceholderText("Run a command…")).not.toBeInTheDocument());
+    };
+
+    await openPalette();
+    expect(sections()[0]).toBe("In this document");
+    expect(options().slice(0, 4)).toEqual(["Build project⌘S", "Jump to PDF⌘⇧J", "Insert citation⌘⇧K", "Insert reference⌘⇧L"]);
+    fireEvent.keyDown(screen.getByPlaceholderText("Run a command…"), { key: "Escape" });
+    await waitFor(() => expect(screen.queryByPlaceholderText("Run a command…")).not.toBeInTheDocument());
+
+    await run("Clean aux files");
+    await run("Insert citation");
+    fireEvent.keyDown(await screen.findByRole("searchbox", { name: "Insert citation" }), { key: "Escape" });
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Insert citation" })).not.toBeInTheDocument());
+    // Only ids are kept: not the typed query, nothing from the document.
+    expect(JSON.parse(localStorage.getItem("lattice.recent-commands.v1")!)).toEqual(["cite", "clean"]);
+
+    await openPalette();
+    expect(sections().slice(0, 2)).toEqual(["Recent", "In this document"]);
+    expect(options().slice(0, 4)).toEqual(["Insert citation⌘⇧K", "Build project⌘S", "Jump to PDF⌘⇧J", "Insert reference⌘⇧L"]);
+    expect(options().filter((option) => option.startsWith("Insert citation"))).toHaveLength(1);
+    expect(options().filter((option) => option.startsWith("Clean aux files"))).toHaveLength(1);
+  });
+
   it("opens a project switcher with recent and folder actions", async () => {
     renderApp(projectCommands());
     await screen.findByRole("button", { name: "Switch project" });

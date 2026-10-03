@@ -286,12 +286,30 @@ button.checklist-row:hover { background: var(--control-hover-surface); }
    4px puts the label the same distance from the first item as the items are
    from each other. */
 .settings-nav-group-label { padding: 0 var(--space-5); margin-bottom: var(--space-2); color: var(--text-tertiary); font-size: var(--type-micro-size); font-weight: 600; line-height: 20px; }
-.settings-nav button { width: 100%; height: var(--control-height-default); padding: 0 var(--space-5); border-radius: var(--radius-control); background: transparent; color: var(--text-secondary); display: flex; align-items: center; gap: var(--space-4); font-size: var(--type-caption-size); text-align: left; }
+.settings-nav :is(.settings-nav-group, .settings-search-results) > button { width: 100%; height: var(--control-height-default); padding: 0 var(--space-5); border-radius: var(--radius-control); background: transparent; color: var(--text-secondary); display: flex; align-items: center; gap: var(--space-4); font-size: var(--type-caption-size); text-align: left; }
 .settings-nav button > .animated-product-icon { width: 15px; flex: none; }
 .settings-nav .animated-product-icon--sparkle { transform: translateY(-1px); }
-.settings-nav button:hover { background: var(--border-subtle); color: var(--text-primary); }
-.settings-nav button.active { background: var(--control-active-soft); color: var(--control-active); font-weight: 600; }
+.settings-nav :is(.settings-nav-group, .settings-search-results) > button:hover { background: var(--border-subtle); color: var(--text-primary); }
+.settings-nav-group > button.active { background: var(--control-active-soft); color: var(--control-active); font-weight: 600; }
 .settings-content { min-width: 0; background: var(--surface-panel-raised); }
+/* Search sits above the page list and, while it holds a query, replaces it.
+   A result reads as its setting first and its page second; the keyboard's
+   result is lit like a hovered page, the one open now carries the accent. */
+.settings-search { margin-bottom: var(--settings-nav-group-gap); }
+.settings-search-results { display: flex; flex-direction: column; gap: var(--space-1); }
+.settings-nav .settings-search-results > button { height: auto; min-height: var(--control-height-default); padding-block: var(--space-3); flex-direction: column; align-items: stretch; gap: 0; }
+.settings-nav .settings-search-results > button.active { background: var(--border-subtle); }
+.settings-search-result-label { color: var(--text-primary); line-height: var(--type-caption-line-height); overflow-wrap: anywhere; }
+.settings-search-results > button[aria-current] .settings-search-result-label { color: var(--control-active); font-weight: 600; }
+.settings-search-result-place { color: var(--text-tertiary); font-size: var(--type-micro-size); line-height: var(--type-micro-line-height); }
+.settings-search-empty { margin: 0; padding: var(--space-3) var(--space-5); color: var(--text-tertiary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); }
+/* The row a search opened glows once, its halo reaching past the row's own
+   edges so the copy and control both sit inside it. */
+[data-setting-revealed] { border-radius: var(--radius-control); animation: settings-row-reveal 1.6s var(--ease-default); }
+@keyframes settings-row-reveal {
+  0%, 40% { background: var(--control-active-soft); box-shadow: 0 0 0 var(--space-4) var(--control-active-soft); }
+  100% { background: transparent; box-shadow: 0 0 0 var(--space-4) transparent; }
+}
 .synara-settings-embed { position: relative; width: 100%; min-width: 0; }
 .synara-settings-frame { position: absolute; inset: 0 auto auto 0; display: block; width: 100%; min-height: var(--settings-embed-min-height); overflow: hidden; border: 0; background: var(--surface-panel-raised); opacity: 1; transition: opacity var(--duration-quick) var(--ease-default); }
 .synara-settings-embed[data-ready="false"] .synara-settings-frame { opacity: 0; }

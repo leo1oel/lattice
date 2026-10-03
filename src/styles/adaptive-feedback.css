@@ -1,6 +1,6 @@
 @media (max-width: 680px) {
   .settings-body { grid-template-columns: var(--settings-nav-width-compact) minmax(0, 1fr); }
-  .settings-nav button {
+  .settings-nav-group > button {
     height: auto;
     min-height: var(--control-height-default);
     padding-block: var(--space-2);

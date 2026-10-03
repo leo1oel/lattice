@@ -96,7 +96,7 @@ export function LiteratureSettings() {
       {busy === "load" && <InfinityLoader size={16} />}
       {message("load")}
       {providers.map(({ id, name, url }) => (
-        <SettingsGroup key={id} title={t(name)}>
+        <SettingsGroup key={id} title={t(name)} data-setting={`literature-${id}`}>
           <SettingsRow label={t`API key`} htmlFor={`literature-${id}`} description={credentials ? sourceLabel(id, credentials[id]) : t`Loading…`}>
             <Button variant="ghost" size="compact" disabled={busy !== null} onClick={() => void run(id, () => openUrl(url))}>
               {t`Get API key`} <ExternalLink size={12} />
@@ -117,7 +117,7 @@ export function LiteratureSettings() {
         </SettingsGroup>
       ))}
       {/* eslint-disable-next-line no-restricted-syntax -- product name */}
-      <SettingsGroup title="Crossref">
+      <SettingsGroup title="Crossref" data-setting="literature-email">
         <SettingsRow label={t`Contact email`} htmlFor="literature-email" description={t`Sent to Crossref for faster lookups. No key needed`} />
         <form className="literature-credential-form" onSubmit={(event) => {
           event.preventDefault();

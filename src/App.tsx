@@ -46,6 +46,7 @@ import { useRefState, useStableHandlers } from "./app/effect-helpers";
 import { useLatestRef } from "./hooks/use-latest-ref";
 import { useOverleafWorkspace } from "./app/use-overleaf-workspace";
 import { useAppCommands, type AppCommand } from "./app/use-app-commands";
+import { paletteLeading, paletteSurface } from "./app/command-palette-leading";
 import { useToolDrawers } from "./app/use-tool-drawers";
 import { useTrellisBridge } from "./app/use-trellis-bridge";
 import { writeOpenSlideMutation } from "./app/open-slide-writes";
@@ -78,6 +79,8 @@ import {
   resolveAppLocale,
   loadSettingsTab,
   persistSettingsTab,
+  loadRecentCommands,
+  rememberRecentCommand,
 } from "./settings/app-settings";
 import type { AgentProjectDocumentToolRequest } from "./agent/agent-project-document-tools";
 import type { BuildAgentCommentsOptions } from "./agent/agent-editor-comments";
@@ -362,6 +365,8 @@ function App() {
   const [bibliographyAuditRoot, setBibliographyAuditRoot] = useState<string | null>(null);
   const [bibliographyAuditOpen, setBibliographyAuditOpen] = useState(false);
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
+  // Read again at each opening: another window may have run commands since.
+  const [recentCommandIds, setRecentCommandIds] = useState<string[]>([]);
   const [referenceHits, setReferenceHits] = useState<{
     kind: "label" | "citation";
     symbol: string;
@@ -1177,19 +1182,23 @@ function App() {
       void flushDeferredWholeFileSync();
       if (!activePaper) void compileAndShowPdf();
     }) },
-    { id: "rebuild", label: t`Clean rebuild`, detail: t`latexmk -c then -g`, group: t`Build`, run: () => void cleanAndRebuild() },
-    { id: "clean", label: t`Clean aux files`, group: t`Build`, run: () => void cleanProject() },
-    { id: "stop-build", label: t`Stop build`, group: t`Build`, run: () => void abortBuild() },
+    { id: "rebuild", label: t`Clean rebuild`, detail: t`latexmk -c then -g`, group: t`Build`, recent: false, run: () => void cleanAndRebuild() },
+    { id: "clean", label: t`Clean aux files`, group: t`Build`, recent: false, run: () => void cleanProject() },
+    // Only ever wanted while a build runs, so never worth remembering.
+    { id: "stop-build", label: t`Stop build`, group: t`Build`, recent: false, run: () => void abortBuild() },
     { id: "sync-pdf", label: t`Jump to PDF`, detail: "⌘⇧J", group: t`Navigate`, key: "j", shift: true, run: () => void revealSourceInPdf() },
     { id: "quick-open", label: t`Quick open file`, detail: "⌘P", group: t`Navigate`, key: "p", run: () => setSearchDialog("quick-open") },
     { id: "goto-line", label: t`Go to line`, detail: "⌘G", group: t`Navigate`, key: "g", run: () => setSearchDialog("goto-line") },
     { id: "goto-symbol", label: t`Go to symbol`, detail: "⌘⇧O", group: t`Navigate`, key: "o", shift: true, run: () => setSearchDialog("goto-symbol") },
     { id: "back", key: "[", run: () => void documents.go(-1) },
     { id: "forward", key: "]", run: () => void documents.go(1) },
-    { id: "palette", key: "p", shift: true, run: () => setCommandPaletteOpen(true) },
+    { id: "palette", key: "p", shift: true, run: () => {
+      setRecentCommandIds(loadRecentCommands());
+      setCommandPaletteOpen(true);
+    } },
     { id: "reopen-tab", key: "t", shift: true, run: documents.reopenClosed },
     // Reset the panel layout, and bring back any panel that was hidden or closed.
-    { id: "layout-reset", label: t`Reset panel layout`, group: t`Layout`, run: () => void trellis.resetLayout() },
+    { id: "layout-reset", label: t`Reset panel layout`, group: t`Layout`, recent: false, run: () => void trellis.resetLayout() },
     ...SINGLETON_PANELS.map((kind) => {
       const name = i18n._(PANEL_TITLES[kind]);
       return { id: `panel-${kind}`, label: spaceMixedScript(t({ message: `Show ${name} panel` })), group: t`Layout`, run: () => trellis.showPanel(kind) };
@@ -1228,6 +1237,8 @@ function App() {
     { id: "settings", label: t`Open settings`, detail: "⌘,", group: t`Project`, key: ",", run: () => openSettings() },
   ];
   const runCommand = useAppCommands(commands, cycleDiagnostic);
+  const paletteCommands = commandPaletteOpen ? commands.filter((command) => command.label && command.when !== false) : [];
+  const commandSurface = paletteSurface({ file: activeFile, paper: activePaper !== null, asset: Boolean(activeAsset) });
 
   // Trellis workspace: App stays the owner of every document; the
   // workspace reads App through this bridge (at event time) and the store below.
@@ -1807,12 +1818,15 @@ function App() {
         title={t`Command palette`}
         placeholder={t`Run a command…`}
         detailPlacement="end"
-        items={commands.flatMap(({ id, label, detail, group, when }) => (
-          label && when !== false ? [{ id, label, detail, group }] : []
-        ))}
+        items={paletteCommands.map(({ id, label = id, detail, group }) => ({ id, label, detail, group }))}
+        leading={paletteLeading(paletteCommands, recentCommandIds, commandSurface, {
+          recent: t`Recent`,
+          surface: commandSurface === "paper" ? t`In this paper` : t`In this document`,
+        })}
         onClose={() => setCommandPaletteOpen(false)}
         onSelect={(item) => {
           setCommandPaletteOpen(false);
+          setRecentCommandIds(rememberRecentCommand(item.id));
           runCommand(item.id);
         }}
       />
