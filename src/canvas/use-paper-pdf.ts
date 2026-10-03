@@ -9,8 +9,7 @@ import { notifyError } from "../telemetry/app-notify";
 import type { CanvasMode, PaperSummary, VisualMarkdownViewState } from "../app-types";
 import { toMessage } from "../app-utils";
 import { loadPdfPreviewModule } from "./canvas-lazy-modules";
-import { captureViewport } from "./markdown-preview-sync";
-import { captureReadingAnchor } from "../editor/markdown/reading-anchor";
+import { capturePreviewViewport } from "./markdown-preview-sync";
 
 /** An original PDF a Paper links to; `generic` sources are fetched through the backend rather than opened directly. */
 type PaperPdfSource = { key: string; url: string; fileName: string; generic: boolean };
@@ -143,7 +142,7 @@ export function usePaperPdf({
     if (!pdfSource) return;
     if (flushVisualMarkdown() === false) return;
     const viewport = previewViewportRef.current;
-    if (viewport) returnViewportRef.current = { path: activeFile, ...captureViewport(viewport), anchor: captureReadingAnchor(viewport) };
+    if (viewport) returnViewportRef.current = { path: activeFile, ...capturePreviewViewport(viewport) };
     const request = ++requestRef.current;
     const cached = bytesRef.current;
     const bytes = cached?.key === pdfSource.key ? cached.bytes : null;

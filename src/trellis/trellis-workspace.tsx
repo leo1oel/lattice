@@ -39,8 +39,7 @@ import { latex } from "../editor/latex/latex-language";
 import { DeferredVisualMarkdownEditor } from "../canvas/canvas-lazy-editors";
 import { Tip } from "../components/icon-tip";
 import { ProjectAssetPreview } from "../canvas/project-asset-preview";
-import { captureViewport, restoreViewport } from "../canvas/markdown-preview-sync";
-import { captureReadingAnchor, restoreReadingAnchor } from "../editor/markdown/reading-anchor";
+import { capturePreviewViewport, restorePreviewViewport } from "../canvas/markdown-preview-sync";
 import type { AssetPreview } from "../app-types";
 import {
   TOOL_KINDS, documentTools, useTrellisApp, type TrellisController, type TrellisSingleton, type TrellisToolKind,
@@ -394,16 +393,14 @@ function PaperSnapshotContent({ controller, fileKey }: { controller: TrellisCont
     let frames = 0;
     let frame = requestAnimationFrame(function settle() {
       frames += 1;
-      const placed = saved?.anchor
-        ? restoreReadingAnchor(scroller, saved.anchor)
-        : restoreViewport(scroller, { scrollTop: saved?.scrollTop ?? 0, scrollRange: saved?.scrollRange ?? 0 });
+      const placed = restorePreviewViewport(scroller, { ...saved, scrollTop: saved?.scrollTop ?? 0, scrollRange: saved?.scrollRange ?? 0 });
       if (!placed && frames < 60) frame = requestAnimationFrame(settle);
       else restoring = false;
     });
     const report = () => {
       if (restoring) return;
       controller.bridge?.rememberViewState(path, {
-        visualMarkdown: { ...captureViewport(scroller), anchor: captureReadingAnchor(scroller) },
+        visualMarkdown: capturePreviewViewport(scroller),
       });
     };
     scroller.addEventListener("scroll", report, { passive: true });

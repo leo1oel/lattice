@@ -71,10 +71,10 @@ import { EditorStatusBar } from "./editor-status-bar";
 import { isLatexSourcePath, useOptionalKeymapExtensions, useTextLanguageExtensions } from "./editor-extensions";
 import { HtmlPreview } from "./html-preview";
 import {
-  captureViewport, minimalTextChange, rangesWithinPreview, restoreViewport, spliceMarkdownBody, useSettledPreviewText,
+  capturePreviewViewport, minimalTextChange, rangesWithinPreview, restorePreviewAnchor, restorePreviewViewport, restoreViewport,
+  spliceMarkdownBody, useSettledPreviewText,
 } from "./markdown-preview-sync";
 import { PaperReader } from "./paper-reader";
-import { captureReadingAnchor, restoreReadingAnchor } from "../editor/markdown/reading-anchor";
 import { ProjectAssetPreview } from "./project-asset-preview";
 import { useMarkdownModeHandoff } from "./use-markdown-mode-handoff";
 import { useMarkdownSplitScroll } from "./use-markdown-split-scroll";
@@ -935,6 +935,7 @@ export function DocumentCanvas(props: {
       : returnViewport?.path === path ? returnViewport : getFileViewState?.(path)?.visualMarkdown;
     if (!quoteFallback && returnViewport?.path === path) paperReturnViewportRef.current = null;
     const anchor = saved?.anchor;
+    const snapshot = saved && { ...saved, scrollRange: saved.scrollRange ?? 0 };
     let restoring = Boolean(saved);
     let attempts = 0;
     // A jump into this file owns its viewport: the remembered place would land
@@ -949,9 +950,7 @@ export function DocumentCanvas(props: {
         restoring = false;
         return;
       }
-      const ready = saved && (attempts > 1 && anchor
-        ? restoreReadingAnchor(viewport, anchor)
-        : restoreViewport(viewport, { scrollTop: saved.scrollTop, scrollRange: saved.scrollRange ?? 0 }) && !anchor);
+      const ready = snapshot && (attempts > 1 ? restorePreviewViewport(viewport, snapshot) : restoreViewport(viewport, snapshot) && !anchor);
       if (!ready && attempts < 30) scheduleRestore();
       else restoring = false;
     });
@@ -962,8 +961,9 @@ export function DocumentCanvas(props: {
       // one rewrapped at a width the observer below has yet to see scrolled
       // only by that reflow (native anchoring), not by the reader.
       if (restoring || !viewport.isConnected || (viewport.clientWidth && viewport.clientWidth !== width)) return;
-      lastAnchor = captureReadingAnchor(viewport);
-      onFileViewState?.(path, { visualMarkdown: { ...captureViewport(viewport), anchor: lastAnchor } });
+      const place = capturePreviewViewport(viewport);
+      lastAnchor = place.anchor;
+      onFileViewState?.(path, { visualMarkdown: place });
     };
     // The block last read at the top stays there through a change of width
     // (a panel resized, a Writing or Reading layout taking over), as the text
@@ -972,7 +972,7 @@ export function DocumentCanvas(props: {
     let resizeFrames = 0;
     const [scheduleKeep, cancelKeep] = frameCoalescer(() => {
       resizeFrames += 1;
-      if (lastAnchor && !restoreReadingAnchor(viewport, lastAnchor) && resizeFrames < 10) scheduleKeep();
+      if (lastAnchor && !restorePreviewAnchor(viewport, lastAnchor) && resizeFrames < 10) scheduleKeep();
     });
     const resizeObserver = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(() => {
       // Hidden (no width) is no new width: the place waits for it to show again.
@@ -982,7 +982,7 @@ export function DocumentCanvas(props: {
       // both turn native anchoring off while they do.
       if (restoring || !lastAnchor || viewport.style.overflowAnchor === "none") return;
       resizeFrames = 0;
-      if (!restoreReadingAnchor(viewport, lastAnchor)) scheduleKeep();
+      if (!restorePreviewAnchor(viewport, lastAnchor)) scheduleKeep();
     });
     resizeObserver?.observe(viewport);
     viewport.addEventListener("scroll", report, { passive: true });

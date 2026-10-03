@@ -1,5 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { captureReadingAnchor, restoreReadingAnchor } from "./reading-anchor";
+import { capturePreviewViewport, restorePreviewAnchor } from "./markdown-preview-sync";
+
+const captureAnchor = (viewport: HTMLElement) => capturePreviewViewport(viewport).anchor;
 
 /**
  * A scroller over `heights` blocks, laid out top to bottom after `lead` pixels
@@ -43,28 +45,28 @@ afterEach(() => {
   document.body.replaceChildren();
 });
 
-describe("reading anchor", () => {
+describe("preview viewport anchor", () => {
   it("finds the same block in a layout that differs above it", () => {
     // The reader: a masthead above twenty 100px blocks, read from block 12.
     const reader = scroller(Array(20).fill(100), { lead: 80 });
     reader.scrollTop = 80 + 12 * 100 + 30;
-    const anchor = captureReadingAnchor(reader)!;
+    const anchor = captureAnchor(reader)!;
     expect(anchor).toEqual({ block: 12, top: -30, height: 100 });
     // The snapshot: no masthead and a figure above that has not loaded, so
     // the reader's offset would land almost three blocks further down.
     const snapshot = scroller([100, 100, 0, ...Array(17).fill(100)]);
     snapshot.scrollTop = reader.scrollTop;
-    expect(captureReadingAnchor(snapshot)!.block).toBe(14);
-    while (!restoreReadingAnchor(snapshot, anchor));
-    expect(captureReadingAnchor(snapshot)).toEqual({ block: 12, top: -30, height: 100 });
+    expect(captureAnchor(snapshot)!.block).toBe(14);
+    while (!restorePreviewAnchor(snapshot, anchor));
+    expect(captureAnchor(snapshot)).toEqual({ block: 12, top: -30, height: 100 });
   });
 
   it("keeps the same share of a rewrapped block above the viewport", () => {
     // Read 150px into a 300px paragraph; at a wider panel it is 200px tall.
     const anchor = { block: 3, top: -150, height: 300 };
     const wider = scroller([100, 100, 100, 200, 100]);
-    while (!restoreReadingAnchor(wider, anchor));
-    expect(captureReadingAnchor(wider)).toEqual({ block: 3, top: -100, height: 200 });
+    while (!restorePreviewAnchor(wider, anchor));
+    expect(captureAnchor(wider)).toEqual({ block: 3, top: -100, height: 200 });
   });
 
   it("draws a passive chunk before placing a block inside it", () => {
@@ -72,20 +74,20 @@ describe("reading anchor", () => {
     const drawn = new Set<number>([0]);
     let snapshot = scroller(heights, { chunks: 24, drawn });
     // Block 60 sits in the chunk starting at 48, not drawn: the chunk comes into view first.
-    expect(restoreReadingAnchor(snapshot, { block: 60, top: -10 })).toBe(false);
+    expect(restorePreviewAnchor(snapshot, { block: 60, top: -10 })).toBe(false);
     expect(snapshot.scrollTop).toBe(48 * 50);
     drawn.add(48);
     const scrollTop = snapshot.scrollTop;
     snapshot = scroller(heights, { chunks: 24, drawn });
     snapshot.scrollTop = scrollTop;
-    while (!restoreReadingAnchor(snapshot, { block: 60, top: -10 }));
+    while (!restorePreviewAnchor(snapshot, { block: 60, top: -10 }));
     expect(snapshot.scrollTop).toBe(60 * 50 + 10);
-    expect(captureReadingAnchor(snapshot)).toEqual({ block: 60, top: -10, height: 50 });
+    expect(captureAnchor(snapshot)).toEqual({ block: 60, top: -10, height: 50 });
   });
 
   it("has no anchor while nothing at the top is drawn", () => {
     const snapshot = scroller(Array(48).fill(50), { chunks: 24, drawn: new Set([0]) });
     snapshot.scrollTop = 30 * 50;
-    expect(captureReadingAnchor(snapshot)).toBeUndefined();
+    expect(captureAnchor(snapshot)).toBeUndefined();
   });
 });
