@@ -143,12 +143,12 @@ function useAppUpdater(intervalMs = DEFAULT_CHECK_INTERVAL_MS, autoCheck = true)
         }
       });
       patch({ phase: "ready" });
-      // The visible workspace runs in bundled Chromium and reaches Tauri
-      // through a hidden bridge WebView. The process plugin only requests an
-      // event-loop restart; if that request stalls, the newly installed app is
-      // left on disk while the old process displays “Restarting…” forever.
-      // The app-owned command closes both child runtimes and takes Tauri's
-      // direct main-thread restart path instead.
+      // The workspace may run in the WKWebView window or in a browser tab that
+      // reaches Tauri through a hidden bridge WebView. The process plugin only
+      // requests an event-loop restart; if that request stalls, the newly
+      // installed app is left on disk while the old process displays
+      // “Restarting…” forever. The app-owned command closes the child runtimes
+      // and takes Tauri's direct main-thread restart path instead.
       await restartAfterUpdate();
     } catch (reason) {
       installingRef.current = false;

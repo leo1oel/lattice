@@ -136,7 +136,6 @@ export async function createAppSizeReport(workspace = process.cwd()) {
   const eager = eagerAssetUrls(html);
   const runtime = path.resolve(workspace, "src-tauri/synara-runtime");
   const presentationRuntime = path.resolve(workspace, "src-tauri/presentation-runtime");
-  const chromiumRuntime = path.resolve(workspace, "src-tauri/chromium-runtime");
   const runtimeFiles = await fileInventory(runtime);
   const runtimeManifest = await optionalRuntimeManifest(runtime);
   const canonicalRuntime = runtimeFiles ? await realpath(runtime) : runtime;
@@ -157,7 +156,6 @@ export async function createAppSizeReport(workspace = process.cwd()) {
       ? runtimeManifest.nodeRuntime
       : null,
     presentationRuntimeBytes: await optionalTotal(presentationRuntime),
-    chromiumRuntimeBytes: await optionalTotal(chromiumRuntime),
     claudeAgentSdkExecutables: sdkExecutables,
   };
 }
@@ -166,7 +164,6 @@ const EAGER_JS_BUDGET_BYTES = Math.floor(1.35 * 1024 * 1024);
 const ROLLDOWN_RUNTIME_BUDGET_BYTES = 4 * 1024;
 const CLAUDE_PATH_LAUNCHER_BUDGET_BYTES = 4 * 1024;
 const PRESENTATION_RUNTIME_BUDGET_BYTES = 125 * 1024 * 1024;
-const CHROMIUM_RUNTIME_BUDGET_BYTES = 275 * 1024 * 1024;
 
 export async function checkAppSizeBudgets(
   workspace = process.cwd(),
@@ -232,20 +229,12 @@ export async function checkAppSizeBudgets(
   }
   // The Synara and Open Slide sidecars run on the standalone Node staged with
   // Synara, in release builds as in development.
-  if (measuredReport.synaraNodeRuntime === "electron") {
-    throw new Error("The staged Synara runtime was prepared to run on Electron's Node; run `pnpm prepare:synara` again");
-  }
   if (measuredReport.synaraNodeRuntime !== null && measuredReport.bundledNodeBytes === null) {
     throw new Error("The staged Synara runtime must bundle its standalone Node binary");
   }
   if (measuredReport.presentationRuntimeBytes > PRESENTATION_RUNTIME_BUDGET_BYTES) {
     throw new Error(
       `Presentation runtime is ${measuredReport.presentationRuntimeBytes} bytes; budget is ${PRESENTATION_RUNTIME_BUDGET_BYTES}`,
-    );
-  }
-  if (measuredReport.chromiumRuntimeBytes > CHROMIUM_RUNTIME_BUDGET_BYTES) {
-    throw new Error(
-      `Chromium runtime is ${measuredReport.chromiumRuntimeBytes} bytes; budget is ${CHROMIUM_RUNTIME_BUDGET_BYTES}`,
     );
   }
   return {
@@ -255,7 +244,6 @@ export async function checkAppSizeBudgets(
     rolldownRuntimeBudgetBytes: ROLLDOWN_RUNTIME_BUDGET_BYTES,
     claudePathLauncherBudgetBytes: CLAUDE_PATH_LAUNCHER_BUDGET_BYTES,
     presentationRuntimeBudgetBytes: PRESENTATION_RUNTIME_BUDGET_BYTES,
-    chromiumRuntimeBudgetBytes: CHROMIUM_RUNTIME_BUDGET_BYTES,
   };
 }
 
@@ -274,7 +262,6 @@ export function formatHuman(report) {
     ["Synara server dist", report.synaraServerDistBytes],
     ["Runtime node_modules", report.runtimeNodeModulesBytes],
     ["Presentation runtime", report.presentationRuntimeBytes],
-    ["Chromium runtime", report.chromiumRuntimeBytes],
   ].map(([label, bytes]) => `${label}: ${humanBytes(bytes)}`);
   if (report.synaraRuntimeBytes === null) lines.push("Claude Agent SDK executables: runtime missing");
   else if (report.claudeAgentSdkExecutables.length === 0) lines.push("Claude Agent SDK executables: none found");

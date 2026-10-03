@@ -88,15 +88,6 @@ describe("project tree and projects", () => {
       await waitFor(() => expect(windowApi.close).toHaveBeenCalledOnce());
     });
 
-    it("keeps the Lattice window open when it hands its workspace to the browser", async () => {
-      Object.assign(browserRuntime, { hosted: true, bundled: true });
-      openProject();
-      fireEvent.click(await screen.findByRole("button", { name: "Open in browser" }));
-      await expectInvoked("open_in_browser");
-      // The bridge hides it once the tab has taken over.
-      expect(windowApi.close).not.toHaveBeenCalled();
-    });
-
     it("reports a failed handoff and keeps the window", async () => {
       openProject({ open_in_browser: () => { throw new Error("Could not start local browser access"); } });
       fireEvent.click(await screen.findByRole("button", { name: "Open in browser" }));
@@ -140,8 +131,7 @@ describe("project tree and projects", () => {
       await expectNotification(/Lattice could not open its window/);
       await waitFor(() => expect(view.state.facet(EditorView.editable)).toBe(true));
 
-      // A parked Lattice window answers at once and takes the workspace later,
-      // through a yield that saves again; if that never happens, the tab keeps it.
+      // A reply that leaves the tab attached means the workspace stayed here.
       vi.mocked(invoke).mockClear();
       fireEvent.click(screen.getByRole("button", { name: "Open in Lattice app" }));
       await expectInvoked("return_to_desktop");
@@ -150,45 +140,16 @@ describe("project tree and projects", () => {
       await waitFor(() => expect(view.state.facet(EditorView.editable)).toBe(true));
     });
 
-    it("saves an unsaved edit before the bridge hands the workspace to another surface", async () => {
-      Object.assign(browserRuntime, { hosted: true, bundled: true });
-      openProject({ write_project_file: (args: unknown) => ({ content: (args as { content: string }).content, hadConflicts: false }) });
+    it("keeps a browser tab's workspace when its save fails", async () => {
+      browserRuntime.hosted = true;
+      openProject({ write_project_file: () => { throw new Error("disk full"); } });
       const view = await findEditorView(".source-editor[data-editor-pane='primary'] .cm-editor");
-      await waitFor(() => expect(browserRuntime.yieldHandler).not.toBeNull());
-      act(() => view.dispatch({ changes: { from: view.state.doc.length, insert: "\n% typed just before" } }));
-      await act(async () => { await browserRuntime.yieldHandler!(); });
-      expect(invoke).toHaveBeenCalledWith("write_project_file", expect.objectContaining({
-        path: "main.tex", content: expect.stringContaining("% typed just before"),
-      }));
-    });
-
-    it("keeps the workspace when its save fails or an edit lands while it runs", async () => {
-      Object.assign(browserRuntime, { hosted: true, bundled: true });
-      let failWrites = true;
-      let finishWrite: (() => void) | null = null;
-      openProject({
-        write_project_file: async (args: unknown) => {
-          if (failWrites) throw new Error("disk full");
-          await new Promise<void>((resolve) => { finishWrite = resolve; });
-          return { content: (args as { content: string }).content, hadConflicts: false };
-        },
-      });
-      const view = await findEditorView(".source-editor[data-editor-pane='primary'] .cm-editor");
-      await waitFor(() => expect(browserRuntime.yieldHandler).not.toBeNull());
       act(() => view.dispatch({ changes: { from: view.state.doc.length, insert: "\n% unsaved" } }));
-      await act(async () => { await expect(browserRuntime.yieldHandler!()).resolves.toBe(false); });
-
-      failWrites = false;
-      let yielded!: Promise<boolean>;
-      act(() => { yielded = browserRuntime.yieldHandler!(); });
-      await waitFor(() => expect(finishWrite).not.toBeNull());
-      act(() => view.dispatch({ changes: { from: view.state.doc.length, insert: "\n% typed while saving" } }));
-      await act(async () => {
-        finishWrite!();
-        await expect(yielded).resolves.toBe(false);
-      });
-      expect(view.state.doc.toString()).toContain("% typed while saving");
-      await expectNotification(/The document changed while saving/);
+      fireEvent.click(await screen.findByRole("button", { name: "Open in Lattice app" }));
+      await waitFor(() => expect(invokeCalls("write_project_file")).not.toHaveLength(0));
+      await pause(50);
+      expect(invokeCalls("return_to_desktop")).toHaveLength(0);
+      expect(view.state.doc.toString()).toContain("% unsaved");
     });
   });
 

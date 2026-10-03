@@ -22,8 +22,8 @@
 #   6. fetches the pinned Synara source into SYNARA_SOURCE_DIR (defaulting to
 #      the `sourceDirectory` in scripts/synara-runtime.json) and installs it
 #      with bun — only needed to run the real agent sidecar;
-#   7. writes runtime stubs that let cargo compile Tauri's resource manifest
-#      without staged Synara or Chromium bundles;
+#   7. writes the runtime stub that lets cargo compile Tauri's resource
+#      manifest without a staged Synara bundle;
 #   8. warms the cargo registry.
 #
 # It only writes inside the repository, ~/.local, ~/.cargo and the Synara source
@@ -234,10 +234,6 @@ fi
 if [[ ! -e src-tauri/synara-runtime/manifest.json ]]; then
   mkdir -p src-tauri/synara-runtime
   printf 'stub\n' > src-tauri/synara-runtime/placeholder.txt
-fi
-if [[ ! -e "src-tauri/chromium-runtime/Lattice Chromium.app" ]]; then
-  mkdir -p src-tauri/chromium-runtime
-  printf 'stub\n' > src-tauri/chromium-runtime/placeholder.txt
 fi
 finish_step
 

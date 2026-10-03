@@ -18,7 +18,7 @@ pub(crate) struct AppState {
     /// Resources owned by an open project rather than by the process.
     projects: Mutex<HashMap<PathBuf, Arc<ProjectResources>>>,
     /// Process-wide backstop for Overleaf's ten-project-downloads-per-minute
-    /// limit. Frontend instances also debounce, but Chromium reloads, multiple
+    /// limit. Frontend instances also debounce, but page reloads, multiple
     /// windows, and different projects still share the same account allowance.
     pub(crate) overleaf_sync_started: tokio::sync::Mutex<Option<tokio::time::Instant>>,
     /// One import per window. The request id prevents a late Cancel click from

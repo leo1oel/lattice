@@ -10,7 +10,7 @@ Read in this order if you are new:
 
 1. [`../README.md`](../README.md) — what the product is, how to install and run it.
 2. [`../CONTRIBUTING.md`](../CONTRIBUTING.md) — how to set up a dev environment and get a change merged.
-3. **[`architecture.md`](architecture.md)** — the processes and windows (Rust host, Chromium or WKWebView workspace window, Node sidecar) and what crosses each boundary; the Rust command surface; the on-disk `.research/` layout; the bundle and startup constraints; the design-system contract.
+3. **[`architecture.md`](architecture.md)** — the processes and windows (Rust host, WKWebView workspace window, Node sidecar) and what crosses each boundary; the Rust command surface; the on-disk `.research/` layout; the bundle and startup constraints; the design-system contract.
 4. **[`codebase-map.md`](codebase-map.md)** — "if you want to change X, start at Y"; how `src/` is split into domain directories and what stays at its root; the ~13 files that matter; the known rough edges.
 5. Then whichever subsystem doc below matches what you are touching.
 

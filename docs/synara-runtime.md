@@ -9,15 +9,15 @@ install Synara, Node.js, Bun, or start a separate service.
 ## Working without the sidecar
 
 Only `pnpm tauri dev` and `pnpm tauri build` need the Synara source.
-Everything else — `pnpm check`, `pnpm dev`, `cargo test`, `cargo clippy` — needs only stub directories, because Cargo compiles Tauri's resource manifest and that manifest expects both bundled runtime paths to exist:
+Everything else — `pnpm check`, `pnpm dev`, `cargo test`, `cargo clippy` — needs only a stub directory, because Cargo compiles Tauri's resource manifest and that manifest expects the bundled Synara runtime path to exist:
 
 ```bash
-mkdir -p src-tauri/{synara-runtime,chromium-runtime}
-touch src-tauri/{synara-runtime,chromium-runtime}/placeholder.txt
+mkdir -p src-tauri/synara-runtime
+touch src-tauri/synara-runtime/placeholder.txt
 ```
 
 That is the whole workaround, and it is what two of the three CI workflows do (`ci.yml` and `release-cache.yml`; only `release.yml` stages the real runtimes, because only it packages the app).
-The directories are gitignored, so the stubs stay out of your commits.
+The directory is gitignored, so the stub stays out of your commits.
 
 [`../CONTRIBUTING.md`](../CONTRIBUTING.md) is the authoritative setup guide, including how to point
 `SYNARA_SOURCE_DIR` at a real checkout when you *are* changing the agent surface. This document
@@ -291,7 +291,7 @@ went stale before.
   from the pin.
 - The preparation script builds the production web/server artifacts, downloads and verifies the official target-specific Node fallback, installs production dependencies, and stages the result under `src-tauri/synara-runtime`.
 - Tauri's documented `TAURI_ENV_DEBUG` hook signal selects the package staging profile through `scripts/prepare-build.mjs`.
-- Synara and Open Slide run on that standalone Node in every build (`src-tauri/src/sidecar.rs`); the packaged Chromium runtime is not their Node.
+- Synara and Open Slide run on that standalone Node in every build (`src-tauri/src/sidecar.rs`).
 - Claude sessions use the external `claude` executable selected in Provider settings (or found on
   the login-shell PATH). The SDK's otherwise bundled platform executable is replaced by a tiny PATH
   launcher so account probing follows the same installation without shipping a redundant copy.
@@ -299,10 +299,10 @@ went stale before.
 
 ### Runtime size is a budget, not a note
 
-Run `pnpm size:report` after preparing the runtimes and building the frontend to record exact file-byte totals for the web bundle, eager assets, Synara server and dependencies, presentation runtime, Chromium runtime, and provider executables.
+Run `pnpm size:report` after preparing the runtimes and building the frontend to record exact file-byte totals for the web bundle, eager assets, Synara server and dependencies, presentation runtime, and provider executables.
 
 The staged runtimes are **enforced**, not merely observed.
-`scripts/app-size-report.mjs` applies separate uncompressed budgets to Open Slide and Chromium.
+`scripts/app-size-report.mjs` applies an uncompressed budget to Open Slide.
 It also fails if a staged Synara runtime lacks its standalone Node binary, or if the bundled Claude Agent SDK executable exceeds the 4 KiB PATH-launcher budget.
 Read the current constants from that file rather than trusting a number quoted here; the recorded totals belong in the release notes for the version that measured them.
 

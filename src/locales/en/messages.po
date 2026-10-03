@@ -3032,10 +3032,6 @@ msgid "Find text to replace"
 msgstr "Find text to replace"
 
 #: src/app/use-project-lifecycle.ts
-msgid "Finish the current text composition, then move the workspace again."
-msgstr "Finish the current text composition, then move the workspace again."
-
-#: src/app/use-project-lifecycle.ts
 msgid "Finish the current text composition, then switch projects again."
 msgstr "Finish the current text composition, then switch projects again."
 
@@ -7738,10 +7734,6 @@ msgstr "The copy on Overleaf"
 #: src/editor/latex/latex-command-completions.ts
 msgid "The document body"
 msgstr "The document body"
-
-#: src/app/use-project-lifecycle.ts
-msgid "The document changed while saving. Save it, then move the workspace again."
-msgstr "The document changed while saving. Save it, then move the workspace again."
 
 #: src/app/use-project-lifecycle.ts
 msgid "The document changed while saving. Save it, then switch projects again."

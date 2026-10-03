@@ -3032,10 +3032,6 @@ msgid "Find text to replace"
 msgstr "查找要替换的文本"
 
 #: src/app/use-project-lifecycle.ts
-msgid "Finish the current text composition, then move the workspace again."
-msgstr "请先完成当前的输入法输入，然后再移动工作区。"
-
-#: src/app/use-project-lifecycle.ts
 msgid "Finish the current text composition, then switch projects again."
 msgstr "请先完成当前的输入法输入，然后再切换项目。"
 
@@ -7738,10 +7734,6 @@ msgstr "Overleaf 上的副本"
 #: src/editor/latex/latex-command-completions.ts
 msgid "The document body"
 msgstr "文档正文"
-
-#: src/app/use-project-lifecycle.ts
-msgid "The document changed while saving. Save it, then move the workspace again."
-msgstr "保存期间文档发生了更改。请先保存，然后再移动工作区。"
 
 #: src/app/use-project-lifecycle.ts
 msgid "The document changed while saving. Save it, then switch projects again."

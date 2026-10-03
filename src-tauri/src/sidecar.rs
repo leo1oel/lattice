@@ -46,16 +46,11 @@ pub(crate) fn terminate_process_group(child: &mut Child) {
 #[cfg(test)]
 mod tests {
     use super::NodeRuntime;
-    use std::ffi::OsStr;
     use std::path::Path;
-    use std::process::Command;
 
     #[test]
-    fn sidecars_run_on_the_standalone_node_with_no_electron_mode() {
+    fn sidecars_run_on_the_standalone_node() {
         let runtime = NodeRuntime::resolve(Path::new("/resources/synara-runtime/bin"));
         assert_eq!(runtime.executable, Path::new("/resources/synara-runtime/bin/node"));
-        let mut command = Command::new(&runtime.executable);
-        runtime.configure(&mut command);
-        assert!(command.get_envs().all(|(key, _)| key != OsStr::new("ELECTRON_RUN_AS_NODE")));
     }
 }

@@ -635,7 +635,7 @@ function App() {
   const {
     busyLabel, recentProjects, projectMenuOpen, setProjectMenuOpen, createForm, updateCreateForm,
     startProjectTransition, revealNewProject, chooseExisting, createProject, chooseRecentProject,
-    openTutorialProject, importOverleafZip, exportProjectZip, inBrowserTab, moveWorkspace, movingWorkspace,
+    openTutorialProject, importOverleafZip, exportProjectZip, moveWorkspace, movingWorkspace,
   } = useProjectLifecycle({
     projectState, documents, library, build: buildPipeline, cancelPrewarm: cancelPreviewPrewarm,
     resetCompileTracking: resetAgentCompileTracking,
@@ -1233,7 +1233,7 @@ function App() {
     { id: "doctor", label: t`Run TeX doctor`, group: t`Project`, run: () => openSettings("doctor") },
     {
       id: "browser", group: t`Project`, run: () => void moveWorkspace(),
-      ...(inBrowserTab
+      ...(browserHosted
         ? { label: t`Open in Lattice app` }
         : { label: t`Open in browser`, detail: "http://127.0.0.1:18452" }),
     },
@@ -1565,7 +1565,7 @@ function App() {
           onGit={() => tools.open("git")}
           commentCount={editorComments.all.filter((comment) => !comment.resolved).length}
           onComments={() => tools.open("comments")}
-          inBrowserTab={inBrowserTab}
+          inBrowserTab={browserHosted}
           onMoveWorkspace={() => void moveWorkspace()}
           hiddenTools={appearance.hiddenTitlebarTools}
           overleafLinked={overleafLink !== null}

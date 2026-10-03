@@ -9,8 +9,16 @@ afterEach(() => {
 it("reads project PDF ranges from the browser host with the session token in a header, never in the URL", async () => {
   // Installing the runtime is page-lifetime state: this file installs it once.
   vi.stubGlobal("WebSocket", FakeWebSocket);
-  window.history.replaceState(null, "", "/#token=session-secret&bridgePort=18452&label=browser-test");
+  // A reloaded tab resumes the session it stored, through the fixed entry.
+  sessionStorage.setItem("lattice.browser-token", "session-secret");
+  sessionStorage.setItem("lattice.browser-port", "18452");
+  sessionStorage.setItem("lattice.browser-label", "browser-test");
+  const fetchSession = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(Response.json({
+    token: "session-secret", bridgePort: 18452, label: "browser-test",
+  }));
   const runtime = await import("./browser-runtime");
+  await vi.waitFor(() => expect(lastSocket()).toBeDefined());
+  fetchSession.mockRestore();
   lastSocket().message({ type: "ready", label: "browser-test" });
   lastSocket().message({ type: "storage", entries: [] });
   await runtime.browserRuntimeReady();

@@ -4,9 +4,7 @@
 //!
 //! It hands the in-page harness (`src/platform/perf-lab-harness.ts`) its run
 //! plan, exposes IPC probes, and drives the WKWebView window with real AppKit
-//! input. The Chromium window gets its input from Electron's
-//! `webContents.sendInputEvent` instead (`scripts/chromium-shell.mjs`). Every
-//! knob is an environment variable the launcher sets, so a lab binary run
+//! input. Every knob is an environment variable the launcher sets, so a lab binary run
 //! without them behaves like any other build except for its identifier.
 
 use objc2::runtime::{AnyObject, Bool};
@@ -48,15 +46,6 @@ pub(crate) fn project() -> Option<std::path::PathBuf> {
 
 pub(crate) fn epoch_ms() -> f64 {
     SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_secs_f64() * 1000.0).unwrap_or(0.0)
-}
-
-pub(crate) fn trace(what: &str) {
-    use std::io::Write;
-    if let Some(path) = env("LATTICE_CR_TRACE") {
-        if let Ok(mut file) = std::fs::OpenOptions::new().create(true).append(true).open(path) {
-            let _ = writeln!(file, "{:.1} {what}", epoch_ms());
-        }
-    }
 }
 
 /// Keep the lab account's never-composited process rendering like a

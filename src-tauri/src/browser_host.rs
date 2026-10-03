@@ -2,15 +2,15 @@
 //!
 //! `http://127.0.0.1:18452` is the fixed, bookmarkable entry point. Every
 //! workspace opened there is backed by a hidden native *host* WebView that owns
-//! the project and relays IPC to the visible page over a WebSocket bridge
-//! (`session`). In packaged builds the visible page is normally the bundled
-//! Chromium renderer (`crate::chromium`); "Open in browser" hands the same
-//! workspace to the default browser and the window comes back when the tab
-//! returns it or closes. The listener lives exactly as long as Lattice runs.
+//! the project and relays IPC to the browser tab over a WebSocket bridge
+//! (`session`). "Open in browser" hands a native window's workspace to the
+//! default browser, and the workspace opens in a native window again when the
+//! tab returns it or closes. The listener lives exactly as long as Lattice
+//! runs.
 //!
 //! - `/__lattice_session` mints or resumes a session token for the fixed entry,
 //!   or hands out the one a single-use `?entry=` nonce was issued for.
-//! - `/__lattice_bridge` upgrades a host, browser, or desktop peer.
+//! - `/__lattice_bridge` upgrades a host or browser peer.
 //! - everything else serves the bundled frontend assets.
 
 pub(crate) mod dialogs;
@@ -20,7 +20,7 @@ mod takeover;
 
 use super::AppState;
 use serde::Serialize;
-use session::{BrowserSession, BrowserSessionConfig, Effect, HandoffTimeout, ReturnPlan, Sessions};
+use session::{BrowserSession, BrowserSessionConfig, Sessions};
 use std::{
     collections::HashMap,
     io,
@@ -33,11 +33,6 @@ use tauri::{Manager, WebviewUrl};
 use tauri_plugin_opener::OpenerExt;
 
 const PREFERRED_PORT: u16 = 18452;
-/// How long a handoff waits for the surface giving up the workspace to save
-/// before giving up on the handoff. That save may wait up to 15 seconds for
-/// deferred Overleaf whole-file syncs, and a waiting tab gives up on its own
-/// after 20 (`handoff-timeout` in browser-runtime.ts).
-const HANDOFF_TIMEOUT: Duration = Duration::from_secs(17);
 const SERVER_UNAVAILABLE: &str = "Browser server state is unavailable.";
 pub(crate) const SERVICE_WINDOW_LABEL: &str = "browser-service";
 
@@ -59,7 +54,7 @@ struct HostBridgeConfig<'a> {
     port: u16,
 }
 
-fn bind_browser_listener(take_over_background_host: bool) -> io::Result<TcpListener> {
+fn bind_browser_listener() -> io::Result<TcpListener> {
     #[cfg(feature = "perf-lab")]
     if let Some(port) = crate::perf_lab::port() {
         // A lab run has its own port and never takes over anyone's listener.
@@ -69,7 +64,7 @@ fn bind_browser_listener(take_over_background_host: bool) -> io::Result<TcpListe
     match TcpListener::bind(address) {
         Ok(listener) => Ok(listener),
         Err(error) if error.kind() == io::ErrorKind::AddrInUse => {
-            takeover::replace_stale_browser_host(address, take_over_background_host).ok_or(error)
+            takeover::replace_stale_browser_host(address).ok_or(error)
         }
         Err(error) => Err(error),
     }
@@ -84,16 +79,14 @@ fn new_token() -> String {
 }
 
 impl BrowserHost {
-    /// Open `project_root` in a new bridged workspace: a new tab when the
-    /// caller is a browser tab, otherwise a new Chromium window.
+    /// Open `project_root` in a new bridged workspace, in a new browser tab.
     pub(crate) fn open_project(
-        &self, app: &tauri::AppHandle, state: &AppState, project_root: PathBuf, in_browser: bool,
+        &self, app: &tauri::AppHandle, state: &AppState, project_root: PathBuf,
     ) -> Result<String, String> {
         let host_label = new_host_label();
         state.bind_window(&host_label, project_root.clone())?;
-        let opened = self.open_session(app, in_browser, |origin| {
-            BrowserSession::new(host_label.clone(), origin)
-        });
+        let opened =
+            self.open_session(app, |origin| BrowserSession::new(host_label.clone(), origin));
         if let Err(reason) = opened {
             state.abandon_window(&host_label);
             return Err(reason);
@@ -101,17 +94,17 @@ impl BrowserHost {
         Ok(host_label)
     }
 
-    /// Open a browser-hosted project's authenticated URL again; false when no
-    /// session backs `host_label`. The surface may focus the existing page or
-    /// replace it with a fresh one; either outcome is usable, unlike focusing
-    /// the deliberately hidden native host window.
+    /// Open a browser-hosted project in the default browser again; false when
+    /// no session backs `host_label`. The new tab replaces the existing one,
+    /// which is usable, unlike focusing the deliberately hidden native host
+    /// window.
     pub(crate) fn reopen_window(
         &self, app: &tauri::AppHandle, host_label: &str,
     ) -> Result<bool, String> {
         let Some((config, origin)) = self.workspace_config(host_label)? else {
             return Ok(false);
         };
-        open_workspace(app, &self.sessions()?, &config, &origin)?;
+        open_in_default_browser(app, &self.sessions()?, &config, &origin)?;
         Ok(true)
     }
 
@@ -123,44 +116,24 @@ impl BrowserHost {
         self.server()?.map(|server| server.sessions).ok_or_else(|| SERVER_UNAVAILABLE.to_string())
     }
 
-    /// True when a browser tab currently shows the bridged workspace `host_label`.
-    pub(crate) fn shown_in_browser(&self, host_label: &str) -> bool {
-        self.sessions().is_ok_and(|sessions| {
-            sessions.lock().is_ok_and(|sessions| {
-                sessions.values().any(|session| {
-                    session.host_label == host_label
-                        && session.owner == Some(session::Surface::Browser)
-                })
-            })
-        })
-    }
-
-    /// Hand the workspace of window `label` to the default browser.
+    /// Hand the workspace of native window `label` to the default browser.
     ///
-    /// A Chromium window opens its own session's address there: the tab asks
-    /// the window to save and yield, then the window hides until the tab gives
-    /// the workspace back or closes. A native WebKit window has no shareable
-    /// session, so a new one is prepared that stays inactive until that window
-    /// has closed (`activate_source`). No login item is involved: the address
-    /// works for as long as Lattice runs.
+    /// A new session is prepared that stays inactive until that window has
+    /// closed (`activate_source`), so the two never edit the project at once.
+    /// No login item is involved: the address works for as long as Lattice
+    /// runs.
     pub(crate) fn open_in_browser(
         &self, app: &tauri::AppHandle, state: &AppState, label: &str,
     ) -> Result<(), String> {
         if label.starts_with("browser-") {
-            if self.shown_in_browser(label) {
-                return Err("This workspace is already open in your browser.".to_string());
-            }
-            let Some((config, origin)) = self.workspace_config(label)? else {
-                return Err("This Lattice workspace is no longer available.".to_string());
-            };
-            return open_in_default_browser(app, &self.sessions()?, &config, &origin);
+            return Err("This workspace is already open in your browser.".to_string());
         }
         let project_root = state.root_for(label)?;
         // Closing the native window must not end the process while the tab
         // still needs its host, nor once that tab is gone.
         let resident_was_present = app.get_window(SERVICE_WINDOW_LABEL).is_some();
         self.keep_resident(app)?;
-        let opened = self.open_session(app, true, |origin| BrowserSession {
+        let opened = self.open_session(app, |origin| BrowserSession {
             source_label: Some(label.to_string()),
             project_root,
             entry_session: true,
@@ -186,36 +159,22 @@ impl BrowserHost {
         }
     }
 
-    /// Move the browser workspace `host_label` back to the desktop: to its
-    /// parked Chromium window (after the tab yields), to a reopened Chromium
-    /// window, or, without Chromium, to a new native window.
+    /// Move the browser workspace `host_label` back to a new native window,
+    /// then end its session. The tab has saved first.
     pub(crate) fn return_to_desktop(
         &self, app: &tauri::AppHandle, state: &AppState, host_label: &str,
     ) -> Result<(), String> {
-        let sessions = self.sessions()?;
-        let chromium_running = app.state::<crate::chromium::ChromiumRuntime>().is_running();
-        match session::request_return(&sessions, host_label, chromium_running)? {
-            ReturnPlan::Handoff(token, id) => {
-                apply_effect(app, &sessions, &token, Effect::HandoffStarted(id));
-                Ok(())
-            }
-            ReturnPlan::OpenChromium => {
-                let Some((config, origin)) = self.workspace_config(host_label)? else {
-                    return Err("This Lattice workspace is no longer available.".to_string());
-                };
-                open_workspace(app, &sessions, &config, &origin)
-            }
-            ReturnPlan::Native(token) => {
-                let root = state
-                    .root_for(host_label)?
-                    .ok_or_else(|| "This browser workspace has no project open.".to_string())?;
-                reopen_in_native_window(app, state, root)?;
-                if let Some(host_label) = session::finish_native_return(&sessions, &token) {
-                    retire_host_soon(app, host_label);
-                }
-                Ok(())
-            }
+        let Some((config, _)) = self.workspace_config(host_label)? else {
+            return Err("This browser workspace is no longer active.".to_string());
+        };
+        let root = state
+            .root_for(host_label)?
+            .ok_or_else(|| "This browser workspace has no project open.".to_string())?;
+        reopen_in_native_window(app, state, root)?;
+        if let Some(host_label) = session::finish_native_return(&self.sessions()?, &config.token) {
+            retire_host_soon(app, host_label);
         }
+        Ok(())
     }
 
     /// Complete a native window's handoff only after it has run its normal
@@ -300,9 +259,9 @@ impl BrowserHost {
         ))
     }
 
-    /// Reopen the workspace owned by the fixed entry, if one is still alive.
-    /// This is the macOS reopen behavior while its window is closed; a
-    /// workspace a browser tab holds opens on its standby screen.
+    /// Reopen the workspace owned by the fixed entry in the default browser,
+    /// if one is still alive. This is the macOS reopen behavior of a
+    /// background browser host, which has no window of its own.
     pub(crate) fn reopen_entry(&self, app: &tauri::AppHandle) -> Result<bool, String> {
         let Some(server) = self.server()? else {
             return Ok(false);
@@ -315,17 +274,15 @@ impl BrowserHost {
         let Some(config) = config else {
             return Ok(false);
         };
-        open_workspace(app, &server.sessions, &config, &browser_origin(app, server.port))?;
+        open_in_default_browser(app, &server.sessions, &config, &browser_origin(app, server.port))?;
         Ok(true)
     }
 
     /// Start the small loopback listener without creating a workspace. The
     /// listener survives browser-tab teardown and is what makes the bookmarked
     /// address a permanent entry point.
-    pub(crate) fn start(
-        &self, app: &tauri::AppHandle, take_over_background_host: bool,
-    ) -> Result<u16, String> {
-        self.ensure_server(app, take_over_background_host).map(|server| server.port)
+    pub(crate) fn start(&self, app: &tauri::AppHandle) -> Result<u16, String> {
+        self.ensure_server(app).map(|server| server.port)
     }
 
     /// A native window with no WebView keeps Tauri's event loop alive after the
@@ -349,12 +306,11 @@ impl BrowserHost {
     }
 
     /// Register a new session, start its hidden host, and open its page in
-    /// the default browser or the usual workspace surface; returns its token.
+    /// the default browser; returns its token.
     fn open_session(
-        &self, app: &tauri::AppHandle, in_browser: bool,
-        session: impl FnOnce(String) -> BrowserSession,
+        &self, app: &tauri::AppHandle, session: impl FnOnce(String) -> BrowserSession,
     ) -> Result<String, String> {
-        let server = self.ensure_server(app, false)?;
+        let server = self.ensure_server(app)?;
         let token = new_token();
         let session = session(browser_origin(app, server.port));
         let host_label = session.host_label.clone();
@@ -373,12 +329,8 @@ impl BrowserHost {
         }
 
         let opened = build_host_window(app, &host_label, &token, server.port).and_then(|()| {
-            let page = if in_browser {
-                open_in_default_browser(app, &server.sessions, &config, &origin)
-            } else {
-                open_workspace(app, &server.sessions, &config, &origin)
-            };
-            page.inspect_err(|_| destroy_window(app, &host_label))
+            open_in_default_browser(app, &server.sessions, &config, &origin)
+                .inspect_err(|_| destroy_window(app, &host_label))
         });
         if let Err(error) = opened {
             session::remove(&server.sessions, &token);
@@ -387,9 +339,7 @@ impl BrowserHost {
         Ok(token)
     }
 
-    fn ensure_server(
-        &self, app: &tauri::AppHandle, take_over_background_host: bool,
-    ) -> Result<RunningServer, String> {
+    fn ensure_server(&self, app: &tauri::AppHandle) -> Result<RunningServer, String> {
         let mut running = self.running.lock().map_err(|_| SERVER_UNAVAILABLE.to_string())?;
         if let Some(server) = running.as_ref() {
             return Ok(server.clone());
@@ -398,7 +348,7 @@ impl BrowserHost {
         // A bookmark can only be permanent if its port is permanent. Do not
         // silently fall back to a random port: that would make the setting look
         // enabled while the saved address opens some other process or nothing.
-        let listener = bind_browser_listener(take_over_background_host).map_err(|error| {
+        let listener = bind_browser_listener().map_err(|error| {
             format!(
                 "Could not start local browser access at http://127.0.0.1:{PREFERRED_PORT}: {error}"
             )
@@ -415,15 +365,6 @@ impl BrowserHost {
         *running = Some(server.clone());
         Ok(server)
     }
-}
-
-fn open_workspace(
-    app: &tauri::AppHandle, sessions: &Sessions, config: &BrowserSessionConfig, origin: &str,
-) -> Result<(), String> {
-    if app.state::<crate::chromium::ChromiumRuntime>().open_url(&config.url(origin))? {
-        return Ok(());
-    }
-    open_in_default_browser(app, sessions, config, origin)
 }
 
 /// The default browser gets a tokenless entry address with a single-use
@@ -490,46 +431,4 @@ fn retire_host_soon(app: &tauri::AppHandle, host_label: String) {
         tokio::time::sleep(Duration::from_millis(50)).await;
         destroy_window(&app, &host_label);
     });
-}
-
-/// Show or hide the Chromium window of a workspace while a tab holds it.
-fn show_chromium_workspace(
-    app: &tauri::AppHandle, sessions: &Sessions, token: &str, visible: bool,
-) {
-    let host_label = sessions
-        .lock()
-        .ok()
-        .and_then(|sessions| sessions.get(token).map(|session| session.host_label.clone()));
-    let Some(host_label) = host_label else {
-        return;
-    };
-    let chromium = app.state::<crate::chromium::ChromiumRuntime>();
-    if let Err(reason) = chromium.set_window_visibility(&host_label, visible) {
-        let action = if visible { "show" } else { "hide" };
-        log::warn!(target: "lattice::chromium", "could not {action} Chromium workspace: {reason}");
-    }
-}
-
-/// Apply what a session change asks of the app.
-fn apply_effect(app: &tauri::AppHandle, sessions: &Sessions, token: &str, effect: Effect) {
-    match effect {
-        Effect::HandoffStarted(id) => {
-            let (app, sessions, token) = (app.clone(), Arc::clone(sessions), token.to_string());
-            tauri::async_runtime::spawn(async move {
-                tokio::time::sleep(HANDOFF_TIMEOUT).await;
-                match session::finish_handoff(&sessions, &token, id) {
-                    None => {}
-                    Some(HandoffTimeout::Kept) => log::warn!(
-                        target: "lattice::browser",
-                        "the workspace did not confirm its save in time; it stays where it is"
-                    ),
-                    Some(HandoffTimeout::Switched(effect)) => {
-                        apply_effect(&app, &sessions, &token, effect);
-                    }
-                }
-            });
-        }
-        Effect::Parked => show_chromium_workspace(app, sessions, token, false),
-        Effect::Resumed => show_chromium_workspace(app, sessions, token, true),
-    }
 }

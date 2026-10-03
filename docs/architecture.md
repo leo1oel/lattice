@@ -49,17 +49,18 @@ WKWebView window, and the Synara sidecar:
  same executable, headless run_cli() path
 ```
 
-Release builds render in this WKWebView window; for one release, launching with `LATTICE_RENDERER=chromium` (`open --env LATTICE_RENDERER=chromium -a Lattice`) shows the packaged Chromium window instead (`src-tauri/src/chromium.rs`).
-In that mode a bundled Electron draws the workspace and reaches the host the way
-a browser tab does: `browser_host` bridges it to a hidden host WKWebView, and
-`chromium.rs` opens its windows over a control pipe. `lib.rs::setup` makes the
-choice; `chromium.rs` and `browser_host.rs` open with the rest of the design.
+Every build renders in this WKWebView window; Lattice bundles no browser
+engine of its own. "Open in browser" hands a window's workspace to the
+default browser: `browser_host` serves the frontend on the fixed loopback
+port and bridges the tab to a hidden host WKWebView, and the workspace opens
+in a native window again when the tab returns it or closes. `lib.rs::setup`
+starts the listener; `browser_host.rs` opens with the rest of the design.
 Only this section describes the window engine: point here rather than
 restating it.
 
 ### 1.1 Webview ↔ Rust: Tauri `invoke` / `listen`
 
-The frontend calls the same API in either window: in Chromium (and a browser tab),
+The frontend calls the same API in a window and in a browser tab: in a tab,
 `browser-runtime.ts` installs a `__TAURI_INTERNALS__` that relays each call over
 the bridge. The webview calls Rust with `invoke("command_name", args)` against **159
 registered commands** (see §2). Data flows the other way over Tauri events, of
@@ -287,7 +288,7 @@ surprising fact about this backend.
 
 Sizes by area (lines, tests included): `project` ~6.3k · `papers` ~4.8k ·
 `overleaf` ~4.2k · `citation_audit` ~3.3k · `overleaf_rt` ~3.0k · `ipc` ~2.5k ·
-`browser_host` ~2.1k · `latex` ~1.5k · `tex_setup` ~1.0k · everything else
+`browser_host` ~1.8k · `latex` ~1.5k · `tex_setup` ~1.0k · everything else
 under 1,000.
 
 **Hubs** (by number of modules that depend on them):

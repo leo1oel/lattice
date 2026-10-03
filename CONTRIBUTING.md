@@ -84,12 +84,12 @@ pnpm install
 ### You probably do not need to build the bundled runtimes
 
 **This is the part that trips up most new contributors.**
-Cargo compiles Tauri's resource manifest, which expects both `src-tauri/synara-runtime/` and `src-tauri/chromium-runtime/` to exist, but the tests never launch either runtime.
-Stub files are enough:
+Cargo compiles Tauri's resource manifest, which expects `src-tauri/synara-runtime/` to exist, but the tests never launch the runtime.
+A stub file is enough:
 
 ```bash
-mkdir -p src-tauri/{synara-runtime,chromium-runtime}
-touch src-tauri/{synara-runtime,chromium-runtime}/placeholder.txt
+mkdir -p src-tauri/synara-runtime
+touch src-tauri/synara-runtime/placeholder.txt
 ```
 
 With those files in place, `pnpm check`, `cargo test`, and `cargo clippy` all pass.

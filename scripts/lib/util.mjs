@@ -1,8 +1,4 @@
 // Helpers shared by the build, release, and maintenance scripts.
-//
-// Nothing that ships inside a bundled runtime may import this file:
-// chromium-shell.mjs and chromium-window-policy.mjs are copied into the
-// Electron app on their own, so they stay self-contained.
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { existsSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";

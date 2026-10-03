@@ -1,27 +1,17 @@
 //! The session table behind the browser bridge.
 //!
-//! Each session pairs one hidden native *host* WebView with the surfaces that
-//! show it: the bundled-Chromium window (*desktop*) and the writer's default
-//! browser (*browser*). Both may be connected at once, but only the session's
-//! *owner* relays IPC with the host. The other surface is parked (a Chromium
-//! window hidden behind a standby page) or waiting to take over.
+//! Each session pairs one hidden native *host* WebView with the browser tab
+//! that shows it. Only the newest tab relays IPC with the host: a second tab
+//! on the same workspace replaces the first. `visible_epoch` counts tab
+//! generations so a delayed grace timer can tell whether a tab reconnected in
+//! the meantime.
 //!
-//! Ownership moves by a handoff: the owner is asked to `yield`, saves, and
-//! answers `yielded`; only then does the other surface take over. Two
-//! surfaces therefore never edit the project at once, and an edit typed just
-//! before the switch is saved rather than dropped. An owner that cannot save
-//! answers `yield-failed`, or stays silent past the timeout, and keeps the
-//! workspace with its unsaved buffer: the waiting surface is told
-//! `handoff-refused` and can ask again. Only an owner that is gone, whose
-//! edits no surface can save any more, loses the workspace without a yes.
-//! `visible_epoch` counts ownership generations so a delayed grace timer can
-//! tell whether anything reconnected in the meantime.
-//!
-//! A native WebKit window can also hand its workspace to a browser tab. That
-//! session (`source_label`) relays nothing until the window has closed.
+//! A native window can also hand its workspace to a browser tab. That session
+//! (`source_label`) relays nothing until the window has closed, so the two
+//! never edit the project at once.
 //!
 //! Functions here only update the table and message peers; the caller applies
-//! the returned app-level effects (windows, Chromium, Synara).
+//! the app-level consequences (windows, Synara).
 
 use axum::extract::ws::Message;
 use serde::{Deserialize, Serialize};
@@ -39,28 +29,6 @@ pub(super) fn lock(
     sessions.lock().map_err(|_| "Browser session state is unavailable.".to_string())
 }
 
-/// A surface that shows a workspace.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(super) enum Surface {
-    Browser,
-    Desktop,
-}
-
-impl Surface {
-    fn other(self) -> Self {
-        match self {
-            Self::Browser => Self::Desktop,
-            Self::Desktop => Self::Browser,
-        }
-    }
-}
-
-/// A switch of owner, waiting for the current owner to save.
-pub(super) struct Handoff {
-    to: Surface,
-    id: u64,
-}
-
 pub(super) struct BrowserSession {
     pub(super) host_label: String,
     pub(super) browser_origin: String,
@@ -69,17 +37,8 @@ pub(super) struct BrowserSession {
     pub(super) created_at: Instant,
     pub(super) host: Option<Peer>,
     pub(super) browser: Option<Peer>,
-    pub(super) desktop: Option<Peer>,
-    /// A bundled Chromium window shows (or showed) this workspace.
-    pub(super) bundled_chromium: bool,
-    // Ownership state: visible for struct-update construction only; change it
-    // through the functions in this module.
-    pub(super) owner: Option<Surface>,
-    pub(super) handoff: Option<Handoff>,
-    pub(super) handoff_serial: u64,
-    /// When the browser asked to go back to a Chromium window that is still
-    /// opening.
-    pub(super) return_requested: Option<Instant>,
+    /// Tab generations; nonzero once a tab has shown the workspace. Visible
+    /// for struct-update construction only; change it through this module.
     pub(super) visible_epoch: u64,
     /// The native window handing this workspace to a browser tab.
     pub(super) source_label: Option<String>,
@@ -100,12 +59,6 @@ impl BrowserSession {
             created_at: Instant::now(),
             host: None,
             browser: None,
-            desktop: None,
-            bundled_chromium: false,
-            owner: None,
-            handoff: None,
-            handoff_serial: 0,
-            return_requested: None,
             visible_epoch: 0,
             source_label: None,
             project_root: None,
@@ -114,128 +67,23 @@ impl BrowserSession {
         }
     }
 
-    fn slot(&mut self, role: BridgeRole) -> &mut Option<Peer> {
-        match role {
-            BridgeRole::Browser => &mut self.browser,
-            BridgeRole::Desktop => &mut self.desktop,
-            BridgeRole::Host => &mut self.host,
-        }
+    /// A browser tab shows this workspace, or did until a moment ago and may
+    /// still come back within its grace period.
+    pub(super) fn shown_in_browser(&self) -> bool {
+        self.visible_epoch != 0
     }
 
-    fn peer(&self, surface: Surface) -> Option<&Peer> {
-        match surface {
-            Surface::Browser => self.browser.as_ref(),
-            Surface::Desktop => self.desktop.as_ref(),
-        }
-    }
-
-    fn owner_peer(&self) -> Option<&Peer> {
-        self.owner.and_then(|owner| self.peer(owner))
-    }
-
-    fn take_ownership(&mut self, surface: Surface) {
-        let reset_host = self.visible_epoch != 0;
-        self.visible_epoch = self.visible_epoch.wrapping_add(1);
-        self.owner = Some(surface);
-        if reset_host {
-            notify(self.host.as_ref(), "browser-reset");
-        }
-    }
-
-    /// Ask the owner to save and yield to `to`; returns the handoff's id.
-    fn start_handoff(&mut self, to: Surface) -> u64 {
-        if let Some(handoff) = self.handoff.as_ref().filter(|handoff| handoff.to == to) {
-            return handoff.id;
-        }
-        self.handoff_serial += 1;
-        let id = self.handoff_serial;
-        self.handoff = Some(Handoff { to, id });
-        notify(self.peer(to.other()), "yield");
-        id
-    }
-
-    /// Give up the pending handoff: the owner keeps the workspace, and the
-    /// surface that waited for it is told so it can ask again.
-    fn refuse_handoff(&mut self) {
-        if let Some(handoff) = self.handoff.take() {
-            notify(self.peer(handoff.to), "handoff-refused");
-        }
-    }
-
-    /// Hand the workspace to the surface handoff `id` is for, if it is still
-    /// pending and that surface is still connected.
-    fn complete_handoff(&mut self, id: u64) -> Option<Effect> {
-        if self.handoff.as_ref().is_none_or(|handoff| handoff.id != id) {
-            return None;
-        }
-        let to = self.handoff.take()?.to;
-        self.peer(to)?;
-        Some(self.switch_to(to))
-    }
-
-    fn switch_to(&mut self, to: Surface) -> Effect {
-        self.take_ownership(to);
-        match to {
-            Surface::Browser => {
-                // The Chromium page reloads into its standby screen.
-                notify(self.desktop.as_ref(), "desktop-suspended");
-                notify_ready(self);
-                Effect::Parked
-            }
-            Surface::Desktop => {
-                if let Some(browser) = self.browser.take() {
-                    notify(Some(&browser), "desktop-returned");
-                    browser.close();
-                }
-                // The Chromium page reloads into the full workspace, which
-                // registers again and is then told it is ready.
-                notify(self.desktop.as_ref(), "desktop-resumed");
-                Effect::Resumed
-            }
-        }
-    }
-
-    /// Attach a visible peer: take over a workspace nobody else is showing,
-    /// or wait behind the surface that is.
-    fn attach(&mut self, surface: Surface, peer: Peer) -> Option<Effect> {
-        if surface == Surface::Desktop {
-            self.bundled_chromium = true;
-        }
-        let role = match surface {
-            Surface::Browser => BridgeRole::Browser,
-            Surface::Desktop => BridgeRole::Desktop,
-        };
-        if let Some(previous) = self.slot(role).replace(peer) {
-            if surface == Surface::Browser {
-                notify(Some(&previous), "browser-replaced");
-            }
+    /// Attach a tab, replacing any earlier one: the newest tab owns the
+    /// workspace, and the host starts over with it.
+    fn attach_browser(&mut self, peer: Peer) {
+        if let Some(previous) = self.browser.replace(peer) {
+            notify(Some(&previous), "browser-replaced");
             previous.close();
         }
-        let other = surface.other();
-        let other_holds =
-            self.owner == Some(other) && (self.peer(other).is_some() || other == Surface::Browser);
-        if !other_holds {
-            self.take_ownership(surface);
-            // A reloaded owner page was not the one asked to yield.
-            if self.handoff.as_ref().is_some_and(|handoff| handoff.to == other) {
-                notify(self.peer(surface), "yield");
-            }
-            return None;
+        if self.shown_in_browser() {
+            notify(self.host.as_ref(), "browser-reset");
         }
-        let return_requested = self
-            .return_requested
-            .take()
-            .is_some_and(|requested_at| requested_at.elapsed() < RETURN_REQUEST_TTL);
-        match surface {
-            Surface::Browser => Some(Effect::HandoffStarted(self.start_handoff(Surface::Browser))),
-            Surface::Desktop if return_requested => {
-                Some(Effect::HandoffStarted(self.start_handoff(Surface::Desktop)))
-            }
-            Surface::Desktop => {
-                notify(self.desktop.as_ref(), "desktop-suspended");
-                None
-            }
-        }
+        self.visible_epoch = self.visible_epoch.wrapping_add(1);
     }
 }
 
@@ -268,35 +116,11 @@ pub(super) struct BridgeQuery {
     pub(super) role: BridgeRole,
 }
 
-#[derive(Clone, Copy, Default, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Copy, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
 pub(super) enum BridgeRole {
-    #[default]
     Browser,
-    Desktop,
     Host,
-}
-
-impl BridgeRole {
-    fn surface(self) -> Option<Surface> {
-        match self {
-            Self::Browser => Some(Surface::Browser),
-            Self::Desktop => Some(Surface::Desktop),
-            Self::Host => None,
-        }
-    }
-}
-
-/// What the caller must do after a session change.
-#[derive(Debug, PartialEq, Eq)]
-pub(super) enum Effect {
-    /// The owner was asked to yield: settle handoff `id` after a timeout if
-    /// it never answers (see [`finish_handoff`]).
-    HandoffStarted(u64),
-    /// A browser tab took over: hide the Chromium window.
-    Parked,
-    /// The Chromium window took over again: show it.
-    Resumed,
 }
 
 #[derive(Serialize)]
@@ -311,17 +135,7 @@ impl BrowserSessionConfig {
     pub(super) fn new(token: &str, session: &BrowserSession, port: u16) -> Self {
         Self { token: token.to_string(), bridge_port: port, label: session.host_label.clone() }
     }
-
-    pub(super) fn url(&self, origin: &str) -> String {
-        format!(
-            "{origin}/#token={}&bridgePort={}&label={}",
-            self.token, self.bridge_port, self.label
-        )
-    }
 }
-
-/// How long a "Return to desktop" waits for the Chromium window it opened.
-const RETURN_REQUEST_TTL: Duration = Duration::from_secs(30);
 
 /// How long a default-browser entry address can claim its workspace.
 const ENTRY_NONCE_TTL: Duration = Duration::from_secs(60);
@@ -407,43 +221,40 @@ pub(super) fn reusable_entry_config(
         .map(|(token, session)| BrowserSessionConfig::new(token, session, port))
 }
 
-/// Attach a peer, or None when the token is unknown. The inner value is what
-/// the caller must apply.
+/// Attach a peer; false when the token is unknown.
 pub(super) fn register_peer(
     sessions: &Sessions, query: &BridgeQuery, peer_id: &str, sender: mpsc::UnboundedSender<Message>,
-) -> Option<Option<Effect>> {
-    let mut sessions = sessions.lock().ok()?;
-    let session = sessions.get_mut(&query.token)?;
+) -> bool {
+    let Ok(mut sessions) = sessions.lock() else {
+        return false;
+    };
+    let Some(session) = sessions.get_mut(&query.token) else {
+        return false;
+    };
     let peer = Peer { id: peer_id.to_string(), sender };
-    let effect = match query.role.surface() {
-        Some(surface) => session.attach(surface, peer),
-        None => {
+    match query.role {
+        BridgeRole::Browser => session.attach_browser(peer),
+        BridgeRole::Host => {
             if let Some(previous) = session.host.replace(peer) {
                 previous.close();
             }
-            None
         }
-    };
-    // A peer that only waits or stays parked changes nothing for the pair
-    // that relays, and a repeated ready would re-send the host's storage.
-    if query.role == BridgeRole::Host || session.owner_peer().is_some_and(|peer| peer.id == peer_id)
-    {
-        notify_ready(session);
     }
-    Some(effect)
+    notify_ready(session);
+    true
 }
 
 fn notify_ready(session: &BrowserSession) {
     if !session.active {
         return;
     }
-    let (Some(host), Some(visible)) = (&session.host, session.owner_peer()) else {
+    let (Some(host), Some(browser)) = (&session.host, &session.browser) else {
         return;
     };
     let ready =
         Message::Text(format!(r#"{{"type":"ready","label":"{}"}}"#, session.host_label).into());
     host.send(ready.clone());
-    visible.send(ready);
+    browser.send(ready);
 }
 
 /// Start relaying a native window's handoff once that window has closed.
@@ -453,128 +264,20 @@ pub(super) fn activate(session: &mut BrowserSession) {
 }
 
 /// The peer that should receive a message from `peer_id`, if that peer is
-/// the current one for its role and its surface owns the session.
+/// still the current one for its role.
 pub(super) fn other_peer(
     sessions: &Sessions, query: &BridgeQuery, peer_id: &str,
 ) -> Option<mpsc::UnboundedSender<Message>> {
     let sessions = sessions.lock().ok()?;
     let session = sessions.get(&query.token).filter(|session| session.active)?;
-    let (source, target) = match query.role.surface() {
-        Some(surface) if session.owner == Some(surface) => {
-            (session.peer(surface), session.host.as_ref())
-        }
-        // A parked or waiting surface stays silent.
-        Some(_) => return None,
-        None => (session.host.as_ref(), session.owner_peer()),
+    let (source, target) = match query.role {
+        BridgeRole::Browser => (session.browser.as_ref(), session.host.as_ref()),
+        BridgeRole::Host => (session.host.as_ref(), session.browser.as_ref()),
     };
     if source?.id != peer_id {
         return None;
     }
     target.map(|peer| peer.sender.clone())
-}
-
-/// The owner answered `yield`: it has saved, so the waiting surface takes over.
-pub(super) fn yielded(sessions: &Sessions, query: &BridgeQuery, peer_id: &str) -> Option<Effect> {
-    let mut sessions = sessions.lock().ok()?;
-    let session = sessions.get_mut(&query.token)?;
-    let surface = query.role.surface()?;
-    if session.owner != Some(surface) || session.peer(surface)?.id != peer_id {
-        return None;
-    }
-    let id = session.handoff.as_ref()?.id;
-    session.complete_handoff(id)
-}
-
-/// The owner answered `yield` with `yield-failed`: some edit is still unsaved,
-/// so it keeps the workspace.
-pub(super) fn yield_failed(sessions: &Sessions, query: &BridgeQuery, peer_id: &str) {
-    let Ok(mut sessions) = sessions.lock() else {
-        return;
-    };
-    let Some(session) = sessions.get_mut(&query.token) else {
-        return;
-    };
-    let owner_answered = query.role.surface().is_some_and(|surface| {
-        session.owner == Some(surface)
-            && session.peer(surface).is_some_and(|peer| peer.id == peer_id)
-    });
-    if owner_answered {
-        session.refuse_handoff();
-    }
-}
-
-/// How a handoff the owner never answered ends.
-#[derive(Debug, PartialEq, Eq)]
-pub(super) enum HandoffTimeout {
-    /// The owner is still connected, so its edits may still be unsaved: it
-    /// keeps the workspace and the waiting surface is told.
-    Kept,
-    /// The owner is gone, and its edits with it: the waiting surface takes over.
-    Switched(Effect),
-}
-
-/// The yield timeout passed for handoff `id`; None when it is no longer pending.
-pub(super) fn finish_handoff(sessions: &Sessions, token: &str, id: u64) -> Option<HandoffTimeout> {
-    let mut sessions = sessions.lock().ok()?;
-    let session = sessions.get_mut(token)?;
-    if session.handoff.as_ref()?.id != id {
-        return None;
-    }
-    // A slow or wedged save is not a lost one: switching now would close or
-    // reload a page that may hold the only copy of an edit.
-    if session.owner_peer().is_some() {
-        session.refuse_handoff();
-        return Some(HandoffTimeout::Kept);
-    }
-    session.complete_handoff(id).map(HandoffTimeout::Switched)
-}
-
-/// The parked Chromium window asked to show the workspace again.
-pub(super) fn reclaim(sessions: &Sessions, query: &BridgeQuery, peer_id: &str) -> Option<Effect> {
-    let mut sessions = sessions.lock().ok()?;
-    let session = sessions.get_mut(&query.token)?;
-    if query.role != BridgeRole::Desktop
-        || session.desktop.as_ref()?.id != peer_id
-        || session.owner == Some(Surface::Desktop)
-    {
-        return None;
-    }
-    if session.browser.is_some() {
-        return Some(Effect::HandoffStarted(session.start_handoff(Surface::Desktop)));
-    }
-    Some(session.switch_to(Surface::Desktop))
-}
-
-/// How a browser tab goes back to the desktop.
-pub(super) enum ReturnPlan {
-    /// The parked Chromium window takes over once the tab yields.
-    Handoff(String, u64),
-    /// Reopen the Chromium window, which takes over once it connects.
-    OpenChromium,
-    /// Open a native window, then end this session.
-    Native(String),
-}
-
-pub(super) fn request_return(
-    sessions: &Sessions, host_label: &str, chromium_running: bool,
-) -> Result<ReturnPlan, String> {
-    let mut sessions = lock(sessions)?;
-    let (token, session) = sessions
-        .iter_mut()
-        .find(|(_, session)| session.host_label == host_label)
-        .ok_or_else(|| "This browser workspace is no longer active.".to_string())?;
-    if session.owner != Some(Surface::Browser) {
-        return Err("This workspace is already open in the Lattice app.".to_string());
-    }
-    if session.desktop.is_some() {
-        let id = session.start_handoff(Surface::Desktop);
-        return Ok(ReturnPlan::Handoff(token.clone(), id));
-    }
-    if chromium_running {
-        session.return_requested = Some(Instant::now());
-        return Ok(ReturnPlan::OpenChromium);
-    }
-    Ok(ReturnPlan::Native(token.clone()))
 }
 
 /// End a session whose workspace now shows in a native window.
@@ -600,67 +303,50 @@ pub(super) fn detach_peer(
 ) -> Option<Detached> {
     let mut table = sessions.lock().ok()?;
     let session = table.get_mut(&query.token)?;
-    let slot = session.slot(query.role);
+    let slot = match query.role {
+        BridgeRole::Browser => &mut session.browser,
+        BridgeRole::Host => &mut session.host,
+    };
     if slot.as_ref().map(|peer| peer.id.as_str()) != Some(peer_id) {
         return None;
     }
     *slot = None;
-    match query.role.surface() {
-        Some(surface) => {
-            // A surface waiting to take over left: the owner keeps the workspace.
-            if session.handoff.as_ref().is_some_and(|handoff| handoff.to == surface) {
-                session.handoff = None;
-            }
-            (session.owner == Some(surface)).then_some(Detached::Grace(session.visible_epoch))
-        }
-        None => {
+    match query.role {
+        BridgeRole::Browser => Some(Detached::Grace(session.visible_epoch)),
+        BridgeRole::Host => {
             notify(session.browser.as_ref(), "host-disconnected");
-            notify(session.desktop.as_ref(), "host-disconnected");
             table.remove(&query.token);
             Some(Detached::SessionRemoved)
         }
     }
 }
 
-pub(super) enum Settlement {
-    /// The owner is gone for good and the other surface took over: usually
-    /// the tab closed and the parked Chromium window shows the workspace again.
-    Switched(Effect),
-    /// Nobody came back: retire the hidden host. `native_return` marks a
-    /// workspace a native window handed to the tab, which reopens there.
-    Expired { host_label: String, native_return: bool },
+/// A session nobody came back to: retire its hidden host.
+pub(super) struct Expired {
+    pub(super) host_label: String,
+    /// The workspace a native window handed to the tab, which reopens there.
+    pub(super) native_return: bool,
 }
 
-/// Settle a session whose owner did not come back during its grace period.
-/// `None` leaves it as it is: the owner reconnected, or a newer generation
-/// owns it.
+/// End a session whose tab did not come back during its grace period.
+/// `None` leaves it as it is: a tab reconnected, or a newer generation owns
+/// it.
 pub(super) fn settle_after_grace(
     sessions: &Sessions, token: &str, visible_epoch: u64,
-) -> Option<Settlement> {
+) -> Option<Expired> {
     let mut sessions = sessions.lock().ok()?;
-    let session = sessions.get_mut(token)?;
-    if session.owner_peer().is_some() || session.visible_epoch != visible_epoch {
+    let session = sessions.get(token)?;
+    if session.browser.is_some() || session.visible_epoch != visible_epoch {
         return None;
     }
-    if let Some(other) =
-        session.owner.map(Surface::other).filter(|other| session.peer(*other).is_some())
-    {
-        // The surface that showed the workspace is gone for good, so the
-        // other one takes over without waiting for a yield.
-        session.handoff = None;
-        return Some(Settlement::Switched(session.switch_to(other)));
-    }
     let session = sessions.remove(token)?;
-    Some(Settlement::Expired {
-        native_return: session.source_label.is_some(),
-        host_label: session.host_label,
-    })
+    Some(Expired { native_return: session.source_label.is_some(), host_label: session.host_label })
 }
 
 pub(super) fn send_error(sessions: &Sessions, token: &str, reason: &str) {
     let message = serde_json::json!({ "type": "error", "message": reason }).to_string();
     if let Some(session) = sessions.lock().ok().as_ref().and_then(|sessions| sessions.get(token)) {
-        for peer in [&session.host, &session.browser, &session.desktop].into_iter().flatten() {
+        for peer in [&session.host, &session.browser].into_iter().flatten() {
             peer.send(Message::Text(message.clone().into()));
         }
     }
@@ -692,17 +378,10 @@ mod tests {
         BridgeQuery { token: TOKEN.to_string(), role }
     }
 
-    /// Connects `id`, returning its socket and the effect the caller must apply.
-    fn connect_with(
-        sessions: &Sessions, role: BridgeRole, id: &str,
-    ) -> (UnboundedReceiver<Message>, Option<Effect>) {
-        let (sender, receiver) = mpsc::unbounded_channel();
-        let effect = register_peer(sessions, &query(role), id, sender).expect("registered");
-        (receiver, effect)
-    }
-
     fn connect(sessions: &Sessions, role: BridgeRole, id: &str) -> UnboundedReceiver<Message> {
-        connect_with(sessions, role, id).0
+        let (sender, receiver) = mpsc::unbounded_channel();
+        assert!(register_peer(sessions, &query(role), id, sender), "registered");
+        receiver
     }
 
     fn relays(sessions: &Sessions, role: BridgeRole, id: &str) -> bool {
@@ -742,29 +421,8 @@ mod tests {
         }
     }
 
-    /// A Chromium window showing the workspace, as after launch.
-    fn chromium_workspace(
-        sessions: &Sessions,
-    ) -> (UnboundedReceiver<Message>, UnboundedReceiver<Message>) {
-        let mut host = connect(sessions, BridgeRole::Host, "host");
-        let mut desktop = connect(sessions, BridgeRole::Desktop, "window");
-        drain(&mut [&mut host, &mut desktop]);
-        (host, desktop)
-    }
-
-    /// The tab opened by "Open in browser" has taken over from the window.
-    fn handed_to_browser(
-        sessions: &Sessions,
-    ) -> (UnboundedReceiver<Message>, UnboundedReceiver<Message>, UnboundedReceiver<Message>) {
-        let (mut host, mut desktop) = chromium_workspace(sessions);
-        let (mut browser, _) = connect_with(sessions, BridgeRole::Browser, "tab");
-        assert_eq!(yielded(sessions, &query(BridgeRole::Desktop), "window"), Some(Effect::Parked));
-        drain(&mut [&mut host, &mut desktop, &mut browser]);
-        (host, desktop, browser)
-    }
-
     #[test]
-    fn host_and_visible_peer_are_told_they_are_ready_and_relay() {
+    fn host_and_tab_are_told_they_are_ready_and_relay() {
         let sessions = sessions();
         let mut host = connect(&sessions, BridgeRole::Host, "host");
         assert_eq!(next(&mut host), "none");
@@ -774,256 +432,37 @@ mod tests {
         assert_eq!(next(&mut browser), READY);
         assert!(relays(&sessions, BridgeRole::Browser, "browser"));
         assert!(relays(&sessions, BridgeRole::Host, "host"));
-    }
-
-    #[test]
-    fn opening_in_the_browser_waits_for_the_window_to_save_then_parks_it() {
-        let sessions = sessions();
-        let (mut host, mut desktop) = chromium_workspace(&sessions);
-
-        let (mut browser, effect) = connect_with(&sessions, BridgeRole::Browser, "tab");
-        assert!(matches!(effect, Some(Effect::HandoffStarted(_))));
-        // Until the window has saved, it keeps the workspace and the tab waits.
-        assert_eq!(all(&mut desktop), [control("yield")]);
-        assert_eq!(next(&mut browser), "none");
-        assert!(relays(&sessions, BridgeRole::Desktop, "window"));
-        assert!(!relays(&sessions, BridgeRole::Browser, "tab"));
-
-        assert_eq!(yielded(&sessions, &query(BridgeRole::Desktop), "window"), Some(Effect::Parked));
-        assert_eq!(all(&mut desktop), [control("desktop-suspended")]);
-        assert_eq!(all(&mut host), [control("browser-reset"), READY.to_string()]);
-        assert_eq!(all(&mut browser), [READY]);
-        assert!(relays(&sessions, BridgeRole::Browser, "tab"));
-        assert!(!relays(&sessions, BridgeRole::Desktop, "window"));
-        assert!(relays(&sessions, BridgeRole::Host, "host"));
-
-        // The parked page reloads into its standby screen without a grace
-        // timer and without disturbing the pair that relays.
-        assert!(detach_peer(&sessions, &query(BridgeRole::Desktop), "window").is_none());
-        let mut standby = connect(&sessions, BridgeRole::Desktop, "standby");
-        assert_eq!(all(&mut standby), [control("desktop-suspended")]);
-        assert_eq!(next(&mut host), "none");
-        assert_eq!(next(&mut browser), "none");
-    }
-
-    #[test]
-    fn returning_to_the_desktop_waits_for_the_tab_to_save_then_shows_the_window() {
-        let sessions = sessions();
-        let (mut host, mut desktop, mut browser) = handed_to_browser(&sessions);
-
-        let Ok(ReturnPlan::Handoff(token, id)) = request_return(&sessions, "browser-test", true)
-        else {
-            panic!("a parked window takes the workspace back by a handoff");
-        };
-        assert_eq!((token.as_str(), next(&mut browser)), (TOKEN, control("yield")));
-        assert!(relays(&sessions, BridgeRole::Browser, "tab"));
-
-        assert_eq!(yielded(&sessions, &query(BridgeRole::Browser), "tab"), Some(Effect::Resumed));
-        assert_eq!(all(&mut browser), [control("desktop-returned"), "close".to_string()]);
-        assert_eq!(all(&mut desktop), [control("desktop-resumed")]);
-        assert_eq!(next(&mut host), control("browser-reset"));
-        assert!(finish_handoff(&sessions, TOKEN, id).is_none(), "the timeout is stale now");
-
-        // The window reloads into the full workspace and relays again.
-        let mut workspace = connect(&sessions, BridgeRole::Desktop, "workspace");
-        assert_eq!(all(&mut workspace), [READY]);
-        assert!(relays(&sessions, BridgeRole::Desktop, "workspace"));
-        assert!(request_return(&sessions, "browser-test", true).is_err());
-    }
-
-    #[test]
-    fn closing_the_tab_brings_the_parked_window_back_after_the_grace_period() {
-        let sessions = sessions();
-        let (_host, mut desktop, _browser) = handed_to_browser(&sessions);
-
-        let epoch = detach_with_grace(&sessions, BridgeRole::Browser, "tab");
-        assert!(matches!(
-            settle_after_grace(&sessions, TOKEN, epoch),
-            Some(Settlement::Switched(Effect::Resumed))
-        ));
-        assert_eq!(all(&mut desktop), [control("desktop-resumed")]);
+        assert!(!relays(&sessions, BridgeRole::Browser, "stale"));
     }
 
     #[test]
     fn reloading_the_tab_keeps_the_workspace_in_the_browser() {
         let sessions = sessions();
-        let (_host, mut desktop, _browser) = handed_to_browser(&sessions);
+        let mut host = connect(&sessions, BridgeRole::Host, "host");
+        let _tab = connect(&sessions, BridgeRole::Browser, "tab");
+        drain(&mut [&mut host]);
 
         let epoch = detach_with_grace(&sessions, BridgeRole::Browser, "tab");
-        let (mut reloaded, effect) = connect_with(&sessions, BridgeRole::Browser, "reloaded");
-        assert_eq!(effect, None);
+        assert!(sessions.lock().unwrap()[TOKEN].shown_in_browser(), "still the tab's");
+        let mut reloaded = connect(&sessions, BridgeRole::Browser, "reloaded");
         assert_eq!(all(&mut reloaded), [READY]);
+        assert_eq!(all(&mut host), [control("browser-reset"), READY.to_string()]);
         assert!(settle_after_grace(&sessions, TOKEN, epoch).is_none());
-        assert_eq!(next(&mut desktop), "none");
+        assert!(relays(&sessions, BridgeRole::Browser, "reloaded"));
     }
 
     #[test]
-    fn a_connected_window_that_never_answers_keeps_the_workspace() {
-        let sessions = sessions();
-        let (_host, mut desktop) = chromium_workspace(&sessions);
-        let (mut browser, effect) = connect_with(&sessions, BridgeRole::Browser, "tab");
-        let Some(Effect::HandoffStarted(id)) = effect else { panic!("handoff expected") };
-        drain(&mut [&mut desktop]);
-
-        assert!(finish_handoff(&sessions, TOKEN, id + 1).is_none());
-        // Its save may still be running: closing it now could drop an edit.
-        assert_eq!(finish_handoff(&sessions, TOKEN, id), Some(HandoffTimeout::Kept));
-        assert_eq!(next(&mut desktop), "none");
-        assert_eq!(all(&mut browser), [control("handoff-refused")]);
-        assert!(relays(&sessions, BridgeRole::Desktop, "window"));
-        assert!(!relays(&sessions, BridgeRole::Browser, "tab"));
-
-        // A save that finishes after the timeout no longer switches anything.
-        assert!(yielded(&sessions, &query(BridgeRole::Desktop), "window").is_none());
-        assert!(relays(&sessions, BridgeRole::Desktop, "window"));
-    }
-
-    #[test]
-    fn a_window_gone_before_the_timeout_is_switched() {
-        let sessions = sessions();
-        let (_host, _desktop) = chromium_workspace(&sessions);
-        let (_browser, effect) = connect_with(&sessions, BridgeRole::Browser, "tab");
-        let Some(Effect::HandoffStarted(id)) = effect else { panic!("handoff expected") };
-
-        detach_with_grace(&sessions, BridgeRole::Desktop, "window");
-        assert_eq!(
-            finish_handoff(&sessions, TOKEN, id),
-            Some(HandoffTimeout::Switched(Effect::Parked))
-        );
-        assert!(relays(&sessions, BridgeRole::Browser, "tab"));
-    }
-
-    #[test]
-    fn a_window_that_cannot_save_keeps_the_workspace_and_the_tab_may_ask_again() {
-        let sessions = sessions();
-        let (_host, mut desktop) = chromium_workspace(&sessions);
-        let (mut browser, effect) = connect_with(&sessions, BridgeRole::Browser, "tab");
-        let Some(Effect::HandoffStarted(id)) = effect else { panic!("handoff expected") };
-        drain(&mut [&mut desktop]);
-
-        // Only the owner's current page can refuse.
-        yield_failed(&sessions, &query(BridgeRole::Browser), "tab");
-        yield_failed(&sessions, &query(BridgeRole::Desktop), "stale");
-        assert_eq!(next(&mut browser), "none");
-
-        yield_failed(&sessions, &query(BridgeRole::Desktop), "window");
-        assert_eq!(all(&mut browser), [control("handoff-refused")]);
-        assert_eq!(next(&mut desktop), "none");
-        assert!(relays(&sessions, BridgeRole::Desktop, "window"));
-        assert!(!relays(&sessions, BridgeRole::Browser, "tab"));
-        assert!(finish_handoff(&sessions, TOKEN, id).is_none(), "the timeout is stale now");
-        assert!(yielded(&sessions, &query(BridgeRole::Desktop), "window").is_none());
-
-        // Trying again (the tab reloads) starts a new handoff.
-        let (mut retry, effect) = connect_with(&sessions, BridgeRole::Browser, "tab-2");
-        assert!(matches!(effect, Some(Effect::HandoffStarted(next_id)) if next_id != id));
-        assert_eq!(all(&mut desktop), [control("yield")]);
-        assert_eq!(yielded(&sessions, &query(BridgeRole::Desktop), "window"), Some(Effect::Parked));
-        assert_eq!(all(&mut retry), [READY]);
-    }
-
-    #[test]
-    fn a_tab_that_cannot_save_keeps_the_workspace_from_the_window() {
-        let sessions = sessions();
-        let (_host, mut desktop, mut browser) = handed_to_browser(&sessions);
-
-        let Ok(ReturnPlan::Handoff(_, id)) = request_return(&sessions, "browser-test", true) else {
-            panic!("a parked window takes the workspace back by a handoff");
-        };
-        assert_eq!(next(&mut browser), control("yield"));
-        yield_failed(&sessions, &query(BridgeRole::Browser), "tab");
-        assert_eq!(all(&mut desktop), [control("handoff-refused")]);
-        assert_eq!(next(&mut browser), "none");
-        assert!(relays(&sessions, BridgeRole::Browser, "tab"));
-        assert!(finish_handoff(&sessions, TOKEN, id).is_none());
-
-        // The same holds when the tab stays silent past the timeout.
-        assert!(matches!(
-            reclaim(&sessions, &query(BridgeRole::Desktop), "window"),
-            Some(Effect::HandoffStarted(_))
-        ));
-        let Some(id) = sessions.lock().unwrap()[TOKEN].handoff.as_ref().map(|handoff| handoff.id)
-        else {
-            panic!("reclaim starts a handoff");
-        };
-        assert_eq!(next(&mut browser), control("yield"));
-        assert_eq!(finish_handoff(&sessions, TOKEN, id), Some(HandoffTimeout::Kept));
-        assert_eq!(all(&mut desktop), [control("handoff-refused")]);
-        assert!(relays(&sessions, BridgeRole::Browser, "tab"));
-    }
-
-    #[test]
-    fn a_tab_that_leaves_before_the_switch_leaves_the_window_in_charge() {
-        let sessions = sessions();
-        let (_host, _desktop) = chromium_workspace(&sessions);
-        let (_browser, effect) = connect_with(&sessions, BridgeRole::Browser, "tab");
-        let Some(Effect::HandoffStarted(id)) = effect else { panic!("handoff expected") };
-
-        assert!(detach_peer(&sessions, &query(BridgeRole::Browser), "tab").is_none());
-        assert!(yielded(&sessions, &query(BridgeRole::Desktop), "window").is_none());
-        assert!(finish_handoff(&sessions, TOKEN, id).is_none());
-        assert!(relays(&sessions, BridgeRole::Desktop, "window"));
-    }
-
-    #[test]
-    fn the_parked_window_can_take_the_workspace_back() {
-        let sessions = sessions();
-        let (_host, mut desktop, mut browser) = handed_to_browser(&sessions);
-        // Only the parked window may ask, and it must be the current page.
-        assert!(reclaim(&sessions, &query(BridgeRole::Browser), "tab").is_none());
-        assert!(reclaim(&sessions, &query(BridgeRole::Desktop), "stale").is_none());
-
-        assert!(matches!(
-            reclaim(&sessions, &query(BridgeRole::Desktop), "window"),
-            Some(Effect::HandoffStarted(_))
-        ));
-        assert_eq!(next(&mut browser), control("yield"));
-        assert_eq!(yielded(&sessions, &query(BridgeRole::Browser), "tab"), Some(Effect::Resumed));
-        assert_eq!(all(&mut desktop), [control("desktop-resumed")]);
-
-        // With the tab already gone, the window takes it back at once.
-        let sessions = self::sessions();
-        let (_host, mut desktop, _browser) = handed_to_browser(&sessions);
-        detach_with_grace(&sessions, BridgeRole::Browser, "tab");
-        assert_eq!(
-            reclaim(&sessions, &query(BridgeRole::Desktop), "window"),
-            Some(Effect::Resumed)
-        );
-        assert_eq!(all(&mut desktop), [control("desktop-resumed")]);
-    }
-
-    #[test]
-    fn returning_reopens_a_closed_chromium_window_which_then_takes_over() {
+    fn closing_the_tab_ends_the_session_after_the_grace_period() {
         let sessions = sessions();
         let _host = connect(&sessions, BridgeRole::Host, "host");
-        let mut browser = connect(&sessions, BridgeRole::Browser, "bookmark");
-        drain(&mut [&mut browser]);
+        let _tab = connect(&sessions, BridgeRole::Browser, "tab");
 
+        let epoch = detach_with_grace(&sessions, BridgeRole::Browser, "tab");
         assert!(matches!(
-            request_return(&sessions, "browser-test", true),
-            Ok(ReturnPlan::OpenChromium)
+            settle_after_grace(&sessions, TOKEN, epoch),
+            Some(Expired { native_return: false, .. })
         ));
-        let (mut window, effect) = connect_with(&sessions, BridgeRole::Desktop, "window");
-        assert!(matches!(effect, Some(Effect::HandoffStarted(_))));
-        assert_eq!(next(&mut browser), control("yield"));
-        assert_eq!(next(&mut window), "none");
-        assert_eq!(
-            yielded(&sessions, &query(BridgeRole::Browser), "bookmark"),
-            Some(Effect::Resumed)
-        );
-        assert_eq!(all(&mut window), [control("desktop-resumed")]);
-    }
-
-    #[test]
-    fn opening_the_window_while_a_tab_holds_the_workspace_shows_its_standby_screen() {
-        let sessions = sessions();
-        let _host = connect(&sessions, BridgeRole::Host, "host");
-        let _browser = connect(&sessions, BridgeRole::Browser, "bookmark");
-
-        let (mut window, effect) = connect_with(&sessions, BridgeRole::Desktop, "window");
-        assert_eq!(effect, None);
-        assert_eq!(all(&mut window), [control("desktop-suspended")]);
-        assert!(relays(&sessions, BridgeRole::Browser, "bookmark"));
+        assert!(sessions.lock().unwrap().is_empty());
     }
 
     #[test]
@@ -1041,10 +480,7 @@ mod tests {
         assert_eq!(next(&mut browser), READY);
         assert!(relays(&sessions, BridgeRole::Browser, "tab"));
 
-        let Ok(ReturnPlan::Native(token)) = request_return(&sessions, "browser-test", false) else {
-            panic!("without Chromium the workspace returns to a native window");
-        };
-        assert_eq!(finish_native_return(&sessions, &token).as_deref(), Some("browser-test"));
+        assert_eq!(finish_native_return(&sessions, TOKEN).as_deref(), Some("browser-test"));
         assert_eq!(all(&mut browser), [control("desktop-returned"), "close".to_string()]);
         assert!(sessions.lock().unwrap().is_empty());
     }
@@ -1059,7 +495,7 @@ mod tests {
         let epoch = detach_with_grace(&sessions, BridgeRole::Browser, "tab");
         assert!(matches!(
             settle_after_grace(&sessions, TOKEN, epoch),
-            Some(Settlement::Expired { native_return: true, .. })
+            Some(Expired { native_return: true, .. })
         ));
     }
 
@@ -1077,31 +513,22 @@ mod tests {
         assert_eq!(next(&mut host), control("browser-reset"));
         assert!(!relays(&sessions, BridgeRole::Browser, "first"));
         assert!(relays(&sessions, BridgeRole::Browser, "second"));
+        // The revoked socket's own close must not start a grace timer.
+        assert!(detach_peer(&sessions, &query(BridgeRole::Browser), "first").is_none());
     }
 
     #[test]
-    fn desktop_reconnect_cancels_the_disconnected_desktop_grace_timer() {
+    fn host_disconnect_ends_the_session_and_tells_the_tab() {
         let sessions = sessions();
-        let (mut host, _desktop) = chromium_workspace(&sessions);
-        let epoch = detach_with_grace(&sessions, BridgeRole::Desktop, "window");
-        let mut reconnected = connect(&sessions, BridgeRole::Desktop, "window-reconnected");
-        drain(&mut [&mut host, &mut reconnected]);
-
-        assert!(settle_after_grace(&sessions, TOKEN, epoch).is_none());
-        assert!(relays(&sessions, BridgeRole::Desktop, "window-reconnected"));
-    }
-
-    #[test]
-    fn host_disconnect_ends_the_session_and_tells_every_visible_peer() {
-        let sessions = sessions();
-        let (_host, mut desktop, mut browser) = handed_to_browser(&sessions);
+        let _host = connect(&sessions, BridgeRole::Host, "host");
+        let mut browser = connect(&sessions, BridgeRole::Browser, "tab");
+        drain(&mut [&mut browser]);
 
         assert!(matches!(
             detach_peer(&sessions, &query(BridgeRole::Host), "host"),
             Some(Detached::SessionRemoved)
         ));
         assert_eq!(next(&mut browser), control("host-disconnected"));
-        assert_eq!(next(&mut desktop), control("host-disconnected"));
         assert!(sessions.lock().unwrap().is_empty());
     }
 
@@ -1183,44 +610,6 @@ mod tests {
     }
 
     #[test]
-    fn a_window_reconnecting_while_the_tab_is_away_stays_parked_until_the_grace_settles() {
-        let sessions = sessions();
-        let (_host, _desktop, _browser) = handed_to_browser(&sessions);
-        let epoch = detach_with_grace(&sessions, BridgeRole::Browser, "tab");
-        assert!(detach_peer(&sessions, &query(BridgeRole::Desktop), "window").is_none());
-
-        let (mut desktop, effect) = connect_with(&sessions, BridgeRole::Desktop, "window-2");
-        assert_eq!(effect, None);
-        assert_eq!(all(&mut desktop), vec![control("desktop-suspended")]);
-        assert!(!relays(&sessions, BridgeRole::Desktop, "window-2"));
-
-        assert!(matches!(
-            settle_after_grace(&sessions, TOKEN, epoch),
-            Some(Settlement::Switched(Effect::Resumed))
-        ));
-        assert_eq!(next(&mut desktop), control("desktop-resumed"));
-    }
-
-    #[test]
-    fn a_stale_return_request_does_not_take_the_workspace_from_the_tab() {
-        let sessions = sessions();
-        let (_host, _desktop, mut browser) = handed_to_browser(&sessions);
-        assert!(detach_peer(&sessions, &query(BridgeRole::Desktop), "window").is_none());
-        assert!(matches!(
-            request_return(&sessions, "browser-test", true),
-            Ok(ReturnPlan::OpenChromium)
-        ));
-        sessions.lock().unwrap().get_mut(TOKEN).unwrap().return_requested =
-            Instant::now().checked_sub(RETURN_REQUEST_TTL);
-
-        let (mut desktop, effect) = connect_with(&sessions, BridgeRole::Desktop, "window-2");
-        assert_eq!(effect, None);
-        assert_eq!(all(&mut desktop), vec![control("desktop-suspended")]);
-        assert_eq!(next(&mut browser), "none");
-        assert!(sessions.lock().unwrap()[TOKEN].return_requested.is_none());
-    }
-
-    #[test]
     fn only_a_pending_native_handoff_blocks_its_window_label() {
         let sessions = sessions();
         let mut sessions = sessions.lock().unwrap();
@@ -1253,7 +642,7 @@ mod tests {
 
         assert!(matches!(
             settle_after_grace(&sessions, TOKEN, 0),
-            Some(Settlement::Expired { host_label, native_return: false }) if host_label == "browser-test"
+            Some(Expired { host_label, native_return: false }) if host_label == "browser-test"
         ));
         assert!(entry(&sessions).is_none());
     }
