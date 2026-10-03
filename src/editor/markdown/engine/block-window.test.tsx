@@ -12,6 +12,7 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { Editor } from "@tiptap/react";
 import { TextSelection } from "@tiptap/pm/state";
+import { EditorView } from "@tiptap/pm/view";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { VisualMarkdownEditorProps } from "../visual-editor-props";
 import { LatticeVisualMarkdownEditor } from "./lattice-visual-editor";
@@ -266,6 +267,38 @@ describe("viewport rendering of a long document (R-PERF-3)", () => {
     expect(target.getBoundingClientRect().top).toBeCloseTo(0);
     await waitFor(() => expect(target.querySelector("#appendix") ?? (target.id === "appendix" ? target : null)).not.toBeNull());
     expect(opener.openUrl).not.toHaveBeenCalled();
+  });
+
+  it("lands a line jump far down in one move: the block drawn, its line centered, and held there as the blocks above fill in", async () => {
+    const observers: Array<() => void> = [];
+    vi.stubGlobal("ResizeObserver", class {
+      constructor(callback: () => void) {
+        observers.push(callback);
+      }
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    });
+    // jsdom measures no text: a caret sits at the top of its block, one drawn line tall.
+    vi.spyOn(EditorView.prototype, "coordsAtPos").mockImplementation(function (this: EditorView, pos: number) {
+      const { node } = this.domAtPos(pos);
+      const rect = (node instanceof HTMLElement ? node : node.parentElement!).getBoundingClientRect();
+      return { top: rect.top, bottom: rect.top + DRAWN_BLOCK, left: 0, right: 0 };
+    });
+    const onRevealHandled = vi.fn();
+    const target = () => drawn().find((child) => child.textContent === "Paragraph 350 of the long document.");
+    // Paragraph n starts on line 2n + 1.
+    renderLong(paragraphs(400).join("\n\n"), { revealRequest: { id: "jump", target: { line: 701 } }, onRevealHandled });
+    await waitFor(() => expect(onRevealHandled).toHaveBeenCalledWith("jump"));
+    expect(target()).toBeDefined();
+    const centered = VIEWPORT / 2 - DRAWN_BLOCK / 2;
+    expect(target()!.getBoundingClientRect().top).toBeCloseTo(centered);
+    expect(target()).toHaveClass("lx-reveal-flash");
+    const above = surface().children[200] as HTMLElement;
+    expect(above).toHaveAttribute("data-lx-virtual");
+    above.style.height = `${Number.parseFloat(above.style.height) + 100}px`;
+    for (const observer of observers) observer();
+    expect(target()!.getBoundingClientRect().top).toBeCloseTo(centered);
   });
 
   it("gives a heading that is not drawn its id, inside a component too, so the section rail can reach it", async () => {

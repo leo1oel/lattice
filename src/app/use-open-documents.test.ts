@@ -1,7 +1,7 @@
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { invoke } from "@tauri-apps/api/core";
-import type { FileNode, PaperSummary, ProjectSnapshot } from "../app-types";
+import type { EditorPosition, FileNode, PaperSummary, ProjectSnapshot } from "../app-types";
 import { paperTabKey } from "../app-utils";
 import { loadWorkspaceLayout, persistWorkspaceLayout, type WorkspaceLayout } from "../settings/app-settings";
 import { useCanvasRequests } from "./use-canvas-requests";
@@ -97,7 +97,9 @@ function renderDocuments(disk: Record<string, string>, {
     }
   });
   if (layout) persistWorkspaceLayout(ROOT, layout);
+  let caret: EditorPosition | null = null;
   const deps = {
+    caret: () => caret,
     onSaved: vi.fn(), onDiskEdit: vi.fn(),
     autoBuild: { enabled: autoBuild, afterSave: vi.fn(), afterDiskEdit: vi.fn() },
   };
@@ -134,6 +136,8 @@ function renderDocuments(disk: Record<string, string>, {
   const type = (text: string) => act(() => { current().canvas.setText(text); });
   return {
     view, deps, current, enter, type, files,
+    /** Put the editor's caret somewhere, as the canvas reports it. */
+    moveCaret: (path: string, line: number) => { caret = { path, line, column: 0 }; },
     hold: (command: string, path: string) => {
       const parked = deferred<unknown>();
       held.set(`${command}:${path}`, parked);
@@ -212,6 +216,33 @@ describe("opening documents", () => {
     await act(() => docs.current().go(1));
     expect(docs.current().file).toBe("intro.tex");
     expect(docs.view.result.current.canvas.requests.navigation).toMatchObject({ path: "intro.tex", line: 12 });
+  });
+
+  it("brings a file's remembered place back on open, unless the caller moves the view itself", async () => {
+    const docs = renderDocuments({ "main.tex": "Main", "intro.tex": "Intro" });
+    await docs.enter();
+    act(() => docs.current().viewStates.remember("intro.tex", { text: { cursor: 3, scrollTop: 90 } }));
+    await act(() => docs.current().openFile("intro.tex"));
+    expect(docs.view.result.current.canvas.requests.restore).toMatchObject({ path: "intro.tex", cursor: 3, scrollTop: 90 });
+    act(() => docs.view.result.current.canvas.update("restore", null));
+    await act(() => docs.current().openFile("main.tex"));
+    act(() => docs.view.result.current.canvas.update("restore", null));
+    await act(() => docs.current().openFile("intro.tex", { restoreView: false }));
+    expect(docs.view.result.current.canvas.requests.restore).toBeNull();
+  });
+
+  it("steps back to where the writer left a file, and forward to where they left the next", async () => {
+    const docs = renderDocuments({ "main.tex": "Main", "intro.tex": "Intro" });
+    await docs.enter();
+    await act(() => docs.current().openFile("main.tex", { line: 2 }));
+    docs.moveCaret("main.tex", 40);
+    await act(() => docs.current().openFile("intro.tex", { line: 12 }));
+    docs.moveCaret("intro.tex", 30);
+    await act(() => docs.current().go(-1));
+    expect(docs.view.result.current.canvas.requests.navigation).toMatchObject({ path: "main.tex", line: 40 });
+    docs.moveCaret("main.tex", 40);
+    await act(() => docs.current().go(1));
+    expect(docs.view.result.current.canvas.requests.navigation).toMatchObject({ path: "intro.tex", line: 30 });
   });
 });
 

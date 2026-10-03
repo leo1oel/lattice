@@ -10,6 +10,7 @@ import { tags } from "@lezer/highlight";
 import { resolveTexlabDefinition, texlabCompletionSource, texlabHoverTooltip } from "../../build/texlab-language";
 import { floatingSurfaceClassName } from "../../components/ui/menu-surface";
 import { withoutAppShortcuts } from "../editor-app-shortcuts";
+import { centerMatch, revealExtension } from "../editor-reveal";
 import { harperSpellcheck } from "../harper-spellcheck";
 import { latexCommandCompletions, latexCommandHover } from "./latex-command-completions";
 import {
@@ -214,7 +215,8 @@ export function textEditorExtensions(
       autocapitalize: "off",
     }),
     syntaxHighlighting(luxLatexHighlightStyle),
-    search({ top: true }),
+    search({ top: true, scrollToMatch: centerMatch }),
+    revealExtension(),
     compactSearchPanel(),
     highlightSelectionMatches(),
     tooltips({ tooltipSpace: (view) => citationTooltipSpace(view.dom.getBoundingClientRect()) }),

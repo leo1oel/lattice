@@ -95,9 +95,9 @@ export function AppSearchDialogs({ open, setOpen, activeFile, openProjectFile, o
         paths={open === "quick-open" ? collectFilePaths(props.files, (node) => Boolean(node.path)) : []}
         onClose={close}
         onIntent={props.prewarmLikelyProjectFile}
-        onOpen={closeThen((path) => {
+        onOpen={closeThen((path: string, line?: number) => {
           if (isProjectAssetFilePath(path)) void props.openProjectAsset(path);
-          else void openProjectFile(path);
+          else void openProjectFile(path, line ? { line } : undefined);
         })}
       />
       <SearchPickerDialog

@@ -11,6 +11,9 @@ import type { TrackedChange } from "../../overleaf/use-overleaf-realtime";
 import type { EditorComment } from "../comments/editor-comment-data";
 import type { MarkdownWorkspaceIndex } from "./markdown-workspace-index";
 
+/** Where a jump sends the visual editor: a 1-based line of its text, or a comment's anchor. */
+export type VisualRevealTarget = { line: number } | { commentId: string };
+
 export type VisualMarkdownEditorProps = {
   text: string;
   activePath: string;
@@ -45,4 +48,11 @@ export type VisualMarkdownEditorProps = {
   overleafTrackChangeActions?: TrackedChangeTooltipActions;
   onCreateComment?: (from: number, to: number, body: string) => void;
   editable?: boolean;
+  /**
+   * A jump to land on once the text it names is shown: the target is
+   * selected, centered and briefly marked. Answered by `onRevealHandled`
+   * with its id, landed or not.
+   */
+  revealRequest?: { id: string; target: VisualRevealTarget } | null;
+  onRevealHandled?: (id: string) => void;
 };

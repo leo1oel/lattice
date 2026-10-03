@@ -215,6 +215,50 @@ describe("documents and editors", () => {
     expect(open).toHaveBeenCalledTimes(1);
   });
 
+  it("lands a TODO from the drawer on its line in another file: caret there, line marked, drawer closed", async () => {
+    const snapshot = projectSnapshot({ files: [fileNode("main.tex"), dirNode("chapters", fileNodes("chapters/intro.tex"))] });
+    const intro = "\\chapter{Intro}\nFirst.\n% TODO cite the survey\nLast.";
+    renderApp({
+      ...projectCommands(snapshot),
+      read_project_file: readFiles({ "chapters/intro.tex": intro }),
+      list_todos: () => [{ path: "chapters/intro.tex", line: 3, kind: "TODO", preview: "% TODO cite the survey" }],
+    });
+    await waitForSelectedTab("main.tex");
+    fireEvent.click(await screen.findByTitle("Manuscript TODOs"));
+    fireEvent.click(await screen.findByRole("button", { name: /chapters\/intro\.tex/ }));
+    await waitForSelectedTab("intro.tex");
+    await waitFor(() => {
+      const view = editorViewAt();
+      expect(view.state.doc.toString()).toBe(intro);
+      expect(view.state.doc.lineAt(view.state.selection.main.head).number).toBe(3);
+      expect([...view.contentDOM.querySelectorAll(".cm-reveal-flash")].map((line) => line.textContent)).toEqual(["% TODO cite the survey"]);
+    });
+    expect(screen.queryByText("Manuscript TODOs")).toBeNull();
+  });
+
+  it("keeps Markdown's Preview for a TODO jump and lands the visual editor's caret on it", async () => {
+    const source = "# Notes\n\nFirst.\n\n% TODO check this\n\nLast.";
+    renderApp({
+      ...projectCommands(markdownSnapshot()),
+      read_project_file: readFiles({ "notes.md": source }),
+      list_todos: () => [{ path: "notes.md", line: 5, kind: "TODO", preview: "% TODO check this" }],
+    });
+    await waitForSelectedTab("notes.md");
+    selectDocumentView("Preview");
+    const surface = await waitFor(() => {
+      const element = document.querySelector<HTMLElement>(".lx-md-surface");
+      expect(element).not.toBeNull();
+      return element!;
+    });
+    fireEvent.keyDown(window, { key: "p", metaKey: true, shiftKey: true });
+    fireEvent.click(await screen.findByRole("option", { name: /Manuscript TODOs/ }));
+    fireEvent.click(await screen.findByRole("button", { name: /notes\.md/ }));
+    const editor = visualEditorOf(surface);
+    await waitFor(() => expect(editor.state.doc.resolve(editor.state.selection.from).parent.textContent).toBe("% TODO check this"));
+    expect(within(screen.getByRole("tablist", { name: "Document view" })).getByRole("tab", { name: "Preview" })).toHaveAttribute("aria-selected", "true");
+    expect(document.querySelector("[data-editor-pane='primary'] .cm-editor")).toBeNull();
+  });
+
   it("restores tab order and the editor while migrating the old three-column layout", async () => {
     const snapshot = projectSnapshot({ files: fileNodes("main.tex", "intro.tex", "method.tex") });
     persistLayout(snapshot.root, {

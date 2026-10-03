@@ -487,3 +487,6 @@ body:has(.modal-backdrop, .drawer-backdrop) :is(.lx-md-toolbar, .lx-md-emoji-pic
 .lx-md-editor .lx-md-passive-chunk .lx-md-surface { min-height: 0; }
 .lx-md-editor .lx-md-passive-chunk:not(:last-child) .lx-md-surface { padding-bottom: 0; }
 .lx-md-editor .lx-md-passive-chunk + .lx-md-passive-chunk .lx-md-surface { padding-top: 0; }
+
+/* A jump's target block (reveal-flash.ts), marked like the source editor's (`reveal-flash` keyframes). */
+.lx-md-editor .lx-md-surface .lx-reveal-flash { border-radius: var(--radius-compact); animation: reveal-flash 1.6s var(--ease-out); }

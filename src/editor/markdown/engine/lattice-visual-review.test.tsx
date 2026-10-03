@@ -446,7 +446,10 @@ describe("sections (R-BLK-13, R-BLK-14)", () => {
     const scrollIntoView = vi.fn();
     results.scrollIntoView = scrollIntoView;
     fireEvent.click(within(navigation).getByRole("button", { name: "Results" }));
-    expect(scrollIntoView).toHaveBeenCalledWith({ block: "start" });
+    // Landed on like any jump: centered, the caret in the heading, the heading marked.
+    expect(scrollIntoView).toHaveBeenCalledWith({ block: "center" });
+    expect(window.getSelection()?.anchorNode?.parentElement?.closest("h2")).toBe(results);
+    expect(results).toHaveClass("lx-reveal-flash");
     rerender({ text: "# Example\n\n## Only section\n\nBody." });
     await waitFor(() => expect(screen.queryByRole("navigation", { name: "Document sections" })).toBeNull());
   });
@@ -499,6 +502,59 @@ describe("sections (R-BLK-13, R-BLK-14)", () => {
     const written = String(onChange.mock.lastCall?.[0]);
     expect(written.startsWith("## Contents\n- [Introduction](#introduction)\n- [Method](#method)\n")).toBe(true);
     expect(written).toContain("Some Opening context.");
+  });
+});
+
+describe("jumps (TODOs, outline, find results, SyncTeX, comments)", () => {
+  const TEXT = "# Title\n\nFirst paragraph.\n\n\n\nTarget paragraph here.\n\nLast paragraph.";
+  const selectedText = (editor: Editor) => editor.state.doc.resolve(editor.state.selection.from).parent.textContent;
+  const marked = () => [...document.querySelectorAll(".lx-reveal-flash")].map((element) => element.textContent);
+
+  it("lands a line jump on that line: caret there, block marked, then unmarked; the request is answered", async () => {
+    const onRevealHandled = vi.fn();
+    const view = renderEditor({ text: TEXT, onRevealHandled });
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    try {
+      view.rerender({ revealRequest: { id: "jump", target: { line: 7 } } });
+      await vi.waitFor(() => expect(onRevealHandled).toHaveBeenCalledWith("jump"));
+      expect(selectedText(view.editor)).toBe("Target paragraph here.");
+      expect(view.editor.view.hasFocus()).toBe(true);
+      expect(marked()).toEqual(["Target paragraph here."]);
+      act(() => { vi.advanceTimersByTime(2000); });
+      expect(marked()).toEqual([]);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("lands a jump to a blank line on the next block shown", async () => {
+    const onRevealHandled = vi.fn();
+    const view = renderEditor({ text: TEXT, onRevealHandled });
+    view.rerender({ revealRequest: { id: "gap", target: { line: 5 } } });
+    await waitFor(() => expect(onRevealHandled).toHaveBeenCalledWith("gap"));
+    expect(selectedText(view.editor)).toBe("Target paragraph here.");
+  });
+
+  it("waits for a newly opened file before landing in it", async () => {
+    const onRevealHandled = vi.fn();
+    const view = renderEditor({ text: "Old file.", activePath: "old.md", onRevealHandled });
+    view.rerender({ text: TEXT, activePath: "notes.md", revealRequest: { id: "cross", target: { line: 9 } } });
+    await waitFor(() => expect(onRevealHandled).toHaveBeenCalledWith("cross"));
+    expect(selectedText(view.editor)).toBe("Last paragraph.");
+  });
+
+  it("selects a comment's quote when it is focused", async () => {
+    const onRevealHandled = vi.fn();
+    const comment: EditorComment = {
+      id: "c1", path: "notes.md", from: 10, to: 19, quote: "brown fox", prefix: "quick ", suffix: " jumps",
+      body: "why?", authorId: "ada", authorName: "Ada", resolved: false, replies: [],
+      createdAt: "2026-01-01T00:00:00.000Z", updatedAt: "2026-01-01T00:00:00.000Z",
+    };
+    const view = renderEditor({ text: "The quick brown fox jumps.", editorComments: [comment], onRevealHandled });
+    view.rerender({ revealRequest: { id: "focus", target: { commentId: "c1" } } });
+    await waitFor(() => expect(onRevealHandled).toHaveBeenCalledWith("focus"));
+    const { from, to } = view.editor.state.selection;
+    expect(view.editor.state.doc.textBetween(from, to)).toBe("brown fox");
   });
 });
 

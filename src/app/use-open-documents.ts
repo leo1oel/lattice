@@ -4,8 +4,8 @@ import { msg } from "@lingui/core/macro";
 import { invoke } from "@tauri-apps/api/core";
 import { i18n } from "../i18n";
 import type {
-  AssetPreview, CanvasMode, DocumentViewMode, NavigationEntry, OpenFileOptions, PaperSummary, ProjectSnapshot,
-  RefreshProject,
+  AssetPreview, CanvasMode, DocumentViewMode, EditorPosition, NavigationEntry, OpenFileOptions, PaperSummary,
+  ProjectSnapshot, RefreshProject,
 } from "../app-types";
 import {
   arxivIdFromTabKey, isHtmlFilePath, isPaperTabKey, isPreviewableSourceFilePath, isProjectSourceFilePath, paperTabKey,
@@ -48,6 +48,20 @@ const NAVIGATION_HISTORY_LIMIT = 80;
 
 /** A canvas mode that brings an editor on screen, widening a preview-only or asset surface to split. */
 const withEditor = (mode: CanvasMode): CanvasMode => (mode === "pdf" || mode === "asset" ? "split" : mode);
+/** The canvas mode a jump into `path` needs: Markdown's Preview is its visual editor, which takes the jump itself. */
+const withEditorFor = (path: string) => (mode: CanvasMode): CanvasMode => (
+  mode === "pdf" && /\.md$/i.test(path) ? mode : withEditor(mode)
+);
+/**
+ * `stack` with entry `index` moved to where the writer is leaving it (`origin`,
+ * when it is that entry's file), so a step back returns to where they were
+ * rather than to where they first arrived there.
+ */
+function leaveEntry(stack: NavigationEntry[], index: number, origin: EditorPosition | null): NavigationEntry[] {
+  const left = stack[index];
+  if (!left || !origin || origin.path !== left.path || origin.line === left.line) return stack;
+  return stack.map((entry, at) => (at === index ? { path: origin.path, line: origin.line } : entry));
+}
 /** A canvas mode that brings the PDF on screen beside an editor-only view. */
 const withPdf = (mode: CanvasMode): CanvasMode => (mode === "source" ? "split" : mode);
 
@@ -168,6 +182,8 @@ export type OpenDocumentsDeps = {
   papers: PaperSummary[];
   /** Posts the canvas's jump-to-line and view-restore requests. */
   updateCanvasRequest: UpdateCanvasRequest;
+  /** Where the editor's caret is: the back/forward entry a jump leaves records it. */
+  caret: () => EditorPosition | null;
   /** Every open stops the speculative preview work for the document it might have been. */
   cancelPrewarm: () => void;
   /** Re-reads the tree; a delete picks the replacement document from the result. */
@@ -515,11 +531,12 @@ export function useOpenDocuments(deps: OpenDocumentsDeps) {
   }, [commitFileText, fileRef, savedRef, textRef]);
 
   // ---- Open --------------------------------------------------------------------------------------------------------
-  const pushNavigation = useCallback((path: string, line: number) => {
+  const pushNavigation = useCallback((path: string, line: number, origin: EditorPosition | null) => {
     if (navLock.current || !path) return;
     const index = renderedRef.current.navIndex;
     setNavStack((stack) => {
-      const trimmed = stack.slice(0, Math.max(0, index + 1));
+      const kept = stack.slice(0, Math.max(0, index + 1));
+      const trimmed = leaveEntry(kept, kept.length - 1, origin);
       const last = trimmed[trimmed.length - 1];
       if (last && last.path === path && last.line === line) {
         setNavIndex(trimmed.length - 1);
@@ -534,6 +551,8 @@ export function useOpenDocuments(deps: OpenDocumentsDeps) {
   /** Open a project file in the text editor, optionally at a 1-based line. */
   const openFile = useCallback(async (path: string, options?: OpenFileOptions) => {
     const line = options?.line;
+    // Read before anything moves: the jump's history entry starts from here.
+    const origin = depsRef.current.caret();
     const { project: current, file: activeFile, paper: openPaper, asset: openAsset } = renderedRef.current;
     const owner = ownerOf(renderedRef.current);
     depsRef.current.cancelPrewarm();
@@ -557,8 +576,8 @@ export function useOpenDocuments(deps: OpenDocumentsDeps) {
       addTab(path);
       if (line) {
         requestLine(path, line);
-        setMode(withEditor);
-        pushNavigation(path, line);
+        setMode(withEditorFor(path));
+        pushNavigation(path, line, origin);
       }
       // Bring the on-screen copy level with disk: save it, or take an edit made behind it.
       const refresh = async () => {
@@ -629,7 +648,7 @@ export function useOpenDocuments(deps: OpenDocumentsDeps) {
       }
     }
     const applied = await loadFile(path, {
-      restoreView: !line,
+      restoreView: options?.restoreView ?? !line,
       revealSource: options?.revealSource ?? true,
       gate,
       loadGeneration,
@@ -644,10 +663,10 @@ export function useOpenDocuments(deps: OpenDocumentsDeps) {
     if (line) {
       // The jump itself rode the load's commit; this only widens a
       // preview-only surface so the editor it lands in is on screen.
-      setMode(withEditor);
-      pushNavigation(path, line);
+      setMode(withEditorFor(path));
+      pushNavigation(path, line, origin);
     } else {
-      pushNavigation(path, 1);
+      pushNavigation(path, 1, origin);
     }
   }, [
     accept, addTab, depsRef, fileRef, flushAndCheckDirty, loadFile, markDiskMtime, paperBuffersDirty,
@@ -836,12 +855,14 @@ export function useOpenDocuments(deps: OpenDocumentsDeps) {
     const nextIndex = index + step;
     const entry = stack[nextIndex];
     if (!entry) return;
+    const origin = depsRef.current.caret();
+    setNavStack((current) => leaveEntry(current, index, origin));
     navLock.current = true;
     setNavIndex(nextIndex);
     await openFile(entry.path, { line: entry.line }).finally(() => {
       navLock.current = false;
     });
-  }, [openFile, renderedRef]);
+  }, [depsRef, openFile, renderedRef]);
 
   /** Switch the document in front between Edit, Split and Preview: the writer's choice, remembered per kind. */
   const chooseMode = useCallback((next: DocumentViewMode) => {

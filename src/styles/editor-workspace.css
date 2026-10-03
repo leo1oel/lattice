@@ -484,6 +484,13 @@ body:has(.modal-backdrop, .drawer-backdrop) :is(.latex-selection-toolbar-anchor,
 .source-editor .cm-activeLine { background: var(--control-active-soft); }
 .source-editor .cm-editor.cm-lattice-has-selection .cm-activeLine { background: transparent; }
 .source-editor .cm-activeLineGutter { background: var(--control-active-soft); }
+/* A jump's target (editor-reveal.ts): held, then faded, in the find-match color.
+   An animated fill outranks the active-line and selection rules above. */
+.source-editor .cm-line.cm-reveal-flash { animation: reveal-flash 1.6s var(--ease-out); }
+@keyframes reveal-flash {
+  0%, 55% { background-color: var(--highlight-match-surface); }
+  100% { background-color: transparent; }
+}
 .source-editor .cm-focused { outline: none; }
 .source-editor .cm-editor .cm-panels { z-index: var(--z-editor-overlay); background: var(--surface-panel-raised); border-color: var(--border-subtle); color: var(--text-secondary); }
 .source-editor .cm-panels.cm-panels-top { border-bottom: 1px solid var(--border-subtle); }
