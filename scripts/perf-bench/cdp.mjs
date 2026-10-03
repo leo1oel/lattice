@@ -33,7 +33,7 @@ function findChrome() {
     }
   }
   const found = candidates.find((candidate) => existsSync(candidate));
-  if (!found) throw new Error("No Chrome found. Install Google Chrome or set CHROME_PATH.");
+  if (!found) throw new Error("No Chrome found. Install Google Chrome, run `pnpm exec playwright-core install chromium`, or set CHROME_PATH.");
   return found;
 }
 
@@ -59,6 +59,10 @@ export async function launchChrome({ executable = findChrome(), headless = true,
     "about:blank",
   ];
   const child = spawn(executable, args, { stdio: ["ignore", "ignore", "pipe"] });
+  // process.exit() skips close(), and perf-bench exits that way on a signal
+  // (--serve --chrome is only ever stopped by one); the browser would outlive it.
+  const killOnExit = () => child.kill("SIGTERM");
+  process.on("exit", killOnExit);
   const endpoint = await new Promise((resolve, reject) => {
     let output = "";
     const timer = setTimeout(() => reject(new Error(`Chrome did not start:\n${output}`)), 30_000);
@@ -78,7 +82,10 @@ export async function launchChrome({ executable = findChrome(), headless = true,
   const connection = await CdpConnection.connect(endpoint);
   return {
     connection,
+    /** The browser's DevTools WebSocket, for another client (chrome-devtools-axi) to attach to. */
+    endpoint,
     async close() {
+      process.off("exit", killOnExit);
       connection.close();
       child.kill("SIGTERM");
       await new Promise((resolve) => {

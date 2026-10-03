@@ -37,10 +37,25 @@
  *   --engine NAME   chromium (default) or webkit
  *   --headful, --keep-open   watch it run
  *
- * Serving the page for UI work, screenshots and QA (no benchmark, no browser):
- *   --serve         build the page, print its URL and stay up until interrupted;
- *                   with --dev, serve it from the dev server with file watching
- *                   and HMR on, so edits show without a restart
+ * Serving the page for UI work, screenshots and QA (no benchmark):
+ *   --serve         build the page, check that it answers, print its URL and stay
+ *                   up until interrupted; with --dev, serve it from the dev server
+ *                   with file watching and HMR on, so edits show without a
+ *                   restart. Progress goes to stderr until the URL is printed,
+ *                   and a failure exits 1 with the reason: a caller waiting for
+ *                   the URL never waits on silence.
+ *   --smoke         prove the app mounts: load the page in headless Chrome, exit 0
+ *                   once the editor is up, or exit 1 with what the page reported
+ *                   (uncaught and console errors, failed and unanswered requests,
+ *                   its text, a screenshot). Alone it serves the page itself (or
+ *                   checks --url) and exits; with --serve it checks before
+ *                   printing the URL.
+ *   --chrome        with --serve: keep a headless Chrome running and print the
+ *                   CHROME_DEVTOOLS_AXI_BROWSER_URL that attaches
+ *                   chrome-devtools-axi to it. The bridge otherwise launches an
+ *                   installed Google Chrome, and without one it fails with
+ *                   BRIDGE_NOT_READY; this Chrome falls back to Playwright's
+ *                   Chrome for Testing (perf-bench/cdp.mjs).
  *   --port N        the port to serve on (default 18480; 0 picks a free one)
  * The page accepts `theme=system|light|dark` and `lang=en|zh-CN|system`
  * (tools/perf-bench/bench-page.ts); --serve prints a URL with both.
@@ -49,6 +64,7 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { createServer as createNetServer } from "node:net";
 import os from "node:os";
 import path from "node:path";
+import { setTimeout as sleep } from "node:timers/promises";
 import { fileURLToPath, URLSearchParams } from "node:url";
 import { applyBudgets, bestOf, COUNTS } from "./perf-bench/budgets.mjs";
 import { CdpPage, launchChrome } from "./perf-bench/cdp.mjs";
@@ -83,7 +99,7 @@ const BENCH_FIXTURE = {
 };
 
 function parseArgs(argv) {
-  const options = { runs: 2, only: null, json: null, profile: null, check: false, ratchet: false, update: false, headful: false, keepOpen: false, url: null, dev: false, serve: false, port: SERVE_PORT, engine: "chromium" };
+  const options = { runs: 2, only: null, json: null, profile: null, check: false, ratchet: false, update: false, headful: false, keepOpen: false, url: null, dev: false, serve: false, smoke: false, chrome: false, port: SERVE_PORT, engine: "chromium" };
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
     if (arg === "--check") options.check = true;
@@ -98,12 +114,16 @@ function parseArgs(argv) {
     else if (arg === "--url") options.url = argv[++index];
     else if (arg === "--profile") options.profile = argv[++index];
     else if (arg === "--serve") options.serve = true;
+    else if (arg === "--smoke") options.smoke = true;
+    else if (arg === "--chrome") options.chrome = true;
     else if (arg === "--port") options.port = Number(argv[++index]);
     else if (arg === "--engine") options.engine = argv[++index];
     else throw new Error(`Unknown option ${arg}`);
   }
   if (!Number.isInteger(options.port) || options.port < 0 || options.port > 65_535) throw new Error("--port takes a port number");
   if (options.serve && options.url) throw new Error("--serve starts its own page; it cannot take --url");
+  if (options.chrome && !options.serve) throw new Error("--chrome keeps a browser up beside --serve; add --serve");
+  if (options.smoke && options.engine !== "chromium") throw new Error("--smoke loads the page in Chrome only");
   if (!(options.engine in BUDGETS)) throw new Error(`Unknown engine ${options.engine}: use chromium or webkit`);
   if (options.profile && options.engine !== "chromium") throw new Error("--profile records Chromium CPU profiles only");
   return options;
@@ -135,9 +155,40 @@ function removeBuildDir(dir) {
 process.on("exit", () => {
   for (const dir of buildDirs) removeBuildDir(dir);
 });
+
+/**
+ * Runs a slow step, saying on stderr what it is when it starts and every 15 s
+ * until it ends. A production build takes about 15 s and prints nothing
+ * itself (logLevel "warn"), so without this a caller waiting for --serve's URL
+ * could not tell a slow build from a hung one, and a run killed by a timeout
+ * left no trace of where it was.
+ */
+let currentStep = null;
+async function step(label, work) {
+  const started = Date.now();
+  currentStep = label;
+  console.error(`perf-bench: ${label}…`);
+  const timer = setInterval(() => console.error(`perf-bench: still ${label} (${Math.round((Date.now() - started) / 1000)} s)`), 15_000);
+  try {
+    return await work();
+  } catch (error) {
+    throw new Error(`failed while ${label}: ${error.message}`, { cause: error });
+  } finally {
+    clearInterval(timer);
+    currentStep = null;
+  }
+}
+
 // A signal's default action skips the exit hook; exiting runs it.
 for (const signal of ["SIGINT", "SIGTERM", "SIGHUP"]) {
-  process.once(signal, () => process.exit(128 + os.constants.signals[signal]));
+  process.once(signal, () => {
+    if (currentStep) console.error(`perf-bench: ${signal} while ${currentStep}`);
+    process.exit(128 + os.constants.signals[signal]);
+  });
+}
+
+function startPage(options, settings) {
+  return step(options.dev ? "starting the dev server" : "building the bench page (a production build, about 15 s; --dev skips it)", () => startVite(!options.dev, settings));
 }
 
 /**
@@ -201,29 +252,143 @@ function benchUrl(origin, extra = {}) {
 /**
  * `--serve`: the benchmark's page without the benchmark, for driving the real
  * app (over the mock backend) from a browser of one's own. Stays up until a
- * signal, whose exit hook removes the build.
+ * signal, whose exit hook removes the build. The URL is printed only once the
+ * page answers (and, with --smoke, once the app mounted in it).
  */
 async function serve(options) {
-  const vite = await startVite(!options.dev, { port: options.port, live: options.dev });
+  const vite = await startPage(options, { port: options.port, live: options.dev });
+  const url = benchUrl(vite.origin, { theme: "system", lang: "en" });
+  await step("checking that the page answers", () => assertAnswers(url));
+  const chrome = options.chrome || options.smoke ? await step("starting headless Chrome", () => launchChrome({ headless: !options.headful })) : null;
+  if (options.smoke && !(await smokeCheck(chrome, url))) {
+    await chrome.close();
+    await vite.server.close();
+    process.exit(1);
+  }
+  if (chrome && !options.chrome) await chrome.close();
   console.log(`Lattice bench page (${options.dev ? "dev server, live reload" : `production build in ${vite.outDir}`}):`);
-  console.log(`  ${benchUrl(vite.origin, { theme: "system", lang: "en" })}`);
+  console.log(`  ${url}`);
   console.log("Query parameters: theme=system|light|dark, lang=en|zh-CN|system, papers=1|fulltext|library, build=clean|failed, keepStorage=1,");
   console.log(`  and the fixture sizes (${Object.keys(BENCH_FIXTURE).join(", ")}, chapters).`);
+  if (options.chrome) {
+    console.log("Headless Chrome for chrome-devtools-axi:");
+    console.log(`  export CHROME_DEVTOOLS_AXI_BROWSER_URL=${chrome.endpoint}`);
+    console.log(`  chrome-devtools-axi open '${url}'`);
+  }
+  if (!options.smoke) console.log(`Check that the app mounts: pnpm perf:bench --smoke --url '${url}'`);
   console.log("Press Ctrl-C to stop.");
   await new Promise(() => {});
 }
+
+async function assertAnswers(url) {
+  let response;
+  try {
+    response = await fetch(url);
+  } catch (error) {
+    throw new Error(`nothing answered at ${url}: ${error.cause?.message ?? error.message}`);
+  }
+  if (!response.ok) throw new Error(`${url} answered ${response.status} ${response.statusText}`);
+}
+
+/** The fixture's root document open in the editor, with the toolbar up. */
+const APP_READY = `document.querySelector(".cm-editor .cm-content") && document.querySelector('button[aria-label="Build"]')`;
+const APP_READY_TIMEOUT = 120_000;
 
 /** Loads the page and waits for the root document in the editor with its first build settled. */
 async function loadApp(page, url) {
   await page.navigate(url);
   const driver = new BenchDriver(page);
   await driver.install();
-  await driver.waitFor(`document.querySelector(".cm-editor .cm-content") && document.querySelector('button[aria-label="Build"]')`, {
-    timeout: 120_000,
-    what: "the app to open the fixture project",
-  });
+  await driver.waitFor(APP_READY, { timeout: APP_READY_TIMEOUT, what: "the app to open the fixture project" });
   await driver.settle({ quietMs: 1_000, timeout: 60_000 });
   return driver;
+}
+
+/**
+ * Requests that failed or got an error status, and those not answered yet,
+ * by request id. A request keeps its first failure: Chrome follows a script's
+ * 404 with an ERR_ABORTED that says less.
+ */
+async function trackRequests(page) {
+  const pending = new Map();
+  const failed = new Map();
+  const fail = (id, reason) => failed.has(id) || failed.set(id, reason);
+  page.connection.on(({ sessionId, method, params }) => {
+    if (sessionId !== page.sessionId) return;
+    if (method === "Network.requestWillBeSent") pending.set(params.requestId, params.request.url);
+    else if (method === "Network.responseReceived" && params.response.status >= 400) fail(params.requestId, `${params.response.status} ${params.response.url}`);
+    else if (method === "Network.loadingFinished") pending.delete(params.requestId);
+    else if (method === "Network.loadingFailed") {
+      fail(params.requestId, `${params.errorText} ${pending.get(params.requestId) ?? ""}`);
+      pending.delete(params.requestId);
+    }
+  });
+  await page.send("Network.enable");
+  return { pending, failed };
+}
+
+/**
+ * `--smoke`: loads the page in a new tab of `chrome` and waits for the app to
+ * open the fixture project. Prints the verdict and, on a failure, everything
+ * the page can say about why, then returns whether the app mounted. Requests
+ * still unanswered matter as much as errors: a dev server that stalls leaves
+ * the page blank without a single error.
+ */
+async function smokeCheck(chrome, url) {
+  const page = await CdpPage.open(chrome.connection);
+  const requests = await trackRequests(page);
+  const started = Date.now();
+  // Not awaited, and not page.navigate(): a server that never answers holds
+  // the navigation, and the load event never fires while a module never
+  // arrives. The wait below has the deadline, and stops early when the page
+  // itself could not be opened.
+  let unreachable = null;
+  page.send("Page.navigate", { url }).then(({ errorText }) => {
+    unreachable = errorText ?? null;
+  }, () => {});
+  const mounted = await step("waiting for the app to open the fixture project", async () => {
+    while (!unreachable && Date.now() - started < APP_READY_TIMEOUT) {
+      if (await page.evaluate(`Boolean(${APP_READY})`).catch(() => false)) return true;
+      await sleep(100);
+    }
+    return false;
+  });
+  const seconds = ((Date.now() - started) / 1000).toFixed(1);
+  const errors = page.console.filter((line) => /^\[(error|exception|assert)\]/.test(line));
+  const list = (lines) => (lines.length ? lines.map((line) => `    ${line.slice(0, 1_000).replaceAll("\n", "\n      ")}`).join("\n") : "    (none)");
+  if (mounted) {
+    console.log(`Smoke check passed: the app opened the fixture project in ${seconds} s.`);
+    if (errors.length) console.log(`  The page reported errors on the way:\n${list(errors)}`);
+  } else {
+    const text = await page.evaluate("document.body ? document.body.innerText : ''").catch((error) => `(could not read: ${error.message})`);
+    const shot = await page.send("Page.captureScreenshot", { format: "png" }).catch(() => null);
+    const file = path.join(os.tmpdir(), `lattice-perf-bench-smoke-${process.pid}.png`);
+    if (shot) writeFileSync(file, Buffer.from(shot.data, "base64"));
+    const pending = [...requests.pending.values()];
+    console.log(unreachable
+      ? `Smoke check FAILED: the page could not be opened (${unreachable}).`
+      : `Smoke check FAILED: the app did not open the fixture project within ${seconds} s.`);
+    console.log(`  Page: ${url}`);
+    console.log(`  Uncaught and console errors:\n${list(errors)}`);
+    console.log(`  Failed requests:\n${list([...requests.failed.values()].slice(0, 20))}`);
+    console.log(`  Requests still unanswered (${pending.length}; any means the server stalled or is still compiling):\n${list(pending.slice(0, 20))}`);
+    console.log(`  Page text: ${text.trim() ? JSON.stringify(text.trim().slice(0, 600)) : "(empty: nothing rendered)"}`);
+    if (shot) console.log(`  Screenshot: ${file}`);
+  }
+  await page.close();
+  return mounted;
+}
+
+/** `--smoke` without --serve: serves the page (or uses --url), checks it once and exits. */
+async function smoke(options) {
+  const vite = options.url ? null : await startPage(options);
+  const chrome = await step("starting headless Chrome", () => launchChrome({ headless: !options.headful }));
+  try {
+    if (!(await smokeCheck(chrome, options.url ?? benchUrl(vite.origin, { theme: "system", lang: "en" })))) process.exitCode = 1;
+  } finally {
+    await chrome.close();
+    await vite?.server.close();
+  }
 }
 
 /** Self time per function, heaviest first, from a CDP CPU profile. */
@@ -313,9 +478,10 @@ function formatTable(results) {
 async function main() {
   const options = parseArgs(process.argv.slice(2));
   if (options.serve) return serve(options);
+  if (options.smoke) return smoke(options);
   const scenarios = options.only ? SCENARIOS.filter((scenario) => options.only.includes(scenario.name)) : SCENARIOS;
   if (!scenarios.length) throw new Error(`No scenario matches ${options.only}`);
-  const vite = options.url ? null : await startVite(!options.dev);
+  const vite = options.url ? null : await startPage(options);
   const browser = options.engine === "webkit"
     ? await launchWebKit({ headless: !options.headful })
     : await launchChrome({ headless: !options.headful }).then((chrome) => ({
@@ -413,4 +579,8 @@ async function main() {
   }
 }
 
-await main();
+await main().catch((error) => {
+  console.error(`perf-bench: ${error.message}`);
+  console.error(error.cause?.stack ?? error.stack);
+  process.exit(1);
+});

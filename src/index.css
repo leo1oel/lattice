@@ -11,10 +11,19 @@
  * and never redefine `--accent` / `--muted` themselves — those names already
  * belong to App.css and reusing them would repaint the whole app. Because the
  * mappings point at the app's vars, shadcn components flip automatically under
- * :root[data-theme="dark"]; no separate dark block is needed. */
+ * :root[data-theme="dark"]; no separate dark block is needed.
+ *
+ * `source(".")` scans src/ for class names instead of the whole checkout.
+ * Tailwind's default skips only gitignored paths, so it also read untracked
+ * scratch trees (an agent's TMPDIR, caches or a copied cargo registry under
+ * the worktree): a 65,000-file one more than quadrupled the build and the dev
+ * server's first load and put utilities for random tokens into the app's CSS.
+ * Every class the app uses is in src/; the rest of the repository only
+ * contributed the Open Slide runtime's own classes (tools/open-slide-runtime),
+ * which style a separate page. */
 @layer theme, base, components, utilities;
 @import "tailwindcss/theme.css" layer(theme);
-@import "tailwindcss/utilities.css" layer(utilities);
+@import "tailwindcss/utilities.css" layer(utilities) source(".");
 @import "shadow-plugin";
 
 /* The app toggles dark mode with :root[data-theme="dark"] (not Tailwind's

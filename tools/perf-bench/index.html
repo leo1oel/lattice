@@ -13,6 +13,58 @@
   </head>
   <body>
     <div id="root"></div>
+    <script>
+      // Fails loudly instead of staying blank. Until the app renders into
+      // #root, an uncaught error, a rejected promise or a script or
+      // stylesheet that failed to load is shown here and logged, and so is
+      // the app not having rendered after 20 s: a dev server that stalls
+      // leaves the page blank without a single error otherwise. A classic
+      // script, so it runs even when the module graph never loads. Once the
+      // app renders it removes its notice and stops; the app's own error
+      // screens take over from there.
+      (() => {
+        const started = performance.now();
+        const problems = [];
+        const rendered = () => document.getElementById("root").childElementCount > 0;
+        let notice = null;
+        const report = (headline) => {
+          const loaded = performance.getEntriesByType("resource").map((entry) => entry.name.replace(location.origin, ""));
+          const text = [
+            `perf bench: ${headline}`,
+            ...problems,
+            `${loaded.length} resources loaded so far; the last: ${loaded.slice(-3).join(", ") || "none"}.`,
+            "The terminal serving this page says more; `pnpm perf:bench --smoke` lists the requests still unanswered.",
+          ].join("\n");
+          console.error(text);
+          notice ??= document.body.appendChild(Object.assign(document.createElement("pre"), { role: "alert" }));
+          notice.style.cssText = "position:fixed;inset:16px 16px auto;z-index:2147483647;margin:0;padding:12px;white-space:pre-wrap;font:12px/1.5 ui-monospace,monospace;color:#5c0000;background:#fff1f1;border:1px solid #d33";
+          notice.textContent = text;
+        };
+        addEventListener("error", (event) => {
+          if (rendered()) return;
+          const source = event.target;
+          problems.push(source instanceof HTMLScriptElement || source instanceof HTMLLinkElement
+            ? `failed to load ${source.src || source.href}`
+            : String(event.error?.stack ?? event.message));
+          report("an error before the app rendered:");
+        }, true);
+        addEventListener("unhandledrejection", (event) => {
+          if (rendered()) return;
+          problems.push(String(event.reason?.stack ?? event.reason));
+          report("an unhandled rejection before the app rendered:");
+        });
+        let overdue = false;
+        const watch = setInterval(() => {
+          if (rendered()) {
+            clearInterval(watch);
+            notice?.remove();
+          } else if (!overdue && performance.now() - started > 20_000) {
+            overdue = true;
+            report("the app has not rendered after 20 s.");
+          }
+        }, 500);
+      })();
+    </script>
     <script src="/polyfills.js"></script>
     <script type="module" src="/tools/perf-bench/bench-page.ts"></script>
   </body>
