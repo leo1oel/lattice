@@ -344,6 +344,17 @@ describe("PaperLibrary", () => {
     expect(third.querySelector(".paper-cite-key")).toBeNull();
   });
 
+  it("names a corporate author whole, and finds it without its braces", () => {
+    // The author field as `list_papers` delivers it, braces kept.
+    const gemini: PaperSummary = { ...vit, arxivId: "2312.11805", title: "Gemini", authors: "{Gemini Team} and Mc{D}onald, Ronald", citationKey: "gemini" };
+    const { search } = renderLibrary({ papers: [attention, gemini] });
+    const row = screen.getAllByRole("button", { name: /Gemini/ }).find((button) => button.classList.contains("paper-open"))!;
+    expect(row.querySelector(".paper-authors")).toHaveTextContent(/^Gemini Team and McDonald$/);
+
+    search("mcdonald");
+    expect(paperTitles()).toEqual(["Gemini"]);
+  });
+
   it("waits for a pause in typing, then adds papers whose text matched even when their metadata did not", async () => {
     vi.useFakeTimers();
     vi.mocked(invoke).mockResolvedValue([

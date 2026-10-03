@@ -27,11 +27,32 @@ function isOneBraceGroup(value: string): boolean {
 }
 
 /**
+ * The names in a BibTeX author list. Only an "and" outside braces separates
+ * two: "{Research and Development Institute}" is one name.
+ */
+function splitAuthors(authors: string): string[] {
+  const parts: string[] = [];
+  let depth = 0;
+  let start = 0;
+  for (const token of authors.matchAll(/[{}]|\s+and\s+/gi)) {
+    if (token[0] === "{") depth += 1;
+    else if (token[0] === "}") depth = Math.max(0, depth - 1);
+    else if (depth === 0) {
+      parts.push(authors.slice(start, token.index));
+      start = token.index + token[0].length;
+    }
+  }
+  return [...parts, authors.slice(start)];
+}
+
+/**
  * A BibTeX author list as people: "Vaswani, Ashish and Shazeer, Noam" reads
  * "Ashish Vaswani", "Noam Shazeer". A trailing "and others" is kept as a flag.
+ * The list arrives with its braces (see `PaperSummary.authors`), which alone
+ * mark "{Google Brain}" as an organisation rather than a person named Brain.
  */
 function parseAuthors(authors: string | undefined): { people: Author[]; others: boolean } {
-  const parts = (authors ?? "").split(/\s+and\s+/i).map((part) => part.trim()).filter((part) => unbrace(part));
+  const parts = splitAuthors(authors ?? "").map((part) => part.trim()).filter((part) => unbrace(part));
   const others = unbrace(parts.at(-1) ?? "").toLocaleLowerCase() === "others";
   const people = (others ? parts.slice(0, -1) : parts).map((raw) => {
     const part = unbrace(raw);
