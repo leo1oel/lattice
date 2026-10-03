@@ -296,12 +296,14 @@
    accessible name, and is shown beside its icon only in room to spare: the
    Trellis patch marks the bar data-tools="named" when every tab already has
    its natural width beside the named modes, so no tab is narrowed for them
-   and the panel's minimum stays the icon row's. */
-.trellis-mode-name { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+   and the panel's minimum stays the icon row's. The names fade in as room
+   opens up (a transition, not an animation: the patch re-measures by flipping
+   data-tools within a frame, which would restart an animation). */
+.trellis-mode-name { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; opacity: 0; transition: opacity var(--duration-reveal) var(--ease-entrance); }
 .lattice-trellis [data-trellis-part="tabbar"][data-tools="named"] .trellis-view-switcher .ui-segmented-tab { padding-inline: var(--space-4) var(--space-5); }
 .lattice-trellis [data-trellis-part="tabbar"][data-tools="named"] .trellis-view-switcher .sliding-tab-label { gap: var(--space-3); }
 .lattice-trellis [data-trellis-part="tabbar"][data-tools="named"] .trellis-mode-name {
-  position: static; width: auto; height: auto; overflow: visible; clip-path: none;
+  position: static; width: auto; height: auto; overflow: visible; clip-path: none; opacity: 1;
   font-size: var(--type-caption-size);
   font-weight: var(--weight-medium);
 }
