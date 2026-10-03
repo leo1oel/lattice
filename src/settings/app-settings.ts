@@ -281,7 +281,7 @@ const FILE_VIEW_SHAPES: Record<keyof FileViewState, Field> = {
   // Older HTML views were saved before zoom existed; they open at 100%.
   html: shape({ ...SCROLL, scale: (value) => value === undefined ? 1 : positive(value) }),
   openSlide: shape({ page: pageNumber }),
-  visualMarkdown: shape({ ...SCROLL, anchor: optional(shape({ block: finiteWhere((value) => value >= 0, true), top: finite })) }),
+  visualMarkdown: shape({ ...SCROLL, anchor: optional(shape({ block: finiteWhere((value) => value >= 0, true), top: finite, height: optional(nonNegative) })) }),
 };
 
 /** Keeps each view kind that still validates, so one corrupt field spares its siblings. */

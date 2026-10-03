@@ -955,15 +955,42 @@ export function DocumentCanvas(props: {
       if (!ready && attempts < 30) scheduleRestore();
       else restoring = false;
     });
+    let lastAnchor = anchor;
+    let width = viewport.clientWidth;
     const report = () => {
-      // A preview being torn down has no layout left to read a place from.
-      if (restoring || !viewport.isConnected) return;
-      onFileViewState?.(path, { visualMarkdown: { ...captureViewport(viewport), anchor: captureReadingAnchor(viewport) } });
+      // A preview being torn down has no layout left to read a place from;
+      // one rewrapped at a width the observer below has yet to see scrolled
+      // only by that reflow (native anchoring), not by the reader.
+      if (restoring || !viewport.isConnected || (viewport.clientWidth && viewport.clientWidth !== width)) return;
+      lastAnchor = captureReadingAnchor(viewport);
+      onFileViewState?.(path, { visualMarkdown: { ...captureViewport(viewport), anchor: lastAnchor } });
     };
+    // The block last read at the top stays there through a change of width
+    // (a panel resized, a Writing or Reading layout taking over), as the text
+    // above it rewraps; WebKit has no native scroll anchoring to do it. The
+    // observer runs after that layout and before it paints.
+    let resizeFrames = 0;
+    const [scheduleKeep, cancelKeep] = frameCoalescer(() => {
+      resizeFrames += 1;
+      if (lastAnchor && !restoreReadingAnchor(viewport, lastAnchor) && resizeFrames < 10) scheduleKeep();
+    });
+    const resizeObserver = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(() => {
+      // Hidden (no width) is no new width: the place waits for it to show again.
+      if (viewport.clientWidth === width || !viewport.clientWidth) return;
+      width = viewport.clientWidth;
+      // Split mode's scroll sync and its insertion lock own this scroll, and
+      // both turn native anchoring off while they do.
+      if (restoring || !lastAnchor || viewport.style.overflowAnchor === "none") return;
+      resizeFrames = 0;
+      if (!restoreReadingAnchor(viewport, lastAnchor)) scheduleKeep();
+    });
+    resizeObserver?.observe(viewport);
     viewport.addEventListener("scroll", report, { passive: true });
     if (saved) scheduleRestore();
     markdownPreviewPersistenceCleanupRef.current = () => {
       cancelRestore();
+      cancelKeep();
+      resizeObserver?.disconnect();
       restoring = false;
       report();
       viewport.removeEventListener("scroll", report);

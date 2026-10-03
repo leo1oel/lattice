@@ -1,7 +1,8 @@
 /**
  * A reading position in a visual Markdown document that survives a change of
  * layout: the top-level block at the top of the viewport, by its index in the
- * document, and how far that block's top sits from the viewport's.
+ * document, how far that block's top sits from the viewport's, and its height
+ * (so a block rewrapped to another height keeps the same share above).
  *
  * A pixel offset does not survive one. The same Paper is drawn by its full
  * reader (with a masthead, figures loaded as they were scrolled past) and by
@@ -44,7 +45,8 @@ export function captureReadingAnchor(viewport: HTMLElement): ReadingAnchor | und
   const index = firstReaching(blocks, top);
   const block = blocks[index];
   if (!block) return undefined;
-  return { block: (chunk ? chunkFirst(chunk) : 0) + index, top: block.getBoundingClientRect().top - top };
+  const rect = block.getBoundingClientRect();
+  return { block: (chunk ? chunkFirst(chunk) : 0) + index, top: rect.top - top, height: rect.height };
 }
 
 /**
@@ -73,7 +75,11 @@ export function restoreReadingAnchor(viewport: HTMLElement, anchor: ReadingAncho
     block = blocksIn(viewport)?.[anchor.block];
     if (!block) return false;
   }
-  const offset = block.getBoundingClientRect().top - top - anchor.top;
+  // The block straddling the top may have rewrapped (another width): the
+  // same share of it stays above the viewport, so the line read stays put.
+  const rect = block.getBoundingClientRect();
+  const share = anchor.top < 0 && anchor.height && rect.height ? rect.height / anchor.height : 1;
+  const offset = rect.top - top - anchor.top * share;
   if (Math.abs(offset) < 1) return true;
   const before = viewport.scrollTop;
   viewport.scrollTop = before + offset;

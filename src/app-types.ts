@@ -95,14 +95,14 @@ export type HtmlFileViewState = ImageFileViewState;
 
 /**
  * Where a visual Markdown document was read: its scroll, and the block at the
- * top of the viewport (its index among the document's top-level blocks, and
- * its top relative to the viewport's). A Paper is drawn by its full reader
- * and, beside the notes, by a read-only snapshot laid out differently (no
- * masthead, figures not yet loaded above, another width), so only the block
- * finds the same text in both.
+ * top of the viewport (its index among the document's top-level blocks, its
+ * top relative to the viewport's, and its height). A Paper is drawn by its
+ * full reader and, beside the notes, by a read-only snapshot laid out
+ * differently (no masthead, figures not yet loaded above, another width), so
+ * only the block finds the same text in both.
  */
 export type VisualMarkdownViewState = ScrollFileViewState & {
-  anchor?: { block: number; top: number };
+  anchor?: { block: number; top: number; height?: number };
 };
 
 /**

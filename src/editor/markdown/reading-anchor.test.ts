@@ -12,7 +12,7 @@ function scroller(heights: number[], { lead = 0, chunks = 0, drawn = new Set<num
   Object.defineProperty(viewport, "scrollTop", { get: () => scrollTop, set: (value: number) => { scrollTop = Math.max(0, value); } });
   viewport.getBoundingClientRect = () => ({ top: 100, bottom: 700 }) as DOMRect;
   const place = (element: Element, offset: number, height: number) => {
-    element.getBoundingClientRect = () => ({ top: 100 + offset - scrollTop, bottom: 100 + offset - scrollTop + height }) as DOMRect;
+    element.getBoundingClientRect = () => ({ top: 100 + offset - scrollTop, bottom: 100 + offset - scrollTop + height, height }) as DOMRect;
   };
   const offsets = heights.map((_, index) => lead + heights.slice(0, index).reduce((sum, height) => sum + height, 0));
   const block = (index: number) => {
@@ -49,14 +49,22 @@ describe("reading anchor", () => {
     const reader = scroller(Array(20).fill(100), { lead: 80 });
     reader.scrollTop = 80 + 12 * 100 + 30;
     const anchor = captureReadingAnchor(reader)!;
-    expect(anchor).toEqual({ block: 12, top: -30 });
+    expect(anchor).toEqual({ block: 12, top: -30, height: 100 });
     // The snapshot: no masthead and a figure above that has not loaded, so
     // the reader's offset would land almost three blocks further down.
     const snapshot = scroller([100, 100, 0, ...Array(17).fill(100)]);
     snapshot.scrollTop = reader.scrollTop;
     expect(captureReadingAnchor(snapshot)!.block).toBe(14);
     while (!restoreReadingAnchor(snapshot, anchor));
-    expect(captureReadingAnchor(snapshot)).toEqual({ block: 12, top: -30 });
+    expect(captureReadingAnchor(snapshot)).toEqual({ block: 12, top: -30, height: 100 });
+  });
+
+  it("keeps the same share of a rewrapped block above the viewport", () => {
+    // Read 150px into a 300px paragraph; at a wider panel it is 200px tall.
+    const anchor = { block: 3, top: -150, height: 300 };
+    const wider = scroller([100, 100, 100, 200, 100]);
+    while (!restoreReadingAnchor(wider, anchor));
+    expect(captureReadingAnchor(wider)).toEqual({ block: 3, top: -100, height: 200 });
   });
 
   it("draws a passive chunk before placing a block inside it", () => {
@@ -72,7 +80,7 @@ describe("reading anchor", () => {
     snapshot.scrollTop = scrollTop;
     while (!restoreReadingAnchor(snapshot, { block: 60, top: -10 }));
     expect(snapshot.scrollTop).toBe(60 * 50 + 10);
-    expect(captureReadingAnchor(snapshot)).toEqual({ block: 60, top: -10 });
+    expect(captureReadingAnchor(snapshot)).toEqual({ block: 60, top: -10, height: 50 });
   });
 
   it("has no anchor while nothing at the top is drawn", () => {
