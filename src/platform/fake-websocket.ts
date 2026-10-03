@@ -9,6 +9,7 @@ export class FakeWebSocket extends EventTarget {
   readonly url: string;
   readyState = FakeWebSocket.OPEN;
   send = vi.fn();
+  close = vi.fn();
 
   constructor(url: string | URL) {
     super();

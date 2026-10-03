@@ -34,6 +34,8 @@ pub(super) const SESSION_CONNECT_TIMEOUT: Duration = Duration::from_secs(30);
 const RECONNECT_GRACE: Duration = Duration::from_secs(5);
 /// The surface giving up the workspace has saved (answer to `yield`).
 const YIELDED: &str = r#"{"type":"yielded"}"#;
+/// The surface asked to yield could not save every edit and keeps the workspace.
+const YIELD_FAILED: &str = r#"{"type":"yield-failed"}"#;
 /// The parked Chromium window asks for the workspace back.
 const RECLAIM: &str = r#"{"type":"reclaim"}"#;
 /// Carries the session token on project PDF range reads, so it never lands in
@@ -229,12 +231,15 @@ async fn bridge_socket(
                 match message {
                     Message::Text(text)
                         if query.role != BridgeRole::Host
-                            && matches!(text.as_str(), YIELDED | RECLAIM) =>
+                            && matches!(text.as_str(), YIELDED | YIELD_FAILED | RECLAIM) =>
                     {
-                        let effect = if text.as_str() == YIELDED {
-                            session::yielded(&sessions, &query, &peer_id)
-                        } else {
-                            session::reclaim(&sessions, &query, &peer_id)
+                        let effect = match text.as_str() {
+                            YIELDED => session::yielded(&sessions, &query, &peer_id),
+                            YIELD_FAILED => {
+                                session::yield_failed(&sessions, &query, &peer_id);
+                                None
+                            }
+                            _ => session::reclaim(&sessions, &query, &peer_id),
                         };
                         if let Some(effect) = effect {
                             apply_effect(&app, &sessions, &query.token, effect);

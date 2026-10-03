@@ -7,9 +7,13 @@
 //! window hidden behind a standby page) or waiting to take over.
 //!
 //! Ownership moves by a handoff: the owner is asked to `yield`, saves, and
-//! answers `yielded` (or a timeout passes); only then does the other surface
-//! take over. Two surfaces therefore never edit the project at once, and an
-//! edit typed just before the switch is saved rather than dropped.
+//! answers `yielded`; only then does the other surface take over. Two
+//! surfaces therefore never edit the project at once, and an edit typed just
+//! before the switch is saved rather than dropped. An owner that cannot save
+//! answers `yield-failed`, or stays silent past the timeout, and keeps the
+//! workspace with its unsaved buffer: the waiting surface is told
+//! `handoff-refused` and can ask again. Only an owner that is gone, whose
+//! edits no surface can save any more, loses the workspace without a yes.
 //! `visible_epoch` counts ownership generations so a delayed grace timer can
 //! tell whether anything reconnected in the meantime.
 //!
@@ -150,6 +154,14 @@ impl BrowserSession {
         id
     }
 
+    /// Give up the pending handoff: the owner keeps the workspace, and the
+    /// surface that waited for it is told so it can ask again.
+    fn refuse_handoff(&mut self) {
+        if let Some(handoff) = self.handoff.take() {
+            notify(self.peer(handoff.to), "handoff-refused");
+        }
+    }
+
     /// Hand the workspace to the surface handoff `id` is for, if it is still
     /// pending and that surface is still connected.
     fn complete_handoff(&mut self, id: u64) -> Option<Effect> {
@@ -278,8 +290,8 @@ impl BridgeRole {
 /// What the caller must do after a session change.
 #[derive(Debug, PartialEq, Eq)]
 pub(super) enum Effect {
-    /// The owner was asked to yield: finish handoff `id` after a timeout even
-    /// if it never answers.
+    /// The owner was asked to yield: settle handoff `id` after a timeout if
+    /// it never answers (see [`finish_handoff`]).
     HandoffStarted(u64),
     /// A browser tab took over: hide the Chromium window.
     Parked,
@@ -452,9 +464,47 @@ pub(super) fn yielded(sessions: &Sessions, query: &BridgeQuery, peer_id: &str) -
     session.complete_handoff(id)
 }
 
-/// The yield timeout passed: switch even though the owner never answered.
-pub(super) fn finish_handoff(sessions: &Sessions, token: &str, id: u64) -> Option<Effect> {
-    sessions.lock().ok()?.get_mut(token)?.complete_handoff(id)
+/// The owner answered `yield` with `yield-failed`: some edit is still unsaved,
+/// so it keeps the workspace.
+pub(super) fn yield_failed(sessions: &Sessions, query: &BridgeQuery, peer_id: &str) {
+    let Ok(mut sessions) = sessions.lock() else {
+        return;
+    };
+    let Some(session) = sessions.get_mut(&query.token) else {
+        return;
+    };
+    let owner_answered = query.role.surface().is_some_and(|surface| {
+        session.owner == Some(surface) && session.peer(surface).is_some_and(|peer| peer.id == peer_id)
+    });
+    if owner_answered {
+        session.refuse_handoff();
+    }
+}
+
+/// How a handoff the owner never answered ends.
+#[derive(Debug, PartialEq, Eq)]
+pub(super) enum HandoffTimeout {
+    /// The owner is still connected, so its edits may still be unsaved: it
+    /// keeps the workspace and the waiting surface is told.
+    Kept,
+    /// The owner is gone, and its edits with it: the waiting surface takes over.
+    Switched(Effect),
+}
+
+/// The yield timeout passed for handoff `id`; None when it is no longer pending.
+pub(super) fn finish_handoff(sessions: &Sessions, token: &str, id: u64) -> Option<HandoffTimeout> {
+    let mut sessions = sessions.lock().ok()?;
+    let session = sessions.get_mut(token)?;
+    if session.handoff.as_ref()?.id != id {
+        return None;
+    }
+    // A slow or wedged save is not a lost one: switching now would close or
+    // reload a page that may hold the only copy of an edit.
+    if session.owner_peer().is_some() {
+        session.refuse_handoff();
+        return Some(HandoffTimeout::Kept);
+    }
+    session.complete_handoff(id).map(HandoffTimeout::Switched)
 }
 
 /// The parked Chromium window asked to show the workspace again.
@@ -786,16 +836,97 @@ mod tests {
     }
 
     #[test]
-    fn a_window_that_never_answers_is_switched_after_the_timeout() {
+    fn a_connected_window_that_never_answers_keeps_the_workspace() {
         let sessions = sessions();
         let (_host, mut desktop) = chromium_workspace(&sessions);
-        let (_browser, effect) = connect_with(&sessions, BridgeRole::Browser, "tab");
+        let (mut browser, effect) = connect_with(&sessions, BridgeRole::Browser, "tab");
         let Some(Effect::HandoffStarted(id)) = effect else { panic!("handoff expected") };
         drain(&mut [&mut desktop]);
 
         assert!(finish_handoff(&sessions, TOKEN, id + 1).is_none());
-        assert_eq!(finish_handoff(&sessions, TOKEN, id), Some(Effect::Parked));
-        assert_eq!(all(&mut desktop), [control("desktop-suspended")]);
+        // Its save may still be running: closing it now could drop an edit.
+        assert_eq!(finish_handoff(&sessions, TOKEN, id), Some(HandoffTimeout::Kept));
+        assert_eq!(next(&mut desktop), "none");
+        assert_eq!(all(&mut browser), [control("handoff-refused")]);
+        assert!(relays(&sessions, BridgeRole::Desktop, "window"));
+        assert!(!relays(&sessions, BridgeRole::Browser, "tab"));
+
+        // A save that finishes after the timeout no longer switches anything.
+        assert!(yielded(&sessions, &query(BridgeRole::Desktop), "window").is_none());
+        assert!(relays(&sessions, BridgeRole::Desktop, "window"));
+    }
+
+    #[test]
+    fn a_window_gone_before_the_timeout_is_switched() {
+        let sessions = sessions();
+        let (_host, _desktop) = chromium_workspace(&sessions);
+        let (_browser, effect) = connect_with(&sessions, BridgeRole::Browser, "tab");
+        let Some(Effect::HandoffStarted(id)) = effect else { panic!("handoff expected") };
+
+        detach_with_grace(&sessions, BridgeRole::Desktop, "window");
+        assert_eq!(
+            finish_handoff(&sessions, TOKEN, id),
+            Some(HandoffTimeout::Switched(Effect::Parked))
+        );
+        assert!(relays(&sessions, BridgeRole::Browser, "tab"));
+    }
+
+    #[test]
+    fn a_window_that_cannot_save_keeps_the_workspace_and_the_tab_may_ask_again() {
+        let sessions = sessions();
+        let (_host, mut desktop) = chromium_workspace(&sessions);
+        let (mut browser, effect) = connect_with(&sessions, BridgeRole::Browser, "tab");
+        let Some(Effect::HandoffStarted(id)) = effect else { panic!("handoff expected") };
+        drain(&mut [&mut desktop]);
+
+        // Only the owner's current page can refuse.
+        yield_failed(&sessions, &query(BridgeRole::Browser), "tab");
+        yield_failed(&sessions, &query(BridgeRole::Desktop), "stale");
+        assert_eq!(next(&mut browser), "none");
+
+        yield_failed(&sessions, &query(BridgeRole::Desktop), "window");
+        assert_eq!(all(&mut browser), [control("handoff-refused")]);
+        assert_eq!(next(&mut desktop), "none");
+        assert!(relays(&sessions, BridgeRole::Desktop, "window"));
+        assert!(!relays(&sessions, BridgeRole::Browser, "tab"));
+        assert!(finish_handoff(&sessions, TOKEN, id).is_none(), "the timeout is stale now");
+        assert!(yielded(&sessions, &query(BridgeRole::Desktop), "window").is_none());
+
+        // Trying again (the tab reloads) starts a new handoff.
+        let (mut retry, effect) = connect_with(&sessions, BridgeRole::Browser, "tab-2");
+        assert!(matches!(effect, Some(Effect::HandoffStarted(next_id)) if next_id != id));
+        assert_eq!(all(&mut desktop), [control("yield")]);
+        assert_eq!(yielded(&sessions, &query(BridgeRole::Desktop), "window"), Some(Effect::Parked));
+        assert_eq!(all(&mut retry), [READY]);
+    }
+
+    #[test]
+    fn a_tab_that_cannot_save_keeps_the_workspace_from_the_window() {
+        let sessions = sessions();
+        let (_host, mut desktop, mut browser) = handed_to_browser(&sessions);
+
+        let Ok(ReturnPlan::Handoff(_, id)) = request_return(&sessions, "browser-test", true) else {
+            panic!("a parked window takes the workspace back by a handoff");
+        };
+        assert_eq!(next(&mut browser), control("yield"));
+        yield_failed(&sessions, &query(BridgeRole::Browser), "tab");
+        assert_eq!(all(&mut desktop), [control("handoff-refused")]);
+        assert_eq!(next(&mut browser), "none");
+        assert!(relays(&sessions, BridgeRole::Browser, "tab"));
+        assert!(finish_handoff(&sessions, TOKEN, id).is_none());
+
+        // The same holds when the tab stays silent past the timeout.
+        assert!(matches!(
+            reclaim(&sessions, &query(BridgeRole::Desktop), "window"),
+            Some(Effect::HandoffStarted(_))
+        ));
+        let Some(id) = sessions.lock().unwrap()[TOKEN].handoff.as_ref().map(|handoff| handoff.id)
+        else {
+            panic!("reclaim starts a handoff");
+        };
+        assert_eq!(next(&mut browser), control("yield"));
+        assert_eq!(finish_handoff(&sessions, TOKEN, id), Some(HandoffTimeout::Kept));
+        assert_eq!(all(&mut desktop), [control("handoff-refused")]);
         assert!(relays(&sessions, BridgeRole::Browser, "tab"));
     }
 

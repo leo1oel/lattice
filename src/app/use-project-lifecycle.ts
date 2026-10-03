@@ -31,6 +31,28 @@ const settleWithin = (work: Promise<unknown>) => Promise.race([
   new Promise<void>((resolve) => window.setTimeout(resolve, PROJECT_SWITCH_SYNC_WAIT_MS)),
 ]);
 
+/** Why {@link saveEveryEdit} stopped, or "saved" once every open edit is on disk. */
+export type SaveEveryEditOutcome = "saved" | "composing" | "failed" | "changed";
+
+/**
+ * Publish and durably save every open edit before this surface lets go of its
+ * project: a project switch, or another surface taking the workspace. Only
+ * "saved" means letting go loses nothing. An unfinished IME composition
+ * cannot be published yet, a failed save is reported where it happened, and
+ * an edit typed while the save ran is still only in this page's memory.
+ */
+export async function saveEveryEdit({ flush, save, flushWholeFiles, hasUnsavedEdits }: {
+  flush: () => boolean;
+  save: () => Promise<boolean>;
+  flushWholeFiles: () => Promise<void>;
+  hasUnsavedEdits: () => boolean;
+}): Promise<SaveEveryEditOutcome> {
+  if (!flush()) return "composing";
+  if (!(await save())) return "failed";
+  await settleWithin(flushWholeFiles());
+  return hasUnsavedEdits() ? "changed" : "saved";
+}
+
 export type ProjectLifecycleDeps = {
   projectState: ProjectState;
   documents: Pick<OpenDocuments, "claim" | "flush" | "save" | "hasUnsavedEdits" | "enter" | "chooseMode">;
@@ -139,16 +161,10 @@ export function useProjectLifecycle(deps: ProjectLifecycleDeps) {
     // The editor stayed live while Overleaf settled, so publish and durably
     // save any edit (including a just-finished IME composition) made during
     // that wait before invalidating the outgoing project's ownership.
-    if (!flush()) {
-      setNotice(t`Finish the current text composition, then switch projects again.`);
-      return false;
-    }
-    if (!(await save())) return false;
-    await settleWithin(flushWholeFilesRef.current());
-    if (hasUnsavedEdits()) {
-      setNotice(t`The document changed while saving. Save it, then switch projects again.`);
-      return false;
-    }
+    const saved = await saveEveryEdit({ flush, save, flushWholeFiles: flushWholeFilesRef.current, hasUnsavedEdits });
+    if (saved === "composing") setNotice(t`Finish the current text composition, then switch projects again.`);
+    if (saved === "changed") setNotice(t`The document changed while saving. Save it, then switch projects again.`);
+    if (saved !== "saved") return false;
     if (beginProjectTransition()) return true;
     setNotice(t`Overleaf sync is finishing. Try switching projects again in a moment.`, "Overleaf");
     return false;
@@ -460,13 +476,15 @@ export function useProjectLifecycle(deps: ProjectLifecycleDeps) {
 
   // Before another surface takes this workspace (the default browser, or the
   // Lattice window coming back), publish and save every edit. The bridge asks
-  // for this too when a bookmarked tab takes over unannounced.
+  // for this too when a bookmarked tab takes over unannounced, and hands the
+  // workspace over only on true: anything else keeps it, and its editable
+  // buffer, here.
   const saveForHandoff = useCallback(async () => {
-    flush();
-    const saved = await save();
-    await settleWithin(flushWholeFilesRef.current());
-    return saved;
-  }, [flush, flushWholeFilesRef, save]);
+    const saved = await saveEveryEdit({ flush, save, flushWholeFiles: flushWholeFilesRef.current, hasUnsavedEdits });
+    if (saved === "composing") setNotice(t`Finish the current text composition, then move the workspace again.`);
+    if (saved === "changed") setNotice(t`The document changed while saving. Save it, then move the workspace again.`);
+    return saved === "saved";
+  }, [flush, flushWholeFilesRef, hasUnsavedEdits, save, t]);
   useEffect(() => {
     if (!browserHosted) return;
     setWorkspaceYieldHandler(saveForHandoff);

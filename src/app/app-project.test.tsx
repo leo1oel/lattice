@@ -128,6 +128,35 @@ describe("project tree and projects", () => {
         path: "main.tex", content: expect.stringContaining("% typed just before"),
       }));
     });
+
+    it("keeps the workspace when its save fails or an edit lands while it runs", async () => {
+      Object.assign(browserRuntime, { hosted: true, bundled: true });
+      let failWrites = true;
+      let finishWrite: (() => void) | null = null;
+      openProject({
+        write_project_file: async (args: unknown) => {
+          if (failWrites) throw new Error("disk full");
+          await new Promise<void>((resolve) => { finishWrite = resolve; });
+          return { content: (args as { content: string }).content, hadConflicts: false };
+        },
+      });
+      const view = await findEditorView(".source-editor[data-editor-pane='primary'] .cm-editor");
+      await waitFor(() => expect(browserRuntime.yieldHandler).not.toBeNull());
+      act(() => view.dispatch({ changes: { from: view.state.doc.length, insert: "\n% unsaved" } }));
+      await act(async () => { await expect(browserRuntime.yieldHandler!()).resolves.toBe(false); });
+
+      failWrites = false;
+      let yielded!: Promise<boolean>;
+      act(() => { yielded = browserRuntime.yieldHandler!(); });
+      await waitFor(() => expect(finishWrite).not.toBeNull());
+      act(() => view.dispatch({ changes: { from: view.state.doc.length, insert: "\n% typed while saving" } }));
+      await act(async () => {
+        finishWrite!();
+        await expect(yielded).resolves.toBe(false);
+      });
+      expect(view.state.doc.toString()).toContain("% typed while saving");
+      await expectNotification(/The document changed while saving/);
+    });
   });
 
   it("toggles fullscreen when double-clicking the titlebar drag area", async () => {
