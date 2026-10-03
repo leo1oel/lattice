@@ -17,7 +17,15 @@ textarea {
 }
 
 :root {
-  --ui-font: "Inter Variable", Inter, "Avenir Next", "Segoe UI", sans-serif;
+  /* Font roles. A local build that embeds the Timeless family puts its faces
+     first (scripts/private-fonts.ts); every other build uses these stacks.
+     PingFang SC sets Chinese in both. Code stays on --editor-font. */
+  --ui-font-fallback: "Inter Variable", Inter, "PingFang SC", "Avenir Next", "Segoe UI", sans-serif;
+  --ui-font: var(--ui-font-fallback);
+  /* Long-form prose: the visual Markdown surface and a paper's title. */
+  --reading-font: var(--ui-font-fallback);
+  --display-font-fallback: "Instrument Serif", Georgia, serif;
+  --display-font: var(--display-font-fallback);
   --editor-font: "Ioskeley Mono", Menlo, "SF Mono", ui-monospace, monospace;
   --editor-font-size: var(--type-reading-size);
   /* Shared by source CodeMirror and the visual Markdown fixed caret. */

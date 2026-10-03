@@ -6,7 +6,10 @@ not to force every surface into one density.
 
 ## Decisions
 
-- The interface font is Inter Variable.
+- The interface font (`--ui-font`) is Inter Variable, or Timeless Sans in a
+  local build that embeds the Timeless family (see Private interface fonts).
+  Long-form reading surfaces use `--reading-font`; code never leaves
+  `--editor-font`.
 - The product accent stays neutral. Status colors communicate success, warning,
   and danger; they are not substitutes for the interaction accent.
 - Agent body copy, user messages, and the composer use 13px type on a 20px line
@@ -16,13 +19,13 @@ not to force every surface into one density.
   Ioskeley Mono (OFL), with system monospace faces as fallback. Local and
   embedded code surfaces share this stack; editor font size remains
   adjustable.
-- Project filenames and folders use Inter at 13/16px. Project rows use the
+- Project filenames and folders use the interface font at 13/16px. Project rows use the
   compact 32px row role; selected items move from regular to medium weight.
-- Papers titles use Inter at 12/16px regular weight. Author, year, venue, and
+- Papers titles use the interface font at 12/16px regular weight. Author, year, venue, and
   other Papers metadata remain at 11/16px regular weight.
 - Diff code uses the editor font at 11/18px. Diff paths, headers, and line
-  numbers remain Inter; compact metadata uses the 10/14px role.
-- Embedded Agent thread titles retain the compact Inter 11/16px navigation
+  numbers remain in the interface font; compact metadata uses the 10/14px role.
+- Embedded Agent thread titles retain the compact 11/16px navigation
   role at regular weight; Project filenames use their independent 13/16px role.
 - The top toolbar and left Project, Papers, and Agent navigation form the app
   chrome. They use `#EFEFF0` in the light theme and `#141416` in the dark theme.
@@ -37,6 +40,43 @@ not to force every surface into one density.
   geometry, such as an asymmetric message bubble.
 - Light and dark colors come from semantic theme variables. Do not introduce a
   fixed light-theme hex value into a reusable component.
+
+
+## Private interface fonts
+
+The Timeless type family (Timeless Free Font License 1.2; get the fonts and
+the license from [timeless.co](https://timeless.co)) is embedded only by local
+builds. The license allows embedding the fonts in an application but forbids
+putting them on a public repository or redistributing them, so this repository
+holds no font file, subset, conversion or copy of the license, and
+`src/platform/font-license-guard.test.ts` fails if one is ever tracked. Keep
+the download, with its `LICENSE.pdf` beside the fonts, outside the checkout.
+
+- `LATTICE_PRIVATE_FONTS_DIR` names the download's folder (the one holding
+  `Sans-Grotesk/` and `Serif-Text/`); unset, it defaults to
+  `~/Downloads/Timeless-Type-Family-1.094`. An empty value builds without it.
+  `vite build`, `pnpm tauri dev`/`build` and the mock-backend page all read it
+  through `scripts/private-fonts.ts`, which logs whether it embedded the fonts.
+- With every face present, the build emits the original WOFF2 files,
+  unmodified, as hashed assets of the app and puts them first in the font
+  roles. Otherwise nothing changes: CI, release builds and other contributors
+  get Inter, Instrument Serif and the same layout.
+- Roles: `--ui-font` is Timeless Sans in its Grotesk style (the variable
+  font's default; at 10–13px it kept confusable pairs such as e/o, rn/m and
+  3/8 slightly further apart than the Sans style). `--reading-font`, for the
+  visual Markdown surface and a paper's title, is Timeless Serif Text, the cut
+  drawn for body sizes. `--display-font` (the welcome title) is Timeless
+  Serif. Source editors, code, logs and every monospace surface stay on
+  `--editor-font`.
+- Metrics: Timeless is about 3.5% narrower than Inter with a smaller
+  x-height. `size-adjust` scales the sans by 104% (matching Inter's widths
+  over every English UI string within 1%) and the serif by 105% (matching
+  Inter's x-height); ascent and descent overrides keep Inter's line metrics.
+  Truncation, wrapping and baselines therefore match the Inter build, and
+  Chinese, set in PingFang SC in both builds, keeps the same relative size
+  beside Latin text. Both families have tabular figures, so
+  `font-variant-numeric: tabular-nums` behaves the same.
+- Timeless covers Latin only; Greek and Cyrillic fall through to Inter.
 
 ## Token layers
 

@@ -164,10 +164,11 @@ describe("welcome screen", () => {
     expect(localStorage.getItem("lattice.theme-preference.v1")).toBe("dark");
     expect(screen.queryByLabelText("Interface font")).not.toBeInTheDocument();
     const rootStyle = (name: string) => document.documentElement.style.getPropertyValue(name);
-    await waitFor(() => {
-      expect(rootStyle("--ui-font")).toBe('"Inter Variable", Inter, "Avenir Next", "Segoe UI", sans-serif');
-      expect(rootStyle("--editor-font")).toBe('"Ioskeley Mono", Menlo, "SF Mono", ui-monospace, monospace');
-    });
+    // The font roles belong to the stylesheets (theme.css, and the Timeless
+    // overrides a local build may embed); an inline value would outrank both.
+    await waitFor(() => expect(rootStyle("--editor-font-size")).toBe("14px"));
+    expect(rootStyle("--ui-font")).toBe("");
+    expect(rootStyle("--editor-font")).toBe("");
     expect(screen.getByRole("slider", { name: /editor font size/i })).toHaveValue("14");
     fireEvent.click(screen.getByRole("button", { name: "Editor & builds" }));
     expect(section("Appearance")).not.toHaveAttribute("aria-current");
