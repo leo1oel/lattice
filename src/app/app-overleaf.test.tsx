@@ -182,6 +182,9 @@ describe("Overleaf sync", () => {
     expect(document.querySelector('.canvas-toolbar button[aria-label="Editor comments"]')).toBeNull();
     fireEvent.click(toolbar);
     expect(await screen.findByText("Remote review")).toBeInTheDocument();
+    // A slow chunk shows the drawer's loading shell, which docks in the same
+    // drawer and stays its minimum time over the drawer arriving under it.
+    await waitFor(() => expect(document.querySelector(".tool-loading-shell")).toBeNull());
     expect(document.querySelectorAll(".overleaf-collab-drawer")).toHaveLength(1);
     expect(document.querySelector(".editor-comments-drawer")).toBeNull();
     fireEvent.click(screen.getByRole("tab", { name: /^Local/ }));
