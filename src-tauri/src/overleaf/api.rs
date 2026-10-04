@@ -372,20 +372,43 @@ impl Uploader<'_> {
             .multipart(form);
         let response = send_as(request, err)?;
         let status = response.status();
-        let body = response.text().unwrap_or_default();
-        if !status.is_success() {
-            return Err(format!("Overleaf returned {status}: {body}"));
+        let body = serde_json::from_str::<Value>(&response.text().unwrap_or_default()).ok();
+        let accepted = body.as_ref().and_then(|v| v.get("success")?.as_bool()).unwrap_or(false);
+        if status.is_success() && accepted {
+            return Ok(());
         }
-        let accepted = serde_json::from_str::<Value>(&body)
-            .ok()
-            .and_then(|v| v.get("success").and_then(|s| s.as_bool()))
-            .unwrap_or(false);
-        if !accepted {
-            return Err(format!("Overleaf rejected the upload: {body}"));
+        // The body is the server's arbitrary text and may quote the document,
+        // so the error — shown to the user and written to the sync's event —
+        // carries only the status and an error code Overleaf is known to send.
+        wide_event::record("upload_status", status.as_u16());
+        let code = body
+            .as_ref()
+            .and_then(|v| v.get("error")?.as_str())
+            .filter(|code| UPLOAD_ERROR_CODES.contains(code));
+        if let Some(code) = code {
+            wide_event::record("upload_error", code);
         }
-        Ok(())
+        let error = if status.is_success() {
+            "Overleaf rejected the upload".to_string()
+        } else {
+            format!("Overleaf returned HTTP {} during upload", status.as_u16())
+        };
+        Err(match code {
+            Some(code) => format!("{error} ({code})"),
+            None => error,
+        })
     }
 }
+
+/// The `error` codes Overleaf's upload endpoint answers with; anything else
+/// in a rejection's body is left out of the error.
+const UPLOAD_ERROR_CODES: &[&str] = &[
+    "duplicate_file_name",
+    "file_too_large",
+    "folder_not_found",
+    "invalid_filename",
+    "project_has_too_many_files",
+];
 
 // ---- A linked project's endpoints -------------------------------------------
 

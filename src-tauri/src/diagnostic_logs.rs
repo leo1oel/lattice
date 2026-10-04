@@ -125,9 +125,18 @@ fn redact(input: &str, home: Option<&Path>) -> String {
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
     use crate::test_support::TempDir;
+
+    /// `log` as the support bundle exports it.
+    pub(crate) fn exported(log: &str) -> String {
+        let root = TempDir::new("diagnostic");
+        root.write("lattice.log", log);
+        let file = collect_file("lattice.log", &root, Path::new("lattice.log"), None);
+        assert_eq!(file.error, None);
+        file.content
+    }
 
     #[test]
     fn tail_is_bounded_and_starts_on_a_multibyte_boundary() {

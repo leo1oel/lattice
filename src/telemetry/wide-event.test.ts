@@ -47,4 +47,31 @@ describe("startWideEvent", () => {
     });
     expect(JSON.stringify(line.event)).not.toMatch(/secret|paper's own words/);
   });
+
+  it("keeps one id across a retried delivery and gives each operation its own", async () => {
+    vi.useFakeTimers();
+    try {
+      // The first write lands but its IPC call still fails, so the queue retries it.
+      fileLog.info.mockRejectedValueOnce(new Error("connection lost"));
+      const { startWideEvent } = await import("./wide-event");
+      for (let session = 0; session < 2; session += 1) {
+        const event = startWideEvent("pdf.session", { path: "reference.pdf", file_bytes: 100 });
+        event.add("range_requests");
+        event.end();
+      }
+      await vi.runAllTimersAsync();
+    } finally {
+      vi.useRealTimers();
+    }
+    const events = (await written()).map((line) => line.event);
+    expect(events).toHaveLength(3);
+    const [first, retried, second] = events;
+    expect(retried).toEqual(first);
+    expect(first.event_id).toEqual(expect.stringMatching(/^[0-9a-f-]{36}$/));
+    expect(Date.parse(first.started_at as string)).not.toBeNaN();
+    const { event_id: _firstId, started_at: _firstStart, ...firstRest } = first;
+    const { event_id: secondId, started_at: _secondStart, ...secondRest } = second;
+    expect(secondId).not.toBe(first.event_id);
+    expect(secondRest).toEqual(firstRest);
+  });
 });
