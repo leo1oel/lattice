@@ -380,25 +380,6 @@ export function arrangeDocuments(
   }, knownType);
 }
 
-/**
- * What a workspace's arrangement becomes for `doc`, the layout in it now:
- * unchanged while `doc` is just `stored` holding the documents open, else
- * `doc`'s own arrangement. A slot that closed up stays in `stored` only while
- * every document panel holds a single document, so none was left to fill it;
- * a panel holding several means the writer merged them, removing the slot.
- */
-export function liveArrangement(stored: LayoutDocument | null, doc: LayoutDocument): LayoutDocument {
-  const arrangement = arrangementOf(doc);
-  if (!stored) return arrangement;
-  const shape = layoutShape(arrangement);
-  if (layoutShape(stored) === shape) return stored;
-  const openTabs = Object.values(doc.views).map(fileKey).filter(Boolean);
-  const held = arrangeDocuments(stored, doc, { activeKey: "", openTabs }, placesOf(doc));
-  if (layoutShape(arrangementOf(held)) !== shape) return arrangement;
-  const single = panelsOf(doc, { hidden: true }).every((panel) => panel.views.filter((id) => fileKey(doc.views[id])).length <= 1);
-  return single ? stored : arrangement;
-}
-
 function storageKey(projectRoot: string) {
   return `${LAYOUT_STORAGE_PREFIX}${projectRoot}`;
 }
@@ -482,7 +463,7 @@ export function openProjectLayout(projectRoot: string, library: WorkspaceLibrary
   let current = own;
   if (!arrangement) {
     library.setArrangement(workspace, arrangementOf(own));
-  } else if (liveArrangement(arrangement, own) !== arrangement) {
+  } else if (layoutShape(arrangementOf(own)) !== layoutShape(arrangement)) {
     const openTabs = Object.values(own.views).map(fileKey).filter(Boolean);
     current = arrangeDocuments(arrangement, own, { activeKey: "", openTabs }, saved.places[workspace] ?? placesOf(own));
   }

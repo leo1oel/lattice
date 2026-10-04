@@ -109,48 +109,36 @@ function isSavedLayout(value: unknown): value is { version: number; savedAt?: nu
 }
 
 /**
- * The first library, from the layouts projects saved before workspaces: each
- * distinct arrangement becomes a workspace, so nobody loses theirs. The most
- * recently saved is "Workspace", the others are numbered after it (up to the
- * shortcut count; any beyond share the first), and each project's layout is
- * rewritten to name the workspace it is in.
+ * The first library, from the layouts projects saved before workspaces: one
+ * "Workspace" arranged as the most recently saved of them, and each project's
+ * layout rewritten to name it (keeping its own document as saved).
  */
 function migrate(storage: Storage): SavedLibrary {
-  const found: Array<{ key: string; savedAt: number; saved: Record<string, unknown>; arrangement: LayoutDocument }> = [];
+  const id = newId();
+  let latest: { savedAt: number; arrangement: LayoutDocument } | null = null;
+  const found: Array<{ key: string; saved: Record<string, unknown> }> = [];
   for (let index = 0; index < storage.length; index += 1) {
     const key = storage.key(index);
     if (!key?.startsWith(LAYOUT_STORAGE_PREFIX)) continue;
     try {
       const saved: unknown = JSON.parse(storage.getItem(key) ?? "null");
       if (!isSavedLayout(saved) || saved.version !== LEGACY_LAYOUT_VERSION) continue;
+      const savedAt = Number(saved.savedAt) || 0;
       // A layout left in Writing or Reading is the writer's own underneath.
-      const own = saved.preset?.previous ?? saved.document;
-      found.push({ key, savedAt: Number(saved.savedAt) || 0, saved: saved as Record<string, unknown>, arrangement: arrangementOf(own) });
+      if (!latest || savedAt > latest.savedAt) latest = { savedAt, arrangement: arrangementOf(saved.preset?.previous ?? saved.document) };
+      found.push({ key, saved: saved as Record<string, unknown> });
     } catch {
       // An unreadable layout starts again from the default, as before.
     }
   }
-  found.sort((a, b) => b.savedAt - a.savedAt);
-  const base = defaultName();
-  const workspaces: Workspace[] = [];
-  const byShape = new Map<string, string>();
   for (const entry of found) {
-    const shape = layoutShape(entry.arrangement);
-    let id = byShape.get(shape);
-    if (!id && workspaces.length < WORKSPACE_SHORTCUTS) {
-      id = newId();
-      workspaces.push({ id, name: workspaces.length ? `${base} ${workspaces.length + 1}` : base, arrangement: entry.arrangement });
-      byShape.set(shape, id);
-    }
-    id ??= workspaces[0].id;
     try {
       storage.setItem(entry.key, JSON.stringify({ ...entry.saved, version: LAYOUT_VERSION, workspace: id }));
     } catch {
       // The project falls back to the most recent workspace.
     }
   }
-  if (!workspaces.length) workspaces.push({ id: newId(), name: base, arrangement: null });
-  return { version: LIBRARY_VERSION, workspaces, recent: workspaces[0].id };
+  return { version: LIBRARY_VERSION, workspaces: [{ id, name: defaultName(), arrangement: latest?.arrangement ?? null }], recent: id };
 }
 
 function isWorkspace(value: unknown): value is Workspace {

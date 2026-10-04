@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { sanitize, type LayoutDocument, type LayoutNode, type PanelNode } from "@danfessler/trellis";
 import {
-  arrangeDocuments, defaultLayout, enterPreset, liveArrangement, loadLayout, openProjectLayout, placesOf, presetLayout, returnLayout, saveLayout, undoReset,
+  arrangeDocuments, defaultLayout, enterPreset, loadLayout, openProjectLayout, placesOf, presetLayout, returnLayout, saveLayout, undoReset,
   withDocumentPanel,
 } from "./trellis-layout";
 import { arrangementOf, layoutShape, WorkspaceLibrary } from "./trellis-workspaces";
@@ -297,71 +297,40 @@ describe("named workspaces", () => {
     expect([keysIn("panel-doc-0"), keysIn("panel-doc-2")]).toEqual([["notes.md", "refs.bib"], ["intro.tex"]]);
   });
 
-  it("keeps a workspace's slots while too few documents are open to fill them, but not past a change of the writer's", () => {
-    const stored = arrangementOf(sideBySide());
-    const one = arrangeDocuments(stored, workspaceWith(["main.tex"]), { activeKey: "main.tex", openTabs: ["main.tex"] }, placesOf(sideBySide()));
-    expect(panels(one).map((panel) => panel.id)).not.toContain("panel-doc-2");
-    expect(liveArrangement(stored, one)).toBe(stored);
-    const resized = structuredClone(one);
-    (resized.root as { weights: number[] }).weights = [0.2, 0.5, 0.3];
-    expect(layoutShape(liveArrangement(stored, resized))).toBe(layoutShape(arrangementOf(resized)));
-  });
-
-  it("records a slot the writer merged away, so entering the workspace elsewhere leaves it closed", () => {
-    const open = ["main.tex", "notes.md"];
-    const split = workspaceWith(open);
-    findPanel(split.root, "panel-doc-0")!.views = ["doc-0"];
-    const root = split.root as { children: LayoutNode[]; weights: number[] };
-    root.children.splice(2, 0, { kind: "panel", id: "panel-doc-1", views: ["doc-1"], selected: "doc-1" });
-    root.weights = [0.25, 0.3, 0.2, 0.25];
-    const stored = arrangementOf(split);
-    // The notes dragged back beside the source: their split closes up.
-    const merged = arrangeDocuments(stored, split, { activeKey: "main.tex", openTabs: open }, {
-      "main.tex": { panel: "panel-doc-0", selected: true }, "notes.md": { panel: "panel-doc-0" },
-    });
-    expect(panels(merged).map((panel) => panel.id)).not.toContain("panel-doc-1");
-    const recorded = liveArrangement(stored, merged);
-    expect(layoutShape(recorded)).toBe(layoutShape(arrangementOf(merged)));
-    const entered = arrangeDocuments(recorded, workspaceWith(open), { activeKey: "main.tex", openTabs: open }, {});
-    const documentPanels = panels(entered).filter((panel) => panel.views.some((view) => entered.views[view].type === "file"));
-    expect(documentPanels.map((panel) => panel.views.map((view) => entered.views[view].params?.key))).toEqual([["main.tex", "notes.md"]]);
-  });
-
   it("leaves documents to App's tab sync when the workspace has no place for them", () => {
     const arranged = arrangeDocuments(null, workspaceWith(keys), { activeKey: "main.tex", openTabs: keys }, {});
     expect(panels(arranged)).toEqual(panels(defaultLayout()));
     expect(Object.values(arranged.views).some((record) => record.type === "file")).toBe(false);
   });
 
-  it("migrates each project's saved layout into a workspace, keeping every arrangement", () => {
-    // Saved before workspaces (v2): two projects share an arrangement, a third has its own.
+  it("migrates the projects' saved layouts into one workspace, arranged as the most recent", () => {
+    // Saved before workspaces (v2); the most recent was left in Writing over the writer's own layout.
     const custom = sideBySide();
     const save = (root: string, document: LayoutDocument, savedAt: number, extra = {}) => localStorage.setItem(
       `lattice.trellis-layout.v1:${root}`, JSON.stringify({ version: 2, savedAt, document, ...extra }),
     );
-    save("/a", workspaceWith(keys), 300);
-    save("/b", workspaceWith(["main.tex"]), 100);
-    // Left in Writing: the writer's own layout is the one underneath.
+    const a = workspaceWith(keys);
+    const b = workspaceWith(["main.tex"]);
+    save("/a", a, 300);
+    save("/b", b, 100);
     const { document: writing, active } = enterPreset("writing", custom, null, { activeKey: "main.tex", openTabs: keys, isReading });
-    save("/c", writing, 200, { preset: active });
+    save("/c", writing, 400, { preset: active });
 
     const library = new WorkspaceLibrary();
-    expect(library.list().map((entry) => entry.name)).toEqual(["Workspace", "Workspace 2"]);
-    const [first, second] = library.list();
-    expect(layoutShape(library.get(first.id)!.arrangement!)).toBe(layoutShape(arrangementOf(workspaceWith(keys))));
-    expect(layoutShape(library.get(second.id)!.arrangement!)).toBe(layoutShape(arrangementOf(custom)));
-
-    // Each project opens as it was left, in the workspace made from its layout.
-    const a = openProjectLayout("/a", library);
-    expect(a.workspace).toBe(first.id);
-    expect(panels(a.document)).toEqual(panels(workspaceWith(keys)));
-    expect(openProjectLayout("/b", library).workspace).toBe(first.id);
+    expect(library.list().map((entry) => entry.name)).toEqual(["Workspace"]);
+    const [only] = library.list();
+    expect(layoutShape(library.get(only.id)!.arrangement!)).toBe(layoutShape(arrangementOf(custom)));
+    // Every project names it, and keeps its own document as saved.
+    for (const [root, document] of [["/a", a], ["/b", b], ["/c", writing]] as const) {
+      const saved = JSON.parse(localStorage.getItem(`lattice.trellis-layout.v1:${root}`)!);
+      expect(saved).toMatchObject({ version: 3, workspace: only.id });
+      expect(saved.document).toEqual(JSON.parse(JSON.stringify(document)));
+      expect(openProjectLayout(root, library).workspace).toBe(only.id);
+    }
     const c = openProjectLayout("/c", library);
-    expect(c.workspace).toBe(second.id);
     expect(c.preset?.preset).toBe("writing");
     expect(panels(c.preset!.previous)).toEqual(panels(custom));
-    expect(JSON.parse(localStorage.getItem("lattice.trellis-layout.v1:/c")!)).toMatchObject({ version: 3, workspace: second.id });
-    // Migrated once: a later library reads the same workspaces.
+    // Migrated once: a later library reads the same workspace.
     expect(new WorkspaceLibrary().list()).toEqual(library.list());
   });
 
