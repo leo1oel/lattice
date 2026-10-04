@@ -672,15 +672,16 @@ body:has(.modal-backdrop, .drawer-backdrop) .file-tree-context-menu { display: n
 .paper-row-text { flex: 1; overflow: hidden; }
 .paper-list small { margin-top: var(--space-1); display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-tertiary); font-size: var(--type-tree-size); line-height: var(--type-tree-line-height); }
 /* The title leads; everything under it is one quieter step down. It may take
-   a second line before it gives way to an ellipsis, and keeps room at its end
-   only for an action that never hides (a citation notice). */
-.paper-list .paper-title { padding-inline-end: calc(var(--paper-row-pinned) * 22px); display: -webkit-box; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; color: var(--navigation-text-strong); font-size: var(--type-label-size); line-height: var(--type-label-line-height); font-weight: var(--weight-regular); overflow-wrap: anywhere; text-wrap: pretty; }
+   a second line before it gives way to an ellipsis. The cover is the run of
+   its first line that the actions overlie; a row whose notice never hides
+   keeps that run clear at rest too, since the hidden actions still hold their
+   places beside it. */
+.paper-list .paper-title { --paper-title-cover: calc(var(--paper-row-actions) * 22px - var(--paper-row-padding) + var(--space-2)); padding-inline-end: calc(var(--paper-row-pinned) * (var(--paper-title-cover) + var(--space-2))); display: -webkit-box; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; color: var(--navigation-text-strong); font-size: var(--type-label-size); line-height: var(--type-label-line-height); font-weight: var(--weight-regular); overflow-wrap: anywhere; text-wrap: pretty; }
 .paper-row.active .paper-title { color: var(--text-primary); }
 .paper-row.cited-only .paper-title { color: var(--text-secondary); }
 /* Hovered, focused or open, the actions take the end of the title's first
-   line, which fades out beneath them; at rest every title keeps the width. */
+   line, which fades out beneath them; at rest an unpinned title keeps the width. */
 .paper-row:is(:hover, :focus-within, .active) .paper-title {
-  --paper-title-cover: calc(var(--paper-row-actions) * 22px - var(--paper-row-padding) + var(--space-2));
   --paper-title-mask: linear-gradient(to left, transparent var(--paper-title-cover), #000 calc(var(--paper-title-cover) + var(--space-6))), linear-gradient(#000, #000);
   -webkit-mask-image: var(--paper-title-mask);
   mask-image: var(--paper-title-mask);
