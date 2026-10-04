@@ -1,4 +1,4 @@
-import { synaraHook, openTreeFile, waitForSelectedTab, fileNode, fileNodes, dirNode, type Commands, mockCommands, projectCommands, refreshableProject, SINGLE_TRANSFORMER, attentionPaper, ROOT, projectSnapshot, MAIN_DOCUMENT, markdownSnapshot, PAPER_ABSTRACT, readPathContent, deferred, setAutoBuildMode, setInterfaceLanguage, papersList, openPaper, findProjectTreeItem, renderApp, expectNotification, findElement, findEditorView, expectEditorText, postWindowMessage, expectInvoked, invokeCalls, persistLayout, paneContent, visualEditorOf, argPath, openAgentFrame, postedOfType, pdfDocumentStub, mockPdfDocument, emitTauriEvent } from "./app-test-utils";
+import { synaraHook, openTreeFile, waitForSelectedTab, fileNode, fileNodes, dirNode, type Commands, mockCommands, projectCommands, refreshableProject, SINGLE_TRANSFORMER, attentionPaper, ROOT, projectSnapshot, MAIN_DOCUMENT, markdownSnapshot, PAPER_ABSTRACT, readPathContent, deferred, setAutoBuildMode, setInterfaceLanguage, papersList, openPaper, findProjectTreeItem, nextFrames, stubRect, renderApp, expectNotification, findElement, findEditorView, expectEditorText, postWindowMessage, expectInvoked, invokeCalls, persistLayout, paneContent, visualEditorOf, argPath, openAgentFrame, postedOfType, pdfDocumentStub, mockPdfDocument, emitTauriEvent } from "./app-test-utils";
 import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { NodeSelection } from "@tiptap/pm/state";
@@ -563,6 +563,35 @@ describe("papers", () => {
       .getByRole("tab", { name: /reference\.pdf/ }));
     await waitFor(() => expect(document.querySelector(".trellis-pdf-snapshot")).not.toBeInTheDocument());
     expect(document.querySelector(".trellis-file-live .pdf-preview")).toBeInTheDocument();
+  });
+
+  it("zooms a project PDF on Ctrl-wheel without zooming the workspace, which empty space still zooms", async () => {
+    // Regression: the PDF's own zoom prevented the wheel's default but let it bubble, and the editor host it opens
+    // in is marked as owning its gestures only for boards, sheets and decks, so Trellis zoomed the workspace too.
+    mockPdfDocument(() => pdfDocumentStub(3, {
+      render: () => ({ promise: Promise.resolve(), cancel: vi.fn() }), getTextContent: async () => ({ items: [] }),
+    }));
+    renderApp({
+      ...projectCommands(projectSnapshot({ files: fileNodes("main.tex", "reference.pdf") }), "\\documentclass{main}"),
+      read_project_asset: (args) => ({ path: argPath(args), mimeType: "application/pdf", ranges: { length: 8, version: "v1" } }),
+    });
+    fireEvent.click(await findProjectTreeItem("reference.pdf"));
+    await waitForSelectedTab("reference.pdf");
+    const page = await screen.findByLabelText("PDF page 1");
+    const reader = page.closest<HTMLElement>(".trellis-editor-host .pdf-preview")!;
+    const surface = reader.closest<HTMLElement>('[data-trellis-part="surface"]')!;
+    // Trellis zooms about the pointer's place in its root's box, which jsdom leaves empty.
+    const workspace = document.querySelector<HTMLElement>("[data-trellis-root]")!;
+    stubRect(workspace, 0, 0, 1440, 900);
+    const zoom = within(reader).getByLabelText("PDF zoom percentage");
+    const width = surface.style.width;
+    const percent = (zoom as HTMLInputElement).value;
+    fireEvent.wheel(reader.querySelector(".pdf-scroll-area-viewport")!, { ctrlKey: true, deltaY: -10, clientX: 600, clientY: 400 });
+    await waitFor(() => expect(zoom).not.toHaveValue(percent));
+    await act(() => nextFrames(3));
+    expect(surface.style.width).toBe(width);
+    fireEvent.wheel(workspace, { ctrlKey: true, deltaY: -10, clientX: 600, clientY: 400 });
+    await waitFor(() => expect(surface.style.width).not.toBe(width));
   });
 
   it.each([["Enter"], [" "]])("opens the PDF beside the notes from its tab with %j after a field in it was used", async (key) => {

@@ -1423,6 +1423,7 @@ function useHibernation(controller: TrellisController) {
       }
       const heavy = isHeavyDocument(controller.app.get().activeKey);
       // Boards, sheets and decks zoom themselves on pinch; text editors let it zoom the workspace.
+      // (A PDF opened here marks its own reader, whether or not the host is marked.)
       controller.hosts.editor.toggleAttribute("data-trellis-owns-gestures", heavy);
       if (!heavy || editorVisible) {
         editorTimer = clear(editorTimer);

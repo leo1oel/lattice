@@ -506,9 +506,13 @@ export function PdfPreview({
   const foldedReveal = searchFold ? onForwardSync : undefined;
 
   return (
+    // Pinch and Ctrl-wheel zoom the PDF, never the workspace around it. The
+    // compiled-preview host is marked already, but a PDF opened as a document
+    // sits in the editor host, which is marked only for heavy documents.
     <div
       ref={previewRef}
       className="pdf-preview"
+      data-trellis-owns-gestures=""
       tabIndex={-1}
       onPointerDownCapture={focusPdfSurface}
     >
