@@ -1,4 +1,4 @@
-import { renderApp, projectCommands } from "./app-test-utils";
+import { renderApp, projectCommands, openAgentFrame, postWindowMessage } from "./app-test-utils";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { expect, it } from "vitest";
 
@@ -22,4 +22,25 @@ it("returns focus to the project switcher when Settings, opened from its menu by
     await waitFor(() => expect(screen.queryByRole("dialog", { name: "Settings" })).not.toBeInTheDocument());
     await waitFor(() => expect(trigger, `${load} load`).toHaveFocus());
   }
+});
+
+it("returns focus to the Agent, not the project switcher, when Settings opened from the Agent after the project menu closes", async () => {
+  renderApp(projectCommands());
+  const trigger = await screen.findByRole("button", { name: "Switch project" });
+  trigger.focus();
+  fireEvent.keyDown(trigger, { key: "Enter" });
+  await waitFor(() => expect(screen.getAllByRole("menuitem")[0]).toHaveFocus());
+  fireEvent.keyDown(document.activeElement!, { key: "End" });
+  fireEvent.keyDown(screen.getByRole("menuitem", { name: "Settings" }), { key: "Enter" });
+  fireEvent.keyDown(await screen.findByRole("searchbox", { name: "Search settings" }), { key: "Escape" });
+  await waitFor(() => expect(trigger).toHaveFocus());
+
+  const { frame } = await openAgentFrame();
+  frame.focus();
+  postWindowMessage(frame.contentWindow, { type: "synara:open-settings", section: "providers" });
+  const search = await screen.findByRole("searchbox", { name: "Search settings" });
+  await waitFor(() => expect(search).toHaveFocus());
+  fireEvent.keyDown(search, { key: "Escape" });
+  await waitFor(() => expect(screen.queryByRole("dialog", { name: "Settings" })).not.toBeInTheDocument());
+  await waitFor(() => expect(frame).toHaveFocus());
 });

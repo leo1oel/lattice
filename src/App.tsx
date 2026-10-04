@@ -1042,7 +1042,10 @@ function App() {
 
   // An urgent update after the opening transition's: it also withdraws a
   // pending open, so a Settings closed from its loading shell stays closed.
-  const closeSettings = useCallback(() => setSettingsOpen(false), []);
+  const closeSettings = useCallback(() => {
+    setSettingsOpen(false);
+    setSettingsReturnFocus(null);
+  }, []);
 
   const settingsDialog = (<>
     {settingsLate && <SettingsLoadingShell label={t`Settings`} backdrop={!settingsOpen} onClose={closeSettings} />}
