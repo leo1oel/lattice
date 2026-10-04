@@ -492,7 +492,7 @@
 /* Folded, the room is short: past about 14 glyphs the input scrolls instead
    of pushing the panel controls out. */
 .trellis-titlebar[data-compact] .trellis-workspace-name {
-  flex: 0 1 auto; min-width: 0;
+  flex: 0 1 auto;
   max-width: calc(14em + 2 * var(--space-5));
   grid-template-columns: minmax(0, 1fr);
 }
