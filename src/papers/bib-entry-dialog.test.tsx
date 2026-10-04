@@ -262,7 +262,9 @@ describe("BibEntryDialog entry paths", () => {
     const onResolve = vi.fn(async () => { throw new Error("bibcite could not resolve that query."); });
     renderDialog({ onResolve, error: "An earlier save failed." });
     resolveQuery("no such paper");
-    expect(await screen.findByRole("alert")).toHaveTextContent("could not resolve");
+    // The earlier save's alert is already on screen, so findByRole("alert")
+    // would resolve with it at once; wait for the lookup's failure to replace it.
+    await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("could not resolve"));
     expect(screen.getByRole("button", { name: "Enter manually" })).toBeInTheDocument();
     // A new query is a new lookup: the old one's failure no longer describes it.
     fireEvent.change(screen.getByLabelText("Citation resolve query"), { target: { value: "another paper" } });
