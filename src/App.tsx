@@ -1036,8 +1036,12 @@ function App() {
     startSettingsOpen(() => setSettingsOpen(true));
   }, [showSettingsTab]);
 
+  // An urgent update after the opening transition's: it also withdraws a
+  // pending open, so a Settings closed from its loading shell stays closed.
+  const closeSettings = useCallback(() => setSettingsOpen(false), []);
+
   const settingsDialog = (<>
-    {settingsLate && <SettingsLoadingShell label={t`Settings`} backdrop={!settingsOpen} />}
+    {settingsLate && <SettingsLoadingShell label={t`Settings`} backdrop={!settingsOpen} onClose={closeSettings} />}
     <Suspense fallback={null}>
       {settingsOpen && <SettingsDialog
         replacesShell={settingsLate}
@@ -1091,7 +1095,7 @@ function App() {
             : await invoke<ProjectManifest>("update_project_manifest", patch);
           setProject((current) => current ? { ...current, manifest } : current);
         })}
-        onClose={() => setSettingsOpen(false)}
+        onClose={closeSettings}
       />}
     </Suspense>
   </>);

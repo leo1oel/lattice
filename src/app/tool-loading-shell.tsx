@@ -11,6 +11,7 @@
  * which would then hold the tool back until 300 ms after it, however soon the
  * chunk arrived.
  */
+import { useEffect } from "react";
 import { createPortal } from "react-dom";
 import { InfinityLoader } from "../components/ui/activity-icons";
 import { ResizableDrawer } from "../components/ui/resizable-drawer";
@@ -34,9 +35,22 @@ export function ToolLoadingShell({ className, label, onClose }: {
 /**
  * Settings' shell: its dialog's backdrop and card, without taking focus. Over
  * Settings itself, while it outstays it, the card alone: the dialog has its
- * own backdrop.
+ * own backdrop. Escape closes it as it would Settings: `onClose` withdraws the
+ * pending open, so Settings does not appear when its chunk arrives.
  */
-export function SettingsLoadingShell({ label, backdrop }: { label: string; backdrop: boolean }) {
+export function SettingsLoadingShell({ label, backdrop, onClose }: {
+  label: string;
+  backdrop: boolean;
+  onClose: () => void;
+}) {
+  useEffect(() => {
+    if (!backdrop) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [backdrop, onClose]);
   return createPortal(
     <>
       {backdrop && <div className="modal-backdrop" onMouseDown={(event) => event.preventDefault()} />}
