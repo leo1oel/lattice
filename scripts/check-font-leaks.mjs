@@ -27,7 +27,7 @@
  * Exit codes: 0 clean · 1 a finding · 2 usage or I/O error.
  */
 
-import { closeSync, openSync, readFileSync, readSync, readdirSync } from "node:fs";
+import { closeSync, openSync, readFileSync, readSync, readdirSync, statSync } from "node:fs";
 import path from "node:path";
 import { isMain, projectRoot, sha256, walkFiles } from "./lib/util.mjs";
 
@@ -71,8 +71,16 @@ export function timelessFontHashes({ fontsDirectory, emittedDirectory }) {
   return new Set([...originals, ...emitted].map((file) => sha256(readFileSync(file))));
 }
 
-/** Findings for every file inside a built .app. */
+/**
+ * Findings for every file inside a built .app. Throws when `app` is not one:
+ * walkFiles treats a missing root as empty, and an empty walk would otherwise
+ * pass a mistyped release path as clean.
+ */
 export function checkApp(app, timelessHashes) {
+  const macos = path.join(app, "Contents", "MacOS");
+  if (!statSync(app, { throwIfNoEntry: false })?.isDirectory() || !statSync(macos, { throwIfNoEntry: false })?.isDirectory()) {
+    throw new Error(`${app} is not a built .app (no Contents/MacOS directory)`);
+  }
   const findings = [];
   for (const file of walkFiles(app)) {
     const relative = path.relative(app, file).split(path.sep).join("/");

@@ -5,6 +5,11 @@
     min-height: var(--control-height-default);
     padding-block: var(--space-2);
   }
+  /* Labels wrap here at their spaces. A single word wider than the column
+     ("Acknowledgements") hyphenates instead of pushing the nav sideways; an
+     engine without hyphenation for the language ends it in an ellipsis, and
+     the full label shows on hover. */
+  .settings-nav-group > button > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; hyphens: auto; }
   .settings-section {
     padding: var(--settings-content-padding-top-compact)
       var(--settings-content-padding-inline-compact)

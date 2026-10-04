@@ -226,7 +226,7 @@ export function SettingsDialog(props: SettingsDialogProps) {
                     onClick={() => props.setTab(item.tab)}
                   >
                     <AnimatedProductIcon kind={item.icon} size={15} />
-                    <span>{item.label}</span>
+                    <span title={item.label}>{item.label}</span>
                   </button>
                 ))}
               </div>

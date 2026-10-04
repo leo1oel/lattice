@@ -9,11 +9,9 @@ import { SettingsSectionHeader } from "../components/ui/settings-section-header"
 import { SettingsGroup, SettingsRow } from "../components/ui/settings-row";
 import { SheetDialog } from "../components/ui/sheet-dialog";
 import { PdfPreview, PdfPreviewLoading } from "../canvas/canvas-lazy-editors";
+import { TIMELESS } from "./interface-font-credit";
 import "./acknowledgements-settings.css";
 
-/* eslint-disable lingui/no-unlocalized-strings -- the names of a work, its license and its site, kept verbatim */
-const TIMELESS = { name: "Timeless", license: "Timeless Free Font License", site: "timeless.co", url: "https://timeless.co" };
-/* eslint-enable lingui/no-unlocalized-strings */
 
 /** The license exactly as it came with the fonts, in the app's own PDF viewer. */
 function FontLicenseDialog({ url, onClose }: { url: string; onClose: () => void }) {

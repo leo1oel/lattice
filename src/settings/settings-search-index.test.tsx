@@ -1,5 +1,5 @@
 import { act, renderHook } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { activateAppLocale } from "../i18n";
 import { searchSettings, useSettingsSearchIndex } from "./settings-search-index";
 
@@ -60,5 +60,28 @@ describe("settings search", () => {
 
   it("finds Your name by the name its comments are signed with", () => {
     expect(search("lovelace", true, "Ada Lovelace")).toEqual(["author-name"]);
+  });
+
+  it("finds Acknowledgements by the font it credits and its license, only in a build that embeds them", async () => {
+    // The suite runs as a build without them.
+    expect(search("timeless")).toEqual([]);
+    vi.resetModules();
+    vi.doMock("virtual:lattice-private-fonts-license", () => ({ fontLicenseUrl: "/assets/LICENSE-stand-in.pdf" }));
+    try {
+      const withFonts = await import("./settings-search-index");
+      const i18n = await import("../i18n");
+      const find = (query: string) => {
+        const { result } = renderHook(() => withFonts.useSettingsSearchIndex(true, null));
+        return withFonts.searchSettings(result.current, query).map((entry) => entry.id ?? `page:${entry.tab}`);
+      };
+      for (const locale of ["en", "zh-CN"] as const) {
+        await act(() => i18n.activateAppLocale(locale));
+        expect(find("Timeless"), locale).toEqual(["page:acknowledgements"]);
+        expect(find("free font license"), locale).toEqual(["page:acknowledgements"]);
+      }
+      await act(() => i18n.activateAppLocale("en"));
+    } finally {
+      vi.doUnmock("virtual:lattice-private-fonts-license");
+    }
   });
 });

@@ -1,3 +1,4 @@
+import { spawnSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -82,5 +83,20 @@ describe("built app check", () => {
     write(app, "Contents/MacOS/lattice", "binary");
     write(app, "Contents/Resources/synara-runtime/fonts/KaTeX_Main-Regular.woff2", font("wOF2", "katex"));
     expect(checkApp(app, hashes)).toEqual([]);
+  });
+
+  it("fails with an I/O error, not a clean result, when the path is not a built app", () => {
+    const root = scratchDirectory();
+    write(root, "Empty.app/Contents/Info.plist", "plist");
+    write(root, "file.app", "not a directory");
+    for (const target of ["never-created.app", "Empty.app", "file.app"]) {
+      const result = spawnSync(process.execPath, [path.join(__dirname, "check-font-leaks.mjs"), "app", path.join(root, target)], {
+        encoding: "utf8",
+        env: { ...process.env, LATTICE_PRIVATE_FONTS_DIR: "" },
+      });
+      expect(result.status, target).toBe(2);
+      expect(result.stdout, target).toBe("");
+      expect(result.stderr, target).toContain("is not a built .app");
+    }
   });
 });
