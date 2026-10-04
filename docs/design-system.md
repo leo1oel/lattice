@@ -77,6 +77,9 @@ the download, with its `LICENSE.pdf` beside the fonts, outside the checkout.
   beside Latin text. Both families have tabular figures, so
   `font-variant-numeric: tabular-nums` behaves the same.
 - Timeless covers Latin only; Greek and Cyrillic fall through to Inter.
+- The Agent panel and the Synara settings pane are iframes served by the
+  Synara sidecar, so Lattice's font roles and `@font-face` rules do not reach
+  them; they keep Synara's own interface font.
 
 ## Token layers
 
