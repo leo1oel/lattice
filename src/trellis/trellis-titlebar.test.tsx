@@ -3,10 +3,15 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testi
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { WorkspaceHandle } from "@danfessler/trellis";
 import { activateAppLocale } from "../i18n";
+import { notifyInfo } from "../telemetry/app-notify";
 import { TrellisController } from "./trellis-controller";
 import { TrellisTitlebar } from "./trellis-titlebar";
+import { LayoutSwitch } from "./trellis-workspace-switch";
+
+vi.mock("../telemetry/app-notify", async (importOriginal) => ({ ...await importOriginal<object>(), notifyInfo: vi.fn() }));
 
 afterEach(cleanup);
+beforeEach(() => localStorage.clear());
 
 // Vitest empties CSS imports, so load the stylesheets off disk into jsdom's
 // CSSOM: the assertions read parsed rules and computed styles, not source text.
@@ -73,13 +78,15 @@ describe("titlebar panel controls in a narrow window", () => {
 
   it("keeps every shed control's action in the Panels menu", () => {
     const controller = new TrellisController();
-    const presets: Array<string | null> = [];
-    controller.installHandlers({ preset: (preset) => presets.push(preset) });
+    const chosen: Array<string | null> = [];
+    controller.installHandlers({ preset: (preset) => chosen.push(preset) });
     const { container } = render(<TrellisTitlebar controller={controller} />);
     const shed = (selector: string) => [...container.querySelectorAll(`${selector} button`)].map((button) => button.getAttribute("aria-label"));
     expect(shed(".trellis-titlebar-layout-actions")).toEqual(["Maximize focused panel", "Reset layout"]);
     expect(shed(".trellis-titlebar-panel-toggles")).toEqual(["Show Project", "Show Papers", "Show Agent"]);
-    expect([...container.querySelectorAll(".trellis-titlebar-presets button")].map((button) => button.textContent)).toEqual(["Workspace", "Writing", "Reading"]);
+    const presets = container.querySelector<HTMLElement>(".trellis-titlebar-presets")!;
+    expect(within(presets).getAllByRole("tab").map((tab) => tab.textContent)).toEqual(["Workspace", "Writing", "Reading"]);
+    expect(within(presets).getByRole("button", { name: "New workspace" })).toBeInTheDocument();
 
     const panels = screen.getByRole("button", { name: "Panels" });
     // The trigger keeps its name once only the icon is left.
@@ -90,10 +97,10 @@ describe("titlebar panel controls in a narrow window", () => {
       expect(menu.getByRole("menuitem", { name: new RegExp(`^${name}`) })).toBeVisible();
     }
     expect(menu.getAllByRole("menuitemradio").map((item) => [item.textContent, item.getAttribute("aria-checked")])).toEqual([
-      ["Workspace", "true"], ["Writing", "false"], ["Reading", "false"],
+      ["Workspace⌘1", "true"], ["Writing", "false"], ["Reading", "false"],
     ]);
     fireEvent.click(menu.getByRole("menuitemradio", { name: "Reading" }));
-    expect(presets).toEqual(["reading"]);
+    expect(chosen).toEqual(["reading"]);
   });
 });
 
@@ -315,5 +322,198 @@ describe("the Panels menu", () => {
     await choose(restore);
     expect(navigation.frame).toHaveBeenCalledWith("all");
     expect(navigation.toggle).toHaveBeenCalledTimes(1);
+  });
+});
+
+/**
+ * A controller whose workspace handlers do what the mounted workspace's do to
+ * the titlebar's state: switching enters a workspace (leaving any preset), and
+ * a new workspace is added after the current one and entered.
+ */
+function withWorkspaces() {
+  const controller = new TrellisController();
+  const library = controller.workspaces;
+  controller.installHandlers({
+    workspace: (id) => controller.ui.set({ workspace: id, preset: null }),
+    newWorkspace: (name) => {
+      const id = library.add(name, null, controller.ui.get().workspace);
+      controller.ui.set({ workspace: id, preset: null });
+      return id;
+    },
+    preset: (preset) => controller.ui.set({ preset }),
+  });
+  controller.ui.set({ workspace: library.recent() });
+  return { controller, library };
+}
+
+const tabNames = () => within(screen.getByRole("tablist", { name: "Workspaces" })).getAllByRole("tab").map((tab) => tab.textContent);
+const selectedTab = () => screen.getAllByRole("tab").find((tab) => tab.getAttribute("aria-selected") === "true")?.textContent;
+
+describe("named workspaces in the titlebar", () => {
+  it("makes a workspace from the + and names it in place", async () => {
+    const { controller } = withWorkspaces();
+    render(<TrellisTitlebar controller={controller} />);
+    fireEvent.click(screen.getByRole("button", { name: "New workspace" }));
+    const field = screen.getByRole("textbox", { name: "Workspace name" }) as HTMLInputElement;
+    expect(field).toHaveFocus();
+    expect(field.value).toBe("Workspace 2");
+    expect([field.selectionStart, field.selectionEnd]).toEqual([0, "Workspace 2".length]);
+    fireEvent.change(field, { target: { value: "Review" } });
+    fireEvent.keyDown(field, { key: "Enter" });
+    expect(tabNames()).toEqual(["Workspace", "Review"]);
+    expect(selectedTab()).toBe("Review");
+    await waitFor(() => expect(screen.getByRole("tab", { name: "Review" })).toHaveFocus());
+  });
+
+  it("renames on double-click, refuses a name in use, and keeps the old one on Escape", () => {
+    const { controller, library } = withWorkspaces();
+    library.add("Review", null);
+    render(<TrellisTitlebar controller={controller} />);
+    fireEvent.doubleClick(screen.getByRole("tab", { name: "Review" }));
+    const field = screen.getByRole("textbox", { name: "Workspace name" });
+    fireEvent.change(field, { target: { value: "workspace" } });
+    fireEvent.keyDown(field, { key: "Enter" });
+    expect(field).toHaveAttribute("aria-invalid", "true");
+    fireEvent.keyDown(field, { key: "Escape" });
+    expect(tabNames()).toEqual(["Workspace", "Review"]);
+    // F2 renames the focused workspace; leaving the field keeps a free name.
+    fireEvent.keyDown(screen.getByRole("tab", { name: "Review" }), { key: "F2" });
+    fireEvent.change(screen.getByRole("textbox", { name: "Workspace name" }), { target: { value: "Proofs" } });
+    fireEvent.blur(screen.getByRole("textbox", { name: "Workspace name" }));
+    expect(tabNames()).toEqual(["Workspace", "Proofs"]);
+  });
+
+  it("duplicates and deletes from the context menu, and Undo brings a deleted workspace back", async () => {
+    const { controller, library } = withWorkspaces();
+    render(<TrellisTitlebar controller={controller} />);
+    fireEvent.contextMenu(screen.getByRole("tab", { name: "Workspace" }));
+    // The last workspace cannot go.
+    expect(await screen.findByRole("menuitem", { name: "Delete" })).toHaveAttribute("aria-disabled", "true");
+    fireEvent.click(screen.getByRole("menuitem", { name: "Duplicate" }));
+    const field = await screen.findByRole("textbox", { name: "Workspace name" });
+    expect((field as HTMLInputElement).value).toBe("Workspace copy");
+    fireEvent.keyDown(field, { key: "Enter" });
+    expect(tabNames()).toEqual(["Workspace", "Workspace copy"]);
+    await waitFor(() => expect(screen.queryByRole("menu")).toBeNull());
+
+    // Deleting the workspace the project is in moves it to the next one.
+    const first = library.list()[0].id;
+    fireEvent.contextMenu(screen.getByRole("tab", { name: "Workspace" }));
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Delete" }));
+    expect(tabNames()).toEqual(["Workspace copy"]);
+    expect(selectedTab()).toBe("Workspace copy");
+    const [, title, options] = vi.mocked(notifyInfo).mock.lastCall!;
+    expect(title).toBe("Deleted “Workspace”");
+    act(() => options!.primaryAction!.onClick());
+    expect(tabNames()).toEqual(["Workspace", "Workspace copy"]);
+    expect(controller.ui.get().workspace).toBe(first);
+  });
+
+  it("marks the workspace the project differs from, and offers to save to it or revert to it", async () => {
+    const { controller, library } = withWorkspaces();
+    library.add("Review", null);
+    const save = vi.spyOn(controller, "saveWorkspace");
+    const revert = vi.spyOn(controller, "revertWorkspace");
+    render(<TrellisTitlebar controller={controller} />);
+    expect(screen.queryByRole("img", { name: "Unsaved changes" })).toBeNull();
+    fireEvent.contextMenu(screen.getByRole("tab", { name: "Workspace" }));
+    await screen.findByRole("menuitem", { name: "Duplicate" });
+    expect(screen.queryByRole("menuitem", { name: "Save to workspace" })).toBeNull();
+    fireEvent.keyDown(document.activeElement ?? document.body, { key: "Escape" });
+    await waitFor(() => expect(screen.queryByRole("menu")).toBeNull());
+
+    act(() => controller.ui.set({ dirty: true }));
+    const tab = screen.getByRole("tab", { name: /^Workspace/ });
+    expect(within(tab).getByRole("img", { name: "Unsaved changes" })).toBeInTheDocument();
+    expect(within(screen.getByRole("tab", { name: "Review" })).queryByRole("img")).toBeNull();
+    // Only the workspace the project is in offers them.
+    fireEvent.contextMenu(screen.getByRole("tab", { name: "Review" }));
+    await screen.findByRole("menuitem", { name: "Duplicate" });
+    expect(screen.queryByRole("menuitem", { name: "Save to workspace" })).toBeNull();
+    fireEvent.keyDown(document.activeElement ?? document.body, { key: "Escape" });
+    await waitFor(() => expect(screen.queryByRole("menu")).toBeNull());
+    fireEvent.contextMenu(tab);
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Save to workspace" }));
+    expect(save).toHaveBeenCalledOnce();
+    await waitFor(() => expect(screen.queryByRole("menu")).toBeNull());
+    fireEvent.contextMenu(tab);
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Revert to saved" }));
+    expect(revert).toHaveBeenCalledOnce();
+  });
+
+  it("marks the folded workspace menu while the project differs from its workspace", async () => {
+    const { controller } = withWorkspaces();
+    const save = vi.spyOn(controller, "saveWorkspace");
+    act(() => controller.ui.set({ dirty: true }));
+    render(<LayoutSwitch controller={controller} compact />);
+    const trigger = screen.getByRole("button", { name: "Workspace: Workspace" });
+    expect(within(trigger).getByRole("img", { name: "Unsaved changes" })).toBeInTheDocument();
+    fireEvent.pointerDown(trigger, { button: 0, ctrlKey: false, pointerType: "mouse" });
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Save to workspace" }));
+    expect(save).toHaveBeenCalledOnce();
+  });
+
+  it("moves along workspaces and presets with the arrow keys, choosing each", () => {
+    const { controller, library } = withWorkspaces();
+    library.add("Review", null);
+    render(<TrellisTitlebar controller={controller} />);
+    const first = screen.getByRole("tab", { name: "Workspace" });
+    fireEvent.keyDown(first, { key: "ArrowRight" });
+    expect(selectedTab()).toBe("Review");
+    fireEvent.keyDown(screen.getByRole("tab", { name: "Review" }), { key: "ArrowRight" });
+    expect(controller.ui.get().preset).toBe("writing");
+    // The workspace under the preset is marked, and choosing it again returns from the preset.
+    expect(screen.getByRole("tab", { name: "Review" })).toHaveAttribute("data-underlying", "true");
+    fireEvent.click(screen.getByRole("tab", { name: "Review" }));
+    expect(controller.ui.get().preset).toBeNull();
+  });
+
+  it("reorders workspaces by dragging one past a neighbour's middle", () => {
+    const { controller, library } = withWorkspaces();
+    library.add("Review", null);
+    library.add("Proofs", null);
+    render(<TrellisTitlebar controller={controller} />);
+    // Each tab is 80px wide, in list order.
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function (this: HTMLElement) {
+      const index = library.list().findIndex((entry) => entry.id === this.dataset.workspace);
+      return rect(index * 80, index < 0 ? 0 : 80);
+    });
+    const tab = screen.getByRole("tab", { name: "Workspace" });
+    fireEvent.pointerDown(tab, { button: 0, pointerId: 1, clientX: 40 });
+    fireEvent.pointerMove(window, { pointerId: 1, clientX: 42 });
+    expect(tabNames()).toEqual(["Workspace", "Review", "Proofs"]);
+    fireEvent.pointerMove(window, { pointerId: 1, clientX: 130 });
+    expect(tabNames()).toEqual(["Review", "Workspace", "Proofs"]);
+    fireEvent.pointerMove(window, { pointerId: 1, clientX: 230 });
+    expect(tabNames()).toEqual(["Review", "Proofs", "Workspace"]);
+    fireEvent.pointerUp(window, { pointerId: 1, clientX: 230 });
+    fireEvent.click(tab);
+    // The drop is not a click: the project stays where it was.
+    expect(controller.ui.get().workspace).toBe(library.list()[2].id);
+    expect(new TrellisController().workspaces.list().map((entry) => entry.name)).toEqual(["Review", "Proofs", "Workspace"]);
+    vi.restoreAllMocks();
+  });
+
+  it("folds the workspaces into a menu when short of room", async () => {
+    const { controller, library } = withWorkspaces();
+    const review = library.add("Review", null);
+    render(<LayoutSwitch controller={controller} compact />);
+    expect(screen.queryByRole("tablist", { name: "Workspaces" })).toBeNull();
+    const trigger = screen.getByRole("button", { name: "Workspace: Workspace" });
+    fireEvent.pointerDown(trigger, { button: 0, ctrlKey: false, pointerType: "mouse" });
+    const menu = within(await screen.findByRole("menu"));
+    expect(menu.getAllByRole("menuitemradio").map((item) => item.textContent)).toEqual(["Workspace⌘1", "Review⌘2"]);
+    expect(menu.getByRole("menuitem", { name: "New workspace" })).toBeInTheDocument();
+    fireEvent.click(menu.getByRole("menuitemradio", { name: /^Review/ }));
+    expect(controller.ui.get().workspace).toBe(review);
+  });
+
+  it("reaches each of the first nine workspaces by position", () => {
+    const { controller, library } = withWorkspaces();
+    const review = library.add("Review", null);
+    controller.switchWorkspaceAt(1);
+    expect(controller.ui.get().workspace).toBe(review);
+    controller.switchWorkspaceAt(5);
+    expect(controller.ui.get().workspace).toBe(review);
   });
 });

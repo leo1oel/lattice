@@ -45,12 +45,14 @@ import {
   TOOL_KINDS, documentTools, useTrellisApp, type TrellisController, type TrellisSingleton, type TrellisToolKind,
 } from "./trellis-controller";
 import {
-  defaultLayout, loadLayout, saveLayout, clearLayout, enterPreset, returnLayout, undoReset, layoutShape, withDocumentPanel,
-  VIEW_TYPES, type ActivePreset,
+  arrangeDocuments, defaultLayout, differsFromWorkspace, enterPreset, filledSlots, keepDocumentSlot, openProjectLayout, placesOf,
+  returnLayout, saveLayout, undoReset, workspaceArrangement,
+  VIEW_TYPES, type ActivePreset, type DocumentPlaces,
 } from "./trellis-layout";
 import { notifyInfo } from "../telemetry/app-notify";
 import { dismissAppToastByDedupeKey } from "../telemetry/app-log-store";
 import { installTrellisLabels } from "./trellis-labels";
+import { arrangementOf, layoutShape, NAVIGATORS, withDocumentPanel } from "./trellis-workspaces";
 import { PANEL_TITLES, spaceMixedScript } from "./trellis-titles";
 import { MENU_ICONS, PANEL_ICONS, fileIcon } from "./trellis-icons";
 import { FileHeaderTools } from "./trellis-header-tools";
@@ -579,6 +581,20 @@ function useFileTabIcon(controller: TrellisController, viewId: string, key: stri
   return iconHost ? createPortal(fileIcon(key, kind), iconHost) : null;
 }
 
+/** A document panel with no document in it: the next one opened lands here. */
+function SlotView({ controller }: { controller: TrellisController }) {
+  const { t } = useLingui();
+  return (
+    <EmptyState icon={<FileText size={18} />} title={t`No document open`}>
+      <button type="button" className="trellis-empty-button" onClick={() => controller.bridge?.quickOpen()}>
+        <Search size={13} />
+        {t`Quick open`}
+        <kbd>⌘P</kbd>
+      </button>
+    </EmptyState>
+  );
+}
+
 /** Only when every panel is closed: panels fill each other's space otherwise. */
 function WorkspaceEmpty({ controller }: { controller: TrellisController }) {
   const { t } = useLingui();
@@ -720,12 +736,14 @@ type WorkspaceProps = { controller: TrellisController; projectRoot: string; dark
 /** Memoized: App re-renders on every keystroke, and nothing here needs to follow it. */
 const TrellisWorkspace = memo(function TrellisWorkspace({ controller, projectRoot, dark }: WorkspaceProps) {
   const { t, i18n } = useLingui();
-  const [{ initial, initialPreset, agentMinSize, pdfMinSize }] = useState(() => {
+  const [{ initial, initialPreset, initialWorkspace, initialPlaces, agentMinSize, pdfMinSize }] = useState(() => {
     installTrellisLabels();
-    const saved = loadLayout(projectRoot);
+    const saved = openProjectLayout(projectRoot, controller.workspaces);
     return {
       initial: saved.document,
       initialPreset: saved.preset,
+      initialWorkspace: saved.workspace,
+      initialPlaces: saved.places,
       agentMinSize: measuredMinSize(MIN_SIZE.agent, () => controller.ui.get().agentMinWidth),
       pdfMinSize: measuredMinSize(MIN_SIZE.pdf, () => controller.ui.get().pdfMinWidth),
     };
@@ -746,6 +764,9 @@ const TrellisWorkspace = memo(function TrellisWorkspace({ controller, projectRoo
   const resettingRef = useRef(false);
   /** The preset the layout is in, with the writer's own layout to return to. */
   const presetRef = useRef<ActivePreset | null>(initialPreset);
+  /** The named workspace the project is in, and where its documents sat in each workspace it visited. */
+  const workspaceRef = useRef(initialWorkspace);
+  const placesRef = useRef<Record<string, DocumentPlaces>>(initialPlaces);
   const resetUndo = useRef<ResetUndo | null>(null);
   /** Take back the offer to undo the last reset, and its toast. */
   const withdrawUndo = useCallback(() => {
@@ -798,16 +819,36 @@ const TrellisWorkspace = memo(function TrellisWorkspace({ controller, projectRoo
   // Persist the layout per project, debounced.
   const saveTimer = useRef<number | null>(null);
   const pendingSave = useRef<(() => void) | null>(null);
+  /** The layout as Trellis last reported it: what a close just changed. */
+  const lastDocument = useRef(initial);
+  const flushSave = useCallback(() => {
+    if (saveTimer.current !== null) window.clearTimeout(saveTimer.current);
+    saveTimer.current = null;
+    pendingSave.current?.();
+    pendingSave.current = null;
+  }, []);
   const onDocumentChange = useCallback((document: LayoutDocument) => {
+    // A slot leaves its panel once a document is in it; each close reports the layout again.
+    const handle = controller.ws;
+    const filled = filledSlots(document);
+    if (handle && filled.length) {
+      for (const id of filled) void handle.close(id, { force: true });
+      return;
+    }
+    lastDocument.current = document;
+    // The workspace's own arrangement is written only by saving to it: here the project just differs from it, or not.
+    controller.ui.set({ dirty: differsFromWorkspace(presetRef.current?.previous ?? document, controller.workspaces, workspaceRef.current) });
     // Any arrangement but the one a reset left supersedes undoing it.
     if (resetUndo.current && layoutShape(document) !== resetUndo.current.left) withdrawUndo();
     if (saveTimer.current !== null) window.clearTimeout(saveTimer.current);
-    pendingSave.current = () => saveLayout(projectRoot, document, presetRef.current);
-    saveTimer.current = window.setTimeout(() => {
-      saveTimer.current = null;
-      pendingSave.current?.();
-      pendingSave.current = null;
-    }, 400);
+    // The workspace this change was made in, even if the save lands after a switch.
+    const workspace = workspaceRef.current;
+    pendingSave.current = () => {
+      const preset = presetRef.current;
+      placesRef.current = { ...placesRef.current, [workspace]: placesOf(preset?.previous ?? document) };
+      saveLayout(projectRoot, { document, preset, workspace, places: placesRef.current });
+    };
+    saveTimer.current = window.setTimeout(flushSave, 400);
     const snapshot = controller.ws?.getSnapshot();
     if (snapshot) {
       // In a preset, the panels it parked come back with the writer's own
@@ -823,16 +864,13 @@ const TrellisWorkspace = memo(function TrellisWorkspace({ controller, projectRoo
         && previous.every((entry, index) => entry.panelId === hidden[index].panelId && entry.title === hidden[index].title);
       controller.ui.set({ framed: snapshot.framed, hidden: same ? previous : hidden });
     }
-  }, [controller, projectRoot, withdrawUndo]);
+  }, [controller, flushSave, projectRoot, withdrawUndo]);
   // Unmounting (a project switch, the window closing) writes the last change
   // now, and a reset can no longer be undone into another project.
   useEffect(() => () => {
-    if (saveTimer.current !== null) window.clearTimeout(saveTimer.current);
-    saveTimer.current = null;
-    pendingSave.current?.();
-    pendingSave.current = null;
+    flushSave();
     withdrawUndo();
-  }, [withdrawUndo]);
+  }, [flushSave, withdrawUndo]);
 
   // Focusing a document panel makes its document App's active one.
   const onFocus = useCallback((viewId: string | null) => {
@@ -899,7 +937,14 @@ const TrellisWorkspace = memo(function TrellisWorkspace({ controller, projectRoo
   }, [controller, ws]);
 
   const onClose = useCallback((view: ViewInfo) => {
-    if (resettingRef.current || quietCloses.current.delete(view.id)) return;
+    // A file dragged from the Project panel that went back: its tab was never an App tab.
+    if (resettingRef.current || (view.type === "file" && controller.pendingDrops.has(String(view.params.key ?? "")))) return;
+    // The document panel a document was the last of stays, an empty slot
+    // (in a preset, the return to the writer's layout keeps it).
+    const handle = controller.ws;
+    const kept = handle && view.type === "file" && !presetRef.current ? keepDocumentSlot(lastDocument.current, handle.getDocument(), view.id) : null;
+    if (kept) handle?.setDocument(kept, { animate: false });
+    if (quietCloses.current.delete(view.id)) return;
     if (view.type === "file") {
       void controller.bridge?.closeTab(String(view.params.key ?? ""));
     } else if ((TOOL_KINDS as readonly string[]).includes(view.type)) {
@@ -915,14 +960,17 @@ const TrellisWorkspace = memo(function TrellisWorkspace({ controller, projectRoo
   // The reset waiting on its save: a second request joins it rather than
   // resetting the default again, whose Undo would only bring the default back.
   const pendingReset = useRef<Promise<void> | null>(null);
+  // Bumped by entering a workspace, which cancels a reset still waiting on its save.
+  const resetGeneration = useRef(0);
   useEffect(() => {
     const resetAfterSave = async (handle: WorkspaceHandle) => {
+      const generation = resetGeneration.current;
       const saved = !controller.bridge || await controller.bridge.save();
       // The save can outlast this workspace: a project switch (or the window
       // closing) unmounts it and attaches the next project's. Its reset, or
       // its failure, is no longer anything to clear, rearrange or announce
       // there: the Undo it would offer could restore nothing.
-      if (controller.ws !== handle) return;
+      if (controller.ws !== handle || resetGeneration.current !== generation) return;
       if (!saved) {
         controller.bridge?.notify(resetFailed);
         return;
@@ -933,7 +981,6 @@ const TrellisWorkspace = memo(function TrellisWorkspace({ controller, projectRoo
       resettingRef.current = true;
       presetRef.current = null;
       try {
-        clearLayout(projectRoot);
         handle.setDocument(defaultLayout());
       } finally {
         resettingRef.current = false;
@@ -972,6 +1019,39 @@ const TrellisWorkspace = memo(function TrellisWorkspace({ controller, projectRoo
           if (resetUndo.current === undo) resetUndo.current = null;
         },
       });
+    };
+    const cancelReset = () => {
+      resetGeneration.current += 1;
+      pendingReset.current = null;
+    };
+    // The project into workspace `id` as it was saved, out of any preset, its
+    // documents placed by `placesFor` the writer's own layout.
+    const load = (id: string, placesFor: (own: LayoutDocument) => DocumentPlaces) => {
+      const handle = controller.ws;
+      if (!handle) return;
+      withdrawUndo();
+      cancelReset();
+      flushSave();
+      const current = handle.getDocument();
+      // Before App restored its tabs, the documents are the layout's own.
+      const { activeKey, openTabs: tabs, tabsReady } = controller.app.get();
+      const openTabs = tabsReady ? tabs : Object.keys(placesOf(current));
+      const active = presetRef.current;
+      const own = active ? returnLayout(active.previous, current, { activeKey, openTabs }, active.supplied) : current;
+      const next = arrangeDocuments(workspaceArrangement(controller.workspaces, id), own, { activeKey, openTabs }, placesFor(own));
+      presetRef.current = null;
+      workspaceRef.current = id;
+      controller.workspaces.use(id);
+      resettingRef.current = true;
+      try {
+        handle.setDocument(next);
+      } finally {
+        resettingRef.current = false;
+      }
+      const drawers = controller.openDrawers.get();
+      for (const kind of TOOL_KINDS) if (!handle.views({ type: kind }).length) drawers[kind]?.();
+      controller.ui.set({ workspace: id, preset: null });
+      controller.resync();
     };
     return controller.installHandlers({
       reset: () => {
@@ -1021,18 +1101,72 @@ const TrellisWorkspace = memo(function TrellisWorkspace({ controller, projectRoo
         const key = lead ? handle.view(lead)?.params.key : null;
         if (typeof key === "string" && key !== activeKey) controller.activate(key);
       },
+      // Entering another workspace loads its saved arrangement, re-placing
+      // the open documents (so none closes, and nothing needs saving first)
+      // where each sat when the project was last in it. Tools follow the
+      // arrangement: one it does not show closes, one it shows opens (see ToolView).
+      workspace: (id) => {
+        const from = workspaceRef.current;
+        if (id === from || !controller.workspaces.get(id)) return;
+        load(id, (own) => {
+          placesRef.current = { ...placesRef.current, [from]: placesOf(own) };
+          return placesRef.current[id] ?? {};
+        });
+      },
+      // Revert: the workspace as saved, the open documents kept where they are when it has their panels.
+      revertWorkspace: () => {
+        if (controller.workspaces.get(workspaceRef.current)) load(workspaceRef.current, placesOf);
+      },
+      // Save: the arrangement under any preset becomes the workspace's.
+      saveWorkspace: () => {
+        const handle = controller.ws;
+        if (!handle) return;
+        const own = presetRef.current?.previous ?? handle.getDocument();
+        if (controller.workspaces.setArrangement(workspaceRef.current, arrangementOf(own))) controller.ui.set({ dirty: false });
+      },
+      // A new workspace starts as the arrangement on screen, a preset's
+      // included, and the project moves into it without anything moving.
+      newWorkspace: (name) => {
+        const handle = controller.ws;
+        if (!handle) return null;
+        withdrawUndo();
+        cancelReset();
+        flushSave();
+        const document = handle.getDocument();
+        const id = controller.workspaces.add(name, arrangementOf(document), workspaceRef.current);
+        presetRef.current = null;
+        workspaceRef.current = id;
+        controller.workspaces.use(id);
+        controller.ui.set({ workspace: id, preset: null });
+        // Saves it, and shows the panels a preset had parked as hidden ones.
+        onDocumentChange(document);
+        return id;
+      },
       // A panel the writer asks for is theirs to keep, even one a preset brought in.
       shown: (kind) => {
         const current = presetRef.current;
         if (current?.supplied.includes(kind)) presetRef.current = { ...current, supplied: current.supplied.filter((id) => id !== kind) };
       },
     });
-  }, [controller, projectRoot, resetFailed, resetToast.source, resetToast.title, resetToast.undo, withdrawUndo]);
-  // The titlebar follows this workspace's preset; another project's starts in its own.
+  }, [controller, flushSave, onDocumentChange, resetFailed, resetToast.source, resetToast.title, resetToast.undo, withdrawUndo]);
+  // The titlebar follows this workspace's preset, named workspace and unsaved changes; another project's starts in its own.
   useEffect(() => {
-    controller.ui.set({ preset: presetRef.current?.preset ?? null });
-    return () => controller.ui.set({ preset: null });
-  }, [controller]);
+    controller.ui.set({
+      preset: presetRef.current?.preset ?? null,
+      workspace: workspaceRef.current,
+      dirty: differsFromWorkspace(presetRef.current?.previous ?? controller.ws?.getDocument() ?? initial, controller.workspaces, workspaceRef.current),
+    });
+    return () => controller.ui.set({ preset: null, dirty: false });
+  }, [controller, initial]);
+  // Another window can delete the workspace the project is in: the project
+  // moves to the one last entered, its layout as it is, and remembers that.
+  useEffect(() => controller.workspaces.subscribe(() => {
+    if (controller.workspaces.get(workspaceRef.current)) return;
+    workspaceRef.current = controller.workspaces.recent();
+    controller.ui.set({ workspace: workspaceRef.current });
+    const handle = controller.ws;
+    if (handle) onDocumentChange(handle.getDocument());
+  }), [controller, onDocumentChange]);
 
   const title = (kind: TrellisSingleton) => i18n._(PANEL_TITLES[kind]);
   const actions = (kind: "project" | "papers" | "agent" | "pdf") => () => controller.bridge?.panelMenu(kind) ?? [];
@@ -1127,6 +1261,9 @@ const TrellisWorkspace = memo(function TrellisWorkspace({ controller, projectRoo
         >
           <FileView controller={controller} />
         </ViewType>
+        <ViewType id="slot" title={t`Empty`} minSize={MIN_SIZE.file} scaling={false}>
+          <SlotView controller={controller} />
+        </ViewType>
         {TOOL_KINDS.map((kind) => (
           <ViewType key={kind} id={kind} title={title(kind)} singleton icon={PANEL_ICONS[kind]} minSize={MIN_SIZE.tool} scaling={false}>
             <ToolView controller={controller} kind={kind} />
@@ -1157,8 +1294,8 @@ function useTabSync(controller: TrellisController, ws: WorkspaceHandle | null, q
       const { activeKey, openTabs, tabsReady, revealRequest } = controller.app.get();
       const views = fileViews();
       const byKey = new Map(views.map((view) => [String(view.params.key ?? ""), view]));
-      // A new document joins the active document's panel, else any document
-      // panel on screen; with none left, it gets a panel of its own between
+      // A new document joins the active document's panel, else an empty
+      // document slot on screen, else any document panel; with none left, it gets a panel of its own between
       // the navigators and the rest of the layout.
       //
       // In the Reading layout a document keeps to its side instead: papers
@@ -1174,6 +1311,8 @@ function useTabSync(controller: TrellisController, ws: WorkspaceHandle | null, q
         }
         const current = byKey.get(activeKey);
         if (current && current.placement !== "hidden") return current.panelId;
+        const slot = ws.views({ type: "slot" }).find((view) => view.placement !== "hidden");
+        if (slot) return slot.panelId;
         return fileViews().find((view) => view.placement !== "hidden")?.panelId ?? null;
       };
       const open = (key: string) => {
@@ -1188,7 +1327,7 @@ function useTabSync(controller: TrellisController, ws: WorkspaceHandle | null, q
           });
         } else {
           const id = `file-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
-          const navigators = ["project", "papers", "agent"].flatMap((kind) => ws.view(kind)?.panelId ?? []);
+          const navigators = NAVIGATORS.flatMap((kind) => ws.view(kind)?.panelId ?? []);
           // Not animated: this is how the first document appears at startup,
           // and animating the whole layout there costs a frame of work each.
           ws.setDocument(withDocumentPanel(ws.getDocument(), { id, key }, { after: navigators }), { animate: false });

@@ -59,6 +59,7 @@ import { AppTitlebar } from "./app/app-titlebar";
 import { PanelActions } from "./trellis/trellis-panel-actions";
 import { TrellisController, TrellisControllerContext, useTrellisUi } from "./trellis/trellis-controller";
 import { TrellisTitlebar } from "./trellis/trellis-titlebar";
+import { WORKSPACE_SHORTCUTS, workspaceShortcut } from "./trellis/trellis-workspaces";
 import { PANEL_TITLES, spaceMixedScript } from "./trellis/trellis-titles";
 import { CanvasToolbar } from "./canvas/canvas-toolbar";
 import type {
@@ -193,8 +194,8 @@ function App() {
   // must not re-render App. One subscription, not one per field, because each
   // is two hooks on every App render; the snapshot is a string so an
   // unchanged answer does not re-render.
-  const trellisFlags = useTrellisUi(trellis, (ui) => [ui.present.agent, ui.visible.agent, ui.pdfLive, ui.editorHibernated].map((flag) => (flag ? "1" : "0")).join(""));
-  const [agentPresent, agentVisible, pdfLive, editorHibernated] = [...trellisFlags].map((flag) => flag === "1");
+  const trellisFlags = useTrellisUi(trellis, (ui) => [ui.present.agent, ui.visible.agent, ui.pdfLive, ui.editorHibernated, ui.dirty].map((flag) => (flag ? "1" : "0")).join(""));
+  const [agentPresent, agentVisible, pdfLive, editorHibernated, workspaceDirty] = [...trellisFlags].map((flag) => flag === "1");
   const browserHosted = isBrowserHosted();
   const projectState = useProjectState();
   const {
@@ -1207,6 +1208,18 @@ function App() {
     { id: "reopen-tab", when: inProject, key: "t", shift: true, run: documents.reopenClosed },
     // Reset the panel layout, and bring back any panel that was hidden or closed.
     { id: "layout-reset", when: inProject, label: t`Reset panel layout`, group: t`Layout`, recent: false, run: () => void trellis.resetLayout() },
+    // The named workspaces: each by name here, and ⌘1 to ⌘9 by position (read when pressed, so a reorder counts at once).
+    ...trellis.workspaces.list().map(({ id, name }, index) => ({
+      id: `workspace-${id}`, when: inProject, label: spaceMixedScript(t`Switch to ${name}`), detail: workspaceShortcut(index) ?? undefined, group: t`Layout`,
+      run: () => trellis.switchWorkspace(id),
+    })),
+    ...Array.from({ length: WORKSPACE_SHORTCUTS }, (_, index) => ({ id: `workspace-${index + 1}`, when: inProject, key: String(index + 1), run: () => trellis.switchWorkspaceAt(index) })),
+    { id: "workspace-new", when: inProject, label: t`New workspace`, group: t`Layout`, run: () => void trellis.createWorkspace(t`Workspace`) },
+    // While the project's layout differs from its workspace's saved arrangement.
+    ...(workspaceDirty ? [
+      { id: "workspace-save", when: inProject, label: t`Save to workspace`, group: t`Layout`, run: () => trellis.saveWorkspace() },
+      { id: "workspace-revert", when: inProject, label: t`Revert to saved`, group: t`Layout`, recent: false as const, run: () => trellis.revertWorkspace() },
+    ] : []),
     ...SINGLETON_PANELS.map((kind) => {
       const name = i18n._(PANEL_TITLES[kind]);
       return { id: `panel-${kind}`, when: inProject, label: spaceMixedScript(t({ message: `Show ${name} panel` })), group: t`Layout`, run: () => trellis.showPanel(kind) };

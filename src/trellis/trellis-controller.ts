@@ -16,6 +16,7 @@ import type { AssetPreview, FileViewState } from "../app-types";
 import { isHtmlFilePath } from "../app-utils";
 import type { BuildOutcome } from "../app/use-build-pipeline";
 import type { LayoutPreset } from "./trellis-layout";
+import { WorkspaceLibrary } from "./trellis-workspaces";
 
 /** Drawers that become dockable tool panels, keyed by their Trellis view type. */
 export const TOOL_KINDS = ["history", "git", "comments", "overleaf", "literature", "todos", "checklist"] as const;
@@ -148,6 +149,12 @@ export type TrellisUiState = {
   framed: string | null;
   /** The layout preset the workspace is in, or null in the writer's own layout. */
   preset: LayoutPreset | null;
+  /** The named workspace the project is in (under any preset); empty before the workspace mounts. */
+  workspace: string;
+  /** The workspace whose name the titlebar is editing, as a new one's is at once. */
+  renaming: string | null;
+  /** Whether the project's layout (under any preset) is arranged other than its workspace saved it. */
+  dirty: boolean;
   /** The narrowest window content, in CSS px, at which the docked layout still fits at full size (0 without a workspace). */
   minWidth: number;
   /** Content minimums measured from the live panels, in CSS px (0 until measured): the Agent's from its composer, the PDF's from its toolbar. */
@@ -210,8 +217,10 @@ export class TrellisController {
   });
   readonly ui = new SmallStore<TrellisUiState>({
     ready: false, present: {}, visible: {}, pdfLive: false, editorHibernated: false, editorVisible: false,
-    hidden: [], framed: null, preset: null, minWidth: 0, agentMinWidth: 0, pdfMinWidth: 0,
+    hidden: [], framed: null, preset: null, workspace: "", renaming: null, dirty: false, minWidth: 0, agentMinWidth: 0, pdfMinWidth: 0,
   });
+  /** The writer's named workspaces, shared by every project. */
+  readonly workspaces = new WorkspaceLibrary();
   /** The layout's minimum width as a live value the native window minimum follows. */
   readonly layoutMinWidth = { subscribe: this.ui.subscribe, get: () => this.ui.get().minWidth };
   /** Tool drawers App currently has open, with the callback that closes each. */
@@ -227,6 +236,10 @@ export class TrellisController {
   private resetHandler: (() => Promise<void>) | null = null;
   private resyncHandler: (() => void) | null = null;
   private presetHandler: ((preset: LayoutPreset | null) => void) | null = null;
+  private workspaceHandler: ((id: string) => void) | null = null;
+  private newWorkspaceHandler: ((name: string) => string | null) | null = null;
+  private saveWorkspaceHandler: (() => void) | null = null;
+  private revertWorkspaceHandler: (() => void) | null = null;
   private shownHandler: ((kind: TrellisSingleton) => void) | null = null;
 
   setBridge(bridge: TrellisBridge) {
@@ -248,20 +261,67 @@ export class TrellisController {
     this.presetHandler?.(preset);
   }
 
+  /**
+   * Enter the named workspace `id` (installed by the mounted workspace). The
+   * one the project is in already returns from a preset over it.
+   */
+  switchWorkspace(id: string) {
+    if (id === this.ui.get().workspace && this.ui.get().preset) this.setPreset(null);
+    else this.workspaceHandler?.(id);
+  }
+
+  /** ⌘1 to ⌘9: the workspace at that position, if there is one. */
+  switchWorkspaceAt(index: number) {
+    const entry = this.workspaces.list()[index];
+    if (entry) this.switchWorkspace(entry.id);
+  }
+
+  /**
+   * A new workspace named from `name`, holding the arrangement on screen, and
+   * the project in it; its name goes straight into editing. Null without a workspace.
+   */
+  createWorkspace(name: string): string | null {
+    const id = this.newWorkspaceHandler?.(name) ?? null;
+    if (id) this.ui.set({ renaming: id });
+    return id;
+  }
+
+  /** Save the project's arrangement (under any preset) to its workspace. */
+  saveWorkspace() {
+    this.saveWorkspaceHandler?.();
+  }
+
+  /** Load the project's workspace as it was saved, the open documents placed in it. */
+  revertWorkspace() {
+    this.revertWorkspaceHandler?.();
+  }
+
   installHandlers(handlers: {
     reset?: () => Promise<void>;
     resync?: () => void;
     preset?: (preset: LayoutPreset | null) => void;
+    workspace?: (id: string) => void;
+    newWorkspace?: (name: string) => string | null;
+    saveWorkspace?: () => void;
+    revertWorkspace?: () => void;
     shown?: (kind: TrellisSingleton) => void;
   }) {
     if (handlers.reset) this.resetHandler = handlers.reset;
     if (handlers.resync) this.resyncHandler = handlers.resync;
     if (handlers.preset) this.presetHandler = handlers.preset;
+    if (handlers.workspace) this.workspaceHandler = handlers.workspace;
+    if (handlers.newWorkspace) this.newWorkspaceHandler = handlers.newWorkspace;
+    if (handlers.saveWorkspace) this.saveWorkspaceHandler = handlers.saveWorkspace;
+    if (handlers.revertWorkspace) this.revertWorkspaceHandler = handlers.revertWorkspace;
     if (handlers.shown) this.shownHandler = handlers.shown;
     return () => {
       if (handlers.reset && this.resetHandler === handlers.reset) this.resetHandler = null;
       if (handlers.resync && this.resyncHandler === handlers.resync) this.resyncHandler = null;
       if (handlers.preset && this.presetHandler === handlers.preset) this.presetHandler = null;
+      if (handlers.workspace && this.workspaceHandler === handlers.workspace) this.workspaceHandler = null;
+      if (handlers.newWorkspace && this.newWorkspaceHandler === handlers.newWorkspace) this.newWorkspaceHandler = null;
+      if (handlers.saveWorkspace && this.saveWorkspaceHandler === handlers.saveWorkspace) this.saveWorkspaceHandler = null;
+      if (handlers.revertWorkspace && this.revertWorkspaceHandler === handlers.revertWorkspace) this.revertWorkspaceHandler = null;
       if (handlers.shown && this.shownHandler === handlers.shown) this.shownHandler = null;
     };
   }
@@ -534,25 +594,25 @@ export class TrellisController {
     if (opened) ws.select(shown);
     const tab = this.tabOf(info.id);
     if (tab?.dataset.trellisPart !== "tab") {
-      this.pendingDrops.delete(key);
       if (opened) void ws.close(info.id, { force: true });
+      this.pendingDrops.delete(key);
       return false;
     }
     const box = tab.getBoundingClientRect();
     const finish = (dropped: boolean) => {
       listening.abort();
       // Trellis commits the drop on the same pointerup; read the outcome after it.
+      // The file's own tab closes while it is still a pending drop: not an App tab.
       requestAnimationFrame(() => {
-        this.pendingDrops.delete(key);
         const view = ws.view(info.id);
         const keepShown = () => {
           const source = ws.view(shown);
           if (source && !source.selected) ws.select(shown);
         };
-        if (!view) return keepShown();
-        const cancelled = !dropped || view.panelId === ws.view("project")?.panelId;
-        if (cancelled && opened) void ws.close(info.id, { force: true }).then(keepShown);
-        else if (!cancelled) this.activate(key);
+        const cancelled = !view || !dropped || view.panelId === ws.view("project")?.panelId;
+        if (view && cancelled && opened) void ws.close(info.id, { force: true }).then(keepShown);
+        this.pendingDrops.delete(key);
+        if (!cancelled) this.activate(key);
         keepShown();
       });
     };
@@ -617,4 +677,17 @@ export function useTrellisUi<T>(controller: TrellisController, select: (state: T
 
 export function useTrellisApp<T>(controller: TrellisController, select: (state: TrellisAppState) => T): T {
   return useSyncExternalStore(controller.app.subscribe, () => select(controller.app.get()));
+}
+
+/** The named workspaces, re-read when one is added, removed, renamed or moved. */
+export function useWorkspaces(controller: TrellisController) {
+  return useSyncExternalStore(controller.workspaces.subscribe, controller.workspaces.list);
+}
+
+/**
+ * The workspace the project is in; before the workspace mounts, the one it
+ * will open in (so its mount, naming the same one, renders nothing again).
+ */
+export function useCurrentWorkspace(controller: TrellisController) {
+  return useTrellisUi(controller, (state) => state.workspace || controller.workspaces.recent());
 }

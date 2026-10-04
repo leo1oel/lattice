@@ -6,12 +6,19 @@ import type { ReactNode } from "react";
 import {
   ArrowRightLeft, BookMarked, BookOpen, BookPlus, Bot, ClipboardCheck, Columns2, Crosshair, EyeOff, FileCode2, FileImage,
   FileText, FolderPlus, FolderTree, GitBranch, Hammer, History, Leaf, Library, ListChecks, ListTodo, Maximize2, MessageSquare,
-  Minimize2, PictureInPicture2, Presentation, RefreshCw, Rows2, Search, Settings2, Shapes, Sparkles, Square, Table2,
+  Minimize2, PenLine, PictureInPicture2, Presentation, RefreshCw, Rows2, Search, Settings2, Shapes, Sparkles, Square, Table2,
   X, XCircle,
 } from "lucide-react";
 import { isOpenSlideDeckPath } from "../app-utils";
 import { isSpreadsheetPath } from "../editor/spreadsheet/spreadsheet-types";
 import type { TrellisSingleton } from "./trellis-controller";
+import type { LayoutPreset } from "./trellis-layout";
+
+/** The layout presets, in the titlebar's layout switch and its Panels menu. */
+export const PRESETS = [
+  { value: "writing", icon: PenLine },
+  { value: "reading", icon: BookOpen },
+] as const satisfies ReadonlyArray<{ value: LayoutPreset; icon: unknown }>;
 
 /** A document's icon, by what opens it: a paper, an asset, or a file by extension. */
 export function fileIcon(key: string, kind: "file" | "asset" | "paper", size = 14) {
