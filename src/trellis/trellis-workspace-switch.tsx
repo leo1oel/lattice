@@ -94,12 +94,12 @@ export function LayoutSwitch({ controller, compact }: { controller: TrellisContr
   // names it in `data-workspace-origin`; React's focus events still bubble
   // from it to the track), or "" for the folded button, its menu and the
   // switch's other controls: whichever workspace is current when focus
-  // comes back, which a shortcut can change while it stays put. Folding or unfolding replaces the
-  // workspaces' controls, menus included, and a closing menu removes itself,
-  // so focus then goes to that workspace's control on screen. It is kept
-  // until focus leaves the switch: for another element, or for none from a
-  // control still there (React drops the blur of one its commit removes;
-  // WebKit reports none).
+  // comes back, which a shortcut can change while it stays put. Folding or
+  // unfolding replaces the workspaces' controls, menus included, and a
+  // closing menu removes itself, so focus then goes to that workspace's
+  // control on screen. It is kept until focus leaves the switch: for another
+  // element, or for none from a control still there (React drops the blur of
+  // one its commit removes; WebKit reports none).
   const originRef = useRef<string | null>(null);
   const currentId = currentEntry.id;
   const onTrackFocus = (event: ReactFocusEvent<HTMLDivElement>) => {
