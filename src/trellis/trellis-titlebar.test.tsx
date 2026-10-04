@@ -653,6 +653,33 @@ describe("named workspaces in the titlebar", () => {
       expect(screen.getByRole("button", { name: "Workspace: Review" })).toHaveFocus();
     });
 
+    it("returns from the folded button, unfolded after a shortcut changed workspace, to the new current one's tab", () => {
+      const { controller, library } = setUp();
+      const view = render(<LayoutSwitch controller={controller} compact />);
+      const trigger = screen.getByRole("button", { name: "Workspace: Review" });
+      act(() => trigger.focus());
+      const proofs = library.list().find((entry) => entry.name === "Proofs")!.id;
+      act(() => controller.switchWorkspace(proofs));
+      expect(screen.getByRole("button", { name: "Workspace: Proofs" })).toHaveFocus();
+      view.rerender(<LayoutSwitch controller={controller} compact={false} />);
+      expect(screen.getByRole("tab", { name: "Proofs" })).toHaveFocus();
+    });
+
+    it("returns from the folded menu, unfolded after a shortcut changed workspace, to the new current one's tab", async () => {
+      const { controller, library } = setUp();
+      const view = render(<LayoutSwitch controller={controller} compact />);
+      const trigger = screen.getByRole("button", { name: "Workspace: Review" });
+      act(() => trigger.focus());
+      fireEvent.keyDown(trigger, { key: "ArrowDown" });
+      const menu = await screen.findByRole("menu");
+      await waitFor(() => expect(menu.contains(document.activeElement)).toBe(true));
+      const proofs = library.list().find((entry) => entry.name === "Proofs")!.id;
+      act(() => controller.switchWorkspace(proofs));
+      view.rerender(<LayoutSwitch controller={controller} compact={false} />);
+      expect(screen.queryByRole("menu")).toBeNull();
+      expect(screen.getByRole("tab", { name: "Proofs" })).toHaveFocus();
+    });
+
     it("leaves focus where a click outside a menu put it, through folding too", async () => {
       const { controller } = setUp();
       const view = render(<LayoutSwitch controller={controller} compact={false} />);

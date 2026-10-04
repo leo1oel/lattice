@@ -90,10 +90,11 @@ export function LayoutSwitch({ controller, compact }: { controller: TrellisContr
     setAnnouncement(spaceMixedScript(t`Moved “${name}” to position ${position} of ${count}`));
   };
   // Where the keyboard stands in the switch, as the workspace it stands for:
-  // a tab's, or the current one's for the folded button and the switch's
-  // other controls, or the one a menu opened for (portaled out of the track,
-  // a menu names it in `data-workspace-origin`; React's focus events still
-  // bubble from it to the track). Folding or unfolding replaces the
+  // a tab's, or the one a menu opened for (portaled out of the track, a menu
+  // names it in `data-workspace-origin`; React's focus events still bubble
+  // from it to the track), or "" for the folded button, its menu and the
+  // switch's other controls: whichever workspace is current when focus
+  // comes back, which a shortcut can change while it stays put. Folding or unfolding replaces the
   // workspaces' controls, menus included, and a closing menu removes itself,
   // so focus then goes to that workspace's control on screen. It is kept
   // until focus leaves the switch: for another element, or for none from a
@@ -105,7 +106,7 @@ export function LayoutSwitch({ controller, compact }: { controller: TrellisContr
     const target = event.target as HTMLElement;
     originRef.current = target.closest<HTMLElement>("[data-workspace]")?.dataset.workspace
       ?? target.closest<HTMLElement>("[data-workspace-origin]")?.dataset.workspaceOrigin
-      ?? currentId;
+      ?? "";
   };
   const onTrackBlur = (event: ReactFocusEvent<HTMLDivElement>) => {
     const left = event.target as HTMLElement;
@@ -119,9 +120,10 @@ export function LayoutSwitch({ controller, compact }: { controller: TrellisContr
    * (the workspace is gone) the current workspace's tab.
    */
   const recoverFocus = () => {
-    const id = originRef.current;
+    const origin = originRef.current;
     const track = trackRef.current;
-    if (id === null || !track || (document.activeElement && document.activeElement !== document.body)) return;
+    if (origin === null || !track || (document.activeElement && document.activeElement !== document.body)) return;
+    const id = origin || currentId;
     (track.querySelector<HTMLElement>(`[data-workspace="${id}"]`)
       ?? track.querySelector<HTMLElement>("[data-workspace-menu]")
       ?? track.querySelector<HTMLElement>(`[data-workspace="${currentId}"]`))?.focus();
@@ -304,7 +306,7 @@ export function LayoutSwitch({ controller, compact }: { controller: TrellisContr
         </button>
       </DropdownMenuTrigger>
       {/* Unfolding unmounts it, open or not: focus in it goes to the current workspace's tab. */}
-      <DropdownMenuContent align="start" sideOffset={6} className="min-w-[12rem]" data-workspace-origin={currentId} {...menuFocus}>
+      <DropdownMenuContent align="start" sideOffset={6} className="min-w-[12rem]" data-workspace-origin="" {...menuFocus}>
         {workspaces.map((entry, index) => (
           <DropdownMenuItem key={entry.id} role="menuitemradio" aria-checked={entry.id === current} onSelect={() => controller.switchWorkspace(entry.id)}>
             <span className="trellis-menu-check">{entry.id === current && <Check size={14} />}</span>
