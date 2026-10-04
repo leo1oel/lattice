@@ -46,10 +46,12 @@ export function ToolLoadingShell({ className, label, message, onClose }: {
  * its own backdrop, and is inert until the card is gone (`ModalDialog`'s
  * `covered`).
  */
-export function SettingsLoadingShell({ label, message, backdrop, onClose }: {
+export function SettingsLoadingShell({ label, message, backdrop, returnFocus, onClose }: {
   label: string;
   message: string;
   backdrop: boolean;
+  /** Settings' own `returnFocus`, for the card closed before Settings is there. */
+  returnFocus?: HTMLElement | null;
   onClose: () => void;
 }) {
   useEffect(() => {
@@ -63,7 +65,7 @@ export function SettingsLoadingShell({ label, message, backdrop, onClose }: {
   return createPortal(
     <>
       {backdrop && <div className="modal-backdrop" onMouseDown={(event) => event.preventDefault()} />}
-      <PendingModalCard label={label} className="tool-loading-shell-card">
+      <PendingModalCard label={label} className="tool-loading-shell-card" returnFocus={returnFocus}>
         <div className="settings-modal tool-loading-shell-body" aria-busy="true">
           <InfinityLoader size={16} />
         </div>

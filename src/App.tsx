@@ -1049,7 +1049,8 @@ function App() {
 
   const settingsDialog = (<>
     {settingsLate && (
-      <SettingsLoadingShell label={t`Settings`} message={t`Loading settings…`} backdrop={!settingsOpen} onClose={closeSettings} />
+      <SettingsLoadingShell label={t`Settings`} message={t`Loading settings…`} backdrop={!settingsOpen}
+        returnFocus={settingsReturnFocus} onClose={closeSettings} />
     )}
     <Suspense fallback={null}>
       {settingsOpen && <SettingsDialog

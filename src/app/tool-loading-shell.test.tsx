@@ -1,5 +1,5 @@
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { lazy, Suspense, useCallback, useEffect, useRef, useState, useTransition, type ComponentType } from "react";
+import { lazy, Suspense, useCallback, useState, useTransition, type ComponentType } from "react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { ModalDialog } from "../components/ui/modal-dialog";
 import { SettingsLoadingShell, ToolLoadingShell } from "./tool-loading-shell";
@@ -7,17 +7,11 @@ import { useLoadingShell } from "./use-loading-shell";
 
 type SettingsProps = { covered: boolean; onClose: () => void };
 
-// Settings' dialog as it meets its shell: opened under it, it takes focus,
-// into its search, only as the shell goes.
+// The real Settings' hand-off from its shell is App's (`app-settings-shell-focus.test.tsx`).
 function SettingsStandIn({ covered, onClose }: SettingsProps) {
-  const [replacesShell] = useState(covered);
-  const searchRef = useRef<HTMLInputElement>(null);
-  useEffect(() => {
-    if (replacesShell && !covered) searchRef.current?.focus();
-  }, [replacesShell, covered]);
   return (
     <ModalDialog label="Settings" covered={covered} onClose={onClose}>
-      <input ref={searchRef} aria-label="Search settings" autoFocus={!replacesShell} />
+      <input aria-label="Search settings" />
     </ModalDialog>
   );
 }
@@ -94,26 +88,6 @@ it("holds the keyboard in Settings' loading card and gives focus back when it is
   fireEvent.keyDown(document, { key: "Escape" });
   await act(() => vi.advanceTimersByTimeAsync(0));
   expect(shellCard()).toBeNull();
-  expect(document.activeElement).toBe(documentField);
-});
-
-it("hands focus to Settings only once its shell has gone, and back to the document after", async () => {
-  const documentField = await openFromTheDocument();
-  await act(() => vi.advanceTimersByTimeAsync(50));
-  await act(async () => releaseSettings());
-  await act(() => vi.advanceTimersByTimeAsync(0));
-  // Settings is in, under the card for the rest of the card's minimum time.
-  const search = screen.getByLabelText("Search settings");
-  expect(shellCard()).not.toBeNull();
-  expect(document.activeElement).toBe(shellCard());
-  expect(search.closest("[inert]")).not.toBeNull();
-  await act(() => vi.advanceTimersByTimeAsync(300));
-  expect(shellCard()).toBeNull();
-  expect(search.closest("[inert]")).toBeNull();
-  expect(document.activeElement).toBe(search);
-  fireEvent.keyDown(search, { key: "Escape" });
-  await act(() => vi.advanceTimersByTimeAsync(0));
-  expect(screen.queryByLabelText("Search settings")).toBeNull();
   expect(document.activeElement).toBe(documentField);
 });
 

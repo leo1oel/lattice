@@ -187,12 +187,19 @@ function openerOf(focused: HTMLElement | null) {
  * The modal layer of a dialog still on its way (a loading shell's card), so
  * keys cannot reach what it covers: focus moves into the card and stays, as
  * the card has nothing to Tab to. A `ModalDialog` that opens while the card
- * holds focus returns focus where the card found it; a card that closes
- * first gives it back itself.
+ * holds focus returns focus where the card found it, or to `returnFocus`; a
+ * card that closes first gives it back itself.
  */
-export function PendingModalCard(props: { label: string; className: string; children: ReactNode }) {
+export function PendingModalCard(props: {
+  label: string;
+  className: string;
+  /** As `ModalDialog`'s: where focus goes back to, if not where the card found it. */
+  returnFocus?: HTMLElement | null;
+  children: ReactNode;
+}) {
   const cardRef = useRef<HTMLDivElement>(null);
-  const [opener] = useState(() => (document.activeElement instanceof HTMLElement ? document.activeElement : null));
+  const [opener] = useState(() =>
+    props.returnFocus ?? (document.activeElement instanceof HTMLElement ? document.activeElement : null));
   useLayoutEffect(() => {
     if (cardRef.current) pendingOpeners.set(cardRef.current, opener);
   }, [opener]);
