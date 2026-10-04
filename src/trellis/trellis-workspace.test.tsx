@@ -2,9 +2,9 @@ import { act, cleanup, render, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { LayoutDocument, LayoutNode } from "@danfessler/trellis";
 import { TrellisController } from "./trellis-controller";
-import { defaultLayout, saveLayout, withDocumentPanel } from "./trellis-layout";
+import { defaultLayout, saveLayout } from "./trellis-layout";
 import TrellisWorkspace from "./trellis-workspace";
-import { arrangementOf, layoutShape, WorkspaceLibrary } from "./trellis-workspaces";
+import { arrangementOf, layoutShape, withDocumentPanel, WorkspaceLibrary } from "./trellis-workspaces";
 
 beforeEach(() => localStorage.clear());
 afterEach(cleanup);
@@ -32,7 +32,7 @@ function splitWorkspace() {
 
 async function open(projectRoot: string, openTabs: string[]) {
   const controller = new TrellisController();
-  controller.app.set({ projectRoot, activeKey: openTabs[0], openTabs, tabsReady: true });
+  controller.app.set({ projectRoot, activeKey: openTabs[0] ?? "", openTabs, tabsReady: true });
   const view = render(<TrellisWorkspace controller={controller} projectRoot={projectRoot} dark={false} />);
   await waitFor(() => expect(controller.ws?.views({ type: "file" })).toHaveLength(openTabs.length));
   return { controller, ws: controller.ws!, unmount: view.unmount };
@@ -187,16 +187,52 @@ describe("a named workspace", () => {
     const id = splitWorkspace();
     saveLayout("/a", { document: split(), workspace: id });
     const { controller, ws, unmount } = await open("/a", OPEN);
-    const dragging = controller.beginFileDrag("refs.bib", { pointerId: 7 } as PointerEvent);
-    if (dragging) {
-      window.dispatchEvent(Object.assign(new Event("pointercancel"), { pointerId: 7 }));
-      await act(() => new Promise((resolve) => requestAnimationFrame(() => resolve(undefined))));
-      await act(async () => {});
-    }
+    let dragging = false;
+    act(() => { dragging = controller.beginFileDrag("refs.bib", { pointerId: 7 } as PointerEvent); });
+    expect(dragging).toBe(true);
+    expect(ws.views({ type: "file" }).map((view) => view.params.key)).toContain("refs.bib");
+    window.dispatchEvent(Object.assign(new Event("pointercancel"), { pointerId: 7 }));
+    await act(() => new Promise((resolve) => requestAnimationFrame(() => resolve(undefined))));
+    await act(async () => {});
     expect(ws.views({ type: "file" }).map((view) => view.params.key)).not.toContain("refs.bib");
     expect(ws.views({ type: "slot" })).toHaveLength(0);
     expect(controller.ui.get().dirty).toBe(false);
     unmount();
     expect(layoutShape(stored(id))).toBe(SAVED());
+  });
+
+  it("saved with no document open keeps a place for one, so opening a document leaves it clean", async () => {
+    const id = splitWorkspace();
+    saveLayout("/a", { document: split(), workspace: id });
+    const { controller, ws, unmount } = await open("/a", OPEN);
+    // Every document closes, and the writer closes the empty panels they leave.
+    act(() => controller.app.set({ openTabs: [], activeKey: "" }));
+    await waitFor(() => expect(ws.views({ type: "file" })).toHaveLength(0));
+    for (const slot of ws.views({ type: "slot" })) await act(async () => { await ws.close(slot.id); });
+    expect(ws.views({ type: "slot" })).toHaveLength(0);
+    act(() => controller.saveWorkspace());
+    const saved = layoutShape(stored(id));
+    expect(documentPanels(stored(id))).toEqual([[]]);
+    act(() => controller.app.set({ openTabs: ["main.tex"], activeKey: "main.tex" }));
+    await waitFor(() => expect(ws.views({ type: "file" })).toHaveLength(1));
+    expect(controller.ui.get().dirty).toBe(false);
+    unmount();
+    expect(layoutShape(stored(id))).toBe(saved);
+  });
+
+  it("added with no document open keeps a place for one, so opening a document leaves it clean", async () => {
+    saveLayout("/a", { document: defaultLayout() });
+    const { controller, ws, unmount } = await open("/a", []);
+    let id: string | null = null;
+    act(() => { id = controller.createWorkspace("Empty"); });
+    expect(id).not.toBeNull();
+    const saved = layoutShape(stored(id!));
+    expect(documentPanels(stored(id!))).toEqual([[]]);
+    expect(controller.ui.get()).toMatchObject({ workspace: id, dirty: false });
+    act(() => controller.app.set({ openTabs: ["main.tex"], activeKey: "main.tex" }));
+    await waitFor(() => expect(ws.views({ type: "file" })).toHaveLength(1));
+    expect(controller.ui.get().dirty).toBe(false);
+    unmount();
+    expect(layoutShape(stored(id!))).toBe(saved);
   });
 });

@@ -46,13 +46,13 @@ import {
 } from "./trellis-controller";
 import {
   arrangeDocuments, defaultLayout, differsFromWorkspace, enterPreset, filledSlots, keepDocumentSlot, openProjectLayout, placesOf,
-  returnLayout, saveLayout, undoReset, withDocumentPanel, workspaceArrangement,
+  returnLayout, saveLayout, undoReset, workspaceArrangement,
   VIEW_TYPES, type ActivePreset, type DocumentPlaces,
 } from "./trellis-layout";
 import { notifyInfo } from "../telemetry/app-notify";
 import { dismissAppToastByDedupeKey } from "../telemetry/app-log-store";
 import { installTrellisLabels } from "./trellis-labels";
-import { arrangementOf, layoutShape } from "./trellis-workspaces";
+import { arrangementOf, layoutShape, NAVIGATORS, withDocumentPanel } from "./trellis-workspaces";
 import { PANEL_TITLES, spaceMixedScript } from "./trellis-titles";
 import { MENU_ICONS, PANEL_ICONS, fileIcon } from "./trellis-icons";
 import { FileHeaderTools } from "./trellis-header-tools";
@@ -1317,7 +1317,7 @@ function useTabSync(controller: TrellisController, ws: WorkspaceHandle | null, q
           });
         } else {
           const id = `file-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
-          const navigators = ["project", "papers", "agent"].flatMap((kind) => ws.view(kind)?.panelId ?? []);
+          const navigators = NAVIGATORS.flatMap((kind) => ws.view(kind)?.panelId ?? []);
           // Not animated: this is how the first document appears at startup,
           // and animating the whole layout there costs a frame of work each.
           ws.setDocument(withDocumentPanel(ws.getDocument(), { id, key }, { after: navigators }), { animate: false });

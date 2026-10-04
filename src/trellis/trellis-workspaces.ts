@@ -33,6 +33,8 @@ const LEGACY_LAYOUT_VERSION = 2;
 export const LAYOUT_VERSION = 3;
 /** Long enough for a word or two, short enough for a titlebar tab. */
 export const WORKSPACE_NAME_MAX = 24;
+/** The navigators' views, which documents get a panel beside. */
+export const NAVIGATORS = ["project", "papers", "agent"] as const;
 /** Workspaces with a shortcut (⌘1 to ⌘9). */
 export const WORKSPACE_SHORTCUTS = 9;
 
@@ -45,6 +47,20 @@ export type WorkspaceSummary = { id: string; name: string };
 type SavedLibrary = { version: number; workspaces: Workspace[]; recent?: string };
 type Listener = () => void;
 
+/** The panels holding Project, Papers or the Agent. */
+function navigatorPanels(doc: LayoutDocument): string[] {
+  const found: string[] = [];
+  const walk = (node: LayoutNode | null | undefined) => {
+    if (!node) return;
+    if (node.kind === "panel") {
+      if (NAVIGATORS.some((id) => node.views.includes(id))) found.push(node.id);
+    } else if (node.kind === "stage") walk(node.child);
+    else node.children.forEach(walk);
+  };
+  walk(doc.root);
+  return found;
+}
+
 const fileKey = (record: ViewRecord | undefined) => (record?.type === "file" ? String(record.params?.key ?? "") : "");
 /** A panel's place for documents: in an arrangement, and on screen while no document fills it. */
 export const isDocumentSlot = (record: ViewRecord | undefined) => record?.type === "slot";
@@ -53,12 +69,53 @@ export const isDocumentView = (record: ViewRecord | undefined) => record?.type =
 /** The slot of the document panel `panelId`. */
 export const documentSlot = (panelId: string) => ({ id: `slot-${panelId}`, record: { type: "slot", params: {} } as ViewRecord });
 
+function containsPanel(node: LayoutNode, panelId: string): boolean {
+  if (node.kind === "panel") return node.id === panelId;
+  if (node.kind === "stage") return Boolean(node.child && containsPanel(node.child, panelId));
+  return node.children.some((child) => containsPanel(child, panelId));
+}
+
+/**
+ * `doc` with a new panel for a document, used when no document panel is left
+ * to join: it goes right after the top-level column holding one of the
+ * `after` panels (the navigators), else first, and takes `share` of the
+ * width while the others keep their proportions.
+ */
+export function withDocumentPanel(
+  doc: LayoutDocument,
+  view: { id: string; key: string },
+  options: { after: readonly string[]; share?: number },
+): LayoutDocument {
+  const share = options.share ?? 0.46;
+  const panel: PanelNode = { kind: "panel", id: `panel-${view.id}`, views: [view.id], selected: view.id };
+  const views = { ...doc.views, [view.id]: { type: "file", params: { key: view.key } } };
+  const root = doc.root;
+  if (!root) return { ...doc, root: panel, views };
+  if (root.kind === "split" && root.axis === "x") {
+    const at = root.children.findIndex((child) => options.after.some((id) => containsPanel(child, id))) + 1;
+    const total = root.weights.reduce((sum, weight) => sum + weight, 0) || 1;
+    const weights = root.weights.map((weight) => (weight / total) * (1 - share));
+    weights.splice(at, 0, share);
+    const children = [...root.children];
+    children.splice(at, 0, panel);
+    return { ...doc, root: { ...root, children, weights }, views };
+  }
+  return {
+    ...doc,
+    root: { kind: "split", id: `split-${view.id}`, axis: "x", weights: [1 - share, share], children: [root, panel] },
+    views,
+  };
+}
+
 /**
  * `doc` as an arrangement: its documents taken out, and each panel that held
  * any given one slot where they stood (selected if one of them was), so the
- * panel survives with its place in the layout.
+ * panel survives with its place in the layout. An arrangement always has a
+ * slot: without any, one goes where App's tab sync would put the first
+ * document (`withDocumentPanel` beside the navigators).
  */
-export function arrangementOf(doc: LayoutDocument): LayoutDocument {
+export function arrangementOf(layout: LayoutDocument): LayoutDocument {
+  const doc = Object.values(layout.views).some(isDocumentView) ? layout : withDocumentPanel(layout, { id: "document", key: "" }, { after: navigatorPanels(layout) });
   const views: Record<string, ViewRecord> = {};
   for (const [id, record] of Object.entries(doc.views)) if (!isDocumentView(record)) views[id] = record;
   const panel = (target: PanelNode): PanelNode => {
@@ -158,8 +215,8 @@ function isWorkspace(value: unknown): value is Workspace {
 /**
  * The workspaces, in the writer's order, persisted in localStorage. The
  * summary list (ids and names) keeps its identity until one is added,
- * removed, renamed or moved, so the titlebar re-renders only then; an
- * arrangement saved on every layout change notifies nobody.
+ * removed, renamed or moved, so the titlebar re-renders only then; saving a
+ * workspace's arrangement (Save to workspace) notifies nobody.
  */
 export class WorkspaceLibrary {
   private saved: SavedLibrary | null = null;

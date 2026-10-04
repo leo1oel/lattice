@@ -2,9 +2,8 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { sanitize, type LayoutDocument, type LayoutNode, type PanelNode } from "@danfessler/trellis";
 import {
   arrangeDocuments, defaultLayout, enterPreset, loadLayout, openProjectLayout, placesOf, presetLayout, returnLayout, saveLayout, undoReset,
-  withDocumentPanel,
 } from "./trellis-layout";
-import { arrangementOf, layoutShape, WorkspaceLibrary } from "./trellis-workspaces";
+import { arrangementOf, layoutShape, withDocumentPanel, WorkspaceLibrary } from "./trellis-workspaces";
 
 const PAPER = "paper:1706.03762:";
 const isReading = (key: string) => key.startsWith("paper:") || key.endsWith(".pdf");

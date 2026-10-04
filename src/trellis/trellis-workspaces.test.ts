@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { LayoutDocument } from "@danfessler/trellis";
-import { defaultLayout, withDocumentPanel } from "./trellis-layout";
-import { arrangementOf, isDocumentSlot, WorkspaceLibrary } from "./trellis-workspaces";
+import { defaultLayout } from "./trellis-layout";
+import { arrangementOf, isDocumentSlot, withDocumentPanel, WorkspaceLibrary } from "./trellis-workspaces";
 
 beforeEach(() => localStorage.clear());
 

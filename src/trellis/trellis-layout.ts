@@ -70,44 +70,6 @@ export function defaultLayout(): LayoutDocument {
   );
 }
 
-function containsPanel(node: LayoutNode, panelId: string): boolean {
-  if (node.kind === "panel") return node.id === panelId;
-  if (node.kind === "stage") return Boolean(node.child && containsPanel(node.child, panelId));
-  return node.children.some((child) => containsPanel(child, panelId));
-}
-
-/**
- * `doc` with a new panel for a document, used when no document panel is left
- * to join: it goes right after the top-level column holding one of the
- * `after` panels (the navigators), else first, and takes `share` of the
- * width while the others keep their proportions.
- */
-export function withDocumentPanel(
-  doc: LayoutDocument,
-  view: { id: string; key: string },
-  options: { after: readonly string[]; share?: number },
-): LayoutDocument {
-  const share = options.share ?? 0.46;
-  const panel: PanelNode = { kind: "panel", id: `panel-${view.id}`, views: [view.id], selected: view.id };
-  const views = { ...doc.views, [view.id]: { type: "file", params: { key: view.key } } };
-  const root = doc.root;
-  if (!root) return { ...doc, root: panel, views };
-  if (root.kind === "split" && root.axis === "x") {
-    const at = root.children.findIndex((child) => options.after.some((id) => containsPanel(child, id))) + 1;
-    const total = root.weights.reduce((sum, weight) => sum + weight, 0) || 1;
-    const weights = root.weights.map((weight) => (weight / total) * (1 - share));
-    weights.splice(at, 0, share);
-    const children = [...root.children];
-    children.splice(at, 0, panel);
-    return { ...doc, root: { ...root, children, weights }, views };
-  }
-  return {
-    ...doc,
-    root: { kind: "split", id: `split-${view.id}`, axis: "x", weights: [1 - share, share], children: [root, panel] },
-    views,
-  };
-}
-
 /** How a preset sorts the open documents: papers (and PDFs) are read; everything else is written. */
 export type PresetDocuments = {
   activeKey: string;
@@ -510,14 +472,9 @@ export function openProjectLayout(projectRoot: string, library: WorkspaceLibrary
   return { ...loaded, places, workspace };
 }
 
-/**
- * The arrangement saved in workspace `id`: one never saved is the default
- * layout with a place for documents beside the navigators, where App's tab
- * sync would put the first.
- */
+/** The arrangement saved in workspace `id`: one never saved is the default layout's. */
 export function workspaceArrangement(library: WorkspaceLibrary, id: string): LayoutDocument {
-  return library.get(id)?.arrangement
-    ?? arrangementOf(withDocumentPanel(defaultLayout(), { id: "document", key: "document" }, { after: ["panel-project", "panel-papers"] }));
+  return library.get(id)?.arrangement ?? arrangementOf(defaultLayout());
 }
 
 /**
