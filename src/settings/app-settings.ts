@@ -15,11 +15,6 @@ export type RecentProject = { name: string; path: string };
 type AutoBuildMode = "manual" | "automatic";
 export type BuildPreferences = { autoBuildMode: AutoBuildMode };
 
-/* eslint-disable lingui/no-unlocalized-strings -- CSS font stacks */
-export const FIXED_UI_FONT = '"Inter Variable", Inter, "Avenir Next", "Segoe UI", sans-serif';
-export const FIXED_EDITOR_FONT = '"Ioskeley Mono", Menlo, "SF Mono", ui-monospace, monospace';
-/* eslint-enable lingui/no-unlocalized-strings */
-
 const RECENT_PROJECTS_KEY = "lattice.recent-projects.v1";
 export const THEME_PREFERENCE_KEY = "lattice.theme-preference.v1";
 export const BUILD_PREFERENCES_KEY = "lattice.build-preferences.v2";

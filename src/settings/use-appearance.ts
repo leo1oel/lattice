@@ -5,8 +5,6 @@ import {
   type AppearanceSettings,
   type Theme,
   type ThemePreference,
-  FIXED_EDITOR_FONT,
-  FIXED_UI_FONT,
   SYSTEM_DARK_QUERY,
   loadAppearance,
   loadThemePreference,
@@ -64,8 +62,6 @@ export function useAppearance(): Appearance {
   }, [appLocale]);
 
   useEffect(() => {
-    document.documentElement.style.setProperty("--ui-font", FIXED_UI_FONT);
-    document.documentElement.style.setProperty("--editor-font", FIXED_EDITOR_FONT);
     document.documentElement.style.setProperty("--editor-font-size", `${appearance.editorFontSize}px`);
     persistAppearance(appearance);
   }, [appearance]);

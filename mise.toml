@@ -85,6 +85,9 @@ sources = [
   # `include`), and this stage runs tsc before vite.
   "tools/**",
   "vite.config.ts",
+  # The Timeless font plugin vite.config.ts imports (the fonts themselves live
+  # outside the checkout, so a new copy of them does not invalidate this stage).
+  "scripts/private-fonts.ts",
   "tsconfig.json",
   "tsconfig.node.json",
   "package.json",

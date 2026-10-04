@@ -187,7 +187,7 @@ button.checklist-row:hover { background: var(--control-hover-surface); }
 .welcome-content { position: relative; z-index: 1; width: min(620px, calc(100% - 48px)); height: 100%; margin: auto; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding-bottom: var(--space-10); }
 .brand-mark { --smooth-shadow-color: var(--control-active); width: 50px; height: 50px; border-radius: 14px; display: grid; place-items: center; color: var(--control-active); }
 .eyebrow { margin: 17px 0 var(--space-4); color: var(--control-active); font-size: var(--type-micro-size); font-weight: 600; letter-spacing: .22em; }
-.welcome-content h1 { margin: 0; font-family: "Instrument Serif", Georgia, serif; font-size: clamp(42px, 6vw, 68px); line-height: 1.02; font-weight: 400; letter-spacing: -.025em; text-wrap: balance; }
+.welcome-content h1 { margin: 0; font-family: var(--display-font); font-size: clamp(42px, 6vw, 68px); line-height: 1.02; font-weight: 400; letter-spacing: -.025em; text-wrap: balance; }
 
 /* Only the welcome composition enters; busy updates and project contents do not. */
 .welcome-content > :not(.busy-label) { animation: welcome-rise var(--duration-reveal) var(--ease-out) both; }
