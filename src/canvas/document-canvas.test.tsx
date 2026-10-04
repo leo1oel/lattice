@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from "vite
 import type { ComponentProps } from "react";
 import type { AssetPreview, FileViewState } from "../app-types";
 import { DocumentCanvas } from "./document-canvas";
+import { splitGridTemplate } from "./use-split-layout";
 import { createEditorComment } from "../editor/comments/editor-comment-data";
 import { EditorView } from "@codemirror/view";
 import type { OpenSlideWorkspaceProps } from "../editor/presentation/open-slide-workspace";
@@ -648,6 +649,56 @@ describe("DocumentCanvas / split ratio", () => {
       rerenderWith({ mode: "split" });
       expect(documentHost.querySelector(".split-canvas")).not.toBeNull();
       expect(separator()).toHaveAttribute("aria-valuenow", "60");
+    } finally {
+      bounds.mockRestore();
+    }
+  });
+
+  /**
+   * Resolve the split's grid columns at `width` px. jsdom neither lays out
+   * grids nor keeps a `clamp()` inline style, so evaluate the template's CSS
+   * math the way a browser sizes the source track and the preview's
+   * `minmax(…, 1fr)`.
+   */
+  function splitColumns(ratio: number, width: number) {
+    const template = splitGridTemplate(ratio, { source: 240, preview: 280 });
+    const [, sourceTrack, previewMinimum] = /^(.+) 1px minmax\((.+), 1fr\)$/.exec(template) ?? [];
+    expect(sourceTrack, template).toBeDefined();
+    const resolve = (expression: string) => new Function("min", "clamp", `return ${expression
+      .replace(/calc\(/g, "(")
+      .replace(/(\d+(?:\.\d+)?)%/g, (_, percent: string) => String((Number(percent) / 100) * width))
+      .replace(/(\d)px/g, "$1")};`)(Math.min, (low: number, value: number, high: number) => Math.max(low, Math.min(value, high))) as number;
+    const source = resolve(sourceTrack);
+    return { source, preview: Math.max(resolve(previewMinimum), width - 1 - source) };
+  }
+
+  it("keeps both panes inside a document panel narrower than their minimums", () => {
+    // Writing layout at a 1512 px window: Project, the document and the PDF
+    // side by side leave the document panel 480 px, under 240 + 1 + 280.
+    const bounds = vi.spyOn(HTMLElement.prototype, "getBoundingClientRect")
+      .mockReturnValue({ left: 0, width: 480, right: 480 } as DOMRect);
+    try {
+      renderCanvas(markdownSplit);
+      const split = documentHost.querySelector<HTMLElement>(".split-canvas")!;
+      // The panel is too narrow for any ratio but the minimums' own.
+      expect(separator()).toHaveAttribute("aria-valuenow", "46");
+      for (const ratio of [0.2, 240 / 520, 0.8]) {
+        const narrow = splitColumns(ratio, 480);
+        expect(narrow.source + 1 + narrow.preview).toBeCloseTo(480);
+        expect(narrow.source / narrow.preview).toBeCloseTo(240 / 280);
+      }
+
+      // Dragging cannot push either pane back past the panel's edge.
+      fireEvent.pointerDown(separator(), { clientX: 220 });
+      fireEvent.pointerMove(window, { clientX: 400 });
+      const [dragged, , previewMinimum] = split.style.gridTemplateColumns.match(/[\d.]+/g)!.map(Number);
+      expect(dragged + 1 + previewMinimum).toBeLessThanOrEqual(480);
+      fireEvent.pointerUp(window);
+
+      // A panel wide enough for both minimums keeps them whole.
+      const wide = splitColumns(0.5, 1201);
+      expect(wide).toEqual({ source: 600, preview: 600 });
+      expect(splitColumns(0.2, 521)).toEqual({ source: 240, preview: 280 });
     } finally {
       bounds.mockRestore();
     }
