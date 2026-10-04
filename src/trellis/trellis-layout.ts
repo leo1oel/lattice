@@ -463,7 +463,7 @@ export function saveLayout(projectRoot: string, { document, preset = null, works
  */
 export function openProjectLayout(projectRoot: string, library: WorkspaceLibrary): ProjectLayout & { workspace: string } {
   // The first library is migrated from the projects' saved layouts, this one's included.
-  library.list();
+  library.refresh();
   const loaded = loadLayout(projectRoot);
   // Places in workspaces deleted since are forgotten.
   const places = Object.fromEntries(Object.entries(loaded.places).filter(([id]) => library.get(id)));

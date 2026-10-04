@@ -297,6 +297,22 @@ export class WorkspaceLibrary {
     if (event.key === LIBRARY_KEY) this.fresh();
   };
 
+  /**
+   * Re-read the library as stored, for a project opening while nothing
+   * listened for another window's changes. Nobody is notified (it runs during
+   * render); the list keeps its identity while unchanged.
+   */
+  refresh() {
+    const saved = this.read();
+    if (!saved) {
+      this.load();
+      return;
+    }
+    this.saved = saved;
+    const summaries = saved.workspaces.map(({ id, name }) => ({ id, name }));
+    if (JSON.stringify(summaries) !== JSON.stringify(this.summaries)) this.summaries = summaries;
+  }
+
   list = (): readonly WorkspaceSummary[] => {
     this.load();
     return this.summaries;

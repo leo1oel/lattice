@@ -356,4 +356,20 @@ describe("named workspaces", () => {
     library.remove(gone);
     expect(openProjectLayout("/a", library).workspace).toBe(kept);
   });
+
+  it("opens a project against the library as stored, not one this window read before another changed it", () => {
+    const here = new WorkspaceLibrary();
+    const there = new WorkspaceLibrary();
+    const kept = here.recent();
+    const review = here.add("Review", null);
+    expect(there.list().map((entry) => entry.name)).toEqual(["Workspace", "Review"]);
+    // Another window deletes one workspace and adds another, with no storage event heard here.
+    const draft = here.add("Draft", null);
+    here.remove(review);
+    saveLayout("/a", { document: workspaceWith(keys), workspace: draft });
+    saveLayout("/b", { document: workspaceWith(keys), workspace: review });
+    expect(openProjectLayout("/b", there).workspace).toBe(kept);
+    expect(there.list().map((entry) => entry.name)).toEqual(["Workspace", "Draft"]);
+    expect(openProjectLayout("/a", there).workspace).toBe(draft);
+  });
 });
