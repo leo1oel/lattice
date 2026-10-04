@@ -83,7 +83,7 @@ export const LAYOUT_CHECKS = [
     async run(driver) {
       await driver.openFile("notes/note-000.md");
       await driver.openFile("reference.pdf");
-      await driver.click(".trellis-presets [role=tab]:nth-child(3)");
+      await driver.click(".trellis-preset-tabs [role=tab]:nth-child(2)");
       await driver.waitFor(`document.querySelector('[data-panel="panel-reading"]')`, { what: "the Reading layout" });
       await driver.click(".trellis-snapshot");
       // The notes take focus once they are the live document; a field clicked before then loses it.
@@ -129,7 +129,7 @@ export const LAYOUT_CHECKS = [
     width: 1280,
     height: 800,
     async run(driver) {
-      await driver.click(".trellis-presets [role=tab]:nth-child(2)");
+      await driver.click(".trellis-preset-tabs [role=tab]:nth-child(1)");
       await driver.waitFor(`document.querySelector('[data-panel="panel-writing"]')`, { what: "the Writing layout" });
       const search = `${WRITING_TOOLBAR} input[aria-label="Search PDF"]`;
       await placeOf(driver, search);

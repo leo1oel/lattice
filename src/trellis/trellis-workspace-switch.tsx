@@ -18,7 +18,6 @@ import { Check, ChevronDown, Copy, LayoutDashboard, Pencil, Plus, Save, Trash2, 
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
 } from "../components/ui/dropdown-menu";
-import { Tip } from "../components/icon-tip";
 import { SlidingTabPill } from "../components/ui/motion";
 import { notifyInfo } from "../telemetry/app-notify";
 import { useCurrentWorkspace, useTrellisUi, useWorkspaces, type TrellisController } from "./trellis-controller";
@@ -261,11 +260,10 @@ export function LayoutSwitch({ controller, compact }: { controller: TrellisContr
       {compact ? workspaceMenu : workspaceTabs}
       {workspaceMenuAt}
       {!compact && (
-        <Tip label={t`New workspace`}>
-          <button type="button" className="trellis-workspace-add" aria-label={t`New workspace`} onClick={create}>
-            <Plus size={13} />
-          </button>
-        </Tip>
+        // A title like its neighbours', not a Tip: a tooltip's tree is a cost every startup pays.
+        <button type="button" className="trellis-workspace-add" aria-label={t`New workspace`} title={t`New workspace`} onClick={create}>
+          <Plus size={13} />
+        </button>
       )}
       <span className="trellis-presets-divider" aria-hidden="true" />
       <div role="tablist" aria-label={t`Presets`} className="trellis-preset-tabs">
