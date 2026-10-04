@@ -2,7 +2,7 @@
  * The Overleaf collaboration drawer: comments, chat and tracked changes for a
  * linked Overleaf project.
  */
-import { lazy, Suspense, type Dispatch, type ReactNode, type RefObject, type SetStateAction } from "react";
+import { lazy, type Dispatch, type ReactNode, type RefObject, type SetStateAction } from "react";
 import type { useOverleafWorkspace } from "./use-overleaf-workspace";
 import type { OpenProjectFile, ViewRestoreRequest } from "../app-types";
 
@@ -34,28 +34,26 @@ export function AppOverleafCollabDrawer({ overleaf, onClose, setViewRestore, act
     onClose();
   };
   return (
-    <Suspense fallback={null}>
-      <OverleafCollabDrawer
-        {...localCommentProps}
-        tab={overleaf.overleafCollabTab}
-        onTab={overleaf.setOverleafCollabTab}
-        onClose={onClose}
-        comments={overleafComments}
-        chat={overleafChat}
-        trackChanges={overleafTrackChanges}
-        realtime={overleafRealtime}
-        pathForDoc={(id) => overleaf.overleafDocPaths.get(id) ?? null}
-        source={source}
-        // The comment may be on a file that is not open, so open it first and
-        // place the caret after.
-        onRevealComment={(path, position) => {
-          void openProjectFile(path).then(() => revealAt(path, position));
-        }}
-        onReveal={(position) => {
-          const path = activeFileRef.current;
-          if (path) revealAt(path, position);
-        }}
-      />
-    </Suspense>
+    <OverleafCollabDrawer
+      {...localCommentProps}
+      tab={overleaf.overleafCollabTab}
+      onTab={overleaf.setOverleafCollabTab}
+      onClose={onClose}
+      comments={overleafComments}
+      chat={overleafChat}
+      trackChanges={overleafTrackChanges}
+      realtime={overleafRealtime}
+      pathForDoc={(id) => overleaf.overleafDocPaths.get(id) ?? null}
+      source={source}
+      // The comment may be on a file that is not open, so open it first and
+      // place the caret after.
+      onRevealComment={(path, position) => {
+        void openProjectFile(path).then(() => revealAt(path, position));
+      }}
+      onReveal={(position) => {
+        const path = activeFileRef.current;
+        if (path) revealAt(path, position);
+      }}
+    />
   );
 }

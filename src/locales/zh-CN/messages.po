@@ -2778,6 +2778,7 @@ msgstr "编辑器"
 msgid "Editor & builds"
 msgstr "编辑器与构建"
 
+#: src/app/app-editor-panels.tsx
 #: src/canvas/canvas-toolbar.tsx
 #: src/canvas/editor-status-bar.tsx
 #: src/editor/comments/editor-comments-panel.tsx
@@ -5602,6 +5603,7 @@ msgstr "Overleaf 无法保存表情符号和部分特殊字符，因此已替换
 msgid "Overleaf chat messages"
 msgstr "Overleaf 聊天消息"
 
+#: src/app/app-editor-panels.tsx
 #: src/overleaf/overleaf-collab.tsx
 msgid "Overleaf collaboration"
 msgstr "Overleaf 协作"
@@ -6149,6 +6151,7 @@ msgstr "项目文件"
 msgid "Project find and replace"
 msgstr "项目查找和替换"
 
+#: src/app/app-history-drawers.tsx
 #: src/canvas/canvas-toolbar.tsx
 #: src/history/history-drawer.tsx
 #: src/settings/settings-dialog.tsx
@@ -7380,6 +7383,7 @@ msgstr "服务"
 msgid "Set minus"
 msgstr "集合差"
 
+#: src/App.tsx
 #: src/project/project-dialogs.tsx
 #: src/settings/settings-dialog.tsx
 msgid "Settings"

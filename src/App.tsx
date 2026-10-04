@@ -1,5 +1,5 @@
 import {
-  Suspense, lazy, memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState,
+  Suspense, lazy, memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useTransition,
   type SetStateAction,
 } from "react";
 import { createPortal } from "react-dom";
@@ -53,6 +53,8 @@ import { writeOpenSlideMutation } from "./app/open-slide-writes";
 import { AppOverleafCollabDrawer } from "./app/app-overleaf-drawer";
 import { AppEditorPanels } from "./app/app-editor-panels";
 import { AppHistoryDrawers } from "./app/app-history-drawers";
+import { SettingsLoadingShell } from "./app/tool-loading-shell";
+import { useLoadingShell } from "./app/use-loading-shell";
 import { AppProjectDialogs, TexSetupDialogs } from "./app/app-project-dialogs";
 import { AppProjectSearchDialogs, AppSearchDialogs, type SearchDialog } from "./app/app-search-dialogs";
 import { AppTitlebar } from "./app/app-titlebar";
@@ -386,7 +388,7 @@ function App() {
     bridge: {
       openProviderSettings: () => {
         setSettingsTab("agent");
-        setSettingsOpen(true);
+        startSettingsOpen(() => setSettingsOpen(true));
       },
       openProjectPath: (path) => openMarkdownProjectPathRef.current(path),
       openReview: (turn) => {
@@ -450,6 +452,10 @@ function App() {
   });
   const { resetSelection: resetAgentSelection } = agentContext;
   const [settingsOpen, setSettingsOpen] = useState(false);
+  // Opening Settings is a transition for the reason opening a lazy tool
+  // drawer is (`useToolDrawers`), with the same loading shell.
+  const [settingsOpening, startSettingsOpen] = useTransition();
+  const settingsLate = useLoadingShell(settingsOpening, settingsOpening || settingsOpen);
   // Re-read on a project switch (Git config is per repository) and whenever
   // Settings opens, which is where a writer goes after signing in to Overleaf.
   useEffect(() => {
@@ -693,6 +699,7 @@ function App() {
   const tools = useToolDrawers({
     trellis, synara, comments: editorComments, references: referenceImport,
     commentsKind: overleafLink ? "overleaf" : "comments",
+    commentsOpen: editorComments.panelOpen || overleaf.overleafCollabOpen,
     refreshTodos, refreshWordCount,
   });
   const { clearStage: clearImportStage } = referenceImport;
@@ -1017,18 +1024,27 @@ function App() {
     refreshHistory, refreshProject, save, sourceRef, t, captureProjectScope,
   ]);
 
-  /** Opens on `tab`, or without one on the page Settings was last left on. */
-  const openSettings = useCallback((requested?: SettingsTab) => {
-    const tab = requested ?? loadSettingsTab();
+  const showSettingsTab = useCallback((tab: SettingsTab) => {
     if (isSynaraSettingsTab(tab)) requestSynaraRuntime();
     setSettingsTab(tab);
     persistSettingsTab(tab);
-    setSettingsOpen(true);
   }, [requestSynaraRuntime]);
 
-  const settingsDialog = settingsOpen ? (
+  /** Opens on `tab`, or without one on the page Settings was last left on. */
+  const openSettings = useCallback((requested?: SettingsTab) => {
+    showSettingsTab(requested ?? loadSettingsTab());
+    startSettingsOpen(() => setSettingsOpen(true));
+  }, [showSettingsTab]);
+
+  // An urgent update after the opening transition's: it also withdraws a
+  // pending open, so a Settings closed from its loading shell stays closed.
+  const closeSettings = useCallback(() => setSettingsOpen(false), []);
+
+  const settingsDialog = (<>
+    {settingsLate && <SettingsLoadingShell label={t`Settings`} backdrop={!settingsOpen} onClose={closeSettings} />}
     <Suspense fallback={null}>
-      <SettingsDialog
+      {settingsOpen && <SettingsDialog
+        replacesShell={settingsLate}
         synaraRuntime={synara.runtime}
         synaraWorkspaceRoot={project?.root}
         onRetrySynaraRuntime={synara.retry}
@@ -1047,7 +1063,7 @@ function App() {
         }}
         tab={settingsTab}
         setTab={(tab) => {
-          openSettings(tab);
+          showSettingsTab(tab);
           if (tab === "doctor") void texSetup.runDoctor();
         }}
         doctorReport={texSetup.doctorReport}
@@ -1079,10 +1095,10 @@ function App() {
             : await invoke<ProjectManifest>("update_project_manifest", patch);
           setProject((current) => current ? { ...current, manifest } : current);
         })}
-        onClose={() => setSettingsOpen(false)}
-      />
+        onClose={closeSettings}
+      />}
     </Suspense>
-  ) : null;
+  </>);
 
   const overleafPicker = overleafPickerOpen ? (
     <Suspense fallback={null}>

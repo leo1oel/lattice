@@ -1,5 +1,7 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { WorkspaceHandle } from "@danfessler/trellis";
+import { TrellisController, TrellisControllerContext } from "../../trellis/trellis-controller";
 import { ResizableDrawer } from "./resizable-drawer";
 
 const windowApi = vi.hoisted(() => ({
@@ -85,5 +87,34 @@ describe("ResizableDrawer", () => {
       vi.useRealTimers();
       windowApi.startDragging.mockClear();
     }
+  });
+});
+
+describe("ResizableDrawer docked in Trellis", () => {
+  afterEach(cleanup);
+
+  it("keeps its tool panel when another drawer of the same tool takes its place, and closes it after", async () => {
+    const controller = new TrellisController();
+    const history = { id: "history", type: "history", placement: "docked", visible: true, panelId: "side" };
+    const ws = {
+      view: (id: string) => (id === "history" ? history : null),
+      views: (filter?: { type?: string }) => (!filter?.type || filter.type === "history" ? [history] : []),
+      close: vi.fn(async () => true),
+    };
+    controller.attachWorkspace(ws as unknown as WorkspaceHandle);
+    const drawer = (key: string) => (
+      <TrellisControllerContext.Provider value={controller}>
+        <ResizableDrawer key={key} className="project-history-drawer" onClose={() => undefined}>{key}</ResizableDrawer>
+      </TrellisControllerContext.Provider>
+    );
+    const view = render(drawer("shell"));
+    view.rerender(drawer("tool"));
+    await Promise.resolve();
+    expect(ws.close).not.toHaveBeenCalled();
+    expect(controller.toolHost("history").textContent).toBe("tool");
+
+    view.unmount();
+    await Promise.resolve();
+    expect(ws.close).toHaveBeenCalledWith("history", { force: true });
   });
 });

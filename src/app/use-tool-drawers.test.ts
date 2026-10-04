@@ -10,13 +10,13 @@ function renderTools(commentsKind: "comments" | "overleaf" = "comments") {
   const deps = {
     trellis: { revealOpenTool: vi.fn() },
     synara: { requestRuntime: vi.fn(), origin: "http://synara.test", sourceControlFrameRef: { current: null } },
-    comments: { openPanel: vi.fn(), openReply: vi.fn() },
+    comments: { openPanel: vi.fn(), openReply: vi.fn(), closePanel: vi.fn() },
     references: { setLiteratureOpen: vi.fn() },
     refreshTodos: vi.fn(async () => undefined),
     refreshWordCount: vi.fn(async () => undefined),
   };
   const view = renderHook(() => useToolDrawers({
-    ...deps, commentsKind, trellis: deps.trellis as unknown as TrellisController,
+    ...deps, commentsKind, commentsOpen: false, trellis: deps.trellis as unknown as TrellisController,
   }));
   return { view, ...deps };
 }

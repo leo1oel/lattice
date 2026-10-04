@@ -42,6 +42,8 @@ import { synaraFrameUrl, type SynaraRuntimeInfo } from "../agent/synara-runtime"
 const SYNARA_SETTINGS_SECTIONS: Partial<Record<SettingsTab, string>> = { agent: "providers", api: "skills", mcp: "integrations" };
 
 type SettingsDialogProps = DoctorSettingsProps & {
+  /** Settings takes its loading shell's place (`app/tool-loading-shell.tsx`), so it is already on screen. */
+  replacesShell?: boolean;
   synaraRuntime: SynaraRuntimeInfo;
   synaraWorkspaceRoot?: string;
   onRetrySynaraRuntime: () => void;
@@ -77,6 +79,7 @@ type SettingsDialogProps = DoctorSettingsProps & {
 
 export function SettingsDialog(props: SettingsDialogProps) {
   const { t } = useLingui();
+  const [replacesShell] = useState(props.replacesShell);
   const settingsNavGroups = [
     { label: t`General`, items: [
       { tab: "appearance", label: t`Appearance`, icon: "faders" },
@@ -188,6 +191,7 @@ export function SettingsDialog(props: SettingsDialogProps) {
     <ModalDialog
       label={t`Settings`}
       onClose={props.onClose}
+      backdropClassName={replacesShell ? "settings-replaces-shell" : undefined}
       windowDragTop={{ onMouseDown: beginWindowDrag, onDoubleClick: toggleWindowFullscreen }}
     >
       <div className="settings-modal">

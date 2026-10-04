@@ -241,6 +241,14 @@ button.checklist-row:hover { background: var(--control-hover-surface); }
   from { opacity: 0; translate: 0 var(--space-3); scale: .98; }
   to { opacity: 1; translate: 0 0; scale: 1; }
 }
+/* A lazy tool's loading shell (app/tool-loading-shell.tsx) holds the tool's
+   place at its size. Settings that takes its shell's place is already on
+   screen, so it does not arrive a second time. */
+.tool-loading-shell-body { height: 100%; display: grid; place-items: center; }
+/* A shell outstaying its tool (useLoadingShell's minimum time) lies over it. */
+.modal-dialog-content.tool-loading-shell-card { z-index: calc(var(--z-modal) + 1); }
+.modal-backdrop.settings-replaces-shell,
+.modal-backdrop.settings-replaces-shell ~ .modal-dialog-content:has(> .settings-modal) { animation: none; }
 /* The install guide (launched from Settings) and confirmations open over
    another dialog, so both stack above it. */
 .tex-setup-backdrop, .confirm-action-backdrop { z-index: var(--z-nested-modal-backdrop); }

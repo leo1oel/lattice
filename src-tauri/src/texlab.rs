@@ -39,6 +39,23 @@ pub struct TexlabPool {
     failed_start: Option<&'static str>,
 }
 
+/// What a request without the document's text gets when TexLab does not hold
+/// the revision it names; the editor then sends the text
+/// (`src/build/texlab-language.ts`).
+pub const NEEDS_TEXT: &str = "TexLab needs the document text.";
+
+/// Where in the editor's document a request asks: the project-relative
+/// `path`, 1-based `line`/`character`, and the editor's `revision` of the
+/// text. `text` is the whole document, or `None` when the editor sent TexLab
+/// this revision already.
+pub struct DocumentAt<'a> {
+    pub path: &'a str,
+    pub text: Option<&'a str>,
+    pub revision: Option<u64>,
+    pub line: u32,
+    pub character: u32,
+}
+
 /// A project-relative `.tex` path, or `None` for anything TexLab should not see.
 fn tex_path(relative_path: &str) -> Option<String> {
     let relative = relative_path.trim().replace('\\', "/");
@@ -67,7 +84,7 @@ impl TexlabPool {
             DiagnosticSubscription { uri, relative: relative.clone(), publish: Box::new(publish) };
         let live = self.live_for(root, "start")?;
         live.subscribe(Some(subscription))?;
-        if live.sync_document(&absolute, &relative, text).is_ok() {
+        if live.sync_document(&absolute, &relative, text, None).is_ok() {
             return Ok(());
         }
         // Recover from a dead process once, retaining the subscription so
@@ -76,7 +93,7 @@ impl TexlabPool {
         self.reset();
         let live = self.live_for(root, "restart_after_exit")?;
         live.subscribe(subscription)?;
-        let synced = live.sync_document(&absolute, &relative, text);
+        let synced = live.sync_document(&absolute, &relative, text, None);
         if synced.is_err() {
             self.live = None;
         }
@@ -84,42 +101,49 @@ impl TexlabPool {
     }
 
     pub fn completion(
-        &mut self, root: &Path, path: &str, text: &str, line: u32, character: u32,
+        &mut self, root: &Path, at: &DocumentAt,
     ) -> Result<Vec<TexlabCompletionItem>, String> {
-        let result =
-            self.request_at(root, path, text, "textDocument/completion", line, character)?;
+        let result = self.request_at(root, at, "textDocument/completion")?;
         Ok(map_completions(result.as_ref()))
     }
 
-    pub fn hover(
-        &mut self, root: &Path, path: &str, text: &str, line: u32, character: u32,
-    ) -> Result<Option<TexlabHover>, String> {
-        let result = self.request_at(root, path, text, "textDocument/hover", line, character)?;
+    pub fn hover(&mut self, root: &Path, at: &DocumentAt) -> Result<Option<TexlabHover>, String> {
+        let result = self.request_at(root, at, "textDocument/hover")?;
         Ok(map_hover(result.as_ref()))
     }
 
     pub fn definition(
-        &mut self, root: &Path, path: &str, text: &str, line: u32, character: u32,
+        &mut self, root: &Path, at: &DocumentAt,
     ) -> Result<Option<TexlabLocation>, String> {
-        let result =
-            self.request_at(root, path, text, "textDocument/definition", line, character)?;
+        let result = self.request_at(root, at, "textDocument/definition")?;
         Ok(map_definition(result.as_ref(), &canonical(root)))
     }
 
-    /// Sync the document, then ask `method` about the 1-based
-    /// `line`/`character` in it; the response's `result`.
+    /// Sync the document when the request carries its text, then ask `method`
+    /// about the 1-based `line`/`character` in it; the response's `result`.
+    /// A request without the text is answered only while TexLab holds the
+    /// revision it names, and otherwise refused with [`NEEDS_TEXT`].
     fn request_at(
-        &mut self, root: &Path, relative_path: &str, text: &str, method: &str, line: u32,
-        character: u32,
+        &mut self, root: &Path, at: &DocumentAt, method: &str,
     ) -> Result<Option<Value>, String> {
         if !commands::available("texlab") {
             return Err("texlab is not installed.".to_string());
         }
-        let relative = tex_path(relative_path)
-            .ok_or_else(|| "TexLab features require a .tex file.".to_string())?;
+        let relative =
+            tex_path(at.path).ok_or_else(|| "TexLab features require a .tex file.".to_string())?;
         let absolute = project::safe_path(root, &relative)?;
         let live = self.live_for(root, "start")?;
-        let uri = live.sync_document(&absolute, &relative, text)?;
+        let uri = match at.text {
+            Some(text) => live.sync_document(&absolute, &relative, text, at.revision)?,
+            None if at.revision.is_some()
+                && live.synced_revision == at.revision
+                && live.open_relative == relative =>
+            {
+                path_to_uri(&absolute)
+            }
+            None => return Err(NEEDS_TEXT.to_string()),
+        };
+        let (line, character) = (at.line, at.character);
         let position =
             json!({ "line": line.saturating_sub(1), "character": character.saturating_sub(1) });
         let id =
@@ -180,6 +204,53 @@ fn classify_start_error(error: &str) -> Failure {
     }
 }
 
+/// The lab's TexLab probe (`perf_texlab_probe`, scripts/perf-lab.mjs): one
+/// completion at the 1-based `line`/`character` of the open document, after
+/// `mode` tells TexLab about its text on disk. `full` resends the text whole,
+/// as every editor request does; `incremental` sends one empty range edit, a
+/// new revision TexLab still reparses; `position` sends nothing. Returns the
+/// sync's and the whole request's milliseconds.
+#[cfg(feature = "perf-lab")]
+impl TexlabPool {
+    pub(crate) fn lab_probe(
+        &mut self, root: &Path, relative_path: &str, line: u32, character: u32, mode: &str,
+    ) -> Result<(f64, f64), String> {
+        let relative = tex_path(relative_path).ok_or("TexLab features require a .tex file.")?;
+        let absolute = project::safe_path(root, &relative)?;
+        let text = std::fs::read_to_string(&absolute).map_err(|error| error.to_string())?;
+        let live = self.live_for(root, "start")?;
+        if mode != "full" && live.open_relative != relative {
+            return Err(format!("{relative} is not the open TexLab document"));
+        }
+        let position =
+            json!({ "line": line.saturating_sub(1), "character": character.saturating_sub(1) });
+        let started = Instant::now();
+        let uri = match mode {
+            "full" => live.sync_document(&absolute, &relative, &text, None)?,
+            "incremental" => {
+                live.version += 1;
+                live.synced_revision = None;
+                let uri = path_to_uri(&absolute);
+                let document = json!({ "uri": uri, "version": live.version });
+                let range = json!({ "start": position, "end": position });
+                let change = json!({ "range": range, "text": "" });
+                live.notify(
+                    "textDocument/didChange",
+                    json!({ "textDocument": document, "contentChanges": [change] }),
+                )?;
+                uri
+            }
+            _ => path_to_uri(&absolute),
+        };
+        let synced = started.elapsed();
+        let params = json!({ "textDocument": { "uri": uri }, "position": position });
+        let id = live.request("textDocument/completion", params)?;
+        live.wait_for_response(id, FEATURE_TIMEOUT)?;
+        let ms = |duration: Duration| duration.as_secs_f64() * 1000.0;
+        Ok((ms(synced), ms(started.elapsed())))
+    }
+}
+
 fn canonical(root: &Path) -> PathBuf {
     root.canonicalize().unwrap_or_else(|_| root.to_path_buf())
 }
@@ -195,6 +266,9 @@ struct Session {
     open_relative: String,
     open_uri: String,
     version: i32,
+    /// The editor's revision of the open document's text, when TexLab holds
+    /// one (`DocumentAt::revision`); none after any other sync.
+    synced_revision: Option<u64>,
 }
 
 impl Session {
@@ -225,6 +299,7 @@ impl Session {
             open_relative: String::new(),
             open_uri: String::new(),
             version: 0,
+            synced_revision: None,
         };
         let init_id = session.request(
             "initialize",
@@ -285,14 +360,18 @@ impl Session {
     }
 
     fn sync_document(
-        &mut self, absolute: &Path, relative: &str, text: &str,
+        &mut self, absolute: &Path, relative: &str, text: &str, revision: Option<u64>,
     ) -> Result<String, String> {
+        // Unknown until the notification is written: a failed write leaves
+        // TexLab's copy unknown too.
+        self.synced_revision = None;
         let file_uri = path_to_uri(absolute);
         if self.open_relative == relative && !self.open_uri.is_empty() {
             self.version += 1;
             let document = json!({ "uri": file_uri, "version": self.version });
             let change = json!({ "textDocument": document, "contentChanges": [{ "text": text }] });
             self.notify("textDocument/didChange", change)?;
+            self.synced_revision = revision;
             return Ok(file_uri);
         }
         if !self.open_uri.is_empty() && self.open_uri != file_uri {
@@ -306,6 +385,7 @@ impl Session {
             "uri": file_uri, "languageId": "latex", "version": self.version, "text": text
         });
         self.notify("textDocument/didOpen", json!({ "textDocument": document }))?;
+        self.synced_revision = revision;
         Ok(file_uri)
     }
 
@@ -731,6 +811,33 @@ mod tests {
         assert_eq!(events.len(), 1, "{events:?}");
         assert_eq!(events[0]["event"], "texlab.start");
         assert_eq!(events[0]["error_kind"], "texlab_missing");
+    }
+
+    #[test]
+    fn answers_without_the_text_only_at_the_revision_texlab_holds() {
+        if !commands::available("texlab") {
+            return;
+        }
+        let parent = crate::test_support::TempDir::new("texlab-revision");
+        let root = crate::project::create(&parent, "paper").unwrap();
+        let text = "\\documentclass{article}\n\\begin{document}\n\\sec\n\\end{document}\n";
+        let at =
+            |text, revision| DocumentAt { path: "main.tex", text, revision, line: 3, character: 5 };
+        let mut pool = TexlabPool::default();
+        assert!(!pool.completion(&root, &at(Some(text), Some(1))).unwrap().is_empty());
+        // The revision TexLab holds needs no text.
+        assert!(!pool.completion(&root, &at(None, Some(1))).unwrap().is_empty());
+        // Another revision, or none, does.
+        assert_eq!(pool.completion(&root, &at(None, Some(2))).unwrap_err(), NEEDS_TEXT);
+        assert_eq!(pool.completion(&root, &at(None, None)).unwrap_err(), NEEDS_TEXT);
+        // So does any revision once another sync has replaced TexLab's copy.
+        pool.diagnostics(&root, "main.tex", text, |_| {}).unwrap();
+        assert_eq!(pool.completion(&root, &at(None, Some(1))).unwrap_err(), NEEDS_TEXT);
+        // And a restarted TexLab, which holds nothing.
+        pool.completion(&root, &at(Some(text), Some(3))).unwrap();
+        pool.reset();
+        assert_eq!(pool.completion(&root, &at(None, Some(3))).unwrap_err(), NEEDS_TEXT);
+        pool.reset();
     }
 
     #[test]

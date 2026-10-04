@@ -327,6 +327,8 @@ pub fn run() {
             #[cfg(feature = "perf-lab")]
             perf_lab::perf_bytes,
             #[cfg(feature = "perf-lab")]
+            perf_lab::perf_texlab_probe,
+            #[cfg(feature = "perf-lab")]
             perf_lab::perf_write,
             #[cfg(feature = "perf-lab")]
             perf_lab::perf_emit,

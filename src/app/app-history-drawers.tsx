@@ -26,6 +26,7 @@ import { setError } from "./notify";
 import { githubRepositoryUrl } from "./git-repository-url";
 import type { useSynaraHost } from "./use-synara-host";
 import type { ToolDrawers } from "./use-tool-drawers";
+import { ToolLoadingShell } from "./tool-loading-shell";
 import { confirmAction, toMessage } from "../app-utils";
 import { type AppLocale, type Theme } from "../settings/app-settings";
 import { type HistoryItem } from "../history/history-drawer";
@@ -48,7 +49,7 @@ async function afterConfirming(question: string, change: () => Promise<void>) {
 export function AppHistoryDrawers({ tools, synara: {
   postMessage, sourceControlFrameRef, origin: synaraOrigin, runtime: synaraRuntime, retry: retrySynaraRuntime,
 }, project, activeFile, ...props }: {
-  tools: Pick<ToolDrawers, "isOpen" | "close" | "gitView" | "turnReview" | "showGitView">;
+  tools: Pick<ToolDrawers, "isOpen" | "close" | "loading" | "gitView" | "turnReview" | "showGitView">;
   synara: Pick<ReturnType<typeof useSynaraHost>, "postMessage" | "sourceControlFrameRef" | "origin" | "runtime" | "retry">;
   project: ProjectSnapshot;
   activeFile: string;
@@ -83,6 +84,9 @@ export function AppHistoryDrawers({ tools, synara: {
   };
   return (
     <>
+      {tools.loading === "history" && (
+        <ToolLoadingShell className="project-history-drawer" label={t`Project history`} onClose={() => tools.close("history")} />
+      )}
       <Suspense fallback={null}>
       {tools.isOpen.history && (
         <HistoryDrawer
