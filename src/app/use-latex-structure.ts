@@ -39,9 +39,15 @@ export type LatexStructureDeps = {
   editorPosition: EditorPosition | null;
   /**
    * Something lists the outline (its panel, Go to symbol), so the included
-   * files are read for it. A built PDF reads them regardless.
+   * files are read for it. A PDF on screen reads them regardless.
    */
   outlineWanted: boolean;
+  /**
+   * A PDF is on screen, whether the last build made it or not (a cached one,
+   * or one left up after a failed build): its pages are counted against the
+   * budget, so the manuscript's scope is read for it.
+   */
+  pdfShown: boolean;
   /**
    * The PDF the last successful build shows (its preview URL), or null: the
    * appendix's page there marks where the main body ends. A new URL is a new
@@ -60,7 +66,7 @@ export type LatexStructureDeps = {
  * text: a Markdown buffer leaves every memo here inert while typing.
  */
 export function useLatexStructure({
-  project, activeFile, settledSource, references, diskTodos, editorPosition, outlineWanted, compiledPdf,
+  project, activeFile, settledSource, references, diskTodos, editorPosition, outlineWanted, pdfShown, compiledPdf,
 }: LatexStructureDeps) {
   const projectRoot = project?.root ?? "";
   const [retained, setRetained] = useState<RetainedSources>({ owner: projectRoot, sources: NO_SOURCES, unreadable: NO_PATHS });
@@ -114,10 +120,10 @@ export function useLatexStructure({
   // Read the files the manuscript reaches that no buffer holds. The outline
   // lists them (its panel, Go to symbol): with only the open buffer it found
   // nothing in a project whose sections live in \input/\include files, or
-  // whenever the root was not open. A built PDF needs them too, whatever is
-  // on screen: an \appendix in an unread file would read as no appendix, and
+  // whenever the root was not open. A PDF on screen needs them too, whatever
+  // panel is open: an \appendix in an unread file would read as no appendix, and
   // the whole PDF would be held to the main body's page budget.
-  const scanWanted = outlineWanted || compiledPdf != null;
+  const scanWanted = outlineWanted || pdfShown;
   useEffect(() => {
     if (!scanWanted || !manuscript.missing.length) return;
     let cancelled = false;

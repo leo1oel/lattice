@@ -173,6 +173,13 @@ describe("the main body's scope behind the page budget", () => {
     expect(invoke).toHaveBeenCalledWith("synctex_view", { path: "chapters/ch01.tex", line: 1, column: 0 });
   });
 
+  it("reads the scope for a PDF left on screen by a failed build, without placing it", async () => {
+    const view = renderStructure({ ...closed, pdfShown: true }, () => 7, { "chapters/ch01.tex": CHAPTER });
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("read_project_file", { path: "chapters/ch01.tex" }));
+    await waitFor(() => expect(view.result.current.appendixBoundary).toEqual({ kind: "unresolved" }));
+    expect(invoke).not.toHaveBeenCalledWith("synctex_view", expect.anything());
+  });
+
   it("reads nothing before there is a PDF or an outline to serve", () => {
     renderStructure(closed, () => 7, { "chapters/ch01.tex": CHAPTER });
     expect(invoke).not.toHaveBeenCalled();
@@ -275,6 +282,6 @@ describe("the main body's scope behind the page budget", () => {
 function renderArgs(overrides: Partial<LatexStructureDeps> = {}): LatexStructureDeps {
   return {
     project: PROJECT, activeFile: "main.tex", settledSource: MAIN, references: [], diskTodos: [],
-    editorPosition: null, outlineWanted: true, compiledPdf: null, ...overrides,
+    editorPosition: null, outlineWanted: true, compiledPdf: null, pdfShown: overrides.compiledPdf != null, ...overrides,
   };
 }
