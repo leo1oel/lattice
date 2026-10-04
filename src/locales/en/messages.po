@@ -4436,6 +4436,10 @@ msgstr "Loading comments…"
 msgid "Loading diff…"
 msgstr "Loading diff…"
 
+#: src/app/app-editor-panels.tsx
+msgid "Loading editor comments…"
+msgstr "Loading editor comments…"
+
 #: src/editor/latex/latex-hover-cards.ts
 msgid "Loading figure preview…"
 msgstr "Loading figure preview…"
@@ -4443,6 +4447,10 @@ msgstr "Loading figure preview…"
 #: src/overleaf/overleaf-history.tsx
 msgid "Loading files…"
 msgstr "Loading files…"
+
+#: src/app/app-editor-panels.tsx
+msgid "Loading Overleaf collaboration…"
+msgstr "Loading Overleaf collaboration…"
 
 #: src/overleaf/overleaf-history.tsx
 msgid "Loading Overleaf's history…"
@@ -4453,6 +4461,11 @@ msgstr "Loading Overleaf's history…"
 msgid "Loading PDF…"
 msgstr "Loading PDF…"
 
+#: src/app/app-history-drawers.tsx
+msgid "Loading project history…"
+msgstr "Loading project history…"
+
+#: src/App.tsx
 #: src/settings/synara-settings-pane.tsx
 msgid "Loading settings…"
 msgstr "Loading settings…"

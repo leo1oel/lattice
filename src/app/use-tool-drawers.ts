@@ -104,11 +104,14 @@ export function useToolDrawers({ trellis, synara, comments, references, comments
       }
       trellis.revealOpenTool(panel);
     };
-    if (kind !== "history" && kind !== "comments") {
+    // Overleaf's panel is the comments surface of a linked project, asked
+    // for by name from Panels or a restored layout: the same lazy drawer.
+    const lazy = kind === "history" ? "history" : kind === "comments" || kind === "overleaf" ? "comments" : null;
+    if (!lazy) {
       reveal();
       return;
     }
-    setLazyPanel(kind);
+    setLazyPanel(lazy);
     startOpening(reveal);
   }, [commentsKind, openCommentsPanel, openReply, refreshTodos, refreshWordCount, requestRuntime, setLiteratureOpen, setOpen, trellis]);
 

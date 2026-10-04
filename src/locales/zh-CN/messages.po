@@ -4436,6 +4436,10 @@ msgstr "正在加载评论…"
 msgid "Loading diff…"
 msgstr "正在加载差异…"
 
+#: src/app/app-editor-panels.tsx
+msgid "Loading editor comments…"
+msgstr "正在加载编辑器评论…"
+
 #: src/editor/latex/latex-hover-cards.ts
 msgid "Loading figure preview…"
 msgstr "正在加载图预览…"
@@ -4443,6 +4447,10 @@ msgstr "正在加载图预览…"
 #: src/overleaf/overleaf-history.tsx
 msgid "Loading files…"
 msgstr "正在加载文件…"
+
+#: src/app/app-editor-panels.tsx
+msgid "Loading Overleaf collaboration…"
+msgstr "正在加载 Overleaf 协作…"
 
 #: src/overleaf/overleaf-history.tsx
 msgid "Loading Overleaf's history…"
@@ -4453,6 +4461,11 @@ msgstr "正在加载 Overleaf 的历史记录…"
 msgid "Loading PDF…"
 msgstr "正在加载 PDF…"
 
+#: src/app/app-history-drawers.tsx
+msgid "Loading project history…"
+msgstr "正在加载项目历史…"
+
+#: src/App.tsx
 #: src/settings/synara-settings-pane.tsx
 msgid "Loading settings…"
 msgstr "正在加载设置…"

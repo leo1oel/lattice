@@ -1048,10 +1048,12 @@ function App() {
   }, []);
 
   const settingsDialog = (<>
-    {settingsLate && <SettingsLoadingShell label={t`Settings`} backdrop={!settingsOpen} onClose={closeSettings} />}
+    {settingsLate && (
+      <SettingsLoadingShell label={t`Settings`} message={t`Loading settings…`} backdrop={!settingsOpen} onClose={closeSettings} />
+    )}
     <Suspense fallback={null}>
       {settingsOpen && <SettingsDialog
-        replacesShell={settingsLate}
+        covered={settingsLate}
         synaraRuntime={synara.runtime}
         synaraWorkspaceRoot={project?.root}
         onRetrySynaraRuntime={synara.retry}

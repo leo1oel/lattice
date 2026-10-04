@@ -95,8 +95,21 @@ export function AppEditorPanels({ comments, renderCommentsSurface, ...props }: {
     <>
       {tools.loading === "comments" && (
         renderCommentsSurface
-          ? <ToolLoadingShell className="overleaf-collab-drawer" label={t`Overleaf collaboration`} onClose={() => tools.close("comments")} />
-          : <ToolLoadingShell className="editor-comments-drawer" label={t`Editor comments`} onClose={() => tools.close("comments")} />
+          ? (
+            <ToolLoadingShell
+              className="overleaf-collab-drawer"
+              label={t`Overleaf collaboration`}
+              message={t`Loading Overleaf collaboration…`}
+              onClose={() => tools.close("comments")}
+            />
+          ) : (
+            <ToolLoadingShell
+              className="editor-comments-drawer"
+              label={t`Editor comments`}
+              message={t`Loading editor comments…`}
+              onClose={() => tools.close("comments")}
+            />
+          )
       )}
       <Suspense fallback={null}>
         {renderCommentsSurface ? renderCommentsSurface(commentsPanel) : comments.panelOpen && commentsPanel}

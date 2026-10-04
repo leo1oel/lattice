@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { type Ref, useState } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { SearchField } from "../components/ui/search-field";
 import { useCompositionGuard } from "../project/use-composition-guard";
@@ -9,7 +9,10 @@ import { searchSettings, settingsEntryKey, type SettingsSearchEntry } from "./se
  * results take the place of the page list; Up/Down move through them and
  * Enter opens one, as a click does.
  */
-export function SettingsSearch(props: {
+export function SettingsSearch({ inputRef, ...props }: {
+  inputRef?: Ref<HTMLInputElement>;
+  /** Settings opens here, as typing is how most people look for a setting: unless it opens covered. */
+  autoFocus?: boolean;
   entries: readonly SettingsSearchEntry[];
   query: string;
   onQueryChange: (query: string) => void;
@@ -26,8 +29,8 @@ export function SettingsSearch(props: {
   return (
     <>
       <SearchField
-        // Settings opens here: typing is how most people look for a setting.
-        autoFocus
+        ref={inputRef}
+        autoFocus={props.autoFocus ?? true}
         controlSize="compact"
         containerClassName="settings-search"
         aria-label={t`Search settings`}

@@ -1,4 +1,4 @@
-import { useEffect, useRef, type MouseEventHandler, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type MouseEventHandler, type ReactNode } from "react";
 import { FocusScope } from "@radix-ui/react-focus-scope";
 import { Dialog } from "radix-ui";
 
@@ -32,6 +32,11 @@ export function ModalDialog(props: {
    * a menu item that closed with the menu, or to `body`.
    */
   returnFocus?: HTMLElement | null;
+  /**
+   * A layer above lies over the dialog (a loading shell outstaying it): it
+   * is inert, and takes no focus on open, until uncovered.
+   */
+  covered?: boolean;
   backdropClassName?: string;
   windowDragTop?: {
     onMouseDown: MouseEventHandler<HTMLDivElement>;
@@ -42,9 +47,11 @@ export function ModalDialog(props: {
   const contentRef = useRef<HTMLDivElement>(null);
   const returnFocusRef = useRef<HTMLElement | null>(
     props.returnFocus
-      ?? (typeof document !== "undefined" && document.activeElement instanceof HTMLElement
-        ? document.activeElement
-        : null),
+      ?? openerOf(
+        typeof document !== "undefined" && document.activeElement instanceof HTMLElement
+          ? document.activeElement
+          : null,
+      ),
   );
   const mountedRef = useRef(false);
   const composingRef = useRef(false);
@@ -133,10 +140,11 @@ export function ModalDialog(props: {
             aria-label={props.label}
             aria-describedby={props.describedBy}
             tabIndex={props.focusDialogOnOpen ? -1 : undefined}
+            inert={props.covered}
             onOpenAutoFocus={(event) => {
-              if (!props.focusDialogOnOpen) return;
+              if (!props.covered && !props.focusDialogOnOpen) return;
               event.preventDefault();
-              contentRef.current?.focus({ preventScroll: true });
+              if (!props.covered) contentRef.current?.focus({ preventScroll: true });
             }}
             onCompositionStart={() => {
               cancelCompositionClear();
@@ -164,5 +172,56 @@ export function ModalDialog(props: {
         </FocusScope>
       </Dialog.Portal>
     </Dialog.Root>
+  );
+}
+
+/** What had focus as each `PendingModalCard` took it. */
+const pendingOpeners = new WeakMap<HTMLElement, HTMLElement | null>();
+
+/** Where focus goes back to when a dialog opened with `focused` closes. */
+function openerOf(focused: HTMLElement | null) {
+  return focused && pendingOpeners.has(focused) ? pendingOpeners.get(focused) ?? null : focused;
+}
+
+/**
+ * The modal layer of a dialog still on its way (a loading shell's card), so
+ * keys cannot reach what it covers: focus moves into the card and stays, as
+ * the card has nothing to Tab to. A `ModalDialog` that opens while the card
+ * holds focus returns focus where the card found it; a card that closes
+ * first gives it back itself.
+ */
+export function PendingModalCard(props: { label: string; className: string; children: ReactNode }) {
+  const cardRef = useRef<HTMLDivElement>(null);
+  const [opener] = useState(() => (document.activeElement instanceof HTMLElement ? document.activeElement : null));
+  useLayoutEffect(() => {
+    if (cardRef.current) pendingOpeners.set(cardRef.current, opener);
+  }, [opener]);
+  // A card closed holding focus drops it on the page root. A dialog that
+  // replaced it has taken focus by now.
+  useEffect(() => () => {
+    queueMicrotask(() => {
+      const focused = document.activeElement;
+      if ((!focused || focused === document.body) && opener?.isConnected) opener.focus();
+    });
+  }, [opener]);
+  return (
+    // Trapped like ModalDialog's scope, so focus taken from the card comes
+    // back. A dialog mounting under the card stacks its scope on this one,
+    // pausing it: the card holds Tab itself.
+    <FocusScope asChild trapped onUnmountAutoFocus={(event) => event.preventDefault()}>
+      <div
+        ref={cardRef}
+        className={`modal-dialog-content ${props.className}`}
+        role="dialog"
+        aria-modal="true"
+        aria-label={props.label}
+        tabIndex={-1}
+        onKeyDown={(event) => {
+          if (event.key === "Tab") event.preventDefault();
+        }}
+      >
+        {props.children}
+      </div>
+    </FocusScope>
   );
 }
