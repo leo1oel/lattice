@@ -18,7 +18,7 @@ Each operation that matters writes **one** line when it finishes, under
 | `event` | Written when |
 | --- | --- |
 | `latex.compile` | a build ends (`failed` means the document has LaTeX errors; `error` means Lattice could not build at all) |
-| `overleaf.sync` | a sync ends: file counts each way, download and upload bytes, HTTP requests and retries |
+| `overleaf.sync` | a sync ends: file counts each way, download and upload bytes, HTTP requests and retries; a refused upload adds `upload_status` and, when Overleaf names one, `upload_error` |
 | `project.open` | a project opens, at launch or by choice: file count, bytes, scan time |
 | `texlab.start` | the language server starts or restarts, with the reason |
 | `synara.start` | the agent sidecar starts or restarts: port mode, health polls |
@@ -30,6 +30,8 @@ or `abandoned` when it never finished) and `duration_ms`. A step's time is
 `<step>_ms`. A failure adds `error_kind` (stable, for grouping), `error_cause`
 (the error's first line) and `error_fix` (what to do). `operation_id` and
 `request_id` match the frontend's `app.operation` lines for the same action.
+A webview event also has `event_id` and `started_at`: a write the log queue
+retried can appear twice, and the same `event_id` marks the copy.
 
 Events never hold document text, tokens, cookies, one-time codes or full home
 paths. Paths are project-relative; the project is a short hash (`project`).

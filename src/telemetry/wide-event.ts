@@ -2,7 +2,10 @@
  * One wide log event per UI-side operation, in the shape the backend writes
  * (`src-tauri/src/wide_event.rs`): a single JSON line
  * `{"event","outcome","duration_ms",…fields}`, plus `error_kind`, `error_cause`
- * and `error_fix` when it failed. It goes to lattice.log only — no in-app
+ * and `error_fix` when it failed. It also carries `event_id` and `started_at`,
+ * fixed when the operation starts: the file queue retries a write whose IPC
+ * call failed, which may already have landed, and the id is what tells that
+ * duplicate apart from a second, otherwise identical operation. It goes to lattice.log only — no in-app
  * entry, no toast — so use it for operations worth a line in a bug report,
  * not for every console call.
  *
@@ -37,6 +40,7 @@ function clean(value: string, limit: number): string {
 
 export function startWideEvent(event: string, initial: Record<string, WideEventValue | undefined> = {}): WideEvent {
   const started = performance.now();
+  const identity = { event_id: crypto.randomUUID(), started_at: new Date().toISOString() };
   const fields = new Map<string, WideEventValue>();
   let failed = false;
   let ended = false;
@@ -67,6 +71,7 @@ export function startWideEvent(event: string, initial: Record<string, WideEventV
         event,
         outcome: resolved,
         duration_ms: Math.round(performance.now() - started),
+        ...identity,
         ...Object.fromEntries(fields),
       });
       writeLogFileLine(line, resolved === "error" ? "warning" : "info");

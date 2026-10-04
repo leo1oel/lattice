@@ -1303,6 +1303,76 @@ fn a_sync_is_one_wide_event_with_counts_and_no_content() {
 }
 
 #[test]
+fn a_rejected_upload_keeps_the_response_body_out_of_the_event_and_the_export() {
+    // A one-line body passes the cause's first-line cut whole, and no
+    // redaction pattern can tell a document excerpt from a diagnosis.
+    let body = r#"{"error":"upload rejected","preview":"PRIVATE-DOCUMENT-SENTENCE"}"#;
+    let base: Files = &[("same.tex", b"same")];
+    let local: Files = &[("outgoing.tex", b"edited"), ("same.tex", b"same")];
+    let server =
+        Mock { fail_upload_at: Some(1), upload_failure: Some((400, body)), ..Mock::project(base) }
+            .serve();
+    let (config, root) = linked(&server, local, base);
+    let (error, capture) = crate::wide_event::tests::capture(|| {
+        let operation = crate::wide_event::Operation::start("overleaf.sync", classify_sync_error);
+        operation.run_sync(|| sync(&config, &root, NO_LIVE, None)).unwrap_err()
+    });
+    assert_eq!(server.uploads().len(), 1);
+    assert_eq!(
+        error,
+        "Failed to upload \"outgoing.tex\" to Overleaf: Overleaf returned HTTP 400 during upload"
+    );
+    let events = capture.events();
+    assert_eq!(events.len(), 1, "{events:?}");
+    let event = &events[0];
+    assert_eq!(event["error_kind"], "server_refused");
+    assert_eq!(event["upload_status"], 400);
+    assert!(event.get("upload_error").is_none(), "{event}");
+    let export = crate::diagnostic_logs::tests::exported(&capture.log());
+    assert!(export.contains("HTTP 400 during upload"), "{export}");
+    for text in [event.to_string(), export] {
+        assert!(!text.contains("PRIVATE") && !text.contains("preview"), "{text}");
+    }
+}
+
+#[test]
+fn a_rejected_upload_names_a_known_overleaf_error_code() {
+    let base: Files = &[("same.tex", b"same")];
+    let local: Files = &[("outgoing.tex", b"edited"), ("same.tex", b"same")];
+    for (status, body, expected) in [
+        (
+            422,
+            r#"{"success":false,"error":"project_has_too_many_files"}"#,
+            "Overleaf returned HTTP 422 during upload (project_has_too_many_files)",
+        ),
+        (
+            200,
+            r#"{"success":false,"error":"invalid_filename"}"#,
+            "Overleaf rejected the upload (invalid_filename)",
+        ),
+        (200, r#"{"success":false,"error":"PRIVATE text"}"#, "Overleaf rejected the upload"),
+    ] {
+        let server = Mock {
+            fail_upload_at: Some(1),
+            upload_failure: Some((status, body)),
+            ..Mock::project(base)
+        }
+        .serve();
+        let (config, root) = linked(&server, local, base);
+        let (error, capture) = crate::wide_event::tests::capture(|| {
+            let operation =
+                crate::wide_event::Operation::start("overleaf.sync", classify_sync_error);
+            operation.run_sync(|| sync(&config, &root, NO_LIVE, None)).unwrap_err()
+        });
+        assert!(error.ends_with(&format!("to Overleaf: {expected}")), "{error}");
+        let event = &capture.events()[0];
+        assert_eq!(event["upload_status"], status, "{event}");
+        assert_eq!(event["error_kind"], "server_refused");
+        assert!(!event.to_string().contains("PRIVATE"), "{event}");
+    }
+}
+
+#[test]
 fn sync_failures_are_classified_with_a_fix() {
     use crate::overleaf_rt::SESSION_EXPIRED;
     assert_eq!(classify_sync_error(SESSION_EXPIRED).kind, "session_expired");
@@ -1316,6 +1386,9 @@ fn sync_failures_are_classified_with_a_fix() {
     assert!(!classify_sync_error("anything else").fix.is_empty());
     let upload = |cause: &str| format!("Failed to upload \"a/main.tex\" to Overleaf: {cause}");
     assert_eq!(classify_sync_error(&upload(SESSION_EXPIRED)).kind, "session_expired");
-    assert_eq!(classify_sync_error(&upload("Overleaf returned 500: busy")).kind, "server_refused");
+    assert_eq!(
+        classify_sync_error(&upload("Overleaf returned HTTP 500 during upload")).kind,
+        "server_refused"
+    );
     assert_eq!(classify_sync_error(&upload("Could not reach Overleaf: reset")).kind, "network");
 }

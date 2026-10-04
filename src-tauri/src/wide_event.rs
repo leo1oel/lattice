@@ -485,6 +485,15 @@ pub(crate) mod tests {
                 })
                 .collect()
         }
+
+        /// Every line written so far, as the log file holds them.
+        pub(crate) fn log(&self) -> String {
+            let lines = self.0.lock().unwrap();
+            lines
+                .iter()
+                .map(|(level, target, line)| format!("[{target}][{level}] {line}\n"))
+                .collect()
+        }
     }
 
     /// Run `work` with wide events captured instead of logged.

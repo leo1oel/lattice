@@ -74,6 +74,8 @@ pub(super) struct Mock {
     pub history: Vec<serde_json::Value>,
     /// The nth file upload (counting from 1) fails.
     pub fail_upload_at: Option<usize>,
+    /// The failed upload's status and body, instead of a plain 500.
+    pub upload_failure: Option<(u16, &'static str)>,
     /// Move and rename requests fail.
     pub fail_relocation: bool,
     /// Runs as each request arrives, before it is answered, with its method
@@ -141,7 +143,8 @@ impl Mock {
                 ("POST", p) if p.ends_with("/upload") => {
                     uploads += 1;
                     if self.fail_upload_at == Some(uploads) {
-                        (500, None, b"upload failed".to_vec())
+                        let (status, body) = self.upload_failure.unwrap_or((500, "upload failed"));
+                        (status, JSON, body.into())
                     } else {
                         let body =
                             "{\"success\":true,\"entity_id\":\"e1\",\"entity_type\":\"file\"}";
