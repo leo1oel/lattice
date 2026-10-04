@@ -229,9 +229,9 @@ input[type="search"]:focus-visible {
    collapsing to nothing: it is the only item that shrinks rather than
    disappears, so it absorbs the slack between steps. Keep them here as one
    ladder — a second copy elsewhere in the cascade silently wins and strands the
-   step you are reading. The narrowest editor track, a document panel's Split
-   source (SPLIT_SOURCE_MIN_WIDTH), leaves the bar 216px, so both counters
-   survive it. */
+   step you are reading. A document panel's Split source at its usual minimum
+   (SPLIT_SOURCE_MIN_WIDTH) leaves the bar 216px, so both counters survive it;
+   a panel narrower than both Split minimums shrinks the source below that. */
 @container (max-width: 730px) { .editor-status-bar .status-hint { display: none; } }
 @container (max-width: 510px) { .editor-status-bar .status-body-words { display: none; } }
 @container (max-width: 200px) { .editor-status-bar .status-manuscript-todos { display: none; } }

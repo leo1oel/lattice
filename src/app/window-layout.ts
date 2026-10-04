@@ -8,8 +8,9 @@ export const APP_WINDOW_MIN_HEIGHT = 680;
 /**
  * Narrowest each track of a document panel's Split (source beside its
  * rendered preview). A panel is often much narrower than the window (about
- * 630 px in the default layout), so these stay small enough to fit it instead
- * of overflowing the panel.
+ * 630 px in the default layout), so these stay small enough to fit it; a
+ * panel narrower still shrinks both in proportion (`fitSplitMinimums` in
+ * `canvas/use-split-layout.ts`) rather than overflowing.
  */
 export const SPLIT_SOURCE_MIN_WIDTH = 240;
 export const SPLIT_PREVIEW_MIN_WIDTH = 280;
