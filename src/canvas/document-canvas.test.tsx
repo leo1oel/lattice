@@ -661,10 +661,11 @@ describe("DocumentCanvas / split ratio", () => {
    * `minmax(…, 1fr)`.
    */
   function splitColumns(ratio: number, width: number) {
-    const template = splitGridTemplate(ratio, { source: 240, preview: 280 });
+    const template = splitGridTemplate({ source: 240, preview: 280 });
     const [, sourceTrack, previewMinimum] = /^(.+) 1px minmax\((.+), 1fr\)$/.exec(template) ?? [];
     expect(sourceTrack, template).toBeDefined();
     const resolve = (expression: string) => new Function("min", "clamp", `return ${expression
+      .replace(/var\(--split-ratio\)/g, String(ratio))
       .replace(/calc\(/g, "(")
       .replace(/(\d+(?:\.\d+)?)%/g, (_, percent: string) => String((Number(percent) / 100) * width))
       .replace(/(\d)px/g, "$1")};`)(Math.min, (low: number, value: number, high: number) => Math.max(low, Math.min(value, high))) as number;
@@ -691,14 +692,38 @@ describe("DocumentCanvas / split ratio", () => {
       // Dragging cannot push either pane back past the panel's edge.
       fireEvent.pointerDown(separator(), { clientX: 220 });
       fireEvent.pointerMove(window, { clientX: 400 });
-      const [dragged, , previewMinimum] = split.style.gridTemplateColumns.match(/[\d.]+/g)!.map(Number);
-      expect(dragged + 1 + previewMinimum).toBeLessThanOrEqual(480);
+      const dragged = splitColumns(Number(split.style.getPropertyValue("--split-ratio")), 480);
+      expect(dragged.source + 1 + dragged.preview).toBeCloseTo(480);
       fireEvent.pointerUp(window);
 
       // A panel wide enough for both minimums keeps them whole.
       const wide = splitColumns(0.5, 1201);
       expect(wide).toEqual({ source: 600, preview: 600 });
       expect(splitColumns(0.2, 521)).toEqual({ source: 240, preview: 280 });
+    } finally {
+      bounds.mockRestore();
+    }
+  });
+
+  it("keeps a released drag responsive when the document panel narrows again", () => {
+    // A drag used to leave its pixel columns on the split. When the fitted
+    // ratio did not change, React never rewrote them, so shrinking the panel
+    // from 400 to 360 px pushed the preview 40 px under the PDF panel.
+    const bounds = vi.spyOn(HTMLElement.prototype, "getBoundingClientRect")
+      .mockReturnValue({ left: 0, width: 400, right: 400 } as DOMRect);
+    try {
+      renderCanvas(markdownSplit);
+      const split = documentHost.querySelector<HTMLElement>(".split-canvas")!;
+      fireEvent.pointerDown(separator(), { clientX: 184 });
+      fireEvent.pointerMove(window, { clientX: 314 });
+      fireEvent.pointerUp(window);
+      expect(split.style.gridTemplateColumns).not.toMatch(/^[\d.]+px /);
+      expect(separator()).toHaveAttribute("aria-valuenow", "46");
+      expect(Number(split.style.getPropertyValue("--split-ratio"))).toBeCloseTo(240 / 520);
+
+      bounds.mockReturnValue({ left: 0, width: 360, right: 360 } as DOMRect);
+      const narrow = splitColumns(Number(split.style.getPropertyValue("--split-ratio")), 360);
+      expect(narrow.source + 1 + narrow.preview - 360).toBeLessThanOrEqual(0.5);
     } finally {
       bounds.mockRestore();
     }
