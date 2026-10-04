@@ -578,7 +578,20 @@ export async function openWithAutomaticBuilds(commands: Commands, snapshot = pro
 /** Opens Settings from the titlebar button, then `section` when given. */
 export async function openSettings(section?: string) {
   fireEvent.click(screen.getByRole("button", { name: "Settings" }));
+  await findSettingsDialog();
   if (section) fireEvent.click(await screen.findByRole("button", { name: section }));
+}
+
+/**
+ * The opened Settings dialog, once its loading card is gone. A slow chunk
+ * shows the card, and Settings arriving inside the card's minimum time
+ * mounts inert beneath it: also a "Settings" dialog, and not yet usable.
+ */
+export async function findSettingsDialog(timeout?: number) {
+  return waitFor(() => {
+    expect(document.querySelector(".tool-loading-shell-card")).toBeNull();
+    return screen.getByRole("dialog", { name: "Settings" });
+  }, timeout === undefined ? undefined : { timeout });
 }
 
 /** A full GC for retention tests; WeakRef targets survive until the job ends. */

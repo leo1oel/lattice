@@ -1,4 +1,4 @@
-import { windowApi, synaraHook, mockAppCommand, fileNode, projectCommands, attentionPaper, projectSnapshot, buildResult, deferred, type Deferred, setAutoBuildMode, selectPanelTab, buildButton, waitForBuildIdle, renderApp, findFrame, postWindowMessage, expectInvoked, invokeCalls, pause, persistLayoutWithoutAgent, argPath, openAgentFrame, postProjectHistory, agentCheckpoint, postedOfType, chooseProjectMenuItem } from "./app-test-utils";
+import { windowApi, synaraHook, mockAppCommand, fileNode, projectCommands, attentionPaper, projectSnapshot, buildResult, deferred, type Deferred, setAutoBuildMode, selectPanelTab, buildButton, waitForBuildIdle, renderApp, findFrame, postWindowMessage, expectInvoked, invokeCalls, pause, persistLayoutWithoutAgent, argPath, openAgentFrame, postProjectHistory, agentCheckpoint, postedOfType, chooseProjectMenuItem, findSettingsDialog } from "./app-test-utils";
 import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
@@ -20,8 +20,8 @@ describe("Agent panel", () => {
     expect(screen.queryByPlaceholderText(/ask the agent/i)).not.toBeInTheDocument();
     expect(screen.queryByTitle("Conversation history")).not.toBeInTheDocument();
     await chooseProjectMenuItem("Settings");
-    fireEvent.click(await screen.findByRole("button", { name: "Providers" }));
-    const settings = screen.getByRole("dialog", { name: "Settings" });
+    const settings = await findSettingsDialog();
+    fireEvent.click(within(settings).getByRole("button", { name: "Providers" }));
     expect(await within(settings).findByRole("alert")).toHaveTextContent("Agent unavailable");
     expect(within(settings).queryByLabelText("Agent system prompt")).not.toBeInTheDocument();
     expect(within(settings).queryByText("Subscriptions")).not.toBeInTheDocument();

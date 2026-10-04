@@ -1,4 +1,4 @@
-import { windowApi, synaraHook, interfaceSounds, projectCommands, overleafSyncResult, ROOT, projectSnapshot, buildResult, failedBuild, deferred, setAutoBuildMode, chooseOption, buildButton, renderApp, renderOverleafPaper, openSettings, findElement, findFrame, postWindowMessage, expectInvoked, invokeCalls, nextFrames, findOverleafSyncButton, stubObjectUrls, chooseProjectMenuItem } from "./app-test-utils";
+import { windowApi, synaraHook, interfaceSounds, projectCommands, overleafSyncResult, ROOT, projectSnapshot, buildResult, failedBuild, deferred, setAutoBuildMode, chooseOption, buildButton, renderApp, renderOverleafPaper, openSettings, findElement, findFrame, postWindowMessage, expectInvoked, invokeCalls, nextFrames, findOverleafSyncButton, stubObjectUrls, chooseProjectMenuItem, findSettingsDialog } from "./app-test-utils";
 import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
@@ -186,6 +186,7 @@ describe("welcome screen", () => {
   it("does not load provider settings when opening a non-Agent settings page", async () => {
     renderApp({ ...projectCommands(), build_project: buildResult() });
     await chooseProjectMenuItem("Settings");
+    await findSettingsDialog(60_000);
     expect(await screen.findByRole("heading", { name: "Appearance" }, { timeout: 60_000 })).toBeInTheDocument();
     const providersFrame = 'iframe[title="Synara Providers settings"]';
     expect(document.querySelector(providersFrame)).toBeNull();
@@ -237,7 +238,8 @@ describe("welcome screen", () => {
   it("keeps an expanded Synara settings panel reachable from the old bottom", async () => {
     renderApp(projectCommands());
     await chooseProjectMenuItem("Settings");
-    fireEvent.click(await screen.findByRole("button", { name: "Providers" }, { timeout: 10_000 }));
+    await findSettingsDialog(10_000);
+    fireEvent.click(screen.getByRole("button", { name: "Providers" }));
     const frame = await findFrame("Synara Providers settings");
     const settingsViewport = document.querySelector<HTMLDivElement>(".settings-content [data-slot='scroll-area-viewport']")!;
     Object.defineProperties(settingsViewport, {
@@ -356,6 +358,7 @@ describe("welcome screen", () => {
   it("finds a setting by name and opens its row with focus, keeping drafts and Synara's pages as they are", async () => {
     renderApp(projectCommands());
     await chooseProjectMenuItem("Settings");
+    await findSettingsDialog();
     const search = await screen.findByRole("searchbox", { name: "Search settings" });
     expect(search).toHaveFocus();
     const results = () => within(screen.getByRole("listbox", { name: "Matching settings" }));
@@ -392,7 +395,8 @@ describe("welcome screen", () => {
     renderApp({ ...projectCommands(projectSnapshot({ files: [] })), git_user_name: "Ada Lovelace" });
     await expectInvoked("git_user_name");
     await chooseProjectMenuItem("Settings");
-    fireEvent.click(await screen.findByRole("button", { name: "Editor & builds" }));
+    await findSettingsDialog();
+    fireEvent.click(screen.getByRole("button", { name: "Editor & builds" }));
     expect(await screen.findByText(/Comments are signed Ada Lovelace/)).toBeInTheDocument();
     const field = screen.getByLabelText("Your name");
     expect(field).toHaveAttribute("placeholder", "Ada Lovelace");
