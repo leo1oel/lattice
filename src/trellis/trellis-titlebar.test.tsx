@@ -581,6 +581,121 @@ describe("named workspaces in the titlebar", () => {
     expect(document.body).toHaveFocus();
   });
 
+  describe("keeps the keyboard on the workspaces when the switch folds or unfolds with a menu open", () => {
+    /** The context menu of the focused tab `name`, opened from the keyboard, with focus in it. */
+    const keyboardMenuOf = async (name: string) => {
+      const tab = screen.getByRole("tab", { name });
+      act(() => tab.focus());
+      fireEvent.keyDown(tab, { key: "F10", shiftKey: true });
+      const menu = await screen.findByRole("menu");
+      await waitFor(() => expect(menu.contains(document.activeElement)).toBe(true));
+      return within(menu);
+    };
+    const setUp = () => {
+      const { controller, library } = withWorkspaces();
+      const review = library.add("Review", null);
+      library.add("Proofs", null);
+      act(() => controller.switchWorkspace(review));
+      return { controller, library };
+    };
+
+    it("returns from a context menu that outlived folding to the folded button on Escape", async () => {
+      const { controller } = setUp();
+      const view = render(<LayoutSwitch controller={controller} compact={false} />);
+      await keyboardMenuOf("Review");
+      view.rerender(<LayoutSwitch controller={controller} compact />);
+      expect(screen.getByRole("menu")).toBeInTheDocument();
+      fireEvent.keyDown(document.activeElement!, { key: "Escape" });
+      await waitFor(() => expect(screen.queryByRole("menu")).toBeNull());
+      await waitFor(() => expect(screen.getByRole("button", { name: "Workspace: Review" })).toHaveFocus());
+    });
+
+    it("returns from an action of a context menu that outlived folding to the folded button", async () => {
+      const { controller, library } = setUp();
+      const view = render(<LayoutSwitch controller={controller} compact={false} />);
+      const menu = await keyboardMenuOf("Proofs");
+      view.rerender(<LayoutSwitch controller={controller} compact />);
+      fireEvent.click(menu.getByRole("menuitem", { name: "Move left" }));
+      await waitFor(() => expect(screen.queryByRole("menu")).toBeNull());
+      expect(library.list().map((entry) => entry.name)).toEqual(["Workspace", "Proofs", "Review"]);
+      await waitFor(() => expect(screen.getByRole("button", { name: "Workspace: Review" })).toHaveFocus());
+      // Unfolded again, at the tab it opened from, wherever the move put it.
+      view.rerender(<LayoutSwitch controller={controller} compact={false} />);
+      expect(screen.getByRole("tab", { name: "Review" })).toHaveFocus();
+    });
+
+    it("still hands Rename to the name field from a context menu that outlived folding", async () => {
+      const { controller } = setUp();
+      const view = render(<LayoutSwitch controller={controller} compact={false} />);
+      const menu = await keyboardMenuOf("Proofs");
+      view.rerender(<LayoutSwitch controller={controller} compact />);
+      fireEvent.click(menu.getByRole("menuitem", { name: "Rename" }));
+      const field = screen.getByRole("textbox", { name: "Workspace name" }) as HTMLInputElement;
+      expect(field.value).toBe("Proofs");
+      await waitFor(() => expect(screen.queryByRole("menu")).toBeNull());
+      expect(field).toHaveFocus();
+    });
+
+    it("returns from the folded menu, removed by unfolding, to the current workspace's tab", async () => {
+      const { controller } = setUp();
+      const view = render(<LayoutSwitch controller={controller} compact />);
+      const trigger = screen.getByRole("button", { name: "Workspace: Review" });
+      act(() => trigger.focus());
+      fireEvent.keyDown(trigger, { key: "ArrowDown" });
+      const menu = await screen.findByRole("menu");
+      await waitFor(() => expect(menu.contains(document.activeElement)).toBe(true));
+      view.rerender(<LayoutSwitch controller={controller} compact={false} />);
+      expect(screen.queryByRole("menu")).toBeNull();
+      expect(screen.getByRole("tab", { name: "Review" })).toHaveFocus();
+      // Folded again, its menu starts closed and the keyboard is on its button.
+      view.rerender(<LayoutSwitch controller={controller} compact />);
+      expect(screen.queryByRole("menu")).toBeNull();
+      expect(screen.getByRole("button", { name: "Workspace: Review" })).toHaveFocus();
+    });
+
+    it("returns from the folded button, unfolded after a shortcut changed workspace, to the new current one's tab", () => {
+      const { controller, library } = setUp();
+      const view = render(<LayoutSwitch controller={controller} compact />);
+      const trigger = screen.getByRole("button", { name: "Workspace: Review" });
+      act(() => trigger.focus());
+      const proofs = library.list().find((entry) => entry.name === "Proofs")!.id;
+      act(() => controller.switchWorkspace(proofs));
+      expect(screen.getByRole("button", { name: "Workspace: Proofs" })).toHaveFocus();
+      view.rerender(<LayoutSwitch controller={controller} compact={false} />);
+      expect(screen.getByRole("tab", { name: "Proofs" })).toHaveFocus();
+    });
+
+    it("returns from the folded menu, unfolded after a shortcut changed workspace, to the new current one's tab", async () => {
+      const { controller, library } = setUp();
+      const view = render(<LayoutSwitch controller={controller} compact />);
+      const trigger = screen.getByRole("button", { name: "Workspace: Review" });
+      act(() => trigger.focus());
+      fireEvent.keyDown(trigger, { key: "ArrowDown" });
+      const menu = await screen.findByRole("menu");
+      await waitFor(() => expect(menu.contains(document.activeElement)).toBe(true));
+      const proofs = library.list().find((entry) => entry.name === "Proofs")!.id;
+      act(() => controller.switchWorkspace(proofs));
+      view.rerender(<LayoutSwitch controller={controller} compact={false} />);
+      expect(screen.queryByRole("menu")).toBeNull();
+      expect(screen.getByRole("tab", { name: "Proofs" })).toHaveFocus();
+    });
+
+    it("leaves focus where a click outside a menu put it, through folding too", async () => {
+      const { controller } = setUp();
+      const view = render(<LayoutSwitch controller={controller} compact={false} />);
+      await keyboardMenuOf("Review");
+      view.rerender(<LayoutSwitch controller={controller} compact />);
+      // Radix starts listening for a press outside a tick after opening.
+      await act(() => new Promise((resolve) => setTimeout(resolve, 0)));
+      fireEvent.pointerDown(document.body, { button: 0, pointerType: "mouse" });
+      await waitFor(() => expect(screen.queryByRole("menu")).toBeNull());
+      await act(() => new Promise((resolve) => setTimeout(resolve, 0)));
+      expect(document.body).toHaveFocus();
+      view.rerender(<LayoutSwitch controller={controller} compact={false} />);
+      expect(document.body).toHaveFocus();
+    });
+  });
+
   it("names a copy made from the folded menu in place, without entering it", async () => {
     const { controller, library } = withWorkspaces();
     render(<LayoutSwitch controller={controller} compact />);
