@@ -1,6 +1,7 @@
 import { useLingui } from "@lingui/react/macro";
 import type { SettingsTab } from "../app-types";
 import { fontLicenseUrl } from "virtual:lattice-private-fonts-license";
+import { TIMELESS } from "./interface-font-credit";
 
 /**
  * One searchable setting. `id` is the `data-setting` of the row it reveals;
@@ -70,7 +71,7 @@ export function useSettingsSearchIndex(hasProject: boolean, knownAuthorName: str
     { tab: "doctor", label: t`TeX doctor`, place: t`Diagnostics` },
     { tab: "logs", label: t`Logs`, place: t`Diagnostics` },
     ...(fontLicenseUrl ? [
-      { tab: "acknowledgements", label: t`Acknowledgements`, place: t`About`, terms: t({ message: "credits licenses fonts", comment: "Search words for the Acknowledgements settings page, space-separated" }) } satisfies SettingsSearchEntry,
+      { tab: "acknowledgements", label: t`Acknowledgements`, place: t`About`, terms: `${TIMELESS.name} ${t({ message: "credits licenses fonts", comment: "Search words for the Acknowledgements settings page, space-separated" })}`, description: TIMELESS.license } satisfies SettingsSearchEntry,
     ] : []),
   ];
   /* eslint-enable lingui/no-unlocalized-strings */
