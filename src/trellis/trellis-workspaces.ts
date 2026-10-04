@@ -261,14 +261,14 @@ export class WorkspaceLibrary {
    * it, so none puts back a copy older than another window's change. The
    * titlebar hears of a change to the list.
    */
-  private fresh(): SavedLibrary {
+  private fresh(notify = true): SavedLibrary {
     const saved = this.read();
     if (!saved) return this.load();
     this.saved = saved;
     const summaries = saved.workspaces.map(({ id, name }) => ({ id, name }));
     if (JSON.stringify(summaries) !== JSON.stringify(this.summaries)) {
       this.summaries = summaries;
-      this.notify();
+      if (notify) this.notify();
     }
     return saved;
   }
@@ -303,14 +303,7 @@ export class WorkspaceLibrary {
    * render); the list keeps its identity while unchanged.
    */
   refresh() {
-    const saved = this.read();
-    if (!saved) {
-      this.load();
-      return;
-    }
-    this.saved = saved;
-    const summaries = saved.workspaces.map(({ id, name }) => ({ id, name }));
-    if (JSON.stringify(summaries) !== JSON.stringify(this.summaries)) this.summaries = summaries;
+    this.fresh(false);
   }
 
   list = (): readonly WorkspaceSummary[] => {
