@@ -3,6 +3,7 @@ import { useLingui } from "@lingui/react/macro";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { BookMarked, BookOpen, Check, Download, ExternalLink, FolderOpen, Pencil, Plus, TriangleAlert, X } from "lucide-react";
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger } from "../components/ui/context-menu";
+import { Badge } from "../components/ui/badge";
 import { ScrollArea } from "../components/ui/scroll-area";
 import { DestructiveButton } from "../components/ui/destructive-button";
 import { InfinityLoader } from "../components/ui/activity-icons";
@@ -151,6 +152,9 @@ export function PaperLibrary(props: PaperLibraryProps) {
             const authors = paperShortAuthors(paper);
             const source = paperSourceLabel(paper);
             const snippet = textHits.get(paperSearchIdentity(paper))?.snippet.trim();
+            const citationOnly = !readable && !downloadable;
+            const pinnedNotice = Boolean(healthLabel && paper.citationHealth?.link);
+            const citeKey = snippet ? null : paper.citationKey;
             const reportIntent = () => {
               if (readable) props.onLikelyPaper?.(paper);
             };
@@ -158,8 +162,12 @@ export function PaperLibrary(props: PaperLibraryProps) {
               <div
                 className={`paper-row ${paper.hasFullText ? "" : "cited-only "}${healthLabel ? `citation-${paper.citationHealth?.kind} ` : ""}${props.activePaper && paperKey(props.activePaper) === paperKey(paper) ? "active" : ""}`}
                 data-citation-health={paper.citationHealth?.kind}
-                // How many 22px actions sit beside the title (see .paper-row-actions).
-                style={{ "--paper-row-actions": 1 + Number(Boolean(paper.citationKey)) + Number(Boolean(healthLabel && paper.citationHealth?.link)) } as CSSProperties}
+                // How many 22px actions sit at the title's end, and how many of
+                // them stay on screen when the row is at rest (see .paper-row-actions).
+                style={{
+                  "--paper-row-actions": 1 + Number(Boolean(paper.citationKey)) + Number(pinnedNotice),
+                  "--paper-row-pinned": Number(pinnedNotice),
+                } as CSSProperties}
                 draggable
                 onDragStart={(event) => beginPaperDrag(event.dataTransfer, props.projectKey, paper)}
               >
@@ -186,18 +194,23 @@ export function PaperLibrary(props: PaperLibraryProps) {
                     {paperStateIcon(paper, fetchState, readable, downloadable)}
                   </span>
                   <span className="paper-row-text">
-                    <strong>{paper.title}</strong>
+                    <strong className="paper-title">{paper.title}</strong>
                     {(authors || source) && (
                       <small className="paper-byline">
                         {authors && <span className="paper-authors">{authors}</span>}
                         {source && <span>{source}</span>}
                       </small>
                     )}
-                    {snippet
-                      ? <small className="paper-snippet">{snippet}</small>
-                      : paper.citationKey && <code className="paper-cite-key">{paper.citationKey}</code>}
-                    {!readable && !downloadable && <small>{t`Citation only — no downloadable full text found`}</small>}
-                    {healthLabel && <small className="paper-citation-health" role="status">{healthLabel}</small>}
+                    {snippet && <small className="paper-snippet">{snippet}</small>}
+                    {(citeKey || citationOnly || healthLabel) && (
+                      <span className="paper-tags">
+                        {citeKey && <code className="paper-cite-key">{citeKey}</code>}
+                        {citationOnly && <Badge size="compact" className="paper-tag">{t`Citation only`}</Badge>}
+                        {healthLabel && (
+                          <Badge size="compact" tone="warning" className="paper-tag paper-citation-health" role="status">{healthLabel}</Badge>
+                        )}
+                      </span>
+                    )}
                   </span>
                 </button>
                 <div className="paper-row-actions">
