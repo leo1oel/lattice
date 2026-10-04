@@ -735,11 +735,8 @@ keystroke is a new revision, so it still sends the text (33 requests and
 The parity gate's last gesture-level gap was zooming a 1,930-page PDF: 95 fps
 in WebKit against 109 in Chromium. Every page was a box in the DOM, a zoom's
 commit restyled and laid out all of them, and WebKit pays four to five times
-Chromium's per-element style cost. On the bench page in Playwright's WebKit a
-gesture's first frame took 200–270 ms and its commit 90–150 ms; the first
-frame outlasted the 80 ms commit delay (`pdf/use-pdf-zoom.ts`), so one gesture
-committed twice, and the extra commit moved the page under the pointer by
-about 30 pages.
+Chromium's per-element style cost. On the bench page in Playwright's WebKit
+the longest frame of a 20-notch zoom gesture took 124–150 ms.
 
 PDF.js now keeps only the pages near the view in the DOM (`PDFPageWindow` in
 `patches/pdfjs-dist@6.4.299.patch`, switched on by `pageWindowMinScale` in
@@ -748,47 +745,68 @@ from their page boxes, so the scroll extent, every page's offset, page numbers
 and jumps are what they were with all of them there. The window reaches as far
 as the view would show zoomed out to the smallest zoom, so the transform that
 previews a zoom always has its pages; it moves only once the view has gone
-that far again, and it keeps a page holding focus or the selection. PDF.js
-brings a page into the window before scrolling to it, so page numbers,
-outline and link jumps, SyncTeX and find's Next and Previous reach pages
-outside it. On the bench page that leaves 9 page boxes of 1,930 for a zoom to
-restyle; its first frame takes 30–50 ms, and a gesture commits once.
+that far again. It keeps the page holding focus and every page a selection
+starts on, ends on or runs through: a page taken out from between a range's
+ends takes its text out of the selection and the copy. PDF.js brings a page
+into the window before scrolling to it, so page numbers, outline and link
+jumps, SyncTeX and find's Next and Previous reach pages outside it. On the
+bench page that leaves 9 page boxes of 1,930 for a zoom to restyle, and a
+gesture's longest frame takes 29–49 ms.
 
-Measured on the bench page (`pdfPages=1930` and `386`, the generated text PDF
-opened from the navigator beside the compiled preview of the same size) in
-Playwright's headless WebKit and Chromium at 1440×900, five interleaved runs
-each, medians. WebKit runs at 60 Hz here; headless Chromium paces its frames
-at 13–25 fps on this page whatever it holds, so for Chromium only its own
-style and layout times (thread time, from `Performance.getMetrics`) are
-comparable.
+Measured with
+`node scripts/perf-bench/pdf-window-timing.mjs --before-ref 31921114 --engine webkit`
+and `--engine chromium` (31921114 is the commit before the window); the
+driver's header defines each figure. It builds the bench page as it is and
+with that commit's PDF runtime, then runs five interleaved pairs at each of
+`pdfPages=1930` and `386`, the generated text PDF opened from the navigator
+beside the compiled preview of the same size, in Playwright's headless WebKit
+and Chromium at 1440×900. Medians. WebKit runs at 60 Hz here, though now and
+then at 30 Hz for a while, in either build; the driver leaves those
+measurements out of frame rates (none fell in the runs below). Headless
+Chromium paces its frames at 13–25 fps on this page whatever it holds, so for
+Chromium only its own style and layout times (thread time, from
+`Performance.getMetrics`) are comparable. These figures replace the first ones
+recorded here, from a driver that was not kept. The tables below are the
+medians of the raw interleaved runs, every frame interval included, in
+[`performance-data/pdf-window-2026-10-04-webkit.json`](performance-data/pdf-window-2026-10-04-webkit.json)
+and
+[`performance-data/pdf-window-2026-10-04-chromium.json`](performance-data/pdf-window-2026-10-04-chromium.json),
+produced by
+`node scripts/perf-bench/pdf-window-timing.mjs --before-ref 31921114 --engine webkit --runs 5 --json docs/performance-data/pdf-window-2026-10-04-webkit.json`
+and
+`node scripts/perf-bench/pdf-window-timing.mjs --before-ref 31921114 --engine chromium --runs 5 --json docs/performance-data/pdf-window-2026-10-04-chromium.json`.
 
 | WebKit, 1,930 pages | Before | After |
 | --- | --- | --- |
-| Ctrl-wheel zoom in, 20 notches: fps; longest frame (ms) | 49.6; 131 | 56.4; 36 |
-| Ctrl-wheel zoom out: fps; longest frame (ms) | 49.6; 127 | 56.4; 38 |
-| Open → first page painted (ms) | 260 | 189 |
-| Jump to 70 % → painted (ms) | 71 | 66 |
-| Scroll, 120 px a frame for 200 frames: fps; frames with a blank page | 60; 0 | 60; 0 |
-| Elements in the document, two 1,930-page PDFs open | 5,087 | 1,247 |
+| Ctrl-wheel zoom in, 20 notches: fps; longest frame (ms) | 52.7; 129 | 57.9; 39 |
+| Ctrl-wheel zoom out: fps; longest frame (ms) | 52.1; 138 | 58.3; 39 |
+| Open → first page drawn (ms) | 670 | 306 |
+| Jump to 70 % → drawn (ms) | 21 | 28 |
+| Scroll, 120 px a frame for 200 frames: fps; frames with a blank page | 59.7; 0 | 60.0; 0 |
+| Elements in the document, two 1,930-page PDFs open | 5,057 | 1,217 |
 
 | WebKit, 386 pages | Before | After |
 | --- | --- | --- |
-| Ctrl-wheel zoom in: fps; longest frame (ms) | 54.1; 65 | 56.3; 39 |
-| Ctrl-wheel zoom out: fps; longest frame (ms) | 55.0; 53 | 55.9; 44 |
-| Open → first page painted (ms) | 212 | 193 |
-| Jump to 70 % → painted (ms) | 65 | 67 |
+| Ctrl-wheel zoom in: fps; longest frame (ms) | 57.4; 56 | 57.9; 38 |
+| Ctrl-wheel zoom out: fps; longest frame (ms) | 57.4; 52 | 58.1; 39 |
+| Open → first page drawn (ms) | 351 | 283 |
+| Jump to 70 % → drawn (ms) | 27 | 24 |
 
 | Chromium, style; layout (ms) | 1,930 pages, before | after | 386 pages, before | after |
 | --- | --- | --- | --- | --- |
-| Zoom in gesture | 25.3; 12.2 | 13.1; 3.5 | 19.4; 6.0 | 15.4; 4.0 |
-| Zoom out gesture | 34.3; 15.4 | 14.1; 3.8 | 19.0; 6.9 | 14.1; 3.8 |
-| Scroll, 200 frames | 247; 269 | 197; 55 | 225; 106 | 208; 57 |
+| Zoom in gesture | 270; 110 | 68; 28 | 121; 42 | 72; 30 |
+| Zoom out gesture | 249; 97 | 70; 28 | 116; 47 | 70; 29 |
+| Scroll, 200 frames | 114; 180 | 120; 42 | 119; 73 | 117; 41 |
 
-Scroll frame rates, the longest scroll frames and the JavaScript heap did not
-move beyond run-to-run noise. On `perf:bench` (200 pages) the `startup`,
-`pdf-open` and `pdf-zoom` mutation counts fell, in Chromium from 2,174, 1,615
-and 2,222 to 838, 471 and 1,083 and in WebKit from 1,974, 1,426 and 1,509 to
-645, 288 and 379, and their ceilings were lowered; the report-only
-`pdf-scroll` count rose by the window's moves (940 → 988 and 192 → 199). The
-real-window lab's harness counts a PDF's pages from its toolbar now, and
-treats a spacer on screen as a blank page.
+No run threw, drew a frame with a page not yet drawn or a spacer on screen, or
+moved the page under the pointer while zooming. Jump times, scroll frame rates,
+the longest scroll frames and Chromium's scroll style time did not move beyond
+run-to-run noise.
+
+On `perf:bench` (200 pages) the `startup`, `pdf-open` and `pdf-zoom` mutation
+counts fell, in Chromium from 2,174, 1,615 and 2,222 to 838, 471 and 1,083
+and in WebKit from 1,974, 1,426 and 1,509 to 645, 288 and 379, and their
+ceilings were lowered; the report-only `pdf-scroll` count rose by the
+window's moves (940 → 988 and 192 → 199). The real-window lab's harness counts
+a PDF's pages from its toolbar now, and treats a spacer on screen as a blank
+page.

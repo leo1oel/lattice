@@ -6,6 +6,7 @@
   // and serves bench-page.ts from its own tools/perf-bench/index.html;
   // perf-fixture.d.mts types perf-fixture.mjs for the bench page's import, and
   // perf-bench/selectors.d.mts types selectors.mjs for a component test's.
+  // perf-bench/pdf-window-timing.mjs is run by hand (docs/performance.md).
   // Open Slide scripts are staged by prepare-presentation-runtime.mjs and
   // launched by Rust or the nested package's test script, not frontend imports.
   "workspaces": {
@@ -16,6 +17,7 @@
         "scripts/perf-bench/probe.js",
         "scripts/perf-fixture.d.mts",
         "scripts/perf-bench/selectors.d.mts",
+        "scripts/perf-bench/pdf-window-timing.mjs",
         "tools/perf-bench/bench-page.ts"
       ],
       "project": ["src/**", "scripts/**", "tools/**"]

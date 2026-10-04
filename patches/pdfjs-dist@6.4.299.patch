@@ -49,7 +49,7 @@ index 0a7957b1387b09a7332734c8a732ce7e80eec284..9007d81bb68502f17fe14010e1ed0448
      renderingQueue: PDFRenderingQueue | undefined;
      scroll: {
 diff --git a/web/pdf_viewer.mjs b/web/pdf_viewer.mjs
-index e4a6b24652d1ed233dc3de1b746188a246e5fb9e..fe4012a09b58e5359da9cf4f237ffbd042cebc27 100644
+index e4a6b24652d1ed233dc3de1b746188a246e5fb9e..e1978846f0a80164a6c9ffe439750bf943d504b0 100644
 --- a/web/pdf_viewer.mjs
 +++ b/web/pdf_viewer.mjs
 @@ -1569,7 +1569,8 @@ class PDFLinkService {
@@ -187,7 +187,7 @@ index e4a6b24652d1ed233dc3de1b746188a246e5fb9e..fe4012a09b58e5359da9cf4f237ffbd0
      }
      const recordBBoxes = this.enableOptimizedPartialRendering && this.#hasRestrictedScaling && !this.recordedBBoxes;
      const recordImages = this.imagesRightClickMinSize !== -1 && !this.imageCoordinates;
-@@ -7946,6 +7985,222 @@ class PDFPageViewBuffer {
+@@ -7946,6 +7985,251 @@ class PDFPageViewBuffer {
      this.#buf.delete(firstView);
    }
  }
@@ -201,7 +201,8 @@ index e4a6b24652d1ed233dc3de1b746188a246e5fb9e..fe4012a09b58e5359da9cf4f237ffbd0
 +// of them there. The window reaches as far as the view would show zoomed out
 +// to that scale, so a zoom previewed as a transform of the viewer finds its
 +// pages in place, and twice that before it moves again, so it moves rarely.
-+// Pages holding focus or a selection stay too: removing them would drop both.
++// Pages holding focus or any of a selection stay too: removing them would
++// drop the focus, or the page's text from the selection and from a copy.
 +// The layout model is the viewer CSS's with removePageBorders: borderless
 +// pages one under another, each but the last followed by its bottom margin.
 +let pageBoxGeneration = 0;
@@ -255,7 +256,8 @@ index e4a6b24652d1ed233dc3de1b746188a246e5fb9e..fe4012a09b58e5359da9cf4f237ffbd0
 +    const reach = height * Math.max(1, pdfViewer.currentScale / pdfViewer.pageWindowMinScale);
 +    const anchor = anchorView ? views.indexOf(anchorView) : -1;
 +    const top = anchor >= 0 ? this.#tops[anchor] + anchorOffset : container.scrollTop;
-+    const covered = !relaid && this.#first >= 0 && this.#first <= this.#pageAt(top - reach) && this.#pageAt(top + height + reach) <= this.#last && pinned.every(i => this.#attached.includes(views[i]));
++    const attached = new Set(this.#attached);
++    const covered = !relaid && this.#first >= 0 && this.#first <= this.#pageAt(top - reach) && this.#pageAt(top + height + reach) <= this.#last && pinned.every(i => attached.has(views[i]));
 +    if (!covered) {
 +      this.#render(views, this.#pageAt(top - 2 * reach), this.#pageAt(top + height + 2 * reach), pinned);
 +      if (this.#gap === null && this.#measureGap()) {
@@ -309,24 +311,51 @@ index e4a6b24652d1ed233dc3de1b746188a246e5fb9e..fe4012a09b58e5359da9cf4f237ffbd0
 +    }
 +    return low;
 +  }
++  // The page holding focus, and every page a selection range starts on, ends
++  // on or runs through: a range from page 1 to page 3 holds page 2's text
++  // only while page 2 is in the DOM.
 +  #pinned(views) {
-+    const pinned = [];
 +    const element = this.#pdfViewer.viewer;
-+    const selection = document.getSelection();
-+    for (const node of [document.activeElement, selection?.anchorNode, selection?.focusNode]) {
++    const indexOf = node => {
 +      if (!node || node === element || !element.contains(node)) {
-+        continue;
++        return -1;
 +      }
 +      const page = (node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement)?.closest(".page");
-+      let index = page ? Number(page.getAttribute("data-page-number")) - 1 : -1;
-+      if (page && views[index]?.div !== page) {
-+        index = views.findIndex(view => view.div === page);
++      if (!page) {
++        return -1;
 +      }
-+      if (index >= 0 && !pinned.includes(index)) {
-+        pinned.push(index);
++      const index = Number(page.getAttribute("data-page-number")) - 1;
++      return views[index]?.div === page ? index : views.findIndex(view => view.div === page);
++    };
++    const pinned = new Set();
++    const focused = indexOf(document.activeElement);
++    if (focused >= 0) {
++      pinned.add(focused);
++    }
++    const selection = document.getSelection();
++    for (let r = 0, rr = selection?.rangeCount ?? 0; r < rr; r++) {
++      const range = selection.getRangeAt(r);
++      let first = indexOf(range.startContainer),
++        last = indexOf(range.endContainer);
++      if (first < 0 || last < 0) {
++        // An end outside every page (beyond the viewer, or on it or a
++        // spacer): the range runs as far as the pages in the DOM it reaches.
++        const reached = this.#attached.filter(view => range.intersectsNode(view.div));
++        if (reached.length === 0) {
++          continue;
++        }
++        if (first < 0) {
++          first = indexOf(reached[0].div);
++        }
++        if (last < 0) {
++          last = indexOf(reached.at(-1).div);
++        }
++      }
++      for (let i = first; i <= last; i++) {
++        pinned.add(i);
 +      }
 +    }
-+    return pinned;
++    return [...pinned];
 +  }
 +  // The bottom margin the viewer CSS gives a page that is not the last.
 +  #measureGap() {
@@ -410,7 +439,7 @@ index e4a6b24652d1ed233dc3de1b746188a246e5fb9e..fe4012a09b58e5359da9cf4f237ffbd0
  class PDFViewer {
    #buffer = null;
    #altTextManager = null;
-@@ -7984,6 +8239,9 @@ class PDFViewer {
+@@ -7984,6 +8268,9 @@ class PDFViewer {
    #copiedPageViews = null;
    #savedPageViews = null;
    #deletedPageNumbers = null;
@@ -420,7 +449,7 @@ index e4a6b24652d1ed233dc3de1b746188a246e5fb9e..fe4012a09b58e5359da9cf4f237ffbd0
    constructor(options) {
      const viewerVersion = "6.4.299";
      if (version !== viewerVersion) {
-@@ -8485,7 +8743,7 @@ class PDFViewer {
+@@ -8485,7 +8772,7 @@ class PDFViewer {
            console.error(`Invalid AnnotationEditor mode: ${mode}`);
          }
        }
@@ -429,7 +458,7 @@ index e4a6b24652d1ed233dc3de1b746188a246e5fb9e..fe4012a09b58e5359da9cf4f237ffbd0
        const scale = this.currentScale;
        const viewport = firstPdfPage.getViewport({
          scale: scale * PixelsPerInch.PDF_TO_CSS_UNITS
-@@ -8532,6 +8790,8 @@ class PDFViewer {
+@@ -8532,6 +8819,8 @@ class PDFViewer {
          this.#ensurePageViewVisible();
        } else if (this._spreadMode !== SpreadMode.NONE) {
          this._updateSpreadMode();
@@ -438,7 +467,7 @@ index e4a6b24652d1ed233dc3de1b746188a246e5fb9e..fe4012a09b58e5359da9cf4f237ffbd0
        }
        eventBus.on("annotationeditorlayerrendered", evt => {
          if (this.#annotationEditorUIManager) {
-@@ -8740,6 +9000,7 @@ class PDFViewer {
+@@ -8740,6 +9029,7 @@ class PDFViewer {
      this.#eventAC?.abort();
      this.#eventAC = null;
      this.viewer.textContent = "";
@@ -446,7 +475,7 @@ index e4a6b24652d1ed233dc3de1b746188a246e5fb9e..fe4012a09b58e5359da9cf4f237ffbd0
      this._updateScrollMode();
      this.viewer.removeAttribute("lang");
      this.#hiddenCopyElement?.remove();
-@@ -8816,6 +9077,8 @@ class PDFViewer {
+@@ -8816,6 +9106,8 @@ class PDFViewer {
      if (this._scrollMode === ScrollMode.PAGE) {
        this.#ensurePageViewVisible();
        this.update();
@@ -455,7 +484,7 @@ index e4a6b24652d1ed233dc3de1b746188a246e5fb9e..fe4012a09b58e5359da9cf4f237ffbd0
      }
      if (!pageSpot && !this.isInPresentationMode) {
        const left = div.offsetLeft + div.clientLeft,
-@@ -9227,7 +9490,7 @@ class PDFViewer {
+@@ -9227,7 +9519,7 @@ class PDFViewer {
      return !this.isInPresentationMode && this.container.scrollHeight > this.container.clientHeight;
    }
    _getVisiblePages() {
@@ -464,7 +493,7 @@ index e4a6b24652d1ed233dc3de1b746188a246e5fb9e..fe4012a09b58e5359da9cf4f237ffbd0
        horizontal = this._scrollMode === ScrollMode.HORIZONTAL,
        rtl = horizontal && this._isContainerRtl;
      return getVisibleElements({
-@@ -9428,7 +9691,10 @@ class PDFViewer {
+@@ -9428,7 +9720,10 @@ class PDFViewer {
        this.#ensurePageViewVisible();
      } else {
        viewer.textContent = "";
