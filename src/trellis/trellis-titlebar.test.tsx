@@ -409,6 +409,50 @@ describe("named workspaces in the titlebar", () => {
     expect(controller.ui.get().workspace).toBe(first);
   });
 
+  it("marks the workspace the project differs from, and offers to save to it or revert to it", async () => {
+    const { controller, library } = withWorkspaces();
+    library.add("Review", null);
+    const save = vi.spyOn(controller, "saveWorkspace");
+    const revert = vi.spyOn(controller, "revertWorkspace");
+    render(<TrellisTitlebar controller={controller} />);
+    expect(screen.queryByRole("img", { name: "Unsaved changes" })).toBeNull();
+    fireEvent.contextMenu(screen.getByRole("tab", { name: "Workspace" }));
+    await screen.findByRole("menuitem", { name: "Duplicate" });
+    expect(screen.queryByRole("menuitem", { name: "Save to workspace" })).toBeNull();
+    fireEvent.keyDown(document.activeElement ?? document.body, { key: "Escape" });
+    await waitFor(() => expect(screen.queryByRole("menu")).toBeNull());
+
+    act(() => controller.ui.set({ dirty: true }));
+    const tab = screen.getByRole("tab", { name: /^Workspace/ });
+    expect(within(tab).getByRole("img", { name: "Unsaved changes" })).toBeInTheDocument();
+    expect(within(screen.getByRole("tab", { name: "Review" })).queryByRole("img")).toBeNull();
+    // Only the workspace the project is in offers them.
+    fireEvent.contextMenu(screen.getByRole("tab", { name: "Review" }));
+    await screen.findByRole("menuitem", { name: "Duplicate" });
+    expect(screen.queryByRole("menuitem", { name: "Save to workspace" })).toBeNull();
+    fireEvent.keyDown(document.activeElement ?? document.body, { key: "Escape" });
+    await waitFor(() => expect(screen.queryByRole("menu")).toBeNull());
+    fireEvent.contextMenu(tab);
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Save to workspace" }));
+    expect(save).toHaveBeenCalledOnce();
+    await waitFor(() => expect(screen.queryByRole("menu")).toBeNull());
+    fireEvent.contextMenu(tab);
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Revert to saved" }));
+    expect(revert).toHaveBeenCalledOnce();
+  });
+
+  it("marks the folded workspace menu while the project differs from its workspace", async () => {
+    const { controller } = withWorkspaces();
+    const save = vi.spyOn(controller, "saveWorkspace");
+    act(() => controller.ui.set({ dirty: true }));
+    render(<LayoutSwitch controller={controller} compact />);
+    const trigger = screen.getByRole("button", { name: "Workspace: Workspace" });
+    expect(within(trigger).getByRole("img", { name: "Unsaved changes" })).toBeInTheDocument();
+    fireEvent.pointerDown(trigger, { button: 0, ctrlKey: false, pointerType: "mouse" });
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Save to workspace" }));
+    expect(save).toHaveBeenCalledOnce();
+  });
+
   it("moves along workspaces and presets with the arrow keys, choosing each", () => {
     const { controller, library } = withWorkspaces();
     library.add("Review", null);

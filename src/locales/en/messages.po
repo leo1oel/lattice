@@ -6879,6 +6879,11 @@ msgstr "Reveal cursor in PDF (⌘⇧J)"
 msgid "Reverse turnstile"
 msgstr "Reverse turnstile"
 
+#: src/App.tsx
+#: src/trellis/trellis-workspace-switch.tsx
+msgid "Revert to saved"
+msgstr "Revert to saved"
+
 #: src/papers/bibliography-audit.tsx
 msgid "Review candidate"
 msgstr "Review candidate"
@@ -7049,6 +7054,11 @@ msgstr "Save resolved file"
 #: src/build/use-compile-repair.ts
 msgid "Save the project before repairing."
 msgstr "Save the project before repairing."
+
+#: src/App.tsx
+#: src/trellis/trellis-workspace-switch.tsx
+msgid "Save to workspace"
+msgstr "Save to workspace"
 
 #: src/history/versions-timeline.tsx
 msgid "Save version"
@@ -8438,6 +8448,7 @@ msgstr "Unpaywall"
 msgid "Unresolved"
 msgstr "Unresolved"
 
+#: src/trellis/trellis-workspace-switch.tsx
 #: src/trellis/trellis-workspace.tsx
 msgid "Unsaved changes"
 msgstr "Unsaved changes"

@@ -2,15 +2,17 @@
  * The writer's named workspaces: arrangements of panels they switch between
  * from the titlebar, shared by every project.
  *
- * A workspace is live: whatever the writer rearranges while in it is its
- * arrangement from then on, so switching back finds it as it was left. It
- * holds the arrangement only (panels, splits, sizes, tools), never documents:
- * each panel that held documents keeps one empty slot (a `slot` view) where
- * the open documents go when the workspace is entered (`arrangeDocuments` in
- * trellis-layout). A slot no document fills stays on screen as an empty
- * document panel, so documents opening or closing never change the
- * arrangement. Each project remembers which
- * workspace it was last in, in its own saved layout.
+ * A workspace is a saved arrangement: only "+", Save to workspace,
+ * Duplicate and Rename write one. Entering it loads that arrangement into the
+ * project; the project's own layout is its own from then on, and differs from
+ * the workspace (shown as unsaved changes) until it is saved there or
+ * reverted. It holds the arrangement only (panels, splits, sizes, tools),
+ * never documents: each panel that held documents keeps one empty slot (a
+ * `slot` view) where the open documents go when the workspace is loaded
+ * (`arrangeDocuments` in trellis-layout). A slot no document fills stays on
+ * screen as an empty document panel, so documents opening or closing never
+ * change the arrangement. Each project remembers which workspace it was last
+ * loaded from, in its own saved layout.
  *
  * Eager (the titlebar lists them before the workspace loads) and light:
  * nothing from Trellis but types.

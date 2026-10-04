@@ -467,6 +467,8 @@
 /* Where a workspace's context menu opens: the pointer, placed in the page (the titlebar contains its layout). */
 .trellis-workspace-menu-anchor { position: fixed; width: 0; height: 0; pointer-events: none; }
 .trellis-workspace-menu-name { max-width: 9em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Unsaved changes: the project's layout differs from its workspace's saved arrangement. */
+.trellis-workspace-dirty { flex: none; width: var(--tab-dirty-dot-size); height: var(--tab-dirty-dot-size); border-radius: var(--radius-pill); background: var(--text-tertiary); }
 /* The workspace's name, edited in place of its tab. */
 .trellis-workspace-name {
   min-width: 0; height: 100%;

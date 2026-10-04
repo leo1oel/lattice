@@ -301,7 +301,7 @@ describe("named workspaces", () => {
   });
 
   it("leaves documents to App's tab sync when the workspace has no place for them", () => {
-    const arranged = arrangeDocuments(null, workspaceWith(keys), { activeKey: "main.tex", openTabs: keys }, {});
+    const arranged = arrangeDocuments(defaultLayout(), workspaceWith(keys), { activeKey: "main.tex", openTabs: keys }, {});
     expect(panels(arranged)).toEqual(panels(defaultLayout()));
     expect(Object.values(arranged.views).some((record) => record.type === "file")).toBe(false);
   });
@@ -337,19 +337,16 @@ describe("named workspaces", () => {
     expect(new WorkspaceLibrary().list()).toEqual(library.list());
   });
 
-  it("opens a project in its workspace as rearranged since in another project", () => {
+  it("opens a project as it was left, whatever its workspace saved since", () => {
     const library = new WorkspaceLibrary();
     const id = library.recent();
-    // The project's own document panel, which the workspace (made elsewhere) never had.
     const own = workspaceWith(keys);
-    const root = own.root as { children: LayoutNode[] };
-    root.children[1] = { ...findPanel(own.root, "panel-doc-0")!, id: "panel-mine" };
     saveLayout("/a", { document: own, workspace: id });
-    library.setArrangement(id, arrangementOf(sideBySide()));
+    const arrangement = arrangementOf(sideBySide());
+    library.setArrangement(id, arrangement);
     const opened = openProjectLayout("/a", library);
-    expect(layoutShape(arrangementOf(opened.document))).toBe(layoutShape(arrangementOf(sideBySide())));
-    // Its documents are all still open, in the workspace's document panel.
-    expect(Object.values(opened.document.views).flatMap((record) => (record.type === "file" ? [record.params?.key] : [])).sort()).toEqual([...keys].sort());
+    expect(panels(opened.document)).toEqual(panels(own));
+    expect(library.get(id)!.arrangement).toBe(arrangement);
   });
 
   it("opens a project whose workspace was deleted in the one last entered", () => {

@@ -191,8 +191,8 @@ function App() {
   // must not re-render App. One subscription, not one per field, because each
   // is two hooks on every App render; the snapshot is a string so an
   // unchanged answer does not re-render.
-  const trellisFlags = useTrellisUi(trellis, (ui) => [ui.present.agent, ui.visible.agent, ui.pdfLive, ui.editorHibernated].map((flag) => (flag ? "1" : "0")).join(""));
-  const [agentPresent, agentVisible, pdfLive, editorHibernated] = [...trellisFlags].map((flag) => flag === "1");
+  const trellisFlags = useTrellisUi(trellis, (ui) => [ui.present.agent, ui.visible.agent, ui.pdfLive, ui.editorHibernated, ui.dirty].map((flag) => (flag ? "1" : "0")).join(""));
+  const [agentPresent, agentVisible, pdfLive, editorHibernated, workspaceDirty] = [...trellisFlags].map((flag) => flag === "1");
   const browserHosted = isBrowserHosted();
   const projectState = useProjectState();
   const {
@@ -1198,6 +1198,11 @@ function App() {
     })),
     ...Array.from({ length: WORKSPACE_SHORTCUTS }, (_, index) => ({ id: `workspace-${index + 1}`, key: String(index + 1), run: () => trellis.switchWorkspaceAt(index) })),
     { id: "workspace-new", label: t`New workspace`, group: t`Layout`, run: () => void trellis.createWorkspace(t`Workspace`) },
+    // While the project's layout differs from its workspace's saved arrangement.
+    ...(workspaceDirty ? [
+      { id: "workspace-save", label: t`Save to workspace`, group: t`Layout`, run: () => trellis.saveWorkspace() },
+      { id: "workspace-revert", label: t`Revert to saved`, group: t`Layout`, run: () => trellis.revertWorkspace() },
+    ] : []),
     ...SINGLETON_PANELS.map((kind) => {
       const name = i18n._(PANEL_TITLES[kind]);
       return { id: `panel-${kind}`, label: spaceMixedScript(t({ message: `Show ${name} panel` })), group: t`Layout`, run: () => trellis.showPanel(kind) };

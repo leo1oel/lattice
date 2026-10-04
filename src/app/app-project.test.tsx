@@ -156,7 +156,8 @@ describe("project tree and projects", () => {
 
   describe("resetting the layout", () => {
     const agentTab = () => document.querySelector('[data-trellis-part="tab"][data-type="agent"]');
-    const layoutTab = (name: string) => within(document.querySelector(".trellis-presets")!).getByRole("tab", { name });
+    // A workspace's tab also names its unsaved changes, if any.
+    const layoutTab = (name: string) => within(document.querySelector(".trellis-presets")!).getByRole("tab", { name: new RegExp(`^${name}\\s*(Unsaved changes)?$`) });
     const resetLayout = () => fireEvent.click(within(document.querySelector<HTMLElement>(".trellis-titlebar")!).getByRole("button", { name: "Reset layout" }));
     // The toast stack is not rendered here (see expectNotification): read the offer from the store.
     const resetToast = () => visibleToasts("Layout").find((entry) => entry?.title === "Layout reset");

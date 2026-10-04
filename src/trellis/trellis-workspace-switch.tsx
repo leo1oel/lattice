@@ -4,7 +4,9 @@
  * presets, which lay themselves over whichever workspace is active. One plate
  * slides between them all. A workspace is renamed in place (double-click, F2
  * or its context menu, which also duplicates and deletes it) and moved by
- * dragging. Short of room (`compact`), the workspaces fold into a menu and the
+ * dragging. While the project's layout differs from its workspace's saved
+ * arrangement, that workspace shows a dot, and its menus offer to save the
+ * layout to it or revert to it. Short of room (`compact`), the workspaces fold into a menu and the
  * presets keep only their icons.
  *
  * Eager but light: it drives the workspace only through the controller.
@@ -12,7 +14,7 @@
 import { useId, useRef, useState, type KeyboardEvent, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent } from "react";
 import { createPortal } from "react-dom";
 import { useLingui } from "@lingui/react/macro";
-import { Check, ChevronDown, Copy, LayoutDashboard, Pencil, Plus, Trash2 } from "lucide-react";
+import { Check, ChevronDown, Copy, LayoutDashboard, Pencil, Plus, Save, Trash2, Undo2 } from "lucide-react";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
 } from "../components/ui/dropdown-menu";
@@ -36,6 +38,8 @@ export function LayoutSwitch({ controller, compact }: { controller: TrellisContr
   const current = useCurrentWorkspace(controller);
   const preset = useTrellisUi(controller, (state) => state.preset);
   const renaming = useTrellisUi(controller, (state) => state.renaming);
+  const dirty = useTrellisUi(controller, (state) => state.dirty);
+  const dirtyDot = <span className="trellis-workspace-dirty" role="img" aria-label={t`Unsaved changes`} />;
   const stripId = useId();
   const trackRef = useRef<HTMLDivElement>(null);
   const [dragging, setDragging] = useState<string | null>(null);
@@ -178,7 +182,10 @@ export function LayoutSwitch({ controller, compact }: { controller: TrellisContr
             onDoubleClick={() => rename(entry.id)}
           >
             {selected && pill}
-            <span className="sliding-tab-label"><span className="trellis-preset-label">{entry.name}</span></span>
+            <span className="sliding-tab-label">
+              <span className="trellis-preset-label">{entry.name}</span>
+              {dirty && entry.id === current && dirtyDot}
+            </span>
           </button>
         );
       })}
@@ -202,7 +209,10 @@ export function LayoutSwitch({ controller, compact }: { controller: TrellisContr
           if (!controller.ui.get().renaming) menuAt.tab.focus();
         }}
       >
-        <WorkspaceActions entry={menuAt.entry} count={workspaces.length} onRename={rename} onDuplicate={duplicate} onDelete={remove} />
+        <WorkspaceActions
+          controller={controller} entry={menuAt.entry} dirty={dirty && menuAt.entry.id === current} count={workspaces.length}
+          onRename={rename} onDuplicate={duplicate} onDelete={remove}
+        />
       </DropdownMenuContent>
     </DropdownMenu>
   );
@@ -222,6 +232,7 @@ export function LayoutSwitch({ controller, compact }: { controller: TrellisContr
           <span className="sliding-tab-label">
             <LayoutDashboard size={13} aria-hidden="true" />
             <span className="trellis-workspace-menu-name">{currentEntry.name}</span>
+            {dirty && dirtyDot}
             <ChevronDown size={12} aria-hidden="true" />
           </span>
         </button>
@@ -237,7 +248,10 @@ export function LayoutSwitch({ controller, compact }: { controller: TrellisContr
         <DropdownMenuSeparator />
         <DropdownMenuItem onSelect={create}><Plus size={14} />{t`New workspace`}</DropdownMenuItem>
         <DropdownMenuSeparator />
-        <WorkspaceActions entry={currentEntry} count={workspaces.length} onRename={rename} onDuplicate={duplicate} onDelete={remove} />
+        <WorkspaceActions
+          controller={controller} entry={currentEntry} dirty={dirty} count={workspaces.length}
+          onRename={rename} onDuplicate={duplicate} onDelete={remove}
+        />
       </DropdownMenuContent>
     </DropdownMenu>
   );
@@ -278,9 +292,15 @@ export function LayoutSwitch({ controller, compact }: { controller: TrellisContr
   );
 }
 
-/** Rename, Duplicate and Delete for one workspace, in its context menu or the folded switch's menu. */
-function WorkspaceActions({ entry, count, onRename, onDuplicate, onDelete }: {
+/**
+ * Save to workspace and Revert (while the project's layout differs from the
+ * workspace it is in), then Rename, Duplicate and Delete for one workspace, in
+ * its context menu or the folded switch's menu.
+ */
+function WorkspaceActions({ controller, entry, dirty, count, onRename, onDuplicate, onDelete }: {
+  controller: TrellisController;
   entry: WorkspaceSummary;
+  dirty: boolean;
   count: number;
   onRename: (id: string) => void;
   onDuplicate: (entry: WorkspaceSummary) => void;
@@ -289,6 +309,13 @@ function WorkspaceActions({ entry, count, onRename, onDuplicate, onDelete }: {
   const { t } = useLingui();
   return (
     <>
+      {dirty && (
+        <>
+          <DropdownMenuItem onSelect={() => controller.saveWorkspace()}><Save size={14} />{t`Save to workspace`}</DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => controller.revertWorkspace()}><Undo2 size={14} />{t`Revert to saved`}</DropdownMenuItem>
+          <DropdownMenuSeparator />
+        </>
+      )}
       <DropdownMenuItem onSelect={() => onRename(entry.id)}><Pencil size={14} />{t`Rename`}</DropdownMenuItem>
       <DropdownMenuItem onSelect={() => onDuplicate(entry)}><Copy size={14} />{t`Duplicate`}</DropdownMenuItem>
       {/* The last workspace stays: a project is always in one. */}

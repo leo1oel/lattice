@@ -153,6 +153,8 @@ export type TrellisUiState = {
   workspace: string;
   /** The workspace whose name the titlebar is editing, as a new one's is at once. */
   renaming: string | null;
+  /** Whether the project's layout (under any preset) is arranged other than its workspace saved it. */
+  dirty: boolean;
   /** The narrowest window content, in CSS px, at which the docked layout still fits at full size (0 without a workspace). */
   minWidth: number;
   /** Content minimums measured from the live panels, in CSS px (0 until measured): the Agent's from its composer, the PDF's from its toolbar. */
@@ -215,7 +217,7 @@ export class TrellisController {
   });
   readonly ui = new SmallStore<TrellisUiState>({
     ready: false, present: {}, visible: {}, pdfLive: false, editorHibernated: false, editorVisible: false,
-    hidden: [], framed: null, preset: null, workspace: "", renaming: null, minWidth: 0, agentMinWidth: 0, pdfMinWidth: 0,
+    hidden: [], framed: null, preset: null, workspace: "", renaming: null, dirty: false, minWidth: 0, agentMinWidth: 0, pdfMinWidth: 0,
   });
   /** The writer's named workspaces, shared by every project. */
   readonly workspaces = new WorkspaceLibrary();
@@ -236,6 +238,8 @@ export class TrellisController {
   private presetHandler: ((preset: LayoutPreset | null) => void) | null = null;
   private workspaceHandler: ((id: string) => void) | null = null;
   private newWorkspaceHandler: ((name: string) => string | null) | null = null;
+  private saveWorkspaceHandler: (() => void) | null = null;
+  private revertWorkspaceHandler: (() => void) | null = null;
   private shownHandler: ((kind: TrellisSingleton) => void) | null = null;
 
   setBridge(bridge: TrellisBridge) {
@@ -282,12 +286,24 @@ export class TrellisController {
     return id;
   }
 
+  /** Save the project's arrangement (under any preset) to its workspace. */
+  saveWorkspace() {
+    this.saveWorkspaceHandler?.();
+  }
+
+  /** Load the project's workspace as it was saved, the open documents placed in it. */
+  revertWorkspace() {
+    this.revertWorkspaceHandler?.();
+  }
+
   installHandlers(handlers: {
     reset?: () => Promise<void>;
     resync?: () => void;
     preset?: (preset: LayoutPreset | null) => void;
     workspace?: (id: string) => void;
     newWorkspace?: (name: string) => string | null;
+    saveWorkspace?: () => void;
+    revertWorkspace?: () => void;
     shown?: (kind: TrellisSingleton) => void;
   }) {
     if (handlers.reset) this.resetHandler = handlers.reset;
@@ -295,6 +311,8 @@ export class TrellisController {
     if (handlers.preset) this.presetHandler = handlers.preset;
     if (handlers.workspace) this.workspaceHandler = handlers.workspace;
     if (handlers.newWorkspace) this.newWorkspaceHandler = handlers.newWorkspace;
+    if (handlers.saveWorkspace) this.saveWorkspaceHandler = handlers.saveWorkspace;
+    if (handlers.revertWorkspace) this.revertWorkspaceHandler = handlers.revertWorkspace;
     if (handlers.shown) this.shownHandler = handlers.shown;
     return () => {
       if (handlers.reset && this.resetHandler === handlers.reset) this.resetHandler = null;
@@ -302,6 +320,8 @@ export class TrellisController {
       if (handlers.preset && this.presetHandler === handlers.preset) this.presetHandler = null;
       if (handlers.workspace && this.workspaceHandler === handlers.workspace) this.workspaceHandler = null;
       if (handlers.newWorkspace && this.newWorkspaceHandler === handlers.newWorkspace) this.newWorkspaceHandler = null;
+      if (handlers.saveWorkspace && this.saveWorkspaceHandler === handlers.saveWorkspace) this.saveWorkspaceHandler = null;
+      if (handlers.revertWorkspace && this.revertWorkspaceHandler === handlers.revertWorkspace) this.revertWorkspaceHandler = null;
       if (handlers.shown && this.shownHandler === handlers.shown) this.shownHandler = null;
     };
   }

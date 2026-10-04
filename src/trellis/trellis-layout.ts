@@ -314,7 +314,7 @@ export function placesOf(doc: LayoutDocument): DocumentPlaces {
 }
 
 /**
- * A workspace's arrangement (see trellis-workspaces; null for the default)
+ * A workspace's arrangement (see trellis-workspaces and workspaceArrangement)
  * holding the open documents. Each goes back to the panel it sat in when this
  * workspace last had it (`places`). The others fill the slots nothing went
  * back to, one each in tab order (the active document into the active
@@ -325,12 +325,11 @@ export function placesOf(doc: LayoutDocument): DocumentPlaces {
  * tab sync gives the documents a panel of their own.
  */
 export function arrangeDocuments(
-  arrangement: LayoutDocument | null,
+  doc: LayoutDocument,
   current: LayoutDocument,
   documents: Pick<PresetDocuments, "activeKey" | "openTabs">,
   places: DocumentPlaces,
 ): LayoutDocument {
-  const doc = arrangement ?? defaultLayout();
   const views: Record<string, ViewRecord> = {};
   for (const [id, record] of Object.entries(doc.views)) if (!isDocumentSlot(record)) views[id] = record;
   // A slot's panel, by the panel's id; docked panels first.
@@ -497,11 +496,8 @@ export function saveLayout(projectRoot: string, { document, preset = null, works
 }
 
 /**
- * `projectRoot`'s saved layout in the workspace it was last in (else the one
- * last entered anywhere), brought up to date with that workspace: one
- * rearranged since in another project is rebuilt from its arrangement here,
- * with this project's documents where they sat. A workspace never used yet
- * takes the project's layout as its arrangement.
+ * `projectRoot`'s saved layout as it was left, in the workspace it was last
+ * loaded from (else the one last entered anywhere).
  */
 export function openProjectLayout(projectRoot: string, library: WorkspaceLibrary): ProjectLayout & { workspace: string } {
   // The first library is migrated from the projects' saved layouts, this one's included.
@@ -509,19 +505,26 @@ export function openProjectLayout(projectRoot: string, library: WorkspaceLibrary
   const loaded = loadLayout(projectRoot);
   // Places in workspaces deleted since are forgotten.
   const places = Object.fromEntries(Object.entries(loaded.places).filter(([id]) => library.get(id)));
-  const saved = { ...loaded, places };
-  const workspace = saved.workspace && library.get(saved.workspace) ? saved.workspace : library.recent();
+  const workspace = loaded.workspace && library.get(loaded.workspace) ? loaded.workspace : library.recent();
   library.use(workspace);
-  const own = saved.preset?.previous ?? saved.document;
-  const arrangement = library.get(workspace)?.arrangement ?? null;
-  let current = own;
-  if (!arrangement) {
-    library.setArrangement(workspace, arrangementOf(own));
-  } else if (layoutShape(arrangementOf(own)) !== layoutShape(arrangement)) {
-    const openTabs = Object.values(own.views).map(fileKey).filter(Boolean);
-    current = arrangeDocuments(arrangement, own, { activeKey: "", openTabs }, saved.places[workspace] ?? placesOf(own));
-  }
-  return saved.preset
-    ? { ...saved, workspace, preset: { ...saved.preset, previous: current } }
-    : { ...saved, workspace, document: current };
+  return { ...loaded, places, workspace };
+}
+
+/**
+ * The arrangement saved in workspace `id`: one never saved is the default
+ * layout with a place for documents beside the navigators, where App's tab
+ * sync would put the first.
+ */
+export function workspaceArrangement(library: WorkspaceLibrary, id: string): LayoutDocument {
+  return library.get(id)?.arrangement
+    ?? arrangementOf(withDocumentPanel(defaultLayout(), { id: "document", key: "document" }, { after: ["panel-project", "panel-papers"] }));
+}
+
+/**
+ * Whether `own` (the writer's layout, under any preset) is arranged other
+ * than workspace `id` saved it: which tab is in front and which document
+ * sits in which place do not count.
+ */
+export function differsFromWorkspace(own: LayoutDocument, library: WorkspaceLibrary, id: string): boolean {
+  return layoutShape(arrangementOf(own)) !== layoutShape(workspaceArrangement(library, id));
 }

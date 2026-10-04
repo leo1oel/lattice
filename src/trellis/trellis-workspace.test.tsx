@@ -2,7 +2,7 @@ import { act, cleanup, render, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { LayoutDocument, LayoutNode } from "@danfessler/trellis";
 import { TrellisController } from "./trellis-controller";
-import { arrangeDocuments, defaultLayout, saveLayout, withDocumentPanel } from "./trellis-layout";
+import { defaultLayout, saveLayout, withDocumentPanel } from "./trellis-layout";
 import TrellisWorkspace from "./trellis-workspace";
 import { arrangementOf, layoutShape, WorkspaceLibrary } from "./trellis-workspaces";
 
@@ -41,112 +41,146 @@ async function open(projectRoot: string, openTabs: string[]) {
 /** The workspace's arrangement as saved (a fresh library reads it from storage). */
 const stored = (id: string) => new WorkspaceLibrary().get(id)!.arrangement!;
 
-/** How many document panels another project entering the workspace with both documents open gets. */
-function documentPanels(arrangement: LayoutDocument) {
-  const current = withDocumentPanel(defaultLayout(), { id: "doc-0", key: "main.tex" }, { after: ["panel-project"] });
-  current.views["doc-1"] = { type: "file", params: { key: "notes.md" } };
-  const arranged = arrangeDocuments(arrangement, current, { activeKey: "main.tex", openTabs: OPEN }, {});
-  let count = 0;
+/** The document panels of `doc`, each by the documents it holds. */
+function documentPanels(doc: LayoutDocument) {
+  const found: string[][] = [];
   const walk = (node: LayoutNode | null | undefined) => {
     if (!node) return;
-    if (node.kind === "panel") count += node.views.some((id) => arranged.views[id]?.type === "file") ? 1 : 0;
-    else if (node.kind === "stage") walk(node.child);
+    if (node.kind === "panel") {
+      const keys = node.views.flatMap((id) => (doc.views[id]?.type === "file" ? [String(doc.views[id].params?.key)] : []));
+      if (keys.length || node.views.some((id) => doc.views[id]?.type === "slot")) found.push(keys);
+    } else if (node.kind === "stage") walk(node.child);
     else node.children.forEach(walk);
   };
-  walk(arranged.root);
-  return count;
+  walk(doc.root);
+  return found;
 }
 
-describe("a named workspace's arrangement", () => {
-  it("records a split the writer merged away", async () => {
-    const id = splitWorkspace();
-    saveLayout("/a", { document: split(), workspace: id });
-    const { ws, unmount } = await open("/a", OPEN);
-    const notes = ws.views({ type: "file" }).find((view) => view.params.key === "notes.md")!;
-    const main = ws.views({ type: "file" }).find((view) => view.params.key === "main.tex")!;
-    expect(notes.panelId).not.toBe(main.panelId);
-    // The writer drags the notes back beside the source: their split closes up.
-    act(() => { ws.dock(notes.id, { into: main.panelId }); });
-    expect(ws.views({ type: "file" }).every((view) => view.panelId === main.panelId)).toBe(true);
-    unmount();
-    expect(layoutShape(stored(id))).toBe(layoutShape(arrangementOf(ws.getDocument())));
-    // Entering it from another project with both documents open keeps them together.
-    expect(documentPanels(stored(id))).toBe(1);
-  });
+const SAVED = () => layoutShape(arrangementOf(split()));
 
-  it("keeps a split another project leaves empty, through tab clicks and a second document", async () => {
+describe("a named workspace", () => {
+  it("is never written by selecting tabs or opening and closing documents, which leave it clean", async () => {
     const id = splitWorkspace();
     saveLayout("/a", { document: split(), workspace: id });
-    // Project B enters the workspace with one document: the second split stays, an empty slot.
+    // Project B enters this workspace from another with one document: the second split is an empty slot.
+    const other = new WorkspaceLibrary().add("Other", null);
+    saveLayout("/b", { document: defaultLayout(), workspace: other });
     const { controller, ws, unmount } = await open("/b", ["main.tex"]);
+    act(() => controller.switchWorkspace(id));
+    const dirty = () => controller.ui.get().dirty;
     const [main] = ws.views({ type: "file" });
     const [slot] = ws.views({ type: "slot" });
     expect(slot.panelId).not.toBe(main.panelId);
-    // Clicking between tabs and cycling them changes nothing of the workspace.
+    expect(dirty()).toBe(false);
+    // Clicking between tabs, and cycling them with the keyboard.
     act(() => ws.select("agent"));
     act(() => ws.select("project"));
     act(() => ws.select(main.id));
-    // And with the keyboard, through the Project panel's tabs.
     act(() => ws.focus("project"));
     act(() => ws.run("tab.next"));
     expect(ws.view("agent")?.selected).toBe(true);
     act(() => ws.run("tab.previous"));
     expect(ws.view("project")?.selected).toBe(true);
-    await act(() => new Promise((resolve) => window.setTimeout(resolve, 450)));
-    expect(layoutShape(stored(id))).toBe(layoutShape(arrangementOf(split())));
-    // A document opened next fills the empty slot, which leaves.
+    expect(dirty()).toBe(false);
+    // A document opened by App's tab sync fills the empty slot, which leaves.
     act(() => controller.app.set({ openTabs: OPEN, activeKey: "notes.md" }));
     await waitFor(() => expect(ws.views({ type: "file" })).toHaveLength(2));
     expect(ws.views({ type: "file" }).find((view) => view.params.key === "notes.md")!.panelId).toBe(slot.panelId);
     expect(ws.views({ type: "slot" })).toHaveLength(0);
-    unmount();
-    expect(layoutShape(stored(id))).toBe(layoutShape(arrangementOf(split())));
-    // Project A, opened again, keeps its split.
-    const again = await open("/a", OPEN);
-    const [first, second] = again.ws.views({ type: "file" });
-    expect(first.panelId).not.toBe(second.panelId);
-  });
-
-  it("keeps a document panel as an empty slot when its last document is closed by its tab", async () => {
-    const id = splitWorkspace();
-    saveLayout("/a", { document: split(), workspace: id });
-    const { ws, unmount } = await open("/a", OPEN);
+    expect(dirty()).toBe(false);
+    // Closing it by its tab keeps its panel, an empty slot again.
     const notes = ws.views({ type: "file" }).find((view) => view.params.key === "notes.md")!;
     await act(async () => { await ws.close(notes.id); });
     expect(ws.views({ type: "slot" }).map((view) => view.panelId)).toEqual([notes.panelId]);
+    expect(dirty()).toBe(false);
     unmount();
-    expect(layoutShape(stored(id))).toBe(layoutShape(arrangementOf(split())));
+    expect(layoutShape(stored(id))).toBe(SAVED());
+    // Project A, opened again, keeps its split.
+    const again = await open("/a", OPEN);
+    expect(documentPanels(again.ws.getDocument())).toEqual([["main.tex"], ["notes.md"]]);
   });
 
-  it("records a split the writer makes", async () => {
+  it("is not written by rearranging a project in it, which then differs from it", async () => {
     const id = splitWorkspace();
     saveLayout("/a", { document: split(), workspace: id });
-    const { ws, unmount } = await open("/a", OPEN);
-    const [main] = ws.views({ type: "file" });
-    act(() => ws.dock("pdf", { beside: main.panelId, edge: "bottom" }));
+    const { controller, ws, unmount } = await open("/a", OPEN);
+    const notes = ws.views({ type: "file" }).find((view) => view.params.key === "notes.md")!;
+    const main = ws.views({ type: "file" }).find((view) => view.params.key === "main.tex")!;
+    // The writer drags the notes back beside the source: their split closes up.
+    act(() => { ws.dock(notes.id, { into: main.panelId }); });
+    expect(controller.ui.get().dirty).toBe(true);
     unmount();
-    expect(layoutShape(stored(id))).not.toBe(layoutShape(arrangementOf(split())));
-    expect(layoutShape(stored(id))).toBe(layoutShape(arrangementOf(ws.getDocument())));
+    expect(layoutShape(stored(id))).toBe(SAVED());
+    // The project reopens as it was left, still differing from its workspace.
+    const again = await open("/a", OPEN);
+    expect(documentPanels(again.ws.getDocument())).toEqual([["main.tex", "notes.md"]]);
+    expect(again.controller.ui.get().dirty).toBe(true);
   });
 
-  it("records the first document panel App gives a workspace without one", async () => {
-    const id = new WorkspaceLibrary().recent();
-    const { unmount } = await open("/c", ["main.tex"]);
-    unmount();
-    expect(Object.values(stored(id).views).filter((record) => record.type === "slot")).toHaveLength(1);
-  });
-
-  it("does not record what changed in a preset on the return from it", async () => {
+  it("is not written by a preset entered and left with panels changed meanwhile", async () => {
     const id = splitWorkspace();
     saveLayout("/a", { document: split(), workspace: id });
     const { controller, ws, unmount } = await open("/a", OPEN);
     act(() => controller.setPreset("writing"));
+    // Writing over the workspace is no change of the writer's own layout.
+    expect(controller.ui.get().dirty).toBe(false);
     // The Agent, parked hidden by Writing, closes meanwhile.
     await act(async () => { await ws.close("agent", { force: true }); });
     act(() => controller.setPreset(null));
     expect(ws.view("agent")).toBeNull();
+    act(() => ws.select("project"));
     unmount();
-    expect(layoutShape(stored(id))).toBe(layoutShape(arrangementOf(split())));
+    expect(layoutShape(stored(id))).toBe(SAVED());
+  });
+
+  it("is not written by switching away from it, nor is the one entered", async () => {
+    const id = splitWorkspace();
+    const other = new WorkspaceLibrary().add("Other", null);
+    saveLayout("/a", { document: split(), workspace: id });
+    const { controller, ws, unmount } = await open("/a", OPEN);
+    act(() => ws.dock("pdf", { beside: ws.views({ type: "file" })[0].panelId, edge: "bottom" }));
+    act(() => controller.switchWorkspace(other));
+    expect(controller.ui.get()).toMatchObject({ workspace: other, dirty: false });
+    unmount();
+    expect(layoutShape(stored(id))).toBe(SAVED());
+    expect(new WorkspaceLibrary().get(other)!.arrangement).toBeNull();
+  });
+
+  it("differs once split, saves that arrangement for another project to load, and is clean again", async () => {
+    const id = splitWorkspace();
+    saveLayout("/a", { document: split(), workspace: id });
+    const { controller, ws, unmount } = await open("/a", OPEN);
+    const [main] = ws.views({ type: "file" });
+    act(() => ws.dock("pdf", { beside: main.panelId, edge: "bottom" }));
+    expect(controller.ui.get().dirty).toBe(true);
+    act(() => controller.saveWorkspace());
+    expect(controller.ui.get().dirty).toBe(false);
+    const saved = layoutShape(arrangementOf(ws.getDocument()));
+    unmount();
+    expect(layoutShape(stored(id))).toBe(saved);
+    // Project B, in another workspace, switches into it and gets it.
+    const other = new WorkspaceLibrary().add("Other", arrangementOf(split()));
+    saveLayout("/b", { document: split(), workspace: other });
+    const b = await open("/b", OPEN);
+    act(() => b.controller.switchWorkspace(id));
+    expect(layoutShape(arrangementOf(b.ws.getDocument()))).toBe(saved);
+    expect(b.controller.ui.get().dirty).toBe(false);
+  });
+
+  it("reverts to its saved arrangement with the open documents kept, and is clean again", async () => {
+    const id = splitWorkspace();
+    saveLayout("/a", { document: split(), workspace: id });
+    const { controller, ws } = await open("/a", OPEN);
+    const notes = ws.views({ type: "file" }).find((view) => view.params.key === "notes.md")!;
+    const main = ws.views({ type: "file" }).find((view) => view.params.key === "main.tex")!;
+    act(() => { ws.dock(notes.id, { into: main.panelId }); });
+    act(() => ws.dock("pdf", { beside: main.panelId, edge: "bottom" }));
+    expect(controller.ui.get().dirty).toBe(true);
+    act(() => controller.revertWorkspace());
+    expect(layoutShape(arrangementOf(ws.getDocument()))).toBe(SAVED());
+    expect(ws.views({ type: "file" }).map((view) => view.params.key).sort()).toEqual([...OPEN].sort());
+    expect(controller.ui.get().dirty).toBe(false);
+    expect(layoutShape(stored(id))).toBe(SAVED());
   });
 
   it("leaves no slot behind when a file dragged from the Project panel goes back", async () => {
@@ -161,7 +195,8 @@ describe("a named workspace's arrangement", () => {
     }
     expect(ws.views({ type: "file" }).map((view) => view.params.key)).not.toContain("refs.bib");
     expect(ws.views({ type: "slot" })).toHaveLength(0);
+    expect(controller.ui.get().dirty).toBe(false);
     unmount();
-    expect(layoutShape(stored(id))).toBe(layoutShape(arrangementOf(split())));
+    expect(layoutShape(stored(id))).toBe(SAVED());
   });
 });
