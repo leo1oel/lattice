@@ -392,6 +392,10 @@ msgstr "{totalPages} total · appendix after p.{mainPages}"
 msgid "{totalPages} total · appendix not located in the PDF"
 msgstr "{totalPages} total · appendix not located in the PDF"
 
+#: src/project/manuscript-checklist.tsx
+msgid "{totalPages} total · included files not read"
+msgstr "{totalPages} total · included files not read"
+
 #: src/project/citation-health.ts
 msgid "{warning}. Crossref type: {updateType}"
 msgstr "{warning}. Crossref type: {updateType}"

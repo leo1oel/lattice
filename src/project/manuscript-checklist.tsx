@@ -99,7 +99,8 @@ export function ManuscriptChecklistPanel(props: {
   const countedWords = wordsEstimated ? null : words;
   const wordsOk = wordLimit == null || countedWords == null ? null : countedWords <= wordLimit;
   // Without an appendix the whole PDF is the main body; with one SyncTeX has
-  // not placed, the total would measure a different scope than the budget.
+  // not placed, or before the included files show whether there is one, the
+  // total would measure a different scope than the budget.
   const countedPages = totalPages == null
     ? null
     : appendix.kind === "none" ? totalPages : appendix.kind === "resolved" ? appendix.mainPages : null;
@@ -116,11 +117,13 @@ export function ManuscriptChecklistPanel(props: {
       : t`via texcount -inc`;
   const pageDetail = totalPages == null
     ? notes(pageLimitNote)
-    : appendix.kind === "unresolved"
-      ? notes(t`${totalPages} total · appendix not located in the PDF`, pageLimitNote)
-      : appendix.kind === "resolved" && appendix.mainPages !== totalPages
-        ? t({ message: `${{ totalPages }} total · appendix after p.${{ mainPages: appendix.mainPages }}` })
-        : undefined;
+    : appendix.kind === "unread"
+      ? notes(t`${totalPages} total · included files not read`, pageLimitNote)
+      : appendix.kind === "unresolved"
+        ? notes(t`${totalPages} total · appendix not located in the PDF`, pageLimitNote)
+        : appendix.kind === "resolved" && appendix.mainPages !== totalPages
+          ? t({ message: `${{ totalPages }} total · appendix after p.${{ mainPages: appendix.mainPages }}` })
+          : undefined;
   const wordDistance = (count: number, limit: number) => {
     const gap = Math.abs(limit - count);
     const amount = gap.toLocaleString();
