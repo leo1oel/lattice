@@ -1,8 +1,8 @@
 import { act, cleanup, render, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import type { LayoutDocument, LayoutNode } from "@danfessler/trellis";
+import { createDocument, layout as L, type LayoutDocument, type LayoutNode } from "@danfessler/trellis";
 import { TrellisController } from "./trellis-controller";
-import { defaultLayout, loadLayout, saveLayout } from "./trellis-layout";
+import { defaultLayout, differsFromWorkspace, loadLayout, saveLayout } from "./trellis-layout";
 import TrellisWorkspace from "./trellis-workspace";
 import { arrangementOf, layoutShape, withDocumentPanel, WorkspaceLibrary } from "./trellis-workspaces";
 
@@ -263,6 +263,43 @@ describe("a named workspace", () => {
     unmount();
   });
 
+  it("is where a project without a layout of its own starts, its documents in its places", async () => {
+    // Proofing: the source beside the PDF, the navigators gone.
+    const proofing = arrangementOf(createDocument(L.row([
+      L.panel({ id: "panel-proof" }, L.view("slot", { id: "slot-panel-proof" })),
+      L.panel({ id: "panel-pdf" }, L.view("pdf", { id: "pdf" })),
+    ], [0.7, 0.3]), { version: 3 }));
+    const library = new WorkspaceLibrary();
+    const id = library.add("Proofing", proofing);
+    library.use(id);
+    const { controller, ws } = await open("/new", OPEN);
+    expect(controller.ui.get()).toMatchObject({ workspace: id, dirty: false });
+    expect(layoutShape(arrangementOf(ws.getDocument()))).toBe(layoutShape(proofing));
+    expect(documentPanels(ws.getDocument())).toEqual([OPEN]);
+    expect(ws.view("project")).toBeNull();
+  });
+
+  it("saved by another window, keeps the project's layout and marks it as differing, or no longer", async () => {
+    const id = splitWorkspace();
+    saveLayout("/a", { document: split(), workspace: id });
+    const { controller, ws } = await open("/a", OPEN);
+    const before = documentPanels(ws.getDocument());
+    const saveElsewhere = (arrangement: LayoutDocument) => act(() => {
+      new WorkspaceLibrary().setArrangement(id, arrangement);
+      window.dispatchEvent(new StorageEvent("storage", { key: "lattice.trellis-workspaces.v1" }));
+    });
+    expect(controller.ui.get().dirty).toBe(false);
+    // The other window saves its own arrangement, with the documents in one panel.
+    saveElsewhere(arrangementOf(defaultLayout()));
+    expect(differsFromWorkspace(ws.getDocument(), controller.workspaces, id)).toBe(true);
+    expect(controller.ui.get().dirty).toBe(true);
+    expect(documentPanels(ws.getDocument())).toEqual(before);
+    // And then this project's own: nothing left to save or revert.
+    saveElsewhere(arrangementOf(split()));
+    expect(controller.ui.get().dirty).toBe(false);
+    expect(documentPanels(ws.getDocument())).toEqual(before);
+  });
+
   it("deleted by another window, moves the project to the one last entered with its layout kept", async () => {
     const id = splitWorkspace();
     const other = new WorkspaceLibrary().add("Other", null);
@@ -284,6 +321,6 @@ describe("a named workspace", () => {
     expect(documentPanels(ws.getDocument())).toEqual(before);
     expect(controller.ui.get()).toMatchObject({ workspace: other, dirty: false });
     unmount();
-    expect(loadLayout("/a").workspace).toBe(other);
+    expect(loadLayout("/a")?.workspace).toBe(other);
   });
 });

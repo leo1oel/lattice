@@ -4770,9 +4770,21 @@ msgstr "More PDF actions"
 msgid "Move {title} to"
 msgstr "Move {title} to"
 
+#: src/trellis/trellis-workspace-switch.tsx
+msgid "Move left"
+msgstr "Move left"
+
+#: src/trellis/trellis-workspace-switch.tsx
+msgid "Move right"
+msgstr "Move right"
+
 #: src/trellis/trellis-labels.ts
 msgid "Moved"
 msgstr "Moved"
+
+#: src/trellis/trellis-workspace-switch.tsx
+msgid "Moved “{name}” to position {position} of {count}"
+msgstr "Moved “{name}” to position {position} of {count}"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Mu"

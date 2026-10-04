@@ -401,7 +401,7 @@ function storageKey(projectRoot: string) {
 
 function migrateLayout(saved: SavedLayout): LayoutDocument | null {
   // v1 layouts had a stage and the Agent below the PDF: they start again from
-  // the default (open documents are re-placed as App restores its tabs). v2
+  // their workspace (open documents are re-placed as App restores its tabs). v2
   // documents are v3's; only the envelope gained the workspace.
   if (saved.version !== LAYOUT_VERSION && saved.version !== 2) return null;
   return saved.document;
@@ -418,10 +418,11 @@ export type ProjectLayout = {
 };
 
 /**
- * The saved layout for `projectRoot`, or the default, with the preset it was
- * left in and its workspace. File panels are reconciled with App's tabs later.
+ * The saved layout for `projectRoot`, with the preset it was left in and its
+ * workspace; null when it has none (or none still readable). File panels are
+ * reconciled with App's tabs later.
  */
-export function loadLayout(projectRoot: string): ProjectLayout {
+export function loadLayout(projectRoot: string): ProjectLayout | null {
   try {
     const raw = localStorage.getItem(storageKey(projectRoot));
     if (raw) {
@@ -440,9 +441,9 @@ export function loadLayout(projectRoot: string): ProjectLayout {
       }
     }
   } catch {
-    // A corrupt or unreadable layout falls back to the default.
+    // A corrupt or unreadable layout is no layout.
   }
-  return { document: defaultLayout(), preset: null, workspace: null, places: {} };
+  return null;
 }
 
 export function saveLayout(projectRoot: string, { document, preset = null, workspace = null, places = {} }: Partial<ProjectLayout> & { document: LayoutDocument }) {
@@ -459,17 +460,22 @@ export function saveLayout(projectRoot: string, { document, preset = null, works
 
 /**
  * `projectRoot`'s saved layout as it was left, in the workspace it was last
- * loaded from (else the one last entered anywhere).
+ * loaded from (else the one last entered anywhere). A project without a
+ * layout of its own starts as that workspace was saved: App's tab sync puts
+ * its documents in the arrangement's slots.
  */
 export function openProjectLayout(projectRoot: string, library: WorkspaceLibrary): ProjectLayout & { workspace: string } {
   // The first library is migrated from the projects' saved layouts, this one's included.
   library.refresh();
   const loaded = loadLayout(projectRoot);
   // Places in workspaces deleted since are forgotten.
-  const places = Object.fromEntries(Object.entries(loaded.places).filter(([id]) => library.get(id)));
-  const workspace = loaded.workspace && library.get(loaded.workspace) ? loaded.workspace : library.recent();
+  const places = Object.fromEntries(Object.entries(loaded?.places ?? {}).filter(([id]) => library.get(id)));
+  const workspace = loaded?.workspace && library.get(loaded.workspace) ? loaded.workspace : library.recent();
   library.use(workspace);
-  return { ...loaded, places, workspace };
+  if (loaded) return { ...loaded, places, workspace };
+  // A workspace never saved is the default layout, which gets a document panel with the first document.
+  const arrangement = library.get(workspace)?.arrangement;
+  return { document: arrangement ? sanitize(arrangement, knownType) : defaultLayout(), preset: null, workspace, places };
 }
 
 /** The arrangement saved in workspace `id`: one never saved is the default layout's. */
