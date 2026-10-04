@@ -122,15 +122,21 @@ impl Operation {
     ) -> Result<T, String> {
         let result = self.span.in_scope(work);
         if unlogged(&result) {
-            self.span.with_subscriber(|(id, dispatch)| {
-                if let Some(span) = dispatch.downcast_ref::<Registry>().and_then(|r| r.span(id)) {
-                    span.extensions_mut().remove::<Fields>();
-                }
-            });
+            self.discard();
         } else {
             self.finish(&result);
         }
         result
+    }
+
+    /// Close the operation without writing its event, for one that turned
+    /// out never to have happened.
+    pub fn discard(self) {
+        self.span.with_subscriber(|(id, dispatch)| {
+            if let Some(span) = dispatch.downcast_ref::<Registry>().and_then(|r| r.span(id)) {
+                span.extensions_mut().remove::<Fields>();
+            }
+        });
     }
 
     /// Close an operation that is not one call (a browser session): a

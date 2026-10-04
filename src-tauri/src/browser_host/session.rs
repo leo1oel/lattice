@@ -109,6 +109,13 @@ fn retire(session: &mut BrowserSession, ended: &'static str, failure: Option<&st
 }
 
 impl BrowserSession {
+    /// Drop a session that was never registered, writing no event for it.
+    pub(super) fn discard(mut self) {
+        if let Some(operation) = self.event.operation.take() {
+            operation.discard();
+        }
+    }
+
     pub(super) fn new(host_label: String, browser_origin: String) -> Self {
         Self {
             host_label,
@@ -630,6 +637,15 @@ mod tests {
         assert_eq!(events[1]["error_kind"], "tab_never_connected");
         // The session token is a credential for the workspace.
         assert!(!format!("{events:?}").contains(TOKEN));
+    }
+
+    #[test]
+    fn a_session_refused_before_registration_writes_no_event() {
+        let (_, capture) = crate::wide_event::tests::capture(|| {
+            BrowserSession::new("browser-refused".into(), "http://127.0.0.1:18452".into())
+                .discard();
+        });
+        assert!(capture.events().is_empty(), "{:?}", capture.events());
     }
 
     #[test]
