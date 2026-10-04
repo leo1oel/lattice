@@ -7,6 +7,7 @@ import {
   findAppendixMarker, katexMacrosFromSources, mergeReferences, parseGraphicsPaths, parseLocalLabels, parseLocalMacros,
   type ReferenceInfo,
 } from "../editor/latex/latex-text";
+import { changesReach, onProjectFilesChanged } from "../project/project-files-changed";
 import { mergeTodosWithBuffer, type TodoHit } from "../project/todo-scavenger";
 
 /** How deep `\input`/`\include` chains are followed from the root document. */
@@ -104,9 +105,11 @@ export function useLatexStructure({
       for (const included of includedPathsIn(text, projectPaths)) visit(included, depth + 1);
     };
     if (rootDocumentPath) visit(rootDocumentPath, 0);
-    const complete = !missing.length && !unreadable.some((path) => Object.hasOwn(sources, path));
+    const complete = !missing.length && !unreadable.some((path) => (
+      Object.hasOwn(sources, path) && !(path === activeFile && activeTexSource != null)
+    ));
     return { sources, missing, complete };
-  }, [liveSources, projectPaths, rootDocumentPath, unreadable]);
+  }, [activeFile, activeTexSource, liveSources, projectPaths, rootDocumentPath, unreadable]);
 
   // Read the files the manuscript reaches that no buffer holds. The outline
   // lists them (its panel, Go to symbol): with only the open buffer it found
@@ -142,6 +145,23 @@ export function useLatexStructure({
       cancelled = true;
     };
   }, [manuscript, projectRoot, scanWanted]);
+
+  // A file changed on disk (the agent, an Overleaf pull, a checkout) is read
+  // again: its retained copy may lack an \appendix it now has, or keep one it
+  // lost. The open buffer still shadows whatever is read for it.
+  useEffect(() => {
+    if (!projectRoot) return;
+    return onProjectFilesChanged(projectRoot, (paths) => setRetained((current) => {
+      if (current.owner !== projectRoot) return current;
+      const stale = (path: string) => changesReach(paths, path);
+      if (!Object.keys(current.sources).some(stale) && !current.unreadable.some(stale)) return current;
+      return {
+        owner: current.owner,
+        sources: Object.fromEntries(Object.entries(current.sources).filter(([path]) => !stale(path))),
+        unreadable: current.unreadable.filter((path) => !stale(path)),
+      };
+    }));
+  }, [projectRoot]);
 
   // The open buffer shadows its retained copy, which may predate edits made
   // in it. Leaving a file the manuscript reaches keeps what the buffer last

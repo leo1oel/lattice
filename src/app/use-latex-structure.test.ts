@@ -1,10 +1,25 @@
-import { cleanup, renderHook, waitFor } from "@testing-library/react";
+import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { invoke } from "@tauri-apps/api/core";
 import type { FileNode, ProjectSnapshot } from "../app-types";
 import { useLatexStructure, type LatexStructureDeps } from "./use-latex-structure";
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
+const eventHandlers = vi.hoisted(() => new Map<string, Set<(event: { payload: unknown }) => void>>());
+vi.mock("@tauri-apps/api/event", () => ({
+  listen: vi.fn(async (event: string, handler: (event: { payload: unknown }) => void) => {
+    const handlers = eventHandlers.get(event) ?? new Set();
+    eventHandlers.set(event, handlers);
+    handlers.add(handler);
+    return () => handlers.delete(handler);
+  }),
+}));
+async function filesChanged(root: string, paths: string[]) {
+  await waitFor(() => expect(eventHandlers.get("project-fs-changed")?.size).toBeGreaterThan(0));
+  act(() => {
+    for (const handler of eventHandlers.get("project-fs-changed") ?? []) handler({ payload: { root, paths } });
+  });
+}
 afterEach(() => {
   cleanup();
   vi.mocked(invoke).mockReset();
@@ -194,6 +209,51 @@ describe("the main body's scope behind the page budget", () => {
     expect(view.result.current.appendixBoundary).toEqual({ kind: "resolved", mainPages: 6 });
     // The older disk copy would have moved the marker to line 7 and asked again.
     expect(vi.mocked(invoke).mock.calls.filter(([command]) => command === "synctex_view")).toHaveLength(1);
+  });
+
+  it("reads an included file again once it changes on disk, finding an \\appendix added there", async () => {
+    const disk = { "chapters/ch01.tex": "\\section{Proofs}" };
+    const view = renderStructure({ ...closed, compiledPdf: "blob:build" }, () => 7, disk);
+    await waitFor(() => expect(view.result.current.appendixBoundary).toEqual({ kind: "none" }));
+
+    // The agent writes \appendix into the chapter and rebuilds.
+    disk["chapters/ch01.tex"] = CHAPTER;
+    await filesChanged("/project", ["chapters/ch01.tex"]);
+    view.rerender(renderArgs({ ...closed, compiledPdf: "blob:rebuild" }));
+    expect(view.result.current.appendixBoundary).not.toEqual({ kind: "none" });
+    await waitFor(() => expect(view.result.current.appendixBoundary).toEqual({ kind: "resolved", mainPages: 6 }));
+    expect(invoke).toHaveBeenCalledWith("synctex_view", { path: "chapters/ch01.tex", line: 1, column: 0 });
+  });
+
+  it("drops an included \\appendix removed on disk instead of placing its stale line", async () => {
+    const disk = { "chapters/ch01.tex": CHAPTER };
+    const view = renderStructure({ ...closed, compiledPdf: "blob:build" }, () => 7, disk);
+    await waitFor(() => expect(view.result.current.appendixBoundary).toEqual({ kind: "resolved", mainPages: 6 }));
+
+    disk["chapters/ch01.tex"] = "\\section{Proofs}";
+    await filesChanged("/project", ["chapters/ch01.tex"]);
+    view.rerender(renderArgs({ ...closed, compiledPdf: "blob:rebuild" }));
+    await waitFor(() => expect(view.result.current.appendixBoundary).toEqual({ kind: "none" }));
+    expect(vi.mocked(invoke).mock.calls.filter(([command]) => command === "synctex_view")).toHaveLength(1);
+  });
+
+  it("ignores changes to files the manuscript does not read, and to other projects", async () => {
+    const view = renderStructure({ ...closed, compiledPdf: "blob:build" }, () => 7, { "chapters/ch01.tex": CHAPTER });
+    await waitFor(() => expect(view.result.current.appendixBoundary).toEqual({ kind: "resolved", mainPages: 6 }));
+    await filesChanged("/project", ["review-notes.tex"]);
+    await filesChanged("/other", ["chapters/ch01.tex"]);
+    expect(view.result.current.appendixBoundary).toEqual({ kind: "resolved", mainPages: 6 });
+    expect(vi.mocked(invoke).mock.calls.filter(([command]) => command === "read_project_file")).toHaveLength(1);
+  });
+
+  it("trusts the open buffer of an include whose background read failed", async () => {
+    const view = renderStructure({ ...closed, compiledPdf: "blob:build" }, () => 7, {});
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("read_project_file", { path: "chapters/ch01.tex" }));
+    await waitFor(() => expect(view.result.current.appendixBoundary).toEqual({ kind: "unread" }));
+
+    // The editor opens the chapter itself; it holds no appendix.
+    view.rerender(renderArgs({ ...closed, compiledPdf: "blob:build", activeFile: "chapters/ch01.tex", settledSource: "\\section{Proofs}" }));
+    await waitFor(() => expect(view.result.current.appendixBoundary).toEqual({ kind: "none" }));
   });
 
   it("never answers for one project with another's included files", async () => {
