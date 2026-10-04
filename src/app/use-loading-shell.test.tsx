@@ -13,7 +13,7 @@ afterEach(() => {
 });
 
 it("never shows for an opening that ends within 150 ms", () => {
-  const view = renderHook(({ pending }) => useLoadingShell(pending), { initialProps: { pending: true } });
+  const view = renderHook(({ pending }) => useLoadingShell(pending, true), { initialProps: { pending: true } });
   act(() => vi.advanceTimersByTime(149));
   expect(view.result.current).toBe(false);
   view.rerender({ pending: false });
@@ -22,7 +22,7 @@ it("never shows for an opening that ends within 150 ms", () => {
 });
 
 it("shows at 150 ms and stays 300 ms when the opening ends just after", () => {
-  const view = renderHook(({ pending }) => useLoadingShell(pending), { initialProps: { pending: true } });
+  const view = renderHook(({ pending }) => useLoadingShell(pending, true), { initialProps: { pending: true } });
   act(() => vi.advanceTimersByTime(150));
   expect(view.result.current).toBe(true);
   act(() => vi.advanceTimersByTime(10));
@@ -34,11 +34,25 @@ it("shows at 150 ms and stays 300 ms when the opening ends just after", () => {
 });
 
 it("leaves with an opening that outlasts its minimum time", () => {
-  const view = renderHook(({ pending }) => useLoadingShell(pending), { initialProps: { pending: true } });
+  const view = renderHook(({ pending }) => useLoadingShell(pending, true), { initialProps: { pending: true } });
   act(() => vi.advanceTimersByTime(800));
   expect(view.result.current).toBe(true);
   view.rerender({ pending: false });
   act(() => vi.advanceTimersByTime(0));
+  expect(view.result.current).toBe(false);
+});
+
+it("leaves at once when its tool is no longer wanted, and does not come back with it", () => {
+  const view = renderHook(({ pending, wanted }) => useLoadingShell(pending, wanted), {
+    initialProps: { pending: true, wanted: true },
+  });
+  act(() => vi.advanceTimersByTime(200));
+  expect(view.result.current).toBe(true);
+  view.rerender({ pending: true, wanted: false });
+  expect(view.result.current).toBe(false);
+  view.rerender({ pending: false, wanted: false });
+  act(() => vi.advanceTimersByTime(0));
+  view.rerender({ pending: false, wanted: true });
   expect(view.result.current).toBe(false);
 });
 
@@ -51,7 +65,7 @@ it("does not flash over a tool whose chunk arrives at 160 ms", async () => {
   function Opener() {
     const [open, setOpen] = useState(false);
     const [opening, startOpening] = useTransition();
-    const shell = useLoadingShell(opening);
+    const shell = useLoadingShell(opening, true);
     return (
       <>
         <button type="button" onClick={() => startOpening(() => setOpen(true))}>open</button>

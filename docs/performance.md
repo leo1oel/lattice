@@ -687,7 +687,9 @@ warm p95 in both sessions), so each has the proposed loading shell
 (`app/tool-loading-shell.tsx`): an open still pending after 150 ms shows the
 tool's own drawer or dialog holding a loader. Once shown, the shell stays at
 least 300 ms, over the tool if it arrives sooner, so a load ending just past
-150 ms cannot flash it (`useLoadingShell`). The shell sits beside the
+150 ms cannot flash it (`useLoadingShell`). Closing the shell, or the tool,
+takes the shell away at once. Overleaf's comments drawer gets the same shell
+as Editor comments. The shell sits beside the
 boundary, not in its fallback, since a committed fallback would re-arm the
 300 ms throttle. On the bench page in Chromium, with each tool's chunk held
 back:

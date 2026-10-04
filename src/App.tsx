@@ -455,7 +455,7 @@ function App() {
   // Opening Settings is a transition for the reason opening a lazy tool
   // drawer is (`useToolDrawers`), with the same loading shell.
   const [settingsOpening, startSettingsOpen] = useTransition();
-  const settingsLate = useLoadingShell(settingsOpening);
+  const settingsLate = useLoadingShell(settingsOpening, settingsOpening || settingsOpen);
   // Re-read on a project switch (Git config is per repository) and whenever
   // Settings opens, which is where a writer goes after signing in to Overleaf.
   useEffect(() => {
@@ -699,6 +699,7 @@ function App() {
   const tools = useToolDrawers({
     trellis, synara, comments: editorComments, references: referenceImport,
     commentsKind: overleafLink ? "overleaf" : "comments",
+    commentsOpen: editorComments.panelOpen || overleaf.overleafCollabOpen,
     refreshTodos, refreshWordCount,
   });
   const { clearStage: clearImportStage } = referenceImport;

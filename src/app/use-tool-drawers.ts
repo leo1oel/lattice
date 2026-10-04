@@ -38,14 +38,17 @@ const CLOSED: Record<AppToolDrawer, boolean> = { history: false, git: false, tod
  * back until 300 ms after that commit (its Suspense reveal throttle), however
  * fast the chunk arrived. As a transition, React keeps the current screen
  * until the chunk is in; `loading` names the drawer once that has taken long
- * enough for its loading shell (`tool-loading-shell.tsx`).
+ * enough for its loading shell (`tool-loading-shell.tsx`), and the drawer is
+ * still asked for.
  */
-export function useToolDrawers({ trellis, synara, comments, references, commentsKind, refreshTodos, refreshWordCount }: {
+export function useToolDrawers({ trellis, synara, comments, references, commentsKind, commentsOpen, refreshTodos, refreshWordCount }: {
   trellis: TrellisController;
   synara: Pick<SynaraHost, "requestRuntime" | "origin" | "sourceControlFrameRef">;
-  comments: Pick<EditorComments, "openPanel" | "openReply">;
+  comments: Pick<EditorComments, "openPanel" | "openReply" | "closePanel">;
   /** Which tool panel the comments surface is: Overleaf's when the project is linked. */
   commentsKind: "comments" | "overleaf";
+  /** Whether the comments surface, either kind, is open. */
+  commentsOpen: boolean;
   references: Pick<ReferenceImport, "setLiteratureOpen">;
   refreshTodos: () => Promise<void>;
   refreshWordCount: () => Promise<void>;
@@ -60,16 +63,22 @@ export function useToolDrawers({ trellis, synara, comments, references, comments
    */
   const [turnReview, setTurnReview] = useState<AgentTurnReview | null>(null);
   const { requestRuntime, origin: synaraOrigin, sourceControlFrameRef } = synara;
-  const { openPanel: openCommentsPanel, openReply } = comments;
+  const { openPanel: openCommentsPanel, openReply, closePanel: closeCommentsPanel } = comments;
   const { setLiteratureOpen } = references;
 
   const setOpen = useCallback((kind: AppToolDrawer, open: boolean) => {
     setIsOpen((current) => (current[kind] === open ? current : { ...current, [kind]: open }));
   }, []);
-  const close = useCallback((kind: AppToolDrawer) => setOpen(kind, false), [setOpen]);
   const [opening, startOpening] = useTransition();
-  const [lazyPanel, setLazyPanel] = useState<TrellisToolKind | null>(null);
-  const loading = useLoadingShell(opening) ? lazyPanel : null;
+  /** The lazy drawer last asked for, until it is closed: while it loads, only its shell can close it. */
+  const [lazyPanel, setLazyPanel] = useState<"history" | "comments" | null>(null);
+  const lazyPanelOpen = lazyPanel === "history" ? isOpen.history : commentsOpen;
+  const loading = useLoadingShell(opening, lazyPanel !== null && (opening || lazyPanelOpen)) ? lazyPanel : null;
+  const close = useCallback((kind: AppToolDrawer | "comments") => {
+    setLazyPanel((current) => (current === kind ? null : current));
+    if (kind === "comments") closeCommentsPanel();
+    else setOpen(kind, false);
+  }, [closeCommentsPanel, setOpen]);
 
   const open = useCallback((kind: TrellisToolKind, options: OpenToolOptions = {}) => {
     const reveal = () => {
@@ -99,7 +108,7 @@ export function useToolDrawers({ trellis, synara, comments, references, comments
       reveal();
       return;
     }
-    setLazyPanel(kind === "comments" ? commentsKind : kind);
+    setLazyPanel(kind);
     startOpening(reveal);
   }, [commentsKind, openCommentsPanel, openReply, refreshTodos, refreshWordCount, requestRuntime, setLiteratureOpen, setOpen, trellis]);
 

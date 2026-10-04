@@ -5603,6 +5603,7 @@ msgstr "Overleaf can't store emoji and some other special characters, so they we
 msgid "Overleaf chat messages"
 msgstr "Overleaf chat messages"
 
+#: src/app/app-editor-panels.tsx
 #: src/overleaf/overleaf-collab.tsx
 msgid "Overleaf collaboration"
 msgstr "Overleaf collaboration"

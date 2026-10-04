@@ -5603,6 +5603,7 @@ msgstr "Overleaf 无法保存表情符号和部分特殊字符，因此已替换
 msgid "Overleaf chat messages"
 msgstr "Overleaf 聊天消息"
 
+#: src/app/app-editor-panels.tsx
 #: src/overleaf/overleaf-collab.tsx
 msgid "Overleaf collaboration"
 msgstr "Overleaf 协作"
