@@ -1,6 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import type { CompletionContext, CompletionResult } from "@codemirror/autocomplete";
-import type { EditorState } from "@codemirror/state";
+import type { EditorState, Text } from "@codemirror/state";
 import { hoverTooltip, type Tooltip } from "@codemirror/view";
 
 const OPEN_CITATION = /\\(?:cite|citep|citet|citealp|citealt|citeauthor|parencite|textcite|autocite|footcite)\*?(?:\[[^\]]*\]){0,2}\{([^}]*)$/;
@@ -32,7 +32,49 @@ function texlabPosition(path: string, state: EditorState, pos: number) {
   if (!path.endsWith(".tex")) return null;
   if (isCiteOrRefCompletionContext(state.sliceDoc(Math.max(0, pos - 160), pos))) return null;
   const line = state.doc.lineAt(pos);
-  return { line, request: { path, text: state.doc.toString(), line: line.number, character: pos - line.from + 1 } };
+  return { line, request: { path, doc: state.doc, line: line.number, character: pos - line.from + 1 } };
+}
+
+/** What `texlab.rs` answers a text-less request when TexLab does not hold that revision. */
+// eslint-disable-next-line lingui/no-unlocalized-strings -- matched against texlab.rs's NEEDS_TEXT, never shown
+const NEEDS_TEXT = "TexLab needs the document text.";
+
+// Each document text the editor has gets a revision number; a text is
+// immutable, so an edit is a new text and a new revision.
+const revisions = new WeakMap<Text, number>();
+let lastRevision = 0;
+function revisionOf(doc: Text) {
+  let revision = revisions.get(doc);
+  if (revision === undefined) {
+    revision = ++lastRevision;
+    revisions.set(doc, revision);
+  }
+  return revision;
+}
+/** The revision of each path TexLab was last sent. */
+const sentRevisions = new Map<string, number>();
+
+/**
+ * Ask TexLab at a position, sending the whole text only when TexLab may not
+ * hold this revision of it. A request at the revision last sent goes without
+ * it; should TexLab hold another text by then (a diagnostics sync, a restart),
+ * it refuses and the request goes again with the text.
+ */
+async function askTexlab<T>(command: string, { path, doc, line, character }: {
+  path: string; doc: Text; line: number; character: number;
+}): Promise<T> {
+  const revision = revisionOf(doc);
+  const request = { path, revision, line, character };
+  if (sentRevisions.get(path) === revision) {
+    try {
+      return await invoke<T>(command, { ...request, text: null });
+    } catch (error) {
+      if (error !== NEEDS_TEXT) throw error;
+    }
+  }
+  const answer = await invoke<T>(command, { ...request, text: doc.toString() });
+  sentRevisions.set(path, revision);
+  return answer;
 }
 
 /** TexLab is optional help: any failure, in the request or its reply, means no answer. */
@@ -51,7 +93,7 @@ export function texlabCompletionSource(getPath: () => string) {
     const position = texlabPosition(getPath(), context.state, context.pos);
     if (!position) return null;
     return quietly(async () => {
-      const items = await invoke<TexlabCompletionItem[]>("texlab_completion", position.request);
+      const items = await askTexlab<TexlabCompletionItem[]>("texlab_completion", position.request);
       if (!items.length) return null;
       return {
         from: word.from,
@@ -79,7 +121,7 @@ export function texlabHoverTooltip(
     const position = texlab ? texlabPosition(getPath(), view.state, pos) : null;
     if (!position) return fallback(view.state, pos);
     const answer = await quietly<Tooltip>(async () => {
-      const hover = await invoke<{ contents: string } | null>("texlab_hover", position.request);
+      const hover = await askTexlab<{ contents: string } | null>("texlab_hover", position.request);
       if (!hover?.contents.trim()) return null;
       return {
         pos: Math.max(position.line.from, pos - 40),

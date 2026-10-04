@@ -1036,7 +1036,7 @@ function App() {
   }, [showSettingsTab]);
 
   const settingsDialog = (<>
-    {settingsLate && !settingsOpen && <SettingsLoadingShell label={t`Settings`} />}
+    {settingsLate && <SettingsLoadingShell label={t`Settings`} backdrop={!settingsOpen} />}
     <Suspense fallback={null}>
       {settingsOpen && <SettingsDialog
         replacesShell={settingsLate}

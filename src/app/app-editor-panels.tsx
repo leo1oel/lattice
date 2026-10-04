@@ -93,7 +93,7 @@ export function AppEditorPanels({ comments, renderCommentsSurface, ...props }: {
   );
   return (
     <>
-      {tools.loading === "comments" && !comments.panelOpen && (
+      {tools.loading === "comments" && (
         <ToolLoadingShell className="editor-comments-drawer" label={t`Editor comments`} onClose={comments.closePanel} />
       )}
       <Suspense fallback={null}>

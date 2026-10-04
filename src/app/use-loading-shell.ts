@@ -1,22 +1,30 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 const LOADING_SHELL_DELAY_MS = 150;
+/** Once shown, a shell stays this long, so a load ending just after the delay cannot flash it. */
+const LOADING_SHELL_MIN_SHOWN_MS = 300;
 
 /**
- * Whether the opening of a lazily loaded tool that `pending` tracks has run
- * long enough for its loading shell (`tool-loading-shell.tsx`). It stays true
- * through the commit that ends `pending`, which is the one that shows the tool
- * in the shell's place.
+ * Whether the loading shell (`tool-loading-shell.tsx`) of the lazily loaded
+ * tool whose opening `pending` tracks is on screen: from 150 ms into the
+ * opening, and then for at least 300 ms, over the tool if it arrives sooner.
  */
 export function useLoadingShell(pending: boolean) {
-  const [late, setLate] = useState(false);
+  const [shown, setShown] = useState(false);
+  const shownAtRef = useRef(0);
   useEffect(() => {
     if (!pending) return;
-    const timer = window.setTimeout(() => setLate(true), LOADING_SHELL_DELAY_MS);
-    return () => {
-      window.clearTimeout(timer);
-      setLate(false);
-    };
+    const timer = window.setTimeout(() => {
+      shownAtRef.current = Date.now();
+      setShown(true);
+    }, LOADING_SHELL_DELAY_MS);
+    return () => window.clearTimeout(timer);
   }, [pending]);
-  return late;
+  useEffect(() => {
+    if (pending || !shown) return;
+    const left = shownAtRef.current + LOADING_SHELL_MIN_SHOWN_MS - Date.now();
+    const timer = window.setTimeout(() => setShown(false), Math.max(0, left));
+    return () => window.clearTimeout(timer);
+  }, [pending, shown]);
+  return shown;
 }

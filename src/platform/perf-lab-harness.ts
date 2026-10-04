@@ -10,6 +10,8 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { EditorView } from "@codemirror/view";
+import { CompletionContext } from "@codemirror/autocomplete";
+import { texlabCompletionSource } from "../build/texlab-language";
 
 const epoch = () => performance.timeOrigin + performance.now();
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -1489,7 +1491,35 @@ async function texlabTraffic() {
   return { long, small, typing: { keydownToNextPaint: typing.keydownToNextPaint, sendToPaint: typing.sendToPaint, frames: typing.frames }, traffic };
 }
 
+// Completion at one revision of long.tex, asked again and again through the
+// editor's own TexLab source (P22's equal-revision case): today every request
+// sends the whole text; the revisioned protocol sends it once.
+async function texlabEqualRevision() {
+  await openFile("long.tex");
+  const editor = await waitFor(() => [...document.querySelectorAll(".cm-editor")].map((element) => EditorView.findFromDOM(element)).find((view) => view && view.state.doc.length > 1e6 && view.dom.getBoundingClientRect().width > 50), "long.tex editor", 30_000);
+  await settle(1500, 20_000);
+  const doc = editor.state.doc;
+  let lineNumber = Math.floor(doc.lines * 0.6);
+  while (!/\\[a-z]{3}/.test(doc.line(lineNumber).text)) lineNumber += 1;
+  const line = doc.line(lineNumber);
+  const pos = line.from + line.text.search(/\\[a-z]{3}/) + 4;
+  const source = texlabCompletionSource(() => "long.tex");
+  const state = editor.state;
+  const durations = [];
+  let items = 0;
+  for (let round = 0; round < 41; round += 1) {
+    const started = performance.now();
+    const result = await source(new CompletionContext(state, pos, true));
+    durations.push(performance.now() - started);
+    items = Math.max(items, result?.options.length ?? 0);
+    await sleep(40);
+  }
+  // The first request syncs the revision either way.
+  return { items, first: Number(durations[0].toFixed(1)), equalRevision: stats(durations.slice(1)) };
+}
+
 const SCENARIOS = {
+  texlabEqualRevision,
   coldSettings: () => coldTool("settings"),
   coldHistory: () => coldTool("history"),
   coldComments: () => coldTool("comments"),

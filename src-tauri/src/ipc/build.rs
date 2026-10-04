@@ -7,7 +7,7 @@ use crate::command_diagnostics;
 use crate::doctor::DoctorReport;
 use crate::latex::{BuildResult, PdfSyncTarget};
 use crate::models::SyncTexTarget;
-use crate::texlab::{TexlabCompletionItem, TexlabHover, TexlabLocation};
+use crate::texlab::{DocumentAt, TexlabCompletionItem, TexlabHover, TexlabLocation};
 use crate::{doctor, export, format_latex, harper, latex, synara, tex_setup, texlab, wide_event};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -175,33 +175,36 @@ pub async fn texlab_diagnostics(
 
 #[tauri::command]
 pub async fn texlab_completion(
-    state: State<'_, AppState>, window: Window, path: String, text: String, line: u32,
-    character: u32,
+    state: State<'_, AppState>, window: Window, path: String, text: Option<String>,
+    revision: Option<u64>, line: u32, character: u32,
 ) -> Result<Vec<TexlabCompletionItem>, String> {
     with_texlab(&state, current_root(&state, &window)?, move |pool, root| {
-        pool.completion(root, &path, &text, line, character)
+        let at = DocumentAt { path: &path, text: text.as_deref(), revision, line, character };
+        pool.completion(root, &at)
     })
     .await
 }
 
 #[tauri::command]
 pub async fn texlab_hover(
-    state: State<'_, AppState>, window: Window, path: String, text: String, line: u32,
-    character: u32,
+    state: State<'_, AppState>, window: Window, path: String, text: Option<String>,
+    revision: Option<u64>, line: u32, character: u32,
 ) -> Result<Option<TexlabHover>, String> {
     with_texlab(&state, current_root(&state, &window)?, move |pool, root| {
-        pool.hover(root, &path, &text, line, character)
+        let at = DocumentAt { path: &path, text: text.as_deref(), revision, line, character };
+        pool.hover(root, &at)
     })
     .await
 }
 
 #[tauri::command]
 pub async fn texlab_definition(
-    state: State<'_, AppState>, window: Window, path: String, text: String, line: u32,
-    character: u32,
+    state: State<'_, AppState>, window: Window, path: String, text: Option<String>,
+    revision: Option<u64>, line: u32, character: u32,
 ) -> Result<Option<TexlabLocation>, String> {
     with_texlab(&state, current_root(&state, &window)?, move |pool, root| {
-        pool.definition(root, &path, &text, line, character)
+        let at = DocumentAt { path: &path, text: text.as_deref(), revision, line, character };
+        pool.definition(root, &at)
     })
     .await
 }

@@ -84,7 +84,7 @@ export function AppHistoryDrawers({ tools, synara: {
   };
   return (
     <>
-      {tools.loading === "history" && !tools.isOpen.history && (
+      {tools.loading === "history" && (
         <ToolLoadingShell className="project-history-drawer" label={t`Project history`} onClose={() => tools.close("history")} />
       )}
       <Suspense fallback={null}>
