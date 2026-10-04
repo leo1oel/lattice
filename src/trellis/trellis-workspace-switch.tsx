@@ -397,6 +397,11 @@ function WorkspaceActions({ controller, entry, dirty, workspaces, onRename, onDu
  * (one already taken is marked and stays in editing), Escape keeps the old
  * one, and leaving the field keeps a free name or else the old one. Enter
  * and Escape hand the keyboard back to the workspace's tab (or menu).
+ *
+ * The field is as wide as its draft: a hidden copy of the text sizes the box
+ * the input fills. `size` counts characters, and a CJK one is about two of
+ * the average Latin width it assumes, so a name like "工作区 副本" overflowed a
+ * `size`d field and scrolled its first character out of view.
  */
 function NameField({ controller, entry }: { controller: TrellisController; entry: WorkspaceSummary }) {
   const { t } = useLingui();
@@ -411,44 +416,46 @@ function NameField({ controller, entry }: { controller: TrellisController; entry
     if (refocus) requestAnimationFrame(() => track?.querySelector<HTMLElement>(`[data-workspace="${entry.id}"], [data-workspace-menu]`)?.focus());
   };
   return (
-    <input
-      ref={(input) => {
-        if (input && !input.dataset.focused) {
-          input.dataset.focused = "";
-          input.focus();
-          input.select();
-        }
-      }}
-      className="trellis-workspace-name"
-      value={draft}
-      maxLength={WORKSPACE_NAME_MAX}
-      size={Math.max(6, [...draft].length + 1)}
-      aria-label={t`Workspace name`}
-      aria-invalid={taken || undefined}
-      title={taken ? t`Name already used` : undefined}
-      spellCheck={false}
-      onChange={(event) => {
-        setDraft(event.target.value);
-        setTaken(false);
-      }}
-      onKeyDown={(event) => {
-        if (event.nativeEvent.isComposing) return;
-        if (event.key === "Escape") {
-          event.preventDefault();
-          finish(event.currentTarget, true);
-        } else if (event.key === "Enter") {
-          event.preventDefault();
-          if (controller.workspaces.rename(entry.id, draft) === "taken") setTaken(true);
-          else finish(event.currentTarget, true);
-        }
-        // The strip's arrow keys move between tabs; here they move the caret.
-        event.stopPropagation();
-      }}
-      onBlur={(event) => {
-        if (doneRef.current) return;
-        controller.workspaces.rename(entry.id, draft);
-        finish(event.currentTarget, false);
-      }}
-    />
+    <span className="trellis-workspace-name" data-value={draft}>
+      <input
+        ref={(input) => {
+          if (input && !input.dataset.focused) {
+            input.dataset.focused = "";
+            input.focus();
+            input.select();
+          }
+        }}
+        className="trellis-workspace-name-input"
+        value={draft}
+        maxLength={WORKSPACE_NAME_MAX}
+        size={1}
+        aria-label={t`Workspace name`}
+        aria-invalid={taken || undefined}
+        title={taken ? t`Name already used` : undefined}
+        spellCheck={false}
+        onChange={(event) => {
+          setDraft(event.target.value);
+          setTaken(false);
+        }}
+        onKeyDown={(event) => {
+          if (event.nativeEvent.isComposing) return;
+          if (event.key === "Escape") {
+            event.preventDefault();
+            finish(event.currentTarget, true);
+          } else if (event.key === "Enter") {
+            event.preventDefault();
+            if (controller.workspaces.rename(entry.id, draft) === "taken") setTaken(true);
+            else finish(event.currentTarget, true);
+          }
+          // The strip's arrow keys move between tabs; here they move the caret.
+          event.stopPropagation();
+        }}
+        onBlur={(event) => {
+          if (doneRef.current) return;
+          controller.workspaces.rename(entry.id, draft);
+          finish(event.currentTarget, false);
+        }}
+      />
+    </span>
   );
 }

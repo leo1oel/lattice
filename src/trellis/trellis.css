@@ -473,18 +473,31 @@
 .trellis-workspace-menu-name { max-width: 9em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* Unsaved changes: the project's layout differs from its workspace's saved arrangement. */
 .trellis-workspace-dirty { flex: none; width: var(--tab-dirty-dot-size); height: var(--tab-dirty-dot-size); border-radius: var(--radius-pill); background: var(--text-tertiary); }
-/* The workspace's name, edited in place of its tab. */
+/* The workspace's name, edited in place of its tab, as wide as its draft: a
+   hidden copy of the text (plus a space for the caret) sizes the cell the
+   input fills, so a CJK name shows from its first character. Its padding
+   matches the tab's, so the name stays where it was when editing starts. */
 .trellis-workspace-name {
-  min-width: 0; height: 100%;
-  padding: 0 var(--space-4);
+  display: inline-grid; flex: none; height: 100%;
+  min-width: calc(6ch + 2 * var(--space-5));
+  font: inherit; font-size: var(--type-label-size);
+}
+.trellis-workspace-name::after,
+.trellis-workspace-name-input {
+  grid-area: 1 / 1;
+  padding: 0 var(--space-5);
+  font: inherit; letter-spacing: inherit;
+}
+.trellis-workspace-name::after { content: attr(data-value) " "; visibility: hidden; white-space: pre; align-self: center; }
+.trellis-workspace-name-input {
+  width: 100%; min-width: 0;
   border: 0; border-radius: var(--nested-radius);
   background: var(--segmented-selected-surface);
   box-shadow: 0 0 0 var(--focus-ring-width) var(--focus-ring);
   color: var(--text-primary);
-  font: inherit; font-size: var(--type-label-size);
   outline: none;
 }
-.trellis-workspace-name[aria-invalid="true"] { box-shadow: 0 0 0 var(--focus-ring-width) var(--control-invalid-border); }
+.trellis-workspace-name-input[aria-invalid="true"] { box-shadow: 0 0 0 var(--focus-ring-width) var(--control-invalid-border); }
 /* Maximize and Reset layout close the Panels menu. */
 @container trellis-titlebar (max-width: 400px) { .trellis-titlebar-layout-actions { display: none; } }
 /* The Panels menu reopens each of these panels; their own headers hide them. */

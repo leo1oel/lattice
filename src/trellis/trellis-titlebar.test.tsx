@@ -402,6 +402,39 @@ describe("named workspaces in the titlebar", () => {
     expect(tabNames()).toEqual(["Workspace", "Proofs"]);
   });
 
+  // `size` counts characters at the average Latin width, about half a CJK
+  // glyph's, so "工作区 副本" overflowed its field and scrolled its first
+  // character out of view. A hidden copy of the draft now sizes the field.
+  it("sizes the name field to its draft, CJK included, wide or folded", () => {
+    const { controller } = withWorkspaces();
+    const { rerender } = render(<LayoutSwitch controller={controller} compact={false} />);
+    fireEvent.doubleClick(screen.getByRole("tab", { name: "Workspace" }));
+    const field = screen.getByRole("textbox", { name: "Workspace name" }) as HTMLInputElement;
+    const sizer = field.parentElement!;
+    expect(field).not.toHaveAttribute("size", String(field.value.length + 1));
+    fireEvent.change(field, { target: { value: "工作区 副本" } });
+    expect(sizer).toHaveAttribute("data-value", "工作区 副本");
+    rerender(<LayoutSwitch controller={controller} compact />);
+    expect(screen.getByRole("textbox", { name: "Workspace name" })).toBe(field);
+    fireEvent.change(field, { target: { value: "工作区副本工作区副本" } });
+    expect(sizer).toHaveAttribute("data-value", "工作区副本工作区副本");
+
+    // The copy and the input share one grid cell, padding and font, so the
+    // cell the copy sizes is exactly the box the input's text needs.
+    /** The value `property` gets from the rule naming `selector` that sets it. */
+    const declared = (selector: string, property: string) => styleRules(trellisRules)
+      .filter((rule) => rule.selectorText.split(/,\s*/).includes(selector))
+      .map((rule) => rule.style.getPropertyValue(property)).find(Boolean);
+    expect(getComputedStyle(sizer).display).toBe("inline-grid");
+    expect(declared(".trellis-workspace-name::after", "content")).toBe('attr(data-value) " "');
+    expect(declared(".trellis-workspace-name::after", "white-space")).toBe("pre");
+    for (const property of ["grid-area", "padding", "font"]) {
+      expect(declared(".trellis-workspace-name::after", property)).toBe(declared(".trellis-workspace-name-input", property));
+    }
+    expect(declared(".trellis-workspace-name-input", "grid-area")).toBe("1 / 1");
+    expect(getComputedStyle(field).width).toBe("100%");
+  });
+
   it("duplicates and deletes from the context menu, and Undo brings a deleted workspace back", async () => {
     const { controller, library } = withWorkspaces();
     render(<TrellisTitlebar controller={controller} />);
