@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { Cloud, FileArchive, FileText, Folder, FolderOpen, Pencil, Plus, Settings, Sparkles, Wrench } from "lucide-react";
 import { MorphIcon, MotionButton } from "../components/ui/motion";
@@ -240,8 +240,20 @@ export function ProjectMenu(props: {
     .filter((item) => item.path !== props.currentPath)
     .slice(0, MAX_RECENT_PROJECT_ITEMS);
   const busy = Boolean(props.busyLabel);
+  // Settings opens as a transition and puts focus in its search field, which
+  // can land before the closing menu returns focus to its trigger.
+  const handsOffFocusRef = useRef(false);
   return (
-    <DropdownMenuContent align="center" sideOffset={6} className="w-52">
+    <DropdownMenuContent
+      align="center"
+      sideOffset={6}
+      className="w-52"
+      onCloseAutoFocus={(event) => {
+        if (!handsOffFocusRef.current) return;
+        handsOffFocusRef.current = false;
+        event.preventDefault();
+      }}
+    >
       <DropdownMenuLabel>{t`Recent projects`}</DropdownMenuLabel>
       {alternatives.map((item) => (
         <DropdownMenuItem key={item.path} title={item.path} disabled={busy} onSelect={() => props.onRecent(item.path)}>
@@ -267,7 +279,14 @@ export function ProjectMenu(props: {
       <DropdownMenuItem disabled={busy} onSelect={props.onOpenTutorial}>
         <Sparkles /> {t`Guided tutorial`}
       </DropdownMenuItem>
-      <DropdownMenuItem onSelect={props.onSettings}><Settings /> {t`Settings`}</DropdownMenuItem>
+      <DropdownMenuItem
+        onSelect={() => {
+          handsOffFocusRef.current = true;
+          props.onSettings();
+        }}
+      >
+        <Settings /> {t`Settings`}
+      </DropdownMenuItem>
       {props.busyLabel && (
         <p className="flex items-center gap-2 px-2 py-1.5 text-xs text-muted-foreground">
           <InfinityLoader size={12} /> {props.busyLabel}

@@ -1,10 +1,11 @@
-import { startTransition, useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
 import type { AgentGitWorkspaceView } from "../agent/synara-runtime";
 import type { TrellisController, TrellisToolKind } from "../trellis/trellis-controller";
 import type { AgentTurnReview } from "./app-synara-embed";
 import type { EditorComments } from "./use-editor-comments";
 import type { ReferenceImport } from "./use-reference-import";
 import type { SynaraHost } from "./use-synara-host";
+import { useLoadingShell } from "./use-loading-shell";
 
 /** The tool drawers whose open state App itself keeps; comments and literature keep theirs in their own hooks. */
 export type AppToolDrawer = "history" | "git" | "todos" | "checklist";
@@ -31,13 +32,13 @@ const CLOSED: Record<AppToolDrawer, boolean> = { history: false, git: false, tod
  * forward (un-hidden, its tab selected, zoomed to) instead of doing nothing; a
  * drawer that is only now opening reveals itself as it docks.
  *
- * Opening is a transition. The first open of a lazily loaded drawer (history,
- * comments) suspends its always-mounted boundary. An urgent update would
- * commit the boundary's empty fallback, and React would then hold the drawer
- * back until 300 ms after that commit (its Suspense reveal throttle) unless
- * another update rendered it sooner, however fast the chunk arrived. As a
- * transition, React keeps the current screen until the chunk is in, and the
- * drawer appears as soon as it is (docs/performance.md).
+ * History and comments load lazily, so opening one is a transition: its
+ * first open suspends an always-mounted boundary, and an urgent update would
+ * commit the boundary's empty fallback, after which React holds the drawer
+ * back until 300 ms after that commit (its Suspense reveal throttle), however
+ * fast the chunk arrived. As a transition, React keeps the current screen
+ * until the chunk is in; `loading` names the drawer once that has taken long
+ * enough for its loading shell (`tool-loading-shell.tsx`).
  */
 export function useToolDrawers({ trellis, synara, comments, references, commentsKind, refreshTodos, refreshWordCount }: {
   trellis: TrellisController;
@@ -66,30 +67,41 @@ export function useToolDrawers({ trellis, synara, comments, references, comments
     setIsOpen((current) => (current[kind] === open ? current : { ...current, [kind]: open }));
   }, []);
   const close = useCallback((kind: AppToolDrawer) => setOpen(kind, false), [setOpen]);
+  const [opening, startOpening] = useTransition();
+  const [lazyPanel, setLazyPanel] = useState<TrellisToolKind | null>(null);
+  const loading = useLoadingShell(opening) ? lazyPanel : null;
 
-  const open = useCallback((kind: TrellisToolKind, options: OpenToolOptions = {}) => startTransition(() => {
-    let panel = kind;
-    if (kind === "comments" || kind === "overleaf") {
-      panel = commentsKind;
-      if (options.replyTo) openReply(options.replyTo);
-      else openCommentsPanel();
-    } else if (kind === "literature") {
-      setLiteratureOpen(true);
-    } else {
-      if (kind === "git") {
-        requestRuntime();
-        if (options.turnReview) setTurnReview(options.turnReview);
-        if (options.gitView) setGitView(options.gitView);
-      } else if (kind === "todos") {
-        void refreshTodos();
-      } else if (kind === "checklist") {
-        void refreshTodos();
-        void refreshWordCount();
+  const open = useCallback((kind: TrellisToolKind, options: OpenToolOptions = {}) => {
+    const reveal = () => {
+      let panel = kind;
+      if (kind === "comments" || kind === "overleaf") {
+        panel = commentsKind;
+        if (options.replyTo) openReply(options.replyTo);
+        else openCommentsPanel();
+      } else if (kind === "literature") {
+        setLiteratureOpen(true);
+      } else {
+        if (kind === "git") {
+          requestRuntime();
+          if (options.turnReview) setTurnReview(options.turnReview);
+          if (options.gitView) setGitView(options.gitView);
+        } else if (kind === "todos") {
+          void refreshTodos();
+        } else if (kind === "checklist") {
+          void refreshTodos();
+          void refreshWordCount();
+        }
+        setOpen(kind, true);
       }
-      setOpen(kind, true);
+      trellis.revealOpenTool(panel);
+    };
+    if (kind !== "history" && kind !== "comments") {
+      reveal();
+      return;
     }
-    trellis.revealOpenTool(panel);
-  }), [commentsKind, openCommentsPanel, openReply, refreshTodos, refreshWordCount, requestRuntime, setLiteratureOpen, setOpen, trellis]);
+    setLazyPanel(kind === "comments" ? commentsKind : kind);
+    startOpening(reveal);
+  }, [commentsKind, openCommentsPanel, openReply, refreshTodos, refreshWordCount, requestRuntime, setLiteratureOpen, setOpen, trellis]);
 
   /** Switch the Git drawer to a working-tree view, unpinning any turn review. */
   const showGitView = useCallback((view: AgentGitWorkspaceView) => {
@@ -122,8 +134,8 @@ export function useToolDrawers({ trellis, synara, comments, references, comments
   }, [close, gitOpen, synaraOrigin, sourceControlFrameRef]);
 
   return useMemo(() => ({
-    isOpen, open, close, gitView, turnReview, showGitView, resetForProject,
-  }), [close, gitView, isOpen, open, resetForProject, showGitView, turnReview]);
+    isOpen, open, close, loading, gitView, turnReview, showGitView, resetForProject,
+  }), [close, gitView, isOpen, loading, open, resetForProject, showGitView, turnReview]);
 }
 
 export type ToolDrawers = ReturnType<typeof useToolDrawers>;

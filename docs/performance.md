@@ -535,9 +535,8 @@ Still O(document) per keystroke:
   (`doc.toString()`), about 0.1 ms and 3 MB of garbage per keystroke at this
   size.
 - With TexLab installed, completion sends the whole text with every
-  keystroke in a command name or an open argument (`texlab_completion`); prose
-  no longer asks (see "First opens and TexLab traffic" below). The
-  benchmark's mock backend does not model that IPC.
+  keystroke in a word (`texlab_completion`). The benchmark's mock backend does
+  not model that IPC.
 
 ### WebKit frame rate and dialogs (October 2026)
 
@@ -655,54 +654,53 @@ in brackets, which gained from some of them too):
 ### First opens and TexLab traffic (October 2026)
 
 Two measure-first proposals, run in the real-window lab with the scenarios
-`coldSettings`, `coldHistory`, `coldComments` and `texlabTraffic`. Each run
-launches the app once; the first open of a tool is that launch's only cold
-sample. Numbers are from two sessions where the 1-minute load average was
-below 10 before each run, 20 launches per tool and build. Two sessions under
-load (20–65) agreed in direction.
+`coldSettings`, `coldHistory`, `coldComments` and `texlabTraffic`. Each launch
+gives one cold first open; warm opens follow in the same launch. Sessions E
+and F had a 1-minute load average below 10 before every run: 10 launches and
+50 warm opens per tool and build.
 
 **Opening Settings, History or Comments the first time waited for React,
 not for its chunk.** Each loads lazily behind a `Suspense` boundary with no
-fallback. The first open took up to 350 ms; later opens took about 15 ms.
-Loading the chunk ahead (lab flag `prewarm`) did not help: the chunks take
-about 70 ms (Settings, History) and 2 ms (Comments). The rest was React's
-Suspense reveal throttle. An urgent update that suspends commits the empty
-fallback, and React then holds the content back until 300 ms after that
-commit unless another update happens to render it sooner. Opening a tool is now a transition into an
-always-mounted boundary (`useToolDrawers`, `openSettings` in `App.tsx`), so
-React keeps the current screen until the chunk is in.
+fallback, and its chunk takes about 70 ms (Settings, History) or 2 ms
+(Comments). The rest was React's Suspense reveal throttle: an urgent update
+that suspends commits the empty fallback, and React then holds the content
+until 300 ms after that commit. Loading the chunk ahead (lab flag `prewarm`)
+left first opens at 300–370 ms. Opening these three is now a transition into
+an always-mounted boundary (`useToolDrawers`, `openSettings` in `App.tsx`), so
+React keeps the current screen until the chunk is in. Other drawers open as
+before.
 
-| First open (ms, p50 / p95) | Before | After |
+| ms, p95 / p99 | Session | Cold before | Cold after | Warm before | Warm after |
+| --- | --- | --- | --- | --- | --- |
+| Settings | E | 320 / 320 | 103 / 103 | 16 / 23 | 20 / 57 |
+| Settings | F | 260 / 260 | 73 / 73 | 15 / 17 | 17 / 19 |
+| Project history | E | 345 / 345 | 135 / 135 | 27 / 35 | 28 / 31 |
+| Project history | F | 348 / 348 | 128 / 128 | 27 / 32 | 28 / 32 |
+| Editor comments | E | 191 / 191 | 60 / 60 | 24 / 31 | 26 / 29 |
+| Editor comments | F | 345 / 345 | 61 / 61 | 25 / 30 | 23 / 26 |
+
+All three met the proposal's gate before (cold p95 at least 150 ms and twice
+warm p95 in both sessions), so each has the proposed loading shell: an open
+still pending after 150 ms shows the tool's own drawer or dialog holding a
+loader until the tool replaces it (`app/tool-loading-shell.tsx`). The shell
+is an element beside the boundary, not its fallback, since a committed
+fallback would re-arm the 300 ms throttle. In these sessions no first open
+ran long enough to show it.
+
+**Every TexLab request carries the whole document.** On `long.tex` (3.3 MB),
+p50 in sessions E / F:
+
+| Completion path | E | F |
 | --- | --- | --- |
-| Settings | 80 / 318 | 63 / 85 |
-| Project history | 145 / 345 | 119 / 128 |
-| Editor comments | 70 / 341 | 55 / 60 |
+| Round trip from the editor | 54 | 50 |
+| IPC carrying the text | 8 | 8 |
+| TexLab: full-text sync + completion | 41.9 | 40.7 |
+| TexLab: one-range incremental sync + completion | 38.6 | 37.4 |
+| TexLab: same revision, no sync | 0.5 | 0.5 |
 
-The proposal was a loading shell shown from 150 ms. It no longer applies:
-first opens now finish before it would appear, and a shell over the few that
-run past 150 ms would only flash.
-
-**TexLab never answers in prose, yet every request sent it the whole
-document.** Completion asked on every keystroke in a word, hover on every
-pause over one. Each request carried the full text and made TexLab reparse
-it. Typing one 41-character sentence into `long.tex` (3.3 MB) sent 33
-requests and 110 MB. A completion there took 50–54 ms (p50): 8 ms of IPC for
-the text, 37–39 ms of TexLab reparsing it, 0.5 ms for the answer itself
-(`perf_texlab_probe` times TexLab's share inside the app). A revisioned
-protocol sending only edits and positions, the proposal, would remove the IPC
-and about 3 ms of passing the text to TexLab as JSON: 21% and 23% of the path,
-just over the proposal's 20% gate. It keeps the reparse, and after the change
-below it would apply to 3 requests a sentence instead of 33. Saving about 11 ms
-on each is not worth its risk of stale or misplaced completions, so it is not
-built.
-
-The editor now asks TexLab only in a command name or inside an open
-`{…}` or `[…]` argument (`texlabCanAnswer` in `build/texlab-language.ts`).
-Across 33,000 prose positions in the fixture's chapters and 40 TeX Live
-documents, TexLab answered none of the requests this skips.
-
-| Typing a sentence into `long.tex` | Before | After |
-| --- | --- | --- |
-| TexLab requests | 33 | 3 |
-| Text sent to TexLab | 110 MB | 10 MB |
-| Keystroke to next paint, p50 / p95 (ms) | 12 / 16 | 9 / 15 |
+`perf_texlab_probe` times TexLab's share inside the app. Serialization and
+transfer are 21% and 23% of the path, over the proposal's 20% gate. A
+revisioned protocol sending edits and positions would still have TexLab
+reparse each new revision. It is not built yet: it ships only if a prototype
+improves equal-revision p95 by at least 10% in two sessions, and the editor
+keeps sending the full text until one does.

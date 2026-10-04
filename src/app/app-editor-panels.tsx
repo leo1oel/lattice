@@ -8,6 +8,7 @@
  */
 import { lazy, Suspense, type Dispatch, type ReactNode, type SetStateAction } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { useLingui } from "@lingui/react/macro";
 import { ManuscriptChecklistPanel } from "../project/manuscript-checklist";
 import { type TodoHit } from "../project/todo-scavenger";
 import { TodoScavengerPanel } from "../project/todo-scavenger-panel";
@@ -16,6 +17,7 @@ import { useTrellisController } from "../trellis/trellis-controller";
 import { setError } from "./notify";
 import type { EditorComments } from "./use-editor-comments";
 import type { ToolDrawers } from "./use-tool-drawers";
+import { ToolLoadingShell } from "./tool-loading-shell";
 import type {
   AppendixBoundary,
   BuildResult,
@@ -46,9 +48,10 @@ export function AppEditorPanels({ comments, renderCommentsSurface, ...props }: {
   projectWordCount: WordCount | null;
   setProject: Dispatch<SetStateAction<ProjectSnapshot | null>>;
   todoHits: TodoHit[];
-  tools: Pick<ToolDrawers, "isOpen" | "open" | "close">;
+  tools: Pick<ToolDrawers, "isOpen" | "open" | "close" | "loading">;
   unusedSymbols: UnusedSymbols;
 }) {
+  const { t } = useLingui();
   const { openProjectFile, project, todoHits, tools, unusedSymbols } = props;
   const trellis = useTrellisController();
   // Where the writer was writing: the active file, still active while a Paper
@@ -90,6 +93,9 @@ export function AppEditorPanels({ comments, renderCommentsSurface, ...props }: {
   );
   return (
     <>
+      {tools.loading === "comments" && !comments.panelOpen && (
+        <ToolLoadingShell className="editor-comments-drawer" label={t`Editor comments`} onClose={comments.closePanel} />
+      )}
       <Suspense fallback={null}>
         {renderCommentsSurface ? renderCommentsSurface(commentsPanel) : comments.panelOpen && commentsPanel}
       </Suspense>

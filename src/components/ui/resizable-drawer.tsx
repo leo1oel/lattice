@@ -53,7 +53,10 @@ function DockedDrawer({ trellis, kind, ...props }: ResizableDrawerProps & { trel
   useEffect(() => {
     const close = () => onCloseRef.current();
     trellis.openDrawer(kind, close);
-    return () => trellis.closeDrawer(kind, close);
+    // After the commit's other effects: a drawer that takes this one's place
+    // in the same commit (a tool replacing its loading shell) has registered
+    // by then, and the panel stays.
+    return () => queueMicrotask(() => trellis.closeDrawer(kind, close));
   }, [kind, trellis]);
   return createPortal(
     <aside

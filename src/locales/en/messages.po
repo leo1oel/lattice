@@ -2778,6 +2778,7 @@ msgstr "Editor"
 msgid "Editor & builds"
 msgstr "Editor & builds"
 
+#: src/app/app-editor-panels.tsx
 #: src/canvas/canvas-toolbar.tsx
 #: src/canvas/editor-status-bar.tsx
 #: src/editor/comments/editor-comments-panel.tsx
@@ -6149,6 +6150,7 @@ msgstr "Project files"
 msgid "Project find and replace"
 msgstr "Project find and replace"
 
+#: src/app/app-history-drawers.tsx
 #: src/canvas/canvas-toolbar.tsx
 #: src/history/history-drawer.tsx
 #: src/settings/settings-dialog.tsx
@@ -7380,6 +7382,7 @@ msgstr "Services"
 msgid "Set minus"
 msgstr "Set minus"
 
+#: src/App.tsx
 #: src/project/project-dialogs.tsx
 #: src/settings/settings-dialog.tsx
 msgid "Settings"

@@ -1287,25 +1287,25 @@ async function longMarkdownTwice() {
 
 // Cold versus warm first open of a lazily loaded tool (Settings, History,
 // Comments), whose Suspense boundary falls back to nothing (P21). `contentMs` runs
-// from the input event to the first animation frame the tool's own element is
-// in the page, so it is the time the reader sees no answer to the click.
+// from the input event to the first animation frame the tool's own element,
+// not its loading shell, is in the page.
 const COLD_TOOLS = {
   settings: {
     load: () => import("../settings/settings-dialog"),
     open: () => window.dispatchEvent(new KeyboardEvent("keydown", { key: ",", metaKey: true, bubbles: true, cancelable: true })),
-    content: ".settings-modal",
+    content: ".settings-modal:not(.tool-loading-shell-body)",
     close: () => syntheticKey("Escape"),
   },
   history: {
     load: () => import("../history/history-drawer"),
     button: 'button[aria-label="Project history"]',
-    content: "aside.project-history-drawer",
+    content: "aside.project-history-drawer:not(.tool-loading-shell)",
     close: () => document.querySelector('aside.project-history-drawer [data-slot="panel-header-actions"] button:last-child')?.click(),
   },
   comments: {
     load: () => import("../editor/comments/editor-comments-panel"),
     button: 'button[aria-label="Editor comments"]',
-    content: ".editor-comments-drawer",
+    content: ".editor-comments-drawer:not(.tool-loading-shell)",
     close: () => document.querySelector('.editor-comments-drawer [data-slot="panel-header-actions"] button:last-child')?.click(),
   },
 };
