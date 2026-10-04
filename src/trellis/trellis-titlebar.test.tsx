@@ -125,7 +125,7 @@ describe("titlebar layout presets", () => {
     Object.assign(layout, { room: 1200, chipsOverflow: 0, chipText: 0, chipWidth: 0 });
     vi.stubGlobal("ResizeObserver", class {
       private readonly notify: () => void;
-      constructor(callback: () => void) { this.notify = () => callback(); }
+      constructor(callback: (entries: ResizeObserverEntry[]) => void) { this.notify = () => callback([]); }
       // Like a browser's, it reports a target once when it starts observing it.
       observe() {
         observers.add(this.notify);
@@ -222,6 +222,24 @@ describe("titlebar layout presets", () => {
     layout.chipWidth = CHIP_CAP - 50;
     resize(LABELLED - 20);
     expect(bar()).toHaveAttribute("data-compact");
+  });
+
+  it("stays folded through a move from the workspace menu, keeping the keyboard on its button", async () => {
+    // A reorder changes no width: a re-measure would unfold the switch for a
+    // frame and take the open menu's button, and the keyboard, with it.
+    const { controller, library } = withWorkspaces();
+    library.add("Review", null);
+    render(<TrellisTitlebar controller={controller} />);
+    resize(LABELLED - 20);
+    expect(bar()).toHaveAttribute("data-compact");
+    const trigger = screen.getByRole("button", { name: "Workspace: Workspace" });
+    trigger.focus();
+    fireEvent.keyDown(trigger, { key: "Enter" });
+    fireEvent.click(within(await screen.findByRole("menu")).getByRole("menuitem", { name: "Move right" }));
+    expect(library.list().map((entry) => entry.name)).toEqual(["Review", "Workspace"]);
+    expect(bar()).toHaveAttribute("data-compact");
+    expect(trigger.isConnected).toBe(true);
+    await waitFor(() => expect(trigger).toHaveFocus());
   });
 
   it("reads the chip's cap from the stylesheet the measurement relies on", () => {
