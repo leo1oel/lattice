@@ -8,6 +8,15 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { PDFDocumentProxy } from "pdfjs-dist";
+import { installPdfTextLayerSelection } from "./pdf-text-layer-selection";
+
+vi.mock("@tauri-apps/plugin-clipboard-manager", () => ({
+  writeText: vi.fn(async () => undefined),
+}));
+
+vi.mock("@tauri-apps/api/core", () => ({
+  invoke: vi.fn(async () => undefined),
+}));
 
 const VIEW_WIDTH = 900;
 const VIEW_HEIGHT = 700;
@@ -330,6 +339,54 @@ describe("PDF.js page window", () => {
     field.blur();
     scrollTo(offsetOf(sizes, 200));
     expect(attached()).not.toContain(2);
+  });
+
+  it("keeps every page a selection runs through, so copying it after scrolling away copies all of it", async () => {
+    const sizes = Array.from({ length: 400 }, () => LETTER);
+    const { pageDiv, attached, scrollTo } = await openViewer(sizes);
+    // A text layer on each of pages 1 to 4, under the production copy handler.
+    const glyphs = [1, 2, 3, 4].map((number) => {
+      const layer = document.createElement("div");
+      layer.className = "textLayer";
+      const span = document.createElement("span");
+      span.textContent = `Page ${number} text. `;
+      layer.append(span);
+      pageDiv(number).append(layer);
+      return { span, uninstall: installPdfTextLayerSelection(layer) };
+    });
+    const copy = () => {
+      const stored = new Map<string, string>();
+      const event = new Event("copy", { bubbles: true, cancelable: true });
+      Object.defineProperty(event, "clipboardData", {
+        value: { setData: (type: string, value: string) => stored.set(type, value), getData: (type: string) => stored.get(type) ?? "" },
+      });
+      document.dispatchEvent(event);
+      return stored.get("text/plain");
+    };
+    try {
+      // From the start of page 1 to the end of page 3, as a drag across them leaves it.
+      const range = document.createRange();
+      range.setStart(glyphs[0]!.span.firstChild!, 0);
+      range.setEnd(glyphs[2]!.span.firstChild!, glyphs[2]!.span.textContent!.length);
+      document.getSelection()!.removeAllRanges();
+      document.getSelection()!.addRange(range);
+      const before = copy();
+      expect(before).toBe("Page 1 text. Page 2 text. Page 3 text.");
+
+      scrollTo(offsetOf(sizes, 300));
+      expect(attached()).toContain(300);
+      // Page 2 holds neither end of the range, but its text is in it.
+      expect(attached()).toEqual(expect.arrayContaining([1, 2, 3]));
+      expect(attached()).not.toContain(4);
+      expect(copy()).toBe(before);
+
+      // Cleared, the selection holds nothing back.
+      document.getSelection()!.removeAllRanges();
+      scrollTo(offsetOf(sizes, 200));
+      expect(attached()).not.toContain(2);
+    } finally {
+      for (const { uninstall } of glyphs) uninstall();
+    }
   });
 
   it("sizes spacers from each page's own box, as pages load with sizes of their own", async () => {
