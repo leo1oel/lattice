@@ -35,9 +35,8 @@
   // `pnpm check` shells out to mise, which is a system tool installed outside
   // the package manager (see CLAUDE.md), not a missing dependency. `typecheck`
   // is knip misreading `pnpm --dir literature-worker typecheck` in ci.yml as a
-  // binary; it is a package script in that workspace. `hdiutil` is macOS's
-  // disk-image tool, which scripts/check-font-leaks.mjs mounts releases with.
-  "ignoreBinaries": ["mise", "typecheck", "hdiutil"],
+  // binary; it is a package script in that workspace.
+  "ignoreBinaries": ["mise", "typecheck"],
   // For agents' throwaway browser drivers (docs/driving-the-app.md), so they
   // import it normally instead of digging it out of an npx cache. Nothing in
   // the repo imports it.

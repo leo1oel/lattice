@@ -1,63 +1,61 @@
+import { Suspense, useState } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { ExternalLink } from "lucide-react";
-import { fontLicense } from "virtual:lattice-private-fonts-license";
+import { ExternalLink, FileText } from "lucide-react";
+import { fontLicenseUrl } from "virtual:lattice-private-fonts-license";
 import { Button } from "../components/ui/button";
+import { PanelHeader } from "../components/ui/panel-header";
 import { SettingsSectionHeader } from "../components/ui/settings-section-header";
 import { SettingsGroup, SettingsRow } from "../components/ui/settings-row";
+import { SheetDialog } from "../components/ui/sheet-dialog";
+import { PdfPreview, PdfPreviewLoading } from "../canvas/canvas-lazy-editors";
 import "./acknowledgements-settings.css";
 
-/* eslint-disable lingui/no-unlocalized-strings -- names of works, their sites, and an attribution kept verbatim */
-const TIMELESS = { name: "Timeless", site: "timeless.co", url: "https://timeless.co" };
-// The attribution Trellis's license asks shipped apps to show, as the macOS
-// About panel shows it (TRELLIS_ATTRIBUTION in src-tauri/src/native_locale.rs).
-const TRELLIS = { name: "Trellis", site: "GitHub", url: "https://github.com/DanFessler/trellis", attribution: "Uses Trellis by DanFessler" };
+/* eslint-disable lingui/no-unlocalized-strings -- the names of a work, its license and its site, kept verbatim */
+const TIMELESS = { name: "Timeless", license: "Timeless Free Font License", site: "timeless.co", url: "https://timeless.co" };
 /* eslint-enable lingui/no-unlocalized-strings */
 
-function LinkButton({ url, label }: { url: string; label: string }) {
+/** The license exactly as it came with the fonts, in the app's own PDF viewer. */
+function FontLicenseDialog({ url, onClose }: { url: string; onClose: () => void }) {
   return (
-    <Button variant="ghost" size="compact" onClick={() => void openUrl(url)}>
-      {label} <ExternalLink size={12} />
-    </Button>
-  );
-}
-
-function FontLicenseGroup({ license }: { license: NonNullable<typeof fontLicense> }) {
-  const { t } = useLingui();
-  const { title } = license;
-  return (
-    <SettingsGroup title={t`Interface fonts`}>
-      <SettingsRow
-        label={TIMELESS.name}
-        description={t`Type family by Timeless Ventures Private Limited, Chennai, used under the ${title}. Get the fonts from timeless.co`}
-      >
-        <LinkButton url={TIMELESS.url} label={TIMELESS.site} />
-      </SettingsRow>
-      <section className="acknowledgements-license" aria-label={title}>
-        {license.text.split("\n\n").map((paragraph, index) => <p key={index}>{paragraph}</p>)}
-      </section>
-    </SettingsGroup>
+    <SheetDialog className="acknowledgements-license" label={TIMELESS.license} onClose={onClose}>
+      <PanelHeader className="drawer-header" icon={<FileText size={16} />} title={TIMELESS.license} onClose={onClose} />
+      <div className="acknowledgements-license-viewer">
+        <Suspense fallback={<PdfPreviewLoading />}>
+          <PdfPreview url={url} showSave={false} />
+        </Suspense>
+      </div>
+    </SheetDialog>
   );
 }
 
 /**
- * Settings › About › Acknowledgements: credit for the work Lattice ships that
- * asks for it. A build that embeds the Timeless fonts also shows their license,
- * read from the copy that came with the fonts (scripts/private-fonts.ts): the
- * license lets the fonts go to no one without it. Builds without the fonts
- * leave the entry out.
+ * Settings › About › Acknowledgements, in builds that embed the Timeless fonts
+ * (scripts/private-fonts.ts): their credit and the license that came with them,
+ * shipped unmodified, since the license lets the fonts go to no one without it.
  */
 export function AcknowledgementsSettings() {
   const { t } = useLingui();
+  const [licenseOpen, setLicenseOpen] = useState(false);
+  if (!fontLicenseUrl) return null;
+  const license = TIMELESS.license;
   return (
     <div className="settings-section">
       <SettingsSectionHeader title={t`Acknowledgements`} />
-      {fontLicense && <FontLicenseGroup license={fontLicense} />}
-      <SettingsGroup title={t`Panel layout`}>
-        <SettingsRow label={TRELLIS.name} description={TRELLIS.attribution}>
-          <LinkButton url={TRELLIS.url} label={TRELLIS.site} />
+      <SettingsGroup title={t`Interface fonts`}>
+        <SettingsRow
+          label={TIMELESS.name}
+          description={t`Type family by Timeless Ventures Private Limited, Chennai, used under the ${license}. Get the fonts from timeless.co`}
+        >
+          <Button variant="ghost" size="compact" onClick={() => setLicenseOpen(true)}>
+            {t`View license`}
+          </Button>
+          <Button variant="ghost" size="compact" onClick={() => void openUrl(TIMELESS.url)}>
+            {TIMELESS.site} <ExternalLink size={12} />
+          </Button>
         </SettingsRow>
       </SettingsGroup>
+      {licenseOpen && <FontLicenseDialog url={fontLicenseUrl} onClose={() => setLicenseOpen(false)} />}
     </div>
   );
 }

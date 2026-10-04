@@ -1,33 +1,37 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { AcknowledgementsSettings } from "./acknowledgements-settings";
 
-const license = vi.hoisted(() => ({
-  current: null as { title: string; text: string } | null,
-}));
+const license = vi.hoisted(() => ({ url: null as string | null }));
 vi.mock("virtual:lattice-private-fonts-license", () => ({
-  get fontLicense() {
-    return license.current;
+  get fontLicenseUrl() {
+    return license.url;
   },
+}));
+// The real viewer needs PDF.js and a canvas; what matters here is which file it is given.
+vi.mock("../canvas/canvas-lazy-editors", () => ({
+  PdfPreview: ({ url }: { url: string }) => <div role="document" data-url={url} />,
+  PdfPreviewLoading: () => null,
 }));
 
 describe("acknowledgements", () => {
-  it("credits the panel layout in every build and leaves the fonts out of a build without them", () => {
-    license.current = null;
-    render(<AcknowledgementsSettings />);
-    expect(screen.getByRole("heading", { name: "Acknowledgements" })).toBeInTheDocument();
-    expect(screen.getByText("Uses Trellis by DanFessler")).toBeInTheDocument();
-    expect(screen.queryByText("Interface fonts")).not.toBeInTheDocument();
+  it("renders nothing in a build without the licensed fonts", () => {
+    license.url = null;
+    const { container } = render(<AcknowledgementsSettings />);
+    expect(container).toBeEmptyDOMElement();
   });
 
-  it("shows the embedded fonts' license in full, paragraph by paragraph", () => {
+  it("credits the embedded fonts and opens their shipped license in the PDF viewer", () => {
     // A stand-in: the real license may not enter the repository.
-    license.current = { title: "Example Font License 1.0", text: "First paragraph.\n\nSecond paragraph." };
+    license.url = "/assets/LICENSE-stand-in.pdf";
     render(<AcknowledgementsSettings />);
-    expect(screen.getByText("Interface fonts")).toBeInTheDocument();
-    expect(screen.getByText(/used under the Example Font License 1\.0/)).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Acknowledgements" })).toBeInTheDocument();
+    expect(screen.getByText(/used under the Timeless Free Font License/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /timeless\.co/ })).toBeInTheDocument();
-    const text = screen.getByRole("region", { name: "Example Font License 1.0" });
-    expect([...text.querySelectorAll("p")].map((paragraph) => paragraph.textContent)).toEqual(["First paragraph.", "Second paragraph."]);
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "View license" }));
+    const dialog = screen.getByRole("dialog", { name: "Timeless Free Font License" });
+    expect(dialog.querySelector("[role=document]")).toHaveAttribute("data-url", "/assets/LICENSE-stand-in.pdf");
   });
 });

@@ -71,15 +71,18 @@ the download, with its `LICENSE.pdf` beside the fonts, outside the checkout.
   the `LATTICE_FONTS_DEPLOY_KEY` secret, into the runner's temp directory
   outside the workspace. It sets `LATTICE_PRIVATE_FONTS_REQUIRED=1`, so a
   missing or incomplete copy fails the release instead of quietly shipping
-  Inter; without the secret (a fork) the release builds without them. Before
-  the draft release is published, `scripts/check-font-leaks.mjs` checks its
-  uploaded assets and the repository: only the signed artifacts, none of them
-  a font, and no loose Timeless file inside the disk image or the updater
-  archive. It recognizes fonts by content, so a renamed copy fails too.
-- The license travels with the app: the build reads its text out of
-  `LICENSE.pdf` and Settings › About › Acknowledgements shows it in full,
-  crediting timeless.co. A build without the fonts leaves the entry out. The
-  Timeless name credits the fonts only; it names no Lattice feature.
+  Inter; without the secret (a fork) the release builds without them.
+  `scripts/check-font-leaks.mjs` then checks the built app before it is
+  packaged (no file named for Timeless or a byte copy of one of its fonts, and
+  no font outside the bundled open-licensed runtimes) and, before the draft
+  release is published, its assets (only the signed artifacts, none of them a
+  font). It recognizes fonts by signature as well as extension, so a renamed
+  copy fails too.
+- The license travels with the app: the build emits the unmodified
+  `LICENSE.pdf` as a hashed asset beside the fonts, and Settings › About ›
+  Acknowledgements credits timeless.co and opens it in the app's PDF viewer.
+  A build without the fonts leaves the page out. The Timeless name credits the
+  fonts only; it names no Lattice feature.
 - Roles: `--ui-font` is Timeless Sans in its Grotesk style (the variable
   font's default; at 10–13px it kept confusable pairs such as e/o, rn/m and
   3/8 slightly further apart than the Sans style). `--reading-font`, for the

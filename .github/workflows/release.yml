@@ -261,6 +261,14 @@ jobs:
           # Apple Silicon only. This makes the updater platform key darwin-aarch64.
           args: --target aarch64-apple-darwin
 
+      # The fonts may only reach users inside the app's web assets, which the
+      # binary embeds. Check the built app before it is packaged any further: no
+      # file named for Timeless or a byte copy of one of its fonts, and no font
+      # at all outside the bundled open-licensed runtimes. Failing here leaves
+      # the release a draft.
+      - name: Check the built app for loose font files
+        run: node scripts/check-font-leaks.mjs app src-tauri/target/aarch64-apple-darwin/release/bundle/macos/Lattice.app
+
       - name: Notarize the distributable disk image
         env:
           APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
@@ -324,18 +332,16 @@ jobs:
           node scripts/normalize-updater-manifest.mjs "$manifest_dir/latest.json" "$manifest_dir/release.json"
           gh release upload "$GITHUB_REF_NAME" "$manifest_dir/latest.json" --clobber
 
-      # The fonts may only reach users inside the app. Check what the release
-      # actually holds: only the signed artifacts, none of them a font, no
-      # loose Timeless file inside the disk image or the updater archive, and
-      # none in the repository. Failing here leaves the release a draft.
-      - name: Check the release for loose font files
+      # Check what the release actually offers for download: only the signed
+      # artifacts, none of them a font. Failing here leaves the release a draft.
+      - name: Check the release assets for font files
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
           assets_dir="$(mktemp -d "$RUNNER_TEMP/lattice-release-assets.XXXXXX")"
           gh release download "$GITHUB_REF_NAME" --dir "$assets_dir"
-          node scripts/check-font-leaks.mjs --repo "$assets_dir"
+          node scripts/check-font-leaks.mjs assets "$assets_dir"
 
       - name: Publish verified release
         env:

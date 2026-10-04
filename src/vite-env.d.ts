@@ -1,8 +1,8 @@
 /// <reference types="vite/client" />
 
-/** The embedded fonts' license (scripts/private-fonts.ts); null without them. */
+/** The embedded fonts' LICENSE.pdf, as an app asset URL (scripts/private-fonts.ts); null without them. */
 declare module "virtual:lattice-private-fonts-license" {
-  export const fontLicense: { title: string; text: string } | null;
+  export const fontLicenseUrl: string | null;
 }
 
 declare module "*.po" {

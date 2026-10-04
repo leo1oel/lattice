@@ -28,6 +28,7 @@ import { beginWindowDrag, toggleWindowFullscreen } from "../app-utils";
 import { OverleafSettingsSection } from "../overleaf/overleaf-connect";
 import { LiteratureSettings } from "./literature-settings";
 import { AcknowledgementsSettings } from "./acknowledgements-settings";
+import { fontLicenseUrl } from "virtual:lattice-private-fonts-license";
 import { DoctorSettings, type DoctorSettingsProps } from "./doctor-settings";
 import { SynaraSettingsPane } from "./synara-settings-pane";
 import { SelectRow, SliderRow } from "./settings-controls";
@@ -94,9 +95,9 @@ export function SettingsDialog(props: SettingsDialogProps) {
       { tab: "doctor", label: t`TeX doctor`, icon: "sparkle" },
       { tab: "logs", label: t`Logs`, icon: "receipt" },
     ] },
-    { label: t`About`, items: [
+    ...(fontLicenseUrl ? [{ label: t`About`, items: [
       { tab: "acknowledgements", label: t`Acknowledgements`, icon: "chat" },
-    ] },
+    ] }] as const : []),
   ] as const;
   const settingsNavItems = settingsNavGroups
     .flatMap((group): ReadonlyArray<{ tab: SettingsTab; label: string }> => group.items);

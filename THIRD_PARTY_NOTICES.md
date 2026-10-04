@@ -158,7 +158,7 @@ The subset's metadata keeps only the Iosevka copyright line and no license text,
 ## Timeless type family (release builds only; not in this repository)
 
 Release builds set the interface and reading surfaces in the [Timeless](https://timeless.co) type family, Copyright 2026 Timeless Ventures Private Limited, Chennai, under the Timeless Free Font License 1.2.
-That license allows embedding the fonts in an application but forbids putting "the fonts", which it defines to include their documentation, on a public repository, so neither the fonts nor the license is here: the release job reads both from a private repository, the build embeds the unmodified WOFF2 files in the app's web assets, and Settings › About › Acknowledgements shows the license text read from the copy that came with the fonts.
+That license allows embedding the fonts in an application but forbids putting "the fonts", which it defines to include their documentation, on a public repository, so neither the fonts nor the license is here: the release job reads both from a private repository, the build embeds the unmodified WOFF2 files and the unmodified `LICENSE.pdf` in the app's web assets, and Settings › About › Acknowledgements opens that license.
 See `docs/design-system.md`, "Private interface fonts".
 
 ## Conference LaTeX templates (`src-tauri/templates/`)

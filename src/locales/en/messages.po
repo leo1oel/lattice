@@ -5744,10 +5744,6 @@ msgstr "Pan right"
 msgid "Pan up"
 msgstr "Pan up"
 
-#: src/settings/acknowledgements-settings.tsx
-msgid "Panel layout"
-msgstr "Panel layout"
-
 #: src/trellis/trellis-labels.ts
 msgid "Panel menu"
 msgstr "Panel menu"
@@ -8452,8 +8448,8 @@ msgid "Type"
 msgstr "Type"
 
 #: src/settings/acknowledgements-settings.tsx
-msgid "Type family by Timeless Ventures Private Limited, Chennai, used under the {title}. Get the fonts from timeless.co"
-msgstr "Type family by Timeless Ventures Private Limited, Chennai, used under the {title}. Get the fonts from timeless.co"
+msgid "Type family by Timeless Ventures Private Limited, Chennai, used under the {license}. Get the fonts from timeless.co"
+msgstr "Type family by Timeless Ventures Private Limited, Chennai, used under the {license}. Get the fonts from timeless.co"
 
 #: src/editor/latex/latex-command-completions.ts
 msgid "Typeset a URL"
@@ -8834,6 +8830,10 @@ msgstr "View"
 #: src/editor/markdown/engine/chrome/selection-toolbar.tsx
 msgid "View in source Markdown"
 msgstr "View in source Markdown"
+
+#: src/settings/acknowledgements-settings.tsx
+msgid "View license"
+msgstr "View license"
 
 #: src/canvas/paper-reader.tsx
 msgid "View original PDF"

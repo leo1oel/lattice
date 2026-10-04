@@ -5744,10 +5744,6 @@ msgstr "向右平移"
 msgid "Pan up"
 msgstr "向上平移"
 
-#: src/settings/acknowledgements-settings.tsx
-msgid "Panel layout"
-msgstr "面板布局"
-
 #: src/trellis/trellis-labels.ts
 msgid "Panel menu"
 msgstr "面板菜单"
@@ -8452,8 +8448,8 @@ msgid "Type"
 msgstr "类型"
 
 #: src/settings/acknowledgements-settings.tsx
-msgid "Type family by Timeless Ventures Private Limited, Chennai, used under the {title}. Get the fonts from timeless.co"
-msgstr "由钦奈的 Timeless Ventures Private Limited 设计的字体家族，依据 {title} 使用。请从 timeless.co 获取字体"
+msgid "Type family by Timeless Ventures Private Limited, Chennai, used under the {license}. Get the fonts from timeless.co"
+msgstr "由钦奈的 Timeless Ventures Private Limited 设计的字体家族，依据 {license} 使用。请从 timeless.co 获取字体"
 
 #: src/editor/latex/latex-command-completions.ts
 msgid "Typeset a URL"
@@ -8834,6 +8830,10 @@ msgstr "显示"
 #: src/editor/markdown/engine/chrome/selection-toolbar.tsx
 msgid "View in source Markdown"
 msgstr "在 Markdown 源码中查看"
+
+#: src/settings/acknowledgements-settings.tsx
+msgid "View license"
+msgstr "查看许可证"
 
 #: src/canvas/paper-reader.tsx
 msgid "View original PDF"

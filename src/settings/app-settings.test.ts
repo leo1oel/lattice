@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   APPEARANCE_KEY,
@@ -218,6 +218,20 @@ describe("settings page persistence", () => {
     expect(loadSettingsTab()).toBe("literature");
     localStorage.setItem("lattice.settings-tab.v1", "retired-page");
     expect(loadSettingsTab()).toBe("appearance");
+  });
+
+  it("reopens Acknowledgements only in a build that embeds the licensed fonts", async () => {
+    // The suite runs as a build without them.
+    persistSettingsTab("acknowledgements");
+    expect(loadSettingsTab()).toBe("appearance");
+    vi.resetModules();
+    vi.doMock("virtual:lattice-private-fonts-license", () => ({ fontLicenseUrl: "/assets/LICENSE-stand-in.pdf" }));
+    try {
+      const withFonts = await import("./app-settings");
+      expect(withFonts.loadSettingsTab()).toBe("acknowledgements");
+    } finally {
+      vi.doUnmock("virtual:lattice-private-fonts-license");
+    }
   });
 });
 
