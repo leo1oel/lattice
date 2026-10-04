@@ -1296,7 +1296,7 @@ fn a_sync_is_one_wide_event_with_counts_and_no_content() {
     assert_eq!(event["download"], "full");
     assert_eq!(event["remote_files"], 2);
     assert_eq!(event["upload_bytes"], b"secret local words".len());
-    assert!(event["http_requests"].as_u64().unwrap() > 0, "{event}");
+    assert_eq!(event["http_requests"], server.recorded().len(), "{event}");
     assert!(event["download_ms"].is_u64() && event["upload_ms"].is_u64(), "{event}");
     let line = event.to_string();
     assert!(!line.contains("secret") && !line.contains(&*root.to_string_lossy()), "{line}");
@@ -1314,4 +1314,8 @@ fn sync_failures_are_classified_with_a_fix() {
     );
     assert_eq!(classify_sync_error("Could not write main.tex: disk full").kind, "local_io");
     assert!(!classify_sync_error("anything else").fix.is_empty());
+    let upload = |cause: &str| format!("Failed to upload \"a/main.tex\" to Overleaf: {cause}");
+    assert_eq!(classify_sync_error(&upload(SESSION_EXPIRED)).kind, "session_expired");
+    assert_eq!(classify_sync_error(&upload("Overleaf returned 500: busy")).kind, "server_refused");
+    assert_eq!(classify_sync_error(&upload("Could not reach Overleaf: reset")).kind, "network");
 }

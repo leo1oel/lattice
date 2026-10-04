@@ -248,6 +248,7 @@ pub(super) fn read_zip_entries(bytes: &[u8]) -> Result<BTreeMap<String, Vec<u8>>
 pub(super) fn fetch_remote_version(
     client: &Client, host: &str, cookie: &str, project_id: &str,
 ) -> Option<i64> {
+    wide_event::add("http_requests", 1);
     let response = client
         .get(format!("{host}/project/{project_id}/updates?min_count=1"))
         .header(COOKIE, cookie)
@@ -328,20 +329,26 @@ impl Uploader<'_> {
         }
         let next = AtomicUsize::new(0);
         let failures = Mutex::new(BTreeMap::new());
+        let span = tracing::Span::current();
+        let dispatch = tracing::dispatcher::get_default(Clone::clone);
         std::thread::scope(|scope| {
             for _ in 0..PARALLEL_UPLOADS.min(together.len()) {
-                scope.spawn(|| loop {
-                    let index = next.fetch_add(1, Ordering::Relaxed);
-                    let Some((rel, bytes)) = together.get(index) else { break };
-                    if !failures.lock().unwrap_or_else(PoisonError::into_inner).is_empty() {
-                        break;
-                    }
-                    if let Err(error) = self.upload(rel, (*bytes).clone()) {
-                        failures
-                            .lock()
-                            .unwrap_or_else(PoisonError::into_inner)
-                            .insert(index, error);
-                    }
+                scope.spawn(|| {
+                    tracing::dispatcher::with_default(&dispatch, || {
+                        span.in_scope(|| loop {
+                            let index = next.fetch_add(1, Ordering::Relaxed);
+                            let Some((rel, bytes)) = together.get(index) else { break };
+                            if !failures.lock().unwrap_or_else(PoisonError::into_inner).is_empty() {
+                                break;
+                            }
+                            if let Err(error) = self.upload(rel, (*bytes).clone()) {
+                                failures
+                                    .lock()
+                                    .unwrap_or_else(PoisonError::into_inner)
+                                    .insert(index, error);
+                            }
+                        })
+                    })
                 });
             }
         });

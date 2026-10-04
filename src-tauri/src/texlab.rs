@@ -34,6 +34,9 @@ type Subscription = Arc<Mutex<Option<DiagnosticSubscription>>>;
 #[derive(Default)]
 pub struct TexlabPool {
     live: Option<Session>,
+    /// The kind of the last start failure, until a start succeeds. Requests
+    /// retry the start on every keystroke, so a repeat of it is not logged.
+    failed_start: Option<&'static str>,
 }
 
 /// A project-relative `.tex` path, or `None` for anything TexLab should not see.
@@ -136,13 +139,28 @@ impl TexlabPool {
         match self.live {
             Some(ref mut live) => Ok(live),
             None => {
-                let operation = wide_event::Operation::start("texlab.start", classify_start_error);
-                operation.record("reason", reason);
-                let session = operation.run_sync(|| {
-                    wide_event::project(&root_canon);
-                    Session::start(root, root_canon)
-                })?;
-                Ok(self.live.insert(session))
+                let logged = |start: &dyn Fn() -> Result<Session, String>| {
+                    let operation =
+                        wide_event::Operation::start("texlab.start", classify_start_error);
+                    operation.record("reason", reason);
+                    operation.run_sync(|| {
+                        wide_event::project(&root_canon);
+                        start()
+                    })
+                };
+                let start = || Session::start(root, root_canon.clone());
+                let started = match self.failed_start {
+                    None => logged(&start),
+                    Some(kind) => start().or_else(|error| {
+                        if classify_start_error(&error).kind == kind {
+                            Err(error)
+                        } else {
+                            logged(&|| Err(error.clone()))
+                        }
+                    }),
+                };
+                self.failed_start = started.as_ref().err().map(|e| classify_start_error(e).kind);
+                Ok(self.live.insert(started?))
             }
         }
     }

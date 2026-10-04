@@ -597,6 +597,10 @@ fn sync_client() -> Result<Client, String> {
 
 /// What a failed sync means for whoever reads the log.
 pub fn classify_sync_error(error: &str) -> Failure {
+    let error = error
+        .strip_prefix("Failed to upload ")
+        .and_then(|rest| rest.split_once(" to Overleaf: "))
+        .map_or(error, |(_, cause)| cause);
     if error == SESSION_EXPIRED || error == NOT_CONNECTED {
         Failure {
             kind: "session_expired",
