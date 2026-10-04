@@ -402,6 +402,23 @@ describe("named workspaces in the titlebar", () => {
     expect(tabNames()).toEqual(["Workspace", "Proofs"]);
   });
 
+  // `size` counts characters at the average Latin width, about half a CJK
+  // glyph's, so "工作区 副本" overflowed its field and scrolled its first
+  // character out of view. A hidden copy of the draft now sizes the field.
+  it("sizes the name field to its draft, CJK included, wide or folded", () => {
+    const { controller } = withWorkspaces();
+    const { rerender } = render(<LayoutSwitch controller={controller} compact={false} />);
+    fireEvent.doubleClick(screen.getByRole("tab", { name: "Workspace" }));
+    const field = screen.getByRole("textbox", { name: "Workspace name" }) as HTMLInputElement;
+    const sizer = field.parentElement!;
+    fireEvent.change(field, { target: { value: "工作区 副本" } });
+    expect(sizer).toHaveAttribute("data-value", "工作区 副本");
+    rerender(<LayoutSwitch controller={controller} compact />);
+    expect(screen.getByRole("textbox", { name: "Workspace name" })).toBe(field);
+    fireEvent.change(field, { target: { value: "工作区副本工作区副本" } });
+    expect(sizer).toHaveAttribute("data-value", "工作区副本工作区副本");
+  });
+
   it("duplicates and deletes from the context menu, and Undo brings a deleted workspace back", async () => {
     const { controller, library } = withWorkspaces();
     render(<TrellisTitlebar controller={controller} />);
