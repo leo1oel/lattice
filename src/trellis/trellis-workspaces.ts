@@ -226,16 +226,24 @@ export class WorkspaceLibrary {
   private summaries: readonly WorkspaceSummary[] = [];
   private listeners = new Set<Listener>();
 
-  private load(): SavedLibrary {
-    if (this.saved) return this.saved;
-    let saved: SavedLibrary | null = null;
+  /** The library as stored now, if a valid one is. */
+  private read(): SavedLibrary | null {
     try {
       const raw = localStorage.getItem(LIBRARY_KEY);
-      if (raw) {
-        const parsed = JSON.parse(raw) as Partial<SavedLibrary>;
-        const workspaces = Array.isArray(parsed.workspaces) ? parsed.workspaces.filter(isWorkspace) : [];
-        if (workspaces.length) saved = { version: LIBRARY_VERSION, workspaces, recent: typeof parsed.recent === "string" ? parsed.recent : undefined };
-      } else {
+      if (!raw) return null;
+      const parsed = JSON.parse(raw) as Partial<SavedLibrary>;
+      const workspaces = Array.isArray(parsed.workspaces) ? parsed.workspaces.filter(isWorkspace) : [];
+      return workspaces.length ? { version: LIBRARY_VERSION, workspaces, recent: typeof parsed.recent === "string" ? parsed.recent : undefined } : null;
+    } catch {
+      return null;
+    }
+  }
+
+  private load(): SavedLibrary {
+    if (this.saved) return this.saved;
+    let saved = this.read();
+    try {
+      if (!saved && localStorage.getItem(LIBRARY_KEY) === null) {
         saved = migrate(localStorage);
         this.saved = saved;
         this.persist();
@@ -248,6 +256,23 @@ export class WorkspaceLibrary {
     return this.saved;
   }
 
+  /**
+   * The library as another window may have left it: every write starts from
+   * it, so none puts back a copy older than another window's change. The
+   * titlebar hears of a change to the list.
+   */
+  private fresh(): SavedLibrary {
+    const saved = this.read();
+    if (!saved) return this.load();
+    this.saved = saved;
+    const summaries = saved.workspaces.map(({ id, name }) => ({ id, name }));
+    if (JSON.stringify(summaries) !== JSON.stringify(this.summaries)) {
+      this.summaries = summaries;
+      this.notify();
+    }
+    return saved;
+  }
+
   private persist() {
     try {
       if (this.saved) localStorage.setItem(LIBRARY_KEY, JSON.stringify(this.saved));
@@ -256,22 +281,35 @@ export class WorkspaceLibrary {
     }
   }
 
+  private notify() {
+    for (const listener of [...this.listeners]) listener();
+  }
+
   /** Persist a change to the list, and tell the titlebar. */
   private commit(workspaces: Workspace[], recent = this.load().recent) {
     this.saved = { version: LIBRARY_VERSION, workspaces, recent };
     this.summaries = workspaces.map(({ id, name }) => ({ id, name }));
     this.persist();
-    for (const listener of [...this.listeners]) listener();
+    this.notify();
   }
+
+  private onStorage = (event: StorageEvent) => {
+    if (event.key === LIBRARY_KEY) this.fresh();
+  };
 
   list = (): readonly WorkspaceSummary[] => {
     this.load();
     return this.summaries;
   };
 
+  /** Another window's changes are heard only while someone listens. */
   subscribe = (listener: Listener) => {
+    if (!this.listeners.size) window.addEventListener("storage", this.onStorage);
     this.listeners.add(listener);
-    return () => { this.listeners.delete(listener); };
+    return () => {
+      this.listeners.delete(listener);
+      if (!this.listeners.size) window.removeEventListener("storage", this.onStorage);
+    };
   };
 
   get(id: string): Workspace | undefined {
@@ -285,18 +323,19 @@ export class WorkspaceLibrary {
   }
 
   use(id: string) {
-    const saved = this.load();
+    const saved = this.fresh();
     if (saved.recent === id || !this.get(id)) return;
     saved.recent = id;
     this.persist();
   }
 
-  /** The workspace's arrangement from now on (no one is notified: nothing listed changes). */
-  setArrangement(id: string, arrangement: LayoutDocument) {
-    const entry = this.get(id);
-    if (!entry || entry.arrangement === arrangement) return;
+  /** The workspace's arrangement from now on (no one is notified: nothing listed changes); false when it is gone. */
+  setArrangement(id: string, arrangement: LayoutDocument): boolean {
+    const entry = this.fresh().workspaces.find((candidate) => candidate.id === id);
+    if (!entry) return false;
     entry.arrangement = arrangement;
     this.persist();
+    return true;
   }
 
   /** Whether `name` is free for a workspace: none other has it, ignoring case. */
@@ -317,7 +356,7 @@ export class WorkspaceLibrary {
 
   /** Add a workspace with a free name, after `after` (else last); returns its id. */
   add(name: string, arrangement: LayoutDocument | null, after?: string): string {
-    const workspaces = [...this.load().workspaces];
+    const workspaces = [...this.fresh().workspaces];
     const id = newId();
     const at = after ? workspaces.findIndex((entry) => entry.id === after) + 1 : 0;
     workspaces.splice(at > 0 ? at : workspaces.length, 0, { id, name: this.uniqueName(name), arrangement });
@@ -327,7 +366,7 @@ export class WorkspaceLibrary {
 
   /** A copy of `id` right after it, named from `name`; returns its id. */
   duplicate(id: string, name: string): string | null {
-    const source = this.get(id);
+    const source = this.fresh().workspaces.find((entry) => entry.id === id);
     if (!source) return null;
     return this.add(name, source.arrangement ? structuredClone(source.arrangement) : null, id);
   }
@@ -336,6 +375,7 @@ export class WorkspaceLibrary {
   rename(id: string, name: string): "renamed" | "empty" | "taken" {
     const trimmed = name.trim().slice(0, WORKSPACE_NAME_MAX);
     if (!trimmed) return "empty";
+    this.fresh();
     if (!this.nameFree(trimmed, id)) return "taken";
     const workspaces = this.load().workspaces;
     if (workspaces.find((entry) => entry.id === id)?.name !== trimmed) {
@@ -346,7 +386,7 @@ export class WorkspaceLibrary {
 
   /** Move `id` to position `index`. */
   move(id: string, index: number) {
-    const workspaces = [...this.load().workspaces];
+    const workspaces = [...this.fresh().workspaces];
     const from = workspaces.findIndex((entry) => entry.id === id);
     const to = Math.max(0, Math.min(index, workspaces.length - 1));
     if (from < 0 || from === to) return;
@@ -357,7 +397,7 @@ export class WorkspaceLibrary {
 
   /** Remove `id`, with what `restore` needs to put it back; never the last one. */
   remove(id: string): { workspace: Workspace; index: number } | null {
-    const workspaces = [...this.load().workspaces];
+    const workspaces = [...this.fresh().workspaces];
     const index = workspaces.findIndex((entry) => entry.id === id);
     if (index < 0 || workspaces.length === 1) return null;
     const [workspace] = workspaces.splice(index, 1);
@@ -367,8 +407,8 @@ export class WorkspaceLibrary {
 
   /** Put a removed workspace back where it was (its name made free again if taken since). */
   restore({ workspace, index }: { workspace: Workspace; index: number }) {
-    if (this.get(workspace.id)) return;
-    const workspaces = [...this.load().workspaces];
+    const workspaces = [...this.fresh().workspaces];
+    if (workspaces.some((entry) => entry.id === workspace.id)) return;
     workspaces.splice(Math.min(index, workspaces.length), 0, { ...workspace, name: this.uniqueName(workspace.name) });
     this.commit(workspaces);
   }

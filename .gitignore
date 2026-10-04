@@ -51,3 +51,13 @@ literature-worker/.wrangler/
 
 # TypeScript incremental build caches
 *.tsbuildinfo
+
+# The Timeless type family (timeless.co) may be embedded in a local build but
+# never committed: its license forbids public repositories and redistribution.
+# Builds read it from LATTICE_PRIVATE_FONTS_DIR (scripts/private-fonts.ts);
+# src/platform/font-license-guard.test.ts fails if one is tracked anyway.
+Timeless-Type-Family-*/
+Timeless*.woff2
+Timeless*.woff
+Timeless*.ttf
+Timeless*.otf

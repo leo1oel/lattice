@@ -6,6 +6,7 @@ import babel from "@rolldown/plugin-babel";
 import react, { reactCompilerPreset } from "@vitejs/plugin-react";
 import { lingui, linguiTransformerBabelPreset } from "@lingui/vite-plugin";
 import tailwindcss from "@tailwindcss/vite";
+import { privateFontsPlugin } from "./scripts/private-fonts.ts";
 
 const host = process.env.TAURI_DEV_HOST;
 
@@ -149,6 +150,7 @@ export default defineConfig(() => ({
     }),
     tailwindcss(),
     pdfjsAssetsPlugin(),
+    privateFontsPlugin(),
     shikiTrim.plugin,
   ],
 

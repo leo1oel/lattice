@@ -325,6 +325,14 @@ input[type="search"]:focus-visible {
 .project-replace-hit-preview mark { border-radius: 2px; background: var(--highlight-match-surface); color: inherit; }
 .project-find .project-replace-hits { max-height: none; overflow: visible; padding-right: var(--space-5); }
 .project-find-papers { flex: 0 1 auto; min-height: 0; margin-top: var(--space-5); display: flex; flex-direction: column; gap: var(--space-3); }
+/* Scope tabs lead the results, the live status trailing them on one line. A
+   tab's count is a quiet numeral beside its name, solid on the tab you are on. */
+.project-find-scope { display: flex; align-items: center; justify-content: space-between; gap: var(--space-5); min-height: var(--control-height-segmented-compact); }
+.project-find-filter { display: flex; align-items: center; gap: var(--space-3); color: var(--text-secondary); font-size: var(--type-caption-size); }
+.project-find-status { min-width: 0; color: var(--text-secondary); font-size: var(--type-caption-size); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.project-find-scope .ui-segmented-tab { min-width: 52px; }
+.project-find-scope .ui-segmented-tab em { margin-left: var(--space-1); color: var(--text-tertiary); font-style: normal; font-variant-numeric: tabular-nums; transition: color var(--duration-quick) var(--ease-default); }
+.project-find-scope .ui-segmented-tab.active em { color: var(--text-secondary); }
 .history-restore-file { margin-top: var(--space-4); height: 28px; border: 1px solid var(--border-subtle); border-radius: var(--radius-chrome); padding: 0 var(--space-4); background: transparent; color: var(--text-secondary); display: inline-flex; align-items: center; gap: var(--space-3); font-size: var(--type-micro-size); font-weight: 600; }
 .history-restore-file:hover { border-color: var(--control-active-border); background: var(--control-active-soft); color: var(--control-active); }
 

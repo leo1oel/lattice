@@ -395,13 +395,18 @@ body:has(.modal-backdrop, .drawer-backdrop) :is(.latex-selection-toolbar-anchor,
   font-weight: 600;
   cursor: pointer;
 }
-.editor-comment-reply-actions button:hover:not(:disabled) { background: var(--border-subtle); }
+.editor-comment-reply-actions button:not(.primary):hover:not(:disabled) { background: var(--border-subtle); }
+/* --control-active inverts with the theme, so its text must be the paired
+ * contrast token, and hover darkens the fill rather than swapping in the
+ * pale secondary wash under that text. */
 .editor-comment-reply-actions button.primary {
   border-color: transparent;
   background: var(--control-active);
-  color: #fff;
+  color: var(--control-active-contrast);
 }
-.editor-comment-reply-actions button.primary:hover:not(:disabled) { filter: brightness(1.06); }
+.editor-comment-reply-actions button.primary:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--control-active) 88%, var(--surface-app));
+}
 .editor-comment-reply-actions button:disabled { opacity: .5; cursor: default; }
 .pdf-mark-item.focused {
   outline: 2px solid var(--control-active);
@@ -759,7 +764,7 @@ body:has(.modal-backdrop, .drawer-backdrop) :is(.latex-selection-toolbar-anchor,
 .markdown-preview-content:has(> .paper-visual-header) { padding-inline: 0; }
 /* Aligned with the visual editor's centered writing column beneath it. */
 .paper-visual-header { box-sizing: border-box; max-width: calc(760px + 2 * var(--space-12)); margin: 0 auto var(--space-16); padding-inline: var(--space-12); font-family: var(--ui-font); }
-.paper-visual-header h1 { margin: 0; color: var(--text-primary); font-size: var(--type-display-size); font-weight: var(--weight-semibold); line-height: 1.2; letter-spacing: -0.02em; overflow-wrap: anywhere; text-wrap: balance; }
+.paper-visual-header h1 { margin: 0; color: var(--text-primary); font-family: var(--reading-font); font-size: var(--type-display-size); font-weight: var(--weight-semibold); line-height: 1.2; letter-spacing: -0.02em; overflow-wrap: anywhere; text-wrap: balance; }
 .paper-visual-header p { margin: var(--space-6) 0 0; color: var(--text-secondary); font-size: var(--type-body-size); line-height: var(--type-body-line-height); overflow-wrap: anywhere; }
 .paper-visual-header .paper-visual-eligibility { margin: 0 0 var(--space-8); padding: var(--space-3) var(--space-4); border-radius: var(--radius-compact); background: var(--status-warning-soft); }
 .paper-reader-shell { min-width: 0; min-height: 0; display: flex; flex-direction: column; overflow: hidden; background: var(--editor-bg); }

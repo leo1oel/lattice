@@ -1114,14 +1114,15 @@ const TrellisWorkspace = memo(function TrellisWorkspace({ controller, projectRoo
         });
       },
       // Revert: the workspace as saved, the open documents kept where they are when it has their panels.
-      revertWorkspace: () => load(workspaceRef.current, placesOf),
+      revertWorkspace: () => {
+        if (controller.workspaces.get(workspaceRef.current)) load(workspaceRef.current, placesOf);
+      },
       // Save: the arrangement under any preset becomes the workspace's.
       saveWorkspace: () => {
         const handle = controller.ws;
         if (!handle) return;
         const own = presetRef.current?.previous ?? handle.getDocument();
-        controller.workspaces.setArrangement(workspaceRef.current, arrangementOf(own));
-        controller.ui.set({ dirty: false });
+        if (controller.workspaces.setArrangement(workspaceRef.current, arrangementOf(own))) controller.ui.set({ dirty: false });
       },
       // A new workspace starts as the arrangement on screen, a preset's
       // included, and the project moves into it without anything moving.
@@ -1157,6 +1158,15 @@ const TrellisWorkspace = memo(function TrellisWorkspace({ controller, projectRoo
     });
     return () => controller.ui.set({ preset: null, dirty: false });
   }, [controller, initial]);
+  // Another window can delete the workspace the project is in: the project
+  // moves to the one last entered, its layout as it is, and remembers that.
+  useEffect(() => controller.workspaces.subscribe(() => {
+    if (controller.workspaces.get(workspaceRef.current)) return;
+    workspaceRef.current = controller.workspaces.recent();
+    controller.ui.set({ workspace: workspaceRef.current });
+    const handle = controller.ws;
+    if (handle) onDocumentChange(handle.getDocument());
+  }), [controller, onDocumentChange]);
 
   const title = (kind: TrellisSingleton) => i18n._(PANEL_TITLES[kind]);
   const actions = (kind: "project" | "papers" | "agent" | "pdf") => () => controller.bridge?.panelMenu(kind) ?? [];

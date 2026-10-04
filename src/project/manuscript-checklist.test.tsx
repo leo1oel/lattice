@@ -83,6 +83,16 @@ describe("ManuscriptChecklistPanel budgets", () => {
     expect(container.querySelector(".checklist-meter")).toBeNull();
   });
 
+  it("leaves main pages unmeasured, not the PDF's total, until the included files show whether there is an appendix", () => {
+    // 12 pages against a 10-page budget would be a false "2 pages over" if
+    // an appendix still unread were taken for none.
+    const { container, row } = renderChecklist({ pages: 12, appendix: { kind: "unread" }, pageBudget: 10 });
+    expect(row("Main pages")).toHaveTextContent("Main pagesUnavailable12 total · included files not read · Limit 10 pages");
+    expect(row("Main pages")).not.toHaveClass("ok");
+    expect(row("Main pages")).not.toHaveClass("warn");
+    expect(container.querySelector(".checklist-meter")).toBeNull();
+  });
+
   it("never passes a budget it cannot measure", () => {
     const { container, row } = renderChecklist({ words: null, wordBudget: 5_500, pages: null, appendix: { kind: "unresolved" }, pageBudget: 9 });
     expect(container.querySelector(".checklist-meter")).toBeNull();

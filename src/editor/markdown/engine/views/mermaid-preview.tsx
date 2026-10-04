@@ -53,8 +53,11 @@ export function MermaidDiagram({ chart }: { chart: string }) {
           startOnLoad: false,
           securityLevel: "strict",
           theme: theme === "dark" ? "dark" : "neutral",
-          // eslint-disable-next-line lingui/no-unlocalized-strings -- a CSS font stack
-          fontFamily: "Inter Variable, Inter, system-ui, sans-serif",
+          // Mermaid measures and writes its labels in this family, so it gets
+          // the resolved interface stack (Timeless in a build that embeds it).
+          fontFamily: getComputedStyle(document.documentElement).getPropertyValue("--ui-font").trim()
+            // eslint-disable-next-line lingui/no-unlocalized-strings -- a CSS font stack
+            || "Inter Variable, Inter, system-ui, sans-serif",
         });
         renderSequence += 1;
         // eslint-disable-next-line lingui/no-unlocalized-strings -- an element id

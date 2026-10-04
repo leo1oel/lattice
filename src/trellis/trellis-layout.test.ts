@@ -345,7 +345,7 @@ describe("named workspaces", () => {
     library.setArrangement(id, arrangement);
     const opened = openProjectLayout("/a", library);
     expect(panels(opened.document)).toEqual(panels(own));
-    expect(library.get(id)!.arrangement).toBe(arrangement);
+    expect(library.get(id)!.arrangement).toEqual(arrangement);
   });
 
   it("opens a project whose workspace was deleted in the one last entered", () => {

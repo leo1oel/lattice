@@ -40,10 +40,13 @@ export type WordCount = {
  * Where `\appendix` splits the compiled PDF. Without an appendix the whole PDF
  * is the main body; with one SyncTeX has not placed (still looking, the lookup
  * failed, or it found no target) the main-body page count is unknown, which
- * is not the same as the PDF's total.
+ * is not the same as the PDF's total. Until every file the root document
+ * includes has been read, whether there is an appendix at all is unknown
+ * ("unread"): a file not yet read may hold it.
  */
 export type AppendixBoundary =
   | { kind: "none" }
+  | { kind: "unread" }
   | { kind: "unresolved" }
   | { kind: "resolved"; mainPages: number };
 

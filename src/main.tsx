@@ -12,6 +12,8 @@ import { MotionConfig } from "motion/react";
 import "@fontsource-variable/inter";
 import "./assets/fonts/ioskeley-mono/ioskeley-mono.css";
 import "@fontsource/instrument-serif/400.css";
+// Timeless @font-face rules and font tokens when this build embeds them, else empty.
+import "virtual:lattice-private-fonts.css";
 import App from "./App";
 import { UpdaterProvider, UpdateBanner } from "./telemetry/app-updater";
 import "./telemetry/app-updater.css";

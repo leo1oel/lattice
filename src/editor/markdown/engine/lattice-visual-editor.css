@@ -38,15 +38,15 @@
   margin: 0 auto;
   padding: var(--space-16) var(--space-12) 40vh;
   outline: none;
-  font-family: var(--ui-font);
+  font-family: var(--reading-font);
   font-size: var(--lx-md-font-size);
   font-weight: var(--weight-regular);
   line-height: var(--lx-md-line-height);
-  font-feature-settings: "cv11", "ss01";
   letter-spacing: -0.003em;
   overflow-wrap: break-word;
   caret-color: var(--text-primary);
-  /* The app turns synthesis off globally; the UI face has no italic of its own. */
+  /* The app turns synthesis off globally; Inter, the reading face when the
+     build has no Timeless, ships no italic of its own. */
   font-synthesis: style;
 }
 

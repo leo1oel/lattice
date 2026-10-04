@@ -2,7 +2,7 @@ import { act, cleanup, render, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { LayoutDocument, LayoutNode } from "@danfessler/trellis";
 import { TrellisController } from "./trellis-controller";
-import { defaultLayout, saveLayout } from "./trellis-layout";
+import { defaultLayout, loadLayout, saveLayout } from "./trellis-layout";
 import TrellisWorkspace from "./trellis-workspace";
 import { arrangementOf, layoutShape, withDocumentPanel, WorkspaceLibrary } from "./trellis-workspaces";
 
@@ -261,5 +261,29 @@ describe("a named workspace", () => {
     expect(ws.views({ type: "slot" })).toHaveLength(1);
     expect(controller.ui.get().dirty).toBe(false);
     unmount();
+  });
+
+  it("deleted by another window, moves the project to the one last entered with its layout kept", async () => {
+    const id = splitWorkspace();
+    const other = new WorkspaceLibrary().add("Other", null);
+    saveLayout("/a", { document: split(), workspace: id });
+    const { controller, ws, unmount } = await open("/a", OPEN);
+    const before = documentPanels(ws.getDocument());
+    act(() => {
+      new WorkspaceLibrary().remove(id);
+      window.dispatchEvent(new StorageEvent("storage", { key: "lattice.trellis-workspaces.v1" }));
+    });
+    expect(controller.ui.get().workspace).toBe(other);
+    expect(documentPanels(ws.getDocument())).toEqual(before);
+    // The split differs from Other, never saved: Save makes it Other's.
+    expect(controller.ui.get().dirty).toBe(true);
+    act(() => controller.saveWorkspace());
+    expect(controller.ui.get().dirty).toBe(false);
+    expect(layoutShape(stored(other))).toBe(SAVED());
+    act(() => controller.revertWorkspace());
+    expect(documentPanels(ws.getDocument())).toEqual(before);
+    expect(controller.ui.get()).toMatchObject({ workspace: other, dirty: false });
+    unmount();
+    expect(loadLayout("/a").workspace).toBe(other);
   });
 });

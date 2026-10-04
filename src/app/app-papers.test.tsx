@@ -195,6 +195,8 @@ describe("papers", () => {
       resolve_citation_query: () => lookup.promise,
       write_project_file: (args) => ({ content: (args as { content: string }).content, hadConflicts: false }),
     });
+    // The palette is a project command; wait for the project before invoking it.
+    await screen.findByRole("button", { name: "Switch project" });
     const openDialog = async () => {
       fireEvent.keyDown(window, { key: "p", metaKey: true, shiftKey: true });
       const palette = await screen.findByPlaceholderText("Run a command…");

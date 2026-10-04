@@ -166,6 +166,33 @@ function buildResult() {
   };
 }
 
+/**
+ * Project search over the fixture: paths and lines holding every term, then each listed
+ * Paper whose title does, shaped like the backend's hits (files first, papers
+ * under `.research/papers/<key>/`), so Find in project can be looked at.
+ */
+function searchProject(query: string) {
+  const terms = query.toLocaleLowerCase().split(/\s+/).filter(Boolean);
+  const matches = (text: string) => terms.length > 0 && terms.every((term) => text.toLocaleLowerCase().includes(term));
+  const hits: Array<Record<string, unknown>> = [];
+  for (const [path, content] of files) {
+    if (typeof content !== "string") continue;
+    if (matches(path)) hits.push({ kind: "file", path, title: path.slice(path.lastIndexOf("/") + 1), snippet: path, line: 1, fileKind: path.split(".").pop() });
+    content.split("\n").forEach((text, index) => {
+      if (hits.length < 40 && matches(text)) {
+        hits.push({ kind: "file", path, title: path.slice(path.lastIndexOf("/") + 1), snippet: text.trim().slice(0, 180), line: index + 1, fileKind: path.split(".").pop() });
+      }
+    });
+  }
+  const papers = libraryPapers ? LIBRARY_PAPERS : params.has("papers") ? BENCH_PAPERS : [];
+  for (const paper of papers) {
+    if (!paper.hasFullText || !matches(paper.title)) continue;
+    const key = paper.arxivId || paper.citationKey;
+    hits.push({ kind: "paper", path: `.research/papers/${key}/paper.md`, title: paper.title, snippet: paper.title, line: null, arxivId: paper.arxivId || null });
+  }
+  return hits;
+}
+
 function answer(command: string, args: Args): unknown {
   counts.set(command, (counts.get(command) ?? 0) + 1);
   switch (command) {
@@ -201,6 +228,8 @@ function answer(command: string, args: Args): unknown {
       return copyBuffer(fixture.compiledPdf);
     case "stat_project_file":
       return { exists: files.has(pathArg(args)), mtimeMs: 1_700_000_000_000 };
+    case "search_project":
+      return searchProject(String(args?.query ?? ""));
     case "harper_lint":
     case "texlab_diagnostics":
       return [];

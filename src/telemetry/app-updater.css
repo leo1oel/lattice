@@ -62,7 +62,7 @@
   border: none;
   border-radius: var(--radius-control);
   background: var(--control-active);
-  color: #fff;
+  color: var(--control-active-contrast);
   font-weight: 600;
   font-size: var(--type-label-size);
   cursor: pointer;

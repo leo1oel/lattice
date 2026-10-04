@@ -80,4 +80,36 @@ describe("the workspace library", () => {
     library.restore(removed);
     expect(library.list().map((entry) => entry.name)).toEqual(["Review", "Workspace"]);
   });
+
+  it("keeps another window's change when this one writes after it", () => {
+    const here = new WorkspaceLibrary();
+    const there = new WorkspaceLibrary();
+    const first = here.recent();
+    expect(there.list()).toEqual(here.list());
+    const draft = there.add("Draft", null);
+    here.use(first);
+    here.rename(first, "Writing");
+    here.setArrangement(first, arrangementOf(defaultLayout()));
+    const stored = new WorkspaceLibrary();
+    expect(stored.list().map((entry) => entry.name)).toEqual(["Writing", "Draft"]);
+    expect(stored.get(draft)).toBeDefined();
+    expect(stored.get(first)?.arrangement).not.toBeNull();
+  });
+
+  it("hears another window's change to the list while subscribed", () => {
+    const here = new WorkspaceLibrary();
+    const there = new WorkspaceLibrary();
+    here.list();
+    const listener = vi.fn();
+    const unsubscribe = here.subscribe(listener);
+    there.add("Draft", null);
+    window.dispatchEvent(new StorageEvent("storage", { key: "lattice.trellis-workspaces.v1" }));
+    expect(listener).toHaveBeenCalled();
+    expect(here.list().map((entry) => entry.name)).toEqual(["Workspace", "Draft"]);
+    unsubscribe();
+    listener.mockClear();
+    there.add("Later", null);
+    window.dispatchEvent(new StorageEvent("storage", { key: "lattice.trellis-workspaces.v1" }));
+    expect(listener).not.toHaveBeenCalled();
+  });
 });

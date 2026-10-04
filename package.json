@@ -109,7 +109,7 @@
     "micromark-util-decode-numeric-character-reference": "^2.0.2",
     "micromark-util-types": "^2.0.2",
     "motion": "^12.42.2",
-    "pdfjs-dist": "6.3.289",
+    "pdfjs-dist": "6.4.299",
     "radix-ui": "^1.6.5",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
@@ -177,10 +177,10 @@
     },
     "patchedDependencies": {
       "@pierre/trees@1.0.0-beta.6": "patches/@pierre__trees@1.0.0-beta.6.patch",
-      "pdfjs-dist@6.3.289": "patches/pdfjs-dist@6.3.289.patch",
       "@tiptap/react@3.31.4": "patches/@tiptap__react@3.31.4.patch",
       "@danfessler/trellis@0.2.0": "patches/@danfessler__trellis@0.2.0.patch",
-      "@pdfslick/core@4.0.2": "patches/@pdfslick__core@4.0.2.patch"
+      "@pdfslick/core@4.0.2": "patches/@pdfslick__core@4.0.2.patch",
+      "pdfjs-dist@6.4.299": "patches/pdfjs-dist@6.4.299.patch"
     }
   }
 }

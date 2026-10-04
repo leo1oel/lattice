@@ -25,9 +25,13 @@ export function SettingsSelect<T extends string>(props: SettingsSelectProps<T>) 
   );
 }
 
-export function SelectRow<T extends string>({ description, ...select }: SettingsSelectProps<T> & { description?: string }) {
+export function SelectRow<T extends string>({ description, "data-setting": setting, ...select }: SettingsSelectProps<T> & {
+  description?: string;
+  /** What Settings search reveals this row by. */
+  "data-setting"?: string;
+}) {
   return (
-    <SettingsRow label={select.label} description={description}>
+    <SettingsRow label={select.label} description={description} data-setting={setting}>
       <SettingsSelect {...select} />
     </SettingsRow>
   );
@@ -35,6 +39,7 @@ export function SelectRow<T extends string>({ description, ...select }: Settings
 
 export function SliderRow(props: {
   id: string;
+  "data-setting"?: string;
   label: string;
   description: string;
   min: number;
@@ -44,7 +49,7 @@ export function SliderRow(props: {
   onChange: (value: number) => void;
 }) {
   return (
-    <SettingsRow htmlFor={props.id} label={props.label} description={props.description}>
+    <SettingsRow htmlFor={props.id} label={props.label} description={props.description} data-setting={props["data-setting"]}>
       <div className="settings-row-slider">
         <input
           id={props.id}

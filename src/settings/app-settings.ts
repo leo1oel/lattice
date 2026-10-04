@@ -15,11 +15,6 @@ export type RecentProject = { name: string; path: string };
 type AutoBuildMode = "manual" | "automatic";
 export type BuildPreferences = { autoBuildMode: AutoBuildMode };
 
-/* eslint-disable lingui/no-unlocalized-strings -- CSS font stacks */
-export const FIXED_UI_FONT = '"Inter Variable", Inter, "Avenir Next", "Segoe UI", sans-serif';
-export const FIXED_EDITOR_FONT = '"Ioskeley Mono", Menlo, "SF Mono", ui-monospace, monospace';
-/* eslint-enable lingui/no-unlocalized-strings */
-
 const RECENT_PROJECTS_KEY = "lattice.recent-projects.v1";
 export const THEME_PREFERENCE_KEY = "lattice.theme-preference.v1";
 export const BUILD_PREFERENCES_KEY = "lattice.build-preferences.v2";
@@ -33,10 +28,12 @@ const LEGACY_APPEARANCE_KEYS = ["lattice.appearance.v4", "lattice.appearance.v3"
 const OVERLEAF_SYNC_MODE_KEY = "lattice.overleaf.sync-mode.v1";
 const OVERLEAF_REMOTE_DELETE_KEY = "lattice.overleaf.remote-delete.v1";
 const SETTINGS_TAB_KEY = "lattice.settings-tab.v1";
+const RECENT_COMMANDS_KEY = "lattice.recent-commands.v1";
 /** Per-project maps (last file, workspace layout, file views) keep this many projects. */
 const PROJECT_HISTORY_MAX = 60;
 const FILE_VIEW_STATE_FILE_MAX = 200;
 const RECENT_PROJECTS_MAX = 8;
+const RECENT_COMMANDS_MAX = 8;
 
 // Every preference here is a convenience: when storage is unavailable or holds
 // something unreadable, reads fall back to the default and writes last only for
@@ -118,6 +115,23 @@ export function rememberRecentProject(entry: RecentProject): RecentProject[] {
 /// Drop a project from the list — it could not be opened.
 export function forgetRecentProject(path: string): RecentProject[] {
   return persistRecentProjects(loadRecentProjects().filter((item) => item.path !== path));
+}
+
+/** The palette's recently run command ids, newest first. Only ids: never a query or anything from a document. */
+export function loadRecentCommands(): string[] {
+  return safely(() => {
+    const value = JSON.parse(localStorage.getItem(RECENT_COMMANDS_KEY) ?? "[]") as unknown;
+    return Array.isArray(value)
+      ? value.filter((id): id is string => typeof id === "string").slice(0, RECENT_COMMANDS_MAX)
+      : [];
+  }, []);
+}
+
+/** Records a command run from the palette, re-reading storage like the recent projects (another window may have run one). */
+export function rememberRecentCommand(id: string): string[] {
+  const commands = [id, ...loadRecentCommands().filter((existing) => existing !== id)].slice(0, RECENT_COMMANDS_MAX);
+  persistSetting(RECENT_COMMANDS_KEY, JSON.stringify(commands));
+  return commands;
 }
 
 export const hasSeenTutorial = () => safely(() => localStorage.getItem(TUTORIAL_SEEN_KEY) === "1", false);
