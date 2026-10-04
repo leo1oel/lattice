@@ -113,6 +113,26 @@ impl Operation {
         result
     }
 
+    /// [`Operation::run_sync`], except that the event is not written when
+    /// `unlogged` says the result is not worth one, such as a failure that
+    /// repeats on every keystroke.
+    pub fn run_sync_unless<T>(
+        self, work: impl FnOnce() -> Result<T, String>,
+        unlogged: impl FnOnce(&Result<T, String>) -> bool,
+    ) -> Result<T, String> {
+        let result = self.span.in_scope(work);
+        if unlogged(&result) {
+            self.span.with_subscriber(|(id, dispatch)| {
+                if let Some(span) = dispatch.downcast_ref::<Registry>().and_then(|r| r.span(id)) {
+                    span.extensions_mut().remove::<Fields>();
+                }
+            });
+        } else {
+            self.finish(&result);
+        }
+        result
+    }
+
     /// Close an operation that is not one call (a browser session): a
     /// success, or the failure and its cause.
     pub fn end(self, failure: Option<(Failure, &str)>) {
@@ -532,6 +552,22 @@ pub(crate) mod tests {
         assert_eq!(events[1]["outcome"], "abandoned");
         let lines = capture.0.lock().unwrap();
         assert_eq!(lines.iter().filter(|(level, ..)| *level == log::Level::Warn).count(), 1);
+    }
+
+    #[test]
+    fn an_unlogged_result_writes_no_event() {
+        let (_, capture) = capture(|| {
+            let quiet = Operation::start("test.quiet", failing)
+                .run_sync_unless(|| Err::<(), _>("again".to_string()), |_| true);
+            assert!(quiet.is_err());
+            let logged = Operation::start("test.logged", failing)
+                .run_sync_unless(|| Ok::<_, String>(()), |result| result.is_err());
+            assert!(logged.is_ok());
+        });
+        let events = capture.events();
+        assert_eq!(events.len(), 1, "{events:?}");
+        assert_eq!(events[0]["event"], "test.logged");
+        assert_eq!(events[0]["outcome"], "success");
     }
 
     #[test]

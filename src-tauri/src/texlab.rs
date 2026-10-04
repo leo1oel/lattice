@@ -139,27 +139,20 @@ impl TexlabPool {
         match self.live {
             Some(ref mut live) => Ok(live),
             None => {
-                let logged = |start: &dyn Fn() -> Result<Session, String>| {
-                    let operation =
-                        wide_event::Operation::start("texlab.start", classify_start_error);
-                    operation.record("reason", reason);
-                    operation.run_sync(|| {
+                let failed_start = self.failed_start;
+                let kind = |result: &Result<Session, String>| {
+                    result.as_ref().err().map(|error| classify_start_error(error).kind)
+                };
+                let operation = wide_event::Operation::start("texlab.start", classify_start_error);
+                operation.record("reason", reason);
+                let started = operation.run_sync_unless(
+                    || {
                         wide_event::project(&root_canon);
-                        start()
-                    })
-                };
-                let start = || Session::start(root, root_canon.clone());
-                let started = match self.failed_start {
-                    None => logged(&start),
-                    Some(kind) => start().or_else(|error| {
-                        if classify_start_error(&error).kind == kind {
-                            Err(error)
-                        } else {
-                            logged(&|| Err(error.clone()))
-                        }
-                    }),
-                };
-                self.failed_start = started.as_ref().err().map(|e| classify_start_error(e).kind);
+                        Session::start(root, root_canon)
+                    },
+                    |result| kind(result).is_some_and(|kind| failed_start == Some(kind)),
+                );
+                self.failed_start = kind(&started);
                 Ok(self.live.insert(started?))
             }
         }
@@ -722,6 +715,22 @@ mod tests {
         );
         assert!(result.is_ok());
         pool.reset();
+    }
+
+    #[test]
+    fn a_repeated_start_failure_is_logged_once() {
+        let parent = crate::test_support::TempDir::new("texlab-start");
+        let missing = parent.join("missing");
+        let mut pool = TexlabPool::default();
+        let ((), capture) = crate::wide_event::tests::capture(|| {
+            for _ in 0..3 {
+                assert!(pool.live_for(&missing, "start").is_err());
+            }
+        });
+        let events = capture.events();
+        assert_eq!(events.len(), 1, "{events:?}");
+        assert_eq!(events[0]["event"], "texlab.start");
+        assert_eq!(events[0]["error_kind"], "texlab_missing");
     }
 
     #[test]
