@@ -1,4 +1,4 @@
-import { tauriEventApi, fileNode, fileNodes, dirNode, type CommandResult, projectCommands, refreshableProject, attentionPaper, ROOT, projectSnapshot, rootDocument, markdownSnapshot, EMPTY_BOARD, BIB_SOURCE, PAPER_ABSTRACT, readFiles, readPathContent, deferred, selectPanelTab, selectDocumentView, findProjectTreeItem, renderApp, exposeGarbageCollector, expectNotification, emitTauriEvent, editorViewAt, appendToEditor, expectEditorText, postWindowMessage, expectInvoked, invokeCalls, pause, nextFrames, stubRect, persistLayout, paneContent, visualEditorOf, visualDocument, argPath, waitForSelectedTab, openTreeFile, stubScrollBox, chooseProjectMenuItem } from "./app-test-utils";
+import { tauriEventApi, fileNode, fileNodes, dirNode, type CommandResult, projectCommands, refreshableProject, attentionPaper, ROOT, projectSnapshot, rootDocument, markdownSnapshot, EMPTY_BOARD, BIB_SOURCE, PAPER_ABSTRACT, readFiles, readPathContent, deferred, selectPanelTab, selectDocumentView, findProjectTreeItem, renderApp, exposeGarbageCollector, expectNotification, emitTauriEvent, editorViewAt, appendToEditor, expectEditorText, postWindowMessage, expectInvoked, invokeCalls, pause, nextFrames, stubRect, persistLayout, paneContent, visualEditorOf, visualDocument, argPath, waitForSelectedTab, openTreeFile, stubScrollBox, chooseProjectMenuItem, findSettingsDialog } from "./app-test-utils";
 import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { syntaxTree } from "@codemirror/language";
@@ -720,7 +720,8 @@ describe("documents and editors", () => {
     });
     await chooseProjectMenuItem("Settings");
     // Settings is lazy; this suite can be the first to open it.
-    fireEvent.click(await screen.findByRole("button", { name: "Editor & builds" }));
+    await findSettingsDialog();
+    fireEvent.click(screen.getByRole("button", { name: "Editor & builds" }));
     expect(screen.getByRole("list", { name: "Project dictionary terms" })).toHaveTextContent("VLM");
     fireEvent.change(screen.getByLabelText("Add project term"), { target: { value: "TexLab" } });
     fireEvent.click(screen.getByRole("button", { name: "Add" }));

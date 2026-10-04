@@ -245,6 +245,8 @@ button.checklist-row:hover { background: var(--control-hover-surface); }
    place at its size. Settings that takes its shell's place is already on
    screen, so it does not arrive a second time. */
 .tool-loading-shell-body { height: 100%; display: grid; place-items: center; }
+/* Its loading message is for assistive technology; the loader says it to the eye. */
+.tool-loading-shell-message { position: absolute; width: 1px; height: 1px; margin: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 /* A shell outstaying its tool (useLoadingShell's minimum time) lies over it. */
 .modal-dialog-content.tool-loading-shell-card { z-index: calc(var(--z-modal) + 1); }
 .modal-backdrop.settings-replaces-shell,

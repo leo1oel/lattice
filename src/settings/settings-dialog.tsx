@@ -1,5 +1,5 @@
 import { Settings } from "lucide-react";
-import { type FormEvent, type ReactNode, useLayoutEffect, useRef, useState } from "react";
+import { type FormEvent, type ReactNode, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
@@ -42,8 +42,12 @@ import { synaraFrameUrl, type SynaraRuntimeInfo } from "../agent/synara-runtime"
 const SYNARA_SETTINGS_SECTIONS: Partial<Record<SettingsTab, string>> = { agent: "providers", api: "skills", mcp: "integrations" };
 
 type SettingsDialogProps = DoctorSettingsProps & {
-  /** Settings takes its loading shell's place (`app/tool-loading-shell.tsx`), so it is already on screen. */
-  replacesShell?: boolean;
+  /**
+   * Its loading shell (`app/tool-loading-shell.tsx`) still lies over it.
+   * Settings that mounts under it takes its place, so it is already on
+   * screen, and takes focus as the shell goes.
+   */
+  covered?: boolean;
   synaraRuntime: SynaraRuntimeInfo;
   synaraWorkspaceRoot?: string;
   onRetrySynaraRuntime: () => void;
@@ -81,7 +85,13 @@ type SettingsDialogProps = DoctorSettingsProps & {
 
 export function SettingsDialog(props: SettingsDialogProps) {
   const { t } = useLingui();
-  const [replacesShell] = useState(props.replacesShell);
+  const [replacesShell] = useState(props.covered);
+  const searchRef = useRef<HTMLInputElement>(null);
+  // Settings opens in its search (`SettingsSearch`); under its shell, once
+  // that is gone, as until then it holds focus.
+  useEffect(() => {
+    if (replacesShell && !props.covered) searchRef.current?.focus({ preventScroll: true });
+  }, [replacesShell, props.covered]);
   const settingsNavGroups = [
     { label: t`General`, items: [
       { tab: "appearance", label: t`Appearance`, icon: "faders" },
@@ -194,6 +204,7 @@ export function SettingsDialog(props: SettingsDialogProps) {
       label={t`Settings`}
       onClose={props.onClose}
       returnFocus={props.returnFocus}
+      covered={props.covered}
       backdropClassName={replacesShell ? "settings-replaces-shell" : undefined}
       windowDragTop={{ onMouseDown: beginWindowDrag, onDoubleClick: toggleWindowFullscreen }}
     >
@@ -211,6 +222,8 @@ export function SettingsDialog(props: SettingsDialogProps) {
           <nav className="settings-nav fluid-hover-surface" aria-label={t`Settings sections`}>
             <FluidHoverSurface selector=".settings-nav-group > button" preserveSelection transition={spring.moderate} />
             <SettingsSearch
+              inputRef={searchRef}
+              autoFocus={!replacesShell}
               entries={searchEntries}
               query={searchQuery}
               onQueryChange={setSearchQuery}
