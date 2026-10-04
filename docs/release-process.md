@@ -81,12 +81,13 @@ create the Release and upload assets.
    `save-if: false` prevents the tag build from writing a cache no later release could read.
 5. **`pnpm install --frozen-lockfile`.**
 6. **Fetch the pinned Synara source.** The workflow reads `repository` and `revision` from `scripts/synara-runtime.json`, shallow-fetches exactly that revision into `$RUNNER_TEMP/lattice-synara`, asserts `HEAD` equals the pin, and exports `SYNARA_SOURCE_DIR` and `BUN_BIN`.
-7. **Import the Apple Developer ID certificate.** The workflow base64-decodes `APPLE_CERTIFICATE` into a `.p12`, creates a throwaway keychain, imports the certificate with `-T /usr/bin/codesign`, sets the key partition list so codesign can use it without prompting, makes it the active keychain, finds the `Developer ID Application` identity, and exports it as `APPLE_SIGNING_IDENTITY`.
-8. **Restore the prepared Synara runtime.** The restore-only cache is written on `main` and keyed by the target platform, `scripts/synara-runtime.json`, and `scripts/prepare-synara-sidecar.mjs`.
+7. **Fetch the licensed interface fonts.** With the `LATTICE_FONTS_DEPLOY_KEY` secret, the workflow clones the private `leo1oel/lattice-fonts` repository into `$RUNNER_TEMP/lattice-fonts` and exports `LATTICE_PRIVATE_FONTS_DIR` and `LATTICE_PRIVATE_FONTS_REQUIRED=1`, so a missing or incomplete copy fails the build; without the secret it builds with the open-licensed fonts. See [`design-system.md`, "Private interface fonts"](design-system.md#private-interface-fonts).
+8. **Import the Apple Developer ID certificate.** The workflow base64-decodes `APPLE_CERTIFICATE` into a `.p12`, creates a throwaway keychain, imports the certificate with `-T /usr/bin/codesign`, sets the key partition list so codesign can use it without prompting, makes it the active keychain, finds the `Developer ID Application` identity, and exports it as `APPLE_SIGNING_IDENTITY`.
+9. **Restore the prepared Synara runtime.** The restore-only cache is written on `main` and keyed by the target platform, `scripts/synara-runtime.json`, and `scripts/prepare-synara-sidecar.mjs`.
    A miss runs `bun install --frozen-lockfile` and lets `pnpm prepare:build` build the runtime normally.
    A hit lets the preparation script validate the source-derived manifest and re-sign the cached unsigned binaries with the current Developer ID certificate without rebuilding Synara's four-minute web bundle.
-9. **Prepare the App Store Connect API key.** The workflow writes `APPLE_API_PRIVATE_KEY` to `$RUNNER_TEMP/AuthKey_$APPLE_API_KEY.p8` with mode 600 and exports `APPLE_API_KEY_PATH`.
-10. **Build, sign, and publish** with `tauri-apps/tauri-action@v1`:
+10. **Prepare the App Store Connect API key.** The workflow writes `APPLE_API_PRIVATE_KEY` to `$RUNNER_TEMP/AuthKey_$APPLE_API_KEY.p8` with mode 600 and exports `APPLE_API_KEY_PATH`.
+11. **Build, sign, and publish** with `tauri-apps/tauri-action@v1`:
    - `args: --target aarch64-apple-darwin` (this is what makes the updater
      platform key `darwin-aarch64`);
    - `releaseDraft: true` — the Release stays a **draft** until verification
@@ -100,16 +101,22 @@ create the Release and upload assets.
    - `LATTICE_FIRECRAWL_KEY` is compiled into the binary here via `option_env!`
      in `src-tauri/src/literature_credentials.rs`. It is extractable from the shipped app —
      that is a known and accepted trade-off; rotate it on abuse.
-11. **Notarize.** `xcrun notarytool submit <dmg> --wait` with the API key, then
+12. **Check the built app for loose font files** with
+    `node scripts/check-font-leaks.mjs app <Lattice.app>`, before it is packaged
+    any further.
+13. **Notarize.** `xcrun notarytool submit <dmg> --wait` with the API key, then
     `xcrun stapler staple <dmg>`.
-12. **Verify before publishing.** On the DMG: `codesign --verify --strict`,
+14. **Verify before publishing.** On the DMG: `codesign --verify --strict`,
     `spctl --assess --type open --context context:primary-signature`, and
     `xcrun stapler validate`. Then it mounts the DMG and repeats on the `.app`
     inside: `codesign --verify --deep --strict`, `spctl --assess --type
     execute`, `xcrun stapler validate`.
-13. **Upload the stapled DMG** with `gh release upload --clobber` (the stapled
+15. **Upload the stapled DMG** with `gh release upload --clobber` (the stapled
     ticket is added after tauri-action's own upload, so the asset is replaced).
-14. **Publish** with `gh release edit "$GITHUB_REF_NAME" --draft=false`.
+16. **Check the release assets for font files.** Downloads the draft's assets
+    and runs `node scripts/check-font-leaks.mjs assets <dir>`: only the signed
+    artifacts and `latest.json`, none of them a font.
+17. **Publish** with `gh release edit "$GITHUB_REF_NAME" --draft=false`.
 
 If any verification step fails, the Release simply stays a draft and nothing
 reaches users.
@@ -137,6 +144,7 @@ Changing the Synara pin or preparation script creates a new cache key; the first
 | `TAURI_SIGNING_PRIVATE_KEY` | Updater signing private key (minisign) |
 | `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` | Password for it (empty string for the current key) |
 | `LATTICE_FIRECRAWL_KEY` | Shared Firecrawl key baked into release builds |
+| `LATTICE_FONTS_DEPLOY_KEY` | Read-only SSH deploy key for the private `leo1oel/lattice-fonts` repository (optional; without it the release ships the open-licensed fonts) |
 
 `GITHUB_TOKEN` is provided automatically by Actions; it does not need to be
 created.
