@@ -435,15 +435,29 @@ function pdfViewport() {
   return [...document.querySelectorAll(".pdf-scroll-area-viewport")].find((viewport) => viewport.getBoundingClientRect().width > 100) ?? null;
 }
 
+/**
+ * The page count a PDF viewport's toolbar shows. The viewer holds only the
+ * pages near the view (PDF.js's page window), so its page boxes are no count.
+ */
+function pdfPageTotal(viewport) {
+  const text = viewport.closest(".pdf-preview")?.querySelector(".pdf-page-value")?.textContent ?? "";
+  return Number(/\/\s*(\d+)/.exec(text)?.[1] ?? 0);
+}
+
+function pdfViewportWith(pages) {
+  return [...document.querySelectorAll(".pdf-scroll-area-viewport")].find((candidate) => candidate.getBoundingClientRect().width > 100 && pdfPageTotal(candidate) === pages);
+}
+
 function blankPages(viewport) {
   const rect = viewport.getBoundingClientRect();
   let visible = 0;
   let blank = 0;
-  for (const page of viewport.querySelectorAll(".pdfViewer .page")) {
-    const box = page.getBoundingClientRect();
+  for (const child of viewport.querySelectorAll(".pdfViewer > *")) {
+    const box = child.getBoundingClientRect();
     if (Math.min(box.bottom, rect.bottom) - Math.max(box.top, rect.top) < 40) continue;
     visible += 1;
-    if (!page.querySelector("canvas") || page.querySelector(".loadingIcon:not(.notVisible)") || !page.getAttribute("data-loaded")) blank += 1;
+    // A spacer standing in for pages outside the page window on screen is pages not drawn.
+    if (!child.classList.contains("page") || !child.querySelector("canvas") || child.querySelector(".loadingIcon:not(.notVisible)") || !child.getAttribute("data-loaded")) blank += 1;
   }
   return { visible, blank };
 }
@@ -611,11 +625,11 @@ async function bigPdf(path, pages) {
   await settle(500);
   const started = performance.now();
   await openFile(path);
-  const viewport = await waitFor(() => [...document.querySelectorAll(".pdf-scroll-area-viewport")].find((candidate) => candidate.getBoundingClientRect().width > 100 && candidate.querySelectorAll(".pdfViewer .page").length === pages), `${path} viewer`, 60_000);
+  const viewport = await waitFor(() => pdfViewportWith(pages), `${path} viewer`, 60_000);
   await waitFor(() => viewport.querySelector(".pdfViewer .page canvas"), "first canvas", 60_000);
   const firstCanvasMs = Math.round(performance.now() - started);
   await settle(800, 30_000);
-  const pageCount = viewport.querySelectorAll(".pdfViewer .page").length;
+  const pageCount = pdfPageTotal(viewport);
   const flingResult = await fling(viewport, 200, 120, 8, true);
   await settle(500, 20_000);
   const jumpStart = performance.now();
@@ -956,7 +970,7 @@ async function openVisual() {
 
 async function zoomLoop(path, pages) {
   await openFile(path);
-  const viewport = await waitFor(() => [...document.querySelectorAll(".pdf-scroll-area-viewport")].find((candidate) => candidate.getBoundingClientRect().width > 100 && candidate.querySelectorAll(".pdfViewer .page").length === pages), `${path} viewer`, 60_000);
+  const viewport = await waitFor(() => pdfViewportWith(pages), `${path} viewer`, 60_000);
   await waitFor(() => viewport.querySelector(".pdfViewer .page canvas"), "first canvas", 60_000);
   await settle(800, 30_000);
   const { x, y } = center(viewport);
@@ -988,7 +1002,7 @@ async function zoomLoop(path, pages) {
 
 async function scaleBench(path, pages) {
   await openFile(path);
-  const viewport = await waitFor(() => [...document.querySelectorAll(".pdf-scroll-area-viewport")].find((candidate) => candidate.getBoundingClientRect().width > 100 && candidate.querySelectorAll(".pdfViewer .page").length === pages), `${path} viewer`, 60_000);
+  const viewport = await waitFor(() => pdfViewportWith(pages), `${path} viewer`, 60_000);
   await waitFor(() => viewport.querySelector(".pdfViewer .page canvas"), "first canvas", 60_000);
   await settle(800, 30_000);
   const viewer = viewport.querySelector(".pdfViewer");
@@ -1098,7 +1112,7 @@ async function restyleTime(viewer, rounds = 8) {
 
 async function styleBisect(path, pages) {
   await openFile(path);
-  const viewport = await waitFor(() => [...document.querySelectorAll(".pdf-scroll-area-viewport")].find((candidate) => candidate.getBoundingClientRect().width > 100 && candidate.querySelectorAll(".pdfViewer .page").length === pages), `${path} viewer`, 60_000);
+  const viewport = await waitFor(() => pdfViewportWith(pages), `${path} viewer`, 60_000);
   await waitFor(() => viewport.querySelector(".pdfViewer .page canvas"), "first canvas", 60_000);
   await settle(800, 30_000);
   const viewer = viewport.querySelector(".pdfViewer");
@@ -1154,7 +1168,7 @@ async function resizeBench() {
 
 async function zoomPreviewOnly(path, pages) {
   await openFile(path);
-  const viewport = await waitFor(() => [...document.querySelectorAll(".pdf-scroll-area-viewport")].find((candidate) => candidate.getBoundingClientRect().width > 100 && candidate.querySelectorAll(".pdfViewer .page").length === pages), `${path} viewer`, 60_000);
+  const viewport = await waitFor(() => pdfViewportWith(pages), `${path} viewer`, 60_000);
   await waitFor(() => viewport.querySelector(".pdfViewer .page canvas"), "first canvas", 60_000);
   await settle(800, 30_000);
   const { x, y } = center(viewport);

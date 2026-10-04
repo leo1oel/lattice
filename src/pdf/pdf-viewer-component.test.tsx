@@ -56,6 +56,8 @@ const pdf = vi.hoisted(() => {
       currentScale: number;
       currentScaleValue: string;
       getPageView: (index: number) => PageView;
+      getCachedPageViews: () => Set<PageView>;
+      pageWindowMinScale?: number;
     };
     linkService: {
       page: number;
@@ -97,6 +99,7 @@ const pdf = vi.hoisted(() => {
           emit("scalechanging", { scale: currentScale, presetValue: preset });
         },
         getPageView: (index: number) => this.pageViews[index]!,
+        getCachedPageViews: () => new Set(this.pageViews),
       };
       this.linkService = {
         page: 1,
@@ -315,6 +318,8 @@ describe("PDFSlick viewer integration", () => {
     const instance = await viewerAt(0);
     await waitFor(() => expect(instance.loadDocument).toHaveBeenCalledOnce());
     expect(instance.viewer).toHaveProperty("enableSelectionRendering", false);
+    // PDF.js's page window reaches as far as the smallest zoom shows (0.3 of CSS pixels).
+    expect(instance.viewer.pageWindowMinScale).toBeCloseTo(0.3 * 72 / 96);
     expect(instance.loadDocument.mock.calls[0]?.[0]).toBeInstanceOf(ArrayBuffer);
     expect(instance.args.options).toMatchObject({
       // AnnotationEditorType.DISABLE: any other mode builds PDF.js's editor
@@ -984,6 +989,26 @@ describe("PDFSlick viewer integration", () => {
     expect(instance.gotoPage).toHaveBeenCalledTimes(jumps);
     expect(scroll).toHaveBeenCalledTimes(scrolls);
     expect(instance.args.container.scrollTop).toBe(2_350);
+  });
+
+  it("keeps a text layer's selection behaviour while its page is outside the page window", async () => {
+    const view = renderPdf();
+    await view.findByLabelText("PDF page 2");
+    const instance = pdf.state.instances[0]!;
+    const page = instance.viewer.getPageView(1).div;
+    const layer = instance.viewer.getPageView(1).textLayer.div;
+    expect(layer.querySelector(".endOfContent")).not.toBeNull();
+
+    // PDF.js's page window takes the page out of the viewer, then another page renders.
+    page.remove();
+    act(() => instance.emit("pagerendered", { pageNumber: 1 }));
+    instance.args.viewer.append(page);
+    expect(layer.querySelector(".endOfContent")).not.toBeNull();
+
+    // A layer PDF.js removed from its page is disposed of.
+    layer.remove();
+    act(() => instance.emit("pagerendered", { pageNumber: 1 }));
+    expect(layer.querySelector(".endOfContent")).toBeNull();
   });
 
   it("navigates to a quote page but conservatively skips an ambiguous highlight", async () => {

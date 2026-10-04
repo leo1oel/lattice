@@ -41,16 +41,19 @@ function pageAt(record: ViewerRecord, x: number, y: number): HTMLElement | null 
  * all the way out: those within the viewport's height times the largest shrink
  * of the page at the held point. WebKit repaints every page box of a
  * transformed viewer each frame, off screen too: zooming out of a 1,930-page
- * PDF ran at 25 fps until the clip left it a handful.
+ * PDF ran at 25 fps until the clip left it a handful. The viewer's page window
+ * (pdf-slick.ts) holds at least those pages; the clip ends where it does, at
+ * the first spacer standing in for the pages beyond.
  */
 function reachClip(record: ViewerRecord, anchor: HTMLElement, base: number, viewer: DOMRect): string {
   const area = record.root.getBoundingClientRect();
   const reach = area.height * base / PDF_MIN_SCALE;
+  const isPage = (element: Element | null): element is Element => Boolean(element?.classList.contains("page"));
   let { top, bottom } = anchor.getBoundingClientRect();
-  for (let page = anchor.previousElementSibling; page && top > area.top - reach; page = page.previousElementSibling) {
+  for (let page = anchor.previousElementSibling; isPage(page) && top > area.top - reach; page = page.previousElementSibling) {
     top = page.getBoundingClientRect().top;
   }
-  for (let page = anchor.nextElementSibling; page && bottom < area.bottom + reach; page = page.nextElementSibling) {
+  for (let page = anchor.nextElementSibling; isPage(page) && bottom < area.bottom + reach; page = page.nextElementSibling) {
     bottom = page.getBoundingClientRect().bottom;
   }
   // eslint-disable-next-line lingui/no-unlocalized-strings -- CSS value
@@ -116,7 +119,9 @@ export function usePdfZoom(recordRef: ActiveViewerRef, generation: number, view:
     endPreview(preview);
     if (recordRef.current !== record) return;
     applyScale(target);
-    if (!page || !shown?.width || !shown.height) return;
+    // The page window keeps a page in view in the viewer across a rescale; one
+    // that left it has nowhere to be measured, and PDF.js's own scroll stands.
+    if (!page?.isConnected || !shown?.width || !shown.height) return;
     const applied = page.getBoundingClientRect();
     record.root.scrollLeft += applied.left + (x - shown.left) * (applied.width / shown.width) - x;
     record.root.scrollTop += applied.top + (y - shown.top) * (applied.height / shown.height) - y;
