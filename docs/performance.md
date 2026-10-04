@@ -766,7 +766,15 @@ measurements out of frame rates (none fell in the runs below). Headless
 Chromium paces its frames at 13–25 fps on this page whatever it holds, so for
 Chromium only its own style and layout times (thread time, from
 `Performance.getMetrics`) are comparable. These figures replace the first ones
-recorded here, from a driver that was not kept.
+recorded here, from a driver that was not kept. The tables below are the
+medians of the raw interleaved runs, every frame interval included, in
+[`performance-data/pdf-window-2026-10-04-webkit.json`](performance-data/pdf-window-2026-10-04-webkit.json)
+and
+[`performance-data/pdf-window-2026-10-04-chromium.json`](performance-data/pdf-window-2026-10-04-chromium.json),
+produced by
+`node scripts/perf-bench/pdf-window-timing.mjs --before-ref 31921114 --engine webkit --runs 5 --json docs/performance-data/pdf-window-2026-10-04-webkit.json`
+and
+`node scripts/perf-bench/pdf-window-timing.mjs --before-ref 31921114 --engine chromium --runs 5 --json docs/performance-data/pdf-window-2026-10-04-chromium.json`.
 
 | WebKit, 1,930 pages | Before | After |
 | --- | --- | --- |
