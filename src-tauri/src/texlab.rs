@@ -7,6 +7,7 @@
 use crate::commands;
 use crate::models::Diagnostic;
 use crate::project;
+use crate::wide_event::{self, Failure};
 use serde::Serialize;
 use serde_json::{json, Value};
 use std::io::{BufRead, BufReader, Write};
@@ -33,6 +34,9 @@ type Subscription = Arc<Mutex<Option<DiagnosticSubscription>>>;
 #[derive(Default)]
 pub struct TexlabPool {
     live: Option<Session>,
+    /// The kind of the last start failure, until a start succeeds. Requests
+    /// retry the start on every keystroke, so a repeat of it is not logged.
+    failed_start: Option<&'static str>,
 }
 
 /// A project-relative `.tex` path, or `None` for anything TexLab should not see.
@@ -61,7 +65,7 @@ impl TexlabPool {
         let uri = path_to_uri(&absolute);
         let subscription =
             DiagnosticSubscription { uri, relative: relative.clone(), publish: Box::new(publish) };
-        let live = self.live_for(root)?;
+        let live = self.live_for(root, "start")?;
         live.subscribe(Some(subscription))?;
         if live.sync_document(&absolute, &relative, text).is_ok() {
             return Ok(());
@@ -70,7 +74,7 @@ impl TexlabPool {
         // subsequent background diagnostics still reach the editor.
         let subscription = live.subscribe(None)?;
         self.reset();
-        let live = self.live_for(root)?;
+        let live = self.live_for(root, "restart_after_exit")?;
         live.subscribe(subscription)?;
         let synced = live.sync_document(&absolute, &relative, text);
         if synced.is_err() {
@@ -114,7 +118,7 @@ impl TexlabPool {
         let relative = tex_path(relative_path)
             .ok_or_else(|| "TexLab features require a .tex file.".to_string())?;
         let absolute = project::safe_path(root, &relative)?;
-        let live = self.live_for(root)?;
+        let live = self.live_for(root, "start")?;
         let uri = live.sync_document(&absolute, &relative, text)?;
         let position =
             json!({ "line": line.saturating_sub(1), "character": character.saturating_sub(1) });
@@ -124,14 +128,54 @@ impl TexlabPool {
     }
 
     /// The session for `root`, replacing one that serves another project.
-    fn live_for(&mut self, root: &Path) -> Result<&mut Session, String> {
+    /// A start is one wide event; `reason` says why it was needed.
+    fn live_for(&mut self, root: &Path, reason: &'static str) -> Result<&mut Session, String> {
         let root_canon = canonical(root);
+        let mut reason = reason;
         if self.live.as_ref().is_some_and(|live| live.root != root_canon) {
             self.reset();
+            reason = "project_switch";
         }
         match self.live {
             Some(ref mut live) => Ok(live),
-            None => Ok(self.live.insert(Session::start(root, root_canon)?)),
+            None => {
+                let failed_start = self.failed_start;
+                let kind = |result: &Result<Session, String>| {
+                    result.as_ref().err().map(|error| classify_start_error(error).kind)
+                };
+                let operation = wide_event::Operation::start("texlab.start", classify_start_error);
+                operation.record("reason", reason);
+                let started = operation.run_sync_unless(
+                    || {
+                        wide_event::project(&root_canon);
+                        Session::start(root, root_canon)
+                    },
+                    |result| kind(result).is_some_and(|kind| failed_start == Some(kind)),
+                );
+                self.failed_start = kind(&started);
+                Ok(self.live.insert(started?))
+            }
+        }
+    }
+}
+
+/// What a TexLab start failure means for whoever reads the log. Editing
+/// keeps working without it; only diagnostics, completion and hover stop.
+fn classify_start_error(error: &str) -> Failure {
+    if error.starts_with("Could not start TexLab") {
+        Failure {
+            kind: "texlab_missing",
+            fix: "Install texlab (brew install texlab) for live diagnostics and completion.",
+        }
+    } else if error.contains("timed out") {
+        Failure {
+            kind: "texlab_timeout",
+            fix: "TexLab was slow to start; it retries on the next edit.",
+        }
+    } else {
+        Failure {
+            kind: "texlab_error",
+            fix: "It restarts on the next edit; report it if it keeps failing.",
         }
     }
 }
@@ -671,6 +715,22 @@ mod tests {
         );
         assert!(result.is_ok());
         pool.reset();
+    }
+
+    #[test]
+    fn a_repeated_start_failure_is_logged_once() {
+        let parent = crate::test_support::TempDir::new("texlab-start");
+        let missing = parent.join("missing");
+        let mut pool = TexlabPool::default();
+        let ((), capture) = crate::wide_event::tests::capture(|| {
+            for _ in 0..3 {
+                assert!(pool.live_for(&missing, "start").is_err());
+            }
+        });
+        let events = capture.events();
+        assert_eq!(events.len(), 1, "{events:?}");
+        assert_eq!(events[0]["event"], "texlab.start");
+        assert_eq!(events[0]["error_kind"], "texlab_missing");
     }
 
     #[test]

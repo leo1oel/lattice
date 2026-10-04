@@ -323,6 +323,7 @@ impl BrowserHost {
                 .as_deref()
                 .is_some_and(|source_label| session::handoff_pending(&sessions, source_label))
             {
+                session.discard();
                 return Err("This Lattice window is already opening in your browser.".to_string());
             }
             sessions.insert(token.clone(), session);
@@ -333,7 +334,7 @@ impl BrowserHost {
                 .inspect_err(|_| destroy_window(app, &host_label))
         });
         if let Err(error) = opened {
-            session::remove(&server.sessions, &token);
+            session::remove(&server.sessions, &token, &error);
             return Err(error);
         }
         Ok(token)

@@ -8,8 +8,9 @@ use super::history::{
 };
 use super::paths::safe_path;
 use super::tree::{build_artifact_ignore_lines, scan_tree, TreeView};
-use crate::models::{ProjectManifest, ProjectSnapshot, RootDocument};
+use crate::models::{FileNode, ProjectManifest, ProjectSnapshot, RootDocument};
 use crate::util::err;
+use crate::wide_event::{self, Failure};
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::Path;
@@ -27,10 +28,11 @@ pub fn open(root: &Path) -> Result<ProjectSnapshot, String> {
     for directory in [".research/history", ".research/papers", ".research/sessions"] {
         fs::create_dir_all(root.join(directory)).map_err(err)?;
     }
+    wide_event::project(&root);
     if let Err(error) =
         prune_conversation_checkpoints(&root, MAX_CHECKPOINTS_PER_SESSION, MAX_CHECKPOINT_BYTES)
     {
-        eprintln!("Could not prune old conversation checkpoints: {error}");
+        wide_event::record("checkpoint_prune_error", error);
     }
     let research_ignore = root.join(".research/.gitignore");
     if !research_ignore.exists() {
@@ -47,11 +49,9 @@ pub fn open(root: &Path) -> Result<ProjectSnapshot, String> {
         ensure_ignore_line(&root.join(".gitignore"), &line)?;
     }
 
-    let mut manifest = if root.join(MANIFEST_PATH).exists() {
-        read_manifest(&root)?
-    } else {
-        adopt_folder(&root)?
-    };
+    let adopted = !root.join(MANIFEST_PATH).exists();
+    wide_event::record("adopted", adopted);
+    let mut manifest = if adopted { adopt_folder(&root)? } else { read_manifest(&root)? };
     if apply_tex_magic_comments(&root, &mut manifest)? {
         write_manifest(&root, &manifest)?;
     }
@@ -62,11 +62,56 @@ pub fn open(root: &Path) -> Result<ProjectSnapshot, String> {
         }
     }
 
-    Ok(ProjectSnapshot {
-        root: root.to_string_lossy().to_string(),
-        manifest,
-        files: scan_tree(&root, TreeView::Project)?,
-    })
+    let step = wide_event::step("scan");
+    let files = scan_tree(&root, TreeView::Project)?;
+    drop(step);
+    record_tree(&files);
+    wide_event::record("engine", manifest.engine.as_str());
+    wide_event::record("root_documents", manifest.root_documents.len());
+    Ok(ProjectSnapshot { root: root.to_string_lossy().to_string(), manifest, files })
+}
+
+/// The project's size on its open event: how many files, how many bytes.
+fn record_tree(nodes: &[FileNode]) {
+    fn walk(nodes: &[FileNode], totals: &mut (u64, u64)) {
+        for node in nodes {
+            if node.kind != "directory" {
+                totals.0 += 1;
+                totals.1 += node.size;
+            }
+            walk(&node.children, totals);
+        }
+    }
+    let mut totals = (0, 0);
+    walk(nodes, &mut totals);
+    wide_event::record("files", totals.0);
+    wide_event::record("bytes", totals.1);
+}
+
+/// What a project that would not open means for whoever reads the log.
+pub fn classify_open_error(error: &str) -> Failure {
+    let lower = error.to_ascii_lowercase();
+    if lower.contains("no such file") || lower.contains("not a folder") {
+        Failure {
+            kind: "not_found",
+            fix: "The folder moved or was deleted; open it from its new place.",
+        }
+    } else if lower.contains("permission denied") || lower.contains("operation not permitted") {
+        Failure {
+            kind: "permission_denied",
+            fix: "Give Lattice access to the folder (System Settings → Privacy & Security → Files and Folders).",
+        }
+    } else if lower.contains("already open in another") {
+        Failure { kind: "already_open", fix: "Switch to the window that has it open." }
+    } else if lower.contains(" at line ") {
+        // serde_json's position suffix: the manifest is not valid JSON.
+        Failure {
+            kind: "manifest_unreadable",
+            fix: "Fix or remove .research/project.json; Lattice recreates it.",
+        }
+    } else {
+        Failure { kind: "open_error", fix: "Try again; if it repeats, report it with the log." }
+    }
 }
 
 /// Write down a manifest for a folder Lattice did not create.

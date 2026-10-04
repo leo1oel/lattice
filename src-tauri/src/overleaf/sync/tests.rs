@@ -1267,3 +1267,55 @@ fn relocation_record_failure_rolls_back_the_local_move_and_manifest() {
     assert!(!root.join("chapters/main.tex").exists());
     assert_eq!(fs::read(root.join(".research/project.json")).unwrap(), manifest);
 }
+
+// ---- the wide log event ----------------------------------------------------
+
+#[test]
+fn a_sync_is_one_wide_event_with_counts_and_no_content() {
+    let remote: Files = &[("incoming.tex", b"secret remote words"), ("same.tex", b"same")];
+    let local: Files = &[("outgoing.tex", b"secret local words"), ("same.tex", b"same")];
+    let base: Files = &[("same.tex", b"same")];
+    let server = Mock::project(remote).serve();
+    let (config, root) = linked(&server, local, base);
+    let ((), capture) = crate::wide_event::tests::capture(|| {
+        let operation = crate::wide_event::Operation::start("overleaf.sync", classify_sync_error);
+        operation
+            .run_sync(|| {
+                crate::wide_event::project(&root);
+                sync(&config, &root, NO_LIVE, None)
+            })
+            .unwrap();
+    });
+    let events = capture.events();
+    assert_eq!(events.len(), 1, "{events:?}");
+    let event = &events[0];
+    assert_eq!(event["event"], "overleaf.sync");
+    assert_eq!(event["outcome"], "success");
+    assert_eq!(event["pulled"], 1);
+    assert_eq!(event["pushed"], 1);
+    assert_eq!(event["download"], "full");
+    assert_eq!(event["remote_files"], 2);
+    assert_eq!(event["upload_bytes"], b"secret local words".len());
+    assert_eq!(event["http_requests"], server.recorded().len(), "{event}");
+    assert!(event["download_ms"].is_u64() && event["upload_ms"].is_u64(), "{event}");
+    let line = event.to_string();
+    assert!(!line.contains("secret") && !line.contains(&*root.to_string_lossy()), "{line}");
+}
+
+#[test]
+fn sync_failures_are_classified_with_a_fix() {
+    use crate::overleaf_rt::SESSION_EXPIRED;
+    assert_eq!(classify_sync_error(SESSION_EXPIRED).kind, "session_expired");
+    assert_eq!(classify_sync_error(PAUSED).kind, "paused");
+    assert_eq!(classify_sync_error("Could not reach Overleaf: dns error").kind, "network");
+    assert_eq!(
+        classify_sync_error("Overleaf returned 503 for the project.").kind,
+        "server_refused"
+    );
+    assert_eq!(classify_sync_error("Could not write main.tex: disk full").kind, "local_io");
+    assert!(!classify_sync_error("anything else").fix.is_empty());
+    let upload = |cause: &str| format!("Failed to upload \"a/main.tex\" to Overleaf: {cause}");
+    assert_eq!(classify_sync_error(&upload(SESSION_EXPIRED)).kind, "session_expired");
+    assert_eq!(classify_sync_error(&upload("Overleaf returned 500: busy")).kind, "server_refused");
+    assert_eq!(classify_sync_error(&upload("Could not reach Overleaf: reset")).kind, "network");
+}

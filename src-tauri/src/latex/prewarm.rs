@@ -10,7 +10,7 @@ use super::default_root_document;
 use crate::commands;
 use crate::latex::BuildResult;
 use crate::models::ProjectManifest;
-use crate::project;
+use crate::{project, wide_event};
 use std::fs;
 use std::path::Path;
 use std::process::Command;
@@ -92,16 +92,20 @@ pub(super) fn prewarm_cold_pdf_build(
         return Ok(None);
     }
 
-    let prewarm_started = Instant::now();
+    let step = wide_event::step("prewarm");
     let mut passes =
         DraftPasses { root, document_path: &document.path, active, log: String::new() };
-    match passes.run(&root_document.with_extension("aux")) {
-        Ok(()) => log::info!(
-            target: "lattice::latex",
-            "Draft-prewarmed {} in {:.1}s; latexmk will produce and verify the final PDF",
-            document.path,
-            prewarm_started.elapsed().as_secs_f32()
-        ),
+    let stopped = passes.run(&root_document.with_extension("aux"));
+    drop(step);
+    let prewarm = match &stopped {
+        Ok(()) => "done",
+        Err(Stop::Cancelled) => "cancelled",
+        Err(Stop::Abandoned) => "abandoned",
+    };
+    wide_event::record("prewarm", prewarm);
+    match stopped {
+        // latexmk produces and verifies the final PDF from the warmed state.
+        Ok(()) => {}
         Err(Stop::Cancelled) => {
             return Ok(Some(cancelled_build(started, &passes.log, &document.path)))
         }

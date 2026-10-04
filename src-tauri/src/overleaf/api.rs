@@ -8,6 +8,7 @@ use super::files::is_excluded;
 use super::link::{load_state, SyncState, PAUSED};
 use crate::overleaf_rt::{SESSION_EXPIRED, USER_AGENT};
 use crate::util::err;
+use crate::wide_event;
 use reqwest::blocking::{Client, RequestBuilder, Response};
 use reqwest::header::{ACCEPT, CONTENT_LENGTH, CONTENT_TYPE, COOKIE, RETRY_AFTER};
 use reqwest::{Method, StatusCode};
@@ -109,6 +110,7 @@ fn send_with_retries(mut request: RequestBuilder) -> reqwest::Result<Response> {
     let mut retries_done = 0;
     loop {
         let again = request.try_clone();
+        wide_event::add("http_requests", 1);
         let outcome = request.send();
         let attempt = match &outcome {
             Ok(response) => Attempt::Answered(
@@ -123,6 +125,7 @@ fn send_with_retries(mut request: RequestBuilder) -> reqwest::Result<Response> {
         };
         let wait = retry_wait(attempt, safe, retries_done);
         let (Some(wait), Some(again)) = (wait, again) else { return outcome };
+        wide_event::add("http_retries", 1);
         std::thread::sleep(wait);
         request = again;
         retries_done += 1;
@@ -245,6 +248,7 @@ pub(super) fn read_zip_entries(bytes: &[u8]) -> Result<BTreeMap<String, Vec<u8>>
 pub(super) fn fetch_remote_version(
     client: &Client, host: &str, cookie: &str, project_id: &str,
 ) -> Option<i64> {
+    wide_event::add("http_requests", 1);
     let response = client
         .get(format!("{host}/project/{project_id}/updates?min_count=1"))
         .header(COOKIE, cookie)
@@ -325,20 +329,26 @@ impl Uploader<'_> {
         }
         let next = AtomicUsize::new(0);
         let failures = Mutex::new(BTreeMap::new());
+        let span = tracing::Span::current();
+        let dispatch = tracing::dispatcher::get_default(Clone::clone);
         std::thread::scope(|scope| {
             for _ in 0..PARALLEL_UPLOADS.min(together.len()) {
-                scope.spawn(|| loop {
-                    let index = next.fetch_add(1, Ordering::Relaxed);
-                    let Some((rel, bytes)) = together.get(index) else { break };
-                    if !failures.lock().unwrap_or_else(PoisonError::into_inner).is_empty() {
-                        break;
-                    }
-                    if let Err(error) = self.upload(rel, (*bytes).clone()) {
-                        failures
-                            .lock()
-                            .unwrap_or_else(PoisonError::into_inner)
-                            .insert(index, error);
-                    }
+                scope.spawn(|| {
+                    tracing::dispatcher::with_default(&dispatch, || {
+                        span.in_scope(|| loop {
+                            let index = next.fetch_add(1, Ordering::Relaxed);
+                            let Some((rel, bytes)) = together.get(index) else { break };
+                            if !failures.lock().unwrap_or_else(PoisonError::into_inner).is_empty() {
+                                break;
+                            }
+                            if let Err(error) = self.upload(rel, (*bytes).clone()) {
+                                failures
+                                    .lock()
+                                    .unwrap_or_else(PoisonError::into_inner)
+                                    .insert(index, error);
+                            }
+                        })
+                    })
                 });
             }
         });

@@ -61,9 +61,9 @@ pub use imports::{
 };
 pub use manifest::EditorComment;
 pub use manifest::{
-    has_latexmkrc, latexmk_engine_arg, open, read_editor_comments, read_manifest,
-    resolve_compile_root, set_compile_root, set_spelling_words, update_manifest_settings,
-    write_editor_comments,
+    classify_open_error, has_latexmkrc, latexmk_engine_arg, open, read_editor_comments,
+    read_manifest, resolve_compile_root, set_compile_root, set_spelling_words,
+    update_manifest_settings, write_editor_comments,
 };
 pub use paths::safe_path;
 pub(crate) use paths::{creation_path, stays_inside};

@@ -6,7 +6,7 @@ use super::overleaf_realtime::realtime_client;
 use super::workspace::documents_folder;
 use super::{current_root, in_project, pinned_root, run_blocking, run_quietly, scoped_root};
 use crate::app_state::{AppState, Lease, ProjectLease};
-use crate::{command_diagnostics, git, overleaf};
+use crate::{command_diagnostics, git, overleaf, wide_event};
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
@@ -533,20 +533,25 @@ pub async fn overleaf_sync(
     live: Option<Vec<String>>, observed_remote_version: Option<i64>,
     diagnostic_context: Option<command_diagnostics::DiagnosticContext>,
 ) -> Result<overleaf::OverleafSyncResult, String> {
-    command_diagnostics::traced("overleaf_sync", diagnostic_context, async {
-        let lease = full_sync_lease(&state, &project_root).await;
-        let config = overleaf_config_dir(&app)?;
-        let root = pinned_root(&state, &window, &project_root, "Overleaf sync could start")?;
-        let live = with_joined_paths(&lease, &root, live);
-        let entities =
-            realtime_client(&state, &window).ok().and_then(|client| client.current_entities());
-        run_blocking("The Overleaf sync", move || {
-            overleaf::sync_relocations(&config, &root, entities)?;
-            overleaf::sync(&config, &root, &live, observed_remote_version)
-        })
+    let operation = wide_event::Operation::start("overleaf.sync", overleaf::classify_sync_error);
+    operation
+        .run(command_diagnostics::traced(diagnostic_context, async {
+            let lease = full_sync_lease(&state, &project_root).await;
+            let config = overleaf_config_dir(&app)?;
+            let root = pinned_root(&state, &window, &project_root, "Overleaf sync could start")?;
+            wide_event::project(&root);
+            let live = with_joined_paths(&lease, &root, live);
+            wide_event::record("live_documents", live.len());
+            let entities =
+                realtime_client(&state, &window).ok().and_then(|client| client.current_entities());
+            // Quietly: the operation's event already carries any failure.
+            run_quietly("The Overleaf sync", move || {
+                overleaf::sync_relocations(&config, &root, entities)?;
+                overleaf::sync(&config, &root, &live, observed_remote_version)
+            })
+            .await
+        }))
         .await
-    })
-    .await
 }
 
 #[cfg(test)]

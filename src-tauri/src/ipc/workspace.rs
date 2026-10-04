@@ -3,7 +3,7 @@
 use super::{current_root, run_blocking, run_quietly};
 use crate::app_state::AppState;
 use crate::models::{ProjectManifest, ProjectSnapshot};
-use crate::{fs_watch, project};
+use crate::{fs_watch, project, wide_event};
 use std::path::{Path, PathBuf};
 use std::sync::PoisonError;
 use tauri::{AppHandle, Manager, State, Window};
@@ -68,24 +68,35 @@ pub async fn initial_project(
         }
         (root, _) => root,
     };
-    run_blocking("Initial project load", move || root.map(|path| project::open(&path)).transpose())
-        .await
+    let Some(root) = root else { return Ok(None) };
+    let operation = wide_event::Operation::start("project.open", project::classify_open_error);
+    operation.record("trigger", "launch");
+    // Quietly: the operation's event already carries any failure.
+    operation.run(run_quietly("Initial project load", move || project::open(&root))).await.map(Some)
 }
 
 #[tauri::command]
 pub async fn open_project(
     state: State<'_, AppState>, window: Window, path: String,
 ) -> Result<ProjectSnapshot, String> {
-    let snapshot = run_blocking("Project opening", move || project::open(Path::new(&path))).await?;
-    let root = PathBuf::from(&snapshot.root);
-    if state.window_showing(&root).is_some_and(|label| label != window.label()) {
-        return Err(
-            "This project is already open in another Lattice window. Open it in the browser from that window instead."
-                .to_string(),
-        );
-    }
-    state.set_root(window.label(), root).await?;
-    Ok(snapshot)
+    let operation = wide_event::Operation::start("project.open", project::classify_open_error);
+    operation.record("trigger", "open");
+    operation
+        .run(async {
+            // Quietly: the operation's event already carries any failure.
+            let snapshot =
+                run_quietly("Project opening", move || project::open(Path::new(&path))).await?;
+            let root = PathBuf::from(&snapshot.root);
+            if state.window_showing(&root).is_some_and(|label| label != window.label()) {
+                return Err(
+                    "This project is already open in another Lattice window. Open it in the browser from that window instead."
+                        .to_string(),
+                );
+            }
+            state.set_root(window.label(), root).await?;
+            Ok(snapshot)
+        })
+        .await
 }
 
 /// Unpack a project from a ZIP. As with `create_project`, placing it in a

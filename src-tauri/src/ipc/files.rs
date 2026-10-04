@@ -2,7 +2,7 @@
 
 use super::{
     binary_save, current_root, in_project, lease_if_pinned, maybe_pinned_root, pinned_root,
-    run_blocking,
+    run_blocking, run_quietly,
 };
 use crate::app_state::{AppState, Lease};
 use crate::models;
@@ -181,7 +181,9 @@ pub async fn read_project_asset_range(
     state: State<'_, AppState>, window: Window, path: String, version: String, start: u64, end: u64,
 ) -> Result<tauri::ipc::Response, String> {
     let root = current_root(&state, &window)?;
-    let bytes = run_blocking("Project PDF range read", move || {
+    // Quietly: a stale version is routine after a rebuild, and the viewer's
+    // `pdf.session` event counts failed reads once per document.
+    let bytes = run_quietly("Project PDF range read", move || {
         project::read_asset_range(&root, &path, &version, start, end)
     })
     .await?;

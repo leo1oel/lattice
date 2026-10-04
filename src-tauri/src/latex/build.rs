@@ -8,6 +8,7 @@ use super::{default_root_document, prewarm, synctex_missing};
 use crate::commands;
 use crate::latex::BuildResult;
 use crate::models::Diagnostic;
+use crate::wide_event::{self, Failure};
 use crate::{pdf_fonts, project};
 use std::fs;
 use std::path::Path;
@@ -60,7 +61,7 @@ fn terminate(pid: u32) {
 pub(crate) fn begin_active(active: &ActiveBuild, pid: u32) -> Result<(), String> {
     let mut guard = state(active);
     if guard.pid.is_some() {
-        return Err("A build is already running.".to_string());
+        return Err(ALREADY_RUNNING.to_string());
     }
     guard.pid = Some(pid);
     guard.cancelled = false;
@@ -109,9 +110,64 @@ pub fn clean(root: &Path) -> Result<String, String> {
     Ok(log)
 }
 
+/// What a build error (not a document error: those are a finished build's
+/// diagnostics) means for whoever reads the log.
+pub fn classify_build_error(error: &str) -> Failure {
+    if error.starts_with("Could not start latexmk") {
+        Failure {
+            kind: "toolchain_missing",
+            fix: "Install MacTeX or TeX Live (Settings → TeX), then build again.",
+        }
+    } else if error == ALREADY_RUNNING {
+        Failure { kind: "build_busy", fix: "Wait for the running build, or stop it, then retry." }
+    } else if error.starts_with("Root document not found") {
+        Failure {
+            kind: "root_document_missing",
+            fix: "Open the main .tex file and build from it, or fix the compile root.",
+        }
+    } else if error.starts_with("The project changed") {
+        Failure { kind: "project_changed", fix: "Build again in the project now open." }
+    } else {
+        Failure { kind: "build_error", fix: "Build again; if it repeats, report it with the log." }
+    }
+}
+
+const ALREADY_RUNNING: &str = "A build is already running.";
+
 pub fn build(
     root: &Path, force: bool, active: &ActiveBuild, open_document: Option<&str>,
 ) -> Result<BuildResult, String> {
+    let result = build_passes(root, force, active, open_document)?;
+    record_result(&result);
+    Ok(result)
+}
+
+/// The finished build's shape on its wide event. A document that did not
+/// compile is `failed` — the build worked, the LaTeX did not — and is told
+/// apart from an `error`, where Lattice could not build at all.
+fn record_result(result: &BuildResult) {
+    let count = |level: &str| result.diagnostics.iter().filter(|d| d.level == level).count();
+    wide_event::record("root_document", result.root_document.as_str());
+    wide_event::record("has_pdf", result.has_pdf);
+    wide_event::record("errors", count("error"));
+    wide_event::record("warnings", count("warning"));
+    wide_event::record("log_bytes", result.log.len());
+    let cancelled = result.diagnostics.iter().any(|d| d.code == Some("build-cancelled"));
+    if cancelled {
+        wide_event::outcome("cancelled");
+    } else if !result.success {
+        wide_event::outcome("failed");
+        let first = result.diagnostics.iter().find(|d| d.level == "error");
+        if let Some(code) = first.and_then(|diagnostic| diagnostic.code) {
+            wide_event::record("first_error_code", code);
+        }
+    }
+}
+
+fn build_passes(
+    root: &Path, force: bool, active: &ActiveBuild, open_document: Option<&str>,
+) -> Result<BuildResult, String> {
+    wide_event::record("force", force);
     // Overleaf's compile rule: the file open in the editor wins when it is a
     // compilable root itself (\documentclass) or names one via `% !TEX root`.
     // The winner is written back as the manifest default before latexmk runs,
@@ -130,6 +186,7 @@ pub fn build(
     // remembering the previous failed pass. Clean once and force a fresh run.
     if !result.success && is_stale_previous_invocation_log(&result.log) {
         let _ = clean(root);
+        wide_event::record("stale_rebuild", true);
         result = run_latexmk(root, true, active, started)?;
         if !result.log.is_empty() {
             result.log = format!("Cleared a stale failed build, then rebuilt.\n\n{}", result.log);
@@ -142,6 +199,7 @@ pub fn build(
     // typesetting, so an engine that cannot produce SyncTeX is not compiled
     // twice on every build.
     if result.success && !force && skipped_recompile(&result.log) && synctex_missing(root) {
+        wide_event::record("synctex_rebuild", true);
         result = run_latexmk(root, true, active, started)?;
     }
     Ok(result)
@@ -187,13 +245,17 @@ fn run_latexmk(
         command.arg("-no-shell-escape");
     }
     command.arg(&document.path);
+    wide_event::record("engine", manifest.engine.as_str());
+    wide_event::add("latexmk_runs", 1);
 
+    let step = wide_event::step("latexmk");
     let (output, cancelled) = run_tracked(
         command,
         active,
         "Could not start latexmk. Install MacTeX or TeX Live. ",
         "latexmk exited unexpectedly: ",
     )?;
+    drop(step);
     let log = commands::combined_output(&output);
     if cancelled {
         return Ok(cancelled_build(started, &log, &document.path));
@@ -206,6 +268,9 @@ fn run_latexmk(
     } else {
         None
     };
+    if let Some(pdf) = &pdf_bytes {
+        wide_event::record("pdf_bytes", pdf.len());
+    }
     let mut diagnostics = parse_diagnostics(&log);
     if let Some(mut warning) =
         pdf_bytes.as_deref().filter(|_| success).and_then(|pdf| font_warning(pdf, &log))
@@ -282,6 +347,19 @@ pub(super) fn cancelled_build(
 mod tests {
     use super::*;
     use crate::test_support::TempDir;
+
+    #[test]
+    fn build_errors_are_classified_with_a_fix() {
+        let kind = |error: &str| classify_build_error(error).kind;
+        assert_eq!(
+            kind("Could not start latexmk. Install MacTeX or TeX Live. No such file"),
+            "toolchain_missing"
+        );
+        assert_eq!(kind(ALREADY_RUNNING), "build_busy");
+        assert_eq!(kind("Root document not found: main.tex"), "root_document_missing");
+        assert_eq!(kind("The project changed before its build could start."), "project_changed");
+        assert_eq!(kind("latexmk exited unexpectedly: signal"), "build_error");
+    }
 
     #[test]
     #[ignore = "requires latexmk and a working pdfLaTeX installation"]

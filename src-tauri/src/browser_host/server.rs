@@ -164,7 +164,7 @@ async fn open_browser_session(
     };
     if let Some(token) = new_token {
         if let Err(reason) = build_host_window(&state.app, &config.label, &token, state.port) {
-            session::remove(&state.sessions, &token);
+            session::remove(&state.sessions, &token, &reason);
             return (StatusCode::INTERNAL_SERVER_ERROR, reason).into_response();
         }
         // A page that requests a token but never completes its WebSocket

@@ -8,6 +8,8 @@
  */
 import { invoke } from "@tauri-apps/api/core";
 import { isBrowserHosted, readBrowserHostAsset } from "../platform/browser-runtime";
+import { startWideEvent } from "../telemetry/wide-event";
+import { isProjectPdfStale } from "./project-pdf-refusals";
 import { PDFDataRangeTransport } from "./pdfjs-runtime";
 
 export type ProjectPdfFile = { path: string; length: number; version: string };
@@ -57,22 +59,44 @@ export function saveProjectPdf(file: ProjectPdfFile, destination: string): Promi
  * ends the load, or replaces the document once the file has a new version.
  */
 export function projectPdfTransport(file: ProjectPdfFile, onError: (reason: unknown) => void): PDFDataRangeTransport {
+  // The whole streaming session is one `pdf.session` log event, written when
+  // PDF.js tears the document down (which aborts its transport).
+  const started = performance.now();
+  const session = startWideEvent("pdf.session", {
+    path: file.path, file_bytes: file.length, browser_hosted: isBrowserHosted(),
+  });
+  let answered = false;
   class ProjectPdfTransport extends PDFDataRangeTransport {
     private aborted = false;
 
     requestDataRange(begin: number, end: number) {
+      session.add("range_requests");
       readProjectPdf(file, begin, end).then(
         (bytes) => {
-          if (!this.aborted) this.onDataRange(begin, bytes);
+          if (this.aborted) return;
+          session.add("bytes_read", bytes.byteLength);
+          if (!answered) session.set({ first_range_ms: Math.round(performance.now() - started) });
+          answered = true;
+          this.onDataRange(begin, bytes);
         },
         (reason: unknown) => {
-          if (!this.aborted) onError(reason);
+          if (this.aborted) return;
+          session.add("failed_reads");
+          if (isProjectPdfStale(reason)) {
+            session.set({ stale: true });
+          } else {
+            // eslint-disable-next-line lingui/no-unlocalized-strings -- log text, never shown
+            session.fail("range_read_failed", reason, "Reopen the PDF; if it keeps failing, rebuild it.");
+          }
+          onError(reason);
         },
       );
     }
 
     abort() {
       this.aborted = true;
+      // A file replaced underneath the viewer is routine (a rebuild), not a failure.
+      session.end();
     }
   }
   return new ProjectPdfTransport(file.length, null);

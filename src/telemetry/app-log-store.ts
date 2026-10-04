@@ -230,6 +230,15 @@ const fileQueue = new AppLogFileQueue(async (line, priority) => {
   await (priority === 2 ? fileLog.error : priority === 1 ? fileLog.warn : fileLog.info)(line);
 }, reportFileLoss);
 
+/**
+ * One structured line straight to lattice.log, with no in-app entry or toast:
+ * the channel `wide-event.ts` writes through. Same queue and loss accounting
+ * as everything else the log file gets from the frontend.
+ */
+export function writeLogFileLine(line: string, level: "info" | "warning"): void {
+  fileQueue.enqueue(line, level === "warning" ? 1 : 0);
+}
+
 function forwardToFileLog(entry: AppLogEntry): void {
   fileQueue.enqueue(serializeFileEntry(entry), entry.level === "error" ? 2 : entry.level === "warning" ? 1 : 0);
 }
