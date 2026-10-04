@@ -762,6 +762,8 @@ const TrellisWorkspace = memo(function TrellisWorkspace({ controller, projectRoo
   // close events must not close App tabs a second time.
   const quietCloses = useRef(new Set<string>());
   const resettingRef = useRef(false);
+  /** Set while returning from a preset: a restoration, never the workspace's arrangement. */
+  const returningRef = useRef(false);
   /** The preset the layout is in, with the writer's own layout to return to. */
   const presetRef = useRef<ActivePreset | null>(initialPreset);
   /** The named workspace the project is in, and where its documents sat in each workspace it visited. */
@@ -841,13 +843,16 @@ const TrellisWorkspace = memo(function TrellisWorkspace({ controller, projectRoo
     if (saveTimer.current !== null) window.clearTimeout(saveTimer.current);
     // The workspace this change was made in, even if the save lands after a switch.
     const workspace = workspaceRef.current;
+    const returning = returningRef.current;
     pendingSave.current = () => {
       const preset = presetRef.current;
       // A workspace is live: a change of its arrangement (splits, panels,
       // sizes, the tools shown) is its arrangement from now on. Selecting a
       // tab, framing, or documents opening and closing (their panels keep a
-      // slot) leave it as it is; a preset's arrangement is not its own.
-      if (!preset) {
+      // slot) leave it as it is; a preset's arrangement, and the return
+      // from one, are not its own. The first document panel App's tab sync
+      // gives a workspace without one is: it is where documents go there.
+      if (!preset && !returning) {
         const library = controller.workspaces;
         const arrangement = arrangementOf(document);
         const stored = library.get(workspace)?.arrangement;
@@ -945,7 +950,8 @@ const TrellisWorkspace = memo(function TrellisWorkspace({ controller, projectRoo
   }, [controller, ws]);
 
   const onClose = useCallback((view: ViewInfo) => {
-    if (resettingRef.current) return;
+    // A file dragged from the Project panel that went back: its tab was never an App tab.
+    if (resettingRef.current || (view.type === "file" && controller.pendingDrops.has(String(view.params.key ?? "")))) return;
     // The document panel a document was the last of stays, an empty slot
     // (in a preset, the return to the writer's layout keeps it).
     const handle = controller.ws;
@@ -1064,14 +1070,19 @@ const TrellisWorkspace = memo(function TrellisWorkspace({ controller, projectRoo
         } else {
           return;
         }
-        resettingRef.current = true;
+        returningRef.current = !preset;
         try {
-          handle.setDocument(next);
+          resettingRef.current = true;
+          try {
+            handle.setDocument(next);
+          } finally {
+            resettingRef.current = false;
+          }
+          controller.ui.set({ preset });
+          controller.resync();
         } finally {
-          resettingRef.current = false;
+          returningRef.current = false;
         }
-        controller.ui.set({ preset });
-        controller.resync();
         // The document the layout is for becomes the active one: the source to
         // write, the paper to read. Keyboard focus stays on the layout switch,
         // so its arrow keys keep moving between layouts.
@@ -1309,6 +1320,7 @@ function useTabSync(controller: TrellisController, ws: WorkspaceHandle | null, q
           const navigators = ["project", "papers", "agent"].flatMap((kind) => ws.view(kind)?.panelId ?? []);
           // Not animated: this is how the first document appears at startup,
           // and animating the whole layout there costs a frame of work each.
+          // The workspace keeps this panel in its arrangement, as its place for documents.
           ws.setDocument(withDocumentPanel(ws.getDocument(), { id, key }, { after: navigators }), { animate: false });
           info = ws.views({ type: "file" }).find((view) => view.id === id);
         }

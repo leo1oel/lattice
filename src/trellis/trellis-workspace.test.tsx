@@ -86,6 +86,14 @@ describe("a named workspace's arrangement", () => {
     act(() => ws.select("agent"));
     act(() => ws.select("project"));
     act(() => ws.select(main.id));
+    // And with the keyboard, through the Project panel's tabs.
+    act(() => ws.focus("project"));
+    act(() => ws.run("tab.next"));
+    expect(ws.view("agent")?.selected).toBe(true);
+    act(() => ws.run("tab.previous"));
+    expect(ws.view("project")?.selected).toBe(true);
+    await act(() => new Promise((resolve) => window.setTimeout(resolve, 450)));
+    expect(layoutShape(stored(id))).toBe(layoutShape(arrangementOf(split())));
     // A document opened next fills the empty slot, which leaves.
     act(() => controller.app.set({ openTabs: OPEN, activeKey: "notes.md" }));
     await waitFor(() => expect(ws.views({ type: "file" })).toHaveLength(2));
@@ -119,5 +127,41 @@ describe("a named workspace's arrangement", () => {
     unmount();
     expect(layoutShape(stored(id))).not.toBe(layoutShape(arrangementOf(split())));
     expect(layoutShape(stored(id))).toBe(layoutShape(arrangementOf(ws.getDocument())));
+  });
+
+  it("records the first document panel App gives a workspace without one", async () => {
+    const id = new WorkspaceLibrary().recent();
+    const { unmount } = await open("/c", ["main.tex"]);
+    unmount();
+    expect(Object.values(stored(id).views).filter((record) => record.type === "slot")).toHaveLength(1);
+  });
+
+  it("does not record what changed in a preset on the return from it", async () => {
+    const id = splitWorkspace();
+    saveLayout("/a", { document: split(), workspace: id });
+    const { controller, ws, unmount } = await open("/a", OPEN);
+    act(() => controller.setPreset("writing"));
+    // The Agent, parked hidden by Writing, closes meanwhile.
+    await act(async () => { await ws.close("agent", { force: true }); });
+    act(() => controller.setPreset(null));
+    expect(ws.view("agent")).toBeNull();
+    unmount();
+    expect(layoutShape(stored(id))).toBe(layoutShape(arrangementOf(split())));
+  });
+
+  it("leaves no slot behind when a file dragged from the Project panel goes back", async () => {
+    const id = splitWorkspace();
+    saveLayout("/a", { document: split(), workspace: id });
+    const { controller, ws, unmount } = await open("/a", OPEN);
+    const dragging = controller.beginFileDrag("refs.bib", { pointerId: 7 } as PointerEvent);
+    if (dragging) {
+      window.dispatchEvent(Object.assign(new Event("pointercancel"), { pointerId: 7 }));
+      await act(() => new Promise((resolve) => requestAnimationFrame(() => resolve(undefined))));
+      await act(async () => {});
+    }
+    expect(ws.views({ type: "file" }).map((view) => view.params.key)).not.toContain("refs.bib");
+    expect(ws.views({ type: "slot" })).toHaveLength(0);
+    unmount();
+    expect(layoutShape(stored(id))).toBe(layoutShape(arrangementOf(split())));
   });
 });

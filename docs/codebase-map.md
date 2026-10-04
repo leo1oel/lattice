@@ -120,7 +120,7 @@ Counts are tracked files directly in the directory (not nested), and lines are
 | `src/editor/comments/` | 6 | 2 | 960 | Editor comments: the data shape, the CodeMirror/TipTap integration, the panel, and the open-or-all visibility filter it shares with the Overleaf comments panel. |
 | `src/editor/board/` | 3 | 1 | 387 | The tldraw whiteboard and its standalone store. Loaded only via `loadBoardEditorModule()`. |
 | `src/editor/presentation/` | 6 | 3 | 931 | The embedded Open Slide workspace and its loopback bridge. |
-| `src/trellis/` | 23 | 9 | 5,810 | The panel workspace (Trellis): the controller App drives, the workspace and its panel types, the title-bar panel controls, the panel header actions, per-project layout persistence with the named workspaces and the Writing and Reading presets, Trellis's translated labels, and its stylesheet. |
+| `src/trellis/` | 23 | 9 | 5,866 | The panel workspace (Trellis): the controller App drives, the workspace and its panel types, the title-bar panel controls, the panel header actions, per-project layout persistence with the named workspaces and the Writing and Reading presets, Trellis's translated labels, and its stylesheet. |
 | `src/components/` | 2 | 0 | 106 | `copy-button.tsx`, `icon-tip.tsx` (outside `ui/`). |
 | `src/hooks/` | 2 | 0 | 44 | Domain-free hooks: `use-latest-ref.ts`, `use-non-passive-wheel.ts`. |
 | `src/lib/` | 1 | 0 | — | `utils.ts` (the shadcn `cn` helper). |

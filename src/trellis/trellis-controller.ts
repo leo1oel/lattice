@@ -574,25 +574,25 @@ export class TrellisController {
     if (opened) ws.select(shown);
     const tab = this.tabOf(info.id);
     if (tab?.dataset.trellisPart !== "tab") {
-      this.pendingDrops.delete(key);
       if (opened) void ws.close(info.id, { force: true });
+      this.pendingDrops.delete(key);
       return false;
     }
     const box = tab.getBoundingClientRect();
     const finish = (dropped: boolean) => {
       listening.abort();
       // Trellis commits the drop on the same pointerup; read the outcome after it.
+      // The file's own tab closes while it is still a pending drop: not an App tab.
       requestAnimationFrame(() => {
-        this.pendingDrops.delete(key);
         const view = ws.view(info.id);
         const keepShown = () => {
           const source = ws.view(shown);
           if (source && !source.selected) ws.select(shown);
         };
-        if (!view) return keepShown();
-        const cancelled = !dropped || view.panelId === ws.view("project")?.panelId;
-        if (cancelled && opened) void ws.close(info.id, { force: true }).then(keepShown);
-        else if (!cancelled) this.activate(key);
+        const cancelled = !view || !dropped || view.panelId === ws.view("project")?.panelId;
+        if (view && cancelled && opened) void ws.close(info.id, { force: true }).then(keepShown);
+        this.pendingDrops.delete(key);
+        if (!cancelled) this.activate(key);
         keepShown();
       });
     };
