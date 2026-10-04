@@ -7,7 +7,8 @@ not to force every surface into one density.
 ## Decisions
 
 - The interface font (`--ui-font`) is Inter Variable, or Timeless Sans in a
-  local build that embeds the Timeless family (see Private interface fonts).
+  build that embeds the Timeless family: releases and local builds that have
+  the fonts (see Private interface fonts).
   Long-form reading surfaces use `--reading-font`; code never leaves
   `--editor-font`.
 - The product accent stays neutral. Status colors communicate success, warning,
@@ -45,22 +46,43 @@ not to force every surface into one density.
 ## Private interface fonts
 
 The Timeless type family (Timeless Free Font License 1.2; get the fonts and
-the license from [timeless.co](https://timeless.co)) is embedded only by local
-builds. The license allows embedding the fonts in an application but forbids
-putting them on a public repository or redistributing them, so this repository
-holds no font file, subset, conversion or copy of the license, and
+the license from [timeless.co](https://timeless.co)) is embedded by release
+builds and by local builds that have the fonts. The license allows embedding
+the fonts in an application, as long as they reach people only as part of it
+and always with a copy of the license, but forbids putting them on a public
+repository or redistributing them on their own. So this repository holds no
+font file, subset, conversion or copy of the license, and
 `src/platform/font-license-guard.test.ts` fails if one is ever tracked. Keep
 the download, with its `LICENSE.pdf` beside the fonts, outside the checkout.
 
 - `LATTICE_PRIVATE_FONTS_DIR` names the download's folder (the one holding
-  `Sans-Grotesk/` and `Serif-Text/`); unset, it defaults to
+  `LICENSE.pdf`, `Sans-Grotesk/` and `Serif-Text/`); unset, it defaults to
   `~/Downloads/Timeless-Type-Family-1.094`. An empty value builds without it.
   `vite build`, `pnpm tauri dev`/`build` and the mock-backend page all read it
   through `scripts/private-fonts.ts`, which logs whether it embedded the fonts.
-- With every face present, the build emits the original WOFF2 files,
-  unmodified, as hashed assets of the app and puts them first in the font
-  roles. Otherwise nothing changes: CI, release builds and other contributors
-  get Inter, Instrument Serif and the same layout.
+- With every face and the license present, the build emits the original
+  WOFF2 files of the faces it uses, unmodified, as hashed assets of the web
+  bundle (which Tauri compiles into the app binary) and puts them first in the
+  font roles. Otherwise nothing changes: CI, forks and other contributors get
+  Inter, Instrument Serif and the same layout.
+- Releases: the fonts and their license live in the private repository
+  `leo1oel/lattice-fonts`. Only the tag-triggered job in
+  `.github/workflows/release.yml` reads it, with the read-only deploy key in
+  the `LATTICE_FONTS_DEPLOY_KEY` secret, into the runner's temp directory
+  outside the workspace. It sets `LATTICE_PRIVATE_FONTS_REQUIRED=1`, so a
+  missing or incomplete copy fails the release instead of quietly shipping
+  Inter; without the secret (a fork) the release builds without them.
+  `scripts/check-font-leaks.mjs` then checks the built app before it is
+  packaged (no file named for Timeless or a byte copy of one of its fonts, and
+  no font outside the bundled open-licensed runtimes) and, before the draft
+  release is published, its assets (only the signed artifacts, none of them a
+  font). It recognizes fonts by signature as well as extension, so a renamed
+  copy fails too.
+- The license travels with the app: the build emits the unmodified
+  `LICENSE.pdf` as a hashed asset beside the fonts, and Settings › About ›
+  Acknowledgements credits timeless.co and opens it in the app's PDF viewer.
+  A build without the fonts leaves the page out. The Timeless name credits the
+  fonts only; it names no Lattice feature.
 - Roles: `--ui-font` is Timeless Sans in its Grotesk style (the variable
   font's default; at 10–13px it kept confusable pairs such as e/o, rn/m and
   3/8 slightly further apart than the Sans style). `--reading-font`, for the

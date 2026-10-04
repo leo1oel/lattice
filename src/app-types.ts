@@ -244,7 +244,7 @@ export type RenameSymbolResult = {
 
 export type DocumentViewMode = "source" | "split" | "pdf";
 export type CanvasMode = DocumentViewMode | "asset";
-export type SettingsTab = "appearance" | "editor" | "agent" | "mcp" | "overleaf" | "literature" | "api" | "doctor" | "logs";
+export type SettingsTab = "appearance" | "editor" | "agent" | "mcp" | "overleaf" | "literature" | "api" | "doctor" | "logs" | "acknowledgements";
 type CiteCommand = "cite" | "citep" | "citet";
 export type InsertSymbolCommand = CiteCommand | "ref" | "eqref";
 type DoctorCheck = { name: string; detail: string; ok: boolean; code?: string; params?: Record<string, string> };

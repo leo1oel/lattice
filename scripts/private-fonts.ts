@@ -16,16 +16,29 @@ import { type Plugin, searchForWorkspaceRoot } from "vite";
  * to an empty string to build without them. `src/platform/font-license-guard.test.ts`
  * fails if a Timeless file is ever tracked.
  *
- * Everything the app sees is the virtual stylesheet below: `@font-face` rules
- * and the font-role tokens that put the faces first. Without the fonts it is
- * empty, and `src/styles/theme.css`'s tokens stand as they always did.
+ * Everything the app sees is two virtual modules: the stylesheet below
+ * (`@font-face` rules and the font-role tokens that put the faces first) and
+ * the license module, the URL of the download's LICENSE.pdf, emitted unmodified
+ * beside the fonts, which Settings › About › Acknowledgements opens: the
+ * license lets the fonts go to no one without a copy of it. Without the fonts
+ * the stylesheet is empty, the URL is null, and `src/styles/theme.css`'s
+ * tokens stand as they always did.
+ *
+ * Release builds fetch the fonts from a private repository and set
+ * `LATTICE_PRIVATE_FONTS_REQUIRED=1`, which turns a missing or incomplete copy
+ * into a build error instead of a quiet fallback.
  */
 
 export const PRIVATE_FONTS_ENV = "LATTICE_PRIVATE_FONTS_DIR";
+export const PRIVATE_FONTS_REQUIRED_ENV = "LATTICE_PRIVATE_FONTS_REQUIRED";
 export const PRIVATE_FONTS_MODULE = "virtual:lattice-private-fonts.css";
+export const PRIVATE_FONTS_LICENSE_MODULE = "virtual:lattice-private-fonts-license";
 // A path-like id that ends in .css, so Vite's CSS pipeline (url() rewriting,
 // asset emission, bundling into the app stylesheet) handles it like a file.
 const RESOLVED_MODULE = "/__lattice-private-fonts.css";
+const RESOLVED_LICENSE_MODULE = "\0lattice-private-fonts-license";
+/** The license, beside the fonts in the download's root folder. */
+export const LICENSE_FILE = "LICENSE.pdf";
 // The alias the stylesheet's url()s go through; Vite resolves CSS url()s with
 // aliases, so the faces become ordinary emitted assets.
 const FONT_ALIAS = "@lattice-private-fonts";
@@ -82,13 +95,24 @@ export const FACES: readonly Face[] = [
   { family: "Timeless Serif", file: "Serif-Text/static/woff2/TimelessSerif-Regular.woff2", weight: "400", style: "normal", sizeAdjust: 1 },
 ];
 
-/** The fonts' folder, or null when this build goes without them. */
+/**
+ * The fonts' folder, or null when this build goes without them. Throws when
+ * the build requires them (`LATTICE_PRIVATE_FONTS_REQUIRED=1`) and they are
+ * not all there.
+ */
 export function privateFontsDirectory(env: NodeJS.ProcessEnv = process.env): string | null {
   const configured = env[PRIVATE_FONTS_ENV];
-  if (configured === "") return null;
-  const directory = path.resolve(configured ?? DEFAULT_DIRECTORY);
-  // All or nothing: a partial copy would mix faces and metrics.
-  return FACES.every((face) => existsSync(path.join(directory, face.file))) ? directory : null;
+  const required = env[PRIVATE_FONTS_REQUIRED_ENV] === "1";
+  const directory = configured === "" ? null : path.resolve(configured ?? DEFAULT_DIRECTORY);
+  // All or nothing: a partial copy would mix faces and metrics, and fonts
+  // without their license may not be shipped at all.
+  const complete = directory !== null
+    && [LICENSE_FILE, ...FACES.map((face) => face.file)].every((file) => existsSync(path.join(directory, file)));
+  if (complete) return directory;
+  if (required) {
+    throw new Error(`${PRIVATE_FONTS_REQUIRED_ENV}=1, but ${PRIVATE_FONTS_ENV} (${configured ?? DEFAULT_DIRECTORY}) does not hold ${LICENSE_FILE} and every embedded face`);
+  }
+  return null;
 }
 
 const percent = (value: number) => `${+(value * 100).toFixed(2)}%`;
@@ -128,8 +152,23 @@ export function privateFontsStylesheet(embedded: boolean): string {
   ].join("\n");
 }
 
-export function privateFontsPlugin(): Plugin {
-  const directory = privateFontsDirectory();
+/**
+ * The license module: the URL of the download's LICENSE.pdf, emitted unmodified
+ * as a hashed asset of the app (never inlined, so the shipped copy stays
+ * byte-identical), or null when the build has no fonts.
+ */
+export function privateFontsLicenseModule(embedded: boolean): string {
+  return embedded
+    ? `export { default as fontLicenseUrl } from "${FONT_ALIAS}/${LICENSE_FILE}?url&no-inline";\n`
+    : "export const fontLicenseUrl = null;\n";
+}
+
+/**
+ * `directory` overrides the environment, so a test runner can build without
+ * whatever fonts the machine happens to have.
+ */
+export function privateFontsPlugin(options: { directory?: string | null } = {}): Plugin {
+  const directory = options.directory !== undefined ? options.directory : privateFontsDirectory();
   return {
     name: "lattice:private-fonts",
     config: () => ({
@@ -143,7 +182,15 @@ export function privateFontsPlugin(): Plugin {
         ? `Timeless fonts: embedding from ${directory}`
         : `Timeless fonts: not found (set ${PRIVATE_FONTS_ENV}); using the open-licensed interface fonts`);
     },
-    resolveId: (id) => (id === PRIVATE_FONTS_MODULE ? RESOLVED_MODULE : undefined),
-    load: (id) => (id === RESOLVED_MODULE ? privateFontsStylesheet(directory !== null) : undefined),
+    resolveId(id) {
+      if (id === PRIVATE_FONTS_MODULE) return RESOLVED_MODULE;
+      if (id === PRIVATE_FONTS_LICENSE_MODULE) return RESOLVED_LICENSE_MODULE;
+      return undefined;
+    },
+    load(id) {
+      if (id === RESOLVED_MODULE) return privateFontsStylesheet(directory !== null);
+      if (id === RESOLVED_LICENSE_MODULE) return privateFontsLicenseModule(directory !== null);
+      return undefined;
+    },
   };
 }

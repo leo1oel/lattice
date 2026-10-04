@@ -4,6 +4,7 @@ import babel from "@rolldown/plugin-babel";
 import { reactCompilerPreset } from "@vitejs/plugin-react";
 import { lingui, linguiTransformerBabelPreset } from "@lingui/vite-plugin";
 import { fsModuleCacheKey } from "./scripts/vitest-fs-cache-key.ts";
+import { privateFontsPlugin } from "./scripts/private-fonts.ts";
 
 export default defineConfig({
   // The suite runs the compiled output, the same as the app: vite.config.ts
@@ -36,6 +37,9 @@ export default defineConfig({
       ],
     }),
     fsModuleCacheKey(fileURLToPath(new URL(".", import.meta.url))),
+    // Tests run as a build without the private fonts, whatever this machine
+    // has; a suite that needs their license mocks the module.
+    privateFontsPlugin({ directory: null }),
   ],
   resolve: {
     // Keep the `@/…` alias in sync with vite.config.ts / tsconfig so tests can

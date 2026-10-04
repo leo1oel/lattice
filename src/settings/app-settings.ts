@@ -4,6 +4,7 @@
  * imported anywhere without pulling in the rest of the app.
  */
 
+import { fontLicenseUrl } from "virtual:lattice-private-fonts-license";
 import type { CanvasMode, DocumentViewMode, FileViewState, SettingsTab } from "../app-types";
 
 export type Theme = "light" | "dark";
@@ -138,7 +139,11 @@ export const hasSeenTutorial = () => safely(() => localStorage.getItem(TUTORIAL_
 
 export const markTutorialSeen = () => persistSetting(TUTORIAL_SEEN_KEY, "1");
 
-const SETTINGS_TABS: readonly SettingsTab[] = ["appearance", "editor", "agent", "mcp", "overleaf", "literature", "api", "doctor", "logs"];
+// Acknowledgements exists only in builds that embed the licensed fonts.
+const SETTINGS_TABS: readonly SettingsTab[] = [
+  "appearance", "editor", "agent", "mcp", "overleaf", "literature", "api", "doctor", "logs",
+  ...(fontLicenseUrl ? ["acknowledgements" as const] : []),
+];
 
 /** Settings reopens on the page it was last left on. */
 export const loadSettingsTab = () => loadChoice(SETTINGS_TAB_KEY, SETTINGS_TABS, "appearance");
