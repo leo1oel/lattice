@@ -1,5 +1,5 @@
 // Vitest empties CSS imports, so read the files off disk.
-import { readFileSync } from "node:fs"
+import { readdirSync, readFileSync } from "node:fs"
 import { describe, expect, it } from "vitest"
 
 const read = (file: string) => String(readFileSync(file, "utf8"))
@@ -200,5 +200,53 @@ describe("shared surface contracts", () => {
       ".pdf-save-notice",
     ])
     expectRules(appCss, [], [".welcome-error", ".settings-notice", ".math-preview-error"])
+  })
+
+  // --control-active is the dark fill in light mode and the pale fill in dark
+  // mode, so a hardcoded white label (or a hover that swaps in the pale
+  // secondary wash) left enabled primary actions at ~1.25:1 in one theme.
+  it("labels every --control-active fill with its paired contrast token", () => {
+    const stylesheets = readdirSync("src", { recursive: true, encoding: "utf8" })
+      .filter((file) => file.endsWith(".css"))
+      .map((file) => [file, read(`src/${file}`)] as const)
+    const offenders = stylesheets.flatMap(([file, css]) =>
+      [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)]
+        .filter(([, , body]) => /background:\s*var\(--control-active\)\s*(;|$)/.test(body))
+        .filter(([, , body]) => {
+          const color = /(?:^|;)\s*color:\s*([^;]+)/.exec(body)?.[1].trim()
+          return color !== undefined && color !== "var(--control-active-contrast)" && color !== "transparent"
+        })
+        .map(([, selector]) => `${file}: ${selector.trim()}`),
+    )
+    expect(offenders).toEqual([])
+  })
+
+  it("keeps the enabled comment Reply action legible on hover", () => {
+    const css = read("src/styles/editor-workspace.css")
+    expectRules(css, [
+      ".editor-comment-reply-actions button:not(.primary):hover:not(:disabled) { background: var(--border-subtle); }",
+      /\.editor-comment-reply-actions button\.primary:hover:not\(:disabled\) \{\s*background: color-mix\(in srgb, var\(--control-active\) 88%, var\(--surface-app\)\);/,
+    ], [".editor-comment-reply-actions button:hover:not(:disabled)"])
+  })
+
+  it("pairs the accent with a contrast colour that clears WCAG AA in both themes", () => {
+    const theme = read("src/styles/theme.css")
+    const values = (token: string) =>
+      [...theme.matchAll(new RegExp(`--${token}:\\s*(#[0-9a-f]{6});`, "gi"))].map((match) => match[1])
+    const luminance = (hex: string) => {
+      const [r, g, b] = [1, 3, 5].map((at) => {
+        const channel = parseInt(hex.slice(at, at + 2), 16) / 255
+        return channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4
+      })
+      return 0.2126 * r + 0.7152 * g + 0.0722 * b
+    }
+    const accents = values("accent")
+    const labels = values("accent-contrast")
+    expect(accents).toHaveLength(2)
+    expect(labels).toHaveLength(2)
+    accents.forEach((accent, index) => {
+      const [high, low] = [luminance(accent), luminance(labels[index])].sort((a, b) => b - a)
+      expect((high + 0.05) / (low + 0.05)).toBeGreaterThanOrEqual(4.5)
+    })
   })
 })
