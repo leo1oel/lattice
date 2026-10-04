@@ -230,11 +230,6 @@ export class TrellisController {
   readonly pendingDrops = new Set<string>();
   bridge: TrellisBridge | null = null;
   ws: WorkspaceHandle | null = null;
-  /**
-   * Set while App places documents in the layout (tab sync, bringing one
-   * forward): changes then are not the writer arranging the workspace.
-   */
-  placing = false;
   private pointerPanel: string | null = null;
   private resetHandler: (() => Promise<void>) | null = null;
   private resyncHandler: (() => void) | null = null;
@@ -359,17 +354,6 @@ export class TrellisController {
     }, 0);
   }
 
-  /** Run `place` as App placing documents (see `placing`). */
-  placeDocuments(place: () => void) {
-    const was = this.placing;
-    this.placing = true;
-    try {
-      place();
-    } finally {
-      this.placing = was;
-    }
-  }
-
   panelState(kind: TrellisSingleton): TrellisPanelState {
     const view = this.ws?.view(kind);
     if (!view) return "absent";
@@ -422,7 +406,7 @@ export class TrellisController {
         if (++frames < 90) requestAnimationFrame(land);
         return;
       }
-      if (!shown) this.placeDocuments(() => ws.focus(view.id));
+      if (!shown) ws.focus(view.id);
       shown = true;
       const surface = this.hosts.editor.querySelector<HTMLElement>(".cm-content, .ProseMirror");
       settled = surface && surface === last && surface.getClientRects().length ? settled + 1 : 0;

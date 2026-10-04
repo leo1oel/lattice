@@ -5,9 +5,11 @@
  * A workspace is live: whatever the writer rearranges while in it is its
  * arrangement from then on, so switching back finds it as it was left. It
  * holds the arrangement only (panels, splits, sizes, tools), never documents:
- * each panel that held documents keeps one empty slot (a file view without a
- * key) where the open documents go when the workspace is entered
- * (`arrangeDocuments` in trellis-layout). Each project remembers which
+ * each panel that held documents keeps one empty slot (a `slot` view) where
+ * the open documents go when the workspace is entered (`arrangeDocuments` in
+ * trellis-layout). A slot no document fills stays on screen as an empty
+ * document panel, so documents opening or closing never change the
+ * arrangement. Each project remembers which
  * workspace it was last in, in its own saved layout.
  *
  * Eager (the titlebar lists them before the workspace loads) and light:
@@ -29,7 +31,7 @@ const LEGACY_LAYOUT_VERSION = 2;
 export const LAYOUT_VERSION = 3;
 /** Long enough for a word or two, short enough for a titlebar tab. */
 export const WORKSPACE_NAME_MAX = 24;
-/** Workspaces with a shortcut (⌘1 to ⌘9); the migration makes no more than these. */
+/** Workspaces with a shortcut (⌘1 to ⌘9). */
 export const WORKSPACE_SHORTCUTS = 9;
 
 /** ⌘1 to ⌘9 for the first nine workspaces. */
@@ -42,8 +44,12 @@ type SavedLibrary = { version: number; workspaces: Workspace[]; recent?: string 
 type Listener = () => void;
 
 const fileKey = (record: ViewRecord | undefined) => (record?.type === "file" ? String(record.params?.key ?? "") : "");
-/** A panel's place for documents in an arrangement: a file view without a document. */
-export const isDocumentSlot = (record: ViewRecord | undefined) => record?.type === "file" && !fileKey(record);
+/** A panel's place for documents: in an arrangement, and on screen while no document fills it. */
+export const isDocumentSlot = (record: ViewRecord | undefined) => record?.type === "slot";
+/** A document, or the slot standing in for one. */
+export const isDocumentView = (record: ViewRecord | undefined) => record?.type === "file" || isDocumentSlot(record);
+/** The slot of the document panel `panelId`. */
+export const documentSlot = (panelId: string) => ({ id: `slot-${panelId}`, record: { type: "slot", params: {} } as ViewRecord });
 
 /**
  * `doc` as an arrangement: its documents taken out, and each panel that held
@@ -52,16 +58,16 @@ export const isDocumentSlot = (record: ViewRecord | undefined) => record?.type =
  */
 export function arrangementOf(doc: LayoutDocument): LayoutDocument {
   const views: Record<string, ViewRecord> = {};
-  for (const [id, record] of Object.entries(doc.views)) if (record.type !== "file") views[id] = record;
+  for (const [id, record] of Object.entries(doc.views)) if (!isDocumentView(record)) views[id] = record;
   const panel = (target: PanelNode): PanelNode => {
-    const slot = `slot-${target.id}`;
+    const { id: slot, record } = documentSlot(target.id);
     const members: string[] = [];
     for (const id of target.views) {
-      if (doc.views[id]?.type !== "file") members.push(id);
+      if (!isDocumentView(doc.views[id])) members.push(id);
       else if (!members.includes(slot)) members.push(slot);
     }
-    if (members.includes(slot)) views[slot] = { type: "file", params: {} };
-    const selected = doc.views[target.selected]?.type === "file" ? slot : target.selected;
+    if (members.includes(slot)) views[slot] = record;
+    const selected = isDocumentView(doc.views[target.selected]) ? slot : target.selected;
     return { ...target, views: members, selected: members.includes(selected) ? selected : members[0] ?? selected };
   };
   const node = (target: LayoutNode): LayoutNode => {
@@ -81,11 +87,12 @@ export function arrangementOf(doc: LayoutDocument): LayoutDocument {
 /**
  * A layout's arrangement as a string that changes only when the arrangement
  * does: its splits and their weights, panels with their views (documents by
- * file, since re-placing a document gives its view a new id), floating
+ * file, since re-placing a document gives its view a new id, and slots
+ * alike, since a slot's id names its panel), floating
  * windows and hidden panels. Panel ids and selected tabs are left out.
  */
 export function layoutShape(doc: LayoutDocument): string {
-  const view = (id: string) => (doc.views[id]?.type === "file" ? `file:${fileKey(doc.views[id])}` : id);
+  const view = (id: string) => (doc.views[id]?.type === "file" ? `file:${fileKey(doc.views[id])}` : isDocumentSlot(doc.views[id]) ? "slot" : id);
   const panel = (target: PanelNode) => target.views.map(view);
   const node = (target: LayoutNode): unknown => {
     if (target.kind === "panel") return panel(target);

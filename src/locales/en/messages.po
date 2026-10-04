@@ -2784,6 +2784,7 @@ msgid "Emphasized text command"
 msgstr "Emphasized text command"
 
 #: src/history/conflict-resolver.tsx
+#: src/trellis/trellis-workspace.tsx
 msgid "Empty"
 msgstr "Empty"
 
@@ -4932,6 +4933,10 @@ msgstr "No diagnostics"
 #: src/overleaf/overleaf-review.tsx
 msgid "No differences. You can close this window"
 msgstr "No differences. You can close this window"
+
+#: src/trellis/trellis-workspace.tsx
+msgid "No document open"
+msgstr "No document open"
 
 #: src/overleaf/overleaf-history.tsx
 msgid "No file changes recorded for this update"

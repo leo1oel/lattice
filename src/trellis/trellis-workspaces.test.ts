@@ -20,8 +20,8 @@ function withDocuments(keys: string[]): LayoutDocument {
 describe("a workspace's arrangement", () => {
   it("keeps one slot where a panel's documents stood, and no documents", () => {
     const arrangement = arrangementOf(withDocuments(["main.tex", "notes.md"]));
-    const fileViews = Object.entries(arrangement.views).filter(([, record]) => record.type === "file");
-    expect(fileViews).toEqual([["slot-panel-doc-0", { type: "file", params: {} }]]);
+    const documentViews = Object.entries(arrangement.views).filter(([, record]) => record.type === "file" || record.type === "slot");
+    expect(documentViews).toEqual([["slot-panel-doc-0", { type: "slot", params: {} }]]);
     expect(isDocumentSlot(arrangement.views["slot-panel-doc-0"])).toBe(true);
     expect(JSON.stringify(arrangement)).not.toMatch(/main\.tex|notes\.md/);
     const panel = (arrangement.root as { children: Array<{ id: string; views: string[]; selected: string }> }).children[1];

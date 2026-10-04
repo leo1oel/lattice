@@ -12,7 +12,7 @@ import {
   createDocument, layout as L, sanitize, type HiddenPanel, type LayoutDocument, type LayoutNode, type PanelNode, type ViewRecord,
 } from "@danfessler/trellis";
 import {
-  arrangementOf, isDocumentSlot, layoutShape, LAYOUT_STORAGE_PREFIX, LAYOUT_VERSION, type WorkspaceLibrary,
+  arrangementOf, documentSlot, isDocumentSlot, isDocumentView, layoutShape, LAYOUT_STORAGE_PREFIX, LAYOUT_VERSION, type WorkspaceLibrary,
 } from "./trellis-workspaces";
 
 /**
@@ -46,7 +46,7 @@ type SavedLayout = {
 };
 
 export const VIEW_TYPES = [
-  "project", "papers", "agent", "pdf", "file",
+  "project", "papers", "agent", "pdf", "file", "slot",
   "history", "git", "comments", "overleaf", "literature", "todos", "checklist",
 ] as const;
 
@@ -221,7 +221,8 @@ export function enterPreset(
 
 /**
  * The writer's own layout to return to from a preset, brought up to date with
- * what is open now: documents and panels closed meanwhile stay closed, and
+ * what is open now: documents and panels closed meanwhile stay closed (a
+ * document panel left without any keeps an empty slot), and
  * those opened meanwhile (not those the preset `supplied`) join the panel holding the active document (else the
  * first document panel), keeping the views they have now. The active document
  * is selected in its panel. With no document panel left to join, App's tab
@@ -253,8 +254,16 @@ export function returnLayout(
   const joined = joining.map(([id]) => id);
   const active = documents.activeKey ? Object.keys(views).find((id) => fileKey(views[id]) === documents.activeKey) : undefined;
   const replace = (panel: PanelNode): PanelNode => {
-    const members = panel.id === target?.id ? [...panel.views, ...joined] : panel.views;
-    return { ...panel, views: members, selected: active && members.includes(active) ? active : panel.selected };
+    let members = panel.id === target?.id ? [...panel.views, ...joined] : panel.views;
+    let selected = active && members.includes(active) ? active : panel.selected;
+    const at = members.findIndex((id) => isDocumentView(previous.views[id]));
+    if (at >= 0 && !members.some((id) => views[id] && isDocumentView(views[id]))) {
+      const slot = documentSlot(panel.id);
+      views[slot.id] = slot.record;
+      members = [...members.slice(0, at), slot.id, ...members.slice(at)];
+      if (!views[selected]) selected = slot.id;
+    }
+    return { ...panel, views: members, selected };
   };
   const mapNode = (node: LayoutNode): LayoutNode => {
     if (node.kind === "panel") return replace(node);
@@ -312,8 +321,8 @@ export function placesOf(doc: LayoutDocument): DocumentPlaces {
  * panel: its place, else the first slot), and the rest join the active
  * panel. Each keeps its view from `current` (so its tab survives), and a
  * panel shows the active document, else the one it last showed. A slot no
- * document fills closes up; with no slot at all, App's tab sync gives the
- * documents a panel of their own.
+ * document fills stays, an empty document panel; with no slot at all, App's
+ * tab sync gives the documents a panel of their own.
  */
 export function arrangeDocuments(
   arrangement: LayoutDocument | null,
@@ -361,6 +370,10 @@ export function arrangeDocuments(
     const slot = slotOf.get(panel.id);
     if (!slot) return panel;
     const filled = members.get(panel.id) ?? [];
+    if (!filled.length) {
+      views[slot] = doc.views[slot];
+      return panel;
+    }
     const ids = panel.views.flatMap((id) => (id === slot ? filled : [id]));
     const front = filled.find((id) => id === active) ?? filled.find((id) => places[fileKey(views[id])]?.selected) ?? filled[0];
     const selected = panel.selected === slot || (active && filled.includes(active)) ? front : panel.selected;
@@ -378,6 +391,47 @@ export function arrangeDocuments(
     hidden: doc.hidden.map((entry) => ({ ...entry, panel: fill(entry.panel) })),
     views,
   }, knownType);
+}
+
+/** The slots of `doc`'s panels that hold a document now: they leave. */
+export function filledSlots(doc: LayoutDocument): string[] {
+  return panelsOf(doc, { hidden: true }).flatMap((panel) => (
+    panel.views.some((id) => doc.views[id]?.type === "file") ? panel.views.filter((id) => isDocumentSlot(doc.views[id])) : []
+  ));
+}
+
+/**
+ * `current`, just after `viewId` closed out of `previous`, keeping the
+ * document panel it was the last document of as an empty slot, so closing a
+ * document never changes the arrangement. Null when the panel still holds a
+ * document (or a slot).
+ */
+export function keepDocumentSlot(previous: LayoutDocument, current: LayoutDocument, viewId: string): LayoutDocument | null {
+  const panel = panelsOf(previous, { hidden: true }).find((target) => target.views.includes(viewId));
+  if (!panel || panel.views.some((id) => id !== viewId && isDocumentView(previous.views[id]))) return null;
+  const slot = documentSlot(panel.id);
+  const live = panelsOf(current, { hidden: true }).find((target) => target.id === panel.id);
+  const at = panel.views.indexOf(viewId);
+  const source = live ? current : previous;
+  const views = { ...source.views, [slot.id]: slot.record };
+  delete views[viewId];
+  const replace = (target: PanelNode): PanelNode => {
+    if (target.id !== panel.id) return target;
+    const members = live ? [...target.views.slice(0, at), slot.id, ...target.views.slice(at)] : target.views.map((id) => (id === viewId ? slot.id : id));
+    return { ...target, views: members, selected: members.includes(target.selected) ? target.selected : slot.id };
+  };
+  const node = (target: LayoutNode): LayoutNode => {
+    if (target.kind === "panel") return replace(target);
+    if (target.kind === "stage") return target.child ? { ...target, child: node(target.child) as typeof target.child } : target;
+    return { ...target, children: target.children.map(node) };
+  };
+  return {
+    ...source,
+    root: source.root ? node(source.root) : null,
+    floating: source.floating.map((entry) => ({ ...entry, panel: replace(entry.panel) })),
+    hidden: source.hidden.map((entry) => ({ ...entry, panel: replace(entry.panel) })),
+    views,
+  };
 }
 
 function storageKey(projectRoot: string) {

@@ -74,17 +74,50 @@ describe("a named workspace's arrangement", () => {
     expect(documentPanels(stored(id))).toBe(1);
   });
 
-  it("keeps a split App's tab sync left unfilled, even once a second document joins the first", async () => {
+  it("keeps a split another project leaves empty, through tab clicks and a second document", async () => {
     const id = splitWorkspace();
+    saveLayout("/a", { document: split(), workspace: id });
+    // Project B enters the workspace with one document: the second split stays, an empty slot.
     const { controller, ws, unmount } = await open("/b", ["main.tex"]);
-    // One document: the second split closed up.
+    const [main] = ws.views({ type: "file" });
+    const [slot] = ws.views({ type: "slot" });
+    expect(slot.panelId).not.toBe(main.panelId);
+    // Clicking between tabs and cycling them changes nothing of the workspace.
+    act(() => ws.select("agent"));
+    act(() => ws.select("project"));
+    act(() => ws.select(main.id));
+    // A document opened next fills the empty slot, which leaves.
     act(() => controller.app.set({ openTabs: OPEN, activeKey: "notes.md" }));
     await waitFor(() => expect(ws.views({ type: "file" })).toHaveLength(2));
-    const [first, second] = ws.views({ type: "file" });
-    expect(second.panelId).toBe(first.panelId);
+    expect(ws.views({ type: "file" }).find((view) => view.params.key === "notes.md")!.panelId).toBe(slot.panelId);
+    expect(ws.views({ type: "slot" })).toHaveLength(0);
     unmount();
     expect(layoutShape(stored(id))).toBe(layoutShape(arrangementOf(split())));
-    // Another project entering it with both documents open gets the split.
-    expect(documentPanels(stored(id))).toBe(2);
+    // Project A, opened again, keeps its split.
+    const again = await open("/a", OPEN);
+    const [first, second] = again.ws.views({ type: "file" });
+    expect(first.panelId).not.toBe(second.panelId);
+  });
+
+  it("keeps a document panel as an empty slot when its last document is closed by its tab", async () => {
+    const id = splitWorkspace();
+    saveLayout("/a", { document: split(), workspace: id });
+    const { ws, unmount } = await open("/a", OPEN);
+    const notes = ws.views({ type: "file" }).find((view) => view.params.key === "notes.md")!;
+    await act(async () => { await ws.close(notes.id); });
+    expect(ws.views({ type: "slot" }).map((view) => view.panelId)).toEqual([notes.panelId]);
+    unmount();
+    expect(layoutShape(stored(id))).toBe(layoutShape(arrangementOf(split())));
+  });
+
+  it("records a split the writer makes", async () => {
+    const id = splitWorkspace();
+    saveLayout("/a", { document: split(), workspace: id });
+    const { ws, unmount } = await open("/a", OPEN);
+    const [main] = ws.views({ type: "file" });
+    act(() => ws.dock("pdf", { beside: main.panelId, edge: "bottom" }));
+    unmount();
+    expect(layoutShape(stored(id))).not.toBe(layoutShape(arrangementOf(split())));
+    expect(layoutShape(stored(id))).toBe(layoutShape(arrangementOf(ws.getDocument())));
   });
 });

@@ -137,10 +137,12 @@ describe("layout presets", () => {
     expect(back.views.history).toBeUndefined();
   });
 
-  it("closes up a panel whose documents all closed while away", () => {
+  it("keeps a document panel whose documents all closed while away, as an empty slot", () => {
     const previous = workspaceWith(["notes.md"]);
     const back = returnLayout(previous, presetLayout("writing", previous, { ...documents, openTabs: ["notes.md"] }), { activeKey: "", openTabs: [] });
-    expect(panels(back).map((panel) => panel.id)).toEqual(["panel-project", "panel-papers", "panel-pdf"]);
+    expect(panels(back).map((panel) => panel.id)).toEqual(["panel-project", "panel-papers", "panel-doc-0", "panel-pdf"]);
+    expect(findPanel(back.root, "panel-doc-0")).toMatchObject({ views: ["slot-panel-doc-0"], selected: "slot-panel-doc-0" });
+    expect(back.views["slot-panel-doc-0"].type).toBe("slot");
   });
 
   it("returns without the panels a preset brought in, through Writing and then Reading", () => {
@@ -274,7 +276,7 @@ describe("named workspaces", () => {
     expect(layoutShape(arranged)).toBe(layoutShape(own));
   });
 
-  it("brings documents new to the workspace into the active one's panel, and closes up an unfilled slot", () => {
+  it("brings documents new to the workspace into the active one's panel, and keeps an unfilled slot", () => {
     const own = sideBySide();
     const open = ["main.tex", "refs.bib"];
     const current = workspaceWith(open);
@@ -283,6 +285,7 @@ describe("named workspaces", () => {
       ["panel-project", ["project", "agent"]],
       ["panel-papers", ["papers"]],
       ["panel-doc-0", ["main.tex", "refs.bib"]],
+      ["panel-doc-2", ["slot-panel-doc-2"]],
       ["panel-pdf", ["pdf"]],
     ]);
     // The documents keep their views, so their tabs survive the switch.
