@@ -47,6 +47,8 @@ export type WorkspaceSummary = { id: string; name: string };
 type SavedLibrary = { version: number; workspaces: Workspace[]; recent?: string };
 type Listener = () => void;
 
+const newDocumentId = () => `document-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
+
 /** The panels holding Project, Papers or the Agent. */
 function navigatorPanels(doc: LayoutDocument): string[] {
   const found: string[] = [];
@@ -115,7 +117,7 @@ export function withDocumentPanel(
  * document (`withDocumentPanel` beside the navigators).
  */
 export function arrangementOf(layout: LayoutDocument): LayoutDocument {
-  const doc = Object.values(layout.views).some(isDocumentView) ? layout : withDocumentPanel(layout, { id: "document", key: "" }, { after: navigatorPanels(layout) });
+  const doc = Object.values(layout.views).some(isDocumentView) ? layout : withDocumentPanel(layout, { id: newDocumentId(), key: "" }, { after: navigatorPanels(layout) });
   const views: Record<string, ViewRecord> = {};
   for (const [id, record] of Object.entries(doc.views)) if (!isDocumentView(record)) views[id] = record;
   const panel = (target: PanelNode): PanelNode => {
@@ -215,8 +217,9 @@ function isWorkspace(value: unknown): value is Workspace {
 /**
  * The workspaces, in the writer's order, persisted in localStorage. The
  * summary list (ids and names) keeps its identity until one is added,
- * removed, renamed or moved, so the titlebar re-renders only then; saving a
- * workspace's arrangement (Save to workspace) notifies nobody.
+ * removed, renamed or moved, so the titlebar re-renders only then. Only "+",
+ * Save to workspace, Duplicate and Rename write an arrangement; writing one
+ * notifies nobody, since the listed summaries do not change.
  */
 export class WorkspaceLibrary {
   private saved: SavedLibrary | null = null;

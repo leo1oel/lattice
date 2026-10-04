@@ -235,4 +235,31 @@ describe("a named workspace", () => {
     unmount();
     expect(layoutShape(stored(id!))).toBe(saved);
   });
+
+  it("saved again with no document, after a panel took the place it made, loads with every panel", async () => {
+    saveLayout("/a", { document: defaultLayout() });
+    const { controller, ws, unmount } = await open("/a", []);
+    // A never-saved workspace loads with a place for documents.
+    act(() => controller.revertWorkspace());
+    const [slot] = ws.views({ type: "slot" });
+    act(() => { ws.dock("pdf", { into: slot.panelId }); });
+    await act(async () => { await ws.close(slot.id); });
+    expect(ws.views({ type: "slot" })).toHaveLength(0);
+    act(() => controller.saveWorkspace());
+    act(() => controller.revertWorkspace());
+    const doc = ws.getDocument();
+    const panels: string[] = [];
+    const walk = (node: LayoutNode | null | undefined) => {
+      if (!node) return;
+      if (node.kind === "panel") panels.push(node.id);
+      else if (node.kind === "stage") walk(node.child);
+      else node.children.forEach(walk);
+    };
+    walk(doc.root);
+    expect(new Set(panels).size).toBe(panels.length);
+    expect(ws.view("pdf")).not.toBeNull();
+    expect(ws.views({ type: "slot" })).toHaveLength(1);
+    expect(controller.ui.get().dirty).toBe(false);
+    unmount();
+  });
 });
