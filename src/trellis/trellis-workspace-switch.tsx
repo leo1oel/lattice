@@ -11,7 +11,7 @@
  *
  * Eager but light: it drives the workspace only through the controller.
  */
-import { useEffect, useId, useLayoutEffect, useRef, useState, type KeyboardEvent, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent } from "react";
+import { useId, useLayoutEffect, useRef, useState, type FocusEvent as ReactFocusEvent, type KeyboardEvent, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent } from "react";
 import { createPortal } from "react-dom";
 import { useLingui } from "@lingui/react/macro";
 import { ArrowLeft, ArrowRight, Check, ChevronDown, Copy, LayoutDashboard, Pencil, Plus, Save, Trash2, Undo2 } from "lucide-react";
@@ -89,32 +89,53 @@ export function LayoutSwitch({ controller, compact }: { controller: TrellisContr
     const count = workspaces.length;
     setAnnouncement(spaceMixedScript(t`Moved “${name}” to position ${position} of ${count}`));
   };
-  // Folding or unfolding replaces the workspaces' controls (tabs, or one menu
-  // button), so the keyboard on one that went moves to its counterpart. The
-  // control last focused is kept until focus leaves it for good: a control
-  // removed reports no blur (WebKit) or a blur while still in the document
-  // (Chromium).
-  const focusedRef = useRef<HTMLElement | null>(null);
-  useEffect(() => {
-    const track = trackRef.current;
-    if (!track) return;
-    const listening = new AbortController();
-    track.addEventListener("focusin", (event) => { focusedRef.current = event.target as HTMLElement; }, { signal: listening.signal });
-    track.addEventListener("focusout", (event) => {
-      const left = event.target as HTMLElement;
-      queueMicrotask(() => {
-        if (left.isConnected && focusedRef.current === left) focusedRef.current = null;
-      });
-    }, { signal: listening.signal });
-    return () => listening.abort();
-  }, []);
+  // Where the keyboard stands in the switch, as the workspace it stands for:
+  // a tab's, or the current one's for the folded button and the switch's
+  // other controls, or the one a menu opened for (portaled out of the track,
+  // a menu names it in `data-workspace-origin`; React's focus events still
+  // bubble from it to the track). Folding or unfolding replaces the
+  // workspaces' controls, menus included, and a closing menu removes itself,
+  // so focus then goes to that workspace's control on screen. It is kept
+  // until focus leaves the switch: for another element, or for none from a
+  // control still there (React drops the blur of one its commit removes;
+  // WebKit reports none).
+  const originRef = useRef<string | null>(null);
   const currentId = currentEntry.id;
-  useLayoutEffect(() => {
-    const was = focusedRef.current;
-    if (!was || was.isConnected || (document.activeElement && document.activeElement !== document.body)) return;
-    const id = was.dataset.workspace ?? currentId;
-    trackRef.current?.querySelector<HTMLElement>(compact ? "[data-workspace-menu]" : `[data-workspace="${id}"]`)?.focus();
-  }, [compact, currentId]);
+  const onTrackFocus = (event: ReactFocusEvent<HTMLDivElement>) => {
+    const target = event.target as HTMLElement;
+    originRef.current = target.closest<HTMLElement>("[data-workspace]")?.dataset.workspace
+      ?? target.closest<HTMLElement>("[data-workspace-origin]")?.dataset.workspaceOrigin
+      ?? currentId;
+  };
+  const onTrackBlur = (event: ReactFocusEvent<HTMLDivElement>) => {
+    const left = event.target as HTMLElement;
+    // Within the switch, the focus that follows sets it again.
+    if (event.relatedTarget) originRef.current = null;
+    else queueMicrotask(() => { if (left.isConnected) originRef.current = null; });
+  };
+  /**
+   * Focus, lost while the keyboard was in the switch, back to the control on
+   * screen for its workspace: that one's tab, else the folded button, else
+   * (the workspace is gone) the current workspace's tab.
+   */
+  const recoverFocus = () => {
+    const id = originRef.current;
+    const track = trackRef.current;
+    if (id === null || !track || (document.activeElement && document.activeElement !== document.body)) return;
+    (track.querySelector<HTMLElement>(`[data-workspace="${id}"]`)
+      ?? track.querySelector<HTMLElement>("[data-workspace-menu]")
+      ?? track.querySelector<HTMLElement>(`[data-workspace="${currentId}"]`))?.focus();
+  };
+  useLayoutEffect(recoverFocus, [compact, currentId]);
+  // A menu closing hands focus back the same way (Rename hands it to the
+  // name field instead), but not after a click or focus outside it.
+  const menuFocus = {
+    onCloseAutoFocus: (event: Event) => {
+      event.preventDefault();
+      if (!controller.ui.get().renaming) recoverFocus();
+    },
+    onInteractOutside: () => { originRef.current = null; },
+  };
   // Keyed by the workspace it names wherever it stands, so folding or
   // unfolding the switch mid-edit keeps the field, its draft and its caret.
   const nameField = (entry: WorkspaceSummary) => <NameField key={`name-${entry.id}`} controller={controller} entry={entry} />;
@@ -122,13 +143,13 @@ export function LayoutSwitch({ controller, compact }: { controller: TrellisContr
   // The workspace a right-click (or the keyboard's menu key) landed on, and
   // where. Its menu mounts only then: menus are many components, and the
   // strip renders at startup.
-  const [menuAt, setMenuAt] = useState<{ entry: WorkspaceSummary; tab: HTMLElement; x: number; y: number } | null>(null);
+  const [menuAt, setMenuAt] = useState<{ entry: WorkspaceSummary; x: number; y: number } | null>(null);
   /** The menu of the workspace `tab`, at `at` or (from the keyboard, with no pointer) below the tab. */
   const openMenuAt = (tab: HTMLElement, at?: { x: number; y: number }) => {
     const entry = workspaces.find((item) => item.id === tab.dataset.workspace);
     if (!entry) return false;
     const box = tab.getBoundingClientRect();
-    setMenuAt({ entry, tab, x: at?.x ?? box.left, y: at?.y ?? box.bottom });
+    setMenuAt({ entry, x: at?.x ?? box.left, y: at?.y ?? box.bottom });
     return true;
   };
   const openMenu = (event: ReactMouseEvent<HTMLDivElement>) => {
@@ -250,12 +271,9 @@ export function LayoutSwitch({ controller, compact }: { controller: TrellisContr
         align="start"
         sideOffset={2}
         className="min-w-[9rem]"
-        // Back to the tab, wherever a move put it, unless Rename moved focus into the name field.
-        onCloseAutoFocus={(event) => {
-          event.preventDefault();
-          if (controller.ui.get().renaming) return;
-          (trackRef.current?.querySelector<HTMLElement>(`[data-workspace="${menuAt.entry.id}"]`) ?? menuAt.tab).focus();
-        }}
+        // Back to the tab wherever a move put it, or to the folded button.
+        data-workspace-origin={menuAt.entry.id}
+        {...menuFocus}
       >
         <WorkspaceActions
           controller={controller} entry={menuAt.entry} dirty={dirty && menuAt.entry.id === current} workspaces={workspaces}
@@ -285,7 +303,8 @@ export function LayoutSwitch({ controller, compact }: { controller: TrellisContr
           </span>
         </button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" sideOffset={6} className="min-w-[12rem]" onCloseAutoFocus={(event) => { if (controller.ui.get().renaming) event.preventDefault(); }}>
+      {/* Unfolding unmounts it, open or not: focus in it goes to the current workspace's tab. */}
+      <DropdownMenuContent align="start" sideOffset={6} className="min-w-[12rem]" data-workspace-origin={currentId} {...menuFocus}>
         {workspaces.map((entry, index) => (
           <DropdownMenuItem key={entry.id} role="menuitemradio" aria-checked={entry.id === current} onSelect={() => controller.switchWorkspace(entry.id)}>
             <span className="trellis-menu-check">{entry.id === current && <Check size={14} />}</span>
@@ -305,7 +324,13 @@ export function LayoutSwitch({ controller, compact }: { controller: TrellisContr
   );
 
   return (
-    <div ref={trackRef} className="ui-segmented ui-segmented--compact ui-segmented--neutral trellis-presets" onKeyDown={onTrackKeyDown}>
+    <div
+      ref={trackRef}
+      className="ui-segmented ui-segmented--compact ui-segmented--neutral trellis-presets"
+      onKeyDown={onTrackKeyDown}
+      onFocus={onTrackFocus}
+      onBlur={onTrackBlur}
+    >
       {/* One host for both presentations, so the name field (any workspace's,
           a folded duplicate's too) is the same element through a fold. */}
       <div
