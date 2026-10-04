@@ -1,9 +1,9 @@
 // Vitest empties CSS imports, so read the files off disk.
-import { readFileSync } from "node:fs"
+import { readdirSync, readFileSync } from "node:fs"
 import { describe, expect, it } from "vitest"
 
 const read = (file: string) => String(readFileSync(file, "utf8"))
-const appCss = [
+const appCssFiles = [
   "src/App.css",
   "src/styles/theme.css",
   "src/styles/app-shell.css",
@@ -11,7 +11,8 @@ const appCss = [
   "src/styles/workspace-panels.css",
   "src/styles/dialogs.css",
   "src/styles/adaptive-feedback.css",
-].map(read).join("\n")
+]
+const appCss = appCssFiles.map(read).join("\n")
 const surfacesCss = read("src/styles/surfaces.css")
 const menuSurface = read("src/components/ui/menu-surface.ts")
 const spreadsheetEditor = read("src/editor/spreadsheet/spreadsheet-editor.tsx")
@@ -28,6 +29,138 @@ function expectRules(css: string, has: Pattern[], lacks: Pattern[] = []) {
     if (typeof pattern === "string") expect(css).not.toContain(pattern)
     else expect(css).not.toMatch(pattern)
   }
+}
+
+type Rgba = [number, number, number, number]
+
+function parseStylesheet(css: string) {
+  const style = document.createElement("style")
+  style.textContent = css
+  document.head.append(style)
+  const sheet = style.sheet!
+  style.remove()
+  return sheet
+}
+
+/** Style rules in source order, through @layer/@supports but not @media. */
+function styleRules(sheet: CSSStyleSheet | CSSGroupingRule): CSSStyleRule[] {
+  return [...sheet.cssRules].flatMap((rule) =>
+    rule instanceof CSSStyleRule ? [rule]
+    : rule instanceof CSSMediaRule ? []
+    : "cssRules" in rule ? styleRules(rule as CSSGroupingRule)
+    : [])
+}
+
+function splitTopLevel(list: string) {
+  const parts: string[] = []
+  let depth = 0
+  let start = 0
+  for (let at = 0; at < list.length; at += 1) {
+    if (list[at] === "(") depth += 1
+    else if (list[at] === ")") depth -= 1
+    else if (list[at] === "," && depth === 0) {
+      parts.push(list.slice(start, at).trim())
+      start = at + 1
+    }
+  }
+  return [...parts, list.slice(start).trim()]
+}
+
+function specificity(selector: string): number {
+  let score = 0
+  const rest = selector
+    .replace(/:where\((?:[^()]|\([^()]*\))*\)/g, " ")
+    .replace(/:(?:not|is|has)\(((?:[^()]|\([^()]*\))*)\)/g, (_, inner: string) => {
+      score += Math.max(...splitTopLevel(inner).map(specificity))
+      return " "
+    })
+    .replace(/\[[^\]]*\]/g, () => {
+      score += 100
+      return " "
+    })
+  score += (rest.match(/#[\w-]+/g) ?? []).length * 10_000
+  score += (rest.match(/\.[\w-]+|(?<!:):[\w-]+/g) ?? []).length * 100
+  score += (rest.match(/(?:^|[\s>+~])[a-z][\w-]*|::[\w-]+/gi) ?? []).length
+  return score
+}
+
+/** The declarations that win on `element`, with `background-color` folded into `background`. */
+function cascade(rules: CSSStyleRule[], element: Element, hover: boolean) {
+  const winners = new Map<string, { value: string; weight: number }>()
+  for (const rule of rules) {
+    const weights = splitTopLevel(rule.selectorText).flatMap((selector) => {
+      if (!hover && selector.includes(":hover")) return []
+      try {
+        return element.matches(selector.replaceAll(":hover", "")) ? [specificity(selector)] : []
+      } catch {
+        return []
+      }
+    })
+    if (weights.length === 0) continue
+    const weight = Math.max(...weights)
+    for (let index = 0; index < rule.style.length; index += 1) {
+      const property = rule.style[index]
+      const value = rule.style.getPropertyValue(property).trim()
+      if (!property.startsWith("background") && weight >= (winners.get(property)?.weight ?? -1)) winners.set(property, { value, weight })
+    }
+    for (const property of ["background", "background-color"]) {
+      const value = rule.style.getPropertyValue(property).trim()
+      if (value && weight >= (winners.get("background")?.weight ?? -1)) winners.set("background", { value, weight })
+    }
+  }
+  return new Map([...winners].map(([name, { value }]) => [name, value]))
+}
+
+function resolveVars(value: string, declared: Map<string, string>): string {
+  const resolved = value.replace(/var\((--[\w-]+)\)/g, (_, name: string) => {
+    const token = declared.get(name)
+    if (token === undefined) throw new Error(`${name} is not declared`)
+    return token
+  })
+  return resolved === value ? value : resolveVars(resolved, declared)
+}
+
+function parseColor(value: string): Rgba {
+  const color = value.trim().toLowerCase()
+  if (color === "transparent") return [0, 0, 0, 0]
+  const short = /^#([0-9a-f]{3})$/.exec(color)?.[1]
+  const hex = short ? [...short].map((digit) => digit + digit).join("") : /^#([0-9a-f]{6})$/.exec(color)?.[1]
+  if (hex) return [0, 2, 4].map((at) => parseInt(hex.slice(at, at + 2), 16)).concat(1) as Rgba
+  const rgb = /^rgba?\(([^)]*)\)$/.exec(color)?.[1]
+  if (rgb) {
+    const [r, g, b, a = 1] = rgb.split(/[\s,/]+/).map(Number)
+    return [r, g, b, a]
+  }
+  const mix = /^color-mix\(in srgb,(.*)\)$/.exec(color)?.[1]
+  if (mix) {
+    const [first, second] = splitTopLevel(mix).map((stop) => {
+      const [, swatch, percent] = /^(.*?)(?:\s+([\d.]+)%)?$/.exec(stop)!
+      return { color: parseColor(swatch), share: percent === undefined ? undefined : Number(percent) / 100 }
+    })
+    const share = first.share ?? 1 - (second.share ?? 0.5)
+    const alpha = first.color[3] * share + second.color[3] * (1 - share)
+    const channel = (at: number) =>
+      alpha === 0 ? 0 : (first.color[at] * first.color[3] * share + second.color[at] * second.color[3] * (1 - share)) / alpha
+    return [channel(0), channel(1), channel(2), alpha]
+  }
+  throw new Error(`unsupported colour ${value}`)
+}
+
+/** `top` composited over an opaque `base`. */
+function over(top: Rgba, base: Rgba): Rgba {
+  return [0, 1, 2].map((at) => top[at] * top[3] + base[at] * (1 - top[3])).concat(1) as Rgba
+}
+
+function contrast(first: Rgba, second: Rgba) {
+  const luminance = (color: Rgba) => {
+    const [r, g, b] = color.slice(0, 3).map((value) => {
+      const channel = value / 255
+      return channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4
+    })
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b
+  }
+  const [high, low] = [luminance(first), luminance(second)].sort((a, b) => b - a)
+  return (high + 0.05) / (low + 0.05)
 }
 
 describe("shared surface contracts", () => {
@@ -200,5 +333,56 @@ describe("shared surface contracts", () => {
       ".pdf-save-notice",
     ])
     expectRules(appCss, [], [".welcome-error", ".settings-notice", ".math-preview-error"])
+  })
+
+  // --control-active is the dark fill in light mode and the pale fill in dark
+  // mode, so a hardcoded white label (or a hover that swaps in the pale
+  // secondary wash) left enabled primary actions at ~1.25:1 in one theme.
+  it("labels every --control-active fill with its paired contrast token", () => {
+    const offenders = readdirSync("src", { recursive: true, encoding: "utf8" })
+      .filter((file) => file.endsWith(".css"))
+      .flatMap((file) =>
+        styleRules(parseStylesheet(read(`src/${file}`)))
+          .filter(({ style }) =>
+            ["background", "background-color"].some((property) =>
+              /^var\(--control-active\)(\s|$)/.test(style.getPropertyValue(property).trim())),
+          )
+          .filter(({ style }) => !["", "transparent", "var(--control-active-contrast)"].includes(style.getPropertyValue("color").trim()))
+          .map(({ selectorText }) => `${file}: ${selectorText}`),
+      )
+    expect(offenders).toEqual([])
+  })
+
+  it.each(["light", "dark"])("keeps the enabled comment Reply action legible at rest and on hover in the %s theme", (theme) => {
+    const rules = styleRules(parseStylesheet(["src/styles/foundations.css", ...appCssFiles].map(read).join("\n")))
+    document.body.innerHTML = '<div class="editor-comment-reply-actions"><button class="primary">Reply</button></div>'
+    const button = document.querySelector("button")!
+    document.documentElement.dataset.theme = theme
+    try {
+      const tokens = cascade(rules, document.documentElement, false)
+      for (const hover of [false, true]) {
+        const declared = new Map([...tokens, ...cascade(rules, button, hover)])
+        const page = parseColor(resolveVars("var(--surface-app)", declared))
+        const fill = over(parseColor(resolveVars(declared.get("background") ?? "transparent", declared)), page)
+        const label = over(parseColor(resolveVars(declared.get("color") ?? "", declared)), fill)
+        expect(contrast(label, fill), hover ? "hover" : "rest").toBeGreaterThanOrEqual(4.5)
+      }
+    } finally {
+      delete document.documentElement.dataset.theme
+      document.body.innerHTML = ""
+    }
+  })
+
+  it("pairs the accent with a contrast colour that clears WCAG AA in both themes", () => {
+    const theme = read("src/styles/theme.css")
+    const values = (token: string) =>
+      [...theme.matchAll(new RegExp(`--${token}:\\s*(#[0-9a-f]{6});`, "gi"))].map((match) => match[1])
+    const accents = values("accent")
+    const labels = values("accent-contrast")
+    expect(accents).toHaveLength(2)
+    expect(labels).toHaveLength(2)
+    accents.forEach((accent, index) => {
+      expect(contrast(parseColor(accent), parseColor(labels[index]))).toBeGreaterThanOrEqual(4.5)
+    })
   })
 })
