@@ -26,6 +26,12 @@ export function ModalDialog(props: {
   /** Unsaved input: a click outside keeps the dialog open (Escape and the close button still close it). */
   keepOnOutsideClick?: boolean;
   focusDialogOnOpen?: boolean;
+  /**
+   * Where focus goes when the dialog closes, when that is not whatever held
+   * focus as it opened: a dialog opened from a menu would otherwise return to
+   * a menu item that closed with the menu, or to `body`.
+   */
+  returnFocus?: HTMLElement | null;
   backdropClassName?: string;
   windowDragTop?: {
     onMouseDown: MouseEventHandler<HTMLDivElement>;
@@ -35,9 +41,10 @@ export function ModalDialog(props: {
 }) {
   const contentRef = useRef<HTMLDivElement>(null);
   const returnFocusRef = useRef<HTMLElement | null>(
-    typeof document !== "undefined" && document.activeElement instanceof HTMLElement
-      ? document.activeElement
-      : null,
+    props.returnFocus
+      ?? (typeof document !== "undefined" && document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null),
   );
   const mountedRef = useRef(false);
   const composingRef = useRef(false);

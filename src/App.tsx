@@ -1030,15 +1030,22 @@ function App() {
     persistSettingsTab(tab);
   }, [requestSynaraRuntime]);
 
+  // Where Settings returns focus if not to what held it as Settings opened:
+  // the project menu's trigger, when Settings is opened from that menu.
+  const [settingsReturnFocus, setSettingsReturnFocus] = useState<HTMLElement | null>(null);
   /** Opens on `tab`, or without one on the page Settings was last left on. */
-  const openSettings = useCallback((requested?: SettingsTab) => {
+  const openSettings = useCallback((requested?: SettingsTab, returnFocus: HTMLElement | null = null) => {
     showSettingsTab(requested ?? loadSettingsTab());
+    setSettingsReturnFocus(returnFocus);
     startSettingsOpen(() => setSettingsOpen(true));
   }, [showSettingsTab]);
 
   // An urgent update after the opening transition's: it also withdraws a
   // pending open, so a Settings closed from its loading shell stays closed.
-  const closeSettings = useCallback(() => setSettingsOpen(false), []);
+  const closeSettings = useCallback(() => {
+    setSettingsOpen(false);
+    setSettingsReturnFocus(null);
+  }, []);
 
   const settingsDialog = (<>
     {settingsLate && <SettingsLoadingShell label={t`Settings`} backdrop={!settingsOpen} onClose={closeSettings} />}
@@ -1095,6 +1102,7 @@ function App() {
             : await invoke<ProjectManifest>("update_project_manifest", patch);
           setProject((current) => current ? { ...current, manifest } : current);
         })}
+        returnFocus={settingsReturnFocus}
         onClose={closeSettings}
       />}
     </Suspense>
@@ -1583,7 +1591,7 @@ function App() {
           onOpenOverleaf: () => setOverleafPickerOpen(true),
           onOpenTutorial: () => void openTutorialProject(),
           onExportZip: () => void exportProjectZip(),
-          onSettings: () => openSettings(),
+          onSettings: (returnFocus) => openSettings(undefined, returnFocus),
         }}
         panelControls={<TrellisTitlebar controller={trellis} />}
         canvasToolbar={(
