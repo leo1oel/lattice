@@ -1,6 +1,6 @@
 import {
   Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState,
-  type DragEvent, type FocusEvent, type HTMLAttributes, type PointerEventHandler, type ReactNode,
+  type CSSProperties, type DragEvent, type FocusEvent, type HTMLAttributes, type PointerEventHandler, type ReactNode,
 } from "react";
 import { createPortal } from "react-dom";
 import { useLingui } from "@lingui/react/macro";
@@ -1439,8 +1439,9 @@ export function DocumentCanvas(props: {
           data-tour="split-workspace"
           data-minimum-workspace-width={splitMinimums.source + splitMinimums.preview + 1}
           style={{
-            gridTemplateColumns: splitGridTemplate(splitRatio, splitMinimums),
-          }}
+            gridTemplateColumns: splitGridTemplate(splitMinimums),
+            "--split-ratio": splitRatio,
+          } as CSSProperties}
         >
           {editor}
           {resizer(

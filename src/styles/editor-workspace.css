@@ -1,4 +1,4 @@
-.split-canvas { --split-resizer-offset: 0px; min-width: 0; min-height: 0; width: 100%; display: grid; grid-template-rows: minmax(0, 1fr); overflow: hidden; }
+.split-canvas { --split-ratio: 0.5; --split-resizer-offset: 0px; min-width: 0; min-height: 0; width: 100%; display: grid; grid-template-rows: minmax(0, 1fr); overflow: hidden; }
 .split-canvas > .source-workspace, .split-canvas > .pdf-column, .split-canvas > .markdown-preview, .split-canvas > .html-preview { min-width: 0; min-height: 0; overflow: hidden; }
 .source-workspace, .source-editor, .pdf-preview, .pdf-column, .html-preview { min-width: 0; min-height: 0; overflow: hidden; }
 .canvas-body > .source-workspace, .canvas-body > .source-editor, .canvas-body > .pdf-preview, .canvas-body > .pdf-column, .canvas-body > .split-canvas, .canvas-body > .markdown-preview, .canvas-body > .html-preview, .canvas-body > .asset-preview, .canvas-body > .paper-reader-shell { flex: 1 1 0; width: 100%; max-width: 100%; min-width: 0; height: 0; }

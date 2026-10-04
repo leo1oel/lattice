@@ -23,15 +23,18 @@ function fitSplitMinimums(minimums: SplitMinimums, tracksWidth: number): SplitMi
 }
 
 /**
- * The split's grid columns: the source at `ratio` of the tracks, held between
- * the pane minimums. CSS does the fitting so it stays exact between resize
- * observations; it is `fitSplitMinimums` with 100% as the split's width.
+ * The split's grid columns: the source at `--split-ratio` of the tracks, held
+ * between the pane minimums. CSS does the fitting so it stays exact between
+ * resize observations; it is `fitSplitMinimums` with 100% as the split's width.
+ * The ratio is a custom property rather than baked into the template so a drag
+ * can move it outside React without ever replacing the responsive columns: a
+ * pixel grid left behind by a drag would stop fitting when the panel narrows.
  */
-export function splitGridTemplate(ratio: number, minimums: SplitMinimums) {
+export function splitGridTemplate(minimums: SplitMinimums) {
   const total = minimums.source + minimums.preview;
   const source = `min(${minimums.source}px, (100% - 1px) * ${minimums.source / total})`;
   const preview = `min(${minimums.preview}px, (100% - 1px) * ${minimums.preview / total})`;
-  return `clamp(${source}, calc(${ratio * 100}% - ${ratio}px), calc(100% - 1px - ${preview})) 1px minmax(${preview}, 1fr)`;
+  return `clamp(${source}, calc((100% - 1px) * var(--split-ratio)), calc(100% - 1px - ${preview})) 1px minmax(${preview}, 1fr)`;
 }
 
 export function useSplitLayout(mode: CanvasMode, minimums: SplitMinimums = SPLIT_MINIMUMS) {
@@ -86,8 +89,9 @@ export function useSplitLayout(mode: CanvasMode, minimums: SplitMinimums = SPLIT
       latest = constrainSplitRatio(sourceWidth / tracksWidth);
       setSplitResizerResistance(grip, Math.round(moveEvent.clientX - bounds.left) - sourceWidth);
       // Keep the hot drag path outside React: re-rendering the PDF viewer per
-      // pointer event made its toolbar icons shift. Pointer-up commits the ratio.
-      split.style.gridTemplateColumns = `${sourceWidth}px 1px minmax(${fitted.preview}px, 1fr)`;
+      // pointer event made its toolbar icons shift. Pointer-up commits the
+      // same ratio, so React finds the property already current.
+      split.style.setProperty("--split-ratio", String(latest));
     }, () => commitSplitRatio(latest));
   };
   const nudgeSplit = (delta: number) => commitSplitRatio(constrainSplitRatio(splitRatio + delta));
