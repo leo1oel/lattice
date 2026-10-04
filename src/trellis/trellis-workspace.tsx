@@ -1160,11 +1160,17 @@ const TrellisWorkspace = memo(function TrellisWorkspace({ controller, projectRoo
   }, [controller, initial]);
   // Another window can delete the workspace the project is in: the project
   // moves to the one last entered, its layout as it is, and remembers that.
+  // Or save it: the project keeps its layout, which differs from the new
+  // arrangement, or now matches it.
   useEffect(() => controller.workspaces.subscribe(() => {
-    if (controller.workspaces.get(workspaceRef.current)) return;
+    const handle = controller.ws;
+    if (controller.workspaces.get(workspaceRef.current)) {
+      const own = presetRef.current?.previous ?? handle?.getDocument();
+      if (own) controller.ui.set({ dirty: differsFromWorkspace(own, controller.workspaces, workspaceRef.current) });
+      return;
+    }
     workspaceRef.current = controller.workspaces.recent();
     controller.ui.set({ workspace: workspaceRef.current });
-    const handle = controller.ws;
     if (handle) onDocumentChange(handle.getDocument());
   }), [controller, onDocumentChange]);
 

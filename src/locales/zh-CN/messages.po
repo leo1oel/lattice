@@ -4770,9 +4770,21 @@ msgstr "更多 PDF 操作"
 msgid "Move {title} to"
 msgstr "将{title}移动到"
 
+#: src/trellis/trellis-workspace-switch.tsx
+msgid "Move left"
+msgstr "左移"
+
+#: src/trellis/trellis-workspace-switch.tsx
+msgid "Move right"
+msgstr "右移"
+
 #: src/trellis/trellis-labels.ts
 msgid "Moved"
 msgstr "已移动"
+
+#: src/trellis/trellis-workspace-switch.tsx
+msgid "Moved “{name}” to position {position} of {count}"
+msgstr "已将“{name}”移到第 {position} 位，共 {count} 个"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Mu"

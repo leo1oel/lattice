@@ -137,8 +137,9 @@ export const TrellisTitlebar = memo(function TrellisTitlebar({ controller }: { c
   const presetLabels = { writing: t`Writing`, reading: t`Reading` };
   const barRef = useRef<HTMLDivElement>(null);
   const chipsRef = useRef<HTMLDivElement>(null);
-  // The workspaces' names are content to fit as much as the chips are.
-  const content = [i18n.locale, ...workspaces.map((entry) => entry.name), "", ...hidden.map((entry) => entry.title)].join("\n");
+  // The workspaces' names are content to fit as much as the chips are; their
+  // order is not (a move must not unfold the switch and remount its open menu).
+  const content = [i18n.locale, ...workspaces.map((entry) => entry.name).sort(), "", ...hidden.map((entry) => entry.title)].join("\n");
   const compact = useCompactPresets(barRef, chipsRef, content);
   // One command in two places: the inline button and, once that is shed, the
   // Panels menu, so the menu never offers Maximize while it would restore.

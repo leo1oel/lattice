@@ -173,9 +173,9 @@ describe("layout presets", () => {
     const { document: reading, active } = enterPreset("reading", previous, null, documents);
     saveLayout("/a", { document: reading, preset: active });
     saveLayout("/b", { document: previous });
-    expect(loadLayout("/a").preset?.preset).toBe("reading");
-    expect(panels(loadLayout("/a").preset!.previous)).toEqual(panels(previous));
-    expect(loadLayout("/b").preset).toBeNull();
+    expect(loadLayout("/a")?.preset?.preset).toBe("reading");
+    expect(panels(loadLayout("/a")!.preset!.previous)).toEqual(panels(previous));
+    expect(loadLayout("/b")!.preset).toBeNull();
   });
 
   it("reads a preset saved before it recorded what it supplied", () => {
@@ -183,7 +183,7 @@ describe("layout presets", () => {
     localStorage.setItem("lattice.trellis-layout.v1:/old", JSON.stringify({
       version: 2, savedAt: 0, document: presetLayout("writing", previous, documents), preset: { preset: "writing", previous },
     }));
-    expect(loadLayout("/old").preset).toEqual(expect.objectContaining({ preset: "writing", supplied: [] }));
+    expect(loadLayout("/old")!.preset).toEqual(expect.objectContaining({ preset: "writing", supplied: [] }));
   });
 });
 

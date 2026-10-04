@@ -219,7 +219,9 @@ function isWorkspace(value: unknown): value is Workspace {
  * summary list (ids and names) keeps its identity until one is added,
  * removed, renamed or moved, so the titlebar re-renders only then. Only "+",
  * Save to workspace, Duplicate and Rename write an arrangement; writing one
- * notifies nobody, since the listed summaries do not change.
+ * here notifies nobody, since the listed summaries do not change. Any change
+ * another window makes notifies, its arrangements' included: the project in a
+ * workspace another window saved differs from it anew, or no longer does.
  */
 export class WorkspaceLibrary {
   private saved: SavedLibrary | null = null;
@@ -294,7 +296,9 @@ export class WorkspaceLibrary {
   }
 
   private onStorage = (event: StorageEvent) => {
-    if (event.key === LIBRARY_KEY) this.fresh();
+    if (event.key !== LIBRARY_KEY) return;
+    this.fresh(false);
+    this.notify();
   };
 
   /**
