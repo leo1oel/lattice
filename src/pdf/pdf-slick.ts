@@ -9,6 +9,7 @@ import { PDFSlick, type PDFSlickOptions } from "@pdfslick/core";
 import {
   adaptPdfSlickL10n,
   PDF_CMAP_URL,
+  PDF_MIN_SCALE,
   PDF_STANDARD_FONT_DATA_URL,
   pdfScaleValue,
   toViewerScale,
@@ -138,6 +139,11 @@ export function createViewerRecord(
   // also paint the range (including page-sized sentinel boxes). PDFSlick
   // doesn't forward this option, so set it before loadDocument creates pages.
   slick.viewer.enableSelectionRendering = false;
+  // Keep only the pages near the view in the DOM (our PDF.js patch,
+  // PDFPageWindow): a zoom then restyles a few page boxes instead of every one
+  // of a long PDF's. The window reaches as far as the smallest zoom shows, so
+  // a zoom previewed as a transform of the pages (use-pdf-zoom.ts) has them.
+  slick.viewer.pageWindowMinScale = toViewerScale(PDF_MIN_SCALE);
   // Before loadDocument, whose metadata parser asks for these strings.
   adaptPdfSlickL10n(slick.l10n);
   return { key, slick, root, viewer, textLayers: new Map(), cleanup: [], destroyed: false };
@@ -165,10 +171,14 @@ export async function destroyViewerRecord(record: ViewerRecord): Promise<void> {
   const loadingTask = slick.loadingTask;
   // Release canvas backing stores now instead of whenever the detached
   // pages are collected; with enableHWA each one can hold GPU memory.
-  // (Before setDocument(null), which empties the viewer element.)
-  for (const canvas of record.root.querySelectorAll("canvas")) {
-    canvas.width = 0;
-    canvas.height = 0;
+  // Drawn pages outside the page window are not in the viewer element, but
+  // stay in PDF.js's page cache. (Before setDocument(null), which empties both.)
+  const drawnPages = [...slick.viewer.getCachedPageViews()] as PdfSlickPageView[];
+  for (const element of [record.root, ...drawnPages.map((view) => view.div)]) {
+    for (const canvas of element?.querySelectorAll("canvas") ?? []) {
+      canvas.width = 0;
+      canvas.height = 0;
+    }
   }
   // PDFViewer.setDocument(null) is PDF.js's only viewer teardown: it cancels
   // each page's text layer (dropping it from TextLayerBuilder's static map,

@@ -216,15 +216,17 @@ export function usePdfDocument({
       const restorePage = Math.min(previous?.slick.linkService.page ?? viewRef.current.page, pages);
       let restoreTop = previous?.root.scrollTop ?? initialViewState?.scrollTop ?? 0;
       const restoreLeft = previous?.root.scrollLeft ?? initialViewState?.scrollLeft ?? 0;
+      // Going to the page first puts it in the viewer's page window, so its
+      // offset below is a real one.
+      slick.gotoPage(restorePage);
       // Read at handoff, not load start: the old viewer remains interactive.
       // Anchor within the page, since earlier pages and fit scale may have changed.
       const oldPage = previous && pdfPageView(previous.slick, previous.slick.linkService.page);
       const newPage = pdfPageView(slick, restorePage);
-      if (oldPage?.div && newPage?.div) {
+      if (oldPage?.div?.isConnected && newPage?.div?.isConnected) {
         const ratio = (newPage.viewport?.scale ?? 1) / (oldPage.viewport?.scale ?? 1);
         restoreTop = newPage.div.offsetTop + (restoreTop - oldPage.div.offsetTop) * ratio;
       }
-      slick.gotoPage(restorePage);
       root.scrollTop = restoreTop;
       root.scrollLeft = restoreLeft;
       // Publish the restored location to PDF.js before any later fit/resize pass.
@@ -263,8 +265,10 @@ export function usePdfDocument({
           firstPageRendered = true;
           clearLoadFeedback();
         }
+        // A layer PDF.js removed from its page. A page outside the viewer's
+        // page window keeps its layers while it is out of the document.
         for (const [layer, dispose] of record.textLayers) {
-          if (layer.isConnected) continue;
+          if (layer.parentElement) continue;
           dispose();
           record.textLayers.delete(layer);
         }

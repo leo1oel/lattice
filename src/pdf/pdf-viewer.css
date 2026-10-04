@@ -71,7 +71,10 @@
    them. */
 .pdf-preview .pdfViewer .page:not(.latticeLayered, .loadingIcon) { position: static; }
 /* The viewport's border already ends the column, and a trailing gap inside the
-   scroll extent would make a height-fitted page scrollable by that gap. */
+   scroll extent would make a height-fitted page scrollable by that gap. The
+   page window in our PDF.js patch sizes the spacers that stand in for pages
+   outside it to this layout: no gap after the last page, a page's bottom
+   margin after every other. */
 .pdf-preview .pdfViewer.removePageBorders .page:last-child { margin-bottom: 0; }
 .pdf-preview .pdfViewer .page.synctex-enabled { cursor: text; }
 .pdf-preview .pdfViewer .canvasWrapper canvas { background: var(--pdf-page-surface); image-rendering: auto; }

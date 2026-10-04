@@ -183,6 +183,7 @@ vi.mock("@pdfslick/core", () => {
       cleanup: ReturnType<typeof vi.fn>; setDocument: ReturnType<typeof vi.fn>; update: ReturnType<typeof vi.fn>;
       currentScale: number; currentScaleValue: string;
       getPageView: (index: number) => PdfSlickMockPageView;
+      getCachedPageViews: () => Set<PdfSlickMockPageView>;
     };
 
     constructor(args: PdfSlickMockArgs) {
@@ -202,6 +203,7 @@ vi.mock("@pdfslick/core", () => {
           emit("scalechanging", { scale: currentScale, presetValue });
         },
         getPageView: (index: number) => this.pageViews[index],
+        getCachedPageViews: () => new Set(this.pageViews),
       };
     }
 
