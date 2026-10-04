@@ -302,8 +302,7 @@ pub(super) struct Uploader<'a> {
 
 impl Uploader<'_> {
     pub fn upload(&self, rel: &str, bytes: Vec<u8>) -> Result<(), String> {
-        self.try_upload(rel, bytes)
-            .map_err(|e| format!("Failed to upload \"{rel}\" to Overleaf: {e}"))
+        self.try_upload(rel, bytes).map_err(|failure| failure.into_error(rel))
     }
 
     /// Upload every file, a few at a time; the first failure, in path order,
@@ -341,22 +340,25 @@ impl Uploader<'_> {
                             if !failures.lock().unwrap_or_else(PoisonError::into_inner).is_empty() {
                                 break;
                             }
-                            if let Err(error) = self.upload(rel, (*bytes).clone()) {
+                            if let Err(failure) = self.try_upload(rel, (*bytes).clone()) {
                                 failures
                                     .lock()
                                     .unwrap_or_else(PoisonError::into_inner)
-                                    .insert(index, error);
+                                    .insert(index, (*rel, failure));
                             }
                         })
                     })
                 });
             }
         });
+        // Only the failure that becomes the error reaches the event: workers
+        // share the sync's span, so each recording its own refusal would pair
+        // one upload's cause with another's status and code.
         let failures = failures.into_inner().unwrap_or_else(PoisonError::into_inner);
-        failures.into_values().next().map_or(Ok(()), Err)
+        failures.into_values().next().map_or(Ok(()), |(rel, failure)| Err(failure.into_error(rel)))
     }
 
-    fn try_upload(&self, rel: &str, bytes: Vec<u8>) -> Result<(), String> {
+    fn try_upload(&self, rel: &str, bytes: Vec<u8>) -> Result<(), UploadFailure> {
         use reqwest::blocking::multipart::{Form, Part};
         let file_name = rel.rsplit('/').next().unwrap_or(rel).to_string();
         let form = Form::new()
@@ -370,7 +372,7 @@ impl Uploader<'_> {
             .header("X-Csrf-Token", self.csrf)
             .header(ACCEPT, JSON)
             .multipart(form);
-        let response = send_as(request, err)?;
+        let response = send_as(request, err).map_err(UploadFailure::Unsent)?;
         let status = response.status();
         let body = serde_json::from_str::<Value>(&response.text().unwrap_or_default()).ok();
         let accepted = body.as_ref().and_then(|v| v.get("success")?.as_bool()).unwrap_or(false);
@@ -378,25 +380,51 @@ impl Uploader<'_> {
             return Ok(());
         }
         // The body is the server's arbitrary text and may quote the document,
-        // so the error — shown to the user and written to the sync's event —
-        // carries only the status and an error code Overleaf is known to send.
-        wide_event::record("upload_status", status.as_u16());
+        // so the failure carries only the status and an error code Overleaf is
+        // known to send.
         let code = body
             .as_ref()
             .and_then(|v| v.get("error")?.as_str())
-            .filter(|code| UPLOAD_ERROR_CODES.contains(code));
-        if let Some(code) = code {
-            wide_event::record("upload_error", code);
-        }
-        let error = if status.is_success() {
-            "Overleaf rejected the upload".to_string()
-        } else {
-            format!("Overleaf returned HTTP {} during upload", status.as_u16())
+            .and_then(|code| UPLOAD_ERROR_CODES.iter().copied().find(|known| *known == code));
+        Err(UploadFailure::Refused { status, code })
+    }
+}
+
+/// Why one upload failed, kept apart from the sync's event until the caller
+/// knows this is the failure it reports.
+enum UploadFailure {
+    /// The request never got an answer (or the session had expired).
+    Unsent(String),
+    Refused {
+        status: StatusCode,
+        code: Option<&'static str>,
+    },
+}
+
+impl UploadFailure {
+    /// The error for `rel`, recording a refusal's status and code on the
+    /// current event. The error is shown to the user and written to the
+    /// event, so it too names only the status and the known code.
+    fn into_error(self, rel: &str) -> String {
+        let cause = match self {
+            UploadFailure::Unsent(error) => error,
+            UploadFailure::Refused { status, code } => {
+                wide_event::record("upload_status", status.as_u16());
+                if let Some(code) = code {
+                    wide_event::record("upload_error", code);
+                }
+                let error = if status.is_success() {
+                    "Overleaf rejected the upload".to_string()
+                } else {
+                    format!("Overleaf returned HTTP {} during upload", status.as_u16())
+                };
+                match code {
+                    Some(code) => format!("{error} ({code})"),
+                    None => error,
+                }
+            }
         };
-        Err(match code {
-            Some(code) => format!("{error} ({code})"),
-            None => error,
-        })
+        format!("Failed to upload \"{rel}\" to Overleaf: {cause}")
     }
 }
 
@@ -577,6 +605,71 @@ mod tests {
         let delete = send(client.delete(format!("{base}/project/p/thread/t"))).unwrap();
         assert_eq!(delete.status(), StatusCode::SERVICE_UNAVAILABLE);
         assert_eq!(*hits.lock().unwrap(), ["GET", "GET", "POST", "DELETE"]);
+    }
+
+    #[test]
+    fn concurrent_upload_failures_record_only_the_reported_one() {
+        // `a.tex` is the failure reported, in path order; `b.tex` fails too.
+        // Each answers in turn, so whichever finishes last would win the
+        // event if every worker recorded its own refusal.
+        let a = (400, r#"{"error":"file_too_large"}"#);
+        let b = (422, r#"{"error":"project_has_too_many_files"}"#);
+        let unknown = (400, r#"{"error":"not_a_known_code"}"#);
+        for (a, b, a_first, code) in [
+            (a, b, true, Some("file_too_large")),
+            (a, b, false, Some("file_too_large")),
+            // A code-less failure never inherits the other upload's code.
+            (unknown, b, false, None),
+        ] {
+            let server = tiny_http::Server::http("127.0.0.1:0").unwrap();
+            let host = format!("http://{}", server.server_addr());
+            let answering = std::thread::spawn(move || {
+                // Both uploads are in flight before either is answered.
+                let mut requests: Vec<_> = (0..2)
+                    .map(|_| {
+                        let mut request =
+                            server.recv_timeout(Duration::from_secs(10)).unwrap().unwrap();
+                        let mut body = String::new();
+                        request.as_reader().read_to_string(&mut body).unwrap();
+                        (body.contains("a.tex"), request)
+                    })
+                    .collect();
+                requests.sort_by_key(|(is_a, _)| *is_a != a_first);
+                for (is_a, request) in requests {
+                    let (status, body) = if is_a { a } else { b };
+                    let response = tiny_http::Response::from_string(body).with_status_code(status);
+                    request.respond(response).unwrap();
+                    std::thread::sleep(Duration::from_millis(100));
+                }
+            });
+            let (config, root) = (signed_in(&host), TempDir::new("concurrent-upload-failures"));
+            seed_linked_project(&root, &host, &[], &[]);
+            let remote = Remote::open(&config, &root).unwrap();
+            let client = http_client(10).unwrap();
+            let files = BTreeMap::from([
+                ("a.tex".to_string(), b"one".to_vec()),
+                ("b.tex".to_string(), b"two".to_vec()),
+            ]);
+            let classify = crate::overleaf::sync::classify_sync_error;
+            let (result, capture) = crate::wide_event::tests::capture(|| {
+                let operation = crate::wide_event::Operation::start("overleaf.sync", classify);
+                operation.run_sync(|| {
+                    remote.uploader(&client, "fixture-csrf")?.upload_all(&files, &BTreeSet::new())
+                })
+            });
+            answering.join().unwrap();
+            let error = result.unwrap_err();
+            let suffix = code.map(|code| format!(" ({code})")).unwrap_or_default();
+            let expected = format!(
+                "Failed to upload \"a.tex\" to Overleaf: Overleaf returned HTTP {} during upload{suffix}",
+                a.0
+            );
+            assert_eq!(error, expected, "a_first={a_first}");
+            let event = &capture.events()[0];
+            assert_eq!(event["error_cause"], expected, "{event}");
+            assert_eq!(event["upload_status"], a.0, "{event}");
+            assert_eq!(event.get("upload_error").and_then(Value::as_str), code, "{event}");
+        }
     }
 
     #[test]
