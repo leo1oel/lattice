@@ -392,6 +392,10 @@ msgstr "共 {totalPages} 页 · 附录从第 {mainPages} 页之后开始"
 msgid "{totalPages} total · appendix not located in the PDF"
 msgstr "共 {totalPages} 页 · 未能在 PDF 中定位附录"
 
+#: src/project/manuscript-checklist.tsx
+msgid "{totalPages} total · included files not read"
+msgstr "共 {totalPages} 页 · 尚未读取所含文件"
+
 #: src/project/citation-health.ts
 msgid "{warning}. Crossref type: {updateType}"
 msgstr "{warning}。Crossref 类型：{updateType}"

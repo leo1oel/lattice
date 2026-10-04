@@ -760,6 +760,7 @@ function App() {
     settledSource: activePaper ? source : settledCanvasSource,
     // Go to symbol lists the same outline, so it reads the included files too.
     outlineWanted: outlineOpen || searchDialog === "goto-symbol",
+    pdfShown: pdfUrl != null,
     compiledPdf: build?.success ? pdfUrl : null,
   });
   const {
