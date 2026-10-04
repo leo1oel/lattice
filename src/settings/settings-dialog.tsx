@@ -74,6 +74,8 @@ type SettingsDialogProps = DoctorSettingsProps & {
   authorName: string;
   knownAuthorName: string | null;
   onAuthorNameChange: (name: string) => void;
+  /** Where focus goes when Settings closes, if not to what held it as Settings opened. */
+  returnFocus?: HTMLElement | null;
   onClose: () => void;
 };
 
@@ -191,6 +193,7 @@ export function SettingsDialog(props: SettingsDialogProps) {
     <ModalDialog
       label={t`Settings`}
       onClose={props.onClose}
+      returnFocus={props.returnFocus}
       backdropClassName={replacesShell ? "settings-replaces-shell" : undefined}
       windowDragTop={{ onMouseDown: beginWindowDrag, onDoubleClick: toggleWindowFullscreen }}
     >

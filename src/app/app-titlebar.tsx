@@ -10,7 +10,7 @@
  * needs any of them, so pulling them through here would double the interface
  * for a component that only ever gets slotted into one place.
  */
-import { type ComponentProps, type Dispatch, type ReactNode, type SetStateAction } from "react";
+import { type ComponentProps, type Dispatch, type ReactNode, type SetStateAction, useRef } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { ChevronDown } from "lucide-react";
 import { DropdownMenu, DropdownMenuTrigger } from "../components/ui/dropdown-menu";
@@ -21,7 +21,9 @@ import type { ProjectSnapshot } from "../app-types";
 export function AppTitlebar({ project, projectMenu, panelControls, canvasToolbar }: {
   project: ProjectSnapshot;
   /** The project switcher's menu, plus whether it is open and what may disable it. */
-  projectMenu: Omit<ComponentProps<typeof ProjectMenu>, "currentPath"> & {
+  projectMenu: Omit<ComponentProps<typeof ProjectMenu>, "currentPath" | "onSettings"> & {
+    /** Settings, opened from the menu, returns focus to `returnFocus`: the menu's trigger. */
+    onSettings: (returnFocus: HTMLElement | null) => void;
     open: boolean;
     setOpen: Dispatch<SetStateAction<boolean>>;
     importing: boolean;
@@ -32,7 +34,10 @@ export function AppTitlebar({ project, projectMenu, panelControls, canvasToolbar
   canvasToolbar: ReactNode;
 }) {
   const { t } = useLingui();
-  const { open: menuOpen, setOpen: setMenuOpen, importing, building, ...menu } = projectMenu;
+  const { open: menuOpen, setOpen: setMenuOpen, importing, building, onSettings, ...menu } = projectMenu;
+  // The menu item that opens Settings closes with the menu, so Settings is
+  // handed the trigger to return focus to instead.
+  const triggerRef = useRef<HTMLButtonElement>(null);
   return (
     <header className="titlebar" onMouseDown={beginWindowDrag} onDoubleClick={toggleWindowFullscreen}>
       <div className="titlebar-sidebar">
@@ -43,6 +48,7 @@ export function AppTitlebar({ project, projectMenu, panelControls, canvasToolbar
           <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen} modal={false}>
             <DropdownMenuTrigger asChild>
               <button
+                ref={triggerRef}
                 className="project-title"
                 aria-label={t`Switch project`}
                 disabled={building || importing}
@@ -51,7 +57,7 @@ export function AppTitlebar({ project, projectMenu, panelControls, canvasToolbar
                 <ChevronDown size={13} />
               </button>
             </DropdownMenuTrigger>
-            <ProjectMenu currentPath={project.root} {...menu} />
+            <ProjectMenu currentPath={project.root} {...menu} onSettings={() => onSettings(triggerRef.current)} />
           </DropdownMenu>
           <div className="titlebar-drag-area" aria-hidden="true" />
         </div>
