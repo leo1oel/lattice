@@ -535,8 +535,9 @@ Still O(document) per keystroke:
   (`doc.toString()`), about 0.1 ms and 3 MB of garbage per keystroke at this
   size.
 - With TexLab installed, completion sends the whole text with every
-  keystroke in a word (`texlab_completion`). The benchmark's mock backend does
-  not model that IPC.
+  keystroke in a word (`texlab_completion`); only a request at an unchanged
+  revision goes without it (see "First opens and TexLab traffic" below). The
+  benchmark's mock backend does not model that IPC.
 
 ### WebKit frame rate and dialogs (October 2026)
 
@@ -654,10 +655,12 @@ in brackets, which gained from some of them too):
 ### First opens and TexLab traffic (October 2026)
 
 Two measure-first proposals, run in the real-window lab with the scenarios
-`coldSettings`, `coldHistory`, `coldComments` and `texlabTraffic`. Each launch
-gives one cold first open; warm opens follow in the same launch. Sessions E
-and F had a 1-minute load average below 10 before every run: 10 launches and
-50 warm opens per tool and build.
+`coldSettings`, `coldHistory`, `coldComments`, `texlabEqualRevision` and
+`texlabTraffic`, main's frontend against this branch's, launch by launch.
+Each launch gives one cold first open; warm opens follow in the same launch.
+In sessions G and H the 1-minute load average was below 10 before every run
+(10 launches and 50 warm opens per tool, build and session). Earlier sessions
+under load agreed in direction.
 
 **Opening Settings, History or Comments the first time waited for React,
 not for its chunk.** Each loads lazily behind a `Suspense` boundary with no
@@ -670,37 +673,57 @@ an always-mounted boundary (`useToolDrawers`, `openSettings` in `App.tsx`), so
 React keeps the current screen until the chunk is in. Other drawers open as
 before.
 
-| ms, p95 / p99 | Session | Cold before | Cold after | Warm before | Warm after |
+| ms, p95 / p99 | Session | Cold, main | Cold, branch | Warm, main | Warm, branch |
 | --- | --- | --- | --- | --- | --- |
-| Settings | E | 320 / 320 | 103 / 103 | 16 / 23 | 20 / 57 |
-| Settings | F | 260 / 260 | 73 / 73 | 15 / 17 | 17 / 19 |
-| Project history | E | 345 / 345 | 135 / 135 | 27 / 35 | 28 / 31 |
-| Project history | F | 348 / 348 | 128 / 128 | 27 / 32 | 28 / 32 |
-| Editor comments | E | 191 / 191 | 60 / 60 | 24 / 31 | 26 / 29 |
-| Editor comments | F | 345 / 345 | 61 / 61 | 25 / 30 | 23 / 26 |
+| Settings | G | 270 / 270 | 100 / 100 | 17 / 17 | 18 / 25 |
+| Settings | H | 320 / 320 | 63 / 63 | 16 / 30 | 17 / 36 |
+| Project history | G | 284 / 284 | 141 / 141 | 24 / 31 | 28 / 34 |
+| Project history | H | 349 / 349 | 123 / 123 | 32 / 42 | 30 / 32 |
+| Editor comments | G | 255 / 255 | 64 / 64 | 26 / 28 | 22 / 27 |
+| Editor comments | H | 344 / 344 | 58 / 58 | 26 / 30 | 30 / 31 |
 
-All three met the proposal's gate before (cold p95 at least 150 ms and twice
-warm p95 in both sessions), so each has the proposed loading shell: an open
-still pending after 150 ms shows the tool's own drawer or dialog holding a
-loader until the tool replaces it (`app/tool-loading-shell.tsx`). The shell
-is an element beside the boundary, not its fallback, since a committed
-fallback would re-arm the 300 ms throttle. In these sessions no first open
-ran long enough to show it.
+All three met the proposal's gate on main (cold p95 at least 150 ms and twice
+warm p95 in both sessions), so each has the proposed loading shell
+(`app/tool-loading-shell.tsx`): an open still pending after 150 ms shows the
+tool's own drawer or dialog holding a loader. Once shown, the shell stays at
+least 300 ms, over the tool if it arrives sooner, so a load ending just past
+150 ms cannot flash it (`useLoadingShell`). The shell sits beside the
+boundary, not in its fallback, since a committed fallback would re-arm the
+300 ms throttle. On the bench page in Chromium, with each tool's chunk held
+back:
 
-**Every TexLab request carries the whole document.** On `long.tex` (3.3 MB),
-p50 in sessions E / F:
-
-| Completion path | E | F |
+| Chunk held (ms) | Tool in the page (ms) | Shell on screen (ms) |
 | --- | --- | --- |
-| Round trip from the editor | 54 | 50 |
-| IPC carrying the text | 8 | 8 |
-| TexLab: full-text sync + completion | 41.9 | 40.7 |
-| TexLab: one-range incremental sync + completion | 38.6 | 37.4 |
-| TexLab: same revision, no sync | 0.5 | 0.5 |
+| 100 | 152–163 | never |
+| 140 | 189–196 | 164–189 to 441–449 |
+| 160 | 212–217 | 164–165 to 445–449 |
+| 200 | 243–260 | 166–169 to 443–453 |
+| 400 | 446–463 | 166–169 to 446–456 |
 
-`perf_texlab_probe` times TexLab's share inside the app. Serialization and
-transfer are 21% and 23% of the path, over the proposal's 20% gate. A
-revisioned protocol sending edits and positions would still have TexLab
-reparse each new revision. It is not built yet: it ships only if a prototype
-improves equal-revision p95 by at least 10% in two sessions, and the editor
-keeps sending the full text until one does.
+No frame was blank once the shell or the tool had appeared.
+
+**A completion at an unchanged revision no longer resends the document.**
+Every TexLab request carried the whole text, and TexLab reparsed it. On
+`long.tex` (3.3 MB), in sessions E / F, p50: a completion took 54 / 50 ms, of
+which 8 / 8 ms was the IPC carrying the text and 41.9 / 40.7 ms TexLab
+syncing and answering; at a revision TexLab already held it answered in
+0.5 / 0.5 ms (`perf_texlab_probe` times TexLab's share inside the app).
+Serialization and transfer were 21% and 23% of the path, over the proposal's
+20% gate, so the prototype was built: each document text the editor sends gets
+a revision, the text goes only when TexLab may not hold that revision, and
+`texlab.rs` refuses a text-less request at any other revision, after which
+the editor sends the text (`build/texlab-language.ts`). Any other sync (the
+diagnostics' settled text, a restarted TexLab) clears the revision TexLab
+holds.
+
+| `long.tex`, ms | Session | Main | Branch |
+| --- | --- | --- | --- |
+| Completion at an unchanged revision, p50 / p95 | G | 51 / 54 | 4 / 4 |
+| Completion at an unchanged revision, p50 / p95 | H | 48 / 50 | 3 / 3 |
+| Keystroke to next paint while typing, p50 / p95 | G | 12 / 18 | 12 / 18 |
+| Keystroke to next paint while typing, p50 / p95 | H | 12 / 16 | 12 / 16 |
+
+Equal-revision p95 improved by over 90% in both sessions, past the
+proposal's 10% bar, so the protocol stays. Typing is unchanged: every
+keystroke is a new revision, so it still sends the text (33 requests and
+110 MB for one 41-character sentence in either build).
