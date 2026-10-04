@@ -80,7 +80,7 @@ import { ProjectAssetPreview } from "./project-asset-preview";
 import { useMarkdownModeHandoff } from "./use-markdown-mode-handoff";
 import { useMarkdownSplitScroll } from "./use-markdown-split-scroll";
 import { usePaperPdf } from "./use-paper-pdf";
-import { useSplitLayout, type SplitMinimums } from "./use-split-layout";
+import { splitGridTemplate, useSplitLayout, type SplitMinimums } from "./use-split-layout";
 
 
 /** LaTeX wrappers the floating selection toolbar applies; null declines the edit. */
@@ -1439,7 +1439,7 @@ export function DocumentCanvas(props: {
           data-tour="split-workspace"
           data-minimum-workspace-width={splitMinimums.source + splitMinimums.preview + 1}
           style={{
-            gridTemplateColumns: `clamp(${splitMinimums.source}px, calc(${splitRatio * 100}% - ${splitRatio}px), calc(100% - ${splitMinimums.preview + 1}px)) 1px minmax(${splitMinimums.preview}px, 1fr)`,
+            gridTemplateColumns: splitGridTemplate(splitRatio, splitMinimums),
           }}
         >
           {editor}

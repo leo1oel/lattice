@@ -11,6 +11,29 @@ import { setSplitResizerResistance, trackResizeDrag } from "./split-resizer";
 export type SplitMinimums = { source: number; preview: number };
 const SPLIT_MINIMUMS: SplitMinimums = { source: SPLIT_SOURCE_MIN_WIDTH, preview: SPLIT_PREVIEW_MIN_WIDTH };
 
+/**
+ * The pane minimums a split of `tracksWidth` (its width less the 1 px
+ * divider) can honour. A Trellis file panel may be narrower than both
+ * minimums together; there they shrink in proportion so the panes share the
+ * panel instead of the preview running under the neighbouring panel.
+ */
+function fitSplitMinimums(minimums: SplitMinimums, tracksWidth: number): SplitMinimums {
+  const scale = Math.min(1, tracksWidth / (minimums.source + minimums.preview));
+  return { source: minimums.source * scale, preview: minimums.preview * scale };
+}
+
+/**
+ * The split's grid columns: the source at `ratio` of the tracks, held between
+ * the pane minimums. CSS does the fitting so it stays exact between resize
+ * observations; it is `fitSplitMinimums` with 100% as the split's width.
+ */
+export function splitGridTemplate(ratio: number, minimums: SplitMinimums) {
+  const total = minimums.source + minimums.preview;
+  const source = `min(${minimums.source}px, (100% - 1px) * ${minimums.source / total})`;
+  const preview = `min(${minimums.preview}px, (100% - 1px) * ${minimums.preview / total})`;
+  return `clamp(${source}, calc(${ratio * 100}% - ${ratio}px), calc(100% - 1px - ${preview})) 1px minmax(${preview}, 1fr)`;
+}
+
 export function useSplitLayout(mode: CanvasMode, minimums: SplitMinimums = SPLIT_MINIMUMS) {
   const { source: sourceMinimum, preview: previewMinimum } = minimums;
   const splitRef = useRef<HTMLDivElement | null>(null);
@@ -26,8 +49,9 @@ export function useSplitLayout(mode: CanvasMode, minimums: SplitMinimums = SPLIT
     const width = splitRef.current?.getBoundingClientRect().width ?? 0;
     if (!width) return clamp(ratio, 0.2, 0.8);
     const tracksWidth = Math.max(1, width - 1);
-    const minimum = Math.min(1, sourceMinimum / tracksWidth);
-    const maximum = Math.max(minimum, 1 - previewMinimum / tracksWidth);
+    const fitted = fitSplitMinimums({ source: sourceMinimum, preview: previewMinimum }, tracksWidth);
+    const minimum = Math.min(1, fitted.source / tracksWidth);
+    const maximum = Math.max(minimum, 1 - fitted.preview / tracksWidth);
     return clamp(ratio, minimum, maximum);
   }, [previewMinimum, sourceMinimum]);
 
@@ -55,14 +79,15 @@ export function useSplitLayout(mode: CanvasMode, minimums: SplitMinimums = SPLIT
         return;
       }
       const tracksWidth = Math.max(1, bounds.width - 1);
-      const minimum = Math.min(Math.ceil(tracksWidth), sourceMinimum);
-      const maximum = Math.max(minimum, Math.floor(tracksWidth - previewMinimum));
+      const fitted = fitSplitMinimums({ source: sourceMinimum, preview: previewMinimum }, tracksWidth);
+      const minimum = Math.min(Math.ceil(tracksWidth), fitted.source);
+      const maximum = Math.max(minimum, Math.floor(tracksWidth - fitted.preview));
       const sourceWidth = clamp(Math.round(moveEvent.clientX - bounds.left), minimum, maximum);
       latest = constrainSplitRatio(sourceWidth / tracksWidth);
       setSplitResizerResistance(grip, Math.round(moveEvent.clientX - bounds.left) - sourceWidth);
       // Keep the hot drag path outside React: re-rendering the PDF viewer per
       // pointer event made its toolbar icons shift. Pointer-up commits the ratio.
-      split.style.gridTemplateColumns = `${sourceWidth}px 1px minmax(${previewMinimum}px, 1fr)`;
+      split.style.gridTemplateColumns = `${sourceWidth}px 1px minmax(${fitted.preview}px, 1fr)`;
     }, () => commitSplitRatio(latest));
   };
   const nudgeSplit = (delta: number) => commitSplitRatio(constrainSplitRatio(splitRatio + delta));
