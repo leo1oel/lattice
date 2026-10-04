@@ -68,6 +68,7 @@ export function useSettingsSearchIndex(hasProject: boolean, knownAuthorName: str
     { tab: "literature", place: literature, id: "literature-email", label: t`Contact email`, description: t`Sent to Crossref for faster lookups. No key needed` },
     { tab: "doctor", label: t`TeX doctor`, place: t`Diagnostics` },
     { tab: "logs", label: t`Logs`, place: t`Diagnostics` },
+    { tab: "acknowledgements", label: t`Acknowledgements`, place: t`About`, terms: t({ message: "credits licenses fonts", comment: "Search words for the Acknowledgements settings page, space-separated" }) },
   ];
   /* eslint-enable lingui/no-unlocalized-strings */
 }

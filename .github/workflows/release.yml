@@ -142,6 +142,41 @@ jobs:
           echo "BUN_BIN=$(command -v bun)" >> "$GITHUB_ENV"
           echo "SYNARA_SOURCE_DIR=$synara_source" >> "$GITHUB_ENV"
 
+      # The interface fonts (Timeless, docs/design-system.md "Private interface
+      # fonts") may be embedded in the app but never published on their own, so
+      # they live in a private repository that this job alone reads, through a
+      # read-only deploy key. They land in the runner's temp directory, outside
+      # the workspace, and the build embeds them in the app's web assets. With
+      # no key (a fork) the release keeps the open-licensed fonts; with one, a
+      # failed fetch or an incomplete copy fails the release instead.
+      - name: Fetch the licensed interface fonts
+        env:
+          LATTICE_FONTS_DEPLOY_KEY: ${{ secrets.LATTICE_FONTS_DEPLOY_KEY }}
+        run: |
+          set -euo pipefail
+
+          if [[ -z "$LATTICE_FONTS_DEPLOY_KEY" ]]; then
+            echo "No fonts deploy key: building with the open-licensed interface fonts."
+            echo "LATTICE_PRIVATE_FONTS_DIR=" >> "$GITHUB_ENV"
+            exit 0
+          fi
+
+          ssh_dir="$(mktemp -d "$RUNNER_TEMP/lattice-fonts-ssh.XXXXXX")"
+          trap 'rm -rf "$ssh_dir"' EXIT
+          (umask 077 && printf '%s\n' "$LATTICE_FONTS_DEPLOY_KEY" > "$ssh_dir/deploy-key")
+          # GitHub's published ed25519 host key, so the clone cannot be
+          # redirected to another host.
+          echo "github.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl" \
+            > "$ssh_dir/known_hosts"
+
+          fonts_checkout="$RUNNER_TEMP/lattice-fonts"
+          GIT_SSH_COMMAND="ssh -i $ssh_dir/deploy-key -o IdentitiesOnly=yes -o HostKeyAlgorithms=ssh-ed25519 -o UserKnownHostsFile=$ssh_dir/known_hosts -o StrictHostKeyChecking=yes" \
+            git clone --quiet --depth=1 git@github.com:leo1oel/lattice-fonts.git "$fonts_checkout"
+
+          echo "LATTICE_PRIVATE_FONTS_DIR=$fonts_checkout/Timeless-Type-Family-1.094" >> "$GITHUB_ENV"
+          # scripts/private-fonts.ts fails the build rather than falling back.
+          echo "LATTICE_PRIVATE_FONTS_REQUIRED=1" >> "$GITHUB_ENV"
+
       - name: Import Apple Developer ID certificate
         env:
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
@@ -288,6 +323,19 @@ jobs:
           gh api "repos/$GITHUB_REPOSITORY/releases/$release_id" > "$manifest_dir/release.json"
           node scripts/normalize-updater-manifest.mjs "$manifest_dir/latest.json" "$manifest_dir/release.json"
           gh release upload "$GITHUB_REF_NAME" "$manifest_dir/latest.json" --clobber
+
+      # The fonts may only reach users inside the app. Check what the release
+      # actually holds: only the signed artifacts, none of them a font, no
+      # loose Timeless file inside the disk image or the updater archive, and
+      # none in the repository. Failing here leaves the release a draft.
+      - name: Check the release for loose font files
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          assets_dir="$(mktemp -d "$RUNNER_TEMP/lattice-release-assets.XXXXXX")"
+          gh release download "$GITHUB_REF_NAME" --dir "$assets_dir"
+          node scripts/check-font-leaks.mjs --repo "$assets_dir"
 
       - name: Publish verified release
         env:

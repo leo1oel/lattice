@@ -138,7 +138,7 @@ export const hasSeenTutorial = () => safely(() => localStorage.getItem(TUTORIAL_
 
 export const markTutorialSeen = () => persistSetting(TUTORIAL_SEEN_KEY, "1");
 
-const SETTINGS_TABS: readonly SettingsTab[] = ["appearance", "editor", "agent", "mcp", "overleaf", "literature", "api", "doctor", "logs"];
+const SETTINGS_TABS: readonly SettingsTab[] = ["appearance", "editor", "agent", "mcp", "overleaf", "literature", "api", "doctor", "logs", "acknowledgements"];
 
 /** Settings reopens on the page it was last left on. */
 export const loadSettingsTab = () => loadChoice(SETTINGS_TAB_KEY, SETTINGS_TABS, "appearance");

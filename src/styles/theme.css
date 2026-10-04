@@ -17,7 +17,7 @@ textarea {
 }
 
 :root {
-  /* Font roles. A local build that embeds the Timeless family puts its faces
+  /* Font roles. A build that embeds the Timeless family puts its faces
      first (scripts/private-fonts.ts); every other build uses these stacks.
      PingFang SC sets Chinese in both. Code stays on --editor-font. */
   --ui-font-fallback: "Inter Variable", Inter, "PingFang SC", "Avenir Next", "Segoe UI", sans-serif;

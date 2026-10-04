@@ -511,6 +511,11 @@ msgstr "A spreadsheet must contain between 1 and 200 sheets"
 msgid "A sync asks first"
 msgstr "A sync asks first"
 
+#: src/settings/settings-dialog.tsx
+#: src/settings/settings-search-index.ts
+msgid "About"
+msgstr "About"
+
 #: src/app/native-locale.ts
 msgctxt "macOS menu bar"
 msgid "About {name}"
@@ -551,6 +556,12 @@ msgstr "Access forbidden by provider"
 #: src/editor/markdown/engine/views/component-views.tsx
 msgid "Accordion"
 msgstr "Accordion"
+
+#: src/settings/acknowledgements-settings.tsx
+#: src/settings/settings-dialog.tsx
+#: src/settings/settings-search-index.ts
+msgid "Acknowledgements"
+msgstr "Acknowledgements"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Acute accent example"
@@ -2217,6 +2228,11 @@ msgstr "created"
 #: src/app/use-project-lifecycle.ts
 msgid "Creating project…"
 msgstr "Creating project…"
+
+#. Search words for the Acknowledgements settings page, space-separated
+#: src/settings/settings-search-index.ts
+msgid "credits licenses fonts"
+msgstr "credits licenses fonts"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Cross-reference label"
@@ -3926,6 +3942,10 @@ msgstr "Integral"
 #: src/settings/settings-search-index.ts
 msgid "Integrations"
 msgstr "Integrations"
+
+#: src/settings/acknowledgements-settings.tsx
+msgid "Interface fonts"
+msgstr "Interface fonts"
 
 #: src/settings/settings-dialog.tsx
 #: src/settings/settings-search-index.ts
@@ -5723,6 +5743,10 @@ msgstr "Pan right"
 #: src/editor/markdown/engine/views/mermaid-preview.tsx
 msgid "Pan up"
 msgstr "Pan up"
+
+#: src/settings/acknowledgements-settings.tsx
+msgid "Panel layout"
+msgstr "Panel layout"
 
 #: src/trellis/trellis-labels.ts
 msgid "Panel menu"
@@ -8426,6 +8450,10 @@ msgstr "Try building the project again."
 #: src/papers/bib-entry-dialog.tsx
 msgid "Type"
 msgstr "Type"
+
+#: src/settings/acknowledgements-settings.tsx
+msgid "Type family by Timeless Ventures Private Limited, Chennai, used under the {title}. Get the fonts from timeless.co"
+msgstr "Type family by Timeless Ventures Private Limited, Chennai, used under the {title}. Get the fonts from timeless.co"
 
 #: src/editor/latex/latex-command-completions.ts
 msgid "Typeset a URL"

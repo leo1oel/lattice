@@ -1,5 +1,10 @@
 /// <reference types="vite/client" />
 
+/** The embedded fonts' license (scripts/private-fonts.ts); null without them. */
+declare module "virtual:lattice-private-fonts-license" {
+  export const fontLicense: { title: string; text: string } | null;
+}
+
 declare module "*.po" {
   import type { Messages } from "@lingui/core";
   export const messages: Messages;

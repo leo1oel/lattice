@@ -511,6 +511,11 @@ msgstr "电子表格必须包含 1 到 200 个工作表"
 msgid "A sync asks first"
 msgstr "同步时先询问"
 
+#: src/settings/settings-dialog.tsx
+#: src/settings/settings-search-index.ts
+msgid "About"
+msgstr "关于"
+
 #: src/app/native-locale.ts
 msgctxt "macOS menu bar"
 msgid "About {name}"
@@ -551,6 +556,12 @@ msgstr "提供商拒绝访问"
 #: src/editor/markdown/engine/views/component-views.tsx
 msgid "Accordion"
 msgstr "折叠面板"
+
+#: src/settings/acknowledgements-settings.tsx
+#: src/settings/settings-dialog.tsx
+#: src/settings/settings-search-index.ts
+msgid "Acknowledgements"
+msgstr "致谢"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Acute accent example"
@@ -2217,6 +2228,11 @@ msgstr "已创建"
 #: src/app/use-project-lifecycle.ts
 msgid "Creating project…"
 msgstr "正在创建项目…"
+
+#. Search words for the Acknowledgements settings page, space-separated
+#: src/settings/settings-search-index.ts
+msgid "credits licenses fonts"
+msgstr "致谢 鸣谢 许可 许可证 字体"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Cross-reference label"
@@ -3926,6 +3942,10 @@ msgstr "积分"
 #: src/settings/settings-search-index.ts
 msgid "Integrations"
 msgstr "集成"
+
+#: src/settings/acknowledgements-settings.tsx
+msgid "Interface fonts"
+msgstr "界面字体"
 
 #: src/settings/settings-dialog.tsx
 #: src/settings/settings-search-index.ts
@@ -5723,6 +5743,10 @@ msgstr "向右平移"
 #: src/editor/markdown/engine/views/mermaid-preview.tsx
 msgid "Pan up"
 msgstr "向上平移"
+
+#: src/settings/acknowledgements-settings.tsx
+msgid "Panel layout"
+msgstr "面板布局"
 
 #: src/trellis/trellis-labels.ts
 msgid "Panel menu"
@@ -8426,6 +8450,10 @@ msgstr "请尝试重新构建项目。"
 #: src/papers/bib-entry-dialog.tsx
 msgid "Type"
 msgstr "类型"
+
+#: src/settings/acknowledgements-settings.tsx
+msgid "Type family by Timeless Ventures Private Limited, Chennai, used under the {title}. Get the fonts from timeless.co"
+msgstr "由钦奈的 Timeless Ventures Private Limited 设计的字体家族，依据 {title} 使用。请从 timeless.co 获取字体"
 
 #: src/editor/latex/latex-command-completions.ts
 msgid "Typeset a URL"

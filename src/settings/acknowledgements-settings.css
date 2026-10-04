@@ -1,0 +1,20 @@
+/* The license reads as a document rather than as settings rows: framed body
+   copy that flows with the page. */
+.acknowledgements-license {
+  margin-block-end: var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  border: var(--settings-frame-border-width) solid var(--settings-control-border-color);
+  border-radius: var(--settings-frame-radius);
+  color: var(--text-secondary);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line-height);
+  user-select: text;
+}
+
+.acknowledgements-license p {
+  margin: 0 0 var(--space-2);
+}
+
+.acknowledgements-license p:last-child {
+  margin-block-end: 0;
+}

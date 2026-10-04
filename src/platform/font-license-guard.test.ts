@@ -1,8 +1,9 @@
 /**
  * Font files are licensed one by one, and this repository is public. The
- * Timeless family (timeless.co) may be embedded in a local build
+ * Timeless family (timeless.co) may be embedded in a build
  * (scripts/private-fonts.ts) but its license forbids putting it on a public
  * repository, so no copy, subset or conversion of it may ever be committed.
+ * Releases also run scripts/check-font-leaks.mjs, which checks contents too.
  * Every other tracked font must be one whose license allows redistribution;
  * a new one is added to the list below only after that has been checked.
  */

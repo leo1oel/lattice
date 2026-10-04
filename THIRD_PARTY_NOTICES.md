@@ -155,6 +155,12 @@ Both are licensed under the SIL Open Font License 1.1, and neither declares a Re
 Lattice bundles a subset of the `.woff2` files (see the header of `ioskeley-mono.css`); under the OFL a subset is a Modified Version, which may be bundled with any software provided the copyright notice and license travel with it.
 The subset's metadata keeps only the Iosevka copyright line and no license text, so the license ships separately: `src/assets/fonts/ioskeley-mono/OFL.txt` in the source tree, and [`public/licenses/ioskeley-mono-OFL.txt`](public/licenses/ioskeley-mono-OFL.txt) (both copyright lines plus the OFL), which Vite copies into the shipped application.
 
+## Timeless type family (release builds only; not in this repository)
+
+Release builds set the interface and reading surfaces in the [Timeless](https://timeless.co) type family, Copyright 2026 Timeless Ventures Private Limited, Chennai, under the Timeless Free Font License 1.2.
+That license allows embedding the fonts in an application but forbids putting "the fonts", which it defines to include their documentation, on a public repository, so neither the fonts nor the license is here: the release job reads both from a private repository, the build embeds the unmodified WOFF2 files in the app's web assets, and Settings › About › Acknowledgements shows the license text read from the copy that came with the fonts.
+See `docs/design-system.md`, "Private interface fonts".
+
 ## Conference LaTeX templates (`src-tauri/templates/`)
 
 `iclr-2026/`, `icml-2026/` and `neurips-2026/` bundle `.sty` and `.bst` files copied unchanged from the official conference packages, and the app copies them into new projects.

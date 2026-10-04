@@ -165,7 +165,7 @@ describe("welcome screen", () => {
     expect(screen.queryByLabelText("Interface font")).not.toBeInTheDocument();
     const rootStyle = (name: string) => document.documentElement.style.getPropertyValue(name);
     // The font roles belong to the stylesheets (theme.css, and the Timeless
-    // overrides a local build may embed); an inline value would outrank both.
+    // overrides a build may embed); an inline value would outrank both.
     await waitFor(() => expect(rootStyle("--editor-font-size")).toBe("14px"));
     expect(rootStyle("--ui-font")).toBe("");
     expect(rootStyle("--editor-font")).toBe("");
