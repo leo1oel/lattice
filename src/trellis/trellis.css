@@ -336,8 +336,9 @@
    row keeps only its actions, and disappears when it has none. */
 .trellis-tool-host > .trellis-docked-drawer { position: relative; flex: 1 1 0; width: 100%; max-width: none; height: 100%; min-height: 0; box-shadow: none; border: 0; border-radius: 0; animation: none; backdrop-filter: none; background: var(--surface-input); }
 /* A tool's loading shell (app/tool-loading-shell.tsx) lies over the tool for
-   the rest of its minimum time once the tool arrives. */
-.trellis-tool-host > .trellis-docked-drawer.tool-loading-shell { position: absolute; inset: 0; z-index: 1; }
+   the rest of its minimum time once the tool arrives; the docked tool itself
+   computes to z-index 1. */
+.trellis-tool-host > .trellis-docked-drawer.tool-loading-shell { position: absolute; inset: 0; z-index: 2; }
 .trellis-docked-drawer > .drawer-header [data-slot="panel-header-title"] { display: none; }
 .trellis-docked-drawer > .drawer-header [data-slot="panel-header-actions"] > .ui-icon-button:last-child:has(> .lucide-x) { display: none; }
 /* A header left with nothing but its close button goes away entirely. (:has cannot nest, so match the lone close button directly.) */
