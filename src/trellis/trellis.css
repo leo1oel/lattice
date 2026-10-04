@@ -489,6 +489,14 @@
   font: inherit; letter-spacing: inherit;
 }
 .trellis-workspace-name::after { content: attr(data-value) " "; visibility: hidden; white-space: pre; align-self: center; }
+/* Folded, the room is short: past about 14 glyphs the input scrolls instead
+   of pushing the panel controls out. */
+.trellis-titlebar[data-compact] .trellis-workspace-name {
+  flex: 0 1 auto; min-width: 0;
+  max-width: calc(14em + 2 * var(--space-5));
+  grid-template-columns: minmax(0, 1fr);
+}
+.trellis-titlebar[data-compact] .trellis-workspace-name::after { overflow: hidden; }
 .trellis-workspace-name-input {
   width: 100%; min-width: 0;
   border: 0; border-radius: var(--nested-radius);
