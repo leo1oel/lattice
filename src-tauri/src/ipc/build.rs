@@ -1,14 +1,14 @@
 //! Compiling the document and the tools around it: the PDF, SyncTeX, TexLab,
 //! formatting, spelling, the environment doctor and the TeX installer.
 
-use super::{binary_save, current_root, in_project, pinned_root, run_blocking};
+use super::{binary_save, current_root, in_project, pinned_root, run_blocking, run_quietly};
 use crate::app_state::AppState;
 use crate::command_diagnostics;
 use crate::doctor::DoctorReport;
 use crate::latex::{BuildResult, PdfSyncTarget};
 use crate::models::SyncTexTarget;
 use crate::texlab::{TexlabCompletionItem, TexlabHover, TexlabLocation};
-use crate::{doctor, export, format_latex, harper, latex, synara, tex_setup, texlab};
+use crate::{doctor, export, format_latex, harper, latex, synara, tex_setup, texlab, wide_event};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tauri::{Emitter, Manager, State, Window};
@@ -19,16 +19,20 @@ pub async fn build_project(
     document_path: Option<String>,
     diagnostic_context: Option<command_diagnostics::DiagnosticContext>,
 ) -> Result<BuildResult, String> {
-    command_diagnostics::traced("build_project", diagnostic_context, async {
-        let root = pinned_root(&state, &window, &project_root, "its build could start")?;
-        let force = force.unwrap_or(false);
-        let active = state.project(&root).active_build.clone();
-        run_blocking("The LaTeX build task", move || {
-            latex::build(&root, force, &active, document_path.as_deref())
-        })
+    let operation = wide_event::Operation::start("latex.compile", latex::classify_build_error);
+    operation
+        .run(command_diagnostics::traced(diagnostic_context, async {
+            let root = pinned_root(&state, &window, &project_root, "its build could start")?;
+            wide_event::project(&root);
+            let force = force.unwrap_or(false);
+            let active = state.project(&root).active_build.clone();
+            // Quietly: the operation's event already carries any failure.
+            run_quietly("The LaTeX build task", move || {
+                latex::build(&root, force, &active, document_path.as_deref())
+            })
+            .await
+        }))
         .await
-    })
-    .await
 }
 
 #[tauri::command]

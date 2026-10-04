@@ -13,6 +13,7 @@
 //! Functions here only update the table and message peers; the caller applies
 //! the app-level consequences (windows, Synara).
 
+use crate::wide_event::{self, Failure};
 use axum::extract::ws::Message;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -48,6 +49,63 @@ pub(super) struct BrowserSession {
     pub(super) active: bool,
     /// The single-use nonce of the last default-browser entry address.
     pub(super) entry_nonce: Option<(String, Instant)>,
+    /// The session's wide event, written when it leaves the table.
+    pub(super) event: SessionEvent,
+}
+
+/// One `browser.session` wide event per session, opened with it and written
+/// when it is dropped. [`retire`] says how it ended; a session dropped
+/// without that (at quit) is logged as `abandoned`.
+pub(super) struct SessionEvent {
+    operation: Option<wide_event::Operation>,
+    ended: Option<&'static str>,
+    failure: Option<String>,
+    relayed: u64,
+}
+
+impl SessionEvent {
+    fn new() -> Self {
+        let operation = wide_event::Operation::start("browser.session", classify_session_failure);
+        Self { operation: Some(operation), ended: None, failure: None, relayed: 0 }
+    }
+}
+
+impl Drop for SessionEvent {
+    fn drop(&mut self) {
+        let (Some(operation), Some(ended)) = (self.operation.take(), self.ended) else {
+            return;
+        };
+        operation.record("relayed_messages", self.relayed);
+        let failure = self.failure.as_deref().map(|cause| (classify_session_failure(ended), cause));
+        operation.end(failure);
+    }
+}
+
+/// What a session that ended badly means for whoever reads the log.
+fn classify_session_failure(ended: &str) -> Failure {
+    match ended {
+        "tab_never_connected" => Failure {
+            kind: "tab_never_connected",
+            fix: "Keep the tab Lattice opened; if the browser blocked it, open the address again from Lattice.",
+        },
+        _ => Failure {
+            kind: "open_failed",
+            fix: "Set a default browser in System Settings, then use Open in browser again.",
+        },
+    }
+}
+
+/// Record how `session` ended on its wide event, before it is dropped.
+fn retire(session: &mut BrowserSession, ended: &'static str, failure: Option<&str>) {
+    let event = &mut session.event;
+    if let Some(operation) = &event.operation {
+        operation.record("native_handoff", session.source_label.is_some());
+        operation.record("entry_session", session.entry_session);
+        operation.record("tabs", session.visible_epoch);
+        operation.record("ended", ended);
+    }
+    event.ended = Some(ended);
+    event.failure = failure.map(str::to_string);
 }
 
 impl BrowserSession {
@@ -64,6 +122,7 @@ impl BrowserSession {
             project_root: None,
             active: true,
             entry_nonce: None,
+            event: SessionEvent::new(),
         }
     }
 
@@ -268,8 +327,8 @@ pub(super) fn activate(session: &mut BrowserSession) {
 pub(super) fn other_peer(
     sessions: &Sessions, query: &BridgeQuery, peer_id: &str,
 ) -> Option<mpsc::UnboundedSender<Message>> {
-    let sessions = sessions.lock().ok()?;
-    let session = sessions.get(&query.token).filter(|session| session.active)?;
+    let mut sessions = sessions.lock().ok()?;
+    let session = sessions.get_mut(&query.token).filter(|session| session.active)?;
     let (source, target) = match query.role {
         BridgeRole::Browser => (session.browser.as_ref(), session.host.as_ref()),
         BridgeRole::Host => (session.host.as_ref(), session.browser.as_ref()),
@@ -277,12 +336,15 @@ pub(super) fn other_peer(
     if source?.id != peer_id {
         return None;
     }
-    target.map(|peer| peer.sender.clone())
+    let target = target.map(|peer| peer.sender.clone());
+    session.event.relayed += u64::from(target.is_some());
+    target
 }
 
 /// End a session whose workspace now shows in a native window.
 pub(super) fn finish_native_return(sessions: &Sessions, token: &str) -> Option<String> {
-    let session = sessions.lock().ok()?.remove(token)?;
+    let mut session = sessions.lock().ok()?.remove(token)?;
+    retire(&mut session, "returned_to_desktop", None);
     if let Some(browser) = &session.browser {
         notify(Some(browser), "desktop-returned");
         browser.close();
@@ -315,7 +377,9 @@ pub(super) fn detach_peer(
         BridgeRole::Browser => Some(Detached::Grace(session.visible_epoch)),
         BridgeRole::Host => {
             notify(session.browser.as_ref(), "host-disconnected");
-            table.remove(&query.token);
+            if let Some(mut session) = table.remove(&query.token) {
+                retire(&mut session, "host_disconnected", None);
+            }
             Some(Detached::SessionRemoved)
         }
     }
@@ -339,8 +403,14 @@ pub(super) fn settle_after_grace(
     if session.browser.is_some() || session.visible_epoch != visible_epoch {
         return None;
     }
-    let session = sessions.remove(token)?;
-    Some(Expired { native_return: session.source_label.is_some(), host_label: session.host_label })
+    let mut session = sessions.remove(token)?;
+    if session.shown_in_browser() {
+        retire(&mut session, "tab_closed", None);
+    } else {
+        retire(&mut session, "tab_never_connected", Some("The browser tab never connected."));
+    }
+    let native_return = session.source_label.is_some();
+    Some(Expired { native_return, host_label: std::mem::take(&mut session.host_label) })
 }
 
 pub(super) fn send_error(sessions: &Sessions, token: &str, reason: &str) {
@@ -352,9 +422,11 @@ pub(super) fn send_error(sessions: &Sessions, token: &str, reason: &str) {
     }
 }
 
-pub(super) fn remove(sessions: &Sessions, token: &str) {
-    if let Ok(mut sessions) = sessions.lock() {
-        sessions.remove(token);
+/// Drop a session that failed to open, for `reason`.
+pub(super) fn remove(sessions: &Sessions, token: &str, reason: &str) {
+    let removed = sessions.lock().ok().and_then(|mut sessions| sessions.remove(token));
+    if let Some(mut session) = removed {
+        retire(&mut session, "open_failed", Some(reason));
     }
 }
 
@@ -530,6 +602,34 @@ mod tests {
         ));
         assert_eq!(next(&mut browser), control("host-disconnected"));
         assert!(sessions.lock().unwrap().is_empty());
+    }
+
+    #[test]
+    fn each_session_is_one_wide_event_saying_how_it_ended() {
+        let (_, capture) = crate::wide_event::tests::capture(|| {
+            let closed = sessions();
+            let _host = connect(&closed, BridgeRole::Host, "host");
+            let _tab = connect(&closed, BridgeRole::Browser, "tab");
+            assert!(relays(&closed, BridgeRole::Browser, "tab"));
+            assert!(relays(&closed, BridgeRole::Host, "host"));
+            let epoch = detach_with_grace(&closed, BridgeRole::Browser, "tab");
+            settle_after_grace(&closed, TOKEN, epoch);
+
+            // A tab that never connects is the failure worth a fix.
+            settle_after_grace(&sessions(), TOKEN, 0);
+        });
+        let events = capture.events();
+        assert_eq!(events.len(), 2, "{events:?}");
+        assert_eq!(events[0]["event"], "browser.session");
+        assert_eq!(events[0]["outcome"], "success");
+        assert_eq!(events[0]["ended"], "tab_closed");
+        assert_eq!(events[0]["relayed_messages"], 2);
+        assert_eq!(events[0]["tabs"], 1);
+        assert_eq!(events[0]["entry_session"], true);
+        assert_eq!(events[1]["outcome"], "error");
+        assert_eq!(events[1]["error_kind"], "tab_never_connected");
+        // The session token is a credential for the workspace.
+        assert!(!format!("{events:?}").contains(TOKEN));
     }
 
     #[test]

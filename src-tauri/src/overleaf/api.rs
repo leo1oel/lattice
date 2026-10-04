@@ -8,6 +8,7 @@ use super::files::is_excluded;
 use super::link::{load_state, SyncState, PAUSED};
 use crate::overleaf_rt::{SESSION_EXPIRED, USER_AGENT};
 use crate::util::err;
+use crate::wide_event;
 use reqwest::blocking::{Client, RequestBuilder, Response};
 use reqwest::header::{ACCEPT, CONTENT_LENGTH, CONTENT_TYPE, COOKIE, RETRY_AFTER};
 use reqwest::{Method, StatusCode};
@@ -109,6 +110,7 @@ fn send_with_retries(mut request: RequestBuilder) -> reqwest::Result<Response> {
     let mut retries_done = 0;
     loop {
         let again = request.try_clone();
+        wide_event::add("http_requests", 1);
         let outcome = request.send();
         let attempt = match &outcome {
             Ok(response) => Attempt::Answered(
@@ -123,6 +125,7 @@ fn send_with_retries(mut request: RequestBuilder) -> reqwest::Result<Response> {
         };
         let wait = retry_wait(attempt, safe, retries_done);
         let (Some(wait), Some(again)) = (wait, again) else { return outcome };
+        wide_event::add("http_retries", 1);
         std::thread::sleep(wait);
         request = again;
         retries_done += 1;

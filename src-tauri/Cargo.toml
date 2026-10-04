@@ -67,6 +67,10 @@ tauri-plugin-log = "2"
 tauri-plugin-autostart = "2.5.1"
 rfd = "0.16"
 log = "0.4"
+# Operation spans that become one wide log event each (src/wide_event.rs).
+# Output still goes through `log` and tauri-plugin-log; no formatter is needed.
+tracing = { version = "0.1", default-features = false, features = ["std"] }
+tracing-subscriber = { version = "0.3", default-features = false, features = ["registry", "std"] }
 rusqlite = { version = "0.40.1", features = ["bundled"] }
 flate2 = "1"
 tar = "0.4"

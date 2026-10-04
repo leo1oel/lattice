@@ -64,5 +64,6 @@ pub use review::{
     OverleafThread,
 };
 pub use sync::{
-    preview, probe, sync, sync_relocations, OverleafPreview, OverleafProbe, OverleafSyncResult,
+    classify_sync_error, preview, probe, sync, sync_relocations, OverleafPreview, OverleafProbe,
+    OverleafSyncResult,
 };

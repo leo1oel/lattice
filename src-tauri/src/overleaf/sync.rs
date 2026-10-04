@@ -15,8 +15,9 @@ use super::api::{
 use super::files::*;
 use super::link::{load_state, now_iso, save_state, Refusal, SyncState, PAUSED};
 use super::review::{history_since, HistoryFrom};
-use crate::overleaf_rt::EntityEntry;
+use crate::overleaf_rt::{EntityEntry, NOT_CONNECTED, SESSION_EXPIRED};
 use crate::util::err;
+use crate::wide_event::{self, Failure};
 use reqwest::blocking::Client;
 use reqwest::header::COOKIE;
 use serde::{Deserialize, Serialize};
@@ -594,7 +595,63 @@ fn sync_client() -> Result<Client, String> {
     http_client(120)
 }
 
+/// What a failed sync means for whoever reads the log.
+pub fn classify_sync_error(error: &str) -> Failure {
+    if error == SESSION_EXPIRED || error == NOT_CONNECTED {
+        Failure {
+            kind: "session_expired",
+            fix: "Reconnect in Settings → Overleaf, then sync again.",
+        }
+    } else if error == PAUSED {
+        Failure { kind: "paused", fix: "Resume syncing in Settings → Overleaf." }
+    } else if error.starts_with("Could not reach Overleaf") {
+        Failure { kind: "network", fix: "Check the connection (and any proxy), then sync again." }
+    } else if error.starts_with("Overleaf returned") || error.starts_with("Overleaf rejected") {
+        Failure {
+            kind: "server_refused",
+            fix: "Wait a minute and sync again; Overleaf may be busy.",
+        }
+    } else if error.contains("not linked") {
+        Failure { kind: "not_linked", fix: "Link the project to Overleaf again." }
+    } else if error.starts_with("Could not") && !error.contains("Overleaf") {
+        Failure {
+            kind: "local_io",
+            fix: "Check the project folder is writable and the disk is not full.",
+        }
+    } else {
+        Failure { kind: "sync_error", fix: "Sync again; if it repeats, report it with the log." }
+    }
+}
+
+/// The sync's shape on its wide event: counts, never paths.
+fn record_result(result: &OverleafSyncResult) {
+    for (key, count) in [
+        ("pulled", result.pulled.len()),
+        ("pushed", result.pushed.len()),
+        ("merged", result.merged.len()),
+        ("conflicts", result.conflicts.len()),
+        ("deleted_local", result.deleted_local.len()),
+        ("skipped_remote_deletes", result.skipped_remote_deletes.len()),
+        ("skipped_large", result.skipped_large.len()),
+        ("refused_incoming", result.refused_incoming.len()),
+        ("edited_during_sync", result.edited_during_sync.len()),
+    ] {
+        if count > 0 {
+            wide_event::record(key, count);
+        }
+    }
+    wide_event::record("read_only", result.read_only);
+}
+
 pub fn sync(
+    config_dir: &Path, root: &Path, live: &BTreeSet<String>, observed_remote_version: Option<i64>,
+) -> Result<OverleafSyncResult, String> {
+    let result = sync_files(config_dir, root, live, observed_remote_version)?;
+    record_result(&result);
+    Ok(result)
+}
+
+fn sync_files(
     config_dir: &Path, root: &Path, live: &BTreeSet<String>, observed_remote_version: Option<i64>,
 ) -> Result<OverleafSyncResult, String> {
     let linked = Remote::open_for_sync(config_dir, root)?;
@@ -609,9 +666,18 @@ pub fn sync(
     let mut read = read_local_files(root)?;
     let agreed = agreed_remote_files(&linked, &client, root, version, &read.files, live);
     let RemoteFiles { files: remote, automatic_remote_deletes, unsettled } = match agreed {
-        Some(agreed) => agreed,
+        Some(agreed) => {
+            wide_event::record("download", "skipped");
+            agreed
+        }
         None => {
+            let step = wide_event::step("download");
             let downloaded = fetch_remote_files(&linked, &client)?;
+            drop(step);
+            wide_event::record("download", "full");
+            let bytes: usize = downloaded.files.values().map(Vec::len).sum();
+            wide_event::record("remote_files", downloaded.files.len());
+            wide_event::record("remote_bytes", bytes);
             // Read again after the download, so whatever changed here while it
             // ran is part of this sync rather than left for the next.
             read = read_local_files(root)?;
@@ -619,6 +685,7 @@ pub fn sync(
         }
     };
     let LocalFiles { files: local, oversized } = read;
+    wide_event::record("local_files", local.len());
     let mut plan = plan_sync(root, &linked.state, &remote, &local, live, &sync_stamp())?;
     let mut refused = settle_destructive(&linked, &client, &mut plan);
     // Warn about a refused copy once; the same hollow download on every
@@ -629,14 +696,8 @@ pub fn sync(
         })
         .map(|(path, _)| path.clone())
         .collect();
-    for path in &refused_incoming {
-        log::warn!(
-            target: "lattice::overleaf",
-            "Kept {path}: Overleaf's download has it empty or much smaller, and Overleaf's \
-             history does not confirm a change to it since the last sync. Delete it locally \
-             and sync again to take Overleaf's copy"
-        );
-    }
+    // Each is a file Overleaf's download has empty or much smaller, which its
+    // history does not confirm; the result lists them, the event counts them.
 
     // A reviewer or a viewer may read the project and not change it. Trying
     // anyway would be rejected file by file and reported as a sync failure,
@@ -762,6 +823,7 @@ pub fn sync(
         && remote_version_before.is_some()
         && linked.version(&client) != remote_version_before
     {
+        wide_event::record("stood_down", to_push.len());
         for path in to_push.drain(..) {
             new_files.remove(&path);
         }
@@ -777,7 +839,10 @@ pub fn sync(
         }
         // Overleaf has every folder that holds a file of its copy.
         let folders = (remote.keys()).flat_map(|path| folders_above(path)).map(str::to_string);
+        wide_event::record("upload_bytes", sent.values().map(Vec::len).sum::<usize>());
+        let step = wide_event::step("upload");
         linked.uploader(&client, csrf)?.upload_all(&sent, &folders.collect())?;
+        drop(step);
         let written = linked
             .version(&client)
             .map(HistoryFrom::Version)

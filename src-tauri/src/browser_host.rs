@@ -333,7 +333,7 @@ impl BrowserHost {
                 .inspect_err(|_| destroy_window(app, &host_label))
         });
         if let Err(error) = opened {
-            session::remove(&server.sessions, &token);
+            session::remove(&server.sessions, &token, &error);
             return Err(error);
         }
         Ok(token)

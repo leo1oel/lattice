@@ -24,7 +24,7 @@ mod synctex;
 /// process they own — abort signals a whole process group.
 #[cfg(test)]
 pub(crate) use build::begin_active as begin_for_test;
-pub use build::{abort, build, clean, ActiveBuild};
+pub use build::{abort, build, classify_build_error, clean, ActiveBuild};
 pub(crate) use build_log::is_pass_noise_warning;
 pub use synctex::{forward_search, inverse_search};
 

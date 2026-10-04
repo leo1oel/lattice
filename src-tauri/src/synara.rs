@@ -10,6 +10,7 @@ mod preferences;
 mod proxy;
 
 use crate::sidecar::{terminate_process_group, NodeRuntime};
+use crate::wide_event::{self, Failure};
 use reqwest::blocking::Client;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::fs::{self, File, OpenOptions};
@@ -144,20 +145,31 @@ impl SynaraRuntime {
             return Ok(self.ready_info(origin, None, 0));
         }
         let mut running = self.running.lock().map_err(|_| UNAVAILABLE.to_string())?;
+        let mut reason = "start";
         if let Some(current) = running.as_mut() {
             if matches!(current.child.try_wait(), Ok(None)) {
                 return Ok(current.info.clone());
             }
             // The managed child exited; start a new one.
             *running = None;
+            reason = "restart_after_exit";
         }
 
-        let started = Instant::now();
-        let (mut child, auth_token, startup_logs) = self.spawn()?;
-        let origin = wait_until_ready(&mut child, &startup_logs, &self.home_dir, started)
-            .inspect_err(|_| terminate_process_group(&mut child))?;
-        let startup_ms = started.elapsed().as_millis() as u64;
-        let info = self.ready_info(&origin, Some(&auth_token), startup_ms);
+        let operation = wide_event::Operation::start("synara.start", classify_start_error);
+        operation.record("reason", reason);
+        if let Some(version) = &self.version {
+            operation.record("synara_version", version.as_str());
+        }
+        let info = operation.run_sync(|| {
+            let started = Instant::now();
+            let (mut child, auth_token, startup_logs) = self.spawn()?;
+            let origin = wait_until_ready(&mut child, &startup_logs, &self.home_dir, started)
+                .inspect_err(|_| terminate_process_group(&mut child))?;
+            let startup_ms = started.elapsed().as_millis() as u64;
+            let info = self.ready_info(&origin, Some(&auth_token), startup_ms);
+            Ok((child, info))
+        });
+        let (child, info) = info?;
         *running = Some(RunningSynara { child, info: info.clone() });
         Ok(info)
     }
@@ -214,7 +226,9 @@ impl SynaraRuntime {
         // port. Reuse the previous sidecar port when it is free so composer
         // preferences such as the last model and effort survive app restarts;
         // retain dynamic allocation as the safe fallback for port conflicts.
-        match available_preferred_server_port(self.preferred_port) {
+        let port = available_preferred_server_port(self.preferred_port);
+        wide_event::record("port", if port.is_some() { "preferred" } else { "dynamic" });
+        match port {
             Some(port) => command.arg("--port").arg(port.to_string()),
             None => command.arg("--dynamic-port"),
         };
@@ -340,6 +354,35 @@ pub fn compile_repair_request(
     Ok(value)
 }
 
+/// What a failed agent start means for whoever reads the log. The startup
+/// log excerpt in the cause is cut to its first line by the event; the full
+/// text stays in sidecar.log and sidecar-error.log.
+fn classify_start_error(error: &str) -> Failure {
+    if error.starts_with("The bundled") {
+        Failure {
+            kind: "runtime_missing",
+            fix: "Reinstall Lattice; the bundled agent runtime is incomplete.",
+        }
+    } else if error.contains("stopped during startup") {
+        Failure {
+            kind: "exited_during_startup",
+            fix: "Click Open logs on the agent panel and read the end of sidecar-error.log.",
+        }
+    } else if error.contains("did not become ready") {
+        Failure {
+            kind: "startup_timeout",
+            fix: "Quit other heavy apps or retry; the agent took too long to start.",
+        }
+    } else if error.starts_with("Could not create") || error.starts_with("Could not open") {
+        Failure {
+            kind: "data_dir_unwritable",
+            fix: "Check the disk is not full and Lattice's data folder is writable.",
+        }
+    } else {
+        Failure { kind: "start_error", fix: "Retry; if it keeps failing, report it with the log." }
+    }
+}
+
 fn append_log(path: &Path) -> Result<File, String> {
     OpenOptions::new()
         .create(true)
@@ -363,6 +406,7 @@ fn wait_until_ready(
         .map_err(|error| format!("Could not initialize the agent health check: {error}"))?;
 
     while started.elapsed() < STARTUP_TIMEOUT {
+        wide_event::add("health_polls", 1);
         if let Some(status) =
             child.try_wait().map_err(|error| format!("Could not inspect agent startup: {error}"))?
         {

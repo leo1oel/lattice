@@ -94,7 +94,10 @@ where
     T: Send + 'static,
     F: FnOnce() -> Result<T, String> + Send + 'static,
 {
-    tauri::async_runtime::spawn_blocking(task).await.map_err(|error| {
+    // The blocking pool does not inherit the caller's span; carry it over so
+    // the task's fields land on the operation that started it.
+    let span = tracing::Span::current();
+    tauri::async_runtime::spawn_blocking(move || span.in_scope(task)).await.map_err(|error| {
         log::error!(target: "lattice::tasks", "{label} stopped unexpectedly: {error}");
         format!("{label} stopped unexpectedly: {error}")
     })?
