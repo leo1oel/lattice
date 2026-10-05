@@ -440,25 +440,43 @@ describe("an inactive document on screen", () => {
     const activate = vi.spyOn(controller, "activate").mockImplementation(() => {});
     const frame = document.createElement("iframe");
     host.append(frame);
-    // A blur elsewhere (another app's window) leaves the deck alone.
-    act(() => { window.dispatchEvent(new Event("blur")); });
-    await new Promise((resolve) => setTimeout(resolve, 0));
-    expect(activate).not.toHaveBeenCalled();
-    // A click inside the frame: this page sees only its own window blur, with the frame focused.
-    act(() => {
-      frame.focus();
-      window.dispatchEvent(new Event("blur"));
-    });
-    await waitFor(() => expect(activate).toHaveBeenCalledWith(deck));
+    const otherFrame = document.createElement("iframe");
+    document.body.append(otherFrame);
+    // Focus moving into a frame fires no focusin here: only what this page can observe.
+    let focused: Element = document.body;
+    const activeElement = vi.spyOn(document, "activeElement", "get").mockImplementation(() => focused);
+    try {
+      // A blur elsewhere (another app's window) leaves the deck alone.
+      act(() => { window.dispatchEvent(new Event("blur")); });
+      await new Promise((resolve) => setTimeout(resolve, 300));
+      expect(activate).not.toHaveBeenCalled();
+      // A press from another deck's frame into this one: the window is already blurred and nothing fires.
+      focused = otherFrame;
+      await new Promise((resolve) => setTimeout(resolve, 300));
+      expect(activate).not.toHaveBeenCalled();
+      focused = frame;
+      await waitFor(() => expect(activate).toHaveBeenCalledWith(deck));
+      activate.mockClear();
+      // A press from this page into the frame: the window's blur.
+      focused = document.body;
+      act(() => { window.dispatchEvent(new Event("focus")); });
+      act(() => { window.dispatchEvent(new Event("blur")); });
+      focused = frame;
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      expect(activate).toHaveBeenCalledWith(deck);
+    } finally {
+      activeElement.mockRestore();
+      otherFrame.remove();
+    }
     activate.mockClear();
-    // The active deck does not reactivate itself.
+    // Another document becoming active without taking focus leaves none in
+    // the deck's frame, so pressing back into it is a move this page sees.
     act(() => controller.app.set({ activeKey: deck }));
-    act(() => {
-      frame.blur();
-      frame.focus();
-      window.dispatchEvent(new Event("blur"));
-    });
-    await new Promise((resolve) => setTimeout(resolve, 0));
+    act(() => { frame.focus(); });
     expect(activate).not.toHaveBeenCalled();
+    act(() => controller.app.set({ activeKey: "main.tex" }));
+    expect(document.activeElement).not.toBe(frame);
+    act(() => { frame.focus(); });
+    expect(activate).toHaveBeenCalledWith(deck);
   });
 });
