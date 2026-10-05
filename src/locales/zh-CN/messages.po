@@ -7782,7 +7782,7 @@ msgstr "已开始"
 msgid "Starting Agent"
 msgstr "正在启动智能助手"
 
-#: src/canvas/document-canvas.tsx
+#: src/canvas/open-slide-deck-pool.tsx
 msgid "Starting Open Slide"
 msgstr "正在启动 Open Slide"
 

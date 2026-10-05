@@ -344,17 +344,37 @@ function TextSnapshot({ controller, fileKey, panelId }: { controller: TrellisCon
         const view = viewRef.current;
         const inSource = view?.dom.contains(event.target as Node);
         const position = inSource ? view?.posAtCoords({ x: event.clientX, y: event.clientY }) : null;
-        const line = view && position != null ? view.state.doc.lineAt(position).number : undefined;
+        // On the rendered page: the source line of the block pressed, so the
+        // live document opens there with the editor focused, as a press in
+        // the source does.
+        const pageLine = !inSource && text !== null ? renderedLineAt(event.currentTarget, event.clientY) : undefined;
+        const line = view && position != null ? view.state.doc.lineAt(position).number
+          : pageLine !== undefined && text !== null ? pageLine + lineCount(text.slice(0, markdownFrontmatterEnd(text))) - 1 : undefined;
         controller.activate(fileKey, line);
       }}
     >
       {mode !== "pdf" && <div ref={parentRef} className="code-editor-root trellis-snapshot-editor" />}
       {mode !== "source" && text !== null && (
-        <ReadOnlyMarkdown controller={controller} path={fileKey} text={text.slice(markdownFrontmatterEnd(text))} />
+        <ReadOnlyMarkdown controller={controller} path={fileKey} text={text.slice(markdownFrontmatterEnd(text))} sourceLines />
       )}
       <span className="trellis-snapshot-badge">{t`Read-only preview · click to edit`}</span>
     </div>
   );
+}
+
+/** Lines in `text`, counting the one it ends on. */
+const lineCount = (text: string) => text.split("\n").length;
+
+/**
+ * The source line (1-based, within the rendered text) of the rendered block
+ * at `clientY` in `snapshot`'s page: the last block starting at or above it,
+ * else the first.
+ */
+function renderedLineAt(snapshot: Element, clientY: number) {
+  const blocks = [...snapshot.querySelectorAll<HTMLElement>(".markdown-preview [data-source-line]")];
+  const block = blocks.filter((element) => element.getBoundingClientRect().top <= clientY).at(-1) ?? blocks[0];
+  const line = Number(block?.dataset.sourceLine);
+  return Number.isFinite(line) && line > 0 ? line : undefined;
 }
 
 /** A Markdown file, not a deck in Markdown's clothing: what a snapshot can render as a page. */
@@ -367,7 +387,11 @@ function isMarkdownSnapshot(key: string) {
  * block at the top, retried each frame while the editor draws); then this
  * panel's scrolling is where the reader resumes.
  */
-function ReadOnlyMarkdown({ controller, path, text }: { controller: TrellisController; path: string; text: string }) {
+function ReadOnlyMarkdown({ controller, path, text, sourceLines = false }: {
+  controller: TrellisController; path: string; text: string;
+  /** Mark each block with its source line (see renderedLineAt). */
+  sourceLines?: boolean;
+}) {
   const scrollRef = useRef<HTMLDivElement>(null);
   // The reader's own image loader: figures are project files relative to
   // their Markdown, which the webview cannot fetch by that path.
@@ -411,6 +435,7 @@ function ReadOnlyMarkdown({ controller, path, text }: { controller: TrellisContr
             onChangeMarkdown={refuse}
             onUndo={refuse}
             onRedo={refuse}
+            synchronizeSourceScroll={sourceLines}
           />
         </Suspense>
       </div>
