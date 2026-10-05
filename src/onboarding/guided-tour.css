@@ -229,13 +229,3 @@
 }
 
 .guided-tour-next { gap: var(--space-3); }
-
-@media (prefers-reduced-motion: reduce) {
-  .guided-tour-scrim,
-  .guided-tour-spotlight,
-  .guided-tour-card,
-  .guided-tour-progress li { transition: none; }
-  .guided-tour-card,
-  .guided-tour-content,
-  .guided-tour-action[data-done] .guided-tour-action-mark { animation: none; }
-}
