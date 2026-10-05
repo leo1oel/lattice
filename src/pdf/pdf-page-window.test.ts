@@ -352,7 +352,7 @@ describe("PDF.js page window", () => {
       span.textContent = `Page ${number} text. `;
       layer.append(span);
       pageDiv(number).append(layer);
-      return { span, uninstall: installPdfTextLayerSelection(layer) };
+      return { span, uninstall: installPdfTextLayerSelection(layer, pageDiv) };
     });
     const copy = () => {
       const stored = new Map<string, string>();

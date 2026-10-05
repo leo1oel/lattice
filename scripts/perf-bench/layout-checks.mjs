@@ -48,6 +48,63 @@ const findToolbarGeometry = (driver) => driver.evaluate(`(() => {
   };
 })()`);
 
+const COMPILED_PDF = ".pdf-column > .pdf-preview";
+const PDF_SCROLLER = `${COMPILED_PDF} .pdf-scroll-area-viewport:not(.pdf-viewer-staging)`;
+
+/** Where the "Page N: …" heading of the compiled fixture PDF's page N is, if drawn and on screen. */
+const pdfHeading = (page) => `(() => {
+  const span = [...document.querySelectorAll(${JSON.stringify(`${COMPILED_PDF} .page[data-page-number="${page}"] .textLayer span`)})]
+    .find((node) => node.textContent.startsWith(${JSON.stringify(`Page ${page}:`)}));
+  const rect = span?.getBoundingClientRect();
+  return rect && rect.top >= 0 && rect.bottom <= innerHeight ? { left: rect.left, right: rect.right, y: rect.top + rect.height / 2 } : null;
+})()`;
+
+/** Once every page on screen in the compiled preview is drawn. */
+const pdfViewDrawn = (driver, what) => driver.waitFor(`(() => {
+  const scroller = document.querySelector(${JSON.stringify(PDF_SCROLLER)});
+  const view = scroller.getBoundingClientRect();
+  const shown = [...scroller.querySelectorAll(".page")].filter((page) => {
+    const rect = page.getBoundingClientRect();
+    return rect.bottom > view.top && rect.top < view.bottom;
+  });
+  return shown.length > 0 && shown.every((page) => page.querySelector(".canvasWrapper canvas"));
+})()`, { what });
+
+/** The compiled 400-page preview at 40%, pages 1 to 3 drawn: where their headings are. */
+async function pdfPagesOneToThreeAt40(driver) {
+  await driver.waitFor(`document.querySelector(${JSON.stringify(`${COMPILED_PDF} .page[data-page-number="1"] .textLayer span`)})`, {
+    timeout: 60_000, what: "page 1's text",
+  });
+  await driver.click(`${COMPILED_PDF} .pdf-overflow-trigger`);
+  await driver.click('[role="menuitem"][aria-label="Enter a zoom percentage"]');
+  const zoom = `${COMPILED_PDF} input[aria-label="PDF zoom percentage"]`;
+  await driver.waitFor(`!document.querySelector('[role="menu"]') && document.activeElement?.matches(${JSON.stringify(zoom)})`, {
+    timeout: 5_000, what: "the menu to close and the zoom field to take focus",
+  });
+  for (let frame = 0; frame < 3; frame += 1) await driver.nextFrame();
+  await driver.evaluate("document.activeElement.select()");
+  await driver.type("40");
+  await driver.type("\n");
+  const headings = await driver.waitFor(`(() => {
+    const first = ${pdfHeading(1)};
+    const third = ${pdfHeading(3)};
+    return first && third ? [first, third] : null;
+  })()`, { timeout: 10_000, what: "pages 1 to 3 on screen at 40%" });
+  await pdfViewDrawn(driver, "pages 1 to 3 drawn");
+  return headings;
+}
+
+/** Record what the app writes to the clipboard in `window.__benchClipboard`. */
+const recordClipboard = (driver) => driver.evaluate(`(() => {
+  const internals = window.__TAURI_INTERNALS__;
+  const invoke = internals.invoke;
+  window.__benchClipboard = [];
+  internals.invoke = (command, args, options) => {
+    if (command === "plugin:clipboard-manager|write_text") window.__benchClipboard.push(String(args?.text ?? ""));
+    return invoke(command, args, options);
+  };
+})()`);
+
 export const LAYOUT_CHECKS = [
   {
     name: "paper-header-long-doi",
@@ -155,6 +212,113 @@ export const LAYOUT_CHECKS = [
       });
       const idle = await findToolbarGeometry(driver);
       if (idle.problems.length) throw new Error(`with the search cleared: ${idle.problems.join("; ")}`);
+    },
+  },
+  {
+    name: "pdf-live-drag-copy",
+    description: "A 400-page compiled PDF at 40%, a drag from page 1's heading to page 3's, the button still held through two wheel steps far down: releasing, scrolling on, and pressing Cmd-C copy pages 1 and 2.",
+    query: { pdfPages: 400, build: "clean" },
+    width: 1440,
+    height: 900,
+    async run(driver) {
+      const [first, third] = await pdfPagesOneToThreeAt40(driver);
+
+      // The text a person sees selected, before the drag ends.
+      await driver.mouse("mouseMoved", first.left + 1, first.y, { button: "none" });
+      await driver.mouse("mousePressed", first.left + 1, first.y);
+      for (let step = 1; step <= 10; step += 1) {
+        await driver.mouse("mouseMoved", first.left + 1 + (third.right - 2 - first.left) * step / 10, first.y + (third.y - first.y) * step / 10, { buttons: 1 });
+      }
+      const selected = await driver.evaluate("getSelection().toString()");
+      if (!selected.includes("Page 1:") || !selected.includes("Page 2:")) throw new Error("the drag did not select from page 1 into page 3");
+
+      // Each step draws pages far below, past PDF.js's ten-page cache: the
+      // oldest drawn ones, the selected pages, are evicted on the way.
+      for (let step = 0; step < 2; step += 1) {
+        await driver.mouse("mouseWheel", third.right - 2, third.y, { button: "none", buttons: 1, deltaX: 0, deltaY: 14_000 });
+        await driver.nextFrame();
+        await pdfViewDrawn(driver, `the pages under wheel step ${step + 1} drawn`);
+      }
+      if (await driver.evaluate(`!!document.querySelector(${JSON.stringify(`${COMPILED_PDF} .page[data-page-number="1"] canvas`)})`)) {
+        throw new Error("page 1 is still drawn, so nothing evicted it: scroll further");
+      }
+      await driver.mouse("mouseReleased", third.right - 2, third.y);
+
+      await recordClipboard(driver);
+      const parked = await driver.waitFor(`document.querySelector(".pdf-copy-field")?.value`, { timeout: 5_000, what: "the released drag's text" });
+      for (const heading of ["Page 1:", "Page 2:"]) {
+        if (!parked.includes(heading)) throw new Error(`the released drag's ${parked.length} characters lost "${heading}"`);
+      }
+
+      // One more step draws a page, so the buffer lets go of the pages it kept
+      // for the drag and their text layers are disposed.
+      await driver.mouse("mouseWheel", third.right - 2, third.y, { button: "none", deltaX: 0, deltaY: 14_000 });
+      await driver.nextFrame();
+      await pdfViewDrawn(driver, "the pages under the wheel step after release drawn");
+      const kept = await driver.evaluate(`document.querySelector(".pdf-copy-field")?.value ?? ""`);
+      for (const heading of ["Page 1:", "Page 2:"]) {
+        if (!kept.includes(heading)) throw new Error(`a scroll after release left ${kept.length} characters without "${heading}"`);
+      }
+      await driver.shortcut("c");
+      const copied = await driver.waitFor("window.__benchClipboard.at(-1)", { timeout: 5_000, what: "Cmd-C to write the clipboard" });
+      if (copied !== kept) throw new Error(`Cmd-C copied ${copied.length} characters, not the released drag's ${kept.length}`);
+    },
+  },
+  {
+    name: "pdf-parked-drag-zoom-scroll",
+    description: "A completed drag from page 1's heading to page 3's in a 400-page compiled PDF at 40%, then a pinch zoom, a scroll far enough to evict page 1, and back: page 1 is still highlighted and Cmd-C copies pages 1 and 2.",
+    query: { pdfPages: 400, build: "clean" },
+    width: 1440,
+    height: 900,
+    async run(driver) {
+      const [first, third] = await pdfPagesOneToThreeAt40(driver);
+      await driver.mouse("mouseMoved", first.left + 1, first.y, { button: "none" });
+      await driver.mouse("mousePressed", first.left + 1, first.y);
+      for (let step = 1; step <= 10; step += 1) {
+        await driver.mouse("mouseMoved", first.left + 1 + (third.right - 2 - first.left) * step / 10, first.y + (third.y - first.y) * step / 10, { buttons: 1 });
+      }
+      await driver.mouse("mouseReleased", third.right - 2, third.y);
+      await recordClipboard(driver);
+      const parked = await driver.waitFor(`document.querySelector(".pdf-copy-field")?.value`, { timeout: 5_000, what: "the released drag's text" });
+      for (const heading of ["Page 1:", "Page 2:"]) {
+        if (!parked.includes(heading)) throw new Error(`the released drag's ${parked.length} characters lack "${heading}"`);
+      }
+
+      // A trackpad pinch, as Chromium reports it: a Ctrl-wheel over the page.
+      await driver.evaluate(`document.elementFromPoint(${first.left + 1}, ${first.y}).dispatchEvent(new WheelEvent("wheel", {
+        bubbles: true, cancelable: true, ctrlKey: true, deltaY: -40, clientX: ${first.left + 1}, clientY: ${first.y},
+      }))`);
+      // The preview is a transform; once input stops PDF.js draws the pages
+      // again at the new scale and the highlight is repainted on them.
+      const headingHeight = `(() => {
+        const span = [...document.querySelectorAll(${JSON.stringify(`${COMPILED_PDF} .page[data-page-number="1"] .textLayer span`)})]
+          .find((node) => node.textContent.startsWith("Page 1:"));
+        return span ? span.offsetHeight : 0;
+      })()`;
+      const before = await driver.evaluate(headingHeight);
+      await driver.waitFor(`!document.querySelector(${JSON.stringify(`${COMPILED_PDF} .pdfViewer`)}).style.transform
+        && ${headingHeight} > ${before * 1.3}
+        && document.querySelector(${JSON.stringify(`${COMPILED_PDF} .page[data-page-number="1"] .pdf-sel-rect`)})`, {
+        timeout: 10_000, what: "page 1 drawn again zoomed, with its highlight",
+      });
+      await pdfViewDrawn(driver, "the zoomed pages drawn");
+
+      const scroller = await driver.waitFor(`window.__benchVisibleRect(${JSON.stringify(PDF_SCROLLER)})`, { what: "the PDF's scroller" });
+      for (const deltaY of [14_000, 14_000, 14_000, 14_000]) {
+        await driver.mouse("mouseWheel", scroller.x, scroller.y, { button: "none", deltaX: 0, deltaY });
+        await driver.nextFrame();
+        await pdfViewDrawn(driver, "the pages scrolled to drawn");
+      }
+      if (await driver.evaluate(`!!document.querySelector(${JSON.stringify(`${COMPILED_PDF} .page[data-page-number="1"] canvas`)})`)) {
+        throw new Error("page 1 is still drawn, so nothing evicted it: scroll further");
+      }
+      await driver.evaluate(`document.querySelector(${JSON.stringify(PDF_SCROLLER)}).scrollTop = 0`);
+      await driver.waitFor(`${pdfHeading(1)} && document.querySelector(${JSON.stringify(`${COMPILED_PDF} .page[data-page-number="1"] .pdf-sel-rect`)})`, {
+        timeout: 10_000, what: "page 1 back on screen with its highlight",
+      });
+      await driver.shortcut("c");
+      const copied = await driver.waitFor("window.__benchClipboard.at(-1)", { timeout: 5_000, what: "Cmd-C to write the clipboard" });
+      if (copied !== parked) throw new Error(`Cmd-C copied ${copied.length} characters, not the released drag's ${parked.length}`);
     },
   },
 ];
