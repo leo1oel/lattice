@@ -452,6 +452,10 @@ describe("an inactive document on screen", () => {
       expect(activate).not.toHaveBeenCalled();
       focused = frame;
       await waitFor(() => expect(activate).toHaveBeenCalledWith(deck));
+      // Focus resting in the frame while that activation is pending asks only once.
+      await pause();
+      await pause();
+      expect(activate).toHaveBeenCalledTimes(1);
       // The deck active, then another document while focus sits in another frame.
       act(() => controller.app.set({ activeKey: deck }));
       activate.mockClear();

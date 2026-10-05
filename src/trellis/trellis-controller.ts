@@ -233,6 +233,7 @@ export class TrellisController {
   private readonly deckHosts = new Map<string, HTMLDivElement>();
   private readonly inactiveDecks = new Set<string>();
   private deckFocusPoll: number | null = null;
+  private deckFocusSeen: Element | null = null;
   /**
    * Open Slide decks, each in a host of its own that its document panel
    * adopts whether or not it is the active document: a deck stays loaded for
@@ -256,12 +257,15 @@ export class TrellisController {
      * its frame. A press there never reaches this page and the frame posts
      * nothing back, and a move from another frame (another deck, the agent)
      * fires nothing here at all: only document.activeElement shows it, so it
-     * is polled while any inactive deck is mounted.
+     * is polled while any inactive deck is mounted. Only a move counts: focus
+     * resting in a frame asks once, not again while that activation is pending.
      */
     watchFocus: (key: string) => {
       this.inactiveDecks.add(key);
       this.deckFocusPoll ??= window.setInterval(() => {
         const focused = document.activeElement;
+        if (focused === this.deckFocusSeen) return;
+        this.deckFocusSeen = focused;
         for (const deck of this.inactiveDecks) {
           if (!this.deckHosts.get(deck)?.contains(focused)) continue;
           if (deck !== this.app.get().activeKey) this.activate(deck);
@@ -273,6 +277,7 @@ export class TrellisController {
         if (this.inactiveDecks.size || this.deckFocusPoll === null) return;
         window.clearInterval(this.deckFocusPoll);
         this.deckFocusPoll = null;
+        this.deckFocusSeen = null;
       };
     },
     setSleeping: (key: string, asleep: boolean) => {
