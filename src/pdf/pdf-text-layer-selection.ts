@@ -40,6 +40,7 @@ import { addListeners, normalizePdfSelection } from "./pdf-viewer-utils";
 const GLYPH_SPANS = "span:not(.markedContent):not(.endOfContent)";
 
 const textLayers = new Map<HTMLElement, HTMLElement>();
+const layerOwners = new WeakMap<HTMLElement, object>();
 const ownedEndOfContent = new WeakSet<HTMLElement>();
 let selectionAbort: AbortController | null = null;
 let previousRange: Range | null = null;
@@ -47,6 +48,8 @@ let lastPdfCopyText = "";
 /** The text layers the cached selection was made in, so each viewer reports only its own. */
 let lastPdfSelectionLayers: HTMLElement[] = [];
 let copyField: HTMLTextAreaElement | null = null;
+/** The viewer whose completed drag is parked in the copy field. */
+let parkedOwner: object | null = null;
 const clipboardTimers: number[] = [];
 
 export const PDF_TEXT_SELECTION_CLEARED_EVENT = "lattice:pdf-text-selection-cleared";
@@ -235,6 +238,7 @@ function clearPdfTextSelection() {
   previousRange = null;
   lastPdfCopyText = "";
   lastPdfSelectionLayers = [];
+  parkedOwner = null;
   clearSelectionOverlays();
   disarmPdfCopyField();
   resetLayers();
@@ -355,6 +359,7 @@ function enableGlobalSelectionListener() {
     if (event.button !== 0) return;
     if (isVisualPdfGlyphEvent(event)) {
       pointerDown = true;
+      parkedOwner = null;
       const active = document.activeElement;
       if (active instanceof HTMLElement && isEditableSelectAllTarget(active)) active.blur();
       const span = glyphSpanFromTarget(event.target);
@@ -383,6 +388,8 @@ function enableGlobalSelectionListener() {
       return;
     }
     rememberPdfSelection(live, selection);
+    const selectedLayer = [...textLayers.keys()].find((textLayer) => selectionIntersectsLayer(selection, textLayer));
+    parkedOwner = selectedLayer ? layerOwners.get(selectedLayer) ?? null : null;
     paintSelectionOverlays(selection);
     resetLayers();
     armPdfCopyField(live);
@@ -438,6 +445,7 @@ function disableGlobalSelectionListenerIfIdle() {
   previousRange = null;
   lastPdfCopyText = "";
   lastPdfSelectionLayers = [];
+  parkedOwner = null;
 }
 
 function isFirefoxEndOfContent(endOfContent: HTMLElement): boolean {
@@ -501,8 +509,14 @@ function previousTextBearingNode(node: Node): Node | null {
   return null;
 }
 
-/** Append the pdf.js sentinel and start clipping native selection for this page. */
-export function installPdfTextLayerSelection(textLayer: HTMLElement): (evicted?: boolean) => void {
+/**
+ * Append the pdf.js sentinel and start clipping native selection for this
+ * page of `owner`'s viewer. Disposing the layer drops a live range in it, but
+ * not a completed drag parked in the copy field: PDF.js evicts the pages a
+ * selection ran through as the view scrolls on, and the parked text stays
+ * copyable until `clearParkedPdfTextSelection(owner)` or another selection.
+ */
+export function installPdfTextLayerSelection(textLayer: HTMLElement, owner: object): () => void {
   const previousEndOfContent = textLayers.get(textLayer);
   if (previousEndOfContent && ownedEndOfContent.has(previousEndOfContent)) previousEndOfContent.remove();
   textLayers.delete(textLayer);
@@ -516,6 +530,7 @@ export function installPdfTextLayerSelection(textLayer: HTMLElement): (evicted?:
     ownedEndOfContent.add(endOfContent);
   }
   textLayers.set(textLayer, endOfContent);
+  layerOwners.set(textLayer, owner);
   enableGlobalSelectionListener();
 
   const onMouseDown = (event: MouseEvent) => {
@@ -526,8 +541,8 @@ export function installPdfTextLayerSelection(textLayer: HTMLElement): (evicted?:
   // Capture so `user-select: text` is on before WebKit starts the range.
   textLayer.addEventListener("mousedown", onMouseDown, true);
 
-  return (evicted = false) => {
-    if (textLayer.classList.contains("has-selection") && !(evicted && selectionIsCopyField(document.getSelection()))) clearPdfTextSelection();
+  return () => {
+    if (textLayer.classList.contains("has-selection") && !selectionIsCopyField(document.getSelection())) clearPdfTextSelection();
     textLayer.removeEventListener("mousedown", onMouseDown, true);
     if (textLayers.get(textLayer) === endOfContent) textLayers.delete(textLayer);
     if (ownedEndOfContent.has(endOfContent)) endOfContent.remove();
@@ -536,6 +551,11 @@ export function installPdfTextLayerSelection(textLayer: HTMLElement): (evicted?:
     pageOf(textLayer)?.classList.remove("is-selecting-text");
     disableGlobalSelectionListenerIfIdle();
   };
+}
+
+/** Drop the completed drag parked in the copy field if it came from `owner`'s viewer. */
+export function clearParkedPdfTextSelection(owner: object): void {
+  if (parkedOwner === owner) clearPdfTextSelection();
 }
 
 /**

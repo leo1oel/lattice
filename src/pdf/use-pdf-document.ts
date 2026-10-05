@@ -269,7 +269,7 @@ export function usePdfDocument({
         // page window keeps its layers while it is out of the document.
         for (const [layer, dispose] of record.textLayers) {
           if (layer.parentElement) continue;
-          dispose(true);
+          dispose();
           record.textLayers.delete(layer);
         }
         const current = sourceRef.current;
@@ -289,7 +289,7 @@ export function usePdfDocument({
         // still runs through scrolled back into view) keeps its text nodes,
         // and with them the selection: disposing it would clear that.
         if (record.textLayers.has(textLayer)) refreshPdfTextLayerSelection(textLayer);
-        else record.textLayers.set(textLayer, installPdfTextLayerSelection(textLayer));
+        else record.textLayers.set(textLayer, installPdfTextLayerSelection(textLayer, record));
         if (isActive()) setTextLayerGeneration((generation) => generation + 1);
       },
       pagechanging: ({ pageNumber }: { pageNumber?: number }) => {

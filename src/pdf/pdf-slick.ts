@@ -15,6 +15,7 @@ import {
   toViewerScale,
   type PdfFitMode,
 } from "./pdf-viewer-utils";
+import { clearParkedPdfTextSelection } from "./pdf-text-layer-selection";
 import type { PDFDataRangeTransport } from "./pdfjs-runtime";
 import "./pdfjs-runtime";
 
@@ -28,7 +29,7 @@ export type ViewerRecord = {
   root: HTMLDivElement;
   viewer: HTMLDivElement;
   /** Selection behaviour installed on each rendered text layer, by layer. */
-  textLayers: Map<HTMLElement, (evicted?: boolean) => void>;
+  textLayers: Map<HTMLElement, () => void>;
   /** Listeners and service patches to undo before PDFSlick is torn down. */
   cleanup: Array<() => void>;
   destroyed: boolean;
@@ -163,6 +164,7 @@ export function onPdfEvents(slick: PDFSlick, handlers: Record<string, (event: ne
 export async function destroyViewerRecord(record: ViewerRecord): Promise<void> {
   if (record.destroyed) return;
   record.destroyed = true;
+  clearParkedPdfTextSelection(record);
   for (const dispose of [...record.textLayers.values(), ...record.cleanup]) dispose();
   record.textLayers.clear();
   const { slick } = record;
