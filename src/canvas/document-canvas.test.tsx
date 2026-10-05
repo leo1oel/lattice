@@ -122,6 +122,33 @@ const HANDLERS = [
 let documentHost: HTMLElement;
 let pdfHost: HTMLElement;
 
+/**
+ * Each open deck's own host (TrellisController.decks): a plain div per path,
+ * and the decks the workspace has put to sleep.
+ */
+const deckHosts = new Map<string, HTMLElement>();
+let sleepingDecks: readonly string[] = [];
+const sleepListeners = new Set<() => void>();
+const decks = {
+  host: (path: string) => {
+    let host = deckHosts.get(path);
+    if (!host) {
+      host = document.body.appendChild(document.createElement("div"));
+      deckHosts.set(path, host);
+    }
+    return host;
+  },
+  subscribe: (listener: () => void) => {
+    sleepListeners.add(listener);
+    return () => { sleepListeners.delete(listener); };
+  },
+  sleeping: () => sleepingDecks,
+};
+function setSleepingDecks(paths: readonly string[]) {
+  sleepingDecks = paths;
+  act(() => sleepListeners.forEach((listener) => listener()));
+}
+
 /** The canvas request bundle with only `pending` set. */
 function pending(requests: Partial<CanvasProps["requests"]> = {}): CanvasProps["requests"] {
   return { navigation: null, restore: null, rename: null, wrap: null, cite: null, figure: null, ...requests };
@@ -153,7 +180,10 @@ function baseProps(): CanvasProps {
     trellis: {
       editorHost: documentHost, pdfHost, editorHibernated: false,
       hibernatedPlaceholder: <div data-testid="hibernated-document" />,
+      decks,
+      switchState: { subscribe: () => () => {}, switching: () => false },
     },
+    openPaths: [],
   };
 }
 
@@ -208,6 +238,9 @@ afterEach(() => {
   cleanup();
   documentHost.remove();
   pdfHost.remove();
+  for (const host of deckHosts.values()) host.remove();
+  deckHosts.clear();
+  sleepingDecks = [];
 });
 
 describe("DocumentCanvas / mode", () => {
@@ -548,7 +581,9 @@ describe("DocumentCanvas / editor for the open document", () => {
   ] as const)("mounts only the $testId for $activeFile in $mode mode, source editor beside: $beside", async ({ mode, activeFile, testId, beside, data }) => {
     renderCanvas({ mode, activeFile, source: "{}" });
 
-    expect({ ...(await within(documentHost).findByTestId(testId)).dataset }).toMatchObject(data);
+    // A deck renders in its own host, which its document panel adopts (see OpenSlideDeckPool).
+    const host = testId === "open-slide-workspace" ? decks.host(activeFile) : documentHost;
+    expect({ ...(await within(host).findByTestId(testId)).dataset }).toMatchObject(data);
     await waitFor(() => expect(Boolean(sourceEditor())).toBe(beside));
     for (const other of surfaces.filter((id) => id !== testId)) expect(screen.queryByTestId(other)).toBeNull();
   });
@@ -574,12 +609,71 @@ describe("DocumentCanvas / editor for the open document", () => {
       mode: "source", activeFile: path, source: "export default [];\n", editorEditable: false, locale: "zh-CN", theme: "dark",
     });
 
-    const presentation = await within(documentHost).findByTestId("open-slide-workspace");
+    const presentation = await within(decks.host(path)).findByTestId("open-slide-workspace");
     expect({ ...presentation.dataset }).toMatchObject({
       active: "true", editable: "false", projectRoot: "/tmp/project", path, locale: "zh-CN", theme: "dark",
     });
+    expect(documentHost).toBeEmptyDOMElement();
     fireEvent.click(screen.getByTestId("open-slide-mutation"));
     expect(props.onOpenSlideMutation).toHaveBeenCalledWith(expect.objectContaining({ path, kind: "write" }));
+  });
+
+  // Beta r20: "whenever I view another document, the PPT's index.tsx has to reload".
+  it("keeps an open deck's frame while another document is active, and releases it when its tab closes", async () => {
+    const path = "slides/research-update/index.tsx";
+    const deck = { activeFile: path, source: "export default [];\n" };
+    const openPaths = [path, "intro.tex"];
+    const { rerenderWith } = renderCanvas({ mode: "source", ...deck, openPaths });
+    const presentation = await within(decks.host(path)).findByTestId("open-slide-workspace");
+
+    for (const [next, active] of [[{ activeFile: "intro.tex", source: "\\section{Intro}\n" }, "false"], [deck, "true"]] as const) {
+      rerenderWith({ ...next, openPaths });
+      expect(within(decks.host(path)).getByTestId("open-slide-workspace")).toBe(presentation);
+      expect(presentation.dataset).toMatchObject({ active, source: deck.source });
+    }
+
+    rerenderWith({ activeFile: "intro.tex", source: "\\section{Intro}\n", openPaths: ["intro.tex"] });
+    expect(screen.queryByTestId("open-slide-workspace")).toBeNull();
+  });
+
+  it("keeps every open deck in its own host, and releases them all on a project switch", async () => {
+    const first = "slides/one/index.tsx";
+    const second = "slides/two/index.tsx";
+    const openPaths = [first, second];
+    const { rerenderWith } = renderCanvas({ mode: "source", activeFile: first, source: "one", openPaths });
+    await within(decks.host(first)).findByTestId("open-slide-workspace");
+    rerenderWith({ activeFile: second, source: "two", openPaths });
+
+    const secondDeck = await within(decks.host(second)).findByTestId("open-slide-workspace");
+    expect(within(decks.host(first)).getByTestId("open-slide-workspace").dataset).toMatchObject({ active: "false", source: "one" });
+    expect(secondDeck.dataset).toMatchObject({ active: "true", source: "two" });
+
+    rerenderWith({ projectRoot: "/tmp/other", activeFile: "main.tex", source: "", openPaths });
+    expect(screen.queryByTestId("open-slide-workspace")).toBeNull();
+  });
+
+  it("unmounts a deck while its panel sleeps, and brings it back on the page it showed", async () => {
+    const path = "slides/research-update/index.tsx";
+    const states: Record<string, FileViewState> = {};
+    const onFileViewState = vi.fn((statePath: string, update: Partial<FileViewState>) => {
+      states[statePath] = { ...states[statePath], ...update };
+    });
+    const openPaths = [path, "intro.tex"];
+    const { rerenderWith } = renderCanvas({
+      mode: "source", activeFile: path, source: "export default [];\n", openPaths,
+      getFileViewState: (statePath) => states[statePath], onFileViewState,
+    });
+    const before = await within(decks.host(path)).findByTestId("open-slide-workspace");
+    fireEvent.click(within(before).getByTestId("open-slide-view-state"));
+    rerenderWith({ activeFile: "intro.tex", source: "", openPaths });
+
+    setSleepingDecks([path]);
+    expect(screen.queryByTestId("open-slide-workspace")).toBeNull();
+    setSleepingDecks([]);
+
+    const after = await within(decks.host(path)).findByTestId("open-slide-workspace");
+    expect(after).not.toBe(before);
+    expect(after.dataset).toMatchObject({ active: "false", restoredPage: "3" });
   });
 
   it("shows the panel's placeholder instead of a hibernated board, and mounts the board again on wake", async () => {

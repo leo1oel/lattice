@@ -1564,7 +1564,10 @@ function App() {
         pdfHost: pdfLive ? trellis.hosts.pdf : null,
         editorHibernated,
         hibernatedPlaceholder: null,
+        decks: trellis.decks,
+        switchState: trellis.switchState,
       }}
+      openPaths={documents.tabs}
     />
   );
 

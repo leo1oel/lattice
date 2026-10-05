@@ -77,7 +77,7 @@ describe("document panel header tools", () => {
       unmount();
       return result;
     });
-    const expected = document.tools ? { build: ["build"], views: ["switch:3"], paper: ["switch:2"] }[document.tools] : [];
+    const expected = document.tools ? { build: ["build"], views: ["switch:3"], paper: ["switch:2", "switch:3"] }[document.tools] : [];
     for (const result of footprints) expect(result).toEqual(expected);
   });
 
@@ -86,9 +86,10 @@ describe("document panel header tools", () => {
     const { container, controller } = renderTools(paper, { active: true }, { paperView: "fulltext", paperViews: false });
     expect(container.querySelector(".trellis-tools-reserve")).toHaveAttribute("inert");
     expect(container.querySelector(".trellis-tools-reserve")).toHaveAttribute("aria-hidden", "true");
-    act(() => controller.docTools.set({ paperView: "blog", paperViews: true }));
+    act(() => controller.docTools.set({ paperView: "blog", paperViews: true, viewModes: "markdown" }));
     expect(container.querySelector(".trellis-tools-reserve")).toBeNull();
-    expect(container.querySelector(".trellis-view-switcher")).toHaveAttribute("aria-label", "Paper content");
+    expect([...container.querySelectorAll(".trellis-view-switcher")].map((switcher) => switcher.getAttribute("aria-label")))
+      .toEqual(["Paper content", "Document view"]);
   });
 });
 

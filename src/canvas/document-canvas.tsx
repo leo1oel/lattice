@@ -63,7 +63,7 @@ import { frameCoalescer, onLayoutChange } from "../app/effect-helpers";
 import { useLatestRef } from "../hooks/use-latest-ref";
 import { isSpreadsheetPath } from "../editor/spreadsheet/spreadsheet-types";
 import {
-  BoardEditor, DeferredVisualMarkdownEditor, HtmlPreviewLoading, MarkdownPreviewLoading, OpenSlideWorkspace, PdfPreview,
+  BoardEditor, DeferredVisualMarkdownEditor, HtmlPreviewLoading, MarkdownPreviewLoading, PdfPreview,
   PdfPreviewLoading, SpreadsheetEditor,
 } from "./canvas-lazy-editors";
 import { CodeMirrorScrollbar } from "./codemirror-scrollbar";
@@ -76,6 +76,8 @@ import {
   spliceMarkdownBody, useSettledPreviewText,
 } from "./markdown-preview-sync";
 import { PaperReader } from "./paper-reader";
+import { OpenSlideDeckPool, type DeckHosts } from "./open-slide-deck-pool";
+import { AfterSwitch, type SwitchState } from "./after-switch";
 import { ProjectAssetPreview } from "./project-asset-preview";
 import { useMarkdownModeHandoff } from "./use-markdown-mode-handoff";
 import { useMarkdownSplitScroll } from "./use-markdown-split-scroll";
@@ -290,10 +292,16 @@ export function DocumentCanvas(props: {
   trellis: {
     editorHost: HTMLElement;
     pdfHost: HTMLElement | null;
-    /** A board, sheet or deck whose panel has been off screen long enough to unmount. */
+    /** The active board or sheet, its panel off screen long enough to unmount. */
     editorHibernated: boolean;
     hibernatedPlaceholder: ReactNode;
+    /** Each open deck's host, and which decks sleep (see OpenSlideDeckPool). */
+    decks: DeckHosts;
+    /** A workspace or layout switch animating, which an asset's viewer waits out (see AfterSwitch). */
+    switchState: SwitchState;
   };
+  /** The project's open tabs: every deck among them stays loaded (see OpenSlideDeckPool). */
+  openPaths: readonly string[];
   editorEditable: boolean;
   onOpenCitation: (key: string) => void;
   canOpenCitation: (key: string) => boolean;
@@ -333,6 +341,19 @@ export function DocumentCanvas(props: {
   useRegistration(props.onVisualMarkdownFlushChange, flushVisualMarkdown);
   const primarySurface: AgentHostSurface = props.activePaper ? "paper" : "editor";
   const primaryKind = props.activePaper ? null : structuredDocumentKind(activeFile);
+  // Every open deck renders in OpenSlideDeckPool; these change only with what they hold, so the pool re-derives only then.
+  const activeDeckSource = primaryKind === "presentation" ? props.source : null;
+  const activeDeck = useMemo(() => (
+    activeDeckSource === null ? null : { path: activeFile, source: activeDeckSource, editable: props.editorEditable }
+  ), [activeDeckSource, activeFile, props.editorEditable]);
+  const deckSettings = useMemo(() => ({
+    projectRoot: props.projectRoot,
+    locale: props.locale,
+    theme: props.theme,
+    onMutation: props.onOpenSlideMutation,
+    onContext: props.onOpenSlideContext,
+    onError: props.onOpenSlideError,
+  }), [props.locale, props.onOpenSlideContext, props.onOpenSlideError, props.onOpenSlideMutation, props.projectRoot, props.theme]);
   const markdownDocument = Boolean(props.activePaper)
     || (activeFile.toLocaleLowerCase().endsWith(".md") && primaryKind !== "presentation");
   const htmlDocument = !props.activePaper && isHtmlFilePath(activeFile);
@@ -1056,15 +1077,16 @@ export function DocumentCanvas(props: {
     onViewState: (state: FileViewState[K]) => props.onFileViewState?.(path, { [key]: state }),
   });
   const assetPreview = (asset: AssetPreview) => (
-    <ProjectAssetPreview
-      key={asset.path}
-      asset={asset}
-      missing={props.activeAssetMissing}
-      viewState={props.getFileViewState?.(asset.path)}
-      onViewState={(update) => props.onFileViewState?.(asset.path, update)}
-      onFileChanged={props.onActiveAssetChanged}
-      onPdfTextSelect={props.onPdfTextSelect}
-    />
+    <AfterSwitch key={asset.path} state={props.trellis.switchState}>
+      <ProjectAssetPreview
+        asset={asset}
+        missing={props.activeAssetMissing}
+        viewState={props.getFileViewState?.(asset.path)}
+        onViewState={(update) => props.onFileViewState?.(asset.path, update)}
+        onFileChanged={props.onActiveAssetChanged}
+        onPdfTextSelect={props.onPdfTextSelect}
+      />
+    </AfterSwitch>
   );
   const htmlPreview = (path: string, source: string, sourceEditorView?: EditorView | null) => (
     props.interactivePreviewsEnabled ? (
@@ -1079,13 +1101,12 @@ export function DocumentCanvas(props: {
       />
     ) : <HtmlPreviewLoading />
   );
-  const structuredFallbacks: Record<StructuredDocumentKind, [string, string]> = {
+  const structuredFallbacks: Record<Exclude<StructuredDocumentKind, "presentation">, [string, string]> = {
     board: ["board-editor-root", t`Preparing board editor`],
     spreadsheet: ["spreadsheet-editor-root", t`Preparing spreadsheet editor`],
-    presentation: ["open-slide-status", t`Starting Open Slide`],
   };
-  /** The board, spreadsheet or Open Slide deck that owns the canvas. */
-  const structuredEditor = (kind: StructuredDocumentKind) => {
+  /** The board or spreadsheet that owns the canvas. (Decks render in their own pool, below.) */
+  const structuredEditor = (kind: Exclude<StructuredDocumentKind, "presentation">) => {
     const path = activeFile;
     const source = props.source;
     const [fallbackClass, fallbackLabel] = structuredFallbacks[kind];
@@ -1096,29 +1117,13 @@ export function DocumentCanvas(props: {
     };
     // Remount per file so each board gets a fresh store; local boards serialize
     // back through the source buffer before a document switch.
-    const tour = kind === "presentation" ? "open-slide-workspace" : undefined;
     return (
-      <Suspense fallback={<div className={fallbackClass} aria-busy="true" aria-label={fallbackLabel} data-tour={tour} />}>
+      <Suspense fallback={<div className={fallbackClass} aria-busy="true" aria-label={fallbackLabel} />}>
         {kind === "board" ? (
           <BoardEditor key={path} {...editor} theme={props.theme} {...viewStateBinding(path, "board")} />
-        ) : kind === "spreadsheet" ? (
+        ) : (
           <SpreadsheetEditor
             key={path} {...editor} onPersist={props.onSave} {...viewStateBinding(path, "spreadsheet")}
-          />
-        ) : (
-          <OpenSlideWorkspace
-            key={path}
-            projectRoot={props.projectRoot}
-            path={path}
-            source={source}
-            editable={props.editorEditable}
-            locale={props.locale}
-            theme={props.theme}
-            initialViewState={props.getFileViewState?.(path)?.openSlide}
-            onViewState={(openSlide) => props.onFileViewState?.(path, { openSlide })}
-            onMutation={props.onOpenSlideMutation}
-            onContext={props.onOpenSlideContext}
-            onError={props.onOpenSlideError}
           />
         )}
       </Suspense>
@@ -1430,6 +1435,7 @@ export function DocumentCanvas(props: {
   const { editorHost, pdfHost, editorHibernated, hibernatedPlaceholder } = props.trellis;
   const readable = Boolean(props.activePaper) || markdownDocument || htmlDocument;
   const fileContent = props.activeAsset ? assetPreview(props.activeAsset)
+    : primaryKind === "presentation" ? null
     : primaryKind ? (editorHibernated ? hibernatedPlaceholder : structuredEditor(primaryKind))
       : paperPdf.pdfView ? paperPreview
         : !readable || props.mode === "source" ? editor
@@ -1471,6 +1477,14 @@ export function DocumentCanvas(props: {
     <>
       {createPortal(fileContent, editorHost)}
       {pdfHost && createPortal(projectPdfPreview(activeFile), pdfHost)}
+      <OpenSlideDeckPool
+        shared={deckSettings}
+        active={activeDeck}
+        openPaths={props.openPaths}
+        hosts={props.trellis.decks}
+        getFileViewState={props.getFileViewState}
+        onFileViewState={props.onFileViewState}
+      />
     </>
   );
 

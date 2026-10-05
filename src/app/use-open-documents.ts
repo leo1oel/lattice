@@ -1272,7 +1272,7 @@ export function useOpenDocuments(deps: OpenDocumentsDeps) {
       registerViewportCapture,
     },
     /** Ref twins for async work that must compare against the latest buffers. */
-    live: { file: fileRef, text: textRef, saved: savedRef, asset: assetRef },
+    live: { file: fileRef, text: textRef, saved: savedRef, asset: assetRef, documentMode: documentModeRef },
     viewStates,
     // Intents.
     open, openFile, openAsset, openPaper, close, reopenClosed, go, chooseMode, choosePaperView, reveal, leavePaper,

@@ -6,9 +6,10 @@
  * everything; this component arranges stable host elements. Documents follow
  * App's single-active-document model: the active document's panel adopts the
  * live editor host, and every other document panel shows a read-only snapshot
- * (text; a Paper or a PDF beside the active document) or a sleeping card
- * (boards, sheets, decks, other assets) until it is clicked. A panel that is
- * not on screen renders nothing at all.
+ * (text, drawn the way it opens; a Paper; a PDF or an image) or a sleeping
+ * card (boards, sheets) until it is clicked. A panel that is not on screen
+ * renders nothing at all. Decks are the exception: each open one keeps its
+ * own live host (see DeckSlot).
  */
 import { Suspense, memo, useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { createPortal } from "react-dom";
@@ -31,7 +32,7 @@ import { BookOpen, Check, ChevronRight, FileText, FolderTree, Moon, Search } fro
 import { cn } from "@/lib/utils";
 import { floatingSurfaceClassName, menuItemClassName, menuViewportClassName } from "@/components/ui/menu-surface";
 import { popupMotionClassName } from "@/components/ui/popup-motion";
-import { confirmAction, isOpenSlideDeckPath } from "../app-utils";
+import { confirmAction, isOpenSlideDeckPath, markdownFrontmatterEnd } from "../app-utils";
 import { isSpreadsheetPath } from "../editor/spreadsheet/spreadsheet-types";
 import { luxLatexHighlightStyle } from "../editor/latex/latex-editor";
 import { isLatexSourcePath, useTextLanguageExtensions } from "../canvas/editor-extensions";
@@ -56,6 +57,7 @@ import { arrangementOf, layoutShape, NAVIGATORS, withDocumentPanel } from "./tre
 import { PANEL_TITLES, spaceMixedScript } from "./trellis-titles";
 import { MENU_ICONS, PANEL_ICONS, fileIcon } from "./trellis-icons";
 import { FileHeaderTools } from "./trellis-header-tools";
+import { AfterSwitch } from "../canvas/after-switch";
 import { measurePdfToolbarMinWidth } from "../pdf/pdf-toolbar-min-width";
 import { holdWidthsWhileResizing } from "./trellis-hold-width";
 import { isProjectFileMissing } from "../pdf/project-pdf-refusals";
@@ -115,7 +117,7 @@ function findPanel(node: LayoutNode, id: string): PanelNode | null {
   return null;
 }
 
-/** Boards, sheets and decks: expensive enough to unmount when their panel is off screen. */
+/** Boards, sheets and decks: expensive enough to unmount when their panel is off screen, and never drawn as a text snapshot. */
 function isHeavyDocument(key: string) {
   return key.toLocaleLowerCase().endsWith(".tldr") || isSpreadsheetPath(key) || isOpenSlideDeckPath(key);
 }
@@ -271,10 +273,25 @@ function ToolView({ controller, kind }: { controller: TrellisController; kind: T
   );
 }
 
-/** A read-only CodeMirror of a document that is not the active one. Click to edit there. */
-function TextSnapshot({ controller, fileKey }: { controller: TrellisController; fileKey: string }) {
+const refuse = () => false;
+
+/**
+ * A document that is not the active one, read-only and drawn the way it
+ * opens: a CodeMirror of its source, and a Markdown file's rendered page
+ * beside it (Split) or instead of it (Preview), so a document beside the one
+ * being worked on keeps its look. Click to edit there.
+ */
+function TextSnapshot({ controller, fileKey, panelId }: { controller: TrellisController; fileKey: string; panelId: string }) {
   const { t } = useLingui();
   const parentRef = useRef<HTMLDivElement>(null);
+  // Markdown opens in the view last chosen for Markdown, which the active
+  // document's switch changes. A tab on its way to becoming active (see
+  // useBesideActive) shows only its source until the live editor takes over.
+  const besideActive = useBesideActive(controller, panelId);
+  const chosen = useSyncExternalStore(controller.docTools.subscribe, () => (
+    isMarkdownSnapshot(fileKey) ? controller.bridge?.documentMode() ?? "source" : "source"
+  ));
+  const mode = besideActive ? chosen : "source";
   const viewRef = useRef<EditorView | null>(null);
   const [text, setText] = useState<string | null>(() => controller.texts.get(fileKey) ?? null);
   const filesRevision = useTrellisApp(controller, (state) => state.filesRevision);
@@ -292,7 +309,7 @@ function TextSnapshot({ controller, fileKey }: { controller: TrellisController; 
   }, [controller, fileKey, filesRevision]);
   useLayoutEffect(() => {
     const parent = parentRef.current;
-    if (!parent || text === null) return;
+    if (!parent || text === null || mode === "pdf") return;
     const view = new EditorView({
       parent,
       state: EditorState.create({
@@ -316,84 +333,49 @@ function TextSnapshot({ controller, fileKey }: { controller: TrellisController; 
       viewRef.current = null;
       view.destroy();
     };
-  }, [controller, fileKey, language, text]);
+  }, [controller, fileKey, language, mode, text]);
   return (
     <div
       className="trellis-snapshot source-editor"
+      data-mode={mode}
       title={t`Click to edit`}
       onPointerDown={(event) => {
         if (event.button !== 0) return;
         const view = viewRef.current;
-        const position = view?.posAtCoords({ x: event.clientX, y: event.clientY });
+        const inSource = view?.dom.contains(event.target as Node);
+        const position = inSource ? view?.posAtCoords({ x: event.clientX, y: event.clientY }) : null;
         const line = view && position != null ? view.state.doc.lineAt(position).number : undefined;
         controller.activate(fileKey, line);
       }}
     >
-      <div ref={parentRef} className="code-editor-root trellis-snapshot-editor" />
+      {mode !== "pdf" && <div ref={parentRef} className="code-editor-root trellis-snapshot-editor" />}
+      {mode !== "source" && text !== null && (
+        <ReadOnlyMarkdown controller={controller} path={fileKey} text={text.slice(markdownFrontmatterEnd(text))} />
+      )}
       <span className="trellis-snapshot-badge">{t`Read-only preview · click to edit`}</span>
     </div>
   );
 }
 
-function SleepingDocument({ controller, fileKey, detail }: { controller: TrellisController; fileKey: string; detail: string }) {
-  const bridge = controller.bridge;
-  const kind = bridge?.tabKind(fileKey) ?? "file";
-  return (
-    <EmptyState
-      icon={fileIcon(fileKey, kind, 16)}
-      title={bridge?.tabLabel(fileKey) ?? fileKey}
-      detail={detail}
-      onActivate={() => controller.activate(fileKey)}
-    />
-  );
-}
-
-const refuse = () => false;
-
-/**
- * A Paper that is not the active document, drawn read-only where it was being
- * read, so the Reading layout keeps it legible beside the notes being
- * written. It scrolls in place, and the place it is left at is where the full
- * reader, brought back by its header's button, picks up.
- */
-function PaperSnapshot({ controller, fileKey }: { controller: TrellisController; fileKey: string }) {
-  const { t } = useLingui();
-  if (!useBesideActive(controller)) return <SleepingDocument controller={controller} fileKey={fileKey} detail={t`Sleeping · click to open`} />;
-  return <PaperSnapshotContent controller={controller} fileKey={fileKey} />;
+/** A Markdown file, not a deck in Markdown's clothing: what a snapshot can render as a page. */
+function isMarkdownSnapshot(key: string) {
+  return key.toLocaleLowerCase().endsWith(".md") && !isOpenSlideDeckPath(key);
 }
 
 /**
- * Only beside the document being worked on: with that off screen, this tab is
- * merely selected on the way to becoming active (a restore, a switch).
+ * Rendered Markdown, read-only, at the place its reader left it (the saved
+ * block at the top, retried each frame while the editor draws); then this
+ * panel's scrolling is where the reader resumes.
  */
-function useBesideActive(controller: TrellisController) {
-  return useSyncExternalStore(controller.ui.subscribe, () => controller.ui.get().editorVisible);
-}
-
-function PaperSnapshotContent({ controller, fileKey }: { controller: TrellisController; fileKey: string }) {
-  const { t } = useLingui();
+function ReadOnlyMarkdown({ controller, path, text }: { controller: TrellisController; path: string; text: string }) {
   const scrollRef = useRef<HTMLDivElement>(null);
-  const [paper, setPaper] = useState<{ path: string; text: string } | null | undefined>(undefined);
-  // The reader's own image loader: a Paper's figures are project files
-  // relative to its Markdown, which the webview cannot fetch by that path.
+  // The reader's own image loader: figures are project files relative to
+  // their Markdown, which the webview cannot fetch by that path.
   const loadAsset = useTrellisApp(controller, (state) => state.loadAsset);
   const assetRevision = useTrellisApp(controller, (state) => state.assetRevision);
   useEffect(() => {
-    let disposed = false;
-    void controller.bridge?.readPaper(fileKey).then((value) => {
-      if (!disposed) setPaper(value);
-    }, () => {
-      if (!disposed) setPaper(null);
-    });
-    return () => { disposed = true; };
-  }, [controller, fileKey]);
-  // Back to where the reader left off: the saved block at the top (this
-  // layout differs from the reader's above it), retried each frame while the
-  // editor draws; then this panel's scrolling is where the reader resumes.
-  useEffect(() => {
     const scroller = scrollRef.current;
-    const path = paper?.path;
-    if (!scroller || !path) return;
+    if (!scroller) return;
     const saved = controller.bridge?.viewState(path)?.visualMarkdown;
     let restoring = Boolean(saved && (saved.anchor || saved.scrollTop > 0));
     let frames = 0;
@@ -414,7 +396,79 @@ function PaperSnapshotContent({ controller, fileKey }: { controller: TrellisCont
       cancelAnimationFrame(frame);
       scroller.removeEventListener("scroll", report);
     };
-  }, [controller, paper]);
+  }, [controller, path, text]);
+  return (
+    <div ref={scrollRef} className="markdown-preview trellis-paper-snapshot-scroll">
+      <div className="markdown-preview-content">
+        <Suspense fallback={null}>
+          <DeferredVisualMarkdownEditor
+            text={text}
+            activePath={path}
+            editable={false}
+            optimizeForReading
+            onLoadAsset={loadAsset ?? undefined}
+            assetRevision={assetRevision}
+            onChangeMarkdown={refuse}
+            onUndo={refuse}
+            onRedo={refuse}
+          />
+        </Suspense>
+      </div>
+    </div>
+  );
+}
+
+function SleepingDocument({ controller, fileKey, detail }: { controller: TrellisController; fileKey: string; detail: string }) {
+  const bridge = controller.bridge;
+  const kind = bridge?.tabKind(fileKey) ?? "file";
+  return (
+    <EmptyState
+      icon={fileIcon(fileKey, kind, 16)}
+      title={bridge?.tabLabel(fileKey) ?? fileKey}
+      detail={detail}
+      onActivate={() => controller.activate(fileKey)}
+    />
+  );
+}
+
+/**
+ * A Paper that is not the active document, drawn read-only where it was being
+ * read, so the Reading layout keeps it legible beside the notes being
+ * written. It scrolls in place, and the place it is left at is where the full
+ * reader, brought back by its header's button, picks up.
+ */
+function PaperSnapshot({ controller, fileKey, panelId }: { controller: TrellisController; fileKey: string; panelId: string }) {
+  const { t } = useLingui();
+  if (!useBesideActive(controller, panelId)) return <SleepingDocument controller={controller} fileKey={fileKey} detail={t`Sleeping · click to open`} />;
+  return <PaperSnapshotContent controller={controller} fileKey={fileKey} />;
+}
+
+/**
+ * Not in place of the document being worked on: a tab that has just covered
+ * the active document in its own panel is merely selected on the way to
+ * becoming active (a click, a restore). Anywhere else on screen it is being
+ * read, whether or not the active document is on screen too.
+ */
+function useBesideActive(controller: TrellisController, panelId: string) {
+  return useSyncExternalStore(controller.ui.subscribe, () => {
+    if (controller.ui.get().editorVisible) return true;
+    const { activeKey } = controller.app.get();
+    return controller.ws?.views({ type: "file" }).find((view) => view.params.key === activeKey)?.panelId !== panelId;
+  });
+}
+
+function PaperSnapshotContent({ controller, fileKey }: { controller: TrellisController; fileKey: string }) {
+  const { t } = useLingui();
+  const [paper, setPaper] = useState<{ path: string; text: string } | null | undefined>(undefined);
+  useEffect(() => {
+    let disposed = false;
+    void controller.bridge?.readPaper(fileKey).then((value) => {
+      if (!disposed) setPaper(value);
+    }, () => {
+      if (!disposed) setPaper(null);
+    });
+    return () => { disposed = true; };
+  }, [controller, fileKey]);
   if (paper === null) return <SleepingDocument controller={controller} fileKey={fileKey} detail={t`Sleeping · click to open`} />;
   return (
     <div className="trellis-paper-snapshot">
@@ -431,38 +485,21 @@ function PaperSnapshotContent({ controller, fileKey }: { controller: TrellisCont
           </Tip>
         </div>
       </header>
-      <div ref={scrollRef} className="markdown-preview trellis-paper-snapshot-scroll">
-        <div className="markdown-preview-content">
-          {paper && (
-            <Suspense fallback={null}>
-              <DeferredVisualMarkdownEditor
-                text={paper.text}
-                activePath={paper.path}
-                editable={false}
-                optimizeForReading
-                onLoadAsset={loadAsset ?? undefined}
-                assetRevision={assetRevision}
-                onChangeMarkdown={refuse}
-                onUndo={refuse}
-                onRedo={refuse}
-              />
-            </Suspense>
-          )}
-        </div>
-      </div>
+      {paper && <ReadOnlyMarkdown controller={controller} path={paper.path} text={paper.text} />}
     </div>
   );
 }
 
 /**
- * A project PDF that is not the active document, kept open where it was being
- * read: the Reading layout pairs it with the notes being written, and a
- * sleeping card there would hide it at the moment the notes are typed. It is
- * the asset preview itself, sharing the reader's page and zoom both ways.
+ * A project PDF (or image) that is not the active document, kept open where
+ * it was being read: the Reading layout pairs a PDF with the notes being
+ * written, and a sleeping card there would hide it at the moment the notes
+ * are typed. It is the asset preview itself, sharing the reader's page and
+ * zoom both ways.
  */
-function PdfSnapshot({ controller, fileKey }: { controller: TrellisController; fileKey: string }) {
+function AssetSnapshot({ controller, fileKey, panelId }: { controller: TrellisController; fileKey: string; panelId: string }) {
   const { t } = useLingui();
-  const besideActive = useBesideActive(controller);
+  const besideActive = useBesideActive(controller, panelId);
   const [asset, setAsset] = useState<AssetPreview | null | undefined>(undefined);
   const [missing, setMissing] = useState(false);
   // A rewrite on disk hands the viewer the new version, as the live document
@@ -506,14 +543,16 @@ function PdfSnapshot({ controller, fileKey }: { controller: TrellisController; f
     <div ref={holdReading} className="trellis-pdf-snapshot">
       {/* Laid out as the live document host lays out the preview. */}
       <div className="canvas-body">
-        <ProjectAssetPreview
-          asset={asset}
-          missing={missing}
-          viewState={controller.bridge?.viewState(fileKey)}
-          onViewState={(update) => controller.bridge?.rememberViewState(fileKey, update)}
-          onFileChanged={() => setRecheck((count) => count + 1)}
-          onPdfTextSelect={(text, place) => controller.bridge?.pdfTextSelect(text, place)}
-        />
+        <AfterSwitch state={controller.switchState}>
+          <ProjectAssetPreview
+            asset={asset}
+            missing={missing}
+            viewState={controller.bridge?.viewState(fileKey)}
+            onViewState={(update) => controller.bridge?.rememberViewState(fileKey, update)}
+            onFileChanged={() => setRecheck((count) => count + 1)}
+            onPdfTextSelect={(text, place) => controller.bridge?.pdfTextSelect(text, place)}
+          />
+        </AfterSwitch>
       </div>
     </div>
   );
@@ -545,6 +584,16 @@ function FileView({ controller }: { controller: TrellisController }) {
     if (active) controller.ui.set({ editorVisible: view.visible });
   }, [active, controller, view.visible]);
   const surfaceIcon = useFileTabIcon(controller, view.id, key);
+  if (isOpenSlideDeckPath(key)) {
+    return (
+      <>
+        {surfaceIcon}
+        <DeckSlot controller={controller} fileKey={key} view={view} />
+        {/* What App lays over the active document (a document opening) still shows over a deck. */}
+        {active && <HostSlot host={controller.hosts.editor} className="trellis-deck-overlay" />}
+      </>
+    );
+  }
   if (active) {
     return (
       <>
@@ -560,14 +609,37 @@ function FileView({ controller }: { controller: TrellisController }) {
     <>
       {surfaceIcon}
       {kind === "file" && !isHeavyDocument(key)
-        ? <TextSnapshot controller={controller} fileKey={key} />
+        ? <TextSnapshot controller={controller} fileKey={key} panelId={view.panelId} />
         : kind === "paper"
-          ? <PaperSnapshot controller={controller} fileKey={key} />
-          : kind === "asset" && controller.isReading(key)
-            ? <PdfSnapshot controller={controller} fileKey={key} />
+          ? <PaperSnapshot controller={controller} fileKey={key} panelId={view.panelId} />
+          : kind === "asset"
+            ? <AssetSnapshot controller={controller} fileKey={key} panelId={view.panelId} />
             : <SleepingDocument controller={controller} fileKey={key} detail={t`Sleeping · click to open`} />}
     </>
   );
+}
+
+/**
+ * An open deck's own host, adopted for as long as its panel holds it, active
+ * or not and selected or not: its Open Slide frame never leaves the page, so
+ * nothing reloads it (Trellis keeps a view's content element in place while
+ * the view exists, and only hides an unselected one). Its tab only goes to
+ * sleep when its panel has been off screen for a while: hidden, or out of
+ * the framing; an unselected tab in a panel on screen is a click away and
+ * stays loaded.
+ */
+function DeckSlot({ controller, fileKey, view }: { controller: TrellisController; fileKey: string; view: { visible: boolean; selected: boolean; placement: string } }) {
+  const onScreen = view.visible || (!view.selected && view.placement !== "hidden");
+  useEffect(() => {
+    if (onScreen) {
+      controller.decks.setSleeping(fileKey, false);
+      return;
+    }
+    const timer = window.setTimeout(() => controller.decks.setSleeping(fileKey, true), HIBERNATE_AFTER_MS);
+    return () => window.clearTimeout(timer);
+  }, [controller, fileKey, onScreen]);
+  useEffect(() => () => controller.decks.setSleeping(fileKey, false), [controller, fileKey]);
+  return <HostSlot host={controller.decks.host(fileKey)} className="trellis-file-live" />;
 }
 
 /** Per-file tab icons: a type's `icon` is shared by all its views, so file panels portal their own. */
@@ -921,7 +993,7 @@ const TrellisWorkspace = memo(function TrellisWorkspace({ controller, projectRoo
       controller.activate(key);
     };
     const onPointerOver = (event: PointerEvent) => controller.rememberPointerPanel(event.target);
-    // Ahead of Trellis's own listeners and of a PDF snapshot's (see PdfSnapshot).
+    // Ahead of Trellis's own listeners and of a PDF snapshot's (see AssetSnapshot).
     const releaseReading = () => controller.holdReading(null);
     root.addEventListener("click", onPress, true);
     root.addEventListener("keydown", onKeyDown, true);
@@ -1043,6 +1115,7 @@ const TrellisWorkspace = memo(function TrellisWorkspace({ controller, projectRoo
       presetRef.current = null;
       workspaceRef.current = id;
       controller.workspaces.use(id);
+      controller.beginSwitch();
       resettingRef.current = true;
       try {
         handle.setDocument(next);
@@ -1086,6 +1159,7 @@ const TrellisWorkspace = memo(function TrellisWorkspace({ controller, projectRoo
         } else {
           return;
         }
+        controller.beginSwitch();
         resettingRef.current = true;
         try {
           handle.setDocument(next);
@@ -1189,11 +1263,14 @@ const TrellisWorkspace = memo(function TrellisWorkspace({ controller, projectRoo
     setMenu(null);
   }, []);
   // A document panel's menu repeats its header tools, so hiding them loses nothing.
-  const fileMenu = (view: ViewHandle): MenuItem[] => {
+  const fileMenu = (view: ViewHandle): MenuEntry[] => {
     const key = String(view.params.key ?? "");
     const bridge = controller.bridge;
     const tools = controller.docTools.get();
     const active = controller.app.get().activeKey === key;
+    const viewModes = (): MenuItem[] => (!active || !tools.viewModes ? [] : ([["source", t`Edit`], ["split", t`Split`], ["pdf", t`Preview`]] as const).map(([mode, label]) => ({
+      id: `view-${mode}`, label, checked: tools.viewMode === mode, run: () => bridge?.setViewMode(mode),
+    })));
     switch (documentTools(controller.bridge?.tabKind(key) ?? "file", key)) {
       case "build":
         return [
@@ -1202,15 +1279,14 @@ const TrellisWorkspace = memo(function TrellisWorkspace({ controller, projectRoo
           ...(tools.building ? [{ id: "stop-build", label: t`Stop the build`, run: () => bridge?.stopBuild() }] : []),
         ];
       case "views":
-        if (!active || !tools.viewModes) return [];
-        return ([["source", t`Edit`], ["split", t`Split`], ["pdf", t`Preview`]] as const).map(([mode, label]) => ({
-          id: `view-${mode}`, label, checked: tools.viewMode === mode, run: () => bridge?.setViewMode(mode),
-        }));
-      case "paper":
-        if (!active || !tools.paperViews) return [];
-        return ([["blog", t`Blog`], ["fulltext", t`Paper`]] as const).map(([paperView, label]) => ({
+        return viewModes();
+      case "paper": {
+        const paperViews: MenuItem[] = !active || !tools.paperViews ? [] : ([["blog", t`Blog`], ["fulltext", t`Paper`]] as const).map(([paperView, label]) => ({
           id: `paper-${paperView}`, label, checked: tools.paperView === paperView, run: () => bridge?.setPaperView(paperView),
         }));
+        const modes = viewModes();
+        return paperViews.length && modes.length ? [...paperViews, "separator", ...modes] : [...paperViews, ...modes];
+      }
       default:
         return [];
     }
@@ -1395,8 +1471,9 @@ function useTabSync(controller: TrellisController, ws: WorkspaceHandle | null, q
 
 /**
  * Pause, then unmount, heavy content whose panel is off screen: the PDF after
- * a while hidden, and the active board/sheet/deck likewise. The agent never
- * hibernates; inactive documents never mount anything heavy to begin with.
+ * a while hidden, and the active board/sheet likewise (decks hibernate per
+ * panel, see DeckSlot). The agent never hibernates; inactive boards and sheets
+ * never mount anything heavy to begin with.
  */
 function useHibernation(controller: TrellisController) {
   useEffect(() => {
@@ -1407,14 +1484,15 @@ function useHibernation(controller: TrellisController) {
       return null;
     };
     const update = () => {
-      const { present, visible, pdfLive, editorVisible, editorHibernated } = controller.ui.get();
+      const { present, visible, pdfLive, editorVisible, editorHibernated, switching } = controller.ui.get();
       const pdfShown = Boolean(present.pdf && visible.pdf);
       if (!present.pdf) {
         pdfTimer = clear(pdfTimer);
         if (pdfLive) controller.ui.set({ pdfLive: false });
       } else if (pdfShown) {
         pdfTimer = clear(pdfTimer);
-        if (!pdfLive) controller.ui.set({ pdfLive: true });
+        // Woken after a switch's animation, not in its frames (see beginSwitch).
+        if (!pdfLive && !switching) controller.ui.set({ pdfLive: true });
       } else if (pdfLive && pdfTimer === null) {
         pdfTimer = window.setTimeout(() => {
           pdfTimer = null;
@@ -1422,8 +1500,11 @@ function useHibernation(controller: TrellisController) {
           if (!now.visible.pdf) controller.ui.set({ pdfLive: false });
         }, HIBERNATE_AFTER_MS);
       }
-      const heavy = isHeavyDocument(controller.app.get().activeKey);
-      // Boards, sheets and decks zoom themselves on pinch; text editors let it zoom the workspace.
+      // Decks keep their own hosts, which hibernate per panel (see DeckSlot).
+      const activeKey = controller.app.get().activeKey;
+      const heavy = isHeavyDocument(activeKey) && !isOpenSlideDeckPath(activeKey);
+      // Boards and sheets zoom themselves on pinch (decks, in their own hosts,
+      // likewise); text editors let it zoom the workspace.
       // (A PDF opened here marks its own reader, whether or not the host is marked.)
       controller.hosts.editor.toggleAttribute("data-trellis-owns-gestures", heavy);
       if (!heavy || editorVisible) {
@@ -1432,7 +1513,8 @@ function useHibernation(controller: TrellisController) {
       } else if (!editorHibernated && editorTimer === null) {
         editorTimer = window.setTimeout(() => {
           editorTimer = null;
-          if (!controller.ui.get().editorVisible && isHeavyDocument(controller.app.get().activeKey)) {
+          const key = controller.app.get().activeKey;
+          if (!controller.ui.get().editorVisible && isHeavyDocument(key) && !isOpenSlideDeckPath(key)) {
             controller.ui.set({ editorHibernated: true });
           }
         }, HIBERNATE_AFTER_MS);

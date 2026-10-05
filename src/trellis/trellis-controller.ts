@@ -18,6 +18,7 @@ import { isHtmlFilePath } from "../app-utils";
 import type { BuildOutcome } from "../app/use-build-pipeline";
 import type { LayoutPreset } from "./trellis-layout";
 import { WorkspaceLibrary } from "./trellis-workspaces";
+import type { SwitchState } from "../canvas/after-switch";
 
 /** Drawers that become dockable tool panels, keyed by their Trellis view type. */
 export const TOOL_KINDS = ["history", "git", "comments", "overleaf", "literature", "todos", "checklist"] as const;
@@ -37,6 +38,13 @@ const DRAWER_TOOL_CLASSES: Array<[string, TrellisToolKind]> = [
 
 /** Frames an editor stays on screen before focus may land in it (see `focusDocument`). */
 const FOCUS_SETTLE_FRAMES = 6;
+/**
+ * How long a workspace or layout switch keeps PDFs from waking: about as long
+ * as the titlebar switch's plate takes to slide to the new tab (its spring,
+ * see slidingPill). Mounting a PDF viewer in those frames stalled the plate
+ * mid-way (Beta r20).
+ */
+const SWITCH_SETTLE_MS = 450;
 
 export function toolKindForDrawer(className: string | undefined): TrellisToolKind | null {
   if (!className) return null;
@@ -81,6 +89,8 @@ export type TrellisBridge = {
   readAsset: (path: string) => Promise<AssetPreview>;
   /** Text selected in a project PDF beside the active document (empty once cleared), as Agent context. */
   pdfTextSelect: (text: string, place: AgentPdfDocumentPlace) => void;
+  /** The view a Markdown file opens in (the one last chosen for Markdown), which its snapshot draws. */
+  documentMode: () => TrellisViewMode;
   /** Where the reader was in a file (its scroll, a PDF's page), shared by its live view and its snapshot. */
   viewState: (path: string) => FileViewState | undefined;
   rememberViewState: (path: string, update: Partial<FileViewState>) => void;
@@ -144,8 +154,12 @@ export type TrellisUiState = {
   visible: Partial<Record<TrellisSingleton, boolean>>;
   /** False while the PDF panel is hibernated (hidden long enough) or closed. */
   pdfLive: boolean;
-  /** The active heavy document (board/sheet/deck) is hibernated. */
+  /** The active board or sheet is hibernated. */
   editorHibernated: boolean;
+  /** Open decks whose panel has been off screen long enough to unmount (see `decks`). */
+  sleepingDecks: readonly string[];
+  /** A workspace or layout switch is animating: PDFs coming on screen wait (see `beginSwitch`). */
+  switching: boolean;
   /** Whether the active document's panel is on screen. */
   editorVisible: boolean;
   hidden: Array<{ panelId: string; title: string }>;
@@ -214,12 +228,37 @@ export class TrellisController {
     agentActions: createHost({ className: "trellis-accessory-host" }),
   };
   readonly toolHosts = new Map<TrellisToolKind, HTMLDivElement>();
+  private readonly deckHosts = new Map<string, HTMLDivElement>();
+  /**
+   * Open Slide decks, each in a host of its own that its document panel
+   * adopts whether or not it is the active document: a deck stays loaded for
+   * as long as its tab is open (the canvas's deck pool renders every one), so
+   * switching documents never reloads it. `sleeping` are those whose panel
+   * has been off screen long enough to unmount (see the workspace's FileView).
+   */
+  readonly decks = {
+    host: (key: string): HTMLDivElement => {
+      let host = this.deckHosts.get(key);
+      if (!host) {
+        host = ownsGestures(createHost({ className: "canvas-body trellis-deck-host" }));
+        this.deckHosts.set(key, host);
+      }
+      return host;
+    },
+    subscribe: (listener: Listener) => this.ui.subscribe(listener),
+    sleeping: () => this.ui.get().sleepingDecks,
+    setSleeping: (key: string, asleep: boolean) => {
+      const current = this.ui.get().sleepingDecks;
+      if (current.includes(key) === asleep) return;
+      this.ui.set({ sleepingDecks: asleep ? [...current, key] : current.filter((item) => item !== key) });
+    },
+  };
   readonly app = new SmallStore<TrellisAppState>({
     projectRoot: "", activeKey: "", activeDirty: false, openTabs: [], tabsReady: false, revealRequest: 0, filesRevision: 0,
     loadAsset: null, assetRevision: 0,
   });
   readonly ui = new SmallStore<TrellisUiState>({
-    ready: false, present: {}, visible: {}, pdfLive: false, editorHibernated: false, editorVisible: false,
+    ready: false, present: {}, visible: {}, pdfLive: false, editorHibernated: false, sleepingDecks: [], switching: false, editorVisible: false,
     hidden: [], framed: null, preset: null, workspace: "", renaming: null, dirty: false, minWidth: 0, agentMinWidth: 0, pdfMinWidth: 0,
   });
   /** The writer's named workspaces, shared by every project. */
@@ -358,6 +397,25 @@ export class TrellisController {
    * every press and focus before the snapshot (deeper in the tree) sets it.
    */
   private readingHold = { key: "", at: 0 };
+  private switchTimer: number | null = null;
+  readonly switchState: SwitchState = {
+    subscribe: (listener) => this.ui.subscribe(listener),
+    switching: () => this.ui.get().switching,
+  };
+
+  /**
+   * A workspace or layout switch begins: a PDF it brings on screen (the PDF
+   * panel waking, a PDF read beside the notes) mounts once the switch has
+   * finished animating, not in its frames.
+   */
+  beginSwitch() {
+    if (this.switchTimer !== null) window.clearTimeout(this.switchTimer);
+    this.ui.set({ switching: true });
+    this.switchTimer = window.setTimeout(() => {
+      this.switchTimer = null;
+      this.ui.set({ switching: false });
+    }, SWITCH_SETTLE_MS);
+  }
 
   holdReading(key: string | null) {
     this.readingHold = { key: key ?? "", at: performance.now() };
