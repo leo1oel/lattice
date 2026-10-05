@@ -45,6 +45,8 @@ const FOCUS_SETTLE_FRAMES = 6;
  * mid-way (Beta r20).
  */
 const SWITCH_SETTLE_MS = 450;
+/** How often focus is looked for in an inactive deck's frame (see `decks.watchFocus`). */
+const DECK_FOCUS_POLL_MS = 250;
 
 export function toolKindForDrawer(className: string | undefined): TrellisToolKind | null {
   if (!className) return null;
@@ -229,6 +231,8 @@ export class TrellisController {
   };
   readonly toolHosts = new Map<TrellisToolKind, HTMLDivElement>();
   private readonly deckHosts = new Map<string, HTMLDivElement>();
+  private readonly inactiveDecks = new Set<string>();
+  private deckFocusPoll: number | null = null;
   /**
    * Open Slide decks, each in a host of its own that its document panel
    * adopts whether or not it is the active document: a deck stays loaded for
@@ -247,6 +251,30 @@ export class TrellisController {
     },
     subscribe: (listener: Listener) => this.ui.subscribe(listener),
     sleeping: () => this.ui.get().sleepingDecks,
+    /**
+     * An inactive deck on screen becomes the active document once focus is in
+     * its frame. A press there never reaches this page and the frame posts
+     * nothing back, and a move from another frame (another deck, the agent)
+     * fires nothing here at all: only document.activeElement shows it, so it
+     * is polled while any inactive deck is mounted.
+     */
+    watchFocus: (key: string) => {
+      this.inactiveDecks.add(key);
+      this.deckFocusPoll ??= window.setInterval(() => {
+        const focused = document.activeElement;
+        for (const deck of this.inactiveDecks) {
+          if (!this.deckHosts.get(deck)?.contains(focused)) continue;
+          if (deck !== this.app.get().activeKey) this.activate(deck);
+          return;
+        }
+      }, DECK_FOCUS_POLL_MS);
+      return () => {
+        this.inactiveDecks.delete(key);
+        if (this.inactiveDecks.size || this.deckFocusPoll === null) return;
+        window.clearInterval(this.deckFocusPoll);
+        this.deckFocusPoll = null;
+      };
+    },
     setSleeping: (key: string, asleep: boolean) => {
       const current = this.ui.get().sleepingDecks;
       if (current.includes(key) === asleep) return;

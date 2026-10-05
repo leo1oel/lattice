@@ -75,8 +75,6 @@ installTrellisLabels();
 
 /** How long a heavy panel may be off screen before it unmounts. */
 const HIBERNATE_AFTER_MS = 20_000;
-/** How often an inactive deck looks for focus in its frame while the window is blurred (see DeckSlot). */
-const DECK_FOCUS_POLL_MS = 250;
 
 /** Content minima only. The Trellis patch separately reserves header actions
  * and all tabs at 80px each (capped at 480px; under it the tabs shrink and the
@@ -642,49 +640,15 @@ function DeckSlot({ controller, fileKey, view }: { controller: TrellisController
   }, [controller, fileKey, onScreen]);
   useEffect(() => () => controller.decks.setSleeping(fileKey, false), [controller, fileKey]);
   // An inactive deck streams nothing and holds the props it was last handed,
-  // so working in it makes it the active document. A press inside its Open
-  // Slide frame never reaches this page, and the frame posts nothing back:
-  // what this page sees is document.activeElement moving into the frame. From
-  // the page that is the window's blur (or a focusin on the host from the
-  // keyboard); from another deck's frame, the window is already blurred and
-  // nothing fires, so while it is, an inactive deck polls for the move.
+  // so working in it makes it the active document (see `decks.watchFocus`).
   const active = useTrellisApp(controller, (state) => state.activeKey === fileKey);
   useEffect(() => {
     if (active) return;
-    const host = controller.decks.host(fileKey);
     // Left in the frame when another document became active without taking
-    // focus (an agent opening a file), a press back into it would move nothing.
-    if (host.contains(document.activeElement)) (document.activeElement as HTMLElement).blur();
-    let seen = document.activeElement;
-    const check = () => {
-      const element = document.activeElement;
-      if (element === seen) return;
-      seen = element;
-      if (host.contains(element)) controller.activate(fileKey);
-    };
-    let poll: number | null = null;
-    let deferred: number | null = null;
-    const watch = () => {
-      // Deferred: a browser may move activeElement to the frame after the blur.
-      deferred ??= window.setTimeout(() => { deferred = null; check(); }, 0);
-      poll ??= window.setInterval(check, DECK_FOCUS_POLL_MS);
-    };
-    const unwatch = () => {
-      if (poll !== null) window.clearInterval(poll);
-      poll = null;
-      seen = document.activeElement;
-    };
-    if (!document.hasFocus()) watch();
-    window.addEventListener("blur", watch);
-    window.addEventListener("focus", unwatch);
-    host.addEventListener("focusin", check);
-    return () => {
-      unwatch();
-      if (deferred !== null) window.clearTimeout(deferred);
-      window.removeEventListener("blur", watch);
-      window.removeEventListener("focus", unwatch);
-      host.removeEventListener("focusin", check);
-    };
+    // focus (an agent opening a file), focus would already be where a press
+    // back into the deck puts it.
+    if (controller.decks.host(fileKey).contains(document.activeElement)) (document.activeElement as HTMLElement).blur();
+    return controller.decks.watchFocus(fileKey);
   }, [active, controller, fileKey]);
   return <HostSlot host={controller.decks.host(fileKey)} className="trellis-file-live" />;
 }
