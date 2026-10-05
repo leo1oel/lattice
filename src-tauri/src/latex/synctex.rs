@@ -1,5 +1,7 @@
 //! SyncTeX lookups between the compiled PDF and its sources.
 
+mod records;
+
 use super::{default_root_document, synctex_missing};
 use crate::commands;
 use crate::latex::PdfSyncTarget;
@@ -74,7 +76,10 @@ pub fn forward_search(
         ],
         "SyncTeX could not locate this source line.",
     )?;
-    first_synctex_view_target(&output)
+    let pdf = root.join(&pdf);
+    first_synctex_view_target(&output, |page| {
+        records::read(&pdf).map(|synctex| records::corrections(&synctex, page)).unwrap_or_default()
+    })
 }
 
 /// The default root document and its PDF (relative to `root`), once that PDF
@@ -158,7 +163,13 @@ fn parse_synctex_edit(output: &str) -> Result<(String, u32), String> {
 /// panel or caption it names when SyncTeX knows one, and only an enclosing
 /// box with nothing tighter inside it is shown whole. A box elsewhere on the
 /// page (a footnote the line also fed) never wins.
-fn first_synctex_view_target(output: &str) -> Result<Option<PdfSyncTarget>, String> {
+///
+/// Each box is first measured as TeX laid it out (`corrections` gives the
+/// page's boxes): synctex sizes a box holding a scaled graphic by the
+/// graphic's unscaled size.
+fn first_synctex_view_target(
+    output: &str, corrections: impl FnOnce(u32) -> Vec<records::Correction>,
+) -> Result<Option<PdfSyncTarget>, String> {
     // A successful `synctex view` prints only its version banner when the
     // source line has no PDF node (common for declarations in .sty files).
     // That is a valid no-match, not malformed SyncTeX data.
@@ -170,16 +181,32 @@ fn first_synctex_view_target(output: &str) -> Result<Option<PdfSyncTarget>, Stri
             results.push(view_result(record)?);
         }
     }
-    let Some(first) = results.iter().find(|result| result.target.page != 0) else {
+    let Some(page) = results.iter().map(|result| result.target.page).find(|page| *page != 0) else {
         return Ok(None);
     };
-    let (page, (x, y)) = (first.target.page, first.point);
-    let tightest = results
+    results.retain(|result| result.target.page == page);
+    let corrections = corrections(page);
+    for result in results.iter_mut().filter(|result| result.boxed) {
+        if let Some(correction) =
+            corrections.iter().find(|correction| correction.reported.same_box(&result.target))
+        {
+            result.target = correction.laid_out.clone();
+        }
+        result.target.y = result.target.y.max(0.0);
+    }
+    let first = &results[0];
+    let boxes: Vec<_> =
+        results.iter().filter(|result| result.boxed).map(|result| result.target.clone()).collect();
+    Ok(Some(tightest(&boxes, first.point).unwrap_or(&first.target).clone()))
+}
+
+/// The smallest of `boxes` around `point`; `min_by` keeps the earliest of
+/// equal areas, which is SyncTeX's own order.
+fn tightest(boxes: &[PdfSyncTarget], (x, y): (f64, f64)) -> Option<&PdfSyncTarget> {
+    boxes
         .iter()
-        .filter(|result| result.boxed && result.target.page == page && result.target.contains(x, y))
-        // `min_by` keeps the earliest of equal areas: SyncTeX's own order.
-        .min_by(|left, right| left.target.area().total_cmp(&right.target.area()));
-    Ok(Some(tightest.unwrap_or(first).target.clone()))
+        .filter(|target| target.contains(x, y))
+        .min_by(|left, right| left.area().total_cmp(&right.area()))
 }
 
 /// One `synctex view` result: the rectangle to highlight, whose `y` is its
@@ -212,11 +239,9 @@ fn view_result(record: &str) -> Result<ViewResult, String> {
             (PdfSyncTarget { page, x, y: y - height, width, height }, false)
         }
     };
-    Ok(ViewResult {
-        target: PdfSyncTarget { y: target.y.max(0.0), ..target },
-        point: (x, y),
-        boxed,
-    })
+    // A box is clamped to the page once it is measured as TeX laid it out.
+    let target = if boxed { target } else { PdfSyncTarget { y: target.y.max(0.0), ..target } };
+    Ok(ViewResult { target, point: (x, y), boxed })
 }
 
 /// The marker for a result that names only a point: about one word of text.
@@ -226,6 +251,16 @@ const POINT_MARKER_HEIGHT: f64 = 12.0;
 impl PdfSyncTarget {
     fn area(&self) -> f64 {
         self.width * self.height
+    }
+
+    /// Whether `other` is this box as synctex printed it, to its six digits.
+    fn same_box(&self, other: &PdfSyncTarget) -> bool {
+        const PRINTED: f64 = 0.01;
+        self.page == other.page
+            && (self.x - other.x).abs() < PRINTED
+            && (self.y - other.y).abs() < PRINTED
+            && (self.width - other.width).abs() < PRINTED
+            && (self.height - other.height).abs() < PRINTED
     }
 
     /// Whether the point lies in this rectangle. SyncTeX reports no depth, so
@@ -282,6 +317,11 @@ mod tests {
         output + "SyncTeX result end\n"
     }
 
+    /// The view-only target, with no raw SyncTeX records to measure by.
+    fn view_target(output: &str) -> Result<Option<PdfSyncTarget>, String> {
+        first_synctex_view_target(output, |_| Vec::new())
+    }
+
     fn assert_rect(target: &PdfSyncTarget, [x, y, width, height]: [f64; 4]) {
         let actual = [target.x, target.y, target.width, target.height];
         assert!(
@@ -296,20 +336,20 @@ mod tests {
 
     #[test]
     fn parses_forward_synctex_results() {
-        let target = first_synctex_view_target(&view_block("3", "487.120")).unwrap().unwrap();
+        let target = view_target(&view_block("3", "487.120")).unwrap().unwrap();
         assert_eq!(target.page, 3);
         // The box rises from its baseline `v` by `H`.
         assert_rect(&target, [154.230, 487.120 - 11.2, 306.142, 11.2]);
         // Page 0 is no match; the first real result wins.
         let several = view_block("0", "0.0") + &view_block("2", "200.0") + &view_block("4", "9.0");
-        assert_eq!(first_synctex_view_target(&several).unwrap().unwrap().page, 2);
+        assert_eq!(view_target(&several).unwrap().unwrap().page, 2);
 
         // A successful run that printed only its banner, and a zero page, are
         // both "no match"; an unreadable result block is an error.
         let banner = "This is SyncTeX command line utility, version 1.5\n";
-        assert!(first_synctex_view_target(banner).unwrap().is_none());
-        assert!(first_synctex_view_target(&view_block("0", "0.0")).unwrap().is_none());
-        assert!(first_synctex_view_target(&view_block("not-a-page", "1.0")).is_err());
+        assert!(view_target(banner).unwrap().is_none());
+        assert!(view_target(&view_block("0", "0.0")).unwrap().is_none());
+        assert!(view_target(&view_block("not-a-page", "1.0")).is_err());
     }
 
     #[test]
@@ -321,14 +361,14 @@ mod tests {
         // figure instead of the figure.
         let output =
             view_output(&[[219.421127, 277.078125, 71.999985, 294.014618, 468.0, 176.33873]]);
-        let target = first_synctex_view_target(&output).unwrap().unwrap();
+        let target = view_target(&output).unwrap().unwrap();
         assert_rect(&target, [71.999985, 294.014618 - 176.33873, 468.0, 176.33873]);
     }
 
     #[test]
     fn a_result_without_a_box_marks_its_point_on_the_baseline() {
         let output = "SyncTeX result begin\nOutput:main.pdf\nPage:2\nx:100.5\ny:300.25\nSyncTeX result end\n";
-        let target = first_synctex_view_target(output).unwrap().unwrap();
+        let target = view_target(output).unwrap().unwrap();
         assert_eq!(target.page, 2);
         assert_rect(
             &target,
@@ -337,7 +377,7 @@ mod tests {
         // A zero-sized box is no box either.
         let empty = view_output(&[[50.0, 80.0, 40.0, 82.0, 0.0, 10.0]]);
         assert_rect(
-            &first_synctex_view_target(&empty).unwrap().unwrap(),
+            &view_target(&empty).unwrap().unwrap(),
             [50.0, 80.0 - POINT_MARKER_HEIGHT, POINT_MARKER_WIDTH, POINT_MARKER_HEIGHT],
         );
     }
@@ -351,7 +391,7 @@ mod tests {
             [320.524597, 186.630066, 286.253876, 190.743561, 38.740086, 8.607751],
         ]);
         assert_rect(
-            &first_synctex_view_target(&equation).unwrap().unwrap(),
+            &view_target(&equation).unwrap().unwrap(),
             [286.253876, 190.743561 - 8.607751, 38.740086, 8.607751],
         );
 
@@ -362,7 +402,7 @@ mod tests {
             [91.800934, 254.443207, 91.800934, 254.443207, 134.946442, 159.402237],
         ]);
         assert_rect(
-            &first_synctex_view_target(&subfigure).unwrap().unwrap(),
+            &view_target(&subfigure).unwrap().unwrap(),
             [91.800934, 271.3797 - 10.958904, 134.946442, 10.958904],
         );
 
@@ -373,9 +413,110 @@ mod tests {
             [144.860382, 669.890442, 133.768356, 672.703186, 15.24307, 6.664993],
         ]);
         assert_rect(
-            &first_synctex_view_target(&footnote).unwrap().unwrap(),
+            &view_target(&footnote).unwrap().unwrap(),
             [133.768356, 136.701797 - 10.046797, 343.71106, 10.046797],
         );
+    }
+
+    /// pdfLaTeX's SyncTeX for, by line: a figure holding
+    /// `\includegraphics[height=32mm]` of an 835.5 x 663 bp PDF (6), a text
+    /// line with the same PDF inline at 12mm (8), and a 100 x 50 bp PDF
+    /// enlarged to 32mm (10).
+    const GRAPHICS_SYNCTEX: &str =
+        include_str!("../../tests/fixtures/synctex-includegraphics.synctex");
+
+    /// A box recorded in that file as `h,v:W,H,D` (scaled points), as a
+    /// highlight in PDF points.
+    fn recorded(h: f64, v: f64, width: f64, height: f64, depth: f64) -> [f64; 4] {
+        const SP_PER_BP: f64 = 65781.76;
+        [h / SP_PER_BP, (v - height) / SP_PER_BP, width / SP_PER_BP, (height + depth) / SP_PER_BP]
+    }
+
+    fn graphics_target(output: &str) -> PdfSyncTarget {
+        first_synctex_view_target(output, |page| records::corrections(GRAPHICS_SYNCTEX, page))
+            .unwrap()
+            .unwrap()
+    }
+
+    #[test]
+    fn a_scaled_graphic_is_highlighted_at_the_size_it_is_drawn() {
+        // `synctex view` for the figure's `\includegraphics` line: every box
+        // grows to the graphic's unscaled 835.5 x 663 bp from its lower-left
+        // corner, so the highlight ran off the top of the page.
+        let figure = view_output(&[
+            [248.471527, 215.510635, 248.471527, 215.510635, 835.499939, 663.0],
+            [248.471527, 215.510635, 133.768356, 215.510635, 950.203125, 663.0],
+            [248.471527, 215.510635, 248.471527, 215.510635, 835.499939, 663.0],
+            [248.471527, 215.510635, 248.471527, 215.510635, 835.499939, 663.0],
+            [248.471527, 215.510635, 248.471527, 215.510635, 835.499939, 663.0],
+            [248.471527, 215.510635, 248.471527, 215.510635, 835.499939, 663.0],
+        ]);
+        assert_rect(&view_target(&figure).unwrap().unwrap(), [248.471527, 0.0, 835.499939, 663.0]);
+        // TeX reserved the 32mm box `(1,6:16344895,14176669:7519166,5966975,0`.
+        assert_rect(
+            &graphics_target(&figure),
+            recorded(16344895.0, 14176669.0, 7519166.0, 5966975.0, 0.0),
+        );
+
+        // The same graphic at 12mm in a text line: the line's box grew to
+        // 663 bp tall. Its point is a word before the graphic, so the line
+        // is the highlight, at the height TeX gave it.
+        let inline = view_output(&[
+            [155.907562, 269.45166, 133.768356, 269.45166, 873.690125, 663.0],
+            [171.958496, 269.45166, 133.768356, 269.45166, 873.690125, 663.0],
+            [171.958496, 269.45166, 171.958496, 269.45166, 835.499939, 663.0],
+            [171.958496, 269.45166, 171.958496, 269.45166, 835.499939, 663.0],
+            [171.958496, 269.45166, 171.958496, 269.45166, 835.499939, 663.0],
+            [171.958496, 269.45166, 171.958496, 269.45166, 835.499939, 663.0],
+            [171.958496, 269.45166, 171.958496, 269.45166, 835.499939, 663.0],
+        ]);
+        assert_rect(
+            &graphics_target(&inline),
+            recorded(8799518.0, 17725004.0, 22609920.0, 2237615.0, 0.0),
+        );
+
+        // Enlarged, the unscaled 100 x 50 bp original is the tightest box
+        // around the point, and sat in the 32mm graphic's lower-left corner.
+        let enlarged = view_output(&[
+            [148.712311, 361.156586, 148.712311, 361.156586, 181.445312, 90.722656],
+            [148.712311, 361.156586, 133.768356, 361.156586, 343.71106, 90.722656],
+            [148.712311, 361.156586, 148.712311, 361.156586, 100.0, 90.722656],
+            [148.712311, 361.156586, 148.712311, 361.156586, 181.445312, 90.722656],
+            [148.712311, 361.156586, 148.712311, 361.156586, 181.445312, 90.722656],
+            [148.712311, 361.156586, 148.712311, 361.156586, 100.0, 50.0],
+        ]);
+        assert_rect(
+            &view_target(&enlarged).unwrap().unwrap(),
+            [148.712311, 311.156586, 100.0, 50.0],
+        );
+        // graphicx's box around it, `(1,10:9782558,23757515:11935792,5967896,0`.
+        assert_rect(
+            &graphics_target(&enlarged),
+            recorded(9782558.0, 23757515.0, 11935792.0, 5967896.0, 0.0),
+        );
+    }
+
+    #[test]
+    fn boxes_laid_out_where_synctex_records_them_are_left_alone() {
+        let corrections = records::corrections(GRAPHICS_SYNCTEX, 1);
+        let laid_out = |[x, y, width, height]: [f64; 4]| {
+            let reported = PdfSyncTarget { page: 1, x, y, width, height };
+            corrections
+                .iter()
+                .find(|correction| correction.reported.same_box(&reported))
+                .map(|correction| correction.laid_out.clone())
+                .expect("a recorded box")
+        };
+        // The page number's line holds nothing drawn elsewhere.
+        let foot = recorded(8799518.0, 46220574.0, 22609920.0, 422343.0, 0.0);
+        assert_rect(&laid_out(foot), foot);
+        // The inline graphic's text line is the line TeX set, 12mm tall.
+        assert_rect(
+            &laid_out([133.768356, 269.45166 - 663.0, 873.690125, 663.0]),
+            recorded(8799518.0, 17725004.0, 22609920.0, 2237615.0, 0.0),
+        );
+        // Only the page asked for.
+        assert!(records::corrections(GRAPHICS_SYNCTEX, 2).is_empty());
     }
 
     #[test]
@@ -437,6 +578,40 @@ mod tests {
         assert!(
             caption.y + caption.height <= paragraph.y + 0.5,
             "{caption:?} reaches into {paragraph:?}"
+        );
+    }
+
+    #[test]
+    #[ignore = "requires a local latexmk, pdfLaTeX and the mwe package"]
+    fn forward_search_highlights_a_scaled_graphic_where_it_is_drawn() {
+        let parent = TempDir::new("latex");
+        let root = project::create(&parent, "Graphic sync").unwrap().canonicalize().unwrap();
+        fs::write(
+            root.join("main.tex"),
+            "\\documentclass{article}\n\
+             \\usepackage{graphicx}\n\
+             \\begin{document}\n\
+             \\begin{figure}[t]\n\
+             \\centering\n\
+             \\includegraphics[height=32mm]{example-image}\n\
+             \\caption{A graphic.}\n\
+             \\end{figure}\n\
+             Alpha paragraph.\n\
+             \\end{document}\n",
+        )
+        .unwrap();
+
+        let result = super::super::build(&root, true, &Default::default(), None).unwrap();
+        assert!(result.success, "{}", result.log);
+        let at =
+            |line| forward_search(&root, "main.tex", line, 0).unwrap().expect("a PDF position");
+        let (graphic, caption) = (at(6), at(7));
+        // example-image is 320 x 240 bp; drawn 32mm (90.71 bp) tall.
+        assert!((graphic.height - 90.71).abs() < 0.5, "{graphic:?}");
+        assert!((graphic.width - 120.95).abs() < 0.5, "{graphic:?}");
+        assert!(
+            graphic.y + graphic.height <= caption.y + 0.5,
+            "{graphic:?} reaches into {caption:?}"
         );
     }
 
