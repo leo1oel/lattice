@@ -282,10 +282,13 @@ impl Drop for SynaraRuntime {
 }
 
 #[tauri::command]
-pub fn synara_ensure_ready(
-    state: tauri::State<'_, SynaraRuntime>,
-) -> Result<SynaraRuntimeInfo, String> {
-    state.ensure_ready()
+pub async fn synara_ensure_ready(app: tauri::AppHandle) -> Result<SynaraRuntimeInfo, String> {
+    // Process launch, sandbox verification and health polling can take seconds.
+    // A synchronous command occupies the native event loop before the WebView
+    // can paint the loading surface that requested it.
+    tauri::async_runtime::spawn_blocking(move || app.state::<SynaraRuntime>().ensure_ready())
+        .await
+        .map_err(|error| format!("Agent startup worker failed: {error}"))?
 }
 
 #[tauri::command]
