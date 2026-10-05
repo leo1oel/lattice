@@ -120,7 +120,9 @@ export function useSyncTexNavigation(deps: SyncTexNavigationDeps) {
     await openFile(path, { line });
     if (!isCurrentRequest(false)) return;
     // The editor's jump stands alone when no build can bring the PDF up to date.
-    if (!(await save()) || !isCurrentRequest(false) || !(await ensureCompiled()) || !isCurrentRequest()) return;
+    // The caret is checked only once SyncTeX answers: with the PDF already
+    // current this resolves before the editor has applied the requested line.
+    if (!(await save()) || !isCurrentRequest(false) || !(await ensureCompiled()) || !isCurrentRequest(false)) return;
     const target = await invoke<PdfSyncResponse | null>("synctex_view", { path, line, column: 0 })
       // The source jump is still useful when this PDF has no SyncTeX map.
       .catch(() => undefined);

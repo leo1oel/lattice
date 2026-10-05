@@ -275,7 +275,7 @@ export function useBuildPipeline({
         const fingerprint = pdfBytesFingerprint(pdfBytes);
         const nextUrl = pdfBytesToObjectUrl(pdfBytes);
         pdfFingerprintRef.current = fingerprint;
-        readPdfFingerprintRef.current ??= fingerprint;
+        if (readPdfFingerprintRef.current === null) readPdfFingerprintRef.current = fingerprint;
         displayedPdfBytesRef.current = pdfBytes;
         setPdfUrl((previous) => {
           if (!current(fingerprint)) {
