@@ -633,8 +633,7 @@ body:has(.modal-backdrop, .drawer-backdrop) .file-tree-context-menu { display: n
 .file-tree-context-menu-separator { height: 1px; margin: var(--space-2) calc(-1 * var(--surface-inset)); background: var(--border-subtle); }
 .file-tree-context-menu > button.destructive { color: var(--status-danger); }
 .file-tree-context-menu > button.destructive:hover:not(:disabled) { background: color-mix(in srgb, var(--status-danger) 10%, transparent); color: var(--status-danger); }
-/* Beside the title's first line, which alone keeps room for them: the lines
-   beneath it run the row's full width. The actions fill that line's lane —
+/* At the end of the title's first line. The actions fill that line's lane —
    the row's top down to where the byline starts — and end on its floor, and
    so do their hit areas: a ::after widens each 22px face sideways and up to
    the row's top, never down over the byline a click there should open. */
@@ -651,24 +650,48 @@ body:has(.modal-backdrop, .drawer-backdrop) .file-tree-context-menu { display: n
 .paper-list { min-height: 0; flex: 1; }
 .paper-list-content { min-width: 100%; padding-block: 7px 0; padding-inline: 0 var(--space-6); }
 /* The lane is the title's first line with the row's padding above it and the
-   gap below it; the title keeps the actions' room plus their hit areas'
-   reach past the text's edge (5px, less the 3px the actions sit outside it). */
-.paper-row { --paper-row-actions: 1; --paper-row-action-room: calc(var(--paper-row-actions) * 22px + var(--space-1)); --paper-row-padding: 7px; --paper-row-lane: calc(var(--paper-row-padding) + var(--type-label-line-height) + var(--space-1)); position: relative; width: 100%; border-radius: var(--radius-icon); display: flex; align-items: center; color: var(--text-secondary); }
-.paper-row:hover, .paper-row.active { color: var(--text-primary); background: var(--border-subtle); }
-/* Cited but never fetched: nothing to open, so the row reads as a reference. */
-.paper-row.cited-only .paper-open { cursor: default; opacity: .72; }
+   gap below it. Surfaces follow the Project tree's: hover < open. */
+.paper-row { --paper-row-actions: 1; --paper-row-pinned: 0; --paper-row-padding: var(--space-4); --paper-row-lane: calc(var(--paper-row-padding) + var(--type-label-line-height) + var(--space-1)); position: relative; width: 100%; border-radius: var(--radius-icon); display: flex; align-items: center; color: var(--text-secondary); transition: background-color var(--duration-exit) var(--ease-out); }
+.paper-row + .paper-row { margin-top: var(--space-1); }
+/* Hairlines part the rows at rest, from the text's start; a lit row needs none
+   on either side. */
+.paper-row + .paper-row::before { content: ""; position: absolute; inset-block-start: calc(-1 * var(--space-1)); inset-inline: calc(var(--paper-row-padding) + 14px + var(--gap-inline)) var(--paper-row-padding); height: 1px; background: var(--border-subtle); pointer-events: none; transition: opacity var(--duration-exit) var(--ease-out); }
+.paper-row:is(:hover, .active)::before, .paper-row:is(:hover, .active) + .paper-row::before { opacity: 0; transition-duration: var(--duration-quick); }
+.paper-row:hover { background: var(--navigation-tree-hover-surface); transition-duration: var(--duration-quick); }
+.paper-row.active { background: var(--navigation-tree-selected-surface); }
 .paper-open { width: 0; flex: 1; min-width: 0; padding: var(--paper-row-padding); border-radius: var(--radius-icon); background: transparent; display: flex; align-items: flex-start; gap: var(--gap-inline); color: inherit; font-size: var(--type-tree-size); line-height: var(--type-tree-line-height); text-align: left; }
-.paper-open > svg { margin-top: var(--space-1); flex: none; stroke-width: 1.5; }
-.paper-state-icon { width: 14px; height: 14px; margin-top: var(--space-1); flex: none; display: grid; place-items: center; transition: color var(--duration-base) var(--ease-default), opacity var(--duration-base) var(--ease-default); }
+/* Cited but never fetched: nothing local to open yet, so its title steps back (below). */
+.paper-row.cited-only .paper-open { cursor: default; }
+/* As tall as the title's first line, so the glyph centres on it in any font. */
+.paper-state-icon { width: 14px; height: var(--type-label-line-height); flex: none; display: grid; place-items: center; color: var(--text-tertiary); transition: color var(--duration-base) var(--ease-default), opacity var(--duration-base) var(--ease-default); }
 .paper-state-icon > svg { stroke-width: 1.5; }
-.paper-state-icon.success { color: var(--status-success); }
+.paper-row:is(:hover, .active) .paper-state-icon { color: var(--text-secondary); }
+.paper-state-icon.success, .paper-row:is(:hover, .active) .paper-state-icon.success { color: var(--status-success); }
 .paper-open > span { min-width: 0; }
 /* Clips the byline's pulled-in line starts (below). */
-.paper-row-text { overflow: hidden; }
-.paper-list small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-/* A title may take a second line before it gives way to an ellipsis. */
-.paper-list strong { padding-inline-end: var(--paper-row-action-room); display: -webkit-box; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; color: inherit; font-size: var(--type-label-size); line-height: var(--type-label-line-height); font-weight: var(--weight-regular); overflow-wrap: anywhere; text-wrap: pretty; }
-.paper-list small { margin-top: var(--space-1); color: var(--text-tertiary); font-size: var(--type-tree-size); line-height: var(--type-tree-line-height); }
+.paper-row-text { flex: 1; overflow: hidden; }
+.paper-list small { margin-top: var(--space-1); display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-tertiary); font-size: var(--type-tree-size); line-height: var(--type-tree-line-height); }
+/* The title leads; everything under it is one quieter step down. It may take
+   a second line before it gives way to an ellipsis. The cover is the run of
+   its first line that the actions overlie; a row whose notice never hides
+   keeps that run clear at rest too, since the hidden actions still hold their
+   places beside it. */
+.paper-list .paper-title { --paper-title-cover: calc(var(--paper-row-actions) * 22px - var(--paper-row-padding) + var(--space-2)); padding-inline-end: calc(var(--paper-row-pinned) * (var(--paper-title-cover) + var(--space-2))); display: -webkit-box; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; color: var(--navigation-text-strong); font-size: var(--type-label-size); line-height: var(--type-label-line-height); font-weight: var(--weight-regular); overflow-wrap: anywhere; text-wrap: pretty; }
+.paper-row.active .paper-title { color: var(--text-primary); }
+.paper-row.cited-only .paper-title { color: var(--text-secondary); }
+/* Hovered, focused or open, the actions take the end of the title's first
+   line, which fades out beneath them; at rest an unpinned title keeps the width. */
+.paper-row:is(:hover, :focus-within, .active) .paper-title {
+  --paper-title-mask: linear-gradient(to left, transparent var(--paper-title-cover), #000 calc(var(--paper-title-cover) + var(--space-6))), linear-gradient(#000, #000);
+  -webkit-mask-image: var(--paper-title-mask);
+  mask-image: var(--paper-title-mask);
+  -webkit-mask-size: 100% var(--type-label-line-height), 100% 100%;
+  mask-size: 100% var(--type-label-line-height), 100% 100%;
+  -webkit-mask-position: 0 0, 0 var(--type-label-line-height);
+  mask-position: 0 0, 0 var(--type-label-line-height);
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+}
 /* Authors and source share a line while they fit, and the source wraps whole
    rather than losing its id to an ellipsis. Every part leads with its
    separator, and the line's start is pulled into the clipped margin, so a
@@ -677,12 +700,13 @@ body:has(.modal-backdrop, .drawer-backdrop) .file-tree-context-menu { display: n
 .paper-byline > span { min-width: 0; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
 .paper-byline > span::before { content: "·"; width: var(--space-6); display: inline-block; text-align: center; }
 .paper-list .paper-authors { color: var(--text-secondary); }
-/* The exact key a \cite{} needs, set apart as code rather than prose. */
-.paper-cite-key { max-width: 100%; margin-top: var(--space-2); padding-inline: var(--space-2); border-radius: var(--radius-compact); background: color-mix(in srgb, var(--text-primary) 5%, transparent); color: var(--text-secondary); display: block; width: fit-content; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: var(--type-micro-size)/var(--type-caption-line-height) var(--editor-font); }
-.paper-row:is(:hover, .active) .paper-cite-key { background: color-mix(in srgb, var(--text-primary) 7%, transparent); }
-.paper-list .paper-citation-health { color: var(--status-warning); }
-.paper-row.citation-retracted .paper-citation-health { color: var(--status-danger); }
-.paper-list-end { margin: var(--space-6) 7px var(--space-2); color: var(--text-tertiary); font-size: var(--type-micro-size); text-align: center; }
+/* The exact key a \cite{} needs, in code type, and the row's flags beside it. */
+.paper-tags { min-width: 0; margin-top: var(--space-2); display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-3); }
+.paper-cite-key { min-width: 0; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-tertiary); font: var(--type-micro-size)/var(--badge-height-compact) var(--editor-font); }
+.paper-row:is(:hover, .active) .paper-cite-key { color: var(--text-secondary); }
+.paper-list .paper-tag { max-width: 100%; display: block; overflow: hidden; text-overflow: ellipsis; line-height: var(--badge-height-compact); }
+.paper-row.citation-retracted .paper-citation-health { background-color: var(--status-danger-soft); color: var(--status-danger); }
+.paper-list-end { margin: var(--space-6) 7px var(--space-2); color: var(--text-tertiary); font-size: var(--type-micro-size); font-variant-numeric: tabular-nums; text-align: center; }
 /* Drawing beside the text, both on a quiet plate that reads as part of the
    list rather than a drop zone. */
 .papers-empty-state { margin: var(--space-6) 7px; padding: var(--space-6) var(--space-8) var(--space-6) var(--space-6); border-radius: var(--radius-panel); background: color-mix(in srgb, var(--editor-bg) 55%, transparent); display: flex; align-items: center; gap: var(--space-6); color: var(--text-tertiary); }

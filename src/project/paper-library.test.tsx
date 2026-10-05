@@ -344,6 +344,15 @@ describe("PaperLibrary", () => {
     expect(third.querySelector(".paper-cite-key")).toBeNull();
   });
 
+  it("tags a paper with nothing to download as a citation, beside its key", () => {
+    const cited: PaperSummary = { arxivId: "", title: "Cited Work", citationKey: "cited2020", hasFullText: false, hasBlog: false };
+    renderLibrary({ papers: [vit, cited] });
+    const [fetchable, citation] = [...document.querySelectorAll<HTMLElement>(".paper-row .paper-tags")];
+    expect([...citation.children].map((tag) => tag.textContent)).toEqual(["cited2020", "Citation only"]);
+    // An arXiv preprint downloads on click, so it is not tagged.
+    expect([...fetchable.children].map((tag) => tag.textContent)).toEqual(["dosovitskiy2021"]);
+  });
+
   it("names a corporate author whole, and finds it without its braces", () => {
     // The author field as `list_papers` delivers it, braces kept.
     const gemini: PaperSummary = { ...vit, arxivId: "2312.11805", title: "Gemini", authors: "{Gemini Team} and Mc{D}onald, Ronald", citationKey: "gemini" };

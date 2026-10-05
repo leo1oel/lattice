@@ -1619,8 +1619,8 @@ msgid "Citation key ''{key}'' already exists. Choose a different key or edit the
 msgstr "Citation key ''{key}'' already exists. Choose a different key or edit the existing reference."
 
 #: src/project/paper-library.tsx
-msgid "Citation only — no downloadable full text found"
-msgstr "Citation only — no downloadable full text found"
+msgid "Citation only"
+msgstr "Citation only"
 
 #: src/papers/bib-entry-dialog.tsx
 msgid "Citation resolve query"
