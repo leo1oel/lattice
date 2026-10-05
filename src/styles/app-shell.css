@@ -706,7 +706,8 @@ button.paper-citation-health:hover > .paper-citation-health-detail { color: var(
 .paper-meta:not(:has(> .paper-byline)) { position: absolute; z-index: 1; inset-block-end: calc(var(--paper-row-padding) - var(--space-1)); inset-inline-end: var(--space-3); margin: 0; }
 .paper-meta:not(:has(> .paper-byline)) > .paper-row-actions { padding-inline-start: var(--space-8); border-radius: var(--radius-compact); background-color: var(--surface-sidebar); background-image: linear-gradient(var(--paper-row-surface), var(--paper-row-surface)); -webkit-mask-image: linear-gradient(to right, transparent, #000 var(--space-8)); mask-image: linear-gradient(to right, transparent, #000 var(--space-8)); }
 .paper-cite-key { min-width: 6em; height: 22px; padding: 0 var(--space-2); border-radius: var(--radius-compact); background: transparent; color: var(--text-tertiary); display: inline-flex; align-items: center; gap: var(--space-2); font: var(--type-micro-size)/1 var(--editor-font); }
-.paper-cite-key > code { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: inherit; }
+/* The key button sets line-height 1 to centre its icon; a clipping box that tight cuts descenders (g, j, p, q, y), so the code gets a full line box inside the fixed 22px button. */
+.paper-cite-key > code { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: inherit; line-height: var(--type-tree-line-height); }
 .paper-cite-key .copy-button-icon { width: 11px; height: 11px; }
 .paper-cite-key .copy-button-icon > svg { stroke-width: 1.5; }
 .paper-row.active .paper-cite-key { color: var(--text-secondary); }
