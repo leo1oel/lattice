@@ -5,11 +5,17 @@ React 19 / TypeScript / Vite 8 frontend, with a bundled AI-agent sidecar
 (Synara) and Overleaf sync. Every build renders in the native WKWebView
 window; see `docs/architecture.md` §1.
 
-## Commands
+## Where to read
+
+- Validation, a failed check, or a resumed session: read `docs/agent-validation.md` before choosing the next command.
+- Finding the owner of a feature or cross-surface symptom, or placing a new file: `docs/codebase-map.md`.
+- Startup imports or UI tokens: read `docs/architecture.md` (§4, §5) and `docs/design-system.md`; `pnpm build` and the token tests enforce the mechanical budgets.
+- Screenshots, QA or measuring in the app: `docs/driving-the-app.md`.
+
+## Commands and bootstrap
 
 ```bash
 pnpm tauri dev                  # run the desktop app (needs the pinned Synara checkout, see below)
-pnpm check                      # THE gate: i18n + lint + vitest + web build + literature-worker + rustfmt + cargo test + clippy
 pnpm vitest run <file>          # one test file
 node scripts/bump-version.mjs patch   # release: rewrites the version in package.json,
                                       # tauri.conf.json, Cargo.toml and Cargo.lock, then PRINTS
@@ -17,10 +23,10 @@ node scripts/bump-version.mjs patch   # release: rewrites the version in package
                                       # pushing the tag yourself is what triggers CI to publish.
 ```
 
-Screenshots, QA or measuring in the app: `docs/driving-the-app.md`.
+The version moves in lockstep across those four files through `bump-version.mjs` only.
 
 Only `pnpm tauri dev` / `pnpm tauri build` need the Synara source.
-Everything else — including `pnpm check`, `cargo test`, and `cargo clippy` — only needs a resource stub for the bundled Synara runtime:
+Everything else — including `cargo test` and `cargo clippy` — only needs a resource stub for the bundled Synara runtime:
 
 ```bash
 mkdir -p src-tauri/synara-runtime
@@ -28,74 +34,20 @@ touch src-tauri/synara-runtime/placeholder.txt
 ```
 
 For the real sidecar, clone `repository` from `scripts/synara-runtime.json` at
-its pinned `revision` and point `SYNARA_SOURCE_DIR` at it (the default,
-`sourceDirectory` in that same file, is `../synara-v100-beta1-sync` today and moves
-with the pinned branch — derive it, don't hardcode it). See CONTRIBUTING.md and
-`scripts/setup-dev.sh`.
+its pinned `revision` and point `SYNARA_SOURCE_DIR` at it (the default is
+`sourceDirectory` in that same file and moves with the pinned branch — derive
+it, don't hardcode it). See CONTRIBUTING.md and `scripts/setup-dev.sh`.
 
-`pnpm check` is `mise run check`: ten stages (`i18n-check`, `lint`, `test`,
-`build`, `literature-worker`, `open-slide-runtime`, `cargo-fmt`, `cargo-test`, `clippy`, `notices`) in parallel,
-skipping any whose declared `sources` have not changed. Needs
-[mise](https://mise.jdx.dev). It runs the *same commands* as
-`.github/workflows/ci.yml` (except CI's interaction benchmark,
-`pnpm perf:bench --check`, which locally is `mise run perf-bench`), not the same way: CI is a clean checkout with
-nothing skipped, Rust on macOS and everything else on Ubuntu, while mise
-caches stage freshness. A green local
-check with a red CI is usually the freshness cache — `mise run --force check`.
-Lint enforces a `--max-warnings` debt cap, owned by the `lint` script in
-`package.json`: lower it when you remove warnings; never raise it.
+## Gotchas
 
-## Layout
-
-- `src/` — frontend, one directory per domain. Only 11 files sit at the root: `main.tsx`, `App.tsx`/`App.css`, `index.css`, `app-types.ts` (the shared domain model), `app-utils.ts` + its two tests, `i18n.ts` + test, `vite-env.d.ts`. There is deliberately **no `shared/`** — anything cross-domain enough to need one belongs at the root or in `components/ui/`. New work goes in the domain directory; place by who imports it, not by what it is called.
-- `src/app/` — App orchestration: hooks extracted from `App.tsx` (`use-overleaf-workspace.ts`, `notify.ts`) plus window/panel geometry.
-- `src/canvas/` — the editing surface shell (`document-canvas.tsx`, toolbar, outline, `canvas-lazy-modules.ts`).
-- `src/editor/` — editor infrastructure shared by more than one editor kind (CodeMirror host, language resolution, spellcheck), with `editor/latex/`, `editor/markdown/`, `editor/spreadsheet/`, `editor/board/`, `editor/insert/`, `editor/comments/` beneath it.
-- `src/pdf/`, `src/build/`, `src/papers/`, `src/project/`, `src/history/`, `src/settings/`, `src/trellis/` (the panel workspace), `src/agent/` (Synara), `src/telemetry/` (logs, toasts, updater, error boundary, sounds), `src/platform/` (polyfills, perf probe and perf-lab harness, test setup, repo-level guard tests).
-- `src/components/ui/` — the one UI-primitive home: shadcn-style controls plus the app-level shared presentation (`motion.tsx`, `resizable-drawer.tsx`, `avatar-group.tsx`, `confirm-action-dialog.tsx`, `search-picker-dialog.tsx`, `collab-colors.ts`).
-- `src/overleaf/` — Overleaf sync: the OT engine (`ot.ts`), the realtime/chat/comments/track-changes hooks (`use-overleaf-*`), and their panels and stylesheets.
-- Filenames keep their domain prefix after a move (`overleaf/overleaf-presence.tsx`, not `overleaf/presence.tsx`) so the split stays a reviewable pure-rename diff.
-- `src-tauri/src/` — Rust: project validation/transactions (`project.rs`), LaTeX build (`latex.rs`), Overleaf sync (`overleaf*.rs`), papers/OpenAlex, TexLab, FTS, the Synara supervisor (`synara.rs`).
-- `literature-worker/` — Cloudflare Worker for the public literature proxy; own package.json; see `docs/public-literature-service.md`.
-- `src-tauri/synara-runtime/` — staged agent runtime (gitignored); produced by `scripts/prepare-synara-sidecar.mjs` from the pinned source in `scripts/synara-runtime.json`.
-
-## Bundle-size and startup constraints (deliberate, please preserve)
-
-- **Never value-import `tldraw` from eagerly-loaded modules.** Its barrel has no
-  `sideEffects` flag; one import drags ~1.5 MB + prosemirror into the startup
-  chunk. The agent-canvas tldraw adapter lives in
-  `src/agent/agent-canvas-tldraw-adapter.ts` behind the lazy board editor.
-- `vite.config.ts` has `shikiTrimPlugin`: all shiki grammars/themes outside a
-  runtime-reachable allowlist are stubbed. If new code can highlight more
-  languages at runtime, extend the allowlist there.
-- The eager startup graph is two application-owned chunks (`app`, `ui`) plus Vite 8's tiny `rolldown-runtime` preload, with a 1.35 MiB JavaScript budget enforced by `pnpm build`. `scripts/app-size-report.mjs` allowlists those names; the production build has a single html entry, so any third eager chunk means something changed the module grouping.
-  Heavy libs (pdfjs, mermaid, katex, codemirror langs, tiptap) must stay behind dynamic imports.
-- `src-tauri/Cargo.toml` has a size-tuned `[profile.release]`; `panic = "abort"`
-  is intentionally off (a panic must not kill the app with unsaved edits).
-- `scripts/prepare-synara-sidecar.mjs` prunes unused artifacts but preserves installed production packages because upstream's externalized imports change between releases.
+- Never value-import `tldraw` from eagerly-loaded modules: its barrel has no `sideEffects` flag and drags ~1.5 MB into the startup chunk (`docs/architecture.md` §4.2).
+- `vite.config.ts`'s `shikiTrimPlugin` stubs every shiki grammar/theme outside an allowlist; code that can highlight a new language at runtime must extend it.
+- `panic = "abort"` is intentionally off in `src-tauri/Cargo.toml`'s release profile: a panic must not kill the app with unsaved edits.
+- `scripts/prepare-synara-sidecar.mjs` keeps installed production packages because upstream's externalized imports change between releases.
   Keep top-level `ajv`, `ajv-formats`, and the runtime JavaScript in `zod` (undeclared runtime requires of the agent SDKs), and verify both the dependency smoke and server entry after pruning.
   The Claude SDK platform executable must remain a small PATH launcher: sessions use the user's CLI.
-
-## Design-system contract (enforced by tests)
-
-`src/styles/tokens.test.ts` fails the build when:
-- spacing uses a raw px value that is on the scale — use `var(--space-*)` from `foundations.css`;
-- palette tokens (`--bg`, `--text`, …) are referenced outside theme/foundations;
-- a referenced custom property resolves nowhere.
-
-`docs/design-system.md` records the typography/density decisions.
-
-## Testing notes
-
-- Vitest + jsdom.
-- The App integration suites (`src/app/app-*.test.tsx`) render the real App
-  with mocked `invoke`. They share `src/app/app-test-utils.tsx` (the module
-  mocks, per-test setup and helpers), which each suite must import first so
-  its `vi.mock` calls land before any mocked module loads. Startup ordering
-  matters (the backend's `initial_project` must beat the recent-project
-  auto-reopen — see `initialProjectProbe` in `app/use-project-lifecycle.ts`).
-- CI runners are slow: avoid tests that depend on nothing re-rendering between
-  two events; async highlight/render passes can land in between.
+- The App integration suites (`src/app/app-*.test.tsx`) must import `src/app/app-test-utils.tsx` first so its `vi.mock` calls land before any mocked module loads; startup ordering is in `docs/architecture.md` §6.
+- Lint's `--max-warnings` cap in `package.json` is a debt ratchet: lower it when you remove warnings; never raise it.
 
 ## Conventions
 
@@ -105,5 +57,3 @@ Lint enforces a `--max-warnings` debt cap, owned by the `lint` script in
   unlisten race) and generation guards on async loads.
 - Before publishing a Synara pin change, follow `docs/synara-runtime.md` and run `node scripts/check-synara-upgrade.mjs <previous-lattice-ref>` with the pre-upgrade Lattice ref.
   Preserve intended dirty/untracked fixes from the previous source checkout in the fork, and run the Lattice embed browser regressions; a clean upstream merge or successful build does not prove those behaviors survived.
-- Version is bumped in lockstep across package.json / tauri.conf.json /
-  Cargo.toml / Cargo.lock by `scripts/bump-version.mjs` only.

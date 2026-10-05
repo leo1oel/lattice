@@ -14,10 +14,10 @@ Read in this order if you are new:
 4. **[`codebase-map.md`](codebase-map.md)** — "if you want to change X, start at Y"; how `src/` is split into domain directories and what stays at its root; the ~13 files that matter; the known rough edges.
 5. Then whichever subsystem doc below matches what you are touching.
 
-`../CLAUDE.md` is a condensed version of the same constraints written for AI
-coding agents. It is terser than these documents and, in places, less complete.
-Where it disagrees with `architecture.md`, the longer document usually has the
-fuller story — but do not treat a `path:line` citation as a tiebreaker on its
+`../CLAUDE.md` is the always-loaded steering for AI coding agents: a few
+non-obvious gotchas plus pointers into these documents, starting with
+[`agent-validation.md`](agent-validation.md). Where it disagrees with
+`architecture.md`, the longer document usually has the fuller story — but do not treat a `path:line` citation as a tiebreaker on its
 own. Line numbers in `architecture.md` and `codebase-map.md` are spot-checked
 pointers, not guarantees, and they drift with every commit; the durable anchors
 are file names, function names and constant names. When it matters, grep.
@@ -33,6 +33,7 @@ are file names, function names and constant names. When it matters, grep.
 | [`project-history-architecture.md`](project-history-architecture.md) | ADR 0001: why Project History is a merged semantic timeline over two stores (Lattice transactions in `.research/history` + agent turn checkpoints) rather than a third recovery format. | Accepted, and matches the code (history schema v2, forward-only restores linked by `undoOf`). |
 | [`markdown-structured-crdt-evaluation.md`](markdown-structured-crdt-evaluation.md) | ADR 0002: evaluation of a native structured-Markdown CRDT (`Y.XmlFragment`) as a replacement for canonical `Y.Text("content")`. Decision: **NO-GO**. | Historical. The prototype it evaluated (`src/editor/markdown/markdown-structured-crdt-prototype.ts`) was imported by nothing except its own test and has been deleted; the `Y.Text` model it compared against was removed with Lattice Shares. |
 | [`performance.md`](performance.md) | How to measure (the `pnpm perf:bench` interaction benchmark CI gates on, the `lattice-perf` dev-app probe, the real-window lab), the React Compiler status and open directions, then every dated performance investigation under History. | Current. Its History numbers are dated measurements; re-measure before quoting. |
+| [`agent-validation.md`](agent-validation.md) | For coding agents: proving a change, reading a failed check, the checkpoint/resume recipe, reading report evidence, and the review trigger. | Current |
 | [`driving-the-app.md`](driving-the-app.md) | Seeing the app run: the mock-backend page for UI work and screenshots, the browser-hosted real app, and the real-window measurement lab (`scripts/perf-lab.mjs`), with the `latticetest` isolation rules. | Current |
 | [`logging.md`](logging.md) | Where `lattice.log` lives, the one-line-per-operation wide events and their fields, reading them for a bug report, `LATTICE_LOG` for more detail, adding an event. | Current |
 | [`overleaf-protocol.md`](overleaf-protocol.md) | The Overleaf bridge: provenance ledger with pinned upstream commits, the license boundary, why the transport is Socket.IO **0.9**, the protocol and data invariants, the opt-in cloud tests, and what a wire-level change has to come with. | Current. Read it before touching `src/overleaf/` or `src-tauri/src/overleaf*.rs`. |
@@ -60,6 +61,7 @@ than the plan was (the plan described SDK 4.x; the repo pins `tldraw@5.2.5`).
 
 | Path | Contents |
 | --- | --- |
+| [`../CODING_STANDARDS.md`](../CODING_STANDARDS.md) | Reviewer judgement no check enforces: transition ownership and performance-evidence comparability. |
 | [`../THIRD_PARTY_NOTICES.md`](../THIRD_PARTY_NOTICES.md) | Attribution and license notes for vendored and bundled third-party code. |
 | [`../LICENSE`](../LICENSE), [`../NOTICE`](../NOTICE) | Apache-2.0, with the tldraw SDK carved out under its own license. |
 | [`../literature-worker/README.md`](../literature-worker/README.md) | Checking the public literature proxy Worker; its operation is in [`public-literature-service.md`](public-literature-service.md). |

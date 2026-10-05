@@ -25,4 +25,7 @@ Three ways to see Lattice run, cheapest first. Pick the first one that can show 
   The script's header lists every command and flag. The `hugePdf` and `imagePdf` scenarios need `huge.pdf` and `images.pdf` in the fixture, which no script generates; the WebKit-vs-Chromium lab's copies are in `/Users/Shared/lattice-tests/webkit-vs-chromium/genfiles/`.
 
 Everything that runs a Lattice binary runs it as the `latticetest` account, never as yourself. `perf-lab.mjs` enforces the rules that keep a lab away from the real app: an `app.latticetest.<task>` bundle identifier (so its data, caches and keychain item are its own), a per-task port that is never 18452 (the shipped app's browser port, often live), files under `/Users/Shared/lattice-tests/<task>/`, and one lab app at a time.
-Hold the shared in-app lock for the whole session, for example `lockf -t 3600 /tmp/lattice-inapp-test.lock <your driver>`.
+Before a real-host pass, request a slot from firstmate and probe availability with `lockf -t 1 /tmp/lattice-inapp-test.lock /usr/bin/true`.
+If occupied, record the wait and continue independent source/mock-backend work.
+Once the slot is assigned, acquire the lock for a finite driver with a bounded acquisition timeout (for example `lockf -t 300 /tmp/lattice-inapp-test.lock <your driver>`), retain it through the driver, and release it when driving ends.
+A failed acquisition supplies no product evidence; firstmate schedules the next attempt.

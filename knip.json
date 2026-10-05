@@ -38,7 +38,7 @@
     "src-tauri/templates/**"
   ],
   // `pnpm check` shells out to mise, which is a system tool installed outside
-  // the package manager (see CLAUDE.md), not a missing dependency. `typecheck`
+  // the package manager (see CONTRIBUTING.md), not a missing dependency. `typecheck`
   // is knip misreading `pnpm --dir literature-worker typecheck` in ci.yml as a
   // binary; it is a package script in that workspace.
   "ignoreBinaries": ["mise", "typecheck"],
