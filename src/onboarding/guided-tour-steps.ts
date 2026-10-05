@@ -127,14 +127,25 @@ export const TOUR_STEPS: readonly TourStep[] = [
       if (controller.app.get().activeKey !== TOUR_MANUSCRIPT || !manuscriptPanel(controller)) openFile(TOUR_MANUSCRIPT);
     },
     // The project's opening build may still be running: count only a build
-    // that starts after the stop has seen none in flight.
+    // that starts after the stop has seen none in flight, or the writer's own
+    // request, which a running build queues without ever going idle.
     watch: ({ controller }, done) => {
       let idle = !controller.docTools.get().building;
-      return controller.docTools.subscribe(() => {
+      const offStore = controller.docTools.subscribe(() => {
         const { building } = controller.docTools.get();
         if (building && idle) done();
         idle = !building;
       });
+      const offShortcut = watchShortcut("s", done);
+      const onClick = (event: MouseEvent) => {
+        if (event.target instanceof Element && event.target.closest(".trellis-build-button")) done();
+      };
+      document.addEventListener("click", onClick, true);
+      return () => {
+        offStore();
+        offShortcut();
+        document.removeEventListener("click", onClick, true);
+      };
     },
   },
   {

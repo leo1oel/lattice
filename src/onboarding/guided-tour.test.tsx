@@ -154,6 +154,35 @@ describe("the Write, then build stop", () => {
   });
 });
 
+describe("the Write, then build stop, asked during the opening build", () => {
+  it("counts ⌘S or a Build click while a build is already running", () => {
+    const docTools = { get: () => ({ building: true, lastBuild: null }), subscribe: () => () => {} };
+    const write = TOUR_STEPS.find((step) => step.id === "write")!;
+    const context = { controller: { docTools } } as unknown as TourContext;
+
+    const shortcut = vi.fn();
+    const stopShortcut = write.watch!(context, shortcut);
+    fireEvent.keyDown(window, { key: "s", metaKey: true, shiftKey: true });
+    expect(shortcut).not.toHaveBeenCalled();
+    fireEvent.keyDown(window, { key: "s", metaKey: true });
+    expect(shortcut).toHaveBeenCalled();
+    stopShortcut();
+
+    const button = document.body.appendChild(document.createElement("button"));
+    button.className = "trellis-build-button";
+    const label = button.appendChild(document.createElement("span"));
+    const click = vi.fn();
+    const stopClick = write.watch!(context, click);
+    fireEvent.click(label);
+    expect(click).toHaveBeenCalled();
+    stopClick();
+    click.mockClear();
+    fireEvent.click(label);
+    expect(click).not.toHaveBeenCalled();
+    button.remove();
+  });
+});
+
 describe("the Agent stop", () => {
   it("counts focus the writer sent into the Agent, not the frame focusing itself", () => {
     const host = document.body.appendChild(document.createElement("div"));
