@@ -101,7 +101,7 @@ describe("raw build log", () => {
       <div className="pdf-toolbar"><span className="pdf-page-display">1 / 29</span><span>%</span></div>
       <div className="textLayer"><span>000</span><span>001</span><span>Under review as a conference paper</span></div>
     </>);
-    const uninstall = installPdfTextLayerSelection(view.container.querySelector(".textLayer") as HTMLElement);
+    const uninstall = installPdfTextLayerSelection(view.container.querySelector(".textLayer") as HTMLElement, view.container);
     return { ...view, uninstall: () => { uninstall(); vi.mocked(invoke).mockReset(); } };
   }
 
