@@ -32,14 +32,43 @@ for (const key of ["largeMarkdownBytes", "chapterBytes", "chapters", "longTexByt
   if (Number.isFinite(value) && value > 0) sizes[key] = value;
 }
 const fixture = perfFixture(sizes);
-const files = fixture.files;
+
+/**
+ * The project the page has open: the fixture, until the Guided tutorial entry
+ * opens the bundled sample (src-tauri/templates/tutorial), as the backend's
+ * `open_tutorial_project` does, so the tour can be looked at here.
+ */
+const TUTORIAL_ROOT = "/bench/Lattice Tutorials/Understanding Attention";
+const tutorialText = import.meta.glob<string>(
+  ["../../src-tauri/templates/tutorial/**/*", "!**/*.png", "!**/*.pdf"],
+  { query: "?raw", import: "default", eager: true },
+);
+const tutorialBinary = import.meta.glob<string>(
+  ["../../src-tauri/templates/tutorial/**/*.png", "../../src-tauri/templates/tutorial/**/*.pdf"],
+  { query: "?url", import: "default", eager: true },
+);
+const current = { root: ROOT, id: "lattice-perf-fixture", name: "Lattice perf fixture", files: fixture.files };
+
+async function openTutorial(): Promise<ProjectSnapshot> {
+  if (current.root !== TUTORIAL_ROOT) {
+    const relative = (path: string) => path.slice(path.indexOf("/tutorial/") + "/tutorial/".length);
+    const tutorialFiles = new Map<string, string | Uint8Array>(
+      Object.entries(tutorialText).map(([path, text]) => [relative(path), text]),
+    );
+    for (const [path, url] of Object.entries(tutorialBinary)) {
+      tutorialFiles.set(relative(path), new Uint8Array(await (await fetch(url)).arrayBuffer()));
+    }
+    Object.assign(current, { root: TUTORIAL_ROOT, id: "understanding-attention", name: "Understanding Attention", files: tutorialFiles });
+  }
+  return snapshot();
+}
 
 function kindOf(path: string): string {
   const extension = path.split(".").pop()?.toLowerCase() ?? "";
   if (extension === "tex") return "tex";
   if (extension === "md") return "markdown";
   if (extension === "bib") return "bib";
-  if (extension === "pdf") return "figure";
+  if (extension === "pdf" || extension === "png") return "figure";
   return "text";
 }
 
@@ -57,7 +86,7 @@ function fileTree(): FileNode[] {
     directories.set(path, node);
     return node;
   };
-  for (const [path, content] of files) {
+  for (const [path, content] of current.files) {
     const slash = path.lastIndexOf("/");
     directory(slash < 0 ? "" : path.slice(0, slash)).children.push({
       name: path.slice(slash + 1),
@@ -78,11 +107,11 @@ function fileTree(): FileNode[] {
 
 function snapshot(): ProjectSnapshot {
   return {
-    root: ROOT,
+    root: current.root,
     manifest: {
       schemaVersion: 1,
-      projectId: "lattice-perf-fixture",
-      name: "Lattice perf fixture",
+      projectId: current.id,
+      name: current.name,
       rootDocuments: [{ path: "main.tex", name: "Main", isDefault: true }],
       primaryBibliography: "references.bib",
       trusted: true,
@@ -98,7 +127,7 @@ function copyBuffer(bytes: Uint8Array): ArrayBuffer {
 function pathArg(args: Args): string {
   const path = args?.path;
   if (typeof path !== "string") throw new Error("missing path");
-  return path.startsWith(`${ROOT}/`) ? path.slice(ROOT.length + 1) : path;
+  return path.startsWith(`${current.root}/`) ? path.slice(current.root.length + 1) : path;
 }
 
 /** A library Paper with both a full text and a blog, so its panel carries the Blog / Paper switch. */
@@ -175,7 +204,7 @@ function searchProject(query: string) {
   const terms = query.toLocaleLowerCase().split(/\s+/).filter(Boolean);
   const matches = (text: string) => terms.length > 0 && terms.every((term) => text.toLocaleLowerCase().includes(term));
   const hits: Array<Record<string, unknown>> = [];
-  for (const [path, content] of files) {
+  for (const [path, content] of current.files) {
     if (typeof content !== "string") continue;
     if (matches(path)) hits.push({ kind: "file", path, title: path.slice(path.lastIndexOf("/") + 1), snippet: path, line: 1, fileKind: path.split(".").pop() });
     content.split("\n").forEach((text, index) => {
@@ -201,24 +230,26 @@ function answer(command: string, args: Args): unknown {
     case "refresh_project":
     case "list_project_tree_with_hidden":
       return snapshot();
+    case "open_tutorial_project":
+      return openTutorial();
     case "read_project_file": {
-      const content = files.get(pathArg(args));
+      const content = current.files.get(pathArg(args));
       if (typeof content !== "string") throw new Error(`No such text file: ${pathArg(args)}`);
       return content;
     }
     case "write_project_file": {
       const contents = args?.contents ?? args?.content;
-      if (typeof contents === "string") files.set(pathArg(args), contents);
+      if (typeof contents === "string") current.files.set(pathArg(args), contents);
       return null;
     }
     case "read_project_asset": {
       const path = pathArg(args);
-      const content = files.get(path);
+      const content = current.files.get(path);
       if (!(content instanceof Uint8Array)) throw new Error(`No such asset: ${path}`);
-      return { path, mimeType: "application/pdf", ranges: { length: content.byteLength, version: "bench" } };
+      return { path, mimeType: path.endsWith(".png") ? "image/png" : "application/pdf", ranges: { length: content.byteLength, version: "bench" } };
     }
     case "read_project_asset_range": {
-      const content = files.get(pathArg(args));
+      const content = current.files.get(pathArg(args));
       if (!(content instanceof Uint8Array)) throw new Error(`No such asset: ${pathArg(args)}`);
       return copyBuffer(content.subarray(Number(args?.start), Number(args?.end)));
     }
@@ -227,7 +258,7 @@ function answer(command: string, args: Args): unknown {
     case "read_compiled_pdf":
       return copyBuffer(fixture.compiledPdf);
     case "stat_project_file":
-      return { exists: files.has(pathArg(args)), mtimeMs: 1_700_000_000_000 };
+      return { exists: current.files.has(pathArg(args)), mtimeMs: 1_700_000_000_000 };
     case "search_project":
       return searchProject(String(args?.query ?? ""));
     case "harper_lint":

@@ -44,6 +44,7 @@ import {
 } from "./app/use-native-window";
 import { useRefState, useStableHandlers } from "./app/effect-helpers";
 import { useLatestRef } from "./hooks/use-latest-ref";
+import { useGuidedTour } from "./onboarding/use-guided-tour";
 import { useOverleafWorkspace } from "./app/use-overleaf-workspace";
 import { useAppCommands, type AppCommand } from "./app/use-app-commands";
 import { paletteLeading, paletteSurface } from "./app/command-palette-leading";
@@ -178,6 +179,7 @@ const DocumentCanvas = lazy(() =>
 // The workspace (and the Trellis library) load after the eager startup chunks.
 const TrellisWorkspace = lazy(() => import("./trellis/trellis-workspace"));
 const TrellisAgentSurface = lazy(() => import("./trellis/trellis-agent-surface"));
+const GuidedTour = lazy(() => import("./onboarding/guided-tour"));
 const SINGLETON_PANELS = ["project", "papers", "agent", "pdf", "history", "comments", "literature", "todos", "checklist", "git", "overleaf"] as const;
 
 /** Shared empty word list: `?? []` in JSX rebuilds the editor's lint pass. */
@@ -599,6 +601,8 @@ function App() {
     agentOptionsRef: agentCommentsOptionsRef,
   });
   const { reset: resetEditorComments, load: loadEditorComments } = editorComments;
+  const unresolvedComments = editorComments.all.filter((comment) => !comment.resolved).length;
+  const unresolvedCommentsRef = useLatestRef(unresolvedComments);
 
   const openCompileDiagnostic = useCallback(async (diagnostic: CompileDiagnostic) => {
     if (!project) return;
@@ -648,6 +652,7 @@ function App() {
     },
   });
 
+  const { tour: guidedTour, start: startGuidedTour, end: endGuidedTour, finish: finishGuidedTour } = useGuidedTour();
   const {
     busyLabel, recentProjects, projectMenuOpen, setProjectMenuOpen, createForm, updateCreateForm,
     startProjectTransition, revealNewProject, chooseExisting, createProject, chooseRecentProject,
@@ -660,6 +665,7 @@ function App() {
       flushWholeFilesRef: flushWholeFilesBeforeProjectTransitionRef,
     },
     resetProjectUi: () => {
+      endGuidedTour();
       resetAgentSelection();
       resetEditorComments();
       tools.resetForProject();
@@ -674,6 +680,7 @@ function App() {
       setPdfPageCount(null);
       tools.close("checklist");
     },
+    startTour: startGuidedTour,
     shellRef, browserHosted,
   });
 
@@ -1604,11 +1611,9 @@ function App() {
           activePath={activePaper ? activePaper.title : documents.activeTab}
           activeKind={activeAsset ? "asset" : activePaper ? "paper" : "document"}
           dirty={documents.dirty}
-          // The tour points these controls out rather than opening them, so
-          // their panels stay shut while it runs.
           onHistory={() => tools.open("history")}
           onGit={() => tools.open("git")}
-          commentCount={editorComments.all.filter((comment) => !comment.resolved).length}
+          commentCount={unresolvedComments}
           onComments={() => tools.open("comments")}
           inBrowserTab={browserHosted}
           onMoveWorkspace={() => void moveWorkspace()}
@@ -1729,6 +1734,18 @@ function App() {
         <Suspense fallback={null}>
           {documentCanvas}
         </Suspense>
+        {guidedTour && (
+          <Suspense fallback={null}>
+            <GuidedTour
+              key={guidedTour.run}
+              replay={guidedTour.replay}
+              controller={trellis}
+              openFile={(path) => void openFile(path)}
+              commentCount={() => unresolvedCommentsRef.current}
+              onClose={finishGuidedTour}
+            />
+          </Suspense>
+        )}
       </main>
 
 

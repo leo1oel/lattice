@@ -84,7 +84,7 @@ const CanvasToolbarView = memo(function CanvasToolbarView(props: CanvasToolbarPr
         {props.activeKind === "document" && (
           <>
             {!props.overleafLinked && shows("comments") && (
-              <ToolbarButton label={t`Editor comments`} className={props.commentCount ? "active" : ""} onClick={props.onComments}>
+              <ToolbarButton label={t`Editor comments`} className={props.commentCount ? "active" : ""} data-tour="comments" onClick={props.onComments}>
                 <AnimatedProductIcon kind="chat" size={14} converted />
                 {props.commentCount > 0 ? <em className="collab-peer-badge">{props.commentCount}</em> : null}
               </ToolbarButton>

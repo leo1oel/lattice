@@ -30,9 +30,12 @@
     }
   },
   // literature-worker/ is a separate workspace with its own package.json and is
-  // not in `project`, so knip cannot see it.
+  // not in `project`, so knip cannot see it. src-tauri/templates/ holds sample
+  // project content; the perf-bench page reads it as raw text, and its slide
+  // decks are compiled by tools/open-slide-runtime, which declares their imports.
   "ignore": [
-    "literature-worker/**"
+    "literature-worker/**",
+    "src-tauri/templates/**"
   ],
   // `pnpm check` shells out to mise, which is a system tool installed outside
   // the package manager (see CLAUDE.md), not a missing dependency. `typecheck`

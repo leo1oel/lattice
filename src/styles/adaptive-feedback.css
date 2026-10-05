@@ -43,6 +43,8 @@
   html .trellis-build-status[data-fresh] .trellis-build-stroke + .trellis-build-stroke { animation-delay: 0s; }
   /* A jump's mark stays put for its moment instead of fading. */
   html .source-editor .cm-editor .cm-line.cm-reveal-flash, html .lx-md-editor .lx-reveal-flash { animation: none; background-color: var(--highlight-match-surface); }
+  /* The tour's card arrives and its action mark checks itself without a flourish. */
+  html .guided-tour-card, html .guided-tour-content, html .guided-tour-action[data-done] .guided-tour-action-mark { animation: none; }
 }
 
 .app-toast-stack { position: fixed; z-index: var(--z-toast); top: 52px; right: 16px; width: 320px; max-width: calc(100vw - 32px); display: flex; flex-direction: column; gap: var(--space-4); pointer-events: none; }

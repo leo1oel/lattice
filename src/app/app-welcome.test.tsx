@@ -45,6 +45,28 @@ describe("welcome screen", () => {
     expect(open).not.toHaveBeenCalled();
   });
 
+  it("walks the opened sample with a guided tour, which Escape ends and the entry replays", async () => {
+    const tutorial = projectSnapshot({ root: "/tmp/Lattice Tutorials/Understanding Attention", name: "Understanding Attention" });
+    renderApp({ ...projectCommands(), open_tutorial_project: tutorial });
+    await chooseProjectMenuItem("Guided tutorial");
+    const welcome = await screen.findByRole("dialog", { name: "Welcome to Lattice" });
+    await waitFor(() => expect(welcome).toHaveFocus());
+
+    fireEvent.click(within(welcome).getByRole("button", { name: /start tour/i }));
+    expect(await screen.findByRole("dialog", { name: "Your project" })).toBeInTheDocument();
+    // Entering the sample again starts over from the welcome.
+    await chooseProjectMenuItem("Guided tutorial");
+    expect(await screen.findByRole("dialog", { name: "Welcome to Lattice" })).toBeInTheDocument();
+
+    fireEvent.keyDown(document.activeElement ?? window, { key: "Escape" });
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Welcome to Lattice" })).not.toBeInTheDocument());
+    expect(localStorage.getItem("lattice.guided-tour.v1")).toBe("skipped");
+
+    localStorage.setItem("lattice.guided-tour.v1", "completed");
+    await chooseProjectMenuItem("Guided tutorial");
+    expect(await screen.findByRole("dialog", { name: "Welcome back" })).toBeInTheDocument();
+  });
+
   it("opens the project creation dialog", () => {
     renderApp();
     fireEvent.click(screen.getByRole("button", { name: /new project/i }));

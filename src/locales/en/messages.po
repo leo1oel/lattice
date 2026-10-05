@@ -269,6 +269,10 @@ msgstr "{gap} pages remaining"
 msgid "{hours}h ago"
 msgstr "{hours}h ago"
 
+#: src/onboarding/guided-tour.tsx
+msgid "{index} of {stops}"
+msgstr "{index} of {stops}"
+
 #: src/build/tex-setup-wizard.tsx
 msgid "{installedProduct} finished installing, but Lattice could not run the final verification."
 msgstr "{installedProduct} finished installing, but Lattice could not run the final verification."
@@ -477,6 +481,10 @@ msgstr "10.1038/… or arXiv:1706.03762 or paper title"
 msgid "A local edit has not settled on Overleaf yet, so this document cannot be reloaded safely."
 msgstr "A local edit has not settled on Overleaf yet, so this document cannot be reloaded safely."
 
+#: src/onboarding/guided-tour-steps.ts
+msgid "A one-minute tour of this sample paper. Seven stops, each with something to try."
+msgstr "A one-minute tour of this sample paper. Seven stops, each with something to try."
+
 #: src/editor/latex/latex-vocabulary.ts
 msgid "a over b"
 msgstr "a over b"
@@ -615,6 +623,10 @@ msgstr "Add exactly one bibliography entry at a time."
 #: src/project/paper-library.tsx
 msgid "Add paper"
 msgstr "Add paper"
+
+#: src/onboarding/guided-tour-steps.ts
+msgid "Add papers by arXiv ID, DOI or title, then read them beside your draft."
+msgstr "Add papers by arXiv ID, DOI or title, then read them beside your draft."
 
 #: src/settings/settings-dialog.tsx
 msgid "Add project term"
@@ -887,6 +899,14 @@ msgstr "Ask before external edits and network access"
 msgid "Ask for approval"
 msgstr "Ask for approval"
 
+#: src/onboarding/guided-tour-steps.ts
+msgid "Ask it anything"
+msgstr "Ask it anything"
+
+#: src/onboarding/guided-tour-steps.ts
+msgid "Ask it to explain, revise or check the paper. It works inside your project."
+msgstr "Ask it to explain, revise or check the paper. It works inside your project."
+
 #: src/agent/synara-permission-picker.tsx
 msgid "Ask only for potentially unsafe actions"
 msgstr "Ask only for potentially unsafe actions"
@@ -957,6 +977,10 @@ msgstr "Auxiliary files"
 #: src/components/ui/apple-color-picker.tsx
 msgid "Azure"
 msgstr "Azure"
+
+#: src/onboarding/guided-tour.tsx
+msgid "Back"
+msgstr "Back"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Back prime"
@@ -1845,6 +1869,7 @@ msgstr "Comment visibility"
 
 #: src/app/use-editor-comments.ts
 #: src/canvas/editor-status-bar.tsx
+#: src/onboarding/guided-tour-steps.ts
 #: src/overleaf/overleaf-collab.tsx
 #: src/settings/settings-search-index.ts
 #: src/trellis/trellis-titles.ts
@@ -2567,6 +2592,7 @@ msgid "DOI metadata corrections are available."
 msgstr "DOI metadata corrections are available."
 
 #: src/editor/markdown/engine/chrome/link-chrome.tsx
+#: src/onboarding/guided-tour.tsx
 msgid "Done"
 msgstr "Done"
 
@@ -2585,6 +2611,14 @@ msgstr "Double dagger"
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Double dagger text symbol"
 msgstr "Double dagger text symbol"
+
+#: src/onboarding/guided-tour-steps.ts
+msgid "Double-click a paragraph"
+msgstr "Double-click a paragraph"
+
+#: src/onboarding/guided-tour-steps.ts
+msgid "Double-click the PDF to land on its source line. ⌘⇧J jumps back."
+msgstr "Double-click the PDF to land on its source line. ⌘⇧J jumps back."
 
 #: src/trellis/trellis-labels.ts
 msgid "Double-click to zoom in"
@@ -2757,6 +2791,10 @@ msgstr "Edit message"
 msgid "Edit message text"
 msgstr "Edit message text"
 
+#: src/onboarding/guided-tour-steps.ts
+msgid "Edit the LaTeX here. Build typesets it beside you in seconds."
+msgstr "Edit the LaTeX here. Build typesets it beside you in seconds."
+
 #: src/overleaf/overleaf-comments.tsx
 msgid "Edit this message"
 msgstr "Edit this message"
@@ -2871,6 +2909,10 @@ msgstr "Enable version tracking"
 msgid "End an environment"
 msgstr "End an environment"
 
+#: src/onboarding/guided-tour.tsx
+msgid "End tour"
+msgstr "End tour"
+
 #: src/settings/settings-dialog.tsx
 #: src/settings/settings-search-index.ts
 msgid "English"
@@ -2967,6 +3009,10 @@ msgstr "Estimator / unit vector mark"
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Eta"
 msgstr "Eta"
+
+#: src/onboarding/guided-tour-steps.ts
+msgid "Every file of the paper lives here: LaTeX, notes, figures, slides."
+msgstr "Every file of the paper lives here: LaTeX, notes, figures, slides."
 
 #: src/trellis/trellis-workspace.tsx
 msgid "Every panel is closed"
@@ -3163,6 +3209,10 @@ msgstr "Find in project"
 #: src/project/project-replace-dialog.tsx
 msgid "Find text to replace"
 msgstr "Find text to replace"
+
+#: src/onboarding/guided-tour.tsx
+msgid "Finish"
+msgstr "Finish"
 
 #: src/app/use-project-lifecycle.ts
 msgid "Finish the current text composition, then switch projects again."
@@ -4228,9 +4278,17 @@ msgstr "Layout"
 msgid "Layout reset"
 msgstr "Layout reset"
 
+#: src/onboarding/guided-tour-steps.ts
+msgid "Layouts for each task"
+msgstr "Layouts for each task"
+
 #: src/App.tsx
 msgid "Learn Lattice with the Understanding Attention sample project"
 msgstr "Learn Lattice with the Understanding Attention sample project"
+
+#: src/onboarding/guided-tour-steps.ts
+msgid "Leave a comment"
+msgstr "Leave a comment"
 
 #: src/canvas/comment-composer.tsx
 msgid "Leave a comment for collaborators…"
@@ -4999,6 +5057,10 @@ msgstr "New…"
 msgid "next"
 msgstr "next"
 
+#: src/onboarding/guided-tour.tsx
+msgid "Next"
+msgstr "Next"
+
 #: src/editor/latex/search-panel.ts
 #: src/editor/markdown/engine/chrome/find-replace.tsx
 msgid "Next match"
@@ -5286,6 +5348,10 @@ msgstr "Not enabled · personal API key required"
 msgid "Not equal"
 msgstr "Not equal"
 
+#: src/onboarding/guided-tour.tsx
+msgid "Not now"
+msgstr "Not now"
+
 #: src/overleaf/overleaf-connect.tsx
 msgid "Not synced yet"
 msgstr "Not synced yet"
@@ -5476,6 +5542,10 @@ msgstr "Open log folder"
 #: src/agent/synara-loading-surface.tsx
 msgid "Open logs"
 msgstr "Open logs"
+
+#: src/onboarding/guided-tour-steps.ts
+msgid "Open notes.md"
+msgstr "Open notes.md"
 
 #: src/papers/bibliography-audit.tsx
 msgid "Open notice"
@@ -5828,6 +5898,7 @@ msgid "Paper switch"
 msgstr "Paper switch"
 
 #: src/canvas/use-paper-pdf.ts
+#: src/onboarding/guided-tour-steps.ts
 #: src/project/paper-library.tsx
 #: src/project/project-find-dialog.tsx
 #: src/trellis/trellis-titles.ts
@@ -6098,6 +6169,14 @@ msgstr "Presets"
 #: src/project/paper-library.tsx
 msgid "Press + to import it"
 msgstr "Press + to import it"
+
+#: src/onboarding/guided-tour-steps.ts
+msgid "Press ⌘⇧K in the editor to cite one"
+msgstr "Press ⌘⇧K in the editor to cite one"
+
+#: src/onboarding/guided-tour-steps.ts
+msgid "Press ⌘S or click Build"
+msgstr "Press ⌘S or click Build"
 
 #: src/editor/markdown/engine/lattice-visual-editor.tsx
 #: src/project/project-replace-dialog.tsx
@@ -7364,6 +7443,10 @@ msgstr "Select numbered list"
 msgid "Select task list"
 msgstr "Select task list"
 
+#: src/onboarding/guided-tour-steps.ts
+msgid "Select text in the editor and choose Comment. Every note gathers here."
+msgstr "Select text in the editor and choose Comment. Every note gathers here."
+
 #: src/papers/bib-entry-dialog.tsx
 msgid "Select this record"
 msgstr "Select this record"
@@ -7634,6 +7717,10 @@ msgstr "sound"
 msgid "Source"
 msgstr "Source"
 
+#: src/onboarding/guided-tour-steps.ts
+msgid "Source and PDF, linked"
+msgstr "Source and PDF, linked"
+
 #: src/trellis/trellis-workspace-switch.tsx
 msgid "Source beside the compiled PDF"
 msgstr "Source beside the compiled PDF"
@@ -7770,6 +7857,10 @@ msgstr "Start an environment"
 msgid "Start the appendices"
 msgstr "Start the appendices"
 
+#: src/onboarding/guided-tour.tsx
+msgid "Start tour"
+msgstr "Start tour"
+
 #: src/history/versions-timeline.tsx
 msgid "Start tracking versions"
 msgstr "Start tracking versions"
@@ -7905,6 +7996,10 @@ msgstr "Switch project"
 #: src/App.tsx
 msgid "Switch to {name}"
 msgstr "Switch to {name}"
+
+#: src/onboarding/guided-tour-steps.ts
+msgid "Switch to Reading"
+msgstr "Switch to Reading"
 
 #: src/app/use-project-lifecycle.ts
 msgid "Switching project…"
@@ -8065,6 +8160,10 @@ msgstr "The \\begin and \\end under the cursor"
 msgid "the acknowledgement did not arrive in time"
 msgstr "the acknowledgement did not arrive in time"
 
+#: src/onboarding/guided-tour-steps.ts
+msgid "The Agent"
+msgstr "The Agent"
+
 #: src/build/compile-repair-messages.ts
 msgid "The agent service is unavailable."
 msgstr "The agent service is unavailable."
@@ -8216,6 +8315,10 @@ msgstr "The required tools"
 #: src/papers/bibliography-audit.tsx
 msgid "The results did not identify a unique matching publication."
 msgstr "The results did not identify a unique matching publication."
+
+#: src/onboarding/guided-tour-steps.ts
+msgid "The same seven stops, for a refresher."
+msgstr "The same seven stops, for a refresher."
 
 #: src/canvas/document-canvas.tsx
 #: src/editor/markdown/engine/chrome/review-chrome.tsx
@@ -8466,6 +8569,10 @@ msgstr "Top table rule"
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Top-level section heading"
 msgstr "Top-level section heading"
+
+#: src/onboarding/guided-tour.tsx
+msgid "Tour progress"
+msgstr "Tour progress"
 
 #: src/overleaf/overleaf-connect.tsx
 msgid "Trashed"
@@ -8952,6 +9059,14 @@ msgstr "Warning"
 msgid "Weierstrass p"
 msgstr "Weierstrass p"
 
+#: src/onboarding/guided-tour-steps.ts
+msgid "Welcome back"
+msgstr "Welcome back"
+
+#: src/onboarding/guided-tour-steps.ts
+msgid "Welcome to Lattice"
+msgstr "Welcome to Lattice"
+
 #: src/settings/settings-dialog.tsx
 #: src/settings/settings-search-index.ts
 msgid "When a build or Overleaf setup finishes"
@@ -9036,6 +9151,10 @@ msgstr "Workspace: {currentName}"
 msgid "Workspaces"
 msgstr "Workspaces"
 
+#: src/onboarding/guided-tour-steps.ts
+msgid "Workspaces keep your panel arrangements. Writing and Reading are ready-made."
+msgstr "Workspaces keep your panel arrangements. Writing and Reading are ready-made."
+
 #: src/project/project-dialogs.tsx
 msgid "Wrap in environment"
 msgstr "Wrap in environment"
@@ -9051,6 +9170,10 @@ msgstr "Wraps the selection in \\begin…\\end"
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Wreath product"
 msgstr "Wreath product"
+
+#: src/onboarding/guided-tour-steps.ts
+msgid "Write, then build"
+msgstr "Write, then build"
 
 #: src/trellis/trellis-titlebar.tsx
 #: src/trellis/trellis-workspace-switch.tsx
@@ -9116,6 +9239,10 @@ msgstr "your Overleaf account"
 #: src/overleaf/overleaf-connect.tsx
 msgid "Your Overleaf session expired. Sign in again"
 msgstr "Your Overleaf session expired. Sign in again"
+
+#: src/onboarding/guided-tour-steps.ts
+msgid "Your project"
+msgstr "Your project"
 
 #: src/telemetry/root-error-boundary.tsx
 msgid "Your project files are safe"

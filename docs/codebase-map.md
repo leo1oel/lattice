@@ -15,7 +15,7 @@ its description implies.
 
 | Directory | Tracked files | What it is |
 | --- | --- | --- |
-| `src/` | 605 | The React 19 / TypeScript frontend. Split by domain: 11 files at the root, the rest under `app/`, `agent/`, `build/`, `canvas/`, `components/`, `editor/{,latex,markdown,spreadsheet,board,insert,comments,presentation}/`, `history/`, `hooks/`, `overleaf/`, `papers/`, `pdf/`, `platform/`, `project/`, `settings/`, `styles/`, `telemetry/`, `trellis/`, and `locales/`. See §3. |
+| `src/` | 605 | The React 19 / TypeScript frontend. Split by domain: 11 files at the root, the rest under `app/`, `agent/`, `build/`, `canvas/`, `components/`, `editor/{,latex,markdown,spreadsheet,board,insert,comments,presentation}/`, `history/`, `hooks/`, `onboarding/`, `overleaf/`, `papers/`, `pdf/`, `platform/`, `project/`, `settings/`, `styles/`, `telemetry/`, `trellis/`, and `locales/`. See §3. |
 | `src-tauri/` | 185 | The Rust host: the `.rs` sources under `src-tauri/src/` — large areas are a short `x.rs` map beside an `x/` directory of parts, command handlers are in `ipc/` — plus `tauri.conf.json`, capabilities, icons, and LaTeX project templates. |
 | `literature-worker/` | 8 | The public literature proxy Worker (`lattice-literature`, OpenAlex and Crossref). Own `package.json` and vitest config; see [`public-literature-service.md`](public-literature-service.md). |
 | `scripts/` | 42 | Build and maintenance tooling: version bump, size budget, i18n coverage, runtime staging and signing (Synara, Open Slide), third-party notices, perf fixtures, dev bootstrap (`setup-dev.sh`), Overleaf live verification. Shared helpers are in `scripts/lib/` (`util.mjs`, `codesign.mjs`). |
@@ -121,6 +121,7 @@ Counts are tracked files directly in the directory (not nested), and lines are
 | `src/editor/board/` | 3 | 1 | 387 | The tldraw whiteboard and its standalone store. Loaded only via `loadBoardEditorModule()`. |
 | `src/editor/presentation/` | 6 | 3 | 931 | The embedded Open Slide workspace and its loopback bridge. |
 | `src/trellis/` | 23 | 9 | 6,203 | The panel workspace (Trellis): the controller App drives, the workspace and its panel types, the title-bar panel controls, the panel header actions, per-project layout persistence with the named workspaces and the Writing and Reading presets, Trellis's translated labels, and its stylesheet. |
+| `src/onboarding/` | 6 | 1 | 878 | The guided tour of the Trellis workspace that the Guided tutorial entry starts once the sample project is open: its stops and what each waits for the writer to do (`guided-tour-steps.ts`), card placement, the lazily loaded tour surface and its stylesheet, and the `useGuidedTour` state App holds. |
 | `src/components/` | 2 | 0 | 106 | `copy-button.tsx`, `icon-tip.tsx` (outside `ui/`). |
 | `src/hooks/` | 2 | 0 | 44 | Domain-free hooks: `use-latest-ref.ts`, `use-non-passive-wheel.ts`. |
 | `src/lib/` | 1 | 0 | — | `utils.ts` (the shadcn `cn` helper). |

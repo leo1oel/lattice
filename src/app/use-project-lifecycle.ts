@@ -77,6 +77,8 @@ export type ProjectLifecycleDeps = {
   resetProjectUi: () => void;
   /** The project's own scans, which run after its tabs are restored and before its Paper or asset surface opens. */
   scanProject: () => Promise<void>;
+  /** Begin the guided tour, once the tutorial's sample project is open. */
+  startTour: () => void;
   shellRef: RefObject<HTMLDivElement | null>;
   browserHosted: boolean;
 };
@@ -319,13 +321,14 @@ export function useProjectLifecycle(deps: ProjectLifecycleDeps) {
       await enterProject(snapshot);
       chooseMode("source");
       markTutorialSeen();
+      depsRef.current.startTour();
       return true;
     })().catch((reason: unknown) => {
       cancelProjectTransition();
       setError(toMessage(reason));
       return failed();
     }).finally(() => setBusyLabel(null));
-  }, [cancelProjectTransition, chooseMode, enterProject, save, startProjectTransition, t]);
+  }, [cancelProjectTransition, chooseMode, depsRef, enterProject, save, startProjectTransition, t]);
 
   // On launch, honor a project explicitly assigned to this window, otherwise
   // reopen the project the writer used last. A genuinely empty first launch

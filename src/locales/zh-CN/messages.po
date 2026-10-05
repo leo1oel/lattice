@@ -269,6 +269,10 @@ msgstr "还剩 {gap} 页"
 msgid "{hours}h ago"
 msgstr "{hours} 小时前"
 
+#: src/onboarding/guided-tour.tsx
+msgid "{index} of {stops}"
+msgstr "第 {index} 站，共 {stops} 站"
+
 #: src/build/tex-setup-wizard.tsx
 msgid "{installedProduct} finished installing, but Lattice could not run the final verification."
 msgstr "{installedProduct} 安装完成，但 Lattice 无法运行最终验证。"
@@ -477,6 +481,10 @@ msgstr "10.1038/…、arXiv:1706.03762 或论文标题"
 msgid "A local edit has not settled on Overleaf yet, so this document cannot be reloaded safely."
 msgstr "有一处本地编辑尚未在 Overleaf 上生效，因此无法安全地重新载入此文档。"
 
+#: src/onboarding/guided-tour-steps.ts
+msgid "A one-minute tour of this sample paper. Seven stops, each with something to try."
+msgstr "用一分钟走一遍这篇示例论文。共七站，每站都有一件事可以试试。"
+
 #: src/editor/latex/latex-vocabulary.ts
 msgid "a over b"
 msgstr "分子 a，分母 b"
@@ -615,6 +623,10 @@ msgstr "每次只能添加一条参考文献。"
 #: src/project/paper-library.tsx
 msgid "Add paper"
 msgstr "添加论文"
+
+#: src/onboarding/guided-tour-steps.ts
+msgid "Add papers by arXiv ID, DOI or title, then read them beside your draft."
+msgstr "用 arXiv ID、DOI 或标题添加论文，在草稿旁边阅读。"
 
 #: src/settings/settings-dialog.tsx
 msgid "Add project term"
@@ -887,6 +899,14 @@ msgstr "在外部修改和网络访问前请求批准"
 msgid "Ask for approval"
 msgstr "请求批准"
 
+#: src/onboarding/guided-tour-steps.ts
+msgid "Ask it anything"
+msgstr "随便问它点什么"
+
+#: src/onboarding/guided-tour-steps.ts
+msgid "Ask it to explain, revise or check the paper. It works inside your project."
+msgstr "让它解释、修改或检查论文。它直接在你的项目里工作。"
+
 #: src/agent/synara-permission-picker.tsx
 msgid "Ask only for potentially unsafe actions"
 msgstr "仅对可能不安全的操作请求批准"
@@ -957,6 +977,10 @@ msgstr "辅助文件"
 #: src/components/ui/apple-color-picker.tsx
 msgid "Azure"
 msgstr "天蓝色"
+
+#: src/onboarding/guided-tour.tsx
+msgid "Back"
+msgstr "上一步"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Back prime"
@@ -1845,6 +1869,7 @@ msgstr "评论显示范围"
 
 #: src/app/use-editor-comments.ts
 #: src/canvas/editor-status-bar.tsx
+#: src/onboarding/guided-tour-steps.ts
 #: src/overleaf/overleaf-collab.tsx
 #: src/settings/settings-search-index.ts
 #: src/trellis/trellis-titles.ts
@@ -2567,6 +2592,7 @@ msgid "DOI metadata corrections are available."
 msgstr "有可用的 DOI 元数据修正。"
 
 #: src/editor/markdown/engine/chrome/link-chrome.tsx
+#: src/onboarding/guided-tour.tsx
 msgid "Done"
 msgstr "完成"
 
@@ -2585,6 +2611,14 @@ msgstr "双剑号"
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Double dagger text symbol"
 msgstr "双剑号（文本符号）"
+
+#: src/onboarding/guided-tour-steps.ts
+msgid "Double-click a paragraph"
+msgstr "双击一个段落"
+
+#: src/onboarding/guided-tour-steps.ts
+msgid "Double-click the PDF to land on its source line. ⌘⇧J jumps back."
+msgstr "双击 PDF 跳到对应的源码行，⌘⇧J 再跳回来。"
 
 #: src/trellis/trellis-labels.ts
 msgid "Double-click to zoom in"
@@ -2757,6 +2791,10 @@ msgstr "编辑消息"
 msgid "Edit message text"
 msgstr "编辑消息内容"
 
+#: src/onboarding/guided-tour-steps.ts
+msgid "Edit the LaTeX here. Build typesets it beside you in seconds."
+msgstr "在这里编辑 LaTeX，构建几秒内就在一旁排好版。"
+
 #: src/overleaf/overleaf-comments.tsx
 msgid "Edit this message"
 msgstr "编辑此消息"
@@ -2871,6 +2909,10 @@ msgstr "启用版本追踪"
 msgid "End an environment"
 msgstr "结束环境"
 
+#: src/onboarding/guided-tour.tsx
+msgid "End tour"
+msgstr "结束导览"
+
 #: src/settings/settings-dialog.tsx
 #: src/settings/settings-search-index.ts
 msgid "English"
@@ -2967,6 +3009,10 @@ msgstr "估计量 / 单位向量记号"
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Eta"
 msgstr "伊塔"
+
+#: src/onboarding/guided-tour-steps.ts
+msgid "Every file of the paper lives here: LaTeX, notes, figures, slides."
+msgstr "论文的所有文件都在这里：LaTeX、笔记、图片、幻灯片。"
 
 #: src/trellis/trellis-workspace.tsx
 msgid "Every panel is closed"
@@ -3163,6 +3209,10 @@ msgstr "在项目中查找"
 #: src/project/project-replace-dialog.tsx
 msgid "Find text to replace"
 msgstr "查找要替换的文本"
+
+#: src/onboarding/guided-tour.tsx
+msgid "Finish"
+msgstr "完成"
 
 #: src/app/use-project-lifecycle.ts
 msgid "Finish the current text composition, then switch projects again."
@@ -4228,9 +4278,17 @@ msgstr "布局"
 msgid "Layout reset"
 msgstr "布局已重置"
 
+#: src/onboarding/guided-tour-steps.ts
+msgid "Layouts for each task"
+msgstr "每项任务，一套布局"
+
 #: src/App.tsx
 msgid "Learn Lattice with the Understanding Attention sample project"
 msgstr "通过 Understanding Attention 示例项目学习 Lattice"
+
+#: src/onboarding/guided-tour-steps.ts
+msgid "Leave a comment"
+msgstr "留一条评论"
 
 #: src/canvas/comment-composer.tsx
 msgid "Leave a comment for collaborators…"
@@ -4999,6 +5057,10 @@ msgstr "新建…"
 msgid "next"
 msgstr "下一个"
 
+#: src/onboarding/guided-tour.tsx
+msgid "Next"
+msgstr "下一步"
+
 #: src/editor/latex/search-panel.ts
 #: src/editor/markdown/engine/chrome/find-replace.tsx
 msgid "Next match"
@@ -5286,6 +5348,10 @@ msgstr "未启用 · 需要填写自己的 API key"
 msgid "Not equal"
 msgstr "不等于"
 
+#: src/onboarding/guided-tour.tsx
+msgid "Not now"
+msgstr "以后再说"
+
 #: src/overleaf/overleaf-connect.tsx
 msgid "Not synced yet"
 msgstr "尚未同步"
@@ -5476,6 +5542,10 @@ msgstr "打开日志文件夹"
 #: src/agent/synara-loading-surface.tsx
 msgid "Open logs"
 msgstr "打开日志"
+
+#: src/onboarding/guided-tour-steps.ts
+msgid "Open notes.md"
+msgstr "打开 notes.md"
 
 #: src/papers/bibliography-audit.tsx
 msgid "Open notice"
@@ -5828,6 +5898,7 @@ msgid "Paper switch"
 msgstr "切换论文"
 
 #: src/canvas/use-paper-pdf.ts
+#: src/onboarding/guided-tour-steps.ts
 #: src/project/paper-library.tsx
 #: src/project/project-find-dialog.tsx
 #: src/trellis/trellis-titles.ts
@@ -6098,6 +6169,14 @@ msgstr "预设"
 #: src/project/paper-library.tsx
 msgid "Press + to import it"
 msgstr "按 + 导入"
+
+#: src/onboarding/guided-tour-steps.ts
+msgid "Press ⌘⇧K in the editor to cite one"
+msgstr "在编辑器中按 ⌘⇧K 引用一篇"
+
+#: src/onboarding/guided-tour-steps.ts
+msgid "Press ⌘S or click Build"
+msgstr "按 ⌘S 或点击构建"
 
 #: src/editor/markdown/engine/lattice-visual-editor.tsx
 #: src/project/project-replace-dialog.tsx
@@ -7364,6 +7443,10 @@ msgstr "选择编号列表"
 msgid "Select task list"
 msgstr "选择任务列表"
 
+#: src/onboarding/guided-tour-steps.ts
+msgid "Select text in the editor and choose Comment. Every note gathers here."
+msgstr "在编辑器中选中文字，再选评论。所有评论都汇集在这里。"
+
 #: src/papers/bib-entry-dialog.tsx
 msgid "Select this record"
 msgstr "选择此记录"
@@ -7634,6 +7717,10 @@ msgstr "声音 提示音"
 msgid "Source"
 msgstr "源码"
 
+#: src/onboarding/guided-tour-steps.ts
+msgid "Source and PDF, linked"
+msgstr "源码与 PDF，双向联动"
+
 #: src/trellis/trellis-workspace-switch.tsx
 msgid "Source beside the compiled PDF"
 msgstr "源码与编译后的 PDF 并排"
@@ -7770,6 +7857,10 @@ msgstr "开始环境"
 msgid "Start the appendices"
 msgstr "开始附录"
 
+#: src/onboarding/guided-tour.tsx
+msgid "Start tour"
+msgstr "开始导览"
+
 #: src/history/versions-timeline.tsx
 msgid "Start tracking versions"
 msgstr "开始追踪版本"
@@ -7905,6 +7996,10 @@ msgstr "切换项目"
 #: src/App.tsx
 msgid "Switch to {name}"
 msgstr "切换到 {name}"
+
+#: src/onboarding/guided-tour-steps.ts
+msgid "Switch to Reading"
+msgstr "切换到阅读"
 
 #: src/app/use-project-lifecycle.ts
 msgid "Switching project…"
@@ -8065,6 +8160,10 @@ msgstr "光标处的 \\begin 和 \\end"
 msgid "the acknowledgement did not arrive in time"
 msgstr "未能及时收到确认"
 
+#: src/onboarding/guided-tour-steps.ts
+msgid "The Agent"
+msgstr "智能助手"
+
 #: src/build/compile-repair-messages.ts
 msgid "The agent service is unavailable."
 msgstr "智能助手服务不可用。"
@@ -8216,6 +8315,10 @@ msgstr "所需工具"
 #: src/papers/bibliography-audit.tsx
 msgid "The results did not identify a unique matching publication."
 msgstr "查询结果未能确定唯一匹配的发表版本。"
+
+#: src/onboarding/guided-tour-steps.ts
+msgid "The same seven stops, for a refresher."
+msgstr "还是这七站，再温习一遍。"
 
 #: src/canvas/document-canvas.tsx
 #: src/editor/markdown/engine/chrome/review-chrome.tsx
@@ -8466,6 +8569,10 @@ msgstr "表格顶线"
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Top-level section heading"
 msgstr "顶级章节标题"
+
+#: src/onboarding/guided-tour.tsx
+msgid "Tour progress"
+msgstr "导览进度"
 
 #: src/overleaf/overleaf-connect.tsx
 msgid "Trashed"
@@ -8952,6 +9059,14 @@ msgstr "警告"
 msgid "Weierstrass p"
 msgstr "魏尔斯特拉斯 p"
 
+#: src/onboarding/guided-tour-steps.ts
+msgid "Welcome back"
+msgstr "欢迎回来"
+
+#: src/onboarding/guided-tour-steps.ts
+msgid "Welcome to Lattice"
+msgstr "欢迎使用 Lattice"
+
 #: src/settings/settings-dialog.tsx
 #: src/settings/settings-search-index.ts
 msgid "When a build or Overleaf setup finishes"
@@ -9036,6 +9151,10 @@ msgstr "工作区：{currentName}"
 msgid "Workspaces"
 msgstr "工作区"
 
+#: src/onboarding/guided-tour-steps.ts
+msgid "Workspaces keep your panel arrangements. Writing and Reading are ready-made."
+msgstr "工作区会记住面板布局，写作和阅读两套已经备好。"
+
 #: src/project/project-dialogs.tsx
 msgid "Wrap in environment"
 msgstr "包裹在环境中"
@@ -9051,6 +9170,10 @@ msgstr "用 \\begin…\\end 包裹所选内容"
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Wreath product"
 msgstr "圈积"
+
+#: src/onboarding/guided-tour-steps.ts
+msgid "Write, then build"
+msgstr "写作，然后构建"
 
 #: src/trellis/trellis-titlebar.tsx
 #: src/trellis/trellis-workspace-switch.tsx
@@ -9116,6 +9239,10 @@ msgstr "你的 Overleaf 账户"
 #: src/overleaf/overleaf-connect.tsx
 msgid "Your Overleaf session expired. Sign in again"
 msgstr "Overleaf 会话已过期，请重新登录"
+
+#: src/onboarding/guided-tour-steps.ts
+msgid "Your project"
+msgstr "你的项目"
 
 #: src/telemetry/root-error-boundary.tsx
 msgid "Your project files are safe"
