@@ -81,8 +81,8 @@ function expectImportProgress(active: boolean) {
 }
 
 function paperTitles() {
-  return Array.from(document.querySelectorAll(".paper-row .paper-open"))
-    .map((button) => button.querySelector("strong")?.textContent ?? "");
+  return Array.from(document.querySelectorAll(".paper-row .paper-title"))
+    .map((title) => title.textContent ?? "");
 }
 
 afterEach(() => {
@@ -134,6 +134,11 @@ describe("PaperLibrary", () => {
       ["Attention Is All You Need", "Edit bibliography entry", "Remove Attention Is All You Need"],
       ["Download arXiv 2010.11929", "Edit bibliography entry", "Remove An Image Is Worth 16x16 Words"],
     ]);
+    // The opening button is named by the title and byline it lies under,
+    // which are hidden themselves so they are read once.
+    // (jsdom draws no separators, which the browser takes from CSS.)
+    expect(within(items[0]).getAllByRole("button")[0]).toHaveAccessibleName(/^Attention Is All You Need\W+Vaswani and Shazeer\W*arXiv 1706\.03762$/);
+    expect(within(items[0]).queryByText("Attention Is All You Need")).toHaveAttribute("aria-hidden", "true");
     expect(list.querySelectorAll("[aria-current]")).toHaveLength(0);
 
     rerenderWith({ activePaper: attention });
@@ -350,9 +355,10 @@ describe("PaperLibrary", () => {
     };
     renderLibrary({ papers: [attention, { ...vit, authors: undefined }, web] });
     const [first, second, third] = screen.getAllByRole("button", { name: /Attention|Image|Notes/ })
-      .filter((button) => button.classList.contains("paper-open"));
+      .filter((button) => button.classList.contains("paper-open"))
+      .map((button) => button.closest<HTMLElement>(".paper-row")!);
     const byline = (row: HTMLElement) => [...row.querySelector(".paper-byline")!.children].map((part) => part.textContent);
-    const citeKey = (button: HTMLElement) => button.closest(".paper-row")!.querySelector(".paper-cite-key");
+    const citeKey = (row: HTMLElement) => row.querySelector(".paper-cite-key");
     expect(first.querySelector(".paper-authors")).toHaveTextContent("Vaswani and Shazeer");
     expect(byline(first)).toEqual(["Vaswani and Shazeer", "arXiv 1706.03762"]);
     expect(citeKey(first)).toHaveTextContent("vaswani2017");
@@ -377,7 +383,7 @@ describe("PaperLibrary", () => {
     // The author field as `list_papers` delivers it, braces kept.
     const gemini: PaperSummary = { ...vit, arxivId: "2312.11805", title: "Gemini", authors: "{Gemini Team} and Mc{D}onald, Ronald", citationKey: "gemini" };
     const { search } = renderLibrary({ papers: [attention, gemini] });
-    const row = screen.getAllByRole("button", { name: /Gemini/ }).find((button) => button.classList.contains("paper-open"))!;
+    const row = screen.getAllByRole("button", { name: /Gemini/ }).find((button) => button.classList.contains("paper-open"))!.closest(".paper-row")!;
     expect(row.querySelector(".paper-authors")).toHaveTextContent(/^Gemini Team and McDonald$/);
 
     search("mcdonald");

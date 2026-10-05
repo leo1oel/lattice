@@ -29,7 +29,7 @@ describe("papers", () => {
     const citedOnly = await papers.findByTitle("Download arXiv 1412.6980");
     expect(citedOnly).toBeEnabled();
     expect(citedOnly.closest(".paper-row")).toHaveClass("cited-only");
-    expect(citedOnly).toHaveTextContent("arXiv 1412.6980");
+    expect(citedOnly).toHaveAccessibleName(/arXiv 1412\.6980/);
 
     // A work with no preprint has nothing to fetch, so it stays inert.
     expect(papers.getByTitle(/The TeXbook.*no local reading available/)).toBeDisabled();
@@ -68,8 +68,7 @@ describe("papers", () => {
     // The warning is the notice's own link, beside the key, not a mark that
     // takes room from the title.
     const notice = await screen.findByRole("button", { name: "Retracted · Retraction Watch · 2023-09-17. Open notice" });
-    expect(notice).toHaveTextContent("Retracted · Retraction Watch · 2023-09-17");
-    expect(notice.closest(".paper-open")).toBeNull();
+    expect([...notice.children].map((part) => part.textContent)).toEqual(["Retracted", "Retraction Watch · 2023-09-17"]);
     expect(screen.queryByText(/No Crossref update metadata found/, { selector: ".paper-citation-health" })).not.toBeInTheDocument();
     fireEvent.click(notice);
     await waitFor(() => expect(openUrl).toHaveBeenCalledWith("https://doi.org/10.5555/retraction-notice"));
@@ -264,7 +263,7 @@ describe("papers", () => {
     // admit there is nothing to open rather than imply a paper was fetched.
     await expectNotification(/Added .Deep Residual Learning.*cite it with \\cite\{he2016deep\}.*No full text to open/);
     expect(box).toHaveValue("10.1109/CVPR.2016.90");
-    expect(await screen.findByText(title, { selector: ".paper-open strong" })).toBeInTheDocument();
+    expect(await screen.findByText(title, { selector: ".paper-row .paper-title" })).toBeInTheDocument();
     const checkReferences = screen.getByRole("button", { name: "Check references" });
     expect(checkReferences.closest(".trellis-accessory-host")).toBeInTheDocument();
     expect(checkReferences.textContent).toBe("");

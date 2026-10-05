@@ -647,13 +647,10 @@ body:has(.modal-backdrop, .drawer-backdrop) .file-tree-context-menu { display: n
 .paper-row:is(:hover, .active)::before, .paper-row:is(:hover, .active) + .paper-row::before { opacity: 0; transition-duration: var(--duration-quick); }
 .paper-row:hover { --paper-row-surface: var(--navigation-tree-hover-surface); transition-duration: var(--duration-quick); }
 .paper-row.active { --paper-row-surface: var(--navigation-tree-selected-surface); }
-/* The button holds the title and byline, but its hit area and focus ring
-   are the whole row's, so the key line under it opens the paper too. It
-   clips the byline's pulled-in line starts (below). */
-.paper-open { min-width: 0; padding: 0; overflow: hidden; background: transparent; display: flex; flex-direction: column; color: inherit; text-align: left; }
-.paper-open::after { content: ""; position: absolute; inset: 0; border-radius: var(--radius-icon); }
-.paper-open:focus-visible { outline: none; }
-.paper-open:focus-visible::after { outline: var(--focus-ring-width) solid var(--focus-ring); outline-offset: calc(-1 * var(--focus-ring-width)); }
+/* The button is the whole row under its text, so its ring is the row's;
+   the text it lies under passes every click through to it. */
+.paper-open { position: absolute; inset: 0; padding: 0; border-radius: var(--radius-icon); background: transparent; }
+.paper-row > :is(.paper-title, .paper-byline, .paper-snippet) { pointer-events: none; }
 .paper-row.cited-only .paper-open { cursor: default; }
 /* A paper's title is set as the reader sets it, in the reading face; a
    narrow panel gets a third line before the ellipsis. */
@@ -663,9 +660,9 @@ body:has(.modal-backdrop, .drawer-backdrop) .file-tree-context-menu { display: n
 .paper-list small { margin-top: var(--space-2); display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-tertiary); font-size: var(--type-tree-size); line-height: var(--type-tree-line-height); }
 /* Authors and source share a line while they fit, and the source wraps whole
    rather than losing its id to an ellipsis. Every part leads with its
-   separator, and the line's start is pulled into the clipped margin, so a
+   separator, and the line's start is pulled into a clipped margin, so a
    part that begins a line never shows one. */
-.paper-list .paper-byline { margin-inline-start: calc(-1 * var(--space-6)); display: flex; flex-wrap: wrap; }
+.paper-list .paper-byline { margin-inline-start: calc(-1 * var(--space-6)); clip-path: inset(0 0 0 var(--space-6)); display: flex; flex-wrap: wrap; }
 .paper-byline > span { min-width: 0; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
 .paper-byline > span::before { content: "·"; width: var(--space-6); display: inline-block; text-align: center; }
 .paper-list .paper-authors { color: var(--text-secondary); }

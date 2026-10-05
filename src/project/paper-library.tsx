@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useRef } from "react";
+import { Fragment, useEffect, useId, useMemo, useRef } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { ArrowUpRight, Check, Download, ExternalLink, FolderOpen, Pencil, Plus, X } from "lucide-react";
@@ -54,6 +54,7 @@ function paperStateIcon(paper: PaperSummary, fetchState: PaperFetchState | undef
 /** The Papers panel: one box that searches the library and imports what it does not hold. */
 export function PaperLibrary(props: PaperLibraryProps) {
   const { t } = useLingui();
+  const rowId = useId();
   const progressActive = props.importing || Object.values(props.paperFetchStates).some((state) => state === "loading");
   const importFillRef = usePaperImportProgressFill(progressActive, props.importStageId);
   const viewportRef = useRef<HTMLDivElement | null>(null);
@@ -138,7 +139,7 @@ export function PaperLibrary(props: PaperLibraryProps) {
         >
           {/* Only the papers are list items; the empty state and the count sit after the list. */}
           <div role="list" aria-label={t`Papers`} className="paper-rows">
-            {filteredPapers.map((paper) => {
+            {filteredPapers.map((paper, index) => {
               const fetchState = props.paperFetchStates[paperKey(paper)];
               const readable = paper.hasFullText || paper.hasBlog;
               const downloadable = canDownloadPaper(paper);
@@ -182,6 +183,9 @@ export function PaperLibrary(props: PaperLibraryProps) {
               ) : (
                 <span className="paper-citation-health" role="status" title={healthTitle}>{healthBody}</span>
               ));
+              const titleId = `${rowId}-${index}-title`;
+              const bylineId = `${rowId}-${index}-byline`;
+              const snippetId = `${rowId}-${index}-snippet`;
               const row = (
                 <div
                   role="listitem"
@@ -190,6 +194,10 @@ export function PaperLibrary(props: PaperLibraryProps) {
                   draggable
                   onDragStart={(event) => beginPaperDrag(event.dataTransfer, props.projectKey, paper)}
                 >
+                  {/* The button lies over the whole row, under its other
+                      controls, and takes its name from the text beside it
+                      (hidden, so it is read once); so the key line opens the
+                      paper too, and the notice there can be a link of its own. */}
                   <button
                     data-tour={paper.arxivId === "2010.11929" ? "tutorial-vit-paper" : undefined}
                     title={readable
@@ -202,6 +210,7 @@ export function PaperLibrary(props: PaperLibraryProps) {
                             ? t({ message: `Download ${{ url: paper.url }}` })
                             : t({ message: `${{ title: paper.title }} — no local reading available` })}
                     className="paper-open"
+                    aria-labelledby={[titleId, (authors || source) && bylineId, snippet && snippetId].filter(Boolean).join(" ")}
                     aria-current={active || undefined}
                     // Knowing the preprint is as good as having it: clicking
                     // fetches. A cited webpage is fetchable the same way.
@@ -209,23 +218,20 @@ export function PaperLibrary(props: PaperLibraryProps) {
                     onPointerEnter={reportIntent}
                     onFocus={reportIntent}
                     onClick={() => activatePaper(paper)}
-                  >
-                    <strong className="paper-title">{paper.title}</strong>
-                    {(authors || source) && (
-                      <small className="paper-byline">
-                        {authors && <span className="paper-authors">{authors}</span>}
-                        {source && (
-                          <span className="paper-source">
-                            <span>{source}</span>
-                            {stateIcon && <span className={`paper-state-icon ${fetchState ?? "idle"}`} aria-hidden="true">{stateIcon}</span>}
-                          </span>
-                        )}
-                      </small>
-                    )}
-                    {snippet && <small className="paper-snippet">{snippet}</small>}
-                  </button>
-                  {/* Outside the button so the notice can be a link of its own;
-                      the button's hit area still covers this line. */}
+                  />
+                  <strong id={titleId} className="paper-title" aria-hidden="true">{paper.title}</strong>
+                  {(authors || source) && (
+                    <small id={bylineId} className="paper-byline" aria-hidden="true">
+                      {authors && <span className="paper-authors">{authors}</span>}
+                      {source && (
+                        <span className="paper-source">
+                          <span>{source}</span>
+                          {stateIcon && <span className={`paper-state-icon ${fetchState ?? "idle"}`} aria-hidden="true">{stateIcon}</span>}
+                        </span>
+                      )}
+                    </small>
+                  )}
+                  {snippet && <small id={snippetId} className="paper-snippet" aria-hidden="true">{snippet}</small>}
                   {(citeKey || citationOnly || health) && (
                     <div className="paper-tags">
                       {citeKey && <code className="paper-cite-key">{citeKey}</code>}
