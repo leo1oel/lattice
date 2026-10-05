@@ -502,7 +502,7 @@ function previousTextBearingNode(node: Node): Node | null {
 }
 
 /** Append the pdf.js sentinel and start clipping native selection for this page. */
-export function installPdfTextLayerSelection(textLayer: HTMLElement): () => void {
+export function installPdfTextLayerSelection(textLayer: HTMLElement): (evicted?: boolean) => void {
   const previousEndOfContent = textLayers.get(textLayer);
   if (previousEndOfContent && ownedEndOfContent.has(previousEndOfContent)) previousEndOfContent.remove();
   textLayers.delete(textLayer);
@@ -526,8 +526,8 @@ export function installPdfTextLayerSelection(textLayer: HTMLElement): () => void
   // Capture so `user-select: text` is on before WebKit starts the range.
   textLayer.addEventListener("mousedown", onMouseDown, true);
 
-  return () => {
-    if (textLayer.classList.contains("has-selection") && !selectionIsCopyField(document.getSelection())) clearPdfTextSelection();
+  return (evicted = false) => {
+    if (textLayer.classList.contains("has-selection") && !(evicted && selectionIsCopyField(document.getSelection()))) clearPdfTextSelection();
     textLayer.removeEventListener("mousedown", onMouseDown, true);
     if (textLayers.get(textLayer) === endOfContent) textLayers.delete(textLayer);
     if (ownedEndOfContent.has(endOfContent)) endOfContent.remove();

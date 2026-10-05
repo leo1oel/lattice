@@ -28,7 +28,7 @@ export type ViewerRecord = {
   root: HTMLDivElement;
   viewer: HTMLDivElement;
   /** Selection behaviour installed on each rendered text layer, by layer. */
-  textLayers: Map<HTMLElement, () => void>;
+  textLayers: Map<HTMLElement, (evicted?: boolean) => void>;
   /** Listeners and service patches to undo before PDFSlick is torn down. */
   cleanup: Array<() => void>;
   destroyed: boolean;
