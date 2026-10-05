@@ -670,7 +670,7 @@ msgstr "智能助手任务：{0}"
 msgid "Agent turn"
 msgstr "助手轮次"
 
-#: src/app/app-history-drawers.tsx
+#: src/app/git-workspace-frames.tsx
 msgid "Agent turn review"
 msgstr "助手轮次审查"
 
@@ -1467,6 +1467,7 @@ msgid "Changed there, untouched here"
 msgstr "Overleaf 上已更改，本地未变"
 
 #: src/app/app-history-drawers.tsx
+#: src/app/git-workspace-frames.tsx
 #: src/history/history-drawer.tsx
 #: src/overleaf/overleaf-collab.tsx
 msgid "Changes"
@@ -3350,6 +3351,10 @@ msgstr "Git 状态与提交"
 msgid "Git workspace"
 msgstr "Git 工作区"
 
+#: src/app/git-workspace-frames.tsx
+msgid "Git workspace didn’t load"
+msgstr "Git 工作区未能加载"
+
 #: src/editor/latex/search-panel.ts
 msgid "go"
 msgstr "跳转"
@@ -4426,6 +4431,10 @@ msgstr "加载宏包"
 msgid "Load more"
 msgstr "加载更多"
 
+#: src/app/git-workspace-frames.tsx
+msgid "Loading changes…"
+msgstr "正在加载更改…"
+
 #: src/overleaf/overleaf-comments.tsx
 msgid "Loading comments…"
 msgstr "正在加载评论…"
@@ -4465,10 +4474,18 @@ msgstr "正在加载 PDF…"
 msgid "Loading project history…"
 msgstr "正在加载项目历史…"
 
+#: src/app/git-workspace-frames.tsx
+msgid "Loading pull requests…"
+msgstr "正在加载拉取请求…"
+
 #: src/App.tsx
 #: src/settings/synara-settings-pane.tsx
 msgid "Loading settings…"
 msgstr "正在加载设置…"
+
+#: src/app/git-workspace-frames.tsx
+msgid "Loading the agent turn…"
+msgstr "正在加载助手轮次…"
 
 #: src/overleaf/overleaf-collab.tsx
 msgid "Loading the conversation…"
@@ -6256,6 +6273,7 @@ msgid "Publisher notice"
 msgstr "出版方通知"
 
 #: src/app/app-history-drawers.tsx
+#: src/app/git-workspace-frames.tsx
 msgid "Pull requests"
 msgstr "拉取请求"
 
@@ -6977,6 +6995,7 @@ msgid "Retrieved record information"
 msgstr "检索记录信息"
 
 #: src/agent/synara-loading-surface.tsx
+#: src/app/git-workspace-frames.tsx
 #: src/overleaf/overleaf-connect.tsx
 #: src/telemetry/app-log.tsx
 msgid "Retry"
@@ -8125,6 +8144,10 @@ msgstr "已关联的 Overleaf 服务器"
 #: src/overleaf/use-overleaf-comments.ts
 msgid "The linked Overleaf project changed. Try commenting again."
 msgstr "关联的 Overleaf 项目已更改。请重新添加评论。"
+
+#: src/app/git-workspace-frames.tsx
+msgid "The local Git service hasn’t answered. Try loading it again."
+msgstr "本地 Git 服务没有响应。请再试一次。"
 
 #: src/overleaf/use-overleaf-realtime.ts
 msgid "the network became available"

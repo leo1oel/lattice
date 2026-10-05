@@ -670,7 +670,7 @@ msgstr "Agent task: {0}"
 msgid "Agent turn"
 msgstr "Agent turn"
 
-#: src/app/app-history-drawers.tsx
+#: src/app/git-workspace-frames.tsx
 msgid "Agent turn review"
 msgstr "Agent turn review"
 
@@ -1467,6 +1467,7 @@ msgid "Changed there, untouched here"
 msgstr "Changed there, untouched here"
 
 #: src/app/app-history-drawers.tsx
+#: src/app/git-workspace-frames.tsx
 #: src/history/history-drawer.tsx
 #: src/overleaf/overleaf-collab.tsx
 msgid "Changes"
@@ -3350,6 +3351,10 @@ msgstr "Git status and commit"
 msgid "Git workspace"
 msgstr "Git workspace"
 
+#: src/app/git-workspace-frames.tsx
+msgid "Git workspace didn’t load"
+msgstr "Git workspace didn’t load"
+
 #: src/editor/latex/search-panel.ts
 msgid "go"
 msgstr "go"
@@ -4426,6 +4431,10 @@ msgstr "Load a package"
 msgid "Load more"
 msgstr "Load more"
 
+#: src/app/git-workspace-frames.tsx
+msgid "Loading changes…"
+msgstr "Loading changes…"
+
 #: src/overleaf/overleaf-comments.tsx
 msgid "Loading comments…"
 msgstr "Loading comments…"
@@ -4465,10 +4474,18 @@ msgstr "Loading PDF…"
 msgid "Loading project history…"
 msgstr "Loading project history…"
 
+#: src/app/git-workspace-frames.tsx
+msgid "Loading pull requests…"
+msgstr "Loading pull requests…"
+
 #: src/App.tsx
 #: src/settings/synara-settings-pane.tsx
 msgid "Loading settings…"
 msgstr "Loading settings…"
+
+#: src/app/git-workspace-frames.tsx
+msgid "Loading the agent turn…"
+msgstr "Loading the agent turn…"
 
 #: src/overleaf/overleaf-collab.tsx
 msgid "Loading the conversation…"
@@ -6256,6 +6273,7 @@ msgid "Publisher notice"
 msgstr "Publisher notice"
 
 #: src/app/app-history-drawers.tsx
+#: src/app/git-workspace-frames.tsx
 msgid "Pull requests"
 msgstr "Pull requests"
 
@@ -6977,6 +6995,7 @@ msgid "Retrieved record information"
 msgstr "Retrieved record information"
 
 #: src/agent/synara-loading-surface.tsx
+#: src/app/git-workspace-frames.tsx
 #: src/overleaf/overleaf-connect.tsx
 #: src/telemetry/app-log.tsx
 msgid "Retry"
@@ -8125,6 +8144,10 @@ msgstr "the linked Overleaf host"
 #: src/overleaf/use-overleaf-comments.ts
 msgid "The linked Overleaf project changed. Try commenting again."
 msgstr "The linked Overleaf project changed. Try commenting again."
+
+#: src/app/git-workspace-frames.tsx
+msgid "The local Git service hasn’t answered. Try loading it again."
+msgstr "The local Git service hasn’t answered. Try loading it again."
 
 #: src/overleaf/use-overleaf-realtime.ts
 msgid "the network became available"
