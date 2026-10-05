@@ -181,7 +181,7 @@ export const LAYOUT_CHECKS = [
   },
   {
     name: "pdf-live-drag-copy",
-    description: "A 400-page compiled PDF at 40%, a drag from page 1's heading to page 3's, the button still held through two wheel steps far down: releasing and pressing Cmd-C copy pages 1 and 2.",
+    description: "A 400-page compiled PDF at 40%, a drag from page 1's heading to page 3's, the button still held through two wheel steps far down: releasing, scrolling on, and pressing Cmd-C copy pages 1 and 2.",
     query: { pdfPages: 400, build: "clean" },
     width: 1440,
     height: 900,
@@ -240,9 +240,19 @@ export const LAYOUT_CHECKS = [
       for (const heading of ["Page 1:", "Page 2:"]) {
         if (!parked.includes(heading)) throw new Error(`the released drag's ${parked.length} characters lost "${heading}"`);
       }
+
+      // One more step draws a page, so the buffer lets go of the pages it kept
+      // for the drag and their text layers are disposed.
+      await driver.mouse("mouseWheel", third.right - 2, third.y, { button: "none", deltaX: 0, deltaY: 14_000 });
+      await driver.nextFrame();
+      await pdfViewDrawn(driver, "the pages under the wheel step after release drawn");
+      const kept = await driver.evaluate(`document.querySelector(".pdf-copy-field")?.value ?? ""`);
+      for (const heading of ["Page 1:", "Page 2:"]) {
+        if (!kept.includes(heading)) throw new Error(`a scroll after release left ${kept.length} characters without "${heading}"`);
+      }
       await driver.shortcut("c");
       const copied = await driver.waitFor("window.__benchClipboard.at(-1)", { timeout: 5_000, what: "Cmd-C to write the clipboard" });
-      if (copied !== parked) throw new Error(`Cmd-C copied ${copied.length} characters, not the released drag's ${parked.length}`);
+      if (copied !== kept) throw new Error(`Cmd-C copied ${copied.length} characters, not the released drag's ${kept.length}`);
     },
   },
 ];

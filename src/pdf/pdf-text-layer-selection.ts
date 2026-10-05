@@ -499,7 +499,7 @@ export function installPdfTextLayerSelection(textLayer: HTMLElement): () => void
   textLayer.addEventListener("mousedown", onMouseDown, true);
 
   return () => {
-    if (textLayer.classList.contains("has-selection")) clearPdfTextSelection();
+    if (textLayer.classList.contains("has-selection") && !selectionIsCopyField(document.getSelection())) clearPdfTextSelection();
     textLayer.removeEventListener("mousedown", onMouseDown, true);
     if (textLayers.get(textLayer) === endOfContent) textLayers.delete(textLayer);
     if (ownedEndOfContent.has(endOfContent)) endOfContent.remove();
