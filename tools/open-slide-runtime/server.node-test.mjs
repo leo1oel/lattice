@@ -255,6 +255,7 @@ test("keeps the Open Slide title in bounds and shows connection status only as a
   assert.match(transformed, /min-w-0 justify-center px-2 md:flex-1/);
   assert.doesNotMatch(transformed, /md:absolute|md:inset-x-0/);
   assert.match(transformed, /<div data-lattice-present className="inline-flex items-stretch">/);
+  assert.match(transformed, /aria-label=\{t\.slide\.present\}\s+onClick=\{\(\) => setPlayMode/);
   assert.match(transformed, /<AgentConnectionWarning \/>/);
   assert.match(transformed, /if \(connected\) return null/);
   assert.match(transformed, /t\.slide\.agentDisconnected/);

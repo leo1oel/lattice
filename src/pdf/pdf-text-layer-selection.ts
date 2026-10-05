@@ -34,6 +34,7 @@
 
 import { useEffect, type RefObject } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { isAgentEntryTarget } from "../agent/agent-entry";
 import { addListeners, normalizePdfSelection } from "./pdf-viewer-utils";
 
 const GLYPH_SPANS = "span:not(.markedContent):not(.endOfContent)";
@@ -43,6 +44,8 @@ const ownedEndOfContent = new WeakSet<HTMLElement>();
 let selectionAbort: AbortController | null = null;
 let previousRange: Range | null = null;
 let lastPdfCopyText = "";
+/** The text layers the cached selection was made in, so each viewer reports only its own. */
+let lastPdfSelectionLayers: HTMLElement[] = [];
 let copyField: HTMLTextAreaElement | null = null;
 const clipboardTimers: number[] = [];
 
@@ -231,6 +234,7 @@ function clearPdfTextSelection() {
   if (selectionOwnedByPdf) selection?.removeAllRanges();
   previousRange = null;
   lastPdfCopyText = "";
+  lastPdfSelectionLayers = [];
   clearSelectionOverlays();
   disarmPdfCopyField();
   resetLayers();
@@ -262,6 +266,25 @@ function pdfSelectedPlainText(selection: Selection | null = document.getSelectio
 
 export function pdfSelectedOrCachedPlainText(selection: Selection | null = document.getSelection()): string {
   return pdfSelectedPlainText(selection) || lastPdfCopyText || copyField?.value || "";
+}
+
+function layersHoldingSelection(selection: Selection | null): HTMLElement[] {
+  return [...textLayers.keys()].filter((textLayer) => selectionIntersectsLayer(selection, textLayer));
+}
+
+function rememberPdfSelection(text: string, selection: Selection | null) {
+  lastPdfCopyText = text;
+  lastPdfSelectionLayers = layersHoldingSelection(selection);
+}
+
+/**
+ * The PDF selection's text when it was made inside `root`. The cache and the
+ * copy field are shared by every PDF on screen (a project PDF open as a
+ * document beside the compiled preview), but each selection belongs to one.
+ */
+export function pdfSelectedPlainTextWithin(root: Node, selection: Selection | null = document.getSelection()): string {
+  const layers = selectionIntersectsPdf(selection) ? layersHoldingSelection(selection) : lastPdfSelectionLayers;
+  return layers.some((textLayer) => root.contains(textLayer)) ? pdfSelectedOrCachedPlainText(selection) : "";
 }
 
 async function writeClipboardText(text: string) {
@@ -340,6 +363,10 @@ function enableGlobalSelectionListener() {
     }
     pointerDown = false;
     if (glyphSpanFromTarget(event.target)) event.preventDefault();
+    // Opening the Agent is how the selection becomes its context: the Agent
+    // tab shares a panel with Project by default, so clearing here would
+    // remove the context in the very click that goes to use it.
+    if (isAgentEntryTarget(event.target)) return;
     clearPdfTextSelection();
   }, { capture: true, signal });
   document.addEventListener("pointerup", () => {
@@ -355,7 +382,7 @@ function enableGlobalSelectionListener() {
       clearPdfTextSelection();
       return;
     }
-    lastPdfCopyText = live;
+    rememberPdfSelection(live, selection);
     paintSelectionOverlays(selection);
     resetLayers();
     armPdfCopyField(live);
@@ -395,7 +422,7 @@ function enableGlobalSelectionListener() {
     }
     updateHasSelection(selection);
     const live = pdfSelectedPlainText(selection);
-    if (live) lastPdfCopyText = live;
+    if (live) rememberPdfSelection(live, selection);
   }, { signal });
 }
 
@@ -410,6 +437,7 @@ function disableGlobalSelectionListenerIfIdle() {
   copyField = null;
   previousRange = null;
   lastPdfCopyText = "";
+  lastPdfSelectionLayers = [];
 }
 
 function isFirefoxEndOfContent(endOfContent: HTMLElement): boolean {
@@ -514,8 +542,10 @@ export function installPdfTextLayerSelection(textLayer: HTMLElement): () => void
  * Report the viewer's PDF selection as agent context, and its clearing. A
  * completed PDF drag moves the native selection into the hidden copy field
  * while its overlay remains visible, so this reads the text-layer cache.
- * Global selection changes may publish a new PDF selection, but only an
- * interaction inside this viewer is authoritative enough to clear it.
+ * Global selection changes may publish a new selection made in this viewer,
+ * but only an interaction inside it is authoritative enough to clear one.
+ * A selection in another PDF is that viewer's to report; this one only
+ * forgets what it reported, so the same text selected here again is new.
  */
 export function usePdfSelectionReport(
   viewerRef: RefObject<{ root: HTMLElement } | null>,
@@ -529,7 +559,12 @@ export function usePdfSelectionReport(
     let frame: number | null = null;
     const report = (clearCollapsed: boolean) => {
       frame = null;
-      const next = pdfSelectedOrCachedPlainText(window.getSelection());
+      const selection = window.getSelection();
+      const next = pdfSelectedPlainTextWithin(root, selection);
+      if (!next && pdfSelectedOrCachedPlainText(selection)) {
+        lastReported = "";
+        return;
+      }
       const unchanged = next ? next === lastReported : !clearCollapsed || !lastReported;
       if (unchanged) return;
       lastReported = next;

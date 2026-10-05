@@ -65,12 +65,19 @@ export function planWorkspaceRestore(
   for (const document of rootDocuments) {
     if (isProjectSourceFilePath(document.path)) sourcePaths.add(document.path);
   }
-  const paperKeys = new Set(papers.map((paper) => paperTabKey(paper.arxivId)));
+  // A Paper tab comes back only while it has something to read: resetting
+  // the sample project deletes the papers imported into it, which stay in the
+  // bibliography with neither a Blog nor a full text.
+  const paperKeys = new Set(papers.filter((paper) => paper.hasBlog || paper.hasFullText)
+    .map((paper) => paperTabKey(paper.arxivId)));
   const validTab = (path: string) => sourcePaths.has(path) || assetPaths.has(path) || paperKeys.has(path);
   const rootDocument = rootDocuments.find((document) => document.path === "main.tex")
     ?? rootDocuments.find((document) => document.isDefault)
     ?? rootDocuments[0];
-  const primaryFile: string | undefined = [layout?.activeFile, lastFile, rootDocument?.path]
+  // In place of a Paper that can no longer be read, open the project's root
+  // document rather than whichever file happened to sit behind the Paper.
+  const unreadablePaper = Boolean(layout?.activeTab && isPaperTabKey(layout.activeTab) && !paperKeys.has(layout.activeTab));
+  const primaryFile: string | undefined = [unreadablePaper ? rootDocument?.path : null, layout?.activeFile, lastFile, rootDocument?.path]
     .find((path): path is string => Boolean(path) && sourcePaths.has(path!)) ?? [...sourcePaths][0];
 
   const tabs = layout ? layout.openTabs.filter(validTab) : primaryFile ? [primaryFile] : [];

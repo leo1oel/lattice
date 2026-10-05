@@ -16,6 +16,7 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
 } from "../components/ui/dropdown-menu";
 import { Tip } from "../components/icon-tip";
+import { agentEntryProps } from "../agent/agent-entry";
 import {
   TOOL_KINDS, useCurrentWorkspace, useWorkspaces, type TrellisController, type TrellisPanelState, type TrellisSingleton,
 } from "./trellis-controller";
@@ -159,7 +160,8 @@ export const TrellisTitlebar = memo(function TrellisTitlebar({ controller }: { c
     <div ref={barRef} className="trellis-titlebar" data-compact={compact || undefined}>
       <DropdownMenu modal={false}>
         <DropdownMenuTrigger asChild>
-          <button type="button" className="trellis-titlebar-menu" aria-label={t`Panels`} data-trellis-panels-menu="">
+          {/* The menu is one way to the Agent, so opening it keeps a PDF selection for it. */}
+          <button type="button" className="trellis-titlebar-menu" aria-label={t`Panels`} data-trellis-panels-menu="" {...agentEntryProps}>
             <LayoutPanelLeft size={14} />
             <span>{t`Panels`}</span>
           </button>
@@ -176,7 +178,7 @@ export const TrellisTitlebar = memo(function TrellisTitlebar({ controller }: { c
         >
           <DropdownMenuLabel>{t`Panels`}</DropdownMenuLabel>
           {CORE_PANELS.map(({ kind, icon }) => (
-            <DropdownMenuItem key={kind} onSelect={() => showPanel(kind)}>
+            <DropdownMenuItem key={kind} onSelect={() => showPanel(kind)} {...(kind === "agent" ? agentEntryProps : {})}>
               {icon}
               <span className="flex-1">{title(kind)}</span>
               {panelState(kind) !== "shown" && <span className="trellis-menu-state">{panelState(kind) === "hidden" ? t`Hidden` : t`Closed`}</span>}
@@ -231,6 +233,7 @@ export const TrellisTitlebar = memo(function TrellisTitlebar({ controller }: { c
                 aria-label={label}
                 aria-pressed={shown}
                 onClick={() => controller.togglePanel(kind)}
+                {...(kind === "agent" ? agentEntryProps : {})}
               >
                 {icon}
               </button>
@@ -254,7 +257,12 @@ export const TrellisTitlebar = memo(function TrellisTitlebar({ controller }: { c
         <div ref={chipsRef} className="trellis-titlebar-hidden" aria-label={t`Hidden panels`}>
           {hidden.map((entry) => (
             <Tip key={entry.panelId} label={spaceMixedScript(t`Restore ${entry.title}`)}>
-              <button type="button" className="trellis-hidden-chip" onClick={() => ws()?.restore(entry.panelId)}>
+              <button
+                type="button"
+                className="trellis-hidden-chip"
+                onClick={() => ws()?.restore(entry.panelId)}
+                {...(ws()?.view("agent")?.panelId === entry.panelId ? agentEntryProps : {})}
+              >
                 {entry.title}
               </button>
             </Tip>
