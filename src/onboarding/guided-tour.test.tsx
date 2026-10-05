@@ -123,6 +123,37 @@ describe("GuidedTour", () => {
   });
 });
 
+describe("the Write, then build stop", () => {
+  it("counts a build the writer starts, not the opening build still running", () => {
+    let state = { building: true, lastBuild: null as string | null };
+    const listeners = new Set<() => void>();
+    const docTools = {
+      get: () => state,
+      subscribe: (listener: () => void) => {
+        listeners.add(listener);
+        return () => { listeners.delete(listener); };
+      },
+      set: (patch: Partial<typeof state>) => {
+        state = { ...state, ...patch };
+        for (const listener of [...listeners]) listener();
+      },
+    };
+    const write = TOUR_STEPS.find((step) => step.id === "write")!;
+    const done = vi.fn();
+    const stop = write.watch!({ controller: { docTools } } as unknown as TourContext, done);
+
+    // The project's opening build republishes, then finishes.
+    docTools.set({ building: true, lastBuild: null });
+    docTools.set({ building: false, lastBuild: "succeeded" });
+    expect(done).not.toHaveBeenCalled();
+
+    docTools.set({ building: true });
+    expect(done).toHaveBeenCalled();
+    stop();
+    expect(listeners.size).toBe(0);
+  });
+});
+
 describe("the Agent stop", () => {
   it("counts focus the writer sent into the Agent, not the frame focusing itself", () => {
     const host = document.body.appendChild(document.createElement("div"));

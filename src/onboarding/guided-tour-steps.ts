@@ -80,11 +80,10 @@ function watchStore<T>(
   store: { get: () => unknown; subscribe: (listener: () => void) => () => void },
   select: () => T,
   done: () => void,
-  changed: (first: T, now: T) => boolean = (first, now) => !Object.is(first, now),
 ) {
   const first = select();
   return store.subscribe(() => {
-    if (changed(first, select())) done();
+    if (!Object.is(first, select())) done();
   });
 }
 
@@ -127,12 +126,16 @@ export const TOUR_STEPS: readonly TourStep[] = [
     reveal: ({ controller, openFile }) => {
       if (controller.app.get().activeKey !== TOUR_MANUSCRIPT || !manuscriptPanel(controller)) openFile(TOUR_MANUSCRIPT);
     },
-    watch: ({ controller }, done) => watchStore(
-      controller.docTools,
-      () => controller.docTools.get(),
-      done,
-      (first, now) => now.building || now.lastBuild !== first.lastBuild,
-    ),
+    // The project's opening build may still be running: count only a build
+    // that starts after the stop has seen none in flight.
+    watch: ({ controller }, done) => {
+      let idle = !controller.docTools.get().building;
+      return controller.docTools.subscribe(() => {
+        const { building } = controller.docTools.get();
+        if (building && idle) done();
+        idle = !building;
+      });
+    },
   },
   {
     id: "pdf",
