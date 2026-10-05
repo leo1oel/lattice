@@ -65,9 +65,13 @@ describe("papers", () => {
         citationHealth: { kind: "unknown", source: "crossref", checkedAt: "2026-08-13T12:00:00Z" },
       }],
     });
-    expect(await screen.findByRole("status")).toHaveTextContent("Retracted · Retraction Watch · 2023-09-17");
+    // The warning is the notice's own link, beside the key, not a mark that
+    // takes room from the title.
+    const notice = await screen.findByRole("button", { name: "Retracted · Retraction Watch · 2023-09-17. Open notice" });
+    expect(notice).toHaveTextContent("Retracted · Retraction Watch · 2023-09-17");
+    expect(notice.closest(".paper-open")).toBeNull();
     expect(screen.queryByText(/No Crossref update metadata found/, { selector: ".paper-citation-health" })).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Retracted · Retraction Watch · 2023-09-17. Open notice" }));
+    fireEvent.click(notice);
     await waitFor(() => expect(openUrl).toHaveBeenCalledWith("https://doi.org/10.5555/retraction-notice"));
   });
 
@@ -93,7 +97,7 @@ describe("papers", () => {
     fireEvent.change(search, { target: { value: "diederik 1412" } });
     expect(list.getByTitle(adam)).toBeInTheDocument();
     expect(list.queryByTitle(attention)).not.toBeInTheDocument();
-    expect(list.getByText("1 of 2 papers")).toBeInTheDocument();
+    expect(screen.getByText("1 of 2 papers")).toBeInTheDocument();
 
     for (const query of ["https://arxiv.org/pdf/1706.03762", "vaswani attention"]) {
       fireEvent.change(search, { target: { value: query } });
@@ -109,7 +113,7 @@ describe("papers", () => {
     expect(list.queryByTitle(adam)).not.toBeInTheDocument();
 
     fireEvent.change(search, { target: { value: "missing paper" } });
-    expect(list.getByText("No matching papers")).toBeInTheDocument();
+    expect(screen.getByText("No matching papers")).toBeInTheDocument();
     expect(invoke).not.toHaveBeenCalledWith("import_reference", expect.anything());
   });
 
