@@ -45,7 +45,7 @@ const IDLE_QUEUE: QueuedBuild = { force: null, sound: false, consumeAgentAssocia
 
 type Ref<T> = { readonly current: T };
 
-/** How long after the app writes a file the watcher's report of that write is its echo, not a new change. */
+/** How long after the app writes a file the watcher's next report of that file is its echo, not a new change. */
 const OWN_WRITE_ECHO_MS = 3_000;
 
 /** The build that holds the pipeline: settles once it and every pass it took from the queue are done. */
@@ -202,10 +202,12 @@ export function useBuildPipeline({
       const now = Date.now();
       for (const [path, writtenAt] of ownWrites) if (now - writtenAt > OWN_WRITE_ECHO_MS) ownWrites.delete(path);
       const rootDocuments = projectRef.current?.manifest.rootDocuments.map((document) => document.path) ?? [];
-      const changesInputs = !paths || paths.some((path) => {
+      let changesInputs = !paths;
+      for (const path of paths ?? []) {
         const file = normalizeProjectRelativePath(path);
-        return !file || (!ownWrites.has(file) && !isBuildOutput(file, rootDocuments));
-      });
+        if (file && ownWrites.delete(file)) continue;
+        if (!file || !isBuildOutput(file, rootDocuments)) changesInputs = true;
+      }
       if (changesInputs) inputRevisionRef.current += 1;
     });
   }, [projectRef, projectRoot]);

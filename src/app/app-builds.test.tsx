@@ -646,6 +646,17 @@ describe("builds and the PDF reader", () => {
     await jump();
     expect(builds).toBe(3);
 
+    // The echo absorbs one report of the saved file: an outside write to it
+    // right after the save is a change too.
+    await appendToEditor("\n% Another saved edit.");
+    await waitFor(() => expect(files["main.tex"]).toContain("% Another saved edit."), { timeout: 3_000 });
+    emitTauriEvent("project-fs-changed", { root: ROOT, paths: ["main.tex"] });
+    await jump();
+    expect(builds).toBe(4);
+    emitTauriEvent("project-fs-changed", { root: ROOT, paths: ["main.tex"] });
+    await jump();
+    expect(builds).toBe(5);
+
     // A build that fails without writing a new PDF leaves the old map, which
     // no jump may use.
     buildFails = true;
@@ -653,7 +664,7 @@ describe("builds and the PDF reader", () => {
     const lookups = invokeCalls("synctex_view").length;
     fireEvent.click(revealCursor);
     await expectNotification(/The PDF is not compiled from this source yet/);
-    expect(builds).toBe(4);
+    expect(builds).toBe(6);
     expect(invokeCalls("synctex_view")).toHaveLength(lookups);
   }, 60_000);
 
