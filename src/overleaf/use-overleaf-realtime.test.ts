@@ -41,6 +41,13 @@ const freshBackend = () => ({
   deferredJoin: null as { docId: string; promise: Promise<unknown> } | null,
   /** Comment and suggestion anchors the server reports on joining. */
   anchors: { comments: [] as unknown[], changes: [] as unknown[] },
+  /**
+   * Leaves wait for a server answer that has not arrived yet. A disconnect
+   * rejects them the way the Rust client drains its pending requests when the
+   * socket goes down underneath them.
+   */
+  holdLeaves: false,
+  heldLeaves: [] as ((reason: Error) => void)[],
 });
 let backend: ReturnType<typeof freshBackend>;
 /** Feeds the hook the events the Rust side would emit, stamped with the project they came from. */
@@ -85,8 +92,14 @@ beforeEach(() => {
     overleaf_rt_join_doc: ({ docId, fromVersion }: { docId: string; fromVersion: number | null }) =>
       backend.deferredJoin?.docId === docId ? backend.deferredJoin.promise : joinAnswer(docId, fromVersion ?? null),
     overleaf_rt_send_ops: () => { if (backend.loseSendAck) throw new Error("ack lost"); },
-    overleaf_rt_leave_doc: undefined,
-    overleaf_rt_disconnect: undefined,
+    overleaf_rt_leave_doc: () => backend.holdLeaves
+      ? new Promise((_, reject) => { backend.heldLeaves.push(reject); })
+      : undefined,
+    overleaf_rt_disconnect: () => {
+      for (const reject of backend.heldLeaves.splice(0)) {
+        reject(new Error("The Overleaf realtime connection closed before the server answered."));
+      }
+    },
     overleaf_set_permission: undefined,
   });
 });
@@ -347,6 +360,42 @@ describe("connection ownership", () => {
 
     await act(async () => activateAppLocale("zh-CN"));
     await waitFor(() => expect(result.current.detail).toBe("Overleaf 不支持实时编辑此文件，将改用常规同步。"));
+    // Only the words change; the connection is the one already open.
+    expect(invokeCalls("overleaf_rt_connect")).toHaveLength(1);
+    expect(invokeCalls("overleaf_rt_disconnect")).toEqual([]);
+    expect(result.current.status).toBe("live");
+  });
+
+  // Switching the interface language once tore the connection down: the
+  // translation function was a dependency of the leave callback, and so of the
+  // connection effect. With a leave answer still in flight, the disconnect
+  // rejected it and the writer saw "Could not hand this file back to Overleaf
+  // sync" for nothing more than picking another language.
+  it("keeps the connection and the open document live across a language change", async () => {
+    backend.holdLeaves = true;
+    const onNotice = vi.fn();
+    const remoteText = vi.fn(() => true);
+    const { result } = await mountLive({ onNotice, onRemoteText: remoteText });
+    const connected = invokeCalls("overleaf_rt_connect").length;
+
+    await act(async () => activateAppLocale("zh-CN"));
+    // Let any teardown the locale change might cause run its course.
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 50)); });
+
+    expect(invokeCalls("overleaf_rt_disconnect")).toEqual([]);
+    expect(invokeCalls("overleaf_rt_connect")).toHaveLength(connected);
+    expect(leaves()).toEqual([]);
+    expect(joinsOf(DOC_A)).toHaveLength(1);
+    expect(onNotice).not.toHaveBeenCalled();
+    expect(result.current.status).toBe("live");
+    expect(result.current.liveFile).toBe(true);
+    expect(result.current.docId).toBe(DOC_A);
+
+    // Messages raised later still speak the language now selected.
+    remoteText.mockReturnValue(false);
+    emit({ type: "docUpdate", docId: DOC_A, version: 10, ops: [{ p: 0, i: "remote " }], source: "peer" });
+    await waitFor(() => expect(result.current.detail)
+      .toBe("此文件在实时编辑之外发生了变化。已保留本地修改，常规 Overleaf 同步将协调这些变化。"));
   });
 
   it("uses an explicit global disconnect when live mode is disabled without a root", async () => {
