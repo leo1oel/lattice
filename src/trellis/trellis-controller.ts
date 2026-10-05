@@ -13,6 +13,7 @@
 import { createContext, useContext, useSyncExternalStore } from "react";
 import type { MenuEntry, Placement, WorkspaceHandle } from "@danfessler/trellis";
 import type { AssetPreview, FileViewState } from "../app-types";
+import type { AgentPdfDocumentPlace } from "../agent/agent-host-context";
 import { isHtmlFilePath } from "../app-utils";
 import type { BuildOutcome } from "../app/use-build-pipeline";
 import type { LayoutPreset } from "./trellis-layout";
@@ -78,6 +79,8 @@ export type TrellisBridge = {
   readPaper: (key: string) => Promise<{ path: string; text: string } | null>;
   /** A project asset (a PDF) as its preview reads it, for an inactive panel beside the active document; rejects with the backend's refusal. */
   readAsset: (path: string) => Promise<AssetPreview>;
+  /** Text selected in a project PDF beside the active document (empty once cleared), as Agent context. */
+  pdfTextSelect: (text: string, place: AgentPdfDocumentPlace) => void;
   /** Where the reader was in a file (its scroll, a PDF's page), shared by its live view and its snapshot. */
   viewState: (path: string) => FileViewState | undefined;
   rememberViewState: (path: string, update: Partial<FileViewState>) => void;

@@ -132,4 +132,22 @@ describe("agent host context", () => {
     expect(context.editor?.selectionOmittedChars).toBe(19);
     expect(context.capturedAt).toBe("2026-08-14T10:00:00.000Z");
   });
+
+  it("names a project PDF open as a document, and its page, when its selection is the context", () => {
+    const fromDocument = {
+      ...baseInput,
+      activeFile: "figures/survey.pdf",
+      pdfPage: 2,
+      pdfPageCount: 4,
+      activeSurface: "pdf" as const,
+      selection: "the cited result",
+      selectionSource: "pdf" as const,
+      selectionPdfDocument: { path: "figures/survey.pdf", page: 7, pageCount: 22 },
+    };
+    expect(buildAgentHostContext(fromDocument).pdf).toEqual({
+      path: "figures/survey.pdf", page: 7, pageCount: 22, selection: "the cited result",
+    });
+    // An editor selection keeps the compiled preview's place.
+    expect(buildAgentHostContext({ ...fromDocument, selectionSource: "editor" }).pdf).toEqual({ page: 2, pageCount: 4 });
+  });
 });

@@ -4,6 +4,7 @@ import { FileText, Image } from "lucide-react";
 import { ScrollArea } from "../components/ui/scroll-area";
 import { useNonPassiveWheel } from "../hooks/use-non-passive-wheel";
 import type { AssetPreview, FileViewState, ImageFileViewState } from "../app-types";
+import type { AgentPdfDocumentPlace } from "../agent/agent-host-context";
 import { assetDataUrl, assetPdfFile } from "../project/reference-preview";
 import { useLatestRef } from "../hooks/use-latest-ref";
 import { PdfPreview, PdfPreviewLoading } from "./canvas-lazy-editors";
@@ -18,7 +19,7 @@ function imageViewState(viewport: HTMLElement | null, scale: number): ImageFileV
 }
 
 /** A project image or PDF figure, with its zoom and scroll position kept as per-file view state. */
-export function ProjectAssetPreview({ asset, missing = false, viewState, onViewState, onFileChanged }: {
+export function ProjectAssetPreview({ asset, missing = false, viewState, onViewState, onFileChanged, onPdfTextSelect }: {
   asset: AssetPreview;
   /** The file was removed from the project while open. */
   missing?: boolean;
@@ -26,6 +27,8 @@ export function ProjectAssetPreview({ asset, missing = false, viewState, onViewS
   onViewState?: (update: Partial<FileViewState>) => void;
   /** A project PDF was rewritten on disk since it was read. */
   onFileChanged?: () => void;
+  /** Text selected in a project PDF (empty once cleared), with the PDF and the page the reader is on, as Agent context. */
+  onPdfTextSelect?: (text: string, place: AgentPdfDocumentPlace) => void;
 }) {
   const { t } = useLingui();
   const url = assetDataUrl(asset);
@@ -35,6 +38,7 @@ export function ProjectAssetPreview({ asset, missing = false, viewState, onViewS
   const scaleRef = useLatestRef(scale);
   const onViewStateRef = useLatestRef(onViewState);
   const stageViewportRef = useRef<HTMLDivElement | null>(null);
+  const pdfPlaceRef = useRef<{ page: number; pageCount: number | null }>({ page: 1, pageCount: null });
   const imageViewRestoredRef = useRef(false);
   const isPdf = asset.mimeType === "application/pdf";
   useLayoutEffect(() => {
@@ -72,6 +76,9 @@ export function ProjectAssetPreview({ asset, missing = false, viewState, onViewS
           initialViewState={viewState?.pdf}
           onViewState={(pdf) => onViewStateRef.current?.({ pdf })}
           onFileChanged={onFileChanged}
+          onPageChange={(page) => { pdfPlaceRef.current.page = page; }}
+          onNumPages={(pageCount) => { pdfPlaceRef.current.pageCount = pageCount; }}
+          onTextSelect={onPdfTextSelect && ((text) => onPdfTextSelect(text, { path: pdfFile.path, ...pdfPlaceRef.current }))}
           notice={missing ? t`This PDF was removed from the project.` : null}
         />
       </Suspense>

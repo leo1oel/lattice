@@ -28,6 +28,8 @@ vi.mock("./canvas-lazy-modules", () => {
       data-restored-page={String(props.initialViewState?.page ?? "")}
     >
       <button data-testid="pdf-view-state" onClick={() => props.onViewState?.({ page: 7, scale: 1, fitMode: null, scrollTop: 0, scrollLeft: 0 })} />
+      <button data-testid="pdf-read" onClick={() => { props.onNumPages?.(22); props.onPageChange?.(7); }} />
+      <button data-testid="pdf-select" onClick={() => props.onTextSelect?.("Selected passage")} />
     </div>
   );
   const editorStub = (testId: string) => (props: {
@@ -504,6 +506,20 @@ describe("DocumentCanvas / mode", () => {
     expect(preview.getAttribute("srcdoc")).not.toContain("data:text/html");
     expect(preview.getAttribute("srcdoc")).toContain("window.inlinePlotReady=true");
     expect(preview.getAttribute("srcdoc")).toContain('sandbox="allow-scripts"');
+  });
+
+  // A project PDF open as a document is a PDF the writer selects in as much
+  // as the compiled preview: its selection reaches the Agent, naming it.
+  it("offers a selection in a project PDF open as a document as Agent context, with its page", async () => {
+    const { props } = renderCanvas({
+      mode: "asset",
+      activeFile: "figures/survey.pdf",
+      activeAsset: { path: "figures/survey.pdf", mimeType: "application/pdf", ranges: { length: 8, version: "v1" } },
+    });
+    const preview = await within(documentHost).findByTestId("pdf-preview");
+    fireEvent.click(within(preview).getByTestId("pdf-read"));
+    fireEvent.click(within(preview).getByTestId("pdf-select"));
+    expect(props.onPdfTextSelect).toHaveBeenLastCalledWith("Selected passage", { path: "figures/survey.pdf", page: 7, pageCount: 22 });
   });
 
   // Mode and asset arrive from different pieces of App state, so the two can be

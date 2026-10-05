@@ -41,6 +41,7 @@ export type TrellisBridgeApp = {
   setBibliographyAuditRoot: Dispatch<SetStateAction<string | null>>;
   setBibliographyAuditOpen: Dispatch<SetStateAction<boolean>>;
   requestNewEntry: (type: NewEntryType) => void;
+  reportPdfSelection: TrellisBridge["pdfTextSelect"];
 };
 
 /**
@@ -53,7 +54,7 @@ export function useTrellisBridge(app: TrellisBridgeApp) {
     trellis, project, projectRef, papers, documents, lastBuild, building, buildPipeline,
     synara, tools, referenceImport, referenceImages, projectSearch, compile, compileAndShowPdf, revealSourceInPdf,
     openSettings, setSearchDialog, setProjectSearchOpen, setBibliographyAuditRoot, setBibliographyAuditOpen,
-    requestNewEntry,
+    requestNewEntry, reportPdfSelection,
   } = app;
   const {
     file: activeFile, text: source, paper: activePaper, asset: activeAsset, mode: canvasMode, paperView, activeTab,
@@ -94,6 +95,7 @@ export function useTrellisBridge(app: TrellisBridgeApp) {
         return text ? { path, text } : null;
       },
       readAsset: (path) => invoke<AssetPreview>("read_project_asset", { path }),
+      pdfTextSelect: reportPdfSelection,
       viewState: (path) => documents.viewStates.get(path),
       rememberViewState: (path, update) => documents.viewStates.remember(path, update),
       // A panel asking for a drawer that is already open only comes forward:

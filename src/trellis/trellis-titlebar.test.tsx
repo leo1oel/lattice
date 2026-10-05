@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { WorkspaceHandle } from "@danfessler/trellis";
+import { isAgentEntryTarget } from "../agent/agent-entry";
 import { activateAppLocale } from "../i18n";
 import { notifyInfo } from "../telemetry/app-notify";
 import { TrellisController } from "./trellis-controller";
@@ -101,6 +102,31 @@ describe("titlebar panel controls in a narrow window", () => {
     ]);
     fireEvent.click(menu.getByRole("menuitemradio", { name: "Reading" }));
     expect(chosen).toEqual(["reading"]);
+  });
+});
+
+describe("titlebar ways to the Agent", () => {
+  // Opening the Agent is how a PDF selection becomes its context, so these
+  // presses must not count as the click that dismisses the PDF selection.
+  it("marks every control that opens or reveals the Agent, and only those", async () => {
+    const controller = new TrellisController();
+    controller.attachWorkspace({
+      view: (id: string) => (id === "agent" ? { panelId: "panel-tools", placement: "hidden", visible: false } : null),
+    } as unknown as WorkspaceHandle);
+    act(() => controller.ui.set({ hidden: [{ panelId: "panel-tools", title: "Agent" }, { panelId: "panel-papers", title: "Papers" }] }));
+    render(<TrellisTitlebar controller={controller} />);
+
+    expect(isAgentEntryTarget(screen.getByRole("button", { name: "Show Agent" }).querySelector("svg"))).toBe(true);
+    expect(isAgentEntryTarget(screen.getByRole("button", { name: "Show Project" }))).toBe(false);
+    const chips = document.querySelectorAll(".trellis-hidden-chip");
+    expect([...chips].map((chip) => [chip.textContent, isAgentEntryTarget(chip)])).toEqual([["Agent", true], ["Papers", false]]);
+
+    const panels = screen.getByRole("button", { name: "Panels" });
+    expect(isAgentEntryTarget(panels)).toBe(true);
+    fireEvent.pointerDown(panels, { button: 0, ctrlKey: false, pointerType: "mouse" });
+    const menu = within(await screen.findByRole("menu"));
+    expect(isAgentEntryTarget(menu.getByRole("menuitem", { name: /^Agent/ }))).toBe(true);
+    expect(isAgentEntryTarget(menu.getByRole("menuitem", { name: /^Project/ }))).toBe(false);
   });
 });
 

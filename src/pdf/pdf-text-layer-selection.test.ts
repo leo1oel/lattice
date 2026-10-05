@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import { renderHook } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { invoke } from "@tauri-apps/api/core";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
@@ -9,9 +10,13 @@ import {
   isVisualPdfGlyphEvent,
   PDF_TEXT_SELECTION_CLEARED_EVENT,
   pdfSelectedOrCachedPlainText,
+  pdfSelectedPlainTextWithin,
   placeEndOfContentForRange,
   shouldPreventPdfSelectAll,
+  usePdfSelectionReport,
 } from "./pdf-text-layer-selection";
+
+import { AGENT_ENTRY_ATTRIBUTE } from "../agent/agent-entry";
 
 vi.mock("@tauri-apps/plugin-clipboard-manager", () => ({
   writeText: vi.fn(async () => undefined),
@@ -416,5 +421,117 @@ describe("PDF empty-page clicks", () => {
       expect(layer.classList.contains("has-selection")).toBe(false);
       expect(layer.classList.contains("selecting")).toBe(false);
     });
+  });
+});
+
+describe("PDF selection on the way to the Agent", () => {
+  /** A Trellis tab as Trellis draws it, for the view `view`. */
+  function trellisTab(view: string) {
+    const tab = document.createElement("div");
+    tab.dataset.trellisPart = "tab";
+    tab.dataset.view = view;
+    const title = document.createElement("span");
+    title.dataset.trellisPart = "tab-title";
+    title.textContent = view;
+    tab.append(title);
+    document.body.append(tab);
+    return title;
+  }
+
+  // The Agent shares a panel with Project by default: selecting PDF text and
+  // then clicking the Agent tab cleared the selection, and the Agent opened
+  // without it as context.
+  it("keeps the selection through a press on the Agent tab or a control that opens the Agent", async () => {
+    const { layer, spans } = glyphLayer("Attention turns tokens");
+    mockGlyphBox(spans[0]!, WIDE_BOX);
+    const agentToggle = document.createElement("button");
+    agentToggle.setAttribute(AGENT_ENTRY_ATTRIBUTE, "");
+    const icon = agentToggle.appendChild(document.createElement("svg"));
+    document.body.append(agentToggle);
+    const cleared = vi.fn();
+    document.addEventListener(PDF_TEXT_SELECTION_CLEARED_EVENT, cleared);
+    try {
+      await withSelection(layer, () => {
+        dragSelect(spans[0]!);
+        for (const target of [trellisTab("agent"), icon]) {
+          pointerDown(target);
+          expect(pdfSelectedOrCachedPlainText()).toBe("Attention turns tokens");
+        }
+        expect(cleared).not.toHaveBeenCalled();
+
+        // Any other control is still a deliberate dismissal.
+        pointerDown(trellisTab("project"));
+        expect(pdfSelectedOrCachedPlainText()).toBe("");
+        expect(cleared).toHaveBeenCalledOnce();
+      });
+    } finally {
+      document.removeEventListener(PDF_TEXT_SELECTION_CLEARED_EVENT, cleared);
+    }
+  });
+
+  it("attributes a selection to the viewer whose text layer holds it", async () => {
+    const preview = document.createElement("div");
+    const reader = document.createElement("div");
+    const first = glyphLayer("Compiled text");
+    const second = glyphLayer("Document text");
+    preview.append(first.layer);
+    reader.append(second.layer);
+    document.body.append(preview, reader);
+    mockGlyphBox(first.spans[0]!, WIDE_BOX);
+    mockGlyphBox(second.spans[0]!, WIDE_BOX);
+    await withSelection(first.layer, () => withSelection(second.layer, () => {
+      dragSelect(second.spans[0]!);
+      expect(pdfSelectedPlainTextWithin(reader)).toBe("Document text");
+      expect(pdfSelectedPlainTextWithin(preview)).toBe("");
+
+      // Once the drag has moved into the copy field, the cache still knows its viewer.
+      document.getSelection()?.removeAllRanges();
+      expect(pdfSelectedPlainTextWithin(reader)).toBe("Document text");
+      expect(pdfSelectedPlainTextWithin(preview)).toBe("");
+
+      dragSelect(first.spans[0]!);
+      expect(pdfSelectedPlainTextWithin(preview)).toBe("Compiled text");
+      expect(pdfSelectedPlainTextWithin(reader)).toBe("");
+    }));
+  });
+
+  // A project PDF open as a document sits beside the compiled preview: each
+  // must report only its own selection, or the Agent is told the document's
+  // text came from the preview (and its page).
+  it("reports a selection only from the viewer it was made in", async () => {
+    const preview = document.createElement("div");
+    const reader = document.createElement("div");
+    const first = glyphLayer("Compiled text");
+    const second = glyphLayer("Document text");
+    preview.append(first.layer);
+    reader.append(second.layer);
+    document.body.append(preview, reader);
+    mockGlyphBox(first.spans[0]!, WIDE_BOX);
+    mockGlyphBox(second.spans[0]!, WIDE_BOX);
+    const fromPreview = vi.fn();
+    const fromReader = vi.fn();
+    const reporter = (root: HTMLElement, onTextSelect: (text: string) => void) => renderHook(() => (
+      usePdfSelectionReport({ current: { root } }, 1, { current: { onTextSelect } })
+    ));
+    const select = (span: HTMLElement) => {
+      dragSelect(span);
+      document.dispatchEvent(new Event("selectionchange"));
+    };
+    await withSelection(first.layer, () => withSelection(second.layer, () => {
+      const hooks = [reporter(preview, fromPreview), reporter(reader, fromReader)];
+      select(second.spans[0]!);
+      expect(fromReader).toHaveBeenLastCalledWith("Document text");
+      expect(fromPreview).not.toHaveBeenCalled();
+
+      select(first.spans[0]!);
+      expect(fromPreview).toHaveBeenLastCalledWith("Compiled text");
+      expect(fromReader).toHaveBeenCalledOnce();
+
+      // The same text selected again in the document is a new selection there.
+      select(second.spans[0]!);
+      expect(fromReader).toHaveBeenCalledTimes(2);
+      expect(fromReader).toHaveBeenLastCalledWith("Document text");
+      for (const hook of hooks) hook.unmount();
+    }));
   });
 });
