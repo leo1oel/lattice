@@ -8138,6 +8138,10 @@ msgstr "the Overleaf project connection is no longer active"
 msgid "The Overleaf project connection is no longer active."
 msgstr "The Overleaf project connection is no longer active."
 
+#: src/app/use-synctex-navigation.ts
+msgid "The PDF is not compiled from this source yet, so Lattice cannot find the line in it. Fix the build, then try again."
+msgstr "The PDF is not compiled from this source yet, so Lattice cannot find the line in it. Fix the build, then try again."
+
 #: src/canvas/paper-reader.tsx
 msgid "The PDF took too long to load. Try again, or open the article in your browser."
 msgstr "The PDF took too long to load. Try again, or open the article in your browser."

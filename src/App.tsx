@@ -238,6 +238,8 @@ function App() {
     cancelPrewarm: () => cancelPrewarmRef.current(),
     onSaved: (root, paths) => {
       recordSavedPaths(paths);
+      // Called after this render, like afterSave below: the PDF is now older than these files.
+      buildPipeline.markInputsChanged(paths);
       refreshAfterSave(root, paths.some((path) => path.endsWith(".tex")), paths.some((path) => /\.bib$/i.test(path)));
     },
     onDiskEdit: (path) => externalOverleafEditsRef.current([path]),

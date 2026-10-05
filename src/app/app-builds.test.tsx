@@ -1,4 +1,4 @@
-import { interfaceSounds, pdfSlickTestApi, tauriCoreApi, fileNode, fileNodes, dirNode, projectCommands, refreshableProject, ROOT, projectSnapshot, rootDocument, MAIN_DOCUMENT, markdownSnapshot, buildResult, failedBuild, readFiles, deferred, setAutoBuildMode, setInterfaceLanguage, buildButton, waitForBuildIdle, selectDocumentView, findProjectTreeItem, renderApp, openWithAutomaticBuilds, expectNotification, findFrame, editorViewAt, findEditorView, appendToEditor, expectEditorText, expectInvoked, invokeCalls, pause, persistLayout, waitForSelectedTab, openTreeFile, visibleToasts, pdfDocumentStub, mockPdfDocument, stubObjectUrls } from "./app-test-utils";
+import { interfaceSounds, pdfSlickTestApi, tauriCoreApi, tauriEventApi, emitTauriEvent, fileNode, fileNodes, dirNode, projectCommands, refreshableProject, ROOT, projectSnapshot, rootDocument, MAIN_DOCUMENT, markdownSnapshot, buildResult, failedBuild, readFiles, deferred, setAutoBuildMode, setInterfaceLanguage, buildButton, waitForBuildIdle, selectDocumentView, findProjectTreeItem, renderApp, openWithAutomaticBuilds, expectNotification, findFrame, editorViewAt, findEditorView, appendToEditor, expectEditorText, expectInvoked, invokeCalls, pause, persistLayout, waitForSelectedTab, openTreeFile, visibleToasts, pdfDocumentStub, mockPdfDocument, stubObjectUrls } from "./app-test-utils";
 import { invoke } from "@tauri-apps/api/core";
 import { save } from "@tauri-apps/plugin-dialog";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
@@ -586,6 +586,76 @@ describe("builds and the PDF reader", () => {
     await waitFor(() => expect(formatAppLogs()).toContain("Missing style file `cvpr.sty`"));
     expect(screen.queryByRole("dialog", { name: "Install LaTeX tools" })).not.toBeInTheDocument();
   });
+
+  it("builds before a forward SyncTeX jump whenever the PDF is older than the project", async () => {
+    // Regression: with manual builds, an autosaved edit left the PDF and its
+    // SyncTeX map describing the old line numbers, and the jump went through
+    // that map to whatever passage used to stand on the caret's line.
+    setAutoBuildMode("manual");
+    mockPdfDocument(() => pdfDocumentStub(1));
+    let pdfUrls = 0;
+    stubObjectUrls(() => `blob:lattice-sync-${++pdfUrls}`);
+    const files: Record<string, string> = { "main.tex": "\\documentclass{article}" };
+    let builds = 0;
+    let buildFails = false;
+    renderApp({
+      ...projectCommands(projectSnapshot({ files: fileNodes("main.tex", "intro.tex") })),
+      read_project_file: readFiles(files),
+      write_project_file: (args) => {
+        const { path, content } = args as { path: string; content: string };
+        files[path] = content;
+      },
+      build_project: () => {
+        builds += 1;
+        return { success: !buildFails, hasPdf: true, log: "", durationMs: 50, diagnostics: [], rootDocument: "main.tex" };
+      },
+      // Every compile writes new bytes, as LaTeX's timestamps do; a failed
+      // pass that stopped before typesetting leaves the last PDF behind.
+      read_compiled_pdf: () => new TextEncoder().encode(`%PDF-1.4 ${buildFails ? builds - 1 : builds}`).buffer,
+      synctex_view: () => ({ page: 1, x: 72, y: 96, width: 120, height: 14 }),
+    });
+    await waitFor(() => expect(builds).toBe(1));
+    const revealCursor = await screen.findByRole("button", { name: /Reveal cursor in PDF/i }, { timeout: 30_000 });
+    await waitFor(() => expect(revealCursor).toBeEnabled());
+    const jump = async () => {
+      const lookups = invokeCalls("synctex_view").length;
+      fireEvent.click(revealCursor);
+      await waitFor(() => expect(invokeCalls("synctex_view").length).toBe(lookups + 1));
+      await waitFor(() => expect(revealCursor).toBeEnabled());
+    };
+    const lastCall = (command: string) => vi.mocked(invoke).mock.calls.map(([called]) => called).lastIndexOf(command);
+
+    // Compiled from what is on disk: the jump looks up the map as it is.
+    await jump();
+    expect(builds).toBe(1);
+
+    // An edit saved without a build: the jump compiles it first.
+    await appendToEditor("\n% A comment moves every line below it.");
+    await waitFor(() => expect(files["main.tex"]).toContain("% A comment"), { timeout: 3_000 });
+    await jump();
+    expect(builds).toBe(2);
+    expect(lastCall("build_project")).toBeLessThan(lastCall("synctex_view"));
+
+    // The watcher's echo of that save and the build's own output are not
+    // changes; an edit the agent made to an included file is.
+    await waitFor(() => expect(tauriEventApi.handlers.get("project-fs-changed")?.size).toBeGreaterThan(0));
+    emitTauriEvent("project-fs-changed", { root: ROOT, paths: ["main.aux", "main.pdf", "main.synctex.gz", "main.tex"] });
+    await jump();
+    expect(builds).toBe(2);
+    emitTauriEvent("project-fs-changed", { root: ROOT, paths: ["intro.tex"] });
+    await jump();
+    expect(builds).toBe(3);
+
+    // A build that fails without writing a new PDF leaves the old map, which
+    // no jump may use.
+    buildFails = true;
+    emitTauriEvent("project-fs-changed", { root: ROOT, paths: ["intro.tex"] });
+    const lookups = invokeCalls("synctex_view").length;
+    fireEvent.click(revealCursor);
+    await expectNotification(/The PDF is not compiled from this source yet/);
+    expect(builds).toBe(4);
+    expect(invokeCalls("synctex_view")).toHaveLength(lookups);
+  }, 60_000);
 
   it.each([
     ["saves dirty buffers before switching project files", false],
