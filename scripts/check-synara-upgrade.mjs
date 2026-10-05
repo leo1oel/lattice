@@ -16,11 +16,11 @@ function git(cwd, args) {
 // Run before publishing a new pin, while the previous source checkout is still
 // available. An ancestor check preserves history, not behavior: browser tests
 // must still catch changes lost while resolving a merge conflict.
-export function checkSynaraUpgrade({ projectRoot, previousRef, sourceDirectory }) {
+export function checkSynaraUpgrade({ projectRoot, previousRef, sourceDirectory, previousSourceDirectory }) {
   const previous = JSON.parse(git(projectRoot, ["show", `${previousRef}:${pinPath}`]));
   const next = JSON.parse(readFileSync(resolve(projectRoot, pinPath), "utf8"));
   const sourceRoot = resolve(projectRoot, sourceDirectory || next.sourceDirectory);
-  const previousSourceRoot = resolve(projectRoot, previous.sourceDirectory);
+  const previousSourceRoot = resolve(projectRoot, previousSourceDirectory || previous.sourceDirectory);
 
   for (const root of new Set([sourceRoot, previousSourceRoot])) {
     if (!existsSync(root)) {
@@ -59,6 +59,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1]
         projectRoot: resolve(dirname(fileURLToPath(import.meta.url)), ".."),
         previousRef,
         sourceDirectory: process.env.SYNARA_SOURCE_DIR?.trim(),
+        previousSourceDirectory: process.env.SYNARA_PREVIOUS_SOURCE_DIR?.trim(),
       });
       console.log("Synara upgrade history and local-patch checks passed. Run the Lattice embed browser regressions before publishing the pin.");
     } catch (error) {
