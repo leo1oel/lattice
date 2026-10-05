@@ -1177,7 +1177,9 @@ describe("project tree and projects", () => {
         { "sections/introduction.tex": "\\subsection{Background}\ntext\n" },
         "\\documentclass{article}\n\\begin{document}\n\\section{Intro}\n\\input{sections/introduction}\n\\section{Results}\n\\end{document}\n",
       ),
-      build_project: buildResult({ durationMs: 1 }),
+      // The outline looks a line up in the PDF's SyncTeX map, so the build writes one.
+      build_project: buildResult({ durationMs: 1, hasPdf: true, rootDocument: "main.tex" }),
+      read_compiled_pdf: () => new TextEncoder().encode("%PDF-1.4 outline").buffer,
       synctex_view: () => new Promise((resolve) => syncResolvers.push(resolve)),
     });
     expect(await screen.findByLabelText("Show document outline")).toBeInTheDocument();

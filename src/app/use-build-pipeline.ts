@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState, type Dispatch, type SetStateAction } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { invoke } from "@tauri-apps/api/core";
 import type { BuildResult, ProjectSnapshot } from "../app-types";
@@ -7,8 +7,10 @@ import {
   diagnosticsFingerprint, flattenProjectPaths, missingTexDependencyFile, resolveDiagnosticPath, sortDiagnostics,
   summarizeDiagnostics, type CompileDiagnostic, type DiagnosticCounts,
 } from "../build/compile-diagnostics";
+import { isBuildOutput } from "../build/build-inputs";
 import { isMissingTexBuildError } from "../build/tex-setup";
 import { pdfBytesFingerprint, pdfBytesToObjectUrl } from "../pdf/pdf-bytes";
+import { normalizeProjectRelativePath, onProjectFilesChanged } from "../project/project-files-changed";
 import { logAction } from "../telemetry/app-notify";
 import { diagnosticInvoke } from "../telemetry/diagnostic-request";
 import { playInterfaceSound } from "../telemetry/interface-sounds";
@@ -42,6 +44,12 @@ type QueuedBuild = { force: boolean | null; sound: boolean; consumeAgentAssociat
 const IDLE_QUEUE: QueuedBuild = { force: null, sound: false, consumeAgentAssociations: false };
 
 type Ref<T> = { readonly current: T };
+
+/** How long after the app writes a file the watcher's next report of that file is its echo, not a new change. */
+const OWN_WRITE_ECHO_MS = 3_000;
+
+/** The build that holds the pipeline: settles once it and every pass it took from the queue are done. */
+type RunningBuild = { settled: Promise<void>; revision: number };
 
 /** The text each file had when the build compiled it, keyed by project path. */
 export type CompiledSources = ReadonlyMap<string, string>;
@@ -155,6 +163,63 @@ export function useBuildPipeline({
   /** Bumped when leaving a project so a late build cannot revive a stale PDF. */
   const previewGenerationRef = useRef(0);
 
+  /**
+   * Which project inputs the PDF and its SyncTeX map were compiled from.
+   * Every change a build could compile — the app's own saves, and whatever
+   * else the watcher sees change besides the build's output — bumps the input
+   * revision; a pass that writes the PDF records the revision it started at
+   * and the document it compiled. SyncTeX answers in the lines it compiled,
+   * so a jump from the editor needs the two to agree: one saved but unbuilt
+   * edit moves every line below it, and the jump lands on another passage.
+   */
+  const inputRevisionRef = useRef(0);
+  const compiledRef = useRef<{ revision: number; rootDocument: string | null } | null>(null);
+  /** The last compiled PDF read from disk, so a failed pass can tell whether it wrote a new one. */
+  const readPdfFingerprintRef = useRef<string | null>(null);
+  /** When the app last wrote each project path itself; see OWN_WRITE_ECHO_MS. */
+  const ownWritesRef = useRef(new Map<string, number>());
+  const runningBuildRef = useRef<RunningBuild | null>(null);
+
+  /** A project input changed through the app; `paths` are the files it wrote. */
+  const markInputsChanged = useCallback((paths: readonly string[] = []) => {
+    inputRevisionRef.current += 1;
+    const now = Date.now();
+    for (const path of paths) {
+      const file = normalizeProjectRelativePath(path);
+      if (file) ownWritesRef.current.set(file, now);
+    }
+  }, []);
+
+  // Everything else that changes an input — the agent, an Overleaf pull, a
+  // rename in the tree, another editor — reaches the project through the
+  // watcher. Its reports include each build's own output and the echo of
+  // every save, neither of which makes the PDF any older.
+  const projectRoot = project?.root;
+  useEffect(() => {
+    if (!projectRoot) return;
+    return onProjectFilesChanged(projectRoot, (paths) => {
+      const ownWrites = ownWritesRef.current;
+      const now = Date.now();
+      for (const [path, writtenAt] of ownWrites) if (now - writtenAt > OWN_WRITE_ECHO_MS) ownWrites.delete(path);
+      const rootDocuments = projectRef.current?.manifest.rootDocuments.map((document) => document.path) ?? [];
+      let changesInputs = !paths;
+      for (const path of paths ?? []) {
+        const file = normalizeProjectRelativePath(path);
+        if (file && ownWrites.delete(file)) continue;
+        if (!file || !isBuildOutput(file, rootDocuments)) changesInputs = true;
+      }
+      if (changesInputs) inputRevisionRef.current += 1;
+    });
+  }, [projectRef, projectRoot]);
+
+  /** Whether the compiled PDF is of the project's current inputs and root document. */
+  const compiledIsCurrent = useCallback(() => {
+    const compiled = compiledRef.current;
+    if (!compiled || compiled.revision !== inputRevisionRef.current) return false;
+    const rootDocument = projectRef.current?.manifest.rootDocuments.find((document) => document.isDefault)?.path;
+    return !rootDocument || !compiled.rootDocument || rootDocument === compiled.rootDocument;
+  }, [projectRef]);
+
   const replacePdfUrl = useCallback((nextUrl: string | null) => setPdfUrl((previous) => {
     if (previous) URL.revokeObjectURL(previous);
     return nextUrl;
@@ -190,6 +255,11 @@ export function useBuildPipeline({
   const resetForProject = useCallback((projectRoot: string) => {
     setBuild(null);
     setOutcome(null);
+    // A PDF already on disk was compiled from inputs this session never saw.
+    compiledRef.current = null;
+    inputRevisionRef.current += 1;
+    ownWritesRef.current.clear();
+    readPdfFingerprintRef.current = null;
     const generation = ++previewGenerationRef.current;
     pdfFingerprintRef.current = null;
     displayedPdfBytesRef.current = null;
@@ -205,6 +275,7 @@ export function useBuildPipeline({
         const fingerprint = pdfBytesFingerprint(pdfBytes);
         const nextUrl = pdfBytesToObjectUrl(pdfBytes);
         pdfFingerprintRef.current = fingerprint;
+        if (readPdfFingerprintRef.current === null) readPdfFingerprintRef.current = fingerprint;
         displayedPdfBytesRef.current = pdfBytes;
         setPdfUrl((previous) => {
           if (!current(fingerprint)) {
@@ -256,6 +327,12 @@ export function useBuildPipeline({
       return;
     }
     setBuilding(true);
+    let settle = () => {};
+    const running: RunningBuild = {
+      settled: new Promise<void>((resolve) => { settle = resolve; }),
+      revision: inputRevisionRef.current,
+    };
+    runningBuildRef.current = running;
     // The spinner stands in while this runs; whatever the previous build
     // reported must not come back if no pass of this one gets to report.
     setOutcome(null);
@@ -298,6 +375,10 @@ export function useBuildPipeline({
         const projectRoot = projectRef.current?.root;
         if (!projectRoot) continue;
         buildScope = { operationGeneration: projectGenerationRef.current, previewGeneration, projectRoot };
+        // latexmk reads the inputs after this; a change landing meanwhile
+        // leaves the pass's PDF behind it, as it should.
+        const revisionAtBuild = inputRevisionRef.current;
+        running.revision = revisionAtBuild;
         const sourceAtBuild = sourceRef.current;
         const fileAtBuild = activeFileRef.current;
         // The open file rides along so the backend can re-target the build on
@@ -309,6 +390,7 @@ export function useBuildPipeline({
           "build_project", { force: currentForce, projectRoot, documentPath }, { operationId: trace.id },
         ).catch((reason) => {
           if (!scopeIsCurrent()) return null;
+          compiledRef.current = null;
           reportCompiles(agentCompileAssociations, null);
           throw reason;
         });
@@ -333,6 +415,15 @@ export function useBuildPipeline({
         // A stopped build comes back as a failed result carrying the
         // build-cancelled advice. The writer asked for that; it is not an error.
         const cancelled = result.diagnostics.some((item) => item.code === "build-cancelled");
+        // LaTeX carries on past most errors, so a failed pass that wrote a
+        // new PDF still compiled these inputs. One that left the previous PDF
+        // in place (or was stopped partway) did not, and its SyncTeX map
+        // cannot be trusted either.
+        const fingerprint = pdfBytes ? pdfBytesFingerprint(pdfBytes) : null;
+        const wrotePdf = fingerprint !== null && !cancelled
+          && (result.success || fingerprint !== readPdfFingerprintRef.current);
+        readPdfFingerprintRef.current = fingerprint;
+        compiledRef.current = wrotePdf ? { revision: revisionAtBuild, rootDocument: result.rootDocument || null } : null;
         const report = { counts: summarizeDiagnostics(result.diagnostics), rootDocument: result.rootDocument || null, finishedAt: Date.now() };
         setOutcome(result.success
           ? { status: "succeeded", seconds: result.durationMs / 1000, ...report }
@@ -391,6 +482,7 @@ export function useBuildPipeline({
       } while (takeQueuedBuild());
     } catch (reason) {
       if (scopeIsCurrent()) {
+        compiledRef.current = null;
         trace.fail(reason, { timeoutMs: shouldPlayCompletionSound ? 0 : undefined });
         setOutcome({ status: "failed", counts: { error: 0, warning: 0, info: 0 }, rootDocument: null, finishedAt: Date.now() });
         completionSound = "build-failed";
@@ -401,6 +493,8 @@ export function useBuildPipeline({
       const queued = queue.force === null ? null : { ...queue, force: queue.force };
       Object.assign(queue, IDLE_QUEUE);
       setBuilding(false);
+      runningBuildRef.current = null;
+      settle();
       if (shouldPlayCompletionSound && completionSound && scopeIsCurrent()) playInterfaceSound(completionSound);
       // A backend rejection skips the loop's takeQueuedBuild() condition. Start
       // the captured pass only after releasing the in-flight lock, and only if
@@ -413,6 +507,30 @@ export function useBuildPipeline({
     activeFileRef, buildingRef, onMissingTex, openDiagnosticRef, projectGenerationRef, projectRef, reportCompiles,
     savedSourceRef, setBuilding, setProject, showPreview, sourceRef, t, takePendingCompiles,
   ]);
+
+  /**
+   * Make the compiled PDF, and the SyncTeX map beside it, those of the
+   * project as it is now: build when an input changed since, or wait for the
+   * build already running (queueing one more pass when it started before the
+   * change). False when no build got there — one failed without writing a
+   * PDF, or was stopped — so a jump never lands through an older map.
+   */
+  const ensureCompiled = useCallback(async (): Promise<boolean> => {
+    // Inputs that keep changing under the build get a few passes, not a loop.
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      if (compiledIsCurrent()) return true;
+      const running = runningBuildRef.current;
+      if (running && running.revision === inputRevisionRef.current) {
+        await running.settled;
+      } else {
+        // With a build running, this only queues the pass it takes next.
+        const requested = runBuild(false, { immediatePreview: true });
+        await (running?.settled ?? requested);
+      }
+      if (!compiledRef.current) return false;
+    }
+    return compiledIsCurrent();
+  }, [compiledIsCurrent, runBuild]);
 
   const abortBuild = useCallback(async () => {
     if (!buildingRef.current) return;
@@ -474,11 +592,14 @@ export function useBuildPipeline({
     resetForProject,
     resetQueue,
     runBuild,
+    markInputsChanged,
+    ensureCompiled,
     abortBuild,
     cleanProject,
     cleanAndRebuild,
   }), [
     abortBuild, build, building, outcome, cleanAndRebuild, cleanProject, cleaning, compiledSources, cycleDiagnostic,
-    diagnosticsDismissed, diagnosticsExpanded, dismissDiagnostics, pdfUrl, resetForProject, resetQueue, runBuild,
+    diagnosticsDismissed, diagnosticsExpanded, dismissDiagnostics, ensureCompiled, markInputsChanged, pdfUrl,
+    resetForProject, resetQueue, runBuild,
   ]);
 }

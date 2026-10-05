@@ -16,7 +16,7 @@ export type SyncTexNavigationDeps = {
   /** Where the editor's caret is (the ref is current between renders). */
   editorPosition: EditorPosition | null;
   editorPositionRef: RefObject<EditorPosition | null>;
-  build: Pick<ReturnType<typeof useBuildPipeline>, "pdfUrl" | "runBuild">;
+  build: Pick<ReturnType<typeof useBuildPipeline>, "pdfUrl" | "ensureCompiled">;
   trellis: TrellisController;
 };
 
@@ -30,10 +30,10 @@ export type SyncTexNavigationDeps = {
 export function useSyncTexNavigation(deps: SyncTexNavigationDeps) {
   const { t } = useLingui();
   const { documents, captureProjectScope, editorPosition, editorPositionRef, trellis } = deps;
-  const { file: activeFile, asset: activeAsset, mode, text: source, savedText: savedSource } = documents;
+  const { file: activeFile, asset: activeAsset, mode } = documents;
   const { openFile, save, scope, reveal } = documents;
   const { file: activeFileRef } = documents.live;
-  const { pdfUrl, runBuild } = deps.build;
+  const { pdfUrl, ensureCompiled } = deps.build;
   const forwardSyncGenerationRef = useRef(0);
   const outlineSyncGenerationRef = useRef(0);
   const [pdfSyncTarget, setPdfSyncTarget] = useState<PdfSyncTarget | null>(null);
@@ -44,7 +44,12 @@ export function useSyncTexNavigation(deps: SyncTexNavigationDeps) {
     && (mode === "split" || mode === "pdf") && !activeAsset && editorPosition.path === activeFile
     ? editorPosition : null;
 
-  /** From the caret to its place in the PDF, saving (and building, if the PDF is stale) first. */
+  /**
+   * From the caret to its place in the PDF, saving first, and building when
+   * the PDF was compiled before the latest change to the project: SyncTeX
+   * answers in the lines the PDF was compiled from, so an older map sends
+   * the jump to whatever passage used to stand on the caret's line.
+   */
   const revealSourceInPdf = useCallback(async () => {
     if (!forwardSyncPosition || locatingPdf) return;
     const position = forwardSyncPosition;
@@ -62,8 +67,12 @@ export function useSyncTexNavigation(deps: SyncTexNavigationDeps) {
     const locate = async () => {
       if (!(await save())) return;
       if (!isCurrentRequest()) return;
-      if (source !== savedSource || !pdfUrl) await runBuild();
+      const compiled = await ensureCompiled();
       if (!isCurrentRequest()) return;
+      if (!compiled) {
+        setWarning(t`The PDF is not compiled from this source yet, so Lattice cannot find the line in it. Fix the build, then try again.`);
+        return;
+      }
       const target = await invoke<PdfSyncResponse | null>("synctex_view", {
         path: position.path,
         line: position.line,
@@ -87,10 +96,14 @@ export function useSyncTexNavigation(deps: SyncTexNavigationDeps) {
       if (forwardSyncGenerationRef.current === requestGeneration) setLocatingPdf(false);
     });
   }, [
-    editorPositionRef, forwardSyncPosition, locatingPdf, pdfUrl, reveal, runBuild, save, savedSource, scope, source, t,
+    editorPositionRef, ensureCompiled, forwardSyncPosition, locatingPdf, reveal, save, scope, t,
   ]);
 
-  /** Open an outline entry's line, then show the same place in the PDF when SyncTeX knows it. */
+  /**
+   * Open an outline entry's line, then show the same place in the PDF when
+   * SyncTeX knows it, through a PDF compiled from the current source as for
+   * a jump from the caret.
+   */
   const navigateOutline = useCallback(async (path: string, line: number) => {
     const requestGeneration = outlineSyncGenerationRef.current + 1;
     outlineSyncGenerationRef.current = requestGeneration;
@@ -106,13 +119,17 @@ export function useSyncTexNavigation(deps: SyncTexNavigationDeps) {
     );
     await openFile(path, { line });
     if (!isCurrentRequest(false)) return;
+    // The editor's jump stands alone when no build can bring the PDF up to date.
+    // The caret is checked only once SyncTeX answers: with the PDF already
+    // current this resolves before the editor has applied the requested line.
+    if (!(await save()) || !isCurrentRequest(false) || !(await ensureCompiled()) || !isCurrentRequest(false)) return;
     const target = await invoke<PdfSyncResponse | null>("synctex_view", { path, line, column: 0 })
       // The source jump is still useful when this PDF has no SyncTeX map.
       .catch(() => undefined);
     if (target === undefined || !isCurrentRequest()) return;
     if (target) setPdfSyncTarget({ ...target, id: crypto.randomUUID() });
     reveal("pdf");
-  }, [activeFileRef, captureProjectScope, editorPositionRef, openFile, reveal]);
+  }, [activeFileRef, captureProjectScope, editorPositionRef, ensureCompiled, openFile, reveal, save]);
 
   /** From a double-click in the PDF to its source line. */
   const revealPdfSource = useCallback((page: number, x: number, y: number) => showingErrors(async () => {

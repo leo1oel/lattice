@@ -8138,6 +8138,10 @@ msgstr "与 Overleaf 项目的连接已失效"
 msgid "The Overleaf project connection is no longer active."
 msgstr "与 Overleaf 项目的连接已失效。"
 
+#: src/app/use-synctex-navigation.ts
+msgid "The PDF is not compiled from this source yet, so Lattice cannot find the line in it. Fix the build, then try again."
+msgstr "PDF 尚未从当前源码编译，Lattice 无法在其中找到这一行。请先修复构建，然后重试。"
+
 #: src/canvas/paper-reader.tsx
 msgid "The PDF took too long to load. Try again, or open the article in your browser."
 msgstr "PDF 加载时间过长。请重试，或在浏览器中打开文章。"
