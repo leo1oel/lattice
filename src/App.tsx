@@ -24,6 +24,7 @@ import { useReferenceImport } from "./app/use-reference-import";
 import { overleafThreadOf, useEditorComments } from "./app/use-editor-comments";
 import { useAgentCheckpoints } from "./app/use-agent-checkpoints";
 import { useBuildPipeline } from "./app/use-build-pipeline";
+import { SynaraLoadingSurface } from "./agent/synara-loading-surface";
 import { useTexSetup } from "./app/use-tex-setup";
 import { useCanvasRequests } from "./app/use-canvas-requests";
 import { useOpenDocuments } from "./app/use-open-documents";
@@ -1716,7 +1717,7 @@ function App() {
         {createPortal(trellisActions.papers, trellis.hosts.papersActions)}
         {createPortal(trellisActions.agent, trellis.hosts.agentActions)}
         {agentPresent && createPortal(
-          <Suspense fallback={null}>
+          <Suspense fallback={<div className="synara-frame-shell"><SynaraLoadingSurface runtime={synara.runtime} onRetry={synara.retry} /></div>}>
             <TrellisAgentSurface
               synara={synara}
               projectRoot={project.root}

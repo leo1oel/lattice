@@ -29,6 +29,8 @@ describes what the sidecar is and how it is built and synced; it is not a second
 - Synara remains an upstream-shaped Node service with its own SQLite and WebSocket layers.
 - The first Agent, source-control, review, or Agent-settings surface starts one sidecar for the Lattice process on a dynamically selected `127.0.0.1` port.
 - Ordinary writing sessions never launch the bundled agent service; after the first request it remains alive because hidden surfaces may still own background turns or terminals.
+- Sidecar startup and health polling run on a blocking worker, so the native event loop can paint the localized loading surface immediately. The loader also covers the lazy panel module and stays up until the embedded composer has committed.
+- The embedded client reports readiness from the committed composer, without waiting for animation frames while the host covers the frame. Embedded headers use a named, tooltip-equipped handoff icon, and the standalone rail card border is suppressed in embeds.
 - Tauri explicitly stops the sidecar on `RunEvent::Exit`; the sidecar also watches its launching
   Lattice PID and exits if the host disappears, so a crash cannot leave the SQLite lifecycle lock.
 - Every launch gets a random authentication token. Lattice transfers it in the iframe fragment;
