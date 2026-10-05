@@ -83,7 +83,7 @@ describe("welcome screen", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: /new project/i }));
     fireEvent.click(screen.getByRole("button", { name: "Choose location" }));
-    expect(await screen.findByRole("alert")).toHaveTextContent("That folder already exists and is not empty.");
+    await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("That folder already exists and is not empty."));
     expect(screen.getByRole("heading", { name: "Create a research project" })).toBeInTheDocument();
   });
 

@@ -74,6 +74,11 @@ jobs:
       - uses: ./.github/actions/setup-pnpm
       - run: pnpm lint
       - run: pnpm knip
+      # Locally part of the `lint` mise stage: every table in
+      # docs/performance.md is accounted for in
+      # docs/performance-data/manifest.json, and each benchmark table is
+      # recomputed from the raw runs it names.
+      - run: pnpm perf:evidence
       - run: pnpm build
       # Locally this is the `i18n-check` mise stage; it was the one stage of
       # `pnpm check` that CI never ran, so catalog drift passed here and only

@@ -387,7 +387,7 @@ describe("Overleaf picker dialog", () => {
     await openFirstProject();
     // The modal repeats transfer errors inline so its focus trap does not
     // hide the failure from assistive technology.
-    expect(await screen.findByRole("alert")).toHaveTextContent(/Could not reach Overleaf/);
+    await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent(/Could not reach Overleaf/));
     expect(onBeforeClone).toHaveBeenCalledOnce();
     expect(onCloneCancelled).toHaveBeenCalledOnce();
     expect(onClose).not.toHaveBeenCalled();

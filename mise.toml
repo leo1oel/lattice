@@ -38,12 +38,16 @@ sources = [
 ]
 
 # knip rides along: it reads the same trees plus scripts/, and keeps unused
-# files, dependencies and duplicate exports from creeping back in.
+# files, dependencies and duplicate exports from creeping back in. So does
+# perf:evidence, which recomputes docs/performance.md's benchmark tables from
+# their retained runs (scripts/check-perf-evidence.mjs).
 [tasks.lint]
-description = "ESLint over src and tools (the warning cap is a debt ratchet — lower it, never raise it), then knip"
-run = ["pnpm lint", "pnpm knip"]
+description = "ESLint over src and tools (the warning cap is a debt ratchet — lower it, never raise it), knip, and the benchmark-table evidence check"
+run = ["pnpm lint", "pnpm knip", "pnpm perf:evidence"]
 sources = [
   "src/**",
+  "docs/performance.md",
+  "docs/performance-data/**",
   "!src/locales/**/*.js",
   "tools/**",
   "scripts/**",
