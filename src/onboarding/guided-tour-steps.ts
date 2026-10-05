@@ -177,15 +177,7 @@ export const TOUR_STEPS: readonly TourStep[] = [
     action: msg`Press ⌘⇧K in the editor to cite one`,
     target: ({ controller }) => panelOf(controller, "papers"),
     reveal: ({ controller }) => controller.showPanel("papers", { focus: false }),
-    watch: ({ controller }, done) => {
-      const host = controller.hosts.papers;
-      host.addEventListener("pointerdown", done);
-      const offShortcut = watchShortcut("k", done, { shift: true });
-      return () => {
-        host.removeEventListener("pointerdown", done);
-        offShortcut();
-      };
-    },
+    watch: (_context, done) => watchShortcut("k", done, { shift: true }),
   },
   {
     id: "comments",
@@ -214,17 +206,31 @@ export const TOUR_STEPS: readonly TourStep[] = [
     watch: ({ controller }, done) => {
       const host = controller.hosts.agent;
       // The Agent is a frame: typing in it never reaches this document, but
-      // focus entering it does.
-      const check = () => {
-        if (host.contains(document.activeElement)) done();
+      // focus entering it does. The frame also focuses its own composer when
+      // it loads, so only focus the writer sent there counts: a pointer over
+      // the panel, or a Tab just pressed.
+      let pointerInside = false;
+      let tabbedAt = -Infinity;
+      const enter = () => { pointerInside = true; };
+      const leave = () => { pointerInside = false; };
+      const onKey = (event: KeyboardEvent) => {
+        if (event.key === "Tab") tabbedAt = performance.now();
       };
-      host.addEventListener("pointerdown", done);
-      window.addEventListener("blur", check);
+      const check = () => {
+        if (!host.contains(document.activeElement)) return;
+        if (pointerInside || performance.now() - tabbedAt < 500) done();
+      };
+      host.addEventListener("pointerenter", enter);
+      host.addEventListener("pointerleave", leave);
       host.addEventListener("focusin", check);
+      window.addEventListener("keydown", onKey, true);
+      window.addEventListener("blur", check);
       return () => {
-        host.removeEventListener("pointerdown", done);
-        window.removeEventListener("blur", check);
+        host.removeEventListener("pointerenter", enter);
+        host.removeEventListener("pointerleave", leave);
         host.removeEventListener("focusin", check);
+        window.removeEventListener("keydown", onKey, true);
+        window.removeEventListener("blur", check);
       };
     },
   },

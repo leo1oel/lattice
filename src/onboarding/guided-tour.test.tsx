@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { hasFinishedGuidedTour, rememberGuidedTour } from "../settings/app-settings";
 import GuidedTour from "./guided-tour";
 import { placeCard } from "./guided-tour-placement";
-import type { TourContext, TourStep } from "./guided-tour-steps";
+import { TOUR_STEPS, type TourContext, type TourStep } from "./guided-tour-steps";
 
 /** Only what the tour reads of the controller: the workspace it snapshots on entering a stop. */
 const controller = {
@@ -120,6 +120,29 @@ describe("GuidedTour", () => {
   it("welcomes back a writer who finished it before", () => {
     renderTour([welcome], { replay: true });
     expect(screen.getByRole("dialog", { name: "Welcome back" })).toBeInTheDocument();
+  });
+});
+
+describe("the Agent stop", () => {
+  it("counts focus the writer sent into the Agent, not the frame focusing itself", () => {
+    const host = document.body.appendChild(document.createElement("div"));
+    const frame = host.appendChild(document.createElement("iframe"));
+    const agent = TOUR_STEPS.find((step) => step.id === "agent")!;
+    const done = vi.fn();
+    const stop = agent.watch!({ controller: { hosts: { agent: host } } } as unknown as TourContext, done);
+
+    // The frame focuses its composer as it loads.
+    frame.focus();
+    window.dispatchEvent(new Event("blur"));
+    expect(done).not.toHaveBeenCalled();
+
+    frame.blur();
+    host.dispatchEvent(new PointerEvent("pointerenter"));
+    frame.focus();
+    window.dispatchEvent(new Event("blur"));
+    expect(done).toHaveBeenCalled();
+    stop();
+    host.remove();
   });
 });
 
