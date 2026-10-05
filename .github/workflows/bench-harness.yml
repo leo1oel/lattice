@@ -1,0 +1,57 @@
+name: Bench harness
+
+# `pnpm test:e2e-harness` (scripts/perf-bench/smoke.test.mjs) drives the real
+# `pnpm perf:bench --serve --smoke --chrome` lifecycle: a production build of
+# the bench page, smoke checks in en, zh-CN and lang=system, and the SIGTERM
+# cleanup docs/driving-the-app.md stops a served page with. Agents rely on
+# that route to see the app, and when it broke, review lanes stalled on a
+# blank page before anyone saw why. The ci.yml benchmark jobs do not cover it:
+# they never serve, switch language or stop a server.
+#
+# It costs a production build and three Chrome sessions, so it runs only when
+# a harness input changes rather than on every pull request.
+# scripts/perf-bench/bench-harness-paths.test.mjs fails when a file the
+# harness imports is missing from these filters; keep the two lists equal.
+on:
+  push:
+    branches: [main]
+    paths: &harness-paths
+      - "scripts/perf-bench.mjs"
+      - "scripts/perf-bench/**"
+      - "scripts/perf-fixture.mjs"
+      - "scripts/private-fonts.ts"
+      - "scripts/vitest-fs-cache-key.ts"
+      - "tools/perf-bench/**"
+      - "src/index.css"
+      - "vite.config.ts"
+      - "vitest.config.ts"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - ".github/actions/setup-pnpm/**"
+      - ".github/workflows/bench-harness.yml"
+  pull_request:
+    paths: *harness-paths
+  workflow_dispatch:
+
+jobs:
+  e2e-harness:
+    runs-on: ubuntu-latest
+    # A healthy run is a few minutes; a page that never becomes ready is
+    # bounded by the test's own timeouts well inside this.
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup-pnpm
+      # Like the perf-bench job in ci.yml, --chrome drives the runner's
+      # preinstalled Google Chrome.
+      - run: pnpm test:e2e-harness
+        env:
+          # The test keeps its scratch directory here instead of deleting it,
+          # so a failed smoke check's screenshot survives for the upload below.
+          LATTICE_E2E_TMPDIR: ${{ runner.temp }}/e2e-harness
+      - if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: e2e-harness-smoke
+          path: ${{ runner.temp }}/e2e-harness/**/lattice-perf-bench-*.png
+          if-no-files-found: ignore

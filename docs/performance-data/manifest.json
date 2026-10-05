@@ -1,0 +1,438 @@
+{
+  "$comment": "Accounts for every table in the listed documents; scripts/check-perf-evidence.mjs (`pnpm perf:evidence`) explains the kinds and recomputes each measured table from its raw runs.",
+  "documents": [
+    "docs/performance.md"
+  ],
+  "tables": [
+    {
+      "kind": "reference",
+      "doc": "docs/performance.md",
+      "section": "Interaction benchmark and CI gate",
+      "header": "Count | Source",
+      "why": "Defines the counts the interaction benchmark reports."
+    },
+    {
+      "kind": "reference",
+      "doc": "docs/performance.md",
+      "section": "Interaction benchmark and CI gate",
+      "header": "Scenario | Interaction",
+      "why": "Defines the benchmark's scenarios."
+    },
+    {
+      "kind": "reference",
+      "doc": "docs/performance.md",
+      "section": "Ceilings and the ratchet",
+      "header": "Scenario | Gated | Report-only | Why report-only",
+      "why": "Lists which counts are gated; the ceilings live in scripts/perf-bench/budgets*.json."
+    },
+    {
+      "kind": "reference",
+      "doc": "docs/performance.md",
+      "section": "What was actually slow here (August 2026)",
+      "header": "Cause | Where",
+      "why": "Causes and the code they lived in."
+    },
+    {
+      "kind": "reference",
+      "doc": "docs/performance.md",
+      "section": "What was actually slow here (August 2026)",
+      "header": "Cause | Where",
+      "why": "Causes and the code they lived in."
+    },
+    {
+      "kind": "legacy",
+      "doc": "docs/performance.md",
+      "section": "Long-session degradation (September 2026)",
+      "header": "Cause | Evidence | Fix",
+      "recorded": "2026-09-27",
+      "why": "Measured before docs/performance-data/manifest.json existed; the raw runs were not kept. Re-measure into a \"measured\" entry before citing these figures as current."
+    },
+    {
+      "kind": "legacy",
+      "doc": "docs/performance.md",
+      "section": "Long-session degradation (September 2026)",
+      "header": " | Before | After",
+      "recorded": "2026-09-27",
+      "why": "Measured before docs/performance-data/manifest.json existed; the raw runs were not kept. Re-measure into a \"measured\" entry before citing these figures as current."
+    },
+    {
+      "kind": "legacy",
+      "doc": "docs/performance.md",
+      "section": "Interaction benchmark findings (September 2026)",
+      "header": "Interaction | commits | renders | hooks | recalcs | layouts | mutations | long tasks | task ms",
+      "recorded": "2026-09-28",
+      "why": "Measured before docs/performance-data/manifest.json existed; the raw runs were not kept. Re-measure into a \"measured\" entry before citing these figures as current."
+    },
+    {
+      "kind": "legacy",
+      "doc": "docs/performance.md",
+      "section": "Interaction benchmark findings (September 2026)",
+      "header": "Cause | Evidence | Fix",
+      "recorded": "2026-09-28",
+      "why": "Measured before docs/performance-data/manifest.json existed; the raw runs were not kept. Re-measure into a \"measured\" entry before citing these figures as current."
+    },
+    {
+      "kind": "legacy",
+      "doc": "docs/performance.md",
+      "section": "Typing in a long LaTeX file (October 2026)",
+      "header": "Cause | Per keystroke (Chromium) | Fix",
+      "recorded": "2026-10-01",
+      "why": "Measured before docs/performance-data/manifest.json existed; the raw runs were not kept. Re-measure into a \"measured\" entry before citing these figures as current."
+    },
+    {
+      "kind": "legacy",
+      "doc": "docs/performance.md",
+      "section": "Typing in a long LaTeX file (October 2026)",
+      "header": "Document | Chromium before | Chromium after | WebKit before | WebKit after",
+      "recorded": "2026-10-01",
+      "why": "Measured before docs/performance-data/manifest.json existed; the raw runs were not kept. Re-measure into a \"measured\" entry before citing these figures as current."
+    },
+    {
+      "kind": "legacy",
+      "doc": "docs/performance.md",
+      "section": "WebKit frame rate and dialogs (October 2026)",
+      "header": "Cause | Evidence | Fix",
+      "recorded": "2026-10-01",
+      "why": "Measured before docs/performance-data/manifest.json existed; the raw runs were not kept. Re-measure into a \"measured\" entry before citing these figures as current."
+    },
+    {
+      "kind": "legacy",
+      "doc": "docs/performance.md",
+      "section": "Viewport rendering for long documents (October 2026)",
+      "header": "2 MB `large.md`, visual editor | Chromium before | after | WebKit before | after",
+      "recorded": "2026-10-02",
+      "why": "Measured before docs/performance-data/manifest.json existed; the raw runs were not kept. Re-measure into a \"measured\" entry before citing these figures as current."
+    },
+    {
+      "kind": "legacy",
+      "doc": "docs/performance.md",
+      "section": "WebKit parity: panel drags, long PDFs, opening long sources (October 2026)",
+      "header": "Cause | Evidence | Fix",
+      "recorded": "2026-10-02",
+      "why": "Measured before docs/performance-data/manifest.json existed; the raw runs were not kept. Re-measure into a \"measured\" entry before citing these figures as current."
+    },
+    {
+      "kind": "legacy",
+      "doc": "docs/performance.md",
+      "section": "WebKit parity: panel drags, long PDFs, opening long sources (October 2026)",
+      "header": "Row | Before | After",
+      "recorded": "2026-10-02",
+      "why": "Measured before docs/performance-data/manifest.json existed; the raw runs were not kept. Re-measure into a \"measured\" entry before citing these figures as current."
+    },
+    {
+      "kind": "legacy",
+      "doc": "docs/performance.md",
+      "section": "First opens and TexLab traffic (October 2026)",
+      "header": "ms, p95 / p99 | Session | Cold, main | Cold, branch | Warm, main | Warm, branch",
+      "recorded": "2026-10-04",
+      "why": "Measured before docs/performance-data/manifest.json existed; the raw runs were not kept. Re-measure into a \"measured\" entry before citing these figures as current."
+    },
+    {
+      "kind": "legacy",
+      "doc": "docs/performance.md",
+      "section": "First opens and TexLab traffic (October 2026)",
+      "header": "Chunk held (ms) | Tool in the page (ms) | Shell on screen (ms)",
+      "recorded": "2026-10-04",
+      "why": "Measured before docs/performance-data/manifest.json existed; the raw runs were not kept. Re-measure into a \"measured\" entry before citing these figures as current."
+    },
+    {
+      "kind": "legacy",
+      "doc": "docs/performance.md",
+      "section": "First opens and TexLab traffic (October 2026)",
+      "header": "`long.tex`, ms | Session | Main | Branch",
+      "recorded": "2026-10-04",
+      "why": "Measured before docs/performance-data/manifest.json existed; the raw runs were not kept. Re-measure into a \"measured\" entry before citing these figures as current."
+    },
+    {
+      "kind": "measured",
+      "doc": "docs/performance.md",
+      "section": "A page window for long PDFs (October 2026)",
+      "header": "WebKit, 1,930 pages | Before | After",
+      "before": "31921114200881ee7bede229bea1cfaf418b684c",
+      "after": "6eac4215b4c8645845d70bbceab5cc9410418e59",
+      "afterNote": "The runs were taken on the pull-request branch squash-merged as this commit, whose src/ and PDF.js patch they measured.",
+      "argv": [
+        "node",
+        "scripts/perf-bench/pdf-window-timing.mjs",
+        "--before-ref",
+        "31921114",
+        "--engine",
+        "webkit",
+        "--runs",
+        "5",
+        "--json",
+        "docs/performance-data/pdf-window-2026-10-04-webkit.json"
+      ],
+      "fixture": "pdf-window-timing.mjs's FIXTURE (scripts/perf-fixture.mjs's project at largeMarkdownBytes 400000, chapterBytes 60000, longTexBytes 3200000, notes 40, codeBlocks 150, logLines 4000) with pdfPages=1930 and pdfPages=386: the generated text PDF opened from the navigator beside the compiled preview of the same size, on a production build of the bench page",
+      "engine": "Playwright headless WebKit 26.6 (playwright-core 1.63.0, browser revision 2359)",
+      "node": "22 (mise.toml's node); the patch version was not recorded",
+      "viewport": "1440×900",
+      "runs": "5 pairs per page count, 1,930 pages first; each pair runs before and after on fresh pages, before first in even pairs (0, 2, 4) and after first in odd ones",
+      "raw": "docs/performance-data/pdf-window-2026-10-04-webkit.json",
+      "figures": "scripts/perf-bench/pdf-window-figures.mjs",
+      "metrics": {
+        "zoom in fps": "Frames per second over a zoom-in gesture (20 Ctrl-wheel notches of 8 px, 16 ms apart, over the page at 70 %), every frame from the first notch to 300 ms after the last; null when the gesture's median frame is 25 ms or more (paced at 30 Hz)",
+        "zoom in longest frame ms": "The longest frame interval of that zoom-in gesture",
+        "zoom out fps": "As zoom in fps, for the zoom-out gesture that follows it",
+        "zoom out longest frame ms": "The longest frame interval of that zoom-out gesture",
+        "open ms": "Click reference.pdf in the navigator to the first animation frame with its page 1 drawn (a canvas not hidden)",
+        "jump ms": "Enter in the compiled preview's page field, 70 % of the page count typed, to the first frame with that page drawn",
+        "scroll fps": "Frames per second scrolling 120 px a frame for 200 frames; null when paced at 30 Hz as above",
+        "scroll frames with a blank page": "Scroll frames with a page on screen not drawn yet",
+        "elements": "document.getElementsByTagName('*').length once the second PDF is open"
+      },
+      "aggregation": "Median across a variant's runs at one page count (scripts/check-perf-evidence.mjs's median, which is the driver's). Runs whose figure is null (WebKit fps of a measurement paced at 30 Hz) are left out; none in these runs. Cells round half away from zero to the row's digits.",
+      "columns": [
+        {
+          "pages": 1930,
+          "variant": "before"
+        },
+        {
+          "pages": 1930,
+          "variant": "after"
+        }
+      ],
+      "rows": [
+        {
+          "label": "Ctrl-wheel zoom in, 20 notches: fps; longest frame (ms)",
+          "figures": [
+            "zoom in fps",
+            "zoom in longest frame ms"
+          ],
+          "digits": [
+            1,
+            0
+          ]
+        },
+        {
+          "label": "Ctrl-wheel zoom out: fps; longest frame (ms)",
+          "figures": [
+            "zoom out fps",
+            "zoom out longest frame ms"
+          ],
+          "digits": [
+            1,
+            0
+          ]
+        },
+        {
+          "label": "Open → first page drawn (ms)",
+          "figures": [
+            "open ms"
+          ],
+          "digits": [
+            0
+          ]
+        },
+        {
+          "label": "Jump to 70 % → drawn (ms)",
+          "figures": [
+            "jump ms"
+          ],
+          "digits": [
+            0
+          ]
+        },
+        {
+          "label": "Scroll, 120 px a frame for 200 frames: fps; frames with a blank page",
+          "figures": [
+            "scroll fps",
+            "scroll frames with a blank page"
+          ],
+          "digits": [
+            1,
+            0
+          ]
+        },
+        {
+          "label": "Elements in the document, two 1,930-page PDFs open",
+          "figures": [
+            "elements"
+          ],
+          "digits": [
+            0
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "measured",
+      "doc": "docs/performance.md",
+      "section": "A page window for long PDFs (October 2026)",
+      "header": "WebKit, 386 pages | Before | After",
+      "before": "31921114200881ee7bede229bea1cfaf418b684c",
+      "after": "6eac4215b4c8645845d70bbceab5cc9410418e59",
+      "afterNote": "The runs were taken on the pull-request branch squash-merged as this commit, whose src/ and PDF.js patch they measured.",
+      "argv": [
+        "node",
+        "scripts/perf-bench/pdf-window-timing.mjs",
+        "--before-ref",
+        "31921114",
+        "--engine",
+        "webkit",
+        "--runs",
+        "5",
+        "--json",
+        "docs/performance-data/pdf-window-2026-10-04-webkit.json"
+      ],
+      "fixture": "pdf-window-timing.mjs's FIXTURE (scripts/perf-fixture.mjs's project at largeMarkdownBytes 400000, chapterBytes 60000, longTexBytes 3200000, notes 40, codeBlocks 150, logLines 4000) with pdfPages=1930 and pdfPages=386: the generated text PDF opened from the navigator beside the compiled preview of the same size, on a production build of the bench page",
+      "engine": "Playwright headless WebKit 26.6 (playwright-core 1.63.0, browser revision 2359)",
+      "node": "22 (mise.toml's node); the patch version was not recorded",
+      "viewport": "1440×900",
+      "runs": "5 pairs per page count, 1,930 pages first; each pair runs before and after on fresh pages, before first in even pairs (0, 2, 4) and after first in odd ones",
+      "raw": "docs/performance-data/pdf-window-2026-10-04-webkit.json",
+      "figures": "scripts/perf-bench/pdf-window-figures.mjs",
+      "metrics": {
+        "zoom in fps": "Frames per second over a zoom-in gesture (20 Ctrl-wheel notches of 8 px, 16 ms apart, over the page at 70 %), every frame from the first notch to 300 ms after the last; null when the gesture's median frame is 25 ms or more (paced at 30 Hz)",
+        "zoom in longest frame ms": "The longest frame interval of that zoom-in gesture",
+        "zoom out fps": "As zoom in fps, for the zoom-out gesture that follows it",
+        "zoom out longest frame ms": "The longest frame interval of that zoom-out gesture",
+        "open ms": "Click reference.pdf in the navigator to the first animation frame with its page 1 drawn (a canvas not hidden)",
+        "jump ms": "Enter in the compiled preview's page field, 70 % of the page count typed, to the first frame with that page drawn"
+      },
+      "aggregation": "Median across a variant's runs at one page count (scripts/check-perf-evidence.mjs's median, which is the driver's). Runs whose figure is null (WebKit fps of a measurement paced at 30 Hz) are left out; none in these runs. Cells round half away from zero to the row's digits.",
+      "columns": [
+        {
+          "pages": 386,
+          "variant": "before"
+        },
+        {
+          "pages": 386,
+          "variant": "after"
+        }
+      ],
+      "rows": [
+        {
+          "label": "Ctrl-wheel zoom in: fps; longest frame (ms)",
+          "figures": [
+            "zoom in fps",
+            "zoom in longest frame ms"
+          ],
+          "digits": [
+            1,
+            0
+          ]
+        },
+        {
+          "label": "Ctrl-wheel zoom out: fps; longest frame (ms)",
+          "figures": [
+            "zoom out fps",
+            "zoom out longest frame ms"
+          ],
+          "digits": [
+            1,
+            0
+          ]
+        },
+        {
+          "label": "Open → first page drawn (ms)",
+          "figures": [
+            "open ms"
+          ],
+          "digits": [
+            0
+          ]
+        },
+        {
+          "label": "Jump to 70 % → drawn (ms)",
+          "figures": [
+            "jump ms"
+          ],
+          "digits": [
+            0
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "measured",
+      "doc": "docs/performance.md",
+      "section": "A page window for long PDFs (October 2026)",
+      "header": "Chromium, style; layout (ms) | 1,930 pages, before | after | 386 pages, before | after",
+      "before": "31921114200881ee7bede229bea1cfaf418b684c",
+      "after": "6eac4215b4c8645845d70bbceab5cc9410418e59",
+      "afterNote": "The runs were taken on the pull-request branch squash-merged as this commit, whose src/ and PDF.js patch they measured.",
+      "argv": [
+        "node",
+        "scripts/perf-bench/pdf-window-timing.mjs",
+        "--before-ref",
+        "31921114",
+        "--engine",
+        "chromium",
+        "--runs",
+        "5",
+        "--json",
+        "docs/performance-data/pdf-window-2026-10-04-chromium.json"
+      ],
+      "fixture": "pdf-window-timing.mjs's FIXTURE (scripts/perf-fixture.mjs's project at largeMarkdownBytes 400000, chapterBytes 60000, longTexBytes 3200000, notes 40, codeBlocks 150, logLines 4000) with pdfPages=1930 and pdfPages=386: the generated text PDF opened from the navigator beside the compiled preview of the same size, on a production build of the bench page",
+      "engine": "Playwright headless Chromium 153.0.8010.12 (playwright-core 1.63.0, browser revision 1243)",
+      "node": "22 (mise.toml's node); the patch version was not recorded",
+      "viewport": "1440×900",
+      "runs": "5 pairs per page count, 1,930 pages first; each pair runs before and after on fresh pages, before first in even pairs (0, 2, 4) and after first in odd ones",
+      "raw": "docs/performance-data/pdf-window-2026-10-04-chromium.json",
+      "figures": "scripts/perf-bench/pdf-window-figures.mjs",
+      "metrics": {
+        "zoom in style ms": "Style recalculation thread time over the zoom-in gesture (Performance.getMetrics RecalcStyleDuration)",
+        "zoom in layout ms": "Layout thread time over the zoom-in gesture (Performance.getMetrics LayoutDuration)",
+        "zoom out style ms": "As zoom in style ms, for the zoom-out gesture",
+        "zoom out layout ms": "As zoom in layout ms, for the zoom-out gesture",
+        "scroll style ms": "Style recalculation thread time over the 200-frame scroll",
+        "scroll layout ms": "Layout thread time over the 200-frame scroll"
+      },
+      "aggregation": "Median across a variant's runs at one page count (scripts/check-perf-evidence.mjs's median, which is the driver's). Runs whose figure is null (WebKit fps of a measurement paced at 30 Hz) are left out; none in these runs. Cells round half away from zero to the row's digits.",
+      "columns": [
+        {
+          "pages": 1930,
+          "variant": "before"
+        },
+        {
+          "pages": 1930,
+          "variant": "after"
+        },
+        {
+          "pages": 386,
+          "variant": "before"
+        },
+        {
+          "pages": 386,
+          "variant": "after"
+        }
+      ],
+      "rows": [
+        {
+          "label": "Zoom in gesture",
+          "figures": [
+            "zoom in style ms",
+            "zoom in layout ms"
+          ],
+          "digits": [
+            0,
+            0
+          ]
+        },
+        {
+          "label": "Zoom out gesture",
+          "figures": [
+            "zoom out style ms",
+            "zoom out layout ms"
+          ],
+          "digits": [
+            0,
+            0
+          ]
+        },
+        {
+          "label": "Scroll, 200 frames",
+          "figures": [
+            "scroll style ms",
+            "scroll layout ms"
+          ],
+          "digits": [
+            0,
+            0
+          ]
+        }
+      ]
+    }
+  ]
+}

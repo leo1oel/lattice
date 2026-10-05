@@ -22,7 +22,7 @@ describe("Agent panel", () => {
     await chooseProjectMenuItem("Settings");
     const settings = await findSettingsDialog();
     fireEvent.click(within(settings).getByRole("button", { name: "Providers" }));
-    expect(await within(settings).findByRole("alert")).toHaveTextContent("Agent unavailable");
+    await waitFor(() => expect(within(settings).getByRole("alert")).toHaveTextContent("Agent unavailable"));
     expect(within(settings).queryByLabelText("Agent system prompt")).not.toBeInTheDocument();
     expect(within(settings).queryByText("Subscriptions")).not.toBeInTheDocument();
   });

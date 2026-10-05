@@ -3,6 +3,7 @@ import lingui from "eslint-plugin-lingui";
 import reactHooks from "eslint-plugin-react-hooks";
 import reactRefresh from "eslint-plugin-react-refresh";
 import tseslint from "typescript-eslint";
+import { awaitChangedAlert } from "./scripts/lib/eslint-await-changed-alert.mjs";
 
 const OPEN_KNOWLEDGE_IMPORTS = {
   group: ["**/open-knowledge*", "**/open-knowledge*/**", "@ok-app", "@ok-app/**", "@ok-core", "@ok-core/**", "@inkeep/**"],
@@ -203,6 +204,17 @@ export default tseslint.config(
     files: ["**/*.{ts,tsx,js,mjs}"],
     rules: {
       "no-restricted-imports": ["error", { patterns: [OPEN_KNOWLEDGE_IMPORTS] }],
+    },
+  },
+  {
+    // Test-only checks for assertion shapes that have flaked under CI load.
+    // Each rule documents the race it closes in its own module.
+    files: ["**/*.test.{ts,tsx,js,mjs}"],
+    plugins: {
+      lattice: { rules: { "await-changed-alert": awaitChangedAlert } },
+    },
+    rules: {
+      "lattice/await-changed-alert": "error",
     },
   },
   {

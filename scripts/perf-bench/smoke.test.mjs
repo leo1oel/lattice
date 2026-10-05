@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { spawn } from "node:child_process";
-import { mkdtempSync, readdirSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readdirSync, rmSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -16,7 +16,9 @@ const PERF_BENCH = fileURLToPath(new URL("../perf-bench.mjs", import.meta.url));
  * is a directory of the test's own, so what the run leaves behind there is
  * this run's alone. A production build and three Chrome sessions are too slow
  * for the default suite, so it runs only with LATTICE_E2E=1
- * (`pnpm test:e2e-harness`).
+ * (`pnpm test:e2e-harness`, which .github/workflows/bench-harness.yml runs).
+ * LATTICE_E2E_TMPDIR puts that directory under a parent the caller owns and
+ * keeps it afterwards, so CI can upload a failed smoke check's screenshot.
  */
 describe.skipIf(process.env.LATTICE_E2E !== "1")("perf-bench --serve --smoke --chrome", () => {
   let tmp;
@@ -42,7 +44,9 @@ describe.skipIf(process.env.LATTICE_E2E !== "1")("perf-bench --serve --smoke --c
   }
 
   beforeAll(async () => {
-    tmp = mkdtempSync(path.join(os.tmpdir(), "lattice-smoke-test-"));
+    const parent = process.env.LATTICE_E2E_TMPDIR;
+    if (parent) mkdirSync(parent, { recursive: true });
+    tmp = mkdtempSync(path.join(parent ?? os.tmpdir(), "lattice-smoke-test-"));
     server = spawn(process.execPath, [PERF_BENCH, "--serve", "--smoke", "--chrome", "--port", "0", "--lang", "zh-CN"], { env: env(), stdio: ["ignore", "pipe", "pipe"] });
     let stderr = "";
     server.stderr.on("data", (chunk) => (stderr += chunk));
@@ -61,7 +65,7 @@ describe.skipIf(process.env.LATTICE_E2E !== "1")("perf-bench --serve --smoke --c
       server.kill("SIGKILL");
       await exited;
     }
-    if (tmp) rmSync(tmp, { recursive: true, force: true });
+    if (tmp && !process.env.LATTICE_E2E_TMPDIR) rmSync(tmp, { recursive: true, force: true });
   });
 
   function pageUrl(lang) {

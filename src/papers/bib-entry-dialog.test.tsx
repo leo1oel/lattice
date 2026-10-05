@@ -259,11 +259,16 @@ describe("BibEntryDialog entry paths", () => {
   });
 
   it("shows a failed lookup beside the lookup, with the manual path still there", async () => {
-    const onResolve = vi.fn(async () => { throw new Error("bibcite could not resolve that query."); });
-    renderDialog({ onResolve, error: "An earlier save failed." });
+    const pending = deferred<ResolvedCitationDraft>();
+    renderDialog({ onResolve: vi.fn(() => pending.promise), error: "An earlier save failed." });
     resolveQuery("no such paper");
-    // The earlier save's alert is already on screen, so findByRole("alert")
-    // would resolve with it at once; wait for the lookup's failure to replace it.
+    // The earlier save's alert stays on screen while the lookup runs, so
+    // findByRole("alert") resolves with it at once (the race
+    // lattice/await-changed-alert lints against). The lookup fails a moment
+    // later, as a slow bibcite call does under CI load; only a wait for the
+    // failure's text sees it replace the old alert.
+    expect(screen.getByRole("alert")).toHaveTextContent("An earlier save failed.");
+    setTimeout(() => pending.reject(new Error("bibcite could not resolve that query.")), 20);
     await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("could not resolve"));
     expect(screen.getByRole("button", { name: "Enter manually" })).toBeInTheDocument();
     // A new query is a new lookup: the old one's failure no longer describes it.

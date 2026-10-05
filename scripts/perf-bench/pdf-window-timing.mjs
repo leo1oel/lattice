@@ -39,6 +39,7 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath, URLSearchParams } from "node:url";
 import { chromium, webkit } from "playwright-core";
+import { figures, median } from "./pdf-window-figures.mjs";
 import { patchedAt } from "./pdfjs-patch-swap.mjs";
 import { APP_READY } from "./selectors.mjs";
 
@@ -288,49 +289,10 @@ async function measureRun(browser, engine, origin, pages) {
   return run;
 }
 
-const median = (values) => {
-  const sorted = [...values].sort((a, b) => a - b);
-  const middle = sorted.length >> 1;
-  return sorted.length % 2 ? sorted[middle] : (sorted[middle - 1] + sorted[middle]) / 2;
-};
-/**
- * The frame rate of a measurement Playwright's WebKit paced at the display's
- * 60 Hz, or null: now and then it paces at 30 Hz for a while (in either
- * variant, sometimes for one gesture of a run), which halves the rate whatever
- * the page does. Its longest frame still counts.
- */
-const fps = (frames) => (median(frames) < 25 ? (frames.length * 1000) / frames.reduce((sum, frame) => sum + frame, 0) : null);
-
 /** Each figure's median and range across a variant's runs, one row per figure. */
 function summarize(engine, runs) {
-  const figures = {
-    "open ms": (run) => run.openMs,
-    "jump ms": (run) => run.jumpMs,
-    elements: (run) => run.elements,
-    "page boxes": (run) => run.pageBoxes,
-  };
-  for (const name of ["in", "out"]) {
-    if (engine === "webkit") {
-      figures[`zoom ${name} fps`] = (run) => fps(run.zoom[name].frames);
-      figures[`zoom ${name} longest frame ms`] = (run) => Math.max(...run.zoom[name].frames);
-    } else {
-      figures[`zoom ${name} style ms`] = (run) => run.zoom[name].styleMs;
-      figures[`zoom ${name} layout ms`] = (run) => run.zoom[name].layoutMs;
-    }
-    figures[`zoom ${name} page under pointer moved`] = (run) => Number(run.zoom[name].pageBefore !== run.zoom[name].pageAfter);
-  }
-  if (engine === "webkit") {
-    figures["scroll fps"] = (run) => fps(run.scroll.frames);
-    figures["scroll longest frame ms"] = (run) => Math.max(...run.scroll.frames);
-  } else {
-    figures["scroll style ms"] = (run) => run.scroll.styleMs;
-    figures["scroll layout ms"] = (run) => run.scroll.layoutMs;
-  }
-  figures["scroll frames with a blank page"] = (run) => run.scroll.blankFrames;
-  figures["scroll frames with a spacer"] = (run) => run.scroll.spacerFrames;
-  figures["page errors"] = (run) => run.errors.length;
   const rows = [];
-  for (const [figure, read] of Object.entries(figures)) {
+  for (const [figure, read] of Object.entries(figures(engine))) {
     const row = { figure };
     for (const variant of ["before", "after"]) {
       const all = runs.filter((run) => run.variant === variant).map(read);

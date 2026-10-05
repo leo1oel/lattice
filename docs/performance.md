@@ -178,6 +178,16 @@ catching multiplies a count.
 4. `__latticePerf.report()` dumps everything. Record the numbers in the
    pull request.
 
+A table of measurements added to this document lands with its evidence: the
+raw runs under `docs/performance-data/` and a `measured` entry in
+`docs/performance-data/manifest.json` naming both commits, the exact command,
+fixture, engine and Node versions, viewport, run count and order, what each
+figure means and how runs are aggregated. `pnpm perf:evidence` (part of `pnpm
+check`'s lint stage and CI) recomputes every cell of such a table from those
+runs and fails on an undeclared table; `scripts/check-perf-evidence.mjs`
+describes the entry kinds. The page-window tables below are the worked
+example.
+
 ## Status and directions
 
 ### React Compiler status

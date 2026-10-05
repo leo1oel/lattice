@@ -156,14 +156,14 @@ it("keeps results usable and warns when native persistence fails", async () => {
   mockAudit(updated);
   await renderChecked();
   await screen.findByText("Update available");
-  expect(await screen.findByRole("alert")).toHaveTextContent("Could not save the report on this device");
+  await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("Could not save the report on this device"));
 });
 
 it("never overwrites a report or enables checking when loading the saved report fails", async () => {
   vi.mocked(loadAuditReport).mockRejectedValue(new Error("Report could not be read"));
   vi.mocked(invoke).mockResolvedValue({ entries, issues: [] });
   render(<BibliographyAudit {...props()} />);
-  expect(await screen.findByRole("alert")).toHaveTextContent("Report could not be read");
+  await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("Report could not be read"));
   expect(screen.getByRole("button", { name: "Check all" })).toBeDisabled();
   expect(saveAuditReport).not.toHaveBeenCalled();
 });

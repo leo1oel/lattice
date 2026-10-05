@@ -28,6 +28,7 @@
     "size:report": "node scripts/app-size-report.mjs",
     "size:test": "node scripts/app-size-report-selftest.mjs",
     "perf:bench": "node scripts/perf-bench.mjs",
+    "perf:evidence": "node scripts/check-perf-evidence.mjs",
     "notices": "node scripts/generate-notices.mjs",
     "notices:check": "node scripts/generate-notices.mjs --check --allow-unresolved"
   },
