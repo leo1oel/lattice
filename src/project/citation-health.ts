@@ -18,17 +18,28 @@ const SOURCE_LABELS = new Map<string, MessageDescriptor>([
   ["publisher", msg`Publisher`],
 ]);
 
-/** The row's visible warning, or null when Crossref reports nothing to warn about. */
-export function citationHealthLabel(health: CitationHealth | undefined): string | null {
+/**
+ * The row's visible warning in two parts — what happened, then who reported
+ * it and when — or null when Crossref reports nothing to warn about.
+ */
+export function citationHealthParts(health: CitationHealth | undefined): { kind: string; detail: string } | null {
   const kind = health && KIND_LABELS[health.kind];
   if (!health || !kind) return null;
   const source = health.source && SOURCE_LABELS.get(health.source);
-  return [
-    i18n._(kind),
-    source ? i18n._(source) : health.source,
-    health.date,
-    health.stale ? i18n._(msg`cached`) : null,
-  ].filter(Boolean).join(" · ");
+  return {
+    kind: i18n._(kind),
+    detail: [
+      source ? i18n._(source) : health.source,
+      health.date,
+      health.stale ? i18n._(msg`cached`) : null,
+    ].filter(Boolean).join(" · "),
+  };
+}
+
+/** The row's visible warning as one line, or null when there is none. */
+export function citationHealthLabel(health: CitationHealth | undefined): string | null {
+  const parts = citationHealthParts(health);
+  return parts && [parts.kind, parts.detail].filter(Boolean).join(" · ");
 }
 
 /** The full explanation, including the "nothing found" and "unavailable" outcomes. */

@@ -1,4 +1,4 @@
-import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ComponentProps } from "react";
 import { invoke } from "@tauri-apps/api/core";
@@ -81,8 +81,8 @@ function expectImportProgress(active: boolean) {
 }
 
 function paperTitles() {
-  return Array.from(document.querySelectorAll(".paper-row .paper-open"))
-    .map((button) => button.querySelector("strong")?.textContent ?? "");
+  return Array.from(document.querySelectorAll(".paper-row .paper-title"))
+    .map((title) => title.textContent ?? "");
 }
 
 afterEach(() => {
@@ -122,6 +122,30 @@ describe("PaperLibrary", () => {
     rerenderWith({ papers: [] });
     expect(screen.getByText("Add your first paper")).toBeInTheDocument();
     expect(screen.queryByText("No matching papers")).toBeNull();
+  });
+
+  it("exposes each paper as a list item with its actions, and the open paper as current", () => {
+    const { rerenderWith } = renderLibrary();
+    const list = screen.getByRole("list", { name: "Papers" });
+    // The list owns the papers alone: the count sits after it.
+    expect(within(list).queryByText("2 papers")).toBeNull();
+    const items = within(list).getAllByRole("listitem");
+    expect(items.map((item) => within(item).getAllByRole("button").map((button) => button.getAttribute("title")))).toEqual([
+      ["Attention Is All You Need", "Edit bibliography entry", "Remove Attention Is All You Need"],
+      ["Download arXiv 2010.11929", "Edit bibliography entry", "Remove An Image Is Worth 16x16 Words"],
+    ]);
+    // The opening button is named by the title and byline it lies under,
+    // which are hidden themselves so they are read once.
+    // (jsdom draws no separators, which the browser takes from CSS.)
+    expect(within(items[0]).getAllByRole("button")[0]).toHaveAccessibleName(/^Attention Is All You Need\W+Vaswani and Shazeer\W*arXiv 1706\.03762$/);
+    expect(within(items[0]).queryByText("Attention Is All You Need")).toHaveAttribute("aria-hidden", "true");
+    expect(list.querySelectorAll("[aria-current]")).toHaveLength(0);
+
+    rerenderWith({ activePaper: attention });
+    const current = list.querySelectorAll("[aria-current]");
+    expect(current).toHaveLength(1);
+    expect(current[0]).toHaveAttribute("aria-current", "true");
+    expect(current[0]).toBe(within(items[0]).getByRole("button", { name: /^Attention Is All You Need/ }));
   });
 
   // Each token has to match somewhere in the entry, so a second word can only
@@ -269,7 +293,7 @@ describe("PaperLibrary", () => {
 
   it("brings the confirmed import to the top and releases it when the query changes", () => {
     const { rerenderWith, search } = renderLibrary({ importInput: "a" });
-    const viewport = screen.getByRole("list", { name: "Papers" });
+    const viewport = screen.getByRole("list", { name: "Papers" }).closest<HTMLElement>("[data-slot=scroll-area-viewport]")!;
     viewport.scrollTop = 200;
     rerenderWith({ recentImport: { query: "a", citationKey: vit.citationKey, arxivId: vit.arxivId } });
     expect(paperTitles()[0]).toBe(vit.title);
@@ -331,17 +355,19 @@ describe("PaperLibrary", () => {
     };
     renderLibrary({ papers: [attention, { ...vit, authors: undefined }, web] });
     const [first, second, third] = screen.getAllByRole("button", { name: /Attention|Image|Notes/ })
-      .filter((button) => button.classList.contains("paper-open"));
+      .filter((button) => button.classList.contains("paper-open"))
+      .map((button) => button.closest<HTMLElement>(".paper-row")!);
     const byline = (row: HTMLElement) => [...row.querySelector(".paper-byline")!.children].map((part) => part.textContent);
+    const citeKey = (row: HTMLElement) => row.querySelector(".paper-cite-key");
     expect(first.querySelector(".paper-authors")).toHaveTextContent("Vaswani and Shazeer");
     expect(byline(first)).toEqual(["Vaswani and Shazeer", "arXiv 1706.03762"]);
-    expect(first.querySelector(".paper-cite-key")).toHaveTextContent("vaswani2017");
+    expect(citeKey(first)).toHaveTextContent("vaswani2017");
     expect(second.querySelector(".paper-authors")).toBeNull();
     expect(byline(second)).toEqual(["arXiv 2010.11929"]);
     // A captured page's bundle key is never presented as an arXiv id, and a
     // paper without a citation key has no empty chip.
     expect(byline(third)).toEqual(["Vaswani et al.", "example.org"]);
-    expect(third.querySelector(".paper-cite-key")).toBeNull();
+    expect(citeKey(third)).toBeNull();
   });
 
   it("tags a paper with nothing to download as a citation, beside its key", () => {
@@ -357,7 +383,7 @@ describe("PaperLibrary", () => {
     // The author field as `list_papers` delivers it, braces kept.
     const gemini: PaperSummary = { ...vit, arxivId: "2312.11805", title: "Gemini", authors: "{Gemini Team} and Mc{D}onald, Ronald", citationKey: "gemini" };
     const { search } = renderLibrary({ papers: [attention, gemini] });
-    const row = screen.getAllByRole("button", { name: /Gemini/ }).find((button) => button.classList.contains("paper-open"))!;
+    const row = screen.getAllByRole("button", { name: /Gemini/ }).find((button) => button.classList.contains("paper-open"))!.closest(".paper-row")!;
     expect(row.querySelector(".paper-authors")).toHaveTextContent(/^Gemini Team and McDonald$/);
 
     search("mcdonald");

@@ -22,8 +22,9 @@ not to force every surface into one density.
   adjustable.
 - Project filenames and folders use the interface font at 13/16px. Project rows use the
   compact 32px row role; selected items move from regular to medium weight.
-- Papers titles use the interface font at 12/16px regular weight. Author, year, venue, and
-  other Papers metadata remain at 11/16px regular weight.
+- Papers titles use the reading font at 13/18px regular weight, as the paper
+  reader sets a title. Author, year, venue, and other Papers metadata remain
+  in the interface font at 11/16px regular weight.
 - Diff code uses the editor font at 11/18px. Diff paths, headers, and line
   numbers remain in the interface font; compact metadata uses the 10/14px role.
 - Embedded Agent thread titles retain the compact 11/16px navigation

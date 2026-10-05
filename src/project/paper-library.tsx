@@ -1,7 +1,7 @@
-import { Fragment, useEffect, useMemo, useRef, type CSSProperties } from "react";
+import { Fragment, useEffect, useId, useMemo, useRef } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { BookMarked, BookOpen, Check, Download, ExternalLink, FolderOpen, Pencil, Plus, TriangleAlert, X } from "lucide-react";
+import { ArrowUpRight, Check, Download, ExternalLink, FolderOpen, Pencil, Plus, X } from "lucide-react";
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger } from "../components/ui/context-menu";
 import { Badge } from "../components/ui/badge";
 import { ScrollArea } from "../components/ui/scroll-area";
@@ -15,7 +15,7 @@ import { paperShortAuthors, paperSourceLabel } from "../papers/paper-identity";
 import { canDownloadPaper } from "../papers/paper-source";
 import { usePaperImportProgressFill } from "../papers/paper-import-progress";
 import { beginPaperDrag } from "../papers/paper-drag";
-import { citationHealthLabel, citationHealthTitle } from "./citation-health";
+import { citationHealthLabel, citationHealthParts, citationHealthTitle } from "./citation-health";
 import { paperSearchIdentity, rankPapers, usePaperTextSearch, type RecentPaperImport } from "./paper-library-search";
 import { useCompositionGuard } from "./use-composition-guard";
 import { EmptyIllustration } from "../components/ui/empty-illustration";
@@ -44,22 +44,17 @@ export type PaperLibraryProps = {
   recentImport?: RecentPaperImport | null;
 };
 
-function paperStateIcon(
-  paper: PaperSummary,
-  fetchState: PaperFetchState | undefined,
-  readable: boolean,
-  downloadable: boolean,
-) {
-  if (fetchState === "loading") return <InfinityLoader size={14} />;
-  if (fetchState === "success") return <Check size={14} />;
-  if (readable) return <BookOpen size={14} />;
-  if (downloadable) return <Download size={14} />;
-  return paper.url ? <ExternalLink size={14} /> : <BookMarked size={14} />;
+function paperStateIcon(paper: PaperSummary, fetchState: PaperFetchState | undefined, downloadable: boolean) {
+  if (fetchState === "loading") return <InfinityLoader size={12} />;
+  if (fetchState === "success") return <Check size={12} />;
+  if (downloadable) return <Download size={12} />;
+  return paper.url ? <ExternalLink size={12} /> : null;
 }
 
 /** The Papers panel: one box that searches the library and imports what it does not hold. */
 export function PaperLibrary(props: PaperLibraryProps) {
   const { t } = useLingui();
+  const rowId = useId();
   const progressActive = props.importing || Object.values(props.paperFetchStates).some((state) => state === "loading");
   const importFillRef = usePaperImportProgressFill(progressActive, props.importStageId);
   const viewportRef = useRef<HTMLDivElement | null>(null);
@@ -141,120 +136,142 @@ export function PaperLibrary(props: PaperLibraryProps) {
           viewportRef={viewportRef}
           orientation="both"
           contentClassName="paper-list-content"
-          viewportProps={{ role: "list", "aria-label": t`Papers` }}
         >
-          {filteredPapers.map((paper) => {
-            const fetchState = props.paperFetchStates[paperKey(paper)];
-            const readable = paper.hasFullText || paper.hasBlog;
-            const downloadable = canDownloadPaper(paper);
-            const healthLabel = citationHealthLabel(paper.citationHealth);
-            const healthTitle = citationHealthTitle(paper.citationHealth);
-            const authors = paperShortAuthors(paper);
-            const source = paperSourceLabel(paper);
-            const snippet = textHits.get(paperSearchIdentity(paper))?.snippet.trim();
-            const citationOnly = !readable && !downloadable;
-            const pinnedNotice = Boolean(healthLabel && paper.citationHealth?.link);
-            const citeKey = snippet ? null : paper.citationKey;
-            const reportIntent = () => {
-              if (readable) props.onLikelyPaper?.(paper);
-            };
-            const row = (
-              <div
-                className={`paper-row ${paper.hasFullText ? "" : "cited-only "}${healthLabel ? `citation-${paper.citationHealth?.kind} ` : ""}${props.activePaper && paperKey(props.activePaper) === paperKey(paper) ? "active" : ""}`}
-                data-citation-health={paper.citationHealth?.kind}
-                // How many 22px actions sit at the title's end, and how many of
-                // them stay on screen when the row is at rest (see .paper-row-actions).
-                style={{
-                  "--paper-row-actions": 1 + Number(Boolean(paper.citationKey)) + Number(pinnedNotice),
-                  "--paper-row-pinned": Number(pinnedNotice),
-                } as CSSProperties}
-                draggable
-                onDragStart={(event) => beginPaperDrag(event.dataTransfer, props.projectKey, paper)}
-              >
+          {/* Only the papers are list items; the empty state and the count sit after the list. */}
+          <div role="list" aria-label={t`Papers`} className="paper-rows">
+            {filteredPapers.map((paper, index) => {
+              const fetchState = props.paperFetchStates[paperKey(paper)];
+              const readable = paper.hasFullText || paper.hasBlog;
+              const downloadable = canDownloadPaper(paper);
+              const healthLabel = citationHealthLabel(paper.citationHealth);
+              const health = citationHealthParts(paper.citationHealth);
+              const healthTitle = citationHealthTitle(paper.citationHealth);
+              const authors = paperShortAuthors(paper);
+              const source = paperSourceLabel(paper);
+              const snippet = textHits.get(paperSearchIdentity(paper))?.snippet.trim();
+              const citationOnly = !readable && !downloadable;
+              const citeKey = snippet ? null : paper.citationKey;
+              const reportIntent = () => {
+                if (readable) props.onLikelyPaper?.(paper);
+              };
+              const active = Boolean(props.activePaper && paperKey(props.activePaper) === paperKey(paper));
+              // Readable papers open on click and need no mark; the rest say,
+              // beside their source, what a click does there (download, visit)
+              // or that it is under way.
+              const stateIcon = fetchState || !readable ? paperStateIcon(paper, fetchState, downloadable) : null;
+              const noticeLink = healthLabel ? paper.citationHealth?.link : undefined;
+              // A short chip says what happened; who reported it and when
+              // follows in quiet type, which may give way to an ellipsis.
+              const healthBody = health && (
+                <>
+                  <Badge size="compact" tone="warning" className="paper-tag">
+                    {health.kind}
+                    {noticeLink && <ArrowUpRight size={11} aria-hidden="true" />}
+                  </Badge>
+                  {health.detail && <span className="paper-citation-health-detail">{health.detail}</span>}
+                </>
+              );
+              const healthNotice = health && (noticeLink ? (
                 <button
-                  data-tour={paper.arxivId === "2010.11929" ? "tutorial-vit-paper" : undefined}
-                  title={readable
-                    ? paper.title
-                    : !downloadable && paper.url
-                      ? t`Open source page — no downloadable full text found`
-                      : paper.arxivId
-                        ? t({ message: `Download arXiv ${{ id: paper.arxivId }}` })
-                        : paper.url
-                          ? t({ message: `Download ${{ url: paper.url }}` })
-                          : t({ message: `${{ title: paper.title }} — no local reading available` })}
-                  className="paper-open"
-                  // Knowing the preprint is as good as having it: clicking
-                  // fetches. A cited webpage is fetchable the same way.
-                  disabled={fetchState === "loading" || (!readable && !paper.arxivId && !paper.url)}
-                  onPointerEnter={reportIntent}
-                  onFocus={reportIntent}
-                  onClick={() => activatePaper(paper)}
+                  className="paper-citation-health"
+                  title={t({ message: `${{ notice: healthTitle }}. Open notice` })}
+                  aria-label={t({ message: `${{ notice: healthLabel }}. Open notice` })}
+                  onClick={() => void openUrl(noticeLink).catch(() => undefined)}
                 >
-                  <span className={`paper-state-icon ${fetchState ?? (readable ? "available" : "idle")}`}>
-                    {paperStateIcon(paper, fetchState, readable, downloadable)}
-                  </span>
-                  <span className="paper-row-text">
-                    <strong className="paper-title">{paper.title}</strong>
-                    {(authors || source) && (
-                      <small className="paper-byline">
-                        {authors && <span className="paper-authors">{authors}</span>}
-                        {source && <span>{source}</span>}
-                      </small>
-                    )}
-                    {snippet && <small className="paper-snippet">{snippet}</small>}
-                    {(citeKey || citationOnly || healthLabel) && (
-                      <span className="paper-tags">
-                        {citeKey && <code className="paper-cite-key">{citeKey}</code>}
-                        {citationOnly && <Badge size="compact" className="paper-tag">{t`Citation only`}</Badge>}
-                        {healthLabel && (
-                          <Badge size="compact" tone="warning" className="paper-tag paper-citation-health" role="status">{healthLabel}</Badge>
-                        )}
-                      </span>
-                    )}
-                  </span>
+                  {healthBody}
                 </button>
-                <div className="paper-row-actions">
-                  {healthLabel && paper.citationHealth?.link && (
-                    <button
-                      className="row-citation-health"
-                      title={t({ message: `${{ notice: healthTitle }}. Open notice` })}
-                      aria-label={t({ message: `${{ notice: healthLabel }}. Open notice` })}
-                      onClick={() => void openUrl(paper.citationHealth!.link!).catch(() => undefined)}
-                    >
-                      <TriangleAlert size={12} />
-                    </button>
-                  )}
-                  {paper.citationKey && (
-                    <button className="row-edit-bib" title={t`Edit bibliography entry`} onClick={() => props.onEditBibEntry(paper)}><Pencil size={12} /></button>
-                  )}
-                  <DestructiveButton
-                    className="row-delete"
-                    title={t({ message: `Remove ${{ title: paper.title }}` })}
-                    iconSize={12}
-                    onClick={() => props.onDeletePaper(paper)}
+              ) : (
+                <span className="paper-citation-health" role="status" title={healthTitle}>{healthBody}</span>
+              ));
+              const titleId = `${rowId}-${index}-title`;
+              const bylineId = `${rowId}-${index}-byline`;
+              const snippetId = `${rowId}-${index}-snippet`;
+              const row = (
+                <div
+                  role="listitem"
+                  className={`paper-row ${paper.hasFullText ? "" : "cited-only "}${healthLabel ? `citation-${paper.citationHealth?.kind} ` : ""}${active ? "active" : ""}`}
+                  data-citation-health={paper.citationHealth?.kind}
+                  draggable
+                  onDragStart={(event) => beginPaperDrag(event.dataTransfer, props.projectKey, paper)}
+                >
+                  {/* The button lies over the whole row, under its other
+                      controls, and takes its name from the text beside it
+                      (hidden, so it is read once); so the key line opens the
+                      paper too, and the notice there can be a link of its own. */}
+                  <button
+                    data-tour={paper.arxivId === "2010.11929" ? "tutorial-vit-paper" : undefined}
+                    title={readable
+                      ? paper.title
+                      : !downloadable && paper.url
+                        ? t`Open source page — no downloadable full text found`
+                        : paper.arxivId
+                          ? t({ message: `Download arXiv ${{ id: paper.arxivId }}` })
+                          : paper.url
+                            ? t({ message: `Download ${{ url: paper.url }}` })
+                            : t({ message: `${{ title: paper.title }} — no local reading available` })}
+                    className="paper-open"
+                    aria-labelledby={[titleId, (authors || source) && bylineId, snippet && snippetId].filter(Boolean).join(" ")}
+                    aria-current={active || undefined}
+                    // Knowing the preprint is as good as having it: clicking
+                    // fetches. A cited webpage is fetchable the same way.
+                    disabled={fetchState === "loading" || (!readable && !paper.arxivId && !paper.url)}
+                    onPointerEnter={reportIntent}
+                    onFocus={reportIntent}
+                    onClick={() => activatePaper(paper)}
                   />
+                  <strong id={titleId} className="paper-title" aria-hidden="true">{paper.title}</strong>
+                  {(authors || source) && (
+                    <small id={bylineId} className="paper-byline" aria-hidden="true">
+                      {authors && <span className="paper-authors">{authors}</span>}
+                      {source && (
+                        <span className="paper-source">
+                          <span>{source}</span>
+                          {stateIcon && <span className={`paper-state-icon ${fetchState ?? "idle"}`} aria-hidden="true">{stateIcon}</span>}
+                        </span>
+                      )}
+                    </small>
+                  )}
+                  {snippet && <small id={snippetId} className="paper-snippet" aria-hidden="true">{snippet}</small>}
+                  {(citeKey || citationOnly || health) && (
+                    <div className="paper-tags">
+                      {citeKey && <code className="paper-cite-key">{citeKey}</code>}
+                      {citationOnly && <Badge size="compact" className="paper-tag">{t`Citation only`}</Badge>}
+                      {healthNotice}
+                    </div>
+                  )}
+                  <div className="paper-row-actions">
+                    {paper.citationKey && (
+                      <button className="row-edit-bib" title={t`Edit bibliography entry`} onClick={() => props.onEditBibEntry(paper)}><Pencil size={12} /></button>
+                    )}
+                    <DestructiveButton
+                      className="row-delete"
+                      title={t({ message: `Remove ${{ title: paper.title }}` })}
+                      iconSize={12}
+                      onClick={() => props.onDeletePaper(paper)}
+                    />
+                  </div>
+                  {!healthLabel && healthTitle && <span className="sr-only">{healthTitle}</span>}
                 </div>
-                {!healthLabel && healthTitle && <span className="sr-only">{healthTitle}</span>}
-              </div>
-            );
-            // A cited-only paper has no local file to act on, so it stays bare;
-            // one with full text gets the same right-click menu as a tree file.
-            const revealPath = `.research/papers/${paper.arxivId}/${paper.hasFullText ? "paper.md" : "blog.md"}`;
-            return (
-              <Fragment key={paperKey(paper)}>
-                {readable ? (
-                  <ContextMenu>
-                    <ContextMenuTrigger asChild>{row}</ContextMenuTrigger>
-                    <ContextMenuContent onCloseAutoFocus={(event) => event.preventDefault()}>
-                      <ContextMenuItem onSelect={() => props.onReveal(revealPath)}>
-                        <FolderOpen size={14} />{t`Show in Finder`}
-                      </ContextMenuItem>
-                    </ContextMenuContent>
-                  </ContextMenu>
-                ) : row}
-              </Fragment>
-            );
-          })}
+              );
+              // A cited-only paper has no local file to act on, so it stays bare;
+              // one with full text gets the same right-click menu as a tree file.
+              const revealPath = `.research/papers/${paper.arxivId}/${paper.hasFullText ? "paper.md" : "blog.md"}`;
+              return (
+                <Fragment key={paperKey(paper)}>
+                  {readable ? (
+                    <ContextMenu>
+                      <ContextMenuTrigger asChild>{row}</ContextMenuTrigger>
+                      <ContextMenuContent onCloseAutoFocus={(event) => event.preventDefault()}>
+                        <ContextMenuItem onSelect={() => props.onReveal(revealPath)}>
+                          <FolderOpen size={14} />{t`Show in Finder`}
+                        </ContextMenuItem>
+                      </ContextMenuContent>
+                    </ContextMenu>
+                  ) : row}
+                </Fragment>
+              );
+            })}
+          </div>
           {emptyState && (
             <div className="papers-empty-state">
               {/* Beside the text, not above it: the card sits in a short panel

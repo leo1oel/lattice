@@ -633,79 +633,72 @@ body:has(.modal-backdrop, .drawer-backdrop) .file-tree-context-menu { display: n
 .file-tree-context-menu-separator { height: 1px; margin: var(--space-2) calc(-1 * var(--surface-inset)); background: var(--border-subtle); }
 .file-tree-context-menu > button.destructive { color: var(--status-danger); }
 .file-tree-context-menu > button.destructive:hover:not(:disabled) { background: color-mix(in srgb, var(--status-danger) 10%, transparent); color: var(--status-danger); }
-/* At the end of the title's first line. The actions fill that line's lane —
-   the row's top down to where the byline starts — and end on its floor, and
-   so do their hit areas: a ::after widens each 22px face sideways and up to
-   the row's top, never down over the byline a click there should open. */
-.paper-row-actions { position: absolute; inset-block-start: 0; inset-inline-end: var(--space-2); height: var(--paper-row-lane); display: flex; align-items: flex-end; }
-.row-delete, .row-edit-bib { position: relative; width: 22px !important; height: 22px !important; flex: none; padding: 0 !important; border-radius: var(--radius-compact) !important; background: transparent !important; color: var(--text-tertiary) !important; display: grid !important; place-items: center; opacity: 0; transition: opacity var(--duration-exit) var(--ease-out); }
-.row-delete::after, .row-edit-bib::after, .row-citation-health::after { content: ""; position: absolute; inset: calc(22px - var(--paper-row-lane)) -5px 0; }
-.row-delete svg, .row-edit-bib svg, .row-citation-health svg { stroke-width: 1.5; }
-.paper-row:is(:hover, :focus-within, .active) :is(.row-delete, .row-edit-bib) { opacity: 1; transition-duration: var(--duration-quick); }
-.row-edit-bib:hover { background: var(--control-active-soft) !important; color: var(--control-active) !important; }
-.row-delete:hover { background: color-mix(in srgb, var(--status-danger) 10%, transparent) !important; color: var(--status-danger) !important; }
-.row-citation-health { position: relative; width: 22px; height: 22px; flex: none; padding: 0; border-radius: var(--radius-compact); background: transparent; color: var(--status-warning); display: grid; place-items: center; }
-.row-citation-health:hover { background: color-mix(in srgb, var(--status-warning) 10%, transparent); }
-.paper-row.citation-retracted .row-citation-health { color: var(--status-danger); }
 .paper-list { min-height: 0; flex: 1; }
 .paper-list-content { min-width: 100%; padding-block: 7px 0; padding-inline: 0 var(--space-6); }
-/* The lane is the title's first line with the row's padding above it and the
-   gap below it. Surfaces follow the Project tree's: hover < open. */
-.paper-row { --paper-row-actions: 1; --paper-row-pinned: 0; --paper-row-padding: var(--space-4); --paper-row-lane: calc(var(--paper-row-padding) + var(--type-label-line-height) + var(--space-1)); position: relative; width: 100%; border-radius: var(--radius-icon); display: flex; align-items: center; color: var(--text-secondary); transition: background-color var(--duration-exit) var(--ease-out); }
+/* A paper is a short stack: its title, a byline, then a line of what cites it.
+   Surfaces follow the Project tree's (hover < open); the row's surface is a
+   variable so the actions' backing (below) can match it. Its content never
+   widens the list: a long DOI ellipsizes instead of scrolling sideways. */
+.paper-row { --paper-row-surface: transparent; --paper-row-padding: var(--space-5); position: relative; contain: inline-size; padding: var(--paper-row-padding); border-radius: var(--radius-icon); display: flex; flex-direction: column; background: var(--paper-row-surface); color: var(--text-secondary); transition: background-color var(--duration-exit) var(--ease-out); }
 .paper-row + .paper-row { margin-top: var(--space-1); }
-/* Hairlines part the rows at rest, from the text's start; a lit row needs none
-   on either side. */
-.paper-row + .paper-row::before { content: ""; position: absolute; inset-block-start: calc(-1 * var(--space-1)); inset-inline: calc(var(--paper-row-padding) + 14px + var(--gap-inline)) var(--paper-row-padding); height: 1px; background: var(--border-subtle); pointer-events: none; transition: opacity var(--duration-exit) var(--ease-out); }
+/* Hairlines part the rows at rest, under the text; a lit row needs none on
+   either side. */
+.paper-row + .paper-row::before { content: ""; position: absolute; inset-block-start: calc(-1 * var(--space-1)); inset-inline: var(--paper-row-padding); height: 1px; background: var(--border-subtle); pointer-events: none; transition: opacity var(--duration-exit) var(--ease-out); }
 .paper-row:is(:hover, .active)::before, .paper-row:is(:hover, .active) + .paper-row::before { opacity: 0; transition-duration: var(--duration-quick); }
-.paper-row:hover { background: var(--navigation-tree-hover-surface); transition-duration: var(--duration-quick); }
-.paper-row.active { background: var(--navigation-tree-selected-surface); }
-.paper-open { width: 0; flex: 1; min-width: 0; padding: var(--paper-row-padding); border-radius: var(--radius-icon); background: transparent; display: flex; align-items: flex-start; gap: var(--gap-inline); color: inherit; font-size: var(--type-tree-size); line-height: var(--type-tree-line-height); text-align: left; }
-/* Cited but never fetched: nothing local to open yet, so its title steps back (below). */
+.paper-row:hover { --paper-row-surface: var(--navigation-tree-hover-surface); transition-duration: var(--duration-quick); }
+.paper-row.active { --paper-row-surface: var(--navigation-tree-selected-surface); }
+/* The button is the whole row under its text, so its ring is the row's;
+   the text it lies under passes every click through to it. */
+.paper-open { position: absolute; inset: 0; padding: 0; border-radius: var(--radius-icon); background: transparent; }
+.paper-row > :is(.paper-title, .paper-byline, .paper-snippet) { pointer-events: none; }
 .paper-row.cited-only .paper-open { cursor: default; }
-/* As tall as the title's first line, so the glyph centres on it in any font. */
-.paper-state-icon { width: 14px; height: var(--type-label-line-height); flex: none; display: grid; place-items: center; color: var(--text-tertiary); transition: color var(--duration-base) var(--ease-default), opacity var(--duration-base) var(--ease-default); }
-.paper-state-icon > svg { stroke-width: 1.5; }
-.paper-row:is(:hover, .active) .paper-state-icon { color: var(--text-secondary); }
-.paper-state-icon.success, .paper-row:is(:hover, .active) .paper-state-icon.success { color: var(--status-success); }
-.paper-open > span { min-width: 0; }
-/* Clips the byline's pulled-in line starts (below). */
-.paper-row-text { flex: 1; overflow: hidden; }
-.paper-list small { margin-top: var(--space-1); display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-tertiary); font-size: var(--type-tree-size); line-height: var(--type-tree-line-height); }
-/* The title leads; everything under it is one quieter step down. It may take
-   a second line before it gives way to an ellipsis. The cover is the run of
-   its first line that the actions overlie; a row whose notice never hides
-   keeps that run clear at rest too, since the hidden actions still hold their
-   places beside it. */
-.paper-list .paper-title { --paper-title-cover: calc(var(--paper-row-actions) * 22px - var(--paper-row-padding) + var(--space-2)); padding-inline-end: calc(var(--paper-row-pinned) * (var(--paper-title-cover) + var(--space-2))); display: -webkit-box; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; color: var(--navigation-text-strong); font-size: var(--type-label-size); line-height: var(--type-label-line-height); font-weight: var(--weight-regular); overflow-wrap: anywhere; text-wrap: pretty; }
+/* A paper's title is set as the reader sets it, in the reading face; a
+   narrow panel gets a third line before the ellipsis. */
+.paper-list .paper-title { display: -webkit-box; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 3; line-clamp: 3; color: var(--navigation-text-strong); font-family: var(--reading-font); font-size: var(--type-body-size); line-height: var(--type-title-line-height); font-weight: var(--weight-regular); overflow-wrap: anywhere; text-wrap: pretty; }
 .paper-row.active .paper-title { color: var(--text-primary); }
 .paper-row.cited-only .paper-title { color: var(--text-secondary); }
-/* Hovered, focused or open, the actions take the end of the title's first
-   line, which fades out beneath them; at rest an unpinned title keeps the width. */
-.paper-row:is(:hover, :focus-within, .active) .paper-title {
-  --paper-title-mask: linear-gradient(to left, transparent var(--paper-title-cover), #000 calc(var(--paper-title-cover) + var(--space-6))), linear-gradient(#000, #000);
-  -webkit-mask-image: var(--paper-title-mask);
-  mask-image: var(--paper-title-mask);
-  -webkit-mask-size: 100% var(--type-label-line-height), 100% 100%;
-  mask-size: 100% var(--type-label-line-height), 100% 100%;
-  -webkit-mask-position: 0 0, 0 var(--type-label-line-height);
-  mask-position: 0 0, 0 var(--type-label-line-height);
-  -webkit-mask-repeat: no-repeat;
-  mask-repeat: no-repeat;
-}
+.paper-list small { margin-top: var(--space-2); display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-tertiary); font-size: var(--type-tree-size); line-height: var(--type-tree-line-height); }
 /* Authors and source share a line while they fit, and the source wraps whole
    rather than losing its id to an ellipsis. Every part leads with its
-   separator, and the line's start is pulled into the clipped margin, so a
+   separator, and the line's start is pulled into a clipped margin, so a
    part that begins a line never shows one. */
-.paper-list .paper-byline { margin-inline-start: calc(-1 * var(--space-6)); display: flex; flex-wrap: wrap; }
+.paper-list .paper-byline { margin-inline-start: calc(-1 * var(--space-6)); clip-path: inset(0 0 0 var(--space-6)); display: flex; flex-wrap: wrap; }
 .paper-byline > span { min-width: 0; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
 .paper-byline > span::before { content: "·"; width: var(--space-6); display: inline-block; text-align: center; }
 .paper-list .paper-authors { color: var(--text-secondary); }
-/* The exact key a \cite{} needs, in code type, and the row's flags beside it. */
-.paper-tags { min-width: 0; margin-top: var(--space-2); display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-3); }
+/* A full-text hit is a line quoted from the paper, so it reads as one. */
+.paper-list .paper-snippet { color: var(--text-secondary); font-family: var(--reading-font); font-style: italic; }
+/* The source keeps its glyph when its id gives way to an ellipsis. */
+.paper-byline > .paper-source { display: inline-flex; align-items: center; }
+.paper-source::before { flex: none; }
+.paper-source > span:first-of-type { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.paper-state-icon { margin-inline-start: var(--space-2); flex: none; display: grid; place-items: center; color: var(--text-tertiary); transition: color var(--duration-base) var(--ease-default); }
+.paper-state-icon > svg { stroke-width: 1.5; }
+.paper-row:is(:hover, .active) .paper-state-icon { color: var(--text-secondary); }
+.paper-state-icon.success, .paper-row:is(:hover, .active) .paper-state-icon.success { color: var(--status-success); }
+/* The exact key a \cite{} needs, and the row's flags. */
+.paper-tags { min-width: 0; margin-top: var(--space-3); display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-3); }
 .paper-cite-key { min-width: 0; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-tertiary); font: var(--type-micro-size)/var(--badge-height-compact) var(--editor-font); }
 .paper-row:is(:hover, .active) .paper-cite-key { color: var(--text-secondary); }
-.paper-list .paper-tag { max-width: 100%; display: block; overflow: hidden; text-overflow: ellipsis; line-height: var(--badge-height-compact); }
-.paper-row.citation-retracted .paper-citation-health { background-color: var(--status-danger-soft); color: var(--status-danger); }
+.paper-list .paper-tag { max-width: 100%; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; line-height: var(--badge-height-compact); }
+/* A citation-health notice: the chip, then who reported it and when. One
+   that links out is its own control above the row's hit area. */
+.paper-citation-health { min-width: 0; max-width: 100%; display: inline-flex; align-items: center; gap: var(--space-3); }
+.paper-list .paper-citation-health > .paper-tag { flex: none; display: inline-flex; align-items: center; gap: var(--space-1); }
+.paper-citation-health > .paper-tag > svg { stroke-width: 1.75; }
+.paper-row.citation-retracted .paper-citation-health > .paper-tag { background-color: var(--status-danger-soft); color: var(--status-danger); }
+.paper-citation-health-detail { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-tertiary); font-size: var(--type-micro-size); line-height: var(--badge-height-compact); }
+button.paper-citation-health { position: relative; z-index: 1; padding: 0; border: 0; border-radius: var(--radius-compact); background: transparent; color: inherit; font-family: inherit; text-align: left; cursor: pointer; }
+button.paper-citation-health:hover > .paper-tag { background-image: linear-gradient(var(--tone-hover-surface), var(--tone-hover-surface)); }
+button.paper-citation-health:hover > .paper-citation-health-detail { color: var(--text-secondary); }
+/* Hovered or focused, the actions surface over the end of the row's last
+   line, never its title, on a backing as opaque as the row they sit in. */
+.paper-row-actions { position: absolute; z-index: 1; inset-block-end: calc(var(--paper-row-padding) - var(--space-1)); inset-inline-end: var(--space-3); padding-inline-start: var(--space-8); border-radius: var(--radius-compact); display: flex; background-color: var(--surface-sidebar); background-image: linear-gradient(var(--paper-row-surface), var(--paper-row-surface)); -webkit-mask-image: linear-gradient(to right, transparent, #000 var(--space-8)); mask-image: linear-gradient(to right, transparent, #000 var(--space-8)); opacity: 0; pointer-events: none; transition: opacity var(--duration-exit) var(--ease-out); }
+.paper-row:is(:hover, :focus-within) .paper-row-actions { opacity: 1; pointer-events: auto; transition-duration: var(--duration-quick); }
+.row-delete, .row-edit-bib { position: relative; width: 22px !important; height: 22px !important; flex: none; padding: 0 !important; border-radius: var(--radius-compact) !important; background: transparent !important; color: var(--text-tertiary) !important; display: grid !important; place-items: center; }
+.row-delete svg, .row-edit-bib svg { stroke-width: 1.5; }
+.row-edit-bib:hover { background: var(--control-active-soft) !important; color: var(--control-active) !important; }
+.row-delete:hover { background: color-mix(in srgb, var(--status-danger) 10%, transparent) !important; color: var(--status-danger) !important; }
 .paper-list-end { margin: var(--space-6) 7px var(--space-2); color: var(--text-tertiary); font-size: var(--type-micro-size); font-variant-numeric: tabular-nums; text-align: center; }
 /* Drawing beside the text, both on a quiet plate that reads as part of the
    list rather than a drop zone. */

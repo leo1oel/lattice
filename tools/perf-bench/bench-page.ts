@@ -141,7 +141,8 @@ const BENCH_PAPERS = [
 /**
  * `?papers=library`: the rows a real library mixes — a long title, a captured
  * webpage, a citation with only a DOI, an advisory citation-health notice, and
- * a Paper with a very long DOI and corporate author (perf-bench/layout-checks.mjs).
+ * a Paper with a very long DOI and corporate author (perf-bench/layout-checks.mjs),
+ * a retraction whose notice links out, and an arXiv preprint not yet fetched.
  * Everything but the first paper is fictional.
  */
 const LIBRARY_PAPERS = [
@@ -163,6 +164,15 @@ const LIBRARY_PAPERS = [
     arxivId: "doi-10.5555-proceedings.2023.long-form", doi: "10.5555/proceedings.international-symposium-on-scholarly-communication.2023.volume-12.issue-4.part-b.supplementary-material.long-form-chapter-identifier.version-of-record",
     url: "https://publisher.example.org/content/proceedings-2023/long-form-chapter.pdf", title: "Reading the original of a paper with a very long DOI",
     citationKey: "consortium2023reading", authors: "{International Consortium for Long-Form Persistent Identifiers in Scholarly Communication and Research Infrastructure}", hasFullText: true, hasBlog: false,
+  },
+  {
+    arxivId: "2311.04567", title: "Self-Correcting Language Models Through Iterative Retrieval-Augmented Verification", citationKey: "placeholder2023selfcorrecting",
+    authors: "Placeholder, Kim and Instance, Lee and Demo, Sam", hasFullText: true, hasBlog: false,
+    citationHealth: { kind: "retracted", source: "retraction-watch", date: "2024-06-02", link: "https://example.org/retraction-notice", checkedAt: "2026-10-01T00:00:00Z" },
+  },
+  {
+    arxivId: "2502.07890", title: "Scaling Laws for Sparse Mixture-of-Experts Decoders", citationKey: "specimen2025scaling",
+    authors: "Specimen, Ray and Mock, Ivy", hasFullText: false, hasBlog: false,
   },
 ];
 
