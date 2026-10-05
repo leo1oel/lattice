@@ -1,4 +1,4 @@
-import { synaraHook, openTreeFile, waitForSelectedTab, fileNode, fileNodes, dirNode, type Commands, mockCommands, projectCommands, refreshableProject, SINGLE_TRANSFORMER, attentionPaper, ROOT, projectSnapshot, MAIN_DOCUMENT, markdownSnapshot, PAPER_ABSTRACT, readPathContent, deferred, setAutoBuildMode, setInterfaceLanguage, papersList, openPaper, findProjectTreeItem, nextFrames, stubRect, renderApp, expectNotification, findElement, findEditorView, expectEditorText, postWindowMessage, expectInvoked, invokeCalls, persistLayout, paneContent, visualEditorOf, argPath, openAgentFrame, postedOfType, pdfDocumentStub, mockPdfDocument, emitTauriEvent } from "./app-test-utils";
+import { synaraHook, openTreeFile, waitForSelectedTab, fileNode, fileNodes, dirNode, type Commands, mockCommands, projectCommands, refreshableProject, SINGLE_TRANSFORMER, attentionPaper, ROOT, projectSnapshot, MAIN_DOCUMENT, markdownSnapshot, PAPER_ABSTRACT, readPathContent, deferred, setAutoBuildMode, setInterfaceLanguage, papersList, openPaper, findProjectTreeItem, nextFrames, stubRect, renderApp, expectNotification, findElement, findEditorView, expectEditorText, postWindowMessage, expectInvoked, invokeCalls, persistLayout, paneContent, visualEditorOf, argPath, openAgentFrame, postedOfType, pdfDocumentStub, mockPdfDocument, emitTauriEvent, selectDocumentView } from "./app-test-utils";
 import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { NodeSelection } from "@tiptap/pm/state";
@@ -351,8 +351,8 @@ describe("papers", () => {
     fireEvent.click(within(identity).getByRole("button", { name: "arXiv 1706.03762, Open PDF in browser" }));
     await waitFor(() => expect(openUrl).toHaveBeenCalledWith("https://arxiv.org/pdf/1706.03762"));
 
-    // A Paper's panel switches between its Blog and the Paper itself; there is no Edit/Split/Preview for it.
-    expect(screen.queryByRole("tablist", { name: "Document view" })).toBeNull();
+    // A Paper's panel switches between its Blog and the Paper itself, and, like any Markdown, between Edit, Split and Preview.
+    expect(screen.getByRole("tablist", { name: "Document view" })).toBeInTheDocument();
     const paperContent = screen.getByRole("tablist", { name: "Paper content" });
     expect(within(paperContent).getByRole("tab", { name: "Blog" })).toHaveAttribute("aria-selected", "true");
     expect(within(paperContent).getByRole("tab", { name: "Paper" })).toBeInTheDocument();
@@ -395,6 +395,27 @@ describe("papers", () => {
     fireEvent.click(within(document.querySelector(".trellis-presets")!).getByRole("tab", { name: "Reading" }));
     const snapshot = await findElement(".trellis-snapshot .cm-content");
     await waitFor(() => expect(tokens(snapshot)).toEqual(liveTokens));
+  });
+
+  // Beta r20: "Can we no longer view Markdown in Paper? Can we only view the visual editor?"
+  it("shows a Paper's Markdown source from its header's Edit and Split, and its page again from Preview", async () => {
+    renderApp({
+      ...projectCommands(projectSnapshot({ files: fileNodes("main.tex") }), "\\documentclass{main}"),
+      list_papers: () => [attentionPaper()],
+      read_paper: "# Attention\n\nPaper content.",
+    });
+    await openPaper("Attention Is All You Need");
+    await screen.findByRole("heading", { name: "Attention" });
+    expect(document.querySelector(".cm-content")).toBeNull();
+
+    selectDocumentView("Edit");
+    await waitFor(() => expect(document.querySelector(".cm-content")).toHaveTextContent("# Attention"));
+    selectDocumentView("Split");
+    await waitFor(() => expect(document.querySelector(".markdown-preview")).toHaveTextContent("Paper content."));
+    expect(document.querySelector(".cm-content")).toHaveTextContent("# Attention");
+    selectDocumentView("Preview");
+    await waitFor(() => expect(document.querySelector(".cm-content")).toBeNull());
+    expect(screen.getByRole("heading", { name: "Attention" })).toBeInTheDocument();
   });
 
   it("reads a paper beside the notes in the Reading layout, then returns to the writer's own", async () => {
@@ -516,6 +537,30 @@ describe("papers", () => {
     await findElement(".trellis-pdf-snapshot");
     expect(screen.queryByText("Sleeping · click to open")).not.toBeInTheDocument();
     expect(invoke).toHaveBeenCalledWith("read_project_asset", { path: "reference.pdf" });
+  });
+
+  // Beta r20: "if there's an MD file on the left and a PDF on the right, why
+  // does the left file go to sleep while I'm viewing the PDF?" The notes,
+  // left in Split or Preview, became a bare read-only source.
+  it.each([
+    { view: "Split", mode: "split", source: true },
+    { view: "Preview", mode: "pdf", source: false },
+  ] as const)("keeps notes left in $view drawn that way beside the PDF being read", async ({ view, mode, source }) => {
+    renderApp({
+      ...projectCommands(projectSnapshot({ files: fileNodes("main.tex", "notes.md", "reference.pdf") }), "# Notes heading\n\nBody."),
+      read_project_asset: (args) => ({ path: argPath(args), mimeType: "application/pdf", ranges: { length: 8, version: "v1" } }),
+    });
+    await openTreeFile("notes.md");
+    await screen.findByRole("tablist", { name: "Document view" });
+    selectDocumentView(view);
+    fireEvent.click(await findProjectTreeItem("reference.pdf"));
+    await waitForSelectedTab("reference.pdf");
+    fireEvent.click(within(document.querySelector(".trellis-presets")!).getByRole("tab", { name: "Reading" }));
+
+    const notes = await findElement(`.trellis-snapshot[data-mode="${mode}"]`);
+    await waitFor(() => expect(notes.querySelector(".markdown-preview")).toHaveTextContent("Notes heading"));
+    expect(Boolean(notes.querySelector(".cm-content"))).toBe(source);
+    expect(screen.queryByText("Sleeping · click to open")).not.toBeInTheDocument();
   });
 
   it("keeps the notes active while the PDF beside them is paged, zoomed and searched", async () => {

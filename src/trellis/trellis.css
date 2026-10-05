@@ -307,7 +307,12 @@
   font-size: var(--type-caption-size);
   font-weight: var(--weight-medium);
 }
-/* Short of room for the tabs, Build keeps only its icon (see the tab sizes above). */
+/* A Paper's two switches: what it reads (Blog, Paper) and how (Edit, Split, Preview). */
+.trellis-paper-tools { display: flex; align-items: center; gap: var(--space-2); }
+.trellis-paper-content { display: flex; }
+/* Short of room for the tabs, Build keeps only its icon and a Paper only its
+   modes (see the tab sizes above); the panel menu repeats both. */
+.lattice-trellis [data-trellis-part="tabbar"][data-tools="icon"] .trellis-paper-content { display: none; }
 .lattice-trellis [data-trellis-part="tabbar"][data-tools="icon"] .trellis-build-label { display: none; }
 .lattice-trellis [data-trellis-part="tabbar"][data-tools="icon"] .trellis-build-button { padding-inline: var(--space-4); }
 
@@ -326,6 +331,10 @@
 .trellis-slot { position: absolute; inset: 0; display: flex; flex-direction: column; min-width: 0; min-height: 0; }
 .trellis-slot > * { flex: 1 1 0; min-width: 0; min-height: 0; }
 .trellis-slot > .canvas-body { display: flex; flex-direction: column; overflow: hidden; }
+/* Over an active deck, the editor host holds only what App lays over the
+   document (a document opening), so the deck beneath keeps the pointer. */
+.trellis-deck-overlay { pointer-events: none; }
+.trellis-deck-overlay .primary-opening-overlay { pointer-events: auto; }
 .trellis-navigator-host, .trellis-agent-host, .trellis-tool-host { position: relative; display: flex; flex-direction: column; overflow: hidden; background: var(--surface-sidebar); }
 .trellis-tool-host { background: var(--surface-input); }
 .trellis-navigator-host > .navigator { width: 100%; min-height: 0; flex: 1; }
@@ -385,6 +394,11 @@
 
 .trellis-snapshot { position: absolute; inset: 0; display: flex; flex-direction: column; cursor: text; }
 .trellis-snapshot-editor { flex: 1 1 0; min-height: 0; opacity: .9; }
+/* Markdown in Split: its source and its page side by side, as the live editor lays them out. */
+.trellis-snapshot[data-mode="split"] { flex-direction: row; }
+.trellis-snapshot[data-mode="split"] > * { flex: 1 1 0; min-width: 0; }
+.trellis-snapshot[data-mode="split"] > .trellis-snapshot-editor { position: relative; border-right: 1px solid var(--border-subtle); }
+.trellis-snapshot > .markdown-preview { background: var(--editor-bg); }
 .trellis-snapshot-badge {
   position: absolute; right: var(--space-4); bottom: var(--space-3);
   padding: var(--space-1) var(--space-4); border-radius: var(--radius-pill);

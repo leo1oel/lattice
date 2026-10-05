@@ -96,6 +96,7 @@ export function useTrellisBridge(app: TrellisBridgeApp) {
       },
       readAsset: (path) => invoke<AssetPreview>("read_project_asset", { path }),
       pdfTextSelect: reportPdfSelection,
+      documentMode: () => documents.live.documentMode.current,
       viewState: (path) => documents.viewStates.get(path),
       rememberViewState: (path, update) => documents.viewStates.remember(path, update),
       // A panel asking for a drawer that is already open only comes forward:
@@ -181,8 +182,9 @@ export function useTrellisBridge(app: TrellisBridgeApp) {
     if (activeFile && !activePaper) trellis.texts.set(activeFile, source);
   }, [activeFile, activePaper, source, trellis]);
   // What the document panels' header tools show: build state, the active document's view, the Paper's view.
-  const trellisViewModes = activePaper || activeAsset ? null
-    : activeFile.toLocaleLowerCase().endsWith(".md") ? "markdown"
+  // A Paper is Markdown: its source and visual editor switch like any other's.
+  const trellisViewModes = activeAsset ? null
+    : activePaper || activeFile.toLocaleLowerCase().endsWith(".md") ? "markdown"
       : isHtmlFilePath(activeFile) ? "html" : null;
   const trellisViewMode = canvasMode === "pdf" ? "pdf" : canvasMode === "split" ? "split" : "source";
   useLayoutEffect(() => {

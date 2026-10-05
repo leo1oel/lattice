@@ -1,7 +1,8 @@
 /**
  * A document panel's header tools: Build on a .tex file (it builds the
  * project and brings the PDF up), Edit / Split / Preview on the active
- * Markdown or HTML file, and Blog / Paper on the active Paper.
+ * Markdown or HTML file, and on the active Paper Blog / Paper beside its own
+ * Edit / Split / Preview (a Paper is Markdown too).
  *
  * The modes are icons, each named in its tooltip and to assistive technology;
  * a header with room to spare names them beside their icons too (see the
@@ -189,39 +190,39 @@ export function FileHeaderTools({ controller }: { controller: TrellisController 
     );
     return <Tip label={label}>{button(true)}</Tip>;
   }
-  if (which === "views") {
-    const items = [
-      { value: "source" as const, label: <><PenLine size={13} /><span className="trellis-mode-name">{t`Edit`}</span></> },
-      { value: "split" as const, label: <><Columns2 size={13} /><span className="trellis-mode-name">{t`Split`}</span></> },
-      { value: "pdf" as const, label: <><Eye size={13} /><span className="trellis-mode-name">{t`Preview`}</span></> },
-    ];
-    if (!active || !tools.viewModes) {
-      return <Reserve><SegmentedControl<TrellisViewMode> value="source" onChange={() => {}} ariaLabel="" className="trellis-view-switcher" items={items} /></Reserve>;
-    }
-    const titles = tools.viewModes === "markdown"
-      ? [t`Edit Markdown`, t`Edit and preview Markdown`, t`Preview Markdown`]
-      : [t`Edit HTML`, t`Edit and preview HTML`, t`Preview HTML`];
-    return (
-      <SegmentedControl<TrellisViewMode>
-        value={tools.viewMode}
-        onChange={(mode) => controller.bridge?.setViewMode(mode)}
-        ariaLabel={t`Document view`}
-        className="trellis-view-switcher"
-        items={items.map((item, i) => ({ ...item, title: titles[i] }))}
-      />
-    );
-  }
-  if (which === "paper") {
-    const items = [
-      { value: "blog" as const, label: <><Newspaper size={13} /><span className="trellis-mode-name">{t`Blog`}</span></>, title: t`Open the paper overview` },
-      { value: "fulltext" as const, label: <><FileText size={13} /><span className="trellis-mode-name">{t`Paper`}</span></>, title: t`Open the full paper Markdown` },
-    ];
-    // A Paper with only its full text or only its blog has nothing to switch
-    // between, but keeps the switch's room like any other Paper.
-    if (!active || !tools.paperViews || !tools.paperView) {
-      return <Reserve><SegmentedControl<"blog" | "fulltext"> value="blog" onChange={() => {}} ariaLabel="" className="trellis-view-switcher" items={items} /></Reserve>;
-    }
-    return (
+  if (which === null) return null;
+  // Edit, Split and Preview: a Markdown or HTML file's, and a Paper's beside its Blog/Paper switch.
+  const modeItems = [
+    { value: "source" as const, label: <><PenLine size={13} /><span className="trellis-mode-name">{t`Edit`}</span></> },
+    { value: "split" as const, label: <><Columns2 size={13} /><span className="trellis-mode-name">{t`Split`}</span></> },
+    { value: "pdf" as const, label: <><Eye size={13} /><span className="trellis-mode-name">{t`Preview`}</span></> },
+  ];
+  const modes = active && tools.viewModes ? (
+    <SegmentedControl<TrellisViewMode>
+      value={tools.viewMode}
+      onChange={(mode) => controller.bridge?.setViewMode(mode)}
+      ariaLabel={t`Document view`}
+      className="trellis-view-switcher"
+      items={modeItems.map((item, i) => ({
+        ...item,
+        title: (tools.viewModes === "html"
+          ? [t`Edit HTML`, t`Edit and preview HTML`, t`Preview HTML`]
+          : [t`Edit Markdown`, t`Edit and preview Markdown`, t`Preview Markdown`])[i],
+      }))}
+    />
+  ) : <Reserve><SegmentedControl<TrellisViewMode> value="source" onChange={() => {}} ariaLabel="" className="trellis-view-switcher" items={modeItems} /></Reserve>;
+  if (which === "views") return modes;
+  const items = [
+    { value: "blog" as const, label: <><Newspaper size={13} /><span className="trellis-mode-name">{t`Blog`}</span></>, title: t`Open the paper overview` },
+    { value: "fulltext" as const, label: <><FileText size={13} /><span className="trellis-mode-name">{t`Paper`}</span></>, title: t`Open the full paper Markdown` },
+  ];
+  // A Paper with only its full text or only its blog has nothing to switch
+  // between, but keeps the switch's room like any other Paper. Short of
+  // room (data-tools="icon"), the switch gives way before the modes; the
+  // panel menu repeats both.
+  const content = !active || !tools.paperViews || !tools.paperView
+    ? <Reserve><SegmentedControl<"blog" | "fulltext"> value="blog" onChange={() => {}} ariaLabel="" className="trellis-view-switcher" items={items} /></Reserve>
+    : (
       <SegmentedControl<"blog" | "fulltext">
         value={tools.paperView}
         onChange={(paperView) => controller.bridge?.setPaperView(paperView)}
@@ -230,6 +231,10 @@ export function FileHeaderTools({ controller }: { controller: TrellisController 
         items={items}
       />
     );
-  }
-  return null;
+  return (
+    <span className="trellis-paper-tools">
+      <span className="trellis-paper-content">{content}</span>
+      {modes}
+    </span>
+  );
 }

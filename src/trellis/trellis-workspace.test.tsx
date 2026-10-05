@@ -1,5 +1,5 @@
-import { act, cleanup, render, waitFor } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createDocument, layout as L, type LayoutDocument, type LayoutNode } from "@danfessler/trellis";
 import { TrellisController } from "./trellis-controller";
 import { defaultLayout, differsFromWorkspace, loadLayout, saveLayout } from "./trellis-layout";
@@ -322,5 +322,163 @@ describe("a named workspace", () => {
     expect(controller.ui.get()).toMatchObject({ workspace: other, dirty: false });
     unmount();
     expect(loadLayout("/a")?.workspace).toBe(other);
+  });
+});
+
+/** Two documents side by side, the second an asset (an image) or a deck. */
+async function openBeside(second: string) {
+  const document = split();
+  document.views["doc-1"] = { type: "file", params: { key: second } };
+  saveLayout("/a", { document });
+  const controller = new TrellisController();
+  const readAsset = vi.fn(async (path: string) => ({ path, mimeType: "image/png", url: "data:image/png;base64," }));
+  controller.setBridge({
+    tabKind: (key: string) => (key.endsWith(".png") ? "asset" : "file"),
+    tabLabel: (key: string) => key,
+    readAsset,
+    activate: () => {},
+    viewState: () => undefined,
+    rememberViewState: () => {},
+    readText: async () => "",
+    documentMode: () => "source",
+    agentShown: () => {},
+    openTool: () => {},
+    panelMenu: () => [],
+  } as unknown as Parameters<TrellisController["setBridge"]>[0]);
+  const openTabs = ["main.tex", second];
+  controller.app.set({ projectRoot: "/a", activeKey: "main.tex", openTabs, tabsReady: true });
+  render(<TrellisWorkspace controller={controller} projectRoot="/a" dark={false} />);
+  await waitFor(() => expect(controller.ws?.views({ type: "file" })).toHaveLength(2));
+  const ws = controller.ws!;
+  const viewOf = (key: string) => ws.views({ type: "file" }).find((view) => view.params.key === key)!;
+  return { controller, ws, readAsset, viewOf };
+}
+
+describe("an inactive document on screen", () => {
+  // jsdom has no layout: give the workspace host a window's box (as the App suites do), so its panels are on screen.
+  const natives = (["clientWidth", "clientHeight"] as const).map((axis) => [axis, Object.getOwnPropertyDescriptor(Element.prototype, axis)!] as const);
+  beforeEach(() => {
+    for (const [axis, native] of natives) {
+      Object.defineProperty(Element.prototype, axis, {
+        configurable: true,
+        get(this: Element) { return this.hasAttribute("data-trellis-host") ? (axis === "clientWidth" ? 1440 : 900) : native.get!.call(this); },
+      });
+    }
+  });
+  afterEach(() => {
+    for (const [axis, native] of natives) Object.defineProperty(Element.prototype, axis, native);
+  });
+
+  // Beta r20: "Why do tabs go to sleep even when they remain open?"
+  it("stays drawn beside the active document, and with that document's panel hidden", async () => {
+    const { ws, readAsset, viewOf } = await openBeside("figure.png");
+    await waitFor(() => expect(document.querySelector(".trellis-pdf-snapshot")).toBeInTheDocument());
+    act(() => ws.view(viewOf("main.tex").id)!.hide());
+    await waitFor(() => expect(ws.view(viewOf("main.tex").id)!.placement).toBe("hidden"));
+    expect(document.querySelector(".trellis-pdf-snapshot")).toBeInTheDocument();
+    expect(screen.queryByText("Sleeping · click to open")).toBeNull();
+    expect(readAsset).toHaveBeenCalledWith("figure.png");
+  });
+
+  it("waits as a card while it has only just covered the active document in its own panel", async () => {
+    const { ws, readAsset, viewOf } = await openBeside("figure.png");
+    act(() => ws.dock(viewOf("figure.png").id, { into: viewOf("main.tex").panelId }));
+    act(() => ws.select(viewOf("figure.png").id));
+    await waitFor(() => expect(screen.getByText("Sleeping · click to open")).toBeInTheDocument());
+    readAsset.mockClear();
+    expect(document.querySelector(".trellis-pdf-snapshot")).toBeNull();
+    expect(readAsset).not.toHaveBeenCalled();
+  });
+
+  it("wakes the PDF a layout switch brings back once the switch has animated, not in its frames", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"], shouldAdvanceTime: true });
+    try {
+      const { controller, ws } = await openBeside("figure.png");
+      await waitFor(() => expect(controller.ui.get().pdfLive).toBe(true));
+      // A layout without the PDF panel, then one that brings it back.
+      await act(async () => { await ws.close("pdf"); });
+      await waitFor(() => expect(controller.ui.get().pdfLive).toBe(false));
+      act(() => controller.beginSwitch());
+      act(() => controller.showPanel("pdf", { focus: false }));
+      await waitFor(() => expect(controller.ui.get().present.pdf).toBe(true));
+      expect(controller.ui.get().pdfLive).toBe(false);
+      act(() => { vi.advanceTimersByTime(500); });
+      expect(controller.ui.get().pdfLive).toBe(true);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("keeps a deck's own host in its panel, active or not, until the panel has been hidden a while", async () => {
+    // Only the timers: Trellis animates the hide by frames.
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"], shouldAdvanceTime: true });
+    try {
+      const deck = "slides/talk/index.tsx";
+      const { controller, ws, viewOf } = await openBeside(deck);
+      const host = controller.decks.host(deck);
+      await waitFor(() => expect(ws.view(viewOf(deck).id)!.element.contains(host)).toBe(true));
+      act(() => controller.app.set({ activeKey: deck }));
+      act(() => controller.app.set({ activeKey: "main.tex" }));
+      expect(ws.view(viewOf(deck).id)!.element.contains(host)).toBe(true);
+      expect(controller.decks.sleeping()).toEqual([]);
+      act(() => ws.view(viewOf(deck).id)!.hide());
+      await waitFor(() => expect(ws.view(viewOf(deck).id)!.visible).toBe(false));
+      act(() => { vi.advanceTimersByTime(19_000); });
+      expect(controller.decks.sleeping()).toEqual([]);
+      act(() => { vi.advanceTimersByTime(2_000); });
+      expect(controller.decks.sleeping()).toEqual([deck]);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("makes an inactive deck the active document once focus moves into its frame", async () => {
+    const deck = "slides/talk/index.tsx";
+    const { controller, ws, viewOf } = await openBeside(deck);
+    const host = controller.decks.host(deck);
+    await waitFor(() => expect(ws.view(viewOf(deck).id)!.element.contains(host)).toBe(true));
+    const activate = vi.spyOn(controller, "activate").mockImplementation(() => {});
+    const frame = document.createElement("iframe");
+    host.append(frame);
+    // Another deck's or the agent's frame.
+    const otherFrame = document.createElement("iframe");
+    document.body.append(otherFrame);
+    const pause = () => act(() => new Promise((resolve) => setTimeout(resolve, 300)));
+    // A move from one frame into another fires nothing on this page: only document.activeElement shows it.
+    let focused: Element = otherFrame;
+    const activeElement = vi.spyOn(document, "activeElement", "get").mockImplementation(() => focused);
+    try {
+      await pause();
+      expect(activate).not.toHaveBeenCalled();
+      focused = frame;
+      await waitFor(() => expect(activate).toHaveBeenCalledWith(deck));
+      // Focus resting in the frame while that activation is pending asks only once.
+      await pause();
+      await pause();
+      expect(activate).toHaveBeenCalledTimes(1);
+      // The deck active, then another document while focus sits in another frame.
+      act(() => controller.app.set({ activeKey: deck }));
+      activate.mockClear();
+      await pause();
+      expect(activate).not.toHaveBeenCalled();
+      focused = otherFrame;
+      act(() => controller.app.set({ activeKey: "main.tex" }));
+      await pause();
+      expect(activate).not.toHaveBeenCalled();
+      focused = frame;
+      await waitFor(() => expect(activate).toHaveBeenCalledWith(deck));
+    } finally {
+      activeElement.mockRestore();
+      otherFrame.remove();
+    }
+    // Another document becoming active without taking focus (an agent opening
+    // a file) leaves none in the deck's frame, rather than handing it back.
+    act(() => controller.app.set({ activeKey: deck }));
+    act(() => { frame.focus(); });
+    activate.mockClear();
+    act(() => controller.app.set({ activeKey: "main.tex" }));
+    expect(document.activeElement).not.toBe(frame);
+    await pause();
+    expect(activate).not.toHaveBeenCalled();
   });
 });

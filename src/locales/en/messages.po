@@ -7873,7 +7873,7 @@ msgstr "Started"
 msgid "Starting Agent"
 msgstr "Starting Agent"
 
-#: src/canvas/document-canvas.tsx
+#: src/canvas/open-slide-deck-pool.tsx
 msgid "Starting Open Slide"
 msgstr "Starting Open Slide"
 
