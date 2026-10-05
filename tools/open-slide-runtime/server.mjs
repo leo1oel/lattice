@@ -239,6 +239,19 @@ export function transformOpenSlideInspectorPanel(source, id) {
   return transformed;
 }
 
+export function transformOpenSlideInspectorDefault(source, id) {
+  const modulePath = moduleFilePath(id);
+  if (!modulePath.endsWith("/@open-slide/core/src/app/components/inspector/inspector-provider.tsx")) return null;
+  const widthDefault = `  const [panelOpen, setPanelOpen] = useState(
+    () => typeof window !== 'undefined' && window.innerWidth >= 1024,
+  );`;
+  requireContract(source, [widthDefault], "inspector panel default");
+  // Since 2.0.0-beta.5 the format sidebar opens whenever the frame is at least
+  // 1024 px wide, which in Lattice's editor pane means nearly every deck opens
+  // with it covering the canvas. Start closed; the Format toggle still opens it.
+  return source.replace(widthDefault, "  const [panelOpen, setPanelOpen] = useState(false);");
+}
+
 export function transformOpenSlideSaveFeedback(source, id) {
   const modulePath = moduleFilePath(id);
   if (modulePath.endsWith("/@open-slide/core/src/app/components/inspector/save-bar.tsx")) {
@@ -1923,6 +1936,7 @@ export async function start({ root = process.env.OPEN_SLIDE_SHADOW_ROOT, control
             transformOpenSlideThumbnailRail,
             transformOpenSlideComments,
             transformOpenSlideInspectorPanel,
+            transformOpenSlideInspectorDefault,
             transformOpenSlideSaveFeedback,
             transformOpenSlideSelection,
             transformOpenSlideToolbar,
