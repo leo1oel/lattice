@@ -324,7 +324,7 @@ describe("papers", () => {
       read_paper: "---\ntitle: Attention Is All You Need\nnotes: |\n  - [ ] Hidden metadata task\n---\n\n## Abstract\n\n- [ ] Review paper",
       read_paper_blog_local: "# Attention overview\n\nA concise explanation.", write_project_file: undefined,
     });
-    const paper = await screen.findByRole("button", { name: /Attention Is All You Need.*1706\.03762/i });
+    const paper = await screen.findByRole("button", { name: /^Attention Is All You Need\W+Vaswani and Shazeer$/ });
     expect(screen.queryByRole("button", { name: "Paper lookup" })).not.toBeInTheDocument();
     if (interaction === "click") fireEvent.click(paper);
     else {

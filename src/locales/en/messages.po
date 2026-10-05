@@ -1644,6 +1644,10 @@ msgid "Citation key ''{key}'' already exists. Choose a different key or edit the
 msgstr "Citation key ''{key}'' already exists. Choose a different key or edit the existing reference."
 
 #: src/project/paper-library.tsx
+msgid "Citation key {key}"
+msgstr "Citation key {key}"
+
+#: src/project/paper-library.tsx
 msgid "Citation only"
 msgstr "Citation only"
 
@@ -2038,6 +2042,14 @@ msgstr "Copy"
 msgctxt "macOS menu bar"
 msgid "Copy"
 msgstr "Copy"
+
+#: src/project/paper-library.tsx
+msgid "Copy citation key"
+msgstr "Copy citation key"
+
+#: src/project/paper-library.tsx
+msgid "Copy citation key {key}"
+msgstr "Copy citation key {key}"
 
 #: src/editor/markdown/engine/views/code-block-view.tsx
 msgid "Copy code"

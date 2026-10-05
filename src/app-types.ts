@@ -209,6 +209,8 @@ export type PaperSummary = {
    * `papers/paper-identity.ts`; never show it raw.
    */
   authors?: string;
+  /** The bibliography entry's year as written. */
+  year?: string;
   citationKey?: string;
   /** False for works that are only cited — there is nothing to open. */
   hasFullText: boolean;
