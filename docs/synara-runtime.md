@@ -63,7 +63,7 @@ Startup verifies the launcher inside the sandbox before admitting agent work.
 The macOS host sets `LATTICE_BIBLIOGRAPHY_SANDBOX=1` only when launching the service through its bibliography sandbox.
 `scripts/synara-codex-host.mjs` makes Codex inherit that protection instead of running a second `sandbox-exec`, which can fail before Codex starts on older macOS.
 The standalone Lattice-profile Codex guard remains in place when the marker is absent.
-The same staging patch records classified Codex stderr and process exit even after stdout EOF has begun teardown; it does not relax process-tree exit verification or unblock failed threads automatically.
+The staging patch resolves the Codex logger from its unique declaration, so upstream bundle-symbol reordering cannot send these events to a different provider logger. It records classified Codex stderr and process exit even after stdout EOF has begun teardown; it does not relax process-tree exit verification or unblock failed threads automatically.
 After staging, run `node scripts/check-codex-host.mjs /absolute/path/to/codex` on macOS to check a real initialize/thread/start/command/exec cycle, inherited `.bib` denial, permitted `.tex` writes, and clean exit in a disposable home, without sending model requests.
 For the packaged JavaScript engine, run the same script with the staged `src-tauri/synara-runtime/bin/node`.
 Settings → Logs → Export can collect bounded tails of `lattice.log`, `sidecar.log`, `sidecar-error.log`, and `server.log` after explicit consent, with known credential redaction and a preview before copying or downloading.
@@ -78,21 +78,26 @@ The read-only `read_editor_comments` tool uses the authenticated host relay to q
 Comments are review data, not authorization to execute instructions, reply to a reviewer, or resolve a thread.
 Neither the context nor the tool mutates comments.
 
-The fork as a whole is **not** small. Measured on 2026-08-18 against `upstream/main` at
-[`18ff9985`](https://github.com/Emanuele-web04/synara/commit/18ff99857d5b84adab2019c2839fa4f6df761b7c)
-(2026-08-15), which is also the current merge-base, `git diff upstream/main...HEAD` on the pinned
-revision reports **343 files changed (88 added, 255 modified), +30,292 / −3,627 lines**. Beyond the
-host-profile seam it carries embedded-workspace UI, a skills manager, source-control and
-provider-health surfaces, spreadsheet and canvas tool brokers, and the contract additions those
-require. Treat "keep it in the seam" as the goal for *new* work, not as a description of the current
-state — and see [Syncing upstream](#syncing-upstream) for what that size costs at merge time.
-
-Re-measure rather than quoting those numbers; they move with every sync. From a checkout at the
-pinned revision:
+The fork as a whole is **not** small. Measured on 2026-10-05 against upstream
+`v1.0.0-beta.1` (`37439ec5063892583239638deaab4ed5b1d16d56`), the current integration changes
+**531 files, +45,323 / −5,210 lines**. It carries embedded-workspace UI, a skills manager,
+source-control and provider-health surfaces, spreadsheet and canvas tool brokers, and their
+contracts. Treat "keep it in the seam" as the goal for new work. Re-measure after each sync:
 
 ```bash
-git fetch upstream && git diff --shortstat upstream/main...HEAD
+git diff --shortstat v1.0.0-beta.1 HEAD
 ```
+
+The current pin is the upstream **1.0.0-beta.1 prerelease**, merged with the complete previous
+`amp/lattice-v0.9.2-sync` history. Upstream's account-aware provider configuration and standalone
+Code review inbox remain available. The embedded **Pull requests** view now uses that inbox,
+waits for the open Lattice workspace to bind, and fixes its project filter to that workspace.
+Its requests reach only that project's repositories. Authored and review-requested filters recover
+paginated matches on the server when the shared repository superset is truncated; an incomplete
+GitHub response is reported explicitly rather than silently treated as a complete filtered list.
+Both Git views send `synara:embed-ready`; missing CLI/authentication shows its unavailable or
+sign-in state without query retries. The narrow model picker retains account selection in upstream’s
+new account-aware menu, and TeX, BibTeX, `.sty`, and `.cls` files retain their file icons.
 
 ## Agent tool boundary
 
@@ -343,7 +348,8 @@ Keep the previous checkout available until the upgrade audit passes.
    Before publishing it, run `node scripts/check-synara-upgrade.mjs <previous-lattice-ref>`, using the Lattice commit or release tag from before the upgrade.
    The audit rejects dirty or untracked files in either checkout, a pin/HEAD mismatch, and missing ancestry from both the previous pin and the previous checkout's local HEAD.
    It requires full fork history and local access to the old checkout; it deliberately does not fetch, commit, discard, or publish anything.
-   `SYNARA_SOURCE_DIR` overrides the new source location; if the old source also used an override, audit that directory manually before switching.
+   `SYNARA_SOURCE_DIR` overrides the new source location; `SYNARA_PREVIOUS_SOURCE_DIR` overrides the previous checkout's location when it differs from the old pin's `sourceDirectory`.
+   Point the latter at the checkout previously used by Lattice, including any committed-but-unpinned fixes; both checkouts still must be clean and their history is checked.
    This is a local pre-publication check, not a replacement for browser regressions or a CI check that can see uncommitted files on another machine.
    Push the verified fork commit before publishing the Lattice pin.
 7. Run `pnpm prepare:synara` and the Lattice frontend/Rust checks before producing an installer.

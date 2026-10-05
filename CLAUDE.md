@@ -29,7 +29,7 @@ touch src-tauri/synara-runtime/placeholder.txt
 
 For the real sidecar, clone `repository` from `scripts/synara-runtime.json` at
 its pinned `revision` and point `SYNARA_SOURCE_DIR` at it (the default,
-`sourceDirectory` in that same file, is `../synara-v092-sync` today and moves
+`sourceDirectory` in that same file, is `../synara-v100-beta1-sync` today and moves
 with the pinned branch — derive it, don't hardcode it). See CONTRIBUTING.md and
 `scripts/setup-dev.sh`.
 

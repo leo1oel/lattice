@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, expect, it } from "vitest";
@@ -75,4 +75,24 @@ it("rejects a checkout at a different revision from the new pin", () => {
 it("requires the previous checkout rather than silently skipping its audit", () => {
   rmSync(oldSource, { recursive: true, force: true });
   expect(check).toThrow(/checkout is missing/);
+});
+
+it("audits a previous checkout at an explicit location", () => {
+  const relocatedSource = join(root, "previous-scratch");
+  renameSync(oldSource, relocatedSource);
+  const checkRelocated = () => checkSynaraUpgrade({
+    projectRoot, previousRef: "HEAD", previousSourceDirectory: relocatedSource,
+  });
+  expect(checkRelocated()).toEqual({ previousRevision, revision: git(newSource, "rev-parse", "HEAD") });
+  writeFileSync(join(relocatedSource, "integration.txt"), "uncommitted fix\n");
+  expect(checkRelocated).toThrow(/uncommitted/);
+});
+
+it("rejects an unpinned fix in an explicitly located previous checkout", () => {
+  const relocatedSource = join(root, "previous-scratch");
+  renameSync(oldSource, relocatedSource);
+  commit(relocatedSource, "local fix not in the previous pin");
+  expect(() => checkSynaraUpgrade({
+    projectRoot, previousRef: "HEAD", previousSourceDirectory: relocatedSource,
+  })).toThrow(/does not prove preservation/);
 });

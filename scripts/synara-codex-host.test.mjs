@@ -6,6 +6,7 @@ import { patchCodexHostProcess } from "./synara-codex-host.mjs";
 // The pinned bundle's relevant branches. Staging also rejects any drift in
 // these anchors against the actual bundle, including its logger symbol.
 const source = `
+const log$2 = createLogger("codex");
 function spawnCodexAppServer(input) {
 	const latticeBibGuard = ACTIVE_AGENT_HOST_PROFILE.id === "lattice" && process.platform === "darwin";
 	return spawnProcess(latticeBibGuard ? "/usr/bin/sandbox-exec" : input.binaryPath,
@@ -24,7 +25,7 @@ class Manager {
 			}
 		});
 		context.child.on("exit", (code, signal) => {
-			if (context.stopping) return;
+			if (context.stopping && context.failureStopping !== true) return;
 			const message = \`codex app-server exited (code=\${code ?? "null"}, signal=\${signal ?? "null"}).\`;
 			this.updateSession(context, { lastError: message });
 		});
@@ -40,7 +41,7 @@ function load({ platform = "darwin", host = "lattice", marker, patched = true } 
     ACTIVE_AGENT_HOST_PROFILE: { id: host },
     spawnProcess: (binary, args, options) => ({ binary, args, options }),
     classifyCodexStderrLine: (line) => line.trim() ? { message: line.trim() } : null,
-    log$2: log,
+    createLogger: () => log,
   });
   return { ...exports, log };
 }
@@ -88,4 +89,11 @@ it("reports stderr to an active thread, then captures stderr and exit after stdo
 it("rejects upstream drift and double patching", () => {
   expect(() => patchCodexHostProcess("changed upstream")).toThrow();
   expect(() => patchCodexHostProcess(patchCodexHostProcess(source))).toThrow();
+});
+
+it("resolves the Codex logger after bundler symbol ordering changes", () => {
+  const patched = patchCodexHostProcess(source.replaceAll("log$2", "log$4"));
+  expect(patched).toContain('log$4.warn("codex app-server stderr"');
+  expect(patched).toContain('log$4.info("codex app-server exit"');
+  expect(patched).not.toContain("log$2");
 });
