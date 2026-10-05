@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import { renderHook } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { invoke } from "@tauri-apps/api/core";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
@@ -10,9 +11,14 @@ import {
   isVisualPdfGlyphEvent,
   PDF_TEXT_SELECTION_CLEARED_EVENT,
   pdfSelectedOrCachedPlainText,
+  pdfSelectedPlainTextWithin,
   placeEndOfContentForRange,
+  refreshPdfTextLayerSelection,
   shouldPreventPdfSelectAll,
+  usePdfSelectionReport,
 } from "./pdf-text-layer-selection";
+
+import { AGENT_ENTRY_ATTRIBUTE } from "../agent/agent-entry";
 
 vi.mock("@tauri-apps/plugin-clipboard-manager", () => ({
   writeText: vi.fn(async () => undefined),
@@ -81,6 +87,13 @@ function dragSelect(span: HTMLElement) {
   range.selectNodeContents(span);
   selectRange(range);
   pointerUp();
+}
+
+/** A highlight mark's box in px of a `width`×`height` layer. */
+function markBox({ style }: HTMLElement, width: number, height: number) {
+  const px = (value: string, size: number) => Math.round(Number.parseFloat(value) * size / 100 * 1000) / 1000;
+  expect([style.left, style.top, style.width, style.height].every((value) => value.endsWith("%"))).toBe(true);
+  return { left: px(style.left, width), top: px(style.top, height), width: px(style.width, width), height: px(style.height, height) };
 }
 
 function sentinelLayer(...words: string[]) {
@@ -175,9 +188,10 @@ describe("PDF text-layer selection clipping", () => {
         // every run. All reads must precede the first connected DOM write.
         expect(overlaysDuringMeasurement).toEqual([0, 0]);
         // Each mark keeps the full scaled line box so descenders remain covered.
-        expect(overlays.map(({ style: { left, top, width, height } }) => ({ left, top, width, height }))).toEqual([
-          { left: "18px", top: "10px", width: "32px", height: "12px" },
-          { left: "55px", top: "10px", width: "32px", height: "12px" },
+        // In fractions of the 600×800 layer, so a zoom keeps them on their glyphs.
+        expect(overlays.map((mark) => markBox(mark, 600, 800))).toEqual([
+          { left: 18, top: 10, width: 32, height: 12 },
+          { left: 55, top: 10, width: 32, height: 12 },
         ]);
       });
     } finally {
@@ -420,6 +434,118 @@ describe("PDF empty-page clicks", () => {
   });
 });
 
+describe("PDF selection on the way to the Agent", () => {
+  /** A Trellis tab as Trellis draws it, for the view `view`. */
+  function trellisTab(view: string) {
+    const tab = document.createElement("div");
+    tab.dataset.trellisPart = "tab";
+    tab.dataset.view = view;
+    const title = document.createElement("span");
+    title.dataset.trellisPart = "tab-title";
+    title.textContent = view;
+    tab.append(title);
+    document.body.append(tab);
+    return title;
+  }
+
+  // The Agent shares a panel with Project by default: selecting PDF text and
+  // then clicking the Agent tab cleared the selection, and the Agent opened
+  // without it as context.
+  it("keeps the selection through a press on the Agent tab or a control that opens the Agent", async () => {
+    const { layer, spans } = glyphLayer("Attention turns tokens");
+    mockGlyphBox(spans[0]!, WIDE_BOX);
+    const agentToggle = document.createElement("button");
+    agentToggle.setAttribute(AGENT_ENTRY_ATTRIBUTE, "");
+    const icon = agentToggle.appendChild(document.createElement("svg"));
+    document.body.append(agentToggle);
+    const cleared = vi.fn();
+    document.addEventListener(PDF_TEXT_SELECTION_CLEARED_EVENT, cleared);
+    try {
+      await withSelection(layer, () => {
+        dragSelect(spans[0]!);
+        for (const target of [trellisTab("agent"), icon]) {
+          pointerDown(target);
+          expect(pdfSelectedOrCachedPlainText()).toBe("Attention turns tokens");
+        }
+        expect(cleared).not.toHaveBeenCalled();
+
+        // Any other control is still a deliberate dismissal.
+        pointerDown(trellisTab("project"));
+        expect(pdfSelectedOrCachedPlainText()).toBe("");
+        expect(cleared).toHaveBeenCalledOnce();
+      });
+    } finally {
+      document.removeEventListener(PDF_TEXT_SELECTION_CLEARED_EVENT, cleared);
+    }
+  });
+
+  it("attributes a selection to the viewer whose text layer holds it", async () => {
+    const preview = document.createElement("div");
+    const reader = document.createElement("div");
+    const first = glyphLayer("Compiled text");
+    const second = glyphLayer("Document text");
+    preview.append(first.layer);
+    reader.append(second.layer);
+    document.body.append(preview, reader);
+    mockGlyphBox(first.spans[0]!, WIDE_BOX);
+    mockGlyphBox(second.spans[0]!, WIDE_BOX);
+    await withSelection(first.layer, () => withSelection(second.layer, () => {
+      dragSelect(second.spans[0]!);
+      expect(pdfSelectedPlainTextWithin(reader)).toBe("Document text");
+      expect(pdfSelectedPlainTextWithin(preview)).toBe("");
+
+      // Once the drag has moved into the copy field, the cache still knows its viewer.
+      document.getSelection()?.removeAllRanges();
+      expect(pdfSelectedPlainTextWithin(reader)).toBe("Document text");
+      expect(pdfSelectedPlainTextWithin(preview)).toBe("");
+
+      dragSelect(first.spans[0]!);
+      expect(pdfSelectedPlainTextWithin(preview)).toBe("Compiled text");
+      expect(pdfSelectedPlainTextWithin(reader)).toBe("");
+    }));
+  });
+
+  // A project PDF open as a document sits beside the compiled preview: each
+  // must report only its own selection, or the Agent is told the document's
+  // text came from the preview (and its page).
+  it("reports a selection only from the viewer it was made in", async () => {
+    const preview = document.createElement("div");
+    const reader = document.createElement("div");
+    const first = glyphLayer("Compiled text");
+    const second = glyphLayer("Document text");
+    preview.append(first.layer);
+    reader.append(second.layer);
+    document.body.append(preview, reader);
+    mockGlyphBox(first.spans[0]!, WIDE_BOX);
+    mockGlyphBox(second.spans[0]!, WIDE_BOX);
+    const fromPreview = vi.fn();
+    const fromReader = vi.fn();
+    const reporter = (root: HTMLElement, onTextSelect: (text: string) => void) => renderHook(() => (
+      usePdfSelectionReport({ current: { root } }, 1, { current: { onTextSelect } })
+    ));
+    const select = (span: HTMLElement) => {
+      dragSelect(span);
+      document.dispatchEvent(new Event("selectionchange"));
+    };
+    await withSelection(first.layer, () => withSelection(second.layer, () => {
+      const hooks = [reporter(preview, fromPreview), reporter(reader, fromReader)];
+      select(second.spans[0]!);
+      expect(fromReader).toHaveBeenLastCalledWith("Document text");
+      expect(fromPreview).not.toHaveBeenCalled();
+
+      select(first.spans[0]!);
+      expect(fromPreview).toHaveBeenLastCalledWith("Compiled text");
+      expect(fromReader).toHaveBeenCalledOnce();
+
+      // The same text selected again in the document is a new selection there.
+      select(second.spans[0]!);
+      expect(fromReader).toHaveBeenCalledTimes(2);
+      expect(fromReader).toHaveBeenLastCalledWith("Document text");
+      for (const hook of hooks) hook.unmount();
+    }));
+  });
+});
+
 describe("PDF text-layer disposal with a completed drag", () => {
   /** A completed drag on `span`, its text parked in the copy field as a browser leaves it. */
   function parkedDrag(span: HTMLElement) {
@@ -483,4 +609,127 @@ describe("PDF text-layer disposal with a completed drag", () => {
       await vi.waitFor(() => expect(invoke).toHaveBeenLastCalledWith("set_pdf_copy_text", { text: null }));
     });
   });
+});
+
+describe("PDF highlight of a completed drag", () => {
+  /** Page `number` with a text layer of `words`, laid out at `scale` (glyph boxes 100×12 px apart). */
+  function pageLayer(number: number, scale: number, ...words: string[]) {
+    const page = document.createElement("div");
+    page.className = "page";
+    page.dataset.pageNumber = String(number);
+    const { layer, spans } = glyphLayer(...words);
+    page.append(layer);
+    document.body.append(page);
+    layOut(layer, spans, scale);
+    return { page, layer, spans };
+  }
+
+  function layOut(layer: HTMLElement, spans: HTMLElement[], scale: number) {
+    mockGlyphBox(layer, { left: 0, top: 0, right: 600 * scale, bottom: 800 * scale });
+    spans.forEach((span, index) => mockGlyphBox(span, {
+      left: 100 * index * scale, top: 10 * scale, right: (100 * index + 100) * scale, bottom: 22 * scale,
+    }));
+  }
+
+  /** Measure a glyph range as its whole glyph's box, as the line box the overlay covers. */
+  function withRangeRects(run: () => Promise<void>) {
+    const original = Range.prototype.getClientRects;
+    Object.defineProperty(Range.prototype, "getClientRects", {
+      configurable: true,
+      value(this: Range) {
+        const { startContainer } = this;
+        const glyph = startContainer instanceof Element ? startContainer : startContainer.parentElement;
+        return (glyph ? [glyph.getBoundingClientRect()] : []) as unknown as DOMRectList;
+      },
+    });
+    return run().finally(() => Object.defineProperty(Range.prototype, "getClientRects", { configurable: true, value: original }));
+  }
+
+  /** Press on `first`, select through `last`, release: the text is parked in the copy field. */
+  function parkDrag(first: HTMLElement, last: HTMLElement) {
+    const box = first.getBoundingClientRect();
+    first.dispatchEvent(new PointerEvent("pointerdown", {
+      bubbles: true, cancelable: true, button: 0, clientX: box.left + 1, clientY: box.top + 1,
+    }));
+    const range = document.createRange();
+    range.setStart(first.firstChild!, 0);
+    range.setEnd(last.firstChild!, last.textContent!.length);
+    selectRange(range);
+    document.dispatchEvent(new Event("selectionchange"));
+    pointerUp();
+    const field = document.querySelector<HTMLTextAreaElement>(".pdf-copy-field")!;
+    document.getSelection()?.collapse(field, 0);
+    return field;
+  }
+
+  const marks = (layer: HTMLElement, scale: number) => [...layer.querySelectorAll<HTMLElement>(".pdf-sel-rect")]
+    .map((mark) => markBox(mark, 600 * scale, 800 * scale));
+
+  it("keeps the highlight on its glyphs when a zoom draws the page again", () => withRangeRects(async () => {
+    const { layer, spans } = pageLayer(1, 1, "Alpha", "Beta", "Gamma");
+    const owner = {};
+    const dispose = installPdfTextLayerSelection(layer, owner);
+    try {
+      const field = parkDrag(spans[0]!, spans[1]!);
+      expect(marks(layer, 1)).toEqual([{ left: 0, top: 10, width: 100, height: 12 }, { left: 100, top: 10, width: 100, height: 12 }]);
+
+      layOut(layer, spans, 2);
+      refreshPdfTextLayerSelection(layer);
+      expect(marks(layer, 2)).toEqual([{ left: 0, top: 20, width: 200, height: 24 }, { left: 200, top: 20, width: 200, height: 24 }]);
+      expect(field.value).toBe("AlphaBeta");
+    } finally {
+      dispose();
+    }
+  }));
+
+  it("keeps a zoomed parked drag when PDF.js later evicts its page", () => withRangeRects(async () => {
+    const { layer, spans } = pageLayer(1, 1, "Alpha", "Beta", "Gamma");
+    const { layer: farLayer } = pageLayer(12, 1, "Far");
+    const owner = {};
+    const disposeFar = installPdfTextLayerSelection(farLayer, owner);
+    const dispose = installPdfTextLayerSelection(layer, owner);
+    try {
+      const field = parkDrag(spans[0]!, spans[1]!);
+      // WebKit and Chromium anchor the copy field's selection on <body>, not in the field.
+      document.getSelection()?.collapse(document.body, 0);
+      layOut(layer, spans, 2);
+      refreshPdfTextLayerSelection(layer);
+      expect(layer.classList.contains("has-selection")).toBe(true);
+
+      layer.remove();
+      dispose();
+      expect(field.value).toBe("AlphaBeta");
+      expect(pdfSelectedOrCachedPlainText()).toBe("AlphaBeta");
+    } finally {
+      dispose();
+      disposeFar();
+    }
+  }));
+
+  it("shows the highlight again on the layer of a page scrolled away and back", () => withRangeRects(async () => {
+    const { page, layer, spans } = pageLayer(1, 1, "Alpha", "Beta", "Gamma");
+    const { layer: farLayer } = pageLayer(12, 1, "Far");
+    const owner = {};
+    const disposeFar = installPdfTextLayerSelection(farLayer, owner);
+    let dispose = installPdfTextLayerSelection(layer, owner);
+    try {
+      const field = parkDrag(spans[1]!, spans[2]!);
+
+      // PDF.js evicts page 1's layer as the view scrolls on, then draws a new one.
+      layer.remove();
+      dispose();
+      expect(field.value).toBe("BetaGamma");
+      const { layer: redrawn, spans: redrawnSpans } = glyphLayer("Alpha", "Beta", "Gamma");
+      page.append(redrawn);
+      layOut(redrawn, redrawnSpans, 1.5);
+      dispose = installPdfTextLayerSelection(redrawn, owner);
+
+      expect(marks(redrawn, 1.5)).toEqual([{ left: 150, top: 15, width: 150, height: 18 }, { left: 300, top: 15, width: 150, height: 18 }]);
+      expect(redrawn.classList.contains("has-selection")).toBe(true);
+      expect(pdfSelectedOrCachedPlainText()).toBe("BetaGamma");
+    } finally {
+      dispose();
+      disposeFar();
+    }
+  }));
 });

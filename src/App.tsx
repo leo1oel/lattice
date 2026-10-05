@@ -1293,7 +1293,7 @@ function App() {
     trellis, project, projectRef, papers, documents, lastBuild: buildOutcome, building, buildPipeline,
     synara, tools, referenceImport, referenceImages, projectSearch, compile, compileAndShowPdf, revealSourceInPdf,
     openSettings, setSearchDialog, setProjectSearchOpen, setBibliographyAuditRoot, setBibliographyAuditOpen,
-    requestNewEntry,
+    requestNewEntry, reportPdfSelection: (text, place) => agentContext.reportSelection("pdf", text, place),
   });
   // Panel action rows (Trellis tab-bar accessories): memoized, because App
   // re-renders on every keystroke and each row is a set of tooltip buttons.
@@ -1421,7 +1421,7 @@ function App() {
       onVisualMarkdownFlushChange={documents.canvas.registerFlush}
       onMarkdownModeViewportCaptureChange={documents.canvas.registerViewportCapture}
       setSelection={(value) => agentContext.reportSelection(activePaper ? "paper" : "editor", value)}
-      onPdfTextSelect={(value) => agentContext.reportSelection("pdf", value)}
+      onPdfTextSelect={(value, place) => agentContext.reportSelection("pdf", value, place)}
       onPaperTextSelect={(value) => agentContext.reportSelection("paper", value)}
       onImportAsset={tree.importClipboardImageFile}
       onContextSurfaceActivate={agentContext.activateSurface}

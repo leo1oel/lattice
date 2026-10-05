@@ -333,6 +333,7 @@ export function transformOpenSlideToolbar(source, id) {
   if (!modulePath.endsWith("/@open-slide/core/src/app/routes/slide.tsx")) return null;
   const viewportCentered = "pointer-events-none relative flex min-w-0 justify-center px-2 md:absolute md:inset-x-0";
   const presentGroup = '<div className="inline-flex items-stretch">';
+  const presentClick = "onClick={() => setPlayMode(isMobile ? 'window' : 'fullscreen')}";
   const badgeCall = "{import.meta.env.DEV && <AgentConnectedBadge />}";
   const badgeStart = "function AgentConnectedBadge() {";
   const badgeEnd = "function SelectionReporter() {";
@@ -355,6 +356,7 @@ export function transformOpenSlideToolbar(source, id) {
   requireContract(source, [
     viewportCentered,
     presentGroup,
+    presentClick,
     badgeCall,
     badgeStart,
     badgeEnd,
@@ -370,6 +372,13 @@ export function transformOpenSlideToolbar(source, id) {
   transformed = transformed.replace(
     presentGroup,
     '<div data-lattice-present className="inline-flex items-stretch">',
+  );
+  // Below md the Present button shows only its icon (the label is
+  // `hidden md:inline`), and a deck pane is usually that narrow: name it.
+  transformed = transformed.replace(
+    presentClick,
+    `aria-label={t.slide.present}
+                    ${presentClick}`,
   );
   transformed = transformed.replace(
     badgeCall,

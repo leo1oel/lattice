@@ -58,7 +58,7 @@ import {
   isHarperProseFilePath, isHtmlFilePath, isOpenSlideDeckPath, isPreviewableSourceFilePath, markdownFrontmatterEnd,
   PROJECT_FIGURE_DRAG_TYPE,
 } from "../app-utils";
-import type { AgentHostSurface } from "../agent/agent-host-context";
+import type { AgentHostSurface, AgentPdfDocumentPlace } from "../agent/agent-host-context";
 import { frameCoalescer, onLayoutChange } from "../app/effect-helpers";
 import { useLatestRef } from "../hooks/use-latest-ref";
 import { isSpreadsheetPath } from "../editor/spreadsheet/spreadsheet-types";
@@ -186,7 +186,8 @@ export function DocumentCanvas(props: {
   onVisualMarkdownFlushChange?: (flush: (() => boolean) | null) => void;
   onMarkdownModeViewportCaptureChange?: (capture: (() => void) | null) => void;
   setSelection: (value: string) => void;
-  onPdfTextSelect: (value: string) => void;
+  /** `place` names a project PDF open as a document; without it the text is from the compiled preview. */
+  onPdfTextSelect: (value: string, place?: AgentPdfDocumentPlace) => void;
   onPaperTextSelect: (value: string) => void;
   onContextSurfaceActivate: (surface: AgentHostSurface) => void;
   onViewMarkdownSource: () => void;
@@ -1062,6 +1063,7 @@ export function DocumentCanvas(props: {
       viewState={props.getFileViewState?.(asset.path)}
       onViewState={(update) => props.onFileViewState?.(asset.path, update)}
       onFileChanged={props.onActiveAssetChanged}
+      onPdfTextSelect={props.onPdfTextSelect}
     />
   );
   const htmlPreview = (path: string, source: string, sourceEditorView?: EditorView | null) => (

@@ -83,7 +83,8 @@ export interface AgentHostContextSnapshot {
   activeSurface: AgentHostSurface;
   editor?: ImageSelectionContext & { path: string; line: number; column: number };
   presentation?: AgentPresentationContext;
-  pdf?: SelectionContext & { page: number; pageCount: number | null };
+  /** The compiled preview, or the project PDF open as a document (`path`) that owns the selection. */
+  pdf?: SelectionContext & { page: number; pageCount: number | null; path?: string };
   paper?: ImageSelectionContext & {
     title: string;
     arxivId: string;
@@ -103,6 +104,9 @@ function boundedSelection(value: string): SelectionContext {
   };
 }
 
+/** A project PDF open as a document, and where in it a selection was made. */
+export type AgentPdfDocumentPlace = { path: string; page: number; pageCount: number | null };
+
 export function buildAgentHostContext(input: {
   workspaceRoot: string;
   activeFile: string;
@@ -114,6 +118,8 @@ export function buildAgentHostContext(input: {
   pdfPageCount: number | null;
   selection: string;
   selectionSource: AgentHostSurface | null;
+  /** Set when the PDF selection came from a project PDF open as a document rather than the compiled preview. */
+  selectionPdfDocument?: AgentPdfDocumentPlace | null;
   selectionImage?: (AgentHostSelectionImage & { source: AgentHostSurface }) | null;
   presentation?: AgentPresentationContext | null;
   activeSurface: AgentHostSurface;
@@ -161,9 +167,11 @@ export function buildAgentHostContext(input: {
         ...selectedImage("editor"),
       }
     : undefined;
+  const pdfDocument = input.selectionSource === "pdf" ? input.selectionPdfDocument : null;
   const pdf = {
-    page: Math.max(1, Math.floor(input.pdfPage)),
-    pageCount: input.pdfPageCount,
+    ...(pdfDocument ? { path: pdfDocument.path } : {}),
+    page: Math.max(1, Math.floor(pdfDocument?.page ?? input.pdfPage)),
+    pageCount: pdfDocument ? pdfDocument.pageCount : input.pdfPageCount,
     ...selected("pdf"),
   };
 

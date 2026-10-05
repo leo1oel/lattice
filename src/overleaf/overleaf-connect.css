@@ -248,7 +248,9 @@
 .overleaf-skeleton-lines span { height: var(--space-5); border-radius: var(--radius-pill); width: var(--overleaf-skeleton-width); }
 .overleaf-skeleton-lines span + span { height: var(--space-4); width: calc(var(--overleaf-skeleton-width) * .55); }
 
-.overleaf-project-list-scroll { flex: 1 1 auto; min-height: 0; max-height: 380px; }
+/* Fills the frame, which already takes its height from the dialog. A cap of
+   its own left a dead band inside the frame, under a clipped last row. */
+.overleaf-project-list-scroll { flex: 1 1 auto; min-height: 0; }
 .overleaf-project-list { margin: 0; padding: 0; list-style: none; }
 .overleaf-project-group h3 {
   position: sticky;

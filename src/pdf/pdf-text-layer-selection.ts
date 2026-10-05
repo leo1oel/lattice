@@ -34,6 +34,7 @@
 
 import { useEffect, type RefObject } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { isAgentEntryTarget } from "../agent/agent-entry";
 import { addListeners, normalizePdfSelection } from "./pdf-viewer-utils";
 
 const GLYPH_SPANS = "span:not(.markedContent):not(.endOfContent)";
@@ -44,9 +45,15 @@ const ownedEndOfContent = new WeakSet<HTMLElement>();
 let selectionAbort: AbortController | null = null;
 let previousRange: Range | null = null;
 let lastPdfCopyText = "";
+/** The text layers the cached selection was made in, so each viewer reports only its own. */
+let lastPdfSelectionLayers: HTMLElement[] = [];
 let copyField: HTMLTextAreaElement | null = null;
-/** The viewer whose completed drag is parked in the copy field. */
-let parkedOwner: object | null = null;
+/**
+ * The completed drag parked in the copy field: its viewer, and the text it
+ * covers on each page by offset into the page's text layer, so its highlight
+ * can be redrawn on a layer PDF.js draws again or creates anew for the page.
+ */
+let parked: { owner: object; pages: Map<string, Array<[number, number]>> } | null = null;
 const clipboardTimers: number[] = [];
 
 export const PDF_TEXT_SELECTION_CLEARED_EVENT = "lattice:pdf-text-selection-cleared";
@@ -153,22 +160,22 @@ function rangeInsideGlyph(range: Range, glyph: HTMLElement): Range | null {
   return clipped.collapsed ? null : clipped;
 }
 
-function paintSelectionOverlays(selection: Selection | null) {
-  if (!selection || selection.isCollapsed || selectionIsCopyField(selection)) {
-    clearSelectionOverlays();
-    return;
-  }
-  // Keep every layout read ahead of connected DOM writes, including across
-  // pages. Interleaving measurements with appended marks forces one layout
-  // per glyph on each selectionchange, making paragraph drags stutter.
+/**
+ * The highlight marks of `ranges` in each text layer, placed in fractions of
+ * the layer's size so a zoom that resizes the layer keeps them on their glyphs.
+ * Only measures: keep every layout read ahead of connected DOM writes,
+ * including across pages. Interleaving measurements with appended marks
+ * forces one layout per glyph on each selectionchange, making paragraph
+ * drags stutter.
+ */
+function measureSelectionMarks(layerRanges: Map<HTMLElement, Range[]>): Map<HTMLElement, DocumentFragment> {
   const fragments = new Map<HTMLElement, DocumentFragment>();
-  for (const textLayer of textLayers.keys()) {
-    if (!selectionIntersectsLayer(selection, textLayer)) continue;
+  for (const [textLayer, ranges] of layerRanges) {
     const origin = textLayer.getBoundingClientRect();
+    if (origin.width < 0.5 || origin.height < 0.5) continue;
     const fragment = document.createDocumentFragment();
     fragments.set(textLayer, fragment);
-    for (const range of selectionRanges(selection)) {
-      if (!range.intersectsNode(textLayer)) continue;
+    for (const range of ranges) {
       // WebKit includes PDF.js's full-page endOfContent sentinel in the range
       // rectangle list. Measure each selected glyph separately so an internal
       // clipping node can never become a page-sized visual highlight.
@@ -180,16 +187,29 @@ function paintSelectionOverlays(selection: Selection | null) {
           mark.className = "pdf-sel-rect";
           mark.setAttribute("aria-hidden", "true");
           Object.assign(mark.style, {
-            left: `${rect.left - origin.left}px`,
-            top: `${rect.top - origin.top}px`,
-            width: `${rect.width}px`,
-            height: `${rect.height}px`,
+            left: `${(rect.left - origin.left) / origin.width * 100}%`,
+            top: `${(rect.top - origin.top) / origin.height * 100}%`,
+            width: `${rect.width / origin.width * 100}%`,
+            height: `${rect.height / origin.height * 100}%`,
           });
           fragment.append(mark);
         }
       }
     }
   }
+  return fragments;
+}
+
+function paintSelectionOverlays(selection: Selection | null) {
+  if (!selection || selection.isCollapsed || selectionIsCopyField(selection)) {
+    clearSelectionOverlays();
+    return;
+  }
+  const ranges = selectionRanges(selection);
+  const fragments = measureSelectionMarks(new Map(layersHoldingSelection(selection).map((textLayer) => [
+    textLayer,
+    ranges.filter((range) => range.intersectsNode(textLayer)),
+  ])));
   clearSelectionOverlays();
   for (const [textLayer, fragment] of fragments) textLayer.append(fragment);
 }
@@ -234,7 +254,8 @@ function clearPdfTextSelection() {
   if (selectionOwnedByPdf) selection?.removeAllRanges();
   previousRange = null;
   lastPdfCopyText = "";
-  parkedOwner = null;
+  lastPdfSelectionLayers = [];
+  parked = null;
   clearSelectionOverlays();
   disarmPdfCopyField();
   resetLayers();
@@ -266,6 +287,25 @@ function pdfSelectedPlainText(selection: Selection | null = document.getSelectio
 
 export function pdfSelectedOrCachedPlainText(selection: Selection | null = document.getSelection()): string {
   return pdfSelectedPlainText(selection) || lastPdfCopyText || copyField?.value || "";
+}
+
+function layersHoldingSelection(selection: Selection | null): HTMLElement[] {
+  return [...textLayers.keys()].filter((textLayer) => selectionIntersectsLayer(selection, textLayer));
+}
+
+function rememberPdfSelection(text: string, selection: Selection | null) {
+  lastPdfCopyText = text;
+  lastPdfSelectionLayers = layersHoldingSelection(selection);
+}
+
+/**
+ * The PDF selection's text when it was made inside `root`. The cache and the
+ * copy field are shared by every PDF on screen (a project PDF open as a
+ * document beside the compiled preview), but each selection belongs to one.
+ */
+export function pdfSelectedPlainTextWithin(root: Node, selection: Selection | null = document.getSelection()): string {
+  const layers = selectionIntersectsPdf(selection) ? layersHoldingSelection(selection) : lastPdfSelectionLayers;
+  return layers.some((textLayer) => root.contains(textLayer)) ? pdfSelectedOrCachedPlainText(selection) : "";
 }
 
 async function writeClipboardText(text: string) {
@@ -336,7 +376,7 @@ function enableGlobalSelectionListener() {
     if (event.button !== 0) return;
     if (isVisualPdfGlyphEvent(event)) {
       pointerDown = true;
-      parkedOwner = null;
+      parked = null;
       const active = document.activeElement;
       if (active instanceof HTMLElement && isEditableSelectAllTarget(active)) active.blur();
       const span = glyphSpanFromTarget(event.target);
@@ -345,6 +385,10 @@ function enableGlobalSelectionListener() {
     }
     pointerDown = false;
     if (glyphSpanFromTarget(event.target)) event.preventDefault();
+    // Opening the Agent is how the selection becomes its context: the Agent
+    // tab shares a panel with Project by default, so clearing here would
+    // remove the context in the very click that goes to use it.
+    if (isAgentEntryTarget(event.target)) return;
     clearPdfTextSelection();
   }, { capture: true, signal });
   document.addEventListener("pointerup", () => {
@@ -360,9 +404,8 @@ function enableGlobalSelectionListener() {
       clearPdfTextSelection();
       return;
     }
-    lastPdfCopyText = live;
-    const selectedLayer = [...textLayers.keys()].find((textLayer) => selectionIntersectsLayer(selection, textLayer));
-    parkedOwner = selectedLayer ? layerOwners.get(selectedLayer) ?? null : null;
+    rememberPdfSelection(live, selection);
+    parkSelection(selection);
     paintSelectionOverlays(selection);
     resetLayers();
     armPdfCopyField(live);
@@ -402,7 +445,7 @@ function enableGlobalSelectionListener() {
     }
     updateHasSelection(selection);
     const live = pdfSelectedPlainText(selection);
-    if (live) lastPdfCopyText = live;
+    if (live) rememberPdfSelection(live, selection);
   }, { signal });
 }
 
@@ -417,7 +460,8 @@ function disableGlobalSelectionListenerIfIdle() {
   copyField = null;
   previousRange = null;
   lastPdfCopyText = "";
-  parkedOwner = null;
+  lastPdfSelectionLayers = [];
+  parked = null;
 }
 
 function isFirefoxEndOfContent(endOfContent: HTMLElement): boolean {
@@ -487,6 +531,8 @@ function previousTextBearingNode(node: Node): Node | null {
  * not a completed drag parked in the copy field: PDF.js evicts the pages a
  * selection ran through as the view scrolls on, and the parked text stays
  * copyable until `clearParkedPdfTextSelection(owner)` or another selection.
+ * The layer PDF.js creates for such a page when it is back in view shows
+ * the parked highlight again.
  */
 export function installPdfTextLayerSelection(textLayer: HTMLElement, owner: object): () => void {
   const previousEndOfContent = textLayers.get(textLayer);
@@ -512,9 +558,12 @@ export function installPdfTextLayerSelection(textLayer: HTMLElement, owner: obje
   };
   // Capture so `user-select: text` is on before WebKit starts the range.
   textLayer.addEventListener("mousedown", onMouseDown, true);
+  paintParkedSelection(textLayer);
 
   return () => {
-    if (textLayer.classList.contains("has-selection") && !selectionIsCopyField(document.getSelection())) clearPdfTextSelection();
+    // Judge "parked" from module state: browsers anchor the copy field's
+    // selection on <body>, not in the field.
+    if (textLayer.classList.contains("has-selection") && !parked) clearPdfTextSelection();
     textLayer.removeEventListener("mousedown", onMouseDown, true);
     if (textLayers.get(textLayer) === endOfContent) textLayers.delete(textLayer);
     if (ownedEndOfContent.has(endOfContent)) endOfContent.remove();
@@ -525,30 +574,94 @@ export function installPdfTextLayerSelection(textLayer: HTMLElement, owner: obje
   };
 }
 
+/** The text offsets into `textLayer` that `range` covers. */
+function layerTextOffsets(textLayer: HTMLElement, range: Range): [number, number] {
+  const prefix = document.createRange();
+  prefix.selectNodeContents(textLayer);
+  const length = prefix.toString().length;
+  const offsetOf = (container: Node, offset: number) => {
+    prefix.setEnd(container, offset);
+    return prefix.toString().length;
+  };
+  const start = textLayer.contains(range.startContainer) ? offsetOf(range.startContainer, range.startOffset) : 0;
+  const end = textLayer.contains(range.endContainer) ? offsetOf(range.endContainer, range.endOffset) : length;
+  return [start, end];
+}
+
+function rangeAtTextOffsets(textLayer: HTMLElement, [start, end]: [number, number]): Range | null {
+  const range = document.createRange();
+  const walker = document.createTreeWalker(textLayer, NodeFilter.SHOW_TEXT);
+  let seen = 0;
+  let started = false;
+  for (let node = walker.nextNode() as Text | null; node; node = walker.nextNode() as Text | null) {
+    if (!started && start < seen + node.length) {
+      range.setStart(node, start - seen);
+      started = true;
+    }
+    if (started && end <= seen + node.length) {
+      range.setEnd(node, end - seen);
+      return range;
+    }
+    seen += node.length;
+  }
+  return null;
+}
+
+function parkSelection(selection: Selection | null) {
+  const held = layersHoldingSelection(selection);
+  const owner = held[0] && layerOwners.get(held[0]);
+  if (!owner) return;
+  const pages = new Map<string, Array<[number, number]>>();
+  for (const textLayer of held) {
+    const page = pageOf(textLayer)?.getAttribute("data-page-number");
+    if (!page) continue;
+    pages.set(page, selectionRanges(selection)
+      .filter((range) => range.intersectsNode(textLayer))
+      .map((range) => layerTextOffsets(textLayer, range)));
+  }
+  parked = { owner, pages };
+}
+
+/** Redraw the parked drag's highlight on its page's `textLayer`, a layer drawn again or anew. */
+function paintParkedSelection(textLayer: HTMLElement) {
+  const page = pageOf(textLayer)?.getAttribute("data-page-number");
+  const offsets = page && parked && parked.owner === layerOwners.get(textLayer) ? parked.pages.get(page) : undefined;
+  if (!offsets) return;
+  const ranges = offsets.flatMap((span) => rangeAtTextOffsets(textLayer, span) ?? []);
+  const fragment = measureSelectionMarks(new Map([[textLayer, ranges]])).get(textLayer);
+  textLayer.classList.add("has-selection");
+  if (fragment) textLayer.append(fragment);
+  if (!lastPdfSelectionLayers.includes(textLayer)) lastPdfSelectionLayers.push(textLayer);
+}
+
 /** Drop the completed drag parked in the copy field if it came from `owner`'s viewer. */
 export function clearParkedPdfTextSelection(owner: object): void {
-  if (parkedOwner === owner) clearPdfTextSelection();
+  if (parked?.owner === owner) clearPdfTextSelection();
 }
 
 /**
  * A text layer PDF.js drew again over the same nodes: a zoom, or a page our
  * PDF.js patch kept the text of while a live drag ran through it (see
  * PDFPageViewBuffer there) scrolled back into view. A range in it is still
- * valid, so only the glyph alignment and the highlight are redone.
+ * valid, so only the glyph alignment and the highlight, live or parked, are
+ * redone.
  */
 export function refreshPdfTextLayerSelection(textLayer: HTMLElement): void {
   alignPdfTextLayerGlyphs(textLayer);
   textLayer.querySelectorAll(".pdf-sel-rect").forEach((node) => node.remove());
   const selection = document.getSelection();
   if (!selectionIsCopyField(selection) && selectionIntersectsLayer(selection, textLayer)) paintSelectionOverlays(selection);
+  else paintParkedSelection(textLayer);
 }
 
 /**
  * Report the viewer's PDF selection as agent context, and its clearing. A
  * completed PDF drag moves the native selection into the hidden copy field
  * while its overlay remains visible, so this reads the text-layer cache.
- * Global selection changes may publish a new PDF selection, but only an
- * interaction inside this viewer is authoritative enough to clear it.
+ * Global selection changes may publish a new selection made in this viewer,
+ * but only an interaction inside it is authoritative enough to clear one.
+ * A selection in another PDF is that viewer's to report; this one only
+ * forgets what it reported, so the same text selected here again is new.
  */
 export function usePdfSelectionReport(
   viewerRef: RefObject<{ root: HTMLElement } | null>,
@@ -562,7 +675,12 @@ export function usePdfSelectionReport(
     let frame: number | null = null;
     const report = (clearCollapsed: boolean) => {
       frame = null;
-      const next = pdfSelectedOrCachedPlainText(window.getSelection());
+      const selection = window.getSelection();
+      const next = pdfSelectedPlainTextWithin(root, selection);
+      if (!next && pdfSelectedOrCachedPlainText(selection)) {
+        lastReported = "";
+        return;
+      }
       const unchanged = next ? next === lastReported : !clearCollapsed || !lastReported;
       if (unchanged) return;
       lastReported = next;

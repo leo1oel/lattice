@@ -6,6 +6,7 @@ import {
   selectedMarkdownImageProjectPath,
   type AgentHostSelectionImage,
   type AgentHostSurface,
+  type AgentPdfDocumentPlace,
 } from "../agent/agent-host-context";
 import { buildAgentPaperLibrary } from "../agent/agent-paper-library";
 import type { OpenSlideContext } from "../editor/presentation/open-slide-bridge";
@@ -51,15 +52,19 @@ export function useAgentContext({ synara, project, papers, agentVisible, workspa
   // chip. An empty report from one pane must not wipe a live selection the other
   // pane owns, or the chip flickers as they fight. The ref tracks the current owner.
   const [selectionSource, , sourceRef, setSelectionSource] = useRefState<AgentHostSurface | null>(null);
+  // A PDF selection made in a project PDF open as a document, rather than in
+  // the compiled preview, names that PDF and the page it was made on.
+  const [selectionPdfDocument, setSelectionPdfDocument] = useState<AgentPdfDocumentPlace | null>(null);
   const [activeSurface, setActiveSurface] = useState<AgentHostSurface>("editor");
   // A content surface can re-report its DOM selection after Lattice has cleared
   // the one-shot Agent context. Scope that suppression to the original surface
   // so the same text selected in another surface remains valid.
   const dismissedRef = useRef<{ source: AgentHostSurface; text: string } | null>(null);
 
-  const setOwner = useCallback((source: AgentHostSurface | null, text = "") => {
+  const setOwner = useCallback((source: AgentHostSurface | null, text = "", pdfDocument: AgentPdfDocumentPlace | null = null) => {
     setSelection(text);
     setSelectionSource(source);
+    setSelectionPdfDocument(pdfDocument);
   }, [setSelectionSource]);
   /** Clear the selection without letting its surface re-report the same text. */
   const dismissSelection = useCallback(() => {
@@ -94,7 +99,7 @@ export function useAgentContext({ synara, project, papers, agentVisible, workspa
     else if (dismissedRef.current?.source === surface) dismissedRef.current = null;
   }, [dismissSelection, sourceRef]);
 
-  const reportSelection = useCallback((source: AgentHostSurface, value: string) => {
+  const reportSelection = useCallback((source: AgentHostSurface, value: string, pdfDocument?: AgentPdfDocumentPlace) => {
     const dismissed = dismissedRef.current;
     if (value && dismissed?.source === source && dismissed.text === value) return;
     if (!value) {
@@ -104,7 +109,7 @@ export function useAgentContext({ synara, project, papers, agentVisible, workspa
     }
     dismissedRef.current = null;
     setActiveSurface(source);
-    setOwner(source, value);
+    setOwner(source, value, pdfDocument);
   }, [setOwner, sourceRef]);
 
   // A selected Markdown image reaches the agent as a file it can read. PNG and
@@ -140,10 +145,10 @@ export function useAgentContext({ synara, project, papers, agentVisible, workspa
 
   const hostContext = useMemo(() => project ? buildAgentHostContext({
     workspaceRoot: project.root, activeFile, editorPosition, activePaper, canvasMode, paperView,
-    pdfPage, pdfPageCount, presentation, selection, selectionSource, selectionImage, activeSurface,
+    pdfPage, pdfPageCount, presentation, selection, selectionSource, selectionPdfDocument, selectionImage, activeSurface,
   }) : null, [
     activeFile, activePaper, activeSurface, canvasMode, editorPosition, paperView, pdfPage, pdfPageCount,
-    presentation, project, selection, selectionImage, selectionSource,
+    presentation, project, selection, selectionImage, selectionPdfDocument, selectionSource,
   ]);
   const paperLibrary = useMemo(
     () => project ? buildAgentPaperLibrary({ workspaceRoot: project.root, papers }) : null,

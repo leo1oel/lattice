@@ -512,6 +512,7 @@ function PdfSnapshot({ controller, fileKey }: { controller: TrellisController; f
           viewState={controller.bridge?.viewState(fileKey)}
           onViewState={(update) => controller.bridge?.rememberViewState(fileKey, update)}
           onFileChanged={() => setRecheck((count) => count + 1)}
+          onPdfTextSelect={(text, place) => controller.bridge?.pdfTextSelect(text, place)}
         />
       </div>
     </div>
