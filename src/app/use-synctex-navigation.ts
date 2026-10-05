@@ -11,7 +11,7 @@ import type { OpenDocuments } from "./use-open-documents";
 
 export type SyncTexNavigationDeps = {
   documents: Pick<OpenDocuments,
-    "file" | "asset" | "mode" | "text" | "savedText" | "live" | "openFile" | "save" | "scope" | "reveal">;
+    "file" | "asset" | "text" | "savedText" | "live" | "openFile" | "save" | "scope" | "reveal">;
   captureProjectScope: () => () => boolean;
   /** Where the editor's caret is (the ref is current between renders). */
   editorPosition: EditorPosition | null;
@@ -30,7 +30,7 @@ export type SyncTexNavigationDeps = {
 export function useSyncTexNavigation(deps: SyncTexNavigationDeps) {
   const { t } = useLingui();
   const { documents, captureProjectScope, editorPosition, editorPositionRef, trellis } = deps;
-  const { file: activeFile, asset: activeAsset, mode } = documents;
+  const { file: activeFile, asset: activeAsset } = documents;
   const { openFile, save, scope, reveal } = documents;
   const { file: activeFileRef } = documents.live;
   const { pdfUrl, ensureCompiled } = deps.build;
@@ -39,9 +39,14 @@ export function useSyncTexNavigation(deps: SyncTexNavigationDeps) {
   const [pdfSyncTarget, setPdfSyncTarget] = useState<PdfSyncTarget | null>(null);
   const [locatingPdf, setLocatingPdf] = useState(false);
 
-  // Forward SyncTeX starts from a .tex caret in the editor, not a preview or an asset.
+  // Forward SyncTeX starts from a .tex caret in the editor, not a preview or an
+  // asset. The document's view mode does not matter: the PDF is a panel of its
+  // own, which the jump brings on screen (see the effect below). Gating on
+  // Split or PDF disabled the jump for good once the shared mode was Edit, as
+  // the guided tutorial leaves it and choosing Edit for a Markdown file or a
+  // Paper does, and a LaTeX file has no view switch to set it back.
   const forwardSyncPosition = editorPosition && pdfUrl && editorPosition.path.toLocaleLowerCase().endsWith(".tex")
-    && (mode === "split" || mode === "pdf") && !activeAsset && editorPosition.path === activeFile
+    && !activeAsset && editorPosition.path === activeFile
     ? editorPosition : null;
 
   /**

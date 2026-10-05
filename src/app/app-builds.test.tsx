@@ -668,6 +668,34 @@ describe("builds and the PDF reader", () => {
     expect(invokeCalls("synctex_view")).toHaveLength(lookups);
   }, 60_000);
 
+  it("jumps from the caret to the PDF while the document is in Edit mode", async () => {
+    // Regression (Beta r23): the jump required the Split or PDF view, a leftover
+    // from when the PDF only showed beside the source. The PDF is a panel of
+    // its own now, and the view mode is shared: the guided tutorial opens in
+    // Edit, choosing Edit for a Markdown file or a Paper carries over, and a
+    // LaTeX file has no view switch to set it back, so "Reveal cursor in PDF"
+    // stayed disabled and ⌘⇧J did nothing.
+    setAutoBuildMode("manual");
+    persistLayout(ROOT, { openTabs: ["main.tex"], activeFile: "main.tex", canvasMode: "source" });
+    mockPdfDocument(() => pdfDocumentStub(1));
+    let pdfUrls = 0;
+    stubObjectUrls(() => `blob:lattice-edit-sync-${++pdfUrls}`);
+    renderApp({
+      ...projectCommands(projectSnapshot()),
+      read_project_file: readFiles({ "main.tex": "\\documentclass{article}" }),
+      build_project: buildResult({ hasPdf: true, durationMs: 50 }),
+      read_compiled_pdf: () => new TextEncoder().encode("%PDF-1.4").buffer,
+      synctex_view: () => ({ page: 1, x: 72, y: 96, width: 120, height: 14 }),
+    });
+    await expectInvoked("read_compiled_pdf", { projectRoot: ROOT });
+    await findEditorView();
+    const revealCursor = await screen.findByRole("button", { name: /Reveal cursor in PDF/i }, { timeout: 30_000 });
+    await waitFor(() => expect(revealCursor).toBeEnabled());
+    fireEvent.click(revealCursor);
+    await expectInvoked("synctex_view", { path: "main.tex", line: 1, column: 0 });
+    expect(await screen.findByLabelText("Source location in PDF")).toBeInTheDocument();
+  }, 60_000);
+
   it.each([
     ["saves dirty buffers before switching project files", false],
     ["does not make file switching wait for post-save project scans", true],
