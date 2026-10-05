@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { invoke } from "@tauri-apps/api/core";
 import { confirm } from "@tauri-apps/plugin-dialog";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
@@ -215,6 +216,29 @@ describe("Overleaf settings section", () => {
 });
 
 describe("Overleaf picker dialog", () => {
+  // jsdom has no layout, so this reads the rules that size the list (Vitest
+  // empties CSS imports). The body and its frame grow with the dialog; a
+  // fixed cap on the list inside them left a blank band in the frame, below a
+  // last row cut off for want of that very space.
+  it("lets the project list fill its frame instead of stopping short of it", () => {
+    const sheet = new CSSStyleSheet();
+    sheet.replaceSync(readFileSync("src/overleaf/overleaf-connect.css", "utf8"));
+    const rules = (list: CSSRuleList): CSSRule[] => Array.from(list).flatMap((rule) => [
+      rule, ...(rule instanceof CSSGroupingRule ? rules(rule.cssRules) : []),
+    ]);
+    const styles = (selector: string) => rules(sheet.cssRules)
+      .filter((rule): rule is CSSStyleRule => rule instanceof CSSStyleRule
+        && rule.selectorText.split(",").some((part) => part.trim() === selector))
+      .map((rule) => rule.style);
+
+    for (const selector of [".overleaf-picker-body", ".overleaf-stage", ".overleaf-project-list-scroll"]) {
+      expect(styles(selector).some((style) => style.flexGrow === "1"), selector).toBe(true);
+    }
+    const list = styles(".overleaf-project-list-scroll");
+    expect(list.some((style) => style.minHeight === "0" || style.minHeight === "0px")).toBe(true);
+    expect(list.map((style) => style.maxHeight).filter(Boolean)).toEqual([]);
+  });
+
   it("lists projects with owner and update time, hides archived ones until asked, and filters by search", async () => {
     mockConnectedPicker();
     renderPicker();
