@@ -3274,7 +3274,7 @@ msgstr "浮动表格，三线表样式（需要 booktabs）"
 msgid "Flush floats and start a new page"
 msgstr "输出浮动体并另起一页"
 
-#: src/editor/codemirror-host.tsx
+#: src/editor/source-gutter.ts
 msgid "Fold line"
 msgstr "折叠行"
 
@@ -8681,7 +8681,7 @@ msgstr "意外错误"
 msgid "unfold"
 msgstr "展开"
 
-#: src/editor/codemirror-host.tsx
+#: src/editor/source-gutter.ts
 msgid "Unfold line"
 msgstr "展开行"
 

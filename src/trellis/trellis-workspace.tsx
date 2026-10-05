@@ -26,7 +26,7 @@ import "@danfessler/trellis/style.css";
 // eslint-disable-next-line no-restricted-imports -- see above
 import { DropdownMenu as MenuPrimitive } from "radix-ui";
 import { EditorState } from "@codemirror/state";
-import { EditorView, lineNumbers } from "@codemirror/view";
+import { EditorView } from "@codemirror/view";
 import { defaultHighlightStyle, syntaxHighlighting } from "@codemirror/language";
 import { BookOpen, Check, ChevronRight, FileText, FolderTree, Moon, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -37,6 +37,7 @@ import { isSpreadsheetPath } from "../editor/spreadsheet/spreadsheet-types";
 import { luxLatexHighlightStyle } from "../editor/latex/latex-editor";
 import { isLatexSourcePath, useTextLanguageExtensions } from "../canvas/editor-extensions";
 import { latex } from "../editor/latex/latex-language";
+import { sourceGutter } from "../editor/source-gutter";
 import { DeferredVisualMarkdownEditor } from "../canvas/canvas-lazy-editors";
 import { Tip } from "../components/icon-tip";
 import { ProjectAssetPreview } from "../canvas/project-asset-preview";
@@ -315,7 +316,9 @@ function TextSnapshot({ controller, fileKey, panelId }: { controller: TrellisCon
       state: EditorState.create({
         doc: text,
         extensions: [
-          lineNumbers(),
+          // The live editor's gutter, so taking over from the snapshot
+          // moves nothing.
+          sourceGutter(),
           EditorView.lineWrapping,
           EditorState.readOnly.of(true),
           EditorView.editable.of(false),
