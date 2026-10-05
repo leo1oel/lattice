@@ -99,9 +99,15 @@ body.resizing-panels .resizable-drawer { transition: none; }
   overflow: hidden;
   background: var(--surface-input);
   color: var(--text-tertiary);
+}
+/* Only the release fades: switching to a view that has not loaded must cover its
+   unbooted frame at once, so the covering state carries no transition or delay. */
+.git-workspace-shell[data-ready] {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
   transition: opacity var(--duration-reveal) var(--ease-out), visibility 0s linear var(--duration-reveal);
 }
-.git-workspace-shell[data-ready] { opacity: 0; visibility: hidden; pointer-events: none; }
 .git-workspace-shell[data-ready] .git-workspace-skeleton::after { animation: none; }
 .git-workspace-skeleton {
   position: relative;
@@ -189,9 +195,6 @@ body.resizing-panels .resizable-drawer { transition: none; }
 }
 @keyframes git-workspace-skeleton-sheen {
   to { transform: translateX(100%); }
-}
-@media (prefers-reduced-motion: reduce) {
-  .git-workspace-skeleton::after { animation: none; }
 }
 .agent-git-workspace-header {
   display: flex;
