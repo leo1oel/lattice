@@ -66,6 +66,12 @@ async function openFirstProject() {
   fireEvent.click(await screen.findByRole("button", { name: "Open" }));
 }
 
+// Vitest empties CSS imports, so the picker's stylesheet is loaded off disk
+// into jsdom's CSSOM: the sizing test reads computed styles, not source text.
+const pickerSheet = document.createElement("style");
+pickerSheet.textContent = readFileSync("src/overleaf/overleaf-connect.css", "utf8");
+document.head.append(pickerSheet);
+
 afterEach(() => {
   cleanup();
   clearAppLogs();
@@ -216,27 +222,24 @@ describe("Overleaf settings section", () => {
 });
 
 describe("Overleaf picker dialog", () => {
-  // jsdom has no layout, so this reads the rules that size the list (Vitest
-  // empties CSS imports). The body and its frame grow with the dialog; a
-  // fixed cap on the list inside them left a blank band in the frame, below a
-  // last row cut off for want of that very space.
-  it("lets the project list fill its frame instead of stopping short of it", () => {
-    const sheet = new CSSStyleSheet();
-    sheet.replaceSync(readFileSync("src/overleaf/overleaf-connect.css", "utf8"));
-    const rules = (list: CSSRuleList): CSSRule[] => Array.from(list).flatMap((rule) => [
-      rule, ...(rule instanceof CSSGroupingRule ? rules(rule.cssRules) : []),
-    ]);
-    const styles = (selector: string) => rules(sheet.cssRules)
-      .filter((rule): rule is CSSStyleRule => rule instanceof CSSStyleRule
-        && rule.selectorText.split(",").some((part) => part.trim() === selector))
-      .map((rule) => rule.style);
+  // jsdom has no layout, so the test reads the computed sizing of the rendered
+  // list. The body and its frame grow with the dialog; a fixed cap on the list
+  // inside them left a blank band in the frame, below a last row cut off for
+  // want of that very space.
+  it("lets the project list fill its frame instead of stopping short of it", async () => {
+    mockConnectedPicker();
+    renderPicker();
+    await screen.findByText("Attention Paper");
+    const list = screen.getByLabelText("Overleaf projects").closest<HTMLElement>(".overleaf-project-list-scroll")!;
+    const frame = list.closest<HTMLElement>(".overleaf-stage")!;
+    const body = frame.closest<HTMLElement>(".overleaf-picker-body")!;
 
-    for (const selector of [".overleaf-picker-body", ".overleaf-stage", ".overleaf-project-list-scroll"]) {
-      expect(styles(selector).some((style) => style.flexGrow === "1"), selector).toBe(true);
+    for (const element of [body, frame, list]) {
+      expect(getComputedStyle(element).flexGrow, element.className).toBe("1");
     }
-    const list = styles(".overleaf-project-list-scroll");
-    expect(list.some((style) => style.minHeight === "0" || style.minHeight === "0px")).toBe(true);
-    expect(list.map((style) => style.maxHeight).filter(Boolean)).toEqual([]);
+    const listStyle = getComputedStyle(list);
+    expect(["0", "0px"]).toContain(listStyle.minHeight);
+    expect(["", "none"]).toContain(listStyle.maxHeight);
   });
 
   it("lists projects with owner and update time, hides archived ones until asked, and filters by search", async () => {
