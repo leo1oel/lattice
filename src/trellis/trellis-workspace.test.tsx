@@ -447,8 +447,6 @@ describe("an inactive document on screen", () => {
     // A move from one frame into another fires nothing on this page: only document.activeElement shows it.
     let focused: Element = otherFrame;
     const activeElement = vi.spyOn(document, "activeElement", "get").mockImplementation(() => focused);
-    // A focused frame counts as this document having focus.
-    const hasFocus = vi.spyOn(document, "hasFocus").mockReturnValue(true);
     try {
       await pause();
       expect(activate).not.toHaveBeenCalled();
@@ -467,7 +465,6 @@ describe("an inactive document on screen", () => {
       await waitFor(() => expect(activate).toHaveBeenCalledWith(deck));
     } finally {
       activeElement.mockRestore();
-      hasFocus.mockRestore();
       otherFrame.remove();
     }
     // Another document becoming active without taking focus (an agent opening
