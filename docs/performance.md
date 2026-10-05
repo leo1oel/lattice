@@ -80,7 +80,7 @@ Scenarios (`scripts/perf-bench/scenarios.mjs`):
 - `pnpm perf:bench` measures and prints a table. `--check` also exits 1 when a
   gated count exceeds its ceiling; that is what CI runs (the `perf-bench` job, and
   `mise run perf-bench` locally).
-- `--only a,b` limits scenarios. `--runs N` repeats each scenario and gates
+- `--only a,b` limits scenarios (with `--layout`, checks). `--runs N` repeats each scenario and gates
   each count at its fewest across the runs, because noise only ever adds work
   and each count's noise is its own. The report-only counts shown are those of
   the run with the fewest gated counts in total, and do not affect the choice.
@@ -114,6 +114,10 @@ Scenarios (`scripts/perf-bench/scenarios.mjs`):
   PDF's Find under the Writing layout, shrinks the window to 640, 560 and
   480px, and fails when a toolbar control overlaps another or leaves the
   toolbar, or the query's box is narrower than a short query needs.
+  `pdf-live-drag-copy` drags from page 1 to page 3 of a 400-page compiled PDF
+  at 40% and, with the button still held, wheels far enough down that PDF.js
+  evicts the selected pages from its render cache; it fails when the released
+  drag or Cmd-C loses pages 1 and 2.
 
 #### Ceilings and the ratchet
 

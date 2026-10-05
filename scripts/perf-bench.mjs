@@ -27,7 +27,7 @@
  *   --ratchet   lower the ceilings these counts beat; never raises one
  *   --update    set every ceiling from this run, up or down (review the diff)
  * Options:
- *   --only a,b      run only these scenarios
+ *   --only a,b      run only these scenarios (with --layout, these checks)
  *   --runs N        runs per scenario; each gated count is its lowest across them (default 2)
  *   --json FILE     write every run, with the components that rendered and why
  *   --dev           use the Vite dev server: readable component names and
@@ -443,10 +443,12 @@ function launchBrowser(options) {
 
 /** `--layout`: runs every layout check on a fresh page and exits 1 when one fails. */
 async function layout(options) {
+  const checks = options.only ? LAYOUT_CHECKS.filter((check) => options.only.includes(check.name)) : LAYOUT_CHECKS;
+  if (!checks.length) throw new Error(`No layout check matches ${options.only}`);
   const vite = await startPage(options);
   const browser = await step(`starting ${options.engine}`, () => launchBrowser(options));
   try {
-    for (const check of LAYOUT_CHECKS) {
+    for (const check of checks) {
       const page = await browser.open();
       try {
         await page.send("Page.addScriptToEvaluateOnNewDocument", { source: PROBE });

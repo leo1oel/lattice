@@ -6,7 +6,7 @@ import { pdfBytesFingerprint } from "./pdf-bytes";
 import { projectPdfTransport, type ProjectPdfFile } from "./project-pdf";
 import { isProjectPdfStale } from "./project-pdf-refusals";
 import { createViewerRecord, destroyViewerRecord, onPdfEvents, pdfPageView, pdfPointAt, viewerOptions } from "./pdf-slick";
-import { installPdfTextLayerSelection } from "./pdf-text-layer-selection";
+import { installPdfTextLayerSelection, refreshPdfTextLayerSelection } from "./pdf-text-layer-selection";
 import { addListeners, pdfFitMode, pdfScaleValue, toAppScale } from "./pdf-viewer-utils";
 import { clamp } from "../settings/app-settings";
 import { useLatestRef } from "../hooks/use-latest-ref";
@@ -285,8 +285,11 @@ export function usePdfDocument({
         const textLayer = pdfPageView(slick, pageNumber ?? 0)?.textLayer?.div;
         if (!textLayer || record.destroyed) return;
         textLayer.classList.add("pdf-text-layer");
-        record.textLayers.get(textLayer)?.();
-        record.textLayers.set(textLayer, installPdfTextLayerSelection(textLayer));
+        // A layer PDF.js kept and drew again (a zoom, or a page a live drag
+        // still runs through scrolled back into view) keeps its text nodes,
+        // and with them the selection: disposing it would clear that.
+        if (record.textLayers.has(textLayer)) refreshPdfTextLayerSelection(textLayer);
+        else record.textLayers.set(textLayer, installPdfTextLayerSelection(textLayer));
         if (isActive()) setTextLayerGeneration((generation) => generation + 1);
       },
       pagechanging: ({ pageNumber }: { pageNumber?: number }) => {
