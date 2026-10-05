@@ -81,7 +81,7 @@ export function SettingsLoadingShell({ label, message, backdrop, returnFocus, on
  * The region is in the page a frame before its text: one that arrives
  * already holding it is not reliably announced.
  */
-function LoadingAnnouncement({ message }: { message: string }) {
+export function LoadingAnnouncement({ message }: { message: string }) {
   const [said, setSaid] = useState("");
   useEffect(() => {
     const frame = window.requestAnimationFrame(() => setSaid(message));

@@ -37,7 +37,7 @@
      past the components' own single-class rules, whatever order they load in. */
   html .lattice-mark-glint, html .welcome-lattice-trail, html .welcome-lattice-pulse,
   html .welcome-lattice-ring, html .welcome-lattice-bloom, html .empty-illustration-typing > g,
-  html .pdf-skeleton-page::after { animation: none; }
+  html .pdf-skeleton-page::after, html .git-workspace-skeleton::after { animation: none; }
   /* The build result lands whole: its cross and its warning dot do not wait their turn. */
   html .trellis-build-status[data-fresh] .trellis-build-pip,
   html .trellis-build-status[data-fresh] .trellis-build-stroke + .trellis-build-stroke { animation-delay: 0s; }

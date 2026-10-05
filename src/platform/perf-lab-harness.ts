@@ -899,6 +899,91 @@ async function agentOpen() {
   return { iframeVisibleMs: Math.round(visibleMs), settledMs: Math.round(performance.now() - started - 800 + Math.min(quiet, 0)), hasFrame: !!frame, frames: meter.stop() };
 }
 
+// The Git drawer through native clicks: the cold open from the titlebar
+// button (when its loading shell shows, when a frame is in the page, when that
+// frame loads, when the drawer shows the view itself), then each view tab,
+// recording how long the click took to select its tab and to show its view.
+// A build with the shell counts a view shown when the shell stops covering
+// it; one without counts it shown when its frame loads.
+async function gitPanel() {
+  const loads = new WeakMap();
+  let watching = true;
+  const track = () => {
+    if (!watching) return;
+    for (const frame of document.querySelectorAll(".synara-source-control-frame")) {
+      if (loads.has(frame)) continue;
+      loads.set(frame, []);
+      frame.addEventListener("load", () => loads.get(frame).push(performance.now()));
+    }
+    requestAnimationFrame(track);
+  };
+  requestAnimationFrame(track);
+  const visibleFrame = () => [...document.querySelectorAll(".synara-source-control-frame")]
+    .find((frame) => (!frame.closest(".git-workspace-body") || frame.hasAttribute("data-active")) && frame.getBoundingClientRect().width > 100);
+  const hasShell = () => !!document.querySelector(".git-workspace-shell");
+  const covered = () => {
+    const shell = document.querySelector(".git-workspace-shell:not([data-ready])");
+    return !!shell && shell.getBoundingClientRect().width > 0;
+  };
+  const loadedSince = (frame, time) => (loads.get(frame) ?? []).some((at) => at >= time);
+  try {
+    await settle(800, 20_000);
+    const button = await waitFor(() => document.querySelector('[data-tour="git"]'), "Git button", 10_000);
+    const started = performance.now();
+    await input.click(button);
+    let shellAt = null;
+    let frameAt = null;
+    let loadedAt = null;
+    let readyAt = null;
+    await waitFor(() => {
+      const now = performance.now();
+      if (shellAt === null && covered()) shellAt = now;
+      const frame = visibleFrame();
+      if (frameAt === null && frame) frameAt = now;
+      if (loadedAt === null && frame && loads.get(frame)?.length) loadedAt = loads.get(frame)[0];
+      if (frame && (hasShell() ? !covered() : loadedAt !== null)) readyAt = now;
+      return readyAt !== null;
+    }, "Git view shown", 30_000).catch(() => null);
+    const since = (time) => (time === null ? null : Math.round(time - started));
+    const open = { shellMs: since(shellAt), frameMs: since(frameAt), loadedMs: since(loadedAt), readyMs: since(readyAt) };
+    await settle(1500, 20_000);
+    const tabs = [];
+    for (const name of ["Pull requests", "Changes", "Pull requests", "Changes"]) {
+      const tab = [...document.querySelectorAll(".agent-git-workspace-tabs [role=tab]")]
+        .find((candidate) => candidate.textContent?.trim() === name);
+      if (!tab) {
+        tabs.push({ name, error: "no tab" });
+        continue;
+      }
+      const path = name === "Changes" ? "/source-control" : "/pull-requests/";
+      const before = visibleFrame()?.getAttribute("src")?.split("?")[0] ?? null;
+      const clickedAt = performance.now();
+      await input.click(tab);
+      let selectedAt = null;
+      let viewAt = null;
+      await waitFor(() => {
+        if (selectedAt === null && tab.getAttribute("aria-selected") === "true") selectedAt = performance.now();
+        const frame = visibleFrame();
+        const shown = !!frame && new URL(frame.src).pathname === path
+          && (hasShell() ? !covered() : loadedSince(frame, clickedAt));
+        if (shown) viewAt = performance.now();
+        return shown;
+      }, `${name} view`, 15_000).catch(() => null);
+      tabs.push({
+        name,
+        before,
+        after: visibleFrame()?.getAttribute("src")?.split("?")[0] ?? null,
+        selectedMs: selectedAt === null ? null : Math.round(selectedAt - clickedAt),
+        viewMs: viewAt === null ? null : Math.round(viewAt - clickedAt),
+      });
+      await settle(1200, 20_000);
+    }
+    return { open, tabs };
+  } finally {
+    watching = false;
+  }
+}
+
 async function profileMarker(name) {
   await invoke("perf_write", { name: `${config?.label}-${name}.marker`, content: String(epoch()) }).catch(() => null);
 }
@@ -1563,6 +1648,7 @@ const SCENARIOS = {
   pdfScrollHeavy: () => pdfScroll(),
   pdfZoomCtrlWheelHeavy: () => pdfZoom("ctrl-wheel-synthetic"),
   agentOpen,
+  gitPanel,
   latexTyping: () => sourceTyping("chapters/ch01.tex", null),
   markdownSourceTyping: () => sourceTyping("large.md", "Edit"),
   markdownVisualTyping: visualTyping,

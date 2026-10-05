@@ -83,6 +83,119 @@ body.resizing-panels .resizable-drawer { transition: none; }
 .git-drawer { width: min(520px, 100%); }
 .synara-source-control-drawer { display: flex; flex-direction: column; padding: 0; overflow: hidden; }
 .synara-source-control-drawer > .synara-loading-surface { position: relative; flex: 1; min-height: 0; }
+/* The Git views' frames (app/git-workspace-frames.tsx), stacked: each one
+   visited stays loaded under the selected one, so a switch back is a
+   visibility change rather than another client boot. */
+.git-workspace-body { position: relative; flex: 1; min-height: 0; }
+.git-workspace-body > .synara-source-control-frame { position: absolute; inset: 0; height: 100%; }
+.git-workspace-body > .synara-source-control-frame:not([data-active]) { visibility: hidden; pointer-events: none; }
+/* Holds the selected view's place until its frame has rendered: shaped like
+   the view, in its colors, so the hand-off to the view's own rows does not
+   jump. */
+.git-workspace-shell {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  overflow: hidden;
+  background: var(--surface-input);
+  color: var(--text-tertiary);
+}
+/* Only the release fades: switching to a view that has not loaded must cover its
+   unbooted frame at once, so the covering state carries no transition or delay. */
+.git-workspace-shell[data-ready] {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity var(--duration-reveal) var(--ease-out), visibility 0s linear var(--duration-reveal);
+}
+.git-workspace-shell[data-ready] .git-workspace-skeleton::after { animation: none; }
+.git-workspace-skeleton {
+  position: relative;
+  height: 100%;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-6);
+  animation: git-workspace-skeleton-in var(--duration-reveal) var(--ease-out) both;
+}
+.git-workspace-skeleton span:not(.git-workspace-skeleton-lines) {
+  display: block;
+  height: var(--space-4);
+  border-radius: var(--radius-pill);
+  background: var(--border-subtle);
+}
+.git-workspace-skeleton svg { flex: none; }
+.git-workspace-skeleton-heading,
+.git-workspace-skeleton-control {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  min-height: var(--control-height-compact);
+  padding: 0 var(--space-5);
+}
+.git-workspace-skeleton-heading { padding-inline: var(--space-2); }
+.git-workspace-skeleton-control { border: 1px solid var(--border-subtle); border-radius: var(--radius-control); }
+.git-workspace-skeleton-filters { display: flex; gap: var(--space-4); }
+.git-workspace-skeleton-filters span:not(.git-workspace-skeleton-lines) { width: 38%; height: var(--control-height-compact); border-radius: var(--radius-control); }
+.git-workspace-skeleton-filters span + span { width: 30%; }
+.git-workspace-skeleton-rows { margin: 0; padding: var(--space-2) 0 0; list-style: none; display: grid; gap: var(--space-1); }
+.git-workspace-skeleton-rows li { display: flex; align-items: center; gap: var(--space-4); min-height: var(--control-height-compact); padding: 0 var(--space-2); }
+.git-workspace-skeleton-section span:not(.git-workspace-skeleton-lines) { height: var(--space-3); background: var(--border-strong); }
+.git-workspace-skeleton .git-workspace-skeleton-icon { flex: none; width: var(--space-8); height: var(--space-8); border-radius: var(--radius-compact); }
+.git-workspace-skeleton .git-workspace-skeleton-stat { width: var(--space-16); margin-left: auto; }
+.git-workspace-skeleton-cards li { padding: var(--space-4) var(--space-2); gap: var(--space-5); }
+.git-workspace-skeleton .git-workspace-skeleton-tile { flex: none; width: var(--control-height-compact); height: var(--control-height-compact); border-radius: var(--radius-control); }
+.git-workspace-skeleton-lines { flex: 1; display: grid; gap: var(--space-3); }
+.git-workspace-skeleton-lines span + span { height: var(--space-3); }
+.git-workspace-skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(100deg, transparent 30%, color-mix(in srgb, var(--surface-input) 70%, transparent) 50%, transparent 70%);
+  transform: translateX(-100%);
+  animation: git-workspace-skeleton-sheen 1.6s var(--ease-in-out) infinite;
+}
+.git-workspace-loading {
+  position: absolute;
+  left: 50%;
+  bottom: var(--space-12);
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  max-width: calc(100% - var(--space-8));
+  min-height: var(--control-height-compact);
+  padding: var(--space-2) var(--space-5);
+  border-radius: var(--radius-pill);
+  background: var(--surface-panel-raised);
+  box-shadow: 0 0 0 1px var(--border-subtle);
+  color: var(--text-secondary);
+  font-size: var(--type-micro-size);
+  white-space: nowrap;
+  animation: git-workspace-skeleton-in var(--duration-reveal) var(--ease-out) both;
+}
+.git-workspace-stalled {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-4);
+  padding: var(--space-10);
+  text-align: center;
+  color: var(--text-secondary);
+}
+.git-workspace-stalled > svg { color: var(--status-warning); }
+.git-workspace-stalled > strong { color: var(--text-primary); }
+.git-workspace-stalled > .ui-button { margin-top: var(--space-2); }
+@keyframes git-workspace-skeleton-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes git-workspace-skeleton-sheen {
+  to { transform: translateX(100%); }
+}
 .agent-git-workspace-header {
   display: flex;
   align-items: center;

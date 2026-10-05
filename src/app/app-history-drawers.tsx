@@ -19,9 +19,8 @@ import { ExternalLink, X } from "lucide-react";
 import { Tip } from "../components/icon-tip";
 import { SlidingTabs } from "../components/ui/motion";
 import { ResizableDrawer } from "../components/ui/resizable-drawer";
-import { SynaraLoadingSurface } from "../agent/synara-loading-surface";
 import { LATTICE_RESTORE_AGENT_CHECKPOINT, type AgentGitWorkspaceView } from "../agent/synara-runtime";
-import { synaraSourceControlUrl, synaraTurnReviewUrl } from "./app-synara-embed";
+import { GitWorkspaceFrames } from "./git-workspace-frames";
 import { setError } from "./notify";
 import { githubRepositoryUrl } from "./git-repository-url";
 import type { useSynaraHost } from "./use-synara-host";
@@ -188,22 +187,16 @@ export function AppHistoryDrawers({ tools, synara: {
               </button>
             </div>
           </div>
-            {frame ? (
-              <iframe
-                ref={sourceControlFrameRef}
-                className="synara-source-control-frame"
-                src={agentTurnReview
-                  ? synaraTurnReviewUrl(frame, agentTurnReview)
-                  : synaraSourceControlUrl(frame, gitWorkspaceView)}
-                title={agentTurnReview
-                  ? t`Agent turn review`
-                  : gitWorkspaceView === "changes" ? t`Changes` : t`Pull requests`}
-                allow="clipboard-read; clipboard-write"
-                sandbox="allow-scripts allow-same-origin allow-forms allow-downloads"
-              />
-            ) : (
-              <SynaraLoadingSurface runtime={synaraRuntime} onRetry={retrySynaraRuntime} />
-            )}
+          <GitWorkspaceFrames
+            // A frame belongs to one project: another project's starts afresh.
+            key={project.root}
+            frame={frame}
+            view={gitWorkspaceView}
+            turnReview={agentTurnReview}
+            runtime={synaraRuntime}
+            onRetryRuntime={retrySynaraRuntime}
+            frameRef={sourceControlFrameRef}
+          />
         </ResizableDrawer>
       ) : null}
     </>
