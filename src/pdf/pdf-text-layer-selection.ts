@@ -561,7 +561,9 @@ export function installPdfTextLayerSelection(textLayer: HTMLElement, owner: obje
   paintParkedSelection(textLayer);
 
   return () => {
-    if (textLayer.classList.contains("has-selection") && !selectionIsCopyField(document.getSelection())) clearPdfTextSelection();
+    // Judge "parked" from module state: browsers anchor the copy field's
+    // selection on <body>, not in the field.
+    if (textLayer.classList.contains("has-selection") && !parked) clearPdfTextSelection();
     textLayer.removeEventListener("mousedown", onMouseDown, true);
     if (textLayers.get(textLayer) === endOfContent) textLayers.delete(textLayer);
     if (ownedEndOfContent.has(endOfContent)) endOfContent.remove();

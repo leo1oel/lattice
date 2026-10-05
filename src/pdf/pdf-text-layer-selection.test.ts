@@ -682,6 +682,30 @@ describe("PDF highlight of a completed drag", () => {
     }
   }));
 
+  it("keeps a zoomed parked drag when PDF.js later evicts its page", () => withRangeRects(async () => {
+    const { layer, spans } = pageLayer(1, 1, "Alpha", "Beta", "Gamma");
+    const { layer: farLayer } = pageLayer(12, 1, "Far");
+    const owner = {};
+    const disposeFar = installPdfTextLayerSelection(farLayer, owner);
+    const dispose = installPdfTextLayerSelection(layer, owner);
+    try {
+      const field = parkDrag(spans[0]!, spans[1]!);
+      // WebKit and Chromium anchor the copy field's selection on <body>, not in the field.
+      document.getSelection()?.collapse(document.body, 0);
+      layOut(layer, spans, 2);
+      refreshPdfTextLayerSelection(layer);
+      expect(layer.classList.contains("has-selection")).toBe(true);
+
+      layer.remove();
+      dispose();
+      expect(field.value).toBe("AlphaBeta");
+      expect(pdfSelectedOrCachedPlainText()).toBe("AlphaBeta");
+    } finally {
+      dispose();
+      disposeFar();
+    }
+  }));
+
   it("shows the highlight again on the layer of a page scrolled away and back", () => withRangeRects(async () => {
     const { page, layer, spans } = pageLayer(1, 1, "Alpha", "Beta", "Gamma");
     const { layer: farLayer } = pageLayer(12, 1, "Far");
