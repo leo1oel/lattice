@@ -80,7 +80,7 @@ Neither the context nor the tool mutates comments.
 
 The fork as a whole is **not** small. Measured on 2026-10-05 against upstream
 `v1.0.0-beta.1` (`37439ec5063892583239638deaab4ed5b1d16d56`), the current integration changes
-**531 files, +45,323 / −5,210 lines**. It carries embedded-workspace UI, a skills manager,
+**531 files, +45,338 / −5,211 lines**. It carries embedded-workspace UI, a skills manager,
 source-control and provider-health surfaces, spreadsheet and canvas tool brokers, and their
 contracts. Treat "keep it in the seam" as the goal for new work. Re-measure after each sync:
 
@@ -98,6 +98,9 @@ GitHub response is reported explicitly rather than silently treated as a complet
 Both Git views send `synara:embed-ready`; missing CLI/authentication shows its unavailable or
 sign-in state without query retries. The narrow model picker retains account selection in upstream’s
 new account-aware menu, and TeX, BibTeX, `.sty`, and `.cls` files retain their file icons.
+The inbox, detail panes, sidechat dock, and portalled menus inherit Lattice's embed-theme surface
+tokens; code and diff renderers also resolve the host theme without changing standalone Synara's
+stored appearance preferences.
 
 ## Agent tool boundary
 
