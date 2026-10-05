@@ -24,6 +24,7 @@ const LAST_FILE_KEY = "lattice.last-file.v1";
 export const WORKSPACE_LAYOUT_KEY = "lattice.workspace-layout.v1";
 export const FILE_VIEW_STATES_KEY = "lattice.file-view-states.v1";
 export const TUTORIAL_SEEN_KEY = "lattice.tutorial-seen.v1";
+export const GUIDED_TOUR_KEY = "lattice.guided-tour.v1";
 export const APPEARANCE_KEY = "lattice.appearance.v5";
 const LEGACY_APPEARANCE_KEYS = ["lattice.appearance.v4", "lattice.appearance.v3"];
 const OVERLEAF_SYNC_MODE_KEY = "lattice.overleaf.sync-mode.v1";
@@ -138,6 +139,14 @@ export function rememberRecentCommand(id: string): string[] {
 export const hasSeenTutorial = () => safely(() => localStorage.getItem(TUTORIAL_SEEN_KEY) === "1", false);
 
 export const markTutorialSeen = () => persistSetting(TUTORIAL_SEEN_KEY, "1");
+
+/** Whether the writer has walked the guided tour to its end before, so it is offered as a replay. */
+export const hasFinishedGuidedTour = () => safely(() => localStorage.getItem(GUIDED_TOUR_KEY) === "completed", false);
+
+/** A finished tour stays finished: skipping a replay does not forget it. */
+export const rememberGuidedTour = (outcome: "completed" | "skipped") => {
+  if (outcome === "completed" || !hasFinishedGuidedTour()) persistSetting(GUIDED_TOUR_KEY, outcome);
+};
 
 // Acknowledgements exists only in builds that embed the licensed fonts.
 const SETTINGS_TABS: readonly SettingsTab[] = [

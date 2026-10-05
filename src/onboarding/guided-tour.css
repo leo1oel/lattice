@@ -1,0 +1,241 @@
+/*
+ * The guided tour (guided-tour.tsx). One layer above the workspace and below
+ * every menu, dialog and selection toolbar a stop asks the writer to open.
+ * Nothing in it but the card takes the pointer: the dimming is the
+ * spotlight's own shadow, so the spotlit place stays fully usable.
+ */
+.guided-tour {
+  --guided-tour-scrim: rgb(12 12 14 / 34%);
+  --guided-tour-ring: color-mix(in srgb, var(--surface-panel-raised) 92%, transparent);
+  --guided-tour-glow: color-mix(in srgb, var(--control-active) 26%, transparent);
+  --guided-tour-card-width: 328px;
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-guided-tour);
+  pointer-events: none;
+}
+
+:root[data-theme="dark"] .guided-tour {
+  --guided-tour-scrim: rgb(0 0 0 / 56%);
+  --guided-tour-ring: color-mix(in srgb, var(--text-primary) 70%, transparent);
+  --guided-tour-glow: color-mix(in srgb, var(--text-primary) 16%, transparent);
+}
+
+/* The whole window dims while nothing is spotlit: the welcome card, or a stop whose panel is still opening. */
+.guided-tour-scrim {
+  position: absolute;
+  inset: 0;
+  background: var(--guided-tour-scrim);
+  opacity: 1;
+  transition: opacity var(--duration-slow) var(--ease-out);
+}
+
+.guided-tour[data-spotlit] .guided-tour-scrim { opacity: 0; }
+
+.guided-tour-spotlight {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 0;
+  height: 0;
+  border-radius: var(--radius-dialog);
+  box-shadow:
+    0 0 0 1.5px var(--guided-tour-ring),
+    0 0 0 7px var(--guided-tour-glow),
+    0 0 0 200vmax var(--guided-tour-scrim);
+  opacity: 0;
+  transition:
+    transform var(--duration-slow) var(--ease-emphasized),
+    width var(--duration-slow) var(--ease-emphasized),
+    height var(--duration-slow) var(--ease-emphasized),
+    opacity var(--duration-slow) var(--ease-out);
+}
+
+.guided-tour[data-spotlit] .guided-tour-spotlight { opacity: 1; }
+
+.guided-tour-card {
+  position: absolute;
+  top: 0;
+  left: 0;
+  box-sizing: border-box;
+  width: min(var(--guided-tour-card-width), calc(100vw - 2 * var(--space-8)));
+  padding: var(--space-10) var(--space-10) var(--space-8);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-dialog);
+  background: var(--surface-panel-raised);
+  color: var(--text-primary);
+  box-shadow:
+    0 1px 2px rgb(0 0 0 / 8%),
+    0 18px 48px -12px rgb(0 0 0 / 28%);
+  font-family: var(--ui-font);
+  pointer-events: auto;
+  animation: guided-tour-arrive var(--duration-reveal) var(--ease-entrance);
+  transition: transform var(--duration-slow) var(--ease-emphasized);
+}
+
+.guided-tour-card:focus { outline: none; }
+
+@keyframes guided-tour-arrive {
+  from { opacity: 0; scale: 0.97; }
+}
+
+.guided-tour-close {
+  position: absolute;
+  top: var(--space-5);
+  right: var(--space-5);
+  display: grid;
+  place-items: center;
+  width: var(--control-size-icon-compact);
+  height: var(--control-size-icon-compact);
+  border: 0;
+  border-radius: var(--radius-icon);
+  background: transparent;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  transition: background var(--duration-quick) var(--ease-out), color var(--duration-quick) var(--ease-out);
+}
+
+.guided-tour-close:hover {
+  background: var(--control-hover-surface);
+  color: var(--text-primary);
+}
+
+/* Each stop's words settle in place of the last one's. */
+.guided-tour-content {
+  animation: guided-tour-content var(--duration-reveal) var(--ease-entrance);
+}
+
+@keyframes guided-tour-content {
+  from { opacity: 0; translate: 0 3px; }
+}
+
+.guided-tour-mark {
+  display: flex;
+  margin-bottom: var(--space-6);
+}
+
+.guided-tour-count {
+  margin: 0 0 var(--space-3);
+  color: var(--text-tertiary);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line-height);
+  font-variant-numeric: tabular-nums;
+}
+
+.guided-tour-title {
+  margin: 0;
+  padding-right: var(--space-16);
+  font-size: var(--type-title-large-size);
+  line-height: var(--type-title-large-line-height);
+  font-weight: var(--type-title-large-weight);
+  letter-spacing: -0.01em;
+  text-wrap: balance;
+}
+
+.guided-tour-card[data-welcome] .guided-tour-title {
+  font-size: var(--type-heading-size);
+  line-height: var(--type-heading-line-height);
+}
+
+.guided-tour-body {
+  margin: var(--space-3) 0 0;
+  color: var(--text-secondary);
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-line-height);
+  text-wrap: pretty;
+}
+
+.guided-tour-action {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  margin: var(--space-6) 0 0;
+  padding: var(--space-3) var(--space-5) var(--space-3) var(--space-3);
+  border-radius: var(--radius-control);
+  background: color-mix(in srgb, var(--text-primary) 5%, transparent);
+  color: var(--text-primary);
+  font-size: var(--type-label-size);
+  line-height: var(--type-label-line-height);
+  font-weight: var(--weight-medium);
+  transition: background var(--duration-base) var(--ease-out);
+}
+
+.guided-tour-action-mark {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border: 1.5px dashed color-mix(in srgb, var(--text-primary) 32%, transparent);
+  border-radius: var(--radius-pill);
+  color: transparent;
+  transition:
+    background var(--duration-base) var(--ease-out),
+    border-color var(--duration-base) var(--ease-out),
+    color var(--duration-base) var(--ease-out);
+}
+
+.guided-tour-action[data-done] {
+  background: var(--status-success-soft);
+}
+
+.guided-tour-action[data-done] .guided-tour-action-mark {
+  border-style: solid;
+  border-color: var(--status-success);
+  background: var(--status-success);
+  color: var(--surface-panel-raised);
+  animation: guided-tour-check var(--duration-flourish) var(--ease-entrance);
+}
+
+@keyframes guided-tour-check {
+  0% { scale: 0.6; }
+  45% { scale: 1.18; }
+  100% { scale: 1; }
+}
+
+.guided-tour-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-6);
+  margin-top: var(--space-8);
+}
+
+.guided-tour-progress {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.guided-tour-progress li {
+  width: 6px;
+  height: 6px;
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--text-primary) 16%, transparent);
+  transition: width var(--duration-base) var(--ease-emphasized), background var(--duration-base) var(--ease-out);
+}
+
+.guided-tour-progress li[data-state="past"] { background: color-mix(in srgb, var(--text-primary) 45%, transparent); }
+.guided-tour-progress li[data-state="current"] { width: 18px; background: var(--text-primary); }
+
+.guided-tour-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-left: auto;
+}
+
+.guided-tour-next { gap: var(--space-3); }
+
+@media (prefers-reduced-motion: reduce) {
+  .guided-tour-scrim,
+  .guided-tour-spotlight,
+  .guided-tour-card,
+  .guided-tour-progress li { transition: none; }
+  .guided-tour-card,
+  .guided-tour-content,
+  .guided-tour-action[data-done] .guided-tour-action-mark { animation: none; }
+}

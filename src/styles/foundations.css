@@ -358,6 +358,8 @@
   --z-editor-popover: 7;
   --z-editor-scrollbar: 8;
   --z-diagnostics: 9;
+  /* Above the workspace, below every dialog, drawer and menu a tour stop asks the writer to open. */
+  --z-guided-tour: 9;
   --z-modal-backdrop: 10;
   --z-modal: 11;
   --z-drawer-backdrop: 20;
