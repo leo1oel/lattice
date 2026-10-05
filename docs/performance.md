@@ -116,8 +116,8 @@ Scenarios (`scripts/perf-bench/scenarios.mjs`):
   toolbar, or the query's box is narrower than a short query needs.
   `pdf-live-drag-copy` drags from page 1 to page 3 of a 400-page compiled PDF
   at 40% and, with the button still held, wheels far enough down that PDF.js
-  evicts the selected pages from its render cache; it fails when the released
-  drag or Cmd-C loses pages 1 and 2.
+  evicts the selected pages from its render cache, then releases and wheels
+  once more; it fails when the released drag or Cmd-C loses pages 1 and 2.
 
 #### Ceilings and the ratchet
 
