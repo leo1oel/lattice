@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { invoke } from "@tauri-apps/api/core";
 import { confirm } from "@tauri-apps/plugin-dialog";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
@@ -64,6 +65,12 @@ async function openFirstProject() {
   fireEvent.click(await screen.findByRole("button", { name: /Attention Paper/ }));
   fireEvent.click(await screen.findByRole("button", { name: "Open" }));
 }
+
+// Vitest empties CSS imports, so the picker's stylesheet is loaded off disk
+// into jsdom's CSSOM: the sizing test reads computed styles, not source text.
+const pickerSheet = document.createElement("style");
+pickerSheet.textContent = readFileSync("src/overleaf/overleaf-connect.css", "utf8");
+document.head.append(pickerSheet);
 
 afterEach(() => {
   cleanup();
@@ -215,6 +222,26 @@ describe("Overleaf settings section", () => {
 });
 
 describe("Overleaf picker dialog", () => {
+  // jsdom has no layout, so the test reads the computed sizing of the rendered
+  // list. The body and its frame grow with the dialog; a fixed cap on the list
+  // inside them left a blank band in the frame, below a last row cut off for
+  // want of that very space.
+  it("lets the project list fill its frame instead of stopping short of it", async () => {
+    mockConnectedPicker();
+    renderPicker();
+    await screen.findByText("Attention Paper");
+    const list = screen.getByLabelText("Overleaf projects").closest<HTMLElement>(".overleaf-project-list-scroll")!;
+    const frame = list.closest<HTMLElement>(".overleaf-stage")!;
+    const body = frame.closest<HTMLElement>(".overleaf-picker-body")!;
+
+    for (const element of [body, frame, list]) {
+      expect(getComputedStyle(element).flexGrow, element.className).toBe("1");
+    }
+    const listStyle = getComputedStyle(list);
+    expect(["0", "0px"]).toContain(listStyle.minHeight);
+    expect(["", "none"]).toContain(listStyle.maxHeight);
+  });
+
   it("lists projects with owner and update time, hides archived ones until asked, and filters by search", async () => {
     mockConnectedPicker();
     renderPicker();

@@ -31,6 +31,7 @@ const ALLOWED = new Set([
   "src/components/ui/popup-motion.test.ts", // every popup wrapper uses the one popup-motion owner
   "src/trellis/trellis-header-tools.test.tsx", // build-result motion under the reduced-motion stylesheet
   "src/canvas/editor-status-bar.test.tsx", // a long filename wraps inside the word-count popover, parsed into jsdom's CSSOM
+  "src/overleaf/overleaf-connect.test.tsx", // the picker list fills its frame, parsed into jsdom's CSSOM
   "src/trellis/trellis-titlebar.test.tsx", // narrow title-bar containment and shed order, parsed into jsdom's CSSOM
   "src/editor/board/board-store.test.ts", // the bundled tutorial board loads
   "src/editor/board/board-asset-urls.test.ts", // the bundled fonts ship their OFL text

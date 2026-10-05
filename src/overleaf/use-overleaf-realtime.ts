@@ -60,6 +60,10 @@ export function useOverleafRealtime(options: {
   onNotice: (message: string) => void;
   onNeedsSync?: (paths: readonly string[]) => void;
 }) {
+  // For rendered text and caller-initiated actions only. `t` changes identity
+  // with the interface language, so anything the connection or open-document
+  // effects depend on translates through `i18n._(msg…)` instead: a dependency
+  // on `t` turns a language change into a disconnect and a failed handoff.
   const { t } = useLingui();
   const [status, setStatus] = useState<RealtimeStatus>("off");
   const [detail, setDetail] = useState<string | null>(null);
@@ -237,13 +241,13 @@ export function useOverleafRealtime(options: {
       return true;
     }).catch((reason) => {
       const detail = String(reason);
-      callbacks.current.onNotice(t`Could not hand this file back to Overleaf sync (${detail}). Syncing remains paused for this file.`);
+      callbacks.current.onNotice(i18n._(msg`Could not hand this file back to Overleaf sync (${detail}). Syncing remains paused for this file.`));
       return false;
     }).finally(() => {
       if (leaving.current.get(id) === pending) leaving.current.delete(id);
     });
     leaving.current.set(id, pending);
-  }, [publishLivePaths, t]);
+  }, [publishLivePaths]);
 
   /** Release a document that has settled and is no longer the one being edited (or is draining). */
   const releaseIfDone = useCallback((id: string, doc: OtDocument) => {
@@ -415,7 +419,7 @@ export function useOverleafRealtime(options: {
       // Do not publish the stale debounce as a new replacement operation.
       // stopDocument drains only operations already owned by OT.
       suspendPaths([path]);
-      const message = t`This file changed outside live editing. Local work was kept; regular Overleaf sync will reconcile it.`;
+      const message = i18n._(msg`This file changed outside live editing. Local work was kept; regular Overleaf sync will reconcile it.`);
       setDetail(message);
       if (!callbacks.current.onNeedsSync) callbacks.current.onNotice(message);
     };
@@ -437,7 +441,7 @@ export function useOverleafRealtime(options: {
       delivery.pending -= 1;
       if (!delivery.pending && isCurrent()) setLiveFile(true);
     });
-  }, [suspendPaths, t]);
+  }, [suspendPaths]);
 
   /** Move the open document's anchors along with `ops`; see `anchorsAfter`. */
   const shiftAnchors = useCallback((id: string, ops: OtOp[]) => {
@@ -822,7 +826,7 @@ export function useOverleafRealtime(options: {
     void (async () => {
       const pendingLeave = leaving.current.get(id);
       if (pendingLeave) {
-        if (!await pendingLeave) throw new Error(t`The previous Overleaf document could not be released. Syncing remains paused.`);
+        if (!await pendingLeave) throw new Error(i18n._(msg`The previous Overleaf document could not be released. Syncing remains paused.`));
         held = undefined;
       }
       if (cancelled) return null;
@@ -928,7 +932,7 @@ export function useOverleafRealtime(options: {
     };
   }, [
     options.activeFile, options.documents, options.projectRoot, activeDocId, status, reloadNonce,
-    deliverRemoteText, stopDocument, flush, dropDocument, markOutcomeUnknown, publishLivePaths, shiftAnchors, t,
+    deliverRemoteText, stopDocument, flush, dropDocument, markOutcomeUnknown, publishLivePaths, shiftAnchors,
   ]);
 
   // ---- local edits and out-of-band operations -------------------------------
