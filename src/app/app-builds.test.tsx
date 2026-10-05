@@ -639,7 +639,7 @@ describe("builds and the PDF reader", () => {
     // The watcher's echo of that save and the build's own output are not
     // changes; an edit the agent made to an included file is.
     await waitFor(() => expect(tauriEventApi.handlers.get("project-fs-changed")?.size).toBeGreaterThan(0));
-    emitTauriEvent("project-fs-changed", { root: ROOT, paths: ["main.aux", "main.pdf", "main.synctex.gz", "main.tex"] });
+    emitTauriEvent("project-fs-changed", { root: ROOT, paths: [".lattice-0b7e4c1a-9f3d-4e2b-8a6c-5d1f2e3a4b5c.tmp", "main.aux", "main.pdf", "main.synctex.gz", "main.tex"] });
     await jump();
     expect(builds).toBe(2);
     emitTauriEvent("project-fs-changed", { root: ROOT, paths: ["intro.tex"] });
@@ -650,7 +650,7 @@ describe("builds and the PDF reader", () => {
     // right after the save is a change too.
     await appendToEditor("\n% Another saved edit.");
     await waitFor(() => expect(files["main.tex"]).toContain("% Another saved edit."), { timeout: 3_000 });
-    emitTauriEvent("project-fs-changed", { root: ROOT, paths: ["main.tex"] });
+    emitTauriEvent("project-fs-changed", { root: ROOT, paths: [".lattice-0b7e4c1a-9f3d-4e2b-8a6c-5d1f2e3a4b5c.tmp", "main.tex"] });
     await jump();
     expect(builds).toBe(4);
     emitTauriEvent("project-fs-changed", { root: ROOT, paths: ["main.tex"] });

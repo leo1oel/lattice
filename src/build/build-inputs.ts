@@ -20,16 +20,22 @@ const GENERATED_FOR_DOCUMENT = /^(?:\.(?:pdf|bbl|idx|ind|ist|gl[os]|ac[nr]|alg|l
 /** Folders a package fills while compiling (minted's cache, the svg package's conversions). */
 const GENERATED_FOLDER = /^(?:_minted[^/]*|svg-inkscape)(?:\/|$)/;
 
+/** The temporary `ProjectFs::atomic_write` writes beside a file and renames over it. */
+const ATOMIC_WRITE_TEMPORARY = /(?:^|\/)\.lattice-[0-9a-f-]+\.tmp$/i;
+
 /**
  * Whether a change the project watcher reported at `path` cannot have changed
- * what a build compiles: a file a LaTeX run itself writes, or Git's own
- * state. Anything not known to be one counts as an input, so an unfamiliar
+ * what a build compiles: a file a LaTeX run itself writes, the app's own
+ * atomic-write temporary, or Git's own state. Anything not known to be one counts as an input, so an unfamiliar
  * package's output costs an extra (quick) latexmk run, never a stale PDF.
  */
 export function isBuildOutput(path: string, rootDocuments: readonly string[]): boolean {
   const file = normalizeProjectRelativePath(path);
   if (!file) return false;
-  if (file === ".git" || file.startsWith(".git/") || GENERATED_FOLDER.test(file) || GENERATED_FILE.test(file)) {
+  if (
+    file === ".git" || file.startsWith(".git/") || GENERATED_FOLDER.test(file) || GENERATED_FILE.test(file)
+    || ATOMIC_WRITE_TEMPORARY.test(file)
+  ) {
     return true;
   }
   return rootDocuments.some((document) => {
