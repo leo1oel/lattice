@@ -511,6 +511,19 @@ export function installPdfTextLayerSelection(textLayer: HTMLElement): () => void
 }
 
 /**
+ * A text layer PDF.js drew again over the same nodes: a zoom, or a page our
+ * PDF.js patch kept the text of while a live drag ran through it (see
+ * PDFPageViewBuffer there) scrolled back into view. A range in it is still
+ * valid, so only the glyph alignment and the highlight are redone.
+ */
+export function refreshPdfTextLayerSelection(textLayer: HTMLElement): void {
+  alignPdfTextLayerGlyphs(textLayer);
+  textLayer.querySelectorAll(".pdf-sel-rect").forEach((node) => node.remove());
+  const selection = document.getSelection();
+  if (!selectionIsCopyField(selection) && selectionIntersectsLayer(selection, textLayer)) paintSelectionOverlays(selection);
+}
+
+/**
  * Report the viewer's PDF selection as agent context, and its clearing. A
  * completed PDF drag moves the native selection into the hidden copy field
  * while its overlay remains visible, so this reads the text-layer cache.

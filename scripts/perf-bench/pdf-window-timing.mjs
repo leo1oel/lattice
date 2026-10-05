@@ -33,12 +33,13 @@
  */
 /* global document, performance, requestAnimationFrame, window -- the callbacks passed to evaluate() run in the page. */
 import { execFileSync } from "node:child_process";
-import { cpSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { createServer as createNetServer } from "node:net";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath, URLSearchParams } from "node:url";
 import { chromium, webkit } from "playwright-core";
+import { patchedAt } from "./pdfjs-patch-swap.mjs";
 import { APP_READY } from "./selectors.mjs";
 
 const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
@@ -78,28 +79,9 @@ function beforeSources(ref) {
   }
   const patches = JSON.parse(readFileSync(path.join(repo, "package.json"), "utf8")).pnpm.patchedDependencies;
   const patch = Object.entries(patches).find(([name]) => name.startsWith("pdfjs-dist@"))[1];
-  const pdfjs = new Map();
-  if (git("diff", "--name-only", ref, "--", patch).trim()) {
-    const work = mkdtempSync(path.join(os.tmpdir(), "lattice-pdf-window-pdfjs-"));
-    const installed = realpathSync(path.join(repo, "node_modules/pdfjs-dist"));
-    const touched = (text) => [...text.matchAll(/^diff --git a\/(\S+) b\//gm)].map((match) => match[1]);
-    const refPatch = path.join(work, "ref.patch");
-    writeFileSync(refPatch, git("show", `${ref}:${patch}`));
-    const files = [...new Set([...touched(readFileSync(path.join(repo, patch), "utf8")), ...touched(readFileSync(refPatch, "utf8"))])];
-    const tree = path.join(work, "package");
-    for (const file of files) {
-      mkdirSync(path.dirname(path.join(tree, file)), { recursive: true });
-      cpSync(path.join(installed, file), path.join(tree, file));
-    }
-    execFileSync("git", ["apply", "-R", path.join(repo, patch)], { cwd: tree });
-    execFileSync("git", ["apply", refPatch], { cwd: tree });
-    // Type declarations never reach the page.
-    for (const file of files.filter((name) => !name.endsWith(".d.ts"))) {
-      const text = readFileSync(path.join(tree, file), "utf8");
-      if (text !== readFileSync(path.join(installed, file), "utf8")) pdfjs.set(file, text);
-    }
-    rmSync(work, { recursive: true, force: true });
-  }
+  const pdfjs = git("diff", "--name-only", ref, "--", patch).trim()
+    ? patchedAt(realpathSync(path.join(repo, "node_modules/pdfjs-dist")), readFileSync(path.join(repo, patch), "utf8"), git("show", `${ref}:${patch}`))
+    : new Map();
   return { sources, pdfjs };
 }
 

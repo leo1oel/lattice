@@ -48,6 +48,28 @@ const findToolbarGeometry = (driver) => driver.evaluate(`(() => {
   };
 })()`);
 
+const COMPILED_PDF = ".pdf-column > .pdf-preview";
+const PDF_SCROLLER = `${COMPILED_PDF} .pdf-scroll-area-viewport:not(.pdf-viewer-staging)`;
+
+/** Where the "Page N: …" heading of the compiled fixture PDF's page N is, if drawn and on screen. */
+const pdfHeading = (page) => `(() => {
+  const span = [...document.querySelectorAll(${JSON.stringify(`${COMPILED_PDF} .page[data-page-number="${page}"] .textLayer span`)})]
+    .find((node) => node.textContent.startsWith(${JSON.stringify(`Page ${page}:`)}));
+  const rect = span?.getBoundingClientRect();
+  return rect && rect.top >= 0 && rect.bottom <= innerHeight ? { left: rect.left, right: rect.right, y: rect.top + rect.height / 2 } : null;
+})()`;
+
+/** Once every page on screen in the compiled preview is drawn. */
+const pdfViewDrawn = (driver, what) => driver.waitFor(`(() => {
+  const scroller = document.querySelector(${JSON.stringify(PDF_SCROLLER)});
+  const view = scroller.getBoundingClientRect();
+  const shown = [...scroller.querySelectorAll(".page")].filter((page) => {
+    const rect = page.getBoundingClientRect();
+    return rect.bottom > view.top && rect.top < view.bottom;
+  });
+  return shown.length > 0 && shown.every((page) => page.querySelector(".canvasWrapper canvas"));
+})()`, { what });
+
 export const LAYOUT_CHECKS = [
   {
     name: "paper-header-long-doi",
@@ -155,6 +177,72 @@ export const LAYOUT_CHECKS = [
       });
       const idle = await findToolbarGeometry(driver);
       if (idle.problems.length) throw new Error(`with the search cleared: ${idle.problems.join("; ")}`);
+    },
+  },
+  {
+    name: "pdf-live-drag-copy",
+    description: "A 400-page compiled PDF at 40%, a drag from page 1's heading to page 3's, the button still held through two wheel steps far down: releasing and pressing Cmd-C copy pages 1 and 2.",
+    query: { pdfPages: 400, build: "clean" },
+    width: 1440,
+    height: 900,
+    async run(driver) {
+      await driver.waitFor(`document.querySelector(${JSON.stringify(`${COMPILED_PDF} .page[data-page-number="1"] .textLayer span`)})`, {
+        timeout: 60_000, what: "page 1's text",
+      });
+      await driver.click(`${COMPILED_PDF} .pdf-overflow-trigger`);
+      await driver.click('[role="menuitem"][aria-label="Enter a zoom percentage"]');
+      const zoom = `${COMPILED_PDF} input[aria-label="PDF zoom percentage"]`;
+      await driver.waitFor(`!document.querySelector('[role="menu"]') && document.activeElement?.matches(${JSON.stringify(zoom)})`, {
+        timeout: 5_000, what: "the menu to close and the zoom field to take focus",
+      });
+      for (let frame = 0; frame < 3; frame += 1) await driver.nextFrame();
+      await driver.evaluate("document.activeElement.select()");
+      await driver.type("40");
+      await driver.type("\n");
+      const [first, third] = await driver.waitFor(`(() => {
+        const first = ${pdfHeading(1)};
+        const third = ${pdfHeading(3)};
+        return first && third ? [first, third] : null;
+      })()`, { timeout: 10_000, what: "pages 1 to 3 on screen at 40%" });
+      await pdfViewDrawn(driver, "pages 1 to 3 drawn");
+
+      // The text a person sees selected, before the drag ends.
+      await driver.mouse("mouseMoved", first.left + 1, first.y, { button: "none" });
+      await driver.mouse("mousePressed", first.left + 1, first.y);
+      for (let step = 1; step <= 10; step += 1) {
+        await driver.mouse("mouseMoved", first.left + 1 + (third.right - 2 - first.left) * step / 10, first.y + (third.y - first.y) * step / 10, { buttons: 1 });
+      }
+      const selected = await driver.evaluate("getSelection().toString()");
+      if (!selected.includes("Page 1:") || !selected.includes("Page 2:")) throw new Error("the drag did not select from page 1 into page 3");
+
+      // Each step draws pages far below, past PDF.js's ten-page cache: the
+      // oldest drawn ones, the selected pages, are evicted on the way.
+      for (let step = 0; step < 2; step += 1) {
+        await driver.mouse("mouseWheel", third.right - 2, third.y, { button: "none", buttons: 1, deltaX: 0, deltaY: 14_000 });
+        await driver.nextFrame();
+        await pdfViewDrawn(driver, `the pages under wheel step ${step + 1} drawn`);
+      }
+      if (await driver.evaluate(`!!document.querySelector(${JSON.stringify(`${COMPILED_PDF} .page[data-page-number="1"] canvas`)})`)) {
+        throw new Error("page 1 is still drawn, so nothing evicted it: scroll further");
+      }
+      await driver.mouse("mouseReleased", third.right - 2, third.y);
+
+      await driver.evaluate(`(() => {
+        const internals = window.__TAURI_INTERNALS__;
+        const invoke = internals.invoke;
+        window.__benchClipboard = [];
+        internals.invoke = (command, args, options) => {
+          if (command === "plugin:clipboard-manager|write_text") window.__benchClipboard.push(String(args?.text ?? ""));
+          return invoke(command, args, options);
+        };
+      })()`);
+      const parked = await driver.waitFor(`document.querySelector(".pdf-copy-field")?.value`, { timeout: 5_000, what: "the released drag's text" });
+      for (const heading of ["Page 1:", "Page 2:"]) {
+        if (!parked.includes(heading)) throw new Error(`the released drag's ${parked.length} characters lost "${heading}"`);
+      }
+      await driver.shortcut("c");
+      const copied = await driver.waitFor("window.__benchClipboard.at(-1)", { timeout: 5_000, what: "Cmd-C to write the clipboard" });
+      if (copied !== parked) throw new Error(`Cmd-C copied ${copied.length} characters, not the released drag's ${parked.length}`);
     },
   },
 ];
