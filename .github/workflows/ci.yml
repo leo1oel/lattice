@@ -8,32 +8,98 @@ on:
 # The frontend work is split so the wall clock is the slowest single job rather
 # than the sum of every check. Vitest deliberately uses one worker per process
 # to keep the memory-heavy app/editor suites stable, so CI shards the test files
-# across three isolated runners. Nothing is skipped — this only stops the
+# across three isolated runners. Sharding skips nothing — it only stops the
 # checks from queueing behind each other.
 jobs:
+  # Pull requests that touch only documentation cannot change what any job
+  # below checks, so those jobs skip instead of spending ~10 minutes proving
+  # it. They are skipped job by job rather than with a workflow-level `paths:`
+  # filter so every check still reports under its own name — a required check
+  # that never reports blocks the merge, while a skipped one satisfies it.
+  #
+  # The list is deliberately short: anything not named below is code. Some
+  # Markdown is not documentation — THIRD_PARTY_NOTICES.md is verified by
+  # `pnpm notices:check`, the skills under src-tauri/ are embedded and tested,
+  # and public/licenses/ ships in the app — so only top-level and .github/
+  # Markdown counts, never nested Markdown. Pushes to main always run
+  # everything, and so does a failure here: the jobs skip only on an explicit
+  # `false`.
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      code: ${{ steps.classify.outputs.code }}
+    steps:
+      # A pull_request run checks out the PR merged into its base, so the merge
+      # commit's first parent is the base and the diff between them is exactly
+      # what the PR changes.
+      - if: github.event_name == 'pull_request'
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 2
+      - id: classify
+        env:
+          EVENT: ${{ github.event_name }}
+        run: |
+          if [ "$EVENT" != pull_request ]; then
+            echo "code=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          # --no-renames lists a rename as its deletion plus its addition, so
+          # moving code into docs/ still counts as touching code.
+          changed=$(git -c core.quotePath=false diff --no-renames --name-only HEAD^1 HEAD)
+          code=false
+          [ -n "$changed" ] || code=true
+          while IFS= read -r path; do
+            [ -n "$path" ] || continue
+            case "$path" in
+              THIRD_PARTY_NOTICES.md) ;;
+              docs/* | .github/ISSUE_TEMPLATE/*) continue ;;
+              .github/*/*) ;;
+              .github/*.md) continue ;;
+              */*) ;;
+              *.md | LICENSE | NOTICE) continue ;;
+            esac
+            echo "code: $path"
+            code=true
+          done <<< "$changed"
+          echo "code=$code" | tee -a "$GITHUB_OUTPUT"
+
   test:
     name: test (${{ matrix.shard }}/3)
+    needs: changes
+    # Skipping a matrix job skips it before the matrix expands, so it would
+    # report one unexpanded `test (${{ matrix.shard }}/3)` check instead of the
+    # three shards. The shards therefore always start and skip their steps.
+    if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
         shard: [1, 2, 3]
+    env:
+      CODE: ${{ needs.changes.outputs.code != 'false' }}
     steps:
-      - uses: actions/checkout@v7
-      - uses: ./.github/actions/setup-pnpm
+      - if: env.CODE == 'false'
+        run: echo "Documentation-only change; nothing to test."
+      - if: env.CODE == 'true'
+        uses: actions/checkout@v7
+      - if: env.CODE == 'true'
+        uses: ./.github/actions/setup-pnpm
       # vitest.config.ts turns on Vitest's fs module cache. A checkout starts
       # with it empty, so each shard restores the transforms its files last
       # produced on main. Entries are keyed by content, so a stale one is never
       # used, only left unread; the lockfile in the key drops the lot whenever
       # dependencies move, which is also when Vitest would discard it.
-      - uses: actions/cache/restore@v5
+      - if: env.CODE == 'true'
+        uses: actions/cache/restore@v5
         with:
           path: node_modules/.experimental-vitest-cache
           key: vitest-fs-${{ matrix.shard }}-${{ hashFiles('pnpm-lock.yaml') }}-${{ github.sha }}
           restore-keys: vitest-fs-${{ matrix.shard }}-${{ hashFiles('pnpm-lock.yaml') }}-
-      - run: pnpm vitest run --shard=${{ matrix.shard }}/3
+      - if: env.CODE == 'true'
+        run: pnpm vitest run --shard=${{ matrix.shard }}/3
       # Like the Rust cache below: only main writes, pull requests read.
-      - if: github.ref == 'refs/heads/main'
+      - if: env.CODE == 'true' && github.ref == 'refs/heads/main'
         uses: actions/cache/save@v5
         with:
           path: node_modules/.experimental-vitest-cache
@@ -46,6 +112,8 @@ jobs:
   # no Cloudflare account, API token, or `wrangler login` is involved. Only a
   # deploy needs credentials, and that is not run here.
   literature-worker:
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.code != 'false' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -59,6 +127,8 @@ jobs:
   # pnpm project, staged into the app by prepare-presentation-runtime.mjs.
   # Locally this is the `open-slide-runtime` mise stage.
   open-slide-runtime:
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.code != 'false' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -68,6 +138,8 @@ jobs:
       - run: pnpm --dir tools/open-slide-runtime test
 
   lint-and-build:
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.code != 'false' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -106,6 +178,8 @@ jobs:
   # involved; the page answers the app's IPC from an in-memory fixture project.
   # `--layout` then checks geometry jsdom cannot (scripts/perf-bench/layout-checks.mjs).
   perf-bench:
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.code != 'false' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -120,6 +194,8 @@ jobs:
   # costs WebKit users first. Playwright's macOS WebKit build is the closest
   # one to the system WKWebView a runner can drive headless.
   perf-bench-webkit:
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.code != 'false' }}
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v7
@@ -129,6 +205,8 @@ jobs:
       - run: pnpm perf:bench --layout --engine webkit
 
   rust:
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.code != 'false' }}
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v7
