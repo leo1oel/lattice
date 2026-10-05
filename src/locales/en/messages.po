@@ -3274,7 +3274,7 @@ msgstr "Floating table with ruled rows (requires booktabs)"
 msgid "Flush floats and start a new page"
 msgstr "Flush floats and start a new page"
 
-#: src/editor/codemirror-host.tsx
+#: src/editor/source-gutter.ts
 msgid "Fold line"
 msgstr "Fold line"
 
@@ -8681,7 +8681,7 @@ msgstr "Unexpected error"
 msgid "unfold"
 msgstr "unfold"
 
-#: src/editor/codemirror-host.tsx
+#: src/editor/source-gutter.ts
 msgid "Unfold line"
 msgstr "Unfold line"
 

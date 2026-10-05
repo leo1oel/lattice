@@ -18,16 +18,17 @@ import { msg } from "@lingui/core/macro";
 import { Annotation, EditorState, Prec, StateEffect, type Extension } from "@codemirror/state";
 import {
   EditorView, crosshairCursor, drawSelection, dropCursor, highlightActiveLine, highlightActiveLineGutter,
-  highlightSpecialChars, keymap, lineNumbers, rectangularSelection, type ViewUpdate,
+  highlightSpecialChars, keymap, rectangularSelection, type ViewUpdate,
 } from "@codemirror/view";
 import { defaultKeymap, history, historyKeymap, indentWithTab } from "@codemirror/commands";
 import {
-  bracketMatching, defaultHighlightStyle, foldGutter, foldKeymap, indentOnInput, syntaxHighlighting,
+  bracketMatching, defaultHighlightStyle, foldKeymap, indentOnInput, syntaxHighlighting,
 } from "@codemirror/language";
 import { highlightSelectionMatches, searchKeymap } from "@codemirror/search";
 import { closeBrackets, closeBracketsKeymap } from "@codemirror/autocomplete";
 import { lintKeymap } from "@codemirror/lint";
 import { withoutAppShortcuts } from "./editor-app-shortcuts";
+import { sourceGutter } from "./source-gutter";
 import { i18n } from "../i18n";
 
 const hostExternalChange = Annotation.define<boolean>();
@@ -39,7 +40,7 @@ const TYPING_QUIET_MS = 200;
 // LaTeX extensions bring their own). Copied per the upstream advice that a
 // configured editor should own this list.
 const baseSetup: Extension = [
-  lineNumbers(), highlightActiveLineGutter(), highlightSpecialChars(), history(), foldGutter(), drawSelection(),
+  sourceGutter(), highlightActiveLineGutter(), highlightSpecialChars(), history(), drawSelection(),
   dropCursor(), EditorState.allowMultipleSelections.of(true), indentOnInput(),
   syntaxHighlighting(defaultHighlightStyle, { fallback: true }), bracketMatching(), closeBrackets(),
   rectangularSelection(), crosshairCursor(), highlightActiveLine(), highlightSelectionMatches(),
@@ -51,12 +52,11 @@ const baseSetup: Extension = [
 
 /**
  * Interface text the loaded CodeMirror packages read through `state.phrase`
- * (fold gutter, lint panel, completion list, screen-reader announcements).
- * The search panel's phrases live with `compactSearchPanel`.
+ * (fold placeholder, lint panel, completion list, screen-reader announcements).
+ * The search panel's phrases live with `compactSearchPanel`; the fold
+ * markers' titles with `sourceGutter`.
  */
 const HOST_PHRASES: Record<string, MessageDescriptor> = {
-  "Fold line": msg`Fold line`,
-  "Unfold line": msg`Unfold line`,
   "folded code": msg`folded code`,
   unfold: msg`unfold`,
   // Announced as "Folded lines 3 to 7." with the numbers between the phrases.

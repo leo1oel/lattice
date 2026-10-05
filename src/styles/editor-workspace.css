@@ -462,28 +462,69 @@ body:has(.modal-backdrop, .drawer-backdrop) :is(.latex-selection-toolbar-anchor,
   /* Override CodeMirror's base-theme 1.4 so source matches reading density. */
   line-height: 1.6 !important;
 }
-.source-editor .cm-gutters { background: var(--editor-gutter); color: var(--text-tertiary); border-right: 1px solid var(--border-subtle); }
-/* CodeMirror sizes the gutter to the widest line number, so the text column
-   shifts when a document crosses 9 -> 10 or 99 -> 100 lines. Reserve three
-   digits plus its 8px inline padding up front, and use tabular figures so digit
-   shapes don't add jitter. CodeMirror applies border-box sizing here. */
+/* Line numbers and fold markers read as one quiet column, the same in the live
+   editor and its Trellis snapshot (src/editor/source-gutter.ts). It shares the
+   editor's ground with no rule beside it; spacing alone sets it off. */
+.source-editor .cm-gutters { background: var(--editor-gutter); color: var(--text-tertiary); border-right: 0; }
+/* CodeMirror sizes this column to the widest line number, so the text shifted
+   whenever a document crossed 9 -> 10, 99 -> 100 or 999 -> 1,000 lines, and
+   between a short file and a long one. Reserve four digits up front (border-box
+   sizing, so the padding is inside the min-width); only a document of 10,000
+   lines or more is wider, by CodeMirror's spacer, which it measures from the
+   line count when the view opens. Tabular figures keep digits from jittering. */
 .source-editor .cm-lineNumbers .cm-gutterElement {
-  min-width: calc(3ch + 8px);
+  min-width: calc(4ch + var(--space-5) + var(--space-1));
+  padding: 0 var(--space-1) 0 var(--space-5);
   font-variant-numeric: tabular-nums;
 }
-/* Fold column: CM's spacer uses the closed glyph (›), but open fold marks (⌄)
-   are wider, and language packs only expose foldable ranges after async load.
-   Pin the column so .txt → .md (or first fold marker) cannot widen gutters. */
-.source-editor .cm-foldGutter {
-  min-width: 18px;
-}
-.source-editor .cm-foldGutter span {
-  display: block;
-  width: 100%;
+.source-editor .cm-lineNumbers .cm-activeLineGutter { color: var(--text-secondary); }
+/* A fixed fold column, whatever the markers. A marker sits on a wrapped line's
+   first row, beside its line number, not halfway down the paragraph. */
+.source-editor .cm-foldGutter .cm-gutterElement {
+  width: 16px;
+  min-width: 16px;
   padding: 0;
-  text-align: center;
-  overflow: hidden;
 }
+.source-editor .cm-foldGutter .cm-lattice-fold-marker {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 1lh;
+  padding: 0;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  /* Quiet until the pointer is over the gutter; a folded range keeps its
+     marker, since otherwise only its placeholder says it is folded. */
+  opacity: 0;
+  transition: opacity var(--duration-quick) var(--ease-out), color var(--duration-quick) var(--ease-out);
+}
+.source-editor .cm-gutters:hover .cm-lattice-fold-marker,
+.source-editor .cm-foldGutter .cm-lattice-fold-marker[data-folded] { opacity: 1; }
+.source-editor .cm-foldGutter .cm-lattice-fold-marker:hover { color: var(--text-primary); }
+@media (hover: none) {
+  .source-editor .cm-foldGutter .cm-lattice-fold-marker { opacity: 1; }
+}
+.source-editor .cm-lattice-fold-marker svg {
+  width: 12px;
+  height: 12px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.source-editor .cm-lattice-fold-marker[data-folded] svg { transform: rotate(-90deg); }
+/* The folded range's stand-in, in the editor's own neutrals: CodeMirror's
+   light-grey chip glared in dark mode. */
+.source-editor .cm-foldPlaceholder {
+  margin: 0 var(--space-1);
+  padding: 0 var(--space-2);
+  border: 0;
+  border-radius: var(--radius-compact);
+  background: var(--control-hover-surface);
+  color: var(--text-tertiary);
+}
+.source-editor .cm-foldPlaceholder:hover { color: var(--text-primary); }
 /* Active-line fill sits above CM's selection layer and hides selected text.
    Keep the soft neutral only when the caret is empty; clear it while selecting. */
 .source-editor .cm-activeLine { background: var(--control-active-soft); }
@@ -592,15 +633,6 @@ body:has(.modal-backdrop, .drawer-backdrop) :is(.latex-selection-toolbar-anchor,
 .source-editor .cm-panel.cm-search input[type="checkbox"] { width: 13px; height: 13px; min-width: 0; margin: 0; accent-color: var(--control-active); }
 .source-editor .cm-searchMatch { background: var(--highlight-match-surface); border-radius: 2px; }
 .source-editor .cm-searchMatch-selected { background: var(--highlight-match-current-surface); }
-/* The marker sits on a wrapped line's first row, beside its line number,
-   not halfway down the paragraph. */
-.source-editor .cm-foldGutter .cm-gutterElement {
-  display: grid;
-  place-items: start center;
-  width: 18px;
-  min-width: 18px;
-  line-height: inherit;
-}
 .source-editor .cm-tooltip.cm-tooltip-autocomplete { border-radius: var(--radius-control); overflow: hidden; max-width: min(420px, 70vw); }
 .source-editor .cm-tooltip-autocomplete > ul { min-width: 230px; max-width: min(420px, 70vw); padding: var(--space-2); font-family: var(--editor-font); font-size: calc(var(--editor-font-size) - 1px); }
 .source-editor .cm-tooltip-autocomplete > ul > li { padding: 5px var(--space-4); border-radius: var(--radius-compact); color: var(--text-secondary); line-height: 1.35; text-align: left; display: flex; gap: var(--space-5); align-items: baseline; }
