@@ -336,6 +336,7 @@ async function openBeside(second: string) {
     tabKind: (key: string) => (key.endsWith(".png") ? "asset" : "file"),
     tabLabel: (key: string) => key,
     readAsset,
+    activate: () => {},
     viewState: () => undefined,
     rememberViewState: () => {},
     readText: async () => "",
@@ -429,5 +430,35 @@ describe("an inactive document on screen", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it("makes an inactive deck the active document once focus moves into its frame", async () => {
+    const deck = "slides/talk/index.tsx";
+    const { controller, ws, viewOf } = await openBeside(deck);
+    const host = controller.decks.host(deck);
+    await waitFor(() => expect(ws.view(viewOf(deck).id)!.element.contains(host)).toBe(true));
+    const activate = vi.spyOn(controller, "activate").mockImplementation(() => {});
+    const frame = document.createElement("iframe");
+    host.append(frame);
+    // A blur elsewhere (another app's window) leaves the deck alone.
+    act(() => { window.dispatchEvent(new Event("blur")); });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(activate).not.toHaveBeenCalled();
+    // A click inside the frame: this page sees only its own window blur, with the frame focused.
+    act(() => {
+      frame.focus();
+      window.dispatchEvent(new Event("blur"));
+    });
+    await waitFor(() => expect(activate).toHaveBeenCalledWith(deck));
+    activate.mockClear();
+    // The active deck does not reactivate itself.
+    act(() => controller.app.set({ activeKey: deck }));
+    act(() => {
+      frame.blur();
+      frame.focus();
+      window.dispatchEvent(new Event("blur"));
+    });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(activate).not.toHaveBeenCalled();
   });
 });

@@ -639,6 +639,27 @@ function DeckSlot({ controller, fileKey, view }: { controller: TrellisController
     return () => window.clearTimeout(timer);
   }, [controller, fileKey, onScreen]);
   useEffect(() => () => controller.decks.setSleeping(fileKey, false), [controller, fileKey]);
+  // An inactive deck streams nothing and holds the props it was last handed,
+  // so working in it makes it the active document. A press inside its Open
+  // Slide frame never reaches this page; focus moving into the frame does,
+  // as the window's blur (or a focusin on the host from the keyboard).
+  useEffect(() => {
+    const host = controller.decks.host(fileKey);
+    let timer: number | null = null;
+    const claim = () => {
+      timer = null;
+      if (host.contains(document.activeElement) && controller.app.get().activeKey !== fileKey) controller.activate(fileKey);
+    };
+    // Deferred: a browser may move activeElement to the frame after the blur.
+    const onBlur = () => { timer ??= window.setTimeout(claim, 0); };
+    window.addEventListener("blur", onBlur);
+    host.addEventListener("focusin", claim);
+    return () => {
+      if (timer !== null) window.clearTimeout(timer);
+      window.removeEventListener("blur", onBlur);
+      host.removeEventListener("focusin", claim);
+    };
+  }, [controller, fileKey]);
   return <HostSlot host={controller.decks.host(fileKey)} className="trellis-file-live" />;
 }
 
