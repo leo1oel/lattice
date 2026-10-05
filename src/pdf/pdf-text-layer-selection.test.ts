@@ -418,3 +418,54 @@ describe("PDF empty-page clicks", () => {
     });
   });
 });
+
+describe("PDF text-layer disposal with a completed drag", () => {
+  /** A completed drag on `layer`, its text parked in the copy field as a browser leaves it. */
+  function parkedDrag(span: HTMLElement) {
+    mockGlyphBox(span, HELLO_BOX);
+    dragSelect(span);
+    const field = document.querySelector<HTMLTextAreaElement>(".pdf-copy-field")!;
+    document.getSelection()?.collapse(field, 0);
+    return field;
+  }
+
+  it("keeps the parked text when PDF.js evicts a selected page", async () => {
+    const { layer, spans } = glyphLayer("Hello");
+    const { layer: other } = glyphLayer("Other");
+    const cleared = vi.fn();
+    document.addEventListener(PDF_TEXT_SELECTION_CLEARED_EVENT, cleared);
+    try {
+      await withSelection(other, () => {
+        const dispose = installPdfTextLayerSelection(layer);
+        const field = parkedDrag(spans[0]!);
+        expect(layer.classList.contains("has-selection")).toBe(true);
+        dispose(true);
+        expect(field.value).toBe("Hello");
+        expect(pdfSelectedOrCachedPlainText()).toBe("Hello");
+        expect(cleared).not.toHaveBeenCalled();
+      });
+    } finally {
+      document.removeEventListener(PDF_TEXT_SELECTION_CLEARED_EVENT, cleared);
+    }
+  });
+
+  it("clears the parked text when the viewer that owns it is destroyed", async () => {
+    const { layer, spans } = glyphLayer("Hello");
+    const { layer: other } = glyphLayer("Other");
+    const cleared = vi.fn();
+    document.addEventListener(PDF_TEXT_SELECTION_CLEARED_EVENT, cleared);
+    try {
+      await withSelection(other, async () => {
+        const dispose = installPdfTextLayerSelection(layer);
+        const field = parkedDrag(spans[0]!);
+        dispose();
+        expect(field.value).toBe("");
+        expect(pdfSelectedOrCachedPlainText()).toBe("");
+        expect(cleared).toHaveBeenCalledOnce();
+        await vi.waitFor(() => expect(invoke).toHaveBeenLastCalledWith("set_pdf_copy_text", { text: null }));
+      });
+    } finally {
+      document.removeEventListener(PDF_TEXT_SELECTION_CLEARED_EVENT, cleared);
+    }
+  });
+});

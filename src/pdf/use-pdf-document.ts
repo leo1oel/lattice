@@ -269,7 +269,7 @@ export function usePdfDocument({
         // page window keeps its layers while it is out of the document.
         for (const [layer, dispose] of record.textLayers) {
           if (layer.parentElement) continue;
-          dispose();
+          dispose(true);
           record.textLayers.delete(layer);
         }
         const current = sourceRef.current;
