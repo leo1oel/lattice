@@ -16,6 +16,7 @@ import {
   transformOpenSlideConnectionCopy,
   transformOpenSlideEditorStyles,
   transformOpenSlideHomeChrome,
+  transformOpenSlideInspectorDefault,
   transformOpenSlideInspectorPanel,
   transformOpenSlideSaveFeedback,
   transformOpenSlideSelection,
@@ -195,6 +196,23 @@ test("removes the redundant inspector agent-watching badge", async () => {
   assert.doesNotMatch(transformed, /AgentWatchingBadge|useAgentSocketConnected|agentWatching/);
   assert.equal(transformOpenSlideInspectorPanel(source, "/project/inspector-panel.tsx"), null);
   await transformTsx(transformed, { loader: "tsx" });
+});
+
+test("starts the Open Slide format sidebar closed at any frame width", async () => {
+  const { source, transformed } = await patchCore(
+    transformOpenSlideInspectorDefault, "src/app/components/inspector/inspector-provider.tsx",
+  );
+  assert.match(transformed, /const \[panelOpen, setPanelOpen\] = useState\(false\);/);
+  assert.doesNotMatch(transformed, /innerWidth >= 1024/);
+  // The explicit Format toggle and the inspector's active default stay upstream's.
+  assert.match(transformed, /setPanelOpen\(!active \|\| panelHidden \|\| !panelOpen\);/);
+  assert.match(transformed, /const \[active, setActive\] = useState\(import\.meta\.env\.DEV\);/);
+  assert.equal(transformOpenSlideInspectorDefault(source, "/project/inspector-provider.tsx"), null);
+  assert.throws(() => transformOpenSlideInspectorDefault("changed", "/@open-slide/core/src/app/components/inspector/inspector-provider.tsx"));
+  // Every Lattice patch to this module must still apply, in registration order.
+  const chained = [transformOpenSlideInspectorDefault, transformOpenSlideSaveFeedback, transformOpenSlideSelection]
+    .reduce((code, transform) => transform(code, `/runtime/${CORE}src/app/components/inspector/inspector-provider.tsx`), source);
+  await transformTsx(chained, { loader: "tsx" });
 });
 
 test("only reports a save after every Open Slide edit succeeds", async () => {
