@@ -2,11 +2,13 @@ import { act, cleanup, fireEvent, render, screen, within } from "@testing-librar
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ComponentProps } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import type { PaperSummary } from "../app-types";
 import { PaperLibrary } from "./paper-library";
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn(async () => []) }));
 vi.mock("@tauri-apps/plugin-opener", () => ({ openUrl: vi.fn() }));
+vi.mock("@tauri-apps/plugin-clipboard-manager", () => ({ writeText: vi.fn(async () => undefined) }));
 
 type PaperLibraryProps = ComponentProps<typeof PaperLibrary>;
 
@@ -131,13 +133,15 @@ describe("PaperLibrary", () => {
     expect(within(list).queryByText("2 papers")).toBeNull();
     const items = within(list).getAllByRole("listitem");
     expect(items.map((item) => within(item).getAllByRole("button").map((button) => button.getAttribute("title")))).toEqual([
-      ["Attention Is All You Need", "Edit bibliography entry", "Remove Attention Is All You Need"],
-      ["Download arXiv 2010.11929", "Edit bibliography entry", "Remove An Image Is Worth 16x16 Words"],
+      ["Attention Is All You Need", "Copy citation key", "Edit bibliography entry", "Remove Attention Is All You Need"],
+      ["Download arXiv 2010.11929", "Copy citation key", "Edit bibliography entry", "Remove An Image Is Worth 16x16 Words"],
     ]);
     // The opening button is named by the title and byline it lies under,
-    // which are hidden themselves so they are read once.
+    // which are hidden themselves so they are read once, and described by
+    // the citation key the eye sees only on a lit row.
     // (jsdom draws no separators, which the browser takes from CSS.)
-    expect(within(items[0]).getAllByRole("button")[0]).toHaveAccessibleName(/^Attention Is All You Need\W+Vaswani and Shazeer\W*arXiv 1706\.03762$/);
+    expect(within(items[0]).getAllByRole("button")[0]).toHaveAccessibleName(/^Attention Is All You Need\W+Vaswani and Shazeer$/);
+    expect(within(items[0]).getAllByRole("button")[0]).toHaveAccessibleDescription("Citation key vaswani2017");
     expect(within(items[0]).queryByText("Attention Is All You Need")).toHaveAttribute("aria-hidden", "true");
     expect(list.querySelectorAll("[aria-current]")).toHaveLength(0);
 
@@ -348,35 +352,38 @@ describe("PaperLibrary", () => {
     expect(props.onImport).toHaveBeenCalledOnce();
   });
 
-  it("shows each paper's authors and source under its title, and its exact citation key apart", () => {
+  it("bylines a paper with its authors and year, and with its source only when it records neither", () => {
     const web: PaperSummary = {
-      arxivId: "web-0123456789abcdef", url: "https://www.example.org/notes", title: "Notes",
-      authors: "Vaswani, Ashish and Shazeer, Noam and Parmar, Niki", hasFullText: true, hasBlog: false,
+      arxivId: "web-0123456789abcdef", url: "https://www.example.org/notes", title: "Notes", hasFullText: true, hasBlog: false,
     };
-    renderLibrary({ papers: [attention, { ...vit, authors: undefined }, web] });
+    renderLibrary({ papers: [{ ...attention, year: "2017" }, { ...vit, authors: undefined, year: "2021" }, web] });
     const [first, second, third] = screen.getAllByRole("button", { name: /Attention|Image|Notes/ })
       .filter((button) => button.classList.contains("paper-open"))
       .map((button) => button.closest<HTMLElement>(".paper-row")!);
     const byline = (row: HTMLElement) => [...row.querySelector(".paper-byline")!.children].map((part) => part.textContent);
-    const citeKey = (row: HTMLElement) => row.querySelector(".paper-cite-key");
-    expect(first.querySelector(".paper-authors")).toHaveTextContent("Vaswani and Shazeer");
-    expect(byline(first)).toEqual(["Vaswani and Shazeer", "arXiv 1706.03762"]);
-    expect(citeKey(first)).toHaveTextContent("vaswani2017");
-    expect(second.querySelector(".paper-authors")).toBeNull();
-    expect(byline(second)).toEqual(["arXiv 2010.11929"]);
-    // A captured page's bundle key is never presented as an arXiv id, and a
-    // paper without a citation key has no empty chip.
-    expect(byline(third)).toEqual(["Vaswani et al.", "example.org"]);
-    expect(citeKey(third)).toBeNull();
+    expect(byline(first)).toEqual(["Vaswani and Shazeer", "2017"]);
+    // The preprint downloads on click, which its glyph says.
+    expect(byline(second)).toEqual(["2021", ""]);
+    // A captured page's bundle key is never presented as an arXiv id.
+    expect(byline(third)).toEqual(["example.org"]);
   });
 
-  it("tags a paper with nothing to download as a citation, beside its key", () => {
+  it("copies a paper's exact citation key from its row, and offers no key it lacks", async () => {
+    const keyless: PaperSummary = { ...vit, arxivId: "2501.00001", title: "Keyless", citationKey: undefined };
+    renderLibrary({ papers: [attention, keyless] });
+    fireEvent.click(screen.getByRole("button", { name: "Copy citation key vaswani2017" }));
+    expect(writeText).toHaveBeenCalledWith("vaswani2017");
+    const row = screen.getAllByRole("button", { name: /Keyless/ })[0].closest<HTMLElement>(".paper-row")!;
+    expect(row.querySelector(".paper-cite-key")).toBeNull();
+    expect(within(row).getAllByRole("button")[0]).not.toHaveAttribute("aria-describedby");
+  });
+
+  it("tags a paper with nothing to download as a citation", () => {
     const cited: PaperSummary = { arxivId: "", title: "Cited Work", citationKey: "cited2020", hasFullText: false, hasBlog: false };
     renderLibrary({ papers: [vit, cited] });
-    const [fetchable, citation] = [...document.querySelectorAll<HTMLElement>(".paper-row .paper-tags")];
-    expect([...citation.children].map((tag) => tag.textContent)).toEqual(["cited2020", "Citation only"]);
     // An arXiv preprint downloads on click, so it is not tagged.
-    expect([...fetchable.children].map((tag) => tag.textContent)).toEqual(["dosovitskiy2021"]);
+    const tags = [...document.querySelectorAll<HTMLElement>(".paper-row .paper-tags")];
+    expect(tags.map((line) => [...line.children].map((tag) => tag.textContent))).toEqual([["Citation only"]]);
   });
 
   it("names a corporate author whole, and finds it without its braces", () => {

@@ -7,6 +7,7 @@ import { Badge } from "../components/ui/badge";
 import { ScrollArea } from "../components/ui/scroll-area";
 import { DestructiveButton } from "../components/ui/destructive-button";
 import { InfinityLoader } from "../components/ui/activity-icons";
+import { CopyButton } from "../components/copy-button";
 import { SearchField } from "../components/ui/search-field";
 import { paperKey } from "../app-utils";
 import type { PaperSummary } from "../app-types";
@@ -147,17 +148,20 @@ export function PaperLibrary(props: PaperLibraryProps) {
               const health = citationHealthParts(paper.citationHealth);
               const healthTitle = citationHealthTitle(paper.citationHealth);
               const authors = paperShortAuthors(paper);
-              const source = paperSourceLabel(paper);
+              const year = paper.year?.trim();
+              // A row names its paper by title, authors and year alone; where
+              // it came from stands in only when the entry records neither.
+              const source = authors || year ? null : paperSourceLabel(paper);
               const snippet = textHits.get(paperSearchIdentity(paper))?.snippet.trim();
               const citationOnly = !readable && !downloadable;
-              const citeKey = snippet ? null : paper.citationKey;
+              const citeKey = paper.citationKey;
               const reportIntent = () => {
                 if (readable) props.onLikelyPaper?.(paper);
               };
               const active = Boolean(props.activePaper && paperKey(props.activePaper) === paperKey(paper));
               // Readable papers open on click and need no mark; the rest say,
-              // beside their source, what a click does there (download, visit)
-              // or that it is under way.
+              // at the end of their byline, what a click does there (download,
+              // visit) or that it is under way.
               const stateIcon = fetchState || !readable ? paperStateIcon(paper, fetchState, downloadable) : null;
               const noticeLink = healthLabel ? paper.citationHealth?.link : undefined;
               // A short chip says what happened; who reported it and when
@@ -186,6 +190,8 @@ export function PaperLibrary(props: PaperLibraryProps) {
               const titleId = `${rowId}-${index}-title`;
               const bylineId = `${rowId}-${index}-byline`;
               const snippetId = `${rowId}-${index}-snippet`;
+              const keyId = `${rowId}-${index}-key`;
+              const byline = Boolean(authors || year || source || stateIcon);
               const row = (
                 <div
                   role="listitem"
@@ -196,8 +202,10 @@ export function PaperLibrary(props: PaperLibraryProps) {
                 >
                   {/* The button lies over the whole row, under its other
                       controls, and takes its name from the text beside it
-                      (hidden, so it is read once); so the key line opens the
-                      paper too, and the notice there can be a link of its own. */}
+                      (hidden, so it is read once); so the flags line opens the
+                      paper too, and the notice there can be a link of its own.
+                      The citation key is its description, since the eye
+                      sees it only on a lit row. */}
                   <button
                     data-tour={paper.arxivId === "2010.11929" ? "tutorial-vit-paper" : undefined}
                     title={readable
@@ -210,7 +218,8 @@ export function PaperLibrary(props: PaperLibraryProps) {
                             ? t({ message: `Download ${{ url: paper.url }}` })
                             : t({ message: `${{ title: paper.title }} — no local reading available` })}
                     className="paper-open"
-                    aria-labelledby={[titleId, (authors || source) && bylineId, snippet && snippetId].filter(Boolean).join(" ")}
+                    aria-labelledby={[titleId, byline && bylineId, snippet && snippetId].filter(Boolean).join(" ")}
+                    aria-describedby={citeKey ? keyId : undefined}
                     aria-current={active || undefined}
                     // Knowing the preprint is as good as having it: clicking
                     // fetches. A cited webpage is fetchable the same way.
@@ -220,36 +229,50 @@ export function PaperLibrary(props: PaperLibraryProps) {
                     onClick={() => activatePaper(paper)}
                   />
                   <strong id={titleId} className="paper-title" aria-hidden="true">{paper.title}</strong>
-                  {(authors || source) && (
-                    <small id={bylineId} className="paper-byline" aria-hidden="true">
-                      {authors && <span className="paper-authors">{authors}</span>}
-                      {source && (
-                        <span className="paper-source">
-                          <span>{source}</span>
-                          {stateIcon && <span className={`paper-state-icon ${fetchState ?? "idle"}`} aria-hidden="true">{stateIcon}</span>}
-                        </span>
+                  {/* The line under the title is the byline at rest. Hovered,
+                      focused or open, the row's citation key (a button that
+                      copies it) and its actions join it at the end, so they
+                      never cover the title or change the row's height. */}
+                  <div className="paper-meta">
+                    {byline && (
+                      <small id={bylineId} className="paper-byline" aria-hidden="true">
+                        {authors && <span className="paper-authors">{authors}</span>}
+                        {year && <span className="paper-year">{year}</span>}
+                        {source && <span className="paper-source">{source}</span>}
+                        {stateIcon && <span className={`paper-state-icon ${fetchState ?? "idle"}`}>{stateIcon}</span>}
+                      </small>
+                    )}
+                    <div className="paper-row-actions">
+                      {citeKey && (
+                        <CopyButton
+                          className="paper-cite-key"
+                          text={citeKey}
+                          iconSize={11}
+                          title={t`Copy citation key`}
+                          aria-label={t({ message: `Copy citation key ${{ key: citeKey }}` })}
+                        >
+                          <code>{citeKey}</code>
+                        </CopyButton>
                       )}
-                    </small>
-                  )}
+                      {citeKey && (
+                        <button className="row-edit-bib" title={t`Edit bibliography entry`} onClick={() => props.onEditBibEntry(paper)}><Pencil size={12} /></button>
+                      )}
+                      <DestructiveButton
+                        className="row-delete"
+                        title={t({ message: `Remove ${{ title: paper.title }}` })}
+                        iconSize={12}
+                        onClick={() => props.onDeletePaper(paper)}
+                      />
+                    </div>
+                  </div>
                   {snippet && <small id={snippetId} className="paper-snippet" aria-hidden="true">{snippet}</small>}
-                  {(citeKey || citationOnly || health) && (
+                  {(citationOnly || health) && (
                     <div className="paper-tags">
-                      {citeKey && <code className="paper-cite-key">{citeKey}</code>}
                       {citationOnly && <Badge size="compact" className="paper-tag">{t`Citation only`}</Badge>}
                       {healthNotice}
                     </div>
                   )}
-                  <div className="paper-row-actions">
-                    {paper.citationKey && (
-                      <button className="row-edit-bib" title={t`Edit bibliography entry`} onClick={() => props.onEditBibEntry(paper)}><Pencil size={12} /></button>
-                    )}
-                    <DestructiveButton
-                      className="row-delete"
-                      title={t({ message: `Remove ${{ title: paper.title }}` })}
-                      iconSize={12}
-                      onClick={() => props.onDeletePaper(paper)}
-                    />
-                  </div>
+                  {citeKey && <span id={keyId} className="sr-only">{t({ message: `Citation key ${{ key: citeKey }}` })}</span>}
                   {!healthLabel && healthTitle && <span className="sr-only">{healthTitle}</span>}
                 </div>
               );

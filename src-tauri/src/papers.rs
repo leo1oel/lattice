@@ -162,6 +162,9 @@ pub struct PaperSummary {
     /// The BibTeX author field with its grouping braces, so the reader can
     /// tell a corporate author (`{Gemini Team}`) from a person.
     pub authors: String,
+    /// The entry's `year` as written; absent when it records none.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub year: Option<String>,
     pub citation_key: Option<String>,
     /// False for works that are only cited — the reader has nothing to open.
     pub has_full_text: bool,

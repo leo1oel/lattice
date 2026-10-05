@@ -635,11 +635,12 @@ body:has(.modal-backdrop, .drawer-backdrop) .file-tree-context-menu { display: n
 .file-tree-context-menu > button.destructive:hover:not(:disabled) { background: color-mix(in srgb, var(--status-danger) 10%, transparent); color: var(--status-danger); }
 .paper-list { min-height: 0; flex: 1; }
 .paper-list-content { min-width: 100%; padding-block: 7px 0; padding-inline: 0 var(--space-6); }
-/* A paper is a short stack: its title, a byline, then a line of what cites it.
+/* A paper is a short stack: its title and a byline of who and when, then any
+   flags (citation only, a citation-health notice).
    Surfaces follow the Project tree's (hover < open); the row's surface is a
    variable so the actions' backing (below) can match it. Its content never
    widens the list: a long DOI ellipsizes instead of scrolling sideways. */
-.paper-row { --paper-row-surface: transparent; --paper-row-padding: var(--space-5); position: relative; contain: inline-size; padding: var(--paper-row-padding); border-radius: var(--radius-icon); display: flex; flex-direction: column; background: var(--paper-row-surface); color: var(--text-secondary); transition: background-color var(--duration-exit) var(--ease-out); }
+.paper-row { --paper-row-surface: transparent; --paper-row-padding: var(--space-5); position: relative; container: paper-row / inline-size; padding: var(--paper-row-padding); border-radius: var(--radius-icon); display: flex; flex-direction: column; background: var(--paper-row-surface); color: var(--text-secondary); transition: background-color var(--duration-exit) var(--ease-out); }
 .paper-row + .paper-row { margin-top: var(--space-1); }
 /* Hairlines part the rows at rest, under the text; a lit row needs none on
    either side. */
@@ -650,7 +651,7 @@ body:has(.modal-backdrop, .drawer-backdrop) .file-tree-context-menu { display: n
 /* The button is the whole row under its text, so its ring is the row's;
    the text it lies under passes every click through to it. */
 .paper-open { position: absolute; inset: 0; padding: 0; border-radius: var(--radius-icon); background: transparent; }
-.paper-row > :is(.paper-title, .paper-byline, .paper-snippet) { pointer-events: none; }
+.paper-row > :is(.paper-title, .paper-meta, .paper-snippet) { pointer-events: none; }
 .paper-row.cited-only .paper-open { cursor: default; }
 /* A paper's title is set as the reader sets it, in the reading face; a
    narrow panel gets a third line before the ellipsis. */
@@ -658,28 +659,27 @@ body:has(.modal-backdrop, .drawer-backdrop) .file-tree-context-menu { display: n
 .paper-row.active .paper-title { color: var(--text-primary); }
 .paper-row.cited-only .paper-title { color: var(--text-secondary); }
 .paper-list small { margin-top: var(--space-2); display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-tertiary); font-size: var(--type-tree-size); line-height: var(--type-tree-line-height); }
-/* Authors and source share a line while they fit, and the source wraps whole
-   rather than losing its id to an ellipsis. Every part leads with its
-   separator, and the line's start is pulled into a clipped margin, so a
-   part that begins a line never shows one. */
-.paper-list .paper-byline { margin-inline-start: calc(-1 * var(--space-6)); clip-path: inset(0 0 0 var(--space-6)); display: flex; flex-wrap: wrap; }
-.paper-byline > span { min-width: 0; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
-.paper-byline > span::before { content: "·"; width: var(--space-6); display: inline-block; text-align: center; }
+/* The byline line. At rest it is only who and when; a lit row (hovered,
+   focused or open) shows its citation key and actions on the same line, one
+   line tall whatever it holds, so revealing them never moves the rows below.
+   A wide row keeps the byline and adds them at its end, where the key gives
+   way first; a narrow one shows them in its place, as a mail list shows a
+   message's actions in place of its date. The year never gives way. */
+.paper-meta { height: var(--type-tree-line-height); min-width: 0; margin-top: var(--space-2); display: flex; align-items: center; gap: var(--space-3); }
+.paper-list .paper-byline { min-width: min(100%, 10em); margin-top: 0; flex: 0 1 auto; display: flex; }
+.paper-byline > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.paper-byline > :is(.paper-year, .paper-state-icon) { flex: none; }
+.paper-byline > :is(.paper-year, .paper-source):not(:first-child)::before { content: "·"; width: var(--space-6); display: inline-block; text-align: center; }
 .paper-list .paper-authors { color: var(--text-secondary); }
+.paper-year { font-variant-numeric: tabular-nums; }
 /* A full-text hit is a line quoted from the paper, so it reads as one. */
 .paper-list .paper-snippet { color: var(--text-secondary); font-family: var(--reading-font); font-style: italic; }
-/* The source keeps its glyph when its id gives way to an ellipsis. */
-.paper-byline > .paper-source { display: inline-flex; align-items: center; }
-.paper-source::before { flex: none; }
-.paper-source > span:first-of-type { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .paper-state-icon { margin-inline-start: var(--space-2); flex: none; display: grid; place-items: center; color: var(--text-tertiary); transition: color var(--duration-base) var(--ease-default); }
 .paper-state-icon > svg { stroke-width: 1.5; }
 .paper-row:is(:hover, .active) .paper-state-icon { color: var(--text-secondary); }
 .paper-state-icon.success, .paper-row:is(:hover, .active) .paper-state-icon.success { color: var(--status-success); }
-/* The exact key a \cite{} needs, and the row's flags. */
+/* The row's flags. */
 .paper-tags { min-width: 0; margin-top: var(--space-3); display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-3); }
-.paper-cite-key { min-width: 0; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-tertiary); font: var(--type-micro-size)/var(--badge-height-compact) var(--editor-font); }
-.paper-row:is(:hover, .active) .paper-cite-key { color: var(--text-secondary); }
 .paper-list .paper-tag { max-width: 100%; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; line-height: var(--badge-height-compact); }
 /* A citation-health notice: the chip, then who reported it and when. One
    that links out is its own control above the row's hit area. */
@@ -691,10 +691,26 @@ body:has(.modal-backdrop, .drawer-backdrop) .file-tree-context-menu { display: n
 button.paper-citation-health { position: relative; z-index: 1; padding: 0; border: 0; border-radius: var(--radius-compact); background: transparent; color: inherit; font-family: inherit; text-align: left; cursor: pointer; }
 button.paper-citation-health:hover > .paper-tag { background-image: linear-gradient(var(--tone-hover-surface), var(--tone-hover-surface)); }
 button.paper-citation-health:hover > .paper-citation-health-detail { color: var(--text-secondary); }
-/* Hovered or focused, the actions surface over the end of the row's last
-   line, never its title, on a backing as opaque as the row they sit in. */
-.paper-row-actions { position: absolute; z-index: 1; inset-block-end: calc(var(--paper-row-padding) - var(--space-1)); inset-inline-end: var(--space-3); padding-inline-start: var(--space-8); border-radius: var(--radius-compact); display: flex; background-color: var(--surface-sidebar); background-image: linear-gradient(var(--paper-row-surface), var(--paper-row-surface)); -webkit-mask-image: linear-gradient(to right, transparent, #000 var(--space-8)); mask-image: linear-gradient(to right, transparent, #000 var(--space-8)); opacity: 0; pointer-events: none; transition: opacity var(--duration-exit) var(--ease-out); }
-.paper-row:is(:hover, :focus-within) .paper-row-actions { opacity: 1; pointer-events: auto; transition-duration: var(--duration-quick); }
+/* A lit row's key and actions, above the row's hit area. The key is the
+   exact one a \cite{} needs, and a click copies it. A row with no byline has
+   no line to join, so they surface over the end of its last line instead, on
+   a backing as opaque as the row they sit in. */
+.paper-row-actions { position: relative; z-index: 1; margin-inline-start: auto; flex: 0 1 auto; display: none; align-items: center; pointer-events: auto; animation: paper-row-actions-in var(--duration-quick) var(--ease-out); }
+.paper-row:is(:hover, :focus-within, .active) .paper-row-actions { display: flex; }
+@keyframes paper-row-actions-in { from { opacity: 0; } }
+@container paper-row (width < 300px) {
+  .paper-row:is(:hover, :focus-within, .active) .paper-byline { display: none; }
+  .paper-row-actions { min-width: 0; flex-grow: 1; }
+  .paper-row-actions > .paper-cite-key { margin-inline: calc(-1 * var(--space-2)) auto; }
+}
+.paper-meta:not(:has(> .paper-byline)) { position: absolute; z-index: 1; inset-block-end: calc(var(--paper-row-padding) - var(--space-1)); inset-inline-end: var(--space-3); margin: 0; }
+.paper-meta:not(:has(> .paper-byline)) > .paper-row-actions { padding-inline-start: var(--space-8); border-radius: var(--radius-compact); background-color: var(--surface-sidebar); background-image: linear-gradient(var(--paper-row-surface), var(--paper-row-surface)); -webkit-mask-image: linear-gradient(to right, transparent, #000 var(--space-8)); mask-image: linear-gradient(to right, transparent, #000 var(--space-8)); }
+.paper-cite-key { min-width: 6em; height: 22px; padding: 0 var(--space-2); border-radius: var(--radius-compact); background: transparent; color: var(--text-tertiary); display: inline-flex; align-items: center; gap: var(--space-2); font: var(--type-micro-size)/1 var(--editor-font); }
+.paper-cite-key > code { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: inherit; }
+.paper-cite-key .copy-button-icon { width: 11px; height: 11px; }
+.paper-cite-key .copy-button-icon > svg { stroke-width: 1.5; }
+.paper-row.active .paper-cite-key { color: var(--text-secondary); }
+.paper-cite-key:hover { background: var(--control-hover-surface); color: var(--text-primary); }
 .row-delete, .row-edit-bib { position: relative; width: 22px !important; height: 22px !important; flex: none; padding: 0 !important; border-radius: var(--radius-compact) !important; background: transparent !important; color: var(--text-tertiary) !important; display: grid !important; place-items: center; }
 .row-delete svg, .row-edit-bib svg { stroke-width: 1.5; }
 .row-edit-bib:hover { background: var(--control-active-soft) !important; color: var(--control-active) !important; }

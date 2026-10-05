@@ -77,6 +77,7 @@ pub fn list_papers(root: &Path) -> Result<Vec<PaperSummary>, String> {
             url: citation.url,
             title: super::title_or_key(citation.title, &citation.key),
             authors: citation.bibtex_authors,
+            year: Some(citation.year).filter(|year| !year.is_empty()),
             citation_key: Some(citation.key),
             has_full_text: matched.as_ref().is_some_and(|bundle| bundle.has_full_text),
             has_blog: matched.as_ref().is_some_and(|bundle| bundle.has_blog),
@@ -488,12 +489,12 @@ mod tests {
 
     /// Both listings show every cited work, fetched or not. The agent's
     /// attaches paths it can read directly and marks cited-but-undownloaded
-    /// works by their absence; title, authors, arXiv id, normalized DOI and
+    /// works by their absence; title, authors, year, arXiv id, normalized DOI and
     /// cached health come off the bibliography and its caches.
     #[test]
     fn lists_cited_works_for_the_app_and_agent_even_when_never_fetched() {
         let project = TestProject::new(&format!(
-            "{ATTENTION_BIB}@article{{kingma2015adam,\n  title = {{Adam: A Method for Stochastic Optimization}},\n  author = {{Diederik P. Kingma and Jimmy Ba}},\n  eprint = {{1412.6980}},\n  doi = {{https://doi.org/10.1234/EXAMPLE}}\n}}\n"
+            "{ATTENTION_BIB}@article{{kingma2015adam,\n  title = {{Adam: A Method for Stochastic Optimization}},\n  author = {{Diederik P. Kingma and Jimmy Ba}},\n  year = {{2015}},\n  eprint = {{1412.6980}},\n  doi = {{https://doi.org/10.1234/EXAMPLE}}\n}}\n"
         ));
         project.write(ATTENTION_PAPER, "Title: Attention Is All You Need\n");
         project.write(".research/papers/1706.03762/metadata.json", LEGACY_METADATA);
@@ -527,6 +528,8 @@ mod tests {
         assert_eq!((adam.has_full_text, adam.has_blog), (false, false));
         assert_eq!(adam.title, "Adam: A Method for Stochastic Optimization");
         assert_eq!(adam.authors, "Diederik P. Kingma and Jimmy Ba");
+        assert_eq!(adam.year.as_deref(), Some("2015"));
+        assert_eq!(find(&papers, "vaswani2017attention").year, None);
         // Its arXiv id came off the bibliography, so the text can be fetched later.
         assert_eq!(adam.arxiv_id, "1412.6980");
         assert_eq!(adam.doi.as_deref(), Some("10.1234/example"));

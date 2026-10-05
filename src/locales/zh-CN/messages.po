@@ -1644,6 +1644,10 @@ msgid "Citation key ''{key}'' already exists. Choose a different key or edit the
 msgstr "引用键“{key}”已存在。请换一个引用键，或编辑现有的参考文献条目。"
 
 #: src/project/paper-library.tsx
+msgid "Citation key {key}"
+msgstr "引用键 {key}"
+
+#: src/project/paper-library.tsx
 msgid "Citation only"
 msgstr "仅有引用"
 
@@ -2038,6 +2042,14 @@ msgstr "复制"
 msgctxt "macOS menu bar"
 msgid "Copy"
 msgstr "拷贝"
+
+#: src/project/paper-library.tsx
+msgid "Copy citation key"
+msgstr "复制引用键"
+
+#: src/project/paper-library.tsx
+msgid "Copy citation key {key}"
+msgstr "复制引用键 {key}"
 
 #: src/editor/markdown/engine/views/code-block-view.tsx
 msgid "Copy code"
