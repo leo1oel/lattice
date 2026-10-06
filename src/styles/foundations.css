@@ -380,6 +380,15 @@
      Raw theme values remain owned by styles/theme.css; components consume these
      roles instead of reaching into the palette directly. */
   --surface-app: var(--bg);
+  /* Window material (theme.css): what paints behind everything, the titlebar
+     and panel gutters, the Project and Papers panels, and a page that fills
+     the window. Each is the opaque surface it replaces until the window is
+     translucent. */
+  --surface-window: var(--window);
+  --surface-shell: color-mix(in srgb, var(--sidebar) var(--glass-shell), transparent);
+  --surface-navigator: color-mix(in srgb, var(--sidebar) var(--glass-panel), transparent);
+  /* A whole-window page with no project open, such as the welcome screen. */
+  --surface-backdrop: color-mix(in srgb, var(--bg) var(--glass-page), transparent);
   --surface-panel: var(--panel);
   --surface-panel-raised: var(--panel-strong);
   --surface-chrome: var(--chrome-surface);
@@ -393,6 +402,9 @@
   --text-chrome: var(--chrome-text);
   --control-active: var(--accent);
   --control-active-soft: var(--accent-soft);
+  /* The editor's current line stays neutral under any accent: the syntax
+     tokens are tuned to read on it (theme.css). */
+  --editor-active-line-surface: var(--neutral-soft);
   --control-active-contrast: var(--accent-contrast);
   /* One hover wash for chrome affordances that sit directly on a chrome or
      sidebar surface: titlebar buttons, navigation actions, toolbar icons. */
@@ -400,7 +412,7 @@
   /* Keyboard focus is one ring, declared once and drawn by the global
      `:focus-visible` rule in styles/app-shell.css. Components size it through
      these roles instead of hand-rolling a per-component shadow. */
-  --focus-ring: color-mix(in srgb, var(--text-primary) 55%, transparent);
+  --focus-ring: var(--focus);
   --focus-ring-width: 2px;
   --focus-ring-offset: 1px;
   --status-success: var(--success);

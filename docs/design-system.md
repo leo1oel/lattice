@@ -11,8 +11,11 @@ not to force every surface into one density.
   the fonts (see Private interface fonts).
   Long-form reading surfaces use `--reading-font`; code never leaves
   `--editor-font`.
-- The product accent stays neutral. Status colors communicate success, warning,
-  and danger; they are not substitutes for the interaction accent.
+- The product accent is neutral by default (Graphite). Settings → Appearance
+  offers six accent presets and a custom color; each reads at 4.6:1 as text on
+  every surface of every tint, and a custom pick is fitted to that floor.
+  Status colors communicate success, warning, and danger; they are not
+  substitutes for the interaction accent.
 - Agent body copy, user messages, and the composer use 13px type on a 20px line
   height at regular weight.
 - Long-form reading surfaces may use 14px type on a 22px line height.
@@ -30,7 +33,8 @@ not to force every surface into one density.
 - Embedded Agent thread titles retain the compact 11/16px navigation
   role at regular weight; Project filenames use their independent 13/16px role.
 - The top toolbar and left Project, Papers, and Agent navigation form the app
-  chrome. They use `#EFEFF0` in the light theme and `#141416` in the dark theme.
+  chrome. At the default Graphite tint they use `#EFEFF0` in the light theme
+  and `#141416` in the dark theme.
 - Default navigation text on the light chrome uses `#59595B`; selected and
   emphasized items use the primary text color.
 - Right-side feature drawers are a separate surface: `#F9F9FA` in the light
@@ -43,6 +47,31 @@ not to force every surface into one density.
 - Light and dark colors come from semantic theme variables. Do not introduce a
   fixed light-theme hex value into a reusable component.
 
+
+## Theme presets and window material
+
+Settings → Appearance → Theme adds three choices to light and dark, all
+applied on `<html>` by `src/settings/use-appearance.ts`:
+
+- **Tint** (`data-tint`): Graphite, Paper, Sage, Mist or Dusk. A tint moves
+  only the neutral surfaces to one hue at their existing OKLCH lightness, so
+  the syntax tokens keep their 4.5:1; chrome takes the full tint, panels and
+  the editor 70% of it, and text and lines stay neutral.
+- **Accent** (`data-accent`): Graphite or a preset, or `custom` with the color
+  set inline after `fitAccent` (`src/settings/theme-customization.ts`). A
+  colored accent also becomes the focus ring. The editor's current line keeps
+  `--editor-active-line-surface`, which is neutral under every accent.
+- **Translucency** (`data-glass`, only while the native window reports
+  vibrancy behind it): the window clears its background, the titlebar and
+  gutters take `--surface-shell` and Project and Papers `--surface-navigator`
+  over macOS's under-window material, as Synara's own window does. Editors,
+  PDFs, the agent, tool panels, menus and dialogs stay opaque. Reduce
+  transparency, a browser tab and every other platform keep the opaque
+  palette, which is also what Off gives.
+
+Presets live in `src/styles/theme.css` as attribute blocks that apply to any
+element, so a Settings swatch carrying `data-tint` or `data-accent` shows the
+real color in the current light or dark.
 
 ## Private interface fonts
 
@@ -164,7 +193,12 @@ hover < pressed, and hover < selected < active.
 | Motion (`motion/react`) | the library | own shared durations and easings in `foundations.css`, with the global reduced-motion clamp in `adaptive-feedback.css` | animate a property the reduced-motion path cannot disable |
 
 The bridge, not CSS, carries state across the Synara boundary: theme, settings
-section, frame height, confirmations, and notifications.
+section, frame height, confirmations, and notifications. Light or dark rides in
+the frame URL; the tint, accent and resolved colors go to the agent frame as a
+`lattice:host-theme` message (`src/agent/agent-host-theme.ts`), on its
+`synara:embed-ready`, on every change and on `lattice:request-host-theme`, so
+a new accent repaints the agent without reloading it. Until the pinned runtime
+reads that message, the panel keeps its own copy of the Graphite palette.
 
 ## Typography roles
 
@@ -321,7 +355,7 @@ reuse its vocabulary so the product reads as one thing:
   its own geometry. Its two threads have their own roles, `--mark-weft` (blue)
   and `--mark-warp` (teal), plus `--mark-glint`. They are identity, not
   interaction: they color the mark and the one accent stroke of an
-  illustration, never a control, so the interaction accent stays neutral.
+  illustration, never a control, whatever accent the writer chose.
 - `EmptyIllustration` (`src/components/ui/empty-illustration.tsx`) holds the
   empty-state drawings: neutral line work in the host's text color with one
   weft or warp thread. Pass one to `EmptyState`'s `icon`.

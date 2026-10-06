@@ -6,6 +6,14 @@
 
 import { fontLicenseUrl } from "virtual:lattice-private-fonts-license";
 import type { CanvasMode, DocumentViewMode, FileViewState, SettingsTab } from "../app-types";
+import {
+  type ThemeAccent,
+  type ThemeTint,
+  type Translucency,
+  THEME_TINTS,
+  TRANSLUCENCY_LEVELS,
+  normalizeAccent,
+} from "./theme-customization";
 
 export type Theme = "light" | "dark";
 /** What the user picked; `system` tracks the OS appearance as it changes. */
@@ -351,6 +359,11 @@ export type AppearanceSettings = {
   interfaceSounds: boolean;
   /** Title-bar tool buttons the writer chose to hide (Settings → Appearance). */
   hiddenTitlebarTools: TitlebarTool[];
+  /** The surfaces' hue; styles/theme.css holds each preset. */
+  tint: ThemeTint;
+  accent: ThemeAccent;
+  /** How much of the desktop shows through the window chrome (macOS only). */
+  translucency: Translucency;
 };
 
 /** The tool buttons at the right of the title bar, each of which can be hidden. */
@@ -381,6 +394,9 @@ export function loadAppearance(): AppearanceSettings {
     editorSpellcheck: true,
     interfaceSounds: true,
     hiddenTitlebarTools: [],
+    tint: "graphite",
+    accent: "graphite",
+    translucency: "subtle",
   };
   return safely(() => {
     const current = localStorage.getItem(APPEARANCE_KEY);
@@ -404,6 +420,9 @@ export function loadAppearance(): AppearanceSettings {
       hiddenTitlebarTools: Array.isArray(value?.hiddenTitlebarTools)
         ? TITLEBAR_TOOLS.filter((tool) => value.hiddenTitlebarTools?.includes(tool))
         : defaults.hiddenTitlebarTools,
+      tint: oneOf(value?.tint, THEME_TINTS, defaults.tint),
+      accent: normalizeAccent(value?.accent) ?? defaults.accent,
+      translucency: oneOf(value?.translucency, TRANSLUCENCY_LEVELS, defaults.translucency),
     };
   }, defaults);
 }

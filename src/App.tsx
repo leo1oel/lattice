@@ -386,10 +386,18 @@ function App() {
     setNewEntryRequest((previous) => ({ type, serial: (previous?.serial ?? 0) + 1 }));
   }, []);
   const [openSlideContext, setOpenSlideContext] = useState<OpenSlideContext | null>(null);
+  const { theme, themePreference, setThemePreference, appearance, setAppearance, windowBacking } = useAppearance();
   const synara = useSynaraHost({
     project,
     projectRef,
     agentVisible,
+    appearance: {
+      theme,
+      tint: appearance.tint,
+      accent: appearance.accent,
+      translucency: appearance.translucency,
+      translucent: windowBacking === "translucent",
+    },
     bridge: {
       openProviderSettings: () => {
         setSettingsTab("agent");
@@ -487,7 +495,6 @@ function App() {
   const [settingsTab, setSettingsTab] = useState<SettingsTab>(loadSettingsTab);
   const projectGit = useProjectTreeWatch(projectState, true);
   const { setGitStatus } = projectGit;
-  const { theme, themePreference, setThemePreference, appearance, setAppearance } = useAppearance();
   const appLocale = resolveAppLocale(appearance.interfaceLanguage);
   useEffect(() => {
     configureInterfaceSounds(appearance.interfaceSounds);
@@ -1105,6 +1112,7 @@ function App() {
         theme={theme}
         themePreference={themePreference}
         setThemePreference={setThemePreference}
+        windowBacking={windowBacking}
         buildPreferences={buildPreferences}
         setBuildPreferences={setBuildPreferences}
         hasProject={Boolean(project)}

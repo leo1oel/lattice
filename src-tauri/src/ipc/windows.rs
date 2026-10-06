@@ -152,11 +152,13 @@ pub fn restart_after_update(app: AppHandle) -> Result<(), String> {
     .map_err(|error| format!("Could not schedule the updated Lattice app to restart: {error}"))
 }
 
-/// Keep native resize backing surfaces in sync with the web app theme.
+/// Keep the native window's appearance and backing in step with the web
+/// app's theme; answers what the window's backing became.
 #[tauri::command]
-pub fn set_window_background(window: WebviewWindow, dark: bool) -> Result<(), String> {
-    macos_window::apply_window_background(&window, dark);
-    Ok(())
+pub fn set_window_material(
+    window: WebviewWindow, material: macos_window::WindowMaterial,
+) -> macos_window::WindowBacking {
+    macos_window::apply_window_material(&window, &material)
 }
 
 /// Follow the web UI's interface language natively: rebuild the menu bar with

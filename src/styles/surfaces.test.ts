@@ -373,16 +373,24 @@ describe("shared surface contracts", () => {
     }
   })
 
-  it("pairs the accent with a contrast colour that clears WCAG AA in both themes", () => {
-    const theme = read("src/styles/theme.css")
-    const values = (token: string) =>
-      [...theme.matchAll(new RegExp(`--${token}:\\s*(#[0-9a-f]{6});`, "gi"))].map((match) => match[1])
-    const accents = values("accent")
-    const labels = values("accent-contrast")
-    expect(accents).toHaveLength(2)
-    expect(labels).toHaveLength(2)
-    accents.forEach((accent, index) => {
-      expect(contrast(parseColor(accent), parseColor(labels[index]))).toBeGreaterThanOrEqual(4.5)
-    })
+  // The accent is also text (outline links, roles, active toolbar icons), so
+  // every preset must read on every tint's surfaces, and carry its label.
+  it.each(["light", "dark"])("keeps every accent preset legible on every tint and under its label in the %s theme", (mode) => {
+    const blocks = [...read("src/styles/theme.css").matchAll(/([^{}]+)\{([^{}]*)\}/g)]
+      .map(([, selector, body]) => ({ dark: selector.includes('data-theme="dark"'), body }))
+      .filter(({ dark }) => dark === (mode === "dark"))
+    const values = (pattern: RegExp) => blocks.flatMap(({ body }) => [...body.matchAll(pattern)].map((match) => match[1]))
+    const accents = values(/--accent(?:-graphite)?:\s*(#[0-9a-f]{6});/gi)
+    const labels = values(/--accent-contrast:\s*(#[0-9a-f]{6});/gi)
+    const surfaces = values(/--(?:bg|panel|panel-strong|chrome-surface|side-surface|editor-bg):\s*(#[0-9a-f]{6});/gi)
+    expect(accents).toHaveLength(7)
+    expect(labels).toHaveLength(1)
+    expect(surfaces.length).toBeGreaterThanOrEqual(25)
+    for (const accent of accents) {
+      expect(contrast(parseColor(accent), parseColor(labels[0])), accent).toBeGreaterThanOrEqual(4.5)
+      for (const surface of surfaces) {
+        expect(contrast(parseColor(accent), parseColor(surface)), `${accent} on ${surface}`).toBeGreaterThanOrEqual(4.5)
+      }
+    }
   })
 })

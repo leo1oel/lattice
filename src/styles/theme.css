@@ -35,24 +35,24 @@ textarea {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   color: var(--text);
-  background: var(--bg);
+  background: var(--window);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
-  --bg: #f7f7f6;
-  --panel: #fbfbfa;
-  --panel-strong: #F9F9FA;
-  --chrome-surface: #efeff0;
   --chrome-text: #59595b;
-  --side-surface: #f9f9fa;
   --sidebar: var(--chrome-surface);
   --line: rgba(28, 28, 31, 0.09);
   --line-strong: rgba(28, 28, 31, 0.14);
   --text: #242426;
   --muted: #606066;
   --faint: #6c6c72;
-  --accent: #303033;
-  --accent-soft: rgba(48, 48, 51, 0.08);
+  --accent-graphite: #303033;
+  --accent: var(--accent-graphite);
+  /* The quiet wash under the editor's current line; Graphite's soft accent. */
+  --neutral-soft: rgba(48, 48, 51, 0.08);
+  --accent-soft: var(--neutral-soft);
   --accent-contrast: #ffffff;
+  /* The keyboard focus ring; an accent preset swaps in the accent. */
+  --focus: color-mix(in srgb, var(--text) 55%, transparent);
   --danger: #bc413e;
   --success: #2c785c;
   --warning: #8d6400;
@@ -62,8 +62,6 @@ textarea {
   --brand-glint: rgba(255, 255, 255, 0.85);
   --shadow: 0 20px 60px rgba(22, 22, 24, 0.12);
   --shadow-soft: 0 8px 24px rgba(22, 22, 24, 0.08);
-  --editor-bg: #f9f9fa;
-  --editor-gutter: #f9f9fa;
   --pdf-bg: #efeff0;
   /* Every token reads at 4.5:1 or more on the editor, its active line and a
      focused selection: each keeps its hue and gives up only lightness (in
@@ -87,20 +85,33 @@ textarea {
   --syntax-bracket: #55555b;
 }
 
+/*
+ * The surfaces a tint replaces, at Graphite, the default. Graphite is also a
+ * swatch in Settings, so this applies wherever data-tint names it, as every
+ * tint below does. --tint-mark is only the swatch's identifying hue.
+ */
+:root, [data-tint="graphite"] {
+  --bg: #f7f7f6;
+  --panel: #fbfbfa;
+  --panel-strong: #F9F9FA;
+  --chrome-surface: #efeff0;
+  --side-surface: #f9f9fa;
+  --editor-bg: #f9f9fa;
+  --editor-gutter: #f9f9fa;
+  --tint-mark: #a4a4a6;
+}
+
 :root[data-theme="dark"] {
-  --bg: #171718;
-  --panel: #1b1b1d;
-  --panel-strong: #202023;
-  --chrome-surface: #141416;
   --chrome-text: #a4a4aa;
-  --side-surface: #1b1b1d;
   --line: rgba(255, 255, 255, 0.075);
   --line-strong: rgba(255, 255, 255, 0.12);
   --text: #e9e9e7;
   --muted: #a4a4aa;
   --faint: #88888f;
-  --accent: #e7e7e4;
-  --accent-soft: rgba(255, 255, 255, 0.1);
+  --accent-graphite: #e7e7e4;
+  --accent: var(--accent-graphite);
+  --neutral-soft: rgba(255, 255, 255, 0.1);
+  --accent-soft: var(--neutral-soft);
   --accent-contrast: #171718;
   --danger: #ee7772;
   --success: #66bd99;
@@ -111,8 +122,6 @@ textarea {
   --brand-glint: rgba(255, 255, 255, 0.7);
   --shadow: 0 24px 70px rgba(0, 0, 0, 0.38);
   --shadow-soft: 0 10px 28px rgba(0, 0, 0, 0.28);
-  --editor-bg: var(--panel);
-  --editor-gutter: var(--panel);
   --pdf-bg: color-mix(in srgb, var(--bg) 84%, #888 16%);
   /* As strong as the dimmest token (comment) allows at 4.5:1. */
   --selection-mix: 19%;
@@ -132,6 +141,144 @@ textarea {
   --syntax-constant: #dfa27d;
   --syntax-bracket: #a6a8ad;
 }
+
+:root[data-theme="dark"], :root[data-theme="dark"] [data-tint="graphite"] {
+  --bg: #171718;
+  --panel: #1b1b1d;
+  --panel-strong: #202023;
+  --chrome-surface: #141416;
+  --side-surface: #1b1b1d;
+  --editor-bg: var(--panel);
+  --editor-gutter: var(--panel);
+}
+
+/*
+ * Theme presets (Settings → Appearance), set on the root by use-appearance.ts.
+ *
+ * A tint moves the neutral surfaces to one hue at the lightness they already
+ * had (in OKLCH), so every syntax token keeps its 4.5:1 on the editor. Chrome
+ * takes the full tint; the editor and panels take 70% of it. Text and lines
+ * stay neutral. Graphite, the default, is the palette above.
+ */
+[data-tint="paper"] {
+  --bg: #fbf6ef;
+  --panel: #fefaf5;
+  --panel-strong: #fcf9f4;
+  --chrome-surface: #f3eee7;
+  --side-surface: #fcf9f4;
+  --editor-bg: #fcf9f4;
+  --editor-gutter: #fcf9f4;
+  --tint-mark: #cdb38c;
+}
+:root[data-theme="dark"] [data-tint="paper"], :root[data-theme="dark"][data-tint="paper"] {
+  --bg: #191713;
+  --panel: #1d1b18;
+  --panel-strong: #22201d;
+  --chrome-surface: #171410;
+  --side-surface: #1d1b18;
+}
+[data-tint="sage"] {
+  --bg: #f2f9f3;
+  --panel: #f8fdf8;
+  --panel-strong: #f6fbf6;
+  --chrome-surface: #eaf1eb;
+  --side-surface: #f6fbf6;
+  --editor-bg: #f6fbf6;
+  --editor-gutter: #f6fbf6;
+  --tint-mark: #9dc3a3;
+}
+:root[data-theme="dark"] [data-tint="sage"], :root[data-theme="dark"][data-tint="sage"] {
+  --bg: #141915;
+  --panel: #191c1a;
+  --panel-strong: #1e211f;
+  --chrome-surface: #111612;
+  --side-surface: #191c1a;
+}
+[data-tint="mist"] {
+  --bg: #f0f8ff;
+  --panel: #f6fcff;
+  --panel-strong: #f4faff;
+  --chrome-surface: #e8f0f8;
+  --side-surface: #f4faff;
+  --editor-bg: #f4faff;
+  --editor-gutter: #f4faff;
+  --tint-mark: #98bcdc;
+}
+:root[data-theme="dark"] [data-tint="mist"], :root[data-theme="dark"][data-tint="mist"] {
+  --bg: #12181d;
+  --panel: #181c1f;
+  --panel-strong: #1d2125;
+  --chrome-surface: #0f151a;
+  --side-surface: #181c1f;
+}
+[data-tint="dusk"] {
+  --bg: #f8f5ff;
+  --panel: #fcfaff;
+  --panel-strong: #faf8ff;
+  --chrome-surface: #f0edf7;
+  --side-surface: #faf8ff;
+  --editor-bg: #faf8ff;
+  --editor-gutter: #faf8ff;
+  --tint-mark: #bdafd9;
+}
+:root[data-theme="dark"] [data-tint="dusk"], :root[data-theme="dark"][data-tint="dusk"] {
+  --bg: #18161d;
+  --panel: #1c1a1f;
+  --panel-strong: #211f24;
+  --chrome-surface: #15131a;
+  --side-surface: #1c1a1f;
+}
+
+/*
+ * Accent presets. Each reads at 4.6:1 or more on every surface of every tint
+ * in its theme, because the accent also colors text (outline links, roles,
+ * active toolbar icons); its label color clears 4.5:1 on it. A custom accent
+ * is fitted to the same floor in theme-customization.ts and set inline.
+ * Graphite, the default, keeps the neutral accent and the neutral focus ring.
+ */
+[data-accent="graphite"] { --accent: var(--accent-graphite); }
+[data-accent="blue"] { --accent: #096acb; }
+:root[data-theme="dark"] [data-accent="blue"], :root[data-theme="dark"][data-accent="blue"] { --accent: #498bdc; }
+[data-accent="purple"] { --accent: #884fbe; }
+:root[data-theme="dark"] [data-accent="purple"], :root[data-theme="dark"][data-accent="purple"] { --accent: #a275d1; }
+[data-accent="pink"] { --accent: #b83b76; }
+:root[data-theme="dark"] [data-accent="pink"], :root[data-theme="dark"][data-accent="pink"] { --accent: #d06793; }
+[data-accent="orange"] { --accent: #b04d00; }
+:root[data-theme="dark"] [data-accent="orange"], :root[data-theme="dark"][data-accent="orange"] { --accent: #d07135; }
+[data-accent="green"] { --accent: #007c34; }
+:root[data-theme="dark"] [data-accent="green"], :root[data-theme="dark"][data-accent="green"] { --accent: #379b55; }
+[data-accent="teal"] { --accent: #007777; }
+:root[data-theme="dark"] [data-accent="teal"], :root[data-theme="dark"][data-accent="teal"] { --accent: #06999a; }
+[data-accent]:not([data-accent="graphite"]) {
+  --accent-soft: color-mix(in srgb, var(--accent) 10%, transparent);
+  --focus: var(--accent);
+}
+:root[data-theme="dark"] [data-accent]:not([data-accent="graphite"]),
+:root[data-theme="dark"][data-accent]:not([data-accent="graphite"]) {
+  --accent-soft: color-mix(in srgb, var(--accent) 14%, transparent);
+}
+
+/*
+ * Window material. Opaque by default; `data-glass` is set only when the
+ * window really has macOS vibrancy behind it (use-appearance.ts asks the
+ * native side, which also answers for Reduce transparency), so a browser tab
+ * never shows a see-through page. The window itself turns clear and the
+ * titlebar and gutters take --glass-shell of the chrome color over the
+ * material, as Synara's shell does; Project and Papers sit on top at
+ * --glass-panel, and a page that fills the window (the welcome screen) at
+ * --glass-page. Editors, PDFs, the agent and every dialog stay opaque.
+ */
+:root {
+  --window: var(--bg);
+  --glass-shell: 100%;
+  --glass-panel: 100%;
+  --glass-page: 100%;
+}
+:root[data-glass] { --window: transparent; }
+:root[data-glass="subtle"] { --glass-shell: 40%; --glass-panel: 45%; --glass-page: 72%; }
+:root[data-glass="strong"] { --glass-shell: 0%; --glass-panel: 50%; --glass-page: 52%; }
+:root[data-theme="dark"][data-glass="subtle"] { --glass-shell: 45%; --glass-panel: 45%; --glass-page: 74%; }
+:root[data-theme="dark"][data-glass="strong"] { --glass-shell: 0%; --glass-panel: 60%; --glass-page: 62%; }
 
 @media (pointer: fine) {
   /*

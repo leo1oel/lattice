@@ -527,9 +527,9 @@ body:has(.modal-backdrop, .drawer-backdrop) :is(.latex-selection-toolbar-anchor,
 .source-editor .cm-foldPlaceholder:hover { color: var(--text-primary); }
 /* Active-line fill sits above CM's selection layer and hides selected text.
    Keep the soft neutral only when the caret is empty; clear it while selecting. */
-.source-editor .cm-activeLine { background: var(--control-active-soft); }
+.source-editor .cm-activeLine { background: var(--editor-active-line-surface); }
 .source-editor .cm-editor.cm-lattice-has-selection .cm-activeLine { background: transparent; }
-.source-editor .cm-activeLineGutter { background: var(--control-active-soft); }
+.source-editor .cm-activeLineGutter { background: var(--editor-active-line-surface); }
 /* A jump's target (editor-reveal.ts): held, then faded, in the find-match color.
    An animated fill outranks the active-line and selection rules above. */
 .source-editor .cm-line.cm-reveal-flash { animation: reveal-flash 1.6s var(--ease-out); }

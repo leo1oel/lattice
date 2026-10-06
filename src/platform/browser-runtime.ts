@@ -640,7 +640,8 @@ function mirrorLocalStorage(relay: BrowserRelay): void {
 /* eslint-disable lingui/no-unlocalized-strings -- Tauri command names */
 const ignored = () => undefined;
 const LOCAL_COMMANDS = new Map<string, (payload: { value?: unknown }) => unknown>([
-  ["set_window_background", ignored],
+  // A browser tab has no window material, so the page stays opaque.
+  ["set_window_material", () => "unsupported"],
   ["plugin:window|set_min_size", ignored],
   ["plugin:window|start_dragging", ignored],
   ["align_traffic_lights", () => null],

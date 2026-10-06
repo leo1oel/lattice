@@ -387,7 +387,7 @@ function SpreadsheetEditorSurface({
         });
       });
     });
-    appearanceObserver.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme", "style"] });
+    appearanceObserver.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme", "data-tint", "style"] });
 
     const onTransaction = (transaction: Y.Transaction) => {
       if (transaction.origin === SPREADSHEET_LOCAL_ORIGIN || remoteSyncQueued) return;

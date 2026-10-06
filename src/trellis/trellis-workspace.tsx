@@ -811,8 +811,10 @@ const TOKENS: Record<string, string> = {
   "--trellis-font-size": "var(--type-label-size)",
   "--trellis-accent": "var(--control-active)",
   "--trellis-accent-contrast": "var(--control-active-contrast)",
-  "--trellis-bg": "var(--surface-sidebar)",
-  "--trellis-stage": "var(--surface-sidebar)",
+  // The workspace paints the shell behind Trellis; a second coat would
+  // darken a translucent window's gutters.
+  "--trellis-bg": "transparent",
+  "--trellis-stage": "transparent",
   "--trellis-panel": "var(--surface-app)",
   "--trellis-tabbar": "var(--surface-sidebar)",
   "--trellis-tab-hover": "var(--chrome-hover-surface)",

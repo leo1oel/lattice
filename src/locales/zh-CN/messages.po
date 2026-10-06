@@ -537,6 +537,11 @@ msgstr "约 {TEX_INSTALL_SIZE_HINT} · 安装最长可能需要 15 分钟"
 msgid "Abstract environment"
 msgstr "摘要环境"
 
+#: src/settings/settings-search-index.ts
+#: src/settings/theme-settings.tsx
+msgid "Accent"
+msgstr "强调色"
+
 #: src/editor/markdown/engine/chrome/review-chrome.tsx
 #: src/overleaf/overleaf-changes.tsx
 #: src/overleaf/overleaf-editor-extensions.ts
@@ -1130,6 +1135,7 @@ msgid "Blog"
 msgstr "概览"
 
 #: src/components/ui/apple-color-picker.tsx
+#: src/settings/theme-settings.tsx
 msgid "Blue"
 msgstr "蓝色"
 
@@ -1808,6 +1814,11 @@ msgstr "带可点击摘要的折叠章节。"
 msgid "Collecting runtime logs…"
 msgstr "正在收集运行日志…"
 
+#. Search words for the Accent setting, space-separated
+#: src/settings/settings-search-index.ts
+msgid "color"
+msgstr "颜色 色彩"
+
 #: src/components/ui/apple-color-picker.tsx
 msgid "Color selection mode"
 msgstr "颜色选择模式"
@@ -1816,8 +1827,8 @@ msgstr "颜色选择模式"
 msgid "Color spectrum"
 msgstr "色谱"
 
-#: src/settings/settings-dialog.tsx
 #: src/settings/settings-search-index.ts
+#: src/settings/theme-settings.tsx
 msgid "Color theme"
 msgstr "颜色主题"
 
@@ -2304,6 +2315,15 @@ msgstr "当前匹配项"
 msgid "Current reference"
 msgstr "当前参考文献"
 
+#: src/settings/settings-search-index.ts
+#: src/settings/theme-settings.tsx
+msgid "Custom"
+msgstr "自定义"
+
+#: src/settings/theme-settings.tsx
+msgid "Custom accent color"
+msgstr "自定义强调色"
+
 #: src/app/native-locale.ts
 msgctxt "macOS menu bar"
 msgid "Cut"
@@ -2325,8 +2345,8 @@ msgstr "剑号（文本符号）"
 msgid "Daleth"
 msgstr "达列特"
 
-#: src/settings/settings-dialog.tsx
 #: src/settings/settings-search-index.ts
+#: src/settings/theme-settings.tsx
 msgid "Dark"
 msgstr "深色"
 
@@ -2737,6 +2757,11 @@ msgstr "标签“{key}”重复。"
 #: src/papers/audit-messages.ts
 msgid "Duplicate title across bibliography files."
 msgstr "多个参考文献文件中存在重复的标题。"
+
+#: src/settings/settings-search-index.ts
+#: src/settings/theme-settings.tsx
+msgid "Dusk"
+msgstr "暮色"
 
 #: src/project/manuscript-checklist.tsx
 msgid "e.g. 5500"
@@ -3355,6 +3380,11 @@ msgstr "四级标题。"
 msgid "Frontmatter"
 msgstr "前置元数据"
 
+#. Search words for the Translucency setting, space-separated
+#: src/settings/settings-search-index.ts
+msgid "frosted glass transparent vibrancy"
+msgstr "毛玻璃 磨砂 透明 模糊"
+
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Frown relation"
 msgstr "下弧关系"
@@ -3465,6 +3495,11 @@ msgstr "发送到 Overleaf"
 msgid "Google Scholar"
 msgstr "Google Scholar"
 
+#: src/settings/settings-search-index.ts
+#: src/settings/theme-settings.tsx
+msgid "Graphite"
+msgstr "石墨"
+
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Grave accent example"
 msgstr "抑音符示例"
@@ -3478,6 +3513,7 @@ msgid "Greater than or equal"
 msgstr "大于或等于"
 
 #: src/components/ui/apple-color-picker.tsx
+#: src/settings/theme-settings.tsx
 msgid "Green"
 msgstr "绿色"
 
@@ -4366,8 +4402,8 @@ msgstr "引理"
 msgid "Less than or equal"
 msgstr "小于或等于"
 
-#: src/settings/settings-dialog.tsx
 #: src/settings/settings-search-index.ts
+#: src/settings/theme-settings.tsx
 msgid "Light"
 msgstr "浅色"
 
@@ -4676,6 +4712,7 @@ msgid "Match case"
 msgstr "区分大小写"
 
 #: src/settings/settings-dialog.tsx
+#: src/settings/theme-settings.tsx
 msgid "Match system"
 msgstr "跟随系统"
 
@@ -4849,6 +4886,11 @@ msgstr "缺少样式文件 `{file}`。它属于 {venue} 模板，应与 main.tex
 #: src/build/tex-setup-wizard.tsx
 msgid "Missing tools: {0}"
 msgstr "缺少工具：{0}"
+
+#: src/settings/settings-search-index.ts
+#: src/settings/theme-settings.tsx
+msgid "Mist"
+msgstr "薄雾"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Models / entails"
@@ -5416,6 +5458,15 @@ msgstr "有序编号项目列表。"
 msgid "Numbered single-line equation"
 msgstr "编号的单行公式"
 
+#: src/settings/theme-settings.tsx
+msgid "Off"
+msgstr "关"
+
+#: src/settings/settings-search-index.ts
+#: src/settings/theme-settings.tsx
+msgid "Off while Reduce transparency is on in System Settings"
+msgstr "系统设置中开启了“降低透明度”，此项暂不生效"
+
 #: src/project/project-dialogs.tsx
 msgid "Official 2026 style"
 msgstr "2026 官方样式"
@@ -5440,6 +5491,10 @@ msgstr "位于行"
 #: src/overleaf/overleaf-review.tsx
 msgid "Only binary files would change; line-by-line review is unavailable"
 msgstr "只有二进制文件会发生变化，无法逐行审阅"
+
+#: src/settings/theme-settings.tsx
+msgid "Only in the Lattice window on macOS"
+msgstr "仅在 macOS 上的 Lattice 窗口中可用"
 
 #: src/telemetry/app-log.tsx
 msgid "Only operation metadata and counts. Nothing leaves this Mac until you copy or download it"
@@ -5688,6 +5743,7 @@ msgid "Operation metadata"
 msgstr "操作信息"
 
 #: src/components/ui/apple-color-picker.tsx
+#: src/settings/theme-settings.tsx
 msgid "Orange"
 msgstr "橙色"
 
@@ -5884,6 +5940,12 @@ msgstr "面板"
 #: src/trellis/trellis-workspace.tsx
 msgid "Paper"
 msgstr "论文"
+
+#: src/settings/settings-search-index.ts
+#: src/settings/theme-settings.tsx
+msgctxt "theme tint"
+msgid "Paper"
+msgstr "纸张"
 
 #: src/canvas/paper-reader.tsx
 msgid "Paper actions"
@@ -6100,6 +6162,10 @@ msgstr "分段定义"
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Pilcrow / paragraph"
 msgstr "段落符号"
+
+#: src/settings/theme-settings.tsx
+msgid "Pink"
+msgstr "粉色"
 
 #: src/editor/insert/figure-insert-dialog.tsx
 msgid "Placement"
@@ -6367,6 +6433,10 @@ msgstr "出版方通知"
 #: src/app/git-workspace-frames.tsx
 msgid "Pull requests"
 msgstr "拉取请求"
+
+#: src/settings/theme-settings.tsx
+msgid "Purple"
+msgstr "紫色"
 
 #: src/build/tex-doctor-messages.ts
 msgid "Python tooling used for literature and bibliography tools"
@@ -7227,6 +7297,11 @@ msgstr "行内段落标题"
 msgid "Runner used for Lattice's pinned literature tools"
 msgstr "Lattice 固定版本文献工具所用的运行器"
 
+#: src/settings/settings-search-index.ts
+#: src/settings/theme-settings.tsx
+msgid "Sage"
+msgstr "鼠尾草"
+
 #: src/editor/latex/latex-command-completions.ts
 msgid "Sans-serif text"
 msgstr "无衬线文本"
@@ -7924,6 +7999,10 @@ msgstr "正在停止…"
 msgid "Strikethrough"
 msgstr "删除线"
 
+#: src/settings/theme-settings.tsx
+msgid "Strong"
+msgstr "强"
+
 #: src/editor/latex/latex-diagnostics.ts
 msgid "structure"
 msgstr "结构"
@@ -7952,6 +8031,10 @@ msgstr "子集或等于"
 #: src/editor/latex/latex-selection-toolbar.tsx
 msgid "Subsubsection"
 msgstr "小小节"
+
+#: src/settings/theme-settings.tsx
+msgid "Subtle"
+msgstr "柔和"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Succeeds"
@@ -8114,6 +8197,7 @@ msgid "Tau"
 msgstr "陶"
 
 #: src/components/ui/apple-color-picker.tsx
+#: src/settings/theme-settings.tsx
 msgid "Teal"
 msgstr "蓝绿色"
 
@@ -8211,6 +8295,11 @@ msgstr "缺少用于区分重放更新的连接 ID"
 #: src/history/conflict-resolver.tsx
 msgid "The copy on Overleaf"
 msgstr "Overleaf 上的副本"
+
+#: src/settings/settings-search-index.ts
+#: src/settings/theme-settings.tsx
+msgid "The desktop shows through the title bar and sidebars"
+msgstr "标题栏和侧栏透出桌面"
 
 #: src/editor/latex/latex-command-completions.ts
 msgid "The document body"
@@ -8348,6 +8437,11 @@ msgstr "该工作表及其所有内容都将被删除，且无法恢复。"
 #: src/editor/spreadsheet/spreadsheet-univer.ts
 msgid "The worksheet and all of its contents will be removed."
 msgstr "该工作表及其所有内容都将被删除。"
+
+#: src/settings/settings-search-index.ts
+#: src/settings/theme-settings.tsx
+msgid "Theme"
+msgstr "主题"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Theorem block (requires amsthm and a \\newtheorem declaration)"
@@ -8516,6 +8610,11 @@ msgstr "时间导数记号"
 msgid "Times / cross product"
 msgstr "乘号 / 叉积"
 
+#: src/settings/settings-search-index.ts
+#: src/settings/theme-settings.tsx
+msgid "Tint"
+msgstr "色调"
+
 #: src/editor/markdown/engine/views/component-views.tsx
 msgid "Tip"
 msgstr "提示"
@@ -8585,6 +8684,11 @@ msgstr "顶级章节标题"
 #: src/onboarding/guided-tour.tsx
 msgid "Tour progress"
 msgstr "导览进度"
+
+#: src/settings/settings-search-index.ts
+#: src/settings/theme-settings.tsx
+msgid "Translucency"
+msgstr "半透明"
 
 #: src/overleaf/overleaf-connect.tsx
 msgid "Trashed"

@@ -118,7 +118,7 @@ fn workspace_window(app: &AppHandle, label: &str, center: bool) -> tauri::Result
     let builder = if center { builder.center() } else { builder };
     let window = overlay_title_bar(builder).build()?;
     macos_window::install_traffic_light_alignment(&window);
-    macos_window::apply_window_background(&window, false);
+    macos_window::apply_window_material(&window, &macos_window::WindowMaterial::at_launch());
     macos_window::render_at_display_refresh_rate(&window);
     #[cfg(feature = "perf-lab")]
     perf_lab::tune_wkwebview(&window);
@@ -154,6 +154,7 @@ fn on_window_event(window: &tauri::Window, event: &tauri::WindowEvent) {
     // and a later window reusing the label inherits a stale binding.
     if matches!(event, tauri::WindowEvent::Destroyed) {
         macos_window::clear_pdf_copy_text(window.label());
+        macos_window::forget_window_material(window.label());
         let state = window.state::<AppState>();
         state.release_window(window.label());
         let browser = window.state::<browser_host::BrowserHost>();
@@ -358,7 +359,7 @@ pub fn run() {
             ipc::windows::get_app_log_dir,
             ipc::windows::open_app_log_dir,
             ipc::windows::restart_after_update,
-            ipc::windows::set_window_background,
+            ipc::windows::set_window_material,
             ipc::windows::set_native_locale,
             ipc::windows::align_traffic_lights,
             ipc::windows::sample_screen_color,

@@ -35,19 +35,32 @@ describe("useAppearance", () => {
     vi.mocked(invoke).mockReset().mockResolvedValue(undefined);
   });
 
-  it("keeps the native resize background synchronized with the theme", async () => {
+  it("keeps the native window's appearance and material synchronized with the theme", async () => {
     const { result } = renderHook(() => useAppearance());
+    const material = (appearance: string) => expect.objectContaining({ appearance, translucent: true });
 
     await waitFor(() => {
-      expect(invoke).toHaveBeenCalledWith("set_window_background", { dark: false });
+      expect(invoke).toHaveBeenCalledWith("set_window_material", { material: material("light") });
     });
 
     act(() => result.current.setThemePreference("dark"));
 
     await waitFor(() => {
-      expect(invoke).toHaveBeenCalledWith("set_window_background", { dark: true });
+      expect(invoke).toHaveBeenCalledWith("set_window_material", { material: material("dark") });
     });
     expect(document.documentElement.dataset.theme).toBe("dark");
+  });
+
+  it("clears the page's background only when the window answers that it is translucent", async () => {
+    vi.mocked(invoke).mockImplementation(async (command) => command === "set_window_material" ? "translucent" : undefined);
+    const { result } = renderHook(() => useAppearance());
+
+    await waitFor(() => expect(document.documentElement.dataset.glass).toBe("subtle"));
+
+    vi.mocked(invoke).mockImplementation(async (command) => command === "set_window_material" ? "reducedTransparency" : undefined);
+    act(() => { window.dispatchEvent(new Event("focus")); });
+    await waitFor(() => expect(document.documentElement.dataset.glass).toBeUndefined());
+    expect(result.current.windowBacking).toBe("reducedTransparency");
   });
 
   it("follows the system appearance by default and tracks later OS changes", async () => {
