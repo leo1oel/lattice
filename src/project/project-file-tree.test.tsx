@@ -198,6 +198,40 @@ describe("ProjectFileTree", () => {
     await waitFor(() => expect(view.props.onFile).toHaveBeenCalledWith("sections/intro.tex"));
   });
 
+  it("keeps the drag ghost under the pointer when the interface scale zooms the page", async () => {
+    // The browser-hosted app sets the interface scale as CSS `zoom` on the
+    // root: rows and the pointer report zoomed client pixels, and the ghost
+    // renders every pixel length it is given multiplied by the zoom again.
+    const zoom = 1.25;
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function (this: HTMLElement) {
+      if (this.dataset.latticePointerDragPreview) {
+        const width = Number.parseFloat(this.style.width) * zoom;
+        const height = Number.parseFloat(this.style.height) * zoom;
+        return DOMRect.fromRect({ x: 0, y: 0, width, height });
+      }
+      if (this.dataset.itemPath === "main.tex") return DOMRect.fromRect({ x: 20, y: 100, width: 250, height: 40 });
+      return DOMRect.fromRect();
+    });
+    renderTree();
+    const main = await findTreeItem("main.tex");
+    const pointer = { pointerId: 1, pointerType: "mouse" };
+    fireEvent.pointerDown(main, { ...pointer, button: 0, clientX: 60, clientY: 120 });
+    fireEvent.pointerMove(main, { ...pointer, clientX: 60, clientY: 300 });
+
+    const preview = await waitFor(() => {
+      const ghost = treeRoot()?.querySelector<HTMLElement>('[data-lattice-pointer-drag-preview="true"]');
+      expect(ghost?.style.transform).toContain("translate3d");
+      return ghost!;
+    });
+    // Grabbed 40px right of and 20px below the row's corner, the ghost's
+    // corner must render at (60 - 40, 300 - 20) client pixels: 16px and 224px
+    // in the zoomed CSS pixels the transform is written in, not 20px and 280px.
+    expect(preview.style.transform).toBe("translate3d(16px, 224px, 0) scale(1)");
+    expect(preview.style.width).toBe("200px");
+    expect(preview.style.height).toBe("32px");
+    fireEvent.pointerUp(main, { ...pointer, clientX: 60, clientY: 300 });
+  });
+
   it("copies a project file with Command-C/V instead of reading an image", async () => {
     const { props } = renderTree();
     const main = await findTreeItem("main.tex");
