@@ -417,10 +417,6 @@ button.checklist-row:hover { background: var(--control-hover-surface); }
 .theme-swatch-custom::before { box-shadow: 0 0 0 1.5px var(--control-active); }
 .theme-swatch-custom .theme-swatch-check { color: var(--accent-contrast); }
 .theme-translucency .ui-segmented-tab { min-width: 52px; }
-@media (prefers-reduced-motion: reduce) {
-  .theme-swatch-fill, .theme-swatch::before { transition: none; }
-  .theme-swatch-check { animation: none; }
-}
 .settings-project-dictionary-row { align-items: flex-start; }
 .settings-project-dictionary { width: var(--settings-control-width); max-width: 100%; display: flex; flex-direction: column; gap: var(--space-4); }
 .settings-project-dictionary-form { width: 100%; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: var(--space-2); }
