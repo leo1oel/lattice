@@ -1,7 +1,7 @@
 /* Trellis workspace: Trellis's chrome drawn in Lattice's design
    language. Trellis rules are all :where(), so any selector here wins. */
 
-.workspace.trellis-workspace { display: flex; background: var(--surface-sidebar); padding: 0 var(--space-3) var(--space-3); }
+.workspace.trellis-workspace { display: flex; background: var(--surface-shell); padding: 0 var(--space-3) var(--space-3); }
 .workspace.trellis-workspace > .lattice-trellis { flex: 1 1 0; min-width: 0; min-height: 0; }
 
 /* Lattice positions selection toolbars, popovers and drawers with
@@ -42,6 +42,21 @@
 .lattice-trellis [data-trellis-part="surface"]:is([data-type="file"], [data-type="pdf"]) { background: var(--editor-bg); }
 .lattice-trellis [data-trellis-part="surface"]:is([data-type="project"], [data-type="papers"], [data-type="agent"]) { background: var(--surface-sidebar); }
 .lattice-trellis [data-trellis-part="surface"]:is([data-type="history"], [data-type="git"], [data-type="comments"], [data-type="overleaf"], [data-type="literature"], [data-type="todos"], [data-type="checklist"]) { background: var(--surface-input); }
+
+/* A translucent window (theme.css, `data-glass`) frosts Project and Papers:
+   one sheet of --surface-navigator from the tab strip down, painted once by
+   the panel, with everything inside it letting that sheet through, since a
+   second translucent layer would read as a darker band. The selected tab
+   keeps a quiet wash instead of the strip's contrast. Every other panel stays
+   on its opaque surface. */
+:root[data-glass] .lattice-trellis [data-trellis-part="panel"]:has([data-trellis-part="tab"][data-selected]:is([data-type="project"], [data-type="papers"])) {
+  --lattice-panel-surface: var(--surface-navigator);
+  --lattice-tabstrip: transparent;
+  --trellis-tab-active: var(--navigation-tree-selected-surface);
+}
+:root[data-glass] .lattice-trellis [data-trellis-part="surface"]:is([data-type="project"], [data-type="papers"]),
+:root[data-glass] .lattice-trellis :is(.trellis-navigator-host, .navigator) { background: transparent; }
+:root[data-glass] .lattice-trellis .lattice-file-tree { --trees-bg-override: transparent; }
 
 /* The focused panel carries a quiet ring; its selected tab, an accent underline. */
 .lattice-trellis [data-trellis-part="panel"][data-focused] { box-shadow: 0 0 0 1px color-mix(in srgb, var(--control-active) 28%, var(--border-subtle)); }

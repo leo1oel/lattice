@@ -32,6 +32,8 @@ import { fontLicenseUrl } from "virtual:lattice-private-fonts-license";
 import { DoctorSettings, type DoctorSettingsProps } from "./doctor-settings";
 import { SynaraSettingsPane } from "./synara-settings-pane";
 import { SelectRow, SliderRow } from "./settings-controls";
+import { ThemeSettingsGroup } from "./theme-settings";
+import type { WindowBacking } from "./use-appearance";
 import { SettingsSearch } from "./settings-search";
 import { settingsEntryKey, useSettingsSearchIndex, type SettingsSearchEntry } from "./settings-search-index";
 import { AnimatedProductIcon } from "../animated-icons/product-animated-icon";
@@ -66,6 +68,7 @@ type SettingsDialogProps = DoctorSettingsProps & {
   theme: Theme;
   themePreference: ThemePreference;
   setThemePreference: (preference: ThemePreference) => void;
+  windowBacking: WindowBacking;
   buildPreferences: BuildPreferences;
   setBuildPreferences: (preferences: BuildPreferences) => void;
   hasProject: boolean;
@@ -312,13 +315,6 @@ function AppearanceSettingsPane(props: SettingsDialogProps) {
           options={{ system: t`Match system`, en: t`English`, "zh-CN": t`Simplified Chinese` }}
           onChange={(interfaceLanguage) => patchAppearance(props, { interfaceLanguage })}
         />
-        <SelectRow
-          data-setting="color-theme"
-          label={t`Color theme`}
-          value={props.themePreference}
-          options={{ system: t`Match system`, light: t`Light`, dark: t`Dark` }}
-          onChange={props.setThemePreference}
-        />
         <SliderRow
           id="editor-font-size"
           data-setting="editor-font-size"
@@ -338,6 +334,7 @@ function AppearanceSettingsPane(props: SettingsDialogProps) {
           onChange={(interfaceSounds) => patchAppearance(props, { interfaceSounds })}
         />
       </SettingsGroup>
+      <ThemeSettingsGroup {...props} />
       <TitlebarToolsGroup {...props} />
     </div>
   );

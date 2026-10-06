@@ -39,9 +39,12 @@ export function useSettingsSearchIndex(hasProject: boolean, knownAuthorName: str
   return [
     { tab: "appearance", label: appearance, place: t`General` },
     { tab: "appearance", place: appearance, id: "interface-language", label: t`Interface language`, terms: `${t`English`} ${t`Simplified Chinese`}` },
-    { tab: "appearance", place: appearance, id: "color-theme", label: t`Color theme`, terms: `${t`Light`} ${t`Dark`}` },
     { tab: "appearance", place: appearance, id: "editor-font-size", label: t`Editor font size`, description: t`Source editor only` },
     { tab: "appearance", place: appearance, id: "interface-sounds", label: t`Interface sounds`, terms: t({ message: "sound", comment: "Search words for the Interface sounds setting, space-separated" }), description: t`When a build or Overleaf setup finishes` },
+    { tab: "appearance", place: appearance, id: "color-theme", label: t`Color theme`, terms: `${t`Theme`} ${t`Light`} ${t`Dark`}` },
+    { tab: "appearance", place: appearance, id: "theme-tint", label: t`Tint`, terms: `${t`Theme`} ${t`Graphite`} ${t({ message: "Paper", context: "theme tint" })} ${t`Sage`} ${t`Mist`} ${t`Dusk`}` },
+    { tab: "appearance", place: appearance, id: "theme-accent", label: t`Accent`, terms: `${t`Theme`} ${t({ message: "color", comment: "Search words for the Accent setting, space-separated" })} ${t`Custom`}` },
+    { tab: "appearance", place: appearance, id: "translucency", label: t`Translucency`, terms: t({ message: "frosted glass transparent vibrancy", comment: "Search words for the Translucency setting, space-separated" }), description: `${t`The desktop shows through the title bar and sidebars`} ${t`Off while Reduce transparency is on in System Settings`}` },
     { tab: "appearance", place: appearance, id: "titlebar-tools", label: t`Title bar tools` },
     { tab: "editor", label: editor, place: t`General` },
     { tab: "editor", place: editor, id: "editor-keymap", label: t`Editor keymap`, terms: `Vim Emacs ${t({ message: "shortcuts", comment: "Search words for the Editor keymap setting, space-separated" })}` },

@@ -87,7 +87,7 @@
 .status-todos:hover { color: var(--text-primary); }
 .checklist-drawer { width: min(420px, 100%); }
 /* One grouped list, divided by hairlines, rather than a stack of outlined
-   cards; a result's colour lives on its value alone. */
+   cards; a result's color lives on its value alone. */
 .checklist-rows {
   margin-bottom: var(--space-8);
   border: 1px solid var(--border-subtle);
@@ -117,7 +117,7 @@ button.checklist-row:hover { background: var(--control-hover-surface); }
 .checklist-row small { grid-column: 1 / -1; color: var(--text-tertiary); font-size: var(--type-nano-size); }
 .checklist-row.ok span { color: var(--status-success); }
 .checklist-row.warn span { color: var(--status-danger); }
-/* A quiet hairline gauge: the fill takes the row's result colour at reduced
+/* A quiet hairline gauge: the fill takes the row's result color at reduced
    strength, and an overshoot past the limit mark reads in full danger. */
 .checklist-row .checklist-meter {
   --meter-tone: var(--text-tertiary);
@@ -181,7 +181,7 @@ button.checklist-row:hover { background: var(--control-hover-surface); }
   font-weight: 650;
 }
 
-.welcome-screen { width: 100%; height: 100%; background: var(--surface-app); position: relative; overflow: hidden; }
+.welcome-screen { width: 100%; height: 100%; background: var(--surface-backdrop); position: relative; overflow: hidden; }
 .welcome-titlebar { position: absolute; z-index: 3; top: 0; left: 0; right: 0; height: 48px; display: flex; justify-content: flex-end; align-items: center; padding: 0 14px; }
 .welcome-glow { position: absolute; width: 680px; height: 680px; left: 50%; top: 46%; transform: translate(-50%, -50%); border-radius: 50%; background: radial-gradient(circle, color-mix(in srgb, var(--control-active) 14%, transparent), transparent 67%); filter: blur(20px); }
 .welcome-content { position: relative; z-index: 1; width: min(620px, calc(100% - 48px)); height: 100%; margin: auto; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding-bottom: var(--space-10); }
@@ -394,6 +394,33 @@ button.checklist-row:hover { background: var(--control-hover-surface); }
 .settings-row-slider { width: var(--settings-row-control-min-width); display: flex; align-items: center; gap: var(--space-5); }
 .settings-row-slider input[type="range"] { min-width: 0; flex: 1; accent-color: var(--control-active); }
 .settings-row-slider output { flex: none; min-width: 34px; color: var(--text-tertiary); font-size: var(--type-caption-size); font-variant-numeric: tabular-nums; text-align: right; }
+/* Theme swatches (settings/theme-settings.tsx). Each swatch carries its own
+   data-tint or data-accent, so theme.css resolves that preset on the swatch
+   itself: the fill is the preset's real color in the current light or dark. */
+.theme-swatches { display: flex; align-items: center; gap: var(--space-1); }
+.theme-swatch { position: relative; width: var(--control-size-icon-compact); height: var(--control-size-icon-compact); flex: none; padding: 0; border-radius: var(--radius-pill); background: transparent; color: var(--text); display: grid; place-items: center; cursor: pointer; }
+.theme-swatch > * { grid-area: 1 / 1; }
+.theme-swatch-fill { width: 18px; height: 18px; border-radius: var(--radius-pill); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--text) 16%, transparent); transition: scale var(--duration-quick) var(--ease-emphasized); }
+.theme-swatch:hover .theme-swatch-fill { scale: 1.1; }
+.theme-swatch:active .theme-swatch-fill { scale: 0.94; }
+.theme-swatch::before { content: ""; position: absolute; inset: 1px; border-radius: inherit; box-shadow: 0 0 0 1.5px var(--text-tertiary); opacity: 0; scale: 0.8; transition: opacity var(--duration-quick) var(--ease-out), scale var(--duration-base) var(--ease-emphasized); }
+.theme-swatch:is([aria-checked="true"], [aria-pressed="true"])::before { opacity: 1; scale: 1; }
+.theme-swatch[data-accent]::before { box-shadow: 0 0 0 1.5px var(--accent); }
+.theme-swatch-check { position: relative; pointer-events: none; animation: theme-swatch-check var(--duration-base) var(--ease-entrance); }
+@keyframes theme-swatch-check { from { opacity: 0; scale: 0.4; } }
+/* A tint's swatch is its chrome surface around the hue that names it. */
+.theme-tint-fill { background: radial-gradient(circle, var(--tint-mark) 0 38%, var(--chrome-surface) 40%); }
+.theme-accent-fill { background: var(--accent); }
+.theme-swatch[data-accent] .theme-swatch-check { color: var(--accent-contrast); }
+.theme-custom-fill { background: conic-gradient(in oklch longer hue, oklch(0.68 0.17 30), oklch(0.68 0.17 30)); }
+.theme-swatch-custom { margin-inline-start: var(--space-2); }
+.theme-swatch-custom::before { box-shadow: 0 0 0 1.5px var(--control-active); }
+.theme-swatch-custom .theme-swatch-check { color: var(--accent-contrast); }
+.theme-translucency .ui-segmented-tab { min-width: 52px; }
+@media (prefers-reduced-motion: reduce) {
+  .theme-swatch-fill, .theme-swatch::before { transition: none; }
+  .theme-swatch-check { animation: none; }
+}
 .settings-project-dictionary-row { align-items: flex-start; }
 .settings-project-dictionary { width: var(--settings-control-width); max-width: 100%; display: flex; flex-direction: column; gap: var(--space-4); }
 .settings-project-dictionary-form { width: 100%; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: var(--space-2); }

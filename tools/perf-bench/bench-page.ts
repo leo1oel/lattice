@@ -19,6 +19,9 @@ import type { FileNode, ProjectSnapshot } from "../../src/app-types";
 import {
   APPEARANCE_KEY, BUILD_PREFERENCES_KEY, THEME_PREFERENCE_KEY, TUTORIAL_SEEN_KEY, type InterfaceLanguage, type ThemePreference,
 } from "../../src/settings/app-settings";
+import {
+  THEME_TINTS, normalizeAccent, type ThemeTint, type Translucency,
+} from "../../src/settings/theme-customization";
 
 type Callback = (payload: unknown) => void;
 type Args = Record<string, unknown> | undefined;
@@ -235,7 +238,9 @@ function searchProject(query: string) {
 function answer(command: string, args: Args): unknown {
   counts.set(command, (counts.get(command) ?? 0) + 1);
   switch (command) {
+    // `?welcome=1` starts on the welcome screen, as a launch with no project does.
     case "initial_project":
+      return params.has("welcome") ? null : snapshot();
     case "open_project":
     case "refresh_project":
     case "list_project_tree_with_hidden":
@@ -290,6 +295,8 @@ function answer(command: string, args: Args): unknown {
         width: Math.round(window.innerWidth * window.devicePixelRatio),
         height: Math.round(window.innerHeight * window.devicePixelRatio),
       };
+    case "set_window_material":
+      return glass ? ((args?.material as { translucent?: boolean } | undefined)?.translucent ? "translucent" : "opaque") : "unsupported";
     case "plugin:window|is_focused":
       return document.hasFocus();
     case "plugin:window|is_fullscreen":
@@ -398,6 +405,29 @@ function choiceParam<T extends string>(name: string, allowed: readonly T[]): T |
 // controls by their English names whatever the machine's locale.
 const theme = choiceParam<ThemePreference>("theme", ["system", "light", "dark"]);
 const lang = choiceParam<InterfaceLanguage>("lang", ["en", "zh-CN", "system"]);
+// `?tint=`, `?accent=` (a preset or a hex colour without its #) and
+// `?glass=subtle|strong` show the theme choices in Settings → Appearance. A
+// browser has no vibrancy, so `?glass=` also answers set_window_material as a
+// translucent macOS window would and paints a stand-in desktop behind the
+// page: a wallpaper under a frosted wash, roughly what the under-window
+// material looks like. Without it the page shows the opaque fallback a
+// browser-hosted Lattice really gets.
+const tint = choiceParam<ThemeTint>("tint", THEME_TINTS);
+const accentParam = params.get("accent");
+const accent = accentParam ? normalizeAccent(/^[0-9a-f]{6}$/i.test(accentParam) ? `#${accentParam}` : accentParam) : undefined;
+const glass = choiceParam<Translucency>("glass", ["subtle", "strong"]);
+const themeChoices = { ...(tint && { tint }), ...(accent && { accent }), ...(glass && { translucency: glass }) };
+if (glass) {
+  const style = document.head.appendChild(document.createElement("style"));
+  style.textContent = `
+    .bench-desktop { position: fixed; inset: 0; z-index: -1; overflow: hidden; }
+    .bench-desktop::before { content: ""; position: absolute; inset: -120px; filter: blur(56px) saturate(1.5);
+      background: radial-gradient(40% 50% at 18% 30%, #ff7a59, transparent), radial-gradient(45% 55% at 70% 20%, #6d5dfc, transparent),
+        radial-gradient(50% 50% at 80% 85%, #00b3a4, transparent), radial-gradient(40% 40% at 25% 85%, #ffc94d, transparent), #3b4b7a; }
+    .bench-desktop::after { content: ""; position: absolute; inset: 0; background: rgb(244 244 246 / 0.64); }
+    :root[data-theme="dark"] .bench-desktop::after { background: rgb(30 30 32 / 0.68); }`;
+  document.body.prepend(Object.assign(document.createElement("div"), { className: "bench-desktop" }));
+}
 
 // A first run lands on the onboarding tour and would auto-build; the bench
 // measures a returning writer with manual builds instead.
@@ -405,9 +435,10 @@ if (!params.has("keepStorage")) {
   localStorage.clear();
   localStorage.setItem(TUTORIAL_SEEN_KEY, "1");
   localStorage.setItem(BUILD_PREFERENCES_KEY, JSON.stringify({ autoBuildMode: "manual" }));
-  localStorage.setItem(APPEARANCE_KEY, JSON.stringify({ interfaceLanguage: lang ?? "en" }));
+  localStorage.setItem(APPEARANCE_KEY, JSON.stringify({ interfaceLanguage: lang ?? "en", ...themeChoices }));
 } else if (lang) {
-  // Over kept storage, change the language and keep the rest of the appearance.
+  // Over kept storage, change the language (and any theme choice above) and
+  // keep the rest of the appearance.
   let stored: unknown = null;
   try {
     stored = JSON.parse(localStorage.getItem(APPEARANCE_KEY) ?? "null");
@@ -415,7 +446,7 @@ if (!params.has("keepStorage")) {
     // A corrupt entry is replaced, as the app itself would treat it as absent.
   }
   const appearance = stored && typeof stored === "object" ? stored : {};
-  localStorage.setItem(APPEARANCE_KEY, JSON.stringify({ ...appearance, interfaceLanguage: lang }));
+  localStorage.setItem(APPEARANCE_KEY, JSON.stringify({ ...appearance, interfaceLanguage: lang, ...themeChoices }));
 }
 // Stored raw, not as JSON (loadThemePreference).
 if (theme) localStorage.setItem(THEME_PREFERENCE_KEY, theme);

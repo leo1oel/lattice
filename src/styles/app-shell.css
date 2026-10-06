@@ -1,5 +1,5 @@
 * { box-sizing: border-box; }
-html, body, #root { width: 100%; height: 100%; margin: 0; overflow: hidden; background: var(--surface-app); }
+html, body, #root { width: 100%; height: 100%; margin: 0; overflow: hidden; background: var(--surface-window); }
 button, input, textarea, select { font: inherit; color: inherit; }
 button { border: 0; cursor: pointer; transition: background-color var(--duration-base) var(--ease-default), border-color var(--duration-base) var(--ease-default), color var(--duration-base) var(--ease-default); }
 button:disabled { cursor: default; opacity: 0.45; }
@@ -57,8 +57,8 @@ input[type="search"]:focus-visible {
   outline-offset: var(--focus-ring-offset);
 }
 
-.app-shell { height: 100%; background: var(--surface-app); display: flex; flex-direction: column; }
-.titlebar { container: titlebar / inline-size; position: relative; z-index: var(--z-chrome); height: var(--titlebar-height); flex: none; display: flex; align-items: center; background: var(--surface-sidebar); user-select: none; }
+.app-shell { height: 100%; background: var(--surface-window); display: flex; flex-direction: column; }
+.titlebar { container: titlebar / inline-size; position: relative; z-index: var(--z-chrome); height: var(--titlebar-height); flex: none; display: flex; align-items: center; background: var(--surface-shell); user-select: none; }
 .titlebar-sidebar { width: var(--titlebar-sidebar-width); min-width: 0; height: 100%; flex: none; display: flex; align-items: center; }
 .titlebar-navigator { width: var(--titlebar-navigator-width); height: 100%; flex: none; display: flex; align-items: center; padding-right: var(--titlebar-leading-gap); }
 .traffic-space { width: var(--titlebar-traffic-space-width); height: 100%; flex: none; }
@@ -84,7 +84,7 @@ input[type="search"]:focus-visible {
    browser tab's missing traffic lights are already accounted for. */
 @container titlebar (max-width: 800px) { .project-title { max-width: var(--titlebar-project-title-max-width-compact); } }
 .titlebar-drag-area { width: var(--titlebar-trailing-gap); height: 100%; flex: none; }
-.titlebar-main { min-width: 0; height: 100%; flex: 1; background: var(--surface-sidebar); display: flex; align-items: center; overflow: hidden; }
+.titlebar-main { min-width: 0; height: 100%; flex: 1; background: transparent; display: flex; align-items: center; overflow: hidden; }
 .titlebar-main > .canvas-toolbar { min-width: max-content; width: auto; height: 100%; flex: none; padding: 0 var(--space-3); border: 0; background: transparent; display: flex; align-items: center; gap: var(--space-4); overflow: visible; container-type: normal; container-name: none; }
 .titlebar-main > .canvas-toolbar .active-document { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
 .titlebar-main > .canvas-toolbar .canvas-actions { min-width: max-content; width: max-content; flex: none; overflow: visible; }

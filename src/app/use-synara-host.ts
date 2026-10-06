@@ -8,6 +8,7 @@ import type { BuildAgentCommentsOptions } from "../agent/agent-editor-comments";
 import {
   LATTICE_HOST_CONTEXT, LATTICE_HOST_CONTEXT_REQUEST, LATTICE_HOST_CONTEXT_SELECTION_CLEAR, type AgentHostContextSnapshot,
 } from "../agent/agent-host-context";
+import { LATTICE_HOST_THEME_REQUEST, readAgentHostTheme, type AgentHostThemeSnapshot } from "../agent/agent-host-theme";
 import { LATTICE_PAPER_LIBRARY_REQUEST, type AgentPaperLibrarySnapshot } from "../agent/agent-paper-library";
 import {
   executeAgentProjectDocumentToolRequest, parseAgentProjectDocumentToolRequest, type AgentProjectDocumentToolRequest,
@@ -82,11 +83,13 @@ const stringField = (value: unknown) => (typeof value === "string" ? value.trim(
  * source control), the host context and paper library it reads, and the
  * message protocol it speaks with the host.
  */
-export function useSynaraHost({ project, projectRef, agentVisible, bridge }: {
+export function useSynaraHost({ project, projectRef, agentVisible, bridge, appearance }: {
   project: ProjectSnapshot | null;
   projectRef: { readonly current: ProjectSnapshot | null };
   agentVisible: boolean;
   bridge: SynaraHostBridge;
+  /** What the agent's host-theme snapshot is read from (agent-host-theme.ts). */
+  appearance: Parameters<typeof readAgentHostTheme>[0];
 }) {
   // One-way by design. A hidden Synara surface may still own a background turn
   // or PTY, so the first request starts the service for the rest of this app
@@ -114,6 +117,7 @@ export function useSynaraHost({ project, projectRef, agentVisible, bridge }: {
     frameKey,
     hostContext: null as AgentHostContextSnapshot | null,
     paperLibrary: null as AgentPaperLibrarySnapshot | null,
+    hostTheme: null as AgentHostThemeSnapshot | null,
   });
   useLayoutEffect(() => {
     Object.assign(latest.current, { bridge, agentVisible, frameKey });
@@ -197,6 +201,7 @@ export function useSynaraHost({ project, projectRef, agentVisible, bridge }: {
         post({ type: LATTICE_AGENT_PERMISSION_MODE_REQUEST });
         if (host.hostContext) post(host.hostContext);
         if (host.paperLibrary) post(host.paperLibrary);
+        if (host.hostTheme) post(host.hostTheme);
         if (host.agentVisible) post({ type: LATTICE_AGENT_PANEL_OPENED });
       },
       "synara:open-settings": (data, host) => {
@@ -241,6 +246,9 @@ export function useSynaraHost({ project, projectRef, agentVisible, bridge }: {
       },
       [LATTICE_PAPER_LIBRARY_REQUEST]: (_data, host) => {
         if (host.paperLibrary) post(host.paperLibrary);
+      },
+      [LATTICE_HOST_THEME_REQUEST]: (_data, host) => {
+        if (host.hostTheme) post(host.hostTheme);
       },
       [LATTICE_HOST_CONTEXT_SELECTION_CLEAR]: (_data, host) => host.bridge.clearSelection(),
       "synara:editor-comments-tool-request": (data, host) => {
@@ -297,6 +305,17 @@ export function useSynaraHost({ project, projectRef, agentVisible, bridge }: {
     window.addEventListener("message", receive);
     return () => window.removeEventListener("message", receive);
   }, [origin, postMessage, projectRef, projectRootRef]);
+
+  // The theme travels over the bridge rather than the frame URL, so a tint or
+  // an accent dragged in the color picker repaints the agent without
+  // reloading it. A frame that reloads (light/dark is still in its URL) gets
+  // the snapshot again from its own embed-ready.
+  const { theme, tint, accent, translucency, translucent } = appearance;
+  useEffect(() => {
+    const snapshot = readAgentHostTheme({ theme, tint, accent, translucency, translucent });
+    latest.current.hostTheme = snapshot;
+    if (frameReady) void postMessage(snapshot);
+  }, [theme, tint, accent, translucency, translucent, frameReady, postMessage]);
 
   const requestRuntime = useCallback(() => setRuntimeRequested(true), []);
   return {

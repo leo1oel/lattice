@@ -16,7 +16,6 @@ static PDF_COPY_TEXT: LazyLock<Mutex<HashMap<String, String>>> =
 static FOCUSED_WINDOW_LABEL: Mutex<Option<String>> = Mutex::new(None);
 
 const LIGHT_WINDOW_BACKGROUND: (f64, f64, f64) = (247.0, 247.0, 246.0);
-const DARK_WINDOW_BACKGROUND: (f64, f64, f64) = (23.0, 23.0, 24.0);
 /// The center AppKit itself gives the buttons in a unified-compact titlebar,
 /// which is exactly as tall as the web titlebar (`--titlebar-height: 40px`).
 const DEFAULT_TRAFFIC_LIGHT_CENTER_FROM_TOP: f64 = 20.0;
@@ -476,18 +475,125 @@ unsafe fn align_traffic_light_buttons(window: &NSWindow) -> Option<f64> {
     Some(zoom_in_window.origin.x + zoom_in_window.size.width)
 }
 
-/// Match the native NSWindow backing surface to the web app. WKWebView can
-/// briefly expose that surface while AppKit performs a live resize; leaving it
-/// at the system default produces white strips along the growing edges.
-pub fn apply_window_background(window: &tauri::WebviewWindow, dark: bool) {
-    let (red, green, blue) = if dark { DARK_WINDOW_BACKGROUND } else { LIGHT_WINDOW_BACKGROUND };
-    let color = move || {
-        NSColor::colorWithSRGBRed_green_blue_alpha(red / 255.0, green / 255.0, blue / 255.0, 1.0)
+/// The window's light or dark appearance, when the web app pins one.
+#[derive(Clone, Copy, serde::Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum WindowAppearance {
+    Light,
+    Dark,
+}
+
+/// What the web app asks of the native window (`set_window_material`).
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WindowMaterial {
+    /// `None` follows the system. Pinning an appearance also changes what
+    /// the page's `prefers-color-scheme` reports, so a page that follows the
+    /// system must leave it unpinned or it would only ever hear itself.
+    pub appearance: Option<WindowAppearance>,
+    /// The opaque `#rrggbb` the page paints behind everything.
+    pub background: String,
+    /// Put macOS vibrancy behind the page instead of that color.
+    pub translucent: bool,
+}
+
+impl WindowMaterial {
+    /// Before the page has said anything: the system appearance over
+    /// vibrancy, which is the default, and the light theme's background.
+    pub fn at_launch() -> Self {
+        let (red, green, blue) = LIGHT_WINDOW_BACKGROUND;
+        Self {
+            appearance: None,
+            background: rgb_hex(red / 255.0, green / 255.0, blue / 255.0),
+            translucent: true,
+        }
+    }
+
+    fn background_rgb(&self) -> (f64, f64, f64) {
+        let hex = self.background.strip_prefix('#').filter(|hex| hex.len() == 6);
+        let channel = |at: usize| {
+            hex.and_then(|hex| u8::from_str_radix(&hex[at..at + 2], 16).ok()).map(f64::from)
+        };
+        match (channel(0), channel(2), channel(4)) {
+            (Some(red), Some(green), Some(blue)) => (red, green, blue),
+            _ => LIGHT_WINDOW_BACKGROUND,
+        }
+    }
+}
+
+thread_local! {
+    /// Each workspace window's vibrancy layer, made the first time it turns
+    /// translucent and then only shown or hidden. AppKit objects live on the
+    /// main thread, which is the only thread that touches this.
+    static MATERIAL_VIEWS: std::cell::RefCell<HashMap<String, objc2::rc::Retained<objc2_app_kit::NSVisualEffectView>>> =
+        std::cell::RefCell::new(HashMap::new());
+}
+
+/// What the window's backing turned out to be.
+#[derive(Clone, Copy, PartialEq, Eq, Debug, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum WindowBacking {
+    Translucent,
+    Opaque,
+    /// Translucency was asked for, but the user has Reduce transparency on.
+    ReducedTransparency,
+}
+
+/// Set the window's appearance and backing: the vibrancy Synara's desktop
+/// app uses (the under-window material, following the window's active state
+/// so a background window stops recompositing) or an opaque color matching
+/// the page. The page only clears its own background when the answer is
+/// `Translucent`.
+///
+/// The color also covers live resize. WKWebView can briefly expose the
+/// NSWindow surface while AppKit resizes faster than WebKit paints; left at
+/// the system default, that showed white strips along the growing edges.
+pub fn apply_window_material(
+    window: &tauri::WebviewWindow, material: &WindowMaterial,
+) -> WindowBacking {
+    use objc2_app_kit::NSWorkspace;
+
+    let backing = if !material.translucent {
+        WindowBacking::Opaque
+    } else if NSWorkspace::sharedWorkspace().accessibilityDisplayShouldReduceTransparency() {
+        WindowBacking::ReducedTransparency
+    } else {
+        WindowBacking::Translucent
     };
+    let translucent = backing == WindowBacking::Translucent;
+    let (red, green, blue) = material.background_rgb();
+    let color = move || {
+        if translucent {
+            NSColor::clearColor()
+        } else {
+            NSColor::colorWithSRGBRed_green_blue_alpha(
+                red / 255.0,
+                green / 255.0,
+                blue / 255.0,
+                1.0,
+            )
+        }
+    };
+    let appearance = material.appearance;
+    let label = window.label().to_owned();
 
     if let Some(address) = ns_window_address(window) {
         let _ = window.run_on_main_thread(move || unsafe {
+            use objc2_app_kit::{
+                NSAppearance, NSAppearanceCustomization, NSAppearanceNameAqua,
+                NSAppearanceNameDarkAqua,
+            };
+
             let ns_window = &*(address as *const NSWindow);
+            let named = appearance.and_then(|appearance| {
+                NSAppearance::appearanceNamed(match appearance {
+                    WindowAppearance::Light => NSAppearanceNameAqua,
+                    WindowAppearance::Dark => NSAppearanceNameDarkAqua,
+                })
+            });
+            ns_window.setAppearance(named.as_deref());
+            show_material_view(ns_window, &label, translucent);
+            ns_window.setOpaque(!translucent);
             ns_window.setBackgroundColor(Some(&color()));
             // Let AppKit preserve the last complete frame while the window
             // server is resizing faster than WebKit can present new tiles.
@@ -497,11 +603,12 @@ pub fn apply_window_background(window: &tauri::WebviewWindow, dark: bool) {
 
     // NSWindow is only the outer backing surface. During a fast live resize,
     // WKWebView may expose its own under-page surface before WebKit paints the
-    // newly allocated pixels, so color that layer as well. Keep the most recent
-    // complete WebKit layer scaled to the current bounds between presentations:
-    // unlike holding one WindowServer snapshot for the whole mouse gesture,
-    // Core Animation can update continuously without exposing tiled backing
-    // regions or freezing the page until mouse-up.
+    // newly allocated pixels, so color that layer as well (clear over
+    // vibrancy). Keep the most recent complete WebKit layer scaled to the
+    // current bounds between presentations: unlike holding one WindowServer
+    // snapshot for the whole mouse gesture, Core Animation can update
+    // continuously without exposing tiled backing regions or freezing the page
+    // until mouse-up.
     let _ = window.with_webview(move |webview| unsafe {
         use objc2::sel;
         use objc2_app_kit::{NSViewLayerContentsPlacement, NSViewLayerContentsRedrawPolicy};
@@ -515,6 +622,44 @@ pub fn apply_window_background(window: &tauri::WebviewWindow, dark: bool) {
             view.setUnderPageBackgroundColor(Some(&color()));
         }
     });
+    backing
+}
+
+/// Show or hide the window's vibrancy layer, adding it below the web view
+/// the first time it is shown.
+fn show_material_view(ns_window: &NSWindow, label: &str, shown: bool) {
+    use objc2::MainThreadMarker;
+    use objc2_app_kit::{
+        NSAutoresizingMaskOptions, NSVisualEffectBlendingMode, NSVisualEffectMaterial,
+        NSVisualEffectState, NSVisualEffectView, NSWindowOrderingMode,
+    };
+
+    let Some(mtm) = MainThreadMarker::new() else { return };
+    MATERIAL_VIEWS.with_borrow_mut(|views| {
+        if let Some(view) = views.get(label) {
+            view.setHidden(!shown);
+            return;
+        }
+        if !shown {
+            return;
+        }
+        let Some(content) = ns_window.contentView() else { return };
+        let view = NSVisualEffectView::initWithFrame(mtm.alloc(), content.bounds());
+        view.setMaterial(NSVisualEffectMaterial::UnderWindowBackground);
+        view.setBlendingMode(NSVisualEffectBlendingMode::BehindWindow);
+        view.setState(NSVisualEffectState::FollowsWindowActiveState);
+        view.setAutoresizingMask(
+            NSAutoresizingMaskOptions::ViewWidthSizable
+                | NSAutoresizingMaskOptions::ViewHeightSizable,
+        );
+        content.addSubview_positioned_relativeTo(&view, NSWindowOrderingMode::Below, None);
+        views.insert(label.to_owned(), view);
+    });
+}
+
+/// Release a closed window's vibrancy layer.
+pub fn forget_window_material(window_label: &str) {
+    MATERIAL_VIEWS.with_borrow_mut(|views| views.remove(window_label));
 }
 
 /// The WebKit feature that holds page rendering updates (requestAnimationFrame,
@@ -653,7 +798,6 @@ mod tests {
             super::rgb_hex(red / 255.0, green / 255.0, blue / 255.0)
         };
         assert_eq!(hex(super::LIGHT_WINDOW_BACKGROUND), "#F7F7F6");
-        assert_eq!(hex(super::DARK_WINDOW_BACKGROUND), "#171718");
         assert_eq!(super::rgb_hex(1.0, 0.5, 0.0), "#FF8000");
         assert_eq!(super::rgb_hex(-0.2, 1.4, 1.0 / 255.0), "#00FF01");
     }
