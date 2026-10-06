@@ -88,6 +88,20 @@ function createDragPreview(
   } catch {
     // A disconnected or unsupported popover can still serve as a local ghost.
   }
+  // The browser-hosted app applies the interface scale as CSS `zoom` on the
+  // root element, and the ghost inherits it: every pixel length set below
+  // renders multiplied by that zoom, while the pointer and row coordinates it
+  // is placed from are already zoomed client pixels. Left alone, the ghost
+  // drifts rows away from the pointer (and the drop target, which is
+  // hit-tested under the pointer), further the lower and further right the
+  // pointer is. Measure the rendered scale once and divide it out. WKWebView's
+  // page zoom keeps client pixels and CSS pixels equal, so it measures 1.
+  const renderedScale = preview.getBoundingClientRect().width / rect.width;
+  const scale = Number.isFinite(renderedScale) && renderedScale > 0 ? renderedScale : 1;
+  if (scale !== 1) {
+    preview.style.width = `${rect.width / scale}px`;
+    preview.style.height = `${rect.height / scale}px`;
+  }
   let frame: number | null = null;
   let point = { x: startX, y: startY };
   return {
@@ -96,7 +110,9 @@ function createDragPreview(
       if (frame != null) return;
       frame = window.requestAnimationFrame(() => {
         frame = null;
-        const nextTransform = `translate3d(${point.x - offsetX}px, ${point.y - offsetY}px, 0) scale(1)`;
+        const left = (point.x - offsetX) / scale;
+        const top = (point.y - offsetY) / scale;
+        const nextTransform = `translate3d(${left}px, ${top}px, 0) scale(1)`;
         preview.style.transform = nextTransform;
         preview.style.opacity = "0.76";
       });
