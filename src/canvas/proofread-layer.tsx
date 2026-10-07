@@ -17,16 +17,7 @@ type ProofreadSession = {
   state: ProofreadCardState;
 };
 
-/**
- * Proofreading the source editor's selection through the embedded agent. The
- * card opens under the selection while the agent works, shows its suggestion
- * as a diff, and accepting replaces the span it was asked about in one
- * undoable edit. One proofread at a time; a new one replaces it.
- *
- * Memoized and outside the canvas's own hooks: its props change only with
- * the file or project, so the canvas's frequent renders skip it.
- */
-export const ProofreadLayer = memo(function ProofreadLayer(options: {
+type ProofreadLayerProps = {
   bridge: ProofreadBridge;
   projectRoot: string;
   activeFile: string;
@@ -34,9 +25,44 @@ export const ProofreadLayer = memo(function ProofreadLayer(options: {
   editorKey: string;
   editable: boolean;
   viewRef: RefObject<EditorView | null>;
-}) {
+};
+
+/**
+ * Proofreading the source editor's selection through the embedded agent.
+ *
+ * Mounted with the canvas but memoized, and only a shell until the first
+ * request: the canvas renders often during startup, and the session's state
+ * and callbacks would run on each of those renders for a feature most
+ * sessions never open.
+ */
+export const ProofreadLayer = memo(function ProofreadLayer(props: ProofreadLayerProps) {
+  const [active, setActive] = useState(false);
+  const pendingRef = useRef<EditorView | null>(null);
+  const { bridge, editable, projectRoot } = props;
+  useLayoutEffect(() => {
+    if (active) return;
+    return bridge.connect({
+      request: (view) => {
+        if (!editable || !projectRoot || view.state.selection.main.empty) return false;
+        pendingRef.current = view;
+        setActive(true);
+        return true;
+      },
+      accept: () => false,
+      dismiss: () => false,
+    });
+  }, [active, bridge, editable, projectRoot]);
+  return active ? <ProofreadSession {...props} pendingRef={pendingRef} /> : null;
+});
+
+/**
+ * The card opens under the selection while the agent works, shows its
+ * suggestion as a diff, and accepting replaces the span it was asked about in
+ * one undoable edit. One proofread at a time; a new one replaces it.
+ */
+function ProofreadSession(options: ProofreadLayerProps & { pendingRef: RefObject<EditorView | null> }) {
   const { t } = useLingui();
-  const { bridge, viewRef } = options;
+  const { bridge, pendingRef, viewRef } = options;
   const [session, setSession] = useState<ProofreadSession | null>(null);
   const sessionRef = useLatestRef(session);
   const optionsRef = useLatestRef(options);
@@ -159,6 +185,12 @@ export const ProofreadLayer = memo(function ProofreadLayer(options: {
   useEffect(() => close, [close, options.activeFile, options.editorKey, options.projectRoot]);
 
   useLayoutEffect(() => bridge.connect({ request: start, accept, dismiss }), [accept, bridge, dismiss, start]);
+  // The request that mounted this session.
+  useLayoutEffect(() => {
+    const view = pendingRef.current;
+    pendingRef.current = null;
+    if (view) start(view);
+  }, [pendingRef, start]);
 
   return session && session.path === options.activeFile ? createPortal(
     <ProofreadCard
@@ -172,4 +204,4 @@ export const ProofreadLayer = memo(function ProofreadLayer(options: {
     />,
     session.host,
   ) : null;
-});
+}
