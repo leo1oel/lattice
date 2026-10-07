@@ -670,5 +670,5 @@ label.ui-checkbox-field[data-slot="checkbox-field"] {
   font-family: var(--ui-font);
   font-size: var(--type-caption-size);
   font-weight: var(--weight-medium);
-  line-height: 1;
+  line-height: var(--type-caption-line-height);
 }

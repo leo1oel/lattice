@@ -491,11 +491,11 @@ button.checklist-row:hover { background: var(--control-hover-surface); }
 .shortcut-sheet-scroll { min-height: 0; flex: 1; margin-inline: calc(-1 * var(--drawer-content-inset)); }
 .shortcut-sheet-groups { padding: 0 var(--drawer-content-inset) var(--space-8); columns: 2 280px; column-gap: var(--space-16); }
 .shortcut-group { padding-bottom: var(--space-10); break-inside: avoid; }
-.shortcut-group-title { margin: 0 0 var(--space-2); color: var(--text-tertiary); font-size: var(--type-micro-size); font-weight: var(--weight-semibold); line-height: 20px; }
+.shortcut-group-title { margin: 0 0 var(--space-2); padding-block: var(--space-1); color: var(--text-tertiary); font-size: var(--type-micro-size); line-height: var(--type-micro-line-height); font-weight: var(--weight-semibold); }
 .shortcut-rows { margin: 0; }
 .shortcut-row { min-height: var(--control-height-compact); display: flex; align-items: center; justify-content: space-between; gap: var(--space-6); }
 .shortcut-row + .shortcut-row { border-top: 1px solid var(--border-subtle); }
-.shortcut-row > dt { min-width: 0; color: var(--text-primary); font-size: var(--type-label-size); line-height: var(--type-label-line-height); }
+.shortcut-row > dt { min-width: 0; color: var(--text-primary); font-size: var(--type-body-size); line-height: var(--type-body-line-height); }
 .shortcut-row > dd { margin: 0; flex: none; }
 .shortcut-combos { display: inline-flex; align-items: center; gap: var(--space-2); }
-.shortcut-combo-separator { color: var(--text-tertiary); font-size: var(--type-caption-size); }
+.shortcut-combo-separator { color: var(--text-tertiary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); }
