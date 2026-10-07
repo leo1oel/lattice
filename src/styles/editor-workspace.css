@@ -257,11 +257,48 @@ body:has(.modal-backdrop, .drawer-backdrop) :is(.latex-selection-toolbar-anchor,
   animation: proofread-card-in var(--duration-base) var(--ease-entrance);
 }
 @keyframes proofread-card-in { from { opacity: 0; translate: 0 -4px; } }
-.proofread-card-header { display: flex; align-items: center; gap: var(--space-3); color: var(--text-secondary); }
-.proofread-card-title { color: var(--text-primary); font-weight: 600; }
+.proofread-card-header { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); color: var(--text-secondary); }
 .proofread-card-summary { margin-inline-start: auto; color: var(--text-tertiary); font-size: var(--type-caption-size); }
+.proofread-card-model::before { content: "·"; margin-inline: var(--space-2); }
 .proofread-card-note { margin: 0; display: flex; align-items: center; gap: var(--space-3); color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); }
 .proofread-card-diff { overflow: hidden; border: 1px solid var(--border-subtle); border-radius: var(--radius-control); }
+.proofread-card-diff-empty { padding: var(--space-3) var(--space-4); }
+/* One row per offered edit: the change in a few words of its context, then
+   reject and accept. A rejected row fades; a held-back one cannot be chosen. */
+.proofread-card-edits { margin: 0; padding: 0; list-style: none; display: grid; gap: var(--space-1); }
+.proofread-edit {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: var(--control-height-compact);
+  padding: var(--space-1) var(--space-1) var(--space-1) var(--space-3);
+  border-radius: var(--radius-control);
+  transition: opacity var(--duration-quick) var(--ease-default), background-color var(--duration-quick) var(--ease-default);
+}
+.proofread-edit:hover { background: var(--control-hover-surface); }
+.proofread-edit[data-accepted="false"] { opacity: 0.5; }
+.proofread-edit[data-held] { padding-inline-end: var(--space-3); }
+.proofread-edit-preview {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: var(--text-secondary);
+  font-family: var(--editor-font);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line-height);
+}
+.proofread-edit-preview del,
+.proofread-edit-preview ins { border-radius: 2px; padding-inline: 1px; text-decoration: none; }
+.proofread-edit-preview del { background: color-mix(in srgb, var(--danger) 16%, transparent); color: var(--text-primary); text-decoration: line-through; text-decoration-color: color-mix(in srgb, var(--danger) 70%, transparent); }
+.proofread-edit-preview ins { background: color-mix(in srgb, var(--success) 18%, transparent); color: var(--text-primary); }
+.proofread-edit-preview del + ins { margin-inline-start: var(--space-1); }
+.proofread-edit[data-accepted="false"] .proofread-edit-preview ins { text-decoration: line-through; }
+.proofread-edit-choice { display: flex; gap: var(--space-1); }
+.proofread-edit-choice .ui-icon-button[aria-pressed="true"] { background: var(--control-active-soft); color: var(--control-active); }
+.proofread-edit-lock { flex: none; color: var(--text-tertiary); }
+.proofread-card-held { display: grid; gap: var(--space-2); }
+.proofread-card-held .ui-inline-message { margin: 0; }
+.proofread-edit[data-held] del { text-decoration: none; }
 .proofread-card-error { margin: 0; }
 .proofread-card-actions { display: flex; justify-content: flex-end; gap: var(--space-2); }
 .proofread-card-actions kbd { margin-inline-start: var(--space-2); color: inherit; font: inherit; opacity: 0.6; }
@@ -1007,7 +1044,7 @@ button.paper-identity-source:focus-visible { outline: var(--focus-ring-width) so
 [data-wiki-link][data-resolved="false"] { text-decoration: underline dashed; text-underline-offset: 3px; }
 [data-testid="block-type-selector"] {
   height: 28px;
-  min-height: 28px;
+  min-height: var(--control-height-compact);
   padding-inline: var(--pad-inline-control-tight);
   gap: var(--space-2);
   border: 0;

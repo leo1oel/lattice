@@ -336,6 +336,10 @@ msgstr "{notes} 条提示"
 msgid "{notice}. Open notice"
 msgstr "{notice}。打开通知"
 
+#: src/canvas/proofread-card.tsx
+msgid "{offered} suggested edits"
+msgstr "{offered} 处建议修改"
+
 #: src/telemetry/diagnostic-request.ts
 msgid "{operation} request error"
 msgstr "{operation} 请求出错"
@@ -465,6 +469,10 @@ msgstr "还剩 1 页"
 msgid "1 paper"
 msgstr "1 篇论文"
 
+#: src/canvas/proofread-card.tsx
+msgid "1 suggested edit"
+msgstr "1 处建议修改"
+
 #: src/project/manuscript-checklist.tsx
 msgid "1 word over"
 msgstr "超出 1 词"
@@ -549,6 +557,14 @@ msgstr "强调色"
 msgid "Accept"
 msgstr "接受"
 
+#: src/canvas/proofread-card.tsx
+msgid "Accept {kept} of {offered}"
+msgstr "接受 {kept}/{offered} 处"
+
+#: src/canvas/proofread-card.tsx
+msgid "Accept all"
+msgstr "全部接受"
+
 #. placeholder {0}: sorted.length
 #: src/overleaf/overleaf-changes.tsx
 msgid "Accept all ({0})"
@@ -557,6 +573,10 @@ msgstr "全部接受（{0}）"
 #: src/papers/bibliography-audit.tsx
 msgid "Accept all updates"
 msgstr "全部接受更新"
+
+#: src/canvas/proofread-card.tsx
+msgid "Accept this edit"
+msgstr "接受此修改"
 
 #: src/settings/literature-settings.tsx
 msgid "Access denied. Check the key"
@@ -762,6 +782,10 @@ msgstr "阿尔法"
 #: src/papers/literature-discovery-panel.tsx
 msgid "Already in Papers"
 msgstr "已在论文库中"
+
+#: src/canvas/proofread-card.tsx
+msgid "Also improve flow and academic clarity"
+msgstr "同时改进行文流畅度与学术表达"
 
 #: src/editor/markdown/engine/views/image-view.tsx
 msgid "Alt text"
@@ -1675,6 +1699,10 @@ msgstr "引文工具"
 msgid "Citations"
 msgstr "引文"
 
+#: src/canvas/proofread-card.tsx
+msgid "citations or references"
+msgstr "引用或交叉引用"
+
 #: src/editor/latex/latex-command-completions.ts
 msgid "Cite bibliography entries"
 msgstr "引用参考文献条目"
@@ -1883,6 +1911,10 @@ msgstr "评论来源"
 #: src/editor/comments/comment-visibility-filter.tsx
 msgid "Comment visibility"
 msgstr "评论显示范围"
+
+#: src/canvas/proofread-card.tsx
+msgid "comments"
+msgstr "注释"
 
 #: src/app/use-editor-comments.ts
 #: src/canvas/editor-status-bar.tsx
@@ -2100,6 +2132,10 @@ msgstr "复制路径"
 msgid "Copyright"
 msgstr "版权符号"
 
+#: src/canvas/proofread-card.tsx
+msgid "Correct grammar, spelling and punctuation only"
+msgstr "仅纠正语法、拼写和标点"
+
 #: src/project/citation-health.ts
 msgid "Correction/update"
 msgstr "更正/更新"
@@ -2159,6 +2195,10 @@ msgstr "无法在 Overleaf 上打开项目：{message}"
 #: src/papers/audit-messages.ts
 msgid "Could not parse {count} bibliography construct(s)."
 msgstr "无法解析 {count} 处参考文献结构。"
+
+#: src/canvas/proofread-card.tsx
+msgid "Could not polish"
+msgstr "无法润色"
 
 #: src/canvas/proofread-card.tsx
 msgid "Could not proofread"
@@ -2854,6 +2894,10 @@ msgstr "已编辑"
 msgid "Edited on both sides in the same place. Applying marks the spots in the file so you can choose"
 msgstr "双方在同一位置都有编辑。应用后会在文件中标出这些位置，供你选择"
 
+#: src/canvas/proofread-card.tsx
+msgid "Editing strength"
+msgstr "修改力度"
+
 #: src/settings/settings-dialog.tsx
 msgid "Editor"
 msgstr "编辑器"
@@ -2888,6 +2932,10 @@ msgstr "编辑器快捷键"
 #: src/canvas/editor-status-bar.tsx
 msgid "Editor status"
 msgstr "编辑器状态"
+
+#: src/canvas/proofread-card.tsx
+msgid "Edits held back"
+msgstr "已拦截的修改"
 
 #: src/overleaf/overleaf-connect.tsx
 msgid "Edits on both sides merge when you resume"
@@ -3011,6 +3059,10 @@ msgstr "条目已变更"
 #: src/papers/bibliography-audit.tsx
 msgid "Entry type"
 msgstr "条目类型"
+
+#: src/canvas/proofread-card.tsx
+msgid "environments"
+msgstr "环境"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Epsilon"
@@ -3599,6 +3651,14 @@ msgstr "健康状态检查时间"
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Heart suit"
 msgstr "红桃"
+
+#: src/canvas/proofread-card.tsx
+msgid "Held back {count} edits that would change {changed}. Lattice only offers edits that leave LaTeX intact."
+msgstr "已拦截 {count} 处会改动{changed}的修改。Lattice 只提供不改动 LaTeX 的修改。"
+
+#: src/canvas/proofread-card.tsx
+msgid "Held back 1 edit that would change {changed}. Lattice only offers edits that leave LaTeX intact."
+msgstr "已拦截 1 处会改动{changed}的修改。Lattice 只提供不改动 LaTeX 的修改。"
 
 #: src/app/native-locale.ts
 msgctxt "macOS menu bar"
@@ -4260,6 +4320,10 @@ msgstr "姓, 名 and 姓, 名"
 msgid "LaTeX build driver"
 msgstr "LaTeX 构建驱动"
 
+#: src/canvas/proofread-card.tsx
+msgid "LaTeX commands"
+msgstr "LaTeX 命令"
+
 #: src/app/use-build-pipeline.ts
 msgid "LaTeX compilation failed."
 msgstr "LaTeX 编译失败。"
@@ -4729,6 +4793,7 @@ msgstr "跟随系统"
 msgid "Matching settings"
 msgstr "匹配的设置"
 
+#: src/canvas/proofread-card.tsx
 #: src/editor/latex/math-region.ts
 msgid "math"
 msgstr "公式"
@@ -4900,6 +4965,10 @@ msgstr "缺少工具：{0}"
 #: src/settings/theme-settings.tsx
 msgid "Mist"
 msgstr "薄雾"
+
+#: src/canvas/proofread-card.tsx
+msgid "Model"
+msgstr "模型"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Models / entails"
@@ -5189,6 +5258,10 @@ msgstr "没有差异，可以关闭此窗口"
 msgid "No document open"
 msgstr "没有打开的文档"
 
+#: src/canvas/proofread-card.tsx
+msgid "No edits selected. The selection stays as written."
+msgstr "未选择任何修改，所选内容保持原样。"
+
 #: src/overleaf/overleaf-history.tsx
 msgid "No file changes recorded for this update"
 msgstr "这次更新没有记录任何文件更改"
@@ -5343,6 +5416,10 @@ msgstr "无结果"
 msgid "No results for “{trimmedQuery}”"
 msgstr "未找到“{trimmedQuery}”的结果"
 
+#: src/canvas/proofread-card.tsx
+msgid "No safe edits"
+msgstr "没有可安全应用的修改"
+
 #: src/canvas/document-outline.tsx
 msgid "No sections yet. Add a \\section{…} to start the outline"
 msgstr "还没有章节。添加一个 \\section{…} 即可开始生成大纲"
@@ -5418,6 +5495,10 @@ msgstr "不等于"
 #: src/onboarding/guided-tour.tsx
 msgid "Not now"
 msgstr "以后再说"
+
+#: src/canvas/proofread-card.tsx
+msgid "Not offered"
+msgstr "未提供"
 
 #: src/overleaf/overleaf-connect.tsx
 msgid "Not synced yet"
@@ -5992,6 +6073,10 @@ msgstr "切换论文"
 msgid "Papers"
 msgstr "论文"
 
+#: src/canvas/proofread-card.tsx
+msgid "paragraph breaks"
+msgstr "段落分隔"
+
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Parallel"
 msgstr "平行"
@@ -6200,6 +6285,19 @@ msgstr "请稍后再试"
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Plus-minus"
 msgstr "正负号"
+
+#: src/canvas/proofread-card.tsx
+#: src/editor/latex/latex-selection-toolbar.tsx
+msgid "Polish"
+msgstr "润色"
+
+#: src/canvas/proofread-card.tsx
+msgid "Polish suggestion"
+msgstr "润色建议"
+
+#: src/canvas/proofread-card.tsx
+msgid "Polishing…"
+msgstr "正在润色…"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Pounds sterling"
@@ -6644,9 +6742,14 @@ msgstr "正则表达式"
 msgid "Reject"
 msgstr "拒绝"
 
+#: src/canvas/proofread-card.tsx
 #: src/overleaf/overleaf-changes.tsx
 msgid "Reject all"
 msgstr "全部拒绝"
+
+#: src/canvas/proofread-card.tsx
+msgid "Reject this edit"
+msgstr "拒绝此修改"
 
 #: src/canvas/html-preview.tsx
 msgid "Relative project links are unavailable in this preview"
@@ -8306,8 +8409,12 @@ msgid "The agent could not proofread the selection."
 msgstr "智能助手无法校对所选内容。"
 
 #: src/canvas/proofread-card.tsx
-msgid "The agent is checking grammar, spelling and clarity. LaTeX commands, math and citations stay as written."
-msgstr "智能助手正在检查语法、拼写和表达清晰度。LaTeX 命令、公式和引用保持原样。"
+msgid "The agent is correcting grammar, spelling and punctuation. Math, citations, comments and LaTeX commands must stay as written; Lattice holds back any edit that changes them."
+msgstr "智能体正在纠正语法、拼写和标点。公式、引用、注释和 LaTeX 命令必须保持原样；任何改动它们的修改都会被 Lattice 拦截。"
+
+#: src/canvas/proofread-card.tsx
+msgid "The agent is improving flow and clarity. Math, citations, comments and LaTeX commands must stay as written; Lattice holds back any edit that changes them."
+msgstr "智能体正在改进行文流畅度与清晰度。公式、引用、注释和 LaTeX 命令必须保持原样；任何改动它们的修改都会被 Lattice 拦截。"
 
 #: src/build/compile-repair-messages.ts
 msgid "The agent service is unavailable."
@@ -8486,6 +8593,10 @@ msgstr "所选文本已更改。请重新选择后再评论。"
 #: src/canvas/proofread-card.tsx
 msgid "The selection already reads cleanly."
 msgstr "所选内容已经通顺，无需修改。"
+
+#: src/canvas/proofread-card.tsx
+msgid "The selection already reads well."
+msgstr "所选内容已经很好，无需润色。"
 
 #: src/editor/markdown/engine/lattice-visual-editor.tsx
 msgid "The shared version is shown. Your visual draft was kept — copy it, or restore it and try again."
@@ -8725,6 +8836,10 @@ msgstr "今天的日期"
 #: src/trellis/trellis-titles.ts
 msgid "TODOs"
 msgstr "待办"
+
+#: src/canvas/proofread-layer.tsx
+msgid "Together, the chosen edits would change LaTeX. Accept fewer edits, or proofread again."
+msgstr "所选修改合在一起会改动 LaTeX。请少接受几处，或重新校对。"
 
 #: src/app/use-overleaf-workspace.ts
 msgid "Too large for Overleaf, so left on this machine: {files}."
@@ -9105,6 +9220,10 @@ msgstr "会议模板"
 #: src/papers/bib-entry-dialog.tsx
 msgid "Venue unavailable"
 msgstr "暂无发表处信息"
+
+#: src/canvas/proofread-card.tsx
+msgid "verbatim code"
+msgstr "原样代码"
 
 #: src/papers/bibliography-audit.tsx
 msgid "Verified publication match"
