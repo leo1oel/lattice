@@ -318,25 +318,37 @@ pub fn synara_open_log_folder(
     Ok(true)
 }
 
-/// Keep the desktop token and loopback transport out of the renderer's CORS path.
-pub fn compile_repair_request(
-    runtime: &SynaraRuntime, action: &str, thread_id: Option<&str>, payload: serde_json::Value,
+/// The agent service's host task routes: compile repair edits the project; a
+/// text task is one read-only turn whose final message is the answer
+/// (proofreading).
+pub const COMPILE_REPAIR_ROUTE: &str = "compile-repair";
+pub const TEXT_TASK_ROUTE: &str = "text-task";
+/// What a start answers when the running agent service predates the route, so
+/// the renderer can say so instead of quoting an HTTP status.
+pub const ROUTE_UNAVAILABLE: &str = "agent_route_unavailable";
+
+/// One action on the task route `/api/lattice/<route>`: `start` posts
+/// `payload`, `status` reads the task, `cancel` stops it. Keeps the desktop
+/// token and loopback transport out of the renderer's CORS path.
+pub fn task_relay_request(
+    runtime: &SynaraRuntime, route: &str, action: &str, task_id: Option<&str>,
+    payload: serde_json::Value,
 ) -> Result<serde_json::Value, String> {
     let info = runtime.ensure_ready()?;
     let origin = info.origin.ok_or("The agent service is unavailable.")?;
     let mut url = reqwest::Url::parse(&origin).map_err(|error| error.to_string())?;
     let mut segments = url.path_segments_mut().map_err(|_| "Invalid agent address.")?;
-    segments.clear().extend(["api", "lattice", "compile-repair"]);
+    segments.clear().extend(["api", "lattice", route]);
     match action {
         "start" => {}
         "status" | "cancel" => {
-            let id = thread_id.filter(|id| !id.is_empty()).ok_or("Missing repair task.")?;
+            let id = task_id.filter(|id| !id.is_empty()).ok_or("Missing agent task.")?;
             segments.push(id);
             if action == "cancel" {
                 segments.push("cancel");
             }
         }
-        _ => return Err("Invalid repair action.".into()),
+        _ => return Err("Invalid agent task action.".into()),
     }
     drop(segments);
     let client = crate::http::loopback(Duration::from_secs(30))
@@ -349,10 +361,15 @@ pub fn compile_repair_request(
     }
     let response = request.send().map_err(|error| error.to_string())?;
     let status = response.status();
-    let value: serde_json::Value =
-        response.json().map_err(|_| format!("Repair service returned {status}."))?;
+    let value: serde_json::Value = match response.json() {
+        Ok(value) => value,
+        // The routes answer JSON, even their own 404s; a bare 404 is the
+        // router's, for a path this runtime does not have.
+        Err(_) if status == reqwest::StatusCode::NOT_FOUND => return Err(ROUTE_UNAVAILABLE.into()),
+        Err(_) => return Err(format!("The agent service returned {status}.")),
+    };
     if !status.is_success() {
-        return Err(value["error"].as_str().unwrap_or("The repair request failed.").to_string());
+        return Err(value["error"].as_str().unwrap_or("The agent request failed.").to_string());
     }
     Ok(value)
 }
@@ -494,7 +511,7 @@ mod tests {
     use crate::test_support::TempDir;
 
     #[test]
-    fn compile_repair_relay_preserves_payload_routes_and_server_errors() {
+    fn task_relay_preserves_payload_routes_and_server_errors() {
         let server = tiny_http::Server::http("127.0.0.1:0").unwrap();
         let origin = format!("http://{}", server.server_addr().to_ip().unwrap());
         let server = thread::spawn(move || {
@@ -504,6 +521,8 @@ mod tests {
                 (200, r#"{"status":"completed"}"#),
                 (202, r#"{"status":"running"}"#),
                 (409, r#"{"error":"Already repairing"}"#),
+                (404, r#"{"error":"Workspace not found."}"#),
+                (404, "Not Found"),
             ] {
                 let mut request = server.recv().unwrap();
                 let mut received = Vec::new();
@@ -524,7 +543,7 @@ mod tests {
             ]
         });
         let request = |action, thread_id, payload| {
-            compile_repair_request(&runtime, action, thread_id, payload)
+            task_relay_request(&runtime, COMPILE_REPAIR_ROUTE, action, thread_id, payload)
         };
         let null = serde_json::Value::Null;
         assert_eq!(request("start", None, payload.clone()).unwrap()["threadId"], "repair:one");
@@ -534,6 +553,14 @@ mod tests {
         );
         assert_eq!(request("cancel", Some("repair:one"), null).unwrap()["status"], "running");
         assert_eq!(request("start", None, payload.clone()).unwrap_err(), "Already repairing");
+        assert_eq!(request("start", None, payload.clone()).unwrap_err(), "Workspace not found.");
+        // A runtime without the route answers the router's plain 404.
+        let text_task = serde_json::json!({"workspaceRoot": "/paper", "prompt": "Proofread"});
+        assert_eq!(
+            task_relay_request(&runtime, TEXT_TASK_ROUTE, "start", None, text_task.clone())
+                .unwrap_err(),
+            ROUTE_UNAVAILABLE
+        );
 
         let requests = server.join().unwrap();
         assert_eq!(requests[0].0, "POST /api/lattice/compile-repair");
@@ -541,6 +568,8 @@ mod tests {
         assert_eq!(requests[1].0, "GET /api/lattice/compile-repair/repair:one");
         assert!(requests[1].1.is_empty());
         assert_eq!(requests[2].0, "POST /api/lattice/compile-repair/repair:one/cancel");
+        assert_eq!(requests[5].0, "POST /api/lattice/text-task");
+        assert_eq!(serde_json::from_slice::<serde_json::Value>(&requests[5].1).unwrap(), text_task);
     }
 
     fn run_bibliography_sandbox(script: &str, args: &[&PathBuf]) -> bool {

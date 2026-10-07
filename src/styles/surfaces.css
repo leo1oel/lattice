@@ -35,7 +35,8 @@
  * underlying page remains readable, and they share the same blur strength. */
 .texlab-hover-card,
 .citation-hover-card,
-.reference-hover-card {
+.reference-hover-card,
+.proofread-card {
   @apply smooth-shadow-ring-md;
   border-radius: var(--radius-panel);
   background: color-mix(in srgb, var(--surface-panel-raised) 97%, transparent);

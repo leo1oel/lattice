@@ -6,6 +6,7 @@ import {
   Link,
   MessageSquareText,
   Quote,
+  SpellCheck,
   Strikethrough,
   Underline,
 } from "lucide-react";
@@ -30,7 +31,8 @@ export type LatexSelectionAction =
   | "heading"
   | "quote"
   | "highlight"
-  | "comment";
+  | "comment"
+  | "proofread";
 
 /** The toolbar and the menus it opens: pointer or focus there keeps it open. */
 export const SELECTION_TOOLBAR_SURFACES = ".latex-selection-toolbar-anchor, .latex-tool-menu, .latex-highlight-picker";
@@ -42,13 +44,14 @@ export type LatexSelectionToolbarPosition = {
   maxWidth: number;
 };
 
-const actions: { action: LatexSelectionAction; label: MessageDescriptor; icon: typeof Bold; separated?: boolean }[] = [
+const actions: { action: LatexSelectionAction; label: MessageDescriptor; icon: typeof Bold; separated?: boolean; shortcut?: string }[] = [
   { action: "bold", label: msg`Bold`, icon: Bold },
   { action: "italic", label: msg`Italic`, icon: Italic },
   { action: "underline", label: msg`Underline`, icon: Underline },
   { action: "strikethrough", label: msg`Strikethrough`, icon: Strikethrough },
   { action: "quote", label: msg`Quote`, icon: Quote },
   { action: "comment", label: msg`Comment`, icon: MessageSquareText, separated: true },
+  { action: "proofread", label: msg`Proofread`, icon: SpellCheck, shortcut: "⌘⌥P" },
 ];
 
 const headingLevels: { command: string; label: MessageDescriptor }[] = [
@@ -63,6 +66,8 @@ export function LatexSelectionToolbar(props: {
   position: LatexSelectionToolbarPosition;
   canComment: boolean;
   commentOnly?: boolean;
+  /** Offer the agent's proofread (an editable LaTeX source with a project). */
+  canProofread?: boolean;
   onAction: (action: LatexSelectionAction, value?: string) => void;
   onDismiss: () => void;
 }) {
@@ -87,7 +92,8 @@ export function LatexSelectionToolbar(props: {
     props.onAction("highlight", `#${channels.join("")}`.toUpperCase());
     setHighlightOpen(false);
   };
-  const visibleActions = actions.filter(({ action }) => action === "comment" ? props.canComment : !props.commentOnly);
+  const visibleActions = actions.filter(({ action }) => action === "comment" ? props.canComment
+    : action === "proofread" ? Boolean(props.canProofread) && !props.commentOnly : !props.commentOnly);
   const onDismiss = props.onDismiss;
   useEffect(() => {
     const dismissOnOutsidePointerDown = (event: PointerEvent) => {
@@ -114,11 +120,11 @@ export function LatexSelectionToolbar(props: {
       }}
     >
       <PopIn className="latex-selection-toolbar">
-        {visibleActions.map(({ action, label: descriptor, icon: Icon, separated }, index) => {
+        {visibleActions.map(({ action, label: descriptor, icon: Icon, separated, shortcut }, index) => {
           const label = i18n._(descriptor);
           return (
             <span key={action} className={separated && index > 0 ? "latex-selection-tool separated" : "latex-selection-tool"}>
-              <Tip label={label} side="top">
+              <Tip label={shortcut ? <>{label} <kbd>{shortcut}</kbd></> : label} side="top">
                 <button type="button" aria-label={label} onClick={() => props.onAction(action)}>
                   <Icon size={14} strokeWidth={1.8} />
                 </button>

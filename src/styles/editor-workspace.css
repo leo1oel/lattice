@@ -236,6 +236,35 @@ body:has(.modal-backdrop, .drawer-backdrop) :is(.latex-selection-toolbar-anchor,
   color: var(--control-active-contrast);
 }
 .editor-comment-popover-actions button.primary:disabled { opacity: .45; }
+/* Inline proofread (canvas/proofread-card.tsx): a frosted card in a CodeMirror
+   block widget under the selection it would replace, so the text below moves
+   down rather than hiding behind it. The surface comes from surfaces.css. */
+.source-editor .cm-proofread-source {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  border-radius: 2px;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+.cm-proofread-block { padding: var(--space-3) var(--space-2) var(--space-4); cursor: default; }
+.proofread-card {
+  max-width: 760px;
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-5);
+  font: var(--type-label-weight) var(--type-label-size)/var(--type-label-line-height) var(--ui-font);
+  white-space: normal;
+  user-select: text;
+  animation: proofread-card-in var(--duration-base) var(--ease-entrance);
+}
+@keyframes proofread-card-in { from { opacity: 0; translate: 0 -4px; } }
+.proofread-card-header { display: flex; align-items: center; gap: var(--space-3); color: var(--text-secondary); }
+.proofread-card-title { color: var(--text-primary); font-weight: 600; }
+.proofread-card-summary { margin-inline-start: auto; color: var(--text-tertiary); font-size: var(--type-caption-size); }
+.proofread-card-note { margin: 0; display: flex; align-items: center; gap: var(--space-3); color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); }
+.proofread-card-diff { overflow: hidden; border: 1px solid var(--border-subtle); border-radius: var(--radius-control); }
+.proofread-card-error { margin: 0; }
+.proofread-card-actions { display: flex; justify-content: flex-end; gap: var(--space-2); }
+.proofread-card-actions kbd { margin-inline-start: var(--space-2); color: inherit; font: inherit; opacity: 0.6; }
 .editor-comments-drawer { width: min(420px, 100%); }
 .editor-comments-content .pdf-marks-toolbar { margin-top: var(--drawer-content-inset); }
 .editor-comments-content .ui-empty-state[data-density="compact"] {

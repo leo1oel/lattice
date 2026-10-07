@@ -542,6 +542,7 @@ msgstr "摘要环境"
 msgid "Accent"
 msgstr "强调色"
 
+#: src/canvas/proofread-card.tsx
 #: src/editor/markdown/engine/chrome/review-chrome.tsx
 #: src/overleaf/overleaf-changes.tsx
 #: src/overleaf/overleaf-editor-extensions.ts
@@ -1329,6 +1330,7 @@ msgstr "最长可能需要 15 分钟"
 
 #: src/build/tex-dependency-installer.tsx
 #: src/canvas/comment-composer.tsx
+#: src/canvas/proofread-card.tsx
 #: src/components/ui/confirm-action-dialog.tsx
 #: src/editor/comments/editor-comments-panel.tsx
 #: src/editor/goto-line-dialog.tsx
@@ -2158,6 +2160,10 @@ msgstr "无法在 Overleaf 上打开项目：{message}"
 msgid "Could not parse {count} bibliography construct(s)."
 msgstr "无法解析 {count} 处参考文献结构。"
 
+#: src/canvas/proofread-card.tsx
+msgid "Could not proofread"
+msgstr "无法校对"
+
 #: src/build/tex-doctor-messages.ts
 msgid "Could not read {path}: {error}"
 msgstr "无法读取 {path}：{error}"
@@ -2185,6 +2191,7 @@ msgstr "无法渲染这些更改：{0}"
 msgid "Could not render these changes: {renderError}"
 msgstr "无法显示这些更改：{renderError}"
 
+#: src/canvas/proofread-diff.tsx
 #: src/history/file-diff-view.tsx
 msgid "Could not render this diff: {errorMessage}"
 msgstr "无法渲染此差异：{errorMessage}"
@@ -2551,6 +2558,7 @@ msgstr "放弃并关闭"
 msgid "Discover literature"
 msgstr "发现文献"
 
+#: src/canvas/proofread-card.tsx
 #: src/telemetry/app-updater.tsx
 msgid "Dismiss"
 msgstr "关闭"
@@ -2623,6 +2631,7 @@ msgstr "不存在"
 msgid "DOI metadata corrections are available."
 msgstr "有可用的 DOI 元数据修正。"
 
+#: src/canvas/proofread-card.tsx
 #: src/editor/markdown/engine/chrome/link-chrome.tsx
 #: src/onboarding/guided-tour.tsx
 msgid "Done"
@@ -5148,6 +5157,10 @@ msgstr "尚未记录任何更改"
 msgid "No changes since the last version."
 msgstr "自上个版本以来没有任何更改。"
 
+#: src/canvas/proofread-card.tsx
+msgid "No changes suggested"
+msgstr "没有修改建议"
+
 #: src/overleaf/overleaf-comments.tsx
 msgid "No comments yet"
 msgstr "还没有评论"
@@ -6382,6 +6395,19 @@ msgstr "项目已上传并连接到 Overleaf。"
 msgid "Proof environment (requires amsthm)"
 msgstr "证明环境（需要 amsthm）"
 
+#: src/canvas/proofread-card.tsx
+#: src/editor/latex/latex-selection-toolbar.tsx
+msgid "Proofread"
+msgstr "校对"
+
+#: src/canvas/proofread-card.tsx
+msgid "Proofread suggestion"
+msgstr "校对建议"
+
+#: src/canvas/proofread-card.tsx
+msgid "Proofreading…"
+msgstr "正在校对…"
+
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Proportional to"
 msgstr "正比于"
@@ -6611,6 +6637,7 @@ msgstr "正则表达式"
 msgid "Regular expression"
 msgstr "正则表达式"
 
+#: src/canvas/proofread-card.tsx
 #: src/editor/markdown/engine/chrome/review-chrome.tsx
 #: src/overleaf/overleaf-changes.tsx
 #: src/overleaf/overleaf-editor-extensions.ts
@@ -6741,6 +6768,8 @@ msgstr "正在重命名…"
 msgid "Rendering changes…"
 msgstr "正在渲染更改…"
 
+#: src/canvas/proofread-card.tsx
+#: src/canvas/proofread-diff.tsx
 #: src/history/file-diff-view.tsx
 msgid "Rendering diff…"
 msgstr "正在渲染差异…"
@@ -7510,6 +7539,10 @@ msgstr "选择所有匹配项"
 msgid "Select all references"
 msgstr "选择全部引用"
 
+#: src/canvas/proofread-layer.tsx
+msgid "Select at most {limit} characters to proofread."
+msgstr "一次最多校对 {limit} 个字符，请缩小选区。"
+
 #: src/editor/markdown/engine/chrome/block-controls.tsx
 msgid "Select block"
 msgstr "选择块"
@@ -8052,6 +8085,10 @@ msgstr "成功"
 msgid "Suggested change"
 msgstr "建议的修改"
 
+#: src/canvas/proofread-card.tsx
+msgid "Suggested edits"
+msgstr "建议修改"
+
 #: src/overleaf/overleaf-changes.tsx
 msgid "suggests deleting"
 msgstr "建议删除"
@@ -8260,9 +8297,25 @@ msgstr "未能及时收到确认"
 msgid "The Agent"
 msgstr "智能助手"
 
+#: src/canvas/proofread-layer.tsx
+msgid "The agent could not proofread the selection: {detail}"
+msgstr "智能助手无法校对所选内容：{detail}"
+
+#: src/canvas/proofread-layer.tsx
+msgid "The agent could not proofread the selection."
+msgstr "智能助手无法校对所选内容。"
+
+#: src/canvas/proofread-card.tsx
+msgid "The agent is checking grammar, spelling and clarity. LaTeX commands, math and citations stay as written."
+msgstr "智能助手正在检查语法、拼写和表达清晰度。LaTeX 命令、公式和引用保持原样。"
+
 #: src/build/compile-repair-messages.ts
 msgid "The agent service is unavailable."
 msgstr "智能助手服务不可用。"
+
+#: src/canvas/proofread-layer.tsx
+msgid "The agent's reply did not contain a proofread version of the selection."
+msgstr "智能助手的回复中没有所选内容的校对版本。"
 
 #: src/App.tsx
 msgid "The bibliography changed while removing {citationCommand} ({blocker}). Try again."
@@ -8421,10 +8474,18 @@ msgstr "查询结果未能确定唯一匹配的发表版本。"
 msgid "The same seven stops, for a refresher."
 msgstr "还是这七站，再温习一遍。"
 
+#: src/canvas/proofread-layer.tsx
+msgid "The selected text changed while it was being proofread. Proofread it again to review the current text."
+msgstr "校对期间所选文字已被修改。请重新校对以检查当前文字。"
+
 #: src/canvas/document-canvas.tsx
 #: src/editor/markdown/engine/chrome/review-chrome.tsx
 msgid "The selected text changed. Select it again before commenting."
 msgstr "所选文本已更改。请重新选择后再评论。"
+
+#: src/canvas/proofread-card.tsx
+msgid "The selection already reads cleanly."
+msgstr "所选内容已经通顺，无需修改。"
 
 #: src/editor/markdown/engine/lattice-visual-editor.tsx
 msgid "The shared version is shown. Your visual draft was kept — copy it, or restore it and try again."
@@ -8594,6 +8655,10 @@ msgstr "此源码行在 PDF 中没有对应的位置。"
 msgid "This source record is shown for comparison only. It was not verified and cannot be applied."
 msgstr "此来源记录仅供比较。它未经验证，无法应用。"
 
+#: src/canvas/proofread-layer.tsx
+msgid "This version of the agent runtime cannot proofread yet. Update Lattice to use proofreading."
+msgstr "当前版本的智能助手运行时尚不支持校对。请更新 Lattice 后使用校对功能。"
+
 #: src/editor/latex/latex-command-completions.ts
 msgid "TikZ drawing"
 msgstr "TikZ 绘图"
@@ -8712,6 +8777,7 @@ msgstr "试试更短的短语或换个关键词"
 
 #: src/app/use-project-tree.ts
 #: src/build/tex-dependency-installer.tsx
+#: src/canvas/proofread-card.tsx
 #: src/history/versions-timeline.tsx
 #: src/overleaf/overleaf-connect.tsx
 msgid "Try again"

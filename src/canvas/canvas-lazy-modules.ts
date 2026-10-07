@@ -31,3 +31,6 @@ export const loadBoardEditorModule = () => import("../editor/board/board-editor"
 export const loadSpreadsheetEditorModule = () => import("../editor/spreadsheet/spreadsheet-editor");
 
 export const loadOpenSlideWorkspaceModule = () => import("../editor/presentation/open-slide-workspace");
+
+/** The proofread card's diff (Pierre and its highlighter). */
+export const loadProofreadDiffModule = () => import("./proofread-diff");

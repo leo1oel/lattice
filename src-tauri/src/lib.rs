@@ -418,6 +418,7 @@ pub fn run() {
             ipc::papers::read_paper_blog_local,
             ipc::build::build_project,
             ipc::build::compile_repair,
+            ipc::build::agent_text_task,
             ipc::build::abort_build,
             ipc::build::clean_project,
             ipc::build::read_compiled_pdf,
