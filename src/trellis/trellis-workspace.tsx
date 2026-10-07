@@ -361,7 +361,14 @@ function TextSnapshot({ controller, fileKey, panelId }: { controller: TrellisCon
         controller.activate(fileKey, line);
       }}
     >
-      {mode !== "pdf" && <div ref={parentRef} className="code-editor-root trellis-snapshot-editor" />}
+      {mode !== "pdf" && (
+        <div className="trellis-snapshot-source">
+          <div ref={parentRef} className="code-editor-root trellis-snapshot-editor" />
+          {/* The live editor's status bar, empty, so the source is as tall as
+              the live editor's: scrolled to its end, it shows the same lines. */}
+          <div className="editor-status-bar" aria-hidden="true" />
+        </div>
+      )}
       {mode !== "source" && text !== null && (
         <ReadOnlyMarkdown controller={controller} path={fileKey} text={text.slice(markdownFrontmatterEnd(text))} sourceLines />
       )}

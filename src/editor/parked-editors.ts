@@ -47,9 +47,13 @@ export function parkEditor(root: string, path: string, state: EditorState, scrol
  */
 export function resumeParkedEditor(root: string, path: string, doc: string, extensions: Extension) {
   const entry = parked.get(keyOf(root, path));
-  if (!entry || entry.state.doc.length !== doc.length) return null;
+  // Compared as CodeMirror holds it: a file with CRLF (or CR) line breaks is
+  // read with them, but its state joins its lines with "\n". Taken as changed,
+  // such a file never resumed and came back by the saved pixel offset instead.
+  const text = doc.includes("\r") ? doc.replace(/\r\n?/g, "\n") : doc;
+  if (!entry || entry.state.doc.length !== text.length) return null;
   entry.text ??= entry.state.doc.toString();
-  if (entry.text !== doc) return null;
+  if (entry.text !== text) return null;
   return {
     state: entry.state.update({ effects: StateEffect.reconfigure.of(extensions) }).state,
     scrollTo: entry.scroll ?? undefined,
