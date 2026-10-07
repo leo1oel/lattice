@@ -293,6 +293,8 @@ export type CanvasRequests = {
   cite: { key: string; command: InsertSymbolCommand; id: string } | null;
   /** Insert imported figures where they were dropped (or at the caret). */
   figure: FigureDropRequest | null;
+  /** Proofread or polish the source editor's selection, as its ⌘⌥P and selection toolbar do. */
+  proofread: { mode: "proofread" | "polish"; id: string } | null;
 };
 
 // ---- Overleaf bridge ----------------------------------------------------

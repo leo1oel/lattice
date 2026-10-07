@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { useLingui } from "@lingui/react/macro";
-import { rankMatches, subsequenceScore } from "../components/ui/picker-ranking";
+import { rankMatches, scorePath } from "../components/ui/picker-ranking";
 import { PickerDialog } from "../components/ui/search-picker-dialog";
 import { isProjectAssetFilePath } from "../app-utils";
 import { fileIcon } from "../trellis/trellis-icons";
@@ -15,16 +15,6 @@ function PathRow({ path }: { path: string }) {
       {slash > 0 && <span className="picker-file-folder">{path.slice(0, slash)}</span>}
     </span>
   );
-}
-
-function scorePath(path: string, query: string): number {
-  const hay = path.toLocaleLowerCase();
-  const needle = query.toLocaleLowerCase();
-  if (!needle) return 1;
-  if (hay === needle) return 1000;
-  if (hay.endsWith(`/${needle}`)) return 900;
-  if (hay.includes(needle)) return 500 - hay.indexOf(needle);
-  return subsequenceScore(hay, needle);
 }
 
 type QuickOpenProps = {

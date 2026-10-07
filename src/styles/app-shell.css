@@ -220,6 +220,23 @@ input[type="search"]:focus-visible {
 .quick-open-list button.active .picker-file-name { color: inherit; }
 .quick-open-list .picker-file-folder { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-tertiary); font-size: var(--type-micro-size); }
 .quick-open-list .picker-detail { color: var(--text-tertiary); font-size: var(--type-micro-size); font-style: normal; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* A row with an icon or a shortcut: icon, then its text, then the keycaps at
+   the end, all on one line whatever the detail placement. */
+.quick-open-list button:has(> .picker-text) { flex-direction: row; align-items: center; gap: var(--space-4); }
+.quick-open-list .picker-icon { flex: none; display: inline-flex; color: var(--text-tertiary); }
+/* The palette's icon symbols: in the document for <use>, never on screen. */
+.picker-icon-sprite { position: absolute; width: 0; height: 0; overflow: hidden; }
+.quick-open-list button.active .picker-icon { color: inherit; }
+.quick-open-list .picker-text { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: var(--gap-tight); }
+.quick-open-modal[data-detail="end"] .picker-text { flex-direction: row; align-items: baseline; justify-content: space-between; gap: var(--space-8); }
+.quick-open-list .picker-shortcut { flex: none; margin-inline-start: var(--space-2); }
+/* The command palette reaches files, papers and settings as well as
+   commands, so it gives its rows more room than the single-purpose pickers. */
+.modal.quick-open-modal.command-palette-modal { width: min(600px, calc(100vw - 40px)); }
+.command-palette-modal .quick-open-list { max-height: min(420px, 56vh); }
+.command-palette-footer { position: relative; padding: var(--space-4) var(--space-8); display: flex; align-items: center; justify-content: flex-end; gap: var(--space-8); color: var(--text-tertiary); font-size: var(--type-micro-size); line-height: var(--type-micro-line-height); }
+.command-palette-footer::before { content: ""; position: absolute; inset-inline: var(--space-5); top: 0; height: 1px; background: var(--border-subtle); }
+.command-palette-footer > span { display: inline-flex; align-items: center; gap: var(--space-3); white-space: nowrap; }
 .editor-status-bar .editor-breadcrumb button { border: 0; background: transparent; color: inherit; padding: 0; font: inherit; max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .editor-status-bar .editor-breadcrumb button:hover { color: var(--control-active); }
 .editor-status-bar .editor-breadcrumb i { color: var(--text-tertiary); font-style: normal; }

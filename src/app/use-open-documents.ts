@@ -836,6 +836,13 @@ export function useOpenDocuments(deps: OpenDocumentsDeps) {
     else await close(key);
   }, [close, depsRef, openAsset, openFile, openPaper, renderedRef]);
 
+  /**
+   * The files visited this session, newest first and each once, as the
+   * back/forward history holds them (the palette's Recent files). Read when
+   * asked, so following them costs nothing while writing.
+   */
+  const recentPaths = () => [...new Set(renderedRef.current.navStack.map((entry) => entry.path).reverse())];
+
   /** Reopen the most recently closed tab, through its own reader. */
   const reopenClosed = useCallback(() => {
     const key = closedRef.current.shift();
@@ -1276,6 +1283,7 @@ export function useOpenDocuments(deps: OpenDocumentsDeps) {
     viewStates,
     // Intents.
     open, openFile, openAsset, openPaper, close, reopenClosed, go, chooseMode, choosePaperView, reveal, leavePaper,
+    recentPaths,
     // Buffers.
     flush, save, hasUnsavedEdits, edit: setTextLive, accept, load: loadFile as LoadFile, clear, markDiskVersion, claim, scope,
     // Project and tree.

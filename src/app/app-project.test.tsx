@@ -22,7 +22,7 @@ describe("project tree and projects", () => {
     await findEditorView(".source-editor[data-editor-pane='primary'] .cm-editor");
     const openPalette = async () => {
       fireEvent.keyDown(window, { key: "p", metaKey: true, shiftKey: true });
-      return screen.findByPlaceholderText("Run a command…");
+      return screen.findByRole("searchbox", { name: "Command palette" });
     };
     const sections = () => [...document.querySelectorAll(".quick-open-modal [data-slot='picker-section-label']")].map((label) => label.textContent);
     const options = () => screen.getAllByRole("option").map((option) => option.textContent ?? "");
@@ -30,7 +30,7 @@ describe("project tree and projects", () => {
       const input = await openPalette();
       fireEvent.change(input, { target: { value: label } });
       fireEvent.keyDown(input, { key: "Enter" });
-      await waitFor(() => expect(screen.queryByPlaceholderText("Run a command…")).not.toBeInTheDocument());
+      await waitFor(() => expect(screen.queryByRole("searchbox", { name: "Command palette" })).not.toBeInTheDocument());
     };
 
     await openPalette();
@@ -38,8 +38,8 @@ describe("project tree and projects", () => {
     // No PDF yet, so nothing to jump to.
     expect(options().slice(0, 3)).toEqual(["Build project⌘S", "Insert citation⌘⇧K", "Insert reference⌘⇧L"]);
     expect(options().filter((option) => option.startsWith("Jump to PDF"))).toEqual([]);
-    fireEvent.keyDown(screen.getByPlaceholderText("Run a command…"), { key: "Escape" });
-    await waitFor(() => expect(screen.queryByPlaceholderText("Run a command…")).not.toBeInTheDocument());
+    fireEvent.keyDown(screen.getByRole("searchbox", { name: "Command palette" }), { key: "Escape" });
+    await waitFor(() => expect(screen.queryByRole("searchbox", { name: "Command palette" })).not.toBeInTheDocument());
 
     await run("Clean aux files");
     await run("Insert citation");
@@ -95,6 +95,51 @@ describe("project tree and projects", () => {
     await waitFor(() => expect(screen.queryByRole("dialog", { name: "Keyboard shortcuts" })).not.toBeInTheDocument());
   });
 
+  it("finds files and Papers from the palette, and leads with the files opened before", async () => {
+    renderApp({
+      ...projectCommands(projectSnapshot({ files: fileNodes("main.tex", "chapters/intro.tex", "notes.md") })),
+      read_project_file: readFiles({ "chapters/intro.tex": "\\section{Intro}", "notes.md": "# Notes" }),
+      list_papers: () => [attentionPaper({ authors: "Vaswani, Ashish and Shazeer, Noam", year: "2017" })],
+      read_paper: "# Attention\n\nPaper content.",
+    });
+    await findEditorView(".source-editor[data-editor-pane='primary'] .cm-editor");
+    const palette = async () => {
+      fireEvent.keyDown(window, { key: "k", metaKey: true });
+      return screen.findByRole("searchbox", { name: "Command palette" });
+    };
+    const sections = () => [...document.querySelectorAll(".quick-open-modal [data-slot='picker-section-label']")].map((label) => label.textContent);
+
+    fireEvent.change(await palette(), { target: { value: "intro" } });
+    expect(sections()).toContain("Files");
+    fireEvent.keyDown(screen.getByRole("searchbox", { name: "Command palette" }), { key: "Enter" });
+    await waitForSelectedTab("chapters/intro.tex");
+
+    // The file shown before this one leads its group; the open one is not offered.
+    await palette();
+    expect(sections()).toContain("Recent files");
+    expect(screen.getByRole("option", { name: "main.tex" })).toBeInTheDocument();
+    expect(screen.queryByRole("option", { name: "chapters/intro.tex" })).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByRole("searchbox", { name: "Command palette" }), { target: { value: "vaswani" } });
+    fireEvent.click(screen.getByRole("option", { name: /Attention Is All You Need/ }));
+    await waitFor(() => expect(screen.getByRole("tab", { name: /Attention Is All You Need/ })).toHaveAttribute("aria-selected", "true"));
+  });
+
+  it("starts a new file from the palette with its name field focused, even when the editor had focus", async () => {
+    renderApp(refreshableProject(projectSnapshot(), ""));
+    const view = await findEditorView(".source-editor[data-editor-pane='primary'] .cm-editor");
+    view.focus();
+    fireEvent.keyDown(window, { key: "k", metaKey: true });
+    const input = await screen.findByRole("searchbox", { name: "Command palette" });
+    fireEvent.change(input, { target: { value: "New LaTeX file" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+    const name = await findProjectTreeRenameInput();
+    expect(name).toHaveValue("untitled.tex");
+    // The palette's own focus return (its FocusScope's, a timer later) must not take it back.
+    await nextFrames(3);
+    await waitFor(() => expect(name.getRootNode() instanceof ShadowRoot ? (name.getRootNode() as ShadowRoot).activeElement : document.activeElement).toBe(name));
+  });
+
   it("lists in a saved paper's palette only the commands it can run, whatever was recent", async () => {
     localStorage.setItem("lattice.recent-commands.v1", JSON.stringify(["cite", "goto-line", "sync-pdf", "find"]));
     renderApp({ ...projectCommands(), list_papers: () => [attentionPaper()], read_paper: "# Attention\n\nPaper content." });
@@ -103,7 +148,7 @@ describe("project tree and projects", () => {
     await waitFor(() => expect(screen.getByRole("tab", { name: /Attention Is All You Need/ })).toHaveAttribute("aria-selected", "true"));
 
     fireEvent.keyDown(window, { key: "p", metaKey: true, shiftKey: true });
-    const input = await screen.findByPlaceholderText("Run a command…");
+    const input = await screen.findByRole("searchbox", { name: "Command palette" });
     const options = () => screen.getAllByRole("option").map((option) => option.textContent ?? "");
     expect([...document.querySelectorAll(".quick-open-modal [data-slot='picker-section-label']")].map((label) => label.textContent).slice(0, 2))
       .toEqual(["Recent", "In this paper"]);
@@ -112,7 +157,7 @@ describe("project tree and projects", () => {
       expect(options().filter((option) => option.startsWith(label))).toEqual([]);
     }
     fireEvent.keyDown(input, { key: "Escape" });
-    await waitFor(() => expect(screen.queryByPlaceholderText("Run a command…")).not.toBeInTheDocument());
+    await waitFor(() => expect(screen.queryByRole("searchbox", { name: "Command palette" })).not.toBeInTheDocument());
     fireEvent.keyDown(window, { key: "k", metaKey: true, shiftKey: true });
     fireEvent.keyDown(window, { key: "g", metaKey: true });
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
@@ -206,8 +251,8 @@ describe("project tree and projects", () => {
 
       vi.mocked(invoke).mockClear();
       fireEvent.keyDown(window, { key: "p", metaKey: true, shiftKey: true });
-      fireEvent.change(await screen.findByPlaceholderText("Run a command…"), { target: { value: "Open in Lattice" } });
-      fireEvent.keyDown(screen.getByPlaceholderText("Run a command…"), { key: "Enter" });
+      fireEvent.change(await screen.findByRole("searchbox", { name: "Command palette" }), { target: { value: "Open in Lattice" } });
+      fireEvent.keyDown(screen.getByRole("searchbox", { name: "Command palette" }), { key: "Enter" });
       await expectInvoked("return_to_desktop");
     });
 

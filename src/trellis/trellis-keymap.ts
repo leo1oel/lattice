@@ -26,6 +26,12 @@ export const TRELLIS_SHORTCUTS: Array<{ label: MessageDescriptor; commands: stri
   { label: msg`Previous or next zoomed view`, commands: ["navigation.back", "navigation.forward"] },
 ];
 
+/**
+ * Trellis's own maximize-or-restore key (DEFAULT_KEYMAP's frame.toggle, which
+ * Lattice keeps), for the palette to show without loading Trellis.
+ */
+export const FRAME_TOGGLE_KEY = { key: "Enter", mod: true, shift: true } as const;
+
 /** Focus mode's key, ⌘⇧D (distraction-free): App binds it, and the Panels menu and focus bar show it. */
 export const FOCUS_MODE_KEY = { key: "d", shift: true } as const;
 

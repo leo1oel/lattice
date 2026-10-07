@@ -1,28 +1,25 @@
-import { Fragment, useEffect, useMemo, useState, type ReactNode } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { CloseButton } from "./icon-button";
 import { EmptyState } from "./empty-state";
 import { ModalDialog } from "./modal-dialog";
 import { SearchField } from "./search-field";
 import { FluidHoverSurface } from "./fluid-hover-surface";
-import { rankMatches, subsequenceScore } from "./picker-ranking";
+import { rankMatches, scoreItem } from "./picker-ranking";
+import { searchPickerRow } from "./picker-row";
 
 export type SearchPickerItem = {
   id: string;
   label: string;
   detail?: string;
   group?: string;
+  /** Drawn before the label; every row of a list that has any should have one, so labels line up. */
+  icon?: ReactNode;
+  /** The keys that run it without the picker, one keycap each ("⌘", "⇧", "K"), drawn at the row's end. */
+  keys?: readonly string[];
+  /** Words a search should find it by that the row does not show (a setting's options, a paper's authors). */
+  keywords?: string;
 };
-
-function scoreItem(item: SearchPickerItem, query: string): number {
-  const needle = query.toLocaleLowerCase();
-  if (!needle) return 1;
-  const hay = `${item.label} ${item.detail ?? ""} ${item.group ?? ""}`.toLocaleLowerCase();
-  if (item.label.toLocaleLowerCase() === needle) return 1000;
-  if (hay.startsWith(needle)) return 900;
-  if (hay.includes(needle)) return 500 - hay.indexOf(needle);
-  return subsequenceScore(hay, needle);
-}
 
 /** Gather ranked results by section, keeping each section where its best match ranked. */
 function sectionResults<T>(ranked: T[], groupOf?: (item: T) => string | undefined) {
@@ -55,13 +52,17 @@ export function PickerDialog<T>(props: {
   itemKey: (item: T) => string;
   renderItem: (item: T) => ReactNode;
   /** The accessible name, when the rendered item is more than its text. */
-  itemLabel?: (item: T) => string;
+  itemLabel?: (item: T) => string | undefined;
   /**
    * The section an item belongs to. With more than one section among the
    * results, they gather under one heading each instead of repeating it on
    * every row, in the order their best match ranks.
    */
   groupOf?: (item: T) => string | undefined;
+  /** A strip under the list (the palette's keyboard hints). */
+  footer?: ReactNode;
+  /** Added to the dialog's own class, for a picker that sizes itself differently. */
+  className?: string;
   onClose: () => void;
   onSelect: (item: T) => void;
   /** The highlighted item, whenever it changes (for prefetching). */
@@ -76,14 +77,33 @@ export function PickerDialog<T>(props: {
   useEffect(() => {
     if (selected !== null) onIntent?.(selected);
   }, [onIntent, selected]);
+  const listRef = useRef<HTMLDivElement>(null);
   const search = (value: string) => {
     setQuery(value);
     setActive(0);
+    // New results start from the top, where their best match is.
+    if (listRef.current) listRef.current.scrollTop = 0;
+  };
+  // Only the keyboard moves the highlight out of sight, so only it scrolls
+  // the list after it; a row the pointer is on is already in view.
+  const keyedRef = useRef(false);
+  useEffect(() => {
+    if (!keyedRef.current) return;
+    keyedRef.current = false;
+    listRef.current?.querySelector<HTMLElement>('[role="option"][aria-selected="true"]')?.scrollIntoView({ block: "nearest" });
+  }, [active, results]);
+  // A list scrolled under a resting pointer moves rows beneath it, and the
+  // browser reports that as the pointer moving. Only a pointer that really
+  // moved takes the highlight from the keyboard.
+  const pointerRef = useRef({ x: Number.NaN, y: Number.NaN });
+  const step = (by: 1 | -1) => {
+    keyedRef.current = true;
+    setActive((value) => Math.min(Math.max(0, Math.min(value, lastIndex) + by), lastIndex));
   };
 
   return (
     <ModalDialog label={props.label} onClose={props.onClose}>
-      <div className="modal quick-open-modal" data-detail={props.detailPlacement ?? "below"}>
+      <div className={props.className ? `modal quick-open-modal ${props.className}` : "modal quick-open-modal"} data-detail={props.detailPlacement ?? "below"}>
         <div className="quick-open-header">
           <SearchField
             autoFocus
@@ -93,13 +113,12 @@ export function PickerDialog<T>(props: {
             onChange={(event) => search(event.target.value)}
             onClear={() => search("")}
             onKeyDown={(event) => {
-              if (event.key === "ArrowDown") {
+              // ⌃N and ⌃P step too, as in every macOS text list.
+              const down = event.key === "ArrowDown" || (event.ctrlKey && !event.metaKey && event.key === "n");
+              const up = event.key === "ArrowUp" || (event.ctrlKey && !event.metaKey && event.key === "p");
+              if (down || up) {
                 event.preventDefault();
-                setActive((value) => Math.min(value + 1, lastIndex));
-              }
-              if (event.key === "ArrowUp") {
-                event.preventDefault();
-                setActive((value) => Math.max(0, value - 1));
+                step(down ? 1 : -1);
               }
               if (event.key === "Enter" && selected !== null) {
                 event.preventDefault();
@@ -111,7 +130,7 @@ export function PickerDialog<T>(props: {
               : <CloseButton label={props.closeLabel} onClick={props.onClose} />}
           />
         </div>
-        <div className="quick-open-list fluid-hover-surface" role="listbox">
+        <div ref={listRef} className="quick-open-list fluid-hover-surface" role="listbox">
           <FluidHoverSurface />
           {results.map((item, index) => {
             const group = sectioned ? groupOf?.(item) : undefined;
@@ -126,7 +145,12 @@ export function PickerDialog<T>(props: {
                   aria-label={props.itemLabel?.(item)}
                   aria-selected={index === active}
                   className={index === active ? "active" : ""}
-                  onMouseEnter={() => setActive(index)}
+                  onMouseMove={(event) => {
+                    const last = pointerRef.current;
+                    if (event.clientX === last.x && event.clientY === last.y) return;
+                    pointerRef.current = { x: event.clientX, y: event.clientY };
+                    if (index !== active) setActive(index);
+                  }}
                   onClick={() => props.onSelect(item)}
                 >
                   {props.renderItem(item)}
@@ -136,6 +160,7 @@ export function PickerDialog<T>(props: {
           })}
           {!results.length && <EmptyState density="compact" description={props.emptyText} />}
         </div>
+        {props.footer}
       </div>
     </ModalDialog>
   );
@@ -186,10 +211,7 @@ function SearchPickerDialogForm({ title, items, leading, ...props }: SearchPicke
       rank={rank}
       itemKey={(item) => item.id}
       groupOf={(item) => item.group}
-      renderItem={(item) => <>
-        <span className="picker-label">{item.label}</span>
-        {item.detail && <em className="picker-detail">{item.detail}</em>}
-      </>}
+      renderItem={searchPickerRow}
     />
   );
 }

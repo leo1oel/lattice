@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { useLatestRef } from "../hooks/use-latest-ref";
-import { comboText, type KeyCombo } from "./key-combos";
+import { comboKeys, type KeyCombo } from "./key-combos";
+import type { PaletteSection } from "./palette-sections";
 
 /**
  * One app-level action, as the command palette lists it (entries with a
@@ -13,13 +14,23 @@ export type AppCommand = {
   id: string;
   run: () => void;
   label?: string;
+  /** A quiet note after the label; never the shortcut, which the palette draws from `key` or `shortcut`. */
   detail?: string;
-  group?: string;
+  group?: PaletteSection;
+  /** Words the palette should find it by that the label does not say. */
+  keywords?: string;
   /** The key as KeyboardEvent.key names it, lower-cased: "s", "?", "enter", "f8". */
   key?: string;
   shift?: boolean;
   /** False for a key pressed alone (F8), without ⌘ or Ctrl. */
   mod?: false;
+  /**
+   * The keys shown for a command something other than this table binds:
+   * Trellis's ⌘⇧↩, ⌘1 to ⌘9 by position, the editor's ⌘⌥P, ⌘S through
+   * Save. A command with a `key` shows that instead, so its hint cannot
+   * drift from the binding; the shortcut sheet lists only `key`s.
+   */
+  shortcut?: KeyCombo;
   when?: boolean;
   /**
    * False keeps a command out of the palette's Recent group: one that
@@ -36,19 +47,15 @@ export function commandCombo(command: Pick<AppCommand, "key" | "shift" | "mod">)
   return command.key ? { key: command.key, mod: command.mod !== false, shift: command.shift } : null;
 }
 
-/** `command`'s shortcut as written beside it, "⌘⇧J", or null without a key. */
-export function commandShortcut(command: Pick<AppCommand, "key" | "shift" | "mod">): string | null {
-  const combo = commandCombo(command);
-  return combo ? comboText(combo) : null;
+/** The keycaps the palette draws beside `command`: its key's, else the `shortcut` bound elsewhere. */
+export function commandKeys(command: Pick<AppCommand, "key" | "shift" | "mod" | "shortcut">): string[] | null {
+  const combo = commandCombo(command) ?? command.shortcut;
+  return combo ? comboKeys(combo) : null;
 }
 
-/** The commands the palette lists, with their shortcut ahead of any detail: "⌘⇧F · source files and papers". */
+/** The commands the palette lists: labelled, runnable here, and not reached only by their key. */
 export function paletteEntries(commands: readonly AppCommand[]): AppCommand[] {
-  return commands.flatMap((command) => {
-    if (!command.label || command.when === false || command.palette === false) return [];
-    const detail = [commandShortcut(command), command.detail].filter(Boolean).join(" · ");
-    return [{ ...command, detail: detail || undefined }];
-  });
+  return commands.filter((command) => command.label && command.when !== false && command.palette !== false);
 }
 
 /**

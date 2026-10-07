@@ -170,5 +170,5 @@ export function useAgentContext({ synara, project, papers, agentVisible, workspa
     return () => window.cancelAnimationFrame(frame);
   }, [deliverable, paperLibrary, postMessage]);
 
-  return { selection, reportSelection, activateSurface, dismissSelection, resetSelection };
+  return { selection, selectionSource, reportSelection, activateSurface, dismissSelection, resetSelection };
 }
