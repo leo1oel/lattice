@@ -43,20 +43,30 @@
 .lattice-trellis [data-trellis-part="surface"]:is([data-type="project"], [data-type="papers"], [data-type="agent"]) { background: var(--surface-sidebar); }
 .lattice-trellis [data-trellis-part="surface"]:is([data-type="history"], [data-type="git"], [data-type="comments"], [data-type="overleaf"], [data-type="literature"], [data-type="todos"], [data-type="checklist"]) { background: var(--surface-input); }
 
-/* A translucent window (theme.css, `data-glass`) frosts Project and Papers:
-   one sheet of --surface-navigator from the tab strip down, painted once by
-   the panel, with everything inside it letting that sheet through, since a
-   second translucent layer would read as a darker band. The selected tab
-   keeps a quiet wash instead of the strip's contrast. Every other panel stays
-   on its opaque surface. */
-:root[data-glass] .lattice-trellis [data-trellis-part="panel"]:has([data-trellis-part="tab"][data-selected]:is([data-type="project"], [data-type="papers"])) {
+/* A translucent window (theme.css, `data-glass`) frosts Project, Papers and
+   the editors. The panel paints one sheet of --surface-navigator from the tab
+   strip down, which is the strip; the selected tab and the body (the surface)
+   lay the same second coat over it, so the tab runs into the body as it does
+   on the opaque palette and the strip sits the same step under both. Project
+   and Papers lift by a white veil, an editor by its own thinned ground.
+   Everything inside a body lets its coat through: a third layer would read as
+   a band. Every other panel stays on its opaque surface. */
+:root[data-glass] .lattice-trellis [data-trellis-part="panel"]:has([data-trellis-part="tab"][data-selected]:is([data-type="project"], [data-type="papers"], [data-type="file"])) {
   --lattice-panel-surface: var(--surface-navigator);
   --lattice-tabstrip: transparent;
-  --trellis-tab-active: var(--navigation-tree-selected-surface);
+  --trellis-tab-active: var(--surface-navigator-lift);
 }
-:root[data-glass] .lattice-trellis [data-trellis-part="surface"]:is([data-type="project"], [data-type="papers"]),
+:root[data-glass] .lattice-trellis [data-trellis-part="panel"]:has([data-trellis-part="tab"][data-selected][data-type="file"]) {
+  --trellis-tab-active: var(--surface-editor-glass);
+}
+:root[data-glass] .lattice-trellis [data-trellis-part="surface"]:is([data-type="project"], [data-type="papers"]) { background: var(--surface-navigator-lift); }
+:root[data-glass] .lattice-trellis [data-trellis-part="surface"][data-type="file"] { background: var(--surface-editor-glass); }
 :root[data-glass] .lattice-trellis :is(.trellis-navigator-host, .navigator) { background: transparent; }
 :root[data-glass] .lattice-trellis .lattice-file-tree { --trees-bg-override: transparent; }
+/* The source editor and the Markdown preview each stack several grounds; the
+   gutter keeps its numbers' color, mixed from the opaque ground. A file view
+   that draws its own page (a spreadsheet, an image) keeps it. */
+:root[data-glass] .lattice-trellis [data-trellis-part="surface"][data-type="file"] :is(.source-workspace, .source-editor, .cm-editor, .cm-scroller, .cm-gutters, .markdown-preview) { background: transparent; }
 
 /* The focused panel carries a quiet ring; its selected tab, an accent underline. */
 .lattice-trellis [data-trellis-part="panel"][data-focused] { box-shadow: 0 0 0 1px color-mix(in srgb, var(--control-active) 28%, var(--border-subtle)); }

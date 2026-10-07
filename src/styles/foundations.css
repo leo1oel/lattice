@@ -381,12 +381,19 @@
      roles instead of reaching into the palette directly. */
   --surface-app: var(--bg);
   /* Window material (theme.css): what paints behind everything, the titlebar
-     and panel gutters, the Project and Papers panels, and a page that fills
-     the window. Each is the opaque surface it replaces until the window is
+     and panel gutters, the Project, Papers and editor panels, and a page that
+     fills the window. Each is the opaque surface it replaces until the window is
      translucent. */
   --surface-window: var(--window);
   --surface-shell: color-mix(in srgb, var(--sidebar) var(--glass-shell), transparent);
   --surface-navigator: color-mix(in srgb, var(--sidebar) var(--glass-panel), transparent);
+  /* A frosted panel's body and selected tab, laid over its --surface-navigator
+     sheet so the strip around the tabs stays a step under them (trellis.css):
+     a white veil for Project and Papers, and for an editor its own ground
+     under that veil, thinned. Transparent and opaque respectively until the
+     window is translucent. */
+  --surface-navigator-lift: color-mix(in srgb, #fff var(--glass-lift), transparent);
+  --surface-editor-glass: color-mix(in srgb, color-mix(in srgb, #fff var(--glass-lift), var(--editor-bg)) var(--glass-editor), transparent);
   /* The titlebar: the shell lifted by theme.css's white veil, closed by
      --titlebar-rule, so it never melts into the gutters below it. */
   --surface-titlebar: color-mix(in srgb, #fff var(--titlebar-veil), var(--surface-shell));
