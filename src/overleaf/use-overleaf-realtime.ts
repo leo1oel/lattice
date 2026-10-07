@@ -4,7 +4,7 @@
  * This owns the connection, the map from project paths to Overleaf document
  * ids, and the per-document state machine. Local edits leave as operations a
  * moment after they are typed; a collaborator's arrive as operations and are
- * applied to the buffer with the caret carried across them.
+ * applied to the buffer, which keeps the caret and the place with their text.
  *
  * It is deliberately failure-tolerant: anything unexpected — a rejected
  * update, a document that drifted, a dropped connection — stops the live
@@ -17,7 +17,7 @@ import { useLingui } from "@lingui/react/macro";
 import { invoke } from "@tauri-apps/api/core";
 import { toMessage } from "../app-utils";
 import { i18n } from "../i18n";
-import { OtDocument, transformCaret, type OtOp } from "./ot";
+import { OtDocument, type OtOp } from "./ot";
 import { onOverleafEvent } from "./overleaf-realtime-listen";
 import {
   anchorsAfter, isOwnUpdate, overleafDocHash, promoteShared, shouldRetryConnection,
@@ -54,9 +54,7 @@ export function useOverleafRealtime(options: {
   projectRoot: string | null;
   activeFile: string | null;
   /** Return false to preserve divergent local work and fall back to regular sync. */
-  onRemoteText: (text: string, caret: number, context: OverleafRemoteTextContext) => boolean | void | Promise<boolean | void>;
-  /** Where the caret is right now, so it can be carried across remote edits. */
-  readCaret: () => number;
+  onRemoteText: (text: string, context: OverleafRemoteTextContext) => boolean | void | Promise<boolean | void>;
   onNotice: (message: string) => void;
   onNeedsSync?: (paths: readonly string[]) => void;
 }) {
@@ -394,7 +392,7 @@ export function useOverleafRealtime(options: {
   // deliveries ordered and never send an intermediate editor snapshot back
   // over a newer remote operation. A disagreement hands the file back to the
   // ordinary three-way synchronizer, retaining any unacknowledged OT lease.
-  const deliverRemoteText = useCallback((id: string, text: string, caret: number, baseContent: string) => {
+  const deliverRemoteText = useCallback((id: string, text: string, baseContent: string) => {
     const doc = documents.current.get(id);
     const projectRoot = connectionRoot.current;
     const path = pathsByDocId.current.get(id);
@@ -426,7 +424,7 @@ export function useOverleafRealtime(options: {
     delivery.tail = delivery.tail.then(async () => {
       if (!isCurrent()) return;
       try {
-        const accepted = await callbacks.current.onRemoteText(text, caret, { projectRoot, path, baseContent, isCurrent });
+        const accepted = await callbacks.current.onRemoteText(text, { projectRoot, path, baseContent, isCurrent });
         const proof = proofs.current.get(doc);
         if (accepted === false) preserveLocal();
         else if (isCurrent() && proof) {
@@ -479,14 +477,13 @@ export function useOverleafRealtime(options: {
         return;
       }
       const sawOurUpdate = caughtUp.some((update) => isMine(update.source, doc));
-      const caret = docId.current === id ? callbacks.current.readCaret() : 0;
       const baseContent = doc.text;
       const result = replay(doc, caughtUp);
       promoteShared(doc, proof);
       shiftAnchors(id, result.applied);
       if (docId.current === id) {
         patchOpenDoc(id, (current) => ({ comments: joined.comments ?? current.comments, changes: joined.changes ?? current.changes }));
-        deliverRemoteText(id, result.text, transformCaret(caret, result.applied), baseContent);
+        deliverRemoteText(id, result.text, baseContent);
       }
       if (result.send) void flushRef.current(id, result.send);
       else resendAfterReplay(id, doc);
@@ -633,14 +630,13 @@ export function useOverleafRealtime(options: {
         if (isMine(payload.source, doc)) return;
         try {
           const onScreen = payload.docId === docId.current;
-          const caret = onScreen ? callbacks.current.readCaret() : 0;
           const baseContent = doc.text;
           const { text, applied } = doc.remote(payload.ops, payload.version);
           shiftAnchors(payload.docId, applied);
           // A document being drained still has to apply this, or its own
           // outstanding operation is transformed against the wrong history.
           // Nobody is looking at it, so nothing is drawn.
-          if (onScreen) deliverRemoteText(payload.docId, text, transformCaret(caret, applied), baseContent);
+          if (onScreen) deliverRemoteText(payload.docId, text, baseContent);
         } catch (reason) {
           dropDocument(payload.docId, toMessage(reason));
           callbacks.current.onNotice(driftNotice());
@@ -846,7 +842,6 @@ export function useOverleafRealtime(options: {
         return;
       }
       let text = joined.text;
-      let caret = callbacks.current.readCaret();
       const heldProof = held && proofs.current.get(held);
       if (heldProof) heldProof.receipt = receipt;
       if (held && !held.settled && !joined.resumed) {
@@ -871,7 +866,6 @@ export function useOverleafRealtime(options: {
         const result = replay(held, caughtUp);
         text = result.text;
         promoteShared(held, heldProof);
-        caret = transformCaret(caret, result.applied);
         if (result.send) void flush(id, result.send);
         else resendAfterReplay(id, held);
         if (held.settled || sawOurUpdate) uncertain.current.delete(id);
@@ -883,7 +877,6 @@ export function useOverleafRealtime(options: {
         proofs.current.set(doc, { receipt, lastShared: null, locallyAppliedText: null, textModelValid: true });
         documents.current.set(id, doc);
         uncertain.current.delete(id);
-        caret = callbacks.current.readCaret();
       }
       // Joining the socket room and returning its snapshot cross an async IPC
       // boundary. Updates can arrive in between; replay them over the snapshot
@@ -897,12 +890,8 @@ export function useOverleafRealtime(options: {
         buffered.sort((left, right) => left.version - right.version);
         try {
           for (const update of buffered) {
-            const versionBefore = joinedDocument.version;
             const result = joinedDocument.remote(update.ops, update.version);
             text = result.text;
-            // The snapshot already contains older buffered updates, but the
-            // editor caret predates that snapshot and still has to cross them.
-            caret = transformCaret(caret, !held && update.version < versionBefore ? update.ops : result.applied);
             if (result.applied.length) bufferedApplied.push(result.applied);
           }
         } catch (reason) {
@@ -922,7 +911,7 @@ export function useOverleafRealtime(options: {
       // A full/reconnected snapshot has no trusted relationship to local
       // disk edits. Only start OT when it agrees; otherwise regular sync
       // owns the common ancestor and can reconcile both sides safely.
-      deliverRemoteText(id, text, caret, text);
+      deliverRemoteText(id, text, text);
     }).catch((reason) => {
       if (!cancelled) setDetail(String(reason));
     });
@@ -962,9 +951,9 @@ export function useOverleafRealtime(options: {
       if (replaced) {
         // Overleaf stores these characters as U+FFFD, and so does the
         // document now; the editor has to show the same, or the two copies
-        // disagree without anyone being told. Same length, same caret.
+        // disagree without anyone being told.
         noteReplaced();
-        deliverRemoteText(id, current.text, callbacks.current.readCaret(), text);
+        deliverRemoteText(id, current.text, text);
       }
     }, SEND_DEBOUNCE_MS);
   }, [deliverRemoteText, flush, shiftAnchors]);

@@ -121,7 +121,6 @@ function mount(overrides: Partial<Options> = {}) {
     projectRoot: "/tmp/project",
     activeFile: "a.tex",
     onRemoteText: () => undefined,
-    readCaret: () => 0,
     onNotice: () => undefined,
     ...overrides,
     ...props,
@@ -274,7 +273,7 @@ describe("guarded remote delivery", () => {
     const seen: string[] = [];
     const bases: string[] = [];
     const view = await mountLive({
-      onRemoteText: async (text, _caret, context) => {
+      onRemoteText: async (text, context) => {
         seen.push(text);
         bases.push(context.baseContent);
         if (text === "alpha one") await new Promise<void>((resolve) => { finish = resolve; });
@@ -315,7 +314,7 @@ describe("guarded remote delivery", () => {
     let finish!: () => void;
     let oldIsCurrent = () => true;
     const view = await mountLive({
-      onRemoteText: async (text, _caret, context) => {
+      onRemoteText: async (text, context) => {
         if (text !== "alpha one") return;
         oldIsCurrent = context.isCurrent;
         await new Promise<void>((resolve) => { finish = resolve; });
@@ -599,7 +598,7 @@ describe("an acknowledgement whose outcome is not known", () => {
     backend.loseSendAck = true;
     const onRemoteText = vi.fn();
     const { result } = await mountLive({ onRemoteText });
-    expect(onRemoteText).toHaveBeenLastCalledWith("alpha", 0, expect.objectContaining({
+    expect(onRemoteText).toHaveBeenLastCalledWith("alpha", expect.objectContaining({
       projectRoot: "/tmp/project", path: "a.tex", baseContent: "alpha",
     }));
 
@@ -711,7 +710,7 @@ describe("characters Overleaf cannot store", () => {
     expect(sends()[0]!.ops).toEqual([{ p: 5, i: " \uFFFD\uFFFD" }]);
     // The editor is swapped to the stored text, guarded on still holding what was typed.
     await waitFor(() => expect(onRemoteText).toHaveBeenLastCalledWith(
-      "alpha \uFFFD\uFFFD", 0, expect.objectContaining({ baseContent: "alpha \u{1F535}" }),
+      "alpha \uFFFD\uFFFD", expect.objectContaining({ baseContent: "alpha \u{1F535}" }),
     ));
     expect(onNotice).toHaveBeenCalledTimes(1);
     expect(onNotice.mock.calls[0]![0]).toMatch(/replaced with �/);

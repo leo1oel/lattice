@@ -1,4 +1,4 @@
-import { fileNodes, refreshableProject, attentionPaper, overleafLink, overleafStatus, overleafProbe, overleafSyncResult, overleafSession, OVERLEAF_EMPTY_FEEDS, overleafCommands, projectSnapshot, MAIN_DOCUMENT, overleafPaperSnapshot, setAutoBuildMode, setInterfaceLanguage, openPaper, renderApp, renderOverleafPaper, expectNotification, expectInvoked, invokeCalls, argPath, stubScrollBox, openAgentFrame, postProjectHistory, agentCheckpoint, visibleToasts, findOverleafSyncButton } from "./app-test-utils";
+import { fileNodes, refreshableProject, attentionPaper, overleafLink, overleafStatus, overleafProbe, overleafSyncResult, overleafSession, OVERLEAF_EMPTY_FEEDS, overleafCommands, projectSnapshot, MAIN_DOCUMENT, overleafPaperSnapshot, setAutoBuildMode, setInterfaceLanguage, openPaper, renderApp, renderOverleafPaper, expectNotification, expectInvoked, invokeCalls, argPath, stubScrollBox, openAgentFrame, postProjectHistory, agentCheckpoint, visibleToasts, findOverleafSyncButton, deferred, nextFrames, openTreeFile, waitForSelectedTab, editorViewAt, expectEditorText, readFiles } from "./app-test-utils";
 import { invoke } from "@tauri-apps/api/core";
 import { confirm } from "@tauri-apps/plugin-dialog";
 import { openUrl } from "@tauri-apps/plugin-opener";
@@ -135,6 +135,64 @@ describe("Overleaf sync", () => {
     expect(syncCount).toBe(0);
     expect(screen.queryByRole("button", { name: "Syncing with Overleaf…" })).not.toBeInTheDocument();
     await waitFor(() => expect(document.querySelector(".cm-editor")).not.toBeNull(), { timeout: 30_000 });
+  });
+
+  // The fourth report of a tab coming back at the top, from an Overleaf-synced
+  // project: each return to a document carried live joins it again, and
+  // Overleaf's copy of it (the very text on screen) arrived with a request to
+  // put the view back at the top, a frame after the tab came back in place.
+  it.each(["main_v2.txt", "main_v2.tex"])("brings %s back where it was left when Overleaf's copy of it arrives", async (long) => {
+    const short = long.replace("main_v2", "abstract");
+    const snapshot = projectSnapshot({
+      root: "/tmp/lattice-tab-return", projectId: "tab-return", name: "Tab return", rootDocuments: MAIN_DOCUMENT,
+      files: fileNodes("main.tex", short, long),
+    });
+    const files: Record<string, string> = {
+      "main.tex": "\\documentclass{article}",
+      [short]: "Abstract\n\nA short summary.",
+      [long]: Array.from({ length: 300 }, (_, index) => `Paragraph ${index}: sparse attention at scale, line after line.`).join("\n"),
+    };
+    const paths: Record<string, string> = { main: "main.tex", short, long };
+    const rejoin = deferred();
+    let longJoins = 0;
+    renderOverleafPaper({
+      read_project_file: readFiles(files),
+      stat_project_file: { exists: true, mtimeMs: 1 },
+      write_project_file: (args) => ({ content: (args as { content: string }).content, hadConflicts: false }),
+      overleaf_rt_connect: () => overleafSession({
+        publicId: "me", userId: "me", docs: Object.entries(paths).map(([id, path]) => ({ id, path })),
+      }),
+      overleaf_rt_join_doc: async (args) => {
+        const path = paths[(args as { docId: string }).docId];
+        if (path === long && (longJoins += 1) === 2) await rejoin.promise;
+        return { text: files[path], version: 4, comments: [], changes: [], caughtUp: [], resumed: false };
+      },
+      overleaf_rt_leave_doc: null,
+      overleaf_rt_update_position: null,
+    }, { snapshot, syncMode: "live" });
+    const primaryEditor = ".source-editor[data-editor-pane='primary'] .cm-editor";
+    const delivered = () => invokeCalls("write_project_file", (args) => argPath(args) === long).length;
+    await openTreeFile(short);
+    await openTreeFile(long);
+    await waitFor(() => expect(delivered()).toBe(1), { timeout: 10_000 });
+
+    fireEvent.click(screen.getByRole("tab", { name: new RegExp(short.replace(".", "\\.")) }));
+    await waitForSelectedTab(short);
+    await expectEditorText(files[short], primaryEditor);
+    fireEvent.click(screen.getByRole("tab", { name: new RegExp(long.replace(".", "\\.")) }));
+    await waitForSelectedTab(long);
+    await waitFor(() => expect(longJoins).toBe(2));
+    await act(() => nextFrames(3));
+    // Back in its place (jsdom lays nothing out, so the place is a pretend scroll offset).
+    const view = await expectEditorText(files[long], primaryEditor);
+    view.scrollDOM.scrollTop = 4_800;
+    fireEvent.scroll(view.scrollDOM);
+
+    await act(async () => { rejoin.resolve(); });
+    await waitFor(() => expect(delivered()).toBe(2));
+    await act(() => nextFrames(3));
+    expect(editorViewAt(primaryEditor)).toBe(view);
+    expect(view.scrollDOM.scrollTop).toBe(4_800);
   });
 
   it("keeps a local Paper editable when its project is read-only on Overleaf", async () => {

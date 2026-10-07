@@ -21,8 +21,8 @@ import type { EditorComment } from "../editor/comments/editor-comment-data";
 import { hasConflictMarkers } from "../history/conflict-markers";
 import { AUTO_COMMIT_MESSAGES } from "../history/version-messages";
 import type {
-  AssetPreview, BuildResult, EditorPosition, FileViewState, OpenProjectFile, OverleafLink, OverleafProbe, OverleafStatus,
-  OverleafSyncResult, PaperSummary, ProjectSnapshot, RefreshProject, ViewRestoreRequest,
+  AssetPreview, BuildResult, EditorPosition, OpenProjectFile, OverleafLink, OverleafProbe, OverleafStatus,
+  OverleafSyncResult, PaperSummary, ProjectSnapshot, RefreshProject,
 } from "../app-types";
 import { SYNC_OPERATION } from "../telemetry/app-log-export";
 
@@ -123,8 +123,6 @@ export type OverleafWorkspaceDeps = {
   savedSourceRef: RefObject<string>;
   /** Show durable text for the open file, only while its buffer still holds `expect` (a compare-and-swap). */
   accept: (path: string, content: string, expect: { text: string; saved: string }) => boolean;
-  setViewRestore: (request: ViewRestoreRequest) => void;
-  viewStateRef: RefObject<Map<string, FileViewState>>;
   editorPosition: EditorPosition | null;
   editorPositionRef: RefObject<EditorPosition | null>;
   build: BuildResult | null;
@@ -138,7 +136,9 @@ export type OverleafWorkspaceDeps = {
   wholeFileDraftPaths: readonly string[];
   save: () => Promise<boolean>;
   compile: () => Promise<void>;
-  loadFile: (path: string, options?: { expectedProjectRoot?: string; projectGeneration?: number; canCommit?: () => boolean }) => Promise<boolean>;
+  loadFile: (path: string, options?: {
+    restoreView?: boolean; expectedProjectRoot?: string; projectGeneration?: number; canCommit?: () => boolean;
+  }) => Promise<boolean>;
   refreshProject: RefreshProject;
   openProjectFile: OpenProjectFile;
   /** True while a sync owns the project; a switch has to wait it out. */
@@ -148,13 +148,20 @@ export type OverleafWorkspaceDeps = {
   resolveOverleafSyncRef: RefObject<(() => void) | null>;
 };
 
-/** Apply only against the buffer and disk versions the live channel knows. */
+/**
+ * Apply only against the buffer and disk versions the live channel knows.
+ *
+ * The view is left alone: the editor takes in only what changed, so the
+ * place and the caret stay with their text (see codemirror-host.tsx). This
+ * runs on every return to a live document's tab, with Overleaf's copy of the
+ * text on screen; anything it did to the view would move a tab that came
+ * back in place.
+ */
 export async function applyOverleafRemoteText(
   deps: Pick<OverleafWorkspaceDeps,
     "projectRef" | "projectOperationGenerationRef" | "activeFileRef" | "sourceRef" | "savedSourceRef"
-    | "accept" | "setViewRestore" | "compile">,
+    | "accept" | "compile">,
   text: string,
-  caret: number,
   context: OverleafRemoteTextContext,
 ): Promise<boolean> {
   const { path, projectRoot, baseContent } = context;
@@ -173,7 +180,6 @@ export async function applyOverleafRemoteText(
   // Typing during IPC stays dirty against its original saved base; the
   // ordinary editor save can merge it with the remote bytes now on disk.
   if (!isCurrent() || !deps.accept(path, text, { text: baseContent, saved })) return false;
-  deps.setViewRestore({ path, cursor: caret, scrollTop: 0, id: crypto.randomUUID() });
   if (text !== saved) void deps.compile();
   return true;
 }
@@ -186,7 +192,7 @@ export async function applyOverleafRemoteText(
 export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
   const {
     project, projectRef, projectOperationGenerationRef, activeFile, activeFileRef, activePaper, activeAsset,
-    source, sourceRef, savedSourceRef, viewStateRef, editorPosition, editorPositionRef, build,
+    source, sourceRef, savedSourceRef, editorPosition, editorPositionRef, build,
     saveGeneration, savedPathsRef, wholeFileEditingPaths, wholeFileDraftPaths, save, compile, loadFile, refreshProject, openProjectFile,
     overleafSyncingRef, overleafSyncSettledRef, resolveOverleafSyncRef,
   } = deps;
@@ -473,7 +479,10 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
         const currentActiveFile = activeFileRef.current;
         if (currentActiveFile && changedOnDisk.has(currentActiveFile)) {
           const buffer = sourceRef.current;
+          // The editor takes in only what changed and keeps its place; a
+          // saved view put back over it predates the change and lands off by it.
           const reloaded = await loadFile(currentActiveFile, {
+            restoreView: false,
             expectedProjectRoot: syncRoot,
             projectGeneration: syncGeneration,
             canCommit: () => activeFileRef.current === currentActiveFile
@@ -684,8 +693,7 @@ export function useOverleafWorkspace(deps: OverleafWorkspaceDeps) {
     projectRoot: project?.root ?? null,
     // Whole-file editors (slides, boards, sheets) serialize at once; character OT would compete.
     activeFile: isWholeFileEditorPath(activeFile) ? null : activeFile,
-    readCaret: () => viewStateRef.current.get(activeFileRef.current ?? "")?.text?.cursor ?? 0,
-    onRemoteText: (text, caret, context) => applyOverleafRemoteText(deps, text, caret, context),
+    onRemoteText: (text, context) => applyOverleafRemoteText(deps, text, context),
     onNotice: (message) => setNotice(message),
     onNeedsSync: (paths) => {
       for (const path of paths) externalChangesRef.current.set(path, Symbol());

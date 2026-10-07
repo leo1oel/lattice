@@ -7,7 +7,6 @@ import {
   OtDesyncError,
   OtDocument,
   transformBoth,
-  transformCaret,
   transformSpan,
   type OtOp,
 } from "./ot";
@@ -57,16 +56,6 @@ describe("applyOps", () => {
     expect(applyOps("hello", [{ p: 99, i: "x" }])).toBeNull();
     expect(applyOps("hello", [{ p: -1, i: "x" }])).toBeNull();
   });
-});
-
-describe("transformCaret", () => {
-  it.each([
-    ["keeps its place when text is inserted above it", 10, { p: 0, i: "abc" }, 13],
-    ["is left alone by an edit below it", 5, { p: 20, i: "abc" }, 5],
-    ["is not dragged when someone types exactly at it", 5, { p: 5, i: "abc" }, 5],
-    ["is pulled back when text above it is deleted", 10, { p: 0, d: "abc" }, 7],
-    ["clamps to the start of a deletion that contained it", 5, { p: 3, d: "abcdef" }, 3],
-  ])("%s", (_label, caret, op, expected) => expect(transformCaret(caret, [op])).toBe(expected));
 });
 
 describe("transformSpan", () => {
@@ -299,14 +288,14 @@ describe("OtDocument", () => {
     expect(() => doc.acknowledge(11)).toThrow(OtDesyncError);
   });
 
-  it("keeps local work when a remote edit lands first, moves the caret with it, and ignores its redelivery", () => {
+  it("keeps local work when a remote edit lands first, reports what landed, and ignores its redelivery", () => {
     const doc = new OtDocument("hello world", 5);
     doc.local("hello brave world"); // insert at 6, in flight
     // Their text is in, ours is still here, and neither overwrote the other.
     const { text, applied } = doc.remote([{ p: 0, i: ">> " }], 5);
     expect(text).toBe(">> hello brave world");
     expect(doc.text).toBe(">> hello brave world");
-    expect(transformCaret(8, applied)).toBe(11);
+    expect(applied).toEqual([{ p: 0, i: ">> " }]);
     // Their operation applied at 5, so the document is now at 6 — the same
     // step `acknowledge` takes for our own work.
     expect(doc.version).toBe(6);
@@ -485,14 +474,14 @@ describe("resuming a document from a known version", () => {
     expect(doc.text).toBe("abc");
   });
 
-  it("moves the caret past everything replayed", () => {
+  it("reports everything replayed as applied", () => {
     const doc = new OtDocument("one\ntwo", 3);
     const result = doc.catchUp([
       { version: 3, ops: [{ p: 0, i: "zero\n" }], mine: false },
       { version: 4, ops: [{ p: 0, i: "!\n" }], mine: false },
     ]);
-    // A caret on "two" started at 4 and is now past both insertions.
-    expect(transformCaret(4, result.applied)).toBe(4 + "zero\n".length + "!\n".length);
+    expect(applyOps("one\ntwo", result.applied)).toBe(doc.text);
+    expect(doc.text).toBe("!\nzero\none\ntwo");
     expect(doc.version).toBe(5);
   });
 

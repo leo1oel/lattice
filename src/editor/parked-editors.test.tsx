@@ -8,6 +8,7 @@ import { CodeMirrorHost } from "./codemirror-host";
 import { REVEAL_FLASH_MS, revealExtension, revealInEditor } from "./editor-reveal";
 import { latex } from "./latex/latex-language";
 import { parkEditor, resumeParkedEditor, retainParkedEditors, takeResumed } from "./parked-editors";
+import { documentText } from "./text-change";
 
 const ROOT = "/projects/thesis";
 // Long enough that a state built from text parses only its start (3000
@@ -33,7 +34,9 @@ afterEach(() => {
  * Each mount gets the file as read from `disk`, as the app reads it on every
  * switch: with the line breaks it has there, and with whatever changed it
  * while its tab was in the background. Leaving a document saves what was
- * typed in it first, as switching tabs does.
+ * typed in it first, as switching tabs does. `write` changes a file on disk
+ * and hands the open one its new text, as the app does with a reload, a sync
+ * or a collaborator's edit.
  */
 function tabs(initial: Record<string, string>) {
   const disk = { ...initial };
@@ -72,6 +75,10 @@ function tabs(initial: Record<string, string>) {
       delete typed[shown];
       shown = path;
       rendered.rerender(element(path));
+    },
+    write: (path: string, text: string) => {
+      disk[path] = text;
+      if (path === shown) rendered.rerender(element(path));
     },
   };
 }
@@ -210,6 +217,41 @@ describe("parked editors", () => {
     expect(undoDepth(view.state)).toBe(1);
     act(() => { undo(view); });
     expect(view.state.doc.toString()).toBe(onDisk.replace("typed ", ""));
+  });
+
+  // Found with the fourth report, in an Overleaf-synced project: text that
+  // reached the open tab from outside (a collaborator's edit, a sync pulling
+  // one in, the file read back with CRLF line breaks) replaced the whole
+  // document, which maps the caret and the place to its start.
+  it.each([
+    ["the same text", (text: string) => text],
+    ["the same text with CRLF line breaks", (text: string) => text.replaceAll("\n", "\r\n")],
+    ["a paragraph added above the place", (text: string) => `\\section{Added} By a collaborator.\n${text}`],
+    ["a line below the place rewritten", (text: string) => text.replace("\\section{Part 300}", "\\section{Part three hundred}")],
+  ])("keeps the caret and the place with their text when the open file's text arrives from outside (%s)", async (_change, edit) => {
+    const editor = tabs({ "chapter.tex": CHAPTER, "other.tex": OTHER });
+    const tab = editor.current();
+    act(() => tab.view.dispatch({ selection: { anchor: 4000 } }));
+    tab.layout.scrollTop = 199 * LINE_PX + 7;
+    tab.view.scrollDOM.dispatchEvent(new Event("scroll"));
+    await measured();
+    const topLine = tab.view.state.doc.line(200).text;
+    const atCaret = tab.view.state.sliceDoc(4000, 4040);
+
+    editor.write("chapter.tex", edit(editor.disk["chapter.tex"]));
+    await measured();
+    const { view } = editor.current();
+    expect(view).toBe(tab.view);
+    expect(view.state.doc.toString()).toBe(documentText(editor.disk["chapter.tex"]));
+    const { head } = view.state.selection.main;
+    expect(view.state.sliceDoc(head, head + 40)).toBe(atCaret);
+    // The place it parks with on the way to another tab: the same line at the top, as far into it.
+    tab.layout.hidden = true;
+    editor.show("other.tex");
+    const parked = resumeParkedEditor(ROOT, "chapter.tex", editor.disk["chapter.tex"], EXTENSIONS);
+    const { range, yMargin } = parked?.scrollTo?.value as { range: { head: number }; yMargin: number };
+    expect(parked!.state.doc.lineAt(range.head).text).toBe(topLine);
+    expect(yMargin).toBe(-7);
   });
 
   it("does not bring back a jump's mark whose clearing timer died with its view", async () => {

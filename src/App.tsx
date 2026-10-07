@@ -262,9 +262,7 @@ function App() {
     markDiskVersion, leavePaper, edit: editFile, clear: clearEditor,
   } = documents;
   const { file: activeFileRef, text: sourceRef, saved: savedSourceRef, asset: activeAssetRef } = documents.live;
-  const {
-    get: getFileViewState, remember: rememberFileViewState, statesRef: viewStateRef,
-  } = documents.viewStates;
+  const { get: getFileViewState, remember: rememberFileViewState } = documents.viewStates;
   const [postStartupInteraction, setPostStartupInteraction] = useState(false);
   const {
     workspaceIndex,
@@ -546,7 +544,7 @@ function App() {
   ), [openSlideContext, wholeFileEditingPaths]);
   const overleaf = useOverleafWorkspace({
     project, projectRef, projectOperationGenerationRef, activeFile, activeFileRef, activePaper, activeAsset,
-    source, sourceRef, savedSourceRef, accept, setViewRestore, viewStateRef, editorPosition,
+    source, sourceRef, savedSourceRef, accept, editorPosition,
     editorPositionRef, build, saveGeneration, savedPathsRef, wholeFileEditingPaths, wholeFileDraftPaths,
     save, compile, loadFile, refreshProject, openProjectFile: openFile,
     overleafSyncingRef, overleafSyncSettledRef, resolveOverleafSyncRef,
