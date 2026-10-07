@@ -23,7 +23,7 @@
   place-items: center;
   /* Initials sit on a saturated mid-lightness hue in either theme. */
   color: #fff;
-  font: var(--weight-semibold) var(--type-nano-size)/1 var(--ui-font);
+  font: var(--weight-semibold) var(--type-micro-size)/1 var(--ui-font);
   letter-spacing: .01em;
   cursor: pointer;
 }

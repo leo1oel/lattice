@@ -11,7 +11,7 @@ export function PdfLoading({ label, percent = null, quiet = false }: {
   return (
     <>
       {!quiet && <PdfSkeletonPage />}
-      <div className={`pdf-loading smooth-shadow-ring-md${quiet ? " pdf-loading-quiet" : ""}`} role="status" aria-live="polite">
+      <div className={`pdf-loading${quiet ? " pdf-loading-quiet" : ""}`} role="status" aria-live="polite">
         <InfinityLoader size={quiet ? 14 : 17} />
         <span>{label}</span>
         {percent !== null && <>

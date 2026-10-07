@@ -16,9 +16,9 @@ not to force every surface into one density.
   every surface of every tint, and a custom pick is fitted to that floor.
   Status colors communicate success, warning, and danger; they are not
   substitutes for the interaction accent.
-- Agent body copy, user messages, and the composer use 13px type on a 20px line
-  height at regular weight.
-- Long-form reading surfaces may use 14px type on a 22px line height.
+- Agent body copy, user messages, and the composer use the body role (13/20)
+  at regular weight.
+- Long-form reading surfaces use the typeset role (14/22).
 - Code and diffs use one fixed editor font stack. The bundled default is
   Ioskeley Mono (OFL), with system monospace faces as fallback. Local and
   embedded code surfaces share this stack; editor font size remains
@@ -30,8 +30,8 @@ not to force every surface into one density.
   in the interface font at 11/16px regular weight.
 - Diff code uses the editor font at 11/18px. Diff paths, headers, and line
   numbers remain in the interface font; compact metadata uses the 10/14px role.
-- Embedded Agent thread titles retain the compact 11/16px navigation
-  role at regular weight; Project filenames use their independent 13/16px role.
+- Embedded Agent thread titles use the caption role (11/16) at regular
+  weight; Project filenames use their own 13/16px alias.
 - The top toolbar and left Project, Papers, and Agent navigation form the app
   chrome. At the default Graphite tint they use `#EFEFF0` in the light theme
   and `#141416` in the dark theme. The titlebar lifts a step off that ground
@@ -196,7 +196,7 @@ hover < pressed, and hover < selected < active.
 | Radix primitives (menu, select, popover) | Radix behavior, Lattice appearance | style through `menu-surface.ts` and `data-slot` hooks | fork the primitive to change appearance, or import Radix outside `src/components/ui` (lint-enforced; add a wrapper there instead) |
 | Tailwind / shadcn utilities | `src/index.css` `@theme inline` | map utilities onto the palette | enable preflight or introduce a parallel color scale |
 | CodeMirror, PDF.js, KaTeX | the library | theme through the documented extension points and `cm-*` / `pdf-*` classes it exposes | assume internal DOM structure beyond those hooks |
-| Motion (`motion/react`) | the library | own shared durations and easings in `foundations.css`, with the global reduced-motion clamp in `adaptive-feedback.css` | animate a property the reduced-motion path cannot disable |
+| Motion (`motion/react`) | the library | take the spring tiers from `motion-values.ts`, the same ones CSS runs from `foundations.css`, with the global reduced-motion clamp in `adaptive-feedback.css` | animate a property the reduced-motion path cannot disable, or pass a transition that is not a tier |
 
 The bridge, not CSS, carries state across the Synara boundary: theme, settings
 section, frame height, confirmations, and notifications. Light or dark rides in
@@ -208,22 +208,48 @@ reads that message, the panel keeps its own copy of the Graphite palette.
 
 ## Typography roles
 
-| Role | Size / line height | Weight | Typical use |
-| --- | --- | --- | --- |
-| Micro | 10 / 14 | 500 | badges and compact status |
-| Caption | 11 / 16 | 400 | metadata, paths, descriptions |
-| Label | 12 / 16 | 500 | controls, menus, tool labels |
-| Body | 13 / 20 | 400 | application and Agent body copy |
-| Reading | 14 / 22 | 400 | papers and long-form previews |
-| Compact title | 13 / 16 | 600 | panel and drawer titles |
-| Title | 14 / 18 | 600 | content headings |
-| Large title | 16 / 20 | 600 | dialogs and major surfaces |
-| Heading | 18 / 22 | 600 | settings and top-level sections |
-| Compact navigation | 11 / 16 | 400 | Papers metadata and Agent thread titles |
-| Project tree | 12 / 16 | 400; selected 500 | project filenames and folders |
-| Papers title | 12 / 16 | 400 | paper titles in the Papers navigation |
-| Diff code | 11 / 18 | 400 | source changes and conflict previews |
-| Diff metadata | 10 / 14 | 500 | line numbers and compact change statistics |
+Six roles, each a size with its own leading. Take both: a size on another
+role's leading (or on `normal`) is a missing role, not a choice.
+
+| Role | Chrome | Settings | Weight | Typical use |
+| --- | --- | --- | --- | --- |
+| Display | 24 / 30 | 26 / 32 | 600 | the one title on a page that has only one: the welcome screen, a paper's title, the error page |
+| Title | 18 / 22 | 20 / 24 | 600 | dialog, sheet and Settings page titles; the guided tour's card |
+| Subtitle | 13 / 18 | 14 / 20 | 600 | panel, drawer and group headings; the project switcher |
+| Body | 13 / 20 | 14 / 22 | 400 | menus, popovers, copy, the Agent's messages and composer |
+| Caption | 11 / 16 | 12 / 18 | 400 | metadata, paths, descriptions, helper text |
+| Micro | 10 / 14 | 11 / 16 | 500 | badges, counters, compact status; one line only |
+
+- **Body has a compact step**, `--type-body-compact-*` (12/16, 500; 13/18 in
+  Settings): the text inside a control, whether a button, field, select, tab,
+  toast title or compact list row. Fluid Functionalism sets a control's text at
+  the body role one step down for the control's density, which is the step the
+  chrome runs at. A compact (28px) control drops to caption.
+- **Typeset** (`--type-typeset-*`, 14/22; 15/24 in Settings) is prose: the
+  visual Markdown surface, the source editor's default size and the update
+  notes. It is reading, not interface.
+- **Thin aliases** name a surface's own contract and resolve to a role:
+  `--type-tree-*` (caption: Papers metadata, Agent thread titles),
+  `--type-project-tree-*` (body on the compact leading: project filenames),
+  `--type-diff-meta-*` (micro) and `--type-diff-code-*` (caption size on an
+  18px leading, for code).
+- **Settings runs one step up.** `.settings-modal` (and a select portalled out
+  of it) redeclares every role and alias, so the same CSS reads larger there.
+- **The Synara iframe mirrors four of these.** The pinned runtime sets its own
+  title, subtitle, body-compact and caption, at both steps, and the 30px
+  Settings control height (`apps/web/src/embedMode.ts`), so the Agent panel and
+  the Providers, MCP and Skills pages line up with the native ones. Those values
+  move only together with a Synara pin.
+- In a Tailwind class list, name the role's two values,
+  `text-[length:var(--type-caption-size)] leading-[var(--type-caption-line-height)]`,
+  never Tailwind's own `text-xs`/`text-sm` scale. A `text-<name>` theme key
+  reads as a colour to `cn()`'s tailwind-merge, which drops it beside one.
+
+The fourteen roles this replaced map as: Micro and Nano (9px) to micro;
+Caption and Compact navigation to caption; Label to body-compact; Body to body;
+Reading to typeset; Compact title (13/16) and Title (14/18) to subtitle; Large
+title (16/20) and Heading to title; Display to display; Project tree, Diff code
+and Diff metadata to the aliases above.
 
 Compact interface copy — titles, setting descriptions, dialog subtitles, tour cards, empty states, and helper text — does not end in a full stop.
 Punctuation inside multi-sentence copy remains.
@@ -245,13 +271,28 @@ A description, subtitle, or explainer paragraph appears only when it says someth
   target may not be. Add `data-hit-area` and it gets a centered, invisible
   target of at least that size with no change to any visible dimension. Steppers
   are exempt where the adjacent text field is an equivalent control.
-- Icon controls use the 24px compact, 28px default, or 30px large role.
-- Search fields, inputs, and select triggers with the same semantic size must
-  have the same exact height: 28px compact, 32px default, or 38px form, through
-  the shared `controlSize` / `size` contract. Width remains layout-owned.
-- Text buttons use 32px by default and an 8px control radius; 28px compact
-  buttons are reserved for dense desktop chrome.
-- Switches use a 24 × 14px track and a 10px thumb.
+- **Controls stand on a two-step ladder.** Every control a pointer lands on
+  is compact (`--control-height-compact`, 28px) or default
+  (`--control-height-default`, 30px), so a button next to a select next to a
+  tab lands on one height:
+
+  | Step | Height | Text | Icons | Where |
+  | --- | --- | --- | --- | --- |
+  | compact | 28px | caption | 13px | dense chrome: panel headers, toolbars, filters, the titlebar, popover forms |
+  | default | 30px | body-compact | 16px | forms, dialogs, Settings |
+
+  Buttons (`Button` `size`), fields (`Input` `controlSize`), selects
+  (`SelectTrigger` `size`), `SearchField` and `SegmentedControl` take
+  `compact` or `default` and nothing else. Square icon controls use the same
+  two heights (`--control-size-icon`, `--control-size-icon-large`), and toolbar
+  buttons are 24px wide on the compact height. The 24px
+  `--control-size-icon-compact` is an action inside a row or a field (a
+  toast's dismiss, a search's clear), and counts as part of that row.
+  The default is 30px rather than Fluid Functionalism's 36px: it is the height
+  the chrome was drawn around, and the embedded Synara Settings pages pin their
+  controls to it. Width remains layout-owned.
+- Text buttons use an 8px control radius.
+- Switches use a 28 × 16px track and a 12px thumb.
 - Checkboxes use a 14px native input surface with shared checked, mixed, focus,
   and disabled states.
 - Badges use a 20px height and 6px radius; compact badges use a 16px height.
@@ -262,6 +303,38 @@ A description, subtitle, or explainer paragraph appears only when it says someth
   compact tab variant; the sidebar navigation header matches that height.
 - Editor tabs are 36px in the standalone strip and 28px inside the titlebar,
   through the shared `--tab-*` contract.
+
+## Elevation
+
+One ladder for every surface that sits above another, in light and dark. The
+shadows live in the palette (`--shadow-*` in `theme.css`, one stack per level,
+deeper in dark where a faint shadow disappears into the ground); feature code
+takes a level from `foundations.css`.
+
+| Level | Token | Surface | Edge and shadow | Who stands there |
+| --- | --- | --- | --- | --- |
+| Page | — | `--surface-app`, the window | none | the window, the welcome page |
+| Panel | `--elevation-panel` | `--surface-panel` | half a hairline | docked Trellis panels |
+| Raised | `--elevation-raised` | `--surface-elevated` | ring and a contact shadow | a plate lifted inside a surface: the chosen segment, zoom controls over a figure, a resize handle |
+| Popover | `--elevation-popover` | `--surface-elevated` | ring and shadow | menus, selects, popovers, tooltips, hover cards, the editor's tooltips and selection toolbar |
+| Floating | `--elevation-floating` | `--surface-elevated` | ring and a deeper shadow | floating panels, drawers, toasts, the update banner, the build's diagnostics card, a dragged item |
+| Dialog | `--elevation-dialog` | `--surface-elevated` | ring and the deepest shadow | modal dialogs, Settings, the guided tour's card |
+
+- The ring (`--elevation-ring`) is the edge; a floating surface does not add a
+  border on top of it.
+- A level's shadow does not change with nesting, so a popover inside a dialog
+  still reads as a popover.
+- A surface that colours its edge composes the same two parts:
+  `box-shadow: 0 0 0 1px <edge>, var(--elevation-floating-shadow)`. Toasts
+  colour theirs by severity; a Trellis panel held mid-drag takes the strong
+  border over the dialog shadow.
+- `surfaces.css` assigns the shared surfaces their level; Radix menus,
+  selects and popovers take theirs through `menu-surface.ts`.
+- Radii nest by the rule under Geometry: a level's surface declares
+  `--surface-radius` and `--surface-inset`, and what sits flush inside takes
+  `--nested-radius`.
+- A compiled PDF page keeps `--pdf-page-shadow`: paper on a desk, not
+  interface.
 
 ## Component boundaries
 
@@ -352,6 +425,40 @@ the primitive standardizes density without changing those semantics.
 - Embedded Settings routes delegate scrolling to the Lattice `ScrollArea`; the
   embedded document must not expose a second viewport scrollbar.
 
+## Motion
+
+One motion system: Fluid Functionalism's three spring tiers, the same in CSS
+and in `motion/react`. The bigger the thing that moves, the slower the tier.
+
+| Tier | Enter | Exit | Use |
+| --- | --- | --- | --- |
+| fast | 80ms spring, no bounce | 60ms tween | hover, focus, fades, tooltips, selection marks |
+| moderate | 160ms spring, no bounce | 120ms tween | travel and small expansion: menus, selects, popovers, tab indicators, switches, rows |
+| slow | 240ms spring, bounce 0.12 | 160ms tween | large surfaces: dialogs, drawers, split panes, the guided tour, a theme switch |
+
+- **CSS takes a tier whole:** `transition: opacity var(--motion-fast)`,
+  `animation: x var(--motion-slow) both`. Each `--motion-*` token pairs a
+  duration with its spring sampled into `linear()` from motion's own solver,
+  so CSS and JS land the same way, and a curve never meets another tier's
+  duration. WebKit before Safari 17.2 gets the nearest cubic curves. The bare
+  `--duration-*` values are for longhands and arithmetic: a
+  `transition-duration` override, a staggered delay.
+- **Exits are one tier quicker** and are plain tweens, so a dismissal reads as
+  final rather than replaying the entrance backwards: `--motion-*-exit` in
+  CSS, `springExit` in JS. A CSS hover leaves on the same tier it entered on;
+  an element that leaves the screen takes the exit.
+- **JS takes the same tiers:** `spring.fast|moderate|slow` and `springExit`
+  from `components/ui/motion-values.ts`. Motion run outside motion/react (an
+  `element.animate()` call, a library's own transition) takes
+  `animationTiming(tier)`. The one physics spring is `MAGNET_SPRING`, which
+  follows the pointer rather than making a timed change.
+- **Two moments sit off the tiers:** `--motion-draw` (560ms, a stroke drawing
+  itself or an icon turning once) and `--motion-flourish` (720ms, a ripple or
+  burst). Ambient loops time themselves.
+- `tokens.test.ts` fails on a raw time or curve in a transition, a bare
+  duration where a tier belongs, and a sampled curve that no longer matches
+  its spring.
+
 ## Identity and motion moments
 
 The app icon's woven lattice is Lattice's mark, and a small set of touches
@@ -380,9 +487,9 @@ Motion follows three rules:
   near it repeats while the writer works. A flourish that a remount could
   replay is guarded, as the Build button's `isFreshOutcome` is.
 - **Paint-cheap and layout-free.** Animate `transform`, `opacity`, and
-  `stroke-dashoffset`; never geometry. Times come from the `--duration-*`
-  scale (`--duration-draw` for a line drawing itself, `--duration-flourish`
-  for a one-time ripple or burst). Ambient loops longer than the scale may use
+  `stroke-dashoffset`; never geometry. Times come from the tiers under Motion
+  (`--motion-draw` for a line drawing itself, `--motion-flourish` for a
+  one-time ripple or burst). Ambient loops longer than the scale may use
   literal times.
 
 Reduced motion is owned by `src/styles/adaptive-feedback.css`. Its universal

@@ -3,7 +3,7 @@ import { cn } from "@/lib/utils";
 import "./form-controls.css";
 
 export type InputProps = ComponentPropsWithoutRef<"input"> & {
-  controlSize?: "compact" | "default" | "form";
+  controlSize?: "compact" | "default";
 };
 
 export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(

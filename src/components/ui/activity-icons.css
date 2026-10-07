@@ -34,7 +34,7 @@
 }
 
 .ui-reload-icon--once {
-  animation: ui-reload-once 0.58s var(--ease-emphasized);
+  animation: ui-reload-once var(--motion-draw);
 }
 
 @keyframes ui-reload-once {

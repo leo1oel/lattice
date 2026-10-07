@@ -13,9 +13,9 @@
   place-items: center;
   line-height: 0;
   cursor: default;
-  transition: color var(--duration-quick) var(--ease-default),
-    background-color var(--duration-quick) var(--ease-default),
-    opacity var(--duration-quick) var(--ease-default);
+  transition: color var(--motion-fast),
+    background-color var(--motion-fast),
+    opacity var(--motion-fast);
 }
 
 .ui-icon-button[data-size="compact"] {
@@ -69,27 +69,22 @@
   justify-content: center;
   gap: var(--space-3);
   color: var(--text-primary);
-  font-size: var(--type-label-size);
-  line-height: var(--type-label-line-height);
-  font-weight: var(--type-label-weight);
+  font-size: var(--type-body-compact-size);
+  line-height: var(--type-body-compact-line-height);
+  font-weight: var(--type-body-compact-weight);
   white-space: nowrap;
   cursor: pointer;
-  transition: color var(--duration-quick) var(--ease-default),
-    border-color var(--duration-quick) var(--ease-default),
-    background-color var(--duration-quick) var(--ease-default),
-    opacity var(--duration-quick) var(--ease-default),
-    scale var(--duration-quick) var(--ease-default);
+  transition: color var(--motion-fast),
+    border-color var(--motion-fast),
+    background-color var(--motion-fast),
+    opacity var(--motion-fast),
+    scale var(--motion-fast);
 }
 
 .ui-button--compact {
   height: var(--control-height-compact);
   padding-inline: var(--space-5);
   font-size: var(--type-caption-size);
-}
-
-.ui-button--form {
-  height: var(--control-height-form);
-  padding-inline: var(--space-8);
 }
 
 .ui-button--primary {
@@ -140,7 +135,7 @@
   --sliding-tab-color: var(--text-secondary);
   --sliding-tab-hover-color: var(--text-primary);
   --sliding-tab-active-color: var(--control-active);
-  height: var(--control-height-segmented-compact);
+  height: var(--control-height-compact);
   padding: 0 var(--pad-inline-control);
   border: var(--sliding-tab-border);
   border-radius: var(--radius-icon);
@@ -153,10 +148,10 @@
   font-size: var(--type-micro-size);
   line-height: var(--type-micro-line-height);
   font-weight: var(--weight-semibold);
-  transition: color var(--duration-quick) var(--ease-default),
-    border-color var(--duration-quick) var(--ease-default),
-    background-color var(--duration-quick) var(--ease-default),
-    opacity var(--duration-quick) var(--ease-default);
+  transition: color var(--motion-fast),
+    border-color var(--motion-fast),
+    background-color var(--motion-fast),
+    opacity var(--motion-fast);
 }
 
 .ui-compact-selectable:hover:not(:disabled):not(.active):not([aria-selected="true"]):not([aria-pressed="true"]):not([aria-checked="true"]) {
@@ -192,9 +187,9 @@
 .ui-settings-row-label {
   display: block;
   color: var(--text-primary);
-  font-size: var(--type-label-size);
-  line-height: var(--type-label-line-height);
-  font-weight: var(--type-label-weight);
+  font-size: var(--type-body-compact-size);
+  line-height: var(--type-body-compact-line-height);
+  font-weight: var(--type-body-compact-weight);
 }
 
 .ui-switch-field-description,
@@ -243,8 +238,8 @@
   padding-bottom: var(--space-4);
   border-bottom: 1px solid var(--border-subtle);
   color: var(--text-primary);
-  font-size: var(--settings-group-title-size);
-  line-height: var(--settings-group-title-line-height);
+  font-size: var(--type-subtitle-size);
+  line-height: var(--type-subtitle-line-height);
   font-weight: var(--weight-semibold);
 }
 
@@ -270,9 +265,9 @@
   align-items: center;
   gap: var(--space-4);
   color: var(--text-primary);
-  font-size: var(--type-title-compact-size);
-  line-height: var(--type-title-compact-line-height);
-  font-weight: var(--type-title-compact-weight);
+  font-size: var(--type-subtitle-size);
+  line-height: var(--type-subtitle-line-height);
+  font-weight: var(--type-subtitle-weight);
 }
 
 .ui-panel-header-title > svg {
@@ -310,9 +305,9 @@
 .ui-settings-section-header-title {
   margin: 0;
   color: var(--text-primary);
-  font-size: var(--type-heading-size);
-  line-height: var(--type-heading-line-height);
-  font-weight: var(--type-heading-weight);
+  font-size: var(--type-title-size);
+  line-height: var(--type-title-line-height);
+  font-weight: var(--type-title-weight);
 }
 
 .ui-settings-section-header-description {
@@ -327,7 +322,7 @@
 /* Held to the title's line box, so a header action (taller than the title
    line) centres on the title without pushing the page's content down. */
 .ui-settings-section-header-actions {
-  height: var(--type-heading-line-height);
+  height: var(--type-title-line-height);
   flex: none;
   display: flex;
   align-items: center;
@@ -363,8 +358,8 @@
 .ui-empty-state-title {
   margin: 0;
   color: var(--text-primary);
-  font-size: var(--type-label-size);
-  line-height: var(--type-label-line-height);
+  font-size: var(--type-body-compact-size);
+  line-height: var(--type-body-compact-line-height);
   font-weight: var(--weight-semibold);
 }
 
@@ -410,9 +405,9 @@
   place-content: center;
   flex: none;
   cursor: pointer;
-  transition: border-color var(--duration-quick) var(--ease-default),
-    background-color var(--duration-quick) var(--ease-default),
-    opacity var(--duration-quick) var(--ease-default);
+  transition: border-color var(--motion-fast),
+    background-color var(--motion-fast),
+    opacity var(--motion-fast);
 }
 
 .ui-checkbox:hover:not(:disabled) {
@@ -459,7 +454,7 @@ label.ui-checkbox-field[data-slot="checkbox-field"] {
   color: var(--text-secondary);
   font-size: var(--type-caption-size);
   line-height: var(--type-caption-line-height);
-  font-weight: var(--type-label-weight);
+  font-weight: var(--type-body-compact-weight);
   cursor: pointer;
 }
 
@@ -489,7 +484,7 @@ label.ui-checkbox-field[data-slot="checkbox-field"] {
      See the concentric nesting note in styles/surfaces.css. */
   --surface-radius: var(--radius-control);
   --surface-inset: var(--space-1);
-  height: var(--control-height-segmented-compact);
+  height: var(--control-height-compact);
   padding: var(--surface-inset);
   border-radius: var(--surface-radius);
   background: var(--segmented-surface);
@@ -499,7 +494,7 @@ label.ui-checkbox-field[data-slot="checkbox-field"] {
 }
 
 .ui-segmented--default {
-  height: var(--control-height-segmented-default);
+  height: var(--control-height-default);
 }
 
 .ui-segmented-tab {
@@ -535,7 +530,7 @@ label.ui-checkbox-field[data-slot="checkbox-field"] {
 .ui-segmented-tab[aria-pressed] {
   border: 0;
   background: transparent;
-  transition: color var(--duration-quick) var(--ease-default), background-color var(--duration-quick) var(--ease-default);
+  transition: color var(--motion-fast), background-color var(--motion-fast);
 }
 .ui-segmented-tab[aria-pressed="false"]:hover { color: var(--text-secondary); }
 .ui-segmented-tab[aria-pressed="true"] {
@@ -617,9 +612,7 @@ label.ui-checkbox-field[data-slot="checkbox-field"] {
     outline: none;
     background-color: var(--control-off-surface);
     cursor: pointer;
-    transition-property: background-color, opacity;
-    transition-duration: var(--duration-base), var(--duration-quick);
-    transition-timing-function: var(--ease-default), var(--ease-default);
+    transition: background-color var(--motion-moderate), opacity var(--motion-fast);
   }
   .ui-switch[aria-checked="true"] { background-color: var(--control-on-surface); }
   .ui-switch:disabled { cursor: not-allowed; opacity: var(--control-disabled-opacity); }
@@ -642,7 +635,7 @@ label.ui-checkbox-field[data-slot="checkbox-field"] {
   }
 }
 @layer components {
-  .ui-tooltip-content:is([data-state="delayed-open"], [data-state="instant-open"]) { animation: ui-tooltip-enter var(--duration-base) ease; }
+  .ui-tooltip-content:is([data-state="delayed-open"], [data-state="instant-open"]) { animation: ui-tooltip-enter var(--motion-fast); }
   .ui-tooltip-content[data-side="bottom"] { --ui-tooltip-enter-y: -0.5rem; }
   .ui-tooltip-content[data-side="top"] { --ui-tooltip-enter-y: 0.5rem; }
   .ui-tooltip-content[data-side="left"] { --ui-tooltip-enter-x: 0.5rem; }

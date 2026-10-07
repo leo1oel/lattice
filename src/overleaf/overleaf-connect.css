@@ -80,8 +80,8 @@
 .overleaf-status-text { flex: 1 1 auto; min-width: 0; display: grid; gap: var(--space-1); }
 .overleaf-status-text strong {
   color: var(--text-primary);
-  font-size: var(--type-label-size);
-  line-height: var(--type-label-line-height);
+  font-size: var(--type-body-compact-size);
+  line-height: var(--type-body-compact-line-height);
   font-weight: var(--weight-semibold);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -113,13 +113,13 @@
 .overleaf-channel::before { content: ""; width: var(--space-3); height: var(--space-3); flex: none; border-radius: var(--radius-pill); background: currentColor; }
 .overleaf-channel-live { color: var(--status-success); }
 /* The channel just came up: one ripple from its dot (see .overleaf-status-dot). */
-.overleaf-channel-live::before { animation: overleaf-channel-ripple var(--duration-flourish) var(--ease-out) both; }
+.overleaf-channel-live::before { animation: overleaf-channel-ripple var(--motion-flourish) both; }
 @keyframes overleaf-channel-ripple {
   from { box-shadow: 0 0 0 0 color-mix(in srgb, currentColor 55%, transparent); }
   to { box-shadow: 0 0 0 var(--space-3) transparent; }
 }
 .overleaf-channel-connecting { color: var(--text-secondary); }
-.overleaf-channel-connecting::before { background: var(--status-warning); animation: overleaf-breathe 1.6s var(--ease-in-out) infinite; }
+.overleaf-channel-connecting::before { background: var(--status-warning); animation: overleaf-breathe 1.6s ease-in-out infinite; }
 .overleaf-channel-error { color: var(--status-danger); }
 
 /* ---- Picker dialog -------------------------------------------------------- */
@@ -132,7 +132,7 @@
   flex-direction: column;
 }
 .overleaf-picker-header { flex: none; height: auto; padding: 0; }
-.overleaf-picker-header .ui-panel-header-title { gap: var(--space-5); font-size: var(--type-heading-size); }
+.overleaf-picker-header .ui-panel-header-title { gap: var(--space-5); font-size: var(--type-title-size); }
 .overleaf-picker-header .ui-panel-header-title > svg { color: var(--control-active); }
 
 .overleaf-picker-lede {
@@ -184,7 +184,7 @@
   border-radius: var(--radius-surface);
   background: var(--surface-input);
   overflow: hidden;
-  animation: overleaf-settle var(--duration-reveal) var(--ease-entrance);
+  animation: overleaf-settle var(--motion-moderate);
 }
 .overleaf-stage[data-list] { background: transparent; }
 /* Signed out there is no list to frame yet: the same geometry, without the
@@ -241,7 +241,7 @@
 .overleaf-skeleton-lines span {
   background: linear-gradient(90deg, var(--border-subtle) 0%, color-mix(in srgb, var(--border-subtle) 40%, transparent) 50%, var(--border-subtle) 100%);
   background-size: 200% 100%;
-  animation: overleaf-shimmer 1.6s var(--ease-in-out) infinite;
+  animation: overleaf-shimmer 1.6s ease-in-out infinite;
 }
 .overleaf-skeleton-tile { width: var(--control-height-compact); height: var(--control-height-compact); flex: none; border-radius: var(--radius-control); }
 .overleaf-skeleton-lines { flex: 1 1 auto; display: grid; gap: var(--space-3); }
@@ -274,7 +274,7 @@
   gap: var(--space-4);
   padding-right: var(--space-6);
   border-bottom: 1px solid var(--border-subtle);
-  transition: background-color var(--duration-quick) var(--ease-out);
+  transition: background-color var(--motion-fast);
 }
 .overleaf-project-group:last-child .overleaf-project-row:last-child { border-bottom: none; }
 .overleaf-project-row:hover { background: var(--control-hover-surface); }
@@ -302,7 +302,7 @@
   background: var(--surface-panel);
   box-shadow: inset 0 0 0 1px var(--border-subtle);
   color: var(--text-tertiary);
-  transition: color var(--duration-quick) var(--ease-out), background-color var(--duration-quick) var(--ease-out);
+  transition: color var(--motion-fast), background-color var(--motion-fast);
 }
 .overleaf-project-row.selected .overleaf-project-icon { background: var(--surface-panel); color: var(--control-active); box-shadow: inset 0 0 0 1px var(--control-active-border); }
 .overleaf-project-name {
@@ -314,7 +314,7 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   color: var(--text-primary);
-  font-size: var(--type-label-size);
+  font-size: var(--type-body-compact-size);
   font-weight: var(--weight-semibold);
 }
 .overleaf-project-meta {
@@ -325,7 +325,7 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.overleaf-open-button { animation: overleaf-settle var(--duration-base) var(--ease-entrance); }
+.overleaf-open-button { animation: overleaf-settle var(--motion-moderate); }
 .overleaf-row-spinner { flex: none; color: var(--control-active); }
 
 .overleaf-picker-keyboard { flex: none; margin: var(--space-4) 0 0; color: var(--text-tertiary); font-size: var(--type-micro-size); }
@@ -333,7 +333,7 @@
 .overleaf-publish-card { margin-top: var(--space-8); flex: none; display: grid; gap: var(--space-6); }
 .overleaf-publish-head { display: flex; align-items: center; gap: var(--space-6); }
 .overleaf-publish-copy { min-width: 0; display: flex; flex-direction: column; gap: var(--space-1); }
-.overleaf-publish-copy strong { color: var(--text-primary); font-size: var(--type-label-size); font-weight: var(--weight-semibold); }
+.overleaf-publish-copy strong { color: var(--text-primary); font-size: var(--type-body-compact-size); font-weight: var(--weight-semibold); }
 .overleaf-publish-copy span { color: var(--text-tertiary); font-size: var(--type-micro-size); line-height: var(--type-micro-line-height); }
 .overleaf-publish-actions { display: flex; align-items: center; gap: var(--space-4); }
 .overleaf-publish-actions .ui-input { flex: 1 1 auto; min-width: 0; }

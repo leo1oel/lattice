@@ -8,12 +8,12 @@
   outline: none;
   background: var(--form-control-background);
   color: var(--text-primary);
-  font-size: var(--type-label-size);
-  line-height: var(--type-label-line-height);
+  font-size: var(--type-body-compact-size);
+  line-height: var(--type-body-compact-line-height);
   font-weight: var(--type-body-weight);
   box-shadow: none;
-  transition: border-color var(--duration-quick) var(--ease-default),
-    opacity var(--duration-quick) var(--ease-default);
+  transition: border-color var(--motion-fast),
+    opacity var(--motion-fast);
 }
 
 .ui-input,
@@ -30,13 +30,6 @@
 [data-slot="select-trigger"][data-control-size="compact"] {
   height: var(--control-height-compact);
   font-size: var(--type-caption-size);
-}
-
-.ui-input[data-control-size="form"],
-[data-slot="select-trigger"][data-control-size="form"] {
-  height: var(--control-height-form);
-  font-size: var(--type-body-size);
-  line-height: var(--type-body-line-height);
 }
 
 .ui-textarea {
@@ -93,10 +86,6 @@
 
 [data-slot="select-trigger"] {
   border-radius: var(--form-control-select-radius);
-}
-
-[data-slot="select-trigger"][data-control-size="form"] {
-  height: var(--form-control-height-form);
 }
 
 [data-slot="select-trigger"] > svg {

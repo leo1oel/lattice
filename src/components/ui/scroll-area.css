@@ -36,7 +36,7 @@
   touch-action: none;
   user-select: none;
   opacity: 0;
-  transition: opacity var(--duration-quick) var(--ease-out) var(--duration-base);
+  transition: opacity var(--motion-fast) var(--duration-moderate);
 }
 
 .lattice-scrollbar[data-hovering],
@@ -44,7 +44,7 @@
 .external-scrollbar:hover,
 .overlay-scrollbar:hover {
   opacity: 1;
-  transition-duration: var(--duration-base);
+  transition-duration: var(--duration-moderate);
   transition-delay: 0ms;
 }
 
@@ -95,7 +95,7 @@
   position: relative;
   border-radius: 9999px;
   background: color-mix(in srgb, var(--text-primary) 8%, transparent);
-  transition: background-color var(--duration-base) var(--ease-in-out), width var(--duration-base) var(--ease-in-out), height var(--duration-base) var(--ease-in-out);
+  transition: background-color var(--motion-moderate), width var(--motion-moderate), height var(--motion-moderate);
 }
 
 .lattice-scrollbar:hover .lattice-scrollbar-thumb {

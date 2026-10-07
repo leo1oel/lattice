@@ -397,7 +397,6 @@ function EditorSettingsPane({ projectWordDraft, setProjectWordDraft, ...props }:
             : t`Signs your comments when Git and Overleaf have no name`}
         >
           <Input
-            controlSize="form"
             aria-label={t`Your name`}
             placeholder={props.knownAuthorName ?? t`Anonymous`}
             value={props.authorName}
@@ -422,14 +421,13 @@ function EditorSettingsPane({ projectWordDraft, setProjectWordDraft, ...props }:
           <div className="settings-project-dictionary">
             <form className="settings-project-dictionary-form" onSubmit={addProjectSpellingWord}>
               <Input
-                controlSize="form"
                 aria-label={t`Add project term`}
                 placeholder={t`e.g. Lattice`}
                 value={projectWordDraft}
                 disabled={!props.project}
                 onChange={(event) => setProjectWordDraft(event.target.value)}
               />
-              <Button size="form" type="submit" disabled={!props.project || !projectWordDraft.trim()}>{t`Add`}</Button>
+              <Button type="submit" disabled={!props.project || !projectWordDraft.trim()}>{t`Add`}</Button>
             </form>
             {projectSpellingWords.length > 0 ? (
               <div className="settings-project-dictionary-terms" role="list" aria-label={t`Project dictionary terms`}>

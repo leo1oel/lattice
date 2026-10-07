@@ -4,6 +4,7 @@ import { Trans, useLingui } from "@lingui/react/macro";
 import { Check, Pipette, Plus, X } from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { spring } from "./motion-values";
 import {
   useId,
   useRef,
@@ -154,7 +155,7 @@ function ColorGrid(props: {
               className="highlight-color-selection"
               layout="position"
               layoutId={props.reduceMotion ? undefined : props.selectionId}
-              transition={props.reduceMotion ? { duration: 0 } : { type: "spring", duration: 0.3, bounce: 0 }}
+              transition={props.reduceMotion ? { duration: 0 } : spring.moderate}
             >
               <Check size={13} strokeWidth={2.2} />
             </motion.span>
@@ -464,7 +465,7 @@ export function AppleColorPicker(props: {
               initial={reduceMotion ? { opacity: 0 } : { opacity: 0, x: tabDirection * 10 }}
               animate={{ opacity: 1, x: 0 }}
               exit={reduceMotion ? { opacity: 0 } : { opacity: 0, x: tabDirection * -8 }}
-              transition={reduceMotion ? { duration: 0.1 } : { type: "spring", duration: 0.3, bounce: 0 }}
+              transition={reduceMotion ? spring.fast : spring.moderate}
             >
               {activeTab === "grid" && (
                 <ColorGrid

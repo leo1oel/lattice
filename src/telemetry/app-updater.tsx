@@ -262,7 +262,7 @@ export function UpdateBanner() {
   const dismissButton = <button type="button" className="app-update-dismiss" aria-label={t`Dismiss`} onClick={dismiss}>×</button>;
 
   return (
-    <div className={`app-update-banner smooth-shadow-ring-lg top-right ${phase}${stacked ? " stacked" : ""}`} role="status" aria-live="polite">
+    <div className={`app-update-banner top-right ${phase}${stacked ? " stacked" : ""}`} role="status" aria-live="polite">
       {phase === "available" && (
         <>
           <div className="app-update-text"><strong><Trans>New version {version}</Trans></strong><span><Trans>Ready to install</Trans></span></div>

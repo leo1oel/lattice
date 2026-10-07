@@ -105,7 +105,7 @@ const RadioGroup = forwardRef<HTMLDivElement, RadioGroupProps>(
               className="absolute rounded-lg bg-active pointer-events-none"
               initial={false}
               animate={{ ...selectedRect, opacity: 1 }}
-              transition={{ ...spring.moderate, opacity: { duration: 0.08 } }}
+              transition={{ ...spring.moderate, opacity: { duration: spring.fast.duration } }}
             />
           )}
           <FluidHoverHighlight hover={hover} className="rounded-lg" />
@@ -121,7 +121,7 @@ const RadioGroup = forwardRef<HTMLDivElement, RadioGroupProps>(
                   height: focusRect.height + 4,
                 }}
                 exit={{ opacity: 0, transition: springExit.fast }}
-                transition={{ ...spring.fast, opacity: { duration: 0.08 } }}
+                transition={{ ...spring.fast, opacity: { duration: spring.fast.duration } }}
               />
             )}
           </AnimatePresence>
@@ -189,7 +189,7 @@ const RadioItem = forwardRef<HTMLDivElement, RadioItemProps>(
         <div className="relative shrink-0 w-[16px] h-[16px]">
           <div
             className={cn(
-              "absolute inset-0 rounded-full border-solid transition-all duration-80 border-[1.5px]",
+              "absolute inset-0 rounded-full border-solid transition-all duration-[var(--duration-fast)] ease-[var(--ease-fast)] border-[1.5px]",
               isSelected
                 ? "border-transparent"
                 : isActive
@@ -223,7 +223,7 @@ const RadioItem = forwardRef<HTMLDivElement, RadioItemProps>(
           </span>
           <span
             className={cn(
-              "col-start-1 row-start-1 transition-[color,font-variation-settings] duration-80 [text-box:trim-both_cap_alphabetic]",
+              "col-start-1 row-start-1 transition-[color,font-variation-settings] duration-[var(--duration-fast)] ease-[var(--ease-fast)] [text-box:trim-both_cap_alphabetic]",
               isSelected || isActive ? "text-foreground" : "text-muted-foreground",
             )}
             style={{ fontVariationSettings: isSelected ? fontWeights.semibold : fontWeights.normal }}

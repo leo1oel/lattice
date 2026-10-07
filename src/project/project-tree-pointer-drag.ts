@@ -123,10 +123,12 @@ function createDragPreview(
         preview.remove();
         return;
       }
-      preview.style.transition = "opacity 60ms ease-out, box-shadow 60ms ease-out";
+      // The fast tier's exit; the removal below waits it out.
+      // eslint-disable-next-line lingui/no-unlocalized-strings -- a CSS transition value
+      preview.style.transition = "opacity var(--motion-fast-exit), box-shadow var(--motion-fast-exit)";
       preview.style.opacity = "0";
-      // eslint-disable-next-line lingui/no-unlocalized-strings -- CSS box-shadow value
-      preview.style.boxShadow = "0 1px 3px color-mix(in srgb, #000 5%, transparent)";
+      // It settles from the floating level to the raised one as it fades.
+      preview.style.boxShadow = "var(--elevation-raised-shadow)";
       window.setTimeout(() => preview.remove(), 70);
     },
   };

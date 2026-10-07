@@ -14,6 +14,7 @@ const appCssFiles = [
 ]
 const appCss = appCssFiles.map(read).join("\n")
 const surfacesCss = read("src/styles/surfaces.css")
+const foundations = read("src/styles/foundations.css")
 const menuSurface = read("src/components/ui/menu-surface.ts")
 const spreadsheetEditor = read("src/editor/spreadsheet/spreadsheet-editor.tsx")
 
@@ -175,17 +176,26 @@ describe("shared surface contracts", () => {
   })
 
   // Feature rules should only add layout/sizing after the shared chrome lands.
-  it("routes shared floating chrome through shadow-plugin and keeps frosted hover cards in one place", () => {
-    const floatingChrome =
-      /border:\s*1px solid var\(--border-strong\);[^}]*background:\s*var\(--surface-panel-raised\);[^}]*box-shadow:\s*var\(--shadow\)/
-    const drawerChrome =
-      /background:\s*var\(--surface-input\);[^}]*box-shadow:\s*var\(--shadow\);[^}]*padding:\s*14px;[^}]*animation:\s*drawer-in/
-    expect(read("src/index.css")).toContain('@import "shadow-plugin"')
-    expectRules(surfacesCss, ["@apply smooth-shadow-ring-lg", "@apply smooth-shadow-lg"])
-    expectRules(appCss, [], [floatingChrome, drawerChrome, /@keyframes drawer-in/])
+  it("stands every floating surface on one elevation ladder and keeps frosted hover cards in one place", () => {
+    // Each level is its edge plus one shadow, defined once; the palette holds a
+    // stack per level for each theme, and nothing pulls in a shadow utility kit.
+    for (const level of ["raised", "popover", "floating", "dialog"]) {
+      expect(foundations).toContain(`--elevation-${level}: 0 0 0 1px var(--elevation-ring), var(--elevation-${level}-shadow);`)
+      expect(foundations).toContain(`--elevation-${level}-shadow: var(--shadow-${level});`)
+    }
+    expect(read("src/index.css")).not.toMatch(/shadow-plugin/)
+    expect(read("src/App.css")).not.toMatch(/shadow-plugin/)
+    const levelOf = (selector: string) =>
+      new RegExp(`^${selector.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?:,\\n[^{]*| )\\{[^}]*box-shadow: var\\(--elevation-([a-z]+)\\)`, "m").exec(surfacesCss)?.[1]
+    expect(levelOf(".modal")).toBe("dialog")
+    expect(levelOf(".settings-modal")).toBe("dialog")
+    expect(levelOf(".app-toast")).toBe("floating")
+    expect(levelOf(".file-tree-context-menu")).toBe("popover")
+    expect(surfacesCss).toMatch(/\.resizable-drawer \{[^}]*box-shadow: var\(--elevation-floating\);[^}]*animation: drawer-in/)
+    expectRules(appCss, [], [/@keyframes drawer-in/, /@apply smooth-shadow/])
     // The frosted hover-card chrome lives in one place too.
     const frostedChrome =
-      /background:\s*color-mix\(in srgb, var\(--surface-panel-raised\)\s*97%,\s*transparent\);[^}]*backdrop-filter:\s*blur\(14px\)/
+      /background:\s*color-mix\(in srgb, var\(--surface-elevated\)\s*97%,\s*transparent\);[^}]*box-shadow: var\(--elevation-popover\);[^}]*backdrop-filter:\s*blur\(14px\)/
     expect(surfacesCss).toMatch(frostedChrome)
     expect(appCss).not.toMatch(frostedChrome)
   })
@@ -228,7 +238,7 @@ describe("shared surface contracts", () => {
       /div:has\(> \[data-u-comp="button"\] \+ \[data-u-comp="button"\]\) \{[^}]*gap: var\(--space-4\);/,
     ]],
     ["keeps spreadsheet menu labels left and selection marks right", [
-      /\[data-slot="dropdown-menu-content"\]\.univer-text-sm[^}]+\{[^}]*border-radius: var\(--spreadsheet-menu-radius\) !important;[^}]*background: var\(--surface-panel-raised\) !important;/,
+      /\[data-slot="dropdown-menu-content"\]\.univer-text-sm[^}]+\{[^}]*border-radius: var\(--spreadsheet-menu-radius\) !important;[^}]*background: var\(--surface-elevated\) !important;[^}]*box-shadow: var\(--elevation-popover\) !important;/,
       // Select choices, Number Formats rows and Font Family rows share one
       // trailing check; the Font Family one sits flush right.
       /\[data-slot="dropdown-menu-radio-item"\][\s\S]+\[data-slot="dropdown-menu-checkbox-item"\][\s\S]+\)\[data-state="checked"\]::after \{[^}]*top: 50%;[^}]*right: var\(--gap-inline\);[^}]*background: var\(--control-active\);[^}]*mask: url\("data:image\/svg\+xml/,
@@ -249,16 +259,14 @@ describe("shared surface contracts", () => {
     ["puts a notification's icon, message and dismiss on one axis", [
       /\.app-toast \{[^}]*align-items: center/,
       ".app-toast.expanded { align-items: start; }",
-      /\.app-toast\.expanded > button \{ margin-top: calc\(\(var\(--type-label-line-height\) - var\(--control-size-icon-compact\)\) \/ 2\)/,
-      /\.app-toast strong \{[^}]*line-height: var\(--type-label-line-height\)/,
+      /\.app-toast\.expanded > button \{ margin-top: calc\(\(var\(--type-body-compact-line-height\) - var\(--control-size-icon-compact\)\) \/ 2\)/,
+      /\.app-toast strong \{[^}]*line-height: var\(--type-body-compact-line-height\)/,
     ]],
   ])("%s", (_name, has, lacks) => expectRules(appCss, has, lacks))
 
   it("keeps elevated menus and Settings free of hard outer frames, and menus on the app scrollbar", () => {
-    expectRules(menuSurface, ["smooth-shadow-lg"], [" border border-border ", "smooth-shadow-ring-lg", /shadow-\[/])
-    expect(surfacesCss).toMatch(/\.settings-modal \{\s*@apply smooth-shadow-xl;\s*background: var\(--surface-panel-raised\);\s*\}/)
-    const borderedSurfaces = surfacesCss.slice(0, surfacesCss.indexOf("/* Settings deliberately"))
-    expect(borderedSurfaces).not.toContain(".settings-modal")
+    // The ring is the edge: no border on top of it.
+    expectRules(menuSurface, ["[box-shadow:var(--elevation-popover)]"], [" border border-border ", /smooth-shadow/])
     // The project menu does not hardcode the popover surface colour either.
     expect(read("src/project/project-dialogs.tsx")).not.toMatch(/bg-\[#F9F9FA\]|dark:bg-popover/)
     // Menu viewports inherit the app scrollbar.

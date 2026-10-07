@@ -2,8 +2,6 @@
   --avatar-group-lift: -2px;
   --avatar-group-falloff: .35;
   --avatar-group-scale: 1.025;
-  --avatar-group-ease-in: cubic-bezier(.22, 1, .36, 1);
-  --avatar-group-ease-out: cubic-bezier(.2, .8, .2, 1.05);
   display: flex;
   align-items: center;
   padding-inline: var(--space-2);
@@ -17,7 +15,7 @@
   flex: none;
   transform: translateY(var(--avatar-group-shift)) scale(var(--avatar-group-active-scale));
   transform-origin: center;
-  transition: transform var(--duration-disclosure) var(--avatar-group-ease-in);
+  transition: transform var(--motion-moderate);
   will-change: transform;
 }
 

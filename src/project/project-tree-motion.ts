@@ -1,5 +1,5 @@
 import { useLayoutEffect } from "react";
-import { spring } from "../components/ui/motion-values";
+import { animationTiming } from "../components/ui/motion-values";
 
 const rowsSelector = '[data-file-tree-virtualized-sticky="true"] > [data-type="item"]:not([data-item-parked="true"])';
 
@@ -84,10 +84,7 @@ export function attachProjectTreeMotion(scroller: HTMLElement) {
     markScroll();
   };
   const animate = (element: Element, frames: Keyframe[]) => {
-    const animation = element.animate(frames, {
-      duration: spring.moderate.duration * 1000,
-      easing: "cubic-bezier(0.2, 0.75, 0.25, 1)",
-    });
+    const animation = element.animate(frames, animationTiming("moderate"));
     animations.set(element, animation);
     animation.onfinish = () => {
       animations.delete(element);

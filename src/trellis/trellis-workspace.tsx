@@ -820,7 +820,7 @@ function PanelMenu({ request, onClose }: { request: MenuRequest; onClose: () => 
 // so both themes follow the app.
 const TOKENS: Record<string, string> = {
   "--trellis-font": "var(--ui-font)",
-  "--trellis-font-size": "var(--type-label-size)",
+  "--trellis-font-size": "var(--type-body-compact-size)",
   "--trellis-accent": "var(--control-active)",
   "--trellis-accent-contrast": "var(--control-active-contrast)",
   // The workspace paints the shell behind Trellis; a second coat would

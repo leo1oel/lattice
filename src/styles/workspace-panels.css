@@ -1,5 +1,5 @@
 .drawer-backdrop { position: fixed; inset: 0; z-index: var(--z-drawer-backdrop); background: var(--scrim-surface); display: flex; justify-content: flex-end; }
-.history-drawer { width: min(460px, 100%); transition: width var(--duration-base) var(--ease-default); }
+.history-drawer { width: min(460px, 100%); transition: width var(--motion-moderate); }
 .project-history-drawer { display: flex; flex-direction: column; overflow: hidden; }
 .project-history-scroll { min-height: 0; flex: 1; margin: 0 calc(-1 * var(--drawer-content-inset)) calc(-1 * var(--drawer-content-inset)); }
 .project-history-scroll-viewport { padding: 0 var(--drawer-content-inset) var(--drawer-content-inset); }
@@ -30,8 +30,8 @@ body.resizing-panels .resizable-drawer { transition: none; }
   font-size: var(--type-caption-size);
   line-height: var(--type-caption-line-height);
   font-weight: var(--weight-semibold);
-  transition: color var(--duration-quick) var(--ease-default),
-    background-color var(--duration-quick) var(--ease-default);
+  transition: color var(--motion-fast),
+    background-color var(--motion-fast);
 }
 .drawer-view-tab:hover:not(:disabled) { color: var(--text-primary); background: var(--border-subtle); }
 .drawer-view-tab.active { color: var(--text-primary); background: transparent; }
@@ -41,32 +41,32 @@ body.resizing-panels .resizable-drawer { transition: none; }
 .history-body { min-width: 0; }
 .history-expand { width: 100%; border: 0; padding: 0; background: transparent; color: inherit; text-align: left; cursor: pointer; }
 .history-body strong { display: block; font-size: var(--type-caption-size); font-weight: 600; }
-.history-body span { display: flex; align-items: center; gap: var(--space-2); margin-top: var(--space-2); color: var(--text-tertiary); font-size: var(--type-nano-size); }
+.history-body span { display: flex; align-items: center; gap: var(--space-2); margin-top: var(--space-2); color: var(--text-tertiary); font-size: var(--type-micro-size); }
 .history-body .history-actor { display: inline-flex; margin: 0 var(--space-1) 0 0; border-radius: var(--radius-pill); padding: var(--space-1) var(--space-3); background: var(--border-subtle); color: var(--text-secondary); font-weight: 600; }
 .history-body .history-actor.agent { background: color-mix(in srgb, var(--status-success) 12%, transparent); color: var(--status-success); }
 .history-body .history-actor.citation { background: color-mix(in srgb, #a174d5 13%, transparent); color: #8a5ebe; }
-.history-body p { margin: 5px 0 0; color: var(--text-secondary); font-size: var(--type-nano-size); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.history-body p { margin: 5px 0 0; color: var(--text-secondary); font-size: var(--type-micro-size); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .history-actions { display: flex; gap: var(--space-1); }
-.history-actions button { width: 27px; height: 27px; border-radius: var(--radius-icon); background: transparent; color: var(--text-secondary); display: grid; place-items: center; }
+.history-actions button { width: var(--control-size-icon); height: var(--control-size-icon); border-radius: var(--radius-icon); background: transparent; color: var(--text-secondary); display: grid; place-items: center; }
 .history-actions button:hover { background: var(--control-active-soft); color: var(--control-active); }
 .history-actions button:disabled { opacity: .35; cursor: not-allowed; background: transparent; color: var(--text-secondary); }
 .history-actions .history-delete:hover { background: color-mix(in srgb, var(--status-danger) 9%, transparent); color: var(--status-danger); }
 .history-entry-preview { margin-top: var(--space-4); display: grid; gap: var(--space-4); }
 .history-checkpoint-summary { display: grid; gap: var(--space-3); border: 1px solid var(--border-subtle); border-radius: var(--radius-control); padding: var(--space-4); background: var(--surface-app); }
-.history-checkpoint-summary > strong { color: var(--text-secondary); font-size: var(--type-nano-size); font-weight: 600; }
+.history-checkpoint-summary > strong { color: var(--text-secondary); font-size: var(--type-micro-size); font-weight: 600; }
 .history-checkpoint-summary > div { display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); min-width: 0; }
 .history-checkpoint-summary > div > span { min-width: 0; margin: 0; overflow: hidden; color: var(--text-primary); text-overflow: ellipsis; white-space: nowrap; }
-.history-checkpoint-summary small { flex: none; color: var(--text-tertiary); font-size: var(--type-nano-size); text-transform: capitalize; }
+.history-checkpoint-summary small { flex: none; color: var(--text-tertiary); font-size: var(--type-micro-size); text-transform: capitalize; }
 .history-file-tabs { display: flex; flex-wrap: wrap; gap: var(--space-2); }
 .history-code-view-shell { height: min(420px, 60vh); min-height: 220px; overflow: hidden; border: 1px solid var(--border-subtle); border-radius: var(--radius-control); background: var(--surface-app); }
 .history-code-view { width: 100%; height: 100%; overflow: auto; }
 .history-code-view-metadata { display: inline-flex; align-items: center; gap: var(--space-2); }
-.history-code-view-kind { color: var(--text-tertiary); font: var(--type-diff-meta-weight) var(--type-diff-meta-size)/var(--type-diff-meta-line-height) var(--ui-font); text-transform: capitalize; }
+.history-code-view-kind { color: var(--text-tertiary); font: var(--type-micro-weight) var(--type-diff-meta-size)/var(--type-diff-meta-line-height) var(--ui-font); text-transform: capitalize; }
 .history-code-view-restore { width: 24px; height: 24px; border-radius: var(--radius-icon); display: inline-grid; place-items: center; color: var(--text-tertiary); }
 .history-code-view-restore:hover { background: var(--control-active-soft); color: var(--control-active); }
 .history-code-view-restore:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 1px; }
 .history-diff { border: 1px solid var(--border-subtle); border-radius: var(--radius-control); overflow: hidden; background: var(--surface-app); }
-.history-diff-meta { min-height: 28px; padding: 5px var(--space-4); border-bottom: 1px solid var(--border-subtle); display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); font-size: var(--type-diff-meta-size); line-height: var(--type-diff-meta-line-height); font-weight: var(--type-diff-meta-weight); }
+.history-diff-meta { min-height: 28px; padding: 5px var(--space-4); border-bottom: 1px solid var(--border-subtle); display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); font-size: var(--type-diff-meta-size); line-height: var(--type-diff-meta-line-height); font-weight: var(--type-micro-weight); }
 .history-diff-meta strong { color: var(--text-primary); }
 .history-diff-meta span { color: var(--text-tertiary); text-transform: capitalize; }
 .lattice-file-diff-body { max-height: 420px; overflow: auto; background: var(--surface-app); }
@@ -106,7 +106,7 @@ body.resizing-panels .resizable-drawer { transition: none; }
   opacity: 0;
   visibility: hidden;
   pointer-events: none;
-  transition: opacity var(--duration-reveal) var(--ease-out), visibility 0s linear var(--duration-reveal);
+  transition: opacity var(--motion-moderate), visibility 0s linear var(--duration-moderate);
 }
 .git-workspace-shell[data-ready] .git-workspace-skeleton::after { animation: none; }
 .git-workspace-skeleton {
@@ -117,7 +117,7 @@ body.resizing-panels .resizable-drawer { transition: none; }
   flex-direction: column;
   gap: var(--space-4);
   padding: var(--space-6);
-  animation: git-workspace-skeleton-in var(--duration-reveal) var(--ease-out) both;
+  animation: git-workspace-skeleton-in var(--motion-moderate) both;
 }
 .git-workspace-skeleton span:not(.git-workspace-skeleton-lines) {
   display: block;
@@ -154,7 +154,7 @@ body.resizing-panels .resizable-drawer { transition: none; }
   inset: 0;
   background: linear-gradient(100deg, transparent 30%, color-mix(in srgb, var(--surface-input) 70%, transparent) 50%, transparent 70%);
   transform: translateX(-100%);
-  animation: git-workspace-skeleton-sheen 1.6s var(--ease-in-out) infinite;
+  animation: git-workspace-skeleton-sheen 1.6s ease-in-out infinite;
 }
 .git-workspace-loading {
   position: absolute;
@@ -173,7 +173,7 @@ body.resizing-panels .resizable-drawer { transition: none; }
   color: var(--text-secondary);
   font-size: var(--type-micro-size);
   white-space: nowrap;
-  animation: git-workspace-skeleton-in var(--duration-reveal) var(--ease-out) both;
+  animation: git-workspace-skeleton-in var(--motion-moderate) both;
 }
 .git-workspace-stalled {
   height: 100%;
@@ -215,7 +215,7 @@ body.resizing-panels .resizable-drawer { transition: none; }
 .agent-git-workspace-close {
   display: grid;
   place-items: center;
-  height: 27px;
+  height: var(--control-height-compact);
   border: 0;
   border-radius: var(--radius-chrome);
   color: var(--text-secondary);
@@ -229,14 +229,14 @@ body.resizing-panels .resizable-drawer { transition: none; }
   font-size: var(--type-micro-size);
   font-weight: var(--weight-semibold);
 }
-.agent-git-workspace-close { width: 27px; }
+.agent-git-workspace-close { width: var(--control-size-icon); }
 .agent-git-workspace-repository:hover,
 .agent-git-workspace-close:hover { color: var(--text-primary); background: var(--control-active-soft); }
 .synara-source-control-frame { display: block; flex: 1; min-height: 0; width: 100%; border: 0; background: var(--surface-input); }
 .ui-panel-header-title > .ui-badge { margin-left: var(--space-1); }
 .git-commit-button {
   width: 100%;
-  height: 26px;
+  height: var(--control-height-compact);
   padding: 0 var(--space-4);
   border-radius: var(--radius-icon);
   border: 1px solid transparent;
@@ -268,7 +268,7 @@ body.resizing-panels .resizable-drawer { transition: none; }
   color: var(--text-primary);
   padding: var(--space-4);
   font: inherit;
-  font-size: var(--type-label-size);
+  font-size: var(--type-body-compact-size);
   resize: vertical;
 }
 .pdf-marks-list { display: flex; flex-direction: column; gap: var(--space-4); }
@@ -284,7 +284,7 @@ body.resizing-panels .resizable-drawer { transition: none; }
   grid-column: 1 / -1;
 }
 .literature-search button[type="submit"] {
-  height: 28px;
+  height: var(--control-height-compact);
   padding: 0 var(--space-5);
   border-radius: var(--radius-icon);
   border: 1px solid var(--border-strong);
@@ -309,7 +309,7 @@ body.resizing-panels .resizable-drawer { transition: none; }
 .lit-source {
   display: inline-block;
   margin-bottom: 5px;
-  font-size: var(--type-nano-size);
+  font-size: var(--type-micro-size);
   font-weight: 600;
   letter-spacing: .04em;
   text-transform: uppercase;
@@ -321,7 +321,7 @@ body.resizing-panels .resizable-drawer { transition: none; }
 .lit-source-alphaxiv { color: var(--control-active); }
 .literature-result-body strong {
   display: block;
-  font-size: var(--type-label-size);
+  font-size: var(--type-body-compact-size);
   line-height: 1.35;
   color: var(--text-primary);
 }
@@ -365,7 +365,7 @@ body.resizing-panels .resizable-drawer { transition: none; }
 }
 .literature-result-actions button,
 .literature-result-actions a {
-  height: 26px;
+  height: var(--control-height-compact);
   padding: 0 var(--space-4);
   border-radius: var(--radius-icon);
   border: 1px solid var(--border-subtle);
@@ -385,7 +385,7 @@ body.resizing-panels .resizable-drawer { transition: none; }
 .lit-load-more {
   margin: var(--space-2) 0 var(--space-1);
   width: 100%;
-  height: 32px;
+  height: var(--control-height-default);
   border: 1px dashed var(--border-subtle);
   border-radius: var(--radius-control);
   background: transparent;
@@ -400,7 +400,7 @@ body.resizing-panels .resizable-drawer { transition: none; }
 .lit-load-more:hover:not(:disabled) { color: var(--control-active); border-color: var(--control-active-border); }
 .lit-load-more:disabled { cursor: default; opacity: 0.7; }
 .lit-imported {
-  height: 26px;
+  height: var(--control-height-compact);
   padding: 0 var(--pad-inline-control);
   border-radius: var(--radius-icon);
   display: inline-flex;
@@ -523,6 +523,6 @@ body.resizing-panels .resizable-drawer { transition: none; }
   background: var(--control-active);
   color: var(--control-active-contrast);
   font-style: normal;
-  font-size: var(--type-nano-size);
+  font-size: var(--type-micro-size);
   line-height: 12px;
 }

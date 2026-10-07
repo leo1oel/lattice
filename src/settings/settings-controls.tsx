@@ -17,7 +17,7 @@ type SettingsSelectProps<T extends string> = {
 export function SettingsSelect<T extends string>(props: SettingsSelectProps<T>) {
   return (
     <Select value={props.value} onValueChange={(value) => props.onChange(value as T)}>
-      <SelectTrigger className={props.className} size="form" aria-label={props.label}><SelectValue /></SelectTrigger>
+      <SelectTrigger className={props.className} aria-label={props.label}><SelectValue /></SelectTrigger>
       <SelectContent data-settings-control="true" position="popper" align="end">
         {Object.entries<string>(props.options).map(([value, label]) => <SelectItem key={value} value={value}>{label}</SelectItem>)}
       </SelectContent>

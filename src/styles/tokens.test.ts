@@ -1,6 +1,8 @@
 // Vitest empties CSS imports, so read the stylesheets off disk.
 import { readdirSync, readFileSync, statSync } from "node:fs"
 import { describe, expect, it } from "vitest"
+import { spring as solveSpring } from "motion"
+import { spring, springExit } from "../components/ui/motion-values"
 
 const read = (file: string) => String(readFileSync(file, "utf8"))
 
@@ -86,6 +88,13 @@ const PALETTE = [
   "danger",
   "success",
   "warning",
+  // The elevation ladder's stacks; feature code takes a level (`--elevation-*`).
+  "shadow-ring",
+  "shadow-raised",
+  "shadow-popover",
+  "shadow-floating",
+  "shadow-dialog",
+  "shadow-pdf-page",
 ]
 
 /**
@@ -142,7 +151,7 @@ describe("design token contract", () => {
   })
 
   it("shares one height across the navigation controls", () => {
-    expect(foundations).toMatch(/--navigation-action-size: var\(--navigation-control-height\)/)
+    expect(foundations).toMatch(/--navigation-action-size: var\(--control-height-compact\)/)
     expect(foundations).toMatch(/--navigation-header-height: 40px/)
     expect(foundations).toMatch(/--titlebar-height: 40px/)
   })
@@ -150,13 +159,15 @@ describe("design token contract", () => {
   it("keeps single-line controls on the 28px compact and 30px default scale, with one Settings type contract", () => {
     expect(foundations).toMatch(/--control-height-compact: 28px/)
     expect(foundations).toMatch(/--control-height-default: 30px/)
-    expect(foundations).toMatch(/--control-height-form: var\(--control-height-default\)/)
-    expect(foundations).toMatch(/--form-control-height-form: var\(--control-height-form\)/)
+    // Square icon controls and toolbar buttons stand on the same two steps.
+    expect(foundations).toMatch(/--control-size-icon: var\(--control-height-compact\)/)
+    expect(foundations).toMatch(/--control-size-icon-large: var\(--control-height-default\)/)
+    expect(foundations).toMatch(/--toolbar-icon-height: var\(--control-height-compact\)/)
     expect(foundations).toMatch(/--settings-control-height: var\(--control-height-default\)/)
     // Every Settings control shares one typography contract.
     expect(foundations).toMatch(/--settings-control-font-family: var\(--ui-font\)/)
-    expect(foundations).toMatch(/--settings-control-font-size: var\(--type-label-size\)/)
-    expect(foundations).toMatch(/--settings-control-line-height: var\(--type-label-line-height\)/)
+    expect(foundations).toMatch(/--settings-control-font-size: var\(--type-body-compact-size\)/)
+    expect(foundations).toMatch(/--settings-control-line-height: var\(--type-body-compact-line-height\)/)
     expect(foundations).toMatch(/--settings-control-font-weight: var\(--type-body-weight\)/)
     expect(read("src/styles/dialogs.css")).toContain('[data-slot="select-content"][data-settings-control="true"]')
   })
@@ -233,11 +244,52 @@ describe("design token contract", () => {
     expect(offenders(MOTION, offScale, exempt)).toEqual([])
   })
 
+  it("takes a spring tier whole, its duration and curve together", () => {
+    // In a shorthand the first time is the duration, and it is a tier
+    // (`var(--motion-moderate)`), never a bare duration that could meet another
+    // tier's curve. A bare `--duration-*` there is a delay.
+    const SHORTHAND = /\b(?:transition|animation):\s*([^;{}"'`]+)/g
+    const durationFirst = (value: string) =>
+      value.split(/,(?![^(]*\))/).some((item) =>
+        /^[^]*?(?:\d*\.?\d+m?s\b|var\(--(?:motion|duration)-)/.exec(item)?.[0].endsWith("var(--duration-") ||
+        item.split("var(--motion-").length > 2)
+    expect(offenders(SHORTHAND, durationFirst, (file) => file.endsWith("foundations.css"))).toEqual([])
+
+    // The curves stay in foundations; the one way to name one elsewhere is a
+    // Tailwind pair, next to its own tier's duration.
+    const loneCurves = sources
+      .filter(({ file }) => !file.endsWith("foundations.css"))
+      .flatMap(({ file, rules }) =>
+        [...rules.matchAll(/var\(--ease-([a-z-]+)\)/g)]
+          .filter((match) => !rules.slice(Math.max(0, match.index - 48), match.index).includes(`duration-[var(--duration-${match[1]})] ease-[`))
+          .map((match) => `${file}: ${match[0]}`),
+      )
+    expect(loneCurves).toEqual([])
+  })
+
+  it("samples the CSS spring curves from the springs motion/react runs", () => {
+    const supported = foundations.slice(foundations.indexOf("@supports (transition-timing-function: linear(0, 1))"))
+    const declared = (name: string, text = foundations) => new RegExp(`${name}:\\s*([^;]+);`).exec(text)?.[1]
+    for (const [tier, { duration, bounce }] of Object.entries(spring)) {
+      const ms = duration * 1000
+      expect(declared(`--duration-${tier}`)).toBe(`${ms}ms`)
+      expect(declared(`--duration-${tier}-exit`)).toBe(`${springExit[tier as keyof typeof springExit].duration * 1000}ms`)
+      // One sample every 10ms of the spring motion solves for this tier.
+      const generator = solveSpring({ keyframes: [0, 1], duration: ms, bounce })
+      const samples = Math.round(ms / 10) + 1
+      const points = Array.from({ length: samples }, (_, index) => Number(generator.next((ms * index) / (samples - 1)).value.toFixed(3)))
+      expect(declared(`--ease-${tier}`, supported), `--ease-${tier}`).toBe(`linear(${points.join(", ")})`)
+    }
+  })
+
   it("sizes interface text through the shared type scale", () => {
     const RAW_SIZE =
       /(?:font-size:\s*|font:\s*["'`]?(?:\d+\s+)?|text-\[)(\d*\.?\d+)px/g
     const exempt = (file: string) => file.endsWith("foundations.css")
     expect(offenders(RAW_SIZE, () => true, exempt)).toEqual([])
+    // Tailwind's own scale is a second set of sizes beside the roles.
+    const TAILWIND_SIZE = /["'`\s](text-(xs|sm|base|lg|[2-9]?xl))(?=["'`\s])/g
+    expect(offenders(TAILWIND_SIZE, () => true, (file) => !/\.tsx?$/.test(file))).toEqual([])
   })
 
   it("derives nested radii instead of restating them", () => {

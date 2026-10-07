@@ -10,8 +10,8 @@
   align-items: center;
   gap: var(--search-control-gap);
   padding: 0 var(--search-control-padding-inline);
-  transition: border-color var(--duration-quick) var(--ease-default),
-    opacity var(--duration-quick) var(--ease-default);
+  transition: border-color var(--motion-fast),
+    opacity var(--motion-fast);
 }
 
 .ui-search-field[data-control-size="compact"] {
@@ -49,8 +49,8 @@
   background: transparent;
   color: var(--text-primary);
   font-family: var(--ui-font);
-  font-size: var(--type-label-size);
-  line-height: var(--type-label-line-height);
+  font-size: var(--type-body-compact-size);
+  line-height: var(--type-body-compact-line-height);
   font-weight: var(--type-body-weight);
   overflow-x: hidden;
   text-overflow: ellipsis;

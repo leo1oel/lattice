@@ -23,7 +23,7 @@
 .pdf-page-controls { justify-self: start; display: grid; grid-template-columns: 24px 44px 24px; gap: var(--gap-hairline); }
 .pdf-history-controls { display: grid; grid-template-columns: 24px 24px; gap: var(--gap-hairline); }
 .pdf-zoom-controls { width: auto; grid-column: 3; justify-self: end; gap: var(--space-2); }
-.pdf-page-value, .pdf-zoom-value { position: relative; width: 44px; min-width: 44px; height: 25px; border-radius: var(--radius-compact); display: inline-flex; align-items: center; justify-content: center; color: var(--text-secondary); }
+.pdf-page-value, .pdf-zoom-value { position: relative; width: 44px; min-width: 44px; height: var(--control-height-compact); border-radius: var(--radius-compact); display: inline-flex; align-items: center; justify-content: center; color: var(--text-secondary); }
 .pdf-page-value:focus-within, .pdf-zoom-value:focus-within { background: var(--field-control-background); box-shadow: inset 0 0 0 var(--field-control-border-width) var(--field-control-interactive-border-color); }
 .pdf-page-value { font-variant-numeric: tabular-nums; }
 .pdf-page-value input { position: absolute; inset: 0; width: 100%; min-width: 0; border: 0; outline: 0; padding: 0; opacity: 0; background: transparent; color: inherit; font: inherit; text-align: right; font-variant-numeric: inherit; cursor: text; overflow-x: hidden; }
@@ -39,7 +39,7 @@
 /* A stand-in for the match controls stays mounted while the field is empty so the panel's
    minimum width can reserve their room before the first keystroke. */
 .pdf-search-idle .ui-search-field-trailing { display: none; }
-.pdf-search .pdf-search-position { flex: none; min-width: 31px; color: var(--text-secondary); font-size: var(--type-nano-size); font-variant-numeric: tabular-nums; text-align: center; white-space: nowrap; }
+.pdf-search .pdf-search-position { flex: none; min-width: 31px; color: var(--text-secondary); font-size: var(--type-micro-size); font-variant-numeric: tabular-nums; text-align: center; white-space: nowrap; }
 .pdf-search button { flex: none; width: var(--search-clear-width); height: var(--search-clear-height); }
 .pdf-search .pdf-search-option[aria-pressed="true"] { color: var(--control-active); background: var(--toolbar-active-surface); }
 .pdf-scroll-area { position: relative; flex: 1; min-height: 0; overflow: hidden; }
@@ -63,7 +63,7 @@
 .pdf-scroll-area-viewport::-webkit-scrollbar { display: none; width: 0; height: 0; }
 .pdf-scroll-area-viewport.pdf-viewer-staging { visibility: hidden; pointer-events: none; }
 .pdf-preview .pdfViewer { min-width: 100%; min-height: 100%; }
-.pdf-preview .pdfViewer.removePageBorders .page { margin: 0 auto var(--space-5); background: var(--pdf-page-surface); box-shadow: var(--shadow-soft); }
+.pdf-preview .pdfViewer.removePageBorders .page { margin: 0 auto var(--space-5); background: var(--pdf-page-surface); box-shadow: var(--pdf-page-shadow); }
 /* A page is a containing block only while it holds layers (canvas, text,
    links) or shows its loading spinner; PDF.js marks the first (our patch,
    `latticeLayered`). Each positioned page is a render layer in WebKit, and a
@@ -102,13 +102,13 @@
 .pdf-text-layer .highlight.selected { outline: 1px solid var(--highlight-match-current-border); outline-offset: 0; background: var(--highlight-match-current-surface); }
 .pdf-text-layer .pdf-source-quote-highlight { background: var(--highlight-match-current-surface); color: transparent; outline: 1px solid var(--highlight-match-current-border); outline-offset: 0; }
 .pdf-zoom-controls button { position: relative; }
-.pdf-synctex-highlight { position: absolute; z-index: 3; border: 2px solid var(--control-active); border-radius: 3px; background: color-mix(in srgb, var(--control-active) 16%, transparent); pointer-events: none; animation: synctex-highlight 2.4s var(--ease-out) forwards; }
-.pdf-loading { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); min-height: 28px; max-width: calc(100% - var(--space-8)); padding: var(--space-2) var(--space-5); border-radius: var(--radius-control); background: var(--surface-panel-raised); color: var(--text-secondary); display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: var(--space-3); font-size: var(--type-micro-size); z-index: 10; }
+.pdf-synctex-highlight { position: absolute; z-index: 3; border: 2px solid var(--control-active); border-radius: 3px; background: color-mix(in srgb, var(--control-active) 16%, transparent); pointer-events: none; animation: synctex-highlight 2.4s ease-out forwards; }
+.pdf-loading { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); min-height: 28px; max-width: calc(100% - var(--space-8)); padding: var(--space-2) var(--space-5); border-radius: var(--radius-control); background: var(--surface-elevated); box-shadow: var(--elevation-popover); color: var(--text-secondary); display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: var(--space-3); font-size: var(--type-micro-size); z-index: 10; }
 /* The first load's page-shaped skeleton (pdf-loading.tsx), centered behind the
    status. It is a raised card in each theme rather than paper-colored: a bright
    page that is not the paper yet would glare in the dark theme. A sheen crosses
    it as a transform, so it costs no repaint. */
-.pdf-skeleton { position: absolute; inset: 0; display: grid; place-items: center; pointer-events: none; animation: pdf-skeleton-in var(--duration-slow) var(--ease-out) both; animation-delay: 160ms; }
+.pdf-skeleton { position: absolute; inset: 0; display: grid; place-items: center; pointer-events: none; animation: pdf-skeleton-in var(--motion-slow) both; animation-delay: 160ms; }
 .pdf-skeleton-page { position: relative; height: min(86%, 640px); max-width: 80%; aspect-ratio: 8.5 / 11; overflow: hidden; padding: 9% 8%; border-radius: var(--radius-compact); background: var(--surface-panel-raised); box-shadow: 0 0 0 1px var(--border-subtle); display: flex; flex-direction: column; align-items: center; gap: var(--space-2); }
 .pdf-skeleton-page span { display: block; height: 1.1%; min-height: 3px; border-radius: var(--radius-pill); background: var(--border-strong); }
 .pdf-skeleton-page .pdf-skeleton-title { width: 72%; height: 2.4%; }
@@ -119,7 +119,7 @@
 .pdf-skeleton-columns > div { display: flex; flex-direction: column; gap: var(--space-2); }
 .pdf-skeleton-columns span[data-gap] { background: transparent; }
 .pdf-skeleton-page .pdf-skeleton-figure { width: 64%; height: 16%; margin-block: 5%; border-radius: var(--radius-compact); background: var(--border-subtle); }
-.pdf-skeleton-page::after { content: ""; position: absolute; inset: 0; background: linear-gradient(100deg, transparent 30%, color-mix(in srgb, var(--surface-panel-raised) 85%, transparent) 50%, transparent 70%); transform: translateX(-100%); animation: pdf-skeleton-sheen 1.6s var(--ease-in-out) infinite; }
+.pdf-skeleton-page::after { content: ""; position: absolute; inset: 0; background: linear-gradient(100deg, transparent 30%, color-mix(in srgb, var(--surface-panel-raised) 85%, transparent) 50%, transparent 70%); transform: translateX(-100%); animation: pdf-skeleton-sheen 1.6s ease-in-out infinite; }
 @keyframes pdf-skeleton-in {
   from { opacity: 0; }
   to { opacity: 1; }
@@ -129,7 +129,7 @@
 }
 .pdf-loading-quiet { top: var(--space-6); transform: translateX(-50%); opacity: 0.85; }
 .pdf-load-progress { width: calc(var(--space-16) * 2); height: var(--space-2); overflow: hidden; border-radius: var(--radius-pill); background: var(--border-subtle); }
-.pdf-load-progress-fill { height: 100%; border-radius: inherit; background: var(--control-active); transition: width var(--duration-slow) var(--ease-out); }
+.pdf-load-progress-fill { height: 100%; border-radius: inherit; background: var(--control-active); transition: width var(--motion-slow); }
 .pdf-load-percent { min-width: 3ch; font-variant-numeric: tabular-nums; text-align: right; }
 .pdf-toolbar-empty > :first-child, .pdf-toolbar-empty > :last-child { min-width: 74px; }
 .pdf-toolbar .pdf-overflow-trigger { display: none; }

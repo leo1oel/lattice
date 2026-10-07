@@ -6,55 +6,72 @@
  * so a future elevation change lands once.
  */
 
-/* Floating cards and dialogs that sit above the page. Drawer content keeps the
- * modal typography contract, but belongs to the already elevated drawer shell. */
+/*
+ * The elevation ladder (foundations.css), level by level. A surface takes its
+ * level's fill, edge and shadow from here and never restates them; feature
+ * CSS adds layout, size and state.
+ */
+
+/* Dialogs: whatever holds the window modal. */
 .modal,
-.root-error-card,
-.settings-preview,
+.settings-modal,
+.root-error-card {
+  background: var(--surface-elevated);
+  box-shadow: var(--elevation-dialog);
+}
+
+/* Floating: what stays up beside the work until it is dismissed. Toasts colour
+ * their edge by severity (adaptive-feedback.css). */
+.compile-diagnostics,
+.app-toast {
+  background: var(--surface-elevated);
+  box-shadow: var(--elevation-floating);
+}
+
+/* Popovers: menus and the editor's tooltips, autocomplete and selection
+ * toolbar. Radix menus, selects and popovers take the same level through
+ * components/ui/menu-surface.ts. */
 .editor-comment-popover,
 .source-editor .cm-tooltip-lint,
 .source-editor .cm-tooltip.cm-tooltip-autocomplete,
 .source-editor .cm-tooltip-hover,
 .file-tree-context-menu,
 .venue-menu,
-.compile-diagnostics,
-.latex-selection-toolbar,
-.brand-mark,
-.app-toast {
-  @apply smooth-shadow-ring-lg;
-  background: var(--surface-panel-raised);
+.latex-selection-toolbar {
+  background: var(--surface-elevated);
+  box-shadow: var(--elevation-popover);
 }
 
-/* Settings deliberately has no edge stroke, so it uses the ringless variant. */
-.settings-modal {
-  @apply smooth-shadow-xl;
-  background: var(--surface-panel-raised);
+/* Raised: a plate resting on its surface, such as the welcome dialog's mark. */
+.brand-mark {
+  background: var(--surface-elevated);
+  box-shadow: var(--elevation-raised);
 }
 
-/* Frosted cards that hover over document text. They stay translucent so the
+/* Frosted popovers that hover over document text. They stay translucent so the
  * underlying page remains readable, and they share the same blur strength. */
 .texlab-hover-card,
 .citation-hover-card,
 .reference-hover-card,
 .proofread-card {
-  @apply smooth-shadow-ring-md;
   border-radius: var(--radius-panel);
-  background: color-mix(in srgb, var(--surface-panel-raised) 97%, transparent);
+  background: color-mix(in srgb, var(--surface-elevated) 97%, transparent);
+  box-shadow: var(--elevation-popover);
   backdrop-filter: blur(14px);
   color: var(--text-primary);
 }
 
 /* Right-edge drawers share one shell; width and overflow stay feature-owned. */
 .resizable-drawer {
-  @apply smooth-shadow-lg;
   position: relative;
   z-index: 1;
   height: 100%;
   max-width: 100%;
   background: var(--surface-input);
+  box-shadow: var(--elevation-floating);
   padding: var(--drawer-content-inset);
   overflow: auto;
-  animation: drawer-in var(--duration-quick) var(--ease-entrance);
+  animation: drawer-in var(--motion-slow);
 }
 
 @keyframes drawer-in {

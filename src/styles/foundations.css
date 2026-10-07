@@ -22,59 +22,63 @@
  * hover < pressed, and hover < selected < active.
  */
 :root {
-  /* Typography
+  /* Typography: six roles.
    *
-   * Product chrome stays compact while reading surfaces get a little more air.
-   * Components should consume these semantic roles instead of introducing new
-   * pixel values for the same job.
+   *   display    24/30  600  the one title on a page that has only one
+   *   title      18/22  600  dialog, sheet and settings-page titles
+   *   subtitle   13/18  600  panel, drawer and group headings
+   *   body       13/20  400  menus, copy, popovers; its compact step (12/16,
+   *                          500) is the text inside a control: buttons,
+   *                          fields, tabs, compact lists
+   *   caption    11/16  400  metadata, paths, descriptions
+   *   micro      10/14  500  badges, counters, compact status; one line only
+   *
+   * Each role is a size and its own leading; take both. A region that is read
+   * rather than scanned (Settings, below) runs every role one step up. The
+   * embedded Synara runtime mirrors title, subtitle, body-compact and caption
+   * at both steps (its embedMode.ts), so those values only move together with
+   * the pinned runtime.
+   *
+   * `typeset` is prose: the visual Markdown surface, the source editor's
+   * default size and long-form notes. The roles under it are thin aliases for
+   * surfaces that name their own contract.
    */
-  --type-nano-size: 9px;
-  --type-micro-size: 10px;
-  --type-micro-line-height: 14px;
-  --type-micro-weight: 500;
-  --type-caption-size: 11px;
-  --type-caption-line-height: 16px;
-  --type-caption-weight: 400;
-  --type-label-size: 12px;
-  --type-label-line-height: 16px;
-  --type-label-weight: 500;
+  --type-display-size: 24px;
+  --type-display-line-height: 30px;
+  --type-display-weight: 600;
+  --type-title-size: 18px;
+  --type-title-line-height: 22px;
+  --type-title-weight: 600;
+  --type-subtitle-size: 13px;
+  --type-subtitle-line-height: 18px;
+  --type-subtitle-weight: 600;
   --type-body-size: 13px;
   --type-body-line-height: 20px;
   --type-body-weight: 400;
-  --type-reading-size: 14px;
-  --type-reading-line-height: 22px;
-  --type-reading-weight: 400;
-  --type-title-compact-size: 13px;
-  --type-title-compact-line-height: 16px;
-  --type-title-compact-weight: 600;
-  --type-title-size: 14px;
-  --type-title-line-height: 18px;
-  --type-title-weight: 600;
-  --type-title-large-size: 16px;
-  --type-title-large-line-height: 20px;
-  --type-title-large-weight: 600;
-  --type-heading-size: 18px;
-  --type-display-size: 24px; /* The one title on a page that has only one. */
+  --type-body-compact-size: 12px;
+  --type-body-compact-line-height: 16px;
+  --type-body-compact-weight: 500;
+  --type-caption-size: 11px;
+  --type-caption-line-height: 16px;
+  --type-caption-weight: 400;
+  --type-micro-size: 10px;
+  --type-micro-line-height: 14px;
+  --type-micro-weight: 500;
+  --type-typeset-size: 14px;
+  --type-typeset-line-height: 22px;
   --insert-glyph-size: 22px; /* A character sample, sized by its tile (the visual editor's emoji picker). */
-  --type-heading-line-height: 22px;
-  --type-heading-weight: 600;
 
-  /* Specialized compact roles. Project filenames get their own 13px role so
-     Papers metadata and other compact navigation can remain at 11px. Source
-     and diff content use the application-owned Ioskeley Mono editor font role. */
+  /* Thin aliases. Papers metadata and Agent thread titles are captions;
+     project filenames are body text on a control's leading; diffs set code in
+     the editor font at caption size with room between lines. */
   --type-tree-size: var(--type-caption-size);
   --type-tree-line-height: var(--type-caption-line-height);
-  --type-tree-weight: var(--weight-regular);
   --type-project-tree-size: var(--type-body-size);
-  --type-project-tree-line-height: var(--type-label-line-height);
-  --type-project-tree-weight: var(--weight-regular);
-  --type-project-tree-selected-weight: var(--weight-medium);
+  --type-project-tree-line-height: var(--type-body-compact-line-height);
   --type-diff-code-size: var(--type-caption-size);
   --type-diff-code-line-height: 18px;
-  --type-diff-code-weight: var(--weight-regular);
   --type-diff-meta-size: var(--type-micro-size);
   --type-diff-meta-line-height: var(--type-micro-line-height);
-  --type-diff-meta-weight: var(--weight-medium);
 
   /* The pre-React fallback screens (main.tsx, browser-runtime.ts) inline this. */
   --font-ui-body: var(--type-body-size);
@@ -113,27 +117,55 @@
   --drawer-section-gap: var(--space-5); /* Vertical rhythm between first-level drawer sections. */
 
   /*
-   * Motion roles. Durations are tiers, not free numbers: everything that reads
-   * as one kind of change shares one value, so the whole interface can be tuned
-   * from here. Ambient loops (loaders, background drift) are timed in their own
-   * component and are deliberately not on this scale.
+   * Motion: one system, three spring tiers (Fluid Functionalism's, the same
+   * ones `components/ui/motion-values.ts` hands to motion/react). The bigger
+   * the thing that moves, the slower the tier:
    *
-   * The easing names hold today's values exactly, which makes them a single
-   * place to upgrade a curve later instead of 60 places.
+   *   fast       80ms, no bounce   hover, focus, fades, tooltips, selection marks
+   *   moderate  160ms, no bounce   travel and small expansion: menus, selects,
+   *                                popovers, tab indicators, switches, rows
+   *   slow      240ms, bounce .12  large surfaces: dialogs, drawers, panels,
+   *                                whole-window changes such as a theme switch
+   *
+   * Each tier's curve is the spring itself, sampled into `linear()` from
+   * motion's own spring solver (tokens.test.ts recomputes it, so CSS and JS
+   * cannot drift). A spring curve only means its spring at its own duration,
+   * so feature CSS takes a tier whole, duration and curve together:
+   * `transition: opacity var(--motion-fast)`. The bare `--duration-*` values
+   * are for longhands and arithmetic (`transition-duration`, a staggered delay).
+   *
+   * Exits are one tier quicker and are plain tweens, so a dismissal reads as
+   * final rather than replaying the entrance backwards (`--motion-*-exit`,
+   * motion-values' `springExit`).
+   *
+   * Two moments sit outside the tiers because they are not interface motion:
+   * a line drawing itself and a one-time flourish. Ambient loops (loaders,
+   * skeleton sheens, the welcome screen) time themselves and are not on any
+   * scale.
    */
-  --duration-exit: 80ms; /* Hover actions retire before the next row settles. */
-  --duration-quick: 120ms; /* Color and opacity on hover or state change. */
-  --duration-base: 160ms; /* Size, position, and anything that travels. */
-  --duration-reveal: 200ms; /* Something entering or leaving the screen. */
-  --duration-disclosure: 220ms; /* Opening and closing menus, selects, and popovers. */
-  --duration-slow: 300ms; /* Whole-surface changes, like a theme switch. */
-  --duration-draw: 560ms; /* A line drawing itself: the Lattice mark, illustrations, a finished build's check. */
-  --duration-flourish: 720ms; /* A one-time ripple or burst marking a moment, never a loop. */
-  --ease-default: ease;
-  --ease-out: ease-out;
-  --ease-in-out: ease-in-out;
-  --ease-emphasized: cubic-bezier(0.2, 0.75, 0.25, 1); /* Travel: the app's signature curve. */
-  --ease-entrance: cubic-bezier(0.22, 1, 0.36, 1); /* Arrival: settles hard at the end. */
+  --duration-fast: 80ms;
+  --duration-moderate: 160ms;
+  --duration-slow: 240ms;
+  --duration-fast-exit: 60ms;
+  --duration-moderate-exit: 120ms;
+  --duration-slow-exit: 160ms;
+  --duration-draw: 560ms; /* A stroke drawing itself (the Lattice mark, a finished build's check) or an icon turning once. */
+  --duration-flourish: 720ms; /* A ripple or burst marking a moment, never a loop. */
+  /* WebKit before Safari 17.2 (macOS 14.0 and 14.1) has no linear(); it gets
+     the nearest cubic curves until the block below replaces them. */
+  --ease-fast: cubic-bezier(0.25, 0.85, 0.35, 1);
+  --ease-moderate: cubic-bezier(0.25, 0.85, 0.35, 1);
+  --ease-slow: cubic-bezier(0.3, 0.8, 0.3, 1.02);
+  --ease-exit: ease-out; /* motion's default tween, which `springExit` runs on */
+  --motion-fast: var(--duration-fast) var(--ease-fast);
+  --motion-moderate: var(--duration-moderate) var(--ease-moderate);
+  --motion-slow: var(--duration-slow) var(--ease-slow);
+  --motion-fast-exit: var(--duration-fast-exit) var(--ease-exit);
+  --motion-moderate-exit: var(--duration-moderate-exit) var(--ease-exit);
+  --motion-slow-exit: var(--duration-slow-exit) var(--ease-exit);
+  /* Critically damped, so a drawn stroke or a ripple lands without overshoot. */
+  --motion-draw: var(--duration-draw) var(--ease-moderate);
+  --motion-flourish: var(--duration-flourish) var(--ease-moderate);
 
   /* Radius roles. Special asymmetric message bubbles remain component-owned. */
   --radius-compact: 4px;
@@ -145,13 +177,26 @@
   --radius-dialog: 14px;
   --radius-pill: 999px;
 
-  /* Control and row density. */
-  --control-size-icon-compact: 24px;
-  --control-size-icon: 28px;
-  --control-size-icon-large: 30px;
+  /* Controls: a two-step ladder. Every control a pointer lands on, whether
+   a button, field, select, segmented track, toolbar or panel action, is
+   compact or default, so a button next to a select next to a tab lands on
+   one height.
+
+     compact  28px  caption text, 13px icons   dense chrome: panel headers,
+                                                toolbars, filters, titlebar
+     default  30px  compact-body text, 16px    forms, dialogs, Settings
+                    icons
+
+   30px, not Fluid Functionalism's 36: it is the default the chrome was drawn
+   around, and the embedded Synara Settings pages pin their controls to it.
+   Square icon controls use the same two heights; the 24px inline size is an
+   action inside a row or a field (a toast's dismiss, a search's clear), and
+   counts as part of that row. */
   --control-height-compact: 28px;
   --control-height-default: 30px;
-  --control-height-form: var(--control-height-default);
+  --control-size-icon-compact: 24px;
+  --control-size-icon: var(--control-height-compact);
+  --control-size-icon-large: var(--control-height-default);
 
   /* Text-entry controls share one visual contract even when their behavior
      differs (forms, search, comments, inline edits, or compact toolbar values). */
@@ -184,7 +229,6 @@
   --search-control-icon-size: 14px;
   --search-control-interactive-border-color: var(--field-control-interactive-border-color);
   --form-control-select-radius: 9px;
-  --form-control-height-form: var(--control-height-form);
   --form-control-textarea-min-height: 88px;
   --form-control-disabled-opacity: 0.45;
   --control-hover-surface: color-mix(in srgb, var(--text-primary) 7%, transparent);
@@ -201,15 +245,13 @@
   --control-active-border-strong: color-mix(in srgb, var(--control-active) 45%, var(--border-strong));
   --search-clear-width: 20px;
   --search-clear-height: 22px;
-  --control-height-segmented-compact: 26px;
-  --control-height-segmented-default: 34px;
   --segmented-surface: var(--border-subtle);
   --segmented-selected-surface: var(--editor-bg);
-  --segmented-selected-shadow: 0 1px 4px rgb(0 0 0 / 8%);
+  --segmented-selected-shadow: var(--elevation-raised-shadow);
   --segmented-tab-padding-inline: var(--space-5);
   --toolbar-height: 40px;
   --toolbar-icon-width: 24px;
-  --toolbar-icon-height: 27px;
+  --toolbar-icon-height: var(--control-height-compact);
   --toolbar-icon-radius: var(--radius-icon);
   --toolbar-hover-surface: var(--border-subtle);
   --toolbar-active-surface: color-mix(in srgb, var(--control-active) 14%, transparent);
@@ -225,12 +267,11 @@
      sidebar geometry while keeping its states independent from component
      selectors and third-party tree implementation details. */
   --navigation-header-height: 40px;
-  --navigation-control-height: 29px;
-  --navigation-action-size: var(--navigation-control-height);
+  --navigation-action-size: var(--control-height-compact);
   --navigation-search-height: var(--search-control-height);
-  --navigation-search-font-size: var(--type-label-size);
+  --navigation-search-font-size: var(--type-body-compact-size);
   --navigation-search-line-height: var(--type-project-tree-line-height);
-  --navigation-search-font-weight: var(--type-project-tree-weight);
+  --navigation-search-font-weight: var(--type-body-weight);
   --navigation-tab-hover-surface: color-mix(in srgb, var(--border-subtle) 35%, transparent);
   --navigation-tab-selected-surface: color-mix(in srgb, var(--border-subtle) 65%, transparent);
   --navigation-action-hover-surface: var(--chrome-hover-surface);
@@ -312,14 +353,12 @@
   --settings-nav-group-gap: 14px;
   --settings-embed-min-height: 470px;
   --settings-group-gap: 28px;
-  --settings-group-title-size: 13px;
-  --settings-group-title-line-height: 18px;
   --settings-control-width: 170px;
   --settings-control-height: var(--control-height-default);
   --settings-control-radius: 9px;
   --settings-control-font-family: var(--ui-font);
-  --settings-control-font-size: var(--type-label-size);
-  --settings-control-line-height: var(--type-label-line-height);
+  --settings-control-font-size: var(--type-body-compact-size);
+  --settings-control-line-height: var(--type-body-compact-line-height);
   --settings-control-font-weight: var(--type-body-weight);
   --settings-row-control-min-width: 170px;
   --settings-frame-border-width: 1px;
@@ -402,6 +441,40 @@
   --surface-backdrop: color-mix(in srgb, var(--bg) var(--glass-page), transparent);
   --surface-panel: var(--panel);
   --surface-panel-raised: var(--panel-strong);
+  /*
+   * Elevation: one ladder for every surface that sits above another.
+   *
+   *   page      --surface-app, the window  nothing        the window, the welcome page
+   *   panel     --surface-panel            a hairline     docked panels, cards in the flow
+   *   raised    --surface-elevated         ring, contact  a plate lifted inside a surface:
+   *                                                       the chosen segment, a control
+   *                                                       floating on content
+   *   popover   --surface-elevated         ring, shadow   menus, selects, popovers,
+   *                                                       tooltips, hover cards
+   *   floating  --surface-elevated         ring, deeper   floating panels, drawers,
+   *                                                       toasts, banners, a dragged item
+   *   dialog    --surface-elevated         ring, deepest  modal dialogs and Settings
+   *
+   * A level's shadow does not change with nesting, so a popover inside a
+   * dialog still reads as a popover. The ring is the edge instead of a border;
+   * a surface that colours its edge (a toast by severity) composes the same
+   * two parts: `0 0 0 1px <edge>, var(--elevation-floating-shadow)`. Radii nest
+   * by the rule in surfaces.css: a level's surface declares --surface-radius
+   * and --surface-inset, and what sits flush inside takes --nested-radius.
+   */
+  --surface-elevated: var(--surface-panel-raised);
+  --elevation-ring: var(--shadow-ring);
+  /* Half a hairline: the surfaces already part panels from the workspace, and
+     a full outline on every one competed with the document inside. */
+  --elevation-panel: 0 0 0 1px color-mix(in srgb, var(--border-subtle) 50%, transparent);
+  --elevation-raised-shadow: var(--shadow-raised);
+  --elevation-popover-shadow: var(--shadow-popover);
+  --elevation-floating-shadow: var(--shadow-floating);
+  --elevation-dialog-shadow: var(--shadow-dialog);
+  --elevation-raised: 0 0 0 1px var(--elevation-ring), var(--elevation-raised-shadow);
+  --elevation-popover: 0 0 0 1px var(--elevation-ring), var(--elevation-popover-shadow);
+  --elevation-floating: 0 0 0 1px var(--elevation-ring), var(--elevation-floating-shadow);
+  --elevation-dialog: 0 0 0 1px var(--elevation-ring), var(--elevation-dialog-shadow);
   --surface-chrome: var(--chrome-surface);
   --surface-sidebar: var(--sidebar);
   --surface-input: var(--side-surface);
@@ -445,6 +518,7 @@
   --editor-selection-surface: color-mix(in srgb, var(--editor-selection-tint) var(--selection-mix), transparent);
   --editor-selection-surface-active: color-mix(in srgb, var(--editor-selection-tint) var(--selection-mix-focused), transparent);
   --pdf-page-surface: #f9f9fa;
+  --pdf-page-shadow: var(--shadow-pdf-page);
   --status-info: var(--info);
   /* The two threads of the app icon's weave. Identity, not interaction: they
      color the Lattice mark and the accent strokes of illustrations, never a
@@ -467,56 +541,60 @@
   --tone-border: color-mix(in srgb, currentColor 14%, transparent);
   --tone-chip-border: color-mix(in srgb, currentColor 18%, transparent);
 }
+/* The spring tiers as sampled curves. Generated values: tokens.test.ts says
+   what they must be when a tier in motion-values.ts changes. */
+@supports (transition-timing-function: linear(0, 1)) {
+  :root {
+    --ease-fast: linear(0, 0.321, 0.671, 0.86, 0.944, 0.979, 0.992, 0.997, 1);
+    --ease-moderate: linear(0, 0.114, 0.321, 0.516, 0.671, 0.783, 0.86, 0.911, 0.944, 0.966, 0.979, 0.987, 0.992, 0.995, 0.997, 0.998, 1);
+    --ease-slow: linear(0, 0.052, 0.168, 0.307, 0.446, 0.572, 0.68, 0.767, 0.835, 0.887, 0.925, 0.953, 0.972, 0.985, 0.993, 0.998, 1.001, 1.002, 1.003, 1.003, 1.003, 1.002, 1.002, 1.001, 1);
+  }
+}
 @media (prefers-contrast: more) {
   :root { --navigation-text-strong: var(--text-primary); }
 }
 
 /* Settings is read, not scanned: the dialog is a page of prose and controls, so
-   it runs one step up the type scale that the surrounding chrome uses.
-   The base roles carry literal values because a chain of `var()` inside one
+   it runs every role one step up the scale the surrounding chrome uses
+   (Fluid Functionalism's default step, where the chrome runs its compact one).
+   The roles carry literal values because a chain of `var()` inside one
    block would collapse onto whichever role is redeclared last; every alias that
-   :root derives from a base role is restated here, since a declaration in
+   :root derives from a role is restated here, since a declaration in
    :root resolves against :root's own values and would otherwise inherit the
    chrome size unchanged.
 
-   The Providers/MCP/Skills pages live in the Synara iframe and keep their own
-   copy of these roles, so they are not affected by this scope. The select
-   popup is portalled out of the dialog, so it carries the same scope or its
-   items would fall back to the chrome size its trigger no longer uses. */
+   The Providers/MCP/Skills pages live in the Synara iframe and set the same
+   step from their own copy of these values (see the note on the roles). The
+   select popup is portalled out of the dialog, so it carries the same scope or
+   its items would fall back to the chrome size its trigger no longer uses. */
 .settings-modal,
 [data-slot="select-content"][data-settings-control="true"] {
-  --type-nano-size: 10px;
-  --type-micro-size: 11px;
-  --type-micro-line-height: 16px;
-  --type-caption-size: 12px;
-  --type-caption-line-height: 18px;
-  --type-label-size: 13px;
-  --type-label-line-height: 18px;
+  --type-display-size: 26px;
+  --type-display-line-height: 32px;
+  --type-title-size: 20px;
+  --type-title-line-height: 24px;
+  --type-subtitle-size: 14px;
+  --type-subtitle-line-height: 20px;
   --type-body-size: 14px;
   --type-body-line-height: 22px;
-  --type-reading-size: 15px;
-  --type-reading-line-height: 24px;
-  --type-title-compact-size: 14px;
-  --type-title-compact-line-height: 18px;
-  --type-title-size: 16px;
-  --type-title-line-height: 20px;
-  --type-title-large-size: 18px;
-  --type-title-large-line-height: 22px;
-  --type-heading-size: 20px;
-  --type-heading-line-height: 24px;
-  --type-display-size: 26px;
+  --type-body-compact-size: 13px;
+  --type-body-compact-line-height: 18px;
+  --type-caption-size: 12px;
+  --type-caption-line-height: 18px;
+  --type-micro-size: 11px;
+  --type-micro-line-height: 16px;
+  --type-typeset-size: 15px;
+  --type-typeset-line-height: 24px;
 
   --type-tree-size: var(--type-caption-size);
   --type-tree-line-height: var(--type-caption-line-height);
   --type-project-tree-size: var(--type-body-size);
-  --type-project-tree-line-height: var(--type-label-line-height);
+  --type-project-tree-line-height: var(--type-body-compact-line-height);
   --type-diff-code-size: var(--type-caption-size);
   --type-diff-code-line-height: 20px;
   --type-diff-meta-size: var(--type-micro-size);
   --type-diff-meta-line-height: var(--type-micro-line-height);
 
-  --settings-group-title-size: 14px;
-  --settings-group-title-line-height: 20px;
-  --settings-control-font-size: var(--type-label-size);
-  --settings-control-line-height: var(--type-label-line-height);
+  --settings-control-font-size: var(--type-body-compact-size);
+  --settings-control-line-height: var(--type-body-compact-line-height);
 }

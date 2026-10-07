@@ -25,12 +25,12 @@
   background: var(--control-active-soft);
   color: var(--text-secondary);
   font-style: normal;
-  font-size: var(--type-nano-size);
+  font-size: var(--type-micro-size);
   font-variant-numeric: tabular-nums;
   font-weight: 600;
   line-height: 1;
   text-align: center;
-  transition: background-color var(--duration-quick) var(--ease-default), color var(--duration-quick) var(--ease-default);
+  transition: background-color var(--motion-fast), color var(--motion-fast);
 }
 .overleaf-collab-drawer .ui-segmented .active em {
   background: var(--control-active);
@@ -123,7 +123,7 @@
 .overleaf-thread-messages { display: flex; flex-direction: column; gap: var(--gap-inline); }
 .overleaf-thread-message p {
   margin: var(--space-1) 0 0;
-  font-size: var(--type-label-size);
+  font-size: var(--type-body-compact-size);
   line-height: 1.5;
   color: var(--text-primary);
   white-space: pre-wrap;
@@ -187,7 +187,7 @@
 .overleaf-thread-reply textarea {
   min-height: 56px;
   resize: vertical;
-  font-size: var(--type-label-size);
+  font-size: var(--type-body-compact-size);
   line-height: 1.5;
   padding: var(--space-3) var(--space-4);
   border-radius: var(--field-control-radius);

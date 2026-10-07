@@ -44,7 +44,7 @@
 .references-snippet { min-width: 0; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .document-outline-list button:focus-visible { outline: 2px solid var(--control-active); outline-offset: -2px; }
 .math-preview { flex: none; max-height: 140px; border-top: 1px solid var(--border-subtle); background: color-mix(in srgb, var(--surface-panel) 70%, var(--editor-bg)); padding: var(--space-4) var(--space-6); overflow: auto; }
-.math-preview > small { display: block; margin-bottom: var(--space-3); color: var(--text-tertiary); font-size: var(--type-nano-size); font-weight: 650; letter-spacing: .04em; text-transform: uppercase; }
+.math-preview > small { display: block; margin-bottom: var(--space-3); color: var(--text-tertiary); font-size: var(--type-micro-size); font-weight: 650; letter-spacing: .04em; text-transform: uppercase; }
 .math-preview-body { color: var(--text-primary); overflow-x: auto; }
 .source-editor { position: relative; flex: 1 1 0; width: 100%; min-height: 0; background: var(--editor-bg); }
 .latex-selection-toolbar-anchor {
@@ -56,7 +56,6 @@
 body:has(.modal-backdrop, .drawer-backdrop) :is(.latex-selection-toolbar-anchor, .pdf-citation-hover) { display: none; }
 .latex-selection-toolbar-anchor.below { transform: translate(-50%, 0); }
 .latex-selection-toolbar {
-  @apply smooth-shadow-ring-md;
   max-width: 100%;
   padding: 3px;
   border-radius: var(--radius-panel);
@@ -75,7 +74,7 @@ body:has(.modal-backdrop, .drawer-backdrop) :is(.latex-selection-toolbar-anchor,
 }
 .latex-selection-tool button {
   width: 28px;
-  height: 28px;
+  height: var(--control-height-compact);
   padding: 0;
   border: 0;
   border-radius: var(--radius-icon);
@@ -91,13 +90,13 @@ body:has(.modal-backdrop, .drawer-backdrop) :is(.latex-selection-toolbar-anchor,
 .latex-tool-menu button { width: 100%; min-height: 28px; border-radius: var(--radius-icon); padding: 0 var(--pad-inline-control-tight); background: transparent; color: var(--text-secondary); display: flex; align-items: center; gap: var(--gap-inline); text-align: left; font-size: var(--type-micro-size); }
 .latex-tool-menu button:hover { background: var(--control-active-soft); color: var(--text-primary); }
 .heading-menu button { justify-content: space-between; }
-.heading-menu code { color: var(--text-tertiary); font-size: var(--type-nano-size); }
+.heading-menu code { color: var(--text-tertiary); font-size: var(--type-micro-size); }
 .latex-highlight-picker { width: auto; padding: 0; border: 0; border-radius: var(--radius-surface); background: transparent; box-shadow: none; }
 .apple-color-picker,
 .apple-color-picker button,
 .apple-color-picker input { font-family: var(--ui-font); }
 .apple-color-picker {
-  @apply smooth-shadow-ring-lg;
+  box-shadow: var(--elevation-popover);
   box-sizing: border-box;
   width: 232px;
   border-radius: var(--radius-surface);
@@ -109,8 +108,8 @@ body:has(.modal-backdrop, .drawer-backdrop) :is(.latex-selection-toolbar-anchor,
 .highlight-picker-header { min-height: 46px; padding: var(--space-4) var(--space-4) var(--space-4) var(--space-5); border-bottom: 1px solid var(--border-subtle); display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); }
 .highlight-picker-title { min-width: 0; display: flex; align-items: center; gap: var(--space-4); }
 .highlight-picker-title > span:last-child { min-width: 0; display: grid; gap: 1px; }
-.highlight-picker-title strong { font-size: var(--type-label-size); line-height: var(--type-label-line-height); font-weight: var(--weight-semibold); }
-.highlight-picker-title small { color: var(--text-tertiary); font-size: var(--type-nano-size); line-height: 12px; font-variant-numeric: tabular-nums; }
+.highlight-picker-title strong { font-size: var(--type-body-compact-size); line-height: var(--type-body-compact-line-height); font-weight: var(--weight-semibold); }
+.highlight-picker-title small { color: var(--text-tertiary); font-size: var(--type-micro-size); line-height: 12px; font-variant-numeric: tabular-nums; }
 .highlight-current-color { width: 28px; height: 28px; flex: none; border: 1px solid var(--border-strong); border-radius: var(--radius-chrome); background: var(--surface-input); overflow: hidden; }
 .highlight-current-color > span { width: 100%; height: 100%; border-radius: calc(var(--radius-chrome) - 1px); display: block; }
 .highlight-picker-actions { display: flex; align-items: center; gap: var(--space-1); }
@@ -121,7 +120,7 @@ body:has(.modal-backdrop, .drawer-backdrop) :is(.latex-selection-toolbar-anchor,
 .highlight-picker-main { position: relative; height: 144px; overflow: hidden; }
 .highlight-picker-panel { position: absolute; inset: 0; width: 100%; height: 100%; }
 .highlight-color-grid { height: 100%; padding: var(--space-1); border: 1px solid var(--border-subtle); border-radius: var(--radius-control); background: var(--surface-input); display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); grid-template-rows: repeat(6, minmax(0, 1fr)); gap: var(--space-1); overflow: hidden; }
-.highlight-color-swatch { position: relative; min-width: 0; min-height: 0; padding: 0; border: 1px solid color-mix(in srgb, #000 12%, transparent); border-radius: var(--radius-compact); color: white; display: grid; place-items: center; transition: border-color var(--duration-quick) var(--ease-default), scale var(--duration-quick) var(--ease-default); }
+.highlight-color-swatch { position: relative; min-width: 0; min-height: 0; padding: 0; border: 1px solid color-mix(in srgb, #000 12%, transparent); border-radius: var(--radius-compact); color: white; display: grid; place-items: center; transition: border-color var(--motion-fast), scale var(--motion-fast); }
 .highlight-color-swatch:hover { z-index: 1; border-color: color-mix(in srgb, #000 32%, transparent); scale: 1.08; }
 .highlight-color-swatch[aria-pressed="true"] { z-index: 2; }
 .highlight-color-selection { position: absolute; inset: -1px; border: 1px solid var(--text-primary); border-radius: inherit; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--surface-panel-raised) 80%, transparent), 0 0 0 1px var(--surface-panel-raised); display: grid; place-items: center; pointer-events: none; }
@@ -139,12 +138,12 @@ body:has(.modal-backdrop, .drawer-backdrop) :is(.latex-selection-toolbar-anchor,
 .highlight-range-input { position: absolute; z-index: 1; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
 .highlight-slider-thumb,
 .highlight-opacity-thumb { --slider-position: 0%; position: absolute; top: 50%; left: clamp(9px, var(--slider-position), calc(100% - 9px)); width: 18px; height: 18px; border: 0; border-radius: var(--radius-pill); box-shadow: inset 0 0 0 2px rgb(255 255 255 / 82%), 0 1px 3px rgb(0 0 0 / 24%); pointer-events: none; translate: -50% -50%; }
-.highlight-number-input { height: 26px; width: 44px; border: 1px solid var(--field-control-border-color); border-radius: var(--radius-icon); background: var(--field-control-background); color: var(--text-primary); text-align: center; font-size: var(--type-micro-size); font-variant-numeric: tabular-nums; outline: none; }
+.highlight-number-input { height: var(--control-height-compact); width: 44px; border: 1px solid var(--field-control-border-color); border-radius: var(--radius-icon); background: var(--field-control-background); color: var(--text-primary); text-align: center; font-size: var(--type-micro-size); font-variant-numeric: tabular-nums; outline: none; }
 .highlight-number-input::-webkit-inner-spin-button,
 .highlight-number-input::-webkit-outer-spin-button { margin: 0; appearance: none; }
 .highlight-number-input:focus { border-color: var(--field-control-interactive-border-color); }
 .highlight-hex-row { height: 28px; color: var(--text-tertiary); font-size: var(--type-micro-size); font-weight: var(--weight-medium); }
-.highlight-hex-input-wrap { grid-column: 2 / 4; justify-self: end; height: 26px; width: 78px; border: 1px solid var(--field-control-border-color); border-radius: var(--radius-icon); padding: 0 var(--space-2); background: var(--field-control-background); color: var(--text-tertiary); display: flex; align-items: center; gap: var(--space-1); }
+.highlight-hex-input-wrap { grid-column: 2 / 4; justify-self: end; height: var(--control-height-compact); width: 78px; border: 1px solid var(--field-control-border-color); border-radius: var(--radius-icon); padding: 0 var(--space-2); background: var(--field-control-background); color: var(--text-tertiary); display: flex; align-items: center; gap: var(--space-1); }
 .highlight-hex-input-wrap:focus-within { border-color: var(--field-control-interactive-border-color); }
 .highlight-hex-input { min-width: 0; width: 100%; border: 0; padding: 0; background: transparent; color: var(--text-primary); text-align: right; font-size: var(--type-micro-size); font-weight: var(--weight-medium); text-transform: uppercase; outline: none; }
 .highlight-opacity,
@@ -152,7 +151,7 @@ body:has(.modal-backdrop, .drawer-backdrop) :is(.latex-selection-toolbar-anchor,
 .highlight-section-label { margin-bottom: var(--space-3); color: var(--text-tertiary); font-size: var(--type-micro-size); line-height: var(--type-micro-line-height); font-weight: var(--weight-medium); }
 .highlight-opacity-row { display: flex; align-items: center; gap: var(--space-4); }
 .highlight-opacity-track { overflow: visible; }
-.highlight-opacity-value { position: relative; width: 44px; height: 26px; flex: none; }
+.highlight-opacity-value { position: relative; width: 44px; height: var(--control-height-compact); flex: none; }
 .highlight-opacity-value .highlight-number-input { width: 100%; padding: 0 13px 0 var(--space-2); }
 .highlight-opacity-value > span { position: absolute; top: 50%; right: var(--space-2); color: var(--text-tertiary); font-size: var(--type-micro-size); translate: 0 -50%; pointer-events: none; }
 .highlight-recents { min-width: 0; }
@@ -164,8 +163,8 @@ body:has(.modal-backdrop, .drawer-backdrop) :is(.latex-selection-toolbar-anchor,
 .highlight-recent-swatch[aria-pressed="true"] { box-shadow: 0 0 0 2px var(--surface-panel-raised), 0 0 0 3px var(--text-secondary); }
 .highlight-recent-add { background: var(--control-hover-surface); color: var(--text-secondary); }
 .link-menu { width: 250px; display: flex; align-items: end; gap: var(--gap-inline-tight); }
-.link-menu label { min-width: 0; flex: 1; color: var(--text-tertiary); font-size: var(--type-nano-size); }
-.link-menu input { width: 100%; height: 28px; margin-top: var(--space-2); border-color: var(--field-control-border-color); border-radius: var(--field-control-radius); padding: 0 var(--field-control-padding-inline); background: var(--field-control-background); color: var(--text-primary); font-size: var(--type-micro-size); outline: none; }
+.link-menu label { min-width: 0; flex: 1; color: var(--text-tertiary); font-size: var(--type-micro-size); }
+.link-menu input { width: 100%; height: var(--control-height-compact); margin-top: var(--space-2); border-color: var(--field-control-border-color); border-radius: var(--field-control-radius); padding: 0 var(--field-control-padding-inline); background: var(--field-control-background); color: var(--text-primary); font-size: var(--type-micro-size); outline: none; }
 .link-menu input:focus { border-color: var(--field-control-interactive-border-color); box-shadow: none; }
 .link-menu > button { width: auto; flex: none; padding: 0 var(--pad-inline-control); background: var(--text-primary); color: var(--surface-app); }
 .editor-comment-popover {
@@ -209,7 +208,7 @@ body:has(.modal-backdrop, .drawer-backdrop) :is(.latex-selection-toolbar-anchor,
   background: var(--field-control-background);
   color: var(--text-primary);
   font: inherit;
-  font-size: var(--type-label-size);
+  font-size: var(--type-body-compact-size);
   line-height: 1.4;
   overflow-x: hidden;
   overflow-wrap: anywhere;
@@ -221,7 +220,7 @@ body:has(.modal-backdrop, .drawer-backdrop) :is(.latex-selection-toolbar-anchor,
   gap: var(--space-3);
 }
 .editor-comment-popover-actions button {
-  height: 28px;
+  height: var(--control-height-compact);
   padding: 0 var(--space-5);
   border-radius: var(--radius-chrome);
   border: 1px solid var(--border-subtle);
@@ -251,10 +250,10 @@ body:has(.modal-backdrop, .drawer-backdrop) :is(.latex-selection-toolbar-anchor,
   display: grid;
   gap: var(--space-3);
   padding: var(--space-4) var(--space-5);
-  font: var(--type-label-weight) var(--type-label-size)/var(--type-label-line-height) var(--ui-font);
+  font: var(--type-body-compact-weight) var(--type-body-compact-size)/var(--type-body-compact-line-height) var(--ui-font);
   white-space: normal;
   user-select: text;
-  animation: proofread-card-in var(--duration-base) var(--ease-entrance);
+  animation: proofread-card-in var(--motion-moderate);
 }
 @keyframes proofread-card-in { from { opacity: 0; translate: 0 -4px; } }
 .proofread-card-header { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); color: var(--text-secondary); }
@@ -273,7 +272,7 @@ body:has(.modal-backdrop, .drawer-backdrop) :is(.latex-selection-toolbar-anchor,
   min-height: var(--control-height-compact);
   padding: var(--space-1) var(--space-1) var(--space-1) var(--space-3);
   border-radius: var(--radius-control);
-  transition: opacity var(--duration-quick) var(--ease-default), background-color var(--duration-quick) var(--ease-default);
+  transition: opacity var(--motion-fast), background-color var(--motion-fast);
 }
 .proofread-edit:hover { background: var(--control-hover-surface); }
 .proofread-edit[data-accepted="false"] { opacity: 0.5; }
@@ -326,7 +325,7 @@ body:has(.modal-backdrop, .drawer-backdrop) :is(.latex-selection-toolbar-anchor,
 }
 .cm-tracked-change-tooltip,
 .cm-editor-comment-tooltip {
-  @apply smooth-shadow-ring-md;
+  box-shadow: var(--elevation-popover);
   /* Prose in the UI face, not the editor's monospace, which .cm-editor would
      otherwise impose on everything inside it. */
   font-family: var(--ui-font);
@@ -339,7 +338,7 @@ body:has(.modal-backdrop, .drawer-backdrop) :is(.latex-selection-toolbar-anchor,
      these sit directly on the line they describe. */
   background: var(--surface-panel);
   color: var(--text-primary);
-  font-size: var(--type-label-size);
+  font-size: var(--type-body-compact-size);
   line-height: 1.45;
 }
 .cm-tracked-change-tooltip { min-width: 220px; max-width: 340px; }
@@ -494,18 +493,18 @@ body:has(.modal-backdrop, .drawer-backdrop) :is(.latex-selection-toolbar-anchor,
   pointer-events: none;
   touch-action: none;
   user-select: none;
-  transition: opacity var(--duration-quick) var(--ease-out) var(--duration-base);
+  transition: opacity var(--motion-fast) var(--duration-moderate);
 }
 .cm-overlay-scrollbar[data-overflow] { pointer-events: auto; }
 .cm-overlay-scrollbar[data-overflow]:hover,
-.cm-overlay-scrollbar[data-scrolling] { opacity: 1; transition-duration: var(--duration-base); transition-delay: 0ms; }
+.cm-overlay-scrollbar[data-scrolling] { opacity: 1; transition-duration: var(--duration-moderate); transition-delay: 0ms; }
 .cm-overlay-scrollbar-thumb {
   width: 4px;
   min-height: 24px;
   margin: 0 auto;
   border-radius: 9999px;
   background: color-mix(in srgb, var(--text-primary) 8%, transparent);
-  transition: background-color var(--duration-base) var(--ease-in-out), width var(--duration-base) var(--ease-in-out);
+  transition: background-color var(--motion-moderate), width var(--motion-moderate);
 }
 .cm-overlay-scrollbar:hover .cm-overlay-scrollbar-thumb { width: 6px; background: color-mix(in srgb, var(--text-primary) 12%, transparent); }
 .cm-overlay-scrollbar-thumb:active { background: color-mix(in srgb, var(--text-primary) 16%, transparent); }
@@ -568,7 +567,7 @@ body:has(.modal-backdrop, .drawer-backdrop) :is(.latex-selection-toolbar-anchor,
   /* Quiet until the pointer is over the gutter; a folded range keeps its
      marker, since otherwise only its placeholder says it is folded. */
   opacity: 0;
-  transition: opacity var(--duration-quick) var(--ease-out), color var(--duration-quick) var(--ease-out);
+  transition: opacity var(--motion-fast), color var(--motion-fast);
 }
 .source-editor .cm-gutters:hover .cm-lattice-fold-marker,
 .source-editor .cm-foldGutter .cm-lattice-fold-marker[data-folded] { opacity: 1; }
@@ -618,7 +617,7 @@ body:has(.modal-backdrop, .drawer-backdrop) :is(.latex-selection-toolbar-anchor,
 .source-editor .cm-activeLineGutter { background: transparent; }
 /* A jump's target (editor-reveal.ts): held, then faded, in the find-match color.
    An animated fill outranks the active-line and selection rules above. */
-.source-editor .cm-line.cm-reveal-flash { animation: reveal-flash 1.6s var(--ease-out); }
+.source-editor .cm-line.cm-reveal-flash { animation: reveal-flash 1.6s ease-out; }
 @keyframes reveal-flash {
   0%, 55% { background-color: var(--highlight-match-surface); }
   100% { background-color: transparent; }
@@ -682,7 +681,7 @@ body:has(.modal-backdrop, .drawer-backdrop) :is(.latex-selection-toolbar-anchor,
 .source-editor .cm-panel.cm-search button {
   flex: 0 0 auto;
   min-width: 28px;
-  height: 28px;
+  height: var(--control-height-compact);
   border: 0;
   border-radius: var(--radius-chrome);
   background: color-mix(in srgb, var(--text-primary) 5%, transparent);
@@ -698,15 +697,15 @@ body:has(.modal-backdrop, .drawer-backdrop) :is(.latex-selection-toolbar-anchor,
   position: absolute;
   top: 9px;
   right: 8px;
-  width: 28px;
-  height: 28px;
+  width: var(--control-size-icon);
+  height: var(--control-size-icon);
   margin: 0;
   padding: 0;
   border: 0;
   border-radius: var(--radius-chrome);
   background: transparent;
   color: var(--text-tertiary);
-  font: 400 var(--type-heading-size)/1 var(--ui-font);
+  font: 400 var(--type-title-size)/1 var(--ui-font);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -719,7 +718,7 @@ body:has(.modal-backdrop, .drawer-backdrop) :is(.latex-selection-toolbar-anchor,
 .source-editor .cm-panel.cm-search label {
   position: relative;
   flex: 0 0 auto;
-  height: 28px;
+  height: var(--control-height-compact);
   display: inline-flex;
   align-items: center;
   margin: 0;
@@ -853,19 +852,19 @@ body:has(.modal-backdrop, .drawer-backdrop) :is(.latex-selection-toolbar-anchor,
 }
 .citation-hover-card { width: min(340px, calc(100vw - 32px)); padding: var(--space-5) var(--space-6) 11px; }
 .citation-hover-card small, .citation-hover-card strong, .citation-hover-card span, .citation-hover-card em { display: block; }
-.citation-hover-card small { margin-bottom: 5px; color: var(--control-active); font-family: var(--editor-font); font-size: var(--type-nano-size); }
+.citation-hover-card small { margin-bottom: 5px; color: var(--control-active); font-family: var(--editor-font); font-size: var(--type-micro-size); }
 .citation-hover-card strong { font-size: var(--type-caption-size); font-weight: 650; line-height: 1.35; }
 .citation-hover-open { display: block; padding: 0; border: 0; background: transparent; color: inherit; font: inherit; font-size: var(--type-caption-size); font-weight: 650; line-height: 1.35; text-align: left; cursor: pointer; }
 .citation-hover-open:hover, .citation-hover-open:focus-visible { color: var(--control-active); text-decoration: underline; }
-.citation-hover-card span { margin-top: var(--space-3); color: var(--text-secondary); font-size: var(--type-nano-size); line-height: 1.4; }
-.citation-hover-card em { margin-top: 5px; color: var(--text-tertiary); font-size: var(--type-nano-size); font-style: normal; }
+.citation-hover-card span { margin-top: var(--space-3); color: var(--text-secondary); font-size: var(--type-micro-size); line-height: 1.4; }
+.citation-hover-card em { margin-top: 5px; color: var(--text-tertiary); font-size: var(--type-micro-size); font-style: normal; }
 .reference-hover-card { width: min(360px, calc(100vw - 32px)); padding: var(--space-5) var(--space-6) 11px; }
 .reference-hover-card small, .reference-hover-card strong, .reference-hover-card em { display: block; }
-.reference-hover-card small { margin-bottom: 5px; color: var(--control-active); font-family: var(--editor-font); font-size: var(--type-nano-size); text-transform: capitalize; }
+.reference-hover-card small { margin-bottom: 5px; color: var(--control-active); font-family: var(--editor-font); font-size: var(--type-micro-size); text-transform: capitalize; }
 .reference-hover-card strong { font-size: var(--type-caption-size); font-weight: 650; line-height: 1.35; }
-.reference-hover-card pre { max-height: 132px; margin: 7px 0 0; overflow: hidden; color: var(--text-secondary); font-family: var(--editor-font); font-size: var(--type-nano-size); line-height: 1.45; white-space: pre-wrap; }
-.reference-hover-card em { margin-top: var(--space-3); color: var(--text-tertiary); font-size: var(--type-nano-size); font-style: normal; }
-.reference-hover-media { max-height: 190px; margin: -2px -3px 9px; overflow: hidden; border-radius: var(--radius-icon); background: var(--editor-bg); color: var(--text-tertiary); display: grid; place-items: center; font-size: var(--type-nano-size); }
+.reference-hover-card pre { max-height: 132px; margin: 7px 0 0; overflow: hidden; color: var(--text-secondary); font-family: var(--editor-font); font-size: var(--type-micro-size); line-height: 1.45; white-space: pre-wrap; }
+.reference-hover-card em { margin-top: var(--space-3); color: var(--text-tertiary); font-size: var(--type-micro-size); font-style: normal; }
+.reference-hover-media { max-height: 190px; margin: -2px -3px 9px; overflow: hidden; border-radius: var(--radius-icon); background: var(--editor-bg); color: var(--text-tertiary); display: grid; place-items: center; font-size: var(--type-micro-size); }
 .reference-hover-media.loading { min-height: 72px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--gap-inline-tight); }
 .reference-hover-media img {
   display: block;
@@ -891,10 +890,10 @@ body:has(.modal-backdrop, .drawer-backdrop) :is(.latex-selection-toolbar-anchor,
    panes are the first and last of the three children: :nth-child would be
    tried on every element inside them (a long visual document's blocks
    included) and make each insertion restyle all following siblings. */
-.split-canvas > :first-child, .split-canvas > :last-child { min-width: 0; max-width: none; transition: width var(--duration-disclosure) var(--ease-emphasized), margin-left var(--duration-disclosure) var(--ease-emphasized); }
+.split-canvas > :first-child, .split-canvas > :last-child { min-width: 0; max-width: none; transition: width var(--motion-slow), margin-left var(--motion-slow); }
 .split-canvas > :first-child { width: calc(100% + var(--split-resizer-offset)); }
 .split-canvas > :last-child { margin-left: var(--split-resizer-offset); width: calc(100% - var(--split-resizer-offset)); }
-.split-resizer { position: relative; z-index: 2; width: 1px; min-height: 0; cursor: col-resize; background: var(--border-subtle); outline: none; touch-action: none; transform: translateX(var(--split-resizer-offset)); transition: transform var(--duration-disclosure) var(--ease-emphasized), background var(--duration-quick), box-shadow var(--duration-quick); }
+.split-resizer { position: relative; z-index: 2; width: 1px; min-height: 0; cursor: col-resize; background: var(--border-subtle); outline: none; touch-action: none; transform: translateX(var(--split-resizer-offset)); transition: transform var(--motion-slow), background var(--motion-fast), box-shadow var(--motion-fast); }
 .split-resizer::after { content: ""; position: absolute; inset: 0 -4px; }
 .split-resizer:hover, .split-resizer:focus-visible, .resizing-split .split-resizer { background: var(--border-strong); box-shadow: 0 0 0 .5px var(--border-strong); }
 .resizing-split .split-canvas > * { transition: none; }
@@ -926,14 +925,14 @@ body:has(.modal-backdrop, .drawer-backdrop) :is(.latex-selection-toolbar-anchor,
    below a floor that still holds the separator, some label and the icon. */
 .paper-identity { min-width: 0; flex: 1 1 auto; margin: 0; display: flex; align-items: baseline; color: var(--text-tertiary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); white-space: nowrap; }
 .paper-identity > * { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
-.paper-identity-title { flex: 0 1 auto; color: var(--text-primary); font-size: var(--type-label-size); font-weight: var(--weight-medium); animation: paper-identity-in var(--duration-base) var(--ease-out); }
+.paper-identity-title { flex: 0 1 auto; color: var(--text-primary); font-size: var(--type-body-compact-size); font-weight: var(--weight-medium); animation: paper-identity-in var(--motion-moderate); }
 .paper-identity-authors { flex: none; max-width: 30%; color: var(--text-secondary); }
 .paper-identity-source { flex: none; min-width: 5em; max-width: 40%; }
 .paper-identity > * + *::before { content: "·"; margin-inline: var(--space-3); color: var(--text-tertiary); }
 /* The source opens the original, so it reads as text until pointed at. */
-button.paper-identity-source { height: auto; padding: 0; border: 0; border-radius: var(--radius-compact); background: transparent; color: inherit; display: inline-flex; align-items: baseline; font: inherit; cursor: pointer; transition: color var(--duration-quick) var(--ease-default); }
+button.paper-identity-source { height: auto; padding: 0; border: 0; border-radius: var(--radius-compact); background: transparent; color: inherit; display: inline-flex; align-items: baseline; font: inherit; cursor: pointer; transition: color var(--motion-fast); }
 .paper-identity-source > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
-.paper-identity-source > svg { flex: none; align-self: center; margin-inline-start: var(--space-2); opacity: 0; transition: opacity var(--duration-quick) var(--ease-default); }
+.paper-identity-source > svg { flex: none; align-self: center; margin-inline-start: var(--space-2); opacity: 0; transition: opacity var(--motion-fast); }
 button.paper-identity-source:is(:hover, :focus-visible) { color: var(--text-primary); }
 button.paper-identity-source:is(:hover, :focus-visible) > svg { opacity: 1; }
 button.paper-identity-source:focus-visible { outline: var(--focus-ring-width) solid var(--focus-ring); outline-offset: var(--focus-ring-offset); }
@@ -973,7 +972,7 @@ button.paper-identity-source:focus-visible { outline: var(--focus-ring-width) so
 .visual-heading-rail-previews { position: absolute; inset: 0; display: grid; grid-auto-rows: var(--control-size-icon-compact); width: 100%; pointer-events: none; }
 .visual-heading-rail-preview-row { position: relative; display: flex; align-items: center; }
 .visual-heading-rail-preview-anchor { position: absolute; z-index: var(--z-editor-popover); top: 50%; inset-inline-start: calc(100% + var(--space-3)); width: max-content; max-width: min(320px, calc(100vw - 96px)); translate: 0 -50%; }
-.visual-heading-rail-preview-card { @apply smooth-shadow-ring-md; max-width: inherit; padding: var(--space-5) var(--space-6); border-radius: var(--radius-panel); background: color-mix(in srgb, var(--surface-panel-raised) 96%, transparent); color: var(--text-primary); font: var(--type-caption-weight) var(--type-caption-size)/var(--type-caption-line-height) var(--ui-font); overflow-wrap: anywhere; backdrop-filter: blur(14px); }
+.visual-heading-rail-preview-card { box-shadow: var(--elevation-popover); max-width: inherit; padding: var(--space-5) var(--space-6); border-radius: var(--radius-panel); background: color-mix(in srgb, var(--surface-panel-raised) 96%, transparent); color: var(--text-primary); font: var(--type-caption-weight) var(--type-caption-size)/var(--type-caption-line-height) var(--ui-font); overflow-wrap: anywhere; backdrop-filter: blur(14px); }
 
 .editor-comment-draft {
   background-color: var(--control-active-soft);
@@ -1043,7 +1042,7 @@ button.paper-identity-source:focus-visible { outline: var(--focus-ring-width) so
 [data-wiki-link] { color: var(--control-active); cursor: pointer; }
 [data-wiki-link][data-resolved="false"] { text-decoration: underline dashed; text-underline-offset: 3px; }
 [data-testid="block-type-selector"] {
-  height: 28px;
+  height: var(--control-height-compact);
   min-height: var(--control-height-compact);
   padding-inline: var(--pad-inline-control-tight);
   gap: var(--space-2);
@@ -1054,24 +1053,24 @@ button.paper-identity-source:focus-visible { outline: var(--focus-ring-width) so
   font: var(--type-caption-weight) var(--type-caption-size)/var(--type-caption-line-height) var(--ui-font);
   transform: none;
 }
-.visual-node-source-error { color: var(--status-danger); font-size: var(--type-nano-size); line-height: 1.45; }
+.visual-node-source-error { color: var(--status-danger); font-size: var(--type-micro-size); line-height: 1.45; }
 @media (forced-colors: active) {
   .visual-heading-rail-item:focus-visible { outline-color: Highlight; }
   .visual-heading-rail-preview-card { border: 1px solid CanvasText; }
 }
 .html-preview { position: relative; height: 100%; background: white; }
 .html-preview-frame { display: block; width: 100%; height: 100%; border: 0; background: white; }
-.html-preview-zoom-controls { @apply smooth-shadow-ring-sm; position: absolute; z-index: 2; inset-block-end: var(--space-3); inset-inline-start: var(--space-3); padding: var(--space-1); border-radius: var(--radius-panel); background: color-mix(in srgb, var(--surface-panel-raised) 94%, transparent); font-size: var(--type-micro-size); backdrop-filter: blur(12px); }
+.html-preview-zoom-controls { box-shadow: var(--elevation-raised); position: absolute; z-index: 2; inset-block-end: var(--space-3); inset-inline-start: var(--space-3); padding: var(--space-1); border-radius: var(--radius-panel); background: color-mix(in srgb, var(--surface-panel-raised) 94%, transparent); font-size: var(--type-micro-size); backdrop-filter: blur(12px); }
 @media (pointer: fine) { .html-preview-frame { width: calc(100% + 10px); } }
 @media (pointer: coarse) { .html-preview-scrollbar { display: none; } }
 .asset-preview { height: 100%; min-height: 0; display: flex; flex-direction: column; background: var(--surface-panel); }
 .asset-preview-heading { height: 38px; flex: none; padding: 0 13px; border-bottom: 1px solid var(--border-subtle); display: flex; align-items: center; gap: var(--gap-inline); color: var(--text-secondary); font-size: var(--type-micro-size); }
 .asset-preview-heading span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.asset-preview-heading small { margin-left: auto; flex: none; color: var(--text-tertiary); font-size: var(--type-nano-size); }
+.asset-preview-heading small { margin-left: auto; flex: none; color: var(--text-tertiary); font-size: var(--type-micro-size); }
 .asset-preview-zoom-controls { flex: none; display: flex; align-items: center; gap: var(--gap-hairline); }
 .asset-preview-zoom-controls button { width: var(--toolbar-icon-width); height: var(--toolbar-icon-height); border-radius: var(--toolbar-icon-radius); padding: 0; background: transparent; color: var(--text-secondary); display: grid; place-items: center; }
 .asset-preview-zoom-controls button:hover:not(:disabled) { background: var(--toolbar-hover-surface); color: var(--text-primary); }
-.asset-preview-zoom-value { position: relative; width: 44px; min-width: 44px; height: 25px; border-radius: var(--radius-compact); display: inline-flex; align-items: center; justify-content: center; color: var(--text-secondary); }
+.asset-preview-zoom-value { position: relative; width: 44px; min-width: 44px; height: var(--control-height-compact); border-radius: var(--radius-compact); display: inline-flex; align-items: center; justify-content: center; color: var(--text-secondary); }
 .asset-preview-zoom-value:focus-within { background: var(--field-control-background); box-shadow: inset 0 0 0 var(--field-control-border-width) var(--field-control-interactive-border-color); }
 .asset-preview-zoom-value input { width: 100%; border: 0; outline: 0; padding: 0 var(--space-5) 0 var(--space-1); background: transparent; color: inherit; font: inherit; text-align: center; font-variant-numeric: tabular-nums; overflow-x: hidden; }
 .asset-preview-zoom-value span { position: absolute; right: 8px; width: 7px; text-align: left; pointer-events: none; }
@@ -1142,8 +1141,8 @@ button.paper-identity-source:focus-visible { outline: var(--focus-ring-width) so
   line-height: 0;
   cursor: default;
   box-shadow: none !important;
-  transition: color var(--duration-quick) var(--ease-default),
-    background-color var(--duration-quick) var(--ease-default);
+  transition: color var(--motion-fast),
+    background-color var(--motion-fast);
 }
 .spreadsheet-univer-host [data-u-comp="sidebar"] > section > header > button[aria-label="Close sidebar"]:hover {
   background: var(--control-hover-surface) !important;
@@ -1220,7 +1219,7 @@ button.paper-identity-source:focus-visible { outline: var(--focus-ring-width) so
   padding-inline: var(--field-control-padding-inline);
   background: var(--form-control-background) !important;
   color: var(--text-primary) !important;
-  font: var(--type-body-weight) var(--type-label-size)/var(--type-label-line-height) var(--ui-font);
+  font: var(--type-body-weight) var(--type-body-compact-size)/var(--type-body-compact-line-height) var(--ui-font);
   text-align: start;
   box-shadow: none !important;
 }
@@ -1241,13 +1240,13 @@ button.paper-identity-source:focus-visible { outline: var(--focus-ring-width) so
   outline: none;
   background: var(--surface-panel-raised) !important;
   color: var(--text-primary) !important;
-  font: var(--type-label-weight) var(--type-label-size)/var(--type-label-line-height) var(--ui-font);
+  font: var(--type-body-compact-weight) var(--type-body-compact-size)/var(--type-body-compact-line-height) var(--ui-font);
   box-shadow: none !important;
-  transition: color var(--duration-quick) var(--ease-default),
-    border-color var(--duration-quick) var(--ease-default),
-    background-color var(--duration-quick) var(--ease-default),
-    opacity var(--duration-quick) var(--ease-default),
-    scale var(--duration-quick) var(--ease-default);
+  transition: color var(--motion-fast),
+    border-color var(--motion-fast),
+    background-color var(--motion-fast),
+    opacity var(--motion-fast),
+    scale var(--motion-fast);
 }
 .spreadsheet-univer-host [data-u-comp="sidebar"] [data-u-comp="button"]:not(.univer-bg-primary-600):hover:not(:disabled) {
   background: var(--control-hover-surface) !important;
@@ -1293,10 +1292,10 @@ body [data-slot="popover-content"].univer-outline-hidden {
   --spreadsheet-menu-radius: calc(var(--radius-icon) + var(--gap-inline-tight));
   --spreadsheet-menu-inset: var(--gap-inline-tight);
   --spreadsheet-menu-item-radius: calc(var(--spreadsheet-menu-radius) - var(--spreadsheet-menu-inset));
-  @apply smooth-shadow-lg;
   border: 0 !important;
   border-radius: var(--spreadsheet-menu-radius) !important;
-  background: var(--surface-panel-raised) !important;
+  background: var(--surface-elevated) !important;
+  box-shadow: var(--elevation-popover) !important;
   color: var(--text-primary) !important;
 }
 body [data-slot="dropdown-menu-content"].univer-text-sm {
@@ -1316,8 +1315,8 @@ body [data-slot="dropdown-menu-content"].univer-text-sm :is(
   color: var(--text-primary) !important;
   font: var(--type-body-weight) var(--type-body-size)/var(--type-body-line-height) var(--ui-font);
   text-align: start;
-  transition: color var(--duration-quick) var(--ease-out),
-    background-color var(--duration-quick) var(--ease-out);
+  transition: color var(--motion-fast),
+    background-color var(--motion-fast);
 }
 body [data-slot="dropdown-menu-content"].univer-text-sm :is(
   [data-slot="dropdown-menu-item"],
@@ -1399,8 +1398,8 @@ body [data-slot="dropdown-menu-content"].univer-text-sm [data-slot="dropdown-men
   background: transparent !important;
   color: var(--text-primary) !important;
   text-align: start;
-  transition: color var(--duration-quick) var(--ease-out),
-    background-color var(--duration-quick) var(--ease-out);
+  transition: color var(--motion-fast),
+    background-color var(--motion-fast);
 }
 body [data-slot="dropdown-menu-content"].univer-text-sm [data-slot="dropdown-menu-item"] ul.univer-list-none button:is(:hover, :focus-visible) {
   background: var(--control-active-soft) !important;

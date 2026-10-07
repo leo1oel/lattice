@@ -9,6 +9,7 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { useReducedMotion } from "motion/react";
+import { animationTiming } from "../../../../components/ui/motion-values";
 import type { PanzoomObject } from "@panzoom/panzoom";
 import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, RotateCcw, ZoomIn, ZoomOut } from "lucide-react";
 
@@ -85,7 +86,7 @@ export function MermaidDiagram({ chart }: { chart: string }) {
     void import("@panzoom/panzoom").then(({ default: Panzoom }) => {
       if (disposed) return;
       panzoom.current?.destroy();
-      panzoom.current = Panzoom(element, { maxScale: 6, minScale: 0.25, step: 0.25, cursor: "grab" });
+      panzoom.current = Panzoom(element, { maxScale: 6, minScale: 0.25, step: 0.25, cursor: "grab", ...animationTiming("moderate") });
     });
     return () => {
       disposed = true;
@@ -95,7 +96,7 @@ export function MermaidDiagram({ chart }: { chart: string }) {
   }, [svg]);
 
   const pan = (x: number, y: number) => panzoom.current?.pan(x, y, {
-    animate: !reducedMotion, duration: 200, easing: "ease-out", relative: true,
+    animate: !reducedMotion, relative: true,
   });
 
   return (

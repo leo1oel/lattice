@@ -1,7 +1,7 @@
 import { forwardRef, useState, type ReactNode } from "react";
 import { Trash2 } from "lucide-react";
 import { motion, useReducedMotion, type HTMLMotionProps } from "motion/react";
-import { PRESS_SPRING } from "./motion-values";
+import { PRESS_SPRING, springExit } from "./motion-values";
 
 export type DestructiveButtonProps = Omit<HTMLMotionProps<"button">, "children"> & {
   children?: ReactNode;
@@ -55,7 +55,7 @@ export const DestructiveButton = forwardRef<HTMLButtonElement, DestructiveButton
                 rotate: [0, -10, 10, -10, 0],
               }
             : { y: 0, rotate: 0 }}
-          transition={animate ? { duration: 0.4 } : { duration: 0.12 }}
+          transition={animate ? { duration: 0.4 } : springExit.moderate}
         >
           <Trash2 size={iconSize} />
         </motion.span>

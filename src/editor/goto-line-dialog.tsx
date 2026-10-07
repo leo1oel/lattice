@@ -37,7 +37,6 @@ function GotoLineDialogForm(props: GotoLineDialogProps) {
         <label>
           <Trans>Line</Trans>
           <Input
-            controlSize="form"
             autoFocus
             aria-label={t`Line number`}
             value={value}

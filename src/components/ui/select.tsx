@@ -20,7 +20,7 @@ function SelectTrigger({
   children,
   ...props
 }: React.ComponentProps<typeof SelectPrimitive.Trigger> & {
-  size?: "compact" | "default" | "form"
+  size?: "compact" | "default"
 }) {
   return (
     <SelectPrimitive.Trigger

@@ -1,5 +1,3 @@
-@reference "shadow-plugin";
-
 @import "./styles/foundations.css";
 @import "./styles/surfaces.css";
 @import "./styles/theme.css";
