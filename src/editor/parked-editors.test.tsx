@@ -180,9 +180,18 @@ describe("parked editors", () => {
     tab.view.scrollDOM.dispatchEvent(new Event("scroll"));
     await measured();
     const topLine = tab.view.state.doc.line(200).text;
+    // Left long enough for the idle parse to reach the end.
+    forceParsing(tab.view, tab.view.state.doc.length, 10_000);
     tab.layout.hidden = true;
     editor.show("other.tex");
     editor.disk["chapter.tex"] = edit(editor.disk["chapter.tex"]);
+    // The way back: the tab's read-only snapshot resumes the file as read
+    // from disk first, then the live editor does (the change taken in twice
+    // from one parked state threw, in the lab's .tex files).
+    const snapshot = resumeParkedEditor(ROOT, "chapter.tex", editor.disk["chapter.tex"], [latex(), EditorState.readOnly.of(true)]);
+    const snapshotView = new EditorView({ parent: document.body, state: snapshot!.state, scrollTo: snapshot!.scrollTo });
+    await measured();
+    snapshotView.destroy();
     editor.show("chapter.tex");
     await measured();
 

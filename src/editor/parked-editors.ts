@@ -50,22 +50,29 @@ export function parkEditor(root: string, path: string, state: EditorState, scrol
  * (`EditorViewConfig.scrollTo`), or nothing when none is parked.
  */
 export function resumeParkedEditor(root: string, path: string, doc: string, extensions: Extension) {
-  const entry = parked.get(keyOf(root, path));
+  let entry = parked.get(keyOf(root, path));
   if (!entry) return null;
   // Compared as CodeMirror holds it: a file with CRLF (or CR) line breaks is
   // read with them, but its state joins its lines with "\n".
   const text = doc.includes("\r") ? doc.replace(/\r\n?/g, "\n") : doc;
   entry.text ??= entry.state.doc.toString();
-  let { state, scroll } = entry;
   if (entry.text !== text) {
-    // Not an undo step of the writer's: their own edits stay undoable, mapped through it.
-    const changes = state.changes(difference(entry.text, text));
-    state = state.update({ changes, annotations: Transaction.addToHistory.of(false) }).state;
-    scroll = scroll?.map(changes) ?? null;
+    const changes = entry.state.changes(difference(entry.text, text));
+    // Taken in once, in place of the old state, for the tab's snapshot and
+    // then its live editor alike. A parse context hands its skipped ranges to
+    // the one a change makes from it, so a second change from the old state
+    // mapped ranges the first one's parse had added, past the old end, and threw.
+    entry = {
+      root, path, text,
+      // Not an undo step of the writer's: their own edits stay undoable, mapped through it.
+      state: entry.state.update({ changes, annotations: Transaction.addToHistory.of(false) }).state,
+      scroll: entry.scroll?.map(changes) ?? null,
+    };
+    parked.set(keyOf(root, path), entry);
   }
   return {
-    state: state.update({ effects: StateEffect.reconfigure.of(extensions) }).state,
-    scrollTo: scroll ?? undefined,
+    state: entry.state.update({ effects: StateEffect.reconfigure.of(extensions) }).state,
+    scrollTo: entry.scroll ?? undefined,
   };
 }
 
