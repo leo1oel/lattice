@@ -375,6 +375,8 @@ the research workspace and those embedded surfaces.
 | No-content message | `EmptyState` | copy, optional icon and actions, density |
 | Menu-like floating surface | primitives using `menu-surface.ts` | Radix semantics and feature content |
 | Ordinary scrolling | `ScrollArea` | orientation and exceptional layout classes |
+| Keyboard shortcut hint | `Keycaps`, or `renderKeycaps` in a long list (one cap per key) | the keys, from the binding through `key-combos.ts` rather than typed out |
+| Keyboard-driven list (quick open, pickers, the command palette) | `PickerDialog` / `SearchPickerDialog`, ranked by `picker-ranking.ts` | items, their icon, detail and shortcut, and what choosing one does |
 
 `PanelHeader` deliberately does not own outer height, padding, or borders.
 Those may differ between a drawer, modal, and embedded panel. It does own title
@@ -422,6 +424,15 @@ the primitive standardizes density without changing those semantics.
   `clientWidth` — `OverlayScrollbars` draws the same bars outside that width and
   reveals them on the bar rather than on the whole surface, matching the
   editor's.
+- The command palette (⌘K, and ⌘⇧P) is the one place every app command can be
+  reached by name, on the welcome screen as well as in a project; a typed query
+  also finds the project's files, its Papers and every Settings row. A new
+  app-level action gets an entry in App's command table, which drives both the
+  palette, the global shortcuts and the shortcut sheet, with a section
+  (`palette-sections.ts`) and either a `key` or, for a key bound elsewhere, a
+  display-only `shortcut`. Keyboard pickers keep the
+  highlighted row in view as the arrows (and ⌃N / ⌃P) move it, and only a
+  pointer that really moved takes the highlight back.
 - Embedded Settings routes delegate scrolling to the Lattice `ScrollArea`; the
   embedded document must not expose a second viewport scrollbar.
 
@@ -463,10 +474,11 @@ and in `motion/react`. The bigger the thing that moves, the slower the tier.
 
 - A key combination is drawn by `key-combos.ts` everywhere it appears: Mac
   glyphs, ⌘ first (⌘⇧J, ⌘⌥P), a Shift-typed character as itself (⌘?). In a
-  list or a hint it is `Keycaps` (`src/components/ui/keycaps.tsx`), a quiet
-  cap per key; inline in a menu or the palette it stays text.
-- Shortcuts are never typed out by hand next to a command. The palette writes
-  a command's key from the command table, and the shortcut sheet (⌘?, or
+  list, a hint or a palette row it is `Keycaps` (`src/components/ui/keycaps.tsx`,
+  or `renderKeycaps` where a list draws many), a quiet cap per key; inline in
+  a menu it stays text.
+- Shortcuts are never typed out by hand next to a command. The palette draws
+  a command's keys from the command table, and the shortcut sheet (⌘?, or
   Keyboard shortcuts in the palette) lists every key from the keymaps that
   bind them, grouped by where they work, so a moved key moves everywhere.
 - Focus mode (⌘⇧D, the Panels menu or the palette) is a layout state, not a

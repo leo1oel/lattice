@@ -127,6 +127,9 @@ describe("welcome screen", () => {
     await waitFor(() => expect(buildCalls).toBe(1));
     fireEvent.keyDown(window, { key: "p", ctrlKey: true, shiftKey: true });
     fireEvent.click(await screen.findByRole("option", { name: /Clean rebuild/i }));
+    // The palette runs its choice once it has closed and handed focus back.
+    await waitFor(() => expect(screen.queryByRole("searchbox", { name: "Command palette" })).not.toBeInTheDocument());
+    for (let tick = 0; tick < 2; tick += 1) await act(() => new Promise((resolve) => setTimeout(resolve, 0)));
     expect(buildCalls).toBe(1);
     ordinaryBuild.resolve(success);
     await waitFor(() => expect(invokeCalls("build_project")).toHaveLength(2));
@@ -363,17 +366,42 @@ describe("welcome screen", () => {
     if (setting === "interfaceSounds") expect(interfaceSounds.configure).toHaveBeenLastCalledWith(false);
   });
 
+  it("opens the command palette on the welcome screen with only what runs there, and finds settings by name", async () => {
+    localStorage.setItem("lattice.recent-commands.v1", JSON.stringify(["cite", "settings"]));
+    renderApp(projectCommands(null));
+    await screen.findByRole("heading", { name: "Research, written with evidence" });
+    fireEvent.keyDown(window, { key: "k", metaKey: true });
+    const input = await screen.findByRole("searchbox", { name: "Command palette" });
+    const options = () => screen.getAllByRole("option").map((option) => option.textContent ?? "");
+    // The recent project command is gone with the project; Open settings is still here, with its keys.
+    expect(options()[0]).toBe("Open settings⌘,");
+    for (const label of ["Build project", "Insert citation", "Quick open file", "Show Project panel"]) {
+      expect(options().filter((option) => option.startsWith(label))).toEqual([]);
+    }
+    expect(options().some((option) => option.startsWith("Open guided tutorial"))).toBe(true);
+    // ⌘K again closes it, as it opened.
+    fireEvent.keyDown(input, { key: "k", metaKey: true });
+    await waitFor(() => expect(screen.queryByRole("searchbox", { name: "Command palette" })).not.toBeInTheDocument());
+
+    fireEvent.keyDown(window, { key: "p", metaKey: true, shiftKey: true });
+    fireEvent.change(await screen.findByRole("searchbox", { name: "Command palette" }), { target: { value: "spelling" } });
+    expect(screen.getByRole("option", { name: /Check spelling in prose/ })).toBeInTheDocument();
+    fireEvent.keyDown(screen.getByRole("searchbox", { name: "Command palette" }), { key: "Enter" });
+    expect(await screen.findByRole("dialog", { name: "Settings" })).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByLabelText("Check spelling in prose")).toHaveFocus());
+  });
+
   it("leaves project commands' shortcuts idle on the welcome screen, so none waits for the next project", async () => {
     localStorage.setItem("lattice.recent-commands.v1", JSON.stringify(["cite", "find"]));
     vi.mocked(open).mockResolvedValue(ROOT);
     renderApp({ ...projectCommands(null), open_project: projectSnapshot() });
     await screen.findByRole("heading", { name: "Research, written with evidence" });
-    for (const key of ["p", "f", "k", "l", "o"]) fireEvent.keyDown(window, { key, metaKey: true, shiftKey: true });
+    for (const key of ["f", "k", "l", "o"]) fireEvent.keyDown(window, { key, metaKey: true, shiftKey: true });
     for (const key of ["p", "g", "s"]) fireEvent.keyDown(window, { key, metaKey: true });
 
     fireEvent.click(screen.getByRole("button", { name: /open folder/i }));
     expect(await screen.findByLabelText("Editor status", {}, { timeout: 20_000 })).toBeInTheDocument();
-    expect(screen.queryByPlaceholderText("Run a command…")).not.toBeInTheDocument();
+    expect(screen.queryByRole("searchbox", { name: "Command palette" })).not.toBeInTheDocument();
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 

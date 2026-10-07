@@ -25,7 +25,7 @@ describe("QuickOpenDialog intent", () => {
     });
     await waitFor(() => expect(onIntent).toHaveBeenLastCalledWith("notes/beta.md"));
 
-    fireEvent.mouseEnter(screen.getByRole("option", { name: "notes/alpha.md" }));
+    fireEvent.mouseMove(screen.getByRole("option", { name: "notes/alpha.md" }), { clientX: 40, clientY: 20 });
     await waitFor(() => expect(onIntent).toHaveBeenLastCalledWith("notes/alpha.md"));
     expect(onOpen).not.toHaveBeenCalled();
   });

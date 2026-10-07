@@ -323,7 +323,7 @@ export function DocumentCanvas(props: {
   const settledSource = props.settledSource ?? editorSource;
   const {
     navigation: editorNavigation, restore: viewRestore, rename: envRenameRequest, wrap: wrapEnvRequest,
-    cite: citeInsertRequest, figure: figureDropRequest,
+    cite: citeInsertRequest, figure: figureDropRequest, proofread: proofreadRequest,
   } = props.requests;
   const { i18n, t } = useLingui();
   const editorCommentLocalization = useMemo<EditorCommentLocalization>(() => ({
@@ -870,6 +870,16 @@ export function DocumentCanvas(props: {
     if (!request) return;
     void insertFigures(request.paths, { x: request.clientX, y: request.clientY }).finally(() => onRequestHandled(request.id));
   }, [figureDropRequest, insertFigures, onRequestHandled]);
+  // The palette's Proofread / Polish selection: the source editor's selection,
+  // which it kept while the palette had focus. Settled whether or not a
+  // proofread could start, so it never waits for the next selection.
+  useEffect(() => {
+    const request = proofreadRequest;
+    if (!request) return;
+    const view = primaryViewRef.current ?? editorViewRef.current;
+    if (view && props.editorEditable) proofread.start(view, request.mode);
+    onRequestHandled(request.id);
+  }, [onRequestHandled, proofread, proofreadRequest, props.editorEditable]);
   // One-shot LaTeX edits at the insertion target's caret, each settled once applied.
   useEffect(() => {
     const view = editorViewRef.current;

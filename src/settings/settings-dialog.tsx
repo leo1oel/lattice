@@ -82,6 +82,8 @@ type SettingsDialogProps = DoctorSettingsProps & {
   onAuthorNameChange: (name: string) => void;
   /** Where focus goes when Settings closes, if not to what held it as Settings opened. */
   returnFocus?: HTMLElement | null;
+  /** A row to open on, found by the command palette: revealed and focused as Settings opens. */
+  reveal?: SettingsSearchEntry | null;
   onClose: () => void;
 };
 
@@ -91,9 +93,11 @@ export function SettingsDialog(props: SettingsDialogProps) {
   const searchRef = useRef<HTMLInputElement>(null);
   // Settings opens in its search (`SettingsSearch`); under its shell, once
   // that is gone, as until then it holds focus.
+  // A row the palette asked for takes focus instead (below).
+  const revealsRow = Boolean(props.reveal?.id);
   useEffect(() => {
-    if (replacesShell && !props.covered) searchRef.current?.focus({ preventScroll: true });
-  }, [replacesShell, props.covered]);
+    if (replacesShell && !props.covered && !revealsRow) searchRef.current?.focus({ preventScroll: true });
+  }, [replacesShell, props.covered, revealsRow]);
   const settingsNavGroups = [
     { label: t`General`, items: [
       { tab: "appearance", label: t`Appearance`, icon: "faders" },
@@ -124,7 +128,7 @@ export function SettingsDialog(props: SettingsDialogProps) {
   const searchEntries = useSettingsSearchIndex(Boolean(props.project), props.knownAuthorName);
   /** The row a search result asked for, revealed once its page has rendered. */
   // A fresh object per opening, so opening the same row again reveals it again.
-  const [reveal, setReveal] = useState<{ entry: SettingsSearchEntry } | null>(null);
+  const [reveal, setReveal] = useState<{ entry: SettingsSearchEntry } | null>(() => (props.reveal ? { entry: props.reveal } : null));
   const synaraSettingsSection = SYNARA_SETTINGS_SECTIONS[props.tab];
   const synaraEmbedUrl = props.synaraRuntime.state === "ready" ? props.synaraRuntime.origin : null;
   const synaraSettingsUrl = synaraEmbedUrl && props.synaraWorkspaceRoot && synaraSettingsSection
@@ -157,7 +161,8 @@ export function SettingsDialog(props: SettingsDialogProps) {
   }, [props.tab, synaraSettingsUrl]);
 
   useLayoutEffect(() => {
-    if (!reveal?.entry.id) return;
+    // Under the loading shell the page is inert; it is revealed once uncovered.
+    if (!reveal?.entry.id || props.covered) return;
     // A frame later, so it lands after the page-change scroll reset above;
     // the reset's frame is queued first.
     const frame = window.requestAnimationFrame(() => {
@@ -175,7 +180,7 @@ export function SettingsDialog(props: SettingsDialogProps) {
       row.setAttribute("data-setting-revealed", "");
     });
     return () => window.cancelAnimationFrame(frame);
-  }, [reveal]);
+  }, [reveal, props.covered]);
   const openSearchResult = (entry: SettingsSearchEntry) => {
     props.setTab(entry.tab);
     setReveal({ entry });

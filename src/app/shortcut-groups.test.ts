@@ -1,17 +1,20 @@
 import { describe, expect, it } from "vitest";
 import { i18n } from "@lingui/core";
+import { DEFAULT_KEYMAP } from "@danfessler/trellis";
 import { filterShortcutGroups, shortcutGroups } from "./shortcut-groups";
+import { parseKeyName } from "./key-combos";
+import { FRAME_TOGGLE_KEY, TRELLIS_KEYMAP } from "../trellis/trellis-keymap";
 import type { AppCommand } from "./use-app-commands";
 
 const run = () => {};
 const commands: AppCommand[] = [
-  { id: "save", label: "Save and build", group: "Build", key: "s", palette: false, run },
-  { id: "build", label: "Build project", group: "Build", run },
+  { id: "save", label: "Save and build", group: "build", key: "s", palette: false, run },
+  { id: "build", label: "Build project", group: "build", run },
   ...Array.from({ length: 9 }, (_, index): AppCommand => ({
-    id: `workspace-${index + 1}`, label: "Switch to a workspace by its place", group: "Layout", key: String(index + 1), run,
+    id: `workspace-${index + 1}`, label: "Switch to a workspace by its place", group: "layout", key: String(index + 1), run,
   })),
-  { id: "focus-mode", label: "Focus mode", group: "Layout", key: "d", shift: true, when: false, run },
-  { id: "next-problem", label: "Next build problem", group: "Navigate", key: "f8", mod: false, run },
+  { id: "focus-mode", label: "Focus mode", group: "layout", key: "d", shift: true, when: false, run },
+  { id: "next-problem", label: "Next build problem", group: "navigate", key: "f8", mod: false, run },
 ];
 
 describe("the shortcut sheet's groups", () => {
@@ -50,3 +53,10 @@ describe("the shortcut sheet's groups", () => {
     expect(filterShortcutGroups(groups, "no such key")).toEqual([]);
   });
 });
+
+describe("keys the palette shows for Trellis", () => {
+  it("names Trellis's own maximize key", () => {
+    expect(parseKeyName({ ...DEFAULT_KEYMAP, ...TRELLIS_KEYMAP }["frame.toggle"]!)).toEqual(FRAME_TOGGLE_KEY);
+  });
+});
+

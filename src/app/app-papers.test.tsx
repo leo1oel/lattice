@@ -202,7 +202,7 @@ describe("papers", () => {
     await screen.findByRole("button", { name: "Switch project" });
     const openDialog = async () => {
       fireEvent.keyDown(window, { key: "p", metaKey: true, shiftKey: true });
-      const palette = await screen.findByPlaceholderText("Run a command…");
+      const palette = await screen.findByRole("searchbox", { name: "Command palette" });
       fireEvent.change(palette, { target: { value: "Add bibliography entry" } });
       fireEvent.keyDown(palette, { key: "Enter" });
       return screen.findByLabelText("Citation resolve query");

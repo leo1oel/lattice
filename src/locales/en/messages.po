@@ -877,6 +877,7 @@ msgstr "App updater"
 msgid "App updates"
 msgstr "App updates"
 
+#: src/app/palette-sections.ts
 #: src/settings/settings-dialog.tsx
 #: src/settings/settings-search-index.ts
 msgid "Appearance"
@@ -1273,7 +1274,7 @@ msgstr "Bring back {0}"
 msgid "Browser storage is full or unavailable. New entries still reach the log file on disk, but this list may be lost on restart."
 msgstr "Browser storage is full or unavailable. New entries still reach the log file on disk, but this list may be lost on restart."
 
-#: src/App.tsx
+#: src/app/palette-sections.ts
 #: src/app/use-build-pipeline.ts
 #: src/trellis/trellis-header-tools.tsx
 #: src/trellis/trellis-workspace.tsx
@@ -1615,6 +1616,7 @@ msgstr "Check incomplete"
 msgid "Check not started"
 msgstr "Check not started"
 
+#: src/App.tsx
 #: src/app/use-trellis-bridge.ts
 #: src/papers/bibliography-audit.tsx
 #: src/trellis/trellis-panel-actions.tsx
@@ -1807,6 +1809,7 @@ msgstr "click to sync"
 msgid "Clipboard"
 msgstr "Clipboard"
 
+#: src/app/command-palette.tsx
 #: src/editor/codemirror-host.tsx
 msgid "Close"
 msgstr "Close"
@@ -1816,6 +1819,10 @@ msgstr "Close"
 #: src/trellis/trellis-labels.ts
 msgid "Close {title}"
 msgstr "Close {title}"
+
+#: src/app/command-palette.tsx
+msgid "Close command palette"
+msgstr "Close command palette"
 
 #: src/editor/markdown/engine/chrome/find-replace.tsx
 msgid "Close find"
@@ -1943,6 +1950,7 @@ msgid "Coming from Overleaf"
 msgstr "Coming from Overleaf"
 
 #: src/App.tsx
+#: src/app/command-palette.tsx
 msgid "Command palette"
 msgstr "Command palette"
 
@@ -2913,8 +2921,8 @@ msgstr "e.g. 9"
 msgid "e.g. Lattice"
 msgstr "e.g. Lattice"
 
-#: src/App.tsx
 #: src/app/focus-mode-bar.tsx
+#: src/app/palette-sections.ts
 #: src/editor/comments/editor-comments-panel.tsx
 #: src/trellis/trellis-header-tools.tsx
 #: src/trellis/trellis-workspace.tsx
@@ -2926,10 +2934,12 @@ msgctxt "macOS menu bar"
 msgid "Edit"
 msgstr "Edit"
 
+#: src/App.tsx
 #: src/trellis/trellis-header-tools.tsx
 msgid "Edit and preview HTML"
 msgstr "Edit and preview HTML"
 
+#: src/App.tsx
 #: src/trellis/trellis-header-tools.tsx
 msgid "Edit and preview Markdown"
 msgstr "Edit and preview Markdown"
@@ -2947,6 +2957,7 @@ msgstr "Edit bibliography entry"
 msgid "Edit document"
 msgstr "Edit document"
 
+#: src/App.tsx
 #: src/trellis/trellis-header-tools.tsx
 msgid "Edit HTML"
 msgstr "Edit HTML"
@@ -2955,6 +2966,7 @@ msgstr "Edit HTML"
 msgid "Edit link"
 msgstr "Edit link"
 
+#: src/App.tsx
 #: src/trellis/trellis-header-tools.tsx
 msgid "Edit Markdown"
 msgstr "Edit Markdown"
@@ -3341,6 +3353,7 @@ msgstr "File switch"
 msgid "file upload"
 msgstr "file upload"
 
+#: src/app/command-palette.tsx
 #: src/project/project-find-dialog.tsx
 msgid "Files"
 msgstr "Files"
@@ -3856,6 +3869,10 @@ msgctxt "macOS menu bar"
 msgid "Hide {name}"
 msgstr "Hide {name}"
 
+#: src/App.tsx
+msgid "Hide {name} panel"
+msgstr "Hide {name} panel"
+
 #: src/editor/markdown/engine/views/code-block-view.tsx
 msgid "Hide Mermaid preview"
 msgstr "Hide Mermaid preview"
@@ -3989,6 +4006,7 @@ msgstr "Import figures into {targetDirectory}"
 msgid "Import images here"
 msgstr "Import images here"
 
+#: src/App.tsx
 #: src/app/use-project-lifecycle.ts
 msgid "Import Overleaf ZIP"
 msgstr "Import Overleaf ZIP"
@@ -4598,7 +4616,7 @@ msgstr "Lattice update failed"
 msgid "Lattice workspace"
 msgstr "Lattice workspace"
 
-#: src/App.tsx
+#: src/app/palette-sections.ts
 #: src/trellis/trellis-titlebar.tsx
 #: src/trellis/trellis-workspace-switch.tsx
 #: src/trellis/trellis-workspace.tsx
@@ -5020,6 +5038,10 @@ msgstr "Match case"
 msgid "Match system"
 msgstr "Match system"
 
+#: src/App.tsx
+msgid "Match the system theme"
+msgstr "Match the system theme"
+
 #: src/settings/settings-search.tsx
 msgid "Matching settings"
 msgstr "Matching settings"
@@ -5053,6 +5075,7 @@ msgstr "Matrix"
 msgid "Maximize"
 msgstr "Maximize"
 
+#: src/App.tsx
 #: src/trellis/trellis-titlebar.tsx
 msgid "Maximize focused panel"
 msgstr "Maximize focused panel"
@@ -5225,6 +5248,10 @@ msgstr "Monospaced text"
 msgid "More PDF actions"
 msgstr "More PDF actions"
 
+#: src/app/command-palette.tsx
+msgid "Move"
+msgstr "Move"
+
 #: src/trellis/trellis-labels.ts
 msgid "Move {title} to"
 msgstr "Move {title} to"
@@ -5313,7 +5340,7 @@ msgstr "Natural"
 msgid "Natural join / bowtie"
 msgstr "Natural join / bowtie"
 
-#: src/App.tsx
+#: src/app/palette-sections.ts
 msgid "Navigate"
 msgstr "Navigate"
 
@@ -5407,6 +5434,7 @@ msgstr "New Overleaf project name"
 msgid "New presentation"
 msgstr "New presentation"
 
+#: src/App.tsx
 #: src/project/project-dialogs.tsx
 msgid "New project"
 msgstr "New project"
@@ -5569,6 +5597,7 @@ msgstr "No longer in the document"
 msgid "No markers"
 msgstr "No markers"
 
+#: src/app/command-palette.tsx
 #: src/components/ui/search-picker-dialog.tsx
 #: src/editor/comments/editor-comments-panel.tsx
 #: src/editor/markdown/engine/chrome/find-replace.tsx
@@ -5880,9 +5909,14 @@ msgstr "Opacity"
 msgid "Opacity value"
 msgstr "Opacity value"
 
+#: src/app/command-palette.tsx
 #: src/overleaf/overleaf-connect.tsx
 msgid "Open"
 msgstr "Open"
+
+#: src/App.tsx
+msgid "Open {name}"
+msgstr "Open {name}"
 
 #: src/trellis/trellis-workspace.tsx
 msgid "Open {title}"
@@ -5916,6 +5950,10 @@ msgstr "Open a project to add terms"
 #: src/settings/synara-settings-pane.tsx
 msgid "Open a project to manage Agent settings"
 msgstr "Open a project to manage Agent settings"
+
+#: src/App.tsx
+msgid "Open an Overleaf project"
+msgstr "Open an Overleaf project"
 
 #: src/App.tsx
 #: src/project/project-dialogs.tsx
@@ -6085,6 +6123,10 @@ msgstr "Open the repair task to continue."
 msgid "Open this Agent task before restoring its files"
 msgstr "Open this Agent task before restoring its files"
 
+#: src/App.tsx
+msgid "Open this project on Overleaf"
+msgstr "Open this project on Overleaf"
+
 #: src/app/app-history-drawers.tsx
 msgid "Open this repository on GitHub"
 msgstr "Open this repository on GitHub"
@@ -6145,6 +6187,7 @@ msgstr "Other projects"
 msgid "Outline"
 msgstr "Outline"
 
+#: src/app/palette-sections.ts
 #: src/history/conflict-resolver.tsx
 #: src/settings/settings-dialog.tsx
 #: src/settings/settings-search-index.ts
@@ -6360,6 +6403,7 @@ msgstr "Paper import cancelled before making changes."
 msgid "Paper switch"
 msgstr "Paper switch"
 
+#: src/app/command-palette.tsx
 #: src/canvas/use-paper-pdf.ts
 #: src/onboarding/guided-tour-steps.ts
 #: src/project/paper-library.tsx
@@ -6591,6 +6635,10 @@ msgstr "Plus-minus"
 msgid "Polish"
 msgstr "Polish"
 
+#: src/App.tsx
+msgid "Polish selection"
+msgstr "Polish selection"
+
 #: src/canvas/proofread-card.tsx
 msgid "Polish suggestion"
 msgstr "Polish suggestion"
@@ -6683,10 +6731,12 @@ msgstr "Press ⌘S or click Build"
 msgid "Preview"
 msgstr "Preview"
 
+#: src/App.tsx
 #: src/trellis/trellis-header-tools.tsx
 msgid "Preview HTML"
 msgstr "Preview HTML"
 
+#: src/App.tsx
 #: src/trellis/trellis-header-tools.tsx
 msgid "Preview Markdown"
 msgstr "Preview Markdown"
@@ -6752,7 +6802,7 @@ msgstr "Product"
 msgid "project"
 msgstr "project"
 
-#: src/App.tsx
+#: src/app/palette-sections.ts
 #: src/trellis/trellis-titles.ts
 msgid "Project"
 msgstr "Project"
@@ -6822,6 +6872,10 @@ msgstr "Proof environment (requires amsthm)"
 #: src/editor/latex/latex-selection-toolbar.tsx
 msgid "Proofread"
 msgstr "Proofread"
+
+#: src/App.tsx
+msgid "Proofread selection"
+msgstr "Proofread selection"
 
 #: src/canvas/proofread-card.tsx
 msgid "Proofread suggestion"
@@ -6981,6 +7035,10 @@ msgstr "Recent"
 #: src/components/ui/apple-color-picker.tsx
 msgid "Recent color {color}"
 msgstr "Recent color {color}"
+
+#: src/app/command-palette.tsx
+msgid "Recent files"
+msgstr "Recent files"
 
 #: src/project/project-dialogs.tsx
 msgid "Recent projects"
@@ -7404,7 +7462,7 @@ msgstr "Required paper tools installed"
 msgid "Required tools installation progress"
 msgstr "Required tools installation progress"
 
-#: src/App.tsx
+#: src/app/palette-sections.ts
 msgid "Research"
 msgstr "Research"
 
@@ -7566,6 +7624,7 @@ msgstr "Restore project to this version"
 msgid "Restore size"
 msgstr "Restore size"
 
+#: src/App.tsx
 #: src/trellis/trellis-titlebar.tsx
 msgid "Restore the layout"
 msgstr "Restore the layout"
@@ -7763,10 +7822,6 @@ msgid "Rows"
 msgstr "Rows"
 
 #: src/App.tsx
-msgid "Run a command…"
-msgstr "Run a command…"
-
-#: src/App.tsx
 #: src/settings/doctor-settings.tsx
 msgid "Run TeX doctor"
 msgstr "Run TeX doctor"
@@ -7911,6 +7966,14 @@ msgstr "Search by name or license"
 #: src/overleaf/overleaf-connect.tsx
 msgid "Search by project or owner…"
 msgstr "Search by project or owner…"
+
+#: src/app/command-palette.tsx
+msgid "Search commands and settings…"
+msgstr "Search commands and settings…"
+
+#: src/app/command-palette.tsx
+msgid "Search commands, files, papers and settings…"
+msgstr "Search commands, files, papers and settings…"
 
 #: src/editor/markdown/engine/chrome/pickers.tsx
 msgid "Search emoji"
@@ -8116,6 +8179,7 @@ msgid "Set minus"
 msgstr "Set minus"
 
 #: src/App.tsx
+#: src/app/command-palette.tsx
 #: src/project/project-dialogs.tsx
 #: src/settings/settings-dialog.tsx
 msgid "Settings"
@@ -8643,6 +8707,14 @@ msgstr "Switch to a workspace by its place"
 msgid "Switch to Reading"
 msgstr "Switch to Reading"
 
+#: src/App.tsx
+msgid "Switch to the Reading layout"
+msgstr "Switch to the Reading layout"
+
+#: src/App.tsx
+msgid "Switch to the Writing layout"
+msgstr "Switch to the Writing layout"
+
 #: src/app/use-project-lifecycle.ts
 msgid "Switching project…"
 msgstr "Switching project…"
@@ -8685,6 +8757,7 @@ msgstr "Sync mode"
 msgid "Sync only when you click the sync button"
 msgstr "Sync only when you click the sync button"
 
+#: src/App.tsx
 #: src/canvas/canvas-toolbar.tsx
 msgid "Sync with Overleaf"
 msgstr "Sync with Overleaf"
@@ -9077,6 +9150,11 @@ msgstr "The worksheet and all of its contents will be removed."
 #: src/settings/theme-settings.tsx
 msgid "Theme"
 msgstr "Theme"
+
+#. Search words for the theme commands, space-separated
+#: src/App.tsx
+msgid "theme appearance"
+msgstr "theme appearance"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Theorem block (requires amsthm and a \\newtheorem declaration)"
@@ -9662,6 +9740,14 @@ msgstr "Upsilon"
 msgid "URL"
 msgstr "URL"
 
+#: src/App.tsx
+msgid "Use the dark theme"
+msgstr "Use the dark theme"
+
+#: src/App.tsx
+msgid "Use the light theme"
+msgstr "Use the light theme"
+
 #: src/settings/literature-settings.tsx
 msgid "Using environment key"
 msgstr "Using environment key"
@@ -9771,6 +9857,10 @@ msgstr "Vertical space"
 #: src/project/manuscript-checklist.tsx
 msgid "via texcount -inc"
 msgstr "via texcount -inc"
+
+#: src/app/palette-sections.ts
+msgid "View"
+msgstr "View"
 
 #: src/app/native-locale.ts
 msgctxt "macOS menu bar"

@@ -151,7 +151,7 @@ function setSleepingDecks(paths: readonly string[]) {
 
 /** The canvas request bundle with only `pending` set. */
 function pending(requests: Partial<CanvasProps["requests"]> = {}): CanvasProps["requests"] {
-  return { navigation: null, restore: null, rename: null, wrap: null, cite: null, figure: null, ...requests };
+  return { navigation: null, restore: null, rename: null, wrap: null, cite: null, figure: null, proofread: null, ...requests };
 }
 
 function baseProps(): CanvasProps {

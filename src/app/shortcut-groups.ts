@@ -14,6 +14,7 @@ import { ENGINE_SHORTCUTS } from "../editor/markdown/engine/engine-shortcuts";
 import { FOCUS_MODE_EXIT_KEY, TRELLIS_KEYMAP, TRELLIS_SHORTCUTS } from "../trellis/trellis-keymap";
 import { comboKeys, parseKeyName } from "./key-combos";
 import { commandCombo, type AppCommand } from "./use-app-commands";
+import { PALETTE_SECTIONS } from "./palette-sections";
 
 export type ShortcutRow = {
   label: string;
@@ -45,7 +46,7 @@ export function shortcutGroups(commands: readonly AppCommand[], i18n: I18n): Sho
   for (const command of commands) {
     const combo = commandCombo(command);
     if (!combo || !command.label) continue;
-    const group = command.group ?? "";
+    const group = command.group ? i18n._(PALETTE_SECTIONS[command.group].label) : "";
     const entries = appGroups.get(group) ?? [];
     entries.push({ label: command.label, combos: [comboKeys(combo)] });
     // Escape leaves focus mode too, when nothing else takes it.

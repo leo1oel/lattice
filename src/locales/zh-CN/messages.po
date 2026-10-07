@@ -877,6 +877,7 @@ msgstr "应用更新"
 msgid "App updates"
 msgstr "应用更新"
 
+#: src/app/palette-sections.ts
 #: src/settings/settings-dialog.tsx
 #: src/settings/settings-search-index.ts
 msgid "Appearance"
@@ -1273,7 +1274,7 @@ msgstr "恢复 {0}"
 msgid "Browser storage is full or unavailable. New entries still reach the log file on disk, but this list may be lost on restart."
 msgstr "浏览器存储已满或不可用。新条目仍会写入磁盘上的日志文件，但此列表可能在重启后丢失。"
 
-#: src/App.tsx
+#: src/app/palette-sections.ts
 #: src/app/use-build-pipeline.ts
 #: src/trellis/trellis-header-tools.tsx
 #: src/trellis/trellis-workspace.tsx
@@ -1615,6 +1616,7 @@ msgstr "检查未完成"
 msgid "Check not started"
 msgstr "尚未开始检查"
 
+#: src/App.tsx
 #: src/app/use-trellis-bridge.ts
 #: src/papers/bibliography-audit.tsx
 #: src/trellis/trellis-panel-actions.tsx
@@ -1807,6 +1809,7 @@ msgstr "点按以同步"
 msgid "Clipboard"
 msgstr "剪贴板"
 
+#: src/app/command-palette.tsx
 #: src/editor/codemirror-host.tsx
 msgid "Close"
 msgstr "关闭"
@@ -1816,6 +1819,10 @@ msgstr "关闭"
 #: src/trellis/trellis-labels.ts
 msgid "Close {title}"
 msgstr "关闭 {title}"
+
+#: src/app/command-palette.tsx
+msgid "Close command palette"
+msgstr "关闭命令面板"
 
 #: src/editor/markdown/engine/chrome/find-replace.tsx
 msgid "Close find"
@@ -1943,6 +1950,7 @@ msgid "Coming from Overleaf"
 msgstr "来自 Overleaf"
 
 #: src/App.tsx
+#: src/app/command-palette.tsx
 msgid "Command palette"
 msgstr "命令面板"
 
@@ -2913,8 +2921,8 @@ msgstr "例如 9"
 msgid "e.g. Lattice"
 msgstr "例如 Lattice"
 
-#: src/App.tsx
 #: src/app/focus-mode-bar.tsx
+#: src/app/palette-sections.ts
 #: src/editor/comments/editor-comments-panel.tsx
 #: src/trellis/trellis-header-tools.tsx
 #: src/trellis/trellis-workspace.tsx
@@ -2926,10 +2934,12 @@ msgctxt "macOS menu bar"
 msgid "Edit"
 msgstr "编辑"
 
+#: src/App.tsx
 #: src/trellis/trellis-header-tools.tsx
 msgid "Edit and preview HTML"
 msgstr "编辑并预览 HTML"
 
+#: src/App.tsx
 #: src/trellis/trellis-header-tools.tsx
 msgid "Edit and preview Markdown"
 msgstr "编辑并预览 Markdown"
@@ -2947,6 +2957,7 @@ msgstr "编辑参考文献条目"
 msgid "Edit document"
 msgstr "编辑文档"
 
+#: src/App.tsx
 #: src/trellis/trellis-header-tools.tsx
 msgid "Edit HTML"
 msgstr "编辑 HTML"
@@ -2955,6 +2966,7 @@ msgstr "编辑 HTML"
 msgid "Edit link"
 msgstr "编辑链接"
 
+#: src/App.tsx
 #: src/trellis/trellis-header-tools.tsx
 msgid "Edit Markdown"
 msgstr "编辑 Markdown"
@@ -3341,6 +3353,7 @@ msgstr "切换文件"
 msgid "file upload"
 msgstr "文件上传"
 
+#: src/app/command-palette.tsx
 #: src/project/project-find-dialog.tsx
 msgid "Files"
 msgstr "文件"
@@ -3856,6 +3869,10 @@ msgctxt "macOS menu bar"
 msgid "Hide {name}"
 msgstr "隐藏 {name}"
 
+#: src/App.tsx
+msgid "Hide {name} panel"
+msgstr "隐藏{name}面板"
+
 #: src/editor/markdown/engine/views/code-block-view.tsx
 msgid "Hide Mermaid preview"
 msgstr "隐藏 Mermaid 预览"
@@ -3989,6 +4006,7 @@ msgstr "将图片导入到 {targetDirectory}"
 msgid "Import images here"
 msgstr "将图像导入此处"
 
+#: src/App.tsx
 #: src/app/use-project-lifecycle.ts
 msgid "Import Overleaf ZIP"
 msgstr "导入 Overleaf ZIP"
@@ -4598,7 +4616,7 @@ msgstr "Lattice 更新失败"
 msgid "Lattice workspace"
 msgstr "Lattice 工作区"
 
-#: src/App.tsx
+#: src/app/palette-sections.ts
 #: src/trellis/trellis-titlebar.tsx
 #: src/trellis/trellis-workspace-switch.tsx
 #: src/trellis/trellis-workspace.tsx
@@ -5020,6 +5038,10 @@ msgstr "区分大小写"
 msgid "Match system"
 msgstr "跟随系统"
 
+#: src/App.tsx
+msgid "Match the system theme"
+msgstr "跟随系统主题"
+
 #: src/settings/settings-search.tsx
 msgid "Matching settings"
 msgstr "匹配的设置"
@@ -5053,6 +5075,7 @@ msgstr "矩阵"
 msgid "Maximize"
 msgstr "最大化"
 
+#: src/App.tsx
 #: src/trellis/trellis-titlebar.tsx
 msgid "Maximize focused panel"
 msgstr "最大化当前面板"
@@ -5225,6 +5248,10 @@ msgstr "等宽文本"
 msgid "More PDF actions"
 msgstr "更多 PDF 操作"
 
+#: src/app/command-palette.tsx
+msgid "Move"
+msgstr "移动"
+
 #: src/trellis/trellis-labels.ts
 msgid "Move {title} to"
 msgstr "将{title}移动到"
@@ -5313,7 +5340,7 @@ msgstr "还原号"
 msgid "Natural join / bowtie"
 msgstr "自然连接 / 蝶形"
 
-#: src/App.tsx
+#: src/app/palette-sections.ts
 msgid "Navigate"
 msgstr "导航"
 
@@ -5407,6 +5434,7 @@ msgstr "新 Overleaf 项目名称"
 msgid "New presentation"
 msgstr "新建演示文稿"
 
+#: src/App.tsx
 #: src/project/project-dialogs.tsx
 msgid "New project"
 msgstr "新建项目"
@@ -5569,6 +5597,7 @@ msgstr "已不在文档中"
 msgid "No markers"
 msgstr "没有标记"
 
+#: src/app/command-palette.tsx
 #: src/components/ui/search-picker-dialog.tsx
 #: src/editor/comments/editor-comments-panel.tsx
 #: src/editor/markdown/engine/chrome/find-replace.tsx
@@ -5880,9 +5909,14 @@ msgstr "不透明度"
 msgid "Opacity value"
 msgstr "不透明度值"
 
+#: src/app/command-palette.tsx
 #: src/overleaf/overleaf-connect.tsx
 msgid "Open"
 msgstr "打开"
+
+#: src/App.tsx
+msgid "Open {name}"
+msgstr "打开 {name}"
 
 #: src/trellis/trellis-workspace.tsx
 msgid "Open {title}"
@@ -5916,6 +5950,10 @@ msgstr "打开项目后即可添加术语"
 #: src/settings/synara-settings-pane.tsx
 msgid "Open a project to manage Agent settings"
 msgstr "打开项目以管理智能助手设置"
+
+#: src/App.tsx
+msgid "Open an Overleaf project"
+msgstr "打开 Overleaf 项目"
 
 #: src/App.tsx
 #: src/project/project-dialogs.tsx
@@ -6085,6 +6123,10 @@ msgstr "打开修正任务以继续。"
 msgid "Open this Agent task before restoring its files"
 msgstr "请先打开这个智能助手任务，再恢复它涉及的文件"
 
+#: src/App.tsx
+msgid "Open this project on Overleaf"
+msgstr "在 Overleaf 中打开此项目"
+
 #: src/app/app-history-drawers.tsx
 msgid "Open this repository on GitHub"
 msgstr "在 GitHub 上打开此仓库"
@@ -6145,6 +6187,7 @@ msgstr "其他项目"
 msgid "Outline"
 msgstr "大纲"
 
+#: src/app/palette-sections.ts
 #: src/history/conflict-resolver.tsx
 #: src/settings/settings-dialog.tsx
 #: src/settings/settings-search-index.ts
@@ -6360,6 +6403,7 @@ msgstr "已取消论文导入，未作任何修改。"
 msgid "Paper switch"
 msgstr "切换论文"
 
+#: src/app/command-palette.tsx
 #: src/canvas/use-paper-pdf.ts
 #: src/onboarding/guided-tour-steps.ts
 #: src/project/paper-library.tsx
@@ -6591,6 +6635,10 @@ msgstr "正负号"
 msgid "Polish"
 msgstr "润色"
 
+#: src/App.tsx
+msgid "Polish selection"
+msgstr "润色所选内容"
+
 #: src/canvas/proofread-card.tsx
 msgid "Polish suggestion"
 msgstr "润色建议"
@@ -6683,10 +6731,12 @@ msgstr "按 ⌘S 或点击构建"
 msgid "Preview"
 msgstr "预览"
 
+#: src/App.tsx
 #: src/trellis/trellis-header-tools.tsx
 msgid "Preview HTML"
 msgstr "预览 HTML"
 
+#: src/App.tsx
 #: src/trellis/trellis-header-tools.tsx
 msgid "Preview Markdown"
 msgstr "预览 Markdown"
@@ -6752,7 +6802,7 @@ msgstr "连乘"
 msgid "project"
 msgstr "项目"
 
-#: src/App.tsx
+#: src/app/palette-sections.ts
 #: src/trellis/trellis-titles.ts
 msgid "Project"
 msgstr "项目"
@@ -6822,6 +6872,10 @@ msgstr "证明环境（需要 amsthm）"
 #: src/editor/latex/latex-selection-toolbar.tsx
 msgid "Proofread"
 msgstr "校对"
+
+#: src/App.tsx
+msgid "Proofread selection"
+msgstr "校对所选内容"
 
 #: src/canvas/proofread-card.tsx
 msgid "Proofread suggestion"
@@ -6981,6 +7035,10 @@ msgstr "最近使用"
 #: src/components/ui/apple-color-picker.tsx
 msgid "Recent color {color}"
 msgstr "最近使用的颜色 {color}"
+
+#: src/app/command-palette.tsx
+msgid "Recent files"
+msgstr "最近打开的文件"
 
 #: src/project/project-dialogs.tsx
 msgid "Recent projects"
@@ -7404,7 +7462,7 @@ msgstr "所需的论文工具已安装"
 msgid "Required tools installation progress"
 msgstr "所需工具安装进度"
 
-#: src/App.tsx
+#: src/app/palette-sections.ts
 msgid "Research"
 msgstr "研究"
 
@@ -7566,6 +7624,7 @@ msgstr "把项目恢复到这个版本"
 msgid "Restore size"
 msgstr "还原大小"
 
+#: src/App.tsx
 #: src/trellis/trellis-titlebar.tsx
 msgid "Restore the layout"
 msgstr "恢复布局"
@@ -7763,10 +7822,6 @@ msgid "Rows"
 msgstr "行数"
 
 #: src/App.tsx
-msgid "Run a command…"
-msgstr "运行命令…"
-
-#: src/App.tsx
 #: src/settings/doctor-settings.tsx
 msgid "Run TeX doctor"
 msgstr "运行 TeX 诊断"
@@ -7911,6 +7966,14 @@ msgstr "按名称或许可证搜索"
 #: src/overleaf/overleaf-connect.tsx
 msgid "Search by project or owner…"
 msgstr "按项目或所有者搜索…"
+
+#: src/app/command-palette.tsx
+msgid "Search commands and settings…"
+msgstr "搜索命令和设置…"
+
+#: src/app/command-palette.tsx
+msgid "Search commands, files, papers and settings…"
+msgstr "搜索命令、文件、论文和设置…"
 
 #: src/editor/markdown/engine/chrome/pickers.tsx
 msgid "Search emoji"
@@ -8116,6 +8179,7 @@ msgid "Set minus"
 msgstr "集合差"
 
 #: src/App.tsx
+#: src/app/command-palette.tsx
 #: src/project/project-dialogs.tsx
 #: src/settings/settings-dialog.tsx
 msgid "Settings"
@@ -8643,6 +8707,14 @@ msgstr "按顺序切换工作区"
 msgid "Switch to Reading"
 msgstr "切换到阅读"
 
+#: src/App.tsx
+msgid "Switch to the Reading layout"
+msgstr "切换到阅读布局"
+
+#: src/App.tsx
+msgid "Switch to the Writing layout"
+msgstr "切换到写作布局"
+
 #: src/app/use-project-lifecycle.ts
 msgid "Switching project…"
 msgstr "正在切换项目…"
@@ -8685,6 +8757,7 @@ msgstr "同步模式"
 msgid "Sync only when you click the sync button"
 msgstr "仅在点击同步按钮时同步"
 
+#: src/App.tsx
 #: src/canvas/canvas-toolbar.tsx
 msgid "Sync with Overleaf"
 msgstr "与 Overleaf 同步"
@@ -9077,6 +9150,11 @@ msgstr "该工作表及其所有内容都将被删除。"
 #: src/settings/theme-settings.tsx
 msgid "Theme"
 msgstr "主题"
+
+#. Search words for the theme commands, space-separated
+#: src/App.tsx
+msgid "theme appearance"
+msgstr "主题 外观 theme appearance"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Theorem block (requires amsthm and a \\newtheorem declaration)"
@@ -9662,6 +9740,14 @@ msgstr "宇普西龙"
 msgid "URL"
 msgstr "URL"
 
+#: src/App.tsx
+msgid "Use the dark theme"
+msgstr "使用深色主题"
+
+#: src/App.tsx
+msgid "Use the light theme"
+msgstr "使用浅色主题"
+
 #: src/settings/literature-settings.tsx
 msgid "Using environment key"
 msgstr "正在使用环境变量密钥"
@@ -9771,6 +9857,10 @@ msgstr "垂直间距"
 #: src/project/manuscript-checklist.tsx
 msgid "via texcount -inc"
 msgstr "通过 texcount -inc 统计"
+
+#: src/app/palette-sections.ts
+msgid "View"
+msgstr "视图"
 
 #: src/app/native-locale.ts
 msgctxt "macOS menu bar"
