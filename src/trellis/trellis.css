@@ -77,10 +77,10 @@
    no line under it), while the other tabs sit on the strip. The whole strip
    drags the panel, and tabs, actions and the menu never overlap. */
 .lattice-trellis .trellis {
-  --lattice-tabstrip-shade: 5%;
+  --lattice-tabstrip-shade: 3%;
   --lattice-tabstrip: color-mix(in srgb, var(--surface-sidebar), black var(--lattice-tabstrip-shade));
 }
-:root[data-theme="dark"] .lattice-trellis .trellis { --lattice-tabstrip-shade: 12%; }
+:root[data-theme="dark"] .lattice-trellis .trellis { --lattice-tabstrip-shade: 8%; }
 /* Declared on the panel so it resolves against the panel's own surface. */
 .lattice-trellis [data-trellis-part="panel"] { --trellis-tab-active: var(--lattice-panel-surface); }
 .lattice-trellis [data-trellis-part="tabbar"] {

@@ -387,6 +387,10 @@
   --surface-window: var(--window);
   --surface-shell: color-mix(in srgb, var(--sidebar) var(--glass-shell), transparent);
   --surface-navigator: color-mix(in srgb, var(--sidebar) var(--glass-panel), transparent);
+  /* The titlebar: the shell lifted by theme.css's white veil, closed by
+     --titlebar-rule, so it never melts into the gutters below it. */
+  --surface-titlebar: color-mix(in srgb, #fff var(--titlebar-veil), var(--surface-shell));
+  --titlebar-rule: var(--border-subtle);
   /* A whole-window page with no project open, such as the welcome screen. */
   --surface-backdrop: color-mix(in srgb, var(--bg) var(--glass-page), transparent);
   --surface-panel: var(--panel);
@@ -404,7 +408,7 @@
   --control-active-soft: var(--accent-soft);
   /* The editor's current line stays neutral under any accent: the syntax
      tokens are tuned to read on it (theme.css). */
-  --editor-active-line-surface: var(--neutral-soft);
+  --editor-active-line-surface: var(--editor-line);
   --control-active-contrast: var(--accent-contrast);
   /* One hover wash for chrome affordances that sit directly on a chrome or
      sidebar surface: titlebar buttons, navigation actions, toolbar icons. */

@@ -58,7 +58,7 @@ input[type="search"]:focus-visible {
 }
 
 .app-shell { height: 100%; background: var(--surface-window); display: flex; flex-direction: column; }
-.titlebar { container: titlebar / inline-size; position: relative; z-index: var(--z-chrome); height: var(--titlebar-height); flex: none; display: flex; align-items: center; background: var(--surface-shell); user-select: none; }
+.titlebar { container: titlebar / inline-size; position: relative; z-index: var(--z-chrome); height: var(--titlebar-height); flex: none; display: flex; align-items: center; background: var(--surface-titlebar); box-shadow: inset 0 -1px 0 var(--titlebar-rule); user-select: none; }
 .titlebar-sidebar { width: var(--titlebar-sidebar-width); min-width: 0; height: 100%; flex: none; display: flex; align-items: center; }
 .titlebar-navigator { width: var(--titlebar-navigator-width); height: 100%; flex: none; display: flex; align-items: center; padding-right: var(--titlebar-leading-gap); }
 .traffic-space { width: var(--titlebar-traffic-space-width); height: 100%; flex: none; }
@@ -766,10 +766,10 @@ button.paper-citation-health:hover > .paper-citation-health-detail { color: var(
    carries on; the tooltip says why), and an accent dot for manual-mode work
    waiting on Overleaf. Ringed in the titlebar's own surface so the dot reads
    as cut out of the button rather than stuck on it. */
-.overleaf-status-dot, .overleaf-channel-dot { position: absolute; top: 3px; right: 3px; width: 7px; height: 7px; border-radius: var(--radius-pill); background: var(--status-success); box-shadow: 0 0 0 1.5px var(--surface-sidebar); pointer-events: none; }
+.overleaf-status-dot, .overleaf-channel-dot { position: absolute; top: 3px; right: 3px; width: 7px; height: 7px; border-radius: var(--radius-pill); background: var(--status-success); box-shadow: 0 0 0 1.5px var(--surface-titlebar); pointer-events: none; }
 .overleaf-channel-dot[data-state="connecting"] { background: var(--status-warning); animation: overleaf-channel-breathe 1.6s var(--ease-in-out) infinite; }
 .overleaf-channel-dot[data-state="error"] { background: var(--status-danger); }
-.canvas-actions .overleaf-pending-badge { top: 3px; right: 3px; min-width: 0; width: 7px; height: 7px; padding: 0; border-radius: var(--radius-pill); background: var(--control-active); box-shadow: 0 0 0 1.5px var(--surface-sidebar); color: transparent; font-size: 0; }
+.canvas-actions .overleaf-pending-badge { top: 3px; right: 3px; min-width: 0; width: 7px; height: 7px; padding: 0; border-radius: var(--radius-pill); background: var(--control-active); box-shadow: 0 0 0 1.5px var(--surface-titlebar); color: transparent; font-size: 0; }
 @keyframes overleaf-channel-breathe { 50% { opacity: .35; } }
 /* The channel's moments, once each. Coming online sends one ripple out of the
    green dot; dropping to an error pops the red one. Both dots are the same
