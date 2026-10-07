@@ -227,8 +227,15 @@
   min-width: var(--settings-control-width);
 }
 
-.ui-settings-group + .ui-settings-group {
+/* A group keeps the same distance from whatever precedes it on the page,
+   another group or a page-level notice alike. Only the page header sets its
+   own gap below, so every pane's first content starts at one offset. */
+* + .ui-settings-group {
   margin-top: var(--settings-group-gap);
+}
+
+.ui-settings-section-header + .ui-settings-group {
+  margin-top: 0;
 }
 
 .ui-settings-group-title {
@@ -317,7 +324,10 @@
   font-weight: var(--type-caption-weight);
 }
 
+/* Held to the title's line box, so a header action (taller than the title
+   line) centres on the title without pushing the page's content down. */
 .ui-settings-section-header-actions {
+  height: var(--type-heading-line-height);
   flex: none;
   display: flex;
   align-items: center;

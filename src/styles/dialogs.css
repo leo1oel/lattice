@@ -363,6 +363,7 @@ button.checklist-row:hover { background: var(--control-hover-surface); }
 }
 .settings-section [data-slot="select-trigger"],
 .settings-section .ui-input,
+.settings-section .ui-search-field,
 .settings-section .ui-button {
   min-height: var(--settings-control-height);
   border-radius: var(--settings-control-radius);
@@ -466,7 +467,7 @@ button.checklist-row:hover { background: var(--control-hover-surface); }
 }
 .settings-section input[type="range"] { width: 100%; accent-color: var(--control-active); }
 .settings-inline { margin-top: var(--space-6); }
-.settings-api-actions { margin-top: var(--space-12); display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: var(--space-4); }
+.settings-api-actions { margin-top: var(--space-8); display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: var(--space-4); }
 .modal-actions { margin-top: 22px; display: flex; justify-content: flex-end; gap: var(--space-4); }
 .destructive-button-icon { display: inline-flex; flex: none; align-items: center; justify-content: center; transform-origin: 50% 70%; }
 .confirm-action-modal { width: min(410px, calc(100vw - 40px)); }

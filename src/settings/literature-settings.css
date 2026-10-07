@@ -1,7 +1,3 @@
-.literature-settings > .ui-inline-message {
-  margin-block-end: var(--space-5);
-}
-
 .literature-credential-form {
   display: grid;
   gap: var(--space-3);

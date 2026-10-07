@@ -275,7 +275,7 @@ input[type="search"]:focus-visible {
 .year-stepper-buttons button { flex: 1; width: 22px; height: auto; min-height: 0; padding: 0; border: 0; border-left: 1px solid var(--border-subtle); background: transparent; color: var(--text-secondary); display: grid; place-items: center; cursor: pointer; }
 .year-stepper-buttons button:first-child { border-bottom: 1px solid var(--border-subtle); }
 .year-stepper-buttons button:hover { background: var(--control-active-soft); color: var(--control-active); }
-.doctor-status { margin: var(--space-6) 0 var(--space-6); padding: var(--space-4) var(--space-5); border-radius: var(--radius-control); font-size: var(--type-label-size); font-weight: 600; }
+.doctor-status { margin: 0 0 var(--space-6); padding: var(--space-4) var(--space-5); border-radius: var(--radius-control); font-size: var(--type-label-size); font-weight: 600; }
 .doctor-status.ok { background: color-mix(in srgb, var(--status-success) 14%, var(--surface-app)); color: var(--status-success); }
 .doctor-status.bad { background: color-mix(in srgb, var(--status-danger) 12%, var(--surface-app)); color: var(--status-danger); }
 .doctor-checklist { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(var(--settings-row-control-min-width), 1fr)); gap: var(--space-3); }
@@ -286,7 +286,6 @@ input[type="search"]:focus-visible {
 .doctor-checklist li strong { min-width: 0; overflow: hidden; color: var(--text-primary); font-size: var(--type-caption-size); text-overflow: ellipsis; white-space: nowrap; }
 .doctor-checklist .doctor-check-detail { grid-column: 2; margin-top: var(--space-1); color: var(--text-secondary); font-size: var(--type-caption-size); line-height: 1.4; overflow-wrap: anywhere; }
 .doctor-checklist .doctor-check-result { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
-.doctor-checklist + .settings-api-actions { margin-top: var(--space-8); }
 .table-generator-form, .project-replace label { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-5); }
 .project-replace label { grid-template-columns: 1fr; }
 .project-replace-options { display: flex; flex-wrap: wrap; gap: var(--space-6); }
