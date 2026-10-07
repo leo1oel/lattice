@@ -10,7 +10,7 @@
 import { memo, useCallback, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type RefObject } from "react";
 import { useLingui } from "@lingui/react/macro";
 import {
-  Bot, Check, FileText, FolderTree, LayoutPanelLeft, Library, Maximize2, Minimize2, RotateCcw,
+  Bot, Check, FileText, Focus, FolderTree, LayoutPanelLeft, Library, Maximize2, Minimize2, RotateCcw,
 } from "lucide-react";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
@@ -24,6 +24,8 @@ import { PANEL_TITLES, spaceMixedScript } from "./trellis-titles";
 import { PANEL_ICONS, PRESETS } from "./trellis-icons";
 import { LayoutSwitch } from "./trellis-workspace-switch";
 import { workspaceShortcut } from "./trellis-workspaces";
+import { FOCUS_MODE_KEY } from "./trellis-keymap";
+import { comboText } from "../app/key-combos";
 
 const CORE_PANELS = [
   { kind: "project", icon: <FolderTree size={14} /> },
@@ -208,6 +210,11 @@ export const TrellisTitlebar = memo(function TrellisTitlebar({ controller }: { c
               {preset === value && <Check size={14} className="trellis-menu-state" />}
             </DropdownMenuItem>
           ))}
+          <DropdownMenuItem onSelect={() => controller.setFocus(true)}>
+            <Focus size={14} />
+            <span className="flex-1">{t`Focus mode`}</span>
+            <span className="trellis-menu-shortcut">{comboText({ mod: true, ...FOCUS_MODE_KEY })}</span>
+          </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem onSelect={frameAction.run}>
             <frameAction.Icon size={14} />

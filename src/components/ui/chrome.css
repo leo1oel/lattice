@@ -646,3 +646,29 @@ label.ui-checkbox-field[data-slot="checkbox-field"] {
   [data-radix-popper-content-wrapper]:has(> .ui-tooltip-content),
   .ui-tooltip-content { pointer-events: none; }
 }
+
+/* A key combination as keycaps (keycaps.tsx): one cap per key, quiet enough
+   to sit beside a label or inside a ghost button. */
+.ui-keycaps {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  font: inherit;
+}
+
+.ui-keycap {
+  min-width: 18px;
+  height: 18px;
+  padding: 0 var(--space-2);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-compact);
+  background: var(--surface-panel-raised);
+  box-shadow: 0 1px 0 var(--border-subtle);
+  color: var(--text-secondary);
+  display: inline-grid;
+  place-items: center;
+  font-family: var(--ui-font);
+  font-size: var(--type-caption-size);
+  font-weight: var(--weight-medium);
+  line-height: var(--type-caption-line-height);
+}

@@ -282,6 +282,10 @@
      step below the document's, so the open file outranks its listing. */
   --navigation-text-strong: color-mix(in srgb, var(--text-primary) 86%, var(--surface-sidebar));
 
+  /* Focus mode's text column in the source editor, its gutter included:
+     about eighty characters of source at any editor font size. */
+  --focus-mode-measure: 88ch;
+
   /* Window chrome contract. The titlebar carries the traffic lights, the
      project switcher, and the tab strip in one row, so its geometry is shared
      rather than restated per element. */

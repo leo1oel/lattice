@@ -459,6 +459,25 @@ and in `motion/react`. The bigger the thing that moves, the slower the tier.
   duration where a tier belongs, and a sampled curve that no longer matches
   its spring.
 
+## Keyboard shortcuts and focus mode
+
+- A key combination is drawn by `key-combos.ts` everywhere it appears: Mac
+  glyphs, ⌘ first (⌘⇧J, ⌘⌥P), a Shift-typed character as itself (⌘?). In a
+  list or a hint it is `Keycaps` (`src/components/ui/keycaps.tsx`), a quiet
+  cap per key; inline in a menu or the palette it stays text.
+- Shortcuts are never typed out by hand next to a command. The palette writes
+  a command's key from the command table, and the shortcut sheet (⌘?, or
+  Keyboard shortcuts in the palette) lists every key from the keymaps that
+  bind them, grouped by where they work, so a moved key moves everywhere.
+- Focus mode (⌘⇧D, the Panels menu or the palette) is a layout state, not a
+  second theme: the open documents fill the window in one panel without
+  their tab bar, the PDF beside them if the writer last asked for it, and the
+  titlebar keeps only the window's controls, the document's name and the
+  focus bar on the shell's ground. The source keeps a reading measure
+  (`--focus-mode-measure`). Escape leaves it as the key's last meaning (never
+  in Vim, never past an open dialog, menu or completion list), and leaving
+  brings back the layout it was entered from exactly, a preset included.
+
 ## Identity and motion moments
 
 The app icon's woven lattice is Lattice's mark, and a small set of touches

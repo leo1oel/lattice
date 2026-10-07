@@ -437,14 +437,6 @@ msgstr "{wholeFiles} 两边都有改动。项目中现在是 Overleaf 的版本�
 msgid "↑↓ to navigate · Enter to open"
 msgstr "↑↓ 选择项目 · Enter 打开"
 
-#: src/App.tsx
-msgid "⌘⇧F · source files and papers"
-msgstr "⌘⇧F · 源文件和论文"
-
-#: src/App.tsx
-msgid "⌘⇧H · all source files"
-msgstr "⌘⇧H · 所有源文件"
-
 #: src/trellis/trellis-header-tools.tsx
 msgid "⌘S · ⇧-click for a clean rebuild"
 msgstr "⌘S · ⇧ 点击可全新重建"
@@ -615,6 +607,10 @@ msgstr "添加"
 msgid "Add “{projectWord}” to project dictionary"
 msgstr "将“{projectWord}”添加到项目词典"
 
+#: src/editor/editor-keymap.ts
+msgid "Add a cursor above or below"
+msgstr "在上方或下方添加光标"
+
 #: src/papers/bibliography-audit.tsx
 msgid "Add a title, full authors, and year, or add a DOI or arXiv identifier, before checking this reference."
 msgstr "检查此参考文献前，请添加标题、完整作者名单和年份，或添加 DOI 或 arXiv 标识符。"
@@ -650,6 +646,10 @@ msgstr "添加当前颜色"
 #: src/papers/bib-entry.ts
 msgid "Add exactly one bibliography entry at a time."
 msgstr "每次只能添加一条参考文献。"
+
+#: src/editor/markdown/engine/engine-shortcuts.ts
+msgid "Add or edit a link"
+msgstr "添加或编辑链接"
 
 #: src/project/paper-library.tsx
 msgid "Add paper"
@@ -770,6 +770,10 @@ msgstr "所有函数…"
 #: src/telemetry/app-log.tsx
 msgid "All levels"
 msgstr "所有级别"
+
+#: src/App.tsx
+msgid "all source files"
+msgstr "所有源文件"
 
 #: src/settings/acknowledgements-settings.tsx
 msgid "All third-party software"
@@ -1029,6 +1033,11 @@ msgstr "天蓝色"
 msgid "Back"
 msgstr "上一步"
 
+#: src/App.tsx
+msgctxt "Document history"
+msgid "Back"
+msgstr "后退"
+
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Back prime"
 msgstr "反撇号"
@@ -1189,14 +1198,23 @@ msgstr "蓝色值"
 msgid "Board typefaces"
 msgstr "白板字体"
 
+#: src/editor/markdown/engine/engine-shortcuts.ts
+msgid "Body text"
+msgstr "正文"
+
 #: src/project/manuscript-checklist.tsx
 msgid "Body words"
 msgstr "正文词数"
 
 #: src/editor/latex/latex-selection-toolbar.tsx
 #: src/editor/markdown/engine/chrome/selection-toolbar.tsx
+#: src/editor/markdown/engine/engine-shortcuts.ts
 msgid "Bold"
 msgstr "粗体"
+
+#: src/editor/latex/latex-shortcuts.ts
+msgid "Bold (\\textbf)"
+msgstr "粗体（\\textbf）"
 
 #: src/editor/latex/latex-command-completions.ts
 msgid "Bold math"
@@ -1357,6 +1375,7 @@ msgid "Bullet List"
 msgstr "无序列表"
 
 #: src/editor/latex/latex-vocabulary.ts
+#: src/editor/markdown/engine/engine-shortcuts.ts
 msgid "Bulleted list"
 msgstr "带项目符号的列表"
 
@@ -1827,6 +1846,10 @@ msgstr "关闭搜索"
 msgid "Close settings"
 msgstr "关闭设置"
 
+#: src/trellis/trellis-keymap.ts
+msgid "Close the tab"
+msgstr "关闭标签页"
+
 #: src/app/native-locale.ts
 msgctxt "macOS menu bar"
 msgid "Close Window"
@@ -1843,6 +1866,10 @@ msgstr "闭路积分"
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Club suit"
 msgstr "梅花"
+
+#: src/editor/markdown/engine/engine-shortcuts.ts
+msgid "Code block"
+msgstr "代码块"
 
 #: src/editor/markdown/engine/chrome/selection-toolbar.tsx
 #: src/editor/markdown/engine/chrome/slash-items.ts
@@ -1936,6 +1963,10 @@ msgstr "评论已删除"
 #: src/editor/latex/latex-selection-toolbar.tsx
 msgid "Comment on selected Markdown"
 msgstr "评论所选 Markdown"
+
+#: src/editor/latex/latex-shortcuts.ts
+msgid "Comment or uncomment lines"
+msgstr "注释或取消注释所在行"
 
 #: src/overleaf/overleaf-collab.tsx
 msgid "Comment source"
@@ -2712,6 +2743,7 @@ msgstr "文档章节"
 msgid "Document title"
 msgstr "文档标题"
 
+#: src/app/focus-mode-bar.tsx
 #: src/trellis/trellis-header-tools.tsx
 msgid "Document view"
 msgstr "文稿视图"
@@ -2856,6 +2888,10 @@ msgstr "标签“{key}”重复，也在 {path} 中定义。"
 msgid "Duplicate label “{key}”."
 msgstr "标签“{key}”重复。"
 
+#: src/editor/editor-keymap.ts
+msgid "Duplicate the line"
+msgstr "复制当前行"
+
 #: src/papers/audit-messages.ts
 msgid "Duplicate title across bibliography files."
 msgstr "多个参考文献文件中存在重复的标题。"
@@ -2878,6 +2914,7 @@ msgid "e.g. Lattice"
 msgstr "例如 Lattice"
 
 #: src/App.tsx
+#: src/app/focus-mode-bar.tsx
 #: src/editor/comments/editor-comments-panel.tsx
 #: src/trellis/trellis-header-tools.tsx
 #: src/trellis/trellis-workspace.tsx
@@ -3018,6 +3055,10 @@ msgstr "嵌入图片，并可添加替代文本。"
 #: src/editor/markdown/engine/chrome/slash-items.ts
 msgid "Emoji"
 msgstr "表情符号"
+
+#: src/editor/latex/latex-shortcuts.ts
+msgid "Emphasis (\\emph)"
+msgstr "强调（\\emph）"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Emphasized text command"
@@ -3193,6 +3234,10 @@ msgstr "Excel 工作簿"
 msgid "Excel workbook exported"
 msgstr "已导出 Excel 工作簿"
 
+#: src/app/focus-mode-bar.tsx
+msgid "Exit focus"
+msgstr "退出专注"
+
 #: src/editor/markdown/engine/views/image-view.tsx
 msgid "Expand image"
 msgstr "放大图片"
@@ -3308,6 +3353,10 @@ msgstr "本次更改涉及的文件"
 msgid "Filled square"
 msgstr "实心方块"
 
+#: src/app/shortcut-sheet.tsx
+msgid "Filter by name or key"
+msgstr "按名称或按键筛选"
+
 #: src/editor/comments/editor-comments-panel.tsx
 msgid "Filter comments…"
 msgstr "筛选评论…"
@@ -3323,6 +3372,10 @@ msgstr "筛选语言"
 #: src/history/history-drawer.tsx
 msgid "Filter project changes"
 msgstr "筛选项目更改"
+
+#: src/app/shortcut-sheet.tsx
+msgid "Filter shortcuts"
+msgstr "筛选快捷键"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Final sigma"
@@ -3346,7 +3399,13 @@ msgstr "在项目中查找和替换"
 msgid "Find and install the TeX Live package for {missingFile}"
 msgstr "查找并安装 {missingFile} 对应的 TeX Live 软件包"
 
+#: src/editor/markdown/engine/engine-shortcuts.ts
+msgid "Find and replace"
+msgstr "查找和替换"
+
+#: src/editor/latex/latex-shortcuts.ts
 #: src/editor/markdown/engine/chrome/find-replace.tsx
+#: src/editor/markdown/engine/engine-shortcuts.ts
 msgid "Find in document"
 msgstr "在文档中查找"
 
@@ -3360,6 +3419,10 @@ msgstr "在 PDF 中查找"
 #: src/trellis/trellis-panel-actions.tsx
 msgid "Find in project"
 msgstr "在项目中查找"
+
+#: src/editor/latex/latex-shortcuts.ts
+msgid "Find references"
+msgstr "查找引用位置"
 
 #: src/project/project-replace-dialog.tsx
 msgid "Find text to replace"
@@ -3429,9 +3492,22 @@ msgstr "浮动表格，三线表样式（需要 booktabs）"
 msgid "Flush floats and start a new page"
 msgstr "输出浮动体并另起一页"
 
+#: src/App.tsx
+#: src/trellis/trellis-titlebar.tsx
+msgid "Focus mode"
+msgstr "专注模式"
+
 #: src/editor/source-gutter.ts
 msgid "Fold line"
 msgstr "折叠行"
+
+#: src/editor/editor-keymap.ts
+msgid "Fold or unfold"
+msgstr "折叠或展开"
+
+#: src/editor/editor-keymap.ts
+msgid "Fold or unfold everything"
+msgstr "全部折叠或展开"
 
 #: src/editor/codemirror-host.tsx
 msgid "folded code"
@@ -3488,6 +3564,11 @@ msgstr "公式"
 #: src/editor/spreadsheet/spreadsheet-univer.ts
 msgid "Formulas"
 msgstr "公式"
+
+#: src/App.tsx
+msgctxt "Document history"
+msgid "Forward"
+msgstr "前进"
 
 #: src/editor/markdown/engine/chrome/slash-items.ts
 msgid "Fourth-level heading."
@@ -3585,6 +3666,10 @@ msgstr "转到 {location}"
 msgid "Go to {title}"
 msgstr "前往 {title}"
 
+#: src/editor/latex/latex-shortcuts.ts
+msgid "Go to definition"
+msgstr "跳转到定义"
+
 #: src/App.tsx
 #: src/editor/goto-line-dialog.tsx
 #: src/editor/latex/search-panel.ts
@@ -3608,6 +3693,14 @@ msgstr "跳转到章节或标签…"
 #: src/app/app-search-dialogs.tsx
 msgid "Go to symbol"
 msgstr "跳转到符号"
+
+#: src/editor/latex/latex-shortcuts.ts
+msgid "Go to the matching \\begin, \\end or math delimiter"
+msgstr "跳转到配对的 \\begin、\\end 或数学定界符"
+
+#: src/editor/editor-keymap.ts
+msgid "Go to the matching bracket"
+msgstr "跳转到配对的括号"
 
 #: src/overleaf/overleaf-review.tsx
 msgid "Going to Overleaf"
@@ -3679,6 +3772,10 @@ msgstr "手写参考文献列表"
 #: src/editor/markdown/engine/chrome/slash-items.ts
 msgid "Heading 1"
 msgstr "一级标题"
+
+#: src/editor/markdown/engine/engine-shortcuts.ts
+msgid "Heading 1 to 6"
+msgstr "一至六级标题"
 
 #: src/editor/markdown/engine/chrome/selection-toolbar.tsx
 #: src/editor/markdown/engine/chrome/slash-items.ts
@@ -3767,6 +3864,11 @@ msgstr "隐藏 Mermaid 预览"
 msgctxt "macOS menu bar"
 msgid "Hide Others"
 msgstr "隐藏其他"
+
+#: src/App.tsx
+#: src/app/focus-mode-bar.tsx
+msgid "Hide the PDF"
+msgstr "隐藏 PDF"
 
 #: src/editor/markdown/engine/chrome/selection-toolbar.tsx
 msgid "Highlight"
@@ -3980,6 +4082,10 @@ msgstr "历史记录不完整"
 msgid "Increment year"
 msgstr "年份加一"
 
+#: src/editor/editor-keymap.ts
+msgid "Indent or outdent"
+msgstr "增加或减少缩进"
+
 #: src/editor/markdown/engine/chrome/slash-items.ts
 msgid "Indented blockquote for citations."
 msgstr "用于引用内容的缩进块。"
@@ -4013,12 +4119,17 @@ msgid "Inline another TeX file"
 msgstr "就地嵌入另一个 TeX 文件"
 
 #: src/editor/markdown/engine/chrome/selection-toolbar.tsx
+#: src/editor/markdown/engine/engine-shortcuts.ts
 msgid "Inline code"
 msgstr "行内代码"
 
 #: src/editor/markdown/engine/chrome/slash-items.ts
 msgid "Inline LaTeX math rendered with KaTeX."
 msgstr "使用 KaTeX 渲染的行内 LaTeX 公式。"
+
+#: src/editor/latex/latex-shortcuts.ts
+msgid "Inline math"
+msgstr "行内公式"
 
 #: src/editor/markdown/engine/chrome/slash-items.ts
 msgid "Inline Math"
@@ -4056,6 +4167,10 @@ msgstr "插入脚注引用及与之匹配的定义占位符。"
 #: src/editor/spreadsheet/spreadsheet-univer.ts
 msgid "Insert a formula"
 msgstr "插入公式"
+
+#: src/editor/editor-keymap.ts
+msgid "Insert a line below"
+msgstr "在下方插入一行"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Insert an image path (requires graphicx)"
@@ -4238,6 +4353,7 @@ msgstr "约塔"
 
 #: src/editor/latex/latex-selection-toolbar.tsx
 #: src/editor/markdown/engine/chrome/selection-toolbar.tsx
+#: src/editor/markdown/engine/engine-shortcuts.ts
 msgid "Italic"
 msgstr "斜体"
 
@@ -4330,6 +4446,11 @@ msgstr "密钥已移除"
 msgid "Key saved to the keychain"
 msgstr "密钥已保存到钥匙串"
 
+#: src/App.tsx
+#: src/app/shortcut-sheet.tsx
+msgid "Keyboard shortcuts"
+msgstr "键盘快捷键"
+
 #: src/settings/literature-settings.tsx
 msgid "Keys stay in your system keychain and take priority over shared ones"
 msgstr "密钥保存在系统钥匙串中，优先于共享密钥"
@@ -4392,6 +4513,10 @@ msgstr "最后更新时间未知"
 #: src/papers/bib-entry-dialog.tsx
 msgid "Last, First and Last, First"
 msgstr "姓, 名 and 姓, 名"
+
+#: src/app/shortcut-groups.ts
+msgid "LaTeX"
+msgstr "LaTeX"
 
 #: src/build/tex-doctor-messages.ts
 msgid "LaTeX build driver"
@@ -4492,6 +4617,10 @@ msgstr "每项任务，一套布局"
 msgid "Learn Lattice with the Understanding Attention sample project"
 msgstr "通过 Understanding Attention 示例项目学习 Lattice"
 
+#: src/editor/markdown/engine/engine-shortcuts.ts
+msgid "Leave a code block"
+msgstr "离开代码块"
+
 #: src/onboarding/guided-tour-steps.ts
 msgid "Leave a comment"
 msgstr "留一条评论"
@@ -4499,6 +4628,15 @@ msgstr "留一条评论"
 #: src/canvas/comment-composer.tsx
 msgid "Leave a comment for collaborators…"
 msgstr "给协作者留言…"
+
+#: src/App.tsx
+#: src/app/shortcut-groups.ts
+msgid "Leave focus mode"
+msgstr "退出专注模式"
+
+#: src/app/focus-mode-bar.tsx
+msgid "Leave focus mode · {exitKeys} or Esc"
+msgstr "退出专注模式 · {exitKeys} 或 Esc"
 
 #: src/overleaf/overleaf-review.tsx
 msgid "Left alone"
@@ -4824,6 +4962,10 @@ msgstr "长引文"
 msgid "Looks for <0>% TODO</0>, <1>% FIXME</1>, <2>% XXX</2> and <3>\\todo</3>"
 msgstr "查找 <0>% TODO</0>、<1>% FIXME</1>、<2>% XXX</2> 和 <3>\\todo</3>"
 
+#: src/editor/latex/latex-shortcuts.ts
+msgid "lower case"
+msgstr "小写"
+
 #: src/build/tex-doctor-messages.ts
 msgid "LuaLaTeX engine"
 msgstr "LuaLaTeX 引擎"
@@ -4914,6 +5056,10 @@ msgstr "最大化"
 #: src/trellis/trellis-titlebar.tsx
 msgid "Maximize focused panel"
 msgstr "最大化当前面板"
+
+#: src/trellis/trellis-keymap.ts
+msgid "Maximize or restore the focused panel"
+msgstr "最大化或还原当前面板"
 
 #: src/trellis/trellis-titlebar.tsx
 msgid "Maximize panel · ⌘⇧↩"
@@ -5090,6 +5236,14 @@ msgstr "左移"
 #: src/trellis/trellis-workspace-switch.tsx
 msgid "Move right"
 msgstr "右移"
+
+#: src/editor/markdown/engine/engine-shortcuts.ts
+msgid "Move the block up or down"
+msgstr "上移或下移块"
+
+#: src/editor/editor-keymap.ts
+msgid "Move the line up or down"
+msgstr "上移或下移当前行"
 
 #: src/trellis/trellis-labels.ts
 msgid "Moved"
@@ -5290,10 +5444,18 @@ msgstr "下一个"
 msgid "Next"
 msgstr "下一步"
 
+#: src/App.tsx
+msgid "Next build problem"
+msgstr "下一个构建问题"
+
 #: src/editor/latex/search-panel.ts
 #: src/editor/markdown/engine/chrome/find-replace.tsx
 msgid "Next match"
 msgstr "下一个匹配项"
+
+#: src/editor/editor-keymap.ts
+msgid "Next or previous match"
+msgstr "下一个或上一个匹配项"
 
 #: src/pdf/pdf-viewer.tsx
 msgid "Next page"
@@ -5525,6 +5687,11 @@ msgstr "没有可安全应用的修改"
 msgid "No sections yet. Add a \\section{…} to start the outline"
 msgstr "还没有章节。添加一个 \\section{…} 即可开始生成大纲"
 
+#. placeholder {0}: query.trim()
+#: src/app/shortcut-sheet.tsx
+msgid "No shortcut matches “{0}”"
+msgstr "没有与“{0}”匹配的快捷键"
+
 #: src/overleaf/overleaf-changes.tsx
 msgid "No suggestions in this document"
 msgstr "此文档中没有修订建议"
@@ -5647,6 +5814,7 @@ msgid "Number sets like R, N"
 msgstr "数集，如 R、N"
 
 #: src/editor/latex/latex-vocabulary.ts
+#: src/editor/markdown/engine/engine-shortcuts.ts
 msgid "Numbered list"
 msgstr "带编号的列表"
 
@@ -5699,6 +5867,10 @@ msgstr "仅在 macOS 上的 Lattice 窗口中可用"
 #: src/telemetry/app-log.tsx
 msgid "Only operation metadata and counts. Nothing leaves this Mac until you copy or download it"
 msgstr "仅包含操作元数据和计数。复制或下载前不会离开这台 Mac"
+
+#: src/App.tsx
+msgid "only the editor"
+msgstr "只留编辑器"
 
 #: src/components/ui/apple-color-picker.tsx
 msgid "Opacity"
@@ -5947,6 +6119,10 @@ msgstr "正在打开窗口…"
 msgid "Operation metadata"
 msgstr "操作信息"
 
+#: src/app/shortcut-sheet.tsx
+msgid "or"
+msgstr "或"
+
 #: src/components/ui/apple-color-picker.tsx
 #: src/settings/theme-settings.tsx
 msgid "Orange"
@@ -6143,6 +6319,10 @@ msgstr "面板菜单"
 msgid "Panels"
 msgstr "面板"
 
+#: src/app/shortcut-groups.ts
+msgid "Panels and tabs"
+msgstr "面板与标签页"
+
 #: src/app/use-trellis-bridge.ts
 #: src/canvas/paper-reader.tsx
 #: src/trellis/trellis-header-tools.tsx
@@ -6267,6 +6447,7 @@ msgstr "暂停同步"
 msgid "Paused while hidden · click to resume"
 msgstr "隐藏时已暂停 · 点击恢复"
 
+#: src/app/focus-mode-bar.tsx
 #: src/canvas/paper-reader.tsx
 #: src/trellis/trellis-titles.ts
 msgid "PDF"
@@ -6494,6 +6675,7 @@ msgstr "在编辑器中按 ⌘⇧K 引用一篇"
 msgid "Press ⌘S or click Build"
 msgstr "按 ⌘S 或点击构建"
 
+#: src/app/focus-mode-bar.tsx
 #: src/editor/markdown/engine/lattice-visual-editor.tsx
 #: src/project/project-replace-dialog.tsx
 #: src/trellis/trellis-header-tools.tsx
@@ -6521,10 +6703,26 @@ msgstr "此图片格式不支持预览。"
 msgid "previous"
 msgstr "上一个"
 
+#: src/App.tsx
+msgid "Previous build problem"
+msgstr "上一个构建问题"
+
 #: src/editor/latex/search-panel.ts
 #: src/editor/markdown/engine/chrome/find-replace.tsx
 msgid "Previous match"
 msgstr "上一个匹配项"
+
+#: src/trellis/trellis-keymap.ts
+msgid "Previous or next panel"
+msgstr "上一个或下一个面板"
+
+#: src/trellis/trellis-keymap.ts
+msgid "Previous or next tab"
+msgstr "上一个或下一个标签页"
+
+#: src/trellis/trellis-keymap.ts
+msgid "Previous or next zoomed view"
+msgstr "上一个或下一个缩放视图"
 
 #: src/pdf/pdf-viewer.tsx
 msgid "Previous page"
@@ -6629,6 +6827,10 @@ msgstr "校对"
 msgid "Proofread suggestion"
 msgstr "校对建议"
 
+#: src/editor/latex/latex-shortcuts.ts
+msgid "Proofread the selection"
+msgstr "校对所选内容"
+
 #: src/canvas/proofread-card.tsx
 msgid "Proofreading…"
 msgstr "正在校对…"
@@ -6718,6 +6920,7 @@ msgstr "退出 {name}"
 #: src/editor/latex/latex-selection-toolbar.tsx
 #: src/editor/markdown/engine/chrome/selection-toolbar.tsx
 #: src/editor/markdown/engine/chrome/slash-items.ts
+#: src/editor/markdown/engine/engine-shortcuts.ts
 msgid "Quote"
 msgstr "引文"
 
@@ -6810,6 +7013,10 @@ msgstr "红色值"
 #: src/editor/latex/latex-command-completions.ts
 msgid "Redefine a command"
 msgstr "重新定义命令"
+
+#: src/editor/editor-keymap.ts
+msgid "Redo"
+msgstr "重做"
 
 #: src/app/native-locale.ts
 msgctxt "macOS menu bar"
@@ -6984,9 +7191,17 @@ msgstr "重命名环境"
 msgid "Rename label"
 msgstr "重命名标签"
 
+#: src/editor/latex/latex-shortcuts.ts
+msgid "Rename label or citation"
+msgstr "重命名标签或引用键"
+
 #: src/project/references-panel.tsx
 msgid "Rename symbol"
 msgstr "重命名符号"
+
+#: src/editor/latex/latex-shortcuts.ts
+msgid "Rename the environment"
+msgstr "重命名环境"
 
 #: src/history/versions-timeline.tsx
 #: src/overleaf/overleaf-history.tsx
@@ -7022,6 +7237,10 @@ msgstr "重新打开"
 #: src/editor/comments/editor-comments-panel.tsx
 msgid "Reopen comment"
 msgstr "重新打开评论"
+
+#: src/App.tsx
+msgid "Reopen the closed tab"
+msgstr "重新打开关闭的标签页"
 
 #: src/build/use-compile-repair.ts
 msgid "Repair cancelled."
@@ -7075,6 +7294,10 @@ msgstr "替换 {replacementCount} 处"
 #: src/project/project-replace-dialog.tsx
 msgid "Replace all"
 msgstr "全部替换"
+
+#: src/editor/latex/latex-shortcuts.ts
+msgid "Replace all (in the find bar)"
+msgstr "全部替换（在查找栏中）"
 
 #: src/editor/latex/search-panel.ts
 #: src/editor/markdown/engine/chrome/find-replace.tsx
@@ -7582,6 +7805,10 @@ msgstr "无衬线文本"
 msgid "Save"
 msgstr "保存"
 
+#: src/App.tsx
+msgid "Save and build"
+msgstr "保存并构建"
+
 #: src/project/manuscript-checklist.tsx
 msgid "Save budgets"
 msgstr "保存上限"
@@ -7813,6 +8040,18 @@ msgstr "选择任务列表"
 msgid "Select text in the editor and choose Comment. Every note gathers here."
 msgstr "在编辑器中选中文字，再选评论。所有评论都汇集在这里。"
 
+#: src/editor/latex/latex-shortcuts.ts
+msgid "Select the environment"
+msgstr "选中所在环境"
+
+#: src/editor/editor-keymap.ts
+msgid "Select the line"
+msgstr "选中当前行"
+
+#: src/editor/editor-keymap.ts
+msgid "Select the next occurrence"
+msgstr "选中下一个相同内容"
+
 #: src/papers/bib-entry-dialog.tsx
 msgid "Select this record"
 msgstr "选择此记录"
@@ -7954,6 +8193,11 @@ msgstr "显示替换"
 msgid "Show results from"
 msgstr "结果范围"
 
+#: src/App.tsx
+#: src/app/focus-mode-bar.tsx
+msgid "Show the PDF beside the editor"
+msgstr "在编辑器旁显示 PDF"
+
 #: src/overleaf/overleaf-changes.tsx
 #: src/overleaf/overleaf-comments.tsx
 msgid "Show this in the editor"
@@ -8080,6 +8324,10 @@ msgstr "部分来源未能完成查询，并不表示这条引用有误。"
 msgid "Some sources unavailable"
 msgstr "部分来源不可用"
 
+#: src/editor/latex/latex-shortcuts.ts
+msgid "Sort lines"
+msgstr "排序各行"
+
 #. Search words for the Interface sounds setting, space-separated
 #: src/settings/settings-search-index.ts
 msgid "sound"
@@ -8109,6 +8357,10 @@ msgstr "版本控制"
 #: src/settings/settings-search-index.ts
 msgid "Source editor only"
 msgstr "仅源码编辑器"
+
+#: src/App.tsx
+msgid "source files and papers"
+msgstr "源文件和论文"
 
 #: src/pdf/pdf-source-targets.ts
 msgid "Source location in PDF"
@@ -8154,6 +8406,7 @@ msgstr "黑桃"
 msgid "Spectrum"
 msgstr "色谱"
 
+#: src/app/focus-mode-bar.tsx
 #: src/trellis/trellis-header-tools.tsx
 #: src/trellis/trellis-workspace.tsx
 msgid "Split"
@@ -8281,6 +8534,7 @@ msgstr "正在停止…"
 
 #: src/editor/latex/latex-selection-toolbar.tsx
 #: src/editor/markdown/engine/chrome/selection-toolbar.tsx
+#: src/editor/markdown/engine/engine-shortcuts.ts
 msgid "Strikethrough"
 msgstr "删除线"
 
@@ -8381,6 +8635,10 @@ msgstr "切换项目"
 msgid "Switch to {name}"
 msgstr "切换到 {name}"
 
+#: src/App.tsx
+msgid "Switch to a workspace by its place"
+msgstr "按顺序切换工作区"
+
 #: src/onboarding/guided-tour-steps.ts
 msgid "Switch to Reading"
 msgstr "切换到阅读"
@@ -8476,6 +8734,10 @@ msgstr "目录"
 msgid "Table preview"
 msgstr "表格预览"
 
+#: src/editor/markdown/engine/engine-shortcuts.ts
+msgid "Task list"
+msgstr "任务列表"
+
 #: src/editor/markdown/engine/chrome/selection-toolbar.tsx
 #: src/editor/markdown/engine/chrome/slash-items.ts
 msgid "Task List"
@@ -8524,6 +8786,10 @@ msgstr "正文"
 #: src/canvas/editor-status-bar.tsx
 msgid "Text {text} · headings {headers} · captions {captions}"
 msgstr "文本 {text} · 标题 {headers} · 图注 {captions}"
+
+#: src/app/shortcut-groups.ts
+msgid "Text editing"
+msgstr "文本编辑"
 
 #: src/project/project-replace-dialog.tsx
 msgid "Text to find"
@@ -9012,6 +9278,10 @@ msgstr "标题"
 msgid "Title bar tools"
 msgstr "标题栏工具"
 
+#: src/editor/latex/latex-shortcuts.ts
+msgid "Title Case"
+msgstr "首字母大写"
+
 #: src/app/use-reference-import.ts
 msgid "Title, author, and year are required."
 msgstr "标题、作者和年份为必填项。"
@@ -9020,6 +9290,7 @@ msgstr "标题、作者和年份为必填项。"
 msgid "Title/abstract only"
 msgstr "仅标题/摘要"
 
+#: src/app/shortcut-sheet.tsx
 #: src/editor/codemirror-host.tsx
 msgid "to"
 msgstr "至"
@@ -9161,10 +9432,12 @@ msgstr "行内公式 {open} 未闭合。"
 
 #: src/editor/latex/latex-selection-toolbar.tsx
 #: src/editor/markdown/engine/chrome/selection-toolbar.tsx
+#: src/editor/markdown/engine/engine-shortcuts.ts
 msgid "Underline"
 msgstr "下划线"
 
 #: src/app/use-editor-comments.ts
+#: src/editor/editor-keymap.ts
 #: src/trellis/trellis-workspace-switch.tsx
 #: src/trellis/trellis-workspace.tsx
 msgid "Undo"
@@ -9373,6 +9646,10 @@ msgstr "正在上传 {0}…"
 msgid "Uploading…"
 msgstr "正在上传…"
 
+#: src/editor/latex/latex-shortcuts.ts
+msgid "UPPER CASE"
+msgstr "大写"
+
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Upright text in math"
 msgstr "公式中的正体文字"
@@ -9528,6 +9805,10 @@ msgstr "紫罗兰色"
 msgid "Visual editing is unavailable because this Markdown contains unsupported or lossy syntax. Use source mode to preserve it."
 msgstr "此 Markdown 包含不受支持或会丢失信息的语法，无法进行可视化编辑。请使用源码模式以保留原内容。"
 
+#: src/app/shortcut-groups.ts
+msgid "Visual Markdown"
+msgstr "可视化 Markdown"
+
 #: src/editor/markdown/engine/passive-view.tsx
 msgid "Visual Markdown editor"
 msgstr "可视化 Markdown 编辑器"
@@ -9665,9 +9946,29 @@ msgstr "工作区"
 msgid "Workspaces keep your panel arrangements. Writing and Reading are ready-made."
 msgstr "工作区会记住面板布局，写作和阅读两套已经备好。"
 
+#: src/editor/latex/latex-shortcuts.ts
+msgid "Wrap in \\iffalse … \\fi"
+msgstr "包裹在 \\iffalse … \\fi 中"
+
+#: src/editor/latex/latex-shortcuts.ts
+msgid "Wrap in a comment environment"
+msgstr "包裹在 comment 环境中"
+
 #: src/project/project-dialogs.tsx
 msgid "Wrap in environment"
 msgstr "包裹在环境中"
+
+#: src/editor/latex/latex-shortcuts.ts
+msgid "Wrap in environment…"
+msgstr "包裹在环境中…"
+
+#: src/editor/latex/latex-shortcuts.ts
+msgid "Wrap in equation"
+msgstr "包裹在 equation 中"
+
+#: src/editor/latex/latex-shortcuts.ts
+msgid "Wrap in itemize"
+msgstr "包裹在 itemize 中"
 
 #: src/editor/insert/table-generator-dialog.tsx
 msgid "Wrap in table float"

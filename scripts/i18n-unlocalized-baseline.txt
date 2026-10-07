@@ -8,6 +8,7 @@ DBLP
 Firecrawl
 Google Scholar
 HTML
+LaTeX
 MCP
 name@example.org
 OpenAlex

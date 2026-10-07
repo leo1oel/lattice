@@ -508,6 +508,11 @@ body:has(.modal-backdrop, .drawer-backdrop) :is(.latex-selection-toolbar-anchor,
 }
 .cm-overlay-scrollbar:hover .cm-overlay-scrollbar-thumb { width: 6px; background: color-mix(in srgb, var(--text-primary) 12%, transparent); }
 .cm-overlay-scrollbar-thumb:active { background: color-mix(in srgb, var(--text-primary) 16%, transparent); }
+/* Focus mode: the source keeps a reading measure, centered on the page
+   however wide the panel is (the editor always wraps, so the column is the
+   text's). Padding on the scroller moves the gutter with the text, and the
+   editor's layers measure from the scroller's edge, not its content. */
+.focus-mode .trellis-editor-host .source-editor .cm-scroller { padding-inline: max(0px, calc((100% - var(--focus-mode-measure)) / 2)); }
 .source-editor .cm-content, .source-editor .cm-gutter { min-height: 100%; }
 /* Keep content transparent so CM's selection layer stays visible under collab. */
 .source-editor .cm-content { min-width: 0; background: transparent; font-variant-ligatures: none; font-feature-settings: "calt" 0, "liga" 0; caret-color: var(--control-active); }

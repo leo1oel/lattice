@@ -33,7 +33,7 @@ function splitWorkspace() {
 async function open(projectRoot: string, openTabs: string[]) {
   const controller = new TrellisController();
   controller.app.set({ projectRoot, activeKey: openTabs[0] ?? "", openTabs, tabsReady: true });
-  const view = render(<TrellisWorkspace controller={controller} projectRoot={projectRoot} dark={false} />);
+  const view = render(<TrellisWorkspace controller={controller} projectRoot={projectRoot} dark={false} focusMode={false} />);
   await waitFor(() => expect(controller.ws?.views({ type: "file" })).toHaveLength(openTabs.length));
   return { controller, ws: controller.ws!, unmount: view.unmount };
 }
@@ -347,7 +347,7 @@ async function openBeside(second: string) {
   } as unknown as Parameters<TrellisController["setBridge"]>[0]);
   const openTabs = ["main.tex", second];
   controller.app.set({ projectRoot: "/a", activeKey: "main.tex", openTabs, tabsReady: true });
-  render(<TrellisWorkspace controller={controller} projectRoot="/a" dark={false} />);
+  render(<TrellisWorkspace controller={controller} projectRoot="/a" dark={false} focusMode={false} />);
   await waitFor(() => expect(controller.ws?.views({ type: "file" })).toHaveLength(2));
   const ws = controller.ws!;
   const viewOf = (key: string) => ws.views({ type: "file" }).find((view) => view.params.key === key)!;

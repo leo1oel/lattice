@@ -211,7 +211,7 @@ describe("browser bridge recovery", () => {
     renderHook(() => useAppCommands([
       { id: "settings", key: ",", run: openSettings },
       { id: "save", key: "s", run: save },
-    ], vi.fn()));
+    ]));
     const closeDialog = vi.fn();
     document.addEventListener("keydown", closeDialog, { capture: true });
     onTestFinished(() => document.removeEventListener("keydown", closeDialog, { capture: true }));

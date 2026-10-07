@@ -47,7 +47,8 @@ import { useRefState, useStableHandlers } from "./app/effect-helpers";
 import { useLatestRef } from "./hooks/use-latest-ref";
 import { useGuidedTour } from "./onboarding/use-guided-tour";
 import { useOverleafWorkspace } from "./app/use-overleaf-workspace";
-import { useAppCommands, type AppCommand } from "./app/use-app-commands";
+import { commandShortcut, paletteEntries, useAppCommands, type AppCommand } from "./app/use-app-commands";
+import { FocusModeBar } from "./app/focus-mode-bar";
 import { paletteLeading, paletteSurface } from "./app/command-palette-leading";
 import { useToolDrawers } from "./app/use-tool-drawers";
 import { useTrellisBridge } from "./app/use-trellis-bridge";
@@ -64,6 +65,7 @@ import { PanelActions } from "./trellis/trellis-panel-actions";
 import { TrellisController, TrellisControllerContext, useTrellisUi } from "./trellis/trellis-controller";
 import { TrellisTitlebar } from "./trellis/trellis-titlebar";
 import { WORKSPACE_SHORTCUTS, workspaceShortcut } from "./trellis/trellis-workspaces";
+import { FOCUS_MODE_KEY } from "./trellis/trellis-keymap";
 import { PANEL_TITLES, spaceMixedScript } from "./trellis/trellis-titles";
 import { CanvasToolbar } from "./canvas/canvas-toolbar";
 import type {
@@ -181,6 +183,7 @@ const DocumentCanvas = lazy(() =>
 const TrellisWorkspace = lazy(() => import("./trellis/trellis-workspace"));
 const TrellisAgentSurface = lazy(() => import("./trellis/trellis-agent-surface"));
 const GuidedTour = lazy(() => import("./onboarding/guided-tour"));
+const ShortcutSheet = lazy(() => import("./app/shortcut-sheet"));
 const SINGLETON_PANELS = ["project", "papers", "agent", "pdf", "history", "comments", "literature", "todos", "checklist", "git", "overleaf"] as const;
 
 /** Shared empty word list: `?? []` in JSX rebuilds the editor's lint pass. */
@@ -199,8 +202,10 @@ function App() {
   // must not re-render App. One subscription, not one per field, because each
   // is two hooks on every App render; the snapshot is a string so an
   // unchanged answer does not re-render.
-  const trellisFlags = useTrellisUi(trellis, (ui) => [ui.present.agent, ui.visible.agent, ui.pdfLive, ui.editorHibernated, ui.dirty].map((flag) => (flag ? "1" : "0")).join(""));
-  const [agentPresent, agentVisible, pdfLive, editorHibernated, workspaceDirty] = [...trellisFlags].map((flag) => flag === "1");
+  const trellisFlags = useTrellisUi(trellis, (ui) => (
+    [ui.present.agent, ui.visible.agent, ui.pdfLive, ui.editorHibernated, ui.dirty, ui.focus, ui.focusPdf].map((flag) => (flag ? "1" : "0")).join("")
+  ));
+  const [agentPresent, agentVisible, pdfLive, editorHibernated, workspaceDirty, focusMode, focusPdf] = [...trellisFlags].map((flag) => flag === "1");
   const browserHosted = isBrowserHosted();
   const projectState = useProjectState();
   const {
@@ -370,7 +375,9 @@ function App() {
   }, [reveal, updateCanvasRequest]);
   const [bibliographyAuditRoot, setBibliographyAuditRoot] = useState<string | null>(null);
   const [bibliographyAuditOpen, setBibliographyAuditOpen] = useState(false);
-  const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
+  // The command palette or the shortcut sheet: one at a time, and one state (each hook is paid on every App render).
+  const [commandOverlay, setCommandOverlay] = useState<"palette" | "shortcuts" | null>(null);
+  const commandPaletteOpen = commandOverlay === "palette";
   // Read again at each opening: another window may have run commands since.
   const [recentCommandIds, setRecentCommandIds] = useState<string[]>([]);
   const [referenceHits, setReferenceHits] = useState<{
@@ -521,9 +528,12 @@ function App() {
     });
   }, [project, runBuild]);
   useLayoutEffect(() => { compileRef.current = compile; }, [compile]);
-  /** An explicit build (button, palette) also brings a closed or hidden PDF panel back under Trellis. */
+  /**
+   * An explicit build (button, palette) also brings a closed or hidden PDF
+   * panel back under Trellis; in focus mode the PDF stays as the writer set it.
+   */
   const compileAndShowPdf = useCallback<typeof compile>((...args) => {
-    trellis.showPanel("pdf", { focus: false });
+    if (!trellis.ui.get().focus) trellis.showPanel("pdf", { focus: false });
     return compile(...args);
   }, [compile, trellis]);
 
@@ -1225,30 +1235,38 @@ function App() {
   const inProject = project !== null;
   const textEditor = inProject && !activePaper && !activeAsset && Boolean(activeFile);
   const latexSource = inProject && commandSurface === "source";
-  /** Every app-level action: the palette entries and the global shortcuts (see AppCommand). */
-  const commands: AppCommand[] = [
-    { id: "build", when: inProject, label: t`Build project`, detail: "⌘S", group: t`Build`, run: () => void compileAndShowPdf(false, true) },
-    // ⌘S saves, then builds what it saved; on a Paper there is nothing to build.
-    { id: "save", when: inProject, key: "s", run: () => void save().then((saved) => {
+  // ⌘S saves, then builds what it saved; on a Paper there is nothing to build.
+  const saveCommand: AppCommand = {
+    id: "save", when: inProject, label: t`Save and build`, group: t`Build`, key: "s", palette: false,
+    run: () => void save().then((saved) => {
       if (!saved) return;
       void flushDeferredWholeFileSync();
       if (!activePaper) void compileAndShowPdf();
-    }) },
+    }),
+  };
+  /** Every app-level action: the palette entries, the window's shortcuts and the shortcut sheet (see AppCommand). */
+  const commands: AppCommand[] = [
+    { id: "build", when: inProject, label: t`Build project`, detail: commandShortcut(saveCommand) ?? undefined, group: t`Build`, run: () => void compileAndShowPdf(false, true) },
+    saveCommand,
     { id: "rebuild", when: inProject, label: t`Clean rebuild`, detail: t`latexmk -c then -g`, group: t`Build`, recent: false, run: () => void cleanAndRebuild() },
     { id: "clean", when: inProject, label: t`Clean aux files`, group: t`Build`, recent: false, run: () => void cleanProject() },
     // Only ever wanted while a build runs, so never worth remembering.
     { id: "stop-build", when: building, label: t`Stop build`, group: t`Build`, recent: false, run: () => void abortBuild() },
-    { id: "sync-pdf", when: latexSource && syncTex.canForwardSync, label: t`Jump to PDF`, detail: "⌘⇧J", group: t`Navigate`, key: "j", shift: true, run: () => void revealSourceInPdf() },
-    { id: "quick-open", when: inProject, label: t`Quick open file`, detail: "⌘P", group: t`Navigate`, key: "p", run: () => setSearchDialog("quick-open") },
-    { id: "goto-line", when: textEditor, label: t`Go to line`, detail: "⌘G", group: t`Navigate`, key: "g", run: () => setSearchDialog("goto-line") },
-    { id: "goto-symbol", when: textEditor, label: t`Go to symbol`, detail: "⌘⇧O", group: t`Navigate`, key: "o", shift: true, run: () => setSearchDialog("goto-symbol") },
-    { id: "back", when: inProject, key: "[", run: () => void documents.go(-1) },
-    { id: "forward", when: inProject, key: "]", run: () => void documents.go(1) },
-    { id: "palette", when: inProject, key: "p", shift: true, run: () => {
+    { id: "sync-pdf", when: latexSource && syncTex.canForwardSync, label: t`Jump to PDF`, group: t`Navigate`, key: "j", shift: true, run: () => void revealSourceInPdf() },
+    { id: "quick-open", when: inProject, label: t`Quick open file`, group: t`Navigate`, key: "p", run: () => setSearchDialog("quick-open") },
+    { id: "goto-line", when: textEditor, label: t`Go to line`, group: t`Navigate`, key: "g", run: () => setSearchDialog("goto-line") },
+    { id: "goto-symbol", when: textEditor, label: t`Go to symbol`, group: t`Navigate`, key: "o", shift: true, run: () => setSearchDialog("goto-symbol") },
+    { id: "back", when: inProject, label: t({ message: "Back", context: "Document history" }), group: t`Navigate`, key: "[", palette: false, run: () => void documents.go(-1) },
+    { id: "forward", when: inProject, label: t({ message: "Forward", context: "Document history" }), group: t`Navigate`, key: "]", palette: false, run: () => void documents.go(1) },
+    { id: "next-problem", label: t`Next build problem`, group: t`Navigate`, key: "f8", mod: false, palette: false, run: () => cycleDiagnostic(1) },
+    { id: "previous-problem", label: t`Previous build problem`, group: t`Navigate`, key: "f8", shift: true, mod: false, palette: false, run: () => cycleDiagnostic(-1) },
+    { id: "reopen-tab", when: inProject, label: t`Reopen the closed tab`, group: t`Navigate`, key: "t", shift: true, palette: false, run: documents.reopenClosed },
+    { id: "palette", when: inProject, label: t`Command palette`, group: t`Project`, key: "p", shift: true, palette: false, run: () => {
       setRecentCommandIds(loadRecentCommands());
-      setCommandPaletteOpen(true);
+      setCommandOverlay("palette");
     } },
-    { id: "reopen-tab", when: inProject, key: "t", shift: true, run: documents.reopenClosed },
+    // The window's ⌘?, the Mac's Help key: every shortcut, from these commands and the keymaps.
+    { id: "shortcuts", label: t`Keyboard shortcuts`, group: t`Project`, key: "?", shift: true, run: () => setCommandOverlay("shortcuts") },
     // Reset the panel layout, and bring back any panel that was hidden or closed.
     { id: "layout-reset", when: inProject, label: t`Reset panel layout`, group: t`Layout`, recent: false, run: () => void trellis.resetLayout() },
     // The named workspaces: each by name here, and ⌘1 to ⌘9 by position (read when pressed, so a reorder counts at once).
@@ -1256,7 +1274,17 @@ function App() {
       id: `workspace-${id}`, when: inProject, label: spaceMixedScript(t`Switch to ${name}`), detail: workspaceShortcut(index) ?? undefined, group: t`Layout`,
       run: () => trellis.switchWorkspace(id),
     })),
-    ...Array.from({ length: WORKSPACE_SHORTCUTS }, (_, index) => ({ id: `workspace-${index + 1}`, when: inProject, key: String(index + 1), run: () => trellis.switchWorkspaceAt(index) })),
+    ...Array.from({ length: WORKSPACE_SHORTCUTS }, (_, index): AppCommand => ({
+      id: `workspace-${index + 1}`, when: inProject, label: t`Switch to a workspace by its place`, group: t`Layout`, key: String(index + 1), palette: false,
+      run: () => trellis.switchWorkspaceAt(index),
+    })),
+    {
+      id: "focus-mode", when: inProject, label: focusMode ? t`Leave focus mode` : t`Focus mode`, detail: focusMode ? undefined : t`only the editor`,
+      group: t`Layout`, ...FOCUS_MODE_KEY, run: () => trellis.setFocus(!focusMode),
+    },
+    ...(focusMode ? [{
+      id: "focus-pdf", label: focusPdf ? t`Hide the PDF` : t`Show the PDF beside the editor`, group: t`Layout`, run: () => trellis.setFocusPdf(!focusPdf),
+    }] : []),
     { id: "workspace-new", when: inProject, label: t`New workspace`, group: t`Layout`, run: () => void trellis.createWorkspace(t`Workspace`) },
     // While the project's layout differs from its workspace's saved arrangement.
     ...(workspaceDirty ? [
@@ -1268,12 +1296,12 @@ function App() {
       return { id: `panel-${kind}`, when: inProject, label: spaceMixedScript(t({ message: `Show ${name} panel` })), group: t`Layout`, run: () => trellis.showPanel(kind) };
     }),
     { id: "table", when: latexSource, label: t`Insert table`, detail: t`Grid generator`, group: t`Edit`, run: () => setTableGeneratorOpen(true) },
-    { id: "cite", when: latexSource, label: t`Insert citation`, detail: "⌘⇧K", group: t`Edit`, key: "k", shift: true, run: () => setSearchDialog("cite") },
-    { id: "ref", when: latexSource, label: t`Insert reference`, detail: "⌘⇧L", group: t`Edit`, key: "l", shift: true, run: () => setSearchDialog("ref") },
+    { id: "cite", when: latexSource, label: t`Insert citation`, group: t`Edit`, key: "k", shift: true, run: () => setSearchDialog("cite") },
+    { id: "ref", when: latexSource, label: t`Insert reference`, group: t`Edit`, key: "l", shift: true, run: () => setSearchDialog("ref") },
     { id: "bib", when: inProject, label: t`Add bibliography entry`, group: t`Edit`, run: () => referenceImport.openBibEntry() },
     { id: "discover", when: inProject, label: t`Discover literature`, detail: t`OpenAlex search`, group: t`Research`, run: () => tools.open("literature") },
-    { id: "find", when: inProject, label: t`Find in project`, detail: t`⌘⇧F · source files and papers`, group: t`Edit`, key: "f", shift: true, run: openProjectFind },
-    { id: "replace", when: inProject, label: t`Replace in project`, detail: t`⌘⇧H · all source files`, group: t`Edit`, key: "h", shift: true, run: openProjectReplace },
+    { id: "find", when: inProject, label: t`Find in project`, detail: t`source files and papers`, group: t`Edit`, key: "f", shift: true, run: openProjectFind },
+    { id: "replace", when: inProject, label: t`Replace in project`, detail: t`all source files`, group: t`Edit`, key: "h", shift: true, run: openProjectReplace },
     {
       id: "todos", when: inProject, label: t`Manuscript TODOs`, detail: todoCount === 0 ? t`No markers` : todoCount === 1 ? t`${todoCount} marker` : t`${todoCount} markers`, group: t`Edit`,
       run: () => tools.open("todos"),
@@ -1297,11 +1325,17 @@ function App() {
         ? { label: t`Open in Lattice app` }
         : { label: t`Open in browser`, detail: "http://127.0.0.1:18452" }),
     },
-    { id: "open-folder", label: t`Open another folder`, detail: "⌘O", group: t`Project`, key: "o", run: () => void chooseExisting() },
-    { id: "settings", label: t`Open settings`, detail: "⌘,", group: t`Project`, key: ",", run: () => openSettings() },
+    { id: "open-folder", label: t`Open another folder`, group: t`Project`, key: "o", run: () => void chooseExisting() },
+    { id: "settings", label: t`Open settings`, group: t`Project`, key: ",", run: () => openSettings() },
   ];
-  const runCommand = useAppCommands(commands, cycleDiagnostic);
-  const paletteCommands = commandPaletteOpen ? commands.filter((command) => command.label && command.when !== false) : [];
+  const runCommand = useAppCommands(commands);
+  // The welcome screen's shortcuts are listed too.
+  const shortcutSheet = commandOverlay === "shortcuts" && (
+    <Suspense fallback={null}>
+      <ShortcutSheet commands={commands} onClose={() => setCommandOverlay(null)} />
+    </Suspense>
+  );
+  const paletteCommands = commandPaletteOpen ? paletteEntries(commands) : [];
 
   // Trellis workspace: App stays the owner of every document; the
   // workspace reads App through this bridge (at event time) and the store below.
@@ -1392,6 +1426,7 @@ function App() {
           onInstallTex={texSetup.openWizard}
           onOpenOverleaf={() => setOverleafPickerOpen(true)}
         />
+        {shortcutSheet}
         {settingsDialog}
         {overleafPicker}
         {overleafReview}
@@ -1588,7 +1623,7 @@ function App() {
   return (
     <TrellisControllerContext.Provider value={trellis}>
     <div
-      className={`app-shell trellis-layout ${isFullscreen ? "fullscreen" : ""} ${browserHosted ? "browser-hosted" : ""}`}
+      className={`app-shell trellis-layout ${isFullscreen ? "fullscreen" : ""} ${browserHosted ? "browser-hosted" : ""} ${focusMode ? "focus-mode" : ""}`}
       ref={shellRef}
     >
       <Suspense fallback={null}>
@@ -1616,6 +1651,15 @@ function App() {
           onSettings: (returnFocus) => openSettings(undefined, returnFocus),
         }}
         panelControls={<TrellisTitlebar controller={trellis} />}
+        focusBar={focusMode ? (
+          <FocusModeBar
+            controller={trellis}
+            title={activePaper ? activePaper.title : documents.activeTab.split("/").pop() ?? ""}
+            pdf={focusPdf}
+            onPdfChange={(pdf) => trellis.setFocusPdf(pdf)}
+            onExit={() => trellis.setFocus(false)}
+          />
+        ) : undefined}
         canvasToolbar={(
         <CanvasToolbar
           activePath={activePaper ? activePaper.title : documents.activeTab}
@@ -1680,7 +1724,7 @@ function App() {
 
       <main className="workspace trellis-workspace">
         <Suspense fallback={<div className="document-canvas-loading" aria-label={t`Preparing workspace`} />}>
-          <TrellisWorkspace key={project.root} controller={trellis} projectRoot={project.root} dark={theme === "dark"} />
+          <TrellisWorkspace key={project.root} controller={trellis} projectRoot={project.root} dark={theme === "dark"} focusMode={focusMode} />
         </Suspense>
         {createPortal(
           <Suspense fallback={null}>
@@ -1899,13 +1943,14 @@ function App() {
           recent: t`Recent`,
           surface: commandSurface === "paper" ? t`In this paper` : t`In this document`,
         })}
-        onClose={() => setCommandPaletteOpen(false)}
+        onClose={() => setCommandOverlay(null)}
         onSelect={(item) => {
-          setCommandPaletteOpen(false);
+          setCommandOverlay(null);
           setRecentCommandIds(rememberRecentCommand(item.id));
           runCommand(item.id);
         }}
       />
+      {shortcutSheet}
       {settingsDialog}
       {overleafPicker}
       {overleafReview}

@@ -437,14 +437,6 @@ msgstr "{wholeFiles} changed on both sides. Overleaf’s version is in the proje
 msgid "↑↓ to navigate · Enter to open"
 msgstr "↑↓ to navigate · Enter to open"
 
-#: src/App.tsx
-msgid "⌘⇧F · source files and papers"
-msgstr "⌘⇧F · source files and papers"
-
-#: src/App.tsx
-msgid "⌘⇧H · all source files"
-msgstr "⌘⇧H · all source files"
-
 #: src/trellis/trellis-header-tools.tsx
 msgid "⌘S · ⇧-click for a clean rebuild"
 msgstr "⌘S · ⇧-click for a clean rebuild"
@@ -615,6 +607,10 @@ msgstr "Add"
 msgid "Add “{projectWord}” to project dictionary"
 msgstr "Add “{projectWord}” to project dictionary"
 
+#: src/editor/editor-keymap.ts
+msgid "Add a cursor above or below"
+msgstr "Add a cursor above or below"
+
 #: src/papers/bibliography-audit.tsx
 msgid "Add a title, full authors, and year, or add a DOI or arXiv identifier, before checking this reference."
 msgstr "Add a title, full authors, and year, or add a DOI or arXiv identifier, before checking this reference."
@@ -650,6 +646,10 @@ msgstr "Add current color"
 #: src/papers/bib-entry.ts
 msgid "Add exactly one bibliography entry at a time."
 msgstr "Add exactly one bibliography entry at a time."
+
+#: src/editor/markdown/engine/engine-shortcuts.ts
+msgid "Add or edit a link"
+msgstr "Add or edit a link"
 
 #: src/project/paper-library.tsx
 msgid "Add paper"
@@ -770,6 +770,10 @@ msgstr "All Functions…"
 #: src/telemetry/app-log.tsx
 msgid "All levels"
 msgstr "All levels"
+
+#: src/App.tsx
+msgid "all source files"
+msgstr "all source files"
 
 #: src/settings/acknowledgements-settings.tsx
 msgid "All third-party software"
@@ -1029,6 +1033,11 @@ msgstr "Azure"
 msgid "Back"
 msgstr "Back"
 
+#: src/App.tsx
+msgctxt "Document history"
+msgid "Back"
+msgstr "Back"
+
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Back prime"
 msgstr "Back prime"
@@ -1189,14 +1198,23 @@ msgstr "Blue value"
 msgid "Board typefaces"
 msgstr "Board typefaces"
 
+#: src/editor/markdown/engine/engine-shortcuts.ts
+msgid "Body text"
+msgstr "Body text"
+
 #: src/project/manuscript-checklist.tsx
 msgid "Body words"
 msgstr "Body words"
 
 #: src/editor/latex/latex-selection-toolbar.tsx
 #: src/editor/markdown/engine/chrome/selection-toolbar.tsx
+#: src/editor/markdown/engine/engine-shortcuts.ts
 msgid "Bold"
 msgstr "Bold"
+
+#: src/editor/latex/latex-shortcuts.ts
+msgid "Bold (\\textbf)"
+msgstr "Bold (\\textbf)"
 
 #: src/editor/latex/latex-command-completions.ts
 msgid "Bold math"
@@ -1357,6 +1375,7 @@ msgid "Bullet List"
 msgstr "Bullet List"
 
 #: src/editor/latex/latex-vocabulary.ts
+#: src/editor/markdown/engine/engine-shortcuts.ts
 msgid "Bulleted list"
 msgstr "Bulleted list"
 
@@ -1827,6 +1846,10 @@ msgstr "Close search"
 msgid "Close settings"
 msgstr "Close settings"
 
+#: src/trellis/trellis-keymap.ts
+msgid "Close the tab"
+msgstr "Close the tab"
+
 #: src/app/native-locale.ts
 msgctxt "macOS menu bar"
 msgid "Close Window"
@@ -1843,6 +1866,10 @@ msgstr "Closed-path integral"
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Club suit"
 msgstr "Club suit"
+
+#: src/editor/markdown/engine/engine-shortcuts.ts
+msgid "Code block"
+msgstr "Code block"
 
 #: src/editor/markdown/engine/chrome/selection-toolbar.tsx
 #: src/editor/markdown/engine/chrome/slash-items.ts
@@ -1936,6 +1963,10 @@ msgstr "Comment deleted"
 #: src/editor/latex/latex-selection-toolbar.tsx
 msgid "Comment on selected Markdown"
 msgstr "Comment on selected Markdown"
+
+#: src/editor/latex/latex-shortcuts.ts
+msgid "Comment or uncomment lines"
+msgstr "Comment or uncomment lines"
 
 #: src/overleaf/overleaf-collab.tsx
 msgid "Comment source"
@@ -2712,6 +2743,7 @@ msgstr "Document sections"
 msgid "Document title"
 msgstr "Document title"
 
+#: src/app/focus-mode-bar.tsx
 #: src/trellis/trellis-header-tools.tsx
 msgid "Document view"
 msgstr "Document view"
@@ -2856,6 +2888,10 @@ msgstr "Duplicate label “{key}” also defined in {path}."
 msgid "Duplicate label “{key}”."
 msgstr "Duplicate label “{key}”."
 
+#: src/editor/editor-keymap.ts
+msgid "Duplicate the line"
+msgstr "Duplicate the line"
+
 #: src/papers/audit-messages.ts
 msgid "Duplicate title across bibliography files."
 msgstr "Duplicate title across bibliography files."
@@ -2878,6 +2914,7 @@ msgid "e.g. Lattice"
 msgstr "e.g. Lattice"
 
 #: src/App.tsx
+#: src/app/focus-mode-bar.tsx
 #: src/editor/comments/editor-comments-panel.tsx
 #: src/trellis/trellis-header-tools.tsx
 #: src/trellis/trellis-workspace.tsx
@@ -3018,6 +3055,10 @@ msgstr "Embed an image with optional alt text."
 #: src/editor/markdown/engine/chrome/slash-items.ts
 msgid "Emoji"
 msgstr "Emoji"
+
+#: src/editor/latex/latex-shortcuts.ts
+msgid "Emphasis (\\emph)"
+msgstr "Emphasis (\\emph)"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Emphasized text command"
@@ -3193,6 +3234,10 @@ msgstr "Excel workbook"
 msgid "Excel workbook exported"
 msgstr "Excel workbook exported"
 
+#: src/app/focus-mode-bar.tsx
+msgid "Exit focus"
+msgstr "Exit focus"
+
 #: src/editor/markdown/engine/views/image-view.tsx
 msgid "Expand image"
 msgstr "Expand image"
@@ -3308,6 +3353,10 @@ msgstr "Files in this change"
 msgid "Filled square"
 msgstr "Filled square"
 
+#: src/app/shortcut-sheet.tsx
+msgid "Filter by name or key"
+msgstr "Filter by name or key"
+
 #: src/editor/comments/editor-comments-panel.tsx
 msgid "Filter comments…"
 msgstr "Filter comments…"
@@ -3323,6 +3372,10 @@ msgstr "Filter languages"
 #: src/history/history-drawer.tsx
 msgid "Filter project changes"
 msgstr "Filter project changes"
+
+#: src/app/shortcut-sheet.tsx
+msgid "Filter shortcuts"
+msgstr "Filter shortcuts"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Final sigma"
@@ -3346,7 +3399,13 @@ msgstr "Find & replace in project"
 msgid "Find and install the TeX Live package for {missingFile}"
 msgstr "Find and install the TeX Live package for {missingFile}"
 
+#: src/editor/markdown/engine/engine-shortcuts.ts
+msgid "Find and replace"
+msgstr "Find and replace"
+
+#: src/editor/latex/latex-shortcuts.ts
 #: src/editor/markdown/engine/chrome/find-replace.tsx
+#: src/editor/markdown/engine/engine-shortcuts.ts
 msgid "Find in document"
 msgstr "Find in document"
 
@@ -3360,6 +3419,10 @@ msgstr "Find in PDF"
 #: src/trellis/trellis-panel-actions.tsx
 msgid "Find in project"
 msgstr "Find in project"
+
+#: src/editor/latex/latex-shortcuts.ts
+msgid "Find references"
+msgstr "Find references"
 
 #: src/project/project-replace-dialog.tsx
 msgid "Find text to replace"
@@ -3429,9 +3492,22 @@ msgstr "Floating table with ruled rows (requires booktabs)"
 msgid "Flush floats and start a new page"
 msgstr "Flush floats and start a new page"
 
+#: src/App.tsx
+#: src/trellis/trellis-titlebar.tsx
+msgid "Focus mode"
+msgstr "Focus mode"
+
 #: src/editor/source-gutter.ts
 msgid "Fold line"
 msgstr "Fold line"
+
+#: src/editor/editor-keymap.ts
+msgid "Fold or unfold"
+msgstr "Fold or unfold"
+
+#: src/editor/editor-keymap.ts
+msgid "Fold or unfold everything"
+msgstr "Fold or unfold everything"
 
 #: src/editor/codemirror-host.tsx
 msgid "folded code"
@@ -3488,6 +3564,11 @@ msgstr "Formula"
 #: src/editor/spreadsheet/spreadsheet-univer.ts
 msgid "Formulas"
 msgstr "Formulas"
+
+#: src/App.tsx
+msgctxt "Document history"
+msgid "Forward"
+msgstr "Forward"
 
 #: src/editor/markdown/engine/chrome/slash-items.ts
 msgid "Fourth-level heading."
@@ -3585,6 +3666,10 @@ msgstr "Go to {location}"
 msgid "Go to {title}"
 msgstr "Go to {title}"
 
+#: src/editor/latex/latex-shortcuts.ts
+msgid "Go to definition"
+msgstr "Go to definition"
+
 #: src/App.tsx
 #: src/editor/goto-line-dialog.tsx
 #: src/editor/latex/search-panel.ts
@@ -3608,6 +3693,14 @@ msgstr "Go to section or label…"
 #: src/app/app-search-dialogs.tsx
 msgid "Go to symbol"
 msgstr "Go to symbol"
+
+#: src/editor/latex/latex-shortcuts.ts
+msgid "Go to the matching \\begin, \\end or math delimiter"
+msgstr "Go to the matching \\begin, \\end or math delimiter"
+
+#: src/editor/editor-keymap.ts
+msgid "Go to the matching bracket"
+msgstr "Go to the matching bracket"
 
 #: src/overleaf/overleaf-review.tsx
 msgid "Going to Overleaf"
@@ -3679,6 +3772,10 @@ msgstr "Hand-written bibliography"
 #: src/editor/markdown/engine/chrome/slash-items.ts
 msgid "Heading 1"
 msgstr "Heading 1"
+
+#: src/editor/markdown/engine/engine-shortcuts.ts
+msgid "Heading 1 to 6"
+msgstr "Heading 1 to 6"
 
 #: src/editor/markdown/engine/chrome/selection-toolbar.tsx
 #: src/editor/markdown/engine/chrome/slash-items.ts
@@ -3767,6 +3864,11 @@ msgstr "Hide Mermaid preview"
 msgctxt "macOS menu bar"
 msgid "Hide Others"
 msgstr "Hide Others"
+
+#: src/App.tsx
+#: src/app/focus-mode-bar.tsx
+msgid "Hide the PDF"
+msgstr "Hide the PDF"
 
 #: src/editor/markdown/engine/chrome/selection-toolbar.tsx
 msgid "Highlight"
@@ -3980,6 +4082,10 @@ msgstr "Incomplete history"
 msgid "Increment year"
 msgstr "Increment year"
 
+#: src/editor/editor-keymap.ts
+msgid "Indent or outdent"
+msgstr "Indent or outdent"
+
 #: src/editor/markdown/engine/chrome/slash-items.ts
 msgid "Indented blockquote for citations."
 msgstr "Indented blockquote for citations."
@@ -4013,12 +4119,17 @@ msgid "Inline another TeX file"
 msgstr "Inline another TeX file"
 
 #: src/editor/markdown/engine/chrome/selection-toolbar.tsx
+#: src/editor/markdown/engine/engine-shortcuts.ts
 msgid "Inline code"
 msgstr "Inline code"
 
 #: src/editor/markdown/engine/chrome/slash-items.ts
 msgid "Inline LaTeX math rendered with KaTeX."
 msgstr "Inline LaTeX math rendered with KaTeX."
+
+#: src/editor/latex/latex-shortcuts.ts
+msgid "Inline math"
+msgstr "Inline math"
 
 #: src/editor/markdown/engine/chrome/slash-items.ts
 msgid "Inline Math"
@@ -4056,6 +4167,10 @@ msgstr "Insert a footnote reference + matching definition stub."
 #: src/editor/spreadsheet/spreadsheet-univer.ts
 msgid "Insert a formula"
 msgstr "Insert a formula"
+
+#: src/editor/editor-keymap.ts
+msgid "Insert a line below"
+msgstr "Insert a line below"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Insert an image path (requires graphicx)"
@@ -4238,6 +4353,7 @@ msgstr "Iota"
 
 #: src/editor/latex/latex-selection-toolbar.tsx
 #: src/editor/markdown/engine/chrome/selection-toolbar.tsx
+#: src/editor/markdown/engine/engine-shortcuts.ts
 msgid "Italic"
 msgstr "Italic"
 
@@ -4330,6 +4446,11 @@ msgstr "Key removed"
 msgid "Key saved to the keychain"
 msgstr "Key saved to the keychain"
 
+#: src/App.tsx
+#: src/app/shortcut-sheet.tsx
+msgid "Keyboard shortcuts"
+msgstr "Keyboard shortcuts"
+
 #: src/settings/literature-settings.tsx
 msgid "Keys stay in your system keychain and take priority over shared ones"
 msgstr "Keys stay in your system keychain and take priority over shared ones"
@@ -4392,6 +4513,10 @@ msgstr "last update unknown"
 #: src/papers/bib-entry-dialog.tsx
 msgid "Last, First and Last, First"
 msgstr "Last, First and Last, First"
+
+#: src/app/shortcut-groups.ts
+msgid "LaTeX"
+msgstr "LaTeX"
 
 #: src/build/tex-doctor-messages.ts
 msgid "LaTeX build driver"
@@ -4492,6 +4617,10 @@ msgstr "Layouts for each task"
 msgid "Learn Lattice with the Understanding Attention sample project"
 msgstr "Learn Lattice with the Understanding Attention sample project"
 
+#: src/editor/markdown/engine/engine-shortcuts.ts
+msgid "Leave a code block"
+msgstr "Leave a code block"
+
 #: src/onboarding/guided-tour-steps.ts
 msgid "Leave a comment"
 msgstr "Leave a comment"
@@ -4499,6 +4628,15 @@ msgstr "Leave a comment"
 #: src/canvas/comment-composer.tsx
 msgid "Leave a comment for collaborators…"
 msgstr "Leave a comment for collaborators…"
+
+#: src/App.tsx
+#: src/app/shortcut-groups.ts
+msgid "Leave focus mode"
+msgstr "Leave focus mode"
+
+#: src/app/focus-mode-bar.tsx
+msgid "Leave focus mode · {exitKeys} or Esc"
+msgstr "Leave focus mode · {exitKeys} or Esc"
 
 #: src/overleaf/overleaf-review.tsx
 msgid "Left alone"
@@ -4824,6 +4962,10 @@ msgstr "Long quotation"
 msgid "Looks for <0>% TODO</0>, <1>% FIXME</1>, <2>% XXX</2> and <3>\\todo</3>"
 msgstr "Looks for <0>% TODO</0>, <1>% FIXME</1>, <2>% XXX</2> and <3>\\todo</3>"
 
+#: src/editor/latex/latex-shortcuts.ts
+msgid "lower case"
+msgstr "lower case"
+
 #: src/build/tex-doctor-messages.ts
 msgid "LuaLaTeX engine"
 msgstr "LuaLaTeX engine"
@@ -4914,6 +5056,10 @@ msgstr "Maximize"
 #: src/trellis/trellis-titlebar.tsx
 msgid "Maximize focused panel"
 msgstr "Maximize focused panel"
+
+#: src/trellis/trellis-keymap.ts
+msgid "Maximize or restore the focused panel"
+msgstr "Maximize or restore the focused panel"
 
 #: src/trellis/trellis-titlebar.tsx
 msgid "Maximize panel · ⌘⇧↩"
@@ -5090,6 +5236,14 @@ msgstr "Move left"
 #: src/trellis/trellis-workspace-switch.tsx
 msgid "Move right"
 msgstr "Move right"
+
+#: src/editor/markdown/engine/engine-shortcuts.ts
+msgid "Move the block up or down"
+msgstr "Move the block up or down"
+
+#: src/editor/editor-keymap.ts
+msgid "Move the line up or down"
+msgstr "Move the line up or down"
 
 #: src/trellis/trellis-labels.ts
 msgid "Moved"
@@ -5290,10 +5444,18 @@ msgstr "next"
 msgid "Next"
 msgstr "Next"
 
+#: src/App.tsx
+msgid "Next build problem"
+msgstr "Next build problem"
+
 #: src/editor/latex/search-panel.ts
 #: src/editor/markdown/engine/chrome/find-replace.tsx
 msgid "Next match"
 msgstr "Next match"
+
+#: src/editor/editor-keymap.ts
+msgid "Next or previous match"
+msgstr "Next or previous match"
 
 #: src/pdf/pdf-viewer.tsx
 msgid "Next page"
@@ -5525,6 +5687,11 @@ msgstr "No safe edits"
 msgid "No sections yet. Add a \\section{…} to start the outline"
 msgstr "No sections yet. Add a \\section{…} to start the outline"
 
+#. placeholder {0}: query.trim()
+#: src/app/shortcut-sheet.tsx
+msgid "No shortcut matches “{0}”"
+msgstr "No shortcut matches “{0}”"
+
 #: src/overleaf/overleaf-changes.tsx
 msgid "No suggestions in this document"
 msgstr "No suggestions in this document"
@@ -5647,6 +5814,7 @@ msgid "Number sets like R, N"
 msgstr "Number sets like R, N"
 
 #: src/editor/latex/latex-vocabulary.ts
+#: src/editor/markdown/engine/engine-shortcuts.ts
 msgid "Numbered list"
 msgstr "Numbered list"
 
@@ -5699,6 +5867,10 @@ msgstr "Only in the Lattice window on macOS"
 #: src/telemetry/app-log.tsx
 msgid "Only operation metadata and counts. Nothing leaves this Mac until you copy or download it"
 msgstr "Only operation metadata and counts. Nothing leaves this Mac until you copy or download it"
+
+#: src/App.tsx
+msgid "only the editor"
+msgstr "only the editor"
 
 #: src/components/ui/apple-color-picker.tsx
 msgid "Opacity"
@@ -5947,6 +6119,10 @@ msgstr "Opening window…"
 msgid "Operation metadata"
 msgstr "Operation metadata"
 
+#: src/app/shortcut-sheet.tsx
+msgid "or"
+msgstr "or"
+
 #: src/components/ui/apple-color-picker.tsx
 #: src/settings/theme-settings.tsx
 msgid "Orange"
@@ -6143,6 +6319,10 @@ msgstr "Panel menu"
 msgid "Panels"
 msgstr "Panels"
 
+#: src/app/shortcut-groups.ts
+msgid "Panels and tabs"
+msgstr "Panels and tabs"
+
 #: src/app/use-trellis-bridge.ts
 #: src/canvas/paper-reader.tsx
 #: src/trellis/trellis-header-tools.tsx
@@ -6267,6 +6447,7 @@ msgstr "Pause syncing"
 msgid "Paused while hidden · click to resume"
 msgstr "Paused while hidden · click to resume"
 
+#: src/app/focus-mode-bar.tsx
 #: src/canvas/paper-reader.tsx
 #: src/trellis/trellis-titles.ts
 msgid "PDF"
@@ -6494,6 +6675,7 @@ msgstr "Press ⌘⇧K in the editor to cite one"
 msgid "Press ⌘S or click Build"
 msgstr "Press ⌘S or click Build"
 
+#: src/app/focus-mode-bar.tsx
 #: src/editor/markdown/engine/lattice-visual-editor.tsx
 #: src/project/project-replace-dialog.tsx
 #: src/trellis/trellis-header-tools.tsx
@@ -6521,10 +6703,26 @@ msgstr "Preview unavailable for this figure format."
 msgid "previous"
 msgstr "previous"
 
+#: src/App.tsx
+msgid "Previous build problem"
+msgstr "Previous build problem"
+
 #: src/editor/latex/search-panel.ts
 #: src/editor/markdown/engine/chrome/find-replace.tsx
 msgid "Previous match"
 msgstr "Previous match"
+
+#: src/trellis/trellis-keymap.ts
+msgid "Previous or next panel"
+msgstr "Previous or next panel"
+
+#: src/trellis/trellis-keymap.ts
+msgid "Previous or next tab"
+msgstr "Previous or next tab"
+
+#: src/trellis/trellis-keymap.ts
+msgid "Previous or next zoomed view"
+msgstr "Previous or next zoomed view"
 
 #: src/pdf/pdf-viewer.tsx
 msgid "Previous page"
@@ -6629,6 +6827,10 @@ msgstr "Proofread"
 msgid "Proofread suggestion"
 msgstr "Proofread suggestion"
 
+#: src/editor/latex/latex-shortcuts.ts
+msgid "Proofread the selection"
+msgstr "Proofread the selection"
+
 #: src/canvas/proofread-card.tsx
 msgid "Proofreading…"
 msgstr "Proofreading…"
@@ -6718,6 +6920,7 @@ msgstr "Quit {name}"
 #: src/editor/latex/latex-selection-toolbar.tsx
 #: src/editor/markdown/engine/chrome/selection-toolbar.tsx
 #: src/editor/markdown/engine/chrome/slash-items.ts
+#: src/editor/markdown/engine/engine-shortcuts.ts
 msgid "Quote"
 msgstr "Quote"
 
@@ -6810,6 +7013,10 @@ msgstr "Red value"
 #: src/editor/latex/latex-command-completions.ts
 msgid "Redefine a command"
 msgstr "Redefine a command"
+
+#: src/editor/editor-keymap.ts
+msgid "Redo"
+msgstr "Redo"
 
 #: src/app/native-locale.ts
 msgctxt "macOS menu bar"
@@ -6984,9 +7191,17 @@ msgstr "Rename environment"
 msgid "Rename label"
 msgstr "Rename label"
 
+#: src/editor/latex/latex-shortcuts.ts
+msgid "Rename label or citation"
+msgstr "Rename label or citation"
+
 #: src/project/references-panel.tsx
 msgid "Rename symbol"
 msgstr "Rename symbol"
+
+#: src/editor/latex/latex-shortcuts.ts
+msgid "Rename the environment"
+msgstr "Rename the environment"
 
 #: src/history/versions-timeline.tsx
 #: src/overleaf/overleaf-history.tsx
@@ -7022,6 +7237,10 @@ msgstr "Reopen"
 #: src/editor/comments/editor-comments-panel.tsx
 msgid "Reopen comment"
 msgstr "Reopen comment"
+
+#: src/App.tsx
+msgid "Reopen the closed tab"
+msgstr "Reopen the closed tab"
 
 #: src/build/use-compile-repair.ts
 msgid "Repair cancelled."
@@ -7075,6 +7294,10 @@ msgstr "Replace {replacementCount}"
 #: src/project/project-replace-dialog.tsx
 msgid "Replace all"
 msgstr "Replace all"
+
+#: src/editor/latex/latex-shortcuts.ts
+msgid "Replace all (in the find bar)"
+msgstr "Replace all (in the find bar)"
 
 #: src/editor/latex/search-panel.ts
 #: src/editor/markdown/engine/chrome/find-replace.tsx
@@ -7582,6 +7805,10 @@ msgstr "Sans-serif text"
 msgid "Save"
 msgstr "Save"
 
+#: src/App.tsx
+msgid "Save and build"
+msgstr "Save and build"
+
 #: src/project/manuscript-checklist.tsx
 msgid "Save budgets"
 msgstr "Save budgets"
@@ -7813,6 +8040,18 @@ msgstr "Select task list"
 msgid "Select text in the editor and choose Comment. Every note gathers here."
 msgstr "Select text in the editor and choose Comment. Every note gathers here."
 
+#: src/editor/latex/latex-shortcuts.ts
+msgid "Select the environment"
+msgstr "Select the environment"
+
+#: src/editor/editor-keymap.ts
+msgid "Select the line"
+msgstr "Select the line"
+
+#: src/editor/editor-keymap.ts
+msgid "Select the next occurrence"
+msgstr "Select the next occurrence"
+
 #: src/papers/bib-entry-dialog.tsx
 msgid "Select this record"
 msgstr "Select this record"
@@ -7954,6 +8193,11 @@ msgstr "Show replace"
 msgid "Show results from"
 msgstr "Show results from"
 
+#: src/App.tsx
+#: src/app/focus-mode-bar.tsx
+msgid "Show the PDF beside the editor"
+msgstr "Show the PDF beside the editor"
+
 #: src/overleaf/overleaf-changes.tsx
 #: src/overleaf/overleaf-comments.tsx
 msgid "Show this in the editor"
@@ -8080,6 +8324,10 @@ msgstr "Some sources could not complete the lookup. This does not mean the refer
 msgid "Some sources unavailable"
 msgstr "Some sources unavailable"
 
+#: src/editor/latex/latex-shortcuts.ts
+msgid "Sort lines"
+msgstr "Sort lines"
+
 #. Search words for the Interface sounds setting, space-separated
 #: src/settings/settings-search-index.ts
 msgid "sound"
@@ -8109,6 +8357,10 @@ msgstr "Source control"
 #: src/settings/settings-search-index.ts
 msgid "Source editor only"
 msgstr "Source editor only"
+
+#: src/App.tsx
+msgid "source files and papers"
+msgstr "source files and papers"
 
 #: src/pdf/pdf-source-targets.ts
 msgid "Source location in PDF"
@@ -8154,6 +8406,7 @@ msgstr "Spade suit"
 msgid "Spectrum"
 msgstr "Spectrum"
 
+#: src/app/focus-mode-bar.tsx
 #: src/trellis/trellis-header-tools.tsx
 #: src/trellis/trellis-workspace.tsx
 msgid "Split"
@@ -8281,6 +8534,7 @@ msgstr "Stopping…"
 
 #: src/editor/latex/latex-selection-toolbar.tsx
 #: src/editor/markdown/engine/chrome/selection-toolbar.tsx
+#: src/editor/markdown/engine/engine-shortcuts.ts
 msgid "Strikethrough"
 msgstr "Strikethrough"
 
@@ -8381,6 +8635,10 @@ msgstr "Switch project"
 msgid "Switch to {name}"
 msgstr "Switch to {name}"
 
+#: src/App.tsx
+msgid "Switch to a workspace by its place"
+msgstr "Switch to a workspace by its place"
+
 #: src/onboarding/guided-tour-steps.ts
 msgid "Switch to Reading"
 msgstr "Switch to Reading"
@@ -8476,6 +8734,10 @@ msgstr "Table of contents"
 msgid "Table preview"
 msgstr "Table preview"
 
+#: src/editor/markdown/engine/engine-shortcuts.ts
+msgid "Task list"
+msgstr "Task list"
+
 #: src/editor/markdown/engine/chrome/selection-toolbar.tsx
 #: src/editor/markdown/engine/chrome/slash-items.ts
 msgid "Task List"
@@ -8524,6 +8786,10 @@ msgstr "Text"
 #: src/canvas/editor-status-bar.tsx
 msgid "Text {text} · headings {headers} · captions {captions}"
 msgstr "Text {text} · headings {headers} · captions {captions}"
+
+#: src/app/shortcut-groups.ts
+msgid "Text editing"
+msgstr "Text editing"
 
 #: src/project/project-replace-dialog.tsx
 msgid "Text to find"
@@ -9012,6 +9278,10 @@ msgstr "Title"
 msgid "Title bar tools"
 msgstr "Title bar tools"
 
+#: src/editor/latex/latex-shortcuts.ts
+msgid "Title Case"
+msgstr "Title Case"
+
 #: src/app/use-reference-import.ts
 msgid "Title, author, and year are required."
 msgstr "Title, author, and year are required."
@@ -9020,6 +9290,7 @@ msgstr "Title, author, and year are required."
 msgid "Title/abstract only"
 msgstr "Title/abstract only"
 
+#: src/app/shortcut-sheet.tsx
 #: src/editor/codemirror-host.tsx
 msgid "to"
 msgstr "to"
@@ -9161,10 +9432,12 @@ msgstr "Unclosed inline math {open}."
 
 #: src/editor/latex/latex-selection-toolbar.tsx
 #: src/editor/markdown/engine/chrome/selection-toolbar.tsx
+#: src/editor/markdown/engine/engine-shortcuts.ts
 msgid "Underline"
 msgstr "Underline"
 
 #: src/app/use-editor-comments.ts
+#: src/editor/editor-keymap.ts
 #: src/trellis/trellis-workspace-switch.tsx
 #: src/trellis/trellis-workspace.tsx
 msgid "Undo"
@@ -9373,6 +9646,10 @@ msgstr "Uploading {0}…"
 msgid "Uploading…"
 msgstr "Uploading…"
 
+#: src/editor/latex/latex-shortcuts.ts
+msgid "UPPER CASE"
+msgstr "UPPER CASE"
+
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Upright text in math"
 msgstr "Upright text in math"
@@ -9528,6 +9805,10 @@ msgstr "Violet"
 msgid "Visual editing is unavailable because this Markdown contains unsupported or lossy syntax. Use source mode to preserve it."
 msgstr "Visual editing is unavailable because this Markdown contains unsupported or lossy syntax. Use source mode to preserve it."
 
+#: src/app/shortcut-groups.ts
+msgid "Visual Markdown"
+msgstr "Visual Markdown"
+
 #: src/editor/markdown/engine/passive-view.tsx
 msgid "Visual Markdown editor"
 msgstr "Visual Markdown editor"
@@ -9665,9 +9946,29 @@ msgstr "Workspaces"
 msgid "Workspaces keep your panel arrangements. Writing and Reading are ready-made."
 msgstr "Workspaces keep your panel arrangements. Writing and Reading are ready-made."
 
+#: src/editor/latex/latex-shortcuts.ts
+msgid "Wrap in \\iffalse … \\fi"
+msgstr "Wrap in \\iffalse … \\fi"
+
+#: src/editor/latex/latex-shortcuts.ts
+msgid "Wrap in a comment environment"
+msgstr "Wrap in a comment environment"
+
 #: src/project/project-dialogs.tsx
 msgid "Wrap in environment"
 msgstr "Wrap in environment"
+
+#: src/editor/latex/latex-shortcuts.ts
+msgid "Wrap in environment…"
+msgstr "Wrap in environment…"
+
+#: src/editor/latex/latex-shortcuts.ts
+msgid "Wrap in equation"
+msgstr "Wrap in equation"
+
+#: src/editor/latex/latex-shortcuts.ts
+msgid "Wrap in itemize"
+msgstr "Wrap in itemize"
 
 #: src/editor/insert/table-generator-dialog.tsx
 msgid "Wrap in table float"

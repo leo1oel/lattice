@@ -19,13 +19,14 @@ import { Extension, type Editor } from "@tiptap/core";
 import { NodeSelection, TextSelection } from "@tiptap/pm/state";
 import { GripVertical, Plus } from "lucide-react";
 import { moveBlockDown, moveBlockTo, moveBlockUp } from "../block-moves";
+import { ENGINE_SHORTCUTS } from "../engine-shortcuts";
 import type { ChromeHost } from "./chrome-host";
 
 export const BlockMoveKeymap = Extension.create({
   name: "latticeBlockMoves",
   addKeyboardShortcuts: () => ({
-    "Mod-Shift-ArrowUp": ({ editor }) => moveBlockUp(editor.state, editor.view.dispatch),
-    "Mod-Shift-ArrowDown": ({ editor }) => moveBlockDown(editor.state, editor.view.dispatch),
+    [ENGINE_SHORTCUTS.moveBlock.keys[0]]: ({ editor }) => moveBlockUp(editor.state, editor.view.dispatch),
+    [ENGINE_SHORTCUTS.moveBlock.keys[1]]: ({ editor }) => moveBlockDown(editor.state, editor.view.dispatch),
   }),
 });
 

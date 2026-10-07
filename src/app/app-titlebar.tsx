@@ -4,6 +4,9 @@
  * history). A document's own actions (Build, Edit / Split /
  * Preview) live in its panel's header instead.
  *
+ * In focus mode the bar keeps only the window's own controls and `focusBar`
+ * (the document's name and the way out): nothing else of the chrome.
+ *
  * The canvas toolbar arrives as an element rather than as props. It reads about
  * fifty of App's values — collaboration presence, Overleaf channel state, the
  * dirty flag of the active document — and none of the rest of the title bar
@@ -18,7 +21,7 @@ import { ProjectMenu } from "../project/project-dialogs";
 import { beginWindowDrag, toggleWindowFullscreen } from "../app-utils";
 import type { ProjectSnapshot } from "../app-types";
 
-export function AppTitlebar({ project, projectMenu, panelControls, canvasToolbar }: {
+export function AppTitlebar({ project, projectMenu, panelControls, canvasToolbar, focusBar }: {
   project: ProjectSnapshot;
   /** The project switcher's menu, plus whether it is open and what may disable it. */
   projectMenu: Omit<ComponentProps<typeof ProjectMenu>, "currentPath" | "onSettings"> & {
@@ -32,12 +35,22 @@ export function AppTitlebar({ project, projectMenu, panelControls, canvasToolbar
   /** The Panels menu, panel toggles and hidden-panel chips. */
   panelControls: ReactNode;
   canvasToolbar: ReactNode;
+  /** Focus mode's bar, which stands in for everything after the traffic lights. */
+  focusBar?: ReactNode;
 }) {
   const { t } = useLingui();
   const { open: menuOpen, setOpen: setMenuOpen, importing, building, onSettings, ...menu } = projectMenu;
   // The menu item that opens Settings closes with the menu, so Settings is
   // handed the trigger to return focus to instead.
   const triggerRef = useRef<HTMLButtonElement>(null);
+  if (focusBar) {
+    return (
+      <header className="titlebar titlebar-focus" onMouseDown={beginWindowDrag} onDoubleClick={toggleWindowFullscreen}>
+        <div className="traffic-space" />
+        {focusBar}
+      </header>
+    );
+  }
   return (
     <header className="titlebar" onMouseDown={beginWindowDrag} onDoubleClick={toggleWindowFullscreen}>
       <div className="titlebar-sidebar">
