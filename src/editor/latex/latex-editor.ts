@@ -5,7 +5,7 @@ import { HighlightStyle, syntaxHighlighting } from "@codemirror/language";
 import { linter } from "@codemirror/lint";
 import { highlightSelectionMatches, openSearchPanel, replaceAll, search, searchKeymap } from "@codemirror/search";
 import { Prec, StateEffect, Transaction, type Extension } from "@codemirror/state";
-import { EditorView, keymap, tooltips, type Command } from "@codemirror/view";
+import { EditorView, keymap, tooltips, type Command, type KeyBinding } from "@codemirror/view";
 import { tags } from "@lezer/highlight";
 import { resolveTexlabDefinition, texlabCompletionSource, texlabHoverTooltip } from "../../build/texlab-language";
 import { floatingSurfaceClassName } from "../../components/ui/menu-surface";
@@ -31,6 +31,7 @@ import {
 } from "./latex-symbols";
 import type { CitationInfo, DefinitionTarget, LocalMacro, ReferenceInfo, SymbolTarget } from "./latex-text";
 import { matchingMathDelimiter } from "./math-region";
+import { LATEX_SHORTCUTS, type LatexShortcut } from "./latex-shortcuts";
 import { compactSearchPanel } from "./search-panel";
 
 const CITATION_COMMAND_END = new RegExp(`\\\\(?:${CITATION_COMMANDS})$`);
@@ -232,6 +233,62 @@ export function textEditorExtensions(
   ];
 }
 
+/**
+ * The LaTeX editor's own commands, each on its key from LATEX_SHORTCUTS (which
+ * the shortcut sheet lists). Commands that need the host take it from
+ * `host`; without a handler their key falls through to the next keymap.
+ */
+export function latexCommandKeymap(host: {
+  gotoDefinition: Command;
+  findReferences: Command;
+  renameSymbol: Command;
+  wrapEnvironment?: () => void;
+  renameEnvironment?: (currentName: string) => void;
+}): KeyBinding[] {
+  const bind = (id: LatexShortcut, run: Command): KeyBinding => {
+    const { key, ...rest } = LATEX_SHORTCUTS[id];
+    return { key, run, ...("scope" in rest ? { scope: rest.scope } : {}) };
+  };
+  return [
+    bind("find", openSearchPanel),
+    bind("replaceAll", replaceAll),
+    bind("comment", editCommand(toggleLineComments)),
+    bind("bold", wrapCommand("\\textbf{", "}")),
+    bind("emphasis", wrapCommand("\\emph{", "}")),
+    bind("math", wrapCommand("$", "$")),
+    bind("equation", editCommand((text, from, to) => wrapEnvironment(text, from, to, "equation"))),
+    bind("itemize", editCommand((text, from, to) => wrapEnvironment(text, from, to, "itemize"))),
+    bind("sortLines", editCommand(sortSelectedLines)),
+    bind("upperCase", caseCommand("upper")),
+    bind("lowerCase", caseCommand("lower")),
+    bind("titleCase", caseCommand("title")),
+    bind("commentEnvironment", editCommand((text, from, to) => wrapCommentRegion(text, from, to, "comment-env"))),
+    bind("iffalse", editCommand((text, from, to) => wrapCommentRegion(text, from, to, "iffalse"))),
+    bind("wrapEnvironment", () => {
+      host.wrapEnvironment?.();
+      return Boolean(host.wrapEnvironment);
+    }),
+    bind("definition", host.gotoDefinition),
+    bind("references", host.findReferences),
+    bind("renameSymbol", host.renameSymbol),
+    bind("matchingEnvironment", (view) => {
+      const text = view.state.doc.toString();
+      const head = view.state.selection.main.head;
+      return selectRange(view, matchingEnvironmentTarget(text, head) ?? matchingMathDelimiter(text, head));
+    }),
+    bind("selectEnvironment", (view) => selectRange(view, enclosingEnvironmentRange(view.state.doc.toString(), view.state.selection.main.head))),
+    bind("renameEnvironment", (view) => {
+      const { renameEnvironment } = host;
+      const text = view.state.doc.toString();
+      const head = view.state.selection.main.head;
+      const name = renameEnvironment && (environmentAt(text, head) ?? enclosingEnvironment(text, head))?.name;
+      if (!renameEnvironment || !name) return false;
+      renameEnvironment(name);
+      return true;
+    }),
+  ];
+}
+
 export function latexEditorExtensions(options: LatexEditorOptions): Extension[] {
   const {
     currentPath = "",
@@ -324,58 +381,17 @@ export function latexEditorExtensions(options: LatexEditorOptions): Extension[] 
       { key: "{", run: (view) => bracedCommandContentBeforeCursor(view) === "" },
       { key: "}", run: skipExistingCommandCloseBrace },
     ])),
-    keymap.of([
-      ...withoutAppShortcuts(searchKeymap),
-      { key: "Mod-f", run: openSearchPanel },
-      { key: "Mod-Alt-a", run: replaceAll },
-      { key: "Mod-/", run: editCommand(toggleLineComments) },
-      { key: "Mod-b", run: wrapCommand("\\textbf{", "}") },
-      { key: "Mod-i", run: wrapCommand("\\emph{", "}") },
-      { key: "Mod-Shift-m", run: wrapCommand("$", "$") },
-      { key: "Mod-Alt-e", run: editCommand((text, from, to) => wrapEnvironment(text, from, to, "equation")) },
-      { key: "Mod-Alt-i", run: editCommand((text, from, to) => wrapEnvironment(text, from, to, "itemize")) },
-      { key: "Mod-Alt-s", run: editCommand(sortSelectedLines) },
-      { key: "Mod-Alt-u", run: caseCommand("upper") },
-      { key: "Mod-Alt-l", run: caseCommand("lower") },
-      { key: "Mod-Alt-c", run: caseCommand("title") },
-      { key: "Mod-Alt-/", run: editCommand((text, from, to) => wrapCommentRegion(text, from, to, "comment-env")) },
-      { key: "Mod-Alt-;", run: editCommand((text, from, to) => wrapCommentRegion(text, from, to, "iffalse")) },
-      {
-        key: "Mod-Alt-w",
-        run: () => {
-          onWrapEnvironment?.();
-          return Boolean(onWrapEnvironment);
-        },
-      },
-      { key: "F12", run: (view) => gotoDefinition(view, view.state.selection.main.head) },
-      { key: "Shift-F12", run: symbolCommand(onFindReferences) },
-      { key: "F2", run: symbolCommand(onRenameSymbol) },
-      {
-        key: "Ctrl-m",
-        // eslint-disable-next-line lingui/no-unlocalized-strings -- CodeMirror key binding
-        mac: "Ctrl-m",
-        run: (view) => {
-          const text = view.state.doc.toString();
-          const head = view.state.selection.main.head;
-          return selectRange(view, matchingEnvironmentTarget(text, head) ?? matchingMathDelimiter(text, head));
-        },
-      },
-      {
-        key: "Mod-Alt-a",
-        run: (view) => selectRange(view, enclosingEnvironmentRange(view.state.doc.toString(), view.state.selection.main.head)),
-      },
-      {
-        key: "Mod-Alt-r",
-        run: (view) => {
-          const text = view.state.doc.toString();
-          const head = view.state.selection.main.head;
-          const name = onRenameEnvironment && (environmentAt(text, head) ?? enclosingEnvironment(text, head))?.name;
-          if (!name) return false;
-          onRenameEnvironment(name);
-          return true;
-        },
-      },
-    ]),
+    keymap.of(withoutAppShortcuts(searchKeymap)),
+    // Above the editor's base keymap (codemirror-host), whose defaults took
+    // the LaTeX keys first: ⌘I selected the parent syntax node instead of
+    // writing \emph, and ⌘⇧M opened the lint panel instead of inline math.
+    Prec.high(keymap.of(latexCommandKeymap({
+      gotoDefinition: (view) => gotoDefinition(view, view.state.selection.main.head),
+      findReferences: symbolCommand(onFindReferences),
+      renameSymbol: symbolCommand(onRenameSymbol),
+      wrapEnvironment: onWrapEnvironment,
+      renameEnvironment: onRenameEnvironment,
+    }))),
     // Lowest precedence so Vim's `$` (end of line) still wins when that keymap is active.
     Prec.lowest(keymap.of([{ key: "$", run: dollarPairCommand }])),
     EditorView.updateListener.of((update) => {

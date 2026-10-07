@@ -25,14 +25,13 @@ import {
   EditorView, crosshairCursor, drawSelection, dropCursor, highlightActiveLine, highlightActiveLineGutter,
   highlightSpecialChars, keymap, rectangularSelection, type ViewUpdate,
 } from "@codemirror/view";
-import { defaultKeymap, history, historyKeymap, indentWithTab } from "@codemirror/commands";
+import { history } from "@codemirror/commands";
 import {
-  bracketMatching, defaultHighlightStyle, foldKeymap, indentOnInput, syntaxHighlighting,
+  bracketMatching, defaultHighlightStyle, indentOnInput, syntaxHighlighting,
 } from "@codemirror/language";
-import { highlightSelectionMatches, searchKeymap } from "@codemirror/search";
-import { closeBrackets, closeBracketsKeymap } from "@codemirror/autocomplete";
-import { lintKeymap } from "@codemirror/lint";
-import { withoutAppShortcuts } from "./editor-app-shortcuts";
+import { highlightSelectionMatches } from "@codemirror/search";
+import { closeBrackets } from "@codemirror/autocomplete";
+import { baseEditorKeymap } from "./editor-keymap";
 import { noteResumed, parkEditor, resumeParkedEditor } from "./parked-editors";
 import { sourceGutter } from "./source-gutter";
 import { documentText, textChange } from "./text-change";
@@ -51,10 +50,7 @@ const baseSetup: Extension = [
   dropCursor(), EditorState.allowMultipleSelections.of(true), indentOnInput(),
   syntaxHighlighting(defaultHighlightStyle, { fallback: true }), bracketMatching(), closeBrackets(),
   rectangularSelection(), crosshairCursor(), highlightActiveLine(), highlightSelectionMatches(),
-  keymap.of(withoutAppShortcuts([
-    ...closeBracketsKeymap, ...defaultKeymap, ...searchKeymap, ...historyKeymap, ...foldKeymap, ...lintKeymap,
-    indentWithTab,
-  ])),
+  keymap.of(baseEditorKeymap),
 ];
 
 /**

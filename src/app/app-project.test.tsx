@@ -55,6 +55,46 @@ describe("project tree and projects", () => {
     expect(options().filter((option) => option.startsWith("Clean aux files"))).toHaveLength(1);
   });
 
+  it("hides the chrome for focus mode on ⌘⇧D and gives the layout back on Escape", async () => {
+    renderApp(projectCommands());
+    const editor = await findEditorView(".source-editor[data-editor-pane='primary'] .cm-editor");
+    const shell = document.querySelector(".app-shell")!;
+    // Which panels are back; where each sits is trellis-layout's to test.
+    const shownTabs = () => screen.queryAllByRole("tab").map((tab) => tab.textContent ?? "").filter((name) => /Project|Papers|PDF|main\.tex/.test(name)).sort();
+    await waitFor(() => expect(shownTabs().length).toBeGreaterThan(1));
+    const before = shownTabs();
+
+    fireEvent.keyDown(window, { key: "D", code: "KeyD", metaKey: true, shiftKey: true });
+    await waitFor(() => expect(shell).toHaveClass("focus-mode"));
+    expect(screen.queryByRole("button", { name: "Switch project" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Exit focus/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Show the PDF beside the editor" })).toHaveAttribute("aria-pressed", "false");
+
+    // The editor's own Escape (collapsing a selection) comes first.
+    editor.dispatch({ selection: { anchor: 0, head: 4 } });
+    fireEvent.keyDown(editor.contentDOM, { key: "Escape" });
+    expect(shell).toHaveClass("focus-mode");
+    fireEvent.keyDown(editor.contentDOM, { key: "Escape" });
+    await waitFor(() => expect(shell).not.toHaveClass("focus-mode"));
+    expect(screen.getByRole("button", { name: "Switch project" })).toBeInTheDocument();
+    await waitFor(() => expect(shownTabs()).toEqual(before));
+  });
+
+  it("lists every shortcut on ⌘?, from the commands and the keymaps, filtered by name", async () => {
+    renderApp(projectCommands());
+    await findEditorView(".source-editor[data-editor-pane='primary'] .cm-editor");
+    fireEvent.keyDown(window, { key: "?", metaKey: true, shiftKey: true });
+    const sheet = await screen.findByRole("dialog", { name: "Keyboard shortcuts" });
+    const group = (name: string) => within(within(sheet).getByRole("region", { name }));
+    expect(group("Build").getByText("Save and build")).toBeInTheDocument();
+    expect(group("Layout").getByText("Focus mode")).toBeInTheDocument();
+    expect(group("LaTeX").getByText("Wrap in environment…")).toBeInTheDocument();
+    fireEvent.change(within(sheet).getByRole("searchbox", { name: "Filter shortcuts" }), { target: { value: "insert citation" } });
+    expect(within(sheet).getAllByRole("region").map((region) => region.getAttribute("aria-label"))).toEqual(["Edit"]);
+    fireEvent.keyDown(within(sheet).getByRole("searchbox", { name: "Filter shortcuts" }), { key: "Escape" });
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Keyboard shortcuts" })).not.toBeInTheDocument());
+  });
+
   it("lists in a saved paper's palette only the commands it can run, whatever was recent", async () => {
     localStorage.setItem("lattice.recent-commands.v1", JSON.stringify(["cite", "goto-line", "sync-pdf", "find"]));
     renderApp({ ...projectCommands(), list_papers: () => [attentionPaper()], read_paper: "# Attention\n\nPaper content." });

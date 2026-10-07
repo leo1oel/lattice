@@ -84,6 +84,15 @@ input[type="search"]:focus-visible {
    browser tab's missing traffic lights are already accounted for. */
 @container titlebar (max-width: 800px) { .project-title { max-width: var(--titlebar-project-title-max-width-compact); } }
 .titlebar-drag-area { width: var(--titlebar-trailing-gap); height: 100%; flex: none; }
+/* Focus mode (focus-mode-bar.tsx): the bar keeps the window's controls, the
+   document's name centered on the window and the way out, on the ground the
+   panels sit on and without its rule, so the page is all that stands out. */
+.titlebar.titlebar-focus { background: var(--surface-shell); box-shadow: none; }
+.focus-bar { min-width: 0; height: 100%; flex: 1; padding-inline: var(--space-4); display: flex; align-items: center; justify-content: flex-end; animation: focus-bar-in var(--duration-reveal) var(--ease-default); }
+.focus-bar-title { position: absolute; left: 50%; max-width: min(40%, 420px); translate: -50% 0; overflow: hidden; color: var(--text-tertiary); font-size: var(--type-label-size); line-height: var(--type-label-line-height); text-overflow: ellipsis; white-space: nowrap; pointer-events: none; }
+.focus-bar-actions { position: relative; display: flex; align-items: center; gap: var(--space-2); }
+.focus-bar-exit .focus-bar-keys { margin-inline-start: var(--space-1); }
+@keyframes focus-bar-in { from { opacity: 0; } }
 .titlebar-main { min-width: 0; height: 100%; flex: 1; background: transparent; display: flex; align-items: center; overflow: hidden; }
 .titlebar-main > .canvas-toolbar { min-width: max-content; width: auto; height: 100%; flex: none; padding: 0 var(--space-3); border: 0; background: transparent; display: flex; align-items: center; gap: var(--space-4); overflow: visible; container-type: normal; container-name: none; }
 .titlebar-main > .canvas-toolbar .active-document { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }

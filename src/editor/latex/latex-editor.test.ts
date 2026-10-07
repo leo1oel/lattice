@@ -8,10 +8,12 @@ import { EditorState, Transaction, type Extension } from "@codemirror/state";
 import { EditorView, keymap } from "@codemirror/view";
 import { fireEvent } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { baseEditorKeymap } from "../editor-keymap";
 import {
-  insertLatexNewline, latexEditorExtensions, selectionVisibilityExtension,
+  insertLatexNewline, latexCommandKeymap, latexEditorExtensions, selectionVisibilityExtension,
   type LatexEditorLiveData, type LatexEditorOptions,
 } from "./latex-editor";
+import { LATEX_SHORTCUTS } from "./latex-shortcuts";
 import { citationTooltipSpace } from "./latex-hover-cards";
 import { compactSearchPanel } from "./search-panel";
 
@@ -277,5 +279,53 @@ describe("LaTeX editor extensions", () => {
     expect(insertLatexNewline(view)).toBe(true);
     const { head } = view.state.selection.main;
     expect(expected.includes("|") ? `${doc(view).slice(0, head)}|${doc(view).slice(head)}` : doc(view)).toBe(expected);
+  });
+});
+
+describe("LaTeX editor keys", () => {
+  /** The LaTeX editor under the base keymap, which codemirror-host mounts first. */
+  const hostedView = (text: string, from: number, to: number, options: Partial<LatexEditorOptions> = {}) => {
+    const view = latexView(text, from, {}, options, [keymap.of(baseEditorKeymap)]);
+    view.dispatch({ selection: { anchor: from, head: to } });
+    return view;
+  };
+  const chord = (view: EditorView, key: string, init: { shiftKey?: boolean; altKey?: boolean } = {}) => {
+    fireEvent.keyDown(view.contentDOM, { key, code: `Key${key.toUpperCase()}`, keyCode: key.toUpperCase().charCodeAt(0), ctrlKey: true, ...init });
+  };
+
+  it("binds every key of its table once, Proofread's aside", () => {
+    const run = () => false;
+    const bindings = latexCommandKeymap({ gotoDefinition: run, findReferences: run, renameSymbol: run });
+    const entries = Object.entries(LATEX_SHORTCUTS).filter(([id]) => id !== "proofread");
+    expect(bindings).toHaveLength(entries.length);
+    for (const [, entry] of entries) {
+      const scope = "scope" in entry ? entry.scope : undefined;
+      expect(bindings.filter((binding) => binding.key === entry.key && binding.scope === scope)).toHaveLength(1);
+    }
+  });
+
+  it("writes \\emph and inline math ahead of the base keymap's selection and lint keys", () => {
+    const view = hostedView("say word here", 4, 8);
+    chord(view, "i");
+    expect(doc(view)).toBe("say \\emph{word} here");
+    view.dispatch({ selection: { anchor: 10, head: 14 } });
+    chord(view, "M", { shiftKey: true });
+    expect(doc(view)).toBe("say \\emph{$word$} here");
+  });
+
+  it("selects the environment around the caret even after a search, and replaces only in the find bar", () => {
+    const text = "\\begin{itemize}\n  \\item a\n\\end{itemize}\n";
+    const view = hostedView(text, 20, 20);
+    view.dispatch({ effects: setSearchQuery.of(new SearchQuery({ search: "a", replace: "" })) });
+    chord(view, "a", { altKey: true });
+    expect(doc(view)).toBe(text);
+    expect(view.state.selection.main).toMatchObject({ from: 0, to: text.length - 1 });
+  });
+
+  it("asks for an environment to wrap the selection in on ⌘⇧E", () => {
+    const onWrapEnvironment = vi.fn();
+    const view = hostedView("text", 0, 4, { onWrapEnvironment });
+    chord(view, "E", { shiftKey: true });
+    expect(onWrapEnvironment).toHaveBeenCalledOnce();
   });
 });

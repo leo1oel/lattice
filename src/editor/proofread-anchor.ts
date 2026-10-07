@@ -1,5 +1,6 @@
 import { Prec, StateEffect, StateField, type EditorState, type Extension } from "@codemirror/state";
 import { Decoration, EditorView, keymap, WidgetType, type DecorationSet } from "@codemirror/view";
+import { LATEX_SHORTCUTS } from "./latex/latex-shortcuts";
 
 /**
  * Where an inline proofread sits: the source span it would replace, mapped
@@ -87,7 +88,7 @@ export function proofreadExtension(handlers: ProofreadKeyHandlers): Extension {
     // Above the editor's own Escape (closing completion, the search panel) and
     // ⌘↵ only while a card is open; otherwise they fall through untouched.
     Prec.high(keymap.of([
-      { key: "Mod-Alt-p", run: (view) => handlers.request(view) },
+      { key: LATEX_SHORTCUTS.proofread.key, run: (view) => handlers.request(view) },
       { key: "Mod-Enter", run: open(handlers.accept) },
       { key: "Escape", run: open(handlers.dismiss) },
     ])),

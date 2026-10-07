@@ -168,6 +168,10 @@ export type TrellisUiState = {
   framed: string | null;
   /** The layout preset the workspace is in, or null in the writer's own layout. */
   preset: LayoutPreset | null;
+  /** Focus mode is on: the documents alone fill the window (see `setFocus`). */
+  focus: boolean;
+  /** In focus mode, the compiled PDF sits beside the documents. */
+  focusPdf: boolean;
   /** The named workspace the project is in (under any preset); empty before the workspace mounts. */
   workspace: string;
   /** The workspace whose name the titlebar is editing, as a new one's is at once. */
@@ -292,7 +296,8 @@ export class TrellisController {
   });
   readonly ui = new SmallStore<TrellisUiState>({
     ready: false, present: {}, visible: {}, pdfLive: false, editorHibernated: false, sleepingDecks: [], switching: false, editorVisible: false,
-    hidden: [], framed: null, preset: null, workspace: "", renaming: null, dirty: false, minWidth: 0, agentMinWidth: 0, pdfMinWidth: 0,
+    hidden: [], framed: null, preset: null, focus: false, focusPdf: false, workspace: "", renaming: null, dirty: false, minWidth: 0,
+    agentMinWidth: 0, pdfMinWidth: 0,
   });
   /** The writer's named workspaces, shared by every project. */
   readonly workspaces = new WorkspaceLibrary();
@@ -317,6 +322,7 @@ export class TrellisController {
   private resetHandler: (() => Promise<void>) | null = null;
   private resyncHandler: (() => void) | null = null;
   private presetHandler: ((preset: LayoutPreset | null) => void) | null = null;
+  private focusHandler: ((on: boolean, pdf?: boolean) => void) | null = null;
   private workspaceHandler: ((id: string) => void) | null = null;
   private newWorkspaceHandler: ((name: string) => string | null) | null = null;
   private saveWorkspaceHandler: (() => void) | null = null;
@@ -343,11 +349,27 @@ export class TrellisController {
   }
 
   /**
+   * Turn focus mode on or off (installed by the mounted workspace). On, the
+   * open documents fill the window in one panel, the PDF beside them as the
+   * writer last chose, and App drops its chrome; off, the layout comes back
+   * as it was, a preset's included.
+   */
+  setFocus(on: boolean) {
+    this.focusHandler?.(on);
+  }
+
+  /** In focus mode, show or hide the PDF beside the documents (and remember the choice). */
+  setFocusPdf(pdf: boolean) {
+    if (this.ui.get().focus) this.focusHandler?.(true, pdf);
+  }
+
+  /**
    * Enter the named workspace `id` (installed by the mounted workspace). The
-   * one the project is in already returns from a preset over it.
+   * one the project is in already returns from a preset or focus mode over it.
    */
   switchWorkspace(id: string) {
-    if (id === this.ui.get().workspace && this.ui.get().preset) this.setPreset(null);
+    const { workspace, preset, focus } = this.ui.get();
+    if (id === workspace && (preset || focus)) this.setPreset(null);
     else this.workspaceHandler?.(id);
   }
 
@@ -381,6 +403,7 @@ export class TrellisController {
     reset?: () => Promise<void>;
     resync?: () => void;
     preset?: (preset: LayoutPreset | null) => void;
+    focus?: (on: boolean, pdf?: boolean) => void;
     workspace?: (id: string) => void;
     newWorkspace?: (name: string) => string | null;
     saveWorkspace?: () => void;
@@ -390,6 +413,7 @@ export class TrellisController {
     if (handlers.reset) this.resetHandler = handlers.reset;
     if (handlers.resync) this.resyncHandler = handlers.resync;
     if (handlers.preset) this.presetHandler = handlers.preset;
+    if (handlers.focus) this.focusHandler = handlers.focus;
     if (handlers.workspace) this.workspaceHandler = handlers.workspace;
     if (handlers.newWorkspace) this.newWorkspaceHandler = handlers.newWorkspace;
     if (handlers.saveWorkspace) this.saveWorkspaceHandler = handlers.saveWorkspace;
@@ -399,6 +423,7 @@ export class TrellisController {
       if (handlers.reset && this.resetHandler === handlers.reset) this.resetHandler = null;
       if (handlers.resync && this.resyncHandler === handlers.resync) this.resyncHandler = null;
       if (handlers.preset && this.presetHandler === handlers.preset) this.presetHandler = null;
+      if (handlers.focus && this.focusHandler === handlers.focus) this.focusHandler = null;
       if (handlers.workspace && this.workspaceHandler === handlers.workspace) this.workspaceHandler = null;
       if (handlers.newWorkspace && this.newWorkspaceHandler === handlers.newWorkspace) this.newWorkspaceHandler = null;
       if (handlers.saveWorkspace && this.saveWorkspaceHandler === handlers.saveWorkspace) this.saveWorkspaceHandler = null;
@@ -483,10 +508,19 @@ export class TrellisController {
   /**
    * Bring a panel on screen: restore it if hidden, reopen it where it belongs
    * if it was closed, and focus it (which also widens a framing that hid it).
+   * In focus mode the PDF joins the documents; any other panel asked for
+   * ends focus mode first.
    */
   showPanel(kind: TrellisSingleton, { focus = true }: { focus?: boolean } = {}) {
     const ws = this.ws;
     if (!ws) return;
+    if (this.ui.get().focus) {
+      if (kind === "pdf") {
+        this.setFocusPdf(true);
+        return;
+      }
+      this.setFocus(false);
+    }
     this.shownHandler?.(kind);
     if ((TOOL_KINDS as readonly string[]).includes(kind)) {
       this.bridge?.openTool(kind as TrellisToolKind);
@@ -562,7 +596,7 @@ export class TrellisController {
   showPdfFor(panelId?: string) {
     const ws = this.ws;
     if (!ws) return;
-    if (ws.view("pdf") || !panelId) {
+    if (ws.view("pdf") || !panelId || this.ui.get().focus) {
       this.showPanel("pdf", { focus: false });
       return;
     }
@@ -760,6 +794,8 @@ export class TrellisController {
   revealTool(kind: TrellisToolKind) {
     const ws = this.ws;
     if (!ws) return;
+    // A tool asked for brings the layout back; one restored with it stays put (see `openDrawer`).
+    if (this.ui.get().focus) this.setFocus(false);
     const views = ws.views();
     const anchor = views.some((view) => view.panelId === this.pointerPanel && view.placement !== "hidden")
       ? this.pointerPanel : this.documentPanel();

@@ -26,6 +26,14 @@ export type LayoutPreset = "writing" | "reading";
 export type ActivePreset = { preset: LayoutPreset; previous: LayoutDocument; supplied: string[] };
 
 /**
+ * Focus mode: the open documents in one panel, the compiled PDF beside them
+ * only when `pdf`, over whatever was on screen (the writer's own layout or a
+ * preset's), which is kept as `previous` to return to as it was. Like a
+ * preset's, the panels it put away wait hidden and mounted.
+ */
+export type ActiveFocus = { previous: LayoutDocument; supplied: string[]; pdf: boolean };
+
+/**
  * Where each open document sat in a workspace (its panel, and whether it was
  * that panel's tab in front), so entering the workspace again puts it back.
  */
@@ -41,6 +49,7 @@ type SavedLayout = {
   savedAt: number;
   document: LayoutDocument;
   preset?: ActivePreset;
+  focus?: ActiveFocus;
   workspace?: string;
   places?: Record<string, DocumentPlaces>;
 };
@@ -104,7 +113,7 @@ function panelsOf(doc: LayoutDocument, { hidden = false } = {}): PanelNode[] {
  * its own panel rather than dropped, so its content stays mounted: the Agent's
  * frame must not reload a running turn.
  */
-export function presetLayout(preset: LayoutPreset, doc: LayoutDocument, documents: PresetDocuments): LayoutDocument {
+export function presetLayout(preset: LayoutPreset | "focus", doc: LayoutDocument, documents: PresetDocuments, { pdf = true } = {}): LayoutDocument {
   const { activeKey, openTabs, isReading } = documents;
   const byKey = new Map<string, string>();
   for (const [id, record] of Object.entries(doc.views)) {
@@ -125,7 +134,14 @@ export function presetLayout(preset: LayoutPreset, doc: LayoutDocument, document
     children.length === 1 ? children[0] : { kind: "split", id, axis: "x", weights, children }
   );
   let root: LayoutNode;
-  if (preset === "writing") {
+  if (preset === "focus") {
+    // The document in front stays in front, whatever it is.
+    const ids = keys.map((key) => byKey.get(key)!);
+    if (!ids.length) views.project = { type: "project" };
+    if (pdf) views.pdf = { type: "pdf" };
+    const documentsPanel = ids.length ? panel("panel-focus", ids, activeKey || keys[0]) : panel("panel-project", ["project"], undefined);
+    root = pdf ? row("split-focus", [documentsPanel, panel("panel-pdf", ["pdf"], undefined)], [0.5, 0.5]) : documentsPanel;
+  } else if (preset === "writing") {
     views.pdf = { type: "pdf" };
     const written = keys.filter((key) => !isReading(key));
     // LaTeX is what the PDF is compiled from, so a .tex source wins over the active note.
@@ -179,6 +195,24 @@ export function enterPreset(
   const document = presetLayout(preset, doc, documents);
   const supplied = Object.keys(document.views).filter((id) => document.views[id].type !== "file" && !doc.views[id]);
   return { document, active: { preset, previous: active?.previous ?? doc, supplied: [...active?.supplied ?? [], ...supplied] } };
+}
+
+/**
+ * `doc` in focus mode, with what to return to: entering keeps `doc` itself
+ * (a preset's layout included); showing or hiding the PDF while in focus
+ * mode (`active`) keeps the layout from before focus mode, and adds the PDF
+ * to what focus mode supplied when that layout had none.
+ */
+export function enterFocus(
+  doc: LayoutDocument,
+  active: ActiveFocus | null,
+  documents: PresetDocuments,
+  pdf: boolean,
+): { document: LayoutDocument; active: ActiveFocus } {
+  const document = presetLayout("focus", doc, documents, { pdf });
+  const previous = active?.previous ?? doc;
+  const supplied = Object.keys(document.views).filter((id) => document.views[id].type !== "file" && !previous.views[id]);
+  return { document, active: { previous, supplied: [...new Set([...active?.supplied ?? [], ...supplied])], pdf } };
 }
 
 /**
@@ -395,6 +429,25 @@ export function keepDocumentSlot(previous: LayoutDocument, current: LayoutDocume
   };
 }
 
+const FOCUS_PDF_KEY = "lattice.focus-pdf.v1";
+
+/** Whether focus mode shows the PDF beside the documents: the writer's last choice, in every project. */
+export function loadFocusPdf(): boolean {
+  try {
+    return localStorage.getItem(FOCUS_PDF_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+export function persistFocusPdf(pdf: boolean) {
+  try {
+    localStorage.setItem(FOCUS_PDF_KEY, pdf ? "1" : "0");
+  } catch {
+    // Session-only without storage.
+  }
+}
+
 function storageKey(projectRoot: string) {
   return `${LAYOUT_STORAGE_PREFIX}${projectRoot}`;
 }
@@ -412,6 +465,8 @@ const knownType = (type: string) => (VIEW_TYPES as readonly string[]).includes(t
 export type ProjectLayout = {
   document: LayoutDocument;
   preset: ActivePreset | null;
+  /** Focus mode, when the project was left in it. */
+  focus: ActiveFocus | null;
   /** The workspace the project was last in, if it recorded one. */
   workspace: string | null;
   places: Record<string, DocumentPlaces>;
@@ -436,8 +491,17 @@ export function loadLayout(projectRoot: string): ProjectLayout | null {
             supplied: Array.isArray(saved.preset.supplied) ? saved.preset.supplied.filter((id) => typeof id === "string") : [],
           }
           : null;
+        const focus = saved.focus?.previous
+          ? {
+            previous: sanitize(saved.focus.previous, knownType),
+            supplied: Array.isArray(saved.focus.supplied) ? saved.focus.supplied.filter((id) => typeof id === "string") : [],
+            pdf: saved.focus.pdf === true,
+          }
+          : null;
         const places = saved.places && typeof saved.places === "object" ? saved.places : {};
-        return { document: sanitize(document, knownType), preset, workspace: typeof saved.workspace === "string" ? saved.workspace : null, places };
+        return {
+          document: sanitize(document, knownType), preset, focus, workspace: typeof saved.workspace === "string" ? saved.workspace : null, places,
+        };
       }
     }
   } catch {
@@ -446,11 +510,15 @@ export function loadLayout(projectRoot: string): ProjectLayout | null {
   return null;
 }
 
-export function saveLayout(projectRoot: string, { document, preset = null, workspace = null, places = {} }: Partial<ProjectLayout> & { document: LayoutDocument }) {
+export function saveLayout(
+  projectRoot: string,
+  { document, preset = null, focus = null, workspace = null, places = {} }: Partial<ProjectLayout> & { document: LayoutDocument },
+) {
   try {
     const saved: SavedLayout = {
       version: LAYOUT_VERSION, savedAt: Date.now(), document,
-      ...(preset ? { preset } : {}), ...(workspace ? { workspace } : {}), ...(Object.keys(places).length ? { places } : {}),
+      ...(preset ? { preset } : {}), ...(focus ? { focus } : {}), ...(workspace ? { workspace } : {}),
+      ...(Object.keys(places).length ? { places } : {}),
     };
     localStorage.setItem(storageKey(projectRoot), JSON.stringify(saved));
   } catch {
@@ -475,7 +543,7 @@ export function openProjectLayout(projectRoot: string, library: WorkspaceLibrary
   if (loaded) return { ...loaded, places, workspace };
   // A workspace never saved is the default layout, which gets a document panel with the first document.
   const arrangement = library.get(workspace)?.arrangement;
-  return { document: arrangement ? sanitize(arrangement, knownType) : defaultLayout(), preset: null, workspace, places };
+  return { document: arrangement ? sanitize(arrangement, knownType) : defaultLayout(), preset: null, focus: null, workspace, places };
 }
 
 /** The arrangement saved in workspace `id`: one never saved is the default layout's. */

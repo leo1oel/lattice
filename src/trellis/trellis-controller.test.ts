@@ -37,6 +37,42 @@ describe("TrellisController", () => {
     expect(calls).toEqual(["hide project", "focus papers", "focus agent"]);
   });
 
+  it("in focus mode, brings the PDF in beside the documents and leaves focus mode for any other panel or tool", () => {
+    const controller = new TrellisController();
+    const { ws, calls } = fakeWorkspace([
+      { id: "project", type: "project", placement: "hidden", visible: false, panelId: "a" },
+      { id: "history", type: "history", placement: "hidden", visible: false, panelId: "t" },
+    ]);
+    controller.attachWorkspace(ws);
+    const focus = vi.fn((on: boolean) => controller.ui.set({ focus: on }));
+    controller.installHandlers({ focus });
+    // Not in focus mode, the PDF switch does nothing.
+    controller.setFocusPdf(true);
+    expect(focus).not.toHaveBeenCalled();
+    controller.ui.set({ focus: true });
+    controller.showPanel("pdf");
+    expect(focus).toHaveBeenLastCalledWith(true, true);
+    controller.showPanel("project");
+    expect(focus).toHaveBeenLastCalledWith(false);
+    expect(calls).toEqual(["focus project"]);
+    controller.ui.set({ focus: true });
+    controller.revealTool("history");
+    expect(focus).toHaveBeenLastCalledWith(false);
+    expect(calls).toEqual(["focus project", "focus history"]);
+  });
+
+  it("returns from focus mode when the workspace the project is in is asked for", () => {
+    const controller = new TrellisController();
+    const preset = vi.fn();
+    const workspace = vi.fn();
+    controller.installHandlers({ preset, workspace });
+    controller.ui.set({ workspace: "w1", focus: true });
+    controller.switchWorkspace("w1");
+    expect(preset).toHaveBeenCalledWith(null);
+    controller.switchWorkspace("w2");
+    expect(workspace).toHaveBeenCalledWith("w2");
+  });
+
   it("reveals a tool panel again when its drawer is already open, and leaves a closed one to the drawer", () => {
     const controller = new TrellisController();
     const { ws, calls } = fakeWorkspace([{ id: "history", type: "history", placement: "docked", visible: false, panelId: "t" }]);

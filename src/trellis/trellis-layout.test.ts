@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { sanitize, type LayoutDocument, type LayoutNode, type PanelNode } from "@danfessler/trellis";
 import {
-  arrangeDocuments, defaultLayout, enterPreset, loadLayout, openProjectLayout, placesOf, presetLayout, returnLayout, saveLayout, undoReset,
+  arrangeDocuments, defaultLayout, enterFocus, enterPreset, loadFocusPdf, loadLayout, openProjectLayout, persistFocusPdf, placesOf, presetLayout,
+  returnLayout, saveLayout, undoReset,
 } from "./trellis-layout";
 import { arrangementOf, layoutShape, withDocumentPanel, WorkspaceLibrary } from "./trellis-workspaces";
 
@@ -184,6 +185,67 @@ describe("layout presets", () => {
       version: 2, savedAt: 0, document: presetLayout("writing", previous, documents), preset: { preset: "writing", previous },
     }));
     expect(loadLayout("/old")!.preset).toEqual(expect.objectContaining({ preset: "writing", supplied: [] }));
+  });
+});
+
+describe("focus mode", () => {
+  const keys = ["main.tex", "notes.md", PAPER];
+  const documents = { activeKey: "notes.md", openTabs: keys, isReading };
+  beforeEach(() => localStorage.clear());
+
+  it("puts every open document in one panel, the one in front kept in front, and parks the rest", () => {
+    const doc = presetLayout("focus", workspaceWith(keys), documents, { pdf: false });
+    expect(panels(doc)).toEqual([{ id: "panel-focus", views: ["doc-0", "doc-1", "doc-2"], selected: "doc-1" }]);
+    expect(doc.hidden.map(({ panel }) => panel.views)).toEqual([["project", "agent"], ["papers"], ["pdf"]]);
+  });
+
+  it("shows the PDF beside the documents when asked", () => {
+    const doc = presetLayout("focus", workspaceWith(keys), documents, { pdf: true });
+    expect(panels(doc)).toEqual([
+      { id: "panel-focus", views: ["doc-0", "doc-1", "doc-2"], selected: "doc-1" },
+      { id: "panel-pdf", views: ["pdf"], selected: "pdf" },
+    ]);
+  });
+
+  it("returns to exactly the layout it was entered from, a preset's included", () => {
+    const own = workspaceWith(keys);
+    const back = (from: LayoutDocument) => {
+      const entered = enterFocus(from, null, documents, false);
+      return returnLayout(entered.active.previous, entered.document, documents, entered.active.supplied);
+    };
+    expect(panels(back(own))).toEqual(panels(returnLayout(own, own, documents)));
+    // Writing puts the source in front, and makes it the active document.
+    const writing = presetLayout("writing", own, documents);
+    const source = { ...documents, activeKey: "main.tex" };
+    const focus = enterFocus(writing, null, source, false);
+    expect(panels(returnLayout(focus.active.previous, focus.document, source, focus.active.supplied))).toEqual(panels(writing));
+  });
+
+  it("keeps the layout from before it while the PDF comes and goes, and drops a PDF it brought in", () => {
+    const previous = workspaceWith(keys);
+    delete previous.views.pdf;
+    (previous.root as { children: LayoutNode[] }).children.pop();
+    (previous.root as { weights: number[] }).weights.pop();
+    const entered = enterFocus(previous, null, documents, false);
+    expect(entered.active).toEqual({ previous, supplied: [], pdf: false });
+    const shown = enterFocus(entered.document, entered.active, documents, true);
+    expect(shown.active).toEqual({ previous, supplied: ["pdf"], pdf: true });
+    expect(panels(shown.document).map((panel) => panel.id)).toEqual(["panel-focus", "panel-pdf"]);
+    const back = returnLayout(previous, shown.document, documents, shown.active.supplied);
+    expect(back.views.pdf).toBeUndefined();
+  });
+
+  it("persists with the layout, and remembers whether the PDF was beside the documents", () => {
+    const previous = workspaceWith(keys);
+    const { document, active } = enterFocus(previous, null, documents, true);
+    saveLayout("/focus", { document, focus: active });
+    expect(loadLayout("/focus")!.focus).toEqual({ previous: expect.anything(), supplied: [], pdf: true });
+    expect(panels(loadLayout("/focus")!.focus!.previous)).toEqual(panels(previous));
+    saveLayout("/plain", { document: previous });
+    expect(loadLayout("/plain")!.focus).toBeNull();
+    expect(loadFocusPdf()).toBe(false);
+    persistFocusPdf(true);
+    expect(loadFocusPdf()).toBe(true);
   });
 });
 

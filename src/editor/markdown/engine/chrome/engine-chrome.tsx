@@ -8,6 +8,7 @@
 import { Extension, type AnyExtension, type Editor } from "@tiptap/core";
 import type { PaperSummary } from "../../../../app-types";
 import type { VisualMarkdownEditorProps } from "../../visual-editor-props";
+import { ENGINE_SHORTCUTS } from "../engine-shortcuts";
 import { BlockControls, BlockMoveKeymap } from "./block-controls";
 import { createChromeHost, type ChromeHost } from "./chrome-host";
 import { FindBar, FindReplace, findShortcuts } from "./find-replace";
@@ -48,7 +49,7 @@ export function chromeExtensions(chrome: Chrome): AnyExtension[] {
     Extension.create({
       name: "latticeLinkShortcut",
       addKeyboardShortcuts: () => ({
-        "Mod-k": ({ editor }) => editor.isEditable && requestLinkEditor(editor as Editor, chrome.host),
+        [ENGINE_SHORTCUTS.link.keys[0]]: ({ editor }) => editor.isEditable && requestLinkEditor(editor as Editor, chrome.host),
       }),
     }),
   ];

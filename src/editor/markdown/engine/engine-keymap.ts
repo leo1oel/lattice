@@ -14,6 +14,7 @@
 import { Extension } from "@tiptap/core";
 import { Plugin, PluginKey, TextSelection } from "@tiptap/pm/state";
 import { changedBlockRanges } from "./changed-ranges";
+import { ENGINE_SHORTCUTS } from "./engine-shortcuts";
 import { COMPONENTS_WITH_BODY } from "./mdx-components";
 import { moveDownOrAppendRow } from "./table-commands";
 
@@ -43,7 +44,7 @@ export const EngineKeymap = Extension.create<{ ime: ImeGuard }>({
         editor.view.dispatch(transaction.setSelection(TextSelection.create(transaction.doc, after + 1)).scrollIntoView());
         return true;
       },
-      "Mod-Enter": ({ editor }) => (editor.state.selection.$from.parent.type.name === "codeBlock" ? editor.commands.exitCode() : false),
+      [ENGINE_SHORTCUTS.leaveCodeBlock.keys[0]]: ({ editor }) => (editor.state.selection.$from.parent.type.name === "codeBlock" ? editor.commands.exitCode() : false),
     };
   },
   addProseMirrorPlugins: () => [new Plugin({
