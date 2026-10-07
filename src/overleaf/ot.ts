@@ -100,24 +100,6 @@ export function applyOps(content: string, ops: OtOp[]): string | null {
 }
 
 /**
- * Where a caret at `offset` belongs after `ops` landed. Without this an edit
- * above the cursor drags it, and the person typing loses their spot.
- */
-export function transformCaret(offset: number, ops: OtOp[]): number {
-  let caret = offset;
-  for (const op of ops) {
-    if (typeof op.d === "string") {
-      if (op.p + op.d.length <= caret) caret -= op.d.length;
-      else if (op.p < caret) caret = op.p;
-    }
-    // Text inserted exactly at the caret belongs behind it, so someone
-    // typing where you are does not push your cursor along.
-    if (typeof op.i === "string" && op.p < caret) caret += op.i.length;
-  }
-  return caret;
-}
-
-/**
  * Where a span — a comment quote, a suggestion — ends up after `ops`.
  *
  * Overleaf states where these sit once, when a document is joined, and then

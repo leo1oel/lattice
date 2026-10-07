@@ -38,7 +38,7 @@ function remoteFixture() {
       deps.sourceRef.current = deps.savedSourceRef.current = content;
       return true;
     }),
-    setViewRestore: vi.fn(), compile: vi.fn(async () => {}),
+    compile: vi.fn(async () => {}),
   };
   const context = { projectRoot: "/project", path: "section.tex", baseContent: "old caption", isCurrent: () => true };
   return { deps, context };
@@ -52,8 +52,8 @@ describe("safe Overleaf remote text delivery", () => {
     vi.mocked(invoke).mockImplementation(async (command) => realtimeReply(command, "old caption"));
     const view = renderHook(() => useOverleafRealtime({
       enabled: true, documents: true, projectRoot: "/project", activeFile: "section.tex",
-      readCaret: () => 0, onNotice: notice,
-      onRemoteText: (text, caret, context) => applyOverleafRemoteText(deps, text, caret, context),
+      onNotice: notice,
+      onRemoteText: (text, context) => applyOverleafRemoteText(deps, text, context),
     }));
     await waitFor(() => expect(notice).toHaveBeenCalled());
     expect(view.result.current.liveFile).toBe(false);
@@ -68,7 +68,7 @@ describe("safe Overleaf remote text delivery", () => {
   it("does not replace the editor when disk rejects a stale live write", async () => {
     const { deps, context } = remoteFixture();
     vi.mocked(invoke).mockRejectedValue(new Error("Agent changed the disk"));
-    await expect(applyOverleafRemoteText(deps, "remote caption", 3, context)).rejects.toThrow("Agent changed");
+    await expect(applyOverleafRemoteText(deps, "remote caption", context)).rejects.toThrow("Agent changed");
     expect(invoke).toHaveBeenCalledWith("write_project_file", {
       path: "section.tex", projectRoot: "/project", content: "remote caption", expectedContent: "old caption",
     });
@@ -80,11 +80,10 @@ describe("safe Overleaf remote text delivery", () => {
   it("updates both editor baselines and rebuilds only after a successful guarded write", async () => {
     const { deps, context } = remoteFixture();
     vi.mocked(invoke).mockResolvedValue(undefined);
-    expect(await applyOverleafRemoteText(deps, "remote caption", 3, context)).toBe(true);
+    expect(await applyOverleafRemoteText(deps, "remote caption", context)).toBe(true);
     expect(deps.accept).toHaveBeenCalledWith("section.tex", "remote caption", { text: "old caption", saved: "old caption" });
     expect(deps.sourceRef.current).toBe("remote caption");
     expect(deps.savedSourceRef.current).toBe("remote caption");
-    expect(deps.setViewRestore).toHaveBeenCalledWith(expect.objectContaining({ path: "section.tex", cursor: 3 }));
     expect(deps.compile).toHaveBeenCalledOnce();
   });
 
@@ -92,7 +91,7 @@ describe("safe Overleaf remote text delivery", () => {
     const { deps, context } = remoteFixture();
     let resolve!: () => void;
     vi.mocked(invoke).mockImplementation(() => new Promise<void>((done) => { resolve = done; }));
-    const pending = applyOverleafRemoteText(deps, "remote caption", 3, context);
+    const pending = applyOverleafRemoteText(deps, "remote caption", context);
     if (change === "typing") deps.sourceRef.current = "my unfinished edit";
     if (change === "navigation") deps.activeFileRef.current = "other.tex";
     if (change === "project generation") deps.projectOperationGenerationRef.current += 1;
@@ -100,7 +99,6 @@ describe("safe Overleaf remote text delivery", () => {
     expect(await pending).toBe(false);
     expect(deps.sourceRef.current).toBe(change === "typing" ? "my unfinished edit" : "old caption");
     expect(deps.savedSourceRef.current).toBe("old caption");
-    expect(deps.setViewRestore).not.toHaveBeenCalled();
     expect(deps.compile).not.toHaveBeenCalled();
   });
 });
@@ -121,7 +119,7 @@ function syncFixture() {
   };
   const deps: OverleafWorkspaceDeps = {
     ...remote, project, activeFile: "section.tex", source: "old caption",
-    activePaper: null, activeAsset: null, viewStateRef: { current: new Map() },
+    activePaper: null, activeAsset: null,
     editorPosition: null, editorPositionRef: { current: null }, build: null,
     saveGeneration: 0, savedPathsRef: { current: new Set() },
     wholeFileEditingPaths: [], wholeFileDraftPaths: [], save: vi.fn(async () => true),
@@ -243,6 +241,8 @@ describe("external edit Overleaf handoff", () => {
     }
     expect(fixture.server()).toBe("agent caption and new section");
     expect(fixture.deps.sourceRef.current).toBe(fixture.server());
+    // Taken into the open editor where it is: a saved view put back over it would predate the edit.
+    expect(fixture.deps.loadFile).toHaveBeenCalledWith("section.tex", expect.objectContaining({ restoreView: false }));
     expect(fixture.deps.compile).not.toHaveBeenCalled();
     expect(invoke).toHaveBeenCalledWith("overleaf_sync", expect.objectContaining({ live: [] }));
   });

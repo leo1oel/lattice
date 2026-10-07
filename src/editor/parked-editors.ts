@@ -25,6 +25,7 @@
  */
 import { EditorState, StateEffect, Transaction, type Extension, type Text } from "@codemirror/state";
 import type { EditorView } from "@codemirror/view";
+import { documentText, textChange } from "./text-change";
 
 type Parked = {
   root: string;
@@ -54,10 +55,10 @@ export function resumeParkedEditor(root: string, path: string, doc: string, exte
   if (!entry) return null;
   // Compared as CodeMirror holds it: a file with CRLF (or CR) line breaks is
   // read with them, but its state joins its lines with "\n".
-  const text = doc.includes("\r") ? doc.replace(/\r\n?/g, "\n") : doc;
+  const text = documentText(doc);
   entry.text ??= entry.state.doc.toString();
   if (entry.text !== text) {
-    const changes = entry.state.changes(difference(entry.text, text));
+    const changes = entry.state.changes(textChange(entry.text, text));
     // Taken in once, in place of the old state, for the tab's snapshot and
     // then its live editor alike. A parse context hands its skipped ranges to
     // the one a change makes from it, so a second change from the old state
@@ -74,16 +75,6 @@ export function resumeParkedEditor(root: string, path: string, doc: string, exte
     state: entry.state.update({ effects: StateEffect.reconfigure.of(extensions) }).state,
     scrollTo: entry.scroll ?? undefined,
   };
-}
-
-/** The one replacement turning `previous` into `next`: what they share at either end stays put. */
-function difference(previous: string, next: string) {
-  const shorter = Math.min(previous.length, next.length);
-  let from = 0;
-  while (from < shorter && previous.charCodeAt(from) === next.charCodeAt(from)) from += 1;
-  let kept = 0;
-  while (kept < shorter - from && previous.charCodeAt(previous.length - 1 - kept) === next.charCodeAt(next.length - 1 - kept)) kept += 1;
-  return { from, to: previous.length - kept, insert: next.slice(from, next.length - kept) };
 }
 
 /** Views built from a parked state, with the document they resumed. */

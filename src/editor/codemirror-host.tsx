@@ -8,9 +8,11 @@
  * `cm-theme-light` wrapper div) but reconciles the controlled value by
  * REFERENCE first: App passes back the very string object `onChange` emitted,
  * so the per-keystroke echo is a pointer comparison. Genuinely external values
- * (file load, agent edits, visual-editor publications) replace the document
- * annotated `hostExternalChange`, so they never echo back through `onChange`,
- * and wait out active typing as the wrapper did.
+ * (file load, agent edits, syncs and collaborators, visual-editor publications)
+ * replace only the text that differs, so the caret and the place stay with
+ * their text (see text-change.ts). They are annotated `hostExternalChange`, so
+ * they never echo back through `onChange`, and wait out active typing as the
+ * wrapper did.
  *
  * Given `park`, a view parks its state and scroll when it is destroyed and
  * the next mount of the same document resumes from them (see parked-editors.ts).
@@ -33,6 +35,7 @@ import { lintKeymap } from "@codemirror/lint";
 import { withoutAppShortcuts } from "./editor-app-shortcuts";
 import { noteResumed, parkEditor, resumeParkedEditor } from "./parked-editors";
 import { sourceGutter } from "./source-gutter";
+import { documentText, textChange } from "./text-change";
 import { i18n } from "../i18n";
 
 const hostExternalChange = Annotation.define<boolean>();
@@ -215,11 +218,10 @@ export function CodeMirrorHost(props: CodeMirrorHostProps) {
         }, TYPING_QUIET_MS);
         return;
       }
-      if (next !== view.state.doc.toString()) {
-        view.dispatch({
-          changes: { from: 0, to: view.state.doc.length, insert: next },
-          annotations: [hostExternalChange.of(true)],
-        });
+      const current = view.state.doc.toString();
+      const text = documentText(next);
+      if (text !== current) {
+        view.dispatch({ changes: textChange(current, text), annotations: [hostExternalChange.of(true)] });
       }
       lastEmittedRef.current = next;
     };
