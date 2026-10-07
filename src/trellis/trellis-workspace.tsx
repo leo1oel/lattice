@@ -45,7 +45,7 @@ import { ProjectAssetPreview } from "../canvas/project-asset-preview";
 import { capturePreviewViewport, restorePreviewViewport } from "../canvas/markdown-preview-sync";
 import type { AssetPreview } from "../app-types";
 import {
-  TOOL_KINDS, documentTools, useTrellisApp, useTrellisUi, type TrellisController, type TrellisSingleton, type TrellisToolKind,
+  TOOL_KINDS, documentTools, useTrellisApp, type TrellisController, type TrellisSingleton, type TrellisToolKind,
   type TrellisUiState,
 } from "./trellis-controller";
 import {
@@ -858,13 +858,12 @@ type ResetUndo = {
   document: LayoutDocument; preset: ActivePreset | null; focusMode: ActiveFocus | null; focused: string | null; left: string;
 };
 
-type WorkspaceProps = { controller: TrellisController; projectRoot: string; dark: boolean };
+/** `focusMode` comes from App, which reads it already: a subscription here would cost a hook on every startup render. */
+type WorkspaceProps = { controller: TrellisController; projectRoot: string; dark: boolean; focusMode: boolean };
 
 /** Memoized: App re-renders on every keystroke, and nothing here needs to follow it. */
-const TrellisWorkspace = memo(function TrellisWorkspace({ controller, projectRoot, dark }: WorkspaceProps) {
+const TrellisWorkspace = memo(function TrellisWorkspace({ controller, projectRoot, dark, focusMode }: WorkspaceProps) {
   const { t, i18n } = useLingui();
-  // Focus mode drops the document and PDF panels' tab bars: the panel is the page.
-  const focusMode = useTrellisUi(controller, (state) => state.focus);
   const [{ initial, initialPreset, initialFocus, initialWorkspace, initialPlaces, agentMinSize, pdfMinSize }] = useState(() => {
     installTrellisLabels();
     const saved = openProjectLayout(projectRoot, controller.workspaces);
@@ -1456,6 +1455,7 @@ const TrellisWorkspace = memo(function TrellisWorkspace({ controller, projectRoo
         >
           <AgentView controller={controller} />
         </ViewType>
+        {/* Focus mode drops the document and PDF panels' tab bars: the panel is the page. */}
         <ViewType
           id="pdf" title={title("pdf")} singleton icon={PANEL_ICONS.pdf} minSize={pdfMinSize} scaling={false}
           menu={actions("pdf")} tabbar={focusMode ? "never" : undefined}

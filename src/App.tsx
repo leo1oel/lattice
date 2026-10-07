@@ -1724,7 +1724,7 @@ function App() {
 
       <main className="workspace trellis-workspace">
         <Suspense fallback={<div className="document-canvas-loading" aria-label={t`Preparing workspace`} />}>
-          <TrellisWorkspace key={project.root} controller={trellis} projectRoot={project.root} dark={theme === "dark"} />
+          <TrellisWorkspace key={project.root} controller={trellis} projectRoot={project.root} dark={theme === "dark"} focusMode={focusMode} />
         </Suspense>
         {createPortal(
           <Suspense fallback={null}>
