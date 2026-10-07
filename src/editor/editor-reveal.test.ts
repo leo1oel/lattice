@@ -120,14 +120,14 @@ describe("revealInEditor", () => {
 });
 
 describe("source editors", () => {
-  it("center a find result like every other jump, and leave room past the end to do so", () => {
+  it("center a find result like every other jump, and end at their last line", () => {
     const center = vi.spyOn(EditorView, "scrollIntoView");
     const view = editor("alpha\nbeta\ngamma", textEditorExtensions());
     view.dispatch({ effects: setSearchQuery.of(new SearchQuery({ search: "gamma" })) });
     findNext(view);
     expect(view.state.selection.main).toMatchObject({ from: 11, to: 16 });
     expect(center).toHaveBeenCalledWith(11, { y: "center" });
-    // scrollPastEnd pads the content so the last line can reach the middle of the viewport.
-    expect(view.contentDOM.style.paddingBottom).not.toBe("");
+    // No scroll-past-end padding: a target near the end lands at the bottom edge instead of the middle.
+    expect(view.contentDOM.style.paddingBottom).toBe("");
   });
 });
