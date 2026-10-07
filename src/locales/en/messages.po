@@ -341,6 +341,10 @@ msgstr "{notes} notes"
 msgid "{notice}. Open notice"
 msgstr "{notice}. Open notice"
 
+#: src/canvas/proofread-card.tsx
+msgid "{offered} suggested edits"
+msgstr "{offered} suggested edits"
+
 #: src/telemetry/diagnostic-request.ts
 msgid "{operation} request error"
 msgstr "{operation} request error"
@@ -470,6 +474,10 @@ msgstr "1 page remaining"
 msgid "1 paper"
 msgstr "1 paper"
 
+#: src/canvas/proofread-card.tsx
+msgid "1 suggested edit"
+msgstr "1 suggested edit"
+
 #: src/project/manuscript-checklist.tsx
 msgid "1 word over"
 msgstr "1 word over"
@@ -554,6 +562,14 @@ msgstr "Accent"
 msgid "Accept"
 msgstr "Accept"
 
+#: src/canvas/proofread-card.tsx
+msgid "Accept {kept} of {offered}"
+msgstr "Accept {kept} of {offered}"
+
+#: src/canvas/proofread-card.tsx
+msgid "Accept all"
+msgstr "Accept all"
+
 #. placeholder {0}: sorted.length
 #: src/overleaf/overleaf-changes.tsx
 msgid "Accept all ({0})"
@@ -562,6 +578,10 @@ msgstr "Accept all ({0})"
 #: src/papers/bibliography-audit.tsx
 msgid "Accept all updates"
 msgstr "Accept all updates"
+
+#: src/canvas/proofread-card.tsx
+msgid "Accept this edit"
+msgstr "Accept this edit"
 
 #: src/settings/literature-settings.tsx
 msgid "Access denied. Check the key"
@@ -775,6 +795,10 @@ msgstr "Alpha"
 #: src/papers/literature-discovery-panel.tsx
 msgid "Already in Papers"
 msgstr "Already in Papers"
+
+#: src/canvas/proofread-card.tsx
+msgid "Also improve flow and academic clarity"
+msgstr "Also improve flow and academic clarity"
 
 #: src/editor/markdown/engine/views/image-view.tsx
 msgid "Alt text"
@@ -1704,6 +1728,10 @@ msgstr "Citation tool"
 msgid "Citations"
 msgstr "Citations"
 
+#: src/canvas/proofread-card.tsx
+msgid "citations or references"
+msgstr "citations or references"
+
 #: src/editor/latex/latex-command-completions.ts
 msgid "Cite bibliography entries"
 msgstr "Cite bibliography entries"
@@ -1916,6 +1944,10 @@ msgstr "Comment source"
 #: src/editor/comments/comment-visibility-filter.tsx
 msgid "Comment visibility"
 msgstr "Comment visibility"
+
+#: src/canvas/proofread-card.tsx
+msgid "comments"
+msgstr "comments"
 
 #: src/app/use-editor-comments.ts
 #: src/canvas/editor-status-bar.tsx
@@ -2141,6 +2173,10 @@ msgstr "Copyright notices of the packages under this text"
 msgid "Core components"
 msgstr "Core components"
 
+#: src/canvas/proofread-card.tsx
+msgid "Correct grammar, spelling and punctuation only"
+msgstr "Correct grammar, spelling and punctuation only"
+
 #: src/project/citation-health.ts
 msgid "Correction/update"
 msgstr "Correction/update"
@@ -2200,6 +2236,10 @@ msgstr "Could not open the project on Overleaf: {message}"
 #: src/papers/audit-messages.ts
 msgid "Could not parse {count} bibliography construct(s)."
 msgstr "Could not parse {count} bibliography construct(s)."
+
+#: src/canvas/proofread-card.tsx
+msgid "Could not polish"
+msgstr "Could not polish"
 
 #: src/canvas/proofread-card.tsx
 msgid "Could not proofread"
@@ -2907,6 +2947,10 @@ msgstr "edited"
 msgid "Edited on both sides in the same place. Applying marks the spots in the file so you can choose"
 msgstr "Edited on both sides in the same place. Applying marks the spots in the file so you can choose"
 
+#: src/canvas/proofread-card.tsx
+msgid "Editing strength"
+msgstr "Editing strength"
+
 #: src/settings/settings-dialog.tsx
 msgid "Editor"
 msgstr "Editor"
@@ -2945,6 +2989,10 @@ msgstr "Editor status"
 #: src/settings/acknowledged-software.ts
 msgid "Editor typeface, by Ahmed Hatem, built on Iosevka by Renzhi Li"
 msgstr "Editor typeface, by Ahmed Hatem, built on Iosevka by Renzhi Li"
+
+#: src/canvas/proofread-card.tsx
+msgid "Edits held back"
+msgstr "Edits held back"
 
 #: src/overleaf/overleaf-connect.tsx
 msgid "Edits on both sides merge when you resume"
@@ -3068,6 +3116,10 @@ msgstr "Entry changed"
 #: src/papers/bibliography-audit.tsx
 msgid "Entry type"
 msgstr "Entry type"
+
+#: src/canvas/proofread-card.tsx
+msgid "environments"
+msgstr "environments"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Epsilon"
@@ -3664,6 +3716,14 @@ msgstr "Health checked at"
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Heart suit"
 msgstr "Heart suit"
+
+#: src/canvas/proofread-card.tsx
+msgid "Held back {count} edits that would change {changed}. Lattice only offers edits that leave LaTeX intact."
+msgstr "Held back {count} edits that would change {changed}. Lattice only offers edits that leave LaTeX intact."
+
+#: src/canvas/proofread-card.tsx
+msgid "Held back 1 edit that would change {changed}. Lattice only offers edits that leave LaTeX intact."
+msgstr "Held back 1 edit that would change {changed}. Lattice only offers edits that leave LaTeX intact."
 
 #: src/app/native-locale.ts
 msgctxt "macOS menu bar"
@@ -4337,6 +4397,10 @@ msgstr "Last, First and Last, First"
 msgid "LaTeX build driver"
 msgstr "LaTeX build driver"
 
+#: src/canvas/proofread-card.tsx
+msgid "LaTeX commands"
+msgstr "LaTeX commands"
+
 #: src/app/use-build-pipeline.ts
 msgid "LaTeX compilation failed."
 msgstr "LaTeX compilation failed."
@@ -4818,6 +4882,7 @@ msgstr "Match system"
 msgid "Matching settings"
 msgstr "Matching settings"
 
+#: src/canvas/proofread-card.tsx
 #: src/editor/latex/math-region.ts
 msgid "math"
 msgstr "math"
@@ -4993,6 +5058,10 @@ msgstr "Missing tools: {0}"
 #: src/settings/theme-settings.tsx
 msgid "Mist"
 msgstr "Mist"
+
+#: src/canvas/proofread-card.tsx
+msgid "Model"
+msgstr "Model"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Models / entails"
@@ -5286,6 +5355,10 @@ msgstr "No differences. You can close this window"
 msgid "No document open"
 msgstr "No document open"
 
+#: src/canvas/proofread-card.tsx
+msgid "No edits selected. The selection stays as written."
+msgstr "No edits selected. The selection stays as written."
+
 #: src/overleaf/overleaf-history.tsx
 msgid "No file changes recorded for this update"
 msgstr "No file changes recorded for this update"
@@ -5444,6 +5517,10 @@ msgstr "No results"
 msgid "No results for “{trimmedQuery}”"
 msgstr "No results for “{trimmedQuery}”"
 
+#: src/canvas/proofread-card.tsx
+msgid "No safe edits"
+msgstr "No safe edits"
+
 #: src/canvas/document-outline.tsx
 msgid "No sections yet. Add a \\section{…} to start the outline"
 msgstr "No sections yet. Add a \\section{…} to start the outline"
@@ -5519,6 +5596,10 @@ msgstr "Not equal"
 #: src/onboarding/guided-tour.tsx
 msgid "Not now"
 msgstr "Not now"
+
+#: src/canvas/proofread-card.tsx
+msgid "Not offered"
+msgstr "Not offered"
 
 #: src/overleaf/overleaf-connect.tsx
 msgid "Not synced yet"
@@ -6107,6 +6188,10 @@ msgstr "Paper switch"
 msgid "Papers"
 msgstr "Papers"
 
+#: src/canvas/proofread-card.tsx
+msgid "paragraph breaks"
+msgstr "paragraph breaks"
+
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Parallel"
 msgstr "Parallel"
@@ -6319,6 +6404,19 @@ msgstr "Please try again later"
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Plus-minus"
 msgstr "Plus-minus"
+
+#: src/canvas/proofread-card.tsx
+#: src/editor/latex/latex-selection-toolbar.tsx
+msgid "Polish"
+msgstr "Polish"
+
+#: src/canvas/proofread-card.tsx
+msgid "Polish suggestion"
+msgstr "Polish suggestion"
+
+#: src/canvas/proofread-card.tsx
+msgid "Polishing…"
+msgstr "Polishing…"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Pounds sterling"
@@ -6775,9 +6873,14 @@ msgstr "Regular expression"
 msgid "Reject"
 msgstr "Reject"
 
+#: src/canvas/proofread-card.tsx
 #: src/overleaf/overleaf-changes.tsx
 msgid "Reject all"
 msgstr "Reject all"
+
+#: src/canvas/proofread-card.tsx
+msgid "Reject this edit"
+msgstr "Reject this edit"
 
 #: src/canvas/html-preview.tsx
 msgid "Relative project links are unavailable in this preview"
@@ -8455,8 +8558,12 @@ msgid "The agent could not proofread the selection."
 msgstr "The agent could not proofread the selection."
 
 #: src/canvas/proofread-card.tsx
-msgid "The agent is checking grammar, spelling and clarity. LaTeX commands, math and citations stay as written."
-msgstr "The agent is checking grammar, spelling and clarity. LaTeX commands, math and citations stay as written."
+msgid "The agent is correcting grammar, spelling and punctuation. Math, citations, comments and LaTeX commands must stay as written; Lattice holds back any edit that changes them."
+msgstr "The agent is correcting grammar, spelling and punctuation. Math, citations, comments and LaTeX commands must stay as written; Lattice holds back any edit that changes them."
+
+#: src/canvas/proofread-card.tsx
+msgid "The agent is improving flow and clarity. Math, citations, comments and LaTeX commands must stay as written; Lattice holds back any edit that changes them."
+msgstr "The agent is improving flow and clarity. Math, citations, comments and LaTeX commands must stay as written; Lattice holds back any edit that changes them."
 
 #: src/settings/acknowledged-software.ts
 msgid "The agent runtime behind the AI assistant, by T3 Tools Inc. and Emanuele Di Pietro"
@@ -8671,6 +8778,10 @@ msgstr "The selected text changed. Select it again before commenting."
 #: src/canvas/proofread-card.tsx
 msgid "The selection already reads cleanly."
 msgstr "The selection already reads cleanly."
+
+#: src/canvas/proofread-card.tsx
+msgid "The selection already reads well."
+msgstr "The selection already reads well."
 
 #: src/editor/markdown/engine/lattice-visual-editor.tsx
 msgid "The shared version is shown. Your visual draft was kept — copy it, or restore it and try again."
@@ -8930,6 +9041,10 @@ msgstr "Today's date"
 #: src/trellis/trellis-titles.ts
 msgid "TODOs"
 msgstr "TODOs"
+
+#: src/canvas/proofread-layer.tsx
+msgid "Together, the chosen edits would change LaTeX. Accept fewer edits, or proofread again."
+msgstr "Together, the chosen edits would change LaTeX. Accept fewer edits, or proofread again."
 
 #: src/app/use-overleaf-workspace.ts
 msgid "Too large for Overleaf, so left on this machine: {files}."
@@ -9314,6 +9429,10 @@ msgstr "Venue template"
 #: src/papers/bib-entry-dialog.tsx
 msgid "Venue unavailable"
 msgstr "Venue unavailable"
+
+#: src/canvas/proofread-card.tsx
+msgid "verbatim code"
+msgstr "verbatim code"
 
 #: src/papers/bibliography-audit.tsx
 msgid "Verified publication match"

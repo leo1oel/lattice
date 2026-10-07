@@ -9,6 +9,7 @@ import {
   SpellCheck,
   Strikethrough,
   Underline,
+  WandSparkles,
 } from "lucide-react";
 import { createPortal } from "react-dom";
 import { useEffect, useState } from "react";
@@ -32,7 +33,8 @@ export type LatexSelectionAction =
   | "quote"
   | "highlight"
   | "comment"
-  | "proofread";
+  | "proofread"
+  | "polish";
 
 /** The toolbar and the menus it opens: pointer or focus there keeps it open. */
 export const SELECTION_TOOLBAR_SURFACES = ".latex-selection-toolbar-anchor, .latex-tool-menu, .latex-highlight-picker";
@@ -52,6 +54,7 @@ const actions: { action: LatexSelectionAction; label: MessageDescriptor; icon: t
   { action: "quote", label: msg`Quote`, icon: Quote },
   { action: "comment", label: msg`Comment`, icon: MessageSquareText, separated: true },
   { action: "proofread", label: msg`Proofread`, icon: SpellCheck, shortcut: "⌘⌥P" },
+  { action: "polish", label: msg`Polish`, icon: WandSparkles },
 ];
 
 const headingLevels: { command: string; label: MessageDescriptor }[] = [
@@ -66,7 +69,7 @@ export function LatexSelectionToolbar(props: {
   position: LatexSelectionToolbarPosition;
   canComment: boolean;
   commentOnly?: boolean;
-  /** Offer the agent's proofread (an editable LaTeX source with a project). */
+  /** Offer the agent's proofread and polish (an editable LaTeX source with a project). */
   canProofread?: boolean;
   onAction: (action: LatexSelectionAction, value?: string) => void;
   onDismiss: () => void;
@@ -93,7 +96,7 @@ export function LatexSelectionToolbar(props: {
     setHighlightOpen(false);
   };
   const visibleActions = actions.filter(({ action }) => action === "comment" ? props.canComment
-    : action === "proofread" ? Boolean(props.canProofread) && !props.commentOnly : !props.commentOnly);
+    : action === "proofread" || action === "polish" ? Boolean(props.canProofread) && !props.commentOnly : !props.commentOnly);
   const onDismiss = props.onDismiss;
   useEffect(() => {
     const dismissOnOutsidePointerDown = (event: PointerEvent) => {

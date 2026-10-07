@@ -554,7 +554,7 @@ describe("documents and editors", () => {
     await waitFor(() => expect(restoredEditEditor.scrollDOM.scrollTop).toBe(640));
 
     stubScrollBox(restoredEditEditor.scrollDOM, 1_000, 3_000);
-    // The source hands off its position within the text, not within the scroll-past-end padding below it: halfway
+    // The source hands off its position within the text, not within the padding below it: halfway
     // through the text must land halfway down the Preview.
     restoredEditEditor.scrollDOM.scrollTop = (2_000 - restoredEditEditor.documentPadding.bottom) / 2;
     fireEvent.click(within(documentView).getByRole("tab", { name: "Preview" }));

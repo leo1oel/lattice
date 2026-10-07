@@ -4,12 +4,12 @@
  * one move straight to the target, the target centered in the viewport, the
  * caret or selection on it, and its lines briefly marked so the eye finds it.
  *
- * Centering needs room below the last line, or a target near the end of a
- * document is pinned to the bottom edge instead (the scroller cannot go
- * further), so the editors that take jumps scroll past their end.
+ * The document ends at its last line: there is no room scrolled past it, so a
+ * target too near the end to center lands as low as the scroller goes — still
+ * whole on screen, at the bottom edge.
  */
 import { StateEffect, StateField, type Extension, type Text } from "@codemirror/state";
-import { Decoration, EditorView, scrollPastEnd, type DecorationSet } from "@codemirror/view";
+import { Decoration, EditorView, type DecorationSet } from "@codemirror/view";
 import { clamp } from "../settings/app-settings";
 import { focusWhenShown } from "./focus-when-shown";
 
@@ -42,9 +42,9 @@ const revealFlash = StateField.define<DecorationSet>({
   provide: (field) => EditorView.decorations.from(field),
 });
 
-/** For every editor that can be sent somewhere: room to center the last lines, and the target's mark. */
+/** For every editor that can be sent somewhere: the target's mark. */
 export function revealExtension(): Extension {
-  return [scrollPastEnd(), revealFlash];
+  return revealFlash;
 }
 
 const flashTimers = new WeakMap<EditorView, number>();
@@ -107,7 +107,9 @@ export function releaseReveal(view: EditorView) {
  * drawing settles, every scroll the jump did not ask for and every change in
  * the content's height re-checks the target, and centers it again if it
  * moved — unless the writer has moved the selection or the view since, or
- * sent it somewhere else.
+ * sent it somewhere else. The viewport's own height counts too: a caret landed
+ * in math opens the preview beneath the editor, and with no room past the end a
+ * target at the bottom edge would drop out of sight below it.
  */
 function centerAgainOnceDrawn(view: EditorView, from: number) {
   releaseReveal(view);
@@ -133,6 +135,7 @@ function centerAgainOnceDrawn(view: EditorView, from: number) {
   holds.set(view, stop);
   scrollDOM.addEventListener("scroll", check);
   resized.observe(contentDOM);
+  resized.observe(scrollDOM);
   for (const type of WRITER_INPUT) view.dom.addEventListener(type, stop, true);
 }
 
