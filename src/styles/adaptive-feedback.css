@@ -78,7 +78,7 @@
 .app-toast-action:hover { background: var(--border-subtle); }
 .app-toast > button { width: 24px; height: 24px; display: grid; place-items: center; border-radius: var(--radius-icon); background: transparent; color: var(--text-secondary); }
 .app-toast > button:hover { background: var(--border-subtle); color: var(--text-primary); }
-.app-log-actions { display: flex; align-items: center; gap: var(--space-3); margin: var(--space-5) 0; overflow-x: auto; flex: none; }
+.app-log-actions { display: flex; align-items: center; gap: var(--space-3); margin: 0 0 var(--space-5); overflow-x: auto; flex: none; }
 .app-log-action-row, .app-log-query-row { display: flex; align-items: center; gap: var(--space-3); }
 .app-log-query-row { flex: 1 0 260px; min-width: 0; }
 .app-log-action-row { flex: none; }
@@ -92,7 +92,9 @@
 .settings-content [data-slot="scroll-area-content"]:has(.app-logs-settings) { height: 100%; }
 .app-logs-settings { height: 100%; max-width: none; display: flex; flex-direction: column; }
 .app-logs-settings .ui-settings-group { flex: 1; min-height: 0; display: flex; flex-direction: column; }
-.app-log-scroll { flex: 1; min-height: 140px; background: var(--surface-app); }
+/* Bordered like the other boxes in Settings (the Overleaf cards), so the log
+   reads as a framed well rather than a square patch of a darker surface. */
+.app-log-scroll { flex: 1; min-height: 140px; border: 1px solid var(--border-subtle); border-radius: var(--radius-surface); background: var(--surface-app); }
 .app-log-scroll [data-slot="scroll-area-viewport"] { overscroll-behavior-y: contain; }
 .app-log-list { display: flex; flex-direction: column; padding-block: var(--space-4); font: var(--type-label-size)/1.8 var(--editor-font); user-select: text; }
 .app-log-entry { user-select: text; }
