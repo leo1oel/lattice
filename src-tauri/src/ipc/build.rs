@@ -1,5 +1,6 @@
 //! Compiling the document and the tools around it: the PDF, SyncTeX, TexLab,
-//! formatting, spelling, the environment doctor and the TeX installer.
+//! formatting, spelling and proofreading, the environment doctor and the TeX
+//! installer.
 
 use super::{binary_save, current_root, in_project, pinned_root, run_blocking, run_quietly};
 use crate::app_state::AppState;
@@ -48,8 +49,9 @@ pub async fn compile_repair(
     }
     let app = window.app_handle().clone();
     run_blocking("Compile repair", move || {
-        synara::compile_repair_request(
+        synara::task_relay_request(
             &app.state::<synara::SynaraRuntime>(),
+            synara::COMPILE_REPAIR_ROUTE,
             &action,
             thread_id.as_deref(),
             serde_json::json!({
@@ -58,6 +60,30 @@ pub async fn compile_repair(
                 "rootDocument": root_document,
                 "runtimeMode": runtime_mode,
             }),
+        )
+    })
+    .await
+}
+
+/// One read-only agent turn over `prompt`, answered by its final message
+/// (proofreading a selection). Start, then poll `status` until it settles.
+#[tauri::command]
+pub async fn agent_text_task(
+    state: State<'_, AppState>, window: Window, project_root: String, action: String,
+    task_id: Option<String>, prompt: Option<String>,
+) -> Result<serde_json::Value, String> {
+    // Status/cancel may refer to the outgoing project during a window switch.
+    if action == "start" {
+        pinned_root(&state, &window, &project_root, "the agent task could start")?;
+    }
+    let app = window.app_handle().clone();
+    run_blocking("Agent text task", move || {
+        synara::task_relay_request(
+            &app.state::<synara::SynaraRuntime>(),
+            synara::TEXT_TASK_ROUTE,
+            &action,
+            task_id.as_deref(),
+            serde_json::json!({ "workspaceRoot": project_root, "prompt": prompt }),
         )
     })
     .await

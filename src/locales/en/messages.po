@@ -542,6 +542,7 @@ msgstr "Abstract environment"
 msgid "Accent"
 msgstr "Accent"
 
+#: src/canvas/proofread-card.tsx
 #: src/editor/markdown/engine/chrome/review-chrome.tsx
 #: src/overleaf/overleaf-changes.tsx
 #: src/overleaf/overleaf-editor-extensions.ts
@@ -1329,6 +1330,7 @@ msgstr "Can take up to 15 minutes"
 
 #: src/build/tex-dependency-installer.tsx
 #: src/canvas/comment-composer.tsx
+#: src/canvas/proofread-card.tsx
 #: src/components/ui/confirm-action-dialog.tsx
 #: src/editor/comments/editor-comments-panel.tsx
 #: src/editor/goto-line-dialog.tsx
@@ -2158,6 +2160,10 @@ msgstr "Could not open the project on Overleaf: {message}"
 msgid "Could not parse {count} bibliography construct(s)."
 msgstr "Could not parse {count} bibliography construct(s)."
 
+#: src/canvas/proofread-card.tsx
+msgid "Could not proofread"
+msgstr "Could not proofread"
+
 #: src/build/tex-doctor-messages.ts
 msgid "Could not read {path}: {error}"
 msgstr "Could not read {path}: {error}"
@@ -2185,6 +2191,7 @@ msgstr "Could not render these changes: {0}"
 msgid "Could not render these changes: {renderError}"
 msgstr "Could not render these changes: {renderError}"
 
+#: src/canvas/proofread-diff.tsx
 #: src/history/file-diff-view.tsx
 msgid "Could not render this diff: {errorMessage}"
 msgstr "Could not render this diff: {errorMessage}"
@@ -2551,6 +2558,7 @@ msgstr "Discard and close"
 msgid "Discover literature"
 msgstr "Discover literature"
 
+#: src/canvas/proofread-card.tsx
 #: src/telemetry/app-updater.tsx
 msgid "Dismiss"
 msgstr "Dismiss"
@@ -2623,6 +2631,7 @@ msgstr "Does not exist"
 msgid "DOI metadata corrections are available."
 msgstr "DOI metadata corrections are available."
 
+#: src/canvas/proofread-card.tsx
 #: src/editor/markdown/engine/chrome/link-chrome.tsx
 #: src/onboarding/guided-tour.tsx
 msgid "Done"
@@ -5148,6 +5157,10 @@ msgstr "No changes recorded yet"
 msgid "No changes since the last version."
 msgstr "No changes since the last version."
 
+#: src/canvas/proofread-card.tsx
+msgid "No changes suggested"
+msgstr "No changes suggested"
+
 #: src/overleaf/overleaf-comments.tsx
 msgid "No comments yet"
 msgstr "No comments yet"
@@ -6382,6 +6395,19 @@ msgstr "Project uploaded and connected to Overleaf."
 msgid "Proof environment (requires amsthm)"
 msgstr "Proof environment (requires amsthm)"
 
+#: src/canvas/proofread-card.tsx
+#: src/editor/latex/latex-selection-toolbar.tsx
+msgid "Proofread"
+msgstr "Proofread"
+
+#: src/canvas/proofread-card.tsx
+msgid "Proofread suggestion"
+msgstr "Proofread suggestion"
+
+#: src/canvas/proofread-card.tsx
+msgid "Proofreading…"
+msgstr "Proofreading…"
+
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Proportional to"
 msgstr "Proportional to"
@@ -6611,6 +6637,7 @@ msgstr "Regex"
 msgid "Regular expression"
 msgstr "Regular expression"
 
+#: src/canvas/proofread-card.tsx
 #: src/editor/markdown/engine/chrome/review-chrome.tsx
 #: src/overleaf/overleaf-changes.tsx
 #: src/overleaf/overleaf-editor-extensions.ts
@@ -6741,6 +6768,8 @@ msgstr "Renaming…"
 msgid "Rendering changes…"
 msgstr "Rendering changes…"
 
+#: src/canvas/proofread-card.tsx
+#: src/canvas/proofread-diff.tsx
 #: src/history/file-diff-view.tsx
 msgid "Rendering diff…"
 msgstr "Rendering diff…"
@@ -7510,6 +7539,10 @@ msgstr "Select all matches"
 msgid "Select all references"
 msgstr "Select all references"
 
+#: src/canvas/use-proofread.tsx
+msgid "Select at most {limit} characters to proofread."
+msgstr "Select at most {limit} characters to proofread."
+
 #: src/editor/markdown/engine/chrome/block-controls.tsx
 msgid "Select block"
 msgstr "Select block"
@@ -8052,6 +8085,10 @@ msgstr "Success"
 msgid "Suggested change"
 msgstr "Suggested change"
 
+#: src/canvas/proofread-card.tsx
+msgid "Suggested edits"
+msgstr "Suggested edits"
+
 #: src/overleaf/overleaf-changes.tsx
 msgid "suggests deleting"
 msgstr "suggests deleting"
@@ -8260,9 +8297,25 @@ msgstr "the acknowledgement did not arrive in time"
 msgid "The Agent"
 msgstr "The Agent"
 
+#: src/canvas/use-proofread.tsx
+msgid "The agent could not proofread the selection: {detail}"
+msgstr "The agent could not proofread the selection: {detail}"
+
+#: src/canvas/use-proofread.tsx
+msgid "The agent could not proofread the selection."
+msgstr "The agent could not proofread the selection."
+
+#: src/canvas/proofread-card.tsx
+msgid "The agent is checking grammar, spelling and clarity. LaTeX commands, math and citations stay as written."
+msgstr "The agent is checking grammar, spelling and clarity. LaTeX commands, math and citations stay as written."
+
 #: src/build/compile-repair-messages.ts
 msgid "The agent service is unavailable."
 msgstr "The agent service is unavailable."
+
+#: src/canvas/use-proofread.tsx
+msgid "The agent's reply did not contain a proofread version of the selection."
+msgstr "The agent's reply did not contain a proofread version of the selection."
 
 #: src/App.tsx
 msgid "The bibliography changed while removing {citationCommand} ({blocker}). Try again."
@@ -8421,10 +8474,18 @@ msgstr "The results did not identify a unique matching publication."
 msgid "The same seven stops, for a refresher."
 msgstr "The same seven stops, for a refresher."
 
+#: src/canvas/use-proofread.tsx
+msgid "The selected text changed while it was being proofread. Proofread it again to review the current text."
+msgstr "The selected text changed while it was being proofread. Proofread it again to review the current text."
+
 #: src/canvas/document-canvas.tsx
 #: src/editor/markdown/engine/chrome/review-chrome.tsx
 msgid "The selected text changed. Select it again before commenting."
 msgstr "The selected text changed. Select it again before commenting."
+
+#: src/canvas/proofread-card.tsx
+msgid "The selection already reads cleanly."
+msgstr "The selection already reads cleanly."
 
 #: src/editor/markdown/engine/lattice-visual-editor.tsx
 msgid "The shared version is shown. Your visual draft was kept — copy it, or restore it and try again."
@@ -8594,6 +8655,10 @@ msgstr "This source line has no matching position in the PDF."
 msgid "This source record is shown for comparison only. It was not verified and cannot be applied."
 msgstr "This source record is shown for comparison only. It was not verified and cannot be applied."
 
+#: src/canvas/use-proofread.tsx
+msgid "This version of the agent runtime cannot proofread yet. Update Lattice to use proofreading."
+msgstr "This version of the agent runtime cannot proofread yet. Update Lattice to use proofreading."
+
 #: src/editor/latex/latex-command-completions.ts
 msgid "TikZ drawing"
 msgstr "TikZ drawing"
@@ -8712,6 +8777,7 @@ msgstr "Try a shorter phrase or different terms"
 
 #: src/app/use-project-tree.ts
 #: src/build/tex-dependency-installer.tsx
+#: src/canvas/proofread-card.tsx
 #: src/history/versions-timeline.tsx
 #: src/overleaf/overleaf-connect.tsx
 msgid "Try again"

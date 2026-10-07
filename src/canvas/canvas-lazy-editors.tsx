@@ -5,7 +5,8 @@ import { InfinityLoader } from "../components/ui/activity-icons";
 import { PdfLoading } from "../pdf/pdf-loading";
 import {
   isVisualMarkdownEditorWarmed, loadBoardEditorModule, loadOpenSlideWorkspaceModule,
-  loadPdfPreviewModule, loadSpreadsheetEditorModule, loadVisualMarkdownEditorModule, markVisualMarkdownEditorWarmed,
+  loadPdfPreviewModule, loadProofreadDiffModule, loadSpreadsheetEditorModule, loadVisualMarkdownEditorModule,
+  markVisualMarkdownEditorWarmed,
 } from "./canvas-lazy-modules";
 
 /** The canvas's heavy editors, each behind its own chunk (see canvas-lazy-modules). */
@@ -14,6 +15,7 @@ const VisualMarkdownEditor = lazy(() => loadVisualMarkdownEditorModule().then((m
 export const BoardEditor = lazy(() => loadBoardEditorModule().then((module) => ({ default: module.BoardEditor })));
 export const SpreadsheetEditor = lazy(() => loadSpreadsheetEditorModule().then((module) => ({ default: module.SpreadsheetEditor })));
 export const OpenSlideWorkspace = lazy(() => loadOpenSlideWorkspaceModule().then((module) => ({ default: module.OpenSlideWorkspace })));
+export const ProofreadDiff = lazy(() => loadProofreadDiffModule().then((module) => ({ default: module.ProofreadDiff })));
 
 export function DeferredVisualMarkdownEditor(props: ComponentProps<typeof VisualMarkdownEditor>) {
   const { t } = useLingui();

@@ -235,6 +235,46 @@ function searchProject(query: string) {
   return hits;
 }
 
+/**
+ * The agent's read-only text task (proofreading), answered after a short
+ * pause with a few fixed spelling and agreement fixes, so the inline
+ * proofread card can be looked at without a provider. `?proofread=failed`
+ * fails the task, and `?proofread=unavailable` answers like a runtime that
+ * predates the route.
+ */
+const PROOFREAD_FIXES: Array<[RegExp, string]> = [
+  [/\bteh\b/g, "the"],
+  [/\bwich\b/g, "which"],
+  [/\bbeleive\b/g, "believe"],
+  [/\brecieves?\b/g, "receives"],
+  [/\boccured\b/g, "occurred"],
+  [/\bseperate\b/g, "separate"],
+  [/\bachieve state of the art\b/g, "achieves state-of-the-art"],
+  [/\ba ([aeiou])/g, "an $1"],
+  [/ {2,}/g, " "],
+  [/ ,/g, ","],
+];
+const proofreadTasks = new Map<string, { text: string; ready: number }>();
+
+function textTask(args: Args): unknown {
+  const mode = params.get("proofread");
+  const action = String(args?.action ?? "");
+  if (action === "start") {
+    if (mode === "unavailable") throw "agent_route_unavailable";
+    const excerpt = /<excerpt>\n([\s\S]*)\n<\/excerpt>$/.exec(String(args?.prompt ?? ""))?.[1] ?? "";
+    const fixed = PROOFREAD_FIXES.reduce((text, [pattern, replacement]) => text.replace(pattern, replacement), excerpt);
+    const taskId = `text-task:${proofreadTasks.size + 1}`;
+    proofreadTasks.set(taskId, { text: `Here is the proofread excerpt.\n<proofread>\n${fixed}\n</proofread>`, ready: performance.now() + 1_600 });
+    return { taskId };
+  }
+  const task = proofreadTasks.get(String(args?.taskId ?? ""));
+  if (!task) throw "Agent task not found.";
+  if (action === "cancel") return { status: "running" };
+  if (performance.now() < task.ready) return { status: "running" };
+  if (mode === "failed") return { status: "failed", message: "Codex is not signed in." };
+  return { status: "completed", text: task.text };
+}
+
 function answer(command: string, args: Args): unknown {
   counts.set(command, (counts.get(command) ?? 0) + 1);
   switch (command) {
@@ -313,6 +353,8 @@ function answer(command: string, args: Args): unknown {
       return fullTextOnly ? null : `## Overview\n\n${"Blog content. ".repeat(40)}`;
     case "synara_open_log_folder":
       return false;
+    case "agent_text_task":
+      return textTask(args);
     case "synara_ensure_ready":
     case "run_doctor":
       // The agent runtime and the TeX toolchain check are outside the bench;

@@ -68,6 +68,7 @@ import {
 } from "./canvas-lazy-editors";
 import { CodeMirrorScrollbar } from "./codemirror-scrollbar";
 import { CommentComposer, type CommentDraft } from "./comment-composer";
+import { useProofread } from "./use-proofread";
 import { EditorStatusBar } from "./editor-status-bar";
 import { isLatexSourcePath, useOptionalKeymapExtensions, useTextLanguageExtensions } from "./editor-extensions";
 import { HtmlPreview } from "./html-preview";
@@ -88,7 +89,7 @@ import { splitGridTemplate, useSplitLayout, type SplitMinimums } from "./use-spl
 /** LaTeX wrappers the floating selection toolbar applies; null declines the edit. */
 const SPLIT_MINIMUMS: SplitMinimums = { source: SPLIT_SOURCE_MIN_WIDTH, preview: SPLIT_PREVIEW_MIN_WIDTH };
 
-const SELECTION_WRAPS: Record<Exclude<LatexSelectionAction, "comment">, (value?: string) => [string, string] | null> = {
+const SELECTION_WRAPS: Record<Exclude<LatexSelectionAction, "comment" | "proofread">, (value?: string) => [string, string] | null> = {
   bold: () => ["\\textbf{", "}"],
   italic: () => ["\\textit{", "}"],
   underline: () => ["\\underline{", "}"],
@@ -438,6 +439,13 @@ export function DocumentCanvas(props: {
   const [commentComposer, setCommentComposer] = useState<CommentDraft | null>(null);
   const commentComposerViewRef = useRef<EditorView | null>(null);
   const commentComposerRef = useLatestRef(commentComposer);
+  const { start: startProofread, extension: proofreadExtension, card: proofreadCard } = useProofread({
+    projectRoot: props.projectRoot,
+    activeFile,
+    editorKey,
+    editable: props.editorEditable && isLatexSourcePath(activeFile),
+    viewRef: primaryViewRef,
+  });
   // Saved-view ownership for the preview column. Files without a preview of
   // their own (.bib, .sty) keep using the last previewable file's saved state.
   // This is separate from the mounted viewer's identity: all TeX source files
@@ -685,12 +693,17 @@ export function DocumentCanvas(props: {
       return;
     }
     if (!props.editorEditable) return;
+    if (action === "proofread") {
+      startProofread(view);
+      dismissSelectionToolbar();
+      return;
+    }
     const wrap = SELECTION_WRAPS[action](value);
     if (!wrap) return;
     const edit = wrapRange(view.state.doc.toString(), range.from, range.to, ...wrap);
     editAndFocus(view, { changes: edit, selection: { anchor: edit.cursorFrom, head: edit.cursorTo } });
     updateSelectionToolbar(view, owner.path);
-  }, [activeFile, dismissSelectionToolbar, props.editorEditable, updateSelectionToolbar]);
+  }, [activeFile, dismissSelectionToolbar, props.editorEditable, startProofread, updateSelectionToolbar]);
 
   /** Create a comment on `[from, to)` of `path`; false when that range holds nothing to anchor it. */
   const createComment = (path: string, source: string, from: number, to: number, body: string) => {
@@ -781,6 +794,7 @@ export function DocumentCanvas(props: {
       primaryTextLanguageExtensions,
       { getComments: () => commentsForActiveFileRef.current, getDraft: () => commentComposerRef.current },
       [
+        proofreadExtension,
         overleafCursorsExtension({ getCursors: () => latestRef.current.overleafPresenceCursors }),
         overleafTrackChangesExtension({
           getChanges: () => latestRef.current.overleafChanges,
@@ -1321,6 +1335,7 @@ export function DocumentCanvas(props: {
             onUpdate={onPrimaryUpdate}
           />
           <CodeMirrorScrollbar view={primaryScrollbarView?.deref() ?? null} />
+          {proofreadCard}
           {commentComposer && (
             <CommentComposer
               draft={commentComposer}
@@ -1365,6 +1380,7 @@ export function DocumentCanvas(props: {
         <LatexSelectionToolbar
           position={selectionToolbar.position}
           canComment
+          canProofread={isLatexSourcePath(activeFile) && Boolean(props.projectRoot)}
           commentOnly={activeFile.toLocaleLowerCase().endsWith(".md") || !props.editorEditable}
           onAction={applySelectionAction}
           onDismiss={dismissSelectionToolbar}

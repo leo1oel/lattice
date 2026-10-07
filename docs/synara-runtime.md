@@ -272,6 +272,14 @@ Lattice temporarily disables editor writes while the repair runs and rejects rep
 Cancellation waits for a terminal provider state; switching projects cancels the outgoing repair and discards its late results.
 Each click runs one repair attempt, with no automatic build-fix loop; remaining diagnostics stay visible after recompilation.
 
+**Proofread** (the LaTeX selection toolbar, or ⌘⌥P) is a second user-initiated flow over the same relay.
+Rust's `task_relay_request` relays `agent_text_task` to `/api/lattice/text-task` with the same start, status and cancel shape as compile repair:
+`POST {workspaceRoot, prompt}` answers `{taskId}`, `GET …/<taskId>` answers `{status: "running" | "completed" | "failed", text?, message?}` with `text` the final assistant message, and `POST …/<taskId>/cancel` stops the task.
+The route must run one read-only turn: no file edits and no approvals, because Lattice applies the result itself only after the writer accepts it.
+Lattice owns the prompt and the reply contract (`src/agent/agent-proofread.ts`): grammar, spelling and clarity only, LaTeX commands, math, citations and comments kept verbatim, and the answer between `<proofread>` markers.
+A runtime without the route answers the router's bare 404. The relay reports that as `agent_route_unavailable`, and the card says the runtime cannot proofread yet.
+The pinned fork does not have this route yet, so proofreading reaches that message until the route lands in the fork and the pin moves.
+
 ## Offline quality evaluation
 
 Run `pnpm eval:agent` to replay the checked-in schema-version-1 research fixtures, or pass one or
