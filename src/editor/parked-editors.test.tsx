@@ -1,5 +1,5 @@
 import { act, cleanup, render } from "@testing-library/react";
-import { undoDepth } from "@codemirror/commands";
+import { undo, undoDepth } from "@codemirror/commands";
 import { forceParsing, syntaxTree } from "@codemirror/language";
 import { EditorState, type Extension } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
@@ -29,17 +29,24 @@ afterEach(() => {
  * document, with a pretend layout so scrolling means something in jsdom (a
  * 400 px viewport; `hidden` is a tab behind another, which reads as
  * unscrolled and zero-height, as `display: none` does).
+ *
+ * Each mount gets the file as read from `disk`, as the app reads it on every
+ * switch: with the line breaks it has there, and with whatever changed it
+ * while its tab was in the background. Leaving a document saves what was
+ * typed in it first, as switching tabs does.
  */
 function tabs(initial: Record<string, string>) {
-  const texts = { ...initial };
+  const disk = { ...initial };
+  const typed: Record<string, string> = {};
+  let shown = Object.keys(initial)[0];
   const mounts: { path: string; view: EditorView; layout: { scrollTop: number; hidden: boolean } }[] = [];
   const element = (path: string) => (
     <CodeMirrorHost
       key={path}
-      value={texts[path]}
+      value={disk[path]}
       extensions={EXTENSIONS}
       park={{ root: ROOT, path }}
-      onChange={(value) => { texts[path] = value; }}
+      onChange={(value) => { typed[path] = value; }}
       onUpdate={() => {}}
       onCreateEditor={(view) => {
         const layout = { scrollTop: 0, hidden: false };
@@ -56,11 +63,16 @@ function tabs(initial: Record<string, string>) {
       }}
     />
   );
-  const rendered = render(element(Object.keys(initial)[0]));
+  const rendered = render(element(shown));
   return {
-    texts,
+    disk,
     current: () => mounts.at(-1)!,
-    show: (path: string) => rendered.rerender(element(path)),
+    show: (path: string) => {
+      if (shown in typed) disk[shown] = typed[shown];
+      delete typed[shown];
+      shown = path;
+      rendered.rerender(element(path));
+    },
   };
 }
 
@@ -94,7 +106,7 @@ describe("parked editors", () => {
     editor.show("other.tex");
     // What the next view of the chapter is built with: the place read after
     // the scroll, moved down by the line typed above it.
-    const parked = resumeParkedEditor(ROOT, "chapter.tex", editor.texts["chapter.tex"], EXTENSIONS);
+    const parked = resumeParkedEditor(ROOT, "chapter.tex", editor.disk["chapter.tex"], EXTENSIONS);
     expect((parked?.scrollTo?.value as { range: { head: number }; yMargin: number }) ?? null)
       .toMatchObject({ range: { head: 4008 }, yMargin: -12 });
     editor.show("chapter.tex");
@@ -125,7 +137,7 @@ describe("parked editors", () => {
     const { doc } = editor.current().view.state;
     const { lines } = doc;
     const parkedPlace = () => {
-      const scrollTo = resumeParkedEditor(ROOT, "chapter.tex", editor.texts["chapter.tex"], EXTENSIONS)?.scrollTo;
+      const scrollTo = resumeParkedEditor(ROOT, "chapter.tex", editor.disk["chapter.tex"], EXTENSIONS)?.scrollTo;
       const { range, yMargin } = scrollTo?.value as { range: { head: number }; yMargin: number };
       return { line: doc.lineAt(range.head).number, into: -yMargin };
     };
@@ -149,16 +161,46 @@ describe("parked editors", () => {
     }
   });
 
-  it("starts fresh when the text changed while the tab was in the background", async () => {
+  // The writer's third report, reproduced against the real backend: the file
+  // read back on the way to its tab was not the text parked with it, and such
+  // a tab started over. It showed its place (its snapshot, built from the
+  // text it last showed), jumped to the top, then down to its saved pixel
+  // offset, on other lines.
+  it.each([
+    ["a line added at its end", (text: string) => `${text}\nAdded at the end.`],
+    ["a paragraph added above the place", (text: string) => `\\section{Added} Above the place.\n${text}`],
+    ["a line below the place rewritten, saved with CRLF", (text: string) => (
+      text.replace("\\section{Part 300}", "\\section{Part three hundred}").replaceAll("\n", "\r\n")
+    )],
+  ])("comes back to its place when its file changed while the tab was in the background (%s)", async (_change, edit) => {
     const editor = tabs({ "chapter.tex": CHAPTER, "other.tex": OTHER });
-    act(() => editor.current().view.dispatch({ selection: { anchor: 4000 } }));
+    const tab = editor.current();
+    act(() => tab.view.dispatch({ changes: { from: 4000, insert: "typed " }, selection: { anchor: 4006 }, userEvent: "input.type" }));
+    tab.layout.scrollTop = 199 * LINE_PX + 7;
+    tab.view.scrollDOM.dispatchEvent(new Event("scroll"));
+    await measured();
+    const topLine = tab.view.state.doc.line(200).text;
+    tab.layout.hidden = true;
     editor.show("other.tex");
-    editor.texts["chapter.tex"] = `${CHAPTER}\nReloaded from disk.`;
+    editor.disk["chapter.tex"] = edit(editor.disk["chapter.tex"]);
     editor.show("chapter.tex");
     await measured();
 
-    expect(takeResumed(editor.current().view)).toBe(false);
-    expect(editor.current().view.state.selection.main.head).toBe(0);
+    const { view } = editor.current();
+    const onDisk = editor.disk["chapter.tex"].replaceAll("\r\n", "\n");
+    expect(takeResumed(view)).toBe(true);
+    expect(view.state.doc.toString()).toBe(onDisk);
+    // The same line at the top, as far into it, and the caret after the typing.
+    const scrollTo = resumeParkedEditor(ROOT, "chapter.tex", editor.disk["chapter.tex"], EXTENSIONS)?.scrollTo;
+    const { range, yMargin } = scrollTo?.value as { range: { head: number }; yMargin: number };
+    expect(view.state.doc.lineAt(range.head).text).toBe(topLine);
+    expect(yMargin).toBe(-7);
+    const { head } = view.state.selection.main;
+    expect(view.state.sliceDoc(head - 6, head)).toBe("typed ");
+    // Undo takes back the writer's typing, not the change made outside.
+    expect(undoDepth(view.state)).toBe(1);
+    act(() => { undo(view); });
+    expect(view.state.doc.toString()).toBe(onDisk.replace("typed ", ""));
   });
 
   it("does not bring back a jump's mark whose clearing timer died with its view", async () => {

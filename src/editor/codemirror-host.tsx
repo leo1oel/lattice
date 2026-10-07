@@ -13,7 +13,7 @@
  * and wait out active typing as the wrapper did.
  *
  * Given `park`, a view parks its state and scroll when it is destroyed and
- * the next mount of the same text resumes from them (see parked-editors.ts).
+ * the next mount of the same document resumes from them (see parked-editors.ts).
  */
 import { useEffect, useLayoutEffect, useRef } from "react";
 import type { MessageDescriptor } from "@lingui/core";
