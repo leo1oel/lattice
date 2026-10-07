@@ -11,6 +11,9 @@
  * (file load, agent edits, visual-editor publications) replace the document
  * annotated `hostExternalChange`, so they never echo back through `onChange`,
  * and wait out active typing as the wrapper did.
+ *
+ * Given `park`, a view parks its state and scroll when it is destroyed and
+ * the next mount of the same text resumes from them (see parked-editors.ts).
  */
 import { useEffect, useLayoutEffect, useRef } from "react";
 import type { MessageDescriptor } from "@lingui/core";
@@ -28,6 +31,7 @@ import { highlightSelectionMatches, searchKeymap } from "@codemirror/search";
 import { closeBrackets, closeBracketsKeymap } from "@codemirror/autocomplete";
 import { lintKeymap } from "@codemirror/lint";
 import { withoutAppShortcuts } from "./editor-app-shortcuts";
+import { parkEditor, resumeParkedEditor } from "./parked-editors";
 import { sourceGutter } from "./source-gutter";
 import { i18n } from "../i18n";
 
@@ -95,7 +99,10 @@ type CodeMirrorHostProps = {
   extensions: Extension[];
   onChange: (value: string) => void;
   onUpdate: (update: ViewUpdate) => void;
-  onCreateEditor: (view: EditorView) => void;
+  /** `resumed`: the view came back from a parked state, already where it was left. */
+  onCreateEditor: (view: EditorView, resumed: boolean) => void;
+  /** The document this mount edits, to park it under when the view goes; read once, at mount. */
+  park?: { root: string; path: string } | null;
 };
 
 export function CodeMirrorHost(props: CodeMirrorHostProps) {
@@ -114,9 +121,17 @@ export function CodeMirrorHost(props: CodeMirrorHostProps) {
   });
   /** What the live view is currently configured with (mount seeds it). */
   const configuredRef = useRef<{ extensions: Extension[]; editable: boolean } | null>(null);
+  /**
+   * Where the view was last scrolled to, read after each scroll and kept in
+   * step with edits. Not read when parking: by then its tab may be hidden,
+   * which reads as scrolled to the top, or a resumed view may not have
+   * applied its own scroll yet.
+   */
+  const scrollRef = useRef<StateEffect<unknown> | null>(null);
 
   const buildExtensions = (extensions: Extension[], editable: boolean): Extension[] => [
     EditorView.updateListener.of((update) => {
+      if (update.docChanged && scrollRef.current) scrollRef.current = scrollRef.current.map(update.changes) ?? null;
       if (update.docChanged && !update.transactions.some((tr) => tr.annotation(hostExternalChange))) {
         lastTypedAtRef.current = Date.now();
         const text = update.state.doc.toString();
@@ -124,6 +139,15 @@ export function CodeMirrorHost(props: CodeMirrorHostProps) {
         propsRef.current.onChange(text);
       }
       propsRef.current.onUpdate(update);
+    }),
+    // Read in the measure pass a scroll sets off, once the heights it brings into view are measured.
+    EditorView.domEventObservers({
+      scroll: (_event, view) => view.requestMeasure({
+        key: scrollRef,
+        read: () => {
+          if (view.scrollDOM.clientHeight > 0) scrollRef.current = view.scrollSnapshot();
+        },
+      }),
     }),
     hostTheme,
     baseSetup,
@@ -137,20 +161,25 @@ export function CodeMirrorHost(props: CodeMirrorHostProps) {
   useLayoutEffect(() => {
     const parent = containerRef.current;
     if (!parent) return;
-    const { value, extensions, editable = true, onCreateEditor } = propsRef.current;
+    const { value, extensions, editable = true, onCreateEditor, park } = propsRef.current;
     configuredRef.current = { extensions, editable };
+    const configured = buildExtensions(extensions, editable);
+    const resumed = park ? resumeParkedEditor(park.root, park.path, value, configured) : null;
+    scrollRef.current = resumed?.scrollTo ?? null;
     const view = new EditorView({
-      state: EditorState.create({ doc: value, extensions: buildExtensions(extensions, editable) }),
+      state: resumed?.state ?? EditorState.create({ doc: value, extensions: configured }),
+      scrollTo: resumed?.scrollTo,
       parent,
     });
     viewRef.current = view;
     lastEmittedRef.current = value;
-    onCreateEditor(view);
+    onCreateEditor(view, resumed !== null);
     return () => {
       viewRef.current = null;
       configuredRef.current = null;
       if (retryTimerRef.current !== null) window.clearTimeout(retryTimerRef.current);
       retryTimerRef.current = null;
+      if (park) parkEditor(park.root, park.path, view.state, scrollRef.current);
       view.destroy();
     };
     // Mount-once: everything volatile is read through refs.

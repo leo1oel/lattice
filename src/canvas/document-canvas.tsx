@@ -5,6 +5,7 @@ import {
 import { createPortal } from "react-dom";
 import { useLingui } from "@lingui/react/macro";
 import { CodeMirrorHost as CodeMirror } from "../editor/codemirror-host";
+import { retainParkedEditors } from "../editor/parked-editors";
 import { paperDropExtension } from "../editor/paper-drop";
 import { closeCompletion, completionStatus } from "@codemirror/autocomplete";
 import { redo as redoCodeMirror, undo as undoCodeMirror } from "@codemirror/commands";
@@ -400,6 +401,10 @@ export function DocumentCanvas(props: {
   const editorViewRef = useRef<EditorView | null>(null);
   const primaryViewRef = useRef<EditorView | null>(null);
   const primaryViewPathRef = useRef("");
+  /** The path whose editor mount resumed a parked state, until a saved-view restore for it is answered. */
+  const resumedPathRef = useRef<string | null>(null);
+  // A parked editor is kept for each open tab of this project, and only those.
+  useEffect(() => retainParkedEditors(props.projectRoot || null, props.openPaths), [props.openPaths, props.projectRoot]);
   // Weak on purpose; deref at the point of use and never keep the result in a
   // render-scope variable. Every closure created while rendering captures this
   // render's scope, and a CodeMirror view keeps its extensions' closures alive
@@ -610,6 +615,8 @@ export function DocumentCanvas(props: {
       latestRef.current.onCompletionActiveChange(completionActive);
     }
     reportEditorUpdate(viewUpdate, latestRef.current.activeFile);
+    // A reload or remote edit since the resume makes a saved view worth restoring again.
+    if (viewUpdate.docChanged) resumedPathRef.current = null;
     if (viewUpdate.state.selection.main.empty) setCommentComposer(null);
     markdownCursorRevealRef.current?.();
   }, [reportEditorUpdate]);
@@ -902,6 +909,13 @@ export function DocumentCanvas(props: {
     }
     const view = editorViewRef.current;
     if (!view || request.path !== activeFile) return;
+    // The editor came back from where it was parked, already exactly where it
+    // was left; the saved pixel offset would land elsewhere (see parked-editors.ts).
+    if (resumedPathRef.current === request.path) {
+      resumedPathRef.current = null;
+      onRequestHandled(request.id);
+      return;
+    }
     const frame = window.requestAnimationFrame(() => {
       const current = editorViewRef.current;
       if (!current) return;
@@ -1318,7 +1332,9 @@ export function DocumentCanvas(props: {
             value={props.source}
             editable={props.editorEditable}
             extensions={editorExtensions}
-            onCreateEditor={(view) => {
+            park={props.projectRoot ? { root: props.projectRoot, path: activeFile } : null}
+            onCreateEditor={(view, resumed) => {
+              resumedPathRef.current = resumed ? activeFile : null;
               primaryViewRef.current = view;
               primaryViewPathRef.current = activeFile;
               setPrimaryScrollbarView(new WeakRef(view));
