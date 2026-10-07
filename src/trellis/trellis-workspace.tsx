@@ -37,7 +37,6 @@ import { isSpreadsheetPath } from "../editor/spreadsheet/spreadsheet-types";
 import { luxLatexHighlightStyle } from "../editor/latex/latex-editor";
 import { isLatexSourcePath, useTextLanguageExtensions } from "../canvas/editor-extensions";
 import { latex } from "../editor/latex/latex-language";
-import { revealExtension } from "../editor/editor-reveal";
 import { resumeParkedEditor, retainParkedEditors } from "../editor/parked-editors";
 import { sourceGutter } from "../editor/source-gutter";
 import { DeferredVisualMarkdownEditor } from "../canvas/canvas-lazy-editors";
@@ -317,9 +316,6 @@ function TextSnapshot({ controller, fileKey, panelId }: { controller: TrellisCon
       // The live editor's gutter, so taking over from the snapshot
       // moves nothing.
       sourceGutter(),
-      // And its room below the last line: a place parked near the end lands
-      // where the live editor will put it.
-      revealExtension(),
       EditorView.lineWrapping,
       EditorState.readOnly.of(true),
       EditorView.editable.of(false),
