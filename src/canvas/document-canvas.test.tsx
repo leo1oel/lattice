@@ -269,6 +269,7 @@ describe("DocumentCanvas / mode", () => {
   });
 
   it("applies a saved position posted before the editor mounts once it mounts", async () => {
+    const dispatch = vi.spyOn(EditorView.prototype, "dispatch");
     const restore = { path: "notes.md", cursor: 8, scrollTop: 120, id: "saved" };
     const { props, rerenderWith } = renderCanvas({
       mode: "pdf", activeFile: "notes.md", source: "first\nsecond\ntarget\n", requests: pending({ restore }),
@@ -279,6 +280,11 @@ describe("DocumentCanvas / mode", () => {
     await waitFor(() => expect(props.onRequestHandled).toHaveBeenCalledWith("saved"));
     expect(view.state.selection.main.head).toBe(8);
     expect(view.scrollDOM.scrollTop).toBe(120);
+    // The saved offset is the place: the caret is put back, not scrolled to,
+    // or CodeMirror's next measure takes the view to wherever the caret was
+    // left, however far the writer scrolled from it.
+    expect(dispatch.mock.calls.some(([spec]) => (spec as { scrollIntoView?: boolean }).scrollIntoView)).toBe(false);
+    dispatch.mockRestore();
   });
 
   it("lands a jump on its line: the caret there, the line centered and marked for a moment", async () => {

@@ -418,11 +418,12 @@
 .trellis-empty-button kbd { color: var(--text-tertiary); font: inherit; }
 
 .trellis-snapshot { position: absolute; inset: 0; display: flex; flex-direction: column; cursor: text; }
+.trellis-snapshot-source { flex: 1 1 0; min-height: 0; display: flex; flex-direction: column; }
 .trellis-snapshot-editor { flex: 1 1 0; min-height: 0; opacity: .9; }
 /* Markdown in Split: its source and its page side by side, as the live editor lays them out. */
 .trellis-snapshot[data-mode="split"] { flex-direction: row; }
 .trellis-snapshot[data-mode="split"] > * { flex: 1 1 0; min-width: 0; }
-.trellis-snapshot[data-mode="split"] > .trellis-snapshot-editor { position: relative; border-right: 1px solid var(--border-subtle); }
+.trellis-snapshot[data-mode="split"] > .trellis-snapshot-source { position: relative; border-right: 1px solid var(--border-subtle); }
 .trellis-snapshot > .markdown-preview { background: var(--editor-bg); }
 .trellis-snapshot-badge {
   position: absolute; right: var(--space-4); bottom: var(--space-3);

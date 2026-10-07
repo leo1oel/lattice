@@ -14,6 +14,8 @@ const ROOT = "/projects/thesis";
 // characters) and leaves the rest to the idle parse worker.
 const CHAPTER = Array.from({ length: 400 }, (_, index) => `\\section{Part ${index}} Text with \\emph{words} and $x^${index}$.`).join("\n");
 const OTHER = "\\chapter{Other}\nShort.";
+/** The pretend line height of `tabs`' layout. */
+const LINE_PX = 20;
 const EXTENSIONS: Extension[] = [latex(), revealExtension()];
 
 afterEach(() => {
@@ -44,6 +46,12 @@ function tabs(initial: Record<string, string>) {
         vi.spyOn(view.scrollDOM, "scrollTop", "get").mockImplementation(() => (layout.hidden ? 0 : layout.scrollTop));
         vi.spyOn(view.scrollDOM, "scrollTop", "set").mockImplementation((top: number) => { layout.scrollTop = top; });
         vi.spyOn(view.scrollDOM, "clientHeight", "get").mockImplementation(() => (layout.hidden ? 0 : 400));
+        // jsdom draws nothing, so the place is pretend too: every line LINE_PX tall.
+        vi.spyOn(view, "scrollSnapshot").mockImplementation(() => {
+          const { scrollTop } = view.scrollDOM;
+          const line = view.state.doc.line(Math.min(view.state.doc.lines, 1 + Math.floor(scrollTop / LINE_PX)));
+          return EditorView.scrollIntoView(line.from, { y: "start", yMargin: -(scrollTop % LINE_PX) }) as ReturnType<EditorView["scrollSnapshot"]>;
+        });
         mounts.push({ path, view, layout });
       }}
     />
@@ -99,6 +107,46 @@ describe("parked editors", () => {
     expect(undoDepth(back.view.state)).toBe(1);
     // The same tree, whole: no frame of the text uncoloured while it is parsed again.
     expect(syntaxTree(back.view.state)).toBe(tree);
+  });
+
+  // The writer's report: switch A → B → A, scroll A to its end, switch to B
+  // and back, and A came back at its end for a moment, moved, then jumped up
+  // to where it had been before. A file with CRLF line breaks never resumed,
+  // so every return fell back to the saved pixel offset, and then the caret.
+  it.each([
+    ["LF", CHAPTER],
+    ["CRLF", CHAPTER.replaceAll("\n", "\r\n")],
+  ])("resumes every return where it was last left, its very end included (%s line breaks)", async (_breaks, chapter) => {
+    const editor = tabs({ "chapter.tex": chapter, "other.tex": OTHER });
+    act(() => editor.current().view.dispatch({ selection: { anchor: 120 } }));
+    editor.show("other.tex");
+    editor.show("chapter.tex");
+    await measured();
+    const { doc } = editor.current().view.state;
+    const { lines } = doc;
+    const parkedPlace = () => {
+      const scrollTo = resumeParkedEditor(ROOT, "chapter.tex", editor.texts["chapter.tex"], EXTENSIONS)?.scrollTo;
+      const { range, yMargin } = scrollTo?.value as { range: { head: number }; yMargin: number };
+      return { line: doc.lineAt(range.head).number, into: -yMargin };
+    };
+    // To the end, back up, to the end again, then left alone for a cycle.
+    const places = [{ line: lines, into: 7 }, { line: 120, into: 4 }, { line: lines, into: 7 }, null];
+    for (const place of places) {
+      const tab = editor.current();
+      expect(takeResumed(tab.view)).toBe(true);
+      if (place) {
+        tab.layout.scrollTop = (place.line - 1) * LINE_PX + place.into;
+        tab.view.scrollDOM.dispatchEvent(new Event("scroll"));
+        await measured();
+      }
+      tab.layout.hidden = true;
+      editor.show("other.tex");
+      expect(parkedPlace()).toEqual(place ?? { line: lines, into: 7 });
+      editor.show("chapter.tex");
+      await measured();
+      // The caret stays where it was put; only the view moved.
+      expect(editor.current().view.state.selection.main.head).toBe(120);
+    }
   });
 
   it("starts fresh when the text changed while the tab was in the background", async () => {

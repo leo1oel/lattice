@@ -913,7 +913,10 @@ export function DocumentCanvas(props: {
       const current = editorViewRef.current;
       if (!current) return;
       const cursor = clamp(request.cursor, 0, current.state.doc.length);
-      current.dispatch({ selection: { anchor: cursor }, scrollIntoView: true });
+      // The caret goes back without being scrolled to: the saved offset is
+      // the place. Revealed, a caret left above where the writer then
+      // scrolled won at CodeMirror's next measure and pulled the view back up.
+      current.dispatch({ selection: { anchor: cursor } });
       current.scrollDOM.scrollTop = request.scrollTop;
       onRequestHandled(request.id);
     });
