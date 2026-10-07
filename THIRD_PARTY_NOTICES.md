@@ -443,7 +443,7 @@ to reproduce is not available from the artifact we distribute.
 
 The production dependency closure of the root `package.json` — the superset of what Vite can bundle into the shipped web assets. Dev dependencies (Vite, ESLint, Vitest, Tauri CLI) are excluded: they build the app, they are not distributed in it.
 
-**695 packages.**
+**696 packages.**
 
 | Declared license | Packages |
 | --- | --- |
@@ -453,7 +453,7 @@ The production dependency closure of the root `package.json` — the superset of
 | `BSD-3-Clause` | 24 |
 | `SEE LICENSE IN LICENSE.md` | 8 |
 | `MIT OR Apache-2.0` | 6 |
-| `apache-2.0` | 4 |
+| `apache-2.0` | 5 |
 | `(no license field)` | 3 |
 | `MIT/X11` | 2 |
 | `MPL-2.0` | 2 |
@@ -536,7 +536,7 @@ parent package listed beside it.
 
 </details>
 
-### License texts (74 distinct texts across 695 packages)
+### License texts (74 distinct texts across 696 packages)
 
 #### 1. MIT (+1 other declarations) — 254 package(s), from `LICENSE`
 
@@ -1811,101 +1811,11 @@ Apache License
    limitations under the License.
 ```
 
-#### 16. BSD-3-Clause — 5 package(s), from `LICENSE`
+#### 16. apache-2.0 — 5 package(s), from `LICENSE.md`
 
 <details><summary>Packages sharing this text</summary>
 
-`d3-array@2.12.1`, `d3-ease@3.0.1`, `d3-path@1.0.9`, `d3-sankey@0.12.3`, `d3-shape@1.3.7`
-
-</details>
-
-Copyright notices (6):
-
-```text
-Copyright 2001 Robert Penner
-Copyright 2010-2015 Mike Bostock
-Copyright 2010-2020 Mike Bostock
-Copyright 2010-2021 Mike Bostock
-Copyright 2015, Mike Bostock
-Copyright 2015-2016 Mike Bostock
-```
-
-```text
-Copyright 2010-2021 Mike Bostock
-Copyright 2001 Robert Penner
-All rights reserved.
-
-Redistribution and use in source and binary forms, with or without modification,
-are permitted provided that the following conditions are met:
-
-* Redistributions of source code must retain the above copyright notice, this
-  list of conditions and the following disclaimer.
-
-* Redistributions in binary form must reproduce the above copyright notice,
-  this list of conditions and the following disclaimer in the documentation
-  and/or other materials provided with the distribution.
-
-* Neither the name of the author nor the names of contributors may be used to
-  endorse or promote products derived from this software without specific prior
-  written permission.
-
-THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
-ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
-WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR
-ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
-(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON
-ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-```
-
-#### 17. MIT — 5 package(s), from `LICENSE`
-
-<details><summary>Packages sharing this text</summary>
-
-`@fast-csv/format@4.3.5`, `@fast-csv/parse@4.3.6`, `buffer-crc32@0.2.13`, `fast-csv@4.3.6`, `tapable@2.3.3`
-
-</details>
-
-Copyright notices (3):
-
-```text
-Copyright (c) 2011-2019 C2FO
-Copyright (c) 2013 Brian J. Brennan
-Copyright JS Foundation and other contributors
-```
-
-```text
-The MIT License
-
-Copyright JS Foundation and other contributors
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in
-all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-THE SOFTWARE.
-```
-
-#### 18. apache-2.0 — 4 package(s), from `LICENSE.md`
-
-<details><summary>Packages sharing this text</summary>
-
-`@pierre/diffs@1.3.2`, `@pierre/theme@2.0.0`, `@pierre/theming@1.0.0`, `@pierre/trees@1.0.0-beta.6`
+`@pierre/diffs@1.5.2`, `@pierre/theme@2.0.0`, `@pierre/theming@1.0.0`, `@pierre/theming@1.0.1`, `@pierre/trees@1.0.0-beta.6`
 
 </details>
 
@@ -2107,6 +2017,96 @@ Unless required by applicable law or agreed to in writing, software distributed
 under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
 CONDITIONS OF ANY KIND, either express or implied. See the License for the
 specific language governing permissions and limitations under the License.
+```
+
+#### 17. BSD-3-Clause — 5 package(s), from `LICENSE`
+
+<details><summary>Packages sharing this text</summary>
+
+`d3-array@2.12.1`, `d3-ease@3.0.1`, `d3-path@1.0.9`, `d3-sankey@0.12.3`, `d3-shape@1.3.7`
+
+</details>
+
+Copyright notices (6):
+
+```text
+Copyright 2001 Robert Penner
+Copyright 2010-2015 Mike Bostock
+Copyright 2010-2020 Mike Bostock
+Copyright 2010-2021 Mike Bostock
+Copyright 2015, Mike Bostock
+Copyright 2015-2016 Mike Bostock
+```
+
+```text
+Copyright 2010-2021 Mike Bostock
+Copyright 2001 Robert Penner
+All rights reserved.
+
+Redistribution and use in source and binary forms, with or without modification,
+are permitted provided that the following conditions are met:
+
+* Redistributions of source code must retain the above copyright notice, this
+  list of conditions and the following disclaimer.
+
+* Redistributions in binary form must reproduce the above copyright notice,
+  this list of conditions and the following disclaimer in the documentation
+  and/or other materials provided with the distribution.
+
+* Neither the name of the author nor the names of contributors may be used to
+  endorse or promote products derived from this software without specific prior
+  written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR
+ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON
+ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+```
+
+#### 18. MIT — 5 package(s), from `LICENSE`
+
+<details><summary>Packages sharing this text</summary>
+
+`@fast-csv/format@4.3.5`, `@fast-csv/parse@4.3.6`, `buffer-crc32@0.2.13`, `fast-csv@4.3.6`, `tapable@2.3.3`
+
+</details>
+
+Copyright notices (3):
+
+```text
+Copyright (c) 2011-2019 C2FO
+Copyright (c) 2013 Brian J. Brennan
+Copyright JS Foundation and other contributors
+```
+
+```text
+The MIT License
+
+Copyright JS Foundation and other contributors
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
 ```
 
 #### 19. ISC — 4 package(s), from `LICENSE`
@@ -17731,7 +17731,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 <details><summary>Packages sharing this text</summary>
 
-`accepts@2.0.0`, `agent-base@7.1.4`, `agent-base@9.0.0`, `body-parser@2.3.0`, `bytes@3.1.2`, `ccount@2.0.1`, `character-entities-html4@2.1.0`, `character-entities-legacy@3.0.0`, `comma-separated-tokens@2.0.3`, `content-disposition@1.1.0`, `content-type@1.0.5`, `content-type@2.1.0`, `cookie-signature@1.2.2`, `cookie@0.7.2`, `cors@2.8.6`, `debug@4.4.3`, `depd@2.0.0`, `devlop@1.1.0`, `encodeurl@2.0.0`, `escape-html@1.0.3`, `etag@1.8.1`, `express@5.2.1`, `finalhandler@2.1.1`, `forwarded@0.2.0`, `fresh@2.0.0`, `hast-util-to-html@9.0.5`, `hast-util-whitespace@3.0.0`, `html-void-elements@3.0.0`, `http-proxy-agent@9.1.0`, `https-proxy-agent@7.0.6`, `https-proxy-agent@9.1.0`, `mdast-util-to-hast@13.2.1`, `media-typer@1.1.1`, `micromark-util-character@2.1.1`, `micromark-util-encode@2.0.1`, `micromark-util-sanitize-uri@2.0.1`, `micromark-util-symbol@2.0.1`, `micromark-util-types@2.0.2`, `mime-db@1.54.0`, `mime-types@3.0.2`, `negotiator@1.1.0`, `on-finished@2.4.1`, `parseurl@1.3.3`, `property-information@7.2.0`, `proxy-addr@2.0.8`, `range-parser@1.3.0`, `router@2.2.0`, `send@1.2.1`, `serve-static@2.2.1`, `space-separated-tokens@2.0.2`, `stringify-entities@4.0.4`, `trim-lines@3.0.1`, `type-is@2.1.0`, `unist-util-is@6.0.1`, `unist-util-position@5.0.0`, `unist-util-stringify-position@4.0.0`, `unist-util-visit-parents@6.0.2`, `unist-util-visit@5.1.0`, `unpipe@1.0.0`, `vary@1.1.2`, `vfile-message@4.0.3`, `zwitch@2.0.4`
+`accepts@2.0.0`, `agent-base@7.1.4`, `agent-base@9.0.0`, `body-parser@2.3.0`, `bytes@3.1.2`, `ccount@2.0.1`, `character-entities-html4@2.1.0`, `character-entities-legacy@3.0.0`, `comma-separated-tokens@2.0.3`, `content-disposition@1.1.0`, `content-type@1.0.5`, `content-type@2.1.0`, `cookie-signature@1.2.2`, `cookie@0.7.2`, `cors@2.8.6`, `debug@4.4.3`, `depd@2.0.0`, `devlop@1.1.0`, `encodeurl@2.0.0`, `escape-html@1.0.3`, `etag@1.8.1`, `express@5.2.1`, `finalhandler@2.1.1`, `forwarded@0.2.0`, `fresh@2.0.0`, `hast-util-to-html@9.0.5`, `hast-util-whitespace@3.0.0`, `html-void-elements@3.0.0`, `http-proxy-agent@9.1.0`, `https-proxy-agent@7.0.6`, `https-proxy-agent@9.1.0`, `mdast-util-to-hast@13.2.1`, `media-typer@1.1.1`, `micromark-util-character@2.1.1`, `micromark-util-encode@2.0.1`, `micromark-util-sanitize-uri@2.0.1`, `micromark-util-symbol@2.0.1`, `micromark-util-types@2.0.3`, `mime-db@1.54.0`, `mime-types@3.0.2`, `negotiator@1.1.0`, `on-finished@2.4.1`, `parseurl@1.3.3`, `property-information@7.2.0`, `proxy-addr@2.0.8`, `range-parser@1.3.0`, `router@2.2.0`, `send@1.2.1`, `serve-static@2.2.1`, `space-separated-tokens@2.0.2`, `stringify-entities@4.0.4`, `trim-lines@3.0.1`, `type-is@2.1.0`, `unist-util-is@6.0.1`, `unist-util-position@5.0.0`, `unist-util-stringify-position@4.0.0`, `unist-util-visit-parents@6.0.2`, `unist-util-visit@5.1.0`, `unpipe@1.0.0`, `vary@1.1.2`, `vfile-message@4.0.3`, `zwitch@2.0.4`
 
 </details>
 
@@ -18730,7 +18730,7 @@ Copyright notices (1):
 
 <details><summary>Packages sharing this text</summary>
 
-`ws@8.21.0`, `ws@8.21.3`
+`ws@8.21.0`, `ws@8.22.0`
 
 </details>
 
@@ -20524,7 +20524,7 @@ to reproduce is not available from the artifact we distribute.
 
 <details><summary>Packages sharing this text</summary>
 
-`@babel/code-frame@7.29.7`, `@babel/compat-data@7.29.7`, `@babel/core@7.29.7`, `@babel/generator@7.29.8`, `@babel/helper-annotate-as-pure@7.29.7`, `@babel/helper-compilation-targets@7.29.7`, `@babel/helper-create-class-features-plugin@7.29.7`, `@babel/helper-globals@7.29.7`, `@babel/helper-member-expression-to-functions@7.29.7`, `@babel/helper-module-imports@7.29.7`, `@babel/helper-module-transforms@7.29.7`, `@babel/helper-optimise-call-expression@7.29.7`, `@babel/helper-plugin-utils@7.29.7`, `@babel/helper-replace-supers@7.29.7`, `@babel/helper-skip-transparent-expression-wrappers@7.29.7`, `@babel/helper-string-parser@7.29.7`, `@babel/helper-validator-identifier@7.29.7`, `@babel/helper-validator-option@7.29.7`, `@babel/helpers@7.29.7`, `@babel/plugin-syntax-jsx@7.29.7`, `@babel/plugin-syntax-typescript@7.29.7`, `@babel/plugin-transform-modules-commonjs@7.29.7`, `@babel/plugin-transform-typescript@7.29.7`, `@babel/preset-typescript@7.29.7`, `@babel/runtime@7.29.7`, `@babel/template@7.29.7`, `@babel/traverse@7.29.8`, `@babel/types@7.29.8`, `@base-ui/react@1.6.0`, `@base-ui/utils@0.3.1`, `@dnd-kit/accessibility@3.1.1`, `@dnd-kit/core@6.3.1`, `@dnd-kit/sortable@10.0.0`, `@dnd-kit/utilities@3.2.2`, `@hono/node-server@2.1.1`, `@modelcontextprotocol/sdk@1.30.0`, `@open-slide/core@2.0.1`, `@oxc-project/types@0.148.0`, `@radix-ui/primitive@1.1.7`, `@radix-ui/react-compose-refs@1.1.5`, `@radix-ui/react-context@1.2.2`, `@radix-ui/react-dialog@1.1.23`, `@radix-ui/react-dismissable-layer@1.1.19`, `@radix-ui/react-focus-guards@1.1.6`, `@radix-ui/react-focus-scope@1.1.16`, `@radix-ui/react-id@1.1.4`, `@radix-ui/react-portal@1.1.17`, `@radix-ui/react-presence@1.1.10`, `@radix-ui/react-primitive@2.1.10`, `@radix-ui/react-slot@1.3.3`, `@radix-ui/react-use-callback-ref@1.1.4`, `@radix-ui/react-use-controllable-state@1.2.6`, `@radix-ui/react-use-effect-event@0.0.5`, `@radix-ui/react-use-layout-effect@1.1.4`, `@rolldown/pluginutils@1.0.1`, `@sec-ant/readable-stream@0.4.1`, `@sindresorhus/merge-streams@4.0.0`, `@tailwindcss/node@4.3.3`, `@tailwindcss/oxide-darwin-arm64@4.3.3`, `@tailwindcss/oxide@4.3.3`, `@tailwindcss/vite@4.3.3`, `@vitejs/plugin-react@6.1.1`, `ajv-formats@2.1.1`, `ajv-formats@3.0.1`, `ansi-regex@5.0.1`, `ansi-regex@6.3.0`, `aria-hidden@1.2.6`, `bundle-name@4.1.0`, `call-bind-apply-helpers@1.0.2`, `call-bound@1.0.4`, `callsites@3.1.0`, `chalk@5.6.2`, `chalk@6.0.0`, `cli-cursor@5.0.0`, `cli-spinners@2.9.2`, `clsx@2.1.1`, `cmdk@1.1.1`, `conf@10.2.0`, `debounce-fn@4.0.0`, `default-browser-id@5.0.1`, `default-browser@5.5.1`, `define-lazy-prop@2.0.0`, `define-lazy-prop@3.0.0`, `detect-node-es@1.1.0`, `dot-prop@6.0.1`, `dunder-proto@1.0.1`, `emoji-picker-react@4.19.1`, `env-paths@2.2.1`, `es-define-property@1.0.1`, `es-errors@1.3.0`, `es-object-atoms@1.1.2`, `esbuild@0.28.0`, `escalade@3.2.0`, `eventsource-parser@3.1.1`, `execa@5.1.1`, `execa@9.6.1`, `express-rate-limit@8.7.0`, `fast-deep-equal@3.1.3`, `fflate@0.8.3`, `figures@6.1.0`, `find-up@3.0.0`, `fuzzysort@3.1.0`, `get-east-asian-width@1.6.0`, `get-intrinsic@1.3.0`, `get-nonce@1.0.1`, `get-own-enumerable-keys@1.0.0`, `get-proto@1.0.1`, `get-stream@6.0.1`, `get-stream@9.0.1`, `gopd@1.2.0`, `has-symbols@1.1.0`, `hasown@2.0.4`, `hono@4.13.5`, `html-to-image@1.11.13`, `import-fresh@3.3.1`, `is-docker@2.2.1`, `is-docker@3.0.0`, `is-in-ssh@1.0.0`, `is-inside-container@1.0.0`, `is-interactive@2.0.0`, `is-obj@2.0.0`, `is-obj@3.0.0`, `is-plain-obj@4.1.0`, `is-regexp@3.1.0`, `is-stream@2.0.1`, `is-stream@4.0.1`, `is-unicode-supported@1.3.0`, `is-unicode-supported@2.1.0`, `is-wsl@2.2.0`, `is-wsl@3.1.1`, `jiti@2.7.0`, `json-schema-traverse@1.0.0`, `locate-path@3.0.0`, `log-symbols@6.0.0`, `math-intrinsics@1.1.0`, `merge-descriptors@2.0.0`, `mimic-fn@2.1.0`, `mimic-fn@3.1.0`, `mimic-function@5.0.1`, `next-themes@0.4.6`, `npm-run-path@4.0.1`, `npm-run-path@6.0.0`, `object-inspect@1.13.4`, `onetime@5.1.2`, `onetime@7.0.0`, `open@11.0.2`, `open@8.4.2`, `ora@8.2.0`, `p-limit@2.3.0`, `p-locate@3.0.0`, `p-try@2.2.0`, `parent-module@1.0.1`, `parse-json@5.2.0`, `parse-ms@4.0.0`, `path-key@3.1.1`, `path-key@4.0.0`, `pkce-challenge@5.0.1`, `pkg-up@3.1.0`, `powershell-utils@0.1.0`, `powershell-utils@0.2.1`, `pretty-ms@9.3.1`, `prompts@2.4.2`, `react-dom@19.2.8`, `react-remove-scroll@2.7.2`, `react-router-dom@7.18.3`, `react-router@7.18.3`, `react-style-singleton@2.2.3`, `react@19.2.8`, `resolve-from@4.0.0`, `restore-cursor@5.1.0`, `run-applescript@7.1.0`, `safer-buffer@2.1.2`, `scheduler@0.27.0`, `shadcn@4.19.0`, `shebang-command@2.0.0`, `shebang-regex@3.0.0`, `side-channel-list@1.0.1`, `side-channel-map@1.0.1`, `side-channel-weakmap@1.0.2`, `side-channel@1.1.1`, `sisteransi@1.0.5`, `sonner@2.0.8`, `stdin-discarder@0.2.2`, `string-width@7.2.0`, `strip-ansi@6.0.1`, `strip-ansi@7.2.0`, `strip-final-newline@2.0.0`, `strip-final-newline@4.0.0`, `tailwind-merge@3.6.0`, `tailwindcss@4.3.3`, `tiny-invariant@1.3.3`, `tinyglobby@0.2.17`, `toidentifier@1.0.1`, `tw-animate-css@1.4.0`, `undici@7.29.0`, `unicorn-magic@0.3.0`, `use-callback-ref@1.3.3`, `use-sidecar@1.1.3`, `use-sync-external-store@1.6.0`, `wsl-utils@1.0.0`, `yocto-spinner@1.2.2`, `yoctocolors@2.2.0`, `zod@3.25.76`
+`@babel/code-frame@7.29.7`, `@babel/compat-data@7.29.7`, `@babel/core@7.29.7`, `@babel/generator@7.29.8`, `@babel/helper-annotate-as-pure@7.29.7`, `@babel/helper-compilation-targets@7.29.7`, `@babel/helper-create-class-features-plugin@7.29.7`, `@babel/helper-globals@7.29.7`, `@babel/helper-member-expression-to-functions@7.29.7`, `@babel/helper-module-imports@7.29.7`, `@babel/helper-module-transforms@7.29.7`, `@babel/helper-optimise-call-expression@7.29.7`, `@babel/helper-plugin-utils@7.29.7`, `@babel/helper-replace-supers@7.29.7`, `@babel/helper-skip-transparent-expression-wrappers@7.29.7`, `@babel/helper-string-parser@7.29.7`, `@babel/helper-validator-identifier@7.29.7`, `@babel/helper-validator-option@7.29.7`, `@babel/helpers@7.29.7`, `@babel/plugin-syntax-jsx@7.29.7`, `@babel/plugin-syntax-typescript@7.29.7`, `@babel/plugin-transform-modules-commonjs@7.29.7`, `@babel/plugin-transform-typescript@7.29.7`, `@babel/preset-typescript@7.29.7`, `@babel/runtime@7.29.7`, `@babel/template@7.29.7`, `@babel/traverse@7.29.8`, `@babel/types@7.29.8`, `@base-ui/react@1.6.0`, `@base-ui/utils@0.3.1`, `@dnd-kit/accessibility@3.1.1`, `@dnd-kit/core@6.3.1`, `@dnd-kit/sortable@10.0.0`, `@dnd-kit/utilities@3.2.2`, `@hono/node-server@2.1.1`, `@modelcontextprotocol/sdk@1.30.0`, `@open-slide/core@2.0.0`, `@oxc-project/types@0.148.0`, `@radix-ui/primitive@1.1.7`, `@radix-ui/react-compose-refs@1.1.5`, `@radix-ui/react-context@1.2.2`, `@radix-ui/react-dialog@1.1.23`, `@radix-ui/react-dismissable-layer@1.1.19`, `@radix-ui/react-focus-guards@1.1.6`, `@radix-ui/react-focus-scope@1.1.16`, `@radix-ui/react-id@1.1.4`, `@radix-ui/react-portal@1.1.17`, `@radix-ui/react-presence@1.1.10`, `@radix-ui/react-primitive@2.1.10`, `@radix-ui/react-slot@1.3.3`, `@radix-ui/react-use-callback-ref@1.1.4`, `@radix-ui/react-use-controllable-state@1.2.6`, `@radix-ui/react-use-effect-event@0.0.5`, `@radix-ui/react-use-layout-effect@1.1.4`, `@rolldown/pluginutils@1.0.1`, `@sec-ant/readable-stream@0.4.1`, `@sindresorhus/merge-streams@4.0.0`, `@tailwindcss/node@4.3.3`, `@tailwindcss/oxide-darwin-arm64@4.3.3`, `@tailwindcss/oxide@4.3.3`, `@tailwindcss/vite@4.3.3`, `@vitejs/plugin-react@6.1.1`, `ajv-formats@2.1.1`, `ajv-formats@3.0.1`, `ansi-regex@5.0.1`, `ansi-regex@6.3.0`, `aria-hidden@1.2.6`, `bundle-name@4.1.0`, `call-bind-apply-helpers@1.0.2`, `call-bound@1.0.4`, `callsites@3.1.0`, `chalk@5.6.2`, `chalk@6.0.0`, `cli-cursor@5.0.0`, `cli-spinners@2.9.2`, `clsx@2.1.1`, `cmdk@1.1.1`, `conf@10.2.0`, `debounce-fn@4.0.0`, `default-browser-id@5.0.1`, `default-browser@5.5.1`, `define-lazy-prop@2.0.0`, `define-lazy-prop@3.0.0`, `detect-node-es@1.1.0`, `dot-prop@6.0.1`, `dunder-proto@1.0.1`, `emoji-picker-react@4.19.1`, `env-paths@2.2.1`, `es-define-property@1.0.1`, `es-errors@1.3.0`, `es-object-atoms@1.1.2`, `esbuild@0.28.0`, `escalade@3.2.0`, `eventsource-parser@3.1.1`, `execa@5.1.1`, `execa@9.6.1`, `express-rate-limit@8.7.0`, `fast-deep-equal@3.1.3`, `fflate@0.8.3`, `figures@6.1.0`, `find-up@3.0.0`, `fuzzysort@3.1.0`, `get-east-asian-width@1.6.0`, `get-intrinsic@1.3.0`, `get-nonce@1.0.1`, `get-own-enumerable-keys@1.0.0`, `get-proto@1.0.1`, `get-stream@6.0.1`, `get-stream@9.0.1`, `gopd@1.2.0`, `has-symbols@1.1.0`, `hasown@2.0.4`, `hono@4.13.5`, `html-to-image@1.11.13`, `import-fresh@3.3.1`, `is-docker@2.2.1`, `is-docker@3.0.0`, `is-in-ssh@1.0.0`, `is-inside-container@1.0.0`, `is-interactive@2.0.0`, `is-obj@2.0.0`, `is-obj@3.0.0`, `is-plain-obj@4.1.0`, `is-regexp@3.1.0`, `is-stream@2.0.1`, `is-stream@4.0.1`, `is-unicode-supported@1.3.0`, `is-unicode-supported@2.1.0`, `is-wsl@2.2.0`, `is-wsl@3.1.1`, `jiti@2.7.0`, `json-schema-traverse@1.0.0`, `locate-path@3.0.0`, `log-symbols@6.0.0`, `math-intrinsics@1.1.0`, `merge-descriptors@2.0.0`, `mimic-fn@2.1.0`, `mimic-fn@3.1.0`, `mimic-function@5.0.1`, `next-themes@0.4.6`, `npm-run-path@4.0.1`, `npm-run-path@6.0.0`, `object-inspect@1.13.4`, `onetime@5.1.2`, `onetime@7.0.0`, `open@11.0.2`, `open@8.4.2`, `ora@8.2.0`, `p-limit@2.3.0`, `p-locate@3.0.0`, `p-try@2.2.0`, `parent-module@1.0.1`, `parse-json@5.2.0`, `parse-ms@4.0.0`, `path-key@3.1.1`, `path-key@4.0.0`, `pkce-challenge@5.0.1`, `pkg-up@3.1.0`, `powershell-utils@0.1.0`, `powershell-utils@0.2.1`, `pretty-ms@9.3.1`, `prompts@2.4.2`, `react-dom@19.2.8`, `react-remove-scroll@2.7.2`, `react-router-dom@7.18.3`, `react-router@7.18.3`, `react-style-singleton@2.2.3`, `react@19.2.8`, `resolve-from@4.0.0`, `restore-cursor@5.1.0`, `run-applescript@7.1.0`, `safer-buffer@2.1.2`, `scheduler@0.27.0`, `shadcn@4.19.0`, `shebang-command@2.0.0`, `shebang-regex@3.0.0`, `side-channel-list@1.0.1`, `side-channel-map@1.0.1`, `side-channel-weakmap@1.0.2`, `side-channel@1.1.1`, `sisteransi@1.0.5`, `sonner@2.0.8`, `stdin-discarder@0.2.2`, `string-width@7.2.0`, `strip-ansi@6.0.1`, `strip-ansi@7.2.0`, `strip-final-newline@2.0.0`, `strip-final-newline@4.0.0`, `tailwind-merge@3.6.0`, `tailwindcss@4.3.3`, `tiny-invariant@1.3.3`, `tinyglobby@0.2.17`, `toidentifier@1.0.1`, `tw-animate-css@1.4.0`, `undici@7.29.0`, `unicorn-magic@0.3.0`, `use-callback-ref@1.3.3`, `use-sidecar@1.1.3`, `use-sync-external-store@1.6.0`, `wsl-utils@1.0.0`, `yocto-spinner@1.2.2`, `yoctocolors@2.2.0`, `zod@3.25.76`
 
 </details>
 

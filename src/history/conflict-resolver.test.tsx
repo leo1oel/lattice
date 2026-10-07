@@ -38,12 +38,12 @@ vi.mock("@pierre/diffs/react", () => ({
   EditProvider: ({ children }: { children: ReactNode }) => children,
   File: (props: {
     file: { contents: string };
-    editorOptions: { onChange: (file: { contents: string }) => void };
+    onEditChange: (event: { file: { contents: string } }) => void;
   }) => (
     <textarea
       aria-label="Resolved file"
       defaultValue={props.file.contents}
-      onChange={(event) => props.editorOptions.onChange({ contents: event.currentTarget.value })}
+      onChange={(event) => props.onEditChange({ file: { contents: event.currentTarget.value } })}
     />
   ),
 }));

@@ -85,7 +85,7 @@ export function HistoryDrawer(props: {
   const entry = entryLoad.value;
   const [activeChangeIndex, setActiveChangeIndex] = useState(0);
   const [filter, setFilter] = useState<HistoryFilter>("all");
-  const codeViewRef = useRef<CodeViewHandle<undefined>>(null);
+  const codeViewRef = useRef<CodeViewHandle<undefined, undefined>>(null);
   const activeChangeIndexRef = useRef(0);
   useEffect(() => {
     activeChangeIndexRef.current = activeChangeIndex;
@@ -110,7 +110,7 @@ export function HistoryDrawer(props: {
   const resources = usePierreResources(changePaths);
   const { theme, themeName } = resources;
   const { onClose, onOpenFile } = props;
-  const codeViewItems = useMemo<CodeViewItem[]>(() => entry?.changes.map((change, index) => {
+  const codeViewItems = useMemo<CodeViewItem<undefined>[]>(() => entry?.changes.map((change, index) => {
     const id = `history:${entry.id}:${index}`;
     return { id, type: "diff", fileDiff: pierreFileDiff(change, pierreLanguageForPath(change.path), id), version: 1 };
   }) ?? [], [entry]);
@@ -125,7 +125,7 @@ export function HistoryDrawer(props: {
   const codeViewOptions = useMemo(() => ({
     ...pierreCodeViewOptions({ theme, themeName }, 8),
     onLineClick: onOpenFile
-      ? ({ lineNumber }: { lineNumber: number }, context: { item: CodeViewItem }) => {
+      ? ({ lineNumber }: { lineNumber: number }, context: { item: CodeViewItem<undefined> }) => {
           if (context.item.type !== "diff") return;
           onOpenFile(context.item.fileDiff.name, lineNumber);
           onClose();

@@ -61,7 +61,7 @@ export function OverleafReviewDialog(props: {
   const [applying, setApplying] = useState(false);
   const [selected, setSelected] = useState<string | null>(null);
   const [previewRevision, setPreviewRevision] = useState(0);
-  const codeViewRef = useRef<CodeViewHandle<undefined>>(null);
+  const codeViewRef = useRef<CodeViewHandle<undefined, undefined>>(null);
   const loadGeneration = useRef(0);
 
   const load = useCallback(async () => {
@@ -104,7 +104,7 @@ export function OverleafReviewDialog(props: {
   );
   const textPaths = useMemo(() => textChanges.map((change) => change.path), [textChanges]);
   const resources = usePierreResources(textPaths);
-  const items = useMemo<CodeViewItem[]>(() => textChanges.map((change) => ({
+  const items = useMemo<CodeViewItem<undefined>[]>(() => textChanges.map((change) => ({
     id: itemId(change.path),
     type: "diff",
     fileDiff: pierreFileDiff(change, pierreLanguageForPath(change.path), `${itemId(change.path)}:${previewRevision}`),
