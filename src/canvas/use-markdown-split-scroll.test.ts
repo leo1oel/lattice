@@ -12,7 +12,7 @@ function setMetrics(element: HTMLElement, scrollHeight: number, clientHeight: nu
 }
 
 describe("useMarkdownSplitScroll", () => {
-  it("lines the source's last text up with the preview's end, not its scroll-past-end padding", async () => {
+  it("lines the source's last text up with the preview's end, not the padding below it", async () => {
     const view = new EditorView({ state: EditorState.create({ doc: "first\nsecond\nlast" }), parent: document.body });
     // 1000px of range, 400px of it the padding below the last line.
     setMetrics(view.scrollDOM, 1500, 500);

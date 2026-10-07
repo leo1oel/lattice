@@ -148,7 +148,7 @@ export type MarkdownModeViewportHandoff = {
 
 /** How far `scroller` (or a report of its metrics) can scroll vertically. */
 export const scrollRange = (scroller: { scrollHeight: number; clientHeight: number }) => Math.max(0, scroller.scrollHeight - scroller.clientHeight);
-/** How far a source editor scrolls before its text ends: its range without the scroll-past-end padding. */
+/** How far a source editor scrolls before its text ends: its range without the padding below the last line. */
 export const sourceScrollRange = (view: EditorView) => Math.max(0, scrollRange(view.scrollDOM) - view.documentPadding.bottom);
 
 /** A preview block labelled with the `[from, to)` preview-text range it renders. */
