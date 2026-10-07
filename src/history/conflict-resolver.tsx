@@ -15,7 +15,7 @@
  * keeps it.
  */
 import { File, EditProvider } from "@pierre/diffs/react";
-import { Editor, type EditorOptions } from "@pierre/diffs/edit";
+import { Editor, type EditorChangeEvent, type EditorFactory } from "@pierre/diffs/edit";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { useLingui } from "@lingui/react/macro";
@@ -34,7 +34,8 @@ import { logAction } from "../telemetry/app-notify";
 import { PIERRE_UNSAFE_CSS, usePierreResources } from "./pierre-diff";
 import "./conflict-resolver.css";
 
-const createEditor = (options: EditorOptions<undefined>) => new Editor(options);
+const createEditor: EditorFactory<undefined, undefined> = (editorType, options, editStateKey) =>
+  new Editor(editorType, options, editStateKey);
 
 function ConflictSide(props: {
   label: string;
@@ -148,7 +149,10 @@ export function ConflictResolverDialog(props: {
   const { t } = useLingui();
   const [content, setContent] = useState("");
   const [choices, setChoices] = useState<ReadonlyMap<number, ConflictChoice>>(new Map());
-  const [draftContent, setDraftContent] = useState("");
+  // The text the edit stage opens with. Pierre's editor owns the draft from
+  // then on; typing only updates `draftRef`, because feeding the draft back
+  // into the component would overwrite its session.
+  const [editStartContent, setEditStartContent] = useState("");
   const [stage, setStage] = useState<"resolve" | "edit">("resolve");
   const [loadVersion, setLoadVersion] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -174,7 +178,7 @@ export function ConflictResolverDialog(props: {
       if (generation !== loadGenerationRef.current) return;
       setContent(nextContent);
       setChoices(new Map());
-      setDraftContent(nextContent);
+      setEditStartContent(nextContent);
       draftRef.current = nextContent;
       setLoadVersion((current) => current + 1);
       // A sync result describes an earlier snapshot. Editing or a later sync
@@ -196,12 +200,9 @@ export function ConflictResolverDialog(props: {
   const resolvedContent = useMemo(() => resolveConflicts(content, choices), [choices, content]);
   const total = hunks.length;
   const decided = hunks.filter((hunk) => choices.has(hunk.index)).length;
-  const editorOptions = useMemo<EditorOptions<undefined>>(() => ({
-    onChange(file) {
-      draftRef.current = file.contents;
-      setDraftContent(file.contents);
-    },
-  }), []);
+  const onEditChange = useCallback((event: EditorChangeEvent<"file", undefined, undefined>) => {
+    draftRef.current = event.file.contents;
+  }, []);
 
   if (!props.open || !props.path || (!loading && !error && total === 0)) return null;
   const path = props.path;
@@ -271,12 +272,12 @@ export function ConflictResolverDialog(props: {
               <File
                 file={{
                   name: path,
-                  contents: draftContent,
+                  contents: editStartContent,
                   lang: resources.language,
                   cacheKey: `conflict:${path}:${loadVersion}`,
                 }}
                 edit
-                editorOptions={editorOptions}
+                onEditChange={onEditChange}
                 options={{
                   disableFileHeader: true,
                   overflow: "wrap",
@@ -327,7 +328,7 @@ export function ConflictResolverDialog(props: {
               disabled={saving || loading || total === 0}
               onClick={() => {
                 draftRef.current = resolvedContent;
-                setDraftContent(resolvedContent);
+                setEditStartContent(resolvedContent);
                 setLoadVersion((current) => current + 1);
                 setStage("edit");
               }}
