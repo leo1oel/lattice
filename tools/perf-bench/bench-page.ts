@@ -238,9 +238,12 @@ function searchProject(query: string) {
 /**
  * The agent's read-only text task (proofreading), answered after a short
  * pause with a few fixed spelling and agreement fixes, so the inline
- * proofread card can be looked at without a provider. `?proofread=failed`
- * fails the task, and `?proofread=unavailable` answers like a runtime that
- * predates the route.
+ * proofread card can be looked at without a provider. A Polish prompt also
+ * gets a few wordiness fixes. `?proofread=failed` fails the task,
+ * `?proofread=unavailable` answers like a runtime that predates the route,
+ * `?proofread=unsafe` also changes the first inline math and citation key
+ * (which the card must hold back), and `?proofreadModel=<name>` reports that
+ * model with the answer.
  */
 const PROOFREAD_FIXES: Array<[RegExp, string]> = [
   [/\bteh\b/g, "the"],
@@ -254,6 +257,17 @@ const PROOFREAD_FIXES: Array<[RegExp, string]> = [
   [/ {2,}/g, " "],
   [/ ,/g, ","],
 ];
+const POLISH_FIXES: Array<[RegExp, string]> = [
+  [/\bIn this paper,? we show that\b/g, "This paper shows that"],
+  [/\bin order to\b/g, "to"],
+  [/\bdue to the fact that\b/g, "because"],
+  [/\bvery important\b/g, "essential"],
+  [/\ba lot of\b/g, "many"],
+];
+const UNSAFE_FIXES: Array<[RegExp, string]> = [
+  [/\$([^$]+)\$/, "$\\hat{$1}$"],
+  [/\\cite\{([^}]+)\}/, "\\cite{$1-2024}"],
+];
 const proofreadTasks = new Map<string, { text: string; ready: number }>();
 
 function textTask(args: Args): unknown {
@@ -261,8 +275,14 @@ function textTask(args: Args): unknown {
   const action = String(args?.action ?? "");
   if (action === "start") {
     if (mode === "unavailable") throw "agent_route_unavailable";
-    const excerpt = /<excerpt>\n([\s\S]*)\n<\/excerpt>$/.exec(String(args?.prompt ?? ""))?.[1] ?? "";
-    const fixed = PROOFREAD_FIXES.reduce((text, [pattern, replacement]) => text.replace(pattern, replacement), excerpt);
+    const prompt = String(args?.prompt ?? "");
+    const excerpt = /<excerpt>\n([\s\S]*)\n<\/excerpt>$/.exec(prompt)?.[1] ?? "";
+    const fixes = [
+      ...PROOFREAD_FIXES,
+      ...prompt.startsWith("Polish") ? POLISH_FIXES : [],
+      ...mode === "unsafe" ? UNSAFE_FIXES : [],
+    ];
+    const fixed = fixes.reduce((text, [pattern, replacement]) => text.replace(pattern, replacement), excerpt);
     const taskId = `text-task:${proofreadTasks.size + 1}`;
     proofreadTasks.set(taskId, { text: `Here is the proofread excerpt.\n<proofread>\n${fixed}\n</proofread>`, ready: performance.now() + 1_600 });
     return { taskId };
@@ -272,7 +292,8 @@ function textTask(args: Args): unknown {
   if (action === "cancel") return { status: "running" };
   if (performance.now() < task.ready) return { status: "running" };
   if (mode === "failed") return { status: "failed", message: "Codex is not signed in." };
-  return { status: "completed", text: task.text };
+  const model = params.get("proofreadModel");
+  return { status: "completed", text: task.text, ...model ? { model } : {} };
 }
 
 function answer(command: string, args: Args): unknown {

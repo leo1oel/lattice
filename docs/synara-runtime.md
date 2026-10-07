@@ -277,7 +277,9 @@ Rust's `task_relay_request` relays `agent_text_task` to `/api/lattice/text-task`
 `POST {workspaceRoot, prompt}` answers `202 {taskId}`, `GET …/<taskId>` answers `{status: "running" | "completed" | "failed", text?, message?}` with `text` the provider's answer, and `POST …/<taskId>/cancel` stops the task.
 The fork answers on its auxiliary text-generation path with **Settings → Models → Git writing model**, not as an Agent task: it creates no thread, and the provider is launched without tools, MCP servers or settings sources in an empty working directory, so it cannot edit a file or raise an approval. Lattice applies the result itself only after the writer accepts it.
 At most four text tasks run at once (429 beyond that), and an unknown task id is a JSON 404.
-Lattice owns the prompt and the reply contract (`src/agent/agent-proofread.ts`): grammar, spelling and clarity only, LaTeX commands, math, citations and comments kept verbatim, and the answer between `<proofread>` markers.
+Lattice owns the prompts and the reply contract (`src/agent/agent-proofread.ts`): **Proofread** (⌘⌥P) makes only the smallest corrections to grammar, spelling and punctuation, and **Polish**, chosen from the toolbar or the card each time, also improves flow and clarity; both keep meaning, hedging, terminology, the spelling variant and every LaTeX construct, and answer between `<proofread>` markers.
+Lattice does not trust the reply to keep LaTeX intact: `src/agent/proofread-edits.ts` splits it into word-level edits and holds back any edit that changes a protected span (`src/editor/latex/latex-protected.ts`: math, citation/reference/label commands and keys, `%` comments, command names, braces and options, environment boundaries, verbatim and paragraph breaks), and the card says so.
+A status answer may carry an optional `model` string naming the model that answered; the card shows it when present. The pinned route does not send one yet.
 A runtime without the route (one pinned before `fb759c3eb`) answers the router's bare 404. The relay reports that as `agent_route_unavailable`, and the card says the runtime cannot proofread yet.
 
 ## Offline quality evaluation

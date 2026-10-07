@@ -90,7 +90,7 @@ import { splitGridTemplate, useSplitLayout, type SplitMinimums } from "./use-spl
 /** LaTeX wrappers the floating selection toolbar applies; null declines the edit. */
 const SPLIT_MINIMUMS: SplitMinimums = { source: SPLIT_SOURCE_MIN_WIDTH, preview: SPLIT_PREVIEW_MIN_WIDTH };
 
-const SELECTION_WRAPS: Record<Exclude<LatexSelectionAction, "comment" | "proofread">, (value?: string) => [string, string] | null> = {
+const SELECTION_WRAPS: Record<Exclude<LatexSelectionAction, "comment" | "proofread" | "polish">, (value?: string) => [string, string] | null> = {
   bold: () => ["\\textbf{", "}"],
   italic: () => ["\\textit{", "}"],
   underline: () => ["\\underline{", "}"],
@@ -688,8 +688,8 @@ export function DocumentCanvas(props: {
       return;
     }
     if (!props.editorEditable) return;
-    if (action === "proofread") {
-      proofread.start(view);
+    if (action === "proofread" || action === "polish") {
+      proofread.start(view, action);
       dismissSelectionToolbar();
       return;
     }
