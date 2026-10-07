@@ -29,17 +29,27 @@ function flashedLines(doc: Text, from: number, to: number): DecorationSet {
   return Decoration.set(ranges);
 }
 
-const revealFlash = StateField.define<DecorationSet>({
-  create: () => Decoration.none,
+type Flash = { marks: DecorationSet; until: number };
+const NO_FLASH: Flash = { marks: Decoration.none, until: 0 };
+
+const revealFlash = StateField.define<Flash>({
+  create: () => NO_FLASH,
   update(flash, transaction) {
-    let next = flash.map(transaction.changes);
+    // A state parked with its tab (see parked-editors.ts) outlives the timer
+    // that clears its mark, which died with its view; the next view built
+    // from it must not show the mark again, or keep it (reduced motion draws
+    // it as a plain highlight).
+    let next = flash.marks === Decoration.none ? flash
+      : Date.now() < flash.until ? { ...flash, marks: flash.marks.map(transaction.changes) } : NO_FLASH;
     for (const effect of transaction.effects) {
       if (!effect.is(setRevealFlash)) continue;
-      next = effect.value ? flashedLines(transaction.state.doc, effect.value.from, effect.value.to) : Decoration.none;
+      next = effect.value
+        ? { marks: flashedLines(transaction.state.doc, effect.value.from, effect.value.to), until: Date.now() + REVEAL_FLASH_MS }
+        : NO_FLASH;
     }
     return next;
   },
-  provide: (field) => EditorView.decorations.from(field),
+  provide: (field) => EditorView.decorations.from(field, (flash) => flash.marks),
 });
 
 /** For every editor that can be sent somewhere: the target's mark. */

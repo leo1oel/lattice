@@ -37,6 +37,7 @@ import { isSpreadsheetPath } from "../editor/spreadsheet/spreadsheet-types";
 import { luxLatexHighlightStyle } from "../editor/latex/latex-editor";
 import { isLatexSourcePath, useTextLanguageExtensions } from "../canvas/editor-extensions";
 import { latex } from "../editor/latex/latex-language";
+import { resumeParkedEditor, retainParkedEditors } from "../editor/parked-editors";
 import { sourceGutter } from "../editor/source-gutter";
 import { DeferredVisualMarkdownEditor } from "../canvas/canvas-lazy-editors";
 import { Tip } from "../components/icon-tip";
@@ -311,27 +312,31 @@ function TextSnapshot({ controller, fileKey, panelId }: { controller: TrellisCon
   useLayoutEffect(() => {
     const parent = parentRef.current;
     if (!parent || text === null || mode === "pdf") return;
+    const extensions = [
+      // The live editor's gutter, so taking over from the snapshot
+      // moves nothing.
+      sourceGutter(),
+      EditorView.lineWrapping,
+      EditorState.readOnly.of(true),
+      EditorView.editable.of(false),
+      syntaxHighlighting(luxLatexHighlightStyle),
+      syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
+      EditorView.theme({ "&": { height: "100%" }, "& .cm-scroller": { height: "100% !important" } }),
+      ...language,
+    ];
+    // The live editor this tab last had, parked: its place to the pixel and
+    // its parse, so the snapshot shown while the tab becomes active again
+    // matches what the live editor then shows (see parked-editors.ts).
+    const { projectRoot } = controller.app.get();
+    const resumed = projectRoot ? resumeParkedEditor(projectRoot, fileKey, text, extensions) : null;
     const view = new EditorView({
       parent,
-      state: EditorState.create({
-        doc: text,
-        extensions: [
-          // The live editor's gutter, so taking over from the snapshot
-          // moves nothing.
-          sourceGutter(),
-          EditorView.lineWrapping,
-          EditorState.readOnly.of(true),
-          EditorView.editable.of(false),
-          syntaxHighlighting(luxLatexHighlightStyle),
-          syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
-          EditorView.theme({ "&": { height: "100%" }, "& .cm-scroller": { height: "100% !important" } }),
-          ...language,
-        ],
-      }),
+      state: resumed?.state ?? EditorState.create({ doc: text, extensions }),
+      scrollTo: resumed?.scrollTo,
     });
     viewRef.current = view;
     const scrollTop = controller.bridge?.viewState(fileKey)?.text?.scrollTop;
-    if (scrollTop) requestAnimationFrame(() => { view.scrollDOM.scrollTop = scrollTop; });
+    if (!resumed && scrollTop) requestAnimationFrame(() => { view.scrollDOM.scrollTop = scrollTop; });
     return () => {
       viewRef.current = null;
       view.destroy();
@@ -868,7 +873,21 @@ const TrellisWorkspace = memo(function TrellisWorkspace({ controller, projectRoo
     controller.attachWorkspace(handle);
     setWs(handle);
   }, [controller]);
-  useEffect(() => () => controller.attachWorkspace(null), [controller]);
+  useEffect(() => {
+    // The open tabs' source editors, parked while in the background, and only
+    // theirs: a closed tab's or another project's state is let go. Here, not
+    // beside the App code that sets the open tabs, which loads at startup
+    // without CodeMirror.
+    const retainOpenTabs = () => {
+      const { projectRoot: root, openTabs } = controller.app.get();
+      retainParkedEditors(root || null, openTabs);
+    };
+    const unsubscribe = controller.app.subscribe(retainOpenTabs);
+    return () => {
+      unsubscribe();
+      controller.attachWorkspace(null);
+    };
+  }, [controller]);
   // Trellis reads its own strings (menus, drop labels, tooltips) from this table at use time.
   useEffect(() => installTrellisLabels(), [i18n.locale]);
 
