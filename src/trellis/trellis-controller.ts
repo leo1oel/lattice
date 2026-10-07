@@ -300,6 +300,12 @@ export class TrellisController {
   readonly layoutMinWidth = { subscribe: this.ui.subscribe, get: () => this.ui.get().minWidth };
   /** Tool drawers App currently has open, with the callback that closes each. */
   readonly openDrawers = new SmallStore<Partial<Record<TrellisToolKind, () => void>>>({});
+  /**
+   * Every drawer mounted as each tool, in the order they opened: a tool and
+   * its loading shell are both there while the shell outstays it, and either
+   * can mount last, so the panel closes only when the last of them leaves.
+   */
+  private readonly drawerClosers = new Map<TrellisToolKind, Array<() => void>>();
   readonly docTools = new SmallStore<TrellisDocToolsState>({
     building: false, lastBuild: null, viewMode: "source", viewModes: null, paperView: null, paperViews: false,
   });
@@ -630,13 +636,24 @@ export class TrellisController {
    * moving into the document panel.
    */
   openDrawer(kind: TrellisToolKind, close: () => void) {
+    this.drawerClosers.set(kind, [...this.drawerClosers.get(kind) ?? [], close]);
     this.openDrawers.set({ [kind]: close });
     if (!this.ws?.view(kind)) this.revealTool(kind);
   }
 
-  /** The drawer closed in App: its panel goes too, unless it was already closed there. */
+  /**
+   * The drawer closed in App: its panel goes too, unless it was already closed
+   * there or another drawer of the tool is still open in it.
+   */
   closeDrawer(kind: TrellisToolKind, close: () => void) {
-    if (this.openDrawers.get()[kind] !== close) return;
+    const closers = this.drawerClosers.get(kind) ?? [];
+    const remaining = closers.filter((item) => item !== close);
+    if (remaining.length === closers.length) return;
+    this.drawerClosers.set(kind, remaining);
+    if (remaining.length) {
+      this.openDrawers.set({ [kind]: remaining[remaining.length - 1] });
+      return;
+    }
     this.openDrawers.set({ [kind]: undefined });
     const ws = this.ws;
     if (ws?.views({ type: kind }).length) void ws.close(kind, { force: true });

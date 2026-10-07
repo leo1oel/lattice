@@ -11,6 +11,7 @@ function fakeWorkspace(views: FakeView[]) {
     view: (id: string) => views.find((view) => view.id === id) ?? null,
     views: (filter?: { type?: string }) => views.filter((view) => !filter?.type || view.type === filter.type),
     dock: vi.fn(),
+    close: vi.fn(async () => true),
     focus: vi.fn((id: string) => calls.push(`focus ${id}`)),
     hide: vi.fn((id: string) => calls.push(`hide ${id}`)),
     open: vi.fn((type: string) => {
@@ -45,6 +46,24 @@ describe("TrellisController", () => {
     controller.openDrawers.set({ history: () => {} });
     controller.revealOpenTool("history");
     expect(calls).toEqual(["focus history"]);
+  });
+
+  it("keeps a tool panel while either its drawer or its loading shell is still open in it", () => {
+    // Under load the shell can mount after the tool it lies over; leaving
+    // first, it must not take the tool's panel with it.
+    const controller = new TrellisController();
+    const { ws } = fakeWorkspace([{ id: "overleaf", type: "overleaf", placement: "docked", visible: true, panelId: "t" }]);
+    controller.attachWorkspace(ws);
+    const closeTool = () => {};
+    const closeShell = () => {};
+    controller.openDrawer("overleaf", closeTool);
+    controller.openDrawer("overleaf", closeShell);
+    controller.closeDrawer("overleaf", closeShell);
+    expect(ws.close).not.toHaveBeenCalled();
+    expect(controller.openDrawers.get().overleaf).toBe(closeTool);
+    controller.closeDrawer("overleaf", closeTool);
+    expect(ws.close).toHaveBeenCalledWith("overleaf", { force: true });
+    expect(controller.openDrawers.get().overleaf).toBeUndefined();
   });
 
   it("leaves a tool panel restored from a saved layout where it was when its drawer reopens", () => {
