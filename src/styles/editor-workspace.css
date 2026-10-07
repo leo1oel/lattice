@@ -465,7 +465,13 @@ body:has(.modal-backdrop, .drawer-backdrop) :is(.latex-selection-toolbar-anchor,
 /* Line numbers and fold markers read as one quiet column, the same in the live
    editor and its Trellis snapshot (src/editor/source-gutter.ts). It shares the
    editor's ground with no rule beside it; spacing alone sets it off. */
-.source-editor .cm-gutters { background: var(--editor-gutter); color: var(--text-tertiary); border-right: 0; }
+/* The numbers sit a step under tertiary text, so the column recedes behind
+   the source; the current line's number carries the caret's place instead of
+   a band across the gutter. More contrast keeps them at tertiary. */
+.source-editor .cm-gutters { background: var(--editor-gutter); color: color-mix(in srgb, var(--text-tertiary) 72%, var(--editor-gutter)); border-right: 0; }
+@media (prefers-contrast: more) {
+  .source-editor .cm-gutters { color: var(--text-tertiary); }
+}
 /* CodeMirror sizes this column to the widest line number, so the text shifted
    whenever a document crossed 9 -> 10, 99 -> 100 or 999 -> 1,000 lines, and
    between a short file and a long one. Reserve four digits up front (border-box
@@ -477,7 +483,7 @@ body:has(.modal-backdrop, .drawer-backdrop) :is(.latex-selection-toolbar-anchor,
   padding: 0 var(--space-1) 0 var(--space-5);
   font-variant-numeric: tabular-nums;
 }
-.source-editor .cm-lineNumbers .cm-activeLineGutter { color: var(--text-secondary); }
+.source-editor .cm-lineNumbers .cm-activeLineGutter { color: var(--text-primary); }
 /* A fixed fold column, whatever the markers. A marker sits on a wrapped line's
    first row, beside its line number, not halfway down the paragraph. */
 .source-editor .cm-foldGutter .cm-gutterElement {
@@ -525,11 +531,25 @@ body:has(.modal-backdrop, .drawer-backdrop) :is(.latex-selection-toolbar-anchor,
   color: var(--text-tertiary);
 }
 .source-editor .cm-foldPlaceholder:hover { color: var(--text-primary); }
-/* Active-line fill sits above CM's selection layer and hides selected text.
-   Keep the soft neutral only when the caret is empty; clear it while selecting. */
-.source-editor .cm-activeLine { background: var(--editor-active-line-surface); }
-.source-editor .cm-editor.cm-lattice-has-selection .cm-activeLine { background: transparent; }
-.source-editor .cm-activeLineGutter { background: var(--editor-active-line-surface); }
+/* The current line is a rounded wash inset from the panel's right edge, not
+   a band from edge to edge: drawn by a pseudo-element under the line's text
+   (the line isolates, so z-index -1 stays above the editor's ground), with
+   the line box itself, which CodeMirror measures, left untouched. The fill
+   sits above CM's selection layer and would hide selected text, so it shows
+   only while the caret is empty. The gutter keeps no band; its number speaks
+   for the line (above). */
+.source-editor .cm-activeLine { position: relative; isolation: isolate; background: transparent; }
+.source-editor .cm-activeLine::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: 0 var(--space-4) 0 0;
+  border-radius: var(--radius-compact);
+  background: var(--editor-active-line-surface);
+  pointer-events: none;
+}
+.source-editor .cm-editor.cm-lattice-has-selection .cm-activeLine::before { content: none; }
+.source-editor .cm-activeLineGutter { background: transparent; }
 /* A jump's target (editor-reveal.ts): held, then faded, in the find-match color.
    An animated fill outranks the active-line and selection rules above. */
 .source-editor .cm-line.cm-reveal-flash { animation: reveal-flash 1.6s var(--ease-out); }
@@ -551,6 +571,9 @@ body:has(.modal-backdrop, .drawer-backdrop) :is(.latex-selection-toolbar-anchor,
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-3);
+  /* The panel sits inside the editor, which sets the code face; its controls
+     are interface, so they take the interface face back. */
+  font-family: var(--ui-font);
   font-size: var(--type-caption-size);
 }
 .source-editor .cm-panel.cm-search > br { display: none; }
@@ -588,21 +611,23 @@ body:has(.modal-backdrop, .drawer-backdrop) :is(.latex-selection-toolbar-anchor,
   text-align: center;
   font-variant-numeric: tabular-nums;
 }
+/* Buttons are quiet fills rather than outlined boxes, so the query field,
+   the one bordered control, leads the row. */
 .source-editor .cm-panel.cm-search button {
   flex: 0 0 auto;
   min-width: 28px;
   height: 28px;
-  border: 1px solid var(--border-subtle);
+  border: 0;
   border-radius: var(--radius-chrome);
-  background: var(--surface-panel);
+  background: color-mix(in srgb, var(--text-primary) 5%, transparent);
   color: var(--text-secondary);
   padding: 0 var(--pad-inline-control);
   font-size: var(--type-caption-size);
-  font-weight: 600;
+  font-weight: var(--weight-medium);
   margin: 0;
   white-space: nowrap;
 }
-.source-editor .cm-panel.cm-search button:hover { background: var(--control-active-soft); color: var(--control-active); border-color: var(--control-active-border); }
+.source-editor .cm-panel.cm-search button:hover { background: var(--control-active-soft); color: var(--control-active); }
 .source-editor .cm-panel.cm-search button[name="close"] {
   position: absolute;
   top: 9px;
@@ -611,32 +636,51 @@ body:has(.modal-backdrop, .drawer-backdrop) :is(.latex-selection-toolbar-anchor,
   height: 28px;
   margin: 0;
   padding: 0;
-  border: 1px solid var(--border-subtle);
+  border: 0;
   border-radius: var(--radius-chrome);
-  background: var(--surface-panel);
-  color: var(--text-secondary);
+  background: transparent;
+  color: var(--text-tertiary);
   font: 400 var(--type-heading-size)/1 var(--ui-font);
   display: inline-flex;
   align-items: center;
   justify-content: center;
 }
+.source-editor .cm-panel.cm-search button[name="close"]:hover { background: var(--chrome-hover-surface); color: var(--text-primary); }
+/* Match case, regular expression and whole word are toggle chips, not native
+   checkboxes (white squares in the dark theme). The checkbox stays in the
+   chip, invisible but covering it, so clicks, keyboard and screen readers
+   still reach the real control; the chip draws its state and focus. */
 .source-editor .cm-panel.cm-search label {
+  position: relative;
   flex: 0 0 auto;
+  height: 28px;
   display: inline-flex;
   align-items: center;
-  gap: var(--space-2);
   margin: 0;
-  color: var(--text-secondary);
-  font-size: var(--type-micro-size);
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-chrome);
+  color: var(--text-tertiary);
+  font: var(--weight-medium) var(--type-caption-size)/1 var(--editor-font);
   white-space: nowrap;
+  cursor: pointer;
 }
-.source-editor .cm-panel.cm-search input[type="checkbox"] { width: 13px; height: 13px; min-width: 0; margin: 0; accent-color: var(--control-active); }
+.source-editor .cm-panel.cm-search label:hover { background: var(--chrome-hover-surface); color: var(--text-primary); }
+.source-editor .cm-panel.cm-search label:has(input:checked) { background: var(--control-active-soft); color: var(--control-active); }
+.source-editor .cm-panel.cm-search label:has(input:focus-visible) { outline: var(--focus-ring-width) solid var(--focus-ring); outline-offset: var(--focus-ring-offset); }
+.source-editor .cm-panel.cm-search input[type="checkbox"] { position: absolute; inset: 0; width: 100%; height: 100%; min-width: 0; margin: 0; opacity: 0; cursor: pointer; }
 .source-editor .cm-searchMatch { background: var(--highlight-match-surface); border-radius: 2px; }
 .source-editor .cm-searchMatch-selected { background: var(--highlight-match-current-surface); }
-.source-editor .cm-tooltip.cm-tooltip-autocomplete { border-radius: var(--radius-control); overflow: hidden; max-width: min(420px, 70vw); }
-.source-editor .cm-tooltip-autocomplete > ul { min-width: 230px; max-width: min(420px, 70vw); padding: var(--space-2); font-family: var(--editor-font); font-size: calc(var(--editor-font-size) - 1px); }
-.source-editor .cm-tooltip-autocomplete > ul > li { padding: 5px var(--space-4); border-radius: var(--radius-compact); color: var(--text-secondary); line-height: 1.35; text-align: left; display: flex; gap: var(--space-5); align-items: baseline; }
-.source-editor .cm-tooltip-autocomplete > ul > li[aria-selected] { background: var(--control-active-soft); color: var(--text-primary); }
+/* CodeMirror's autocomplete theme scopes the list under its generated class
+   (`.ͼ1 .cm-tooltip.cm-tooltip-autocomplete > ul > li`), more specific than a
+   plain `.source-editor` rule, so the list rules carry `.cm-editor` to outrank
+   it; without that its monospace 1px rows were what showed. The card's edge
+   is the shared ring (surfaces.css), never CodeMirror's grey border. */
+.source-editor .cm-tooltip.cm-tooltip-autocomplete { border: 0; border-radius: var(--radius-panel); overflow: hidden; max-width: min(420px, 70vw); }
+.source-editor .cm-editor .cm-tooltip.cm-tooltip-autocomplete > ul { min-width: 230px; max-width: min(420px, 70vw); padding: var(--space-2); font-family: var(--editor-font); font-size: calc(var(--editor-font-size) - 1px); }
+.source-editor .cm-editor .cm-tooltip.cm-tooltip-autocomplete > ul > li { padding: 5px var(--space-4); border-radius: var(--radius-compact); color: var(--text-secondary); line-height: 1.35; text-align: left; display: flex; gap: var(--space-5); align-items: baseline; }
+.source-editor .cm-editor .cm-tooltip.cm-tooltip-autocomplete > ul > li[aria-selected] { background: var(--control-active-soft); color: var(--text-primary); }
+/* The typed letters read by weight and ink, not CodeMirror's underline. */
+.source-editor .cm-completionMatchedText { color: var(--text-primary); font-weight: var(--weight-medium); text-decoration: none; }
 .source-editor .cm-completionLabel { display: inline-block; min-width: 0; flex: none; text-align: left; }
 .source-editor .cm-completionDetail {
   margin-left: auto;
@@ -654,14 +698,16 @@ body:has(.modal-backdrop, .drawer-backdrop) :is(.latex-selection-toolbar-anchor,
    scroll viewport with that shell instead of clipping the list and scrollbar. */
 .source-editor .cm-tooltip.cm-citation-menu { display: flex; flex-direction: column; width: min(420px, 70vw); height: auto; border: 1px solid var(--border-subtle); border-radius: var(--surface-radius); background: var(--surface-panel-raised); }
 .source-editor .cm-tooltip.cm-tooltip-autocomplete.cm-citation-menu > ul { width: 100%; min-width: 0; height: auto; min-height: 0; max-height: 40vh; padding: var(--surface-inset); }
-.source-editor .cm-tooltip-autocomplete > ul > li.cm-citation-option { display: grid; grid-template-columns: 14px minmax(0, 1fr); align-items: start; column-gap: var(--space-4); row-gap: var(--space-1); padding: var(--space-4); border-radius: var(--nested-radius); font: var(--type-body-size)/var(--type-body-line-height) var(--ui-font); }
+.source-editor .cm-editor .cm-tooltip.cm-tooltip-autocomplete > ul > li.cm-citation-option { display: grid; grid-template-columns: 14px minmax(0, 1fr); align-items: start; column-gap: var(--space-4); row-gap: var(--space-1); padding: var(--space-4); border-radius: var(--nested-radius); font: var(--type-body-size)/var(--type-body-line-height) var(--ui-font); }
 .source-editor .cm-citation-icon { grid-column: 1; grid-row: 1 / span 2; width: 14px; height: 14px; margin-top: var(--space-1); fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; color: var(--text-secondary); }
 .source-editor .cm-citation-option .cm-completionLabel { grid-column: 2; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-primary); }
 .source-editor .cm-citation-option .cm-completionDetail { grid-column: 2; margin-left: 0; max-width: none; color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); }
 /* Readable by default: a transparent host leaves any card without its own
    background sitting directly on the document, with the prose showing through.
-   The cards that genuinely draw their own chrome strip it below. */
+   The cards that genuinely draw their own chrome strip it below. Its edge is
+   the shared ring (surfaces.css), not CodeMirror's grey tooltip border. */
 .source-editor .cm-tooltip-hover {
+  border: 0;
   border-radius: var(--radius-panel);
   overflow: hidden;
 }

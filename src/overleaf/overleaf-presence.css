@@ -18,7 +18,7 @@
   padding: 0;
   border: 0;
   border-radius: var(--radius-pill);
-  box-shadow: 0 0 0 1.5px var(--surface-sidebar), inset 0 0 0 1px color-mix(in srgb, var(--text-primary) 10%, transparent);
+  box-shadow: 0 0 0 1.5px var(--surface-titlebar), inset 0 0 0 1px color-mix(in srgb, var(--text-primary) 10%, transparent);
   display: grid;
   place-items: center;
   /* Initials sit on a saturated mid-lightness hue in either theme. */

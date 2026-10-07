@@ -47,8 +47,11 @@ textarea {
   --faint: #6c6c72;
   --accent-graphite: #303033;
   --accent: var(--accent-graphite);
-  /* The quiet wash under the editor's current line; Graphite's soft accent. */
+  /* Graphite's soft accent: a quiet neutral wash. */
   --neutral-soft: rgba(48, 48, 51, 0.08);
+  /* The editor's current line: half that wash, so it marks the caret's line
+     without banding the page. */
+  --editor-line: rgba(48, 48, 51, 0.045);
   --accent-soft: var(--neutral-soft);
   --accent-contrast: #ffffff;
   /* The keyboard focus ring; an accent preset swaps in the accent. */
@@ -111,6 +114,7 @@ textarea {
   --accent-graphite: #e7e7e4;
   --accent: var(--accent-graphite);
   --neutral-soft: rgba(255, 255, 255, 0.1);
+  --editor-line: rgba(255, 255, 255, 0.05);
   --accent-soft: var(--neutral-soft);
   --accent-contrast: #171718;
   --danger: #ee7772;
@@ -279,6 +283,18 @@ textarea {
 :root[data-glass="strong"] { --glass-shell: 0%; --glass-panel: 50%; --glass-page: 52%; }
 :root[data-theme="dark"][data-glass="subtle"] { --glass-shell: 45%; --glass-panel: 45%; --glass-page: 74%; }
 :root[data-theme="dark"][data-glass="strong"] { --glass-shell: 0%; --glass-panel: 60%; --glass-page: 62%; }
+
+/*
+ * The titlebar is the shell under a veil of white, so it reads as a sheet
+ * lifted a step off the gutters beneath it, toward the panels, and a hairline
+ * closes its lower edge. A veil rather than a fixed color, so it keeps the
+ * tint's hue and frosts the window material the same way it lightens the
+ * opaque chrome. Dark needs far less white for the same step.
+ */
+:root { --titlebar-veil: 45%; }
+:root[data-theme="dark"] { --titlebar-veil: 3.5%; }
+:root[data-glass] { --titlebar-veil: 38%; }
+:root[data-theme="dark"][data-glass] { --titlebar-veil: 4.5%; }
 
 @media (pointer: fine) {
   /*

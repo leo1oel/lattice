@@ -36,9 +36,9 @@ import { compactSearchPanel } from "./search-panel";
 const CITATION_COMMAND_END = new RegExp(`\\\\(?:${CITATION_COMMANDS})$`);
 
 export const luxLatexHighlightStyle = HighlightStyle.define([
-  { tag: [tags.keyword, tags.definitionKeyword], color: "var(--syntax-keyword)", fontWeight: "600", fontStyle: "oblique" },
+  { tag: [tags.keyword, tags.definitionKeyword], color: "var(--syntax-keyword)", fontWeight: "500" },
   { tag: tags.operator, color: "var(--syntax-operator)" },
-  { tag: [tags.heading, tags.function(tags.variableName), tags.macroName], color: "var(--syntax-function)", fontWeight: "600" },
+  { tag: [tags.heading, tags.function(tags.variableName), tags.macroName], color: "var(--syntax-function)", fontWeight: "500" },
   { tag: [tags.typeName, tags.className], color: "var(--syntax-type)" },
   { tag: tags.variableName, color: "var(--syntax-variable)" },
   { tag: [tags.special(tags.variableName), tags.labelName, tags.processingInstruction], color: "var(--syntax-variable-special)", fontStyle: "italic" },
@@ -47,7 +47,7 @@ export const luxLatexHighlightStyle = HighlightStyle.define([
   { tag: [tags.string, tags.quote], color: "var(--syntax-string)" },
   { tag: tags.comment, color: "var(--syntax-comment)", fontStyle: "italic" },
   { tag: [tags.docComment, tags.meta], color: "var(--syntax-comment-doc)", fontStyle: "italic" },
-  { tag: tags.bool, color: "var(--syntax-number)", fontWeight: "600" },
+  { tag: tags.bool, color: "var(--syntax-number)", fontWeight: "500" },
   { tag: tags.number, color: "var(--syntax-number)" },
   { tag: tags.constant(tags.name), color: "var(--syntax-constant)" },
   { tag: tags.bracket, color: "var(--syntax-bracket)" },

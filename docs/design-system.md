@@ -34,7 +34,9 @@ not to force every surface into one density.
   role at regular weight; Project filenames use their independent 13/16px role.
 - The top toolbar and left Project, Papers, and Agent navigation form the app
   chrome. At the default Graphite tint they use `#EFEFF0` in the light theme
-  and `#141416` in the dark theme.
+  and `#141416` in the dark theme. The titlebar lifts a step off that ground
+  (`--surface-titlebar`, a white veil over the chrome, closed by a hairline),
+  so it never reads as the same sheet as the gutters beneath it.
 - Default navigation text on the light chrome uses `#59595B`; selected and
   emphasized items use the primary text color.
 - Right-side feature drawers are a separate surface: `#F9F9FA` in the light
@@ -62,12 +64,12 @@ applied on `<html>` by `src/settings/use-appearance.ts`:
   colored accent also becomes the focus ring. The editor's current line keeps
   `--editor-active-line-surface`, which is neutral under every accent.
 - **Translucency** (`data-glass`, only while the native window reports
-  vibrancy behind it): the window clears its background, the titlebar and
-  gutters take `--surface-shell` and Project and Papers `--surface-navigator`
-  over macOS's under-window material, as Synara's own window does. Editors,
-  PDFs, the agent, tool panels, menus and dialogs stay opaque. Reduce
-  transparency, a browser tab and every other platform keep the opaque
-  palette, which is also what Off gives.
+  vibrancy behind it): the window clears its background, the gutters take
+  `--surface-shell`, the titlebar the same under its veil, and Project and
+  Papers `--surface-navigator` over macOS's under-window material, as
+  Synara's own window does. Editors, PDFs, the agent, tool panels, menus
+  and dialogs stay opaque. Reduce transparency, a browser tab and every
+  other platform keep the opaque palette, which is also what Off gives.
 
 Presets live in `src/styles/theme.css` as attribute blocks that apply to any
 element, so a Settings swatch carrying `data-tint` or `data-accent` shows the
