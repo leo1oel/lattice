@@ -62,6 +62,11 @@ describe("settings search", () => {
     expect(search("lovelace", true, "Ada Lovelace")).toEqual(["author-name"]);
   });
 
+  it("finds Acknowledgements in every build by what it credits", () => {
+    expect(search("open source libraries")).toEqual(["page:acknowledgements"]);
+    expect(search("third-party notices")).toEqual(["page:acknowledgements"]);
+  });
+
   it("finds Acknowledgements by the font it credits and its license, only in a build that embeds them", async () => {
     // The suite runs as a build without them.
     expect(search("timeless")).toEqual([]);

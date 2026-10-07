@@ -626,7 +626,7 @@ function groupTexts(entries) {
       const key = bodyKey(text.text);
       let group = groups.get(key);
       if (!group) {
-        group = { key, text: text.text, fileName: text.name, packages: [], copyrights: new Set(), declared: [] };
+        group = { key, text: text.text, fileName: text.name, packages: [], copyrights: new Set(), declared: [], declaredBy: new Map() };
         groups.set(key, group);
       }
       group.declared.push(entry.declared ?? "(no license field)");
@@ -640,6 +640,7 @@ function groupTexts(entries) {
       }
       const id = packageId(entry);
       if (!group.packages.includes(id)) group.packages.push(id);
+      group.declaredBy.set(id, entry.declared ?? "(no license field)");
       for (const line of text.text.split("\n").map(undecorate)) {
         if (line.length > 0 && COPYRIGHT_LINE.test(line)) group.copyrights.add(line);
       }
@@ -650,7 +651,7 @@ function groupTexts(entries) {
       const ranked = rankCounts(group.declared);
       const label =
         ranked.length === 1 ? ranked[0][0] : `${ranked[0][0]} (+${ranked.length - 1} other declarations)`;
-      return { ...group, label, packages: group.packages.sort(compareIds), copyrights: [...group.copyrights].sort() };
+      return { ...group, label, primary: ranked[0][0], packages: group.packages.sort(compareIds), copyrights: [...group.copyrights].sort() };
     })
     .sort((a, b) => b.packages.length - a.packages.length || a.key.localeCompare(b.key));
 }
@@ -692,7 +693,14 @@ function renderGroups(entries, heading) {
       "",
       `<details><summary>Packages sharing this text</summary>`,
       "",
-      group.packages.map((id) => `\`${id}\``).join(", "),
+      // A package that declares something other than the group's leading
+      // declaration says so beside its name, so each package's own `license`
+      // field stays readable here — Settings › About › Acknowledgements lists
+      // packages from this file (src/settings/third-party-notices.ts).
+      group.packages.map((id) => {
+        const declared = group.declaredBy.get(id);
+        return declared === group.primary ? `\`${id}\`` : `\`${id}\` (\`${declared}\`)`;
+      }).join(", "),
       "",
       "</details>",
       "",
