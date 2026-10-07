@@ -274,11 +274,11 @@ Each click runs one repair attempt, with no automatic build-fix loop; remaining 
 
 **Proofread** (the LaTeX selection toolbar, or ⌘⌥P) is a second user-initiated flow over the same relay.
 Rust's `task_relay_request` relays `agent_text_task` to `/api/lattice/text-task` with the same start, status and cancel shape as compile repair:
-`POST {workspaceRoot, prompt}` answers `{taskId}`, `GET …/<taskId>` answers `{status: "running" | "completed" | "failed", text?, message?}` with `text` the final assistant message, and `POST …/<taskId>/cancel` stops the task.
-The route must run one read-only turn: no file edits and no approvals, because Lattice applies the result itself only after the writer accepts it.
+`POST {workspaceRoot, prompt}` answers `202 {taskId}`, `GET …/<taskId>` answers `{status: "running" | "completed" | "failed", text?, message?}` with `text` the provider's answer, and `POST …/<taskId>/cancel` stops the task.
+The fork answers on its auxiliary text-generation path with **Settings → Models → Git writing model**, not as an Agent task: it creates no thread, and the provider is launched without tools, MCP servers or settings sources in an empty working directory, so it cannot edit a file or raise an approval. Lattice applies the result itself only after the writer accepts it.
+At most four text tasks run at once (429 beyond that), and an unknown task id is a JSON 404.
 Lattice owns the prompt and the reply contract (`src/agent/agent-proofread.ts`): grammar, spelling and clarity only, LaTeX commands, math, citations and comments kept verbatim, and the answer between `<proofread>` markers.
-A runtime without the route answers the router's bare 404. The relay reports that as `agent_route_unavailable`, and the card says the runtime cannot proofread yet.
-The pinned fork does not have this route yet, so proofreading reaches that message until the route lands in the fork and the pin moves.
+A runtime without the route (one pinned before `fb759c3eb`) answers the router's bare 404. The relay reports that as `agent_route_unavailable`, and the card says the runtime cannot proofread yet.
 
 ## Offline quality evaluation
 
