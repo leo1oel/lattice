@@ -299,9 +299,6 @@ importers:
       rxjs:
         specifier: 7.8.2
         version: 7.8.2
-      shadow-plugin:
-        specifier: ^1.2.7
-        version: 1.2.7
       tailwind-merge:
         specifier: ^3.6.0
         version: 3.6.0
@@ -5205,9 +5202,6 @@ packages:
 
   setimmediate@1.0.5:
     resolution: {integrity: sha512-MATJdZp8sLqDl/68LfQmbP8zKPLQNV6BIZoIgrscFDQ+RsvK/BxeDQOgyxKKoh0y/8h3BqVFnCqQ/gd+reiIXA==}
-
-  shadow-plugin@1.2.7:
-    resolution: {integrity: sha512-VW+flas6o3jhkE2Um6gf3FFSLXSCoP//yhS4DP2KWeUEgDsbxA0A+mObqcZZVEbClFXZ3XByhCDkDddR1cgDvg==}
 
   shebang-command@2.0.0:
     resolution: {integrity: sha512-kHxr2zZpYtdmrN1qDjrrX/Z1rR1kG8Dx+gkpK1G4eXmvXswmcE1hTWBWYUzlraYw1/yZp6YuDY77YtvbN0dmDA==}
@@ -11090,8 +11084,6 @@ snapshots:
   semver@7.8.5: {}
 
   setimmediate@1.0.5: {}
-
-  shadow-plugin@1.2.7: {}
 
   shebang-command@2.0.0:
     dependencies:

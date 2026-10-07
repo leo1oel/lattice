@@ -21,10 +21,11 @@
   max-width: calc(100vw - 32px);
   padding: var(--space-5);
   border-radius: 11px;
-  background: var(--surface-panel-raised, var(--surface-panel));
+  background: var(--surface-elevated);
+  box-shadow: var(--elevation-floating);
   color: var(--text-primary);
-  font-size: var(--type-label-size);
-  animation: app-update-in var(--duration-base) var(--ease-out);
+  font-size: var(--type-body-compact-size);
+  animation: app-update-in var(--motion-moderate);
 }
 /* Progress phases: title on its own full-width row, bar stacked below it. */
 .app-update-banner.stacked { flex-direction: column; align-items: stretch; gap: var(--space-3); }
@@ -37,7 +38,7 @@
 }
 /* top offset clears the overlay title bar */
 .app-update-banner.top-right { top: 52px; right: 16px; }
-.app-update-banner.error { --smooth-ring-color: color-mix(in srgb, var(--status-danger) 35%, var(--border-subtle)); }
+.app-update-banner.error { box-shadow: 0 0 0 1px color-mix(in srgb, var(--status-danger) 35%, var(--border-subtle)), var(--elevation-floating-shadow); }
 
 /* Grow to fill the fixed-width banner so the button and dismiss × sit flush at
    the right edge instead of leaving a gap after them. */
@@ -64,9 +65,9 @@
   background: var(--control-active);
   color: var(--control-active-contrast);
   font-weight: 600;
-  font-size: var(--type-label-size);
+  font-size: var(--type-body-compact-size);
   cursor: pointer;
-  transition: filter var(--duration-quick) var(--ease-default), scale var(--duration-quick) var(--ease-default);
+  transition: filter var(--motion-fast), scale var(--motion-fast);
 }
 .app-update-primary:hover { filter: brightness(1.05); }
 .app-update-primary:active { scale: 0.96; }
@@ -80,7 +81,7 @@
   background: transparent;
   color: var(--text-primary);
   opacity: 0.5;
-  font-size: var(--type-reading-size);
+  font-size: var(--type-typeset-size);
   line-height: 1;
   cursor: pointer;
 }
@@ -103,7 +104,7 @@
 .app-update-progress-fill {
   height: 100%;
   background: var(--control-active);
-  transition: width var(--duration-base) var(--ease-default);
+  transition: width var(--motion-moderate);
 }
 
 @keyframes app-update-in {

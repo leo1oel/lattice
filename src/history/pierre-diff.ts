@@ -137,7 +137,7 @@ export const PIERRE_UNSAFE_CSS = `
   font-family: var(--ui-font) !important;
   font-size: var(--type-diff-meta-size) !important;
   line-height: var(--type-diff-code-line-height) !important;
-  font-weight: var(--type-diff-meta-weight) !important;
+  font-weight: var(--type-micro-weight) !important;
   font-variant-numeric: tabular-nums !important;
 }
 

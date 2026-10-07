@@ -1,7 +1,7 @@
 import { useLingui } from "@lingui/react/macro";
 import { motion, useReducedMotion } from "motion/react";
 import { useLayoutEffect, useMemo, useRef, useState } from "react";
-import { MAGNET_SPRING } from "../../components/ui/motion-values";
+import { MAGNET_SPRING, spring } from "../../components/ui/motion-values";
 
 const MAX_DETAILED_HEADINGS = 28;
 const MIN_RAIL_VIEWPORT_WIDTH = 480;
@@ -312,7 +312,7 @@ export function DocumentHeadingRail({ items: rawItems, virtualized = false, onSe
                   className="visual-heading-rail-preview-anchor"
                   initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 3, filter: "blur(3px)" }}
                   animate={reduceMotion ? { opacity: 1 } : { opacity: 1, y: 0, filter: "blur(0px)" }}
-                  transition={{ duration: reduceMotion ? 0 : 0.12, ease: "easeOut" }}
+                  transition={reduceMotion ? { duration: 0 } : spring.moderate}
                 >
                   <div className="visual-heading-rail-preview-card">{item.label}</div>
                 </motion.div>

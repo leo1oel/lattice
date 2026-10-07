@@ -43,10 +43,10 @@ ${fluidHoverCSS}
 button[data-type="item"] {
   background: transparent;
   letter-spacing: -0.005em;
-  transition: background-color var(--duration-base) var(--ease-emphasized),
-    box-shadow var(--duration-base) var(--ease-emphasized),
-    color var(--duration-quick) var(--ease-default),
-    opacity var(--duration-quick) var(--ease-default);
+  transition: background-color var(--motion-moderate),
+    box-shadow var(--motion-moderate),
+    color var(--motion-fast),
+    opacity var(--motion-fast);
 }
 
 /* Tauri's native file-drop bridge and HTML5 row dragging do not share a
@@ -78,17 +78,15 @@ button[data-type="item"][data-lattice-pointer-drag-preview="true"] {
   border: 1px solid color-mix(in srgb, var(--text-primary) 9%, transparent);
   border-radius: 7px;
   background: color-mix(in srgb, var(--surface-panel-raised) 54%, transparent);
-  box-shadow:
-    0 8px 22px color-mix(in srgb, #000 11%, transparent),
-    0 2px 6px color-mix(in srgb, #000 7%, transparent);
+  box-shadow: var(--elevation-floating-shadow);
   opacity: 0;
   pointer-events: none;
   transform-origin: center;
   will-change: transform, opacity;
   backdrop-filter: blur(10px) saturate(92%);
   -webkit-backdrop-filter: blur(10px) saturate(92%);
-  transition: opacity var(--duration-quick) var(--ease-out),
-    box-shadow var(--duration-quick) var(--ease-default);
+  transition: opacity var(--motion-fast),
+    box-shadow var(--motion-fast);
 }
 
 [data-lattice-pointer-drag-count="true"] {
@@ -103,9 +101,9 @@ button[data-type="item"][data-lattice-pointer-drag-preview="true"] {
   border: 1px solid color-mix(in srgb, var(--surface-panel-raised) 80%, transparent);
   border-radius: 999px;
   background: var(--control-active);
-  box-shadow: 0 2px 6px color-mix(in srgb, #000 18%, transparent);
+  box-shadow: var(--elevation-raised-shadow);
   color: var(--control-active-contrast);
-  font-size: var(--type-nano-size);
+  font-size: var(--type-micro-size);
   font-weight: var(--weight-semibold);
   line-height: 1;
 }
@@ -117,7 +115,7 @@ button[data-type="item"][data-item-context-hover="true"]:not([data-item-selected
 
 button[data-type="item"][data-item-selected="true"] {
   background: var(--trees-selected-bg);
-  font-weight: var(--type-project-tree-selected-weight);
+  font-weight: var(--weight-medium);
 }
 
 button[data-type="item"][data-item-focused="true"]::before {
@@ -212,7 +210,7 @@ button[data-type="item"][data-lattice-pointer-drop-target="true"] {
   color: var(--text-primary);
   box-shadow:
     inset 0 0 0 1px color-mix(in srgb, var(--control-active) 27%, transparent),
-    0 1px 4px color-mix(in srgb, #000 4%, transparent);
+    var(--elevation-raised-shadow);
 }
 
 [data-item-flattened-subitem][data-lattice-pointer-flattened-drop-target="true"] {
@@ -248,8 +246,8 @@ button[data-type="item"][data-lattice-pointer-drop-target="true"] {
   font-size: var(--navigation-search-font-size);
   font-weight: var(--navigation-search-font-weight);
   line-height: var(--navigation-search-line-height);
-  transition: background-color var(--duration-quick) var(--ease-default),
-    border-color var(--duration-quick) var(--ease-default);
+  transition: background-color var(--motion-fast),
+    border-color var(--motion-fast);
 }
 
 [data-file-tree-search-input]::placeholder {

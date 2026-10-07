@@ -120,7 +120,6 @@
     "remark-parse": "^11.0.0",
     "remark-stringify": "^11.0.0",
     "rxjs": "7.8.2",
-    "shadow-plugin": "^1.2.7",
     "tailwind-merge": "^3.6.0",
     "tailwindcss": "^4.3.3",
     "tldraw": "5.2.5",

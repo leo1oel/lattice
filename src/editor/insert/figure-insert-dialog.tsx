@@ -54,7 +54,6 @@ export function FigureInsertDialog(props: {
           <label key={key}>
             {i18n._(name)}
             <Input
-              controlSize="form"
               autoFocus={index === 0}
               value={options[key]}
               onChange={(event) => setOptions({ ...options, [key]: event.target.value })}

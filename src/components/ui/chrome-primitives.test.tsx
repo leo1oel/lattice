@@ -61,7 +61,7 @@ describe("shared chrome primitives", () => {
     expect(menuViewportClassName).toContain("p-[var(--surface-inset)]");
     expect(menuViewportClassName).not.toContain("scrollbar-width:none");
     for (const token of [
-      "rounded-[var(--nested-radius,var(--radius-icon))]", "duration-[var(--duration-quick)]", "ease-out",
+      "rounded-[var(--nested-radius,var(--radius-icon))]", "duration-[var(--duration-fast)]", "ease-[var(--ease-fast)]",
       "[&_svg]:[stroke-width:1.5]",
     ]) expect(menuItemClassName).toContain(token);
   });
@@ -108,13 +108,13 @@ describe("shared chrome primitives", () => {
     expect(onTabChange).toHaveBeenCalledWith("pdf");
   });
 
-  it("exposes the shared form size on text controls and select triggers, and opens selects from the keyboard", async () => {
+  it("exposes the shared control size on text controls and select triggers, and opens selects from the keyboard", async () => {
     render(
       <>
-        <Input aria-label="Project name" controlSize="form" />
+        <Input aria-label="Project name" controlSize="compact" />
         <Textarea aria-label="System prompt" />
         <Select defaultValue="local">
-          <SelectTrigger aria-label="Runtime" size="form">
+          <SelectTrigger aria-label="Runtime" size="compact">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -127,10 +127,10 @@ describe("shared chrome primitives", () => {
     const trigger = screen.getByRole("combobox", { name: "Runtime" });
 
     expect(screen.getByRole("textbox", { name: "Project name" }))
-      .toHaveAttribute("data-control-size", "form");
+      .toHaveAttribute("data-control-size", "compact");
     expect(screen.getByRole("textbox", { name: "System prompt" }))
       .toHaveAttribute("data-slot", "textarea");
-    expect(trigger).toHaveAttribute("data-control-size", "form");
+    expect(trigger).toHaveAttribute("data-control-size", "compact");
 
     // The keyboard opens the select, and Escape restores focus to its trigger.
     trigger.focus();

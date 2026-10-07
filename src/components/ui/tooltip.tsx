@@ -33,7 +33,7 @@ function TooltipContent({
           // open. Closed content must compute to no animation so Radix
           // unmounts it immediately instead of leaving the previous label
           // underneath the next one.
-          "ui-tooltip-content z-[var(--z-tooltip)] w-fit origin-(--radix-tooltip-content-transform-origin) rounded-md bg-popover px-2.5 py-1.5 text-xs text-balance text-popover-foreground smooth-shadow-ring-sm",
+          "ui-tooltip-content z-[var(--z-tooltip)] w-fit origin-(--radix-tooltip-content-transform-origin) rounded-md bg-popover px-2.5 py-1.5 text-[length:var(--type-body-compact-size)] leading-[var(--type-body-compact-line-height)] text-balance text-popover-foreground [box-shadow:var(--elevation-popover)]",
           className
         )}
         {...props}

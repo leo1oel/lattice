@@ -18,7 +18,7 @@
   background: transparent;
   color: var(--sliding-tab-color, var(--text-secondary));
   cursor: pointer;
-  transition: color var(--duration-quick) var(--ease-default);
+  transition: color var(--motion-fast);
 }
 
 .sliding-tab:hover {

@@ -27,7 +27,7 @@
   inset: 0;
   background: var(--guided-tour-scrim);
   opacity: 1;
-  transition: opacity var(--duration-slow) var(--ease-out);
+  transition: opacity var(--motion-slow);
 }
 
 .guided-tour[data-spotlit] .guided-tour-scrim { opacity: 0; }
@@ -45,10 +45,10 @@
     0 0 0 200vmax var(--guided-tour-scrim);
   opacity: 0;
   transition:
-    transform var(--duration-slow) var(--ease-emphasized),
-    width var(--duration-slow) var(--ease-emphasized),
-    height var(--duration-slow) var(--ease-emphasized),
-    opacity var(--duration-slow) var(--ease-out);
+    transform var(--motion-slow),
+    width var(--motion-slow),
+    height var(--motion-slow),
+    opacity var(--motion-slow);
 }
 
 .guided-tour[data-spotlit] .guided-tour-spotlight { opacity: 1; }
@@ -60,17 +60,14 @@
   box-sizing: border-box;
   width: min(var(--guided-tour-card-width), calc(100vw - 2 * var(--space-8)));
   padding: var(--space-10) var(--space-10) var(--space-8);
-  border: 1px solid var(--border-subtle);
   border-radius: var(--radius-dialog);
-  background: var(--surface-panel-raised);
+  background: var(--surface-elevated);
   color: var(--text-primary);
-  box-shadow:
-    0 1px 2px rgb(0 0 0 / 8%),
-    0 18px 48px -12px rgb(0 0 0 / 28%);
+  box-shadow: var(--elevation-dialog);
   font-family: var(--ui-font);
   pointer-events: auto;
-  animation: guided-tour-arrive var(--duration-reveal) var(--ease-entrance);
-  transition: transform var(--duration-slow) var(--ease-emphasized);
+  animation: guided-tour-arrive var(--motion-slow);
+  transition: transform var(--motion-slow);
 }
 
 .guided-tour-card:focus { outline: none; }
@@ -92,7 +89,7 @@
   background: transparent;
   color: var(--text-tertiary);
   cursor: pointer;
-  transition: background var(--duration-quick) var(--ease-out), color var(--duration-quick) var(--ease-out);
+  transition: background var(--motion-fast), color var(--motion-fast);
 }
 
 .guided-tour-close:hover {
@@ -102,7 +99,7 @@
 
 /* Each stop's words settle in place of the last one's. */
 .guided-tour-content {
-  animation: guided-tour-content var(--duration-reveal) var(--ease-entrance);
+  animation: guided-tour-content var(--motion-moderate);
 }
 
 @keyframes guided-tour-content {
@@ -125,16 +122,16 @@
 .guided-tour-title {
   margin: 0;
   padding-right: var(--space-16);
-  font-size: var(--type-title-large-size);
-  line-height: var(--type-title-large-line-height);
-  font-weight: var(--type-title-large-weight);
+  font-size: var(--type-title-size);
+  line-height: var(--type-title-line-height);
+  font-weight: var(--type-title-weight);
   letter-spacing: -0.01em;
   text-wrap: balance;
 }
 
 .guided-tour-card[data-welcome] .guided-tour-title {
-  font-size: var(--type-heading-size);
-  line-height: var(--type-heading-line-height);
+  font-size: var(--type-title-size);
+  line-height: var(--type-title-line-height);
 }
 
 .guided-tour-body {
@@ -154,10 +151,10 @@
   border-radius: var(--radius-control);
   background: color-mix(in srgb, var(--text-primary) 5%, transparent);
   color: var(--text-primary);
-  font-size: var(--type-label-size);
-  line-height: var(--type-label-line-height);
+  font-size: var(--type-body-compact-size);
+  line-height: var(--type-body-compact-line-height);
   font-weight: var(--weight-medium);
-  transition: background var(--duration-base) var(--ease-out);
+  transition: background var(--motion-moderate);
 }
 
 .guided-tour-action-mark {
@@ -170,9 +167,9 @@
   border-radius: var(--radius-pill);
   color: transparent;
   transition:
-    background var(--duration-base) var(--ease-out),
-    border-color var(--duration-base) var(--ease-out),
-    color var(--duration-base) var(--ease-out);
+    background var(--motion-moderate),
+    border-color var(--motion-moderate),
+    color var(--motion-moderate);
 }
 
 .guided-tour-action[data-done] {
@@ -184,7 +181,7 @@
   border-color: var(--status-success);
   background: var(--status-success);
   color: var(--surface-panel-raised);
-  animation: guided-tour-check var(--duration-flourish) var(--ease-entrance);
+  animation: guided-tour-check var(--motion-flourish);
 }
 
 @keyframes guided-tour-check {
@@ -215,7 +212,7 @@
   height: 6px;
   border-radius: var(--radius-pill);
   background: color-mix(in srgb, var(--text-primary) 16%, transparent);
-  transition: width var(--duration-base) var(--ease-emphasized), background var(--duration-base) var(--ease-out);
+  transition: width var(--motion-moderate), background var(--motion-moderate);
 }
 
 .guided-tour-progress li[data-state="past"] { background: color-mix(in srgb, var(--text-primary) 45%, transparent); }

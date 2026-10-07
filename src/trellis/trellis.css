@@ -34,7 +34,7 @@
 /* An unfocused panel's edge is half a hairline: the surfaces already separate
    panels from the workspace, and a full outline on every one competed with
    the document inside. The focused panel's ring (below) stays whole. */
-.lattice-trellis [data-trellis-part="panel"] { background: var(--lattice-panel-surface); box-shadow: 0 0 0 1px color-mix(in srgb, var(--border-subtle) 50%, transparent); }
+.lattice-trellis [data-trellis-part="panel"] { background: var(--lattice-panel-surface); box-shadow: var(--elevation-panel); }
 @media (prefers-contrast: more) {
   .lattice-trellis [data-trellis-part="panel"] { box-shadow: 0 0 0 1px var(--border-strong); }
 }
@@ -72,13 +72,10 @@
 .lattice-trellis [data-trellis-part="panel"][data-focused] { box-shadow: 0 0 0 1px color-mix(in srgb, var(--control-active) 28%, var(--border-subtle)); }
 
 /* ---------------------------------------------------------------- floating
-   Floating panels lift off the workspace like Lattice's popovers. */
-.lattice-trellis .trellis {
-  --trellis-shadow-float: 0 0 0 1px var(--border-subtle), 0 2px 6px rgb(0 0 0 / 6%), 0 18px 44px -14px rgb(0 0 0 / 26%);
-  --trellis-shadow-lifted: 0 0 0 1px var(--border-strong), 0 4px 10px rgb(0 0 0 / 8%), 0 28px 64px -16px rgb(0 0 0 / 34%);
-}
-.lattice-trellis [data-trellis-part="panel"][data-floating] { box-shadow: var(--trellis-shadow-float); }
-.lattice-trellis [data-trellis-part="panel"][data-lifted] { box-shadow: var(--trellis-shadow-lifted); }
+   A floating panel stands at the floating level of the elevation ladder; one
+   held mid-drag rises to the dialog level's shadow behind a firmer edge. */
+.lattice-trellis [data-trellis-part="panel"][data-floating] { box-shadow: var(--elevation-floating); }
+.lattice-trellis [data-trellis-part="panel"][data-lifted] { box-shadow: 0 0 0 1px var(--border-strong), var(--elevation-dialog-shadow); }
 
 /* ---------------------------------------------------------------- header
    Browser-style tabs. Every panel's header is the same strip, a shade darker
@@ -107,7 +104,7 @@
   padding: 0 var(--space-2) 0 var(--space-5);
   border-radius: var(--radius-chrome) var(--radius-chrome) 0 0;
   color: var(--text-secondary);
-  font-size: var(--type-label-size);
+  font-size: var(--type-body-compact-size);
   font-weight: var(--weight-medium);
 }
 .lattice-trellis [data-trellis-part="tab"]:has(> [data-trellis-part="tab-close"][hidden]) { padding-right: var(--space-5); }
@@ -221,7 +218,7 @@
   font-size: var(--type-caption-size);
   font-weight: var(--weight-semibold);
   white-space: nowrap;
-  transition: background-color var(--duration-quick) var(--ease-out), scale var(--duration-quick) var(--ease-default);
+  transition: background-color var(--motion-fast), scale var(--motion-fast);
 }
 .trellis-build-button:hover { background: color-mix(in srgb, var(--text-primary) 14%, var(--trellis-tab-active)); }
 .trellis-build-button:active { scale: 0.96; }
@@ -248,14 +245,14 @@
   background: currentColor;
   opacity: 0;
   pointer-events: none;
-  animation: trellis-build-wash var(--duration-flourish) var(--ease-out) both;
+  animation: trellis-build-wash var(--motion-flourish) both;
 }
 .trellis-build-button.is-fresh.is-succeeded::after { color: var(--status-success); }
 /* A build with warnings gets no wash: its dot arrives as the check finishes. */
 .trellis-build-button.is-fresh.has-warnings::after { content: none; }
 .trellis-build-status[data-fresh] .trellis-build-pip {
-  animation: trellis-build-pip var(--duration-reveal) var(--ease-entrance) both;
-  animation-delay: calc(var(--duration-reveal) * .8);
+  animation: trellis-build-pip var(--motion-moderate) both;
+  animation-delay: calc(var(--duration-moderate) * .8);
 }
 @keyframes trellis-build-pip {
   from { opacity: 0; scale: .2; }
@@ -268,21 +265,21 @@
 }
 .trellis-build-status[data-fresh] .trellis-build-stroke {
   stroke-dasharray: 1 1;
-  animation: trellis-build-draw var(--duration-reveal) var(--ease-entrance) both;
+  animation: trellis-build-draw var(--motion-moderate) both;
 }
 .trellis-build-status[data-fresh] .trellis-build-stroke + .trellis-build-stroke { animation-delay: 70ms; }
 @keyframes trellis-build-draw {
   from { stroke-dashoffset: 1; }
   to { stroke-dashoffset: 0; }
 }
-.trellis-build-burst path { stroke: var(--mark-weft); opacity: 0; animation: trellis-build-burst var(--duration-flourish) var(--ease-entrance) both; animation-delay: 120ms; transform-origin: 12px 12px; }
+.trellis-build-burst path { stroke: var(--mark-weft); opacity: 0; animation: trellis-build-burst var(--motion-flourish) both; animation-delay: 120ms; transform-origin: 12px 12px; }
 .trellis-build-burst path[data-thread="warp"] { stroke: var(--mark-warp); }
 @keyframes trellis-build-burst {
   from { opacity: 0; transform: scale(.55); }
   25% { opacity: 1; }
   to { opacity: 0; transform: scale(1.2); }
 }
-.trellis-build-status[data-status="failed"][data-fresh] { animation: trellis-build-shake var(--duration-slow) var(--ease-out) both; animation-delay: 140ms; }
+.trellis-build-status[data-status="failed"][data-fresh] { animation: trellis-build-shake var(--motion-slow) both; animation-delay: 140ms; }
 @keyframes trellis-build-shake {
   20% { translate: -1.5px 0; }
   45% { translate: 1.5px 0; }
@@ -308,7 +305,7 @@
 .trellis-view-switcher .ui-segmented-tab {
   padding-inline: var(--space-3);
   color: var(--text-secondary);
-  transition: background-color var(--duration-quick) var(--ease-out), color var(--duration-quick) var(--ease-out);
+  transition: background-color var(--motion-fast), color var(--motion-fast);
 }
 /* The other modes answer the pointer like every header button (the ⋯ menu,
    a tab's close button): a plate and the primary text color on hover, a
@@ -324,7 +321,7 @@
    and the panel's minimum stays the icon row's. The names fade in as room
    opens up (a transition, not an animation: the patch re-measures by flipping
    data-tools within a frame, which would restart an animation). */
-.trellis-mode-name { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; opacity: 0; transition: opacity var(--duration-reveal) var(--ease-entrance); }
+.trellis-mode-name { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; opacity: 0; transition: opacity var(--motion-moderate); }
 .lattice-trellis [data-trellis-part="tabbar"][data-tools="named"] .trellis-view-switcher .ui-segmented-tab { padding-inline: var(--space-4) var(--space-5); }
 .lattice-trellis [data-trellis-part="tabbar"][data-tools="named"] .trellis-view-switcher .sliding-tab-label { gap: var(--space-3); }
 .lattice-trellis [data-trellis-part="tabbar"][data-tools="named"] .trellis-mode-name {
@@ -348,9 +345,9 @@
 
 /* ---------------------------------------------------------------- drop previews */
 .lattice-trellis [data-trellis-part="drop-slot"] { border-radius: var(--radius-surface); }
-.lattice-trellis [data-trellis-part="drop-label"] { border-radius: var(--radius-pill); font-size: var(--type-label-size); font-weight: var(--weight-medium); }
+.lattice-trellis [data-trellis-part="drop-label"] { border-radius: var(--radius-pill); font-size: var(--type-body-compact-size); font-weight: var(--weight-medium); }
 .lattice-trellis [data-trellis-part="snap-preview"] span,
-.lattice-trellis [data-trellis-part="marquee-target"] span { font-size: var(--type-label-size); font-weight: var(--weight-medium); }
+.lattice-trellis [data-trellis-part="marquee-target"] span { font-size: var(--type-body-compact-size); font-weight: var(--weight-medium); }
 
 /* ---------------------------------------------------------------- content slots */
 .trellis-slot { position: absolute; inset: 0; display: flex; flex-direction: column; min-width: 0; min-height: 0; }
@@ -398,9 +395,9 @@
   border-radius: var(--radius-control);
   background: color-mix(in srgb, var(--text-primary) 5%, transparent);
   color: var(--text-secondary);
-  transition: background-color var(--duration-quick) var(--ease-out), color var(--duration-quick) var(--ease-out);
+  transition: background-color var(--motion-fast), color var(--motion-fast);
 }
-.trellis-empty strong { color: var(--text-primary); font-size: var(--type-label-size); font-weight: var(--weight-semibold); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.trellis-empty strong { color: var(--text-primary); font-size: var(--type-body-compact-size); font-weight: var(--weight-semibold); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .trellis-empty-detail { max-width: 320px; color: var(--text-tertiary); }
 .trellis-empty-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--space-2); margin-top: var(--space-2); }
 .trellis-empty-button {
@@ -411,8 +408,8 @@
   border-radius: var(--radius-control);
   background: var(--surface-app);
   color: var(--text-primary);
-  font: var(--type-label-weight) var(--type-label-size)/var(--type-label-line-height) var(--ui-font);
-  transition: background-color var(--duration-quick) var(--ease-out);
+  font: var(--type-body-compact-weight) var(--type-body-compact-size)/var(--type-body-compact-line-height) var(--ui-font);
+  transition: background-color var(--motion-fast);
 }
 .trellis-empty-button:hover { background: var(--chrome-hover-surface); }
 .trellis-empty-button kbd { color: var(--text-tertiary); font: inherit; }
@@ -431,7 +428,7 @@
   background: var(--surface-panel-raised); box-shadow: 0 0 0 1px var(--border-subtle);
   color: var(--text-secondary);
   font: var(--type-micro-weight) var(--type-micro-size)/var(--type-micro-line-height) var(--ui-font);
-  pointer-events: none; opacity: 0; transition: opacity var(--duration-quick) var(--ease-out);
+  pointer-events: none; opacity: 0; transition: opacity var(--motion-fast);
 }
 .trellis-snapshot:hover .trellis-snapshot-badge { opacity: 1; }
 .trellis-paper-snapshot { position: absolute; inset: 0; display: flex; flex-direction: column; background: var(--editor-bg); }
@@ -463,11 +460,11 @@
   border-radius: var(--radius-chrome);
   background: transparent;
   color: var(--text-secondary);
-  font-size: var(--type-label-size);
+  font-size: var(--type-body-compact-size);
   /* One line, so a control short of room overflows the bar (which the preset
      fit measures) instead of wrapping a CJK label character by character. */
   white-space: nowrap;
-  transition: background-color var(--duration-quick) var(--ease-out), color var(--duration-quick) var(--ease-out);
+  transition: background-color var(--motion-fast), color var(--motion-fast);
 }
 .trellis-titlebar .trellis-titlebar-toggle { width: var(--control-height-compact); justify-content: center; padding: 0; }
 .trellis-titlebar button:hover { background: var(--chrome-hover-surface); color: var(--text-primary); }
@@ -485,7 +482,7 @@
   padding: 0 var(--space-5) 0 var(--space-4);
   border-radius: var(--nested-radius);
   color: var(--text-secondary);
-  font-size: var(--type-label-size);
+  font-size: var(--type-body-compact-size);
   font-weight: inherit;
 }
 .trellis-titlebar .trellis-presets .trellis-preset:not(.active):hover { background: transparent; color: var(--text-primary); }
@@ -520,7 +517,7 @@
 .trellis-workspace-name {
   display: inline-grid; flex: none; height: 100%;
   min-width: calc(6ch + 2 * var(--space-5));
-  font: inherit; font-size: var(--type-label-size);
+  font: inherit; font-size: var(--type-body-compact-size);
 }
 .trellis-workspace-name::after,
 .trellis-workspace-name-input {

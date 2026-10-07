@@ -39,7 +39,7 @@
 
 .chat-message p {
   margin: 0;
-  font-size: var(--type-label-size);
+  font-size: var(--type-body-compact-size);
   line-height: 1.5;
   color: var(--text-primary);
   white-space: pre-wrap;
@@ -67,7 +67,7 @@
   min-height: var(--control-height-default);
   max-height: 160px;
   resize: none;
-  font-size: var(--type-label-size);
+  font-size: var(--type-body-compact-size);
   line-height: 1.5;
   padding: 5px 9px;
   border-radius: var(--field-control-radius);

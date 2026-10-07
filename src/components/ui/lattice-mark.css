@@ -12,13 +12,13 @@
    so with motion reduced (adaptive-feedback.css) it simply appears. */
 .lattice-mark[data-motion="weave"] .lattice-mark-thread {
   stroke-dasharray: 1 1;
-  animation: lattice-mark-draw var(--duration-draw) var(--ease-entrance) both;
+  animation: lattice-mark-draw var(--motion-draw) both;
   animation-delay: calc(120ms + var(--weave-order) * 55ms);
 }
 .lattice-mark[data-motion="weave"] .lattice-mark-node {
   transform-box: fill-box;
   transform-origin: center;
-  animation: lattice-mark-pin var(--duration-reveal) var(--ease-entrance) both;
+  animation: lattice-mark-pin var(--motion-moderate) both;
   animation-delay: calc(640ms + var(--weave-order) * 30ms);
 }
 @keyframes lattice-mark-draw {
@@ -38,7 +38,7 @@
   stroke-dasharray: .1 2;
   stroke-dashoffset: .1;
   opacity: 0;
-  animation: lattice-mark-glint 7.2s var(--ease-in-out) infinite;
+  animation: lattice-mark-glint 7.2s ease-in-out infinite;
   animation-delay: calc(1.6s + var(--weave-order) * 180ms);
 }
 @keyframes lattice-mark-glint {

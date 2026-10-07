@@ -80,7 +80,7 @@
 .overleaf-history-load-more {
   align-self: center;
   margin: var(--space-5) 0 var(--space-1);
-  height: 26px;
+  height: var(--control-height-compact);
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-chrome);
   padding: 0 var(--space-6);

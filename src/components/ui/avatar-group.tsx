@@ -4,8 +4,6 @@ import "./avatar-group.css";
 const DEFAULT_LIFT = -2;
 const DEFAULT_FALLOFF = 0.35;
 const DEFAULT_SCALE = 1.025;
-const EASE_IN = "cubic-bezier(0.22, 1, 0.36, 1)";
-const EASE_OUT = "cubic-bezier(0.2, 0.8, 0.2, 1.05)";
 
 /** A compact avatar stack whose neighbors rise gently with the hovered avatar. */
 export function AvatarGroup(props: {
@@ -28,13 +26,13 @@ export function AvatarGroup(props: {
     const lift = numberProperty("--avatar-group-lift", DEFAULT_LIFT);
     const falloff = numberProperty("--avatar-group-falloff", DEFAULT_FALLOFF);
     const scale = numberProperty("--avatar-group-scale", DEFAULT_SCALE);
-    const easing = styles.getPropertyValue(
-      phase === "out" ? "--avatar-group-ease-out" : "--avatar-group-ease-in",
-    ).trim() || (phase === "out" ? EASE_OUT : EASE_IN);
 
     Array.from(root.children).forEach((element, index) => {
       if (!(element instanceof HTMLElement)) return;
-      element.style.transitionTimingFunction = easing;
+      // The stack settles back on the moderate tier's exit, one step quicker
+      // than it rose (avatar-group.css holds the rise).
+      // eslint-disable-next-line lingui/no-unlocalized-strings -- a CSS transition value
+      element.style.transition = phase === "out" ? "transform var(--motion-moderate-exit)" : "";
       if (activeIndex === null || reducedMotion) {
         element.style.setProperty("--avatar-group-shift", "0px");
         element.style.setProperty("--avatar-group-active-scale", "1");

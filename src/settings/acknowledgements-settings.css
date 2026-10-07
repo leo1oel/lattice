@@ -54,8 +54,8 @@
   background: none;
   color: var(--text-primary);
   font: inherit;
-  font-size: var(--type-label-size);
-  line-height: var(--type-label-line-height);
+  font-size: var(--type-body-compact-size);
+  line-height: var(--type-body-compact-line-height);
   text-align: left;
   cursor: default;
 }
@@ -67,7 +67,7 @@
 .acknowledgements-closure-chevron {
   flex: none;
   color: var(--text-tertiary);
-  transition: transform var(--duration-quick) var(--ease-default);
+  transition: transform var(--motion-fast);
 }
 
 .acknowledgements-closure-toggle[aria-expanded="true"] .acknowledgements-closure-chevron {
@@ -89,7 +89,7 @@
   color: var(--text-secondary);
   font-size: var(--type-caption-size);
   line-height: var(--type-caption-line-height);
-  font-weight: var(--type-label-weight);
+  font-weight: var(--type-body-compact-weight);
 }
 
 .acknowledgements-packages {
@@ -166,9 +166,9 @@
 .acknowledgements-notices-group h3 {
   margin: 0 0 var(--space-2);
   color: var(--text-primary);
-  font-size: var(--type-label-size);
-  line-height: var(--type-label-line-height);
-  font-weight: var(--type-label-weight);
+  font-size: var(--type-body-compact-size);
+  line-height: var(--type-body-compact-line-height);
+  font-weight: var(--type-body-compact-weight);
 }
 
 .acknowledgements-notices-group h4 {
@@ -176,7 +176,7 @@
   color: var(--text-tertiary);
   font-size: var(--type-caption-size);
   line-height: var(--type-caption-line-height);
-  font-weight: var(--type-label-weight);
+  font-weight: var(--type-body-compact-weight);
 }
 
 .acknowledgements-notices-text {

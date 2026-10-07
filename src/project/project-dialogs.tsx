@@ -47,21 +47,21 @@ export function Welcome(props: {
         <h1>{t`Research, written with evidence`}</h1>
         <div className="welcome-actions">
           <MotionButton
-            className={buttonClassName({ variant: "primary", size: "form" })}
+            className={buttonClassName({ variant: "primary" })}
             magnetic
             onClick={props.onOpenCreate}
           >
             <Plus size={17} /> {t`New project`}
           </MotionButton>
           <MotionButton
-            className={buttonClassName({ variant: "secondary", size: "form" })}
+            className={buttonClassName({ variant: "secondary" })}
             onClick={props.onOpen}
           >
             <MorphIcon size={17} idle={<Folder size={17} />} hover={<FolderOpen size={17} />} />
             {t`Open folder`}
           </MotionButton>
           <MotionButton
-            className={buttonClassName({ variant: "ghost", size: "form" })}
+            className={buttonClassName({ variant: "ghost" })}
             disabled={Boolean(props.busyLabel)}
             onClick={props.onOpenTutorial}
           >
@@ -122,7 +122,7 @@ export function CreateProjectDialog(props: {
         <h2>{t`Create a research project`}</h2>
         <label>
           {t`Project name`}
-          <Input controlSize="form" autoFocus value={props.projectName} onChange={(event) => props.setProjectName(event.target.value)} onKeyDown={(event) => event.key === "Enter" && props.onCreate()} />
+          <Input autoFocus value={props.projectName} onChange={(event) => props.setProjectName(event.target.value)} onKeyDown={(event) => event.key === "Enter" && props.onCreate()} />
         </label>
         <div className="venue-picker">
           <span className="venue-picker-label">{t`Venue template`}</span>
@@ -130,7 +130,7 @@ export function CreateProjectDialog(props: {
             value={props.projectVenue}
             onValueChange={(value) => props.setProjectVenue(value as ProjectVenue)}
           >
-            <SelectTrigger size="form" aria-label={t`Venue template`}>
+            <SelectTrigger aria-label={t`Venue template`}>
               <SelectValue />
             </SelectTrigger>
             <SelectContent className="venue-picker-content" position="popper" align="start">
@@ -191,7 +191,6 @@ export function RenameDialog(props: {
         <label>
           {t`Name`}
           <Input
-            controlSize="form"
             autoFocus
             aria-label={t`New name`}
             value={name}
@@ -262,7 +261,7 @@ export function ProjectMenu(props: {
         </DropdownMenuItem>
       ))}
       {!alternatives.length && (
-        <p className="px-2 py-1.5 text-xs text-muted-foreground">{t`No other recent projects yet`}</p>
+        <p className="px-2 py-1.5 text-[length:var(--type-body-compact-size)] leading-[var(--type-body-compact-line-height)] text-muted-foreground">{t`No other recent projects yet`}</p>
       )}
       <DropdownMenuSeparator />
       <DropdownMenuItem onSelect={props.onOpen}>
@@ -288,7 +287,7 @@ export function ProjectMenu(props: {
         <Settings /> {t`Settings`}
       </DropdownMenuItem>
       {props.busyLabel && (
-        <p className="flex items-center gap-2 px-2 py-1.5 text-xs text-muted-foreground">
+        <p className="flex items-center gap-2 px-2 py-1.5 text-[length:var(--type-body-compact-size)] leading-[var(--type-body-compact-line-height)] text-muted-foreground">
           <InfinityLoader size={12} /> {props.busyLabel}
         </p>
       )}

@@ -154,7 +154,7 @@ function slidingPill(stripId: string, reduceMotion: boolean | null) {
       aria-hidden
       className="sliding-tab-pill"
       layoutId={reduceMotion ? undefined : `${stripId}-pill`}
-      transition={reduceMotion ? { duration: 0 } : { type: "spring", stiffness: 260, damping: 26, mass: 1 }}
+      transition={reduceMotion ? { duration: 0 } : spring.moderate}
     />
   );
 }

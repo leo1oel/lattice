@@ -248,7 +248,7 @@ function SelectRow<T extends string>({ label, description, value, onChange, opti
   return (
     <SettingsRow label={label} description={description} data-setting={setting}>
       <Select value={value} onValueChange={(next) => onChange(next as T)}>
-        <SelectTrigger size="form" aria-label={label}><SelectValue /></SelectTrigger>
+        <SelectTrigger aria-label={label}><SelectValue /></SelectTrigger>
         <SelectContent data-settings-control="true" position="popper" align="end">
           {(Object.entries(options) as [T, string][]).map(([key, text]) => <SelectItem key={key} value={key}>{text}</SelectItem>)}
         </SelectContent>
@@ -833,7 +833,6 @@ Files that differ are kept side by side. Nothing is overwritten`,
                 </div>
                 <div className="overleaf-publish-actions">
                   <Input
-                    controlSize="form"
                     aria-label={t`New Overleaf project name`}
                     value={publishName}
                     disabled={working}
@@ -841,7 +840,7 @@ Files that differ are kept side by side. Nothing is overwritten`,
                     onKeyDown={(event) => { if (event.key === "Enter") void publish(); }}
                   />
                   <MotionButton
-                    className={buttonClassName({ variant: "primary", size: "form" })}
+                    className={buttonClassName({ variant: "primary" })}
                     disabled={working || !publishName.trim()}
                     onClick={() => void publish()}
                   >

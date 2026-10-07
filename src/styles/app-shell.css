@@ -1,7 +1,7 @@
 * { box-sizing: border-box; }
 html, body, #root { width: 100%; height: 100%; margin: 0; overflow: hidden; background: var(--surface-window); }
 button, input, textarea, select { font: inherit; color: inherit; }
-button { border: 0; cursor: pointer; transition: background-color var(--duration-base) var(--ease-default), border-color var(--duration-base) var(--ease-default), color var(--duration-base) var(--ease-default); }
+button { border: 0; cursor: pointer; transition: background-color var(--motion-moderate), border-color var(--motion-moderate), color var(--motion-moderate); }
 button:disabled { cursor: default; opacity: 0.45; }
 input[type="search"] { -webkit-appearance: none; appearance: none; }
 input[type="search"]::-webkit-search-cancel-button,
@@ -17,7 +17,7 @@ input[type="search"]:focus-visible {
   box-shadow: 0 0 0 1px color-mix(in srgb, var(--text-primary) 12%, transparent);
 }
 .copy-button-icon { position: relative; width: 14px; height: 14px; display: inline-grid; place-items: center; flex: none; }
-.copy-button-icon > svg { position: absolute; transition: opacity var(--duration-base) var(--ease-default), transform var(--duration-base) var(--ease-emphasized); }
+.copy-button-icon > svg { position: absolute; transition: opacity var(--motion-moderate), transform var(--motion-moderate); }
 .copy-icon-idle { opacity: 1; transform: scale(1) rotate(0); }
 .copy-icon-success { opacity: 0; transform: scale(.85); color: var(--status-success); }
 .copy-button.copied .copy-icon-idle { opacity: 0; transform: scale(.85); }
@@ -68,9 +68,9 @@ input[type="search"]:focus-visible {
 .icon-button:hover { background: var(--chrome-hover-surface); color: var(--text-primary); }
 /* Soften the light/dark switch on the big themed surfaces (a rare action, so a
    short color transition here is cheap even on weak WebKit). */
-.app-shell, .titlebar { transition: background-color var(--duration-slow) var(--ease-default), color var(--duration-slow) var(--ease-default); }
+.app-shell, .titlebar { transition: background-color var(--motion-slow), color var(--motion-slow); }
 .project-switcher { min-width: 0; height: 100%; flex: none; position: relative; display: flex; align-items: center; overflow: hidden; }
-.project-title { max-width: var(--titlebar-project-title-max-width); height: var(--titlebar-action-size); min-width: 0; flex: none; border-radius: var(--radius-chrome); padding: 0 var(--space-4); background: transparent; color: var(--text-chrome); display: flex; align-items: center; gap: var(--gap-inline); font-size: var(--type-title-size); font-weight: var(--weight-semibold); text-align: left; }
+.project-title { max-width: var(--titlebar-project-title-max-width); height: var(--titlebar-action-size); min-width: 0; flex: none; border-radius: var(--radius-chrome); padding: 0 var(--space-4); background: transparent; color: var(--text-chrome); display: flex; align-items: center; gap: var(--gap-inline); font-size: var(--type-subtitle-size); font-weight: var(--weight-semibold); text-align: left; }
 .project-title:hover, .project-title:focus-visible, .project-title[aria-expanded="true"] { background: var(--chrome-hover-surface); }
 .project-title:disabled { opacity: 1; cursor: default; }
 .project-title > span:first-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -92,11 +92,11 @@ input[type="search"]:focus-visible {
 @keyframes spin { to { transform: rotate(360deg); } }
 @keyframes icon-swap { from { opacity: 0; transform: scale(.82); } to { opacity: 1; transform: scale(1); } }
 
-.compile-diagnostics { --smooth-ring-color: var(--border-subtle); position: absolute; z-index: var(--z-diagnostics); top: 46px; right: var(--space-4); width: min(440px, calc(100% - 16px)); border-radius: var(--radius-panel); color: var(--text-secondary); overflow: hidden; }
+.compile-diagnostics { box-shadow: 0 0 0 1px var(--border-subtle), var(--elevation-floating-shadow); position: absolute; z-index: var(--z-diagnostics); top: 46px; right: var(--space-4); width: min(440px, calc(100% - 16px)); border-radius: var(--radius-panel); color: var(--text-secondary); overflow: hidden; }
 .compile-diagnostics.error .compile-diagnostics-toggle > svg:first-child { color: var(--status-danger); }
 .compile-diagnostics.warning .compile-diagnostics-toggle > svg:first-child { color: var(--status-warning); }
 .compile-diagnostics-bar { min-height: 34px; display: flex; align-items: center; gap: var(--space-3); padding: var(--space-2) var(--space-5) var(--space-2) var(--space-4); }
-.compile-diagnostics-toggle { flex: 1; min-width: 0; height: 26px; border: 0; border-radius: var(--radius-icon); padding: 0 var(--space-3); background: transparent; color: inherit; display: flex; align-items: center; gap: var(--gap-inline); font-size: var(--type-caption-size); font-weight: var(--weight-regular); }
+.compile-diagnostics-toggle { flex: 1; min-width: 0; height: var(--control-height-compact); border: 0; border-radius: var(--radius-icon); padding: 0 var(--space-3); background: transparent; color: inherit; display: flex; align-items: center; gap: var(--gap-inline); font-size: var(--type-caption-size); font-weight: var(--weight-regular); }
 .compile-diagnostics-toggle:hover { background: var(--tone-hover-surface); }
 .compile-diagnostics-toggle > svg:first-child { width: 15px; height: 15px; flex: none; }
 .compile-diagnostics-toggle span { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; text-align: left; font-weight: 400; }
@@ -124,7 +124,7 @@ input[type="search"]:focus-visible {
 .compile-diagnostic-item.warning > svg { color: var(--status-warning); }
 .compile-diagnostic-message { min-width: 0; color: var(--text-primary); overflow-wrap: anywhere; line-height: 1.45; }
 .compile-diagnostic-line { color: var(--text-tertiary); font-size: var(--type-micro-size); line-height: 1.6; white-space: nowrap; font-variant-numeric: tabular-nums; }
-.compile-diagnostic-copy { width: 26px; height: 26px; flex: none; border: 0; border-radius: var(--radius-icon); padding: 0; background: transparent; color: inherit; display: grid; place-items: center; opacity: .72; }
+.compile-diagnostic-copy { width: var(--control-size-icon-compact); height: var(--control-size-icon-compact); flex: none; border: 0; border-radius: var(--radius-icon); padding: 0; background: transparent; color: inherit; display: grid; place-items: center; opacity: .72; }
 .compile-diagnostic-copy:hover { background: var(--tone-hover-surface); opacity: 1; }
 .compile-log { display: block; box-sizing: border-box; width: 100%; field-sizing: content; min-height: 0; max-height: 220px; margin: 0; overflow: auto; resize: none; border: 1px solid var(--tone-border); border-radius: var(--radius-chrome); padding: var(--space-4) var(--space-5); background: color-mix(in srgb, var(--surface-panel-raised) 90%, transparent); color: var(--text-primary); font-family: var(--editor-font); font-size: var(--type-micro-size); line-height: 1.45; white-space: pre-wrap; overflow-wrap: anywhere; }
 /* Without field-sizing a textarea is two rows tall; give it the old cap. */
@@ -168,7 +168,7 @@ input[type="search"]:focus-visible {
 .editor-status-bar .status-comments { margin-left: auto; }
 /* The count names its scope in a quieter tone than the number, and opens the
    per-scope details; it reads as status text, like its neighbours. */
-.editor-status-bar .status-body-words { margin-left: var(--space-3); min-width: 0; border: 0; padding: 0; background: transparent; color: var(--text-secondary); font: inherit; display: inline-flex; align-items: baseline; gap: var(--space-2); cursor: pointer; transition: color var(--duration-quick) var(--ease-default); }
+.editor-status-bar .status-body-words { margin-left: var(--space-3); min-width: 0; border: 0; padding: 0; background: transparent; color: var(--text-secondary); font: inherit; display: inline-flex; align-items: baseline; gap: var(--space-2); cursor: pointer; transition: color var(--motion-fast); }
 .editor-status-bar .status-body-words .status-word-scope { color: var(--text-tertiary); transition: inherit; }
 .editor-status-bar .status-body-words .status-word-scope::after { content: "·"; margin-left: var(--space-2); }
 .editor-status-bar .status-body-words:is(:hover, [data-state="open"]),
@@ -179,8 +179,8 @@ input[type="search"]:focus-visible {
 .word-count-popover dl { margin: 0; display: grid; }
 .word-count-popover dl > div { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: baseline; gap: var(--space-1) var(--space-6); padding: var(--space-5) var(--space-6); }
 .word-count-popover dl > div + div { border-top: 1px solid var(--border-subtle); }
-.word-count-popover dt { color: var(--text-primary); font-size: var(--type-label-size); font-weight: var(--weight-semibold); }
-.word-count-popover dd { margin: 0; color: var(--text-primary); font-size: var(--type-label-size); font-weight: var(--weight-semibold); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.word-count-popover dt { color: var(--text-primary); font-size: var(--type-body-compact-size); font-weight: var(--weight-semibold); }
+.word-count-popover dd { margin: 0; color: var(--text-primary); font-size: var(--type-body-compact-size); font-weight: var(--weight-semibold); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .word-count-popover dd.word-count-note { grid-column: 1 / -1; color: var(--text-tertiary); font-size: var(--type-micro-size); font-weight: var(--weight-regular); line-height: var(--type-micro-line-height); white-space: normal; text-wrap: pretty; min-width: 0; overflow-wrap: anywhere; }
 .editor-status-bar .status-hint { min-width: 0; flex: 0 1 auto; overflow: hidden; text-overflow: ellipsis; color: var(--text-tertiary); opacity: .85; }
 .editor-status-bar .status-hint kbd { font: inherit; color: var(--text-secondary); }
@@ -191,14 +191,14 @@ input[type="search"]:focus-visible {
 .quick-open-header { position: relative; padding: var(--space-4) var(--space-5); display: flex; align-items: center; }
 .quick-open-header::after { content: ""; position: absolute; inset-inline: var(--space-5); bottom: 0; height: 1px; background: var(--border-subtle); }
 /* The divider already frames the query, so the field drops its own box. */
-.quick-open-header .ui-search-field { height: var(--control-height-segmented-default); border-color: transparent; background: transparent; }
+.quick-open-header .ui-search-field { height: var(--control-height-default); border-color: transparent; background: transparent; }
 /* Pickers whose details are short (the command palette's shortcuts) keep each
    row to one line, with the detail trailing at the end. */
 .quick-open-modal[data-detail="end"] .quick-open-list button { flex-direction: row; align-items: center; justify-content: space-between; gap: var(--space-8); }
 .quick-open-modal[data-detail="end"] .picker-label { flex: 1 1 auto; }
 .quick-open-modal[data-detail="end"] .picker-detail { flex: 0 1 auto; max-width: 45%; }
 .quick-open-list { --surface-radius: var(--radius-dialog); --surface-inset: var(--space-3); max-height: min(360px, 50vh); overflow: auto; padding: var(--surface-inset); display: grid; gap: var(--space-1); }
-.quick-open-list button { min-height: var(--control-height-default); border: 0; border-radius: var(--nested-radius); padding: 7px var(--space-5); background: transparent; color: var(--text-secondary); text-align: left; font-size: var(--type-label-size); display: flex; flex-direction: column; align-items: stretch; justify-content: center; gap: var(--gap-tight); min-width: 0; overflow: hidden; }
+.quick-open-list button { min-height: var(--control-height-default); border: 0; border-radius: var(--nested-radius); padding: 7px var(--space-5); background: transparent; color: var(--text-secondary); text-align: left; font-size: var(--type-body-compact-size); display: flex; flex-direction: column; align-items: stretch; justify-content: center; gap: var(--gap-tight); min-width: 0; overflow: hidden; }
 .quick-open-list button.active, .quick-open-list button:hover { background: var(--control-active-soft); color: var(--control-active); }
 .quick-open-list .picker-label { min-width: 0; display: inline-flex; align-items: baseline; gap: var(--space-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* One heading per section, quiet enough that the rows stay the thing to read. */
@@ -255,7 +255,7 @@ input[type="search"]:focus-visible {
 .bib-entry-preview-disclosure > summary { display: inline-flex; align-items: center; gap: var(--space-2); list-style: none; cursor: pointer; border-radius: var(--radius-compact); color: var(--text-secondary); font: 600 var(--type-micro-size)/var(--type-micro-line-height) var(--ui-font); }
 .bib-entry-preview-disclosure > summary::-webkit-details-marker { display: none; }
 .bib-entry-preview-disclosure > summary:hover { color: var(--text-primary); }
-.bib-entry-preview-disclosure > summary > svg { transition: transform var(--duration-quick) var(--ease-out); }
+.bib-entry-preview-disclosure > summary > svg { transition: transform var(--motion-fast); }
 .bib-entry-preview-disclosure[open] > summary > svg { transform: rotate(90deg); }
 .bib-entry-preview { margin: var(--space-4) 0 0; min-height: 96px; overflow: auto; border: 1px solid var(--border-subtle); border-radius: var(--radius-control); padding: var(--space-5); background: var(--surface-app); color: var(--text-secondary); font: var(--type-caption-size)/1.45 var(--editor-font); white-space: pre-wrap; }
 .venue-combobox { position: relative; }
@@ -266,7 +266,7 @@ input[type="search"]:focus-visible {
 /* 8 outer + 4 pad → 4 item (concentric). */
 .venue-menu button { display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); height: auto; min-height: 28px; border: 0; border-radius: var(--nested-radius); background: transparent; color: var(--text-primary); padding: 5px var(--space-4); text-align: left; font: var(--type-caption-size)/1.3 var(--ui-font); font-weight: 500; cursor: pointer; }
 .venue-menu button span { min-width: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; }
-.venue-menu button em { flex: none; font-style: normal; font-size: var(--type-nano-size); letter-spacing: .04em; text-transform: uppercase; color: var(--text-tertiary); }
+.venue-menu button em { flex: none; font-style: normal; font-size: var(--type-micro-size); letter-spacing: .04em; text-transform: uppercase; color: var(--text-tertiary); }
 .venue-menu button:hover, .venue-menu button[aria-selected="true"] { background: var(--control-active-soft); color: var(--control-active); }
 .venue-menu button:hover em, .venue-menu button[aria-selected="true"] em { color: var(--control-active); }
 .year-stepper { position: relative; display: flex; }
@@ -275,7 +275,7 @@ input[type="search"]:focus-visible {
 .year-stepper-buttons button { flex: 1; width: 22px; height: auto; min-height: 0; padding: 0; border: 0; border-left: 1px solid var(--border-subtle); background: transparent; color: var(--text-secondary); display: grid; place-items: center; cursor: pointer; }
 .year-stepper-buttons button:first-child { border-bottom: 1px solid var(--border-subtle); }
 .year-stepper-buttons button:hover { background: var(--control-active-soft); color: var(--control-active); }
-.doctor-status { margin: 0 0 var(--space-6); padding: var(--space-4) var(--space-5); border-radius: var(--radius-control); font-size: var(--type-label-size); font-weight: 600; }
+.doctor-status { margin: 0 0 var(--space-6); padding: var(--space-4) var(--space-5); border-radius: var(--radius-control); font-size: var(--type-body-compact-size); font-weight: 600; }
 .doctor-status.ok { background: color-mix(in srgb, var(--status-success) 14%, var(--surface-app)); color: var(--status-success); }
 .doctor-status.bad { background: color-mix(in srgb, var(--status-danger) 12%, var(--surface-app)); color: var(--status-danger); }
 .doctor-checklist { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(var(--settings-row-control-min-width), 1fr)); gap: var(--space-3); }
@@ -326,13 +326,13 @@ input[type="search"]:focus-visible {
 .project-find-papers { flex: 0 1 auto; min-height: 0; margin-top: var(--space-5); display: flex; flex-direction: column; gap: var(--space-3); }
 /* Scope tabs lead the results, the live status trailing them on one line. A
    tab's count is a quiet numeral beside its name, solid on the tab you are on. */
-.project-find-scope { display: flex; align-items: center; justify-content: space-between; gap: var(--space-5); min-height: var(--control-height-segmented-compact); }
+.project-find-scope { display: flex; align-items: center; justify-content: space-between; gap: var(--space-5); min-height: var(--control-height-compact); }
 .project-find-filter { display: flex; align-items: center; gap: var(--space-3); color: var(--text-secondary); font-size: var(--type-caption-size); }
 .project-find-status { min-width: 0; color: var(--text-secondary); font-size: var(--type-caption-size); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .project-find-scope .ui-segmented-tab { min-width: 52px; }
-.project-find-scope .ui-segmented-tab em { margin-left: var(--space-1); color: var(--text-tertiary); font-style: normal; font-variant-numeric: tabular-nums; transition: color var(--duration-quick) var(--ease-default); }
+.project-find-scope .ui-segmented-tab em { margin-left: var(--space-1); color: var(--text-tertiary); font-style: normal; font-variant-numeric: tabular-nums; transition: color var(--motion-fast); }
 .project-find-scope .ui-segmented-tab.active em { color: var(--text-secondary); }
-.history-restore-file { margin-top: var(--space-4); height: 28px; border: 1px solid var(--border-subtle); border-radius: var(--radius-chrome); padding: 0 var(--space-4); background: transparent; color: var(--text-secondary); display: inline-flex; align-items: center; gap: var(--space-3); font-size: var(--type-micro-size); font-weight: 600; }
+.history-restore-file { margin-top: var(--space-4); height: var(--control-height-compact); border: 1px solid var(--border-subtle); border-radius: var(--radius-chrome); padding: 0 var(--space-4); background: transparent; color: var(--text-secondary); display: inline-flex; align-items: center; gap: var(--space-3); font-size: var(--type-micro-size); font-weight: 600; }
 .history-restore-file:hover { border-color: var(--control-active-border); background: var(--control-active-soft); color: var(--control-active); }
 
 
@@ -344,7 +344,7 @@ input[type="search"]:focus-visible {
 /* Keep the iframe and file tree at their real width while the grid closes its
    clipping column. Reopening does not remount the assistant or squeeze rows. */
 @keyframes sidebar-pane-in { from { opacity: .65; transform: translateY(2px); } to { opacity: 1; transform: translateY(0); } }
-.panel-resizer { position: relative; z-index: 2; width: 1px; min-width: 1px; height: 100%; cursor: col-resize; outline: none; background: transparent; touch-action: none; transition: background var(--duration-quick), box-shadow var(--duration-quick); }
+.panel-resizer { position: relative; z-index: 2; width: 1px; min-width: 1px; height: 100%; cursor: col-resize; outline: none; background: transparent; touch-action: none; transition: background var(--motion-fast), box-shadow var(--motion-fast); }
 .panel-resizer::after { content: ""; position: absolute; inset: 0 -4px; }
 .panel-resizer:hover, .panel-resizer:focus-visible, body.resizing-panels .panel-resizer { background: var(--border-strong); box-shadow: 0 0 0 .5px var(--border-strong); }
 /* A wide invisible grab strip, but only a hairline of paint. Fade the ends
@@ -368,7 +368,7 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
   color-scheme: inherit;
   opacity: 0;
   transform: translateY(2px);
-  transition: opacity var(--duration-base) var(--ease-default), transform var(--duration-base) var(--ease-default);
+  transition: opacity var(--motion-moderate), transform var(--motion-moderate);
 }
 .synara-frame-shell[data-ready="true"] .synara-poc-frame {
   opacity: 1;
@@ -430,7 +430,7 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
 }
 .synara-loading-copy strong {
   color: var(--text-primary);
-  font-size: var(--type-label-size);
+  font-size: var(--type-body-compact-size);
   font-weight: 600;
 }
 .synara-loading-copy > span {
@@ -475,7 +475,7 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
 }
 .synara-failure-details > summary::-webkit-details-marker { display: none; }
 .synara-failure-details > summary:hover { color: var(--text-secondary); background: var(--tone-hover-surface); }
-.synara-failure-details > summary > svg { transition: transform var(--duration-quick) ease; }
+.synara-failure-details > summary > svg { transition: transform var(--motion-fast); }
 .synara-failure-details[open] > summary > svg { transform: rotate(90deg); }
 .synara-failure-detail { position: relative; margin-top: var(--space-3); text-align: left; }
 .synara-failure-detail > pre {
@@ -613,7 +613,7 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
   --trees-search-fg-override: var(--navigation-text-strong);
   --trees-font-family-override: var(--ui-font);
   --trees-font-size-override: var(--type-project-tree-size);
-  --trees-font-weight-regular-override: var(--type-project-tree-weight);
+  --trees-font-weight-regular-override: var(--type-body-weight);
   --trees-font-weight-semibold-override: var(--weight-semibold);
   --trees-icon-width-override: 14px;
   --trees-padding-inline-override: 1px;
@@ -639,13 +639,13 @@ body:has(.modal-backdrop, .drawer-backdrop) .file-tree-context-menu { display: n
    Surfaces follow the Project tree's (hover < open); the row's surface is a
    variable so the actions' backing (below) can match it. Its content never
    widens the list: a long DOI ellipsizes instead of scrolling sideways. */
-.paper-row { --paper-row-surface: transparent; --paper-row-padding: var(--space-5); position: relative; container: paper-row / inline-size; padding: var(--paper-row-padding); border-radius: var(--radius-icon); display: flex; flex-direction: column; background: var(--paper-row-surface); color: var(--text-secondary); transition: background-color var(--duration-exit) var(--ease-out); }
+.paper-row { --paper-row-surface: transparent; --paper-row-padding: var(--space-5); position: relative; container: paper-row / inline-size; padding: var(--paper-row-padding); border-radius: var(--radius-icon); display: flex; flex-direction: column; background: var(--paper-row-surface); color: var(--text-secondary); transition: background-color var(--motion-fast-exit); }
 .paper-row + .paper-row { margin-top: var(--space-1); }
 /* Hairlines part the rows at rest, under the text; a lit row needs none on
    either side. */
-.paper-row + .paper-row::before { content: ""; position: absolute; inset-block-start: calc(-1 * var(--space-1)); inset-inline: var(--paper-row-padding); height: 1px; background: var(--border-subtle); pointer-events: none; transition: opacity var(--duration-exit) var(--ease-out); }
-.paper-row:is(:hover, .active)::before, .paper-row:is(:hover, .active) + .paper-row::before { opacity: 0; transition-duration: var(--duration-quick); }
-.paper-row:hover { --paper-row-surface: var(--navigation-tree-hover-surface); transition-duration: var(--duration-quick); }
+.paper-row + .paper-row::before { content: ""; position: absolute; inset-block-start: calc(-1 * var(--space-1)); inset-inline: var(--paper-row-padding); height: 1px; background: var(--border-subtle); pointer-events: none; transition: opacity var(--motion-fast-exit); }
+.paper-row:is(:hover, .active)::before, .paper-row:is(:hover, .active) + .paper-row::before { opacity: 0; transition-duration: var(--duration-fast); }
+.paper-row:hover { --paper-row-surface: var(--navigation-tree-hover-surface); transition-duration: var(--duration-fast); }
 .paper-row.active { --paper-row-surface: var(--navigation-tree-selected-surface); }
 /* The button is the whole row under its text, so its ring is the row's;
    the text it lies under passes every click through to it. */
@@ -654,7 +654,7 @@ body:has(.modal-backdrop, .drawer-backdrop) .file-tree-context-menu { display: n
 .paper-row.cited-only .paper-open { cursor: default; }
 /* A paper's title is set as the reader sets it, in the reading face; a
    narrow panel gets a third line before the ellipsis. */
-.paper-list .paper-title { display: -webkit-box; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 3; line-clamp: 3; color: var(--navigation-text-strong); font-family: var(--reading-font); font-size: var(--type-body-size); line-height: var(--type-title-line-height); font-weight: var(--weight-regular); overflow-wrap: anywhere; text-wrap: pretty; }
+.paper-list .paper-title { display: -webkit-box; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 3; line-clamp: 3; color: var(--navigation-text-strong); font-family: var(--reading-font); font-size: var(--type-body-size); line-height: var(--type-subtitle-line-height); font-weight: var(--weight-regular); overflow-wrap: anywhere; text-wrap: pretty; }
 .paper-row.active .paper-title { color: var(--text-primary); }
 .paper-row.cited-only .paper-title { color: var(--text-secondary); }
 .paper-list small { margin-top: var(--space-2); display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-tertiary); font-size: var(--type-tree-size); line-height: var(--type-tree-line-height); }
@@ -673,7 +673,7 @@ body:has(.modal-backdrop, .drawer-backdrop) .file-tree-context-menu { display: n
 .paper-year { font-variant-numeric: tabular-nums; }
 /* A full-text hit is a line quoted from the paper, so it reads as one. */
 .paper-list .paper-snippet { color: var(--text-secondary); font-family: var(--reading-font); font-style: italic; }
-.paper-state-icon { margin-inline-start: var(--space-2); flex: none; display: grid; place-items: center; color: var(--text-tertiary); transition: color var(--duration-base) var(--ease-default); }
+.paper-state-icon { margin-inline-start: var(--space-2); flex: none; display: grid; place-items: center; color: var(--text-tertiary); transition: color var(--motion-moderate); }
 .paper-state-icon > svg { stroke-width: 1.5; }
 .paper-row:is(:hover, .active) .paper-state-icon { color: var(--text-secondary); }
 .paper-state-icon.success, .paper-row:is(:hover, .active) .paper-state-icon.success { color: var(--status-success); }
@@ -694,7 +694,7 @@ button.paper-citation-health:hover > .paper-citation-health-detail { color: var(
    exact one a \cite{} needs, and a click copies it. A row with no byline has
    no line to join, so they surface over the end of its last line instead, on
    a backing as opaque as the row they sit in. */
-.paper-row-actions { position: relative; z-index: 1; margin-inline-start: auto; flex: 0 1 auto; display: none; align-items: center; pointer-events: auto; animation: paper-row-actions-in var(--duration-quick) var(--ease-out); }
+.paper-row-actions { position: relative; z-index: 1; margin-inline-start: auto; flex: 0 1 auto; display: none; align-items: center; pointer-events: auto; animation: paper-row-actions-in var(--motion-fast); }
 .paper-row:is(:hover, :focus-within, .active) .paper-row-actions { display: flex; }
 @keyframes paper-row-actions-in { from { opacity: 0; } }
 @container paper-row (width < 300px) {
@@ -720,7 +720,7 @@ button.paper-citation-health:hover > .paper-citation-health-detail { color: var(
    list rather than a drop zone. */
 .papers-empty-state { margin: var(--space-6) 7px; padding: var(--space-6) var(--space-8) var(--space-6) var(--space-6); border-radius: var(--radius-panel); background: color-mix(in srgb, var(--editor-bg) 55%, transparent); display: flex; align-items: center; gap: var(--space-6); color: var(--text-tertiary); }
 .papers-empty-text { min-width: 0; display: grid; gap: var(--space-1); }
-.papers-empty-state strong { color: var(--text-primary); font-size: var(--type-label-size); font-weight: 600; }
+.papers-empty-state strong { color: var(--text-primary); font-size: var(--type-body-compact-size); font-weight: 600; }
 .papers-empty-state p { margin: 0; color: var(--text-tertiary); font-size: var(--type-caption-size); line-height: 1.45; }
 .import-box { overflow: hidden; }
 .import-box button { width: 24px; height: 24px; border-radius: var(--radius-icon); display: grid; place-items: center; background: transparent; color: var(--control-active); }
@@ -746,14 +746,14 @@ button.paper-citation-health:hover > .paper-citation-health-detail { color: var(
 .active-document span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .active-document i { width: 5px; height: 5px; border-radius: 50%; background: var(--control-active); flex: none; }
 .canvas-actions { justify-self: end; min-width: 0; display: flex; align-items: center; gap: var(--space-1); flex-wrap: nowrap; justify-content: flex-end; overflow: hidden; }
-.canvas-actions button { width: 28px; height: 28px; border-radius: var(--radius-icon); display: grid; place-items: center; background: transparent; color: var(--text-secondary); position: relative; }
+.canvas-actions button { width: var(--control-size-icon); height: var(--control-size-icon); border-radius: var(--radius-icon); display: grid; place-items: center; background: transparent; color: var(--text-secondary); position: relative; }
 .canvas-actions button:hover:not(:disabled) { background: var(--border-subtle); color: var(--text-primary); }
 .canvas-actions button.active { background: var(--control-active-soft); color: var(--control-active); }
 .overleaf-toolbar-group { display: flex; align-items: center; flex: none; }
 .canvas-actions .overleaf-toolbar-group .overleaf-toolbar-primary { border-radius: var(--radius-icon) 0 0 var(--radius-icon); }
 .canvas-actions .overleaf-toolbar-group .overleaf-toolbar-menu-button { width: 18px; border-radius: 0 var(--radius-icon) var(--radius-icon) 0; }
 .canvas-actions .overleaf-toolbar-menu-button:focus-visible { background: var(--chrome-hover-surface); color: var(--text-primary); }
-.overleaf-toolbar-menu-item { font-size: var(--type-label-size); line-height: var(--type-label-line-height); white-space: nowrap; }
+.overleaf-toolbar-menu-item { font-size: var(--type-body-compact-size); line-height: var(--type-body-compact-line-height); white-space: nowrap; }
 .animated-product-icon, .animated-product-icon > span, .animated-product-icon > span > div, .animated-product-icon svg { display: block; line-height: 0; }
 .canvas-actions .animated-product-icon--chat .ct-pop > path { stroke-width: 21.333; }
 .canvas-actions .animated-product-icon--git-branch .lg-branch { stroke-width: 20; }
@@ -766,7 +766,7 @@ button.paper-citation-health:hover > .paper-citation-health-detail { color: var(
    waiting on Overleaf. Ringed in the titlebar's own surface so the dot reads
    as cut out of the button rather than stuck on it. */
 .overleaf-status-dot, .overleaf-channel-dot { position: absolute; top: 3px; right: 3px; width: 7px; height: 7px; border-radius: var(--radius-pill); background: var(--status-success); box-shadow: 0 0 0 1.5px var(--surface-titlebar); pointer-events: none; }
-.overleaf-channel-dot[data-state="connecting"] { background: var(--status-warning); animation: overleaf-channel-breathe 1.6s var(--ease-in-out) infinite; }
+.overleaf-channel-dot[data-state="connecting"] { background: var(--status-warning); animation: overleaf-channel-breathe 1.6s ease-in-out infinite; }
 .overleaf-channel-dot[data-state="error"] { background: var(--status-danger); }
 .canvas-actions .overleaf-pending-badge { top: 3px; right: 3px; min-width: 0; width: 7px; height: 7px; padding: 0; border-radius: var(--radius-pill); background: var(--control-active); box-shadow: 0 0 0 1.5px var(--surface-titlebar); color: transparent; font-size: 0; }
 @keyframes overleaf-channel-breathe { 50% { opacity: .35; } }
@@ -774,8 +774,8 @@ button.paper-citation-health:hover > .paper-citation-health-detail { color: var(
    green dot; dropping to an error pops the red one. Both dots are the same
    element across states, so the animation starts when the class or state
    changes, not on every render, and nothing repeats while the writer works. */
-.overleaf-status-dot::after { content: ""; position: absolute; inset: 0; border-radius: inherit; box-shadow: 0 0 0 1.5px var(--status-success); opacity: 0; animation: overleaf-dot-ripple var(--duration-flourish) var(--ease-out) both; }
-.overleaf-channel-dot[data-state="error"] { animation: overleaf-dot-pop var(--duration-slow) var(--ease-entrance) both; }
+.overleaf-status-dot::after { content: ""; position: absolute; inset: 0; border-radius: inherit; box-shadow: 0 0 0 1.5px var(--status-success); opacity: 0; animation: overleaf-dot-ripple var(--motion-flourish) both; }
+.overleaf-channel-dot[data-state="error"] { animation: overleaf-dot-pop var(--motion-slow) both; }
 @keyframes overleaf-dot-ripple {
   from { opacity: .9; transform: scale(1); }
   to { opacity: 0; transform: scale(2.6); }

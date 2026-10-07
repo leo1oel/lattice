@@ -46,7 +46,7 @@
   overflow: hidden;
   border-radius: inherit;
   background: var(--control-active);
-  transition: width var(--duration-slow) var(--ease-out);
+  transition: width var(--motion-slow);
 }
 .tex-setup-progress-fill::after {
   position: absolute;
@@ -109,12 +109,12 @@
   font: inherit;
 }
 .checklist-row + .checklist-row { border-top: 1px solid var(--border-subtle); }
-button.checklist-row { cursor: pointer; transition: background-color var(--duration-quick) var(--ease-default); }
+button.checklist-row { cursor: pointer; transition: background-color var(--motion-fast); }
 button.checklist-row:hover { background: var(--control-hover-surface); }
 .checklist-row strong { font-size: var(--type-caption-size); font-weight: 600; }
 .checklist-row span { display: inline-flex; align-items: center; gap: var(--space-2); justify-self: end; font-size: var(--type-caption-size); font-weight: 650; font-variant-numeric: tabular-nums; }
 .checklist-row span svg { color: var(--text-tertiary); }
-.checklist-row small { grid-column: 1 / -1; color: var(--text-tertiary); font-size: var(--type-nano-size); }
+.checklist-row small { grid-column: 1 / -1; color: var(--text-tertiary); font-size: var(--type-micro-size); }
 .checklist-row.ok span { color: var(--status-success); }
 .checklist-row.warn span { color: var(--status-danger); }
 /* A quiet hairline gauge: the fill takes the row's result color at reduced
@@ -160,7 +160,7 @@ button.checklist-row:hover { background: var(--control-hover-surface); }
   font-weight: 600;
 }
 .checklist-budgets input {
-  height: 30px;
+  height: var(--control-height-default);
   border-color: var(--field-control-border-color);
   border-radius: var(--field-control-radius);
   padding: 0 var(--space-4);
@@ -171,7 +171,7 @@ button.checklist-row:hover { background: var(--control-hover-surface); }
 .checklist-budgets button {
   /* A field's basis, so it never pairs up with a lone field. */
   flex: 1 0 88px;
-  height: 30px;
+  height: var(--control-height-default);
   border: 1px solid var(--control-active-border);
   border-radius: var(--radius-icon);
   padding: 0 var(--space-6);
@@ -185,12 +185,12 @@ button.checklist-row:hover { background: var(--control-hover-surface); }
 .welcome-titlebar { position: absolute; z-index: 3; top: 0; left: 0; right: 0; height: 48px; display: flex; justify-content: flex-end; align-items: center; padding: 0 14px; }
 .welcome-glow { position: absolute; width: 680px; height: 680px; left: 50%; top: 46%; transform: translate(-50%, -50%); border-radius: 50%; background: radial-gradient(circle, color-mix(in srgb, var(--control-active) 14%, transparent), transparent 67%); filter: blur(20px); }
 .welcome-content { position: relative; z-index: 1; width: min(620px, calc(100% - 48px)); height: 100%; margin: auto; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding-bottom: var(--space-10); }
-.brand-mark { --smooth-shadow-color: var(--control-active); width: 50px; height: 50px; border-radius: 14px; display: grid; place-items: center; color: var(--control-active); }
+.brand-mark { width: 50px; height: 50px; border-radius: 14px; display: grid; place-items: center; color: var(--control-active); }
 .eyebrow { margin: 17px 0 var(--space-4); color: var(--control-active); font-size: var(--type-micro-size); font-weight: 600; letter-spacing: .22em; }
 .welcome-content h1 { margin: 0; font-family: var(--display-font); font-size: clamp(42px, 6vw, 68px); line-height: 1.02; font-weight: 400; letter-spacing: -.025em; text-wrap: balance; }
 
 /* Only the welcome composition enters; busy updates and project contents do not. */
-.welcome-content > :not(.busy-label) { animation: welcome-rise var(--duration-reveal) var(--ease-out) both; }
+.welcome-content > :not(.busy-label) { animation: welcome-rise var(--motion-slow) both; }
 .welcome-content > .welcome-actions,
 .welcome-content > .welcome-more { animation-delay: 60ms; }
 @keyframes welcome-rise {
@@ -210,7 +210,7 @@ button.checklist-row:hover { background: var(--control-hover-surface); }
   gap: var(--space-2);
 }
 .welcome-more-action {
-  height: 28px;
+  height: var(--control-height-compact);
   padding: 0 var(--pad-inline-control);
   border-radius: var(--radius-chrome);
   background: transparent;
@@ -231,8 +231,8 @@ button.checklist-row:hover { background: var(--control-hover-surface); }
    settles. `translate` and `scale` are their own properties, so they compose
    with the centring transform above instead of replacing it. Dialogs unmount
    on close, so there is no exit to mirror. */
-.modal-backdrop { animation: modal-scrim-in var(--duration-reveal) var(--ease-out) both; }
-.modal-dialog-content { animation: modal-rise var(--duration-reveal) var(--ease-entrance) both; }
+.modal-backdrop { animation: modal-scrim-in var(--motion-slow) both; }
+.modal-dialog-content { animation: modal-rise var(--motion-slow) both; }
 @keyframes modal-scrim-in {
   from { opacity: 0; }
   to { opacity: 1; }
@@ -265,7 +265,7 @@ button.checklist-row:hover { background: var(--control-hover-surface); }
 .venue-picker-content { min-width: var(--radix-select-trigger-width); }
 .venue-picker-detail { color: var(--text-tertiary); font-size: var(--type-micro-size); font-weight: 500; line-height: var(--type-micro-line-height); }
 .modal-icon { width: 36px; height: 36px; border-radius: var(--radius-surface); display: grid; place-items: center; color: var(--control-active); background: var(--control-active-soft); }
-.modal h2 { margin: var(--space-8) 0 7px; font-size: var(--type-heading-size); text-wrap: balance; }
+.modal h2 { margin: var(--space-8) 0 7px; font-size: var(--type-title-size); text-wrap: balance; }
 .modal > p { margin: 0 0 var(--space-10); color: var(--text-secondary); font-size: var(--type-caption-size); line-height: 1.55; }
 .modal label { display: flex; flex-direction: column; gap: var(--space-3); color: var(--text-secondary); font-size: var(--type-micro-size); font-weight: 600; }
 .modal .field-error { margin: 7px 0 0; color: var(--status-danger); font-size: var(--type-micro-size); line-height: 1.4; }
@@ -325,7 +325,7 @@ button.checklist-row:hover { background: var(--control-hover-surface); }
   border-radius: var(--radius-control);
   background: var(--control-active-soft);
   opacity: 0;
-  animation: settings-row-reveal 1.6s var(--ease-default);
+  animation: settings-row-reveal 1.6s ease;
   pointer-events: none;
 }
 @keyframes settings-row-reveal {
@@ -333,7 +333,7 @@ button.checklist-row:hover { background: var(--control-hover-surface); }
   100% { opacity: 0; }
 }
 .synara-settings-embed { position: relative; width: 100%; min-width: 0; }
-.synara-settings-frame { position: absolute; inset: 0 auto auto 0; display: block; width: 100%; min-height: var(--settings-embed-min-height); overflow: hidden; border: 0; background: var(--surface-panel-raised); opacity: 1; transition: opacity var(--duration-quick) var(--ease-default); }
+.synara-settings-frame { position: absolute; inset: 0 auto auto 0; display: block; width: 100%; min-height: var(--settings-embed-min-height); overflow: hidden; border: 0; background: var(--surface-panel-raised); opacity: 1; transition: opacity var(--motion-fast); }
 .synara-settings-embed[data-ready="false"] .synara-settings-frame { opacity: 0; }
 .synara-settings-loading { position: absolute; inset: 0 0 auto; height: var(--settings-embed-min-height); display: flex; align-items: center; justify-content: center; gap: var(--space-3); color: var(--text-tertiary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); }
 .synara-settings-state { position: relative; min-height: var(--settings-embed-min-height); }
@@ -401,13 +401,13 @@ button.checklist-row:hover { background: var(--control-hover-surface); }
 .theme-swatches { display: flex; align-items: center; gap: var(--space-1); }
 .theme-swatch { position: relative; width: var(--control-size-icon-compact); height: var(--control-size-icon-compact); flex: none; padding: 0; border-radius: var(--radius-pill); background: transparent; color: var(--text); display: grid; place-items: center; cursor: pointer; }
 .theme-swatch > * { grid-area: 1 / 1; }
-.theme-swatch-fill { width: 18px; height: 18px; border-radius: var(--radius-pill); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--text) 16%, transparent); transition: scale var(--duration-quick) var(--ease-emphasized); }
+.theme-swatch-fill { width: 18px; height: 18px; border-radius: var(--radius-pill); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--text) 16%, transparent); transition: scale var(--motion-fast); }
 .theme-swatch:hover .theme-swatch-fill { scale: 1.1; }
 .theme-swatch:active .theme-swatch-fill { scale: 0.94; }
-.theme-swatch::before { content: ""; position: absolute; inset: 1px; border-radius: inherit; box-shadow: 0 0 0 1.5px var(--text-tertiary); opacity: 0; scale: 0.8; transition: opacity var(--duration-quick) var(--ease-out), scale var(--duration-base) var(--ease-emphasized); }
+.theme-swatch::before { content: ""; position: absolute; inset: 1px; border-radius: inherit; box-shadow: 0 0 0 1.5px var(--text-tertiary); opacity: 0; scale: 0.8; transition: opacity var(--motion-fast), scale var(--motion-moderate); }
 .theme-swatch:is([aria-checked="true"], [aria-pressed="true"])::before { opacity: 1; scale: 1; }
 .theme-swatch[data-accent]::before { box-shadow: 0 0 0 1.5px var(--accent); }
-.theme-swatch-check { position: relative; pointer-events: none; animation: theme-swatch-check var(--duration-base) var(--ease-entrance); }
+.theme-swatch-check { position: relative; pointer-events: none; animation: theme-swatch-check var(--motion-moderate); }
 @keyframes theme-swatch-check { from { opacity: 0; scale: 0.4; } }
 /* A tint's swatch is its chrome surface around the hue that names it. */
 .theme-tint-fill { background: radial-gradient(circle, var(--tint-mark) 0 38%, var(--chrome-surface) 40%); }
@@ -450,16 +450,16 @@ button.checklist-row:hover { background: var(--control-hover-surface); }
   display: inline-grid;
   place-items: center;
   font-family: var(--ui-font);
-  font-size: var(--type-reading-size);
+  font-size: var(--type-typeset-size);
   font-weight: 400;
   line-height: 1;
   cursor: pointer;
-  transition: color var(--duration-quick) var(--ease-default), background-color var(--duration-quick) var(--ease-default);
+  transition: color var(--motion-fast), background-color var(--motion-fast);
 }
 .settings-project-dictionary-remove:hover { background: var(--control-hover-surface); color: var(--text-primary); }
 .settings-project-dictionary-remove:focus-visible { outline: 2px solid var(--control-active); outline-offset: 1px; }
 .settings-project-dictionary-empty { margin: 0; color: var(--text-tertiary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); }
-.settings-section label:not(.ui-settings-row-label) { margin-top: 17px; display: flex; flex-direction: column; gap: var(--space-3); color: var(--text-secondary); font-size: var(--type-label-size); line-height: var(--type-label-line-height); font-weight: var(--type-label-weight); }
+.settings-section label:not(.ui-settings-row-label) { margin-top: 17px; display: flex; flex-direction: column; gap: var(--space-3); color: var(--text-secondary); font-size: var(--type-body-compact-size); line-height: var(--type-body-compact-line-height); font-weight: var(--type-body-compact-weight); }
 .settings-section code {
   font-family: var(--editor-font);
   font-size: var(--type-micro-size);

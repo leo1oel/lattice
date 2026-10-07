@@ -27,7 +27,7 @@ textarea {
   --display-font-fallback: "Instrument Serif", Georgia, serif;
   --display-font: var(--display-font-fallback);
   --editor-font: "Ioskeley Mono", Menlo, "SF Mono", ui-monospace, monospace;
-  --editor-font-size: var(--type-reading-size);
+  --editor-font-size: var(--type-typeset-size);
   /* Shared by source CodeMirror and the visual Markdown fixed caret. */
   --editor-caret-width: 1.4px;
   font-family: var(--ui-font);
@@ -63,8 +63,20 @@ textarea {
   --brand-weft: #4568f6;
   --brand-warp: #25b4bb;
   --brand-glint: rgba(255, 255, 255, 0.85);
-  --shadow: 0 20px 60px rgba(22, 22, 24, 0.12);
-  --shadow-soft: 0 8px 24px rgba(22, 22, 24, 0.08);
+  /* The elevation ladder's shadows (foundations.css): one stack per level,
+     the same geometry in both themes and deeper in dark, where a faint
+     shadow disappears into the ground. The ring is the hairline every
+     floating surface carries instead of a border. */
+  --shadow-ring: rgba(0, 0, 0, 0.05);
+  --shadow-raised: 0 1px 2px rgba(0, 0, 0, 0.06), 0 1px 4px rgba(0, 0, 0, 0.04);
+  --shadow-popover: 0 17.5px 23.4px rgba(0, 0, 0, 0.04), 0 9.4px 12.5px rgba(0, 0, 0, 0.03),
+    0 5.25px 7px rgba(0, 0, 0, 0.02), 0 2.8px 3.7px -2px rgba(0, 0, 0, 0.01), 0 1.2px 1.5px rgba(0, 0, 0, 0.01);
+  --shadow-floating: 0 25px 50px rgba(0, 0, 0, 0.05), 0 12px 24px rgba(0, 0, 0, 0.04),
+    0 6px 12px rgba(0, 0, 0, 0.03), 0 3px 6px rgba(0, 0, 0, 0.02), 0 1.5px 3px rgba(0, 0, 0, 0.02);
+  --shadow-dialog: 0 40px 80px rgba(0, 0, 0, 0.06), 0 20px 40px rgba(0, 0, 0, 0.05),
+    0 10px 20px rgba(0, 0, 0, 0.04), 0 5px 10px rgba(0, 0, 0, 0.03), 0 2px 4px rgba(0, 0, 0, 0.02);
+  /* A compiled page on the PDF ground: paper on a desk, not interface. */
+  --shadow-pdf-page: 0 8px 24px rgba(22, 22, 24, 0.08);
   --pdf-bg: #efeff0;
   /* Every token reads at 4.5:1 or more on the editor, its active line and a
      focused selection: each keeps its hue and gives up only lightness (in
@@ -124,8 +136,15 @@ textarea {
   --brand-weft: #7f97ff;
   --brand-warp: #4fd2c6;
   --brand-glint: rgba(255, 255, 255, 0.7);
-  --shadow: 0 24px 70px rgba(0, 0, 0, 0.38);
-  --shadow-soft: 0 10px 28px rgba(0, 0, 0, 0.28);
+  --shadow-ring: rgba(255, 255, 255, 0.18);
+  --shadow-raised: 0 1px 2px rgba(0, 0, 0, 0.24), 0 1px 4px rgba(0, 0, 0, 0.16);
+  --shadow-popover: 0 17.5px 23.4px rgba(0, 0, 0, 0.16), 0 9.4px 12.5px rgba(0, 0, 0, 0.12),
+    0 5.25px 7px rgba(0, 0, 0, 0.08), 0 2.8px 3.7px -2px rgba(0, 0, 0, 0.04), 0 1.2px 1.5px rgba(0, 0, 0, 0.04);
+  --shadow-floating: 0 25px 50px rgba(0, 0, 0, 0.2), 0 12px 24px rgba(0, 0, 0, 0.16),
+    0 6px 12px rgba(0, 0, 0, 0.12), 0 3px 6px rgba(0, 0, 0, 0.08), 0 1.5px 3px rgba(0, 0, 0, 0.08);
+  --shadow-dialog: 0 40px 80px rgba(0, 0, 0, 0.24), 0 20px 40px rgba(0, 0, 0, 0.2),
+    0 10px 20px rgba(0, 0, 0, 0.16), 0 5px 10px rgba(0, 0, 0, 0.12), 0 2px 4px rgba(0, 0, 0, 0.08);
+  --shadow-pdf-page: 0 10px 28px rgba(0, 0, 0, 0.28);
   --pdf-bg: color-mix(in srgb, var(--bg) 84%, #888 16%);
   /* As strong as the dimmest token (comment) allows at 4.5:1. */
   --selection-mix: 19%;
