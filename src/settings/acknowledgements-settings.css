@@ -67,7 +67,7 @@
 .acknowledgements-closure-chevron {
   flex: none;
   color: var(--text-tertiary);
-  transition: transform 120ms ease;
+  transition: transform var(--duration-quick) var(--ease-default);
 }
 
 .acknowledgements-closure-toggle[aria-expanded="true"] .acknowledgements-closure-chevron {
