@@ -2,7 +2,8 @@ import "@testing-library/jest-dom/vitest";
 // Re-exported by the React bindings, which are the direct dependency here.
 import { configure } from "@testing-library/react";
 import { createElement, useSyncExternalStore } from "react";
-import { afterAll, afterEach, vi } from "vitest";
+import { afterAll, afterEach, beforeEach, vi } from "vitest";
+import { retainParkedEditors } from "../editor/parked-editors";
 import { activateAppLocale, i18n } from "../i18n";
 
 await activateAppLocale("en");
@@ -62,6 +63,11 @@ vi.mock("@tauri-apps/plugin-log", () => ({
   warn: vi.fn(async () => undefined),
   error: vi.fn(async () => undefined),
 }));
+
+// Source editors park each tab's state in a module-level cache
+// (src/editor/parked-editors.ts): a test must not resume an editor an earlier
+// test left with the same project, path and text.
+beforeEach(() => retainParkedEditors(null, []));
 
 afterEach(async () => {
   vi.useRealTimers();

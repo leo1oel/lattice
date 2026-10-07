@@ -5,6 +5,7 @@ import {
 import { createPortal } from "react-dom";
 import { useLingui } from "@lingui/react/macro";
 import { CodeMirrorHost as CodeMirror } from "../editor/codemirror-host";
+import { takeResumed } from "../editor/parked-editors";
 import { paperDropExtension } from "../editor/paper-drop";
 import { closeCompletion, completionStatus } from "@codemirror/autocomplete";
 import { redo as redoCodeMirror, undo as undoCodeMirror } from "@codemirror/commands";
@@ -902,6 +903,12 @@ export function DocumentCanvas(props: {
     }
     const view = editorViewRef.current;
     if (!view || request.path !== activeFile) return;
+    // The editor came back from where it was parked, already exactly where it
+    // was left; the saved pixel offset would land elsewhere (see parked-editors.ts).
+    if (takeResumed(view)) {
+      onRequestHandled(request.id);
+      return;
+    }
     const frame = window.requestAnimationFrame(() => {
       const current = editorViewRef.current;
       if (!current) return;
@@ -1318,6 +1325,7 @@ export function DocumentCanvas(props: {
             value={props.source}
             editable={props.editorEditable}
             extensions={editorExtensions}
+            park={props.projectRoot ? { root: props.projectRoot, path: activeFile } : null}
             onCreateEditor={(view) => {
               primaryViewRef.current = view;
               primaryViewPathRef.current = activeFile;
