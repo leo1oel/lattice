@@ -7539,7 +7539,7 @@ msgstr "选择所有匹配项"
 msgid "Select all references"
 msgstr "选择全部引用"
 
-#: src/canvas/use-proofread.tsx
+#: src/canvas/proofread-layer.tsx
 msgid "Select at most {limit} characters to proofread."
 msgstr "一次最多校对 {limit} 个字符，请缩小选区。"
 
@@ -8297,11 +8297,11 @@ msgstr "未能及时收到确认"
 msgid "The Agent"
 msgstr "智能助手"
 
-#: src/canvas/use-proofread.tsx
+#: src/canvas/proofread-layer.tsx
 msgid "The agent could not proofread the selection: {detail}"
 msgstr "智能助手无法校对所选内容：{detail}"
 
-#: src/canvas/use-proofread.tsx
+#: src/canvas/proofread-layer.tsx
 msgid "The agent could not proofread the selection."
 msgstr "智能助手无法校对所选内容。"
 
@@ -8313,7 +8313,7 @@ msgstr "智能助手正在检查语法、拼写和表达清晰度。LaTeX 命令
 msgid "The agent service is unavailable."
 msgstr "智能助手服务不可用。"
 
-#: src/canvas/use-proofread.tsx
+#: src/canvas/proofread-layer.tsx
 msgid "The agent's reply did not contain a proofread version of the selection."
 msgstr "智能助手的回复中没有所选内容的校对版本。"
 
@@ -8474,7 +8474,7 @@ msgstr "查询结果未能确定唯一匹配的发表版本。"
 msgid "The same seven stops, for a refresher."
 msgstr "还是这七站，再温习一遍。"
 
-#: src/canvas/use-proofread.tsx
+#: src/canvas/proofread-layer.tsx
 msgid "The selected text changed while it was being proofread. Proofread it again to review the current text."
 msgstr "校对期间所选文字已被修改。请重新校对以检查当前文字。"
 
@@ -8655,7 +8655,7 @@ msgstr "此源码行在 PDF 中没有对应的位置。"
 msgid "This source record is shown for comparison only. It was not verified and cannot be applied."
 msgstr "此来源记录仅供比较。它未经验证，无法应用。"
 
-#: src/canvas/use-proofread.tsx
+#: src/canvas/proofread-layer.tsx
 msgid "This version of the agent runtime cannot proofread yet. Update Lattice to use proofreading."
 msgstr "当前版本的智能助手运行时尚不支持校对。请更新 Lattice 后使用校对功能。"
 

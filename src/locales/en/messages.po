@@ -7539,7 +7539,7 @@ msgstr "Select all matches"
 msgid "Select all references"
 msgstr "Select all references"
 
-#: src/canvas/use-proofread.tsx
+#: src/canvas/proofread-layer.tsx
 msgid "Select at most {limit} characters to proofread."
 msgstr "Select at most {limit} characters to proofread."
 
@@ -8297,11 +8297,11 @@ msgstr "the acknowledgement did not arrive in time"
 msgid "The Agent"
 msgstr "The Agent"
 
-#: src/canvas/use-proofread.tsx
+#: src/canvas/proofread-layer.tsx
 msgid "The agent could not proofread the selection: {detail}"
 msgstr "The agent could not proofread the selection: {detail}"
 
-#: src/canvas/use-proofread.tsx
+#: src/canvas/proofread-layer.tsx
 msgid "The agent could not proofread the selection."
 msgstr "The agent could not proofread the selection."
 
@@ -8313,7 +8313,7 @@ msgstr "The agent is checking grammar, spelling and clarity. LaTeX commands, mat
 msgid "The agent service is unavailable."
 msgstr "The agent service is unavailable."
 
-#: src/canvas/use-proofread.tsx
+#: src/canvas/proofread-layer.tsx
 msgid "The agent's reply did not contain a proofread version of the selection."
 msgstr "The agent's reply did not contain a proofread version of the selection."
 
@@ -8474,7 +8474,7 @@ msgstr "The results did not identify a unique matching publication."
 msgid "The same seven stops, for a refresher."
 msgstr "The same seven stops, for a refresher."
 
-#: src/canvas/use-proofread.tsx
+#: src/canvas/proofread-layer.tsx
 msgid "The selected text changed while it was being proofread. Proofread it again to review the current text."
 msgstr "The selected text changed while it was being proofread. Proofread it again to review the current text."
 
@@ -8655,7 +8655,7 @@ msgstr "This source line has no matching position in the PDF."
 msgid "This source record is shown for comparison only. It was not verified and cannot be applied."
 msgstr "This source record is shown for comparison only. It was not verified and cannot be applied."
 
-#: src/canvas/use-proofread.tsx
+#: src/canvas/proofread-layer.tsx
 msgid "This version of the agent runtime cannot proofread yet. Update Lattice to use proofreading."
 msgstr "This version of the agent runtime cannot proofread yet. Update Lattice to use proofreading."
 
