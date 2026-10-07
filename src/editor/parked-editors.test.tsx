@@ -7,7 +7,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { CodeMirrorHost } from "./codemirror-host";
 import { REVEAL_FLASH_MS, revealExtension, revealInEditor } from "./editor-reveal";
 import { latex } from "./latex/latex-language";
-import { parkEditor, resumeParkedEditor, retainParkedEditors } from "./parked-editors";
+import { parkEditor, resumeParkedEditor, retainParkedEditors, takeResumed } from "./parked-editors";
 
 const ROOT = "/projects/thesis";
 // Long enough that a state built from text parses only its start (3000
@@ -30,7 +30,7 @@ afterEach(() => {
  */
 function tabs(initial: Record<string, string>) {
   const texts = { ...initial };
-  const mounts: { path: string; view: EditorView; resumed: boolean; layout: { scrollTop: number; hidden: boolean } }[] = [];
+  const mounts: { path: string; view: EditorView; layout: { scrollTop: number; hidden: boolean } }[] = [];
   const element = (path: string) => (
     <CodeMirrorHost
       key={path}
@@ -39,12 +39,12 @@ function tabs(initial: Record<string, string>) {
       park={{ root: ROOT, path }}
       onChange={(value) => { texts[path] = value; }}
       onUpdate={() => {}}
-      onCreateEditor={(view, resumed) => {
+      onCreateEditor={(view) => {
         const layout = { scrollTop: 0, hidden: false };
         vi.spyOn(view.scrollDOM, "scrollTop", "get").mockImplementation(() => (layout.hidden ? 0 : layout.scrollTop));
         vi.spyOn(view.scrollDOM, "scrollTop", "set").mockImplementation((top: number) => { layout.scrollTop = top; });
         vi.spyOn(view.scrollDOM, "clientHeight", "get").mockImplementation(() => (layout.hidden ? 0 : 400));
-        mounts.push({ path, view, resumed, layout });
+        mounts.push({ path, view, layout });
       }}
     />
   );
@@ -93,7 +93,7 @@ describe("parked editors", () => {
     await measured();
 
     const back = editor.current();
-    expect(back.resumed).toBe(true);
+    expect(takeResumed(back.view)).toBe(true);
     expect(back.view).not.toBe(view);
     expect(back.view.state.selection.main).toMatchObject({ anchor: 4008, head: 4108 });
     expect(undoDepth(back.view.state)).toBe(1);
@@ -109,7 +109,7 @@ describe("parked editors", () => {
     editor.show("chapter.tex");
     await measured();
 
-    expect(editor.current().resumed).toBe(false);
+    expect(takeResumed(editor.current().view)).toBe(false);
     expect(editor.current().view.state.selection.main.head).toBe(0);
   });
 
@@ -123,7 +123,7 @@ describe("parked editors", () => {
     editor.show("chapter.tex");
     await measured();
 
-    expect(editor.current().resumed).toBe(true);
+    expect(takeResumed(editor.current().view)).toBe(true);
     expect(editor.current().view.contentDOM.querySelector(".cm-reveal-flash")).toBeNull();
   });
 

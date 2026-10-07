@@ -298,7 +298,6 @@ function TextSnapshot({ controller, fileKey, panelId }: { controller: TrellisCon
   const viewRef = useRef<EditorView | null>(null);
   const [text, setText] = useState<string | null>(() => controller.texts.get(fileKey) ?? null);
   const filesRevision = useTrellisApp(controller, (state) => state.filesRevision);
-  const projectRoot = useTrellisApp(controller, (state) => state.projectRoot);
   const isLatex = isLatexSourcePath(fileKey);
   const textLanguage = useTextLanguageExtensions(isLatex ? "" : fileKey);
   const language = isLatex ? LATEX_SNAPSHOT_LANGUAGE : textLanguage;
@@ -332,6 +331,7 @@ function TextSnapshot({ controller, fileKey, panelId }: { controller: TrellisCon
     // The live editor this tab last had, parked: its place to the pixel and
     // its parse, so the snapshot shown while the tab becomes active again
     // matches what the live editor then shows (see parked-editors.ts).
+    const { projectRoot } = controller.app.get();
     const resumed = projectRoot ? resumeParkedEditor(projectRoot, fileKey, text, extensions) : null;
     const view = new EditorView({
       parent,
@@ -345,7 +345,7 @@ function TextSnapshot({ controller, fileKey, panelId }: { controller: TrellisCon
       viewRef.current = null;
       view.destroy();
     };
-  }, [controller, fileKey, language, mode, projectRoot, text]);
+  }, [controller, fileKey, language, mode, text]);
   return (
     <div
       className="trellis-snapshot source-editor"

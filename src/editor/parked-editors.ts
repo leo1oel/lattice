@@ -18,7 +18,8 @@
  * resumes from them. A parked state is inert data, unlike a hidden live view,
  * which would keep its plugins (lint, spellcheck, observers) running.
  */
-import { EditorState, StateEffect, type Extension } from "@codemirror/state";
+import { EditorState, StateEffect, type Extension, type Text } from "@codemirror/state";
+import type { EditorView } from "@codemirror/view";
 
 type Parked = {
   root: string;
@@ -53,6 +54,25 @@ export function resumeParkedEditor(root: string, path: string, doc: string, exte
     state: entry.state.update({ effects: StateEffect.reconfigure.of(extensions) }).state,
     scrollTo: entry.scroll ?? undefined,
   };
+}
+
+/** Views built from a parked state, with the document they resumed. */
+const resumedViews = new WeakMap<EditorView, Text>();
+
+/** `view` was built from a parked state (see `resumeParkedEditor`). */
+export function noteResumed(view: EditorView) {
+  resumedViews.set(view, view.state.doc);
+}
+
+/**
+ * Whether `view` came back from a parked state, already where it was left,
+ * and its text is untouched since — answered once: after that (or after a
+ * reload or remote edit) a saved view is worth restoring again.
+ */
+export function takeResumed(view: EditorView) {
+  const doc = resumedViews.get(view);
+  resumedViews.delete(view);
+  return doc !== undefined && doc === view.state.doc;
 }
 
 /** Drop what was parked for anything but the open `paths` of the project at `root`. */

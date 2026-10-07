@@ -31,7 +31,7 @@ import { highlightSelectionMatches, searchKeymap } from "@codemirror/search";
 import { closeBrackets, closeBracketsKeymap } from "@codemirror/autocomplete";
 import { lintKeymap } from "@codemirror/lint";
 import { withoutAppShortcuts } from "./editor-app-shortcuts";
-import { parkEditor, resumeParkedEditor } from "./parked-editors";
+import { noteResumed, parkEditor, resumeParkedEditor } from "./parked-editors";
 import { sourceGutter } from "./source-gutter";
 import { i18n } from "../i18n";
 
@@ -99,8 +99,7 @@ type CodeMirrorHostProps = {
   extensions: Extension[];
   onChange: (value: string) => void;
   onUpdate: (update: ViewUpdate) => void;
-  /** `resumed`: the view came back from a parked state, already where it was left. */
-  onCreateEditor: (view: EditorView, resumed: boolean) => void;
+  onCreateEditor: (view: EditorView) => void;
   /** The document this mount edits, to park it under when the view goes; read once, at mount. */
   park?: { root: string; path: string } | null;
 };
@@ -171,9 +170,10 @@ export function CodeMirrorHost(props: CodeMirrorHostProps) {
       scrollTo: resumed?.scrollTo,
       parent,
     });
+    if (resumed) noteResumed(view);
     viewRef.current = view;
     lastEmittedRef.current = value;
-    onCreateEditor(view, resumed !== null);
+    onCreateEditor(view);
     return () => {
       viewRef.current = null;
       configuredRef.current = null;

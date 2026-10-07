@@ -5,6 +5,7 @@ import { invoke } from "@tauri-apps/api/core";
 import type { AssetPreview, PaperSummary, ProjectSnapshot, SettingsTab } from "../app-types";
 import { arxivIdFromTabKey, isHtmlFilePath, isPaperTabKey, stripFrontmatter } from "../app-utils";
 import type { MenuEntry } from "@danfessler/trellis";
+import { retainParkedEditors } from "../editor/parked-editors";
 import { NEW_ENTRIES, type NewEntryType } from "../project/project-new-entries";
 import type { TrellisBridge, TrellisController } from "../trellis/trellis-controller";
 import type { SearchDialog } from "./app-search-dialogs";
@@ -176,6 +177,9 @@ export function useTrellisBridge(app: TrellisBridgeApp) {
       loadAsset: referenceImages.load,
       assetRevision: referenceImages.generation,
     });
+    // The open tabs' source editors, parked while in the background, and only
+    // theirs: a closed tab's or another project's state is let go.
+    retainParkedEditors(project.root, openTabs);
   }, [activeTab, dirty, openTabs, project, referenceImages.generation, referenceImages.load, revealRequest, tabsReady, trellis]);
   // Inactive panels paint the last text they showed while loading a fresh copy.
   useEffect(() => {
