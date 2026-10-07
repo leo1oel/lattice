@@ -142,7 +142,7 @@ body:has(.modal-backdrop, .drawer-backdrop) :is(.latex-selection-toolbar-anchor,
 .highlight-number-input::-webkit-inner-spin-button,
 .highlight-number-input::-webkit-outer-spin-button { margin: 0; appearance: none; }
 .highlight-number-input:focus { border-color: var(--field-control-interactive-border-color); }
-.highlight-hex-row { height: 28px; color: var(--text-tertiary); font-size: var(--type-micro-size); font-weight: var(--weight-medium); }
+.highlight-hex-row { height: var(--control-height-compact); color: var(--text-tertiary); font-size: var(--type-micro-size); font-weight: var(--weight-medium); }
 .highlight-hex-input-wrap { grid-column: 2 / 4; justify-self: end; height: var(--control-height-compact); width: 78px; border: 1px solid var(--field-control-border-color); border-radius: var(--radius-icon); padding: 0 var(--space-2); background: var(--field-control-background); color: var(--text-tertiary); display: flex; align-items: center; gap: var(--space-1); }
 .highlight-hex-input-wrap:focus-within { border-color: var(--field-control-interactive-border-color); }
 .highlight-hex-input { min-width: 0; width: 100%; border: 0; padding: 0; background: transparent; color: var(--text-primary); text-align: right; font-size: var(--type-micro-size); font-weight: var(--weight-medium); text-transform: uppercase; outline: none; }
