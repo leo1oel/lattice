@@ -48,7 +48,6 @@ import { useLatestRef } from "./hooks/use-latest-ref";
 import { useGuidedTour } from "./onboarding/use-guided-tour";
 import { useOverleafWorkspace } from "./app/use-overleaf-workspace";
 import { commandShortcut, paletteEntries, useAppCommands, type AppCommand } from "./app/use-app-commands";
-import { useFocusModeEscape } from "./app/use-focus-mode-escape";
 import { FocusModeBar } from "./app/focus-mode-bar";
 import { paletteLeading, paletteSurface } from "./app/command-palette-leading";
 import { useToolDrawers } from "./app/use-tool-drawers";
@@ -376,8 +375,9 @@ function App() {
   }, [reveal, updateCanvasRequest]);
   const [bibliographyAuditRoot, setBibliographyAuditRoot] = useState<string | null>(null);
   const [bibliographyAuditOpen, setBibliographyAuditOpen] = useState(false);
-  const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
-  const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  // The command palette or the shortcut sheet: one at a time, and one state (each hook is paid on every App render).
+  const [commandOverlay, setCommandOverlay] = useState<"palette" | "shortcuts" | null>(null);
+  const commandPaletteOpen = commandOverlay === "palette";
   // Read again at each opening: another window may have run commands since.
   const [recentCommandIds, setRecentCommandIds] = useState<string[]>([]);
   const [referenceHits, setReferenceHits] = useState<{
@@ -1263,10 +1263,10 @@ function App() {
     { id: "reopen-tab", when: inProject, label: t`Reopen the closed tab`, group: t`Navigate`, key: "t", shift: true, palette: false, run: documents.reopenClosed },
     { id: "palette", when: inProject, label: t`Command palette`, group: t`Project`, key: "p", shift: true, palette: false, run: () => {
       setRecentCommandIds(loadRecentCommands());
-      setCommandPaletteOpen(true);
+      setCommandOverlay("palette");
     } },
     // The window's ⌘?, the Mac's Help key: every shortcut, from these commands and the keymaps.
-    { id: "shortcuts", label: t`Keyboard shortcuts`, group: t`Project`, key: "?", shift: true, run: () => setShortcutsOpen(true) },
+    { id: "shortcuts", label: t`Keyboard shortcuts`, group: t`Project`, key: "?", shift: true, run: () => setCommandOverlay("shortcuts") },
     // Reset the panel layout, and bring back any panel that was hidden or closed.
     { id: "layout-reset", when: inProject, label: t`Reset panel layout`, group: t`Layout`, recent: false, run: () => void trellis.resetLayout() },
     // The named workspaces: each by name here, and ⌘1 to ⌘9 by position (read when pressed, so a reorder counts at once).
@@ -1329,11 +1329,10 @@ function App() {
     { id: "settings", label: t`Open settings`, group: t`Project`, key: ",", run: () => openSettings() },
   ];
   const runCommand = useAppCommands(commands);
-  useFocusModeEscape(trellis, focusMode);
   // The welcome screen's shortcuts are listed too.
-  const shortcutSheet = shortcutsOpen && (
+  const shortcutSheet = commandOverlay === "shortcuts" && (
     <Suspense fallback={null}>
-      <ShortcutSheet commands={commands} onClose={() => setShortcutsOpen(false)} />
+      <ShortcutSheet commands={commands} onClose={() => setCommandOverlay(null)} />
     </Suspense>
   );
   const paletteCommands = commandPaletteOpen ? paletteEntries(commands) : [];
@@ -1944,9 +1943,9 @@ function App() {
           recent: t`Recent`,
           surface: commandSurface === "paper" ? t`In this paper` : t`In this document`,
         })}
-        onClose={() => setCommandPaletteOpen(false)}
+        onClose={() => setCommandOverlay(null)}
         onSelect={(item) => {
-          setCommandPaletteOpen(false);
+          setCommandOverlay(null);
           setRecentCommandIds(rememberRecentCommand(item.id));
           runCommand(item.id);
         }}

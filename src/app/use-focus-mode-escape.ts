@@ -13,15 +13,14 @@ const ESCAPE_TAKERS = [
 ].join(", ");
 
 /**
- * While focus mode is on, Escape leaves it, but only as the key's last
+ * While mounted (focus mode's bar is), Escape leaves focus mode, but only as the key's last
  * meaning: not one a focused surface handled (the editor collapsing a
  * selection, closing its find bar or completions), not while anything that
  * Escape closes was open as the key went down, never with modifiers or an
  * IME composing, and never in Vim, where Escape is the writer's own.
  */
-export function useFocusModeEscape(trellis: TrellisController, active: boolean) {
+export function useFocusModeEscape(trellis: TrellisController) {
   useEffect(() => {
-    if (!active) return;
     let takenAtStart = false;
     // Capture runs before any handler can close what was open.
     const onCapture = (event: KeyboardEvent) => {
@@ -40,5 +39,5 @@ export function useFocusModeEscape(trellis: TrellisController, active: boolean) 
       window.removeEventListener("keydown", onCapture, true);
       window.removeEventListener("keydown", onKeyDown);
     };
-  }, [active, trellis]);
+  }, [trellis]);
 }

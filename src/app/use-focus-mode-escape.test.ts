@@ -9,25 +9,25 @@ describe("leaving focus mode with Escape", () => {
     document.body.replaceChildren();
   });
 
-  const setup = (active = true) => {
+  const setup = () => {
     const controller = new TrellisController();
     const calls: boolean[] = [];
     controller.installHandlers({ focus: (on) => calls.push(on) });
-    renderHook(() => useFocusModeEscape(controller, active));
-    return calls;
+    const { unmount } = renderHook(() => useFocusModeEscape(controller));
+    return { calls, unmount };
   };
 
-  it("leaves on an Escape nothing else took, and only while focus mode is on", () => {
-    const calls = setup();
+  it("leaves on an Escape nothing else took, and only while mounted", () => {
+    const { calls, unmount } = setup();
     fireEvent.keyDown(document.body, { key: "Escape" });
     expect(calls).toEqual([false]);
-    const idle = setup(false);
+    unmount();
     fireEvent.keyDown(document.body, { key: "Escape" });
-    expect(idle).toEqual([]);
+    expect(calls).toEqual([false]);
   });
 
   it("stays for an Escape a surface handled, one with modifiers, one composing, and Vim's", () => {
-    const calls = setup();
+    const { calls } = setup();
     const handled = document.createElement("div");
     handled.addEventListener("keydown", (event) => event.preventDefault());
     document.body.append(handled);
@@ -42,7 +42,7 @@ describe("leaving focus mode with Escape", () => {
   });
 
   it("stays while a dialog or menu that Escape closes is open, even one that closes without saying so", () => {
-    const calls = setup();
+    const { calls } = setup();
     const dialog = document.createElement("div");
     dialog.setAttribute("role", "dialog");
     // Closes on the key in the capture phase, after focus mode looked, without marking it handled.

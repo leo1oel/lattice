@@ -8,12 +8,14 @@ import { SegmentedControl } from "../components/ui/segmented-control";
 import type { TrellisController, TrellisViewMode } from "../trellis/trellis-controller";
 import { FOCUS_MODE_EXIT_KEY, FOCUS_MODE_KEY } from "../trellis/trellis-keymap";
 import { comboKeys, comboText, parseKeyName } from "./key-combos";
+import { useFocusModeEscape } from "./use-focus-mode-escape";
 
 /**
  * The title bar in focus mode: the document's name, quiet in the middle,
  * and what focus mode keeps of the chrome: a Markdown or HTML document's
  * Edit, Split and Preview (its panel header is gone), the PDF beside the
- * editor, and the way out.
+ * editor, and the way out. Mounted only in focus mode, it also owns
+ * Escape's way out, so the app pays for neither outside it.
  */
 export function FocusModeBar({ controller, title, pdf, onPdfChange, onExit }: {
   controller: TrellisController;
@@ -26,6 +28,7 @@ export function FocusModeBar({ controller, title, pdf, onPdfChange, onExit }: {
   const pdfLabel = pdf ? t`Hide the PDF` : t`Show the PDF beside the editor`;
   const exitKeys = comboText({ mod: true, ...FOCUS_MODE_KEY });
   const tools = useSyncExternalStore(controller.docTools.subscribe, controller.docTools.get);
+  useFocusModeEscape(controller);
   return (
     <div className="focus-bar">
       <span className="focus-bar-title">{title}</span>
