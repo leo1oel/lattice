@@ -65,10 +65,13 @@ applied on `<html>` by `src/settings/use-appearance.ts`:
   `--editor-active-line-surface`, which is neutral under every accent.
 - **Translucency** (`data-glass`, only while the native window reports
   vibrancy behind it): the window clears its background, the gutters take
-  `--surface-shell`, the titlebar the same under its veil, and Project and
-  Papers `--surface-navigator` over macOS's under-window material, as
-  Synara's own window does. Editors, PDFs, the agent, tool panels, menus
-  and dialogs stay opaque. Reduce transparency, a browser tab and every
+  `--surface-shell`, the titlebar the same under its veil, and Project,
+  Papers and the editors `--surface-navigator` over macOS's under-window
+  material, as Synara's own window does. That sheet is their tab strip; the
+  selected tab and the body share a second coat over it
+  (`--surface-navigator-lift`, or `--surface-editor-glass` for an editor,
+  thinner under Strong), so the tab still runs into its body a step above the
+  strip. PDFs, the agent, tool panels, menus and dialogs stay opaque. Reduce transparency, a browser tab and every
   other platform keep the opaque palette, which is also what Off gives.
 
 Presets live in `src/styles/theme.css` as attribute blocks that apply to any
